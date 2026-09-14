@@ -3,6 +3,8 @@
 ## GFThumbnailRenderer: 编辑器缩略图渲染辅助节点。
 ##
 ## 使用独立 SubViewport 渲染 CanvasItem、Node3D 或 Mesh，供项目自定义编辑器工具复用。
+## 默认仅快照受支持节点的原生视觉属性，资源只读共享；复杂运行时视觉和脚本自绘
+## 应显式选择可信动态预览，并由调用方提供预览专用节点。两种模式均不是任意代码沙箱。
 ## [br]
 ## @api public
 ## [br]
@@ -38,6 +40,8 @@ const MAX_TARGET_PIXELS: int = 1_048_576
 ## @since 11.0.0
 const MAX_PENDING_TASKS: int = 256
 
+const _PREVIEW_COPY_SCRIPT = preload("res://addons/gf/kernel/editor/gf_thumbnail_preview_copy.gd")
+
 
 # --- 私有变量 ---
 
@@ -52,6 +56,7 @@ var _pending_tasks: Array[GFThumbnailRenderTask] = []
 var _active_task: GFThumbnailRenderTask = null
 var _processing_task_queue: bool = false
 var _next_task_id: int = 1
+var _render_error: String = ""
 
 
 # --- Godot 生命周期方法 ---
@@ -79,16 +84,25 @@ func _exit_tree() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param source: 要渲染的 3D 节点，会被复制后放入内部 Viewport。
 ## [br]
 ## @param size: 输出尺寸。
 ## [br]
 ## @param transparent: 是否透明背景。
 ## [br]
+## @param preview_mode: 默认静态视觉快照；可信动态模式允许副本执行脚本及原生生命周期。
+## [br]
 ## @return 渲染出的 Image；失败时返回 null。
-func render_node3d(source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true) -> Image:
+func render_node3d(
+	source: Node3D,
+	size: Vector2i = Vector2i(256, 256),
+	transparent: bool = true,
+	preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC
+) -> Image:
 	var task: GFThumbnailRenderTask = submit_render_request(
-		GFThumbnailRenderRequest.for_node3d_image(source, size, transparent)
+		GFThumbnailRenderRequest.for_node3d_image(source, size, transparent, preview_mode)
 	)
 	var result: Variant = await task.wait_completed()
 	return _variant_to_image(result)
@@ -98,20 +112,25 @@ func render_node3d(source: Node3D, size: Vector2i = Vector2i(256, 256), transpar
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param source: 要渲染的 3D 节点。
 ## [br]
 ## @param size: 输出尺寸。
 ## [br]
 ## @param transparent: 是否透明背景。
 ## [br]
+## @param preview_mode: 默认静态视觉快照；可信动态模式允许副本执行脚本及原生生命周期。
+## [br]
 ## @return 渲染出的 ImageTexture；失败时返回 null。
 func render_node3d_texture(
 	source: Node3D,
 	size: Vector2i = Vector2i(256, 256),
-	transparent: bool = true
+	transparent: bool = true,
+	preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC
 ) -> ImageTexture:
 	var task: GFThumbnailRenderTask = submit_render_request(
-		GFThumbnailRenderRequest.for_node3d_texture(source, size, transparent)
+		GFThumbnailRenderRequest.for_node3d_texture(source, size, transparent, preview_mode)
 	)
 	var result: Variant = await task.wait_completed()
 	return _variant_to_image_texture(result)
@@ -120,7 +139,7 @@ func render_node3d_texture(
 ## 渲染一个 CanvasItem 缩略图。
 ##
 ## `source` 可以是 Node2D 或 Control。自定义 `_draw()` 等无法可靠估算
-## 几何范围的节点应传入显式 `content_bounds`。
+## 几何范围的节点应选择可信动态模式并传入显式 `content_bounds`。
 ## [br]
 ## @api public
 ## [br]
@@ -136,13 +155,16 @@ func render_node3d_texture(
 ## [br]
 ## @param margin_ratio: 内容边界四周的相对留白，钳制到 0.0 至 1.0。
 ## [br]
+## @param preview_mode: 默认静态视觉快照；可信动态模式允许副本执行脚本及原生生命周期。
+## [br]
 ## @return 渲染出的 Image；失败时返回 null。
 func render_canvas_item(
 	source: CanvasItem,
 	size: Vector2i = Vector2i(256, 256),
 	transparent: bool = true,
 	content_bounds: Rect2 = Rect2(),
-	margin_ratio: float = 0.08
+	margin_ratio: float = 0.08,
+	preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC
 ) -> Image:
 	var task: GFThumbnailRenderTask = submit_render_request(
 		GFThumbnailRenderRequest.for_canvas_item_image(
@@ -150,7 +172,8 @@ func render_canvas_item(
 			size,
 			transparent,
 			content_bounds,
-			margin_ratio
+			margin_ratio,
+			preview_mode
 		)
 	)
 	var result: Variant = await task.wait_completed()
@@ -160,7 +183,7 @@ func render_canvas_item(
 ## 渲染一个 CanvasItem 缩略图纹理。
 ##
 ## `source` 可以是 Node2D 或 Control。自定义 `_draw()` 等无法可靠估算
-## 几何范围的节点应传入显式 `content_bounds`。
+## 几何范围的节点应选择可信动态模式并传入显式 `content_bounds`。
 ## [br]
 ## @api public
 ## [br]
@@ -176,13 +199,16 @@ func render_canvas_item(
 ## [br]
 ## @param margin_ratio: 内容边界四周的相对留白，钳制到 0.0 至 1.0。
 ## [br]
+## @param preview_mode: 默认静态视觉快照；可信动态模式允许副本执行脚本及原生生命周期。
+## [br]
 ## @return 渲染出的 ImageTexture；失败时返回 null。
 func render_canvas_item_texture(
 	source: CanvasItem,
 	size: Vector2i = Vector2i(256, 256),
 	transparent: bool = true,
 	content_bounds: Rect2 = Rect2(),
-	margin_ratio: float = 0.08
+	margin_ratio: float = 0.08,
+	preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC
 ) -> ImageTexture:
 	var task: GFThumbnailRenderTask = submit_render_request(
 		GFThumbnailRenderRequest.for_canvas_item_texture(
@@ -190,7 +216,8 @@ func render_canvas_item_texture(
 			size,
 			transparent,
 			content_bounds,
-			margin_ratio
+			margin_ratio,
+			preview_mode
 		)
 	)
 	var result: Variant = await task.wait_completed()
@@ -313,7 +340,7 @@ func render_mesh_library_previews(
 ## [br]
 ## @param overwrite_existing: 是否覆盖已有预览。
 ## [br]
-## @return 包含 changes、generated_count 和 cancelled 的修改计划。
+## @return 包含 changes、generated_count 和 cancelled 的修改计划；任一待生成条目失败时返回 ok 为 false 的空计划，具体原因可通过任务的 get_error() 读取。
 ## [br]
 ## @schema return: Dictionary { ok: bool, generated_count: int, cancelled: bool, changes: Array[Dictionary] }.
 func build_mesh_library_preview_plan(
@@ -493,6 +520,7 @@ func _process_task_queue_async() -> void:
 
 
 func _execute_render_task_async(task: GFThumbnailRenderTask) -> void:
+	_render_error = ""
 	var request: GFThumbnailRenderRequest = task.get_request()
 	if request == null or not request.is_valid():
 		var _failed_invalid: bool = task.fail("Invalid thumbnail render request.")
@@ -503,14 +531,16 @@ func _execute_render_task_async(task: GFThumbnailRenderTask) -> void:
 			var node_image: Image = await _render_node3d_direct(
 				request.get_source_node3d(),
 				request.get_size(),
-				request.is_transparent()
+				request.is_transparent(),
+				request.get_preview_mode()
 			)
 			_finish_render_task_with_result(task, node_image)
 		GFThumbnailRenderRequest.Kind.NODE3D_TEXTURE:
 			var node_texture: ImageTexture = await _render_node3d_texture_direct(
 				request.get_source_node3d(),
 				request.get_size(),
-				request.is_transparent()
+				request.is_transparent(),
+				request.get_preview_mode()
 			)
 			_finish_render_task_with_result(task, node_texture)
 		GFThumbnailRenderRequest.Kind.CANVAS_ITEM_IMAGE:
@@ -520,7 +550,8 @@ func _execute_render_task_async(task: GFThumbnailRenderTask) -> void:
 				request.is_transparent(),
 				request.get_content_bounds(),
 				request.has_content_bounds(),
-				request.get_margin_ratio()
+				request.get_margin_ratio(),
+				request.get_preview_mode()
 			)
 			_finish_render_task_with_result(task, canvas_image)
 		GFThumbnailRenderRequest.Kind.CANVAS_ITEM_TEXTURE:
@@ -530,7 +561,8 @@ func _execute_render_task_async(task: GFThumbnailRenderTask) -> void:
 				request.is_transparent(),
 				request.get_content_bounds(),
 				request.has_content_bounds(),
-				request.get_margin_ratio()
+				request.get_margin_ratio(),
+				request.get_preview_mode()
 			)
 			_finish_render_task_with_result(task, canvas_texture)
 		GFThumbnailRenderRequest.Kind.MESH_IMAGE:
@@ -557,7 +589,8 @@ func _execute_render_task_async(task: GFThumbnailRenderTask) -> void:
 			if task.is_cancel_requested() or _read_bool(plan, "cancelled", false):
 				var _cancelled_plan: bool = task.finish_cancelled(task.get_cancel_reason(), plan)
 			elif not _read_bool(plan, "ok", false):
-				var _failed_plan: bool = task.fail("Invalid MeshLibrary preview request.")
+				var error: String = _render_error if not _render_error.is_empty() else "Invalid MeshLibrary preview request."
+				var _failed_plan: bool = task.fail(error)
 			else:
 				var _succeeded_plan: bool = task.succeed(plan)
 		_:
@@ -569,21 +602,28 @@ func _finish_render_task_with_result(task: GFThumbnailRenderTask, result: Varian
 		var _cancelled_result: bool = task.finish_cancelled(task.get_cancel_reason(), result)
 		return
 	if result == null:
-		var _failed_result: bool = task.fail("Thumbnail render returned no result.")
+		var error: String = _render_error if not _render_error.is_empty() else "Thumbnail render returned no result."
+		var _failed_result: bool = task.fail(error)
 		return
 	var _succeeded_result: bool = task.succeed(result)
 
 
-func _render_node3d_direct(source: Node3D, size: Vector2i, transparent: bool) -> Image:
+func _render_node3d_direct(
+	source: Node3D,
+	size: Vector2i,
+	transparent: bool,
+	preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC
+) -> Image:
 	if source == null or not is_inside_tree():
 		return null
 
 	_ensure_viewport()
 	_clear_world_root()
 
-	var duplicated: Node = source.duplicate()
+	var duplicated: Node = _create_render_instance(source, preview_mode)
 	if not (duplicated is Node3D):
-		duplicated.free()
+		if duplicated != null:
+			duplicated.free()
 		return null
 	var instance: Node3D = duplicated
 
@@ -598,8 +638,13 @@ func _render_node3d_direct(source: Node3D, size: Vector2i, transparent: bool) ->
 	return image
 
 
-func _render_node3d_texture_direct(source: Node3D, size: Vector2i, transparent: bool) -> ImageTexture:
-	var image: Image = await _render_node3d_direct(source, size, transparent)
+func _render_node3d_texture_direct(
+	source: Node3D,
+	size: Vector2i,
+	transparent: bool,
+	preview_mode: GFThumbnailRenderRequest.PreviewMode
+) -> ImageTexture:
+	var image: Image = await _render_node3d_direct(source, size, transparent, preview_mode)
 	if image == null:
 		return null
 	return ImageTexture.create_from_image(image)
@@ -611,7 +656,8 @@ func _render_canvas_item_direct(
 	transparent: bool,
 	content_bounds: Rect2,
 	has_content_bounds: bool,
-	margin_ratio: float
+	margin_ratio: float,
+	preview_mode: GFThumbnailRenderRequest.PreviewMode
 ) -> Image:
 	if source == null or not is_inside_tree():
 		return null
@@ -621,9 +667,10 @@ func _render_canvas_item_direct(
 	var safe_size: Vector2i = _normalize_render_size(size)
 	_viewport.size = safe_size
 
-	var duplicated: Node = source.duplicate()
+	var duplicated: Node = _create_render_instance(source, preview_mode)
 	if not (duplicated is CanvasItem):
-		duplicated.free()
+		if duplicated != null:
+			duplicated.free()
 		return null
 	var instance: CanvasItem = duplicated
 	_canvas_root.add_child(instance)
@@ -646,7 +693,8 @@ func _render_canvas_item_texture_direct(
 	transparent: bool,
 	content_bounds: Rect2,
 	has_content_bounds: bool,
-	margin_ratio: float
+	margin_ratio: float,
+	preview_mode: GFThumbnailRenderRequest.PreviewMode
 ) -> ImageTexture:
 	var image: Image = await _render_canvas_item_direct(
 		source,
@@ -654,7 +702,8 @@ func _render_canvas_item_texture_direct(
 		transparent,
 		content_bounds,
 		has_content_bounds,
-		margin_ratio
+		margin_ratio,
+		preview_mode
 	)
 	if image == null:
 		return null
@@ -664,12 +713,24 @@ func _render_canvas_item_texture_direct(
 func _render_mesh_direct(mesh: Mesh, size: Vector2i, transparent: bool) -> Image:
 	if mesh == null:
 		return null
+	if mesh.get_script() != null or ClassDB.class_get_api_type(mesh.get_class()) != ClassDB.API_CORE:
+		_render_error = "Static thumbnail requires a native Mesh resource."
+		return null
 
 	var instance: MeshInstance3D = MeshInstance3D.new()
 	instance.mesh = mesh
 	var image: Image = await _render_node3d_direct(instance, size, transparent)
 	instance.free()
 	return image
+
+
+func _create_render_instance(source: Node, preview_mode: GFThumbnailRenderRequest.PreviewMode) -> Node:
+	if preview_mode == GFThumbnailRenderRequest.PreviewMode.TRUSTED_DYNAMIC:
+		return source.duplicate()
+	var builder: _PREVIEW_COPY_SCRIPT = _PREVIEW_COPY_SCRIPT.new()
+	var instance: Node = builder.create_static_copy(source)
+	_render_error = builder.get_error()
+	return instance
 
 
 func _render_mesh_texture_direct(mesh: Mesh, size: Vector2i, transparent: bool) -> ImageTexture:
@@ -711,12 +772,20 @@ func _build_mesh_library_preview_plan_direct(
 		if cancel_token != null and cancel_token.is_cancel_requested():
 			cancelled = true
 			break
-		if texture != null:
-			changes.append({
-				"item_id": item_id,
-				"old_preview": mesh_library.get_item_preview(item_id),
-				"new_preview": texture,
-			})
+		if texture == null:
+			var error: String = _render_error if not _render_error.is_empty() else "Thumbnail render returned no result."
+			_render_error = "MeshLibrary item %d: %s" % [item_id, error]
+			return {
+				"ok": false,
+				"generated_count": 0,
+				"cancelled": false,
+				"changes": [],
+			}
+		changes.append({
+			"item_id": item_id,
+			"old_preview": mesh_library.get_item_preview(item_id),
+			"new_preview": texture,
+		})
 
 	return {
 		"ok": true,
@@ -844,10 +913,16 @@ func _ensure_viewport() -> void:
 	_viewport.name = "GFThumbnailViewport"
 	_viewport.transparent_bg = true
 	_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-	_viewport.msaa_2d = Viewport.MSAA_4X
+	_viewport.msaa_2d = (
+		Viewport.MSAA_DISABLED
+		if RenderingServer.get_current_rendering_method() == "gl_compatibility"
+		else Viewport.MSAA_4X
+	)
 	_viewport.msaa_3d = Viewport.MSAA_4X
+	_viewport.world_2d = World2D.new()
 	_viewport.world_3d = World3D.new()
 	_viewport.world_3d.environment = Environment.new()
+	_viewport.gui_disable_input = true
 	add_child(_viewport)
 
 	_world_root = Node3D.new()

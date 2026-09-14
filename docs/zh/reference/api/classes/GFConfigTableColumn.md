@@ -22,6 +22,7 @@
 | 属性 | [`allow_null`](#member-gfconfigtablecolumn-properties-allow_null) | `var allow_null: bool = true` |
 | 属性 | [`default_value`](#member-gfconfigtablecolumn-properties-default_value) | `var default_value: Variant = null` |
 | 属性 | [`validation_rules`](#member-gfconfigtablecolumn-properties-validation_rules) | `var validation_rules: Array[GFConfigValidationRule] = []` |
+| 属性 | [`element_validation_rules`](#member-gfconfigtablecolumn-properties-element_validation_rules) | `var element_validation_rules: Array[GFConfigValidationRule] = []` |
 | 属性 | [`metadata`](#member-gfconfigtablecolumn-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`get_field_key`](#member-gfconfigtablecolumn-methods-get_field_key) | `func get_field_key() -> StringName:` |
 | 方法 | [`coerce_value`](#member-gfconfigtablecolumn-methods-coerce_value) | `func coerce_value(value: Variant) -> Variant:` |
@@ -149,6 +150,23 @@ var validation_rules: Array[GFConfigValidationRule] = []
 
 - `validation_rules`: Array，包含作用于当前字段的 GFConfigValidationRule 资源。
 
+<a id="member-gfconfigtablecolumn-properties-element_validation_rules"></a>
+
+### `element_validation_rules`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var element_validation_rules: Array[GFConfigValidationRule] = []
+```
+
+一维 Array 的逐元素值规则；仅可用于 ValueType.ARRAY，不改变 validation_rules 的整值语义。 缺失字段及容器 null 沿用 required/allow_null；元素 null 交由各规则的 allow_null 判断。 只执行启用规则，不转换元素类型，不接受嵌套集合、Object、Callable、Signal 或 RID 元素。 空列表或全部停用时不遍历元素；最多声明 64 条规则。
+
+结构：
+
+- `element_validation_rules`: Array[GFConfigValidationRule]，按原数组下标和声明顺序执行的规则资源；问题保留 field 并附加零基 element_index。
+
 <a id="member-gfconfigtablecolumn-properties-metadata"></a>
 
 ### `metadata`
@@ -274,6 +292,7 @@ func duplicate_column() -> GFConfigTableColumn:
 ### `describe`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func describe() -> Dictionary:
@@ -285,4 +304,4 @@ func describe() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 field_name、value_type、required、allow_null、default_value、validation_rules 和 metadata。
+- `return`: Dictionary，包含 field_name、value_type、required、allow_null、default_value、validation_rules、element_validation_rules 和 metadata。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFThumbnailRenderRequest" path="addons/gf/kernel/editor/gf_thumbnail_render_request.gd" module="kernel" extends="RefCounted" classDigest="e5952057ca1c7355102e160a0e6cb947e12ae48f8ff1e04803cd81e6e5d71987">
+<class name="GFThumbnailRenderRequest" path="addons/gf/kernel/editor/gf_thumbnail_render_request.gd" module="kernel" extends="RefCounted" classDigest="4b66cc6f1af5687be1379f8045a61a343f29fe14b98884c368c34e1e772ffaf8">
 	<description>GFThumbnailRenderRequest: 缩略图渲染请求描述。
 请求只描述一次缩略图渲染的输入，不持有执行状态；执行状态由 GFThumbnailRenderTask 承载。</description>
 	<tags>
@@ -35,39 +35,54 @@
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
+		<member kind="enum" name="PreviewMode">
+			<signature>enum PreviewMode {
+	## 只读取受支持节点的原生视觉属性，不复制脚本、连接或分组。
+	STATIC,
+	## 复制调用方提供的可信预览节点，允许脚本及原生生命周期执行；不是沙箱。
+	TRUSTED_DYNAMIC,
+}</signature>
+			<description>节点预览副本的执行边界。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 	</enums>
 	<constants />
 	<properties />
 	<methods>
 		<member kind="method" name="for_node3d_image">
-			<signature>static func for_node3d_image( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -&gt; GFThumbnailRenderRequest:</signature>
+			<signature>static func for_node3d_image( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true, preview_mode: PreviewMode = PreviewMode.STATIC ) -&gt; GFThumbnailRenderRequest:</signature>
 			<description>创建 Node3D Image 渲染请求。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">source: 要渲染的 3D 节点。</tag>
 				<tag name="param">size: 输出尺寸。</tag>
 				<tag name="param">transparent: 是否透明背景。</tag>
+				<tag name="param">preview_mode: 默认生成静态视觉快照；脚本自绘必须显式选择可信动态模式。</tag>
 				<tag name="return">Node3D Image 渲染请求。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="for_node3d_texture">
-			<signature>static func for_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -&gt; GFThumbnailRenderRequest:</signature>
+			<signature>static func for_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true, preview_mode: PreviewMode = PreviewMode.STATIC ) -&gt; GFThumbnailRenderRequest:</signature>
 			<description>创建 Node3D ImageTexture 渲染请求。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">source: 要渲染的 3D 节点。</tag>
 				<tag name="param">size: 输出尺寸。</tag>
 				<tag name="param">transparent: 是否透明背景。</tag>
+				<tag name="param">preview_mode: 默认生成静态视觉快照；脚本自绘必须显式选择可信动态模式。</tag>
 				<tag name="return">Node3D ImageTexture 渲染请求。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="for_canvas_item_image">
-			<signature>static func for_canvas_item_image( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -&gt; GFThumbnailRenderRequest:</signature>
+			<signature>static func for_canvas_item_image( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08, preview_mode: PreviewMode = PreviewMode.STATIC ) -&gt; GFThumbnailRenderRequest:</signature>
 			<description>创建 CanvasItem Image 渲染请求。
 `source` 可以是 Node2D 或 Control。显式边界为空或尺寸非正时，渲染器会
-保守估算常见 CanvasItem 的内容边界；自定义 `_draw()` 节点应传入边界。</description>
+保守估算常见 CanvasItem 的内容边界；自定义 `_draw()` 节点应选择可信动态模式并传入边界。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">source: 要渲染的 2D 画布节点。</tag>
@@ -75,15 +90,16 @@
 				<tag name="param">transparent: 是否透明背景。</tag>
 				<tag name="param">content_bounds: 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。</tag>
 				<tag name="param">margin_ratio: 内容边界四周的有限相对留白，钳制到 0.0 至 1.0；非有限值会使请求无效。</tag>
+				<tag name="param">preview_mode: 默认生成静态视觉快照；脚本自绘必须显式选择可信动态模式。</tag>
 				<tag name="return">CanvasItem Image 渲染请求。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="for_canvas_item_texture">
-			<signature>static func for_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -&gt; GFThumbnailRenderRequest:</signature>
+			<signature>static func for_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08, preview_mode: PreviewMode = PreviewMode.STATIC ) -&gt; GFThumbnailRenderRequest:</signature>
 			<description>创建 CanvasItem ImageTexture 渲染请求。
 `source` 可以是 Node2D 或 Control。显式边界为空或尺寸非正时，渲染器会
-保守估算常见 CanvasItem 的内容边界；自定义 `_draw()` 节点应传入边界。</description>
+保守估算常见 CanvasItem 的内容边界；自定义 `_draw()` 节点应选择可信动态模式并传入边界。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">source: 要渲染的 2D 画布节点。</tag>
@@ -91,6 +107,7 @@
 				<tag name="param">transparent: 是否透明背景。</tag>
 				<tag name="param">content_bounds: 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。</tag>
 				<tag name="param">margin_ratio: 内容边界四周的有限相对留白，钳制到 0.0 至 1.0；非有限值会使请求无效。</tag>
+				<tag name="param">preview_mode: 默认生成静态视觉快照；脚本自绘必须显式选择可信动态模式。</tag>
 				<tag name="return">CanvasItem ImageTexture 渲染请求。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
@@ -138,6 +155,15 @@
 				<tag name="api">public</tag>
 				<tag name="return">请求类型。</tag>
 				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_preview_mode">
+			<signature>func get_preview_mode() -&gt; PreviewMode:</signature>
+			<description>返回节点副本的预览执行模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">节点预览模式；Mesh 和 MeshLibrary 请求固定为 STATIC。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_source_node3d">

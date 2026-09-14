@@ -217,7 +217,7 @@ static func build_column_descriptors( schema: GFConfigTableSchema, options: Dict
 结构：
 
 - `options`: Dictionary，可包含 editable_by_default 和 include_references 布尔值。
-- `return`: Array[Dictionary]，每项包含 field_name、label、value_type、required、allow_null、default_value、editable、choices、reference_ids、hint 和 metadata。
+- `return`: Array[Dictionary]，每项包含 field_name、label、value_type、required、allow_null、default_value、element_validation_rules、editable、choices、reference_ids、hint 和 metadata；element_validation_rules 为元素规则描述，不限制整个数组的编辑值。
 
 <a id="member-gfconfigtableeditortools-methods-build_field_editor_descriptors"></a>
 
@@ -245,7 +245,7 @@ static func build_field_editor_descriptors( schema: GFConfigTableSchema, databas
 结构：
 
 - `options`: Dictionary，可包含 editable_by_default、include_references、include_reference_choices、label_fields 和 include_record。
-- `return`: Array[Dictionary]，每项包含列描述字段，并额外包含 editor_kind、value_type_name、property_type、property_hint、property_hint_string、property_info、constraints、validation_rules 和 references。
+- `return`: Array[Dictionary]，每项包含列描述字段（含独立的 element_validation_rules），并额外包含 editor_kind、value_type_name、property_type、property_hint、property_hint_string、property_info、constraints、validation_rules 和 references；元素规则不推导整字段的 constraints 或 choices。
 
 <a id="member-gfconfigtableeditortools-methods-build_reference_choice_records"></a>
 

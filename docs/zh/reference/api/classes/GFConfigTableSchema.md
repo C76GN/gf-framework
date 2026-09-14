@@ -23,6 +23,8 @@
 | 属性 | [`fail_on_coerce_error`](#member-gfconfigtableschema-properties-fail_on_coerce_error) | `var fail_on_coerce_error: bool = true` |
 | 属性 | [`require_unique_id`](#member-gfconfigtableschema-properties-require_unique_id) | `var require_unique_id: bool = false` |
 | 属性 | [`max_resource_path_checks_per_validation`](#member-gfconfigtableschema-properties-max_resource_path_checks_per_validation) | `var max_resource_path_checks_per_validation: int = 1024` |
+| 属性 | [`max_elements_per_validation`](#member-gfconfigtableschema-properties-max_elements_per_validation) | `var max_elements_per_validation: int = 4096` |
+| 属性 | [`max_element_rule_checks_per_validation`](#member-gfconfigtableschema-properties-max_element_rule_checks_per_validation) | `var max_element_rule_checks_per_validation: int = 16384` |
 | 属性 | [`indexes`](#member-gfconfigtableschema-properties-indexes) | `var indexes: Array[GFConfigTableIndexDefinition] = []` |
 | 属性 | [`references`](#member-gfconfigtableschema-properties-references) | `var references: Array[GFConfigTableReference] = []` |
 | 属性 | [`record_validation_rules`](#member-gfconfigtableschema-properties-record_validation_rules) | `var record_validation_rules: Array[GFConfigValidationRule] = []` |
@@ -147,6 +149,32 @@ var max_resource_path_checks_per_validation: int = 1024
 ```
 
 单次记录或整表校验最多执行的唯一资源路径存在性探测数。 同一路径及同一探测策略在一次校验内共享结果，不重复消耗预算。
+
+<a id="member-gfconfigtableschema-properties-max_elements_per_validation"></a>
+
+### `max_elements_per_validation`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var max_elements_per_validation: int = 4096
+```
+
+单次记录或整表校验可准入的数组元素总数，跨字段及记录共享。 仅统计存在启用元素规则的 Array；每个字段在元素检查及回调前整批预留。 coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则只跳过该字段的元素校验，整值规则仍执行。 程序写入不在 1 至 65536 内的值时，定义与运行校验均失败，不钳制。
+
+<a id="member-gfconfigtableschema-properties-max_element_rule_checks_per_validation"></a>
+
+### `max_element_rule_checks_per_validation`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var max_element_rule_checks_per_validation: int = 16384
+```
+
+单次记录或整表校验可准入的元素规则调用数，按数组长度乘以启用规则数预留。 与元素数预算共享同次操作的生命周期；null 或被拒绝类型的元素也计入预留，不退还预算。 允许范围为 1 至 262144；非法值失败关闭。仅限制调用次数，不抢占自定义规则的同步执行。
 
 <a id="member-gfconfigtableschema-properties-indexes"></a>
 
@@ -566,4 +594,4 @@ func describe() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 table_name、id_field、columns、allow_extra_fields、coerce_values、fail_on_coerce_error、require_unique_id、max_resource_path_checks_per_validation、indexes、references、record_validation_rules、table_validation_rules 和 metadata。
+- `return`: Dictionary，包含 table_name、id_field、columns、allow_extra_fields、coerce_values、fail_on_coerce_error、require_unique_id、max_resource_path_checks_per_validation、max_elements_per_validation、max_element_rule_checks_per_validation、indexes、references、record_validation_rules、table_validation_rules 和 metadata。

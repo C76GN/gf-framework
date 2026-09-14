@@ -2,7 +2,7 @@
 
 导表结构可以用 `GFConfigTableColumn` 和 `GFConfigTableSchema` 独立声明，再注册到 Provider 上做导入期或运行时校验。
 
-它们只描述字段类型、必填、空值、默认值和额外字段策略。
+它们描述字段类型、必填、空值、默认值、额外字段策略与校验规则，不规定项目业务字段。
 
 ```gdscript
 var id_column := GFConfigTableColumn.new()
@@ -32,6 +32,6 @@ var report := validate_table(&"items", get_table(&"items"))
 
 ## Schema 副本语义
 
-`register_schema()` 会保存 schema 副本。`get_schema()` 也返回副本，调用方修改返回值不会污染 Provider 内部校验规则。
+`register_schema()` 会保存 schema 副本。`get_schema()` 也返回副本，整值规则与 `element_validation_rules` 都随列复制；调用方修改返回值不会污染 Provider 内部校验规则。
 
 这能避免编辑器工具、CI 校验或项目调试代码在读取 schema 后意外改动运行时 Provider 的正式规则。

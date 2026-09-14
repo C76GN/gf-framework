@@ -190,6 +190,7 @@ func _filter_columns(columns: Array[GFConfigTableColumn]) -> Array[GFConfigTable
 	for column: GFConfigTableColumn in columns:
 		if column != null and allows_metadata(column.metadata):
 			column.validation_rules = _filter_validation_rules(column.validation_rules)
+			column.element_validation_rules = _filter_validation_rules(column.element_validation_rules)
 			result.append(column)
 	return result
 

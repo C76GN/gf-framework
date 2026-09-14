@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFThumbnailRenderer" path="addons/gf/kernel/editor/gf_thumbnail_renderer.gd" module="kernel" extends="Node" classDigest="aa19f54139410abe66f161f83f72c6518f7d8a90ba18e70207ddffa0d00dfebd">
+<class name="GFThumbnailRenderer" path="addons/gf/kernel/editor/gf_thumbnail_renderer.gd" module="kernel" extends="Node" classDigest="b4154386574b88520d9d1eb11aedc5539e883be32370d78fee5315cd2114030f">
 	<description>GFThumbnailRenderer: 编辑器缩略图渲染辅助节点。
-使用独立 SubViewport 渲染 CanvasItem、Node3D 或 Mesh，供项目自定义编辑器工具复用。</description>
+使用独立 SubViewport 渲染 CanvasItem、Node3D 或 Mesh，供项目自定义编辑器工具复用。
+默认仅快照受支持节点的原生视觉属性，资源只读共享；复杂运行时视觉和脚本自绘
+应显式选择可信动态预览，并由调用方提供预览专用节点。两种模式均不是任意代码沙箱。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">editor_api</tag>
@@ -39,32 +41,36 @@
 	<properties />
 	<methods>
 		<member kind="method" name="render_node3d">
-			<signature>func render_node3d(source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true) -&gt; Image:</signature>
+			<signature>func render_node3d( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true, preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC ) -&gt; Image:</signature>
 			<description>渲染一个 3D 节点缩略图。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">source: 要渲染的 3D 节点，会被复制后放入内部 Viewport。</tag>
 				<tag name="param">size: 输出尺寸。</tag>
 				<tag name="param">transparent: 是否透明背景。</tag>
+				<tag name="param">preview_mode: 默认静态视觉快照；可信动态模式允许副本执行脚本及原生生命周期。</tag>
 				<tag name="return">渲染出的 Image；失败时返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="render_node3d_texture">
-			<signature>func render_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -&gt; ImageTexture:</signature>
+			<signature>func render_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true, preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC ) -&gt; ImageTexture:</signature>
 			<description>渲染一个 3D 节点缩略图纹理。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">source: 要渲染的 3D 节点。</tag>
 				<tag name="param">size: 输出尺寸。</tag>
 				<tag name="param">transparent: 是否透明背景。</tag>
+				<tag name="param">preview_mode: 默认静态视觉快照；可信动态模式允许副本执行脚本及原生生命周期。</tag>
 				<tag name="return">渲染出的 ImageTexture；失败时返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="render_canvas_item">
-			<signature>func render_canvas_item( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -&gt; Image:</signature>
+			<signature>func render_canvas_item( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08, preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC ) -&gt; Image:</signature>
 			<description>渲染一个 CanvasItem 缩略图。
 `source` 可以是 Node2D 或 Control。自定义 `_draw()` 等无法可靠估算
-几何范围的节点应传入显式 `content_bounds`。</description>
+几何范围的节点应选择可信动态模式并传入显式 `content_bounds`。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">source: 要渲染的 2D 画布节点，会被复制后放入内部 Viewport。</tag>
@@ -72,15 +78,16 @@
 				<tag name="param">transparent: 是否透明背景。</tag>
 				<tag name="param">content_bounds: 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。</tag>
 				<tag name="param">margin_ratio: 内容边界四周的相对留白，钳制到 0.0 至 1.0。</tag>
+				<tag name="param">preview_mode: 默认静态视觉快照；可信动态模式允许副本执行脚本及原生生命周期。</tag>
 				<tag name="return">渲染出的 Image；失败时返回 null。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="render_canvas_item_texture">
-			<signature>func render_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -&gt; ImageTexture:</signature>
+			<signature>func render_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08, preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC ) -&gt; ImageTexture:</signature>
 			<description>渲染一个 CanvasItem 缩略图纹理。
 `source` 可以是 Node2D 或 Control。自定义 `_draw()` 等无法可靠估算
-几何范围的节点应传入显式 `content_bounds`。</description>
+几何范围的节点应选择可信动态模式并传入显式 `content_bounds`。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">source: 要渲染的 2D 画布节点。</tag>
@@ -88,6 +95,7 @@
 				<tag name="param">transparent: 是否透明背景。</tag>
 				<tag name="param">content_bounds: 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。</tag>
 				<tag name="param">margin_ratio: 内容边界四周的相对留白，钳制到 0.0 至 1.0。</tag>
+				<tag name="param">preview_mode: 默认静态视觉快照；可信动态模式允许副本执行脚本及原生生命周期。</tag>
 				<tag name="return">渲染出的 ImageTexture；失败时返回 null。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
@@ -154,7 +162,7 @@
 				<tag name="param">mesh_library: 目标 MeshLibrary。</tag>
 				<tag name="param">size: 预览尺寸。</tag>
 				<tag name="param">overwrite_existing: 是否覆盖已有预览。</tag>
-				<tag name="return">包含 changes、generated_count 和 cancelled 的修改计划。</tag>
+				<tag name="return">包含 changes、generated_count 和 cancelled 的修改计划；任一待生成条目失败时返回 ok 为 false 的空计划，具体原因可通过任务的 get_error() 读取。</tag>
 				<tag name="schema">return: Dictionary { ok: bool, generated_count: int, cancelled: bool, changes: Array[Dictionary] }.</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>

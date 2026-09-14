@@ -16,6 +16,10 @@ extends Resource
 const _CONFIG_VALIDATION_REPORT = preload("res://addons/gf/standard/utilities/config/gf_config_validation_report.gd")
 const _RESOURCE_PATH_VALIDATION_RULE = preload("res://addons/gf/standard/utilities/config/validation/gf_config_resource_path_validation_rule.gd")
 const _RESOURCE_PATH_VALIDATION_SESSION_KEY: StringName = &"__gf_config_resource_path_validation_session"
+const _ELEMENT_VALIDATION_SESSION_KEY: StringName = &"__gf_config_element_validation_session"
+const _MAX_ELEMENTS_PER_VALIDATION: int = 65536
+const _MAX_ELEMENT_RULE_CHECKS_PER_VALIDATION: int = 262144
+const _MAX_ELEMENT_RULES_PER_COLUMN: int = 64
 
 
 # --- 导出变量 ---
@@ -65,6 +69,27 @@ const _RESOURCE_PATH_VALIDATION_SESSION_KEY: StringName = &"__gf_config_resource
 ## [br]
 ## @since 8.0.0
 @export_range(1, 65536, 1) var max_resource_path_checks_per_validation: int = 1024
+
+## 单次记录或整表校验可准入的数组元素总数，跨字段及记录共享。
+##
+## 仅统计存在启用元素规则的 Array；每个字段在元素检查及回调前整批预留。
+## coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则只跳过该字段的元素校验，整值规则仍执行。
+## 程序写入不在 1 至 65536 内的值时，定义与运行校验均失败，不钳制。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+@export_range(1, 65536, 1) var max_elements_per_validation: int = 4096
+
+## 单次记录或整表校验可准入的元素规则调用数，按数组长度乘以启用规则数预留。
+##
+## 与元素数预算共享同次操作的生命周期；null 或被拒绝类型的元素也计入预留，不退还预算。
+## 允许范围为 1 至 262144；非法值失败关闭。仅限制调用次数，不抢占自定义规则的同步执行。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+@export_range(1, 262144, 1) var max_element_rule_checks_per_validation: int = 16384
 
 ## 可选复合索引声明。唯一索引会参与表级校验。
 ## [br]
@@ -272,6 +297,7 @@ func get_column_names() -> PackedStringArray:
 ## @schema return: GFConfigValidationReport 兼容 Dictionary。
 func validate_definition(options: Dictionary = {}) -> Dictionary:
 	var report: Dictionary = _make_report(0)
+	var _limits_valid: bool = _validate_element_limits(report, options)
 	_validate_column_definitions(report, options)
 	_validate_index_definitions(report, options)
 	_validate_reference_definitions(report, options)
@@ -300,81 +326,11 @@ func validate_definition(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @schema return: GFConfigValidationReport 兼容 Dictionary。
 func validate_record(record: Dictionary, row_key: Variant = null, options: Dictionary = {}) -> Dictionary:
-	var runtime_options: Dictionary = _with_resource_path_validation_session(options)
 	var report: Dictionary = _make_report(1)
-	var working_record: Dictionary = _coerce_record_for_validation(record, row_key, report, runtime_options) if coerce_values else record
-	var declared_fields: Dictionary = {}
-
-	for column: GFConfigTableColumn in columns:
-		if column == null:
-			_add_issue(report, "error", "null_column", row_key, &"", "字段声明为空。", _make_record_context(row_key, runtime_options))
-			continue
-
-		var field_key: StringName = column.get_field_key()
-		var field_context: Dictionary = _make_field_context(row_key, field_key, runtime_options)
-		if field_key == &"":
-			_add_issue(report, "error", "empty_field", row_key, &"", "字段名为空。", field_context)
-			continue
-
-		declared_fields[field_key] = true
-		if column.required and not record.has(field_key):
-			_add_issue(
-				report,
-				"error",
-				"missing_required",
-				row_key,
-				field_key,
-				"缺少必填字段：%s。" % str(field_key),
-				_make_value_context(row_key, field_key, runtime_options, null, "present", "missing")
-			)
-		if not working_record.has(field_key):
-			continue
-
-		var field_value: Variant = working_record[field_key]
-		if field_value == null and not column.allow_null:
-			_add_issue(
-				report,
-				"error",
-				"null_value",
-				row_key,
-				field_key,
-				"字段不允许为空：%s。" % str(field_key),
-				_make_value_context(row_key, field_key, runtime_options, field_value, "non_null")
-			)
-		elif not column.is_value_valid(field_value):
-			_add_issue(
-				report,
-				"error",
-				"invalid_type",
-				row_key,
-				field_key,
-				"字段类型不匹配：%s。" % str(field_key),
-				_make_value_context(row_key, field_key, runtime_options, field_value, _value_type_to_name(column.value_type))
-			)
-		else:
-			_validate_column_rules(column, field_value, row_key, report, runtime_options)
-
-	if not allow_extra_fields:
-		for field_variant: Variant in working_record.keys():
-			var field_name: StringName = GFVariantData.to_string_name(field_variant)
-			if not declared_fields.has(field_name):
-				_add_issue(
-					report,
-					"error",
-					"extra_field",
-					row_key,
-					field_name,
-					"存在未声明字段：%s。" % str(field_name),
-					_make_value_context(
-						row_key,
-						field_name,
-						runtime_options,
-						GFVariantData.get_option_value(working_record, field_name),
-						"declared_field"
-					)
-				)
-
-	_validate_record_rules(working_record, row_key, report, runtime_options)
+	var runtime_options: Dictionary = _with_element_validation_session(_with_resource_path_validation_session(options))
+	var prepared: _PreparedValidationRecord = _prepare_record_for_validation(record, row_key, report, runtime_options)
+	if prepared._admitted:
+		_validate_prepared_record(record, row_key, report, runtime_options, prepared)
 	_finalize_report(report)
 	return report
 
@@ -395,8 +351,11 @@ func validate_record(record: Dictionary, row_key: Variant = null, options: Dicti
 ## [br]
 ## @schema return: GFConfigValidationReport 兼容 Dictionary。
 func validate_table(table_data: Variant, options: Dictionary = {}) -> Dictionary:
-	var runtime_options: Dictionary = _with_resource_path_validation_session(options)
 	var report: Dictionary = _make_report(0)
+	if not _validate_element_limits(report, options) or not _validate_element_definitions(report, options):
+		_finalize_report(report)
+		return report
+	var runtime_options: Dictionary = _with_element_validation_session(_with_resource_path_validation_session(options))
 	if table_data is Array:
 		_validate_array_table(GFVariantData.as_array(table_data), report, runtime_options)
 	elif table_data is Dictionary:
@@ -420,7 +379,7 @@ func validate_table(table_data: Variant, options: Dictionary = {}) -> Dictionary
 ## [br]
 ## @schema return: Dictionary，转换后的记录副本。
 func coerce_record(record: Dictionary) -> Dictionary:
-	var result: Dictionary = record.duplicate(true)
+	var result: Dictionary = GFVariantData.as_dictionary(GFVariantData.duplicate_variant(record))
 	for column: GFConfigTableColumn in columns:
 		if column == null or column.get_field_key() == &"":
 			continue
@@ -466,6 +425,8 @@ func duplicate_schema() -> GFConfigTableSchema:
 	schema.fail_on_coerce_error = fail_on_coerce_error
 	schema.require_unique_id = require_unique_id
 	schema.max_resource_path_checks_per_validation = max_resource_path_checks_per_validation
+	schema.max_elements_per_validation = max_elements_per_validation
+	schema.max_element_rule_checks_per_validation = max_element_rule_checks_per_validation
 	for index: GFConfigTableIndexDefinition in indexes:
 		schema.indexes.append(index.duplicate_index() if index != null else null)
 	for reference_definition: GFConfigTableReference in references:
@@ -488,7 +449,7 @@ func duplicate_schema() -> GFConfigTableSchema:
 ## [br]
 ## @return schema 字典。
 ## [br]
-## @schema return: Dictionary，包含 table_name、id_field、columns、allow_extra_fields、coerce_values、fail_on_coerce_error、require_unique_id、max_resource_path_checks_per_validation、indexes、references、record_validation_rules、table_validation_rules 和 metadata。
+## @schema return: Dictionary，包含 table_name、id_field、columns、allow_extra_fields、coerce_values、fail_on_coerce_error、require_unique_id、max_resource_path_checks_per_validation、max_elements_per_validation、max_element_rule_checks_per_validation、indexes、references、record_validation_rules、table_validation_rules 和 metadata。
 func describe() -> Dictionary:
 	var column_descriptions: Array[Dictionary] = []
 	for column: GFConfigTableColumn in columns:
@@ -513,6 +474,8 @@ func describe() -> Dictionary:
 		"fail_on_coerce_error": fail_on_coerce_error,
 		"require_unique_id": require_unique_id,
 		"max_resource_path_checks_per_validation": max_resource_path_checks_per_validation,
+		"max_elements_per_validation": max_elements_per_validation,
+		"max_element_rule_checks_per_validation": max_element_rule_checks_per_validation,
 		"indexes": index_descriptions,
 		"references": reference_descriptions,
 		"record_validation_rules": record_rule_descriptions,
@@ -550,13 +513,21 @@ func _validate_array_table(rows: Array, report: Dictionary, options: Dictionary)
 		var record: Dictionary = GFVariantData.as_dictionary(row)
 		var row_key: Variant = _get_record_row_key(record, index)
 		var row_options: Dictionary = _make_row_options(options, index)
-		var table_record: Dictionary = coerce_record(record) if coerce_values else record
+		var row_report: Dictionary = _make_report(1)
+		var prepared: _PreparedValidationRecord = _prepare_record_for_validation(record, row_key, row_report, row_options)
+		if not prepared._admitted:
+			_finalize_report(row_report)
+			_merge_report(report, row_report)
+			continue
+		var table_record: Dictionary = GFVariantData.as_dictionary(GFVariantData.duplicate_variant(prepared._record)) if prepared._coerced else record
 		valid_rows.append({
 			"row_key": row_key,
 			"row_index": index,
 			"record": table_record,
 		})
-		_merge_report(report, validate_record(record, row_key, row_options))
+		_validate_prepared_record(record, row_key, row_report, row_options, prepared)
+		_finalize_report(row_report)
+		_merge_report(report, row_report)
 		_validate_unique_id(record, row_key, seen_ids, report, row_options)
 	_validate_index_constraints(valid_rows, report)
 	_validate_table_rules(valid_rows, report, options)
@@ -574,12 +545,20 @@ func _validate_dictionary_table(table: Dictionary, report: Dictionary, options: 
 
 		var record: Dictionary = GFVariantData.as_dictionary(row)
 		var row_key: Variant = _get_record_row_key(record, key)
-		var table_record: Dictionary = coerce_record(record) if coerce_values else record
+		var row_report: Dictionary = _make_report(1)
+		var prepared: _PreparedValidationRecord = _prepare_record_for_validation(record, row_key, row_report, options)
+		if not prepared._admitted:
+			_finalize_report(row_report)
+			_merge_report(report, row_report)
+			continue
+		var table_record: Dictionary = GFVariantData.as_dictionary(GFVariantData.duplicate_variant(prepared._record)) if prepared._coerced else record
 		valid_rows.append({
 			"row_key": row_key,
 			"record": table_record,
 		})
-		_merge_report(report, validate_record(record, row_key, options))
+		_validate_prepared_record(record, row_key, row_report, options, prepared)
+		_finalize_report(row_report)
+		_merge_report(report, row_report)
 		_validate_unique_id(record, row_key, seen_ids, report, options)
 	_validate_index_constraints(valid_rows, report)
 	_validate_table_rules(valid_rows, report, options)
@@ -622,6 +601,7 @@ func _validate_column_rule_definitions(
 	report: Dictionary,
 	context: Dictionary
 ) -> void:
+	var _elements_valid: bool = _validate_column_element_definition(column, report, context)
 	for rule: GFConfigValidationRule in column.validation_rules:
 		if rule == null:
 			_add_issue(
@@ -714,9 +694,129 @@ func _validate_rule_definitions(report: Dictionary, options: Dictionary) -> void
 			_add_issue(report, "error", "null_table_validation_rule", null, &"", "表校验规则为空。", _make_record_context(null, options))
 
 
-func _coerce_record_for_validation(record: Dictionary, row_key: Variant, report: Dictionary, options: Dictionary) -> Dictionary:
-	var result: Dictionary = record.duplicate(true)
-	for column: GFConfigTableColumn in columns:
+func _prepare_record_for_validation(record: Dictionary, row_key: Variant, report: Dictionary, options: Dictionary) -> _PreparedValidationRecord:
+	var prepared: _PreparedValidationRecord = _PreparedValidationRecord.new()
+	if not _validate_element_limits(report, options) or not _validate_element_definitions(report, options):
+		return prepared
+	prepared._columns = columns.duplicate()
+	prepared._coerced = coerce_values
+	if not prepared._coerced:
+		prepared._record = record
+		prepared._admitted = true
+		return prepared
+
+	var _resized: int = prepared._element_batches.resize(prepared._columns.size())
+	for column_index: int in range(prepared._columns.size()):
+		var column: GFConfigTableColumn = prepared._columns[column_index]
+		if column == null:
+			continue
+		var field_key: StringName = column.get_field_key()
+		var value: Variant = record.get(field_key, column.default_value)
+		var context: Dictionary = _make_field_context(row_key, field_key, options)
+		var element_report: Dictionary = _make_report(0)
+		# 预算拒绝不能触发元素遍历或记录深复制；成功预留也不因坏元素退还。
+		var batch: _ElementValidationBatch = _prepare_element_batch(column, value, options, element_report, context)
+		if batch != null:
+			_validate_coerced_element_shapes(batch, row_key, field_key, element_report, context)
+		_finalize_report(element_report)
+		_merge_report(report, element_report)
+		if not GFVariantData.get_option_bool(element_report, "ok"):
+			return prepared
+		prepared._element_batches[column_index] = batch
+
+	prepared._record = _coerce_record_for_validation(record, row_key, report, options, prepared._columns)
+	prepared._admitted = true
+	return prepared
+
+
+func _validate_coerced_element_shapes(batch: _ElementValidationBatch, row_key: Variant, field_key: StringName, report: Dictionary, context: Dictionary) -> void:
+	# 只访问已获预算的外层快照，不递归复制被拒绝的元素。
+	for element_index: int in range(batch._elements.size()):
+		var element: Variant = batch._elements[element_index]
+		if _is_element_validation_value(element):
+			continue
+		var issue_context: Dictionary = context.duplicate(false)
+		var _value_removed: bool = issue_context.erase("value")
+		var _actual_removed: bool = issue_context.erase("actual_value")
+		issue_context["element_index"] = element_index
+		issue_context["actual_value"] = type_string(typeof(element))
+		_add_issue(report, "error", "invalid_element_validation_value", row_key, field_key, "元素必须为单层值，不接受集合、对象或可执行引用。", issue_context)
+
+
+func _validate_prepared_record(record: Dictionary, row_key: Variant, report: Dictionary, options: Dictionary, prepared: _PreparedValidationRecord) -> void:
+	var working_record: Dictionary = prepared._record
+	var declared_fields: Dictionary = {}
+	for column_index: int in range(prepared._columns.size()):
+		var column: GFConfigTableColumn = prepared._columns[column_index]
+		if column == null:
+			_add_issue(report, "error", "null_column", row_key, &"", "字段声明为空。", _make_record_context(row_key, options))
+			continue
+
+		var field_key: StringName = column.get_field_key()
+		var field_context: Dictionary = _make_field_context(row_key, field_key, options)
+		if field_key == &"":
+			_add_issue(report, "error", "empty_field", row_key, &"", "字段名为空。", field_context)
+			continue
+		declared_fields[field_key] = true
+		if column.required and not record.has(field_key):
+			_add_issue(
+				report,
+				"error",
+				"missing_required",
+				row_key,
+				field_key,
+				"缺少必填字段：%s。" % str(field_key),
+				_make_value_context(row_key, field_key, options, null, "present", "missing")
+			)
+		if not working_record.has(field_key):
+			continue
+
+		var field_value: Variant = working_record[field_key]
+		if field_value == null and not column.allow_null:
+			_add_issue(
+				report,
+				"error",
+				"null_value",
+				row_key,
+				field_key,
+				"字段不允许为空：%s。" % str(field_key),
+				_make_value_context(row_key, field_key, options, field_value, "non_null")
+			)
+		elif not column.is_value_valid(field_value):
+			_add_issue(
+				report,
+				"error",
+				"invalid_type",
+				row_key,
+				field_key,
+				"字段类型不匹配：%s。" % str(field_key),
+				_make_value_context(row_key, field_key, options, field_value, _value_type_to_name(column.value_type))
+			)
+		else:
+			var batch: _ElementValidationBatch = null
+			if prepared._coerced:
+				batch = prepared._element_batches[column_index]
+			_validate_column_rules(column, field_value, row_key, report, options, prepared._coerced, batch)
+
+	if not allow_extra_fields:
+		for field_variant: Variant in working_record.keys():
+			var field_name: StringName = GFVariantData.to_string_name(field_variant)
+			if not declared_fields.has(field_name):
+				_add_issue(
+					report,
+					"error",
+					"extra_field",
+					row_key,
+					field_name,
+					"存在未声明字段：%s。" % str(field_name),
+					_make_value_context(row_key, field_name, options, GFVariantData.get_option_value(working_record, field_name), "declared_field")
+				)
+	_validate_record_rules(working_record, row_key, report, options)
+
+
+func _coerce_record_for_validation(record: Dictionary, row_key: Variant, report: Dictionary, options: Dictionary, validation_columns: Array[GFConfigTableColumn]) -> Dictionary:
+	var result: Dictionary = GFVariantData.as_dictionary(GFVariantData.duplicate_variant(record))
+	for column: GFConfigTableColumn in validation_columns:
 		if column == null or column.get_field_key() == &"":
 			continue
 
@@ -814,13 +914,130 @@ func _validate_column_rules(
 	value: Variant,
 	row_key: Variant,
 	report: Dictionary,
-	options: Dictionary
+	options: Dictionary,
+	was_prepared: bool = false,
+	prepared_batch: _ElementValidationBatch = null
 ) -> void:
-	for rule: GFConfigValidationRule in column.validation_rules:
+	var context: Dictionary = _make_field_context(row_key, column.get_field_key(), options)
+	var rules: Array[GFConfigValidationRule] = column.validation_rules.duplicate()
+	var element_report: Dictionary = _make_report(0)
+	# 在任意项目规则回调前固定当前字段的元素与规则边界，不深拷贝未经检查的集合。
+	var batch: _ElementValidationBatch = prepared_batch
+	if not was_prepared:
+		batch = _prepare_element_batch(column, value, options, element_report, context)
+	for rule: GFConfigValidationRule in rules:
 		if rule == null:
 			_add_issue(report, "error", "null_validation_rule", row_key, column.get_field_key(), "字段校验规则为空。", _make_field_context(row_key, column.get_field_key(), options))
 			continue
-		_merge_report(report, rule.validate_value(value, _make_field_context(row_key, column.get_field_key(), options)))
+		_merge_report(report, rule.validate_value(value, GFVariantData.as_dictionary(GFVariantData.duplicate_variant(context))))
+	_finalize_report(element_report)
+	_merge_report(report, element_report)
+	if batch != null:
+		_validate_element_batch(batch, report, context)
+
+
+func _validate_element_limits(report: Dictionary, options: Dictionary) -> bool:
+	if (
+		max_elements_per_validation >= 1
+		and max_elements_per_validation <= _MAX_ELEMENTS_PER_VALIDATION
+		and max_element_rule_checks_per_validation >= 1
+		and max_element_rule_checks_per_validation <= _MAX_ELEMENT_RULE_CHECKS_PER_VALIDATION
+	):
+		return true
+	_add_issue(report, "error", "invalid_element_validation_limits", null, &"", "元素数或元素规则调用预算超出允许范围。", _make_record_context(null, options))
+	return false
+
+
+func _validate_element_definitions(report: Dictionary, options: Dictionary) -> bool:
+	var valid: bool = true
+	for column: GFConfigTableColumn in columns:
+		if column != null:
+			var context: Dictionary = _make_field_context(null, column.get_field_key(), options)
+			if not _validate_column_element_definition(column, report, context):
+				valid = false
+	return valid
+
+
+func _validate_column_element_definition(column: GFConfigTableColumn, report: Dictionary, context: Dictionary) -> bool:
+	if column.element_validation_rules.is_empty():
+		return true
+	if column.value_type != GFConfigTableColumn.ValueType.ARRAY:
+		_add_issue(report, "error", "element_rules_require_array", null, column.get_field_key(), "元素规则仅允许声明在 Array 字段上。", context)
+		return false
+	if column.element_validation_rules.size() > _MAX_ELEMENT_RULES_PER_COLUMN:
+		_add_issue(report, "error", "element_validation_rule_limit_exceeded", null, column.get_field_key(), "单列元素规则不能超过 64 条。", context)
+		return false
+	for rule: GFConfigValidationRule in column.element_validation_rules:
+		if rule == null:
+			_add_issue(report, "error", "null_element_validation_rule", null, column.get_field_key(), "元素校验规则为空。", context)
+			return false
+	return true
+
+
+func _with_element_validation_session(options: Dictionary) -> Dictionary:
+	var result: Dictionary = options.duplicate(false)
+	if not GFVariantData.get_option_value(result, _ELEMENT_VALIDATION_SESSION_KEY) is _ElementValidationSession:
+		result[_ELEMENT_VALIDATION_SESSION_KEY] = _ElementValidationSession.new(
+			max_elements_per_validation, max_element_rule_checks_per_validation
+		)
+	return result
+
+
+func _prepare_element_batch(
+	column: GFConfigTableColumn,
+	value: Variant,
+	options: Dictionary,
+	report: Dictionary,
+	context: Dictionary
+) -> _ElementValidationBatch:
+	if not _validate_column_element_definition(column, report, context):
+		return null
+	if value == null or column.element_validation_rules.is_empty():
+		return null
+	var rules: Array[GFConfigValidationRule] = []
+	for rule: GFConfigValidationRule in column.element_validation_rules:
+		if rule.enabled:
+			rules.append(rule)
+	if rules.is_empty() or not value is Array:
+		return null
+	var elements: Array = value
+	var session_value: Variant = GFVariantData.get_option_value(options, _ELEMENT_VALIDATION_SESSION_KEY)
+	if not session_value is _ElementValidationSession:
+		return null
+	var session: _ElementValidationSession = session_value
+	if not session._reserve(elements.size(), rules.size()):
+		var issue_context: Dictionary = context.duplicate(false)
+		issue_context["expected_value"] = "remaining element and rule-call budgets"
+		_add_issue(report, "error", "element_validation_budget_exhausted", context.get("row_key"), column.get_field_key(), "数组字段超过本次剩余元素或规则调用预算，未执行该字段的元素规则。", issue_context)
+		return null
+	var batch: _ElementValidationBatch = _ElementValidationBatch.new()
+	batch._elements = elements.duplicate(false)
+	batch._rules = rules
+	return batch
+
+
+func _validate_element_batch(batch: _ElementValidationBatch, report: Dictionary, context: Dictionary) -> void:
+	for element_index: int in range(batch._elements.size()):
+		var value: Variant = batch._elements[element_index]
+		var element_context: Dictionary = context.duplicate(false)
+		element_context["element_index"] = element_index
+		if not _is_element_validation_value(value):
+			var _value_removed: bool = element_context.erase("value")
+			var _actual_removed: bool = element_context.erase("actual_value")
+			element_context["actual_value"] = type_string(typeof(value))
+			_add_issue(report, "error", "invalid_element_validation_value", context.get("row_key"), GFVariantData.get_option_string_name(context, "field"), "元素必须为单层值，不接受集合、对象或可执行引用。", element_context)
+			continue
+		for rule: GFConfigValidationRule in batch._rules:
+			_merge_report(report, rule.validate_value(value, GFVariantData.as_dictionary(GFVariantData.duplicate_variant(element_context))))
+
+
+func _is_element_validation_value(value: Variant) -> bool:
+	var value_type: int = typeof(value)
+	return (
+		value_type != TYPE_OBJECT and value_type != TYPE_CALLABLE and value_type != TYPE_SIGNAL
+		and value_type != TYPE_RID and value_type != TYPE_DICTIONARY and value_type != TYPE_ARRAY
+		and value_type < TYPE_PACKED_BYTE_ARRAY
+	)
 
 
 func _validate_record_rules(record: Dictionary, row_key: Variant, report: Dictionary, options: Dictionary) -> void:
@@ -1072,3 +1289,45 @@ static func _values_allow_null(values: Array) -> bool:
 		if value == null:
 			return true
 	return false
+
+
+# --- 内部类 ---
+
+class _ElementValidationSession:
+	extends RefCounted
+
+	var _remaining_elements: int
+	var _remaining_checks: int
+
+	func _init(element_limit: int, check_limit: int) -> void:
+		_remaining_elements = element_limit
+		_remaining_checks = check_limit
+
+
+	func _reserve(element_count: int, rule_count: int) -> bool:
+		if element_count > _remaining_elements:
+			return false
+		# 元素已限制为 65536，规则已限制为 64，乘法不会溢出。
+		var check_count: int = element_count * rule_count
+		if check_count > _remaining_checks:
+			return false
+		_remaining_elements -= element_count
+		_remaining_checks -= check_count
+		return true
+
+
+class _ElementValidationBatch:
+	extends RefCounted
+
+	var _elements: Array = []
+	var _rules: Array[GFConfigValidationRule] = []
+
+
+class _PreparedValidationRecord:
+	extends RefCounted
+
+	var _admitted: bool = false
+	var _coerced: bool = false
+	var _record: Dictionary = {}
+	var _columns: Array[GFConfigTableColumn] = []
+	var _element_batches: Array[_ElementValidationBatch] = []

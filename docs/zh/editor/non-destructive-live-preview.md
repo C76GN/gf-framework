@@ -55,7 +55,37 @@ else:
 
 发布新 generation 后，应取消上一项尚未完成的 `GFThumbnailRenderTask`，再用 `GFThumbnailRenderer` 渲染由当前副本构建的 `CanvasItem`、`Node3D` 或 `Mesh`。异步结果返回时再次比较槽位 generation；过期结果即使成功也不能覆盖新预览。
 
-高频滑杆可以在项目工具中增加一帧或固定毫秒的合并窗口，但窗口结束时仍只提交一份完整补丁。自定义 `_draw()`、粒子或依赖运行时脚本的内容应使用预览专用节点，并显式提供渲染边界；预览节点和任务都由当前工具会话释放。
+高频滑杆可以在项目工具中增加一帧或固定毫秒的合并窗口，但窗口结束时仍只提交一份完整补丁。
+
+## 静态与可信动态模式
+
+节点请求默认使用 `GFThumbnailRenderRequest.PreviewMode.STATIC`。渲染器从受支持节点的原生属性构建视觉副本，不复制源节点的脚本、分组或信号连接，也不读取脚本导出属性。这个默认值同时适用于 `render_node3d()`、`render_canvas_item()` 及各自的 Texture 入口。
+
+静态模式用于常见 Sprite、Polygon、Line、Mesh 和基础 Control 外观；AnimatedSprite 保留当前帧，按钮和折叠容器保留当前外观，但不加入来源的 ButtonGroup 或 FoldableGroup。布局容器也使用明确的支持列表。Timer、动画播放器、音频等行为节点只保留无行为的层级载体。粒子、骨骼、TileMap、CSG、MultiMesh、嵌套 Viewport 等复杂运行时视觉不属于静态支持范围，渲染会失败，不会自动执行脚本补齐外观。
+
+静态副本会保留 NinePatchRect 的四侧边距、TextureProgressBar 的拉伸边距、3D Sprite 与 Label3D 的绘制标志、灯光和阴影参数，以及 MeshInstance3D 的逐表面材质覆盖。这些属性通过明确的原生接口读取，避免调用来源脚本的动态属性读取逻辑。
+
+单次静态快照最多复制 4096 个节点、深入 128 层，并累计检查最多 4096 个 Mesh 表面槽位；超过限制会释放已创建的副本并使任务失败。通过任务的 `get_error()` 查看不支持的节点类型、资源或超限原因。
+
+MeshLibrary 批量预览只为本次需要生成的条目构建计划；任一条目违反静态策略或渲染失败时，任务失败并通过 `get_error()` 保留条目 ID 和原因。便捷方法 `build_mesh_library_preview_plan()` 返回 `ok = false` 的空计划，`render_mesh_library_previews()` 不应用部分结果。已有预览在关闭覆盖时仍会被跳过。
+
+视觉资源作为只读引用共享，GF 不改写它们；直接绑定带脚本的 Resource 会被拒绝。静态模式不深复制任意 Resource 图，也不隔离原生扩展回调或调用方此前加载、实例化场景时已经发生的行为。脚本自绘、运行时 shader 参数和主题覆盖等逐实例动态状态不属于静态快照合同。
+
+需要 `_draw()`、粒子或脚本驱动外观时，由工具提供可信的预览专用节点，并显式选择 `TRUSTED_DYNAMIC`。四个 Node3D / CanvasItem 请求工厂和对应渲染入口都通过末尾的 `preview_mode` 参数选择模式；Mesh 和 MeshLibrary 请求固定使用静态模式。
+
+```gdscript
+var request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.for_canvas_item_image(
+	preview_node,
+	Vector2i(256, 256),
+	true,
+	Rect2(Vector2.ZERO, Vector2(64, 64)),
+	0.08,
+	GFThumbnailRenderRequest.PreviewMode.TRUSTED_DYNAMIC
+)
+var task: GFThumbnailRenderTask = renderer.submit_render_request(request)
+```
+
+动态模式会执行普通节点复制及脚本、原生节点生命周期，不是安全沙箱。工具应隔离其共享可变资源和外部连接，并为自定义绘制显式提供 `content_bounds`。取消任务不会回滚动态脚本已经产生的外部副作用；源预览节点由工具会话释放，渲染副本由 renderer 清理。
 
 ## 确认与取消
 

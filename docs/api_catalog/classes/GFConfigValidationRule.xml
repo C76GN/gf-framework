@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_validation_rule.gd" module="standard" extends="Resource" classDigest="68046edf9f639d57cca4b5010b8608e2dc531abbcc44b550ec4a97824e3aa24f">
+<class name="GFConfigValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_validation_rule.gd" module="standard" extends="Resource" classDigest="a1cd3e227b2798b65de36d521aa517a3e0f48bb88dcde8782c093a2e90a88a22">
 	<description>GFConfigValidationRule: 导表校验规则基类。
 用于把字段、记录或整表校验拆成可组合 Resource，便于项目按需声明范围、
 正则、资源路径或本地化 key 等规则，而不把业务表结构写进框架。</description>
@@ -77,11 +77,12 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 待校验值。</tag>
-				<tag name="param">context: 可选上下文，支持 table_name、row_key、field、source、line、column、value、expected_value、actual_value 和 supported_values 等字段。</tag>
+				<tag name="param">context: 可选上下文，支持 table_name、row_key、field、source、line、column、element_index、value、expected_value、actual_value 和 supported_values 等字段；element_index 为数组元素的零基下标，不改写 field。</tag>
 				<tag name="return">校验报告字典。</tag>
 				<tag name="schema">value: Variant，来自配置表或项目导入器的字段值。</tag>
-				<tag name="schema">context: Dictionary，可包含 table_name、row_key、field、source、line、column、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。</tag>
+				<tag name="schema">context: Dictionary，可包含 table_name、row_key、field、source、line、column、element_index、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。</tag>
 				<tag name="schema">return: GFConfigValidationReport 兼容 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_record">
@@ -144,8 +145,9 @@
 				<tag name="param">_context: 校验上下文。</tag>
 				<tag name="param">_report: 当前校验报告。</tag>
 				<tag name="schema">_value: Variant，来自配置表或项目导入器的字段值。</tag>
-				<tag name="schema">_context: Dictionary，可包含 table_name、row_key、field、source、line、column、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。</tag>
+				<tag name="schema">_context: Dictionary，可包含 table_name、row_key、field、source、line、column、element_index、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段；element_index 为原数组零基位置，field 仍为字段名。</tag>
 				<tag name="schema">_report: GFConfigValidationReport 兼容 Dictionary，会被规则修改。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_validate_record">

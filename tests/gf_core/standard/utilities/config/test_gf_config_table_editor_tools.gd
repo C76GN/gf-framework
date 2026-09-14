@@ -195,6 +195,25 @@ func test_build_field_editor_descriptors_embeds_reference_choices_when_database_
 	assert_eq(GFVariantData.get_option_string(first_choice, "label"), "Potion", "引用候选应复用 label_fields。")
 
 
+func test_element_rule_descriptors_do_not_constrain_the_whole_array_editor() -> void:
+	var column: GFConfigTableColumn = _make_column(&"values", GFConfigTableColumn.ValueType.ARRAY)
+	var range_rule: GFConfigRangeValidationRule = GFConfigRangeValidationRule.new()
+	range_rule.has_minimum = true
+	range_rule.minimum = 5
+	var allowed: GFConfigSetValidationRule = GFConfigSetValidationRule.new()
+	allowed.allowed_values = [5, 6]
+	column.element_validation_rules = [range_rule, allowed]
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	schema.columns = [column]
+	var descriptors: Array[Dictionary] = GFConfigTableEditorTools.build_field_editor_descriptors(schema)
+	var descriptor: Dictionary = _find_descriptor(descriptors, &"values")
+	assert_eq(GFVariantData.get_option_array(descriptor, "element_validation_rules").size(), 2)
+	assert_eq(GFVariantData.get_option_int(descriptor, "property_type"), TYPE_ARRAY)
+	assert_true(GFVariantData.get_option_array(descriptor, "choices").is_empty())
+	assert_false(GFVariantData.get_option_dictionary(descriptor, "constraints").has("range"))
+	assert_ne(GFVariantData.get_option_int(descriptor, "property_hint"), PROPERTY_HINT_RANGE)
+
+
 func test_array_reference_descriptor_preserves_mode_and_array_property_type() -> void:
 	var reference_definition: GFConfigTableReference = GFConfigTableReference.new()
 	reference_definition.source_mode = GFConfigTableReference.SourceMode.ARRAY_ELEMENTS

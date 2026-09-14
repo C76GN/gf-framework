@@ -1145,7 +1145,452 @@ func test_csv_validation_keeps_physical_lines_after_multiline_cells() -> void:
 		)
 
 
+func test_element_rules_keep_whole_array_rules_and_original_positions() -> void:
+	var range_rule: GFConfigRangeValidationRule = _make_element_range()
+	var schema: GFConfigTableSchema = _make_element_schema([range_rule])
+	var size_rule: GFConfigSizeValidationRule = GFConfigSizeValidationRule.new()
+	size_rule.has_maximum_size = true
+	size_rule.maximum_size = 2
+	schema.columns[0].validation_rules = [size_rule]
+	var values: Array = [1, -1, 101, -1]
+	var report: Dictionary = schema.validate_record({ "values": values }, "row-a", {
+		"source": "table.csv", "line": 7, "column": 3, "row_index": 2,
+	})
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(issues.size(), 4, "整数组大小问题和三个元素问题必须同时存在。")
+	var positions: Array[int] = []
+	for issue: Dictionary in issues:
+		if not issue.has("element_index"):
+			continue
+		positions.append(_reference_issue_int(issue, "element_index"))
+		assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"values")
+		assert_eq(GFVariantData.get_option_string(issue, "row_key"), "row-a")
+		assert_eq(GFVariantData.get_option_string(issue, "source"), "table.csv")
+		assert_eq(_reference_issue_int(issue, "line"), 7)
+		assert_eq(_reference_issue_int(issue, "column"), 3)
+	assert_eq(positions, [1, 2, 3], "重复坏值不能合并或压缩原下标。")
+	assert_eq(values, [1, -1, 101, -1], "校验不得改写来源数组。")
+
+
+func test_element_rules_reuse_regex_set_and_localization_without_coercing_values() -> void:
+	var regex: GFConfigRegexValidationRule = GFConfigRegexValidationRule.new()
+	regex.pattern = "^[a-z]+$"
+	var allowed: GFConfigSetValidationRule = GFConfigSetValidationRule.new()
+	allowed.allowed_values = ["good"]
+	var schema: GFConfigTableSchema = _make_element_schema([regex, allowed])
+	schema.coerce_values = true
+	var report: Dictionary = schema.validate_record({ "values": ["good", "BAD", 42] })
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	assert_eq(issues.size(), 4)
+	assert_true(_has_issue_kind(issues, "regex_invalid_type"), "元素不继承列的字符串强转。")
+	assert_eq(_reference_issue_int(_find_issue_kind(issues, "regex_invalid_type"), "element_index"), 2)
+	var localization: GFConfigLocalizationKeyValidationRule = GFConfigLocalizationKeyValidationRule.new()
+	localization.known_keys = PackedStringArray(["ui.ok"])
+	_set_element_rules(schema.columns[0], [localization])
+	var localization_report: Dictionary = schema.validate_record({ "values": ["ui.ok", "ui.missing"] })
+	assert_eq(GFVariantData.get_option_int(localization_report, "error_count"), 1)
+	var localization_issues: Array = GFVariantData.get_option_array(localization_report, "issues")
+	if not localization_issues.is_empty():
+		assert_eq(_reference_issue_int(GFVariantData.as_dictionary(localization_issues[0]), "element_index"), 1)
+
+
+func test_element_rules_preserve_missing_container_and_element_null_policies() -> void:
+	var rule: GFConfigRangeValidationRule = _make_element_range()
+	rule.allow_null = true
+	var schema: GFConfigTableSchema = _make_element_schema([rule])
+	schema.columns[0].required = false
+	schema.columns[0].allow_null = true
+	for record: Dictionary in [{}, { "values": null }, { "values": [] }, { "values": [null, 1] }]:
+		assert_true(GFVariantData.get_option_bool(schema.validate_record(record), "ok"))
+	rule.allow_null = false
+	var report: Dictionary = schema.validate_record({ "values": [null, 1, null, -1] })
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	assert_eq(issues.size(), 3)
+	var positions: Array[int] = []
+	for issue: Dictionary in issues:
+		positions.append(_reference_issue_int(issue, "element_index"))
+	assert_eq(positions, [0, 2, 3])
+	schema.columns[0].required = true
+	assert_false(GFVariantData.get_option_bool(schema.validate_record({}), "ok"))
+	schema.columns[0].allow_null = false
+	assert_false(GFVariantData.get_option_bool(schema.validate_record({ "values": null }), "ok"))
+	assert_false(GFVariantData.get_option_bool(schema.validate_record({ "values": "1,2" }), "ok"))
+
+
+func test_element_rules_reject_nested_and_object_values_without_invoking_rules() -> void:
+	var rule: CountingElementRule = CountingElementRule.new()
+	var schema: GFConfigTableSchema = _make_element_schema([rule])
+	var object: RefCounted = RefCounted.new()
+	var values: Array = [[1], { "value": 1 }, PackedInt32Array([1]), object, Callable(), Signal(), RID()]
+	var report: Dictionary = schema.validate_record({ "values": values })
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(issues.size(), values.size())
+	assert_eq(rule.calls, 0, "不可把对象或嵌套容器交给自定义元素回调。")
+	for index: int in range(issues.size()):
+		var issue: Dictionary = GFVariantData.as_dictionary(issues[index])
+		assert_eq(GFVariantData.get_option_string(issue, "kind"), "invalid_element_validation_value")
+		assert_eq(_reference_issue_int(issue, "element_index"), index)
+		assert_false(issue.has("value"), "被拒绝的对象/集合不能被复制进入诊断报告。")
+	var cycle: Array = []
+	cycle.append(cycle)
+	var cyclic_report: Dictionary = schema.validate_record({ "values": cycle })
+	cycle.clear()
+	assert_false(GFVariantData.get_option_bool(cyclic_report, "ok"), "只检查一层并拒绝自引用。")
+
+
+func test_empty_and_disabled_element_rules_do_not_restrict_array_contents() -> void:
+	var rule: CountingElementRule = CountingElementRule.new()
+	rule.enabled = false
+	var schema: GFConfigTableSchema = _make_element_schema([rule])
+	schema.set(&"max_elements_per_validation", 1)
+	schema.set(&"max_element_rule_checks_per_validation", 1)
+	var data: Dictionary = { "values": [[1], {}, null] }
+	assert_true(GFVariantData.get_option_bool(schema.validate_record(data), "ok"))
+	assert_eq(rule.calls, 0)
+	_set_element_rules(schema.columns[0], [])
+	assert_true(GFVariantData.get_option_bool(schema.validate_record(data), "ok"))
+
+
+func test_element_rule_definition_errors_are_explicit_and_fail_at_runtime() -> void:
+	var rule: CountingElementRule = CountingElementRule.new()
+	var schema: GFConfigTableSchema = _make_element_schema([rule])
+	schema.columns[0].value_type = GFConfigTableColumn.ValueType.ANY
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(schema.validate_definition(), "issues"), "element_rules_require_array"))
+	assert_false(GFVariantData.get_option_bool(schema.validate_record({ "values": [1] }), "ok"))
+	assert_eq(rule.calls, 0)
+	schema.columns[0].value_type = GFConfigTableColumn.ValueType.ARRAY
+	_set_element_rules(schema.columns[0], [null])
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(schema.validate_definition(), "issues"), "null_element_validation_rule"))
+	assert_false(GFVariantData.get_option_bool(schema.validate_record({ "values": [] }), "ok"))
+	var too_many: Array[GFConfigValidationRule] = []
+	for index: int in range(65):
+		too_many.append(rule)
+	_set_element_rules(schema.columns[0], too_many)
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(schema.validate_definition(), "issues"), "element_validation_rule_limit_exceeded"))
+	assert_false(GFVariantData.get_option_bool(schema.validate_record({ "values": [1] }), "ok"))
+	assert_eq(rule.calls, 0)
+
+
+func test_element_budgets_are_shared_across_rows_and_reset_between_public_calls() -> void:
+	var rule: CountingElementRule = CountingElementRule.new()
+	var schema: GFConfigTableSchema = _make_element_schema([rule])
+	schema.set(&"max_elements_per_validation", 3)
+	schema.set(&"max_element_rule_checks_per_validation", 3)
+	var rows: Array = [{ "values": [1, 2] }, { "values": [3, 4] }]
+	var report: Dictionary = schema.validate_table(rows)
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(rule.calls, 2, "第二个字段整体预算不足时不能先执行部分元素。")
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "element_validation_budget_exhausted"))
+	assert_true(GFVariantData.get_option_bool(schema.validate_record({ "values": [3, 4] }), "ok"))
+	assert_eq(rule.calls, 4, "新的公开校验调用必须得到新预算。")
+	var dictionary_report: Dictionary = schema.validate_table({ "a": rows[0], "b": rows[1] })
+	assert_false(GFVariantData.get_option_bool(dictionary_report, "ok"))
+	assert_eq(rule.calls, 6, "Dictionary 表同样只允许第一个字段进入回调。")
+
+
+func test_element_call_budget_counts_enabled_rules_and_keeps_whole_value_validation() -> void:
+	var first: CountingElementRule = CountingElementRule.new()
+	var second: CountingElementRule = CountingElementRule.new()
+	var schema: GFConfigTableSchema = _make_element_schema([first, second])
+	schema.set(&"max_elements_per_validation", 10)
+	schema.set(&"max_element_rule_checks_per_validation", 3)
+	var size_rule: GFConfigSizeValidationRule = GFConfigSizeValidationRule.new()
+	size_rule.has_maximum_size = true
+	size_rule.maximum_size = 1
+	schema.columns[0].validation_rules = [size_rule]
+	var report: Dictionary = schema.validate_record({ "values": [1, 2] })
+	assert_eq(GFVariantData.get_option_int(report, "error_count"), 2, "整值规则仍报告，元素调用预算独立失败。")
+	assert_eq(first.calls + second.calls, 0)
+	schema.coerce_values = true
+	var coerced_report: Dictionary = schema.validate_record({ "values": [1, 2] })
+	assert_eq(GFVariantData.get_option_int(coerced_report, "error_count"), 1, "转换校验必须在记录复制及整值回调前拒绝预算不足的记录。")
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(coerced_report, "issues"), "element_validation_budget_exhausted"))
+	assert_eq(first.calls + second.calls, 0)
+	second.enabled = false
+	schema.columns[0].validation_rules.clear()
+	assert_true(GFVariantData.get_option_bool(schema.validate_record({ "values": [1, 2] }), "ok"))
+	assert_eq(first.calls, 2)
+	assert_eq(second.calls, 0)
+
+
+func test_invalid_element_limits_fail_definition_and_runtime_without_callbacks() -> void:
+	for field: StringName in [&"max_elements_per_validation", &"max_element_rule_checks_per_validation"]:
+		for value: int in [0, -1, 1048577]:
+			var rule: CountingElementRule = CountingElementRule.new()
+			var schema: GFConfigTableSchema = _make_element_schema([rule])
+			schema.set(field, value)
+			assert_true(_has_issue_kind(GFVariantData.get_option_array(schema.validate_definition(), "issues"), "invalid_element_validation_limits"))
+			assert_false(GFVariantData.get_option_bool(schema.validate_record({ "values": [1] }), "ok"))
+			assert_false(GFVariantData.get_option_bool(schema.validate_table([]), "ok"))
+			assert_eq(rule.calls, 0, "非法限制必须失败，不能钳制后继续。")
+
+
+func test_element_resource_rules_share_the_existing_operation_probe_budget() -> void:
+	var rule: CountingPathRule = CountingPathRule.new()
+	var schema: GFConfigTableSchema = _make_element_schema([rule])
+	var other: GFConfigTableColumn = _make_column(&"other", GFConfigTableColumn.ValueType.ARRAY)
+	_set_element_rules(other, [rule])
+	schema.columns.append(other)
+	schema.max_resource_path_checks_per_validation = 1
+	var repeated: Dictionary = schema.validate_table([
+		{ "values": ["res://a.tres", "res://a.tres"], "other": ["res://a.tres"] },
+		{ "values": ["res://a.tres"], "other": ["res://a.tres"] },
+	])
+	assert_true(GFVariantData.get_option_bool(repeated, "ok"))
+	assert_eq(rule.checks, 1, "元素与列/行共享同一次路径探测缓存。")
+	var report: Dictionary = schema.validate_record({ "values": ["res://a.tres"], "other": ["res://b.tres"] })
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(rule.checks, 2, "新校验重建缓存，但超预算的第二路径不可探测。")
+	var issue: Dictionary = _find_issue_kind(GFVariantData.get_option_array(report, "issues"), "resource_path_check_budget_exhausted")
+	assert_eq(_reference_issue_int(issue, "element_index"), 0)
+	assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"other")
+
+
+func test_element_callbacks_use_frozen_values_rules_and_independent_context() -> void:
+	for coerce: bool in [false, true]:
+		var range_rule: GFConfigRangeValidationRule = _make_element_range()
+		var schema: GFConfigTableSchema = _make_element_schema([range_rule])
+		schema.coerce_values = coerce
+		var extra: CountingElementRule = CountingElementRule.new()
+		var whole_rule: MutatingWholeValueRule = MutatingWholeValueRule.new()
+		whole_rule.element_rules = schema.columns[0].element_validation_rules
+		whole_rule.extra_rule = extra
+		schema.columns[0].validation_rules = [whole_rule]
+		var values: Array = [1, -1]
+		var report: Dictionary = schema.validate_record({ "values": values }, "original")
+		var issues: Array = GFVariantData.get_option_array(report, "issues")
+		assert_false(GFVariantData.get_option_bool(report, "ok"))
+		assert_eq(issues.size(), 1)
+		var issue: Dictionary = _find_issue_kind(issues, "range_below_minimum")
+		assert_eq(_reference_issue_int(issue, "element_index"), 1, "整值回调改数组不能改变已捕获的元素及下标。")
+		assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"values")
+		assert_eq(GFVariantData.get_option_string(issue, "row_key"), "original")
+		assert_eq(extra.calls, 0, "回调追加的规则不能进入已预留的本批执行。")
+		if coerce:
+			assert_eq(values, [1, -1], "转换后的规则输入不能共享来源数组。")
+		else:
+			assert_eq(values, [100], "夹具确实主动修改了原始数组。")
+		assert_true(GFVariantData.get_option_bool(schema.validate_record({ "values": [1] }), "ok"))
+		assert_eq(extra.calls, 1, "下一次公开调用应采用新的规则列表。")
+
+
+func test_element_rule_hard_bounds_admit_64_rules_and_reject_oversized_array_without_callbacks() -> void:
+	var rule: CountingElementRule = CountingElementRule.new()
+	var rules: Array[GFConfigValidationRule] = []
+	for index: int in range(64):
+		rules.append(rule)
+	var schema: GFConfigTableSchema = _make_element_schema(rules)
+	assert_true(GFVariantData.get_option_bool(schema.validate_definition(), "ok"))
+	assert_true(GFVariantData.get_option_bool(schema.validate_record({ "values": [1] }), "ok"))
+	assert_eq(rule.calls, 64)
+	schema.max_elements_per_validation = 65536
+	schema.max_element_rule_checks_per_validation = 262144
+	var oversized: Array = []
+	var _resized: int = oversized.resize(65537)
+	oversized.fill(1)
+	var report: Dictionary = schema.validate_record({ "values": oversized })
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "element_validation_budget_exhausted"))
+	assert_eq(rule.calls, 64, "超限数组不能调用任何元素规则。")
+
+
+func test_coerced_element_arrays_reject_cycles_and_oversize_without_recursive_copy_errors() -> void:
+	var rule: CountingElementRule = CountingElementRule.new()
+	var schema: GFConfigTableSchema = _make_element_schema([rule])
+	schema.coerce_values = true
+	var cycle: Array = []
+	cycle.append(cycle)
+	var record_report: Dictionary = schema.validate_record({ "values": cycle })
+	var table_report: Dictionary = schema.validate_table([{ "values": cycle }])
+	cycle.clear()
+	assert_false(GFVariantData.get_option_bool(record_report, "ok"))
+	assert_false(GFVariantData.get_option_bool(table_report, "ok"))
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(record_report, "issues"), "invalid_element_validation_value"))
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(table_report, "issues"), "invalid_element_validation_value"))
+	assert_eq(rule.calls, 0)
+	var oversized: Array = []
+	var _resized: int = oversized.resize(65537)
+	oversized.fill(1)
+	var oversized_report: Dictionary = schema.validate_table({ "row": { "values": oversized } })
+	assert_false(GFVariantData.get_option_bool(oversized_report, "ok"))
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(oversized_report, "issues"), "element_validation_budget_exhausted"))
+	assert_eq(rule.calls, 0)
+
+
+func test_coerced_element_arrays_reject_deep_content_before_copying() -> void:
+	var rule: CountingElementRule = CountingElementRule.new()
+	var schema: GFConfigTableSchema = _make_element_schema([rule])
+	schema.coerce_values = true
+	schema.columns[0].validation_rules = [rule]
+	var layers: Array[Array] = [[]]
+	for _index: int in range(1500):
+		var child: Array = []
+		layers[layers.size() - 1].append(child)
+		layers.append(child)
+	var record: Dictionary = { "values": layers[0] }
+	var direct_report: Dictionary = schema.validate_record(record, "direct")
+	var array_report: Dictionary = schema.validate_table([record])
+	var keyed_report: Dictionary = schema.validate_table({ "keyed": record })
+	schema.columns[0].default_value = layers[0]
+	var default_report: Dictionary = schema.validate_record({})
+	for layer: Array in layers:
+		layer.clear()
+	for report: Dictionary in [direct_report, array_report, keyed_report, default_report]:
+		assert_false(GFVariantData.get_option_bool(report, "ok"))
+		var issue: Dictionary = _find_issue_kind(GFVariantData.get_option_array(report, "issues"), "invalid_element_validation_value")
+		assert_eq(_reference_issue_int(issue, "element_index"), 0)
+		assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"values")
+		assert_false(issue.has("value"), "拒绝嵌套内容时不能复制原值进入报告。")
+	assert_eq(rule.calls, 0, "非法一维数组不得进入项目规则回调。")
+
+
+func test_element_rule_contexts_isolate_nested_collections_between_callbacks() -> void:
+	var whole_mutator: NestedContextRule = NestedContextRule.new()
+	whole_mutator.mutate_context = true
+	var whole_observer: NestedContextRule = NestedContextRule.new()
+	var element_mutator: NestedContextRule = NestedContextRule.new()
+	element_mutator.mutate_context = true
+	var element_observer: NestedContextRule = NestedContextRule.new()
+	var schema: GFConfigTableSchema = _make_element_schema([element_mutator, element_observer])
+	schema.columns[0].validation_rules = [whole_mutator, whole_observer]
+	var options: Dictionary = {
+		"supported_values": ["original"],
+		"expected_value": { "nested": [1] },
+	}
+	var report: Dictionary = schema.validate_record({ "values": [1, 2] }, "row", options)
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(whole_observer.observed.size(), 1)
+	assert_eq(element_observer.observed.size(), 2)
+	for rule: NestedContextRule in [whole_mutator, whole_observer, element_mutator, element_observer]:
+		for observed: Dictionary in rule.observed:
+			assert_eq(GFVariantData.get_option_array(observed, "supported_values"), ["original"], "规则之间及元素之间不能共享公开上下文集合。")
+			assert_eq(GFVariantData.get_option_dictionary(observed, "expected_value"), { "nested": [1] })
+	assert_eq(GFVariantData.get_option_array(options, "supported_values"), ["original"])
+	assert_eq(GFVariantData.get_option_dictionary(options, "expected_value"), { "nested": [1] })
+
+
+func test_element_admission_budget_precedes_coerced_shape_scan() -> void:
+	var element_rule: CountingElementRule = CountingElementRule.new()
+	var whole_rule: CountingElementRule = CountingElementRule.new()
+	var lifecycle_rule: CountingRecordTableRule = CountingRecordTableRule.new()
+	var schema: GFConfigTableSchema = _make_element_schema([element_rule])
+	schema.coerce_values = true
+	schema.max_elements_per_validation = 1
+	schema.columns[0].validation_rules = [whole_rule]
+	schema.record_validation_rules = [lifecycle_rule]
+	schema.table_validation_rules = [lifecycle_rule]
+	var values: Array = [[1], [2], [3]]
+	var report: Dictionary = schema.validate_table([{ "values": values }])
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(issues.size(), 1, "超预算字段只返回一次预算问题，不得先逐元素报告类型。")
+	assert_true(_has_issue_kind(issues, "element_validation_budget_exhausted"))
+	assert_false(_has_issue_kind(issues, "invalid_element_validation_value"))
+	assert_eq(element_rule.calls + whole_rule.calls + lifecycle_rule.record_calls, 0)
+	assert_eq(lifecycle_rule.row_count, 0, "未准入记录不能进入表规则输入。")
+	assert_eq(values, [[1], [2], [3]])
+
+
+func test_element_admission_charges_malformed_rows_to_shared_budgets() -> void:
+	for coerce: bool in [false, true]:
+		for dictionary_table: bool in [false, true]:
+			for limits: Vector2i in [Vector2i(2, 16), Vector2i(8, 4)]:
+				var rule: CountingElementRule = CountingElementRule.new()
+				var schema: GFConfigTableSchema = _make_element_schema([rule, rule])
+				schema.coerce_values = coerce
+				schema.max_elements_per_validation = limits.x
+				schema.max_element_rule_checks_per_validation = limits.y
+				var rows: Array = [{ "values": [[], {}] }, { "values": [1] }]
+				var table_data: Variant = rows
+				if dictionary_table:
+					table_data = { "bad": rows[0], "good": rows[1] }
+				var report: Dictionary = schema.validate_table(table_data)
+				var issues: Array = GFVariantData.get_option_array(report, "issues")
+				assert_eq(issues.size(), 3, "坏元素预留的元素数或调用数分别耗尽时，后一记录都必须被拒绝。")
+				var budget_issue: Dictionary = _find_issue_kind(issues, "element_validation_budget_exhausted")
+				assert_false(budget_issue.is_empty())
+				assert_eq(rule.calls, 0, "坏记录不能免费扫描并把全部预算留给后续记录。")
+				assert_true(GFVariantData.get_option_bool(schema.validate_record({ "values": [1] }), "ok"))
+				assert_eq(rule.calls, 2, "新的公开调用应获得独立预算。")
+
+
+func test_element_admission_reuses_once_across_columns_and_default_values() -> void:
+	var rule: CountingElementRule = CountingElementRule.new()
+	var schema: GFConfigTableSchema = _make_element_schema([rule])
+	schema.coerce_values = true
+	schema.max_elements_per_validation = 2
+	schema.max_element_rule_checks_per_validation = 2
+	schema.columns[0].required = false
+	schema.columns[0].default_value = [1]
+	var other: GFConfigTableColumn = _make_column(&"other", GFConfigTableColumn.ValueType.ARRAY)
+	other.required = false
+	other.default_value = [2]
+	_set_element_rules(other, [rule])
+	schema.columns.append(other)
+	var report: Dictionary = schema.validate_table([{}, {}])
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(rule.calls, 2, "首行两列各预留一次，默认值也应计账。")
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "element_validation_budget_exhausted"))
+	var empty_report: Dictionary = schema.validate_record({ "values": [], "other": [] })
+	assert_true(GFVariantData.get_option_bool(empty_report, "ok"))
+	assert_eq(rule.calls, 2)
+	rule.enabled = false
+	var disabled_report: Dictionary = schema.validate_record({ "values": [[1], [2], [3]], "other": [] })
+	assert_true(GFVariantData.get_option_bool(disabled_report, "ok"), "全部禁用的规则不触发元素准入。")
+	assert_eq(rule.calls, 2)
+
+
+func test_element_rules_duplicate_describe_and_build_profile_keep_their_scope() -> void:
+	var retained: GFConfigRangeValidationRule = _make_element_range()
+	retained.rule_id = &"retained"
+	var excluded: GFConfigRangeValidationRule = _make_element_range()
+	excluded.rule_id = &"excluded"
+	excluded.metadata = { "tags": ["omit"] }
+	var schema: GFConfigTableSchema = _make_element_schema([retained, excluded])
+	schema.set(&"max_elements_per_validation", 17)
+	schema.set(&"max_element_rule_checks_per_validation", 31)
+	var copied: GFConfigTableSchema = schema.duplicate_schema()
+	var copied_rules: Array[GFConfigValidationRule] = copied.columns[0].element_validation_rules
+	assert_eq(copied_rules.size(), 2)
+	if not copied_rules.is_empty():
+		assert_true(copied_rules[0] != retained, "复制schema不能共享规则可变资源。")
+	var summary: Dictionary = copied.describe()
+	assert_eq(GFVariantData.get_option_int(summary, "max_elements_per_validation"), 17)
+	assert_eq(GFVariantData.get_option_int(summary, "max_element_rule_checks_per_validation"), 31)
+	assert_eq(GFVariantData.get_option_array(copied.columns[0].describe(), "element_validation_rules").size(), 2)
+	var profile: GFConfigBuildProfile = GFConfigBuildProfile.new()
+	profile.exclude_tags = PackedStringArray(["omit"])
+	var filtered: GFConfigTableSchema = profile.filter_schema(schema)
+	var filtered_rules: Array = GFVariantData.as_array(filtered.columns[0].get(&"element_validation_rules"))
+	assert_eq(filtered_rules.size(), 1, "构建profile也应过滤元素规则。")
+	assert_eq(GFVariantData.as_array(schema.columns[0].get(&"element_validation_rules")).size(), 2)
+
+
 # --- 私有/辅助方法 ---
+
+func _set_element_rules(column: GFConfigTableColumn, rules: Array[GFConfigValidationRule]) -> void:
+	column.set(&"element_validation_rules", rules)
+
+
+func _make_element_schema(rules: Array[GFConfigValidationRule]) -> GFConfigTableSchema:
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	schema.table_name = &"samples"
+	schema.id_field = &""
+	var column: GFConfigTableColumn = _make_column(&"values", GFConfigTableColumn.ValueType.ARRAY)
+	_set_element_rules(column, rules)
+	schema.columns = [column]
+	return schema
+
+
+func _make_element_range() -> GFConfigRangeValidationRule:
+	var rule: GFConfigRangeValidationRule = GFConfigRangeValidationRule.new()
+	rule.has_minimum = true
+	rule.minimum = 0
+	rule.has_maximum = true
+	rule.maximum = 100
+	return rule
 
 func _make_item_schema() -> GFConfigTableSchema:
 	var id_column: GFConfigTableColumn = GFConfigTableColumn.new()
@@ -1248,6 +1693,61 @@ func _find_issue_kind(issues: Array, kind: String) -> Dictionary:
 
 
 # --- 内部类 ---
+
+class CountingElementRule extends GFConfigValidationRule:
+	var calls: int = 0
+
+	func _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:
+		calls += 1
+
+
+class CountingRecordTableRule extends GFConfigValidationRule:
+	var record_calls: int = 0
+	var row_count: int = 0
+
+	func _validate_record(_record: Dictionary, _context: Dictionary, _report: Dictionary) -> void:
+		record_calls += 1
+
+	func _validate_table(rows: Array[Dictionary], _context: Dictionary, _report: Dictionary) -> void:
+		row_count += rows.size()
+
+
+class NestedContextRule extends GFConfigValidationRule:
+	var mutate_context: bool = false
+	var observed: Array[Dictionary] = []
+
+	func _validate_value(_value: Variant, context: Dictionary, _report: Dictionary) -> void:
+		observed.append({
+			"supported_values": GFVariantData.duplicate_variant(context.get("supported_values")),
+			"expected_value": GFVariantData.duplicate_variant(context.get("expected_value")),
+		})
+		if mutate_context:
+			GFVariantData.as_array(context.get("supported_values")).append("changed")
+			var expected: Dictionary = GFVariantData.as_dictionary(context.get("expected_value"))
+			GFVariantData.as_array(expected.get("nested")).append(2)
+
+
+class MutatingWholeValueRule extends GFConfigValidationRule:
+	var element_rules: Array[GFConfigValidationRule] = []
+	var extra_rule: GFConfigValidationRule
+
+	func _validate_value(value: Variant, context: Dictionary, _report: Dictionary) -> void:
+		if value is Array:
+			var elements: Array = value
+			elements.clear()
+			elements.append(100)
+		element_rules.clear()
+		element_rules.append(extra_rule)
+		context["field"] = &"changed"
+		context["row_key"] = "changed"
+
+
+class CountingPathRule extends GFConfigResourcePathValidationRule:
+	var checks: int = 0
+
+	func _path_exists(_path: String) -> bool:
+		checks += 1
+		return true
 
 class RequireNamePowerPairRule:
 	extends GFConfigValidationRule

@@ -78,6 +78,19 @@ enum ValueType {
 ## @schema validation_rules: Array，包含作用于当前字段的 GFConfigValidationRule 资源。
 @export var validation_rules: Array[GFConfigValidationRule] = []
 
+## 一维 Array 的逐元素值规则；仅可用于 ValueType.ARRAY，不改变 validation_rules 的整值语义。
+##
+## 缺失字段及容器 null 沿用 required/allow_null；元素 null 交由各规则的 allow_null 判断。
+## 只执行启用规则，不转换元素类型，不接受嵌套集合、Object、Callable、Signal 或 RID 元素。
+## 空列表或全部停用时不遍历元素；最多声明 64 条规则。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @schema element_validation_rules: Array[GFConfigValidationRule]，按原数组下标和声明顺序执行的规则资源；问题保留 field 并附加零基 element_index。
+@export var element_validation_rules: Array[GFConfigValidationRule] = []
+
 ## 可选元数据，供编辑器、导入器或项目层扩展使用。
 ## [br]
 ## @api public
@@ -210,6 +223,8 @@ func duplicate_column() -> GFConfigTableColumn:
 	column.default_value = GFVariantData.duplicate_collection(default_value)
 	for rule: GFConfigValidationRule in validation_rules:
 		column.validation_rules.append(rule.duplicate_rule() if rule != null else null)
+	for rule: GFConfigValidationRule in element_validation_rules:
+		column.element_validation_rules.append(rule.duplicate_rule() if rule != null else null)
 	column.metadata = metadata.duplicate(true)
 	return column
 
@@ -218,9 +233,11 @@ func duplicate_column() -> GFConfigTableColumn:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 字段声明字典。
 ## [br]
-## @schema return: Dictionary，包含 field_name、value_type、required、allow_null、default_value、validation_rules 和 metadata。
+## @schema return: Dictionary，包含 field_name、value_type、required、allow_null、default_value、validation_rules、element_validation_rules 和 metadata。
 func describe() -> Dictionary:
 	return {
 		"field_name": field_name,
@@ -228,7 +245,8 @@ func describe() -> Dictionary:
 		"required": required,
 		"allow_null": allow_null,
 		"default_value": GFVariantData.duplicate_collection(default_value),
-		"validation_rules": _describe_validation_rules(),
+		"validation_rules": _describe_validation_rules(validation_rules),
+		"element_validation_rules": _describe_validation_rules(element_validation_rules),
 		"metadata": metadata.duplicate(true),
 	}
 
@@ -247,9 +265,9 @@ func _coerce_report_float(report: Dictionary) -> float:
 	return GFVariantData.get_option_float(report, "value", 0.0)
 
 
-func _describe_validation_rules() -> Array[Dictionary]:
+func _describe_validation_rules(rules: Array[GFConfigValidationRule]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	for rule: GFConfigValidationRule in validation_rules:
+	for rule: GFConfigValidationRule in rules:
 		if rule != null:
 			result.append(rule.describe())
 	return result

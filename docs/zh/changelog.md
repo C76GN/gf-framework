@@ -6,6 +6,7 @@
 
 ### 🚀 新增特性 (Added)
 
+- [配置字段校验](standard/utilities/io/config-remote-outbox/config-provider/validation-importer/validation-rules.md#数组逐元素校验) 支持为一维 Array 单独声明元素规则，复用范围、正则、白名单、资源路径和本地化 key 校验；错误保留原字段、元素下标和值，并共享本次验证的工作量与资源探测预算。
 - [周期输入脉冲](standard/input-flow/input-assist/input-modifiers-triggers.md#周期脉冲的首次等待) 支持独立首次等待，可在按下立即响应后等待较长时间，再按较短间隔重复；动作和玩家保持独立计时。
 - [配置化 Tween](extensions/action-queue/tween-config.md#自定义缓动曲线) 支持步骤级原生 `Curve`，可制作回弹与超调效果；运行时独立捕获曲线，Inspector 预览与时间定位使用同一配置快照。
 - 新增 [方格视野查询](standard/foundation/grid-spatial/grid-2d-hex/grid-math.md)，通过显式阻挡回调计算有限半径内的可见格，返回稳定顺序与失败诊断；视野不接管地图节点、探索记忆或阵营规则。
@@ -25,6 +26,7 @@
 
 ### 🔄 机制更改 (Changed)
 
+- [缩略图渲染](editor/non-destructive-live-preview.md) 默认使用静态预览副本，避免复制项目脚本、持久化信号连接和场景组；需要脚本自绘的工具须显式选择可信动态预览，并负责预览脚本的副作用。
 - 对象池统一在主线程安全点挂载、离树和清理。节点自己的 `_enter_tree()` / `_exit_tree()` 负责进入与退出生命周期，池不再递归改写节点处理、物理、可见性或 Controller 事件开关。
 - 预热统一为 `await prewarm(scene, count, batch_size, cancellation_token)`，只分批实例化离树缓存，不触发入树生命周期，也不执行 prepare。
 - 弹幕以整批借用完成后再绑定本次生命周期，使用 Lease 归还；`gf.combat` 的 `extension_version` 升为 `4.0.0`。
@@ -33,6 +35,10 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 静态缩略图保留九宫格边距、3D 绘制标志、灯光参数及 Mesh 表面材质覆盖，读取节点名称时也不触发来源脚本；MeshLibrary 任一待生成条目失败时整项计划失败并保留条目原因，避免应用部分预览。
+- 配置数组在类型转换前的元素准入也受共享预算约束，非法记录消耗已预留额度，超限时不扫描数组或批量生成逐元素诊断。
+- 缩略图视口在 Compatibility 渲染器下不再请求引擎尚不支持的 2D MSAA，避免每次预览产生警告；其他渲染器保留现有抗锯齿设置。
+- 开启类型转换后，声明了元素规则的数组会在记录深复制前拒绝嵌套或自引用元素并报告原始下标，避免提前触发脚本栈上限；自定义字段与元素规则的公开上下文集合保持相互隔离。
 - 修复通用数值输入在未声明范围时截断负数和大值的问题；多行 String 使用保留换行的文本框。Resource 表格重新绑定资源后，旧撤销/重做动作产生的自动保存失败仍会通知调用方，同时保留当前草稿。
 - 修复深复制丢失 Array/Dictionary 类型约束，导致属性事务无法写入类型化节点或连接集合的问题；副本保留集合类型、循环结构和默认 Resource 引用身份。
 - 场景组查询在扫描期间拒绝重复启动，保留已有进度和结果；翻页取消节点定位时同步清除等待提示。
@@ -53,6 +59,8 @@
 
 ### 🔧 API 变动说明 (API Changes)
 
+- `GFConfigTableColumn` 新增 `element_validation_rules`，仅用于 `ValueType.ARRAY`；原有 `validation_rules` 继续接收整个字段。`GFConfigTableSchema` 新增每次验证共享的元素数与元素规则调用预算，定义自检、复制、构建过滤及编辑器描述同步支持元素规则。
+- `GFThumbnailRenderRequest` 新增 `PreviewMode`，Node3D / CanvasItem 请求和渲染便捷方法增加末尾可选模式参数，默认 `STATIC`；`TRUSTED_DYNAMIC` 用于工具自有的受控脚本预览。
 - `GFInputPulseTrigger` 新增 `initial_delay_seconds`，默认 `-1` 沿用 `interval_seconds`，`0` 表示激活当次触发一次。激活时已发出脉冲才忽略当次 delta；每次更新最多返回一个脉冲，不补发跨过的多个周期，也不改变动作开始事件的状态转换语义。
 - 新增 `GFGridVisibilityMath2D.compute_fov()`，显式接收网格范围、观察格、半径和遮挡规则；输入或查询失败时返回空的可见集合，保留既有两点视线查询合同。
 - `GFRepeaterBinder` 的模板同步支持 `identity_callable`，新增 `sync_container()` 提供结构化同步结果；自动刷新失败通过 `synchronization_failed` 通知。稳定 ID 更新验证重复键、克隆所有权和同步重入，不把项目回调副作用作为可回滚事务。
@@ -78,5 +86,6 @@
 6. 独立创建 Flow 面板的编辑器插件须调用 `set_editor_context(GFEditorToolContext.from_plugin(self))`；通过 Workspace 挂载的面板由工作区自动注入。没有有效撤销管理器时面板仅查看，不再直接修改资源。Resource 表格的新多选编辑入口同样需要上下文，原有显式 `commit_*` 调用方式保留。
 7. 自定义 2D Rig 的 `get_camera_pose` / `get_camera_pose_data` 覆盖增加 `camera: Camera2D = null`，调用父类时转交该参数。多目标取景的独立调用也必须提供实际相机；不要用 Rig 所在视口尺寸代替相机输出尺寸。
 8. 模板列表选项改为闭合字段及类型校验；移除传入 `options` 的业务附加字段。每次同步最多 4096 项；稳定 ID 模式要求 `clear_existing=true`。未提供 ID 时继续重建副本，大量长列表使用既有虚拟列表机制。
+9. 检查已有缩略图调用：依赖 `_draw()` 或脚本初始化的预览专用节点须显式选择 `GFThumbnailRenderRequest.PreviewMode.TRUSTED_DYNAMIC`，并确保脚本只操作工具自有节点与资源。普通资源缩略图沿用默认静态模式，具体支持范围见[预览指南](editor/non-destructive-live-preview.md)。
 
 详细示例见[对象池](standard/utilities/runtime/time-signal-pool/object-pool.md)与[弹幕](extensions/combat/projectiles.md)。已发布历史仍可从对应版本 tag 和 Release 查看。

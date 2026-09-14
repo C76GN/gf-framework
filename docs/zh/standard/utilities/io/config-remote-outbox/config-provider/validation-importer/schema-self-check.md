@@ -8,6 +8,8 @@ schema 本身可以先用 `validate_definition()` 做结构自检。
 
 它只检查通用声明一致性，例如空字段、重复字段、无效或重复索引 ID、引用来源字段不存在、空校验规则等。
 
+`element_validation_rules` 只允许用于 `ValueType.ARRAY` 列，每列最多 64 条，不能包含空规则。定义自检也会检查 Schema 的元素数与规则调用预算是否处于有效范围；这些限制及数据校验顺序见 [校验规则](validation-rules.md#数组逐元素校验)。
+
 它不读取项目业务表，也不解释字段背后的业务含义。
 
 ```gdscript
