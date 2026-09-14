@@ -66,6 +66,53 @@ var report := GFNoiseFieldTools.sample_grid_2d(
 - `constant_value`：常量范围归一化时填入的值，默认 `0.0`。
 - `max_samples`：最大样本数量，默认 `GFNoiseFieldTools.DEFAULT_MAX_GRID_SAMPLES`。
 
+## 分块采样与共享边缘
+
+连续世界中的各块应使用相同的噪声配置、seed 和世界采样坐标。`origin + cell * step` 决定实际采样位置；不要让每块都从 `Vector2.ZERO` 开始，也不要为相邻块重新随机 seed。
+
+下面用同一个噪声资源采样两块高度顶点。每块有 65 × 65 个顶点，相邻块共享一列，因此原点相差 64 个采样间隔：
+
+```gdscript
+var noise := FastNoiseLite.new()
+noise.seed = 123
+noise.frequency = 0.04
+
+var grid_size := Vector2i(65, 65)
+var step := Vector2.ONE
+var left_report := GFNoiseFieldTools.sample_grid_2d(grid_size, {
+	"noise": noise,
+	"origin": Vector2.ZERO,
+	"step": step,
+	"include_normalized": false,
+})
+var right_report := GFNoiseFieldTools.sample_grid_2d(grid_size, {
+	"noise": noise,
+	"origin": Vector2(float(grid_size.x - 1) * step.x, 0.0),
+	"step": step,
+	"include_normalized": false,
+})
+
+if left_report["ok"] and right_report["ok"]:
+	var left: PackedFloat32Array = left_report["samples"]
+	var right: PackedFloat32Array = right_report["samples"]
+	for row: int in range(grid_size.y):
+		assert(left[row * grid_size.x + grid_size.x - 1] == right[row * grid_size.x])
+```
+
+共享边缘的顶点网格沿每个轴按 `(grid_size - 1) * step` 推进；互不重叠的格子数据按 `grid_size * step` 推进。需要两轴分块时，分别计算 X/Y 原点。自定义 `sampler` 也应以世界 `position` 为连续场的坐标；`cell` 是每块内部从零开始的索引。
+
+`samples` 保留原始采样值；默认 `normalized_samples` 则按**本次网格自己的最小值与最大值**归一化。即使两块边缘的原始值相同，分别归一化也可能产生接缝。例如左块 `[0, 1, 2]` 和右块 `[2, 3, 4]` 的公共边缘都是 `2`，逐块归一化后却分别为 `1` 和 `0`。
+
+高度场可以直接消费原始 `samples`。确需归一化时，先用 `include_normalized=false` 采样，再让所有块通过 `normalize_samples()` 使用同一组 `minimum` / `maximum`。例如对上述数列统一使用 `[0, 4]`，两边公共边缘都会得到 `0.5`：
+
+```gdscript
+var shared_range := { "minimum": 0.0, "maximum": 4.0 }
+var left := GFNoiseFieldTools.normalize_samples(PackedFloat32Array([0.0, 1.0, 2.0]), shared_range)
+var right := GFNoiseFieldTools.normalize_samples(PackedFloat32Array([2.0, 3.0, 4.0]), shared_range)
+```
+
+这里的 `[0, 4]` 只属于数列示例。真实范围应来自项目的采样规则或全域统计，不要假定所有噪声模式都落在 `[-1, 1]`。多个请求使用共享资源时，也应保持其配置不变，直到这一批采样结束。
+
 ## 与其他模块的关系
 
 - `GFHeightfield3D.from_samples()` 可消费 `samples`，把二维噪声场解释为 X/Z 高度场。

@@ -216,7 +216,7 @@ func _confirm_placement() -> void:
 	var succeeded: bool = success_value is bool and success_value == true
 	if not succeeded:
 		cancel_placement()
-		_panel.show_status("摆放失败（错误码 %s）。" % _last_report.get("error_code", ERR_CANT_CREATE))
+		_panel.show_placement_failure(_last_report)
 		return
 	var node_value: Variant = _last_report.get("node")
 	if node_value is Node3D and is_instance_valid(node_value):

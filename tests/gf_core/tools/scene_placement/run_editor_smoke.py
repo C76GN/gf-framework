@@ -153,6 +153,7 @@ def run_phase(name: str, command: list[str], project: Path, environment: dict[st
 				"native_undo_redo_anchor_parent_transform_save_reload",
 				"native_gui_forwarded",
 				"native_pointer_plane_cancel_and_confirm",
+				"confirmation_failure_feedback_and_cleanup",
 				"actual_editor_world_collision_surface",
 				"scene_switch_cancels_stale_pointer",
 				"unloaded_plugin_history_replay",
