@@ -62,21 +62,10 @@ func upgrade(save_dir_name: String) -> Error:
 	return result
 
 
-# --- 框架内部方法 ---
+# --- 私有/辅助方法 ---
 
-## 写入当前离线迁移拥有的有界记录；重写可注入精确 I/O 故障。
-## [br]
-## @api framework_internal
-## [br]
-## @since unreleased
-## [br]
-## @param path: 本次迁移拥有的固定记录路径或已校验 family state 路径。
-## [br]
-## @param record: 将被调用方完整回读校验的记录。
-## [br]
-## @schema record: Dictionary，精确迁移 intent、cursor、schema 2 layout 或 committed state。
-## [br]
-## @return 写入并 flush 的 Error；失败时不得删除其他记录。
+# 只写入本次迁移拥有的有界记录，失败时保留其他恢复证据。
+# 测试子类在此注入 I/O 故障；这不是提供给项目重写的扩展点。
 func _write_upgrade_record(path: String, record: Dictionary) -> Error:
 	var bytes: PackedByteArray = JSON.stringify(record, "\t").to_utf8_buffer()
 	if bytes.is_empty() or bytes.size() > _MAX_RECORD_BYTES:
@@ -93,32 +82,14 @@ func _write_upgrade_record(path: String, record: Dictionary) -> Error:
 	return result
 
 
-## 删除当前迁移拥有的一个精确文件；重写可注入替换或清理失败。
-## [br]
-## @api framework_internal
-## [br]
-## @since unreleased
-## [br]
-## @param path: 本次迁移拥有的固定记录路径。
-## [br]
-## @return 不存在时返回 OK；链接或目录返回 ERR_FILE_CORRUPT。
+# 只删除本次迁移拥有的精确文件；链接或目录必须保留并报错。
 func _remove_upgrade_file(path: String) -> Error:
 	if _is_link(path) or DirAccess.dir_exists_absolute(path):
 		return ERR_FILE_CORRUPT
 	return DirAccess.remove_absolute(path) if FileAccess.file_exists(path) else OK
 
 
-## 将已完整回读的迁移 staging 文件安装到不存在的精确目标。
-## [br]
-## @api framework_internal
-## [br]
-## @since unreleased
-## [br]
-## @param source_path: 本次迁移拥有的 staging 文件。
-## [br]
-## @param target_path: 本次迁移拥有且当前不存在的目标。
-## [br]
-## @return 原子 rename 的 Error；不得覆盖已经存在的目标。
+# 安装已完整回读的 staging 文件，不得覆盖已经存在的目标。
 func _rename_upgrade_file(source_path: String, target_path: String) -> Error:
 	if _is_link(source_path) or not FileAccess.file_exists(source_path):
 		return ERR_FILE_CORRUPT
@@ -126,8 +97,6 @@ func _rename_upgrade_file(source_path: String, target_path: String) -> Error:
 		return ERR_ALREADY_EXISTS
 	return DirAccess.rename_absolute(source_path, target_path)
 
-
-# --- 私有/辅助方法 ---
 
 func _upgrade(save_dir_name: String) -> Error:
 	_storage_root_path = GFStorageFamilyStore.make_storage_root_path_for_framework(save_dir_name)
