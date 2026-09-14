@@ -1656,6 +1656,7 @@ func _reconcile_publish_pending_files(path: String, expected: Dictionary) -> Err
 	var parent_directory: DirAccess = DirAccess.open(parent_path)
 	if parent_directory == null:
 		return ERR_FILE_CANT_OPEN
+	parent_directory.include_hidden = true
 	var begin_error: Error = parent_directory.list_dir_begin()
 	if begin_error != OK:
 		return begin_error
@@ -1839,6 +1840,8 @@ static func _read_directory_entries_bounded(path: String, max_entries: int) -> D
 	var dir: DirAccess = DirAccess.open(path)
 	if dir == null:
 		return {"error": ERR_FILE_CANT_OPEN, "names": []}
+	# 隐藏条目同样属于物理证据，必须参与布局白名单和数量上限检查。
+	dir.include_hidden = true
 	var begin_error: Error = dir.list_dir_begin()
 	if begin_error != OK:
 		return {"error": begin_error, "names": []}

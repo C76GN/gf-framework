@@ -323,19 +323,30 @@ func test_claim_staging_recovers_owner_only_and_rejects_physical_work() -> void:
 	assert_false(DirAccess.dir_exists_absolute(recoverable_staging_path))
 	assert_true(FileAccess.file_exists(recoverable_catalog_path))
 
-	var blocked: Dictionary = _descriptor("slots/blocked-staging.json")
-	assert_eq(_claim_family(blocked), OK)
-	assert_eq(_write_text(GFVariantData.get_option_string(blocked, "payload_path"), "payload"), OK)
-	var blocked_catalog_path: String = GFVariantData.get_option_string(blocked, "catalog_path")
-	var blocked_family_path: String = GFVariantData.get_option_string(blocked, "family_path")
-	var blocked_staging_path: String = blocked_family_path + ".claim-" + GFUuid.generate_v4()
-	assert_eq(DirAccess.remove_absolute(blocked_catalog_path), OK)
-	assert_eq(DirAccess.rename_absolute(blocked_family_path, blocked_staging_path), OK)
+	for entry_name: String in ["payload.json", ".hidden"]:
+		var blocked: Dictionary = _descriptor("slots/blocked-staging-%s.json" % entry_name)
+		assert_eq(_claim_family(blocked), OK)
+		var blocked_catalog_path: String = GFVariantData.get_option_string(blocked, "catalog_path")
+		var blocked_family_path: String = GFVariantData.get_option_string(blocked, "family_path")
+		var evidence_path: String = blocked_family_path.path_join(entry_name)
+		assert_eq(_write_text(evidence_path, "payload"), OK)
+		if entry_name == ".hidden" and OS.get_name() == "Windows":
+			assert_eq(FileAccess.set_hidden_attribute(evidence_path, true), OK)
+			assert_true(FileAccess.get_hidden_attribute(evidence_path))
+		var owner_before: PackedByteArray = FileAccess.get_file_as_bytes(
+			GFVariantData.get_option_string(blocked, "owner_path")
+		)
+		var evidence_before: PackedByteArray = FileAccess.get_file_as_bytes(evidence_path)
+		var blocked_staging_path: String = blocked_family_path + ".claim-" + GFUuid.generate_v4()
+		assert_eq(DirAccess.remove_absolute(blocked_catalog_path), OK)
+		assert_eq(DirAccess.rename_absolute(blocked_family_path, blocked_staging_path), OK)
 
-	assert_eq(_claim_family(blocked), ERR_FILE_CORRUPT)
-	assert_false(DirAccess.dir_exists_absolute(blocked_family_path))
-	assert_true(DirAccess.dir_exists_absolute(blocked_staging_path))
-	assert_false(FileAccess.file_exists(blocked_catalog_path))
+		assert_eq(_claim_family(blocked), ERR_FILE_CORRUPT)
+		assert_false(DirAccess.dir_exists_absolute(blocked_family_path))
+		assert_true(DirAccess.dir_exists_absolute(blocked_staging_path))
+		assert_false(FileAccess.file_exists(blocked_catalog_path))
+		assert_eq(FileAccess.get_file_as_bytes(blocked_staging_path.path_join("owner.json")), owner_before)
+		assert_eq(FileAccess.get_file_as_bytes(blocked_staging_path.path_join(entry_name)), evidence_before)
 
 
 func test_claim_staging_discards_empty_or_truncated_owner_write() -> void:

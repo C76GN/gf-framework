@@ -1447,87 +1447,86 @@ func test_mismatched_layout_publish_pending_fails_before_reset_mutation() -> voi
 
 
 func test_existing_intent_rejects_conflicting_fresh_claim_and_preserves_evidence() -> void:
-	var file_name: String = "recovery/conflicting-fresh-claim.json"
-	var _observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
-	var descriptor: Dictionary = _descriptor(file_name)
-	var reset_id: String = GFUuid.generate_v4()
-	var retired_paths: Dictionary = _install_reset_intent_and_retire_exact(
-		descriptor,
-		reset_id,
-		GFStorageFamilyResetResult.SourceKind.PAYLOAD_ONLY
-	)
-	var family_store: GFStorageFamilyStore = _GF_STORAGE_FAMILY_STORE_SCRIPT.new()
-	assert_true(family_store.configure_for_framework(_storage_root_path))
-	assert_eq(family_store.claim_family_for_framework(descriptor), OK)
-	var family_path: String = GFVariantData.get_option_string(
-		descriptor,
-		"family_path"
-	)
-	var extra_error: Error = OK
-	for entry_index: int in range(1):
-		extra_error = _write_text(
-			family_path.path_join("unexpected-%02d.txt" % entry_index),
-			"conflict"
+	for entry_name: String in ["unexpected-00.txt", ".hidden"]:
+		if entry_name == ".hidden":
+			_recreate_storage_fixture_root()
+		var file_name: String = "recovery/conflicting-fresh-claim.json"
+		var _observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
+		var descriptor: Dictionary = _descriptor(file_name)
+		var reset_id: String = GFUuid.generate_v4()
+		var retired_paths: Dictionary = _install_reset_intent_and_retire_exact(
+			descriptor,
+			reset_id,
+			GFStorageFamilyResetResult.SourceKind.PAYLOAD_ONLY
 		)
-		if extra_error != OK:
-			break
-	assert_eq(extra_error, OK)
-	var claim_state: Dictionary = family_store.inspect_reset_claim_for_framework(
-		descriptor
-	)
-	assert_eq(GFVariantData.get_option_int(claim_state, "error"), OK)
-	assert_eq(
-		GFVariantData.get_option_string_name(claim_state, "state"),
-		&"conflict"
-	)
-	var intent_path: String = _reset_intent_path(descriptor, reset_id)
-	var retired_family_path: String = GFVariantData.get_option_string(
-		retired_paths,
-		"family_path"
-	)
-	var retired_catalog_path: String = GFVariantData.get_option_string(
-		retired_paths,
-		"catalog_path"
-	)
-	var intent_bytes: PackedByteArray = FileAccess.get_file_as_bytes(intent_path)
-	var retired_family_digest: String = _snapshot_tree_digest(retired_family_path)
-	var retired_catalog_bytes: PackedByteArray = FileAccess.get_file_as_bytes(
-		retired_catalog_path
-	)
-	var exact_claim_digest: String = _snapshot_tree_digest(family_path)
-	var authorization: GFStorageFamilyResetAuthorization = (
-		_create_fixture_authorization_for_current_family(file_name)
-	)
+		var family_store: GFStorageFamilyStore = _GF_STORAGE_FAMILY_STORE_SCRIPT.new()
+		assert_true(family_store.configure_for_framework(_storage_root_path))
+		assert_eq(family_store.claim_family_for_framework(descriptor), OK)
+		var family_path: String = GFVariantData.get_option_string(
+			descriptor,
+			"family_path"
+		)
+		var evidence_path: String = family_path.path_join(entry_name)
+		assert_eq(_write_text(evidence_path, "conflict"), OK)
+		if entry_name == ".hidden" and OS.get_name() == "Windows":
+			assert_eq(FileAccess.set_hidden_attribute(evidence_path, true), OK)
+			assert_true(FileAccess.get_hidden_attribute(evidence_path))
+		var claim_state: Dictionary = family_store.inspect_reset_claim_for_framework(
+			descriptor
+		)
+		assert_eq(GFVariantData.get_option_int(claim_state, "error"), OK)
+		assert_eq(
+			GFVariantData.get_option_string_name(claim_state, "state"),
+			&"conflict"
+		)
+		var intent_path: String = _reset_intent_path(descriptor, reset_id)
+		var retired_family_path: String = GFVariantData.get_option_string(
+			retired_paths,
+			"family_path"
+		)
+		var retired_catalog_path: String = GFVariantData.get_option_string(
+			retired_paths,
+			"catalog_path"
+		)
+		var intent_bytes: PackedByteArray = FileAccess.get_file_as_bytes(intent_path)
+		var retired_family_digest: String = _snapshot_tree_digest(retired_family_path)
+		var retired_catalog_bytes: PackedByteArray = FileAccess.get_file_as_bytes(
+			retired_catalog_path
+		)
+		var exact_claim_digest: String = _snapshot_tree_digest(family_path)
+		var authorization: GFStorageFamilyResetAuthorization = (
+			_create_fixture_authorization_for_current_family(file_name)
+		)
 
-	var reset_result: GFStorageFamilyResetResult = _storage.reset_file_family(
-		file_name,
-		authorization
-	)
+		var reset_result: GFStorageFamilyResetResult = _storage.reset_file_family(
+			file_name,
+			authorization
+		)
 
-	_assert_reset_failure(
-		reset_result,
-		GFStorageFamilyResetResult.FailureKind.CONFLICT,
-		GFStorageFamilyResetResult.Phase.RECREATE
-	)
-	assert_eq(reset_result.get_error_code(), ERR_FILE_CORRUPT)
-	assert_eq(
-		reset_result.get_source_kind(),
-		GFStorageFamilyResetResult.SourceKind.PAYLOAD_ONLY
-	)
-	assert_eq(reset_result.get_retired_member_count(), 2)
-	assert_eq(reset_result.get_recreated_member_count(), 3)
-	assert_gt(reset_result.get_remaining_evidence_count(), 0)
-	assert_eq(
-		reset_result.get_failed_member(),
-		GFStorageFamilyResetResult.FamilyMember.FAMILY_CONTAINER
-	)
-	assert_eq(FileAccess.get_file_as_bytes(intent_path), intent_bytes)
-	assert_eq(_snapshot_tree_digest(retired_family_path), retired_family_digest)
-	assert_eq(
-		FileAccess.get_file_as_bytes(retired_catalog_path),
-		retired_catalog_bytes
-	)
-	assert_eq(_snapshot_tree_digest(family_path), exact_claim_digest)
+		_assert_reset_failure(
+			reset_result,
+			GFStorageFamilyResetResult.FailureKind.CONFLICT,
+			GFStorageFamilyResetResult.Phase.RECREATE
+		)
+		assert_eq(reset_result.get_error_code(), ERR_FILE_CORRUPT)
+		assert_eq(
+			reset_result.get_source_kind(),
+			GFStorageFamilyResetResult.SourceKind.PAYLOAD_ONLY
+		)
+		assert_eq(reset_result.get_retired_member_count(), 2)
+		assert_eq(reset_result.get_recreated_member_count(), 3)
+		assert_gt(reset_result.get_remaining_evidence_count(), 0)
+		assert_eq(
+			reset_result.get_failed_member(),
+			GFStorageFamilyResetResult.FamilyMember.FAMILY_CONTAINER
+		)
+		assert_eq(FileAccess.get_file_as_bytes(intent_path), intent_bytes)
+		assert_eq(_snapshot_tree_digest(retired_family_path), retired_family_digest)
+		assert_eq(
+			FileAccess.get_file_as_bytes(retired_catalog_path),
+			retired_catalog_bytes
+		)
+		assert_eq(_snapshot_tree_digest(family_path), exact_claim_digest)
 
 
 func test_existing_intent_caps_overfull_exact_claim_without_mutating_evidence() -> void:

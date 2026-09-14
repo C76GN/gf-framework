@@ -132,6 +132,9 @@ func test_creation_retry_preserves_all_agreeing_complete_pending_incarnations() 
 		var pending_path: String = version_root.path_join("layout.json.pending-" + GFUuid.generate_v4())
 		pending_paths.append(pending_path)
 		assert_eq(_write_bytes(pending_path, expected), OK)
+		if OS.get_name() == "Windows":
+			assert_eq(FileAccess.set_hidden_attribute(pending_path, true), OK)
+			assert_true(FileAccess.get_hidden_attribute(pending_path))
 	assert_eq(_storage.create_revision_storage(), OK)
 	var layout_path: String = version_root.path_join("layout.json")
 	assert_true(FileAccess.file_exists(layout_path))
@@ -181,6 +184,9 @@ func test_creation_retry_rejects_nonempty_or_mistyped_prefixes_without_removing_
 		assert_eq(DirAccess.make_dir_recursive_absolute(entry_path if is_directory else entry_path.get_base_dir()), OK)
 		if not is_directory:
 			assert_eq(_write_text(entry_path, "unclaimed-evidence"), OK)
+			if entry_path.get_file() == ".hidden" and OS.get_name() == "Windows":
+				assert_eq(FileAccess.set_hidden_attribute(entry_path, true), OK)
+				assert_true(FileAccess.get_hidden_attribute(entry_path))
 		assert_ne(_storage.create_revision_storage(), OK, "不能接管 %s。" % entry)
 		if is_directory:
 			assert_true(DirAccess.dir_exists_absolute(entry_path))
