@@ -283,10 +283,11 @@ func duplicate_series(include_samples: bool = true) -> GFMetricSeries:
 # --- 私有/辅助方法 ---
 
 func _make_sparkline_for_range(width: int, min_value: float, max_value: float) -> String:
-	var normalized: PackedFloat32Array = _get_normalized_values_for_range(min_value, max_value)
-	var start_index: int = maxi(normalized.size() - width, 0)
+	# 范围仍来自全部保留采样，只为实际显示的尾段分配归一化值。
+	var start_index: int = maxi(_samples.size() - width, 0)
+	var normalized: PackedFloat32Array = _get_normalized_values_for_range(min_value, max_value, start_index)
 	var output: PackedStringArray = PackedStringArray()
-	for index: int in range(start_index, normalized.size()):
+	for index: int in range(normalized.size()):
 		var value: float = normalized[index]
 		var char_index: int = clampi(roundi(value * float(SPARKLINE_CHARACTERS.length() - 1)), 0, SPARKLINE_CHARACTERS.length() - 1)
 		var _appended: bool = output.append(SPARKLINE_CHARACTERS.substr(char_index, 1))
@@ -324,13 +325,14 @@ func _calculate_statistics() -> Dictionary:
 	}
 
 
-func _get_normalized_values_for_range(min_value: float, max_value: float) -> PackedFloat32Array:
+func _get_normalized_values_for_range(min_value: float, max_value: float, start_index: int = 0) -> PackedFloat32Array:
 	var values: PackedFloat32Array = PackedFloat32Array()
 	var span: float = max_value - min_value
-	for sample: Dictionary in _samples:
+	for index: int in range(start_index, _samples.size()):
 		if is_zero_approx(span):
 			var _appended: bool = values.append(0.5)
 		else:
+			var sample: Dictionary = _samples[index]
 			var normalized_value: float = clampf((_get_sample_value(sample) - min_value) / span, 0.0, 1.0)
 			var _appended: bool = values.append(normalized_value)
 	return values

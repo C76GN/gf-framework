@@ -59,4 +59,8 @@ debug.record_metric_sample(&"fps", Engine.get_frames_per_second(), {
 
 `include_metric_series_panel` 默认开启，会把已注册的可见指标序列附加到 Overlay 面板区。项目也可以创建并维护自己的 `GFMetricSeries`，再通过 `register_metric_series()` 交给 Overlay 展示。
 
+`max_samples` 默认是 120，应根据采样频率和要观察的时间跨度选择。sparkline 只生成指定宽度内的最新采样字符，但其归一化范围和最小值、最大值、平均值仍来自全部保留采样；缩短显示宽度不会缩短统计窗口。修改 `max_samples` 会立即裁剪旧采样，保留顺序不变。
+
+普通面板刷新可使用 `to_dict()` 的默认快照。只有需要采样明细时才传入 `include_samples = true`：这会按追加顺序复制所有保留采样及嵌套元数据。序列数量、历史长度和元数据大小都会影响读取成本；观察短期趋势时，应先控制采样量和刷新频率。
+
 `record_metric_sample()` 只在采样真正进入序列时返回 `true`。NaN 或 Infinity 会在创建空序列前返回 `false`；底层 `GFMetricSeries` 也保持同一有限值不变量。

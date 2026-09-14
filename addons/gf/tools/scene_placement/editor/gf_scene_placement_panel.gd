@@ -176,6 +176,57 @@ func show_status(message: String) -> void:
 	_status.text = message
 
 
+## 显示确认失败的原因、排查建议和原始诊断标识。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param report: GFScenePlacementOperation.apply 返回的失败报告。
+## [br]
+## @schema report: Dictionary，reason 接受 StringName/String，error_code 接受 int；未知原因使用通用建议，缺失或错误类型的错误码显示未知。
+func show_placement_failure(report: Dictionary) -> void:
+	var reason: String = ""
+	var reason_value: Variant = report.get("reason")
+	if reason_value is String:
+		reason = reason_value
+	elif reason_value is StringName:
+		var reason_name: StringName = reason_value
+		reason = String(reason_name)
+	var error_text: String = "未知"
+	var error_value: Variant = report.get("error_code")
+	if error_value is int:
+		error_text = str(error_value)
+	var cause: String = "未能完成本次摆放。"
+	var suggestion: String = "请检查编辑器输出、源场景和目标状态，再重新开始。"
+	match reason:
+		"undo_manager_required":
+			cause = "缺少可用的编辑器撤销管理器。"
+			suggestion = "请检查编辑器插件状态，再重新打开 3D 摆放工具。"
+		"undo_manager_incompatible":
+			cause = "撤销管理器不支持本次操作。"
+			suggestion = "请检查编辑器插件与撤销管理器的兼容性。"
+		"destination_unavailable":
+			cause = "场景或父节点已失效。"
+			suggestion = "请在当前场景重新选择父 Node3D，再开始摆放。"
+		"invalid_transform":
+			cause = "摆放变换无效。"
+			suggestion = "请检查父节点缩放与摆放参数是否有效，再重新开始。"
+		"creation_failed":
+			cause = "未能创建场景实例。"
+			suggestion = "请检查源场景及其工具脚本，并确认父节点仍可用。"
+		"operation_interrupted":
+			cause = "摆放在确认期间被中断。"
+			suggestion = "请确认当前场景和父节点，检查工具脚本是否取消了操作，再重新开始。"
+		"history_rejected":
+			cause = "编辑器未接受本次撤销记录。"
+			suggestion = "请检查当前场景与编辑器输出，再重新开始摆放。"
+	var diagnostics: String = "错误码 %s" % error_text
+	if not reason.is_empty():
+		diagnostics += "；原因 %s" % reason
+	show_status("摆放失败：%s\n建议：%s\n%s" % [cause, suggestion, diagnostics])
+
+
 # --- 私有/辅助方法 ---
 
 func _build_ui() -> void:

@@ -1,6 +1,22 @@
 ## 测试 GFInputMappingUtility 的资源化输入上下文、重映射和动作状态行为。
 extends GutTest
 
+# --- 枚举 ---
+
+enum CompositionOperation {
+	PRESS,
+	RELEASE,
+	PULSE,
+	OWNER_EXIT,
+	OWNER_FREE,
+	RECONFIGURE,
+	SWITCH_CONTEXT,
+	CLEAR_SOURCE,
+	ADVANCE_TIME,
+	DISPOSE_SOURCE,
+}
+
+
 # --- 辅助类 ---
 
 class CustomKeyTextProvider extends GFInputTextProvider:
@@ -2522,6 +2538,13 @@ func test_virtual_input_pulse_freezes_identity_across_source_reconfiguration() -
 	timer_utility.dispose()
 
 
+func test_seeded_input_composition_matches_model_and_replays_lifecycle_operations() -> void:
+	for seed_value: int in [7, 91, 20_260_914]:
+		var first_trace: PackedStringArray = _run_input_composition_seed(seed_value)
+		var replay_trace: PackedStringArray = _run_input_composition_seed(seed_value)
+		assert_eq(replay_trace, first_trace, "同一 seed 必须重放完整输入及生命周期操作：seed=%d" % seed_value)
+
+
 func test_input_recording_playback_drives_virtual_source() -> void:
 	var bindings: Array[GFInputBinding] = []
 	var context: GFInputContext = _make_context(&"gameplay", [
@@ -2983,6 +3006,187 @@ func test_input_conflict_analyzer_separates_joy_axis_positive_and_negative_bindi
 
 # --- 私有/辅助方法 ---
 
+func _run_input_composition_seed(seed_value: int) -> PackedStringArray:
+	var operation_names: PackedStringArray = PackedStringArray(CompositionOperation.keys())
+	# 前缀保证共享动作、旧身份 pulse 和 owner 交错确实发生；后续每轮打乱完整动作集。
+	# 操作日志包含生命周期变化，不借用只能保存输入事件的 GFInputRecording。
+	var operations: Array[Vector2i] = [
+		Vector2i(CompositionOperation.PRESS, 0), Vector2i(CompositionOperation.PRESS, 1),
+		Vector2i(CompositionOperation.RELEASE, 0),
+		Vector2i(CompositionOperation.PULSE, 0), Vector2i(CompositionOperation.PULSE, 1),
+		Vector2i(CompositionOperation.RECONFIGURE, 0), Vector2i(CompositionOperation.PULSE, 0),
+		Vector2i(CompositionOperation.OWNER_EXIT, 0), Vector2i(CompositionOperation.PULSE, 0),
+		Vector2i(CompositionOperation.OWNER_FREE, 1),
+		Vector2i(CompositionOperation.SWITCH_CONTEXT, 0), Vector2i(CompositionOperation.PRESS, 0),
+		Vector2i(CompositionOperation.PULSE, 1), Vector2i(CompositionOperation.PULSE, 1),
+		Vector2i(CompositionOperation.ADVANCE_TIME, 0), Vector2i(CompositionOperation.ADVANCE_TIME, 0),
+		Vector2i(CompositionOperation.ADVANCE_TIME, 0), Vector2i(CompositionOperation.ADVANCE_TIME, 0),
+		Vector2i(CompositionOperation.SWITCH_CONTEXT, 0), Vector2i(CompositionOperation.PRESS, 0),
+		Vector2i(CompositionOperation.PULSE, 0), Vector2i(CompositionOperation.DISPOSE_SOURCE, 0),
+	]
+	var rng: GFDeterministicRandom = GFDeterministicRandom.from_seed(seed_value)
+	for _round_index: int in range(10):
+		var round_operations: Array[int] = []
+		for operation_index: int in range(operation_names.size()):
+			round_operations.append(operation_index)
+		for shuffle_index: int in range(round_operations.size() - 1, 0, -1):
+			var swap_index: int = rng.next_int_range(0, shuffle_index)
+			var previous: int = round_operations[shuffle_index]
+			round_operations[shuffle_index] = round_operations[swap_index]
+			round_operations[swap_index] = previous
+		for operation_index: int in round_operations:
+			operations.append(Vector2i(operation_index, rng.next_int_range(0, 1)))
+
+	var no_bindings: Array[GFInputBinding] = []
+	var gameplay: GFInputContext = _make_context(&"gameplay", [
+		_make_mapping(_make_action(&"jump"), no_bindings),
+		_make_mapping(_make_action(&"confirm"), no_bindings),
+	])
+	var menu: GFInputContext = _make_context(&"menu", [
+		_make_mapping(_make_action(&"confirm"), no_bindings),
+	])
+	var gameplay_enabled: bool = true
+	_utility.set_enabled_contexts([gameplay])
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var sources: Array[CompositionSource] = []
+	for slot_index: int in range(2):
+		var slot: CompositionSource = CompositionSource.new()
+		slot.source_id = StringName("composition_%d_0" % slot_index)
+		slot.player_index = slot_index
+		slot.source = _utility.create_virtual_source(slot.source_id, slot.player_index, timer_utility)
+		slot.owner_node = Node.new()
+		add_child(slot.owner_node)
+		sources.append(slot)
+	var pulses: Array[CompositionPulse] = []
+	var known_source_ids: Array[StringName] = [sources[0].source_id, sources[1].source_id]
+	var history: PackedStringArray = []
+	var trace: PackedStringArray = []
+	for instruction: Vector2i in operations:
+		var slot: CompositionSource = sources[instruction.y]
+		var _history_appended: bool = history.append("%s(%d)" % [operation_names[instruction.x], instruction.y])
+		var failure_context: String = "seed=%d; operations=%s" % [seed_value, ", ".join(history)]
+		match instruction.x:
+			CompositionOperation.PRESS, CompositionOperation.RELEASE:
+				var pressed: bool = instruction.x == CompositionOperation.PRESS
+				var accepted: bool = slot.source.press(&"jump") if pressed else slot.source.release(&"jump")
+				assert_eq(accepted, gameplay_enabled, "只有 gameplay 注册 jump；%s" % failure_context)
+				slot.pressed = gameplay_enabled and pressed
+			CompositionOperation.PULSE:
+				for previous: CompositionPulse in pulses:
+					if previous.expected_status == GFVirtualInputPulseOperation.Status.PENDING and previous.source_id == slot.source_id:
+						previous.expected_status = GFVirtualInputPulseOperation.Status.REPLACED
+				var pulse: CompositionPulse = CompositionPulse.new()
+				pulse.source_slot = instruction.y
+				pulse.source_id = slot.source_id
+				pulse.player_index = slot.player_index
+				pulse.operation = slot.source.pulse_action(
+					&"confirm", true, 1.0, slot.owner_node, null,
+					GFVirtualInputSource.PulseReplacementPolicy.RETRIGGER
+				)
+				pulses.append(pulse)
+			CompositionOperation.OWNER_EXIT, CompositionOperation.OWNER_FREE:
+				_cancel_composition_pulses(pulses, instruction.y)
+				if instruction.x == CompositionOperation.OWNER_EXIT:
+					remove_child(slot.owner_node)
+					add_child(slot.owner_node)
+				else:
+					slot.owner_node.free()
+					slot.owner_node = Node.new()
+					add_child(slot.owner_node)
+			CompositionOperation.RECONFIGURE, CompositionOperation.DISPOSE_SOURCE:
+				slot.pressed = false
+				slot.revision += 1
+				slot.player_index = 1 - slot.player_index
+				slot.source_id = StringName("composition_%d_%d" % [instruction.y, slot.revision])
+				known_source_ids.append(slot.source_id)
+				if instruction.x == CompositionOperation.DISPOSE_SOURCE:
+					_cancel_composition_pulses(pulses, instruction.y)
+					slot.source.dispose()
+					assert_false(slot.source.press(&"confirm"), "dispose 后旧源不可复活；%s" % failure_context)
+					slot.source = _utility.create_virtual_source(slot.source_id, slot.player_index, timer_utility)
+				else:
+					var _configured: GFVirtualInputSource = slot.source.configure(
+						_utility, slot.source_id, slot.player_index, timer_utility
+					)
+			CompositionOperation.SWITCH_CONTEXT:
+				gameplay_enabled = not gameplay_enabled
+				_cancel_composition_pulses(pulses)
+				for source_slot: CompositionSource in sources:
+					source_slot.pressed = false
+				_utility.set_enabled_contexts([gameplay if gameplay_enabled else menu])
+			CompositionOperation.CLEAR_SOURCE:
+				slot.pressed = false
+				_cancel_composition_pulses(pulses, instruction.y)
+				slot.source.clear_all()
+			CompositionOperation.ADVANCE_TIME:
+				for pulse: CompositionPulse in pulses:
+					if pulse.expected_status == GFVirtualInputPulseOperation.Status.PENDING:
+						pulse.remaining_steps -= 1
+						if pulse.remaining_steps == 0:
+							pulse.expected_status = GFVirtualInputPulseOperation.Status.COMPLETED
+				timer_utility.tick(0.25)
+		_utility.tick(0.0)
+		var _trace_appended: bool = trace.append(_assert_composition_state(sources, pulses, failure_context))
+
+	for slot: CompositionSource in sources:
+		slot.source.dispose()
+		slot.pressed = false
+		slot.owner_node.free()
+	_cancel_composition_pulses(pulses)
+	# 跨过所有旧 timer 的到期点，旧回调不得恢复贡献或重复释放。
+	timer_utility.tick(2.0)
+	_utility.tick(0.0)
+	var cleanup_context: String = "清理后 seed=%d; operations=%s" % [seed_value, ", ".join(history)]
+	var _cleanup_trace_appended: bool = trace.append(_assert_composition_state(sources, pulses, cleanup_context))
+	for source_id: StringName in known_source_ids:
+		var snapshot: Dictionary = _utility.get_virtual_source_snapshot(source_id)
+		assert_true(GFVariantData.get_option_array(snapshot, "actions").is_empty(), "旧身份不得残留贡献 %s；%s" % [source_id, cleanup_context])
+	assert_eq(GFVariantData.get_option_int(timer_utility.get_debug_snapshot(), "pending_count"), 0, cleanup_context)
+	timer_utility.dispose()
+	_utility.clear_contexts()
+	return trace
+
+
+func _cancel_composition_pulses(pulses: Array[CompositionPulse], source_slot: int = -1) -> void:
+	for pulse: CompositionPulse in pulses:
+		if pulse.expected_status == GFVirtualInputPulseOperation.Status.PENDING and (source_slot < 0 or pulse.source_slot == source_slot):
+			pulse.expected_status = GFVirtualInputPulseOperation.Status.CANCELLED
+
+
+func _assert_composition_state(
+	sources: Array[CompositionSource],
+	pulses: Array[CompositionPulse],
+	failure_context: String
+) -> String:
+	# Oracle 只做布尔 OR 和有限倒计时，不读取 Mapping 私有表、触发器或 lease 实现。
+	var expected_jump: Array[bool] = [false, false]
+	var expected_confirm: Array[bool] = [false, false]
+	for slot: CompositionSource in sources:
+		expected_jump[slot.player_index] = expected_jump[slot.player_index] or slot.pressed
+	for pulse: CompositionPulse in pulses:
+		if pulse.expected_status == GFVirtualInputPulseOperation.Status.PENDING:
+			expected_confirm[pulse.player_index] = true
+	var expected: Array = [expected_jump.has(true), expected_confirm.has(true)]
+	var actual: Array = [_utility.is_action_active(&"jump"), _utility.is_action_active(&"confirm")]
+	for player_index: int in range(2):
+		expected.append(expected_jump[player_index])
+		expected.append(expected_confirm[player_index])
+		actual.append(_utility.is_action_active_for_player(player_index, &"jump"))
+		actual.append(_utility.is_action_active_for_player(player_index, &"confirm"))
+	for pulse: CompositionPulse in pulses:
+		expected.append(pulse.expected_status)
+		expected.append(0 if pulse.expected_status == GFVirtualInputPulseOperation.Status.PENDING else 1)
+		expected.append(pulse.source_id)
+		expected.append(pulse.player_index)
+		actual.append(pulse.operation.get_status())
+		actual.append(pulse.operation.get_release_count())
+		actual.append(pulse.operation.get_source_id())
+		actual.append(pulse.operation.get_player_index())
+	assert_eq(actual, expected, "全局/玩家聚合、pulse 终态及释放次数必须符合独立模型；%s" % failure_context)
+	return JSON.stringify(actual)
+
+
 func _make_delayed_pulse_trigger(immediate: bool = true) -> GFInputPulseTrigger:
 	var trigger: GFInputPulseTrigger = GFInputPulseTrigger.new()
 	trigger.initial_delay_seconds = 0.5
@@ -3085,3 +3289,23 @@ func _find_router_node() -> Node:
 		if child.name == "GFInputMappingRouter":
 			return child
 	return null
+
+
+# --- 内部类 ---
+
+class CompositionSource extends RefCounted:
+	var source: GFVirtualInputSource
+	var owner_node: Node
+	var source_id: StringName
+	var player_index: int = 0
+	var revision: int = 0
+	var pressed: bool = false
+
+
+class CompositionPulse extends RefCounted:
+	var operation: GFVirtualInputPulseOperation
+	var source_slot: int = 0
+	var source_id: StringName
+	var player_index: int = 0
+	var remaining_steps: int = 4
+	var expected_status: GFVirtualInputPulseOperation.Status = GFVirtualInputPulseOperation.Status.PENDING

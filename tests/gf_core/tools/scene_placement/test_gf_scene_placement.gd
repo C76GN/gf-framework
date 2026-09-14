@@ -520,7 +520,70 @@ func test_dropping_undone_history_releases_detached_instance() -> void:
 	assert_eq(parent.get_child_count(), 0)
 
 
+func test_panel_failure_reports_explain_known_causes_and_preserve_diagnostics() -> void:
+	var panel: GFScenePlacementPanel = GFScenePlacementPanel.new()
+	add_child_autofree(panel)
+	var cases: Dictionary[StringName, PackedStringArray] = {
+		&"undo_manager_required": PackedStringArray(["缺少", "撤销管理器", "插件状态"]),
+		&"undo_manager_incompatible": PackedStringArray(["不支持", "撤销管理器", "兼容性"]),
+		&"destination_unavailable": PackedStringArray(["父节点已失效", "重新选择父 Node3D"]),
+		&"invalid_transform": PackedStringArray(["变换无效", "父节点缩放", "摆放参数"]),
+		&"creation_failed": PackedStringArray(["未能创建场景实例", "源场景", "工具脚本"]),
+		&"operation_interrupted": PackedStringArray(["确认期间被中断", "取消了操作", "重新开始"]),
+		&"history_rejected": PackedStringArray(["未接受本次撤销记录", "当前场景", "编辑器输出"]),
+	}
+	for reason: StringName in cases:
+		panel.show_placement_failure({ "reason": reason, "error_code": ERR_CANT_CREATE })
+		var message: String = _panel_status_text(panel)
+		for fragment: String in cases[reason]:
+			assert_true(message.contains(fragment), "%s 缺少可见原因或排查方向：%s" % [reason, fragment])
+		assert_true(message.contains("建议："))
+		assert_true(message.contains(String(reason)), "保留原始原因，便于定位问题。")
+		assert_true(message.contains("错误码 %d" % ERR_CANT_CREATE), "保留报告中的错误码。")
+
+
+func test_panel_failure_reports_accept_string_reasons_and_unknown_error_codes() -> void:
+	var panel: GFScenePlacementPanel = GFScenePlacementPanel.new()
+	add_child_autofree(panel)
+	panel.show_placement_failure({ "reason": "creation_failed", "error_code": 4321 })
+	var known_message: String = _panel_status_text(panel)
+	assert_true(known_message.contains("未能创建场景实例"))
+	assert_true(known_message.contains("错误码 4321"), "未知整数错误码也应原样保留。")
+	panel.show_placement_failure({ "reason": "future_failure", "error_code": ERR_BUSY })
+	var unknown_message: String = _panel_status_text(panel)
+	assert_true(unknown_message.contains("未能完成本次摆放"))
+	assert_true(unknown_message.contains("编辑器输出"))
+	assert_true(unknown_message.contains("future_failure"))
+	assert_true(unknown_message.contains("错误码 %d" % ERR_BUSY))
+	assert_false(unknown_message.contains("未能创建场景实例"), "不能保留上一份报告的已知原因。")
+
+
+func test_panel_failure_reports_do_not_invent_codes_for_missing_or_invalid_fields() -> void:
+	var panel: GFScenePlacementPanel = GFScenePlacementPanel.new()
+	add_child_autofree(panel)
+	for report: Dictionary in [{}, { "reason": [], "error_code": "invalid_code" }]:
+		panel.show_placement_failure(report)
+		var message: String = _panel_status_text(panel)
+		assert_true(message.contains("未能完成本次摆放"))
+		assert_true(message.contains("错误码 未知"))
+		assert_true(message.contains("编辑器输出"))
+		assert_false(message.contains("invalid_code"), "错误类型不应冒充诊断错误码。")
+	panel.show_placement_failure({ "reason": &"creation_failed" })
+	var missing_code_message: String = _panel_status_text(panel)
+	assert_true(missing_code_message.contains("未能创建场景实例"))
+	assert_true(missing_code_message.contains("错误码 未知"))
+
+
 # --- 私有/辅助方法 ---
+
+func _panel_status_text(panel: GFScenePlacementPanel) -> String:
+	var status_node: Node = panel.get_node_or_null(^"PlacementStatus")
+	assert_true(status_node is Label, "面板必须提供可见的状态标签。")
+	if status_node is Label:
+		var status: Label = status_node
+		return status.text
+	return ""
+
 
 func _make_parent() -> Node3D:
 	var root: Node3D = Node3D.new()

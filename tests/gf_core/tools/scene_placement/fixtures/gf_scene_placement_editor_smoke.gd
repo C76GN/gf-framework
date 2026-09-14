@@ -290,6 +290,8 @@ func _after_cancel() -> void:
 	var clicked: int = _placement_plugin.process_pointer(_camera, _left_click())
 	if not _require(clicked == EditorPlugin.AFTER_GUI_INPUT_PASS and _parent.get_child_count() == _parent_count and _canary_count() == 0, "A late click after cancel created an instance or executed a script."):
 		return
+	if not _check_confirmation_failure_feedback():
+		return
 	_panel.set_source_scene(_load_scene(_ASSET))
 	_panel.set_parent_node(_parent)
 	if not _press("StartPlacement"):
@@ -313,6 +315,42 @@ func _after_cancel() -> void:
 		return
 	_phase = &"surface_wait"
 	_frames = 0
+
+
+func _check_confirmation_failure_feedback() -> bool:
+	_panel.set_source_scene(_load_scene(_ASSET))
+	_panel.set_parent_node(_parent)
+	if not _press("StartPlacement"):
+		return false
+	var history_version: int = _history.get_version()
+	var children_before: int = _parent.get_child_count()
+	var callback_reached: Array[bool] = [false]
+	var reject_created_child: Callable = func(child: Node) -> void:
+		callback_reached[0] = true
+		child.queue_free()
+	var connected: int = _parent.child_entered_tree.connect(reject_created_child)
+	if not _require(connected == OK, "Could not install the synchronous creation failure fixture."):
+		return false
+	var consumed: int = _placement_plugin.process_pointer(_camera, _left_click())
+	_parent.child_entered_tree.disconnect(reject_created_child)
+	if not _require(consumed != EditorPlugin.AFTER_GUI_INPUT_PASS and callback_reached[0], "Confirmation did not reach the actual creation failure."):
+		return false
+	var snapshot: Dictionary = _placement_plugin.get_snapshot()
+	if not _require(not _bool(snapshot, "active") and not _bool(snapshot, "preview_visible"), "Failed confirmation retained an active operation or preview."):
+		return false
+	if not _require(_parent.get_child_count() == children_before and _history.get_version() == history_version, "Failed confirmation left an instance or changed native history."):
+		return false
+	if not _require(_int(snapshot, "last_error") == ERR_CANT_CREATE, "Failed confirmation did not preserve its error code."):
+		return false
+	var status_node: Node = _panel.get_node_or_null(^"PlacementStatus")
+	if not _require(status_node is Label, "The placement status label is missing."):
+		return false
+	if status_node is Label:
+		var status: Label = status_node
+		if not _require(status.text.contains("未能创建场景实例") and status.text.contains("工具脚本") and status.text.contains("creation_failed"), "Failed confirmation did not show its cause, suggested check, and diagnostic reason: " + status.text):
+			return false
+	_results["confirmation_failure_feedback_and_cleanup"] = true
+	return true
 
 
 func _surface_pointer() -> void:

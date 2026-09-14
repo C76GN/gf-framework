@@ -26,6 +26,9 @@
 
 ### 🔄 机制更改 (Changed)
 
+- [3D 场景摆放](editor/tools/scene-placement.md) 确认失败时显示具体原因与排查建议，并保留原始原因标识和错误码，便于区分父节点失效、实例创建失败及撤销记录被拒绝等情况。
+- [调试指标序列](standard/utilities/runtime/debug-observability/debug-visual-inspection/debug-overlay.md) 的 sparkline 只归一化实际显示的最新采样，减少长窗口的绘图开销；统计与归一化范围仍使用全部保留采样。
+- 补充 [2D 噪声场](standard/foundation/grid-spatial/noise-field-tools.md#分块采样与共享边缘) 的世界坐标分块与共享归一化范围示例，说明如何保持公共边缘一致，以及逐块归一化为何可能产生接缝。
 - [缩略图渲染](editor/non-destructive-live-preview.md) 默认使用静态预览副本，避免复制项目脚本、持久化信号连接和场景组；需要脚本自绘的工具须显式选择可信动态预览，并负责预览脚本的副作用。
 - 对象池统一在主线程安全点挂载、离树和清理。节点自己的 `_enter_tree()` / `_exit_tree()` 负责进入与退出生命周期，池不再递归改写节点处理、物理、可见性或 Controller 事件开关。
 - 预热统一为 `await prewarm(scene, count, batch_size, cancellation_token)`，只分批实例化离树缓存，不触发入树生命周期，也不执行 prepare。

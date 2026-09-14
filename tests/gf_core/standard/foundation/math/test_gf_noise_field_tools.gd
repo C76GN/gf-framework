@@ -91,6 +91,70 @@ func test_sample_grid_2d_reports_invalid_inputs() -> void:
 	assert_eq(_get_float_samples(invalid_sample, "samples"), PackedFloat32Array(), "失败报告不应携带部分样本。")
 
 
+func test_adjacent_vertex_grids_keep_shared_noise_edge_in_world_coordinates() -> void:
+	var noise: FastNoiseLite = FastNoiseLite.new()
+	noise.seed = 123
+	noise.frequency = 0.08
+	var grid_size: Vector2i = Vector2i(5, 3)
+	var origin: Vector2 = Vector2(-7.0, 2.0)
+	var step: Vector2 = Vector2(2.0, 0.5)
+	var left_report: Dictionary = GF_NOISE_FIELD_TOOLS_SCRIPT.sample_grid_2d(grid_size, {
+		"noise": noise,
+		"origin": origin,
+		"step": step,
+		"include_normalized": false,
+	})
+	var right_report: Dictionary = GF_NOISE_FIELD_TOOLS_SCRIPT.sample_grid_2d(grid_size, {
+		"noise": noise,
+		"origin": origin + Vector2(float(grid_size.x - 1) * step.x, 0.0),
+		"step": step,
+		"include_normalized": false,
+	})
+	assert_true(GFVariantData.get_option_bool(left_report, "ok"))
+	assert_true(GFVariantData.get_option_bool(right_report, "ok"))
+	var left: PackedFloat32Array = _get_float_samples(left_report, "samples")
+	var right: PackedFloat32Array = _get_float_samples(right_report, "samples")
+	assert_eq(left.size(), grid_size.x * grid_size.y)
+	assert_eq(right.size(), grid_size.x * grid_size.y)
+	if left.size() != grid_size.x * grid_size.y or right.size() != grid_size.x * grid_size.y:
+		return
+	for row: int in range(grid_size.y):
+		assert_eq(
+			left[row * grid_size.x + grid_size.x - 1], right[row * grid_size.x],
+			"相邻顶点块应在同一世界坐标采到完全相同的边缘值。"
+		)
+	assert_true(_get_float_samples(left_report, "normalized_samples").is_empty())
+	assert_true(_get_float_samples(right_report, "normalized_samples").is_empty())
+
+
+func test_shared_normalization_range_preserves_edge_that_local_ranges_split() -> void:
+	var sampler: Callable = func(position: Vector2, _cell: Vector2i, _metadata: Dictionary) -> float:
+		return position.x
+	var left_report: Dictionary = GF_NOISE_FIELD_TOOLS_SCRIPT.sample_grid_2d(
+		Vector2i(3, 1), { "sampler": sampler, "origin": Vector2.ZERO }
+	)
+	var right_report: Dictionary = GF_NOISE_FIELD_TOOLS_SCRIPT.sample_grid_2d(
+		Vector2i(3, 1), { "sampler": sampler, "origin": Vector2(2.0, 0.0) }
+	)
+	assert_true(GFVariantData.get_option_bool(left_report, "ok"))
+	assert_true(GFVariantData.get_option_bool(right_report, "ok"))
+	assert_eq(_get_float_samples(left_report, "samples"), PackedFloat32Array([0.0, 1.0, 2.0]))
+	assert_eq(_get_float_samples(right_report, "samples"), PackedFloat32Array([2.0, 3.0, 4.0]))
+	assert_eq(_get_float_samples(left_report, "normalized_samples"), PackedFloat32Array([0.0, 0.5, 1.0]))
+	assert_eq(_get_float_samples(right_report, "normalized_samples"), PackedFloat32Array([0.0, 0.5, 1.0]))
+	var shared_range: Dictionary = { "minimum": 0.0, "maximum": 4.0 }
+	var left_normalized: Dictionary = GF_NOISE_FIELD_TOOLS_SCRIPT.normalize_samples(
+		_get_float_samples(left_report, "samples"), shared_range
+	)
+	var right_normalized: Dictionary = GF_NOISE_FIELD_TOOLS_SCRIPT.normalize_samples(
+		_get_float_samples(right_report, "samples"), shared_range
+	)
+	assert_true(GFVariantData.get_option_bool(left_normalized, "ok"))
+	assert_true(GFVariantData.get_option_bool(right_normalized, "ok"))
+	assert_eq(_get_float_samples(left_normalized, "normalized_samples"), PackedFloat32Array([0.0, 0.25, 0.5]))
+	assert_eq(_get_float_samples(right_normalized, "normalized_samples"), PackedFloat32Array([0.5, 0.75, 1.0]))
+
+
 func test_sample_grid_2d_rejects_values_not_representable_in_output_storage() -> void:
 	var report: Dictionary = GF_NOISE_FIELD_TOOLS_SCRIPT.sample_grid_2d(
 		Vector2i.ONE,
