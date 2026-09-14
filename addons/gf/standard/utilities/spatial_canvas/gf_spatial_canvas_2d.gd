@@ -227,6 +227,7 @@ var _max_grid_lines: int = _DEFAULT_MAX_GRID_LINES
 
 var _items: Dictionary = {}
 var _selected_ids: PackedStringArray = PackedStringArray()
+var _selected_item_outlines_visible: bool = true
 var _last_query_truncated: bool = false
 var _last_query_candidate_count: int = 0
 var _last_grid_line_count: int = 0
@@ -1102,6 +1103,34 @@ func clear_selection() -> void:
 ## @return 稳定 ID 列表。
 func get_selection() -> PackedStringArray:
 	return _selected_ids.duplicate()
+
+
+## 设置是否绘制已选条目的默认矩形轮廓。
+##
+## 默认开启，可在入树前配置。只影响已选条目轮廓，不改变选择集合、选择信号、
+## 点选、框选输入、拖拽框、网格或放置预览；值变化后请求覆盖层重绘。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param outlines_visible: 是否显示已选条目的默认轮廓。
+func set_selected_item_outlines_visible(outlines_visible: bool) -> void:
+	if _selected_item_outlines_visible == outlines_visible:
+		return
+	_selected_item_outlines_visible = outlines_visible
+	_request_overlay_redraw()
+
+
+## 获取已选条目的默认矩形轮廓显示配置。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return: 是否启用已选条目轮廓，默认 true。
+func are_selected_item_outlines_visible() -> bool:
+	return _selected_item_outlines_visible
 
 
 # --- 公共方法（放置） ---
@@ -2755,6 +2784,8 @@ func _draw_grid_overlay(target: Control) -> void:
 
 
 func _draw_selection_overlay(target: Control) -> void:
+	if not _selected_item_outlines_visible:
+		return
 	var color: Color = Color(0.25, 0.72, 1.0, 0.95)
 	for item_text: String in _selected_ids:
 		var item_id: StringName = StringName(item_text)

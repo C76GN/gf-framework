@@ -538,6 +538,76 @@ func test_selection_modes_rect_selection_and_item_removal_are_consistent() -> vo
 	assert_eq(canvas.get_selection(), PackedStringArray(["b"]), "移除条目必须同步清理选择。")
 
 
+func test_selected_item_outlines_visibility_can_be_configured_before_tree_entry() -> void:
+	var canvas: GFSpatialCanvas2D = GFSpatialCanvas2D.new()
+	var _autofree_canvas: Variant = autofree(canvas)
+	assert_true(canvas.are_selected_item_outlines_visible())
+	canvas.set_selected_item_outlines_visible(false)
+	canvas.set_selected_item_outlines_visible(false)
+	assert_false(canvas.are_selected_item_outlines_visible())
+	add_child(canvas)
+	assert_false(
+		canvas.are_selected_item_outlines_visible(),
+		"入树前关闭的条目轮廓不应被运行时节点初始化重置。"
+	)
+	canvas.set_selected_item_outlines_visible(true)
+	assert_true(canvas.are_selected_item_outlines_visible())
+
+
+func test_selected_item_outlines_visibility_preserves_selection_signals_and_drag_capture() -> void:
+	var canvas: GFSpatialCanvas2D = _make_canvas(Vector2(100.0, 100.0))
+	assert_true(canvas.set_view(Vector2(50.0, 50.0), 1.0))
+	assert_true(canvas.upsert_item(&"a", Rect2(10.0, 10.0, 10.0, 10.0)))
+	assert_true(canvas.upsert_item(&"b", Rect2(50.0, 10.0, 10.0, 10.0)))
+	var emitted: Array[PackedStringArray] = []
+	var _selection_connected: int = canvas.selection_changed.connect(
+		func(ids: PackedStringArray) -> void:
+			emitted.append(ids)
+	)
+	assert_eq(canvas.select_point(Vector2(15.0, 15.0)), PackedStringArray(["a"]))
+	canvas.set_selected_item_outlines_visible(false)
+	assert_eq(canvas.get_selection(), PackedStringArray(["a"]), "关闭轮廓应保留当前选择。")
+	assert_eq(emitted.size(), 1, "显示开关不得发出选择变化信号。")
+	assert_eq(
+		canvas.handle_input_event(_mouse_button(MOUSE_BUTTON_LEFT, Vector2(55.0, 15.0), true)),
+		GFSpatialCanvas2D.InputDisposition.CONSUMED
+	)
+	assert_eq(
+		canvas.handle_input_event(_mouse_button(MOUSE_BUTTON_LEFT, Vector2(55.0, 15.0), false)),
+		GFSpatialCanvas2D.InputDisposition.CONSUMED
+	)
+	assert_eq(canvas.get_selection(), PackedStringArray(["b"]), "关闭条目轮廓后仍应正常点选。")
+	assert_eq(
+		canvas.handle_input_event(_mouse_button(MOUSE_BUTTON_LEFT, Vector2(5.0, 5.0), true)),
+		GFSpatialCanvas2D.InputDisposition.CONSUMED
+	)
+	var motion: InputEventMouseMotion = InputEventMouseMotion.new()
+	motion.position = Vector2(75.0, 30.0)
+	assert_eq(canvas.handle_input_event(motion), GFSpatialCanvas2D.InputDisposition.CONSUMED)
+	assert_true(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	canvas.set_selected_item_outlines_visible(true)
+	canvas.set_selected_item_outlines_visible(false)
+	assert_true(
+		GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"),
+		"拖拽期间切换条目轮廓不得释放输入捕获。"
+	)
+	assert_eq(emitted.size(), 2, "显示开关不得提前提交框选。")
+	assert_eq(
+		canvas.handle_input_event(_mouse_button(MOUSE_BUTTON_LEFT, motion.position, false)),
+		GFSpatialCanvas2D.InputDisposition.CONSUMED
+	)
+	assert_eq(canvas.get_selection(), PackedStringArray(["a", "b"]))
+	assert_eq(
+		emitted,
+		[PackedStringArray(["a"]), PackedStringArray(["b"]), PackedStringArray(["a", "b"])],
+		"点选和框选仍应各发出一次实际选择变化。"
+	)
+	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	canvas.set_selected_item_outlines_visible(true)
+	assert_eq(canvas.get_selection(), PackedStringArray(["a", "b"]))
+	assert_eq(emitted.size(), 3, "恢复条目轮廓不得重复发布现有选择。")
+
+
 func test_selection_results_and_signals_are_copy_isolated() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
 	assert_true(canvas.upsert_item(&"a", Rect2(Vector2.ZERO, Vector2.ONE)))

@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "b75c350883fcbce6dc318b33406654b05c657e6c7b2dcd44b5003bd6983cc168",
+  "source_digest": "4ae08e3f6b964cbd07f98d4de0f6268a91893d74e8b712f122fae74522ec42b8",
   "class_count": 859,
   "autoload_count": 1,
   "package_count": 59,
@@ -83209,6 +83209,20 @@
           "name": "get_selection",
           "signature": "func get_selection() -> PackedStringArray",
           "summary": "获取选择集合隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_selected_item_outlines_visible",
+          "signature": "func set_selected_item_outlines_visible(outlines_visible: bool) -> void",
+          "summary": "设置是否绘制已选条目的默认矩形轮廓。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "are_selected_item_outlines_visible",
+          "signature": "func are_selected_item_outlines_visible() -> bool",
+          "summary": "获取已选条目的默认矩形轮廓显示配置。",
           "visibility": "public"
         },
         {

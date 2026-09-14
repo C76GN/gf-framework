@@ -107,6 +107,18 @@ var selected_ids := canvas.set_selection(
 
 `exact_hit` 是同步、受信的项目回调。回调只应做快速纯判断，不应重入画布、执行 IO 或承载任意项目载荷；已配置但目标失效的回调会失败关闭。
 
+### 已选条目的默认轮廓
+
+画布默认根据已选条目的世界边界绘制矩形轮廓。项目采用圆形标记、动画或其他选中装饰时，可独立关闭这一默认视觉：
+
+```gdscript
+canvas.set_selected_item_outlines_visible(false)
+```
+
+`are_selected_item_outlines_visible()` 返回当前配置；开关默认 `true`，支持入树前设置。切换只请求重绘，不修改选择集合或发出 `selection_changed`，也不影响点选、框选、拖拽框、网格和放置预览。重新开启会显示当前选择的轮廓。
+
+自定义选中装饰由项目通过 `selection_changed`、`get_selection()` 与 `get_content_root()` 维护，无需覆写画布的私有绘图方法。
+
 ## 受控放置会话
 
 放置会话保存稳定类型 ID、局部边界、世界位置、旋转和吸附选项。项目可以提供同步校验器与历史 Hook；只有校验和历史 Hook 都接受后，`commit_placement()` 才返回成功并结束会话。
