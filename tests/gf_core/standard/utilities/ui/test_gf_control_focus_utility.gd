@@ -49,6 +49,24 @@ func test_collect_focusable_controls_filters_hidden_disabled_and_focus_none() ->
 	assert_eq(limited_controls, [limited_active_button], "limit 应作用于过滤后的可聚焦结果。")
 
 
+func test_collect_focusable_controls_respects_recursive_focus_overrides() -> void:
+	var root: Control = Control.new()
+	var blocked_input: LineEdit = LineEdit.new()
+	var enabled_branch: Control = Control.new()
+	var allowed_input: LineEdit = LineEdit.new()
+	root.focus_behavior_recursive = Control.FOCUS_BEHAVIOR_DISABLED
+	enabled_branch.focus_behavior_recursive = Control.FOCUS_BEHAVIOR_ENABLED
+	root.add_child(blocked_input)
+	root.add_child(enabled_branch)
+	enabled_branch.add_child(allowed_input)
+	add_child_autofree(root)
+
+	var controls: Array[Control] = GF_CONTROL_FOCUS_UTILITY_SCRIPT.collect_focusable_controls(root)
+
+	assert_eq(controls, [allowed_input], "资格应采用引擎的递归焦点覆盖规则。")
+	assert_eq(blocked_input.focus_mode, Control.FOCUS_ALL, "局部模式仍允许焦点，禁用来自祖先。")
+
+
 func test_apply_focus_order_wires_tab_and_vertical_neighbors() -> void:
 	var root: VBoxContainer = VBoxContainer.new()
 	var first_button: Button = _make_button("First")
