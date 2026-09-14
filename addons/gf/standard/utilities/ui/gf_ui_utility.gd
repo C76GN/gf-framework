@@ -158,6 +158,10 @@ var _panel_options: Dictionary = {}
 # 面板实例 id 到打开前焦点控件的映射。
 var _previous_focus_by_panel_id: Dictionary = {}
 
+# 每次入栈都取得独立身份；同一节点关闭后重开也不会延续旧聚焦遍历。
+var _panel_open_serials: Dictionary = {}
+var _next_panel_open_serial: int = 1
+
 # 每个层级的结构性变更序号，用于阻止迟到异步回调污染新状态。
 var _layer_request_serials: Dictionary = {}
 
@@ -204,6 +208,7 @@ func dispose() -> void:
 		stack.clear()
 	_panel_options.clear()
 	_previous_focus_by_panel_id.clear()
+	_panel_open_serials.clear()
 	_pending_async_push_serials.clear()
 	_pending_async_panel_requests.clear()
 
@@ -472,7 +477,7 @@ func push_panel_async_with_options(
 			_finish_async_panel_request(async_request_key, AsyncPanelLoadStatus.OPENED, panel_instance)
 		else:
 			_finish_async_panel_request(async_request_key, AsyncPanelLoadStatus.FAILED, null)
-			if is_instance_valid(panel_instance):
+			if is_instance_valid(panel_instance) and not _is_panel_in_any_stack(panel_instance):
 				panel_instance.queue_free()
 
 	asset_util.load_async(path, on_loaded, "PackedScene")
@@ -526,7 +531,7 @@ func push_panel_with_options(
 
 	var panel_instance: Node = scene.instantiate()
 	if not _add_panel_instance(panel_instance, layer, config_callback, options):
-		if is_instance_valid(panel_instance):
+		if is_instance_valid(panel_instance) and not _is_panel_in_any_stack(panel_instance):
 			panel_instance.queue_free()
 		return null
 
@@ -707,7 +712,7 @@ func replace_layer_async_with_options(
 			_finish_async_panel_request(async_request_key, AsyncPanelLoadStatus.OPENED, panel_instance)
 		else:
 			_finish_async_panel_request(async_request_key, AsyncPanelLoadStatus.FAILED, null)
-			if is_instance_valid(panel_instance):
+			if is_instance_valid(panel_instance) and not _is_panel_in_any_stack(panel_instance):
 				panel_instance.queue_free()
 
 	asset_util.load_async(path, on_loaded, "PackedScene")
@@ -1189,7 +1194,7 @@ func _replace_layer_synchronously(
 	else:
 		_clear_layer_without_invalidating_requests(layer)
 	if not _add_panel_instance(panel_instance, layer, config_callback, options):
-		if is_instance_valid(panel_instance):
+		if is_instance_valid(panel_instance) and not _is_panel_in_any_stack(panel_instance):
 			panel_instance.queue_free()
 		return null
 
@@ -1469,22 +1474,25 @@ func _add_panel_instance(
 		canvas.add_child(panel)
 
 	stack.push_back(panel)
+	var open_serial: int = _next_panel_open_serial
+	_next_panel_open_serial += 1
+	_panel_open_serials[panel.get_instance_id()] = open_serial
 	_panel_options[panel.get_instance_id()] = normalized_options
 	var _tree_exited_connected: Error = panel.tree_exited.connect(
 		_on_panel_tree_exited.bind(panel, layer),
 		CONNECT_ONE_SHOT as Object.ConnectFlags
 	) as Error
 	_sync_layer_visibility(layer)
-	if _get_valid_panel_from_variant(panel) == null or not _get_layer_stack(layer).has(panel):
+	if _get_valid_panel_from_variant(panel) == null or not _is_panel_open_current(panel, layer, open_serial):
 		return false
 	_apply_open_focus_policy(panel, normalized_options)
-	if _get_valid_panel_from_variant(panel) == null or not _get_layer_stack(layer).has(panel):
+	if _get_valid_panel_from_variant(panel) == null or not _is_panel_open_current(panel, layer, open_serial):
 		return false
 	panel_opened.emit(panel, layer)
-	if not _get_layer_stack(layer).has(panel):
+	if not is_instance_valid(panel) or not _is_panel_open_current(panel, layer, open_serial):
 		return false
 	_emit_navigation_changed(layer)
-	return _get_valid_panel_from_variant(panel) != null and _get_layer_stack(layer).has(panel)
+	return _get_valid_panel_from_variant(panel) != null and _is_panel_open_current(panel, layer, open_serial)
 
 
 func _prune_all_layer_stacks() -> void:
@@ -1611,6 +1619,7 @@ func _apply_open_focus_policy(panel: Node, options: Dictionary) -> void:
 
 func _handle_panel_closed(panel: Node) -> void:
 	var panel_id: int = panel.get_instance_id()
+	var _serial_erased: bool = _panel_open_serials.erase(panel_id)
 	var options: Dictionary = _get_panel_options_for_id(panel_id)
 	if GFVariantData.get_option_bool(options, "restore_focus_on_close", false):
 		_restore_previous_focus(panel_id)
@@ -1630,11 +1639,12 @@ func _restore_previous_focus(panel_id: int) -> void:
 func _focus_first_control(panel: Node) -> bool:
 	if not is_instance_valid(panel):
 		return false
-	return _focus_first_control_in_branch(panel, panel, _find_panel_layer(panel))
+	var open_serial: int = GFVariantData.get_option_int(_panel_open_serials, panel.get_instance_id())
+	return _focus_first_control_in_branch(panel, panel, _find_panel_layer(panel), open_serial)
 
 
-func _focus_first_control_in_branch(root: Node, panel: Node, layer: int) -> bool:
-	if not is_instance_valid(panel) or not _is_current_focus_panel(panel, layer):
+func _focus_first_control_in_branch(root: Node, panel: Node, layer: int, open_serial: int) -> bool:
+	if not is_instance_valid(panel) or not _is_current_focus_panel(panel, layer, open_serial):
 		return false
 	if not is_instance_valid(root) or root.is_queued_for_deletion() or not _is_descendant_of(root, panel):
 		return false
@@ -1642,25 +1652,34 @@ func _focus_first_control_in_branch(root: Node, panel: Node, layer: int) -> bool
 		var control: Control = root
 		if _can_focus_control(control):
 			control.grab_focus()
-			if not is_instance_valid(panel) or not _is_current_focus_panel(panel, layer):
+			if not is_instance_valid(panel) or not _is_current_focus_panel(panel, layer, open_serial):
 				return false
-			if not is_instance_valid(control):
-				return false
-			if _can_focus_control(control) and _is_descendant_of(control, panel) and control.has_focus():
+			var focused: Control = panel.get_viewport().gui_get_focus_owner()
+			if _can_focus_control(focused) and _is_descendant_of(focused, panel):
 				return true
 
 	if not is_instance_valid(root) or root.is_queued_for_deletion() or not _is_descendant_of(root, panel):
 		return false
 	for child: Node in root.get_children():
-		if not is_instance_valid(panel) or not _is_current_focus_panel(panel, layer):
+		if not is_instance_valid(panel) or not _is_current_focus_panel(panel, layer, open_serial):
 			return false
-		if is_instance_valid(child) and _focus_first_control_in_branch(child, panel, layer):
+		if is_instance_valid(child) and _focus_first_control_in_branch(child, panel, layer, open_serial):
 			return true
 	return false
 
 
-func _is_current_focus_panel(panel: Node, layer: int) -> bool:
-	if not is_instance_valid(panel) or not panel.is_inside_tree() or panel.is_queued_for_deletion():
+func _is_panel_open_current(panel: Node, layer: int, open_serial: int) -> bool:
+	if not is_instance_valid(panel):
+		return false
+	if open_serial <= 0 or GFVariantData.get_option_int(_panel_open_serials, panel.get_instance_id()) != open_serial:
+		return false
+	return _get_layer_stack(layer).has(panel)
+
+
+func _is_current_focus_panel(panel: Node, layer: int, open_serial: int) -> bool:
+	if not _is_panel_open_current(panel, layer, open_serial):
+		return false
+	if not panel.is_inside_tree() or panel.is_queued_for_deletion():
 		return false
 	var stack: Array = _get_layer_stack(layer)
 	return not stack.is_empty() and _get_valid_panel_from_variant(stack.back()) == panel

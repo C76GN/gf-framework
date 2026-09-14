@@ -911,6 +911,22 @@ func test_push_panel_async_fails_when_panel_opened_listener_frees_panel() -> voi
 	assert_eq(navigation_tops, [null], "同步释放路径应只报告一次最终空栈导航。")
 
 
+func test_loaded_sync_push_preserves_panel_reopened_during_focus() -> void:
+	await _assert_loaded_panel_survives_focus_reopen(false, false)
+
+
+func test_loaded_sync_replace_preserves_panel_reopened_during_focus() -> void:
+	await _assert_loaded_panel_survives_focus_reopen(false, true)
+
+
+func test_loaded_async_push_preserves_panel_reopened_during_focus() -> void:
+	await _assert_loaded_panel_survives_focus_reopen(true, false)
+
+
+func test_loaded_async_replace_preserves_panel_reopened_during_focus() -> void:
+	await _assert_loaded_panel_survives_focus_reopen(true, true)
+
+
 func test_push_panel_async_sync_fallback_prebinds_callback_before_telemetry() -> void:
 	var events: Array[StringName] = []
 	var state: Dictionary = {}
@@ -1284,6 +1300,78 @@ func _ui_panel_async_operation(value: Variant) -> GFUIPanelAsyncOperation:
 		var operation_handle: GFUIPanelAsyncOperation = value
 		return operation_handle
 	return null
+
+
+func _assert_loaded_panel_survives_focus_reopen(use_async: bool, replace: bool) -> void:
+	var asset_util: ManualAssetUtility = null
+	if use_async:
+		_arch = GFArchitecture.new()
+		asset_util = ManualAssetUtility.new()
+		await _arch.register_utility_instance(asset_util)
+		await Gf.set_architecture(_arch)
+	var reopened_panels: Array[Node] = []
+	var opened_panels: Array[Node] = []
+	var record_opened: Callable = func(panel: Node, _layer: int) -> void:
+		opened_panels.append(panel)
+	var _opened_connected: int = _ui_utility.panel_opened.connect(record_opened)
+	var configure: Callable = func(panel: Node) -> void:
+		var button_node: Node = panel.get_node("Button")
+		assert_true(button_node is Button, "复用加载 fixture 的原生 Button。")
+		if not button_node is Button:
+			return
+		var button: Button = button_node
+		var reopen: Callable = func() -> void:
+			_ui_utility.pop_panel(GFUIUtility.Layer.POPUP, false)
+			_ui_utility.push_panel_instance_with_options(panel, GFUIUtility.Layer.POPUP, {
+				"modal": true,
+				"focus_on_open": false,
+			})
+			reopened_panels.append(panel)
+		var _focus_connected: int = button.focus_entered.connect(reopen, CONNECT_ONE_SHOT)
+	var options: Dictionary = {"modal": true, "focus_on_open": true}
+	if use_async:
+		var operation: GFUIPanelAsyncOperation
+		if replace:
+			operation = _ui_utility.replace_layer_async_with_options(
+				_PANEL_SCENE_PATH, GFUIUtility.Layer.POPUP, options, configure
+			)
+		else:
+			operation = _ui_utility.push_panel_async_with_options(
+				_PANEL_SCENE_PATH, GFUIUtility.Layer.POPUP, options, configure
+			)
+		assert_true(operation.is_pending())
+		asset_util.resolve(_PANEL_SCENE_PATH, load(_PANEL_SCENE_PATH))
+		assert_true(operation.is_completed())
+		assert_eq(operation.get_status(), GFUIUtility.AsyncPanelLoadStatus.CANCELLED,
+			"显式 pop 按原合同取消旧请求，重开不得把旧句柄改报 OPENED。")
+		assert_null(operation.get_panel())
+		assert_false(_ui_utility.has_pending_async_panel(GFUIUtility.Layer.POPUP, _PANEL_SCENE_PATH))
+	else:
+		var result: Node
+		if replace:
+			result = _ui_utility.replace_layer_with_options(
+				_PANEL_SCENE_PATH, GFUIUtility.Layer.POPUP, options, configure
+			)
+		else:
+			result = _ui_utility.push_panel_with_options(
+				_PANEL_SCENE_PATH, GFUIUtility.Layer.POPUP, options, configure
+			)
+		assert_null(result, "旧打开操作应失败，不得把重开后的生命周期作为旧结果返回。")
+	assert_eq(reopened_panels.size(), 1)
+	assert_eq(opened_panels, reopened_panels, "焦点回调重开后，只应公布新生命周期的一次打开。")
+	if reopened_panels.size() != 1:
+		_ui_utility.panel_opened.disconnect(record_opened)
+		return
+	var reopened: Node = reopened_panels[0]
+	assert_true(is_instance_valid(reopened))
+	assert_false(reopened.is_queued_for_deletion(), "旧加载入口不能释放回调已重新入栈的同一实例。")
+	assert_same(_ui_utility.get_top_panel(GFUIUtility.Layer.POPUP), reopened)
+	await get_tree().process_frame
+	assert_true(is_instance_valid(reopened), "新生命周期的面板应跨帧存活。")
+	if is_instance_valid(reopened):
+		assert_true(_ui_utility.is_panel_open(reopened))
+		assert_same(_ui_utility.get_top_panel(GFUIUtility.Layer.POPUP), reopened)
+	_ui_utility.panel_opened.disconnect(record_opened)
 
 
 func _make_control_scene() -> PackedScene:

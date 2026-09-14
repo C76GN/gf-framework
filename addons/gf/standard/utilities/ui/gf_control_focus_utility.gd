@@ -205,12 +205,12 @@ static func get_next_focus_control(
 	var ordered_controls: Array[Control] = _normalize_controls(controls, {})
 	if ordered_controls.is_empty():
 		return null
+	if step == 0 and current != null and controls.has(current):
+		return current if is_focusable_control_for_framework(current) else null
 
 	var current_index: int = ordered_controls.find(current)
 	if current_index < 0:
 		return ordered_controls[0] if step >= 0 else ordered_controls[ordered_controls.size() - 1]
-	if step == 0:
-		return current if is_focusable_control_for_framework(current) else null
 
 	var target_index: int = current_index + step
 	if wrap_enabled:

@@ -39,6 +39,7 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- [Modal 聚焦回调](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-stack-modal/modal-protocol.md) 转交焦点后保留面板内的有效目标；同一面板关闭后重开会终止旧聚焦与打开通知。[焦点顺序](standard/utilities/runtime/settings-ui-scene/settings-display/control-focus-order.md) 的零步查询在当前控件失去资格时返回空，不再意外选中其他控件。
 - [Modal 自动聚焦](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-stack-modal/modal-protocol.md) 跳过隐藏祖先、递归焦点禁用、禁用按钮和待释放目标；打开聚焦在面板显示后执行，返回值与实际焦点修正一致，并在聚焦回调关闭或替换面板时停止原目标遍历。
 - 静态缩略图保留九宫格边距、3D 绘制标志、灯光参数及 Mesh 表面材质覆盖，读取节点名称时也不触发来源脚本；MeshLibrary 任一待生成条目失败时整项计划失败并保留条目原因，避免应用部分预览。
 - 配置数组在类型转换前的元素准入也受共享预算约束，非法记录消耗已预留额度，超限时不扫描数组或批量生成逐元素诊断。

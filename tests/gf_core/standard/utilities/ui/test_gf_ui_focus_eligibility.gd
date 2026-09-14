@@ -260,6 +260,89 @@ func test_recovery_rechecks_queued_ancestor_of_current_focus() -> void:
 	assert_same(get_viewport().gui_get_focus_owner(), visible_input)
 
 
+func test_recovery_preserves_callback_redirect_to_later_eligible_control() -> void:
+	var outside: LineEdit = _make_outside_input()
+	var panel: Control = Control.new()
+	var first_input: Button = Button.new()
+	var middle_input: Button = Button.new()
+	var redirected_input: Button = Button.new()
+	panel.add_child(first_input)
+	panel.add_child(middle_input)
+	panel.add_child(redirected_input)
+	_ui.push_panel_instance_with_options(panel, GFUIUtility.Layer.POPUP, {
+		"modal": true,
+		"focus_on_open": false,
+	})
+	var _connected: int = first_input.focus_entered.connect(
+		redirected_input.grab_focus,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	)
+	outside.grab_focus()
+
+	assert_true(_ui.keep_focus_inside_top_modal())
+	assert_same(get_viewport().gui_get_focus_owner(), redirected_input)
+	await get_tree().process_frame
+	assert_same(get_viewport().gui_get_focus_owner(), redirected_input)
+
+
+func test_recovery_stops_when_callback_reopens_same_panel_without_open_focus() -> void:
+	var outside: LineEdit = _make_outside_input()
+	outside.grab_focus()
+	var panel: Control = Control.new()
+	var reopening_input: LineEdit = LineEdit.new()
+	var stale_sibling: LineEdit = LineEdit.new()
+	panel.add_child(reopening_input)
+	panel.add_child(stale_sibling)
+	var options: Dictionary = {"modal": true, "focus_on_open": false}
+	_ui.push_panel_instance_with_options(panel, GFUIUtility.Layer.POPUP, options)
+	var reopen_panel: Callable = func() -> void:
+		_ui.pop_panel(GFUIUtility.Layer.POPUP, false)
+		_ui.push_panel_instance_with_options(panel, GFUIUtility.Layer.POPUP, options)
+	var _connected: int = reopening_input.focus_entered.connect(
+		reopen_panel,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	)
+	outside.grab_focus()
+
+	assert_false(_ui.keep_focus_inside_top_modal(), "同实例重新打开也结束了原面板生命周期。")
+	assert_same(_ui.get_top_panel(GFUIUtility.Layer.POPUP), panel)
+	assert_false(stale_sibling.has_focus(), "重新打开时关闭自动聚焦，不得继续旧遍历。")
+	await get_tree().process_frame
+	assert_false(stale_sibling.has_focus())
+
+
+func test_open_focus_does_not_publish_old_open_after_same_panel_reopens() -> void:
+	var outside: LineEdit = _make_outside_input()
+	outside.grab_focus()
+	var panel: Control = Control.new()
+	var reopening_input: LineEdit = LineEdit.new()
+	panel.add_child(reopening_input)
+	var opened_panels: Array[Node] = []
+	var record_open: Callable = func(opened: Node, _layer: int) -> void:
+		opened_panels.append(opened)
+	var _open_connected: int = _ui.panel_opened.connect(record_open)
+	var reopen_panel: Callable = func() -> void:
+		_ui.pop_panel(GFUIUtility.Layer.POPUP, false)
+		_ui.push_panel_instance_with_options(panel, GFUIUtility.Layer.POPUP, {
+			"modal": true,
+			"focus_on_open": false,
+		})
+	var _focus_connected: int = reopening_input.focus_entered.connect(
+		reopen_panel,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	)
+
+	_ui.push_panel_instance_with_options(panel, GFUIUtility.Layer.POPUP, {
+		"modal": true,
+		"focus_on_open": true,
+	})
+	assert_same(_ui.get_top_panel(GFUIUtility.Layer.POPUP), panel)
+	assert_eq(opened_panels, [panel], "只应发布重开后的生命周期，不重复发布已结束的打开。")
+	await get_tree().process_frame
+	assert_eq(opened_panels, [panel])
+	_ui.panel_opened.disconnect(record_open)
+
+
 # --- 私有/辅助方法 ---
 
 func _make_outside_input() -> LineEdit:
