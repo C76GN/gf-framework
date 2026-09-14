@@ -633,18 +633,22 @@ func ensure_layout_for_framework() -> Error:
 	return _ensure_directory(version_root.path_join("families"))
 
 
-## 仅在不存在 private layout 时显式创建 schema 2；不迁移已有存储。
+## 显式创建 schema 2，或续建严格空前缀 / 一致完整的 schema 2 layout pending；不迁移已有存储。
 ## [br]
 ## @api framework_internal
 ## [br]
-## @return 已有 private root 时返回 ERR_ALREADY_EXISTS；默认 ensure 仍创建 schema 1。
+## @return 已有 layout 或其他非空证据返回 ERR_ALREADY_EXISTS；损坏证据失败关闭，默认 ensure 仍创建 schema 1。
 func create_revision_layout_for_framework() -> Error:
 	if _storage_root_path.is_empty():
 		return ERR_INVALID_PARAMETER
 	var private_root: String = _join_storage_root(_storage_root_path, _PRIVATE_ROOT_NAME)
-	if _path_leaf_exists(private_root):
-		return ERR_ALREADY_EXISTS
-	_creation_incarnation = GFUuid.generate_v4()
+	var prefix: Dictionary = _inspect_revision_creation_prefix(private_root)
+	var prefix_error: Error = GFVariantData.get_option_int(prefix, "error", ERR_FILE_CORRUPT) as Error
+	if prefix_error != OK:
+		return prefix_error
+	_creation_incarnation = GFVariantData.get_option_string(prefix, "incarnation")
+	if _creation_incarnation.is_empty():
+		_creation_incarnation = GFUuid.generate_v4()
 	var result: Error = ensure_layout_for_framework()
 	_creation_incarnation = ""
 	return result
@@ -1105,6 +1109,51 @@ static func _make_layout_manifest() -> Dictionary:
 		"identity_algorithm": _IDENTITY_ALGORITHM,
 		"private_namespace": _PRIVATE_ROOT_NAME,
 	}
+
+
+func _inspect_revision_creation_prefix(private_root: String) -> Dictionary:
+	# Utility 在进入前验证 user:// 到 private root 的所有祖先；这里不跟随待续建目录或记录的链接。
+	if _path_leaf_is_link(private_root):
+		return {"error": ERR_FILE_CORRUPT}
+	if not _path_leaf_exists(private_root):
+		return {"error": OK}
+	if not DirAccess.dir_exists_absolute(private_root):
+		return {"error": ERR_FILE_CORRUPT}
+	var private_entries: Dictionary = _read_directory_entries_bounded(private_root, _MAX_RESET_LAYOUT_INSPECTION_ENTRIES)
+	var private_error: Error = GFVariantData.get_option_int(private_entries, "error", ERR_FILE_CORRUPT) as Error
+	if private_error != OK:
+		return {"error": private_error}
+	var private_names: Array = GFVariantData.get_option_array(private_entries, "names")
+	if private_names.is_empty():
+		return {"error": OK}
+	if private_names != ["v%d" % _LAYOUT_VERSION]:
+		return {"error": ERR_ALREADY_EXISTS}
+	var version_root: String = private_root.path_join("v%d" % _LAYOUT_VERSION)
+	if _path_leaf_is_link(version_root) or not DirAccess.dir_exists_absolute(version_root):
+		return {"error": ERR_FILE_CORRUPT}
+	var version_entries: Dictionary = _read_directory_entries_bounded(version_root, _MAX_RESET_LAYOUT_INSPECTION_ENTRIES)
+	var version_error: Error = GFVariantData.get_option_int(version_entries, "error", ERR_FILE_CORRUPT) as Error
+	if version_error != OK:
+		return {"error": version_error}
+	var incarnation: String = ""
+	for entry: String in GFVariantData.get_option_array(version_entries, "names"):
+		if not _is_publish_pending_leaf(entry, "layout.json"):
+			return {"error": ERR_ALREADY_EXISTS}
+		var pending_path: String = version_root.path_join(entry)
+		if _path_leaf_is_link(pending_path) or not FileAccess.file_exists(pending_path):
+			return {"error": ERR_FILE_CORRUPT}
+		var pending_read: Dictionary = _read_json_dictionary(pending_path)
+		if not GFVariantData.get_option_bool(pending_read, "ok"):
+			return {"error": GFVariantData.get_option_int(pending_read, "error", ERR_FILE_CORRUPT)}
+		var pending_layout: Dictionary = GFVariantData.get_option_dictionary(pending_read, "data")
+		var pending_incarnation: String = GFVariantData.get_option_string(pending_layout, "storage_incarnation")
+		if not _is_valid_layout_manifest(pending_layout) or pending_incarnation.is_empty():
+			return {"error": ERR_FILE_CORRUPT}
+		if not incarnation.is_empty() and incarnation != pending_incarnation:
+			return {"error": ERR_FILE_CORRUPT}
+		incarnation = pending_incarnation
+	# 在所有候选均验证成功前，不发布 layout、不删除 pending，也不生成替代 incarnation。
+	return {"error": OK, "incarnation": incarnation}
 
 
 static func _is_valid_layout_manifest(manifest: Dictionary) -> bool:

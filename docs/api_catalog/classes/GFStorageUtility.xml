@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="c80a367ceda4da3acc44b878dc3a0e6300af4e7396f65b7db93cebe7ad08cb59">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="97690f07ddf1576102cbe5e1f557f32d9a58d5c15b223c87a28ca598ed21a3e3">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
@@ -327,7 +327,9 @@ token 仅描述顶层存储文件，不覆盖 Resource 外部依赖或返回后�
 		<member kind="method" name="create_revision_storage">
 			<signature>func create_revision_storage() -&gt; Error:</signature>
 			<description>显式创建支持 committed revision 的 schema 2 存储。
-必须在首次 init、读写或查询之前调用；已有 private root 返回 ERR_ALREADY_EXISTS。
+必须在首次 init、读写或查询之前调用；已有 layout 或其他非空证据返回 ERR_ALREADY_EXISTS。
+创建中断后可先重试此入口，续建严格空前缀或一致完整的 schema 2 layout pending；损坏证据失败关闭。
+空目录不能证明 schema 2 意图，创建未成功前不要先调用普通初始化或 I/O。
 旧存储需离线迁移；普通初始化仍创建 schema 1，不会暗中升级。</description>
 			<tags>
 				<tag name="api">public</tag>

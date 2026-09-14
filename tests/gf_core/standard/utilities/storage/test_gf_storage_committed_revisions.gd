@@ -2,6 +2,11 @@
 extends GutTest
 
 
+# --- 常量 ---
+
+const _GF_TEST_DIRECTORY_LINK_FIXTURE = preload("res://tests/gf_core/support/gf_test_directory_link_fixture.gd")
+
+
 # --- 私有变量 ---
 
 var _storage: GFStorageUtility
@@ -93,6 +98,195 @@ func test_equal_payload_rewrite_multiple_owners_delete_and_recreate_rotate_token
 	assert_eq(_storage.query_committed_revision("same.json").get_status(), GFStorageRevisionResult.Status.NOT_FOUND)
 	assert_eq(_storage.save_data("same.json", {"value": 1}), OK)
 	assert_ne(_token("same.json"), second, "删除重建不能复用旧代次。")
+
+
+func test_creation_retry_after_interruption_before_pending_write_uses_a_fresh_owner() -> void:
+	var interrupted: _CreationBeforePendingFailureStore = _CreationBeforePendingFailureStore.new()
+	_storage._family_store = interrupted
+	assert_eq(_storage.create_revision_storage(), ERR_FILE_CANT_WRITE)
+	assert_true(interrupted.reached_layout_publish, "故障必须发生在真实 ensure 已创建 v1、尚未写 pending 的窗口。")
+	var version_root: String = _storage_root.path_join(".gf-storage/v1")
+	assert_true(DirAccess.dir_exists_absolute(version_root))
+	assert_eq(DirAccess.get_files_at(version_root), PackedStringArray())
+	assert_eq(DirAccess.get_directories_at(version_root), PackedStringArray())
+	_replace_storage(GFStorageUtility.new())
+	assert_eq(_storage.create_revision_storage(), OK, "新 owner 应能显式续建未写入任何 layout 的空前缀。")
+	assert_eq(_storage.save_data("resumed.json", {"value": 1}), OK)
+	assert_true(_storage.query_committed_revision("resumed.json").is_successful())
+
+
+func test_creation_retry_accepts_an_empty_private_root() -> void:
+	assert_eq(DirAccess.make_dir_recursive_absolute(_storage_root.path_join(".gf-storage")), OK)
+	assert_eq(_storage.create_revision_storage(), OK)
+	assert_eq(_storage.save_data("resumed.json", {"value": 1}), OK)
+	assert_true(_storage.query_committed_revision("resumed.json").is_successful())
+
+
+func test_creation_retry_preserves_all_agreeing_complete_pending_incarnations() -> void:
+	var version_root: String = _storage_root.path_join(".gf-storage/v1")
+	assert_eq(DirAccess.make_dir_recursive_absolute(version_root), OK)
+	var layout: Dictionary = GFStorageFamilyStore.make_revision_upgrade_layout_for_framework(GFUuid.generate_v4())
+	var expected: PackedByteArray = JSON.stringify(layout, "\t").to_utf8_buffer()
+	var pending_paths: Array[String] = []
+	for _index: int in range(2):
+		var pending_path: String = version_root.path_join("layout.json.pending-" + GFUuid.generate_v4())
+		pending_paths.append(pending_path)
+		assert_eq(_write_bytes(pending_path, expected), OK)
+	assert_eq(_storage.create_revision_storage(), OK)
+	var layout_path: String = version_root.path_join("layout.json")
+	assert_true(FileAccess.file_exists(layout_path))
+	if FileAccess.file_exists(layout_path):
+		assert_eq(FileAccess.get_file_as_bytes(layout_path), expected, "续建必须复用已有 incarnation。")
+	for pending_path: String in pending_paths:
+		assert_false(FileAccess.file_exists(pending_path))
+	assert_eq(_storage.save_data("resumed.json", {"value": 1}), OK)
+	assert_true(_storage.query_committed_revision("resumed.json").is_successful())
+
+
+func test_empty_creation_prefix_does_not_change_ordinary_schema1_initialization() -> void:
+	for prefix: String in [".gf-storage", ".gf-storage/v1"]:
+		assert_eq(DirAccess.make_dir_recursive_absolute(_storage_root.path_join(prefix)), OK)
+		assert_eq(_storage.save_data("default.json", {"value": 1}), OK)
+		assert_eq(_storage.query_committed_revision("default.json").get_status(), GFStorageRevisionResult.Status.UNSUPPORTED)
+		assert_eq(_storage.create_revision_storage(), ERR_ALREADY_EXISTS)
+		_replace_storage(GFStorageUtility.new())
+		assert_eq(_remove_owned_tree(_storage_root), OK)
+
+
+func test_creation_retry_rejects_established_layouts_without_changing_data_or_incarnation() -> void:
+	for use_revisions: bool in [false, true]:
+		if use_revisions:
+			assert_eq(_storage.create_revision_storage(), OK)
+		assert_eq(_storage.save_data("existing.json", {"value": 7}), OK)
+		var layout_path: String = _storage_root.path_join(".gf-storage/v1/layout.json")
+		var layout_before: PackedByteArray = FileAccess.get_file_as_bytes(layout_path)
+		var revision_before: String = _storage.query_committed_revision("existing.json").get_revision()
+		_replace_storage(GFStorageUtility.new())
+		assert_eq(_storage.create_revision_storage(), ERR_ALREADY_EXISTS)
+		assert_eq(FileAccess.get_file_as_bytes(layout_path), layout_before)
+		assert_eq(_storage.query_committed_revision("existing.json").get_revision(), revision_before)
+		assert_eq(GFVariantData.get_option_int(_storage.load_data("existing.json").payload, "value"), 7)
+		_replace_storage(GFStorageUtility.new())
+		assert_eq(_remove_owned_tree(_storage_root), OK)
+
+
+func test_creation_retry_rejects_nonempty_or_mistyped_prefixes_without_removing_evidence() -> void:
+	for entry: String in [
+		".gf-storage", ".gf-storage/v1", ".gf-storage/unknown", ".gf-storage/.hidden",
+		".gf-storage/v1/unknown", ".gf-storage/v1/.hidden",
+		".gf-storage/v1/catalog/", ".gf-storage/v1/families/", ".gf-storage/v1/layout.json/",
+	]:
+		var entry_path: String = _storage_root.path_join(entry.trim_suffix("/"))
+		var is_directory: bool = entry.ends_with("/")
+		assert_eq(DirAccess.make_dir_recursive_absolute(entry_path if is_directory else entry_path.get_base_dir()), OK)
+		if not is_directory:
+			assert_eq(_write_text(entry_path, "unclaimed-evidence"), OK)
+		assert_ne(_storage.create_revision_storage(), OK, "不能接管 %s。" % entry)
+		if is_directory:
+			assert_true(DirAccess.dir_exists_absolute(entry_path))
+			assert_eq(DirAccess.get_files_at(entry_path), PackedStringArray())
+			assert_eq(DirAccess.get_directories_at(entry_path), PackedStringArray())
+		else:
+			assert_true(FileAccess.file_exists(entry_path))
+			assert_eq(FileAccess.get_file_as_string(entry_path), "unclaimed-evidence")
+		assert_false(FileAccess.file_exists(_storage_root.path_join(".gf-storage/v1/layout.json")))
+		_replace_storage(GFStorageUtility.new())
+		assert_eq(_remove_owned_tree(_storage_root), OK)
+
+
+func test_creation_retry_preserves_every_pending_when_any_candidate_is_invalid_or_conflicting() -> void:
+	for scenario: String in ["schema1", "malformed", "oversized", "extra-field", "conflicting", "invalid-leaf", "directory"]:
+		var version_root: String = _storage_root.path_join(".gf-storage/v1")
+		assert_eq(DirAccess.make_dir_recursive_absolute(version_root), OK)
+		var layout: Dictionary = GFStorageFamilyStore.make_revision_upgrade_layout_for_framework(GFUuid.generate_v4())
+		var first_path: String = version_root.path_join("layout.json.pending-00000000-0000-4000-8000-000000000001")
+		var first_bytes: PackedByteArray = JSON.stringify(layout, "\t").to_utf8_buffer()
+		assert_eq(_write_bytes(first_path, first_bytes), OK)
+		var second_path: String = version_root.path_join("layout.json.pending-00000000-0000-4000-8000-000000000002")
+		var second_text: String = ""
+		match scenario:
+			"schema1":
+				var _incarnation_erased: bool = layout.erase("storage_incarnation")
+				layout["schema_version"] = 1
+			"malformed":
+				second_text = "{"
+			"oversized":
+				second_text = "x".repeat(16 * 1024 + 1)
+			"extra-field":
+				layout["unknown"] = true
+			"conflicting":
+				layout["storage_incarnation"] = GFUuid.generate_v4()
+			"invalid-leaf":
+				second_path = version_root.path_join("layout.json.pending-not-a-uuid")
+		if second_text.is_empty():
+			second_text = JSON.stringify(layout, "\t")
+		if scenario == "directory":
+			assert_eq(DirAccess.make_dir_recursive_absolute(second_path), OK)
+		else:
+			assert_eq(_write_text(second_path, second_text), OK)
+		assert_ne(_storage.create_revision_storage(), OK, scenario)
+		assert_false(FileAccess.file_exists(version_root.path_join("layout.json")))
+		assert_eq(FileAccess.get_file_as_bytes(first_path), first_bytes, "不能先发布首条有效 pending 再处理后续冲突。")
+		if scenario == "directory":
+			assert_true(DirAccess.dir_exists_absolute(second_path))
+		else:
+			assert_eq(FileAccess.get_file_as_string(second_path), second_text)
+		assert_false(DirAccess.dir_exists_absolute(version_root.path_join("catalog")))
+		assert_false(DirAccess.dir_exists_absolute(version_root.path_join("families")))
+		_replace_storage(GFStorageUtility.new())
+		assert_eq(_remove_owned_tree(_storage_root), OK)
+
+
+func test_creation_retry_fails_closed_when_pending_inventory_exceeds_its_bound() -> void:
+	var version_root: String = _storage_root.path_join(".gf-storage/v1")
+	assert_eq(DirAccess.make_dir_recursive_absolute(version_root), OK)
+	var layout: Dictionary = GFStorageFamilyStore.make_revision_upgrade_layout_for_framework(GFUuid.generate_v4())
+	var expected: PackedByteArray = JSON.stringify(layout, "\t").to_utf8_buffer()
+	var pending_paths: Array[String] = []
+	for _index: int in range(65):
+		var pending_path: String = version_root.path_join("layout.json.pending-" + GFUuid.generate_v4())
+		pending_paths.append(pending_path)
+		assert_eq(_write_bytes(pending_path, expected), OK)
+	assert_eq(_storage.create_revision_storage(), ERR_OUT_OF_MEMORY)
+	assert_false(FileAccess.file_exists(version_root.path_join("layout.json")))
+	assert_eq(DirAccess.get_files_at(version_root).size(), 65)
+	for pending_path: String in pending_paths:
+		assert_eq(FileAccess.get_file_as_bytes(pending_path), expected)
+
+
+func test_creation_retry_rejects_links_at_every_ancestry_and_pending_boundary() -> void:
+	for scenario: String in ["ancestor", "storage", "private", "version", "pending"]:
+		var target_root: String = _storage_root.path_join("target")
+		assert_eq(DirAccess.make_dir_recursive_absolute(target_root), OK)
+		var sentinel_path: String = target_root.path_join("sentinel.txt")
+		assert_eq(_write_text(sentinel_path, "preserved"), OK)
+		var relative_link: String = ""
+		match scenario:
+			"ancestor", "storage":
+				relative_link = "linked"
+				_storage.save_dir_name = _save_dir_name + "/linked" + ("/child" if scenario == "ancestor" else "")
+			"private":
+				relative_link = ".gf-storage"
+			"version":
+				relative_link = ".gf-storage/v1"
+			"pending":
+				relative_link = ".gf-storage/v1/layout.json.pending-" + GFUuid.generate_v4()
+		var link_path: String = _storage_root.path_join(relative_link)
+		assert_eq(DirAccess.make_dir_recursive_absolute(link_path.get_base_dir()), OK)
+		var link_error: Error = _GF_TEST_DIRECTORY_LINK_FIXTURE.create(
+			ProjectSettings.globalize_path(target_root), ProjectSettings.globalize_path(link_path)
+		)
+		assert_eq(link_error, OK, "受支持平台必须能建立 symlink 或 directory junction 夹具。")
+		if link_error == OK:
+			assert_eq(_storage.create_revision_storage(), ERR_FILE_CORRUPT, scenario)
+			var parent: DirAccess = DirAccess.open(link_path.get_base_dir())
+			assert_true(parent != null and parent.is_link(link_path.get_file()))
+			assert_eq(FileAccess.get_file_as_string(sentinel_path), "preserved")
+			assert_eq(DirAccess.get_files_at(target_root), PackedStringArray(["sentinel.txt"]))
+			assert_eq(DirAccess.get_directories_at(target_root), PackedStringArray())
+			assert_eq(DirAccess.remove_absolute(link_path), OK)
+		_replace_storage(GFStorageUtility.new())
+		assert_eq(_remove_owned_tree(_storage_root), OK)
 
 
 func test_completed_creation_pending_recovers_the_same_explicit_schema2_incarnation() -> void:
@@ -530,6 +724,16 @@ func _remove_owned_tree(path: String) -> Error:
 
 
 # --- 内部类 ---
+
+class _CreationBeforePendingFailureStore extends GFStorageFamilyStore:
+	var reached_layout_publish: bool = false
+
+	func _publish_json_if_absent(path: String, data: Dictionary) -> Error:
+		if path.ends_with("/layout.json"):
+			reached_layout_publish = true
+			return ERR_FILE_CANT_WRITE
+		return super._publish_json_if_absent(path, data)
+
 
 class _RevisionWriteFailureStorage extends GFStorageUtility:
 	var fail_state_write: bool = false

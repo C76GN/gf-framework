@@ -1,4 +1,4 @@
-# 两个独立 Godot 进程共享本次专用 root 的持久 revision 验收。
+# 独立 Godot 进程共享本次专用 root 的创建重试与持久 revision 验收。
 extends SceneTree
 
 
@@ -22,12 +22,16 @@ func _initialize() -> void:
 			_failures.append("Unexpected argument")
 	var prefix: String = "gf-storage-revision-process-"
 	if (
-		_phase not in ["seed", "verify"]
+		_phase not in ["prepare_empty_prefix", "seed", "verify"]
 		or not _root_name.begins_with(prefix)
 		or not GFUuid.is_valid(_root_name.trim_prefix(prefix), 4)
 	):
 		_failures.append("Invalid owned fixture identity")
 	if not _failures.is_empty():
+		_finish()
+		return
+	if _phase == "prepare_empty_prefix":
+		_prepare_empty_prefix()
 		_finish()
 		return
 	_storage = GFStorageUtility.new()
@@ -43,8 +47,22 @@ func _initialize() -> void:
 
 # --- 私有/辅助方法 ---
 
+func _prepare_empty_prefix() -> void:
+	var root_path: String = GFStorageFamilyStore.make_storage_root_path_for_framework(_root_name)
+	if DirAccess.dir_exists_absolute(root_path) or FileAccess.file_exists(root_path):
+		_failures.append("prefix fixture root already exists")
+		return
+	var version_root: String = root_path.path_join(".gf-storage/v1")
+	_expect(DirAccess.make_dir_recursive_absolute(version_root) == OK, "create empty prefix")
+	_expect(DirAccess.dir_exists_absolute(version_root), "empty version prefix exists")
+	_expect(not FileAccess.file_exists(version_root.path_join("layout.json")), "layout not yet published")
+
+
 func _seed() -> void:
-	_expect(_storage.create_revision_storage() == OK, "create")
+	var creation_error: Error = _storage.create_revision_storage()
+	_expect(creation_error == OK, "create")
+	if creation_error != OK:
+		return
 	_expect(_storage.save_data("process.json", {"value": 17}) == OK, "seed save")
 	var revision: GFStorageRevisionResult = _storage.query_committed_revision("process.json")
 	_expect(revision.is_successful(), "seed revision")

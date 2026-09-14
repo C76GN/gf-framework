@@ -16,7 +16,9 @@ if create_error != OK:
 	_report_storage_error(create_error)
 ```
 
-已有 private root 返回 `ERR_ALREADY_EXISTS`，不会被这个入口改写。已有 schema 1 必须先停止该 root 的全部 Utility、进程和外部写入者，再用 `GFStorageRevisionMigration` 离线执行升级：
+创建中断后，应在普通初始化或 I/O 前先重试 `create_revision_storage()`。此入口只续建空 `.gf-storage`、仅含空 `v1` 的前缀，或 `v1` 仅含全部一致且完整的 schema 2 layout pending 的状态；后者复用已经持久化的 incarnation。全部候选验证成功前不会发布 layout 或清理证据。已有 layout、catalog / family 残留和未知条目不能被接管；链接、损坏、超限或冲突的记录也会被拒绝并保留。
+
+空目录不能证明先前调用选择过 schema 2：如果完整 pending 尚未落盘就中断，先运行普通初始化仍会创建 schema 1。因此调用方必须处理创建失败，不能直接继续普通读写。已有任一 schema 的 layout 返回 `ERR_ALREADY_EXISTS`，不会被这个入口改写。已有 schema 1 必须先停止该 root 的全部 Utility、进程和外部写入者，再用 `GFStorageRevisionMigration` 离线执行升级：
 
 ```gdscript
 var migration := GFStorageRevisionMigration.new()

@@ -642,7 +642,9 @@ func load_resource_with_revision(file_name: String, type_hint: String = "") -> G
 
 ## 显式创建支持 committed revision 的 schema 2 存储。
 ##
-## 必须在首次 init、读写或查询之前调用；已有 private root 返回 ERR_ALREADY_EXISTS。
+## 必须在首次 init、读写或查询之前调用；已有 layout 或其他非空证据返回 ERR_ALREADY_EXISTS。
+## 创建中断后可先重试此入口，续建严格空前缀或一致完整的 schema 2 layout pending；损坏证据失败关闭。
+## 空目录不能证明 schema 2 意图，创建未成功前不要先调用普通初始化或 I/O。
 ## 旧存储需离线迁移；普通初始化仍创建 schema 1，不会暗中升级。
 ## [br]
 ## @api public
