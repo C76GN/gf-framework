@@ -61,6 +61,8 @@
 | 方法 | [`select_rect`](#member-gfspatialcanvas2d-methods-select_rect) | `func select_rect( canvas_rect: Rect2, mode: SelectionMode = SelectionMode.REPLACE, fully_contained: bool = false ) -> PackedStringArray:` |
 | 方法 | [`clear_selection`](#member-gfspatialcanvas2d-methods-clear_selection) | `func clear_selection() -> void:` |
 | 方法 | [`get_selection`](#member-gfspatialcanvas2d-methods-get_selection) | `func get_selection() -> PackedStringArray:` |
+| 方法 | [`set_selected_item_outlines_visible`](#member-gfspatialcanvas2d-methods-set_selected_item_outlines_visible) | `func set_selected_item_outlines_visible(outlines_visible: bool) -> void:` |
+| 方法 | [`are_selected_item_outlines_visible`](#member-gfspatialcanvas2d-methods-are_selected_item_outlines_visible) | `func are_selected_item_outlines_visible() -> bool:` |
 | 方法 | [`set_placement_validator`](#member-gfspatialcanvas2d-methods-set_placement_validator) | `func set_placement_validator(callback: Callable) -> void:` |
 | 方法 | [`set_history_hook`](#member-gfspatialcanvas2d-methods-set_history_hook) | `func set_history_hook(callback: Callable) -> void:` |
 | 方法 | [`begin_placement`](#member-gfspatialcanvas2d-methods-begin_placement) | `func begin_placement( type_id: StringName, footprint: Rect2, options: Dictionary = {} ) -> int:` |
@@ -1000,6 +1002,40 @@ func get_selection() -> PackedStringArray:
 获取选择集合隔离副本。
 
 返回：稳定 ID 列表。
+
+<a id="member-gfspatialcanvas2d-methods-set_selected_item_outlines_visible"></a>
+
+### `set_selected_item_outlines_visible`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func set_selected_item_outlines_visible(outlines_visible: bool) -> void:
+```
+
+设置是否绘制已选条目的默认矩形轮廓。 默认开启，可在入树前配置。只影响已选条目轮廓，不改变选择集合、选择信号、 点选、框选输入、拖拽框、网格或放置预览；值变化后请求覆盖层重绘。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `outlines_visible` | 是否显示已选条目的默认轮廓。 |
+
+<a id="member-gfspatialcanvas2d-methods-are_selected_item_outlines_visible"></a>
+
+### `are_selected_item_outlines_visible`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func are_selected_item_outlines_visible() -> bool:
+```
+
+获取已选条目的默认矩形轮廓显示配置。
+
+返回：是否启用已选条目轮廓，默认 true。
 
 <a id="member-gfspatialcanvas2d-methods-set_placement_validator"></a>
 
