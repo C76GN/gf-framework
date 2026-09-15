@@ -255,6 +255,19 @@ func to_dict() -> Dictionary:
 
 # --- 框架内部方法 ---
 
+## 为脱敏结算诊断读取分类，避免仅查询标量时复制完整读载荷。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
+## [br]
+## @since unreleased
+## [br]
+## @return 读取结果的 FailureKind 整数；没有读取结果时返回 -1。
+func get_read_failure_kind_for_framework() -> int:
+	return int(_read_result.failure_kind) if _read_result != null else -1
+
+
 ## 由 Storage Utility 写入唯一终态。
 ## [br]
 ## @api framework_internal

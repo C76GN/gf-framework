@@ -762,9 +762,7 @@ func _make_late_settlement_diagnostic() -> Dictionary:
 			OPERATION_SAVE:
 				write_failure_kind = int(_result.get_write_failure_kind())
 			OPERATION_LOAD:
-				var read_result: GFStorageReadResult = _result.get_read_result()
-				if read_result != null:
-					read_failure_kind = int(read_result.failure_kind)
+				read_failure_kind = _result.get_read_failure_kind_for_framework()
 			OPERATION_DELETE:
 				var delete_result: GFStorageDeleteResult = _result.get_delete_result()
 				if delete_result != null:

@@ -246,7 +246,7 @@ delete_remaining_member_count, delete_failed_member, reset_failure_kind, reset_s
 诊断不包含读 payload、待写 payload、write report、Storage root、opaque family ID 或私有物理
 路径；不适用的类型化字段固定为 `-1`。它用于对账和运行诊断，不替代 Operation 的物理终态。
 
-`GFStorageReadResult` 分离 `payload`、框架 `metadata`、`integrity_status`、Godot `error_code`、物理文档版本、数据迁移前后版本和 `migrated`。`failure_kind` 进一步区分非法请求、不存在、普通 IO、损坏、未来格式、迁移失败和服务不可用；上层恢复政策应根据该分类决定，不能仅凭同一个 `Error` 码把未来格式或迁移失败当成损坏。异步读取完成信号同样传递这个结果；`last_load_result` 只用于诊断最近一次读取，不应替代当前调用返回值。
+`GFStorageReadResult` 区分载荷、元信息、完整性和失败分类；异步读取也返回这个结果。大型结果的副本使用与信号共享规则见[读取结果与副本隔离](read-results.md)。
 
 `GFStorageDeleteResult.FailureKind` 把删除终态分为 `NONE`、`INVALID_REQUEST`、
 `NOT_FOUND`、`CONFLICT`、`THREAD_START_FAILED`、`UNAVAILABLE` 和 `IO_FAILED`。
