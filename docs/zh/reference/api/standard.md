@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 194 | 3483 | 2365 |
+| [运行时服务](#category-runtime_service) | 194 | 3484 | 2366 |
 | [协议与扩展点](#category-protocol) | 26 | 345 | 273 |
 | [资源定义](#category-resource_definition) | 122 | 1579 | 797 |
 | [运行时句柄](#category-runtime_handle) | 56 | 952 | 607 |
-| [值对象](#category-value_object) | 60 | 1000 | 645 |
+| [值对象](#category-value_object) | 61 | 1007 | 651 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 70 | 48 |
@@ -493,6 +493,7 @@
 | [`GFStorageAsyncCallerResult`](classes/GFStorageAsyncCallerResult.md#gfstorageasynccallerresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_async_caller_result.gd` |
 | [`GFStorageAsyncRequestOptions`](classes/GFStorageAsyncRequestOptions.md#gfstorageasyncrequestoptions) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_async_request_options.gd` |
 | [`GFStorageAsyncResult`](classes/GFStorageAsyncResult.md#gfstorageasyncresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_async_result.gd` |
+| [`GFStorageCatalogResult`](classes/GFStorageCatalogResult.md#gfstoragecatalogresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_catalog_result.gd` |
 | [`GFStorageConflictReport`](classes/GFStorageConflictReport.md#gfstorageconflictreport) | `Resource` | `addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd` |
 | [`GFStorageDeleteResult`](classes/GFStorageDeleteResult.md#gfstoragedeleteresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_delete_result.gd` |
 | [`GFStorageFamilyResetResult`](classes/GFStorageFamilyResetResult.md#gfstoragefamilyresetresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_family_reset_result.gd` |

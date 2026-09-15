@@ -587,6 +587,200 @@ func test_list_files_stops_if_completion_callback_disposes_during_drain() -> voi
 	assert_null(_storage._family_store)
 
 
+func test_catalog_query_distinguishes_empty_success_from_unavailable() -> void:
+	var empty_result: GFStorageCatalogResult = _storage.query_catalog()
+	assert_true(empty_result.is_successful())
+	assert_true(empty_result.is_complete())
+	assert_eq(empty_result.get_files(), PackedStringArray())
+	assert_eq(empty_result.get_error_code(), OK)
+	assert_eq(empty_result.get_failure_kind(), GFStorageCatalogResult.FailureKind.NONE)
+
+	_storage.dispose()
+	var unavailable_result: GFStorageCatalogResult = _storage.query_catalog()
+	assert_false(unavailable_result.is_successful())
+	assert_false(unavailable_result.is_complete())
+	assert_eq(unavailable_result.get_files(), PackedStringArray())
+	assert_eq(unavailable_result.get_error_code(), ERR_UNAVAILABLE)
+	assert_eq(unavailable_result.get_failure_kind(), GFStorageCatalogResult.FailureKind.UNAVAILABLE)
+
+
+func test_catalog_query_reports_actual_result_truncation() -> void:
+	assert_eq(_storage.save_data("catalog/a.json", {"value": 1}), OK)
+	assert_eq(_storage.save_data("catalog/b.json", {"value": 2}), OK)
+	for limit: int in [1, 2, 0]:
+		var query_result: GFStorageCatalogResult = _storage.query_catalog(
+			"catalog", "json", true, {"max_file_count": limit}
+		)
+		assert_true(query_result.is_successful())
+		assert_eq(query_result.is_complete(), limit != 1)
+		var expected_files: PackedStringArray = PackedStringArray(["catalog/a.json"])
+		if limit != 1:
+			var _appended: bool = expected_files.append("catalog/b.json")
+		assert_eq(query_result.get_files(), expected_files)
+		assert_eq(query_result.get_error_code(), OK)
+		assert_eq(query_result.get_failure_kind(), GFStorageCatalogResult.FailureKind.NONE)
+
+
+func test_catalog_query_completeness_is_relative_to_logical_selector() -> void:
+	for file_name: String in [
+		"catalog/a.json", "catalog/child/b.json", "catalog/child/deep/c.json",
+		"catalog/child/other.txt", "outside/d.json",
+	]:
+		assert_eq(_storage.save_data(file_name, {"value": 1}), OK)
+	var deleted_file: String = "catalog/deleted.json"
+	assert_eq(_storage.save_data(deleted_file, {"value": 2}), OK)
+	assert_eq(_storage.delete_file(deleted_file), OK)
+	_claim_file_family_for_fixture("catalog/claimed_only.json")
+	var visible_path: String = _write_legacy_visible_data_file("catalog/legacy.json", {"value": 3})
+	var shallow_result: GFStorageCatalogResult = _storage.query_catalog(
+		"catalog", "json", true, {"max_scan_depth": 1, "max_file_count": 2}
+	)
+	assert_true(shallow_result.is_successful())
+	assert_true(shallow_result.is_complete(), "逻辑深度外的文件不属于本次 selector。")
+	assert_eq(shallow_result.get_files(), PackedStringArray(["catalog/a.json", "catalog/child/b.json"]))
+	var direct_result: GFStorageCatalogResult = _storage.query_catalog("catalog", "json", false)
+	assert_true(direct_result.is_complete())
+	assert_eq(direct_result.get_files(), PackedStringArray(["catalog/a.json"]))
+	var deep_result: GFStorageCatalogResult = _storage.query_catalog(
+		"catalog", "json", true, {"max_scan_depth": 0, "max_file_count": 2}
+	)
+	assert_false(deep_result.is_complete(), "不限深度时第三个匹配文件才构成数量截断。")
+	assert_eq(deep_result.get_files(), shallow_result.get_files())
+	var empty_result: GFStorageCatalogResult = _storage.query_catalog("missing", "json", true)
+	assert_true(empty_result.is_complete())
+	assert_true(empty_result.get_files().is_empty())
+	_remove_legacy_visible_file(visible_path)
+
+
+func test_catalog_query_rejects_invalid_requests_without_changing_legacy_options() -> void:
+	for directory_name: String in ["../outside", "catalog/", "C:/outside"]:
+		var invalid_directory: GFStorageCatalogResult = _storage.query_catalog(directory_name)
+		_assert_catalog_invalid_request(invalid_directory)
+	for extension_filter: String in [".json", "JSON", "a/b"]:
+		var invalid_filter: GFStorageCatalogResult = _storage.query_catalog("", extension_filter)
+		_assert_catalog_invalid_request(invalid_filter)
+	var invalid_options: Array[Dictionary] = [
+		{"max_file_count": -1}, {"max_scan_depth": -1}, {"max_file_count": 1.0},
+		{"max_scan_depth": true}, {"max_file_count": "1"}, {"unexpected": 1},
+		{1: 1}, {"max_file_count": null},
+	]
+	for options: Dictionary in invalid_options:
+		_assert_catalog_invalid_request(_storage.query_catalog("", "", true, options))
+	assert_eq(_storage.save_data("catalog/a.json", {"value": 1}), OK)
+	assert_eq(_storage.save_data("catalog/child/b.json", {"value": 2}), OK)
+	var legacy_options: Dictionary = {
+		"max_scan_depth": -1, "max_file_count": -1, "ignored_legacy_option": true,
+	}
+	assert_eq(
+		_storage.list_files("catalog", "json", true, legacy_options),
+		PackedStringArray(["catalog/a.json", "catalog/child/b.json"]),
+		"旧入口继续忽略未知键并将负上限按 0 处理。"
+	)
+	assert_eq(_storage.list_files("catalog", "json", true, {"max_file_count": "1"}).size(), 1)
+
+
+func test_catalog_query_stops_if_drain_callback_disposes_storage() -> void:
+	_storage.async_execution_mode = GFStorageUtility.AsyncExecutionMode.COOPERATIVE
+	var operation: GFStorageAsyncOperation = _storage.save_data_request_async("catalog/closing.json", {"value": 1})
+	var connect_error: Error = operation.completed.connect(
+		func(_result: GFStorageAsyncResult) -> void:
+			_storage.dispose()
+	) as Error
+	assert_eq(connect_error, OK)
+	var result: GFStorageCatalogResult = _storage.query_catalog("catalog", "json", true)
+	assert_true(operation.is_completed())
+	assert_false(result.is_successful())
+	assert_false(result.is_complete())
+	assert_true(result.get_files().is_empty())
+	assert_eq(result.get_error_code(), ERR_UNAVAILABLE)
+	assert_eq(result.get_failure_kind(), GFStorageCatalogResult.FailureKind.UNAVAILABLE)
+
+
+func test_catalog_query_freezes_options_before_completion_callbacks() -> void:
+	_storage.async_execution_mode = GFStorageUtility.AsyncExecutionMode.COOPERATIVE
+	assert_eq(_storage.save_data("catalog/a.json", {"value": 1}), OK)
+	var options: Dictionary = {"max_file_count": 1}
+	var operation: GFStorageAsyncOperation = _storage.save_data_request_async("catalog/b.json", {"value": 2})
+	var connect_error: Error = operation.completed.connect(
+		func(_result: GFStorageAsyncResult) -> void:
+			options["max_file_count"] = 0
+	) as Error
+	assert_eq(connect_error, OK)
+	var result: GFStorageCatalogResult = _storage.query_catalog("catalog", "json", true, options)
+	assert_true(operation.is_completed())
+	assert_eq(GFVariantData.get_option_int(options, "max_file_count", -1), 0)
+	assert_false(result.is_complete(), "回调修改原 options 不得改变已接纳 selector 的结果上限。")
+	assert_eq(result.get_files(), PackedStringArray(["catalog/a.json"]))
+
+
+func test_catalog_query_reentry_can_finish_the_remaining_queue() -> void:
+	_storage.async_execution_mode = GFStorageUtility.AsyncExecutionMode.COOPERATIVE
+	var first: GFStorageAsyncOperation = _storage.save_data_request_async("catalog/a.json", {"value": 1})
+	var second: GFStorageAsyncOperation = _storage.save_data_request_async("catalog/b.json", {"value": 2})
+	var nested_results: Array[GFStorageCatalogResult] = []
+	var connect_error: Error = first.completed.connect(
+		func(_result: GFStorageAsyncResult) -> void:
+			nested_results.append(_storage.query_catalog("catalog", "json", true))
+	) as Error
+	assert_eq(connect_error, OK)
+	var outer_result: GFStorageCatalogResult = _storage.query_catalog("catalog", "json", true)
+	assert_eq(nested_results.size(), 1)
+	if nested_results.is_empty():
+		return
+	assert_true(nested_results[0].is_complete())
+	assert_eq(nested_results[0].get_files(), PackedStringArray(["catalog/a.json", "catalog/b.json"]))
+	assert_true(first.is_completed())
+	assert_true(second.is_completed())
+	assert_true(outer_result.is_complete())
+	assert_eq(outer_result.get_files(), PackedStringArray(["catalog/a.json", "catalog/b.json"]))
+
+
+func test_catalog_query_reports_busy_if_drain_returns_with_pending_work() -> void:
+	var drain_storage: CatalogDrainStorageUtility = CatalogDrainStorageUtility.new()
+	_replace_storage(drain_storage)
+	_storage.save_dir_name = _save_dir_name
+	_storage.async_execution_mode = GFStorageUtility.AsyncExecutionMode.COOPERATIVE
+	_storage.init()
+	var operation: GFStorageAsyncOperation = _storage.save_data_request_async("catalog/a.json", {"value": 1})
+	assert_true(operation.is_pending())
+	drain_storage.defer_next_drain = true
+	var result: GFStorageCatalogResult = _storage.query_catalog("catalog", "json", true)
+	assert_true(operation.is_pending(), "drain 夹具应留下真实的已接纳任务。")
+	assert_eq(result.get_error_code(), ERR_BUSY)
+	assert_eq(result.get_failure_kind(), GFStorageCatalogResult.FailureKind.BUSY)
+	assert_false(result.is_complete())
+	assert_true(result.get_files().is_empty())
+	var settled_result: GFStorageCatalogResult = _storage.query_catalog("catalog", "json", true)
+	assert_true(operation.is_completed())
+	assert_true(settled_result.is_complete())
+	assert_eq(settled_result.get_files(), PackedStringArray(["catalog/a.json"]))
+
+
+func test_catalog_query_rejects_reactivated_helpers_after_drain() -> void:
+	var reactivating_storage: CatalogDrainStorageUtility = CatalogDrainStorageUtility.new()
+	_replace_storage(reactivating_storage)
+	_storage.save_dir_name = _save_dir_name
+	_storage.init()
+	assert_eq(_storage.save_data("catalog/a.json", {"value": 1}), OK)
+	reactivating_storage.reactivate_after_drain = true
+	var result: GFStorageCatalogResult = _storage.query_catalog("catalog", "json", true)
+	assert_true(reactivating_storage.reactivated)
+	assert_eq(result.get_error_code(), ERR_UNAVAILABLE)
+	assert_false(result.is_complete())
+	assert_true(result.get_files().is_empty())
+	var fresh_result: GFStorageCatalogResult = _storage.query_catalog("catalog", "json", true)
+	assert_true(fresh_result.is_complete(), "新 lifecycle 上的独立请求应正常查询。")
+	assert_eq(fresh_result.get_files(), PackedStringArray(["catalog/a.json"]))
+
+
+func _assert_catalog_invalid_request(result: GFStorageCatalogResult) -> void:
+	assert_false(result.is_successful())
+	assert_false(result.is_complete())
+	assert_true(result.get_files().is_empty())
+	assert_eq(result.get_error_code(), ERR_INVALID_PARAMETER)
+	assert_eq(result.get_failure_kind(), GFStorageCatalogResult.FailureKind.INVALID_REQUEST)
+
+
 func test_load_failure_classification_preserves_recovery_semantics() -> void:
 	assert_eq(
 		_storage._classify_load_failure(ERR_FILE_CANT_OPEN),
@@ -2078,3 +2272,23 @@ func _pump_storage_async_tasks() -> void:
 		if _storage._async_tasks.is_empty() and _storage._async_queue.is_empty():
 			return
 		await get_tree().process_frame
+
+
+# --- 内部类 ---
+
+class CatalogDrainStorageUtility extends GFStorageUtility:
+	var reactivate_after_drain: bool = false
+	var reactivated: bool = false
+	var defer_next_drain: bool = false
+
+
+	func wait_for_async_tasks() -> void:
+		if defer_next_drain:
+			defer_next_drain = false
+			return
+		super.wait_for_async_tasks()
+		if reactivate_after_drain:
+			reactivate_after_drain = false
+			dispose()
+			var completion: GFAsyncCompletion = begin_activation(null)
+			reactivated = completion.is_completed() and not completion.is_failed()

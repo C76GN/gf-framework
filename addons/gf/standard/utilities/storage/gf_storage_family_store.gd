@@ -901,9 +901,9 @@ func validate_family_for_framework(descriptor: Dictionary) -> Error:
 ## [br]
 ## @param max_file_count: 最大结果数；0 表示不限制。
 ## [br]
-## @return Dictionary，包含 error 与排序后的 PackedStringArray files。
+## @return Dictionary，包含 error、排序后的 PackedStringArray files 与查询范围内的完整性。
 ## [br]
-## @schema return: Dictionary，包含 error: Error 和 files: PackedStringArray。
+## @schema return: Dictionary，包含 error: Error、files: PackedStringArray 和 complete: bool；失败时 files 为空且 complete 为 false，成功时只有 max_file_count 实际截断才为 false。
 func list_files_for_framework(
 	directory_name: String,
 	extension_filter: String,
@@ -911,7 +911,7 @@ func list_files_for_framework(
 	max_scan_depth: int,
 	max_file_count: int
 ) -> Dictionary:
-	var empty_result: Dictionary = {"error": OK, "files": PackedStringArray()}
+	var empty_result: Dictionary = {"error": OK, "files": PackedStringArray(), "complete": false}
 	if (
 		not is_valid_logical_directory_path_for_framework(directory_name)
 		or not is_valid_extension_filter_for_framework(extension_filter)
@@ -946,9 +946,10 @@ func list_files_for_framework(
 			continue
 		var _appended: bool = result.append(logical_path)
 	result.sort()
-	if max_file_count > 0 and result.size() > max_file_count:
+	var complete: bool = max_file_count <= 0 or result.size() <= max_file_count
+	if not complete:
 		var _resized: bool = result.resize(max_file_count)
-	return {"error": OK, "files": result}
+	return {"error": OK, "files": result, "complete": complete}
 
 
 ## 枚举并严格校验 catalog-authoritative family descriptor。

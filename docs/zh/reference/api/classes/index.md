@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 78 | 1139 | [Kernel](#module-kernel) |
-| Standard | 483 | 7601 | [Standard](#module-standard) |
+| Standard | 484 | 7609 | [Standard](#module-standard) |
 | Action Queue | 16 | 215 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -277,7 +277,7 @@
 | [`GFStorageFailoverBackend`](GFStorageFailoverBackend.md#gfstoragefailoverbackend) | 运行时服务 (`runtime_service`) | `GFStorageBackend` | 16 | `addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd` |
 | [`GFStorageSettingsStoreUtility`](GFStorageSettingsStoreUtility.md#gfstoragesettingsstoreutility) | 运行时服务 (`runtime_service`) | `GFSettingsStoreUtility` | 6 | `addons/gf/standard/utilities/settings_storage/gf_storage_settings_store_utility.gd` |
 | [`GFStorageSyncUtility`](GFStorageSyncUtility.md#gfstoragesyncutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 11 | `addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd` |
-| [`GFStorageUtility`](GFStorageUtility.md#gfstorageutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 60 | `addons/gf/standard/utilities/storage/gf_storage_utility.gd` |
+| [`GFStorageUtility`](GFStorageUtility.md#gfstorageutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 61 | `addons/gf/standard/utilities/storage/gf_storage_utility.gd` |
 | [`GFSupportReportUtility`](GFSupportReportUtility.md#gfsupportreportutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 32 | `addons/gf/standard/utilities/debug/gf_support_report_utility.gd` |
 | [`GFSupportReportWorkflow`](GFSupportReportWorkflow.md#gfsupportreportworkflow) | 运行时服务 (`runtime_service`) | `GFUtility` | 23 | `addons/gf/standard/utilities/debug/gf_support_report_workflow.gd` |
 | [`GFSurfaceScatterSampler3D`](GFSurfaceScatterSampler3D.md#gfsurfacescattersampler3d) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/standard/foundation/math/gf_surface_scatter_sampler_3d.gd` |
@@ -562,6 +562,7 @@
 | [`GFStorageAsyncCallerResult`](GFStorageAsyncCallerResult.md#gfstorageasynccallerresult) | 值对象 (`value_object`) | `RefCounted` | 16 | `addons/gf/standard/utilities/storage/gf_storage_async_caller_result.gd` |
 | [`GFStorageAsyncRequestOptions`](GFStorageAsyncRequestOptions.md#gfstorageasyncrequestoptions) | 值对象 (`value_object`) | `RefCounted` | 2 | `addons/gf/standard/utilities/storage/gf_storage_async_request_options.gd` |
 | [`GFStorageAsyncResult`](GFStorageAsyncResult.md#gfstorageasyncresult) | 值对象 (`value_object`) | `RefCounted` | 16 | `addons/gf/standard/utilities/storage/gf_storage_async_result.gd` |
+| [`GFStorageCatalogResult`](GFStorageCatalogResult.md#gfstoragecatalogresult) | 值对象 (`value_object`) | `RefCounted` | 7 | `addons/gf/standard/utilities/storage/gf_storage_catalog_result.gd` |
 | [`GFStorageConflictReport`](GFStorageConflictReport.md#gfstorageconflictreport) | 值对象 (`value_object`) | `Resource` | 14 | `addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd` |
 | [`GFStorageDeleteResult`](GFStorageDeleteResult.md#gfstoragedeleteresult) | 值对象 (`value_object`) | `RefCounted` | 11 | `addons/gf/standard/utilities/storage/gf_storage_delete_result.gd` |
 | [`GFStorageFamilyResetResult`](GFStorageFamilyResetResult.md#gfstoragefamilyresetresult) | 值对象 (`value_object`) | `RefCounted` | 15 | `addons/gf/standard/utilities/storage/gf_storage_family_reset_result.gd` |

@@ -8,6 +8,7 @@
 
 - [2D 空间画布](standard/input-flow/spatial-canvas-2d.md#已选条目的默认轮廓) 支持独立隐藏已选条目的默认矩形轮廓，便于项目使用自定义选中装饰，同时保留点选、框选、网格与放置预览。
 - [本地 Storage 已提交版本](standard/utilities/io/storage-snapshot/committed-revisions.md) 支持显式 schema 2、离线升级、opaque revision 查询及同步/异步 JSON 和 Resource 实际读取配对；提交恢复、删除重建和 family reset 保持代次一致，显式创建中断后可安全重试空布局前缀或一致完整的 pending，布局检查和 pending 恢复包含隐藏文件证据，默认 schema 1 不自动升级。
+- [Storage catalog 查询](standard/utilities/io/storage-snapshot/catalog-query.md) 支持区分成功空集合、查询失败和返回数量截断；完整性绑定本次逻辑查询范围，旧文件列表接口保持兼容。
 - [配置字段校验](standard/utilities/io/config-remote-outbox/config-provider/validation-importer/validation-rules.md#数组逐元素校验) 支持为一维 Array 单独声明元素规则，复用范围、正则、白名单、资源路径和本地化 key 校验；错误保留原字段、元素下标和值，并共享本次验证的工作量与资源探测预算。
 - [周期输入脉冲](standard/input-flow/input-assist/input-modifiers-triggers.md#周期脉冲的首次等待) 支持独立首次等待，可在按下立即响应后等待较长时间，再按较短间隔重复；动作和玩家保持独立计时。
 - [配置化 Tween](extensions/action-queue/tween-config.md#自定义缓动曲线) 支持步骤级原生 `Curve`，可制作回弹与超调效果；运行时独立捕获曲线，Inspector 预览与时间定位使用同一配置快照。
@@ -68,6 +69,7 @@
 ### 🔧 API 变动说明 (API Changes)
 
 - `GFSpatialCanvas2D` 新增 `set_selected_item_outlines_visible()` 与 `are_selected_item_outlines_visible()`；默认开启，支持入树前配置，切换不改变选择状态或选择信号。
+- 新增 `GFStorageUtility.query_catalog()` 与不可变 `GFStorageCatalogResult`，提供 Error、失败阶段、排序文件副本及范围内完整性；查询保留同步 drain 和全 root 恢复，不改变存储格式，也不提供 payload revision。
 - `GFConfigTableColumn` 新增 `element_validation_rules`，仅用于 `ValueType.ARRAY`；原有 `validation_rules` 继续接收整个字段。`GFConfigTableSchema` 新增每次验证共享的元素数与元素规则调用预算，定义自检、复制、构建过滤及编辑器描述同步支持元素规则。
 - `GFThumbnailRenderRequest` 新增 `PreviewMode`，Node3D / CanvasItem 请求和渲染便捷方法增加末尾可选模式参数，默认 `STATIC`；`TRUSTED_DYNAMIC` 用于工具自有的受控脚本预览。
 - `GFInputPulseTrigger` 新增 `initial_delay_seconds`，默认 `-1` 沿用 `interval_seconds`，`0` 表示激活当次触发一次。激活时已发出脉冲才忽略当次 delta；每次更新最多返回一个脉冲，不补发跨过的多个周期，也不改变动作开始事件的状态转换语义。

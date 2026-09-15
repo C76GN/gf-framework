@@ -20,6 +20,8 @@
     "addons/gf/standard/utilities/storage/gf_storage_async_request_options.gd.uid",
     "addons/gf/standard/utilities/storage/gf_storage_async_result.gd",
     "addons/gf/standard/utilities/storage/gf_storage_async_result.gd.uid",
+    "addons/gf/standard/utilities/storage/gf_storage_catalog_result.gd",
+    "addons/gf/standard/utilities/storage/gf_storage_catalog_result.gd.uid",
     "addons/gf/standard/utilities/storage/gf_storage_delete_result.gd",
     "addons/gf/standard/utilities/storage/gf_storage_delete_result.gd.uid",
     "addons/gf/standard/utilities/storage/gf_storage_backend.gd",
