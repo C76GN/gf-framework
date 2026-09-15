@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "4ae08e3f6b964cbd07f98d4de0f6268a91893d74e8b712f122fae74522ec42b8",
-  "class_count": 859,
+  "source_digest": "6f048a95863496df46646317f1f47c7522fa92fa2160edefcb36b9a6cdfb4500",
+  "class_count": 862,
   "autoload_count": 1,
   "package_count": 59,
   "packages": [
@@ -86777,6 +86777,13 @@
         },
         {
           "kind": "func",
+          "name": "get_committed_revision",
+          "signature": "func get_committed_revision() -> GFStorageRevisionResult",
+          "summary": "返回实际读取源的 committed revision；仅做等值比较，不代表载荷完整性或业务 schema 版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "duplicate_result",
           "signature": "func duplicate_result() -> GFStorageReadResult",
           "summary": "创建读取结果深拷贝。",
@@ -86800,7 +86807,151 @@
           "kind": "func",
           "name": "from_dict",
           "signature": "static func from_dict(data: Dictionary) -> GFStorageReadResult",
-          "summary": "从字典创建不带 Storage 来源绑定的读取结果。",
+          "summary": "从字典创建不带 Storage 来源绑定或 committed revision 的读取结果。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFStorageResourceReadResult": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.storage",
+      "path": "addons/gf/standard/utilities/storage/gf_storage_resource_read_result.gd",
+      "summary": "GFStorageResourceReadResult: Resource 及其实际读取来源 revision 的不可变配对结果。 结果保存原 Resource 对象引用，不复制或冻结 Resource 的运行时属性。 committed revision 描述读取时的存储来源，不随 Resource 后续修改而变化。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "success",
+          "signature": "static func success( resource: Resource, revision: GFStorageRevisionResult ) -> GFStorageResourceReadResult",
+          "summary": "创建 Resource 与成功 committed revision 的配对结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "failure",
+          "signature": "static func failure(error: Error) -> GFStorageResourceReadResult",
+          "summary": "创建不包含 Resource 或 committed revision 的失败结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查是否成功取得 Resource 及其 committed revision。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> Error",
+          "summary": "获取读取的 Godot Error 码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_resource",
+          "signature": "func get_resource() -> Resource",
+          "summary": "获取读取到的原 Resource 对象引用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_committed_revision",
+          "signature": "func get_committed_revision() -> GFStorageRevisionResult",
+          "summary": "获取与本次 Resource 读取配对的 committed revision。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFStorageRevisionMigration": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.storage",
+      "path": "addons/gf/standard/utilities/storage/gf_storage_revision_migration.gd",
+      "summary": "GFStorageRevisionMigration: 把现有 Storage schema 1 显式离线升级为 schema 2。 调用前必须停止该 root 的全部其他 Utility、进程与外部文件写入者。 迁移 intent 存在期间普通运行时拒绝 I/O；失败后应在同一离线条件下重试。",
+      "visibility": "public",
+      "category": "tool_api",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "upgrade",
+          "signature": "func upgrade(save_dir_name: String) -> Error",
+          "summary": "在调用方已建立的离线单写入者边界内升级或继续升级一个已有 Storage root。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFStorageRevisionResult": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.storage",
+      "path": "addons/gf/standard/utilities/storage/gf_storage_revision_result.gd",
+      "summary": "GFStorageRevisionResult: 一次 committed revision 查询的不可变结果。 revision 是只用于相等比较的不透明字符串，不表示时间顺序或内容完整性。 通过工厂创建结果；未使用工厂创建的实例保持 INVALID_REQUEST 失败状态。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "Status",
+          "signature": "enum Status {\n\t## 已取得成功提交对应的非空 revision。\n\tAVAILABLE,\n\t## 目标不存在 committed payload。\n\tNOT_FOUND,\n\t## 当前存储布局不支持 committed revision。\n\tUNSUPPORTED,\n\t## 查询参数或结果工厂参数无效。\n\tINVALID_REQUEST,\n\t## 当前生命周期或存储准入不可用。\n\tUNAVAILABLE,\n\t## 同 family 操作或恢复尚未收敛。\n\tBUSY,\n\t## 存储身份、提交状态或事务证据损坏。\n\tCORRUPT,\n\t## 底层存储 I/O 失败。\n\tIO_FAILED,\n}",
+          "summary": "committed revision 的可用性与失败分类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "available",
+          "signature": "static func available(revision: String) -> GFStorageRevisionResult",
+          "summary": "创建包含 committed revision 的成功结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "failure",
+          "signature": "static func failure(status: Status, error: Error) -> GFStorageRevisionResult",
+          "summary": "创建不包含 revision 的失败结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查是否取得可用的 committed revision。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> Error",
+          "summary": "获取查询的 Godot Error 码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> Status",
+          "summary": "获取 revision 的可用性或失败分类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_revision",
+          "signature": "func get_revision() -> String",
+          "summary": "获取只用于相等比较的 committed revision。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "创建不含物理路径的独立结果字典。",
           "visibility": "public"
         }
       ]
@@ -87308,6 +87459,27 @@
           "name": "load_resource",
           "signature": "func load_resource(file_name: String, type_hint: String = \"\") -> Resource",
           "summary": "读取一个 `Resource` 文件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "load_resource_with_revision",
+          "signature": "func load_resource_with_revision(file_name: String, type_hint: String = \"\") -> GFStorageResourceReadResult",
+          "summary": "在同一 family ownership 内读取 Resource，并配对实际读取来源的 committed revision。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "create_revision_storage",
+          "signature": "func create_revision_storage() -> Error",
+          "summary": "显式创建支持 committed revision 的 schema 2 存储。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "query_committed_revision",
+          "signature": "func query_committed_revision(file_name: String) -> GFStorageRevisionResult",
+          "summary": "查询一个逻辑文件当前已提交的 opaque revision，不读取 payload 内容。",
           "visibility": "public"
         },
         {

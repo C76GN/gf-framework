@@ -152,6 +152,7 @@ var _origin_observation_token: String = ""
 var _origin_ok: bool = false
 var _origin_error_code: Error = FAILED
 var _origin_failure_kind: FailureKind = FailureKind.NONE
+var _captured_revision: GFStorageRevisionResult
 
 
 # --- 公共方法 ---
@@ -182,6 +183,7 @@ func configure_success(
 	p_document_schema_version: int = 0
 ) -> GFStorageReadResult:
 	_clear_origin_binding()
+	_captured_revision = null
 	ok = true
 	payload = p_payload.duplicate(true)
 	metadata = p_metadata.duplicate(true)
@@ -226,6 +228,7 @@ func configure_failure(
 	p_failure_kind: FailureKind = FailureKind.IO_FAILED
 ) -> GFStorageReadResult:
 	_clear_origin_binding()
+	_captured_revision = null
 	ok = false
 	payload.clear()
 	metadata = p_metadata.duplicate(true)
@@ -251,6 +254,24 @@ func is_integrity_accepted() -> bool:
 	return integrity_status == IntegrityStatus.NOT_CHECKED or integrity_status == IntegrityStatus.VALID
 
 
+## 返回实际读取源的 committed revision；仅做等值比较，不代表载荷完整性或业务 schema 版本。
+##
+## schema 1、手工构造及 Dictionary 往返结果为 UNSUPPORTED。该快照表示读取来源，
+## 不随返回后对 payload 的修改而变化；调用方应在修改前建立摘要缓存。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 不可变的 revision 结果；失败读取不提供可缓存 token。
+func get_committed_revision() -> GFStorageRevisionResult:
+	if not ok:
+		return GFStorageRevisionStore.failure_for_framework(error_code)
+	if _captured_revision == null:
+		return GFStorageRevisionResult.failure(GFStorageRevisionResult.Status.UNSUPPORTED, ERR_UNAVAILABLE)
+	return _captured_revision
+
+
 ## 创建读取结果深拷贝。
 ## [br]
 ## @api public
@@ -263,6 +284,7 @@ func is_integrity_accepted() -> bool:
 ## @return 新读取结果。
 func duplicate_result() -> GFStorageReadResult:
 	var copy: GFStorageReadResult = from_dict(to_dict())
+	copy._captured_revision = _captured_revision
 	if _origin_binding_is_current():
 		var _bound: bool = copy.bind_origin_for_framework(
 			_origin_utility_id,
@@ -312,6 +334,7 @@ func to_dict() -> Dictionary:
 ## @schema data: Dictionary，GFStorageReadResult.to_dict() 输出。
 func apply_dict(data: Dictionary) -> void:
 	_clear_origin_binding()
+	_captured_revision = null
 	ok = GFVariantData.get_option_bool(data, "ok")
 	payload = GFVariantData.get_option_dictionary(data, "payload") if ok else {}
 	metadata = GFVariantData.get_option_dictionary(data, "metadata")
@@ -332,7 +355,7 @@ func apply_dict(data: Dictionary) -> void:
 	migrated = GFVariantData.get_option_bool(data, "migrated")
 
 
-## 从字典创建不带 Storage 来源绑定的读取结果。
+## 从字典创建不带 Storage 来源绑定或 committed revision 的读取结果。
 ## [br]
 ## @api public
 ## [br]
@@ -350,6 +373,15 @@ static func from_dict(data: Dictionary) -> GFStorageReadResult:
 
 
 # --- 框架内部方法 ---
+
+## 捕获实际物理读取源的不可变 revision；不扩展公开 Dictionary schema。
+## [br]
+## @api framework_internal
+## [br]
+## @param revision: 同一次读取捕获的结果。
+func capture_revision_for_framework(revision: GFStorageRevisionResult) -> void:
+	_captured_revision = revision if ok else null
+
 
 ## 绑定本次读取的 Utility、root 与 logical identity；该来源不会进入公开字典 schema。
 ## [br]

@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFStorageRevisionResult" path="addons/gf/standard/utilities/storage/gf_storage_revision_result.gd" module="standard" extends="RefCounted" classDigest="2388ed55378bcbc61dfa36cd2e271de061fa6c6e31f7af3aa22b8d0d6531ede5">
+	<description>GFStorageRevisionResult: 一次 committed revision 查询的不可变结果。
+revision 是只用于相等比较的不透明字符串，不表示时间顺序或内容完整性。
+通过工厂创建结果；未使用工厂创建的实例保持 INVALID_REQUEST 失败状态。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Status">
+			<signature>enum Status {
+	## 已取得成功提交对应的非空 revision。
+	AVAILABLE,
+	## 目标不存在 committed payload。
+	NOT_FOUND,
+	## 当前存储布局不支持 committed revision。
+	UNSUPPORTED,
+	## 查询参数或结果工厂参数无效。
+	INVALID_REQUEST,
+	## 当前生命周期或存储准入不可用。
+	UNAVAILABLE,
+	## 同 family 操作或恢复尚未收敛。
+	BUSY,
+	## 存储身份、提交状态或事务证据损坏。
+	CORRUPT,
+	## 底层存储 I/O 失败。
+	IO_FAILED,
+}</signature>
+			<description>committed revision 的可用性与失败分类。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="available">
+			<signature>static func available(revision: String) -&gt; GFStorageRevisionResult:</signature>
+			<description>创建包含 committed revision 的成功结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">revision: 非空不透明字符串；原样保存，不裁剪或解析。</tag>
+				<tag name="return">AVAILABLE 结果；空字符串返回 INVALID_REQUEST 与 ERR_INVALID_PARAMETER。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="failure">
+			<signature>static func failure(status: Status, error: Error) -&gt; GFStorageRevisionResult:</signature>
+			<description>创建不包含 revision 的失败结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">status: 除 AVAILABLE 外的有效 Status。</tag>
+				<tag name="param">error: 非 OK 的 Godot Error 码。</tag>
+				<tag name="return">失败结果；无效 status 或 OK 归一为 INVALID_REQUEST 与 ERR_INVALID_PARAMETER。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查是否取得可用的 committed revision。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">仅 AVAILABLE、OK 与非空 revision 同时成立时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_code">
+			<signature>func get_error_code() -&gt; Error:</signature>
+			<description>获取查询的 Godot Error 码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时为 OK；失败时为非 OK 错误码。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; Status:</signature>
+			<description>获取 revision 的可用性或失败分类。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Status 枚举值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_revision">
+			<signature>func get_revision() -&gt; String:</signature>
+			<description>获取只用于相等比较的 committed revision。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时为原始 revision；失败时为空字符串。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>创建不含物理路径的独立结果字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">修改返回字典不会改变当前结果或其他字典副本。</tag>
+				<tag name="schema">return: 精确 Dictionary，包含 status: int (Status)、error_code: int (Error)、revision: String 三个字段。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

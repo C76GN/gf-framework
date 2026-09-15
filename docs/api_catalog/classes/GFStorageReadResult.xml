@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageReadResult" path="addons/gf/standard/utilities/storage/gf_storage_read_result.gd" module="standard" extends="RefCounted" classDigest="dc7c893c14a625b016a8d283c8c87daeef12072811c08e9a633d0997aaedbdb3">
+<class name="GFStorageReadResult" path="addons/gf/standard/utilities/storage/gf_storage_read_result.gd" module="standard" extends="RefCounted" classDigest="4ca617892073b51effbbc5e5dfb067cf90c6a21a8886f4657b653ce545719f0a">
 	<description>GFStorageReadResult: 严格存储读取结果。
 将业务载荷、框架存储元数据、完整性状态和失败原因分离，避免调用方
 把空字典误判为成功，也避免存储层保留字段渗入业务数据。</description>
@@ -188,6 +188,17 @@
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_committed_revision">
+			<signature>func get_committed_revision() -&gt; GFStorageRevisionResult:</signature>
+			<description>返回实际读取源的 committed revision；仅做等值比较，不代表载荷完整性或业务 schema 版本。
+schema 1、手工构造及 Dictionary 往返结果为 UNSUPPORTED。该快照表示读取来源，
+不随返回后对 payload 的修改而变化；调用方应在修改前建立摘要缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">不可变的 revision 结果；失败读取不提供可缓存 token。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="duplicate_result">
 			<signature>func duplicate_result() -&gt; GFStorageReadResult:</signature>
 			<description>创建读取结果深拷贝。
@@ -222,7 +233,7 @@
 		</member>
 		<member kind="method" name="from_dict">
 			<signature>static func from_dict(data: Dictionary) -&gt; GFStorageReadResult:</signature>
-			<description>从字典创建不带 Storage 来源绑定的读取结果。</description>
+			<description>从字典创建不带 Storage 来源绑定或 committed revision 的读取结果。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">data: 读取结果字典。</tag>

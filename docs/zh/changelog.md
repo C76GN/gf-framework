@@ -7,6 +7,7 @@
 ### 🚀 新增特性 (Added)
 
 - [2D 空间画布](standard/input-flow/spatial-canvas-2d.md#已选条目的默认轮廓) 支持独立隐藏已选条目的默认矩形轮廓，便于项目使用自定义选中装饰，同时保留点选、框选、网格与放置预览。
+- [本地 Storage 已提交版本](standard/utilities/io/storage-snapshot/committed-revisions.md) 支持显式 schema 2、离线升级、opaque revision 查询及同步/异步 JSON 和 Resource 实际读取配对；提交恢复、删除重建和 family reset 保持代次一致，显式创建中断后可安全重试空布局前缀或一致完整的 pending，布局检查和 pending 恢复包含隐藏文件证据，默认 schema 1 不自动升级。
 - [配置字段校验](standard/utilities/io/config-remote-outbox/config-provider/validation-importer/validation-rules.md#数组逐元素校验) 支持为一维 Array 单独声明元素规则，复用范围、正则、白名单、资源路径和本地化 key 校验；错误保留原字段、元素下标和值，并共享本次验证的工作量与资源探测预算。
 - [周期输入脉冲](standard/input-flow/input-assist/input-modifiers-triggers.md#周期脉冲的首次等待) 支持独立首次等待，可在按下立即响应后等待较长时间，再按较短间隔重复；动作和玩家保持独立计时。
 - [配置化 Tween](extensions/action-queue/tween-config.md#自定义缓动曲线) 支持步骤级原生 `Curve`，可制作回弹与超调效果；运行时独立捕获曲线，Inspector 预览与时间定位使用同一配置快照。

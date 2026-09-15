@@ -49,6 +49,8 @@ const _RESERVED_DEVICE_STEMS: Array[String] = [
 # --- 私有变量 ---
 
 var _storage_root_path: String = ""
+var _creation_incarnation: String = ""
+var _revision_upgrade_intent: Dictionary = {}
 
 
 # --- 框架内部方法 ---
@@ -395,7 +397,7 @@ func inspect_layout_for_reset_for_framework() -> Dictionary:
 		layout.get("schema_version"),
 		-1
 	)
-	if schema_version > _LAYOUT_VERSION:
+	if schema_version > 2:
 		return _make_layout_inspection(&"future", ERR_UNAVAILABLE)
 	if not _is_valid_layout_manifest(layout):
 		return _make_layout_inspection(&"corrupt", ERR_FILE_CORRUPT)
@@ -546,6 +548,8 @@ func inspect_reset_claim_for_framework(descriptor: Dictionary) -> Dictionary:
 func ensure_layout_for_framework() -> Error:
 	if _storage_root_path.is_empty():
 		return ERR_INVALID_PARAMETER
+	if not _revision_upgrade_intent.is_empty():
+		return _validate_revision_upgrade_layout()
 	var root_error: Error = _ensure_directory(_storage_root_path)
 	if root_error != OK:
 		return root_error
@@ -582,7 +586,32 @@ func ensure_layout_for_framework() -> Error:
 			return ERR_FILE_CORRUPT
 		if DirAccess.dir_exists_absolute(version_root.path_join(entry)):
 			return ERR_FILE_CORRUPT
-	var publish_error: Error = _publish_json_if_absent(layout_path, _make_layout_manifest())
+	var expected_layout: Dictionary = _make_layout_manifest()
+	if FileAccess.file_exists(layout_path):
+		var layout_read: Dictionary = _read_json_dictionary(layout_path)
+		if not GFVariantData.get_option_bool(layout_read, "ok"):
+			return GFVariantData.get_option_int(layout_read, "error", ERR_FILE_CORRUPT) as Error
+		var existing_layout: Dictionary = GFVariantData.get_option_dictionary(layout_read, "data")
+		if not _is_valid_layout_manifest(existing_layout):
+			return ERR_FILE_CORRUPT
+		expected_layout = existing_layout
+	elif not _creation_incarnation.is_empty():
+		expected_layout = _make_revision_layout_manifest(_creation_incarnation)
+	else:
+		# 完整 schema 2 pending 是此前显式创建的证据；恢复它不等于升级已有 schema 1。
+		for entry: String in GFVariantData.get_option_array(version_entries, "names"):
+			if not _is_publish_pending_leaf(entry, "layout.json"):
+				continue
+			var pending_read: Dictionary = _read_json_dictionary(version_root.path_join(entry))
+			var pending_layout: Dictionary = GFVariantData.get_option_dictionary(pending_read, "data")
+			if (
+				GFVariantData.get_option_bool(pending_read, "ok")
+				and _is_valid_layout_manifest(pending_layout)
+				and not GFVariantData.get_option_string(pending_layout, "storage_incarnation").is_empty()
+			):
+				expected_layout = pending_layout
+				break
+	var publish_error: Error = _publish_json_if_absent(layout_path, expected_layout)
 	if publish_error != OK:
 		return publish_error
 	var layout_entries: Dictionary = _read_directory_entries_bounded(
@@ -602,6 +631,111 @@ func ensure_layout_for_framework() -> Error:
 	if catalog_error != OK:
 		return catalog_error
 	return _ensure_directory(version_root.path_join("families"))
+
+
+## 显式创建 schema 2，或续建严格空前缀 / 一致完整的 schema 2 layout pending；不迁移已有存储。
+## [br]
+## @api framework_internal
+## [br]
+## @return 已有 layout 或其他非空证据返回 ERR_ALREADY_EXISTS；损坏证据失败关闭，默认 ensure 仍创建 schema 1。
+func create_revision_layout_for_framework() -> Error:
+	if _storage_root_path.is_empty():
+		return ERR_INVALID_PARAMETER
+	var private_root: String = _join_storage_root(_storage_root_path, _PRIVATE_ROOT_NAME)
+	var prefix: Dictionary = _inspect_revision_creation_prefix(private_root)
+	var prefix_error: Error = GFVariantData.get_option_int(prefix, "error", ERR_FILE_CORRUPT) as Error
+	if prefix_error != OK:
+		return prefix_error
+	_creation_incarnation = GFVariantData.get_option_string(prefix, "incarnation")
+	if _creation_incarnation.is_empty():
+		_creation_incarnation = GFUuid.generate_v4()
+	var result: Error = ensure_layout_for_framework()
+	_creation_incarnation = ""
+	return result
+
+
+## 读取已经验证的布局 incarnation；不会创建或迁移布局。
+## [br]
+## @api framework_internal
+## [br]
+## @return schema 2 的 UUID v4；schema 1 或不合法布局为空。调用者必须先检查 layout error。
+func get_revision_incarnation_for_framework() -> String:
+	if not _revision_upgrade_intent.is_empty():
+		return GFVariantData.get_option_string(_revision_upgrade_intent, "storage_incarnation")
+	if _path_leaf_exists(_join_storage_root(_storage_root_path, ".gf-storage/v1/upgrade.intent.json")):
+		return ""
+	var layout_path: String = _join_storage_root(_storage_root_path, ".gf-storage/v1/layout.json")
+	var result: Dictionary = _read_json_dictionary(layout_path)
+	var layout: Dictionary = GFVariantData.get_option_dictionary(result, "data")
+	if not GFVariantData.get_option_bool(result, "ok") or not _is_valid_layout_manifest(layout):
+		return ""
+	return GFVariantData.get_option_string(layout, "storage_incarnation")
+
+
+## 为显式离线迁移实例开启已持久化 intent 对应的临时布局检查。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
+## [br]
+## @since unreleased
+## [br]
+## @param intent: 已读取的迁移记录；必须与固定位置的完整记录精确一致。
+## [br]
+## @schema intent: 精确 Dictionary，包含 schema: String、schema_version: int、old_layout_hash: String、storage_incarnation: String。
+## [br]
+## @return 仅当前实例允许迁移叶及临时 state；错误不保留迁移上下文。
+func begin_revision_upgrade_for_framework(intent: Dictionary) -> Error:
+	if not _revision_upgrade_intent.is_empty():
+		return ERR_BUSY
+	var incarnation: String = GFVariantData.get_option_string(intent, "storage_incarnation")
+	var old_layout_hash: String = GFVariantData.get_option_string(intent, "old_layout_hash")
+	if not GFUuid.is_valid(incarnation, 4) or old_layout_hash.length() != 64:
+		return ERR_FILE_CORRUPT
+	for character: String in old_layout_hash:
+		if not _HEX_CHARS.contains(character):
+			return ERR_FILE_CORRUPT
+	var expected: Dictionary = {
+		"schema": "gf.storage.revision-upgrade",
+		"schema_version": 1,
+		"old_layout_hash": old_layout_hash,
+		"storage_incarnation": incarnation,
+	}
+	if not _records_match_expected(intent, expected):
+		return ERR_FILE_CORRUPT
+	_revision_upgrade_intent = intent.duplicate(true)
+	var result: Error = _validate_revision_upgrade_layout()
+	if result != OK:
+		_revision_upgrade_intent.clear()
+	return result
+
+
+## 关闭当前实例的离线迁移布局上下文。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
+## [br]
+## @since unreleased
+func end_revision_upgrade_for_framework() -> void:
+	_revision_upgrade_intent.clear()
+
+
+## 构造离线迁移使用的完整 schema 2 布局记录。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
+## [br]
+## @since unreleased
+## [br]
+## @param incarnation: 迁移 intent 中已持久化的 UUID v4。
+## [br]
+## @return 无效 incarnation 返回空字典。
+## [br]
+## @schema return: Dictionary，schema 2 layout 的六个固定字段。
+static func make_revision_upgrade_layout_for_framework(incarnation: String) -> Dictionary:
+	return _make_revision_layout_manifest(incarnation) if GFUuid.is_valid(incarnation, 4) else {}
 
 
 ## 原子、幂等地 claim 一个 descriptor 的 owner 与 catalog。
@@ -977,8 +1111,66 @@ static func _make_layout_manifest() -> Dictionary:
 	}
 
 
+func _inspect_revision_creation_prefix(private_root: String) -> Dictionary:
+	# Utility 在进入前验证 user:// 到 private root 的所有祖先；这里不跟随待续建目录或记录的链接。
+	if _path_leaf_is_link(private_root):
+		return {"error": ERR_FILE_CORRUPT}
+	if not _path_leaf_exists(private_root):
+		return {"error": OK}
+	if not DirAccess.dir_exists_absolute(private_root):
+		return {"error": ERR_FILE_CORRUPT}
+	var private_entries: Dictionary = _read_directory_entries_bounded(private_root, _MAX_RESET_LAYOUT_INSPECTION_ENTRIES)
+	var private_error: Error = GFVariantData.get_option_int(private_entries, "error", ERR_FILE_CORRUPT) as Error
+	if private_error != OK:
+		return {"error": private_error}
+	var private_names: Array = GFVariantData.get_option_array(private_entries, "names")
+	if private_names.is_empty():
+		return {"error": OK}
+	if private_names != ["v%d" % _LAYOUT_VERSION]:
+		return {"error": ERR_ALREADY_EXISTS}
+	var version_root: String = private_root.path_join("v%d" % _LAYOUT_VERSION)
+	if _path_leaf_is_link(version_root) or not DirAccess.dir_exists_absolute(version_root):
+		return {"error": ERR_FILE_CORRUPT}
+	var version_entries: Dictionary = _read_directory_entries_bounded(version_root, _MAX_RESET_LAYOUT_INSPECTION_ENTRIES)
+	var version_error: Error = GFVariantData.get_option_int(version_entries, "error", ERR_FILE_CORRUPT) as Error
+	if version_error != OK:
+		return {"error": version_error}
+	var incarnation: String = ""
+	for entry: String in GFVariantData.get_option_array(version_entries, "names"):
+		if not _is_publish_pending_leaf(entry, "layout.json"):
+			return {"error": ERR_ALREADY_EXISTS}
+		var pending_path: String = version_root.path_join(entry)
+		if _path_leaf_is_link(pending_path) or not FileAccess.file_exists(pending_path):
+			return {"error": ERR_FILE_CORRUPT}
+		var pending_read: Dictionary = _read_json_dictionary(pending_path)
+		if not GFVariantData.get_option_bool(pending_read, "ok"):
+			return {"error": GFVariantData.get_option_int(pending_read, "error", ERR_FILE_CORRUPT)}
+		var pending_layout: Dictionary = GFVariantData.get_option_dictionary(pending_read, "data")
+		var pending_incarnation: String = GFVariantData.get_option_string(pending_layout, "storage_incarnation")
+		if not _is_valid_layout_manifest(pending_layout) or pending_incarnation.is_empty():
+			return {"error": ERR_FILE_CORRUPT}
+		if not incarnation.is_empty() and incarnation != pending_incarnation:
+			return {"error": ERR_FILE_CORRUPT}
+		incarnation = pending_incarnation
+	# 在所有候选均验证成功前，不发布 layout、不删除 pending，也不生成替代 incarnation。
+	return {"error": OK, "incarnation": incarnation}
+
+
 static func _is_valid_layout_manifest(manifest: Dictionary) -> bool:
-	return _records_match_expected(manifest, _make_layout_manifest())
+	if _records_match_expected(manifest, _make_layout_manifest()):
+		return true
+	var incarnation: String = GFVariantData.get_option_string(manifest, "storage_incarnation")
+	return (
+		GFUuid.is_valid(incarnation, 4)
+		and _records_match_expected(manifest, _make_revision_layout_manifest(incarnation))
+	)
+
+
+static func _make_revision_layout_manifest(incarnation: String) -> Dictionary:
+	var result: Dictionary = _make_layout_manifest()
+	result["schema_version"] = 2
+	result["storage_incarnation"] = incarnation
+	return result
 
 
 static func _make_layout_inspection(status: StringName, error: Error) -> Dictionary:
@@ -1029,6 +1221,70 @@ func _validate_descriptor(descriptor: Dictionary) -> Error:
 	if expected.is_empty() or descriptor != expected:
 		return ERR_INVALID_PARAMETER
 	return OK
+
+
+func _validate_revision_upgrade_layout() -> Error:
+	if _storage_root_path.is_empty() or _revision_upgrade_intent.is_empty():
+		return ERR_INVALID_PARAMETER
+	var private_root: String = _join_storage_root(_storage_root_path, _PRIVATE_ROOT_NAME)
+	var version_root: String = private_root.path_join("v1")
+	for directory_path: String in [
+		_storage_root_path, private_root, version_root,
+		version_root.path_join("catalog"), version_root.path_join("families"),
+	]:
+		if _path_leaf_is_link(directory_path) or not DirAccess.dir_exists_absolute(directory_path):
+			return ERR_FILE_CORRUPT
+	var private_entries: Dictionary = _read_directory_entries_bounded(private_root, 2)
+	if GFVariantData.get_option_int(private_entries, "error", ERR_FILE_CORRUPT) != OK:
+		return GFVariantData.get_option_int(private_entries, "error", ERR_FILE_CORRUPT) as Error
+	if GFVariantData.get_option_array(private_entries, "names") != ["v1"]:
+		return ERR_FILE_CORRUPT
+	var entries: Dictionary = _read_directory_entries_bounded(version_root, 8)
+	if GFVariantData.get_option_int(entries, "error", ERR_FILE_CORRUPT) != OK:
+		return GFVariantData.get_option_int(entries, "error", ERR_FILE_CORRUPT) as Error
+	for leaf: String in GFVariantData.get_option_array(entries, "names"):
+		if leaf in ["catalog", "families"]:
+			continue
+		if leaf not in [
+			"layout.json", "upgrade.intent.json", "upgrade.cursor.json",
+			"upgrade.cursor.pending.json", "upgrade.layout.json",
+		]:
+			return ERR_FILE_CORRUPT
+		var leaf_path: String = version_root.path_join(leaf)
+		if _path_leaf_is_link(leaf_path) or not FileAccess.file_exists(leaf_path):
+			return ERR_FILE_CORRUPT
+	var intent_read: Dictionary = _read_json_dictionary(version_root.path_join("upgrade.intent.json"))
+	if (
+		not GFVariantData.get_option_bool(intent_read, "ok")
+		or not _records_match_expected(
+			GFVariantData.get_option_dictionary(intent_read, "data"), _revision_upgrade_intent
+		)
+	):
+		return ERR_FILE_CORRUPT
+	var incarnation: String = GFVariantData.get_option_string(_revision_upgrade_intent, "storage_incarnation")
+	var layout_path: String = version_root.path_join("layout.json")
+	var layout_read: Dictionary = _read_json_dictionary(layout_path)
+	var layout: Dictionary = GFVariantData.get_option_dictionary(layout_read, "data")
+	if GFVariantData.get_option_bool(layout_read, "ok"):
+		if _records_match_expected(layout, _make_revision_layout_manifest(incarnation)):
+			return OK
+		if (
+			_records_match_expected(layout, _make_layout_manifest())
+			and FileAccess.get_sha256(layout_path)
+			== GFVariantData.get_option_string(_revision_upgrade_intent, "old_layout_hash")
+		):
+			return OK
+		return ERR_FILE_CORRUPT
+	if GFVariantData.get_option_int(layout_read, "error", ERR_FILE_CORRUPT) != ERR_FILE_NOT_FOUND:
+		return GFVariantData.get_option_int(layout_read, "error", ERR_FILE_CORRUPT) as Error
+	var staged_read: Dictionary = _read_json_dictionary(version_root.path_join("upgrade.layout.json"))
+	return OK if (
+		GFVariantData.get_option_bool(staged_read, "ok")
+		and _records_match_expected(
+			GFVariantData.get_option_dictionary(staged_read, "data"),
+			_make_revision_layout_manifest(incarnation)
+		)
+	) else ERR_FILE_CORRUPT
 
 
 func _validate_owner_only_claim(descriptor: Dictionary) -> Error:
@@ -1165,6 +1421,8 @@ func _validate_family_entries(descriptor: Dictionary) -> Error:
 		"transaction.commit.pending.json": true,
 		GFVariantData.get_option_string(descriptor, "resource_stage_path").get_file(): true,
 	}
+	if not get_revision_incarnation_for_framework().is_empty():
+		allowed["committed-state.json"] = true
 	for entry: String in GFVariantData.get_option_array(entries, "names"):
 		if not allowed.has(entry):
 			return ERR_FILE_CORRUPT
@@ -1398,6 +1656,7 @@ func _reconcile_publish_pending_files(path: String, expected: Dictionary) -> Err
 	var parent_directory: DirAccess = DirAccess.open(parent_path)
 	if parent_directory == null:
 		return ERR_FILE_CANT_OPEN
+	parent_directory.include_hidden = true
 	var begin_error: Error = parent_directory.list_dir_begin()
 	if begin_error != OK:
 		return begin_error
@@ -1581,6 +1840,8 @@ static func _read_directory_entries_bounded(path: String, max_entries: int) -> D
 	var dir: DirAccess = DirAccess.open(path)
 	if dir == null:
 		return {"error": ERR_FILE_CANT_OPEN, "names": []}
+	# 隐藏条目同样属于物理证据，必须参与布局白名单和数量上限检查。
+	dir.include_hidden = true
 	var begin_error: Error = dir.list_dir_begin()
 	if begin_error != OK:
 		return {"error": begin_error, "names": []}

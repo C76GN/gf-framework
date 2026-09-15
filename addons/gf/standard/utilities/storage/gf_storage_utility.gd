@@ -320,6 +320,7 @@ var _transaction_manager: _StorageTransactionManager
 var _read_result_origin_token: String = ""
 var _storage_root_frozen: bool = false
 var _storage_reconciled: bool = false
+var _next_revision_read_guard: int = -1
 
 
 # --- Godot 生命周期方法 ---
@@ -570,7 +571,145 @@ func load_resource(file_name: String, type_hint: String = "") -> Resource:
 	return loaded_resource
 
 
+## 在同一 family ownership 内读取 Resource，并配对实际读取来源的 committed revision。
+##
+## 仅支持显式 schema 2，沿用 Resource 加载 opt-in、扩展名和类型 allowlist。
+## token 仅描述顶层存储文件，不覆盖 Resource 外部依赖或返回后属性变化。
+## 同 family 回调写入会被拒绝或排队；生命周期变化、排队写入或 token 漂移使本次读取失败。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param file_name: canonical Resource logical path。
+## [br]
+## @param type_hint: 允许的 Godot Resource 类型提示。
+## [br]
+## @return 成功 Resource/token 配对，或不带载荷的失败结果。
+func load_resource_with_revision(file_name: String, type_hint: String = "") -> GFStorageResourceReadResult:
+	if not _is_sync_io_admission_current():
+		return GFStorageResourceReadResult.failure(ERR_UNAVAILABLE)
+	if (
+		not GFStorageFamilyStore.is_valid_logical_file_path_for_framework(file_name)
+		or file_name.get_extension().is_empty()
+		or not GFStorageFamilyStore.is_valid_extension_filter_for_framework(file_name.get_extension())
+		or not allow_resource_loads
+	):
+		return GFStorageResourceReadResult.failure(ERR_INVALID_PARAMETER)
+	var normalized_hint: String = type_hint.strip_edges()
+	if (
+		(require_resource_load_type_hint and normalized_hint.is_empty())
+		or not _is_resource_load_type_hint_allowed(normalized_hint)
+	):
+		return GFStorageResourceReadResult.failure(ERR_INVALID_PARAMETER)
+	var revision: GFStorageRevisionResult = query_committed_revision(file_name)
+	if not revision.is_successful():
+		return GFStorageResourceReadResult.failure(revision.get_error_code())
+	var context: Dictionary = _make_revision_context(file_name)
+	var path: String = GFVariantData.get_option_string(context, "payload_path")
+	if not _is_resource_load_extension_allowed(path):
+		return GFStorageResourceReadResult.failure(ERR_INVALID_PARAMETER)
+	var entry_store: GFStorageFamilyStore = _family_store
+	var entry_manager: _StorageTransactionManager = _transaction_manager
+	var file_key: String = _get_async_file_key(file_name)
+	var guard: int = _next_revision_read_guard
+	_next_revision_read_guard -= 1
+	_async_file_locks[file_key] = guard
+	var loaded: Resource = ResourceLoader.load(path, normalized_hint, ResourceLoader.CACHE_MODE_IGNORE)
+	var admission_current: bool = (
+		_is_sync_io_admission_current()
+		and entry_store == _family_store
+		and entry_manager == _transaction_manager
+		and GFVariantData.get_option_int(_async_file_locks, file_key) == guard
+	)
+	if entry_store == _family_store and GFVariantData.get_option_int(_async_file_locks, file_key) == guard:
+		_erase_dictionary_key(_async_file_locks, file_key)
+	var pending: bool = _has_pending_async_task_for_file(file_name) if admission_current else false
+	_try_complete_quiesce()
+	if not admission_current:
+		return GFStorageResourceReadResult.failure(ERR_UNAVAILABLE)
+	if pending:
+		return GFStorageResourceReadResult.failure(ERR_BUSY)
+	if loaded == null or not _is_loaded_resource_compatible(loaded, normalized_hint):
+		return GFStorageResourceReadResult.failure(ERR_CANT_ACQUIRE_RESOURCE)
+	var actual: GFStorageRevisionResult = GFStorageRevisionStore.read_for_framework(context)
+	if not actual.is_successful() or actual.get_revision() != revision.get_revision():
+		return GFStorageResourceReadResult.failure(ERR_FILE_CORRUPT)
+	return GFStorageResourceReadResult.success(loaded, revision)
+
+
 # --- 公共方法（文件管理） ---
+
+## 显式创建支持 committed revision 的 schema 2 存储。
+##
+## 必须在首次 init、读写或查询之前调用；已有 layout 或其他非空证据返回 ERR_ALREADY_EXISTS。
+## 创建中断后可先重试此入口，续建严格空前缀或一致完整的 schema 2 layout pending；损坏证据失败关闭。
+## 空目录不能证明 schema 2 意图，创建未成功前不要先调用普通初始化或 I/O。
+## 旧存储需离线迁移；普通初始化仍创建 schema 1，不会暗中升级。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 创建与布局校验结果。
+func create_revision_storage() -> Error:
+	if not _is_sync_io_admission_current():
+		return ERR_UNAVAILABLE
+	if _has_async_executor_work():
+		return ERR_BUSY
+	_ensure_storage_helpers()
+	var storage_root_path: String = _get_save_base_path()
+	var ancestry_error: Error = _validate_reset_mutation_ancestry(storage_root_path, {})
+	if ancestry_error != OK:
+		return ancestry_error
+	if not _family_store.configure_for_framework(storage_root_path):
+		return ERR_INVALID_PARAMETER
+	var creation_error: Error = _family_store.create_revision_layout_for_framework()
+	if creation_error == OK:
+		_storage_root_frozen = true
+		_storage_reconciled = true
+	return creation_error
+
+
+## 查询一个逻辑文件当前已提交的 opaque revision，不读取 payload 内容。
+##
+## 先排空本 Utility 的目标任务并恢复目标事务。只允许等值比较；schema 1 为 UNSUPPORTED。
+## token 不检测框架之外的写入，不提供跨 provider 排序，也不表示校验和或业务 schema 版本。
+## 摘要缓存应使用实际读取结果的 token，不能把此查询后另一次读取的摘要绑定到本次 token。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param file_name: canonical portable logical file path。
+## [br]
+## @return 明确的 available、missing、unsupported 或失败结果。
+func query_committed_revision(file_name: String) -> GFStorageRevisionResult:
+	if not GFStorageFamilyStore.is_valid_logical_file_path_for_framework(file_name):
+		return GFStorageRevisionStore.failure_for_framework(ERR_INVALID_PARAMETER)
+	if not _is_sync_io_admission_current():
+		return GFStorageRevisionStore.failure_for_framework(ERR_UNAVAILABLE)
+	_ensure_storage_helpers()
+	var entry_family_store: GFStorageFamilyStore = _family_store
+	var entry_transaction_manager: _StorageTransactionManager = _transaction_manager
+	if not _wait_for_async_tasks_for_file(file_name):
+		return GFStorageRevisionStore.failure_for_framework(ERR_BUSY)
+	if (
+		not _is_sync_io_admission_current()
+		or entry_family_store != _family_store
+		or entry_transaction_manager != _transaction_manager
+	):
+		return GFStorageRevisionStore.failure_for_framework(ERR_UNAVAILABLE)
+	var layout_error: Error = _ensure_storage_layout_ready()
+	if layout_error != OK:
+		return GFStorageRevisionStore.failure_for_framework(layout_error)
+	if _family_store.get_revision_incarnation_for_framework().is_empty():
+		return GFStorageRevisionResult.failure(GFStorageRevisionResult.Status.UNSUPPORTED, ERR_UNAVAILABLE)
+	var prepare_error: Error = _prepare_family_for_read_after_readiness(file_name)
+	if prepare_error != OK:
+		return GFStorageRevisionStore.failure_for_framework(prepare_error)
+	return GFStorageRevisionStore.read_for_framework(_make_revision_context(file_name))
+
 
 ## 枚举指定存储目录下的文件。
 ## [br]
@@ -1419,6 +1558,31 @@ func get_registered_migrations() -> Array[Dictionary]:
 
 # --- 框架内部方法 ---
 
+## 离线 revision 迁移器的准备入口；调用方必须独占整个存储 root。
+## [br]
+## @api framework_internal
+## [br]
+## @return 排空本实例并完整恢复 root 后返回 OK；重入、失效或未收敛时失败。
+func prepare_revision_upgrade_for_framework() -> Error:
+	if not _is_sync_io_admission_current():
+		return ERR_UNAVAILABLE
+	_ensure_storage_helpers()
+	var entry_store: GFStorageFamilyStore = _family_store
+	var entry_manager: _StorageTransactionManager = _transaction_manager
+	wait_for_async_tasks()
+	if not _is_sync_io_admission_current() or entry_store != _family_store or entry_manager != _transaction_manager:
+		return ERR_UNAVAILABLE
+	if _has_async_executor_work():
+		return ERR_BUSY
+	var readiness_error: Error = _ensure_storage_ready()
+	if readiness_error != OK:
+		return readiness_error
+	var reset_error: Error = _recover_all_pending_family_resets()
+	if reset_error != OK:
+		return reset_error
+	return _transaction_manager._recover_all_catalog_transactions()
+
+
 ## 在不消费授权的情况下复核当前 family 是否仍等于签发 corrupt read 时的观察快照。
 ## [br]
 ## @api framework_internal
@@ -1911,6 +2075,8 @@ func _freeze_async_target_family(canonical_file_name: String) -> Dictionary:
 
 
 func _make_async_transaction_id() -> String:
+	if not _family_store.get_revision_incarnation_for_framework().is_empty():
+		return GFUuid.generate_v4()
 	var transaction_id: String = "async:%d:%d:%d" % [
 		get_instance_id(),
 		Time.get_ticks_usec(),
@@ -3462,13 +3628,13 @@ func _start_async_task(task: Dictionary) -> void:
 			_get_task_transaction_commit_pending_path(task),
 			_get_task_transaction_id(task),
 			_get_task_dictionary_reference(task, "data"),
-			_get_task_dictionary(task, "codec_options")
+			_make_worker_codec_options(task)
 		)
 	elif task_type == &"load":
 		callback = Callable(self, "_load_data_thread").bind(
 			storage_file_name,
 			_get_task_final_path(task),
-			_get_task_dictionary(task, "codec_options")
+			_make_worker_codec_options(task)
 		)
 	elif task_type == &"delete":
 		callback = Callable(self, "_delete_file_thread").bind(
@@ -4356,7 +4522,7 @@ func _make_family_observation_token(
 	if descriptor.is_empty():
 		return ""
 	var records: Array[String] = []
-	for path_key: String in [
+	var path_keys: Array[String] = [
 		"catalog_path",
 		"family_path",
 		"owner_path",
@@ -4368,7 +4534,12 @@ func _make_family_observation_token(
 		"transaction_commit_path",
 		"transaction_commit_pending_path",
 		"resource_stage_path",
-	]:
+	]
+	var state_path: String = GFVariantData.get_option_string(descriptor, "family_path").path_join("committed-state.json")
+	if FileAccess.file_exists(state_path) or DirAccess.dir_exists_absolute(state_path) or _absolute_storage_path_is_link(state_path):
+		descriptor["revision_state_path"] = state_path
+		path_keys.append("revision_state_path")
+	for path_key: String in path_keys:
 		var path: String = GFVariantData.get_option_string(descriptor, path_key)
 		if path.is_empty():
 			return ""
@@ -4402,8 +4573,13 @@ func _complete_async_load(
 		)
 	else:
 		result = GFStorageReadResult.from_dict(result_data)
+	var captured_revision: GFStorageRevisionResult = null
+	var revision_value: Variant = result_data.get("_gf_committed_revision")
+	if revision_value is GFStorageRevisionResult:
+		captured_revision = revision_value
 	var from_version: int = result.data_version if result != null else 0
 	result = _apply_schema_migrations(file_name, result, false)
+	result.capture_revision_for_framework(captured_revision)
 	_bind_read_result_origin(result, _get_task_storage_file_name(task))
 	var migration_to_version: int = result.data_version if result != null else from_version
 	var should_emit_migrated: bool = (
@@ -4603,6 +4779,17 @@ func _delete_file_thread(storage_root_path: String, logical_name: String) -> Dic
 			family_error,
 			existing_member_count
 		)
+	if not family_store.get_revision_incarnation_for_framework().is_empty():
+		for path_key: String in [
+			"transaction_path", "transaction_pending_path",
+			"transaction_commit_path", "transaction_commit_pending_path",
+		]:
+			if FileAccess.file_exists(GFVariantData.get_option_string(descriptor, path_key)):
+				return _make_delete_worker_result(
+					ERR_BUSY, GFStorageDeleteResult.FailureKind.CONFLICT,
+					existing_member_count, 0, existing_member_count,
+					GFStorageDeleteResult.FamilyMember.TRANSACTION_EVIDENCE
+				)
 	if existing_member_count == 0:
 		return _make_delete_worker_result(
 			ERR_FILE_NOT_FOUND,
@@ -6650,6 +6837,15 @@ func _save_data_thread(
 			GFStorageAsyncResult.WriteFailureKind.IO_FAILED,
 			validation_report
 		)
+	var revision_error: Error = GFStorageRevisionStore.publish_for_framework(
+		GFVariantData.get_option_dictionary(codec_options, "_gf_revision_context"),
+		transaction_id,
+		Callable(self, "_write_plain_json_absolute")
+	)
+	if revision_error != OK:
+		return _make_thread_save_result(
+			revision_error, GFStorageAsyncResult.WriteFailureKind.IO_FAILED, validation_report
+		)
 	var _cleanup_error: Error = _finalize_single_absolute_transaction(
 		final_path,
 		temp_path,
@@ -7301,7 +7497,17 @@ func _load_data_thread(_file_name: String, path: String, codec_options: Dictiona
 		)
 
 	var thread_codec: GFStorageCodec = GFStorageCodec.new()
-	return thread_codec.decode(bytes, codec_options).to_dict()
+	var revision: GFStorageRevisionResult = GFStorageRevisionStore.read_for_framework(
+		GFVariantData.get_option_dictionary(codec_options, "_gf_revision_context")
+	)
+	if revision.get_status() not in [GFStorageRevisionResult.Status.AVAILABLE, GFStorageRevisionResult.Status.UNSUPPORTED]:
+		return _make_thread_load_failure(
+			"Committed revision could not be read", revision.get_error_code(),
+			_classify_load_failure(revision.get_error_code())
+		)
+	var result: Dictionary = thread_codec.decode(bytes, codec_options).to_dict()
+	result["_gf_committed_revision"] = revision
+	return result
 
 
 func _make_thread_load_failure(
@@ -7603,6 +7809,28 @@ func _make_family_descriptor(file_name: String) -> Dictionary:
 		_get_save_base_path(),
 		file_name
 	)
+
+
+func _make_revision_context(file_name: String) -> Dictionary:
+	return GFStorageRevisionStore.make_context_for_framework(
+		_make_family_descriptor(file_name),
+		_family_store.get_revision_incarnation_for_framework()
+	)
+
+
+func _make_worker_codec_options(task: Dictionary) -> Dictionary:
+	var options: Dictionary = _get_task_dictionary(task, "codec_options")
+	var frozen_store: GFStorageFamilyStore = _GF_STORAGE_FAMILY_STORE_SCRIPT.new()
+	var configured: bool = frozen_store.configure_for_framework(_get_task_storage_root_path(task))
+	if not configured:
+		return options
+	options["_gf_revision_context"] = GFStorageRevisionStore.make_context_for_framework(
+		GFStorageFamilyStore.make_family_descriptor_for_framework(
+			_get_task_storage_root_path(task), _get_task_storage_file_name(task)
+		),
+		frozen_store.get_revision_incarnation_for_framework()
+	)
+	return options
 
 
 func _prepare_family_for_write(file_name: String) -> Error:
@@ -8088,8 +8316,19 @@ func _read_json(file_name: String) -> GFStorageReadResult:
 		_bind_read_result_origin(last_load_result, file_name)
 		return last_load_result.duplicate_result()
 
+	var revision: GFStorageRevisionResult = GFStorageRevisionStore.read_for_framework(
+		_make_revision_context(file_name)
+	)
+	if revision.get_status() not in [GFStorageRevisionResult.Status.AVAILABLE, GFStorageRevisionResult.Status.UNSUPPORTED]:
+		last_load_result = _make_load_failure(
+			"Committed revision could not be read", revision.get_error_code(),
+			_classify_load_failure(revision.get_error_code())
+		)
+		_bind_read_result_origin(last_load_result, file_name)
+		return last_load_result.duplicate_result()
 	var result: GFStorageReadResult = _get_codec().decode(bytes, _get_codec_options())
 	result = _apply_schema_migrations(file_name, result)
+	result.capture_revision_for_framework(revision)
 	_bind_read_result_origin(result, file_name)
 	last_load_result = result.duplicate_result()
 	if not result.ok:
@@ -9167,11 +9406,20 @@ class _StorageTransactionManager:
 			var cleanup_error: Error = _file_ops._remove_absolute(resource_stage_path)
 			if cleanup_error != OK:
 				return cleanup_error
+			var revision: GFStorageRevisionResult = GFStorageRevisionStore.read_for_framework(
+				_revision_context(file_name)
+			)
+			if revision.get_status() not in [
+				GFStorageRevisionResult.Status.AVAILABLE,
+				GFStorageRevisionResult.Status.NOT_FOUND,
+				GFStorageRevisionResult.Status.UNSUPPORTED,
+			]:
+				return revision.get_error_code()
 		return OK
 
 	func _group_matches_committed_cleanup(
 		file_names: Array[String],
-		_reference: Dictionary
+		transaction_reference: Dictionary
 	) -> bool:
 		for file_name: String in file_names:
 			if not FileAccess.file_exists(_path_policy._get_full_path(file_name)):
@@ -9179,6 +9427,11 @@ class _StorageTransactionManager:
 			if (
 				FileAccess.file_exists(_path_policy._get_full_path(_get_temp_filename(file_name)))
 				or FileAccess.file_exists(_path_policy._get_full_path(_get_backup_filename(file_name)))
+			):
+				return false
+			if not GFStorageRevisionStore.matches_for_framework(
+				_revision_context(file_name),
+				GFVariantData.get_option_string(transaction_reference, "transaction_id")
 			):
 				return false
 		return true
@@ -9204,7 +9457,35 @@ class _StorageTransactionManager:
 		var terminal_error: Error = _validate_committed_group_state(file_names)
 		if terminal_error != OK:
 			return terminal_error
+		var revision_error: Error = _publish_committed_revisions(file_names)
+		if revision_error != OK:
+			return revision_error
 		return _cleanup_committed_group_evidence(file_names)
+
+	func _revision_context(file_name: String) -> Dictionary:
+		return GFStorageRevisionStore.make_context_for_framework(
+			GFStorageFamilyStore.make_family_descriptor_for_framework(
+				_path_policy._get_save_base_path(), file_name
+			),
+			_family_store.get_revision_incarnation_for_framework()
+		)
+
+	func _publish_committed_revisions(file_names: Array[String]) -> Error:
+		if _family_store.get_revision_incarnation_for_framework().is_empty():
+			return OK
+		var reference_read: Dictionary = _find_transaction_reference(file_names)
+		if GFVariantData.get_option_int(reference_read, "error", ERR_FILE_CORRUPT) != OK:
+			return ERR_FILE_CORRUPT
+		var transaction_reference: Dictionary = GFVariantData.get_option_dictionary(reference_read, "record")
+		var commit_id: String = GFVariantData.get_option_string(transaction_reference, "transaction_id")
+		for file_name: String in file_names:
+			var publish_error: Error = GFStorageRevisionStore.publish_for_framework(
+				_revision_context(file_name), commit_id,
+				Callable(_owner, "_write_plain_json_absolute")
+			)
+			if publish_error != OK:
+				return publish_error
+		return OK
 
 	func _validate_committed_group_state(file_names: Array[String]) -> Error:
 		for file_name: String in file_names:
@@ -9339,6 +9620,10 @@ class _StorageTransactionManager:
 		var terminal_error: Error = _validate_committed_group_state(file_names)
 		if terminal_error != OK:
 			return terminal_error
+		var revision_error: Error = _publish_committed_revisions(file_names)
+		if revision_error != OK:
+			# payload 已提交；保留全组证据，下一次 target recovery 重试同一 token。
+			return revision_error
 		var cleanup_error: Error = _cleanup_committed_group_evidence(file_names)
 		if cleanup_error != OK:
 			push_warning(
@@ -9418,7 +9703,11 @@ class _StorageTransactionManager:
 					return ERR_FILE_CORRUPT
 				had_final_by_file[file_name] = _get_marker_had_final(first_prepare, file_name)
 		else:
-			transaction_id = "%d:%d" % [Time.get_ticks_usec(), _next_transaction_id]
+			transaction_id = (
+				"%d:%d" % [Time.get_ticks_usec(), _next_transaction_id]
+				if _family_store.get_revision_incarnation_for_framework().is_empty()
+				else GFUuid.generate_v4()
+			)
 			_next_transaction_id += 1
 			for file_name: String in file_names:
 				had_final_by_file[file_name] = FileAccess.file_exists(
