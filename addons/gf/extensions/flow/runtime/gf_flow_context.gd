@@ -419,7 +419,7 @@ func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
 func deserialize_runtime_state(data: Dictionary) -> void:
 	var parsed: Dictionary = _parse_node_runtime_states(data)
 	if not GFVariantData.get_option_bool(parsed, "valid", false):
-		push_error("[GFFlowContext] deserialize_runtime_state 失败：nodes 必须是节点 ID 到 Dictionary 的映射。")
+		push_error("[GFFlowContext][flow_context.invalid_runtime_nodes] deserialize_runtime_state failed: nodes must map node IDs to Dictionary values.")
 		return
 	_node_runtime_states = GFVariantData.get_option_dictionary(parsed, "node_states").duplicate(true)
 	_synchronize_executing_runtime_nodes()

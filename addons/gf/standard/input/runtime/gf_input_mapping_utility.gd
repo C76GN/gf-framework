@@ -262,7 +262,7 @@ func get_remap_config(create_if_missing: bool = false) -> GFInputRemapConfig:
 ## @param priority: 优先级，数值越大越先处理。
 func enable_context(context: GFInputContext, priority: int = 0) -> void:
 	if context == null:
-		push_error("[GFInputMappingUtility] enable_context 失败：context 为空。")
+		push_error("[GFInputMappingUtility][input_mapping_utility.context_null] Cannot enable_context: context is null.")
 		return
 
 	_timestamp += 1

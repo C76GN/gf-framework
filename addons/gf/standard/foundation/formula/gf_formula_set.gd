@@ -33,7 +33,7 @@ extends Resource
 ## @param formula: 公式资源。
 func set_formula(formula_id: StringName, formula: GFFormula) -> void:
 	if formula_id == &"":
-		push_error("[GFFormulaSet] set_formula 失败：formula_id 为空。")
+		push_error("[GFFormulaSet][formula_set.formula_id_empty] Cannot set_formula: formula_id is empty.")
 		return
 	if formula == null:
 		var _erase_result_39: Variant = formulas.erase(formula_id)

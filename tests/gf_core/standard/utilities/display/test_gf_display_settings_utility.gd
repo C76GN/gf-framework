@@ -243,7 +243,7 @@ func test_missing_audio_bus_does_not_emit_applied_signal() -> void:
 	display.set_audio_bus_volume("__gf_missing_bus__", 0.5)
 
 	assert_signal_not_emitted(display, "display_setting_applied", "缺失音频总线不应发出应用成功信号。")
-	assert_push_warning("[GFDisplaySettingsUtility] 无法应用音频总线音量，未找到总线或后端拒绝：__gf_missing_bus__。")
+	assert_push_warning("[GFDisplaySettingsUtility][display_settings_utility.audio_volume_apply_failed] Cannot apply audio bus volume: bus missing or backend rejected the request: __gf_missing_bus__.")
 	display.dispose()
 
 
@@ -262,8 +262,8 @@ func test_audio_bus_volume_rejects_non_finite_input_without_backend_call() -> vo
 	assert_eq(audio.volume_write_count, 1, "NaN/Infinity 不得到达音频后端。")
 	assert_true(is_finite(audio.last_volume_db), "音频后端只应接收有限 dB。")
 	assert_almost_eq(display.get_audio_bus_volume("Master"), 0.5, 0.001, "非法输入不得覆盖最后一个有效音量。")
-	assert_push_warning("[GFDisplaySettingsUtility] 已拒绝非有限音频总线音量：Master。")
-	assert_push_warning("[GFDisplaySettingsUtility] 已拒绝非有限音频总线音量：Master。")
+	assert_push_warning("[GFDisplaySettingsUtility][display_settings_utility.audio_volume_non_finite] Rejected non-finite audio bus volume: Master.")
+	assert_push_warning("[GFDisplaySettingsUtility][display_settings_utility.audio_volume_non_finite] Rejected non-finite audio bus volume: Master.")
 	display.dispose()
 
 

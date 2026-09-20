@@ -580,7 +580,7 @@ func test_configuration_copies_values_and_is_sealed_after_first_write() -> void:
 			"new_value": { "items": [99] },
 		},
 	])
-	assert_push_error("[GFEditorCommand] 命令配置已冻结，不能修改：configure。")
+	assert_push_error("[GFEditorCommand][editor_command.configuration_frozen] Command configuration is frozen and cannot be modified: configure.")
 
 	assert_eq(command.revert(), OK)
 	assert_eq(command.execute(), OK)

@@ -483,7 +483,7 @@ static func _make_edge_key(a: int, b: int) -> String:
 
 
 static func _make_failure_result(input_point_count: int, error: String) -> Dictionary:
-	push_error("[GFVoronoi2D] %s" % error)
+	push_error("[GFVoronoi2D][voronoi2d.generation_failed] Voronoi generation failed: %s." % error)
 	return {
 		"ok": false,
 		"error": error,

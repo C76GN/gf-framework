@@ -37,7 +37,7 @@ func test_editor_command_rejects_configuration_change_after_execute() -> void:
 
 	assert_true(command.is_sealed(), "执行成功后命令配置应冻结。")
 	assert_eq(command.command_name, "Initial", "冻结后的命令名称不应被改写。")
-	assert_push_error("[GFEditorCommand] 命令配置已冻结，不能修改：command_name。")
+	assert_push_error("[GFEditorCommand][editor_command.configuration_frozen] Command configuration is frozen and cannot be modified: command_name.")
 
 
 func test_editor_scene_metadata_patch_sets_removes_and_reverts() -> void:
@@ -91,7 +91,7 @@ func test_editor_scene_metadata_patch_rejects_reconfigure_after_execute() -> voi
 	if raw_command_value is String:
 		command_value = raw_command_value
 	assert_eq(command_value, "new", "冻结后 configure 不应改写 value。")
-	assert_push_error("[GFEditorCommand] 命令配置已冻结，不能修改：configure。")
+	assert_push_error("[GFEditorCommand][editor_command.configuration_frozen] Command configuration is frozen and cannot be modified: configure.")
 	node.free()
 
 
@@ -110,7 +110,7 @@ func test_editor_scene_metadata_patch_rejects_field_change_after_undo_registrati
 
 	assert_true(command.is_sealed(), "写入 UndoRedo 后命令配置应冻结。")
 	assert_eq(command.metadata_key, &"gf_test_guides", "冻结后 public 字段写入不应改变命令配置。")
-	assert_push_error("[GFEditorCommand] 命令配置已冻结，不能修改：metadata_key。")
+	assert_push_error("[GFEditorCommand][editor_command.configuration_frozen] Command configuration is frozen and cannot be modified: metadata_key.")
 	node.free()
 
 

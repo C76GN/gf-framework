@@ -69,7 +69,7 @@ func test_manual_ticket_and_take_result_have_no_reading_authority() -> void:
 
 func test_immediate_failures_and_missing_file_remain_distinct_from_empty_success() -> void:
 	var invalid: GFStorageOwnedRead = _storage.load_data_owned_request_async("../outside.json")
-	assert_push_error("[GFStorageUtility] load_data_owned_request_async 失败：file_name 不满足 portable logical path profile。")
+	assert_push_error("[GFStorageUtility][storage_utility.filename_profile_invalid] load_data_owned_request_async failed: file_name does not satisfy the portable logical path profile.")
 	_assert_read_failure(invalid, GFStorageReadResult.FailureKind.INVALID_REQUEST)
 	_assert_uncaptured_receipt(invalid)
 	var invalid_options: GFStorageOwnedRead = _storage.load_data_owned_request_async(

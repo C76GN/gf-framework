@@ -125,7 +125,7 @@ var save_debounce_seconds: float = 0.25
 var persistence_enabled: bool = true:
 	set(value):
 		if _settings_store_binding_frozen and persistence_enabled != value:
-			push_error("[GFSettingsUtility] persistence_enabled 在生命周期计划冻结后不可修改。")
+			push_error("[GFSettingsUtility][settings_utility.persistence_frozen] Cannot change persistence_enabled after the lifecycle plan is frozen.")
 			return
 		persistence_enabled = value
 
@@ -1138,12 +1138,12 @@ func _register_definition_internal(
 	apply_default: bool = true
 ) -> void:
 	if definition == null:
-		push_error("[GFSettingsUtility] register_definition 失败：definition 为空。")
+		push_error("[GFSettingsUtility][settings_utility.definition_null] Cannot register_definition: definition is null.")
 		return
 
 	var key: StringName = definition.get_setting_key()
 	if key == &"":
-		push_error("[GFSettingsUtility] register_definition 失败：设置键为空。")
+		push_error("[GFSettingsUtility][settings_utility.definition_key_empty] Cannot register_definition: settings key is empty.")
 		return
 
 	_definitions[key] = definition.duplicate_definition()
@@ -1677,7 +1677,7 @@ func _set_value_internal(
 	save_after_change: bool
 ) -> void:
 	if key == &"":
-		push_error("[GFSettingsUtility] set_value 失败：设置键为空。")
+		push_error("[GFSettingsUtility][settings_utility.set_key_empty] Cannot set_value: settings key is empty.")
 		return
 
 	var definition: GFSettingDefinition = _get_definition(key)
@@ -1696,7 +1696,7 @@ func _set_value_internal(
 
 func _stage_value_internal(key: StringName, value: Variant, emit_change: bool) -> void:
 	if key == &"":
-		push_error("[GFSettingsUtility] stage_value 失败：设置键为空。")
+		push_error("[GFSettingsUtility][settings_utility.stage_key_empty] Cannot stage_value: settings key is empty.")
 		return
 
 	var definition: GFSettingDefinition = _get_definition(key)
@@ -1848,7 +1848,7 @@ func _capture_save_record(file_name: String) -> Dictionary:
 		) > 0
 	):
 		push_error(
-			"[GFSettingsUtility] 设置数据包含循环引用，已拒绝持久化：%s。" % target_file_name
+			"[GFSettingsUtility][settings_utility.persistence_cycle] Settings data contains a cyclic reference; persistence rejected: %s." % target_file_name
 		)
 		capture_error_code = ERR_INVALID_DATA
 		data = {}

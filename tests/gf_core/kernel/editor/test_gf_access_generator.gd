@@ -265,7 +265,7 @@ func test_string_name_access_policy_field_with_wrong_type_fails_closed() -> void
 
 	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "valid"))
 	assert_true(GF_VARIANT_ACCESS.get_option_array(result, "records").is_empty())
-	assert_push_error("[GFAccessGenerator] access policy 值无效：%s" % script_path)
+	assert_push_error("[GFAccessGenerator][access_generator.policy_invalid] Access policy validation failed.\nInvalid access policy value: %s." % script_path)
 
 
 func test_invalid_access_policy_fails_closed_without_generating_accessor() -> void:
@@ -288,7 +288,7 @@ func test_invalid_access_policy_fails_closed_without_generating_accessor() -> vo
 
 	assert_true(source.is_empty(), "任一 policy 非法时不得生成同批合法记录或扩展源码。")
 	assert_push_error(
-		"[GFAccessGenerator] access policy 无效，整批生成已中止：InvalidPolicyUtility"
+		"[GFAccessGenerator][access_generator.records_invalid] Accessor records are invalid.\nInvalid access policy; generation of the entire batch was aborted: InvalidPolicyUtility."
 	)
 
 
@@ -328,7 +328,7 @@ func test_unknown_configured_access_policy_field_fails_closed() -> void:
 	assert_false(GF_VARIANT_ACCESS.get_option_bool(policy_result, "valid"), "未知字段应使整批策略失败。")
 	assert_true(frozen_records.is_empty(), "失败批次不得暴露部分冻结记录。")
 	assert_push_error(
-		"[GFAccessGenerator] access policy 包含未知字段：%s" % script_path
+		"[GFAccessGenerator][access_generator.policy_invalid] Access policy validation failed.\nThe access policy contains an unknown field: %s." % script_path
 	)
 
 
@@ -392,7 +392,7 @@ func test_stale_access_policy_path_fails_closed() -> void:
 
 	assert_false(GF_VARIANT_ACCESS.get_option_bool(result, "valid"), "移动后遗留路径必须阻断生成。")
 	assert_true(GF_VARIANT_ACCESS.get_option_array(result, "records").is_empty())
-	assert_push_error("[GFAccessGenerator] access policy 路径未匹配可生成模块：%s" % stale_path)
+	assert_push_error("[GFAccessGenerator][access_generator.policy_invalid] Access policy validation failed.\nThe access policy path does not match a generatable module: %s." % stale_path)
 
 
 func test_invalid_access_policy_root_does_not_overwrite_generated_artifact() -> void:
@@ -456,7 +456,7 @@ func test_invalid_access_policy_root_does_not_overwrite_generated_artifact() -> 
 		"invalid-policy"
 	)
 	assert_eq(content, "sentinel", "策略根非法时不得覆盖既有生成物。")
-	assert_push_error("[GFAccessGenerator] gf/codegen/access_policies 必须是 Dictionary。")
+	assert_push_error("[GFAccessGenerator][access_generator.policy_invalid] Access policy validation failed.\ngf/codegen/access_policies must be a Dictionary.")
 
 
 func test_build_source_omits_capability_helper_without_capability_records() -> void:
@@ -489,7 +489,7 @@ func test_build_source_skips_duplicate_function_names() -> void:
 	])
 
 	assert_eq(source.count("static func get_player_model"), 1, "重复函数名应只保留一个。")
-	assert_push_warning("[GFAccessGenerator] 函数名重复，已跳过：get_player_model")
+	assert_push_warning("[GFAccessGenerator][access_generator.function_name_duplicate] Skipped a duplicate function name: get_player_model.")
 
 
 func test_access_generator_extension_can_append_source_with_builder() -> void:
@@ -551,7 +551,7 @@ func test_save_source_can_refuse_overwrite() -> void:
 
 	assert_eq(error, ERR_ALREADY_EXISTS, "禁止覆盖时已有目标文件应返回 ERR_ALREADY_EXISTS。")
 	assert_eq(content, "old", "禁止覆盖时不应改写已有文件。")
-	assert_push_warning("[GFAccessGenerator] 目标文件已存在，已跳过：%s" % path)
+	assert_push_warning("[GFGeneratedArtifactReport][generated_artifact_report.output_exists] Artifact operation for GFAccessGenerator reported the following.\nThe target file already exists and was skipped: %s." % path)
 
 
 func test_save_source_with_report_supports_dry_run_without_writing() -> void:

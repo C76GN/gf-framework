@@ -357,7 +357,7 @@ func test_failed_hot_replace_preserves_previous_service_provider() -> void:
 	)
 	assert_eq(previous.dispose_count, 0)
 	assert_eq(rejected.dispose_count, 1)
-	assert_push_error("[GFArchitecture] 热模块 activation 失败")
+	assert_push_error("[GFArchitecture][architecture.hot_activation_failed]")
 	architecture.dispose()
 	assert_eq(previous.dispose_count, 1)
 
@@ -394,7 +394,7 @@ func test_hot_replace_rejects_provider_identity_drift_for_active_consumer() -> v
 	assert_eq(previous.dispose_count, 0, "拒绝替换时旧 provider 应继续活动。")
 	assert_eq(replacement.dispose_count, 1, "拒绝的 replacement 应且只应清理一次。")
 	assert_push_error(
-		"[GFArchitecture] hot replace 失败：既有活动模块的声明或解析目标发生漂移"
+		"[GFArchitecture][architecture.active_module_dependency_changed] hot replace"
 	)
 	architecture.dispose()
 	assert_eq(previous.dispose_count, 1)
@@ -433,7 +433,7 @@ func test_hot_unregister_rejects_alternate_fallback_resolution_drift() -> void:
 	)
 	assert_eq(exact_provider.dispose_count, 0)
 	assert_push_error(
-		"[GFArchitecture] hot unregister 失败：既有活动模块的声明或解析目标发生漂移"
+		"[GFArchitecture][architecture.active_module_dependency_changed] hot unregister"
 	)
 	architecture.dispose()
 	assert_eq(exact_provider.dispose_count, 1)
@@ -471,7 +471,7 @@ func test_unrelated_hot_register_rejects_existing_dependency_hook_drift() -> voi
 		primary
 	)
 	assert_push_error(
-		"[GFArchitecture] hot register 失败：既有活动模块的声明或解析目标发生漂移"
+		"[GFArchitecture][architecture.active_module_dependency_changed] hot register"
 	)
 	architecture.dispose()
 
@@ -535,7 +535,7 @@ func test_hot_replacement_ready_reentry_cannot_supersede_outer_transaction() -> 
 	assert_eq(replacement_utility.dispose_count, 0, "活动 replacement 在架构释放前不得被释放。")
 	assert_eq(previous_utility.dispose_count, 1, "被 supersede 的旧实例应只释放一次。")
 	assert_push_error(
-		"[GFArchitecture] unregister_utility 失败：另一项模块拓扑事务尚未完成。"
+		"[GFArchitecture][architecture.topology_transaction_in_progress] unregister_utility failed: another module topology transaction has not completed."
 	)
 	architecture.dispose()
 	assert_eq(replacement_utility.dispose_count, 1, "架构释放时 replacement 应且只应释放一次。")
@@ -735,7 +735,7 @@ func test_synchronous_hot_activation_crossing_frozen_deadline_fails() -> void:
 	)
 	assert_eq(candidate.activation_count, 1)
 	assert_eq(candidate.dispose_count, 1)
-	assert_push_error("[GFArchitecture] 热模块 activation 失败")
+	assert_push_error("[GFArchitecture][architecture.hot_activation_failed]")
 	architecture.dispose()
 	assert_eq(candidate.dispose_count, 1)
 
@@ -761,7 +761,7 @@ func test_synchronous_hot_quiesce_crossing_frozen_deadline_fails_closed() -> voi
 	)
 	assert_eq(utility.quiesce_count, 1)
 	assert_eq(utility.dispose_count, 1)
-	assert_push_error("[GFArchitecture] 模块拓扑事务 quiesce 失败")
+	assert_push_error("[GFArchitecture][architecture.transaction_quiesce_failed]")
 	architecture.dispose()
 	assert_eq(utility.dispose_count, 1)
 
@@ -1022,8 +1022,8 @@ func test_parent_external_dependency_lease_blocks_topology_until_child_shutdown(
 		provider
 	)
 	assert_eq(provider.dispose_count, 0)
-	assert_push_error("活动子架构仍持有父级外部模块依赖租约")
-	assert_push_error("活动子架构仍持有父级外部模块依赖租约")
+	assert_push_error("[architecture.topology_write_child_leases]")
+	assert_push_error("[architecture.topology_write_child_leases]")
 
 	var child_shutdown: GFArchitectureShutdownResult = (
 		await child.shutdown_async()
@@ -1094,7 +1094,7 @@ func test_child_init_failure_retains_parent_lease_through_cleanup_hooks() -> voi
 	assert_false(parent.is_disposed(), "child 失败清理不得提前终结 parent。")
 	assert_true(parent.is_accepting_runtime_work(), "child 失败后 parent 仍应保持 READY。")
 	assert_eq(provider.dispose_count, 0, "child 失败清理期间 provider 必须保持存活。")
-	assert_push_error("[GFArchitecture] activation 失败")
+	assert_push_error("[GFArchitecture][architecture.activation_failed]")
 
 	var parent_shutdown: GFArchitectureShutdownResult = await parent.shutdown_async()
 	assert_true(parent_shutdown.is_successful(), "child 失败清理释放租约后 parent 应可关闭。")
@@ -1188,7 +1188,7 @@ func test_mixed_parent_dependency_lease_preserves_module_topology_scope() -> voi
 		await parent.register_utility_instance(UnrelatedHotUtility.new()),
 		"同 owner 的 factory lease 不得把 module lease 的拓扑 scope 降级。"
 	)
-	assert_push_error("活动子架构仍持有父级外部模块依赖租约")
+	assert_push_error("[architecture.topology_write_child_leases]")
 	var blocked_shutdown: GFArchitectureShutdownResult = (
 		await parent.shutdown_async()
 	)
@@ -1247,7 +1247,7 @@ func test_forced_parent_dispose_prevents_child_from_invoking_parent_factory() ->
 		GFVariantData.get_option_int(provider_state, "call_count"),
 		0
 	)
-	assert_push_error("工厂所属架构未开放运行时准入")
+	assert_push_error("[architecture.factory_runtime_admission_closed]")
 	child.dispose()
 
 
@@ -1304,7 +1304,7 @@ func test_owner_denial_releases_unreturned_transient_fallback() -> void:
 			rejected_instance_value == null,
 			"未交付的 transient Node 必须释放，不能形成 orphan。"
 		)
-	assert_push_error("工厂所属架构未开放运行时准入")
+	assert_push_error("[architecture.factory_runtime_admission_closed]")
 	child.dispose()
 
 
@@ -1341,7 +1341,7 @@ func test_parent_external_dependency_lease_closes_activation_race_and_forced_dis
 		"child activation pending 期间父级 provider 也必须受租约保护。"
 	)
 	assert_eq(provider.dispose_count, 0)
-	assert_push_error("活动子架构仍持有父级外部模块依赖租约")
+	assert_push_error("[architecture.topology_write_child_leases]")
 
 	child.dispose()
 	child.dispose()
@@ -1375,7 +1375,7 @@ func test_failed_child_activation_releases_parent_external_dependency_lease() ->
 
 	assert_false(await child.init())
 	assert_true(child.has_initialization_failed())
-	assert_push_error("[GFArchitecture] activation 失败")
+	assert_push_error("[GFArchitecture][architecture.activation_failed]")
 	assert_true(
 		await parent.unregister_utility(
 			StableDependencyProviderUtility
@@ -1874,7 +1874,7 @@ func test_parent_transient_rejection_cleans_actual_child_event_scope() -> void:
 		var instance_ref: WeakRef = instance_ref_value
 		var released_instance_value: Variant = instance_ref.get_ref()
 		assert_true(released_instance_value == null)
-	assert_push_error("create_instance 失败：未注册工厂")
+	assert_push_error("[architecture.factory_not_registered]")
 	child.dispose()
 	parent.dispose()
 
@@ -1965,7 +1965,7 @@ func test_factory_resolution_rejects_reentrant_topology_mutation() -> void:
 		var instance_ref: WeakRef = instance_ref_value
 		var released_instance_value: Variant = instance_ref.get_ref()
 		assert_true(released_instance_value == null)
-	assert_push_error("工厂解析期间禁止重入修改模块拓扑")
+	assert_push_error("[architecture.topology_write_factory_reentry]")
 	architecture.dispose()
 
 
@@ -2032,7 +2032,7 @@ func test_successful_nested_transient_transfer_is_not_retroactively_rolled_back(
 		0
 	)
 	assert_eq(GFVariantData.get_option_int(outer_state, "dispose_count"), 1)
-	assert_push_error("工厂解析期间禁止重入修改模块拓扑")
+	assert_push_error("[architecture.topology_write_factory_reentry]")
 	outer_factory.transferred_instance.free()
 	outer_factory.transferred_instance = null
 	architecture.dispose()

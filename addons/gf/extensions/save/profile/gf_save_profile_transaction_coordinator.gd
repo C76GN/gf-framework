@@ -2028,7 +2028,7 @@ func _start_recovery_save(
 	# 因此同一调用栈内、同一 recovery record 的 Lease claim 失败属于内部不变量破坏。
 	if lease_claim.is_empty():
 		push_error(
-			"[GFSaveProfileTransactionCoordinator] Admitted recovery lease could not commit."
+			"[GFSaveProfileTransactionCoordinator][save_profile_transaction_coordinator.recovery_lease_commit_failed] Admitted recovery lease could not commit."
 		)
 	var _record_erased: bool = _recovery_records.erase(lease.get_lease_id())
 	var transaction: TransactionState = _begin_domain_transaction(
@@ -2229,7 +2229,7 @@ func _start_switch_recovery(
 	)
 	if request_claim.is_empty() or lease_claim.is_empty():
 		push_error(
-			"[GFSaveProfileTransactionCoordinator] Admitted switch recovery could not claim ownership."
+			"[GFSaveProfileTransactionCoordinator][save_profile_transaction_coordinator.switch_recovery_claim_failed] Admitted switch recovery could not claim ownership."
 		)
 	var reset_authorization: GFStorageFamilyResetAuthorization = null
 	var reset_authorization_value: Variant = GFVariantData.get_option_value(
@@ -2461,7 +2461,7 @@ func _finish_domain_transaction(
 		"completed_at_msec": Time.get_ticks_msec(),
 	})
 	if not configured:
-		push_error("[GFSaveProfileTransactionCoordinator] Invalid terminal result contract.")
+		push_error("[GFSaveProfileTransactionCoordinator][save_profile_transaction_coordinator.invalid_terminal_contract] Invalid terminal result contract.")
 		result = GFSaveProfileTransactionResult.new()
 		configured = result.configure_for_framework({
 			"status": GFSaveProfileTransactionResult.STATUS_DISPOSED,
@@ -2487,7 +2487,7 @@ func _finish_domain_transaction(
 		})
 	if not configured:
 		push_error(
-			"[GFSaveProfileTransactionCoordinator] Fallback terminal contract failed."
+			"[GFSaveProfileTransactionCoordinator][save_profile_transaction_coordinator.fallback_terminal_contract_failed] Fallback terminal contract failed."
 		)
 		return
 	if domain != null and domain.current_transaction == transaction:

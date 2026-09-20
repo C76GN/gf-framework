@@ -119,11 +119,11 @@ func _add_debugger_plugin(plugin: EditorPlugin, script_path: String, label: Stri
 func _load_debugger_plugin(script_path: String, label: String) -> EditorDebuggerPlugin:
 	var debugger_script: Script = _load_script(script_path)
 	if debugger_script == null or not debugger_script.can_instantiate():
-		push_error("[GF Framework] %s Debugger 插件脚本加载失败。" % label)
+		push_error("[GFPluginDebuggerTools][plugin_debugger_tools.debugger_load_failed] Could not load the %s Debugger plugin script." % label)
 		return null
 	if not _is_editor_debugger_plugin_script(debugger_script):
 		push_error(
-			"[GF Framework] %s Debugger 插件脚本必须继承 EditorDebuggerPlugin。"
+			"[GFPluginDebuggerTools][plugin_debugger_tools.debugger_type_invalid] The %s Debugger plugin script must extend EditorDebuggerPlugin."
 			% label
 		)
 		return null
@@ -133,7 +133,7 @@ func _load_debugger_plugin(script_path: String, label: String) -> EditorDebugger
 		var debugger_plugin: EditorDebuggerPlugin = instance
 		return debugger_plugin
 
-	push_error("[GF Framework] %s Debugger 插件实例化失败。" % label)
+	push_error("[GFPluginDebuggerTools][plugin_debugger_tools.debugger_instantiation_failed] Could not instantiate the %s Debugger plugin." % label)
 	return null
 
 

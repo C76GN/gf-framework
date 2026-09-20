@@ -167,7 +167,7 @@ func init() -> void:
 	if not DirAccess.dir_exists_absolute(_LOG_DIR):
 		var make_log_dir_result: Error = DirAccess.make_dir_recursive_absolute(_LOG_DIR)
 		if make_log_dir_result != OK:
-			push_warning("[GFLogUtility] 无法创建日志目录：%s，错误码：%s" % [_LOG_DIR, make_log_dir_result])
+			push_warning("[GFLogUtility][log_utility.log_directory_failed] Cannot create the log directory: %s, error code: %s." % [_LOG_DIR, make_log_dir_result])
 
 	if trace_id.is_empty():
 		trace_id = _generate_trace_id()
@@ -188,7 +188,7 @@ func init() -> void:
 
 	_file = FileAccess.open(_log_file_path, FileAccess.WRITE)
 	if _file == null:
-		push_error("[GFLogUtility] 无法创建日志文件：%s，错误码：%s" % [_log_file_path, FileAccess.get_open_error()])
+		push_error("[GFLogUtility][log_utility.log_file_creation_failed] Cannot create the log file: %s, error code: %s." % [_log_file_path, FileAccess.get_open_error()])
 	else:
 		_active_files.append(weakref(_file))
 		_last_file_flush_msec = Time.get_ticks_msec()
@@ -788,7 +788,7 @@ func _log_lazy(
 	if not _should_log(level, tag):
 		return
 	if not message_builder.is_valid():
-		push_error("[GFLogUtility] lazy 日志收到无效 message_builder。")
+		push_error("[GFLogUtility][log_utility.message_builder_invalid] Lazy logging received an invalid message_builder.")
 		return
 
 	var context: Dictionary = {}
@@ -1054,7 +1054,7 @@ func _store_log_line(line: String) -> void:
 
 	var stored: bool = _file.store_line(line)
 	if not stored:
-		push_warning("[GFLogUtility] 无法写入日志文件：%s" % _log_file_path)
+		push_warning("[GFLogUtility][log_utility.log_file_write_failed] Cannot write the log file: %s." % _log_file_path)
 		return
 	_file_has_unflushed_data = true
 
@@ -1076,7 +1076,7 @@ static func _remove_absolute(path: String, warn_on_failure: bool = false) -> voi
 
 	var remove_result: Error = DirAccess.remove_absolute(remove_path)
 	if remove_result != OK and warn_on_failure:
-		push_warning("[GFLogUtility] 无法移除文件：%s，错误码：%s" % [remove_path, remove_result])
+		push_warning("[GFLogUtility][log_utility.file_remove_failed] Cannot remove file: %s, error code: %s." % [remove_path, remove_result])
 
 
 static func _sanitize_log_dictionary(
@@ -1160,7 +1160,7 @@ func _write_crash_marker() -> void:
 		"ticks_msec": Time.get_ticks_msec(),
 	}))
 	if not stored:
-		push_warning("[GFLogUtility] 无法写入运行中标记：%s" % _CRASH_MARKER_PATH)
+		push_warning("[GFLogUtility][log_utility.running_marker_write_failed] Cannot write the running marker: %s." % _CRASH_MARKER_PATH)
 	file.close()
 
 

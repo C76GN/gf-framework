@@ -520,7 +520,7 @@ func test_activation_quiesce_completion_dispose_cannot_publish_success() -> void
 	assert_true(architecture.has_initialization_failed())
 	assert_false(architecture.is_accepting_runtime_work())
 	assert_false(architecture.is_module_active(settings))
-	assert_push_error("[GFArchitecture] activation 失败")
+	assert_push_error("[GFArchitecture][architecture.activation_failed] Activation failed:")
 	assert_true(
 		_get_bool_property(store, &"capability_quiesce_was_pending_for_test"),
 		"capability 回调内启动的 quiesce 必须等待 activation critical section。"
@@ -570,7 +570,7 @@ func test_store_capability_and_read_dispose_fail_activation_closed() -> void:
 		assert_true(architecture.has_initialization_failed())
 		assert_false(architecture.is_accepting_runtime_work())
 		assert_false(architecture.is_module_active(settings))
-		assert_push_error("[GFArchitecture] activation 失败")
+		assert_push_error("[GFArchitecture][architecture.activation_failed] Activation failed:")
 
 		settings.set_value(&"after/dispose", 1, false)
 		assert_false(
@@ -1486,7 +1486,7 @@ func test_cyclic_auto_save_preserves_capture_failure_and_same_target_can_superse
 
 	quiesce_settings.set_value(&"cyclic/value", quiesce_cyclic)
 	assert_push_error(
-		"[GFSettingsUtility] 设置数据包含循环引用，已拒绝持久化：cyclic-quiesce.json。"
+		"[GFSettingsUtility][settings_utility.persistence_cycle] Settings data contains a cyclic reference; persistence rejected: cyclic-quiesce.json."
 	)
 	var quiesce: GFAsyncCompletion = quiesce_settings.begin_quiesce(GFAsyncScope.new())
 	assert_true(quiesce.is_failed())
@@ -1512,7 +1512,7 @@ func test_cyclic_auto_save_preserves_capture_failure_and_same_target_can_superse
 	supersede_cyclic.append(supersede_cyclic)
 	supersede_settings.set_value(&"cyclic/value", supersede_cyclic)
 	assert_push_error(
-		"[GFSettingsUtility] 设置数据包含循环引用，已拒绝持久化：cyclic-supersede.json。"
+		"[GFSettingsUtility][settings_utility.persistence_cycle] Settings data contains a cyclic reference; persistence rejected: cyclic-supersede.json."
 	)
 	assert_eq(supersede_settings.flush_pending_save(), ERR_INVALID_DATA)
 	assert_eq(_get_array_property(supersede_store, &"write_calls_for_test").size(), 0)
@@ -1890,21 +1890,21 @@ func test_file_store_accepts_portable_basename_and_rejects_unsafe_paths() -> voi
 		ERR_INVALID_PARAMETER
 	)
 	assert_push_error(
-		"[GFSettingsUtility] 已拒绝不安全设置文件名：../escape.json。"
+		"[GFSettingsUtility][settings_utility.filename_unsafe] Rejected an unsafe settings filename: ../escape.json."
 	)
 	assert_eq(
 		_call_error(file_store, &"write_settings", ["nested/settings.json", payload]),
 		ERR_INVALID_PARAMETER
 	)
 	assert_push_error(
-		"[GFSettingsUtility] 已拒绝不安全设置文件名：nested/settings.json。"
+		"[GFSettingsUtility][settings_utility.filename_unsafe] Rejected an unsafe settings filename: nested/settings.json."
 	)
 	assert_eq(
 		_call_error(file_store, &"write_settings", ["/escape.json", payload]),
 		ERR_INVALID_PARAMETER
 	)
 	assert_push_error(
-		"[GFSettingsUtility] 已拒绝原生绝对设置路径：/escape.json。"
+		"[GFSettingsUtility][settings_utility.absolute_path_rejected] Rejected a native absolute settings path: /escape.json."
 	)
 
 

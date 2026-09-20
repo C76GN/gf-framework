@@ -1280,14 +1280,14 @@ func test_storage_ancestry_links_fail_closed_without_crossing_boundary() -> void
 
 		_replace_storage(GFStorageUtility.new())
 		assert_push_error(
-			"[GFStorageUtility] 无法初始化私有 Storage layout，错误码：16"
+			"[GFStorageUtility][storage_utility.layout_initialization_failed] Cannot initialize the private Storage layout, error code: 16."
 		)
 		var save_error: Error = _storage.save_data(
 			"boundary/readiness-probe.json",
 			{ "value": 1 }
 		)
 		assert_push_error(
-			"[GFStorageUtility] 无法初始化私有 Storage layout，错误码：16"
+			"[GFStorageUtility][storage_utility.layout_initialization_failed] Cannot initialize the private Storage layout, error code: 16."
 		)
 		assert_eq(save_error, ERR_FILE_CORRUPT)
 		assert_eq(_snapshot_tree_digest(sentinel_root), sentinel_digest)
@@ -1891,14 +1891,14 @@ func test_reset_layout_inspection_caps_excess_invalid_entries_without_writing() 
 
 	_replace_storage(GFStorageUtility.new())
 	assert_push_error(
-		"[GFStorageUtility] 无法初始化私有 Storage layout，错误码：6"
+		"[GFStorageUtility][storage_utility.layout_initialization_failed] Cannot initialize the private Storage layout, error code: 6."
 	)
 	var save_error: Error = _storage.save_data(
 		"capacity/invalid-layout-readiness-probe.json",
 		{ "value": 1 }
 	)
 	assert_push_error(
-		"[GFStorageUtility] 无法初始化私有 Storage layout，错误码：6"
+		"[GFStorageUtility][storage_utility.layout_initialization_failed] Cannot initialize the private Storage layout, error code: 6."
 	)
 	assert_eq(save_error, ERR_OUT_OF_MEMORY)
 	assert_eq(_snapshot_tree_digest(family_path), family_digest)
@@ -2452,7 +2452,7 @@ func test_async_target_identity_failures_preserve_corrupt_provenance_for_reset()
 		assert_false(_storage.has_file(file_name))
 		assert_eq(cooperative_storage.thread_start_call_count, 0)
 		assert_push_error(
-			"[GFStorageUtility] 异步读取失败：%s，原因：Transaction recovery failed，错误码：%s"
+			"[GFStorageUtility][storage_utility.async_load_failed] Asynchronous load failed: %s, reason: Transaction recovery failed, error code: %s."
 			% [file_name, ERR_FILE_CORRUPT]
 		)
 
@@ -3226,7 +3226,7 @@ func _save_and_corrupt_payload(file_name: String) -> GFStorageReadResult:
 
 func _assert_expected_integrity_warning(descriptor: Dictionary) -> void:
 	assert_push_warning(
-		"[GFStorageUtility] 读取数据失败：%s，原因：Integrity checksum mismatch"
+		"[GFStorageUtility][storage_utility.data_integrity_failed] Cannot read data: %s, reason: Integrity checksum mismatch."
 		% GFVariantData.get_option_string(descriptor, "payload_path")
 	)
 

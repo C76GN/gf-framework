@@ -290,8 +290,8 @@ func _drive_lifecycle_candidate_records(
 func _begin_drive() -> bool:
 	if _drive_depth > 0:
 		push_warning(
-			"[GFArchitectureTickScheduler] 已拒绝嵌套 tick/physics_tick 调度；"
-			+ "同一架构的 drive 调用不能重入。"
+			"[GFArchitectureTickScheduler][architecture_tick_scheduler.drive_reentry] Nested tick/physics_tick scheduling was rejected; "
+			+ "drive calls on the same architecture cannot be reentrant."
 		)
 		return false
 

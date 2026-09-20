@@ -893,7 +893,7 @@ func test_network_service_discovery_enforces_packet_and_metadata_budgets() -> vo
 	assert_true(rejected_encode.is_empty(), "encode 与 decode 必须共享相同 metadata 深度预算。")
 	assert_false(GFVariantData.get_option_bool(deep_result, "ok"), "超深 metadata 应被结构预算拒绝。")
 	assert_eq(GFVariantData.get_option_string(deep_result, "error"), "metadata_max_depth_exceeded")
-	assert_push_error("[GFNetworkServiceDiscovery] 广告编码失败：metadata_max_depth_exceeded。")
+	assert_push_error("[GFNetworkServiceDiscovery][network_service_discovery.advertisement_encoding_failed] Advertisement encoding failed: metadata_max_depth_exceeded.")
 
 
 func test_network_service_discovery_shares_byte_and_packed_entry_budgets() -> void:
@@ -937,8 +937,8 @@ func test_network_service_discovery_shares_byte_and_packed_entry_budgets() -> vo
 	assert_eq(GFVariantData.get_option_string(entry_rejected_decode, "error"), "metadata_max_nodes_exceeded", "decode 必须使用相同 PackedArray 节点预算。")
 	assert_true(byte_rejected_encode.is_empty(), "encode 必须在返回前执行最终 UTF-8 byte 预算。")
 	assert_eq(GFVariantData.get_option_string(byte_rejected_decode, "error"), "advertisement_too_large", "decode 必须在 parse 前执行同一 byte 预算。")
-	assert_push_error("[GFNetworkServiceDiscovery] 广告编码失败：metadata_max_nodes_exceeded。")
-	assert_push_error("[GFNetworkServiceDiscovery] 广告编码失败：advertisement_too_large。")
+	assert_push_error("[GFNetworkServiceDiscovery][network_service_discovery.advertisement_encoding_failed] Advertisement encoding failed: metadata_max_nodes_exceeded.")
+	assert_push_error("[GFNetworkServiceDiscovery][network_service_discovery.advertisement_too_large] Advertisement encoding failed: advertisement_too_large.")
 
 
 func test_network_contract_builds_and_validates_typed_message() -> void:
@@ -1944,7 +1944,7 @@ func test_network_contract_generator_generate_with_report_reports_skipped_withou
 	assert_eq(GFGeneratedArtifactReport.get_error_code(report), ERR_ALREADY_EXISTS, "报告仍应保留可供调用方阻断的错误码。")
 	assert_false(GFVariantData.get_option_bool(report, "written"), "skipped artifact 不应写入文件。")
 	assert_eq(content, "manual", "skipped artifact 不应改写已有文件。")
-	assert_push_warning("[GFNetworkContractGenerator] 目标文件已存在，已跳过：%s" % path)
+	assert_push_warning("[GFGeneratedArtifactReport][generated_artifact_report.output_exists] Artifact operation for GFNetworkContractGenerator reported the following.\nThe target file already exists and was skipped: %s." % path)
 
 
 func test_network_contract_generator_pre_save_failures_reject_forged_written_state() -> void:
@@ -2062,7 +2062,7 @@ func test_network_contract_generator_generate_many_treats_skipped_artifacts_as_n
 	assert_eq(GFVariantData.get_option_int(report, "skipped_count"), 1, "批量报告应统计 skipped artifact。")
 	assert_eq(GFVariantData.get_option_int(artifact_summary, "skipped_count"), 1, "artifact summary 应保留 skipped 计数。")
 	assert_eq(GFVariantData.get_option_string(first_item, "status"), String(GFGeneratedArtifactReport.STATUS_SKIPPED), "生成记录应暴露 artifact status。")
-	assert_push_warning("[GFNetworkContractGenerator] 目标文件已存在，已跳过：%s" % output_path)
+	assert_push_warning("[GFGeneratedArtifactReport][generated_artifact_report.output_exists] Artifact operation for GFNetworkContractGenerator reported the following.\nThe target file already exists and was skipped: %s." % output_path)
 
 
 func test_network_json_serializer_can_use_typed_variant_codec() -> void:
@@ -4383,7 +4383,7 @@ func test_network_session_warns_and_ignores_non_dictionary_metadata() -> void:
 	session.start_host({ "metadata": "invalid" })
 
 	assert_true(session.metadata.is_empty(), "非 Dictionary metadata 应被忽略。")
-	assert_push_warning("[GFNetworkSession] metadata 必须是 Dictionary，已忽略。")
+	assert_push_warning("[GFNetworkSession][network_session.invalid_metadata] metadata must be a Dictionary; the value was ignored.")
 
 
 ## 验证后端在 host() 内立即报告 connected 时，会话已经带有主机 peer 信息且不会重复派发。

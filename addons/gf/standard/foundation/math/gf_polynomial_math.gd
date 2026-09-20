@@ -53,7 +53,7 @@ static func normalize_coefficients(
 	epsilon: float = DEFAULT_EPSILON
 ) -> PackedFloat64Array:
 	if _has_non_finite_coefficients(coefficients):
-		push_error("[GFPolynomialMath] coefficients 必须是有限数字。")
+		push_error("[GFPolynomialMath][polynomial_math.coefficients_non_finite] coefficients must be finite numbers.")
 		return PackedFloat64Array()
 
 	var threshold: float = absf(epsilon)
@@ -80,7 +80,7 @@ static func normalize_coefficients(
 ## @schema coefficients: PackedFloat64Array high-to-low polynomial coefficients.
 static func evaluate(coefficients: PackedFloat64Array, x: float) -> float:
 	if _has_non_finite_coefficients(coefficients) or is_nan(x) or is_inf(x):
-		push_error("[GFPolynomialMath] evaluate 输入必须是有限数字。")
+		push_error("[GFPolynomialMath][polynomial_math.evaluate_input_non_finite] evaluate inputs must be finite numbers.")
 		return NAN
 
 	var result: float = 0.0
@@ -129,7 +129,7 @@ static func from_roots(
 	leading_coefficient: float = 1.0
 ) -> PackedFloat64Array:
 	if is_nan(leading_coefficient) or is_inf(leading_coefficient):
-		push_error("[GFPolynomialMath] leading_coefficient 必须是有限数字。")
+		push_error("[GFPolynomialMath][polynomial_math.leading_coefficient_non_finite] leading_coefficient must be a finite number.")
 		return PackedFloat64Array()
 	if is_zero_approx(leading_coefficient):
 		return PackedFloat64Array()
@@ -137,7 +137,7 @@ static func from_roots(
 	var polynomial: PackedFloat64Array = PackedFloat64Array([leading_coefficient])
 	for root: float in roots:
 		if is_nan(root) or is_inf(root):
-			push_error("[GFPolynomialMath] roots 必须是有限数字。")
+			push_error("[GFPolynomialMath][polynomial_math.roots_non_finite] roots must be finite numbers.")
 			return PackedFloat64Array()
 
 		var next_polynomial: PackedFloat64Array = PackedFloat64Array()
@@ -179,14 +179,14 @@ static func real_roots(
 	if degree <= 0:
 		return PackedFloat64Array()
 	if degree > max_degree:
-		push_error("[GFPolynomialMath] 多项式次数超过 max_degree。")
+		push_error("[GFPolynomialMath][polynomial_math.degree_limit] Polynomial degree exceeds max_degree.")
 		return PackedFloat64Array()
 
 	var bound: float = _estimate_root_bound(normalized)
 	var min_x: float = _get_option_float_or(options, "min_x", -bound)
 	var max_x: float = _get_option_float_or(options, "max_x", bound)
 	if is_nan(min_x) or is_nan(max_x) or is_inf(min_x) or is_inf(max_x):
-		push_error("[GFPolynomialMath] min_x 和 max_x 必须是有限数字。")
+		push_error("[GFPolynomialMath][polynomial_math.bounds_non_finite] min_x and max_x must be finite numbers.")
 		return PackedFloat64Array()
 	if min_x > max_x:
 		var swap_value: float = min_x

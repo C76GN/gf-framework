@@ -457,7 +457,7 @@ func get_dirty_changes() -> Array[Dictionary]:
 ## @schema options: Dictionary，可选字段：mode 为 SUBSCRIBE_EXACT/SUBSCRIBE_PREFIX/SUBSCRIBE_ANY，owner 为 Object，emit_current 默认为 false。
 func subscribe(path: Variant, callback: Callable, options: Dictionary = {}) -> Callable:
 	if not callback.is_valid():
-		push_error("[GFReactiveStateStore] subscribe 失败：callback 无效。")
+		push_error("[GFReactiveStateStore][reactive_state_store.callback_invalid] Cannot subscribe: callback is invalid.")
 		return Callable()
 
 	var subscription_owner: Object = _get_options_owner(options)

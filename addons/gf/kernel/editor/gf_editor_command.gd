@@ -309,7 +309,7 @@ func _get_undo_targets() -> Array[Object]:
 func _can_change_configuration(field_name: String) -> bool:
 	if not _configuration_sealed:
 		return true
-	push_error("[GFEditorCommand] 命令配置已冻结，不能修改：%s。" % field_name)
+	push_error("[GFEditorCommand][editor_command.configuration_frozen] Command configuration is frozen and cannot be modified: %s." % field_name)
 	return false
 
 

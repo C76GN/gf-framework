@@ -341,7 +341,7 @@ func test_budget_exceeded_returns_partial_fail_closed_report() -> void:
 	assert_eq(_option_int(report, "scanned_file_count"), 0, "超过单文件预算时不应读取正文。")
 	assert_eq(skipped_files.size(), 1, "被预算跳过的文件应进入 skipped_files。")
 	assert_true(_has_issue_code(report, "max_file_bytes"), "报告应提供稳定的 max_file_bytes issue。")
-	assert_push_warning("[GFProjectReferenceScanner] 引用扫描达到 max_file_bytes=16 字节预算，后续结果按 partial_scan 处理：%s。" % path)
+	assert_push_warning("[GFProjectReferenceScanner][project_reference_scanner.byte_budget_reached] Reference scanning reached the max_file_bytes=16 byte budget; subsequent results are treated as partial_scan: %s." % path)
 
 
 func test_blocking_quota_does_not_downgrade_strong_reference_to_weak() -> void:
@@ -568,7 +568,7 @@ func test_extra_unique_file_marks_file_collection_truncated() -> void:
 	assert_true(_option_bool(report, "truncated"), "存在额外唯一候选文件时应标记 truncated。")
 	assert_eq(_option_int(report, "scanned_file_count"), 2, "文件读取数量应受 max_scanned_files 限制。")
 	assert_true(_has_issue_code(report, "max_scanned_files"), "报告应提供稳定的 max_scanned_files issue。")
-	assert_push_warning("[GFProjectReferenceScanner] 已达到 max_scanned_files=2，后续文件已跳过。")
+	assert_push_warning("[GFProjectReferenceScanner][project_reference_scanner.file_limit_reached] max_scanned_files=2 was reached; subsequent files were skipped.")
 
 
 func test_duplicate_target_id_fails_preflight_before_directory_read() -> void:

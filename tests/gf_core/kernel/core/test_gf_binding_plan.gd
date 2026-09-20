@@ -317,7 +317,7 @@ func test_registration_failure_stops_before_third_entry_and_settles_once() -> vo
 	assert_null(architecture.get_local_utility(PlanFirstUtility), "失败结算必须回滚先前成功 entry。")
 	assert_null(architecture.get_local_utility(PlanDuplicateUtility), "失败结算必须清空候选架构注册表。")
 	assert_push_warning(
-		"[GFArchitecture] register_utility：类型已注册，已忽略重复注册。启用扩展的 Installer 会先于项目 Installer 自动装配其模块；项目通常只注册自身模块。若需要替换，请使用 replace_utility()。"
+		"[GFArchitecture][architecture.module_already_registered] register_utility ignored a duplicate type registration. Enabled extension Installers assemble their modules before project Installers; projects normally register only their own modules. Use replace_utility() to replace it."
 	)
 	assert_push_error(result.get_detail())
 	architecture.dispose()
@@ -631,7 +631,7 @@ func test_required_alias_accepts_existing_idempotent_mapping() -> void:
 		PlanSnapshotUtility
 	)
 	assert_push_warning(
-		"[GFArchitecture] register_utility_alias：目标类型尚未注册，仍会记录别名。"
+		"[GFArchitecture][architecture.alias_target_unregistered] register_utility_alias recorded the alias even though its target type is not registered yet."
 	)
 	var binder: GFBinder = architecture.create_binder()
 	var plan: GFBindingPlan = binder.create_required_plan()
@@ -693,7 +693,7 @@ func test_instance_creation_failure_reports_exact_first_entry() -> void:
 		1,
 		false
 	)
-	assert_push_error("[GFBindBuilder] from_factory() 必须返回 Object 实例。")
+	assert_push_error("[GFBindBuilder][bind_builder.factory_result_not_object] from_factory() must return an Object instance.")
 	assert_push_error(result.get_detail())
 	architecture.dispose()
 
@@ -797,7 +797,7 @@ func test_self_factory_constructor_returning_freed_node_fails_resolution() -> vo
 	assert_true(PlanSelfFreeingLifecycleNode.last_instance.get_ref() == null)
 	assert_eq(PlanSelfFreeingLifecycleNode.dispose_count, 0)
 	assert_true(architecture.has_factory(PlanSelfFreeingLifecycleNode))
-	assert_push_error("[GFBinding] 绑定来源返回了已失效的 Object 实例。")
+	assert_push_error("[GFBinding][binding.source_object_invalid] The binding source returned an invalid Object instance.")
 	PlanSelfFreeingLifecycleNode.last_instance = null
 	architecture.dispose()
 
@@ -840,7 +840,7 @@ func test_factory_resolution_preserves_topology_error_before_freed_provider_valu
 	assert_true(architecture.has_factory(PlanFactoryCommand))
 	assert_false(architecture.has_factory(PlanExternalFactoryCommand))
 	assert_push_error(
-		"[GFArchitecture] register_factory 失败：工厂解析期间禁止重入修改模块拓扑。"
+		"[GFArchitecture][architecture.topology_write_factory_reentry] register_factory failed: reentrant module topology changes are forbidden during factory resolution."
 	)
 	PlanSelfFreeingLifecycleNode.last_instance = null
 	architecture.dispose()
@@ -877,7 +877,7 @@ func test_rejected_from_instance_candidate_remains_caller_owned() -> void:
 	assert_eq(rejected_external.dispose_count, 0, "from_instance() 被拒对象仍归调用方。")
 	assert_eq(existing.dispose_count, 1, "已注册候选由 Architecture 失败回滚。")
 	assert_push_warning(
-		"[GFArchitecture] register_utility：类型已注册，已忽略重复注册。启用扩展的 Installer 会先于项目 Installer 自动装配其模块；项目通常只注册自身模块。若需要替换，请使用 replace_utility()。"
+		"[GFArchitecture][architecture.module_already_registered] register_utility ignored a duplicate type registration. Enabled extension Installers assemble their modules before project Installers; projects normally register only their own modules. Use replace_utility() to replace it."
 	)
 	assert_push_error(result.get_detail())
 	architecture.dispose()
@@ -923,7 +923,7 @@ func test_from_factory_returning_registered_instance_is_disposed_only_by_rollbac
 	assert_true(architecture.has_initialization_failed())
 	assert_true(scope.is_cancel_requested())
 	assert_push_warning(
-		"[GFArchitecture] register_utility：类型已注册，已忽略重复注册。启用扩展的 Installer 会先于项目 Installer 自动装配其模块；项目通常只注册自身模块。若需要替换，请使用 replace_utility()。"
+		"[GFArchitecture][architecture.module_already_registered] register_utility ignored a duplicate type registration. Enabled extension Installers assemble their modules before project Installers; projects normally register only their own modules. Use replace_utility() to replace it."
 	)
 	assert_push_error(result.get_detail())
 	architecture.dispose()
@@ -976,7 +976,7 @@ func test_duplicate_target_with_candidate_registered_under_other_key_rolls_back_
 	assert_true(architecture.has_initialization_failed())
 	assert_true(scope.is_cancel_requested())
 	assert_push_warning(
-		"[GFArchitecture] register_utility：类型已注册，已忽略重复注册。启用扩展的 Installer 会先于项目 Installer 自动装配其模块；项目通常只注册自身模块。若需要替换，请使用 replace_utility()。"
+		"[GFArchitecture][architecture.module_already_registered] register_utility ignored a duplicate type registration. Enabled extension Installers assemble their modules before project Installers; projects normally register only their own modules. Use replace_utility() to replace it."
 	)
 	assert_push_error(result.get_detail())
 	architecture.dispose()
@@ -1508,7 +1508,7 @@ func test_lifecycle_from_instance_rejects_node_freed_after_declaration() -> void
 	assert_null(architecture.get_local_utility(PlanIdentityBaseUtility))
 	assert_true(scope.is_cancel_requested())
 	assert_true(architecture.has_initialization_failed())
-	assert_push_error("[GFBindBuilder] from_instance() 收到空实例。")
+	assert_push_error("[GFBindBuilder][bind_builder.instance_null] from_instance() received a null instance.")
 	assert_push_error(result.get_detail())
 	architecture.dispose()
 
@@ -1964,7 +1964,7 @@ func test_hostile_scope_cleanup_cannot_replace_architecture_first_cause() -> voi
 	)
 	assert_true(nested_scope.is_active(), "SETTLING nested execute 不得 claim 第二个 scope。")
 	assert_push_warning(
-		"[GFArchitecture] register_utility：类型已注册，已忽略重复注册。启用扩展的 Installer 会先于项目 Installer 自动装配其模块；项目通常只注册自身模块。若需要替换，请使用 replace_utility()。"
+		"[GFArchitecture][architecture.module_already_registered] register_utility ignored a duplicate type registration. Enabled extension Installers assemble their modules before project Installers; projects normally register only their own modules. Use replace_utility() to replace it."
 	)
 	assert_push_error(result.get_detail())
 	architecture.dispose()
@@ -2304,7 +2304,7 @@ func test_scope_cancellation_precedes_same_attempt_creation_failure() -> void:
 	assert_true(result.get_detail().contains("caller_cancelled_before_null"))
 	assert_eq(next_calls[0], 0)
 	assert_true(architecture.has_initialization_failed())
-	assert_push_error("[GFBindBuilder] from_factory() 必须返回 Object 实例。")
+	assert_push_error("[GFBindBuilder][bind_builder.factory_result_not_object] from_factory() must return an Object instance.")
 	assert_push_error(result.get_detail())
 	architecture.dispose()
 
@@ -2493,7 +2493,7 @@ func test_real_installer_failure_rolls_back_candidate_and_skips_next_installer()
 		false
 	)
 	assert_push_warning(
-		"[GFArchitecture] register_utility：类型已注册，已忽略重复注册。启用扩展的 Installer 会先于项目 Installer 自动装配其模块；项目通常只注册自身模块。若需要替换，请使用 replace_utility()。"
+		"[GFArchitecture][architecture.module_already_registered] register_utility ignored a duplicate type registration. Enabled extension Installers assemble their modules before project Installers; projects normally register only their own modules. Use replace_utility() to replace it."
 	)
 	assert_push_error(_dictionary_string(report, "detail"))
 

@@ -555,6 +555,14 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 			python_script("tests/gf_core/tools/test_gf_codeql_suppression_policy.py"),
 		),
 		in_process_action(
+			"diagnostic_policy",
+			maintenance_command("diagnostic-policy", "--json"),
+		),
+		subprocess_action(
+			"diagnostic_policy_tests",
+			python_script("tests/gf_core/tools/test_gf_diagnostic_policy.py"),
+		),
+		in_process_action(
 			"public_docs_boundary",
 			maintenance_command("public-docs-boundary"),
 		),
@@ -886,6 +894,8 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		"credential_gate_tests",
 		"codeql_suppression_policy",
 		"codeql_suppression_policy_tests",
+		"diagnostic_policy",
+		"diagnostic_policy_tests",
 		"maintenance_execution_tests",
 		"maintenance_generator_tests",
 		"maintenance_test_evidence_tests",
@@ -939,6 +949,8 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		"credential_gate_tests",
 		"codeql_suppression_policy",
 		"codeql_suppression_policy_tests",
+		"diagnostic_policy",
+		"diagnostic_policy_tests",
 		"path_hygiene",
 		"maintenance_self_test",
 		"maintenance_execution_tests",

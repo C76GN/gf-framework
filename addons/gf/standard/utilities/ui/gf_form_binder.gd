@@ -50,10 +50,10 @@ var _fields: Dictionary = {}
 ## @schema default_value: Variant，控件失效或读取失败时返回的默认值。
 func bind_field(key: StringName, control: Control, default_value: Variant = null) -> void:
 	if key == &"":
-		push_error("[GFFormBinder] bind_field 失败：字段键为空。")
+		push_error("[GFFormBinder][form_binder.field_key_empty] Cannot bind_field: field key is empty.")
 		return
 	if not is_instance_valid(control):
-		push_error("[GFFormBinder] bind_field 失败：控件无效。")
+		push_error("[GFFormBinder][form_binder.control_invalid] Cannot bind_field: control is invalid.")
 		return
 
 	unbind_field(key)
@@ -180,7 +180,7 @@ func write_values(data: Dictionary, ignore_missing_fields: bool = true) -> void:
 		var key: StringName = GFVariantData.to_string_name(key_variant)
 		if not _fields.has(key):
 			if not ignore_missing_fields:
-				push_warning("[GFFormBinder] 未绑定字段：%s" % String(key))
+				push_warning("[GFFormBinder][form_binder.field_unbound] Field is not bound: %s." % String(key))
 			continue
 		var _set_field_value_result_182: Variant = set_field_value(key, data[key_variant])
 

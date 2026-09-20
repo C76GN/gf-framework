@@ -14,7 +14,7 @@ extends GFBindableProperty
 
 # --- 常量 ---
 
-const _READ_ONLY_ERROR: String = "[GFReadOnlyBindableProperty] 当前属性为只读视图，请通过宿主对象修改其值。"
+const _READ_ONLY_ERROR: String = "[GFReadOnlyBindableProperty][read_only_bindable_property.read_only] This property is a read-only view; modify its value through the owning object."
 const _READ_ONLY_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 

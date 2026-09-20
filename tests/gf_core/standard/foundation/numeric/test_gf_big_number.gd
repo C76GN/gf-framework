@@ -11,7 +11,7 @@ func test_from_string_normalizes_plain_number() -> void:
 func test_from_string_rejects_malformed_decimal_text() -> void:
 	var value: GFBigNumber = GFBigNumber.from_string("12x.3")
 
-	assert_push_error("[GFBigNumber] 无法解析数字字符串（invalid_separator）：12x.3")
+	assert_push_error("[GFBigNumber][big_number.number_parse_failed_with_reason] Cannot parse the number string (invalid_separator): 12x.3.")
 	assert_true(value.is_zero(), "非法字符串应被收敛为零值。")
 
 
@@ -19,8 +19,8 @@ func test_from_string_rejects_malformed_separators() -> void:
 	var malformed_group: GFBigNumber = GFBigNumber.from_string("1,2")
 	var malformed_underscore: GFBigNumber = GFBigNumber.from_string("1__2")
 
-	assert_push_error("[GFBigNumber] 无法解析数字字符串（invalid_separator）：1,2")
-	assert_push_error("[GFBigNumber] 无法解析数字字符串（invalid_separator）：1__2")
+	assert_push_error("[GFBigNumber][big_number.number_parse_failed_with_reason] Cannot parse the number string (invalid_separator): 1,2.")
+	assert_push_error("[GFBigNumber][big_number.number_parse_failed_with_reason] Cannot parse the number string (invalid_separator): 1__2.")
 	assert_true(malformed_group.is_zero(), "错误千分位不能被静默改写成另一个值。")
 	assert_true(malformed_underscore.is_zero(), "错误下划线不能被静默移除。")
 
@@ -28,21 +28,21 @@ func test_from_string_rejects_malformed_separators() -> void:
 func test_from_string_enforces_input_length_budget() -> void:
 	var value: GFBigNumber = GFBigNumber.from_string("12345", 4)
 
-	assert_push_error("[GFBigNumber] 无法解析数字字符串（input_too_long）：12345")
+	assert_push_error("[GFBigNumber][big_number.number_parse_failed_with_reason] Cannot parse the number string (input_too_long): 12345.")
 	assert_true(value.is_zero(), "超出输入预算时应快速返回稳定零值。")
 
 
 func test_from_string_rejects_exponents_outside_supported_range() -> void:
 	var value: GFBigNumber = GFBigNumber.from_string("1e1000001")
 
-	assert_push_error("[GFBigNumber] 指数超出支持范围。")
+	assert_push_error("[GFBigNumber][big_number.exponent_out_of_range] Exponent exceeds the supported range.")
 	assert_true(value.is_zero(), "超出支持范围的科学计数法指数应被拒绝。")
 
 
 func test_init_rejects_non_finite_mantissa() -> void:
 	var value: GFBigNumber = GFBigNumber.new(INF, 5)
 
-	assert_push_error("[GFBigNumber] mantissa 必须是有限浮点值。")
+	assert_push_error("[GFBigNumber][big_number.mantissa_non_finite] mantissa must be finite.")
 	assert_true(value.is_zero(), "非有限尾数应被收敛为零值。")
 	assert_eq(value.exponent, 0)
 
@@ -85,8 +85,8 @@ func test_multiply_and_divide_reject_exponent_overflow() -> void:
 	var multiplied: GFBigNumber = GFBigNumber.new(1.0, 600_000).multiply(GFBigNumber.new(1.0, 500_001))
 	var divided: GFBigNumber = GFBigNumber.new(1.0, 600_000).divide(GFBigNumber.new(1.0, -500_001))
 
-	assert_push_error("[GFBigNumber] 指数超出支持范围。")
-	assert_push_error("[GFBigNumber] 指数超出支持范围。")
+	assert_push_error("[GFBigNumber][big_number.exponent_out_of_range] Exponent exceeds the supported range.")
+	assert_push_error("[GFBigNumber][big_number.exponent_out_of_range] Exponent exceeds the supported range.")
 	assert_true(multiplied.is_zero(), "乘法指数超界应返回稳定零值。")
 	assert_true(divided.is_zero(), "除法指数超界应返回稳定零值。")
 
@@ -140,21 +140,21 @@ func test_powf_supports_fractional_exponents() -> void:
 func test_pow_rejects_exponent_outside_supported_range() -> void:
 	var value: GFBigNumber = GFBigNumber.new(1.0, 600_000).powi(2)
 
-	assert_push_error("[GFBigNumber] 指数超出支持范围。")
+	assert_push_error("[GFBigNumber][big_number.exponent_out_of_range] Exponent exceeds the supported range.")
 	assert_true(value.is_zero(), "幂运算指数超界应返回稳定零值。")
 
 
 func test_divide_by_zero_returns_zero_and_reports_error() -> void:
 	var value: GFBigNumber = GFBigNumber.from_int(10).divide(GFBigNumber.zero())
 
-	assert_push_error("[GFBigNumber] 尝试除以空值或零值。")
+	assert_push_error("[GFBigNumber][big_number.divisor_null_or_zero] Cannot divide by a null or zero value.")
 	assert_true(value.is_zero(), "大数除零应返回零值而不是产生非法尾数。")
 
 
 func test_negative_value_rejects_fractional_power() -> void:
 	var value: GFBigNumber = GFBigNumber.from_int(-4).powf(0.5)
 
-	assert_push_error("[GFBigNumber] 负数不能执行非整数次幂。")
+	assert_push_error("[GFBigNumber][big_number.negative_fractional_power] A negative number cannot be raised to a non-integer power.")
 	assert_true(value.is_zero(), "负数开非整数次幂应安全返回零值。")
 
 
@@ -168,4 +168,4 @@ func test_scientific_string_rejects_carry_past_supported_exponent() -> void:
 	var value: GFBigNumber = GFBigNumber.new(9.999, 1_000_000)
 
 	assert_eq(value.to_scientific_string(2), "0", "科学计数法进位超过支持范围时应返回稳定文本。")
-	assert_push_error("[GFBigNumber] 指数超出支持范围。")
+	assert_push_error("[GFBigNumber][big_number.exponent_out_of_range] Exponent exceeds the supported range.")

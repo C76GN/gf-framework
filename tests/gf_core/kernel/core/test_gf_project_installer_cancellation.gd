@@ -271,7 +271,7 @@ func test_timeout_cancel_resume_keeps_terminal_reentry_closed() -> void:
 
 	var initialized: bool = await Gf.init()
 	var expected_error: String = (
-		"[GF] 项目 Installer 超时：%s 的 install_bindings() 超过 0.01 秒。"
+		"[GF][gf.installer_timeout] Project Installer timed out: %s.install_bindings() exceeded 0.01 seconds."
 		% CANCELLING_INSTALLER_PATH
 	)
 
@@ -324,7 +324,7 @@ func test_cancelled_detached_installer_blocks_retry_and_late_binding() -> void:
 		architecture.get_local_utility(AsyncInstallerUtilityFixture),
 		"旧 continuation 不得把 Utility 写入失败或重试后的架构。"
 	)
-	assert_push_error("[GFArchitecture] register_utility 失败：架构初始化已失败，已拒绝迟到写入。")
+	assert_push_error("[GFArchitecture][architecture.registry_write_initialization_failed] register_utility failed: architecture initialization failed; late writes are rejected.")
 
 	var final_retry_initialized: bool = await Gf.init()
 	assert_true(final_retry_initialized, "旧 continuation 收尾后同一架构应允许 deliberate retry。")

@@ -22,7 +22,7 @@ extends Resource
 @export var section_id: StringName = &"":
 	set(value):
 		if _definition_locked and value != section_id:
-			push_error("[GFSaveSectionProvider] 已注册的 section_id 不可修改。")
+			push_error("[GFSaveSectionProvider][save_section_provider.registered_section_id_read_only] A registered section_id cannot be modified.")
 			return
 		section_id = value
 
@@ -34,7 +34,7 @@ extends Resource
 @export_range(1, 2_147_483_647, 1) var schema_version: int = 1:
 	set(value):
 		if _definition_locked and value != schema_version:
-			push_error("[GFSaveSectionProvider] 已注册的 schema_version 不可修改。")
+			push_error("[GFSaveSectionProvider][save_section_provider.registered_schema_version_read_only] A registered schema_version cannot be modified.")
 			return
 		schema_version = value
 
@@ -46,7 +46,7 @@ extends Resource
 @export var save_enabled: bool = true:
 	set(value):
 		if _definition_locked and value != save_enabled:
-			push_error("[GFSaveSectionProvider] 已注册的 save_enabled 不可修改。")
+			push_error("[GFSaveSectionProvider][save_section_provider.registered_save_enabled_read_only] A registered save_enabled cannot be modified.")
 			return
 		save_enabled = value
 
@@ -58,7 +58,7 @@ extends Resource
 @export var load_enabled: bool = true:
 	set(value):
 		if _definition_locked and value != load_enabled:
-			push_error("[GFSaveSectionProvider] 已注册的 load_enabled 不可修改。")
+			push_error("[GFSaveSectionProvider][save_section_provider.registered_load_enabled_read_only] A registered load_enabled cannot be modified.")
 			return
 		load_enabled = value
 
@@ -70,7 +70,7 @@ extends Resource
 @export var required_on_load: bool = true:
 	set(value):
 		if _definition_locked and value != required_on_load:
-			push_error("[GFSaveSectionProvider] 已注册的 required_on_load 不可修改。")
+			push_error("[GFSaveSectionProvider][save_section_provider.registered_required_on_load_read_only] A registered required_on_load cannot be modified.")
 			return
 		required_on_load = value
 

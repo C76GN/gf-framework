@@ -109,7 +109,7 @@ func test_save_text_reports_skipped_as_non_failed_without_writing() -> void:
 	assert_eq(GFGeneratedArtifactReport.get_error_code(skipped_report), ERR_ALREADY_EXISTS, "调用方仍可用 error_code 判断是否阻断流程。")
 	assert_false(GF_VARIANT_ACCESS.get_option_bool(skipped_report, "written"), "skipped 不应写入目标。")
 	assert_eq(content, "first", "skipped 不应改写已有内容。")
-	assert_push_warning("[GFGeneratedArtifactReport] 目标文件已存在，已跳过：%s" % path)
+	assert_push_warning("[GFGeneratedArtifactReport][generated_artifact_report.output_exists] Artifact operation for GFGeneratedArtifactReport reported the following.\nThe target file already exists and was skipped: %s." % path)
 
 
 func test_make_report_returns_json_safe_metadata_boundary() -> void:
@@ -186,7 +186,7 @@ func test_save_text_rejects_stale_expected_previous_hash() -> void:
 	assert_eq(content, "current", "冲突不得覆盖当前内容。")
 	assert_eq(temp_count, 0, "冲突不得遗留临时文件。")
 	assert_eq(remove_error, OK, "测试应清理临时产物。")
-	assert_push_error("[GFGeneratedArtifactReport] 目标文件已偏离调用方读取基线，已拒绝写入：%s" % path)
+	assert_push_error("[GFGeneratedArtifactReport][generated_artifact_report.read_baseline_changed] Artifact operation for GFGeneratedArtifactReport reported the following.\nThe target file differs from the caller's read baseline; writing was rejected: %s." % path)
 
 
 func test_save_text_rejects_absolute_path_and_outside_allowed_roots() -> void:
@@ -373,7 +373,7 @@ func test_save_text_rejects_linked_child_inside_allowed_root() -> void:
 	assert_eq(outside_content, "", "外部 target 不得接收产物内容。")
 	assert_true(cleanup_succeeded, "linked child fixture 必须清理。")
 	assert_push_error(
-		"[GFGeneratedArtifactReport] 输出路径包含链接或重解析组件，已拒绝：%s" % output_path
+		"[GFGeneratedArtifactReport][generated_artifact_report.output_path_invalid] Artifact operation for GFGeneratedArtifactReport reported the following.\nThe output path contains a link or reparse component and was rejected: %s." % output_path
 	)
 
 
@@ -424,7 +424,7 @@ func test_save_text_rejects_linked_output_root_and_preserves_existing_file() -> 
 	assert_eq(outside_content, "sentinel", "linked output root 中的 existing file 不得被替换。")
 	assert_true(cleanup_succeeded, "linked output root fixture 必须清理。")
 	assert_push_error(
-		"[GFGeneratedArtifactReport] 输出路径包含链接或重解析组件，已拒绝：%s" % output_path
+		"[GFGeneratedArtifactReport][generated_artifact_report.output_path_invalid] Artifact operation for GFGeneratedArtifactReport reported the following.\nThe output path contains a link or reparse component and was rejected: %s." % output_path
 	)
 
 
@@ -472,7 +472,7 @@ func test_save_text_rechecks_physical_ownership_before_final_replace() -> void:
 	assert_false(outside_file_exists, "final replace preflight 不得沿 race link 写入外部 target。")
 	assert_true(cleanup_succeeded, "final replace race fixture 必须清理。")
 	assert_push_error(
-		"[GFGeneratedArtifactReport] 无法替换文本产物：%s (%s)" % [
+		"[GFGeneratedArtifactReport][generated_artifact_report.replacement_baseline_changed] Artifact operation for GFGeneratedArtifactReport reported the following.\nCould not replace the text artifact: %s (%s)." % [
 			output_path,
 			error_string(ERR_UNAUTHORIZED),
 		]
@@ -656,7 +656,7 @@ func test_save_text_cleans_temp_when_target_appears_before_final_replace() -> vo
 	assert_eq(temp_count, 0, "final replace 前 target 漂移后应清理 staged temp。")
 	assert_true(cleanup_succeeded, "target drift fixture 必须清理。")
 	assert_push_error(
-		"[GFGeneratedArtifactReport] 目标文件在保存期间发生创建或删除：%s" % _failure_output_path
+		"[GFGeneratedArtifactReport][generated_artifact_report.replacement_baseline_changed] Artifact operation for GFGeneratedArtifactReport reported the following.\nThe target file was created or deleted during saving: %s." % _failure_output_path
 	)
 
 

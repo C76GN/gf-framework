@@ -508,5 +508,5 @@ func mark_initialized() -> void:
 func _can_mutate_requirements() -> bool:
 	if not is_configuration_locked():
 		return true
-	push_warning("[GFRuntimeTask] 调度仲裁中或已调度的任务不能修改 requirements；请取消并重新配置。")
+	push_warning("[GFRuntimeTask][runtime_task.requirements_frozen] Cannot change requirements during arbitration or after scheduling; cancel and reconfigure the task.")
 	return false

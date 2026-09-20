@@ -370,7 +370,7 @@ static func encode_advertisement(advertisement: Dictionary, options: Dictionary 
 	var validation: Dictionary = validate_advertisement(advertisement, options)
 	if not GFVariantData.get_option_bool(validation, "ok", false):
 		push_error(
-			"[GFNetworkServiceDiscovery] 广告编码失败：%s。" %
+			"[GFNetworkServiceDiscovery][network_service_discovery.advertisement_encoding_failed] Advertisement encoding failed: %s." %
 			GFVariantData.get_option_string(validation, "error", "invalid_advertisement")
 		)
 		return PackedByteArray()
@@ -387,7 +387,7 @@ static func encode_advertisement(advertisement: Dictionary, options: Dictionary 
 		1
 	)
 	if encoded.size() > max_advertisement_bytes:
-		push_error("[GFNetworkServiceDiscovery] 广告编码失败：advertisement_too_large。")
+		push_error("[GFNetworkServiceDiscovery][network_service_discovery.advertisement_too_large] Advertisement encoding failed: advertisement_too_large.")
 		return PackedByteArray()
 	return encoded
 

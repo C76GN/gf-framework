@@ -176,7 +176,7 @@ func test_route_rejects_unregistered_custom_layer_with_stable_reason() -> void:
 
 	assert_null(panel, "未注册逻辑层不应退化为泛化面板打开失败。")
 	assert_signal_emitted_with_parameters(_router, "route_open_failed", [&"inventory", "missing_ui_layer"])
-	assert_push_warning("[GFUIRouterUtility] 路由打开失败：inventory (missing_ui_layer)")
+	assert_push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: inventory (missing_ui_layer).")
 
 
 func test_route_build_options_deep_merges_metadata_and_copies_params() -> void:
@@ -238,7 +238,7 @@ func test_back_refuses_to_pop_non_route_panel_above_route() -> void:
 	assert_eq(_ui_utility.get_top_panel(GFUIUtility.Layer.POPUP), overlay_panel, "router.back 失败后栈顶普通面板应保留。")
 	assert_eq(_router.get_current_route_id(), &"inventory", "router.back 失败后路由历史不应被删除。")
 	assert_true(_ui_utility.is_panel_open(route_panel, GFUIUtility.Layer.POPUP), "原路由面板仍应保持打开。")
-	assert_push_warning("[GFUIRouterUtility] back 失败：路由面板不是当前 UI 栈顶。")
+	assert_push_warning("[GFUIRouterUtility][ui_router_utility.back_panel_not_top] Cannot go back: the route panel is not at the top of the current UI stack.")
 
 
 func test_replace_route_clears_same_layer_history() -> void:
@@ -278,7 +278,7 @@ func test_sync_replace_failure_preserves_existing_route_history() -> void:
 	assert_eq(_router.get_current_route_id(), &"first", "同步 replace 失败后当前路由应保持不变。")
 	assert_eq(_ui_utility.get_top_panel(GFUIUtility.Layer.POPUP), first_panel, "同步 replace 失败后旧面板应保持栈顶。")
 	assert_signal_emitted_with_parameters(_router, "route_open_failed", [&"second", "panel_open_failed"])
-	assert_push_warning("[GFUIRouterUtility] 路由打开失败：second (panel_open_failed)")
+	assert_push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: second (panel_open_failed).")
 
 
 func test_missing_route_emits_failure() -> void:
@@ -288,7 +288,7 @@ func test_missing_route_emits_failure() -> void:
 
 	assert_null(panel, "缺失路由不应打开面板。")
 	assert_signal_emitted(_router, "route_open_failed", "缺失路由应发出失败信号。")
-	assert_push_warning("[GFUIRouterUtility] 路由打开失败：missing (missing_route)")
+	assert_push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: missing (missing_route).")
 
 
 func test_duplicate_pending_push_route_async_opens_once() -> void:
@@ -321,7 +321,7 @@ func test_async_route_sync_fallback_reaches_terminal_state() -> void:
 	assert_true(_router.register_route(route), "有效路由应可注册。")
 
 	var operation: GFUIRouteOperation = _router.push_route_async(&"inventory")
-	assert_push_warning("[GFUIUtility] GFAssetUtility 未注册，回退为同步加载。")
+	assert_push_warning("[GFUIUtility][ui_utility.asset_utility_missing] GFAssetUtility is not registered; falling back to synchronous loading.")
 	await get_tree().process_frame
 
 	var snapshot: Dictionary = _router.get_debug_snapshot()
@@ -449,7 +449,7 @@ func test_conflicting_pending_async_routes_fail_instead_of_silently_overwriting(
 	assert_signal_emitted_with_parameters(_router, "route_open_failed", [&"settings", "route_async_conflict"])
 	assert_eq(inventory_operation.get_result().get_status(), GFUIRouteResult.STATUS_OPENED)
 	assert_eq(settings_operation.get_result().get_status(), GFUIRouteResult.STATUS_ASYNC_CONFLICT)
-	assert_push_warning("[GFUIRouterUtility] 路由打开失败：settings (route_async_conflict)")
+	assert_push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: settings (route_async_conflict).")
 
 
 func test_router_rejects_matching_external_ui_async_request() -> void:
@@ -476,7 +476,7 @@ func test_router_rejects_matching_external_ui_async_request() -> void:
 		"route_open_failed",
 		[&"inventory", "ui_async_request_conflict"]
 	)
-	assert_push_warning("[GFUIRouterUtility] 路由打开失败：inventory (ui_async_request_conflict)")
+	assert_push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: inventory (ui_async_request_conflict).")
 	asset_util.resolve(route.scene_path, _make_control_scene())
 	await get_tree().process_frame
 	assert_eq(_router.get_current_route_id(), &"", "外部请求完成后也不得污染 Router 历史。")
@@ -498,13 +498,13 @@ func test_async_replace_failure_preserves_existing_route_history() -> void:
 	asset_util.resolve("res://tests/missing_async_replace_panel.tscn", null)
 	await get_tree().process_frame
 	await get_tree().process_frame
-	assert_push_warning("[GFUIRouterUtility] 路由打开失败：second (panel_async_failed)")
+	assert_push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: second (panel_async_failed).")
 
 	assert_eq(_router.get_current_route_id(), &"first", "异步 replace 失败后应保留旧路由历史。")
 	assert_true(_ui_utility.is_panel_open(first_panel, GFUIUtility.Layer.POPUP), "异步 replace 失败后旧面板应仍在 UI 栈中。")
 	assert_signal_emitted(_router, "route_open_failed", "异步 replace 失败应发出路由失败信号。")
 	assert_eq(operation.get_result().get_status(), GFUIRouteResult.STATUS_PANEL_FAILED)
-	assert_push_error("[GFUIUtility] 无法实例化面板场景：res://tests/missing_async_replace_panel.tscn")
+	assert_push_error("[GFUIUtility][ui_utility.panel_instantiation_failed] Cannot instantiate panel scene: res://tests/missing_async_replace_panel.tscn.")
 
 
 func test_async_route_uses_request_snapshot_after_signal_mutates_registered_route() -> void:
@@ -574,7 +574,7 @@ func test_async_missing_route_returns_completed_typed_failure() -> void:
 	assert_false(result.get_metadata().has("changed"), "结果元数据读取必须返回隔离副本。")
 	assert_false(JSON.stringify(report).is_empty(), "类型化结果报告必须可安全 JSON 序列化。")
 	assert_signal_emitted_with_parameters(_router, "route_open_failed", [&"missing", "missing_route"])
-	assert_push_warning("[GFUIRouterUtility] 路由打开失败：missing (missing_route)")
+	assert_push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: missing (missing_route).")
 
 
 func test_invalid_async_preload_policy_returns_typed_failure() -> void:
@@ -596,7 +596,7 @@ func test_invalid_async_preload_policy_returns_typed_failure() -> void:
 		"route_open_failed",
 		[&"inventory", "invalid_preload_policy"]
 	)
-	assert_push_warning("[GFUIRouterUtility] 路由打开失败：inventory (invalid_preload_policy)")
+	assert_push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: inventory (invalid_preload_policy).")
 
 
 func test_async_route_returns_cancelled_for_pre_cancelled_scope() -> void:
@@ -638,7 +638,7 @@ func test_async_route_rejects_completed_or_invalid_scope() -> void:
 		GFUIRouteResult.STATUS_INVALID_LIFECYCLE
 	)
 	assert_eq(completed_operation.get_result().get_reason(), &"scope_completed")
-	assert_push_warning("[GFUIRouterUtility] 路由打开失败：inventory (scope_completed)")
+	assert_push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: inventory (scope_completed).")
 
 	var invalid_operation: GFUIRouteOperation = _router.push_route_async(
 		&"inventory",
@@ -652,7 +652,7 @@ func test_async_route_rejects_completed_or_invalid_scope() -> void:
 		GFUIRouteResult.STATUS_INVALID_LIFECYCLE
 	)
 	assert_eq(invalid_operation.get_result().get_reason(), &"invalid_scope")
-	assert_push_warning("[GFUIRouterUtility] 路由打开失败：inventory (invalid_scope)")
+	assert_push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: inventory (invalid_scope).")
 
 
 func test_async_route_rejects_node_owner_outside_scene_tree() -> void:
@@ -670,7 +670,7 @@ func test_async_route_rejects_node_owner_outside_scene_tree() -> void:
 	assert_eq(operation.get_result().get_status(), GFUIRouteResult.STATUS_INVALID_LIFECYCLE)
 	assert_eq(operation.get_result().get_reason(), &"owner_not_in_tree")
 	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 0)
-	assert_push_warning("[GFUIRouterUtility] 路由打开失败：inventory (owner_not_in_tree)")
+	assert_push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: inventory (owner_not_in_tree).")
 	owner_node.free()
 
 
@@ -821,7 +821,7 @@ func test_duplicate_pending_route_requires_same_lifecycle_identity() -> void:
 	assert_eq(duplicate_operation, first_operation, "只有生命周期身份相同的请求才能合流。")
 	assert_eq(conflict_operation.get_result().get_status(), GFUIRouteResult.STATUS_ASYNC_CONFLICT)
 	assert_eq(conflict_operation.get_result().get_reason(), &"route_async_conflict")
-	assert_push_warning("[GFUIRouterUtility] 路由打开失败：inventory (route_async_conflict)")
+	assert_push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: inventory (route_async_conflict).")
 	var _cancelled: bool = scope.cancel("test_cleanup")
 	assert_eq(first_operation.get_result().get_status(), GFUIRouteResult.STATUS_CANCELLED)
 
@@ -1085,7 +1085,7 @@ func test_required_route_preload_failure_blocks_panel_open() -> void:
 	assert_false(result.was_preload_successful())
 	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 0)
 	assert_eq(asset_util.get_pending_count(route.scene_path), 0, "严格预加载失败后不得继续提交面板加载。")
-	assert_push_warning("[GFUIRouterUtility] 路由打开失败：inventory (preload_failed)")
+	assert_push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: inventory (preload_failed).")
 
 
 func test_best_effort_route_preload_failure_continues_with_typed_degradation() -> void:

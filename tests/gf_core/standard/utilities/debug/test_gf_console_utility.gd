@@ -40,9 +40,9 @@ func test_register_command() -> void:
 
 func test_register_command_rejects_empty_name_and_invalid_callback() -> void:
 	_register_command("", Callable(), "空指令。")
-	assert_push_warning("[GFConsoleUtility] 注册命令失败：命令名为空。")
+	assert_push_warning("[GFConsoleUtility][console_utility.command_name_empty] Cannot register command: command name is empty.")
 	_register_command("broken", Callable(), "无效回调。")
-	assert_push_warning("[GFConsoleUtility] 注册命令失败：callback 无效：broken。")
+	assert_push_warning("[GFConsoleUtility][console_utility.command_callback_invalid] Cannot register command: callback is invalid: broken.")
 
 	assert_false(_console.has_command(""), "空命令名不应进入命令表。")
 	assert_false(_console.has_command("broken"), "无效 callback 不应进入命令表。")
@@ -257,7 +257,7 @@ func test_console_rejects_invalid_command_tier_metadata() -> void:
 		assert_false(subscription.is_active(), "非法 tier 注册必须 fail closed：%s。" % command_name)
 		assert_false(_console.has_command(command_name), "非法 tier 不得进入命令目录：%s。" % command_name)
 		assert_push_warning(
-			"[GFConsoleUtility] 注册命令失败：tier 必须是 0 到 3 的整数：%s。"
+			"[GFConsoleUtility][console_utility.command_tier_invalid] Cannot register command: tier must be an integer from 0 to 3: %s."
 			% command_name
 		)
 
@@ -276,7 +276,7 @@ func test_console_rejects_invalid_command_tier_metadata() -> void:
 		"非法 definition 不得留下部分命令注册。"
 	)
 	assert_push_warning(
-		"[GFConsoleUtility] 注册命令失败：tier 必须是 0 到 3 的整数：invalid_definition_tier。"
+		"[GFConsoleUtility][console_utility.command_tier_invalid] Cannot register command: tier must be an integer from 0 to 3: invalid_definition_tier."
 	)
 
 

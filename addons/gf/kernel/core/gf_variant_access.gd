@@ -638,7 +638,7 @@ static func merge_dictionary(
 	var budget_failure: String = _validate_merge_source_budget(source, budget_options)
 	if not budget_failure.is_empty():
 		push_error(
-			"[GFVariantAccess] merge_dictionary 失败：source 超出 %s 预算，target 未修改。"
+			"[GFVariantAccess][variant_access.merge_budget_exceeded] merge_dictionary failed: source exceeded the %s budget; target was not modified."
 			% budget_failure
 		)
 		return target

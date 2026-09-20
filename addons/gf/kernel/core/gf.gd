@@ -128,7 +128,7 @@ func _exit_tree() -> void:
 	_GF_AUTOLOAD_SCRIPT.begin_tree_exit_scope()
 	_tree_exit_in_progress = true
 	_architecture_assignment_serial += 1
-	_cancel_pending_architecture_assignment("[GF] Gf 已退出场景树。")
+	_cancel_pending_architecture_assignment("[GF][gf.exited_tree] Gf has exited the scene tree.")
 	if _architecture != null:
 		_architecture.dispose()
 	_commit_architecture_identity(null)
@@ -175,7 +175,7 @@ func create_architecture() -> GFArchitecture:
 
 	_architecture_assignment_serial += 1
 	var assignment_serial: int = _architecture_assignment_serial
-	_cancel_pending_architecture_assignment("[GF] pending 架构赋值已被默认架构替代。")
+	_cancel_pending_architecture_assignment("[GF][gf.assignment_replaced_by_default] The pending architecture assignment was replaced by the default architecture.")
 	if (
 		_tree_exit_in_progress
 		or not _is_architecture_assignment_serial_current(assignment_serial)
@@ -222,7 +222,7 @@ func create_binder() -> Variant:
 ## @return 当前可用的 GFArchitecture；未注册或 identity 正在 quiesce/dispose 时返回 null。
 func get_architecture() -> GFArchitecture:
 	if not has_architecture():
-		push_error("[GF] 架构尚未初始化或正在释放，请先注册可用架构。")
+		push_error("[GF][gf.architecture_unavailable] The architecture is not initialized or is being disposed; register an available architecture first.")
 		return null
 	return _architecture
 
@@ -249,7 +249,7 @@ func get_architecture() -> GFArchitecture:
 ## @return 架构设置并初始化成功时返回 true。
 func set_architecture(architecture_instance: GFArchitecture) -> bool:
 	if architecture_instance == null:
-		push_error("[GF] set_architecture 失败：传入的架构实例为空。")
+		push_error("[GF][gf.set_architecture_null] set_architecture failed: the architecture instance is null.")
 		return false
 	if _tree_exit_in_progress:
 		return false
@@ -282,7 +282,7 @@ func set_architecture(architecture_instance: GFArchitecture) -> bool:
 			architecture_instance,
 			assignment_scope,
 			assignment_serial,
-			"[GF] 架构赋值失败：项目 Installer 未完成。"
+			"[GF][gf.assignment_installer_incomplete] Architecture assignment failed: the project Installer did not complete."
 		)
 		return false
 	if not architecture_instance.is_inited():
@@ -303,7 +303,7 @@ func set_architecture(architecture_instance: GFArchitecture) -> bool:
 				architecture_instance,
 				assignment_scope,
 				assignment_serial,
-				"[GF] 架构赋值失败：候选架构未完成四阶段初始化。"
+				"[GF][gf.assignment_initialization_incomplete] Architecture assignment failed: the candidate architecture did not complete all four initialization phases."
 			)
 			return false
 	if (
@@ -315,7 +315,7 @@ func set_architecture(architecture_instance: GFArchitecture) -> bool:
 			architecture_instance,
 			assignment_scope,
 			assignment_serial,
-			"[GF] 架构赋值失败：候选架构未提交 READY。"
+			"[GF][gf.assignment_not_ready] Architecture assignment failed: the candidate architecture did not commit READY."
 		)
 		return false
 	if previous_architecture != null and previous_architecture != architecture_instance:
@@ -338,7 +338,7 @@ func set_architecture(architecture_instance: GFArchitecture) -> bool:
 				architecture_instance,
 				assignment_scope,
 				assignment_serial,
-				"[GF] 架构赋值失败：旧架构未能正常关闭。"
+				"[GF][gf.assignment_shutdown_failed] Architecture assignment failed: the previous architecture did not shut down successfully."
 			)
 			_clear_terminal_architecture_identity_if_current(
 				previous_architecture,
@@ -1340,7 +1340,7 @@ func _commit_architecture_identity(next_architecture: GFArchitecture) -> void:
 
 func _get_architecture_or_null(context: String) -> GFArchitecture:
 	if not has_architecture():
-		push_error("[GF] %s 失败：架构尚未初始化或正在释放，请先注册可用架构。" % context)
+		push_error("[GF][gf.operation_architecture_unavailable] %s failed: the architecture is not initialized or is being disposed; register an available architecture first." % context)
 		return null
 	return _architecture
 
@@ -1356,7 +1356,7 @@ func _begin_architecture_assignment(architecture_instance: GFArchitecture) -> GF
 		return null
 	_architecture_assignment_serial += 1
 	var assignment_serial: int = _architecture_assignment_serial
-	_cancel_pending_architecture_assignment("[GF] pending 架构赋值已被较新的赋值替代。")
+	_cancel_pending_architecture_assignment("[GF][gf.assignment_superseded] The pending architecture assignment was superseded by a newer assignment.")
 	if (
 		_tree_exit_in_progress
 		or not _is_architecture_assignment_serial_current(assignment_serial)
@@ -1408,7 +1408,7 @@ func _finish_pending_architecture_assignment(
 		assignment_scope.complete()
 	elif not assignment_scope.is_cancel_requested():
 		var _cancelled_scope: bool = assignment_scope.cancel(
-			"[GF] 架构赋值未能提交。"
+			"[GF][gf.assignment_commit_failed] Architecture assignment could not be committed."
 		)
 
 
@@ -1416,7 +1416,7 @@ func _reject_pending_architecture_assignment_if_owned(
 	architecture_instance: GFArchitecture,
 	assignment_scope: GFAsyncScope,
 	assignment_serial: int,
-	reason: String = "[GF] 架构赋值未能提交。"
+	reason: String = "[GF][gf.assignment_commit_failed] Architecture assignment could not be committed."
 ) -> void:
 	if not _owns_pending_architecture_assignment(
 		architecture_instance,
@@ -1484,11 +1484,11 @@ func _owns_pending_architecture_assignment(
 
 func _get_instance_script_or_null(instance: Object, context: String) -> Script:
 	if instance == null:
-		push_error("[GF] %s 失败：实例为空。" % context)
+		push_error("[GF][gf.instance_null] %s failed: the instance is null." % context)
 		return null
 	var raw_script: Variant = instance.get_script()
 	if not raw_script is Script:
-		push_error("[GF] %s 失败：实例未附加脚本。" % context)
+		push_error("[GF][gf.instance_script_missing] %s failed: the instance has no attached script." % context)
 		return null
 	var script: Script = raw_script
 	return script
@@ -1668,7 +1668,7 @@ func _wait_for_project_installer_step(
 		var elapsed_msec: int = Time.get_ticks_msec() - start_msec
 		if elapsed_msec >= timeout_msec:
 			_block_stale_project_installer_write(completion_state, architecture_instance)
-			var timeout_reason: String = "[GF] 项目 Installer 超时：%s 的 %s() 超过 %.2f 秒。" % [
+			var timeout_reason: String = "[GF][gf.installer_timeout] Project Installer timed out: %s.%s() exceeded %.2f seconds." % [
 				path,
 				stage,
 				timeout_seconds,
@@ -1721,25 +1721,25 @@ func _get_project_installer_paths() -> Array[String]:
 				_append_unique_installer_path(installer_paths, _GF_VARIANT_ACCESS_SCRIPT.to_text(path_variant, ""))
 			else:
 				_report_project_installer_error(
-					"[GF] 项目 Installer 配置第 %d 项必须是 String 或 StringName，实际为 %s。"
+					"[GF][gf.installer_config_entry_invalid] Project Installer configuration entry %d must be String or StringName; received %s."
 					% [index, type_string(typeof(path_variant))]
 				)
 		return installer_paths
 
-	_report_project_installer_error("[GF] 项目 Installer 配置必须是路径数组。")
+	_report_project_installer_error("[GF][gf.installer_config_not_array] Project Installer configuration must be an array of paths.")
 	return installer_paths
 
 
 func _get_project_installer_cancel_reason(architecture_instance: GFArchitecture) -> String:
 	if architecture_instance == null:
-		return "[GF] 项目 Installer 已取消。"
+		return "[GF][gf.installer_cancelled] Project Installer was cancelled."
 	if not architecture_instance.last_initialization_error.is_empty():
 		return architecture_instance.last_initialization_error
 	if architecture_instance.has_initialization_failed():
-		return "[GF] 项目 Installer 因架构初始化失败而取消。"
+		return "[GF][gf.installer_initialization_failed] Project Installer was cancelled because architecture initialization failed."
 	if not architecture_instance.is_project_installers_running():
-		return "[GF] 项目 Installer 流程已停止。"
-	return "[GF] 项目 Installer 已取消。"
+		return "[GF][gf.installer_stopped] The project Installer process has stopped."
+	return "[GF][gf.installer_cancelled] Project Installer was cancelled."
 
 
 func _get_project_installer_failure_reason(
@@ -1764,24 +1764,24 @@ func _get_scene_tree_or_null() -> SceneTree:
 func _append_unique_installer_path(installer_paths: Array[String], path: String) -> void:
 	var normalized_path: String = _GF_PATH_TOOLS_SCRIPT.normalize_resource_path(path)
 	if normalized_path.is_empty():
-		_report_project_installer_error("[GF] 项目 Installer 路径为空。")
+		_report_project_installer_error("[GF][gf.installer_path_empty] The project Installer path is empty.")
 		return
 	if normalized_path.begins_with("uid://"):
 		var resource_uid: int = ResourceUID.text_to_id(normalized_path)
 		if resource_uid == ResourceUID.INVALID_ID or not ResourceUID.has_id(resource_uid):
-			_report_project_installer_error("[GF] 项目 Installer UID 无法解析：%s" % normalized_path)
+			_report_project_installer_error("[GF][gf.installer_uid_invalid] The project Installer UID could not be resolved: %s." % normalized_path)
 			return
 		normalized_path = _GF_PATH_TOOLS_SCRIPT.normalize_resource_path(
 			ResourceUID.get_id_path(resource_uid)
 		)
 		if normalized_path.is_empty():
-			_report_project_installer_error("[GF] 项目 Installer UID 未映射到资源路径：%s" % path)
+			_report_project_installer_error("[GF][gf.installer_uid_unmapped] The project Installer UID has no resource path mapping: %s." % path)
 			return
 	if not normalized_path.begins_with("res://"):
-		_report_project_installer_error("[GF] 项目 Installer 路径必须是 res:// 或可解析的 uid:// GDScript：%s" % path)
+		_report_project_installer_error("[GF][gf.installer_path_invalid] The project Installer path must be a res:// or resolvable uid:// GDScript path: %s." % path)
 		return
 	if not normalized_path.ends_with(".gd"):
-		_report_project_installer_error("[GF] 项目 Installer 路径必须指向 .gd 脚本：%s" % normalized_path)
+		_report_project_installer_error("[GF][gf.installer_extension_invalid] The project Installer path must point to a .gd script: %s." % normalized_path)
 		return
 	if installer_paths.has(normalized_path):
 		return
@@ -1791,22 +1791,22 @@ func _append_unique_installer_path(installer_paths: Array[String], path: String)
 func _create_installer(path: String) -> GFInstaller:
 	_last_project_installer_error = ""
 	if path.is_empty():
-		_report_project_installer_error("[GF] 项目 Installer 路径为空。")
+		_report_project_installer_error("[GF][gf.installer_path_empty] The project Installer path is empty.")
 		return null
 
 	var raw_installer_script: Variant = load(path)
 	if not raw_installer_script is Script:
-		_report_project_installer_error("[GF] 无法加载项目 Installer：%s" % path)
+		_report_project_installer_error("[GF][gf.installer_load_failed] Could not load the project Installer: %s." % path)
 		return null
 	var installer_script: Script = raw_installer_script
 
 	if not installer_script.can_instantiate():
-		_report_project_installer_error("[GF] 项目 Installer 无法实例化：%s" % path)
+		_report_project_installer_error("[GF][gf.installer_instantiation_failed] Could not instantiate the project Installer: %s." % path)
 		return null
 
 	var instance: GFInstaller = _instantiate_installer(installer_script)
 	if instance == null:
-		_report_project_installer_error("[GF] 项目 Installer 必须继承 GFInstaller：%s" % path)
+		_report_project_installer_error("[GF][gf.installer_type_invalid] The project Installer must extend GFInstaller: %s." % path)
 		return null
 
 	return instance

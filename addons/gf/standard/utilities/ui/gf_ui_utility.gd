@@ -244,7 +244,7 @@ func configure(auto_hide_under: bool = true) -> void:
 ## @return 注册成功返回 true；定义无效、ID 冲突或无法创建根节点时返回 false。
 func register_layer(definition: GFUILayerDefinition, replace_existing: bool = false) -> bool:
 	if definition == null or not definition.is_valid():
-		push_error("[GFUIUtility] 无法注册无效 UI 层定义。")
+		push_error("[GFUIUtility][ui_utility.layer_definition_invalid] Cannot register an invalid UI layer definition.")
 		return false
 
 	var layer_id: int = definition.layer_id
@@ -387,10 +387,10 @@ func push_panel_async_with_options(
 	completion_callback: Callable = Callable()
 ) -> GFUIPanelAsyncOperation:
 	if not _is_active:
-		push_error("[GFUIUtility] UI 管理器尚未初始化或已释放。")
+		push_error("[GFUIUtility][ui_utility.manager_unavailable] The UI manager is not initialized or has been disposed.")
 		return null
 	if path.is_empty():
-		push_error("[GFUIUtility] 面板场景路径不能为空。")
+		push_error("[GFUIUtility][ui_utility.panel_path_empty] Panel scene path must not be empty.")
 		return null
 
 	var request_key: String = _make_async_push_key(path, layer)
@@ -414,7 +414,7 @@ func push_panel_async_with_options(
 				pending_operation,
 				completion_callback
 			):
-				push_error("[GFUIUtility] 无法连接异步面板请求终态回调。")
+				push_error("[GFUIUtility][ui_utility.panel_terminal_connect_failed] Cannot connect the asynchronous panel request terminal callback.")
 			return pending_operation
 		var _stale_push_erased: bool = _pending_async_push_serials.erase(request_key)
 
@@ -451,7 +451,7 @@ func push_panel_async_with_options(
 
 	var asset_util: GFAssetUtility = _get_asset_util()
 	if asset_util == null:
-		push_warning("[GFUIUtility] GFAssetUtility 未注册，回退为同步加载。")
+		push_warning("[GFUIUtility][ui_utility.asset_utility_missing] GFAssetUtility is not registered; falling back to synchronous loading.")
 		var fallback_panel: Node = push_panel_with_options(path, layer, options, config_callback)
 		_clear_pending_async_push(request_key, request_serial)
 		_finish_async_panel_request(
@@ -469,7 +469,7 @@ func push_panel_async_with_options(
 		var scene: PackedScene = _get_packed_scene(res)
 		if scene == null:
 			_finish_async_panel_request(async_request_key, AsyncPanelLoadStatus.FAILED, null)
-			push_error("[GFUIUtility] 无法实例化面板场景：%s" % path)
+			push_error("[GFUIUtility][ui_utility.panel_instantiation_failed] Cannot instantiate panel scene: %s." % path)
 			return
 
 		var panel_instance: Node = scene.instantiate()
@@ -526,7 +526,7 @@ func push_panel_with_options(
 ) -> Node:
 	var scene: PackedScene = _load_packed_scene(path)
 	if scene == null:
-		push_error("[GFUIUtility] 无法加载面板场景：%s" % path)
+		push_error("[GFUIUtility][ui_utility.panel_load_failed] Cannot load panel scene: %s." % path)
 		return null
 
 	var panel_instance: Node = scene.instantiate()
@@ -638,10 +638,10 @@ func replace_layer_async_with_options(
 	completion_callback: Callable = Callable()
 ) -> GFUIPanelAsyncOperation:
 	if not _is_active:
-		push_error("[GFUIUtility] UI 管理器尚未初始化或已释放。")
+		push_error("[GFUIUtility][ui_utility.manager_unavailable] The UI manager is not initialized or has been disposed.")
 		return null
 	if path.is_empty():
-		push_error("[GFUIUtility] 面板场景路径不能为空。")
+		push_error("[GFUIUtility][ui_utility.panel_path_empty] Panel scene path must not be empty.")
 		return null
 
 	var previous_layer_serial: int = _get_layer_request_serial(layer)
@@ -681,7 +681,7 @@ func replace_layer_async_with_options(
 		return operation_handle
 	var asset_util: GFAssetUtility = _get_asset_util()
 	if asset_util == null:
-		push_warning("[GFUIUtility] GFAssetUtility 未注册，回退为同步加载。")
+		push_warning("[GFUIUtility][ui_utility.asset_utility_missing] GFAssetUtility is not registered; falling back to synchronous loading.")
 		var fallback_panel: Node = _replace_layer_synchronously(
 			path,
 			layer,
@@ -703,7 +703,7 @@ func replace_layer_async_with_options(
 		var scene: PackedScene = _get_packed_scene(res)
 		if scene == null:
 			_finish_async_panel_request(async_request_key, AsyncPanelLoadStatus.FAILED, null)
-			push_error("[GFUIUtility] 无法实例化面板场景：%s" % path)
+			push_error("[GFUIUtility][ui_utility.panel_instantiation_failed] Cannot instantiate panel scene: %s." % path)
 			return
 
 		var panel_instance: Node = scene.instantiate()
@@ -760,7 +760,7 @@ func push_panel_instance_with_options(
 	config_callback: Callable = Callable()
 ) -> void:
 	if not is_instance_valid(panel_instance):
-		push_error("[GFUIUtility] 传入的 panel_instance 无效。")
+		push_error("[GFUIUtility][ui_utility.panel_instance_invalid] The supplied panel_instance is invalid.")
 		return
 
 	var _added: bool = _add_panel_instance(panel_instance, layer, config_callback, options)
@@ -807,7 +807,7 @@ func replace_layer_instance_with_options(
 	config_callback: Callable = Callable()
 ) -> void:
 	if not is_instance_valid(panel_instance):
-		push_error("[GFUIUtility] 传入的 panel_instance 无效。")
+		push_error("[GFUIUtility][ui_utility.panel_instance_invalid] The supplied panel_instance is invalid.")
 		return
 
 	clear_layer(layer)
@@ -1185,7 +1185,7 @@ func _replace_layer_synchronously(
 ) -> Node:
 	var scene: PackedScene = _load_packed_scene(path)
 	if scene == null:
-		push_error("[GFUIUtility] 无法加载面板场景：%s" % path)
+		push_error("[GFUIUtility][ui_utility.panel_load_failed] Cannot load panel scene: %s." % path)
 		return null
 
 	var panel_instance: Node = scene.instantiate()
@@ -1271,10 +1271,10 @@ func _track_async_panel_request(
 ) -> GFUIPanelAsyncOperation:
 	var operation_handle: GFUIPanelAsyncOperation = GFUIPanelAsyncOperation.new()
 	if not operation_handle.configure_for_framework(request_serial, path, layer, operation):
-		push_error("[GFUIUtility] 无法配置异步面板请求句柄。")
+		push_error("[GFUIUtility][ui_utility.panel_request_configuration_failed] Cannot configure the asynchronous panel request handle.")
 		return null
 	if not _connect_async_panel_completion_callback(operation_handle, completion_callback):
-		push_error("[GFUIUtility] 无法连接异步面板请求终态回调。")
+		push_error("[GFUIUtility][ui_utility.panel_terminal_connect_failed] Cannot connect the asynchronous panel request terminal callback.")
 		return null
 	_pending_async_panel_requests[request_key] = {
 		"path": path,
@@ -1336,7 +1336,7 @@ func _finish_async_panel_request(request_key: String, status: int, panel: Node) 
 		operation_handle == null
 		or not operation_handle.complete_for_framework(terminal_status, terminal_panel)
 	):
-		push_error("[GFUIUtility] 异步面板请求句柄无法进入终态。")
+		push_error("[GFUIUtility][ui_utility.panel_terminal_failed] The asynchronous panel request handle cannot enter a terminal state.")
 		return
 	panel_async_load_finished.emit(
 		GFVariantData.get_option_string(request, "path", ""),
@@ -1400,7 +1400,7 @@ func _create_or_update_layer_root(layer: int) -> bool:
 
 	var main_loop: MainLoop = Engine.get_main_loop()
 	if not main_loop is SceneTree:
-		push_error("[GFUIUtility] 无法获取 SceneTree。")
+		push_error("[GFUIUtility][ui_utility.scene_tree_missing] SceneTree is unavailable.")
 		return false
 
 	var scene_tree: SceneTree = main_loop
@@ -1444,17 +1444,17 @@ func _add_panel_instance(
 	options: Dictionary = {}
 ) -> bool:
 	if not _is_active:
-		push_warning("[GFUIUtility] 当前 UI 管理器已销毁，忽略面板入栈。")
+		push_warning("[GFUIUtility][ui_utility.push_after_destruction] The current UI manager was destroyed; panel push ignored.")
 		return false
 
 	var canvas: CanvasLayer = get_layer_root(layer)
 	if not is_instance_valid(canvas):
-		push_error("[GFUIUtility] 目标层级的 CanvasLayer 不可用。")
+		push_error("[GFUIUtility][ui_utility.canvas_layer_unavailable] The target CanvasLayer is unavailable.")
 		return false
 
 	_prune_all_layer_stacks()
 	if _is_panel_in_any_stack(panel):
-		push_warning("[GFUIUtility] 面板实例已在 UI 栈中，忽略重复入栈。")
+		push_warning("[GFUIUtility][ui_utility.panel_already_stacked] The panel instance is already in the UI stack; duplicate push ignored.")
 		return false
 
 	_prune_layer_stack(layer)
@@ -1464,7 +1464,7 @@ func _add_panel_instance(
 	if config_callback.is_valid():
 		config_callback.call(panel)
 		if not is_instance_valid(panel):
-			push_warning("[GFUIUtility] config_callback 销毁了面板实例，本次入栈已取消。")
+			push_warning("[GFUIUtility][ui_utility.panel_destroyed_by_callback] config_callback destroyed the panel instance; this push was cancelled.")
 			return false
 		if not _is_active or not is_instance_valid(canvas) or get_layer_root(layer) != canvas:
 			return false

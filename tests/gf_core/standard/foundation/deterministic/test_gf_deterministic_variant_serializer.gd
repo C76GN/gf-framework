@@ -189,7 +189,7 @@ func test_float_values_are_rejected_by_default() -> void:
 	var text: String = GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_json(1.25)
 
 	assert_eq(text, "", "默认不应把 float 纳入 deterministic 真值。")
-	assert_push_error("[GFDeterministicVariantSerializer] 浮点值默认不参与确定性编码；请先使用定点数，或显式设置 allow_floats。")
+	assert_push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.serialization_failed] Serialization failed: Floating-point values are excluded from deterministic encoding by default; use fixed-point numbers or explicitly enable allow_floats..")
 
 
 func test_finite_floats_can_be_enabled_and_negative_zero_is_normalized() -> void:
@@ -265,7 +265,7 @@ func test_nonfinite_float_is_rejected_even_when_float_option_is_enabled() -> voi
 	})
 
 	assert_eq(text, "", "NaN/Inf 永远不应进入 canonical 编码。")
-	assert_push_error("[GFDeterministicVariantSerializer] 浮点值不能是 NaN 或 Inf。")
+	assert_push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.serialization_failed] Serialization failed: Floating-point values must not be NaN or Inf..")
 
 
 func test_max_depth_rejects_too_deep_structures() -> void:
@@ -280,7 +280,7 @@ func test_max_depth_rejects_too_deep_structures() -> void:
 	})
 
 	assert_eq(text, "", "超过 max_depth 的结构不应被编码。")
-	assert_push_error("[GFDeterministicVariantSerializer] 输入结构超过 max_depth。")
+	assert_push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.serialization_failed] Serialization failed: Input structure exceeds max_depth..")
 
 
 func test_resource_budgets_reject_wide_long_and_oversized_output() -> void:
@@ -288,19 +288,19 @@ func test_resource_budgets_reject_wide_long_and_oversized_output() -> void:
 		"max_items": 2,
 	})
 	assert_eq(wide_text, "", "超过 max_items 的宽结构应失败。")
-	assert_push_error("[GFDeterministicVariantSerializer] 输入集合超过 max_items。")
+	assert_push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.serialization_failed] Serialization failed: Input collection exceeds max_items..")
 
 	var long_text: String = GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_json("abcd", {
 		"max_string_length": 3,
 	})
 	assert_eq(long_text, "", "超过 max_string_length 的文本应失败。")
-	assert_push_error("[GFDeterministicVariantSerializer] 字符串超过 max_string_length。")
+	assert_push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.serialization_failed] Serialization failed: String exceeds max_string_length..")
 
 	var oversized_output: String = GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_json(1, {
 		"max_output_bytes": 8,
 	})
 	assert_eq(oversized_output, "", "超过 max_output_bytes 的规范输出应失败。")
-	assert_push_error("[GFDeterministicVariantSerializer] 规范输出超过 max_output_bytes。")
+	assert_push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.output_limit] Canonical output exceeds max_output_bytes.")
 
 
 func test_max_output_bytes_applies_only_to_encoded_output_entries() -> void:
@@ -315,17 +315,17 @@ func test_max_output_bytes_applies_only_to_encoded_output_entries() -> void:
 
 	assert_true(canonical_value != null, "canonical value 没有唯一 bytes 表示，不应伪装执行输出字节预算。")
 	assert_eq(canonical_json, "", "产生规范 bytes 的入口必须执行 max_output_bytes。")
-	assert_push_error("[GFDeterministicVariantSerializer] 规范输出超过 max_output_bytes。")
+	assert_push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.output_limit] Canonical output exceeds max_output_bytes.")
 
 
 func test_objects_and_circular_references_are_rejected() -> void:
 	var object_text: String = GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_json(Resource.new())
 	assert_eq(object_text, "", "Object/Resource 不应被通用 serializer 隐式反射。")
-	assert_push_error("[GFDeterministicVariantSerializer] 不支持的 Variant 类型：Object。")
+	assert_push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.serialization_failed] Serialization failed: Unsupported Variant type: Object..")
 
 	var source: Dictionary = {}
 	source["self"] = source
 	var circular_text: String = GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_json(source)
 
 	assert_eq(circular_text, "", "循环引用不应被静默编码。")
-	assert_push_error("[GFDeterministicVariantSerializer] 输入包含循环 Dictionary 引用。")
+	assert_push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.serialization_failed] Serialization failed: Input contains a cyclic Dictionary reference..")

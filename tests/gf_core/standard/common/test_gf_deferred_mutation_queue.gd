@@ -200,11 +200,11 @@ func test_record_rejects_removed_owner_option() -> void:
 		return legacy_owner.apply()
 	, { "owner": legacy_owner })
 
-	assert_push_error("[GFDeferredMutationQueue] record 失败：owner 选项已移除，请使用 record_method()。")
+	assert_push_error("[GFDeferredMutationQueue][deferred_mutation_queue.record_owner_removed] Cannot record: the owner option was removed; use record_method().")
 	var string_name_key_handle: int = queue.record(func() -> bool:
 		return legacy_owner.apply()
 	, { &"owner": legacy_owner })
-	assert_push_error("[GFDeferredMutationQueue] record 失败：owner 选项已移除，请使用 record_method()。")
+	assert_push_error("[GFDeferredMutationQueue][deferred_mutation_queue.record_owner_removed] Cannot record: the owner option was removed; use record_method().")
 
 	assert_eq(string_key_handle, 0, "String owner 选项必须 fail closed。")
 	assert_eq(string_name_key_handle, 0, "StringName owner 选项必须 fail closed。")

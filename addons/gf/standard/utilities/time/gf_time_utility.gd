@@ -33,7 +33,7 @@ var time_scale: float = 1.0:
 		if not _is_finite_scalar(value):
 			_report_non_finite_once(
 				&"time_scale",
-				"[GFTimeUtility] 忽略非有限 time_scale；保留上一有效值。"
+				"[GFTimeUtility][time_utility.time_scale_non_finite] Ignored non-finite time_scale; keeping the previous valid value."
 			)
 			return
 		time_scale = maxf(value, 0.0)
@@ -50,7 +50,7 @@ var max_scaled_delta: float = 0.0:
 		if not _is_finite_scalar(value):
 			_report_non_finite_once(
 				&"max_scaled_delta",
-				"[GFTimeUtility] 忽略非有限 max_scaled_delta；保留上一有效值。"
+				"[GFTimeUtility][time_utility.max_scaled_delta_non_finite] Ignored non-finite max_scaled_delta; keeping the previous valid value."
 			)
 			return
 		max_scaled_delta = maxf(value, 0.0)
@@ -66,7 +66,7 @@ var physics_substep_max_delta: float = 0.0:
 		if not _is_finite_scalar(value):
 			_report_non_finite_once(
 				&"physics_substep_max_delta",
-				"[GFTimeUtility] 忽略非有限 physics_substep_max_delta；保留上一有效值。"
+				"[GFTimeUtility][time_utility.substep_delta_non_finite] Ignored non-finite physics_substep_max_delta; keeping the previous valid value."
 			)
 			return
 		physics_substep_max_delta = maxf(value, 0.0)
@@ -239,7 +239,7 @@ func _validate_delta(delta: float) -> bool:
 		return true
 	_report_non_finite_once(
 		&"delta",
-		"[GFTimeUtility] delta 必须为有限数；本次返回安全零值。"
+		"[GFTimeUtility][time_utility.delta_non_finite] delta must be finite; returning a safe zero value for this call."
 	)
 	return false
 
@@ -250,7 +250,7 @@ func _scale_delta_or_zero(delta: float) -> float:
 		return scaled_delta
 	_report_non_finite_once(
 		&"scaled_delta",
-		"[GFTimeUtility] scaled_delta 溢出为非有限数；本次返回安全零值。"
+		"[GFTimeUtility][time_utility.scaled_delta_overflow] scaled_delta overflowed to a non-finite value; returning a safe zero value for this call."
 	)
 	return 0.0
 

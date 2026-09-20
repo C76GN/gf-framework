@@ -194,7 +194,7 @@ func set_ui_utility(ui_utility: GFUIUtility) -> void:
 		not _pending_async_routes.is_empty()
 		and ui_utility != current_ui_utility
 	):
-		push_warning("[GFUIRouterUtility] 存在异步路由请求时不能更换 GFUIUtility。")
+		push_warning("[GFUIRouterUtility][ui_router_utility.ui_utility_change_while_pending] Cannot replace GFUIUtility while asynchronous routing requests exist.")
 		return
 	_ui_utility_ref = weakref(ui_utility) if ui_utility != null else null
 
@@ -468,7 +468,7 @@ func back(layer: int = -1, do_free: bool = true) -> bool:
 	var route_layer: int = GFVariantData.get_option_int(entry, "layer", GFUIUtility.Layer.POPUP)
 	var route_panel: Node = _get_history_panel(entry)
 	if route_panel == null or ui_utility.get_top_panel(_get_ui_layer(route_layer)) != route_panel:
-		push_warning("[GFUIRouterUtility] back 失败：路由面板不是当前 UI 栈顶。")
+		push_warning("[GFUIRouterUtility][ui_router_utility.back_panel_not_top] Cannot go back: the route panel is not at the top of the current UI stack.")
 		return false
 
 	ui_utility.pop_panel(_get_ui_layer(route_layer), do_free)
@@ -822,7 +822,7 @@ func _resolve_route_or_fail(route_id: StringName) -> GFUIRoute:
 
 func _fail_route(route_id: StringName, reason: String) -> void:
 	route_open_failed.emit(route_id, reason)
-	push_warning("[GFUIRouterUtility] 路由打开失败：%s (%s)" % [String(route_id), reason])
+	push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: %s (%s)." % [String(route_id), reason])
 
 
 func _create_route_operation(
@@ -841,7 +841,7 @@ func _create_route_operation(
 		Time.get_ticks_msec()
 	)
 	if not configured:
-		push_error("[GFUIRouterUtility] 无法创建异步路由请求句柄。")
+		push_error("[GFUIRouterUtility][ui_router_utility.request_handle_creation_failed] Cannot create the asynchronous route request handle.")
 	return operation_handle
 
 
@@ -1679,7 +1679,7 @@ func _finish_route_entry(
 		GFVariantData.get_option_dictionary(entry, "metadata")
 	)
 	if not configured:
-		push_error("[GFUIRouterUtility] 无法构建异步路由终态结果。")
+		push_error("[GFUIRouterUtility][ui_router_utility.terminal_result_creation_failed] Cannot construct the asynchronous route terminal result.")
 		return
 	_release_owned_preload_group(entry, preload_result)
 	var completed: bool = operation_handle.complete_for_framework(result)

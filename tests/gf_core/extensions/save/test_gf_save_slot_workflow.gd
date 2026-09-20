@@ -101,7 +101,7 @@ func test_slot_id_override_rejects_negative_index() -> void:
 	wf.set_slot_id_override(-1, &"invalid")
 
 	assert_eq(wf.get_slot_id_for_index(-1), &"slot_-1", "负索引不得写入 override 状态。")
-	assert_push_error("[GFSaveSlotWorkflow] set_slot_id_override 失败：index 必须大于等于 0。")
+	assert_push_error("[GFSaveSlotWorkflow][save_slot_workflow.invalid_slot_index] set_slot_id_override failed: index must be at least 0.")
 
 
 func test_select_slot_index_clamps_negative() -> void:
@@ -245,7 +245,7 @@ func test_save_slot_storage_adapter_rejects_template_without_index_marker() -> v
 	var save_error: Error = adapter.save_slot(1, _make_slot_document({"hp": 10}))
 
 	assert_eq(save_error, ERR_INVALID_PARAMETER, "不含 index 的模板会让多个槽位覆盖同一文件，必须拒绝。")
-	assert_push_error("[GFSaveSlotStorageAdapter] save_slot 失败：data_file_template 必须包含 {index}。")
+	assert_push_error("[GFSaveSlotStorageAdapter][save_slot_storage_adapter.invalid_file_templates] save_slot failed: invalid file templates (data_file_template must contain {index}).")
 
 
 func test_save_slot_storage_adapter_rejects_data_metadata_path_collision() -> void:
@@ -256,7 +256,7 @@ func test_save_slot_storage_adapter_rejects_data_metadata_path_collision() -> vo
 	var save_error: Error = adapter.save_slot(1, _make_slot_document({"hp": 10}))
 
 	assert_eq(save_error, ERR_INVALID_PARAMETER, "data 与 metadata 解析到同一路径时必须拒绝保存。")
-	assert_push_error("[GFSaveSlotStorageAdapter] save_slot 失败：数据与元数据模板解析到同一存储目标")
+	assert_push_error("[GFSaveSlotStorageAdapter][save_slot_storage_adapter.invalid_file_templates] save_slot failed: invalid file templates (Data and metadata templates resolve to the same storage target")
 
 
 func test_save_slot_storage_adapter_rejects_noncanonical_template_before_writing() -> void:
@@ -323,8 +323,8 @@ func test_save_slot_storage_adapter_rejects_unsafe_persisted_values() -> void:
 	assert_eq(object_error, ERR_INVALID_DATA, "Object 不得在持久化边界被静默转换为 null。")
 	assert_eq(finite_error, ERR_INVALID_DATA, "非有限数不得进入稳定持久化载荷。")
 	assert_false(adapter.has_slot(7), "preflight 失败不得留下半写入槽位。")
-	assert_push_error("[GFSaveSlotStorageAdapter] save_slot 失败：document 无效。")
-	assert_push_error("[GFSaveSlotStorageAdapter] save_slot 失败：document 无效。")
+	assert_push_error("[GFSaveSlotStorageAdapter][save_slot_storage_adapter.invalid_document] save_slot failed: document is invalid.")
+	assert_push_error("[GFSaveSlotStorageAdapter][save_slot_storage_adapter.invalid_document] save_slot failed: document is invalid.")
 
 
 func test_save_slot_storage_adapter_rejects_conflicting_metadata_schema() -> void:
@@ -338,7 +338,7 @@ func test_save_slot_storage_adapter_rejects_conflicting_metadata_schema() -> voi
 
 	assert_eq(save_error, ERR_INVALID_DATA)
 	assert_false(adapter.has_slot(8))
-	assert_push_error("[GFSaveSlotStorageAdapter] save_slot 失败：metadata schema 与 document 不一致。")
+	assert_push_error("[GFSaveSlotStorageAdapter][save_slot_storage_adapter.metadata_schema_mismatch] save_slot failed: metadata schema does not match document.")
 
 
 func test_save_slot_storage_adapter_requires_and_applies_section_migration() -> void:
@@ -412,8 +412,8 @@ func test_save_slot_workflow_preflights_custom_script_base_type() -> void:
 	assert_not_null(card, "错误 card_script 应回退到框架默认类型。")
 	assert_eq(WrongMetadataResource.init_count, 0, "错误 metadata script 不得先构造再做后验型别检查。")
 	assert_eq(WrongCardResource.init_count, 0, "错误 card script 不得先构造再做后验型别检查。")
-	assert_push_error("[GFSaveSlotWorkflow] metadata_script 必须继承 GFSaveSlotMetadata 且可实例化。")
-	assert_push_error("[GFSaveSlotWorkflow] card_script 必须继承 GFSaveSlotCard 且可实例化。")
+	assert_push_error("[GFSaveSlotWorkflow][save_slot_workflow.invalid_metadata_script] metadata_script must inherit GFSaveSlotMetadata and be instantiable.")
+	assert_push_error("[GFSaveSlotWorkflow][save_slot_workflow.invalid_card_script] card_script must inherit GFSaveSlotCard and be instantiable.")
 
 
 func test_parse_slot_index_from_custom_template_id() -> void:

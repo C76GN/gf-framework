@@ -115,8 +115,8 @@ func test_non_finite_float_payload_amount_uses_safe_default() -> void:
 
 	var q_data: Dictionary = _quest.get_quest_report(&"finite_progress")
 	assert_eq(GFVariantData.get_option_int(q_data, "current_count", -1), 2, "非有限 float 载荷应使用稳定默认增量。")
-	assert_push_error("[GFQuestUtility] payload.amount 必须是有限数，已回退为默认进度 1。")
-	assert_push_error("[GFQuestUtility] payload.amount 必须是有限数，已回退为默认进度 1。")
+	assert_push_error("[GFQuestUtility][quest_utility.nonfinite_amount] payload.amount must be finite; progress defaults to 1.")
+	assert_push_error("[GFQuestUtility][quest_utility.nonfinite_amount] payload.amount must be finite; progress defaults to 1.")
 
 
 func test_progress_addition_saturates_before_int64_overflow() -> void:
@@ -137,7 +137,7 @@ func test_out_of_range_float_payload_uses_safe_default_before_rounding() -> void
 
 	var q_data: Dictionary = _quest.get_quest_report(&"float_range")
 	assert_eq(GFVariantData.get_option_int(q_data, "current_count", -1), 1, "超出 int64 的 float 不得进入 roundi。")
-	assert_push_error("[GFQuestUtility] payload.amount 超出 int64 范围，已回退为默认进度 1。")
+	assert_push_error("[GFQuestUtility][quest_utility.amount_out_of_range] payload.amount exceeds the int64 range; progress defaults to 1.")
 
 
 func test_negative_payload_amount_is_ignored_by_default() -> void:
@@ -186,8 +186,8 @@ func test_start_quest_rejects_empty_ids() -> void:
 
 	assert_eq(_quest.get_quest_report(&""), {}, "空 quest_id 不应注册任务。")
 	assert_eq(_quest.get_quest_report(&"quest"), {}, "空 target_event 不应注册任务。")
-	assert_push_error("[GFQuestUtility] quest_id 和 target_event 不能为空。")
-	assert_push_error("[GFQuestUtility] quest_id 和 target_event 不能为空。")
+	assert_push_error("[GFQuestUtility][quest_utility.empty_quest_event] quest_id and target_event must not be empty.")
+	assert_push_error("[GFQuestUtility][quest_utility.empty_quest_event] quest_id and target_event must not be empty.")
 
 
 func test_deep_payload_amount_falls_back_without_recursion_overflow() -> void:
@@ -200,7 +200,7 @@ func test_deep_payload_amount_falls_back_without_recursion_overflow() -> void:
 	var q_data: Dictionary = _quest.get_quest_report(&"nested_payload")
 
 	assert_eq(GFVariantData.get_option_int(q_data, "current_count", -1), 1, "嵌套过深的 payload 应回退为默认进度。")
-	assert_push_error("[GFQuestUtility] payload.amount 嵌套过深，已回退为默认进度 1。")
+	assert_push_error("[GFQuestUtility][quest_utility.amount_depth_exceeded] payload.amount is nested too deeply; progress defaults to 1.")
 
 
 func test_zero_target_quest_completes_immediately() -> void:
@@ -306,7 +306,7 @@ func test_defined_quest_rejects_empty_target_event_up_front() -> void:
 
 	assert_eq(_quest.get_quest_report(&"broken"), {}, "可接取任务定义阶段也应拒绝空 target_event。")
 	assert_signal_not_emitted(_quest, "quest_available", "无效任务定义不应进入 available。")
-	assert_push_error("[GFQuestUtility] quest_id 和 target_event 不能为空。")
+	assert_push_error("[GFQuestUtility][quest_utility.empty_quest_event] quest_id and target_event must not be empty.")
 
 
 func test_condition_dictionary_must_declare_ok_field() -> void:

@@ -273,7 +273,7 @@ func configure_for_framework(
 	p_storage_result: GFStorageReadResult = null
 ) -> bool:
 	if _configured:
-		push_error("[GFSettingsLoadResult] 结果已经配置，不能重复修改。")
+		push_error("[GFSettingsLoadResult][settings_load_result.result_already_configured] The result is already configured and cannot be changed again.")
 		return false
 	if not _is_valid_configuration(
 		p_ok,
@@ -283,7 +283,7 @@ func configure_for_framework(
 		p_recovery_action,
 		p_storage_result
 	):
-		push_error("[GFSettingsLoadResult] 已拒绝不一致的加载终态配置。")
+		push_error("[GFSettingsLoadResult][settings_load_result.terminal_state_inconsistent] Rejected an inconsistent load terminal state configuration.")
 		return false
 
 	_configured = true

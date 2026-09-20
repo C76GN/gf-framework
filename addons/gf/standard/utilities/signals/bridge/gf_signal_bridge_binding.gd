@@ -122,7 +122,7 @@ func _collect_args(root: Node, raw_args: Array) -> Array:
 	var argument_count: int = bridge.source.get_signal_argument_count(root)
 	if argument_count >= 0:
 		if argument_count > _MAX_SIGNAL_ARGUMENTS:
-			push_warning("[GFSignalBridgeBinding] 信号桥接当前最多捕获 %d 个参数。" % _MAX_SIGNAL_ARGUMENTS)
+			push_warning("[GFSignalBridgeBinding][signal_bridge_binding.signal_argument_limit] Signal bridge capture supports at most %d arguments." % _MAX_SIGNAL_ARGUMENTS)
 		return raw_args.slice(0, mini(argument_count, raw_args.size()))
 	return _trim_trailing_null_args(raw_args)
 

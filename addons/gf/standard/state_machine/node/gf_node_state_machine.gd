@@ -219,7 +219,7 @@ func transition_to(
 	elif parts.size() == 2:
 		transition_group_to(StringName(parts[0]), StringName(parts[1]), args, stack_exit_policy)
 	else:
-		push_error("[GFNodeStateMachine] transition_to 失败：路径格式无效。")
+		push_error("[GFNodeStateMachine][node_state_machine.transition_path_invalid] Cannot transition_to: path format is invalid.")
 
 
 ## 切换指定状态组到指定状态。
@@ -247,7 +247,7 @@ func transition_group_to(
 		return
 	var group: GFNodeStateGroup = get_state_group(group_name)
 	if group == null:
-		push_warning("[GFNodeStateMachine] 切换失败，未找到状态组：%s" % group_name)
+		push_warning("[GFNodeStateMachine][node_state_machine.transition_group_missing] Cannot transition: state group not found: %s." % group_name)
 		return
 	group.transition_to(state_name, args, stack_exit_policy)
 
@@ -271,7 +271,7 @@ func push_state(path: StringName, args: Dictionary = {}) -> void:
 	elif parts.size() == 2:
 		push_group_state(StringName(parts[0]), StringName(parts[1]), args)
 	else:
-		push_error("[GFNodeStateMachine] push_state 失败：路径格式无效。")
+		push_error("[GFNodeStateMachine][node_state_machine.push_path_invalid] Cannot push_state: path format is invalid.")
 
 
 ## 暂停指定状态组当前状态并叠加进入一个子状态。
@@ -290,7 +290,7 @@ func push_group_state(group_name: StringName, state_name: StringName, args: Dict
 		return
 	var group: GFNodeStateGroup = get_state_group(group_name)
 	if group == null:
-		push_warning("[GFNodeStateMachine] push_state 失败，未找到状态组：%s" % group_name)
+		push_warning("[GFNodeStateMachine][node_state_machine.push_group_missing] Cannot push_state: state group not found: %s." % group_name)
 		return
 	group.push_state(state_name, args)
 
@@ -311,7 +311,7 @@ func pop_state(group_name: StringName = INTERNAL_GROUP_NAME, args: Dictionary = 
 		return false
 	var group: GFNodeStateGroup = get_state_group(group_name)
 	if group == null:
-		push_warning("[GFNodeStateMachine] pop_state 失败，未找到状态组：%s" % group_name)
+		push_warning("[GFNodeStateMachine][node_state_machine.pop_group_missing] Cannot pop_state: state group not found: %s." % group_name)
 		return false
 	return group.pop_state(args)
 
@@ -350,7 +350,7 @@ func start_group(group_name: StringName = INTERNAL_GROUP_NAME, args: Dictionary 
 
 	var group: GFNodeStateGroup = get_state_group(group_name)
 	if group == null:
-		push_warning("[GFNodeStateMachine] start_group 失败，未找到状态组：%s" % group_name)
+		push_warning("[GFNodeStateMachine][node_state_machine.start_group_missing] Cannot start_group: state group not found: %s." % group_name)
 		return
 
 	_start_group_node(group, args)
@@ -369,7 +369,7 @@ func add_state_group(group: GFNodeStateGroup) -> void:
 
 	var key: StringName = group.get_group_name()
 	if _groups.has(key):
-		push_warning("[GFNodeStateMachine] 状态组已存在，已忽略重复添加：%s" % key)
+		push_warning("[GFNodeStateMachine][node_state_machine.group_duplicate] State group already exists; duplicate addition ignored: %s." % key)
 		return
 
 	_groups[key] = group
@@ -519,7 +519,7 @@ func is_in_state(path: StringName) -> bool:
 		return _is_group_in_state(INTERNAL_GROUP_NAME, StringName(parts[0]))
 	if parts.size() == 2:
 		return _is_group_in_state(StringName(parts[0]), StringName(parts[1]))
-	push_error("[GFNodeStateMachine] is_in_state 失败：路径格式无效。")
+	push_error("[GFNodeStateMachine][node_state_machine.state_query_path_invalid] Cannot is_in_state: path format is invalid.")
 	return false
 
 
@@ -537,7 +537,7 @@ func restart_group(group_name: StringName = INTERNAL_GROUP_NAME, args: Dictionar
 		return
 	var group: GFNodeStateGroup = get_state_group(group_name)
 	if group == null:
-		push_warning("[GFNodeStateMachine] restart_group 失败，未找到状态组：%s" % group_name)
+		push_warning("[GFNodeStateMachine][node_state_machine.restart_group_missing] Cannot restart_group: state group not found: %s." % group_name)
 		return
 	group.restart(args)
 

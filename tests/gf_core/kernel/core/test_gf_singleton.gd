@@ -1071,7 +1071,7 @@ func test_register_during_init_is_rejected_after_lifecycle_plan_freezes() -> voi
 	assert_false(late_utility.async_ready_called, "被拒绝的 Utility 不应执行 async_init()。")
 	assert_false(late_utility.ready_called, "被拒绝的 Utility 不应执行 ready()。")
 	assert_null(Gf.get_utility(TickUtility), "被拒绝的 Utility 不应写入注册表。")
-	assert_push_error("[GFArchitecture] register_utility 失败：生命周期计划已经冻结，初始化期间禁止修改注册表。")
+	assert_push_error("[GFArchitecture][architecture.registry_write_plan_frozen] register_utility failed: the lifecycle plan is frozen; registry changes are forbidden during initialization.")
 
 
 ## 验证生命周期各阶段按 Model -> Utility -> System 推进。
@@ -1130,7 +1130,7 @@ func test_register_utility_alias_rejects_unrelated_target_type() -> void:
 
 	arch.register_utility_alias(NotUtility, ConcreteUtility)
 
-	assert_push_error("[GFArchitecture] register_utility_alias 失败：target 必须继承或等于 alias。")
+	assert_push_error("[GFArchitecture][architecture.alias_target_type_invalid] register_utility_alias failed: target must extend or equal alias.")
 	assert_null(arch.get_utility(NotUtility), "无关 alias 不应写入注册表。")
 	arch.dispose()
 
@@ -1198,7 +1198,7 @@ func test_assignable_lookup_cache_invalidates_when_registry_changes() -> void:
 
 	await arch.register_utility_instance(alternate)
 	assert_null(arch.get_utility(UtilityBase), "新增第二个实现后，旧的基类查询缓存不应继续返回旧实例。")
-	assert_push_warning("[GFArchitecture] get_utility() 匹配到多个本地实例，本次查询不会回退父架构；请使用显式 alias 注册以消除歧义。")
+	assert_push_warning("[GFArchitecture][architecture.module_lookup_ambiguous] get_utility() matched multiple local instances and will not fall back to the parent architecture; register an explicit alias to resolve the ambiguity.")
 
 	assert_true(await arch.unregister_utility(AlternateConcreteUtility))
 	assert_eq(arch.get_utility(UtilityBase), concrete, "移除歧义实现后，基类查询应重新解析唯一实现。")
@@ -1217,7 +1217,7 @@ func test_duplicate_register_warns_and_replace_utility() -> void:
 	await Gf.register_utility(old_utility)
 	await Gf.register_utility(duplicate_utility)
 
-	assert_push_warning("[GFArchitecture] register_utility：类型已注册，已忽略重复注册。启用扩展的 Installer 会先于项目 Installer 自动装配其模块；项目通常只注册自身模块。若需要替换，请使用 replace_utility()。")
+	assert_push_warning("[GFArchitecture][architecture.module_already_registered] register_utility ignored a duplicate type registration. Enabled extension Installers assemble their modules before project Installers; projects normally register only their own modules. Use replace_utility() to replace it.")
 	assert_eq(Gf.get_utility(DisposableUtility), old_utility, "重复注册不应替换原实例。")
 
 	await Gf.replace_utility(duplicate_utility)
@@ -1313,7 +1313,7 @@ func test_register_injects_architecture_when_hook_exists() -> void:
 	assert_eq(utility.get_utility(InjectedUtility), utility, "覆写 inject_dependencies 且未调用 super 时，基类访问仍应绑定当前架构。")
 	assert_true(await arch.unregister_utility(InjectedUtility))
 	assert_null(utility.get_utility(InjectedUtility), "注销后即使自定义注入 Hook 未调用 super，也不应回退全局架构。")
-	assert_push_error("[GFUtility] 依赖作用域已释放，无法继续访问架构。")
+	assert_push_error("[GFDependencyScopeSupport][dependency_scope_support.scope_disposed] GFUtility cannot access the architecture because its dependency scope is disposed.")
 	arch.dispose()
 
 
@@ -1327,7 +1327,7 @@ func test_unregister_utility_releases_cached_dependencies_after_dispose() -> voi
 	assert_eq(utility.release_order, ["dispose", "release_dependencies"], "注销模块时应先 dispose，再释放依赖引用。")
 	assert_null(utility.cached_dependency, "release_dependencies 应能释放模块缓存的依赖引用。")
 	assert_null(utility.get_utility(ReleasingUtility), "释放依赖后不应继续访问已注销架构。")
-	assert_push_error("[GFUtility] 依赖作用域已释放，无法继续访问架构。")
+	assert_push_error("[GFDependencyScopeSupport][dependency_scope_support.scope_disposed] GFUtility cannot access the architecture because its dependency scope is disposed.")
 	arch.dispose()
 
 
@@ -1340,7 +1340,7 @@ func test_unregister_utility_rejects_dispose_reentrant_unregister_exactly_once()
 
 	assert_eq(utility.dispose_count, 1, "dispose() 中重入 unregister_utility 不应重复释放同一实例。")
 	assert_null(arch.get_utility(ReentrantUnregisterUtility), "注销过程应先从注册表摘除实例。")
-	assert_push_error("[GFArchitecture] unregister_utility 失败：生命周期 Hook 内禁止重入修改注册表。")
+	assert_push_error("[GFArchitecture][architecture.registry_write_lifecycle_reentry] unregister_utility failed: reentrant registry changes are forbidden inside lifecycle hooks.")
 	arch.dispose()
 
 
@@ -1368,7 +1368,7 @@ func test_unregister_utility_rejects_release_reentrant_registration() -> void:
 		"注销必须且只应调用一次 release_dependencies()。"
 	)
 	assert_push_error(
-		"[GFArchitecture] register_utility 失败：生命周期 Hook 内禁止重入修改注册表。"
+		"[GFArchitecture][architecture.registry_write_lifecycle_reentry] register_utility failed: reentrant registry changes are forbidden inside lifecycle hooks."
 	)
 	arch.dispose()
 	assert_eq(utility.dispose_count, 1, "架构后续 dispose 不得再次释放已注销实例。")
@@ -1385,7 +1385,7 @@ func test_architecture_dispose_releases_module_dependencies_after_dispose() -> v
 	assert_eq(utility.release_order, ["dispose", "release_dependencies"], "架构 dispose 应先释放模块自身，再释放依赖引用。")
 	assert_null(utility.cached_dependency, "架构 dispose 应调用模块依赖释放钩子。")
 	assert_null(utility.get_utility(ReleasingUtility), "架构 dispose 后模块不应回退全局架构。")
-	assert_push_error("[GFUtility] 依赖作用域已释放，无法继续访问架构。")
+	assert_push_error("[GFDependencyScopeSupport][dependency_scope_support.scope_disposed] GFUtility cannot access the architecture because its dependency scope is disposed.")
 
 
 ## 验证模块覆写 inject_dependencies 且不调用 super 时，基类依赖访问仍绑定当前架构。
@@ -1409,7 +1409,7 @@ func test_unregistered_utility_does_not_fallback_to_global_architecture() -> voi
 	assert_true(await arch.unregister_utility(DummyUtility))
 
 	assert_null(utility.get_utility(DummyUtility), "注销后的 Utility 不应回退访问全局架构。")
-	assert_push_error("[GFUtility] 依赖作用域已释放，无法继续访问架构。")
+	assert_push_error("[GFDependencyScopeSupport][dependency_scope_support.scope_disposed] GFUtility cannot access the architecture because its dependency scope is disposed.")
 	arch.dispose()
 
 
@@ -1434,7 +1434,7 @@ func test_released_internal_scope_does_not_fallback_to_global_architecture() -> 
 	local_arch.dispose()
 
 	assert_null(resolved, "释放后的内部 _get_architecture() 不应回退到全局架构。")
-	assert_push_error("[GFUtility] 依赖作用域已释放，无法继续访问架构。")
+	assert_push_error("[GFDependencyScopeSupport][dependency_scope_support.scope_disposed] GFUtility cannot access the architecture because its dependency scope is disposed.")
 
 
 ## 验证子架构未命中本地依赖时会回退到父架构。
@@ -1647,7 +1647,7 @@ func test_stale_child_alias_blocks_parent_fallback() -> void:
 	var child_arch: GFArchitecture = GFArchitecture.new(parent_arch)
 	child_arch.register_utility_alias(UtilityBase, ConcreteUtility)
 
-	assert_push_warning("[GFArchitecture] register_utility_alias：目标类型尚未注册，仍会记录别名。")
+	assert_push_warning("[GFArchitecture][architecture.alias_target_unregistered] register_utility_alias recorded the alias even though its target type is not registered yet.")
 	assert_null(child_arch.get_utility(UtilityBase), "子架构失效 alias 应直接失败，不应回退父架构。")
 	assert_push_error_count(1, "失效 alias 查询应报告目标缺失。")
 
@@ -1663,7 +1663,7 @@ func test_stale_alias_does_not_fallback_to_local_assignable_instance() -> void:
 	arch.register_utility_alias(UtilityBase, ConcreteUtility)
 	var resolved: Object = arch.get_utility(UtilityBase)
 
-	assert_push_warning("[GFArchitecture] register_utility_alias：目标类型尚未注册，仍会记录别名。")
+	assert_push_warning("[GFArchitecture][architecture.alias_target_unregistered] register_utility_alias recorded the alias even though its target type is not registered yet.")
 	assert_null(resolved, "失效 alias 不应回落到同架构内另一个可赋值实现。")
 	assert_push_error_count(1, "失效 alias 查询应报告目标缺失。")
 
@@ -1715,7 +1715,7 @@ func test_register_utility_rejects_wrong_base_type() -> void:
 
 	await arch.register_utility_instance(NotUtility.new())
 
-	assert_push_error("[GFArchitecture] register_utility 失败：实例类型必须继承 GFUtility。")
+	assert_push_error("[GFArchitecture][architecture.register_instance_type_invalid] register_utility failed: the instance must extend GFUtility.")
 	assert_null(arch.get_utility(NotUtility), "非 GFUtility 实例不应进入 Utility 注册表。")
 	arch.dispose()
 
@@ -1761,7 +1761,7 @@ func test_binder_rejects_transient_factory_from_instance() -> void:
 
 	assert_false(registered, "from_instance().as_transient() 应返回 false。")
 	assert_false(arch.has_factory(FactoryCommand), "from_instance().as_transient() 不应注册单例工厂。")
-	assert_push_error("[GFBindBuilder] from_instance() 不支持 as_transient()；请改用 from_factory()。")
+	assert_push_error("[GFBindBuilder][bind_builder.instance_transient_unsupported] from_instance() does not support as_transient(); use from_factory().")
 	arch.dispose()
 
 
@@ -1779,7 +1779,7 @@ func test_binder_duplicate_factory_binding_returns_false() -> void:
 
 	assert_true(first_registered, "首次工厂绑定应返回 true。")
 	assert_false(second_registered, "重复工厂绑定应返回 false。")
-	assert_push_warning("[GFArchitecture] register_factory：类型已注册，已忽略重复注册。若需要替换，请使用 replace_factory()。")
+	assert_push_warning("[GFArchitecture][architecture.factory_already_registered] register_factory ignored a duplicate type registration; use replace_factory() to replace it.")
 	arch.dispose()
 
 
@@ -1792,7 +1792,7 @@ func test_factory_binding_warns_when_alias_is_ignored() -> void:
 
 	assert_true(registered, "Factory alias 被忽略但 factory 绑定仍应返回 true。")
 	assert_true(arch.has_factory(FactoryCommand), "Factory alias 被忽略时，原始工厂绑定仍应完成。")
-	assert_push_warning("[GFBindBuilder] with_alias() 仅对 Model/System/Utility 有效，Factory 绑定会忽略 alias。")
+	assert_push_warning("[GFBindBuilder][bind_builder.factory_alias_ignored] with_alias() applies only to Model/System/Utility; Factory bindings ignore aliases.")
 	arch.dispose()
 
 
@@ -1823,7 +1823,7 @@ func test_rejected_external_factory_instance_keeps_project_ownership() -> void:
 	assert_true(await arch.init())
 
 	assert_null(arch.create_instance(DisposableFactoryCommand))
-	assert_push_error("绑定来源返回的实例脚本必须继承或等于绑定键")
+	assert_push_error("[binding.source_script_mismatch]")
 	arch.dispose()
 
 	assert_eq(
@@ -1891,7 +1891,7 @@ func test_project_installer_rejects_unmapped_uid_resource_paths() -> void:
 
 	var initialized: bool = await Gf.init()
 	var architecture: GFArchitecture = Gf.get_architecture()
-	var expected_error: String = "[GF] 项目 Installer UID 无法解析：%s" % missing_uid_path
+	var expected_error: String = "[GF][gf.installer_uid_invalid] The project Installer UID could not be resolved: %s." % missing_uid_path
 
 	ProjectSettings.set_setting(INSTALLERS_SETTING, previous_installers)
 
@@ -1916,9 +1916,9 @@ func test_project_installer_empty_path_fails_initialization() -> void:
 	ProjectSettings.set_setting(INSTALLERS_SETTING, previous_installers)
 
 	assert_false(initialized, "空 Installer 路径必须阻断默认初始化。")
-	assert_eq(architecture.last_initialization_error, "[GF] 项目 Installer 路径为空。")
-	assert_push_error("[GF] 项目 Installer 路径为空。")
-	assert_push_error("[GF] 项目 Installer 路径为空。")
+	assert_eq(architecture.last_initialization_error, "[GF][gf.installer_path_empty] The project Installer path is empty.")
+	assert_push_error("[GF][gf.installer_path_empty] The project Installer path is empty.")
+	assert_push_error("[GF][gf.installer_path_empty] The project Installer path is empty.")
 
 
 ## 验证错误类型的 Installer 项不会退化为无 Installer 启动。
@@ -1932,7 +1932,7 @@ func test_project_installer_non_string_path_fails_initialization() -> void:
 
 	var initialized: bool = await Gf.init()
 	var architecture: GFArchitecture = Gf.get_architecture()
-	var expected_error: String = "[GF] 项目 Installer 配置第 0 项必须是 String 或 StringName，实际为 int。"
+	var expected_error: String = "[GF][gf.installer_config_entry_invalid] Project Installer configuration entry 0 must be String or StringName; received int."
 
 	ProjectSettings.set_setting(INSTALLERS_SETTING, previous_installers)
 
@@ -2053,9 +2053,9 @@ func test_project_installer_error_fails_initialization_by_default() -> void:
 	assert_false(initialized_with_invalid_installer, "Installer 失败时 Gf.init() 应返回 false。")
 	assert_false(architecture.is_inited(), "默认 Installer 错误策略下架构不应继续初始化。")
 	assert_true(architecture.has_initialization_failed(), "默认 Installer 错误策略下应标记初始化失败。")
-	assert_eq(architecture.last_initialization_error, "[GF] 项目 Installer 必须继承 GFInstaller：%s" % INVALID_INSTALLER_PATH)
-	assert_push_error("[GF] 项目 Installer 必须继承 GFInstaller：%s" % INVALID_INSTALLER_PATH)
-	assert_push_error("[GF] 项目 Installer 必须继承 GFInstaller：%s" % INVALID_INSTALLER_PATH)
+	assert_eq(architecture.last_initialization_error, "[GF][gf.installer_type_invalid] The project Installer must extend GFInstaller: %s." % INVALID_INSTALLER_PATH)
+	assert_push_error("[GF][gf.installer_type_invalid] The project Installer must extend GFInstaller: %s." % INVALID_INSTALLER_PATH)
+	assert_push_error("[GF][gf.installer_type_invalid] The project Installer must extend GFInstaller: %s." % INVALID_INSTALLER_PATH)
 
 	var retry_initialized: bool = await Gf.init()
 	assert_true(retry_initialized, "修正 Installer 配置后再次 Gf.init() 应返回 true。")
@@ -2083,7 +2083,7 @@ func test_project_installer_rejects_non_res_resource_paths() -> void:
 
 	assert_false(architecture.is_inited(), "非 res:// Installer 路径应阻止默认初始化。")
 	assert_true(architecture.has_initialization_failed(), "非 res:// Installer 路径应标记初始化失败。")
-	var expected_error: String = "[GF] 项目 Installer 路径必须是 res:// 或可解析的 uid:// GDScript：user://bad_installer.gd"
+	var expected_error: String = "[GF][gf.installer_path_invalid] The project Installer path must be a res:// or resolvable uid:// GDScript path: user://bad_installer.gd."
 	assert_eq(architecture.last_initialization_error, expected_error)
 	assert_push_error(expected_error)
 	assert_push_error(expected_error)
@@ -2109,7 +2109,7 @@ func test_project_installer_error_can_be_skipped_when_disabled() -> void:
 
 	assert_true(architecture.is_inited(), "显式关闭 Installer 错误失败后，架构应继续初始化。")
 	assert_false(architecture.has_initialization_failed(), "显式关闭 Installer 错误失败后，不应标记初始化失败。")
-	assert_push_error("[GF] 项目 Installer 必须继承 GFInstaller：%s" % INVALID_INSTALLER_PATH)
+	assert_push_error("[GF][gf.installer_type_invalid] The project Installer must extend GFInstaller: %s." % INVALID_INSTALLER_PATH)
 
 
 ## 验证并发 Gf.init() 会等待正在运行的项目 Installer，而不是跳过未完成的装配。
@@ -2195,14 +2195,14 @@ func test_project_installer_timeout_fails_initialization() -> void:
 	_restore_project_setting(BLOCKING_INSTALLER_CANCELLED_SETTING, had_cancelled, previous_cancelled)
 	_restore_project_setting(BLOCKING_INSTALLER_CLEANUP_SETTING, had_cleanup, previous_cleanup)
 
-	var expected_error: String = "[GF] 项目 Installer 超时：%s 的 install_bindings() 超过 0.01 秒。" % BLOCKING_BINDING_INSTALLER_PATH
+	var expected_error: String = "[GF][gf.installer_timeout] Project Installer timed out: %s.install_bindings() exceeded 0.01 seconds." % BLOCKING_BINDING_INSTALLER_PATH
 	assert_false(architecture.is_inited(), "Installer 超时后架构不应继续初始化。")
 	assert_true(architecture.has_initialization_failed(), "Installer 超时后架构应标记初始化失败。")
 	assert_eq(architecture.last_initialization_error, expected_error)
 	assert_true(scope_cancelled, "Installer 超时时应通知 scope 取消。")
 	assert_true(scope_cleanup_called, "Installer 超时时应执行 scope cleanup。")
 	assert_push_error(expected_error)
-	assert_push_error("[GFArchitecture] register_utility 失败：架构初始化已失败，已拒绝迟到写入。")
+	assert_push_error("[GFArchitecture][architecture.registry_write_initialization_failed] register_utility failed: architecture initialization failed; late writes are rejected.")
 
 
 ## 验证项目 Installer 超时后重试时，旧 Installer 迟到恢复也不能写入新生命周期。
@@ -2230,7 +2230,7 @@ func test_project_installer_timeout_retry_blocks_stale_late_binding() -> void:
 
 	await Gf.init()
 	var architecture: GFArchitecture = Gf.get_architecture()
-	var expected_error: String = "[GF] 项目 Installer 超时：%s 的 install_bindings() 超过 0.01 秒。" % BLOCKING_BINDING_INSTALLER_PATH
+	var expected_error: String = "[GF][gf.installer_timeout] Project Installer timed out: %s.install_bindings() exceeded 0.01 seconds." % BLOCKING_BINDING_INSTALLER_PATH
 	var scope_cancelled: bool = GFVariantData.to_bool(ProjectSettings.get_setting(BLOCKING_INSTALLER_CANCELLED_SETTING, false))
 	var scope_cleanup_called: bool = GFVariantData.to_bool(ProjectSettings.get_setting(BLOCKING_INSTALLER_CLEANUP_SETTING, false))
 	assert_true(architecture.has_initialization_failed(), "Installer 超时后架构应处于失败状态。")
@@ -2250,7 +2250,7 @@ func test_project_installer_timeout_retry_blocks_stale_late_binding() -> void:
 
 	var late_lookup: Variant = architecture.get_local_utility(AsyncInstallerUtilityFixture)
 	assert_true(late_lookup == null, "旧 Installer 迟到恢复不应把 Utility 写入重试后的架构。")
-	assert_push_error("[GFArchitecture] register_utility 失败：架构初始化已失败，已拒绝迟到写入。")
+	assert_push_error("[GFArchitecture][architecture.registry_write_initialization_failed] register_utility failed: architecture initialization failed; late writes are rejected.")
 
 	await Gf.init()
 	assert_true(architecture.is_inited(), "旧 Installer 收尾后，重试时没有 Installer 应完成初始化。")
@@ -2452,7 +2452,7 @@ func test_scoped_node_context_exit_tree_cancels_active_install_scope() -> void:
 	assert_true(context.cleanup_called, "退出树应执行安装 scope cleanup。")
 	assert_true(context.cancel_signal_called, "退出树应发出 scope cancel_requested 信号。")
 	assert_true(context.observed_scope != null and context.observed_scope.is_cancel_requested(), "退出树后 scope 应标记取消。")
-	assert_eq(context.cancel_reason, "上下文已退出树。")
+	assert_eq(context.cancel_reason, "The context has exited the tree.")
 	assert_false(context.is_context_ready(), "取消安装后上下文不应进入 ready。")
 
 	context.free()
@@ -2478,7 +2478,7 @@ func test_controller_wait_for_context_ready_returns_null_when_context_failed() -
 
 	assert_null(architecture, "上下文失败时 Controller.wait_for_context_ready() 应返回 null。")
 	assert_signal_emitted(context, "context_failed", "上下文失败应发出 context_failed。")
-	assert_push_warning("[GFNodeContext] [test] parent failed")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\n[test] parent failed")
 
 	context.queue_free()
 	await get_tree().process_frame
@@ -2608,8 +2608,8 @@ func test_context_wait_until_ready_times_out_when_parent_never_initializes() -> 
 	assert_null(architecture, "父架构一直未初始化时，wait_until_ready 应在超时后返回 null。")
 	assert_signal_emitted(context, "context_failed", "等待超时应发出 context_failed。")
 	assert_true(context.is_context_failed(), "超时后上下文应进入失败终态。")
-	assert_eq(context.get_context_failure_reason(), "等待上下文初始化超时。", "失败原因应保留给后续诊断。")
-	assert_push_warning("[GFNodeContext] 等待上下文初始化超时。")
+	assert_eq(context.get_context_failure_reason(), "Timed out waiting for context initialization.", "失败原因应保留给后续诊断。")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nTimed out waiting for context initialization.")
 
 	var retry_architecture: GFArchitecture = await context.wait_until_ready()
 
@@ -2661,7 +2661,7 @@ func test_inherited_context_without_parent_architecture_emits_failure() -> void:
 
 	assert_null(architecture, "没有可继承架构时，wait_until_ready 应直接返回 null。")
 	assert_signal_emitted(context, "context_failed", "没有可继承架构时应发出 context_failed。")
-	assert_push_warning("[GFNodeContext] 未找到可继承的架构。")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nNo architecture is available to inherit.")
 
 	context.queue_free()
 	await get_tree().process_frame
@@ -2708,7 +2708,7 @@ func test_child_scoped_context_fails_when_parent_architecture_failed() -> void:
 
 	assert_false(child_context.is_context_ready(), "父级架构失败时子 Scoped 上下文不应继续初始化。")
 	assert_signal_emitted(child_context, "context_failed", "父级失败应发出 context_failed。")
-	assert_push_warning("[GFNodeContext] [test] scoped parent failed")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\n[test] scoped parent failed")
 
 	child_context.queue_free()
 	await get_tree().process_frame
@@ -2810,8 +2810,8 @@ func test_parent_architecture_rejects_self_and_cycles() -> void:
 
 	assert_null(parent_arch.get_parent_architecture(), "父级不能设为自身，也不能形成 parent-child 循环。")
 	assert_same(child_arch.get_parent_architecture(), parent_arch, "合法的子架构父级关系应保持不变。")
-	assert_push_error("[GFArchitecture] set_parent_architecture 失败：父级架构不能是自身。")
-	assert_push_error("[GFArchitecture] set_parent_architecture 失败：父级架构会形成循环引用。")
+	assert_push_error("[GFArchitecture][architecture.parent_is_self] set_parent_architecture failed: an architecture cannot be its own parent.")
+	assert_push_error("[GFArchitecture][architecture.parent_would_cycle] set_parent_architecture failed: the parent architecture would create a cycle.")
 	child_arch.dispose()
 	parent_arch.dispose()
 
@@ -2852,7 +2852,7 @@ func test_architecture_dispose_rejects_parent_reinjection_from_completion_signal
 		"dispose 完成信号的同步回调不得重新注入父架构强引用。"
 	)
 	assert_push_error(
-		"[GFArchitecture] set_parent_architecture 失败：生命周期计划开始后父级架构关系不可变。"
+		"[GFArchitecture][architecture.parent_topology_frozen] set_parent_architecture failed: the parent architecture cannot change after lifecycle planning starts."
 	)
 	slow_utility.async_continue.emit()
 	await get_tree().process_frame
@@ -2940,7 +2940,7 @@ func test_factory_registration_rejects_unknown_lifetime() -> void:
 	)
 	assert_false(registered_unknown_lifetime, "非法生命周期的 register_factory 应返回 false。")
 	assert_false(arch.has_factory(FactoryCommand), "非法生命周期不应写入工厂注册表。")
-	assert_push_error("[GFArchitecture] register_factory 失败：未知工厂生命周期：999。")
+	assert_push_error("[GFArchitecture][architecture.factory_lifetime_unknown] register_factory failed: unknown factory lifetime: 999.")
 
 	var replaced_unknown_lifetime: bool = arch.replace_factory(
 		FactoryCommand,
@@ -2950,7 +2950,7 @@ func test_factory_registration_rejects_unknown_lifetime() -> void:
 	)
 	assert_false(replaced_unknown_lifetime, "非法生命周期的 replace_factory 应返回 false。")
 	assert_false(arch.has_factory(FactoryCommand), "replace_factory 也不应接受非法生命周期。")
-	assert_push_error("[GFArchitecture] replace_factory 失败：未知工厂生命周期：999。")
+	assert_push_error("[GFArchitecture][architecture.factory_lifetime_unknown] replace_factory failed: unknown factory lifetime: 999.")
 	arch.dispose()
 
 
@@ -3015,7 +3015,7 @@ func test_singleton_factory_does_not_cache_wrong_type_failure() -> void:
 	var second: FactoryNode = _factory_node(arch.create_instance(FactoryNode))
 
 	assert_null(first, "工厂返回错误类型时应解析失败。")
-	assert_push_error("[GFBinding] 绑定来源返回的实例脚本必须继承或等于绑定键。")
+	assert_push_error("[GFBinding][binding.source_script_mismatch] The binding source instance script must extend or equal the binding key.")
 	assert_eq(factory.call_count, 2, "失败结果不应写入 Singleton 缓存，下一次应重新调用 provider。")
 	assert_not_null(second, "后续 provider 返回正确类型后应能成功解析。")
 
@@ -3149,10 +3149,10 @@ func test_unregister_singleton_factory_is_rejected_after_activation() -> void:
 	assert_false(unregistered_factory, "activation 后 unregister_factory 应返回 false。")
 	assert_true(arch.has_factory(FactoryCommand), "被拒绝的注销不应移除 Singleton factory。")
 	assert_eq(command.get_parent_utility_from_command(), utility, "被拒绝的注销不应提前释放 Singleton 实例作用域。")
-	assert_push_error("[GFArchitecture] unregister_factory 失败：activation 后 factory 拓扑不可变。")
+	assert_push_error("[GFArchitecture][architecture.factory_topology_frozen] unregister_factory failed: factory topology is immutable after activation.")
 	arch.dispose()
 	assert_null(command.get_parent_utility_from_command(), "架构 dispose 后 Singleton 实例不应继续访问旧架构。")
-	assert_push_error("[GFCommand] 依赖作用域已释放，无法继续访问架构。")
+	assert_push_error("[GFDependencyScopeSupport][dependency_scope_support.scope_disposed] GFCommand cannot access the architecture because its dependency scope is disposed.")
 
 
 ## 验证 activation 后替换 Singleton 工厂会被拒绝且保留原缓存实例。
@@ -3180,10 +3180,10 @@ func test_replace_singleton_factory_is_rejected_after_activation() -> void:
 	assert_false(replaced_factory, "activation 后 replace_factory 应返回 false。")
 	assert_eq(previous, replacement, "被拒绝的替换应保留原 Singleton 缓存实例。")
 	assert_eq(previous.get_parent_utility_from_command(), utility, "被拒绝的替换不应提前释放原实例作用域。")
-	assert_push_error("[GFArchitecture] replace_factory 失败：activation 后 factory 拓扑不可变。")
+	assert_push_error("[GFArchitecture][architecture.factory_topology_frozen] replace_factory failed: factory topology is immutable after activation.")
 	arch.dispose()
 	assert_null(previous.get_parent_utility_from_command(), "架构 dispose 后原 Singleton 实例作用域应被释放。")
-	assert_push_error("[GFCommand] 依赖作用域已释放，无法继续访问架构。")
+	assert_push_error("[GFDependencyScopeSupport][dependency_scope_support.scope_disposed] GFCommand cannot access the architecture because its dependency scope is disposed.")
 
 
 ## 验证 activation 后 Singleton 工厂注销被拒绝，最终由架构清理实例与事件。
@@ -3206,7 +3206,7 @@ func test_unregister_singleton_factory_is_rejected_until_architecture_dispose() 
 	assert_false(unregistered_factory, "activation 后 unregister_factory 应返回 false。")
 	assert_eq(command.dispose_count, 0, "被拒绝的注销不应提前释放 Singleton 缓存实例。")
 	assert_eq(command.event_count, 2, "被拒绝的注销不应清理 Singleton 实例拥有的事件监听。")
-	assert_push_error("[GFArchitecture] unregister_factory 失败：activation 后 factory 拓扑不可变。")
+	assert_push_error("[GFArchitecture][architecture.factory_topology_frozen] unregister_factory failed: factory topology is immutable after activation.")
 	arch.dispose()
 	var after_dispose_stats: Dictionary = arch.get_event_debug_stats()
 	var after_dispose_simple_events: Dictionary = GFVariantData.get_option_dictionary(after_dispose_stats, "simple_events")
@@ -3230,7 +3230,7 @@ func test_architecture_dispose_rejects_factory_unregister_reentry_exactly_once()
 
 	assert_eq(command.dispose_count, 1, "factory 缓存实例 dispose() 中重入 unregister_factory 不应重复释放。")
 	assert_false(arch.has_factory(ReentrantFactoryCommand), "架构 dispose 后 factory 注册表应为空。")
-	assert_push_error("[GFArchitecture] unregister_factory 失败：架构已 dispose，不能继续修改注册表。")
+	assert_push_error("[GFArchitecture][architecture.registry_write_disposed] unregister_factory failed: the architecture is disposed and its registry cannot be modified.")
 
 
 ## 验证架构销毁会释放 Singleton 工厂缓存实例的生命周期归属。
@@ -3526,7 +3526,7 @@ func test_missing_declared_dependencies_always_block_init() -> void:
 	assert_false(arch.is_inited(), "声明依赖缺失时架构不应初始化成功。")
 	assert_true(arch.has_initialization_failed(), "声明依赖缺失应标记初始化失败。")
 	assert_true(
-		arch.last_initialization_error.contains("生命周期依赖计划编译失败"),
+		arch.last_initialization_error.contains("[architecture.dependency_plan_compile_failed]"),
 		"失败原因应说明依赖计划编译失败。"
 	)
 	assert_signal_emitted(arch, "initialization_failed", "依赖校验失败时应发出 initialization_failed。")
@@ -3609,7 +3609,7 @@ func test_module_async_init_timeout_fails_initialization() -> void:
 	assert_true(slow_utility.async_started, "超时前模块应已进入 async_init。")
 	assert_false(arch.is_inited(), "async_init 超时后架构不应标记为已初始化。")
 	assert_true(arch.has_initialization_failed(), "架构应记录初始化失败状态。")
-	assert_true(arch.last_initialization_error.contains("async_init 超时"), "失败原因应包含超时诊断。")
+	assert_true(arch.last_initialization_error.contains("[architecture.async_init_timeout]"), "失败原因应包含超时诊断。")
 	assert_signal_emitted(arch, "initialization_failed", "async_init 超时时应发出 initialization_failed。")
 	assert_push_error_count(1, "async_init 超时时应输出一条错误。")
 
@@ -3640,7 +3640,7 @@ func test_late_async_init_resume_cannot_register_after_timeout() -> void:
 	var late_target_script: Script = _object_script(late_target)
 	var late_lookup: Variant = arch.get_local_utility(late_target_script)
 	assert_true(late_lookup == null, "迟到恢复的 async_init 不应再注册新 Utility。")
-	assert_push_error("[GFArchitecture] register_utility 失败：架构初始化已失败，已拒绝迟到写入。")
+	assert_push_error("[GFArchitecture][architecture.registry_write_initialization_failed] register_utility failed: architecture initialization failed; late writes are rejected.")
 
 	arch.dispose()
 
@@ -3673,7 +3673,7 @@ func test_late_async_init_resume_cannot_register_after_timeout_retry() -> void:
 	var late_target_script: Script = _object_script(late_target)
 	var late_lookup: Variant = arch.get_local_utility(late_target_script)
 	assert_true(late_lookup == null, "旧 async_init 迟到恢复不应把 Utility 写入重试后的架构。")
-	assert_push_error("[GFArchitecture] register_utility 失败：架构初始化已失败，已拒绝迟到写入。")
+	assert_push_error("[GFArchitecture][architecture.registry_write_initialization_failed] register_utility failed: architecture initialization failed; late writes are rejected.")
 
 	await arch.init()
 	assert_true(arch.is_inited(), "旧 async_init 收尾后，重试应在清空失败模块后完成初始化。")
@@ -3769,13 +3769,13 @@ func test_disposed_architecture_rejects_reuse_and_late_registration() -> void:
 
 	assert_null(created, "dispose 后 create_instance 应返回 null。")
 	assert_true(command_result == null, "dispose 后 send_command 应返回 null。")
-	assert_push_error("[GFArchitecture] register_utility 失败：架构已 dispose，不能继续修改注册表。")
-	assert_push_error("[GFArchitecture] init 失败：架构正在或已经 dispose，不能重新初始化。")
-	assert_push_error("[GFArchitecture] create_instance 失败：架构已 dispose，不能继续执行。")
-	assert_push_error("[GFArchitecture] send_command 失败：架构已 dispose，不能继续执行。")
-	assert_push_error("[GFArchitecture] send_event 失败：架构已 dispose，不能继续执行。")
-	assert_push_error("[GFArchitecture] register_event 失败：架构已 dispose，不能继续修改运行时状态。")
-	assert_push_error("[GFArchitecture] inject_object 失败：架构已 dispose，不能继续执行。")
+	assert_push_error("[GFArchitecture][architecture.registry_write_disposed] register_utility failed: the architecture is disposed and its registry cannot be modified.")
+	assert_push_error("[GFArchitecture][architecture.init_disposed] init failed: the architecture is disposing or already disposed and cannot be initialized again.")
+	assert_push_error("[GFArchitecture][architecture.execution_disposed] create_instance failed: the architecture is disposed and cannot execute.")
+	assert_push_error("[GFArchitecture][architecture.execution_disposed] send_command failed: the architecture is disposed and cannot execute.")
+	assert_push_error("[GFArchitecture][architecture.execution_disposed] send_event failed: the architecture is disposed and cannot execute.")
+	assert_push_error("[GFArchitecture][architecture.runtime_write_disposed] register_event failed: the architecture is disposed and runtime state cannot be modified.")
+	assert_push_error("[GFArchitecture][architecture.execution_disposed] inject_object failed: the architecture is disposed and cannot execute.")
 
 
 ## 验证无架构时 Gf 门面方法只报错并返回空值，不发生空引用崩溃。
@@ -3786,7 +3786,7 @@ func test_facade_returns_null_when_architecture_missing() -> void:
 
 	var model: Variant = Gf.get_model(DummyModel)
 
-	assert_push_error("[GF] get_model 失败：架构尚未初始化或正在释放，请先注册可用架构。")
+	assert_push_error("[GF][gf.operation_architecture_unavailable] get_model failed: the architecture is not initialized or is being disposed; register an available architecture first.")
 	assert_true(model == null, "架构缺失时 get_model 应安全返回 null。")
 
 
@@ -3801,10 +3801,10 @@ func test_architecture_null_inputs_are_rejected() -> void:
 
 	assert_true(command_result == null, "空 command 应返回 null。")
 	assert_true(query_result == null, "空 query 应返回 null。")
-	assert_push_error("[GFArchitecture] send_command 失败：command 为空。")
-	assert_push_error("[GFArchitecture] send_query 失败：query 为空。")
-	assert_push_error("[GFArchitecture] send_event 失败：event_instance 为空。")
-	assert_push_error("[GFArchitecture] register_utility_instance_as 失败：实例为空。")
+	assert_push_error("[GFArchitecture][architecture.command_null] send_command failed: command is null.")
+	assert_push_error("[GFArchitecture][architecture.query_null] send_query failed: query is null.")
+	assert_push_error("[GFArchitecture][architecture.event_null] send_event failed: event_instance is null.")
+	assert_push_error("[GFArchitecture][architecture.instance_null] register_utility_instance_as failed: the instance is null.")
 	arch.dispose()
 
 
@@ -3818,8 +3818,8 @@ func test_architecture_warns_when_command_or_query_lacks_execute() -> void:
 
 	assert_true(command_result == null, "缺少 execute() 的 command 应返回 null。")
 	assert_true(query_result == null, "缺少 execute() 的 query 应返回 null。")
-	assert_push_warning("[GFArchitecture] send_command 失败：command 缺少 execute() 方法，已忽略。")
-	assert_push_warning("[GFArchitecture] send_query 失败：query 缺少 execute() 方法，已忽略。")
+	assert_push_warning("[GFArchitecture][architecture.command_execute_missing] send_command ignored the command because it has no execute() method.")
+	assert_push_warning("[GFArchitecture][architecture.query_execute_missing] send_query ignored the query because it has no execute() method.")
 	arch.dispose()
 
 

@@ -272,7 +272,7 @@ func test_failed_context_stays_closed_when_shared_architecture_retries() -> void
 		"FAILED Context 下 desired bindings 不得因共享 Architecture READY 而恢复。"
 	)
 	assert_push_error(failure_reason)
-	assert_push_warning("[GFNodeContext] %s" % failure_reason)
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\n%s" % failure_reason)
 
 	context.queue_free()
 	await get_tree().process_frame
@@ -416,7 +416,7 @@ func test_invalid_nearest_context_does_not_fall_through_to_global_architecture()
 
 	context.queue_free()
 	await get_tree().process_frame
-	assert_push_warning("[GFNodeContext] 上下文架构生命周期已结束。")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nThe context architecture lifecycle has ended.")
 
 
 # --- 辅助方法 ---

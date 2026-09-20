@@ -48,7 +48,7 @@ func test_scan_resource_paths_respects_resource_limit() -> void:
 	assert_eq(DirAccess.remove_absolute(ProjectSettings.globalize_path(directory)), OK, "测试应能删除临时目录。")
 
 	assert_eq(paths.size(), 1, "资源路径扫描应遵守 max_resource_paths 上限。")
-	assert_push_warning("[GFResourceTableEditor] scan_resource_paths 已达到 max_resource_paths=1，后续资源已跳过。")
+	assert_push_warning("[GFResourceTableEditor][resource_table_editor.resource_limit_reached] scan_resource_paths reached max_resource_paths=1; subsequent resources were skipped.")
 
 
 func test_commit_cell_value_updates_resource_and_emits_signal() -> void:

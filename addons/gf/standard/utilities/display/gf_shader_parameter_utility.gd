@@ -155,7 +155,7 @@ func apply_parameters(target: Object, parameters: Dictionary, options: Dictionar
 		)
 		if require_declared_parameters and not parameter_declared:
 			if warn_on_missing_parameters:
-				push_warning("[GFShaderParameterUtility] Shader 参数不存在：%s。" % String(parameter_name))
+				push_warning("[GFShaderParameterUtility][shader_parameter_utility.parameter_missing] Shader parameter does not exist: %s." % String(parameter_name))
 			continue
 
 		var value: Variant = parameters[raw_key]
@@ -166,7 +166,7 @@ func apply_parameters(target: Object, parameters: Dictionary, options: Dictionar
 		):
 			if warn_on_type_mismatch:
 				push_warning(
-					"[GFShaderParameterUtility] Shader 参数值类型不符合声明：%s。"
+					"[GFShaderParameterUtility][shader_parameter_utility.parameter_type_mismatch] Shader parameter value does not match its declared type: %s."
 					% String(parameter_name)
 				)
 			continue
@@ -255,7 +255,7 @@ func apply_global_parameters(parameters: Dictionary, options: Dictionary = {}) -
 		if save_result == OK:
 			project_settings_saved = true
 		else:
-			issues.append("ProjectSettings.save() 失败：%s。" % error_string(save_result))
+			issues.append("ProjectSettings.save() failed: %s." % error_string(save_result))
 
 	report["ok"] = issues.is_empty()
 	report["applied_count"] = applied_count
@@ -559,24 +559,24 @@ func _resolve_shader_material(
 	if target is ShaderMaterial:
 		if duplicate_material:
 			_warn_invalid_target(
-				"直接传入 ShaderMaterial 时无法写回复制结果。",
+				"Cannot write the duplicated material back when a ShaderMaterial is passed directly.",
 				warn_on_invalid_target
 			)
 			return null
 		return _variant_to_shader_material(target)
 	if not is_instance_valid(target):
-		_warn_invalid_target("目标对象无效。", warn_on_invalid_target)
+		_warn_invalid_target("Target object is invalid.", warn_on_invalid_target)
 		return null
 	if material_property.is_empty():
-		_warn_invalid_target("材质属性路径为空。", warn_on_invalid_target)
+		_warn_invalid_target("Material property path is empty.", warn_on_invalid_target)
 		return null
 	if not GFObjectPropertyTools.has_property_path(target, material_property):
-		_warn_invalid_target("目标材质属性不存在：%s。" % String(material_property), warn_on_invalid_target)
+		_warn_invalid_target("Target material property does not exist: %s." % String(material_property), warn_on_invalid_target)
 		return null
 
 	var material_value: Variant = target.get_indexed(material_property)
 	if not (material_value is ShaderMaterial):
-		_warn_invalid_target("目标材质属性不是 ShaderMaterial：%s。" % String(material_property), warn_on_invalid_target)
+		_warn_invalid_target("Target material property is not a ShaderMaterial: %s." % String(material_property), warn_on_invalid_target)
 		return null
 
 	var material: ShaderMaterial = _variant_to_shader_material(material_value)
@@ -585,7 +585,7 @@ func _resolve_shader_material(
 
 	var duplicated_value: Variant = material.duplicate(true)
 	if not (duplicated_value is ShaderMaterial):
-		_warn_invalid_target("材质复制结果不是 ShaderMaterial。", warn_on_invalid_target)
+		_warn_invalid_target("Duplicated material is not a ShaderMaterial.", warn_on_invalid_target)
 		return null
 
 	var duplicated_material: ShaderMaterial = _variant_to_shader_material(duplicated_value)
@@ -596,7 +596,7 @@ func _resolve_shader_material(
 	)
 	if not GFVariantData.get_option_bool(write_result, "ok"):
 		_warn_invalid_target(
-			"复制材质写回失败：%s。" % GFVariantData.get_option_string(write_result, "error"),
+			"Cannot write the duplicated material back: %s." % GFVariantData.get_option_string(write_result, "error"),
 			warn_on_invalid_target
 		)
 		return null
@@ -619,7 +619,7 @@ func _get_option_node_path(options: Dictionary, key: Variant, default_value: Nod
 
 func _warn_invalid_target(message: String, enabled: bool) -> void:
 	if enabled:
-		push_warning("[GFShaderParameterUtility] %s" % message)
+		push_warning("[GFShaderParameterUtility][shader_parameter_utility.parameter_operation_failed] Shader parameter operation failed: %s." % message)
 
 
 func _ensure_global_parameter_internal(
@@ -636,11 +636,11 @@ func _ensure_global_parameter_internal(
 		true
 	)
 	if parameter_name == &"":
-		return _fail_global_parameter_report(report, "全局 shader 参数名不能为空。", warn_on_invalid_parameter)
+		return _fail_global_parameter_report(report, "Global shader parameter name must not be empty.", warn_on_invalid_parameter)
 	if parameter_type == _INVALID_GLOBAL_PARAMETER_TYPE:
 		return _fail_global_parameter_report(
 			report,
-			"无法推断全局 shader 参数类型：%s。" % String(parameter_name),
+			"Cannot infer the global shader parameter type: %s." % String(parameter_name),
 			warn_on_invalid_parameter
 		)
 	if GFVariantData.get_option_bool(options, "persist_project_setting", false):
@@ -648,7 +648,7 @@ func _ensure_global_parameter_internal(
 		if options.has("project_setting_path"):
 			return _fail_global_parameter_report(
 				report,
-				"project_setting_path 不受支持；全局 shader 声明只能写入由参数名派生的 shader_globals 命名空间。",
+				"project_setting_path is unsupported; global shader declarations must use the shader_globals namespace derived from the parameter name.",
 				warn_on_invalid_parameter
 			)
 
@@ -671,7 +671,7 @@ func _ensure_global_parameter_internal(
 		if not live_exists:
 			return _fail_global_parameter_report(
 				report,
-				"全局 shader 参数尚未注册：%s。" % String(parameter_name),
+				"Global shader parameter is not registered: %s." % String(parameter_name),
 				warn_on_invalid_parameter
 			)
 		if not dry_run:
@@ -712,7 +712,7 @@ func _persist_global_parameter_project_setting(
 	)
 	if definition.is_empty():
 		report["ok"] = false
-		report["error"] = "无法构建全局 shader 参数持久化定义：%s。" % String(parameter_name)
+		report["error"] = "Cannot build the persisted global shader parameter definition: %s." % String(parameter_name)
 		return report
 
 	var dry_run: bool = GFVariantData.get_option_bool(options, "dry_run", false)
@@ -746,7 +746,7 @@ func _persist_global_parameter_project_setting(
 			report["project_settings_saved"] = true
 		else:
 			report["ok"] = false
-			report["error"] = "ProjectSettings.save() 失败：%s。" % error_string(save_result)
+			report["error"] = "ProjectSettings.save() failed: %s." % error_string(save_result)
 	return report
 
 
@@ -888,7 +888,7 @@ func _fail_global_parameter_report(
 	report["ok"] = false
 	report["error"] = message
 	if warn_on_invalid_parameter:
-		push_warning("[GFShaderParameterUtility] %s" % message)
+		push_warning("[GFShaderParameterUtility][shader_parameter_utility.parameter_operation_failed] Shader parameter operation failed: %s." % message)
 	return report
 
 

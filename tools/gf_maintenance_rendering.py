@@ -214,6 +214,18 @@ def render_path_hygiene_text(data: dict[str, Any]) -> str:
 	return "\n".join(lines)
 
 
+def render_diagnostic_policy_text(data: dict[str, Any]) -> str:
+	lines = [
+		f"diagnostic_policy: {'PASS' if data['ok'] else 'FAIL'}",
+		f"scripts={data['scanned_file_count']} calls={data['native_call_count']} codes={data['diagnostic_code_count']} forwarders={data['forwarded_call_count']}",
+	]
+	for issue in data["issues"]:
+		lines.append(f"{issue['path']}:{issue['line']}: {issue['kind']}: {issue['message']}")
+	if data["issues_truncated"]:
+		lines.append(f"Showing the first {len(data['issues'])} of {data['issue_count']} issues.")
+	return "\n".join(lines)
+
+
 def render_codeql_suppression_policy_text(data: dict[str, Any]) -> str:
 	lines = [
 		(

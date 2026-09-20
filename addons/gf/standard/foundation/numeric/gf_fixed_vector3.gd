@@ -471,7 +471,7 @@ func apply_dict(data: Dictionary) -> bool:
 		or not _state_value_is_int(raw_z_data)
 		or not _decimal_places_are_in_serialized_range(places)
 	):
-		push_error("[GFFixedVector3] 不支持的状态字典格式。")
+		push_error("[GFFixedVector3][fixed_vector3.state_format_unsupported] Unsupported state dictionary format.")
 		_reset_serialized_zero()
 		return false
 
@@ -515,7 +515,7 @@ func to_bytes() -> PackedByteArray:
 ## @return 字节序列有效并已应用时返回 true。
 func apply_bytes(data: PackedByteArray) -> bool:
 	if not _bytes_have_supported_header(data):
-		push_error("[GFFixedVector3] 不支持的字节序列格式。")
+		push_error("[GFFixedVector3][fixed_vector3.byte_format_unsupported] Unsupported byte sequence format.")
 		_reset_serialized_zero()
 		return false
 
@@ -527,7 +527,7 @@ func apply_bytes(data: PackedByteArray) -> bool:
 		or _signed_magnitude_is_invalid(y_value)
 		or _signed_magnitude_is_invalid(z_value)
 	):
-		push_error("[GFFixedVector3] 不支持的字节序列格式。")
+		push_error("[GFFixedVector3][fixed_vector3.byte_format_unsupported] Unsupported byte sequence format.")
 		_reset_serialized_zero()
 		return false
 

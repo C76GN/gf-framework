@@ -353,7 +353,7 @@ func _register_template_record(source_record: Dictionary) -> void:
 		""
 	).strip_edges()
 	if template_id.is_empty():
-		push_error("[GF Framework] 模板 source_id 为空，已跳过。")
+		push_error("[GFPluginActions][plugin_actions.template_source_id_empty] Skipped a template with an empty source_id.")
 		return
 	var template_type: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(source_record, "type", "").strip_edges()
 	if template_type.is_empty():
@@ -364,14 +364,14 @@ func _register_template_record(source_record: Dictionary) -> void:
 	if not record.has("base_class"):
 		record["base_class"] = "GF" + template_type
 	if _template_records.has(template_id):
-		push_error("[GF Framework] 模板 source_id 重复，已跳过: %s" % template_id)
+		push_error("[GFPluginActions][plugin_actions.template_source_id_duplicate] Skipped a duplicate template source_id: %s." % template_id)
 		return
 
 	var menu_id: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(record, "menu_id", -1)
 	if menu_id < 0:
 		menu_id = _allocate_template_menu_id()
 	if _menu_action_handlers.has(menu_id):
-		push_error("[GF Framework] 模板菜单 ID 重复，已跳过: %s" % menu_id)
+		push_error("[GFPluginActions][plugin_actions.template_menu_id_duplicate] Skipped a duplicate template menu ID: %s." % menu_id)
 		return
 
 	var label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "label", "生成 " + template_type).strip_edges()
@@ -405,7 +405,7 @@ func _register_fixed_menu_action(
 	handler_kind: StringName
 ) -> void:
 	if _menu_action_handlers.has(menu_id):
-		push_error("[GF Framework] 固定菜单 ID 重复，已跳过: %s" % menu_id)
+		push_error("[GFPluginActions][plugin_actions.fixed_menu_id_duplicate] Skipped a duplicate fixed menu ID: %s." % menu_id)
 		return
 
 	_menu_action_handlers[menu_id] = {
@@ -440,21 +440,21 @@ func _show_dialog(template_id: String) -> void:
 
 func _on_file_selected(path: String) -> void:
 	if FileAccess.file_exists(path):
-		push_error("[GF Framework] 文件已存在，已取消生成: %s" % path)
+		push_error("[GFPluginActions][plugin_actions.output_exists] Generation cancelled because the file already exists: %s." % path)
 		return
 
 	var file_name: String = path.get_file().get_basename()
 	var class_name_str: String = file_name.to_pascal_case()
 	if not _is_valid_gdscript_identifier(class_name_str):
 		push_error(
-			"[GF Framework] 文件名无法生成合法 GDScript class_name，已取消生成: %s"
+			"[GFPluginActions][plugin_actions.class_name_invalid] Generation cancelled because the filename cannot produce a valid GDScript class_name: %s."
 			% path
 		)
 		return
 	var base_class: String = _get_base_class(_current_template_id)
 	if not _is_valid_gdscript_identifier(base_class):
 		push_error(
-			"[GF Framework] 模板 base_class 不是合法 GDScript 标识符，已取消生成: %s"
+			"[GFPluginActions][plugin_actions.base_class_invalid] Generation cancelled because template base_class is not a valid GDScript identifier: %s."
 			% _current_template_id
 		)
 		return
@@ -481,7 +481,7 @@ func _on_file_selected(path: String) -> void:
 		or not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "written", false)
 	):
 		push_error(
-			"[GF Framework] 文件生成失败: %s (%s)" % [
+			"[GFPluginActions][plugin_actions.file_generation_failed] File generation failed: %s (%s)." % [
 				path,
 				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 					report,
@@ -504,7 +504,7 @@ func _generate_accessors() -> void:
 	if error == OK:
 		print("[GF Framework] 成功生成强类型访问器: ", output_path)
 	else:
-		push_error("[GF Framework] 强类型访问器生成失败: %s" % error_string(error))
+		push_error("[GFPluginActions][plugin_actions.accessor_generation_failed] Typed accessor generation failed: %s." % error_string(error))
 
 
 func _generate_project_accessors() -> void:
@@ -513,7 +513,7 @@ func _generate_project_accessors() -> void:
 	if error == OK:
 		print("[GF Framework] 成功生成项目常量访问器: ", output_path)
 	else:
-		push_error("[GF Framework] 项目常量访问器生成失败: %s" % error_string(error))
+		push_error("[GFPluginActions][plugin_actions.project_accessor_generation_failed] Project constant accessor generation failed: %s." % error_string(error))
 
 
 func _show_diagnostic_dialog(title: String, text: String) -> void:
@@ -560,12 +560,12 @@ func _load_extension_editor_actions() -> void:
 func _create_extension_editor_action(script_path: String) -> RefCounted:
 	var script: Script = _load_script(script_path)
 	if script == null or not script.can_instantiate():
-		push_error("[GF Framework] 扩展编辑器动作加载失败: %s" % script_path)
+		push_error("[GFPluginActions][plugin_actions.extension_action_load_failed] Could not load the extension editor action: %s." % script_path)
 		return null
 
 	var instance: RefCounted = _variant_to_ref_counted(script.call("new"))
 	if instance == null:
-		push_error("[GF Framework] 扩展编辑器动作实例化失败: %s" % script_path)
+		push_error("[GFPluginActions][plugin_actions.extension_action_instantiation_failed] Could not instantiate the extension editor action: %s." % script_path)
 		return null
 	return instance
 
@@ -576,7 +576,7 @@ func _register_extension_template_records(action: RefCounted, script_path: Strin
 
 	var records_variant: Variant = action.call("get_template_records")
 	if not (records_variant is Array):
-		push_error("[GF Framework] 扩展脚本模板声明无效: %s" % script_path)
+		push_error("[GFPluginActions][plugin_actions.extension_template_invalid] Invalid extension script template declaration: %s." % script_path)
 		return
 
 	var records: Array[Dictionary] = []
@@ -592,7 +592,7 @@ func _register_extension_project_setting_records(action: RefCounted, script_path
 
 	var records_variant: Variant = action.call("get_project_setting_records")
 	if not records_variant is Array:
-		push_error("[GF Framework] 扩展项目设置声明无效: %s" % script_path)
+		push_error("[GFPluginActions][plugin_actions.extension_settings_invalid] Invalid extension project settings declaration: %s." % script_path)
 		return
 	var records: Array = records_variant
 	for record_variant: Variant in records:
@@ -617,7 +617,7 @@ func _register_extension_project_setting_section_records(
 
 	var records_variant: Variant = action.call("get_project_setting_section_records")
 	if not records_variant is Array:
-		push_error("[GF Framework] 扩展项目设置分区声明无效: %s" % script_path)
+		push_error("[GFPluginActions][plugin_actions.extension_settings_section_invalid] Invalid extension project settings section declaration: %s." % script_path)
 		return
 	var records: Array = records_variant
 	for record_variant: Variant in records:
@@ -663,7 +663,7 @@ func _register_extension_action_entries(action: RefCounted, script_path: String)
 
 	var entries_variant: Variant = action.call("get_menu_entries")
 	if not (entries_variant is Array):
-		push_error("[GF Framework] 扩展编辑器动作菜单声明无效: %s" % script_path)
+		push_error("[GFPluginActions][plugin_actions.extension_action_menu_invalid] Invalid extension editor action menu declaration: %s." % script_path)
 		return
 
 	for entry_variant: Variant in entries_variant:
@@ -746,7 +746,7 @@ func _get_dependencies() -> RefCounted:
 func _call_dependency_value(method_name: StringName, args: Array = []) -> Variant:
 	var dependencies: RefCounted = _get_dependencies()
 	if dependencies == null or not dependencies.has_method(method_name):
-		push_error("[GF Framework] 插件动作依赖缺少方法: %s" % method_name)
+		push_error("[GFPluginActions][plugin_actions.dependency_method_missing] A plugin action dependency is missing method: %s." % method_name)
 		return null
 	return dependencies.callv(method_name, args)
 
@@ -779,7 +779,7 @@ func _call_dependency_error(method_name: StringName, args: Array = []) -> Error:
 	if value is int:
 		var error_code: int = value
 		return error_code as Error
-	push_error("[GF Framework] 插件动作依赖返回值不是 Error: %s" % method_name)
+	push_error("[GFPluginActions][plugin_actions.dependency_result_invalid] A plugin action dependency returned a value that is not an Error: %s." % method_name)
 	return FAILED
 
 

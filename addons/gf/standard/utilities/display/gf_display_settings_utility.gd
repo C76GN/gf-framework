@@ -233,7 +233,7 @@ func apply_window_mode() -> void:
 ## @param size: 窗口尺寸。
 func set_window_size(size: Vector2i) -> void:
 	if size.x <= 0 or size.y <= 0:
-		push_error("[GFDisplaySettingsUtility] set_window_size 失败：窗口尺寸必须大于 0。")
+		push_error("[GFDisplaySettingsUtility][display_settings_utility.window_size_invalid] Cannot set_window_size: window dimensions must be greater than zero.")
 		return
 
 	_set_setting_value(WINDOW_SIZE_KEY, size)
@@ -354,7 +354,7 @@ func register_audio_bus_volume(bus_name: String, default_linear: float = 1.0) ->
 ## @param volume_linear: 线性音量，范围 0 到 1。
 func set_audio_bus_volume(bus_name: String, volume_linear: float) -> void:
 	if not is_finite(volume_linear):
-		push_warning("[GFDisplaySettingsUtility] 已拒绝非有限音频总线音量：%s。" % bus_name)
+		push_warning("[GFDisplaySettingsUtility][display_settings_utility.audio_volume_non_finite] Rejected non-finite audio bus volume: %s." % bus_name)
 		return
 	var clamped_volume: float = clampf(volume_linear, 0.0, 1.0)
 	_set_setting_value(_get_audio_bus_volume_key(bus_name), clamped_volume)
@@ -400,7 +400,7 @@ func apply_audio_bus_volume(bus_name: String) -> void:
 	if applied:
 		display_setting_applied.emit(_get_audio_bus_volume_key(bus_name), volume)
 	else:
-		push_warning("[GFDisplaySettingsUtility] 无法应用音频总线音量，未找到总线或后端拒绝：%s。" % bus_name)
+		push_warning("[GFDisplaySettingsUtility][display_settings_utility.audio_volume_apply_failed] Cannot apply audio bus volume: bus missing or backend rejected the request: %s." % bus_name)
 
 
 ## 应用所有已注册音频总线音量设置。

@@ -293,7 +293,7 @@ func test_slot_inventory_from_dict_rejects_malformed_schema_atomically() -> void
 	assert_eq(inventory.get_item_total(&"item_a"), 2, "畸形快照不应清空既有库存。")
 	assert_eq(inventory.get_item_total(&"item_b"), 0, "畸形快照不应部分写入新堆叠。")
 	assert_false(inventory.allow_growth, "畸形快照不应提前写入其他字段。")
-	assert_push_error("[GFSlotInventoryModel] from_dict 失败：快照必须包含非负整数 slot_count，且 slots 数量必须与其一致。")
+	assert_push_error("[GFSlotInventoryModel][slot_inventory_model.invalid_snapshot_slots] from_dict failed: the snapshot must contain a nonnegative integer slot_count and a matching number of slots.")
 
 
 ## 验证 0 槽位库存默认不会隐式新增槽位。
@@ -737,7 +737,7 @@ func test_slot_inventory_rejects_reentrant_sort_during_change_signal() -> void:
 	inventory.slot_state_changed.disconnect(sort_callback)
 	inventory.slot_state_changed.disconnect(snapshot_callback)
 
-	assert_push_error("[GFSlotInventoryModel] sort_slots 失败：库存变更通知派发中不允许同步修改库存。请使用 call_deferred() 或在当前通知结束后再修改。")
+	assert_push_error("[GFSlotInventoryModel][slot_inventory_model.mutation_during_notification] sort_slots failed: inventory cannot be modified synchronously while change notifications are being dispatched. Use call_deferred() or wait until the current notification finishes.")
 	assert_eq(sort_results, [false], "通知派发中的同步排序应失败。")
 	assert_eq(listener_snapshots.size(), 1, "后续监听器仍应收到原始变化通知。")
 	if listener_snapshots.size() != 1:
@@ -860,7 +860,7 @@ func test_domain_installer_fails_and_rolls_back_when_second_registration_fails()
 		architecture.get_local_utility(GFLevelUtility),
 		"初始化失败必须回滚本轮已注册的 Level Utility。"
 	)
-	assert_push_error("[GFDomainExtension] GFQuestUtility registration failed.")
+	assert_push_error("[GFDomainExtension][domain_extension.quest_registration_failed] GFQuestUtility registration failed.")
 	architecture.dispose()
 
 
@@ -901,7 +901,7 @@ func test_slot_inventory_rejects_mutation_from_sort_resolver() -> void:
 
 	assert_false(nested_result[0], "排序回调不应同步修改同一个库存。")
 	assert_null(inventory.get_slot_definition(0), "被拒绝的回调写入不应留下部分状态。")
-	assert_push_error("[GFSlotInventoryModel] set_slot_definition 失败：库存变更处理中不允许同步修改库存。请在当前操作结束后再修改。")
+	assert_push_error("[GFSlotInventoryModel][slot_inventory_model.mutation_during_change] set_slot_definition failed: inventory cannot be modified synchronously while a change is being processed. Wait until the current operation finishes.")
 
 
 func test_slot_inventory_rejects_mutation_from_acceptance_checker() -> void:
@@ -919,7 +919,7 @@ func test_slot_inventory_rejects_mutation_from_acceptance_checker() -> void:
 	assert_true(result.ok, "只读接收回调仍应能返回接收结果。")
 	assert_true(rule_probe.attempted_clear, "测试回调应尝试一次嵌套 clear。")
 	assert_eq(inventory.get_item_total(&"item_a"), 1, "被拒绝的嵌套 clear 不应干扰外层加入事务。")
-	assert_push_error("[GFSlotInventoryModel] clear 失败：库存变更处理中不允许同步修改库存。请在当前操作结束后再修改。")
+	assert_push_error("[GFSlotInventoryModel][slot_inventory_model.mutation_during_change] clear failed: inventory cannot be modified synchronously while a change is being processed. Wait until the current operation finishes.")
 
 
 ## 验证槽位集合按标签规则挂载物品。
@@ -1035,7 +1035,7 @@ func test_derived_attribute_callback_cannot_mutate_same_attribute_set() -> void:
 	assert_false(mutation_result[0], "派生计算回调不应同步写入同一个 AttributeSet。")
 	assert_eq(attributes.get_value(&"source"), 3.0, "被拒绝的回调写入不应改变来源属性。")
 	assert_eq(attributes.get_value(&"derived"), 6.0, "派生结果应基于稳定的只读输入计算。")
-	assert_push_warning("[GFAttributeSet] set_value 失败：派生规则计算期间不允许修改同一个属性集合。")
+	assert_push_warning("[GFAttributeSet][attribute_set.mutation_during_evaluation] set_value failed: the same attribute set cannot be modified while a derived rule is being evaluated.")
 
 
 func test_attribute_set_recalculates_derived_rules_when_base_changes_with_synced_current() -> void:
@@ -1085,8 +1085,8 @@ func test_attribute_set_skips_entire_derived_cycle_without_partial_writes() -> v
 	attributes.derived_rules = [rule_a, rule_b]
 
 	attributes.recalculate_derived()
-	assert_push_warning("[GFAttributeSet] 检测到派生属性循环，已跳过：a")
-	assert_push_warning("[GFAttributeSet] 检测到派生属性循环，已跳过：b")
+	assert_push_warning("[GFAttributeSet][attribute_set.cyclic_derived_attribute] Skipped a derived attribute cycle: a.")
+	assert_push_warning("[GFAttributeSet][attribute_set.cyclic_derived_attribute] Skipped a derived attribute cycle: b.")
 
 	assert_eq(attributes.get_value(&"a"), 5.0, "派生规则成环时环内目标不应被部分写入。")
 	assert_eq(attributes.get_value(&"b"), 7.0, "派生规则成环时整组环内目标都应跳过。")

@@ -77,13 +77,13 @@ func test_file_store_rejects_unsafe_paths() -> void:
 	var unsafe_file_name: String = "../outside-%s.json" % GFUuid.generate_v4()
 
 	var read_result: GFStorageReadResult = store.read_settings(unsafe_file_name)
-	assert_push_error("[GFSettingsUtility] 已拒绝不安全设置文件名")
+	assert_push_error("[GFSettingsUtility][settings_utility.filename_unsafe] Rejected an unsafe settings filename")
 	assert_false(read_result.ok)
 	assert_eq(read_result.error_code, ERR_INVALID_PARAMETER)
 	assert_eq(read_result.failure_kind, GFStorageReadResult.FailureKind.INVALID_REQUEST)
 
 	var write_error: Error = store.write_settings(unsafe_file_name, { "value": 1 })
-	assert_push_error("[GFSettingsUtility] 已拒绝不安全设置文件名")
+	assert_push_error("[GFSettingsUtility][settings_utility.filename_unsafe] Rejected an unsafe settings filename")
 	assert_eq(write_error, ERR_INVALID_PARAMETER)
 
 

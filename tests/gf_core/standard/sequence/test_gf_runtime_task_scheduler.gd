@@ -254,7 +254,7 @@ func test_scheduled_task_rejects_requirement_mutation() -> void:
 	var _set_result: GFRuntimeTask = task.set_requirements([requirement_b])
 	for _index: int in range(4):
 		assert_push_warning(
-			"[GFRuntimeTask] 调度仲裁中或已调度的任务不能修改 requirements；请取消并重新配置。"
+			"[GFRuntimeTask][runtime_task.requirements_frozen] Cannot change requirements during arbitration or after scheduling; cancel and reconfigure the task."
 		)
 
 	assert_true(task.has_requirement(requirement_a), "已调度任务应保留原 requirement。")
@@ -270,7 +270,7 @@ func test_register_default_task_rejects_scheduled_task_missing_requirement() -> 
 
 	assert_true(scheduler.schedule(task), "任务应能先进入调度器。")
 	assert_false(scheduler.register_default_task(default_requirement, task), "已调度且不能新增 requirement 的任务不应注册为默认任务。")
-	assert_push_warning("[GFRuntimeTask] 调度仲裁中或已调度的任务不能修改 requirements；请取消并重新配置。")
+	assert_push_warning("[GFRuntimeTask][runtime_task.requirements_frozen] Cannot change requirements during arbitration or after scheduling; cancel and reconfigure the task.")
 
 	assert_false(task.has_requirement(default_requirement), "失败注册不应修改已调度任务 requirement。")
 	assert_null(scheduler.get_default_task(default_requirement), "失败注册不应留下默认任务记录。")
@@ -412,7 +412,7 @@ func test_scheduled_task_group_rejects_child_mutation() -> void:
 	assert_false(group.remove_task(first), "已调度任务组不应允许移除子任务。")
 	group.rebuild_requirements()
 	for _index: int in range(3):
-		assert_push_warning("[GFRuntimeTaskGroup] 调度仲裁中或已调度的任务组不能修改配置。")
+		assert_push_warning("[GFRuntimeTaskGroup][runtime_task_group.configuration_frozen] Cannot change task group configuration during arbitration or after scheduling.")
 
 	assert_eq(group.get_tasks(), [first], "已调度任务组不应接受子任务集合变更。")
 
@@ -452,7 +452,7 @@ func test_task_group_reserves_and_locks_all_children_before_first_tick() -> void
 	assert_false(other_scheduler.schedule(future), "其他调度器也不能持有已被任务组预留的子任务。")
 	var _mutation_result: GFRuntimeTask = future.add_requirement(late_requirement)
 	assert_push_warning(
-		"[GFRuntimeTask] 调度仲裁中或已调度的任务不能修改 requirements；请取消并重新配置。"
+		"[GFRuntimeTask][runtime_task.requirements_frozen] Cannot change requirements during arbitration or after scheduling; cancel and reconfigure the task."
 	)
 	assert_false(future.has_requirement(late_requirement), "预留后的未来子任务 requirement 必须冻结。")
 
@@ -497,7 +497,7 @@ func test_parallel_task_group_rejects_duplicate_child_requirements() -> void:
 	var group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new([first], GFRuntimeTaskGroup.Mode.PARALLEL_ALL)
 
 	var _add_result: GFRuntimeTaskGroup = group.add_task(second)
-	assert_push_warning("[GFRuntimeTaskGroup] 并行任务组不能包含占用相同 requirement 的子任务。")
+	assert_push_warning("[GFRuntimeTaskGroup][runtime_task_group.parallel_requirement_conflict] Parallel task groups cannot contain children that claim the same requirement.")
 
 	assert_eq(group.get_tasks(), [first], "并行任务组不应接受共享 requirement 的第二个子任务。")
 
@@ -701,7 +701,7 @@ func test_schedule_commits_requirement_ownership_before_interrupt_callbacks() ->
 	assert_true(scheduler.schedule(protected_owner), "受保护 requirement 应先被不可中断任务占用。")
 	assert_true(scheduler.schedule(replacement_owner), "可中断 owner 应进入调度器。")
 	assert_true(scheduler.schedule(challenger), "challenger 应原子替换可中断 owner。")
-	assert_push_warning("[GFRuntimeTask] 调度仲裁中或已调度的任务不能修改 requirements；请取消并重新配置。")
+	assert_push_warning("[GFRuntimeTask][runtime_task.requirements_frozen] Cannot change requirements during arbitration or after scheduling; cancel and reconfigure the task.")
 
 	assert_same(replacement_owner.observed_owner, challenger, "中断回调应观察到已经提交的新 owner。")
 	assert_false(challenger.has_requirement(protected_requirement), "中断回调不能修改已提交任务的 requirements。")
@@ -883,7 +883,7 @@ func test_task_group_rejects_cycles_and_reused_descendants_transactionally() -> 
 	var self_group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new()
 	assert_false(self_group.set_tasks([self_group]), "任务组必须拒绝直接 self-cycle。")
 	var _self_add_result: GFRuntimeTaskGroup = self_group.add_task(self_group)
-	assert_push_warning("[GFRuntimeTaskGroup] 子任务图必须是有界、无环且无重复实例的树。")
+	assert_push_warning("[GFRuntimeTaskGroup][runtime_task_group.child_graph_invalid] The child task graph must be a bounded acyclic tree without duplicate instances.")
 	assert_true(self_group.get_tasks().is_empty(), "self-cycle 失败后旧配置必须保持不变。")
 
 	var first_group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new()
@@ -931,7 +931,7 @@ func test_task_group_rejects_invalid_dynamic_mode() -> void:
 	var result: Variant = group.call("set_mode", 99)
 
 	assert_false(GFVariantData.to_bool(result, true), "反射入口传入未知 mode 时必须失败关闭。")
-	assert_push_warning("[GFRuntimeTaskGroup] 无效任务组模式，保留当前模式。")
+	assert_push_warning("[GFRuntimeTaskGroup][runtime_task_group.mode_invalid] Invalid task group mode; keeping the current mode.")
 	assert_eq(group.get_mode(), previous_mode, "非法 mode 不得改变任务组状态。")
 
 
@@ -950,7 +950,7 @@ func test_callable_runtime_task_rejects_non_bool_finished_result_once_per_genera
 	scheduler.tick(0.1)
 
 	assert_push_warning(
-		"[GFCallableRuntimeTask] finished_callable 必须返回 bool；无效结果按 false 处理。"
+		"[GFCallableRuntimeTask][callable_runtime_task.finished_result_not_bool] finished_callable must return bool; invalid results are treated as false."
 	)
 	assert_true(task.is_scheduled(), "非 bool 完成结果必须按 false 失败关闭。")
 	assert_true(scheduler.cancel(task), "测试结束时应能释放失败关闭的任务。")
@@ -969,7 +969,7 @@ func test_task_group_configuration_is_controlled_and_transactional() -> void:
 	assert_eq(group.get_tasks(), [first], "失败的批量配置不应产生部分更新。")
 	assert_true(group.set_mode(GFRuntimeTaskGroup.Mode.PARALLEL_ALL), "无内部冲突的单任务组应允许切换到并行模式。")
 	var _add_conflicting_task_result: GFRuntimeTaskGroup = group.add_task(second)
-	assert_push_warning("[GFRuntimeTaskGroup] 并行任务组不能包含占用相同 requirement 的子任务。")
+	assert_push_warning("[GFRuntimeTaskGroup][runtime_task_group.parallel_requirement_conflict] Parallel task groups cannot contain children that claim the same requirement.")
 	assert_eq(group.get_mode(), GFRuntimeTaskGroup.Mode.PARALLEL_ALL, "无内部冲突的单任务组应允许切换到并行模式。")
 	assert_eq(group.get_tasks(), [first], "冲突子任务不应被加入并行任务组。")
 

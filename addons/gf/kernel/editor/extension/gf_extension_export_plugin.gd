@@ -60,7 +60,7 @@ func _refresh_disabled_extension_roots() -> void:
 		_disabled_manifests
 	)
 	if not _manifest_graph_allows_export(graph_report):
-		push_error("[GFExtensionExportPlugin] 扩展 manifest 图无效，已停止导出扩展过滤：\n%s" % _format_manifest_graph_report(graph_report))
+		push_error("[GFExtensionExportPlugin][extension_export_plugin.manifest_graph_invalid] The extension manifest graph is invalid; export extension filtering stopped.\n%s" % _format_manifest_graph_report(graph_report))
 
 
 static func _path_is_under(path: String, root_path: String) -> bool:
@@ -152,10 +152,10 @@ func _warn_disabled_extension_references() -> void:
 
 	var formatted_report: String = _format_reference_report(report)
 	if GFExtensionSettingsBase.should_fail_export_on_disabled_extension_references():
-		push_error("[GFExtensionExportPlugin] 检测到禁用扩展仍被项目文件引用，当前导出策略要求报告为错误：\n%s" % formatted_report)
+		push_error("[GFExtensionExportPlugin][extension_export_plugin.disabled_extension_referenced_error] Project files still reference disabled extensions; the export policy requires an error.\n%s" % formatted_report)
 		return
 
-	push_warning("[GFExtensionExportPlugin] 检测到禁用扩展仍被项目文件引用，导出排除后可能缺文件：\n%s" % formatted_report)
+	push_warning("[GFExtensionExportPlugin][extension_export_plugin.disabled_extension_referenced_warning] Project files still reference disabled extensions; export exclusion may leave missing files.\n%s" % formatted_report)
 
 
 func _format_reference_report(report: Dictionary) -> String:

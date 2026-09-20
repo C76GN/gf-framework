@@ -90,7 +90,7 @@ func to_dict() -> Dictionary:
 		GF_VARIANT_ACCESS.get_option_string(result, "error").is_empty(),
 		"捕获失败必须返回错误原因。"
 	)
-	assert_push_error("[GFArchitecture] 可序列化 Model 缺少稳定标识：请为脚本声明 class_name 或重写 get_save_key()。")
+	assert_push_error("[GFArchitecture][architecture.model_save_key_missing] A serializable Model has no stable identifier; declare class_name or override get_save_key().")
 
 	arch.dispose()
 	runtime_model = null
@@ -138,7 +138,7 @@ func test_architecture_rejects_duplicate_model_save_keys_for_snapshot() -> void:
 		"重复 Model 存档键应显式阻断快照。"
 	)
 	assert_false(result.has("snapshot"), "重复键捕获失败不得留下可提交 snapshot。")
-	assert_push_error("[GFArchitecture] Model 快照键重复：duplicate_model。请为每个 Model 提供唯一 get_save_key()。")
+	assert_push_error("[GFArchitecture][architecture.snapshot_key_duplicate] Duplicate Model snapshot keys were found.\nDuplicate Model snapshot key: duplicate_model. Provide a unique get_save_key() for each Model.")
 
 
 func test_architecture_rejects_duplicate_model_save_keys_for_restore() -> void:
@@ -171,7 +171,7 @@ func test_architecture_rejects_duplicate_model_save_keys_for_restore() -> void:
 	)
 	assert_eq(first_model.value, 10, "重复键时 restore 不应修改前面的 Model。")
 	assert_eq(second_model.value, 20, "重复键时 restore 不应修改后面的 Model。")
-	assert_push_error("[GFArchitecture] Model 快照键重复：duplicate_model。请为每个 Model 提供唯一 get_save_key()。")
+	assert_push_error("[GFArchitecture][architecture.snapshot_key_duplicate] Duplicate Model snapshot keys were found.\nDuplicate Model snapshot key: duplicate_model. Provide a unique get_save_key() for each Model.")
 
 
 ## 验证 restore_all_models_state 恢复多个 Model 的数据。
@@ -520,7 +520,7 @@ func test_register_service_rejects_multiple_command_history_stores() -> void:
 	var snapshot: Dictionary = _capture_snapshot(arch.get_global_snapshot())
 
 	assert_true(snapshot.has("command_history"), "第二个服务 provider 被拒绝后，应继续使用第一个命令历史服务。")
-	assert_push_error("[GFArchitecture] register_service 失败：service_key 已注册：gf.kernel.command_history_store。")
+	assert_push_error("[GFArchitecture][architecture.service_already_registered] register_service failed: service_key is already registered: gf.kernel.command_history_store.")
 
 
 # --- 私有/辅助方法 ---

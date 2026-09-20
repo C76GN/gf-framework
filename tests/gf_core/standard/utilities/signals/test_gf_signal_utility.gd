@@ -320,7 +320,7 @@ func test_invalid_callback_is_not_tracked_as_connection() -> void:
 
 	var _connect_signal_result_257: Variant = _utility.connect_signal(emitter.changed, Callable())
 
-	assert_push_error("[GFSignalConnection] start 失败：callback 无效。")
+	assert_push_error("[GFSignalConnection][signal_connection.callback_invalid] Cannot start: callback is invalid.")
 	assert_eq(_utility.get_connection_count(), 0, "启动失败的连接不应残留在工具追踪列表中。")
 
 
@@ -335,7 +335,7 @@ func test_signal_connect_error_is_not_tracked_as_connection() -> void:
 	assert_eq(manual_connect_error, OK, "测试准备阶段应能先占用内部连接 callable。")
 
 	var _start_result_290: GFSignalConnection = connection.start()
-	assert_push_error("[GFSignalConnection] start 失败：Signal 已连接。")
+	assert_push_error("[GFSignalConnection][signal_connection.signal_already_connected] Cannot start: Signal is already connected.")
 	assert_false(connection.is_active(), "connect 返回错误时连接句柄不应标记为已连接。")
 
 	if emitter.changed.is_connected(internal_callable):

@@ -384,7 +384,7 @@ func get_debug_snapshot() -> Dictionary:
 
 func _ensure_capacity(required_capacity: int) -> bool:
 	if required_capacity > _MAX_CAPACITY:
-		push_error("[GFDeque] 请求容量超出可表示范围。")
+		push_error("[GFDeque][deque.capacity_out_of_range] Requested capacity exceeds the representable range.")
 		return false
 	if required_capacity <= _data.size():
 		return true
@@ -397,12 +397,12 @@ func _ensure_capacity(required_capacity: int) -> bool:
 
 func _resize_storage(new_capacity: int) -> bool:
 	if new_capacity > _MAX_CAPACITY:
-		push_error("[GFDeque] 请求容量超出可表示范围。")
+		push_error("[GFDeque][deque.capacity_out_of_range] Requested capacity exceeds the representable range.")
 		return false
 	var next_data: Array = []
 	var resize_result: int = next_data.resize(maxi(maxi(new_capacity, _count), 1))
 	if resize_result != OK:
-		push_error("[GFDeque] 无法分配请求容量：%s" % error_string(resize_result))
+		push_error("[GFDeque][deque.capacity_allocation_failed] Cannot allocate the requested capacity: %s." % error_string(resize_result))
 		return false
 	for index: int in range(_count):
 		next_data[index] = _data[_physical_index(index)]

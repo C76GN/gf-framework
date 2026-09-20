@@ -361,11 +361,11 @@ func submit_resource_load(
 	task.resource_type_hint = type_hint
 
 	if path.is_empty():
-		_fail_task(task, "[GFBackgroundWorkUtility] submit_resource_load 失败：资源路径为空。")
+		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.resource_path_empty] Cannot submit_resource_load: resource path is empty.")
 		return task
 
 	if not _register_task(task):
-		_fail_task(task, "[GFBackgroundWorkUtility] submit_resource_load 失败：工作 ID 已存在。")
+		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.resource_work_id_duplicate] Cannot submit_resource_load: work ID already exists.")
 		return task
 
 	work_queued.emit(task)
@@ -536,12 +536,12 @@ func _submit_threaded_work(
 ) -> GFBackgroundWorkTask:
 	var task: GFBackgroundWorkTask = _create_task(kind, worker, apply_callback, options)
 	if not worker.is_valid():
-		_fail_task(task, "[GFBackgroundWorkUtility] 提交后台工作失败：worker 无效。")
+		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.worker_invalid] Cannot submit background work: worker is invalid.")
 		return task
 
 	var allow_payload_objects: bool = allow_object_payloads or GFVariantData.get_option_bool(options, "allow_object_payloads", false)
 	if not allow_payload_objects and not _is_thread_payload_safe(input_data):
-		_fail_task(task, "[GFBackgroundWorkUtility] 提交后台工作失败：payload 只能包含纯 Variant 数据。")
+		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.payload_not_plain] Cannot submit background work: payload must contain only plain Variant data.")
 		return task
 	var pass_cancellation_context: bool = GFVariantData.get_option_bool(
 		options,
@@ -551,17 +551,17 @@ func _submit_threaded_work(
 	if pass_cancellation_context and worker.get_argument_count() != 2:
 		_fail_task(
 			task,
-			"[GFBackgroundWorkUtility] 提交后台工作失败：启用 cancellation context 时 worker 必须接收两个参数。"
+			"[GFBackgroundWorkUtility][background_work_utility.cancellation_worker_arity] Cannot submit background work: worker must accept two arguments when cancellation context is enabled."
 		)
 		return task
 	var cancellation_context: GFBackgroundWorkContext = GFBackgroundWorkContext.new()
 	var context_error: Error = cancellation_context.configure_for_framework(task.work_id)
 	if context_error != OK:
-		_fail_task(task, "[GFBackgroundWorkUtility] 创建 cancellation context 失败：%d。" % context_error)
+		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.cancellation_context_creation_failed] Cannot create cancellation context: %d." % context_error)
 		return task
 	task.input_data = GFVariantData.duplicate_variant(input_data)
 	if not _register_task(task):
-		_fail_task(task, "[GFBackgroundWorkUtility] 提交后台工作失败：工作 ID 已存在。")
+		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.work_id_duplicate] Cannot submit background work: work ID already exists.")
 		return task
 	task.set_cancellation_context_for_framework(
 		cancellation_context,
@@ -668,7 +668,7 @@ func _start_thread_task(task: GFBackgroundWorkTask) -> void:
 		task.worker_receives_cancellation_context_for_framework()
 	))
 	if error != OK:
-		_fail_task(task, "[GFBackgroundWorkUtility] 启动线程失败：%d。" % error)
+		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.thread_start_failed] Cannot start thread: %d." % error)
 		return
 
 	task.status = GFBackgroundWorkTask.Status.RUNNING
@@ -705,7 +705,7 @@ func _finish_thread_task(task: GFBackgroundWorkTask, result_variant: Variant) ->
 		return
 
 	if not result_variant is Dictionary:
-		_fail_task(task, "[GFBackgroundWorkUtility] 后台工作返回了无效结果。", result_variant)
+		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.work_result_invalid] Background work returned an invalid result.", result_variant)
 		return
 	var result: Dictionary = GFVariantData.as_dictionary(result_variant)
 	var normalized_result: Dictionary = GFResultDictionary.normalize(result, false)
@@ -764,7 +764,7 @@ func _start_resource_task(task: GFBackgroundWorkTask) -> void:
 			return
 		var pending_type_hint: String = GFVariantData.get_option_string(request, "type_hint")
 		if not _type_hints_are_compatible(pending_type_hint, task.resource_type_hint):
-			_fail_task(task, "[GFBackgroundWorkUtility] 相同资源路径已有不同 type_hint 的加载请求：%s。" % path)
+			_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.resource_type_hint_conflict] A load request with a different type_hint already exists for this resource path: %s." % path)
 			return
 
 		var tasks: Array = _get_resource_request_tasks(request)
@@ -783,7 +783,7 @@ func _start_resource_task(task: GFBackgroundWorkTask) -> void:
 	if error != OK:
 		_fail_task(
 			task,
-			"[GFBackgroundWorkUtility] 发起资源线程加载失败：%s (%d)。" % [path, error],
+			"[GFBackgroundWorkUtility][background_work_utility.resource_load_request_failed] Cannot start threaded resource loading: %s (%d)." % [path, error],
 			{
 				"request_error": error,
 				"reason": (
@@ -856,7 +856,7 @@ func _poll_resource_requests() -> void:
 					if task != null and task.cancel_requested:
 						_cancel_task(task)
 					else:
-						_fail_task(task, "[GFBackgroundWorkUtility] 资源线程加载失败：%s。" % path)
+						_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.resource_load_failed] Threaded resource loading failed: %s." % path)
 				operation.release()
 
 			_RESOURCE_LEASE_SCRIPT.STATUS_CANCELLED:
@@ -875,7 +875,7 @@ func _finish_resource_task(task: GFBackgroundWorkTask, resource: Resource) -> vo
 		_cancel_task(task)
 		return
 	if resource == null:
-		_fail_task(task, "[GFBackgroundWorkUtility] 资源线程加载完成但结果为空：%s。" % task.resource_path)
+		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.resource_load_result_null] Threaded resource loading completed with a null result: %s." % task.resource_path)
 		return
 
 	task.result = resource

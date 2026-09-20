@@ -422,7 +422,7 @@ func test_attribute_current_value_is_read_only() -> void:
 
 	attr.current_value.set_value(999.0)
 
-	assert_push_error("[GFReadOnlyBindableProperty] 当前属性为只读视图，请通过宿主对象修改其值。")
+	assert_push_error("[GFReadOnlyBindableProperty][read_only_bindable_property.read_only] This property is a read-only view; modify its value through the owning object.")
 	assert_eq(_attribute_value(attr), 10.0, "外部不应绕过 GFModifiedAttribute 直接改写 current_value。")
 	assert_signal_not_emitted(attr.current_value, "value_changed", "只读视图拒绝直接写入时不应发出变化信号。")
 
@@ -449,7 +449,7 @@ func test_tag_component_rejects_invalid_remove_count() -> void:
 
 	tc.remove_tag(&"Stun", -2)
 
-	assert_push_warning("[GFTagComponent] remove_tag 收到无效层数，请传入正数或 -1。")
+	assert_push_warning("[GFTagComponent][tag_component.invalid_removal_count] remove_tag received an invalid stack count; use a positive number or -1.")
 	assert_eq(tc.get_tag_count(&"Stun"), 2, "无效移除层数不应反向增加标签层数。")
 
 

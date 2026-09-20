@@ -114,7 +114,7 @@ func test_identify_rejects_oversized_client_id_before_event_encoding() -> void:
 	_analytics.identify("x".repeat(4097))
 
 	assert_eq(_analytics.get_client_id(), original_client_id, "超长 client_id 不得替换稳定客户端标识。")
-	assert_push_warning("[GFAnalyticsUtility] client_id must contain 1..4096 characters without C0/DEL controls.")
+	assert_push_warning("[GFAnalyticsUtility][analytics_utility.client_id_invalid] client_id must contain 1..4096 characters without C0/DEL controls.")
 
 
 func test_identify_and_legacy_track_reject_c0_and_del_controls() -> void:
@@ -125,8 +125,8 @@ func test_identify_and_legacy_track_reject_c0_and_del_controls() -> void:
 
 	assert_eq(_analytics.get_client_id(), original_client_id, "控制字符 client_id 不得替换稳定客户端标识。")
 	assert_eq(_analytics.get_queue_size(), 0, "控制字符事件名不得进入 Analytics 队列。")
-	assert_push_warning("[GFAnalyticsUtility] client_id must contain 1..4096 characters without C0/DEL controls.")
-	assert_push_warning("[GFAnalyticsUtility] event_name contains control characters.")
+	assert_push_warning("[GFAnalyticsUtility][analytics_utility.client_id_invalid] client_id must contain 1..4096 characters without C0/DEL controls.")
+	assert_push_warning("[GFAnalyticsUtility][analytics_utility.event_name_control_characters] event_name contains control characters.")
 
 
 func test_legacy_track_payload_does_not_gain_version_identity_fields() -> void:
@@ -417,8 +417,8 @@ func test_analytics_headers_reject_invalid_entries() -> void:
 
 	assert_eq(headers.size(), 2, "只应包含默认 Content-Type 和合法自定义 Header。")
 	assert_true(headers.has("X-Ok: yes"), "合法 Header 应保留。")
-	assert_push_warning("[GFAnalyticsConfig] 忽略非法 HTTP Header：X-Bad\\r\\nInjected")
-	assert_push_warning("[GFAnalyticsConfig] 忽略非法 HTTP Header：")
+	assert_push_warning("[GFAnalyticsConfig][analytics_config.header_invalid] Ignored invalid HTTP header: X-Bad\\r\\nInjected.")
+	assert_push_warning("[GFAnalyticsConfig][analytics_config.header_invalid] Ignored invalid HTTP header: .")
 
 
 func test_analytics_headers_enforce_http_field_grammar() -> void:
@@ -436,9 +436,9 @@ func test_analytics_headers_enforce_http_field_grammar() -> void:
 	assert_eq(headers.size(), 3, "只应保留默认 Header 和两个协议合法字段。")
 	assert_true(headers.has("X-Tab: one\ttwo"), "字段值应允许 HTTP 线性制表符。")
 	assert_true(headers.has("X-Utf8: 中文"), "无控制字符的 UTF-8 字段值应保持。")
-	assert_push_warning("[GFAnalyticsConfig] 忽略非法 HTTP Header：X:Colon")
-	assert_push_warning("[GFAnalyticsConfig] 忽略非法 HTTP Header：X Space")
-	assert_push_warning("[GFAnalyticsConfig] 忽略非法 HTTP Header：X-Control")
+	assert_push_warning("[GFAnalyticsConfig][analytics_config.header_invalid] Ignored invalid HTTP header: X:Colon.")
+	assert_push_warning("[GFAnalyticsConfig][analytics_config.header_invalid] Ignored invalid HTTP header: X Space.")
+	assert_push_warning("[GFAnalyticsConfig][analytics_config.header_invalid] Ignored invalid HTTP header: X-Control.")
 
 
 func test_analytics_headers_apply_bounded_custom_header_budget() -> void:
@@ -449,7 +449,7 @@ func test_analytics_headers_apply_bounded_custom_header_budget() -> void:
 	var headers: PackedStringArray = config.build_headers()
 
 	assert_eq(headers.size(), 65, "结果最多应包含默认 Header 和 64 个自定义 Header。")
-	assert_push_warning("[GFAnalyticsConfig] 自定义 HTTP Header 数量超过 64，已忽略剩余字段。")
+	assert_push_warning("[GFAnalyticsConfig][analytics_config.header_count_limit] Custom HTTP header count exceeds 64; remaining fields ignored.")
 
 
 func test_analytics_headers_apply_byte_budgets() -> void:
@@ -461,7 +461,7 @@ func test_analytics_headers_apply_byte_budgets() -> void:
 	var oversized_headers: PackedStringArray = oversized_config.build_headers()
 
 	assert_eq(oversized_headers.size(), 1, "超过单字段字节预算的 Header 不得进入请求。")
-	assert_push_warning("[GFAnalyticsConfig] 忽略非法 HTTP Header：X-Oversized")
+	assert_push_warning("[GFAnalyticsConfig][analytics_config.header_invalid] Ignored invalid HTTP header: X-Oversized.")
 
 	var total_config: GFAnalyticsConfig = GFAnalyticsConfig.new()
 	for index: int in range(9):
@@ -470,7 +470,7 @@ func test_analytics_headers_apply_byte_budgets() -> void:
 	var total_headers: PackedStringArray = total_config.build_headers()
 
 	assert_eq(total_headers.size(), 9, "总预算应只允许默认 Header 和前八个大字段。")
-	assert_push_warning("[GFAnalyticsConfig] 自定义 HTTP Header 总字节数超过 65536，已忽略剩余字段。")
+	assert_push_warning("[GFAnalyticsConfig][analytics_config.header_bytes_limit] Custom HTTP headers exceed 65536 bytes; remaining fields ignored.")
 
 
 func test_analytics_headers_reject_case_insensitive_duplicates() -> void:
@@ -485,7 +485,7 @@ func test_analytics_headers_reject_case_insensitive_duplicates() -> void:
 	assert_eq(headers.size(), 2, "同名 Header 只能保留一个大小写变体。")
 	assert_true(headers.has("X-Trace: first"), "应保留第一个合法 Header。")
 	assert_false(headers.has("x-trace: second"), "后续大小写重复字段必须拒绝。")
-	assert_push_warning("[GFAnalyticsConfig] 忽略重复 HTTP Header：x-trace")
+	assert_push_warning("[GFAnalyticsConfig][analytics_config.header_duplicate] Ignored duplicate HTTP header: x-trace.")
 
 
 ## 验证启用压缩时会固定 Content-Encoding，避免自定义 Header 和请求体不一致。
@@ -502,7 +502,7 @@ func test_analytics_headers_add_gzip_when_payload_compression_enabled() -> void:
 	assert_true(headers.has("Content-Encoding: gzip"), "启用压缩后应声明 gzip 请求体。")
 	assert_false(headers.has("Content-Encoding: identity"), "自定义 Content-Encoding 不应覆盖压缩配置。")
 	assert_true(headers.has("X-Trace: abc"), "其他合法自定义 Header 应保留。")
-	assert_push_warning("[GFAnalyticsConfig] compress_payload 已启用，忽略自定义 Content-Encoding。")
+	assert_push_warning("[GFAnalyticsConfig][analytics_config.content_encoding_override] compress_payload is enabled; custom Content-Encoding ignored.")
 
 
 func test_analytics_headers_reject_custom_content_type() -> void:
@@ -517,7 +517,7 @@ func test_analytics_headers_reject_custom_content_type() -> void:
 	assert_eq(headers.count("Content-Type: application/json"), 1, "Content-Type 应固定为 application/json 且不重复。")
 	assert_false(headers.has("Content-Type: text/plain"), "自定义 Content-Type 不应覆盖 JSON payload 契约。")
 	assert_true(headers.has("X-Trace: abc"), "其他合法 Header 应保留。")
-	assert_push_warning("[GFAnalyticsConfig] 忽略自定义 Content-Type；analytics payload 固定为 application/json。")
+	assert_push_warning("[GFAnalyticsConfig][analytics_config.content_type_override] Ignored custom Content-Type; analytics payloads use application/json.")
 
 
 ## 验证运行时代码写入非法批量配置时会被钳制，不会破坏队列。
@@ -555,7 +555,7 @@ func test_overlong_event_name_is_rejected_before_queueing() -> void:
 	_analytics.track(event_name)
 
 	assert_eq(_analytics.get_queue_size(), 0, "超过默认事件名预算的事件不得进入队列。")
-	assert_push_warning("[GFAnalyticsUtility] event_name exceeds max_event_name_length.")
+	assert_push_warning("[GFAnalyticsUtility][analytics_utility.event_name_length_limit] event_name exceeds max_event_name_length.")
 
 
 func test_excessive_top_level_properties_are_rejected_before_queueing() -> void:
@@ -566,7 +566,7 @@ func test_excessive_top_level_properties_are_rejected_before_queueing() -> void:
 	_analytics.track(&"too_wide", properties)
 
 	assert_eq(_analytics.get_queue_size(), 0, "超过顶层属性预算的事件不得进入队列。")
-	assert_push_warning("[GFAnalyticsUtility] properties exceed max_property_count.")
+	assert_push_warning("[GFAnalyticsUtility][analytics_utility.property_count_limit] properties exceed max_property_count.")
 
 
 func test_disabled_or_local_only_init_does_not_persist_client_id() -> void:
@@ -618,7 +618,7 @@ func test_invalid_client_id_storage_scheme_is_reported_and_not_used() -> void:
 	analytics.init()
 
 	assert_false(analytics.get_client_id().is_empty(), "非法持久化路径不应阻止生成内存 client id。")
-	assert_push_warning("[GFAnalyticsUtility] client_id_storage_path must stay under user:// without parent traversal.")
+	assert_push_warning("[GFAnalyticsUtility][analytics_utility.client_id_path_invalid] client_id_storage_path must stay under user:// without parent traversal.")
 	analytics.dispose()
 
 

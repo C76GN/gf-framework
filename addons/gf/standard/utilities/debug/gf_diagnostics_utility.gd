@@ -769,7 +769,7 @@ func publish_snapshot_section(owner: Object, section_id: StringName, section: Di
 	if owner == null or section_id == &"":
 		return false
 	if _is_reserved_snapshot_section_id(section_id):
-		push_warning("[GFDiagnosticsUtility] 快照分区使用了保留字段，已拒绝：%s。" % String(section_id))
+		push_warning("[GFDiagnosticsUtility][diagnostics_utility.snapshot_partition_reserved_field] Snapshot partition uses a reserved field and was rejected: %s." % String(section_id))
 		return false
 	if not _can_register_owned_entry(_snapshot_sections, section_id, owner):
 		return false
@@ -1047,7 +1047,7 @@ func publish_tool_snapshot(owner: Object, tool_id: StringName, snapshot: Diction
 	if owner == null or tool_id == &"":
 		return false
 	if _is_builtin_tool_snapshot_id(tool_id):
-		push_warning("[GFDiagnosticsUtility] 工具快照使用了内置字段，已拒绝：%s。" % String(tool_id))
+		push_warning("[GFDiagnosticsUtility][diagnostics_utility.tool_snapshot_reserved_field] Tool snapshot uses a built-in field and was rejected: %s." % String(tool_id))
 		return false
 	if not _can_register_owned_entry(_tool_snapshots, tool_id, owner):
 		return false
@@ -2628,7 +2628,7 @@ func _register_builtin_monitor(
 ) -> void:
 	var provider: Callable = Callable(self, method_name)
 	if not provider.is_valid():
-		push_warning("Failed to register built-in diagnostic monitor: %s" % String(monitor_id))
+		push_warning("[GFDiagnosticsUtility][diagnostics_utility.builtin_monitor_registration_failed] Failed to register built-in diagnostic monitor: %s." % String(monitor_id))
 		return
 	var existing_entry: Dictionary = _get_dictionary_entry(_monitors, monitor_id)
 	var order: int = GFVariantData.get_option_int(existing_entry, "order", _monitor_order_counter)
@@ -2651,7 +2651,7 @@ func _register_builtin_monitor(
 
 func _register_builtin_monitor_preset(preset_id: StringName, monitor_ids: PackedStringArray, label: String) -> void:
 	if not register_monitor_preset(preset_id, monitor_ids, { "label": label }):
-		push_warning("Failed to register built-in diagnostic monitor preset: %s" % String(preset_id))
+		push_warning("[GFDiagnosticsUtility][diagnostics_utility.builtin_monitor_preset_registration_failed] Failed to register built-in diagnostic monitor preset: %s." % String(preset_id))
 
 
 func _sample_monitor(monitor_id: StringName, entry: Dictionary) -> Dictionary:
@@ -3111,13 +3111,13 @@ func _normalize_parameter_schema(parameters: Variant) -> Array[Dictionary]:
 		for key: Variant in parameter_map.keys():
 			if not (key is String or key is StringName):
 				result.append(_make_invalid_parameter_schema(
-					"命令参数 schema Dictionary 的键必须是 String 或 StringName。"
+					"Command argument schema Dictionary keys must be String or StringName values."
 				))
 				continue
 			var raw_definition: Variant = parameter_map[key]
 			if not raw_definition is Dictionary:
 				result.append(_make_invalid_parameter_schema(
-					"命令参数 schema Dictionary 的值必须是 Dictionary。"
+					"Command argument schema Dictionary values must be Dictionary values."
 				))
 				continue
 			var raw_definition_dictionary: Dictionary = raw_definition
@@ -3132,11 +3132,11 @@ func _normalize_parameter_schema(parameters: Variant) -> Array[Dictionary]:
 				result.append(_normalize_parameter_definition(item_definition.duplicate(true)))
 			else:
 				result.append(_make_invalid_parameter_schema(
-					"命令参数 schema Array 的每一项都必须是 Dictionary。"
+					"Each command argument schema Array item must be a Dictionary."
 				))
 	else:
 		result.append(_make_invalid_parameter_schema(
-			"命令参数 schema 顶层必须是 Array 或 Dictionary。"
+			"Command argument schema must be an Array or Dictionary at the top level."
 		))
 	return result
 
@@ -3318,28 +3318,28 @@ func _is_command_parameter_schema_valid(parameters: Array[Dictionary]) -> bool:
 			_COMMAND_PARAMETER_SCHEMA_ERROR_KEY
 		)
 		if not schema_error.is_empty():
-			push_error("[GFDiagnosticsUtility] %s" % schema_error)
+			push_error("[GFDiagnosticsUtility][diagnostics_utility.argument_schema_invalid] Command argument schema is invalid: %s." % schema_error)
 			return false
 		var parameter_name: String = GFVariantData.get_option_string(parameter, "name")
 		var type_name: String = GFVariantData.get_option_string(parameter, "type", "any").to_lower()
 		if parameter_name.is_empty():
-			push_error("[GFDiagnosticsUtility] 命令参数 schema 包含空名称。")
+			push_error("[GFDiagnosticsUtility][diagnostics_utility.argument_name_empty] Command argument schema contains an empty name.")
 			return false
 		if _COMMAND_AUTH_ARGUMENT_NAMES.has(parameter_name):
 			push_error(
-				"[GFDiagnosticsUtility] 命令参数 schema 不得声明保留认证字段：%s。"
+				"[GFDiagnosticsUtility][diagnostics_utility.authentication_field_reserved] Command argument schema must not declare a reserved authentication field: %s."
 				% parameter_name
 			)
 			return false
 		if used_names.has(parameter_name):
 			push_error(
-				"[GFDiagnosticsUtility] 命令参数 schema 包含重复名称：%s。"
+				"[GFDiagnosticsUtility][diagnostics_utility.argument_name_duplicate] Command argument schema contains a duplicate name: %s."
 				% parameter_name
 			)
 			return false
 		if not _COMMAND_PARAMETER_TYPES.has(type_name):
 			push_error(
-				"[GFDiagnosticsUtility] 命令参数 schema 使用未知类型：%s。"
+				"[GFDiagnosticsUtility][diagnostics_utility.argument_type_unknown] Command argument schema uses an unknown type: %s."
 				% type_name
 			)
 			return false

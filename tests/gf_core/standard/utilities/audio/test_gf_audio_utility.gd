@@ -1110,8 +1110,8 @@ func test_play_bgm_with_options_rejects_reserved_region_keys_before_backend_disp
 	var snapshot: Dictionary = _audio.get_debug_snapshot()
 
 	assert_push_warning(
-		"[GFAudioUtility] play_bgm_with_options 不接受 loop 或 playback_region；"
-		+ "请使用 GFAudioClip.playback_region 表达唯一的循环契约。"
+		"[GFAudioUtility][audio_utility.play_bgm_options_unsupported] play_bgm_with_options does not accept loop or playback_region; "
+		+ "use GFAudioClip.playback_region as the sole looping contract."
 	)
 	assert_true(backend.played_bgm_paths.is_empty(), "保留的区间键必须在后端派发前被拒绝。")
 	assert_true(backend.last_bgm_options.is_empty(), "被拒绝的保留键不得进入后端请求。")
@@ -2102,7 +2102,7 @@ func test_audio_bank_retained_mounts_are_globally_bounded_and_atomic() -> void:
 		0,
 		"第 1025 个保留挂载必须失败关闭。"
 	)
-	assert_push_error("[GFAudioUtility] mount_audio_bank 失败：挂载保留容量已达上限。")
+	assert_push_error("[GFAudioUtility][audio_utility.mount_reservation_limit] Cannot mount_audio_bank: mount reservation capacity limit reached.")
 	assert_eq(
 		_audio._audio_bank_mount_token,
 		token_before_rejection,
@@ -2167,7 +2167,7 @@ func test_audio_bank_active_id_capacity_rejects_new_state_atomically() -> void:
 	assert_eq(_audio._audio_banks.size(), 1024)
 
 	_audio.register_audio_bank(&"overflow", GFAudioBank.new())
-	assert_push_error("[GFAudioUtility] register_audio_bank 失败：注册表容量已达上限。")
+	assert_push_error("[GFAudioUtility][audio_utility.register_bank_capacity_limit] Cannot register_audio_bank: registry capacity limit reached.")
 	assert_false(_audio._audio_banks.has(&"overflow"))
 	assert_true(_audio._audio_bank_mount_stacks.is_empty())
 	assert_true(_audio._audio_bank_base_values.is_empty())
@@ -2179,7 +2179,7 @@ func test_audio_bank_active_id_capacity_rejects_new_state_atomically() -> void:
 		0,
 		"第 1025 个活动 Bank ID 不得通过临时挂载进入注册表。"
 	)
-	assert_push_error("[GFAudioUtility] mount_audio_bank 失败：注册表容量已达上限。")
+	assert_push_error("[GFAudioUtility][audio_utility.mount_bank_capacity_limit] Cannot mount_audio_bank: registry capacity limit reached.")
 	assert_false(_audio._audio_banks.has(&"overflow"))
 	assert_true(_audio._audio_bank_mount_stacks.is_empty())
 	assert_true(_audio._audio_bank_base_values.is_empty())
@@ -2377,14 +2377,14 @@ func test_audio_event_rejects_reserved_region_keys_before_backend_dispatch() -> 
 		{"playback_region": GFAudioPlaybackRegion.new()}
 	)
 	assert_push_warning(
-		"[GFAudioUtility] post_audio_event 不接受 metadata/options 中的 "
-		+ "loop 或 playback_region；请使用 GFAudioClip.playback_region。"
+		"[GFAudioUtility][audio_utility.event_options_unsupported] post_audio_event does not accept the following metadata/options fields: "
+		+ "loop or playback_region; use GFAudioClip.playback_region."
 	)
 	event.metadata["loop"] = true
 	var metadata_handle: GFAudioEmitterHandle = _audio.post_audio_event(event)
 	assert_push_warning(
-		"[GFAudioUtility] post_audio_event 不接受 metadata/options 中的 "
-		+ "loop 或 playback_region；请使用 GFAudioClip.playback_region。"
+		"[GFAudioUtility][audio_utility.event_options_unsupported] post_audio_event does not accept the following metadata/options fields: "
+		+ "loop or playback_region; use GFAudioClip.playback_region."
 	)
 
 	assert_null(options_handle)
@@ -3513,7 +3513,7 @@ func test_audio_catalog_provider_ignores_unknown_catalog_ids() -> void:
 	var catalog: GFAudioCatalogProvider = GFAudioCatalogProvider.new()
 
 	catalog.set_entry(&"parameter", &"intensity", { "min": 0.0 })
-	assert_push_warning("[GFAudioCatalogProvider] 未知音频目录：parameter。")
+	assert_push_warning("[GFAudioCatalogProvider][audio_catalog_provider.catalog_unknown] Unknown audio catalog: parameter.")
 
 	assert_eq(catalog.get_ids(&"events"), PackedStringArray(), "未知目录 ID 不应默认写入 events。")
 	assert_eq(catalog.get_ids(&"parameter"), PackedStringArray(), "未知目录 ID 查询应返回空列表。")
@@ -5014,8 +5014,8 @@ func test_architecture_dispose_forces_audio_terminal_state_and_restores_duck_bus
 	architecture.dispose()
 
 	assert_push_warning(
-		"[GFAudioUtility] dispose 强制终结：后端拒绝停止或正在回调，"
-		+ "将解除内部 owner 并继续释放生命周期资源。"
+		"[GFAudioUtility][audio_utility.dispose_stop_forced] dispose forced completion: the backend rejected stopping or is executing a callback; "
+		+ "the internal owner will be released and lifecycle resource cleanup will continue."
 	)
 	assert_true(architecture.is_disposed(), "架构 dispose 不得被音频后端拒绝卡住。")
 	assert_true(backend.disposed, "生命周期终结仍应 dispose 当前后端。")
@@ -5831,8 +5831,8 @@ func test_backend_detach_and_replace_retry_but_dispose_forces_terminal_state() -
 
 	_audio.dispose()
 	assert_push_warning(
-		"[GFAudioUtility] dispose 强制终结：后端拒绝停止或正在回调，"
-		+ "将解除内部 owner 并继续释放生命周期资源。"
+		"[GFAudioUtility][audio_utility.dispose_stop_forced] dispose forced completion: the backend rejected stopping or is executing a callback; "
+		+ "the internal owner will be released and lifecycle resource cleanup will continue."
 	)
 	assert_null(_audio.get_audio_backend(), "dispose 必须解除后端引用。")
 	assert_true(backend.disposed, "dispose 必须继续释放拒绝停止的后端。")

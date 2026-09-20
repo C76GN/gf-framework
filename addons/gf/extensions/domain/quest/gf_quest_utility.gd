@@ -165,11 +165,11 @@ func dispose() -> void:
 ## @param target_count: 完成任务所需的累计次数。
 func start_quest(quest_id: StringName, target_event: StringName, target_count: int = 1) -> void:
 	if quest_id == &"" or target_event == &"":
-		push_error("[GFQuestUtility] quest_id 和 target_event 不能为空。")
+		push_error("[GFQuestUtility][quest_utility.empty_quest_event] quest_id and target_event must not be empty.")
 		return
 
 	if _quests.has(quest_id):
-		push_warning("[GFQuestUtility] 任务已存在：%s" % quest_id)
+		push_warning("[GFQuestUtility][quest_utility.duplicate_quest] Quest already exists: %s." % quest_id)
 		return
 
 	var data: _QuestData = _create_quest_data(quest_id, target_event, target_count, {})
@@ -207,10 +207,10 @@ func define_quest(
 	metadata: Dictionary = {}
 ) -> void:
 	if quest_id == &"" or target_event == &"":
-		push_error("[GFQuestUtility] quest_id 和 target_event 不能为空。")
+		push_error("[GFQuestUtility][quest_utility.empty_quest_event] quest_id and target_event must not be empty.")
 		return
 	if _quests.has(quest_id):
-		push_warning("[GFQuestUtility] 任务已存在：%s" % quest_id)
+		push_warning("[GFQuestUtility][quest_utility.duplicate_quest] Quest already exists: %s." % quest_id)
 		return
 
 	var data: _QuestData = _create_quest_data(quest_id, target_event, target_count, metadata)
@@ -233,7 +233,7 @@ func accept_quest(quest_id: StringName) -> bool:
 	if data._status == STATUS_ACTIVE:
 		return true
 	if data._event_id == &"":
-		push_error("[GFQuestUtility] accept_quest 失败：target_event 为空。")
+		push_error("[GFQuestUtility][quest_utility.empty_target_event] accept_quest failed: target_event is empty.")
 		return false
 	var acceptance_result: Dictionary = _check_conditions(data._acceptance_conditions, data)
 	if not _is_current_quest_in_status(data, STATUS_AVAILABLE):
@@ -616,7 +616,7 @@ func _payload_to_amount(payload: Variant) -> int:
 			break
 		depth += 1
 		if depth > 16:
-			push_error("[GFQuestUtility] payload.amount 嵌套过深，已回退为默认进度 1。")
+			push_error("[GFQuestUtility][quest_utility.amount_depth_exceeded] payload.amount is nested too deeply; progress defaults to 1.")
 			return 1
 		current_payload = payload_dictionary["amount"]
 
@@ -626,10 +626,10 @@ func _payload_to_amount(payload: Variant) -> int:
 	if current_payload is float:
 		var float_amount: float = current_payload
 		if is_nan(float_amount) or is_inf(float_amount):
-			push_error("[GFQuestUtility] payload.amount 必须是有限数，已回退为默认进度 1。")
+			push_error("[GFQuestUtility][quest_utility.nonfinite_amount] payload.amount must be finite; progress defaults to 1.")
 			return 1
 		if float_amount >= _INT64_UPPER_EXCLUSIVE_AS_FLOAT or float_amount < _INT64_MIN_AS_FLOAT:
-			push_error("[GFQuestUtility] payload.amount 超出 int64 范围，已回退为默认进度 1。")
+			push_error("[GFQuestUtility][quest_utility.amount_out_of_range] payload.amount exceeds the int64 range; progress defaults to 1.")
 			return 1
 		return roundi(float_amount)
 

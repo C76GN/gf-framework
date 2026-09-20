@@ -249,17 +249,17 @@ func start() -> GFSignalConnection:
 	if _is_connected:
 		return self
 	if _source_signal.is_null():
-		push_error("[GFSignalConnection] start 失败：Signal 为空。")
+		push_error("[GFSignalConnection][signal_connection.signal_null] Cannot start: Signal is null.")
 		return self
 	var source_object: Object = _source_signal.get_object()
 	if not is_instance_valid(source_object):
-		push_error("[GFSignalConnection] start 失败：Signal 来源无效。")
+		push_error("[GFSignalConnection][signal_connection.signal_source_invalid] Cannot start: Signal source is invalid.")
 		return self
 	if not _callback.is_valid():
-		push_error("[GFSignalConnection] start 失败：callback 无效。")
+		push_error("[GFSignalConnection][signal_connection.callback_invalid] Cannot start: callback is invalid.")
 		return self
 	if _source_signal.is_connected(_on_signal_emitted):
-		push_error("[GFSignalConnection] start 失败：Signal 已连接。")
+		push_error("[GFSignalConnection][signal_connection.signal_already_connected] Cannot start: Signal is already connected.")
 		return self
 
 	var connect_error: Error = _source_signal.connect(
@@ -267,7 +267,7 @@ func start() -> GFSignalConnection:
 		_connect_flags as Object.ConnectFlags
 	) as Error
 	if connect_error != OK:
-		push_error("[GFSignalConnection] start 失败：Signal connect 返回 %d。" % int(connect_error))
+		push_error("[GFSignalConnection][signal_connection.signal_connect_failed] Cannot start: Signal connect returned %d." % int(connect_error))
 		return self
 	_is_connected = true
 	return self
@@ -527,7 +527,7 @@ func _collect_args(raw_args: Array) -> Array:
 	var declared_count: int = _get_source_signal_argument_count()
 	if declared_count >= 0:
 		if declared_count > _MAX_SIGNAL_ARGUMENTS:
-			push_warning("[GFSignalConnection] 信号连接当前最多捕获 %d 个参数。" % _MAX_SIGNAL_ARGUMENTS)
+			push_warning("[GFSignalConnection][signal_connection.signal_argument_limit] Signal connection capture supports at most %d arguments." % _MAX_SIGNAL_ARGUMENTS)
 		return raw_args.slice(0, mini(declared_count, raw_args.size()))
 
 	var args: Array = raw_args.duplicate()

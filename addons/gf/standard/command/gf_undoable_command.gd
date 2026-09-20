@@ -138,7 +138,7 @@ func set_snapshot(data: Variant) -> bool:
 		"items": 0,
 	}
 	if not _is_snapshot_value_supported(data, 0, validation_state):
-		push_error("[GFUndoableCommand] 快照必须是有界的纯 Variant 数据，不能包含运行时引用或递归结构。")
+		push_error("[GFUndoableCommand][undoable_command.snapshot_invalid] Snapshots must contain bounded plain Variant data without runtime references or recursive structures.")
 		return false
 	_snapshot = GFVariantData.duplicate_variant(data, true, false)
 	return true

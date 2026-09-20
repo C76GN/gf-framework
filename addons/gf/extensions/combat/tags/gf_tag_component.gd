@@ -64,7 +64,7 @@ func remove_tag(p_tag: StringName, p_count: int = 1) -> void:
 		return
 
 	if p_count <= 0:
-		push_warning("[GFTagComponent] remove_tag 收到无效层数，请传入正数或 -1。")
+		push_warning("[GFTagComponent][tag_component.invalid_removal_count] remove_tag received an invalid stack count; use a positive number or -1.")
 		return
 
 	var current: int = _tags[p_tag]

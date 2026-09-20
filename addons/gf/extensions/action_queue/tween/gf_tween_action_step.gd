@@ -127,7 +127,7 @@ func append_to_tween(tween: Tween, target: Object, duration_scale: float = 1.0) 
 func apply_instant(target: Object) -> void:
 	var validation_error: String = get_property_validation_error(target)
 	if not validation_error.is_empty():
-		push_warning("[GFTweenActionStep] 跳过无效即时步骤：%s" % validation_error)
+		push_warning("[GFTweenActionStep][tween_action_step.invalid_immediate_step] Skipped an invalid immediate step: %s." % validation_error)
 		return
 	if as_relative:
 		target.set_indexed(property_name, _resolve_relative_value(target))
@@ -145,7 +145,7 @@ func apply_instant(target: Object) -> void:
 func duplicate_step() -> GFTweenActionStep:
 	var copied_curve: Curve = _EASING_CURVE_SCRIPT.duplicate_curve(easing_curve)
 	if easing_curve != null and copied_curve == null:
-		push_warning("[GFTweenActionStep] 无法复制无效 easing_curve；请先校验步骤。")
+		push_warning("[GFTweenActionStep][tween_action_step.invalid_easing_curve_copy] Cannot duplicate an invalid easing_curve; validate the step first.")
 		return null
 	var step: GFTweenActionStep = GFTweenActionStep.new()
 	step.property_name = property_name
@@ -332,12 +332,12 @@ func _append_validated(tween: Tween, target: Object, duration_scale: float, writ
 		return null
 	var validation_error: String = get_property_validation_error(target)
 	if not validation_error.is_empty():
-		push_warning("[GFTweenActionStep] 跳过无效 Tween 步骤：%s" % validation_error)
+		push_warning("[GFTweenActionStep][tween_action_step.invalid_tween_step] Skipped an invalid Tween step: %s." % validation_error)
 		return null
 	var captured_curve: Dictionary = _EASING_CURVE_SCRIPT.capture(easing_curve)
 	var curve_error: String = GFVariantData.get_option_string(captured_curve, "error")
 	if not curve_error.is_empty():
-		push_warning("[GFTweenActionStep] 跳过无效 Tween 步骤：Invalid easing_curve: %s" % curve_error)
+		push_warning("[GFTweenActionStep][tween_action_step.invalid_easing_curve] Skipped an invalid Tween step: Invalid easing_curve: %s." % curve_error)
 		return null
 	var curve_data: Dictionary = GFVariantData.get_option_dictionary(captured_curve, "data")
 

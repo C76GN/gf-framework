@@ -38,7 +38,7 @@ var _schemas: Dictionary = {}
 ## [br]
 ## @schema return: Variant，子类通常返回记录 Dictionary 或项目自定义记录对象；未命中时可返回 null。
 func get_record(_table_name: StringName, _id: Variant) -> Variant:
-	push_error("[GFConfigProvider] 子类必须实现 get_record() 方法。")
+	push_error("[GFConfigProvider][config_provider.get_record_unimplemented] Subclasses must implement get_record().")
 	return null
 
 
@@ -52,7 +52,7 @@ func get_record(_table_name: StringName, _id: Variant) -> Variant:
 ## [br]
 ## @schema return: Variant，子类通常返回 Array[Dictionary]、Dictionary 或项目自定义表容器；未命中时可返回 null。
 func get_table(_table_name: StringName) -> Variant:
-	push_error("[GFConfigProvider] 子类必须实现 get_table() 方法。")
+	push_error("[GFConfigProvider][config_provider.get_table_unimplemented] Subclasses must implement get_table().")
 	return null
 
 
@@ -65,7 +65,7 @@ func get_table(_table_name: StringName) -> Variant:
 ## @return 注册成功返回 true。
 func register_schema(schema: GFConfigTableSchema) -> bool:
 	if schema == null or schema.get_table_key() == &"":
-		push_error("[GFConfigProvider] register_schema 失败：schema 为空或 table_name 为空。")
+		push_error("[GFConfigProvider][config_provider.schema_registration_invalid] Cannot register_schema: schema is null or table_name is empty.")
 		return false
 
 	_schemas[schema.get_table_key()] = schema.duplicate_schema()

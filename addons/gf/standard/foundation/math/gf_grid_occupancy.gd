@@ -514,7 +514,7 @@ func clear() -> void:
 func _begin_mutation(operation_name: StringName) -> bool:
 	if _mutation_in_progress:
 		push_error(
-			"[GFGridOccupancy] %s 被拒绝：占用事务通知期间不允许重入修改。"
+			"[GFGridOccupancy][grid_occupancy.reentrant_mutation] Rejected %s: reentrant mutation is not allowed during occupancy transaction notifications."
 			% operation_name
 		)
 		return false

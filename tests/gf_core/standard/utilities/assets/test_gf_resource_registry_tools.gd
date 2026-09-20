@@ -72,7 +72,7 @@ func test_scan_resource_paths_respects_extension_and_count_limits() -> void:
 	_remove_user_dir(nested_path)
 	_remove_user_dir(root_path)
 
-	assert_push_warning("[GFResourceRegistryTools] scan_resource_paths 已达到 max_resource_paths=1，后续资源已跳过。")
+	assert_push_warning("[GFResourceRegistryTools][resource_registry_tools.resource_path_limit] scan_resource_paths reached max_resource_paths=1; remaining resources were skipped.")
 	assert_eq(paths.size(), 1, "资源扫描应遵守 max_resource_paths 上限。")
 
 
@@ -237,7 +237,7 @@ func test_collect_dependency_paths_respects_limit() -> void:
 	_remove_user_file(root_path)
 	_remove_user_file(dependency_path)
 
-	assert_push_warning("[GFResourceRegistryTools] collect_dependency_paths 已达到 max_dependency_paths=1，后续依赖已跳过。")
+	assert_push_warning("[GFResourceRegistryTools][resource_registry_tools.dependency_path_limit] collect_dependency_paths reached max_dependency_paths=1; remaining dependencies were skipped.")
 	assert_eq(paths.size(), 1, "依赖收集应遵守 max_dependency_paths 上限。")
 
 

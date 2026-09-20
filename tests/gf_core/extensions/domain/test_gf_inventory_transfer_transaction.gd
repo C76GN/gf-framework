@@ -445,7 +445,7 @@ func test_transfer_rule_callback_is_read_only_and_reentrant_mutation_fails_close
 	assert_true(rule_probe.attempted, "规划必须同步调用目标槽规则。")
 	assert_true(transaction.is_prepared(), "被拒绝的规则重入不得污染外层规划。")
 	assert_true(target.is_slot_empty(0), "prepare 不得产生目标写入。")
-	assert_push_error("[GFSlotInventoryModel] clear 失败：库存原子转移期间不允许同步修改库存。请在事务终态后再修改。")
+	assert_push_error("[GFSlotInventoryModel][slot_inventory_model.mutation_during_transfer] clear failed: inventory cannot be modified synchronously during an atomic transfer. Wait until the transaction reaches a terminal state.")
 
 
 func test_transfer_rule_reentrant_commit_fails_closed_once() -> void:
@@ -543,9 +543,9 @@ func test_cross_inventory_signals_observe_both_new_states_and_reject_mutation() 
 	assert_eq(observations, ["source:1:2", "target:1:2", "terminal:1:2"])
 	assert_eq(source.get_item_total(&"ore"), 1)
 	assert_eq(target.get_item_total(&"ore"), 2)
-	assert_push_error("[GFSlotInventoryModel] clear 失败：库存原子转移期间不允许同步修改库存。请在事务终态后再修改。")
-	assert_push_error("[GFSlotInventoryModel] clear 失败：库存原子转移期间不允许同步修改库存。请在事务终态后再修改。")
-	assert_push_error("[GFSlotInventoryModel] clear 失败：库存原子转移期间不允许同步修改库存。请在事务终态后再修改。")
+	assert_push_error("[GFSlotInventoryModel][slot_inventory_model.mutation_during_transfer] clear failed: inventory cannot be modified synchronously during an atomic transfer. Wait until the transaction reaches a terminal state.")
+	assert_push_error("[GFSlotInventoryModel][slot_inventory_model.mutation_during_transfer] clear failed: inventory cannot be modified synchronously during an atomic transfer. Wait until the transaction reaches a terminal state.")
+	assert_push_error("[GFSlotInventoryModel][slot_inventory_model.mutation_during_transfer] clear failed: inventory cannot be modified synchronously during an atomic transfer. Wait until the transaction reaches a terminal state.")
 	source.item_removed.disconnect(source_removed_callback)
 	target.item_added.disconnect(target_added_callback)
 	transaction.completed.disconnect(completed_callback)
@@ -652,7 +652,7 @@ func test_slot_definition_array_requires_exact_slot_count_and_rejects_atomically
 
 	inventory.slot_definitions = [slot_rule]
 
-	assert_push_error("[GFSlotInventoryModel] slot_definitions 失败：规则数量必须与槽位数量一致")
+	assert_push_error("[GFSlotInventoryModel][slot_inventory_model.slot_definition_count_mismatch] slot_definitions failed: the rule count must match the slot count.")
 	assert_eq(inventory.slot_definitions.size(), 2)
 	assert_null(inventory.get_slot_definition(0))
 	assert_null(inventory.get_slot_definition(1))
@@ -679,7 +679,7 @@ func test_growth_appends_only_unrestricted_null_slot_definitions() -> void:
 
 	inventory.slot_definitions = [future_rule]
 
-	assert_push_error("[GFSlotInventoryModel] slot_definitions 失败：规则数量必须与槽位数量一致")
+	assert_push_error("[GFSlotInventoryModel][slot_inventory_model.slot_definition_count_mismatch] slot_definitions failed: the rule count must match the slot count.")
 	assert_eq(inventory.get_revision(), revision)
 	assert_eq(inventory.slot_definitions.size(), 0)
 	assert_eq(signal_count[0], 0)

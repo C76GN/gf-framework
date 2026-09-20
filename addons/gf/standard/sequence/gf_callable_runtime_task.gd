@@ -209,7 +209,7 @@ func is_finished() -> bool:
 		if _invalid_finished_result_generation != generation:
 			_invalid_finished_result_generation = generation
 			push_warning(
-				"[GFCallableRuntimeTask] finished_callable 必须返回 bool；无效结果按 false 处理。"
+				"[GFCallableRuntimeTask][callable_runtime_task.finished_result_not_bool] finished_callable must return bool; invalid results are treated as false."
 			)
 	return false
 

@@ -580,7 +580,7 @@ func gather_scope(scope: GFSaveScope, context: Dictionary = {}) -> Dictionary:
 			return {}
 		var source_key: String = _make_scoped_source_key(scope, source)
 		if source_payloads.has(source_key):
-			var duplicate_source_error: String = "[GFSaveGraphUtility] gather_scope 失败：同一 Scope 内存在重复 Source key：%s" % source_key
+			var duplicate_source_error: String = "[GFSaveGraphUtility][save_graph_utility.duplicate_source_key] gather_scope failed: duplicate Source key within the same Scope: %s." % source_key
 			push_error(duplicate_source_error)
 			pipeline_context.add_error(duplicate_source_error, {
 				"scope_key": String(scope.get_scope_key()),
@@ -611,7 +611,7 @@ func gather_scope(scope: GFSaveScope, context: Dictionary = {}) -> Dictionary:
 			continue
 		var child_payload: Dictionary = gather_scope(child_scope, context)
 		if child_payload.is_empty():
-			var child_gather_error: String = "[GFSaveGraphUtility] gather_scope 失败：子 Scope 采集失败：%s" % String(child_scope.get_scope_key())
+			var child_gather_error: String = "[GFSaveGraphUtility][save_graph_utility.child_gather_failed] gather_scope failed: child Scope gathering failed: %s." % String(child_scope.get_scope_key())
 			push_error(child_gather_error)
 			pipeline_context.add_error(child_gather_error, {
 				"scope_key": String(scope.get_scope_key()),
@@ -620,7 +620,7 @@ func gather_scope(scope: GFSaveScope, context: Dictionary = {}) -> Dictionary:
 			return {}
 		var child_key: String = String(child_scope.get_scope_key())
 		if child_payloads.has(child_key):
-			var duplicate_child_error: String = "[GFSaveGraphUtility] gather_scope 失败：同一 Scope 内存在重复子 Scope key：%s" % child_key
+			var duplicate_child_error: String = "[GFSaveGraphUtility][save_graph_utility.duplicate_child_scope_key] gather_scope failed: duplicate child Scope key within the same Scope: %s." % child_key
 			push_error(duplicate_child_error)
 			pipeline_context.add_error(duplicate_child_error, {
 				"scope_key": String(scope.get_scope_key()),
@@ -2400,7 +2400,7 @@ func _get_storage_utility() -> GFStorageUtility:
 
 func _push_persisted_validation_error(label: String, report: Dictionary) -> void:
 	push_error(
-		"[GFSaveGraphUtility] save_scope 失败：%s 在 %s 不可持久化：%s。" % [
+		"[GFSaveGraphUtility][save_graph_utility.unpersistable_value] save_scope failed: %s at %s cannot be persisted: %s." % [
 			label,
 			GFVariantData.get_option_string(report, "path", "$"),
 			GFVariantData.get_option_string(report, "error", "invalid_value"),

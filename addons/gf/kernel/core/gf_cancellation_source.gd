@@ -324,7 +324,7 @@ static func create_linked(
 	metadata: Dictionary = {}
 ) -> GFCancellationSource:
 	if not Thread.is_main_thread():
-		push_error("[GFCancellationSource] create_linked 失败：只能在主线程调用。")
+		push_error("[GFCancellationSource][cancellation_source.create_linked_main_thread_required] create_linked failed: this operation must run on the main thread.")
 		return null
 
 	var source: GFCancellationSource = GFCancellationSource.new()
@@ -395,7 +395,7 @@ func _get_main_scene_tree() -> SceneTree:
 func _can_mutate_on_current_thread(operation_name: String) -> bool:
 	if Thread.is_main_thread():
 		return true
-	push_error("[GFCancellationSource] %s 失败：只能在主线程调用。" % operation_name)
+	push_error("[GFCancellationSource][cancellation_source.main_thread_required] %s failed: this operation must run on the main thread." % operation_name)
 	return false
 
 

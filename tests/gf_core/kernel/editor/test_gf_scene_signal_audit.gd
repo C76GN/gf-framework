@@ -85,7 +85,7 @@ func test_collect_scene_paths_respects_path_limit() -> void:
 	assert_eq(DirAccess.remove_absolute(ProjectSettings.globalize_path(directory)), OK, "测试应能删除临时目录。")
 
 	assert_eq(paths.size(), 1, "场景路径收集应遵守 max_scene_paths 上限。")
-	assert_push_warning("[GFSceneSignalAudit] collect_scene_paths 已达到 max_scene_paths=1，后续场景已跳过。")
+	assert_push_warning("[GFSceneSignalAudit][scene_signal_audit.scene_limit_reached] collect_scene_paths reached max_scene_paths=1; subsequent scenes were skipped.")
 
 
 func test_build_signal_graph_reports_runtime_connections() -> void:
@@ -153,7 +153,7 @@ func test_build_signal_graph_reports_truncation_when_node_limit_is_reached() -> 
 
 	assert_eq(GF_VARIANT_ACCESS.get_option_int(graph, "node_count"), 1, "信号图应遵守 max_nodes 上限。")
 	assert_true(GF_VARIANT_ACCESS.get_option_bool(graph, "truncated"), "信号图被截断时应返回 truncated 标记。")
-	assert_push_warning("[GFSceneSignalAudit] build_signal_graph 已达到 max_nodes=1，后续节点已跳过。")
+	assert_push_warning("[GFSceneSignalAudit][scene_signal_audit.node_limit_reached] build_signal_graph reached max_nodes=1; subsequent nodes were skipped.")
 
 
 func test_signal_graph_index_groups_runtime_connections() -> void:

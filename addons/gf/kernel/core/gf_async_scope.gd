@@ -68,7 +68,7 @@ func register_cleanup(cleanup_callback: Callable) -> bool:
 	if _completed:
 		return false
 	if not cleanup_callback.is_valid():
-		push_error("[GFAsyncScope] register_cleanup 失败：cleanup_callback 无效。")
+		push_error("[GFAsyncScope][async_scope.cleanup_callback_invalid] register_cleanup failed: cleanup_callback is invalid.")
 		return false
 	if is_cancel_requested():
 		var _cleanup_result: Variant = cleanup_callback.call()

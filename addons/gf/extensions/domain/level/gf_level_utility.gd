@@ -206,7 +206,7 @@ func get_catalog_levels(pack_id: StringName = &"") -> Array[GFLevelEntry]:
 func load_level_data(level_id: Variant) -> Dictionary:
 	var canonical_level_id: StringName = _to_level_id(level_id)
 	if canonical_level_id == &"":
-		push_error("[GFLevelUtility] load_level_data 失败：关卡 ID 为空。")
+		push_error("[GFLevelUtility][level_utility.empty_load_level_id] load_level_data failed: level ID is empty.")
 		return {}
 	var config_provider: GFConfigProvider = _get_config_provider()
 	if config_provider != null:
@@ -253,12 +253,12 @@ func load_level_data(level_id: Variant) -> Dictionary:
 func start_level(level_id: Variant, level_data_override: Dictionary = {}) -> Dictionary:
 	var canonical_level_id: StringName = _to_level_id(level_id)
 	if canonical_level_id == &"":
-		push_error("[GFLevelUtility] start_level 失败：关卡 ID 为空。")
+		push_error("[GFLevelUtility][level_utility.empty_start_level_id] start_level failed: level ID is empty.")
 		return {}
 	var next_override: Dictionary = level_data_override.duplicate(true)
 	var next_data: Dictionary = next_override.duplicate(true) if not next_override.is_empty() else load_level_data(canonical_level_id)
 	if fail_on_missing_level_data and next_data.is_empty():
-		push_error("[GFLevelUtility] 找不到关卡数据：%s" % String(canonical_level_id))
+		push_error("[GFLevelUtility][level_utility.missing_level_data] Level data was not found: %s." % String(canonical_level_id))
 		return {}
 
 	current_level_id = canonical_level_id
@@ -285,7 +285,7 @@ func restart_level(clear_runtime: bool = true) -> Dictionary:
 
 	var next_data: Dictionary = _resolve_level_data(current_level_id)
 	if fail_on_missing_level_data and next_data.is_empty():
-		push_error("[GFLevelUtility] 找不到关卡数据：%s" % GFVariantData.to_text(current_level_id))
+		push_error("[GFLevelUtility][level_utility.missing_level_data] Level data was not found: %s." % GFVariantData.to_text(current_level_id))
 		return {}
 
 	if clear_runtime:

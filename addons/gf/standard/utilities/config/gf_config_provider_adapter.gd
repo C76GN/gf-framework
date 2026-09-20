@@ -76,10 +76,10 @@ var _active_load_failures: Dictionary = {}
 ## @return 注册成功返回 true。
 func register_table_source(table_name: StringName, source: Variant, options: Dictionary = {}) -> bool:
 	if table_name == &"":
-		push_error("[GFConfigProviderAdapter] register_table_source 失败：table_name 为空。")
+		push_error("[GFConfigProviderAdapter][config_provider_adapter.table_name_empty] Cannot register_table_source: table_name is empty.")
 		return false
 	if not _is_supported_source(source):
-		push_error("[GFConfigProviderAdapter] register_table_source 失败：source 类型不受支持。")
+		push_error("[GFConfigProviderAdapter][config_provider_adapter.source_type_unsupported] Cannot register_table_source: source type is unsupported.")
 		return false
 
 	var schema: GFConfigTableSchema = _variant_to_schema(GFVariantData.get_option_value(options, "schema"))
@@ -87,7 +87,7 @@ func register_table_source(table_name: StringName, source: Variant, options: Dic
 	if schema != null:
 		normalized_schema = _normalize_source_schema(table_name, schema)
 		if normalized_schema == null:
-			push_error("[GFConfigProviderAdapter] register_table_source 失败：schema.table_name 与 table_name 不一致。")
+			push_error("[GFConfigProviderAdapter][config_provider_adapter.schema_table_name_mismatch] Cannot register_table_source: schema.table_name does not match table_name.")
 			return false
 
 	unregister_schema(table_name)

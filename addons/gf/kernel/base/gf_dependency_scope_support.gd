@@ -45,7 +45,7 @@ static func _release_scope(scope: Dictionary) -> void:
 
 static func _get_architecture_or_null(scope: Dictionary, owner_label: String) -> GFArchitecture:
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scope, "released"):
-		push_error("[%s] 依赖作用域已释放，无法继续访问架构。" % owner_label)
+		push_error("[GFDependencyScopeSupport][dependency_scope_support.scope_disposed] %s cannot access the architecture because its dependency scope is disposed." % owner_label)
 		return null
 
 	var architecture_ref: WeakRef = _get_scope_architecture_ref_or_null(scope)
@@ -56,7 +56,7 @@ static func _get_architecture_or_null(scope: Dictionary, owner_label: String) ->
 				return null
 			return architecture
 		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scope, "was_bound"):
-			push_error("[%s] 注入的架构已失效，无法回退到全局架构。" % owner_label)
+			push_error("[GFDependencyScopeSupport][dependency_scope_support.architecture_invalid] %s cannot fall back to the global architecture because its injected architecture is invalid." % owner_label)
 			return null
 	return GFAutoload.get_architecture_or_null()
 

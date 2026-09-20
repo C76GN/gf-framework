@@ -600,10 +600,10 @@ func _register_command_entry(
 ) -> void:
 	var normalized_name: String = cmd_name.strip_edges()
 	if normalized_name.is_empty():
-		push_warning("[GFConsoleUtility] 注册命令失败：命令名为空。")
+		push_warning("[GFConsoleUtility][console_utility.command_name_empty] Cannot register command: command name is empty.")
 		return
 	if not callback.is_valid():
-		push_warning("[GFConsoleUtility] 注册命令失败：callback 无效：%s。" % normalized_name)
+		push_warning("[GFConsoleUtility][console_utility.command_callback_invalid] Cannot register command: callback is invalid: %s." % normalized_name)
 		return
 	_commands[normalized_name] = {
 		"owner_ref": weakref(owner),
@@ -632,10 +632,10 @@ func _can_register_command_name(owner: Object, cmd_name: String, callback: Calla
 	if owner == null:
 		return false
 	if cmd_name.is_empty():
-		push_warning("[GFConsoleUtility] 注册命令失败：命令名为空。")
+		push_warning("[GFConsoleUtility][console_utility.command_name_empty] Cannot register command: command name is empty.")
 		return false
 	if not callback.is_valid():
-		push_warning("[GFConsoleUtility] 注册命令失败：callback 无效：%s。" % cmd_name)
+		push_warning("[GFConsoleUtility][console_utility.command_callback_invalid] Cannot register command: callback is invalid: %s." % cmd_name)
 		return false
 
 	var existing_entry: Dictionary = _get_live_command_entry(cmd_name)
@@ -861,7 +861,7 @@ func _command_metadata_has_valid_tier(metadata: Dictionary, cmd_name: String) ->
 	):
 		return true
 	push_warning(
-		"[GFConsoleUtility] 注册命令失败：tier 必须是 0 到 3 的整数：%s。"
+		"[GFConsoleUtility][console_utility.command_tier_invalid] Cannot register command: tier must be an integer from 0 to 3: %s."
 		% cmd_name
 	)
 	return false

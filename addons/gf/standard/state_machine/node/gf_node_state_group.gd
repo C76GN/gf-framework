@@ -356,18 +356,18 @@ func push_state(next_state_name: StringName, args: Dictionary = {}) -> void:
 		return
 
 	if _is_exiting_current_state:
-		push_warning("[GFNodeStateGroup] push_state 失败：当前状态正在退出。")
+		push_warning("[GFNodeStateGroup][node_state_group.push_during_exit] Cannot push_state: the current state is exiting.")
 		return
 
 	if _state_stack.size() >= maxi(max_stack_depth, 1):
-		push_warning("[GFNodeStateGroup] push_state 失败：状态栈已达到上限。")
+		push_warning("[GFNodeStateGroup][node_state_group.stack_limit] Cannot push_state: the state stack limit was reached.")
 		return
 
 	if next_state == _current_state:
-		push_warning("[GFNodeStateGroup] push_state 失败：不能将当前状态再次压栈。")
+		push_warning("[GFNodeStateGroup][node_state_group.push_current_state] Cannot push_state: the current state cannot be pushed again.")
 		return
 	if _state_stack.has(next_state):
-		push_warning("[GFNodeStateGroup] push_state 失败：目标状态已在暂停栈中。")
+		push_warning("[GFNodeStateGroup][node_state_group.state_already_suspended] Cannot push_state: the target state is already in the suspended stack.")
 		return
 
 	var previous_state: GFNodeState = _current_state
@@ -419,7 +419,7 @@ func pop_state(args: Dictionary = {}) -> bool:
 		return true
 
 	if _is_exiting_current_state:
-		push_warning("[GFNodeStateGroup] pop_state 失败：当前状态正在退出。")
+		push_warning("[GFNodeStateGroup][node_state_group.pop_during_exit] Cannot pop_state: the current state is exiting.")
 		return false
 
 	var previous_state: GFNodeState = _current_state
@@ -514,7 +514,7 @@ func add_state(state: GFNodeState) -> void:
 
 	var key: StringName = state.get_state_name()
 	if _states.has(key):
-		push_warning("[GFNodeStateGroup] 状态已存在，已忽略重复添加：%s" % key)
+		push_warning("[GFNodeStateGroup][node_state_group.state_duplicate] State already exists; duplicate addition ignored: %s." % key)
 		return
 
 	_transition_serial += 1
@@ -1269,7 +1269,7 @@ func _copy_state_stack() -> Array[GFNodeState]:
 
 
 func _warn_missing_state(state_name: StringName) -> void:
-	push_warning("[GFNodeStateGroup] 切换失败，未找到状态：%s" % state_name)
+	push_warning("[GFNodeStateGroup][node_state_group.transition_state_missing] Cannot transition: state not found: %s." % state_name)
 
 
 func _can_transition(

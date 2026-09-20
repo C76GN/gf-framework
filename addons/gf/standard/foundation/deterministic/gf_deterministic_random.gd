@@ -113,7 +113,7 @@ func get_state() -> int:
 func set_state(state_value: int) -> bool:
 	var normalized_state: int = _to_u32(state_value)
 	if normalized_state == 0:
-		push_error("[GFDeterministicRandom] xorshift32 状态不能为 0。")
+		push_error("[GFDeterministicRandom][deterministic_random.zero_state] The xorshift32 state must not be zero.")
 		return false
 
 	_state = normalized_state
@@ -153,7 +153,7 @@ func next_int_range(min_value: int, max_value: int) -> int:
 
 	var span: int = upper - lower + 1
 	if span <= 0 or span > _MOD_U32:
-		push_error("[GFDeterministicRandom] next_int_range 只支持跨度不超过 u32 的闭区间。")
+		push_error("[GFDeterministicRandom][deterministic_random.integer_range_too_wide] next_int_range requires a closed interval whose span does not exceed u32.")
 		return lower
 
 	var rejection_limit: int = _MOD_U32 - (_MOD_U32 % span)
@@ -188,7 +188,7 @@ func next_float_unit() -> float:
 ## @return 基于固定 u32 输出缩放得到的范围内浮点数。
 func next_float_range(min_value: float, max_value: float) -> float:
 	if is_nan(min_value) or is_nan(max_value) or is_inf(min_value) or is_inf(max_value):
-		push_error("[GFDeterministicRandom] next_float_range 只支持有限浮点边界。")
+		push_error("[GFDeterministicRandom][deterministic_random.float_bounds_non_finite] next_float_range requires finite floating-point bounds.")
 		return 0.0
 
 	var lower: float = min_value
@@ -200,12 +200,12 @@ func next_float_range(min_value: float, max_value: float) -> float:
 
 	var span: float = upper - lower
 	if is_nan(span) or is_inf(span):
-		push_error("[GFDeterministicRandom] next_float_range 只支持有限浮点范围。")
+		push_error("[GFDeterministicRandom][deterministic_random.float_range_non_finite] next_float_range requires a finite floating-point range.")
 		return 0.0
 
 	var result: float = lower + next_float_unit() * span
 	if is_nan(result) or is_inf(result):
-		push_error("[GFDeterministicRandom] next_float_range 结果超出有限浮点范围。")
+		push_error("[GFDeterministicRandom][deterministic_random.float_result_non_finite] next_float_range produced a result outside the finite floating-point range.")
 		return 0.0
 	return result
 
@@ -283,7 +283,7 @@ func apply_dict(data: Dictionary) -> bool:
 		and _has_state_field(data, "seed")
 		and _has_state_field(data, "state")
 	):
-		push_error("[GFDeterministicRandom] 不支持的状态字典格式。")
+		push_error("[GFDeterministicRandom][deterministic_random.state_format_unsupported] Unsupported state dictionary format.")
 		set_seed(_DEFAULT_SEED)
 		return false
 
@@ -297,14 +297,14 @@ func apply_dict(data: Dictionary) -> bool:
 		or not _state_value_is_u32(seed_data)
 		or not _state_value_is_u32(state_data)
 	):
-		push_error("[GFDeterministicRandom] 不支持的状态字典格式。")
+		push_error("[GFDeterministicRandom][deterministic_random.state_format_unsupported] Unsupported state dictionary format.")
 		set_seed(_DEFAULT_SEED)
 		return false
 
 	_initial_seed = _normalize_state(_state_value_to_int(seed_data))
 	var state_value: int = _to_u32(_state_value_to_int(state_data))
 	if state_value == 0:
-		push_error("[GFDeterministicRandom] xorshift32 状态不能为 0。")
+		push_error("[GFDeterministicRandom][deterministic_random.zero_state] The xorshift32 state must not be zero.")
 		set_seed(_DEFAULT_SEED)
 		return false
 

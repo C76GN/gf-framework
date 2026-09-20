@@ -884,7 +884,7 @@ func _collect_column_records(schema: Variant) -> Array[Dictionary]:
 
 		var field_identifier: String = _sanitize_identifier(String(field_name))
 		if field_identifier.is_empty():
-			push_warning("[GFConfigAccessGenerator] 字段名无法生成有效 getter，已跳过：%s" % String(field_name))
+			push_warning("[GFConfigAccessGenerator][config_access_generator.invalid_getter_name] Field name cannot produce a valid getter and was skipped: %s." % String(field_name))
 			continue
 
 		var value_type: String = _get_column_value_type(column_value)

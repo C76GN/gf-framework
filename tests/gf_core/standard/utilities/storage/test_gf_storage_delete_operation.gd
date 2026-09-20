@@ -707,7 +707,7 @@ func test_delete_thread_start_failure_releases_lock_and_preserves_family_for_ret
 
 	var failed_operation: GFStorageAsyncOperation = _request_delete(file_name)
 	assert_push_error(
-		"[GFStorageUtility] 异步删除失败：start-failure/data.json，原因：Thread start failed"
+		"[GFStorageUtility][storage_utility.async_remove_failed] Asynchronous removal failed: start-failure/data.json, reason: Thread start failed"
 	)
 	if failed_operation == null:
 		return
@@ -934,7 +934,7 @@ func test_delete_rejects_non_portable_paths_before_queue_or_worker_admission() -
 	]:
 		var operation: GFStorageAsyncOperation = _request_delete(invalid_path)
 		assert_push_error(
-			"[GFStorageUtility] delete_file_request_async 失败：file_name 不满足 portable logical path profile。"
+			"[GFStorageUtility][storage_utility.filename_profile_invalid] delete_file_request_async failed: file_name does not satisfy the portable logical path profile."
 		)
 		if operation == null:
 			return

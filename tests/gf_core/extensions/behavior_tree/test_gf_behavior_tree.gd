@@ -368,7 +368,7 @@ func test_decorator_rejects_self_cycle() -> void:
 
 	assert_eq(inverter.tick({}), GFBehaviorTree.Status.FAILURE, "set_child(self) 应被拒绝并保留 missing_child 行为。")
 	assert_eq(inverter.last_reason, &"missing_child")
-	assert_push_error("[GFBehaviorTree] 拒绝设置会形成循环的 decorator 子节点。")
+	assert_push_error("[GFBehaviorTree][behavior_tree.cyclic_decorator_child] Cannot set a decorator child that would create a cycle.")
 
 
 func test_decorator_resets_previous_running_child_before_replacement() -> void:
@@ -516,12 +516,12 @@ func test_blackboard_scope_rejects_parent_cycles() -> void:
 
 	assert_eq(parent.parent, null, "会形成二节点循环的 parent 应被拒绝。")
 	assert_eq(GFVariantData.to_text(child.get_value(&"mode")), "base", "拒绝循环后原有父链应保持可读。")
-	assert_push_error("[GFBehaviorTree] 拒绝设置会形成循环的 BlackboardScope parent。")
+	assert_push_error("[GFBehaviorTree][behavior_tree.cyclic_blackboard_parent] Cannot set a BlackboardScope parent that would create a cycle.")
 
 	child.parent = child
 
 	assert_eq(child.parent, parent, "自环 parent 应被拒绝并保留原 parent。")
-	assert_push_error("[GFBehaviorTree] 拒绝设置会形成循环的 BlackboardScope parent。")
+	assert_push_error("[GFBehaviorTree][behavior_tree.cyclic_blackboard_parent] Cannot set a BlackboardScope parent that would create a cycle.")
 
 
 func test_probability_cooldown_and_time_limit_decorators() -> void:
@@ -722,7 +722,7 @@ func test_runner_rejects_custom_node_without_duplicate_override() -> void:
 
 	assert_eq(runner.tick(), GFBehaviorTree.Status.FAILURE, "未重写 duplicate_runtime() 的自定义节点不应在默认复制模式下静默共享运行态。")
 	assert_eq(custom_node.tick_count_value, 0, "无法复制的自定义节点不应污染原始定义节点。")
-	assert_push_error("[GFBehaviorTree] BTNode 子类必须重写 duplicate_runtime() 才能被 Runner 默认复制；请返回独立运行副本，或显式创建 Runner(root, false) 共享运行树。")
+	assert_push_error("[GFBehaviorTree][behavior_tree.missing_runtime_duplicate_override] BTNode subclasses must override duplicate_runtime() for the default Runner copy; return an independent runtime copy or explicitly create Runner(root, false) to share the runtime tree.")
 
 
 func test_runner_rejects_concrete_node_subclass_without_duplicate_override() -> void:
@@ -745,7 +745,7 @@ func test_runner_rejects_concrete_node_subclass_without_duplicate_override() -> 
 	)
 	assert_eq(custom_sequence.custom_tick_count, 0, "失败关闭不得执行原始定义节点。")
 	assert_push_error(
-		"[GFBehaviorTree] duplicate_runtime() 必须返回保持动态脚本类型的独立节点；具体内置节点的自定义子类也必须显式重写。"
+		"[GFBehaviorTree][behavior_tree.invalid_runtime_duplicate] duplicate_runtime() must return an independent node preserving its dynamic script type; custom subclasses of concrete built-in nodes must also override it explicitly."
 	)
 
 
@@ -797,7 +797,7 @@ func test_runner_rejects_synchronous_reentrant_tick() -> void:
 
 	assert_eq(status, GFBehaviorTree.Status.ABORTED)
 	assert_eq(node.tick_call_count, 1, "同步重入必须在第二次推进根节点前失败关闭。")
-	assert_push_error("[GFBehaviorTree] Runner.tick() 不允许同步重入。")
+	assert_push_error("[GFBehaviorTree][behavior_tree.reentrant_tick] Runner.tick() cannot be reentered synchronously.")
 
 
 func test_runner_isolates_custom_node_when_duplicate_runtime_is_implemented() -> void:

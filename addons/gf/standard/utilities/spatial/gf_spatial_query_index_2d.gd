@@ -59,7 +59,7 @@ var strategy: StringName = STRATEGY_AUTO:
 var bounds: Rect2 = Rect2():
 	set(value):
 		if not _SPATIAL_BOUNDS_MATH.is_finite_rect2(value):
-			push_error("[GFSpatialQueryIndex2D] bounds 必须只包含有限值。")
+			push_error("[GFSpatialQueryIndex2D][spatial_query_index2d.bounds_non_finite] bounds must contain only finite values.")
 			return
 		bounds = _normalize_rect(value)
 		_mark_index_dirty()

@@ -270,8 +270,8 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 	var label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "label", "GFGeneratedArtifactReport")
 	output_path = _GF_PATH_TOOLS.normalize_resource_path(output_path)
 	if output_path.is_empty():
-		var empty_message: String = "输出路径为空。"
-		push_error("[%s] %s" % [label, empty_message])
+		var empty_message: String = "The output path is empty."
+		push_error("[GFGeneratedArtifactReport][generated_artifact_report.output_path_empty] Artifact operation for %s reported the following.\n%s" % [label, empty_message])
 		return make_report(output_path, STATUS_FAILED, ERR_INVALID_PARAMETER, empty_message, {
 			"metadata": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata"),
 		})
@@ -284,7 +284,7 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 			"error_code",
 			ERR_INVALID_PARAMETER
 		) as Error
-		push_error("[%s] %s" % [label, path_error])
+		push_error("[GFGeneratedArtifactReport][generated_artifact_report.output_path_invalid] Artifact operation for %s reported the following.\n%s" % [label, path_error])
 		return make_report(output_path, STATUS_FAILED, path_error_code, path_error, {
 			"artifact_owner": _read_artifact_owner(options),
 			"generator_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "generator_id", label),
@@ -304,9 +304,9 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 	)
 	if initial_read_guard_error != OK:
 		var initial_read_guard_message: String = (
-			"输出路径的物理所有权在读取前失效：%s" % output_path
+			"Physical ownership of the output path became invalid before reading: %s." % output_path
 		)
-		push_error("[%s] %s" % [label, initial_read_guard_message])
+		push_error("[GFGeneratedArtifactReport][generated_artifact_report.read_ownership_invalid] Artifact operation for %s reported the following.\n%s" % [label, initial_read_guard_message])
 		return make_report(
 			output_path,
 			STATUS_FAILED,
@@ -338,9 +338,9 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 		and not output_is_file
 	):
 		var non_file_message: String = (
-			"输出路径已被非普通文件实体占用：%s" % output_path
+			"The output path is occupied by an entity that is not a regular file: %s." % output_path
 		)
-		push_error("[%s] %s" % [label, non_file_message])
+		push_error("[GFGeneratedArtifactReport][generated_artifact_report.output_not_regular_file] Artifact operation for %s reported the following.\n%s" % [label, non_file_message])
 		return make_report(
 			output_path,
 			STATUS_FAILED,
@@ -382,9 +382,9 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 		"error": "",
 	}
 	if exists and not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(existing_read, "ok", false):
-		var read_message: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(existing_read, "error", "无法读取已有文本产物。")
+		var read_message: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(existing_read, "error", "Could not read the existing text artifact.")
 		var read_error: Error = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(existing_read, "error_code", ERR_CANT_OPEN) as Error
-		push_error("[%s] %s" % [label, read_message])
+		push_error("[GFGeneratedArtifactReport][generated_artifact_report.existing_artifact_read_failed] Artifact operation for %s reported the following.\n%s" % [label, read_message])
 		return make_report(output_path, STATUS_FAILED, read_error, read_message, {
 			"dry_run": dry_run,
 			"artifact_owner": _read_artifact_owner(options),
@@ -401,9 +401,9 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 	)
 	if post_read_guard_error != OK:
 		var post_read_guard_message: String = (
-			"输出路径的物理所有权在读取后失效：%s" % output_path
+			"Physical ownership of the output path became invalid after reading: %s." % output_path
 		)
-		push_error("[%s] %s" % [label, post_read_guard_message])
+		push_error("[GFGeneratedArtifactReport][generated_artifact_report.post_read_ownership_invalid] Artifact operation for %s reported the following.\n%s" % [label, post_read_guard_message])
 		return make_report(
 			output_path,
 			STATUS_FAILED,
@@ -455,9 +455,9 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 	if has_expected_previous_sha256 and previous_sha256 != expected_previous_sha256:
 		report_options["conflict"] = true
 		var baseline_message: String = (
-			"目标文件已偏离调用方读取基线，已拒绝写入：%s" % output_path
+			"The target file differs from the caller's read baseline; writing was rejected: %s." % output_path
 		)
-		push_error("[%s] %s" % [label, baseline_message])
+		push_error("[GFGeneratedArtifactReport][generated_artifact_report.read_baseline_changed] Artifact operation for %s reported the following.\n%s" % [label, baseline_message])
 		return make_report(
 			output_path,
 			STATUS_FAILED,
@@ -467,8 +467,8 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 		)
 
 	if exists and changed and not overwrite_existing:
-		var skipped_message: String = "目标文件已存在，已跳过：%s" % output_path
-		push_warning("[%s] %s" % [label, skipped_message])
+		var skipped_message: String = "The target file already exists and was skipped: %s." % output_path
+		push_warning("[GFGeneratedArtifactReport][generated_artifact_report.output_exists] Artifact operation for %s reported the following.\n%s" % [label, skipped_message])
 		return make_report(output_path, STATUS_SKIPPED, ERR_ALREADY_EXISTS, skipped_message, report_options)
 
 	if dry_run:
@@ -482,8 +482,8 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 		enforce_physical_ownership
 	)
 	if dir_error != OK:
-		var dir_message: String = "无法创建输出目录：%s (%s)" % [output_path.get_base_dir(), error_string(dir_error)]
-		push_error("[%s] %s" % [label, dir_message])
+		var dir_message: String = "Could not create the output directory: %s (%s)." % [output_path.get_base_dir(), error_string(dir_error)]
+		push_error("[GFGeneratedArtifactReport][generated_artifact_report.directory_creation_failed] Artifact operation for %s reported the following.\n%s" % [label, dir_message])
 		return make_report(output_path, STATUS_FAILED, dir_error, dir_message, report_options)
 
 	var temp_path_report: Dictionary = _validate_staging_path(
@@ -497,9 +497,9 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 			ERR_INVALID_PARAMETER
 		) as Error
 		var temp_path_message: String = (
-			"文本产物临时路径越出输出目录，已拒绝：%s" % output_path
+			"The text artifact temporary path escapes the output directory and was rejected: %s." % output_path
 		)
-		push_error("[%s] %s" % [label, temp_path_message])
+		push_error("[GFGeneratedArtifactReport][generated_artifact_report.temporary_path_invalid] Artifact operation for %s reported the following.\n%s" % [label, temp_path_message])
 		return make_report(
 			output_path,
 			STATUS_FAILED,
@@ -516,8 +516,8 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 		enforce_physical_ownership
 	)
 	if temp_guard_error != OK:
-		var temp_guard_message: String = "输出路径的物理所有权在临时写入前失效：%s" % output_path
-		push_error("[%s] %s" % [label, temp_guard_message])
+		var temp_guard_message: String = "Physical ownership of the output path became invalid before writing the temporary file: %s." % output_path
+		push_error("[GFGeneratedArtifactReport][generated_artifact_report.temporary_write_ownership_invalid] Artifact operation for %s reported the following.\n%s" % [label, temp_guard_message])
 		return make_report(
 			output_path,
 			STATUS_FAILED,
@@ -527,9 +527,9 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 			)
 	if _path_entry_exists(temp_path):
 		var temp_collision_message: String = (
-			"文本产物临时路径已被占用，已拒绝覆盖：%s" % temp_path
+			"The text artifact temporary path is occupied; overwriting was rejected: %s." % temp_path
 		)
-		push_error("[%s] %s" % [label, temp_collision_message])
+		push_error("[GFGeneratedArtifactReport][generated_artifact_report.temporary_path_occupied] Artifact operation for %s reported the following.\n%s" % [label, temp_collision_message])
 		return make_report(
 			output_path,
 			STATUS_FAILED,
@@ -540,8 +540,8 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 	var file: FileAccess = FileAccess.open(temp_path, FileAccess.WRITE)
 	if file == null:
 		var open_error: Error = FileAccess.get_open_error()
-		var open_message: String = "无法写入文本产物临时文件：%s (%s)" % [temp_path, error_string(open_error)]
-		push_error("[%s] %s" % [label, open_message])
+		var open_message: String = "Could not write the text artifact temporary file: %s (%s)." % [temp_path, error_string(open_error)]
+		push_error("[GFGeneratedArtifactReport][generated_artifact_report.temporary_file_open_failed] Artifact operation for %s reported the following.\n%s" % [label, open_message])
 		return make_report(output_path, STATUS_FAILED, open_error, open_message, report_options)
 
 	var _stored: Variant = file.store_string(text)
@@ -571,8 +571,8 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 		)
 		if cleanup_error != OK:
 			write_error = cleanup_error
-		var write_message: String = "无法写入文本产物临时文件：%s (%s)" % [temp_path, error_string(write_error)]
-		push_error("[%s] %s" % [label, write_message])
+		var write_message: String = "Could not write the text artifact temporary file: %s (%s)." % [temp_path, error_string(write_error)]
+		push_error("[GFGeneratedArtifactReport][generated_artifact_report.temporary_file_write_failed] Artifact operation for %s reported the following.\n%s" % [label, write_message])
 		return make_report(output_path, STATUS_FAILED, write_error, write_message, report_options)
 	var post_write_guard_error: Error = _get_paths_physical_error(
 		PackedStringArray([output_path, temp_path]),
@@ -586,9 +586,9 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(report_options, "content_sha256")
 		)
 		var post_write_guard_message: String = (
-			"输出路径的物理所有权在临时写入后失效：%s" % output_path
+			"Physical ownership of the output path became invalid after writing the temporary file: %s." % output_path
 		)
-		push_error("[%s] %s" % [label, post_write_guard_message])
+		push_error("[GFGeneratedArtifactReport][generated_artifact_report.post_write_ownership_invalid] Artifact operation for %s reported the following.\n%s" % [label, post_write_guard_message])
 		return make_report(
 			output_path,
 			STATUS_FAILED,
@@ -610,8 +610,8 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(report_options, "content_sha256")
 		)
 		if cleanup_error != OK:
-			var cleanup_message: String = "无法安全清理文本产物临时文件：%s" % temp_path
-			push_error("[%s] %s" % [label, cleanup_message])
+			var cleanup_message: String = "Could not safely clean up the text artifact temporary file: %s." % temp_path
+			push_error("[GFGeneratedArtifactReport][generated_artifact_report.temporary_file_cleanup_failed] Artifact operation for %s reported the following.\n%s" % [label, cleanup_message])
 			return make_report(
 				output_path,
 				STATUS_FAILED,
@@ -619,8 +619,8 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 				cleanup_message,
 				report_options
 			)
-		var staged_message: String = "文本产物临时文件内容校验失败：%s" % temp_path
-		push_error("[%s] %s" % [label, staged_message])
+		var staged_message: String = "Text artifact temporary file content verification failed: %s." % temp_path
+		push_error("[GFGeneratedArtifactReport][generated_artifact_report.temporary_content_invalid] Artifact operation for %s reported the following.\n%s" % [label, staged_message])
 		return make_report(
 			output_path,
 			STATUS_FAILED,
@@ -649,7 +649,7 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 		var baseline_message: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 			baseline_check,
 			"error",
-			"目标文件在保存期间发生变化。"
+			"The target file changed during saving."
 		)
 		report_options["conflict"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
 			baseline_check,
@@ -658,9 +658,9 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 		)
 		if cleanup_error != OK:
 			baseline_error = cleanup_error
-			baseline_message = "无法安全清理文本产物临时文件：%s" % temp_path
+			baseline_message = "Could not safely clean up the text artifact temporary file: %s." % temp_path
 			report_options["conflict"] = false
-		push_error("[%s] %s" % [label, baseline_message])
+		push_error("[GFGeneratedArtifactReport][generated_artifact_report.save_baseline_changed] Artifact operation for %s reported the following.\n%s" % [label, baseline_message])
 		return make_report(
 			output_path,
 			STATUS_FAILED,
@@ -698,7 +698,7 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 				post_hook_baseline_check,
 				"error",
-				"目标文件在最终替换前发生变化。"
+				"The target file changed before final replacement."
 			)
 		)
 		report_options["conflict"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
@@ -708,15 +708,15 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 		)
 		if post_hook_cleanup_error != OK:
 			if post_hook_baseline_error == ERR_UNAUTHORIZED:
-				post_hook_baseline_message = "无法替换文本产物：%s (%s)" % [
+				post_hook_baseline_message = "Could not replace the text artifact: %s (%s)." % [
 					output_path,
 					error_string(post_hook_baseline_error),
 				]
 			else:
 				post_hook_baseline_error = post_hook_cleanup_error
-				post_hook_baseline_message = "无法安全清理文本产物临时文件：%s" % temp_path
+				post_hook_baseline_message = "Could not safely clean up the text artifact temporary file: %s." % temp_path
 				report_options["conflict"] = false
-		push_error("[%s] %s" % [label, post_hook_baseline_message])
+		push_error("[GFGeneratedArtifactReport][generated_artifact_report.replacement_baseline_changed] Artifact operation for %s reported the following.\n%s" % [label, post_hook_baseline_message])
 		return make_report(
 			output_path,
 			STATUS_FAILED,
@@ -743,9 +743,9 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 			else post_hook_temp_error
 		)
 		var post_hook_temp_message: String = (
-			"文本产物临时文件在最终替换前发生变化：%s" % temp_path
+			"The text artifact temporary file changed before final replacement: %s." % temp_path
 		)
-		push_error("[%s] %s" % [label, post_hook_temp_message])
+		push_error("[GFGeneratedArtifactReport][generated_artifact_report.replacement_temporary_file_changed] Artifact operation for %s reported the following.\n%s" % [label, post_hook_temp_message])
 		return make_report(
 			output_path,
 			STATUS_FAILED,
@@ -789,8 +789,8 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 			scan_filesystem_observer
 		)
 	if replace_error != OK:
-		var replace_message: String = "无法替换文本产物：%s (%s)" % [output_path, error_string(replace_error)]
-		push_error("[%s] %s" % [label, replace_message])
+		var replace_message: String = "Could not replace the text artifact: %s (%s)." % [output_path, error_string(replace_error)]
+		push_error("[GFGeneratedArtifactReport][generated_artifact_report.replacement_failed] Artifact operation for %s reported the following.\n%s" % [label, replace_message])
 		return make_report(output_path, STATUS_FAILED, replace_error, replace_message, report_options)
 	return make_report(output_path, status, OK, "", report_options)
 
@@ -879,7 +879,7 @@ static func _read_text_if_exists(output_path: String) -> Dictionary:
 			"ok": false,
 			"text": "",
 			"error_code": open_error,
-			"error": "无法读取已有文本产物：%s (%s)" % [output_path, error_string(open_error)],
+			"error": "Could not read the existing text artifact: %s (%s)." % [output_path, error_string(open_error)],
 		}
 	var text: String = file.get_as_text()
 	var read_error: Error = file.get_error()
@@ -889,7 +889,7 @@ static func _read_text_if_exists(output_path: String) -> Dictionary:
 			"ok": false,
 			"text": "",
 			"error_code": read_error,
-			"error": "读取已有文本产物失败：%s (%s)" % [output_path, error_string(read_error)],
+			"error": "Reading the existing text artifact failed: %s (%s)." % [output_path, error_string(read_error)],
 		}
 	return {
 		"ok": true,
@@ -904,7 +904,7 @@ static func _validate_output_path(output_path: String, options: Dictionary) -> D
 		return {
 			"ok": false,
 			"error_code": ERR_INVALID_PARAMETER,
-			"error": "输出路径必须使用 res:// 或 user://：%s" % output_path,
+			"error": "The output path must use res:// or user://: %s." % output_path,
 			"enforce_physical_ownership": false,
 		}
 
@@ -920,7 +920,7 @@ static func _validate_output_path(output_path: String, options: Dictionary) -> D
 			"error": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 				allowed_roots_report,
 				"error",
-				"allowed_roots 无效。"
+				"allowed_roots is invalid."
 			),
 			"enforce_physical_ownership": true,
 		}
@@ -949,7 +949,7 @@ static func _validate_output_path(output_path: String, options: Dictionary) -> D
 				return {
 					"ok": false,
 					"error_code": ERR_UNAUTHORIZED,
-					"error": "输出路径包含链接或重解析组件，已拒绝：%s" % output_path,
+					"error": "The output path contains a link or reparse component and was rejected: %s." % output_path,
 					"enforce_physical_ownership": true,
 				}
 			return {
@@ -961,7 +961,7 @@ static func _validate_output_path(output_path: String, options: Dictionary) -> D
 	return {
 		"ok": false,
 		"error_code": ERR_INVALID_PARAMETER,
-		"error": "输出路径不在允许的生成根目录内：%s" % output_path,
+		"error": "The output path is outside the allowed generation roots: %s." % output_path,
 		"enforce_physical_ownership": true,
 	}
 
@@ -990,7 +990,7 @@ static func _read_allowed_roots(options: Dictionary) -> Dictionary:
 			"ok": false,
 			"supplied": true,
 			"roots": roots,
-			"error": "allowed_roots 必须是非空的资源根目录集合。",
+			"error": "allowed_roots must be a non-empty collection of resource root directories.",
 		}
 	if raw_value is Array:
 		var raw_root_values: Array = raw_value
@@ -1000,7 +1000,7 @@ static func _read_allowed_roots(options: Dictionary) -> Dictionary:
 					"ok": false,
 					"supplied": true,
 					"roots": roots,
-					"error": "allowed_roots 数组元素必须是 String 或 StringName。",
+					"error": "allowed_roots array entries must be String or StringName values.",
 				}
 	var raw_roots: PackedStringArray = (
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(
@@ -1013,7 +1013,7 @@ static func _read_allowed_roots(options: Dictionary) -> Dictionary:
 			"ok": false,
 			"supplied": true,
 			"roots": roots,
-			"error": "allowed_roots 提供后不得为空。",
+			"error": "allowed_roots must not be empty when supplied.",
 		}
 	for raw_root: String in raw_roots:
 		var root_path: String = _GF_PATH_TOOLS.normalize_root_path(raw_root)
@@ -1028,7 +1028,7 @@ static func _read_allowed_roots(options: Dictionary) -> Dictionary:
 				"ok": false,
 				"supplied": true,
 				"roots": PackedStringArray(),
-				"error": "allowed_roots 包含无效的资源根目录。",
+				"error": "allowed_roots contains an invalid resource root directory.",
 			}
 		if roots.has(root_path):
 			continue
@@ -1065,7 +1065,7 @@ static func _check_target_baseline(
 			"ok": false,
 			"conflict": false,
 			"error_code": preflight_error,
-			"error": "目标文件的物理所有权在基线复核前失效：%s" % output_path,
+			"error": "Physical ownership of the target file became invalid before baseline verification: %s." % output_path,
 		}
 	var current_exists: bool = _path_entry_exists(output_path)
 	if current_exists != expected_exists:
@@ -1073,7 +1073,7 @@ static func _check_target_baseline(
 			"ok": false,
 			"conflict": true,
 			"error_code": ERR_FILE_ALREADY_IN_USE,
-			"error": "目标文件在保存期间发生创建或删除：%s" % output_path,
+			"error": "The target file was created or deleted during saving: %s." % output_path,
 		}
 	if not current_exists:
 		return {
@@ -1087,7 +1087,7 @@ static func _check_target_baseline(
 			"ok": false,
 			"conflict": true,
 			"error_code": ERR_FILE_ALREADY_IN_USE,
-			"error": "目标文件在保存期间变为非普通文件实体：%s" % output_path,
+			"error": "The target file became an entity that is not a regular file during saving: %s." % output_path,
 		}
 	var current_read: Dictionary = _read_text_if_exists(output_path)
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(current_read, "ok", false):
@@ -1102,7 +1102,7 @@ static func _check_target_baseline(
 			"error": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 				current_read,
 				"error",
-				"无法重新读取目标文件。"
+				"Could not read the target file again."
 			),
 		}
 	var current_text: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
@@ -1118,14 +1118,14 @@ static func _check_target_baseline(
 			"ok": false,
 			"conflict": false,
 			"error_code": post_read_error,
-			"error": "目标文件的物理所有权在基线读取后失效：%s" % output_path,
+			"error": "Physical ownership of the target file became invalid after reading the baseline: %s." % output_path,
 		}
 	if _sha256_text(current_text) != expected_sha256:
 		return {
 			"ok": false,
 			"conflict": true,
 			"error_code": ERR_FILE_ALREADY_IN_USE,
-			"error": "目标文件在保存期间发生内容变化：%s" % output_path,
+			"error": "The target file content changed during saving: %s." % output_path,
 		}
 	return {
 		"ok": true,

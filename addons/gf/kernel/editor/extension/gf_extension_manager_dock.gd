@@ -136,13 +136,13 @@ func _connect_signal_checked(source_signal: Signal, callback: Callable, flags: i
 
 	var error: Error = source_signal.connect(callback, flags as Object.ConnectFlags) as Error
 	if error != OK:
-		push_warning("[GFExtensionManagerDock] Signal 连接失败：%s" % error_string(error))
+		push_warning("[GFExtensionManagerDock][extension_manager_dock.signal_connection_failed] Signal connection failed: %s." % error_string(error))
 
 
 func _save_project_settings() -> Error:
 	var error: Error = ProjectSettings.save()
 	if error != OK:
-		push_error("[GFExtensionManagerDock] 保存 ProjectSettings 失败：%s" % error_string(error))
+		push_error("[GFExtensionManagerDock][extension_manager_dock.settings_save_failed] Could not save ProjectSettings: %s." % error_string(error))
 	return error
 
 

@@ -114,8 +114,8 @@ var slot_definitions: Array[GFInventorySlotDefinition]:
 			return
 		if value.size() != _slots.size():
 			push_error(
-				"[GFSlotInventoryModel] slot_definitions 失败：规则数量必须与槽位数量一致"
-				+ "（expected=%d, actual=%d）。请先调用 set_slot_count() 调整槽位。"
+				"[GFSlotInventoryModel][slot_inventory_model.slot_definition_count_mismatch] slot_definitions failed: the rule count must match the slot count."
+				+ " (expected=%d, actual=%d). Call set_slot_count() first to resize the slots."
 				% [_slots.size(), value.size()]
 			)
 			return
@@ -283,7 +283,7 @@ func set_slot_definition(slot_index: int, definition: GFInventorySlotDefinition)
 	if not is_valid_slot(slot_index):
 		return false
 	if _slot_definitions.size() != _slots.size():
-		push_error("[GFSlotInventoryModel] set_slot_definition 失败：槽位规则内部结构与槽位数量不一致。")
+		push_error("[GFSlotInventoryModel][slot_inventory_model.invalid_slot_definition_structure] set_slot_definition failed: the internal slot rule structure does not match the slot count.")
 		return false
 	if _slot_definitions[slot_index] == definition:
 		return true
@@ -1097,7 +1097,7 @@ func from_dict(data: Dictionary) -> void:
 		or not (slots_value is Array)
 		or GFVariantData.as_array(slots_value).size() != GFVariantData.to_int(slot_count_value, -1)
 	):
-		push_error("[GFSlotInventoryModel] from_dict 失败：快照必须包含非负整数 slot_count，且 slots 数量必须与其一致。")
+		push_error("[GFSlotInventoryModel][slot_inventory_model.invalid_snapshot_slots] from_dict failed: the snapshot must contain a nonnegative integer slot_count and a matching number of slots.")
 		return
 	if not _begin_inventory_mutation("from_dict"):
 		return
@@ -1345,13 +1345,13 @@ func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 
 func _begin_inventory_mutation(method_name: String) -> bool:
 	if _is_emitting_inventory_events:
-		push_error("[GFSlotInventoryModel] %s 失败：库存变更通知派发中不允许同步修改库存。请使用 call_deferred() 或在当前通知结束后再修改。" % method_name)
+		push_error("[GFSlotInventoryModel][slot_inventory_model.mutation_during_notification] %s failed: inventory cannot be modified synchronously while change notifications are being dispatched. Use call_deferred() or wait until the current notification finishes." % method_name)
 		return false
 	if _mutation_depth > 0:
-		push_error("[GFSlotInventoryModel] %s 失败：库存变更处理中不允许同步修改库存。请在当前操作结束后再修改。" % method_name)
+		push_error("[GFSlotInventoryModel][slot_inventory_model.mutation_during_change] %s failed: inventory cannot be modified synchronously while a change is being processed. Wait until the current operation finishes." % method_name)
 		return false
 	if _get_transfer_lock_owner() != null:
-		push_error("[GFSlotInventoryModel] %s 失败：库存原子转移期间不允许同步修改库存。请在事务终态后再修改。" % method_name)
+		push_error("[GFSlotInventoryModel][slot_inventory_model.mutation_during_transfer] %s failed: inventory cannot be modified synchronously during an atomic transfer. Wait until the transaction reaches a terminal state." % method_name)
 		return false
 	_mutation_depth += 1
 	return true
@@ -1367,13 +1367,13 @@ func _end_inventory_mutation() -> void:
 
 func _reject_reentrant_mutation(method_name: String) -> bool:
 	if _is_emitting_inventory_events:
-		push_error("[GFSlotInventoryModel] %s 失败：库存变更通知派发中不允许同步修改库存。请使用 call_deferred() 或在当前通知结束后再修改。" % method_name)
+		push_error("[GFSlotInventoryModel][slot_inventory_model.mutation_during_notification] %s failed: inventory cannot be modified synchronously while change notifications are being dispatched. Use call_deferred() or wait until the current notification finishes." % method_name)
 		return true
 	if _mutation_depth > 0:
-		push_error("[GFSlotInventoryModel] %s 失败：库存变更处理中不允许同步修改库存。请在当前操作结束后再修改。" % method_name)
+		push_error("[GFSlotInventoryModel][slot_inventory_model.mutation_during_change] %s failed: inventory cannot be modified synchronously while a change is being processed. Wait until the current operation finishes." % method_name)
 		return true
 	if _get_transfer_lock_owner() != null:
-		push_error("[GFSlotInventoryModel] %s 失败：库存原子转移期间不允许同步修改库存。请在事务终态后再修改。" % method_name)
+		push_error("[GFSlotInventoryModel][slot_inventory_model.mutation_during_transfer] %s failed: inventory cannot be modified synchronously during an atomic transfer. Wait until the transaction reaches a terminal state." % method_name)
 		return true
 	return false
 
@@ -1450,7 +1450,7 @@ func _slot_accepts_item(slot_index: int, item_id: StringName, instance_data: Dic
 		)
 	var read_view: GFInventoryReadView = GFInventoryReadView.new()
 	if not read_view.configure_for_framework(_slots, registry):
-		push_error("[GFSlotInventoryModel] 槽位规则失败：无法创建只读候选投影。")
+		push_error("[GFSlotInventoryModel][slot_inventory_model.candidate_projection_failed] Slot rule failed: could not create a read-only candidate projection.")
 		return false
 	var accepted: bool = slot_definition.can_accept(
 		item_id,

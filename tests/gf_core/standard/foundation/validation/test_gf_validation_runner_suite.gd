@@ -98,7 +98,7 @@ func test_validation_suite_collect_paths_respects_scan_depth_limit() -> void:
 	assert_true(paths.has(VALIDATION_SCAN_ROOT.path_join("root.tres")), "根目录文件应被收集。")
 	assert_true(paths.has(VALIDATION_SCAN_ROOT.path_join("a/child.tres")), "深度限制内的子目录文件应被收集。")
 	assert_false(paths.has(VALIDATION_SCAN_ROOT.path_join("a/b/grand.tres")), "超过 max_scan_depth 的目录应被跳过。")
-	assert_push_warning("[GFValidationSuite] collect_paths 已达到 max_scan_depth=1")
+	assert_push_warning("[GFValidationSuite][validation_suite.scan_depth_limit] collect_paths reached max_scan_depth=1")
 
 
 func test_validation_suite_collect_paths_respects_collected_path_limit() -> void:
@@ -112,7 +112,7 @@ func test_validation_suite_collect_paths_respects_collected_path_limit() -> void
 	var paths: PackedStringArray = suite.collect_paths()
 
 	assert_eq(paths.size(), 2, "collect_paths 应按 max_collected_paths 截断收集结果。")
-	assert_push_warning("[GFValidationSuite] collect_paths 已达到 max_collected_paths=2")
+	assert_push_warning("[GFValidationSuite][validation_suite.collected_path_limit] collect_paths reached max_collected_paths=2")
 
 
 func test_validation_suite_duplicate_preserves_scan_limits() -> void:

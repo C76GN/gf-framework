@@ -607,7 +607,7 @@ func _ensure_cache_dir() -> void:
 	if not DirAccess.dir_exists_absolute(dir_path):
 		var error: Error = DirAccess.make_dir_recursive_absolute(dir_path)
 		if error != OK:
-			push_warning("[GFRemoteCacheUtility] 创建缓存目录失败：%s，错误码：%s" % [dir_path, error])
+			push_warning("[GFRemoteCacheUtility][remote_cache_utility.cache_directory_failed] Cannot create the cache directory: %s, error code: %s." % [dir_path, error])
 
 
 func _get_cache_dir_path() -> String:
@@ -707,7 +707,7 @@ func _write_cache_text(cache_key: String, content: String) -> Error:
 
 	var file: FileAccess = FileAccess.open(temp_path, FileAccess.WRITE)
 	if file == null:
-		push_warning("[GFRemoteCacheUtility] 写入缓存失败：%s" % cache_key)
+		push_warning("[GFRemoteCacheUtility][remote_cache_utility.cache_write_failed] Cannot write cache: %s." % cache_key)
 		return FileAccess.get_open_error()
 
 	_store_string_checked(file, content)
@@ -715,14 +715,14 @@ func _write_cache_text(cache_key: String, content: String) -> Error:
 	file.close()
 	if write_error != OK:
 		var _failed_temp_remove_error: Error = _remove_absolute_file_if_exists(temp_path)
-		push_warning("[GFRemoteCacheUtility] 写入缓存失败：%s" % cache_key)
+		push_warning("[GFRemoteCacheUtility][remote_cache_utility.cache_write_failed] Cannot write cache: %s." % cache_key)
 		return write_error
 
 	if FileAccess.file_exists(path):
 		var backup_error: Error = DirAccess.rename_absolute(path, backup_path)
 		if backup_error != OK:
 			var _backup_failed_temp_remove_error: Error = _remove_absolute_file_if_exists(temp_path)
-			push_warning("[GFRemoteCacheUtility] 写入缓存失败：%s" % cache_key)
+			push_warning("[GFRemoteCacheUtility][remote_cache_utility.cache_write_failed] Cannot write cache: %s." % cache_key)
 			return backup_error
 
 	var commit_error: Error = DirAccess.rename_absolute(temp_path, path)
@@ -730,7 +730,7 @@ func _write_cache_text(cache_key: String, content: String) -> Error:
 		if FileAccess.file_exists(backup_path):
 			var _rollback_error: Error = DirAccess.rename_absolute(backup_path, path)
 		var _commit_failed_temp_remove_error: Error = _remove_absolute_file_if_exists(temp_path)
-		push_warning("[GFRemoteCacheUtility] 写入缓存失败：%s" % cache_key)
+		push_warning("[GFRemoteCacheUtility][remote_cache_utility.cache_write_failed] Cannot write cache: %s." % cache_key)
 		return commit_error
 
 	var _stale_backup_remove_error: Error = _remove_absolute_file_if_exists(backup_path)

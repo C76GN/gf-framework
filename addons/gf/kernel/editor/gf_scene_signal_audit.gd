@@ -557,14 +557,14 @@ static func _warn_scene_path_limit(max_scene_paths: int, scan_state: Dictionary)
 	if max_scene_paths <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "count_warning_emitted", false):
 		return
 	scan_state["count_warning_emitted"] = true
-	push_warning("[GFSceneSignalAudit] collect_scene_paths 已达到 max_scene_paths=%d，后续场景已跳过。" % max_scene_paths)
+	push_warning("[GFSceneSignalAudit][scene_signal_audit.scene_limit_reached] collect_scene_paths reached max_scene_paths=%d; subsequent scenes were skipped." % max_scene_paths)
 
 
 static func _warn_scene_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
 	if max_scan_depth <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "depth_warning_emitted", false):
 		return
 	scan_state["depth_warning_emitted"] = true
-	push_warning("[GFSceneSignalAudit] collect_scene_paths 已达到 max_scan_depth=%d，已跳过更深目录：%s。" % [max_scan_depth, path])
+	push_warning("[GFSceneSignalAudit][scene_signal_audit.scan_depth_limit_reached] collect_scene_paths reached max_scan_depth=%d; deeper directories were skipped: %s." % [max_scan_depth, path])
 
 
 static func _warn_signal_graph_node_limit(max_nodes: int, scan_state: Dictionary) -> void:
@@ -572,7 +572,7 @@ static func _warn_signal_graph_node_limit(max_nodes: int, scan_state: Dictionary
 		return
 	scan_state["count_warning_emitted"] = true
 	scan_state["truncated"] = true
-	push_warning("[GFSceneSignalAudit] build_signal_graph 已达到 max_nodes=%d，后续节点已跳过。" % max_nodes)
+	push_warning("[GFSceneSignalAudit][scene_signal_audit.node_limit_reached] build_signal_graph reached max_nodes=%d; subsequent nodes were skipped." % max_nodes)
 
 
 static func _warn_signal_graph_depth_limit(node: Node, max_node_depth: int, scan_state: Dictionary) -> void:
@@ -580,7 +580,7 @@ static func _warn_signal_graph_depth_limit(node: Node, max_node_depth: int, scan
 		return
 	scan_state["depth_warning_emitted"] = true
 	scan_state["truncated"] = true
-	push_warning("[GFSceneSignalAudit] build_signal_graph 已达到 max_node_depth=%d，已跳过更深节点：%s。" % [
+	push_warning("[GFSceneSignalAudit][scene_signal_audit.node_depth_limit_reached] build_signal_graph reached max_node_depth=%d; deeper nodes were skipped: %s." % [
 		max_node_depth,
 		_relative_node_path(node, node),
 	])

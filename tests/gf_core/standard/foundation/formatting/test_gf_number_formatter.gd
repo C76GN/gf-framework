@@ -93,10 +93,10 @@ func test_format_full_keeps_large_numeric_text_out_of_float_path() -> void:
 
 func test_format_full_returns_stable_fallback_for_non_finite_floats() -> void:
 	assert_eq(GFNumberFormatter.format_full(INF, 2), "0", "INF 不应泄漏为引擎相关格式文本。")
-	assert_push_error("[GFDecimalStringFormatter] 只能格式化有限浮点值。")
+	assert_push_error("[GFDecimalStringFormatter][decimal_string_formatter.value_non_finite] Only finite floating-point values can be formatted.")
 
 	assert_eq(GFNumberFormatter.format_full(NAN, 2), "0", "NAN 不应泄漏为引擎相关格式文本。")
-	assert_push_error("[GFDecimalStringFormatter] 只能格式化有限浮点值。")
+	assert_push_error("[GFDecimalStringFormatter][decimal_string_formatter.value_non_finite] Only finite floating-point values can be formatted.")
 
 
 func test_format_auto_falls_back_to_scientific_for_huge_values() -> void:
@@ -119,7 +119,7 @@ func test_format_full_rejects_non_numeric_string_instead_of_grouping_it() -> voi
 	var text: String = GFNumberFormatter.format_full("NOT_AVAILABLE_1000", 2, true, true)
 
 	assert_eq(text, "0", "非数值文本应使用稳定 fallback，不能被改写成伪数值。")
-	assert_push_error("[GFNumberFormatter] format_full() 只接受合法数值文本。")
+	assert_push_error("[GFNumberFormatter][number_formatter.numeric_text_invalid] format_full() requires valid numeric text.")
 
 
 func test_trim_trailing_zeroes_preserves_integer_text() -> void:

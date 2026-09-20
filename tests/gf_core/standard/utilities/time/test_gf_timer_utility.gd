@@ -76,7 +76,7 @@ func test_execute_after_rejects_invalid_callback() -> void:
 	var handle: int = _timer_util.execute_after(1.0, Callable())
 
 	assert_eq(handle, 0, "无效回调不应返回有效句柄。")
-	assert_push_error("[GFTimerUtility] execute_after 失败：传入的 callback 无效。")
+	assert_push_error("[GFTimerUtility][timer_utility.after_callback_invalid] Cannot execute_after: the supplied callback is invalid.")
 	assert_eq(GFVariantData.get_option_int(_timer_util.get_debug_snapshot(), "pending_count"), 0, "无效回调不应加入待执行队列。")
 
 
@@ -89,7 +89,7 @@ func test_execute_after_variants_reject_non_finite_delays() -> void:
 	for delay: float in [NAN, INF, -INF]:
 		assert_eq(_timer_util.execute_after(delay, callback), 0)
 		assert_push_error(
-			"[GFTimerUtility] execute_after 失败：delay 必须是有限值。"
+			"[GFTimerUtility][timer_utility.after_delay_non_finite] Cannot execute_after: delay must be finite."
 		)
 
 	assert_eq(
@@ -97,7 +97,7 @@ func test_execute_after_variants_reject_non_finite_delays() -> void:
 		0
 	)
 	assert_push_error(
-		"[GFTimerUtility] execute_after_owned 失败：delay 必须是有限值。"
+		"[GFTimerUtility][timer_utility.after_owned_delay_non_finite] Cannot execute_after_owned: delay must be finite."
 	)
 	assert_eq(fired.count, 0, "非有限 delay 不得退化成立即执行。")
 	assert_eq(
@@ -182,7 +182,7 @@ func test_execute_repeating_variants_reject_non_finite_durations() -> void:
 			0
 		)
 		assert_push_error(
-			"[GFTimerUtility] execute_repeating 失败：interval 必须是有限值。"
+			"[GFTimerUtility][timer_utility.repeating_interval_non_finite] Cannot execute_repeating: interval must be finite."
 		)
 	for initial_delay: float in [NAN, INF, -INF]:
 		assert_eq(
@@ -195,7 +195,7 @@ func test_execute_repeating_variants_reject_non_finite_durations() -> void:
 			0
 		)
 		assert_push_error(
-			"[GFTimerUtility] execute_repeating 失败：initial_delay 必须是有限值。"
+			"[GFTimerUtility][timer_utility.repeating_initial_delay_non_finite] Cannot execute_repeating: initial_delay must be finite."
 		)
 
 	assert_eq(
@@ -207,7 +207,7 @@ func test_execute_repeating_variants_reject_non_finite_durations() -> void:
 		0
 	)
 	assert_push_error(
-		"[GFTimerUtility] execute_repeating_owned 失败：interval 必须是有限值。"
+		"[GFTimerUtility][timer_utility.repeating_owned_interval_non_finite] Cannot execute_repeating_owned: interval must be finite."
 	)
 	assert_eq(
 		_timer_util.execute_repeating_owned(
@@ -220,7 +220,7 @@ func test_execute_repeating_variants_reject_non_finite_durations() -> void:
 		0
 	)
 	assert_push_error(
-		"[GFTimerUtility] execute_repeating_owned 失败：initial_delay 必须是有限值。"
+		"[GFTimerUtility][timer_utility.repeating_owned_initial_delay_non_finite] Cannot execute_repeating_owned: initial_delay must be finite."
 	)
 	assert_eq(fired.count, 0)
 	assert_eq(

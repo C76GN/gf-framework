@@ -254,7 +254,7 @@ func _replace_values(source: Dictionary) -> void:
 	var normalized: Dictionary = {}
 	for raw_key: Variant in source.keys():
 		if not (raw_key is String or raw_key is StringName):
-			push_warning("[GFPropertyBagCapability] values 只接受 String 或 StringName 键，已跳过非法键。")
+			push_warning("[GFPropertyBagCapability][property_bag_capability.invalid_key_type] values accepts only String or StringName keys; the invalid key was skipped.")
 			continue
 		var key: StringName = GFVariantData.to_string_name(raw_key)
 		if key == &"":

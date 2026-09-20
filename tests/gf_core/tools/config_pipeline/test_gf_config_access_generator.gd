@@ -53,7 +53,7 @@ func test_public_writer_rejects_bare_relative_output_uri() -> void:
 		{ "dry_run": true }
 	)
 
-	assert_push_error("[GFConfigAccessGenerator] 输出路径必须使用 res:// 或 user://")
+	assert_push_error("[GFGeneratedArtifactReport][generated_artifact_report.output_path_invalid] Artifact operation for GFConfigAccessGenerator reported the following.\nThe output path must use res:// or user://")
 	assert_false(GFVariantData.get_option_bool(report, "success"), "直接 generator writer 也必须拒绝裸相对输出路径。")
 	assert_eq(GFVariantData.get_option_int(report, "error_code"), ERR_INVALID_PARAMETER, "URI 域错误应报告参数错误。")
 	assert_false(GFVariantData.get_option_bool(report, "written"), "非法 URI 不得写入产物。")

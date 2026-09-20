@@ -185,7 +185,7 @@ func set_viewport_camera(index: int, camera: Node) -> bool:
 	if viewport == null or not is_instance_valid(camera):
 		return false
 	if camera.get_parent() != null and camera.get_parent() != viewport:
-		push_warning("[GFViewportUtility] 相机已在其他父节点下，未自动重挂。")
+		push_warning("[GFViewportUtility][viewport_utility.camera_already_parented] The camera already has another parent and was not reparented automatically.")
 		return false
 
 	var previous: Node = _get_camera_at(index)

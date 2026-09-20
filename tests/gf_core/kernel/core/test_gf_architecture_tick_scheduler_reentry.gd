@@ -150,8 +150,8 @@ func test_nested_drive_is_rejected_without_flushing_outer_cache() -> void:
 		"嵌套 drive 必须被拒绝，且外层剩余记录仍应恰好执行一次。"
 	)
 	assert_push_warning(
-		"[GFArchitectureTickScheduler] 已拒绝嵌套 tick/physics_tick 调度；"
-		+ "同一架构的 drive 调用不能重入。"
+		"[GFArchitectureTickScheduler][architecture_tick_scheduler.drive_reentry] Nested tick/physics_tick scheduling was rejected; "
+		+ "drive calls on the same architecture cannot be reentrant."
 	)
 
 	order.clear()
@@ -408,6 +408,6 @@ func _make_counting_scheduler(
 
 func _assert_reentry_warning() -> void:
 	assert_push_warning(
-		"[GFArchitectureTickScheduler] 已拒绝嵌套 tick/physics_tick 调度；"
-		+ "同一架构的 drive 调用不能重入。"
+		"[GFArchitectureTickScheduler][architecture_tick_scheduler.drive_reentry] Nested tick/physics_tick scheduling was rejected; "
+		+ "drive calls on the same architecture cannot be reentrant."
 	)

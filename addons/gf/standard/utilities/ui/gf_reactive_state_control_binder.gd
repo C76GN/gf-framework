@@ -55,10 +55,10 @@ func bind_control(
 ) -> bool:
 	var state_store: _GF_REACTIVE_STATE_STORE_SCRIPT = _as_state_store(store)
 	if state_store == null:
-		push_error("[GFReactiveStateControlBinder] bind_control 失败：store 必须是 GFReactiveStateStore。")
+		push_error("[GFReactiveStateControlBinder][reactive_state_control_binder.store_type_invalid] Cannot bind_control: store must be a GFReactiveStateStore.")
 		return false
 	if not is_instance_valid(control):
-		push_error("[GFReactiveStateControlBinder] bind_control 失败：control 无效。")
+		push_error("[GFReactiveStateControlBinder][reactive_state_control_binder.control_invalid] Cannot bind_control: control is invalid.")
 		return false
 
 	var _previous_binding_removed: bool = unbind_control(control)

@@ -124,7 +124,7 @@ func acquire() -> RefCounted:
 	while not _available.is_empty() and item == null:
 		item = _available.pop_back()
 		if _is_active_item(item) or _is_transitioning_item(item):
-			push_error("[GFRefCountedPool] acquire 失败：可用池中存在已借出或转换中的对象，已丢弃该重复引用。")
+			push_error("[GFRefCountedPool][ref_counted_pool.available_object_already_owned] Cannot acquire: the available pool contains a borrowed or transitioning object; duplicate reference discarded.")
 			item = null
 
 	if item == null:
@@ -132,7 +132,7 @@ func acquire() -> RefCounted:
 		if item == null:
 			return null
 		if _is_tracked_item(item):
-			push_error("[GFRefCountedPool] acquire 失败：factory 返回了已被当前池追踪的对象，已拒绝重复借出。")
+			push_error("[GFRefCountedPool][ref_counted_pool.factory_object_already_owned] Cannot acquire: factory returned an object already tracked by this pool; duplicate borrowing rejected.")
 			return null
 		_created_count += 1
 
@@ -158,7 +158,7 @@ func release(item: RefCounted) -> bool:
 
 	var item_id: int = item.get_instance_id()
 	if not _active_ids.has(item_id):
-		push_warning("[GFRefCountedPool] release 收到未由当前池借出的对象，已忽略。")
+		push_warning("[GFRefCountedPool][ref_counted_pool.release_foreign_object] Ignored release of an object not borrowed from this pool.")
 		return false
 
 	var _erase_result_152: Variant = _active_ids.erase(item_id)
@@ -191,7 +191,7 @@ func prewarm(count: int) -> int:
 		if item == null:
 			break
 		if _is_tracked_item(item):
-			push_error("[GFRefCountedPool] prewarm 失败：factory 返回了已被当前池追踪的对象，已停止预热。")
+			push_error("[GFRefCountedPool][ref_counted_pool.prewarm_object_already_owned] Cannot prewarm: factory returned an object already tracked by this pool; prewarming stopped.")
 			break
 		_created_count += 1
 		var item_id: int = item.get_instance_id()
@@ -257,7 +257,7 @@ func get_debug_snapshot() -> Dictionary:
 
 func _create_item() -> RefCounted:
 	if not factory.is_valid():
-		push_error("[GFRefCountedPool] factory 无效，无法创建对象。")
+		push_error("[GFRefCountedPool][ref_counted_pool.factory_invalid] Cannot create object: factory is invalid.")
 		return null
 
 	var value: Variant = factory.call()
@@ -265,7 +265,7 @@ func _create_item() -> RefCounted:
 		var item: RefCounted = value
 		return item
 
-	push_error("[GFRefCountedPool] factory 必须返回 RefCounted。")
+	push_error("[GFRefCountedPool][ref_counted_pool.factory_result_invalid] factory must return RefCounted.")
 	return null
 
 

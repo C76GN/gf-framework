@@ -65,6 +65,7 @@ import gf_validation_inputs
 import gf_validation_test_inventory
 import gf_credential_gate
 import gf_codeql_suppression_policy
+import gf_diagnostic_policy
 import gf_changelog
 import gf_gut_sharding
 import gf_gut_shard_worker
@@ -1693,6 +1694,10 @@ def main() -> int:
 
 	path_hygiene_parser = subparsers.add_parser("path-hygiene", help="Check tracked and untracked repository paths for cross-platform hazards.")
 	path_hygiene_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
+	diagnostic_policy_parser = subparsers.add_parser(
+		"diagnostic-policy", help="Check framework diagnostic templates and reviewed forwarding boundaries.",
+	)
+	diagnostic_policy_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	codeql_suppression_policy_parser = subparsers.add_parser(
 		"codeql-suppression-policy",
@@ -2159,6 +2164,10 @@ def main() -> int:
 			args.json,
 			maintenance_rendering.render_codeql_suppression_policy_text,
 		)
+		return 0 if data["ok"] else 1
+	if args.command == "diagnostic-policy":
+		data = diagnostic_policy()
+		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_diagnostic_policy_text)
 		return 0 if data["ok"] else 1
 	if args.command == "api-since-touched":
 		data = api_since_touched()
@@ -3821,6 +3830,15 @@ def codeql_suppression_policy() -> dict[str, Any]:
 		ROOT,
 		tracked_paths_result["paths"],
 		git_error=tracked_paths_result["error"],
+	)
+
+
+def diagnostic_policy() -> dict[str, Any]:
+	snapshot = _ACTIVE_WORKSPACE_SNAPSHOT or WorkspaceSnapshot(ROOT)
+	return gf_diagnostic_policy.audit_files(
+		ROOT,
+		collect_text_files(ROOT / "addons" / "gf", {".gd"}),
+		snapshot.read_utf8_text_strict,
 	)
 
 
@@ -9773,7 +9791,7 @@ def run_core_plugin_bootstrap_smoke_scenario(
 			"partial_standard_manifest_missing_targets": "degraded",
 			"partial_standard_manifest_invalid": "invalid",
 		}.get(scenario_name)
-		diagnostic_marker = "[GF Framework][PLUGIN-BOOT-001]"
+		diagnostic_marker = "[GFPlugin][plugin.invalid_standard_contribution_manifest]"
 		if expected_diagnostic_state is None and diagnostic_marker in combined_output:
 			issues.append(make_package_issue(
 				"core_plugin_bootstrap_smoke_unexpected_manifest_diagnostic",
@@ -9806,7 +9824,7 @@ def run_core_plugin_bootstrap_smoke_scenario(
 					expected_value="1",
 					error=godot_smoke_output_excerpt(combined_output),
 				))
-			if "[GF Framework][PLUGIN-BOOT-002]" in combined_output:
+			if "[GFPlugin][plugin.contribution_refresh_not_applied]" in combined_output:
 				issues.append(make_package_issue(
 					"core_plugin_bootstrap_smoke_refresh_failed",
 					"godot",
@@ -15033,6 +15051,7 @@ def maintenance_in_process_adapter_registry(
 			allow_breaking_api=allow_breaking_api,
 		),
 		"codeql_suppression_policy": codeql_suppression_policy,
+		"diagnostic_policy": diagnostic_policy,
 		"public_docs_boundary": public_docs_boundary,
 		"public_api_boundary": public_api_boundary,
 		"resource_boundary": lambda: resource_boundary(fail_on_issues=True),

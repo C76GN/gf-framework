@@ -483,7 +483,7 @@ func load_async(
 	options: Dictionary = {}
 ) -> void:
 	if asset_utility == null or not on_loaded.is_valid():
-		push_error("[GFResourceResolverUtility] load_async 失败：asset_utility 或 on_loaded 无效。")
+		push_error("[GFResourceResolverUtility][resource_resolver_utility.load_callback_invalid] Cannot load_async: asset_utility or on_loaded is invalid.")
 		if on_loaded.is_valid():
 			on_loaded.call(null)
 		return

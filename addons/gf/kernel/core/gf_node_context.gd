@@ -140,7 +140,7 @@ func _enter_tree() -> void:
 			architecture_lifecycle_generation
 		)
 		if not parent_ready:
-			_cancel_context_install_scope_if_current(install_scope, "父级架构未就绪。")
+			_cancel_context_install_scope_if_current(install_scope, "The parent architecture is not ready.")
 			return
 		if not _can_continue_context_install(
 			lifecycle_serial,
@@ -199,7 +199,7 @@ func _enter_tree() -> void:
 		if auto_init:
 			await _initialize_owned_architecture(context_architecture, lifecycle_serial)
 	elif _architecture == null:
-		_fail_context("未找到可继承的架构。")
+		_fail_context("No architecture is available to inherit.")
 	else:
 		_GF_ASYNC_CALL_SCRIPT.run_detached(
 			Callable(self, &"_watch_inherited_architecture_ready"),
@@ -221,7 +221,7 @@ func _physics_process(delta: float) -> void:
 
 func _exit_tree() -> void:
 	_context_lifecycle_serial += 1
-	_cancel_context_install_scope("上下文已退出树。")
+	_cancel_context_install_scope("The context has exited the tree.")
 	if _owns_architecture and _architecture != null:
 		_architecture.dispose()
 	_architecture = null
@@ -383,12 +383,12 @@ func wait_until_ready() -> GFArchitecture:
 			return null
 		var waiting_architecture: GFArchitecture = _architecture
 		if waiting_architecture.has_initialization_failed():
-			_fail_context(_get_architecture_failure_reason(waiting_architecture, "上下文架构初始化失败。"))
+			_fail_context(_get_architecture_failure_reason(waiting_architecture, "Context architecture initialization failed."))
 			return null
 		if waiting_architecture.is_disposed():
-			_fail_context("上下文架构生命周期已结束。")
+			_fail_context("The context architecture lifecycle has ended.")
 			return null
-		var timeout_reason: String = _get_wait_timeout_reason(start_msec, "等待上下文初始化超时。")
+		var timeout_reason: String = _get_wait_timeout_reason(start_msec, "Timed out waiting for context initialization.")
 		if not timeout_reason.is_empty():
 			_fail_context(timeout_reason)
 			return null
@@ -570,16 +570,16 @@ func _initialize_owned_architecture(
 	if _context_state == _ContextState.FAILED:
 		return
 	if initializing_architecture.is_disposed():
-		_fail_context("上下文架构生命周期已结束。")
+		_fail_context("The context architecture lifecycle has ended.")
 		return
 	if not _validate_parent_architecture_lifecycle(false):
 		return
 	if initialized:
 		_mark_context_ready(initializing_architecture)
 	elif initializing_architecture.has_initialization_failed():
-		_fail_context(_get_architecture_failure_reason(initializing_architecture, "上下文架构初始化失败。"))
+		_fail_context(_get_architecture_failure_reason(initializing_architecture, "Context architecture initialization failed."))
 	else:
-		_fail_context("上下文架构初始化未能完成。")
+		_fail_context("Context architecture initialization did not complete.")
 
 
 func _watch_inherited_architecture_ready(inherited_architecture: GFArchitecture, lifecycle_serial: int) -> void:
@@ -595,7 +595,7 @@ func _watch_inherited_architecture_ready(inherited_architecture: GFArchitecture,
 		if inherited_architecture.is_inited():
 			_mark_context_ready(inherited_architecture)
 			return
-		var timeout_reason: String = _get_wait_timeout_reason(start_msec, "等待上下文初始化超时。")
+		var timeout_reason: String = _get_wait_timeout_reason(start_msec, "Timed out waiting for context initialization.")
 		if not timeout_reason.is_empty():
 			_fail_context(timeout_reason)
 			return
@@ -642,7 +642,7 @@ func _wait_for_parent_architecture_ready(
 			return false
 		if not _validate_parent_architecture_lifecycle(true):
 			return false
-		var timeout_reason: String = _get_wait_timeout_reason(start_msec, "等待父级架构初始化超时。")
+		var timeout_reason: String = _get_wait_timeout_reason(start_msec, "Timed out waiting for parent architecture initialization.")
 		if not timeout_reason.is_empty():
 			_fail_context(timeout_reason)
 			return false
@@ -719,7 +719,7 @@ func _fail_context(reason: String, allow_ready_transition: bool = false) -> void
 		or _architecture != failure_architecture
 	):
 		return
-	push_warning("[GFNodeContext] %s" % reason)
+	push_warning("[GFNodeContext][node_context.failed] Context failed.\n%s" % reason)
 	context_failed.emit(reason)
 
 
@@ -741,13 +741,13 @@ func _synchronize_context_lifecycle() -> void:
 		if shutdown_result != null and shutdown_result.get_status() != GFArchitectureShutdownResult.Status.FORCED:
 			_context_state = _ContextState.CLOSED
 			return
-		_fail_context("上下文架构生命周期已结束。", allow_ready_transition)
+		_fail_context("The context architecture lifecycle has ended.", allow_ready_transition)
 		return
 	if _owns_architecture and _architecture.has_initialization_failed():
 		_fail_context(
 			_get_architecture_failure_reason(
 				_architecture,
-				"上下文架构初始化失败。"
+				"Context architecture initialization failed."
 			),
 			allow_ready_transition
 		)
@@ -758,7 +758,7 @@ func _synchronize_context_lifecycle() -> void:
 		_context_state = _ContextState.CLOSING
 		return
 	if _context_state == _ContextState.READY and not _architecture.is_inited():
-		_fail_context("上下文架构生命周期已失效。", true)
+		_fail_context("The context architecture lifecycle is no longer valid.", true)
 
 
 func _capture_parent_architecture(parent_architecture: GFArchitecture) -> void:
@@ -781,22 +781,22 @@ func _clear_parent_architecture_tracking() -> void:
 
 func _validate_parent_architecture_lifecycle(allow_pending: bool) -> bool:
 	var bound_parent_architecture: GFArchitecture = _get_bound_parent_architecture()
-	var relationship_name: String = "父级架构" if _owns_architecture else "继承架构"
+	var relationship_name: String = "Parent architecture" if _owns_architecture else "Inherited architecture"
 	var allow_ready_transition: bool = _context_state == _ContextState.READY
 	if _parent_architecture != null and _parent_architecture.is_disposed():
-		_fail_context("%s生命周期已结束。" % relationship_name, allow_ready_transition)
+		_fail_context("%s lifecycle has ended." % relationship_name, allow_ready_transition)
 		return false
 	if _parent_architecture != null and _parent_architecture.has_initialization_failed():
 		_fail_context(
 			_get_architecture_failure_reason(
 				_parent_architecture,
-				"%s初始化失败。" % relationship_name
+				"%s initialization failed." % relationship_name
 			),
 			allow_ready_transition
 		)
 		return false
 	if bound_parent_architecture != _parent_architecture:
-		_fail_context("%s身份已变化。" % relationship_name, allow_ready_transition)
+		_fail_context("%s identity changed." % relationship_name, allow_ready_transition)
 		return false
 	if _parent_architecture == null:
 		return true
@@ -807,17 +807,17 @@ func _validate_parent_architecture_lifecycle(allow_pending: bool) -> bool:
 			lifecycle_generation != _parent_architecture_ready_generation
 			or not _parent_architecture.is_inited()
 		):
-			_fail_context("%s生命周期已失效。" % relationship_name, allow_ready_transition)
+			_fail_context("%s lifecycle is no longer valid." % relationship_name, allow_ready_transition)
 			return false
 		return true
 	if not _is_parent_architecture_wait_generation_valid(lifecycle_generation):
-		_fail_context("%s生命周期已失效。" % relationship_name, allow_ready_transition)
+		_fail_context("%s lifecycle is no longer valid." % relationship_name, allow_ready_transition)
 		return false
 	if _parent_architecture.is_inited():
 		_parent_architecture_ready_generation = lifecycle_generation
 		return true
 	if not allow_pending:
-		_fail_context("%s未就绪。" % relationship_name, allow_ready_transition)
+		_fail_context("%s is not ready." % relationship_name, allow_ready_transition)
 		return false
 	return true
 
@@ -873,13 +873,13 @@ func _validate_owned_architecture_wait_target(
 	if not _is_owned_architecture_current(architecture_instance, lifecycle_serial):
 		return false
 	if architecture_instance.is_disposed():
-		_fail_context("上下文架构生命周期已结束。")
+		_fail_context("The context architecture lifecycle has ended.")
 		return false
 	if architecture_instance.has_initialization_failed():
 		_fail_context(
 			_get_architecture_failure_reason(
 				architecture_instance,
-				"上下文架构在等待父级期间初始化失败。"
+				"Context architecture initialization failed while waiting for the parent."
 			)
 		)
 		return false
@@ -887,7 +887,7 @@ func _validate_owned_architecture_wait_target(
 		architecture_instance.get_lifecycle_generation()
 		!= architecture_lifecycle_generation
 	):
-		_fail_context("上下文架构在等待父级期间生命周期已失效。")
+		_fail_context("The context architecture lifecycle became invalid while waiting for the parent.")
 		return false
 	return true
 
@@ -933,7 +933,7 @@ func _mark_context_ready(architecture_instance: GFArchitecture) -> void:
 
 
 func _begin_context_install_scope() -> GFAsyncScope:
-	_cancel_context_install_scope("新的上下文安装流程已开始。")
+	_cancel_context_install_scope("A new context installation has started.")
 	var install_scope: GFAsyncScope = GFAsyncScope.new()
 	_context_install_scope = install_scope
 	return install_scope
@@ -1012,16 +1012,16 @@ func _handle_context_install_interruption(
 	if install_scope != null and install_scope.is_cancel_requested():
 		failure_reason = String(install_scope.get_cancel_reason())
 	elif architecture_instance.is_disposed():
-		failure_reason = "上下文架构在安装期间生命周期已结束。"
+		failure_reason = "The context architecture lifecycle ended during installation."
 	elif architecture_instance.has_initialization_failed():
 		failure_reason = _get_architecture_failure_reason(
 			architecture_instance,
-			"上下文架构在安装期间初始化失败。"
+			"Context architecture initialization failed during installation."
 		)
 	elif architecture_instance.get_lifecycle_generation() != architecture_lifecycle_generation:
-		failure_reason = "上下文架构在安装期间生命周期已失效。"
+		failure_reason = "The context architecture lifecycle became invalid during installation."
 	elif _context_install_scope != install_scope:
-		failure_reason = "上下文安装作用域已失效。"
+		failure_reason = "The context installation scope is no longer valid."
 	else:
-		failure_reason = "上下文安装未能完成。"
+		failure_reason = "Context installation did not complete."
 	_fail_context(failure_reason)

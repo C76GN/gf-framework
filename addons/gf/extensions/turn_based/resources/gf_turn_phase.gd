@@ -125,7 +125,7 @@ func begin_runtime(
 		return null
 	var context_id: int = context.get_instance_id()
 	if _runtime_by_context_id.has(context_id):
-		push_error("[GFTurnPhase] 同一 context 已存在活动运行态。")
+		push_error("[GFTurnPhase][turn_phase.context_already_active] The same context already has an active runtime state.")
 		return null
 	var runtime: RuntimeState = RuntimeState.new()
 	if not runtime.configure_from_flow(context, lease, owner, flow_serial):

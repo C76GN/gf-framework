@@ -206,7 +206,7 @@ static func format_full(
 				var string_value: String = value
 				var normalization: Dictionary = _DECIMAL_STRING_FORMATTER.normalize_numeric_text(string_value)
 				if not GFVariantData.get_option_bool(normalization, "ok"):
-					push_error("[GFNumberFormatter] format_full() 只接受合法数值文本。")
+					push_error("[GFNumberFormatter][number_formatter.numeric_text_invalid] format_full() requires valid numeric text.")
 					return "0"
 				text = GFVariantData.get_option_string(normalization, "text")
 				if text.contains("e") or text.contains("E"):
@@ -218,7 +218,7 @@ static func format_full(
 					use_truncation
 				)
 			_:
-				push_error("[GFNumberFormatter] format_full() 收到不支持的值类型。")
+				push_error("[GFNumberFormatter][number_formatter.value_type_unsupported] format_full() received an unsupported value type.")
 				return "0"
 
 	if use_grouping:

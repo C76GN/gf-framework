@@ -127,10 +127,10 @@ func _init(context: Object = null) -> void:
 ## @param parent_state_name: 可选父状态名；为空表示根状态。
 func add_state(state_name: StringName, state: GFState, parent_state_name: StringName = &"") -> void:
 	if state_name == &"":
-		push_warning("[GFStateMachine] 注册状态失败，state_name 为空。")
+		push_warning("[GFStateMachine][state_machine.state_name_empty] Cannot register state: state_name is empty.")
 		return
 	if state == null:
-		push_warning("[GFStateMachine] 注册状态失败，state 为空：%s" % state_name)
+		push_warning("[GFStateMachine][state_machine.state_null] Cannot register state: state is null: %s." % state_name)
 		return
 
 	var normalized_parent: StringName = _normalize_parent_state_name(state_name, parent_state_name)
@@ -185,7 +185,7 @@ func add_state(state_name: StringName, state: GFState, parent_state_name: String
 ## @return 设置成功返回 true。
 func set_state_parent(state_name: StringName, parent_state_name: StringName = &"") -> bool:
 	if not _states.has(state_name):
-		push_warning("[GFStateMachine] 设置父状态失败，未找到状态：%s" % state_name)
+		push_warning("[GFStateMachine][state_machine.parent_state_missing] Cannot set parent state: state not found: %s." % state_name)
 		return false
 
 	var normalized_parent: StringName = _normalize_parent_state_name(state_name, parent_state_name)
@@ -212,7 +212,7 @@ func set_state_parent(state_name: StringName, parent_state_name: StringName = &"
 ## @schema msg: Dictionary state transition payload.
 func start(initial_state_name: StringName, msg: Dictionary = {}, emit_changed: bool = true) -> void:
 	if not _states.has(initial_state_name):
-		push_warning("[GFStateMachine] 启动失败，未找到状态：%s" % initial_state_name)
+		push_warning("[GFStateMachine][state_machine.start_state_missing] Cannot start: state not found: %s." % initial_state_name)
 		return
 
 	_clear_queued_exit_transition()
@@ -230,7 +230,7 @@ func start(initial_state_name: StringName, msg: Dictionary = {}, emit_changed: b
 ## @schema msg: Dictionary state transition payload.
 func change_state(state_name: StringName, msg: Dictionary = {}) -> void:
 	if not _states.has(state_name):
-		push_warning("[GFStateMachine] 切换失败，未找到状态：%s" % state_name)
+		push_warning("[GFStateMachine][state_machine.transition_state_missing] Cannot transition: state not found: %s." % state_name)
 		return
 
 	if _is_exiting_current_state:
@@ -817,13 +817,13 @@ func _normalize_parent_state_name(state_name: StringName, parent_state_name: Str
 	if parent_state_name == &"":
 		return &""
 	if parent_state_name == state_name:
-		push_error("[GFStateMachine] 父状态不能指向自身：%s" % state_name)
+		push_error("[GFStateMachine][state_machine.self_parent] A state cannot be its own parent: %s." % state_name)
 		return &""
 	if not _states.has(parent_state_name):
-		push_warning("[GFStateMachine] 父状态尚未注册，已按根状态注册：%s -> %s" % [state_name, parent_state_name])
+		push_warning("[GFStateMachine][state_machine.parent_unregistered] Parent state is not registered; registered as a root state: %s -> %s." % [state_name, parent_state_name])
 		return &""
 	if _creates_parent_cycle(state_name, parent_state_name):
-		push_error("[GFStateMachine] 检测到循环状态父级：%s -> %s" % [state_name, parent_state_name])
+		push_error("[GFStateMachine][state_machine.parent_cycle] Detected a state parent cycle: %s -> %s." % [state_name, parent_state_name])
 		return &""
 	return parent_state_name
 
@@ -854,11 +854,11 @@ func _build_state_path(state_name: StringName) -> Array[StringName]:
 	var visited: Dictionary = {}
 	while current_name != &"":
 		if visited.has(current_name):
-			push_error("[GFStateMachine] 检测到循环状态父级，无法构建状态路径：%s" % state_name)
+			push_error("[GFStateMachine][state_machine.path_parent_cycle] Cannot build state path because of a parent cycle: %s." % state_name)
 			reversed_path.clear()
 			return reversed_path
 		if not _states.has(current_name):
-			push_warning("[GFStateMachine] 状态路径包含未注册状态：%s" % current_name)
+			push_warning("[GFStateMachine][state_machine.path_state_unregistered] State path contains an unregistered state: %s." % current_name)
 			reversed_path.clear()
 			return reversed_path
 
@@ -947,7 +947,7 @@ func _get_context() -> Object:
 func _get_available_architecture(dependency_name: String) -> GFArchitecture:
 	var context: Object = _get_context()
 	if _context_ref != null and not is_instance_valid(context):
-		push_error("[GFStateMachine] 上下文无效，无法获取 %s。" % dependency_name)
+		push_error("[GFStateMachine][state_machine.context_invalid] Cannot retrieve %s: context is invalid." % dependency_name)
 		return null
 
 	if context != null:
@@ -957,7 +957,7 @@ func _get_available_architecture(dependency_name: String) -> GFArchitecture:
 
 	var global_architecture: GFArchitecture = GFAutoload.get_architecture_or_null()
 	if global_architecture == null:
-		push_error("[GFStateMachine] 架构尚未初始化，无法获取 %s。" % dependency_name)
+		push_error("[GFStateMachine][state_machine.architecture_uninitialized] Cannot retrieve %s: architecture is not initialized." % dependency_name)
 		return null
 
 	return global_architecture

@@ -1383,14 +1383,14 @@ static func _warn_resource_path_limit(max_resource_paths: int, scan_state: Dicti
 	if max_resource_paths <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "count_warning_emitted"):
 		return
 	scan_state["count_warning_emitted"] = true
-	push_warning("[GFResourceTableEditor] scan_resource_paths 已达到 max_resource_paths=%d，后续资源已跳过。" % max_resource_paths)
+	push_warning("[GFResourceTableEditor][resource_table_editor.resource_limit_reached] scan_resource_paths reached max_resource_paths=%d; subsequent resources were skipped." % max_resource_paths)
 
 
 static func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
 	if max_scan_depth <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "depth_warning_emitted"):
 		return
 	scan_state["depth_warning_emitted"] = true
-	push_warning("[GFResourceTableEditor] scan_resource_paths 已达到 max_scan_depth=%d，已跳过更深目录：%s。" % [max_scan_depth, path])
+	push_warning("[GFResourceTableEditor][resource_table_editor.depth_limit_reached] scan_resource_paths reached max_scan_depth=%d; deeper directories were skipped: %s." % [max_scan_depth, path])
 
 
 static func _normalize_extensions(extensions: PackedStringArray) -> PackedStringArray:

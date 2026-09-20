@@ -467,7 +467,7 @@ func get_or_create_metric_series(metric_id: StringName, options: Dictionary = {}
 	var series: GFMetricSeries = _get_metric_series_or_null(metric_id)
 	if series == null:
 		if not _has_metric_series_capacity(metric_id):
-			push_warning("[GFDebugOverlayUtility] 指标序列数量已达到上限，已拒绝创建：%s" % String(metric_id))
+			push_warning("[GFDebugOverlayUtility][debug_overlay_utility.series_creation_limit] Metric series count limit reached; creation rejected: %s." % String(metric_id))
 			return null
 		series = GFMetricSeries.new()
 		_metric_series[metric_id] = series
@@ -486,7 +486,7 @@ func register_metric_series(series: GFMetricSeries) -> bool:
 	if series == null or series.id == &"":
 		return false
 	if not _has_metric_series_capacity(series.id):
-		push_warning("[GFDebugOverlayUtility] 指标序列数量已达到上限，已拒绝注册：%s" % String(series.id))
+		push_warning("[GFDebugOverlayUtility][debug_overlay_utility.series_registration_limit] Metric series count limit reached; registration rejected: %s." % String(series.id))
 		return false
 	if series.label.is_empty():
 		series.label = String(series.id)

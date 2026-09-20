@@ -445,7 +445,7 @@ static func _apply_remaining_scan_budgets(
 				_mark_class_phase_exhausted(
 					class_name_report,
 					"max_scanned_files",
-					"扩展 class_name 预扫描已耗尽与项目扫描共享的 max_scanned_files=%d。"
+					"[extension_usage_audit.shared_file_budget_exhausted] Extension class_name prescanning exhausted max_scanned_files=%d shared with project scanning."
 					% max_scanned_files
 				)
 			can_scan_project = false
@@ -468,7 +468,7 @@ static func _apply_remaining_scan_budgets(
 				_mark_class_phase_exhausted(
 					class_name_report,
 					"max_total_bytes",
-					"扩展 class_name 预扫描已耗尽与项目扫描共享的 max_total_bytes=%d 字节预算。"
+					"[extension_usage_audit.shared_byte_budget_exhausted] Extension class_name prescanning exhausted the max_total_bytes=%d byte budget shared with project scanning."
 					% max_total_bytes
 				)
 			can_scan_project = false
@@ -490,10 +490,10 @@ static func _collect_class_name_scan_report(
 			"class_name_pattern_invalid",
 			"",
 			"",
-			"扩展 class_name 预扫描正则无法编译。",
+			"[extension_usage_audit.regex_compile_failed] Could not compile the extension class_name prescan regular expression.",
 			scan_state
 		)
-		_emit_class_scan_warning("扩展 class_name 预扫描正则无法编译。", scan_state)
+		_emit_class_scan_warning("[extension_usage_audit.regex_compile_failed] Could not compile the extension class_name prescan regular expression.", scan_state)
 		return scan_state
 
 	var max_scan_depth: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
@@ -749,7 +749,7 @@ static func _mark_class_file_count_limit(
 		scan_state
 	)
 	_emit_class_scan_warning(
-		"扩展 class_name 预扫描达到 max_scanned_files=%d，后续扫描按 partial_scan 处理。"
+		"[extension_usage_audit.file_limit_reached] Extension class_name prescanning reached max_scanned_files=%d; subsequent scanning is treated as partial_scan."
 		% max_scanned_files,
 		scan_state
 	)
@@ -776,7 +776,7 @@ static func _mark_class_depth_limit(
 		scan_state
 	)
 	_emit_class_scan_warning(
-		"扩展 class_name 预扫描达到 max_scan_depth=%d，已跳过更深目录：%s。"
+		"[extension_usage_audit.depth_limit_reached] Extension class_name prescanning reached max_scan_depth=%d; deeper directories were skipped: %s."
 		% [max_scan_depth, path],
 		scan_state
 	)
@@ -807,7 +807,7 @@ static func _mark_class_byte_budget(
 		return
 	scan_state["budget_warning_emitted"] = true
 	_emit_class_scan_warning(
-		"扩展 class_name 预扫描达到 %s=%d 字节预算，结果按 partial_scan 处理：%s。"
+		"[extension_usage_audit.byte_budget_reached] Extension class_name prescanning reached the %s=%d byte budget; results are treated as partial_scan: %s."
 		% [reason, limit_bytes, path],
 		scan_state
 	)
@@ -878,7 +878,7 @@ static func _append_class_scan_issue(
 
 
 static func _emit_class_scan_warning(message: String, scan_state: Dictionary) -> void:
-	var warning_message: String = "[GFExtensionUsageAudit] %s" % message
+	var warning_message: String = "[GFExtensionUsageAudit]%s" % message
 	var scan_warnings: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
 		scan_state,
 		"scan_warnings"

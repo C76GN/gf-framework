@@ -435,14 +435,14 @@ func _warn_scene_file_limit(max_scanned_scenes: int, scan_state: Dictionary) -> 
 	if max_scanned_scenes <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "count_warning_emitted", false):
 		return
 	scan_state["count_warning_emitted"] = true
-	push_warning("[GFEditorTypeIndex] collect_scene_roots_extending 已达到 max_scanned_scenes=%d，后续场景已跳过。" % max_scanned_scenes)
+	push_warning("[GFEditorTypeIndex][editor_type_index.scene_limit_reached] collect_scene_roots_extending reached max_scanned_scenes=%d; subsequent scenes were skipped." % max_scanned_scenes)
 
 
 func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
 	if max_scan_depth <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "depth_warning_emitted", false):
 		return
 	scan_state["depth_warning_emitted"] = true
-	push_warning("[GFEditorTypeIndex] collect_scene_roots_extending 已达到 max_scan_depth=%d，已跳过更深目录：%s。" % [max_scan_depth, path])
+	push_warning("[GFEditorTypeIndex][editor_type_index.depth_limit_reached] collect_scene_roots_extending reached max_scan_depth=%d; deeper directories were skipped: %s." % [max_scan_depth, path])
 
 
 func _variant_to_script(value: Variant) -> Script:

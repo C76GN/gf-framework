@@ -268,7 +268,7 @@ func configure(analytics_config: GFAnalyticsConfig) -> void:
 ## @param client_id: 1..4096 字符且不含 C0/DEL 控制字符的客户端标识；非法值会被拒绝并保留原标识。
 func identify(client_id: String) -> void:
 	if not _is_valid_client_id(client_id):
-		push_warning("[GFAnalyticsUtility] client_id must contain 1..4096 characters without C0/DEL controls.")
+		push_warning("[GFAnalyticsUtility][analytics_utility.client_id_invalid] client_id must contain 1..4096 characters without C0/DEL controls.")
 		return
 	_client_id = client_id
 	_explicit_client_id = true
@@ -507,13 +507,13 @@ func _track_event(
 		return { "ok": false, "reason": &"invalid_event_name" }
 	var event_name_text: String = String(event_name)
 	if event_name_text.length() > config.max_event_name_length:
-		push_warning("[GFAnalyticsUtility] event_name exceeds max_event_name_length.")
+		push_warning("[GFAnalyticsUtility][analytics_utility.event_name_length_limit] event_name exceeds max_event_name_length.")
 		return { "ok": false, "reason": &"invalid_event_name" }
 	if _contains_control_character(event_name_text):
-		push_warning("[GFAnalyticsUtility] event_name contains control characters.")
+		push_warning("[GFAnalyticsUtility][analytics_utility.event_name_control_characters] event_name contains control characters.")
 		return { "ok": false, "reason": &"invalid_event_name" }
 	if properties.size() > config.max_property_count:
-		push_warning("[GFAnalyticsUtility] properties exceed max_property_count.")
+		push_warning("[GFAnalyticsUtility][analytics_utility.property_count_limit] properties exceed max_property_count.")
 		return { "ok": false, "reason": &"validation_budget_exceeded" }
 
 	var encoded_properties: Dictionary = _encode_event_properties(properties)
@@ -542,7 +542,7 @@ func _track_event(
 			event_context["app_version"] = config.app_version
 		event_data["context"] = _json_safe_dictionary(event_context)
 	if JSON.stringify(event_data).to_utf8_buffer().size() > config.max_payload_bytes:
-		push_warning("[GFAnalyticsUtility] event exceeds max_payload_bytes after report encoding.")
+		push_warning("[GFAnalyticsUtility][analytics_utility.payload_bytes_limit] event exceeds max_payload_bytes after report encoding.")
 		return { "ok": false, "reason": &"payload_too_large" }
 
 	var max_queue_size: int = _get_max_queue_size()
@@ -1129,7 +1129,7 @@ func _load_client_id() -> String:
 	if load_error == ERR_FILE_NOT_FOUND:
 		return ""
 	if load_error != OK:
-		push_warning("[GFAnalyticsUtility] failed to load client id: %s." % error_string(load_error))
+		push_warning("[GFAnalyticsUtility][analytics_utility.client_id_load_failed] Failed to load client ID: %s." % error_string(load_error))
 		return ""
 	var loaded_id: String = GFVariantData.to_text(
 		config_file.get_value("analytics", "client_id", "")
@@ -1149,18 +1149,18 @@ func _save_client_id(client_id: String) -> void:
 	var config_file: ConfigFile = ConfigFile.new()
 	var load_error: Error = config_file.load(config.client_id_storage_path)
 	if load_error != OK and load_error != ERR_FILE_NOT_FOUND:
-		push_warning("[GFAnalyticsUtility] failed to load client id before save: %s." % error_string(load_error))
+		push_warning("[GFAnalyticsUtility][analytics_utility.client_id_load_before_save_failed] Failed to load client ID before saving: %s." % error_string(load_error))
 		return
 	config_file.set_value("analytics", "client_id", client_id)
 	var storage_dir: String = ProjectSettings.globalize_path(config.client_id_storage_path.get_base_dir())
 	if not DirAccess.dir_exists_absolute(storage_dir):
 		var directory_error: Error = DirAccess.make_dir_recursive_absolute(storage_dir)
 		if directory_error != OK:
-			push_warning("[GFAnalyticsUtility] failed to create client id directory: %s." % error_string(directory_error))
+			push_warning("[GFAnalyticsUtility][analytics_utility.client_id_directory_failed] Failed to create the client ID directory: %s." % error_string(directory_error))
 			return
 	var save_error: Error = config_file.save(config.client_id_storage_path)
 	if save_error != OK:
-		push_warning("[GFAnalyticsUtility] failed to save client id: %s." % error_string(save_error))
+		push_warning("[GFAnalyticsUtility][analytics_utility.client_id_save_failed] Failed to save client ID: %s." % error_string(save_error))
 
 
 func _is_valid_client_id_storage_path(path: String) -> bool:
@@ -1193,7 +1193,7 @@ func _report_invalid_client_id_storage_path() -> void:
 	if _reported_invalid_storage_path:
 		return
 	_reported_invalid_storage_path = true
-	push_warning("[GFAnalyticsUtility] client_id_storage_path must stay under user:// without parent traversal.")
+	push_warning("[GFAnalyticsUtility][analytics_utility.client_id_path_invalid] client_id_storage_path must stay under user:// without parent traversal.")
 
 
 func _ensure_shutdown_watcher() -> void:

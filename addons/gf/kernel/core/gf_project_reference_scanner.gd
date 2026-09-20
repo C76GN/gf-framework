@@ -1453,7 +1453,7 @@ static func _mark_budget_exceeded(
 		return
 	scan_state["budget_warning_emitted"] = true
 	_emit_scan_warning(
-		"引用扫描达到 %s=%d 字节预算，后续结果按 partial_scan 处理：%s。" % [reason, limit_bytes, path],
+		"[project_reference_scanner.byte_budget_reached] Reference scanning reached the %s=%d byte budget; subsequent results are treated as partial_scan: %s." % [reason, limit_bytes, path],
 		scan_state
 	)
 
@@ -1518,7 +1518,7 @@ static func _warn_scanned_file_limit(max_scanned_files: int, scan_state: Diction
 		"候选扫描文件数量超过配额。",
 		scan_state
 	)
-	_emit_scan_warning("已达到 max_scanned_files=%d，后续文件已跳过。" % max_scanned_files, scan_state)
+	_emit_scan_warning("[project_reference_scanner.file_limit_reached] max_scanned_files=%d was reached; subsequent files were skipped." % max_scanned_files, scan_state)
 
 
 static func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
@@ -1534,7 +1534,7 @@ static func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state
 		"扫描目录深度超过配额。",
 		scan_state
 	)
-	_emit_scan_warning("已达到 max_scan_depth=%d，已跳过更深目录：%s。" % [max_scan_depth, path], scan_state)
+	_emit_scan_warning("[project_reference_scanner.depth_limit_reached] max_scan_depth=%d was reached; deeper directories were skipped: %s." % [max_scan_depth, path], scan_state)
 
 
 static func _emit_scan_warning(message: String, scan_state: Dictionary) -> void:
@@ -1543,7 +1543,7 @@ static func _emit_scan_warning(message: String, scan_state: Dictionary) -> void:
 		"warning_prefix",
 		"[GFProjectReferenceScanner]"
 	)
-	var warning_message: String = "%s %s" % [warning_prefix, message]
+	var warning_message: String = "%s%s" % [warning_prefix, message]
 	var scan_warnings: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(scan_state, "scan_warnings")
 	scan_warnings.append(warning_message)
 	scan_state["scan_warnings"] = scan_warnings

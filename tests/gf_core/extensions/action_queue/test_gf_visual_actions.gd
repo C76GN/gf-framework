@@ -268,7 +268,7 @@ func test_move_tween_action_rejects_detached_target_for_timed_tween() -> void:
 
 	assert_true(result == null, "离树目标不应创建移动 Tween。")
 	assert_eq(node.position, Vector2.ZERO, "离树目标不应被定时移动动作改写。")
-	assert_push_warning("[GFMoveTweenAction] 目标节点未进入场景树，无法创建 Tween。")
+	assert_push_warning("[GFMoveTweenAction][move_tween_action.target_outside_tree] Cannot create a Tween: the target node is outside the scene tree.")
 	node.free()
 
 
@@ -298,7 +298,7 @@ func test_move_tween_action_rejects_incompatible_target_value() -> void:
 
 	var action: GFVisualAction = GFMoveTweenAction.new(node, "bad_target", 0.0)
 	var result: Variant = action.execute()
-	assert_push_warning("[GFMoveTweenAction] 目标属性与目标值类型不兼容：position。")
+	assert_push_warning("[GFMoveTweenAction][move_tween_action.incompatible_property_value] Target property and value types are incompatible: position.")
 
 	assert_true(result == null, "类型不兼容的移动动作不应创建 Tween。")
 	assert_eq(node.position, Vector2.ZERO, "类型不兼容时不应写入目标属性。")
@@ -310,7 +310,7 @@ func test_move_tween_action_rejects_missing_property() -> void:
 
 	var action: GFVisualAction = GFMoveTweenAction.new(node, Vector2.ONE, 0.0, ^"missing_position")
 	var result: Variant = action.execute()
-	assert_push_warning("[GFMoveTweenAction] 目标属性不存在：missing_position。")
+	assert_push_warning("[GFMoveTweenAction][move_tween_action.missing_property] Target property does not exist: missing_position.")
 
 	assert_true(result == null, "缺失属性不应创建移动 Tween。")
 
@@ -396,7 +396,7 @@ func test_tween_easing_curve_invalid_timed_step_is_reported_and_skipped() -> voi
 	var bad_result: Variant = bad_step.append_to_tween(tween, target)
 	var bad_step_was_skipped: bool = bad_result == null
 	assert_true(bad_step_was_skipped)
-	assert_push_warning("[GFTweenActionStep] 跳过无效 Tween 步骤：%s" % error_text)
+	assert_push_warning("[GFTweenActionStep][tween_action_step.invalid_easing_curve] Skipped an invalid Tween step: %s." % error_text)
 	var good_result: Variant = good_step.append_to_tween(tween, target)
 	assert_true(good_result is PropertyTweener)
 	var _running: bool = tween.custom_step(1.0)
@@ -521,11 +521,11 @@ func test_tween_easing_curve_invalid_copy_fails_without_partial_config() -> void
 	var copied_step: GFTweenActionStep = bad_step.duplicate_step()
 	var step_copy_failed: bool = copied_step == null
 	assert_true(step_copy_failed)
-	assert_push_warning("[GFTweenActionStep] 无法复制无效 easing_curve；请先校验步骤。")
+	assert_push_warning("[GFTweenActionStep][tween_action_step.invalid_easing_curve_copy] Cannot duplicate an invalid easing_curve; validate the step first.")
 	var copied_config: GFTweenActionConfig = config.duplicate_config()
 	var config_copy_failed: bool = copied_config == null
 	assert_true(config_copy_failed)
-	assert_push_warning("[GFTweenActionStep] 无法复制无效 easing_curve；请先校验步骤。")
+	assert_push_warning("[GFTweenActionStep][tween_action_step.invalid_easing_curve_copy] Cannot duplicate an invalid easing_curve; validate the step first.")
 	assert_eq(config.steps.size(), 2)
 	assert_eq(good_step.easing_curve.get_point_count(), 3)
 	assert_eq(bad_step.easing_curve.get_point_count(), 0)
@@ -679,7 +679,7 @@ func test_configured_tween_action_rejects_detached_target_for_timed_steps() -> v
 
 	assert_true(result == null, "离树目标不应创建配置化 Tween。")
 	assert_eq(node.position, Vector2.ZERO, "离树目标不应被定时配置化 Tween 改写。")
-	assert_push_warning("[GFConfiguredTweenAction] 缺少有效 Tween 宿主节点。")
+	assert_push_warning("[GFConfiguredTweenAction][configured_tween_action.missing_host] Cannot start playback: a valid host node is required.")
 	node.free()
 
 
@@ -847,7 +847,7 @@ func test_tween_action_config_rejects_absolute_type_mismatch_before_property_twe
 	var result: Variant = action.execute()
 	assert_true(result == null, "无效 absolute step 不应创建可等待 Tween。")
 	assert_eq(node.position, Vector2.ZERO, "无效 absolute step 不得修改目标。")
-	assert_push_warning("[GFTweenActionStep] 跳过无效 Tween 步骤：Tween value type mismatch for property: position")
+	assert_push_warning("[GFTweenActionStep][tween_action_step.invalid_tween_step] Skipped an invalid Tween step: Tween value type mismatch for property: position.")
 
 
 func test_gf_action_factories_create_common_actions() -> void:
@@ -1000,7 +1000,7 @@ func test_parallel_group_rejects_duplicate_action_instance_before_side_effects()
 	var result: Variant = group.execute()
 	assert_true(result == null, "同一动作实例无法隔离两次并行运行，应原子拒绝。")
 	assert_eq(action.execute_count, 0, "重复实例拒绝必须发生在任何 execute 副作用前。")
-	assert_push_error("[GFVisualActionGroup] 并行执行计划包含重复动作实例。")
+	assert_push_error("[GFVisualActionGroup][visual_action_group.duplicate_parallel_action] The parallel execution plan contains a duplicate action instance.")
 
 
 func test_sequence_group_freezes_action_plan_for_current_generation() -> void:
@@ -1399,7 +1399,7 @@ func test_flash_action_rejects_detached_target_for_timed_tween() -> void:
 
 	assert_true(result == null, "离树目标不应创建 Flash Tween。")
 	assert_eq(item.modulate, Color(0.2, 0.4, 0.6), "拒绝离树 Tween 时不应修改目标颜色。")
-	assert_push_warning("[GFFlashAction] 带时长动作需要位于场景树内的目标。")
+	assert_push_warning("[GFFlashAction][flash_action.target_outside_tree] A timed action requires a target inside the scene tree.")
 	item.free()
 
 
@@ -1427,7 +1427,7 @@ func test_flash_action_rejects_non_color_property() -> void:
 
 	var action: GFVisualAction = GFFlashAction.new(item, Color.RED, 0.01, ^"visible")
 	var result: Variant = action.execute()
-	assert_push_warning("[GFFlashAction] 目标属性不是 Color：visible。")
+	assert_push_warning("[GFFlashAction][flash_action.invalid_color_property] Target property is not a Color: visible.")
 
 	assert_true(result == null, "非 Color 属性不应创建闪色 Tween。")
 	assert_true(item.visible, "非 Color 属性不应被闪色动作改写。")
@@ -1439,7 +1439,7 @@ func test_flash_action_rejects_missing_property() -> void:
 
 	var action: GFVisualAction = GFFlashAction.new(item, Color.RED, 0.01, ^"missing_color")
 	var result: Variant = action.execute()
-	assert_push_warning("[GFFlashAction] 目标属性不存在：missing_color。")
+	assert_push_warning("[GFFlashAction][flash_action.missing_property] Target property does not exist: missing_color.")
 
 	assert_true(result == null, "缺失属性不应创建闪色 Tween。")
 
@@ -1591,7 +1591,7 @@ func test_shader_parameter_action_rejects_detached_target_for_timed_tween() -> v
 
 	assert_true(result == null, "离树目标不应创建 Shader 参数 Tween。")
 	assert_almost_eq(_get_shader_strength(item.material), 0.0, 0.001, "离树目标不应被定时 Shader 参数动作改写。")
-	assert_push_warning("[GFShaderParameterAction] 缺少有效 Tween 宿主节点。")
+	assert_push_warning("[GFShaderParameterAction][shader_parameter_action.missing_host] Cannot start playback: a valid host node is required.")
 	item.free()
 
 
@@ -1638,7 +1638,7 @@ func test_shader_parameter_action_validates_before_duplicating_material() -> voi
 
 	assert_true(result == null, "无效参数动作应同步拒绝。")
 	assert_same(item.material, shared_material, "校验失败前不得复制并写回材质。")
-	assert_push_warning("[GFShaderParameterAction] Shader 参数不存在：missing。")
+	assert_push_warning("[GFShaderParameterAction][shader_parameter_action.missing_parameter] Shader parameter does not exist: missing.")
 
 
 func test_shader_parameter_action_rejects_declared_type_mismatch_before_duplication() -> void:
@@ -1664,7 +1664,7 @@ func test_shader_parameter_action_rejects_declared_type_mismatch_before_duplicat
 		0.001,
 		"类型校验失败不得修改原材质参数。"
 	)
-	assert_push_warning("[GFShaderParameterAction] Shader 参数值类型不符合声明：strength。")
+	assert_push_warning("[GFShaderParameterAction][shader_parameter_action.parameter_declaration_mismatch] Shader parameter value does not match its declared type: strength.")
 
 
 func test_shader_parameter_action_cancel_releases_waiters_and_restores() -> void:

@@ -425,6 +425,21 @@ GF 源码和测试必须保持 Godot reload warning clean。新增或修改 GDSc
 ### 5.7 字符串
 *   优先使用双引号 `"` 来定义字符串，保持一致性。
 
+### 5.8 开发者诊断与显示语言
+
+GF 自有的开发者错误与警告采用固定格式 `[GFOwner][owner_snake.reason] English explanation.`。`owner_snake` 对应 owner 去掉 `GF` 前缀后的 snake_case 名称，例如 `GFStorageUtility` 使用 `storage_utility`；`reason` 描述稳定的诊断语义。框架模板、标点和框架提供的动态详情使用 ASCII 英文，模板以英文句号结束，不随游戏语言切换。路径、资源名和其他运行时参数可以包含任意 Unicode，不得为了满足模板规则翻译、截断或替换这些数据。
+
+```gdscript
+push_error("[GFStorageUtility][storage_utility.resource_null] Cannot save_resource: resource is null.")
+push_warning("[GFAudioUtility][audio_utility.bus_missing] Audio bus not found: %s." % bus_name)
+```
+
+同一诊断语义优先复用既有 ID；措辞修正保留 ID，语义变化才建立新 ID。同一次源码中，一个 ID 必须对应同一 owner、同一模板和同一严重级别。诊断 ID 用于检索和关联问题，与结果对象的 `error_kind` 等结构化字段分别维护；程序应读取结构化结果，不解析自然语言说明来决定控制流。测试应断言稳定 ID 和必要的运行时上下文，不能把原有精确断言统一改成仅检查输出次数。
+
+诊断迁移保留原生 `push_error()` / `push_warning()`、严重级别、输出次数和调用栈，不通过新增日志转发层改变输出行为，也不向 kernel 引入 `GFLogUtility`。动态转发须审查所有框架消息生产者及其详情。项目通过 `GFLogUtility` 或公开消息参数提供的自由文本属于项目日志，保留调用方语言、现有过滤规则和内容边界。
+
+编辑器界面文案与开发者诊断分别提供。已接入工具翻译 catalog 的显示文字按工具 locale 选择 `en` 或 `zh_CN`，缺失翻译或不支持的 locale 回退英文；游戏 locale 不控制开发者诊断。当前只保证既有 catalog 的这项行为，不能据此宣称所有编辑器面板已支持双语。
+
 ---
 
 ## 6. 文件格式与编码

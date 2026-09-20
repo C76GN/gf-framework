@@ -137,7 +137,7 @@ func test_register_invalid_listener_reports_error_without_registration() -> void
 	_system.register(SampleEventA, _type_listener(Callable()))
 	_system.send(SampleEventA.new())
 
-	assert_push_error("[GFEventListener] 注册的类型事件回调无效。")
+	assert_push_error("[GFEventListener][event_listener.callback_invalid] The registered typed event callback is invalid.")
 
 
 ## 验证监听器必须显式声明当前派发形态会传入的参数数量。
@@ -154,7 +154,7 @@ func test_register_rejects_listener_with_mismatched_dispatch_argument_count() ->
 	_system.send(SampleEventA.new())
 
 	assert_false(state.called, "派发参数契约不匹配的监听器不应被注册。")
-	assert_push_error("[GFEventListener] 注册的类型事件回调 no_event_arg 声明接收 0 个派发参数，但当前事件会传入 1 个。")
+	assert_push_error("[GFEventListener][event_listener.dispatch_argument_count_mismatch] The registered typed event callback no_event_arg declares 0 dispatch arguments, but this event supplies 1.")
 
 
 ## 验证事件回调不能要求比派发参数更多的未绑定必填参数。
@@ -165,7 +165,7 @@ func test_register_rejects_callback_requiring_extra_unbound_args() -> void:
 	_system.send(SampleEventA.new())
 
 	assert_eq(receiver.count, 0, "必填参数过多的回调不应被注册。")
-	assert_push_error("[GFEventListener] 注册的类型事件回调 on_type_extra_required 不能要求超过 1 个未绑定参数，当前必填 2 个。")
+	assert_push_error("[GFEventListener][event_listener.callback_required_arguments_exceeded] The registered typed event callback on_type_extra_required must require at most 1 unbound arguments, but currently requires 2.")
 
 
 ## 验证默认参数或绑定参数可以满足额外参数需求。
@@ -186,7 +186,7 @@ func test_register_rejects_bound_args_that_exceed_callback_arity() -> void:
 	_system.send(SampleEventA.new())
 
 	assert_eq(receiver.count, 0, "bind 后实参超过目标方法参数数量时不应注册。")
-	assert_push_error("[GFEventListener] 注册的类型事件回调 on_type_one 最多接收 1 个参数，当前会传入 2 个。")
+	assert_push_error("[GFEventListener][event_listener.callback_arguments_exceeded] The registered typed event callback on_type_one accepts at most 1 arguments, but 2 will be supplied.")
 
 
 ## 验证简单事件也会拒绝必填参数过多的回调。
@@ -197,7 +197,7 @@ func test_register_simple_rejects_callback_requiring_extra_unbound_args() -> voi
 	_system.send_simple(&"simple_extra_required", "payload")
 
 	assert_eq(receiver.count, 0, "必填参数过多的简单事件回调不应被注册。")
-	assert_push_error("[GFEventListener] 注册的简单事件回调 on_simple_extra_required 不能要求超过 1 个未绑定参数，当前必填 2 个。")
+	assert_push_error("[GFEventListener][event_listener.callback_required_arguments_exceeded] The registered simple event callback on_simple_extra_required must require at most 1 unbound arguments, but currently requires 2.")
 
 
 ## 验证注册后，send 能正确调用回调。
@@ -555,7 +555,7 @@ func test_max_dispatch_depth_stops_recursive_type_dispatch() -> void:
 
 	assert_eq(state.count, 1, "达到最大深度后不应继续递归派发。")
 	assert_eq(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(stats, "type_dispatch_count"), 1, "被深度保护拒绝的派发不应计入成功派发次数。")
-	assert_push_error("[GFTypeEventSystem] type 事件派发超过最大嵌套深度 1")
+	assert_push_error("[GFTypeEventSystem][type_event_system.dispatch_depth_exceeded] type event dispatch exceeded the maximum nesting depth of 1")
 
 
 func test_max_dispatch_depth_is_shared_across_type_and_simple_tracks() -> void:
@@ -586,7 +586,7 @@ func test_max_dispatch_depth_is_shared_across_type_and_simple_tracks() -> void:
 		"诊断应报告跨轨道全局最大深度。"
 	)
 	assert_eq(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(stats, "dispatch_depth"), 0, "最外层返回后全局深度应归零。")
-	assert_push_error("[GFTypeEventSystem] type 事件派发超过最大嵌套深度 2")
+	assert_push_error("[GFTypeEventSystem][type_event_system.dispatch_depth_exceeded] type event dispatch exceeded the maximum nesting depth of 2")
 
 
 ## 验证派发追踪会按容量保留最近记录。
@@ -953,13 +953,13 @@ func test_register_simple_rejects_empty_event_id() -> void:
 	_system.send_simple(&"valid_event", 1)
 
 	assert_false(state.called, "空简单事件 ID 不应注册监听。")
-	assert_push_error("[GFTypeEventSystem] register_simple 失败：event_id 不能为空。")
+	assert_push_error("[GFTypeEventSystem][type_event_system.event_id_empty] register_simple failed: event_id must not be empty.")
 
 
 func test_send_simple_rejects_empty_event_id() -> void:
 	_system.send_simple(&"", 1)
 
-	assert_push_error("[GFTypeEventSystem] send_simple 失败：event_id 不能为空。")
+	assert_push_error("[GFTypeEventSystem][type_event_system.event_id_empty] send_simple failed: event_id must not be empty.")
 
 
 ## 验证简单事件支持对象方法回调，并会走签名校验路径。
@@ -1462,7 +1462,7 @@ func test_owned_registration_rejects_null_owner() -> void:
 		)
 	)
 	assert_push_error(
-		"[GFTypeEventSystem] register_simple_owned 失败：owner 为空或已释放。"
+		"[GFTypeEventSystem][type_event_system.owner_invalid] register_simple_owned failed: owner is null or has been freed."
 	)
 
 

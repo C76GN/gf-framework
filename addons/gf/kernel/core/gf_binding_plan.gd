@@ -125,7 +125,7 @@ func execute(scope: GFAsyncScope) -> GFBindingPlanResult:
 			GFBindingPlanResultBase.Status.INVALID_REQUEST,
 			GFBindingPlanResultBase.Phase.VALIDATION,
 			GFBindingPlanResultBase.Reason.ALREADY_EXECUTED,
-			"Required binding plan has already executed.",
+			"[GFBindingPlan][binding_plan.already_executed] Required binding plan has already executed.",
 			0
 		)
 	_state = _STATE_EXECUTING
@@ -134,7 +134,7 @@ func execute(scope: GFAsyncScope) -> GFBindingPlanResult:
 			GFBindingPlanResultBase.Status.INVALID_REQUEST,
 			GFBindingPlanResultBase.Phase.VALIDATION,
 			GFBindingPlanResultBase.Reason.SCOPE_UNAVAILABLE,
-			"Required binding plan needs an active Installer scope.",
+			"[GFBindingPlan][binding_plan.scope_unavailable] Required binding plan needs an active Installer scope.",
 			0
 		)
 		return _settle_boundary_rejection(unavailable_result, true)
@@ -143,7 +143,7 @@ func execute(scope: GFAsyncScope) -> GFBindingPlanResult:
 			GFBindingPlanResultBase.Status.INVALID_REQUEST,
 			GFBindingPlanResultBase.Phase.VALIDATION,
 			GFBindingPlanResultBase.Reason.ARCHITECTURE_UNAVAILABLE,
-			"Required binding plan architecture is unavailable.",
+			"[GFBindingPlan][binding_plan.architecture_unavailable] Required binding plan architecture is unavailable.",
 			0
 		)
 		return _settle_boundary_rejection(missing_architecture_result, true)
@@ -152,7 +152,7 @@ func execute(scope: GFAsyncScope) -> GFBindingPlanResult:
 			GFBindingPlanResultBase.Status.INVALID_REQUEST,
 			GFBindingPlanResultBase.Phase.VALIDATION,
 			GFBindingPlanResultBase.Reason.ARCHITECTURE_UNAVAILABLE,
-			"Architecture admission is closed for required binding plans.",
+			"[GFBindingPlan][binding_plan.admission_closed] Architecture admission is closed for required binding plans.",
 			0
 		)
 		return _settle_boundary_rejection(closed_architecture_result, false)
@@ -161,7 +161,7 @@ func execute(scope: GFAsyncScope) -> GFBindingPlanResult:
 			GFBindingPlanResultBase.Status.CANCELLED,
 			GFBindingPlanResultBase.Phase.CANCELLATION,
 			GFBindingPlanResultBase.Reason.SCOPE_CANCELLED,
-			"Required binding scope was cancelled: %s" % String(
+			"[GFBindingPlan][binding_plan.scope_cancelled] Required binding scope was cancelled: %s." % String(
 				scope.get_cancel_reason()
 			),
 			0
@@ -192,7 +192,7 @@ func execute(scope: GFAsyncScope) -> GFBindingPlanResult:
 			GFBindingPlanResultBase.Status.INVALID_REQUEST,
 			GFBindingPlanResultBase.Phase.VALIDATION,
 			GFBindingPlanResultBase.Reason.INVALID_PLAN,
-			"Required binding plan has no entries.",
+			"[GFBindingPlan][binding_plan.entries_empty] Required binding plan has no entries.",
 			0
 		)
 		return _settle_candidate_failure(empty_result, scope)
@@ -204,7 +204,7 @@ func execute(scope: GFAsyncScope) -> GFBindingPlanResult:
 				GFBindingPlanResultBase.Status.CANCELLED,
 				GFBindingPlanResultBase.Phase.CANCELLATION,
 				GFBindingPlanResultBase.Reason.SCOPE_CANCELLED,
-				"Required binding scope was cancelled: %s" % String(
+				"[GFBindingPlan][binding_plan.scope_cancelled] Required binding scope was cancelled: %s." % String(
 					scope.get_cancel_reason()
 				),
 				index
@@ -215,7 +215,7 @@ func execute(scope: GFAsyncScope) -> GFBindingPlanResult:
 				GFBindingPlanResultBase.Status.INVALID_REQUEST,
 				GFBindingPlanResultBase.Phase.VALIDATION,
 				GFBindingPlanResultBase.Reason.SCOPE_UNAVAILABLE,
-				"Required binding scope completed before entry execution.",
+				"[GFBindingPlan][binding_plan.scope_completed_before_entry] Required binding scope completed before entry execution.",
 				index
 			)
 			return _settle_candidate_failure(before_entry_completed, scope)
@@ -226,7 +226,7 @@ func execute(scope: GFAsyncScope) -> GFBindingPlanResult:
 				GFBindingPlanResultBase.Phase.VALIDATION,
 				GFBindingPlanResultBase.Reason.ARCHITECTURE_UNAVAILABLE,
 				index,
-				"Architecture admission closed before required entry execution."
+				"[GFBindingPlan][binding_plan.admission_closed_before_entry] Architecture admission closed before required entry execution."
 			)
 			return _settle_candidate_failure(unavailable_entry_result, scope)
 
@@ -240,7 +240,7 @@ func execute(scope: GFAsyncScope) -> GFBindingPlanResult:
 				GFBindingPlanResultBase.Phase.CANCELLATION,
 				GFBindingPlanResultBase.Reason.SCOPE_CANCELLED,
 				index + 1,
-				"Required binding scope was cancelled: %s" % String(
+				"[GFBindingPlan][binding_plan.scope_cancelled] Required binding scope was cancelled: %s." % String(
 					scope.get_cancel_reason()
 				)
 			)
@@ -252,7 +252,7 @@ func execute(scope: GFAsyncScope) -> GFBindingPlanResult:
 				GFBindingPlanResultBase.Phase.VALIDATION,
 				GFBindingPlanResultBase.Reason.SCOPE_UNAVAILABLE,
 				index + 1,
-				"Required binding scope completed during entry execution."
+				"[GFBindingPlan][binding_plan.scope_completed_during_entry] Required binding scope completed during entry execution."
 			)
 			return _settle_candidate_failure(after_entry_completed, scope)
 		if attempt == null:
@@ -262,7 +262,7 @@ func execute(scope: GFAsyncScope) -> GFBindingPlanResult:
 				GFBindingPlanResultBase.Phase.REGISTRATION,
 				GFBindingPlanResultBase.Reason.REGISTRATION_REJECTED,
 				index + 1,
-				"Required binding attempt returned no terminal result."
+				"[GFBindingPlan][binding_plan.attempt_result_missing] Required binding attempt returned no terminal result."
 			)
 			return _settle_candidate_failure(invalid_attempt_result, scope)
 		if not attempt.is_successful_for_framework():
@@ -321,7 +321,7 @@ func _append_required_entry(
 		_freeze_configuration_failure(
 			entry,
 			GFBindingPlanResultBase.Reason.INVALID_ENTRY,
-			"Required binding_id must be non-empty and at most 128 characters.",
+			"[GFBindingPlan][binding_plan.binding_id_invalid] Required binding_id must be non-empty and at most 128 characters.",
 			false
 		)
 		return self
@@ -329,7 +329,7 @@ func _append_required_entry(
 		_freeze_configuration_failure(
 			entry,
 			GFBindingPlanResultBase.Reason.INVALID_ENTRY,
-			"Required binding target path exceeds 512 characters.",
+			"[GFBindingPlan][binding_plan.target_path_too_long] Required binding target path exceeds 512 characters.",
 			false
 		)
 		return self
@@ -337,14 +337,14 @@ func _append_required_entry(
 		_freeze_configuration_failure(
 			entry,
 			GFBindingPlanResultBase.Reason.DUPLICATE_BINDING_ID,
-			"Required binding_id is duplicated: %s" % String(binding_id)
+			"[GFBindingPlan][binding_plan.binding_id_duplicate] Required binding_id is duplicated: %s." % String(binding_id)
 		)
 		return self
 	if builder == null:
 		_freeze_configuration_failure(
 			entry,
 			GFBindingPlanResultBase.Reason.INVALID_ENTRY,
-			"Required binding builder is null.",
+			"[GFBindingPlan][binding_plan.builder_null] Required binding builder is null.",
 			false
 		)
 		return self
@@ -355,7 +355,7 @@ func _append_required_entry(
 		_freeze_configuration_failure(
 			entry,
 			GFBindingPlanResultBase.Reason.BUILDER_OWNERSHIP_MISMATCH,
-			"Required binding builder belongs to another Architecture."
+			"[GFBindingPlan][binding_plan.builder_architecture_mismatch] Required binding builder belongs to another Architecture."
 		)
 		return self
 	entry._builder = frozen_builder
@@ -400,7 +400,7 @@ func _make_entry_result(
 		detail
 	)
 	if configured != OK:
-		push_error("[GFBindingPlan] 无法构造 entry 终态，错误码：%d。" % configured)
+		push_error("[GFBindingPlan][binding_plan.entry_result_configuration_failed] Could not construct the terminal entry result; error code: %d." % configured)
 	return result
 
 
@@ -425,7 +425,7 @@ func _make_no_entry_result(
 		detail
 	)
 	if configured != OK:
-		push_error("[GFBindingPlan] 无法构造 Plan 终态，错误码：%d。" % configured)
+		push_error("[GFBindingPlan][binding_plan.plan_result_configuration_failed] Could not construct the terminal Plan result; error code: %d." % configured)
 	return result
 
 

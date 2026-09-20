@@ -59,7 +59,7 @@ var strategy: StringName = STRATEGY_AUTO:
 var cell_size: float = 4.0:
 	set(value):
 		if not _SPATIAL_BOUNDS_MATH.is_finite_float(value):
-			push_error("[GFSpatialQueryIndex3D] cell_size 必须是有限浮点值。")
+			push_error("[GFSpatialQueryIndex3D][spatial_query_index3d.cell_size_non_finite] cell_size must be finite.")
 			return
 		cell_size = maxf(value, 0.0001)
 		_mark_index_dirty()

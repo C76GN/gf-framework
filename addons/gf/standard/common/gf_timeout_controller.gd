@@ -324,7 +324,7 @@ func _replace_source() -> void:
 	) as Error
 	if _connect_error != OK:
 		_source_callback = Callable()
-		push_warning("[GFTimeoutController] 无法连接取消 token，超时状态将不会自动更新。")
+		push_warning("[GFTimeoutController][timeout_controller.cancellation_connect_failed] Cannot connect the cancellation token; timeout state will not update automatically.")
 
 
 func _disconnect_source() -> void:

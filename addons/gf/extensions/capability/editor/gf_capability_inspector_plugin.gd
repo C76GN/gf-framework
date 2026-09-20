@@ -338,7 +338,7 @@ static func _connect_signal_checked(source_signal: Signal, callback: Callable, f
 
 	var error: int = source_signal.connect(callback, flags as Object.ConnectFlags)
 	if error != OK:
-		push_warning("[GFCapabilityInspector] Signal 连接失败：%s" % error_string(error))
+		push_warning("[GFCapabilityInspector][capability_inspector.signal_connection_failed] Signal connection failed: %s." % error_string(error))
 
 
 static func _append_packed_string(target: PackedStringArray, value: String) -> void:
@@ -745,7 +745,7 @@ func _can_scan_recipe_deeper(path: String, current_depth: int, scan_state: Dicti
 	if GFVariantData.get_option_bool(scan_state, "depth_warning_emitted", false):
 		return false
 	scan_state["depth_warning_emitted"] = true
-	push_warning("[GFCapabilityInspector] Recipe 扫描已达到最大目录深度 %d，已跳过更深目录：%s。" % [
+	push_warning("[GFCapabilityInspector][capability_inspector.recipe_scan_depth_limit] Recipe scanning reached the maximum directory depth %d; deeper directories were skipped: %s." % [
 		_DEFAULT_MAX_RECIPE_SCAN_DEPTH,
 		path,
 	])
@@ -777,7 +777,7 @@ func _warn_recipe_file_limit(scan_state: Dictionary) -> void:
 		return
 	scan_state["file_warning_emitted"] = true
 	push_warning(
-		"[GFCapabilityInspector] Recipe 扫描已达到最大资源文件数 %d，后续资源已跳过。"
+		"[GFCapabilityInspector][capability_inspector.recipe_scan_file_limit] Recipe scanning reached the maximum resource file count %d; remaining resources were skipped."
 		% _DEFAULT_MAX_RECIPE_FILES_SCANNED
 	)
 
@@ -786,7 +786,7 @@ func _warn_recipe_candidate_limit(scan_state: Dictionary) -> void:
 	if GFVariantData.get_option_bool(scan_state, "count_warning_emitted", false):
 		return
 	scan_state["count_warning_emitted"] = true
-	push_warning("[GFCapabilityInspector] Recipe 候选已达到最大数量 %d，后续资源已跳过。" % _DEFAULT_MAX_RECIPE_CANDIDATES)
+	push_warning("[GFCapabilityInspector][capability_inspector.recipe_candidate_limit] Recipe candidates reached the maximum count %d; remaining resources were skipped." % _DEFAULT_MAX_RECIPE_CANDIDATES)
 
 
 static func _get_node_capability_base_scripts() -> Array[Script]:
@@ -1044,12 +1044,12 @@ static func _create_capability_container_node(target: Node, capability: Node) ->
 static func _try_attach_capability_container_script(container: Node) -> void:
 	var container_script: Script = _get_capability_container_script()
 	if container_script == null or not container_script.can_instantiate():
-		push_warning("[GF Framework] 能力容器脚本不可用，已改用元数据标记容器。")
+		push_warning("[GFCapabilityInspector][capability_inspector.unavailable_container_script] The capability container script is unavailable; metadata was used to mark the container.")
 		return
 
 	var base_type: String = GFVariantData.to_text(container_script.get_instance_base_type())
 	if not base_type.is_empty() and not container.is_class(base_type):
-		push_warning("[GF Framework] 能力容器节点类型与脚本基类不匹配，已改用元数据标记容器。")
+		push_warning("[GFCapabilityInspector][capability_inspector.incompatible_container_script] The capability container node does not match the script base type; metadata was used to mark the container.")
 		return
 
 	container.set_script(container_script)
@@ -1105,7 +1105,7 @@ func _create_capability_node(candidate: Dictionary) -> Node:
 				return null
 			var instance: Node = _instantiate_script_node(script)
 			if instance == null:
-				push_error("[GF Framework] 能力脚本必须能实例化为 Node：%s" % path)
+				push_error("[GFCapabilityInspector][capability_inspector.invalid_capability_node_script] Capability script must instantiate a Node: %s." % path)
 			return instance
 
 		"scene":
@@ -1843,7 +1843,7 @@ static func _collect_editor_node_tree_with_limit(
 	if nodes.size() <= bounded_max_tree_nodes:
 		return nodes
 	push_error(
-		"[GFCapabilityInspector] %s 失败：节点树超过最大节点数 %d。"
+		"[GFCapabilityInspector][capability_inspector.node_tree_limit_exceeded] %s failed: the node tree exceeds the maximum node count %d."
 		% [operation, bounded_max_tree_nodes]
 	)
 	return []

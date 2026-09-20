@@ -390,7 +390,7 @@ static func _resolve_extension_dependencies(
 	if report_cycle_warnings:
 		for cycle: PackedStringArray in cycles:
 			push_warning(
-				"[GFExtensionSelectionDiscovery] 检测到扩展依赖循环：%s"
+				"[GFExtensionSelectionDiscovery][extension_selection_discovery.dependency_cycle] An extension dependency cycle was detected: %s."
 				% " -> ".join(Array(cycle))
 			)
 

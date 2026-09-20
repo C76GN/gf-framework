@@ -428,7 +428,7 @@ func _apply_cancel_token_request(
 func _can_mutate_on_current_thread(operation_name: String) -> bool:
 	if Thread.is_main_thread():
 		return true
-	push_error("[GFAsyncCompletion] %s 失败：只能在主线程调用。" % operation_name)
+	push_error("[GFAsyncCompletion][async_completion.main_thread_required] %s failed: this operation must run on the main thread." % operation_name)
 	return false
 
 

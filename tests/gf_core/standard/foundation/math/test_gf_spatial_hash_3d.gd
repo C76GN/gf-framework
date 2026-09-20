@@ -228,6 +228,6 @@ func test_non_finite_cell_size_is_rejected_without_destroying_index() -> void:
 
 	spatial_hash.cell_size = NAN
 
-	assert_push_error("[GFSpatialHash3D] cell_size 必须是有限浮点值。")
+	assert_push_error("[GFSpatialHash3D][spatial_hash3d.cell_size_non_finite] cell_size must be finite.")
 	assert_eq(spatial_hash.cell_size, 2.0, "非法配置不得覆盖最后一个有效 cell_size。")
 	assert_true(spatial_hash.query_aabb(AABB(Vector3.ZERO, Vector3.ONE)).has("unit"), "非法配置不得清空索引。")

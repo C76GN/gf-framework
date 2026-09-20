@@ -295,7 +295,7 @@ func get_named_queue(queue_name: StringName) -> GFActionQueueSystem:
 	if _is_disposed:
 		return null
 	if queue_name == &"":
-		push_error("[GFActionQueueSystem] get_named_queue 失败：queue_name 为空。")
+		push_error("[GFActionQueueSystem][action_queue_system.empty_queue_name] get_named_queue failed: queue_name is empty.")
 		return null
 	if _named_queues.has(queue_name):
 		return _get_named_queue_value(queue_name)

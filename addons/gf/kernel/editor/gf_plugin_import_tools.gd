@@ -68,12 +68,12 @@ func _add_import_plugin(plugin: EditorPlugin, script_path: String) -> void:
 func _load_import_plugin(script_path: String) -> EditorImportPlugin:
 	var import_script: Script = _load_script(script_path)
 	if import_script == null or not import_script.can_instantiate():
-		push_error("[GF Framework] 导入插件脚本加载失败：%s" % script_path)
+		push_error("[GFPluginImportTools][plugin_import_tools.plugin_load_failed] Could not load the import plugin script: %s." % script_path)
 		return null
 
 	var import_plugin: EditorImportPlugin = _instantiate_import_plugin(import_script)
 	if import_plugin == null:
-		push_error("[GF Framework] 导入插件实例化失败：%s" % script_path)
+		push_error("[GFPluginImportTools][plugin_import_tools.plugin_instantiation_failed] Could not instantiate the import plugin: %s." % script_path)
 		return null
 
 	return import_plugin

@@ -630,7 +630,7 @@ func test_push_panel_instance_rejects_duplicate_instance() -> void:
 
 	assert_eq(_ui_utility.get_top_panel(GFUIUtility.Layer.POPUP), panel, "重复压入后栈顶仍应是原面板。")
 	assert_eq(_panel_stack(GFUIUtility.Layer.POPUP).size(), 1, "同一面板实例不应重复进入栈。")
-	assert_push_warning("[GFUIUtility] 面板实例已在 UI 栈中，忽略重复入栈。")
+	assert_push_warning("[GFUIUtility][ui_utility.panel_already_stacked] The panel instance is already in the UI stack; duplicate push ignored.")
 
 
 func test_push_panel_instance_reparents_external_node() -> void:
@@ -701,7 +701,7 @@ func test_config_callback_destroying_panel_restores_hidden_panel() -> void:
 	)
 
 	assert_false(added, "config_callback 销毁面板时，本次入栈应取消。")
-	assert_push_warning("[GFUIUtility] config_callback 销毁了面板实例，本次入栈已取消。")
+	assert_push_warning("[GFUIUtility][ui_utility.panel_destroyed_by_callback] config_callback destroyed the panel instance; this push was cancelled.")
 	assert_eq(_ui_utility.get_top_panel(GFUIUtility.Layer.POPUP), panel1, "取消入栈后栈顶应保持原面板。")
 	assert_true(panel1.visible, "取消入栈后原本被隐藏的面板应恢复可见。")
 
@@ -965,8 +965,8 @@ func test_push_panel_async_sync_fallback_prebinds_callback_before_telemetry() ->
 					events.append(&"second_handle")
 			)
 	)
-	assert_push_warning("[GFUIUtility] GFAssetUtility 未注册，回退为同步加载。")
-	assert_push_warning("[GFUIUtility] GFAssetUtility 未注册，回退为同步加载。")
+	assert_push_warning("[GFUIUtility][ui_utility.asset_utility_missing] GFAssetUtility is not registered; falling back to synchronous loading.")
+	assert_push_warning("[GFUIUtility][ui_utility.asset_utility_missing] GFAssetUtility is not registered; falling back to synchronous loading.")
 
 	var second_handle: GFUIPanelAsyncOperation = _ui_panel_async_operation(
 		state.get("second_handle")
@@ -1176,7 +1176,7 @@ func test_push_panel_async_reports_failed_when_resource_is_not_scene() -> void:
 	var failed_event: Array = _array_item_as_array(finished, 0)
 	assert_eq(_array_int(failed_event, 3), GFUIUtility.AsyncPanelLoadStatus.FAILED, "非 PackedScene 资源应报告 FAILED。")
 	assert_true(_array_value(failed_event, 4) == null, "失败状态不应携带面板。")
-	assert_push_error("[GFUIUtility] 无法实例化面板场景：%s" % path)
+	assert_push_error("[GFUIUtility][ui_utility.panel_instantiation_failed] Cannot instantiate panel scene: %s." % path)
 
 
 func test_push_panel_async_ignores_late_callback_after_layer_clear() -> void:

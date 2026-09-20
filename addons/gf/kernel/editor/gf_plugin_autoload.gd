@@ -40,7 +40,7 @@ static func ensure(plugin: EditorPlugin) -> void:
 		_set_autoload_ownership_marker(true)
 	elif not _autoload_points_to_gf():
 		_set_autoload_ownership_marker(false)
-		push_warning("[GFPlugin] 已存在名为 Gf 的 AutoLoad，且目标不是 GF Framework；插件不会覆盖该设置。")
+		push_warning("[GFPluginAutoload][plugin_autoload.autoload_name_conflict] An AutoLoad named Gf already targets a different resource; the plugin will not overwrite this setting.")
 
 
 ## 移除由 GF 插件安装的 AutoLoad。
@@ -93,4 +93,4 @@ static func _set_autoload_ownership_marker(enabled: bool) -> void:
 static func _save_project_settings() -> void:
 	var save_result: Error = ProjectSettings.save()
 	if save_result != OK:
-		push_error("[GFPluginAutoload] ProjectSettings.save() 失败：%s" % error_string(save_result))
+		push_error("[GFPluginAutoload][plugin_autoload.settings_save_failed] ProjectSettings.save() failed: %s." % error_string(save_result))

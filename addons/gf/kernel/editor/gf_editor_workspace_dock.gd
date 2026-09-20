@@ -367,13 +367,13 @@ func _instantiate_page(record: Dictionary) -> Control:
 
 	var dock_script: Script = _load_script(script_path)
 	if dock_script == null or not dock_script.can_instantiate():
-		push_error("[GF Framework] 工作区面板脚本加载失败：%s" % script_path)
+		push_error("[GFEditorWorkspaceDock][editor_workspace_dock.panel_load_failed] Could not load the workspace panel script: %s." % script_path)
 		return null
 
 	var dock_value: Variant = dock_script.call("new")
 	var dock: Control = _variant_to_control(dock_value)
 	if dock == null:
-		push_error("[GF Framework] 工作区面板实例化失败：%s" % script_path)
+		push_error("[GFEditorWorkspaceDock][editor_workspace_dock.panel_instantiation_failed] Could not instantiate the workspace panel: %s." % script_path)
 		return null
 
 	_page_controls.append(dock)

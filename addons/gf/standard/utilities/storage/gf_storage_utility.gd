@@ -147,7 +147,7 @@ var save_dir_name: String = "saves":
 	set(value):
 		var _root_changed: bool = value != save_dir_name
 		if _storage_root_frozen and _root_changed:
-			push_error("[GFStorageUtility] save_dir_name 已在 Storage 初始化后冻结；请为另一个 root 创建新的 Utility。")
+			push_error("[GFStorageUtility][storage_utility.root_frozen] save_dir_name is frozen after Storage initialization; create a new utility for another root.")
 			return
 		save_dir_name = value
 		if _family_store != null:
@@ -240,10 +240,10 @@ var async_execution_mode: AsyncExecutionMode = AsyncExecutionMode.AUTOMATIC:
 		if value == async_execution_mode:
 			return
 		if not AsyncExecutionMode.values().has(value):
-			push_error("[GFStorageUtility] async_execution_mode 不属于闭合枚举。")
+			push_error("[GFStorageUtility][storage_utility.execution_mode_invalid] async_execution_mode is not a valid enumeration value.")
 			return
 		if _async_execution_mode_frozen:
-			push_error("[GFStorageUtility] async_execution_mode 已在首个异步请求后冻结。")
+			push_error("[GFStorageUtility][storage_utility.execution_mode_frozen] async_execution_mode is frozen after the first asynchronous request.")
 			return
 		async_execution_mode = value
 
@@ -341,7 +341,7 @@ func init() -> void:
 	ignore_pause = true
 	var layout_error: Error = _ensure_storage_ready()
 	if layout_error != OK:
-		push_error("[GFStorageUtility] 无法初始化私有 Storage layout，错误码：%s" % layout_error)
+		push_error("[GFStorageUtility][storage_utility.layout_initialization_failed] Cannot initialize the private Storage layout, error code: %s." % layout_error)
 
 
 ## 等待并清理异步存取任务。
@@ -471,7 +471,7 @@ func save_resource(file_name: String, resource: Resource) -> Error:
 	if not _validate_public_resource_file_name(file_name, "save_resource"):
 		return ERR_INVALID_PARAMETER
 	if resource == null:
-		push_error("[GFStorageUtility] save_resource 失败：resource 为空。")
+		push_error("[GFStorageUtility][storage_utility.resource_null] Cannot save_resource: resource is null.")
 		return ERR_INVALID_PARAMETER
 
 	init()
@@ -532,7 +532,7 @@ func load_resource(file_name: String, type_hint: String = "") -> Resource:
 	if not _validate_public_resource_file_name(file_name, "load_resource"):
 		return null
 	if not allow_resource_loads:
-		push_error("[GFStorageUtility] load_resource 已被默认安全策略拒绝：请先显式启用 allow_resource_loads。")
+		push_error("[GFStorageUtility][storage_utility.resource_load_disabled] load_resource was rejected by the default safety policy; explicitly enable allow_resource_loads first.")
 		return null
 
 	init()
@@ -551,22 +551,22 @@ func load_resource(file_name: String, type_hint: String = "") -> Resource:
 	if not FileAccess.file_exists(path):
 		return null
 	if not _is_resource_load_extension_allowed(path):
-		push_error("[GFStorageUtility] load_resource 拒绝读取未允许扩展名的文件：%s。" % path)
+		push_error("[GFStorageUtility][storage_utility.resource_extension_disallowed] load_resource rejected a file with a disallowed extension: %s." % path)
 		return null
 
 	var normalized_type_hint: String = type_hint.strip_edges()
 	if require_resource_load_type_hint and normalized_type_hint.is_empty():
-		push_error("[GFStorageUtility] load_resource 需要显式 type_hint。")
+		push_error("[GFStorageUtility][storage_utility.resource_type_hint_missing] load_resource requires an explicit type_hint.")
 		return null
 	if not _is_resource_load_type_hint_allowed(normalized_type_hint):
-		push_error("[GFStorageUtility] load_resource 拒绝未允许的 type_hint：%s。" % normalized_type_hint)
+		push_error("[GFStorageUtility][storage_utility.resource_type_hint_disallowed] load_resource rejected a disallowed type_hint: %s." % normalized_type_hint)
 		return null
 
 	var loaded_resource: Resource = ResourceLoader.load(path, normalized_type_hint, ResourceLoader.CACHE_MODE_IGNORE)
 	if loaded_resource == null:
 		return null
 	if not _is_loaded_resource_compatible(loaded_resource, normalized_type_hint):
-		push_error("[GFStorageUtility] load_resource 读取结果类型与 type_hint 不匹配：%s。" % normalized_type_hint)
+		push_error("[GFStorageUtility][storage_utility.resource_type_mismatch] The load_resource result type does not match type_hint: %s." % normalized_type_hint)
 		return null
 	return loaded_resource
 
@@ -1098,11 +1098,11 @@ func save_data_group(files: Dictionary) -> Error:
 	if not _io_admission_open:
 		return ERR_UNAVAILABLE
 	if files.is_empty():
-		push_error("[GFStorageUtility] save_data_group 失败：files 为空。")
+		push_error("[GFStorageUtility][storage_utility.group_files_empty] Cannot save_data_group: files is empty.")
 		return ERR_INVALID_PARAMETER
 	if files.size() > _MAX_TRANSACTION_FILES:
 		push_error(
-			"[GFStorageUtility] save_data_group 失败：成员数超过上限 %d。"
+			"[GFStorageUtility][storage_utility.group_member_limit] Cannot save_data_group: member count exceeds the limit %d."
 			% _MAX_TRANSACTION_FILES
 		)
 		return ERR_INVALID_PARAMETER
@@ -1111,7 +1111,7 @@ func save_data_group(files: Dictionary) -> Error:
 	var payloads_by_file: Dictionary = {}
 	for raw_file_name: Variant in files.keys():
 		if not raw_file_name is String:
-			push_error("[GFStorageUtility] save_data_group 失败：文件名键必须是 String。")
+			push_error("[GFStorageUtility][storage_utility.group_filename_type_invalid] Cannot save_data_group: filename keys must be String values.")
 			return ERR_INVALID_PARAMETER
 		var raw_file_name_text: String = raw_file_name
 		if not _validate_public_file_name(raw_file_name_text, "save_data_group"):
@@ -1120,11 +1120,11 @@ func save_data_group(files: Dictionary) -> Error:
 		if file_name.is_empty():
 			return ERR_INVALID_PARAMETER
 		if file_names.has(file_name):
-			push_error("[GFStorageUtility] save_data_group 失败：文件名解析到同一存储目标 %s。" % file_name)
+			push_error("[GFStorageUtility][storage_utility.group_target_duplicate] Cannot save_data_group: filenames resolve to the same storage target %s." % file_name)
 			return ERR_INVALID_PARAMETER
 		var payload_value: Variant = files[raw_file_name]
 		if not (payload_value is Dictionary):
-			push_error("[GFStorageUtility] save_data_group 失败：%s 的载荷必须是 Dictionary。" % file_name)
+			push_error("[GFStorageUtility][storage_utility.group_payload_type_invalid] Cannot save_data_group: the payload for %s must be a Dictionary." % file_name)
 			return ERR_INVALID_DATA
 		file_names.append(file_name)
 		payloads_by_file[file_name] = GFVariantData.as_dictionary(payload_value)
@@ -1468,7 +1468,7 @@ func get_late_settlement_diagnostics() -> Array[Dictionary]:
 func wait_for_async_tasks() -> void:
 	if _async_execution_depth > 0:
 		push_error(
-			"[GFStorageUtility] wait_for_async_tasks 不能在 Storage executor 同步执行栈内重入。"
+			"[GFStorageUtility][storage_utility.async_wait_reentrant] wait_for_async_tasks cannot reenter the synchronous Storage executor stack."
 		)
 		return
 	while not _async_tasks.is_empty() or not _async_queue.is_empty():
@@ -1518,7 +1518,7 @@ func migrate_data(data: Dictionary, _from_version: int, _to_version: int) -> Dic
 	)
 	if not GFVariantData.get_option_bool(execution, "ok", false):
 		push_error(
-			"[GFStorageUtility] migrate_data 失败：%s" % GFVariantData.get_option_string(
+			"[GFStorageUtility][storage_utility.migration_failed] migrate_data failed: %s." % GFVariantData.get_option_string(
 				execution,
 				"error",
 				"Migration failed."
@@ -1544,7 +1544,7 @@ func migrate_data(data: Dictionary, _from_version: int, _to_version: int) -> Dic
 ## @return 注册成功时返回 true。
 func register_migration(from_version: int, to_version: int, callback: Callable) -> bool:
 	if from_version < 1 or to_version <= from_version or not callback.is_valid():
-		push_error("[GFStorageUtility] register_migration 失败：版本范围或 callback 无效。")
+		push_error("[GFStorageUtility][storage_utility.migration_registration_invalid] Cannot register_migration: version range or callback is invalid.")
 		return false
 
 	_migration_steps[_make_migration_key(from_version, to_version)] = {
@@ -1961,7 +1961,7 @@ func _query_catalog(
 		return _catalog_failure(ERR_INVALID_PARAMETER, GFStorageCatalogResult.FailureKind.INVALID_REQUEST)
 	if not GFStorageFamilyStore.is_valid_extension_filter_for_framework(extension_filter):
 		if legacy:
-			push_error("[GFStorageUtility] list_files 失败：extension_filter 非法。")
+			push_error("[GFStorageUtility][storage_utility.extension_filter_invalid] Cannot list_files: extension_filter is invalid.")
 		return _catalog_failure(ERR_INVALID_PARAMETER, GFStorageCatalogResult.FailureKind.INVALID_REQUEST)
 	var query_options: Dictionary = options
 	if not legacy:
@@ -1971,7 +1971,7 @@ func _query_catalog(
 	var readiness_error: Error = _ensure_storage_ready()
 	if readiness_error != OK:
 		if legacy:
-			push_error("[GFStorageUtility] list_files 无法加载 Storage layout，错误码：%s" % readiness_error)
+			push_error("[GFStorageUtility][storage_utility.list_layout_failed] list_files cannot load the Storage layout, error code: %s." % readiness_error)
 		return _catalog_failure(readiness_error, GFStorageCatalogResult.FailureKind.PREPARATION_FAILED)
 	var transaction_manager_at_entry: _StorageTransactionManager = _transaction_manager
 	var family_store_at_entry: GFStorageFamilyStore = _family_store
@@ -1987,13 +1987,13 @@ func _query_catalog(
 	readiness_error = _ensure_storage_ready()
 	if readiness_error != OK:
 		if legacy:
-			push_error("[GFStorageUtility] list_files 无法收敛 Storage 恢复，错误码：%s" % readiness_error)
+			push_error("[GFStorageUtility][storage_utility.list_recovery_failed] list_files cannot complete Storage recovery, error code: %s." % readiness_error)
 		return _catalog_failure(readiness_error, GFStorageCatalogResult.FailureKind.PREPARATION_FAILED)
 	var recovery_error: Error = _transaction_manager._recover_all_catalog_transactions()
 	if recovery_error != OK:
 		_storage_reconciled = false
 		if legacy:
-			push_error("[GFStorageUtility] list_files 无法收敛 Storage 事务，错误码：%s" % recovery_error)
+			push_error("[GFStorageUtility][storage_utility.list_transaction_failed] list_files cannot complete Storage transactions, error code: %s." % recovery_error)
 		return _catalog_failure(recovery_error, GFStorageCatalogResult.FailureKind.RECOVERY_FAILED)
 	_storage_reconciled = true
 	var max_scan_depth: int = maxi(GFVariantData.get_option_int(query_options, "max_scan_depth", DEFAULT_MAX_LIST_DEPTH), 0)
@@ -2004,7 +2004,7 @@ func _query_catalog(
 	var list_error: Error = GFVariantData.get_option_int(list_result, "error", ERR_BUG) as Error
 	if list_error != OK:
 		if legacy:
-			push_error("[GFStorageUtility] list_files 无法读取 logical catalog，错误码：%s" % list_error)
+			push_error("[GFStorageUtility][storage_utility.list_catalog_failed] list_files cannot read the logical catalog, error code: %s." % list_error)
 		return _catalog_failure(list_error, GFStorageCatalogResult.FailureKind.CATALOG_FAILED)
 	var files_value: Variant = list_result.get("files")
 	var complete_value: Variant = list_result.get("complete")
@@ -2085,7 +2085,7 @@ func _make_async_operation(
 		CONNECT_ONE_SHOT as Object.ConnectFlags
 	) as Error
 	if observer_connect_error != OK:
-		push_error("[GFStorageUtility] 无法连接异步请求物理终态观察器。")
+		push_error("[GFStorageUtility][storage_utility.physical_terminal_connect_failed] Cannot connect the asynchronous request physical terminal observer.")
 	if options_invalid:
 		_complete_invalid_async_consumer(operation)
 	return operation
@@ -2824,7 +2824,7 @@ func _complete_async_operation(
 	if not configured:
 		result = _make_async_operation_fallback_result(operation)
 	if result == null:
-		push_error("[GFStorageUtility] 无法构造异步请求 fallback 终态。")
+		push_error("[GFStorageUtility][storage_utility.fallback_terminal_failed] Cannot construct the asynchronous request fallback terminal result.")
 		return
 
 	var completed: bool = operation.complete_for_framework(result)
@@ -2837,11 +2837,11 @@ func _complete_async_operation(
 	_finish_payload_attempt(operation)
 	var fallback_result: GFStorageAsyncResult = _make_async_operation_fallback_result(operation)
 	if fallback_result == null:
-		push_error("[GFStorageUtility] 无法构造异步请求 guaranteed fallback 终态。")
+		push_error("[GFStorageUtility][storage_utility.guaranteed_fallback_terminal_failed] Cannot construct the asynchronous request guaranteed fallback terminal result.")
 		return
 	var fallback_completed: bool = operation.complete_for_framework(fallback_result)
 	if not fallback_completed:
-		push_error("[GFStorageUtility] 异步请求未能进入 guaranteed fallback 终态。")
+		push_error("[GFStorageUtility][storage_utility.guaranteed_fallback_commit_failed] The asynchronous request could not enter the guaranteed fallback terminal state.")
 		return
 	_finalize_async_observer_after_physical_settlement(operation)
 
@@ -3109,12 +3109,12 @@ func _complete_owned_read(
 		int(result.failure_kind)
 	)
 	if not committed:
-		push_error("[GFStorageUtility] 独占读取无法提交物理终态。")
+		push_error("[GFStorageUtility][storage_utility.exclusive_read_terminal_failed] The exclusive read cannot commit its physical terminal result.")
 		return
 	if receipt != null:
 		var completed: bool = ticket.complete_for_framework(receipt, owned_result, false)
 		if not completed:
-			push_error("[GFStorageUtility] 独占读取无法安装已验证终态。")
+			push_error("[GFStorageUtility][storage_utility.exclusive_read_install_failed] The exclusive read cannot install its validated terminal result.")
 	# File-lock release may invoke quiesce listeners. Install the slot and relinquish
 	# all delivery aliases before any callback can claim and drop the result.
 	owned_result = null
@@ -4191,7 +4191,7 @@ func _start_async_task(task: Dictionary) -> void:
 		task["thread"] = thread
 		task["state"] = _AsyncTaskState.RUNNING
 		if not ownership_valid and not _restore_exact_active_task_ownership(task):
-			push_error("[GFStorageUtility] worker 启动后丢失 exact active/file-lock ownership。")
+			push_error("[GFStorageUtility][storage_utility.started_worker_ownership_lost] The worker lost exact active/file-lock ownership after starting.")
 			var emergency_result: Variant = thread.wait_to_finish()
 			_begin_unowned_async_task_settlement(task)
 			_complete_finished_async_task(task, emergency_result)
@@ -4211,13 +4211,13 @@ func _run_cooperative_async_task(task: Dictionary, callback: Callable) -> void:
 	_async_execution_depth = maxi(_async_execution_depth - 1, 0)
 	var ownership_valid: bool = _has_exact_active_task_ownership(task)
 	if not ownership_valid and not _restore_exact_active_task_ownership(task):
-		push_error("[GFStorageUtility] cooperative worker 丢失 exact active/file-lock ownership。")
+		push_error("[GFStorageUtility][storage_utility.cooperative_worker_ownership_lost] The cooperative worker lost exact active/file-lock ownership.")
 		_begin_unowned_async_task_settlement(task)
 		_complete_finished_async_task(task, result_variant)
 		_end_async_task_settlement(task)
 		return
 	if not _begin_async_task_settlement(task):
-		push_error("[GFStorageUtility] cooperative worker 无法取得 settling ownership。")
+		push_error("[GFStorageUtility][storage_utility.cooperative_settling_ownership_failed] The cooperative worker cannot acquire settling ownership.")
 		return
 	_complete_finished_async_task(task, result_variant)
 	_end_async_task_settlement(task)
@@ -4232,7 +4232,7 @@ func _settle_async_task_start_failure(
 		_emit_async_start_failed(task, error)
 		_end_async_task_settlement(task)
 		return
-	push_error("[GFStorageUtility] worker 未启动且丢失 exact active/file-lock ownership。")
+	push_error("[GFStorageUtility][storage_utility.unstarted_worker_ownership_lost] The worker did not start and lost exact active/file-lock ownership.")
 	_begin_unowned_async_task_settlement(task)
 	_emit_async_start_failed(task, error)
 	_end_async_task_settlement(task)
@@ -4251,7 +4251,7 @@ func _join_async_task(task: Dictionary) -> void:
 		return
 	var result_variant: Variant = thread.wait_to_finish()
 	if not _begin_async_task_settlement(task):
-		push_error("[GFStorageUtility] worker 退出后无法取得 settling ownership。")
+		push_error("[GFStorageUtility][storage_utility.finished_worker_settling_failed] Cannot acquire settling ownership after the worker exited.")
 		return
 	_complete_finished_async_task(task, result_variant)
 	_end_async_task_settlement(task)
@@ -4508,14 +4508,14 @@ func _complete_legacy_cancelled_before_acceptance(
 		operation.get_operation(),
 		operation.get_file_name()
 	):
-		push_error("[GFStorageUtility] 接纳前取消无法构造闭合物理终态。")
+		push_error("[GFStorageUtility][storage_utility.pre_admission_terminal_failed] Pre-admission cancellation cannot construct a closed physical terminal result.")
 		return false
 	if not operation.mark_physical_cancel_requested_for_framework():
 		return false
 	if not task.is_empty():
 		var queued_index: int = _find_queued_async_task_index(_get_task_record_id(task))
 		if queued_index < 0:
-			push_error("[GFStorageUtility] 接纳前取消丢失权威 queued record。")
+			push_error("[GFStorageUtility][storage_utility.pre_admission_record_lost] Pre-admission cancellation lost the authoritative queued record.")
 			return false
 		_async_queue.remove_at(queued_index)
 	var completed: bool = operation.complete_for_framework(
@@ -4525,7 +4525,7 @@ func _complete_legacy_cancelled_before_acceptance(
 		emit_caller_signal
 	)
 	if not completed:
-		push_error("[GFStorageUtility] 接纳前取消未能提交 guaranteed physical terminal。")
+		push_error("[GFStorageUtility][storage_utility.pre_admission_commit_failed] Pre-admission cancellation could not commit the guaranteed physical terminal result.")
 		return false
 	_finalize_async_observer_after_physical_settlement(operation)
 	_request_async_start_only()
@@ -4643,7 +4643,7 @@ func _emit_async_start_failed(
 	var task_type: StringName = _get_task_type(task)
 	var operation: GFStorageAsyncOperation = _get_task_operation(task)
 	if task_type == &"save":
-		push_error("[GFStorageUtility] 异步保存失败：%s，原因：%s，错误码：%s" % [
+		push_error("[GFStorageUtility][storage_utility.async_save_failed] Asynchronous save failed: %s, reason: %s, error code: %s." % [
 			file_name,
 			failure_reason,
 			error,
@@ -4659,7 +4659,7 @@ func _emit_async_start_failed(
 		save_completed.emit(file_name, error)
 	elif task_type == &"load":
 		if error != ERR_FILE_NOT_FOUND:
-			push_error("[GFStorageUtility] 异步读取失败：%s，原因：%s，错误码：%s" % [
+			push_error("[GFStorageUtility][storage_utility.async_load_failed] Asynchronous load failed: %s, reason: %s, error code: %s." % [
 				file_name,
 				failure_reason,
 				error,
@@ -4684,7 +4684,7 @@ func _emit_async_start_failed(
 		_release_async_file_lock_for_task(task)
 		load_completed.emit(file_name, failed_result.duplicate_result())
 	elif task_type == &"delete":
-		push_error("[GFStorageUtility] 异步删除失败：%s，原因：%s，错误码：%s" % [
+		push_error("[GFStorageUtility][storage_utility.async_remove_failed] Asynchronous removal failed: %s, reason: %s, error code: %s." % [
 			file_name,
 			failure_reason,
 			error,
@@ -4707,7 +4707,7 @@ func _emit_async_start_failed(
 		)
 		_release_async_file_lock_for_task(task)
 	elif task_type == &"reset":
-		push_error("[GFStorageUtility] 异步 family reset 失败：%s，原因：%s，错误码：%s" % [
+		push_error("[GFStorageUtility][storage_utility.async_family_reset_failed] Asynchronous family reset failed: %s, reason: %s, error code: %s." % [
 			file_name,
 			failure_reason,
 			error,
@@ -4840,7 +4840,7 @@ func _make_delete_result_fallback() -> GFStorageDeleteResult:
 		GFStorageDeleteResult.FamilyMember.FAMILY_METADATA
 	)
 	if not configured:
-		push_error("[GFStorageUtility] 无法配置删除 fallback 结果。")
+		push_error("[GFStorageUtility][storage_utility.remove_fallback_configuration_failed] Cannot configure the removal fallback result.")
 	return result
 
 
@@ -4940,7 +4940,7 @@ func _make_reset_result_fallback() -> GFStorageFamilyResetResult:
 		GFStorageFamilyResetResult.FamilyMember.NONE
 	)
 	if not configured:
-		push_error("[GFStorageUtility] 无法配置 family reset fallback 结果。")
+		push_error("[GFStorageUtility][storage_utility.family_reset_fallback_configuration_failed] Cannot configure the family reset fallback result.")
 	return result
 
 
@@ -8677,14 +8677,14 @@ func _warn_list_file_limit(max_file_count: int, scan_state: Dictionary) -> void:
 	if max_file_count <= 0 or GFVariantData.get_option_bool(scan_state, "count_warning_emitted", false):
 		return
 	scan_state["count_warning_emitted"] = true
-	push_warning("[GFStorageUtility] list_files 已达到 max_file_count=%d，后续文件已跳过。" % max_file_count)
+	push_warning("[GFStorageUtility][storage_utility.file_count_limit] list_files reached max_file_count=%d; remaining files were skipped." % max_file_count)
 
 
 func _warn_list_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
 	if max_scan_depth <= 0 or GFVariantData.get_option_bool(scan_state, "depth_warning_emitted", false):
 		return
 	scan_state["depth_warning_emitted"] = true
-	push_warning("[GFStorageUtility] list_files 已达到 max_scan_depth=%d，已跳过更深目录：%s。" % [max_scan_depth, path])
+	push_warning("[GFStorageUtility][storage_utility.scan_depth_limit] list_files reached max_scan_depth=%d; deeper directory skipped: %s." % [max_scan_depth, path])
 
 
 func _get_storage_relative_file_path(directory_name: String, file_name: String) -> String:
@@ -8715,10 +8715,10 @@ func _canonicalize_storage_file_name(path: String, label: String = "file_name") 
 
 func _validate_public_file_name(file_name: String, operation: String) -> bool:
 	if file_name.is_empty():
-		push_error("[GFStorageUtility] %s 失败：file_name 为空。" % operation)
+		push_error("[GFStorageUtility][storage_utility.filename_empty] %s failed: file_name is empty." % operation)
 		return false
 	if not GFStorageFamilyStore.is_valid_logical_file_path_for_framework(file_name):
-		push_error("[GFStorageUtility] %s 失败：file_name 不满足 portable logical path profile。" % operation)
+		push_error("[GFStorageUtility][storage_utility.filename_profile_invalid] %s failed: file_name does not satisfy the portable logical path profile." % operation)
 		return false
 	return not _get_save_base_path().is_empty()
 
@@ -8732,7 +8732,7 @@ func _validate_public_resource_file_name(file_name: String, operation: String) -
 		or not GFStorageFamilyStore.is_valid_extension_filter_for_framework(extension)
 	):
 		push_error(
-			"[GFStorageUtility] %s 失败：Resource logical path 必须包含 canonical lowercase 扩展名。"
+			"[GFStorageUtility][storage_utility.resource_extension_noncanonical] %s failed: the Resource logical path must include a canonical lowercase extension."
 			% operation
 		)
 		return false
@@ -8741,7 +8741,7 @@ func _validate_public_resource_file_name(file_name: String, operation: String) -
 
 func _validate_public_directory_name(directory_name: String, operation: String) -> bool:
 	if not GFStorageFamilyStore.is_valid_logical_directory_path_for_framework(directory_name):
-		push_error("[GFStorageUtility] %s 失败：directory_name 非法。" % operation)
+		push_error("[GFStorageUtility][storage_utility.directory_name_invalid] %s failed: directory_name is invalid." % operation)
 		return false
 	return not _get_save_base_path().is_empty()
 
@@ -8884,7 +8884,7 @@ func _read_json(file_name: String) -> GFStorageReadResult:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		var open_error: Error = FileAccess.get_open_error()
-		push_error("[GFStorageUtility] 无法读取文件：%s，错误码：%s" % [path, open_error])
+		push_error("[GFStorageUtility][storage_utility.file_open_read_failed] Cannot read file: %s, error code: %s." % [path, open_error])
 		last_load_result = _make_load_failure(
 			"File open failed: %s" % error_string(open_error),
 			open_error,
@@ -8916,7 +8916,7 @@ func _read_json(file_name: String) -> GFStorageReadResult:
 			else ERR_FILE_CANT_READ
 		)
 		push_error(
-			"[GFStorageUtility] 无法完整读取文件：%s，错误码：%s"
+			"[GFStorageUtility][storage_utility.file_read_incomplete] Cannot read the complete file: %s, error code: %s."
 			% [path, reported_read_error]
 		)
 		last_load_result = _make_load_failure(
@@ -8946,9 +8946,9 @@ func _read_json(file_name: String) -> GFStorageReadResult:
 		if _should_emit_load_integrity_failed(result):
 			data_integrity_failed.emit(file_name, result.error)
 		if not result.is_integrity_accepted():
-			push_warning("[GFStorageUtility] 读取数据失败：%s，原因：%s" % [path, result.error])
+			push_warning("[GFStorageUtility][storage_utility.data_integrity_failed] Cannot read data: %s, reason: %s." % [path, result.error])
 		else:
-			push_error("[GFStorageUtility] 读取数据失败：%s，原因：%s" % [path, result.error])
+			push_error("[GFStorageUtility][storage_utility.data_read_failed] Cannot read data: %s, reason: %s." % [path, result.error])
 		return result
 
 	if result.integrity_status == GFStorageReadResult.IntegrityStatus.INVALID:
@@ -9146,7 +9146,7 @@ func _resolve_migration_chain(from_version: int, to_version: int) -> Array[int]:
 				"chain": next_chain,
 			})
 	if not _migration_steps.is_empty():
-		push_warning("[GFStorageUtility] 未找到完整迁移链：%d -> %d。" % [from_version, to_version])
+		push_warning("[GFStorageUtility][storage_utility.migration_chain_missing] No complete migration chain found: %d -> %d." % [from_version, to_version])
 	return []
 
 
@@ -9284,7 +9284,7 @@ class _StoragePathPolicy:
 			save_dir_name
 		)
 		if storage_root_path.is_empty():
-			push_error("[GFStorageUtility] save_dir_name 必须满足 portable logical directory profile。")
+			push_error("[GFStorageUtility][storage_utility.root_profile_invalid] save_dir_name must satisfy the portable logical directory profile.")
 		return storage_root_path
 
 	func _is_absolute_storage_path(path: String) -> bool:
@@ -9344,7 +9344,7 @@ class _StoragePathPolicy:
 
 	func _sanitize_storage_relative_path(path: String, label: String) -> String:
 		if not GFStorageFamilyStore.is_valid_logical_file_path_for_framework(path):
-			push_error("[GFStorageUtility] %s 不满足 portable logical path profile。" % label)
+			push_error("[GFStorageUtility][storage_utility.path_profile_invalid] %s does not satisfy the portable logical path profile." % label)
 			return ""
 		return path
 
@@ -9363,7 +9363,7 @@ class _StoragePathPolicy:
 	func _is_safe_storage_path(path: String, label: String) -> bool:
 		if GFStorageFamilyStore.is_valid_logical_file_path_for_framework(path):
 			return true
-		push_error("[GFStorageUtility] %s 不满足 portable logical path profile。" % label)
+		push_error("[GFStorageUtility][storage_utility.path_profile_invalid] %s does not satisfy the portable logical path profile." % label)
 		return false
 
 
@@ -9447,7 +9447,7 @@ class _StorageFileOps:
 	func _remove_absolute_if_exists(path: String) -> void:
 		var remove_error: Error = _remove_absolute(path)
 		if remove_error != OK:
-			push_warning("[GFStorageUtility] 删除文件失败：错误码：%s" % remove_error)
+			push_warning("[GFStorageUtility][storage_utility.file_remove_failed] Cannot remove file, error code: %s." % remove_error)
 
 	func _remove_absolute(path: String) -> Error:
 		if not FileAccess.file_exists(path):
@@ -9475,7 +9475,7 @@ class _StorageFileOps:
 
 		var error: Error = DirAccess.make_dir_recursive_absolute(base_dir)
 		if error != OK:
-			push_error("[GFStorageUtility] 无法创建目录：%s，错误码：%s" % [base_dir, error])
+			push_error("[GFStorageUtility][storage_utility.directory_create_failed] Cannot create directory: %s, error code: %s." % [base_dir, error])
 		return error
 
 	func _write_buffer_absolute(path: String, bytes: PackedByteArray) -> Error:
@@ -9527,14 +9527,14 @@ class _StorageFileOps:
 			return dir_error
 		var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
 		if file == null:
-			push_error("[GFStorageUtility] 无法写入文件：%s，错误码：%s" % [path, FileAccess.get_open_error()])
+			push_error("[GFStorageUtility][storage_utility.file_open_write_failed] Cannot open file for writing: %s, error code: %s." % [path, FileAccess.get_open_error()])
 			return FileAccess.get_open_error()
 
 		_store_buffer_checked(file, bytes)
 		var write_error: Error = file.get_error()
 		file.close()
 		if write_error != OK:
-			push_error("[GFStorageUtility] 写入文件失败：%s，错误码：%s" % [path, write_error])
+			push_error("[GFStorageUtility][storage_utility.file_write_failed] Cannot write file: %s, error code: %s." % [path, write_error])
 		return write_error
 
 	func _write_plain_json(file_name: String, data: Dictionary) -> Error:
@@ -9546,14 +9546,14 @@ class _StorageFileOps:
 			return dir_error
 		var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
 		if file == null:
-			push_error("[GFStorageUtility] 无法写入文件：%s，错误码：%s" % [path, FileAccess.get_open_error()])
+			push_error("[GFStorageUtility][storage_utility.file_open_write_failed] Cannot open file for writing: %s, error code: %s." % [path, FileAccess.get_open_error()])
 			return FileAccess.get_open_error()
 
 		_store_string_checked(file, JSON.stringify(data, "\t"))
 		var write_error: Error = file.get_error()
 		file.close()
 		if write_error != OK:
-			push_error("[GFStorageUtility] 写入文件失败：%s，错误码：%s" % [path, write_error])
+			push_error("[GFStorageUtility][storage_utility.file_write_failed] Cannot write file: %s, error code: %s." % [path, write_error])
 		return write_error
 
 
@@ -10275,7 +10275,7 @@ class _StorageTransactionManager:
 		var cleanup_error: Error = _cleanup_committed_group_evidence(file_names)
 		if cleanup_error != OK:
 			push_warning(
-				"[GFStorageUtility] 事务已提交，但证据清理尚未收敛，错误码：%s。" % cleanup_error
+				"[GFStorageUtility][storage_utility.transaction_cleanup_pending] The transaction committed, but evidence cleanup has not completed, error code: %s." % cleanup_error
 			)
 		return OK
 

@@ -508,7 +508,7 @@ func test_settings_load_result_rejects_status_storage_mismatch() -> void:
 	)
 
 	assert_false(configured, "终态 status 必须与底层 Storage 失败分类一致。")
-	assert_push_error("[GFSettingsLoadResult] 已拒绝不一致的加载终态配置。")
+	assert_push_error("[GFSettingsLoadResult][settings_load_result.terminal_state_inconsistent] Rejected an inconsistent load terminal state configuration.")
 
 
 func test_load_settings_never_recovers_non_recoverable_failure_kinds() -> void:
@@ -723,7 +723,7 @@ func test_save_settings_rejects_cyclic_values_without_recursing() -> void:
 	var save_error: Error = _settings.save_settings("cyclic_settings.json")
 
 	assert_eq(save_error, ERR_INVALID_DATA, "循环引用设置不应被写入持久化文件。")
-	assert_push_error("[GFSettingsUtility] 设置数据包含循环引用，已拒绝持久化：cyclic_settings.json。")
+	assert_push_error("[GFSettingsUtility][settings_utility.persistence_cycle] Settings data contains a cyclic reference; persistence rejected: cyclic_settings.json.")
 
 
 func test_store_port_write_failure_is_returned_without_success_signal() -> void:
@@ -963,8 +963,8 @@ func test_fallback_persistence_rejects_native_absolute_paths() -> void:
 	assert_eq(load_result.get_status(), GFSettingsLoadResult.STATUS_INVALID_REQUEST)
 	assert_not_null(storage_result, "非法 fallback 路径应返回结构化读取失败。")
 	assert_eq(storage_result.failure_kind, GFStorageReadResult.FailureKind.INVALID_REQUEST)
-	assert_push_error("[GFSettingsUtility] 已拒绝原生绝对设置路径：C:/gf_settings_denied.json。")
-	assert_push_error("[GFSettingsUtility] 已拒绝原生绝对设置路径：C:/gf_settings_denied.json。")
+	assert_push_error("[GFSettingsUtility][settings_utility.absolute_path_rejected] Rejected a native absolute settings path: C:/gf_settings_denied.json.")
+	assert_push_error("[GFSettingsUtility][settings_utility.absolute_path_rejected] Rejected a native absolute settings path: C:/gf_settings_denied.json.")
 
 
 func test_storage_backed_settings_roundtrip_keeps_framework_metadata_out_of_business_data() -> void:
@@ -1049,8 +1049,8 @@ func test_fallback_persistence_rejects_parent_traversal_paths() -> void:
 	assert_eq(load_result.get_status(), GFSettingsLoadResult.STATUS_INVALID_REQUEST)
 	assert_not_null(storage_result, "非法 traversal 应返回结构化读取失败。")
 	assert_eq(storage_result.failure_kind, GFStorageReadResult.FailureKind.INVALID_REQUEST)
-	assert_push_error("[GFSettingsUtility] 已拒绝不安全设置文件名：../gf_settings_escape.json。")
-	assert_push_error("[GFSettingsUtility] 已拒绝不安全设置文件名：../gf_settings_escape.json。")
+	assert_push_error("[GFSettingsUtility][settings_utility.filename_unsafe] Rejected an unsafe settings filename: ../gf_settings_escape.json.")
+	assert_push_error("[GFSettingsUtility][settings_utility.filename_unsafe] Rejected an unsafe settings filename: ../gf_settings_escape.json.")
 
 
 # --- 私有/辅助方法 ---

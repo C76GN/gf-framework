@@ -96,6 +96,11 @@ func test_parse_object_enforces_ascii_and_utf8_byte_boundaries() -> void:
 
 	assert_true(_option_bool(ascii_exact, "ok"), "ASCII 精确字节边界应通过。")
 	assert_eq(_option_string(ascii_over, "error_kind"), "payload_too_large")
+	assert_eq(
+		_option_string(ascii_over, "error"),
+		"[GFBoundedJsonObjectReader][bounded_json_object_reader.input_size_limit] JSON input exceeds the %d byte limit."
+		% (ascii_bytes - 1)
+	)
 	assert_true(_option_bool(utf8_exact, "ok"), "多字节 UTF-8 精确字节边界应通过。")
 	assert_eq(_option_int(utf8_exact, "size_bytes"), utf8_bytes)
 	assert_true(utf8_bytes > utf8_text.length(), "测试输入必须证明字符数不等于 UTF-8 字节数。")
@@ -411,6 +416,11 @@ func test_read_object_reports_missing_and_invalid_utf8_inputs() -> void:
 	var missing: Dictionary = GFBoundedJsonObjectReader.read_object(USER_FIXTURE_PATH)
 
 	assert_eq(_option_string(missing, "error_kind"), "open_failed")
+	assert_string_contains(
+		_option_string(missing, "error"),
+		"[GFBoundedJsonObjectReader][bounded_json_object_reader.file_open_failed]"
+	)
+	assert_string_contains(_option_string(missing, "error"), USER_FIXTURE_PATH)
 	assert_eq(_option_string(missing, "source_path"), USER_FIXTURE_PATH)
 	var invalid_sequences: Array[PackedByteArray] = [
 		PackedByteArray([0x80]),

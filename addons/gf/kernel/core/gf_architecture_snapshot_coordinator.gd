@@ -19,7 +19,7 @@ extends RefCounted
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const _SNAPSHOT_FORMAT_VERSION: int = 1
 const _SNAPSHOT_BUSY_ERROR: String = (
-	"已有快照事务正在执行；不允许并发或重入 capture/restore。"
+	"A snapshot transaction is already running; concurrent or reentrant capture/restore is not allowed."
 )
 
 
@@ -85,7 +85,7 @@ func _capture_all_models_state() -> Dictionary:
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 				frozen_capture,
 				"error",
-				"Model 快照捕获失败。"
+				"Model snapshot capture failed."
 			)
 		)
 	var stability_result: Dictionary = _verify_frozen_model_capture_stability(
@@ -134,7 +134,7 @@ func _capture_all_models_state_async(options: Dictionary) -> Dictionary:
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 				frozen_capture,
 				"error",
-				"Model 快照捕获失败。"
+				"Model snapshot capture failed."
 			)
 		)
 	var stability_result: Dictionary = _verify_frozen_model_capture_stability(
@@ -230,7 +230,7 @@ func _capture_global_snapshot() -> Dictionary:
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 				frozen_models,
 				"error",
-				"Model 快照捕获失败。"
+				"Model snapshot capture failed."
 			)
 		)
 
@@ -244,7 +244,7 @@ func _capture_global_snapshot() -> Dictionary:
 				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 					history_result,
 					"error",
-					"命令历史快照捕获失败。"
+					"Command history snapshot capture failed."
 				)
 			)
 		frozen_history = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
@@ -307,7 +307,7 @@ func _capture_global_snapshot_async(options: Dictionary) -> Dictionary:
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 				frozen_models,
 				"error",
-				"Model 快照捕获失败。"
+				"Model snapshot capture failed."
 			)
 		)
 
@@ -321,7 +321,7 @@ func _capture_global_snapshot_async(options: Dictionary) -> Dictionary:
 				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 					history_result,
 					"error",
-					"命令历史快照捕获失败。"
+					"Command history snapshot capture failed."
 				)
 			)
 		frozen_history = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
@@ -347,7 +347,7 @@ func _capture_global_snapshot_async(options: Dictionary) -> Dictionary:
 		return models_result
 	if has_history and not _is_command_history_store_current(history_util):
 		return _make_capture_failure(
-			"命令历史存储目标在全局快照分帧等待期间发生变化。"
+			"The command history storage target changed while the global snapshot waited between frames."
 		)
 	var snapshot: Dictionary = {
 		"format_version": _SNAPSHOT_FORMAT_VERSION,
@@ -415,7 +415,7 @@ func restore_global_snapshot(
 				restore_generation,
 				_make_restore_failure(
 					&"validate",
-					"命令历史存储目标在验证后失效。"
+					"The command history storage target became invalid after validation."
 				)
 			)
 		var history_baseline_result: Dictionary = _capture_history_state(history_util)
@@ -431,7 +431,7 @@ func restore_global_snapshot(
 					_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 						history_baseline_result,
 						"error",
-						"无法读取命令历史恢复基线。"
+						"Could not read the command history restore baseline."
 					)
 				)
 			)
@@ -457,7 +457,7 @@ func restore_global_snapshot(
 				restore_generation,
 				_make_restore_failure(
 					&"commit",
-					"命令历史存储目标在提交前发生变化。",
+					"The command history storage target changed before commit.",
 					false
 				)
 			)
@@ -486,7 +486,7 @@ func restore_global_snapshot(
 				restore_generation,
 				_make_restore_failure(
 					&"commit",
-					"命令历史应用后状态与目标快照不一致。",
+					"The command history state after application does not match the target snapshot.",
 					global_rolled_back
 				)
 			)
@@ -505,7 +505,7 @@ func restore_global_snapshot(
 				restore_generation,
 				_make_restore_failure(
 					&"commit",
-					"命令历史提交后 Model 聚合状态与目标快照不一致。",
+					"The aggregate Model state after command history commit does not match the target snapshot.",
 					global_rolled_back
 				)
 			)
@@ -577,7 +577,7 @@ func restore_global_snapshot_async(
 				restore_generation,
 				_make_restore_failure(
 					&"validate",
-					"命令历史存储目标在验证后失效。"
+					"The command history storage target became invalid after validation."
 				)
 			)
 		var history_baseline_result: Dictionary = _capture_history_state(
@@ -595,7 +595,7 @@ func restore_global_snapshot_async(
 					_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 						history_baseline_result,
 						"error",
-						"无法读取命令历史恢复基线。"
+						"Could not read the command history restore baseline."
 					)
 				)
 			)
@@ -624,7 +624,7 @@ func restore_global_snapshot_async(
 				restore_generation,
 				_make_restore_failure(
 					&"commit",
-					"命令历史存储目标在异步提交前发生变化。",
+					"The command history storage target changed before asynchronous commit.",
 					false
 				)
 			)
@@ -653,7 +653,7 @@ func restore_global_snapshot_async(
 				restore_generation,
 				_make_restore_failure(
 					&"commit",
-					"命令历史应用后状态与目标快照不一致。",
+					"The command history state after application does not match the target snapshot.",
 					global_rolled_back
 				)
 			)
@@ -672,7 +672,7 @@ func restore_global_snapshot_async(
 				restore_generation,
 				_make_restore_failure(
 					&"commit",
-					"命令历史提交后 Model 聚合状态与目标快照不一致。",
+					"The aggregate Model state after command history commit does not match the target snapshot.",
 					global_rolled_back
 				)
 			)
@@ -698,7 +698,7 @@ func _make_capture_failure(
 ) -> Dictionary:
 	var failure_error: String = error
 	if failure_error.is_empty():
-		failure_error = "快照捕获失败。"
+		failure_error = "Snapshot capture failed."
 	var result: Dictionary = {
 		"ok": false,
 		"error": failure_error,
@@ -724,7 +724,7 @@ func _make_restore_failure(
 ) -> Dictionary:
 	var failure_error: String = error
 	if failure_error.is_empty():
-		failure_error = "快照恢复失败。"
+		failure_error = "Snapshot restore failed."
 	return {
 		"ok": false,
 		"phase": phase,
@@ -758,7 +758,7 @@ func _finish_capture_transaction(
 		or _active_snapshot_transaction_generation != snapshot_generation
 	):
 		return _make_capture_failure(
-			"快照捕获事务 generation 在完成前失效。",
+			"The snapshot capture transaction generation became invalid before completion.",
 			&"commit"
 		)
 	_active_snapshot_transaction_generation = 0
@@ -775,7 +775,7 @@ func _finish_restore_transaction(
 	):
 		return _make_restore_failure(
 			&"commit",
-			"快照恢复事务 generation 在完成前失效。"
+			"The snapshot restore transaction generation became invalid before completion."
 		)
 	_active_snapshot_transaction_generation = 0
 	return result
@@ -788,7 +788,7 @@ func _freeze_model_capture() -> Dictionary:
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 				entry_report,
 				"error",
-				"Model 快照目标收集失败。"
+				"Model snapshot target collection failed."
 			)
 		)
 
@@ -803,7 +803,7 @@ func _freeze_model_capture() -> Dictionary:
 		)
 		var model: GFModel = _get_model_from_snapshot_entry(entry)
 		if model == null:
-			return _make_capture_failure("Model 快照目标在冻结期间失效。")
+			return _make_capture_failure("A Model snapshot target became invalid while freezing.")
 		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 			entry,
 			"key"
@@ -813,12 +813,12 @@ func _freeze_model_capture() -> Dictionary:
 		)
 		if not model_state is Dictionary:
 			return _make_capture_failure(
-				"Model 快照无法转换为 Dictionary：%s。" % class_name_key
+				"The Model snapshot cannot be converted to Dictionary: %s." % class_name_key
 			)
 		frozen_state[class_name_key] = model_state
 
 	if not _are_frozen_model_targets_current(entries):
-		return _make_capture_failure("Model 快照目标集合在冻结期间发生变化。")
+		return _make_capture_failure("The Model snapshot target set changed while freezing.")
 	return {
 		"ok": true,
 		"snapshot": frozen_state,
@@ -836,7 +836,7 @@ func _verify_global_capture_stability(
 	if has_history:
 		if history_util == null:
 			return _make_capture_failure(
-				"命令历史快照稳定性复核失败：存储目标已经失效。"
+				"Command history snapshot stability verification failed: the storage target is invalid."
 			)
 		var history_result: Dictionary = _capture_history_state(history_util)
 		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
@@ -845,11 +845,11 @@ func _verify_global_capture_stability(
 			false
 		):
 			return _make_capture_failure(
-				"命令历史快照稳定性复核失败：%s"
+				"Command history snapshot stability verification failed: %s"
 				% _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 					history_result,
 					"error",
-					"无法再次读取命令历史。"
+					"Could not read the command history again."
 				)
 			)
 		var current_history: Dictionary = (
@@ -860,7 +860,7 @@ func _verify_global_capture_stability(
 		)
 		if current_history != frozen_history:
 			return _make_capture_failure(
-				"命令历史快照稳定性复核失败：当前 JSON 状态与冻结状态不一致。"
+				"Command history snapshot stability verification failed: the current JSON state does not match the frozen state."
 			)
 	return _verify_frozen_model_capture_stability(frozen_models)
 
@@ -874,7 +874,7 @@ func _verify_frozen_model_capture_stability(
 	)
 	if not _are_frozen_model_targets_current(entries):
 		return _make_capture_failure(
-			"Model 快照稳定性复核失败：目标集合已经变化。"
+			"Model snapshot stability verification failed: the target set changed."
 		)
 	var frozen_state: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
 		frozen_capture,
@@ -889,12 +889,12 @@ func _verify_frozen_model_capture_stability(
 		)
 		if not _is_frozen_model_target_current(entry):
 			return _make_capture_failure(
-				"Model 快照稳定性复核失败：目标身份或稳定键已经变化。"
+				"Model snapshot stability verification failed: target identity or stable key changed."
 			)
 		var model: GFModel = _get_model_from_snapshot_entry(entry)
 		if model == null:
 			return _make_capture_failure(
-				"Model 快照稳定性复核失败：目标已经失效。"
+				"Model snapshot stability verification failed: the target is invalid."
 			)
 		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 			entry,
@@ -905,12 +905,12 @@ func _verify_frozen_model_capture_stability(
 		)
 		if not current_state_value is Dictionary:
 			return _make_capture_failure(
-				"Model 快照稳定性复核失败：%s 无法转换为 Dictionary。"
+				"Model snapshot stability verification failed: %s cannot be converted to Dictionary."
 				% class_name_key
 			)
 		if not _is_frozen_model_target_current(entry):
 			return _make_capture_failure(
-				"Model 快照稳定性复核失败：%s 的目标身份或稳定键已经变化。"
+				"Model snapshot stability verification failed: the target identity or stable key of %s changed."
 				% class_name_key
 			)
 		var expected_state_value: Variant = (
@@ -921,20 +921,20 @@ func _verify_frozen_model_capture_stability(
 		)
 		if not expected_state_value is Dictionary:
 			return _make_capture_failure(
-				"Model 快照稳定性复核失败：%s 缺少冻结 Dictionary。"
+				"Model snapshot stability verification failed: %s has no frozen Dictionary."
 				% class_name_key
 			)
 		var current_state: Dictionary = current_state_value
 		var expected_state: Dictionary = expected_state_value
 		if current_state != expected_state:
 			return _make_capture_failure(
-				"Model 快照稳定性复核失败：%s 的当前 JSON 状态与冻结状态不一致。"
+				"Model snapshot stability verification failed: the current JSON state of %s does not match its frozen state."
 				% class_name_key
 			)
 
 	if not _are_frozen_model_targets_current(entries):
 		return _make_capture_failure(
-			"Model 快照稳定性复核失败：目标集合在复核期间发生变化。"
+			"Model snapshot stability verification failed: the target set changed during verification."
 		)
 	return {
 		"ok": true,
@@ -951,7 +951,7 @@ func _materialize_frozen_model_capture(
 		"entries"
 	)
 	if not _are_frozen_model_targets_current(entries):
-		return _make_capture_failure("Model 快照目标集合在分帧物化前发生变化。")
+		return _make_capture_failure("The Model snapshot target set changed before materialization across frames.")
 
 	var frozen_state: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
 		frozen_capture,
@@ -966,7 +966,7 @@ func _materialize_frozen_model_capture(
 			entry_variant
 		)
 		if not _is_frozen_model_target_current(entry):
-			return _make_capture_failure("Model 快照目标在分帧物化期间失效。")
+			return _make_capture_failure("A Model snapshot target became invalid during materialization across frames.")
 		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 			entry,
 			"key"
@@ -990,11 +990,11 @@ func _materialize_frozen_model_capture(
 			processed_since_yield = 0
 			if not _are_frozen_model_targets_current(entries):
 				return _make_capture_failure(
-					"Model 快照目标集合在分帧等待期间发生变化。"
+					"The Model snapshot target set changed while waiting between frames."
 				)
 
 	if not _are_frozen_model_targets_current(entries):
-		return _make_capture_failure("Model 快照目标集合在分帧物化后发生变化。")
+		return _make_capture_failure("The Model snapshot target set changed after materialization across frames.")
 	return _make_capture_success(materialized_state)
 
 
@@ -1034,31 +1034,31 @@ func _validate_global_snapshot(
 	command_builder: Callable
 ) -> Dictionary:
 	if not data.has("format_version"):
-		return _make_restore_failure(&"validate", "全局快照格式版本无效。")
+		return _make_restore_failure(&"validate", "The global snapshot format version is invalid.")
 	var format_version_value: Variant = data["format_version"]
 	if (
 		typeof(format_version_value) != TYPE_INT
 		or format_version_value != _SNAPSHOT_FORMAT_VERSION
 	):
-		return _make_restore_failure(&"validate", "全局快照格式版本无效。")
+		return _make_restore_failure(&"validate", "The global snapshot format version is invalid.")
 	if not data.has("models") or not data["models"] is Dictionary:
-		return _make_restore_failure(&"validate", "全局快照 models 必须是 Dictionary。")
+		return _make_restore_failure(&"validate", "Global snapshot models must be a Dictionary.")
 	if not data.has("command_history"):
 		return _make_restore_success()
 	if not data["command_history"] is Dictionary:
-		return _make_restore_failure(&"validate", "全局快照 command_history 必须是 Dictionary。")
+		return _make_restore_failure(&"validate", "Global snapshot command_history must be a Dictionary.")
 	if not command_builder.is_valid():
-		return _make_restore_failure(&"validate", "恢复命令历史需要有效的 command_builder。")
+		return _make_restore_failure(&"validate", "Restoring command history requires a valid command_builder.")
 	var history_util: Object = _get_command_history_store()
 	if history_util == null:
-		return _make_restore_failure(&"validate", "快照包含命令历史，但当前架构没有命令历史存储服务。")
+		return _make_restore_failure(&"validate", "The snapshot contains command history, but this architecture has no command history storage service.")
 	if (
 		not history_util.has_method("serialize_full_history")
 		or not history_util.has_method("deserialize_full_history")
 	):
-		return _make_restore_failure(&"validate", "命令历史存储服务不支持完整快照事务。")
+		return _make_restore_failure(&"validate", "The command history storage service does not support complete snapshot transactions.")
 	if not _is_command_history_store_current(history_util):
-		return _make_restore_failure(&"validate", "命令历史存储目标在验证期间发生变化。")
+		return _make_restore_failure(&"validate", "The command history storage target changed during validation.")
 	var success_result: Dictionary = _make_restore_success()
 	success_result["history_store"] = history_util
 	return success_result
@@ -1066,19 +1066,19 @@ func _validate_global_snapshot(
 
 func _capture_history_state(history_util: Object) -> Dictionary:
 	if history_util == null or not history_util.has_method("serialize_full_history"):
-		return _make_capture_failure("无法读取命令历史快照。")
+		return _make_capture_failure("Could not read the command history snapshot.")
 	if not _is_command_history_store_current(history_util):
-		return _make_capture_failure("命令历史存储目标在捕获前发生变化。")
+		return _make_capture_failure("The command history storage target changed before capture.")
 	var serialized_state: Variant = history_util.call("serialize_full_history")
 	if not _is_command_history_store_current(history_util):
-		return _make_capture_failure("命令历史存储目标在捕获期间发生变化。")
+		return _make_capture_failure("The command history storage target changed during capture.")
 	if not serialized_state is Dictionary:
-		return _make_capture_failure("命令历史快照必须是 Dictionary。")
+		return _make_capture_failure("The command history snapshot must be a Dictionary.")
 	var json_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(
 		serialized_state
 	)
 	if not json_state is Dictionary:
-		return _make_capture_failure("命令历史快照无法转换为 Dictionary。")
+		return _make_capture_failure("The command history snapshot cannot be converted to Dictionary.")
 	var history_state: Dictionary = json_state
 	return _make_capture_success(history_state.duplicate(true))
 
@@ -1197,7 +1197,7 @@ func _build_model_restore_plan(data: Dictionary) -> Dictionary:
 		if typeof(data_key) != TYPE_STRING:
 			return _make_restore_failure(
 				&"validate",
-				"Model 快照键必须是 String。"
+				"Model snapshot keys must be String values."
 			)
 
 	var entry_report: Dictionary = _collect_model_snapshot_entries()
@@ -1207,7 +1207,7 @@ func _build_model_restore_plan(data: Dictionary) -> Dictionary:
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 				entry_report,
 				"error",
-				"Model 快照目标收集失败。"
+				"Model snapshot target collection failed."
 			)
 		)
 
@@ -1220,7 +1220,7 @@ func _build_model_restore_plan(data: Dictionary) -> Dictionary:
 		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
 		var model: GFModel = _get_model_from_snapshot_entry(entry)
 		if model == null or not _is_frozen_model_target_current(entry):
-			return _make_restore_failure(&"validate", "Model 快照目标在验证期间失效。")
+			return _make_restore_failure(&"validate", "A Model snapshot target became invalid during validation.")
 		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 			entry,
 			"key"
@@ -1232,7 +1232,7 @@ func _build_model_restore_plan(data: Dictionary) -> Dictionary:
 		if not known_keys.has(data_key_string):
 			return _make_restore_failure(
 				&"validate",
-				"快照包含未注册的 Model 键：%s。" % data_key_string
+				"The snapshot contains an unregistered Model key: %s." % data_key_string
 			)
 
 	for known_key_variant: Variant in known_keys.keys():
@@ -1240,7 +1240,7 @@ func _build_model_restore_plan(data: Dictionary) -> Dictionary:
 		if not data.has(known_key):
 			return _make_restore_failure(
 				&"validate",
-				"快照缺少已注册的 Model 键：%s。" % known_key
+				"The snapshot is missing a registered Model key: %s." % known_key
 			)
 
 	var restore_entries: Array[Dictionary] = []
@@ -1250,7 +1250,7 @@ func _build_model_restore_plan(data: Dictionary) -> Dictionary:
 		)
 		var model: GFModel = _get_model_from_snapshot_entry(entry)
 		if model == null or not _is_frozen_model_target_current(entry):
-			return _make_restore_failure(&"validate", "Model 快照目标在验证期间失效。")
+			return _make_restore_failure(&"validate", "A Model snapshot target became invalid during validation.")
 		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 			entry,
 			"key"
@@ -1258,14 +1258,14 @@ func _build_model_restore_plan(data: Dictionary) -> Dictionary:
 		if not data[class_name_key] is Dictionary:
 			return _make_restore_failure(
 				&"validate",
-				"Model 数据必须是 Dictionary：%s。" % class_name_key
+				"Model data must be a Dictionary: %s." % class_name_key
 			)
 		var restore_entry: Dictionary = entry.duplicate()
 		restore_entry["before"] = model.to_dict().duplicate(true)
 		if not _is_frozen_model_target_current(entry):
 			return _make_restore_failure(
 				&"validate",
-				"Model 快照目标在读取恢复基线期间发生变化。"
+				"The Model snapshot target changed while reading the restore baseline."
 			)
 		restore_entry["target"] = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(
 			data[class_name_key]
@@ -1275,7 +1275,7 @@ func _build_model_restore_plan(data: Dictionary) -> Dictionary:
 	if not _are_model_restore_targets_current(restore_entries):
 		return _make_restore_failure(
 			&"validate",
-			"Model 快照目标集合在验证期间发生变化。"
+			"The Model snapshot target set changed during validation."
 		)
 	return {
 		"ok": true,
@@ -1297,7 +1297,7 @@ func _apply_model_restore_plan(entries: Array) -> Dictionary:
 			)
 			return _make_restore_failure(
 				&"apply",
-				"Model 快照目标在应用期间失效。",
+				"A Model snapshot target became invalid during application.",
 				false
 			)
 		var model: GFModel = _get_model_from_snapshot_entry(entry)
@@ -1307,7 +1307,7 @@ func _apply_model_restore_plan(entries: Array) -> Dictionary:
 			)
 			return _make_restore_failure(
 				&"apply",
-				"Model 快照目标在应用期间失效。",
+				"A Model snapshot target became invalid during application.",
 				false
 			)
 		applied_entries.append(entry)
@@ -1322,7 +1322,7 @@ func _apply_model_restore_plan(entries: Array) -> Dictionary:
 			)
 			return _make_restore_failure(
 				&"apply",
-				"Model 应用期间注册 identity 或 save key 发生变化：%s。"
+				"The registered Model identity or save key changed during application: %s."
 				% _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key"),
 				target_drift_rollback_succeeded
 			)
@@ -1335,7 +1335,7 @@ func _apply_model_restore_plan(entries: Array) -> Dictionary:
 			)
 			return _make_restore_failure(
 				&"apply",
-				"Model 验证期间注册 identity 或 save key 发生变化：%s。"
+				"The registered Model identity or save key changed during validation: %s."
 				% _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key"),
 				verify_target_drift_rollback_succeeded
 			)
@@ -1349,7 +1349,7 @@ func _apply_model_restore_plan(entries: Array) -> Dictionary:
 			)
 			return _make_restore_failure(
 				&"apply",
-				"Model 应用后状态与目标快照不一致：%s。"
+				"The Model state after application does not match the target snapshot: %s."
 				% _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key"),
 				apply_rollback_succeeded
 			)
@@ -1360,7 +1360,7 @@ func _apply_model_restore_plan(entries: Array) -> Dictionary:
 		)
 		return _make_restore_failure(
 			&"commit",
-			"Model 聚合状态在恢复提交前与目标快照不一致。",
+			"The aggregate Model state does not match the target snapshot before restore commit.",
 			final_rollback_succeeded
 		)
 	return _make_restore_success()
@@ -1385,7 +1385,7 @@ func _apply_model_restore_plan_async(
 			)
 			return _make_restore_failure(
 				&"apply",
-				"Model 快照目标在异步应用期间失效。",
+				"A Model snapshot target became invalid during asynchronous application.",
 				false
 			)
 		var model: GFModel = _get_model_from_snapshot_entry(entry)
@@ -1395,7 +1395,7 @@ func _apply_model_restore_plan_async(
 			)
 			return _make_restore_failure(
 				&"apply",
-				"Model 快照目标在异步应用期间失效。",
+				"A Model snapshot target became invalid during asynchronous application.",
 				false
 			)
 		applied_entries.append(entry)
@@ -1410,7 +1410,7 @@ func _apply_model_restore_plan_async(
 			)
 			return _make_restore_failure(
 				&"apply",
-				"Model 异步应用期间注册 identity 或 save key 发生变化：%s。"
+				"The registered Model identity or save key changed during asynchronous application: %s."
 				% _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key"),
 				target_drift_rollback_succeeded
 			)
@@ -1423,7 +1423,7 @@ func _apply_model_restore_plan_async(
 			)
 			return _make_restore_failure(
 				&"apply",
-				"Model 异步验证期间注册 identity 或 save key 发生变化：%s。"
+				"The registered Model identity or save key changed during asynchronous validation: %s."
 				% _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key"),
 				verify_target_drift_rollback_succeeded
 			)
@@ -1436,7 +1436,7 @@ func _apply_model_restore_plan_async(
 			)
 			return _make_restore_failure(
 				&"apply",
-				"Model 异步应用后状态与目标快照不一致：%s。"
+				"The Model state after asynchronous application does not match the target snapshot: %s."
 				% _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key"),
 				apply_rollback_succeeded
 			)
@@ -1456,7 +1456,7 @@ func _apply_model_restore_plan_async(
 				)
 				return _make_restore_failure(
 					&"apply",
-					"Model 快照目标集合在异步恢复等待期间发生变化。",
+					"The Model snapshot target set changed while waiting during asynchronous restore.",
 					false
 				)
 
@@ -1467,7 +1467,7 @@ func _apply_model_restore_plan_async(
 		)
 		return _make_restore_failure(
 			&"commit",
-			"Model 聚合状态在异步恢复提交前与目标快照不一致。",
+			"The aggregate Model state does not match the target snapshot before asynchronous restore commit.",
 			final_rollback_succeeded
 		)
 	return _make_restore_success()
@@ -1621,12 +1621,12 @@ func _collect_model_snapshot_entries() -> Dictionary:
 	for script_cls: Script in _models:
 		var model_object: Object = _get_dictionary_object(_models, script_cls)
 		if not model_object is GFModel:
-			invalid_target_error = "Model 注册表包含无效快照目标。"
+			invalid_target_error = "The Model registry contains an invalid snapshot target."
 			break
 		var model: GFModel = model_object
 		var class_name_key: String = _get_model_key(script_cls, model)
 		if class_name_key.is_empty():
-			invalid_target_error = "Model 缺少稳定快照键。"
+			invalid_target_error = "The Model has no stable snapshot key."
 			break
 		if used_keys.has(class_name_key):
 			if not duplicate_keys.has(class_name_key):
@@ -1648,10 +1648,10 @@ func _collect_model_snapshot_entries() -> Dictionary:
 
 	if not duplicate_keys.is_empty():
 		var duplicate_error: String = (
-			"Model 快照键重复：%s。请为每个 Model 提供唯一 get_save_key()。"
+			"Duplicate Model snapshot key: %s. Provide a unique get_save_key() for each Model."
 			% ", ".join(duplicate_keys)
 		)
-		push_error("[GFArchitecture] %s" % duplicate_error)
+		push_error("[GFArchitecture][architecture.snapshot_key_duplicate] Duplicate Model snapshot keys were found.\n%s" % duplicate_error)
 		return {
 			"ok": false,
 			"entries": [],
@@ -1697,5 +1697,5 @@ func _get_model_key(script_cls: Script, model: GFModel = null) -> String:
 	var global_name: StringName = script_cls.get_global_name()
 	if global_name != &"":
 		return String(global_name)
-	push_error("[GFArchitecture] 可序列化 Model 缺少稳定标识：请为脚本声明 class_name 或重写 get_save_key()。")
+	push_error("[GFArchitecture][architecture.model_save_key_missing] A serializable Model has no stable identifier; declare class_name or override get_save_key().")
 	return ""

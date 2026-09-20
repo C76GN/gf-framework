@@ -1497,8 +1497,8 @@ func _make_pending_resource_artifact_report(
 	var status: StringName = _GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_CHANGED if exists else _GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_NEW
 	var overwrite_existing: bool = GFVariantData.get_option_bool(options, "overwrite_existing", true)
 	if exists and not overwrite_existing:
-		var skipped_message: String = "目标文件已存在，已跳过：%s" % output_path
-		push_warning("[GFConfigPipeline] %s" % skipped_message)
+		var skipped_message: String = "The output file already exists and was skipped: %s" % output_path
+		push_warning("[GFConfigPipeline][config_pipeline.output_exists] Skipped configuration output (%s)." % skipped_message)
 		return _make_resource_artifact_report(
 			output_path,
 			output_format,

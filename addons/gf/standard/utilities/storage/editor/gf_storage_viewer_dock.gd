@@ -123,12 +123,12 @@ func _get_selected_format() -> int:
 	return _format_option.get_selected_id()
 
 
-func _set_status(message: String, is_error: bool) -> void:
+func _set_status(message: String, is_error: bool, diagnostic_message: String = "") -> void:
 	if is_instance_valid(_status_label):
 		_status_label.text = message
 		_status_label.modulate = _GFEditorWorkspaceUI.ERROR_TEXT_COLOR if is_error else _GFEditorWorkspaceUI.OK_TEXT_COLOR
 	if is_error:
-		push_warning("[GF Storage Viewer] " + message)
+		push_warning(diagnostic_message)
 
 
 func _format_decoded_data_for_display(data: Dictionary) -> String:
@@ -152,15 +152,19 @@ func _on_file_selected(path: String) -> void:
 func _on_load_pressed() -> void:
 	var path: String = _path_edit.text.strip_edges()
 	if path.is_empty():
-		_set_status("路径为空。", true)
+		_set_status("路径为空。", true, "[GFStorageViewerDock][storage_viewer_dock.path_empty] File path is empty.")
 		return
 	if not FileAccess.file_exists(path):
-		_set_status("文件不存在：%s" % path, true)
+		_set_status("文件不存在：%s" % path, true, "[GFStorageViewerDock][storage_viewer_dock.file_missing] File does not exist: %s." % path)
 		return
 
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		_set_status("无法打开文件：%s" % error_string(FileAccess.get_open_error()), true)
+		_set_status(
+			"无法打开文件：%s" % error_string(FileAccess.get_open_error()),
+			true,
+			"[GFStorageViewerDock][storage_viewer_dock.file_open_failed] Cannot open file: %s." % error_string(FileAccess.get_open_error())
+		)
 		return
 
 	var bytes: PackedByteArray = file.get_buffer(file.get_length())
@@ -169,7 +173,7 @@ func _on_load_pressed() -> void:
 	var codec: GFStorageCodec = _create_codec()
 	if codec == null:
 		_output.text = ""
-		_set_status("Storage codec 不可用。", true)
+		_set_status("Storage codec 不可用。", true, "[GFStorageViewerDock][storage_viewer_dock.codec_unavailable] Storage codec is unavailable.")
 		return
 
 	var result: GFStorageReadResult = codec.decode(bytes, {
@@ -182,7 +186,11 @@ func _on_load_pressed() -> void:
 
 	if not result.ok:
 		_output.text = ""
-		_set_status(result.error if not result.error.is_empty() else "解码失败。", true)
+		_set_status(
+			result.error if not result.error.is_empty() else "解码失败。",
+			true,
+			"[GFStorageViewerDock][storage_viewer_dock.decode_failed] Cannot decode storage data: %s." % result.error
+		)
 		return
 
 	var data: Dictionary = result.payload.duplicate(true)

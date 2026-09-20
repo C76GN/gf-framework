@@ -21,8 +21,8 @@ func test_pick_value_ignores_non_finite_weights() -> void:
 	var _nan_entry: Variant = table.add_entry("NAN", NAN)
 	var _valid_entry: Variant = table.add_entry("ONLY", 1.0)
 
-	assert_push_error("[GFWeightedEntry] weight 必须是有限数字，已重置为 0。")
-	assert_push_error("[GFWeightedEntry] weight 必须是有限数字，已重置为 0。")
+	assert_push_error("[GFWeightedEntry][weighted_entry.weight_non_finite] weight must be finite and was reset to zero.")
+	assert_push_error("[GFWeightedEntry][weighted_entry.weight_non_finite] weight must be finite and was reset to zero.")
 	assert_eq(GFVariantData.to_text(table.pick_value(_make_rng(1))), "ONLY")
 	assert_eq(table.get_total_weight(), 1.0)
 
@@ -54,7 +54,7 @@ func test_non_finite_weight_serializes_as_safe_zero() -> void:
 	var data: Dictionary = entry.to_dict()
 	var json_text: String = JSON.stringify(data)
 
-	assert_push_error("[GFWeightedEntry] weight 必须是有限数字，已重置为 0。")
+	assert_push_error("[GFWeightedEntry][weighted_entry.weight_non_finite] weight must be finite and was reset to zero.")
 	assert_eq(GFVariantData.get_option_float(data, "weight", -1.0), 0.0)
 	assert_false(json_text.contains("Infinity"), "权重字典不应把 Infinity 交给 JSON.stringify。")
 	assert_false(json_text.contains("NaN"), "权重字典不应把 NaN 交给 JSON.stringify。")

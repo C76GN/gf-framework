@@ -113,13 +113,13 @@ func bind_repeater(
 ) -> bool:
 	var state_store: _GF_REACTIVE_STATE_STORE_SCRIPT = _as_state_store(store)
 	if state_store == null:
-		push_error("[GFRepeaterBinder] bind_repeater 失败：store 必须是 GFReactiveStateStore。")
+		push_error("[GFRepeaterBinder][repeater_binder.store_type_invalid] Cannot bind_repeater: store must be a GFReactiveStateStore.")
 		return false
 	if not _is_live_node(container):
-		push_error("[GFRepeaterBinder] bind_repeater 失败：container 无效。")
+		push_error("[GFRepeaterBinder][repeater_binder.container_invalid] Cannot bind_repeater: container is invalid.")
 		return false
 	if not _is_live_node(template):
-		push_error("[GFRepeaterBinder] bind_repeater 失败：template 无效。")
+		push_error("[GFRepeaterBinder][repeater_binder.template_invalid] Cannot bind_repeater: template is invalid.")
 		return false
 
 	if not _SYNC_SCRIPT.validate_options(options).is_empty():

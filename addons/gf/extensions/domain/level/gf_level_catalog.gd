@@ -34,7 +34,7 @@ func add_entry(entry: GFLevelEntry) -> void:
 
 	var level_id: StringName = entry.get_level_id()
 	if level_id == &"":
-		push_error("[GFLevelCatalog] add_entry 失败：关卡 ID 为空。")
+		push_error("[GFLevelCatalog][level_catalog.empty_level_id] add_entry failed: level ID is empty.")
 		return
 
 	for index: int in range(entries.size()):

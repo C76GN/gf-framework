@@ -156,10 +156,10 @@ func capture(metadata: Dictionary = {}) -> int:
 ## @return 快照 ID。
 func push_snapshot(data: Variant, metadata: Dictionary = {}) -> int:
 	if not _is_snapshot_payload_allowed(data, 0):
-		push_error("[GFSnapshotHistoryUtility] push_snapshot 失败：快照数据不能包含 Object 或 Resource 引用。")
+		push_error("[GFSnapshotHistoryUtility][snapshot_history_utility.snapshot_references_unsupported] Cannot push_snapshot: snapshot data must not contain Object or Resource references.")
 		return 0
 	if not _is_snapshot_payload_allowed(metadata, 0):
-		push_error("[GFSnapshotHistoryUtility] push_snapshot 失败：快照元数据不能包含 Object 或 Resource 引用。")
+		push_error("[GFSnapshotHistoryUtility][snapshot_history_utility.metadata_references_unsupported] Cannot push_snapshot: snapshot metadata must not contain Object or Resource references.")
 		return 0
 
 	if _current_index < _snapshots.size() - 1:
@@ -341,16 +341,16 @@ func _capture_data() -> Variant:
 				"snapshot"
 			)
 		push_warning(
-			"[GFSnapshotHistoryUtility] capture() 失败：%s"
+			"[GFSnapshotHistoryUtility][snapshot_history_utility.capture_failed] capture() failed: %s."
 			% GFVariantData.get_option_string(
 				capture_result,
 				"error",
-				"架构快照捕获失败。"
+				"Architecture snapshot capture failed."
 			)
 		)
 		return null
 
-	push_warning("[GFSnapshotHistoryUtility] capture() 失败：未配置捕获回调，且没有可用架构快照。")
+	push_warning("[GFSnapshotHistoryUtility][snapshot_history_utility.capture_source_missing] capture() failed: no capture callback is configured and no architecture snapshot is available.")
 	return null
 
 
@@ -376,16 +376,16 @@ func _restore_data(data: Variant) -> bool:
 		if GFVariantData.get_option_bool(restore_result, "ok"):
 			return true
 		push_warning(
-			"[GFSnapshotHistoryUtility] restore 失败：%s"
+			"[GFSnapshotHistoryUtility][snapshot_history_utility.restore_failed] restore failed: %s."
 			% GFVariantData.get_option_string(
 				restore_result,
 				"error",
-				"架构快照恢复失败。"
+				"Architecture snapshot restore failed."
 			)
 		)
 		return false
 
-	push_warning("[GFSnapshotHistoryUtility] restore 失败：未配置恢复回调，且没有可用架构快照。")
+	push_warning("[GFSnapshotHistoryUtility][snapshot_history_utility.restore_target_missing] restore failed: no restore callback is configured and no architecture snapshot is available.")
 	return false
 
 

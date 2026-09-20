@@ -1473,7 +1473,7 @@ func test_dialogue_runner_fails_closed_when_resource_identity_is_not_stable() ->
 
 	assert_null(reached, "包含不可稳定编码对象的资源不得启动。")
 	assert_false(runner.is_running(), "身份计算失败必须保持 Runner 未运行。")
-	assert_push_error("GFDialogueRunner refused an incomplete resource identity (unsupported_variant")
+	assert_push_error("[GFDialogueRunner][dialogue_runner.incomplete_resource_identity] Refused an incomplete resource identity (unsupported_variant")
 
 
 func test_dialogue_condition_reentry_preserves_replacement_session() -> void:

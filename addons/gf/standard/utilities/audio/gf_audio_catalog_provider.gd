@@ -59,7 +59,7 @@ func set_entry(catalog_id: StringName, entry_id: StringName, metadata: Dictionar
 	if entry_id == &"":
 		return
 	if not _is_known_catalog_id(catalog_id):
-		push_warning("[GFAudioCatalogProvider] 未知音频目录：%s。" % String(catalog_id))
+		push_warning("[GFAudioCatalogProvider][audio_catalog_provider.catalog_unknown] Unknown audio catalog: %s." % String(catalog_id))
 		return
 	_get_catalog(catalog_id)[entry_id] = metadata.duplicate(true)
 
@@ -73,7 +73,7 @@ func set_entry(catalog_id: StringName, entry_id: StringName, metadata: Dictionar
 ## @param entry_id: 条目标识。
 func remove_entry(catalog_id: StringName, entry_id: StringName) -> void:
 	if not _is_known_catalog_id(catalog_id):
-		push_warning("[GFAudioCatalogProvider] 未知音频目录：%s。" % String(catalog_id))
+		push_warning("[GFAudioCatalogProvider][audio_catalog_provider.catalog_unknown] Unknown audio catalog: %s." % String(catalog_id))
 		return
 	var _erase_result_72: Variant = _get_catalog(catalog_id).erase(entry_id)
 

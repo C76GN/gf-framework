@@ -428,7 +428,7 @@ func test_failed_context_disposes_owned_architecture_and_cannot_later_become_rea
 
 	assert_null(architecture, "等待超时后应返回 null。")
 	assert_true(context.is_context_failed(), "等待超时后上下文应进入 FAILED。")
-	assert_push_warning("[GFNodeContext] 等待上下文初始化超时。")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nTimed out waiting for context initialization.")
 	var failed_architecture: GFArchitecture = context.get_architecture()
 	assert_true(failed_architecture.is_disposed(), "FAILED Scoped Context 必须释放 owned Architecture。")
 	assert_eq(context.blocking_utility.dispose_call_count, 1, "失败清理必须恰好释放模块一次。")
@@ -514,7 +514,7 @@ func test_cancelled_install_does_not_continue_into_install_bindings() -> void:
 	var architecture: GFArchitecture = await context.wait_until_ready()
 
 	assert_null(architecture, "安装超时后等待应返回 null。")
-	assert_push_warning("[GFNodeContext] 等待上下文初始化超时。")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nTimed out waiting for context initialization.")
 	await get_tree().process_frame
 	await get_tree().process_frame
 
@@ -563,7 +563,7 @@ func test_install_scope_self_cancellation_enters_failed_terminal_state() -> void
 		"取消安装后 initialize_context 应返回 null。"
 	)
 	assert_signal_emitted(context, "context_failed", "install scope 取消应发出 context_failed。")
-	assert_push_warning("[GFNodeContext] %s" % CONTEXT_INSTALL_CANCEL_REASON)
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\n%s" % CONTEXT_INSTALL_CANCEL_REASON)
 
 	context.queue_free()
 	await get_tree().process_frame
@@ -582,7 +582,7 @@ func test_install_architecture_failure_stops_bindings_and_cannot_retry_to_ready(
 	assert_eq(context.install_bindings_call_count, 0, "架构失败后不得继续 install_bindings。")
 	assert_signal_emitted(context, "context_failed", "安装架构失败应发出 context_failed。")
 	assert_push_error(CONTEXT_INSTALL_FAILURE_REASON)
-	assert_push_warning("[GFNodeContext] %s" % CONTEXT_INSTALL_FAILURE_REASON)
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\n%s" % CONTEXT_INSTALL_FAILURE_REASON)
 
 	context.queue_free()
 	await get_tree().process_frame
@@ -595,10 +595,10 @@ func test_context_preserves_first_failure_reason() -> void:
 
 	var architecture: GFArchitecture = await context.wait_until_ready()
 	assert_null(architecture, "首次等待超时应返回 null。")
-	assert_push_warning("[GFNodeContext] 等待上下文初始化超时。")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nTimed out waiting for context initialization.")
 	assert_eq(
 		context.get_context_failure_reason(),
-		"等待上下文初始化超时。",
+		"Timed out waiting for context initialization.",
 		"首次失败原因应被记录。"
 	)
 
@@ -609,7 +609,7 @@ func test_context_preserves_first_failure_reason() -> void:
 
 	assert_eq(
 		context.get_context_failure_reason(),
-		"等待上下文初始化超时。",
+		"Timed out waiting for context initialization.",
 		"FAILED 终态不能被迟到失败改写原因。"
 	)
 
@@ -698,7 +698,7 @@ func test_scoped_context_cancels_install_when_ready_parent_fails() -> void:
 	assert_false(parent_architecture.is_disposed(), "Scoped child 不得接管父级 Architecture 的释放。")
 	assert_eq(context.install_bindings_call_count, 0, "父级失败后不得继续 install_bindings。")
 	assert_signal_emitted(context, "context_failed", "父级失败必须发出 context_failed。")
-	assert_push_warning("[GFNodeContext] %s" % PARENT_FAILURE_DURING_INSTALL_REASON)
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\n%s" % PARENT_FAILURE_DURING_INSTALL_REASON)
 
 	context.release_install.emit()
 	await get_tree().process_frame
@@ -726,7 +726,7 @@ func test_scoped_context_cancels_install_when_ready_parent_is_disposed() -> void
 
 	var owned_architecture: GFArchitecture = context.get_architecture()
 	assert_true(context.is_context_failed(), "父级 dispose 后阻塞中的 Scoped Context 必须失败。")
-	assert_eq(context.get_context_failure_reason(), "父级架构生命周期已结束。")
+	assert_eq(context.get_context_failure_reason(), "Parent architecture lifecycle has ended.")
 	assert_true(
 		context.observed_scope != null and context.observed_scope.is_cancel_requested(),
 		"父级 dispose 必须取消 install scope。"
@@ -734,7 +734,7 @@ func test_scoped_context_cancels_install_when_ready_parent_is_disposed() -> void
 	assert_true(owned_architecture.is_disposed(), "父级 dispose 必须释放 child owned Architecture。")
 	assert_eq(context.install_bindings_call_count, 0, "父级 dispose 后不得继续 install_bindings。")
 	assert_signal_emitted(context, "context_failed", "父级 dispose 必须发出 context_failed。")
-	assert_push_warning("[GFNodeContext] 父级架构生命周期已结束。")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nParent architecture lifecycle has ended.")
 
 	context.release_install.emit()
 	await get_tree().process_frame
@@ -764,7 +764,7 @@ func test_scoped_context_rejects_parent_identity_replacement_during_install() ->
 	await get_tree().process_frame
 
 	assert_true(context.is_context_failed(), "install 期间父级 identity 改变必须失败。")
-	assert_eq(context.get_context_failure_reason(), "父级架构身份已变化。")
+	assert_eq(context.get_context_failure_reason(), "Parent architecture identity changed.")
 	assert_true(
 		context.observed_scope != null and context.observed_scope.is_cancel_requested(),
 		"父级 identity 改变必须取消 install scope。"
@@ -773,7 +773,7 @@ func test_scoped_context_rejects_parent_identity_replacement_during_install() ->
 	assert_false(parent_architecture.is_disposed(), "原父级不得由 child 释放。")
 	assert_false(replacement_parent.is_disposed(), "replacement parent 不得由 child 释放。")
 	assert_signal_emitted(context, "context_failed", "identity 漂移必须发出 context_failed。")
-	assert_push_warning("[GFNodeContext] 父级架构身份已变化。")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nParent architecture identity changed.")
 
 	context.release_install.emit()
 	await get_tree().process_frame
@@ -801,7 +801,7 @@ func test_scoped_context_rejects_parent_generation_retry_during_install() -> voi
 	await get_tree().process_frame
 
 	assert_true(context.is_context_failed(), "父级失败并重试后也不能跨 generation 继续安装。")
-	assert_eq(context.get_context_failure_reason(), "父级架构生命周期已失效。")
+	assert_eq(context.get_context_failure_reason(), "Parent architecture lifecycle is no longer valid.")
 	assert_true(
 		context.observed_scope != null and context.observed_scope.is_cancel_requested(),
 		"父级 generation 漂移必须取消 install scope。"
@@ -809,7 +809,7 @@ func test_scoped_context_rejects_parent_generation_retry_during_install() -> voi
 	assert_true(owned_architecture.is_disposed(), "generation 漂移失败必须释放 owned Architecture。")
 	assert_true(parent_architecture.is_inited(), "child 不得 dispose 已重试成功的父级。")
 	assert_signal_emitted(context, "context_failed", "generation 漂移必须发出 context_failed。")
-	assert_push_warning("[GFNodeContext] 父级架构生命周期已失效。")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nParent architecture lifecycle is no longer valid.")
 
 	context.release_install.emit()
 	await get_tree().process_frame
@@ -841,7 +841,7 @@ func test_ready_scoped_context_fails_when_parent_architecture_fails() -> void:
 	assert_true(parent_architecture.has_initialization_failed(), "child 不得清除父级失败状态。")
 	assert_false(parent_architecture.is_disposed(), "Scoped child 不得 dispose 父级 Architecture。")
 	assert_signal_emitted(context, "context_failed", "READY child 必须发出 context_failed。")
-	assert_push_warning("[GFNodeContext] %s" % PARENT_FAILURE_WHILE_READY_REASON)
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\n%s" % PARENT_FAILURE_WHILE_READY_REASON)
 
 	context.queue_free()
 	await get_tree().process_frame
@@ -866,11 +866,11 @@ func test_ready_inherited_context_rejects_parent_identity_change_without_disposi
 
 	assert_false(context.is_context_ready(), "继承来源 identity 改变后不得继续报告 READY。")
 	assert_true(context.is_context_failed(), "继承来源 identity 改变后必须进入 FAILED。")
-	assert_eq(context.get_context_failure_reason(), "继承架构身份已变化。")
+	assert_eq(context.get_context_failure_reason(), "Inherited architecture identity changed.")
 	assert_false(inherited_architecture.is_disposed(), "Inherited Context 不得 dispose 原共享架构。")
 	assert_false(replacement_architecture.is_disposed(), "Inherited Context 不得 dispose replacement。")
 	assert_signal_emitted(context, "context_failed", "identity 改变必须发出 context_failed。")
-	assert_push_warning("[GFNodeContext] 继承架构身份已变化。")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nInherited architecture identity changed.")
 
 	context.queue_free()
 	await get_tree().process_frame
@@ -894,14 +894,14 @@ func test_inherited_context_fails_immediately_when_waited_architecture_is_dispos
 	)
 	assert_eq(
 		context.get_context_failure_reason(),
-		"继承架构生命周期已结束。"
+		"Inherited architecture lifecycle has ended."
 	)
 	assert_signal_emitted(
 		context,
 		"context_failed",
 		"继承架构 dispose 后必须发出 context_failed。"
 	)
-	assert_push_warning("[GFNodeContext] 继承架构生命周期已结束。")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nInherited architecture lifecycle has ended.")
 
 	context.queue_free()
 	await get_tree().process_frame
@@ -924,14 +924,14 @@ func test_scoped_context_fails_immediately_when_parent_architecture_is_disposed(
 	)
 	assert_eq(
 		context.get_context_failure_reason(),
-		"父级架构生命周期已结束。"
+		"Parent architecture lifecycle has ended."
 	)
 	assert_signal_emitted(
 		context,
 		"context_failed",
 		"父架构 dispose 后必须发出 context_failed。"
 	)
-	assert_push_warning("[GFNodeContext] 父级架构生命周期已结束。")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nParent architecture lifecycle has ended.")
 
 	context.queue_free()
 	await get_tree().process_frame
@@ -955,7 +955,7 @@ func test_scoped_context_fails_when_owned_architecture_is_disposed_while_parent_
 	)
 	assert_eq(
 		context.get_context_failure_reason(),
-		"上下文架构生命周期已结束。"
+		"The context architecture lifecycle has ended."
 	)
 	assert_true(scoped_architecture.is_disposed(), "失败清理后 owned Architecture 必须保持 DISPOSED。")
 	assert_signal_emitted(
@@ -963,7 +963,7 @@ func test_scoped_context_fails_when_owned_architecture_is_disposed_while_parent_
 		"context_failed",
 		"owned Architecture dispose 后必须发出 context_failed。"
 	)
-	assert_push_warning("[GFNodeContext] 上下文架构生命周期已结束。")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nThe context architecture lifecycle has ended.")
 
 	context.queue_free()
 	await get_tree().process_frame
@@ -988,7 +988,7 @@ func test_scoped_context_fails_when_owned_architecture_generation_drifts_while_p
 	)
 	assert_eq(
 		context.get_context_failure_reason(),
-		"上下文架构在等待父级期间生命周期已失效。"
+		"The context architecture lifecycle became invalid while waiting for the parent."
 	)
 	assert_true(scoped_architecture.is_disposed(), "generation 漂移失败必须释放 owned Architecture。")
 	assert_signal_emitted(
@@ -996,7 +996,7 @@ func test_scoped_context_fails_when_owned_architecture_generation_drifts_while_p
 		"context_failed",
 		"owned Architecture generation 漂移后必须发出 context_failed。"
 	)
-	assert_push_warning("[GFNodeContext] 上下文架构在等待父级期间生命周期已失效。")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nThe context architecture lifecycle became invalid while waiting for the parent.")
 
 	context.queue_free()
 	await get_tree().process_frame
@@ -1027,7 +1027,7 @@ func test_ready_scoped_context_fails_when_owned_architecture_is_disposed() -> vo
 	)
 	assert_eq(
 		context.get_context_failure_reason(),
-		"上下文架构生命周期已结束。"
+		"The context architecture lifecycle has ended."
 	)
 	assert_false(
 		context._should_tick_owned_architecture(),
@@ -1038,7 +1038,7 @@ func test_ready_scoped_context_fails_when_owned_architecture_is_disposed() -> vo
 		"context_failed",
 		"READY owned Architecture dispose 后必须发出 context_failed。"
 	)
-	assert_push_warning("[GFNodeContext] 上下文架构生命周期已结束。")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nThe context architecture lifecycle has ended.")
 
 	context.queue_free()
 	await get_tree().process_frame
@@ -1065,7 +1065,7 @@ func test_context_ready_dispose_reentry_fails_closed_before_initialize_returns()
 	assert_true(context.get_architecture().is_disposed(), "listener 释放应成为 owned Architecture 终态。")
 	assert_signal_emitted(context, "context_ready", "Context 应先发布本次 ready 边界。")
 	assert_signal_emitted(context, "context_failed", "ready listener 失效生命周期后应同步发布失败。")
-	assert_push_warning("[GFNodeContext] 上下文架构生命周期已结束。")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nThe context architecture lifecycle has ended.")
 
 	context.queue_free()
 	await get_tree().process_frame

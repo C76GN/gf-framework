@@ -29,15 +29,15 @@ func install(architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
 			_GF_STORAGE_UTILITY_SCRIPT.new()
 		)
 		if not registered_storage:
-			push_error("[GFSaveExtension] GFStorageUtility registration failed.")
+			push_error("[GFSaveExtension][save_extension.storage_registration_failed] GFStorageUtility registration failed.")
 	if architecture.get_local_utility(_GF_SAVE_GRAPH_UTILITY_SCRIPT) == null:
 		var registered_save_graph: bool = await architecture.register_utility_instance(_GF_SAVE_GRAPH_UTILITY_SCRIPT.new())
 		if not registered_save_graph:
-			push_error("[GFSaveExtension] GFSaveGraphUtility registration failed.")
+			push_error("[GFSaveExtension][save_extension.graph_registration_failed] GFSaveGraphUtility registration failed.")
 	if architecture.get_local_utility(_GF_SAVE_PROFILE_UTILITY_SCRIPT) == null:
 		var registered_save_profile: bool = await architecture.register_utility_instance(_GF_SAVE_PROFILE_UTILITY_SCRIPT.new())
 		if not registered_save_profile:
-			push_error("[GFSaveExtension] GFSaveProfileUtility registration failed.")
+			push_error("[GFSaveExtension][save_extension.profile_registration_failed] GFSaveProfileUtility registration failed.")
 	if (
 		architecture.get_local_utility(
 			_GF_SAVE_PROFILE_TRANSACTION_COORDINATOR_SCRIPT
@@ -50,5 +50,5 @@ func install(architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
 		)
 		if not registered_profile_transactions:
 			push_error(
-				"[GFSaveExtension] GFSaveProfileTransactionCoordinator registration failed."
+				"[GFSaveExtension][save_extension.coordinator_registration_failed] GFSaveProfileTransactionCoordinator registration failed."
 			)

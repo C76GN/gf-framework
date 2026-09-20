@@ -145,7 +145,7 @@ func _init(p_tasks: Array[GFRuntimeTask] = [], p_mode: Mode = Mode.SEQUENCE) -> 
 	if _is_valid_mode(p_mode):
 		_mode = p_mode
 	else:
-		push_warning("[GFRuntimeTaskGroup] 无效任务组模式，使用 SEQUENCE。")
+		push_warning("[GFRuntimeTaskGroup][runtime_task_group.initial_mode_invalid] Invalid task group mode; using SEQUENCE.")
 	var _tasks_configured: bool = set_tasks(p_tasks)
 
 
@@ -198,7 +198,7 @@ func set_mode(next_mode: Mode) -> bool:
 	if not _can_reconfigure_group():
 		return false
 	if not _is_valid_mode(next_mode):
-		push_warning("[GFRuntimeTaskGroup] 无效任务组模式，保留当前模式。")
+		push_warning("[GFRuntimeTaskGroup][runtime_task_group.mode_invalid] Invalid task group mode; keeping the current mode.")
 		return false
 	var graph: Dictionary = _inspect_task_graph(_tasks)
 	if not GFVariantData.get_option_bool(graph, "ok"):
@@ -241,7 +241,7 @@ func add_task(task: GFRuntimeTask) -> GFRuntimeTaskGroup:
 	if task == null:
 		return self
 	if task.is_scheduled() or task.has_initialized():
-		push_warning("[GFRuntimeTaskGroup] 已调度子任务不能加入任务组。")
+		push_warning("[GFRuntimeTaskGroup][runtime_task_group.child_already_scheduled] A scheduled child task cannot join a task group.")
 		return self
 	if _tasks.has(task):
 		return self
@@ -249,11 +249,11 @@ func add_task(task: GFRuntimeTask) -> GFRuntimeTaskGroup:
 	candidate.append(task)
 	var graph: Dictionary = _inspect_task_graph(candidate)
 	if not GFVariantData.get_option_bool(graph, "ok"):
-		push_warning("[GFRuntimeTaskGroup] 子任务图必须是有界、无环且无重复实例的树。")
+		push_warning("[GFRuntimeTaskGroup][runtime_task_group.child_graph_invalid] The child task graph must be a bounded acyclic tree without duplicate instances.")
 		return self
 	_refresh_descendant_requirements(graph)
 	if _mode != Mode.SEQUENCE and _would_create_parallel_requirement_conflict(task):
-		push_warning("[GFRuntimeTaskGroup] 并行任务组不能包含占用相同 requirement 的子任务。")
+		push_warning("[GFRuntimeTaskGroup][runtime_task_group.parallel_requirement_conflict] Parallel task groups cannot contain children that claim the same requirement.")
 		return self
 	_tasks.append(task)
 	_refresh_graph_requirements(graph, _tasks)
@@ -850,5 +850,5 @@ func _is_valid_mode(value: Variant) -> bool:
 func _can_reconfigure_group() -> bool:
 	if not is_configuration_locked():
 		return true
-	push_warning("[GFRuntimeTaskGroup] 调度仲裁中或已调度的任务组不能修改配置。")
+	push_warning("[GFRuntimeTaskGroup][runtime_task_group.configuration_frozen] Cannot change task group configuration during arbitration or after scheduling.")
 	return false

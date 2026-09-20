@@ -243,7 +243,7 @@ func test_context_opt_in_rejects_one_argument_worker_before_queueing() -> void:
 	)
 
 	assert_eq(task.status, GFBackgroundWorkTask.Status.FAILED)
-	assert_string_contains(task.error_message, "两个参数")
+	assert_string_contains(task.error_message, "[GFBackgroundWorkUtility][background_work_utility.cancellation_worker_arity]")
 	assert_null(task.get_cancellation_context())
 	assert_eq(GFVariantData.get_option_int(utility.get_debug_snapshot(), "queued_count"), 0)
 	utility.dispose()

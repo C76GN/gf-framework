@@ -163,7 +163,7 @@ var module_async_init_timeout_seconds: float = 0.0:
 			or value > _MAX_LIFECYCLE_TIMEOUT_SECONDS
 		):
 			push_error(
-				"[GFArchitecture] module_async_init_timeout_seconds 必须是 0 到 86400 之间的有限值。"
+				"[GFArchitecture][architecture.async_init_timeout_invalid] module_async_init_timeout_seconds must be finite and between 0 and 86400."
 			)
 			return
 		module_async_init_timeout_seconds = value
@@ -189,7 +189,7 @@ var activation_timeout_seconds: float = 30.0:
 			or value > _MAX_LIFECYCLE_TIMEOUT_SECONDS
 		):
 			push_error(
-				"[GFArchitecture] activation_timeout_seconds 必须是 0 到 86400 之间的有限值。"
+				"[GFArchitecture][architecture.activation_timeout_invalid] activation_timeout_seconds must be finite and between 0 and 86400."
 			)
 			return
 		activation_timeout_seconds = value
@@ -208,7 +208,7 @@ var shutdown_timeout_seconds: float = 10.0:
 			or value > _MAX_LIFECYCLE_TIMEOUT_SECONDS
 		):
 			push_error(
-				"[GFArchitecture] shutdown_timeout_seconds 必须是 0 到 86400 之间的有限值。"
+				"[GFArchitecture][architecture.shutdown_timeout_invalid] shutdown_timeout_seconds must be finite and between 0 and 86400."
 			)
 			return
 		shutdown_timeout_seconds = value
@@ -446,7 +446,7 @@ func get_last_shutdown_result() -> GFArchitectureShutdownResult:
 func fail_initialization(reason: String) -> void:
 	var failure_reason: String = reason
 	if failure_reason.is_empty():
-		failure_reason = "[GFArchitecture] 初始化失败。"
+		failure_reason = "[GFArchitecture][architecture.initialization_failed] Initialization failed."
 	_fail_initialization(failure_reason, _runtime.get_lifecycle_generation())
 
 
@@ -578,7 +578,7 @@ func create_binder() -> GFBinder:
 ## @return 初始化完成且架构处于 ready 状态时返回 true。
 func init(cancellation_token: GFCancellationToken = null) -> bool:
 	if _runtime.is_quiescing() or _runtime.is_disposing() or _runtime.is_disposed():
-		push_error("[GFArchitecture] init 失败：架构正在或已经 dispose，不能重新初始化。")
+		push_error("[GFArchitecture][architecture.init_disposed] init failed: the architecture is disposing or already disposed and cannot be initialized again.")
 		return false
 	if _initialization_failure_settlement_in_progress:
 		return false
@@ -605,7 +605,7 @@ func init(cancellation_token: GFCancellationToken = null) -> bool:
 	last_initialization_error = ""
 	if cancellation_token != null and cancellation_token.is_cancel_requested():
 		_fail_initialization(
-			"[GFArchitecture] 初始化已取消：%s。" % String(cancellation_token.get_cancel_reason()),
+			"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % String(cancellation_token.get_cancel_reason()),
 			current_serial
 		)
 		return false
@@ -639,7 +639,7 @@ func init(cancellation_token: GFCancellationToken = null) -> bool:
 		false
 	):
 		_fail_initialization(
-			"[GFArchitecture] 初始化失败：无法冻结父级外部依赖。",
+			"[GFArchitecture][architecture.parent_dependencies_freeze_failed] Initialization failed: parent external dependencies could not be frozen.",
 			current_serial
 		)
 		return false
@@ -669,7 +669,7 @@ func init(cancellation_token: GFCancellationToken = null) -> bool:
 		return false
 	if not _all_registered_modules_reached_stage(3):
 		_fail_initialization(
-			"[GFArchitecture] 初始化提交失败：仍有已注册模块未完成 ready 阶段。",
+			"[GFArchitecture][architecture.initialization_modules_not_ready] Initialization commit failed: registered modules have not completed the ready phase.",
 			current_serial
 		)
 		return false
@@ -677,7 +677,7 @@ func init(cancellation_token: GFCancellationToken = null) -> bool:
 	_refresh_cached_utility_refs()
 	if cancellation_token != null and cancellation_token.is_cancel_requested():
 		_fail_initialization(
-			"[GFArchitecture] 初始化已取消：%s。" % String(
+			"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % String(
 				cancellation_token.get_cancel_reason()
 			),
 			current_serial
@@ -685,7 +685,7 @@ func init(cancellation_token: GFCancellationToken = null) -> bool:
 		return false
 	if not _runtime.begin_activation(current_serial):
 		_fail_initialization(
-			"[GFArchitecture] 初始化提交失败：无法进入 activation 状态。",
+			"[GFArchitecture][architecture.initialization_activation_transition_failed] Initialization commit failed: could not enter the activation state.",
 			current_serial
 		)
 		return false
@@ -698,7 +698,7 @@ func init(cancellation_token: GFCancellationToken = null) -> bool:
 		return false
 	if cancellation_token != null and cancellation_token.is_cancel_requested():
 		_fail_initialization(
-			"[GFArchitecture] 初始化已取消：%s。" % String(
+			"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % String(
 				cancellation_token.get_cancel_reason()
 			),
 			current_serial
@@ -786,7 +786,7 @@ func shutdown_async(
 		var interrupted_unfinished: Array[Dictionary] = (
 			_snapshot_forced_unfinished_modules(interrupted_reason)
 		)
-		_cancel_active_async_scopes("[GFArchitecture] shutdown_async 中断了尚未完成的初始化。")
+		_cancel_active_async_scopes("[GFArchitecture][architecture.shutdown_interrupted_initialization] shutdown_async interrupted unfinished initialization.")
 		_force_dispose_internal()
 		var interrupted_result: GFArchitectureShutdownResult = (
 			_GF_ARCHITECTURE_SHUTDOWN_RESULT_SCRIPT.forced(
@@ -902,7 +902,7 @@ func dispose() -> void:
 	var forced_unfinished: Array[Dictionary] = (
 		_snapshot_forced_unfinished_modules(forced_reason)
 	)
-	_cancel_active_async_scopes("[GFArchitecture] 架构已强制 dispose。")
+	_cancel_active_async_scopes("[GFArchitecture][architecture.forced_dispose] The architecture was forcibly disposed.")
 	_force_dispose_internal()
 	var forced_result: GFArchitectureShutdownResult = (
 		_GF_ARCHITECTURE_SHUTDOWN_RESULT_SCRIPT.forced(
@@ -963,7 +963,7 @@ func physics_tick(delta: float) -> void:
 ## @schema return: Variant command result returned by command.execute().
 func send_command(command: Object) -> Variant:
 	if command == null:
-		push_error("[GFArchitecture] send_command 失败：command 为空。")
+		push_error("[GFArchitecture][architecture.command_null] send_command failed: command is null.")
 		return null
 	if not _can_execute_runtime("send_command"):
 		return null
@@ -972,7 +972,7 @@ func send_command(command: Object) -> Variant:
 		return null
 	if command.has_method("execute"):
 		return command.call("execute")
-	push_warning("[GFArchitecture] send_command 失败：command 缺少 execute() 方法，已忽略。")
+	push_warning("[GFArchitecture][architecture.command_execute_missing] send_command ignored the command because it has no execute() method.")
 	return null
 
 
@@ -988,7 +988,7 @@ func send_command(command: Object) -> Variant:
 ## @schema return: Variant query result returned by query.execute().
 func send_query(query: Object) -> Variant:
 	if query == null:
-		push_error("[GFArchitecture] send_query 失败：query 为空。")
+		push_error("[GFArchitecture][architecture.query_null] send_query failed: query is null.")
 		return null
 	if not _can_execute_runtime("send_query"):
 		return null
@@ -997,7 +997,7 @@ func send_query(query: Object) -> Variant:
 		return null
 	if query.has_method("execute"):
 		return query.call("execute")
-	push_warning("[GFArchitecture] send_query 失败：query 缺少 execute() 方法，已忽略。")
+	push_warning("[GFArchitecture][architecture.query_execute_missing] send_query ignored the query because it has no execute() method.")
 	return null
 
 
@@ -1008,7 +1008,7 @@ func send_query(query: Object) -> Variant:
 ## @param event_instance: 要分发的事件实例。
 func send_event(event_instance: Object) -> void:
 	if event_instance == null:
-		push_error("[GFArchitecture] send_event 失败：event_instance 为空。")
+		push_error("[GFArchitecture][architecture.event_null] send_event failed: event_instance is null.")
 		return
 	if not _can_execute_runtime("send_event"):
 		return
@@ -1573,15 +1573,15 @@ func register_factory(
 	if not _can_mutate_factory_topology("register_factory"):
 		return false
 	if script_cls == null:
-		push_error("[GFArchitecture] register_factory 失败：脚本类型为空。")
+		push_error("[GFArchitecture][architecture.register_factory_script_null] register_factory failed: the script type is null.")
 		return false
 	if not factory.is_valid():
-		push_error("[GFArchitecture] register_factory 失败：factory 无效。")
+		push_error("[GFArchitecture][architecture.register_factory_callable_invalid] register_factory failed: factory is invalid.")
 		return false
 	if not _validate_factory_lifetime(lifetime, "register_factory"):
 		return false
 	if _factories.has(script_cls):
-		push_warning("[GFArchitecture] register_factory：类型已注册，已忽略重复注册。若需要替换，请使用 replace_factory()。")
+		push_warning("[GFArchitecture][architecture.factory_already_registered] register_factory ignored a duplicate type registration; use replace_factory() to replace it.")
 		return false
 	_factories[script_cls] = GFBindingBase.new(script_cls, factory, self, lifetime, true)
 	return true
@@ -1604,13 +1604,13 @@ func register_factory_instance(script_cls: Script, instance: Object) -> bool:
 	if not _can_mutate_factory_topology("register_factory_instance"):
 		return false
 	if script_cls == null:
-		push_error("[GFArchitecture] register_factory_instance 失败：脚本类型为空。")
+		push_error("[GFArchitecture][architecture.register_factory_instance_script_null] register_factory_instance failed: the script type is null.")
 		return false
 	if instance == null:
-		push_error("[GFArchitecture] register_factory_instance 失败：实例为空。")
+		push_error("[GFArchitecture][architecture.register_factory_instance_null] register_factory_instance failed: the instance is null.")
 		return false
 	if _factories.has(script_cls):
-		push_warning("[GFArchitecture] register_factory_instance：类型已注册，已忽略重复注册。若需要替换，请使用 replace_factory_instance()。")
+		push_warning("[GFArchitecture][architecture.factory_instance_already_registered] register_factory_instance ignored a duplicate type registration; use replace_factory_instance() to replace it.")
 		return false
 	_factories[script_cls] = GFBindingBase.new(script_cls, instance, self, GFBindingLifetimesBase.Lifetime.SINGLETON, true, false)
 	return true
@@ -1639,10 +1639,10 @@ func replace_factory(
 	if not _can_mutate_factory_topology("replace_factory"):
 		return false
 	if script_cls == null:
-		push_error("[GFArchitecture] replace_factory 失败：脚本类型为空。")
+		push_error("[GFArchitecture][architecture.replace_factory_script_null] replace_factory failed: the script type is null.")
 		return false
 	if not factory.is_valid():
-		push_error("[GFArchitecture] replace_factory 失败：factory 无效。")
+		push_error("[GFArchitecture][architecture.replace_factory_callable_invalid] replace_factory failed: factory is invalid.")
 		return false
 	if not _validate_factory_lifetime(lifetime, "replace_factory"):
 		return false
@@ -1668,10 +1668,10 @@ func replace_factory_instance(script_cls: Script, instance: Object) -> bool:
 	if not _can_mutate_factory_topology("replace_factory_instance"):
 		return false
 	if script_cls == null:
-		push_error("[GFArchitecture] replace_factory_instance 失败：脚本类型为空。")
+		push_error("[GFArchitecture][architecture.replace_factory_instance_script_null] replace_factory_instance failed: the script type is null.")
 		return false
 	if instance == null:
-		push_error("[GFArchitecture] replace_factory_instance 失败：实例为空。")
+		push_error("[GFArchitecture][architecture.replace_factory_instance_null] replace_factory_instance failed: the instance is null.")
 		return false
 	_clear_factory_binding(script_cls)
 	_factories[script_cls] = GFBindingBase.new(script_cls, instance, self, GFBindingLifetimesBase.Lifetime.SINGLETON, true, false)
@@ -1733,10 +1733,10 @@ func register_service(service_key: StringName, provider: Object) -> bool:
 	if not _can_mutate_runtime("register_service"):
 		return false
 	if service_key == &"":
-		push_error("[GFArchitecture] register_service 失败：service_key 为空。")
+		push_error("[GFArchitecture][architecture.register_service_key_empty] register_service failed: service_key is empty.")
 		return false
 	if provider == null:
-		push_error("[GFArchitecture] register_service 失败：provider 为空。")
+		push_error("[GFArchitecture][architecture.register_service_provider_null] register_service failed: provider is null.")
 		return false
 	if _topology_mutation != null:
 		return _stage_topology_service_registration(
@@ -1748,7 +1748,7 @@ func register_service(service_key: StringName, provider: Object) -> bool:
 		var existing_provider: Object = _get_dictionary_object(_services, service_key)
 		if existing_provider == provider:
 			return true
-		push_error("[GFArchitecture] register_service 失败：service_key 已注册：%s。" % String(service_key))
+		push_error("[GFArchitecture][architecture.service_already_registered] register_service failed: service_key is already registered: %s." % String(service_key))
 		return false
 	_services[service_key] = provider
 	return true
@@ -1769,7 +1769,7 @@ func unregister_service(service_key: StringName, provider: Object = null) -> boo
 	if not _can_mutate_runtime("unregister_service"):
 		return false
 	if service_key == &"":
-		push_error("[GFArchitecture] unregister_service 失败：service_key 为空。")
+		push_error("[GFArchitecture][architecture.unregister_service_key_empty] unregister_service failed: service_key is empty.")
 		return false
 	if _topology_mutation != null:
 		return _stage_topology_service_unregistration(
@@ -1781,7 +1781,7 @@ func unregister_service(service_key: StringName, provider: Object = null) -> boo
 		return false
 	var existing_provider: Object = _get_dictionary_object(_services, service_key)
 	if provider != null and existing_provider != provider:
-		push_error("[GFArchitecture] unregister_service 失败：provider 与当前服务不匹配：%s。" % String(service_key))
+		push_error("[GFArchitecture][architecture.service_provider_mismatch] unregister_service failed: provider does not match the current service: %s." % String(service_key))
 		return false
 	var _removed_service: bool = _services.erase(service_key)
 	return true
@@ -1800,7 +1800,7 @@ func unregister_service(service_key: StringName, provider: Object = null) -> boo
 ## @return 服务提供对象；不存在时返回 null。
 func get_service(service_key: StringName, include_parent: bool = true) -> Object:
 	if service_key == &"":
-		push_error("[GFArchitecture] get_service 失败：service_key 为空。")
+		push_error("[GFArchitecture][architecture.get_service_key_empty] get_service failed: service_key is empty.")
 		return null
 	return _get_service_with_parent_lookup(service_key, include_parent)
 
@@ -1910,7 +1910,7 @@ func unregister_utility_alias(alias_cls: Script) -> void:
 ## @return 注册成功时返回 true。
 func register_system_instance(instance: Object) -> bool:
 	if instance == null:
-		push_error("[GFArchitecture] register_system_instance 失败：实例为空。")
+		push_error("[GFArchitecture][architecture.register_system_instance_null] register_system_instance failed: the instance is null.")
 		return false
 	var script: Script = _get_instance_script_or_null(instance, "register_system_instance")
 	if script == null:
@@ -1929,7 +1929,7 @@ func register_system_instance(instance: Object) -> bool:
 ## @return 注册成功时返回 true。
 func register_model_instance(instance: Object) -> bool:
 	if instance == null:
-		push_error("[GFArchitecture] register_model_instance 失败：实例为空。")
+		push_error("[GFArchitecture][architecture.register_model_instance_null] register_model_instance failed: the instance is null.")
 		return false
 	var script: Script = _get_instance_script_or_null(instance, "register_model_instance")
 	if script == null:
@@ -1948,7 +1948,7 @@ func register_model_instance(instance: Object) -> bool:
 ## @return 注册成功时返回 true。
 func register_utility_instance(instance: Object) -> bool:
 	if instance == null:
-		push_error("[GFArchitecture] register_utility_instance 失败：实例为空。")
+		push_error("[GFArchitecture][architecture.register_utility_instance_null] register_utility_instance failed: the instance is null.")
 		return false
 	var script: Script = _get_instance_script_or_null(instance, "register_utility_instance")
 	if script == null:
@@ -1969,7 +1969,7 @@ func register_utility_instance(instance: Object) -> bool:
 ## @return 注册成功并写入 alias 时返回 true。
 func register_system_instance_as(instance: Object, alias_cls: Script) -> bool:
 	if _runtime.is_ready():
-		push_error("[GFArchitecture] register_system_instance_as 失败：activation 后 alias 拓扑不可变。")
+		push_error("[GFArchitecture][architecture.system_alias_topology_frozen] register_system_instance_as failed: alias topology is immutable after activation.")
 		return false
 	var script: Script = _get_instance_script_or_null(instance, "register_system_instance_as")
 	if script == null:
@@ -1994,7 +1994,7 @@ func register_system_instance_as(instance: Object, alias_cls: Script) -> bool:
 ## @return 注册成功并写入 alias 时返回 true。
 func register_model_instance_as(instance: Object, alias_cls: Script) -> bool:
 	if _runtime.is_ready():
-		push_error("[GFArchitecture] register_model_instance_as 失败：activation 后 alias 拓扑不可变。")
+		push_error("[GFArchitecture][architecture.model_alias_topology_frozen] register_model_instance_as failed: alias topology is immutable after activation.")
 		return false
 	var script: Script = _get_instance_script_or_null(instance, "register_model_instance_as")
 	if script == null:
@@ -2019,7 +2019,7 @@ func register_model_instance_as(instance: Object, alias_cls: Script) -> bool:
 ## @return 注册成功并写入 alias 时返回 true。
 func register_utility_instance_as(instance: Object, alias_cls: Script) -> bool:
 	if _runtime.is_ready():
-		push_error("[GFArchitecture] register_utility_instance_as 失败：activation 后 alias 拓扑不可变。")
+		push_error("[GFArchitecture][architecture.utility_alias_topology_frozen] register_utility_instance_as failed: alias topology is immutable after activation.")
 		return false
 	var script: Script = _get_instance_script_or_null(instance, "register_utility_instance_as")
 	if script == null:
@@ -2113,10 +2113,10 @@ func resolve_module_access(
 ) -> Object:
 	var module_registry: ModuleRegistry = _get_module_registry_for_access_kind(module_kind)
 	if module_registry == null:
-		push_error("[GFArchitecture] resolve_module_access 失败：module_kind 无效。")
+		push_error("[GFArchitecture][architecture.module_kind_invalid] resolve_module_access failed: module_kind is invalid.")
 		return null
 	if script_cls == null:
-		push_error("[GFArchitecture] resolve_module_access 失败：script_cls 为空。")
+		push_error("[GFArchitecture][architecture.module_access_script_null] resolve_module_access failed: script_cls is null.")
 		return null
 
 	match lookup_scope:
@@ -2135,7 +2135,7 @@ func resolve_module_access(
 				return null
 			return instance if not require_ready or _is_module_ready_for_lookup(instance) else null
 		_:
-			push_error("[GFArchitecture] resolve_module_access 失败：lookup_scope 无效。")
+			push_error("[GFArchitecture][architecture.lookup_scope_invalid] resolve_module_access failed: lookup_scope is invalid.")
 			return null
 
 
@@ -2332,7 +2332,7 @@ func get_local_utility(script_cls: Script, require_ready: bool = false) -> Objec
 ## @return 新对象实例；运行时未开放、没有工厂或工厂返回非对象时返回 null。
 func create_instance(script_cls: Script) -> Object:
 	if script_cls == null:
-		push_error("[GFArchitecture] create_instance 失败：脚本类型为空。")
+		push_error("[GFArchitecture][architecture.create_instance_script_null] create_instance failed: the script type is null.")
 		return null
 	if not _can_execute_runtime("create_instance"):
 		return null
@@ -3536,7 +3536,7 @@ func _make_parent_lookup_cycle_status(visited: Dictionary, architecture_depth: i
 
 
 func _report_parent_lookup_cycle(context: String, cycle_architecture: GFArchitecture) -> void:
-	push_error("[GFArchitecture] %s 失败：父级架构链存在循环引用：%s。" % [
+	push_error("[GFArchitecture][architecture.parent_chain_cycle] %s failed: the parent architecture chain contains a cycle: %s." % [
 		context,
 		_get_architecture_debug_key(cycle_architecture),
 	])
@@ -3592,7 +3592,7 @@ func _assign_parent_architecture(parent_architecture: GFArchitecture, context: S
 		GFKernelRuntime.LifecycleState.FAILED,
 	]:
 		push_error(
-			"[GFArchitecture] %s 失败：生命周期计划开始后父级架构关系不可变。" % (
+			"[GFArchitecture][architecture.parent_topology_frozen] %s failed: the parent architecture cannot change after lifecycle planning starts." % (
 				context
 			)
 		)
@@ -3601,10 +3601,10 @@ func _assign_parent_architecture(parent_architecture: GFArchitecture, context: S
 		_parent_architecture = null
 		return
 	if parent_architecture == self:
-		push_error("[GFArchitecture] %s 失败：父级架构不能是自身。" % context)
+		push_error("[GFArchitecture][architecture.parent_is_self] %s failed: an architecture cannot be its own parent." % context)
 		return
 	if _parent_chain_contains(parent_architecture, self):
-		push_error("[GFArchitecture] %s 失败：父级架构会形成循环引用。" % context)
+		push_error("[GFArchitecture][architecture.parent_would_cycle] %s failed: the parent architecture would create a cycle." % context)
 		return
 	_parent_architecture = parent_architecture
 
@@ -3984,7 +3984,7 @@ func _validate_factory_lifetime(lifetime: int, context: String) -> bool:
 	):
 		return true
 
-	push_error("[GFArchitecture] %s 失败：未知工厂生命周期：%s。" % [context, str(lifetime)])
+	push_error("[GFArchitecture][architecture.factory_lifetime_unknown] %s failed: unknown factory lifetime: %s." % [context, str(lifetime)])
 	return false
 
 
@@ -4023,7 +4023,7 @@ func _get_model_key(script_cls: Script, model: GFModel = null) -> String:
 	var global_name: StringName = script_cls.get_global_name()
 	if global_name != &"":
 		return String(global_name)
-	push_error("[GFArchitecture] 可序列化 Model 缺少稳定标识：请为脚本声明 class_name 或重写 get_save_key()。")
+	push_error("[GFArchitecture][architecture.model_save_key_missing] A serializable Model has no stable identifier; declare class_name or override get_save_key().")
 	return ""
 
 
@@ -4060,7 +4060,7 @@ func _stage_topology_service_registration(
 		or provider != transaction._candidate
 	):
 		push_error(
-			"[GFArchitecture] register_service 失败：拓扑事务期间仅候选模块可暂存自身服务。"
+			"[GFArchitecture][architecture.transaction_service_provider_invalid] register_service failed: only candidate modules may stage their own services during a topology transaction."
 		)
 		return false
 	if transaction._service_intents.has(service_key):
@@ -4075,7 +4075,7 @@ func _stage_topology_service_registration(
 		>= _MAX_TOPOLOGY_SERVICE_INTENTS
 	):
 		push_error(
-			"[GFArchitecture] register_service 失败：拓扑事务服务意图超过上限。"
+			"[GFArchitecture][architecture.transaction_service_limit] register_service failed: the topology transaction service intent limit was exceeded."
 		)
 		return false
 	var current_present: bool = _services.has(service_key)
@@ -4089,7 +4089,7 @@ func _stage_topology_service_registration(
 		and current_provider != transaction._previous
 	):
 		push_error(
-			"[GFArchitecture] register_service 失败：service_key 已由拓扑事务之外的 provider 占用：%s。"
+			"[GFArchitecture][architecture.transaction_service_conflict] register_service failed: service_key is owned by a provider outside the topology transaction: %s."
 			% String(service_key)
 		)
 		return false
@@ -4108,7 +4108,7 @@ func _stage_topology_service_unregistration(
 		return false
 	if provider == null:
 		push_error(
-			"[GFArchitecture] unregister_service 失败：拓扑事务期间必须显式提供 provider。"
+			"[GFArchitecture][architecture.transaction_service_provider_required] unregister_service failed: an explicit provider is required during a topology transaction."
 		)
 		return false
 	if provider == transaction._candidate:
@@ -4136,7 +4136,7 @@ func _stage_topology_service_unregistration(
 			and _get_dictionary_object(_services, service_key) == provider
 		)
 	push_error(
-		"[GFArchitecture] unregister_service 失败：provider 不属于当前拓扑事务。"
+		"[GFArchitecture][architecture.transaction_service_provider_unowned] unregister_service failed: provider does not belong to the current topology transaction."
 	)
 	return false
 
@@ -4156,7 +4156,7 @@ func _validate_topology_service_intents(
 		)
 		if _services.has(service_key) != expected_present:
 			push_error(
-				"[GFArchitecture] 拓扑事务提交失败：service_key 的存在状态已漂移：%s。"
+				"[GFArchitecture][architecture.transaction_service_presence_changed] Topology transaction commit failed: service_key presence changed: %s."
 				% _GF_VARIANT_ACCESS_SCRIPT.to_text(service_key)
 			)
 			return false
@@ -4169,7 +4169,7 @@ func _validate_topology_service_intents(
 			)
 		):
 			push_error(
-				"[GFArchitecture] 拓扑事务提交失败：service_key 的 provider 已漂移：%s。"
+				"[GFArchitecture][architecture.transaction_service_provider_changed] Topology transaction commit failed: the service_key provider changed: %s."
 				% _GF_VARIANT_ACCESS_SCRIPT.to_text(service_key)
 			)
 			return false
@@ -4318,7 +4318,7 @@ func _register_initialized_module(
 		return false
 	if module_registry._has_direct(script_cls):
 		push_warning(
-			"[GFArchitecture] %s：类型已注册，已忽略重复注册；如需替换请使用 replace_%s()。"
+			"[GFArchitecture][architecture.transaction_duplicate_registration] %s ignored a duplicate type registration; use replace_%s() to replace it."
 			% [
 				operation_name,
 				module_registry._label_key(),
@@ -4330,7 +4330,7 @@ func _register_initialized_module(
 	)
 	if existing_key != null:
 		push_error(
-			"[GFArchitecture] %s 失败：同一实例已注册为 %s。"
+			"[GFArchitecture][architecture.transaction_instance_already_registered] %s failed: the same instance is already registered as %s."
 			% [
 				operation_name,
 				_get_script_debug_key(existing_key, instance),
@@ -4531,7 +4531,7 @@ func _activate_topology_candidate(
 		)
 		if not activated:
 			push_error(
-				"[GFArchitecture] 热模块 activation 失败：%s：%s" % [
+				"[GFArchitecture][architecture.hot_activation_failed] Hot module activation failed: %s.\n%s" % [
 					_get_instance_debug_key(instance),
 					_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 						wait_report,
@@ -4542,7 +4542,7 @@ func _activate_topology_candidate(
 			)
 	else:
 		push_error(
-			"[GFArchitecture] 热模块 activation 失败：%s 返回空 completion。" % (
+			"[GFArchitecture][architecture.hot_activation_completion_null] Hot module activation failed: %s returned a null completion." % (
 				_get_instance_debug_key(instance)
 			)
 		)
@@ -4607,13 +4607,13 @@ func _create_instance_from_local_factory(
 	var binding: GFBinding = _get_dictionary_binding(_factories, script_cls)
 	if binding == null:
 		_mark_factory_resolution_failed(resolution_context)
-		push_error("[GFArchitecture] create_instance 失败：工厂绑定无效。")
+		push_error("[GFArchitecture][architecture.factory_binding_invalid] create_instance failed: the factory binding is invalid.")
 		return null
 
 	if _find_factory_resolution_binding_index(resolution_context, binding) >= 0:
 		_mark_factory_resolution_failed(resolution_context)
 		push_error(
-			"[GFArchitecture] create_instance 失败：检测到工厂循环依赖：%s。"
+			"[GFArchitecture][architecture.factory_dependency_cycle] create_instance failed: a factory dependency cycle was detected: %s."
 			% _describe_factory_resolution_cycle(resolution_context, binding, script_cls)
 		)
 		return null
@@ -4756,8 +4756,8 @@ func _create_instance_for_requester(
 			_mark_factory_resolution_failed(active_context)
 			push_error(
 				(
-					"[GFArchitecture] create_instance 失败："
-					+ "工厂所属架构未开放运行时准入。"
+					"[GFArchitecture][architecture.factory_runtime_admission_closed] create_instance failed: "
+					+ "the factory architecture has not opened runtime admission."
 				)
 			)
 		else:
@@ -4778,10 +4778,10 @@ func _create_instance_for_requester(
 		else:
 			_mark_factory_resolution_failed(active_context)
 			if not _has_parent_lookup_cycle(active_parent_lookup_visited):
-				push_error("[GFArchitecture] create_instance 失败：未注册工厂。")
+				push_error("[GFArchitecture][architecture.factory_not_registered] create_instance failed: no factory is registered.")
 	elif strict_dependency_lookup:
 		_mark_factory_resolution_failed(active_context)
-		push_error("[GFArchitecture] strict_dependency_lookup：当前架构未注册工厂：%s" % script_cls.resource_path)
+		push_error("[GFArchitecture][architecture.strict_factory_missing] strict_dependency_lookup: no factory is registered in this architecture: %s." % script_cls.resource_path)
 
 	if pushed_context:
 		var _removed_context: Dictionary = _factory_resolution_context_stack.pop_back()
@@ -4810,7 +4810,7 @@ func _compile_lifecycle_plan_or_fail(
 		or _runtime.has_failed()
 	):
 		return null
-	var reason: String = "[GFArchitecture] 生命周期依赖计划编译失败：%s" % (
+	var reason: String = "[GFArchitecture][architecture.dependency_plan_compile_failed] Lifecycle dependency plan compilation failed.\n%s" % (
 		_last_lifecycle_plan_error
 		if not _last_lifecycle_plan_error.is_empty()
 		else "invalid dependency graph"
@@ -4851,7 +4851,7 @@ func _compile_candidate_lifecycle_plan(
 	_last_lifecycle_plan_error = detail
 	if report_error:
 		push_error(
-			"[GFArchitecture] %s 失败：生命周期依赖计划无效：%s" % [
+			"[GFArchitecture][architecture.dependency_plan_invalid] %s failed: the lifecycle dependency plan is invalid.\n%s" % [
 				context,
 				detail,
 			]
@@ -4927,7 +4927,7 @@ func _acquire_external_dependency_leases(
 		}
 	if not Thread.is_main_thread():
 		push_error(
-			"[GFArchitecture] 外部依赖租约只能在主线程获取。"
+			"[GFArchitecture][architecture.external_lease_acquire_thread] External dependency leases may only be acquired on the main thread."
 		)
 		return {
 			"ok": false,
@@ -5042,7 +5042,7 @@ func _acquire_child_external_dependency_lease(
 ) -> int:
 	if not Thread.is_main_thread():
 		push_error(
-			"[GFArchitecture] 子架构外部依赖租约只能在主线程获取。"
+			"[GFArchitecture][architecture.child_lease_acquire_thread] Child architecture external dependency leases may only be acquired on the main thread."
 		)
 		return -1
 	if (
@@ -5070,7 +5070,7 @@ func _release_child_external_dependency_lease(
 ) -> void:
 	if not Thread.is_main_thread():
 		push_error(
-			"[GFArchitecture] 子架构外部依赖租约只能在主线程释放。"
+			"[GFArchitecture][architecture.child_lease_release_thread] Child architecture external dependency leases may only be released on the main thread."
 		)
 		return
 	if not _child_external_dependency_leases.has(lease_id):
@@ -5213,7 +5213,7 @@ func _validate_candidate_plan_stability(
 ) -> bool:
 	if previous_plan == null or candidate_plan == null:
 		push_error(
-			"[GFArchitecture] %s 失败：缺少可比较的生命周期计划。"
+			"[GFArchitecture][architecture.lifecycle_plan_missing] %s failed: no comparable lifecycle plan is available."
 			% context
 		)
 		return false
@@ -5231,7 +5231,7 @@ func _validate_candidate_plan_stability(
 			or not candidate_index.has(instance)
 		):
 			push_error(
-				"[GFArchitecture] %s 失败：既有活动模块离开了候选依赖计划：%s。"
+				"[GFArchitecture][architecture.active_module_missing_from_plan] %s failed: an existing active module is absent from the candidate dependency plan: %s."
 				% [
 					context,
 					_get_instance_debug_key(instance),
@@ -5246,7 +5246,7 @@ func _validate_candidate_plan_stability(
 		)
 		if previous_signature != candidate_signature:
 			push_error(
-				"[GFArchitecture] %s 失败：既有活动模块的声明或解析目标发生漂移：%s；请构造新的 Architecture 完成重绑定。"
+				"[GFArchitecture][architecture.active_module_dependency_changed] %s failed: an existing active module declaration or resolved target changed: %s; create a new Architecture to rebind it."
 				% [
 					context,
 					_get_instance_debug_key(instance),
@@ -5692,7 +5692,7 @@ func _advance_lifecycle_plan_to_stage(
 			return false
 		if cancellation_token != null and cancellation_token.is_cancel_requested():
 			_fail_initialization(
-				"[GFArchitecture] 初始化已取消：%s。" % String(
+				"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % String(
 					cancellation_token.get_cancel_reason()
 				),
 				lifecycle_serial
@@ -5701,7 +5701,7 @@ func _advance_lifecycle_plan_to_stage(
 		var module_registry: ModuleRegistry = _get_module_registry_for_instance(instance)
 		if module_registry == null:
 			_fail_initialization(
-				"[GFArchitecture] 生命周期计划包含已离开注册表的模块。",
+				"[GFArchitecture][architecture.lifecycle_module_unregistered] The lifecycle plan contains a module that has left the registry.",
 				lifecycle_serial
 			)
 			return false
@@ -5726,7 +5726,7 @@ func _advance_lifecycle_plan_to_stage(
 				and not _runtime.has_failed()
 			):
 				_fail_initialization(
-					"[GFArchitecture] 生命周期阶段推进失败：%s 未完成 stage=%d。" % [
+					"[GFArchitecture][architecture.lifecycle_stage_incomplete] Lifecycle stage progression failed: %s did not complete stage=%d." % [
 						_get_instance_debug_key(instance),
 						target_stage,
 					],
@@ -5764,7 +5764,7 @@ func _activate_lifecycle_plan(
 			var cancel_reason: String = String(cancellation_token.get_cancel_reason())
 			_cancel_module_async_scope(_activation_scope, cancel_reason)
 			_fail_initialization(
-				"[GFArchitecture] activation 已取消：%s。" % cancel_reason,
+				"[GFArchitecture][architecture.activation_cancelled] Activation was cancelled: %s." % cancel_reason,
 				lifecycle_serial
 			)
 			return false
@@ -5774,7 +5774,7 @@ func _activate_lifecycle_plan(
 		)
 		if completion == null:
 			_fail_initialization(
-				"[GFArchitecture] activation 失败：%s 返回了空 completion。" % (
+				"[GFArchitecture][architecture.activation_completion_null] Activation failed: %s returned a null completion." % (
 					_get_instance_debug_key(instance)
 				),
 				lifecycle_serial
@@ -5797,7 +5797,7 @@ func _activate_lifecycle_plan(
 				post_activation_cancel_reason
 			)
 			_fail_initialization(
-				"[GFArchitecture] activation 已取消：%s。" % (
+				"[GFArchitecture][architecture.activation_cancelled] Activation was cancelled: %s." % (
 					post_activation_cancel_reason
 				),
 				lifecycle_serial
@@ -5810,7 +5810,7 @@ func _activate_lifecycle_plan(
 				"activation did not succeed"
 			)
 			_fail_initialization(
-				"[GFArchitecture] activation 失败：%s：%s" % [
+				"[GFArchitecture][architecture.activation_failed] Activation failed: %s.\n%s" % [
 					_get_instance_debug_key(instance),
 					failure_reason,
 				],
@@ -6449,10 +6449,10 @@ func _force_dispose_internal() -> void:
 	):
 		var _cancelled_topology_scope: bool = (
 			aborted_topology._active_scope.cancel(
-				"[GFArchitecture] 架构已 dispose。"
+				"[GFArchitecture][architecture.disposed] The architecture is disposed."
 			)
 		)
-	_cancel_active_async_scopes("[GFArchitecture] 架构已 dispose。")
+	_cancel_active_async_scopes("[GFArchitecture][architecture.disposed] The architecture is disposed.")
 	_cleanup_topology_candidate(aborted_topology)
 	_finalize_aborted_topology_mutation(
 		aborted_topology,
@@ -6627,7 +6627,7 @@ func _await_module_async_init(
 			)
 			_cancel_module_async_scope(async_scope, pre_cancel_reason)
 			_fail_initialization(
-				"[GFArchitecture] 初始化已取消：%s。" % pre_cancel_reason,
+				"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % pre_cancel_reason,
 				lifecycle_serial
 			)
 			return false
@@ -6638,7 +6638,7 @@ func _await_module_async_init(
 			)
 			_cancel_module_async_scope(async_scope, post_cancel_reason)
 			_fail_initialization(
-				"[GFArchitecture] 初始化已取消：%s。" % post_cancel_reason,
+				"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % post_cancel_reason,
 				lifecycle_serial
 			)
 			return false
@@ -6665,7 +6665,7 @@ func _await_module_async_init(
 			)
 			_cancel_module_async_scope(async_scope, cancel_reason)
 			_fail_initialization(
-				"[GFArchitecture] 初始化已取消：%s。" % cancel_reason,
+				"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % cancel_reason,
 				lifecycle_serial
 			)
 			return false
@@ -6675,7 +6675,7 @@ func _await_module_async_init(
 		if timeout_msec >= 0 and elapsed_msec >= timeout_msec:
 			completion_state["write_blocked"] = true
 			_begin_stale_async_write_block()
-			var timeout_reason: String = "[GFArchitecture] async_init 超时：%s 超过 %.2f 秒。" % [
+			var timeout_reason: String = "[GFArchitecture][architecture.async_init_timeout] async_init timed out: %s exceeded %.2f seconds." % [
 				_get_instance_debug_key(instance),
 				module_async_init_timeout_seconds,
 			]
@@ -6759,7 +6759,7 @@ func _register_module_checked_in_disposal_session(
 	if module_registry._has_direct(script_cls):
 		var method_name: String = "register_%s" % module_registry._label_key()
 		var replacement_name: String = "replace_%s" % module_registry._label_key()
-		push_warning("[GFArchitecture] %s：类型已注册，已忽略重复注册。启用扩展的 Installer 会先于项目 Installer 自动装配其模块；项目通常只注册自身模块。若需要替换，请使用 %s()。" % [
+		push_warning("[GFArchitecture][architecture.module_already_registered] %s ignored a duplicate type registration. Enabled extension Installers assemble their modules before project Installers; projects normally register only their own modules. Use %s() to replace it." % [
 			method_name,
 			replacement_name,
 		])
@@ -6776,7 +6776,7 @@ func _register_module_checked_in_disposal_session(
 
 	var existing_key: Script = module_registry._get_key_for_instance(instance)
 	if existing_key != null:
-		push_error("[GFArchitecture] register_%s 失败：同一实例已注册为 %s，禁止用多个脚本键重复注册同一模块。" % [
+		push_error("[GFArchitecture][architecture.module_instance_already_registered] register_%s failed: the same instance is already registered as %s; a module cannot be registered under multiple script keys." % [
 			module_registry._label_key(),
 			_get_script_debug_key(existing_key, instance),
 		])
@@ -6806,7 +6806,7 @@ func _register_module_checked_in_disposal_session(
 		_runtime.finish_transaction(transaction)
 		return _REQUIRED_REGISTRATION_REJECTED_ARCHITECTURE_SETTLED
 	if _runtime.is_transaction_invalidated(transaction):
-		push_error("[GFArchitecture] register_%s 失败：依赖注入期间注册事务已失效。" % module_registry._label_key())
+		push_error("[GFArchitecture][architecture.registration_transaction_invalidated] register_%s failed: the registration transaction was invalidated during dependency injection." % module_registry._label_key())
 		_cleanup_registration_candidate_if_unretained(instance)
 		_runtime.finish_transaction(transaction)
 		return _REQUIRED_REGISTRATION_REJECTED_ARCHITECTURE_SETTLED
@@ -6819,13 +6819,13 @@ func _register_module_checked_in_disposal_session(
 		_runtime.finish_transaction(transaction)
 		if reentrant_instance == instance:
 			return _REQUIRED_REGISTRATION_ACCEPTED
-		push_error("[GFArchitecture] register_%s 失败：依赖注入期间同一脚本键已被重入注册。" % module_registry._label_key())
+		push_error("[GFArchitecture][architecture.registration_script_reentered] register_%s failed: the same script key was registered reentrantly during dependency injection." % module_registry._label_key())
 		_cleanup_registration_candidate_if_unretained(instance)
 		return _REQUIRED_REGISTRATION_REJECTED_ARCHITECTURE_SETTLED
 	var reentrant_key: Script = module_registry._get_key_for_instance(instance)
 	if reentrant_key != null:
 		_runtime.finish_transaction(transaction)
-		push_error("[GFArchitecture] register_%s 失败：依赖注入期间同一实例已被重入注册。" % module_registry._label_key())
+		push_error("[GFArchitecture][architecture.registration_instance_reentered] register_%s failed: the same instance was registered reentrantly during dependency injection." % module_registry._label_key())
 		return _REQUIRED_REGISTRATION_REJECTED_ARCHITECTURE_OWNS
 	module_registry.instances[script_cls] = instance
 	module_registry._track_instance_key(instance, script_cls)
@@ -6989,7 +6989,7 @@ func _replace_module(module_registry: ModuleRegistry, script_cls: Script, instan
 
 	var existing_key: Script = module_registry._get_key_for_instance(instance)
 	if existing_key != null and existing_key != script_cls:
-		push_error("[GFArchitecture] replace_%s 失败：同一实例已注册为 %s，不能同时替换到其它脚本键。" % [
+		push_error("[GFArchitecture][architecture.replacement_instance_already_registered] replace_%s failed: the same instance is already registered as %s and cannot replace another script key." % [
 			module_registry._label_key(),
 			_get_script_debug_key(existing_key, instance),
 		])
@@ -7330,7 +7330,7 @@ func _quiesce_topology_module(
 	)
 	if not succeeded:
 		push_error(
-			"[GFArchitecture] 模块拓扑事务 quiesce 失败：%s：%s" % [
+			"[GFArchitecture][architecture.transaction_quiesce_failed] Module topology transaction quiesce failed: %s.\n%s" % [
 				_get_instance_debug_key(instance),
 				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 					wait_report,
@@ -7412,12 +7412,12 @@ func _await_replacement_module_async_init(instance: Object, lifecycle_serial: in
 		if elapsed_msec >= timeout_msec:
 			completion_state["write_blocked"] = true
 			_begin_stale_async_write_block()
-			push_error("[GFArchitecture] replace_%s 超时：%s 的 async_init() 超过 %.2f 秒，已保留旧实例。" % [
+			push_error("[GFArchitecture][architecture.replacement_async_init_timeout] replace_%s timed out: %s.async_init() exceeded %.2f seconds; the previous instance was retained." % [
 				_get_module_label_for_instance(instance),
 				_get_instance_debug_key(instance),
 				module_async_init_timeout_seconds,
 			])
-			_cancel_module_async_scope(async_scope, "[GFArchitecture] replace_%s 超时。" % _get_module_label_for_instance(instance))
+			_cancel_module_async_scope(async_scope, "[GFArchitecture][architecture.replacement_timeout] replace_%s timed out." % _get_module_label_for_instance(instance))
 			return false
 		await scene_tree.process_frame
 	return _complete_module_async_scope(async_scope, lifecycle_serial)
@@ -7433,22 +7433,22 @@ func _complete_replacement_module_async_init(instance: Object, completion_state:
 
 func _can_mutate_registration_state(context: String) -> bool:
 	if _runtime.is_disposed() or _runtime.is_disposing():
-		push_error("[GFArchitecture] %s 失败：架构已 dispose，不能继续修改注册表。" % context)
+		push_error("[GFArchitecture][architecture.registry_write_disposed] %s failed: the architecture is disposed and its registry cannot be modified." % context)
 		return false
 	if _runtime.is_quiescing():
-		push_error("[GFArchitecture] %s 失败：架构正在 quiesce，注册表已经冻结。" % context)
+		push_error("[GFArchitecture][architecture.registry_write_quiescing] %s failed: the architecture is quiescing and its registry is frozen." % context)
 		return false
 	if _runtime.has_failed():
-		push_error("[GFArchitecture] %s 失败：架构初始化已失败，已拒绝迟到写入。" % context)
+		push_error("[GFArchitecture][architecture.registry_write_initialization_failed] %s failed: architecture initialization failed; late writes are rejected." % context)
 		return false
 	if _stale_async_write_block_count > 0:
-		push_error("[GFArchitecture] %s 失败：架构存在已超时的异步流程尚未结束，已拒绝迟到写入。" % context)
+		push_error("[GFArchitecture][architecture.registry_write_async_timeout] %s failed: a timed-out asynchronous operation is still running; late writes are rejected." % context)
 		return false
 	if _runtime.is_initializing():
-		push_error("[GFArchitecture] %s 失败：生命周期计划已经冻结，初始化期间禁止修改注册表。" % context)
+		push_error("[GFArchitecture][architecture.registry_write_plan_frozen] %s failed: the lifecycle plan is frozen; registry changes are forbidden during initialization." % context)
 		return false
 	if _runtime.is_activating():
-		push_error("[GFArchitecture] %s 失败：架构正在 activation，注册表已经冻结。" % context)
+		push_error("[GFArchitecture][architecture.registry_write_activating] %s failed: the architecture is activating and its registry is frozen." % context)
 		return false
 	if not _factory_resolution_context_stack.is_empty():
 		var resolution_context: Dictionary = (
@@ -7456,7 +7456,7 @@ func _can_mutate_registration_state(context: String) -> bool:
 		)
 		_mark_factory_resolution_failed(resolution_context)
 		push_error(
-			"[GFArchitecture] %s 失败：工厂解析期间禁止重入修改模块拓扑。"
+			"[GFArchitecture][architecture.topology_write_factory_reentry] %s failed: reentrant module topology changes are forbidden during factory resolution."
 			% context
 		)
 		return false
@@ -7465,15 +7465,15 @@ func _can_mutate_registration_state(context: String) -> bool:
 		and _has_live_child_external_dependency_leases(true)
 	):
 		push_error(
-			"[GFArchitecture] %s 失败：活动子架构仍持有父级外部模块依赖租约。"
+			"[GFArchitecture][architecture.topology_write_child_leases] %s failed: active child architectures still hold parent external module dependency leases."
 			% context
 		)
 		return false
 	if _topology_mutation != null:
-		push_error("[GFArchitecture] %s 失败：另一项模块拓扑事务尚未完成。" % context)
+		push_error("[GFArchitecture][architecture.topology_transaction_in_progress] %s failed: another module topology transaction has not completed." % context)
 		return false
 	if _lifecycle_hook_depth > 0:
-		push_error("[GFArchitecture] %s 失败：生命周期 Hook 内禁止重入修改注册表。" % context)
+		push_error("[GFArchitecture][architecture.registry_write_lifecycle_reentry] %s failed: reentrant registry changes are forbidden inside lifecycle hooks." % context)
 		return false
 	return true
 
@@ -7487,7 +7487,7 @@ func _can_mutate_factory_topology(context: String) -> bool:
 	if not _runtime.is_ready():
 		return true
 	push_error(
-		"[GFArchitecture] %s 失败：activation 后 factory 拓扑不可变。" % (
+		"[GFArchitecture][architecture.factory_topology_frozen] %s failed: factory topology is immutable after activation." % (
 			context
 		)
 	)
@@ -7496,32 +7496,32 @@ func _can_mutate_factory_topology(context: String) -> bool:
 
 func _can_mutate_runtime(context: String) -> bool:
 	if _runtime.is_disposed() or _runtime.is_disposing():
-		push_error("[GFArchitecture] %s 失败：架构已 dispose，不能继续修改运行时状态。" % context)
+		push_error("[GFArchitecture][architecture.runtime_write_disposed] %s failed: the architecture is disposed and runtime state cannot be modified." % context)
 		return false
 	if _runtime.is_quiescing():
-		push_error("[GFArchitecture] %s 失败：架构正在 quiesce，已拒绝新的运行时写入。" % context)
+		push_error("[GFArchitecture][architecture.runtime_write_quiescing] %s failed: the architecture is quiescing; new runtime writes are rejected." % context)
 		return false
 	if _runtime.has_failed():
-		push_error("[GFArchitecture] %s 失败：架构初始化已失败，已拒绝运行时写入。" % context)
+		push_error("[GFArchitecture][architecture.runtime_write_initialization_failed] %s failed: architecture initialization failed; runtime writes are rejected." % context)
 		return false
 	return true
 
 
 func _can_execute_runtime(context: String) -> bool:
 	if _runtime.is_disposed() or _runtime.is_disposing():
-		push_error("[GFArchitecture] %s 失败：架构已 dispose，不能继续执行。" % context)
+		push_error("[GFArchitecture][architecture.execution_disposed] %s failed: the architecture is disposed and cannot execute." % context)
 		return false
 	if _runtime.is_quiescing():
-		push_error("[GFArchitecture] %s 失败：架构正在 quiesce，已经关闭新的运行时准入。" % context)
+		push_error("[GFArchitecture][architecture.execution_quiescing] %s failed: the architecture is quiescing and new runtime admission is closed." % context)
 		return false
 	if _runtime.has_failed():
-		push_error("[GFArchitecture] %s 失败：架构初始化已失败，已拒绝执行。" % context)
+		push_error("[GFArchitecture][architecture.execution_initialization_failed] %s failed: architecture initialization failed; execution is rejected." % context)
 		return false
 	if _topology_mutation != null:
-		push_error("[GFArchitecture] %s 失败：模块拓扑事务尚未完成。" % context)
+		push_error("[GFArchitecture][architecture.execution_topology_transaction] %s failed: a module topology transaction has not completed." % context)
 		return false
 	if not _runtime.is_ready():
-		push_error("[GFArchitecture] %s 失败：架构尚未完成 activation。" % context)
+		push_error("[GFArchitecture][architecture.execution_activation_incomplete] %s failed: the architecture has not completed activation." % context)
 		return false
 	return true
 
@@ -7563,7 +7563,7 @@ func _cancel_module_async_scope(async_scope: GFAsyncScope, reason: String) -> vo
 		return
 	var cancel_reason: String = reason
 	if cancel_reason.is_empty():
-		cancel_reason = "[GFArchitecture] 异步生命周期已取消。"
+		cancel_reason = "[GFArchitecture][architecture.async_lifecycle_cancelled] The asynchronous lifecycle was cancelled."
 	var _cancelled_scope: bool = async_scope.cancel(cancel_reason)
 
 
@@ -7571,7 +7571,7 @@ func _track_async_scope(scope: GFAsyncScope) -> void:
 	if scope == null:
 		return
 	if _runtime.is_disposing() or _runtime.is_disposed():
-		var _cancelled_disposed_scope: bool = scope.cancel("[GFArchitecture] 架构已 dispose。")
+		var _cancelled_disposed_scope: bool = scope.cancel("[GFArchitecture][architecture.disposed] The architecture is disposed.")
 		return
 	if _runtime.has_failed():
 		var _cancelled_failed_scope: bool = scope.cancel(last_initialization_error)
@@ -7609,7 +7609,7 @@ func _unregister_module(module_registry: ModuleRegistry, script_cls: Script) -> 
 		var _removed_instance: Object = _remove_registered_module(module_registry, script_cls, true, true)
 		return true
 	if module_registry.aliases.has(script_cls):
-		push_error("[GFArchitecture] unregister_%s 失败：传入的是 alias，请使用 unregister_%s_alias()。" % [
+		push_error("[GFArchitecture][architecture.unregister_received_alias] unregister_%s failed: the supplied key is an alias; use unregister_%s_alias()." % [
 			module_registry._label_key(),
 			module_registry._label_key(),
 		])
@@ -7884,23 +7884,23 @@ func _inject_node_tree(node: Node) -> void:
 
 func _validate_registration(script_cls: Script, instance: Object, label: String) -> bool:
 	if script_cls == null:
-		push_error("[GFArchitecture] register_%s 失败：脚本类型为空。" % label.to_lower())
+		push_error("[GFArchitecture][architecture.register_script_null] register_%s failed: the script type is null." % label.to_lower())
 		return false
 	if instance == null:
-		push_error("[GFArchitecture] register_%s 失败：实例为空。" % label.to_lower())
+		push_error("[GFArchitecture][architecture.register_instance_null] register_%s failed: the instance is null." % label.to_lower())
 		return false
 	if not _registration_candidate_is_live(instance):
-		push_error("[GFArchitecture] register_%s 失败：实例已经失效或等待释放。" % label.to_lower())
+		push_error("[GFArchitecture][architecture.register_instance_invalid] register_%s failed: the instance is invalid or queued for deletion." % label.to_lower())
 		return false
 	if not _instance_matches_registration_label(instance, label):
-		push_error("[GFArchitecture] register_%s 失败：实例类型必须继承 GF%s。" % [label.to_lower(), label])
+		push_error("[GFArchitecture][architecture.register_instance_type_invalid] register_%s failed: the instance must extend GF%s." % [label.to_lower(), label])
 		return false
 	var instance_script: Script = _get_instance_script(instance)
 	if instance_script == null:
-		push_error("[GFArchitecture] register_%s 失败：实例未附加脚本。" % label.to_lower())
+		push_error("[GFArchitecture][architecture.register_instance_script_missing] register_%s failed: the instance has no attached script." % label.to_lower())
 		return false
 	if not GFScriptTypeInspector.script_extends_or_equals(instance_script, script_cls):
-		push_error("[GFArchitecture] register_%s 失败：实例脚本必须继承或等于注册脚本类型。" % label.to_lower())
+		push_error("[GFArchitecture][architecture.register_instance_script_mismatch] register_%s failed: the instance script must extend or equal the registered script type." % label.to_lower())
 		return false
 
 	return true
@@ -7919,12 +7919,12 @@ func _registration_candidate_is_live(candidate: Variant) -> bool:
 
 func _get_instance_script_or_null(instance: Object, context: String) -> Script:
 	if instance == null:
-		push_error("[GFArchitecture] %s 失败：实例为空。" % context)
+		push_error("[GFArchitecture][architecture.instance_null] %s failed: the instance is null." % context)
 		return null
 
 	var script: Script = _get_instance_script(instance)
 	if script == null:
-		push_error("[GFArchitecture] %s 失败：实例未附加脚本。" % context)
+		push_error("[GFArchitecture][architecture.instance_script_missing] %s failed: the instance has no attached script." % context)
 		return null
 
 	return script
@@ -8066,19 +8066,19 @@ func _register_module_alias(
 		return false
 	if _runtime.is_ready():
 		push_error(
-			"[GFArchitecture] register_%s_alias 失败：activation 后 alias 拓扑不可变。" % (
+			"[GFArchitecture][architecture.register_alias_topology_frozen] register_%s_alias failed: alias topology is immutable after activation." % (
 				module_registry._label_key()
 			)
 		)
 		return false
 	if alias_cls == null or target_cls == null:
-		push_error("[GFArchitecture] register_%s_alias 失败：alias 或 target 为空。" % module_registry._label_key())
+		push_error("[GFArchitecture][architecture.alias_or_target_null] register_%s_alias failed: alias or target is null." % module_registry._label_key())
 		return false
 	if not GFScriptTypeInspector.script_extends_or_equals(target_cls, alias_cls):
-		push_error("[GFArchitecture] register_%s_alias 失败：target 必须继承或等于 alias。" % module_registry._label_key())
+		push_error("[GFArchitecture][architecture.alias_target_type_invalid] register_%s_alias failed: target must extend or equal alias." % module_registry._label_key())
 		return false
 	if not module_registry._has_direct(target_cls):
-		push_warning("[GFArchitecture] register_%s_alias：目标类型尚未注册，仍会记录别名。" % module_registry._label_key())
+		push_warning("[GFArchitecture][architecture.alias_target_unregistered] register_%s_alias recorded the alias even though its target type is not registered yet." % module_registry._label_key())
 	module_registry.aliases[alias_cls] = target_cls
 	module_registry._clear_assignable_cache()
 	return module_registry.aliases.has(alias_cls)
@@ -8089,13 +8089,13 @@ func _unregister_module_alias(module_registry: ModuleRegistry, alias_cls: Script
 		return false
 	if _runtime.is_ready():
 		push_error(
-			"[GFArchitecture] unregister_%s_alias 失败：activation 后 alias 拓扑不可变。" % (
+			"[GFArchitecture][architecture.unregister_alias_topology_frozen] unregister_%s_alias failed: alias topology is immutable after activation." % (
 				module_registry._label_key()
 			)
 		)
 		return false
 	if alias_cls == null:
-		push_error("[GFArchitecture] unregister_%s_alias 失败：alias 为空。" % module_registry._label_key())
+		push_error("[GFArchitecture][architecture.unregister_alias_null] unregister_%s_alias failed: alias is null." % module_registry._label_key())
 		return false
 	if not module_registry.aliases.has(alias_cls):
 		return false
@@ -8134,7 +8134,7 @@ func _get_local_registered_instance(module_registry: ModuleRegistry, script_cls:
 
 
 func _report_strict_lookup_miss(script_cls: Script, label: String) -> void:
-	push_error("[GFArchitecture] strict_dependency_lookup：当前架构未注册 %s：%s" % [
+	push_error("[GFArchitecture][architecture.strict_module_missing] strict_dependency_lookup: this architecture has no registered %s: %s." % [
 		label,
 		_get_script_debug_key(script_cls),
 	])
@@ -8157,7 +8157,7 @@ func _has_unresolved_alias(module_registry: ModuleRegistry, script_cls: Script) 
 
 
 func _report_unresolved_alias(module_registry: ModuleRegistry, alias_cls: Script, target_cls: Script) -> void:
-	push_error("[GFArchitecture] get_%s(%s) 失败：alias 指向的目标未注册：%s。" % [
+	push_error("[GFArchitecture][architecture.alias_target_missing] get_%s(%s) failed: the alias target is not registered: %s." % [
 		module_registry._label_key(),
 		_get_script_debug_key(alias_cls),
 		_get_script_debug_key(target_cls),
@@ -8184,7 +8184,7 @@ func _find_assignable_registered_key(module_registry: ModuleRegistry, script_cls
 	if matches.size() == 1:
 		return matches[0]
 	if matches.size() > 1:
-		push_warning("[GFArchitecture] get_%s(%s) 匹配到多个本地实例，本次查询不会回退父架构；请使用显式 alias 注册以消除歧义。" % [
+		push_warning("[GFArchitecture][architecture.module_lookup_ambiguous] get_%s(%s) matched multiple local instances and will not fall back to the parent architecture; register an explicit alias to resolve the ambiguity." % [
 			module_registry._label_key(),
 			script_cls.resource_path,
 		])

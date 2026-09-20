@@ -544,10 +544,10 @@ func _apply_derived_rule(
 	if rule == null or rule.attribute_id == &"":
 		return false
 	if cycle_targets.has(rule.attribute_id):
-		push_warning("[GFAttributeSet] 检测到派生属性循环，已跳过：" + String(rule.attribute_id))
+		push_warning("[GFAttributeSet][attribute_set.cyclic_derived_attribute] Skipped a derived attribute cycle: %s." % String(rule.attribute_id))
 		return false
 	if GFVariantData.get_option_bool(visited, rule.attribute_id, false):
-		push_warning("[GFAttributeSet] 检测到派生属性循环，已跳过：" + String(rule.attribute_id))
+		push_warning("[GFAttributeSet][attribute_set.cyclic_derived_attribute] Skipped a derived attribute cycle: %s." % String(rule.attribute_id))
 		return false
 
 	visited[rule.attribute_id] = true
@@ -565,7 +565,7 @@ func _apply_derived_rule(
 func _reject_derived_mutation(method_name: String) -> bool:
 	if not _is_evaluating_derived_rule:
 		return false
-	push_warning("[GFAttributeSet] %s 失败：派生规则计算期间不允许修改同一个属性集合。" % method_name)
+	push_warning("[GFAttributeSet][attribute_set.mutation_during_evaluation] %s failed: the same attribute set cannot be modified while a derived rule is being evaluated." % method_name)
 	return true
 
 

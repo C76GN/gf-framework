@@ -106,7 +106,7 @@ func select_slot_index(index: int) -> StringName:
 ## @param slot_id: 逻辑标识。
 func set_slot_id_override(index: int, slot_id: StringName) -> void:
 	if index < 0:
-		push_error("[GFSaveSlotWorkflow] set_slot_id_override 失败：index 必须大于等于 0。")
+		push_error("[GFSaveSlotWorkflow][save_slot_workflow.invalid_slot_index] set_slot_id_override failed: index must be at least 0.")
 		return
 	if slot_id == &"":
 		var _erased: bool = _slot_id_overrides.erase(index)
@@ -322,7 +322,7 @@ func build_cards_from_slot_store(slot_store: GFSaveSlotStorageAdapter, indices: 
 
 func _new_metadata() -> GFSaveSlotMetadata:
 	if not _is_instantiable_subclass(metadata_script, GFSaveSlotMetadata):
-		push_error("[GFSaveSlotWorkflow] metadata_script 必须继承 GFSaveSlotMetadata 且可实例化。")
+		push_error("[GFSaveSlotWorkflow][save_slot_workflow.invalid_metadata_script] metadata_script must inherit GFSaveSlotMetadata and be instantiable.")
 		return GFSaveSlotMetadata.new()
 	var metadata: Variant = metadata_script.call("new")
 	if metadata is GFSaveSlotMetadata:
@@ -333,7 +333,7 @@ func _new_metadata() -> GFSaveSlotMetadata:
 
 func _new_card() -> GFSaveSlotCard:
 	if not _is_instantiable_subclass(card_script, GFSaveSlotCard):
-		push_error("[GFSaveSlotWorkflow] card_script 必须继承 GFSaveSlotCard 且可实例化。")
+		push_error("[GFSaveSlotWorkflow][save_slot_workflow.invalid_card_script] card_script must inherit GFSaveSlotCard and be instantiable.")
 		return GFSaveSlotCard.new()
 	var card: Variant = card_script.call("new")
 	if card is GFSaveSlotCard:

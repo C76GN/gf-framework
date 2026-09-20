@@ -21,6 +21,8 @@ python tools\gf_maintenance.py summary --release --artifact-manifest <manifest-p
 python tools\gf_maintenance.py workspace-status --path <file> --path <file> --json
 python tools\gf_maintenance.py api-since-touched --json
 python tools\gf_maintenance.py dependency-boundary --json
+python tools\gf_maintenance.py diagnostic-policy --json
+python tests\gf_core\tools\test_gf_diagnostic_policy.py
 python tools\gf_maintenance.py public-docs-boundary --json
 python tools\gf_maintenance.py public-api-boundary --json
 python tools\gf_maintenance.py resource-boundary --json
@@ -46,6 +48,7 @@ git diff --cached --check
 ## By Change Type
 
 - `addons/gf/**`: run focused tests when possible, run `check --check gdscript_warnings` and the standalone LSP check for early warning diagnosis, then `check --suite full` before commit. Full and release suites always include the strict LSP error-and-warning gate.
+- Native developer diagnostics or their producers: run `diagnostic-policy --json` and focused behavior tests. Preserve native severity, output count, call stacks, stable IDs and essential context assertions. Changes to the checker also require `python tests\gf_core\tools\test_gf_diagnostic_policy.py`; `diagnostic_policy` and `diagnostic_policy_tests` run automatically in quick, framework-static, full and release.
 - Public API comments or signatures: run `python tools\generate_api_reference.py`, `python tools\generate_api_reference.py --check`, and `check --suite api`.
 - Public API source or generated reference changes: run `public-api-boundary`; quick/full/release suites include it. It prevents planning route names from becoming public `class_name`, Catalog, or generated reference entries.
 - Broad public API changes, removals, return type changes, or class moves: run `api-baseline-diff`. It compares the current generated API Catalog against the latest lower SemVer tag and reports added/removed classes, added/removed members, compatible/breaking signature changes, and extends changes. `release-status` reuses it and fails breaking changes unless the target release is a major bump, or the maintainer explicitly approves and records a minor/patch compatibility break before running `release-status --allow-breaking-api`.
@@ -69,6 +72,10 @@ git diff --cached --check
 `check --suite examples` is read-only unless `--sync-examples` is passed. Do not write-sync the external reference project by accident.
 
 `check --suite quick` is the sub-30-second development loop and deliberately excludes `maintenance-self-test`. When maintenance Python, CI, release workflow, or this check matrix changes, run `maintenance-self-test` explicitly; `framework` and `full` also retain it.
+
+`diagnostic-policy` lexically checks the `[GFOwner][owner_snake.reason] English explanation.` shape, ASCII English templates with a final period, supported format placeholders, and one owner/template/severity per ID within the source tree. It does not restrict Unicode runtime arguments or translate project messages. Reuse an existing ID for the same meaning; wording corrections may retain that ID. Result fields such as `error_kind` remain separate contracts, and natural-language text must not drive program behavior.
+
+Dynamic native calls require exact reviewed bindings in `tools/gf_diagnostic_forwarders.json`: `path`, `function`, `callee`, `argument`, `count`, `kind` and `reason`. The current 21 entries are reviewed forwarding sites, not a permanent violation baseline; wildcard exemptions are forbidden. Follow framework message producers and detail fields manually when they change, and preserve caller-owned text at `project_message` sites. The lexical gate is not a complete dataflow proof. Editor display localization remains separate: existing tool catalogs support `en` / `zh_CN` with English fallback, without promising bilingual coverage for every panel.
 
 `check --check gdscript_warnings` opens the project editor headlessly and fails on GDScript reload warnings. It is meant to catch typed-Variant, unnecessary-await, and shadowing warnings that regular GUT runs can miss.
 
