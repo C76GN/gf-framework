@@ -578,7 +578,7 @@ class _QTNode:
 			_entities.append(entity_id)
 		_entity_rects[entity_id] = rect
 
-		if _entities.size() > _max_entities_limit and _depth < _max_depth_limit:
+		if not _is_split and _entities.size() > _max_entities_limit and _depth < _max_depth_limit:
 			_split()
 
 

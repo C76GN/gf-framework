@@ -53,6 +53,18 @@ func test_timed_text_importer_expands_multi_tag_lrc_lines() -> void:
 	assert_eq(GFVariantData.to_text(track.call("get_text_at_time", 3.5)), "Echo", "第二时间标签应生成可查询条目。")
 
 
+func test_timed_text_importer_rejects_empty_end_time_without_script_error() -> void:
+	for suffix: String in ["", " ", "\t"]:
+		var cue: String = "1\n00:00:01,000 --> %s\nBroken\n" % suffix
+		for report: Dictionary in [GFTimedTextImporter.parse_srt(cue), GFTimedTextImporter.parse_vtt("WEBVTT\n\n" + cue)]:
+			assert_false(GFVariantData.get_option_bool(report, "success", true))
+			assert_eq(GFVariantData.get_option_string(report, "error"), "no_valid_entries")
+			var track: GFTimedTextTrack = _as_timed_text_track(GFVariantData.get_option_value(report, "track"))
+			assert_true(track != null and track.entries.is_empty())
+		var mixed: Dictionary = GFTimedTextImporter.parse_srt(cue + "\n2\n00:00:02,000 --> 00:00:03,000\nValid\n")
+		assert_true(GFVariantData.get_option_bool(mixed, "success"), "无效 cue 不得中断后续有效 cue。")
+
+
 func test_timed_text_apply_dictionary_normalizes_invalid_time_ranges() -> void:
 	var track: GFTimedTextTrack = GFTimedTextTrack.new()
 	track.apply_dictionary({

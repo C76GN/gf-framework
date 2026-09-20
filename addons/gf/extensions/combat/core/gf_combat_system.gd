@@ -46,6 +46,7 @@ var _entities: Dictionary = {}
 # 活跃实体集合。键为实体 ID，值固定为 true。
 var _active_entities: Dictionary = {}
 var _is_disposing: bool = false
+var _buff_mounts: Dictionary[int, RefCounted] = {}
 
 
 # --- GF 生命周期方法 ---
@@ -82,6 +83,7 @@ func dispose() -> void:
 
 	_entities.clear()
 	_active_entities.clear()
+	_buff_mounts.clear()
 
 
 # --- 公共方法 ---
@@ -130,6 +132,7 @@ func add_buff(p_entity: Object, p_buff: GFBuff) -> void:
 	if not _entities.has(entity_id):
 		return
 
+	var data: Dictionary = _get_entity_data(entity_id)
 	p_buff.owner = p_entity
 	var apply_report: Dictionary = p_buff.get_apply_report({
 		"entity": p_entity,
@@ -137,8 +140,9 @@ func add_buff(p_entity: Object, p_buff: GFBuff) -> void:
 	})
 	if not GFVariantData.get_option_bool(apply_report, "ok", true):
 		return
-
-	var data: Dictionary = _get_entity_data(entity_id)
+	if not is_same(data, _get_entity_data(entity_id)):
+		p_buff.owner = null
+		return
 	var buffs: Array = _get_entity_buffs(data)
 	
 	# 检查重叠逻辑 (简单的 ID 排斥/刷新)
@@ -148,7 +152,9 @@ func add_buff(p_entity: Object, p_buff: GFBuff) -> void:
 			existing.owner = p_entity
 			var refresh_report: Dictionary = existing.refresh_from(p_buff)
 			if (
-				GFVariantData.get_option_bool(refresh_report, "ok", false)
+				is_same(data, _get_entity_data(entity_id))
+				and buffs.has(existing)
+				and GFVariantData.get_option_bool(refresh_report, "ok", false)
 				and GFVariantData.get_option_bool(refresh_report, "changed", true)
 			):
 				_send_combat_event(GFCombatPayloads.GFBuffRefreshedPayload.new(p_entity, existing))
@@ -158,8 +164,14 @@ func add_buff(p_entity: Object, p_buff: GFBuff) -> void:
 	if not GFVariantData.get_option_bool(lifecycle_report, "ok", false):
 		p_buff.owner = null
 		return
+	if not is_same(data, _get_entity_data(entity_id)) or not is_instance_valid(p_entity):
+		p_buff.mark_removed(GFBuff.REMOVAL_REASON_ENTITY_UNREGISTERED)
+		var _remove_report: Dictionary = p_buff.on_remove()
+		p_buff.owner = null
+		return
 
 	buffs.append(p_buff)
+	_buff_mounts[p_buff.get_instance_id()] = RefCounted.new()
 	_send_combat_event(GFCombatPayloads.GFBuffAppliedPayload.new(p_entity, p_buff))
 	
 	_update_active_status(p_entity)
@@ -597,6 +609,10 @@ func _cleanup_entity_data(
 	_get_entity_buffs(data).clear()
 	for buff_value: Variant in buffs:
 		var buff: GFBuff = _variant_to_buff(buff_value)
+		if buff != null:
+			var _mount_erased: bool = _buff_mounts.erase(buff.get_instance_id())
+	for buff_value: Variant in buffs:
+		var buff: GFBuff = _variant_to_buff(buff_value)
 		if buff == null:
 			continue
 		var _remove_report: Dictionary = _finalize_buff_removal(entity, buff, remove_effects, reason)
@@ -636,6 +652,7 @@ func _remove_buff_at(
 	if buff == null:
 		return false
 
+	var _mount_erased: bool = _buff_mounts.erase(buff.get_instance_id())
 	var _remove_report: Dictionary = _finalize_buff_removal(p_entity, buff, remove_effects, reason)
 	return true
 
@@ -710,37 +727,35 @@ func _process_entity(p_entity: Object, p_delta: float) -> void:
 
 	var data: Dictionary = _get_entity_data(entity_id)
 	var buffs: Array = _get_entity_buffs(data)
-	var buff_index: int = buffs.size() - 1
-	while buff_index >= 0:
-		if buff_index >= buffs.size():
-			buff_index = buffs.size() - 1
-			continue
-
-		var buff: GFBuff = _get_buff_at(buffs, buff_index)
+	var frame_buffs: Array = buffs.duplicate()
+	var frame_mounts: Dictionary[int, RefCounted] = {}
+	for buff_value: Variant in frame_buffs:
+		var buff: GFBuff = _variant_to_buff(buff_value)
+		if buff != null:
+			var buff_id: int = buff.get_instance_id()
+			frame_mounts[buff_id] = _buff_mounts.get(buff_id)
+	frame_buffs.reverse()
+	for buff_value: Variant in frame_buffs:
+		var buff: GFBuff = _variant_to_buff(buff_value)
 		if buff == null:
-			buffs.remove_at(buff_index)
-			buff_index -= 1
 			continue
-		if buff.update(p_delta):
-			if buff_index < buffs.size() and buffs[buff_index] == buff:
-				var _expired_buff_removed: bool = _remove_buff_at(
-					p_entity,
-					buffs,
-					buff_index,
-					true,
-					GFBuff.REMOVAL_REASON_EXPIRED
-				)
-			else:
-				buffs.erase(buff)
-				var _remove_report: Dictionary = _finalize_buff_removal(
-					p_entity,
-					buff,
-					true,
-					GFBuff.REMOVAL_REASON_EXPIRED
-				)
-		buff_index -= 1
+		var buff_id: int = buff.get_instance_id()
+		var mount: RefCounted = frame_mounts.get(buff_id)
+		if mount == null or _buff_mounts.get(buff_id) != mount:
+			continue
+		var expired: bool = buff.update(p_delta)
+		if not is_same(data, _get_entity_data(entity_id)):
+			return
+		if expired and _buff_mounts.get(buff_id) == mount:
+			var _expired_buff_removed: bool = _remove_buff_at(
+				p_entity,
+				buffs,
+				buffs.find(buff),
+				true,
+				GFBuff.REMOVAL_REASON_EXPIRED
+			)
 
-	if not _entities.has(entity_id):
+	if not is_same(data, _get_entity_data(entity_id)):
 		return
 
 	var skills: Array = _get_entity_skills(data)

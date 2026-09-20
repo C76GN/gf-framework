@@ -80,6 +80,7 @@ func bind_control(
 		"value_changed_connections": [],
 		"tree_exited_callable": Callable(),
 	}
+	_bindings.append(binding)
 
 	if GFVariantData.get_option_bool(options, "sync_initial", true):
 		if GFVariantData.get_option_bool(options, "write_initial_to_store", false):
@@ -88,6 +89,11 @@ func bind_control(
 		else:
 			var state_value: Variant = state_store.get_value(path_segments, default_value)
 			var _set_control_result: Variant = GFControlValueAdapter.set_value(control, state_value)
+	if binding.is_empty():
+		return false
+	if not is_instance_valid(control):
+		var _removed_invalid: bool = _remove_binding(binding)
+		return false
 
 	var unsubscribe: Callable = state_store.subscribe(
 		path_segments,
@@ -99,6 +105,7 @@ func bind_control(
 		}
 	)
 	if not unsubscribe.is_valid():
+		var _removed_failed: bool = _remove_binding(binding)
 		return false
 	binding["unsubscribe"] = unsubscribe
 
@@ -117,7 +124,6 @@ func bind_control(
 		)
 	binding["tree_exited_callable"] = tree_exited_callback
 
-	_bindings.append(binding)
 	return true
 
 

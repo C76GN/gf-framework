@@ -458,14 +458,13 @@ func unregister_simple_event(event_id: StringName, listener: GFEventListener) ->
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param event_id: StringName 事件标识符。
 ## [br]
 ## @param payload: 可选的事件附加数据。
 ## [br]
-## @schema payload {
-##   "type": "Variant",
-##   "description": "事件附加数据；由事件消费者约定结构。"
-## }
+## @schema payload: {"type": "Variant", "description": "事件附加数据；由事件消费者约定结构。"}
 func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:

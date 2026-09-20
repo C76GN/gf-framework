@@ -961,10 +961,6 @@ func _get_port_compatibility_report(source_port: GFFlowPort, target_port: GFFlow
 
 	var output_port: GFFlowPort = source_port
 	var input_port: GFFlowPort = target_port
-	if source_port != null and source_port.direction == GFFlowPort.Direction.INPUT and target_port.direction == GFFlowPort.Direction.OUTPUT:
-		output_port = target_port
-		input_port = source_port
-
 	if output_port == null or output_port.direction != GFFlowPort.Direction.OUTPUT or input_port.direction != GFFlowPort.Direction.INPUT:
 		return _make_port_compatibility_report(output_port, input_port, false, "invalid_direction", "Connections require an output port and an input port.")
 	if not _value_types_are_compatible(output_port.value_type, input_port.value_type):

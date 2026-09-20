@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +32,7 @@ _AGENT_INVOCATION_MAX_BYTES = 64 * 1024 * 1024
 @dataclass
 class _AgentReadBudget:
 	remaining_bytes: int | None = None
+	observed_sources: dict[str, str | None] = field(default_factory=dict)
 
 	def __post_init__(self) -> None:
 		if self.remaining_bytes is None:
@@ -39,6 +40,7 @@ class _AgentReadBudget:
 
 	def read_optional(self, path: Path, relative_path: str) -> bytes | None:
 		if not path.exists():
+			self._check_source(relative_path, None)
 			return None
 		remaining = int(self.remaining_bytes or 0)
 		if remaining <= 0:
@@ -53,7 +55,13 @@ class _AgentReadBudget:
 				f"Agent target is unsafe, unreadable, or exceeds its byte budget: {relative_path}."
 			) from None
 		self.remaining_bytes = remaining - len(payload)
+		self._check_source(relative_path, sha256_bytes(payload))
 		return payload
+
+	def _check_source(self, relative_path: str, digest: str | None) -> None:
+		if relative_path in self.observed_sources and self.observed_sources[relative_path] != digest:
+			raise ValueError(f"Agent target changed after planning or status review: {relative_path}.")
+		self.observed_sources[relative_path] = digest
 
 
 def install_agents(

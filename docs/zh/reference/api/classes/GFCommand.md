@@ -31,18 +31,19 @@
 ### `execute`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func execute() -> Variant:
 ```
 
-执行命令逻辑。子类必须重写此方法。 "type": "Variant", "description": "同步命令返回 null；异步命令可返回 Signal。" }
+执行命令逻辑。子类必须重写此方法。
 
 返回：同步命令返回 null；异步命令可返回一个 Signal 供外部 await。
 
 结构：
 
-- `return {`:
+- `return`: {"type": "Variant", "description": "同步命令返回 null；异步命令可返回 Signal。"}
 
 <a id="member-gfcommand-methods-is_lifecycle_active"></a>
 
@@ -126,12 +127,13 @@ func get_utility(utility_type: Script, require_ready: bool = false) -> Object:
 ### `send_command`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func send_command(command: Object) -> Variant:
 ```
 
-向架构发送命令。支持 await：'await send_command(MyCommand.new())'。 "type": "Variant", "description": "命令执行结果；异步命令可返回 Signal。" }
+向架构发送命令。支持 await：'await send_command(MyCommand.new())'。
 
 参数：
 
@@ -143,7 +145,7 @@ func send_command(command: Object) -> Variant:
 
 结构：
 
-- `return {`:
+- `return`: {"type": "Variant", "description": "命令执行结果；异步命令可返回 Signal。"}
 
 <a id="member-gfcommand-methods-send_event"></a>
 
@@ -168,12 +170,13 @@ func send_event(event_instance: Object) -> void:
 ### `send_simple_event`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 ```
 
-发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。 "type": "Variant", "description": "事件附加数据；由事件消费者约定结构。" }
+发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。
 
 参数：
 
@@ -184,4 +187,4 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 
 结构：
 
-- `payload {`:
+- `payload`: {"type": "Variant", "description": "事件附加数据；由事件消费者约定结构。"}

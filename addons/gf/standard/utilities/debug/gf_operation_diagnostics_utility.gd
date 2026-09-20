@@ -1196,6 +1196,9 @@ func build_copy_text(snapshot: Dictionary = {}) -> String:
 func _make_operation_id(operation_type: StringName) -> StringName:
 	var operation_id: StringName = StringName("%s:%d" % [String(operation_type), _next_operation_index])
 	_next_operation_index += 1
+	while has_operation(operation_id):
+		operation_id = StringName("%s:%d" % [String(operation_type), _next_operation_index])
+		_next_operation_index += 1
 	return operation_id
 
 

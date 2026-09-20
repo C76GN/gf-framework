@@ -41,30 +41,32 @@ var is_consumed: bool = false
 ### `to_dict`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func to_dict() -> Dictionary:
 ```
 
-将此载体序列化为字典，便于存档、网络传输或日志记录。 子类应重写此方法以包含所有相关字段。 "type": "Dictionary", "additional_properties": true }
+将此载体序列化为字典，便于存档、网络传输或日志记录。 子类应重写此方法以包含所有相关字段。
 
 返回：包含字段数据的字典。
 
 结构：
 
-- `return {`:
+- `return`: {"type": "Dictionary", "additional_properties": true}
 
 <a id="member-gfpayload-methods-from_dict"></a>
 
 ### `from_dict`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func from_dict(_data: Dictionary) -> void:
 ```
 
-从字典反序列化并填充此载体的字段。 子类应重写此方法以恢复所有相关字段。 "type": "Dictionary", "additional_properties": true }
+从字典反序列化并填充此载体的字段。 子类应重写此方法以恢复所有相关字段。
 
 参数：
 
@@ -74,7 +76,7 @@ func from_dict(_data: Dictionary) -> void:
 
 结构：
 
-- `_data {`:
+- `_data`: {"type": "Dictionary", "additional_properties": true}
 
 <a id="member-gfpayload-methods-validate"></a>
 

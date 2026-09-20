@@ -635,6 +635,25 @@ func test_pending_load_keeps_multiple_callbacks() -> void:
 	assert_eq(state.count, 2, "同一路径的并发加载请求应回调所有监听者。")
 
 
+func test_completion_progress_dispose_cancels_delivery_and_does_not_repopulate_cache() -> void:
+	var completing: CompletingAssetUtility = CompletingAssetUtility.new()
+	_replace_utility(completing)
+	var delivered: Array[Resource] = []
+	var _connected: Error = _utility.asset_load_progress.connect(func(_path: String, progress: float) -> void:
+		if progress >= 1.0:
+			_utility.dispose()
+	) as Error
+	_utility.load_async("res://progress_resource.tres", func(resource: Resource) -> void:
+		delivered.append(resource)
+	)
+	completing.complete = true
+	_utility.tick()
+	assert_eq(delivered.size(), 1)
+	assert_null(delivered[0])
+	assert_eq(GFVariantData.get_option_int(_utility.get_debug_snapshot(), "cache_count"), 0)
+	assert_eq(GFVariantData.get_option_int(_utility.get_debug_snapshot(), "pending_count"), 0)
+
+
 func test_load_progress_updates_signal_query_and_cache_completion() -> void:
 	var completing: CompletingAssetUtility = CompletingAssetUtility.new()
 	_replace_utility(completing)

@@ -179,7 +179,7 @@ func has_requirement(requirement: Variant) -> bool:
 	if typeof(requirement) != TYPE_OBJECT or not is_instance_valid(requirement):
 		return false
 	var requirement_object: Object = requirement
-	return _requirements.has(requirement_object)
+	return get_requirements().has(requirement_object)
 
 
 ## 设置任务是否可中断。
@@ -501,18 +501,6 @@ func mark_unscheduled() -> void:
 ## @since 6.0.0
 func mark_initialized() -> void:
 	_initialized = true
-
-
-# 直接替换占用对象列表，不执行调度状态 guard。
-# 仅供复合任务在调度前同步聚合后的 requirement 状态。
-func _replace_requirements_unchecked(next_requirements: Array[Object]) -> void:
-	_requirements.clear()
-	for requirement: Object in next_requirements:
-		if requirement == null or not is_instance_valid(requirement):
-			continue
-		if _requirements.has(requirement):
-			continue
-		_requirements.append(requirement)
 
 
 # --- 私有/辅助方法 ---

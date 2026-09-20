@@ -129,6 +129,30 @@ func test_probe_bounds_wide_and_large_signal_payloads() -> void:
 	source.free()
 
 
+func test_stop_notification_can_rewatch_without_losing_connection_ownership() -> void:
+	for stop_all: bool in [false, true]:
+		var source: SignalSource = SignalSource.new()
+		var probe: GFSignalRuntimeProbe = GFSignalRuntimeProbe.new()
+		var rewatched: Array[bool] = [false]
+		var _initial: Dictionary = probe.watch_node(source, {"include_signals": [&"value_changed"]})
+		var on_stopped: Callable = func(_path: String, _signal_name: StringName) -> void:
+			if not rewatched[0]:
+				rewatched[0] = true
+				var _replacement: Dictionary = probe.watch_node(source, {"include_signals": [&"value_changed"]})
+		var _connected: Error = probe.signal_watch_stopped.connect(on_stopped) as Error
+		if stop_all:
+			assert_eq(probe.unwatch_all(), 1)
+		else:
+			assert_eq(probe.unwatch_node(source), 1)
+		assert_eq(probe.get_watch_count(), 1)
+		probe.dispose()
+		var count_before: int = probe.get_events().size()
+		source.value_changed.emit(1)
+		assert_eq(probe.get_events().size(), count_before)
+		probe.signal_watch_stopped.disconnect(on_stopped)
+		source.free()
+
+
 func test_probe_respects_event_limit_and_unwatch() -> void:
 	var source: SignalSource = SignalSource.new()
 	var probe: GFSignalRuntimeProbe = GFSignalRuntimeProbe.new()

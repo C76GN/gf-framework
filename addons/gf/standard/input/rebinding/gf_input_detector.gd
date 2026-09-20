@@ -162,20 +162,20 @@ func _input(event: InputEvent) -> void:
 	if _state != DetectionState.DETECTING:
 		return
 	if _matches_abort_event(event):
+		_mark_current_input_as_handled()
 		cancel_detection()
-		get_viewport().set_input_as_handled()
 		return
 	if not _matches_device_filter(event):
 		return
 	if not _matches_value_type_filter(event):
 		return
 
+	_mark_current_input_as_handled()
 	_finish_detection(
 		_INPUT_EVENT_TOOLS.duplicate_input_event(event),
 		wait_for_clear_after_detection,
 		GFInputDetectionResult.FinishReason.SUCCESS
 	)
-	get_viewport().set_input_as_handled()
 
 
 func _process(delta: float) -> void:
@@ -359,6 +359,12 @@ func get_last_detection_result() -> GFInputDetectionResult:
 
 
 # --- 私有/辅助方法 ---
+
+func _mark_current_input_as_handled() -> void:
+	var viewport: Viewport = get_viewport()
+	if viewport != null:
+		viewport.set_input_as_handled()
+
 
 func _begin_detection_internal(value_type: int, allowed_device_types: Array[int]) -> void:
 	if _state != DetectionState.IDLE:

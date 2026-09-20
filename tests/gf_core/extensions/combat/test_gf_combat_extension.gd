@@ -110,6 +110,56 @@ class FailingRemoveEffect extends GFBuffEffect:
 		}
 
 
+class UnregisterApplyEffect extends GFBuffEffect:
+	var system: GFCombatSystem
+	var entity: Object
+
+	func _apply(_context: Dictionary) -> Dictionary:
+		system.unregister_entity(entity)
+		return { "ok": true }
+
+
+class SelfRemovingTickBuff extends GFBuff:
+	var system: GFCombatSystem
+
+	func on_tick(_delta: float) -> void:
+		var _removed: bool = system.remove_buff(owner, id)
+
+
+func test_buff_apply_cleans_effects_if_entity_is_unregistered_by_hook() -> void:
+	var system: GFCombatSystem = GFCombatSystem.new()
+	var entity: MockEntity = MockEntity.new()
+	system.register_entity(entity)
+	var effect: UnregisterApplyEffect = UnregisterApplyEffect.new()
+	effect.system = system
+	effect.entity = entity
+	var buff: GFBuff = GFBuff.new()
+	buff.setup(&"cancelled", -1.0, entity)
+	buff.tags.append(&"uncommitted")
+	buff.effects.append(effect)
+	system.add_buff(entity, buff)
+	assert_false(system.has_buff(entity, buff.id))
+	assert_false(entity.tag_component.has_tag(&"uncommitted"))
+	system.dispose()
+	effect.system = null
+
+
+func test_buff_removed_during_final_tick_is_finalized_once() -> void:
+	var system: GFCombatSystem = GFCombatSystem.new()
+	var entity: MockEntity = MockEntity.new()
+	system.register_entity(entity)
+	var buff: SelfRemovingTickBuff = SelfRemovingTickBuff.new()
+	buff.system = system
+	buff.setup(&"self_remove", 0.1, entity)
+	system.add_buff(entity, buff)
+	watch_signals(system)
+	system.tick(0.1)
+	assert_signal_emit_count(system, "buff_removal_reported", 1)
+	assert_eq(buff.removal_reason, GFBuff.REMOVAL_REASON_REMOVED)
+	system.dispose()
+	buff.system = null
+
+
 class UnregisterOtherBuff extends GFBuff:
 	var system: GFCombatSystem = null
 	var target: Object = null

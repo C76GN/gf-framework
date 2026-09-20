@@ -570,6 +570,36 @@ func test_json_line_log_sink_derives_path_and_cleans_old_default_files() -> void
 	assert_true(count <= 2, "默认 JSONL 文件数量应按 max_jsonl_files 清理。")
 
 
+func test_json_line_retention_keeps_all_active_writers() -> void:
+	var first_sink: GFJsonLineLogSink = GFJsonLineLogSink.new()
+	var second_sink: GFJsonLineLogSink = GFJsonLineLogSink.new()
+	first_sink.max_jsonl_files = 1
+	second_sink.max_jsonl_files = 1
+	_log_util.add_sink(first_sink)
+	_log_util.add_sink(second_sink)
+	_log_util.info("active", "both writers remain addressable")
+	_log_util.flush_sinks()
+	assert_true(FileAccess.file_exists(first_sink.get_file_path()))
+	assert_true(FileAccess.file_exists(second_sink.get_file_path()))
+	assert_eq(GFVariantData.get_option_int(second_sink.get_debug_snapshot(), "cleanup_error_count"), 0)
+	_log_util.remove_sink(first_sink)
+	_log_util.remove_sink(second_sink)
+
+
+func test_log_retention_preserves_current_file_when_history_sorts_later() -> void:
+	_log_util.dispose()
+	var future_path: String = _LOG_DIR + "gf_log_99991231_235959_999.log"
+	var future_file: FileAccess = FileAccess.open(future_path, FileAccess.WRITE)
+	assert_not_null(future_file)
+	future_file.close()
+	_log_util.max_log_files = 1
+	_log_util.init()
+	_log_util.info("active", "current writer survives clock rollback")
+	_log_util.dispose()
+	assert_true(FileAccess.file_exists(_log_util.get_log_file_path()))
+	assert_false(FileAccess.file_exists(future_path))
+
+
 func test_json_line_log_sinks_derive_distinct_default_paths() -> void:
 	var first_sink: GFJsonLineLogSink = GFJsonLineLogSink.new()
 	var second_sink: GFJsonLineLogSink = GFJsonLineLogSink.new()
@@ -793,6 +823,20 @@ func test_batched_log_sink_requires_ok_and_rejects_legacy_success_field() -> voi
 	assert_eq(GFVariantData.get_option_int(snapshot, "failed_send_count"), 1, "双契约结果必须进入失败计数。")
 	assert_true(GFVariantData.get_option_string(snapshot, "last_error").contains("ok: bool"), "失败信息应明确唯一 ok 契约。")
 	_log_util.remove_sink(sink)
+
+
+func test_batched_log_sink_rejects_explicit_non_integer_acknowledgements() -> void:
+	for invalid_accepted: Variant in [{}, [], "1", true, null, 1.0]:
+		var sink: GFBatchedLogSink = GFBatchedLogSink.new()
+		sink.batch_size = 1
+		sink.flush_interval_msec = 0
+		sink.sender_callback = func(_payload: Dictionary) -> Dictionary:
+			return {"ok": true, "accepted": invalid_accepted}
+		_log_util.add_sink(sink)
+		_log_util.info("Batch", "preserve unacknowledged entry")
+		assert_eq(sink.get_pending_count(), 1)
+		assert_eq(GFVariantData.get_option_int(sink.get_debug_snapshot(), "failed_send_count"), 1)
+		_log_util.remove_sink(sink)
 
 
 func test_batched_log_sink_requeues_unaccepted_partial_batch() -> void:

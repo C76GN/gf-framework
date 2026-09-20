@@ -55,7 +55,9 @@ func find_targets(p_center: Vector2, p_rule: GFSkillTargetingRule2D, p_available
 		if not _is_position_in_shape(position, p_center, p_rule):
 			continue
 
-		if not _check_tags(entity, p_rule):
+		if not is_instance_valid(entity) or not _check_tags(entity, p_rule):
+			continue
+		if not is_instance_valid(entity):
 			continue
 
 		candidates.append({
@@ -68,6 +70,9 @@ func find_targets(p_center: Vector2, p_rule: GFSkillTargetingRule2D, p_available
 		return []
 
 	_sort_candidates(candidates, p_center, p_rule)
+	for index: int in range(candidates.size() - 1, -1, -1):
+		if _get_candidate_entity(candidates[index]) == null:
+			candidates.remove_at(index)
 
 	if p_rule.max_count > 0 and candidates.size() > p_rule.max_count:
 		candidates = candidates.slice(0, p_rule.max_count)
@@ -143,6 +148,8 @@ func _sort_candidates(
 ) -> void:
 	for candidate: Dictionary in candidates:
 		var entity: Object = _get_candidate_entity(candidate)
+		if entity == null:
+			continue
 		match rule.sort_rule:
 			GFSkillTargetingRule2D.SortRule.DISTANCE_CLOSEST, GFSkillTargetingRule2D.SortRule.DISTANCE_FURTHEST:
 				candidate["sort_value"] = _get_distance_sort_value(
@@ -210,6 +217,8 @@ func _is_within_radius(offset: Vector2, radius: float) -> bool:
 
 # 获取实体属性值。
 func _get_entity_attribute_value(p_entity: Object, p_attr_name: StringName) -> float:
+	if not is_instance_valid(p_entity):
+		return 0.0
 	if p_entity.has_method(&"get_attribute"):
 		var attribute: GFModifiedAttribute = _get_modified_attribute_value(p_entity.call(&"get_attribute", p_attr_name))
 		if attribute != null:

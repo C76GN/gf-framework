@@ -328,7 +328,7 @@ func rebuild_requirements() -> void:
 func get_requirements() -> Array[Object]:
 ```
 
-返回当前子任务聚合后的占用对象副本。
+返回组显式声明及子任务聚合后的占用对象副本。
 
 返回：仍然有效的占用对象副本。
 

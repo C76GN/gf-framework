@@ -33,6 +33,10 @@ var report := schema.validate_dictionary({
 
 `validate_dictionary()` 返回 `GFValidationReport`，问题条目使用稳定的 `kind` 和 `path`，便于编辑器工具、导入器或测试按字段定位。
 
+直接调用 `GFSchemaField.validate_value()` 也会先检查嵌套定义，循环字段返回 `circular_field_schema`，循环 Dictionary schema 返回 `circular_schema`，不会进入递归值校验。共享但不循环的子定义仍可重复使用。
+
+定义预检的当前活动路径最多包含 64 个定义实例，`GFDictionarySchema` 和 `GFSchemaField` 都各计一层，根定义也计入；兄弟分支共享的定义不会累计深度。这个固定上限将预检自身的递归定义调用限制在 64 层，为路径构造、报告和调用方保留栈空间，避免空输入也因深定义触发引擎栈异常。进入第 65 个不同实例前即返回 `schema_depth_exceeded`，issue 保留当前 `path`，metadata 包含 `depth` 和 `max_depth`。已在活动路径上的实例优先使用原循环诊断。该限制由共同预检覆盖 `validate_definition()`、`validate_dictionary()` 和单字段 `validate_value()`，不接受调用方调高或关闭。
+
 输入字典中的 `String` 与 `StringName` 字段名会归一到同一个 schema 字段。若同一份输入同时包含文本等价的多个源 key，例如 `"score"` 与 `&"score"`，校验会报告 `duplicate_field_key`，而不是按 Dictionary 遍历顺序静默覆盖其中一个值。
 
 ## 默认值与转换

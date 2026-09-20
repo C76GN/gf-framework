@@ -2,6 +2,107 @@
 extends GutTest
 
 
+class ClosingHookPeer extends MultiplayerPeerExtension:
+	var close_hook: Callable = Callable()
+
+	func _get_connection_status() -> MultiplayerPeer.ConnectionStatus:
+		return MultiplayerPeer.CONNECTION_CONNECTED
+
+	func _get_unique_id() -> int:
+		return 1
+
+	func _is_server() -> bool:
+		return true
+
+	func _close() -> void:
+		if close_hook.is_valid():
+			close_hook.call()
+
+
+func test_multiplayer_close_callback_cannot_disconnect_new_peer_ids() -> void:
+	for replace_outer: bool in [false, true]:
+		var backend: GFMultiplayerPeerNetworkBackend = GFMultiplayerPeerNetworkBackend.new()
+		var first: ClosingHookPeer = ClosingHookPeer.new()
+		var replacement: OfflineMultiplayerPeer = OfflineMultiplayerPeer.new()
+		var outer_peer: OfflineMultiplayerPeer = OfflineMultiplayerPeer.new()
+		var options: Dictionary = { "ownership": GFMultiplayerPeerNetworkBackend.Ownership.OWNED, "role": GFMultiplayerPeerNetworkBackend.Role.SERVER }
+		assert_eq(backend.adopt_peer(first, options), OK)
+		first.peer_connected.emit(2)
+		var disconnected_ids: Array[int] = []
+		var listener: Callable = func(peer_id: int) -> void: disconnected_ids.append(peer_id)
+		var _connected: int = backend.peer_disconnected.connect(listener)
+		first.close_hook = func() -> void:
+			assert_eq(backend.adopt_peer(replacement, options), OK)
+			replacement.peer_connected.emit(77)
+		if replace_outer:
+			assert_eq(backend.adopt_peer(outer_peer, options), ERR_BUSY)
+		else:
+			backend.disconnect_backend()
+		assert_same(backend.get_peer(), replacement)
+		assert_true(backend.owns_peer())
+		assert_true(backend.is_backend_connected())
+		assert_false(disconnected_ids.has(77))
+		assert_eq(GFVariantData.get_option_int(backend.get_debug_snapshot(), "connected_peer_count"), 1)
+		backend.disconnect_backend()
+		assert_eq(disconnected_ids.count(77), 1)
+		assert_eq(GFVariantData.get_option_int(backend.get_debug_snapshot(), "connected_peer_count"), 0)
+		first.close_hook = Callable()
+		backend.peer_disconnected.disconnect(listener)
+
+
+func test_optional_contract_field_rejects_explicit_null_unless_allowed() -> void:
+	var field: GFNetworkContractField = GFNetworkContractField.new()
+	field.field_name = &"optional"
+	field.required = false
+	field.allow_null = false
+	assert_false(GFVariantData.get_option_bool(field.validate_value(null), "ok"))
+	field.allow_null = true
+	assert_true(GFVariantData.get_option_bool(field.validate_value(null), "ok"))
+
+
+func test_discovery_expiry_rechecks_deadline_after_lost_callback_refresh() -> void:
+	var discovery: GFNetworkServiceDiscovery = GFNetworkServiceDiscovery.new()
+	var records: Array[Dictionary] = []
+	for index: int in 2:
+		var advertisement: Dictionary = discovery.make_advertisement(&"test", "ws://localhost:%d" % (1000 + index), {}, { "ttl_seconds": 1.0, "sequence": 1 })
+		records.append(advertisement)
+		var _accepted: Dictionary = discovery.accept_advertisement(advertisement)
+	var lost: Array[String] = []
+	var callback: Callable = func(key: String, _record: Dictionary, _reason: String) -> void:
+		lost.append(key)
+		if lost.size() == 1:
+			for advertisement: Dictionary in records:
+				var other_key: String = GFNetworkServiceDiscovery.make_service_key(&"test", GFVariantData.get_option_string(advertisement, "endpoint"))
+				if other_key != key:
+					advertisement["sequence"] = 2
+					advertisement["ttl_seconds"] = 5.0
+					var _refreshed: Dictionary = discovery.accept_advertisement(advertisement)
+	var _connection: int = discovery.service_lost.connect(callback)
+	discovery.tick(1.1)
+	assert_eq(lost.size(), 1)
+	assert_eq(discovery.get_services().size(), 1)
+	discovery.service_lost.disconnect(callback)
+
+
+func test_multiplayer_detach_preserves_peer_adopted_by_disconnect_callback() -> void:
+	var backend: GFMultiplayerPeerNetworkBackend = GFMultiplayerPeerNetworkBackend.new()
+	var first: OfflineMultiplayerPeer = OfflineMultiplayerPeer.new()
+	var replacement: OfflineMultiplayerPeer = OfflineMultiplayerPeer.new()
+	var options: Dictionary = { "ownership": GFMultiplayerPeerNetworkBackend.Ownership.OWNED, "role": GFMultiplayerPeerNetworkBackend.Role.SERVER }
+	assert_eq(backend.adopt_peer(first, options), OK)
+	backend._on_peer_connected(2)
+	var adopted: Array[Error] = []
+	var callback: Callable = func(_peer_id: int) -> void: adopted.append(backend.adopt_peer(replacement, options))
+	var _connection: int = backend.peer_disconnected.connect(callback)
+	backend.disconnect_backend()
+	assert_eq(adopted, [OK])
+	assert_same(backend.get_peer(), replacement)
+	assert_true(backend.owns_peer())
+	assert_true(backend.is_backend_connected())
+	backend.peer_disconnected.disconnect(callback)
+	backend.disconnect_backend()
+
+
 # --- 常量 ---
 
 const GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT = preload(

@@ -544,7 +544,7 @@ func _append_manifest_resource_entry(resource_entry: Dictionary, options: Dictio
 			"key": entry_metadata["resource_key"],
 		})
 		return
-	var _resource_added: bool = add_entry(source_path, "", &"resource", entry_metadata)
+	_append_manifest_file_entry(source_path, &"resource", entry_metadata)
 	if GFVariantData.get_option_bool(options, "check_files", false) and not _resource_path_exists(source_path):
 		_append_issue("error", _KIND_MISSING_RESOURCE, "resource file is missing", {
 			"path": source_path,
@@ -567,7 +567,7 @@ func _append_dependency_entries(
 		var path: String = GFVariantData.to_text(dependency_path)
 		if path.is_empty() or not _source_is_inside_root(path):
 			continue
-		var _dependency_added: bool = add_entry(path, "", &"dependency", {
+		_append_manifest_file_entry(path, &"dependency", {
 			"package_id": owner_package_id,
 			"source_resource_path": source_path,
 		})
@@ -578,6 +578,25 @@ func _append_dependency_entries(
 			continue
 		issue["kind"] = _KIND_DEPENDENCY_REPORT_ISSUE
 		issues.append(issue)
+
+
+func _append_manifest_file_entry(source_path: String, role: StringName, entry_metadata: Dictionary) -> void:
+	var normalized_source: String = _normalize_resource_path(source_path)
+	var archive_path: String = _normalize_archive_path(_make_archive_path(normalized_source))
+	for index: int in entries.size():
+		var entry: Dictionary = entries[index]
+		if entry.get("source_path") != normalized_source or entry.get("archive_path") != archive_path:
+			continue
+		var combined_metadata: Dictionary = GFVariantData.get_option_dictionary(entry, "metadata")
+		var references: Array = GFVariantData.get_option_array(combined_metadata, "references")
+		if references.is_empty():
+			references.append({ "role": entry.get("role"), "metadata": combined_metadata.duplicate(true) })
+		references.append({ "role": role, "metadata": entry_metadata.duplicate(true) })
+		combined_metadata["references"] = references
+		entry["metadata"] = combined_metadata
+		entries[index] = entry
+		return
+	var _added: bool = add_entry(source_path, "", role, entry_metadata)
 
 
 func _append_archive_path_uniqueness_issues(report: Dictionary) -> void:

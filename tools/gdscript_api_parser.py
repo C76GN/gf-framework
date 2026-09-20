@@ -379,6 +379,8 @@ def parse_docs(lines: list[str]) -> ApiDocs:
 			continue
 		if line.startswith("@"):
 			name, value = split_tag(line)
+			if name == "schema" and re.fullmatch(r"[A-Za-z_]\w*\s*:\s*\S.*", value) is None:
+				raise ValueError("GDScript @schema must use '<name>: <nonempty description>' syntax.")
 			docs.tags.setdefault(name, []).append(value)
 		else:
 			docs.description.append(line)

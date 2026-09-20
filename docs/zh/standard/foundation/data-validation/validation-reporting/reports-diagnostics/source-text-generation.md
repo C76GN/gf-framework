@@ -4,7 +4,7 @@ GF 的文本基础件只处理显式纯数据、结构化扫描、输出预算�
 
 ## 核心类
 
-- `GFDataProjection`：把 Dictionary 或显式字段 Object 投影成纯 Variant 数据。
+- `GFDataProjection`：把 Dictionary 或显式字段 Object 投影成纯 Variant 数据。根字典、重命名后的键与 defaults 都经过相同的纯数据检查；不支持的键记录 `unsupported_key` 并跳过，默认值中的对象也按配置处理。
 - `GFExecutionBudget`：限制步数、深度、输出长度、耗时和取消 token。
 - `GFTextGenerationContext`：管理数据 scope、简单 token 替换、有限循环/空态/注释模板、输出缓冲和诊断报告。
 - `GFDelimitedTextTools`：按顶层分隔符拆分文本，忽略引号和括号内的分隔符，并返回结构化扫描错误。

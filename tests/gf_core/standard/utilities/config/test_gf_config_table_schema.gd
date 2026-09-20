@@ -996,6 +996,25 @@ func test_table_resource_path_checks_share_operation_cache_and_enforce_budget() 
 	)
 
 
+func test_path_budget_warning_does_not_suppress_later_error() -> void:
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	schema.max_resource_path_checks_per_validation = 1
+	for field: StringName in [&"first", &"warning", &"error"]:
+		var column: GFConfigTableColumn = _make_column(field, GFConfigTableColumn.ValueType.STRING)
+		var rule: GFConfigResourcePathValidationRule = GFConfigResourcePathValidationRule.new()
+		if field == &"warning":
+			rule.severity = GFConfigValidationRule.IssueSeverity.WARNING
+		column.validation_rules.append(rule)
+		schema.columns.append(column)
+	var report: Dictionary = schema.validate_record({
+		"first": "res://addons/gf/standard/utilities/config/gf_config_provider.gd",
+		"warning": "res://addons/gf/standard/utilities/config/gf_config_table_schema.gd",
+		"error": "res://missing-budget-fixture.gd",
+	})
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_gt(GFVariantData.get_option_int(report, "error_count"), 0)
+
+
 func test_localization_rule_treats_translation_server_identity_as_indeterminate() -> void:
 	var text_key: GFConfigLocalizationKeyValidationRule = GFConfigLocalizationKeyValidationRule.new()
 	text_key.use_translation_server = true

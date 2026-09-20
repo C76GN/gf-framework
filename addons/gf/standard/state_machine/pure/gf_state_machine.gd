@@ -136,6 +136,7 @@ func add_state(state_name: StringName, state: GFState, parent_state_name: String
 	var normalized_parent: StringName = _normalize_parent_state_name(state_name, parent_state_name)
 	var old_state: GFState = _get_registered_state(state_name)
 	var is_replacing_current: bool = old_state != null and old_state == _current_state and old_state != state
+	var changes_active_parent: bool = _active_path.has(state_name) and _get_parent_state_name(state_name) != normalized_parent
 	var is_replacing_active_ancestor: bool = (
 		old_state != null
 		and old_state != state
@@ -144,23 +145,33 @@ func add_state(state_name: StringName, state: GFState, parent_state_name: String
 	)
 	_transition_serial += 1
 
-	if is_replacing_active_ancestor:
+	var should_enter_replacement: bool = false
+	var replacement_redirect: _QueuedExitTransition = null
+	if is_replacing_active_ancestor or changes_active_parent:
 		stop()
 	elif is_replacing_current:
 		_activation_epoch += 1
-		old_state.exit()
-
-	if old_state != null and old_state != state:
-		old_state.dispose()
+		if not _exit_current_state_for_replacement(state_name, old_state):
+			return
+		should_enter_replacement = true
+		if _has_queued_exit_transition:
+			replacement_redirect = _take_queued_exit_transition(state_name, {})
 
 	state.setup(self, state_name)
 	_states[state_name] = state
 	_set_parent_state_name(state_name, normalized_parent)
 
-	if is_replacing_current:
-		_active_path = _build_state_path(state_name)
-		_set_current_from_active_path()
-		state.enter()
+	if old_state != null and old_state != state:
+		var dispose_serial: int = _transition_serial
+		old_state.dispose()
+		if dispose_serial != _transition_serial or _get_registered_state(state_name) != state:
+			return
+
+	if should_enter_replacement:
+		if replacement_redirect != null:
+			_transition_to_state(replacement_redirect._state_name, replacement_redirect._msg, true)
+		else:
+			_transition_to_state(state_name, {}, false)
 
 
 ## 设置已注册状态的父状态。
@@ -669,6 +680,23 @@ func unregister_owner_events(owner: Object) -> void:
 
 
 # --- 私有/辅助方法 ---
+
+func _exit_current_state_for_replacement(state_name: StringName, state: GFState) -> bool:
+	var exit_serial: int = _transition_serial
+	var exit_epoch: int = _activation_epoch
+	# 先从激活路径撤下旧实例；退出回调的重定向等新注册关系提交后再处理。
+	_active_path = _copy_path_prefix(_active_path, _active_path.size() - 1)
+	_set_current_from_active_path()
+	_is_exiting_current_state = true
+	state.exit()
+	state.unregister_owner_events()
+	_is_exiting_current_state = false
+	return (
+		exit_epoch == _activation_epoch
+		and _get_registered_state(state_name) == state
+		and (exit_serial == _transition_serial or _has_queued_exit_transition)
+	)
+
 
 func _transition_to_state(state_name: StringName, msg: Dictionary, emit_changed: bool) -> void:
 	var target_path: Array[StringName] = _build_state_path(state_name)

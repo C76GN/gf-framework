@@ -305,6 +305,10 @@ func validate_value(value: Variant, context: Dictionary = {}) -> GFValidationRep
 	var report: GFValidationReport = GFValidationReport.new(_make_subject(context), {
 		"schema_id": GFVariantData.get_option_string(context, "schema_id"),
 	})
+	var definition_schema: GFDictionarySchema = GFDictionarySchema.new()
+	definition_schema._validate_field_definition_into(self, report, context)
+	if not report.is_ok():
+		return report
 	_validate_value_into(value, report, context)
 	return report
 

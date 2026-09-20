@@ -487,6 +487,32 @@ func test_controller_cancels_drag_when_source_exits_tree() -> void:
 
 
 ## 验证控制器可临时 reparent source，并在取消时恢复原父级。
+func test_controller_blocks_reentry_during_source_reparent() -> void:
+	var controller: GFDragDropController = GFDragDropController.new()
+	add_child_autofree(controller)
+	var source_parent: Control = Control.new()
+	var drag_parent: Control = Control.new()
+	var source: Control = Control.new()
+	add_child_autofree(source_parent)
+	add_child_autofree(drag_parent)
+	source_parent.add_child(source)
+	var nested_sessions: Array[int] = []
+	var on_exit: Callable = func() -> void:
+		nested_sessions.append(controller.start_drag(&"nested", null, Vector2.ZERO, null, {"pointer_id": 2}))
+	var _connected: Error = source.tree_exited.connect(on_exit, CONNECT_ONE_SHOT as Object.ConnectFlags) as Error
+	var session_id: int = controller.start_drag(&"outer", null, Vector2.ZERO, source,
+		{"pointer_id": 1, "drag_parent": drag_parent})
+	assert_gt(session_id, 0)
+	assert_eq(nested_sessions, [-1], "reparent 同步通知也必须处于启动事务内。")
+	assert_eq(GFVariantData.get_option_int(controller.get_utility().get_debug_snapshot(), "active_session_count"), 1)
+	assert_true(controller.update_pointer(Vector2.ONE, 1))
+	assert_false(controller.update_pointer(Vector2.ONE, 2))
+	assert_true(controller.cancel_drag())
+	assert_eq(source.get_parent(), source_parent)
+	assert_eq(GFVariantData.get_option_int(controller.get_utility().get_debug_snapshot(), "active_session_count"), 0)
+	controller.get_utility().clear_sessions()
+
+
 func test_controller_restores_reparented_source_on_cancel() -> void:
 	var controller: Node = _new_drag_drop_controller()
 	add_child_autofree(controller)

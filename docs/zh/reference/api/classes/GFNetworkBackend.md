@@ -33,6 +33,7 @@
 | 方法 | [`_enrich_transport_metrics`](#member-gfnetworkbackend-methods-_enrich_transport_metrics) | `func _enrich_transport_metrics( _metrics: GFNetworkTransportMetrics, _budget: GFExecutionBudget ) -> void:` |
 | 方法 | [`_record_transport_packet_sent`](#member-gfnetworkbackend-methods-_record_transport_packet_sent) | `func _record_transport_packet_sent(byte_count: int) -> void:` |
 | 方法 | [`_reset_transport_metrics`](#member-gfnetworkbackend-methods-_reset_transport_metrics) | `func _reset_transport_metrics() -> void:` |
+| 方法 | [`_reset_transport_connection`](#member-gfnetworkbackend-methods-_reset_transport_connection) | `func _reset_transport_connection() -> void:` |
 
 ## 信号
 
@@ -361,3 +362,16 @@ func _reset_transport_metrics() -> void:
 ```
 
 重置当前连接的累计传输指标。
+
+<a id="member-gfnetworkbackend-methods-_reset_transport_connection"></a>
+
+### `_reset_transport_connection`
+
+- API：`protected`
+- 首次版本：`unreleased`
+
+```gdscript
+func _reset_transport_connection() -> void:
+```
+
+清除旧连接状态，供后端在派发断开回调前提交释放结果。

@@ -294,7 +294,7 @@ func set_at(index: int, value: Variant) -> bool:
 func reserve(min_capacity: int) -> void:
 ```
 
-至少保留指定底层容量。
+至少保留指定底层容量。超出 Array 容量范围或分配失败时保持现有内容与容量不变。
 
 参数：
 

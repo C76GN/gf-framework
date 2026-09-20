@@ -156,14 +156,13 @@ func has_host() -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param host_type: 宿主节点类型。
 ## [br]
 ## @return 匹配类型的宿主节点；未找到或类型不匹配时返回 null。
 ## [br]
-## @schema host_type {
-##   "type": "Variant",
-##   "description": "Script、ClassDB 原生类型或 null。"
-## }
+## @schema host_type: {"type": "Variant", "description": "Script、ClassDB 原生类型或 null。"}
 func get_host_as(host_type: Variant) -> Node:
 	var current_host: Node = get_host()
 	if current_host == null:
@@ -277,14 +276,13 @@ func get_local_utility(utility_type: Script, require_ready: bool = false) -> Obj
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param command: 要发送的命令实例。
 ## [br]
 ## @return 命令的执行结果（null 或 Signal）。
 ## [br]
-## @schema return {
-##   "type": "Variant",
-##   "description": "命令执行结果；异步命令可返回 Signal。"
-## }
+## @schema return: {"type": "Variant", "description": "命令执行结果；异步命令可返回 Signal。"}
 func send_command(command: Object) -> Variant:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture == null:
@@ -296,14 +294,13 @@ func send_command(command: Object) -> Variant:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param query: 要执行的查询实例。
 ## [br]
 ## @return 查询结果。
 ## [br]
-## @schema return {
-##   "type": "Variant",
-##   "description": "查询结果；具体类型由查询对象定义。"
-## }
+## @schema return: {"type": "Variant", "description": "查询结果；具体类型由查询对象定义。"}
 func send_query(query: Object) -> Variant:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture == null:
@@ -416,14 +413,13 @@ func unregister_simple_event(event_id: StringName, listener: GFEventListener) ->
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param event_id: StringName 事件标识符。
 ## [br]
 ## @param payload: 可选的事件附加数据。
 ## [br]
-## @schema payload {
-##   "type": "Variant",
-##   "description": "事件附加数据；由事件消费者约定结构。"
-## }
+## @schema payload: {"type": "Variant", "description": "事件附加数据；由事件消费者约定结构。"}
 func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:

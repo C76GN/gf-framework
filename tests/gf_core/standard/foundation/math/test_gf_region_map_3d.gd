@@ -52,6 +52,18 @@ func test_erase_removes_empty_region_and_marks_dirty() -> void:
 	assert_true(region_map.get_dirty_region_keys().has(Vector3i(0, 0, 0)))
 
 
+func test_clear_keeps_unconsumed_deleted_region_marks() -> void:
+	var region_map: GFRegionMap3D = GFRegionMap3D.new()
+	region_map.set_cell(Vector3i.ZERO, "value")
+	region_map.clear_dirty()
+	assert_true(region_map.erase_cell(Vector3i.ZERO))
+	region_map.clear()
+	region_map.clear()
+	assert_eq(region_map.get_dirty_region_keys(), [Vector3i.ZERO])
+	region_map.clear_dirty()
+	assert_true(region_map.get_dirty_region_keys().is_empty())
+
+
 func test_duplicate_values_prevents_external_mutation() -> void:
 	var region_map: GFRegionMap3D = GFRegionMap3D.new()
 	var payload: Dictionary = {"count": 1, "tags": ["a"]}

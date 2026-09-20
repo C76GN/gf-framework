@@ -127,8 +127,11 @@ static func _parse_time_range(line: String) -> Dictionary:
 	var parts: PackedStringArray = line.split("-->", false)
 	if parts.size() < 2:
 		return {}
+	var end_tokens: PackedStringArray = parts[1].strip_edges().split(" ", false)
+	if end_tokens.is_empty():
+		return {}
 	var start: float = _parse_timestamp(parts[0].strip_edges())
-	var end: float = _parse_timestamp(parts[1].strip_edges().split(" ", false)[0])
+	var end: float = _parse_timestamp(end_tokens[0])
 	if start < 0.0 or end < start:
 		return {}
 	return {

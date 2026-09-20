@@ -284,9 +284,9 @@ func unwatch_node(source: Node) -> int:
 		var entry: Dictionary = _get_watch_entry(key)
 		if entry.is_empty() or GFVariantData.get_option_int(entry, "source_id") != source_id:
 			continue
+		var _erased: bool = _watched.erase(key)
 		if _disconnect_entry(entry):
 			removed_count += 1
-		var _erased: bool = _watched.erase(key)
 	return removed_count
 
 
@@ -299,9 +299,9 @@ func unwatch_all() -> int:
 	var removed_count: int = 0
 	for key: String in _watched.keys().duplicate():
 		var entry: Dictionary = _get_watch_entry(key)
+		var _erased: bool = _watched.erase(key)
 		if not entry.is_empty() and _disconnect_entry(entry):
 			removed_count += 1
-		var _erased: bool = _watched.erase(key)
 	return removed_count
 
 

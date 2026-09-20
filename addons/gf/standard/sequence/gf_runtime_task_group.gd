@@ -123,6 +123,7 @@ var _completed_task_ids: Dictionary = {}
 var _initializing_task_ids: Dictionary = {}
 var _tasks: Array[GFRuntimeTask] = []
 var _mode: Mode = Mode.SEQUENCE
+var _child_requirements: Array[Object] = []
 
 
 # --- Godot 生命周期方法 ---
@@ -295,7 +296,7 @@ func rebuild_requirements() -> void:
 	_rebuild_requirements_unchecked()
 
 
-## 返回当前子任务聚合后的占用对象副本。
+## 返回组显式声明及子任务聚合后的占用对象副本。
 ##
 ## [br]
 ## @api public
@@ -430,6 +431,21 @@ func end(interrupted: bool) -> void:
 
 
 # --- 框架内部方法 ---
+
+## 返回显式占用和已解析子任务占用的副本，不触发重建。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return: 仍然有效的占用对象副本。
+func get_requirement_snapshot() -> Array[Object]:
+	var result: Array[Object] = super.get_requirement_snapshot()
+	for requirement: Object in _child_requirements:
+		if is_instance_valid(requirement) and not result.has(requirement):
+			result.append(requirement)
+	return result
+
 
 ## 返回任务组调度前拒绝原因。
 ##
@@ -623,7 +639,7 @@ func _initialize_child(task: GFRuntimeTask, group_generation: int) -> bool:
 func _finish_child(task: GFRuntimeTask, interrupted: bool) -> void:
 	if task == null or _is_child_completed(task):
 		return
-	_completed_task_ids[task.get_instance_id()] = true
+	_completed_task_ids[task.get_instance_id()] = task.get_schedule_generation()
 	var _was_initializing: bool = _initializing_task_ids.erase(task.get_instance_id())
 	task.mark_unscheduled()
 	task.end(interrupted)
@@ -640,7 +656,7 @@ func _cancel_open_children(interrupted: bool) -> void:
 
 
 func _is_child_completed(task: GFRuntimeTask) -> bool:
-	return task != null and _completed_task_ids.has(task.get_instance_id())
+	return task != null and _completed_task_ids.get(task.get_instance_id(), -1) == task.get_schedule_generation()
 
 
 func _is_child_initializing(task: GFRuntimeTask) -> bool:
@@ -679,7 +695,7 @@ func _rebuild_direct_requirements_unchecked(source_tasks: Array[GFRuntimeTask]) 
 		for requirement: Object in _get_child_requirements(task):
 			if not aggregate_requirements.has(requirement):
 				aggregate_requirements.append(requirement)
-	_replace_requirements_unchecked(aggregate_requirements)
+	_child_requirements = aggregate_requirements
 
 
 func _tasks_have_parallel_requirement_conflict(source_tasks: Array[GFRuntimeTask]) -> bool:

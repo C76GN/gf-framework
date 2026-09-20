@@ -1815,6 +1815,7 @@ def _open_regular_file(
 		| int(getattr(os, "O_BINARY", 0))
 		| int(getattr(os, "O_CLOEXEC", 0))
 		| int(getattr(os, "O_NOFOLLOW", 0))
+		| int(getattr(os, "O_NONBLOCK", 0))
 	)
 	try:
 		file_descriptor = os.open(absolute_path, flags)

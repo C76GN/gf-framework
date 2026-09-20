@@ -370,6 +370,10 @@ func _pump_queue() -> void:
 		entry["completion"] = Callable()
 		_active_requests[worker.get_instance_id()] = entry
 		request_started.emit(response)
+		if not _is_active:
+			return
+		if response.is_finished() or not is_instance_valid(worker) or _get_entry_response(_get_active_entry(worker)) != response:
+			continue
 		var error: Error = _start_request(worker, builder, response)
 		if error != OK:
 			_fail_request_start(worker, response, error)

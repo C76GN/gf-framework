@@ -7,6 +7,17 @@ const GF_WAVE_FUNCTION_COLLAPSE_2D_SCRIPT = preload("res://addons/gf/standard/fo
 
 # --- 测试 ---
 
+func test_single_tile_domains_still_validate_adjacency() -> void:
+	var report: Dictionary = GF_WAVE_FUNCTION_COLLAPSE_2D_SCRIPT.solve_grid(
+		Vector2i(1, 2), [&"tile"],
+		[{ "from": &"tile", "to": &"tile", "direction": Vector2i.RIGHT }]
+	)
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(GFVariantData.get_option_string_name(report, "status"), GF_WAVE_FUNCTION_COLLAPSE_2D_SCRIPT.STATUS_CONTRADICTION)
+	var allowed: Dictionary = GF_WAVE_FUNCTION_COLLAPSE_2D_SCRIPT.solve_grid(Vector2i(1, 2), [&"tile"], [])
+	assert_true(GFVariantData.get_option_bool(allowed, "ok"))
+
+
 func test_solve_grid_respects_adjacency_rules_and_fixed_cells() -> void:
 	var tiles: Array = [&"floor", &"wall"]
 	var rules: Array[Dictionary] = [

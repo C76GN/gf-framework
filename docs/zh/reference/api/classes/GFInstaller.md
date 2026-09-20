@@ -51,7 +51,7 @@ func install(_architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
 func install_bindings(_binder: Variant, _scope: GFAsyncScope) -> void:
 ```
 
-使用声明式装配器注册项目模块。 install_bindings() 与 install() 共享同一异步契约：首个 await 前不应执行长同步工作。 需要注册外部任务清理时应使用 _scope.register_cleanup()。 "type": "Variant", "description": "当前架构创建的装配器实例，实际类型为 GFBindBuilder。" }
+使用声明式装配器注册项目模块。 install_bindings() 与 install() 共享同一异步契约：首个 await 前不应执行长同步工作。 需要注册外部任务清理时应使用 _scope.register_cleanup()。
 
 参数：
 
@@ -62,4 +62,4 @@ func install_bindings(_binder: Variant, _scope: GFAsyncScope) -> void:
 
 结构：
 
-- `_binder {`:
+- `_binder`: {"type": "Variant", "description": "当前架构创建的装配器实例，实际类型为 GFBindBuilder。"}

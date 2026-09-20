@@ -45,6 +45,7 @@ const _ABSOLUTE_MAX_TOTAL_BYTES: int = 256 * 1024 * 1024
 const _ABSOLUTE_MAX_WORKSPACE_EDIT_BYTES: int = 32 * 1024 * 1024
 const _MAX_URI_BYTES: int = 16 * 1024
 const _MAX_LSP_INTEGER: int = 2_147_483_647
+const _MAX_PATH_SPELLING_ENTRIES: int = 65_536
 const _PLAN_SCRIPT = preload(
 	"res://addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_plan.gd"
 )
@@ -61,6 +62,8 @@ const _SOURCE_TEXT_PATCH_TOOLS_SCRIPT = preload(
 static var _test_before_artifact_commit: Callable = Callable()
 static var _test_track_position_line_scans: bool = false
 static var _test_position_line_scan_counts: Dictionary = {}
+static var _test_source_read_tracking: bool = false
+static var _test_source_read_sizes: Array[int] = []
 
 
 # --- 公共方法 ---
@@ -1359,12 +1362,42 @@ static func _get_utf8_codepoint_size(codepoint: int) -> int:
 
 
 static func _read_strict_utf8_source(path: String, max_file_bytes: int) -> Dictionary:
+	var source: Dictionary = _read_bounded_source_bytes(path, max_file_bytes)
+	if not GFVariantData.get_option_bool(source, "ok"):
+		return source
+	var bytes: PackedByteArray = source["bytes"]
+	if (
+		bytes.size() >= 3
+		and bytes[0] == 0xef
+		and bytes[1] == 0xbb
+		and bytes[2] == 0xbf
+	):
+		return _make_source_failure(&"utf8_bom_not_supported", "WorkspaceEdit target must be UTF-8 without BOM.")
+	var text: String = bytes.get_string_from_utf8()
+	if text.to_utf8_buffer() != bytes:
+		return _make_source_failure(&"invalid_utf8_source", "WorkspaceEdit target is not strict UTF-8 text.")
+	var verification: Dictionary = _read_bounded_source_bytes(path, max_file_bytes)
+	if not GFVariantData.get_option_bool(verification, "ok"):
+		return verification
+	var verification_bytes: PackedByteArray = verification["bytes"]
+	if verification_bytes != bytes:
+		return _make_source_failure(&"source_changed_during_read", "WorkspaceEdit target changed while it was being read.")
+	return {
+		"ok": true,
+		"kind": &"",
+		"message": "",
+		"text": text,
+		"size_bytes": bytes.size(),
+		"sha256": _sha256_bytes(bytes),
+	}
+
+
+static func _read_bounded_source_bytes(path: String, max_file_bytes: int) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return _make_source_failure(
 			&"source_not_found",
 			"WorkspaceEdit target no longer exists."
 		)
-	var hash_before: String = FileAccess.get_sha256(path)
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return _make_source_failure(
@@ -1378,49 +1411,23 @@ static func _read_strict_utf8_source(path: String, max_file_bytes: int) -> Dicti
 			&"source_file_budget_exceeded",
 			"WorkspaceEdit target exceeds max_file_bytes."
 		)
+	if _test_source_read_tracking:
+		_test_source_read_sizes.append(size_bytes)
 	var bytes: PackedByteArray = file.get_buffer(size_bytes)
 	var read_error: Error = file.get_error()
+	var size_after: int = file.get_length()
 	file.close()
 	if read_error != OK or bytes.size() != size_bytes:
 		return _make_source_failure(
 			&"source_read_failed",
 			"WorkspaceEdit target bytes could not be read completely."
 		)
-	if (
-		bytes.size() >= 3
-		and bytes[0] == 0xef
-		and bytes[1] == 0xbb
-		and bytes[2] == 0xbf
-	):
-		return _make_source_failure(
-			&"utf8_bom_not_supported",
-			"WorkspaceEdit target must be UTF-8 without BOM."
-		)
-	var text: String = bytes.get_string_from_utf8()
-	if text.to_utf8_buffer() != bytes:
-		return _make_source_failure(
-			&"invalid_utf8_source",
-			"WorkspaceEdit target is not strict UTF-8 text."
-		)
-	var calculated_hash: String = _sha256_bytes(bytes)
-	var hash_after: String = FileAccess.get_sha256(path)
-	if (
-		not _is_sha256(calculated_hash)
-		or hash_before != calculated_hash
-		or hash_after != calculated_hash
-	):
+	if size_after != size_bytes:
 		return _make_source_failure(
 			&"source_changed_during_read",
 			"WorkspaceEdit target changed while it was being read."
 		)
-	return {
-		"ok": true,
-		"kind": &"",
-		"message": "",
-		"text": text,
-		"size_bytes": size_bytes,
-		"sha256": calculated_hash,
-	}
+	return { "ok": true, "bytes": bytes }
 
 
 static func _resolve_target_uri(uri: String, workspace_root: String) -> Dictionary:
@@ -1473,6 +1480,12 @@ static func _resolve_target_uri(uri: String, workspace_root: String) -> Dictiona
 			"kind": &"linked_target_not_allowed",
 			"message": "WorkspaceEdit target crosses a filesystem link or reparse point.",
 		}
+	if not _has_exact_target_spelling(workspace_root, relative_path):
+		return {
+			"ok": false,
+			"kind": &"noncanonical_target_path",
+			"message": "WorkspaceEdit target must match the exact existing directory-entry spelling within the path scan budget.",
+		}
 	return {
 		"ok": true,
 		"kind": &"",
@@ -1480,6 +1493,33 @@ static func _resolve_target_uri(uri: String, workspace_root: String) -> Dictiona
 		"path": resource_path,
 		"absolute_path": absolute_path,
 	}
+
+
+static func _has_exact_target_spelling(workspace_root: String, relative_path: String) -> bool:
+	var parent_path: String = workspace_root
+	var remaining_entries: int = _MAX_PATH_SPELLING_ENTRIES
+	for component: String in relative_path.split("/"):
+		var directory: DirAccess = DirAccess.open(parent_path)
+		if directory == null:
+			return false
+		directory.include_hidden = true
+		directory.include_navigational = false
+		if directory.list_dir_begin() != OK:
+			return false
+		var matched: bool = false
+		while remaining_entries > 0:
+			var entry: String = directory.get_next()
+			if entry.is_empty():
+				break
+			remaining_entries -= 1
+			if entry == component:
+				matched = true
+				break
+		directory.list_dir_end()
+		if not matched:
+			return false
+		parent_path = parent_path.path_join(component)
+	return true
 
 
 static func _decode_file_uri(uri: String) -> Dictionary:
@@ -2282,3 +2322,14 @@ static func _reset_test_state() -> void:
 	_test_before_artifact_commit = Callable()
 	_test_track_position_line_scans = false
 	_test_position_line_scan_counts.clear()
+	_test_source_read_tracking = false
+	_test_source_read_sizes.clear()
+
+
+static func _configure_test_source_read_tracking() -> void:
+	_test_source_read_tracking = true
+	_test_source_read_sizes.clear()
+
+
+static func _get_test_source_read_sizes() -> Array[int]:
+	return _test_source_read_sizes.duplicate()

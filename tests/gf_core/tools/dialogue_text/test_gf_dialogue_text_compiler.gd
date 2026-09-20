@@ -362,6 +362,14 @@ func test_compile_source_requires_loader_read_budget_no_larger_than_compile_budg
 		assert_true(_has_issue_kind(_get_issues(result), &"unsafe_source_loader_budget"), "loader 预算拒绝 kind 应稳定。")
 
 
+func test_compiler_preserves_original_positions_after_malformed_array_entries() -> void:
+	var compiler: GF_DIALOGUE_TEXT_COMPILER_SCRIPT = GF_DIALOGUE_TEXT_COMPILER_SCRIPT.new()
+	var result: Dictionary = compiler.compile_text('{"format":"gf.dialogue","schema_version":1,"lines":[0,{"line_id":"","kind":"text"},{"line_id":"intro","kind":"text","responses":[0,{"response_id":""}]}]}')
+	var issues: Array = _get_issues(result)
+	assert_eq(GFVariantData.get_option_string(_find_issue(issues, &"empty_line_id"), "path"), "#/lines/1/line_id")
+	assert_eq(GFVariantData.get_option_string(_find_issue(issues, &"empty_response_id"), "path"), "#/lines/2/responses/1/response_id")
+
+
 func test_compiler_semantic_issues_preserve_json_pointer_and_source_spans() -> void:
 	var source: String = """{
   \"format\": \"gf.dialogue\",

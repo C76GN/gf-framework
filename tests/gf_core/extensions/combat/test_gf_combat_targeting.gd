@@ -2,6 +2,31 @@
 extends GutTest
 
 
+class FreeingAttributeTarget extends Node2D:
+	var next_target: Node2D
+
+	func get_attribute(_attribute_name: StringName) -> GFModifiedAttribute:
+		if is_instance_valid(next_target):
+			next_target.free()
+			next_target = null
+		return GFModifiedAttribute.new(1.0)
+
+
+func test_attribute_sort_ignores_candidate_freed_by_previous_getter() -> void:
+	var first: FreeingAttributeTarget = FreeingAttributeTarget.new()
+	var second: Node2D = Node2D.new()
+	add_child_autofree(first)
+	add_child(second)
+	first.next_target = second
+	var rule: GFSkillTargetingRule2D = GFSkillTargetingRule2D.new()
+	rule.radius = 1000.0
+	rule.sort_rule = GFSkillTargetingRule2D.SortRule.ATTRIBUTE_HIGHEST
+	rule.sort_attribute_name = &"power"
+	var targets: Array[Object] = _targeting_utility().find_targets(Vector2.ZERO, rule, [first, second])
+	assert_eq(targets.size(), 1)
+	assert_same(targets[0], first)
+
+
 # --- 常量 ---
 
 const _GF_SKILL_TARGETING_RULE_2D_SCRIPT = preload("res://addons/gf/extensions/combat/skills/gf_skill_targeting_rule_2d.gd")

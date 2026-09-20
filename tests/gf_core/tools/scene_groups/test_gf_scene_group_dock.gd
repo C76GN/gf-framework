@@ -273,6 +273,22 @@ func test_result_activation_outside_editor_reports_failure_without_losing_select
 	assert_eq(dock.get_snapshot(), snapshot)
 
 
+func test_cancel_scan_clears_location_feedback() -> void:
+	var root_path: String = _make_fixture_root()
+	_write_group_scene(root_path, 1)
+	var dock: GFSceneGroupDock = _make_dock()
+	assert_eq(dock.refresh(root_path), OK)
+	await _wait_for_scan(dock)
+	var results: Tree = _get_results(dock)
+	results.get_root().get_first_child().select(0)
+	results.item_activated.emit()
+	var location_status: Label = dock.find_child("LocationStatus", true, false) as Label
+	assert_false(location_status.text.is_empty())
+	dock.cancel_scan()
+	assert_true(location_status.text.is_empty())
+	assert_false(dock.is_processing())
+
+
 func test_pagination_clears_feedback_from_the_previous_result_location() -> void:
 	if Engine.is_editor_hint():
 		pending("普通 GUT 验证公开控件反馈；待完成定位由真实编辑器 smoke 验证。")

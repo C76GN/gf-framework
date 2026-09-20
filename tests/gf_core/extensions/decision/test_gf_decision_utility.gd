@@ -25,6 +25,31 @@ class DecisionSubject extends RefCounted:
 		}
 
 
+class RebindingSubject extends RefCounted:
+	var context: GFDecisionContext
+	var replacement: Object
+	var slot: StringName
+
+	func get_decision_snapshot() -> Dictionary:
+		context.set(slot, replacement)
+		return { &"stale": true }
+
+
+func test_eager_snapshot_rebinding_preserves_latest_slot_values() -> void:
+	for slot: StringName in [&"subject", &"target"]:
+		var context: GFDecisionContext = GFDecisionContext.new()
+		var replacement: SnapshotOnlySubject = SnapshotOnlySubject.new()
+		var old: RebindingSubject = RebindingSubject.new()
+		old.context = context
+		old.replacement = replacement
+		old.slot = slot
+		context.set(slot, old)
+		var values: Dictionary = context.subject_values if slot == &"subject" else context.target_values
+		assert_eq(values, { &"exposed": 0.5 })
+		assert_same(context.get_subject_or_null() if slot == &"subject" else context.get_target_or_null(), replacement)
+		old.context = null
+
+
 class SnapshotOnlySubject extends RefCounted:
 	var secret: float = 1.0
 	var exposed: float = 0.5

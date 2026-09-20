@@ -531,6 +531,7 @@ class BTNode extends RefCounted:
 	var metadata: Dictionary = {}
 
 	var _runtime_duplicate_error: StringName = &""
+	var _runtime_generation: int = 0
 
 	## 执行该节点的逻辑。子类应重写此方法。
 	## [br]
@@ -548,13 +549,14 @@ class BTNode extends RefCounted:
 
 	## 重置节点内部运行状态。
 	##
-	## 基类不会取消项目持有的外部异步工作；需要清理外部所有权的自定义节点必须重写。
+	## 基类不会取消项目持有的外部异步工作；自定义重写必须调用 super.reset()，
+	## 使回调内的重置中止旧 tick，并自行清理外部所有权。
 	## [br]
 	## @api public
 	## [br]
 	## @since 3.17.0
 	func reset() -> void:
-		pass
+		_runtime_generation += 1
 
 
 	## 创建一份可独立运行的节点副本，不复制调试计数和正在运行的内部状态。
@@ -1015,7 +1017,10 @@ class Sequence extends BTNode:
 				_current_child_idx += 1
 				continue
 
+			var generation: int = _runtime_generation
 			var status_value: int = child.tick(blackboard)
+			if generation != _runtime_generation:
+				return _record_tick(Status.ABORTED, &"runtime_reset", started)
 			var status: int = GFBehaviorTree._variant_to_status(status_value)
 			var reason: StringName = _get_child_status_reason(child, status_value, status)
 			if not GFBehaviorTree._is_success(status):
@@ -1089,7 +1094,10 @@ class Selector extends BTNode:
 				_current_child_idx += 1
 				continue
 
+			var generation: int = _runtime_generation
 			var status_value: int = child.tick(blackboard)
+			if generation != _runtime_generation:
+				return _record_tick(Status.ABORTED, &"runtime_reset", started)
 			var status: int = GFBehaviorTree._variant_to_status(status_value)
 			var reason: StringName = _get_child_status_reason(child, status_value, status)
 			if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
@@ -1187,7 +1195,10 @@ class Parallel extends BTNode:
 			active_count += 1
 			var status: int = _child_statuses[index]
 			if GFBehaviorTree._is_running(status):
+				var generation: int = _runtime_generation
 				var status_value: int = child.tick(blackboard)
+				if generation != _runtime_generation:
+					return _record_tick(Status.ABORTED, &"runtime_reset", started)
 				status = GFBehaviorTree._variant_to_status(status_value)
 				var reason: StringName = _get_child_status_reason(child, status_value, status)
 				if reason == &"invalid_status":
@@ -1310,7 +1321,10 @@ class RandomSelector extends BTNode:
 				_current_child_idx += 1
 				continue
 
+			var generation: int = _runtime_generation
 			var status_value: int = child.tick(blackboard)
+			if generation != _runtime_generation:
+				return _record_tick(Status.ABORTED, &"runtime_reset", started)
 			var status: int = GFBehaviorTree._variant_to_status(status_value)
 			var reason: StringName = _get_child_status_reason(child, status_value, status)
 			if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
@@ -1402,7 +1416,10 @@ class RandomSequence extends BTNode:
 				_current_child_idx += 1
 				continue
 
+			var generation: int = _runtime_generation
 			var status_value: int = child.tick(blackboard)
+			if generation != _runtime_generation:
+				return _record_tick(Status.ABORTED, &"runtime_reset", started)
 			var status: int = GFBehaviorTree._variant_to_status(status_value)
 			var reason: StringName = _get_child_status_reason(child, status_value, status)
 			if not GFBehaviorTree._is_success(status):
@@ -1563,7 +1580,7 @@ class Decorator extends BTNode:
 
 	## 设置被装饰的子节点。
 	##
-	## 替换不同 child 前会先 reset 旧 child；重复设置同一 identity 是无操作。
+	## 替换不同 child 时先提交新 child，再 reset 旧 child；重复设置同一 identity 是无操作。
 	## [br]
 	## @api public
 	## [br]
@@ -1578,9 +1595,11 @@ class Decorator extends BTNode:
 			return self
 		if _child == child_node:
 			return self
-		if _child != null:
-			_child.reset()
+		_runtime_generation += 1
+		var previous_child: BTNode = _child
 		_child = child_node
+		if previous_child != null:
+			previous_child.reset()
 		return self
 
 
@@ -1643,7 +1662,10 @@ class Inverter extends Decorator:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
 			return _record_tick(Status.FAILURE, &"missing_child", started)
+		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
+		if generation != _runtime_generation:
+			return _record_tick(Status.ABORTED, &"runtime_reset", started)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
 		var reason: StringName = _get_child_status_reason(_child, status_value, status)
 		if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
@@ -1697,7 +1719,10 @@ class AlwaysSucceed extends Decorator:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
 			return _record_tick(Status.SUCCESS, &"missing_child", started)
+		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
+		if generation != _runtime_generation:
+			return _record_tick(Status.ABORTED, &"runtime_reset", started)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
 		var reason: StringName = _get_child_status_reason(_child, status_value, status)
 		if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
@@ -1748,7 +1773,10 @@ class AlwaysFail extends Decorator:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
 			return _record_tick(Status.FAILURE, &"missing_child", started)
+		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
+		if generation != _runtime_generation:
+			return _record_tick(Status.ABORTED, &"runtime_reset", started)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
 		var reason: StringName = _get_child_status_reason(_child, status_value, status)
 		if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
@@ -1822,7 +1850,10 @@ class Probability extends Decorator:
 			reset()
 			return _record_tick(Status.FAILURE, &"probability_miss", started)
 
+		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
+		if generation != _runtime_generation:
+			return _record_tick(Status.ABORTED, &"runtime_reset", started)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
 		var reason: StringName = _get_child_status_reason(_child, status_value, status)
 		if not GFBehaviorTree._is_running(status):
@@ -1911,7 +1942,10 @@ class Cooldown extends Decorator:
 		var now: int = _resolve_time_msec()
 		if _last_finish_msec >= 0 and now - _last_finish_msec < GFBehaviorTree._seconds_to_msec(cooldown_seconds):
 			return _record_tick(Status.FAILURE, &"cooldown_active", started)
+		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
+		if generation != _runtime_generation:
+			return _record_tick(Status.ABORTED, &"runtime_reset", started)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
 		var reason: StringName = _get_child_status_reason(_child, status_value, status)
 		if not GFBehaviorTree._is_running(status):
@@ -2018,7 +2052,10 @@ class TimeLimit extends Decorator:
 		if limit_seconds <= 0.0 or now - _started_msec >= GFBehaviorTree._seconds_to_msec(limit_seconds):
 			reset()
 			return _record_tick(Status.FAILURE, &"time_limit_exceeded", started)
+		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
+		if generation != _runtime_generation:
+			return _record_tick(Status.ABORTED, &"runtime_reset", started)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
 		var reason: StringName = _get_child_status_reason(_child, status_value, status)
 		if not GFBehaviorTree._is_running(status):
@@ -2093,7 +2130,10 @@ class Limit extends Decorator:
 			return _record_tick(Status.FAILURE, &"limit_exceeded", started)
 
 		_tick_count += 1
+		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
+		if generation != _runtime_generation:
+			return _record_tick(Status.ABORTED, &"runtime_reset", started)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
 		var reason: StringName = _get_child_status_reason(_child, status_value, status)
 		return _record_tick(status, reason, started)
@@ -2154,7 +2194,10 @@ class Repeat extends Decorator:
 		if _child == null:
 			return _record_tick(Status.FAILURE, &"missing_child", started)
 
+		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
+		if generation != _runtime_generation:
+			return _record_tick(Status.ABORTED, &"runtime_reset", started)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
 		var reason: StringName = _get_child_status_reason(_child, status_value, status)
 		if GFBehaviorTree._is_running(status):
@@ -2221,7 +2264,10 @@ class UntilSuccess extends Decorator:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
 			return _record_tick(Status.FAILURE, &"missing_child", started)
+		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
+		if generation != _runtime_generation:
+			return _record_tick(Status.ABORTED, &"runtime_reset", started)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
 		var reason: StringName = _get_child_status_reason(_child, status_value, status)
 		if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
@@ -2274,7 +2320,10 @@ class UntilFail extends Decorator:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
 			return _record_tick(Status.FAILURE, &"missing_child", started)
+		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
+		if generation != _runtime_generation:
+			return _record_tick(Status.ABORTED, &"runtime_reset", started)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
 		var reason: StringName = _get_child_status_reason(_child, status_value, status)
 		if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
@@ -2324,6 +2373,7 @@ class Runner extends RefCounted:
 
 	var _root_node: BTNode
 	var _is_ticking: bool = false
+	var _reset_serial: int = 0
 
 	func _init(root: BTNode, duplicate_runtime_tree: bool = true) -> void:
 		self.duplicates_runtime_tree = duplicate_runtime_tree
@@ -2343,8 +2393,11 @@ class Runner extends RefCounted:
 			push_error("[GFBehaviorTree] Runner.tick() 不允许同步重入。")
 			return Status.ABORTED
 		_is_ticking = true
+		var reset_serial: int = _reset_serial
 		var status_value: Variant = _root_node.tick(blackboard)
 		_is_ticking = false
+		if reset_serial != _reset_serial:
+			return Status.ABORTED
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
 		var reason: StringName = GFBehaviorTree._status_reason_from_value(status_value, status)
 		if reason == &"invalid_status":
@@ -2356,6 +2409,7 @@ class Runner extends RefCounted:
 	## [br]
 	## @api public
 	func reset() -> void:
+		_reset_serial += 1
 		if _root_node != null:
 			_root_node.reset()
 

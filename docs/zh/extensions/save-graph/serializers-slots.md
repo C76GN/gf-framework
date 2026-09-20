@@ -17,6 +17,8 @@ SaveGraph 的默认节点序列化器按节点类型拆分，覆盖常见场景�
 
 如果只需要在场景树里声明属性白名单，可以直接使用 `GFPersistPropertiesSource`。它是 `GFSaveSource` 的薄封装，内部仍使用 `GFNodePropertySerializer`，默认目标是父节点，也可以通过继承的 `target_node_path` 指向其他节点。
 
+恢复白名单与采集白名单相同：载荷包含未声明属性时会在写入前失败。JSON codec 的遍历失败标记也不能作为普通属性值恢复；调用方应检查应用结果。事务回滚会使用每个 Source 采集旧状态时的引用根，因此嵌套 Scope 内的 Node 引用仍按原 Scope 解析。
+
 ```gdscript
 var source := GFPersistPropertiesSource.new()
 source.source_key = &"player_view"

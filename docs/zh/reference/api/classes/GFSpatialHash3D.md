@@ -20,6 +20,7 @@
 | 属性 | [`max_covered_cells`](#member-gfspatialhash3d-properties-max_covered_cells) | `var max_covered_cells: int:` |
 | 方法 | [`configure`](#member-gfspatialhash3d-methods-configure) | `func configure(p_cell_size: float) -> void:` |
 | 方法 | [`get_cell_for_position`](#member-gfspatialhash3d-methods-get_cell_for_position) | `func get_cell_for_position(position: Vector3) -> Vector3i:` |
+| 方法 | [`can_query_aabb`](#member-gfspatialhash3d-methods-can_query_aabb) | `func can_query_aabb(area: AABB) -> bool:` |
 | 方法 | [`insert`](#member-gfspatialhash3d-methods-insert) | `func insert(entity: Variant, bounds: AABB) -> bool:` |
 | 方法 | [`remove`](#member-gfspatialhash3d-methods-remove) | `func remove(entity: Variant) -> void:` |
 | 方法 | [`update`](#member-gfspatialhash3d-methods-update) | `func update(entity: Variant, bounds: AABB) -> bool:` |
@@ -115,6 +116,27 @@ func get_cell_for_position(position: Vector3) -> Vector3i:
 | `position` | 世界坐标。 |
 
 返回：哈希格子坐标。
+
+<a id="member-gfspatialhash3d-methods-can_query_aabb"></a>
+
+### `can_query_aabb`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func can_query_aabb(area: AABB) -> bool:
+```
+
+检查 AABB 查询是否可在当前坐标范围和格子预算内完整枚举。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `area` | 查询 AABB，负尺寸会先归一化。 |
+
+返回：可完整查询时返回 true；不会分配格子列表。
 
 <a id="member-gfspatialhash3d-methods-insert"></a>
 

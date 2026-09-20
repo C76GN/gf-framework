@@ -110,6 +110,14 @@ class ControllableSignalAction:
 		complete()
 
 
+class EnqueueOnCancelAction extends ManualSignalAction:
+	var queue_system: Object
+
+	func cancel() -> void:
+		super.cancel()
+		queue_system.call("enqueue", OrderAction.new(order_list, "NEW"))
+
+
 ## 记录队列执行前注入到动作中的架构。
 class InjectedAction:
 	extends GFVisualAction
@@ -415,6 +423,30 @@ func test_current_action_controls_delegate_to_running_action() -> void:
 	assert_true(waiting_action.finished, "finish_current_action 应委托给当前动作。")
 	assert_false(_is_queue_processing(_system), "完成当前动作后队列应恢复空闲。")
 	assert_null(_get_current_action(_system), "完成后不应保留当前动作。")
+
+
+func test_finishing_last_action_emits_drained_once() -> void:
+	var action: ControllableSignalAction = ControllableSignalAction.new([], "WAIT")
+	_enqueue(_system, action)
+	await get_tree().process_frame
+	watch_signals(_system)
+	_finish_current_action(_system)
+	await get_tree().process_frame
+	_finish_current_action(_system)
+	assert_signal_emit_count(_system, "queue_drained", 1)
+
+
+func test_clear_current_reschedules_work_accepted_by_cancel_callback() -> void:
+	var order: Array = []
+	var action: EnqueueOnCancelAction = EnqueueOnCancelAction.new(order, "WAIT")
+	action.queue_system = _system
+	_enqueue(_system, action)
+	await get_tree().process_frame
+	_clear_queue(_system, true)
+	await get_tree().process_frame
+	assert_eq(order, ["WAIT", "NEW"])
+	assert_false(_is_queue_processing(_system))
+	action.queue_system = null
 
 
 func test_cancel_current_action_detaches_before_reentrant_cancel_hook() -> void:

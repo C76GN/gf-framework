@@ -315,9 +315,20 @@ func add(other: GFFixedDecimal) -> GFFixedDecimal:
 		return clone()
 
 	var target_places: int = maxi(decimal_places, other.decimal_places)
-	var left_raw: int = _align_raw_for_compare(target_places)
-	var right_raw: int = other._align_raw_for_compare(target_places)
-	return GFFixedDecimal.new(_checked_add(left_raw, right_raw, "add"), target_places)
+	if decimal_places == other.decimal_places:
+		return GFFixedDecimal.new(_checked_add(raw_value, other.raw_value, "add"), target_places)
+	var left_digits: String = str(_abs_int(raw_value)) + _repeat_character("0", target_places - decimal_places)
+	var right_digits: String = str(_abs_int(other.raw_value)) + _repeat_character("0", target_places - other.decimal_places)
+	var negative: bool = raw_value < 0
+	var result_digits: String = ""
+	if negative == (other.raw_value < 0):
+		result_digits = _add_decimal_strings(left_digits, right_digits)
+	elif _compare_decimal_strings(left_digits, right_digits) >= 0:
+		result_digits = _subtract_decimal_strings(left_digits, right_digits)
+	else:
+		result_digits = _subtract_decimal_strings(right_digits, left_digits)
+		negative = other.raw_value < 0
+	return GFFixedDecimal.new(_decimal_string_to_int_saturated(result_digits, negative, "add"), target_places)
 
 
 ## 与另一个定点数相减。
@@ -654,13 +665,6 @@ static func _append_packed_string(target: PackedStringArray, value: String) -> v
 	var appended: bool = target.append(value)
 	if appended:
 		return
-
-
-func _align_raw_for_compare(target_decimal_places: int) -> int:
-	if target_decimal_places <= decimal_places:
-		return raw_value
-
-	return _checked_multiply(raw_value, _pow10_int(target_decimal_places - decimal_places), "compare")
 
 
 static func _compare_scaled_raw_values(

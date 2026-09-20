@@ -76,7 +76,7 @@ var max_gap_seconds: float = 0.4:
 var player_scoped: bool = true
 ```
 
-玩家级动作是否只检查同一玩家。启用且 player_index 有效时，runtime 必须提供 完整 player-specific active/started/completed/duration 协议，否则序列不推进。
+玩家级动作是否只检查同一玩家。启用且 player_index 有效时，runtime 必须提供 完整 player-specific active/started/completed/duration 协议，否则序列不推进。 所有序列都要求 runtime 提供动作边沿版本，避免重复消费同一次输入。
 
 ## 方法
 

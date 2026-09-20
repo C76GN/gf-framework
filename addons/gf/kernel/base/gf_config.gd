@@ -31,11 +31,10 @@ func validate() -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 包含配置数据的字典。
 ## [br]
-## @schema return {
-##   "type": "Dictionary",
-##   "additional_properties": true
-## }
+## @schema return: {"type": "Dictionary", "additional_properties": true}
 func to_dict() -> Dictionary:
 	return {}

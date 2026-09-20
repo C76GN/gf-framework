@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "4689e552c58dbf075735c4ea72cc991b4564917a946e48f92b09b0f7bcad64b9",
+  "source_digest": "db11b7dfa302c8520541194fc89a274ad6a41dfc9f4b0522609aa42781396b9d",
   "class_count": 863,
   "autoload_count": 1,
   "package_count": 59,
@@ -19427,7 +19427,7 @@
         {
           "kind": "const",
           "name": "FORMAT_VERSION",
-          "signature": "const FORMAT_VERSION: int = 1",
+          "signature": "const FORMAT_VERSION: int = 2",
           "summary": "manifest 格式版本。",
           "visibility": "public"
         },
@@ -25869,7 +25869,7 @@
           "kind": "func",
           "name": "reserve",
           "signature": "func reserve(min_capacity: int) -> void",
-          "summary": "至少保留指定底层容量。",
+          "summary": "至少保留指定底层容量。超出 Array 容量范围或分配失败时保持现有内容与容量不变。",
           "visibility": "public"
         },
         {
@@ -26994,7 +26994,7 @@
         {
           "kind": "func",
           "name": "deserialize_values",
-          "signature": "func deserialize_values(data: Dictionary) -> void",
+          "signature": "func deserialize_values(data: Dictionary) -> bool",
           "summary": "从 JSON 兼容结构恢复运行值。",
           "visibility": "public"
         }
@@ -49244,6 +49244,13 @@
           "signature": "func _reset_transport_metrics() -> void",
           "summary": "重置当前连接的累计传输指标。",
           "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_reset_transport_connection",
+          "signature": "func _reset_transport_connection() -> void",
+          "summary": "清除旧连接状态，供后端在派发断开回调前提交释放结果。",
+          "visibility": "protected"
         }
       ]
     },
@@ -70315,7 +70322,7 @@
           "kind": "func",
           "name": "get_requirements",
           "signature": "func get_requirements() -> Array[Object]",
-          "summary": "返回当前子任务聚合后的占用对象副本。",
+          "summary": "返回组显式声明及子任务聚合后的占用对象副本。",
           "visibility": "public"
         },
         {
@@ -83619,6 +83626,13 @@
           "name": "get_cell_for_position",
           "signature": "func get_cell_for_position(position: Vector3) -> Vector3i",
           "summary": "获取世界坐标所在的哈希格子。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "can_query_aabb",
+          "signature": "func can_query_aabb(area: AABB) -> bool",
+          "summary": "检查 AABB 查询是否可在当前坐标范围和格子预算内完整枚举。",
           "visibility": "public"
         },
         {
@@ -97212,6 +97226,20 @@
           "name": "json_compatible_to_variant",
           "signature": "static func json_compatible_to_variant(value: Variant, options: Dictionary = {}) -> Variant",
           "summary": "从 variant_to_json_compatible() 生成的值恢复 Godot Variant。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "variant_to_json_compatible_result",
+          "signature": "static func variant_to_json_compatible_result(value: Variant, options: Dictionary = {}) -> Dictionary",
+          "summary": "编码可恢复数据，并显式报告预算耗尽、循环引用及不支持的值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "json_compatible_to_variant_result",
+          "signature": "static func json_compatible_to_variant_result(value: Variant, options: Dictionary = {}) -> Dictionary",
+          "summary": "解码可恢复数据；预算耗尽、不可恢复标记和损坏的类型载荷会返回失败。",
           "visibility": "public"
         },
         {

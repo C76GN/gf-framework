@@ -5,6 +5,22 @@ extends GutTest
 # --- 测试方法 ---
 
 ## 验证支持报告可聚合用户描述、元数据和自定义分区。
+func test_section_provider_can_unregister_a_later_section() -> void:
+	var utility: GFSupportReportUtility = GFSupportReportUtility.new()
+	assert_true(utility.register_section(&"first", func(_options: Dictionary) -> String:
+		utility.unregister_section(&"second")
+		return "first"
+	))
+	assert_true(utility.register_section(&"second", func(_options: Dictionary) -> String:
+		fail_test("Removed section must not be collected.")
+		return "second"
+	))
+	var sections: Dictionary = utility.collect_sections()
+	assert_true(sections.has(&"first"))
+	assert_false(sections.has(&"second"))
+	utility.dispose()
+
+
 func test_support_report_collects_custom_sections() -> void:
 	var utility: GFSupportReportUtility = GFSupportReportUtility.new()
 	assert_true(utility.register_section(&"save", func(options: Dictionary) -> Dictionary:

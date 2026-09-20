@@ -2217,6 +2217,7 @@ func _track_source_snapshot(
 		"source": source,
 		"source_key": source.get_source_key(),
 		"data": GFVariantData.duplicate_variant(snapshot_data),
+		"reference_root": context.get(GFVariantReferenceCodec.OPTION_ROOT_NODE),
 	})
 
 
@@ -2245,7 +2246,9 @@ func _rollback_source_snapshots(
 			})
 			continue
 		var snapshot_data: Variant = GFVariantData.get_option_value(snapshot, "data")
-		var result: Dictionary = GFVariantData.as_dictionary(source._apply_save_data(snapshot_data, context, serializer_registry))
+		var rollback_context: Dictionary = context.duplicate()
+		rollback_context[GFVariantReferenceCodec.OPTION_ROOT_NODE] = snapshot.get("reference_root")
+		var result: Dictionary = GFVariantData.as_dictionary(source._apply_save_data(snapshot_data, rollback_context, serializer_registry))
 		if not GFVariantData.get_option_bool(result, "ok", false):
 			var rollback_error: String = "Source rollback failed: %s" % String(source_key)
 			state.rollback_failures.append({

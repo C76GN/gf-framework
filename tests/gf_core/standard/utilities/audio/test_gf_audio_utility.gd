@@ -1573,6 +1573,22 @@ func test_stale_finished_callback_cannot_cache_new_sfx_session_twice() -> void:
 	assert_eq(_audio._idle_sfx_players.size(), 1, "每次播放器归还只应缓存一次。")
 
 
+func test_spatial_sfx_rejects_disposed_service_and_insertion_dispose() -> void:
+	var source: Node2D = Node2D.new()
+	add_child_autofree(source)
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	var callback: Callable = func(_child: Node) -> void:
+		_audio.dispose()
+	assert_eq(source.child_entered_tree.connect(callback), OK)
+	var during_dispose: AudioStreamPlayer2D = _audio.play_sfx_clip_2d(clip, source, true)
+	source.child_entered_tree.disconnect(callback)
+	assert_null(during_dispose)
+	assert_null(_audio.play_sfx_clip_2d(clip, source, true))
+	await get_tree().process_frame
+	assert_eq(source.get_child_count(), 0)
+
+
 func test_sfx_insertion_dispose_reentry_does_not_publish_player() -> void:
 	var callback: Callable = func(child: Node) -> void:
 		if child is AudioStreamPlayer and child.name == &"GFSFXPlayer":
@@ -2013,6 +2029,38 @@ func test_audio_bank_mounter_keeps_nested_mount_stack_consistent() -> void:
 
 	first_mounter.free()
 	second_mounter.free()
+
+
+func test_bank_mount_keeps_issuing_utility_after_injection_change() -> void:
+	var other: GFAudioUtility = GFAudioUtility.new()
+	other.init()
+	var mounter: GFAudioBankMounter = GFAudioBankMounter.new()
+	mounter.bank_id = &"shared"
+	mounter.bank = GFAudioBank.new()
+	mounter.set_audio_utility(_audio)
+	assert_true(mounter.mount())
+	var other_bank: GFAudioBank = GFAudioBank.new()
+	var other_token: int = other.mount_audio_bank(&"shared", other_bank)
+	mounter.set_audio_utility(other)
+	assert_true(mounter.unmount())
+	assert_null(_audio.get_audio_bank(&"shared"))
+	assert_same(other.get_audio_bank(&"shared"), other_bank)
+	assert_true(other.unmount_audio_bank(&"shared", other_token))
+	mounter.free()
+	other.dispose()
+	await get_tree().process_frame
+
+
+func test_bank_mount_token_is_not_reused_after_reinitialization() -> void:
+	var old_token: int = _audio.mount_audio_bank(&"shared", GFAudioBank.new())
+	_audio.dispose()
+	_audio.init()
+	var bank: GFAudioBank = GFAudioBank.new()
+	var new_token: int = _audio.mount_audio_bank(&"shared", bank)
+	assert_ne(new_token, old_token)
+	assert_false(_audio.unmount_audio_bank(&"shared", old_token))
+	assert_same(_audio.get_audio_bank(&"shared"), bank)
+	assert_true(_audio.unmount_audio_bank(&"shared", new_token))
 
 
 func test_audio_bank_mounter_unmounts_original_bank_id_after_id_change() -> void:

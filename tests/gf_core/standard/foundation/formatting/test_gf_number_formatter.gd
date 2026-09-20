@@ -33,6 +33,15 @@ func test_format_scientific_supports_multiple_styles() -> void:
 	assert_eq(power_text, "1 x 10^6", "POWER_OF_TEN 风格应输出 x 10^n。")
 
 
+func test_format_full_padding_does_not_rescale_large_fixed_values() -> void:
+	var value: GFFixedDecimal = GFFixedDecimal.new(1_000_000_000_000_000_000, 0)
+	assert_eq(GFNumberFormatter.format_full(value, 2, false), "1000000000000000000.00")
+	assert_eq(GFNumberFormatter.format_full(value, 2), "1000000000000000000")
+	assert_eq(GFNumberFormatter.format_full(value.negated(), 2, false, true), "-1,000,000,000,000,000,000.00")
+	assert_eq(value.raw_value, 1_000_000_000_000_000_000)
+	assert_eq(value.decimal_places, 0)
+
+
 func test_format_full_understands_fixed_decimal() -> void:
 	var money: GFFixedDecimal = GFFixedDecimal.from_string("1234.500", 3)
 	var text: String = GFNumberFormatter.format_full(money, 3, true)

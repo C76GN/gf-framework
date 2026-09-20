@@ -2108,6 +2108,97 @@ func test_virtual_input_pulse_reject_new_preserves_current_lease() -> void:
 	timer_utility.dispose()
 
 
+func test_invalid_manual_virtual_write_preserves_current_pulse() -> void:
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"axis", GFInputAction.ValueType.AXIS_1D), []),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"touch", -1, timer_utility)
+	var operation: GFVirtualInputPulseOperation = source.pulse_action(&"axis", 1.0, 0.2)
+	for invalid_value: float in [NAN, INF, -INF]:
+		assert_false(_utility.set_virtual_action_value(&"axis", invalid_value, &"touch"))
+		assert_true(operation.is_pending(), "拒绝写入不得撤销已有 pulse lease。")
+		assert_true(_utility.is_action_active(&"axis"))
+		assert_eq(operation.get_release_count(), 0)
+	timer_utility.tick(0.2)
+	assert_eq(operation.get_status(), GFVirtualInputPulseOperation.Status.COMPLETED)
+	assert_eq(operation.get_release_count(), 1)
+	assert_false(_utility.is_action_active(&"axis"))
+	timer_utility.dispose()
+
+
+func test_clear_input_state_commits_before_completed_reentry() -> void:
+	_utility.enable_context(_make_context(&"gameplay", [_make_mapping(_make_action(&"confirm"), [])]))
+	assert_true(_utility.set_virtual_action_value(&"confirm", true, &"manual"))
+	var observations: Array[bool] = []
+	var on_completed: Callable = func(_action_id: StringName, _value: Variant) -> void:
+		observations.append(_utility.is_action_active(&"confirm"))
+		if observations.size() == 1:
+			_utility.clear_input_state()
+			var _restarted: bool = _utility.set_virtual_action_value(&"confirm", true, &"new_manual")
+	var _connected: Error = _utility.action_completed.connect(on_completed) as Error
+	_utility.clear_input_state()
+	assert_eq(observations, [false], "完成通知必须观察已提交的 inactive，重入不得重复通知。")
+	assert_true(_utility.is_action_active(&"confirm"), "旧 clear 调用栈不得抹掉回调创建的新贡献。")
+	_utility.action_completed.disconnect(on_completed)
+
+
+func test_clear_player_input_state_commits_before_completed_reentry() -> void:
+	_utility.enable_context(_make_context(&"gameplay", [_make_mapping(_make_action(&"confirm"), [])]))
+	assert_true(_utility.set_virtual_action_value(&"confirm", true, &"manual", 0))
+	var observations: Array[bool] = []
+	var on_completed: Callable = func(_player: int, _action_id: StringName, _value: Variant) -> void:
+		observations.append(_utility.is_action_active_for_player(0, &"confirm"))
+		if observations.size() == 1:
+			_utility.clear_player_input_state(0)
+			var _restarted: bool = _utility.set_virtual_action_value(&"confirm", true, &"new_manual", 0)
+	var _connected: Error = _utility.player_action_completed.connect(on_completed) as Error
+	_utility.clear_player_input_state(0)
+	assert_eq(observations, [false], "玩家完成通知必须观察已提交的 inactive。")
+	assert_true(_utility.is_action_active_for_player(0, &"confirm"))
+	_utility.player_action_completed.disconnect(on_completed)
+
+
+func test_sequence_consumes_each_started_edge_once() -> void:
+	_utility.enable_context(_make_context(&"gameplay", [_make_mapping(_make_action(&"step"), [])]))
+	var trigger: GFInputSequenceTrigger = GFInputSequenceTrigger.new()
+	trigger.required_action_ids = [&"step", &"step"]
+	var state: Dictionary = {}
+	trigger.reset_trigger_state(state)
+	trigger.prepare_runtime(&"special", _utility, -1, state)
+	assert_true(_utility.set_virtual_action_value(&"step", true))
+	assert_ne(trigger.update(true, true, 0.0, state), GFInputTrigger.TriggerState.TRIGGERED)
+	assert_ne(trigger.update(true, true, 0.0, state), GFInputTrigger.TriggerState.TRIGGERED,
+		"同一个 started 边沿不能满足两个重复动作步骤。")
+	assert_true(_utility.clear_virtual_action(&"step"))
+	var _released: GFInputTrigger.TriggerState = trigger.update(false, false, 0.0, state)
+	assert_true(_utility.set_virtual_action_value(&"step", true))
+	assert_eq(trigger.update(true, true, 0.0, state), GFInputTrigger.TriggerState.TRIGGERED)
+	assert_ne(trigger.update(true, true, 0.0, state), GFInputTrigger.TriggerState.TRIGGERED)
+
+
+func test_sequence_consumes_each_completed_edge_once() -> void:
+	_utility.enable_context(_make_context(&"gameplay", [_make_mapping(_make_action(&"step"), [])]))
+	var trigger: GFInputSequenceTrigger = GFInputSequenceTrigger.new()
+	var step: GFInputSequenceStep = GFInputSequenceStep.new()
+	step.action_id = &"step"
+	step.trigger_on_release = true
+	var branch: GFInputSequenceBranch = GFInputSequenceBranch.new()
+	branch.steps = [step, step]
+	trigger.branches = [branch]
+	var state: Dictionary = {}
+	trigger.reset_trigger_state(state)
+	trigger.prepare_runtime(&"special", _utility, -1, state)
+	assert_true(_utility.set_virtual_action_value(&"step", true))
+	assert_true(_utility.clear_virtual_action(&"step"))
+	assert_ne(trigger.update(true, true, 0.0, state), GFInputTrigger.TriggerState.TRIGGERED)
+	assert_ne(trigger.update(true, true, 0.0, state), GFInputTrigger.TriggerState.TRIGGERED)
+	assert_true(_utility.set_virtual_action_value(&"step", true))
+	assert_true(_utility.clear_virtual_action(&"step"))
+	assert_eq(trigger.update(true, true, 0.0, state), GFInputTrigger.TriggerState.TRIGGERED)
+
+
 func test_manual_virtual_write_terminates_pulse_before_overwrite() -> void:
 	var bindings: Array[GFInputBinding] = []
 	_utility.enable_context(_make_context(&"gameplay", [

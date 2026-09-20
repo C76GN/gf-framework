@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import hashlib
+import contextlib
 import json
 import os
 import subprocess
@@ -631,6 +632,32 @@ class TestInventoryTests(unittest.TestCase):
 				with self.subTest(rule_id=rule_id):
 					with self.assertRaisesRegex(inventory.TestInventoryError, rule_id):
 						inventory.collect_test_inventory(repository, limits=limits)
+
+	def test_entry_budget_stops_directory_iteration_before_accumulation(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			repository = _make_repository(Path(temporary_directory))
+			test_root = repository / "tests/gf_core"
+			for index in range(5):
+				(test_root / f"entry{index}.txt").write_text("fixture", encoding="utf-8")
+			scandir = inventory.os.scandir
+			consumed = 0
+
+			@contextlib.contextmanager
+			def bounded_scandir(path: Path):
+				nonlocal consumed
+				with scandir(path) as iterator:
+					def entries():
+						nonlocal consumed
+						for entry in iterator:
+							consumed += 1
+							self.assertLessEqual(consumed, 3, "Enumeration continued after its hard entry limit")
+							yield entry
+					yield entries()
+
+			with mock.patch.object(inventory.os, "scandir", side_effect=bounded_scandir):
+				with self.assertRaisesRegex(inventory.TestInventoryLimitError, "entry_limit"):
+					inventory.collect_test_inventory(repository, limits=replace(inventory.DEFAULT_LIMITS, max_entries=2))
+			self.assertEqual(consumed, 3)
 
 	def test_relative_root_and_directory_link_are_rejected(self) -> None:
 		with self.assertRaisesRegex(

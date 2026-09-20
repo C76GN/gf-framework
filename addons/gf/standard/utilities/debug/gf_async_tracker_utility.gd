@@ -363,6 +363,8 @@ func refresh_snapshots(max_provider_calls: int = DEFAULT_MAX_PROVIDER_CALLS) -> 
 	var refreshed_count: int = 0
 	var failed_count: int = 0
 	for tracking_id: int in tracking_ids:
+		if not _records.has(tracking_id):
+			continue
 		var record: Dictionary = GFVariantData.as_dictionary(_records[tracking_id])
 		var provider_ref: Dictionary = GFVariantData.get_option_dictionary(
 			record,
@@ -536,6 +538,8 @@ func _make_snapshot_provider_ref(snapshot_provider: Callable) -> Dictionary:
 		"target_ref": weakref(target),
 		"target_instance_id": target.get_instance_id(),
 		"method": snapshot_provider.get_method(),
+		"bound_arguments": snapshot_provider.get_bound_arguments(),
+		"unbound_argument_count": snapshot_provider.get_unbound_arguments_count(),
 	}
 
 
@@ -552,7 +556,14 @@ func _resolve_snapshot_provider(record: Dictionary) -> Callable:
 	var method_name: StringName = GFVariantData.get_option_string_name(provider_ref, "method")
 	if method_name == &"":
 		return Callable()
-	return Callable(target, method_name)
+	var provider: Callable = Callable(target, method_name)
+	var bound_arguments: Array = GFVariantData.get_option_array(provider_ref, "bound_arguments")
+	if not bound_arguments.is_empty():
+		provider = provider.bindv(bound_arguments)
+	var unbound_count: int = GFVariantData.get_option_int(provider_ref, "unbound_argument_count")
+	if unbound_count > 0:
+		provider = provider.unbind(unbound_count)
+	return provider
 
 
 func _record_handle_is_valid(record: Dictionary) -> bool:

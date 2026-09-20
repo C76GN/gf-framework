@@ -91,4 +91,13 @@ func get_event_rich_text(input_event: InputEvent, options: Dictionary = {}) -> S
 # --- 私有/辅助方法 ---
 
 func _escape_bbcode(text: String) -> String:
-	return text.replace("[", "[lb]").replace("]", "[rb]")
+	var result: String = ""
+	for character: String in text:
+		match character:
+			"[":
+				result += "[lb]"
+			"]":
+				result += "[rb]"
+			_:
+				result += character
+	return result

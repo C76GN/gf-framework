@@ -29,6 +29,8 @@ pass
 
 `query_cell_range()` 会在构造端点和枚举前验证各轴范围，并以除法式预算检查保证覆盖格数不超过 `max_covered_cells`。半径或端点无法由 `Vector3i` 表示、或范围超过预算时返回空候选，不会让用于保护查询的计数自身先溢出。
 
+`can_query_aabb()` 可在分配格子列表前检查 AABB 是否落在可表示范围及当前预算内。零半径 `query_radius()` 采用闭边界点过滤，并按需检查相邻桶以包含盒子最大端；候选桶最多八个，仍受 `max_covered_cells` 限制。`query_cell()` 的半开占格语义保持不变。
+
 实体身份接受 `Object`、非空 `StringName`、非空 `String` 或 `int`。`Object` 以 weakref 保存，索引会在查询或统计前清理已释放对象；可变 `Array`、`Dictionary` 不会被接受为 key。
 
 它不依赖物理节点，也不负责碰撞、阵营、视线或目标选择规则；这些语义仍应留在项目自己的 `System` 或规则对象中。

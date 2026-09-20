@@ -407,9 +407,12 @@ func _reserve_capacity() -> bool:
 		return true
 	if overflow_policy == OverflowPolicy.SKIP_NEW:
 		return false
-	while _active_shakes.size() >= max_active_shakes and not _play_order.is_empty():
-		var _stopped_oldest: bool = stop_shake(_play_order[0])
-	return _active_shakes.size() < max_active_shakes
+	var eviction_candidates: PackedInt32Array = _play_order.duplicate()
+	for shake_id: int in eviction_candidates:
+		if max_active_shakes <= 0 or _active_shakes.size() < max_active_shakes:
+			return true
+		var _stopped_oldest: bool = stop_shake(shake_id)
+	return max_active_shakes <= 0 or _active_shakes.size() < max_active_shakes
 
 
 func _finish_shake(shake_id: int) -> void:

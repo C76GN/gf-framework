@@ -28,6 +28,47 @@ class ToggleCondition:
 		return allowed
 
 
+class RedirectingState:
+	extends TrackingNodeState
+
+	var redirect_on_enter: bool = false
+	var redirect_on_event: bool = false
+	var redirect_on_pause: bool = false
+	var redirect_on_resume: bool = false
+
+	func _enter(previous_state: StringName = &"", args: Dictionary = {}) -> void:
+		super._enter(previous_state, args)
+		if redirect_on_enter:
+			transition_to(&"Next")
+
+	func _handle_state_event(_event_id: StringName, _payload: Variant = null) -> bool:
+		if redirect_on_event:
+			transition_to(&"Next")
+		return false
+
+	func _pause(_next_state: StringName = &"", _args: Dictionary = {}) -> void:
+		if redirect_on_pause:
+			transition_to(&"Next")
+
+	func _resume(_previous_state: StringName = &"", _args: Dictionary = {}) -> void:
+		if redirect_on_resume:
+			transition_to(&"Next")
+
+
+class RedirectingBehavior:
+	extends GFNodeStateBehavior
+
+	var redirect_on_enter: bool = false
+
+	func _enter(state: GFNodeState, _previous_state: StringName = &"", _args: Dictionary = {}) -> void:
+		if redirect_on_enter:
+			state.transition_to(&"Next")
+
+	func _handle_state_event(state: GFNodeState, _event_id: StringName, _payload: Variant = null) -> bool:
+		state.transition_to(&"Next")
+		return false
+
+
 class RecordingBehavior:
 	extends GFNodeStateBehavior
 
@@ -52,6 +93,58 @@ class RecordingBehavior:
 	func _handle_state_event(state: GFNodeState, event_id: StringName, _payload: Variant = null) -> bool:
 		calls.append("event:%s:%s" % [state.get_state_name(), event_id])
 		return event_id == handled_event_id
+
+
+func test_redirected_hooks_stop_remaining_behaviors() -> void:
+	for redirect_from_behavior: bool in [false, true]:
+		for redirect_on_enter: bool in [false, true]:
+			var group: GFNodeStateGroup = autofree(GFNodeStateGroup.new())
+			var state: RedirectingState = autofree(RedirectingState.new())
+			var next_state: TrackingNodeState = autofree(TrackingNodeState.new())
+			var recording: RecordingBehavior = RecordingBehavior.new()
+			state.state_name = &"First"
+			next_state.state_name = &"Next"
+			if redirect_from_behavior:
+				var redirecting: RedirectingBehavior = RedirectingBehavior.new()
+				redirecting.redirect_on_enter = redirect_on_enter
+				state.behaviors.append(redirecting)
+			else:
+				state.redirect_on_enter = redirect_on_enter
+				state.redirect_on_event = not redirect_on_enter
+			state.behaviors.append(recording)
+			group.add_state(state)
+			group.add_state(next_state)
+			group.transition_to(&"First")
+			if not redirect_on_enter:
+				var _handled: bool = group.dispatch_state_event(&"redirect")
+			assert_eq(group.get_current_state(), next_state)
+			assert_false(recording.calls.has("enter:First:") if redirect_on_enter else recording.calls.has("event:First:redirect"))
+			group.clear_states(false)
+
+
+func test_pause_and_resume_redirects_stop_stale_behaviors() -> void:
+	for phase: StringName in [&"pause", &"resume"]:
+		var group: GFNodeStateGroup = autofree(GFNodeStateGroup.new())
+		var state: RedirectingState = autofree(RedirectingState.new())
+		var menu: TrackingNodeState = autofree(TrackingNodeState.new())
+		var next_state: TrackingNodeState = autofree(TrackingNodeState.new())
+		var recording: RecordingBehavior = RecordingBehavior.new()
+		state.state_name = &"First"
+		menu.state_name = &"Menu"
+		next_state.state_name = &"Next"
+		state.redirect_on_pause = phase == &"pause"
+		state.redirect_on_resume = phase == &"resume"
+		state.behaviors.append(recording)
+		group.add_state(state)
+		group.add_state(menu)
+		group.add_state(next_state)
+		group.transition_to(&"First")
+		group.push_state(&"Menu")
+		if phase == &"resume":
+			assert_true(group.pop_state())
+		assert_eq(group.get_current_state(), next_state)
+		assert_false(recording.calls.has("%s:First:Menu" % phase))
+		group.clear_states(false)
 
 
 func test_enter_condition_blocks_transition_until_allowed() -> void:

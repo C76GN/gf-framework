@@ -155,6 +155,20 @@ func test_async_batch_clear_disconnects_watched_response() -> void:
 	assert_eq(batch.get_count(), 0, "清空后不应保留条目。")
 
 
+func test_started_cancellation_prevents_transport_dispatch() -> void:
+	var client: ManualHttpClientUtility = ManualHttpClientUtility.new()
+	client.init()
+	var _connected: Error = client.request_started.connect(func(started_response: GFHttpResponse) -> void:
+		started_response.cancel()
+	) as Error
+	var response: GFHttpResponse = client.execute(_make_builder("cancel-before-dispatch"))
+	assert_eq(response.state, GFHttpResponse.State.CANCELLED)
+	assert_true(client.started_urls.is_empty())
+	assert_eq(GFVariantData.get_option_int(client.get_debug_snapshot(), "active_count"), 0)
+	client.dispose()
+	await get_tree().process_frame
+
+
 func test_http_client_pool_bounds_concurrency_and_reuses_workers() -> void:
 	var client: ManualHttpClientUtility = ManualHttpClientUtility.new()
 	client.configure(1, 8)

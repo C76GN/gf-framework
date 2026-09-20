@@ -102,8 +102,11 @@ var _owned_material_id: int = 0
 
 # --- Godot 生命周期方法 ---
 
-func _ready() -> void:
+func _enter_tree() -> void:
 	_connect_profile_changed()
+
+
+func _ready() -> void:
 	set_process(apply_each_process)
 	if apply_on_ready:
 		var _applied_count: int = apply()

@@ -30,12 +30,11 @@ var _execution_started: bool = false
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 同步命令返回 null；异步命令可返回一个 Signal 供外部 await。
 ## [br]
-## @schema return {
-##   "type": "Variant",
-##   "description": "同步命令返回 null；异步命令可返回 Signal。"
-## }
+## @schema return: {"type": "Variant", "description": "同步命令返回 null；异步命令可返回 Signal。"}
 func execute() -> Variant:
 	return null
 
@@ -101,14 +100,13 @@ func get_utility(utility_type: Script, require_ready: bool = false) -> Object:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param command: 要发送的命令实例。
 ## [br]
 ## @return 命令的执行结果（null 或 Signal）。
 ## [br]
-## @schema return {
-##   "type": "Variant",
-##   "description": "命令执行结果；异步命令可返回 Signal。"
-## }
+## @schema return: {"type": "Variant", "description": "命令执行结果；异步命令可返回 Signal。"}
 func send_command(command: Object) -> Variant:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture == null:
@@ -131,14 +129,13 @@ func send_event(event_instance: Object) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param event_id: StringName 事件标识符。
 ## [br]
 ## @param payload: 可选的事件附加数据。
 ## [br]
-## @schema payload {
-##   "type": "Variant",
-##   "description": "事件附加数据；由事件消费者约定结构。"
-## }
+## @schema payload: {"type": "Variant", "description": "事件附加数据；由事件消费者约定结构。"}
 func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:

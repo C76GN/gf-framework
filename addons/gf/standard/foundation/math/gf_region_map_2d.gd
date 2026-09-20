@@ -192,7 +192,6 @@ func clear_dirty(region_key: Variant = null) -> void:
 func clear() -> void:
 	var removed_region_keys: Array = _regions.keys()
 	_regions.clear()
-	_dirty_regions.clear()
 	for region_key_variant: Variant in removed_region_keys:
 		if region_key_variant is Vector2i:
 			var region_key: Vector2i = region_key_variant

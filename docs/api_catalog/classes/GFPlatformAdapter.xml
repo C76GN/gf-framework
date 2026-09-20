@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformAdapter" path="addons/gf/standard/platform/gf_platform_adapter.gd" module="standard" extends="RefCounted" classDigest="4326c018bade4f5164170bb8b71cb45ff0ad058db13ee76db4543caf676bb100">
+<class name="GFPlatformAdapter" path="addons/gf/standard/platform/gf_platform_adapter.gd" module="standard" extends="RefCounted" classDigest="fe8102ca4847ea400826c0cf7465f4d83b4720be8481ee26f4a45480a935ebd7">
 	<description>GFPlatformAdapter: 外部平台 adapter 协议。
 Steam、微信小游戏、主机平台或自建平台实现应继承该类型，把具体 SDK 回调
 转换为 GF 的上下文、生命周期事件和桥接结果。该基类不依赖任何平台 SDK。</description>
@@ -74,7 +74,8 @@ Steam、微信小游戏、主机平台或自建平台实现应继承该类型，
 		<member kind="method" name="configure">
 			<signature>func configure( adapter_id: StringName, platform_id: StringName, contract_ids: PackedStringArray, contract_descriptors: Array[GFPlatformContractDescriptor], initial_context: GFPlatformRuntimeContext = null ) -&gt; bool:</signature>
 			<description>配置 adapter 身份和支持的桥接契约。
-配置只允许在 CREATED 状态执行，防止运行期间改变路由身份。</description>
+配置只允许在尚未注册的 CREATED 状态执行。首次注册后身份和契约永久冻结；
+注销后需要不同配置时，创建新 adapter 实例。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">adapter_id: Adapter 稳定标识。</tag>

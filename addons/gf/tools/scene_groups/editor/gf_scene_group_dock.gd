@@ -115,6 +115,8 @@ func cancel_scan() -> void:
 	_index.cancel()
 	_scanning = false
 	_pending_location.clear()
+	if is_instance_valid(_location_status):
+		_location_status.text = ""
 	_render_summary()
 	_render_page()
 	set_process(false)

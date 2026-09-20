@@ -25,6 +25,8 @@ print(total.to_scientific_string()) # 1.45e18
 
 `GFFixedDecimal` 适合货币、税率、百分比、经营数值这类对累计误差更敏感的场景。它内部用整数缩放保存值。
 
+加减法先精确对齐并完成抵消，再对最终结果应用 int64 饱和策略；中间升精度超过 raw 范围不会提前改变操作数。FULL 显示的补零与舍入在十进制文本中处理，大额定点值不会因增加显示小数位而缩小。
+
 ```gdscript
 var price := GFFixedDecimal.from_string("12.34", 2)
 var tax := GFFixedDecimal.from_string("0.08", 2)

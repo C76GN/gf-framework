@@ -77,6 +77,8 @@ var nearby := index_3d.query_records_radius(Vector3.ZERO, 8.0)
 
 facade 只输出实体值、统一 `identity` 快照和调用方 metadata。阵营过滤、可见性、伤害、交互派发和节点生命周期仍由项目或对应扩展处理。小集合可以强制 `STRATEGY_LINEAR`，需要稳定调试索引时可读取 `get_debug_snapshot()` 查看当前实际策略。
 
+3D facade 在某次查询超过空间哈希的格子预算时，会仅对该次查询使用线性扫描，保留完整结果；后续可承受的查询仍使用已有哈希索引。零半径查询使用闭边界点语义，包含 AABB 最大面、棱和角上的命中。
+
 `GFSpatialQueryIdentity` 只接受 `Object`、非空 `StringName`、非空 `String` 或 `int`。`Object` 以 weakref 方式保存，不会因为进入空间索引而被强持有；`Array`、`Dictionary` 等可变复合值会被拒绝，避免索引键在插入后被调用方修改而导致删除、更新和查询结果不可预测。2D facade 会把稳定身份映射为四叉树内部 surrogate int，因此底层 `GFQuadTreeUtility` 的 `int entity_id` 限制不会泄漏到 facade API。AABB 覆盖格子时使用半开最大边界，恰好落在格子边界的盒子不会额外占用相邻格。
 
 ## Environment Query 组合边界

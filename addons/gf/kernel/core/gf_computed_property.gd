@@ -28,6 +28,8 @@ var _effect: GFReactiveEffect = null
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param sources: 要监听的 GFBindableProperty 列表。
 ## [br]
 ## @param compute: 用于计算当前值的回调。
@@ -36,10 +38,7 @@ var _effect: GFReactiveEffect = null
 ## [br]
 ## @param owner: 可选 Node 生命周期宿主。
 ## [br]
-## @schema default_value {
-##   "type": "Variant",
-##   "description": "初始默认值。"
-## }
+## @schema default_value: {"type": "Variant", "description": "初始默认值。"}
 func _init(
 	sources: Array[GFBindableProperty] = [],
 	compute: Callable = Callable(),
@@ -119,12 +118,11 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _new_value: 调用方尝试写入的新值。
 ## [br]
-## @schema _new_value {
-##   "type": "Variant",
-##   "description": "调用方尝试写入的新值。"
-## }
+## @schema _new_value: {"type": "Variant", "description": "调用方尝试写入的新值。"}
 func set_value(_new_value: Variant) -> void:
 	push_error(_READ_ONLY_ERROR)
 
@@ -145,14 +143,13 @@ func mutate(_mutator: Callable) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _item: 调用方尝试追加的元素。
 ## [br]
 ## @return 始终返回 false。
 ## [br]
-## @schema _item {
-##   "type": "Variant",
-##   "description": "调用方尝试追加的元素。"
-## }
+## @schema _item: {"type": "Variant", "description": "调用方尝试追加的元素。"}
 func append_to_array(_item: Variant) -> bool:
 	push_error(_READ_ONLY_ERROR)
 	return false
@@ -162,14 +159,13 @@ func append_to_array(_item: Variant) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _items: 调用方尝试追加的元素列表。
 ## [br]
 ## @return 始终返回 false。
 ## [br]
-## @schema _items {
-##   "type": "Array",
-##   "description": "调用方尝试追加的元素列表。"
-## }
+## @schema _items: {"type": "Array", "description": "调用方尝试追加的元素列表。"}
 func append_array(_items: Array) -> bool:
 	push_error(_READ_ONLY_ERROR)
 	return false
@@ -179,14 +175,13 @@ func append_array(_items: Array) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _item: 调用方尝试删除的元素。
 ## [br]
 ## @return 始终返回 false。
 ## [br]
-## @schema _item {
-##   "type": "Variant",
-##   "description": "调用方尝试删除的元素。"
-## }
+## @schema _item: {"type": "Variant", "description": "调用方尝试删除的元素。"}
 func erase_from_array(_item: Variant) -> bool:
 	push_error(_READ_ONLY_ERROR)
 	return false
@@ -196,21 +191,17 @@ func erase_from_array(_item: Variant) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _key: 调用方尝试设置的键。
 ## [br]
 ## @param _new_value: 调用方尝试设置的新值。
 ## [br]
 ## @return 始终返回 false。
 ## [br]
-## @schema _key {
-##   "type": "Variant",
-##   "description": "调用方尝试设置的键。"
-## }
+## @schema _key: {"type": "Variant", "description": "调用方尝试设置的键。"}
 ## [br]
-## @schema _new_value {
-##   "type": "Variant",
-##   "description": "调用方尝试设置的新值。"
-## }
+## @schema _new_value: {"type": "Variant", "description": "调用方尝试设置的新值。"}
 func set_dictionary_value(_key: Variant, _new_value: Variant) -> bool:
 	push_error(_READ_ONLY_ERROR)
 	return false
@@ -220,14 +211,13 @@ func set_dictionary_value(_key: Variant, _new_value: Variant) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _key: 调用方尝试删除的键。
 ## [br]
 ## @return 始终返回 false。
 ## [br]
-## @schema _key {
-##   "type": "Variant",
-##   "description": "调用方尝试删除的键。"
-## }
+## @schema _key: {"type": "Variant", "description": "调用方尝试删除的键。"}
 func erase_dictionary_key(_key: Variant) -> bool:
 	push_error(_READ_ONLY_ERROR)
 	return false

@@ -171,7 +171,17 @@ func export_profile_path(profile_path: String, options: Dictionary = {}) -> Dict
 				freshness_report,
 				scan_report
 			)
-		if GFVariantData.get_option_bool(freshness_report, "fresh"):
+		var stored_manifest: Dictionary = GFVariantData.get_option_dictionary(freshness_report, "stored_manifest")
+		var run_summary: Dictionary = GFVariantData.get_option_dictionary(stored_manifest, "run_summary")
+		var stored_report: Dictionary = GFVariantData.get_option_dictionary(run_summary, "report")
+		if (
+			GFVariantData.get_option_bool(freshness_report, "fresh")
+			and GFVariantData.get_option_bool(run_summary, "success")
+			and GFVariantData.get_option_bool(stored_report, "ok")
+			and GFVariantData.get_option_int(stored_report, "issue_count", -1) == 0
+			and GFVariantData.get_option_int(stored_report, "warning_count", -1) == 0
+			and GFVariantData.get_option_int(stored_report, "error_count", -1) == 0
+		):
 			return _make_skipped_export_run_result(
 				profile_path,
 				load_result,

@@ -5,11 +5,38 @@ extends GutTest
 
 const GF_NETWORK_EDITOR_ACTIONS_SCRIPT = preload("res://addons/gf/extensions/network/editor/gf_network_editor_actions.gd")
 const GF_NETWORK_CONTRACT_GENERATOR_SCRIPT = preload("res://addons/gf/extensions/network/editor/gf_network_contract_generator.gd")
+const GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT = preload("res://tests/gf_core/support/gf_transient_gdscript_test_support.gd")
 const CONTRACT_PATHS_SETTING: String = "gf/network/contract_paths"
 const CONTRACT_OUTPUT_DIR_SETTING: String = "gf/network/contract_output_dir"
 
 
 # --- 测试方法 ---
+
+class CapturingActions extends GF_NETWORK_EDITOR_ACTIONS_SCRIPT:
+	var diagnostic_text: String = ""
+
+	func _show_diagnostic_dialog(_title: String, text: String) -> void:
+		diagnostic_text = text
+
+
+func test_network_audit_menu_preserves_resource_provenance() -> void:
+	var paths: PackedStringArray = PackedStringArray()
+	for index: int in 2:
+		var path: String = "user://gf_audit_origin_%d_%d.tres" % [Time.get_ticks_usec(), index]
+		var contract: GFNetworkContract = _make_contract(StringName("origin_%d" % index))
+		contract.messages[0].fields[0].required = false
+		contract.messages[0].fields[0].default_value = "bad integer"
+		assert_eq(ResourceSaver.save(contract, path), OK)
+		var _appended: bool = paths.append(path)
+	var previous: Variant = ProjectSettings.get_setting(CONTRACT_PATHS_SETTING)
+	ProjectSettings.set_setting(CONTRACT_PATHS_SETTING, paths)
+	var actions: CapturingActions = CapturingActions.new()
+	actions.handle_menu_action(&"audit_network_contracts")
+	ProjectSettings.set_setting(CONTRACT_PATHS_SETTING, previous)
+	for path: String in paths:
+		assert_true(actions.diagnostic_text.contains(path), actions.diagnostic_text)
+		_remove_file_if_present(path)
+	actions.cleanup()
 
 func test_network_editor_actions_contribute_menu_entries_settings_and_sections() -> void:
 	var actions: RefCounted = GF_NETWORK_EDITOR_ACTIONS_SCRIPT.new()
@@ -49,6 +76,39 @@ func test_network_editor_actions_contribute_menu_entries_settings_and_sections()
 		GFVariantData.get_option_string(_find_record(section_records, "path", "gf/network"), "path"),
 		"gf/network"
 	)
+
+
+func test_network_contract_generator_allocates_complete_symbol_scopes() -> void:
+	var contract: GFNetworkContract = GFNetworkContract.new()
+	contract.contract_id = &"symbols"
+	for entry: Array in [["update", "payload", "message", "channel_id"], ["a", "b_c"], ["a_b", "c"], ["contract", "version"]]:
+		var message_contract: GFNetworkContractMessage = GFNetworkContractMessage.new()
+		message_contract.message_type = StringName(GFVariantData.to_text(entry[0]))
+		for index: int in range(1, entry.size()):
+			var field: GFNetworkContractField = GFNetworkContractField.new()
+			field.field_name = StringName(GFVariantData.to_text(entry[index]))
+			field.value_type = GFNetworkContractField.ValueType.INT
+			message_contract.fields.append(field)
+		contract.messages.append(message_contract)
+	assert_true(GFVariantData.get_option_bool(contract.validate_contract(), "ok"))
+	var generator: GFNetworkContractGenerator = GF_NETWORK_CONTRACT_GENERATOR_SCRIPT.new()
+	var source: String = generator.build_source(contract, { "class_name": "ScopeCollisionFixture" }).replace("class_name ScopeCollisionFixture\n", "")
+	var runtime_script: GDScript = GDScript.new()
+	runtime_script.source_code = source
+	var compile_error: Error = runtime_script.reload(false)
+	assert_eq(compile_error, OK)
+	if compile_error == OK:
+		var message_value: Variant = runtime_script.call("make_update", 7, 8, 9)
+		assert_true(message_value is GFNetworkMessage)
+		if message_value is GFNetworkMessage:
+			var message: GFNetworkMessage = message_value
+			var payload_matches: bool = message.payload[&"payload"] == 7
+			var message_field_matches: bool = message.payload[&"message"] == 8
+			var channel_id_matches: bool = message.payload[&"channel_id"] == 9
+			assert_true(payload_matches)
+			assert_true(message_field_matches)
+			assert_true(channel_id_matches)
+	var _release_errors: Array[int] = GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT.release(runtime_script)
 
 
 func test_network_contract_generator_script_exposes_generation_api() -> void:

@@ -37,12 +37,11 @@ var is_consumed: bool = false
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 包含字段数据的字典。
 ## [br]
-## @schema return {
-##   "type": "Dictionary",
-##   "additional_properties": true
-## }
+## @schema return: {"type": "Dictionary", "additional_properties": true}
 func to_dict() -> Dictionary:
 	return {}
 
@@ -52,12 +51,11 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _data: 包含字段数据的字典（通常来自 to_dict() 的结果）。
 ## [br]
-## @schema _data {
-##   "type": "Dictionary",
-##   "additional_properties": true
-## }
+## @schema _data: {"type": "Dictionary", "additional_properties": true}
 func from_dict(_data: Dictionary) -> void:
 	pass
 

@@ -219,7 +219,7 @@ def gdscript_fence_contents(text: str) -> list[str]:
     return [
         "\n".join(block.content).rstrip()
         for block in scan_markdown_structure(text).fences
-        if block.info.split(maxsplit=1)[0].lower() == "gdscript"
+        if block.info and block.info.split(maxsplit=1)[0].lower() == "gdscript"
     ]
 
 
@@ -347,7 +347,7 @@ def check_public_entry_contracts(repository_root: Path) -> list[str]:
         description_blocks = [
             "\n".join(block.content).strip()
             for block in scan_markdown_structure(library_text).fences
-            if block.info.split(maxsplit=1)[0].lower() == "text"
+            if block.info and block.info.split(maxsplit=1)[0].lower() == "text"
             and block.content
             and block.content[0].startswith("GF Framework is")
         ]

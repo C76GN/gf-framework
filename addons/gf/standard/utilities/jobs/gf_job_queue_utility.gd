@@ -191,6 +191,8 @@ func run_next_job(queue_name: StringName, processor: Callable) -> GFJob:
 	var job: GFJob = start_next_job(queue_name)
 	if job == null:
 		return null
+	if job.status != GFJob.Status.ACTIVE or get_job(job.job_id) != job:
+		return job
 
 	var value: Variant = processor.call(job)
 	if value is Dictionary:

@@ -773,6 +773,17 @@ func test_export_plan_builds_manifest_and_resource_entries() -> void:
 	)
 
 
+func test_export_plan_deduplicates_resource_aliases_of_the_same_file() -> void:
+	var manifest: GFContentPackageManifest = _make_manifest(&"author.aliases", [], [
+		{ "key": "first", "path": "shared.tres" },
+		{ "key": "second", "path": "shared.tres" },
+	], TEMP_ROOT.path_join("aliases"))
+	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.from_manifest(manifest, { "include_manifest": false })
+	var report: Dictionary = plan.get_validation_report()
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(GFVariantData.get_option_int(report, "entry_count"), 1)
+
+
 func test_export_plan_artifact_report_includes_file_metadata() -> void:
 	var root_path: String = TEMP_ROOT.path_join("artifact")
 	var resource_path: String = root_path.path_join("assets/icon.txt")

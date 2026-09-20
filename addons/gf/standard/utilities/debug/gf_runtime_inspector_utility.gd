@@ -292,6 +292,14 @@ func set_property_value(target_id: StringName, property_id: StringName, value: V
 		_end_write(target_id, property_id)
 		return false
 	var new_value: Variant = property.read_value(target)
+	if (
+		write_generation != _registry_generation
+		or not is_instance_valid(target)
+		or _resolve_target(target_id) != target
+		or _resolve_property(target_id, property_id) != property
+	):
+		_end_write(target_id, property_id)
+		return false
 	property_changed.emit(target_id, property_id, old_value, new_value)
 	_refresh_attached_overlay_panel()
 	_end_write(target_id, property_id)

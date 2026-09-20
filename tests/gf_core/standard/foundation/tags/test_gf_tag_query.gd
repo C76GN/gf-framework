@@ -2,6 +2,18 @@
 extends GutTest
 
 
+func test_hierarchical_tags_preserve_empty_segments_across_source_representations() -> void:
+	for tag: StringName in [&"state..burning", &"state.", &".state", &".."]:
+		var tag_set: GFTagSet = GFTagSet.new().add_tag(tag)
+		var dictionary_source: Dictionary = {tag: 1}
+		var array_source: Array = [tag]
+		for query: StringName in [tag, &"state", &"state.", &"state.burning", &"."]:
+			var expected: int = GFTagSourceAdapter.get_tag_count(dictionary_source, query, true)
+			assert_eq(tag_set.get_tag_count(query, true), expected, "层级缓存不得规范化标签身份。")
+			assert_eq(GFTagSourceAdapter.get_tag_count(array_source, query, true), expected)
+		assert_eq(tag_set.get_tag_count(tag, true), 1, "包含子标签必须包含原标签本身。")
+
+
 func test_tag_query_matches_all_any_none_with_hierarchy() -> void:
 	var tag_set: GFTagSet = GFTagSet.new()
 	var _burning_added: GFTagSet = tag_set.add_tag(&"state.burning", 2)

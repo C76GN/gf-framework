@@ -12,6 +12,8 @@ var nearby_entries := track.get_entries_in_range(10.0, 15.0)
 
 `GFTimedTextEntry` 只保存 `start_time`、`end_time`、`text` 和元数据；`GFTimedTextTrack` 负责排序、按时间查询、范围查询、总时长和字典转换；`GFTimedTextImporter` 只提供 SRT、WebVTT 和 LRC 的轻量解析入口。
 
+SRT / WebVTT 的空结束时间按无效 cue 跳过，包括只有空格或 Tab 的字段；不会中断后续有效 cue。非空输入没有任何有效条目时，结果返回 `success=false` 与 `no_valid_entries`。
+
 无论通过 `add_entry()`、`apply_dictionary()`、脚本直接赋值还是 Inspector 写入，时间字段都会保持有限、非负且 `end_time >= start_time`。非有限值归零；提高 start 超过现有 end 时，end 会同步推进到新的 start。零长度条目仍是允许的数据形态，但半开区间查询不会命中它。
 
 复杂字幕样式、富文本清洗、语音同步、动画注入和本地化选择仍应放在项目层或专门扩展里。

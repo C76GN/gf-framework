@@ -1,6 +1,8 @@
 ## 测试通用回合流程系统的阶段推进与行动排序。
 extends GutTest
 
+const GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
+
 
 # --- 辅助类 ---
 
@@ -611,6 +613,23 @@ func test_advance_phase_reentry_is_rejected_while_waiting() -> void:
 	assert_push_warning("[GFTurnFlowSystem] advance_phase 失败：阶段正在推进中。")
 	assert_eq(order, ["enter", "execute"], "阶段等待中再次推进不应重复进入同一阶段。")
 
+	system.stop()
+	await get_tree().process_frame
+
+
+func test_implicit_start_does_not_advance_a_second_phase_from_the_old_call() -> void:
+	var first_order: Array[String] = []
+	var second_order: Array[String] = []
+	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
+	system.set_phases([ManualPhase.new(first_order), ManualPhase.new(second_order)])
+	var callback: Callable = func(_context: GFTurnContext) -> void:
+		GF_ASYNC_CALL_SCRIPT.run_detached(system.advance_phase)
+	var _connection: Error = system.flow_started.connect(callback) as Error
+	GF_ASYNC_CALL_SCRIPT.run_detached(system.advance_phase)
+	await get_tree().process_frame
+	assert_eq(first_order, ["enter", "execute"])
+	assert_eq(second_order, [])
+	system.flow_started.disconnect(callback)
 	system.stop()
 	await get_tree().process_frame
 

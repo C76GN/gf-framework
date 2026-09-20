@@ -31,6 +31,16 @@ func test_merge_tables_updates_inserts_and_deletes_array_records() -> void:
 	assert_eq(GFVariantData.get_option_int(second_row, "id"), 3, "新增记录应追加到末尾。")
 
 
+func test_dictionary_merge_rejects_outer_key_collision_without_losing_base_record() -> void:
+	var policy: GFConfigTableMergePolicy = GFConfigTableMergePolicy.new()
+	policy.allow_update = false
+	var result: Dictionary = GFConfigTableMergeTools.merge_tables({"slot": {"id": 1}}, {"slot": {"id": 2}}, policy)
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	assert_eq(GFVariantData.get_option_dictionary(result, "data"), {"slot": {"id": 1}})
+	assert_eq(GFVariantData.get_option_int(result, "inserted_count"), 0)
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(result, "issues"), "outer_key_collision"))
+
+
 func test_merge_tables_can_use_dictionary_outer_keys() -> void:
 	var policy: GFConfigTableMergePolicy = GFConfigTableMergePolicy.new()
 	policy.key_fields = PackedStringArray()

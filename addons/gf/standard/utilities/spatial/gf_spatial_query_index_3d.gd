@@ -369,7 +369,7 @@ func query_records_aabb_into(
 		return out_records
 	var normalized_area: AABB = _normalize_aabb(area)
 	var candidate_keys: Array[String] = []
-	if _get_active_strategy() == STRATEGY_SPATIAL_HASH:
+	if _get_active_strategy() == STRATEGY_SPATIAL_HASH and _spatial_hash.can_query_aabb(normalized_area):
 		for entity: Variant in _spatial_hash.query_aabb(normalized_area):
 			var entity_key: String = _make_entity_key(entity)
 			if not entity_key.is_empty():
@@ -525,7 +525,7 @@ func _append_point_records(point: Vector3, out_records: Array[Dictionary]) -> vo
 		return
 	var candidate_keys: Array[String] = []
 	if _get_active_strategy() == STRATEGY_SPATIAL_HASH:
-		for entity: Variant in _spatial_hash.query_cell(_spatial_hash.get_cell_for_position(point)):
+		for entity: Variant in _spatial_hash.query_radius(point, 0.0):
 			var entity_key: String = _make_entity_key(entity)
 			if not entity_key.is_empty():
 				candidate_keys.append(entity_key)

@@ -96,7 +96,7 @@ def replace_generated_trees(outputs: list[tuple[Path, dict[str, GeneratedContent
 	backup_parents: dict[Path, Path] = {}
 	replaced_roots: list[Path] = []
 	committed = False
-	rollback_failed = False
+	rollback_complete = False
 
 	try:
 		for root, files in normalized_outputs:
@@ -119,10 +119,10 @@ def replace_generated_trees(outputs: list[tuple[Path, dict[str, GeneratedContent
 				))
 				backup_parents[root] = backup_parent
 				os.replace(root, backup_parent / "previous")
-			os.replace(staging_root, root)
 			replaced_roots.append(root)
+			os.replace(staging_root, root)
 		committed = True
-	except Exception as original_error:
+	except BaseException as original_error:
 		if not committed:
 			rollback_errors: list[tuple[Path, BaseException]] = []
 			for root, _files in reversed(normalized_outputs):
@@ -137,10 +137,9 @@ def replace_generated_trees(outputs: list[tuple[Path, dict[str, GeneratedContent
 						if root.exists():
 							raise RuntimeError(f"Rollback destination still exists: {root}")
 						os.replace(previous, root)
-				except Exception as rollback_error:
+				except BaseException as rollback_error:
 					rollback_errors.append((root, rollback_error))
 			if rollback_errors:
-				rollback_failed = True
 				backup_paths = [
 					backup_parent / "previous"
 					for backup_parent in backup_parents.values()
@@ -151,13 +150,14 @@ def replace_generated_trees(outputs: list[tuple[Path, dict[str, GeneratedContent
 					rollback_errors,
 					backup_paths,
 				) from original_error
+			rollback_complete = True
 		raise
 	finally:
 		for staging_root in staging_roots.values():
 			if staging_root.exists():
 				shutil.rmtree(staging_root, ignore_errors=True)
 		for backup_parent in backup_parents.values():
-			if rollback_failed and (backup_parent / "previous").exists():
+			if not (committed or rollback_complete) and (backup_parent / "previous").exists():
 				continue
 			if backup_parent.exists():
 				shutil.rmtree(backup_parent, ignore_errors=True)

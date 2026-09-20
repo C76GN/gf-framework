@@ -410,6 +410,13 @@ def _walk_test_tree(
 			entry_names: list[str] = []
 			for entry in iterator:
 				deadline.check()
+				state.entry_count += 1
+				if state.entry_count > limits.max_entries:
+					raise TestInventoryLimitError("test_inventory.entry_limit")
+				_validate_path_segment(entry.name)
+				_consume_path_budget(
+					f"{logical_directory}/{entry.name}", limits=limits, state=state,
+				)
 				entry_names.append(entry.name)
 	except OSError as exc:
 		raise TestInventoryInputError(
@@ -422,7 +429,6 @@ def _walk_test_tree(
 		_validate_path_segment(entry_name)
 		path = directory / entry_name
 		logical_path = path.relative_to(root).as_posix()
-		_consume_path_budget(logical_path, limits=limits, state=state)
 		portable_key = _portable_key(logical_path)
 		previous_path = portable_paths.setdefault(portable_key, logical_path)
 		if previous_path != logical_path:
@@ -431,9 +437,6 @@ def _walk_test_tree(
 				f"{previous_path}:{logical_path}"
 			)
 
-		state.entry_count += 1
-		if state.entry_count > limits.max_entries:
-			raise TestInventoryLimitError("test_inventory.entry_limit")
 		entry_snapshot = _snapshot_path(path, logical_path)
 		mode = entry_snapshot.mode
 		if stat.S_ISDIR(mode):

@@ -280,6 +280,7 @@ func register_adapter(adapter: GFPlatformAdapter) -> bool:
 	var _clock_set: bool = adapter.set_runtime_clock(_clock)
 	if not _clock_set:
 		return false
+	adapter.seal_configuration_from_runtime()
 	_adapters[String(adapter_id)] = adapter
 	for contract_id: String in contract_ids:
 		var candidates: PackedStringArray = _get_contract_candidates(StringName(contract_id))
@@ -306,6 +307,7 @@ func register_adapter(adapter: GFPlatformAdapter) -> bool:
 ## [br]
 ## @return 找到并注销返回 true。
 func unregister_adapter(adapter_id: StringName, shutdown_adapter: bool = true) -> bool:
+	adapter_id = StringName(String(adapter_id).strip_edges())
 	var adapter: GFPlatformAdapter = _get_adapter(adapter_id)
 	if adapter == null:
 		return false
@@ -935,20 +937,16 @@ func _on_adapter_activation_intent(
 	_seen_activation_ids[intent_key] = true
 	var _seen_appended: bool = _seen_activation_order.append(intent_key)
 	_trim_seen_activation_ids()
-	if _activation_intents.size() >= _max_activation_intents:
-		var dropped: GFPlatformActivationIntent = _activation_intents.pop_front()
-		var dropped_key: String = _make_activation_intent_key(
-			dropped.adapter_id,
-			dropped.intent_id
-		)
-		var _pending_erased: bool = _pending_activation_ids.erase(dropped_key)
-		activation_intent_dropped.emit(dropped.adapter_id, dropped.intent_id, &"capacity")
-	_activation_intents.append(intent.duplicate_intent())
+	var queued_intent: GFPlatformActivationIntent = intent.duplicate_intent()
+	_activation_intents.append(queued_intent)
 	_pending_activation_ids[intent_key] = true
-	activation_intent_received.emit(adapter_id, intent.duplicate_intent())
+	_trim_activation_queue()
+	if _activation_intents.has(queued_intent):
+		activation_intent_received.emit(adapter_id, queued_intent.duplicate_intent())
 
 
 func _trim_activation_queue() -> void:
+	var dropped_intents: Array[GFPlatformActivationIntent] = []
 	while _activation_intents.size() > _max_activation_intents:
 		var dropped: GFPlatformActivationIntent = _activation_intents.pop_front()
 		var dropped_key: String = _make_activation_intent_key(
@@ -956,6 +954,8 @@ func _trim_activation_queue() -> void:
 			dropped.intent_id
 		)
 		var _pending_erased: bool = _pending_activation_ids.erase(dropped_key)
+		dropped_intents.append(dropped)
+	for dropped: GFPlatformActivationIntent in dropped_intents:
 		activation_intent_dropped.emit(dropped.adapter_id, dropped.intent_id, &"capacity")
 
 

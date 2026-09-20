@@ -358,8 +358,19 @@ func request_preview(
 		return null
 
 	_preview_generation += 1
+	var preview_generation: int = _preview_generation
+	var catalog_revision: int = _catalog_revision
+	var query_generation: int = _query_generation
 	_cancel_active_preview(&"superseded")
+	if not _is_preview_request_current(preview_generation, catalog_revision, query_generation):
+		return null
 	var task: GFThumbnailRenderTask = renderer.submit_render_request(request)
+	if not _is_preview_request_current(preview_generation, catalog_revision, query_generation):
+		if task != null and task != _active_preview_task and not task.is_finished():
+			var _cancelled: bool = task.cancel(&"superseded")
+		return null
+	if task == null:
+		return null
 	_active_preview_task = task
 	_active_preview_asset_id = asset_id
 	_active_preview_catalog_revision = _catalog_revision
@@ -883,6 +894,15 @@ func _cancel_active_preview(reason: StringName) -> void:
 	_active_preview_query_generation = 0
 	if task != null and not task.is_finished():
 		var _cancelled: bool = task.cancel(reason)
+
+
+func _is_preview_request_current(preview_generation: int, catalog_revision: int, query_generation: int) -> bool:
+	return (
+		not _disposed
+		and preview_generation == _preview_generation
+		and catalog_revision == _catalog_revision
+		and query_generation == _query_generation
+	)
 
 
 func _is_current_preview_task(

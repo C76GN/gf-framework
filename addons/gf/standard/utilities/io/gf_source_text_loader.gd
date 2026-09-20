@@ -162,7 +162,7 @@ func register_text(source_key: String, text: String, entry_metadata: Dictionary 
 		"text": text,
 		"metadata": entry_metadata.duplicate(true),
 	}
-	var _cache_erase_result: bool = _cache.erase(source_key)
+	var _cache_erase_result: bool = _cache.erase(_make_cache_key("registered", source_key))
 	return true
 
 
@@ -176,7 +176,7 @@ func register_text(source_key: String, text: String, entry_metadata: Dictionary 
 ## [br]
 ## @return 移除成功时返回 true。
 func unregister_text(source_key: String) -> bool:
-	var _cache_erase_result: bool = _cache.erase(source_key)
+	var _cache_erase_result: bool = _cache.erase(_make_cache_key("registered", source_key))
 	return _registered_texts.erase(source_key)
 
 
@@ -238,7 +238,7 @@ func resolve_key(source_key: String, caller_span: Variant = null) -> Dictionary:
 		return GFResultDictionary.make_success({
 			"source_key": source_key,
 			"resolved_path": source_key,
-			"cache_key": source_key,
+			"cache_key": _make_cache_key("registered", source_key),
 			"registered": true,
 			"root_path": root_path,
 			"report": duplicate_report(),
@@ -266,7 +266,7 @@ func resolve_key(source_key: String, caller_span: Variant = null) -> Dictionary:
 	return GFResultDictionary.make_success({
 		"source_key": source_key,
 		"resolved_path": resolved_path,
-		"cache_key": resolved_path,
+		"cache_key": _make_cache_key("file", resolved_path),
 		"registered": false,
 		"root_path": normalized_root,
 		"report": duplicate_report(),
@@ -406,7 +406,7 @@ func _load_custom_text(source_key: String, caller_span: Variant) -> Dictionary:
 	if not allow_custom_loaders or _custom_loaders.is_empty():
 		return {}
 
-	var cache_key: String = _make_custom_cache_key(source_key)
+	var cache_key: String = _make_cache_key("custom", source_key)
 	if cache_enabled and _cache.has(cache_key):
 		return _get_cached_result(cache_key, caller_span)
 
@@ -710,7 +710,8 @@ static func _is_under_root(path: String, root: String) -> bool:
 		return false
 	var comparable_path: String = _to_comparable_path(normalized_path)
 	var comparable_root: String = _to_comparable_path(normalized_root)
-	return comparable_path == comparable_root or comparable_path.begins_with("%s/" % comparable_root)
+	var child_prefix: String = comparable_root if comparable_root.ends_with("/") else comparable_root + "/"
+	return comparable_path == comparable_root or comparable_path.begins_with(child_prefix)
 
 
 static func _is_absolute_source_path(path: String) -> bool:
@@ -733,5 +734,5 @@ static func _make_custom_loader_context(source_key: String, loader_index: int, l
 	}
 
 
-static func _make_custom_cache_key(source_key: String) -> String:
-	return "custom:%s" % source_key
+static func _make_cache_key(source_kind: String, source_key: String) -> String:
+	return JSON.stringify([source_kind, source_key])

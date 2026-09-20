@@ -28,6 +28,18 @@ func test_insert_and_query() -> void:
 	assert_true(result.has(1), "查询应找到已插入的实体。")
 
 
+func test_boundary_points_do_not_resplit_the_same_node() -> void:
+	var point_rect: Rect2 = Rect2(Vector2.ZERO, Vector2.ZERO)
+	assert_false(Rect2(0, 0, 8, 8).intersects(point_rect), "验证目标引擎的严格相交语义。")
+	_tree.setup(Rect2(0, 0, 16, 16), 1, 1)
+	assert_true(_tree.insert(1, Rect2(2, 2, 1, 1)))
+	assert_true(_tree.insert(2, point_rect))
+	assert_true(_tree.insert(3, point_rect))
+	assert_eq(_tree.get_entity_count(), 3)
+	assert_eq(_tree.query_point(Vector2.ZERO, false), [2, 3])
+	assert_has(_tree.query_point(Vector2(2.5, 2.5), false), 1)
+
+
 func test_insert_before_init_lazily_rebuilds_root() -> void:
 	var tree: GFQuadTreeUtility = GFQuadTreeUtility.new()
 	tree.bounds = Rect2(0, 0, 100, 100)

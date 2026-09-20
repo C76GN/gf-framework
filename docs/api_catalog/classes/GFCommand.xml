@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCommand" path="addons/gf/kernel/base/gf_command.gd" module="kernel" extends="Object" classDigest="f59b4e97284b688f4b343cbf53781319deda387aba3cc36211afe21f5c8d7f45">
+<class name="GFCommand" path="addons/gf/kernel/base/gf_command.gd" module="kernel" extends="Object" classDigest="e332aec820bcd6597155a43fb663749f9b60174e1d80df149998c334e472be47">
 	<description>GFCommand: 命令抽象基类。
 子类必须实现 'execute' 方法来定义命令逻辑。
 'execute' 可返回 null（同步命令）或一个 Signal（异步命令）。
@@ -17,14 +17,12 @@
 	<methods>
 		<member kind="method" name="execute">
 			<signature>func execute() -&gt; Variant:</signature>
-			<description>执行命令逻辑。子类必须重写此方法。
-"type": "Variant",
-"description": "同步命令返回 null；异步命令可返回 Signal。"
-}</description>
+			<description>执行命令逻辑。子类必须重写此方法。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">同步命令返回 null；异步命令可返回一个 Signal 供外部 await。</tag>
-				<tag name="schema">return {</tag>
+				<tag name="schema">return: {"type": "Variant", "description": "同步命令返回 null；异步命令可返回 Signal。"}</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_lifecycle_active">
@@ -67,15 +65,13 @@
 		</member>
 		<member kind="method" name="send_command">
 			<signature>func send_command(command: Object) -&gt; Variant:</signature>
-			<description>向架构发送命令。支持 await：'await send_command(MyCommand.new())'。
-"type": "Variant",
-"description": "命令执行结果；异步命令可返回 Signal。"
-}</description>
+			<description>向架构发送命令。支持 await：'await send_command(MyCommand.new())'。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">command: 要发送的命令实例。</tag>
 				<tag name="return">命令的执行结果（null 或 Signal）。</tag>
-				<tag name="schema">return {</tag>
+				<tag name="schema">return: {"type": "Variant", "description": "命令执行结果；异步命令可返回 Signal。"}</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="send_event">
@@ -88,15 +84,13 @@
 		</member>
 		<member kind="method" name="send_simple_event">
 			<signature>func send_simple_event(event_id: StringName, payload: Variant = null) -&gt; void:</signature>
-			<description>发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。
-"type": "Variant",
-"description": "事件附加数据；由事件消费者约定结构。"
-}</description>
+			<description>发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_id: StringName 事件标识符。</tag>
 				<tag name="param">payload: 可选的事件附加数据。</tag>
-				<tag name="schema">payload {</tag>
+				<tag name="schema">payload: {"type": "Variant", "description": "事件附加数据；由事件消费者约定结构。"}</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

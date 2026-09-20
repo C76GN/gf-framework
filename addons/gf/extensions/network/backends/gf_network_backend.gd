@@ -292,6 +292,16 @@ func _reset_transport_metrics() -> void:
 	_transport_packets_received = 0
 
 
+## 清除旧连接状态，供后端在派发断开回调前提交释放结果。
+## [br]
+## @api protected
+## [br]
+## @since unreleased
+func _reset_transport_connection() -> void:
+	_transport_connected = false
+	_transport_connected_at_msec = 0
+
+
 # --- 私有/辅助方法 ---
 
 func _emit_connected() -> void:
@@ -303,8 +313,7 @@ func _emit_connected() -> void:
 
 
 func _emit_disconnected(reason: String) -> void:
-	_transport_connected = false
-	_transport_connected_at_msec = 0
+	_reset_transport_connection()
 	disconnected.emit(reason)
 
 

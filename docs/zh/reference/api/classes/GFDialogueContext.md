@@ -27,7 +27,7 @@
 | 方法 | [`apply_mutation`](#member-gfdialoguecontext-methods-apply_mutation) | `func apply_mutation(mutation_id: StringName, payload: Variant = null, subject: Variant = null) -> Dictionary:` |
 | 方法 | [`resolve_text`](#member-gfdialoguecontext-methods-resolve_text) | `func resolve_text(text: String, subject: Variant = null) -> String:` |
 | 方法 | [`serialize_values`](#member-gfdialoguecontext-methods-serialize_values) | `func serialize_values() -> Dictionary:` |
-| 方法 | [`deserialize_values`](#member-gfdialoguecontext-methods-deserialize_values) | `func deserialize_values(data: Dictionary) -> void:` |
+| 方法 | [`deserialize_values`](#member-gfdialoguecontext-methods-deserialize_values) | `func deserialize_values(data: Dictionary) -> bool:` |
 
 ## 属性
 
@@ -264,7 +264,7 @@ func serialize_values() -> Dictionary:
 
 序列化运行值为 JSON 兼容结构。
 
-返回：JSON 兼容值表副本。
+返回：JSON 兼容值表副本；无法完整编码时返回空 Dictionary。
 
 结构：
 
@@ -278,7 +278,7 @@ func serialize_values() -> Dictionary:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func deserialize_values(data: Dictionary) -> void:
+func deserialize_values(data: Dictionary) -> bool:
 ```
 
 从 JSON 兼容结构恢复运行值。
@@ -288,6 +288,8 @@ func deserialize_values(data: Dictionary) -> void:
 | 名称 | 说明 |
 |---|---|
 | `data` | serialize_values() 返回的值表。 |
+
+返回：完整解码并替换成功时为 true；失败保留现有 values。
 
 结构：
 

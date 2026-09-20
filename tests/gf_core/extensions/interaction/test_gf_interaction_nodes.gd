@@ -697,6 +697,19 @@ func test_receiver_fails_closed_when_configured_validator_owner_is_freed() -> vo
 	assert_signal_emitted(receiver, "interaction_rejected", "失效校验器应产生可观测拒绝结果。")
 
 
+func test_receiver_rechecks_validator_after_validating_notification() -> void:
+	var receiver: GFInteractionReceiver = GFInteractionReceiver.new()
+	add_child_autofree(receiver)
+	var validation_owner: ValidationCallbackOwner = ValidationCallbackOwner.new()
+	receiver.validation_callback = Callable(validation_owner, "validate_interaction")
+	var _connection: Error = receiver.interaction_validating.connect(
+		func(_context: GFInteractionContext, _report: Dictionary) -> void: validation_owner.free()
+	) as Error
+	var report: Dictionary = receiver.receive_interaction(GFInteractionContext.new(), &"inspect")
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(GFVariantData.get_option_string(report, "reason"), "invalid_validator")
+
+
 func test_receiver_path_forwards_interaction_to_business_receiver() -> void:
 	var root: Node = Node.new()
 	var bridge: GFInteractionReceiver = GFInteractionReceiver.new()
@@ -1178,6 +1191,25 @@ func test_sensor_broadcast_to_group_uses_sender_send_to_override() -> void:
 	assert_signal_emitted(sensor, "interaction_accepted", "业务发送者返回成功报告时 Sensor 仍应发出 interaction_accepted。")
 
 
+func test_disabled_sensor_does_not_dispatch_through_business_sender() -> void:
+	var root: Node = Node.new()
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var sender: RecordingDispatchNode = RecordingDispatchNode.new()
+	var receiver: RecordingReceiver = RecordingReceiver.new()
+	add_child_autofree(root)
+	root.add_child(sensor)
+	root.add_child(sender)
+	root.add_child(receiver)
+	sender.name = "Sender"
+	sensor.sender_path = NodePath("../Sender")
+	sensor.enabled = false
+	receiver.add_to_group("disabled_sensor_test")
+	var reports: Array[Dictionary] = sensor.broadcast_to_group(&"disabled_sensor_test")
+	assert_null(sender.received_receiver)
+	assert_eq(reports.size(), 1)
+	assert_false(GFVariantData.get_option_bool(reports[0], "ok"))
+
+
 func test_sensor_ignores_sender_send_to_override_with_invalid_signature() -> void:
 	var root: Node = Node.new()
 	var sensor: GFInteractionSensor = GFInteractionSensor.new()
@@ -1577,6 +1609,28 @@ func test_pointer_interaction_3d_rebinding_resets_hover_press_state() -> void:
 	assert_false(pointer._is_hovered, "重新绑定时应清理 hover 状态。")
 	assert_eq(pointer._pressed_button, 0, "重新绑定时应清理 pressed button。")
 	assert_signal_not_emitted(pointer, "pointer_clicked", "旧对象上的 press 不应在新对象 release 时形成点击。")
+
+
+func test_pointer_release_callback_reset_cancels_old_click() -> void:
+	for rebind: bool in [false, true]:
+		var body: StaticBody3D = StaticBody3D.new()
+		var other: StaticBody3D = StaticBody3D.new()
+		var pointer: GFPointerInteraction3D = GFPointerInteraction3D.new()
+		add_child_autofree(body)
+		add_child_autofree(other)
+		body.add_child(pointer)
+		pointer.bind_collision_object(body)
+		watch_signals(pointer)
+		var callback: Callable = func(_context: GFInteractionContext, _event: InputEventMouseButton) -> void:
+			if rebind:
+				pointer.bind_collision_object(other)
+			else:
+				pointer.enabled = false
+		var _connection: Error = pointer.pointer_released.connect(callback) as Error
+		pointer._on_collision_input_event(null, _make_mouse_button(MOUSE_BUTTON_LEFT, true), Vector3.ZERO, Vector3.UP, 0)
+		pointer._on_collision_input_event(null, _make_mouse_button(MOUSE_BUTTON_LEFT, false), Vector3.ZERO, Vector3.UP, 0)
+		assert_signal_not_emitted(pointer, "pointer_clicked")
+		pointer.pointer_released.disconnect(callback)
 
 
 func test_pointer_interaction_3d_restores_input_ray_pickable_on_unbind() -> void:

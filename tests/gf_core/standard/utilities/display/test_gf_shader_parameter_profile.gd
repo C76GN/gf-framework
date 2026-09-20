@@ -352,6 +352,22 @@ func test_binder_applies_profile_to_parent_on_ready() -> void:
 	assert_almost_eq(GFVariantData.to_float(material.get_shader_parameter(&"storm_pressure")), 0.65, 0.001)
 
 
+func test_binder_reconnects_profile_when_same_node_reenters_tree() -> void:
+	var rect: ColorRect = ColorRect.new()
+	rect.material = _make_test_shader_material()
+	var profile: GFShaderParameterProfile = GFShaderParameterProfile.new()
+	var binder: GFShaderParameterBinder = GFShaderParameterBinder.new()
+	binder.profile = profile
+	rect.add_child(binder)
+	add_child_autofree(rect)
+	for value: float in [0.25, 0.75]:
+		remove_child(rect)
+		add_child(rect)
+		var _changed: GFShaderParameterProfile = profile.set_parameter(&"storm_pressure", value)
+		var material: ShaderMaterial = _variant_to_shader_material(rect.material)
+		assert_almost_eq(GFVariantData.to_float(material.get_shader_parameter(&"storm_pressure")), value, 0.001)
+
+
 func test_binder_reapplies_when_profile_changes() -> void:
 	var rect: ColorRect = ColorRect.new()
 	rect.material = _make_test_shader_material()

@@ -84,6 +84,53 @@ class GuardedState:
 		return allow_exit
 
 
+class OneShotExitRedirectState:
+	extends TrackingState
+
+	var redirected: bool = false
+	var target_state_name: StringName = &"Next"
+
+	func exit() -> void:
+		super.exit()
+		if not redirected:
+			redirected = true
+			change_state(target_state_name, {"redirected": true})
+
+
+class LifecycleCallbackState:
+	extends TrackingState
+
+	var enter_callback: Callable
+	var exit_callback: Callable
+
+	func enter(msg: Dictionary = {}) -> void:
+		super.enter(msg)
+		if enter_callback.is_valid():
+			var callback: Callable = enter_callback
+			enter_callback = Callable()
+			callback.call()
+
+	func exit() -> void:
+		super.exit()
+		if exit_callback.is_valid():
+			var callback: Callable = exit_callback
+			exit_callback = Callable()
+			callback.call()
+
+
+class DisposeCallbackState:
+	extends TrackingState
+
+	var dispose_callback: Callable
+
+	func dispose() -> void:
+		if dispose_callback.is_valid():
+			var callback: Callable = dispose_callback
+			dispose_callback = Callable()
+			callback.call()
+		super.dispose()
+
+
 class GuardRedirectState:
 	extends TrackingState
 
@@ -752,6 +799,170 @@ func test_add_state_replacing_current_state_switches_active_reference() -> void:
 	assert_eq(old_idle.dispose_count, 1, "替换当前激活状态时，旧状态应被释放。")
 	assert_eq(new_idle.enter_count, 1, "替换当前激活状态时，新状态应接管并进入。")
 	assert_eq(new_idle.update_count, 1, "接管后的新状态应继续接收 update。")
+
+
+func test_active_reparent_stops_the_previous_hierarchy() -> void:
+	for same_instance: bool in [false, true]:
+		var first_parent: TrackingState = TrackingState.new()
+		var second_parent: TrackingState = TrackingState.new()
+		var old_leaf: TrackingState = TrackingState.new()
+		var next_leaf: TrackingState = old_leaf if same_instance else TrackingState.new()
+		_fsm.add_state(&"FirstParent", first_parent)
+		_fsm.add_state(&"SecondParent", second_parent)
+		_fsm.add_state(&"Leaf", old_leaf, &"FirstParent")
+		_fsm.start(&"Leaf")
+		_fsm.add_state(&"Leaf", next_leaf, &"SecondParent")
+		assert_null(_fsm.get_current_state())
+		assert_eq(first_parent.exit_count, 1)
+		assert_eq(old_leaf.exit_count, 1)
+		assert_eq(second_parent.enter_count, 0)
+		_fsm.start(&"Leaf")
+		assert_eq(second_parent.enter_count, 1)
+		_fsm.dispose()
+
+
+func test_active_replacement_honors_exit_redirect_without_reexiting_old_state() -> void:
+	var old_leaf: OneShotExitRedirectState = OneShotExitRedirectState.new()
+	var next_leaf: TrackingState = TrackingState.new()
+	var redirected: TrackingState = TrackingState.new()
+	_fsm.add_state(&"Leaf", old_leaf)
+	_fsm.add_state(&"Next", redirected)
+	_fsm.start(&"Leaf")
+	_fsm.add_state(&"Leaf", next_leaf)
+	assert_eq(_fsm.get_current_state(), redirected)
+	assert_eq(old_leaf.exit_count, 1)
+	assert_eq(old_leaf.dispose_count, 1)
+	assert_eq(next_leaf.enter_count, 0)
+	assert_eq(redirected.enter_count, 1)
+
+
+func test_active_replacement_same_name_redirect_enters_new_instance() -> void:
+	for with_parent: bool in [false, true]:
+		var machine: GFStateMachine = GFStateMachine.new()
+		var old_leaf: OneShotExitRedirectState = OneShotExitRedirectState.new()
+		old_leaf.target_state_name = &"Leaf"
+		var new_leaf: TrackingState = TrackingState.new()
+		if with_parent:
+			machine.add_state(&"Parent", TrackingState.new())
+		machine.add_state(&"Leaf", old_leaf, &"Parent" if with_parent else &"")
+		machine.start(&"Leaf")
+		machine.add_state(&"Leaf", new_leaf, &"Parent" if with_parent else &"")
+		assert_eq(machine.get_state(&"Leaf"), new_leaf)
+		assert_eq(machine.get_current_state(), new_leaf)
+		assert_eq(old_leaf.enter_count, 1)
+		assert_eq(old_leaf.exit_count, 1)
+		assert_eq(old_leaf.dispose_count, 1)
+		assert_eq(new_leaf.enter_count, 1)
+		assert_true(GFVariantData.get_option_bool(new_leaf.last_msg, "redirected"))
+		machine.update(0.016)
+		machine.update(0.016, true)
+		assert_eq(new_leaf.update_count, 2)
+		assert_eq(old_leaf.update_count, 0)
+		machine.dispose()
+
+
+func test_active_replacement_does_not_overwrite_redirect_enter_registration() -> void:
+	var old_leaf: OneShotExitRedirectState = OneShotExitRedirectState.new()
+	var outer_replacement: TrackingState = TrackingState.new()
+	var inner_replacement: TrackingState = TrackingState.new()
+	var redirected: LifecycleCallbackState = LifecycleCallbackState.new()
+	redirected.enter_callback = func() -> void:
+		_fsm.add_state(&"Leaf", inner_replacement)
+	_fsm.add_state(&"Leaf", old_leaf)
+	_fsm.add_state(&"Next", redirected)
+	_fsm.start(&"Leaf")
+	_fsm.add_state(&"Leaf", outer_replacement)
+	assert_eq(_fsm.get_state(&"Leaf"), inner_replacement)
+	assert_eq(_fsm.get_current_state(), redirected)
+	assert_eq(old_leaf.exit_count, 1)
+	assert_eq(old_leaf.dispose_count, 1)
+	assert_eq(outer_replacement.dispose_count, 1)
+	assert_eq(inner_replacement.dispose_count, 0)
+
+
+func test_active_replacement_exit_lifecycle_mutation_wins() -> void:
+	for operation: StringName in [&"stop", &"dispose", &"replace"]:
+		var machine: GFStateMachine = GFStateMachine.new()
+		var old_leaf: LifecycleCallbackState = LifecycleCallbackState.new()
+		var outer_replacement: TrackingState = TrackingState.new()
+		var inner_replacement: TrackingState = TrackingState.new()
+		machine.add_state(&"Leaf", old_leaf)
+		machine.start(&"Leaf")
+		old_leaf.exit_callback = func() -> void:
+			match operation:
+				&"stop":
+					machine.stop()
+				&"dispose":
+					machine.dispose()
+				&"replace":
+					machine.add_state(&"Leaf", inner_replacement)
+		machine.add_state(&"Leaf", outer_replacement)
+		assert_null(machine.get_current_state())
+		assert_eq(old_leaf.exit_count, 1, "旧实例必须在回调前退出激活路径，重入不应重复 exit。")
+		assert_eq(outer_replacement.enter_count, 0)
+		if operation == &"dispose":
+			assert_false(machine.has_state(&"Leaf"))
+		elif operation == &"replace":
+			assert_eq(machine.get_state(&"Leaf"), inner_replacement)
+		else:
+			assert_eq(machine.get_state(&"Leaf"), old_leaf)
+		machine.dispose()
+
+
+func test_replacement_dispose_callbacks_only_observe_new_registration() -> void:
+	for was_current: bool in [false, true]:
+		for operation: StringName in [&"same", &"next", &"stop", &"replace"]:
+			var machine: GFStateMachine = GFStateMachine.new()
+			var old_leaf: DisposeCallbackState = DisposeCallbackState.new()
+			var outer_replacement: TrackingState = TrackingState.new()
+			var inner_replacement: TrackingState = TrackingState.new()
+			var next: TrackingState = TrackingState.new()
+			machine.add_state(&"Leaf", old_leaf)
+			machine.add_state(&"Next", next)
+			machine.start(&"Leaf" if was_current else &"Next")
+			old_leaf.dispose_callback = func() -> void:
+				assert_same(machine.get_state(&"Leaf"), outer_replacement)
+				match operation:
+					&"same":
+						old_leaf.change_state(&"Leaf", {"from_dispose": true})
+					&"next":
+						old_leaf.change_state(&"Next")
+					&"stop":
+						machine.stop()
+					&"replace":
+						machine.add_state(&"Leaf", inner_replacement)
+						machine.change_state(&"Leaf")
+			machine.add_state(&"Leaf", outer_replacement)
+			assert_eq(old_leaf.enter_count, 1 if was_current else 0)
+			assert_eq(old_leaf.exit_count, 1 if was_current else 0)
+			assert_eq(old_leaf.dispose_count, 1)
+			assert_false(old_leaf.has_machine())
+			assert_eq(old_leaf.get_state_name(), &"")
+			if operation == &"replace":
+				assert_same(machine.get_state(&"Leaf"), inner_replacement)
+				assert_same(machine.get_current_state(), inner_replacement)
+				assert_eq(outer_replacement.dispose_count, 1)
+				assert_eq(outer_replacement.enter_count, 0)
+				assert_eq(inner_replacement.enter_count, 1)
+			else:
+				assert_same(machine.get_state(&"Leaf"), outer_replacement)
+				assert_eq(outer_replacement.dispose_count, 0)
+				assert_true(outer_replacement.has_machine())
+				assert_eq(outer_replacement.get_state_name(), &"Leaf")
+				if operation == &"same":
+					assert_same(machine.get_current_state(), outer_replacement)
+					assert_eq(outer_replacement.enter_count, 1)
+					assert_true(GFVariantData.get_option_bool(outer_replacement.last_msg, "from_dispose"))
+				elif operation == &"next":
+					assert_same(machine.get_current_state(), next)
+					assert_eq(outer_replacement.enter_count, 0)
+				else:
+					assert_null(machine.get_current_state())
+					assert_eq(outer_replacement.enter_count, 0)
+			machine.update(0.016)
+			assert_eq(old_leaf.update_count, 0, "已 dispose 的旧实例不能继续参与更新。")
+			machine.dispose()
+			assert_eq(old_leaf.dispose_count, 1, "旧注册已移交，最终清理不得再次 dispose 旧实例。")
 
 
 func test_state_proxy_methods_without_machine_are_safe() -> void:

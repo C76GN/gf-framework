@@ -298,6 +298,39 @@ func test_migration_registry_rejects_duplicate_edges_and_step_ids() -> void:
 	assert_eq(registry.describe_steps().size(), 1)
 
 
+func test_migration_rejects_invalid_step_results_before_canonicalization() -> void:
+	var section_registry: GFSaveMigrationRegistry = GFSaveMigrationRegistry.new()
+	assert_true(section_registry.register_step(InvalidSectionStep.new()))
+	var section_result: GFSaveMigrationResult = section_registry.migrate(
+		_make_document(1, 1, { "level": 3 }), _make_schema(1, { &"profile": 2 })
+	)
+	assert_false(section_result.is_successful())
+	assert_null(section_result.get_document())
+	assert_eq(section_result.get_failed_step_id(), &"invalid_section")
+	var document_registry: GFSaveMigrationRegistry = GFSaveMigrationRegistry.new()
+	assert_true(document_registry.register_step(InvalidDocumentStep.new()))
+	var document_result: GFSaveMigrationResult = document_registry.migrate(
+		_make_document(1, 1, { "level": 3 }), _make_schema(2, { &"profile": 1 })
+	)
+	assert_false(document_result.is_successful())
+	assert_null(document_result.get_document())
+	assert_eq(document_result.get_failed_step_id(), &"invalid_document")
+
+
+func test_migration_edges_keep_distinct_legal_identities() -> void:
+	var registry: GFSaveMigrationRegistry = GFSaveMigrationRegistry.new()
+	var identities: Array[Array] = [["game", ""], ["game", "$document"], ["a|b", "c"], ["a", "b|c"]]
+	for index: int in identities.size():
+		var step: GFSaveMigrationStep = GFSaveMigrationStep.new()
+		step.step_id = StringName("edge_%d" % index)
+		step.schema_id = StringName(str(identities[index][0]))
+		step.section_id = StringName(str(identities[index][1]))
+		step.from_version = 1
+		step.to_version = 2
+		assert_true(registry.register_step(step), "合法不同身份必须独立注册。")
+	assert_eq(registry.describe_steps().size(), identities.size())
+
+
 func test_document_migration_cannot_bypass_section_version_steps() -> void:
 	var source: GFSaveDocument = _make_document(1, 1, { "level": 3 })
 	var schema: GFSaveDocumentSchema = _make_schema(2, { &"profile": 2 })
@@ -389,6 +422,28 @@ func _assert_document_dictionary_rejected(data: Dictionary, message: String) -> 
 
 
 # --- 内部类 ---
+
+class InvalidSectionStep extends GFSaveMigrationStep:
+	func _init() -> void:
+		step_id = &"invalid_section"
+		schema_id = &"game.save"
+		section_id = &"profile"
+		from_version = 1
+		to_version = 2
+
+	func _migrate_section(section: GFSaveSection, _context: Dictionary = {}) -> GFSaveSection:
+		return GFSaveSection.new().configure(section.get_section_id(), 2, NAN)
+
+
+class InvalidDocumentStep extends GFSaveMigrationStep:
+	func _init() -> void:
+		step_id = &"invalid_document"
+		schema_id = &"game.save"
+		from_version = 1
+		to_version = 2
+
+	func _migrate_document(document: GFSaveDocument, _context: Dictionary = {}) -> GFSaveDocument:
+		return GFSaveDocument.new().configure(document.get_schema_id(), 2, document.get_sections(), { "invalid": NAN })
 
 class AddInventoryDocumentStep extends GFSaveMigrationStep:
 	func _init() -> void:

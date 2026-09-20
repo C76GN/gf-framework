@@ -4,6 +4,55 @@ extends GutTest
 
 # --- 测试方法 ---
 
+func test_dialogue_context_rejects_malformed_dictionary_marker_without_clearing_values() -> void:
+	var context: GFDialogueContext = GFDialogueContext.new()
+	context.values = { "keep": 7 }
+	var encoded: Dictionary = context.serialize_values()
+	var marker: Dictionary = GFVariantData.as_dictionary(encoded.get(GFVariantJsonCodec.JSON_MARKER_KEY))
+	marker[GFVariantJsonCodec.JSON_VALUE_KEY] = {}
+	assert_false(context.deserialize_values(encoded))
+	assert_eq(context.values, { "keep": 7 })
+
+
+func test_public_response_query_discards_results_after_session_replacement() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"start"
+	var line: GFDialogueLine = _make_text_line(&"start", "Start", &"")
+	var response: GFDialogueResponse = GFDialogueResponse.new()
+	response.response_id = &"old"
+	response.condition_id = &"stop"
+	line.responses.append(response)
+	resource.set_line(line)
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var context: GFDialogueContext = GFDialogueContext.new()
+	context.condition_handler = func(_condition_id: StringName, _payload: Variant, _subject: Variant, _context: GFDialogueContext) -> bool:
+		runner.stop()
+		return true
+	var _line: GFDialogueLine = runner.start(resource, &"", context)
+	assert_true(runner.get_available_responses().is_empty())
+	assert_false(runner.is_running())
+	context.condition_handler = Callable()
+
+func test_dialogue_snapshots_reject_incomplete_context_and_preserve_current_session() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"start"
+	resource.set_line(_make_text_line(&"start", "Start", &""))
+	var context: GFDialogueContext = GFDialogueContext.new()
+	context.values = { "original": true }
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var original_line: GFDialogueLine = runner.start(resource, &"", context)
+	var snapshot: Dictionary = runner.create_runtime_snapshot()
+	var oversized: Array = []
+	var _resize_error: int = oversized.resize(20_000)
+	oversized.fill(1)
+	context.values = { "oversized": oversized }
+	assert_true(runner.create_runtime_snapshot().is_empty(), "不完整上下文不得成为成功快照。")
+	context.values = { "original": true }
+	snapshot["context_values"] = GFVariantJsonCodec.variant_to_json_compatible({ "oversized": oversized })
+	assert_null(runner.restore_runtime_snapshot(resource, snapshot, context))
+	assert_eq(context.values, { "original": true }, "失败恢复必须保留调用方上下文。")
+	assert_same(runner.get_current_line(), original_line)
+
 ## 验证对话运行器可处理响应、mutation 和文本行推进。
 func test_dialogue_runner_advances_with_response_and_mutation() -> void:
 	var resource: GFDialogueResource = GFDialogueResource.new()

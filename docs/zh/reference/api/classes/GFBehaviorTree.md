@@ -470,7 +470,7 @@ func tick(_blackboard: Dictionary) -> int:
 func reset() -> void:
 ```
 
-重置节点内部运行状态。 基类不会取消项目持有的外部异步工作；需要清理外部所有权的自定义节点必须重写。
+重置节点内部运行状态。 基类不会取消项目持有的外部异步工作；自定义重写必须调用 super.reset()， 使回调内的重置中止旧 tick，并自行清理外部所有权。
 
 <a id="member-gfbehaviortree-btnode-methods-duplicate_runtime"></a>
 
@@ -916,7 +916,7 @@ func duplicate_runtime() -> BTNode:
 func set_child(child_node: BTNode) -> Decorator:
 ```
 
-设置被装饰的子节点。 替换不同 child 前会先 reset 旧 child；重复设置同一 identity 是无操作。
+设置被装饰的子节点。 替换不同 child 时先提交新 child，再 reset 旧 child；重复设置同一 identity 是无操作。
 
 参数：
 

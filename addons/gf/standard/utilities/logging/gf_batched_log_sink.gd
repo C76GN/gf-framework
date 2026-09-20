@@ -203,6 +203,10 @@ func flush() -> void:
 			_record_send_failure(GFVariantData.get_option_string(send_dictionary, "error", "sender_callback reported failure"))
 			_requeue_front(batch)
 			return
+		if send_dictionary.has("accepted") and not (send_dictionary["accepted"] is int):
+			_record_send_failure("sender_callback result requires accepted: int")
+			_requeue_front(batch)
+			return
 		var accepted_count: int = clampi(GFVariantData.get_option_int(send_dictionary, "accepted", batch.size()), 0, batch.size())
 		if accepted_count < batch.size():
 			var remaining: Array[Dictionary] = []

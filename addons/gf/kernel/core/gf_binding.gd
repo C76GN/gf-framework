@@ -24,20 +24,14 @@ const _RESOLUTION_CONTEXT_INSTANCE_KEY: String = "instance"
 ## [br]
 ## @api framework_internal
 ## [br]
-## @schema key {
-##   "type": "Variant",
-##   "description": "通常为 Script 类型，也可由内部绑定实现扩展。"
-## }
+## @schema key: {"type": "Variant", "description": "通常为 Script 类型，也可由内部绑定实现扩展。"}
 var key: Variant
 
 ## 绑定来源，可以是 Callable 工厂或 Object 实例。
 ## [br]
 ## @api framework_internal
 ## [br]
-## @schema provider {
-##   "type": "Variant",
-##   "description": "Callable 工厂或 Object 实例。"
-## }
+## @schema provider: {"type": "Variant", "description": "Callable 工厂或 Object 实例。"}
 var provider: Variant
 
 ## 生命周期策略。
@@ -104,10 +98,7 @@ func retains_instance_for_framework(instance: Object) -> bool:
 ## [br]
 ## @param resolution_context: 当前工厂解析上下文，用于跨 Binding 失败链路回滚。
 ## [br]
-## @schema resolution_context {
-##   "type": "Dictionary",
-##   "description": "GFArchitecture 内部维护的解析上下文。"
-## }
+## @schema resolution_context: {"type": "Dictionary", "description": "GFArchitecture 内部维护的解析上下文。"}
 ## [br]
 ## @return 解析出的 Object 实例；失败时返回 null。
 func get_instance(requesting_architecture: GFArchitecture = null, resolution_context: Dictionary = {}) -> Object:
@@ -180,10 +171,7 @@ func clear_cached_instance() -> void:
 ## [br]
 ## @param instance: 需要拒绝的实例；为空时拒绝当前缓存实例。
 ## [br]
-## @schema instance {
-##   "type": "Object",
-##   "description": "失败解析链路中创建的 Singleton 实例。"
-## }
+## @schema instance: {"type": "Object", "description": "失败解析链路中创建的 Singleton 实例。"}
 func reject_cached_instance(instance: Object = null) -> void:
 	var rejected_instance: Object = instance
 	if rejected_instance == null:

@@ -5,6 +5,16 @@ extends GutTest
 const GF_ASSET_BROWSER_MODEL_SCRIPT = preload("res://addons/gf/tools/asset_browser/gf_asset_browser_model.gd")
 
 
+class ReentrantSubmitRenderer extends GFThumbnailRenderer:
+	var during_submit: Callable
+	var returned_task: GFThumbnailRenderTask
+
+	func submit_render_request(request: GFThumbnailRenderRequest) -> GFThumbnailRenderTask:
+		returned_task = GFThumbnailRenderTask.new(request, 1)
+		during_submit.call()
+		return returned_task
+
+
 class ImmediateFailRenderer extends GFThumbnailRenderer:
 	func submit_render_request(request: GFThumbnailRenderRequest) -> GFThumbnailRenderTask:
 		var task: GFThumbnailRenderTask = GFThumbnailRenderTask.new(request, 1)
@@ -55,6 +65,22 @@ class OversizedPlanRenderer extends GFThumbnailRenderer:
 			"changes": changes,
 		})
 		return task
+
+
+func test_preview_submission_rechecks_owner_after_renderer_callback() -> void:
+	for mutation: String in ["dispose", "query"]:
+		var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
+		var _catalog_report: Dictionary = model.replace_catalog(_make_catalog([_make_entry(&"alpha", "Alpha")]))
+		var renderer: ReentrantSubmitRenderer = ReentrantSubmitRenderer.new()
+		add_child_autofree(renderer)
+		renderer.during_submit = model.dispose if mutation == "dispose" else func() -> void:
+			var _query_report: Dictionary = model.set_query("changed")
+		var request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.for_mesh_texture(BoxMesh.new())
+		var result: GFThumbnailRenderTask = model.request_preview(&"alpha", renderer, request)
+		assert_null(result, "失效的提交不得返回当前代际任务。")
+		assert_null(model.get_active_preview_task())
+		assert_true(renderer.returned_task.is_cancelled(), "尚未认领的过期任务必须取消。")
+		model.dispose()
 
 
 func test_catalog_replacement_is_isolated_and_invalidates_missing_selection() -> void:

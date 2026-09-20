@@ -4,6 +4,52 @@ extends GutTest
 
 # --- 测试方法 ---
 
+func test_unregister_canonicalizes_identity_before_all_cleanup() -> void:
+	var runtime: GFPlatformRuntime = GFPlatformRuntime.new()
+	var adapter: PlatformAdapterFixture = _make_adapter(&"primary", &"sample", false)
+	assert_true(runtime.register_adapter(adapter))
+	var _initialization: GFAsyncCompletion = runtime.initialize_adapter(&"primary")
+	assert_true(runtime.set_contract_route(&"platform.share", &"primary"))
+	var handle: GFPlatformRequestHandle = runtime.invoke_contract(&"platform.share", &"hold")
+	assert_true(handle.is_pending())
+	assert_true(runtime.unregister_adapter(&" primary "))
+	assert_false(handle.is_pending(), "同一规范身份的 pending request 必须被取消。")
+	if handle.get_result() != null:
+		assert_eq(handle.get_result().status, &"adapter_unregistered")
+	assert_true(runtime.get_adapter_ids().is_empty())
+	assert_eq(runtime.get_contract_route(&"platform.share"), &"")
+	assert_true(runtime.register_adapter(_make_adapter(&"primary", &"sample", true)))
+	runtime.dispose()
+
+
+func test_registration_freezes_created_adapter_configuration() -> void:
+	var runtime: GFPlatformRuntime = GFPlatformRuntime.new()
+	var adapter: PlatformAdapterFixture = _make_adapter(&"primary", &"sample", false)
+	assert_true(runtime.register_adapter(adapter))
+	assert_false(adapter.configure(&"renamed", &"other", PackedStringArray(["platform.share"]), [_make_share_contract()]),
+		"发布到 runtime 后 adapter 身份及契约必须稳定。")
+	assert_eq(adapter.get_adapter_id(), &"primary")
+	assert_eq(adapter.get_contract_ids(), PackedStringArray(["platform.share"]))
+	assert_true(runtime.unregister_adapter(&"primary", false))
+	assert_true(runtime.get_adapter_ids().is_empty())
+	adapter.shutdown()
+	runtime.dispose()
+
+
+func test_initializing_callback_shutdown_prevents_provider_initialization() -> void:
+	var adapter: PlatformAdapterFixture = _make_adapter(&"primary", &"sample", false)
+	var on_state: Callable = func(_previous: GFPlatformAdapter.State, current: GFPlatformAdapter.State) -> void:
+		if current == GFPlatformAdapter.State.INITIALIZING:
+			adapter.shutdown()
+	var _connected: Error = adapter.state_changed.connect(on_state) as Error
+	var initialization: GFAsyncCompletion = adapter.initialize()
+	assert_eq(adapter.initialize_count, 0, "shutdown 已生效后不得调用平台 SDK 初始化钩子。")
+	assert_eq(adapter.shutdown_count, 1)
+	assert_eq(adapter.get_state(), GFPlatformAdapter.State.SHUTDOWN)
+	assert_false(initialization.is_pending())
+	adapter.state_changed.disconnect(on_state)
+
+
 func test_runtime_initializes_adapter_and_routes_single_candidate() -> void:
 	var runtime: GFPlatformRuntime = GFPlatformRuntime.new()
 	var adapter: PlatformAdapterFixture = _make_adapter(&"primary", &"sample", true)
@@ -403,6 +449,15 @@ class PlatformAdapterFixture extends GFPlatformAdapter:
 	var complete_immediately: bool = true
 	var cancel_count: int = 0
 	var last_sequence: int = 0
+	var initialize_count: int = 0
+	var shutdown_count: int = 0
+
+	func _initialize(options: Dictionary) -> void:
+		initialize_count += 1
+		super._initialize(options)
+
+	func _shutdown() -> void:
+		shutdown_count += 1
 
 	func publish_capability(capability_id: StringName) -> bool:
 		var context: GFPlatformRuntimeContext = get_context()

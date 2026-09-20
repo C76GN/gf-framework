@@ -25,6 +25,19 @@ from gf_process_supervisor import SupervisedProcessResult  # noqa: E402
 
 
 class CodeqlSuppressionPolicyTests(unittest.TestCase):
+	def test_block_plain_scalar_punctuation_does_not_become_flow_structure(self) -> None:
+		for value in (
+			"Verify literal [ character",
+			"Verify literal ] character",
+			"Verify literal { character",
+			"Verify literal } character",
+			"Verify ? [ character",
+			"Verify [ queries:text",
+		):
+			with self.subTest(value=value):
+				source = "name: CodeQL\njobs:\n  scan:\n    steps:\n      - name: " + value + "\n        run: echo ok\n"
+				self.assertEqual(policy.audit_codeql_config(".github/workflows/codeql.yml", source), [])
+
 	def test_clean_python_has_zero_suppressions(self) -> None:
 		issues, suppression_count = policy.audit_python_source(
 			"tools/fixture.py",

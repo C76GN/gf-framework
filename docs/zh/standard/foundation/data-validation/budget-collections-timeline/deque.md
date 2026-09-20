@@ -26,6 +26,8 @@ var last := queue.peek_back()
 
 ## 裁剪与复制
 
+`reserve(min_capacity)` 只扩容，不裁剪数据。请求超过 Godot Array 的有符号 32 位容量范围会立即报错并保持原容量与内容；扩容先分配候选存储，分配失败不会清空旧队列。负数请求视为不需要额外容量。
+
 `trim_front(max_size)` 会丢弃队头多余元素，常用于保留最近 N 条记录；`trim_back(max_size)` 会丢弃队尾多余元素，常用于保留较早的 N 条记录。`to_array()` 按队列顺序导出数组，`duplicate_deque(true)` 可深拷贝嵌套的 `Array`、`Dictionary` 或可复制资源。
 
 `GFDeque` 不负责优先级排序、去重、生命周期管理或多线程同步。需要按字段查询时使用 `GFValueIndex`；需要批量提交/回滚时使用 `GFMutationBatch`；需要业务任务状态时使用上层队列工具或项目自己的调度层。

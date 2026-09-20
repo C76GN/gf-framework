@@ -183,10 +183,9 @@ static func format_full(
 	var text: String = ""
 	if value is GFFixedDecimal:
 		var fixed_value: GFFixedDecimal = value
-		var rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP
-		if use_truncation:
-			rounding_mode = GFFixedDecimal.RoundingMode.TRUNCATE
-		text = fixed_value.rescaled(decimal_places, rounding_mode).to_decimal_string(trim_zeroes)
+		text = _DECIMAL_STRING_FORMATTER.format_decimal_text(
+			fixed_value.to_decimal_string(false), decimal_places, trim_zeroes, use_truncation
+		)
 	elif value is GFBigNumber:
 		var big_value: GFBigNumber = value
 		if big_value.exponent > _FULL_MAX_EXPONENT or big_value.exponent < _FULL_MIN_EXPONENT:

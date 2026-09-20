@@ -314,6 +314,8 @@ func start_drag(
 	var capture_pointer: bool = GFVariantData.get_option_bool(options, "capture_pointer", true)
 	if capture_pointer and pointer_id == _NO_POINTER_ID:
 		return -1
+	_start_in_progress = true
+	_starting_session_id = -1
 	_captures_pointer = capture_pointer
 	_active_pointer_id = pointer_id if capture_pointer else _NO_POINTER_ID
 
@@ -327,23 +329,22 @@ func start_drag(
 		_capture_original_parent(source_node)
 		var drag_parent: Node = _get_requested_drag_parent(options)
 		if not _commit_drag_visual_transaction(source_node, drag_parent):
-			_release_pointer_capture()
-			_clear_active_source_state()
+			_rollback_start_transaction()
+			_start_in_progress = false
 			return -1
 
 	var metadata: Dictionary = GFVariantData.as_dictionary(
 		GFVariantData.get_option_value(options, "metadata", {})
 	)
-	_start_in_progress = true
-	_starting_session_id = -1
 	var session_id: int = _utility.start_drag(drag_type, payload, position, source, metadata)
-	_start_in_progress = false
 	_starting_session_id = -1
 	if session_id < 0 or not _utility.has_active_session(session_id):
 		_rollback_start_transaction()
+		_start_in_progress = false
 		return -1
 
 	_active_session_id = session_id
+	_start_in_progress = false
 	_connect_active_source_tree_exit(source_node, session_id)
 	set_process(true)
 	drag_started.emit(session_id, drag_type)
@@ -635,7 +636,13 @@ func _commit_drag_visual_transaction(source_node: Node, drag_parent: Node) -> bo
 	if drag_parent == null or drag_parent == source_node.get_parent():
 		return true
 	source_node.reparent(drag_parent, _reparent_keep_global_transform)
-	return source_node.get_parent() == drag_parent
+	return (
+		is_instance_valid(source_node)
+		and not source_node.is_queued_for_deletion()
+		and is_instance_valid(drag_parent)
+		and not drag_parent.is_queued_for_deletion()
+		and source_node.get_parent() == drag_parent
+	)
 
 
 func _validate_drag_visual_transaction(source_node: Node, options: Dictionary) -> bool:

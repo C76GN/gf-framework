@@ -645,6 +645,13 @@ func _prune_expired_services() -> void:
 			var _append_result: bool = expired_keys.append(service_key)
 
 	for service_key: String in expired_keys:
+		var current_deadline: float = GFVariantData.get_option_float(
+			_service_expiry_deadlines,
+			service_key,
+			-1.0
+		)
+		if current_deadline < 0.0 or current_deadline > _elapsed_seconds:
+			continue
 		var _removed: bool = _remove_service(service_key, "expired")
 
 

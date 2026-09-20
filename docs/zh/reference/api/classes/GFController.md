@@ -145,12 +145,13 @@ func has_host() -> bool:
 ### `get_host_as`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_host_as(host_type: Variant) -> Node:
 ```
 
-获取指定类型的宿主节点。 可传入项目脚本类型或 Godot 原生类型。 "type": "Variant", "description": "Script、ClassDB 原生类型或 null。" }
+获取指定类型的宿主节点。 可传入项目脚本类型或 Godot 原生类型。
 
 参数：
 
@@ -162,7 +163,7 @@ func get_host_as(host_type: Variant) -> Node:
 
 结构：
 
-- `host_type {`:
+- `host_type`: {"type": "Variant", "description": "Script、ClassDB 原生类型或 null。"}
 
 <a id="member-gfcontroller-methods-get_model"></a>
 
@@ -295,12 +296,13 @@ func get_local_utility(utility_type: Script, require_ready: bool = false) -> Obj
 ### `send_command`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func send_command(command: Object) -> Variant:
 ```
 
-向架构发送命令。支持 await：'await send_command(MyCommand.new())'。 "type": "Variant", "description": "命令执行结果；异步命令可返回 Signal。" }
+向架构发送命令。支持 await：'await send_command(MyCommand.new())'。
 
 参数：
 
@@ -312,19 +314,20 @@ func send_command(command: Object) -> Variant:
 
 结构：
 
-- `return {`:
+- `return`: {"type": "Variant", "description": "命令执行结果；异步命令可返回 Signal。"}
 
 <a id="member-gfcontroller-methods-send_query"></a>
 
 ### `send_query`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func send_query(query: Object) -> Variant:
 ```
 
-执行查询并返回结果。 "type": "Variant", "description": "查询结果；具体类型由查询对象定义。" }
+执行查询并返回结果。
 
 参数：
 
@@ -336,7 +339,7 @@ func send_query(query: Object) -> Variant:
 
 结构：
 
-- `return {`:
+- `return`: {"type": "Variant", "description": "查询结果；具体类型由查询对象定义。"}
 
 <a id="member-gfcontroller-methods-register_event"></a>
 
@@ -483,12 +486,13 @@ func unregister_simple_event(event_id: StringName, listener: GFEventListener) ->
 ### `send_simple_event`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 ```
 
-发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。 "type": "Variant", "description": "事件附加数据；由事件消费者约定结构。" }
+发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。
 
 参数：
 
@@ -499,4 +503,4 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 
 结构：
 
-- `payload {`:
+- `payload`: {"type": "Variant", "description": "事件附加数据；由事件消费者约定结构。"}

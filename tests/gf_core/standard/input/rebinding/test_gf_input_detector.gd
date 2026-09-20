@@ -40,6 +40,25 @@ func after_each() -> void:
 # --- 测试方法 ---
 
 ## 验证轴检测会过滤非轴输入。
+func test_finish_callback_may_remove_detector_from_tree() -> void:
+	_detector.wait_for_clear_after_detection = false
+	var original_parent: Node = _detector.get_parent()
+	var remove_detector: Callable = func(_result: GFInputDetectionResult) -> void:
+		original_parent.remove_child(_detector)
+	var _connected: Error = _detector.detection_finished.connect(remove_detector) as Error
+	_detector.begin_detection()
+	_detector._input(_make_key_event(KEY_A, true))
+	assert_false(_detector.is_inside_tree())
+	assert_eq(_received_result_count, 1)
+	original_parent.add_child(_detector)
+	_detector.abort_events = [_make_key_event(KEY_ESCAPE, true)]
+	_detector.begin_detection()
+	_detector._input(_make_key_event(KEY_ESCAPE, true))
+	assert_false(_detector.is_inside_tree())
+	assert_eq(_received_result_count, 2)
+	_detector.detection_finished.disconnect(remove_detector)
+
+
 func test_axis_detection_ignores_bool_events() -> void:
 	_detector.detect_axis_1d()
 

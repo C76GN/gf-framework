@@ -5,6 +5,33 @@ extends GutTest
 const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
 
 
+func test_started_cancellation_prevents_queue_and_worker_processors() -> void:
+	for use_worker: bool in [false, true]:
+		var utility: GFJobQueueUtility = GFJobQueueUtility.new()
+		utility.init()
+		var calls: Array[int] = [0]
+		var processor: Callable = func(_job: GFJob) -> bool:
+			calls[0] += 1
+			return true
+		var _connected: Error = utility.job_started.connect(func(started_job: GFJob) -> void:
+			assert_true(utility.cancel_job(started_job.job_id))
+		) as Error
+		var job: GFJob = utility.enqueue(&"main")
+		if use_worker:
+			var worker: GFJobWorker = GFJobWorker.new()
+			worker.auto_start = false
+			worker.queue_name = &"main"
+			worker.set_queue_utility(utility)
+			worker.set_processor(processor)
+			var _processed: GFJob = await worker.process_next_job()
+			worker.free()
+		else:
+			var _processed: GFJob = utility.run_next_job(&"main", processor)
+		assert_eq(calls[0], 0)
+		assert_eq(job.status, GFJob.Status.CANCELLED)
+		utility.dispose()
+
+
 func test_job_queue_lifecycle_progress_and_snapshot() -> void:
 	var utility: GFJobQueueUtility = GFJobQueueUtility.new()
 	utility.init()

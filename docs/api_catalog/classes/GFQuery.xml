@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFQuery" path="addons/gf/kernel/base/gf_query.gd" module="kernel" extends="Object" classDigest="ffacb8cc3543c4079a81dbdea5d190dc10906d9d609deb2b1ad52825f92d470e">
+<class name="GFQuery" path="addons/gf/kernel/base/gf_query.gd" module="kernel" extends="Object" classDigest="4b9d65fcbb494d46dc6dc38aa25638f36993082884e307842c42ea50dde8652c">
 	<description>GFQuery: 查询抽象基类。
 用于从架构中查询数据。子类必须返回结果。
 子类必须实现 'execute' 方法来定义查询逻辑。</description>
@@ -15,14 +15,12 @@
 	<methods>
 		<member kind="method" name="execute">
 			<signature>func execute() -&gt; Variant:</signature>
-			<description>执行查询并返回结果。子类必须重写此方法。
-"type": "Variant",
-"description": "查询结果；具体类型由查询子类定义。"
-}</description>
+			<description>执行查询并返回结果。子类必须重写此方法。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">查询结果。</tag>
-				<tag name="schema">return {</tag>
+				<tag name="schema">return: {"type": "Variant", "description": "查询结果；具体类型由查询子类定义。"}</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_lifecycle_active">

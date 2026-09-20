@@ -10,7 +10,7 @@ from typing import Any
 from . import api_policy, catalog, dependencies, documentation
 from .constants import DEFAULT_CONTRACT_PATH, DEFAULT_SNAPSHOT_PATH, SCHEMA_ROOT, SNAPSHOT_SCHEMA_VERSION, TOOL_VERSION
 from .contract import load_contract
-from .paths import atomic_write_json, resolve_project_path
+from .paths import atomic_write_json, read_json_object, resolve_project_path
 from .schema import validate_schema_file
 
 
@@ -161,6 +161,14 @@ def write_snapshot(
 	contract_relative_path: str = DEFAULT_CONTRACT_PATH,
 	output_relative_path: str = DEFAULT_SNAPSHOT_PATH,
 ) -> dict[str, Any]:
+	output_path = resolve_project_path(project_root, output_relative_path)
+	contract_path = resolve_project_path(project_root, contract_relative_path)
+	if output_path == contract_path or output_path.suffix != ".json":
+		raise ValueError("Snapshot output must be a JSON artifact separate from the project contract.")
+	if output_path.exists():
+		previous = read_json_object(output_path)
+		if validate_schema_file(previous, SCHEMA_ROOT / "project_snapshot.schema.json"):
+			raise ValueError("Snapshot output already belongs to a non-snapshot project file.")
 	snapshot = build_snapshot(project_root, contract_relative_path)
 	schema_issues = validate_schema_file(snapshot, SCHEMA_ROOT / "project_snapshot.schema.json")
 	if schema_issues:
@@ -168,7 +176,6 @@ def write_snapshot(
 			"Generated project snapshot violates its schema: "
 			+ "; ".join(f"{item['path']}: {item['message']}" for item in schema_issues[:10])
 		)
-	output_path = resolve_project_path(project_root, output_relative_path)
 	atomic_write_json(output_path, snapshot)
 	return {"ok": bool(snapshot["drift"]["ok"]), "path": output_relative_path, "snapshot": snapshot}
 

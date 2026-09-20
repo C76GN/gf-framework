@@ -1081,6 +1081,25 @@ func test_direct_mutation_rule_uses_the_same_incremental_read_only_projection() 
 	slot_rule.acceptance_checker = Callable()
 
 
+func test_full_add_rejects_incrementally_insufficient_space_without_mutation() -> void:
+	var inventory: GFSlotInventoryModel = _make_inventory(2, _make_registry(&"ore", 1))
+	var rule_probe: IncrementalRuleProbe = IncrementalRuleProbe.new()
+	rule_probe.inventory = inventory
+	var slot_rule: GFInventorySlotDefinition = GFInventorySlotDefinition.new()
+	slot_rule.acceptance_checker = Callable(rule_probe, &"accept")
+	assert_true(inventory.set_slot_definition(0, slot_rule))
+	assert_true(inventory.set_slot_definition(1, slot_rule))
+	var revision: int = inventory.get_revision()
+	watch_signals(inventory)
+	var result: GFInventoryOperationResult = inventory.add_item(&"ore", 2, {}, -1, false)
+	assert_eq(result.accepted_amount, 0)
+	assert_eq(result.remaining_amount, 2)
+	assert_eq(inventory.get_item_total(&"ore"), 0)
+	assert_eq(inventory.get_revision(), revision)
+	assert_signal_not_emitted(inventory, "inventory_changed")
+	slot_rule.acceptance_checker = Callable()
+
+
 func test_rule_typed_as_mutable_model_fails_closed_without_engine_error() -> void:
 	var inventory: GFSlotInventoryModel = _make_inventory(1)
 	var rule_probe: MutableInventoryRuleProbe = MutableInventoryRuleProbe.new()

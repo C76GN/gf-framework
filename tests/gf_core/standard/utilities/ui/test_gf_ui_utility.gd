@@ -612,6 +612,16 @@ func test_pop_to_panel_returns_to_existing_panel() -> void:
 	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 1, "目标面板上方的面板都应被弹出。")
 
 
+func test_config_callback_reentrant_push_does_not_register_panel_twice() -> void:
+	var panel: Control = Control.new()
+	watch_signals(_ui_utility)
+	_ui_utility.push_panel_instance(panel, GFUIUtility.Layer.POPUP, func(instance: Node) -> void:
+		_ui_utility.push_panel_instance(instance, GFUIUtility.Layer.POPUP)
+	)
+	assert_eq(_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP), 1)
+	assert_signal_emit_count(_ui_utility, "panel_opened", 1)
+
+
 func test_push_panel_instance_rejects_duplicate_instance() -> void:
 	var panel: Control = Control.new()
 

@@ -235,6 +235,9 @@ static func solve_grid(
 
 	var allowed_by_direction: Dictionary = GFVariantData.get_option_dictionary(rule_report, "allowed_by_direction")
 	var initial_queue: Array[Vector2i] = _get_vector2i_array(fixed_report, "queue")
+	if tile_ids.size() == 1:
+		# 初始域已经全部坍缩，也必须传播邻接约束后才能报告完成。
+		initial_queue.assign(domains.keys())
 	var initial_propagation: Dictionary = _propagate(domains, grid_size, allowed_by_direction, periodic, initial_queue)
 	if not GFVariantData.get_option_bool(initial_propagation, "ok", false):
 		return _make_report(

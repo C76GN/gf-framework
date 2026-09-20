@@ -321,6 +321,8 @@ func has_owned_timer_for_framework(handle: int, owner: Object) -> bool:
 	for timer_data: Dictionary in _pending_timers:
 		if _get_timer_id(timer_data) == handle and _timer_is_owned_by(timer_data, owner):
 			return true
+	if _ready_timers.has(handle):
+		return _timer_is_owned_by(_get_ready_timer(handle), owner)
 	if _executing_handles.has(handle):
 		return _timer_is_owned_by(_get_executing_timer(handle), owner)
 	return false

@@ -334,6 +334,8 @@ func collect_runtime_snapshot(detail: RuntimeDetail = RuntimeDetail.MINIMAL) -> 
 func collect_sections(options: Dictionary = {}) -> Dictionary:
 	var result: Dictionary = {}
 	for section_id: StringName in _section_providers.keys():
+		if not _section_providers.has(section_id):
+			continue
 		var entry: Dictionary = GFVariantData.as_dictionary(_section_providers[section_id])
 		var provider: Callable = _variant_to_callable(GFVariantData.get_option_value(entry, "provider", Callable()))
 		var section: Dictionary = {

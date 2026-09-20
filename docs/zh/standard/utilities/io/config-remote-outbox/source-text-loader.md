@@ -18,8 +18,10 @@ if resolved["ok"]:
 ## 能力边界
 
 - 文件访问需要设置 `root_path`，相对 key 会被限制在该根目录下。
+- 根目录可以是 `res://` 或 `user://`；同根内的绝对和相对路径使用相同的包含关系检查。
 - `resolve_key()` 只解析路径和缓存 key，`load_text()` 才读取文本。
 - `register_text()` 可注册内存文本，适合测试、编辑器草稿或项目侧生成片段。
+- 注册文本、自定义 loader 和文件的缓存身份彼此隔离；`cache_key` 是不透明身份，不应由调用方拼接或推断来源。
 - 结果包含 `content_hash`、`byte_size`、`resolved_path`、`from_cache` 和 `report`。
 - `max_bytes` 在每次返回时生效；配置降低后，旧缓存中的超限文本会被逐出并返回 `text_too_large`，不会绕过新预算。
 - 文件和自定义 loader 返回的 `PackedByteArray` 必须是严格 UTF-8；非法、过长或 surrogate 编码以 `invalid_utf8` 失败，不会用替换字符静默改写内容。

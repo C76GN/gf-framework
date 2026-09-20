@@ -206,9 +206,14 @@ func _audit_contracts() -> void:
 		if not (issue_variant is Dictionary):
 			continue
 		var issue: Dictionary = GFVariantData.as_dictionary(issue_variant)
+		var resource_path: String = GFVariantData.get_option_string(issue, "resource_path")
+		var issue_path: String = GFVariantData.get_option_string(issue, "path")
+		var location: String = issue_path
+		if not resource_path.is_empty():
+			location = resource_path if issue_path.is_empty() or issue_path == resource_path else "%s :: %s" % [resource_path, issue_path]
 		var _append_issue_result: Variant = lines.append("! %s %s: %s" % [
 			GFVariantData.get_option_string(issue, "kind"),
-			GFVariantData.get_option_string(issue, "path"),
+			location,
 			GFVariantData.get_option_string(issue, "message"),
 		])
 	_show_diagnostic_dialog("GF Network Contract Audit", "\n".join(lines))

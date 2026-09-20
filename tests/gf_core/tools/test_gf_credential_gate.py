@@ -29,6 +29,24 @@ from gf_maintenance import create_directory_link_fixture  # noqa: E402
 
 
 class CredentialGateTests(unittest.TestCase):
+	def test_regular_file_open_cannot_wait_for_a_replaced_fifo(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			repository = self._init_repository(Path(temporary_directory))
+			candidate = repository / "safe.txt"
+			candidate.write_text("ordinary tracked content\n", encoding="utf-8")
+			self._git(repository, "add", "safe.txt")
+			nonblock = getattr(os, "O_NONBLOCK", 0x800000)
+			original_open = os.open
+
+			def guarded_open(path: object, flags: int, *args: object, **kwargs: object) -> int:
+				if Path(path) == candidate:
+					self.assertTrue(flags & nonblock, "regular-to-FIFO replacement must not block open")
+				return original_open(path, flags & ~nonblock if os.name == "nt" else flags, *args, **kwargs)
+
+			with mock.patch.object(os, "O_NONBLOCK", nonblock, create=True), mock.patch.object(os, "open", side_effect=guarded_open):
+				result = credential_gate.scan_tracked_repository(repository)
+			self.assertTrue(result["ok"])
+
 	def test_untracked_secret_is_outside_source_scope(self) -> None:
 		with tempfile.TemporaryDirectory() as temp_dir:
 			repository = self._init_repository(Path(temp_dir))

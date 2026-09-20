@@ -71,6 +71,7 @@ var _supports_channels: bool = true
 var _supports_transfer_modes: bool = true
 var _last_status: int = MultiplayerPeer.CONNECTION_DISCONNECTED
 var _connected_peer_ids: Dictionary[int, bool] = {}
+var _peer_generation: int = 0
 
 
 # --- 公共方法 ---
@@ -78,7 +79,8 @@ var _connected_peer_ids: Dictionary[int, bool] = {}
 ## 接管一个已由外部 Adapter 初始化的 MultiplayerPeer。
 ##
 ## Peer 必须已经处于 connecting 或 connected。替换现有 Peer 时，旧 Peer 会按其
-## ownership 关闭或仅解除借用。
+## ownership 关闭或仅解除借用。若释放回调已接管另一个 Peer，当前调用返回 ERR_BUSY，
+## 保留回调提交的新 Peer，调用方继续持有本次未接管的 peer。
 ## [br]
 ## @api public
 ## [br]
@@ -113,11 +115,15 @@ func adopt_peer(peer: MultiplayerPeer, options: Dictionary = {}) -> Error:
 	if status == MultiplayerPeer.CONNECTION_DISCONNECTED:
 		return ERR_INVALID_PARAMETER
 	if _peer != null:
+		var detached_generation: int = _peer_generation + 1
 		var _released_peer: MultiplayerPeer = _detach_peer(
 			true,
 			true,
 			"peer_replaced"
 	)
+		if _peer_generation != detached_generation:
+			return ERR_BUSY
+	_peer_generation += 1
 	_peer = peer
 	_ownership = _get_ownership(ownership_id)
 	_role = next_role
@@ -352,22 +358,26 @@ func _detach_peer(
 	reason: String
 ) -> MultiplayerPeer:
 	if _peer == null:
-		_emit_tracked_peer_disconnections()
+		_emit_tracked_peer_disconnections(_take_tracked_peer_ids(), _peer_generation)
 		return null
 	var detached_peer: MultiplayerPeer = _peer
 	var should_close: bool = close_owned and _ownership == Ownership.OWNED
 	_disconnect_peer_signals()
+	_peer_generation += 1
+	var detached_generation: int = _peer_generation
 	_peer = null
-	if should_close:
-		detached_peer.close()
-	_emit_tracked_peer_disconnections()
 	_last_status = MultiplayerPeer.CONNECTION_DISCONNECTED
 	_ownership = Ownership.BORROWED
 	_role = Role.UNKNOWN
 	_endpoint = ""
 	_supports_channels = true
 	_supports_transfer_modes = true
-	if should_emit_disconnected:
+	_reset_transport_connection()
+	var detached_peer_ids: Array[int] = _take_tracked_peer_ids()
+	if should_close:
+		detached_peer.close()
+	_emit_tracked_peer_disconnections(detached_peer_ids, detached_generation)
+	if should_emit_disconnected and _peer_generation == detached_generation:
 		_emit_disconnected(reason)
 	return detached_peer
 
@@ -385,10 +395,9 @@ func _update_connection_status() -> void:
 		MultiplayerPeer.CONNECTION_DISCONNECTED:
 			var _released_peer: MultiplayerPeer = _detach_peer(
 				true,
-				false,
+				true,
 				"connection_status_disconnected"
 			)
-			_emit_disconnected("connection_status_disconnected")
 
 
 func _map_target_peer(peer_id: int) -> int:
@@ -469,11 +478,17 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	_emit_peer_disconnected(peer_id)
 
 
-func _emit_tracked_peer_disconnections() -> void:
+func _take_tracked_peer_ids() -> Array[int]:
 	var peer_ids: Array[int] = []
 	for peer_id: int in _connected_peer_ids.keys():
 		peer_ids.append(peer_id)
 	peer_ids.sort()
 	_connected_peer_ids.clear()
+	return peer_ids
+
+
+func _emit_tracked_peer_disconnections(peer_ids: Array[int], generation: int) -> void:
 	for peer_id: int in peer_ids:
+		if generation != _peer_generation:
+			return
 		_emit_peer_disconnected(peer_id)

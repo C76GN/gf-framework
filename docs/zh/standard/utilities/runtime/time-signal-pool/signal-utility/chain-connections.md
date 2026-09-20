@@ -29,7 +29,7 @@ signals.disconnect_owner(self)
 
 `connect_any()` 可把多个 Signal 接到同一个回调，返回的连接列表可交给 `disconnect_connections()` 批量断开。
 
-`connect_once()` 或 `once()` 会在首次成功触发后自动断开并从工具追踪中移除。
+`connect_once()` 或 `once()` 在首次通过操作链的回调开始前断开并从工具追踪中移除；回调内同步再次发出源信号不会重复执行。`take()` 的最后一次交付也遵循这个顺序。
 
 `connect_signal()` 返回的链式对象类型是 `GFSignalConnection`，通常不需要手动保存。只有需要主动 `disconnect_signal()`、延迟追加操作或查询连接状态时才保留引用。
 

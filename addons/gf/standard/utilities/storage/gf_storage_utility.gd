@@ -4678,7 +4678,7 @@ func _complete_async_load(
 			data_migrated.emit(file_name, from_version, migration_to_version)
 		if not integrity_failure.is_empty():
 			data_integrity_failed.emit(file_name, integrity_failure)
-		load_completed.emit(file_name, last_load_result.duplicate_result())
+		load_completed.emit(file_name, result.duplicate_result())
 		return
 
 	if result.integrity_status == GFStorageReadResult.IntegrityStatus.INVALID:
@@ -4689,7 +4689,7 @@ func _complete_async_load(
 		data_migrated.emit(file_name, from_version, migration_to_version)
 	if not integrity_failure.is_empty():
 		data_integrity_failed.emit(file_name, integrity_failure)
-	load_completed.emit(file_name, last_load_result.duplicate_result())
+	load_completed.emit(file_name, result.duplicate_result())
 
 
 func _should_emit_load_integrity_failed(result: GFStorageReadResult) -> bool:

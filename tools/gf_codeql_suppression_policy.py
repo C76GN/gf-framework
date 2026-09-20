@@ -377,6 +377,7 @@ def _yaml_mapping_key_lines(
 	keys: list[tuple[int, str]] = []
 	complex_key_lines: set[int] = set()
 	for line_number, line in lines:
+		line = _yaml_without_block_plain_value(line)
 		if (
 			not _yaml_flow_structure_is_balanced(line)
 			or _yaml_flow_collection_is_mapping_key(line)
@@ -393,6 +394,21 @@ def _yaml_mapping_key_lines(
 		if line_has_complex_key:
 			complex_key_lines.add(line_number)
 	return keys, sorted(complex_key_lines)
+
+
+def _yaml_without_block_plain_value(line: str) -> str:
+	# Flow indicators embedded in a block plain value are text, not new nodes.
+	key_pattern = r'''(?:"(?:\\.|[^"\\])*"|'(?:''|[^'])*'|[^\s\[\]{},&*!|>'"%@`?:][^:]*?)'''
+	match = re.match(rf"^\s*(?:-\s+)?{key_pattern}\s*:\s+", line)
+	if match is None:
+		return line
+	value = line[match.end():]
+	properties = re.match(rf"(?:{YAML_NODE_PROPERTY_PATTERN}\s+)*", value)
+	if properties is not None:
+		value = value[properties.end():]
+	if not value or value[0] in "'\"[]{}|>&*!?":
+		return line
+	return line[:match.end()]
 
 
 def _yaml_flow_structure_is_balanced(line: str) -> bool:

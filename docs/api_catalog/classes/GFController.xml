@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFController" path="addons/gf/kernel/base/gf_controller.gd" module="kernel" extends="Node" classDigest="da48d91b3757ace16adfe6ec3f0a39365af30904d9f750ac4e09e99224752916">
+<class name="GFController" path="addons/gf/kernel/base/gf_controller.gd" module="kernel" extends="Node" classDigest="384d0beb9ccadac30c5d4b63706b9d439f09508f877d8210be5d7dcec7f65ad4">
 	<description>GFController: 连接 UI/输入与架构的控制器基类。
 提供访问架构的便捷代理。这里不缓存 Model/System/Utility 引用，
 以避免架构切换或模块注销后保留过期对象。</description>
@@ -79,15 +79,13 @@
 		<member kind="method" name="get_host_as">
 			<signature>func get_host_as(host_type: Variant) -&gt; Node:</signature>
 			<description>获取指定类型的宿主节点。
-可传入项目脚本类型或 Godot 原生类型。
-"type": "Variant",
-"description": "Script、ClassDB 原生类型或 null。"
-}</description>
+可传入项目脚本类型或 Godot 原生类型。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">host_type: 宿主节点类型。</tag>
 				<tag name="return">匹配类型的宿主节点；未找到或类型不匹配时返回 null。</tag>
-				<tag name="schema">host_type {</tag>
+				<tag name="schema">host_type: {"type": "Variant", "description": "Script、ClassDB 原生类型或 null。"}</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_model">
@@ -152,28 +150,24 @@
 		</member>
 		<member kind="method" name="send_command">
 			<signature>func send_command(command: Object) -&gt; Variant:</signature>
-			<description>向架构发送命令。支持 await：'await send_command(MyCommand.new())'。
-"type": "Variant",
-"description": "命令执行结果；异步命令可返回 Signal。"
-}</description>
+			<description>向架构发送命令。支持 await：'await send_command(MyCommand.new())'。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">command: 要发送的命令实例。</tag>
 				<tag name="return">命令的执行结果（null 或 Signal）。</tag>
-				<tag name="schema">return {</tag>
+				<tag name="schema">return: {"type": "Variant", "description": "命令执行结果；异步命令可返回 Signal。"}</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="send_query">
 			<signature>func send_query(query: Object) -&gt; Variant:</signature>
-			<description>执行查询并返回结果。
-"type": "Variant",
-"description": "查询结果；具体类型由查询对象定义。"
-}</description>
+			<description>执行查询并返回结果。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">query: 要执行的查询实例。</tag>
 				<tag name="return">查询结果。</tag>
-				<tag name="schema">return {</tag>
+				<tag name="schema">return: {"type": "Variant", "description": "查询结果；具体类型由查询对象定义。"}</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_event">
@@ -248,15 +242,13 @@
 		</member>
 		<member kind="method" name="send_simple_event">
 			<signature>func send_simple_event(event_id: StringName, payload: Variant = null) -&gt; void:</signature>
-			<description>发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。
-"type": "Variant",
-"description": "事件附加数据；由事件消费者约定结构。"
-}</description>
+			<description>发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_id: StringName 事件标识符。</tag>
 				<tag name="param">payload: 可选的事件附加数据。</tag>
-				<tag name="schema">payload {</tag>
+				<tag name="schema">payload: {"type": "Variant", "description": "事件附加数据；由事件消费者约定结构。"}</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

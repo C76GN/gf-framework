@@ -187,6 +187,31 @@ func test_spatial_query_index_3d_radius_zero_uses_point_query_semantics() -> voi
 	assert_eq(index.query_radius(Vector3.ZERO, 0.0), [1], "3D 零半径查询应返回包含点的实体。")
 
 
+func test_spatial_query_index_3d_large_queries_fall_back_without_losing_results() -> void:
+	for strategy: StringName in [&"linear", &"spatial_hash", &"auto"]:
+		var index: GF_SPATIAL_QUERY_INDEX_3D_SCRIPT = GF_SPATIAL_QUERY_INDEX_3D_SCRIPT.new()
+		var _configured: GF_SPATIAL_QUERY_INDEX_3D_SCRIPT = index.configure(strategy, {
+			"cell_size": 1.0, "auto_spatial_hash_threshold": 1,
+		})
+		assert_true(index.upsert(1, AABB(Vector3.ZERO, Vector3.ONE)))
+		assert_eq(index.query_aabb(AABB(Vector3.ZERO, Vector3.ONE * 100.0)), [1])
+		assert_eq(index.query_radius(Vector3.ZERO, 100.0), [1])
+		var output: Array[Variant] = ["existing"]
+		var _result: Array[Variant] = index.query_aabb_into(AABB(Vector3.ZERO, Vector3.ONE * 100.0), output, false)
+		assert_eq(output, ["existing", 1])
+
+
+func test_spatial_query_index_3d_point_query_includes_closed_maximum_faces() -> void:
+	for strategy: StringName in [&"linear", &"spatial_hash", &"auto"]:
+		var index: GF_SPATIAL_QUERY_INDEX_3D_SCRIPT = GF_SPATIAL_QUERY_INDEX_3D_SCRIPT.new()
+		var _configured: GF_SPATIAL_QUERY_INDEX_3D_SCRIPT = index.configure(strategy, {
+			"cell_size": 4.0, "auto_spatial_hash_threshold": 1,
+		})
+		assert_true(index.upsert(1, AABB(Vector3.ZERO, Vector3.ONE * 4.0)))
+		for point: Vector3 in [Vector3(4, 2, 2), Vector3(2, 4, 2), Vector3(2, 2, 4), Vector3(4, 4, 2), Vector3(4, 4, 4)]:
+			assert_eq(index.query_radius(point, 0.0), [1])
+
+
 func test_spatial_query_index_3d_sorts_integer_entities_numerically() -> void:
 	var index: GF_SPATIAL_QUERY_INDEX_3D_SCRIPT = GF_SPATIAL_QUERY_INDEX_3D_SCRIPT.new()
 	var _configured: GF_SPATIAL_QUERY_INDEX_3D_SCRIPT = index.configure(GF_SPATIAL_QUERY_INDEX_3D_SCRIPT.STRATEGY_LINEAR)

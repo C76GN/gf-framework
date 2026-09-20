@@ -250,6 +250,8 @@ func _process_next_job_once() -> GFJob:
 	var job: GFJob = utility.start_next_job(queue_name)
 	if job == null:
 		return null
+	if job.status != GFJob.Status.ACTIVE or utility.get_job(job.job_id) != job:
+		return job
 
 	var result: Variant = processor.call(job)
 	if result is Signal:

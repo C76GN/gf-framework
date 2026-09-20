@@ -43,6 +43,9 @@ static func project_dictionary(values: Dictionary, options: Dictionary = {}) -> 
 	var rename_fields: Dictionary = GFVariantData.get_option_dictionary(options, "rename_fields")
 	var result: Dictionary = {}
 	for key_variant: Variant in source_values.keys():
+		if not _is_plain_key(key_variant):
+			_record_projection_issue("unsupported_key", key_variant, state)
+			continue
 		var field_name: String = GFVariantData.to_text(key_variant)
 		var child_state: Dictionary = _make_child_state(state, key_variant)
 		if not allowed_lookup.is_empty() and not allowed_lookup.has(field_name):
@@ -53,11 +56,17 @@ static func project_dictionary(values: Dictionary, options: Dictionary = {}) -> 
 			continue
 
 		var output_key: Variant = _rename_key(key_variant, field_name, rename_fields)
+		if not _is_plain_key(output_key):
+			_record_projection_issue("unsupported_key", output_key, child_state)
+			continue
 		result[output_key] = GFVariantData.duplicate_variant(GFVariantData.get_option_value(projected, "value"))
 
 	var defaults: Dictionary = GFVariantData.get_option_dictionary(options, "defaults")
 	if not defaults.is_empty():
-		var _merged_defaults: Dictionary = GFVariantData.deep_merge_defaults(result, defaults)
+		var projected_defaults: Dictionary = _project_dictionary_value(defaults, -1, state)
+		var _merged_defaults: Dictionary = GFVariantData.deep_merge_defaults(
+			result, GFVariantData.get_option_dictionary(projected_defaults, "value")
+		)
 	return _dictionary_to_requested_output(result, options)
 
 
@@ -85,14 +94,13 @@ static func project_object(
 	fields: PackedStringArray = PackedStringArray(),
 	options: Dictionary = {}
 ) -> Dictionary:
-	var defaults: Dictionary = GFVariantData.get_option_dictionary(options, "defaults")
 	if object_ref == null:
-		return defaults
+		return project_dictionary({}, options)
 	if not is_instance_valid(object_ref):
 		_record_projection_issue("invalid_object", null, _make_state(options))
-		return defaults
+		return project_dictionary({}, options)
 	if fields.is_empty():
-		return defaults
+		return project_dictionary({}, options)
 
 	var source_values: Dictionary = {}
 	for field_name: String in fields:

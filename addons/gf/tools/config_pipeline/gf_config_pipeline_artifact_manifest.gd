@@ -28,7 +28,7 @@ const FORMAT: String = "gf.config_pipeline.artifact_manifest"
 ## @api public
 ## [br]
 ## @since 8.0.0
-const FORMAT_VERSION: int = 1
+const FORMAT_VERSION: int = 2
 
 const _ARTIFACT_OWNER: String = "gf.tool.config_pipeline"
 const _ARTIFACT_OWNER_FIELD: String = "artifact_owner"
@@ -1491,6 +1491,7 @@ func _make_digest_projection(manifest: Dictionary) -> Dictionary:
 		"input_digest": GFVariantData.get_option_string(manifest, "input_digest"),
 		"output_digest": GFVariantData.get_option_string(manifest, "output_digest"),
 		"options_digest": GFVariantData.get_option_string(manifest, "options_digest"),
+		"validation_summary": _make_validation_summary(GFVariantData.get_option_dictionary(manifest, "run_summary")),
 		"source_entries": _normalize_digest_source_entries(GFVariantData.get_option_array(manifest, "source_entries")),
 		"output_entries": _normalize_digest_output_entries(GFVariantData.get_option_array(manifest, "output_entries")),
 	}
@@ -1504,6 +1505,17 @@ func _make_digest_projection(manifest: Dictionary) -> Dictionary:
 		)
 		projection["compiler_digest"] = GFVariantData.get_option_string(manifest, "compiler_digest")
 	return projection
+
+
+func _make_validation_summary(run_summary: Dictionary) -> Dictionary:
+	var report: Dictionary = GFVariantData.get_option_dictionary(run_summary, "report")
+	return {
+		"success": GFVariantData.get_option_bool(run_summary, "success"),
+		"ok": GFVariantData.get_option_bool(report, "ok"),
+		"error_count": GFVariantData.get_option_int(report, "error_count", -1),
+		"warning_count": GFVariantData.get_option_int(report, "warning_count", -1),
+		"issue_count": GFVariantData.get_option_int(report, "issue_count", -1),
+	}
 
 
 func _normalize_digest_source_entries(entries: Array) -> Array[Dictionary]:

@@ -37,6 +37,20 @@ def api_docs(visibility: str, description: str = "") -> gdscript_api_parser.ApiD
 
 
 class GdscriptDeclarationParsingTests(unittest.TestCase):
+	def test_schema_requires_named_nonempty_canonical_body(self) -> None:
+		for schema in ("return {", "return:", ": Dictionary"):
+			with self.subTest(schema=schema):
+				with self.assertRaisesRegex(ValueError, "schema"):
+					gdscript_api_parser.parse_docs(["@schema " + schema])
+		docs = gdscript_api_parser.parse_docs([
+			"Serialize state.",
+			'@schema return: {"type": "Dictionary", "additional_properties": true}',
+		])
+		self.assertEqual(docs.description, ["Serialize state."])
+		name, body = gdscript_api_parser.split_named_value(docs.tags["schema"][0])
+		self.assertEqual(name, "return")
+		self.assertEqual(json.loads(body), {"type": "Dictionary", "additional_properties": True})
+
 	def test_explicit_autoload_owner_docs_bind_to_classless_script(self) -> None:
 		parsed = gdscript_api_parser.parse_gdscript_source(
 			'''## Global entry point.
@@ -285,6 +299,55 @@ class Inner:
 
 
 class GeneratedTreeBoundaryTests(unittest.TestCase):
+	def test_interrupt_during_any_tree_install_restores_all_old_bytes(self) -> None:
+		for interrupted_root in (0, 1):
+			for interruption in (KeyboardInterrupt, SystemExit):
+				with self.subTest(root=interrupted_root, interruption=interruption):
+					with tempfile.TemporaryDirectory() as temporary_directory:
+						parent = Path(temporary_directory)
+						roots = [parent / "catalog", parent / "reference"]
+						for root in roots:
+							root.mkdir()
+							(root / "old.bin").write_bytes(b"old\x00bytes")
+						replace = generated_output_transaction.os.replace
+
+						def interrupt_install(source: Path, target: Path) -> None:
+							if ".staging-" in source.name and target == roots[interrupted_root]:
+								raise interruption("injected install interruption")
+							replace(source, target)
+
+						with mock.patch.object(generated_output_transaction.os, "replace", side_effect=interrupt_install):
+							with self.assertRaises(interruption):
+								generated_output_transaction.replace_generated_trees([
+									(root, {"new.bin": b"new bytes"}) for root in roots
+								])
+						for root in roots:
+							self.assertEqual((root / "old.bin").read_bytes(), b"old\x00bytes")
+							self.assertFalse((root / "new.bin").exists())
+
+	def test_second_interrupt_during_rollback_retains_original_backup(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory) / "catalog"
+			root.mkdir()
+			(root / "old.bin").write_bytes(b"original")
+			replace = generated_output_transaction.os.replace
+
+			def interrupt_install_and_restore(source: Path, target: Path) -> None:
+				if ".staging-" in source.name or source.name == "previous":
+					raise KeyboardInterrupt("injected interruption")
+				replace(source, target)
+
+			with mock.patch.object(generated_output_transaction.os, "replace", side_effect=interrupt_install_and_restore):
+				try:
+					generated_output_transaction.replace_generated_trees([(root, {"new.bin": b"new"})])
+				except BaseException as error:
+					self.assertIsInstance(error, generated_output_transaction.GeneratedOutputTransactionError)
+					self.assertIsInstance(error.original_error, KeyboardInterrupt)
+					self.assertEqual(len(error.backup_paths), 1)
+					self.assertEqual((error.backup_paths[0] / "old.bin").read_bytes(), b"original")
+				else:
+					self.fail("Interrupted replacement must report its retained recovery data")
+
 	def test_nonportable_or_escaping_keys_are_rejected_before_root_creation(self) -> None:
 		invalid_keys = (
 			"C:drive-relative.txt",
@@ -922,6 +985,15 @@ class MarkdownStructureTests(unittest.TestCase):
 
 
 class PublicDocsContractTests(unittest.TestCase):
+	def test_unlabelled_fences_do_not_abort_public_entry_diagnostics(self) -> None:
+		readme = self._safe_readme() + "\n```\nUnlabelled example.\n```\n"
+		self.assertEqual(check_docs_quality.check_readme_quickstart_contracts(readme, readme), [])
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			(root / "ASSET_LIBRARY.md").write_text("```\nUnlabelled.\n```\n", encoding="utf-8")
+			errors = check_docs_quality.check_public_entry_contracts(root)
+			self.assertTrue(any("canonical long description" in error for error in errors))
+
 	def _safe_readme(self) -> str:
 		return '''# GF
 
@@ -1042,6 +1114,21 @@ func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 
 
 class CoverageEvidenceTests(unittest.TestCase):
+	def test_explicit_example_roots_must_exist_as_directories(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			docs_root = root / "docs"
+			tests_root = root / "tests"
+			docs_root.mkdir()
+			tests_root.mkdir()
+			self.assertTrue(generate_api_coverage_matrix.build_matrix([], docs_root, tests_root, [])["input_complete"])
+			file_root = root / "file.txt"
+			file_root.write_text("file", encoding="utf-8")
+			for example in (root / "missing", file_root):
+				with self.subTest(example=example.name):
+					with self.assertRaises(generate_api_coverage_matrix.CoverageInputError):
+						generate_api_coverage_matrix.build_matrix([], docs_root, tests_root, [example])
+
 	def test_identifier_hits_do_not_accept_substrings(self) -> None:
 		files = [
 			generate_api_coverage_matrix.make_text_record("fixture.gd", "GFRunnerExtra rerun"),

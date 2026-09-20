@@ -144,6 +144,22 @@ class GuardRedirectNodeState:
 		return true
 
 
+class PopRedirectGuardState:
+	extends TrackingNodeState
+
+	var redirect_guard_callback: Callable
+	var allow_redirect: bool = true
+
+	func _can_exit(next_state: StringName = &"", _args: Dictionary = {}) -> bool:
+		if next_state != &"Third":
+			return true
+		if redirect_guard_callback.is_valid():
+			var callback: Callable = redirect_guard_callback
+			redirect_guard_callback = Callable()
+			callback.call()
+		return allow_redirect
+
+
 class EventHandlingNodeState:
 	extends TrackingNodeState
 
@@ -829,6 +845,128 @@ func test_transition_requires_paused_state_exit_guards_unless_forced() -> void:
 	assert_eq(idle.exit_count, 1, "强制切换应对暂停状态执行 exit hook。")
 
 	group.clear_states(false)
+
+
+func test_push_rejects_an_already_paused_state() -> void:
+	var group: GFNodeStateGroup = autofree(GFNodeStateGroup.new())
+	var first: TrackingNodeState = autofree(TrackingNodeState.new())
+	var second: TrackingNodeState = autofree(TrackingNodeState.new())
+	first.state_name = &"First"
+	second.state_name = &"Second"
+	group.add_state(first)
+	group.add_state(second)
+	group.transition_to(&"First")
+	group.push_state(&"Second")
+	group.push_state(&"First")
+	assert_push_warning("[GFNodeStateGroup] push_state 失败：目标状态已在暂停栈中。")
+	assert_eq(group.get_current_state(), second)
+	assert_eq(group.get_stack_depth(), 1)
+	assert_eq(first.enter_count, 1)
+	assert_true(GFVariantData.get_option_bool(group.validate_state_snapshot(group.get_state_snapshot()), "valid"))
+	group.clear_states(false)
+
+
+func test_pop_redirect_respects_paused_exit_guard() -> void:
+	var group: GFNodeStateGroup = autofree(GFNodeStateGroup.new())
+	var first: GuardedNodeState = autofree(GuardedNodeState.new())
+	var second: ExitRedirectNodeState = autofree(ExitRedirectNodeState.new(&"Third"))
+	var third: TrackingNodeState = autofree(TrackingNodeState.new())
+	first.state_name = &"First"
+	second.state_name = &"Second"
+	third.state_name = &"Third"
+	group.add_state(first)
+	group.add_state(second)
+	group.add_state(third)
+	group.transition_to(&"First")
+	group.push_state(&"Second")
+	first.allow_exit = false
+	assert_true(group.pop_state())
+	assert_eq(group.get_current_state(), first)
+	assert_eq(first.exit_count, 0)
+	assert_eq(first.resume_count, 1)
+	assert_eq(second.exit_count, 1)
+	assert_eq(third.enter_count, 0)
+	group.clear_states(false)
+
+
+func test_pop_redirect_guard_and_blocked_callbacks_preserve_lifecycle_changes() -> void:
+	for use_blocked_signal: bool in [false, true]:
+		for operation: StringName in [&"clear", &"stop", &"transition", &"push"]:
+			var group: GFNodeStateGroup = autofree(GFNodeStateGroup.new())
+			var first: PopRedirectGuardState = autofree(PopRedirectGuardState.new())
+			var second: ExitRedirectNodeState = autofree(ExitRedirectNodeState.new(&"Third"))
+			var third: TrackingNodeState = autofree(TrackingNodeState.new())
+			var fourth: TrackingNodeState = autofree(TrackingNodeState.new())
+			first.state_name = &"First"
+			second.state_name = &"Second"
+			third.state_name = &"Third"
+			fourth.state_name = &"Fourth"
+			group.add_state(first)
+			group.add_state(second)
+			group.add_state(third)
+			group.add_state(fourth)
+			group.transition_to(&"First")
+			group.push_state(&"Second")
+			var mutate: Callable = func() -> void:
+				match operation:
+					&"clear":
+						group.clear_states(false)
+					&"stop":
+						group.stop()
+					&"transition":
+						group.transition_to(&"Fourth", {"fresh": true})
+					&"push":
+						group.transition_to(&"Fourth")
+						group.push_state(&"Third")
+			var on_blocked: Callable = func(
+				_from: GFNodeState, _to: StringName, _args: Dictionary, reason: String
+			) -> void:
+				if reason == "stack_exit_guard":
+					mutate.call()
+			if use_blocked_signal:
+				first.allow_redirect = false
+				var _connected: Error = group.transition_blocked.connect(on_blocked) as Error
+			else:
+				first.redirect_guard_callback = mutate
+			assert_true(group.pop_state())
+			if operation == &"transition":
+				assert_eq(group.get_current_state(), fourth, "新 transition 必须完成且不能被旧 pop 恢复覆盖。")
+				assert_eq(fourth.enter_count, 1)
+				assert_true(GFVariantData.get_option_bool(fourth.last_args, "fresh"))
+			elif operation == &"push":
+				assert_eq(group.get_current_state(), third)
+				assert_eq(group.get_stack_depth(), 1, "旧预检不能弹出回调提交的新栈。")
+				assert_eq(fourth.pause_count, 1)
+			else:
+				assert_null(group.get_current_state(), "guard/blocked 中停止或清空必须保持已提交结果。")
+			if operation != &"push":
+				assert_eq(group.get_stack_depth(), 0)
+			assert_eq(first.resume_count, 0)
+			assert_eq(third.enter_count, 1 if operation == &"push" else 0)
+			if operation == &"clear":
+				assert_true(group.get_states().is_empty())
+			if use_blocked_signal:
+				group.transition_blocked.disconnect(on_blocked)
+			group.clear_states(false)
+
+
+func test_remove_rejects_unregistered_instances_with_registered_names() -> void:
+	var machine: GFNodeStateMachine = autofree(GFNodeStateMachine.new())
+	var group: GFNodeStateGroup = autofree(GFNodeStateGroup.new())
+	var fake_group: GFNodeStateGroup = autofree(GFNodeStateGroup.new())
+	var state: TrackingNodeState = autofree(TrackingNodeState.new())
+	var fake_state: TrackingNodeState = autofree(TrackingNodeState.new())
+	group.group_name = &"Group"
+	fake_group.group_name = &"Group"
+	state.state_name = &"State"
+	fake_state.state_name = &"State"
+	group.add_state(state)
+	machine.add_state_group(group)
+	assert_false(group.remove_state(fake_state))
+	assert_eq(group.get_state(&"State"), state)
+	assert_false(machine.remove_state_group(fake_group))
+	assert_eq(machine.get_state_group(&"Group"), group)
+	assert_eq(state.get_group(), group)
 
 
 func test_remove_state_uses_registration_key_after_state_rename() -> void:

@@ -236,6 +236,7 @@ class _CaptureState:
 		default_factory=list
 	)
 	strict_directories: list[tuple[Path, _FileSnapshot]] = field(default_factory=list)
+	regular_files: dict[Path, tuple[str, _FileSnapshot]] = field(default_factory=dict)
 	missing_paths: list[
 		tuple[Path, str, tuple[tuple[Path, _FileSnapshot], ...]]
 	] = field(default_factory=list)
@@ -471,6 +472,9 @@ def freeze_action_inputs(
 			parent_chain,
 			deadline,
 		)
+	for path, (logical_path, expected) in state.regular_files.items():
+		deadline.check()
+		_validate_unchanged_path(path, logical_path, expected, expect_directory=False)
 	deadline.check()
 	return FrozenActionInputs(
 		check_name=input_spec.check_name,
@@ -1312,6 +1316,9 @@ def _capture_regular_file(
 		)
 	_validate_directory_chain(parent_chain, deadline)
 	state.total_bytes = projected_total
+	previous = state.regular_files.setdefault(path, (logical_path, path_after))
+	if previous[1] != path_after:
+		raise ValidationInputDriftError("validation_inputs.file_changed_between_reads")
 	return {
 		"path": logical_path,
 		"state": "present",

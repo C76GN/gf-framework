@@ -8,6 +8,49 @@ extends GutTest
 
 # --- 测试方法 ---
 
+func test_property_serializer_rejects_non_allowlisted_payload_before_writing() -> void:
+	var serializer: GFNodePropertySerializer = GFNodePropertySerializer.new()
+	serializer.properties = PackedStringArray(["position"])
+	var target: Node2D = Node2D.new()
+	add_child_autofree(target)
+	var result: Dictionary = serializer.apply(target, { "position": Vector2.ONE, "visible": false })
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	assert_true(target.visible)
+	assert_eq(target.position, Vector2.ZERO, "完整载荷应在任何属性写入前校验白名单。")
+
+
+func test_property_serializer_rejects_incomplete_codec_payload_without_writing() -> void:
+	var serializer: GFNodePropertySerializer = GFNodePropertySerializer.new()
+	serializer.properties = PackedStringArray(["value"])
+	var target: VariantPropertyNode = VariantPropertyNode.new()
+	add_child_autofree(target)
+	var oversized: Array = []
+	var _resize_error: int = oversized.resize(20_000)
+	oversized.fill(1)
+	var encoded: Variant = GFVariantJsonCodec.variant_to_json_compatible(oversized)
+	var result: Dictionary = serializer.apply(target, { "value": encoded })
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	var original_preserved: bool = target.value == "original"
+	assert_true(original_preserved)
+
+
+func test_property_serializer_rejects_malformed_vector_marker_without_writing() -> void:
+	var serializer: GFNodePropertySerializer = GFNodePropertySerializer.new()
+	serializer.properties = PackedStringArray(["position"])
+	var target: Node2D = Node2D.new()
+	add_child_autofree(target)
+	target.position = Vector2(8, 9)
+	var encoded: Dictionary = GFVariantData.as_dictionary(GFVariantJsonCodec.variant_to_json_compatible(Vector2.ONE))
+	var marker: Dictionary = GFVariantData.as_dictionary(encoded.get(GFVariantJsonCodec.JSON_MARKER_KEY))
+	marker[GFVariantJsonCodec.JSON_VALUE_KEY] = [1.0]
+	var result: Dictionary = serializer.apply(target, { "position": encoded })
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	assert_eq(target.position, Vector2(8, 9))
+
+
+class VariantPropertyNode extends Node:
+	var value: Variant = "original"
+
 func test_node_serializer_supports_gdscript_class_name_string() -> void:
 	var serializer: GFNodeSerializer = GFNodeSerializer.new()
 	serializer.supported_class_name = "GFNodeStateMachine"

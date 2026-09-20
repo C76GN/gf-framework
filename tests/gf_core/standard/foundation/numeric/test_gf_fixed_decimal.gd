@@ -47,6 +47,15 @@ func test_from_string_scientific_notation_uses_from_float_overflow_boundary() ->
 	assert_eq(value.raw_value, 0, "科学计数法不是严格十进制解析，超出 float 缩放边界时沿用 from_float 归零语义。")
 
 
+func test_cross_precision_addition_saturates_only_the_final_result() -> void:
+	var whole: GFFixedDecimal = GFFixedDecimal.new(1_000_000_000_000_000_000, 0)
+	var fraction: GFFixedDecimal = GFFixedDecimal.new(-9_000_000_000_000_000_000, 1)
+	for result: GFFixedDecimal in [whole.add(fraction), fraction.add(whole), whole.subtract(fraction.negated())]:
+		assert_eq(result.raw_value, 1_000_000_000_000_000_000)
+		assert_eq(result.decimal_places, 1)
+	assert_eq(whole.negated().add(fraction.negated()).raw_value, -1_000_000_000_000_000_000)
+
+
 func test_add_aligns_decimal_places() -> void:
 	var left: GFFixedDecimal = GFFixedDecimal.from_string("1.2", 1)
 	var right: GFFixedDecimal = GFFixedDecimal.from_string("0.35", 2)

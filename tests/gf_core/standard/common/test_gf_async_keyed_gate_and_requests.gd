@@ -1856,6 +1856,22 @@ func test_request_handler_registry_does_not_overwrite_replacement_registered_dur
 	assert_eq(replacement_call_count[0], 1, "新 handler 应只处理后续调用。")
 
 
+func test_request_handler_registry_clear_during_invoke_preserves_new_registration() -> void:
+	var registry: GFRequestHandlerRegistry = GFRequestHandlerRegistry.new()
+	var replacement: Callable = func(_request: Dictionary) -> String:
+		return "replacement"
+	var original: Callable = func(_request: Dictionary) -> String:
+		registry.clear()
+		var registered: Dictionary = registry.register_handler(&"config.resolve", replacement)
+		assert_true(GFVariantData.get_option_bool(registered, "ok"))
+		return "original"
+	var _registered: Dictionary = registry.register_handler(&"config.resolve", original)
+
+	assert_eq(GFVariantData.get_option_string(registry.invoke(&"config.resolve"), "result"), "original")
+	assert_eq(GFVariantData.get_option_int(registry.get_handler_snapshot(&"config.resolve"), "invocation_count"), 0)
+	assert_eq(GFVariantData.get_option_string(registry.invoke(&"config.resolve"), "result"), "replacement")
+
+
 func test_request_handler_registry_json_compatible_reports_sanitize_runtime_values() -> void:
 	var registry: GFRequestHandlerRegistry = GFRequestHandlerRegistry.new()
 	var resource_value: Resource = Resource.new()

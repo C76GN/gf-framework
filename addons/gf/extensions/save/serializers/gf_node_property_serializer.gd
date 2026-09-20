@@ -101,6 +101,13 @@ func apply(node: Node, payload: Dictionary, context: Dictionary = {}) -> Diction
 		return make_result(false, "Node is null.")
 
 	for property_variant: Variant in payload.keys():
+		if not (property_variant is String or property_variant is StringName):
+			return make_result(false, "Property key must be a String or StringName.")
+		var property_name: String = GFVariantData.to_text(property_variant)
+		if not properties.has(property_name):
+			return make_result(false, "Property is not allowed: %s" % property_name)
+	var decoded_payload: Dictionary = {}
+	for property_variant: Variant in payload.keys():
 		var property_name: String = GFVariantData.to_text(property_variant)
 		if not GFObjectPropertyTools.has_property(node, StringName(property_name)):
 			if skip_missing_properties:
@@ -109,10 +116,12 @@ func apply(node: Node, payload: Dictionary, context: Dictionary = {}) -> Diction
 		var decode_result: Dictionary = _decode_payload_property_value(payload[property_variant], context)
 		if not GFVariantData.get_option_bool(decode_result, "ok", false):
 			return make_result(false, GFVariantData.get_option_string(decode_result, "error"))
+		decoded_payload[property_name] = GFVariantData.get_option_value(decode_result, "value")
+	for property_name: String in decoded_payload:
 		var result: Dictionary = GFObjectPropertyTools.write_property(
 			node,
 			NodePath(property_name),
-			GFVariantData.get_option_value(decode_result, "value")
+			decoded_payload[property_name]
 		)
 		if not GFVariantData.get_option_bool(result, "ok", false):
 			return make_result(false, GFVariantData.get_option_string(result, "error"))
@@ -131,7 +140,7 @@ func _encode_payload_property_value(value: Variant, context: Dictionary) -> Vari
 func _decode_payload_property_value(value: Variant, context: Dictionary) -> Dictionary:
 	if GFVariantReferenceCodec.is_reference_marker(value):
 		return GFVariantReferenceCodec.decode_reference(value, _make_reference_decode_context(context))
-	return _make_decode_result(true, GFVariantJsonCodec.json_compatible_to_variant(value))
+	return GFVariantJsonCodec.json_compatible_to_variant_result(value)
 
 
 func _is_unsupported_property_marker(value: Variant) -> bool:
@@ -163,11 +172,3 @@ func _context_has_resource_decode_policy(context: Dictionary) -> bool:
 			GFVariantReferenceCodec.OPTION_ALLOWED_RESOURCE_PATTERNS
 		).is_empty()
 	)
-
-
-func _make_decode_result(ok: bool, value: Variant = null, error: String = "") -> Dictionary:
-	return {
-		"ok": ok,
-		"value": value,
-		"error": error,
-	}
