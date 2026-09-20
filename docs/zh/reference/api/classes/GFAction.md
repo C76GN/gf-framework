@@ -208,6 +208,7 @@ static func repeat_forever(action_factory: Callable) -> GFRepeatAction:
 ### `tween`
 
 - API：`public`
+- 首次版本：`3.6.0`
 
 ```gdscript
 static func tween( target: Object, property_name: NodePath, target_value: Variant, duration: float = 0.2, options: Dictionary = {} ) -> GFConfiguredTweenAction:
@@ -225,12 +226,12 @@ static func tween( target: Object, property_name: NodePath, target_value: Varian
 | `duration` | 持续时间。 |
 | `options` | 可选 Tween 配置。 |
 
-返回：配置化 Tween 动作。
+返回：配置化 Tween 动作；replacement_scope 非 null 且类型错误时警告并返回 null。
 
 结构：
 
 - `target_value`: Variant，可被 Tween 写入 property_name 的目标值。
-- `options`: Dictionary，支持 host_node、duration_scale、loop_count、ignore_time_scale、process_mode、pause_mode、delay、parallel、as_relative、transition_type 和 ease_type。
+- `options`: Dictionary，支持 host_node、duration_scale、loop_count、ignore_time_scale、process_mode、pause_mode、delay、parallel、as_relative、transition_type、ease_type、enable_playback_control: bool = false、ping_pong: bool = false 和 replacement_scope: GFTweenReplacementScope|null = null。往返或替换作用域会自动启用受控播放。
 
 <a id="member-gfaction-methods-tween_by"></a>
 

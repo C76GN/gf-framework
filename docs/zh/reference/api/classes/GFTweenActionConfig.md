@@ -18,6 +18,8 @@
 | 属性 | [`steps`](#member-gftweenactionconfig-properties-steps) | `var steps: Array[GFTweenActionStep] = []` |
 | 属性 | [`duration_scale`](#member-gftweenactionconfig-properties-duration_scale) | `var duration_scale: float:` |
 | 属性 | [`loop_count`](#member-gftweenactionconfig-properties-loop_count) | `var loop_count: int = 1` |
+| 属性 | [`enable_playback_control`](#member-gftweenactionconfig-properties-enable_playback_control) | `var enable_playback_control: bool = false` |
+| 属性 | [`ping_pong`](#member-gftweenactionconfig-properties-ping_pong) | `var ping_pong: bool = false` |
 | 属性 | [`ignore_time_scale`](#member-gftweenactionconfig-properties-ignore_time_scale) | `var ignore_time_scale: bool = false` |
 | 属性 | [`process_mode`](#member-gftweenactionconfig-properties-process_mode) | `var process_mode: Tween.TweenProcessMode = Tween.TWEEN_PROCESS_IDLE` |
 | 属性 | [`pause_mode`](#member-gftweenactionconfig-properties-pause_mode) | `var pause_mode: Tween.TweenPauseMode = Tween.TWEEN_PAUSE_BOUND` |
@@ -69,12 +71,39 @@ var duration_scale: float:
 ### `loop_count`
 
 - API：`public`
+- 首次版本：`3.6.0`
 
 ```gdscript
 var loop_count: int = 1
 ```
 
-播放次数。1 表示播放一次，0 表示无限循环。
+播放次数。1 表示播放一次，0 表示无限循环。 受控播放只接受有限循环；ping_pong 为 true 时一次循环包含去程和回程。
+
+<a id="member-gftweenactionconfig-properties-enable_playback_control"></a>
+
+### `enable_playback_control`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var enable_playback_control: bool = false
+```
+
+启用运行时时间定位和正反向播放。默认沿用原生 Tween 播放路径。 ping_pong 或动作的 replacement_scope 也会自动启用受控播放及其整组校验。
+
+<a id="member-gftweenactionconfig-properties-ping_pong"></a>
+
+### `ping_pong`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var ping_pong: bool = false
+```
+
+每次有限循环按冻结时间轴先前进再返回初值，并自动启用受控播放。 回程不累计相对偏移，也不发出步骤标记。
 
 <a id="member-gftweenactionconfig-properties-ignore_time_scale"></a>
 

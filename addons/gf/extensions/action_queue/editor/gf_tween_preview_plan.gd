@@ -4,6 +4,7 @@
 ##
 ## 只读取精确基类配置和步骤的字段，不调用来源资源的实例方法。
 ## 标记通知与运行时时钟选项不进入计划；调用方负责独立预览目标和播放生命周期。
+## 当前预览采用原生 Tween 语义；受控播放与往返配置明确拒绝，不降级为单向预览。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -77,6 +78,16 @@ static func capture(config: Resource, target_kind: int) -> GFTweenPreviewPlan:
 		return _reject(plan, "未知预览目标类型。")
 	if not _has_exact_script(config, _CONFIG_SCRIPT):
 		return _reject(plan, "只支持使用 GFTweenActionConfig 原始脚本的配置资源。")
+	var ping_pong_value: Variant = config.get(&"ping_pong")
+	var control_value: Variant = config.get(&"enable_playback_control")
+	if not (ping_pong_value is bool) or not (control_value is bool):
+		return _reject(plan, "ping_pong 和 enable_playback_control 必须是布尔值。")
+	var ping_pong: bool = ping_pong_value
+	var playback_control: bool = control_value
+	if ping_pong:
+		return _reject(plan, "预览暂不支持 ping_pong 往返配置；请在运行时验证往返效果。")
+	if playback_control:
+		return _reject(plan, "预览暂不支持 enable_playback_control 受控播放配置；请在运行时验证播放效果。")
 
 	var steps_value: Variant = config.get(&"steps")
 	if not (steps_value is Array):

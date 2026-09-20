@@ -38,6 +38,21 @@ q_sys.enqueue(GFAction.sequence([
 
 `GFAction` 也提供 `tween_by()`、`move_by()`、`scale_to()`、`scale_by()`、`rotate_to()`、`rotate_by()`、`fade_by()`、`colorize()`、`shader_parameter()`、`set_property()`、`show()`、`hide()` 和 `remove_node()` 等便捷工厂。
 
+## Tween 播放选项
+
+`GFAction.tween()` 及复用其选项的属性工厂支持 `enable_playback_control: bool`、`ping_pong: bool` 和 `replacement_scope: GFTweenReplacementScope`。两个布尔值默认为 `false`，作用域默认为 `null`；设置往返或作用域会自动启用受控播放。`replacement_scope` 传入其他非空类型时，工厂会警告并返回 `null`，调用方应检查创建结果。
+
+```gdscript
+var action: GFConfiguredTweenAction = GFAction.tween(
+	card_node, ^"position:x", 240.0, 0.5,
+	{ "enable_playback_control": true, "ping_pong": true }
+)
+if action != null:
+	q_sys.enqueue(action)
+```
+
+工厂只配置动作，定位和改变方向必须在动作实际执行后的有效会话内调用。完整的秒数、标记、循环、相对值和替换边界见 [配置化 Tween 动作](../tween-config.md#运行时时间定位与正反向播放)。
+
 ## Shader 参数
 
 `GFShaderParameterAction` 只负责驱动 `ShaderMaterial` 的 uniform 参数，不提供任何具体 shader 或特效语义。目标可以直接是 `ShaderMaterial`，也可以是带 `material` 属性的节点；直接操作资源且需要 Tween 时，应通过 `host_node` 提供宿主节点。动作会在复制共享材质、捕获初值或创建 Tween 前，通过 `GFShaderInterfaceSnapshot` 检查参数是否存在并严格验证目标值类型；校验失败不会留下材质副本或部分写入。

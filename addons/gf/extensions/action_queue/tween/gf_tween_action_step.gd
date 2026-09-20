@@ -114,30 +114,7 @@ var _delay: float = 0.0
 ## [br]
 ## @schema return: Variant，成功时为 PropertyTweener；无效时为 null。
 func append_to_tween(tween: Tween, target: Object, duration_scale: float = 1.0) -> Variant:
-	if tween == null:
-		return null
-	var validation_error: String = get_property_validation_error(target)
-	if not validation_error.is_empty():
-		push_warning("[GFTweenActionStep] 跳过无效 Tween 步骤：%s" % validation_error)
-		return null
-	var captured_curve: Dictionary = _EASING_CURVE_SCRIPT.capture(easing_curve)
-	var curve_error: String = GFVariantData.get_option_string(captured_curve, "error")
-	if not curve_error.is_empty():
-		push_warning("[GFTweenActionStep] 跳过无效 Tween 步骤：Invalid easing_curve: %s" % curve_error)
-		return null
-	var curve_data: Dictionary = GFVariantData.get_option_dictionary(captured_curve, "data")
-
-	var effective_scale: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(duration_scale)
-	var effective_duration: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(
-		duration * effective_scale
-	)
-	var effective_delay: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(
-		delay * effective_scale
-	)
-	return append_property_tweener(
-		tween, target, property_name, target_value, effective_duration, effective_delay,
-		as_relative, parallel, transition_type, ease_type, curve_data
-	)
+	return _append_validated(tween, target, duration_scale, target, property_name)
 
 
 ## 立即应用步骤目标值；仅校验属性，不采样或校验 easing_curve。
@@ -233,6 +210,25 @@ func capture_initial_value(target: Object) -> Variant:
 
 
 # --- 框架内部方法 ---
+
+## 通过执行世代代理追加原生属性步骤；属性和曲线仍以真实目标校验。
+## [br]
+## @api framework_internal
+## [br]
+## @param tween: 接收步骤的 Tween。
+## [br]
+## @param target: 属性校验目标。
+## [br]
+## @param duration_scale: 时长缩放。
+## [br]
+## @param binding: 持有 value 代理属性的执行绑定。
+## [br]
+## @return: 成功时为 PropertyTweener，否则为 null。
+## [br]
+## @schema return: Variant，PropertyTweener 或 null。
+func append_for_action(tween: Tween, target: Object, duration_scale: float, binding: GFTweenPropertyBinding) -> Variant:
+	return _append_validated(tween, target, duration_scale, binding, ^"value")
+
 
 ## 校验可读写属性和值，供即时终点应用和初值恢复使用，不要求插值曲线有效。
 ## [br]
@@ -330,6 +326,33 @@ static func append_property_tweener(
 
 
 # --- 私有/辅助方法 ---
+
+func _append_validated(tween: Tween, target: Object, duration_scale: float, write_target: Object, write_property: NodePath) -> Variant:
+	if tween == null:
+		return null
+	var validation_error: String = get_property_validation_error(target)
+	if not validation_error.is_empty():
+		push_warning("[GFTweenActionStep] 跳过无效 Tween 步骤：%s" % validation_error)
+		return null
+	var captured_curve: Dictionary = _EASING_CURVE_SCRIPT.capture(easing_curve)
+	var curve_error: String = GFVariantData.get_option_string(captured_curve, "error")
+	if not curve_error.is_empty():
+		push_warning("[GFTweenActionStep] 跳过无效 Tween 步骤：Invalid easing_curve: %s" % curve_error)
+		return null
+	var curve_data: Dictionary = GFVariantData.get_option_dictionary(captured_curve, "data")
+
+	var effective_scale: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(duration_scale)
+	var effective_duration: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(
+		duration * effective_scale
+	)
+	var effective_delay: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(
+		delay * effective_scale
+	)
+	return append_property_tweener(
+		tween, write_target, write_property, target_value, effective_duration, effective_delay,
+		as_relative, parallel, transition_type, ease_type, curve_data
+	)
+
 
 func _resolve_relative_value(target: Object) -> Variant:
 	var current_value: Variant = target.get_indexed(property_name)

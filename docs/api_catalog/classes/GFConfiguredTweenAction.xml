@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfiguredTweenAction" path="addons/gf/extensions/action_queue/actions/gf_configured_tween_action.gd" module="extensions/action_queue" extends="GFVisualAction" classDigest="4ca74a5336196277da392ef33cfe33d7c5247991314fad8e1ccd944d92c202a4">
-	<description>GFConfiguredTweenAction: 由 GFTweenActionConfig 驱动的通用 Tween 动作。
-允许项目把表现动画拆成 Resource 配置，再交给 GFActionQueueSystem 编排。</description>
+<class name="GFConfiguredTweenAction" path="addons/gf/extensions/action_queue/actions/gf_configured_tween_action.gd" module="extensions/action_queue" extends="GFVisualAction" classDigest="d17652a97b0b418917a24237a3be8081dcf42e71b653fd6a21b6756fd191b4b5">
+	<description>GFConfiguredTweenAction: 配置驱动的 Tween 动作，支持可选冻结时间轴与属性替换。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
@@ -10,12 +9,13 @@
 	<signals>
 		<member kind="signal" name="marker_reached">
 			<signature>signal marker_reached(marker_id: StringName, step_index: int, target: Object)</signature>
-			<description>Tween 步骤标记到达后发出。</description>
+			<description>正向到达标记时发出；定位、倒放和立即完成不补发标记。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">marker_id: 标记标识。</tag>
 				<tag name="param">step_index: 步骤索引。</tag>
-				<tag name="param">target: 被缓动目标。</tag>
+				<tag name="param">target: 本次执行的缓动目标。</tag>
+				<tag name="since">3.9.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -27,38 +27,51 @@
 			<description>被缓动的目标对象。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.6.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="config">
 			<signature>var config: GFTweenActionConfig</signature>
-			<description>Tween 配置。</description>
+			<description>Tween 配置；执行后修改不改变已捕获的时间轴。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.6.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="host_node">
 			<signature>var host_node: Node</signature>
-			<description>可选 Tween 宿主节点。目标不是 Node 时必须提供。</description>
+			<description>可选宿主节点，目标不是 Node 时必须提供。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.6.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="replacement_scope">
+			<signature>var replacement_scope: GFTweenReplacementScope = null</signature>
+			<description>属性替换作用域；启用冻结时间轴，接管时旧动作保留当前姿态并完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</properties>
 	<methods>
 		<member kind="method" name="execute">
 			<signature>func execute() -&gt; Variant:</signature>
-			<description>执行配置化 Tween。</description>
+			<description>开始新执行；先结束旧会话，再按当前配置捕获新会话。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">需要等待时返回内部完成 Signal；配置无效、目标无效或瞬时写入时返回 null。</tag>
-				<tag name="schema">return: Variant，返回内部完成 Signal 或 null。</tag>
+				<tag name="return">需要等待时返回内部完成 Signal；拒绝、重入失权或瞬时执行时返回 null。</tag>
+				<tag name="schema">return: Variant，内部完成 Signal 或 null。</tag>
+				<tag name="since">3.6.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel">
 			<signature>func cancel() -&gt; void:</signature>
-			<description>取消当前 Tween，并按配置恢复初始值。</description>
+			<description>取消当前执行并按捕获配置恢复初值；终态重复调用无副作用。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.6.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="pause">
@@ -66,28 +79,90 @@
 			<description>暂停当前 Tween。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.6.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="resume">
 			<signature>func resume() -&gt; void:</signature>
-			<description>恢复当前 Tween。</description>
+			<description>沿当前方向恢复播放。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.6.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="finish">
 			<signature>func finish() -&gt; void:</signature>
-			<description>立即完成当前 Tween，并按配置恢复初始值。</description>
+			<description>立即完成当前方向，不补发标记；按捕获配置恢复初值。
+原生有限 Tween 推进到实际终点；无限循环停在当前姿态。
+有限原生计划超过 4096 个展开属性步骤或总时长非有限时，警告并停止在当前姿态。
+原生属性 setter 或标记回调内调用时延后到安全时机。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.6.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="seek">
+			<signature>func seek(time_seconds: float) -&gt; bool:</signature>
+			<description>定位并暂停，只提交最终样本；不触发完成或标记。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">time_seconds: 0 至总时长的有限秒数，包含全部循环。</tag>
+				<tag name="return">定位成功返回 true；拒绝或提交期间失权返回 false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="play_forward">
+			<signature>func play_forward() -&gt; bool:</signature>
+			<description>从当前时间向时间轴终点播放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">活跃可控会话开始播放时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="play_backward">
+			<signature>func play_backward() -&gt; bool:</signature>
+			<description>从当前时间倒放到时间轴起点，不发出步骤标记。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">活跃可控会话开始倒放时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="can_control_playback">
+			<signature>func can_control_playback() -&gt; bool:</signature>
+			<description>查询本次执行是否支持定位和方向控制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已捕获且尚未终结的可控会话返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_time_seconds">
+			<signature>func get_time_seconds() -&gt; float:</signature>
+			<description>获取可控会话当前时间；未捕获时为 0。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前秒数，终态保留最后提交时间。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_duration_seconds">
+			<signature>func get_duration_seconds() -&gt; float:</signature>
+			<description>获取捕获时间轴的总时长，包含全部循环与回程。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">总秒数；原生模式或未捕获时为 0。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_wait_guard_node">
 			<signature>func get_wait_guard_node() -&gt; Node:</signature>
-			<description>获取用于保护等待生命周期的 Tween 宿主节点。</description>
+			<description>获取保护等待生命周期的宿主节点。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">有效宿主节点；无效时返回 null。</tag>
+				<tag name="return">有效宿主，无效时返回 null。</tag>
+				<tag name="since">3.6.0</tag>
 			</tags>
 		</member>
 	</methods>

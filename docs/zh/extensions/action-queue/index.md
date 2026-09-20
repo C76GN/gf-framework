@@ -9,7 +9,7 @@ ActionQueue 扩展负责表现动作的排队、并行、取消和横切拦截�
 - [视觉动作与入队](visual-actions/index.md)：`GFActionQueueSystem`、`GFVisualActionGroup`、自定义动作和 fire-and-forget。
 - [命名队列与生命周期](queue-streams.md)：多条表现流、节点绑定队列、清空、跳过和运行时控制。
 - [拦截器与动作工厂](interceptors-actions/index.md)：`GFActionInterceptor`、内置动作、`GFAction` 工厂和等待语义。
-- [配置化 Tween 动作](tween-config.md)：`GFTweenActionConfig`、步骤校验、标记点和属性恢复。
+- [配置化 Tween 动作](tween-config.md)：步骤校验、曲线、运行时定位与往返、同属性替换和 Inspector 预览。
 
 ## 使用边界
 

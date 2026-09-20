@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="3dfcd3f71886f3239ad2627a4657475c5200e119f2f17dfb0c20e82afbc22643" classCount="890" methodCount="7947" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="0d6cef164b63e69d77441650baac8a40d0fbe4cec4ed3e5a8d68fff33cb48832" classCount="891" methodCount="7956" autoloadCount="1" autoloadMethodCount="65">
 	<module id="kernel" label="Kernel" classCount="78" methodCount="827" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -570,7 +570,7 @@
 		<class name="GFWeightedEntry" path="classes/GFWeightedEntry.xml" sourcePath="addons/gf/standard/foundation/math/gf_weighted_entry.gd" extends="Resource" />
 		<class name="GFWeightedTable" path="classes/GFWeightedTable.xml" sourcePath="addons/gf/standard/foundation/math/gf_weighted_table.gd" extends="Resource" />
 	</module>
-	<module id="extensions/action_queue" label="Action Queue" classCount="16" methodCount="136" autoloadCount="0" autoloadMethodCount="0">
+	<module id="extensions/action_queue" label="Action Queue" classCount="17" methodCount="145" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFAction" path="classes/GFAction.xml" sourcePath="addons/gf/extensions/action_queue/core/gf_action.gd" extends="RefCounted" />
 		<class name="GFActionInterceptionResult" path="classes/GFActionInterceptionResult.xml" sourcePath="addons/gf/extensions/action_queue/core/gf_action_interception_result.gd" extends="RefCounted" />
 		<class name="GFActionInterceptor" path="classes/GFActionInterceptor.xml" sourcePath="addons/gf/extensions/action_queue/core/gf_action_interceptor.gd" extends="RefCounted" />
@@ -584,6 +584,7 @@
 		<class name="GFShaderParameterAction" path="classes/GFShaderParameterAction.xml" sourcePath="addons/gf/extensions/action_queue/actions/gf_shader_parameter_action.gd" extends="GFVisualAction" />
 		<class name="GFTweenActionConfig" path="classes/GFTweenActionConfig.xml" sourcePath="addons/gf/extensions/action_queue/tween/gf_tween_action_config.gd" extends="Resource" />
 		<class name="GFTweenActionStep" path="classes/GFTweenActionStep.xml" sourcePath="addons/gf/extensions/action_queue/tween/gf_tween_action_step.gd" extends="Resource" />
+		<class name="GFTweenReplacementScope" path="classes/GFTweenReplacementScope.xml" sourcePath="addons/gf/extensions/action_queue/tween/gf_tween_replacement_scope.gd" extends="RefCounted" />
 		<class name="GFVisualAction" path="classes/GFVisualAction.xml" sourcePath="addons/gf/extensions/action_queue/actions/gf_visual_action.gd" extends="RefCounted" />
 		<class name="GFVisualActionGroup" path="classes/GFVisualActionGroup.xml" sourcePath="addons/gf/extensions/action_queue/actions/gf_visual_action_group.gd" extends="GFVisualAction" />
 		<class name="GFWaitAction" path="classes/GFWaitAction.xml" sourcePath="addons/gf/extensions/action_queue/actions/gf_wait_action.gd" extends="GFVisualAction" />

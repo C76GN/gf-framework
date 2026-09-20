@@ -119,6 +119,8 @@ static func repeat_forever(action_factory: Callable) -> GFRepeatAction:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.6.0
+## [br]
 ## @param target: 目标对象。
 ## [br]
 ## @param property_name: 属性路径。
@@ -129,11 +131,11 @@ static func repeat_forever(action_factory: Callable) -> GFRepeatAction:
 ## [br]
 ## @param options: 可选 Tween 配置。
 ## [br]
-## @return 配置化 Tween 动作。
+## @return 配置化 Tween 动作；replacement_scope 非 null 且类型错误时警告并返回 null。
 ## [br]
 ## @schema target_value: Variant，可被 Tween 写入 property_name 的目标值。
 ## [br]
-## @schema options: Dictionary，支持 host_node、duration_scale、loop_count、ignore_time_scale、process_mode、pause_mode、delay、parallel、as_relative、transition_type 和 ease_type。
+## @schema options: Dictionary，支持 host_node、duration_scale、loop_count、ignore_time_scale、process_mode、pause_mode、delay、parallel、as_relative、transition_type、ease_type、enable_playback_control: bool = false、ping_pong: bool = false 和 replacement_scope: GFTweenReplacementScope|null = null。往返或替换作用域会自动启用受控播放。
 static func tween(
 	target: Object,
 	property_name: NodePath,
@@ -141,12 +143,20 @@ static func tween(
 	duration: float = 0.2,
 	options: Dictionary = {}
 ) -> GFConfiguredTweenAction:
+	var replacement_value: Variant = GFVariantData.get_option_value(options, "replacement_scope")
+	if replacement_value != null and not replacement_value is GFTweenReplacementScope:
+		push_warning("[GFAction] tween 失败：replacement_scope 必须为 GFTweenReplacementScope 或 null。")
+		return null
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
 	var step: GFTweenActionStep = config.add_property_step(property_name, target_value, duration)
 	_apply_tween_options(config, step, options)
-	return _get_configured_tween_action_value(
+	var action: GFConfiguredTweenAction = _get_configured_tween_action_value(
 		config.create_action(target, _get_node_value(GFVariantData.get_option_value(options, "host_node")))
 	)
+	if action != null and replacement_value is GFTweenReplacementScope:
+		var replacement_scope: GFTweenReplacementScope = replacement_value
+		action.replacement_scope = replacement_scope
+	return action
 
 
 ## 创建通用相对属性 Tween 动作。
@@ -575,6 +585,10 @@ static func _apply_tween_options(
 		config.duration_scale = GFVariantData.get_option_float(options, "duration_scale")
 	if options.has("loop_count"):
 		config.loop_count = maxi(GFVariantData.get_option_int(options, "loop_count"), 0)
+	if options.has("enable_playback_control"):
+		config.enable_playback_control = GFVariantData.get_option_bool(options, "enable_playback_control")
+	if options.has("ping_pong"):
+		config.ping_pong = GFVariantData.get_option_bool(options, "ping_pong")
 	if options.has("ignore_time_scale"):
 		config.ignore_time_scale = GFVariantData.get_option_bool(options, "ignore_time_scale")
 	if options.has("process_mode"):
