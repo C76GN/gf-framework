@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFStorageOwnedRead" path="addons/gf/standard/utilities/storage/gf_storage_owned_read.gd" module="standard" extends="RefCounted" classDigest="27cb6bb102abe34a93b44502ef1925c92be3e4bd2ed3cb2c167f1366d4320145">
+	<description>GFStorageOwnedRead: 独占异步读取的一次性领取句柄。
+只能由 `GFStorageUtility.load_data_owned_request_async()` 取得有效句柄；手动
+构造的实例不可领取。共享句柄即共享领取权，同一结果仅允许一次成功领取。
+caller 成功后，结果由句柄持有，直到领取、显式释放或句柄的最后一个引用释放。
+owner、取消令牌和超时只约束等待阶段，不撤销已经就绪或领取的结果。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="completed">
+			<signature>signal completed(receipt: GFStorageOwnedReadReceipt)</signature>
+			<description>caller 首次完成时发出不包含载荷的诊断；可在回调内立即调用 `take()`。
+请求可能在入口返回前完成，应先检查 `is_completed()`。owner 已释放时可以
+抑制通知，但终态仍可通过 `get_result()` 查询；晚到物理结果不会再次通知。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">receipt: 不含载荷或领取权限的不可变 caller 终态。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums>
+		<member kind="enum" name="State">
+			<signature>enum State {
+	## 未绑定请求的手动构造实例。
+	INVALID,
+	## 正在等待 caller 终态。
+	WAITING,
+	## 成功结果已经就绪，允许领取一次。
+	READY,
+	## 完整结果已经移交给领取方。
+	TAKEN,
+	## 已放弃领取权；尚未完成的物理请求仍由 Storage 收敛。
+	RELEASED,
+	## caller 已失败或取消，没有可领取结果。
+	FAILED,
+}</signature>
+			<description>独占读取句柄的领取权状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="is_valid">
+			<signature>func is_valid() -&gt; bool:</signature>
+			<description>检查句柄是否由 Storage 绑定到合法请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已绑定的句柄返回 true，包括失败、已领取或已释放的句柄。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_request_id">
+			<signature>func get_request_id() -&gt; int:</signature>
+			<description>获取 Utility 内唯一的物理请求 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">合法请求的大于零 ID；无效句柄返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_consumer_id">
+			<signature>func get_consumer_id() -&gt; int:</signature>
+			<description>获取 Utility 内唯一的 consumer ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">合法 consumer 的大于零 ID；无效句柄返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_file_name">
+			<signature>func get_file_name() -&gt; String:</signature>
+			<description>获取请求的规范逻辑文件名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已验证的逻辑文件名；文件名校验前失败时可能为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_state">
+			<signature>func get_state() -&gt; State:</signature>
+			<description>获取当前领取权状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 State 枚举值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_pending">
+			<signature>func is_pending() -&gt; bool:</signature>
+			<description>检查是否仍在等待 caller 终态。
+等待中调用 `release()` 只放弃领取权，仍可能返回 true，直到请求正常收敛。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">合法请求尚未取得 caller 终态时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_completed">
+			<signature>func is_completed() -&gt; bool:</signature>
+			<description>检查 caller 终态是否已经写入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已取得成功、失败或取消诊断时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_result">
+			<signature>func get_result() -&gt; GFStorageOwnedReadReceipt:</signature>
+			<description>获取不包含载荷和领取权限的不可变终态诊断。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已完成时返回同一不可变诊断，等待中或无效句柄返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel_observation">
+			<signature>func cancel_observation(reason: StringName = &amp;"cancelled") -&gt; bool:</signature>
+			<description>在主线程显式结束对尚未完成请求的观察。
+返回 true 表示取消先于成功结算，不保证底层 worker 已经停止。
+已经 READY 或 TAKEN 的结果不受取消影响。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 由共享生命周期规范化的稳定取消原因。</tag>
+				<tag name="return">本次调用首次结束 caller 观察时返回 true；非主线程返回 false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="take">
+			<signature>func take() -&gt; GFStorageOwnedReadTakeResult:</signature>
+			<description>在主线程一次性领取完整结果，不复制载荷或调用外部回调。
+可以在 `completed` 回调内调用。成功移交前先清空句柄的载荷引用，重复领取
+返回 ALREADY_TAKEN；失败状态与成功的空 Dictionary 不会混淆。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">包含闭合状态的领取结果，只有 SUCCESS 持有完整 GFStorageReadResult。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="release">
+			<signature>func release() -&gt; bool:</signature>
+			<description>在主线程放弃领取权，立即释放已经就绪的载荷。
+等待中的请求仍按原生命周期收敛，终态诊断仍可查询。重复释放没有副作用，
+也不会撤销已经移交给领取方的结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">首次从 WAITING 或 READY 释放时返回 true；其他状态或非主线程返回 false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

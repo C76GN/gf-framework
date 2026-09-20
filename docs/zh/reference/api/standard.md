@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 194 | 3487 | 2369 |
+| [运行时服务](#category-runtime_service) | 194 | 3488 | 2370 |
 | [协议与扩展点](#category-protocol) | 26 | 345 | 273 |
 | [资源定义](#category-resource_definition) | 122 | 1579 | 797 |
-| [运行时句柄](#category-runtime_handle) | 56 | 952 | 607 |
-| [值对象](#category-value_object) | 61 | 1007 | 651 |
+| [运行时句柄](#category-runtime_handle) | 57 | 965 | 618 |
+| [值对象](#category-value_object) | 63 | 1028 | 670 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 70 | 48 |
@@ -434,6 +434,7 @@
 | [`GFSignalConnection`](classes/GFSignalConnection.md#gfsignalconnection) | `RefCounted` | `addons/gf/standard/utilities/signals/gf_signal_connection.gd` |
 | [`GFStorageAsyncOperation`](classes/GFStorageAsyncOperation.md#gfstorageasyncoperation) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_async_operation.gd` |
 | [`GFStorageFamilyResetAuthorization`](classes/GFStorageFamilyResetAuthorization.md#gfstoragefamilyresetauthorization) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_family_reset_authorization.gd` |
+| [`GFStorageOwnedRead`](classes/GFStorageOwnedRead.md#gfstorageownedread) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_owned_read.gd` |
 | [`GFStoragePayloadTransfer`](classes/GFStoragePayloadTransfer.md#gfstoragepayloadtransfer) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_payload_transfer.gd` |
 | [`GFTextGenerationContext`](classes/GFTextGenerationContext.md#gftextgenerationcontext) | `RefCounted` | `addons/gf/standard/foundation/text/gf_text_generation_context.gd` |
 | [`GFTimeoutController`](classes/GFTimeoutController.md#gftimeoutcontroller) | `RefCounted` | `addons/gf/standard/common/gf_timeout_controller.gd` |
@@ -497,6 +498,8 @@
 | [`GFStorageConflictReport`](classes/GFStorageConflictReport.md#gfstorageconflictreport) | `Resource` | `addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd` |
 | [`GFStorageDeleteResult`](classes/GFStorageDeleteResult.md#gfstoragedeleteresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_delete_result.gd` |
 | [`GFStorageFamilyResetResult`](classes/GFStorageFamilyResetResult.md#gfstoragefamilyresetresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_family_reset_result.gd` |
+| [`GFStorageOwnedReadReceipt`](classes/GFStorageOwnedReadReceipt.md#gfstorageownedreadreceipt) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_owned_read_receipt.gd` |
+| [`GFStorageOwnedReadTakeResult`](classes/GFStorageOwnedReadTakeResult.md#gfstorageownedreadtakeresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_owned_read_take_result.gd` |
 | [`GFStorageReadResult`](classes/GFStorageReadResult.md#gfstoragereadresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_read_result.gd` |
 | [`GFStorageResourceReadResult`](classes/GFStorageResourceReadResult.md#gfstorageresourcereadresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_resource_read_result.gd` |
 | [`GFStorageRevisionResult`](classes/GFStorageRevisionResult.md#gfstoragerevisionresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_revision_result.gd` |

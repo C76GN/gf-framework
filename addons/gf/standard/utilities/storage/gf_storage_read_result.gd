@@ -374,6 +374,17 @@ func capture_revision_for_framework(revision: GFStorageRevisionResult) -> void:
 	_captured_revision = revision if ok else null
 
 
+## 返回实际捕获的 revision，不合成失败或不支持状态。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return 成功读取捕获的 revision；未捕获时为 null。
+func get_captured_revision_for_framework() -> GFStorageRevisionResult:
+	return _captured_revision
+
+
 ## 绑定本次读取的 Utility、root 与 logical identity；该来源不会进入公开字典 schema。
 ## [br]
 ## @api framework_internal

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="20437cbdcb76d94e2b8ade0f576d89f36c6bbb95889cf28aca374117340b7778">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="e780408d737f3c31229a42a8596af2c6c379c6e5ff2701f9c50758805ad5cca1">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
@@ -561,6 +561,21 @@ Storage 实例、规范文件名与 codec options。同一 transfer 可在旧 at
 				<tag name="param">options: 可选 caller owner、取消 token 与单调 deadline；null 表示无 caller 生命周期约束。</tag>
 				<tag name="return">已配置的请求句柄；输入无效或启动失败时句柄立即进入失败终态。</tag>
 				<tag name="since">10.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="load_data_owned_request_async">
+			<signature>func load_data_owned_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -&gt; GFStorageOwnedRead:</signature>
+			<description>异步读取纯数据，并通过专用句柄领取一次完整结果。
+迁移完成后保留一次隔离复制，通知与领取不再复制载荷。此入口不更新
+last_load_result，也不发出 load_completed；使用句柄 completed 与 get_result。
+Object、Resource、循环或超出纯数据校验预算的图会明确拒绝独占交付。
+owner、token 和 deadline 仅约束等待阶段；成功结果由句柄持有至领取或释放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">file_name: 目标 portable logical 文件名。</tag>
+				<tag name="param">options: 可选等待阶段生命周期约束；null 表示无约束。</tag>
+				<tag name="return">已绑定的独占句柄；即时失败可通过 get_result 查询。非主线程返回无效句柄。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_late_settlement_diagnostics">

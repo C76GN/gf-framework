@@ -67,28 +67,12 @@ const OPERATION_DELETE: StringName = &"delete"
 ## @since 11.0.0
 const OPERATION_RESET: StringName = &"reset"
 
-const _MAX_REASON_CHARACTERS: int = 128
-const _MAX_INT64: int = 9_223_372_036_854_775_807
-
 
 # --- 私有变量 ---
 
-var _request_id: int = 0
-var _consumer_id: int = 0
-var _operation: StringName = &""
-var _file_name: String = ""
+var _state: GFStorageAsyncRequestState = GFStorageAsyncRequestState.new()
 var _result: GFStorageAsyncResult = null
 var _caller_result: GFStorageAsyncCallerResult = null
-var _clock: GFClock = null
-var _request_options: GFStorageAsyncRequestOptions = null
-var _cancel_delegate: GFWeakMethodInvocation = null
-var _cancel_token: GFCancellationToken = null
-var _cancel_token_callback: Callable = Callable()
-var _deadline_msec: int = 0
-var _consumer_configured: bool = false
-var _worker_accepted: bool = false
-var _physical_cancel_requested: bool = false
-var _physical_completed_msec: int = 0
 var _late_settlement_diagnostic: Dictionary = {}
 var _late_settlement_diagnostic_taken: bool = false
 var _payload_transfer: GFStoragePayloadTransfer = null
@@ -107,7 +91,7 @@ var _failed_payload_reclaimed: bool = false
 ## [br]
 ## @return 大于零的请求 ID。
 func get_request_id() -> int:
-	return _request_id
+	return _state.get_request_id()
 
 
 ## 获取当前 consumer 的 Utility 内唯一 ID。
@@ -118,7 +102,7 @@ func get_request_id() -> int:
 ## [br]
 ## @return 大于零的 consumer ID；尚未配置时返回 0。
 func get_consumer_id() -> int:
-	return _consumer_id
+	return _state.get_consumer_id()
 
 
 ## 获取请求类型。
@@ -129,7 +113,7 @@ func get_consumer_id() -> int:
 ## [br]
 ## @return `OPERATION_SAVE`、`OPERATION_LOAD`、`OPERATION_DELETE` 或 `OPERATION_RESET`。
 func get_operation() -> StringName:
-	return _operation
+	return _state.get_operation()
 
 
 ## 获取规范化存储文件名。
@@ -140,7 +124,7 @@ func get_operation() -> StringName:
 ## [br]
 ## @return 已通过路径校验的请求返回规范相对文件名；校验前被拒绝时返回空字符串。
 func get_file_name() -> String:
-	return _file_name
+	return _state.get_file_name()
 
 
 ## 检查物理请求是否等待终态。
@@ -151,7 +135,7 @@ func get_file_name() -> String:
 ## [br]
 ## @return 已配置且未完成时返回 true。
 func is_pending() -> bool:
-	return _request_id > 0 and _result == null
+	return _state.is_pending()
 
 
 ## 检查物理请求是否已有终态。
@@ -162,7 +146,7 @@ func is_pending() -> bool:
 ## [br]
 ## @return 已完成时返回 true。
 func is_completed() -> bool:
-	return _result != null
+	return _state.is_completed()
 
 
 ## 获取物理终态结果副本。
@@ -184,7 +168,7 @@ func get_result() -> GFStorageAsyncResult:
 ## [br]
 ## @return 已配置且 caller 尚未完成时返回 true。
 func is_caller_pending() -> bool:
-	return _consumer_id > 0 and _caller_result == null
+	return _state.is_caller_pending()
 
 
 ## 检查当前 consumer 是否已有 caller 终态。
@@ -195,7 +179,7 @@ func is_caller_pending() -> bool:
 ## [br]
 ## @return caller 已完成时返回 true。
 func is_caller_completed() -> bool:
-	return _caller_result != null
+	return _state.is_caller_completed()
 
 
 ## 获取 caller 终态结果副本。
@@ -222,12 +206,7 @@ func get_caller_result() -> GFStorageAsyncCallerResult:
 ## [br]
 ## @return 本次调用首次结束 caller 观察时返回 true。
 func cancel_observation(reason: StringName = &"cancelled") -> bool:
-	if not Thread.is_main_thread() or not is_caller_pending():
-		return false
-	return _request_caller_terminal(
-		GFStorageAsyncCallerResult.EndKind.EXPLICIT_CANCEL,
-		_normalize_reason(reason, &"cancelled")
-	)
+	return _state.cancel_observation(reason)
 
 
 ## 获取当前请求关联的 opaque payload transfer。
@@ -271,6 +250,17 @@ func reclaim_failed_payload() -> GFStoragePayloadTransfer:
 
 # --- 框架内部方法 ---
 
+## 获取同一请求的无载荷生命周期记录，供 executor 统一仲裁。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
+## [br]
+## @return 本 Operation 持有的内部记录；不包含领域结果。
+func get_request_state_for_framework() -> GFStorageAsyncRequestState:
+	return _state
+
+
 ## 由 Storage Utility 初始化请求身份。
 ## [br]
 ## @api framework_internal
@@ -287,16 +277,7 @@ func reclaim_failed_payload() -> GFStoragePayloadTransfer:
 ## [br]
 ## @return 首次配置成功返回 true。
 func configure_for_framework(request_id: int, operation: StringName, file_name: String) -> bool:
-	if _request_id != 0 or request_id <= 0:
-		return false
-	if operation not in [OPERATION_SAVE, OPERATION_LOAD, OPERATION_DELETE, OPERATION_RESET]:
-		return false
-	_request_id = request_id
-	_consumer_id = request_id
-	_operation = operation
-	_file_name = file_name
-	_clock = GFClock.new()
-	return true
+	return _state.configure_for_framework(request_id, operation, file_name)
 
 
 ## 配置当前 consumer 的生命周期观察与弱取消委托。
@@ -325,61 +306,9 @@ func configure_consumer_for_framework(
 	clock: GFClock,
 	cancel_delegate: Callable
 ) -> bool:
-	if (
-		_request_id <= 0
-		or not is_pending()
-		or _caller_result != null
-		or _consumer_configured
-		or consumer_id <= 0
-		or clock == null
-		or (options != null and not options.is_valid())
-		or not cancel_delegate.is_valid()
-		or cancel_delegate.get_bound_arguments_count() != 0
-	):
-		return false
-	var delegate_target: Object = cancel_delegate.get_object()
-	var delegate_method: StringName = cancel_delegate.get_method()
-	if (
-		delegate_target == null
-		or not is_instance_valid(delegate_target)
-		or delegate_method.is_empty()
-	):
-		return false
-
-	var cancel_delegate_invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(
-		delegate_target,
-		delegate_method
+	return _state.configure_consumer_for_framework(
+		consumer_id, options, clock, cancel_delegate, self
 	)
-	var cancellation_token: GFCancellationToken = (
-		options.get_cancel_token_for_framework() if options != null else null
-	)
-	var token_callback: Callable = Callable()
-	if cancellation_token != null:
-		var token_invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(
-			self,
-			&"_on_cancel_token_requested"
-		)
-		token_callback = func(reason: StringName) -> void:
-			var _invocation_result: Dictionary = token_invocation.invoke([reason])
-		var connect_error: Error = cancellation_token.cancel_requested.connect(
-			token_callback,
-			CONNECT_ONE_SHOT as Object.ConnectFlags
-		) as Error
-		if connect_error != OK:
-			return false
-
-	_consumer_id = consumer_id
-	_clock = clock
-	_request_options = options
-	_cancel_delegate = cancel_delegate_invocation
-	_cancel_token = cancellation_token
-	_cancel_token_callback = token_callback
-	_deadline_msec = _calculate_deadline_msec(
-		clock.get_monotonic_msec(),
-		options.get_timeout_msec_for_framework() if options != null else 0
-	)
-	_consumer_configured = true
-	return true
 
 
 ## 按 token、owner、deadline 的固定优先级轮询 caller 生命周期。
@@ -392,31 +321,7 @@ func configure_consumer_for_framework(
 ## [br]
 ## @return 本次轮询的 lifecycle cause 被 Utility 接受并线性化时返回 true。
 func poll_caller_lifecycle_for_framework() -> bool:
-	if not Thread.is_main_thread() or not is_caller_pending() or not _consumer_configured:
-		return false
-	if _cancel_token != null and _cancel_token.is_cancel_requested():
-		return _request_caller_terminal(
-			GFStorageAsyncCallerResult.EndKind.TOKEN_CANCELLED,
-			_normalize_reason(_cancel_token.get_cancel_reason(), &"token_cancelled")
-		)
-	if (
-		_request_options != null
-		and _request_options.owner_is_released_for_framework()
-	):
-		return _request_caller_terminal(
-			GFStorageAsyncCallerResult.EndKind.OWNER_RELEASED,
-			&"owner_released"
-		)
-	if (
-		_deadline_msec > 0
-		and _clock != null
-		and _clock.get_monotonic_msec() >= _deadline_msec
-	):
-		return _request_caller_terminal(
-			GFStorageAsyncCallerResult.EndKind.DEADLINE_EXPIRED,
-			&"deadline_expired"
-		)
-	return false
+	return _state.poll_caller_lifecycle_for_framework()
 
 
 ## 标记物理 worker 已接纳请求。
@@ -429,10 +334,7 @@ func poll_caller_lifecycle_for_framework() -> bool:
 ## [br]
 ## @return 首次在物理终态前标记成功返回 true。
 func mark_worker_accepted_for_framework() -> bool:
-	if not is_pending() or _worker_accepted or _physical_cancel_requested:
-		return false
-	_worker_accepted = true
-	return true
+	return _state.mark_worker_accepted_for_framework()
 
 
 ## 标记 Utility 已请求在安全点终止物理工作。
@@ -445,12 +347,7 @@ func mark_worker_accepted_for_framework() -> bool:
 ## [br]
 ## @return worker 尚未接纳且请求仍可安全结算取消时返回 true；重复标记保持幂等。
 func mark_physical_cancel_requested_for_framework() -> bool:
-	if not is_pending() or _worker_accepted:
-		return false
-	if _physical_cancel_requested:
-		return true
-	_physical_cancel_requested = true
-	return true
+	return _state.mark_physical_cancel_requested_for_framework()
 
 
 ## 写入 caller-first 终态。
@@ -476,33 +373,23 @@ func complete_caller_for_framework(
 	reason: StringName = &"",
 	emit_caller_signal: bool = true
 ) -> bool:
-	if (
-		not Thread.is_main_thread()
-		or not is_caller_pending()
-		or status == GFStorageAsyncCallerResult.Status.PHYSICAL_SETTLED
-		or end_kind == GFStorageAsyncCallerResult.EndKind.PHYSICAL_SETTLEMENT
-	):
+	if not Thread.is_main_thread() or not is_caller_pending():
 		return false
 	var error_code: Error = (
-		ERR_BUSY
-		if status == GFStorageAsyncCallerResult.Status.OUTCOME_UNKNOWN
-		else ERR_SKIP
+		ERR_BUSY if status == GFStorageAsyncCallerResult.Status.OUTCOME_UNKNOWN else ERR_SKIP
 	)
+	var completed_at_msec: int = _state.get_monotonic_msec_for_framework()
 	var caller_result_value: GFStorageAsyncCallerResult = _make_caller_result(
-		status,
-		end_kind,
-		reason,
-		error_code,
-		null,
-		_get_monotonic_msec()
+		status, end_kind, reason, error_code, null, completed_at_msec
 	)
 	if caller_result_value == null:
 		return false
+	if not _state.commit_caller_for_framework(status, end_kind, reason, completed_at_msec):
+		return false
 	_caller_result = caller_result_value
-	_disconnect_consumer_lifecycle()
-	if emit_caller_signal and _can_emit_caller_signal():
+	if emit_caller_signal and _state.can_emit_caller_signal_for_framework():
 		caller_completed.emit(_caller_result.duplicate_result())
-	_release_caller_owner_snapshot()
+	_state.finish_caller_notification_for_framework()
 	return true
 
 
@@ -518,10 +405,7 @@ func complete_caller_for_framework(
 ## [br]
 ## @return 请求仍在等待、尚无文件名且新文件名非空时返回 true。
 func set_file_name_for_framework(file_name: String) -> bool:
-	if not is_pending() or not _file_name.is_empty() or file_name.is_empty():
-		return false
-	_file_name = file_name
-	return true
+	return _state.set_file_name_for_framework(file_name)
 
 
 ## 关联一次 transfer-backed Storage attempt。
@@ -543,7 +427,7 @@ func configure_payload_attempt_for_framework(
 ) -> bool:
 	if (
 		not is_pending()
-		or _operation != OPERATION_SAVE
+		or get_operation() != OPERATION_SAVE
 		or transfer == null
 		or attempt_id <= 0
 		or _payload_transfer != null
@@ -620,60 +504,42 @@ func complete_for_framework(
 	if not is_pending() or result == null:
 		return false
 	if (
-		result.get_request_id() != _request_id
-		or result.get_operation() != _operation
-		or result.get_file_name() != _file_name
+		result.get_request_id() != get_request_id()
+		or result.get_operation() != get_operation()
+		or result.get_file_name() != get_file_name()
 	):
 		return false
-	if _payload_transfer != null and not _payload_attempt_finished:
+	if not is_payload_attempt_ready_for_settlement_for_framework():
 		return false
-	if (
-		result.get_settlement_kind() == GFStorageAsyncResult.SettlementKind.DOMAIN_RESULT
-		and end_kind != GFStorageAsyncCallerResult.EndKind.PHYSICAL_SETTLEMENT
-	):
+	if not _state.can_commit_physical_for_framework(result.get_settlement_kind(), end_kind):
 		return false
-	if (
-		result.get_settlement_kind() == GFStorageAsyncResult.SettlementKind.CANCELLED
-		and (
-			end_kind == GFStorageAsyncCallerResult.EndKind.PHYSICAL_SETTLEMENT
-			or _worker_accepted
-			or not _physical_cancel_requested
-		)
-	):
-		return false
-
-	var caller_was_completed: bool = _caller_result != null
-	var completed_at_msec: int = _get_monotonic_msec()
+	var caller_was_completed: bool = is_caller_completed()
+	var completed_at_msec: int = _state.get_monotonic_msec_for_framework()
 	var physical_copy: GFStorageAsyncResult = result.duplicate_result()
 	var physical_caller_result: GFStorageAsyncCallerResult = null
 	if not caller_was_completed:
 		physical_caller_result = _make_caller_result(
 			GFStorageAsyncCallerResult.Status.PHYSICAL_SETTLED,
-			end_kind,
-			reason,
-			physical_copy.get_error_code(),
-			physical_copy,
-			completed_at_msec
+			end_kind, reason, physical_copy.get_error_code(), physical_copy, completed_at_msec
 		)
 		if physical_caller_result == null:
 			return false
-
+	if not _state.commit_physical_for_framework(
+		physical_copy.get_settlement_kind(), physical_copy.is_successful(),
+		physical_copy.get_error_code(), end_kind, reason, completed_at_msec,
+		physical_copy.get_read_failure_kind_for_framework()
+	):
+		return false
 	_result = physical_copy
-	_physical_completed_msec = completed_at_msec
 	if not caller_was_completed:
 		_caller_result = physical_caller_result
-		_disconnect_consumer_lifecycle()
 	else:
 		_late_settlement_diagnostic = _make_late_settlement_diagnostic()
 	completed.emit(_result.duplicate_result())
-	if (
-		not caller_was_completed
-		and emit_caller_signal
-		and _can_emit_caller_signal()
-	):
+	if not caller_was_completed and emit_caller_signal and _state.can_emit_caller_signal_for_framework():
 		caller_completed.emit(_caller_result.duplicate_result())
 	if not caller_was_completed:
-		_release_caller_owner_snapshot()
+		_state.finish_caller_notification_for_framework()
 	return true
 
 
@@ -697,27 +563,6 @@ func take_late_settlement_diagnostic_for_framework() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
-func _request_caller_terminal(
-	end_kind: GFStorageAsyncCallerResult.EndKind,
-	reason: StringName
-) -> bool:
-	if not is_caller_pending() or _cancel_delegate == null:
-		return false
-	var invocation_result: Dictionary = _cancel_delegate.invoke([
-		self,
-		int(end_kind),
-		_normalize_reason(reason, &"cancelled"),
-	])
-	var status_value: Variant = invocation_result.get("status", &"")
-	if not (status_value is StringName):
-		return false
-	var invocation_status: StringName = status_value
-	if invocation_status != GFWeakMethodInvocation.STATUS_INVOKED:
-		return false
-	var result_value: Variant = invocation_result.get("value", false)
-	return result_value if result_value is bool else false
-
-
 func _make_caller_result(
 	status: GFStorageAsyncCallerResult.Status,
 	end_kind: GFStorageAsyncCallerResult.EndKind,
@@ -728,13 +573,13 @@ func _make_caller_result(
 ) -> GFStorageAsyncCallerResult:
 	var caller_result_value: GFStorageAsyncCallerResult = GFStorageAsyncCallerResult.new()
 	var configured: bool = caller_result_value.configure_for_framework(
-		_consumer_id,
-		_request_id,
-		_operation,
-		_file_name,
+		get_consumer_id(),
+		get_request_id(),
+		get_operation(),
+		get_file_name(),
 		status,
 		end_kind,
-		_normalize_reason(reason, _default_reason(end_kind)),
+		reason,
 		completed_at_msec,
 		error_code,
 		physical_result
@@ -758,7 +603,7 @@ func _make_late_settlement_diagnostic() -> Dictionary:
 	var reset_remaining_evidence_count: int = -1
 	var reset_failed_member: int = -1
 	if _result.get_settlement_kind() == GFStorageAsyncResult.SettlementKind.DOMAIN_RESULT:
-		match _operation:
+		match get_operation():
 			OPERATION_SAVE:
 				write_failure_kind = int(_result.get_write_failure_kind())
 			OPERATION_LOAD:
@@ -782,25 +627,8 @@ func _make_late_settlement_diagnostic() -> Dictionary:
 					reset_remaining_evidence_count = reset_result.get_remaining_evidence_count()
 					reset_failed_member = int(reset_result.get_failed_member())
 
-	return {
-		"consumer_id": _caller_result.get_consumer_id(),
-		"request_id": _request_id,
-		"operation": _operation,
-		"file_name": _file_name,
-		"caller_status": int(_caller_result.get_status()),
-		"caller_end_kind": int(_caller_result.get_end_kind()),
-		"caller_reason": _caller_result.get_reason(),
-		"caller_completed_msec": _caller_result.get_completed_at_msec(),
-		"worker_accepted": _worker_accepted,
-		"physical_cancel_requested": _physical_cancel_requested,
-		"settlement_kind": int(_result.get_settlement_kind()),
-		"physical_ok": _result.is_successful(),
-		"physical_error_code": int(_result.get_error_code()),
-		"physical_completed_msec": _physical_completed_msec,
-		"late_duration_msec": maxi(
-			_physical_completed_msec - _caller_result.get_completed_at_msec(),
-			0
-		),
+	var diagnostic: Dictionary = _state.take_late_settlement_diagnostic_for_framework()
+	diagnostic.merge({
 		"read_failure_kind": read_failure_kind,
 		"write_failure_kind": write_failure_kind,
 		"delete_failure_kind": delete_failure_kind,
@@ -815,76 +643,5 @@ func _make_late_settlement_diagnostic() -> Dictionary:
 		"reset_recreated_member_count": reset_recreated_member_count,
 		"reset_remaining_evidence_count": reset_remaining_evidence_count,
 		"reset_failed_member": reset_failed_member,
-	}
-
-
-func _disconnect_consumer_lifecycle() -> void:
-	if (
-		_cancel_token != null
-		and _cancel_token_callback.is_valid()
-		and _cancel_token.cancel_requested.is_connected(_cancel_token_callback)
-	):
-		_cancel_token.cancel_requested.disconnect(_cancel_token_callback)
-	_cancel_token = null
-	_cancel_token_callback = Callable()
-	_cancel_delegate = null
-	_deadline_msec = 0
-
-
-func _can_emit_caller_signal() -> bool:
-	return (
-		_request_options == null
-		or not _request_options.owner_is_released_for_framework()
-	)
-
-
-func _release_caller_owner_snapshot() -> void:
-	_request_options = null
-
-
-func _calculate_deadline_msec(now_msec: int, timeout_msec: int) -> int:
-	if timeout_msec <= 0:
-		return 0
-	var normalized_now: int = maxi(now_msec, 0)
-	if normalized_now >= _MAX_INT64 - timeout_msec:
-		return _MAX_INT64
-	return normalized_now + timeout_msec
-
-
-func _get_monotonic_msec() -> int:
-	return maxi(_clock.get_monotonic_msec(), 0) if _clock != null else Time.get_ticks_msec()
-
-
-func _normalize_reason(reason: StringName, fallback: StringName) -> StringName:
-	var reason_text: String = String(reason if reason != &"" else fallback)
-	if reason_text.length() > _MAX_REASON_CHARACTERS:
-		reason_text = reason_text.left(_MAX_REASON_CHARACTERS)
-	return StringName(reason_text)
-
-
-func _default_reason(end_kind: GFStorageAsyncCallerResult.EndKind) -> StringName:
-	match end_kind:
-		GFStorageAsyncCallerResult.EndKind.PHYSICAL_SETTLEMENT:
-			return &"physical_settlement"
-		GFStorageAsyncCallerResult.EndKind.EXPLICIT_CANCEL:
-			return &"cancelled"
-		GFStorageAsyncCallerResult.EndKind.TOKEN_CANCELLED:
-			return &"token_cancelled"
-		GFStorageAsyncCallerResult.EndKind.DEADLINE_EXPIRED:
-			return &"deadline_expired"
-		GFStorageAsyncCallerResult.EndKind.OWNER_RELEASED:
-			return &"owner_released"
-		GFStorageAsyncCallerResult.EndKind.UTILITY_DISPOSED:
-			return &"utility_disposed"
-	return &"caller_completed"
-
-
-# --- 信号处理函数 ---
-
-func _on_cancel_token_requested(reason: StringName) -> void:
-	if not is_caller_pending():
-		return
-	var _terminal_linearized: bool = _request_caller_terminal(
-		GFStorageAsyncCallerResult.EndKind.TOKEN_CANCELLED,
-		_normalize_reason(reason, &"token_cancelled")
-	)
+	}, true)
+	return diagnostic
