@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "fd151ed1d5a445d9ded24d4397b6b284b25cb625b2ebdbe393fbb41bf68f8f0d",
+  "source_digest": "817ecf8e2de9ed5c588163df56d2a55eabd884eebd2bb0e89c7be0e7ddc317cc",
   "class_count": 866,
   "autoload_count": 1,
   "package_count": 59,
@@ -98646,6 +98646,13 @@
         },
         {
           "kind": "func",
+          "name": "bind_with_reuse_keys",
+          "signature": "func bind_with_reuse_keys( owner: Node, scroll_container: ScrollContainer, content_root: Control, layout_model: GFVirtualListModel, item_factory: Callable, bind_callback: Callable, unbind_callback: Callable, identity_callback: Callable, reuse_key_callback: Callable, focus_model: GFVirtualListFocusModel = null, measure_callback: Callable = Callable(), focus_target_callback: Callable = Callable() ) -> bool",
+          "summary": "建立按稳定复用分类选择行模板的 owner-bound 虚拟列表绑定。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "request_sync",
           "signature": "func request_sync() -> bool",
           "summary": "请求一次合并到 deferred 队列的同步。",
@@ -99129,6 +99136,13 @@
           "name": "STATUS_DUPLICATE_IDENTITY",
           "signature": "const STATUS_DUPLICATE_IDENTITY: StringName = &\"duplicate_identity\"",
           "summary": "当前请求范围包含重复稳定 identity。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_INVALID_REUSE_KEY",
+          "signature": "const STATUS_INVALID_REUSE_KEY: StringName = &\"invalid_reuse_key\"",
+          "summary": "复用分类回调失效，或未返回非空且长度有界的 StringName。",
           "visibility": "public"
         },
         {

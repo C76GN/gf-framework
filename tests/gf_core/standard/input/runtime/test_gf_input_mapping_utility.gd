@@ -1369,6 +1369,51 @@ func test_deferred_router_attach_is_canceled_after_dispose() -> void:
 	assert_null(_find_router_node(), "Utility 已销毁时，延迟挂载不应留下输入 Router。")
 
 
+## 验证应用失焦通知经实际 Router 接线清理动作，恢复焦点后仍可重新按下。
+func test_router_application_focus_loss_completes_action_once_and_allows_restart() -> void:
+	var context: GFInputContext = _make_context(&"gameplay", [
+		_make_mapping(_make_action(&"jump"), [_make_key_binding(KEY_F24)]),
+	])
+	_utility.enable_context(context)
+	await get_tree().process_frame
+	var router: Node = _find_router_node()
+	assert_not_null(router, "初始化后应将实际输入 Router 挂到 SceneTree。")
+	if router == null:
+		return
+	watch_signals(_utility)
+	var input_viewport: Viewport = get_tree().root
+
+	input_viewport.push_input(_make_key_event(KEY_F24, true))
+	assert_true(_utility.is_action_active(&"jump"), "Viewport 输入应经 Router 激活动作。")
+	assert_signal_emit_count(_utility, "action_started", 1)
+	assert_signal_emit_count(_utility, "action_completed", 0)
+
+	router.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	assert_false(_utility.is_action_active(&"jump"), "缺少按键释放事件时，应用失焦仍应清理活跃动作。")
+	var cleared_value: Variant = _utility.get_action_value(&"jump")
+	assert_true(cleared_value is bool, "失焦后布尔动作仍应保留布尔值类型。")
+	assert_false(GFVariantData.to_bool(cleared_value, true), "失焦应恢复动作默认值。")
+	assert_signal_emit_count(_utility, "action_completed", 1)
+	assert_true(_utility.is_context_enabled(context), "失焦清理不得移除输入上下文。")
+
+	_utility.tick(0.016)
+	router.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	assert_false(_utility.is_action_active(&"jump"), "后续 tick 不得用失焦前的按键状态重新激活动作。")
+	assert_signal_emit_count(_utility, "action_started", 1)
+	assert_signal_emit_count(_utility, "action_completed", 1, "重复失焦不得重复结束同一次动作。")
+
+	router.notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
+	assert_false(_utility.is_action_active(&"jump"), "恢复焦点本身不得恢复失焦前的按住状态。")
+	input_viewport.push_input(_make_key_event(KEY_F24, true))
+	assert_true(_utility.is_action_active(&"jump"), "恢复焦点后相同按键应可再次激活动作。")
+	assert_signal_emit_count(_utility, "action_started", 2)
+	assert_signal_emit_count(_utility, "action_completed", 1)
+
+	input_viewport.push_input(_make_key_event(KEY_F24, false))
+	assert_false(_utility.is_action_active(&"jump"))
+	assert_signal_emit_count(_utility, "action_completed", 2, "重新按下后的正常释放应只结束第二次动作。")
+
+
 ## 验证同一动作可以按输入设备映射维护玩家级状态。
 func test_player_action_state_is_scoped_by_device_assignment() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()

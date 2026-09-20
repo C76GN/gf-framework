@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVirtualListSyncResult" path="addons/gf/standard/utilities/ui/gf_virtual_list_sync_result.gd" module="standard" extends="RefCounted" classDigest="4587d5d498c6a8ea37e019ba4f34400b8e73633869d687e2edbb8833c847a0fe">
+<class name="GFVirtualListSyncResult" path="addons/gf/standard/utilities/ui/gf_virtual_list_sync_result.gd" module="standard" extends="RefCounted" classDigest="ca7d5d99a3d6b3fab14da7989d950072849c884bfd2c057dd6bc348b830d1ffa">
 	<description>GFVirtualListSyncResult: 虚拟列表同步的不可变诊断结果。
 只保存范围、计数、版本和稳定错误信息，不保存项目条目数据或原始稳定 ID。</description>
 	<tags>
@@ -75,6 +75,14 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID_REUSE_KEY">
+			<signature>const STATUS_INVALID_REUSE_KEY: StringName = &amp;"invalid_reuse_key"</signature>
+			<description>复用分类回调失效，或未返回非空且长度有界的 StringName。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_FACTORY_FAILED">

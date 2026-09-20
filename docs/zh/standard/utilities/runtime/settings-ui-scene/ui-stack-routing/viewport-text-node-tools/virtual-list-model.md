@@ -77,6 +77,71 @@ if bound:
 
 需要把同步诊断交给日志、测试工件或外部工具时，使用 `GFVirtualListSyncResult.to_dict()`。该摘要可直接经过 `JSON.stringify()` / `JSON.parse_string()` 往返：`status` 输出为 `String`，`viewport_range` 与 `requested_range` 输出为 `{ "start": int, "end_exclusive": int }`，`materialized_indices` 输出为 `Array[int]`；它不会退回到 `Vector2i`、PackedArray 或项目载荷。所有 revision 与 count 必须位于 `0..9007199254740991`，`error_index` 必须位于 `-1..9007199254740991`，因此成功配置的结果不会越过 JSON 可精确表达的整数域；越界输入会在结果冻结前被拒绝，同一个新结果对象仍可用合法数据重试。类型化 getter 仍返回 `StringName`、`Vector2i` 与 `PackedInt32Array`，供运行时调用方使用。
 
+## 按复用分类混合行模板
+
+聊天记录、消息中心或资源浏览器可能同时展示文字行和图片行。使用 `bind_with_reuse_keys()`，在 `identity_callback` 后增加 `reuse_key_callback(index, item_id) -> StringName`，并把 factory 改为 `factory(reuse_key: StringName) -> Control`。其余参数与 `bind()` 保持相同顺序。原来的 `bind()` 继续调用无参 factory，适用于所有行共享同一种模板的列表。
+
+稳定 ID 表示“哪一条数据”，复用 key 表示“哪些 Control 可以互换”。例如每条消息都有不同 ID，但所有文字消息可返回 `&"text"`，图片消息返回 `&"image"`。相同 key 必须始终对应兼容的节点结构与 bind/unbind 契约；不要把条目 ID 当作模板分类，也不要在同一个 key 下切换不兼容的场景结构。
+
+```gdscript
+func make_mixed_row(reuse_key: StringName) -> Control:
+	if reuse_key == &"text":
+		var label: Label = Label.new()
+		label.custom_minimum_size.y = 32.0
+		return label
+	if reuse_key == &"image":
+		var image: TextureRect = TextureRect.new()
+		image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		image.custom_minimum_size.y = 120.0
+		return image
+	return null
+
+
+func bind_mixed_row(row: Control, index: int, _item_id: Variant) -> bool:
+	var entry: Dictionary = entries[index]
+	if row is Label:
+		var label: Label = row
+		label.text = GFVariantData.get_option_string(entry, "text")
+		return true
+	if row is TextureRect:
+		var texture_value: Variant = entry.get("texture")
+		if texture_value is Texture2D:
+			var image: TextureRect = row
+			image.texture = texture_value
+			return true
+	return false
+
+
+func unbind_mixed_row(row: Control, _index: int, _item_id: Variant) -> void:
+	if row is Label:
+		var label: Label = row
+		label.text = ""
+	elif row is TextureRect:
+		var image: TextureRect = row
+		image.texture = null
+
+
+func connect_mixed_rows() -> bool:
+	return binder.bind_with_reuse_keys(
+		self, $ScrollContainer, $ScrollContainer/Content, model,
+		make_mixed_row, bind_mixed_row, unbind_mixed_row,
+		func(index: int) -> Variant:
+			return entries[index]["id"],
+		func(index: int, _item_id: Variant) -> StringName:
+			return GFVariantData.get_option_string_name(entries[index], "kind"),
+		focus
+	)
+```
+
+示例中的项目 `entries` 为 `Array[Dictionary]`：每条包含稳定 `id` 和 `kind`，文字行提供 `text`，图片行提供已由项目加载并持有的 `Texture2D`。Binder 只管理行节点，不替代图片资源的加载与所有权。不同模板需要不同的行内焦点目标时，继续使用最后一个可选参数 `focus_target_callback`。
+
+数据或模板分类变化后调用 `invalidate_items()`。即使 ID 保持不变，key 从 `&"text"` 变为 `&"image"` 也会对称解绑旧行，并取得图片分类的 Control；改回原分类时可再次复用仍在池内的文字行。分类不改变布局模型或虚拟焦点模型的职责：自动测量沿用当前滚动锚点，同一焦点索引的旧行若拥有物理焦点，会按既有 handoff 规则交给新行；外部焦点仍不会被抢走。
+
+分类回调在 factory staging 之前运行，每轮只为目标范围计算并冻结 key。回调必须轻量、同步、可重复调用，返回值只能是非空 `StringName`，字符数与 UTF-8 字节数各不超过 1024；普通 `String`、空值、其他类型或超限值会返回 `STATUS_INVALID_REUSE_KEY`。诊断包含失败索引和固定说明，不回显分类值。该回调与其它项目回调一样受 generation、data revision 和 Control 所有权检查约束：回调中使条目失效则本轮 deferred，解绑或销毁则本轮终止。
+
+复用顺序仍是稳定 ID、离场 active、pool、factory，但前三步只选择相同 key 的 Control。ID 预检、分类预检或 factory staging 失败时，已提交的活动行保持不变；已经取得的候选按原分类回池并执行总预算裁剪。bind 拒绝沿用一次 bind 对应一次 unbind 的释放语义，不承诺恢复项目已经产生的任意绑定副作用。所有分类共享一份 `max_pooled_items` 总预算；没有每类独立上限或保留配额，也不保证某种模板永远在池内。
+
 ## 预算与回收
 
 `max_materialized_items` 和 `max_pooled_items` 是调用方预算，但不能突破 `ABSOLUTE_MAX_MATERIALIZED_ITEMS` 与 `ABSOLUTE_MAX_POOLED_ITEMS` 的框架硬上限。超大赋值会被钳制；活动预算至少为 1，pool 可以设为 0。同步轮次外缩小 pool 预算会立即释放超额 parentless Control；项目 callback 在同步事务内收紧预算时，Binder 会先完成候选提交或回滚，再按新上限统一裁剪并让同步结果报告最终 pool 数量，避免释放仍被事务引用的 Control。

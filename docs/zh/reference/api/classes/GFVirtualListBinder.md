@@ -30,6 +30,7 @@ owner-bound 虚拟列表 Control 物化与回收协调器。 连接项目提供�
 | 属性 | [`auto_reveal_focus`](#member-gfvirtuallistbinder-properties-auto_reveal_focus) | `var auto_reveal_focus: bool = true` |
 | 属性 | [`fill_cross_axis`](#member-gfvirtuallistbinder-properties-fill_cross_axis) | `var fill_cross_axis: bool = true` |
 | 方法 | [`bind`](#member-gfvirtuallistbinder-methods-bind) | `func bind( owner: Node, scroll_container: ScrollContainer, content_root: Control, layout_model: GFVirtualListModel, item_factory: Callable, bind_callback: Callable, unbind_callback: Callable, identity_callback: Callable, focus_model: GFVirtualListFocusModel = null, measure_callback: Callable = Callable(), focus_target_callback: Callable = Callable() ) -> bool:` |
+| 方法 | [`bind_with_reuse_keys`](#member-gfvirtuallistbinder-methods-bind_with_reuse_keys) | `func bind_with_reuse_keys( owner: Node, scroll_container: ScrollContainer, content_root: Control, layout_model: GFVirtualListModel, item_factory: Callable, bind_callback: Callable, unbind_callback: Callable, identity_callback: Callable, reuse_key_callback: Callable, focus_model: GFVirtualListFocusModel = null, measure_callback: Callable = Callable(), focus_target_callback: Callable = Callable() ) -> bool:` |
 | 方法 | [`request_sync`](#member-gfvirtuallistbinder-methods-request_sync) | `func request_sync() -> bool:` |
 | 方法 | [`sync_now`](#member-gfvirtuallistbinder-methods-sync_now) | `func sync_now() -> GFVirtualListSyncResult:` |
 | 方法 | [`invalidate_items`](#member-gfvirtuallistbinder-methods-invalidate_items) | `func invalidate_items() -> bool:` |
@@ -293,6 +294,48 @@ func bind( owner: Node, scroll_container: ScrollContainer, content_root: Control
 - `bind_callback`: Callable(Control, int, Variant) -> bool.
 - `unbind_callback`: Callable(Control, int, Variant) -> void.
 - `identity_callback`: Callable(int) -> stable Variant key.
+- `measure_callback`: Optional Callable(Control, int, Variant) -> finite positive float.
+- `focus_target_callback`: Optional Callable(Control, int, Variant) -> Control descendant.
+
+<a id="member-gfvirtuallistbinder-methods-bind_with_reuse_keys"></a>
+
+### `bind_with_reuse_keys`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func bind_with_reuse_keys( owner: Node, scroll_container: ScrollContainer, content_root: Control, layout_model: GFVirtualListModel, item_factory: Callable, bind_callback: Callable, unbind_callback: Callable, identity_callback: Callable, reuse_key_callback: Callable, focus_model: GFVirtualListFocusModel = null, measure_callback: Callable = Callable(), focus_target_callback: Callable = Callable() ) -> bool:
+```
+
+建立按稳定复用分类选择行模板的 owner-bound 虚拟列表绑定。 相同复用 key 的 Control 必须可互换；同一条目 ID 改变 key 后会更换 Control。 所有分类共享 max_pooled_items 总预算，factory 返回的 parentless Control 由 Binder 接管。 key 在本轮 identity 预检中冻结；失败不会改变已提交的活动行。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `owner` | 生命周期 owner；退出 SceneTree 后 Binder 自动 dispose。 |
+| `scroll_container` | 项目持有的滚动容器；退出 SceneTree 后自动 dispose。 |
+| `content_root` | 滚动容器的直接子 Control，不能是 Container；退出树后自动 dispose。 |
+| `layout_model` | 条目 count、extent、offset 和范围模型。 |
+| `item_factory` | Callable(reuse_key: StringName) -> Control，返回对应分类的 parentless 节点。 |
+| `bind_callback` | Callable(control: Control, item_index: int, item_id: Variant) -> bool。 |
+| `unbind_callback` | Callable(control: Control, item_index: int, item_id: Variant) -> void。 |
+| `identity_callback` | Callable(item_index: int) -> Variant；返回唯一稳定条目 ID。 |
+| `reuse_key_callback` | Callable(item_index: int, item_id: Variant) -> StringName；非空，字符数与 UTF-8 字节数各不超过 1024。 |
+| `focus_model` | 可选虚拟焦点模型。 |
+| `measure_callback` | 可选 Callable(control, item_index, item_id) -> float。 |
+| `focus_target_callback` | 可选 Callable(control, item_index, item_id) -> Control。 |
+
+返回：边界与必需回调合法并建立连接时返回 true；分类值在同步时验证。
+
+结构：
+
+- `item_factory`: Callable(StringName) -> parentless Control; receives the frozen reuse key.
+- `bind_callback`: Callable(Control, int, Variant) -> bool.
+- `unbind_callback`: Callable(Control, int, Variant) -> void.
+- `identity_callback`: Callable(int) -> stable Variant key.
+- `reuse_key_callback`: Callable(int, Variant) -> non-empty bounded StringName; String and other types are rejected.
 - `measure_callback`: Optional Callable(Control, int, Variant) -> finite positive float.
 - `focus_target_callback`: Optional Callable(Control, int, Variant) -> Control descendant.
 
