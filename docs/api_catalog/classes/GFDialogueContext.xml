@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDialogueContext" path="addons/gf/extensions/dialogue/runtime/gf_dialogue_context.gd" module="extensions/dialogue" extends="RefCounted" classDigest="d4da8c610946f4b80b7602cfddbe15255998849deda867d7922191255da88e22">
+<class name="GFDialogueContext" path="addons/gf/extensions/dialogue/runtime/gf_dialogue_context.gd" module="extensions/dialogue" extends="RefCounted" classDigest="88bf349cc44d2f9cc50a8812065e6ab4e0f1d39fd745e71c876638da2285b84b">
 	<description>GFDialogueContext: 通用对话运行上下文。
 上下文保存运行时值，并把条件判断、mutation 和文本解析委托给项目提供的
 Callable。框架只负责规范调用与结果包装。</description>
@@ -124,7 +124,8 @@ Callable。框架只负责规范调用与结果包装。</description>
 		</member>
 		<member kind="method" name="serialize_values">
 			<signature>func serialize_values() -&gt; Dictionary:</signature>
-			<description>序列化运行值为 JSON 兼容结构。</description>
+			<description>序列化运行值为 JSON 兼容结构。
+子类可重写编码格式并包含额外持久状态，须与 deserialize_values() 配对。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">JSON 兼容值表副本；无法完整编码时返回空 Dictionary。</tag>
@@ -134,7 +135,9 @@ Callable。框架只负责规范调用与结果包装。</description>
 		</member>
 		<member kind="method" name="deserialize_values">
 			<signature>func deserialize_values(data: Dictionary) -&gt; bool:</signature>
-			<description>从 JSON 兼容结构恢复运行值。</description>
+			<description>从 JSON 兼容结构恢复运行值。
+子类重写须先完整校验输入，再一次性提交 values 及自有持久状态；
+返回 false 时须保留这些状态。恢复过程须同步完成，不得推进或替换 Runner 会话。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">data: serialize_values() 返回的值表。</tag>

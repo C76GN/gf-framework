@@ -184,6 +184,7 @@ var _next_virtual_pulse_lease_id: int = 1
 ## [br]
 ## @api public
 func init() -> void:
+	_dispatch_epoch += 1
 	ignore_pause = true
 	ignore_time_scale = true
 	_clear_runtime_state(false, &"mapping_initialized")
@@ -1984,6 +1985,7 @@ func _clear_runtime_state(
 	emit_completed: bool = false,
 	pulse_reason: StringName = &"input_state_cleared"
 ) -> void:
+	var clear_epoch: int = _dispatch_epoch
 	_virtual_pulse_bulk_mutation_depth += 1
 	_terminate_all_virtual_pulse_leases(pulse_reason)
 	var completed_actions: Dictionary = {}
@@ -2035,18 +2037,26 @@ func _clear_runtime_state(
 	_clear_transient_input_state_queued = false
 	_transient_input_state_mark_frame = -1
 	_reset_all_trigger_states()
+	var completion_revision: int = _next_action_edge_revision
 	_virtual_pulse_bulk_mutation_depth = maxi(_virtual_pulse_bulk_mutation_depth - 1, 0)
 	for action_id: StringName in completed_actions:
+		if not _can_emit_cleared_action_completion(action_id, -1, clear_epoch, completion_revision):
+			continue
 		action_completed.emit(action_id, completed_actions[action_id])
 	for record: Dictionary in completed_player_actions:
+		var player_index: int = GFVariantData.get_option_int(record, "player_index")
+		var action_id: StringName = GFVariantData.get_option_string_name(record, "action_id")
+		if not _can_emit_cleared_action_completion(action_id, player_index, clear_epoch, completion_revision):
+			continue
 		player_action_completed.emit(
-			GFVariantData.get_option_int(record, "player_index"),
-			GFVariantData.get_option_string_name(record, "action_id"),
+			player_index,
+			action_id,
 			GFVariantData.get_option_value(record, "value")
 		)
 
 
 func _clear_player_runtime_state(player_index: int, emit_completed: bool = false) -> void:
+	var clear_epoch: int = _dispatch_epoch
 	_virtual_pulse_bulk_mutation_depth += 1
 	_terminate_virtual_pulse_leases_for_player(player_index, &"player_state_cleared")
 	var affected_actions: Dictionary = {}
@@ -2092,13 +2102,30 @@ func _clear_player_runtime_state(player_index: int, emit_completed: bool = false
 		_erase_dictionary_key(_player_action_active_elapsed, key)
 		_erase_dictionary_key(_player_last_completed_duration, key)
 
+	var completion_revision: int = _next_action_edge_revision
 	for action_id: StringName in affected_actions.keys():
 		var action: GFInputAction = _get_registered_action(action_id)
 		if action != null:
 			_refresh_action_state(action_id, action)
 	_virtual_pulse_bulk_mutation_depth = maxi(_virtual_pulse_bulk_mutation_depth - 1, 0)
 	for action_id: StringName in completed_actions:
+		if not _can_emit_cleared_action_completion(action_id, player_index, clear_epoch, completion_revision):
+			continue
 		player_action_completed.emit(player_index, action_id, completed_actions[action_id])
+
+
+func _can_emit_cleared_action_completion(
+	action_id: StringName,
+	player_index: int,
+	clear_epoch: int,
+	completion_revision: int
+) -> bool:
+	# 回调内 start 后再 complete 仍已换代，不能仅凭当前 inactive 复用旧通知。
+	return (
+		clear_epoch == _dispatch_epoch
+		and get_action_edge_revision_for_framework(action_id, player_index) <= completion_revision
+		and get_action_edge_revision_for_framework(action_id, player_index, true) <= completion_revision
+	)
 
 
 func _get_effective_event(

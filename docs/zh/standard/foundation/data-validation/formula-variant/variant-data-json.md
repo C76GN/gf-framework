@@ -164,6 +164,8 @@ var decoded_resource := GFVariantReferenceCodec.decode_reference(encoded_resourc
 
 ## 使用边界
 
+完整编解码结果入口的 `max_depth` 与 `max_nodes` 按还原后的 Variant 结构计量，固定 typed marker 包装及向量分量不额外消耗节点或深度。PackedArray 仍按元素数累计 `max_collection_items`；typed Dictionary 的实际 key/value 仍分别消耗节点与深度预算。有效编码不会因为这些固定包装重复计费而解码失败，非法嵌套 marker 仍会被拒绝。
+
 普通整数在 JSON 安全范围内仍保持数字；超出 JSON 安全范围的 64 位整数会自动写成 `Int64` 类型标记，避免 Godot JSON 往返后丢失精度。只有 `__gf_variant__` 标记是字典唯一字段时才会被解码为 Godot 类型，因此普通业务字典里的 `type`、`value`、`_gf_type` 等字段会按普通数据保留。
 
 默认普通 Dictionary 仍使用字符串键；如果确实需要保留非字符串键，可传 `{ "encode_dictionary_keys": true }`。JSON codec 遇到不支持的对象默认写成 `null`；需要持久化对象时，应在项目层先转换成资源路径、ID 或纯数据字典。

@@ -2160,6 +2160,91 @@ func test_clear_player_input_state_commits_before_completed_reentry() -> void:
 	_utility.player_action_completed.disconnect(on_completed)
 
 
+func test_clear_input_state_drops_stale_player_completion_after_restart() -> void:
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), []),
+		_make_mapping(_make_action(&"cancel"), []),
+	]))
+	for release_restarted: bool in [false, true]:
+		assert_true(_utility.set_virtual_action_value(&"confirm", true, &"manual", 0))
+		assert_true(_utility.set_virtual_action_value(&"cancel", true, &"manual", 0))
+		var player_events: Array[String] = []
+		var unaffected_completions: Array[StringName] = []
+		var reentered: Array[bool] = []
+		var on_completed: Callable = func(_action_id: StringName, _value: Variant) -> void:
+			if not reentered.is_empty():
+				return
+			reentered.append(true)
+			var _restarted: bool = _utility.set_virtual_action_value(&"confirm", true, &"new_manual", 0)
+			if release_restarted:
+				var _released: bool = _utility.clear_virtual_action(&"confirm", &"new_manual", 0)
+		var on_player_started: Callable = func(_player: int, _action: StringName, _value: Variant) -> void:
+			player_events.append("started")
+		var on_player_completed: Callable = func(_player: int, action_id: StringName, _value: Variant) -> void:
+			if action_id == &"confirm":
+				player_events.append("completed")
+			else:
+				unaffected_completions.append(action_id)
+		var _global_connected: Error = _utility.action_completed.connect(on_completed) as Error
+		var _started_connected: Error = _utility.player_action_started.connect(on_player_started) as Error
+		var _completed_connected: Error = _utility.player_action_completed.connect(on_player_completed) as Error
+
+		_utility.clear_input_state()
+
+		assert_eq(player_events, ["started", "completed"] if release_restarted else ["started"],
+			"旧 clear 通知不得跟在新代 started 后；重新释放回 inactive 也不能复活旧通知。")
+		assert_eq(_utility.is_action_active_for_player(0, &"confirm"), not release_restarted)
+		assert_eq(unaffected_completions, [&"cancel"], "局部换代不得吞掉其他动作仍有效的完成通知。")
+		_utility.action_completed.disconnect(on_completed)
+		_utility.player_action_started.disconnect(on_player_started)
+		_utility.player_action_completed.disconnect(on_player_completed)
+		_utility.clear_input_state()
+
+
+func test_clear_input_state_stops_pending_completion_after_callback_reinitializes() -> void:
+	_utility.enable_context(_make_context(&"gameplay", [_make_mapping(_make_action(&"confirm"), [])]))
+	assert_true(_utility.set_virtual_action_value(&"confirm", true, &"manual", 0))
+	var player_completions: Array[StringName] = []
+	var on_completed: Callable = func(_action_id: StringName, _value: Variant) -> void:
+		_utility.init()
+	var on_player_completed: Callable = func(_player: int, action_id: StringName, _value: Variant) -> void:
+		player_completions.append(action_id)
+	var _global_connected: Error = _utility.action_completed.connect(on_completed) as Error
+	var _player_connected: Error = _utility.player_action_completed.connect(on_player_completed) as Error
+
+	_utility.clear_input_state()
+
+	assert_true(player_completions.is_empty(), "init 已重置运行时，旧 clear 不得继续发送排队通知。")
+	_utility.action_completed.disconnect(on_completed)
+	_utility.player_action_completed.disconnect(on_player_completed)
+
+
+func test_clear_player_input_state_rechecks_each_pending_action_completion() -> void:
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), []),
+		_make_mapping(_make_action(&"cancel"), []),
+	]))
+	assert_true(_utility.set_virtual_action_value(&"confirm", true, &"manual", 0))
+	assert_true(_utility.set_virtual_action_value(&"cancel", true, &"manual", 0))
+	var player_events: Array[String] = []
+	var on_completed: Callable = func(_player: int, action_id: StringName, _value: Variant) -> void:
+		player_events.append(String(action_id) + "_completed")
+		if action_id == &"confirm":
+			var _restarted: bool = _utility.set_virtual_action_value(&"cancel", true, &"new_manual", 0)
+			var _released: bool = _utility.clear_virtual_action(&"cancel", &"new_manual", 0)
+	var on_started: Callable = func(_player: int, action_id: StringName, _value: Variant) -> void:
+		player_events.append(String(action_id) + "_started")
+	var _completed_connected: Error = _utility.player_action_completed.connect(on_completed) as Error
+	var _started_connected: Error = _utility.player_action_started.connect(on_started) as Error
+
+	_utility.clear_player_input_state(0)
+
+	assert_eq(player_events, ["confirm_completed", "cancel_started", "cancel_completed"],
+		"同批次后续动作在回调中已开始并结束时，不得重复发送旧代 completion。")
+	_utility.player_action_completed.disconnect(on_completed)
+	_utility.player_action_started.disconnect(on_started)
+
+
 func test_sequence_consumes_each_started_edge_once() -> void:
 	_utility.enable_context(_make_context(&"gameplay", [_make_mapping(_make_action(&"step"), [])]))
 	var trigger: GFInputSequenceTrigger = GFInputSequenceTrigger.new()

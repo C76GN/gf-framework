@@ -48,6 +48,8 @@ runner.advance()
 
 上下文必须完整编码和解码。超出 JSON codec 遍历预算、循环引用或不支持的值会使创建快照返回空字典；恢复遇到不完整数据时返回 `null`，保留当前会话和调用方上下文。直接调用 `GFDialogueContext.deserialize_values()` 时也应检查其布尔返回值，失败不会清空已有值。
 
+恢复先校验快照结构、资源身份和目标文本行，再调用传入上下文的 `deserialize_values()` 覆盖。子类应先完整校验输入，再一次性替换 `values` 与自有持久状态；返回 `false` 必须保留这些状态，返回 `true` 表示全部恢复完成。此步骤是同步数据恢复，不应重新进入或推进 Runner；框架不会反射复制或回滚项目对象。
+
 `create_runtime_snapshot()` 只在资源身份一致的稳定 `TEXT` checkpoint，或已经提交的停止状态返回上述五字段快照。`line_reached` 与 `dialogue_ended` 都在稳定状态发布后发出，因此可在对应回调中立即创建快照；`start()`、`advance()` 或 `choose_response()` 返回稳定行后也可以创建。
 
 `dialogue_started`、由 `start()` / `advance()` / `choose_response()` 推进触发的 response condition、`mutation_requested`、mutation handler、自动跳转等窗口尚未形成可恢复 checkpoint，此时方法返回空 `Dictionary`，并且不会序列化半完成上下文。独立调用 `get_available_responses()` 只评估当前稳定 checkpoint，不属于推进窗口。调用方必须先检查 `snapshot.is_empty()`，只持久化非空结果；Runner 不会猜测、重放或序列化 continuation。

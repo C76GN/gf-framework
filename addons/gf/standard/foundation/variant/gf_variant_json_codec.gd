@@ -151,6 +151,8 @@ static func variant_to_json_compatible_result(value: Variant, options: Dictionar
 
 
 ## 解码可恢复数据；预算耗尽、不可恢复标记和损坏的类型载荷会返回失败。
+## max_depth 和 max_nodes 按还原后的 Variant 结构计量，不重复计算类型标记的固定包装；
+## PackedArray 元素总数仍受 max_collection_items 限制。
 ## [br]
 ## @api public
 ## [br]
@@ -442,16 +444,19 @@ static func _json_compatible_to_variant(
 			return GFVariantData.get_option_value(options, "circular_reference", "<circular_reference>")
 		visited.append(value)
 		var dictionary: Dictionary = value
-		if not _consume_collection_items(dictionary.size(), traversal_state):
-			var _removed_limited_dictionary_reference: Variant = visited.pop_back()
-			return _make_traversal_limit_fallback(options)
+		var require_complete: bool = GFVariantData.get_option_bool(traversal_state, "require_complete")
 		var complete_marker: bool = (
-			GFVariantData.get_option_bool(traversal_state, "require_complete")
+			require_complete
 			and _has_codec_marker_identity(dictionary)
 		)
-		if (GFVariantData.get_option_bool(options, "decode_typed_markers", true)
+		var decode_marker: bool = (
+			GFVariantData.get_option_bool(options, "decode_typed_markers", true)
 			and (_is_json_typed_value(dictionary) or complete_marker)
-		):
+		)
+		if not (require_complete and decode_marker) and not _consume_collection_items(dictionary.size(), traversal_state):
+			var _removed_limited_dictionary_reference: Variant = visited.pop_back()
+			return _make_traversal_limit_fallback(options)
+		if decode_marker:
 			var typed_value: Variant = _json_typed_value_to_variant(
 				dictionary,
 				options,
@@ -928,6 +933,8 @@ static func _dictionary_key_to_json_compatible(
 	traversal_state: Dictionary
 ) -> Variant:
 	if typeof(key) == TYPE_INT:
+		if GFVariantData.get_option_bool(traversal_state, "require_complete") and not _consume_traversal_node(depth, traversal_state):
+			return null
 		return _make_json_typed_value("Int64", str(_number_to_int(key)))
 	return _variant_to_json_compatible(key, options, visited, depth, traversal_state)
 
@@ -1112,11 +1119,9 @@ static func _json_typed_value_to_variant(
 
 	var type_name: String = GFVariantData.get_option_string(marker, JSON_TYPE_KEY)
 	var raw_value: Variant = GFVariantData.get_option_value(marker, JSON_VALUE_KEY)
-	if require_complete and type_name != "Dictionary":
-		raw_value = _json_compatible_to_variant(raw_value, options, visited, depth + 1, traversal_state)
-		if _is_traversal_exhausted(traversal_state):
-			return null
-	else:
+	# Fixed component shapes belong to one Variant node. Only original collection
+	# entries contribute to the collection budget; their closed shapes are validated below.
+	if not require_complete or type_name == "Dictionary" or type_name.begins_with("Packed"):
 		var raw_collection_size: int = _get_collection_size(raw_value)
 		if raw_collection_size >= 0 and not _consume_collection_items(raw_collection_size, traversal_state):
 			return _make_traversal_limit_fallback(options)
@@ -1318,7 +1323,7 @@ static func _is_numeric_components(
 	if size >= 0 and components.size() != size:
 		return false
 	for component: Variant in components:
-		if not (component is int or component is float):
+		if not _is_complete_numeric_component(component):
 			return false
 		var number: float = _number_to_float(component)
 		if is_finite(number):
@@ -1327,6 +1332,25 @@ static func _is_numeric_components(
 			if use_real_precision and not is_finite(Vector2(number, 0.0).x):
 				return false
 	return true
+
+
+static func _is_complete_numeric_component(value: Variant) -> bool:
+	if value is int or value is float:
+		return true
+	if not value is Dictionary:
+		return false
+	var encoded: Dictionary = value
+	if encoded.size() != 1:
+		return false
+	var marker_value: Variant = encoded.get(JSON_MARKER_KEY)
+	if not marker_value is Dictionary:
+		return false
+	var marker: Dictionary = marker_value
+	return (
+		_is_complete_marker_envelope(marker)
+		and marker.get(JSON_TYPE_KEY) == _FLOAT_TYPE_NAME
+		and _is_complete_typed_payload(_FLOAT_TYPE_NAME, marker.get(JSON_VALUE_KEY))
+	)
 
 
 static func _is_integer_components(

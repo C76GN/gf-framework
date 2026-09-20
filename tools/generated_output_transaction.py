@@ -94,7 +94,7 @@ def replace_generated_trees(outputs: list[tuple[Path, dict[str, GeneratedContent
 	normalized_outputs = _normalize_outputs(outputs)
 	staging_roots: dict[Path, Path] = {}
 	backup_parents: dict[Path, Path] = {}
-	replaced_roots: list[Path] = []
+	installed_roots: dict[Path, tuple[int, int]] = {}
 	committed = False
 	rollback_complete = False
 
@@ -110,6 +110,7 @@ def replace_generated_trees(outputs: list[tuple[Path, dict[str, GeneratedContent
 
 		for root, _files in normalized_outputs:
 			staging_root = staging_roots[root]
+			staging_identity = _directory_identity(staging_root)
 			if root.exists():
 				if not root.is_dir():
 					raise RuntimeError(f"Generated output root is not a directory: {root}")
@@ -119,8 +120,9 @@ def replace_generated_trees(outputs: list[tuple[Path, dict[str, GeneratedContent
 				))
 				backup_parents[root] = backup_parent
 				os.replace(root, backup_parent / "previous")
-			replaced_roots.append(root)
 			os.replace(staging_root, root)
+			installed_roots[root] = staging_identity
+			del staging_roots[root]
 		committed = True
 	except BaseException as original_error:
 		if not committed:
@@ -129,12 +131,12 @@ def replace_generated_trees(outputs: list[tuple[Path, dict[str, GeneratedContent
 				backup_parent = backup_parents.get(root)
 				previous = backup_parent / "previous" if backup_parent is not None else None
 				try:
-					if root in replaced_roots and root.exists():
-						if not root.is_dir() or _path_is_link_or_junction(root):
+					if root in installed_roots and os.path.lexists(root):
+						if _directory_identity(root) != installed_roots[root]:
 							raise RuntimeError(f"Refusing to remove an uncontrolled rollback target: {root}")
 						shutil.rmtree(root)
 					if previous is not None and previous.exists():
-						if root.exists():
+						if os.path.lexists(root):
 							raise RuntimeError(f"Rollback destination still exists: {root}")
 						os.replace(previous, root)
 				except BaseException as rollback_error:
@@ -161,6 +163,14 @@ def replace_generated_trees(outputs: list[tuple[Path, dict[str, GeneratedContent
 				continue
 			if backup_parent.exists():
 				shutil.rmtree(backup_parent, ignore_errors=True)
+
+
+def _directory_identity(path: Path) -> tuple[int, int]:
+	"""Bind rollback removal to the staged directory that was actually installed."""
+	metadata = path.lstat()
+	if not stat.S_ISDIR(metadata.st_mode) or _path_is_link_or_junction(path):
+		raise RuntimeError(f"Generated output directory is uncontrolled: {path}")
+	return metadata.st_dev, metadata.st_ino
 
 
 def compare_generated_tree(

@@ -299,6 +299,82 @@ class Inner:
 
 
 class GeneratedTreeBoundaryTests(unittest.TestCase):
+	def test_failed_install_preserves_a_concurrently_created_destination(self) -> None:
+		for had_previous_output in (False, True):
+			with self.subTest(had_previous_output=had_previous_output):
+				with tempfile.TemporaryDirectory() as temporary_directory:
+					root = Path(temporary_directory) / "catalog"
+					if had_previous_output:
+						root.mkdir()
+						(root / "old.bin").write_bytes(b"original")
+					replace = generated_output_transaction.os.replace
+
+					def create_concurrent_output(source: Path, target: Path) -> None:
+						if ".staging-" in source.name and target == root:
+							root.mkdir()
+							(root / "concurrent.bin").write_bytes(b"another process")
+							raise OSError("injected install collision")
+						replace(source, target)
+
+					with mock.patch.object(generated_output_transaction.os, "replace", side_effect=create_concurrent_output):
+						with self.assertRaises((OSError, generated_output_transaction.GeneratedOutputTransactionError)) as raised:
+							generated_output_transaction.replace_generated_trees([(root, {"new.bin": b"new"})])
+					self.assertTrue((root / "concurrent.bin").exists(), "Rollback must not remove an installation it never owned")
+					self.assertEqual((root / "concurrent.bin").read_bytes(), b"another process")
+					if had_previous_output:
+						self.assertIsInstance(raised.exception, generated_output_transaction.GeneratedOutputTransactionError)
+						self.assertEqual(len(raised.exception.backup_paths), 1)
+						self.assertEqual((raised.exception.backup_paths[0] / "old.bin").read_bytes(), b"original")
+					else:
+						self.assertIsInstance(raised.exception, OSError)
+
+	def test_rollback_preserves_a_replacement_of_its_successfully_installed_tree(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			parent = Path(temporary_directory)
+			roots = [parent / "catalog", parent / "reference"]
+			for root in roots:
+				root.mkdir()
+				(root / "old.bin").write_bytes(b"original")
+			replace = generated_output_transaction.os.replace
+
+			def replace_installed_output_before_later_failure(source: Path, target: Path) -> None:
+				if ".staging-" in source.name and target == roots[1]:
+					replace(roots[0], parent / "displaced-installation")
+					roots[0].mkdir()
+					(roots[0] / "concurrent.bin").write_bytes(b"another process")
+					raise OSError("injected second install failure")
+				replace(source, target)
+
+			with mock.patch.object(generated_output_transaction.os, "replace", side_effect=replace_installed_output_before_later_failure):
+				with self.assertRaises((OSError, generated_output_transaction.GeneratedOutputTransactionError)) as raised:
+					generated_output_transaction.replace_generated_trees([(root, {"new.bin": b"new"}) for root in roots])
+			self.assertTrue((roots[0] / "concurrent.bin").exists(), "Rollback must verify the installed directory identity")
+			self.assertEqual((roots[0] / "concurrent.bin").read_bytes(), b"another process")
+			self.assertEqual((roots[1] / "old.bin").read_bytes(), b"original")
+			self.assertIsInstance(raised.exception, generated_output_transaction.GeneratedOutputTransactionError)
+			self.assertEqual(len(raised.exception.backup_paths), 1)
+			self.assertEqual((raised.exception.backup_paths[0] / "old.bin").read_bytes(), b"original")
+
+	def test_successful_install_relinquishes_the_vacated_staging_path(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory) / "catalog"
+			replace = generated_output_transaction.os.replace
+			reused_staging_paths: list[Path] = []
+
+			def reuse_vacated_staging_path(source: Path, target: Path) -> None:
+				replace(source, target)
+				if ".staging-" in source.name and target == root:
+					source.mkdir()
+					(source / "concurrent.bin").write_bytes(b"another process")
+					reused_staging_paths.append(source)
+
+			with mock.patch.object(generated_output_transaction.os, "replace", side_effect=reuse_vacated_staging_path):
+				generated_output_transaction.replace_generated_trees([(root, {"new.bin": b"new"})])
+			self.assertEqual((root / "new.bin").read_bytes(), b"new")
+			self.assertEqual(len(reused_staging_paths), 1)
+			self.assertTrue((reused_staging_paths[0] / "concurrent.bin").exists(), "Final cleanup must not revisit a successfully moved staging path")
+			self.assertEqual((reused_staging_paths[0] / "concurrent.bin").read_bytes(), b"another process")
+
 	def test_interrupt_during_any_tree_install_restores_all_old_bytes(self) -> None:
 		for interrupted_root in (0, 1):
 			for interruption in (KeyboardInterrupt, SystemExit):
