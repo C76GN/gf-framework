@@ -560,6 +560,7 @@ func finish_current_action() -> void:
 		return
 	var was_processing: bool = is_processing
 	_processing_serial += 1
+	var finishing_serial: int = _processing_serial
 	_set_paused(false)
 	var action: Object = _current_action
 	_current_action = null
@@ -569,6 +570,9 @@ func finish_current_action() -> void:
 		_ACTION_PROTOCOL.finish(action)
 		_current_action_control_in_progress = false
 		_flush_deferred_action_cancellations()
+	# 回调可清空旧队列并启动新消费代；旧 finish 栈不能再结算它。
+	if finishing_serial != _processing_serial:
+		return
 	is_processing = false
 	if was_processing and not _has_queued_actions() and not _is_disposed:
 		queue_drained.emit()

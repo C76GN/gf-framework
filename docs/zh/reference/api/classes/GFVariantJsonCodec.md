@@ -128,7 +128,7 @@ static func variant_to_json_compatible_result(value: Variant, options: Dictionar
 static func json_compatible_to_variant_result(value: Variant, options: Dictionary = {}) -> Dictionary:
 ```
 
-解码可恢复数据；预算耗尽、不可恢复标记和损坏的类型载荷会返回失败。
+解码可恢复数据；预算耗尽、不可恢复标记和损坏的类型载荷会返回失败。 max_depth 和 max_nodes 按还原后的 Variant 结构计量，不重复计算类型标记的固定包装； PackedArray 元素总数仍受 max_collection_items 限制。
 
 参数：
 

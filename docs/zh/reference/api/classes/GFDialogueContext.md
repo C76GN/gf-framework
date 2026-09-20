@@ -262,7 +262,7 @@ func resolve_text(text: String, subject: Variant = null) -> String:
 func serialize_values() -> Dictionary:
 ```
 
-序列化运行值为 JSON 兼容结构。
+序列化运行值为 JSON 兼容结构。 子类可重写编码格式并包含额外持久状态，须与 deserialize_values() 配对。
 
 返回：JSON 兼容值表副本；无法完整编码时返回空 Dictionary。
 
@@ -281,7 +281,7 @@ func serialize_values() -> Dictionary:
 func deserialize_values(data: Dictionary) -> bool:
 ```
 
-从 JSON 兼容结构恢复运行值。
+从 JSON 兼容结构恢复运行值。 子类重写须先完整校验输入，再一次性提交 values 及自有持久状态； 返回 false 时须保留这些状态。恢复过程须同步完成，不得推进或替换 Runner 会话。
 
 参数：
 

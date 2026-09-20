@@ -265,7 +265,7 @@ func create_runtime_snapshot() -> Dictionary:
 ## [br]
 ## @param snapshot: create_runtime_snapshot() 生成的快照。
 ## [br]
-## @param context: 可选上下文；为空时创建新上下文并恢复快照中的 context_values。
+## @param context: 可选上下文；全部快照及资源校验通过后调用其 deserialize_values()，保留子类恢复契约；为空时创建新上下文。
 ## [br]
 ## @return: 恢复后的当前可展示行；快照无效、已结束或资源不匹配时返回 null。
 ## [br]
@@ -282,9 +282,6 @@ func restore_runtime_snapshot(
 	if not context_value is Dictionary:
 		return null
 	var context_values: Dictionary = context_value
-	var restored_context: GFDialogueContext = GFDialogueContext.new()
-	if not restored_context.deserialize_values(context_values):
-		return null
 	if resource == null:
 		return null
 	var snapshot_fingerprint: String = GFVariantData.get_option_string(snapshot, "resource_fingerprint")
@@ -294,31 +291,31 @@ func restore_runtime_snapshot(
 	if snapshot_fingerprint == "" or snapshot_fingerprint != resource_fingerprint:
 		return null
 
-	if not GFVariantData.get_option_bool(snapshot, "is_running", false):
-		_reset_runtime_state()
-		_resource_fingerprint = snapshot_fingerprint
-		_snapshot_resource = resource
-		_context = _prepare_context(context)
-		_context.values = restored_context.values
-		return null
+	var running: bool = GFVariantData.get_option_bool(snapshot, "is_running", false)
+	var line_id: StringName = &""
+	var line: GFDialogueLine = null
+	if running:
+		line_id = GFVariantData.get_option_string_name(snapshot, "current_line_id", &"")
+		if line_id == &"":
+			return null
+		line = resource.get_line(line_id)
+		if line == null or line.kind != GFDialogueLine.LineKind.TEXT:
+			return null
 
-	var line_id: StringName = GFVariantData.get_option_string_name(snapshot, "current_line_id", &"")
-	if line_id == &"":
-		return null
-
-	var line: GFDialogueLine = resource.get_line(line_id)
-	if line == null or line.kind != GFDialogueLine.LineKind.TEXT:
+	# The context owns its decoding and atomic failure contract. No fallible runner
+	# validation may follow this call: a successful override has committed its state.
+	var restored_context: GFDialogueContext = context if context != null else GFDialogueContext.new(_get_architecture_or_null())
+	if not restored_context.deserialize_values(context_values):
 		return null
 
 	_reset_runtime_state()
-	_resource = resource
+	_resource = resource if running else null
 	_resource_fingerprint = snapshot_fingerprint
 	_snapshot_resource = resource
-	_context = _prepare_context(context)
-	_context.values = restored_context.values
+	_context = _prepare_context(restored_context)
 	_current_line_id = line_id
 	_current_line = line
-	_is_running = true
+	_is_running = running
 	return line
 
 

@@ -639,7 +639,8 @@ func _initialize_child(task: GFRuntimeTask, group_generation: int) -> bool:
 func _finish_child(task: GFRuntimeTask, interrupted: bool) -> void:
 	if task == null or _is_child_completed(task):
 		return
-	_completed_task_ids[task.get_instance_id()] = task.get_schedule_generation()
+	# 完成属于父组本轮运行；子任务在 end 中独立重排不会重新取得父组所有权。
+	_completed_task_ids[task.get_instance_id()] = get_schedule_generation()
 	var _was_initializing: bool = _initializing_task_ids.erase(task.get_instance_id())
 	task.mark_unscheduled()
 	task.end(interrupted)
@@ -656,7 +657,7 @@ func _cancel_open_children(interrupted: bool) -> void:
 
 
 func _is_child_completed(task: GFRuntimeTask) -> bool:
-	return task != null and _completed_task_ids.get(task.get_instance_id(), -1) == task.get_schedule_generation()
+	return task != null and _completed_task_ids.get(task.get_instance_id(), -1) == get_schedule_generation()
 
 
 func _is_child_initializing(task: GFRuntimeTask) -> bool:

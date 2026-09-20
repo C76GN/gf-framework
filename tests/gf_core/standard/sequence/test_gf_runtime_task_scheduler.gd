@@ -172,6 +172,17 @@ class EndReschedulingTask extends GFRuntimeTask:
 			reschedule_result = scheduler.schedule(self)
 
 
+class CompletedChildReschedulingTask extends RecordingTask:
+	var next_scheduler: GFRuntimeTaskScheduler = null
+	var reschedule_result: bool = false
+
+	func end(interrupted: bool) -> void:
+		super.end(interrupted)
+		if not interrupted and next_scheduler != null:
+			finish_after_ticks = 99
+			reschedule_result = next_scheduler.schedule(self)
+
+
 # --- 测试方法 ---
 
 ## 验证调度器会初始化、推进并完成任务。
@@ -565,6 +576,62 @@ func test_task_group_race_closes_remaining_children_when_not_interrupted() -> vo
 		"竞速完成后即使不标记中断，也必须关闭未完成子任务。"
 	)
 	assert_false(group.is_scheduled(), "竞速完成后任务组应离开调度器。")
+
+
+func test_parallel_group_does_not_advance_or_cancel_independently_rescheduled_child() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var independent_scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var order: Array[String] = []
+	var child: RecordingTask = RecordingTask.new(order, "child")
+	var slow: RecordingTask = RecordingTask.new(order, "slow", [], true, 99)
+	var group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new(
+		[child, slow], GFRuntimeTaskGroup.Mode.PARALLEL_ALL
+	)
+	assert_true(scheduler.schedule(group))
+	scheduler.tick(0.1)
+	child.finish_after_ticks = 99
+	assert_true(independent_scheduler.schedule(child))
+	var independent_generation: int = child.get_schedule_generation()
+
+	scheduler.physics_tick(0.1)
+	scheduler.tick(0.1)
+	assert_eq(child.tick_count, 1, "父组必须保留本轮已完成记录，不得推进子任务独立的新代。")
+	assert_false(child.has_initialized(), "独立调度器必须独自拥有新代初始化。")
+	assert_true(scheduler.cancel(group))
+	assert_true(child.is_schedule_generation_current(independent_generation))
+	assert_false(order.has("cancel_child"), "父组取消不得取消已移交的独立调度代。")
+	independent_scheduler.tick(0.1)
+	assert_eq(child.tick_count, 2)
+	independent_scheduler.dispose()
+	scheduler.dispose()
+
+
+func test_parallel_group_keeps_child_completion_when_end_reschedules_same_instance() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var independent_scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var order: Array[String] = []
+	var child: CompletedChildReschedulingTask = CompletedChildReschedulingTask.new(order, "child")
+	child.next_scheduler = independent_scheduler
+	var slow: RecordingTask = RecordingTask.new(order, "slow", [], true, 2)
+	var group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new(
+		[child, slow], GFRuntimeTaskGroup.Mode.PARALLEL_ALL
+	)
+	assert_true(scheduler.schedule(group))
+	scheduler.tick(0.1)
+	assert_true(child.reschedule_result)
+	scheduler.tick(0.1)
+	assert_false(group.is_scheduled(), "父组只等待本轮子任务，不等待独立新代。")
+	assert_eq(child.tick_count, 1)
+	assert_true(child.is_scheduled())
+	assert_false(child.has_initialized())
+	child.next_scheduler = null
+	independent_scheduler.dispose()
+	child.finish_after_ticks = 1
+	assert_true(scheduler.schedule(group))
+	scheduler.tick(0.1)
+	assert_eq(child.tick_count, 2, "复用父组时新轮次必须重新推进此前已完成的子任务。")
+	assert_false(group.is_scheduled())
+	scheduler.dispose()
 
 
 func test_scheduler_skips_finished_check_after_self_cancel() -> void:

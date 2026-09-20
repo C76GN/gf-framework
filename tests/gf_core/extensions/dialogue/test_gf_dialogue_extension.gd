@@ -4,6 +4,77 @@ extends GutTest
 
 # --- 测试方法 ---
 
+func test_snapshot_restore_uses_supplied_context_serialization_contract() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"start"
+	resource.set_line(_make_text_line(&"start", "Start", &""))
+	var source_context: _CustomSnapshotContext = _CustomSnapshotContext.new()
+	source_context.values = { &"score": 9 }
+	source_context.checkpoint = "saved"
+	var source_runner: GFDialogueRunner = GFDialogueRunner.new()
+	var _source_line: GFDialogueLine = source_runner.start(resource, &"", source_context)
+	var snapshot: Dictionary = source_runner.create_runtime_snapshot()
+	var restored_context: _CustomSnapshotContext = _CustomSnapshotContext.new()
+	restored_context.values = { &"score": 1 }
+	restored_context.checkpoint = "before"
+	var restored_runner: GFDialogueRunner = GFDialogueRunner.new()
+	assert_same(restored_runner.restore_runtime_snapshot(resource, snapshot, restored_context), resource.get_line(&"start"))
+	assert_eq(restored_context.deserialize_calls, 1, "The supplied subclass must own decoding.")
+	assert_eq(restored_context.values, source_context.values)
+	assert_eq(restored_context.checkpoint, "saved", "Subclass state outside values must be restored.")
+	var _source_ended: GFDialogueLine = source_runner.advance()
+	var ended_snapshot: Dictionary = source_runner.create_runtime_snapshot()
+	restored_context.checkpoint = "before_end"
+	assert_null(restored_runner.restore_runtime_snapshot(resource, ended_snapshot, restored_context))
+	assert_false(restored_runner.is_running())
+	assert_eq(restored_context.deserialize_calls, 2)
+	assert_eq(restored_context.checkpoint, "saved")
+
+
+func test_snapshot_restore_respects_subclass_rejection_without_committing_runner() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"start"
+	resource.set_line(_make_text_line(&"start", "Start", &""))
+	resource.set_line(_make_text_line(&"other", "Other", &""))
+	var context: _CustomSnapshotContext = _CustomSnapshotContext.new()
+	context.values = { &"score": 3 }
+	context.checkpoint = "before"
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var original_line: GFDialogueLine = runner.start(resource, &"start", context)
+	var snapshot: Dictionary = runner.create_runtime_snapshot()
+	snapshot["current_line_id"] = &"other"
+	snapshot["context_values"] = { "custom_values": {}, "checkpoint": 12 }
+	assert_null(runner.restore_runtime_snapshot(resource, snapshot, context))
+	assert_eq(context.deserialize_calls, 1)
+	assert_eq(context.values, { &"score": 3 })
+	assert_eq(context.checkpoint, "before")
+	assert_same(runner.get_current_line(), original_line)
+	assert_true(runner.is_running())
+
+
+func test_snapshot_restore_validates_resource_and_line_before_calling_context_override() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"start"
+	resource.set_line(_make_text_line(&"start", "Start", &""))
+	var context: _CustomSnapshotContext = _CustomSnapshotContext.new()
+	context.values = { &"score": 3 }
+	context.checkpoint = "before"
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var original_line: GFDialogueLine = runner.start(resource, &"", context)
+	var snapshot: Dictionary = runner.create_runtime_snapshot()
+	for patch: Dictionary in [
+		{ "schema_version": -1 }, { "resource_fingerprint": "wrong" },
+		{ "current_line_id": &"missing" }, { "context_values": [] },
+	]:
+		var invalid_snapshot: Dictionary = snapshot.duplicate(true)
+		invalid_snapshot.merge(patch, true)
+		assert_null(runner.restore_runtime_snapshot(resource, invalid_snapshot, context))
+		assert_eq(context.deserialize_calls, 0, "Invalid runner data must not invoke the mutating override.")
+		assert_eq(context.values, { &"score": 3 })
+		assert_eq(context.checkpoint, "before")
+		assert_same(runner.get_current_line(), original_line)
+
+
 func test_dialogue_context_rejects_malformed_dictionary_marker_without_clearing_values() -> void:
 	var context: GFDialogueContext = GFDialogueContext.new()
 	context.values = { "keep": 7 }
@@ -1813,3 +1884,26 @@ func _variant_contains_value(root: Variant, expected: Variant) -> bool:
 			var array: Array = current
 			worklist.append_array(array)
 	return false
+
+
+# --- 内部类 ---
+
+class _CustomSnapshotContext extends GFDialogueContext:
+	var checkpoint: String = ""
+	var deserialize_calls: int = 0
+
+	func serialize_values() -> Dictionary:
+		return { "custom_values": super.serialize_values(), "checkpoint": checkpoint }
+
+	func deserialize_values(data: Dictionary) -> bool:
+		deserialize_calls += 1
+		var encoded_values: Variant = data.get("custom_values")
+		var encoded_checkpoint: Variant = data.get("checkpoint")
+		if not encoded_values is Dictionary or not encoded_checkpoint is String:
+			return false
+		var next_checkpoint: String = encoded_checkpoint
+		var next_values: Dictionary = encoded_values
+		if not super.deserialize_values(next_values):
+			return false
+		checkpoint = next_checkpoint
+		return true

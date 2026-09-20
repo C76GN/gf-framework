@@ -171,6 +171,7 @@ class ReentrantQueueControlAction:
 	var reenter_finish: bool = false
 	var pause_callback: Callable = Callable()
 	var resume_callback: Callable = Callable()
+	var finish_callback: Callable = Callable()
 
 	func _init(p_queue: Object, p_event_log: Array[String], p_event_label: String) -> void:
 		queue = p_queue
@@ -209,6 +210,8 @@ class ReentrantQueueControlAction:
 		event_log.append("%s:finish" % event_label)
 		if reenter_finish and finish_count == 1:
 			var _finish_result: Variant = queue.call(&"finish_current_action")
+		if finish_callback.is_valid():
+			var _finish_callback_result: Variant = finish_callback.call()
 
 
 ## 故意违反 duck-typed wait 协议：非 Signal 结果却声明需要等待。
@@ -613,6 +616,46 @@ func test_finish_current_action_detaches_before_reentrant_finish_hook() -> void:
 
 	assert_eq(action.finish_count, 1, "finish hook 反调 finish 时不得再次控制同一动作。")
 	assert_null(_get_current_action(_system), "finish 回调期间当前动作所有权应已解除。")
+
+
+func test_finish_hook_clear_emits_queue_drained_once() -> void:
+	var events: Array[String] = []
+	var action: ReentrantQueueControlAction = ReentrantQueueControlAction.new(_system, events, "current")
+	action.finish_callback = func() -> void:
+		_clear_queue(_system, true)
+	watch_signals(_system)
+	_enqueue(_system, action)
+	await get_tree().process_frame
+
+	_finish_current_action(_system)
+	await get_tree().process_frame
+
+	assert_signal_emit_count(_system, "queue_drained", 1, "嵌套 clear 已提交排空，外层 finish 不得再次通知。")
+	assert_eq(action.finish_count, 1)
+	assert_false(_is_queue_processing(_system))
+
+
+func test_finish_hook_clear_preserves_reentrant_processing_generation() -> void:
+	var events: Array[String] = []
+	var action: ReentrantQueueControlAction = ReentrantQueueControlAction.new(_system, events, "current")
+	var replacement: ManualSignalAction = ManualSignalAction.new([], "replacement")
+	action.finish_callback = func() -> void:
+		_clear_queue(_system, true)
+		_enqueue(_system, replacement)
+	watch_signals(_system)
+	_enqueue(_system, action)
+	await get_tree().process_frame
+
+	_finish_current_action(_system)
+	await get_tree().process_frame
+
+	assert_signal_emit_count(_system, "queue_drained", 1)
+	assert_eq(_get_current_action(_system), replacement)
+	assert_true(_is_queue_processing(_system), "旧 finish 栈不得清除回调启动的新消费代。")
+	replacement.completed.emit()
+	await get_tree().process_frame
+	assert_signal_emit_count(_system, "queue_drained", 2, "新消费代完成后应独立排空一次。")
+	assert_false(_is_queue_processing(_system))
 
 
 func test_pause_current_action_freezes_wait_action_and_queue_progress() -> void:

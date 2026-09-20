@@ -137,6 +137,96 @@ func test_complete_decoder_rejects_live_objects_in_plain_and_typed_payloads() ->
 	))
 
 
+func test_complete_codec_counts_typed_values_as_atomic_variant_nodes() -> void:
+	var typed_values: Array = [
+		Vector2.ONE, Vector3.ONE, Vector4.ONE, Color.WHITE, Basis.IDENTITY,
+		Transform2D.IDENTITY, Transform3D.IDENTITY, Vector2(NAN, INF),
+		PackedByteArray([255]), PackedInt32Array([2147483647]),
+		PackedInt64Array([9223372036854775807]), PackedFloat32Array([NAN]),
+		PackedFloat64Array([INF]), PackedStringArray(["text"]),
+		PackedVector2Array([Vector2(NAN, INF)]), PackedVector3Array([Vector3.ONE]),
+		PackedVector4Array([Vector4.ONE]), PackedColorArray([Color.WHITE]),
+	]
+	for value: Variant in typed_values:
+		var options: Dictionary = { "max_depth": 1, "max_nodes": 2, "max_collection_items": 2 }
+		var encoded: Dictionary = GFVariantJsonCodec.variant_to_json_compatible_result([value], options)
+		assert_true(GFVariantData.get_option_bool(encoded, "ok"), str(value))
+		var parsed: Variant = JSON.parse_string(JSON.stringify(encoded.get("value")))
+		var decoded: Dictionary = GFVariantJsonCodec.json_compatible_to_variant_result(parsed, options)
+		assert_true(GFVariantData.get_option_bool(decoded, "ok"), str(value))
+		var reencoded: Dictionary = GFVariantJsonCodec.variant_to_json_compatible_result(decoded.get("value"), options)
+		var same_encoding: bool = reencoded.get("value") == encoded.get("value")
+		assert_true(same_encoding, "Typed components must not consume logical traversal budget.")
+
+
+func test_complete_codec_roundtrips_packed_payload_at_its_collection_budget() -> void:
+	var payload: PackedByteArray = PackedByteArray()
+	var _resize_error: int = payload.resize(65_536)
+	payload.fill(255)
+	var encoded: Dictionary = GFVariantJsonCodec.variant_to_json_compatible_result(payload)
+	assert_true(GFVariantData.get_option_bool(encoded, "ok"))
+	var parsed: Variant = JSON.parse_string(JSON.stringify(encoded.get("value")))
+	var decoded: Dictionary = GFVariantJsonCodec.json_compatible_to_variant_result(parsed)
+	assert_true(GFVariantData.get_option_bool(decoded, "ok"), "Packed elements use collection budget, not logical node budget.")
+	var same_payload: bool = decoded.get("value") == payload
+	assert_true(same_payload)
+	var limited: Dictionary = GFVariantJsonCodec.json_compatible_to_variant_result(parsed, { "max_collection_items": 65_535 })
+	assert_false(GFVariantData.get_option_bool(limited, "ok"))
+	assert_eq(GFVariantData.get_option_string(limited, "error"), "max_collection_items")
+	assert_true(limited.get("value") == null)
+
+
+func test_complete_typed_dictionary_budget_counts_only_original_entries_and_values() -> void:
+	var value: Dictionary = { &"point": Vector2.ONE }
+	var options: Dictionary = {
+		"encode_dictionary_keys": true, "max_depth": 1, "max_nodes": 3, "max_collection_items": 1,
+	}
+	var encoded: Dictionary = GFVariantJsonCodec.variant_to_json_compatible_result(value, options)
+	assert_true(GFVariantData.get_option_bool(encoded, "ok"))
+	var decoded: Dictionary = GFVariantJsonCodec.json_compatible_to_variant_result(encoded.get("value"), options)
+	assert_true(GFVariantData.get_option_bool(decoded, "ok"))
+	var same_dictionary: bool = decoded.get("value") == value
+	assert_true(same_dictionary)
+	var integer_keys: Dictionary = { 7: Vector2.ONE }
+	var integer_encoded: Dictionary = GFVariantJsonCodec.variant_to_json_compatible_result(integer_keys, options)
+	var integer_decoded: Dictionary = GFVariantJsonCodec.json_compatible_to_variant_result(integer_encoded.get("value"), options)
+	assert_true(GFVariantData.get_option_bool(integer_encoded, "ok"))
+	assert_true(GFVariantData.get_option_bool(integer_decoded, "ok"))
+	var same_integer_dictionary: bool = integer_decoded.get("value") == integer_keys
+	assert_true(same_integer_dictionary)
+	var too_few_nodes: Dictionary = { "encode_dictionary_keys": true, "max_nodes": 2 }
+	assert_false(GFVariantData.get_option_bool(GFVariantJsonCodec.variant_to_json_compatible_result(integer_keys, too_few_nodes), "ok"))
+	assert_false(GFVariantData.get_option_bool(GFVariantJsonCodec.json_compatible_to_variant_result(integer_encoded.get("value"), too_few_nodes), "ok"))
+	for budget: Dictionary in [{ "max_nodes": 2 }, { "max_depth": 1 }]:
+		var nested: Dictionary = { &"nested": { &"point": Vector2.ONE } }
+		var nested_encoded: Dictionary = GFVariantJsonCodec.variant_to_json_compatible_result(nested, { "encode_dictionary_keys": true })
+		var rejected: Dictionary = GFVariantJsonCodec.json_compatible_to_variant_result(nested_encoded.get("value"), budget)
+		assert_false(GFVariantData.get_option_bool(rejected, "ok"), "Real dictionary values must retain their traversal charge.")
+		assert_true(rejected.get("value") == null)
+
+
+func test_complete_typed_components_reject_unsafe_nested_shapes_without_recursion() -> void:
+	var float_marker: Dictionary = GFVariantData.as_dictionary(GFVariantJsonCodec.variant_to_json_compatible(INF))
+	var float_envelope: Dictionary = float_marker[GFVariantJsonCodec.JSON_MARKER_KEY]
+	float_envelope["extra"] = true
+	var cyclic: Array = []
+	cyclic.append(cyclic)
+	var live_value: RefCounted = RefCounted.new()
+	var invalid_components: Array = [
+		float_marker, cyclic, live_value,
+		GFVariantJsonCodec.variant_to_json_compatible(Vector2.ONE),
+		{ "__gf_variant__": { "codec": "gf.variant-json", "version": 1, "type": "Float", "value": live_value } },
+	]
+	for component: Variant in invalid_components:
+		var encoded: Dictionary = GFVariantData.as_dictionary(GFVariantJsonCodec.variant_to_json_compatible(Vector2.ONE))
+		var marker: Dictionary = encoded[GFVariantJsonCodec.JSON_MARKER_KEY]
+		marker[GFVariantJsonCodec.JSON_VALUE_KEY] = [component, 1.0]
+		var rejected: Dictionary = GFVariantJsonCodec.json_compatible_to_variant_result(encoded, { "max_nodes": 1 })
+		assert_false(GFVariantData.get_option_bool(rejected, "ok"))
+		assert_true(rejected.get("value") == null)
+	cyclic.clear()
+
+
 func test_duplicate_variant_deep_copies_collections() -> void:
 	var source: Dictionary = {
 		"items": [

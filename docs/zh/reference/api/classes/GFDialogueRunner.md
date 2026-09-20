@@ -330,7 +330,7 @@ func restore_runtime_snapshot( resource: GFDialogueResource, snapshot: Dictionar
 |---|---|
 | `resource` | 快照对应的对话资源。 |
 | `snapshot` | create_runtime_snapshot() 生成的快照。 |
-| `context` | 可选上下文；为空时创建新上下文并恢复快照中的 context_values。 |
+| `context` | 可选上下文；全部快照及资源校验通过后调用其 deserialize_values()，保留子类恢复契约；为空时创建新上下文。 |
 
 返回：恢复后的当前可展示行；快照无效、已结束或资源不匹配时返回 null。
 
