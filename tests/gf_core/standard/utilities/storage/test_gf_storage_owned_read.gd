@@ -71,22 +71,61 @@ func test_immediate_failures_and_missing_file_remain_distinct_from_empty_success
 	var invalid: GFStorageOwnedRead = _storage.load_data_owned_request_async("../outside.json")
 	assert_push_error("[GFStorageUtility] load_data_owned_request_async 失败：file_name 不满足 portable logical path profile。")
 	_assert_read_failure(invalid, GFStorageReadResult.FailureKind.INVALID_REQUEST)
+	_assert_uncaptured_receipt(invalid)
 	var invalid_options: GFStorageOwnedRead = _storage.load_data_owned_request_async(
 		"valid.json", GFStorageAsyncRequestOptions.new()
 	)
 	_assert_read_failure(invalid_options, GFStorageReadResult.FailureKind.INVALID_REQUEST)
+	_assert_uncaptured_receipt(invalid_options)
 	var missing: GFStorageOwnedRead = _storage.load_data_owned_request_async("missing.json")
 	_storage.wait_for_async_tasks()
 	_assert_read_failure(missing, GFStorageReadResult.FailureKind.NOT_FOUND)
+	_assert_uncaptured_receipt(missing)
 	assert_eq(_storage.save_data("empty.json", {}), OK)
 	var empty: GFStorageOwnedRead = _storage.load_data_owned_request_async("empty.json")
 	_storage.wait_for_async_tasks()
 	var read: GFStorageReadResult = _take_success(empty)
 	if read != null:
 		assert_true(read.payload.is_empty())
+	assert_eq(empty.get_result().get_source_version(), 1)
+	assert_eq(empty.get_result().get_target_version(), 1)
+	var legacy_revision: GFStorageRevisionResult = empty.get_result().get_committed_revision()
+	assert_not_null(legacy_revision)
+	if legacy_revision != null:
+		assert_eq(legacy_revision.get_status(), GFStorageRevisionResult.Status.UNSUPPORTED)
 	_storage.dispose()
 	var unavailable: GFStorageOwnedRead = _storage.load_data_owned_request_async("empty.json")
 	_assert_read_failure(unavailable, GFStorageReadResult.FailureKind.UNAVAILABLE)
+	_assert_uncaptured_receipt(unavailable)
+
+
+func test_failed_migration_preserves_observed_version_without_inventing_revision() -> void:
+	_storage.save_version = 3
+	assert_eq(_storage.save_data("future.json", {"value": 1}), OK)
+	_storage.save_version = 2
+	var ticket: GFStorageOwnedRead = _storage.load_data_owned_request_async("future.json")
+	_storage.wait_for_async_tasks()
+	_assert_read_failure(ticket, GFStorageReadResult.FailureKind.FUTURE_VERSION)
+	assert_eq(ticket.get_result().get_source_version(), 3)
+	assert_eq(ticket.get_result().get_target_version(), 3)
+	assert_null(ticket.get_result().get_committed_revision())
+
+
+func test_owned_migration_accepts_finite_projection_and_typed_projection_array() -> void:
+	var migrator: _AliasingMigrationStorage = _use_aliasing_migration_storage()
+	var projections: Array[Projection] = [Projection.IDENTITY]
+	migrator.injected_payload = {"projection": Projection.IDENTITY, "projections": projections}
+	assert_eq(_storage.save_data("projection.json", {"value": 1}), OK)
+	_storage.save_version = 2
+	var ticket: GFStorageOwnedRead = _storage.load_data_owned_request_async("projection.json")
+	_storage.wait_for_async_tasks()
+	var read: GFStorageReadResult = _take_success(ticket)
+	if read != null:
+		var projection: Projection = read.payload.get("projection")
+		var delivered: Array = read.payload.get("projections")
+		assert_eq(projection, Projection.IDENTITY)
+		assert_eq(delivered.get_typed_builtin(), TYPE_PROJECTION)
+		assert_eq(delivered, projections)
 
 
 func test_cooperative_disk_read_transfers_once_and_preserves_legacy_channel() -> void:
@@ -653,6 +692,292 @@ func test_worker_thread_take_is_rejected_without_consuming_ready_result() -> voi
 		assert_eq(GFVariantData.get_option_int(read.payload, "value"), 18)
 
 
+func test_owned_defaults_ignore_unsafe_values_for_existing_equivalent_keys() -> void:
+	assert_eq(_storage.save_data("ignored-defaults.json", {
+		"existing": 31,
+		"blocked_cycle": 32,
+		"nested": {"existing": 33},
+	}), OK)
+	_migration_cycle.append(_migration_cycle)
+	_storage.default_values_for_new_keys = {
+		&"existing": Resource.new(),
+		"blocked_cycle": _migration_cycle,
+		&"nested": {&"existing": RefCounted.new(), &"added": 34},
+		"added": 35,
+	}
+	for target_version: int in [1, 2]:
+		_storage.save_version = target_version
+		var ticket: GFStorageOwnedRead = _storage.load_data_owned_request_async("ignored-defaults.json")
+		_storage.wait_for_async_tasks()
+		var read: GFStorageReadResult = _take_success(ticket)
+		if read != null:
+			assert_eq(read.payload.size(), 4)
+			assert_eq(GFVariantData.get_option_int(read.payload, "existing"), 31)
+			assert_eq(GFVariantData.get_option_int(read.payload, "blocked_cycle"), 32)
+			assert_eq(GFVariantData.get_option_int(read.payload, "added"), 35)
+			var nested: Dictionary = GFVariantData.get_option_dictionary(read.payload, "nested")
+			assert_eq(nested.size(), 2)
+			assert_eq(GFVariantData.get_option_int(nested, "existing"), 33)
+			assert_eq(GFVariantData.get_option_int(nested, "added"), 34)
+	_migration_cycle.clear()
+
+
+func test_owned_migration_override_does_not_validate_unused_defaults() -> void:
+	var migrator: _AliasingMigrationStorage = _use_aliasing_migration_storage()
+	assert_eq(_storage.save_data("override-defaults.json", {"existing": 36}), OK)
+	_migration_cycle.append(_migration_cycle)
+	_storage.default_values_for_new_keys = {"unused_object": Resource.new(), "unused_cycle": _migration_cycle}
+	_storage.save_version = 2
+	migrator.injected_payload = {"from_override": 37}
+	var ticket: GFStorageOwnedRead = _storage.load_data_owned_request_async("override-defaults.json")
+	_storage.wait_for_async_tasks()
+	var read: GFStorageReadResult = _take_success(ticket)
+	if read != null:
+		assert_true(read.migrated)
+		assert_eq(read.payload.size(), 2)
+		assert_eq(GFVariantData.get_option_int(read.payload, "existing"), 36)
+		assert_eq(GFVariantData.get_option_int(read.payload, "from_override"), 37)
+	_migration_cycle.clear()
+
+
+func test_owned_defaults_reject_incompatible_entries_before_typed_dictionary_assignment() -> void:
+	_storage.file_format = GFStorageCodec.Format.BINARY
+	var typed_values: Dictionary[String, int] = {"existing": 39}
+	assert_eq(_storage.save_data("typed-defaults.bin", {"nested": typed_values}), OK)
+	var baseline: GFStorageReadResult = _storage.load_data("typed-defaults.bin")
+	assert_true(baseline.ok)
+	var nested_baseline: Dictionary = GFVariantData.as_dictionary(baseline.payload.get("nested"))
+	assert_eq(nested_baseline.get_typed_key_builtin(), TYPE_STRING)
+	assert_eq(nested_baseline.get_typed_value_builtin(), TYPE_INT)
+	var incompatible_defaults: Array[Dictionary] = [
+		{"inserted": Resource.new()},
+		{"inserted": "cannot convert to int"},
+		{42: 40},
+	]
+	for defaults: Dictionary in incompatible_defaults:
+		_storage.default_values_for_new_keys = {"nested": defaults}
+		var ticket: GFStorageOwnedRead = _storage.load_data_owned_request_async("typed-defaults.bin")
+		_storage.wait_for_async_tasks()
+		assert_true(ticket.is_completed())
+		assert_eq(ticket.get_state(), GFStorageOwnedRead.State.FAILED)
+		var receipt: GFStorageOwnedReadReceipt = ticket.get_result()
+		assert_not_null(receipt)
+		if receipt != null:
+			assert_eq(receipt.get_failure_kind(), GFStorageOwnedReadReceipt.FailureKind.UNSUPPORTED_PAYLOAD)
+			assert_eq(receipt.get_read_failure_kind(), GFStorageReadResult.FailureKind.NONE)
+		_assert_take_status(ticket, GFStorageOwnedReadTakeResult.Status.FAILED)
+
+
+func test_owned_defaults_preserve_typed_dictionary_numeric_and_string_name_conversions() -> void:
+	_storage.file_format = GFStorageCodec.Format.BINARY
+	var typed_values: Dictionary[String, float] = {"existing": 41.0}
+	var typed_integers: Dictionary[String, int] = {}
+	var typed_strings: Dictionary[String, String] = {}
+	var typed_names: Dictionary[StringName, StringName] = {}
+	assert_eq(_storage.save_data("compatible-defaults.bin", {
+		"nested": typed_values, "integers": typed_integers, "strings": typed_strings, "names": typed_names,
+	}), OK)
+	_storage.default_values_for_new_keys = {
+		&"nested": {&"existing": Resource.new(), &"inserted": 42},
+		"integers": {"inserted": 43.75},
+		"strings": {&"inserted": &"string value"},
+		"names": {"inserted": "name value"},
+	}
+	var ticket: GFStorageOwnedRead = _storage.load_data_owned_request_async("compatible-defaults.bin")
+	_storage.wait_for_async_tasks()
+	var read: GFStorageReadResult = _take_success(ticket)
+	if read != null:
+		var nested: Dictionary = GFVariantData.as_dictionary(read.payload.get("nested"))
+		assert_eq(nested.get_typed_key_builtin(), TYPE_STRING)
+		assert_eq(nested.get_typed_value_builtin(), TYPE_FLOAT)
+		assert_eq(nested.size(), 2)
+		assert_eq(GFVariantData.get_option_float(nested, "existing"), 41.0)
+		assert_eq(GFVariantData.get_option_float(nested, "inserted"), 42.0)
+		var integers: Dictionary = GFVariantData.as_dictionary(read.payload.get("integers"))
+		var strings: Dictionary = GFVariantData.as_dictionary(read.payload.get("strings"))
+		var names: Dictionary = GFVariantData.as_dictionary(read.payload.get("names"))
+		assert_eq(integers.get_typed_value_builtin(), TYPE_INT)
+		assert_eq(GFVariantData.get_option_int(integers, "inserted"), 43)
+		assert_eq(strings.get_typed_key_builtin(), TYPE_STRING)
+		assert_eq(strings.get_typed_value_builtin(), TYPE_STRING)
+		assert_eq(GFVariantData.get_option_string(strings, "inserted"), "string value")
+		assert_eq(names.get_typed_key_builtin(), TYPE_STRING_NAME)
+		assert_eq(names.get_typed_value_builtin(), TYPE_STRING_NAME)
+		assert_eq(GFVariantData.get_option_string_name(names, "inserted"), &"name value")
+
+
+func test_owned_defaults_accept_string_keys_for_typed_node_path_dictionary() -> void:
+	_storage.file_format = GFStorageCodec.Format.BINARY
+	var typed_paths: Dictionary[NodePath, int] = {^"Root/Existing": 43}
+	assert_eq(_storage.save_data("node-path-defaults.bin", {"paths": typed_paths}), OK)
+	_storage.default_values_for_new_keys = {
+		"paths": {"Root/Existing": Resource.new(), "Root/Added": 44},
+	}
+	var ticket: GFStorageOwnedRead = _storage.load_data_owned_request_async("node-path-defaults.bin")
+	_storage.wait_for_async_tasks()
+	var read: GFStorageReadResult = _take_success(ticket)
+	if read != null:
+		var paths: Dictionary = GFVariantData.as_dictionary(read.payload.get("paths"))
+		assert_eq(paths.get_typed_key_builtin(), TYPE_NODE_PATH)
+		assert_eq(paths.get_typed_value_builtin(), TYPE_INT)
+		assert_eq(paths.size(), 2)
+		var existing_value: int = GFVariantData.get_option_int(paths, ^"Root/Existing")
+		var added_value: int = GFVariantData.get_option_int(paths, ^"Root/Added")
+		assert_eq(existing_value, 43)
+		assert_eq(added_value, 44)
+
+
+func test_owned_typed_defaults_share_one_cumulative_payload_validation_budget() -> void:
+	_storage.dispose()
+	var tracking_storage: _BudgetTrackingStorage = _BudgetTrackingStorage.new()
+	tracking_storage.save_dir_name = _save_dir_name
+	tracking_storage.encrypt_key = 0
+	tracking_storage.async_execution_mode = GFStorageUtility.AsyncExecutionMode.COOPERATIVE
+	tracking_storage.file_format = GFStorageCodec.Format.BINARY
+	_storage = tracking_storage
+	var typed_values: Dictionary[String, Array] = {}
+	assert_eq(_storage.save_data("cumulative-defaults.bin", {"values": typed_values}), OK)
+	var packed_values: PackedByteArray = PackedByteArray()
+	assert_eq(packed_values.resize(262_144), OK)
+	var shared_values: Array = [packed_values]
+	_storage.default_values_for_new_keys = {
+		"values": {"first": shared_values, "second": shared_values, "third": shared_values, "fourth": shared_values},
+	}
+	var ticket: GFStorageOwnedRead = _storage.load_data_owned_request_async("cumulative-defaults.bin")
+	_storage.wait_for_async_tasks()
+	assert_true(ticket.is_completed())
+	assert_eq(ticket.get_state(), GFStorageOwnedRead.State.FAILED)
+	var receipt: GFStorageOwnedReadReceipt = ticket.get_result()
+	assert_not_null(receipt)
+	if receipt != null:
+		assert_eq(receipt.get_failure_kind(), GFStorageOwnedReadReceipt.FailureKind.UNSUPPORTED_PAYLOAD)
+	assert_lte(tracking_storage.packed_validation_visits, 3, "默认值预检不能为每个缺失字段重置一百万值预算。")
+
+
+func test_owned_defaults_reject_invalid_color_text_without_native_assignment_error() -> void:
+	_storage.file_format = GFStorageCodec.Format.BINARY
+	var typed_colors: Dictionary[String, Color] = {}
+	assert_eq(_storage.save_data("invalid-color-defaults.bin", {"colors": typed_colors}), OK)
+	_storage.default_values_for_new_keys = {"colors": {"invalid": "not-a-color"}}
+	var ticket: GFStorageOwnedRead = _storage.load_data_owned_request_async("invalid-color-defaults.bin")
+	_storage.wait_for_async_tasks()
+	assert_true(ticket.is_completed())
+	assert_eq(ticket.get_state(), GFStorageOwnedRead.State.FAILED)
+	var receipt: GFStorageOwnedReadReceipt = ticket.get_result()
+	assert_not_null(receipt)
+	if receipt != null:
+		assert_eq(receipt.get_failure_kind(), GFStorageOwnedReadReceipt.FailureKind.UNSUPPORTED_PAYLOAD)
+	_assert_take_status(ticket, GFStorageOwnedReadTakeResult.Status.FAILED)
+
+
+func test_owned_defaults_accept_native_named_and_hex_color_text() -> void:
+	_storage.file_format = GFStorageCodec.Format.BINARY
+	var typed_colors: Dictionary[String, Color] = {}
+	assert_eq(_storage.save_data("valid-color-defaults.bin", {"colors": typed_colors}), OK)
+	_storage.default_values_for_new_keys = {"colors": {"named": "red", "hex": "#336699"}}
+	var ticket: GFStorageOwnedRead = _storage.load_data_owned_request_async("valid-color-defaults.bin")
+	_storage.wait_for_async_tasks()
+	var read: GFStorageReadResult = _take_success(ticket)
+	if read != null:
+		var colors: Dictionary = GFVariantData.as_dictionary(read.payload.get("colors"))
+		assert_eq(colors.get_typed_value_builtin(), TYPE_COLOR)
+		var named_value: Variant = colors.get("named")
+		var hex_value: Variant = colors.get("hex")
+		assert_true(named_value is Color)
+		assert_true(hex_value is Color)
+		if named_value is Color and hex_value is Color:
+			var named_color: Color = named_value
+			var hex_color: Color = hex_value
+			assert_eq(named_color, Color.RED)
+			assert_eq(hex_color, Color(0.2, 0.4, 0.6))
+
+
+func test_owned_defaults_reject_invalid_text_before_packed_color_conversion() -> void:
+	_storage.file_format = GFStorageCodec.Format.BINARY
+	var typed_colors: Dictionary[String, PackedColorArray] = {}
+	assert_eq(_storage.save_data("invalid-packed-color-defaults.bin", {"colors": typed_colors}), OK)
+	_storage.default_values_for_new_keys = {"colors": {"invalid": ["not-a-color"]}}
+	var ticket: GFStorageOwnedRead = _storage.load_data_owned_request_async("invalid-packed-color-defaults.bin")
+	_storage.wait_for_async_tasks()
+	assert_true(ticket.is_completed())
+	assert_eq(ticket.get_state(), GFStorageOwnedRead.State.FAILED)
+	var receipt: GFStorageOwnedReadReceipt = ticket.get_result()
+	assert_not_null(receipt)
+	if receipt != null:
+		assert_eq(receipt.get_failure_kind(), GFStorageOwnedReadReceipt.FailureKind.UNSUPPORTED_PAYLOAD)
+	_assert_take_status(ticket, GFStorageOwnedReadTakeResult.Status.FAILED)
+
+
+func test_owned_defaults_accept_named_and_hex_text_in_packed_color_conversion() -> void:
+	_storage.file_format = GFStorageCodec.Format.BINARY
+	var typed_colors: Dictionary[String, PackedColorArray] = {}
+	assert_eq(_storage.save_data("valid-packed-color-defaults.bin", {"colors": typed_colors}), OK)
+	_storage.default_values_for_new_keys = {"colors": {"values": ["red", "#336699"]}}
+	var ticket: GFStorageOwnedRead = _storage.load_data_owned_request_async("valid-packed-color-defaults.bin")
+	_storage.wait_for_async_tasks()
+	var read: GFStorageReadResult = _take_success(ticket)
+	if read != null:
+		var colors: Dictionary = GFVariantData.as_dictionary(read.payload.get("colors"))
+		assert_eq(colors.get_typed_value_builtin(), TYPE_PACKED_COLOR_ARRAY)
+		var packed_value: Variant = colors.get("values")
+		assert_true(packed_value is PackedColorArray)
+		if packed_value is PackedColorArray:
+			var packed_colors: PackedColorArray = packed_value
+			assert_eq(packed_colors, PackedColorArray([Color.RED, Color(0.2, 0.4, 0.6)]))
+
+
+func test_owned_defaults_keep_native_packed_integer_element_fallback() -> void:
+	_storage.file_format = GFStorageCodec.Format.BINARY
+	var typed_packed: Dictionary[String, PackedInt32Array] = {}
+	assert_eq(_storage.save_data("packed-defaults.bin", {"packed": typed_packed}), OK)
+	var source_values: Array = [{}]
+	var native: Dictionary = Dictionary({}, TYPE_STRING, &"", null, TYPE_PACKED_INT32_ARRAY, &"", null)
+	native["value"] = source_values
+	_storage.default_values_for_new_keys = {"packed": {"value": source_values}}
+	var ticket: GFStorageOwnedRead = _storage.load_data_owned_request_async("packed-defaults.bin")
+	_storage.wait_for_async_tasks()
+	var read: GFStorageReadResult = _take_success(ticket)
+	if read != null:
+		var packed: Dictionary = GFVariantData.as_dictionary(read.payload.get("packed"))
+		assert_eq(packed.get_typed_value_builtin(), TYPE_PACKED_INT32_ARRAY)
+		var native_value: Variant = native.get("value")
+		var owned_value: Variant = packed.get("value")
+		assert_true(native_value is PackedInt32Array)
+		assert_true(owned_value is PackedInt32Array)
+		if native_value is PackedInt32Array and owned_value is PackedInt32Array:
+			var native_packed: PackedInt32Array = native_value
+			var owned_packed: PackedInt32Array = owned_value
+			assert_eq(native_packed, PackedInt32Array([0]))
+			assert_eq(owned_packed, native_packed)
+
+
+func test_owned_defaults_reject_unsafe_values_that_would_enter_the_payload() -> void:
+	assert_eq(_storage.save_data("inserted-defaults.json", {"nested": {"existing": 38}}), OK)
+	_migration_cycle.append(_migration_cycle)
+	var deep_default: Dictionary = {}
+	var cursor: Dictionary = deep_default
+	for _depth: int in range(129):
+		var child: Dictionary = {}
+		cursor["child"] = child
+		cursor = child
+	var unsafe_defaults: Array[Variant] = [Resource.new(), RefCounted.new(), _migration_cycle, deep_default]
+	for target_version: int in [1, 2]:
+		_storage.save_version = target_version
+		for unsafe_value: Variant in unsafe_defaults:
+			_storage.default_values_for_new_keys = {&"nested": {"inserted": unsafe_value}}
+			var ticket: GFStorageOwnedRead = _storage.load_data_owned_request_async("inserted-defaults.json")
+			_storage.wait_for_async_tasks()
+			assert_true(ticket.is_completed())
+			assert_eq(ticket.get_state(), GFStorageOwnedRead.State.FAILED)
+			var receipt: GFStorageOwnedReadReceipt = ticket.get_result()
+			assert_not_null(receipt)
+			if receipt != null:
+				assert_eq(receipt.get_failure_kind(), GFStorageOwnedReadReceipt.FailureKind.UNSUPPORTED_PAYLOAD)
+				assert_eq(receipt.get_read_failure_kind(), GFStorageReadResult.FailureKind.NONE)
+			_assert_take_status(ticket, GFStorageOwnedReadTakeResult.Status.FAILED)
+	_migration_cycle.clear()
+
+
 # --- 私有/辅助方法 ---
 
 func _assert_disk_read_and_legacy_isolation(mode: GFStorageUtility.AsyncExecutionMode) -> void:
@@ -739,6 +1064,14 @@ func _assert_take_status(ticket: GFStorageOwnedRead, status: GFStorageOwnedReadT
 	assert_eq(take_result.get_status(), status)
 	assert_false(take_result.is_ok())
 	assert_null(take_result.get_read_result())
+
+
+func _assert_uncaptured_receipt(ticket: GFStorageOwnedRead) -> void:
+	var receipt: GFStorageOwnedReadReceipt = ticket.get_result()
+	assert_eq(receipt.get_source_version(), 0)
+	assert_eq(receipt.get_target_version(), 0)
+	assert_null(receipt.get_committed_revision())
+	assert_true(GFVariantData.get_option_dictionary(receipt.to_dict(), "committed_revision").is_empty())
 
 
 func _assert_read_failure(ticket: GFStorageOwnedRead, failure_kind: GFStorageReadResult.FailureKind) -> void:
@@ -867,6 +1200,15 @@ func _remove_owned_tree(path: String) -> Error:
 
 
 # --- 内部类 ---
+
+class _BudgetTrackingStorage extends GFStorageUtility:
+	var packed_validation_visits: int = 0
+
+	func _is_thread_payload_value_finite(value: Variant, value_type: Variant.Type) -> bool:
+		if value_type == TYPE_PACKED_BYTE_ARRAY:
+			packed_validation_visits += 1
+		return super._is_thread_payload_value_finite(value, value_type)
+
 
 class _InjectedWorkerStorage extends GFStorageUtility:
 	var result_fields: Dictionary = {}

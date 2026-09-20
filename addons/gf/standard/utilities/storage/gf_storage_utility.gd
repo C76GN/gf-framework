@@ -3016,6 +3016,13 @@ func _make_owned_read_receipt(
 		if caller_snapshot.is_empty() else caller_snapshot
 	)
 	var receipt: GFStorageOwnedReadReceipt = GFStorageOwnedReadReceipt.new()
+	# 旧 ReadResult 为无 metadata 的失败提供版本 1 回退；小型回执只报告实际读取证据。
+	var has_observed_version: bool = result != null and (
+		result.ok or (
+			GFVariantData.is_exact_integer(result.metadata.get(GFStorageCodec.VERSION_KEY))
+			and GFVariantData.to_exact_int(result.metadata.get(GFStorageCodec.VERSION_KEY)) > 0
+		)
+	)
 	var configured: bool = receipt.configure_for_framework({
 		"request_id": request_state.get_request_id(),
 		"consumer_id": request_state.get_consumer_id(),
@@ -3025,12 +3032,12 @@ func _make_owned_read_receipt(
 		"error_code": GFVariantData.get_option_int(caller, "error_code", ERR_BUG),
 		"failure_kind": int(failure_kind),
 		"read_failure_kind": int(result.failure_kind) if result != null else int(GFStorageReadResult.FailureKind.NONE),
-		"source_version": result.source_data_version if result != null else 0,
-		"target_version": result.data_version if result != null else 0,
+		"source_version": result.source_data_version if has_observed_version else 0,
+		"target_version": result.data_version if has_observed_version else 0,
 		"migrated": result.migrated if result != null else false,
 		"integrity_checked": result != null and result.integrity_status != GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
 		"integrity_ok": result != null and result.integrity_status == GFStorageReadResult.IntegrityStatus.VALID,
-		"committed_revision": result.get_committed_revision() if result != null else null,
+		"committed_revision": result.get_captured_revision_for_framework() if result != null else null,
 	})
 	return receipt if configured else null
 
@@ -3638,8 +3645,161 @@ func _append_packed_string(target: PackedStringArray, value: String) -> void:
 		return
 
 
-func _merge_default_values(target: Dictionary, defaults: Dictionary) -> Dictionary:
-	return GFVariantData.deep_merge_defaults(target, defaults)
+func _merge_default_values(
+	target: Dictionary,
+	defaults: Dictionary,
+	delivery_validation: Dictionary = {}
+) -> Dictionary:
+	if delivery_validation.is_empty():
+		return GFVariantData.deep_merge_defaults(target, defaults)
+	# Borrow untouched values until the final bounded validation and delivery copy.
+	# Validating all defaults would reject branches that never enter the result.
+	var merge_state: Dictionary = {"visited_entries": 0, "supported": true}
+	# Native typed conversions share one preflight budget across the whole merge.
+	var validation_state: _ThreadPayloadValidationState = _ThreadPayloadValidationState.new()
+	validation_state._max_values = _PAYLOAD_VALIDATION_MAX_VALUES
+	validation_state._max_bytes = _PAYLOAD_VALIDATION_MAX_BYTES
+	validation_state._max_depth = _PAYLOAD_VALIDATION_MAX_DEPTH
+	var merged: Dictionary = _merge_owned_default_candidate(
+		target, defaults, merge_state, validation_state, 0
+	)
+	if not GFVariantData.get_option_bool(merge_state, "supported"):
+		delivery_validation["supported"] = false
+		return target
+	return merged
+
+
+func _merge_owned_default_candidate(
+	target: Dictionary,
+	defaults: Dictionary,
+	merge_state: Dictionary,
+	validation_state: _ThreadPayloadValidationState,
+	depth: int
+) -> Dictionary:
+	var visited_entries: int = (
+		GFVariantData.get_option_int(merge_state, "visited_entries") + target.size() + defaults.size()
+	)
+	if depth > _PAYLOAD_VALIDATION_MAX_DEPTH or visited_entries > _PAYLOAD_VALIDATION_MAX_VALUES:
+		merge_state["supported"] = false
+		return {}
+	merge_state["visited_entries"] = visited_entries
+	if not _is_thread_payload_container_type_safe(target, TYPE_DICTIONARY):
+		merge_state["supported"] = false
+		return {}
+	var merged: Dictionary = target.duplicate()
+	for default_key: Variant in defaults:
+		if merged.get_typed_key_builtin() != TYPE_NIL:
+			_validate_thread_payload_value(default_key, "", [], depth + 1, validation_state, false)
+			if not validation_state._failure_kind.is_empty():
+				merge_state["supported"] = false
+				return {}
+		if not _is_owned_default_type_compatible(default_key, merged.get_typed_key_builtin()):
+			merge_state["supported"] = false
+			return {}
+		var target_key: Variant = _get_owned_default_target_key(merged, default_key)
+		var default_value: Variant = defaults[default_key]
+		if not merged.has(target_key):
+			if merged.is_typed():
+				_validate_thread_payload_value(default_value, "", [], depth + 1, validation_state, false)
+				if not validation_state._failure_kind.is_empty():
+					merge_state["supported"] = false
+					return {}
+			if not _is_owned_default_type_compatible(default_value, merged.get_typed_value_builtin()):
+				merge_state["supported"] = false
+				return {}
+			merged[target_key] = default_value
+			continue
+		var target_value: Variant = merged[target_key]
+		if target_value is Dictionary and default_value is Dictionary:
+			var target_dictionary: Dictionary = target_value
+			var default_dictionary: Dictionary = default_value
+			merged[target_key] = _merge_owned_default_candidate(
+				target_dictionary, default_dictionary, merge_state, validation_state, depth + 1
+			)
+			if not GFVariantData.get_option_bool(merge_state, "supported"):
+				return {}
+	return merged
+
+
+func _is_owned_default_type_compatible(value: Variant, target_type: int) -> bool:
+	var value_type: int = typeof(value)
+	if not _is_thread_payload_value_type_supported(value_type as Variant.Type):
+		return false
+	if target_type == TYPE_NIL or target_type == value_type:
+		return true
+	# Dictionary assignment uses Godot Variant::can_convert_strict before conversion.
+	# Keep this local preflight aligned with its pure built-in cases; do not log an
+	# engine assignment error and then publish a successful partial merge.
+	match target_type:
+		TYPE_BOOL, TYPE_INT, TYPE_FLOAT:
+			return value_type in [TYPE_BOOL, TYPE_INT, TYPE_FLOAT]
+		TYPE_STRING:
+			return value_type in [TYPE_NODE_PATH, TYPE_STRING_NAME]
+		TYPE_STRING_NAME, TYPE_NODE_PATH:
+			return value_type == TYPE_STRING
+		TYPE_VECTOR2:
+			return value_type == TYPE_VECTOR2I
+		TYPE_VECTOR2I:
+			return value_type == TYPE_VECTOR2
+		TYPE_VECTOR3:
+			return value_type == TYPE_VECTOR3I
+		TYPE_VECTOR3I:
+			return value_type == TYPE_VECTOR3
+		TYPE_VECTOR4:
+			return value_type == TYPE_VECTOR4I
+		TYPE_VECTOR4I:
+			return value_type == TYPE_VECTOR4
+		TYPE_RECT2:
+			return value_type == TYPE_RECT2I
+		TYPE_RECT2I:
+			return value_type == TYPE_RECT2
+		TYPE_TRANSFORM2D:
+			return value_type == TYPE_TRANSFORM3D
+		TYPE_TRANSFORM3D:
+			return value_type in [TYPE_TRANSFORM2D, TYPE_QUATERNION, TYPE_BASIS, TYPE_PROJECTION]
+		TYPE_QUATERNION:
+			return value_type == TYPE_BASIS
+		TYPE_BASIS:
+			return value_type == TYPE_QUATERNION
+		TYPE_PROJECTION:
+			return value_type == TYPE_TRANSFORM3D
+		TYPE_COLOR:
+			if value is String:
+				var color_text: String = value
+				var invalid_color: Color = Color(-1, -1, -1, -1)
+				return Color.from_string(color_text, invalid_color) != invalid_color
+			return value_type == TYPE_INT
+		TYPE_ARRAY:
+			return value_type >= TYPE_PACKED_BYTE_ARRAY and value_type <= TYPE_PACKED_VECTOR4_ARRAY
+		TYPE_PACKED_COLOR_ARRAY:
+			if value is Array:
+				var color_values: Array = value
+				for color_value: Variant in color_values:
+					if color_value is String and not _is_owned_default_type_compatible(color_value, TYPE_COLOR):
+						return false
+				return true
+			return false
+		TYPE_PACKED_BYTE_ARRAY, TYPE_PACKED_INT32_ARRAY, TYPE_PACKED_INT64_ARRAY, TYPE_PACKED_FLOAT32_ARRAY, TYPE_PACKED_FLOAT64_ARRAY, TYPE_PACKED_STRING_ARRAY, TYPE_PACKED_VECTOR2_ARRAY, TYPE_PACKED_VECTOR3_ARRAY, TYPE_PACKED_VECTOR4_ARRAY:
+			return value_type == TYPE_ARRAY
+	return false
+
+
+func _get_owned_default_target_key(target: Dictionary, key: Variant) -> Variant:
+	if target.has(key):
+		return key
+	if target.get_typed_key_builtin() not in [TYPE_NIL, TYPE_STRING, TYPE_STRING_NAME]:
+		return key
+	if key is StringName:
+		var name_key: StringName = key
+		var text_key: String = String(name_key)
+		if target.has(text_key):
+			return text_key
+	elif key is String:
+		var text_key: String = key
+		var name_key: StringName = StringName(text_key)
+		if target.has(name_key):
+			return name_key
+	return key
 
 
 func _get_thread_value(value: Variant) -> Thread:
@@ -7522,6 +7682,7 @@ func _is_thread_payload_value_type_supported(value_type: Variant.Type) -> bool:
 		TYPE_AABB,
 		TYPE_BASIS,
 		TYPE_TRANSFORM3D,
+		TYPE_PROJECTION,
 		TYPE_COLOR,
 		TYPE_STRING_NAME,
 		TYPE_NODE_PATH,
@@ -7641,6 +7802,8 @@ func _measure_thread_payload_bytes(
 			return 72
 		TYPE_TRANSFORM3D:
 			return 96
+		TYPE_PROJECTION:
+			return 128
 		TYPE_ARRAY, TYPE_DICTIONARY:
 			return 16
 		TYPE_PACKED_BYTE_ARRAY:
@@ -7831,6 +7994,14 @@ func _is_thread_payload_value_finite(value: Variant, value_type: Variant.Type) -
 			return (
 				_is_thread_payload_value_finite(transform_3d.basis, TYPE_BASIS)
 				and _is_thread_payload_value_finite(transform_3d.origin, TYPE_VECTOR3)
+			)
+		TYPE_PROJECTION:
+			var projection: Projection = value
+			return (
+				_is_thread_payload_value_finite(projection.x, TYPE_VECTOR4)
+				and _is_thread_payload_value_finite(projection.y, TYPE_VECTOR4)
+				and _is_thread_payload_value_finite(projection.z, TYPE_VECTOR4)
+				and _is_thread_payload_value_finite(projection.w, TYPE_VECTOR4)
 			)
 		TYPE_COLOR:
 			var color: Color = value
@@ -8817,12 +8988,11 @@ func _apply_schema_migrations(
 	var to_version: int = save_version
 	if from_version > to_version:
 		return _fail_future_storage_version(result, from_version, to_version)
-	if not delivery_validation.is_empty() and not default_values_for_new_keys.is_empty():
-		if not _validate_owned_migration_output(default_values_for_new_keys, delivery_validation):
-			return result
 	if from_version >= to_version:
 		if not default_values_for_new_keys.is_empty():
-			result.payload = _merge_default_values(result.payload, default_values_for_new_keys)
+			result.payload = _merge_default_values(
+				result.payload, default_values_for_new_keys, delivery_validation
+			)
 		return result
 
 	var migration_chain: Array[int] = _resolve_migration_chain(from_version, to_version)
@@ -8855,7 +9025,8 @@ func _apply_schema_migrations(
 		if not default_values_for_new_keys.is_empty():
 			migrated_payload = _merge_default_values(
 				migrated_payload,
-				default_values_for_new_keys
+				default_values_for_new_keys,
+				delivery_validation
 			)
 	var migrated_metadata: Dictionary = result.metadata.duplicate(true)
 	migrated_metadata[GFStorageCodec.VERSION_KEY] = to_version

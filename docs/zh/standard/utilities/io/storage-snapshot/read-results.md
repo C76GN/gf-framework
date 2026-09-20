@@ -62,8 +62,14 @@ owner、token、deadline 只约束 `WAITING` 阶段。成功先完成后，owner
 
 `GFStorageOwnedReadReceipt` 只暴露请求身份、逻辑文件名、状态、失败分类、版本、完整性和不透明 revision，不含业务 payload、任意 metadata 或来源授权。仍适用的 `data_migrated` / `data_integrity_failed` 小型事件在句柄结算之后发出。
 
+尚未读到文档版本时，receipt 的 source/target version 为 `0`；未捕获 revision 时，getter 返回 `null`，`to_dict()` 中为 `{}`。成功读取 schema 1 所捕获的 `UNSUPPORTED` revision 仍会保留，schema 2 保留实际 token；迁移失败也会保留此前已经读取的文档版本。
+
 ## 适用边界
 
 独占交付只支持可安全隔离的纯 Variant 图。迁移回调即使保留旧 Dictionary、Array 或 PackedArray 引用，也不能修改最终领取的隔离结果。Object、Resource、Callable、循环集合及超出既有纯数据预算（深度 128、累计 1,000,000 个值、估算 64 MiB）的结果会以 `UNSUPPORTED_PAYLOAD` 拒绝交付；这不是存档损坏，也不会偷偷改走普通广播路径。Resource 读取继续使用现有入口。
+
+纯值校验支持所有分量有限的 `Projection` 与 `Array[Projection]`，并计入全部 16 个浮点分量的预算。默认值只按实际进入合并结果的分支校验；已有字段遮蔽的默认值，以及自定义迁移未使用的默认值，不影响领取资格。
+
+向强类型字典补入默认值时，键和值会在原生赋值前检查；不兼容类型和非法颜色文本会返回 `UNSUPPORTED_PAYLOAD`。整次合并共享转换前的预检预算，共享数组不会因多次作为默认值使用而反复获得完整预算。
 
 此接口减少交付阶段的副本，不保证端到端零复制或自动分帧。解码、迁移、纯数据校验和必要隔离仍有成本；尤其是包含大量细粒度 Dictionary / Array 的图，额外校验可能让总读取时间高于普通入口。只有需要单一领取权且实测取舍合适时才选择它；分别测量读取完成与结果领取，不要用领取变快推断整体变快。返回[本地存档管理器](storage-utility.md)查看同步、异步和迁移入口。

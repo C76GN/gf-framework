@@ -994,6 +994,27 @@ func test_legacy_request_api_keeps_deep_snapshot_copy() -> void:
 	assert_eq(GFVariantData.get_option_int(loaded_nested, "value"), 1)
 
 
+func test_projection_preflight_accepts_finite_values_and_accounts_all_components() -> void:
+	var projections: Array[Projection] = [Projection.IDENTITY]
+	var report: Dictionary = _validate_in_both_path_modes({"p": Projection.IDENTITY}, 3, 145, 1)
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(GFVariantData.get_option_int(report, "visited_bytes"), 145)
+	assert_eq(GFVariantData.get_option_int(report, "visited_values"), 3)
+	report = _validate_in_both_path_modes({"p": Projection.IDENTITY}, 3, 144, 1)
+	assert_eq(GFVariantData.get_option_string(report, "failure_kind"), "byte_budget_exceeded")
+	report = _validate_in_both_path_modes({"p": projections})
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	for column: int in range(4):
+		for row: int in range(4):
+			var projection: Projection = Projection.IDENTITY
+			var component: Vector4 = projection[column]
+			component[row] = INF if (column + row) % 2 == 0 else NAN
+			projection[column] = component
+			report = _validate_in_both_path_modes({"p": projection})
+			assert_eq(GFVariantData.get_option_string(report, "failure_kind"), "non_finite_number")
+			assert_eq(GFVariantData.get_option_string(report, "variant_type_name"), "Projection")
+
+
 func _validate_in_both_path_modes(
 	payload: Dictionary,
 	max_values: int = 1_000_000,
