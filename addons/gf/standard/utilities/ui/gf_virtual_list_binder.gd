@@ -101,6 +101,7 @@ const _STATE_SYNCING: StringName = &"syncing"
 const _STATE_UNBINDING: StringName = &"unbinding"
 const _STATE_DISPOSING: StringName = &"disposing"
 const _STATE_DISPOSED: StringName = &"disposed"
+const _MAX_REUSE_KEY_LENGTH: int = 1024
 
 
 # --- 公共变量 ---
@@ -207,12 +208,15 @@ var _item_factory: Callable = Callable()
 var _bind_callback: Callable = Callable()
 var _unbind_callback: Callable = Callable()
 var _identity_callback: Callable = Callable()
+var _reuse_key_callback: Callable = Callable()
+var _uses_reuse_keys: bool = false
 var _measure_callback: Callable = Callable()
 var _focus_target_callback: Callable = Callable()
 
 var _active_by_token: Dictionary = {}
 var _token_by_index: Dictionary = {}
 var _pool: Array[Control] = []
+# Control instance ID -> immutable reuse key; the legacy binding uses the empty key.
 var _known_control_ids: Dictionary = {}
 
 var _pending_focus_index: int = GFVirtualListFocusModel.NO_FOCUS
@@ -297,49 +301,83 @@ func bind(
 	measure_callback: Callable = Callable(),
 	focus_target_callback: Callable = Callable()
 ) -> bool:
-	if _state == _STATE_DISPOSED or _state != _STATE_UNBOUND:
-		return false
-	if not _is_valid_binding_boundary(owner, scroll_container, content_root, layout_model):
-		return false
-	if (
-		not item_factory.is_valid()
-		or not bind_callback.is_valid()
-		or not unbind_callback.is_valid()
-		or not identity_callback.is_valid()
-	):
-		return false
+	return _bind_internal(
+		owner, scroll_container, content_root, layout_model, item_factory,
+		bind_callback, unbind_callback, identity_callback, Callable(),
+		focus_model, measure_callback, focus_target_callback
+	)
 
-	_lifecycle_generation += 1
-	_owner_ref = weakref(owner)
-	_scroll_ref = weakref(scroll_container)
-	_content_ref = weakref(content_root)
-	var viewport: Viewport = scroll_container.get_viewport()
-	_viewport_ref = weakref(viewport) if viewport != null else null
-	_owned_layout_axis = -1
-	_owned_layout_axis_baseline = 0.0
-	_layout_model = layout_model
-	_focus_model = focus_model
-	_item_factory = item_factory
-	_bind_callback = bind_callback
-	_unbind_callback = unbind_callback
-	_identity_callback = identity_callback
-	_measure_callback = measure_callback
-	_focus_target_callback = focus_target_callback
-	_state = _STATE_IDLE
-	_last_committed_data_revision = -1
-	_last_committed_layout_revision = -1
-	_measurement_requested = false
-	_measurement_request_revision = 0
-	if auto_measure:
-		_queue_measurement_request()
-	_connect_binding_signals(owner, scroll_container, content_root, viewport)
-	if _focus_model != null:
-		_binding_focus_initialization = true
-		var _focus_count_changed: bool = _focus_model.set_item_count(_layout_model.get_item_count())
-		_binding_focus_initialization = false
-	_update_content_extent()
-	_adopt_bound_virtual_focus()
-	return request_sync()
+
+## 建立按稳定复用分类选择行模板的 owner-bound 虚拟列表绑定。
+##
+## 相同复用 key 的 Control 必须可互换；同一条目 ID 改变 key 后会更换 Control。
+## 所有分类共享 max_pooled_items 总预算，factory 返回的 parentless Control 由 Binder 接管。
+## key 在本轮 identity 预检中冻结；失败不会改变已提交的活动行。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param owner: 生命周期 owner；退出 SceneTree 后 Binder 自动 dispose。
+## [br]
+## @param scroll_container: 项目持有的滚动容器；退出 SceneTree 后自动 dispose。
+## [br]
+## @param content_root: 滚动容器的直接子 Control，不能是 Container；退出树后自动 dispose。
+## [br]
+## @param layout_model: 条目 count、extent、offset 和范围模型。
+## [br]
+## @param item_factory: Callable(reuse_key: StringName) -> Control，返回对应分类的 parentless 节点。
+## [br]
+## @param bind_callback: Callable(control: Control, item_index: int, item_id: Variant) -> bool。
+## [br]
+## @param unbind_callback: Callable(control: Control, item_index: int, item_id: Variant) -> void。
+## [br]
+## @param identity_callback: Callable(item_index: int) -> Variant；返回唯一稳定条目 ID。
+## [br]
+## @param reuse_key_callback: Callable(item_index: int, item_id: Variant) -> StringName；非空，字符数与 UTF-8 字节数各不超过 1024。
+## [br]
+## @param focus_model: 可选虚拟焦点模型。
+## [br]
+## @param measure_callback: 可选 Callable(control, item_index, item_id) -> float。
+## [br]
+## @param focus_target_callback: 可选 Callable(control, item_index, item_id) -> Control。
+## [br]
+## @return 边界与必需回调合法并建立连接时返回 true；分类值在同步时验证。
+## [br]
+## @schema item_factory: Callable(StringName) -> parentless Control; receives the frozen reuse key.
+## [br]
+## @schema bind_callback: Callable(Control, int, Variant) -> bool.
+## [br]
+## @schema unbind_callback: Callable(Control, int, Variant) -> void.
+## [br]
+## @schema identity_callback: Callable(int) -> stable Variant key.
+## [br]
+## @schema reuse_key_callback: Callable(int, Variant) -> non-empty bounded StringName; String and other types are rejected.
+## [br]
+## @schema measure_callback: Optional Callable(Control, int, Variant) -> finite positive float.
+## [br]
+## @schema focus_target_callback: Optional Callable(Control, int, Variant) -> Control descendant.
+func bind_with_reuse_keys(
+	owner: Node,
+	scroll_container: ScrollContainer,
+	content_root: Control,
+	layout_model: GFVirtualListModel,
+	item_factory: Callable,
+	bind_callback: Callable,
+	unbind_callback: Callable,
+	identity_callback: Callable,
+	reuse_key_callback: Callable,
+	focus_model: GFVirtualListFocusModel = null,
+	measure_callback: Callable = Callable(),
+	focus_target_callback: Callable = Callable()
+) -> bool:
+	if not reuse_key_callback.is_valid():
+		return false
+	return _bind_internal(
+		owner, scroll_container, content_root, layout_model, item_factory,
+		bind_callback, unbind_callback, identity_callback, reuse_key_callback,
+		focus_model, measure_callback, focus_target_callback
+	)
 
 
 ## 请求一次合并到 deferred 队列的同步。
@@ -601,6 +639,67 @@ func dispose() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+func _bind_internal(
+	owner: Node,
+	scroll_container: ScrollContainer,
+	content_root: Control,
+	layout_model: GFVirtualListModel,
+	item_factory: Callable,
+	bind_callback: Callable,
+	unbind_callback: Callable,
+	identity_callback: Callable,
+	reuse_key_callback: Callable,
+	focus_model: GFVirtualListFocusModel,
+	measure_callback: Callable,
+	focus_target_callback: Callable
+) -> bool:
+	if _state == _STATE_DISPOSED or _state != _STATE_UNBOUND:
+		return false
+	if not _is_valid_binding_boundary(owner, scroll_container, content_root, layout_model):
+		return false
+	if (
+		not item_factory.is_valid()
+		or not bind_callback.is_valid()
+		or not unbind_callback.is_valid()
+		or not identity_callback.is_valid()
+	):
+		return false
+
+	_lifecycle_generation += 1
+	_owner_ref = weakref(owner)
+	_scroll_ref = weakref(scroll_container)
+	_content_ref = weakref(content_root)
+	var viewport: Viewport = scroll_container.get_viewport()
+	_viewport_ref = weakref(viewport) if viewport != null else null
+	_owned_layout_axis = -1
+	_owned_layout_axis_baseline = 0.0
+	_layout_model = layout_model
+	_focus_model = focus_model
+	_item_factory = item_factory
+	_bind_callback = bind_callback
+	_unbind_callback = unbind_callback
+	_identity_callback = identity_callback
+	_reuse_key_callback = reuse_key_callback
+	_uses_reuse_keys = reuse_key_callback.is_valid()
+	_measure_callback = measure_callback
+	_focus_target_callback = focus_target_callback
+	_state = _STATE_IDLE
+	_last_committed_data_revision = -1
+	_last_committed_layout_revision = -1
+	_measurement_requested = false
+	_measurement_request_revision = 0
+	if auto_measure:
+		_queue_measurement_request()
+	_connect_binding_signals(owner, scroll_container, content_root, viewport)
+	if _focus_model != null:
+		_binding_focus_initialization = true
+		var _focus_count_changed: bool = _focus_model.set_item_count(_layout_model.get_item_count())
+		_binding_focus_initialization = false
+	_update_content_extent()
+	_adopt_bound_virtual_focus()
+	return request_sync()
+
 
 func _synchronize(generation: int) -> GFVirtualListSyncResult:
 	if generation != _lifecycle_generation:
@@ -1052,10 +1151,37 @@ func _build_identity_plan(
 				"descriptors": descriptors,
 			}
 		seen_tokens[token] = true
+		var reuse_key: StringName = &""
+		if _uses_reuse_keys:
+			var selected_key: Variant = (
+				_reuse_key_callback.call(item_index, item_id)
+				if _reuse_key_callback.is_valid()
+				else null
+			)
+			if generation != _lifecycle_generation:
+				return { "status": GFVirtualListSyncResult.STATUS_DISPOSED }
+			if not _owned_controls_are_live():
+				dispose()
+				return { "status": GFVirtualListSyncResult.STATUS_DISPOSED }
+			if not _sync_data_revision_is_current(sync_data_revision):
+				return {
+					"status": GFVirtualListSyncResult.STATUS_DEFERRED,
+					"descriptors": descriptors,
+				}
+			if selected_key is StringName:
+				reuse_key = selected_key
+			if not _is_valid_reuse_key(reuse_key):
+				return {
+					"status": GFVirtualListSyncResult.STATUS_INVALID_REUSE_KEY,
+					"error_index": item_index,
+					"error": "reuse_key_callback must return a non-empty bounded StringName",
+					"descriptors": descriptors,
+				}
 		descriptors.append({
 			"index": item_index,
 			"identity": GFVariantData.duplicate_variant(item_id),
 			"token": token,
+			"reuse_key": reuse_key,
 		})
 	return {
 		"status": GFVirtualListSyncResult.STATUS_SYNCED,
@@ -1095,6 +1221,23 @@ func _make_bounded_identity_token(item_id: Variant) -> Dictionary:
 	}
 
 
+func _is_valid_reuse_key(reuse_key: StringName) -> bool:
+	var key_text: String = String(reuse_key)
+	if key_text.is_empty() or key_text.length() > _MAX_REUSE_KEY_LENGTH:
+		return false
+	return key_text.to_utf8_buffer().size() <= _MAX_REUSE_KEY_LENGTH
+
+
+func _get_control_reuse_key(control: Control) -> StringName:
+	if control == null or not is_instance_valid(control):
+		return &""
+	var value: Variant = _known_control_ids.get(control.get_instance_id())
+	if value is StringName:
+		var reuse_key: StringName = value
+		return reuse_key
+	return &""
+
+
 func _stage_materialization_plan(
 	descriptors: Array[Dictionary],
 	generation: int,
@@ -1107,32 +1250,40 @@ func _stage_materialization_plan(
 	var reused_count: int = 0
 	for descriptor: Dictionary in descriptors:
 		var target_token: String = GFVariantData.get_option_string(descriptor, "token")
-		target_tokens[target_token] = true
-	var recyclable_records: Array[Dictionary] = []
-	for token_value: Variant in _active_by_token.keys():
+		target_tokens[target_token] = GFVariantData.get_option_string_name(descriptor, "reuse_key")
+	var recyclable_records_by_key: Dictionary = {}
+	var active_tokens: Array = _active_by_token.keys()
+	active_tokens.reverse()
+	for token_value: Variant in active_tokens:
 		if not (token_value is String):
 			continue
 		var active_token: String = token_value
-		if target_tokens.has(active_token):
-			continue
 		var recyclable_record: Dictionary = _get_active_record(active_token)
-		if not recyclable_record.is_empty():
-			recyclable_records.append(recyclable_record)
-	var recyclable_index: int = 0
+		var reuse_key: StringName = _get_control_reuse_key(_get_record_control(recyclable_record))
+		if target_tokens.has(active_token) and target_tokens.get(active_token) == reuse_key:
+			continue
+		var recyclable_records: Array = GFVariantData.as_array(recyclable_records_by_key.get(reuse_key, []))
+		recyclable_records.append(recyclable_record)
+		recyclable_records_by_key[reuse_key] = recyclable_records
 	for descriptor: Dictionary in descriptors:
 		var token: String = GFVariantData.get_option_string(descriptor, "token")
 		var item_index: int = GFVariantData.get_option_int(descriptor, "index", -1)
+		var reuse_key: StringName = GFVariantData.get_option_string_name(descriptor, "reuse_key")
 		var active_record: Dictionary = _get_active_record(token)
+		var recyclable_records: Array = GFVariantData.as_array(recyclable_records_by_key.get(reuse_key, []))
 		var record: Dictionary = {}
-		if not active_record.is_empty():
+		if (
+			not active_record.is_empty()
+			and _get_control_reuse_key(_get_record_control(active_record)) == reuse_key
+		):
 			record = _make_plan_record_from_active(active_record)
 			reused_count += 1
-		elif recyclable_index < recyclable_records.size():
-			record = _make_plan_record_from_active(recyclable_records[recyclable_index])
-			recyclable_index += 1
+		elif not recyclable_records.is_empty():
+			var recyclable_value: Variant = recyclable_records.pop_back()
+			record = _make_plan_record_from_active(GFVariantData.as_dictionary(recyclable_value))
 			reused_count += 1
 		else:
-			var acquired: Dictionary = _acquire_control(generation, staged_records)
+			var acquired: Dictionary = _acquire_control(generation, staged_records, reuse_key)
 			if not GFVariantData.get_option_bool(acquired, "ok"):
 				if not _sync_data_revision_is_current(sync_data_revision):
 					return {
@@ -1238,7 +1389,10 @@ func _commit_materialization_plan(
 			continue
 		var token: String = token_value
 		var record: Dictionary = _get_active_record(token)
-		var leaving: bool = not target_tokens.has(token)
+		var leaving: bool = (
+			not target_tokens.has(token)
+			or target_tokens.get(token) != _get_control_reuse_key(_get_record_control(record))
+		)
 		var needs_rebind: bool = rebind_by_source_token.has(token)
 		if (leaving or needs_rebind) and GFVariantData.get_option_bool(record, "bound"):
 			var control: Control = _get_record_control(record)
@@ -1876,13 +2030,19 @@ func _select_target_indices(viewport_range: Vector2i, requested_range: Vector2i)
 	}
 
 
-func _acquire_control(generation: int, staged_records: Array[Dictionary]) -> Dictionary:
+func _acquire_control(
+	generation: int,
+	staged_records: Array[Dictionary],
+	reuse_key: StringName
+) -> Dictionary:
 	if not _owned_controls_are_live(staged_records):
 		dispose()
 		return { "ok": false, "error": "owned Control boundary was violated" }
-	if not _pool.is_empty():
-		var pooled_value: Variant = _pool.pop_back()
-		var pooled: Control = _get_live_control(pooled_value)
+	for pool_index: int in range(_pool.size() - 1, -1, -1):
+		var pooled: Control = _pool[pool_index]
+		if _get_control_reuse_key(pooled) != reuse_key:
+			continue
+		_pool.remove_at(pool_index)
 		if not _control_has_expected_parent(pooled, null):
 			dispose()
 			return { "ok": false, "error": "pooled Control boundary was violated" }
@@ -1894,7 +2054,7 @@ func _acquire_control(generation: int, staged_records: Array[Dictionary]) -> Dic
 		}
 	if generation != _lifecycle_generation:
 		return { "ok": false, "error": "binding generation ended" }
-	var value: Variant = _item_factory.call()
+	var value: Variant = _item_factory.call(reuse_key) if _uses_reuse_keys else _item_factory.call()
 	if generation != _lifecycle_generation:
 		if value is Control:
 			var abandoned_control: Control = value
@@ -1924,7 +2084,7 @@ func _acquire_control(generation: int, staged_records: Array[Dictionary]) -> Dic
 	var control_id: int = control.get_instance_id()
 	if _known_control_ids.has(control_id):
 		return { "ok": false, "error": "item_factory returned a Control already owned by this Binder" }
-	_known_control_ids[control_id] = true
+	_known_control_ids[control_id] = reuse_key
 	return {
 		"ok": true,
 		"control": control,
@@ -2604,6 +2764,8 @@ func _clear_binding_references() -> void:
 	_bind_callback = Callable()
 	_unbind_callback = Callable()
 	_identity_callback = Callable()
+	_reuse_key_callback = Callable()
+	_uses_reuse_keys = false
 	_measure_callback = Callable()
 	_focus_target_callback = Callable()
 

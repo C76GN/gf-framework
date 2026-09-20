@@ -23,6 +23,7 @@
 | 常量 | [`STATUS_DISPOSED`](#member-gfvirtuallistsyncresult-constants-status_disposed) | `const STATUS_DISPOSED: StringName = &"disposed"` |
 | 常量 | [`STATUS_INVALID_IDENTITY`](#member-gfvirtuallistsyncresult-constants-status_invalid_identity) | `const STATUS_INVALID_IDENTITY: StringName = &"invalid_identity"` |
 | 常量 | [`STATUS_DUPLICATE_IDENTITY`](#member-gfvirtuallistsyncresult-constants-status_duplicate_identity) | `const STATUS_DUPLICATE_IDENTITY: StringName = &"duplicate_identity"` |
+| 常量 | [`STATUS_INVALID_REUSE_KEY`](#member-gfvirtuallistsyncresult-constants-status_invalid_reuse_key) | `const STATUS_INVALID_REUSE_KEY: StringName = &"invalid_reuse_key"` |
 | 常量 | [`STATUS_FACTORY_FAILED`](#member-gfvirtuallistsyncresult-constants-status_factory_failed) | `const STATUS_FACTORY_FAILED: StringName = &"factory_failed"` |
 | 常量 | [`STATUS_BIND_FAILED`](#member-gfvirtuallistsyncresult-constants-status_bind_failed) | `const STATUS_BIND_FAILED: StringName = &"bind_failed"` |
 | 方法 | [`is_successful`](#member-gfvirtuallistsyncresult-methods-is_successful) | `func is_successful() -> bool:` |
@@ -150,6 +151,19 @@ const STATUS_DUPLICATE_IDENTITY: StringName = &"duplicate_identity"
 ```
 
 当前请求范围包含重复稳定 identity。
+
+<a id="member-gfvirtuallistsyncresult-constants-status_invalid_reuse_key"></a>
+
+### `STATUS_INVALID_REUSE_KEY`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_INVALID_REUSE_KEY: StringName = &"invalid_reuse_key"
+```
+
+复用分类回调失效，或未返回非空且长度有界的 StringName。
 
 <a id="member-gfvirtuallistsyncresult-constants-status_factory_failed"></a>
 

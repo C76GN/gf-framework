@@ -6,6 +6,7 @@
 
 ### 🚀 新增特性 (Added)
 
+- [虚拟列表](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/viewport-text-node-tools/virtual-list-model.md) 支持按复用分类混排不同模板；同一条目切换模板时保留事务检查、焦点交接与测量锚点，各类节点共享原有池总量上限，现有单模板绑定保持兼容。
 - 新增 [Storage 大型结果的一次性领取](standard/utilities/io/storage-snapshot/read-results.md#大型结果的一次性领取)：通过专用句柄接收纯字典异步读取，迁移后保留一次交付隔离，通知与领取不再复制载荷；提供独立的小型诊断、取消及释放语义，普通读取保持兼容。
 - [2D 空间画布](standard/input-flow/spatial-canvas-2d.md#已选条目的默认轮廓) 支持独立隐藏已选条目的默认矩形轮廓，便于项目使用自定义选中装饰，同时保留点选、框选、网格与放置预览。
 - [本地 Storage 已提交版本](standard/utilities/io/storage-snapshot/committed-revisions.md) 支持显式 schema 2、离线升级、opaque revision 查询及同步/异步 JSON 和 Resource 实际读取配对；提交恢复、删除重建和 family reset 保持代次一致，显式创建中断后可安全重试空布局前缀或一致完整的 pending，布局检查和 pending 恢复包含隐藏文件证据，默认 schema 1 不自动升级。
@@ -30,6 +31,7 @@
 
 ### 🔄 机制更改 (Changed)
 
+- [命令历史](kernel/messaging/command-history/index.md) 补充拖拽编辑示例：预览只修改草稿，确认执行一次命令，取消或净变化为零不产生历史；明确 `record()` 与 `execute_command()` 的使用边界。
 - [Storage 读取结果](standard/utilities/io/storage-snapshot/storage-utility.md) 减少隔离副本的中转深复制，迟到结算诊断只读取失败分类；保留结果归一化、来源授权及公开 getter 与信号的副本行为。
 - [3D 场景摆放](editor/tools/scene-placement.md) 确认失败时显示具体原因与排查建议，并保留原始原因标识和错误码，便于区分父节点失效、实例创建失败及撤销记录被拒绝等情况。
 - [调试指标序列](standard/utilities/runtime/debug-observability/debug-visual-inspection/debug-overlay.md) 的 sparkline 只归一化实际显示的最新采样，减少长窗口的绘图开销；统计与归一化范围仍使用全部保留采样。
@@ -84,6 +86,7 @@
 
 ### 🔧 API 变动说明 (API Changes)
 
+- `GFVirtualListBinder.bind_with_reuse_keys()` 新增分类回调与接收 `StringName` 的 factory，同步时分类无效的结果状态为 `GFVirtualListSyncResult.STATUS_INVALID_REUSE_KEY`；原 `bind()` 继续使用无参 factory，无需迁移。
 - `GFVariantJsonCodec` 新增 `variant_to_json_compatible_result()` 与 `json_compatible_to_variant_result()`，返回 `{ok, value, error}`；诊断投影入口继续表达不同的输出用途。`GFDialogueContext.deserialize_values()` 返回 `bool`，失败保持原值。
 - `GFSpatialHash3D.can_query_aabb()` 提供不生成候选列表的查询准入检查，空间查询 facade 在哈希预算不足时使用线性查询。
 - `GFPlatformAdapter` 首次注册后冻结身份和契约配置；自定义输入序列 runtime 必须提供单调的 action edge revision。`GFNetworkBackend` 新增 protected `_reset_transport_connection()` 供传输层先提交断开状态。

@@ -73,6 +73,13 @@ const STATUS_INVALID_IDENTITY: StringName = &"invalid_identity"
 ## @since 11.0.0
 const STATUS_DUPLICATE_IDENTITY: StringName = &"duplicate_identity"
 
+## 复用分类回调失效，或未返回非空且长度有界的 StringName。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_INVALID_REUSE_KEY: StringName = &"invalid_reuse_key"
+
 ## item factory 没有返回可接管的 parentless Control。
 ## [br]
 ## @api public
@@ -409,6 +416,7 @@ func _is_known_status(status: StringName) -> bool:
 		STATUS_DISPOSED,
 		STATUS_INVALID_IDENTITY,
 		STATUS_DUPLICATE_IDENTITY,
+		STATUS_INVALID_REUSE_KEY,
 		STATUS_FACTORY_FAILED,
 		STATUS_BIND_FAILED,
 	]

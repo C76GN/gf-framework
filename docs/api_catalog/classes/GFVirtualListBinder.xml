@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVirtualListBinder" path="addons/gf/standard/utilities/ui/gf_virtual_list_binder.gd" module="standard" extends="RefCounted" classDigest="dd75347e8d50b68ec130067a67d68703fb1eb2407e85811b26ddd45320bc1692">
+<class name="GFVirtualListBinder" path="addons/gf/standard/utilities/ui/gf_virtual_list_binder.gd" module="standard" extends="RefCounted" classDigest="d289a4bdf6e74d5fec0b0d73c8860e287f09d58bd59a83f7f2c2a485646117cb">
 	<description>GFVirtualListBinder: owner-bound 虚拟列表 Control 物化与回收协调器。
 连接项目提供的 `ScrollContainer`、绝对布局 content root、`GFVirtualListModel`
 与行回调，只物化真实视口及 overscan 范围。项目继续拥有条目数据、稳定 ID、
@@ -175,6 +175,37 @@ Container。factory 返回的 Control 必须 parentless；返回后其所有权�
 				<tag name="schema">measure_callback: Optional Callable(Control, int, Variant) -&gt; finite positive float.</tag>
 				<tag name="schema">focus_target_callback: Optional Callable(Control, int, Variant) -&gt; Control descendant.</tag>
 				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="bind_with_reuse_keys">
+			<signature>func bind_with_reuse_keys( owner: Node, scroll_container: ScrollContainer, content_root: Control, layout_model: GFVirtualListModel, item_factory: Callable, bind_callback: Callable, unbind_callback: Callable, identity_callback: Callable, reuse_key_callback: Callable, focus_model: GFVirtualListFocusModel = null, measure_callback: Callable = Callable(), focus_target_callback: Callable = Callable() ) -&gt; bool:</signature>
+			<description>建立按稳定复用分类选择行模板的 owner-bound 虚拟列表绑定。
+相同复用 key 的 Control 必须可互换；同一条目 ID 改变 key 后会更换 Control。
+所有分类共享 max_pooled_items 总预算，factory 返回的 parentless Control 由 Binder 接管。
+key 在本轮 identity 预检中冻结；失败不会改变已提交的活动行。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 生命周期 owner；退出 SceneTree 后 Binder 自动 dispose。</tag>
+				<tag name="param">scroll_container: 项目持有的滚动容器；退出 SceneTree 后自动 dispose。</tag>
+				<tag name="param">content_root: 滚动容器的直接子 Control，不能是 Container；退出树后自动 dispose。</tag>
+				<tag name="param">layout_model: 条目 count、extent、offset 和范围模型。</tag>
+				<tag name="param">item_factory: Callable(reuse_key: StringName) -&gt; Control，返回对应分类的 parentless 节点。</tag>
+				<tag name="param">bind_callback: Callable(control: Control, item_index: int, item_id: Variant) -&gt; bool。</tag>
+				<tag name="param">unbind_callback: Callable(control: Control, item_index: int, item_id: Variant) -&gt; void。</tag>
+				<tag name="param">identity_callback: Callable(item_index: int) -&gt; Variant；返回唯一稳定条目 ID。</tag>
+				<tag name="param">reuse_key_callback: Callable(item_index: int, item_id: Variant) -&gt; StringName；非空，字符数与 UTF-8 字节数各不超过 1024。</tag>
+				<tag name="param">focus_model: 可选虚拟焦点模型。</tag>
+				<tag name="param">measure_callback: 可选 Callable(control, item_index, item_id) -&gt; float。</tag>
+				<tag name="param">focus_target_callback: 可选 Callable(control, item_index, item_id) -&gt; Control。</tag>
+				<tag name="return">边界与必需回调合法并建立连接时返回 true；分类值在同步时验证。</tag>
+				<tag name="schema">item_factory: Callable(StringName) -&gt; parentless Control; receives the frozen reuse key.</tag>
+				<tag name="schema">bind_callback: Callable(Control, int, Variant) -&gt; bool.</tag>
+				<tag name="schema">unbind_callback: Callable(Control, int, Variant) -&gt; void.</tag>
+				<tag name="schema">identity_callback: Callable(int) -&gt; stable Variant key.</tag>
+				<tag name="schema">reuse_key_callback: Callable(int, Variant) -&gt; non-empty bounded StringName; String and other types are rejected.</tag>
+				<tag name="schema">measure_callback: Optional Callable(Control, int, Variant) -&gt; finite positive float.</tag>
+				<tag name="schema">focus_target_callback: Optional Callable(Control, int, Variant) -&gt; Control descendant.</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="request_sync">
