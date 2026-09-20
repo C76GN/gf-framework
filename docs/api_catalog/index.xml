@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="96c4674a4cc8937299b9023d2a401a118e607e751b317b11624f2a5887293aee" classCount="887" methodCount="7915" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="96f5e56df47142e4525bb65e30204ea4113693de86a8f8bfd2e7619144430504" classCount="890" methodCount="7946" autoloadCount="1" autoloadMethodCount="65">
 	<module id="kernel" label="Kernel" classCount="78" methodCount="827" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -81,7 +81,7 @@
 		<class name="GFWeakMethodInvocation" path="classes/GFWeakMethodInvocation.xml" sourcePath="addons/gf/kernel/core/gf_weak_method_invocation.gd" extends="RefCounted" />
 		<autoload name="Gf" path="autoloads/Gf.xml" sourcePath="addons/gf/kernel/core/gf.gd" extends="Node" packageId="gf.kernel" />
 	</module>
-	<module id="standard" label="Standard" classCount="484" methodCount="4836" autoloadCount="0" autoloadMethodCount="0">
+	<module id="standard" label="Standard" classCount="487" methodCount="4867" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsEventSchema" path="classes/GFAnalyticsEventSchema.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd" extends="Resource" />
@@ -479,6 +479,9 @@
 		<class name="GFStorageFailoverBackend" path="classes/GFStorageFailoverBackend.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd" extends="GFStorageBackend" />
 		<class name="GFStorageFamilyResetAuthorization" path="classes/GFStorageFamilyResetAuthorization.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_family_reset_authorization.gd" extends="RefCounted" />
 		<class name="GFStorageFamilyResetResult" path="classes/GFStorageFamilyResetResult.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_family_reset_result.gd" extends="RefCounted" />
+		<class name="GFStorageOwnedRead" path="classes/GFStorageOwnedRead.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_owned_read.gd" extends="RefCounted" />
+		<class name="GFStorageOwnedReadReceipt" path="classes/GFStorageOwnedReadReceipt.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_owned_read_receipt.gd" extends="RefCounted" />
+		<class name="GFStorageOwnedReadTakeResult" path="classes/GFStorageOwnedReadTakeResult.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_owned_read_take_result.gd" extends="RefCounted" />
 		<class name="GFStoragePayloadTransfer" path="classes/GFStoragePayloadTransfer.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_payload_transfer.gd" extends="RefCounted" />
 		<class name="GFStorageReadResult" path="classes/GFStorageReadResult.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_read_result.gd" extends="RefCounted" />
 		<class name="GFStorageResourceReadResult" path="classes/GFStorageResourceReadResult.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_resource_read_result.gd" extends="RefCounted" />

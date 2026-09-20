@@ -6,6 +6,7 @@
 
 ### 🚀 新增特性 (Added)
 
+- 新增 [Storage 大型结果的一次性领取](standard/utilities/io/storage-snapshot/read-results.md#大型结果的一次性领取)：通过专用句柄接收纯字典异步读取，迁移后保留一次交付隔离，通知与领取不再复制载荷；提供独立的小型诊断、取消及释放语义，普通读取保持兼容。
 - [2D 空间画布](standard/input-flow/spatial-canvas-2d.md#已选条目的默认轮廓) 支持独立隐藏已选条目的默认矩形轮廓，便于项目使用自定义选中装饰，同时保留点选、框选、网格与放置预览。
 - [本地 Storage 已提交版本](standard/utilities/io/storage-snapshot/committed-revisions.md) 支持显式 schema 2、离线升级、opaque revision 查询及同步/异步 JSON 和 Resource 实际读取配对；提交恢复、删除重建和 family reset 保持代次一致，显式创建中断后可安全重试空布局前缀或一致完整的 pending，布局检查和 pending 恢复包含隐藏文件证据，默认 schema 1 不自动升级。
 - [Storage catalog 查询](standard/utilities/io/storage-snapshot/catalog-query.md) 支持区分成功空集合、查询失败和返回数量截断；完整性绑定本次逻辑查询范围，旧文件列表接口保持兼容。

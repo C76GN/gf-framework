@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "db11b7dfa302c8520541194fc89a274ad6a41dfc9f4b0522609aa42781396b9d",
-  "class_count": 863,
+  "source_digest": "fd151ed1d5a445d9ded24d4397b6b284b25cb625b2ebdbe393fbb41bf68f8f0d",
+  "class_count": 866,
   "autoload_count": 1,
   "package_count": 59,
   "packages": [
@@ -86666,6 +86666,283 @@
         }
       ]
     },
+    "GFStorageOwnedRead": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.storage",
+      "path": "addons/gf/standard/utilities/storage/gf_storage_owned_read.gd",
+      "summary": "GFStorageOwnedRead: 独占异步读取的一次性领取句柄。 只能由 `GFStorageUtility.load_data_owned_request_async()` 取得有效句柄；手动 构造的实例不可领取。共享句柄即共享领取权，同一结果仅允许一次成功领取。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "completed",
+          "signature": "signal completed(receipt: GFStorageOwnedReadReceipt)",
+          "summary": "caller 首次完成时发出不包含载荷的诊断；可在回调内立即调用 `take()`。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "State",
+          "signature": "enum State {\n\t## 未绑定请求的手动构造实例。\n\tINVALID,\n\t## 正在等待 caller 终态。\n\tWAITING,\n\t## 成功结果已经就绪，允许领取一次。\n\tREADY,\n\t## 完整结果已经移交给领取方。\n\tTAKEN,\n\t## 已放弃领取权；尚未完成的物理请求仍由 Storage 收敛。\n\tRELEASED,\n\t## caller 已失败或取消，没有可领取结果。\n\tFAILED,\n}",
+          "summary": "独占读取句柄的领取权状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_valid",
+          "signature": "func is_valid() -> bool",
+          "summary": "检查句柄是否由 Storage 绑定到合法请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request_id",
+          "signature": "func get_request_id() -> int",
+          "summary": "获取 Utility 内唯一的物理请求 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_consumer_id",
+          "signature": "func get_consumer_id() -> int",
+          "summary": "获取 Utility 内唯一的 consumer ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_file_name",
+          "signature": "func get_file_name() -> String",
+          "summary": "获取请求的规范逻辑文件名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_state",
+          "signature": "func get_state() -> State",
+          "summary": "获取当前领取权状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_pending",
+          "signature": "func is_pending() -> bool",
+          "summary": "检查是否仍在等待 caller 终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_completed",
+          "signature": "func is_completed() -> bool",
+          "summary": "检查 caller 终态是否已经写入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_result",
+          "signature": "func get_result() -> GFStorageOwnedReadReceipt",
+          "summary": "获取不包含载荷和领取权限的不可变终态诊断。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel_observation",
+          "signature": "func cancel_observation(reason: StringName = &\"cancelled\") -> bool",
+          "summary": "在主线程显式结束对尚未完成请求的观察。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "take",
+          "signature": "func take() -> GFStorageOwnedReadTakeResult",
+          "summary": "在主线程一次性领取完整结果，不复制载荷或调用外部回调。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "release",
+          "signature": "func release() -> bool",
+          "summary": "在主线程放弃领取权，立即释放已经就绪的载荷。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFStorageOwnedReadReceipt": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.storage",
+      "path": "addons/gf/standard/utilities/storage/gf_storage_owned_read_receipt.gd",
+      "summary": "GFStorageOwnedReadReceipt: 独占读取的不可变 caller 终态诊断。 只保留请求身份、稳定状态、版本、完整性和实际读取的 committed revision。 不持有业务载荷、任意 metadata、物理路径或领取权限；共享诊断不会复制载荷。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "FailureKind",
+          "signature": "enum FailureKind {\n\t## 读取及交付均成功。\n\tNONE,\n\t## 文件读取、解码、校验或迁移失败，详见读取失败分类。\n\tREAD_FAILED,\n\t## 载荷无法安全隔离为独占纯数据；不表示磁盘文件损坏。\n\tUNSUPPORTED_PAYLOAD,\n\t## caller 在成功交付前停止观察。\n\tCANCELLED,\n}",
+          "summary": "独占读取交付的稳定失败分类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request_id",
+          "signature": "func get_request_id() -> int",
+          "summary": "获取 Utility 内唯一的物理请求 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_consumer_id",
+          "signature": "func get_consumer_id() -> int",
+          "summary": "获取 Utility 内唯一的 consumer ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_file_name",
+          "signature": "func get_file_name() -> String",
+          "summary": "获取已校验的规范逻辑文件名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> GFStorageAsyncCallerResult.Status",
+          "summary": "获取 caller 终态分类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_end_kind",
+          "signature": "func get_end_kind() -> GFStorageAsyncCallerResult.EndKind",
+          "summary": "获取 caller 终态的来源分类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> Error",
+          "summary": "获取稳定的 Godot Error 码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_failure_kind",
+          "signature": "func get_failure_kind() -> FailureKind",
+          "summary": "获取独占读取交付的失败分类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_read_failure_kind",
+          "signature": "func get_read_failure_kind() -> GFStorageReadResult.FailureKind",
+          "summary": "获取文件读取、解码、校验或迁移的失败分类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_ok",
+          "signature": "func is_ok() -> bool",
+          "summary": "检查 caller 是否获得成功的独占读取交付。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_source_version",
+          "signature": "func get_source_version() -> int",
+          "summary": "获取本次读取发现的数据版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_target_version",
+          "signature": "func get_target_version() -> int",
+          "summary": "获取本次读取完成迁移后的数据版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "was_migrated",
+          "signature": "func was_migrated() -> bool",
+          "summary": "检查本次读取是否完成过数据迁移。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "was_integrity_checked",
+          "signature": "func was_integrity_checked() -> bool",
+          "summary": "检查本次读取是否包含完整性检查结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_integrity_ok",
+          "signature": "func is_integrity_ok() -> bool",
+          "summary": "检查本次读取的完整性校验是否明确通过。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_committed_revision",
+          "signature": "func get_committed_revision() -> GFStorageRevisionResult",
+          "summary": "获取与本次实际读取配对的不可变 committed revision 结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "创建只包含稳定诊断白名单的独立字典。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFStorageOwnedReadTakeResult": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.storage",
+      "path": "addons/gf/standard/utilities/storage/gf_storage_owned_read_take_result.gd",
+      "summary": "GFStorageOwnedReadTakeResult: 一次独占读取领取的结果。 SUCCESS 时持有从句柄移交的完整读取结果，不复制业务载荷。重复调用 `get_read_result()` 返回同一对象；此后的引用共享由领取方负责。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "Status",
+          "signature": "enum Status {\n\t## 本次调用取得完整读取结果。\n\tSUCCESS,\n\t## caller 尚未完成，稍后可以再次领取。\n\tNOT_READY,\n\t## 结果已经被同一句柄的另一调用领取。\n\tALREADY_TAKEN,\n\t## 句柄已经放弃领取权。\n\tRELEASED,\n\t## caller 已失败或取消，没有可领取结果。\n\tFAILED,\n\t## 句柄未绑定到合法请求。\n\tINVALID,\n\t## 领取必须在主线程执行；本次调用未改变句柄。\n\tWRONG_THREAD,\n}",
+          "summary": "领取结果的闭合分类，成功的空载荷与失败明确分离。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> Status",
+          "summary": "获取本次领取的状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_ok",
+          "signature": "func is_ok() -> bool",
+          "summary": "检查本次调用是否取得读取结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_read_result",
+          "signature": "func get_read_result() -> GFStorageReadResult",
+          "summary": "获取已经移交给领取方的完整读取结果。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFStoragePayloadTransfer": {
       "owner_kind": "class",
       "extends": "RefCounted",
@@ -87675,6 +87952,13 @@
           "name": "load_data_request_async",
           "signature": "func load_data_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation",
           "summary": "通过当前 Storage executor 异步读取纯字典数据，并返回请求专属句柄。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "load_data_owned_request_async",
+          "signature": "func load_data_owned_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageOwnedRead",
+          "summary": "异步读取纯数据，并通过专用句柄领取一次完整结果。",
           "visibility": "public"
         },
         {
