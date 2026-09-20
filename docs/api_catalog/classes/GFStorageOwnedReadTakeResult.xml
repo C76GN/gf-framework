@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFStorageOwnedReadTakeResult" path="addons/gf/standard/utilities/storage/gf_storage_owned_read_take_result.gd" module="standard" extends="RefCounted" classDigest="479556ef5f8d1dd49529c28c3f0808e86791fa450fa2c21cac61f725a3744485">
+	<description>GFStorageOwnedReadTakeResult: 一次独占读取领取的结果。
+SUCCESS 时持有从句柄移交的完整读取结果，不复制业务载荷。重复调用
+`get_read_result()` 返回同一对象；此后的引用共享由领取方负责。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Status">
+			<signature>enum Status {
+	## 本次调用取得完整读取结果。
+	SUCCESS,
+	## caller 尚未完成，稍后可以再次领取。
+	NOT_READY,
+	## 结果已经被同一句柄的另一调用领取。
+	ALREADY_TAKEN,
+	## 句柄已经放弃领取权。
+	RELEASED,
+	## caller 已失败或取消，没有可领取结果。
+	FAILED,
+	## 句柄未绑定到合法请求。
+	INVALID,
+	## 领取必须在主线程执行；本次调用未改变句柄。
+	WRONG_THREAD,
+}</signature>
+			<description>领取结果的闭合分类，成功的空载荷与失败明确分离。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; Status:</signature>
+			<description>获取本次领取的状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">领取状态；手动构造的实例返回 INVALID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_ok">
+			<signature>func is_ok() -&gt; bool:</signature>
+			<description>检查本次调用是否取得读取结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">仅 SUCCESS 时返回 true，成功的空 Dictionary 同样为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_read_result">
+			<signature>func get_read_result() -&gt; GFStorageReadResult:</signature>
+			<description>获取已经移交给领取方的完整读取结果。
+返回同一个可变对象，不执行复制。句柄释放、Utility dispose 或原 owner
+释放均不会撤销此对象；领取方自行管理后续引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">SUCCESS 时返回完整结果，其他状态返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

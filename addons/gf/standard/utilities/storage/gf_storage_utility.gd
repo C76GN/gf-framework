@@ -1383,6 +1383,65 @@ func load_data_request_async(
 	return operation
 
 
+## 异步读取纯数据，并通过专用句柄领取一次完整结果。
+##
+## 迁移完成后保留一次隔离复制，通知与领取不再复制载荷。此入口不更新
+## last_load_result，也不发出 load_completed；使用句柄 completed 与 get_result。
+## Object、Resource、循环或超出纯数据校验预算的图会明确拒绝独占交付。
+## owner、token 和 deadline 仅约束等待阶段；成功结果由句柄持有至领取或释放。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param file_name: 目标 portable logical 文件名。
+## [br]
+## @param options: 可选等待阶段生命周期约束；null 表示无约束。
+## [br]
+## @return 已绑定的独占句柄；即时失败可通过 get_result 查询。非主线程返回无效句柄。
+func load_data_owned_request_async(
+	file_name: String,
+	options: GFStorageAsyncRequestOptions = null
+) -> GFStorageOwnedRead:
+	var ticket: GFStorageOwnedRead = GFStorageOwnedRead.new()
+	if not Thread.is_main_thread():
+		return ticket
+	var request_state: GFStorageAsyncRequestState = GFStorageAsyncRequestState.new()
+	var request_id: int = _next_async_request_id
+	_next_async_request_id = maxi(_next_async_request_id + 1, 1)
+	var consumer_id: int = _next_async_consumer_id
+	_next_async_consumer_id = maxi(_next_async_consumer_id + 1, 1)
+	if not request_state.configure_for_framework(request_id, &"load", ""):
+		return ticket
+	var options_invalid: bool = options != null and not options.is_valid()
+	if not request_state.configure_consumer_for_framework(
+		consumer_id,
+		null if options_invalid else options,
+		_clock,
+		Callable(self, &"request_async_state_cancel_for_framework")
+	):
+		return ticket
+	if not ticket.configure_for_framework(request_state):
+		return ticket
+	_async_observers[request_id] = {
+		"consumer_id": consumer_id,
+		"request_state": request_state,
+		"owned_ticket": weakref(ticket),
+		"record_id": 0,
+	}
+	if options_invalid:
+		_complete_owned_read(request_state, _make_load_failure(
+			"Storage async request options are invalid.",
+			ERR_INVALID_PARAMETER,
+			GFStorageReadResult.FailureKind.INVALID_REQUEST
+		))
+		return ticket
+	var _error: Error = _enqueue_async_load(
+		file_name, null, "load_data_owned_request_async", request_state
+	)
+	return ticket
+
+
 ## 获取最近的 late physical settlement 脱敏诊断。
 ##
 ## 诊断按物理终态到达顺序保留最近 64 条；不包含读载荷、写 payload、绝对路径或
@@ -1691,16 +1750,39 @@ func request_async_operation_cancel_for_framework(
 	end_kind: int,
 	reason: StringName
 ) -> bool:
-	if not Thread.is_main_thread() or operation == null or not operation.is_caller_pending():
+	if operation == null:
+		return false
+	return request_async_state_cancel_for_framework(
+		operation.get_request_state_for_framework(), end_kind, reason
+	)
+
+
+## 在共享生命周期上仲裁等待阶段的取消，不提前释放已接纳的物理任务。
+## [br]
+## @api framework_internal
+## [br]
+## @param request_state: 同一 consumer 的无载荷状态。
+## [br]
+## @param end_kind: caller 终态来源。
+## [br]
+## @param reason: 有界原因。
+## [br]
+## @return 是否首次提交 caller 终态。
+func request_async_state_cancel_for_framework(
+	request_state: GFStorageAsyncRequestState,
+	end_kind: int,
+	reason: StringName
+) -> bool:
+	if not Thread.is_main_thread() or request_state == null or not request_state.is_caller_pending():
 		return false
 	if not GFStorageAsyncCallerResult.EndKind.values().has(end_kind):
 		return false
-	var observer: Dictionary = _get_async_observer(operation)
+	var observer: Dictionary = _get_async_state_observer(request_state)
 	if (
 		observer.is_empty()
-		or _get_observer_operation(observer) != operation
+		or _get_observer_request_state(observer) != request_state
 		or GFVariantData.get_option_int(observer, "consumer_id", 0)
-			!= operation.get_consumer_id()
+			!= request_state.get_consumer_id()
 	):
 		return false
 
@@ -1714,10 +1796,11 @@ func request_async_operation_cancel_for_framework(
 			return false
 		var caller_status: GFStorageAsyncCallerResult.Status = (
 			GFStorageAsyncCallerResult.Status.CANCELLED
-			if operation.get_operation() == GFStorageAsyncOperation.OPERATION_LOAD
+			if request_state.get_operation() == GFStorageAsyncOperation.OPERATION_LOAD
 			else GFStorageAsyncCallerResult.Status.OUTCOME_UNKNOWN
 		)
-		return operation.complete_caller_for_framework(
+		return _complete_request_caller(
+			request_state,
 			caller_status,
 			end_kind as GFStorageAsyncCallerResult.EndKind,
 			reason,
@@ -1731,7 +1814,7 @@ func request_async_operation_cancel_for_framework(
 	if queued_index >= 0:
 		queued_task = GFVariantData.as_dictionary(_async_queue[queued_index])
 	return _complete_cancelled_before_acceptance(
-		operation,
+		request_state,
 		queued_task,
 		end_kind as GFStorageAsyncCallerResult.EndKind,
 		reason,
@@ -2062,9 +2145,9 @@ func _queue_async_task(task: Dictionary) -> void:
 		_next_async_record_id = 1
 	task["record_id"] = record_id
 	task["state"] = _AsyncTaskState.QUEUED
-	var operation: GFStorageAsyncOperation = _get_task_operation(task)
-	if operation != null:
-		var observer: Dictionary = _get_async_observer(operation)
+	var request_state: GFStorageAsyncRequestState = _get_task_request_state(task)
+	if request_state != null:
+		var observer: Dictionary = _get_async_state_observer(request_state)
 		if not observer.is_empty():
 			observer["record_id"] = record_id
 			observer["file_key"] = _get_task_file_key(task)
@@ -2356,7 +2439,8 @@ func _enqueue_async_payload_save(
 func _enqueue_async_load(
 	file_name: String,
 	operation: GFStorageAsyncOperation,
-	operation_name: String
+	operation_name: String,
+	owned_state: GFStorageAsyncRequestState = null
 ) -> Error:
 	if _is_disposing or not _io_admission_open:
 		var unavailable_result: GFStorageReadResult = _make_load_failure(
@@ -2364,13 +2448,7 @@ func _enqueue_async_load(
 			ERR_UNAVAILABLE,
 			GFStorageReadResult.FailureKind.UNAVAILABLE
 		)
-		last_load_result = unavailable_result.duplicate_result()
-		_complete_async_operation(
-			operation,
-			unavailable_result.error_code,
-			unavailable_result
-		)
-		load_completed.emit(file_name, unavailable_result.duplicate_result())
+		_deliver_async_load_result(file_name, operation, owned_state, unavailable_result)
 		return ERR_UNAVAILABLE
 	var canonical_file_name: String = ""
 	if _validate_public_file_name(file_name, operation_name):
@@ -2381,13 +2459,16 @@ func _enqueue_async_load(
 			ERR_INVALID_PARAMETER,
 			GFStorageReadResult.FailureKind.INVALID_REQUEST
 		)
-		last_load_result = failed_result.duplicate_result()
-		_complete_async_operation(operation, failed_result.error_code, failed_result)
-		load_completed.emit(file_name, failed_result.duplicate_result())
+		_deliver_async_load_result(file_name, operation, owned_state, failed_result)
 		return ERR_INVALID_PARAMETER
 	if operation != null:
 		var _updated: bool = operation.set_file_name_for_framework(canonical_file_name)
 		if _cancel_async_operation_before_queue_if_needed(operation):
+			return ERR_SKIP
+	elif owned_state != null:
+		var _updated: bool = owned_state.set_file_name_for_framework(canonical_file_name)
+		var _terminal_linearized: bool = owned_state.poll_caller_lifecycle_for_framework()
+		if owned_state.is_completed():
 			return ERR_SKIP
 	ignore_pause = true
 	var readiness_error: Error = _ensure_storage_ready()
@@ -2398,13 +2479,7 @@ func _enqueue_async_load(
 				readiness_error
 			)
 		)
-		last_load_result = readiness_result.duplicate_result()
-		_complete_async_operation(
-			operation,
-			readiness_result.error_code,
-			readiness_result
-		)
-		load_completed.emit(file_name, readiness_result.duplicate_result())
+		_deliver_async_load_result(file_name, operation, owned_state, readiness_result)
 		return readiness_result.error_code
 	var target_family: Dictionary = _make_async_target_family(canonical_file_name)
 	_queue_async_task({
@@ -2426,6 +2501,7 @@ func _enqueue_async_load(
 		"resource_stage_path": GFVariantData.get_option_string(target_family, "resource_stage_path"),
 		"codec_options": _get_codec_options(),
 		"operation": operation,
+		"request_state": owned_state,
 	})
 	_request_async_start_only()
 	return OK
@@ -2869,6 +2945,221 @@ func _get_task_operation(task: Dictionary) -> GFStorageAsyncOperation:
 		var operation: GFStorageAsyncOperation = value
 		return operation
 	return null
+
+
+func _get_task_request_state(task: Dictionary) -> GFStorageAsyncRequestState:
+	var operation: GFStorageAsyncOperation = _get_task_operation(task)
+	if operation != null:
+		return operation.get_request_state_for_framework()
+	var value: Variant = task.get("request_state")
+	if value is GFStorageAsyncRequestState:
+		var request_state: GFStorageAsyncRequestState = value
+		return request_state
+	return null
+
+
+func _get_observer_request_state(observer: Dictionary) -> GFStorageAsyncRequestState:
+	return _get_task_request_state(observer)
+
+
+func _get_async_state_observer(request_state: GFStorageAsyncRequestState) -> Dictionary:
+	if request_state == null:
+		return {}
+	return GFVariantData.as_dictionary(_async_observers.get(request_state.get_request_id()))
+
+
+func _get_owned_ticket(observer: Dictionary) -> GFStorageOwnedRead:
+	var reference_value: Variant = observer.get("owned_ticket")
+	if not reference_value is WeakRef:
+		return null
+	var ticket_ref: WeakRef = reference_value
+	var ticket_value: Variant = ticket_ref.get_ref()
+	if ticket_value is GFStorageOwnedRead:
+		var ticket: GFStorageOwnedRead = ticket_value
+		return ticket
+	return null
+
+
+func _complete_request_caller(
+	request_state: GFStorageAsyncRequestState,
+	status: GFStorageAsyncCallerResult.Status,
+	end_kind: GFStorageAsyncCallerResult.EndKind,
+	reason: StringName,
+	emit_caller_signal: bool
+) -> bool:
+	var observer: Dictionary = _get_async_state_observer(request_state)
+	var operation: GFStorageAsyncOperation = _get_observer_operation(observer)
+	if operation != null:
+		return operation.complete_caller_for_framework(status, end_kind, reason, emit_caller_signal)
+	if not request_state.commit_caller_for_framework(status, end_kind, reason):
+		return false
+	var ticket: GFStorageOwnedRead = _get_owned_ticket(observer)
+	if ticket != null:
+		var receipt: GFStorageOwnedReadReceipt = _make_owned_read_receipt(
+			request_state, null, GFStorageOwnedReadReceipt.FailureKind.CANCELLED
+		)
+		var _completed: bool = ticket.complete_for_framework(
+			receipt, null, emit_caller_signal and request_state.can_emit_caller_signal_for_framework()
+		)
+	request_state.finish_caller_notification_for_framework()
+	return true
+
+
+func _make_owned_read_receipt(
+	request_state: GFStorageAsyncRequestState,
+	result: GFStorageReadResult,
+	failure_kind: GFStorageOwnedReadReceipt.FailureKind,
+	caller_snapshot: Dictionary = {}
+) -> GFStorageOwnedReadReceipt:
+	var caller: Dictionary = (
+		request_state.get_caller_snapshot_for_framework()
+		if caller_snapshot.is_empty() else caller_snapshot
+	)
+	var receipt: GFStorageOwnedReadReceipt = GFStorageOwnedReadReceipt.new()
+	# 旧 ReadResult 为无 metadata 的失败提供版本 1 回退；小型回执只报告实际读取证据。
+	var has_observed_version: bool = result != null and (
+		result.ok or (
+			GFVariantData.is_exact_integer(result.metadata.get(GFStorageCodec.VERSION_KEY))
+			and GFVariantData.to_exact_int(result.metadata.get(GFStorageCodec.VERSION_KEY)) > 0
+		)
+	)
+	var configured: bool = receipt.configure_for_framework({
+		"request_id": request_state.get_request_id(),
+		"consumer_id": request_state.get_consumer_id(),
+		"file_name": request_state.get_file_name(),
+		"status": GFVariantData.get_option_int(caller, "status"),
+		"end_kind": GFVariantData.get_option_int(caller, "end_kind"),
+		"error_code": GFVariantData.get_option_int(caller, "error_code", ERR_BUG),
+		"failure_kind": int(failure_kind),
+		"read_failure_kind": int(result.failure_kind) if result != null else int(GFStorageReadResult.FailureKind.NONE),
+		"source_version": result.source_data_version if has_observed_version else 0,
+		"target_version": result.data_version if has_observed_version else 0,
+		"migrated": result.migrated if result != null else false,
+		"integrity_checked": result != null and result.integrity_status != GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
+		"integrity_ok": result != null and result.integrity_status == GFStorageReadResult.IntegrityStatus.VALID,
+		"committed_revision": result.get_captured_revision_for_framework() if result != null else null,
+	})
+	return receipt if configured else null
+
+
+func _complete_owned_read(
+	request_state: GFStorageAsyncRequestState,
+	result: GFStorageReadResult,
+	delivery_supported: bool = true
+) -> void:
+	if request_state == null or not request_state.is_pending():
+		return
+	if (
+		result == null
+		or result.ok != (result.error_code == OK)
+		or result.ok != (result.failure_kind == GFStorageReadResult.FailureKind.NONE)
+		or result.source_data_version < 0
+		or result.data_version < 0
+	):
+		result = _make_owned_read_fallback()
+	var observer: Dictionary = _get_async_state_observer(request_state)
+	var ticket: GFStorageOwnedRead = _get_owned_ticket(observer)
+	var caller_was_pending: bool = request_state.is_caller_pending()
+	var failure_kind: GFStorageOwnedReadReceipt.FailureKind = (
+		GFStorageOwnedReadReceipt.FailureKind.NONE if result.ok
+		else GFStorageOwnedReadReceipt.FailureKind.READ_FAILED
+	)
+	var error_code: Error = result.error_code
+	var owned_result: GFStorageReadResult = null
+	if result.ok and not delivery_supported:
+		failure_kind = GFStorageOwnedReadReceipt.FailureKind.UNSUPPORTED_PAYLOAD
+		error_code = ERR_UNAVAILABLE
+	elif result.ok and caller_was_pending and ticket != null and ticket.get_state() == GFStorageOwnedRead.State.WAITING:
+		var validation: Dictionary = _validate_thread_payload(
+			{"payload": result.payload, "metadata": result.metadata},
+			_PAYLOAD_VALIDATION_MAX_VALUES,
+			_PAYLOAD_VALIDATION_MAX_BYTES,
+			_PAYLOAD_VALIDATION_MAX_DEPTH,
+			false
+		)
+		if GFVariantData.get_option_bool(validation, "ok"):
+			# Migration callbacks may retain aliases. This is the sole delivery isolation copy.
+			owned_result = result.duplicate_result()
+		else:
+			failure_kind = GFStorageOwnedReadReceipt.FailureKind.UNSUPPORTED_PAYLOAD
+			error_code = ERR_UNAVAILABLE
+	var receipt: GFStorageOwnedReadReceipt = null
+	if caller_was_pending and ticket != null:
+		var caller_snapshot: Dictionary = {
+			"status": int(GFStorageAsyncCallerResult.Status.PHYSICAL_SETTLED),
+			"end_kind": int(GFStorageAsyncCallerResult.EndKind.PHYSICAL_SETTLEMENT),
+			"error_code": int(error_code),
+		}
+		receipt = _make_owned_read_receipt(request_state, result, failure_kind, caller_snapshot)
+		if receipt == null:
+			result = _make_owned_read_fallback()
+			owned_result = null
+			error_code = result.error_code
+			caller_snapshot["error_code"] = int(error_code)
+			receipt = _make_owned_read_receipt(
+				request_state, result, GFStorageOwnedReadReceipt.FailureKind.READ_FAILED, caller_snapshot
+			)
+	var committed: bool = request_state.commit_physical_for_framework(
+		GFStorageAsyncResult.SettlementKind.DOMAIN_RESULT,
+		error_code == OK,
+		error_code,
+		GFStorageAsyncCallerResult.EndKind.PHYSICAL_SETTLEMENT,
+		&"",
+		-1,
+		int(result.failure_kind)
+	)
+	if not committed:
+		push_error("[GFStorageUtility] 独占读取无法提交物理终态。")
+		return
+	if receipt != null:
+		var completed: bool = ticket.complete_for_framework(receipt, owned_result, false)
+		if not completed:
+			push_error("[GFStorageUtility] 独占读取无法安装已验证终态。")
+	# File-lock release may invoke quiesce listeners. Install the slot and relinquish
+	# all delivery aliases before any callback can claim and drop the result.
+	owned_result = null
+	_finalize_owned_observer(request_state, observer)
+	if receipt != null:
+		ticket.notify_completion_for_framework(request_state.can_emit_caller_signal_for_framework())
+	request_state.finish_caller_notification_for_framework()
+
+
+func _make_owned_read_fallback() -> GFStorageReadResult:
+	return _make_load_failure(
+		"Storage owned read result configuration failed.",
+		ERR_BUG,
+		GFStorageReadResult.FailureKind.IO_FAILED
+	)
+
+
+func _finalize_owned_observer(
+	request_state: GFStorageAsyncRequestState,
+	observer: Dictionary
+) -> void:
+	var diagnostic: Dictionary = request_state.take_late_settlement_diagnostic_for_framework()
+	if not diagnostic.is_empty():
+		_async_late_settlements.append(diagnostic)
+		while _async_late_settlements.size() > _ASYNC_LATE_SETTLEMENT_CAPACITY:
+			_async_late_settlements.pop_front()
+	var _removed: bool = _async_observers.erase(request_state.get_request_id())
+	_release_async_file_lock_for_record(
+		GFVariantData.get_option_int(observer, "record_id", 0),
+		GFVariantData.get_option_string(observer, "file_key")
+	)
+
+
+func _deliver_async_load_result(
+	file_name: String,
+	operation: GFStorageAsyncOperation,
+	owned_state: GFStorageAsyncRequestState,
+	result: GFStorageReadResult
+) -> void:
+	if owned_state != null:
+		_complete_owned_read(owned_state, result)
+		return
+	last_load_result = result.duplicate_result()
+	_complete_async_operation(operation, result.error_code, result)
+	load_completed.emit(file_name, result.duplicate_result())
 
 
 func _get_task_record_id(task: Dictionary) -> int:
@@ -3354,8 +3645,161 @@ func _append_packed_string(target: PackedStringArray, value: String) -> void:
 		return
 
 
-func _merge_default_values(target: Dictionary, defaults: Dictionary) -> Dictionary:
-	return GFVariantData.deep_merge_defaults(target, defaults)
+func _merge_default_values(
+	target: Dictionary,
+	defaults: Dictionary,
+	delivery_validation: Dictionary = {}
+) -> Dictionary:
+	if delivery_validation.is_empty():
+		return GFVariantData.deep_merge_defaults(target, defaults)
+	# Borrow untouched values until the final bounded validation and delivery copy.
+	# Validating all defaults would reject branches that never enter the result.
+	var merge_state: Dictionary = {"visited_entries": 0, "supported": true}
+	# Native typed conversions share one preflight budget across the whole merge.
+	var validation_state: _ThreadPayloadValidationState = _ThreadPayloadValidationState.new()
+	validation_state._max_values = _PAYLOAD_VALIDATION_MAX_VALUES
+	validation_state._max_bytes = _PAYLOAD_VALIDATION_MAX_BYTES
+	validation_state._max_depth = _PAYLOAD_VALIDATION_MAX_DEPTH
+	var merged: Dictionary = _merge_owned_default_candidate(
+		target, defaults, merge_state, validation_state, 0
+	)
+	if not GFVariantData.get_option_bool(merge_state, "supported"):
+		delivery_validation["supported"] = false
+		return target
+	return merged
+
+
+func _merge_owned_default_candidate(
+	target: Dictionary,
+	defaults: Dictionary,
+	merge_state: Dictionary,
+	validation_state: _ThreadPayloadValidationState,
+	depth: int
+) -> Dictionary:
+	var visited_entries: int = (
+		GFVariantData.get_option_int(merge_state, "visited_entries") + target.size() + defaults.size()
+	)
+	if depth > _PAYLOAD_VALIDATION_MAX_DEPTH or visited_entries > _PAYLOAD_VALIDATION_MAX_VALUES:
+		merge_state["supported"] = false
+		return {}
+	merge_state["visited_entries"] = visited_entries
+	if not _is_thread_payload_container_type_safe(target, TYPE_DICTIONARY):
+		merge_state["supported"] = false
+		return {}
+	var merged: Dictionary = target.duplicate()
+	for default_key: Variant in defaults:
+		if merged.get_typed_key_builtin() != TYPE_NIL:
+			_validate_thread_payload_value(default_key, "", [], depth + 1, validation_state, false)
+			if not validation_state._failure_kind.is_empty():
+				merge_state["supported"] = false
+				return {}
+		if not _is_owned_default_type_compatible(default_key, merged.get_typed_key_builtin()):
+			merge_state["supported"] = false
+			return {}
+		var target_key: Variant = _get_owned_default_target_key(merged, default_key)
+		var default_value: Variant = defaults[default_key]
+		if not merged.has(target_key):
+			if merged.is_typed():
+				_validate_thread_payload_value(default_value, "", [], depth + 1, validation_state, false)
+				if not validation_state._failure_kind.is_empty():
+					merge_state["supported"] = false
+					return {}
+			if not _is_owned_default_type_compatible(default_value, merged.get_typed_value_builtin()):
+				merge_state["supported"] = false
+				return {}
+			merged[target_key] = default_value
+			continue
+		var target_value: Variant = merged[target_key]
+		if target_value is Dictionary and default_value is Dictionary:
+			var target_dictionary: Dictionary = target_value
+			var default_dictionary: Dictionary = default_value
+			merged[target_key] = _merge_owned_default_candidate(
+				target_dictionary, default_dictionary, merge_state, validation_state, depth + 1
+			)
+			if not GFVariantData.get_option_bool(merge_state, "supported"):
+				return {}
+	return merged
+
+
+func _is_owned_default_type_compatible(value: Variant, target_type: int) -> bool:
+	var value_type: int = typeof(value)
+	if not _is_thread_payload_value_type_supported(value_type as Variant.Type):
+		return false
+	if target_type == TYPE_NIL or target_type == value_type:
+		return true
+	# Dictionary assignment uses Godot Variant::can_convert_strict before conversion.
+	# Keep this local preflight aligned with its pure built-in cases; do not log an
+	# engine assignment error and then publish a successful partial merge.
+	match target_type:
+		TYPE_BOOL, TYPE_INT, TYPE_FLOAT:
+			return value_type in [TYPE_BOOL, TYPE_INT, TYPE_FLOAT]
+		TYPE_STRING:
+			return value_type in [TYPE_NODE_PATH, TYPE_STRING_NAME]
+		TYPE_STRING_NAME, TYPE_NODE_PATH:
+			return value_type == TYPE_STRING
+		TYPE_VECTOR2:
+			return value_type == TYPE_VECTOR2I
+		TYPE_VECTOR2I:
+			return value_type == TYPE_VECTOR2
+		TYPE_VECTOR3:
+			return value_type == TYPE_VECTOR3I
+		TYPE_VECTOR3I:
+			return value_type == TYPE_VECTOR3
+		TYPE_VECTOR4:
+			return value_type == TYPE_VECTOR4I
+		TYPE_VECTOR4I:
+			return value_type == TYPE_VECTOR4
+		TYPE_RECT2:
+			return value_type == TYPE_RECT2I
+		TYPE_RECT2I:
+			return value_type == TYPE_RECT2
+		TYPE_TRANSFORM2D:
+			return value_type == TYPE_TRANSFORM3D
+		TYPE_TRANSFORM3D:
+			return value_type in [TYPE_TRANSFORM2D, TYPE_QUATERNION, TYPE_BASIS, TYPE_PROJECTION]
+		TYPE_QUATERNION:
+			return value_type == TYPE_BASIS
+		TYPE_BASIS:
+			return value_type == TYPE_QUATERNION
+		TYPE_PROJECTION:
+			return value_type == TYPE_TRANSFORM3D
+		TYPE_COLOR:
+			if value is String:
+				var color_text: String = value
+				var invalid_color: Color = Color(-1, -1, -1, -1)
+				return Color.from_string(color_text, invalid_color) != invalid_color
+			return value_type == TYPE_INT
+		TYPE_ARRAY:
+			return value_type >= TYPE_PACKED_BYTE_ARRAY and value_type <= TYPE_PACKED_VECTOR4_ARRAY
+		TYPE_PACKED_COLOR_ARRAY:
+			if value is Array:
+				var color_values: Array = value
+				for color_value: Variant in color_values:
+					if color_value is String and not _is_owned_default_type_compatible(color_value, TYPE_COLOR):
+						return false
+				return true
+			return false
+		TYPE_PACKED_BYTE_ARRAY, TYPE_PACKED_INT32_ARRAY, TYPE_PACKED_INT64_ARRAY, TYPE_PACKED_FLOAT32_ARRAY, TYPE_PACKED_FLOAT64_ARRAY, TYPE_PACKED_STRING_ARRAY, TYPE_PACKED_VECTOR2_ARRAY, TYPE_PACKED_VECTOR3_ARRAY, TYPE_PACKED_VECTOR4_ARRAY:
+			return value_type == TYPE_ARRAY
+	return false
+
+
+func _get_owned_default_target_key(target: Dictionary, key: Variant) -> Variant:
+	if target.has(key):
+		return key
+	if target.get_typed_key_builtin() not in [TYPE_NIL, TYPE_STRING, TYPE_STRING_NAME]:
+		return key
+	if key is StringName:
+		var name_key: StringName = key
+		var text_key: String = String(name_key)
+		if target.has(text_key):
+			return text_key
+	elif key is String:
+		var text_key: String = key
+		var name_key: StringName = StringName(text_key)
+		if target.has(name_key):
+			return name_key
+	return key
 
 
 func _get_thread_value(value: Variant) -> Thread:
@@ -3548,10 +3992,10 @@ func _poll_async_operation_lifecycles() -> void:
 	var observer_values: Array = _async_observers.values().duplicate()
 	for observer_value: Variant in observer_values:
 		var observer: Dictionary = GFVariantData.as_dictionary(observer_value)
-		var operation: GFStorageAsyncOperation = _get_observer_operation(observer)
-		if operation == null or not operation.is_caller_pending():
+		var request_state: GFStorageAsyncRequestState = _get_observer_request_state(observer)
+		if request_state == null or not request_state.is_caller_pending():
 			continue
-		var _terminal_linearized: bool = operation.poll_caller_lifecycle_for_framework()
+		var _terminal_linearized: bool = request_state.poll_caller_lifecycle_for_framework()
 
 
 func _try_complete_quiesce() -> void:
@@ -3604,9 +4048,9 @@ func _start_queued_async_tasks(allow_during_dispose: bool = false) -> void:
 			return
 
 		var task: Dictionary = GFVariantData.as_dictionary(_async_queue[task_index])
-		var operation: GFStorageAsyncOperation = _get_task_operation(task)
-		if operation != null:
-			var _terminal_linearized: bool = operation.poll_caller_lifecycle_for_framework()
+		var request_state: GFStorageAsyncRequestState = _get_task_request_state(task)
+		if request_state != null:
+			var _terminal_linearized: bool = request_state.poll_caller_lifecycle_for_framework()
 			if (
 				(_is_disposing or _async_deferred_dispose_requested)
 				and not allow_during_dispose
@@ -3615,7 +4059,7 @@ func _start_queued_async_tasks(allow_during_dispose: bool = false) -> void:
 			task_index = _find_queued_async_task_index(_get_task_record_id(task))
 			if task_index < 0:
 				continue
-			if not operation.mark_worker_accepted_for_framework():
+			if not request_state.mark_worker_accepted_for_framework():
 				var _cancelled: bool = _cancel_queued_async_task(
 					task,
 					GFStorageAsyncCallerResult.EndKind.EXPLICIT_CANCEL,
@@ -3943,10 +4387,10 @@ func _find_queued_async_task_index(record_id: int) -> int:
 func _cancel_all_queued_async_tasks_for_dispose() -> void:
 	var queued_tasks: Array[Dictionary] = _async_queue.duplicate()
 	for task: Dictionary in queued_tasks:
-		var operation: GFStorageAsyncOperation = _get_task_operation(task)
-		if operation != null:
+		var request_state: GFStorageAsyncRequestState = _get_task_request_state(task)
+		if request_state != null:
 			var _cancelled: bool = _complete_cancelled_before_acceptance(
-				operation,
+				request_state,
 				task,
 				GFStorageAsyncCallerResult.EndKind.UTILITY_DISPOSED,
 				&"utility_disposed",
@@ -3980,11 +4424,11 @@ func _cancel_queued_async_task(
 	reason: StringName,
 	emit_caller_signal: bool
 ) -> bool:
-	var operation: GFStorageAsyncOperation = _get_task_operation(task)
-	if operation == null:
+	var request_state: GFStorageAsyncRequestState = _get_task_request_state(task)
+	if request_state == null:
 		return false
 	return _complete_cancelled_before_acceptance(
-		operation,
+		request_state,
 		task,
 		end_kind,
 		reason,
@@ -3993,6 +4437,50 @@ func _cancel_queued_async_task(
 
 
 func _complete_cancelled_before_acceptance(
+	request_state: GFStorageAsyncRequestState,
+	task: Dictionary,
+	end_kind: GFStorageAsyncCallerResult.EndKind,
+	reason: StringName,
+	emit_caller_signal: bool
+) -> bool:
+	if request_state == null or not request_state.is_caller_pending():
+		return false
+	if not task.is_empty() and _get_task_request_state(task) != request_state:
+		return false
+	var observer: Dictionary = _get_async_state_observer(request_state)
+	var operation: GFStorageAsyncOperation = _get_observer_operation(observer)
+	if operation != null:
+		return _complete_legacy_cancelled_before_acceptance(
+			operation, task, end_kind, reason, emit_caller_signal
+		)
+	if not request_state.mark_physical_cancel_requested_for_framework():
+		return false
+	if not task.is_empty():
+		var queued_index: int = _find_queued_async_task_index(_get_task_record_id(task))
+		if queued_index < 0:
+			return false
+		_async_queue.remove_at(queued_index)
+	if not request_state.commit_physical_for_framework(
+		GFStorageAsyncResult.SettlementKind.CANCELLED, false, ERR_SKIP, end_kind, reason
+	):
+		return false
+	var ticket: GFStorageOwnedRead = _get_owned_ticket(observer)
+	var receipt: GFStorageOwnedReadReceipt = _make_owned_read_receipt(
+		request_state, null, GFStorageOwnedReadReceipt.FailureKind.CANCELLED
+	)
+	if ticket != null:
+		var _completed: bool = ticket.complete_for_framework(receipt, null, false)
+	_finalize_owned_observer(request_state, observer)
+	if ticket != null:
+		ticket.notify_completion_for_framework(
+			emit_caller_signal and request_state.can_emit_caller_signal_for_framework()
+		)
+	request_state.finish_caller_notification_for_framework()
+	_request_async_start_only()
+	return true
+
+
+func _complete_legacy_cancelled_before_acceptance(
 	operation: GFStorageAsyncOperation,
 	task: Dictionary,
 	end_kind: GFStorageAsyncCallerResult.EndKind,
@@ -4184,6 +4672,13 @@ func _emit_async_start_failed(
 		)
 		if load_has_target_provenance:
 			_bind_read_result_origin(failed_result, _get_task_storage_file_name(task))
+		var owned_state: GFStorageAsyncRequestState = (
+			_get_task_request_state(task) if operation == null else null
+		)
+		if owned_state != null:
+			_complete_owned_read(owned_state, failed_result)
+			_release_async_file_lock_for_task(task)
+			return
 		last_load_result = failed_result.duplicate_result()
 		_complete_async_operation(operation, failed_result.error_code, failed_result)
 		_release_async_file_lock_for_task(task)
@@ -4657,7 +5152,11 @@ func _complete_async_load(
 	if revision_value is GFStorageRevisionResult:
 		captured_revision = revision_value
 	var from_version: int = result.data_version if result != null else 0
-	result = _apply_schema_migrations(file_name, result, false)
+	var owned_state: GFStorageAsyncRequestState = (
+		_get_task_request_state(task) if operation == null else null
+	)
+	var delivery_validation: Dictionary = {"supported": true} if owned_state != null else {}
+	result = _apply_schema_migrations(file_name, result, false, delivery_validation)
 	result.capture_revision_for_framework(captured_revision)
 	_bind_read_result_origin(result, _get_task_storage_file_name(task))
 	var migration_to_version: int = result.data_version if result != null else from_version
@@ -4668,6 +5167,20 @@ func _complete_async_load(
 		and migration_to_version > from_version
 	)
 	var integrity_failure: String = ""
+	if owned_state != null:
+		if not result.ok and _should_emit_load_integrity_failed(result):
+			integrity_failure = result.error
+		elif result.integrity_status == GFStorageReadResult.IntegrityStatus.INVALID:
+			integrity_failure = "Integrity checksum mismatch"
+		_complete_owned_read(
+			owned_state, result, GFVariantData.get_option_bool(delivery_validation, "supported")
+		)
+		_release_async_file_lock_for_task(task)
+		if should_emit_migrated:
+			data_migrated.emit(file_name, from_version, migration_to_version)
+		if not integrity_failure.is_empty():
+			data_integrity_failed.emit(file_name, integrity_failure)
+		return
 	last_load_result = result.duplicate_result()
 	if not result.ok:
 		if _should_emit_load_integrity_failed(result):
@@ -6957,34 +7470,26 @@ func _validate_thread_payload(
 	payload: Dictionary,
 	max_values: int = _PAYLOAD_VALIDATION_MAX_VALUES,
 	max_bytes: int = _PAYLOAD_VALIDATION_MAX_BYTES,
-	max_depth: int = _PAYLOAD_VALIDATION_MAX_DEPTH
+	max_depth: int = _PAYLOAD_VALIDATION_MAX_DEPTH,
+	collect_failure_path: bool = true
 ) -> Dictionary:
-	var state: Dictionary = {
-		"visited_values": 0,
-		"visited_bytes": 0,
-		"max_values": maxi(max_values, 1),
-		"max_bytes": maxi(max_bytes, 1),
-		"max_depth": maxi(max_depth, 1),
-		"active_collections": [],
-		"failure_kind": "",
-		"failure_path": "",
-		"failure_path_segments": [],
-		"variant_type": TYPE_NIL,
-		"variant_type_name": "",
-	}
-	_validate_thread_payload_value(payload, "$", [], 0, state)
-	var failure_kind: String = GFVariantData.get_option_string(state, "failure_kind")
+	var state: _ThreadPayloadValidationState = _ThreadPayloadValidationState.new()
+	state._max_values = maxi(max_values, 1)
+	state._max_bytes = maxi(max_bytes, 1)
+	state._max_depth = maxi(max_depth, 1)
+	_validate_thread_payload_value(
+		payload, "$" if collect_failure_path else "", [], 0, state, collect_failure_path
+	)
+	var failure_kind: String = state._failure_kind
 	return {
 		"ok": failure_kind.is_empty(),
 		"failure_kind": failure_kind,
-		"failure_path": GFVariantData.get_option_string(state, "failure_path"),
-		"path_segments": GFVariantData.as_array(
-			state.get("failure_path_segments")
-		).duplicate(true),
-		"variant_type": GFVariantData.get_option_int(state, "variant_type", TYPE_NIL),
-		"variant_type_name": GFVariantData.get_option_string(state, "variant_type_name"),
-		"visited_values": GFVariantData.get_option_int(state, "visited_values"),
-		"visited_bytes": GFVariantData.get_option_int(state, "visited_bytes"),
+		"failure_path": state._failure_path,
+		"path_segments": state._failure_path_segments.duplicate(true),
+		"variant_type": state._variant_type,
+		"variant_type_name": state._variant_type_name,
+		"visited_values": state._visited_values,
+		"visited_bytes": state._visited_bytes,
 	}
 
 
@@ -6993,13 +7498,14 @@ func _validate_thread_payload_value(
 	path: String,
 	path_segments: Array[Dictionary],
 	depth: int,
-	state: Dictionary
+	state: _ThreadPayloadValidationState,
+	collect_failure_path: bool
 ) -> void:
-	if not GFVariantData.get_option_string(state, "failure_kind").is_empty():
+	if not state._failure_kind.is_empty():
 		return
-	var visited_values: int = GFVariantData.get_option_int(state, "visited_values") + 1
-	state["visited_values"] = visited_values
-	if visited_values > GFVariantData.get_option_int(state, "max_values"):
+	var visited_values: int = state._visited_values + 1
+	state._visited_values = visited_values
+	if visited_values > state._max_values:
 		_set_payload_validation_failure(
 			state,
 			&"value_budget_exceeded",
@@ -7008,7 +7514,7 @@ func _validate_thread_payload_value(
 			typeof(value)
 		)
 		return
-	if depth > GFVariantData.get_option_int(state, "max_depth"):
+	if depth > state._max_depth:
 		_set_payload_validation_failure(
 			state,
 			&"depth_limit_exceeded",
@@ -7051,8 +7557,8 @@ func _validate_thread_payload_value(
 	)
 	if packed_element_count > 0:
 		visited_values += packed_element_count
-		state["visited_values"] = visited_values
-		if visited_values > GFVariantData.get_option_int(state, "max_values"):
+		state._visited_values = visited_values
+		if visited_values > state._max_values:
 			_set_payload_validation_failure(
 				state,
 				&"value_budget_exceeded",
@@ -7073,7 +7579,7 @@ func _validate_thread_payload_value(
 	if value_type != TYPE_ARRAY and value_type != TYPE_DICTIONARY:
 		return
 
-	var active_collections: Array = GFVariantData.as_array(state.get("active_collections"))
+	var active_collections: Array = state._active_collections
 	for collection: Variant in active_collections:
 		if is_same(collection, value):
 			_set_payload_validation_failure(
@@ -7085,59 +7591,74 @@ func _validate_thread_payload_value(
 			)
 			return
 	active_collections.append(value)
-	state["active_collections"] = active_collections
+	state._active_collections = active_collections
 	if value_type == TYPE_ARRAY:
 		var array: Array = value
 		for index: int in range(array.size()):
-			var item_segments: Array[Dictionary] = path_segments.duplicate()
-			item_segments.append({
-				"kind": "array_index",
-				"index": index,
-			})
+			var item_path: String = ""
+			var item_segments: Array[Dictionary] = path_segments
+			if collect_failure_path:
+				item_path = "%s[%d]" % [path, index]
+				item_segments = path_segments.duplicate()
+				item_segments.append({
+					"kind": "array_index",
+					"index": index,
+				})
 			_validate_thread_payload_value(
 				array[index],
-				"%s[%d]" % [path, index],
+				item_path,
 				item_segments,
 				depth + 1,
-				state
+				state,
+				collect_failure_path
 			)
-			if not GFVariantData.get_option_string(state, "failure_kind").is_empty():
+			if not state._failure_kind.is_empty():
 				break
 	else:
 		var dictionary: Dictionary = value
 		var entry_index: int = 0
 		for key: Variant in dictionary:
-			var key_segments: Array[Dictionary] = path_segments.duplicate()
-			key_segments.append({
-				"kind": "dictionary_key",
-				"entry_index": entry_index,
-			})
+			var key_path: String = ""
+			var key_segments: Array[Dictionary] = path_segments
+			if collect_failure_path:
+				key_path = "%s{key:%d}" % [path, entry_index]
+				key_segments = path_segments.duplicate()
+				key_segments.append({
+					"kind": "dictionary_key",
+					"entry_index": entry_index,
+				})
 			_validate_thread_payload_value(
 				key,
-				"%s{key:%d}" % [path, entry_index],
+				key_path,
 				key_segments,
 				depth + 1,
-				state
+				state,
+				collect_failure_path
 			)
-			if not GFVariantData.get_option_string(state, "failure_kind").is_empty():
+			if not state._failure_kind.is_empty():
 				break
-			var value_segments: Array[Dictionary] = path_segments.duplicate()
-			value_segments.append({
-				"kind": "dictionary_value",
-				"entry_index": entry_index,
-			})
+			var value_path: String = ""
+			var value_segments: Array[Dictionary] = path_segments
+			if collect_failure_path:
+				value_path = "%s{value:%d}" % [path, entry_index]
+				value_segments = path_segments.duplicate()
+				value_segments.append({
+					"kind": "dictionary_value",
+					"entry_index": entry_index,
+				})
 			_validate_thread_payload_value(
 				dictionary[key],
-				"%s{value:%d}" % [path, entry_index],
+				value_path,
 				value_segments,
 				depth + 1,
-				state
+				state,
+				collect_failure_path
 			)
-			if not GFVariantData.get_option_string(state, "failure_kind").is_empty():
+			if not state._failure_kind.is_empty():
 				break
 			entry_index += 1
 	var _removed_collection: Variant = active_collections.pop_back()
-	state["active_collections"] = active_collections
+	state._active_collections = active_collections
 
 
 func _is_thread_payload_value_type_supported(value_type: Variant.Type) -> bool:
@@ -7161,6 +7682,7 @@ func _is_thread_payload_value_type_supported(value_type: Variant.Type) -> bool:
 		TYPE_AABB,
 		TYPE_BASIS,
 		TYPE_TRANSFORM3D,
+		TYPE_PROJECTION,
 		TYPE_COLOR,
 		TYPE_STRING_NAME,
 		TYPE_NODE_PATH,
@@ -7219,10 +7741,10 @@ func _charge_thread_payload_bytes(
 	value_type: Variant.Type,
 	path: String,
 	path_segments: Array[Dictionary],
-	state: Dictionary
+	state: _ThreadPayloadValidationState
 ) -> bool:
-	var max_bytes: int = GFVariantData.get_option_int(state, "max_bytes")
-	var visited_bytes: int = GFVariantData.get_option_int(state, "visited_bytes")
+	var max_bytes: int = state._max_bytes
+	var visited_bytes: int = state._visited_bytes
 	var remaining_bytes: int = maxi(max_bytes - visited_bytes, 0)
 	var byte_count: int = _measure_thread_payload_bytes(
 		value,
@@ -7230,7 +7752,7 @@ func _charge_thread_payload_bytes(
 		remaining_bytes
 	)
 	if byte_count > remaining_bytes:
-		state["visited_bytes"] = max_bytes + 1
+		state._visited_bytes = max_bytes + 1
 		_set_payload_validation_failure(
 			state,
 			&"byte_budget_exceeded",
@@ -7239,7 +7761,7 @@ func _charge_thread_payload_bytes(
 			value_type
 		)
 		return false
-	state["visited_bytes"] = visited_bytes + byte_count
+	state._visited_bytes = visited_bytes + byte_count
 	return true
 
 
@@ -7280,6 +7802,8 @@ func _measure_thread_payload_bytes(
 			return 72
 		TYPE_TRANSFORM3D:
 			return 96
+		TYPE_PROJECTION:
+			return 128
 		TYPE_ARRAY, TYPE_DICTIONARY:
 			return 16
 		TYPE_PACKED_BYTE_ARRAY:
@@ -7471,6 +7995,14 @@ func _is_thread_payload_value_finite(value: Variant, value_type: Variant.Type) -
 				_is_thread_payload_value_finite(transform_3d.basis, TYPE_BASIS)
 				and _is_thread_payload_value_finite(transform_3d.origin, TYPE_VECTOR3)
 			)
+		TYPE_PROJECTION:
+			var projection: Projection = value
+			return (
+				_is_thread_payload_value_finite(projection.x, TYPE_VECTOR4)
+				and _is_thread_payload_value_finite(projection.y, TYPE_VECTOR4)
+				and _is_thread_payload_value_finite(projection.z, TYPE_VECTOR4)
+				and _is_thread_payload_value_finite(projection.w, TYPE_VECTOR4)
+			)
 		TYPE_COLOR:
 			var color: Color = value
 			return _are_finite_floats([color.r, color.g, color.b, color.a])
@@ -7519,17 +8051,17 @@ func _is_finite_float(value: float) -> bool:
 
 
 func _set_payload_validation_failure(
-	state: Dictionary,
+	state: _ThreadPayloadValidationState,
 	failure_kind: StringName,
 	path: String,
 	path_segments: Array[Dictionary],
 	value_type: Variant.Type
 ) -> void:
-	state["failure_kind"] = String(failure_kind)
-	state["failure_path"] = path
-	state["failure_path_segments"] = path_segments.duplicate(true)
-	state["variant_type"] = int(value_type)
-	state["variant_type_name"] = type_string(value_type)
+	state._failure_kind = String(failure_kind)
+	state._failure_path = path
+	state._failure_path_segments = path_segments.duplicate(true)
+	state._variant_type = int(value_type)
+	state._variant_type_name = type_string(value_type)
 
 
 func _load_data_thread(_file_name: String, path: String, codec_options: Dictionary) -> Dictionary:
@@ -8447,7 +8979,8 @@ func _get_codec_options() -> Dictionary:
 func _apply_schema_migrations(
 	file_name: String,
 	result: GFStorageReadResult,
-	emit_migrated_signal: bool = true
+	emit_migrated_signal: bool = true,
+	delivery_validation: Dictionary = {}
 ) -> GFStorageReadResult:
 	if result == null or not result.ok:
 		return result
@@ -8457,7 +8990,9 @@ func _apply_schema_migrations(
 		return _fail_future_storage_version(result, from_version, to_version)
 	if from_version >= to_version:
 		if not default_values_for_new_keys.is_empty():
-			result.payload = _merge_default_values(result.payload, default_values_for_new_keys)
+			result.payload = _merge_default_values(
+				result.payload, default_values_for_new_keys, delivery_validation
+			)
 		return result
 
 	var migration_chain: Array[int] = _resolve_migration_chain(from_version, to_version)
@@ -8471,8 +9006,11 @@ func _apply_schema_migrations(
 		var execution: Dictionary = _execute_registered_migrations(
 			result.payload,
 			from_version,
-			to_version
+			to_version,
+			delivery_validation
 		)
+		if not delivery_validation.is_empty() and not GFVariantData.get_option_bool(delivery_validation, "supported"):
+			return result
 		if not GFVariantData.get_option_bool(execution, "ok", false):
 			return _make_migration_failure(
 				result,
@@ -8487,7 +9025,8 @@ func _apply_schema_migrations(
 		if not default_values_for_new_keys.is_empty():
 			migrated_payload = _merge_default_values(
 				migrated_payload,
-				default_values_for_new_keys
+				default_values_for_new_keys,
+				delivery_validation
 			)
 	var migrated_metadata: Dictionary = result.metadata.duplicate(true)
 	migrated_metadata[GFStorageCodec.VERSION_KEY] = to_version
@@ -8526,7 +9065,8 @@ func _count_script_methods(script: Script, method_name: StringName) -> int:
 func _execute_registered_migrations(
 	data: Dictionary,
 	from_version: int,
-	to_version: int
+	to_version: int,
+	delivery_validation: Dictionary = {}
 ) -> Dictionary:
 	var migrated: Dictionary = data.duplicate(true)
 	var chain: Array[int] = _resolve_migration_chain(from_version, to_version)
@@ -8560,8 +9100,23 @@ func _execute_registered_migrations(
 				],
 			}
 		migrated = GFVariantData.as_dictionary(step_result)
+		if not delivery_validation.is_empty() and not _validate_owned_migration_output(migrated, delivery_validation):
+			return {"ok": false}
 		current_version = next_version
 	return {"ok": true, "payload": migrated}
+
+
+func _validate_owned_migration_output(payload: Dictionary, delivery_validation: Dictionary) -> bool:
+	var validation: Dictionary = _validate_thread_payload(
+		payload,
+		_PAYLOAD_VALIDATION_MAX_VALUES,
+		_PAYLOAD_VALIDATION_MAX_BYTES,
+		_PAYLOAD_VALIDATION_MAX_DEPTH,
+		false
+	)
+	var supported: bool = GFVariantData.get_option_bool(validation, "ok")
+	delivery_validation["supported"] = supported
+	return supported
 
 
 func _resolve_migration_chain(from_version: int, to_version: int) -> Array[int]:
@@ -8680,6 +9235,20 @@ func _make_migration_failure(
 
 
 # --- 内部类 ---
+
+class _ThreadPayloadValidationState:
+	var _visited_values: int = 0
+	var _visited_bytes: int = 0
+	var _max_values: int = 0
+	var _max_bytes: int = 0
+	var _max_depth: int = 0
+	var _active_collections: Array = []
+	var _failure_kind: String = ""
+	var _failure_path: String = ""
+	var _failure_path_segments: Array[Dictionary] = []
+	var _variant_type: int = TYPE_NIL
+	var _variant_type_name: String = ""
+
 
 class _StoragePathPolicy:
 	var _owner: Object

@@ -246,7 +246,7 @@ delete_remaining_member_count, delete_failed_member, reset_failure_kind, reset_s
 诊断不包含读 payload、待写 payload、write report、Storage root、opaque family ID 或私有物理
 路径；不适用的类型化字段固定为 `-1`。它用于对账和运行诊断，不替代 Operation 的物理终态。
 
-`GFStorageReadResult` 区分载荷、元信息、完整性和失败分类；异步读取也返回这个结果。大型结果的副本使用与信号共享规则见[读取结果与副本隔离](read-results.md)。
+`GFStorageReadResult` 区分载荷、元信息、完整性和失败分类；异步读取也返回这个结果。大型结果需要单个消费者领取时，可显式使用 `load_data_owned_request_async()`，普通读取保留原有副本与广播行为。两种入口的选择、一次性领取、取消和释放规则见[读取结果与副本隔离](read-results.md)。
 
 `GFStorageDeleteResult.FailureKind` 把删除终态分为 `NONE`、`INVALID_REQUEST`、
 `NOT_FOUND`、`CONFLICT`、`THREAD_START_FAILED`、`UNAVAILABLE` 和 `IO_FAILED`。

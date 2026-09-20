@@ -69,6 +69,7 @@
 | 方法 | [`save_payload_request_async`](#member-gfstorageutility-methods-save_payload_request_async) | `func save_payload_request_async( file_name: String, transfer: GFStoragePayloadTransfer, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:` |
 | 方法 | [`load_data_async`](#member-gfstorageutility-methods-load_data_async) | `func load_data_async(file_name: String) -> Error:` |
 | 方法 | [`load_data_request_async`](#member-gfstorageutility-methods-load_data_request_async) | `func load_data_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:` |
+| 方法 | [`load_data_owned_request_async`](#member-gfstorageutility-methods-load_data_owned_request_async) | `func load_data_owned_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageOwnedRead:` |
 | 方法 | [`get_late_settlement_diagnostics`](#member-gfstorageutility-methods-get_late_settlement_diagnostics) | `func get_late_settlement_diagnostics() -> Array[Dictionary]:` |
 | 方法 | [`wait_for_async_tasks`](#member-gfstorageutility-methods-wait_for_async_tasks) | `func wait_for_async_tasks() -> void:` |
 | 方法 | [`migrate_data`](#member-gfstorageutility-methods-migrate_data) | `func migrate_data(data: Dictionary, _from_version: int, _to_version: int) -> Dictionary:` |
@@ -1046,6 +1047,28 @@ func load_data_request_async( file_name: String, options: GFStorageAsyncRequestO
 | `options` | 可选 caller owner、取消 token 与单调 deadline；null 表示无 caller 生命周期约束。 |
 
 返回：已配置的请求句柄；输入无效或启动失败时句柄立即进入失败终态。
+
+<a id="member-gfstorageutility-methods-load_data_owned_request_async"></a>
+
+### `load_data_owned_request_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func load_data_owned_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageOwnedRead:
+```
+
+异步读取纯数据，并通过专用句柄领取一次完整结果。 迁移完成后保留一次隔离复制，通知与领取不再复制载荷。此入口不更新 last_load_result，也不发出 load_completed；使用句柄 completed 与 get_result。 Object、Resource、循环或超出纯数据校验预算的图会明确拒绝独占交付。 owner、token 和 deadline 仅约束等待阶段；成功结果由句柄持有至领取或释放。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 目标 portable logical 文件名。 |
+| `options` | 可选等待阶段生命周期约束；null 表示无约束。 |
+
+返回：已绑定的独占句柄；即时失败可通过 get_result 查询。非主线程返回无效句柄。
 
 <a id="member-gfstorageutility-methods-get_late_settlement_diagnostics"></a>
 

@@ -498,6 +498,15 @@ func test_non_finite_nested_value_is_rejected_without_logging_payload_value() ->
 		"non_finite_number"
 	)
 	assert_eq(path_segments.size(), 3)
+	assert_eq(GFVariantData.get_option_string(report, "failure_path"), "${value:0}[0]{value:0}")
+	assert_eq(path_segments, [
+		{"kind": "dictionary_value", "entry_index": 0},
+		{"kind": "array_index", "index": 0},
+		{"kind": "dictionary_value", "entry_index": 0},
+	])
+	assert_eq(GFVariantData.get_option_int(report, "visited_values"), 6)
+	assert_eq(GFVariantData.get_option_int(report, "visited_bytes"), 79)
+	assert_eq(GFVariantData.get_option_string(report, "variant_type_name"), "Vector2")
 	assert_false(JSON.stringify(report).to_lower().contains("inf"))
 	assert_same(operation.reclaim_failed_payload(), transfer)
 	assert_true(transfer.release())
@@ -517,7 +526,7 @@ func test_preflight_rejects_non_finite_compound_and_packed_variants() -> void:
 	]
 
 	for value: Variant in invalid_values:
-		var report: Dictionary = _storage._validate_thread_payload({"value": value})
+		var report: Dictionary = _validate_in_both_path_modes({"value": value})
 		assert_false(GFVariantData.get_option_bool(report, "ok"))
 		assert_eq(
 			GFVariantData.get_option_string(report, "failure_kind"),
@@ -530,7 +539,7 @@ func test_preflight_charges_packed_array_elements_against_value_budget() -> void
 	var oversized: PackedByteArray = PackedByteArray()
 	var _resize_error: int = oversized.resize(1_000_001)
 
-	var report: Dictionary = _storage._validate_thread_payload({
+	var report: Dictionary = _validate_in_both_path_modes({
 		"value": oversized,
 	})
 
@@ -549,7 +558,7 @@ func test_preflight_stops_dictionary_iteration_at_value_budget_without_key_snaps
 	for index: int in range(64):
 		oversized_dictionary["entry_%d" % index] = index
 
-	var report: Dictionary = _storage._validate_thread_payload(
+	var report: Dictionary = _validate_in_both_path_modes(
 		oversized_dictionary,
 		8,
 		1024,
@@ -565,7 +574,7 @@ func test_preflight_stops_dictionary_iteration_at_value_budget_without_key_snaps
 
 
 func test_preflight_enforces_byte_budget_without_exposing_key_value_or_digest() -> void:
-	var report: Dictionary = _storage._validate_thread_payload(
+	var report: Dictionary = _validate_in_both_path_modes(
 		{"private_key": "do-not-expose-this-payload-value"},
 		100,
 		16,
@@ -586,7 +595,7 @@ func test_preflight_enforces_byte_budget_without_exposing_key_value_or_digest() 
 
 func test_preflight_rejects_typed_object_container_metadata_without_elements() -> void:
 	var unsafe_values: Array[Resource] = []
-	var array_report: Dictionary = _storage._validate_thread_payload({
+	var array_report: Dictionary = _validate_in_both_path_modes({
 		"values": unsafe_values,
 	})
 
@@ -601,7 +610,7 @@ func test_preflight_rejects_typed_object_container_metadata_without_elements() -
 	)
 
 	var unsafe_entries: Dictionary[String, Resource] = {}
-	var dictionary_report: Dictionary = _storage._validate_thread_payload({
+	var dictionary_report: Dictionary = _validate_in_both_path_modes({
 		"entries": unsafe_entries,
 	})
 	assert_false(GFVariantData.get_option_bool(dictionary_report, "ok"))
@@ -616,7 +625,7 @@ func test_preflight_rejects_typed_object_container_metadata_without_elements() -
 
 	var safe_values: Array[int] = [1, 2, 3]
 	var safe_entries: Dictionary[String, int] = {"value": 1}
-	var safe_report: Dictionary = _storage._validate_thread_payload({
+	var safe_report: Dictionary = _validate_in_both_path_modes({
 		"values": safe_values,
 		"entries": safe_entries,
 	})
@@ -983,6 +992,50 @@ func test_legacy_request_api_keeps_deep_snapshot_copy() -> void:
 	var loaded: GFStorageReadResult = _storage.load_data("test_transfer_snapshot.json")
 	var loaded_nested: Dictionary = GFVariantData.get_option_dictionary(loaded.payload, "nested")
 	assert_eq(GFVariantData.get_option_int(loaded_nested, "value"), 1)
+
+
+func test_projection_preflight_accepts_finite_values_and_accounts_all_components() -> void:
+	var projections: Array[Projection] = [Projection.IDENTITY]
+	var report: Dictionary = _validate_in_both_path_modes({"p": Projection.IDENTITY}, 3, 145, 1)
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(GFVariantData.get_option_int(report, "visited_bytes"), 145)
+	assert_eq(GFVariantData.get_option_int(report, "visited_values"), 3)
+	report = _validate_in_both_path_modes({"p": Projection.IDENTITY}, 3, 144, 1)
+	assert_eq(GFVariantData.get_option_string(report, "failure_kind"), "byte_budget_exceeded")
+	report = _validate_in_both_path_modes({"p": projections})
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	for column: int in range(4):
+		for row: int in range(4):
+			var projection: Projection = Projection.IDENTITY
+			var component: Vector4 = projection[column]
+			component[row] = INF if (column + row) % 2 == 0 else NAN
+			projection[column] = component
+			report = _validate_in_both_path_modes({"p": projection})
+			assert_eq(GFVariantData.get_option_string(report, "failure_kind"), "non_finite_number")
+			assert_eq(GFVariantData.get_option_string(report, "variant_type_name"), "Projection")
+
+
+func _validate_in_both_path_modes(
+	payload: Dictionary,
+	max_values: int = 1_000_000,
+	max_bytes: int = 64 * 1024 * 1024,
+	max_depth: int = 128
+) -> Dictionary:
+	var detailed: Dictionary = _storage._validate_thread_payload(
+		payload, max_values, max_bytes, max_depth
+	)
+	var compact: Dictionary = _storage._validate_thread_payload(
+		payload, max_values, max_bytes, max_depth, false
+	)
+	assert_eq(GFVariantData.get_option_string(compact, "failure_path"), "")
+	assert_true(GFVariantData.as_array(compact.get("path_segments")).is_empty())
+	var detailed_comparison: Dictionary = detailed.duplicate(true)
+	var compact_comparison: Dictionary = compact.duplicate(true)
+	for field: String in ["failure_path", "path_segments"]:
+		assert_true(detailed_comparison.erase(field))
+		assert_true(compact_comparison.erase(field))
+	assert_eq(compact_comparison, detailed_comparison, "诊断收集开关不得改变分类、预算计数或其余报告字段。")
+	return detailed
 
 
 func _pump_storage_async_tasks() -> void:
