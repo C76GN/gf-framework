@@ -81,6 +81,7 @@ var _machine_ref: WeakRef = null
 var _group_ref: WeakRef = null
 var _event_architectures: Array[WeakRef] = []
 var _original_process_mode: int = Node.PROCESS_MODE_INHERIT
+var _lifecycle_epoch: int = 0
 
 
 # --- Godot 生命周期方法 ---
@@ -91,6 +92,7 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	_lifecycle_epoch += 1
 	unregister_owner_events()
 
 
@@ -156,8 +158,12 @@ func get_state_name() -> StringName:
 ## [br]
 ## @schema args: 状态切换参数 Dictionary；键和值由调用方约定。
 func enter(previous_state: StringName = &"", args: Dictionary = {}) -> void:
+	_lifecycle_epoch += 1
+	var epoch: int = _lifecycle_epoch
 	_set_state_enabled(true)
 	_enter(previous_state, args)
+	if epoch != _lifecycle_epoch:
+		return
 	_run_behaviors_enter(previous_state, args)
 
 
@@ -171,8 +177,14 @@ func enter(previous_state: StringName = &"", args: Dictionary = {}) -> void:
 ## [br]
 ## @schema args: 状态切换参数 Dictionary；键和值由调用方约定。
 func exit(next_state: StringName = &"", args: Dictionary = {}) -> void:
+	_lifecycle_epoch += 1
+	var epoch: int = _lifecycle_epoch
 	_exit(next_state, args)
+	if epoch != _lifecycle_epoch:
+		return
 	_run_behaviors_exit(next_state, args)
+	if epoch != _lifecycle_epoch:
+		return
 	unregister_owner_events()
 	_set_state_enabled(false)
 
@@ -187,8 +199,14 @@ func exit(next_state: StringName = &"", args: Dictionary = {}) -> void:
 ## [br]
 ## @schema args: 状态切换参数 Dictionary；键和值由调用方约定。
 func pause(next_state: StringName = &"", args: Dictionary = {}) -> void:
+	_lifecycle_epoch += 1
+	var epoch: int = _lifecycle_epoch
 	_pause(next_state, args)
+	if epoch != _lifecycle_epoch:
+		return
 	_run_behaviors_pause(next_state, args)
+	if epoch != _lifecycle_epoch:
+		return
 	_set_state_enabled(false)
 
 
@@ -202,8 +220,12 @@ func pause(next_state: StringName = &"", args: Dictionary = {}) -> void:
 ## [br]
 ## @schema args: 状态切换参数 Dictionary；键和值由调用方约定。
 func resume(previous_state: StringName = &"", args: Dictionary = {}) -> void:
+	_lifecycle_epoch += 1
+	var epoch: int = _lifecycle_epoch
 	_set_state_enabled(true)
 	_resume(previous_state, args)
+	if epoch != _lifecycle_epoch:
+		return
 	_run_behaviors_resume(previous_state, args)
 
 
@@ -299,8 +321,11 @@ func get_blackboard() -> Dictionary:
 ## [br]
 ## @return: 已处理返回 true。
 func handle_state_event(event_id: StringName, payload: Variant = null) -> bool:
+	var epoch: int = _lifecycle_epoch
 	if _handle_state_event(event_id, payload):
 		return true
+	if epoch != _lifecycle_epoch:
+		return false
 	return _run_behaviors_handle_state_event(event_id, payload)
 
 
@@ -686,6 +711,7 @@ func _handle_state_event(_event_id: StringName, _payload: Variant = null) -> boo
 ## [br]
 ## @param group: 所属状态组。
 func setup(machine: Object, group: Object) -> void:
+	_lifecycle_epoch += 1
 	_machine_ref = weakref(machine) if machine != null else null
 	_group_ref = weakref(group) if group != null else null
 
@@ -714,36 +740,51 @@ func _run_behaviors_initialize() -> void:
 
 
 func _run_behaviors_enter(previous_state: StringName, args: Dictionary) -> void:
+	var epoch: int = _lifecycle_epoch
 	for behavior: Resource in behaviors:
 		if behavior != null and behavior.has_method("enter"):
 			var _result: Variant = behavior.call("enter", self, previous_state, args)
+			if epoch != _lifecycle_epoch:
+				return
 
 
 func _run_behaviors_exit(next_state: StringName, args: Dictionary) -> void:
+	var epoch: int = _lifecycle_epoch
 	for behavior: Resource in behaviors:
 		if behavior != null and behavior.has_method("exit"):
 			var _result: Variant = behavior.call("exit", self, next_state, args)
+			if epoch != _lifecycle_epoch:
+				return
 
 
 func _run_behaviors_pause(next_state: StringName, args: Dictionary) -> void:
+	var epoch: int = _lifecycle_epoch
 	for behavior: Resource in behaviors:
 		if behavior != null and behavior.has_method("pause"):
 			var _result: Variant = behavior.call("pause", self, next_state, args)
+			if epoch != _lifecycle_epoch:
+				return
 
 
 func _run_behaviors_resume(previous_state: StringName, args: Dictionary) -> void:
+	var epoch: int = _lifecycle_epoch
 	for behavior: Resource in behaviors:
 		if behavior != null and behavior.has_method("resume"):
 			var _result: Variant = behavior.call("resume", self, previous_state, args)
+			if epoch != _lifecycle_epoch:
+				return
 
 
 func _run_behaviors_handle_state_event(event_id: StringName, payload: Variant) -> bool:
+	var epoch: int = _lifecycle_epoch
 	for behavior: Resource in behaviors:
 		if behavior == null or not behavior.has_method("handle_state_event"):
 			continue
 		var result: Variant = behavior.call("handle_state_event", self, event_id, payload)
 		if GFVariantData.to_bool(result):
 			return true
+		if epoch != _lifecycle_epoch:
+			return false
 	return false
 
 

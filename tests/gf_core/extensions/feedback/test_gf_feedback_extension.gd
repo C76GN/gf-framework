@@ -2,6 +2,41 @@
 extends GutTest
 
 
+func test_shake_capacity_eviction_does_not_chase_reentrant_replacements() -> void:
+	var utility: GFShakeUtility = GFShakeUtility.new()
+	utility.max_active_shakes = 1
+	var preset: GFShakePreset = GFShakePreset.new()
+	var _first: int = utility.play_shake(&"test", preset)
+	var stopped_count: Array[int] = [0]
+	var callback: Callable = func(_id: int, _channel: StringName) -> void:
+		stopped_count[0] += 1
+		if stopped_count[0] <= 3:
+			var _replacement: int = utility.play_shake(&"test", preset)
+	var _connection: Error = utility.shake_stopped.connect(callback) as Error
+	var _requested: int = utility.play_shake(&"test", preset)
+	assert_eq(stopped_count[0], 1, "单次容量预留只淘汰调用开始时的候选。")
+	utility.shake_stopped.disconnect(callback)
+	utility.dispose()
+
+
+func test_haptic_capacity_eviction_does_not_chase_reentrant_replacements() -> void:
+	var utility: GFHapticUtility = GFHapticUtility.new()
+	utility.max_active_haptics = 1
+	utility.haptic_backend = RecordingHapticBackend.new()
+	var preset: GFHapticPreset = GFHapticPreset.new()
+	var _first: int = utility.play_haptic(&"test", preset, 0)
+	var stopped_count: Array[int] = [0]
+	var callback: Callable = func(_id: int, _channel: StringName, _type: int, _target: int) -> void:
+		stopped_count[0] += 1
+		if stopped_count[0] <= 3:
+			var _replacement: int = utility.play_haptic(&"test", preset, 0)
+	var _connection: Error = utility.haptic_stopped.connect(callback) as Error
+	var _requested: int = utility.play_haptic(&"test", preset, 0)
+	assert_eq(stopped_count[0], 1)
+	utility.haptic_stopped.disconnect(callback)
+	utility.dispose()
+
+
 # --- 常量 ---
 
 const GF_FEEDBACK_EXTENSION = preload("res://addons/gf/extensions/feedback/extension.gd")

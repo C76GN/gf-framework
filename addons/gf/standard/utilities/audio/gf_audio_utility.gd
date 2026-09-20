@@ -273,7 +273,6 @@ func init() -> void:
 	_audio_banks.clear()
 	_audio_bank_base_values.clear()
 	_audio_bank_mount_stacks.clear()
-	_audio_bank_mount_token = 0
 	_audio_bank_retained_mount_count = 0
 	_clear_mix_control_tweens()
 	_bus_generation_counter += 1
@@ -6833,7 +6832,7 @@ func _is_audio_bank_identifier_text_valid(value: String) -> bool:
 
 
 func _play_spatial_sfx_clip(clip: GFAudioClip, source: Node, follow_source: bool = false) -> Node:
-	if _is_backend_dispatch_in_progress():
+	if _is_backend_dispatch_in_progress() or not _is_initialized or not _is_live_audio_root(_root):
 		return null
 	if clip == null or not clip.has_source() or not is_instance_valid(source):
 		return null
@@ -6846,6 +6845,7 @@ func _play_spatial_sfx_clip(clip: GFAudioClip, source: Node, follow_source: bool
 	if not _ensure_sfx_capacity_available():
 		return null
 
+	var request_serial: int = _sfx_lifecycle_serial
 	var parent: Node = source if follow_source else _get_spatial_sfx_parent(source)
 	if parent == null:
 		return null
@@ -6861,6 +6861,16 @@ func _play_spatial_sfx_clip(clip: GFAudioClip, source: Node, follow_source: bool
 	player.name = "GFSpatialSFXPlayer"
 	_trim_idle_sfx_players(1)
 	parent.add_child(player)
+	if (
+		request_serial != _sfx_lifecycle_serial
+		or not _is_initialized
+		or not is_instance_valid(player)
+		or player.is_queued_for_deletion()
+		or player.get_parent() != parent
+	):
+		if is_instance_valid(player) and not player.is_queued_for_deletion():
+			player.queue_free()
+		return null
 	var _playback_session_id: int = _begin_playback_session(player)
 	if player is AudioStreamPlayer3D:
 		var player_3d: AudioStreamPlayer3D = player
@@ -6878,7 +6888,6 @@ func _play_spatial_sfx_clip(clip: GFAudioClip, source: Node, follow_source: bool
 			player_2d.global_position = source_2d.global_position
 	_track_spatial_sfx_player(player)
 
-	var request_serial: int = _sfx_lifecycle_serial
 	var bus_name: String = request_clip.resolve_bus(SFX_BUS_NAME)
 	var volume_db: float = _finite_or_default(request_clip.volume_db, 0.0)
 	var pitch_scale: float = _finite_or_default(request_clip.resolve_pitch(_audio_rng), 1.0)

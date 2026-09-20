@@ -112,7 +112,7 @@ var max_packets_per_poll: int = 64
 func adopt_peer(peer: MultiplayerPeer, options: Dictionary = {}) -> Error:
 ```
 
-接管一个已由外部 Adapter 初始化的 MultiplayerPeer。 Peer 必须已经处于 connecting 或 connected。替换现有 Peer 时，旧 Peer 会按其 ownership 关闭或仅解除借用。
+接管一个已由外部 Adapter 初始化的 MultiplayerPeer。 Peer 必须已经处于 connecting 或 connected。替换现有 Peer 时，旧 Peer 会按其 ownership 关闭或仅解除借用。若释放回调已接管另一个 Peer，当前调用返回 ERR_BUSY， 保留回调提交的新 Peer，调用方继续持有本次未接管的 peer。
 
 参数：
 

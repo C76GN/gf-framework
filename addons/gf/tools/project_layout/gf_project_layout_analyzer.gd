@@ -2870,7 +2870,7 @@ func _validate_feature_subdirs(
 	var child_dirs: PackedStringArray = _get_direct_child_directories(scan, feature_root, report)
 	if _runtime_is_aborted():
 		return
-	var child_dir_set: Dictionary = _make_string_set(child_dirs, report)
+	var directory_set: Dictionary = _make_string_set(_get_packed_string_array(scan, "directories"), report)
 	if _runtime_is_aborted():
 		return
 	var allowed_subdir_set: Dictionary = _make_string_set(
@@ -2883,7 +2883,7 @@ func _validate_feature_subdirs(
 		if not _evaluation_checkpoint(report):
 			return
 		var required_path: String = feature_root.path_join(required_subdir)
-		if not child_dir_set.has(required_subdir):
+		if not directory_set.has(required_path):
 			_add_rule_issue(
 				report,
 				rule_result,

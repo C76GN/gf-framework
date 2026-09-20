@@ -128,6 +128,28 @@ func test_file_and_custom_byte_sources_reject_invalid_utf8() -> void:
 	)
 
 
+func test_scheme_root_accepts_descendants_without_accepting_another_scheme() -> void:
+	for root_path: String in ["res://", "user://"]:
+		var loader: GFSourceTextLoader = GFSourceTextLoader.new(root_path)
+		assert_true(GFResultDictionary.is_ok(loader.resolve_key(root_path + "example.txt")))
+		assert_true(GFResultDictionary.is_ok(loader.resolve_key("example.txt")))
+		var other_scheme: String = "user://" if root_path == "res://" else "res://"
+		assert_false(GFResultDictionary.is_ok(loader.resolve_key(other_scheme + "example.txt")))
+
+
+func test_registered_and_custom_sources_have_distinct_cache_identities() -> void:
+	var loader: GFSourceTextLoader = GFSourceTextLoader.new("", {"allow_file_access": false})
+	assert_true(loader.register_text("custom:x", "registered"))
+	assert_true(loader.add_custom_loader(func(_source_key: String, _context: Dictionary) -> String:
+		return "custom"
+	))
+	for _iteration: int in range(2):
+		assert_eq(GFVariantData.get_option_string(loader.load_text("x"), "text"), "custom")
+		var registered: Dictionary = loader.load_text("custom:x")
+		assert_eq(GFVariantData.get_option_string(registered, "text"), "registered")
+		assert_true(GFVariantData.get_option_bool(registered, "registered"))
+
+
 func test_custom_loader_loads_virtual_text_and_caches_by_key() -> void:
 	var loader: GFSourceTextLoader = GFSourceTextLoader.new("", {
 		"allow_file_access": false,

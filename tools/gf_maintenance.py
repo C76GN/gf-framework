@@ -1082,6 +1082,7 @@ PARALLEL_SHARD_RESULT_REQUIRED_FIELDS = frozenset({
 	"timeout_budget",
 })
 PARALLEL_SHARD_RESULT_OPTIONAL_FIELDS = frozenset({
+	"blocked_by",
 	"pid",
 	"streamed_output",
 	"process_exit_code",
@@ -18128,6 +18129,7 @@ def load_parallel_shard_report(
 				f"Parent shard subprocess identity for {name!r} lacks an absolute executable."
 			)
 	accepted_result_fingerprints: dict[str, str] = {}
+	accepted_result_exit_codes: dict[str, int] = {}
 	previous_suite_remaining_seconds = expected_suite_timeout_seconds
 	for result in results:
 		name = str(result["name"])
@@ -18164,10 +18166,29 @@ def load_parallel_shard_report(
 		duration_seconds = result.get("duration_seconds")
 		if not is_finite_non_negative_number(duration_seconds):
 			return None, f"Shard result {name!r} duration_seconds must be finite and non-negative."
+		is_blocked = result.get("execution") == "blocked"
+		if is_blocked:
+			blocked_by = result.get("blocked_by")
+			if (
+				not isinstance(blocked_by, list)
+				or not blocked_by
+				or any(not isinstance(value, str) or not value for value in blocked_by)
+				or len(blocked_by) != len(set(blocked_by))
+			):
+				return None, f"Shard result {name!r} blocked_by must be a non-empty unique string array."
+			if exit_code != 125 or timed_out or cancelled or duration_seconds != 0:
+				return None, f"Shard result {name!r} blocked outcome must be unexecuted with exit_code 125."
+			if result.get("stdout") != "" or any(field in result for field in (
+				"pid", "process_exit_code", "streamed_output", "gut_lifecycle_report",
+				"godot_exit_leak_warning_count", "godot_exit_leak_warnings", "godot_exit_leak_report",
+			)):
+				return None, f"Shard result {name!r} blocked outcome must not contain execution evidence."
+		elif "blocked_by" in result:
+			return None, f"Shard result {name!r} blocked_by requires execution='blocked'."
 		command = result.get("command")
 		if not isinstance(command, list) or not command or any(not isinstance(part, str) or not part for part in command):
 			return None, f"Shard result {name!r} command must be a non-empty string array."
-		if DEFERRED_COMMAND_SENTINEL in command:
+		if not is_blocked and DEFERRED_COMMAND_SENTINEL in command:
 			return None, (
 				f"Shard result {name!r} executed a deferred-command placeholder."
 			)
@@ -18185,12 +18206,17 @@ def load_parallel_shard_report(
 			expected_executor = validation_catalog.executor_kind(name)
 		except gf_validation_catalog.ValidationCatalogError:
 			return None, f"Shard result {name!r} is not declared by the Validation Catalog."
-		if result.get("execution") != expected_executor.value:
+		if not is_blocked and result.get("execution") != expected_executor.value:
 			return None, (
 				f"Shard result {name!r} execution does not match the Validation Catalog."
 			)
 		command_identity = expected_command_contract.identities[name]
-		if command != list(command_identity.effective):
+		expected_command = (
+			fallback_check_command(name, validation_catalog=validation_catalog)
+			if is_blocked and validation_catalog.static_command(name) is None
+			else list(command_identity.declared if is_blocked else command_identity.effective)
+		)
+		if command != expected_command:
 			return None, (
 				f"Shard result {name!r} command does not match its frozen execution identity."
 			)
@@ -18266,6 +18292,15 @@ def load_parallel_shard_report(
 			return None, (
 				f"Shard result {name!r} dependency fingerprints do not match prior results."
 			)
+		failed_dependencies = [
+			dependency for dependency in dependencies
+			if accepted_result_exit_codes[dependency] != 0
+		]
+		if is_blocked:
+			if result["blocked_by"] != failed_dependencies:
+				return None, f"Shard result {name!r} blocked_by must equal its prior failed dependencies."
+		elif failed_dependencies:
+			return None, f"Shard result {name!r} must be blocked by its prior failed dependencies."
 		if "pid" in result and (type(result["pid"]) is not int or result["pid"] <= 0):
 			return None, f"Shard result {name!r} pid must be a positive integer."
 		if "streamed_output" in result and type(result["streamed_output"]) is not bool:
@@ -18290,7 +18325,7 @@ def load_parallel_shard_report(
 		if "godot_exit_leak_report" in result and not isinstance(result["godot_exit_leak_report"], dict):
 			return None, f"Shard result {name!r} leak report must be an object."
 		has_lifecycle_report = "gut_lifecycle_report" in result
-		if name == "gut" and not has_lifecycle_report:
+		if name == "gut" and not is_blocked and not has_lifecycle_report:
 			return None, (
 				"Shard result 'gut' must include its lifecycle gate report."
 			)
@@ -18412,8 +18447,8 @@ def load_parallel_shard_report(
 			)
 		expected_input_fingerprint = make_check_input_fingerprint(
 			name,
-			list(command_identity.declared),
-			list(command_identity.effective),
+			expected_command if is_blocked else list(command_identity.declared),
+			None if is_blocked else list(command_identity.effective),
 			str(expected_workspace_fingerprint),
 			dependency_fingerprints,
 			resolved_timeout_budget,
@@ -18432,6 +18467,7 @@ def load_parallel_shard_report(
 		if result["result_fingerprint"] != expected_result_fingerprint:
 			return None, f"Shard result {name!r} result_fingerprint is inconsistent."
 		accepted_result_fingerprints[name] = expected_result_fingerprint
+		accepted_result_exit_codes[name] = exit_code
 	result_success = (
 		len(results) == len(expected_checks)
 		and all(

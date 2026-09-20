@@ -1478,6 +1478,26 @@ func test_capability_recipe_applies_entries_and_groups() -> void:
 	assert_false(_utility.get_receivers_in_group(&"targets").has(receiver), "remove_recipe 应移除分组。")
 
 
+func test_recipe_propagates_rejected_active_state_change() -> void:
+	var receiver: Node = Node.new()
+	add_child(receiver)
+	var capability: ActiveNodeCapability = _utility.add_capability(receiver, ActiveNodeCapability)
+	capability.add_child(Node.new())
+	capability.add_child(Node.new())
+	_utility.max_capability_tree_nodes = 2
+	var recipe: GFCapabilityRecipe = GFCapabilityRecipe.new()
+	var entry: GFCapabilityRecipeEntry = GFCapabilityRecipeEntry.new()
+	entry.capability_type = ActiveNodeCapability
+	entry.active = false
+	recipe.entries = [entry]
+	var result: Dictionary = _utility.apply_recipe(receiver, recipe)
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	assert_true(capability.active)
+	assert_push_error("[GFCapabilityUtility] set active state 失败：能力节点树超过")
+	receiver.queue_free()
+	await get_tree().process_frame
+
+
 func test_capability_recipe_rolls_back_added_entries_and_groups_on_failure() -> void:
 	var receiver: RefCounted = RefCounted.new()
 	var recipe: GFCapabilityRecipe = GFCapabilityRecipe.new()

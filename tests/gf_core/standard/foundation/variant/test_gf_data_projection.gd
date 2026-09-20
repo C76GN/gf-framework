@@ -2,6 +2,18 @@
 extends GutTest
 
 
+func test_projection_rejects_object_keys_at_root_after_rename_and_in_defaults() -> void:
+	var object_key: Resource = Resource.new()
+	var projected: Dictionary = GFDataProjection.project_dictionary({object_key: 1, "safe": 2}, {
+		"rename_fields": {"safe": object_key},
+		"defaults": {object_key: 3, "default_owner": object_key, "keep": 4},
+	})
+	assert_false(projected.has(object_key), "最终输出不得保留根键、rename键或默认值中的对象。")
+	assert_false(projected.has("default_owner"))
+	assert_eq(GFVariantData.get_option_int(projected, "keep"), 4)
+	assert_false(GFDataProjection.project_object(null, PackedStringArray(), {"defaults": {object_key: 1}}).has(object_key))
+
+
 func test_projection_can_explicitly_return_json_safe_values() -> void:
 	var native: Variant = GFDataProjection.project_value(Vector2(NAN, INF))
 	var encoded: Variant = GFDataProjection.project_value(Vector2(NAN, INF), { "json_safe": true })

@@ -550,6 +550,29 @@ func test_legacy_visible_file_is_never_adopted_by_public_storage_apis() -> void:
 	assert_true(visible_file_survived, "拒绝领养时必须保持 legacy visible file 字节不变。")
 
 
+func test_async_load_signal_keeps_its_result_during_reentrant_other_load() -> void:
+	assert_eq(_storage.save_data("signal-first.json", {"value": "first"}), OK)
+	assert_eq(_storage.save_data("signal-second.json", {"value": "second"}), OK)
+	var received: Array[GFStorageReadResult] = []
+	var _signal_connected: Error = _storage.load_completed.connect(func(file_name: String, result: GFStorageReadResult) -> void:
+		if file_name == "signal-first.json":
+			received.append(result)
+	) as Error
+	var operation: GFStorageAsyncOperation = _storage.load_data_request_async("signal-first.json")
+	var _operation_connected: Error = operation.completed.connect(func(_result: GFStorageAsyncResult) -> void:
+		var nested: GFStorageReadResult = _storage.load_data("signal-second.json")
+		assert_eq(nested.payload, {"value": "second"})
+	) as Error
+	for _frame: int in range(120):
+		if operation.is_completed():
+			break
+		_storage.tick(0.01)
+		await get_tree().process_frame
+	assert_true(operation.is_completed())
+	assert_eq(received.size(), 1)
+	assert_eq(received[0].payload, {"value": "first"})
+
+
 func test_list_files_projects_logical_catalog_instead_of_physical_tree() -> void:
 	assert_eq(_storage.save_data("catalog/a.json", { "value": "a" }), OK)
 	assert_eq(_storage.save_data("catalog/nested/b.json", { "value": "b" }), OK)

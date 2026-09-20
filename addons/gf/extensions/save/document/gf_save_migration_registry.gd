@@ -289,6 +289,11 @@ func migrate(
 				document_step.step_id,
 				trace
 			)
+		var original_document_validation: Dictionary = document_result.validate_document()
+		if not GFVariantData.get_option_bool(original_document_validation, "ok", false):
+			return _make_failure(document, target_schema, ERR_INVALID_DATA,
+				_get_first_validation_message(original_document_validation, "Document migration produced invalid data."),
+				document_step.step_id, trace)
 		var canonical_document: GFSaveDocument = GFSaveDocument.new().configure(
 			target_schema.schema_id,
 			document_step.to_version,
@@ -360,6 +365,11 @@ func migrate(
 					section_step.step_id,
 					trace
 				)
+			var original_section_validation: Dictionary = section_result.validate_section()
+			if not GFVariantData.get_option_bool(original_section_validation, "ok", false):
+				return _make_failure(document, target_schema, ERR_INVALID_DATA,
+					_get_first_validation_message(original_section_validation, "Section migration produced invalid data."),
+					section_step.step_id, trace)
 			var canonical_section: GFSaveSection = GFSaveSection.new().configure(
 				section_id,
 				section_step.to_version,
@@ -565,8 +575,7 @@ static func _make_edge_key(
 	section_id: StringName,
 	from_version: int
 ) -> String:
-	var owner_key: String = "$document" if section_id == &"" else String(section_id)
-	return "%s|%s|%d" % [String(schema_id), owner_key, from_version]
+	return JSON.stringify([String(schema_id), String(section_id), from_version])
 
 
 static func _make_edge_descriptor(

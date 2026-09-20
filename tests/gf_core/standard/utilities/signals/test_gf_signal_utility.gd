@@ -21,6 +21,19 @@ func after_each() -> void:
 
 # --- 测试 ---
 
+func test_connect_once_consumes_connection_before_reentrant_emission() -> void:
+	var emitter: SampleEmitter = SampleEmitter.new()
+	var received: Array[int] = []
+	var connection: GFSignalConnection = _utility.connect_once(emitter.changed, func(value: int) -> void:
+		received.append(value)
+		if received.size() == 1:
+			emitter.emit_changed(2)
+	)
+	emitter.emit_changed(1)
+	assert_eq(received, [1])
+	assert_false(connection.is_active())
+
+
 func test_connect_signal_invokes_callback_with_default_args() -> void:
 	var emitter: SampleEmitter = SampleEmitter.new()
 	var received: Array[Variant] = []

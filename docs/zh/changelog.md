@@ -42,6 +42,16 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复 NodeContext 将正常跨帧关闭误判为失效的问题；强制销毁会终止旧关闭遍历，扩展设置保存失败会保留明确的失败提示。
+- 修复状态机、任务组、输入序列、触控、拖放、平台初始化、UI、音频、行为树、Buff 与网络接管在同步回调重入后继续使用旧状态的问题；旧注册 token、句柄和绑定不能影响新一轮实例。
+- 修复 Asset、HTTP、Job 和 Storage 通知中的取消与结果归属，以及日志批次确认、活跃日志保留、诊断 provider 和调试观察器的生命周期处理。
+- Save 与 Dialogue 的可恢复数据使用明确的编解码完整性结果，预算耗尽、循环或不支持的值不会作为成功快照提交；Save 属性恢复先检查完整白名单，回滚保留采集时的引用根。
+- Flow 的节点与 Context 在同步执行中共享当前运行态，交替写入、清空和恢复不会被旧快照覆盖；有向图连接拒绝方向反转的端口。Inventory 的全量添加失败保持原槽位，Feedback 的容量淘汰不会追逐回调中新建的播放。
+- 修复循环单字段 schema、超大 Deque 请求、字幕空结束时间、标签恢复与层级计数、投影键和默认值，以及大额定点加减和显示精度边界。
+- 修复四叉树无进展分裂、空间查询预算回退与闭边界候选、RegionMap 删除标记、单 tile WFC 邻接验证，以及浮力法线在剪切变换下的计算。
+- 修复配置合并覆盖原键、验证预算丢失错误、Config Pipeline 跳过 warning、嵌套目录约束、LSP 编辑的读取预算和精确路径大小写、生成脚本符号冲突，以及工具报告来源和取消提示。
+- 修复生成文档事务在中断时的回滚、无语言围栏解析、显式缺失样例目录和 schema 注释校验；验证输入检测捕获期间的文件漂移，库存枚举在收集时执行预算检查，文件门禁拒绝阻塞式特殊文件替换。AI Developer 的快照输出、计划读取及反馈提交重新核验对应边界。
+
 - [Modal 聚焦回调](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-stack-modal/modal-protocol.md) 转交焦点后保留面板内的有效目标；同一面板关闭后重开会终止旧聚焦与打开通知。[焦点顺序](standard/utilities/runtime/settings-ui-scene/settings-display/control-focus-order.md) 的零步查询在当前控件失去资格时返回空，不再意外选中其他控件。
 - [Modal 自动聚焦](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-stack-modal/modal-protocol.md) 跳过隐藏祖先、递归焦点禁用、禁用按钮和待释放目标；打开聚焦在面板显示后执行，返回值与实际焦点修正一致，并在聚焦回调关闭或替换面板时停止原目标遍历。
 - 静态缩略图保留九宫格边距、3D 绘制标志、灯光参数及 Mesh 表面材质覆盖，读取节点名称时也不触发来源脚本；MeshLibrary 任一待生成条目失败时整项计划失败并保留条目原因，避免应用部分预览。
@@ -67,6 +77,11 @@
 - 移除 `GFObjectPoolPrewarmOperation` 及其 `progressed` / `completed` 信号和多套预热入口。独立公开的弹幕发射策略 Task 改为内部实现。
 
 ### 🔧 API 变动说明 (API Changes)
+
+- `GFVariantJsonCodec` 新增 `variant_to_json_compatible_result()` 与 `json_compatible_to_variant_result()`，返回 `{ok, value, error}`；诊断投影入口继续表达不同的输出用途。`GFDialogueContext.deserialize_values()` 返回 `bool`，失败保持原值。
+- `GFSpatialHash3D.can_query_aabb()` 提供不生成候选列表的查询准入检查，空间查询 facade 在哈希预算不足时使用线性查询。
+- `GFPlatformAdapter` 首次注册后冻结身份和契约配置；自定义输入序列 runtime 必须提供单调的 action edge revision。`GFNetworkBackend` 新增 protected `_reset_transport_connection()` 供传输层先提交断开状态。
+- Config Pipeline 的生成 manifest 升为格式 2，并绑定验证摘要；有 warning 的输出重新验证。Content 自动导出合并同一物理文件的资源引用，在 `metadata.references` 保留逻辑引用列表。
 
 - `GFSpatialCanvas2D` 新增 `set_selected_item_outlines_visible()` 与 `are_selected_item_outlines_visible()`；默认开启，支持入树前配置，切换不改变选择状态或选择信号。
 - 新增 `GFStorageUtility.query_catalog()` 与不可变 `GFStorageCatalogResult`，提供 Error、失败阶段、排序文件副本及范围内完整性；查询保留同步 drain 和全 root 恢复，不改变存储格式，也不提供 payload revision。
@@ -98,5 +113,9 @@
 7. 自定义 2D Rig 的 `get_camera_pose` / `get_camera_pose_data` 覆盖增加 `camera: Camera2D = null`，调用父类时转交该参数。多目标取景的独立调用也必须提供实际相机；不要用 Rig 所在视口尺寸代替相机输出尺寸。
 8. 模板列表选项改为闭合字段及类型校验；移除传入 `options` 的业务附加字段。每次同步最多 4096 项；稳定 ID 模式要求 `clear_existing=true`。未提供 ID 时继续重建副本，大量长列表使用既有虚拟列表机制。
 9. 检查已有缩略图调用：依赖 `_draw()` 或脚本初始化的预览专用节点须显式选择 `GFThumbnailRenderRequest.PreviewMode.TRUSTED_DYNAMIC`，并确保脚本只操作工具自有节点与资源。普通资源缩略图沿用默认静态模式，具体支持范围见[预览指南](editor/non-destructive-live-preview.md)。
+10. 存档与会话恢复检查 codec 结果的 `ok`，不要用 `value == null` 判断失败；自定义 `GFDialogueContext.deserialize_values()` 覆盖同步返回 `bool`。Save 中已经移除的属性须由项目迁移清理，属性恢复不再忽略白名单之外的字段。
+11. 自定义行为树节点覆盖 `reset()` 时调用 `super.reset()`，使旧 tick 失效。平台 adapter 改配置时创建新实例；自定义输入序列 runtime 按[序列协议](standard/input-flow/input-assist/input-modifiers-triggers.md)提供边沿 revision，不再用帧内布尔值模拟独立边沿。
+12. Config Pipeline 的 v1 manifest 不走兼容读取。按[导出说明](editor/tools/config-pipeline.md)核对 profile、输出与 manifest 路径，仅移除对应生成 manifest 后重新导出。Content 导出中被合并的物理条目从 `metadata.references` 读取全部逻辑资源引用；未合并条目仍直接使用原有元数据字段。
+13. `MultiplayerPeer` 替换若被断开回调中的另一次接管打断，返回 `ERR_BUSY`；调用方仍负责未被接管的 peer。可选 Network 字段的显式 null 也必须满足 `allow_null`，不能以 `required=false` 绕过。
 
 详细示例见[对象池](standard/utilities/runtime/time-signal-pool/object-pool.md)与[弹幕](extensions/combat/projectiles.md)。已发布历史仍可从对应版本 tag 和 Release 查看。

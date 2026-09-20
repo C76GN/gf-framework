@@ -25,12 +25,13 @@
 ### `execute`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func execute(_context: Object = null) -> Variant:
 ```
 
-执行规则逻辑。子类必须重写此方法。 "type": "Variant", "description": "规则执行结果；异步规则可返回 Signal 供 await。" }
+执行规则逻辑。子类必须重写此方法。
 
 参数：
 
@@ -42,7 +43,7 @@ func execute(_context: Object = null) -> Variant:
 
 结构：
 
-- `return {`:
+- `return`: {"type": "Variant", "description": "规则执行结果；异步规则可返回 Signal 供 await。"}
 
 <a id="member-gfrule-methods-validate"></a>
 

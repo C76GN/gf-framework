@@ -19,6 +19,8 @@ for region_key in regions.get_dirty_region_keys():
 
 `GFRegionMap3D` 提供同一概念的三维版本，使用 `Vector3i` 格坐标与三维区域键。它只管理数据与脏区域，不绑定 TileMap、渲染、碰撞或项目规则。
 
+两种区域映射的 `clear()` 都会保留尚未消费的删除脏标记；连续清空或先删除最后一个格子再清空，也不会丢掉通知。消费者完成同步后再调用 `clear_dirty()` 确认。
+
 ```gdscript
 var regions_3d := GFRegionMap3D.new()
 regions_3d.region_size = Vector3i(16, 16, 16)

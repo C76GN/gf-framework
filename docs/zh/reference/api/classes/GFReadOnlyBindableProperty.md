@@ -33,12 +33,13 @@
 ### `_init`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func _init(default_value: Variant = null) -> void:
 ```
 
-构造函数。 "type": "Variant", "description": "属性的初始值。" }
+构造函数。
 
 参数：
 
@@ -48,7 +49,7 @@ func _init(default_value: Variant = null) -> void:
 
 结构：
 
-- `default_value {`:
+- `default_value`: {"type": "Variant", "description": "属性的初始值。"}
 
 <a id="member-gfreadonlybindableproperty-methods-get_value"></a>
 
@@ -74,12 +75,13 @@ func get_value() -> Variant:
 ### `set_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func set_value(_new_value: Variant) -> void:
 ```
 
-只读视图不允许外部直接写入值。 "type": "Variant", "description": "调用方尝试写入的新值。" }
+只读视图不允许外部直接写入值。
 
 参数：
 
@@ -89,7 +91,7 @@ func set_value(_new_value: Variant) -> void:
 
 结构：
 
-- `_new_value {`:
+- `_new_value`: {"type": "Variant", "description": "调用方尝试写入的新值。"}
 
 <a id="member-gfreadonlybindableproperty-methods-mutate"></a>
 
@@ -116,12 +118,13 @@ func mutate(_mutator: Callable) -> bool:
 ### `append_to_array`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func append_to_array(_item: Variant) -> bool:
 ```
 
-只读视图不允许外部向数组追加元素。 "type": "Variant", "description": "调用方尝试追加的元素。" }
+只读视图不允许外部向数组追加元素。
 
 参数：
 
@@ -133,19 +136,20 @@ func append_to_array(_item: Variant) -> bool:
 
 结构：
 
-- `_item {`:
+- `_item`: {"type": "Variant", "description": "调用方尝试追加的元素。"}
 
 <a id="member-gfreadonlybindableproperty-methods-append_array"></a>
 
 ### `append_array`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func append_array(_items: Array) -> bool:
 ```
 
-只读视图不允许外部向数组追加元素列表。 "type": "Array", "description": "调用方尝试追加的元素列表。" }
+只读视图不允许外部向数组追加元素列表。
 
 参数：
 
@@ -157,19 +161,20 @@ func append_array(_items: Array) -> bool:
 
 结构：
 
-- `_items {`:
+- `_items`: {"type": "Array", "description": "调用方尝试追加的元素列表。"}
 
 <a id="member-gfreadonlybindableproperty-methods-erase_from_array"></a>
 
 ### `erase_from_array`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func erase_from_array(_item: Variant) -> bool:
 ```
 
-只读视图不允许外部从数组删除元素。 "type": "Variant", "description": "调用方尝试删除的元素。" }
+只读视图不允许外部从数组删除元素。
 
 参数：
 
@@ -181,19 +186,20 @@ func erase_from_array(_item: Variant) -> bool:
 
 结构：
 
-- `_item {`:
+- `_item`: {"type": "Variant", "description": "调用方尝试删除的元素。"}
 
 <a id="member-gfreadonlybindableproperty-methods-set_dictionary_value"></a>
 
 ### `set_dictionary_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func set_dictionary_value(_key: Variant, _new_value: Variant) -> bool:
 ```
 
-只读视图不允许外部设置字典键值。 "type": "Variant", "description": "调用方尝试设置的键。" } "type": "Variant", "description": "调用方尝试设置的新值。" }
+只读视图不允许外部设置字典键值。
 
 参数：
 
@@ -206,20 +212,21 @@ func set_dictionary_value(_key: Variant, _new_value: Variant) -> bool:
 
 结构：
 
-- `_key {`:
-- `_new_value {`:
+- `_key`: {"type": "Variant", "description": "调用方尝试设置的键。"}
+- `_new_value`: {"type": "Variant", "description": "调用方尝试设置的新值。"}
 
 <a id="member-gfreadonlybindableproperty-methods-erase_dictionary_key"></a>
 
 ### `erase_dictionary_key`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func erase_dictionary_key(_key: Variant) -> bool:
 ```
 
-只读视图不允许外部删除字典键。 "type": "Variant", "description": "调用方尝试删除的键。" }
+只读视图不允许外部删除字典键。
 
 参数：
 
@@ -231,7 +238,7 @@ func erase_dictionary_key(_key: Variant) -> bool:
 
 结构：
 
-- `_key {`:
+- `_key`: {"type": "Variant", "description": "调用方尝试删除的键。"}
 
 <a id="member-gfreadonlybindableproperty-methods-clear_collection"></a>
 

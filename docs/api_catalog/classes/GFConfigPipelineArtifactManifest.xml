@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineArtifactManifest" path="addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd" module="tools" extends="RefCounted" classDigest="d77f5367b4aa98294c62a9754d85b65e5fcd48cd26b48a04c12e2e8e6a5f40af">
+<class name="GFConfigPipelineArtifactManifest" path="addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd" module="tools" extends="RefCounted" classDigest="990d2b9f5cb3bf2b3afcf907f1ef40021c207d32822b47c4621a0bc8306065bc">
 	<description>GFConfigPipelineArtifactManifest: 配置导表产物 manifest 辅助。
 为 GFConfigPipelineProfile 生成输入摘要、输出摘要和 freshness 报告，支持 CI、
 编辑器按钮或命令行在导表前判断是否可以跳过未变化的产物。
@@ -22,7 +22,7 @@
 			</tags>
 		</member>
 		<member kind="const" name="FORMAT_VERSION">
-			<signature>const FORMAT_VERSION: int = 1</signature>
+			<signature>const FORMAT_VERSION: int = 2</signature>
 			<description>manifest 格式版本。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -1645,6 +1645,9 @@ func _poll_pending() -> void:
 		if not cancelled:
 			var progress: float = GFVariantData.get_option_float(load_result, "progress", _get_pending_progress(pending_request))
 			_update_pending_progress(path, pending_request, progress)
+		if _disposed or not is_same(_pending.get(cache_key), pending_request):
+			continue
+		cancelled = _is_pending_cancelled(pending_request)
 
 		match status:
 			_RESOURCE_LEASE_SCRIPT.STATUS_QUEUED, _RESOURCE_LEASE_SCRIPT.STATUS_LOADING:
@@ -1654,6 +1657,9 @@ func _poll_pending() -> void:
 				var resource: Resource = _get_load_result_resource(load_result)
 				if resource != null and not cancelled:
 					_update_pending_progress(path, pending_request, 1.0)
+				if _disposed or not is_same(_pending.get(cache_key), pending_request):
+					continue
+				cancelled = _is_pending_cancelled(pending_request)
 				_erase_dictionary_key(_pending, cache_key)
 				if resource != null and not cancelled:
 					_put_cache_by_key(cache_key, path, resource)

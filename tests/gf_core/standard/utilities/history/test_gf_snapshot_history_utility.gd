@@ -5,6 +5,19 @@ extends GutTest
 # --- 测试方法 ---
 
 ## 验证自定义捕获/恢复回调可前后移动，并在新快照写入时裁剪未来分支。
+func test_restore_callback_clear_does_not_commit_deleted_snapshot() -> void:
+	var history: GFSnapshotHistoryUtility = GFSnapshotHistoryUtility.new()
+	history.configure(Callable(), func(_data: Variant) -> void:
+		history.clear()
+	)
+	var _snapshot: int = history.push_snapshot({"value": 1})
+	watch_signals(history)
+	assert_false(history.restore_index(0))
+	assert_eq(history.current_index, -1)
+	assert_signal_not_emitted(history, "snapshot_restored")
+	history.configure(Callable(), Callable())
+
+
 func test_custom_callbacks_step_and_prune_future_branch() -> void:
 	var state: Dictionary = { "value": 1 }
 	var history: GFSnapshotHistoryUtility = GFSnapshotHistoryUtility.new()

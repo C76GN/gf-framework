@@ -45,12 +45,13 @@
 ### `value_changed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal value_changed(old_value: Variant, new_value: Variant)
 ```
 
-当属性值被设置为不同的新值时发出。 "type": "Variant", "description": "变化前的旧值。" } "type": "Variant", "description": "变化后的新值。" }
+当属性值被设置为不同的新值时发出。
 
 参数：
 
@@ -61,8 +62,8 @@ signal value_changed(old_value: Variant, new_value: Variant)
 
 结构：
 
-- `old_value {`:
-- `new_value {`:
+- `old_value`: {"type": "Variant", "description": "变化前的旧值。"}
+- `new_value`: {"type": "Variant", "description": "变化后的新值。"}
 
 ## 属性
 
@@ -71,16 +72,17 @@ signal value_changed(old_value: Variant, new_value: Variant)
 ### `value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var value: Variant:
 ```
 
-当前属性值。设置该属性等价于调用 `set_value()`。 "type": "Variant", "description": "当前属性值。" }
+当前属性值。设置该属性等价于调用 `set_value()`。
 
 结构：
 
-- `value {`:
+- `value`: {"type": "Variant", "description": "当前属性值。"}
 
 ## 方法
 
@@ -89,12 +91,13 @@ var value: Variant:
 ### `_init`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func _init(default_value: Variant = null) -> void:
 ```
 
-构造函数。 "type": "Variant", "description": "属性的初始值。" }
+构造函数。
 
 参数：
 
@@ -104,37 +107,39 @@ func _init(default_value: Variant = null) -> void:
 
 结构：
 
-- `default_value {`:
+- `default_value`: {"type": "Variant", "description": "属性的初始值。"}
 
 <a id="member-gfbindableproperty-methods-get_value"></a>
 
 ### `get_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_value() -> Variant:
 ```
 
-获取当前属性值。 "type": "Variant", "description": "当前存储的值。" }
+获取当前属性值。
 
 返回：当前存储的值。
 
 结构：
 
-- `return {`:
+- `return`: {"type": "Variant", "description": "当前存储的值。"}
 
 <a id="member-gfbindableproperty-methods-set_value"></a>
 
 ### `set_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func set_value(new_value: Variant) -> void:
 ```
 
-设置属性值。仅当新值与旧值不同时，才会更新并发出 value_changed 信号。 "type": "Variant", "description": "要设置的新值。" }
+设置属性值。仅当新值与旧值不同时，才会更新并发出 value_changed 信号。
 
 参数：
 
@@ -144,7 +149,7 @@ func set_value(new_value: Variant) -> void:
 
 结构：
 
-- `new_value {`:
+- `new_value`: {"type": "Variant", "description": "要设置的新值。"}
 
 <a id="member-gfbindableproperty-methods-subscribe"></a>
 
@@ -274,12 +279,13 @@ func mutate(mutator: Callable) -> bool:
 ### `append_to_array`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func append_to_array(item: Variant) -> bool:
 ```
 
-向当前 Array 追加一个元素。 "type": "Variant", "description": "要追加的元素。" }
+向当前 Array 追加一个元素。
 
 参数：
 
@@ -291,19 +297,20 @@ func append_to_array(item: Variant) -> bool:
 
 结构：
 
-- `item {`:
+- `item`: {"type": "Variant", "description": "要追加的元素。"}
 
 <a id="member-gfbindableproperty-methods-append_array"></a>
 
 ### `append_array`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func append_array(items: Array) -> bool:
 ```
 
-向当前 Array 追加多个元素。 "type": "Array", "description": "要追加的元素列表。" }
+向当前 Array 追加多个元素。
 
 参数：
 
@@ -315,19 +322,20 @@ func append_array(items: Array) -> bool:
 
 结构：
 
-- `items {`:
+- `items`: {"type": "Array", "description": "要追加的元素列表。"}
 
 <a id="member-gfbindableproperty-methods-erase_from_array"></a>
 
 ### `erase_from_array`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func erase_from_array(item: Variant) -> bool:
 ```
 
-从当前 Array 删除一个元素。 "type": "Variant", "description": "要删除的元素。" }
+从当前 Array 删除一个元素。
 
 参数：
 
@@ -339,19 +347,20 @@ func erase_from_array(item: Variant) -> bool:
 
 结构：
 
-- `item {`:
+- `item`: {"type": "Variant", "description": "要删除的元素。"}
 
 <a id="member-gfbindableproperty-methods-set_dictionary_value"></a>
 
 ### `set_dictionary_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func set_dictionary_value(key: Variant, new_value: Variant) -> bool:
 ```
 
-设置当前 Dictionary 的一个键值。 "type": "Variant", "description": "Dictionary 键。" } "type": "Variant", "description": "Dictionary 新值。" }
+设置当前 Dictionary 的一个键值。
 
 参数：
 
@@ -364,20 +373,21 @@ func set_dictionary_value(key: Variant, new_value: Variant) -> bool:
 
 结构：
 
-- `key {`:
-- `new_value {`:
+- `key`: {"type": "Variant", "description": "Dictionary 键。"}
+- `new_value`: {"type": "Variant", "description": "Dictionary 新值。"}
 
 <a id="member-gfbindableproperty-methods-erase_dictionary_key"></a>
 
 ### `erase_dictionary_key`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func erase_dictionary_key(key: Variant) -> bool:
 ```
 
-从当前 Dictionary 删除一个键。 "type": "Variant", "description": "Dictionary 键。" }
+从当前 Dictionary 删除一个键。
 
 参数：
 
@@ -389,7 +399,7 @@ func erase_dictionary_key(key: Variant) -> bool:
 
 结构：
 
-- `key {`:
+- `key`: {"type": "Variant", "description": "Dictionary 键。"}
 
 <a id="member-gfbindableproperty-methods-clear_collection"></a>
 
@@ -410,12 +420,13 @@ func clear_collection() -> bool:
 ### `unbind`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func unbind(node: Variant, callable: Callable) -> void:
 ```
 
-断开指定 Node 与 Callable 的绑定关系。 "type": "Variant", "description": "绑定生命周期的 Node；已失效对象会触发失效绑定清理。" }
+断开指定 Node 与 Callable 的绑定关系。
 
 参数：
 
@@ -426,7 +437,7 @@ func unbind(node: Variant, callable: Callable) -> void:
 
 结构：
 
-- `node {`:
+- `node`: {"type": "Variant", "description": "绑定生命周期的 Node；已失效对象会触发失效绑定清理。"}
 
 <a id="member-gfbindableproperty-methods-unbind_all"></a>
 

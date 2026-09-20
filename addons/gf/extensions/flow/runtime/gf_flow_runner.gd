@@ -462,9 +462,15 @@ func _execute_node_with_runtime_state(
 		return null
 
 	var original_state: Dictionary = node.serialize_runtime_state()
+	var executing_node_id: StringName = node.node_id
 	_apply_context_runtime_state_to_node(node, context)
-	var result: Variant = node.execute(context)
-	_store_node_runtime_state_in_context(node, context)
+	var result: Variant = null
+	if context.begin_node_runtime_execution(executing_node_id, node):
+		result = node.execute(context)
+		context.end_node_runtime_execution(executing_node_id)
+	else:
+		_abort_reason = &"context_node_runtime_state_busy"
+		push_error("[GFFlowRunner] Context 节点运行态正被另一同步执行占用：%s" % String(executing_node_id))
 	node.clear_runtime_state()
 	node.deserialize_runtime_state(original_state)
 	if not node.end_runtime_state_lease_write(runtime_state_lease_id):
@@ -477,10 +483,6 @@ func _execute_node_with_runtime_state(
 func _apply_context_runtime_state_to_node(node: GFFlowNode, context: GFFlowContext) -> void:
 	node.clear_runtime_state()
 	node.deserialize_runtime_state(_get_context_node_runtime_state(context, node.node_id))
-
-
-func _store_node_runtime_state_in_context(node: GFFlowNode, context: GFFlowContext) -> void:
-	context.replace_node_runtime_state(node.node_id, node.serialize_runtime_state())
 
 
 func _get_context_node_runtime_state(context: GFFlowContext, node_id: StringName) -> Dictionary:

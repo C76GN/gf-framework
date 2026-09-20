@@ -699,6 +699,12 @@ func _build_message_records(contract: GFNetworkContract) -> Array[Dictionary]:
 
 	var used_suffixes: Dictionary = {}
 	var used_constants: Dictionary = {}
+	var used_methods: Dictionary = {
+		"get_contract_version": true,
+		"validate_peer_contract_version": true,
+		"_get_payload_value": true,
+		"_send_contract_message": true,
+	}
 	for message_contract: GFNetworkContractMessage in contract.messages:
 		if message_contract == null:
 			continue
@@ -715,6 +721,8 @@ func _build_message_records(contract: GFNetworkContract) -> Array[Dictionary]:
 			"CHANNEL_%s" % _to_constant_name(String(message_contract.message_type), "MESSAGE"),
 			used_constants
 		)
+		for method_name: String in ["make_%s" % suffix, "send_%s" % suffix, "is_%s" % suffix, "get_%s_payload" % suffix]:
+			used_methods[method_name] = true
 		records.append({
 			"message": message_contract,
 			"suffix": suffix,
@@ -722,6 +730,14 @@ func _build_message_records(contract: GFNetworkContract) -> Array[Dictionary]:
 			"channel_constant": channel_constant,
 			"field_records": _build_field_records(message_contract, used_constants),
 		})
+	for record: Dictionary in records:
+		var field_records: Array = _get_record_array(record, "field_records")
+		for field_record: Dictionary in field_records:
+			field_record["accessor_name"] = _make_unique_name(
+				"get_%s_%s" % [_get_record_string(record, "suffix"), _get_record_string(field_record, "accessor_suffix")],
+				used_methods
+			)
+		record["field_records"] = field_records
 	return records
 
 
@@ -735,6 +751,9 @@ func _build_field_records(
 	used_parameters["options"] = true
 	used_parameters["network"] = true
 	used_parameters["peer_id"] = true
+	used_parameters["payload"] = true
+	used_parameters["message"] = true
+	used_parameters["channel_id"] = true
 
 	var message_constant_part: String = _to_constant_name(String(message_contract.message_type), "MESSAGE")
 	for field: GFNetworkContractField in _ordered_fields(message_contract.fields):
@@ -902,7 +921,7 @@ func _append_message_methods(builder: GFSourceBuilder, record: Dictionary) -> vo
 	builder.blank(2)
 
 	for field_record: Dictionary in field_records:
-		_append_field_getter(builder, suffix, field_record)
+		_append_field_getter(builder, field_record)
 
 
 func _append_payload_builder(builder: GFSourceBuilder, field_records: Array) -> void:
@@ -926,17 +945,16 @@ func _append_payload_builder(builder: GFSourceBuilder, field_records: Array) -> 
 		])
 
 
-func _append_field_getter(builder: GFSourceBuilder, suffix: String, field_record: Dictionary) -> void:
+func _append_field_getter(builder: GFSourceBuilder, field_record: Dictionary) -> void:
 	var field: GFNetworkContractField = _get_record_field(field_record)
 	if field == null:
 		return
-	var field_suffix: String = _get_record_string(field_record, "accessor_suffix", "field")
+	var accessor_name: String = _get_record_string(field_record, "accessor_name")
 	var return_type: String = _get_accessor_return_type(field)
 	var default_literal: String = _get_default_literal(field)
 	builder.doc("读取 %s 字段。" % String(field.field_name))
-	builder.line("static func get_%s_%s(message: GFNetworkMessage, default_value: %s = %s) -> %s:" % [
-		suffix,
-		field_suffix,
+	builder.line("static func %s(message: GFNetworkMessage, default_value: %s = %s) -> %s:" % [
+		accessor_name,
 		return_type,
 		default_literal,
 		return_type,

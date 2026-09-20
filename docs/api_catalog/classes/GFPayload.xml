@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPayload" path="addons/gf/kernel/base/gf_payload.gd" module="kernel" extends="RefCounted" classDigest="1fc49c8d5a87354c9e30a13fe6f8b32c648d2a4c7e755631ab602bf6ecf0fe94">
+<class name="GFPayload" path="addons/gf/kernel/base/gf_payload.gd" module="kernel" extends="RefCounted" classDigest="bdbb7bca6654d2bec8bb4b9d914e611683f0eb665fa19720ac6ba60f6ed6837d">
 	<description>GFPayload: 强类型数据载体的抽象基类。
 继承自 RefCounted，用作事件传递、命令参数、系统间查询返回值的
 标准化强类型数据包，替代容易在大型项目中引发类型错误和 null 访问的裸 Dictionary。
@@ -32,27 +32,23 @@
 		<member kind="method" name="to_dict">
 			<signature>func to_dict() -&gt; Dictionary:</signature>
 			<description>将此载体序列化为字典，便于存档、网络传输或日志记录。
-子类应重写此方法以包含所有相关字段。
-"type": "Dictionary",
-"additional_properties": true
-}</description>
+子类应重写此方法以包含所有相关字段。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">包含字段数据的字典。</tag>
-				<tag name="schema">return {</tag>
+				<tag name="schema">return: {"type": "Dictionary", "additional_properties": true}</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="from_dict">
 			<signature>func from_dict(_data: Dictionary) -&gt; void:</signature>
 			<description>从字典反序列化并填充此载体的字段。
-子类应重写此方法以恢复所有相关字段。
-"type": "Dictionary",
-"additional_properties": true
-}</description>
+子类应重写此方法以恢复所有相关字段。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">_data: 包含字段数据的字典（通常来自 to_dict() 的结果）。</tag>
-				<tag name="schema">_data {</tag>
+				<tag name="schema">_data: {"type": "Dictionary", "additional_properties": true}</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate">

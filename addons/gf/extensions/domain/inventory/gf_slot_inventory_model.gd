@@ -454,11 +454,17 @@ func add_item(
 		return GFInventoryOperationResult.partial(item_id, amount, 0, &"invalid_request")
 	if not _accepts_item(item_id):
 		return GFInventoryOperationResult.partial(item_id, amount, 0, &"item_not_registered")
-	if not partial_add and get_remaining_capacity_for_item(item_id, instance_data) < amount:
-		return GFInventoryOperationResult.partial(item_id, amount, 0, &"not_enough_space")
 	if not _begin_inventory_mutation("add_item"):
 		return GFInventoryOperationResult.partial(item_id, amount, 0, &"reentrant_mutation")
 
+	var original_slots: Array = _slots
+	var original_definitions: Array[GFInventorySlotDefinition] = _slot_definitions
+	if not partial_add:
+		_slots = []
+		for stack_value: Variant in original_slots:
+			var stack: GFInventoryStack = _get_inventory_stack_value(stack_value)
+			_slots.append(stack.duplicate_stack() if stack != null else null)
+		_slot_definitions = original_definitions.duplicate()
 	var normalized_data: Dictionary = _normalize_instance_data(item_id, instance_data)
 	var remaining: int = amount
 	for slot_index: int in _ordered_slot_indices(start_slot):
@@ -481,6 +487,16 @@ func add_item(
 
 	var accepted: int = amount - remaining
 	var reason: StringName = &"ok" if remaining <= 0 else &"not_enough_space"
+	if not partial_add and remaining > 0:
+		_slots = original_slots
+		_slot_definitions = original_definitions
+		_mark_index_dirty()
+		_inventory_changed_pending = false
+		_pending_slot_changes.clear()
+		_pending_slot_change_order.clear()
+		_pending_item_added_events.clear()
+		_pending_item_removed_events.clear()
+		accepted = 0
 	_end_inventory_mutation()
 	return GFInventoryOperationResult.partial(item_id, amount, accepted, reason)
 

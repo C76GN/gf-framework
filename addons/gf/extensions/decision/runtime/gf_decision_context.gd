@@ -348,18 +348,27 @@ func _ensure_blackboard() -> GFDecisionBlackboard:
 func _set_subject(value: Object) -> void:
 	_reset_capture_slot(&"subject")
 	_subject_ref = weakref(value) if value != null else null
-	subject_values = _snapshot_decision_object(value, &"subject")
+	var entries: Dictionary = _get_capture_entries(&"subject")
+	var snapshot: Dictionary = _snapshot_decision_object(value, &"subject")
+	if not is_same(entries, _get_capture_entries(&"subject")):
+		return
+	subject_values = snapshot
 	_seed_capture_entries(&"subject", subject_values)
 
 
 func _set_target(value: Object) -> void:
 	_reset_capture_slot(&"target")
 	_target_ref = weakref(value) if value != null else null
-	target_values = _snapshot_decision_object(value, &"target")
+	var entries: Dictionary = _get_capture_entries(&"target")
+	var snapshot: Dictionary = _snapshot_decision_object(value, &"target")
+	if not is_same(entries, _get_capture_entries(&"target")):
+		return
+	target_values = snapshot
 	_seed_capture_entries(&"target", target_values)
 
 
 func _snapshot_decision_object(object_ref: Object, capture_slot: StringName) -> Dictionary:
+	var entries: Dictionary = _get_capture_entries(capture_slot)
 	_capture_diagnostics[capture_slot] = {
 		"truncated": false,
 		"captured_count": 0,
@@ -370,6 +379,8 @@ func _snapshot_decision_object(object_ref: Object, capture_slot: StringName) -> 
 
 	if _can_invoke_provider_method(object_ref, &"get_decision_snapshot", 0):
 		var method_snapshot: Variant = object_ref.call("get_decision_snapshot")
+		if not is_same(entries, _get_capture_entries(capture_slot)):
+			return {}
 		if method_snapshot is Dictionary:
 			var method_result: Dictionary = _copy_snapshot_dictionary(
 				GFVariantData.as_dictionary(method_snapshot),
@@ -380,6 +391,8 @@ func _snapshot_decision_object(object_ref: Object, capture_slot: StringName) -> 
 			return method_result
 	if _can_invoke_provider_method(object_ref, &"get_decision_values", 0):
 		var method_values: Variant = object_ref.call("get_decision_values")
+		if not is_same(entries, _get_capture_entries(capture_slot)):
+			return {}
 		if method_values is Dictionary:
 			var values_result: Dictionary = _copy_snapshot_dictionary(
 				GFVariantData.as_dictionary(method_values),
@@ -415,6 +428,7 @@ func _copy_snapshot_dictionary(
 
 
 func _snapshot_object_properties(object_ref: Object, capture_slot: StringName) -> Dictionary:
+	var entries: Dictionary = _get_capture_entries(capture_slot)
 	var snapshot: Dictionary = {}
 	var limit: int = _get_capture_limit("max_reflection_properties", DEFAULT_MAX_REFLECTION_PROPERTIES)
 	var eligible_count: int = 0
@@ -429,6 +443,8 @@ func _snapshot_object_properties(object_ref: Object, capture_slot: StringName) -
 		if snapshot.size() >= limit:
 			continue
 		var value: Variant = object_ref.get(property_name)
+		if not is_same(entries, _get_capture_entries(capture_slot)):
+			return {}
 		snapshot[StringName(property_name)] = GFVariantData.duplicate_variant(value)
 	_set_capture_diagnostics(capture_slot, &"reflection", snapshot.size(), eligible_count > snapshot.size(), limit)
 	return snapshot

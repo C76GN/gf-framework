@@ -40,6 +40,7 @@ const _BRANCH_CONFIGURATION_SIGNATURE_KEY: String = "branch_configuration_signat
 
 ## 玩家级动作是否只检查同一玩家。启用且 player_index 有效时，runtime 必须提供
 ## 完整 player-specific active/started/completed/duration 协议，否则序列不推进。
+## 所有序列都要求 runtime 提供动作边沿版本，避免重复消费同一次输入。
 ## [br]
 ## @api public
 ## [br]
@@ -145,7 +146,7 @@ func _advance_branches(
 	effective_branches: Array[GFInputSequenceBranch]
 ) -> void:
 	var input_runtime: Object = _get_input_runtime(state)
-	if input_runtime == null:
+	if input_runtime == null or not input_runtime.has_method("get_action_edge_revision_for_framework"):
 		return
 	var player_index: int = _get_runtime_player_index(state)
 	if player_scoped and player_index >= 0 and not _has_complete_player_query_protocol(input_runtime):
@@ -268,7 +269,11 @@ func _advance_step(
 	var elapsed: float = _get_step_elapsed(branch_state)
 	var just_started: bool = _was_action_just_started(input_runtime, step.action_id, player_index)
 
-	if step.trigger_on_release and _was_action_just_completed(input_runtime, step.action_id, player_index):
+	if (
+		step.trigger_on_release
+		and _was_action_just_completed(input_runtime, step.action_id, player_index)
+		and _consume_action_edge(branch_state, input_runtime, step.action_id, player_index, true)
+	):
 		elapsed = maxf(elapsed, _get_last_completed_duration(input_runtime, step.action_id, player_index))
 		branch_state["step_elapsed"] = elapsed
 		branch_state["step_started"] = false
@@ -278,7 +283,10 @@ func _advance_step(
 		_reset_branch_progress(branch_state)
 		return false
 
-	if just_started or (not started and is_active and (step.trigger_on_release or step.min_hold_seconds > 0.0)):
+	var may_start: bool = just_started or (
+		not started and is_active and (step.trigger_on_release or step.min_hold_seconds > 0.0)
+	)
+	if may_start and _consume_action_edge(branch_state, input_runtime, step.action_id, player_index, false):
 		started = true
 		elapsed = maxf(delta, 0.0) if is_active else 0.0
 	elif started and is_active:
@@ -304,6 +312,28 @@ func _advance_step(
 	if not is_active and was_active:
 		_reset_branch_progress(branch_state)
 	return false
+
+
+func _consume_action_edge(
+	branch_state: Dictionary,
+	input_runtime: Object,
+	action_id: StringName,
+	player_index: int,
+	completed: bool
+) -> bool:
+	var revision: int = GFVariantData.to_int(input_runtime.call(
+		"get_action_edge_revision_for_framework",
+		action_id,
+		player_index if player_scoped else -1,
+		completed
+	))
+	var key: String = "consumed_completed_edges" if completed else "consumed_started_edges"
+	var consumed_edges: Dictionary = GFVariantData.get_option_dictionary(branch_state, key)
+	if revision <= GFVariantData.get_option_int(consumed_edges, action_id):
+		return false
+	consumed_edges[action_id] = revision
+	branch_state[key] = consumed_edges
+	return true
 
 
 func _should_reset_for_gap(

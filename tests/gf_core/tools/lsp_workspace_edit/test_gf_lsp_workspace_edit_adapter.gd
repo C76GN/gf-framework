@@ -510,8 +510,30 @@ func test_build_rejects_portable_path_collision() -> void:
 	assert_true(_plan_has_issue(plan, "portable_path_collision"))
 
 
+func test_build_rejects_wrong_case_in_project_relative_suffix() -> void:
+	var fixture: Dictionary = _make_valid_fixture("suffix_case", 1, "var value = 1\n")
+	var target_path: String = GFVariantData.get_option_string(fixture, "target_path")
+	var wrong_path: String = target_path.get_base_dir().path_join(target_path.get_file().get_basename().to_upper() + ".gd")
+	var wrong_uri: String = _resource_path_to_file_uri(wrong_path)
+	var snapshot: Dictionary = GFVariantData.get_option_dictionary(fixture, "snapshot").duplicate(true)
+	var documents: Array = GFVariantData.get_option_array(snapshot, "documents")
+	var document: Dictionary = documents[0]
+	document["uri"] = wrong_uri
+	documents[0] = document
+	snapshot["documents"] = documents
+	var plan: GFLspWorkspaceEditPlan = _GF_LSP_WORKSPACE_EDIT_ADAPTER_SCRIPT.build_plan({
+		"documentChanges": [{
+			"textDocument": { "uri": wrong_uri, "version": 1 },
+			"edits": [{ "range": { "start": { "line": 0, "character": 12 }, "end": { "line": 0, "character": 13 } }, "newText": "2" }],
+		}],
+	}, snapshot, { "position_encoding": "utf-8" })
+	assert_false(plan.is_valid(), "完整宿主拼写必须精确匹配实际目录条目：%s" % plan.get_report())
+	assert_true(_plan_has_issue(plan, "noncanonical_target_path") or _plan_has_issue(plan, "source_not_found"))
+
+
 func test_build_enforces_file_byte_budget() -> void:
 	var fixture: Dictionary = _make_valid_fixture("budget", 1, "var value = 1\n")
+	_GF_LSP_WORKSPACE_EDIT_ADAPTER_SCRIPT._configure_test_source_read_tracking()
 	var target_uri: String = GFVariantData.get_option_string(fixture, "target_uri")
 	var plan: GFLspWorkspaceEditPlan = (
 		_GF_LSP_WORKSPACE_EDIT_ADAPTER_SCRIPT.build_plan({
@@ -533,6 +555,7 @@ func test_build_enforces_file_byte_budget() -> void:
 
 	assert_false(plan.is_valid(), "调用方预算必须在读取完整目标前生效。")
 	assert_true(_plan_has_issue(plan, "source_file_budget_exceeded"))
+	assert_true(_GF_LSP_WORKSPACE_EDIT_ADAPTER_SCRIPT._get_test_source_read_sizes().is_empty(), "拒绝大小预算前不得读取来源内容或执行整文件摘要。")
 
 
 func test_snapshot_document_count_budget_fails_before_parsing_entries() -> void:

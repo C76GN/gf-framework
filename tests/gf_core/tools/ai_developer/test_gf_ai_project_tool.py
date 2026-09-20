@@ -5641,6 +5641,63 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertTrue(removed["ok"], removed)
 		self.assertEqual(agents_path.read_text(encoding="utf-8"), "# Project-owned instructions\n")
 
+	def test_snapshot_refuses_to_overwrite_project_owned_files(self) -> None:
+		for relative in (".gf/project_contract.json", "project.godot", ".gf/packages.lock.json"):
+			with self.subTest(relative=relative):
+				path = self.project_root / relative
+				before = path.read_bytes()
+				with self.assertRaises(ValueError):
+					snapshot.write_snapshot(self.project_root, output_relative_path=relative)
+				self.assertEqual(path.read_bytes(), before)
+		custom = ".gf/custom_snapshot.json"
+		snapshot.write_snapshot(self.project_root, output_relative_path=custom)
+		snapshot.write_snapshot(self.project_root, output_relative_path=custom)
+		before = (self.project_root / custom).read_bytes()
+		with self.assertRaises(ValueError):
+			snapshot.write_snapshot(self.project_root, contract_relative_path=custom, output_relative_path=custom)
+		self.assertEqual((self.project_root / custom).read_bytes(), before)
+
+	def test_agent_operations_reject_edits_between_status_and_planning(self) -> None:
+		for action in (adapters.install_agents, adapters.uninstall_agents):
+			with self.subTest(action=action.__name__):
+				self.assertTrue(adapters.install_agents(self.project_root, ["cursor"], replace_drifted=True)["ok"])
+				cursor_path = self.project_root / ".cursor/rules/gf-framework.mdc"
+				original_status = adapters.agent_status
+				user_edit = b"project-owned concurrent edit\n"
+
+				def edit_after_status(*args: Any, **kwargs: Any) -> dict[str, Any]:
+					result = original_status(*args, **kwargs)
+					cursor_path.write_bytes(user_edit)
+					return result
+
+				with mock.patch.object(adapters, "agent_status", side_effect=edit_after_status):
+					result = action(self.project_root, ["cursor"])
+				self.assertFalse(result["ok"], result)
+				self.assertEqual(cursor_path.read_bytes(), user_edit)
+
+	def test_feedback_rechecks_contract_after_duplicate_lookup(self) -> None:
+		for change in ("revoke", "summary"):
+			with self.subTest(change=change):
+				self._enable_network_feedback()
+				draft = feedback.draft_feedback(self.project_root, self._framework_bug_candidate())["draft"]
+				commands: list[list[str]] = []
+
+				def runner(command: list[str], **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+					commands.append(command)
+					contract_path = self.project_root / ".gf/project_contract.json"
+					contract_data = json.loads(contract_path.read_text(encoding="utf-8"))
+					if change == "revoke":
+						contract_data["feedback"]["allow_network_submission"] = False
+					else:
+						contract_data["project"]["summary"] = "Edited during duplicate lookup"
+					contract_path.write_text(json.dumps(contract_data), encoding="utf-8")
+					return subprocess.CompletedProcess(command, 0, stdout="[]", stderr="")
+
+				with mock.patch.object(feedback.shutil, "which", return_value="gh"):
+					result = feedback.submit_issue(self.project_root, draft, draft["submission_sha256"], runner=runner, human_approved=True)
+				self.assertFalse(result["ok"], result)
+				self.assertEqual([command[1:3] for command in commands], [["issue", "list"]])
+
 	def test_agent_install_rolls_back_exact_bytes_and_reports_restore_failures(self) -> None:
 		agents_path = self.project_root / "AGENTS.md"
 		original = b"# Project-owned instructions\r\n"

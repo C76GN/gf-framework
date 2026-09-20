@@ -278,8 +278,9 @@ func clear_queue(stop_current: bool = false) -> void:
 		_set_paused(false)
 		_cancel_current_action()
 		is_processing = false
-		if was_processing:
+		if was_processing and not _has_queued_actions() and not _is_disposed:
 			queue_drained.emit()
+		_try_start_processing()
 	_publish_diagnostics_contribution()
 
 
@@ -557,6 +558,7 @@ func resume_current_action() -> bool:
 func finish_current_action() -> void:
 	if _current_action_control_in_progress:
 		return
+	var was_processing: bool = is_processing
 	_processing_serial += 1
 	_set_paused(false)
 	var action: Object = _current_action
@@ -568,6 +570,8 @@ func finish_current_action() -> void:
 		_current_action_control_in_progress = false
 		_flush_deferred_action_cancellations()
 	is_processing = false
+	if was_processing and not _has_queued_actions() and not _is_disposed:
+		queue_drained.emit()
 	_try_start_processing()
 
 

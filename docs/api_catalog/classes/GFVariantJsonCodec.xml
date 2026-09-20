@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVariantJsonCodec" path="addons/gf/standard/foundation/variant/gf_variant_json_codec.gd" module="standard" extends="RefCounted" classDigest="4178ed3adba3cfab573359a8ede41ff1de4d5bf777a7eb3ccf4970858b4cf47c">
+<class name="GFVariantJsonCodec" path="addons/gf/standard/foundation/variant/gf_variant_json_codec.gd" module="standard" extends="RefCounted" classDigest="dce729718ab65c1a9413fc164a422a36015c19aa8cf54b1d3cabfe9d86e653be">
 	<description>GFVariantJsonCodec: Godot Variant 的 JSON 兼容编码器。
 负责在 JSON.stringify() 可编码的数据和常见 Godot Variant 类型之间往返转换。
 该类不负责集合复制或默认值合并；这类数据操作由 GFVariantData 提供。</description>
@@ -39,6 +39,34 @@
 				<tag name="schema">options: Dictionary with decode_typed_markers, key decoding, max_depth, max_nodes, max_collection_items, and traversal_limit options.</tag>
 				<tag name="schema">return: Variant restored from JSON-compatible data, or the traversal_limit fallback when traversal is incomplete.</tag>
 				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="variant_to_json_compatible_result">
+			<signature>static func variant_to_json_compatible_result(value: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>编码可恢复数据，并显式报告预算耗尽、循环引用及不支持的值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 待编码值。</tag>
+				<tag name="param">options: 与 variant_to_json_compatible 相同的编码选项。</tag>
+				<tag name="return">完整编码结果；失败不返回部分值。</tag>
+				<tag name="schema">value: 任意待编码 Variant。</tag>
+				<tag name="schema">options: 包含 encode_dictionary_keys、encode_unsafe_ints、max_depth、max_nodes 和 max_collection_items 的 Dictionary。</tag>
+				<tag name="schema">return: Dictionary，包含 ok: bool、value: Variant、error: String；失败时 value 为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="json_compatible_to_variant_result">
+			<signature>static func json_compatible_to_variant_result(value: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>解码可恢复数据；预算耗尽、不可恢复标记和损坏的类型载荷会返回失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 已编码的值。</tag>
+				<tag name="param">options: 与 json_compatible_to_variant 相同的解码选项。</tag>
+				<tag name="return">完整解码结果；失败不返回部分值。</tag>
+				<tag name="schema">value: GF JSON 兼容数据和类型标记。</tag>
+				<tag name="schema">options: 包含 decode_typed_markers、max_depth、max_nodes 和 max_collection_items 的 Dictionary。</tag>
+				<tag name="schema">return: Dictionary，包含 ok: bool、value: Variant、error: String；失败时 value 为 null。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="stringify_json_compatible">

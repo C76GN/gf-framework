@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBehaviorTree" path="addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd" module="extensions/behavior_tree" extends="Object" classDigest="8705d8234c7d939b2ec4987ad59749d9456cba345f1edc3b0f006b5f859b0ea1">
+<class name="GFBehaviorTree" path="addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd" module="extensions/behavior_tree" extends="Object" classDigest="e96d7a1cded7622fff639c5496703e661c38350f4f560bc08be89ece8ef0dae5">
 	<description>GFBehaviorTree: 轻量级、纯代码的行为树实现。
 提供无需编辑器的、以代码方式构建 AI 或通用决策逻辑的轻量方案。
 可以在任何 System 中通过 Runner 来驱动 tick()。核心节点包含
@@ -249,7 +249,8 @@ override 内部工作。Runner 会在黑板键物化前限流。通用 Object �
 				<member kind="method" name="reset">
 					<signature>func reset() -&gt; void:</signature>
 					<description>重置节点内部运行状态。
-基类不会取消项目持有的外部异步工作；需要清理外部所有权的自定义节点必须重写。</description>
+基类不会取消项目持有的外部异步工作；自定义重写必须调用 super.reset()，
+使回调内的重置中止旧 tick，并自行清理外部所有权。</description>
 					<tags>
 						<tag name="api">public</tag>
 						<tag name="since">3.17.0</tag>
@@ -497,7 +498,7 @@ Sequence、Decorator 等具体内置节点的自定义子类。默认实现或�
 				<member kind="method" name="set_child">
 					<signature>func set_child(child_node: BTNode) -&gt; Decorator:</signature>
 					<description>设置被装饰的子节点。
-替换不同 child 前会先 reset 旧 child；重复设置同一 identity 是无操作。</description>
+替换不同 child 时先提交新 child，再 reset 旧 child；重复设置同一 identity 是无操作。</description>
 					<tags>
 						<tag name="api">public</tag>
 						<tag name="param">child_node: 子节点。</tag>

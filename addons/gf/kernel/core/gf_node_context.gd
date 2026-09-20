@@ -53,6 +53,8 @@ enum _ContextState {
 	WAITING_INITIALIZATION,
 	INITIALIZING,
 	READY,
+	CLOSING,
+	CLOSED,
 	FAILED,
 }
 
@@ -310,7 +312,7 @@ func get_context_failure_reason() -> String:
 ## @return 初始化完成的架构；上下文失效或初始化失败时返回 null。
 func initialize_context() -> GFArchitecture:
 	_synchronize_context_lifecycle()
-	if _context_state == _ContextState.FAILED or _context_state == _ContextState.DETACHED:
+	if _context_state == _ContextState.FAILED or _context_state == _ContextState.DETACHED or _is_context_ending():
 		return null
 	if _architecture == null:
 		return null
@@ -369,13 +371,13 @@ func initialize_context() -> GFArchitecture:
 ## @return 当前上下文架构；上下文失效时返回 null。
 func wait_until_ready() -> GFArchitecture:
 	_synchronize_context_lifecycle()
-	if _context_state == _ContextState.FAILED or _context_state == _ContextState.DETACHED:
+	if _context_state == _ContextState.FAILED or _context_state == _ContextState.DETACHED or _is_context_ending():
 		return null
 	var start_msec: int = Time.get_ticks_msec()
 	var lifecycle_serial: int = _context_lifecycle_serial
 	while _architecture != null and not _architecture.is_inited():
 		_synchronize_context_lifecycle()
-		if _context_state == _ContextState.FAILED:
+		if _context_state == _ContextState.FAILED or _is_context_ending():
 			return null
 		if not is_inside_tree():
 			return null
@@ -721,15 +723,24 @@ func _fail_context(reason: String, allow_ready_transition: bool = false) -> void
 	context_failed.emit(reason)
 
 
+func _is_context_ending() -> bool:
+	return _context_state == _ContextState.CLOSING or _context_state == _ContextState.CLOSED
+
+
 func _synchronize_context_lifecycle() -> void:
 	if (
 		_context_state == _ContextState.DETACHED
 		or _context_state == _ContextState.FAILED
+		or _context_state == _ContextState.CLOSED
 		or _architecture == null
 	):
 		return
 	var allow_ready_transition: bool = _context_state == _ContextState.READY
 	if _owns_architecture and _architecture.is_disposed():
+		var shutdown_result: GFArchitectureShutdownResult = _architecture.get_last_shutdown_result()
+		if shutdown_result != null and shutdown_result.get_status() != GFArchitectureShutdownResult.Status.FORCED:
+			_context_state = _ContextState.CLOSED
+			return
 		_fail_context("上下文架构生命周期已结束。", allow_ready_transition)
 		return
 	if _owns_architecture and _architecture.has_initialization_failed():
@@ -742,6 +753,9 @@ func _synchronize_context_lifecycle() -> void:
 		)
 		return
 	if not _validate_parent_architecture_lifecycle(true):
+		return
+	if _owns_architecture and _architecture.is_quiescing():
+		_context_state = _ContextState.CLOSING
 		return
 	if _context_state == _ContextState.READY and not _architecture.is_inited():
 		_fail_context("上下文架构生命周期已失效。", true)

@@ -1287,6 +1287,9 @@ func _apply_recipe_entry(
 	for created_type: Script in created_types:
 		if created_type != null and not added_types.has(created_type):
 			added_types.append(created_type)
+	if registered_type == null or not has_capability(receiver, registered_type) or is_capability_active(receiver, registered_type) != entry.active:
+		_append_recipe_failure(result, index, "active_state_failed", "Capability active state could not be applied.")
+		return
 
 	var entry_report: Dictionary = {
 		"index": index,

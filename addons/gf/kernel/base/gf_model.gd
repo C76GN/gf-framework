@@ -195,12 +195,11 @@ func get_save_key() -> StringName:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 包含模型状态数据的字典。
 ## [br]
-## @schema return {
-##   "type": "Dictionary",
-##   "additional_properties": true
-## }
+## @schema return: {"type": "Dictionary", "additional_properties": true}
 func to_dict() -> Dictionary:
 	return {}
 
@@ -210,12 +209,11 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _data: 包含状态数据的字典（通常来自 to_dict() 的结果）。
 ## [br]
-## @schema _data {
-##   "type": "Dictionary",
-##   "additional_properties": true
-## }
+## @schema _data: {"type": "Dictionary", "additional_properties": true}
 func from_dict(_data: Dictionary) -> void:
 	pass
 
@@ -277,14 +275,13 @@ func send_event(event_instance: Object) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param event_id: StringName 事件标识符。
 ## [br]
 ## @param payload: 可选的事件附加数据。
 ## [br]
-## @schema payload {
-##   "type": "Variant",
-##   "description": "事件附加数据；由事件消费者约定结构。"
-## }
+## @schema payload: {"type": "Variant", "description": "事件附加数据；由事件消费者约定结构。"}
 func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:

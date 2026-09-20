@@ -35,6 +35,18 @@ func test_region_map_2d_clear_marks_removed_regions_dirty() -> void:
 	assert_true(region_map.get_dirty_region_keys().has(Vector2i(1, 0)), "清空多个已有区域应分别标脏。")
 
 
+func test_clear_keeps_unconsumed_deleted_region_marks() -> void:
+	var region_map: GFRegionMap2D = GFRegionMap2D.new()
+	region_map.set_cell(Vector2i.ZERO, "value")
+	region_map.clear_dirty()
+	assert_true(region_map.erase_cell(Vector2i.ZERO))
+	region_map.clear()
+	region_map.clear()
+	assert_eq(region_map.get_dirty_region_keys(), [Vector2i.ZERO])
+	region_map.clear_dirty()
+	assert_true(region_map.get_dirty_region_keys().is_empty())
+
+
 func test_region_map_2d_reindexes_cells_when_region_size_changes() -> void:
 	var region_map: GFRegionMap2D = GFRegionMap2D.new()
 	region_map.region_size = Vector2i(4, 4)

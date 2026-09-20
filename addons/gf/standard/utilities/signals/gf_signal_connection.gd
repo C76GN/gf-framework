@@ -497,11 +497,10 @@ func _process_async(args: Array, lifecycle_serial: int) -> void:
 
 	var final_args: Array = _default_args.duplicate()
 	final_args.append_array(current_args)
-	var _callback_result: Variant = _callback.callv(final_args)
-
 	if _is_once or should_disconnect_after_callback:
 		disconnect_signal()
 		_unregister_from_utility()
+	var _callback_result: Variant = _callback.callv(final_args)
 
 
 func _wait_seconds(seconds: float, lifecycle_serial: int) -> void:

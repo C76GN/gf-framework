@@ -80,6 +80,7 @@ var _adapter_id: StringName = &""
 var _platform_id: StringName = &""
 var _contract_ids: PackedStringArray = PackedStringArray()
 var _state: State = State.CREATED
+var _configuration_sealed: bool = false
 var _context: GFPlatformRuntimeContext = GFPlatformRuntimeContext.new()
 var _initialization: GFAsyncCompletion = null
 var _lifecycle_sequence: int = 0
@@ -93,7 +94,8 @@ var _active_method_counts: Dictionary = {}
 
 ## 配置 adapter 身份和支持的桥接契约。
 ##
-## 配置只允许在 CREATED 状态执行，防止运行期间改变路由身份。
+## 配置只允许在尚未注册的 CREATED 状态执行。首次注册后身份和契约永久冻结；
+## 注销后需要不同配置时，创建新 adapter 实例。
 ## [br]
 ## @api public
 ## [br]
@@ -119,7 +121,7 @@ func configure(
 	contract_descriptors: Array[GFPlatformContractDescriptor],
 	initial_context: GFPlatformRuntimeContext = null
 ) -> bool:
-	if _state != State.CREATED:
+	if _state != State.CREATED or _configuration_sealed:
 		return false
 	var normalized_adapter_id: StringName = StringName(String(adapter_id).strip_edges())
 	var normalized_platform_id: StringName = StringName(String(platform_id).strip_edges())
@@ -273,6 +275,8 @@ func initialize(options: Dictionary = {}) -> GFAsyncCompletion:
 	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
 	_initialization = completion
 	_set_state(State.INITIALIZING)
+	if _state != State.INITIALIZING or _initialization != completion:
+		return completion
 	_initialize(options.duplicate(true))
 	return completion
 
@@ -662,6 +666,17 @@ func _fail_request(
 
 
 # --- 层内方法 ---
+
+## 首次注册前冻结路由身份和契约集合。
+## [br]
+## @api layer_internal
+## [br]
+## @layer standard/platform
+## [br]
+## @since 11.0.0
+func seal_configuration_from_runtime() -> void:
+	_configuration_sealed = true
+
 
 ## 使用 Runtime 已捕获的单调起始时间发起桥接请求。
 ## [br]

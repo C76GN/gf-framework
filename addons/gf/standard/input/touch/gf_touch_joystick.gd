@@ -205,6 +205,8 @@ var _direction: Vector2 = Vector2.ZERO
 var _rest_global_position: Vector2 = Vector2.ZERO
 var _empty_active_region_warning_emitted: bool = false
 var _gesture_binding_active: bool = false
+var _gesture_generation: int = 0
+var _release_in_progress: bool = false
 var _active_position_mode: PositionMode = PositionMode.FIXED
 var _active_action_left: StringName = &""
 var _active_action_right: StringName = &""
@@ -262,6 +264,8 @@ func get_direction() -> Vector2:
 ## [br]
 ## @api public
 func release() -> void:
+	if _release_in_progress:
+		return
 	var was_active: bool = (
 		is_touch_active()
 		or _direction != Vector2.ZERO
@@ -269,11 +273,14 @@ func release() -> void:
 	)
 	if not was_active:
 		return
+	_release_in_progress = true
+	_gesture_generation += 1
+	var _released_touch: bool = _release_touch_capture()
 	_set_direction(Vector2.ZERO, Vector2.ZERO)
 	if _gesture_binding_active and _position_mode_uses_touch_origin(_active_position_mode):
 		global_position = _rest_global_position
-	var _released_touch: bool = _release_touch_capture()
 	_clear_gesture_binding()
+	_release_in_progress = false
 	joystick_released.emit()
 
 
@@ -303,8 +310,10 @@ func _handle_drag(event: InputEventScreenDrag) -> void:
 
 
 func _begin_touch(touch_index: int, global_pos: Vector2, local_pos: Vector2) -> void:
-	if not _try_capture_touch_index(touch_index):
+	if _release_in_progress or not _try_capture_touch_index(touch_index):
 		return
+	_gesture_generation += 1
+	var generation: int = _gesture_generation
 	_capture_gesture_binding()
 	if _position_mode_uses_touch_origin(_active_position_mode):
 		_rest_global_position = global_position
@@ -312,6 +321,8 @@ func _begin_touch(touch_index: int, global_pos: Vector2, local_pos: Vector2) -> 
 		local_pos = Vector2.ZERO
 	_knob_position = Vector2.ZERO
 	joystick_pressed.emit()
+	if generation != _gesture_generation or not _touch_matches(touch_index):
+		return
 	_update_from_local_position(local_pos)
 
 

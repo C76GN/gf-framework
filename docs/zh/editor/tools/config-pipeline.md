@@ -76,6 +76,8 @@ JSON 导出包含稳定格式标识、数据库 ID、版本、元数据、表名
 
 需要做增量导表时，可以让 Runner 为导出结果写入 artifact manifest。manifest 会记录 Profile 语义摘要及其 Resource 依赖、编译时来源收据、输出文件、影响产物内容的导表选项、编译器指纹和本次运行摘要。Profile 依赖会递归覆盖外置 schema、列、索引、引用和自定义校验器脚本；编译器指纹则包含编译契约版本、GF/Godot 版本，以及每个实际阶段的稳定 ID、`implementation_version`、实现路径、实现文件摘要和声明的辅助实现摘要。这样 manifest 的来源摘要与生成数据库使用同一字节事实，且只修改 schema、列、Importer、校验器或 GF 导表实现时也不会错误命中旧产物。
 
+当前 artifact manifest 格式为 v2，校验成功状态和 issue/error/warning 计数一起绑定到 manifest 摘要。v1 不再作为增量缓存使用。升级时先找到该 Profile 的 `output_path + ".manifest.json"`（配置了 `manifest_path` 则使用其精确路径），核对 JSON 中的 `format` 为 `gf.config_pipeline.artifact_manifest`、`format_version` 为 `1`，并确认 Profile 和输出记录属于本次任务；然后仅移除这个生成 manifest，正常导出重建。源 Profile、配置数据和数据库产物不属于此清理步骤。仅上次校验无诊断时允许跳过，带诊断的来源会重新校验，以保留完整问题位置并保持严格模式的失败语义。
+
 manifest 输出会先经过 JSON-safe 转换，非有限浮点、PackedArray、Object、Resource 或循环结构不会直接进入 `JSON.stringify()`。下一次用同一 Profile 导出时，`changed_only` 会比对 Profile、语义依赖、来源、输出、关键选项和编译器指纹；全部未变化时才返回 `skipped: true`。当前 freshness 报告里的 `success` 与 `fresh` 同值，均表示“产物新鲜”，不是“评估过程已完成”；Runner 以 `fresh` 和 `scan_report` 作判断。内置阶段的描述直接源于各 Stage 的 `STAGE_ID` / `IMPLEMENTATION_VERSION`，自定义阶段使用其实际描述器；指纹同时纳入两个 IR 的格式版本并哈希对应实现文件与声明依赖，因此阶段组合、实现、辅助实现或 IR 契约变化不会错误命中旧产物。缺少新增指纹字段但摘要合法的旧 manifest 会被当作 stale 并在下一次成功导出时升级，不需要手工删除；字段不完整、所有权不匹配或摘要被篡改的 manifest 仍会 fail closed。所有依赖和阶段文件都计入既有 freshness 文件大小、累计字节数和条目数预算。
 
 ```gdscript
@@ -137,7 +139,7 @@ godot --headless --path . -s res://addons/gf/tools/config_pipeline/gf_config_pip
 - `--output <URI>`：以 `res://` 或 `user://` URI 覆盖 Profile 的 `output_path`。
 - `--access-output <URI>`、`--class-name <name>`、`--provider-accessor <expr>`：以 resource URI 覆盖访问器输出，并覆盖生成配置。
 - `--dry-run`：执行构建和产物预检，但不写入数据库或访问器文件。
-- `--changed-only`：manifest fresh 时跳过导出；manifest 不存在或输入变化时正常导出。
+- `--changed-only`：manifest fresh 且上次校验没有任何 issue 时跳过导出；存在诊断时重新校验并保留完整定位信息，确保 `--strict` 每次都报告相同的 warning 失败。manifest 不存在或输入变化时正常导出。
 - `--manifest <URI>`：以 `res://` 或 `user://` URI 覆盖 artifact manifest 输出和读取路径。
 - `--write-manifest`：即使没有启用 `--changed-only`，成功导出后也写入 manifest。
 - `--strict`：把校验 warning 也视为命令失败，适合 CI。

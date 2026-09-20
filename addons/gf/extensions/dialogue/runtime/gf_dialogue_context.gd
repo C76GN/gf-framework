@@ -178,15 +178,18 @@ func resolve_text(text: String, subject: Variant = null) -> String:
 ## [br]
 ## @api public
 ## [br]
-## @return: JSON 兼容值表副本。
+## @return: JSON 兼容值表副本；无法完整编码时返回空 Dictionary。
 ## [br]
 ## @since 8.0.0
 ## [br]
 ## @schema return: values 经过 GFVariantJsonCodec 编码后的深拷贝 Dictionary。
 func serialize_values() -> Dictionary:
-	var encoded_values: Variant = GFVariantJsonCodec.variant_to_json_compatible(values, {
+	var result: Dictionary = GFVariantJsonCodec.variant_to_json_compatible_result(values, {
 		"encode_dictionary_keys": true,
 	})
+	if not GFVariantData.get_option_bool(result, "ok"):
+		return {}
+	var encoded_values: Variant = result.get("value")
 	if encoded_values is Dictionary:
 		var encoded_dictionary: Dictionary = encoded_values
 		return encoded_dictionary.duplicate(true)
@@ -201,14 +204,19 @@ func serialize_values() -> Dictionary:
 ## [br]
 ## @since 8.0.0
 ## [br]
+## @return: 完整解码并替换成功时为 true；失败保留现有 values。
+## [br]
 ## @schema data: serialize_values() 返回的 JSON 兼容 Dictionary。
-func deserialize_values(data: Dictionary) -> void:
-	var decoded_values: Variant = GFVariantJsonCodec.json_compatible_to_variant(data)
+func deserialize_values(data: Dictionary) -> bool:
+	var result: Dictionary = GFVariantJsonCodec.json_compatible_to_variant_result(data)
+	if not GFVariantData.get_option_bool(result, "ok"):
+		return false
+	var decoded_values: Variant = result.get("value")
 	if decoded_values is Dictionary:
 		var decoded_dictionary: Dictionary = decoded_values
 		values = decoded_dictionary.duplicate(true)
-		return
-	values = {}
+		return true
+	return false
 
 
 # --- 私有/辅助方法 ---

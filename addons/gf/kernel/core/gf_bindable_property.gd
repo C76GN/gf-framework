@@ -18,19 +18,15 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param old_value: 变化前的旧值。
 ## [br]
 ## @param new_value: 变化后的新值。
 ## [br]
-## @schema old_value {
-##   "type": "Variant",
-##   "description": "变化前的旧值。"
-## }
+## @schema old_value: {"type": "Variant", "description": "变化前的旧值。"}
 ## [br]
-## @schema new_value {
-##   "type": "Variant",
-##   "description": "变化后的新值。"
-## }
+## @schema new_value: {"type": "Variant", "description": "变化后的新值。"}
 signal value_changed(old_value: Variant, new_value: Variant)
 
 
@@ -46,10 +42,9 @@ const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_varian
 ## [br]
 ## @api public
 ## [br]
-## @schema value {
-##   "type": "Variant",
-##   "description": "当前属性值。"
-## }
+## @since 3.17.0
+## [br]
+## @schema value: {"type": "Variant", "description": "当前属性值。"}
 var value: Variant:
 	get:
 		return get_value()
@@ -71,12 +66,11 @@ var _subscription_bindings: Array[Dictionary] = []
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param default_value: 属性的初始值，默认为 null。
 ## [br]
-## @schema default_value {
-##   "type": "Variant",
-##   "description": "属性的初始值。"
-## }
+## @schema default_value: {"type": "Variant", "description": "属性的初始值。"}
 func _init(default_value: Variant = null) -> void:
 	_value = default_value
 
@@ -87,12 +81,11 @@ func _init(default_value: Variant = null) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 当前存储的值。
 ## [br]
-## @schema return {
-##   "type": "Variant",
-##   "description": "当前存储的值。"
-## }
+## @schema return: {"type": "Variant", "description": "当前存储的值。"}
 func get_value() -> Variant:
 	return _value
 
@@ -101,12 +94,11 @@ func get_value() -> Variant:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param new_value: 要设置的新值。
 ## [br]
-## @schema new_value {
-##   "type": "Variant",
-##   "description": "要设置的新值。"
-## }
+## @schema new_value: {"type": "Variant", "description": "要设置的新值。"}
 func set_value(new_value: Variant) -> void:
 	if _are_values_equal(_value, new_value):
 		return
@@ -233,14 +225,13 @@ func mutate(mutator: Callable) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param item: 要追加的元素。
 ## [br]
 ## @return 成功返回 true。
 ## [br]
-## @schema item {
-##   "type": "Variant",
-##   "description": "要追加的元素。"
-## }
+## @schema item: {"type": "Variant", "description": "要追加的元素。"}
 func append_to_array(item: Variant) -> bool:
 	if not (_value is Array):
 		return false
@@ -255,14 +246,13 @@ func append_to_array(item: Variant) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param items: 要追加的元素列表。
 ## [br]
 ## @return 成功返回 true。
 ## [br]
-## @schema items {
-##   "type": "Array",
-##   "description": "要追加的元素列表。"
-## }
+## @schema items: {"type": "Array", "description": "要追加的元素列表。"}
 func append_array(items: Array) -> bool:
 	if not (_value is Array):
 		return false
@@ -277,14 +267,13 @@ func append_array(items: Array) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param item: 要删除的元素。
 ## [br]
 ## @return 成功返回 true。
 ## [br]
-## @schema item {
-##   "type": "Variant",
-##   "description": "要删除的元素。"
-## }
+## @schema item: {"type": "Variant", "description": "要删除的元素。"}
 func erase_from_array(item: Variant) -> bool:
 	if not (_value is Array):
 		return false
@@ -301,21 +290,17 @@ func erase_from_array(item: Variant) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param key: 键。
 ## [br]
 ## @param new_value: 新值。
 ## [br]
 ## @return 成功返回 true。
 ## [br]
-## @schema key {
-##   "type": "Variant",
-##   "description": "Dictionary 键。"
-## }
+## @schema key: {"type": "Variant", "description": "Dictionary 键。"}
 ## [br]
-## @schema new_value {
-##   "type": "Variant",
-##   "description": "Dictionary 新值。"
-## }
+## @schema new_value: {"type": "Variant", "description": "Dictionary 新值。"}
 func set_dictionary_value(key: Variant, new_value: Variant) -> bool:
 	if not (_value is Dictionary):
 		return false
@@ -330,14 +315,13 @@ func set_dictionary_value(key: Variant, new_value: Variant) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param key: 键。
 ## [br]
 ## @return 成功返回 true。
 ## [br]
-## @schema key {
-##   "type": "Variant",
-##   "description": "Dictionary 键。"
-## }
+## @schema key: {"type": "Variant", "description": "Dictionary 键。"}
 func erase_dictionary_key(key: Variant) -> bool:
 	if not (_value is Dictionary):
 		return false
@@ -379,14 +363,13 @@ func clear_collection() -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param node: 绑定生命周期的节点；已失效对象会触发失效绑定清理。
 ## [br]
 ## @param callable: 要解绑的回调函数。
 ## [br]
-## @schema node {
-##   "type": "Variant",
-##   "description": "绑定生命周期的 Node；已失效对象会触发失效绑定清理。"
-## }
+## @schema node: {"type": "Variant", "description": "绑定生命周期的 Node；已失效对象会触发失效绑定清理。"}
 func unbind(node: Variant, callable: Callable) -> void:
 	if not callable.is_valid():
 		return

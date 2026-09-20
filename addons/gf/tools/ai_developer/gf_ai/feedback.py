@@ -270,6 +270,11 @@ def submit_issue(
 			"--body-file",
 			str(temporary),
 		]
+		prepared = prepare_submission(project_root, draft, contract_relative_path)
+		if not prepared.get("ready"):
+			return {"ok": False, "url": "", "issues": prepared.get("issues", [])}
+		if confirmation_sha256 != prepared.get("confirmation_sha256"):
+			return {"ok": False, "url": "", "issues": ["Exact submission confirmation hash is required."]}
 		completed = runner(command, cwd=project_root, capture_output=True, text=True, encoding="utf-8", timeout=60, check=False)
 	except (OSError, subprocess.SubprocessError, ValueError) as exc:
 		return {"ok": False, "url": "", "issues": [f"GitHub issue submission failed: {exc}"]}

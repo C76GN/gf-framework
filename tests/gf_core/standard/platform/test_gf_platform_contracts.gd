@@ -449,6 +449,29 @@ func test_adapter_shutdown_blocks_reentrant_requests_and_finishes_pending_once()
 	)
 
 
+func test_activation_capacity_is_committed_before_drop_callback() -> void:
+	var runtime: GFPlatformRuntime = GFPlatformRuntime.new()
+	var adapter: ContractPlatformAdapter = _make_contract_adapter()
+	assert_true(runtime.configure_activation_queue(1, 4))
+	assert_true(runtime.register_adapter(adapter))
+	var _initialized: GFAsyncCompletion = runtime.initialize_adapter(&"contract_adapter")
+	var sizes_observed: Array[int] = []
+	var on_drop: Callable = func(_adapter: StringName, intent: StringName, reason: StringName) -> void:
+		if intent == &"a" and reason == &"capacity":
+			var _published: bool = adapter.publish_intent(&"c", "room-c")
+			sizes_observed.append(runtime.get_activation_intents().size())
+	var _connected: Error = runtime.activation_intent_dropped.connect(on_drop) as Error
+	assert_true(adapter.publish_intent(&"a", "room-a"))
+	assert_true(adapter.publish_intent(&"b", "room-b"))
+	var pending_intents: Array[GFPlatformActivationIntent] = runtime.get_activation_intents()
+	assert_eq(sizes_observed, [1])
+	assert_eq(pending_intents.size(), 1, "drop 回调重入也必须遵守容量上限。")
+	var latest_intent: GFPlatformActivationIntent = pending_intents[-1]
+	assert_eq(latest_intent.intent_id, &"c", "最新意图应保留，旧调用栈不得重新追加 b。")
+	runtime.activation_intent_dropped.disconnect(on_drop)
+	runtime.dispose()
+
+
 func test_activation_intents_are_deduplicated_bounded_and_replayable() -> void:
 	var clock: GFManualClock = GFManualClock.new(2000000, 1700000000000)
 	var runtime: GFPlatformRuntime = GFPlatformRuntime.new(clock)

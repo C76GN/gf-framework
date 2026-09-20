@@ -20,14 +20,13 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _context: 传递给规则的上下文数据，通常是一个 GFPayload 子类实例。
 ## [br]
 ## @return 规则执行结果，同步返回 Variant，异步返回一个 Signal 供 await。
 ## [br]
-## @schema return {
-##   "type": "Variant",
-##   "description": "规则执行结果；异步规则可返回 Signal 供 await。"
-## }
+## @schema return: {"type": "Variant", "description": "规则执行结果；异步规则可返回 Signal 供 await。"}
 func execute(_context: Object = null) -> Variant:
 	return null
 

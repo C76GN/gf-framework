@@ -9,6 +9,18 @@ const GFDequeBase = preload("res://addons/gf/standard/foundation/collections/gf_
 
 # --- 测试方法 ---
 
+func test_deque_rejects_unrepresentable_reserve_without_mutating_contents() -> void:
+	var deque: GFDequeBase = GFDequeBase.from_array([1, 2, 3])
+	var old_capacity: int = deque.capacity()
+	deque.reserve(4_611_686_018_427_387_905)
+	assert_push_error("[GFDeque] 请求容量超出可表示范围。")
+	assert_eq(deque.to_array(), [1, 2, 3])
+	assert_eq(deque.capacity(), old_capacity)
+	deque.reserve(-1)
+	deque.push_front(0)
+	assert_eq(deque.to_array(), [0, 1, 2, 3])
+
+
 ## 验证双端追加、移除、回绕与扩容后仍保持队列顺序。
 func test_deque_preserves_order_across_wrap_and_growth() -> void:
 	var deque: GFDequeBase = GFDequeBase.new(3)

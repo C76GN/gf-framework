@@ -84,6 +84,32 @@ class RuntimeStateWaitFlowNode extends GFFlowNode:
 		completed.emit()
 
 
+class ContextRuntimeStateFlowNode extends GFFlowNode:
+	var operation: StringName = &"write"
+	var observations: Array[int] = []
+	var snapshot: Dictionary = {}
+
+	func _init() -> void:
+		node_id = &"context_runtime"
+
+	func execute(context: GFFlowContext) -> Variant:
+		context.set_node_runtime_value(node_id, &"count", 5)
+		observations.append(GFVariantData.to_int(get_runtime_value(&"count", -1)))
+		set_runtime_value(&"count", 6)
+		observations.append(GFVariantData.to_int(context.get_node_runtime_value(node_id, &"count", -1)))
+		context.set_node_runtime_value(node_id, &"count", 7)
+		match operation:
+			&"clear":
+				context.clear_node_runtime_state(node_id)
+			&"clear_all":
+				context.clear_node_runtime_state()
+			&"restore":
+				context.deserialize_runtime_state({"nodes": {node_id: {&"count": 11}}})
+		observations.append(GFVariantData.to_int(get_runtime_value(&"count", -1)))
+		snapshot = context.create_runtime_snapshot()
+		return null
+
+
 class AsyncRuntimeMutationFlowNode extends GFFlowNode:
 	signal completed
 
@@ -843,6 +869,31 @@ func test_flow_graph_add_connection_rejects_incompatible_ports_by_default() -> v
 	assert_true(graph.add_connection(&"start", &"value", &"end", &"value"), "项目可显式关闭端口兼容性校验以迁移旧资源。")
 
 
+func test_flow_graph_rejects_reversed_port_directions_consistently() -> void:
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	var start: GFFlowNode = GFFlowNode.new()
+	start.node_id = &"start"
+	start.output_ports = [_make_port(&"out", GFFlowPort.Direction.INPUT)]
+	var end: GFFlowNode = GFFlowNode.new()
+	end.node_id = &"end"
+	end.input_ports = [_make_port(&"in", GFFlowPort.Direction.OUTPUT)]
+	graph.nodes = [start, end]
+
+	assert_false(graph.add_connection(&"start", &"out", &"end", &"in"), "图连接不能交换端点来接受反向端口。")
+	var compatibility: Dictionary = graph.check_connection_compatibility(&"start", &"out", &"end", &"in")
+	assert_false(GFVariantData.get_option_bool(compatibility, "ok"), "定向连接兼容性必须拒绝反向端口。")
+	graph.connections = [{
+		"from_node_id": &"start", "from_port_id": &"out",
+		"to_node_id": &"end", "to_port_id": &"in", "metadata": {},
+	}]
+	assert_true(_has_issue(graph.validate_graph(), "incompatible_connection_ports"), "直接导入的反向连接也必须报告错误。")
+	var view: Dictionary = GFFlowGraphEditorModel.new().build_view_model(graph)
+	var connections: Array = GFVariantData.get_option_array(view, "connections")
+	assert_eq(connections.size(), 1, "编辑器应保留错误连接以供修复。")
+	if not connections.is_empty():
+		assert_false(GFVariantData.get_option_bool(GFVariantData.as_dictionary(connections[0]), "valid"), "编辑器与运行时必须一致拒绝。")
+
+
 ## 验证流程图连接描述可供编辑器或可视化工具消费。
 func test_flow_graph_describes_connections() -> void:
 	var graph: GFFlowGraph = GFFlowGraph.new()
@@ -1310,6 +1361,30 @@ func test_flow_runner_updates_only_the_current_context_node_state() -> void:
 		9,
 		"单节点写回不得影响无关节点状态。"
 	)
+
+
+func test_flow_runner_context_and_node_runtime_writes_share_execution_order() -> void:
+	for operation: StringName in [&"write", &"clear", &"clear_all", &"restore"]:
+		var graph: GFFlowGraph = GFFlowGraph.new()
+		var node: ContextRuntimeStateFlowNode = ContextRuntimeStateFlowNode.new()
+		node.operation = operation
+		node.set_runtime_value(&"count", 99)
+		graph.start_node_id = node.node_id
+		graph.nodes = [node]
+		var context: GFFlowContext = GFFlowContext.new()
+		context.set_node_runtime_value(&"unrelated", &"keep", 1)
+		var report: Dictionary = await GFFlowRunner.new().run(graph, context)
+		var expected: int = 7 if operation == &"write" else (11 if operation == &"restore" else -1)
+
+		assert_eq(GFVariantData.get_option_string(report, "outcome"), "completed")
+		assert_eq(node.observations, [5, 6, expected], "两种入口必须即时读取同一状态，含清空和整体恢复。")
+		assert_eq(GFVariantData.to_int(context.get_node_runtime_value(node.node_id, &"count", -1)), expected, "执行结束不得用旧节点状态覆盖 Context。")
+		assert_eq(GFVariantData.to_int(node.get_runtime_value(&"count", -1)), 99, "共享 Resource 必须恢复原状态。")
+		var captured: GFFlowContext = GFFlowContext.new()
+		assert_true(captured.restore_runtime_snapshot(node.snapshot))
+		assert_eq(GFVariantData.to_int(captured.get_node_runtime_value(node.node_id, &"count", -1)), expected, "execute 内的快照必须反映当前写入。")
+		var unrelated_expected: int = -1 if operation in [&"clear_all", &"restore"] else 1
+		assert_eq(GFVariantData.to_int(context.get_node_runtime_value(&"unrelated", &"keep", -1)), unrelated_expected, "清空与恢复的作用域必须一致。")
 
 
 func test_flow_context_runtime_snapshot_restores_values_and_node_state() -> void:

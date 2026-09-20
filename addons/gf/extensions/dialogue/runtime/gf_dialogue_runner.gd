@@ -200,7 +200,17 @@ func get_current_line() -> GFDialogueLine:
 func get_available_responses() -> Array[GFDialogueResponse]:
 	if _current_line == null:
 		return []
-	return _current_line.get_available_responses(_context)
+	var lease: _DialogueSessionLease = _capture_session_lease()
+	var responses: Array[GFDialogueResponse] = []
+	for response: GFDialogueResponse in lease._line.responses:
+		if response == null:
+			continue
+		var available: bool = response.is_available(lease._context)
+		if not _is_session_lease_current(lease):
+			return []
+		if available:
+			responses.append(response)
+	return responses
 
 
 ## 检查是否正在运行。
@@ -230,12 +240,15 @@ func is_running() -> bool:
 func create_runtime_snapshot() -> Dictionary:
 	if not _can_create_runtime_snapshot():
 		return {}
+	var context_values: Dictionary = _context.serialize_values() if _context != null else {}
+	if _context != null and context_values.is_empty():
+		return {}
 	return {
 		"schema_version": SNAPSHOT_SCHEMA_VERSION,
 		"is_running": _is_running,
 		"current_line_id": _current_line_id,
 		"resource_fingerprint": _resource_fingerprint,
-		"context_values": _context.serialize_values() if _context != null else {},
+		"context_values": context_values,
 	}
 
 
@@ -265,7 +278,13 @@ func restore_runtime_snapshot(
 	if GFVariantData.get_option_int(snapshot, "schema_version", -1) != SNAPSHOT_SCHEMA_VERSION:
 		return null
 
-	var context_values: Dictionary = GFVariantData.get_option_dictionary(snapshot, "context_values", {})
+	var context_value: Variant = snapshot.get("context_values")
+	if not context_value is Dictionary:
+		return null
+	var context_values: Dictionary = context_value
+	var restored_context: GFDialogueContext = GFDialogueContext.new()
+	if not restored_context.deserialize_values(context_values):
+		return null
 	if resource == null:
 		return null
 	var snapshot_fingerprint: String = GFVariantData.get_option_string(snapshot, "resource_fingerprint")
@@ -280,7 +299,7 @@ func restore_runtime_snapshot(
 		_resource_fingerprint = snapshot_fingerprint
 		_snapshot_resource = resource
 		_context = _prepare_context(context)
-		_context.deserialize_values(context_values)
+		_context.values = restored_context.values
 		return null
 
 	var line_id: StringName = GFVariantData.get_option_string_name(snapshot, "current_line_id", &"")
@@ -296,7 +315,7 @@ func restore_runtime_snapshot(
 	_resource_fingerprint = snapshot_fingerprint
 	_snapshot_resource = resource
 	_context = _prepare_context(context)
-	_context.deserialize_values(context_values)
+	_context.values = restored_context.values
 	_current_line_id = line_id
 	_current_line = line
 	_is_running = true

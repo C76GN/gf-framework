@@ -1,6 +1,38 @@
 extends GutTest
 
 
+func test_bound_snapshot_provider_preserves_arguments_without_owning_target() -> void:
+	var tracker: GFAsyncTrackerUtility = GFAsyncTrackerUtility.new()
+	tracker.tracking_enabled = true
+	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+	var target: BoundSnapshotTarget = BoundSnapshotTarget.new()
+	var target_ref: WeakRef = weakref(target)
+	var tracking_id: int = tracker.track_handle(completion, &"bound", {}, Callable(target, "get_snapshot").bind(&"chosen"))
+	var report: Dictionary = tracker.refresh_snapshot(tracking_id)
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	var record: Dictionary = tracker.get_active_records()[0]
+	assert_eq(GFVariantData.get_option_string_name(GFVariantData.get_option_dictionary(record, "snapshot"), "channel"), &"chosen")
+	target = null
+	assert_true(target_ref.get_ref() == null)
+
+
+func test_batch_refresh_skips_record_removed_by_previous_provider() -> void:
+	var tracker: GFAsyncTrackerUtility = GFAsyncTrackerUtility.new()
+	tracker.tracking_enabled = true
+	var first: GFAsyncCompletion = GFAsyncCompletion.new()
+	var second: GFAsyncCompletion = GFAsyncCompletion.new()
+	var third: GFAsyncCompletion = GFAsyncCompletion.new()
+	var target: RemovingSnapshotTarget = RemovingSnapshotTarget.new()
+	target.tracker = tracker
+	var _first_id: int = tracker.track_handle(first, &"first", {}, Callable(target, "get_snapshot"))
+	target.remove_id = tracker.track_handle(second, &"second", {}, Callable(second, "get_debug_snapshot"))
+	var _third_id: int = tracker.track_handle(third, &"third", {}, Callable(third, "get_debug_snapshot"))
+	var report: Dictionary = tracker.refresh_snapshots(2)
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(GFVariantData.get_option_int(report, "provider_call_count"), 2)
+	assert_eq(tracker.get_active_records().size(), 2)
+
+
 func test_async_tracker_is_disabled_by_default() -> void:
 	var tracker: GFAsyncTrackerUtility = GFAsyncTrackerUtility.new()
 	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
@@ -229,6 +261,20 @@ func test_diagnostics_utility_collects_async_tracker_tool_snapshot() -> void:
 	assert_eq(GFVariantData.get_option_int(tracker_snapshot, "active_count"), 1, "追踪工具快照应包含活动句柄数量。")
 
 	arch.dispose()
+
+
+class BoundSnapshotTarget extends RefCounted:
+	func get_snapshot(channel: StringName = &"default") -> Dictionary:
+		return {"channel": String(channel)}
+
+
+class RemovingSnapshotTarget extends RefCounted:
+	var tracker: GFAsyncTrackerUtility
+	var remove_id: int
+
+	func get_snapshot() -> Dictionary:
+		var _removed: bool = tracker.untrack_id(remove_id)
+		return {"ok": true}
 
 
 class SnapshotTarget extends RefCounted:

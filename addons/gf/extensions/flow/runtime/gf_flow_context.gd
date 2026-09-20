@@ -49,6 +49,7 @@ var has_next_node_override: bool = false
 var _architecture_ref: WeakRef = null
 var _condition_handlers: Dictionary = {}
 var _node_runtime_states: Dictionary = {}
+var _executing_runtime_nodes: Dictionary[StringName, GFFlowNode] = {}
 
 
 # --- Godot 生命周期方法 ---
@@ -261,6 +262,9 @@ func query_condition(
 func set_node_runtime_value(node_id: StringName, key: StringName, value: Variant) -> void:
 	if node_id == &"" or key == &"":
 		return
+	if _executing_runtime_nodes.has(node_id):
+		_executing_runtime_nodes[node_id].set_runtime_value(key, value)
+		return
 	if not _node_runtime_states.has(node_id):
 		_node_runtime_states[node_id] = {}
 	var state: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(_node_runtime_states, node_id, {}))
@@ -285,6 +289,8 @@ func set_node_runtime_value(node_id: StringName, key: StringName, value: Variant
 ## [br]
 ## @schema return: 节点运行态中的项目值，或传入的 default_value。
 func get_node_runtime_value(node_id: StringName, key: StringName, default_value: Variant = null) -> Variant:
+	if _executing_runtime_nodes.has(node_id):
+		return _executing_runtime_nodes[node_id].get_runtime_value(key, default_value)
 	var state: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(_node_runtime_states, node_id, {}))
 	if state.is_empty():
 		return default_value
@@ -301,7 +307,11 @@ func get_node_runtime_value(node_id: StringName, key: StringName, default_value:
 func clear_node_runtime_state(node_id: StringName = &"") -> void:
 	if node_id == &"":
 		_node_runtime_states.clear()
+		for node: GFFlowNode in _executing_runtime_nodes.values():
+			node.clear_runtime_state()
 		return
+	if _executing_runtime_nodes.has(node_id):
+		_executing_runtime_nodes[node_id].clear_runtime_state()
 	_erase_dictionary_key(_node_runtime_states, node_id)
 
 
@@ -363,6 +373,7 @@ func restore_runtime_snapshot(snapshot: Dictionary) -> bool:
 	next_node_ids = GFVariantData.get_option_packed_string_array(parsed, "next_node_ids")
 	has_next_node_override = GFVariantData.get_option_bool(parsed, "has_next_node_override")
 	_node_runtime_states = GFVariantData.get_option_dictionary(parsed, "node_states").duplicate(true)
+	_synchronize_executing_runtime_nodes()
 	return true
 
 
@@ -379,8 +390,13 @@ func restore_runtime_snapshot(snapshot: Dictionary) -> bool:
 ## @schema return: 包含 nodes 字段的 Dictionary；nodes 按 node_id 保存节点运行态 Dictionary。
 func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
 	var node_states: Dictionary = {}
-	for node_id: Variant in _node_runtime_states.keys():
-		var runtime_state: Dictionary = GFVariantData.as_dictionary(_node_runtime_states[node_id])
+	var node_ids: Dictionary = _node_runtime_states.duplicate(false)
+	for executing_node_id: StringName in _executing_runtime_nodes:
+		node_ids[executing_node_id] = true
+	for node_id: Variant in node_ids.keys():
+		var runtime_state: Dictionary = get_node_runtime_state_snapshot(GFVariantData.to_string_name(node_id))
+		if runtime_state.is_empty():
+			continue
 		var state_key: Variant = node_id
 		if json_compatible:
 			state_key = GFVariantData.to_text(node_id)
@@ -406,6 +422,7 @@ func deserialize_runtime_state(data: Dictionary) -> void:
 		push_error("[GFFlowContext] deserialize_runtime_state 失败：nodes 必须是节点 ID 到 Dictionary 的映射。")
 		return
 	_node_runtime_states = GFVariantData.get_option_dictionary(parsed, "node_states").duplicate(true)
+	_synchronize_executing_runtime_nodes()
 
 
 # --- 框架内部方法 ---
@@ -422,6 +439,8 @@ func deserialize_runtime_state(data: Dictionary) -> void:
 ## [br]
 ## @schema return: 指定节点的项目运行态 Dictionary。
 func get_node_runtime_state_snapshot(node_id: StringName) -> Dictionary:
+	if _executing_runtime_nodes.has(node_id):
+		return _executing_runtime_nodes[node_id].serialize_runtime_state()
 	var state_value: Variant = GFVariantData.get_option_value(_node_runtime_states, node_id, {})
 	if not (state_value is Dictionary):
 		return {}
@@ -443,13 +462,58 @@ func get_node_runtime_state_snapshot(node_id: StringName) -> Dictionary:
 func replace_node_runtime_state(node_id: StringName, state: Dictionary) -> void:
 	if node_id == &"":
 		return
+	if _executing_runtime_nodes.has(node_id):
+		_executing_runtime_nodes[node_id].clear_runtime_state()
+		_executing_runtime_nodes[node_id].deserialize_runtime_state(state)
+		return
 	if state.is_empty():
 		_erase_dictionary_key(_node_runtime_states, node_id)
 		return
 	_node_runtime_states[node_id] = state.duplicate(true)
 
 
+## 在 Runner 同步执行期间，将节点与 Context 的运行态入口绑定到同一节点。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param node_id: 当前执行的节点标识。
+## [br]
+## @param node: 已载入 Context 状态且持有可写租约的节点。
+## [br]
+## @return: 同一 Context 中该标识未被执行占用时返回 true。
+func begin_node_runtime_execution(node_id: StringName, node: GFFlowNode) -> bool:
+	if node_id == &"" or node == null or _executing_runtime_nodes.has(node_id):
+		return false
+	_executing_runtime_nodes[node_id] = node
+	return true
+
+
+## 结束同步执行，保存节点状态并解除临时绑定。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param node_id: begin_node_runtime_execution() 使用的节点标识。
+func end_node_runtime_execution(node_id: StringName) -> void:
+	if not _executing_runtime_nodes.has(node_id):
+		return
+	var node: GFFlowNode = _executing_runtime_nodes[node_id]
+	var state: Dictionary = node.serialize_runtime_state()
+	var _erased: bool = _executing_runtime_nodes.erase(node_id)
+	replace_node_runtime_state(node_id, state)
+
+
 # --- 私有/辅助方法 ---
+
+func _synchronize_executing_runtime_nodes() -> void:
+	for node_id: StringName in _executing_runtime_nodes:
+		var node: GFFlowNode = _executing_runtime_nodes[node_id]
+		node.clear_runtime_state()
+		node.deserialize_runtime_state(GFVariantData.get_option_dictionary(_node_runtime_states, node_id))
+
 
 func _parse_runtime_snapshot(snapshot: Dictionary) -> Dictionary:
 	if (

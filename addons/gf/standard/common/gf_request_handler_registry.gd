@@ -496,7 +496,6 @@ func get_json_compatible_recent_events(options: Dictionary = {}) -> Array[Dictio
 func clear() -> void:
 	_handlers.clear()
 	_events.clear()
-	_next_sequence = 1
 	_registered_count = 0
 	_replaced_count = 0
 	_unregistered_count = 0

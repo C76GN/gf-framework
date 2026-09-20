@@ -75,6 +75,35 @@ func test_control_signal_updates_store_path() -> void:
 	assert_eq(GFVariantData.to_text(store.get_value("profile.name")), "Grace", "控件值变化应写回 store。")
 
 
+func test_initial_control_sync_rebind_supersedes_outer_binding() -> void:
+	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({"first": 1, "second": 2})
+	var binder: GFReactiveStateControlBinderBase = _make_binder()
+	var control: RebindingControl = RebindingControl.new()
+	_track_control(control)
+	control.on_set = func() -> void:
+		assert_true(binder.bind_control(store, "second", control, {"sync_initial": false}))
+	var _outer_bound: bool = binder.bind_control(store, "first", control)
+	assert_eq(binder.get_binding_count(), 1)
+	assert_eq(store.get_subscription_count(), 1)
+	control.value = 9
+	control.value_changed.emit(9)
+	var first_matches: bool = store.get_value("first") == 1
+	var second_matches: bool = store.get_value("second") == 9
+	assert_true(first_matches)
+	assert_true(second_matches)
+
+
+func test_initial_control_sync_clear_cancels_pending_binding() -> void:
+	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({"value": 1})
+	var binder: GFReactiveStateControlBinderBase = _make_binder()
+	var control: RebindingControl = RebindingControl.new()
+	_track_control(control)
+	control.on_set = binder.clear
+	assert_false(binder.bind_control(store, "value", control))
+	assert_eq(binder.get_binding_count(), 0)
+	assert_eq(store.get_subscription_count(), 0)
+
+
 func test_rebinding_same_control_replaces_previous_path_subscription() -> void:
 	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({
 		"profile": {
@@ -181,3 +210,16 @@ func _make_binder() -> GFReactiveStateControlBinderBase:
 func _get_signal_connection_count(control: Object, signal_name: StringName) -> int:
 	var connections: Array = control.get_signal_connection_list(signal_name)
 	return connections.size()
+
+
+class RebindingControl extends Control:
+	signal value_changed(next_value: int)
+	var value: int = 0
+	var on_set: Callable
+
+	func set_value(next_value: int) -> void:
+		value = next_value
+		if on_set.is_valid():
+			var callback: Callable = on_set
+			on_set = Callable()
+			callback.call()

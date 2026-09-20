@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDeque" path="addons/gf/standard/foundation/collections/gf_deque.gd" module="standard" extends="RefCounted" classDigest="6ab64077c441972f074eb47afe158c02c8d9190107f28ddff81f9fb8745f4755">
+<class name="GFDeque" path="addons/gf/standard/foundation/collections/gf_deque.gd" module="standard" extends="RefCounted" classDigest="aa1adb06700b44b20a43633408bdad06471662567d76d5397b88a56572fc6f9b">
 	<description>GFDeque: 通用双端队列。
 使用环形数组保存队列内容，支持从头尾 O(1) 追加、读取和移除。
 它只维护元素顺序和容量，不解释任务、历史、动画或业务载荷语义。</description>
@@ -130,7 +130,7 @@
 		</member>
 		<member kind="method" name="reserve">
 			<signature>func reserve(min_capacity: int) -&gt; void:</signature>
-			<description>至少保留指定底层容量。</description>
+			<description>至少保留指定底层容量。超出 Array 容量范围或分配失败时保持现有内容与容量不变。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">min_capacity: 最小底层容量。</tag>

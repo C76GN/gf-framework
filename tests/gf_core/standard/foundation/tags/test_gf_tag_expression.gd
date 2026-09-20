@@ -2,6 +2,18 @@
 extends GutTest
 
 
+func test_dictionary_restore_preserves_invalid_child_positions() -> void:
+	for operation: String in ["none", "all", "any"]:
+		var expression: GFTagExpression = GFTagExpression.from_dictionary({
+			"operator": operation,
+			"expressions": [null, 123, "invalid", {}],
+		})
+		var report: Dictionary = expression.get_match_report([])
+		assert_false(GFVariantData.get_option_bool(report, "valid", true))
+		assert_false(GFVariantData.get_option_bool(report, "ok", true))
+		assert_eq(GFVariantData.get_option_array(report, "invalid_indices"), [0, 1, 2])
+
+
 func test_any_expression_matches_nested_queries() -> void:
 	var tags: GFTagSet = GFTagSet.new()
 	var _tags_set: GFTagSet = tags.set_tags([&"team.enemy", &"state.burning"])

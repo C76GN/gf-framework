@@ -6173,6 +6173,11 @@ func _quiesce_active_modules(
 			"unfinished_modules": unfinished_modules,
 		}
 	for index: int in range(shutdown_order.size()):
+		if not _is_lifecycle_current(lifecycle_serial) or not _runtime.is_quiescing():
+			top_status = "interrupted"
+			top_reason = "Architecture lifecycle changed during shutdown."
+			_append_unfinished_modules(unfinished_modules, shutdown_order, index, top_reason)
+			break
 		var instance: Object = shutdown_order[index]
 		if instance == null:
 			continue
@@ -6231,6 +6236,11 @@ func _quiesce_active_modules(
 		module_results.append(module_entry)
 		if module_status != "succeeded":
 			unfinished_modules.append(module_entry.duplicate(true))
+		if module_status == "interrupted":
+			top_status = "interrupted"
+			top_reason = module_reason
+			_append_unfinished_modules(unfinished_modules, shutdown_order, index + 1, module_reason)
+			break
 		if module_status == "timed_out":
 			top_status = "timed_out"
 			top_reason = module_reason

@@ -10,6 +10,13 @@ const _PROJECT_SETTINGS_ACTION: StringName = &"gf_test_formatter_project_jump"
 
 # --- 辅助类 ---
 
+class TextureOnlyIconProvider extends GFInputIconProvider:
+	var icon: Texture2D = ImageTexture.new()
+
+	func get_event_icon(_event: InputEvent, _options: Dictionary = {}) -> Texture2D:
+		return icon
+
+
 class CustomFormatterTextProvider extends GFInputTextProvider:
 	var text: String = ""
 
@@ -64,6 +71,15 @@ func after_each() -> void:
 
 
 ## 验证动作 RichText 可按首选设备类型选择 InputMap 事件。
+func test_base_icon_provider_escapes_brackets_once() -> void:
+	var provider: TextureOnlyIconProvider = TextureOnlyIconProvider.new()
+	provider.icon.resource_path = "res://icons/a[b].png"
+	assert_eq(provider.get_event_rich_text(_make_key_event(KEY_K)),
+		"[img=24]res://icons/a[lb]b[rb].png[/img]")
+	assert_eq(provider.get_event_rich_text(_make_key_event(KEY_K), {"icon_size": 0}),
+		"[img]res://icons/a[lb]b[rb].png[/img]")
+
+
 func test_action_rich_text_uses_preferred_device_event() -> void:
 	var provider: GFInputIconAtlasProvider = GFInputIconAtlasProvider.new()
 	provider.set_icon_path(&"key:k", "res://icons/key_k.png")

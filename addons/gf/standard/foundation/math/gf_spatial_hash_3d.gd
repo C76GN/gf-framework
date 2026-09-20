@@ -110,6 +110,22 @@ func get_cell_for_position(position: Vector3) -> Vector3i:
 	return _world_to_cell(position)
 
 
+## 检查 AABB 查询是否可在当前坐标范围和格子预算内完整枚举。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param area: 查询 AABB，负尺寸会先归一化。
+## [br]
+## @return: 可完整查询时返回 true；不会分配格子列表。
+func can_query_aabb(area: AABB) -> bool:
+	if not _SPATIAL_BOUNDS_MATH.is_finite_aabb(area):
+		return false
+	var normalized_area: AABB = _normalize_aabb(area)
+	return _aabb_can_map_to_cells(normalized_area) and _is_cell_span_within_limit(_get_cell_span_for_aabb(normalized_area))
+
+
 ## 插入实体。
 ## [br]
 ## @api public
@@ -297,7 +313,7 @@ func query_radius(center: Vector3, radius: float) -> Array[Variant]:
 		return []
 	var candidates: Array[Variant] = []
 	if safe_radius == 0.0:
-		candidates = query_cell(_world_to_cell(center))
+		candidates = _query_point_candidates(center)
 	else:
 		var query_bounds: AABB = AABB(
 			center - Vector3.ONE * safe_radius,
@@ -455,6 +471,35 @@ func _variant_to_weak_ref(value: Variant) -> WeakRef:
 		var result: WeakRef = value
 		return result
 	return null
+
+
+func _query_point_candidates(point: Vector3) -> Array[Variant]:
+	prune_invalid_entities()
+	if not _position_can_map_to_cell(point):
+		return []
+	var cell: Vector3i = _world_to_cell(point)
+	var min_cell: Vector3i = Vector3i(
+		_get_point_min_cell(point.x, cell.x),
+		_get_point_min_cell(point.y, cell.y),
+		_get_point_min_cell(point.z, cell.z)
+	)
+	if not _is_cell_span_within_limit([min_cell, cell]):
+		return []
+	var result: Array[Variant] = []
+	var seen: Dictionary = {}
+	# 占格使用半开最大端；闭区间点查询还需覆盖前一格的最大面、棱和角。
+	for x: int in range(min_cell.x, int(cell.x) + 1):
+		for y: int in range(min_cell.y, int(cell.y) + 1):
+			for z: int in range(min_cell.z, int(cell.z) + 1):
+				_append_cell_entities(Vector3i(x, y, z), result, seen)
+	return result
+
+
+func _get_point_min_cell(position: float, cell: int) -> int:
+	var lower_boundary: float = float(cell) * _cell_size
+	if position - lower_boundary <= _cell_size * _CELL_BOUNDARY_EPSILON_RATIO:
+		return maxi(cell - 1, _MIN_VECTOR3I_COMPONENT)
+	return cell
 
 
 func _query_candidate_keys(area: AABB) -> Array[String]:

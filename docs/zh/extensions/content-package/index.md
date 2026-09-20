@@ -112,6 +112,8 @@ var scene: Resource = resolver.load(&"chapter_one.main_scene", "PackedScene")
 
 `GFContentPackageExportPlan` 可以从单个 manifest 或 catalog 构建可审计的导出条目列表。它只输出 `source_path`、`archive_path`、`role`、`resource_key`、`package_id`、`type_hint` 和诊断报告，不写 zip、不改 Godot remap，也不规定项目发布流程。
 
+自动收集时，同一源文件和归档路径只生成一个物理条目；多个资源键或依赖引用保存在条目的 `metadata.references` 中。不同源文件争用同一归档路径仍会被拒绝，手动 `add_entry()` 也继续检查路径冲突。
+
 ```gdscript
 var plan := GFContentPackageExportPlan.from_manifest(manifest, {
 	"archive_root": "packages/chapter_one",

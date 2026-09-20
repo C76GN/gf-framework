@@ -396,7 +396,7 @@ func remove_state_group(group: GFNodeStateGroup) -> bool:
 		return false
 
 	var key: StringName = _get_registered_group_key(group)
-	if not _groups.has(key):
+	if get_state_group(key) != group:
 		return false
 	var changed_callable: Callable = _get_dictionary_callable(_group_state_changed_callables, key)
 	_disconnect_state_group_signals(group, changed_callable)

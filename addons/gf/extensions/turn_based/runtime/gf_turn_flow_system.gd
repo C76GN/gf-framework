@@ -304,7 +304,7 @@ func advance_phase() -> void:
 		return
 	if not _is_running:
 		start(false)
-	if not _is_running:
+	if not _is_running or _is_advancing_phase:
 		return
 	var flow_serial: int = _flow_serial
 	var active_context: GFTurnContext = _context

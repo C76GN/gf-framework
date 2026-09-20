@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFMultiplayerPeerNetworkBackend" path="addons/gf/extensions/network/backends/gf_multiplayer_peer_network_backend.gd" module="extensions/network" extends="GFNetworkBackend" classDigest="95c39d1f5ae778c59915332e00566e5d9c7042036309fb98284a0e5e430e097c">
+<class name="GFMultiplayerPeerNetworkBackend" path="addons/gf/extensions/network/backends/gf_multiplayer_peer_network_backend.gd" module="extensions/network" extends="GFNetworkBackend" classDigest="151aeb0375163ab5a2ac4fdec5fbae8c76f8d5a6141ceff2df063b3a4241400a">
 	<description>GFMultiplayerPeerNetworkBackend: 可接管外部 MultiplayerPeer 的通用网络后端。
 平台 Adapter 负责通过 Steam、小游戏或其他 SDK 创建 `MultiplayerPeer`，本类只负责
 GF bytes 边界、轮询、连接事件和所有权。它不依赖任何第三方 SDK 类型。</description>
@@ -64,7 +64,8 @@ GF bytes 边界、轮询、连接事件和所有权。它不依赖任何第三�
 			<signature>func adopt_peer(peer: MultiplayerPeer, options: Dictionary = {}) -&gt; Error:</signature>
 			<description>接管一个已由外部 Adapter 初始化的 MultiplayerPeer。
 Peer 必须已经处于 connecting 或 connected。替换现有 Peer 时，旧 Peer 会按其
-ownership 关闭或仅解除借用。</description>
+ownership 关闭或仅解除借用。若释放回调已接管另一个 Peer，当前调用返回 ERR_BUSY，
+保留回调提交的新 Peer，调用方继续持有本次未接管的 peer。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">peer: 外部创建的 MultiplayerPeer。</tag>

@@ -1118,6 +1118,26 @@ func test_project_layout_analyzer_and_planner_reject_noncanonical_contract_diges
 		assert_eq(GFVariantData.get_option_string(plan, "contract_digest"), "")
 
 
+func test_project_layout_accepts_existing_nested_required_subdirectories() -> void:
+	var root_path: String = _make_empty_test_root("nested_required")
+	_make_directory(root_path.path_join("features/inventory/scripts/runtime"))
+	_write_text(root_path.path_join("features/inventory/scripts/runtime/item.gd"), "extends RefCounted\n")
+	var profile: Dictionary = _make_minimal_feature_profile()
+	var rules: Array = GFVariantData.get_option_array(profile, "rules")
+	var rule: Dictionary = rules[0]
+	rule["required_subdirs"] = ["scripts/runtime"]
+	rule["allowed_subdirs"] = ["scripts"]
+	rules[0] = rule
+	profile["rules"] = rules
+	var analyzer: GF_PROJECT_LAYOUT_ANALYZER_SCRIPT = GF_PROJECT_LAYOUT_ANALYZER_SCRIPT.new()
+	var report: Dictionary = analyzer.analyze_profile(profile, { "root_path": root_path })
+	assert_true(GFVariantData.get_option_bool(report, "evaluation_complete"), str(report))
+	assert_false(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "missing_feature_subdir"), str(report))
+	var planner: GF_PROJECT_LAYOUT_PLANNER_SCRIPT = GF_PROJECT_LAYOUT_PLANNER_SCRIPT.new()
+	var plan: Dictionary = planner.plan_profile(profile, _analyze_root(root_path), { "feature_ids": ["inventory"] })
+	assert_false(_step_paths(plan).has("features/inventory/scripts/runtime"))
+
+
 func test_project_layout_plan_omits_existing_directories_without_writing() -> void:
 	var root_path: String = _make_empty_test_root("existing")
 	_make_directory(root_path.path_join("app"))

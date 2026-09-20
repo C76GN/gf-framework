@@ -32,12 +32,13 @@ GFBindableProperty 的轻量响应式副作用。 监听一组 GFBindablePropert
 ### `effect_ran`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal effect_ran(value: Variant)
 ```
 
-effect 执行后发出。 "type": "Variant", "description": "回调返回值。" }
+effect 执行后发出。
 
 参数：
 
@@ -47,7 +48,7 @@ effect 执行后发出。 "type": "Variant", "description": "回调返回值。"
 
 结构：
 
-- `value {`:
+- `value`: {"type": "Variant", "description": "回调返回值。"}
 
 ## 属性
 
@@ -112,18 +113,19 @@ func configure( sources: Array[GFBindableProperty], callback: Callable, owner: N
 ### `run`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func run() -> Variant:
 ```
 
-手动执行 effect。 "type": "Variant", "description": "回调返回值；回调无效时返回 null。" }
+手动执行 effect。
 
 返回：回调返回值；回调无效时返回 null。
 
 结构：
 
-- `return {`:
+- `return`: {"type": "Variant", "description": "回调返回值；回调无效时返回 null。"}
 
 <a id="member-gfreactiveeffect-methods-stop"></a>
 

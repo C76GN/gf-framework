@@ -221,7 +221,6 @@ func dispose() -> void:
 		var _cancelled: bool = subscription.cancel()
 	_builtin_command_subscriptions.clear()
 	_commands.clear()
-	_next_registration_id = 1
 
 
 # --- 公共方法 ---

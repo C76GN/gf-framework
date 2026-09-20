@@ -199,6 +199,7 @@ def _update_digest_from_stable_regular_file(
 		| getattr(os, "O_BINARY", 0)
 		| getattr(os, "O_CLOEXEC", 0)
 		| getattr(os, "O_NOFOLLOW", 0)
+		| getattr(os, "O_NONBLOCK", 0)
 	)
 	try:
 		file_descriptor = os.open(path, flags)

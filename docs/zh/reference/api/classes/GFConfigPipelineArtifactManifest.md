@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 常量 | [`FORMAT`](#member-gfconfigpipelineartifactmanifest-constants-format) | `const FORMAT: String = "gf.config_pipeline.artifact_manifest"` |
-| 常量 | [`FORMAT_VERSION`](#member-gfconfigpipelineartifactmanifest-constants-format_version) | `const FORMAT_VERSION: int = 1` |
+| 常量 | [`FORMAT_VERSION`](#member-gfconfigpipelineartifactmanifest-constants-format_version) | `const FORMAT_VERSION: int = 2` |
 | 方法 | [`make_manifest`](#member-gfconfigpipelineartifactmanifest-methods-make_manifest) | `func make_manifest( profile_path: String, profile: GFConfigPipelineProfile, options: Dictionary = {}, run_result: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`load_manifest`](#member-gfconfigpipelineartifactmanifest-methods-load_manifest) | `func load_manifest(manifest_path: String) -> Dictionary:` |
 | 方法 | [`save_manifest`](#member-gfconfigpipelineartifactmanifest-methods-save_manifest) | `func save_manifest(manifest_path: String, manifest: Dictionary, options: Dictionary = {}) -> Dictionary:` |
@@ -47,7 +47,7 @@ manifest JSON 格式标识。
 - 首次版本：`8.0.0`
 
 ```gdscript
-const FORMAT_VERSION: int = 1
+const FORMAT_VERSION: int = 2
 ```
 
 manifest 格式版本。

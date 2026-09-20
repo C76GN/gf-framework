@@ -125,6 +125,7 @@ var trace_id: String = ""
 
 # --- 私有变量 ---
 
+static var _active_files: Array[WeakRef] = []
 var _max_log_files: int = 10
 var _max_memory_entries: int = 500
 static var _LEVEL_NAMES: PackedStringArray = PackedStringArray([
@@ -189,6 +190,7 @@ func init() -> void:
 	if _file == null:
 		push_error("[GFLogUtility] 无法创建日志文件：%s，错误码：%s" % [_log_file_path, FileAccess.get_open_error()])
 	else:
+		_active_files.append(weakref(_file))
 		_last_file_flush_msec = Time.get_ticks_msec()
 		_file_flush_elapsed_msec = 0.0
 		_file_has_unflushed_data = false
@@ -215,6 +217,10 @@ func dispose() -> void:
 
 	if _file != null:
 		_flush_file()
+		for index: int in range(_active_files.size() - 1, -1, -1):
+			var active_file: Variant = _active_files[index].get_ref()
+			if active_file == null or active_file == _file:
+				_active_files.remove_at(index)
 		_file.close()
 		_file = null
 
@@ -826,9 +832,23 @@ func _cleanup_old_logs() -> void:
 
 	files.sort()
 	var to_remove: int = files.size() - max_log_files
-	for i: int in range(to_remove):
-		var path: String = _LOG_DIR + files[i]
-		_remove_absolute(path)
+	var active_paths: Dictionary = {}
+	for index: int in range(_active_files.size() - 1, -1, -1):
+		var active_value: Variant = _active_files[index].get_ref()
+		if active_value is FileAccess:
+			var active_file: FileAccess = active_value
+			if active_file.is_open():
+				active_paths[active_file.get_path_absolute()] = true
+				continue
+		_active_files.remove_at(index)
+	for candidate: String in files:
+		if to_remove <= 0:
+			break
+		var candidate_path: String = _LOG_DIR + candidate
+		if active_paths.has(ProjectSettings.globalize_path(candidate_path)):
+			continue
+		_remove_absolute(candidate_path)
+		to_remove -= 1
 
 
 func _flush_file_if_needed(level: int) -> void:

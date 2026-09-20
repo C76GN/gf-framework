@@ -779,9 +779,12 @@ func _reserve_capacity() -> bool:
 		return true
 	if overflow_policy == OverflowPolicy.SKIP_NEW:
 		return false
-	while _active_haptics.size() >= max_active_haptics and not _play_order.is_empty():
-		var _stopped_oldest: bool = stop_haptic(_play_order[0])
-	return _active_haptics.size() < max_active_haptics
+	var eviction_candidates: PackedInt32Array = _play_order.duplicate()
+	for haptic_id: int in eviction_candidates:
+		if max_active_haptics <= 0 or _active_haptics.size() < max_active_haptics:
+			return true
+		var _stopped_oldest: bool = stop_haptic(haptic_id)
+	return max_active_haptics <= 0 or _active_haptics.size() < max_active_haptics
 
 
 func _finish_haptic(haptic_id: int) -> void:

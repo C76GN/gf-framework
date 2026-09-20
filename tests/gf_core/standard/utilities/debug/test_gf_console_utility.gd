@@ -375,6 +375,19 @@ func test_definition_subscription_removes_all_names() -> void:
 	assert_false(_console.has_command("alias"), "从别名注销资源化命令时应移除别名。")
 
 
+func test_stale_subscription_after_dispose_preserves_new_command() -> void:
+	var console: GFConsoleUtility = GFConsoleUtility.new()
+	var callback: Callable = func(_args: PackedStringArray) -> void:
+		pass
+	var old_token: GFLifetimeSubscription = console.register_command(self, "old", callback, "")
+	console.dispose()
+	var new_token: GFLifetimeSubscription = console.register_command(self, "new", callback, "")
+	assert_true(old_token.cancel())
+	assert_true(console.has_command("new"))
+	assert_true(new_token.cancel())
+	console.dispose()
+
+
 func test_stale_definition_subscription_preserves_replaced_alias() -> void:
 	var definition: GFConsoleCommandDefinition = GFConsoleCommandDefinition.new()
 	definition.command_name = "primary"

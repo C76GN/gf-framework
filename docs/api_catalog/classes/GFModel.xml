@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFModel" path="addons/gf/kernel/base/gf_model.gd" module="kernel" extends="Object" classDigest="73b83d01b0a3632b35d5b8f841e481d1999f84857f79521fafcba1adc10d5b8c">
+<class name="GFModel" path="addons/gf/kernel/base/gf_model.gd" module="kernel" extends="Object" classDigest="58818cd591a1fba5496412a551c59a31c82d69e28512b6b47b4979b908a1ef19">
 	<description>GFModel: 数据层抽象基类。
 负责管理应用数据和业务状态。
 子类可以实现 'init'、'async_init'、'ready'、'begin_activation'、
@@ -155,27 +155,23 @@ Godot 4 支持在 void 函数内部使用 await，框架的 Gf.init() 会串行�
 		<member kind="method" name="to_dict">
 			<signature>func to_dict() -&gt; Dictionary:</signature>
 			<description>将此模型的状态序列化为字典，用于存档、状态快照等。
-子类应重写此方法以包含所有需要持久化的字段。
-"type": "Dictionary",
-"additional_properties": true
-}</description>
+子类应重写此方法以包含所有需要持久化的字段。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">包含模型状态数据的字典。</tag>
-				<tag name="schema">return {</tag>
+				<tag name="schema">return: {"type": "Dictionary", "additional_properties": true}</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="from_dict">
 			<signature>func from_dict(_data: Dictionary) -&gt; void:</signature>
 			<description>从字典反序列化并恢复此模型的状态。
-子类应重写此方法以恢复所有相关字段。
-"type": "Dictionary",
-"additional_properties": true
-}</description>
+子类应重写此方法以恢复所有相关字段。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">_data: 包含状态数据的字典（通常来自 to_dict() 的结果）。</tag>
-				<tag name="schema">_data {</tag>
+				<tag name="schema">_data: {"type": "Dictionary", "additional_properties": true}</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_lifecycle_active">
@@ -218,15 +214,13 @@ GFArchitecture.is_accepting_runtime_work() 检查。</description>
 		</member>
 		<member kind="method" name="send_simple_event">
 			<signature>func send_simple_event(event_id: StringName, payload: Variant = null) -&gt; void:</signature>
-			<description>发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。
-"type": "Variant",
-"description": "事件附加数据；由事件消费者约定结构。"
-}</description>
+			<description>发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_id: StringName 事件标识符。</tag>
 				<tag name="param">payload: 可选的事件附加数据。</tag>
-				<tag name="schema">payload {</tag>
+				<tag name="schema">payload: {"type": "Variant", "description": "事件附加数据；由事件消费者约定结构。"}</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

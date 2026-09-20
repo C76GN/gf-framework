@@ -243,6 +243,8 @@ static func _from_dictionary(data: Dictionary, visited: Array, depth: int) -> GF
 				expression.expressions.append(null)
 			else:
 				expression.expressions.append(_from_dictionary(child_dictionary, visited, depth + 1))
+		else:
+			expression.expressions.append(null)
 	var _removed_visit: Variant = visited.pop_back()
 	return expression
 

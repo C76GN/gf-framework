@@ -21,6 +21,8 @@ extends RefCounted
 ## @since 5.0.0
 const DEFAULT_CAPACITY: int = 8
 
+const _MAX_CAPACITY: int = 2_147_483_647
+
 
 # --- 私有变量 ---
 
@@ -32,7 +34,8 @@ var _count: int = 0
 # --- Godot 生命周期方法 ---
 
 func _init(initial_capacity: int = DEFAULT_CAPACITY) -> void:
-	var _resize_result: int = _data.resize(maxi(initial_capacity, 1))
+	if not _resize_storage(maxi(initial_capacity, 1)):
+		var _fallback_resize: int = _data.resize(1)
 
 
 # --- 公共方法 ---
@@ -69,7 +72,8 @@ static func from_array(values: Array, initial_capacity: int = 0) -> RefCounted:
 ## [br]
 ## @schema value: Variant queue value.
 func push_front(value: Variant) -> void:
-	_ensure_capacity(_count + 1)
+	if not _ensure_capacity(_count + 1):
+		return
 	_front_index = posmod(_front_index - 1, _data.size())
 	_data[_front_index] = value
 	_count += 1
@@ -85,7 +89,8 @@ func push_front(value: Variant) -> void:
 ## [br]
 ## @schema value: Variant queue value.
 func push_back(value: Variant) -> void:
-	_ensure_capacity(_count + 1)
+	if not _ensure_capacity(_count + 1):
+		return
 	_data[_physical_index(_count)] = value
 	_count += 1
 
@@ -224,7 +229,7 @@ func set_at(index: int, value: Variant) -> bool:
 	return true
 
 
-## 至少保留指定底层容量。
+## 至少保留指定底层容量。超出 Array 容量范围或分配失败时保持现有内容与容量不变。
 ## [br]
 ## @api public
 ## [br]
@@ -232,7 +237,7 @@ func set_at(index: int, value: Variant) -> bool:
 ## [br]
 ## @param min_capacity: 最小底层容量。
 func reserve(min_capacity: int) -> void:
-	_ensure_capacity(maxi(maxi(min_capacity, _count), 1))
+	var _reserved: bool = _ensure_capacity(maxi(maxi(min_capacity, _count), 1))
 
 
 ## 从队头裁剪多余元素，使队列最多保留 max_size 个元素。
@@ -377,24 +382,33 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
-func _ensure_capacity(required_capacity: int) -> void:
+func _ensure_capacity(required_capacity: int) -> bool:
+	if required_capacity > _MAX_CAPACITY:
+		push_error("[GFDeque] 请求容量超出可表示范围。")
+		return false
 	if required_capacity <= _data.size():
-		return
+		return true
 
 	var next_capacity: int = maxi(maxi(_data.size(), DEFAULT_CAPACITY), 1)
 	while next_capacity < required_capacity:
-		next_capacity *= 2
-	_resize_storage(next_capacity)
+		next_capacity = mini(next_capacity * 2, _MAX_CAPACITY)
+	return _resize_storage(next_capacity)
 
 
-func _resize_storage(new_capacity: int) -> void:
-	var ordered_values: Array = to_array(false)
-	_data.clear()
-	var _resize_result: int = _data.resize(maxi(maxi(new_capacity, ordered_values.size()), 1))
-	_front_index = 0
-	_count = ordered_values.size()
+func _resize_storage(new_capacity: int) -> bool:
+	if new_capacity > _MAX_CAPACITY:
+		push_error("[GFDeque] 请求容量超出可表示范围。")
+		return false
+	var next_data: Array = []
+	var resize_result: int = next_data.resize(maxi(maxi(new_capacity, _count), 1))
+	if resize_result != OK:
+		push_error("[GFDeque] 无法分配请求容量：%s" % error_string(resize_result))
+		return false
 	for index: int in range(_count):
-		_data[index] = ordered_values[index]
+		next_data[index] = _data[_physical_index(index)]
+	_data = next_data
+	_front_index = 0
+	return true
 
 
 func _physical_index(index: int) -> int:

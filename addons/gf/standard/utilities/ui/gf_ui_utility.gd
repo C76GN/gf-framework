@@ -1466,6 +1466,10 @@ func _add_panel_instance(
 		if not is_instance_valid(panel):
 			push_warning("[GFUIUtility] config_callback 销毁了面板实例，本次入栈已取消。")
 			return false
+		if not _is_active or not is_instance_valid(canvas) or get_layer_root(layer) != canvas:
+			return false
+		if _is_panel_in_any_stack(panel):
+			return false
 
 	_capture_previous_focus(panel, normalized_options, canvas.get_viewport())
 	if panel.get_parent() != null and panel.get_parent() != canvas:

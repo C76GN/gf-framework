@@ -39,15 +39,16 @@ func validate() -> bool:
 ### `to_dict`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func to_dict() -> Dictionary:
 ```
 
-将配置数据序列化为字典，便于存档或网络传输。 子类可重写此方法以控制序列化范围。 "type": "Dictionary", "additional_properties": true }
+将配置数据序列化为字典，便于存档或网络传输。 子类可重写此方法以控制序列化范围。
 
 返回：包含配置数据的字典。
 
 结构：
 
-- `return {`:
+- `return`: {"type": "Dictionary", "additional_properties": true}

@@ -340,6 +340,23 @@ func test_same_tick_callback_can_cancel_owner_of_later_ready_timer() -> void:
 	assert_eq(events, ["first"], "被 cancel_owner 取消的 ready timer 不得执行。")
 
 
+func test_owned_timer_query_includes_ready_timers_and_excludes_cancelled_timers() -> void:
+	var timer_owner: RefCounted = RefCounted.new()
+	var wrong_owner: RefCounted = RefCounted.new()
+	var second_timer: TimerCancelState = TimerCancelState.new()
+	var _first_handle: int = _timer_util.execute_after(0.1, func() -> void:
+		assert_true(_timer_util.has_owned_timer_for_framework(second_timer.handle, timer_owner))
+		assert_false(_timer_util.has_owned_timer_for_framework(second_timer.handle, wrong_owner))
+		assert_true(_timer_util.cancel(second_timer.handle))
+		assert_false(_timer_util.has_owned_timer_for_framework(second_timer.handle, timer_owner))
+	)
+	second_timer.handle = _timer_util.execute_after_owned(timer_owner, 0.1, func() -> void:
+		fail_test("Cancelled ready timer must not run.")
+	)
+	assert_true(_timer_util.has_owned_timer_for_framework(second_timer.handle, timer_owner))
+	_arch.tick(0.1)
+
+
 func test_dispose_during_callback_invalidates_remaining_ready_timers() -> void:
 	var events: Array[String] = []
 	var first_handle: int = _timer_util.execute_after(0.1, func() -> void:

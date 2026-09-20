@@ -520,6 +520,20 @@ class FrozenActionInputTests(unittest.TestCase):
 						),
 					)
 
+	def test_already_captured_file_drift_before_later_capture_fails_closed(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_input_root(Path(temporary_directory))
+			capture = inputs._capture_regular_file
+
+			def capture_with_later_edit(path: Path, *args: object, **kwargs: object) -> dict:
+				if path == root / "tools/checker.py":
+					(root / "README.md").write_text("# Changed after capture\n", encoding="utf-8")
+				return capture(path, *args, **kwargs)
+
+			with mock.patch.object(inputs, "_capture_regular_file", side_effect=capture_with_later_edit):
+				with self.assertRaises(inputs.ValidationInputDriftError):
+					inputs.freeze_action_inputs(root, _input_spec())
+
 	def test_declared_file_parent_replacement_during_open_fails_closed(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			root = _make_input_root(Path(temporary_directory))

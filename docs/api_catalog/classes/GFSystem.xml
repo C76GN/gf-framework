@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSystem" path="addons/gf/kernel/base/gf_system.gd" module="kernel" extends="Object" classDigest="b3d618b31cf8e22ca2e32fbd92e15227be3aa1f9a3d41f33a6d511dd31b5c9cd">
+<class name="GFSystem" path="addons/gf/kernel/base/gf_system.gd" module="kernel" extends="Object" classDigest="91972f8b8cbedbd15917182f45b53a282bf3200d37ca9e059778d63106eb8200">
 	<description>GFSystem: 逻辑层抽象基类。
 负责实现核心业务逻辑。
 子类可以实现 'init'、'async_init'、'ready'、'begin_activation'、
@@ -335,15 +335,13 @@ GFArchitecture.is_accepting_runtime_work() 检查。</description>
 		</member>
 		<member kind="method" name="send_simple_event">
 			<signature>func send_simple_event(event_id: StringName, payload: Variant = null) -&gt; void:</signature>
-			<description>发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。
-"type": "Variant",
-"description": "事件附加数据；由事件消费者约定结构。"
-}</description>
+			<description>发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_id: StringName 事件标识符。</tag>
 				<tag name="param">payload: 可选的事件附加数据。</tag>
-				<tag name="schema">payload {</tag>
+				<tag name="schema">payload: {"type": "Variant", "description": "事件附加数据；由事件消费者约定结构。"}</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

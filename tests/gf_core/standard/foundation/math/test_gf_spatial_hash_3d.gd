@@ -139,6 +139,9 @@ func test_query_aabb_over_covered_cell_limit_returns_empty() -> void:
 	var result: Array[Variant] = spatial_hash.query_aabb(AABB(Vector3.ZERO, Vector3(3.0, 3.0, 3.0)))
 
 	assert_true(result.is_empty(), "超出覆盖格子上限的 AABB 查询应短路为空。")
+	assert_false(spatial_hash.can_query_aabb(AABB(Vector3.ZERO, Vector3(3.0, 3.0, 3.0))))
+	assert_true(spatial_hash.can_query_aabb(AABB(Vector3.ONE, -Vector3.ONE)))
+	assert_false(spatial_hash.can_query_aabb(AABB(Vector3.ZERO, Vector3(INF, 1.0, 1.0))))
 
 
 ## 验证格子范围查询同样受覆盖格子上限保护。
@@ -183,6 +186,17 @@ func test_query_radius_zero_returns_entities_containing_point() -> void:
 
 	assert_true(result.has("inside"), "零半径查询应返回包含点的实体。")
 	assert_false(result.has("outside"), "零半径查询不应返回同格但不包含点的实体。")
+
+
+func test_zero_radius_preserves_closed_boundaries_without_changing_cell_occupancy() -> void:
+	var spatial_hash: GFSpatialHash3D = GFSpatialHash3D.new(4.0)
+	assert_true(spatial_hash.insert("box", AABB(Vector3.ZERO, Vector3.ONE * 4.0)))
+	assert_true(spatial_hash.query_cell(Vector3i(1, 0, 0)).is_empty())
+	for point: Vector3 in [Vector3(4, 2, 2), Vector3(2, 4, 2), Vector3(2, 2, 4), Vector3(4, 4, 2), Vector3(4, 4, 4)]:
+		assert_eq(spatial_hash.query_radius(point, 0.0), ["box"])
+	spatial_hash.max_covered_cells = 1
+	assert_eq(spatial_hash.query_radius(Vector3(2, 2, 2), 0.0), ["box"])
+	assert_true(spatial_hash.query_radius(Vector3(4, 4, 4), 0.0).is_empty(), "边界候选仍受格子预算约束。")
 
 
 func test_non_finite_bounds_and_queries_are_rejected() -> void:

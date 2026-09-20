@@ -1,6 +1,15 @@
 extends GutTest
 
 
+func test_generated_operation_ids_skip_retained_custom_ids() -> void:
+	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
+	var first: StringName = diagnostics.begin_operation(&"task", {"operation_id": &"task:1"})
+	var second: StringName = diagnostics.begin_operation(&"task")
+	assert_ne(first, second)
+	var _finished: Dictionary = diagnostics.finish_operation(second, true)
+	assert_eq(GFVariantData.get_option_string_name(diagnostics.get_operation(first), "state"), &"running")
+
+
 func test_operation_diagnostics_records_operation_phases_and_health() -> void:
 	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
 	diagnostics.slow_operation_threshold_ms = 10.0

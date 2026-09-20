@@ -18,12 +18,11 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 回调返回值。
 ## [br]
-## @schema value {
-##   "type": "Variant",
-##   "description": "回调返回值。"
-## }
+## @schema value: {"type": "Variant", "description": "回调返回值。"}
 signal effect_ran(value: Variant)
 
 
@@ -120,12 +119,11 @@ func configure(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 回调返回值；回调无效时返回 null。
 ## [br]
-## @schema return {
-##   "type": "Variant",
-##   "description": "回调返回值；回调无效时返回 null。"
-## }
+## @schema return: {"type": "Variant", "description": "回调返回值；回调无效时返回 null。"}
 func run() -> Variant:
 	if not _active or not _callback.is_valid():
 		return null

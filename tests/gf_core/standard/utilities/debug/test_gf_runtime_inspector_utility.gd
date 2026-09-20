@@ -249,6 +249,22 @@ func test_runtime_inspector_rejects_commit_after_reentrant_registration_change()
 	property.setter = Callable()
 
 
+func test_post_write_getter_registration_change_rejects_old_commit() -> void:
+	var target: TunableTarget = TunableTarget.new()
+	var property: GFRuntimeTunableProperty = GFRuntimeTunableProperty.new(&"health", ^"health", GFRuntimeTunableProperty.ValueKind.INT)
+	var reads: Array[int] = [0]
+	property.getter = func(callback_target: Object, _property: GFRuntimeTunableProperty) -> Variant:
+		reads[0] += 1
+		if reads[0] == 2:
+			var _removed: bool = _inspector.unregister_target(&"post_read")
+		return callback_target.get("health")
+	assert_true(_inspector.register_target(&"post_read", target, [property]))
+	watch_signals(_inspector)
+	assert_false(_inspector.set_property_value(&"post_read", &"health", 20))
+	assert_signal_not_emitted(_inspector, "property_changed")
+	property.getter = Callable()
+
+
 func test_tunable_property_rejects_invalid_numeric_variants_without_writing() -> void:
 	var target: TunableTarget = TunableTarget.new()
 	var int_property: GFRuntimeTunableProperty = GFRuntimeTunableProperty.new(

@@ -139,10 +139,11 @@ func _connect_signal_checked(source_signal: Signal, callback: Callable, flags: i
 		push_warning("[GFExtensionManagerDock] Signal 连接失败：%s" % error_string(error))
 
 
-func _save_project_settings() -> void:
+func _save_project_settings() -> Error:
 	var error: Error = ProjectSettings.save()
 	if error != OK:
 		push_error("[GFExtensionManagerDock] 保存 ProjectSettings 失败：%s" % error_string(error))
+	return error
 
 
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
@@ -377,7 +378,10 @@ func _add_extension_row(manifest: GFExtensionManifest, enabled: bool) -> void:
 
 func _apply_selection() -> void:
 	_write_selection_to_project_settings()
-	_save_project_settings()
+	var save_error: Error = _save_project_settings()
+	if save_error != OK:
+		_set_status("保存失败（%s），内存设置尚未写入 project.godot，请重试。" % error_string(save_error))
+		return
 	_refresh_usage_report()
 	_refresh_extensions()
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_usage_report, "reference_count", 0) > 0:

@@ -174,7 +174,7 @@ func _add_budget_exhausted_issue(report: Dictionary, context: Dictionary, value:
 	if not (session_value is _ResourcePathValidationSession):
 		return
 	var session: _ResourcePathValidationSession = session_value
-	if not session._take_budget_notice():
+	if not session._take_budget_notice(severity):
 		return
 
 	var issue_context: Dictionary = _make_issue_context(context, value, "resource path check budget")
@@ -250,7 +250,7 @@ class _ResourcePathValidationSession:
 
 	var _budget: GFExecutionBudget
 	var _results: Dictionary = {}
-	var _budget_notice_available: bool = true
+	var _budget_notice_severities: Dictionary = {}
 
 	func _init(max_unique_checks: int) -> void:
 		_budget = GFExecutionBudget.new({"max_steps": maxi(max_unique_checks, 1)})
@@ -280,10 +280,10 @@ class _ResourcePathValidationSession:
 			"cached": false,
 		}
 
-	func _take_budget_notice() -> bool:
-		if not _budget_notice_available:
+	func _take_budget_notice(issue_severity: int) -> bool:
+		if _budget_notice_severities.has(issue_severity):
 			return false
-		_budget_notice_available = false
+		_budget_notice_severities[issue_severity] = true
 		return true
 
 	func _get_check_count() -> int:

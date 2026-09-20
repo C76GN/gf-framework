@@ -11,7 +11,7 @@ AI Developer Kit 是可选的制作期工具。它让项目侧 AI 先读取项�
 - `knowledge/capabilities.json`：按需求搜索的稳定能力目录，不把一个具体类当成架构入口。
 - `knowledge/api_index.json`：从同一 GF 发行版公开 API 生成的 schema v2、catalog version `2.0.0` owner 索引；既有 `classes` / `class_count` 保持类语义，独立的 `autoloads` / `autoload_count` 收录受控 AutoLoad，并共同提供成员、包归属和源码路径。
 
-契约表达“项目决定了什么”，快照表达“磁盘上实际有什么”。生成快照不能反向覆盖契约，也不能把推测固化为项目意图。
+契约表达“项目决定了什么”，快照表达“磁盘上实际有什么”。生成快照不能反向覆盖契约，也不能把推测固化为项目意图。`snapshot --output` 只接受与当前契约路径不同的 `.json` 产物路径；已有目标必须符合快照 Schema，工具拒绝覆盖工程文件、契约或其他 JSON 数据，自定义快照可以重复刷新。
 
 从旧 API index 迁移的消费者应先按 `schema_version` 分流：v2 继续从 `classes` 查询 `class_name`，并额外从 `autoloads` 查询 `Gf` 等受控 owner；不要合并同名键后丢失 owner kind，也不要把 `autoloads` 缺失解释为框架没有全局入口。该目录变化只改善制作期检索，`Gf` 的 AutoLoad 名称、注册路径和运行时调用行为不变。
 

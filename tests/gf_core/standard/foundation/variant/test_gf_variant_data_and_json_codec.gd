@@ -7,6 +7,136 @@ extends GutTest
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
+func test_complete_codec_results_distinguish_failure_from_valid_null_and_marker_shaped_data() -> void:
+	var encoded_null: Dictionary = GFVariantJsonCodec.variant_to_json_compatible_result(null)
+	assert_true(GFVariantData.get_option_bool(encoded_null, "ok"))
+	assert_true(encoded_null.get("value") == null)
+	var literal: Dictionary = { GFVariantJsonCodec.JSON_MARKER_KEY: { "type": "TraversalLimit", "value": "ordinary data" } }
+	var encoded: Dictionary = GFVariantJsonCodec.variant_to_json_compatible_result(literal, { "encode_dictionary_keys": true })
+	var decoded: Dictionary = GFVariantJsonCodec.json_compatible_to_variant_result(encoded.get("value"))
+	assert_true(GFVariantData.get_option_bool(decoded, "ok"))
+	var literal_preserved: bool = decoded.get("value") == literal
+	assert_true(literal_preserved)
+	var unsupported: RefCounted = RefCounted.new()
+	assert_false(GFVariantData.get_option_bool(GFVariantJsonCodec.variant_to_json_compatible_result([unsupported]), "ok"))
+	var circular: Array = []
+	circular.append(circular)
+	assert_false(GFVariantData.get_option_bool(GFVariantJsonCodec.variant_to_json_compatible_result(circular), "ok"))
+	circular.clear()
+	var exhausted: Dictionary = GFVariantJsonCodec.variant_to_json_compatible_result([1, 2], { "max_nodes": 2 })
+	assert_false(GFVariantData.get_option_bool(exhausted, "ok"))
+	assert_true(exhausted.get("value") == null)
+
+
+func test_complete_decoder_rejects_malformed_marker_payloads() -> void:
+	var malformed: Array = [
+		[Vector2.ONE, [1.0]], [Vector2.ONE, [1.0, "bad"]],
+		[Vector2i.ONE, [1.5, 2]], [Vector2i.ONE, [2147483648.0, 2]],
+		[Vector3.ONE, [1, 2]], [Vector3i.ONE, [true, 2, 3]],
+		[Vector4.ONE, [1, 2, 3]], [Vector4i.ONE, [1, 2, 3, null]],
+		[Rect2(1, 2, 3, 4), [1, 2, 3]], [Rect2i(1, 2, 3, 4), [1, 2, 3, 4, 5]],
+		[Color.WHITE, [1, 1, 1]], [Plane(), [1, 2, 3]], [Quaternion.IDENTITY, [0, 0, 0]],
+		[AABB(), [0, 0, 0]], [Basis.IDENTITY, []], [Transform2D.IDENTITY, []],
+		[Transform3D.IDENTITY, { "basis": [], "origin": [0, 0, 0] }],
+		[Transform3D.IDENTITY, { "basis": [1, 0, 0, 0, 1, 0, 0, 0, 1] }],
+		[9223372036854775807, "9223372036854775808"], [9223372036854775807, "bad"],
+		[INF, "infinity"], [&"name", 12], [NodePath("Child"), null],
+		[PackedByteArray([1]), [256]], [PackedInt32Array([1]), [1.5]],
+		[PackedInt64Array([1]), ["9223372036854775808"]],
+		[PackedFloat32Array([1.0]), ["bad"]], [PackedFloat32Array([1.0]), [1.0e100]],
+		[PackedFloat64Array([1.0]), [null]],
+		[PackedStringArray(["text"]), [1]], [PackedVector2Array([Vector2.ONE]), [[1]]],
+		[PackedVector3Array([Vector3.ONE]), [[1, 2]]], [PackedColorArray([Color.WHITE]), [[1, 2, 3]]],
+		[PackedVector4Array([Vector4.ONE]), [[1, 2, 3]]],
+	]
+	for pair: Array in malformed:
+		var encoded: Dictionary = GFVariantData.as_dictionary(GFVariantJsonCodec.variant_to_json_compatible(pair[0]))
+		var marker: Dictionary = GFVariantData.as_dictionary(encoded.get(GFVariantJsonCodec.JSON_MARKER_KEY))
+		marker[GFVariantJsonCodec.JSON_VALUE_KEY] = pair[1]
+		var result: Dictionary = GFVariantJsonCodec.json_compatible_to_variant_result(encoded)
+		assert_false(GFVariantData.get_option_bool(result, "ok"), str(marker))
+		assert_true(result.get("value") == null, str(marker))
+		assert_false(GFVariantData.get_option_string(result, "error").is_empty())
+	for payload: Variant in [{}, [{ "key": "a" }], [{ "key": "a", "value": 1, "extra": 2 }], [{ "key": "a", "value": 1 }, { "key": "a", "value": 2 }]]:
+		var encoded: Dictionary = GFVariantData.as_dictionary(GFVariantJsonCodec.variant_to_json_compatible({}, { "encode_dictionary_keys": true }))
+		var marker: Dictionary = GFVariantData.as_dictionary(encoded.get(GFVariantJsonCodec.JSON_MARKER_KEY))
+		marker[GFVariantJsonCodec.JSON_VALUE_KEY] = payload
+		var result: Dictionary = GFVariantJsonCodec.json_compatible_to_variant_result(encoded)
+		assert_false(GFVariantData.get_option_bool(result, "ok"), str(payload))
+		assert_true(result.get("value") == null)
+
+
+func test_complete_decoder_validates_marker_envelope_without_claiming_business_dictionaries() -> void:
+	for change: Dictionary in [{ "version": "1" }, { "version": 1.5 }, { "type": 12 }, { "extra": true }]:
+		var encoded: Dictionary = GFVariantData.as_dictionary(GFVariantJsonCodec.variant_to_json_compatible(Vector2.ONE))
+		var marker: Dictionary = GFVariantData.as_dictionary(encoded.get(GFVariantJsonCodec.JSON_MARKER_KEY))
+		marker.merge(change, true)
+		assert_false(GFVariantData.get_option_bool(GFVariantJsonCodec.json_compatible_to_variant_result(encoded), "ok"))
+	var missing_payload: Dictionary = GFVariantData.as_dictionary(GFVariantJsonCodec.variant_to_json_compatible(Vector2.ONE))
+	var missing_marker: Dictionary = GFVariantData.as_dictionary(missing_payload.get(GFVariantJsonCodec.JSON_MARKER_KEY))
+	var _erased: bool = missing_marker.erase(GFVariantJsonCodec.JSON_VALUE_KEY)
+	assert_false(GFVariantData.get_option_bool(GFVariantJsonCodec.json_compatible_to_variant_result(missing_payload), "ok"))
+	var business: Dictionary = { "__gf_variant__": { "type": "Vector2", "value": [1] } }
+	var business_preserved: bool = GFVariantJsonCodec.json_compatible_to_variant_result(business).get("value") == business
+	assert_true(business_preserved)
+	var malformed_vector: Dictionary = GFVariantData.as_dictionary(GFVariantJsonCodec.variant_to_json_compatible(Vector2.ONE))
+	var malformed_marker: Dictionary = GFVariantData.as_dictionary(malformed_vector.get(GFVariantJsonCodec.JSON_MARKER_KEY))
+	malformed_marker[GFVariantJsonCodec.JSON_VALUE_KEY] = [1.0]
+	var diagnostic_fallback_preserved: bool = GFVariantJsonCodec.json_compatible_to_variant(malformed_vector) == Vector2(1, 0)
+	assert_true(diagnostic_fallback_preserved)
+	assert_true(GFVariantData.get_option_bool(GFVariantJsonCodec.json_compatible_to_variant_result(malformed_vector, { "decode_typed_markers": false }), "ok"))
+
+
+func test_complete_codec_roundtrips_all_supported_types_through_real_json() -> void:
+	var values: Array = [
+		null, true, 1, 1.5, "text", 9223372036854775807, -9223372036854775807 - 1,
+		&"name", NodePath("Child"), Vector2(1.25, 2.5), Vector2i(-2147483648, 2147483647),
+		Vector3.ONE, Vector3i.ONE, Vector4.ONE, Vector4i.ONE, Rect2(1, 2, 3, 4), Rect2i(1, 2, 3, 4),
+		Color.WHITE, Plane(Vector3.UP, 2), Quaternion.IDENTITY, AABB(Vector3.ONE, Vector3.ONE),
+		Basis.IDENTITY, Transform2D.IDENTITY, Transform3D.IDENTITY,
+		{ 1: "integer key", "1": null, Vector2.ONE: [1, 2] }, [], {},
+		PackedByteArray([0, 255]), PackedInt32Array([-2147483648, 2147483647]),
+		PackedInt64Array([-9223372036854775807 - 1, 9223372036854775807]),
+		PackedFloat32Array([1.5, 3.4028234663852886e38]), PackedFloat64Array([1.5, 1.0e100]), PackedStringArray(["text"]),
+		PackedVector2Array([Vector2.ONE]), PackedVector3Array([Vector3.ONE]),
+		PackedVector4Array([Vector4.ONE]), PackedColorArray([Color.WHITE]),
+	]
+	for value: Variant in values:
+		var encoded: Dictionary = GFVariantJsonCodec.variant_to_json_compatible_result(value, { "encode_dictionary_keys": true })
+		assert_true(GFVariantData.get_option_bool(encoded, "ok"))
+		var parsed: Variant = JSON.parse_string(JSON.stringify(encoded.get("value")))
+		var decoded: Dictionary = GFVariantJsonCodec.json_compatible_to_variant_result(parsed)
+		assert_true(GFVariantData.get_option_bool(decoded, "ok"), str(value))
+		var reencoded: Variant = GFVariantJsonCodec.variant_to_json_compatible(decoded.get("value"), { "encode_dictionary_keys": true })
+		var roundtrip_preserved: bool = JSON.parse_string(JSON.stringify(reencoded)) == parsed
+		assert_true(roundtrip_preserved, str(value))
+	var non_finite: Array = [NAN, INF, -INF, Vector2(NAN, INF), PackedFloat32Array([NAN, -INF])]
+	for value: Variant in non_finite:
+		var encoded: Dictionary = GFVariantJsonCodec.variant_to_json_compatible_result(value)
+		var parsed: Variant = JSON.parse_string(JSON.stringify(encoded.get("value")))
+		var decoded: Dictionary = GFVariantJsonCodec.json_compatible_to_variant_result(parsed)
+		assert_true(GFVariantData.get_option_bool(decoded, "ok"), str(value))
+		var non_finite_preserved: bool = GFVariantJsonCodec.variant_to_json_compatible(decoded.get("value")) == encoded.get("value")
+		assert_true(non_finite_preserved)
+
+
+func test_complete_decoder_rejects_live_objects_in_plain_and_typed_payloads() -> void:
+	var live_value: RefCounted = RefCounted.new()
+	assert_false(GFVariantData.get_option_bool(
+		GFVariantJsonCodec.json_compatible_to_variant_result({ "object": live_value }), "ok"
+	))
+	var typed_payload: Dictionary = GFVariantJsonCodec.variant_to_json_compatible(Vector2.ONE)
+	var marker: Dictionary = typed_payload[GFVariantJsonCodec.JSON_MARKER_KEY]
+	marker[GFVariantJsonCodec.JSON_VALUE_KEY] = [live_value, 1.0]
+	assert_false(GFVariantData.get_option_bool(
+		GFVariantJsonCodec.json_compatible_to_variant_result(typed_payload), "ok"
+	))
+	var keyed_payload: Dictionary = { live_value: 1 }
+	assert_false(GFVariantData.get_option_bool(
+		GFVariantJsonCodec.json_compatible_to_variant_result(keyed_payload), "ok"
+	))
+
+
 func test_duplicate_variant_deep_copies_collections() -> void:
 	var source: Dictionary = {
 		"items": [

@@ -39,10 +39,7 @@ func install(_architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
 ## [br]
 ## @param _binder: 绑定到当前架构的装配器。
 ## [br]
-## @schema _binder {
-##   "type": "Variant",
-##   "description": "当前架构创建的装配器实例，实际类型为 GFBindBuilder。"
-## }
+## @schema _binder: {"type": "Variant", "description": "当前架构创建的装配器实例，实际类型为 GFBindBuilder。"}
 ## [br]
 ## @param _scope: 当前 Installer 步骤的可取消异步作用域。
 func install_bindings(_binder: Variant, _scope: GFAsyncScope) -> void:

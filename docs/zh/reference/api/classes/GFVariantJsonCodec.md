@@ -17,6 +17,8 @@ Godot Variant 的 JSON 兼容编码器。 负责在 JSON.stringify() 可编码�
 |---|---|---|
 | 方法 | [`variant_to_json_compatible`](#member-gfvariantjsoncodec-methods-variant_to_json_compatible) | `static func variant_to_json_compatible(value: Variant, options: Dictionary = {}) -> Variant:` |
 | 方法 | [`json_compatible_to_variant`](#member-gfvariantjsoncodec-methods-json_compatible_to_variant) | `static func json_compatible_to_variant(value: Variant, options: Dictionary = {}) -> Variant:` |
+| 方法 | [`variant_to_json_compatible_result`](#member-gfvariantjsoncodec-methods-variant_to_json_compatible_result) | `static func variant_to_json_compatible_result(value: Variant, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`json_compatible_to_variant_result`](#member-gfvariantjsoncodec-methods-json_compatible_to_variant_result) | `static func json_compatible_to_variant_result(value: Variant, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`stringify_json_compatible`](#member-gfvariantjsoncodec-methods-stringify_json_compatible) | `static func stringify_json_compatible( value: Variant, indent: String = "", sort_keys: bool = false, options: Dictionary = {} ) -> String:` |
 | 方法 | [`parse_json_compatible_text`](#member-gfvariantjsoncodec-methods-parse_json_compatible_text) | `static func parse_json_compatible_text( text: String, fallback: Variant = null, options: Dictionary = {} ) -> Variant:` |
 | 方法 | [`parse_json_text`](#member-gfvariantjsoncodec-methods-parse_json_text) | `static func parse_json_text(text: String, fallback: Variant = null) -> Variant:` |
@@ -86,6 +88,62 @@ static func json_compatible_to_variant(value: Variant, options: Dictionary = {})
 - `value`: Variant parsed from JSON-compatible data.
 - `options`: Dictionary with decode_typed_markers, key decoding, max_depth, max_nodes, max_collection_items, and traversal_limit options.
 - `return`: Variant restored from JSON-compatible data, or the traversal_limit fallback when traversal is incomplete.
+
+<a id="member-gfvariantjsoncodec-methods-variant_to_json_compatible_result"></a>
+
+### `variant_to_json_compatible_result`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func variant_to_json_compatible_result(value: Variant, options: Dictionary = {}) -> Dictionary:
+```
+
+编码可恢复数据，并显式报告预算耗尽、循环引用及不支持的值。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `value` | 待编码值。 |
+| `options` | 与 variant_to_json_compatible 相同的编码选项。 |
+
+返回：完整编码结果；失败不返回部分值。
+
+结构：
+
+- `value`: 任意待编码 Variant。
+- `options`: 包含 encode_dictionary_keys、encode_unsafe_ints、max_depth、max_nodes 和 max_collection_items 的 Dictionary。
+- `return`: Dictionary，包含 ok: bool、value: Variant、error: String；失败时 value 为 null。
+
+<a id="member-gfvariantjsoncodec-methods-json_compatible_to_variant_result"></a>
+
+### `json_compatible_to_variant_result`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func json_compatible_to_variant_result(value: Variant, options: Dictionary = {}) -> Dictionary:
+```
+
+解码可恢复数据；预算耗尽、不可恢复标记和损坏的类型载荷会返回失败。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `value` | 已编码的值。 |
+| `options` | 与 json_compatible_to_variant 相同的解码选项。 |
+
+返回：完整解码结果；失败不返回部分值。
+
+结构：
+
+- `value`: GF JSON 兼容数据和类型标记。
+- `options`: 包含 decode_typed_markers、max_depth、max_nodes 和 max_collection_items 的 Dictionary。
+- `return`: Dictionary，包含 ok: bool、value: Variant、error: String；失败时 value 为 null。
 
 <a id="member-gfvariantjsoncodec-methods-stringify_json_compatible"></a>
 

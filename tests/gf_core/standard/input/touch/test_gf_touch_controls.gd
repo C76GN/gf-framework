@@ -38,6 +38,31 @@ func test_touch_button_mouse_and_action_bridges_are_opt_in_by_default() -> void:
 	assert_false(button.emit_joypad_button, "触屏按钮默认不应发送虚拟手柄事件。")
 
 
+func test_joystick_callbacks_cannot_revive_or_release_gesture_twice() -> void:
+	var joystick: GFTouchJoystick = GFTouchJoystick.new()
+	joystick.radius = 100.0
+	joystick.deadzone = 0.0
+	add_child_autofree(joystick)
+	watch_signals(joystick)
+	var _pressed_connection: Error = joystick.joystick_pressed.connect(
+		joystick.release, CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+	joystick._begin_touch(10, Vector2.ZERO, Vector2(80.0, 0.0))
+	assert_false(joystick.is_touch_active())
+	assert_eq(joystick.get_direction(), Vector2.ZERO, "pressed 回调 release 后旧 begin 不得复活方向。")
+	joystick.release()
+	joystick._begin_touch(11, Vector2.ZERO, Vector2(80.0, 0.0))
+	var on_direction: Callable = func(direction: Vector2) -> void:
+		if direction == Vector2.ZERO:
+			joystick.release()
+	var _direction_connection: Error = joystick.direction_changed.connect(on_direction) as Error
+	joystick.release()
+	assert_false(joystick.is_touch_active())
+	assert_eq(joystick.get_direction(), Vector2.ZERO)
+	assert_signal_emit_count(joystick, "joystick_released", 2, "每个 gesture 只能发布一次 release。")
+	joystick.direction_changed.disconnect(on_direction)
+
+
 func test_touch_joystick_action_bridges_are_opt_in_by_default() -> void:
 	var joystick: GFTouchJoystick = GFTouchJoystick.new()
 	add_child_autofree(joystick)

@@ -1257,9 +1257,13 @@ def project_profile_strict_json_model_error(value: Any) -> str:
 			return PROJECT_PROFILE_STRICT_NODE_ERROR
 		if type(current) is float and not math.isfinite(current):
 			return "Non-finite JSON number is not allowed."
+		if isinstance(current, str) and any(0xD800 <= ord(character) <= 0xDFFF for character in current):
+			return "Project profile JSON strings must contain valid Unicode scalar values."
 		if isinstance(current, dict):
 			if any(not isinstance(key, str) for key in current):
 				return "Project profile JSON object keys must be strings."
+			if any(any(0xD800 <= ord(character) <= 0xDFFF for character in key) for key in current):
+				return "Project profile JSON keys must contain valid Unicode scalar values."
 			stack.extend((nested, depth + 1) for nested in reversed(list(current.values())))
 		elif isinstance(current, list):
 			stack.extend((nested, depth + 1) for nested in reversed(current))
@@ -3524,7 +3528,7 @@ def audit_project_profile_feature_module_contract_rule(
 					))
 				continue
 			subdir = parts[1]
-			feature_subdirs.add(subdir)
+			feature_subdirs.update("/".join(parts[1:index]) for index in range(2, len(parts)))
 			if (strict_v1 or root_allowed_subdirs) and subdir not in root_allowed_subdirs:
 				invalid_subdirs.add((root, feature_id, subdir))
 	for root, feature_id in sorted(invalid_feature_ids):

@@ -244,30 +244,32 @@ func get_save_key() -> StringName:
 ### `to_dict`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func to_dict() -> Dictionary:
 ```
 
-将此模型的状态序列化为字典，用于存档、状态快照等。 子类应重写此方法以包含所有需要持久化的字段。 "type": "Dictionary", "additional_properties": true }
+将此模型的状态序列化为字典，用于存档、状态快照等。 子类应重写此方法以包含所有需要持久化的字段。
 
 返回：包含模型状态数据的字典。
 
 结构：
 
-- `return {`:
+- `return`: {"type": "Dictionary", "additional_properties": true}
 
 <a id="member-gfmodel-methods-from_dict"></a>
 
 ### `from_dict`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func from_dict(_data: Dictionary) -> void:
 ```
 
-从字典反序列化并恢复此模型的状态。 子类应重写此方法以恢复所有相关字段。 "type": "Dictionary", "additional_properties": true }
+从字典反序列化并恢复此模型的状态。 子类应重写此方法以恢复所有相关字段。
 
 参数：
 
@@ -277,7 +279,7 @@ func from_dict(_data: Dictionary) -> void:
 
 结构：
 
-- `_data {`:
+- `_data`: {"type": "Dictionary", "additional_properties": true}
 
 <a id="member-gfmodel-methods-is_lifecycle_active"></a>
 
@@ -352,12 +354,13 @@ func send_event(event_instance: Object) -> void:
 ### `send_simple_event`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 ```
 
-发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。 "type": "Variant", "description": "事件附加数据；由事件消费者约定结构。" }
+发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。
 
 参数：
 
@@ -368,4 +371,4 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 
 结构：
 
-- `payload {`:
+- `payload`: {"type": "Variant", "description": "事件附加数据；由事件消费者约定结构。"}

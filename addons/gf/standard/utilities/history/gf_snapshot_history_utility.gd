@@ -221,6 +221,8 @@ func restore_index(index: int) -> bool:
 	var record: Dictionary = _snapshots[index]
 	if not _restore_data(_get_record_data(record)):
 		return false
+	if index >= _snapshots.size() or not is_same(_snapshots[index], record):
+		return false
 
 	_current_index = index
 	snapshot_restored.emit(_get_record_id(record), _current_index)

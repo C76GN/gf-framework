@@ -586,12 +586,13 @@ func unregister_simple_event(event_id: StringName, listener: GFEventListener) ->
 ### `send_simple_event`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 ```
 
-发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。 "type": "Variant", "description": "事件附加数据；由事件消费者约定结构。" }
+发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。
 
 参数：
 
@@ -602,4 +603,4 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 
 结构：
 
-- `payload {`:
+- `payload`: {"type": "Variant", "description": "事件附加数据；由事件消费者约定结构。"}

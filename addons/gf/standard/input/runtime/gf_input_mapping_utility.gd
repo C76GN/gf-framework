@@ -150,6 +150,9 @@ var _action_active: Dictionary = {}
 var _raw_action_active: Dictionary = {}
 var _just_started: Dictionary = {}
 var _just_completed: Dictionary = {}
+var _action_edge_revisions: Dictionary = {}
+var _player_action_edge_revisions: Dictionary = {}
+var _next_action_edge_revision: int = 0
 var _action_active_elapsed: Dictionary = {}
 var _last_completed_duration: Dictionary = {}
 var _player_action_values: Dictionary = {}
@@ -423,6 +426,7 @@ func set_virtual_action_value(
 	var binding_key: String = _make_virtual_binding_key(source_key, action_id, player_index)
 	if (
 		_get_registered_action(action_id) == null
+		or not _is_virtual_value_finite(value)
 		or _virtual_pulse_bulk_mutation_depth > 0
 		or _virtual_pulse_mutation_keys.has(binding_key)
 	):
@@ -949,6 +953,35 @@ func clear_player_input_state(player_index: int) -> void:
 
 
 # --- 框架内部方法 ---
+
+## 返回动作最近一次指定边沿的单调版本，供序列避免重复消费观察窗口中的同一边沿。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/input
+## [br]
+## @since 11.0.0
+## [br]
+## @param action_id: 动作标识。
+## [br]
+## @param player_index: 玩家索引；负数查询全局时间线。
+## [br]
+## @param completed: true 查询完成边沿，false 查询开始边沿。
+## [br]
+## @return 指定边沿版本；尚未发生返回 0。
+func get_action_edge_revision_for_framework(
+	action_id: StringName,
+	player_index: int = -1,
+	completed: bool = false
+) -> int:
+	var revisions: Dictionary = {}
+	if player_index >= 0:
+		var player_key: String = _make_player_action_key(player_index, action_id)
+		revisions = GFVariantData.get_option_dictionary(_player_action_edge_revisions, player_key)
+	else:
+		revisions = GFVariantData.get_option_dictionary(_action_edge_revisions, action_id)
+	return GFVariantData.get_option_int(revisions, "completed" if completed else "started")
+
 
 ## 为类型化虚拟输入脉冲取得稳定输入键的权威 lease 并写入脉冲值。
 ## [br]
@@ -1895,11 +1928,13 @@ func _values_equal(left: Variant, right: Variant) -> bool:
 
 func _mark_action_just_started(action_id: StringName) -> void:
 	_just_started[action_id] = true
+	_record_action_edge_revision(_action_edge_revisions, action_id, false)
 	_queue_clear_transient_input_state()
 
 
 func _mark_action_just_completed(action_id: StringName) -> void:
 	_just_completed[action_id] = true
+	_record_action_edge_revision(_action_edge_revisions, action_id, true)
 	_queue_clear_transient_input_state()
 
 
@@ -1907,6 +1942,7 @@ func _mark_player_action_just_started(player_index: int, action_id: StringName) 
 	var key: String = _make_player_action_key(player_index, action_id)
 	_register_player_action_metadata(key, player_index, action_id)
 	_player_just_started[key] = true
+	_record_action_edge_revision(_player_action_edge_revisions, key, false)
 	_queue_clear_transient_input_state()
 
 
@@ -1914,7 +1950,15 @@ func _mark_player_action_just_completed(player_index: int, action_id: StringName
 	var key: String = _make_player_action_key(player_index, action_id)
 	_register_player_action_metadata(key, player_index, action_id)
 	_player_just_completed[key] = true
+	_record_action_edge_revision(_player_action_edge_revisions, key, true)
 	_queue_clear_transient_input_state()
+
+
+func _record_action_edge_revision(records: Dictionary, key: Variant, completed: bool) -> void:
+	_next_action_edge_revision += 1
+	var revisions: Dictionary = GFVariantData.get_option_dictionary(records, key)
+	revisions["completed" if completed else "started"] = _next_action_edge_revision
+	records[key] = revisions
 
 
 func _queue_clear_transient_input_state() -> void:
@@ -1942,12 +1986,14 @@ func _clear_runtime_state(
 ) -> void:
 	_virtual_pulse_bulk_mutation_depth += 1
 	_terminate_all_virtual_pulse_leases(pulse_reason)
+	var completed_actions: Dictionary = {}
+	var completed_player_actions: Array[Dictionary] = []
 	if emit_completed:
 		for action_id: StringName in _action_active.keys():
 			if _get_action_active(action_id) and _actions.has(action_id):
 				var action: GFInputAction = _get_registered_action(action_id)
 				if action != null:
-					action_completed.emit(action_id, _default_value_for_type(action.value_type))
+					completed_actions[action_id] = _default_value_for_type(action.value_type)
 		for player_action_key: String in _player_action_active.keys():
 			if not _get_player_action_active_by_key(player_action_key):
 				continue
@@ -1957,7 +2003,11 @@ func _clear_runtime_state(
 				continue
 			var action: GFInputAction = _get_registered_action(action_id)
 			if action != null:
-				player_action_completed.emit(player_index, action_id, _default_value_for_type(action.value_type))
+				completed_player_actions.append({
+					"player_index": player_index,
+					"action_id": action_id,
+					"value": _default_value_for_type(action.value_type),
+				})
 
 	_binding_values.clear()
 	_binding_to_action.clear()
@@ -1970,6 +2020,8 @@ func _clear_runtime_state(
 	_raw_action_active.clear()
 	_just_started.clear()
 	_just_completed.clear()
+	_action_edge_revisions.clear()
+	_player_action_edge_revisions.clear()
 	_action_active_elapsed.clear()
 	_last_completed_duration.clear()
 	_player_action_values.clear()
@@ -1984,12 +2036,21 @@ func _clear_runtime_state(
 	_transient_input_state_mark_frame = -1
 	_reset_all_trigger_states()
 	_virtual_pulse_bulk_mutation_depth = maxi(_virtual_pulse_bulk_mutation_depth - 1, 0)
+	for action_id: StringName in completed_actions:
+		action_completed.emit(action_id, completed_actions[action_id])
+	for record: Dictionary in completed_player_actions:
+		player_action_completed.emit(
+			GFVariantData.get_option_int(record, "player_index"),
+			GFVariantData.get_option_string_name(record, "action_id"),
+			GFVariantData.get_option_value(record, "value")
+		)
 
 
 func _clear_player_runtime_state(player_index: int, emit_completed: bool = false) -> void:
 	_virtual_pulse_bulk_mutation_depth += 1
 	_terminate_virtual_pulse_leases_for_player(player_index, &"player_state_cleared")
 	var affected_actions: Dictionary = {}
+	var completed_actions: Dictionary = {}
 	if emit_completed:
 		for player_action_key: String in _player_action_active.keys():
 			if _get_player_index_from_action_key(player_action_key) != player_index:
@@ -1999,7 +2060,7 @@ func _clear_player_runtime_state(player_index: int, emit_completed: bool = false
 			var action_id: StringName = _get_player_action_id_from_key(player_action_key)
 			var action: GFInputAction = _get_registered_action(action_id)
 			if action != null:
-				player_action_completed.emit(player_index, action_id, _default_value_for_type(action.value_type))
+				completed_actions[action_id] = _default_value_for_type(action.value_type)
 
 	for key: String in _binding_player_indices.keys():
 		if _get_binding_player_index(key) != player_index:
@@ -2027,6 +2088,7 @@ func _clear_player_runtime_state(player_index: int, emit_completed: bool = false
 		_erase_dictionary_key(_player_trigger_states, key)
 		_erase_dictionary_key(_player_just_started, key)
 		_erase_dictionary_key(_player_just_completed, key)
+		_erase_dictionary_key(_player_action_edge_revisions, key)
 		_erase_dictionary_key(_player_action_active_elapsed, key)
 		_erase_dictionary_key(_player_last_completed_duration, key)
 
@@ -2035,6 +2097,8 @@ func _clear_player_runtime_state(player_index: int, emit_completed: bool = false
 		if action != null:
 			_refresh_action_state(action_id, action)
 	_virtual_pulse_bulk_mutation_depth = maxi(_virtual_pulse_bulk_mutation_depth - 1, 0)
+	for action_id: StringName in completed_actions:
+		player_action_completed.emit(player_index, action_id, completed_actions[action_id])
 
 
 func _get_effective_event(

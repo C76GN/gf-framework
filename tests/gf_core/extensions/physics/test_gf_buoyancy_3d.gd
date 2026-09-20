@@ -152,6 +152,15 @@ func test_field_surface_follows_node_transform() -> void:
 	assert_almost_eq(field.get_signed_depth_at(Vector3(0.0, 7.0, 0.0)), -1.0, 0.0001, "表面上方应返回负深度。")
 
 
+func test_field_surface_normal_remains_perpendicular_under_shear_and_mirroring() -> void:
+	var field: GF_BUOYANCY_FIELD_3D_SCRIPT = GF_BUOYANCY_FIELD_3D_SCRIPT.new()
+	add_child_autofree(field)
+	for direction: float in [1.0, -1.0]:
+		field.basis = Basis(Vector3(direction, 0.0, 0.0), Vector3(1.0, 1.0, 0.0), Vector3.BACK)
+		assert_almost_eq(field.get_signed_depth_at(field.to_global(Vector3.RIGHT)), 0.0, 0.0001)
+		assert_almost_eq(field.get_signed_depth_at(field.to_global(Vector3.DOWN)), 1.0, 0.0001)
+
+
 func test_field_supports_custom_surface_without_changing_force_contract() -> void:
 	var field: ConstantDepthField = ConstantDepthField.new()
 	add_child_autofree(field)

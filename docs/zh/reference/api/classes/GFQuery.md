@@ -28,18 +28,19 @@
 ### `execute`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func execute() -> Variant:
 ```
 
-执行查询并返回结果。子类必须重写此方法。 "type": "Variant", "description": "查询结果；具体类型由查询子类定义。" }
+执行查询并返回结果。子类必须重写此方法。
 
 返回：查询结果。
 
 结构：
 
-- `return {`:
+- `return`: {"type": "Variant", "description": "查询结果；具体类型由查询子类定义。"}
 
 <a id="member-gfquery-methods-is_lifecycle_active"></a>
 

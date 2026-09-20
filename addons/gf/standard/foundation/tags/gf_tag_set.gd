@@ -220,13 +220,13 @@ func _ensure_hierarchical_count_cache() -> void:
 		var tag_text: String = GFVariantData.to_text(tag_variant)
 		if tag_text.is_empty():
 			continue
-		var prefix: String = ""
-		for segment: String in tag_text.split("."):
-			if segment.is_empty():
-				continue
-			prefix = segment if prefix.is_empty() else "%s.%s" % [prefix, segment]
-			var prefix_key: StringName = StringName(prefix)
+		var tag_key: StringName = StringName(tag_text)
+		next_cache[tag_key] = GFVariantData.get_option_int(next_cache, tag_key, 0) + count
+		var separator_index: int = tag_text.find(".")
+		while separator_index >= 0:
+			var prefix_key: StringName = StringName(tag_text.substr(0, separator_index))
 			next_cache[prefix_key] = GFVariantData.get_option_int(next_cache, prefix_key, 0) + count
+			separator_index = tag_text.find(".", separator_index + 1)
 	_hierarchical_count_cache = next_cache
 	_tag_count_cache_signature = signature
 

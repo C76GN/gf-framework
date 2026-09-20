@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFReactiveEffect" path="addons/gf/kernel/core/gf_reactive_effect.gd" module="kernel" extends="RefCounted" classDigest="ffb9fb18b402d2d145094f679f35d508f52858e0a2d8d18893fe740238f6815d">
+<class name="GFReactiveEffect" path="addons/gf/kernel/core/gf_reactive_effect.gd" module="kernel" extends="RefCounted" classDigest="103484bd9e726e5388ea2c1870ed8f5112b9abed2e78305b7e5dc05e1f4dbaae">
 	<description>GFReactiveEffect: GFBindableProperty 的轻量响应式副作用。
 监听一组 GFBindableProperty，在任意来源变化时执行回调。可绑定 Node 生命周期，
 适合 Controller 层组合多个 Model 属性，不要求项目引入新的状态模型。</description>
@@ -11,14 +11,12 @@
 	<signals>
 		<member kind="signal" name="effect_ran">
 			<signature>signal effect_ran(value: Variant)</signature>
-			<description>effect 执行后发出。
-"type": "Variant",
-"description": "回调返回值。"
-}</description>
+			<description>effect 执行后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 回调返回值。</tag>
-				<tag name="schema">value {</tag>
+				<tag name="schema">value: {"type": "Variant", "description": "回调返回值。"}</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -58,14 +56,12 @@
 		</member>
 		<member kind="method" name="run">
 			<signature>func run() -&gt; Variant:</signature>
-			<description>手动执行 effect。
-"type": "Variant",
-"description": "回调返回值；回调无效时返回 null。"
-}</description>
+			<description>手动执行 effect。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">回调返回值；回调无效时返回 null。</tag>
-				<tag name="schema">return {</tag>
+				<tag name="schema">return: {"type": "Variant", "description": "回调返回值；回调无效时返回 null。"}</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="stop">

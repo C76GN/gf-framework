@@ -16,6 +16,8 @@
 
 运行态默认写入 `GFFlowContext` 的节点状态表。节点可通过 `set_node_runtime_value(node_id, key, value)`、`get_node_runtime_value(node_id, key, default)` 和 `clear_node_runtime_state(node_id)` 保存跨 tick 进度；`serialize_runtime_state()` 和 `deserialize_runtime_state()` 可把这份上下文运行态随项目存档保存。
 
+默认隔离执行时，`execute(context)` 同步调用期间的节点运行态方法与 Context 对该节点的运行态方法操作同一份数据。交替写入按调用顺序生效，清空、恢复与执行中的快照也读取这份当前状态。`execute()` 返回后解除临时绑定并恢复共享 Resource；异步 Signal 回调应继续通过 Context 保存进度。两个 Runner 不能在同一 Context 中同时执行相同节点 ID，冲突返回 `aborted / context_node_runtime_state_busy`。
+
 需要保存一次流程上下文的完整运行数据时，使用 `create_runtime_snapshot()`；恢复时调用 `restore_runtime_snapshot(snapshot)`。恢复入口要求 `values: Dictionary`、`next_node_ids: PackedStringArray`、`has_next_node_override: bool` 和 `runtime_state.nodes: Dictionary` 的完整形状；也接受旧快照把 `nodes` 放在顶层的既有形状。所有节点 ID 和节点状态会先完整校验，任何字段缺失或类型错误都返回 `false`，并保持当前 Context 原子不变。快照包含共享 `values`、显式后继覆盖和节点运行态，并可附带条件处理器 ID 供诊断展示。条件处理器 Callable、架构实例和正在等待的 Signal 不会被序列化，项目应在恢复后重新注册运行时服务与交互入口。
 
 诊断、CLI 或日志需要直接写 JSON 时，使用 `serialize_runtime_state(true)` 或 `create_runtime_snapshot({ "json_compatible": true })`。默认快照保留原始 Variant，只适合内存恢复或项目自有编码器；JSON-safe 快照会保持 `nodes`、节点运行态、`values` 和 `metadata` 的固定字符串键 object 外壳，并把叶值中的 Object、Resource、循环集合和非有限数收束为报告 marker。`next_node_ids`、`condition_handler_ids` 等 PackedArray 使用当前 `__gf_report_value__` PackedArray marker，不回退到旧的 variant marker 形态。JSON-safe 输出是诊断投影，不是 `restore_runtime_snapshot()` 可直接接受的运行快照；需要持久化恢复时，项目必须用自己的版本 envelope 和解码/迁移层重建原始 Variant 形状。

@@ -27,7 +27,9 @@ trigger.branches = [branch]
 
 `GFInputMappingUtility` 会同步记录动作的 just-started、just-completed 和最近一次完成前的持续时间，供释放型触发器或项目层读取。全局查询使用 `was_action_just_started(action_id)` / `was_action_just_completed(action_id)` / `get_last_completed_duration(action_id)`；本地多人使用对应的 `*_for_player()` 接口。一次性状态会保留到至少经过一次 GF System tick 的观察窗口后再清理：普通输入事件可在同帧 System 中消费，长按、短按或序列触发器在 Utility tick 中生成的动作可在下一次 System tick 中消费。持续时间只描述抽象动作状态，不包含具体按键、技能窗口或业务判定。
 
-`player_scoped=true` 且 player index 有效时，Chord 要求 runtime 提供 `is_action_active_for_player()`，Sequence 要求完整的 player-specific active、just-started、just-completed 与 completed-duration 查询。缺少任一所需方法会 fail closed；框架不会把部分玩家查询与全局查询拼成一条混合时间线。`player_scoped=false` 或 player index 无效时才使用全局协议。
+序列按分支记录已经消费的开始和完成边沿。一次 `just-started` 或 `just-completed` 即使在同一观察窗口内被多次刷新，也只能满足该分支的一个对应步骤；`[A, A]` 需要两次独立输入。同帧发生的两次独立边沿仍可分别消费。
+
+`player_scoped=true` 且 player index 有效时，Chord 要求 runtime 提供 `is_action_active_for_player()`，Sequence 要求完整的 player-specific active、just-started、just-completed 与 completed-duration 查询。Sequence 还要求运行时提供框架内部的动作边沿版本查询，正式 `GFInputMappingUtility` 已实现这个协议。缺少任一所需方法会 fail closed；框架不会把部分玩家查询与全局查询拼成一条混合时间线。`player_scoped=false` 或 player index 无效时才使用全局协议。
 
 排查 `consume_action()` 没有触发时，先确认 `action_id` 与 `GFInputAction.action_id` 完全一致，包含大小写；确认对应 `GFInputContext` 已启用，且绑定的 `InputEvent` 类型与实际事件匹配；确认没有更高优先级上下文的动作通过 `block_lower_priority_actions` 阻断同一个输入；如果动作使用了 `Released`、`Tap`、`Hold`、`Pulse` 或 `Sequence` 触发器，还要按触发器语义检查它是在按下、释放、持续时间满足，还是序列完成时才会进入 just-started。
 

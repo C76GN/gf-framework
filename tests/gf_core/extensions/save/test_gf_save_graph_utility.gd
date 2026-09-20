@@ -528,6 +528,35 @@ func test_persist_properties_source_restores_node_reference_with_scope_root() ->
 	assert_same(holder.node_value, target, "Node 属性应按当前 Scope 下的 NodePath 恢复。")
 
 
+func test_failed_apply_restores_node_reference_using_original_scope_context() -> void:
+	var target: Node = Node.new()
+	target.name = "OriginalReference"
+	_scope.add_child(target)
+	var holder: NodeReferencePropertyNode = NodeReferencePropertyNode.new()
+	holder.name = "Holder"
+	_scope.add_child(holder)
+	var source: GFPersistPropertiesSource = GFPersistPropertiesSource.new()
+	source.source_key = &"a_holder"
+	source.target_node_path = NodePath("../Holder")
+	source.properties = PackedStringArray(["node_value"])
+	_scope.add_child(source)
+	var broken_target: Node2D = Node2D.new()
+	broken_target.name = "BrokenTarget"
+	_scope.add_child(broken_target)
+	_scope.add_child(_make_source(&"z_broken", NodePath("../BrokenTarget")))
+	var payload: Dictionary = _utility.gather_scope(_scope)
+	var sources: Dictionary = GFVariantData.get_option_dictionary(payload, "sources")
+	var broken: Dictionary = GFVariantData.get_option_dictionary(sources, "z_broken")
+	broken["data"] = { "serializers": [{ "id": &"gf.transform_2d", "data": [] }] }
+	sources["z_broken"] = broken
+	payload["sources"] = sources
+	holder.node_value = target
+	var result: Dictionary = _utility.apply_scope(_scope, payload, {}, true)
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	assert_same(holder.node_value, target, "回滚必须使用采集该 source 时的引用根。")
+	assert_true(GFVariantData.get_option_bool(result, "atomicity_restored"))
+
+
 ## 验证子 Scope 会独立写入嵌套载荷。
 func test_nested_scope_is_gathered_separately() -> void:
 	var child_scope: GFSaveScope = GFSaveScope.new()

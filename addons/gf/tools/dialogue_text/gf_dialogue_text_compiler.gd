@@ -258,7 +258,7 @@ func _compile_dictionary(
 			_add_error(report, &"invalid_line_type", "Dialogue line must be an object.", source_path, line_path, provenance)
 			continue
 		var line_data: Dictionary = line_value
-		var line: GFDialogueLine = _compile_line(line_data, line_path, report, source_path, provenance)
+		var line: GFDialogueLine = _compile_line(line_data, line_path, resource.lines.size(), report, source_path, provenance)
 		resource.lines.append(line)
 
 	var resource_report: Dictionary = resource.validate_resource()
@@ -305,6 +305,7 @@ func _validate_header(
 func _compile_line(
 	data: Dictionary,
 	path: String,
+	resource_index: int,
 	report: GFValidationReport,
 	source_path: String,
 	provenance: Dictionary
@@ -324,7 +325,7 @@ func _compile_line(
 	line.mutation_payload = _read_payload(data, "mutation_payload")
 	line.tags = _read_tags(data, "tags", path, report, source_path, provenance)
 	line.metadata = _read_dictionary(data, "metadata", path, report, source_path, provenance)
-	_record_line_provenance(line, path, source_path, provenance)
+	_record_line_provenance(line, path, resource_index, source_path, provenance)
 
 	var responses_value: Variant = GFVariantData.get_option_value(data, "responses", [])
 	if not (responses_value is Array):
@@ -350,6 +351,7 @@ func _compile_line(
 			response_data,
 			response_path,
 			line.line_id,
+			line.responses.size(),
 			report,
 			source_path,
 			provenance
@@ -361,6 +363,7 @@ func _compile_response(
 	data: Dictionary,
 	path: String,
 	line_id: StringName,
+	resource_index: int,
 	report: GFValidationReport,
 	source_path: String,
 	provenance: Dictionary
@@ -376,7 +379,7 @@ func _compile_response(
 	response.mutation_payload = _read_payload(data, "mutation_payload")
 	response.tags = _read_tags(data, "tags", path, report, source_path, provenance)
 	response.metadata = _read_dictionary(data, "metadata", path, report, source_path, provenance)
-	_record_response_provenance(response, line_id, path, source_path, provenance)
+	_record_response_provenance(response, line_id, path, resource_index, source_path, provenance)
 	return response
 
 
@@ -751,11 +754,12 @@ func _validate_document_budgets(
 func _record_line_provenance(
 	line: GFDialogueLine,
 	path: String,
+	resource_index: int,
 	_source_path: String,
 	provenance: Dictionary
 ) -> void:
 	var line_id_pointer: String = _append_pointer(path, "line_id")
-	var resource_subject: String = "lines[%s]" % path.get_file()
+	var resource_subject: String = "lines[%d]" % resource_index
 	_record_occurrence(provenance, "resource_subject_occurrences", resource_subject, line_id_pointer)
 	if line.line_id != &"":
 		_record_occurrence(
@@ -800,11 +804,12 @@ func _record_response_provenance(
 	response: GFDialogueResponse,
 	line_id: StringName,
 	path: String,
+	resource_index: int,
 	_source_path: String,
 	provenance: Dictionary
 ) -> void:
 	var response_id_pointer: String = _append_pointer(path, "response_id")
-	var resource_subject: String = "%s.responses[%s]" % [line_id, path.get_file()]
+	var resource_subject: String = "%s.responses[%d]" % [line_id, resource_index]
 	_record_occurrence(
 		provenance,
 		"resource_subject_occurrences",

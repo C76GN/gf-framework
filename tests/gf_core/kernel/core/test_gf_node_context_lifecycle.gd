@@ -195,12 +195,15 @@ class ScopedManualNoTimeoutContext extends GFNodeContext:
 class TreeExitShutdownProbeUtility extends GFUtility:
 	var quiesce_call_count: int = 0
 	var dispose_call_count: int = 0
+	var block_quiesce: bool = false
+	var quiesce_completion: GFAsyncCompletion = null
 
 	func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
 		quiesce_call_count += 1
-		var completion: GFAsyncCompletion = GFAsyncCompletion.new()
-		var _completed: bool = completion.succeed()
-		return completion
+		quiesce_completion = GFAsyncCompletion.new()
+		if not block_quiesce:
+			var _completed: bool = quiesce_completion.succeed()
+		return quiesce_completion
 
 	func dispose() -> void:
 		dispose_call_count += 1
@@ -231,6 +234,62 @@ func after_each() -> void:
 
 
 # --- 测试方法 ---
+
+func test_owned_normal_shutdown_survives_frames_and_context_queries() -> void:
+	var context: TreeExitShutdownProbeContext = TreeExitShutdownProbeContext.new()
+	add_child(context)
+	var architecture: GFArchitecture = await context.wait_until_ready()
+	var probe: TreeExitShutdownProbeUtility = context.shutdown_probe
+	probe.block_quiesce = true
+	watch_signals(context)
+	var state: Dictionary = {}
+	_GF_ASYNC_CALL_SCRIPT.run_detached(_capture_context_shutdown, [architecture, state])
+	assert_true(architecture.is_quiescing())
+	assert_false(context.is_context_ready())
+	assert_false(context.is_context_failed())
+	assert_null(await context.wait_until_ready())
+	assert_null(await context.initialize_context())
+	await get_tree().process_frame
+	await get_tree().physics_frame
+	assert_eq(probe.dispose_call_count, 0)
+	assert_signal_not_emitted(context, "context_failed")
+	var _completed: bool = probe.quiesce_completion.succeed()
+	for _frame: int in range(10):
+		if state.has("result"):
+			break
+		await get_tree().process_frame
+	var result: GFArchitectureShutdownResult = state.get("result")
+	assert_not_null(result)
+	if result != null:
+		assert_true(result.is_successful())
+	assert_false(context.is_context_ready())
+	assert_false(context.is_context_failed())
+	assert_eq(context.get_context_failure_reason(), "")
+	assert_eq(probe.dispose_call_count, 1)
+	context.queue_free()
+	await get_tree().process_frame
+	assert_eq(probe.dispose_call_count, 1)
+
+
+func test_completed_synchronous_shutdown_is_not_context_failure() -> void:
+	var context: TreeExitShutdownProbeContext = TreeExitShutdownProbeContext.new()
+	add_child(context)
+	var architecture: GFArchitecture = await context.wait_until_ready()
+	watch_signals(context)
+	var result: GFArchitectureShutdownResult = await architecture.shutdown_async()
+	assert_true(result.is_successful())
+	assert_false(context.is_context_ready())
+	assert_false(context.is_context_failed())
+	assert_null(await context.wait_until_ready())
+	assert_null(await context.initialize_context())
+	assert_signal_not_emitted(context, "context_failed")
+	context.queue_free()
+	await get_tree().process_frame
+
+
+func _capture_context_shutdown(architecture: GFArchitecture, state: Dictionary) -> void:
+	state["result"] = await architecture.shutdown_async(null, 1.0)
+
 
 func test_context_ready_requires_architecture_stage_four_commit() -> void:
 	var context: ScopedManualNoTimeoutContext = ScopedManualNoTimeoutContext.new()

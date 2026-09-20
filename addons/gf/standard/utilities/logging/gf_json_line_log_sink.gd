@@ -70,6 +70,7 @@ enum FileOpenMode {
 
 # --- 私有变量 ---
 
+static var _active_files: Array[WeakRef] = []
 var _file: FileAccess
 var _effective_file_path: String = ""
 var _last_flush_msec: int = 0
@@ -119,6 +120,7 @@ func init(owner: Object) -> void:
 		if _last_error == OK:
 			_record_error(FileAccess.get_open_error(), "无法创建日志文件：%s" % _effective_file_path, true)
 	else:
+		_active_files.append(weakref(_file))
 		_last_flush_msec = Time.get_ticks_msec()
 		_elapsed_since_flush_msec = 0.0
 		_has_unflushed_data = false
@@ -189,6 +191,10 @@ func flush() -> void:
 func shutdown() -> void:
 	if _file != null:
 		flush()
+		for index: int in range(_active_files.size() - 1, -1, -1):
+			var active_file: Variant = _active_files[index].get_ref()
+			if active_file == null or active_file == _file:
+				_active_files.remove_at(index)
 		_file.close()
 		_file = null
 	_is_initialized = false
@@ -329,11 +335,27 @@ func _cleanup_old_jsonl_files() -> void:
 
 	files.sort()
 	var to_remove: int = files.size() - max_jsonl_files
-	for index: int in range(to_remove):
-		var remove_error: Error = DirAccess.remove_absolute(base_dir.path_join(files[index]))
+	var active_paths: Dictionary = {}
+	for index: int in range(_active_files.size() - 1, -1, -1):
+		var active_value: Variant = _active_files[index].get_ref()
+		if active_value is FileAccess:
+			var active_file: FileAccess = active_value
+			if active_file.is_open():
+				active_paths[active_file.get_path_absolute()] = true
+				continue
+		_active_files.remove_at(index)
+	for candidate: String in files:
+		if to_remove <= 0:
+			break
+		var candidate_path: String = base_dir.path_join(candidate)
+		if active_paths.has(ProjectSettings.globalize_path(candidate_path)):
+			continue
+		var remove_error: Error = DirAccess.remove_absolute(candidate_path)
 		if remove_error != OK:
 			_cleanup_error_count += 1
-			_record_error(remove_error, "无法清理旧 JSONL 日志：%s" % base_dir.path_join(files[index]))
+			_record_error(remove_error, "无法清理旧 JSONL 日志：%s" % candidate_path)
+		else:
+			to_remove -= 1
 
 
 func _record_error(error: Error, message: String, _as_error: bool = false) -> void:

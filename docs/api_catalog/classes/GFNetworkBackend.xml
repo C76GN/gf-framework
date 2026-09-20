@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkBackend" path="addons/gf/extensions/network/backends/gf_network_backend.gd" module="extensions/network" extends="RefCounted" classDigest="c6548b33e42375058ac830d828c2c8f372e985f106f048f56c0a2e5c78607d6e">
+<class name="GFNetworkBackend" path="addons/gf/extensions/network/backends/gf_network_backend.gd" module="extensions/network" extends="RefCounted" classDigest="6325d6c7fb0dfd19ba0edfbac78b9536c98f2d91109f489ebd717d197af3fda1">
 	<description>GFNetworkBackend: 网络后端抽象基类。
 后端负责具体传输协议，框架层只依赖该统一接口与信号。</description>
 	<tags>
@@ -183,6 +183,14 @@
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="since">10.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_reset_transport_connection">
+			<signature>func _reset_transport_connection() -&gt; void:</signature>
+			<description>清除旧连接状态，供后端在派发断开回调前提交释放结果。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</methods>

@@ -12,6 +12,12 @@ class_name GFDictionarySchema
 extends Resource
 
 
+# --- 常量 ---
+
+# 同时限制 schema 和 field 的活动路径，使定义预检最多保留 64 层递归定义调用。
+const _MAX_DEFINITION_DEPTH: int = 64
+
+
 # --- 导出变量 ---
 
 ## Schema 标识。为空时可由调用方自行决定报告主题。
@@ -396,6 +402,15 @@ func describe() -> Dictionary:
 
 # --- 框架内部方法 ---
 
+func _validate_field_definition_into(
+	field: GFSchemaField,
+	report: GFValidationReport,
+	options: Dictionary
+) -> void:
+	var field_path: String = GFVariantData.get_option_string(options, "path", String(field.field_name))
+	_validate_nested_field_definition(field, report, field_path, options, _make_definition_state())
+
+
 func _validate_definition_into(report: GFValidationReport, options: Dictionary, state: Dictionary) -> void:
 	var root_path: String = GFVariantData.get_option_string(options, "path")
 	if _is_schema_active(state, self):
@@ -425,7 +440,9 @@ func _validate_definition_into(report: GFValidationReport, options: Dictionary, 
 		if seen_fields.has(field_key):
 			var _duplicate_issue: RefCounted = report.add_error(&"duplicate_field_name", "Schema field name is duplicated.", field_key, _make_definition_field_path(field_key, root_path), _make_definition_metadata(index))
 		seen_fields[field_key] = true
-		_validate_nested_field_definition(field, report, _make_definition_field_path(field_key, root_path), options, state)
+		var field_path: String = _make_definition_field_path(field_key, root_path)
+		if _can_visit_definition(field, report, field_path, options, state):
+			_validate_nested_field_definition(field, report, field_path, options, state)
 	_pop_active_schema(state, self)
 
 
@@ -847,12 +864,14 @@ func _validate_nested_field_definition(
 		return
 	_push_active_field(state, field)
 	if field.value_type == GFSchemaField.ValueType.DICTIONARY and field.dictionary_schema != null:
-		var nested_options: Dictionary = _make_nested_definition_options(field_path, options)
-		var nested_report: GFValidationReport = field.dictionary_schema._make_report(nested_options)
-		field.dictionary_schema._validate_definition_into(nested_report, nested_options, state)
-		var _merged_dictionary_definition: RefCounted = report.merge(nested_report)
+		if _can_visit_definition(field.dictionary_schema, report, field_path, options, state):
+			var nested_options: Dictionary = _make_nested_definition_options(field_path, options)
+			var nested_report: GFValidationReport = field.dictionary_schema._make_report(nested_options)
+			field.dictionary_schema._validate_definition_into(nested_report, nested_options, state)
+			var _merged_dictionary_definition: RefCounted = report.merge(nested_report)
 	elif field.value_type == GFSchemaField.ValueType.ARRAY and field.array_item_schema != null:
-		_validate_array_item_definition(field.array_item_schema, report, field_path, options, state)
+		if _can_visit_definition(field.array_item_schema, report, "%s[]" % field_path, options, state):
+			_validate_array_item_definition(field.array_item_schema, report, field_path, options, state)
 	_pop_active_field(state, field)
 
 
@@ -869,13 +888,47 @@ func _validate_array_item_definition(
 		return
 	_push_active_field(state, item_schema)
 	if item_schema.value_type == GFSchemaField.ValueType.DICTIONARY and item_schema.dictionary_schema != null:
-		var nested_dictionary_options: Dictionary = _make_nested_definition_options(item_path, options)
-		var nested_dictionary_report: GFValidationReport = item_schema.dictionary_schema._make_report(nested_dictionary_options)
-		item_schema.dictionary_schema._validate_definition_into(nested_dictionary_report, nested_dictionary_options, state)
-		var _merged_array_dictionary_definition: RefCounted = report.merge(nested_dictionary_report)
+		if _can_visit_definition(item_schema.dictionary_schema, report, item_path, options, state):
+			var nested_dictionary_options: Dictionary = _make_nested_definition_options(item_path, options)
+			var nested_dictionary_report: GFValidationReport = item_schema.dictionary_schema._make_report(nested_dictionary_options)
+			item_schema.dictionary_schema._validate_definition_into(nested_dictionary_report, nested_dictionary_options, state)
+			var _merged_array_dictionary_definition: RefCounted = report.merge(nested_dictionary_report)
 	elif item_schema.value_type == GFSchemaField.ValueType.ARRAY and item_schema.array_item_schema != null:
-		_validate_array_item_definition(item_schema.array_item_schema, report, item_path, options, state)
+		if _can_visit_definition(item_schema.array_item_schema, report, "%s[]" % item_path, options, state):
+			_validate_array_item_definition(item_schema.array_item_schema, report, item_path, options, state)
 	_pop_active_field(state, item_schema)
+
+
+func _can_visit_definition(
+	definition: Resource,
+	report: GFValidationReport,
+	path: String,
+	options: Dictionary,
+	state: Dictionary
+) -> bool:
+	var active_schemas: Dictionary = GFVariantData.get_option_dictionary(state, "active_schemas")
+	var active_fields: Dictionary = GFVariantData.get_option_dictionary(state, "active_fields")
+	var definition_id: int = definition.get_instance_id()
+	# 已活动的 identity 交给既有循环分支，保留 circular_schema / circular_field_schema。
+	if active_schemas.has(definition_id) or active_fields.has(definition_id):
+		return true
+	var depth: int = active_schemas.size() + active_fields.size() + 1
+	if depth <= _MAX_DEFINITION_DEPTH:
+		return true
+	_add_error(
+		report,
+		&"schema_depth_exceeded",
+		"Schema definition exceeds the maximum active definition depth.",
+		path,
+		path,
+		{
+			"schema_id": String(schema_id),
+			"depth": depth,
+			"max_depth": _MAX_DEFINITION_DEPTH,
+		},
+		options
+	)
+	return false
 
 
 func _make_nested_definition_options(field_path: String, options: Dictionary) -> Dictionary:

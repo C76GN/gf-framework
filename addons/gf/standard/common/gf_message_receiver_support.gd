@@ -204,6 +204,12 @@ static func _receive_with_delegate(
 			report,
 			validation_callback.call(context, _duplicate_dictionary_structure(report))
 		)
+	elif not validation_callback.is_null():
+		report = _apply_validation_result(report, {
+			"ok": false,
+			"reason": "invalid_validator",
+			"message": "Configured validator became invalid before validation.",
+		})
 
 	if _report_is_ok(report) and delegate_enabled and delegate_receiver.has_method(delegate_method):
 		var delegated_value: Variant = delegate_receiver.callv(delegate_method, delegate_args)

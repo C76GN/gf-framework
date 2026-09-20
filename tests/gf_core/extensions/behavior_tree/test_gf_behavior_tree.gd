@@ -1,6 +1,35 @@
 extends GutTest
 
 
+func test_parallel_discards_tick_cancelled_by_runner_reset() -> void:
+	var action: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(bb: Dictionary) -> int:
+		var runner_value: Variant = bb.get("runner")
+		if runner_value is GFBehaviorTree.Runner:
+			var active_runner: GFBehaviorTree.Runner = runner_value
+			active_runner.reset()
+		return GFBehaviorTree.Status.SUCCESS
+	)
+	var parallel: GFBehaviorTree.Parallel = GFBehaviorTree.Parallel.new(_nodes([action]))
+	var runner: GFBehaviorTree.Runner = GFBehaviorTree.Runner.new(parallel)
+	runner.blackboard["runner"] = runner
+	assert_eq(runner.tick(), GFBehaviorTree.Status.ABORTED)
+	runner.blackboard.clear()
+
+
+func test_inverter_discards_child_result_after_topology_replacement() -> void:
+	var inverter: GFBehaviorTree.Inverter = GFBehaviorTree.Inverter.new(null)
+	var action: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(bb: Dictionary) -> int:
+		var inverter_value: Variant = bb.get("inverter")
+		if inverter_value is GFBehaviorTree.Inverter:
+			var current: GFBehaviorTree.Inverter = inverter_value
+			var _changed: GFBehaviorTree.Decorator = current.set_child(null)
+		return GFBehaviorTree.Status.SUCCESS
+	)
+	var _configured: GFBehaviorTree.Decorator = inverter.set_child(action)
+	assert_eq(inverter.tick({ "inverter": inverter }), GFBehaviorTree.Status.ABORTED)
+	assert_eq(inverter.tick({}), GFBehaviorTree.Status.FAILURE)
+
+
 func test_condition_node() -> void:
 	var is_true: GFBehaviorTree.Condition = GFBehaviorTree.Condition.new(func(_bb: Dictionary) -> bool: return true)
 	var is_false: GFBehaviorTree.Condition = GFBehaviorTree.Condition.new(func(_bb: Dictionary) -> bool: return false)

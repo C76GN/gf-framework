@@ -157,16 +157,17 @@ def build_matrix(
 		budget=budget,
 	)
 	examples = []
-	existing_example_roots = [root for root in dedupe_roots(example_roots) if root.exists()]
+	existing_example_roots = dedupe_roots(example_roots)
 	for index, root in enumerate(existing_example_roots):
-		if root.exists():
-			examples.extend(collect_text_files(
-				root,
-				{ ".gd", ".tscn", ".tres", ".res", ".json", ".md" },
-				exclude=lambda path, example_root=root: is_generated_example_path(example_root, path),
-				budget=budget,
-				display_prefix=display_root_label(root, index),
-			))
+		if not root.is_dir():
+			raise CoverageInputError(f"Example input must be an existing directory: {display_root_label(root, index)}")
+		examples.extend(collect_text_files(
+			root,
+			{ ".gd", ".tscn", ".tres", ".res", ".json", ".md" },
+			exclude=lambda path, example_root=root: is_generated_example_path(example_root, path),
+			budget=budget,
+			display_prefix=display_root_label(root, index),
+		))
 
 	class_entries: list[dict[str, Any]] = []
 	for api_class in sorted(all_classes, key=lambda item: full_api_class_name(item)):

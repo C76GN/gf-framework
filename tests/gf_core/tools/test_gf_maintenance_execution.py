@@ -4525,6 +4525,171 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		return value
 
 
+class ParallelBlockedReportTests(unittest.TestCase):
+	def _fixture(self, workspace: Path) -> tuple[dict[str, object], object, object, object]:
+		in_process = gf_validation_catalog.ValidationExecutorKind.IN_PROCESS
+		subprocess_kind = gf_validation_catalog.ValidationExecutorKind.SUBPROCESS
+		actions = (
+			("first", ("fixture-first",), in_process),
+			("healthy", ("fixture-healthy",), in_process),
+			("second", ("fixture-second",), in_process),
+			("local", ("fixture-local",), in_process),
+			("static", ("python", "fixture-static.py"), subprocess_kind),
+			("deferred", None, subprocess_kind),
+			("gut", ("python", "fixture-gut.py"), subprocess_kind),
+			("downstream", ("fixture-downstream",), in_process),
+		)
+		catalog = gf_validation_catalog.ValidationCatalog(
+			actions=actions,
+			dependencies=tuple(
+				(name, ("first", "healthy", "second"))
+				for name in ("local", "static", "deferred", "gut")
+			) + (("downstream", ("static",)),),
+			check_groups=(),
+			suites=(("quick", tuple(name for name, _command, _kind in actions)),),
+			parallel_full_shard_suites=("quick",),
+			default_timeout_seconds=10,
+			timeout_overrides=(),
+			input_specs=(),
+		)
+		adapters = {
+			name: mock.Mock(return_value={"ok": name == "healthy"})
+			for name, _command, kind in actions if kind is in_process
+		}
+		materializer = mock.Mock(side_effect=AssertionError("blocked action was materialized"))
+		binding = _validation_executor_binding(catalog, adapters, {"deferred": materializer})
+		plan = catalog.plan("quick")
+		workspace_state = {
+			"schema_version": 1, "head": "a" * 40, "dirty": False,
+			"untracked_file_count": 0, "fingerprint": "b" * 64,
+		}
+		with mock.patch.object(gf_maintenance, "pin_godot_executable_selection"), mock.patch.object(
+			gf_maintenance, "run_command", side_effect=AssertionError("blocked action was executed"),
+		):
+			report = gf_maintenance.run_checks_with_active_snapshot(
+				plan, binding, git_process=_SHARED_PROCESS_AUTHORITY.git,
+				workspace_state=workspace_state, complete_output_evidence=True,
+			)
+		materializer.assert_not_called()
+		adapters["local"].assert_not_called()
+		adapters["downstream"].assert_not_called()
+		# Action execution is synthetic; bind its report to this isolated reader fixture.
+		for result in report["results"]:
+			result["cwd"] = str(workspace)
+		report.update({
+			"workspace": workspace_state, "execution": "serial", "jobs": 1,
+			"workspace_snapshot": {name: 0 for name in gf_maintenance.PARALLEL_SHARD_SNAPSHOT_FIELDS},
+		})
+		identities = {}
+		for name, command, kind in actions:
+			declared = command or ("python", "fixture-materialized.py")
+			effective = ((str(Path(sys.executable).resolve()), *declared[1:])
+				if kind is subprocess_kind else declared)
+			identities[name] = gf_maintenance.CommandIdentity(declared=declared, effective=effective)
+		contract = gf_maintenance.ParallelShardCommandContract(identities=identities)
+		runner = gf_maintenance.ParallelShardResult(
+			name="fixture", command=(sys.executable, "fixture.py"), workspace=workspace,
+			exit_code=1, process_exit_code=1, stdout="", stderr="", timed_out=False,
+			cancelled=False, duration_seconds=0.1, pid=123, started=True,
+			process_boundary_quiescent=True,
+		)
+		return report, catalog, contract, runner
+
+	def _load(self, report: dict[str, object], catalog: object, contract: object, runner: object) -> tuple[object, str]:
+		path = runner.workspace / "report.json"
+		path.write_text(json.dumps(report, ensure_ascii=False), encoding="utf-8", newline="\n")
+		return gf_maintenance.load_parallel_shard_report(
+			runner, path, list(report["checks"]), report["workspace"],
+			validation_catalog=catalog, expected_command_contract=contract,
+			expected_check_graph=catalog.plan("quick").describe_graph(),
+		)
+
+	def test_produced_blocked_results_survive_parallel_report_loading(self) -> None:
+		with tempfile.TemporaryDirectory() as directory:
+			fixture = self._fixture(Path(directory))
+			loaded, issue = self._load(*fixture)
+		self.assertEqual(issue, "")
+		self.assertIsNotNone(loaded)
+		self.assertFalse(loaded["ok"])
+		self.assertEqual(len(loaded["results"]), 8)
+		for result in loaded["results"][3:7]:
+			self.assertEqual(result["blocked_by"], ["first", "second"])
+			self.assertEqual(result["execution"], "blocked")
+		self.assertEqual(loaded["results"][-1]["blocked_by"], ["static"])
+		self.assertNotIn("gut_lifecycle_report", loaded["results"][6])
+
+	def test_blocked_static_command_uses_frozen_child_projection(self) -> None:
+		with tempfile.TemporaryDirectory() as directory:
+			report, child_catalog, contract, runner = self._fixture(Path(directory))
+			authority_catalog = gf_validation_catalog.ValidationCatalog(
+				actions=tuple((
+					name,
+					("python", "/parent/source/fixture-static.py")
+					if name == "static" else child_catalog.static_command(name),
+					child_catalog.executor_kind(name),
+				) for name in child_catalog.action_names),
+				dependencies=tuple(child_catalog.dependencies().items()),
+				check_groups=(), suites=(("quick", child_catalog.action_names),),
+				parallel_full_shard_suites=("quick",), default_timeout_seconds=10,
+				timeout_overrides=(), input_specs=(),
+			)
+			self.assertNotEqual(authority_catalog.static_command("static"), report["results"][4]["command"])
+			loaded, issue = self._load(report, authority_catalog, contract, runner)
+			self.assertEqual(issue, "")
+			self.assertIsNotNone(loaded)
+			mutated = copy.deepcopy(report)
+			mutated["results"][4]["command"] = list(contract.identities["static"].effective)
+			self.assertIn("command", self._load(mutated, authority_catalog, contract, runner)[1])
+			mutated = copy.deepcopy(report)
+			mutated["results"][4]["input_fingerprint"] = "0" * 64
+			self.assertIn("input_fingerprint", self._load(mutated, authority_catalog, contract, runner)[1])
+			mutated = copy.deepcopy(report)
+			mutated["results"][4]["dependency_fingerprints"]["first"] = "0" * 64
+			self.assertIn("dependency fingerprints", self._load(mutated, authority_catalog, contract, runner)[1])
+
+	def test_blocked_results_reject_invalid_dependency_claims(self) -> None:
+		with tempfile.TemporaryDirectory() as directory:
+			report, catalog, contract, runner = self._fixture(Path(directory))
+			for invalid in (
+				None, "first", [], ["first"], ["first", "first"], ["second", "first"],
+				["unknown"], ["healthy"], [True], [1], [{}], [""], ["static"],
+			):
+				with self.subTest(blocked_by=invalid):
+					mutated = copy.deepcopy(report)
+					mutated["results"][3]["blocked_by"] = invalid
+					loaded, issue = self._load(mutated, catalog, contract, runner)
+					self.assertIsNone(loaded)
+					self.assertIn("blocked_by", issue)
+			mutated = copy.deepcopy(report)
+			del mutated["results"][3]["blocked_by"]
+			self.assertIn("blocked_by", self._load(mutated, catalog, contract, runner)[1])
+			mutated = copy.deepcopy(report)
+			mutated["results"][3]["execution"] = "in_process"
+			del mutated["results"][3]["blocked_by"]
+			self.assertIn("failed dependencies", self._load(mutated, catalog, contract, runner)[1])
+
+	def test_blocked_results_reject_executed_or_successful_outcomes(self) -> None:
+		with tempfile.TemporaryDirectory() as directory:
+			report, catalog, contract, runner = self._fixture(Path(directory))
+			for changes in (
+				{"exit_code": 0}, {"exit_code": 1}, {"timed_out": True, "exit_code": 124},
+				{"cancelled": True, "exit_code": 130}, {"duration_seconds": 0.1},
+				{"pid": 123}, {"process_exit_code": 0}, {"streamed_output": True},
+				{"gut_lifecycle_report": {}}, {"stdout": "executed"},
+				{"execution": "in_process"}, {"unrecognized": []},
+			):
+				with self.subTest(changes=changes):
+					mutated = copy.deepcopy(report)
+					mutated["results"][3].update(changes)
+					loaded, issue = self._load(mutated, catalog, contract, runner)
+					self.assertIsNone(loaded)
+					self.assertTrue(issue)
+			for invalid in ([], ["first"]):
+				mutated = copy.deepcopy(report)
+				mutated["results"][1]["blocked_by"] = invalid
+				self.assertIsNone(self._load(mutated, catalog, contract, runner)[0])
+
+
 class StrictJsonBoundaryTests(unittest.TestCase):
 	def test_strict_encoder_rejects_non_finite_numbers(self) -> None:
 		with self.assertRaises(ValueError):
@@ -23303,6 +23468,27 @@ class InternalModuleDescriptorInventoryTests(unittest.TestCase):
 				"errors": [],
 			},
 		)
+
+
+class ProjectLayoutAuditRegressionTest(unittest.TestCase):
+	def test_nested_required_subdirectories_match_inventory_ancestors(self) -> None:
+		rule = {"id": "features", "kind": "feature_module_contract", "roots": ["features"], "required_subdirs": ["scripts/runtime"], "allowed_subdirs": ["scripts"]}
+		present = gf_project_layout_profile.audit_project_profile_feature_module_contract_rule(
+			rule, 0, "profile.json", ["features/inventory/scripts/runtime/item.gd"], strict_v1=True,
+		)
+		missing = gf_project_layout_profile.audit_project_profile_feature_module_contract_rule(
+			rule, 0, "profile.json", ["features/inventory/scripts/item.gd"], strict_v1=True,
+		)
+		kind = "project_profile_feature_required_subdir_missing"
+		self.assertFalse(any(issue["kind"] == kind for issue in present), present)
+		self.assertTrue(any(issue["kind"] == kind for issue in missing), missing)
+
+	def test_strict_json_rejects_lone_surrogates_in_all_string_positions(self) -> None:
+		for source in ('{"pattern":"\\ud800"}', '{"name":"\\udfff"}', '{"\\ud800":0}'):
+			with self.subTest(source=source):
+				with self.assertRaisesRegex(ValueError, "Unicode"):
+					gf_project_layout_profile.parse_project_profile_strict_json(source)
+		self.assertEqual(gf_project_layout_profile.parse_project_profile_strict_json('"\\ud83d\\ude00"'), "😀")
 
 
 if __name__ == "__main__":

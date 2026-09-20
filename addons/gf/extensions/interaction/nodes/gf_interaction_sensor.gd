@@ -651,6 +651,8 @@ func _send_to_with_dispatch_host(
 	payload_override: Variant,
 	interaction_id_override: StringName
 ) -> Dictionary:
+	if not enabled:
+		return send_to(receiver, payload_override, interaction_id_override)
 	if typeof(dispatch_host) != TYPE_OBJECT or not is_instance_valid(dispatch_host):
 		return send_to(receiver, payload_override, interaction_id_override)
 	var effective_dispatch_host: Object = dispatch_host

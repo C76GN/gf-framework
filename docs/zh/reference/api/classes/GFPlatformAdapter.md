@@ -167,7 +167,7 @@ Adapter 生命周期状态。
 func configure( adapter_id: StringName, platform_id: StringName, contract_ids: PackedStringArray, contract_descriptors: Array[GFPlatformContractDescriptor], initial_context: GFPlatformRuntimeContext = null ) -> bool:
 ```
 
-配置 adapter 身份和支持的桥接契约。 配置只允许在 CREATED 状态执行，防止运行期间改变路由身份。
+配置 adapter 身份和支持的桥接契约。 配置只允许在尚未注册的 CREATED 状态执行。首次注册后身份和契约永久冻结； 注销后需要不同配置时，创建新 adapter 实例。
 
 参数：
 

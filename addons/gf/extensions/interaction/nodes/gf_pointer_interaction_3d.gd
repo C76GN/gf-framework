@@ -245,6 +245,8 @@ const _RESERVED_POINTER_PAYLOAD_KEYS: Array[String] = [
 
 # --- 私有变量 ---
 
+var _pointer_generation: int = 0
+
 var _collision_object_ref: WeakRef = null
 var _is_hovered: bool = false
 var _pressed_buttons: Dictionary = {}
@@ -614,6 +616,7 @@ func _set_hover_cursor(active: bool) -> void:
 
 
 func _reset_pointer_state(reset_cursor: bool) -> void:
+	_pointer_generation += 1
 	var should_reset_cursor: bool = reset_cursor and (_is_hovered or _has_previous_cursor_shape)
 	_is_hovered = false
 	_pressed_buttons.clear()
@@ -794,6 +797,7 @@ func _on_collision_input_event(
 	)
 	var _pressed_button_erased: bool = _pressed_buttons.erase(release_button_key)
 	_sync_legacy_pressed_state()
+	var release_generation: int = _pointer_generation
 	var _emit_or_send_button_event_result_476: Variant = _emit_or_send_button_event(&"released", camera, mouse_event, position, normal, shape_idx, send_on_released)
-	if was_matching_press:
+	if was_matching_press and enabled and release_generation == _pointer_generation:
 		var _emit_or_send_button_event_result_478: Variant = _emit_or_send_button_event(&"clicked", camera, mouse_event, position, normal, shape_idx, send_on_clicked)

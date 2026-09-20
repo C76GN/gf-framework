@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUtility" path="addons/gf/kernel/base/gf_utility.gd" module="kernel" extends="Object" classDigest="45b4a2def5b7e0437ef8ec0108a239c31cfec884c1bc1352684d808ea3539adb">
+<class name="GFUtility" path="addons/gf/kernel/base/gf_utility.gd" module="kernel" extends="Object" classDigest="54255ff6400c2d1fb48b5c8bfe71e994114c444d40394478394ca3d65d2f8679">
 	<description>GFUtility: 工具组件抽象基类。
 提供可复用的工具能力；需要其它架构组件时必须通过类型化 Hook 显式声明依赖。
 子类可以实现 'init'、'async_init'、'ready'、'begin_activation'、
@@ -316,15 +316,13 @@ GFArchitecture.is_accepting_runtime_work() 检查。</description>
 		</member>
 		<member kind="method" name="send_simple_event">
 			<signature>func send_simple_event(event_id: StringName, payload: Variant = null) -&gt; void:</signature>
-			<description>发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。
-"type": "Variant",
-"description": "事件附加数据；由事件消费者约定结构。"
-}</description>
+			<description>发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event_id: StringName 事件标识符。</tag>
 				<tag name="param">payload: 可选的事件附加数据。</tag>
-				<tag name="schema">payload {</tag>
+				<tag name="schema">payload: {"type": "Variant", "description": "事件附加数据；由事件消费者约定结构。"}</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

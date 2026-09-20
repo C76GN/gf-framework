@@ -196,7 +196,7 @@ func validate_definition() -> Dictionary:
 ## @schema return: Dictionary，GFValidationReportDictionary 格式，包含 ok、issues、issue_count 和 next_actions。
 func validate_value(value: Variant) -> Dictionary:
 	if value == null:
-		if required and not allow_null:
+		if not allow_null:
 			return _finalize_report([_make_issue("error", "null_not_allowed", "Network contract field does not allow null.")])
 		return _finalize_report([])
 

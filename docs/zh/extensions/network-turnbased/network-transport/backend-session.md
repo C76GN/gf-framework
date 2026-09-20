@@ -40,6 +40,8 @@ if error == OK:
 
 `OWNED` 表示 Backend 释放时关闭 Peer；`BORROWED` 只断开 GF 信号和引用，外部 Adapter 继续拥有连接。Backend 独占 Peer 的 poll 与 packet 数据面，`get_peer()` 只用于 Provider 状态检查，不能同时装配到 `SceneTree.multiplayer`；要交给 `SceneMultiplayer` 时先调用 `take_peer()`，再停止使用该 Backend。不支持 channel 或 transfer mode 的 Peer 必须在 adopt 时声明，相关发送选项会明确返回 `ERR_UNAVAILABLE`。
 
+旧 Peer 的释放状态会在断开通知前提交。通知回调中接管的新 Peer 保有自己的 ownership、role 和连接状态；旧清理不会继续覆盖它。若 `adopt_peer()` 正在替换 Peer，而释放回调已经完成另一份接管，外层调用返回 `ERR_BUSY`，本次未接管的 Peer 仍由调用方负责。
+
 `GFNetworkSession` 只记录后端连接意图和状态快照。`host()` 会在后端真正返回成功或报告 connected 后再标记 `has_connection`；如果后端启动失败，会关闭本次会话而不会短暂发出 connected 状态。接管已连接 Peer 时，Backend 的显式 `role`、endpoint 和本地 peer ID 会通过 `get_session_bootstrap()` 初始化 Session；因此先 `adopt_peer()` 再 `set_backend()` 也不会丢失早到的 connected 事件。
 
 `options.metadata` 必须是 `Dictionary`，传入其他类型会被忽略并输出 warning，避免把错误配置静默保存到会话快照里。替换或清空 backend 时，`GFNetworkUtility` 会关闭旧后端并清理旧会话，避免把底层连接资源留给已失效的 backend。

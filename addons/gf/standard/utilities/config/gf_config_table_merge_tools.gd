@@ -124,6 +124,7 @@ static func _build_base_state(rows: Array[Dictionary], policy: GFConfigTableMerg
 		"order": [],
 		"records": {},
 		"outer_keys": {},
+		"outer_key_owners": {},
 	}
 	var order: Array = _get_state_array(state, "order")
 	var records: Dictionary = _get_state_dictionary(state, "records")
@@ -141,6 +142,7 @@ static func _build_base_state(rows: Array[Dictionary], policy: GFConfigTableMerg
 		order.append(key)
 		records[key] = record
 		outer_keys[key] = outer_key
+		_get_state_dictionary(state, "outer_key_owners")[outer_key] = key
 	return state
 
 
@@ -211,8 +213,15 @@ static func _apply_insert(
 	if not policy.allow_insert:
 		_add_issue(report, "error", "insert_not_allowed", row_key, "当前合并策略不允许插入记录。")
 		return
+	var outer_key_owners: Dictionary = _get_state_dictionary(state, "outer_key_owners")
+	if GFVariantData.get_option_bool(report, "dictionary_output") and outer_key_owners.has(row_key):
+		var existing_key: Variant = outer_key_owners[row_key]
+		if _get_state_dictionary(state, "records").has(existing_key):
+			_add_issue(report, "error", "outer_key_collision", row_key, "外层键已属于另一条逻辑记录。")
+			return
 	_get_state_dictionary(state, "records")[key] = record.duplicate(true)
 	_get_state_dictionary(state, "outer_keys")[key] = row_key
+	outer_key_owners[row_key] = key
 	var order: Array = _get_state_array(state, "order")
 	if not order.has(key):
 		order.append(key)

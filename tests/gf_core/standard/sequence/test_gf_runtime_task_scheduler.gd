@@ -355,6 +355,40 @@ func test_task_group_sequence_runs_children_in_order() -> void:
 	assert_false(group.is_scheduled(), "所有子任务完成后任务组应结束。")
 
 
+func test_reused_group_cancel_before_tick_releases_all_reserved_descendants() -> void:
+	for dispose_scheduler: bool in [false, true]:
+		var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+		var child: GFRuntimeTask = GFRuntimeTask.new()
+		var nested: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new([child])
+		var group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new([nested])
+		assert_true(scheduler.schedule(group))
+		scheduler.tick(0.1)
+		assert_false(group.is_scheduled())
+		assert_true(scheduler.schedule(group))
+		if dispose_scheduler:
+			scheduler.dispose()
+		else:
+			assert_true(scheduler.cancel(group))
+		assert_false(nested.is_scheduled())
+		assert_false(child.is_scheduled())
+		assert_false(child.has_initialized())
+		var another_scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+		assert_true(another_scheduler.schedule(child))
+		another_scheduler.dispose()
+
+
+func test_default_group_preserves_explicit_requirement_while_rebuilding_children() -> void:
+	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
+	var requirement: RefCounted = RefCounted.new()
+	var group: GFRuntimeTaskGroup = GFRuntimeTaskGroup.new([GFRuntimeTask.new()])
+	group.interruptible = false
+	assert_true(scheduler.register_default_task(requirement, group))
+	scheduler.tick(0.1)
+	assert_same(scheduler.get_task_for_requirement(requirement), group)
+	assert_false(scheduler.schedule(GFRuntimeTask.new([requirement])))
+	scheduler.dispose()
+
+
 func test_scheduled_task_group_rejects_child_mutation() -> void:
 	var scheduler: GFRuntimeTaskScheduler = GFRuntimeTaskScheduler.new()
 	var order: Array[String] = []

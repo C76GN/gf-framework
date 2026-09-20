@@ -366,6 +366,9 @@ func push_state(next_state_name: StringName, args: Dictionary = {}) -> void:
 	if next_state == _current_state:
 		push_warning("[GFNodeStateGroup] push_state 失败：不能将当前状态再次压栈。")
 		return
+	if _state_stack.has(next_state):
+		push_warning("[GFNodeStateGroup] push_state 失败：目标状态已在暂停栈中。")
+		return
 
 	var previous_state: GFNodeState = _current_state
 	var previous_name: StringName = _get_registered_state_key(previous_state)
@@ -443,6 +446,28 @@ func pop_state(args: Dictionary = {}) -> bool:
 		var queued_state_name: StringName = queued_transition._state_name
 		var queued_args: Dictionary = queued_transition._args
 		var queued_stack_exit_policy: int = queued_transition._stack_exit_policy
+		# 恢复候选在本次 pop 前仍是暂停状态，必须参与重定向的退出预检。
+		_current_state = null
+		_is_exiting_current_state = false
+		_state_stack.append(restore_state)
+		var redirect_serial: int = _transition_serial
+		var can_exit_stack: bool = _can_exit_stacked_states(
+			queued_state_name, queued_args, queued_stack_exit_policy, redirect_serial
+		)
+		if redirect_serial != _transition_serial:
+			return true
+		var _restored_candidate: GFNodeState = _pop_stack_state()
+		if not can_exit_stack:
+			_clear_queued_exit_transition()
+			_is_exiting_current_state = false
+			_current_state = restore_state
+			var restore_serial: int = _transition_serial
+			restore_state.resume(previous_name, args)
+			if restore_serial == _transition_serial and _current_state == restore_state:
+				_push_history(restore_name)
+				current_state_changed.emit(previous_state, restore_state)
+			return true
+		_is_exiting_current_state = true
 		restore_state.exit(queued_state_name, queued_args)
 		restore_state.unregister_owner_events()
 
@@ -516,7 +541,7 @@ func remove_state(state: GFNodeState) -> bool:
 		return false
 
 	var key: StringName = _get_registered_state_key(state)
-	if not _states.has(key):
+	if _get_registered_state(key) != state:
 		return false
 	_transition_serial += 1
 	if _current_state == state or _state_stack.has(state):

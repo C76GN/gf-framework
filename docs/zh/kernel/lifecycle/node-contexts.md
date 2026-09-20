@@ -53,7 +53,9 @@ func install_bindings(binder: Variant, _scope: GFAsyncScope) -> void:
 2. 将最近且已提交 READY 的父级上下文或全局 `Gf` 架构作为父级依赖来源。
 3. 在 `auto_init == true` 时编译局部依赖 DAG 并完成四阶段初始化。
 4. 只在第四阶段成功、局部架构提交 READY 后发出 `context_ready`。
-5. 在节点退出树时同步强制 `dispose()` 局部模块。
+5. 可控退出先等待 owned Architecture 的 `shutdown_async()` 完成，再移除节点；直接退出树则同步强制 `dispose()` 局部模块。
+
+owned Architecture 正常关闭期间，Context 停止报告 READY，`wait_until_ready()` 与 `initialize_context()` 返回 `null`，不会把跨帧 quiesce 转成强制释放。正常关闭结束也不会发出 `context_failed`；具体关闭结果由 `shutdown_async()` 返回。直接调用 `dispose()`、父级失效和节点离树仍沿用各自的失效或强制释放规则。
 
 如果把 `auto_init` 设为 `false`，Context 仍会创建局部架构并执行 `install()` / `install_bindings()`，但不会自动进入四阶段生命周期。需要在合适的业务时机调用 `await context.initialize_context()`；该方法会等待安装完成、统一触发初始化，并在 stage4 成功或任一阶段失败时沿用 `context_ready` / `context_failed` 语义。第三阶段 `ready()` 完成但 activation 仍在等待时，Context 继续保持未 ready，子树不能提前取得运行时准入。
 

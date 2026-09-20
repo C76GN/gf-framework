@@ -507,6 +507,43 @@ func test_gravity_probe_sample_fields_ignores_freed_objects() -> void:
 	assert_eq(acceleration, Vector3.ZERO, "sample_fields 应跳过已释放对象引用和非对象输入。")
 
 
+func test_priority_callback_can_remove_a_later_candidate_safely() -> void:
+	var first: RemovingPriorityField = RemovingPriorityField.new()
+	var second: RemovingPriorityField = RemovingPriorityField.new()
+	var probe: GFGravityProbe3D = GFGravityProbe3D.new()
+	add_child_autofree(first)
+	add_child_autofree(probe)
+	first.next_field = second
+	probe.use_fallback_when_empty = false
+	assert_eq(probe.sample_fields([first, second]), Vector3.RIGHT)
+	assert_false(is_instance_valid(second))
+
+
+func test_priority_callback_can_remove_an_already_sampled_candidate_safely() -> void:
+	var first: RemovingPriorityField = RemovingPriorityField.new()
+	var second: RemovingPriorityField = RemovingPriorityField.new()
+	var probe: GFGravityProbe3D = GFGravityProbe3D.new()
+	add_child_autofree(second)
+	add_child_autofree(probe)
+	second.next_field = first
+	probe.use_fallback_when_empty = false
+	assert_eq(probe.sample_fields([first, second]), Vector3.RIGHT * 2.0)
+	assert_false(is_instance_valid(first))
+
+
+class RemovingPriorityField extends Node3D:
+	var next_field: Node
+
+	func get_acceleration_at(_position: Vector3) -> Vector3:
+		return Vector3.RIGHT
+
+	func get_gravity_priority() -> int:
+		if is_instance_valid(next_field):
+			next_field.free()
+			next_field = null
+		return 1
+
+
 func test_gravity_probe_provider_ignores_freed_candidates() -> void:
 	var provider: CandidateProvider = CandidateProvider.new()
 	var field: GFGravityField3D = GFGravityField3D.new()

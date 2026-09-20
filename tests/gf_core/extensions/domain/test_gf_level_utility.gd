@@ -2,6 +2,19 @@
 extends GutTest
 
 
+func test_empty_pack_navigation_does_not_enter_named_pack() -> void:
+	var catalog: GFLevelCatalog = GFLevelCatalog.new()
+	for index: int in 3:
+		var entry: GFLevelEntry = GFLevelEntry.new()
+		entry.level_id = StringName("level_%d" % index)
+		entry.sort_order = index
+		entry.pack_id = &"named" if index == 1 else &""
+		catalog.entries.append(entry)
+	assert_eq(catalog.get_next_level_id(&"level_0"), &"level_2")
+	assert_eq(catalog.get_previous_level_id(&"level_2"), &"level_0")
+	assert_eq(catalog.get_levels().size(), 3)
+
+
 const GF_LEVEL_UTILITY = preload("res://addons/gf/extensions/domain/level/gf_level_utility.gd")
 
 

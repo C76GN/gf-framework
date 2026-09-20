@@ -2,6 +2,9 @@
 extends GutTest
 
 
+const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
+
+
 # --- 测试用模块 ---
 
 class TickBootstrapUtility extends GFUtility:
@@ -128,6 +131,27 @@ class AwaitedHotRegisterUtility extends GFUtility:
 			activation_completion != null
 			and activation_completion.succeed()
 		)
+
+
+class InterruptingQuiesceUtility extends GFUtility:
+	var dispose_during_quiesce: bool = true
+	var dispose_count: int = 0
+	var quiesce_count: int = 0
+
+	func get_required_utilities() -> Array[Script]:
+		return [StableShutdownUtility]
+
+	func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
+		quiesce_count += 1
+		var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+		if dispose_during_quiesce:
+			var architecture: GFArchitecture = _get_architecture_or_null()
+			architecture.dispose()
+			var _completed: bool = completion.succeed()
+		return completion
+
+	func dispose() -> void:
+		dispose_count += 1
 
 
 class AwaitedHotReplaceUtility extends GFUtility:
@@ -1386,6 +1410,33 @@ func test_concurrent_shutdown_is_single_flight_and_first_caller_owns_policy() ->
 		GFArchitectureShutdownResult.Status.SUCCEEDED
 	)
 	duplicate_source.dispose()
+
+
+func test_dispose_during_quiesce_stops_remaining_module_hooks() -> void:
+	for synchronous: bool in [true, false]:
+		var architecture: GFArchitecture = GFArchitecture.new()
+		var provider: StableShutdownUtility = StableShutdownUtility.new()
+		var consumer: InterruptingQuiesceUtility = InterruptingQuiesceUtility.new()
+		consumer.dispose_during_quiesce = synchronous
+		assert_true(await architecture.register_utility_instance(provider))
+		assert_true(await architecture.register_utility_instance(consumer))
+		assert_true(await architecture.init())
+		watch_signals(architecture)
+		var state: Dictionary = {}
+		_GF_ASYNC_CALL_SCRIPT.run_detached(_await_shutdown, [architecture, null, 1.0, state])
+		if not synchronous:
+			await get_tree().process_frame
+			architecture.dispose()
+		await _wait_until_states_done([state])
+		var result: GFArchitectureShutdownResult = _shutdown_result_from_state(state)
+		assert_not_null(result)
+		if result != null:
+			assert_eq(result.get_status(), GFArchitectureShutdownResult.Status.FORCED)
+		assert_eq(consumer.quiesce_count, 1)
+		assert_eq(provider.quiesce_count, 0, "已释放的依赖不能再收到旧关闭循环的 quiesce。")
+		assert_eq(provider.dispose_count, 1)
+		assert_eq(consumer.dispose_count, 1)
+		assert_signal_emit_count(architecture, "shutdown_finished", 1)
 
 
 func test_shutdown_quiesce_can_complete_from_lifecycle_tick() -> void:

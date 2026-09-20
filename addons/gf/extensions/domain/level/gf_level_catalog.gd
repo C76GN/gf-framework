@@ -121,7 +121,7 @@ func get_next_level_id(level_id: StringName) -> StringName:
 	if entry == null:
 		return &""
 
-	var levels: Array[GFLevelEntry] = get_levels(entry.pack_id)
+	var levels: Array[GFLevelEntry] = _get_exact_pack_levels(entry.pack_id)
 	for index: int in range(levels.size()):
 		if levels[index].get_level_id() == level_id and index + 1 < levels.size():
 			return levels[index + 1].get_level_id()
@@ -140,7 +140,7 @@ func get_previous_level_id(level_id: StringName) -> StringName:
 	if entry == null:
 		return &""
 
-	var levels: Array[GFLevelEntry] = get_levels(entry.pack_id)
+	var levels: Array[GFLevelEntry] = _get_exact_pack_levels(entry.pack_id)
 	for index: int in range(levels.size()):
 		if levels[index].get_level_id() == level_id and index > 0:
 			return levels[index - 1].get_level_id()
@@ -148,6 +148,13 @@ func get_previous_level_id(level_id: StringName) -> StringName:
 
 
 # --- 私有/辅助方法 ---
+
+func _get_exact_pack_levels(pack_id: StringName) -> Array[GFLevelEntry]:
+	var result: Array[GFLevelEntry] = []
+	for entry: GFLevelEntry in get_levels():
+		if entry.pack_id == pack_id:
+			result.append(entry)
+	return result
 
 func _sort_entries(left: GFLevelEntry, right: GFLevelEntry) -> bool:
 	if left.sort_order != right.sort_order:

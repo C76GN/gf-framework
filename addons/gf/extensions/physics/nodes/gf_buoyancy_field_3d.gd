@@ -283,8 +283,12 @@ func _get_signed_depth_at(world_position: Vector3) -> float:
 func _get_surface_normal_at(world_position: Vector3) -> Vector3:
 	if not _is_finite_vector3(world_position):
 		return Vector3.UP
-	var basis_y: Vector3 = global_basis.y
-	return basis_y.normalized() if not basis_y.is_zero_approx() else Vector3.UP
+	var surface_basis: Basis = global_basis
+	var determinant: float = surface_basis.determinant()
+	if not is_finite(determinant) or determinant == 0.0:
+		return Vector3.ZERO
+	var normal: Vector3 = surface_basis.inverse().transposed() * Vector3.UP
+	return normal.normalized() if _is_finite_vector3(normal) else Vector3.ZERO
 
 
 ## 计算采样点处的世界空间流体速度。

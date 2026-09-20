@@ -425,6 +425,88 @@ func test_dictionary_schema_validate_dictionary_short_circuits_recursive_schema(
 	child_field.dictionary_schema = null
 
 
+func test_direct_array_field_validation_rejects_recursive_definition() -> void:
+	var field: GFSchemaField = _make_field(&"items", GFSchemaField.ValueType.ARRAY)
+	field.array_item_schema = field
+	var values: Array = []
+	values.append(values)
+	var report: GFValidationReport = field.validate_value(values)
+	field.array_item_schema = null
+	values.clear()
+	assert_false(report.is_ok(), "单字段入口也必须先拒绝循环 schema。")
+	assert_eq(_find_issue_kind(report, "circular_field_schema"), "circular_field_schema")
+
+
+func test_direct_array_field_validation_rejects_deep_acyclic_definition() -> void:
+	var definitions: Array[GFSchemaField] = []
+	for index: int in 2000:
+		var field: GFSchemaField = _make_field(&"items", GFSchemaField.ValueType.ARRAY)
+		if index > 0:
+			definitions[index - 1].array_item_schema = field
+		definitions.append(field)
+	var report: GFValidationReport = definitions[0].validate_value([])
+	for field: GFSchemaField in definitions:
+		field.array_item_schema = null
+	assert_false(report.is_ok(), "空数组也应有界拒绝过深但无环的定义。")
+	assert_eq(_find_issue_kind(report, "schema_depth_exceeded"), "schema_depth_exceeded")
+
+
+func test_definition_depth_boundary_preserves_cycle_diagnostics() -> void:
+	var definitions: Array[GFSchemaField] = []
+	for index: int in 64:
+		var field: GFSchemaField = _make_field(&"items", GFSchemaField.ValueType.ARRAY)
+		if index > 0:
+			definitions[index - 1].array_item_schema = field
+		definitions.append(field)
+	var at_limit: GFValidationReport = definitions[0].validate_value([])
+	definitions[-1].array_item_schema = _make_field(&"", GFSchemaField.ValueType.INT)
+	var exceeded: GFValidationReport = definitions[0].validate_value([])
+	definitions[-1].array_item_schema = definitions[0]
+	var cyclic: GFValidationReport = definitions[0].validate_value([])
+	for field: GFSchemaField in definitions:
+		field.array_item_schema = null
+	assert_true(at_limit.is_ok(), "64 个活动定义实例仍应允许。")
+	assert_eq(exceeded.get_error_count(), 1)
+	assert_eq(_find_issue_kind(exceeded, "schema_depth_exceeded"), "schema_depth_exceeded")
+	assert_eq(_find_issue_kind(cyclic, "circular_field_schema"), "circular_field_schema")
+	assert_eq(_find_issue_kind(cyclic, "schema_depth_exceeded"), "", "已识别的循环应保留原诊断。")
+
+
+func test_definition_depth_limit_combines_dictionary_and_field_instances() -> void:
+	var schemas: Array[GFDictionarySchema] = []
+	var definitions: Array[GFSchemaField] = []
+	for index: int in 32:
+		var schema: GFDictionarySchema = GFDictionarySchema.new()
+		var field: GFSchemaField = _make_field(&"child", GFSchemaField.ValueType.DICTIONARY)
+		schema.fields = [field]
+		if index > 0:
+			definitions[index - 1].dictionary_schema = schema
+		schemas.append(schema)
+		definitions.append(field)
+	definitions[-1].value_type = GFSchemaField.ValueType.ARRAY
+	var at_limit: GFValidationReport = schemas[0].validate_definition()
+	definitions[-1].array_item_schema = _make_field(&"", GFSchemaField.ValueType.INT)
+	var exceeded: GFValidationReport = schemas[0].validate_dictionary({})
+	for field: GFSchemaField in definitions:
+		field.dictionary_schema = null
+		field.array_item_schema = null
+	assert_true(at_limit.is_ok(), "32 个 schema 加 32 个 field 恰好达到深度上限。")
+	assert_false(exceeded.is_ok(), "Dictionary 的公开校验也应在递归值校验前拒绝超深定义。")
+	assert_eq(_find_issue_kind(exceeded, "schema_depth_exceeded"), "schema_depth_exceeded")
+
+
+func test_definition_depth_tracking_allows_shared_acyclic_item_schema() -> void:
+	var shared_item: GFSchemaField = _make_field(&"", GFSchemaField.ValueType.INT)
+	var left: GFSchemaField = _make_field(&"left", GFSchemaField.ValueType.ARRAY)
+	var right: GFSchemaField = _make_field(&"right", GFSchemaField.ValueType.ARRAY)
+	left.array_item_schema = shared_item
+	right.array_item_schema = shared_item
+	var schema: GFDictionarySchema = GFDictionarySchema.new()
+	schema.fields = [left, right]
+	var report: GFValidationReport = schema.validate_dictionary({ "left": [1], "right": [2] })
+	assert_true(report.is_ok(), "兄弟分支共享的无环定义不能计成循环或累计深度。")
+
+
 func test_schema_field_validation_rules_inherit_field_context() -> void:
 	var positive_rule: GFValidationRule = GFValidationRule.new().configure(
 		&"positive_value",

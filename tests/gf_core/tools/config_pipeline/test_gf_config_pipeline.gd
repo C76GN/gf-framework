@@ -1458,6 +1458,46 @@ func test_pipeline_runner_fails_freshness_before_hashing_over_budget_source() ->
 	assert_false(FileAccess.file_exists(manifest_path), "freshness 预算失败不得写入 manifest。")
 
 
+func test_pipeline_runner_preserves_validation_warnings_on_fresh_export() -> void:
+	var stamp: int = Time.get_ticks_usec()
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.table_name = &"items"
+	source.source_path = _write_text("user://gf_warning_items_%d.csv" % stamp, "id,name\n1,Potion\n")
+	source.infer_schema = false
+	var profile: GFConfigPipelineProfile = GFConfigPipelineProfile.new()
+	profile.profile_id = &"warnings"
+	profile.output_path = _track_path("user://gf_warning_database_%d.json" % stamp)
+	profile.sources = [source]
+	var profile_path: String = _track_path("user://gf_warning_profile_%d.tres" % stamp)
+	assert_eq(ResourceSaver.save(profile, profile_path), OK)
+	var options: Dictionary = {
+		"changed_only": true,
+		"manifest_path": _track_path("user://gf_warning_manifest_%d.json" % stamp),
+		"validate_database": false,
+	}
+	var first: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	var second: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	var first_report: Dictionary = GFVariantData.get_option_dictionary(first, "report")
+	var second_report: Dictionary = GFVariantData.get_option_dictionary(second, "report")
+	assert_true(GFVariantData.get_option_bool(first, "success"), str(first))
+	assert_gt(GFVariantData.get_option_int(first_report, "warning_count"), 0)
+	assert_eq(GFVariantData.get_option_int(second_report, "warning_count"), GFVariantData.get_option_int(first_report, "warning_count"))
+	assert_eq(GFVariantData.get_option_array(second_report, "issues"), GFVariantData.get_option_array(first_report, "issues"))
+	var manifest_path: String = GFVariantData.get_option_string(options, "manifest_path")
+	var manifest: Dictionary = _load_json_dictionary(manifest_path)
+	var summary: Dictionary = GFVariantData.get_option_dictionary(manifest, "run_summary")
+	var stored_report: Dictionary = GFVariantData.get_option_dictionary(summary, "report")
+	stored_report["warning_count"] = 0
+	stored_report["issue_count"] = 0
+	summary["report"] = stored_report
+	manifest["run_summary"] = summary
+	var _tampered_path: String = _write_text(manifest_path, JSON.stringify(manifest, "\t", true))
+	var tampered_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+	assert_false(GFVariantData.get_option_bool(tampered_result, "success"),
+		"诊断计数属于摘要，篡改计数不得制造无诊断的 fresh 跳过。")
+	assert_false(GFVariantData.get_option_bool(tampered_result, "skipped"))
+
+
 func test_pipeline_runner_skips_changed_only_when_manifest_is_fresh() -> void:
 	var csv_path: String = _write_text("user://gf_config_pipeline_manifest_fresh_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
 	var profile_path: String = _track_path("user://gf_config_pipeline_manifest_fresh_profile_%d.tres" % Time.get_ticks_usec())

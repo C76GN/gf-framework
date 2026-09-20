@@ -28,12 +28,11 @@ var _execution_started: bool = false
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 查询结果。
 ## [br]
-## @schema return {
-##   "type": "Variant",
-##   "description": "查询结果；具体类型由查询子类定义。"
-## }
+## @schema return: {"type": "Variant", "description": "查询结果；具体类型由查询子类定义。"}
 func execute() -> Variant:
 	return null
 
