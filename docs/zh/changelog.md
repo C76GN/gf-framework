@@ -6,6 +6,7 @@
 
 ### 🚀 新增特性 (Added)
 
+- [配置化 Tween](extensions/action-queue/tween-config.md) 新增可选运行时秒数定位、正向/反向播放与有限往返循环；通过显式共享的 `GFTweenReplacementScope` 接管同一目标的冲突属性，保持当前姿态并结束旧动作。`gf.action_queue` 的 `extension_version` 升为 `2.6.0`。
 - [虚拟列表](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/viewport-text-node-tools/virtual-list-model.md) 支持按复用分类混排不同模板；同一条目切换模板时保留事务检查、焦点交接与测量锚点，各类节点共享原有池总量上限，现有单模板绑定保持兼容。
 - 新增 [Storage 大型结果的一次性领取](standard/utilities/io/storage-snapshot/read-results.md#大型结果的一次性领取)：通过专用句柄接收纯字典异步读取，迁移后保留一次交付隔离，通知与领取不再复制载荷；提供独立的小型诊断、取消及释放语义，普通读取保持兼容。
 - [2D 空间画布](standard/input-flow/spatial-canvas-2d.md#已选条目的默认轮廓) 支持独立隐藏已选条目的默认矩形轮廓，便于项目使用自定义选中装饰，同时保留点选、框选、网格与放置预览。
@@ -45,6 +46,7 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复配置化 Tween 在中途 `finish()` 时重复叠加相对偏移的问题；串并行与有限循环推进到本次执行的真实终点，不补发跳过的标记，setter 重入后旧动作不再写入新会话。
 - 修复 typed JSON 编解码的原子类型预算不对称，并恢复 Dialogue 自定义上下文的反序列化覆盖契约；恢复先完成会话校验，再提交上下文与位置。
 - 修复并行任务组错误推进已独立重新调度的子任务、输入批量清理回调后的旧完成事件，以及动作队列重入清空后的重复排空通知。
 - 生成文档事务回滚只清理本次成功安装且身份仍匹配的目录；并发替换的目标和无法安全恢复的旧备份会被保留。

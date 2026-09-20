@@ -25,6 +25,68 @@ func test_preview_starts_idle_and_uses_only_its_own_target() -> void:
 	preview.dispose_preview()
 
 
+func test_controlled_and_ping_pong_configs_reject_before_preview_or_seek() -> void:
+	for flag: StringName in [&"ping_pong", &"enable_playback_control"]:
+		var config: GFTweenActionConfig = _config(^"position:x", 10.0)
+		config.set(flag, true)
+		var plan: GFTweenPreviewPlan = GFTweenPreviewPlan.capture(config, 0)
+		assert_true(plan.error.contains(String(flag)))
+		assert_eq(plan.steps, [])
+		assert_eq(plan.duration_seconds, 0.0)
+		var preview: GFTweenPreviewViewport = _preview(config)
+		var initial: Dictionary = preview.get_current_values()
+		assert_false(preview.play())
+		assert_eq(preview.get_state(), &"error")
+		assert_true(preview.get_error().contains(String(flag)))
+		assert_false(preview.has_session())
+		preview.advance(2.0)
+		assert_eq(preview.get_current_values(), initial)
+		assert_false(preview.seek(0.5))
+		assert_eq(preview.get_current_values(), initial)
+		config.set(flag, false)
+		assert_true(preview.play(), "Returning to native playback must recover without rebuilding the panel.")
+		preview.advance(0.5)
+		assert_almost_eq(_vector2(preview, "position").x, 5.0, 0.001)
+		preview.dispose_preview()
+
+
+func test_ping_pong_flag_edit_does_not_change_a_captured_native_preview_session() -> void:
+	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
+	var preview: GFTweenPreviewViewport = _preview(config)
+	assert_true(preview.play())
+	preview.advance(0.25)
+	config.ping_pong = true
+	assert_true(preview.seek(0.75))
+	assert_eq(preview.get_duration_seconds(), 1.0)
+	assert_almost_eq(_vector2(preview, "position").x, 7.5, 0.001)
+	assert_true(preview.play(), "Resume consumes the old frozen snapshot.")
+	preview.advance(0.5)
+	assert_eq(preview.get_state(), &"finished")
+	assert_false(preview.play(), "Starting a new session must reject the changed unsupported configuration.")
+	assert_true(preview.get_error().contains("ping_pong"))
+	assert_false(preview.has_session())
+	assert_true(config.ping_pong)
+	preview.dispose_preview()
+
+
+func test_panel_shows_ping_pong_unsupported_reason_in_status_label() -> void:
+	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
+	config.ping_pong = true
+	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
+	panel.configure(config)
+	add_child_autofree(panel)
+	panel.set_process(false)
+	_button(panel, "Play").pressed.emit()
+	var status_node: Node = panel.find_child("PreviewStatus", true, false)
+	assert_true(status_node is Label)
+	if status_node is Label:
+		var status: Label = status_node
+		assert_true(status.text.contains("ping_pong"))
+		assert_true(status.text.contains("暂不支持"))
+	assert_false(_panel_viewport(panel).has_session())
+	panel.dispose_preview()
+
+
 func test_easing_curve_overrides_presets_with_native_curve_value() -> void:
 	var config: GFTweenActionConfig = _config(^"position:x", 8.0)
 	config.steps[0].transition_type = Tween.TRANS_CUBIC

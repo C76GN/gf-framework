@@ -37,9 +37,28 @@ const _ACTION_TIME_POLICY = preload("res://addons/gf/extensions/action_queue/cor
 		_duration_scale = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(value)
 
 ## 播放次数。1 表示播放一次，0 表示无限循环。
+## 受控播放只接受有限循环；ping_pong 为 true 时一次循环包含去程和回程。
 ## [br]
 ## @api public
+## [br]
+## @since 3.6.0
 @export_range(0, 999, 1) var loop_count: int = 1
+
+## 启用运行时时间定位和正反向播放。默认沿用原生 Tween 播放路径。
+## ping_pong 或动作的 replacement_scope 也会自动启用受控播放及其整组校验。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+@export var enable_playback_control: bool = false
+
+## 每次有限循环按冻结时间轴先前进再返回初值，并自动启用受控播放。
+## 回程不累计相对偏移，也不发出步骤标记。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+@export var ping_pong: bool = false
 
 ## 是否忽略全局 time scale。
 ## [br]
@@ -200,6 +219,11 @@ func restore_initial_values(target: Object, snapshot: Dictionary) -> void:
 ## @return 校验报告。
 func get_validation_report(target: Object) -> GFValidationReport:
 	var report: GFValidationReport = GFValidationReport.new("GFTweenActionConfig")
+	if enable_playback_control or ping_pong:
+		var plan: GFTweenPlaybackPlan = GFTweenPlaybackPlan.capture(self, target, ping_pong)
+		if not plan.error.is_empty():
+			var _plan_error: Variant = report.add_error(&"invalid_playback_plan", plan.error)
+		return report
 	for index: int in range(steps.size()):
 		var step: GFTweenActionStep = steps[index]
 		if step == null:
@@ -222,6 +246,8 @@ func duplicate_config() -> GFTweenActionConfig:
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
 	config.duration_scale = duration_scale
 	config.loop_count = loop_count
+	config.enable_playback_control = enable_playback_control
+	config.ping_pong = ping_pong
 	config.ignore_time_scale = ignore_time_scale
 	config.process_mode = process_mode
 	config.pause_mode = pause_mode

@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "817ecf8e2de9ed5c588163df56d2a55eabd884eebd2bb0e89c7be0e7ddc317cc",
-  "class_count": 866,
+  "source_digest": "007f5b732a0a38e6fd430125166a671bb496b317a0f7fc9154c6944b765532c3",
+  "class_count": 867,
   "autoload_count": 1,
   "package_count": 59,
   "packages": [
@@ -22320,7 +22320,7 @@
       "module": "extensions/action_queue",
       "package_id": "gf.extension.action_queue",
       "path": "addons/gf/extensions/action_queue/actions/gf_configured_tween_action.gd",
-      "summary": "GFConfiguredTweenAction: 由 GFTweenActionConfig 驱动的通用 Tween 动作。 允许项目把表现动画拆成 Resource 配置，再交给 GFActionQueueSystem 编排。",
+      "summary": "GFConfiguredTweenAction: 配置驱动的 Tween 动作，支持可选冻结时间轴与属性替换。",
       "visibility": "public",
       "category": "runtime_handle",
       "since": "3.17.0",
@@ -22329,7 +22329,7 @@
           "kind": "signal",
           "name": "marker_reached",
           "signature": "signal marker_reached(marker_id: StringName, step_index: int, target: Object)",
-          "summary": "Tween 步骤标记到达后发出。",
+          "summary": "正向到达标记时发出；定位、倒放和立即完成不补发标记。",
           "visibility": "public"
         },
         {
@@ -22343,28 +22343,35 @@
           "kind": "var",
           "name": "config",
           "signature": "var config: GFTweenActionConfig",
-          "summary": "Tween 配置。",
+          "summary": "Tween 配置；执行后修改不改变已捕获的时间轴。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "host_node",
           "signature": "var host_node: Node",
-          "summary": "可选 Tween 宿主节点。目标不是 Node 时必须提供。",
+          "summary": "可选宿主节点，目标不是 Node 时必须提供。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "replacement_scope",
+          "signature": "var replacement_scope: GFTweenReplacementScope = null",
+          "summary": "属性替换作用域；启用冻结时间轴，接管时旧动作保留当前姿态并完成。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "execute",
           "signature": "func execute() -> Variant",
-          "summary": "执行配置化 Tween。",
+          "summary": "开始新执行；先结束旧会话，再按当前配置捕获新会话。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "cancel",
           "signature": "func cancel() -> void",
-          "summary": "取消当前 Tween，并按配置恢复初始值。",
+          "summary": "取消当前执行并按捕获配置恢复初值；终态重复调用无副作用。",
           "visibility": "public"
         },
         {
@@ -22378,21 +22385,63 @@
           "kind": "func",
           "name": "resume",
           "signature": "func resume() -> void",
-          "summary": "恢复当前 Tween。",
+          "summary": "沿当前方向恢复播放。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "finish",
           "signature": "func finish() -> void",
-          "summary": "立即完成当前 Tween，并按配置恢复初始值。",
+          "summary": "立即完成当前方向，不补发标记；按捕获配置恢复初值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "seek",
+          "signature": "func seek(time_seconds: float) -> bool",
+          "summary": "定位并暂停，只提交最终样本；不触发完成或标记。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "play_forward",
+          "signature": "func play_forward() -> bool",
+          "summary": "从当前时间向时间轴终点播放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "play_backward",
+          "signature": "func play_backward() -> bool",
+          "summary": "从当前时间倒放到时间轴起点，不发出步骤标记。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "can_control_playback",
+          "signature": "func can_control_playback() -> bool",
+          "summary": "查询本次执行是否支持定位和方向控制。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_time_seconds",
+          "signature": "func get_time_seconds() -> float",
+          "summary": "获取可控会话当前时间；未捕获时为 0。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_duration_seconds",
+          "signature": "func get_duration_seconds() -> float",
+          "summary": "获取捕获时间轴的总时长，包含全部循环与回程。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_wait_guard_node",
           "signature": "func get_wait_guard_node() -> Node",
-          "summary": "获取用于保护等待生命周期的 Tween 宿主节点。",
+          "summary": "获取保护等待生命周期的宿主节点。",
           "visibility": "public"
         }
       ]
@@ -93864,6 +93913,20 @@
         },
         {
           "kind": "var",
+          "name": "enable_playback_control",
+          "signature": "var enable_playback_control: bool = false",
+          "summary": "启用运行时时间定位和正反向播放。默认沿用原生 Tween 播放路径。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "ping_pong",
+          "signature": "var ping_pong: bool = false",
+          "summary": "每次有限循环按冻结时间轴先前进再返回初值，并自动启用受控播放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
           "name": "ignore_time_scale",
           "signature": "var ignore_time_scale: bool = false",
           "summary": "是否忽略全局 time scale。",
@@ -94083,6 +94146,40 @@
           "name": "capture_initial_value",
           "signature": "func capture_initial_value(target: Object) -> Variant",
           "summary": "捕获当前属性值；仅校验属性，不采样或校验 easing_curve。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFTweenReplacementScope": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/action_queue",
+      "package_id": "gf.extension.action_queue",
+      "path": "addons/gf/extensions/action_queue/tween/gf_tween_replacement_scope.gd",
+      "summary": "GFTweenReplacementScope: 配置化 Tween 显式共享的属性替换作用域。 仅管理主动加入本作用域的动作，不查找目标上的其他 Tween。 相同目标的同一顶层属性及其分量互斥；Node2D、Node3D 的 rotation_degrees",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "dispose",
+          "signature": "func dispose() -> void",
+          "summary": "永久关闭作用域并停止仍登记的动作；重复调用无副作用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_disposed",
+          "signature": "func is_disposed() -> bool",
+          "summary": "查询作用域是否已永久关闭。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_active_count",
+          "signature": "func get_active_count() -> int",
+          "summary": "查询仍具有有效动作和目标的登记数，并移除失效的弱引用登记。",
           "visibility": "public"
         }
       ]

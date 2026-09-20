@@ -8,8 +8,8 @@
 |---|---:|---:|---:|
 | [运行时服务](#category-runtime_service) | 2 | 59 | 55 |
 | [协议与扩展点](#category-protocol) | 2 | 21 | 15 |
-| [资源定义](#category-resource_definition) | 2 | 33 | 15 |
-| [运行时句柄](#category-runtime_handle) | 9 | 90 | 43 |
+| [资源定义](#category-resource_definition) | 2 | 35 | 15 |
+| [运行时句柄](#category-runtime_handle) | 10 | 100 | 52 |
 | [值对象](#category-value_object) | 1 | 12 | 8 |
 
 ## 类
@@ -54,6 +54,7 @@
 | [`GFMoveTweenAction`](classes/GFMoveTweenAction.md#gfmovetweenaction) | `GFVisualAction` | `addons/gf/extensions/action_queue/actions/gf_move_tween_action.gd` |
 | [`GFRepeatAction`](classes/GFRepeatAction.md#gfrepeataction) | `GFVisualAction` | `addons/gf/extensions/action_queue/actions/gf_repeat_action.gd` |
 | [`GFShaderParameterAction`](classes/GFShaderParameterAction.md#gfshaderparameteraction) | `GFVisualAction` | `addons/gf/extensions/action_queue/actions/gf_shader_parameter_action.gd` |
+| [`GFTweenReplacementScope`](classes/GFTweenReplacementScope.md#gftweenreplacementscope) | `RefCounted` | `addons/gf/extensions/action_queue/tween/gf_tween_replacement_scope.gd` |
 | [`GFVisualActionGroup`](classes/GFVisualActionGroup.md#gfvisualactiongroup) | `GFVisualAction` | `addons/gf/extensions/action_queue/actions/gf_visual_action_group.gd` |
 | [`GFWaitAction`](classes/GFWaitAction.md#gfwaitaction) | `GFVisualAction` | `addons/gf/extensions/action_queue/actions/gf_wait_action.gd` |
 
