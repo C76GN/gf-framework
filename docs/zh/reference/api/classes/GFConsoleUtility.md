@@ -429,12 +429,13 @@ func suggest_similar_commands(cmd_name: String, limit: int = 3, threshold: float
 ### `execute_command`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func execute_command(raw_input: String) -> bool:
 ```
 
-解析并执行一条原始输入。
+解析并执行一条原始输入。 返回值只表示是否派发给有效回调，不读取回调返回值；内置命令的参数错误通过控制台反馈。
 
 参数：
 
@@ -442,7 +443,7 @@ func execute_command(raw_input: String) -> bool:
 |---|---|
 | `raw_input` | 用户输入的完整字符串。 |
 
-返回：找到并成功执行命令时返回 `true`。
+返回：通过风险与确认检查并调用有效命令回调时返回 `true`，不保证回调业务成功。
 
 <a id="member-gfconsoleutility-methods-set_console_visible"></a>
 

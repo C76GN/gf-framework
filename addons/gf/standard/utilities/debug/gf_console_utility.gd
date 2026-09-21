@@ -36,6 +36,12 @@ enum CommandTier {
 ## @api public
 const DANGER_CONFIRMATION_ARGUMENT: String = "--confirm"
 
+const _HELP_USAGE: String = "help"
+const _CLEAR_USAGE: String = "clear"
+const _SCENE_TREE_USAGE: String = "scene.tree [max_depth=3] [max_nodes=80] [root_path=.]"
+const _SCENE_NODE_USAGE: String = "scene.node [path=.]"
+const _MAX_LIMIT_DIGITS: String = "9223372036854775807"
+
 
 # --- 公共变量 ---
 
@@ -154,12 +160,12 @@ func init() -> void:
 	if debug_only and not OS.is_debug_build():
 		return
 
-	_remember_builtin_command(register_command(self, "help", _cmd_help, "显示所有可用指令。"))
-	_remember_builtin_command(register_command(self, "clear", _cmd_clear, "清空控制台输出。"))
-	_remember_builtin_command(register_command(self, "scene.tree", _cmd_scene_tree, "输出只读场景树摘要。", {
+	_remember_builtin_command(register_command(self, "help", _cmd_help, "显示所有可用指令。用法：%s" % _HELP_USAGE))
+	_remember_builtin_command(register_command(self, "clear", _cmd_clear, "清空控制台输出。用法：%s" % _CLEAR_USAGE))
+	_remember_builtin_command(register_command(self, "scene.tree", _cmd_scene_tree, "输出只读场景树摘要。用法：%s" % _SCENE_TREE_USAGE, {
 		"tier": CommandTier.OBSERVE,
 	}))
-	_remember_builtin_command(register_command(self, "scene.node", _cmd_scene_node, "查看节点的只读摘要。", {
+	_remember_builtin_command(register_command(self, "scene.node", _cmd_scene_node, "查看节点的只读摘要。用法：%s" % _SCENE_NODE_USAGE, {
 		"tier": CommandTier.OBSERVE,
 	}))
 
@@ -452,12 +458,15 @@ func suggest_similar_commands(cmd_name: String, limit: int = 3, threshold: float
 
 
 ## 解析并执行一条原始输入。
+## 返回值只表示是否派发给有效回调，不读取回调返回值；内置命令的参数错误通过控制台反馈。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param raw_input: 用户输入的完整字符串。
 ## [br]
-## @return 找到并成功执行命令时返回 `true`。
+## @return 通过风险与确认检查并调用有效命令回调时返回 `true`，不保证回调业务成功。
 func execute_command(raw_input: String) -> bool:
 	var trimmed: String = raw_input.strip_edges()
 	if trimmed.is_empty():
@@ -963,11 +972,52 @@ func _escape_bbcode_text(value: Variant) -> String:
 
 
 static func _escape_bbcode_string(text: String) -> String:
-	return text.replace("[", "[lb]").replace("]", "[rb]")
+	# 先处理原文片段，再插入左括号标签，避免重新转义生成的标签。
+	var segments: PackedStringArray = text.split("[")
+	for index: int in range(segments.size()):
+		segments[index] = segments[index].replace("]", "[rb]")
+	return "[lb]".join(segments)
 
 
-func _cmd_help(_args: PackedStringArray) -> void:
+func _validate_builtin_argument_count(args: PackedStringArray, maximum: int, usage: String) -> bool:
+	if args.size() <= maximum:
+		return true
+	_append_builtin_usage_error(usage, "最多接受 %d 个参数，实际收到 %d 个。" % [maximum, args.size()])
+	return false
+
+
+func _append_builtin_usage_error(usage: String, message: String) -> void:
+	_console_gui.append_text("[color=red]%s[/color]" % _escape_bbcode_text(message))
+	_console_gui.append_text("用法：%s" % _escape_bbcode_text(usage))
+
+
+func _parse_builtin_limit(value: String, minimum: int) -> int:
+	var negative: bool = value.begins_with("-")
+	var digits: String = value.substr(1) if negative or value.begins_with("+") else value
+	if digits.is_empty():
+		return -1
+	for character: String in digits:
+		if character < "0" or character > "9":
+			return -1
+	var first_nonzero: int = 0
+	while first_nonzero < digits.length() and digits[first_nonzero] == "0":
+		first_nonzero += 1
+	digits = digits.substr(first_nonzero)
+	if digits.is_empty():
+		return 0 if minimum == 0 else -1
+	# 转换前检查符号与大小；to_int() 不负责溢出判定。
+	if negative or digits.length() > _MAX_LIMIT_DIGITS.length():
+		return -1
+	if digits.length() == _MAX_LIMIT_DIGITS.length() and digits > _MAX_LIMIT_DIGITS:
+		return -1
+	var parsed: int = digits.to_int()
+	return parsed if parsed >= minimum else -1
+
+
+func _cmd_help(args: PackedStringArray) -> void:
 	if not is_instance_valid(_console_gui):
+		return
+	if not _validate_builtin_argument_count(args, 0, _HELP_USAGE):
 		return
 
 	_console_gui.append_text("[color=cyan]--- 可用指令 ---[/color]")
@@ -981,28 +1031,39 @@ func _cmd_help(_args: PackedStringArray) -> void:
 	_console_gui.append_text("[color=cyan]----------------[/color]")
 
 
-func _cmd_clear(_args: PackedStringArray) -> void:
-	if is_instance_valid(_console_gui):
-		_console_gui.clear_output()
+func _cmd_clear(args: PackedStringArray) -> void:
+	if not is_instance_valid(_console_gui):
+		return
+	if not _validate_builtin_argument_count(args, 0, _CLEAR_USAGE):
+		return
+	_console_gui.clear_output()
 
 
 func _cmd_scene_tree(args: PackedStringArray) -> void:
 	if not is_instance_valid(_console_gui):
 		return
+	if not _validate_builtin_argument_count(args, 3, _SCENE_TREE_USAGE):
+		return
 
 	var max_depth: int = 3
 	var max_nodes: int = 80
 	var root_path: String = ""
-	if args.size() >= 1 and args[0].is_valid_int():
-		max_depth = maxi(args[0].to_int(), 0)
-	if args.size() >= 2 and args[1].is_valid_int():
-		max_nodes = maxi(args[1].to_int(), 1)
+	if args.size() >= 1:
+		max_depth = _parse_builtin_limit(args[0], 0)
+		if max_depth < 0:
+			_append_builtin_usage_error(_SCENE_TREE_USAGE, "max_depth 必须是 0 到 %s 的十进制整数，收到：\"%s\"。" % [_MAX_LIMIT_DIGITS, args[0]])
+			return
+	if args.size() >= 2:
+		max_nodes = _parse_builtin_limit(args[1], 1)
+		if max_nodes < 0:
+			_append_builtin_usage_error(_SCENE_TREE_USAGE, "max_nodes 必须是 1 到 %s 的十进制整数，收到：\"%s\"。" % [_MAX_LIMIT_DIGITS, args[1]])
+			return
 	if args.size() >= 3:
 		root_path = args[2]
 
 	var root: Node = _resolve_console_node(root_path)
 	if root == null:
-		_console_gui.append_text("[color=red]没有找到场景树根节点。[/color]")
+		_append_builtin_usage_error(_SCENE_TREE_USAGE, "没有找到场景树根节点：\"%s\"。" % root_path)
 		return
 
 	var lines: PackedStringArray = PackedStringArray()
@@ -1016,11 +1077,13 @@ func _cmd_scene_tree(args: PackedStringArray) -> void:
 func _cmd_scene_node(args: PackedStringArray) -> void:
 	if not is_instance_valid(_console_gui):
 		return
+	if not _validate_builtin_argument_count(args, 1, _SCENE_NODE_USAGE):
+		return
 
 	var path: String = args[0] if args.size() > 0 else ""
 	var node: Node = _resolve_console_node(path)
 	if node == null:
-		_console_gui.append_text("[color=red]没有找到节点：%s[/color]" % _escape_bbcode_text(path))
+		_append_builtin_usage_error(_SCENE_NODE_USAGE, "没有找到节点：\"%s\"。" % path)
 		return
 
 	var lines: PackedStringArray = PackedStringArray()
