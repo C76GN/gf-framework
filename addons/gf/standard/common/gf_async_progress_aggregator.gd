@@ -92,7 +92,7 @@ var _task_indexes_by_key: Dictionary = {}
 func _init() -> void:
 	var connect_error: Error = _progress.progressed.connect(Callable(self, "_on_progressed")) as Error
 	if connect_error != OK:
-		push_warning("GFAsyncProgressAggregator failed to connect internal progress signal.")
+		push_warning("[GFAsyncProgressAggregator][async_progress_aggregator.progress_signal_connect_failed] Failed to connect the internal progress signal.")
 
 
 # --- 公共方法 ---

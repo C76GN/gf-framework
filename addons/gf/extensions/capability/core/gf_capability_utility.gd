@@ -664,15 +664,15 @@ func adopt_capability_instance(
 ## @return: 已挂载的能力节点；失败时返回 null。
 func add_scene_capability(receiver: Node, scene: PackedScene, as_type: Script = null) -> Object:
 	if not is_instance_valid(receiver):
-		push_error("[GFCapabilityUtility] add_scene_capability 失败：receiver 无效。")
+		push_error("[GFCapabilityUtility][capability_utility.invalid_scene_receiver] add_scene_capability failed: receiver is invalid.")
 		return null
 	if not is_instance_valid(scene):
-		push_error("[GFCapabilityUtility] add_scene_capability 失败：scene 无效。")
+		push_error("[GFCapabilityUtility][capability_utility.invalid_scene] add_scene_capability failed: scene is invalid.")
 		return null
 
 	var node: Node = _get_node_value(scene.instantiate())
 	if node == null:
-		push_error("[GFCapabilityUtility] add_scene_capability 失败：scene 根节点必须是 Node。")
+		push_error("[GFCapabilityUtility][capability_utility.invalid_scene_root] add_scene_capability failed: the scene root must be a Node.")
 		return null
 
 	var registered: Object = _add_capability_instance(
@@ -786,7 +786,7 @@ func clear_capabilities(receiver: Object) -> void:
 			removed_any = true
 		if removed_any:
 			continue
-		push_error("[GFCapabilityUtility] clear_capabilities 失败：能力依赖图存在无法移除的循环或残留。")
+		push_error("[GFCapabilityUtility][capability_utility.dependency_cleanup_incomplete] clear_capabilities failed: the dependency graph contains a cycle or remaining capabilities that cannot be removed.")
 		return
 
 
@@ -1180,7 +1180,7 @@ func _dispose_receiver_capabilities(receiver: Object) -> void:
 			removed_any = true
 		if removed_any:
 			continue
-		push_error("[GFCapabilityUtility] dispose 检测到无法拓扑清理的能力依赖循环。")
+		push_error("[GFCapabilityUtility][capability_utility.cyclic_disposal_dependencies] dispose found a capability dependency cycle that prevents topological cleanup.")
 		break
 
 	_clear_empty_capability_metadata(receiver)
@@ -1198,7 +1198,7 @@ func _remove_capability(receiver: Object, capability_type: Script, free_instance
 	var dependency_owners: Array[Script] = _get_dependency_owner_types(receiver, registered_type)
 	if not dependency_owners.is_empty():
 		push_error(
-			"[GFCapabilityUtility] remove_capability 失败：能力 %s 仍被其他能力依赖。"
+			"[GFCapabilityUtility][capability_utility.capability_still_required] remove_capability failed: capability %s is still required by another capability."
 			% _get_script_key(registered_type)
 		)
 		return false
@@ -1217,7 +1217,7 @@ func _remove_capability(receiver: Object, capability_type: Script, free_instance
 	var dependency_removal_policy: int = _get_dependency_removal_policy(capability)
 	if not is_instance_valid(receiver) or not is_instance_valid(capability):
 		_end_registration_transition(transition_key)
-		push_error("[GFCapabilityUtility] remove_capability 失败：依赖清理策略回调释放了 receiver 或 capability。")
+		push_error("[GFCapabilityUtility][capability_utility.removal_callback_released_instance] remove_capability failed: the dependency removal policy callback freed receiver or capability.")
 		return false
 
 	_remove_capability_record(receiver, registered_type)
@@ -1421,17 +1421,17 @@ func _add_capability_instance(
 	context: String = "add_capability_instance"
 ) -> Object:
 	if not is_instance_valid(receiver):
-		push_error("[GFCapabilityUtility] %s 失败：receiver 无效。" % context)
+		push_error("[GFCapabilityUtility][capability_utility.invalid_receiver] %s failed: receiver is invalid." % context)
 		return null
 	if not is_instance_valid(capability):
-		push_error("[GFCapabilityUtility] %s 失败：capability 无效。" % context)
+		push_error("[GFCapabilityUtility][capability_utility.invalid_capability] %s failed: capability is invalid." % context)
 		return null
 
 	var capability_type: Script = as_type
 	if capability_type == null:
 		capability_type = _get_script_value(capability.get_script())
 	if capability_type == null:
-		push_error("[GFCapabilityUtility] %s 失败：能力实例缺少脚本类型。" % context)
+		push_error("[GFCapabilityUtility][capability_utility.missing_capability_script_type] %s failed: the capability instance has no script type." % context)
 		return null
 	if not _validate_capability_instance_type(capability, capability_type, context):
 		return null
@@ -1449,7 +1449,7 @@ func _add_capability_instance(
 			if owns_instance:
 				_mark_capability_owned(receiver, existing_type, true)
 			return capability
-		push_warning("[GFCapabilityUtility] %s：目标对象已拥有该能力，已忽略新实例。" % context)
+		push_warning("[GFCapabilityUtility][capability_utility.duplicate_capability] %s: the target already has this capability; the new instance was ignored." % context)
 		_mark_capability_top_level(receiver, existing_type, is_top_level)
 		return existing
 	if capability is Node:
@@ -1464,7 +1464,7 @@ func _add_capability_instance(
 
 	var creation_key: String = _get_creation_key(receiver, capability_type)
 	if _creation_stack.has(creation_key):
-		push_error("[GFCapabilityUtility] 检测到循环能力依赖：%s" % _describe_creation_stack(creation_key))
+		push_error("[GFCapabilityUtility][capability_utility.cyclic_dependency] Detected a capability dependency cycle: %s." % _describe_creation_stack(creation_key))
 		return null
 	var transition_key: String = _begin_registration_transition(
 		receiver,
@@ -1486,7 +1486,7 @@ func _add_capability_instance(
 	if not is_instance_valid(receiver) or not is_instance_valid(capability):
 		_creation_stack.pop_back()
 		_end_registration_transition(transition_key)
-		push_error("[GFCapabilityUtility] %s 失败：依赖解析回调释放了 receiver 或 capability。" % context)
+		push_error("[GFCapabilityUtility][capability_utility.dependency_callback_released_instance] %s failed: the dependency resolution callback freed receiver or capability." % context)
 		return null
 
 	var dependency_types: Array[Script] = _get_script_array_value(
@@ -1505,7 +1505,7 @@ func _add_capability_instance(
 	if is_instance_valid(receiver) and is_instance_valid(capability):
 		capability_added.emit(receiver, capability_type, capability)
 	else:
-		push_error("[GFCapabilityUtility] %s 失败：added hook 释放了 receiver 或 capability。" % context)
+		push_error("[GFCapabilityUtility][capability_utility.added_hook_released_instance] %s failed: the added hook freed receiver or capability." % context)
 	_creation_stack.pop_back()
 	_end_registration_transition(transition_key)
 	if not is_instance_valid(receiver) or not is_instance_valid(capability):
@@ -1515,17 +1515,17 @@ func _add_capability_instance(
 
 func _validate_receiver_and_type(receiver: Object, capability_type: Script, context: String) -> bool:
 	if not is_instance_valid(receiver):
-		push_error("[GFCapabilityUtility] %s 失败：receiver 无效。" % context)
+		push_error("[GFCapabilityUtility][capability_utility.invalid_receiver] %s failed: receiver is invalid." % context)
 		return false
 	if capability_type == null:
-		push_error("[GFCapabilityUtility] %s 失败：capability_type 为空。" % context)
+		push_error("[GFCapabilityUtility][capability_utility.missing_capability_type] %s failed: capability_type is null." % context)
 		return false
 	return true
 
 
 func _create_capability(capability_type: Script) -> Object:
 	if not capability_type.can_instantiate():
-		push_error("[GFCapabilityUtility] 能力类型不可实例化：%s" % _get_script_key(capability_type))
+		push_error("[GFCapabilityUtility][capability_utility.capability_not_instantiable] Capability type cannot be instantiated: %s." % _get_script_key(capability_type))
 		return null
 
 	return _get_object_value(capability_type.call("new"))
@@ -1547,7 +1547,7 @@ func _ensure_required_capabilities(receiver: Object, capability: Object) -> Dict
 			continue
 		if matching_records.size() > 1:
 			push_error(
-				"[GFCapabilityUtility] 能力依赖匹配到多个实现：%s，请使用更具体的依赖类型。"
+				"[GFCapabilityUtility][capability_utility.ambiguous_dependency] Multiple implementations match capability dependency %s; use a more specific dependency type."
 				% _get_script_key(required_type)
 			)
 			return {
@@ -1587,7 +1587,7 @@ func _get_required_capabilities(capability: Object) -> Array[Script]:
 			if item is Script:
 				_append_script_item(result, _get_script_value(item))
 			elif item != null:
-				push_warning("[GFCapabilityUtility] get_required_capabilities() 包含非 Script 项，已跳过。")
+				push_warning("[GFCapabilityUtility][capability_utility.invalid_required_capability] get_required_capabilities() contains a non-Script entry; the entry was skipped.")
 	return result
 
 
@@ -1599,18 +1599,18 @@ func _can_attach_capability_instance(receiver: Object, capability: Object) -> bo
 	if existing_receiver == null or existing_receiver == receiver:
 		return true
 
-	push_error("[GFCapabilityUtility] 同一个能力实例不能挂载到多个 receiver。")
+	push_error("[GFCapabilityUtility][capability_utility.instance_already_attached] The same capability instance cannot be attached to multiple receivers.")
 	return false
 
 
 func _validate_capability_instance_type(capability: Object, capability_type: Script, context: String) -> bool:
 	var instance_script: Script = _get_script_value(capability.get_script())
 	if instance_script == null:
-		push_error("[GFCapabilityUtility] %s 失败：能力实例缺少脚本，不能注册为 %s。" % [context, _get_script_key(capability_type)])
+		push_error("[GFCapabilityUtility][capability_utility.missing_registration_script] %s failed: the capability instance has no script and cannot be registered as %s." % [context, _get_script_key(capability_type)])
 		return false
 	if not _script_extends_or_equals(instance_script, capability_type):
 		push_error(
-			"[GFCapabilityUtility] %s 失败：能力实例脚本 %s 不继承声明类型 %s。"
+			"[GFCapabilityUtility][capability_utility.incompatible_registration_script] %s failed: capability instance script %s does not inherit the declared type %s."
 			% [context, _get_script_key(instance_script), _get_script_key(capability_type)]
 		)
 		return false
@@ -1923,7 +1923,7 @@ func _find_capability_record(receiver: Object, capability_type: Script, sync_sce
 	if matches.size() == 1:
 		return matches[0]
 	if matches.size() > 1:
-		push_warning("[GFCapabilityUtility] get_capability(%s) 匹配到多个能力，请使用更具体类型查询。" % _get_script_key(capability_type))
+		push_warning("[GFCapabilityUtility][capability_utility.ambiguous_capability] get_capability(%s) matched multiple capabilities; use a more specific type." % _get_script_key(capability_type))
 
 	return {}
 
@@ -2085,12 +2085,12 @@ func _create_container_node(receiver: Node, capability: Node) -> Node:
 func _try_attach_capability_container_script(container: Node) -> void:
 	var container_script: Script = _GF_CAPABILITY_CONTAINER_SCRIPT
 	if container_script == null or not container_script.can_instantiate():
-		push_warning("[GFCapabilityUtility] 能力容器脚本不可用，已改用元数据标记容器。")
+		push_warning("[GFCapabilityUtility][capability_utility.unavailable_container_script] The capability container script is unavailable; metadata was used to mark the container.")
 		return
 
 	var base_type: String = String(container_script.get_instance_base_type())
 	if not base_type.is_empty() and not container.is_class(base_type):
-		push_warning("[GFCapabilityUtility] 能力容器节点类型与脚本基类不匹配，已改用元数据标记容器。")
+		push_warning("[GFCapabilityUtility][capability_utility.incompatible_container_script] The capability container node does not match the script base type; metadata was used to mark the container.")
 		return
 
 	container.set_script(container_script)
@@ -2256,13 +2256,13 @@ func _validate_query_script_lists(
 ) -> bool:
 	if required_types.has(null):
 		push_error(
-			"[GFCapabilityUtility] %s 失败：required_capability_types 包含 null。"
+			"[GFCapabilityUtility][capability_utility.null_required_capability_type] %s failed: required_capability_types contains null."
 			% context
 		)
 		return false
 	if rejected_types.has(null):
 		push_error(
-			"[GFCapabilityUtility] %s 失败：rejected_capability_types 包含 null。"
+			"[GFCapabilityUtility][capability_utility.null_rejected_capability_type] %s failed: rejected_capability_types contains null."
 			% context
 		)
 		return false
@@ -2489,7 +2489,7 @@ func _collect_capability_node_tree(
 	if nodes.size() <= max_capability_tree_nodes:
 		return nodes
 	push_error(
-		"[GFCapabilityUtility] %s 失败：能力节点树超过 max_capability_tree_nodes=%d。"
+		"[GFCapabilityUtility][capability_utility.capability_tree_limit_exceeded] %s failed: the capability node tree exceeds max_capability_tree_nodes=%d."
 		% [operation, max_capability_tree_nodes]
 	)
 	return []
@@ -2521,7 +2521,7 @@ func _get_dependency_removal_policy(capability: Object) -> int:
 
 	var raw_policy: Variant = capability.call(HOOK_GET_DEPENDENCY_REMOVAL_POLICY)
 	if typeof(raw_policy) != TYPE_INT:
-		push_warning("[GFCapabilityUtility] get_dependency_removal_policy() 必须返回 int，已使用默认策略。")
+		push_warning("[GFCapabilityUtility][capability_utility.invalid_removal_policy_type] get_dependency_removal_policy() must return an int; the default policy was used.")
 		return DependencyRemovalPolicy.REMOVE_AUTO_DEPENDENCIES
 
 	var policy: int = GFVariantData.to_int(raw_policy)
@@ -2529,7 +2529,7 @@ func _get_dependency_removal_policy(capability: Object) -> int:
 		policy != DependencyRemovalPolicy.KEEP_DEPENDENCIES
 		and policy != DependencyRemovalPolicy.REMOVE_AUTO_DEPENDENCIES
 	):
-		push_warning("[GFCapabilityUtility] 未知依赖移除策略：%s，已使用默认策略。" % policy)
+		push_warning("[GFCapabilityUtility][capability_utility.unknown_removal_policy] Unknown dependency removal policy %s; the default policy was used." % policy)
 		return DependencyRemovalPolicy.REMOVE_AUTO_DEPENDENCIES
 	return policy
 
@@ -2703,7 +2703,7 @@ func _begin_registration_transition(
 	var key: String = _get_creation_key(receiver, capability_type)
 	if _registration_states.has(key):
 		push_error(
-			"[GFCapabilityUtility] %s 失败：能力正在执行另一项生命周期事务：%s。"
+			"[GFCapabilityUtility][capability_utility.lifecycle_transaction_active] %s failed: the capability is executing another lifecycle transaction: %s."
 			% [context, _get_script_key(capability_type)]
 		)
 		return ""

@@ -53,7 +53,7 @@ func test_global_capture_result_distinguishes_empty_success_from_failure() -> vo
 		"失败 Result 不得伪装为旧式全局快照。"
 	)
 	assert_push_error(
-		"[GFArchitecture] Model 快照键重复：duplicate_snapshot_key。请为每个 Model 提供唯一 get_save_key()。"
+		"[GFArchitecture][architecture.snapshot_key_duplicate] Duplicate Model snapshot keys were found.\nDuplicate Model snapshot key: duplicate_snapshot_key. Provide a unique get_save_key() for each Model."
 	)
 
 	empty_architecture.dispose()
@@ -1357,7 +1357,7 @@ func _assert_unstable_capture_failure(result: Dictionary, label: String) -> void
 	var error: String = GFVariantData.get_option_string(result, "error")
 	assert_false(error.is_empty(), "%s 必须返回稳定错误原因。" % label)
 	assert_true(
-		error.contains("稳定性复核失败"),
+		error.contains("stability verification failed"),
 		"%s 应明确标识 snapshot 稳定性复核失败。" % label
 	)
 

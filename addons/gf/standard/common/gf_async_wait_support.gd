@@ -447,7 +447,7 @@ static func _make_signal_capture_callable(target_signal: Signal, completion_stat
 	var argument_count: int = get_signal_argument_count(target_signal)
 	var captured_argument_count: int = mini(argument_count, MAX_CAPTURED_SIGNAL_ARGUMENTS)
 	if argument_count > MAX_CAPTURED_SIGNAL_ARGUMENTS:
-		push_warning("[GFAsyncWaitSupport] 信号 payload 当前最多捕获 %d 个参数。" % MAX_CAPTURED_SIGNAL_ARGUMENTS)
+		push_warning("[GFAsyncWaitSupport][async_wait_support.signal_argument_limit] Signal payload capture supports at most %d arguments." % MAX_CAPTURED_SIGNAL_ARGUMENTS)
 
 	var capture_callback: Callable = func(
 		arg1: Variant = null,

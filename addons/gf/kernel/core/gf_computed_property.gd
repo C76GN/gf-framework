@@ -13,7 +13,7 @@ extends GFBindableProperty
 
 # --- 常量 ---
 
-const _READ_ONLY_ERROR: String = "[GFComputedProperty] 当前属性由 compute 回调派生，请修改来源属性。"
+const _READ_ONLY_ERROR: String = "[GFComputedProperty][computed_property.read_only] This property is derived from the compute callback; modify its source properties."
 const _COMPUTED_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 

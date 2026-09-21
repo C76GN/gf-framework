@@ -95,7 +95,7 @@ func execute() -> Variant:
 		target.set_indexed(property_name, target_position)
 		return null
 	if not target.is_inside_tree():
-		push_warning("[GFMoveTweenAction] 目标节点未进入场景树，无法创建 Tween。")
+		push_warning("[GFMoveTweenAction][move_tween_action.target_outside_tree] Cannot create a Tween: the target node is outside the scene tree.")
 		return null
 
 	_active_tween = target.create_tween()
@@ -166,17 +166,17 @@ func _clear_active_tween() -> void:
 
 func _can_tween_target_property() -> bool:
 	if not _has_target_property_path():
-		push_warning("[GFMoveTweenAction] 目标属性不存在：%s。" % String(property_name))
+		push_warning("[GFMoveTweenAction][move_tween_action.missing_property] Target property does not exist: %s." % String(property_name))
 		return false
 
 	var current_value: Variant = target.get_indexed(property_name)
 	if current_value == null:
-		push_warning("[GFMoveTweenAction] 目标属性不存在：%s。" % String(property_name))
+		push_warning("[GFMoveTweenAction][move_tween_action.missing_property] Target property does not exist: %s." % String(property_name))
 		return false
 	if _values_are_tween_compatible(current_value, target_position):
 		return true
 
-	push_warning("[GFMoveTweenAction] 目标属性与目标值类型不兼容：%s。" % String(property_name))
+	push_warning("[GFMoveTweenAction][move_tween_action.incompatible_property_value] Target property and value types are incompatible: %s." % String(property_name))
 	return false
 
 

@@ -1248,7 +1248,7 @@ func test_enabled_manifest_paths_are_blocked_by_cached_manifest_load_errors() ->
 
 	assert_eq(installer_paths, [], "manifest 读取失败时不应继续暴露启用扩展 installer 路径。")
 	assert_false(GF_VARIANT_ACCESS.get_option_bool(selection_report, "graph_ok", true), "启用状态诊断应反映 manifest 读取失败。")
-	assert_push_warning("[GFExtensionSettings] get_enabled_manifests blocked: invalid manifest %s" % broken_manifest_path)
+	assert_push_warning("[GFExtensionSettings][extension_settings.manifest_graph_invalid] get_enabled_manifests blocked: invalid manifest %s." % broken_manifest_path)
 
 
 func test_extension_settings_loads_project_extension_presets_from_project_settings() -> void:
@@ -1790,7 +1790,7 @@ func test_enabled_manifest_paths_are_blocked_when_manifest_graph_is_invalid() ->
 	_restore_project_setting(GFExtensionSettings.ENABLED_EXTENSIONS_SETTING, enabled_restore)
 
 	assert_eq(installer_paths, [], "扩展依赖图无效时不应继续收集 installer 路径。")
-	assert_push_warning("[GFExtensionSettings] get_enabled_manifests blocked: missing dependency author.feature -> author.missing")
+	assert_push_warning("[GFExtensionSettings][extension_settings.manifest_graph_invalid] get_enabled_manifests blocked: missing dependency author.feature -> author.missing.")
 
 
 func test_disabled_manifests_are_blocked_when_manifest_graph_is_invalid() -> void:
@@ -1808,7 +1808,7 @@ func test_disabled_manifests_are_blocked_when_manifest_graph_is_invalid() -> voi
 	GFExtensionSettings.clear_manifest_cache()
 
 	assert_true(disabled_manifests.is_empty(), "扩展依赖图无效时不应继续收集禁用 manifest。")
-	assert_push_warning("[GFExtensionSettings] get_disabled_manifests blocked: missing dependency author.feature -> author.missing")
+	assert_push_warning("[GFExtensionSettings][extension_settings.manifest_graph_invalid] get_disabled_manifests blocked: missing dependency author.feature -> author.missing.")
 
 
 func test_extension_settings_resolves_only_known_manifest_ids() -> void:
@@ -1853,7 +1853,7 @@ func test_extension_settings_resolves_dependency_cycles_without_recursing_foreve
 	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "循环依赖应让图诊断失败。")
 	assert_eq(cycles.size(), 1, "应报告一条依赖循环。")
 	assert_eq(GF_VARIANT_ACCESS.to_string_array(cycles[0]), ["author.first", "author.second", "author.first"], "循环路径应保留闭环顺序。")
-	assert_push_warning("[GFExtensionSelectionDiscovery] 检测到扩展依赖循环：author.first -> author.second -> author.first")
+	assert_push_warning("[GFExtensionSelectionDiscovery][extension_selection_discovery.dependency_cycle] An extension dependency cycle was detected: author.first -> author.second -> author.first.")
 
 
 func test_manifest_graph_report_includes_missing_dependencies_and_duplicates() -> void:
@@ -3223,7 +3223,7 @@ func test_extension_usage_audit_respects_scanned_file_limit() -> void:
 	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "partial_scan"), "共享文件预算耗尽必须标记 partial。")
 	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "truncated"), "共享文件数量配额耗尽必须标记 truncated。")
 	assert_push_warning(
-		"[GFExtensionUsageAudit] 扩展 class_name 预扫描达到 max_scanned_files=1，后续扫描按 partial_scan 处理。"
+		"[GFExtensionUsageAudit][extension_usage_audit.file_limit_reached] Extension class_name prescanning reached max_scanned_files=1; subsequent scanning is treated as partial_scan."
 	)
 
 
@@ -3254,7 +3254,7 @@ func test_extension_usage_audit_warns_when_scan_depth_limit_skips_directory() ->
 	_remove_path_if_exists(directory)
 
 	assert_true(references.is_empty(), "超过 max_scan_depth 的深层引用不应被扫描。")
-	assert_push_warning("[GFExtensionUsageAudit] 已达到 max_scan_depth=1，已跳过更深目录：%s。" % deep_directory)
+	assert_push_warning("[GFExtensionUsageAudit][project_reference_scanner.depth_limit_reached] max_scan_depth=1 was reached; deeper directories were skipped: %s." % deep_directory)
 
 
 func test_extension_usage_audit_does_not_match_similar_prefix() -> void:
@@ -3383,7 +3383,7 @@ func test_extension_usage_audit_exposes_partial_budget_report() -> void:
 	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "budget_exceeded"), "预算耗尽应透出 budget_exceeded。")
 	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "reference_count"), 0, "未读取文件不应产生阻断引用。")
 	assert_eq(GF_VARIANT_ACCESS.get_option_array(report, "skipped_files").size(), 1, "预算跳过文件应进入审计报告。")
-	assert_push_warning("[GFExtensionUsageAudit] 引用扫描达到 max_file_bytes=16 字节预算，后续结果按 partial_scan 处理：%s。" % path)
+	assert_push_warning("[GFExtensionUsageAudit][project_reference_scanner.byte_budget_reached] Reference scanning reached the max_file_bytes=16 byte budget; subsequent results are treated as partial_scan: %s." % path)
 
 
 func test_extension_usage_audit_bounds_class_name_pre_scan_file_bytes() -> void:
@@ -3445,7 +3445,7 @@ func test_extension_usage_audit_bounds_class_name_pre_scan_file_bytes() -> void:
 	)
 	assert_true(has_class_name_skip, "被预算拒绝的扩展脚本必须带 phase 进入 skipped_files。")
 	assert_push_warning(
-		"[GFExtensionUsageAudit] 扩展 class_name 预扫描达到 max_file_bytes=%d 字节预算，结果按 partial_scan 处理：%s。"
+		"[GFExtensionUsageAudit][extension_usage_audit.byte_budget_reached] Extension class_name prescanning reached the max_file_bytes=%d byte budget; results are treated as partial_scan: %s."
 		% [max_file_bytes, extension_path]
 	)
 
@@ -3503,7 +3503,7 @@ func test_extension_usage_audit_propagates_class_name_depth_truncation() -> void
 	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "partial_scan"), "class-name 深度截断必须传播。")
 	assert_true(has_class_name_depth_issue, "深度截断必须形成结构化 phase issue。")
 	assert_push_warning(
-		"[GFExtensionUsageAudit] 扩展 class_name 预扫描达到 max_scan_depth=1，已跳过更深目录：%s。"
+		"[GFExtensionUsageAudit][extension_usage_audit.depth_limit_reached] Extension class_name prescanning reached max_scan_depth=1; deeper directories were skipped: %s."
 		% deep_root
 	)
 
@@ -3555,7 +3555,7 @@ func test_extension_usage_audit_shares_total_bytes_across_both_phases() -> void:
 		"两个阶段的实际读取总量不得突破公开总预算。"
 	)
 	assert_push_warning(
-		"[GFExtensionUsageAudit] 引用扫描达到 max_total_bytes=%d 字节预算，后续结果按 partial_scan 处理：%s。"
+		"[GFExtensionUsageAudit][project_reference_scanner.byte_budget_reached] Reference scanning reached the max_total_bytes=%d byte budget; subsequent results are treated as partial_scan: %s."
 		% [project_remaining_bytes, project_path]
 	)
 

@@ -502,14 +502,14 @@ static func _warn_audio_path_limit(max_audio_paths: int, scan_state: Dictionary)
 	if GFVariantData.get_option_bool(scan_state, "count_warning_emitted"):
 		return
 	scan_state["count_warning_emitted"] = true
-	push_warning("[GFAudioBankTools] scan_audio_paths 已达到 max_audio_paths=%d，后续音频已跳过。" % max_audio_paths)
+	push_warning("[GFAudioBankTools][audio_bank_tools.audio_path_limit] scan_audio_paths reached max_audio_paths=%d; remaining audio files were skipped." % max_audio_paths)
 
 
 static func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
 	if GFVariantData.get_option_bool(scan_state, "depth_warning_emitted"):
 		return
 	scan_state["depth_warning_emitted"] = true
-	push_warning("[GFAudioBankTools] scan_audio_paths 已达到 max_scan_depth=%d，已跳过更深目录：%s。" % [max_scan_depth, path])
+	push_warning("[GFAudioBankTools][audio_bank_tools.scan_depth_limit] scan_audio_paths reached max_scan_depth=%d; deeper directory skipped: %s." % [max_scan_depth, path])
 
 
 static func _try_consume_scan_entry(
@@ -535,7 +535,7 @@ static func _warn_scanned_entry_limit(
 		return
 	scan_state["entry_warning_emitted"] = true
 	push_warning(
-		"[GFAudioBankTools] scan_audio_paths 已达到 max_scanned_entries=%d，后续目录项已跳过。"
+		"[GFAudioBankTools][audio_bank_tools.scanned_entry_limit] scan_audio_paths reached max_scanned_entries=%d; remaining directory entries were skipped."
 		% max_scanned_entries
 	)
 
@@ -545,7 +545,7 @@ static func _warn_scan_link_skipped(path: String, scan_state: Dictionary) -> voi
 		return
 	scan_state["link_warning_emitted"] = true
 	push_warning(
-		"[GFAudioBankTools] scan_audio_paths 默认跳过 symbolic link：%s。" % path
+		"[GFAudioBankTools][audio_bank_tools.symbolic_link_skipped] scan_audio_paths skips symbolic links by default: %s." % path
 	)
 
 

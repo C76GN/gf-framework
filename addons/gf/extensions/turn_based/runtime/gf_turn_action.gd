@@ -243,5 +243,5 @@ func _sanitize_targets(source_targets: Array[Object]) -> Array[Object]:
 func _can_change_configuration(property_name: StringName) -> bool:
 	if not _is_claimed:
 		return true
-	push_error("[GFTurnAction] 行动已入队，不能修改配置：%s。" % String(property_name))
+	push_error("[GFTurnAction][turn_action.queued_configuration_read_only] Cannot modify the configuration of an enqueued action: %s." % String(property_name))
 	return false

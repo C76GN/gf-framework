@@ -377,7 +377,7 @@ func _fail_editor_contribution_refresh(kind: String) -> void:
 
 func _report_editor_contribution_refresh_issue(kind: String, generation: int) -> void:
 	push_warning(
-		"[GF Framework][PLUGIN-BOOT-002] 编辑器贡献刷新未应用：kind=%s generation=%d。"
+		"[GFPlugin][plugin.contribution_refresh_not_applied] Editor contribution refresh was not applied: kind=%s generation=%d."
 		% [kind, generation]
 	)
 
@@ -453,8 +453,8 @@ func _publish_standard_editor_contribution_diagnostic(report: Dictionary) -> voi
 		kinds_text += ",..."
 	push_warning(
 		(
-			"[GF Framework][PLUGIN-BOOT-001] standard editor contribution manifest "
-			+ "state=%s issue_count=%d skipped_record_count=%d issue_kinds=%s。"
+			"[GFPlugin][plugin.invalid_standard_contribution_manifest] Standard editor contribution manifest "
+			+ "state=%s issue_count=%d skipped_record_count=%d issue_kinds=%s."
 		)
 		% [
 			state if not state.is_empty() else "invalid",
@@ -504,9 +504,9 @@ func _publish_builtin_tool_editor_contribution_diagnostic(report: Dictionary) ->
 		kinds_text += ",..."
 	push_warning(
 		(
-			"[GF Framework][PLUGIN-BOOT-003] built-in tool contribution catalog "
+			"[GFPlugin][plugin.invalid_builtin_tool_contribution_catalog] Built-in tool contribution catalog "
 			+ "state=%s issue_count=%d loaded_manifest_count=%d "
-			+ "absent_manifest_count=%d skipped_manifest_count=%d issue_kinds=%s。"
+			+ "absent_manifest_count=%d skipped_manifest_count=%d issue_kinds=%s."
 		)
 		% [
 			state if not state.is_empty() else "invalid",

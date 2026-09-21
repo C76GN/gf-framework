@@ -13,7 +13,7 @@ func test_deque_rejects_unrepresentable_reserve_without_mutating_contents() -> v
 	var deque: GFDequeBase = GFDequeBase.from_array([1, 2, 3])
 	var old_capacity: int = deque.capacity()
 	deque.reserve(4_611_686_018_427_387_905)
-	assert_push_error("[GFDeque] 请求容量超出可表示范围。")
+	assert_push_error("[GFDeque][deque.capacity_out_of_range] Requested capacity exceeds the representable range.")
 	assert_eq(deque.to_array(), [1, 2, 3])
 	assert_eq(deque.capacity(), old_capacity)
 	deque.reserve(-1)

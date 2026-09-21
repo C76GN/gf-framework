@@ -65,7 +65,7 @@ func test_set_assignment_rejects_out_of_range_and_keeps_device_unique() -> void:
 	assert_null(utility.get_assignment(0), "同一手柄重新分配给 1 号玩家后，应移除旧玩家映射。")
 	assert_eq(utility.get_player_for_device(GFInputDeviceAssignment.DeviceType.JOYPAD, 5), 1, "同一设备应只映射到最新玩家。")
 	assert_null(utility.get_assignment(2), "越过 max_players 的手动映射应被拒绝。")
-	assert_push_warning("[GFInputDeviceUtility] 忽略越界玩家设备映射：2")
+	assert_push_warning("[GFInputDeviceUtility][input_device_utility.player_index_out_of_range] Ignored a player device mapping with an out-of-range index: 2.")
 
 
 ## 验证设备分配报告会记录原因、旧映射和触发输入。

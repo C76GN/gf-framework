@@ -785,7 +785,7 @@ func test_registration_rejects_noncanonical_storage_target_before_claim() -> voi
 	assert_false(GFVariantData.get_option_bool(report, "registered"))
 	assert_true(_report_contains_issue(report, &"invalid_storage_path"))
 	assert_push_error(
-		"[GFStorageUtility] canonicalize_data_file_name 失败：file_name 不满足 portable logical path profile。"
+		"[GFStorageUtility][storage_utility.filename_profile_invalid] canonicalize_data_file_name failed: file_name does not satisfy the portable logical path profile."
 	)
 
 
@@ -1423,7 +1423,7 @@ func test_registration_report_preserves_validation_evidence_and_provider_lock() 
 	var profile: GFSaveProfile = _make_profile(&"test.provider_lock", provider)
 	assert_true(_register(profile))
 	provider.section_id = &"mutated"
-	assert_push_error("[GFSaveSectionProvider] 已注册的 section_id 不可修改。")
+	assert_push_error("[GFSaveSectionProvider][save_section_provider.registered_section_id_read_only] A registered section_id cannot be modified.")
 	assert_eq(provider.section_id, &"state")
 
 

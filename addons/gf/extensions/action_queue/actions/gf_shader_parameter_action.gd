@@ -144,7 +144,7 @@ func execute() -> Variant:
 			return null
 		tween_host = _get_tween_host()
 		if tween_host == null:
-			push_warning("[GFShaderParameterAction] 缺少有效 Tween 宿主节点。")
+			push_warning("[GFShaderParameterAction][shader_parameter_action.missing_host] Cannot start playback: a valid host node is required.")
 			return null
 
 	_active_material = _activate_shader_material(source_material)
@@ -236,15 +236,15 @@ func _resolve_shader_material() -> ShaderMaterial:
 	if not is_instance_valid(target):
 		return null
 	if material_property.is_empty():
-		push_warning("[GFShaderParameterAction] 材质属性路径为空。")
+		push_warning("[GFShaderParameterAction][shader_parameter_action.empty_material_property] Material property path is empty.")
 		return null
 	if not _has_target_property_path():
-		push_warning("[GFShaderParameterAction] 目标材质属性不存在：%s。" % String(material_property))
+		push_warning("[GFShaderParameterAction][shader_parameter_action.missing_material_property] Target material property does not exist: %s." % String(material_property))
 		return null
 
 	var material_value: Variant = target.get_indexed(material_property)
 	if not (material_value is ShaderMaterial):
-		push_warning("[GFShaderParameterAction] 目标材质属性不是 ShaderMaterial：%s。" % String(material_property))
+		push_warning("[GFShaderParameterAction][shader_parameter_action.invalid_material_property] Target material property is not a ShaderMaterial: %s." % String(material_property))
 		return null
 
 	return _get_shader_material_value(material_value)
@@ -255,7 +255,7 @@ func _activate_shader_material(material: ShaderMaterial) -> ShaderMaterial:
 		return material
 	var duplicated_value: Variant = material.duplicate(true)
 	if not (duplicated_value is ShaderMaterial):
-		push_warning("[GFShaderParameterAction] ShaderMaterial 复制失败。")
+		push_warning("[GFShaderParameterAction][shader_parameter_action.material_duplicate_failed] Could not duplicate the ShaderMaterial.")
 		return null
 	var duplicated_material: ShaderMaterial = _get_shader_material_value(duplicated_value)
 	target.set_indexed(material_property, duplicated_material)
@@ -268,10 +268,10 @@ func _accepts_shader_parameter(
 	execution_target_value: Variant
 ) -> bool:
 	if execution_parameter_name == &"":
-		push_warning("[GFShaderParameterAction] Shader 参数名为空。")
+		push_warning("[GFShaderParameterAction][shader_parameter_action.empty_parameter_name] Shader parameter name is empty.")
 		return false
 	if material.shader == null:
-		push_warning("[GFShaderParameterAction] ShaderMaterial 缺少 Shader。")
+		push_warning("[GFShaderParameterAction][shader_parameter_action.missing_shader] ShaderMaterial has no Shader.")
 		return false
 
 	var interface_snapshot: GFShaderInterfaceSnapshot = (
@@ -282,7 +282,7 @@ func _accepts_shader_parameter(
 		or not interface_snapshot.has_uniform(execution_parameter_name)
 	):
 		push_warning(
-			"[GFShaderParameterAction] Shader 参数不存在：%s。"
+			"[GFShaderParameterAction][shader_parameter_action.missing_parameter] Shader parameter does not exist: %s."
 			% String(execution_parameter_name)
 		)
 		return false
@@ -291,7 +291,7 @@ func _accepts_shader_parameter(
 		execution_target_value
 	):
 		push_warning(
-			"[GFShaderParameterAction] Shader 参数值类型不符合声明：%s。"
+			"[GFShaderParameterAction][shader_parameter_action.parameter_declaration_mismatch] Shader parameter value does not match its declared type: %s."
 			% String(execution_parameter_name)
 		)
 		return false
@@ -311,7 +311,7 @@ func _can_tween_parameter_value() -> bool:
 	if _values_are_tween_compatible(_initial_value, _active_target_value):
 		return true
 	push_warning(
-		"[GFShaderParameterAction] Shader 参数值类型不兼容：%s。"
+		"[GFShaderParameterAction][shader_parameter_action.incompatible_parameter_value] Shader parameter value types are incompatible: %s."
 		% String(_active_parameter_name)
 	)
 	return false

@@ -102,9 +102,9 @@ func _notification(what: int) -> void:
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
 func register(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 	if event_type == null:
-		push_error("[GFTypeEventSystem] register 失败：event_type 为空。")
+		push_error("[GFTypeEventSystem][type_event_system.register_event_type_null] register failed: event_type is null.")
 		return
-	if not _validate_listener(listener, 1, "类型事件回调", "事件实例"):
+	if not _validate_listener(listener, 1, "typed event callback", "event instance"):
 		return
 
 	var callback: Callable = listener.get_callback()
@@ -170,9 +170,9 @@ func subscribe(
 	once: bool = false
 ) -> GFSubscriptionToken:
 	if event_type == null:
-		push_error("[GFTypeEventSystem] subscribe 失败：event_type 为空。")
+		push_error("[GFTypeEventSystem][type_event_system.subscribe_event_type_null] subscribe failed: event_type is null.")
 		return GFSubscriptionToken.new()
-	if not _validate_listener(listener, 1, "类型事件回调", "事件实例"):
+	if not _validate_listener(listener, 1, "typed event callback", "event instance"):
 		return GFSubscriptionToken.new()
 	return _subscribe_type_listener(
 		_type_track,
@@ -252,9 +252,9 @@ func unregister_owned(owner: Object, event_type: Script, listener: GFEventListen
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
 func register_assignable(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
 	if base_event_type == null:
-		push_error("[GFTypeEventSystem] register_assignable 失败：base_event_type 为空。")
+		push_error("[GFTypeEventSystem][type_event_system.register_base_event_type_null] register_assignable failed: base_event_type is null.")
 		return
-	if not _validate_listener(listener, 1, "可赋值事件回调", "事件实例"):
+	if not _validate_listener(listener, 1, "assignable event callback", "event instance"):
 		return
 
 	var callback: Callable = listener.get_callback()
@@ -325,9 +325,9 @@ func subscribe_assignable(
 	once: bool = false
 ) -> GFSubscriptionToken:
 	if base_event_type == null:
-		push_error("[GFTypeEventSystem] subscribe_assignable 失败：base_event_type 为空。")
+		push_error("[GFTypeEventSystem][type_event_system.subscribe_base_event_type_null] subscribe_assignable failed: base_event_type is null.")
 		return GFSubscriptionToken.new()
-	if not _validate_listener(listener, 1, "可赋值事件回调", "事件实例"):
+	if not _validate_listener(listener, 1, "assignable event callback", "event instance"):
 		return GFSubscriptionToken.new()
 	return _subscribe_type_listener(
 		_assignable_type_track,
@@ -412,15 +412,15 @@ func unregister_assignable_owned(owner: Object, base_event_type: Script, listene
 ## @param event_instance: 要分发的事件实例。
 func send(event_instance: Object) -> void:
 	if event_instance == null or not is_instance_valid(event_instance):
-		push_error("[GFTypeEventSystem] 发送的事件实例为空或已释放。")
+		push_error("[GFTypeEventSystem][type_event_system.event_instance_invalid] The event instance is null or has been freed.")
 		return
 
 	var event_type_variant: Variant = event_instance.get_script()
 	if event_type_variant == null:
-		push_error("[GFTypeEventSystem] 发送的事件必须是附加了脚本的类实例。")
+		push_error("[GFTypeEventSystem][type_event_system.event_script_missing] The event must be a class instance with an attached script.")
 		return
 	if not (event_type_variant is Script):
-		push_error("[GFTypeEventSystem] 发送的事件脚本类型无效。")
+		push_error("[GFTypeEventSystem][type_event_system.event_script_invalid] The event script type is invalid.")
 		return
 	var event_type: Script = event_type_variant
 	if _would_exceed_dispatch_depth():
@@ -461,7 +461,7 @@ func send(event_instance: Object) -> void:
 func register_simple(event_id: StringName, listener: GFEventListener) -> void:
 	if not _validate_simple_event_id(event_id, "register_simple"):
 		return
-	if not _validate_listener(listener, 1, "简单事件回调", "payload"):
+	if not _validate_listener(listener, 1, "simple event callback", "payload"):
 		return
 
 	var callback: Callable = listener.get_callback()
@@ -523,7 +523,7 @@ func subscribe_simple(
 ) -> GFSubscriptionToken:
 	if not _validate_simple_event_id(event_id, "subscribe_simple"):
 		return GFSubscriptionToken.new()
-	if not _validate_listener(listener, 1, "简单事件回调", "payload"):
+	if not _validate_listener(listener, 1, "simple event callback", "payload"):
 		return GFSubscriptionToken.new()
 
 	var callback: Callable = listener.get_callback()
@@ -1240,8 +1240,8 @@ func _would_exceed_dispatch_depth() -> bool:
 
 
 func _report_dispatch_depth_exceeded(track: String, event_key: String) -> void:
-	var key_suffix: String = "：%s" % event_key if not event_key.is_empty() else ""
-	push_error("[GFTypeEventSystem] %s 事件派发超过最大嵌套深度 %d%s。" % [track, max_dispatch_depth, key_suffix])
+	var key_suffix: String = ": %s" % event_key if not event_key.is_empty() else ""
+	push_error("[GFTypeEventSystem][type_event_system.dispatch_depth_exceeded] %s event dispatch exceeded the maximum nesting depth of %d%s." % [track, max_dispatch_depth, key_suffix])
 
 
 func _record_dispatch_trace(track: String, event_key: String, listener_count: int, depth: int) -> void:
@@ -1678,7 +1678,7 @@ func _validate_listener(
 	arg_label: String
 ) -> bool:
 	if listener == null:
-		push_error("[GFTypeEventSystem] 注册的%s为空。" % callback_label)
+		push_error("[GFTypeEventSystem][type_event_system.callback_null] The registered %s is null." % callback_label)
 		return false
 	return listener.validate_for_dispatch(dispatch_argument_count, callback_label, arg_label)
 
@@ -1686,7 +1686,7 @@ func _validate_listener(
 func _validate_live_owner(owner: Object, operation: String) -> bool:
 	if owner != null and is_instance_valid(owner):
 		return true
-	push_error("[GFTypeEventSystem] %s 失败：owner 为空或已释放。" % operation)
+	push_error("[GFTypeEventSystem][type_event_system.owner_invalid] %s failed: owner is null or has been freed." % operation)
 	return false
 
 
@@ -1699,7 +1699,7 @@ func _get_listener_callback(listener: GFEventListener) -> Callable:
 func _validate_simple_event_id(event_id: StringName, operation: String) -> bool:
 	if event_id != &"":
 		return true
-	push_error("[GFTypeEventSystem] %s 失败：event_id 不能为空。" % operation)
+	push_error("[GFTypeEventSystem][type_event_system.event_id_empty] %s failed: event_id must not be empty." % operation)
 	return false
 
 

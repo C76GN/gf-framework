@@ -543,7 +543,7 @@ func load_scene_async(
 	if _disposed:
 		return ERR_UNAVAILABLE
 	if _is_loading or _has_pending_target_scene_commit():
-		push_warning("[GFSceneUtility] 当前已有场景正在加载中：%s" % _target_path)
+		push_warning("[GFSceneUtility][scene_utility.load_already_active] A scene is already loading: %s." % _target_path)
 		return ERR_BUSY
 
 	var scene_path: String = _normalize_scene_path(path)
@@ -657,7 +657,7 @@ func load_scene_async(
 			)
 			_fail_loading(
 				scene_path,
-				"[GFSceneUtility] 无法加入场景预加载：%s (错误码：%d)"
+				"[GFSceneUtility][scene_utility.preload_join_failed] Cannot join scene preloading: %s (error code: %d)."
 				% [scene_path, load_interest_error]
 			)
 			if rejected_preload_load_operation != null:
@@ -690,7 +690,7 @@ func load_scene_async(
 			)
 			_fail_loading(
 				scene_path,
-				"[GFSceneUtility] 场景预加载请求在 load 绑定期间消失：%s" % scene_path
+				"[GFSceneUtility][scene_utility.preload_request_lost] The scene preload request disappeared while binding the load: %s." % scene_path
 			)
 			if missing_preload_request_operation != null:
 				var _missing_preload_request_emitted: bool = (
@@ -747,7 +747,7 @@ func load_scene_async(
 				error
 			)
 		)
-		_fail_loading(scene_path, "[GFSceneUtility] 无法发起场景异步加载：%s (错误码：%d)" % [_target_path, error])
+		_fail_loading(scene_path, "[GFSceneUtility][scene_utility.async_load_request_failed] Cannot start asynchronous scene loading: %s (error code: %d)." % [_target_path, error])
 		if rejected_direct_load_operation != null:
 			var _rejected_direct_load_emitted: bool = (
 				rejected_direct_load_operation.emit_completed_for_framework()
@@ -1120,7 +1120,7 @@ func load_scene_request_async(
 ## @return 发起切换的 Godot Error。
 func load_scene_with_transition(config: GFSceneTransitionConfig) -> Error:
 	if config == null:
-		push_error("[GFSceneUtility] load_scene_with_transition 失败：config 为空。")
+		push_error("[GFSceneUtility][scene_utility.transition_config_null] Cannot load_scene_with_transition: config is null.")
 		scene_load_failed.emit("")
 		return ERR_INVALID_PARAMETER
 
@@ -1625,7 +1625,7 @@ func activate_background_scene(
 	minimum_duration_seconds: float = -1.0
 ) -> Error:
 	if _is_loading or _has_pending_target_scene_commit():
-		push_warning("[GFSceneUtility] 当前已有场景正在加载中：%s" % _target_path)
+		push_warning("[GFSceneUtility][scene_utility.load_already_active] A scene is already loading: %s." % _target_path)
 		return ERR_BUSY
 
 	var scene_path: String = _normalize_scene_path(path)
@@ -2186,7 +2186,7 @@ func pop_scene_history() -> Dictionary:
 ## @return 发起切换的 Godot Error。
 func load_previous_scene(loading_scene_path: String = "", minimum_duration_seconds: float = -1.0) -> Error:
 	if _is_loading or _has_pending_target_scene_commit():
-		push_warning("[GFSceneUtility] 当前已有场景正在加载中：%s" % _target_path)
+		push_warning("[GFSceneUtility][scene_utility.load_already_active] A scene is already loading: %s." % _target_path)
 		return ERR_BUSY
 	if _scene_history.is_empty():
 		return ERR_DOES_NOT_EXIST
@@ -2287,7 +2287,7 @@ func _get_loading_scene_node() -> Node:
 func _do_change_scene(scene: PackedScene) -> bool:
 	var scene_tree: SceneTree = _get_scene_tree_value(Engine.get_main_loop())
 	if scene_tree == null:
-		push_error("[GFSceneUtility] 无法获取 SceneTree，场景切换失败。")
+		push_error("[GFSceneUtility][scene_utility.scene_tree_missing] Scene transition failed: SceneTree is unavailable.")
 		return false
 	var error: Error = OK
 	var pathless_target_root_value: Variant = null
@@ -2297,7 +2297,7 @@ func _do_change_scene(scene: PackedScene) -> bool:
 		var commit_generation: int = _target_scene_commit_call_generation
 		pathless_target_root_value = scene.instantiate()
 		if not _uncommitted_scene_root_is_live(pathless_target_root_value):
-			push_error("[GFSceneUtility] 无法实例化无资源路径的目标场景。")
+			push_error("[GFSceneUtility][scene_utility.pathless_scene_instantiation_failed] Cannot instantiate the target scene without a resource path.")
 			_free_uncommitted_scene_root(pathless_target_root_value)
 			return false
 		_poll_typed_scene_request_lifetimes()
@@ -2326,7 +2326,7 @@ func _do_change_scene(scene: PackedScene) -> bool:
 	if error != OK:
 		_free_uncommitted_scene_root(pathless_target_root_value)
 		_target_scene_commit_proven_root_ref = null
-		push_error("[GFSceneUtility] 切换到目标场景失败，错误码：%d" % error)
+		push_error("[GFSceneUtility][scene_utility.target_transition_failed] Cannot switch to the target scene, error code: %d." % error)
 		return false
 	if (
 		_target_scene_commit_call_generation == _target_scene_commit_generation
@@ -3919,7 +3919,7 @@ func _preload_scene_with_admission(
 		return ERR_UNAVAILABLE
 	if error != OK:
 		push_error(
-			"[GFSceneUtility] 无法发起场景预加载：%s (错误码：%d)"
+			"[GFSceneUtility][scene_utility.preload_request_failed] Cannot start scene preloading: %s (error code: %d)."
 			% [scene_path, error]
 		)
 		_forget_threaded_operation(operation)
@@ -4314,7 +4314,7 @@ func _poll_active_scene_load() -> void:
 				)
 				_forget_threaded_operation(completed_lease)
 				if _active_load_generation_is_current(loaded_path, load_generation):
-					_fail_loading(loaded_path, "[GFSceneUtility] 异步加载完成，但目标资源不是 PackedScene：%s" % loaded_path)
+					_fail_loading(loaded_path, "[GFSceneUtility][scene_utility.async_result_not_scene] Asynchronous loading completed, but the target resource is not a PackedScene: %s." % loaded_path)
 				if type_mismatch_operation != null:
 					var _type_mismatch_emitted: bool = (
 						type_mismatch_operation.emit_completed_for_framework()
@@ -4375,7 +4375,7 @@ func _poll_active_scene_load() -> void:
 			var failed_lease: _RESOURCE_LEASE_SCRIPT = _active_load_operation
 			_forget_threaded_operation(failed_lease)
 			if _active_load_generation_is_current(loaded_path, load_generation):
-				_fail_loading(loaded_path, "[GFSceneUtility] 场景异步加载失败：%s" % loaded_path)
+				_fail_loading(loaded_path, "[GFSceneUtility][scene_utility.async_load_failed] Asynchronous scene loading failed: %s." % loaded_path)
 			if failed_operation != null:
 				var _failed_emitted: bool = failed_operation.emit_completed_for_framework()
 
@@ -4418,7 +4418,7 @@ func _poll_active_preload_scene() -> void:
 			if _active_load_generation_is_current(loaded_path, load_generation):
 				_fail_loading(
 					loaded_path,
-					"[GFSceneUtility] 场景预加载聚合请求已被替换：%s" % loaded_path
+					"[GFSceneUtility][scene_utility.preload_request_replaced] The aggregate scene preload request was replaced: %s." % loaded_path
 				)
 			if replaced_preload_operation != null:
 				var _replaced_preload_emitted: bool = (
@@ -4453,7 +4453,7 @@ func _poll_active_preload_scene() -> void:
 				GFSceneOperationResult.REASON_RESOURCE_LOAD_FAILED,
 				ERR_CANT_OPEN
 			)
-			_fail_loading(_target_path, "[GFSceneUtility] 场景预加载未完成：%s" % _target_path)
+			_fail_loading(_target_path, "[GFSceneUtility][scene_utility.preload_incomplete] Scene preloading has not completed: %s." % _target_path)
 			if missing_preload_operation != null:
 				var _missing_preload_emitted: bool = (
 					missing_preload_operation.emit_completed_for_framework()
@@ -4468,7 +4468,7 @@ func _poll_active_preload_scene() -> void:
 			GFSceneOperationResult.REASON_PATH_CANCELLED,
 			ERR_SKIP
 		)
-		_fail_loading(_target_path, "[GFSceneUtility] 场景预加载已取消：%s" % _target_path)
+		_fail_loading(_target_path, "[GFSceneUtility][scene_utility.preload_cancelled] Scene preloading was cancelled: %s." % _target_path)
 		if path_cancelled_operation != null:
 			var _path_cancelled_emitted: bool = (
 				path_cancelled_operation.emit_completed_for_framework()
@@ -4587,7 +4587,7 @@ func _poll_preload_requests(only_path: String = "") -> void:
 					):
 						_fail_loading(
 							path,
-							"[GFSceneUtility] 预加载完成，但目标资源不是 PackedScene：%s"
+							"[GFSceneUtility][scene_utility.preload_result_not_scene] Preloading completed, but the target resource is not a PackedScene: %s."
 							% path
 						)
 					for type_mismatch_operation: GFSceneOperation in type_mismatch_operations:
@@ -4723,7 +4723,7 @@ func _poll_preload_requests(only_path: String = "") -> void:
 				):
 					_fail_loading(
 						path,
-						"[GFSceneUtility] 场景预加载失败：%s" % path
+						"[GFSceneUtility][scene_utility.preload_failed] Scene preloading failed: %s." % path
 					)
 				for load_failed_operation: GFSceneOperation in load_failed_operations:
 					var _load_failure_emitted: bool = (
@@ -4822,7 +4822,10 @@ func _resolve_loading_scene_path(loading_scene_path: String) -> String:
 
 	var loading_validation_error: String = _validate_scene_resource_path(scene_path, "loading_scene")
 	if not loading_validation_error.is_empty():
-		push_warning(loading_validation_error)
+		push_warning(
+			"[GFSceneUtility][scene_utility.optional_loading_scene_invalid] Ignoring the optional loading scene.\n%s"
+			% loading_validation_error
+		)
 		return ""
 	return scene_path
 
@@ -4832,7 +4835,7 @@ func _show_loading_scene_if_needed() -> void:
 		return
 
 	if _previous_scene_path.is_empty():
-		push_warning("[GFSceneUtility] 当前场景缺少 scene_file_path，跳过 loading scene 以避免失败后无法恢复。")
+		push_warning("[GFSceneUtility][scene_utility.loading_scene_skipped] The current scene has no scene_file_path; skipping the loading scene to preserve recovery after failure.")
 		return
 
 	_queue_scene_change(_SCENE_CHANGE_LOADING, _loading_scene_path)
@@ -4872,7 +4875,7 @@ func _apply_loading_scene_change(path: String) -> void:
 		):
 			return
 	else:
-		push_error("[GFSceneUtility] 无法切换到 loading scene：%s (错误码：%d)" % [path, loading_error])
+		push_error("[GFSceneUtility][scene_utility.loading_scene_transition_failed] Cannot switch to the loading scene: %s (error code: %d)." % [path, loading_error])
 
 	var completed: bool = _complete_pending_scene_if_ready()
 	if completed:
@@ -5034,7 +5037,7 @@ func _apply_target_scene_change(path: String, scene: PackedScene) -> void:
 			GFSceneOperationResult.REASON_SCENE_CHANGE_FAILED,
 			ERR_CANT_CREATE
 		)
-		_fail_loading(path, "[GFSceneUtility] 切换到目标场景失败：PackedScene 为空。")
+		_fail_loading(path, "[GFSceneUtility][scene_utility.target_scene_null] Cannot switch to the target scene: PackedScene is null.")
 		if missing_scene_operation != null:
 			var _missing_scene_emitted: bool = (
 				missing_scene_operation.emit_completed_for_framework()
@@ -5664,7 +5667,7 @@ func _restore_previous_scene_if_needed() -> bool:
 		return false
 
 	if _previous_scene_path.is_empty():
-		push_warning("[GFSceneUtility] 无法恢复上一场景：缺少 scene_file_path。")
+		push_warning("[GFSceneUtility][scene_utility.restore_path_missing] Cannot restore the previous scene: scene_file_path is missing.")
 		return false
 
 	_queue_scene_change(_SCENE_CHANGE_RESTORE, _previous_scene_path, null, _previous_pause_state)
@@ -5678,7 +5681,7 @@ func _apply_restore_previous_scene(path: String, previous_pause_state: bool) -> 
 	if not _active_load_generation_is_current(target_path, load_generation):
 		return
 	if error != OK:
-		push_error("[GFSceneUtility] 恢复上一场景失败：%s (错误码：%d)" % [path, error])
+		push_error("[GFSceneUtility][scene_utility.restore_scene_failed] Cannot restore the previous scene: %s (error code: %d)." % [path, error])
 	_is_showing_loading_scene = false
 	_set_paused(previous_pause_state)
 	_reset_loading_state()
@@ -5739,9 +5742,9 @@ func _clear_pending_scene_change(update_serial: bool) -> void:
 func _validate_scene_resource_path(path: String, label: String) -> String:
 	var scene_path: String = _normalize_scene_path(path)
 	if scene_path.is_empty():
-		return "[GFSceneUtility] %s 失败：path 为空。" % label
+		return "[GFSceneUtility][scene_utility.path_empty] %s failed: path is empty." % label
 	if not ResourceLoader.exists(scene_path):
-		return "[GFSceneUtility] %s 失败：资源不存在：%s" % [label, scene_path]
+		return "[GFSceneUtility][scene_utility.resource_missing] %s failed: resource does not exist: %s." % [label, scene_path]
 
 	var extension: String = scene_path.get_extension().to_lower()
 	var scene_extensions: PackedStringArray = ResourceLoader.get_recognized_extensions_for_type("PackedScene")
@@ -5753,7 +5756,7 @@ func _validate_scene_resource_path(path: String, label: String) -> String:
 		if scene != null:
 			return ""
 
-	return "[GFSceneUtility] %s 失败：资源不是 PackedScene：%s" % [label, scene_path]
+	return "[GFSceneUtility][scene_utility.resource_not_scene] %s failed: resource is not a PackedScene: %s." % [label, scene_path]
 
 
 func _push_scene_history(path: String, params: Dictionary) -> void:
@@ -5834,7 +5837,7 @@ func _cancel_active_scene_load_for_dispose() -> void:
 		or _active_load_generation != load_generation
 	):
 		return
-	scene_switch_failed.emit(path, previous_path, "[GFSceneUtility] 场景加载因工具释放而取消：%s" % path)
+	scene_switch_failed.emit(path, previous_path, "[GFSceneUtility][scene_utility.load_cancelled_on_dispose] Scene loading was cancelled because the utility was disposed: %s." % path)
 
 
 func _cancel_preload_requests_for_dispose() -> void:

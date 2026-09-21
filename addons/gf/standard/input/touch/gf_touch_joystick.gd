@@ -68,7 +68,7 @@ enum OutputMode {
 
 const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_input_event_tools.gd")
 const _VIRTUAL_INPUT_BRIDGE = preload("res://addons/gf/standard/input/common/gf_virtual_input_bridge.gd")
-const _WARNING_EMPTY_ACTIVE_REGION: String = "[GFTouchJoystick] use_active_region 已启用，但 active_region 为空；触摸起点和拖动将被拒绝。"
+const _WARNING_EMPTY_ACTIVE_REGION: String = "[GFTouchJoystick][touch_joystick.active_region_missing] use_active_region is enabled but active_region is empty; touch starts and dragging will be rejected."
 
 
 # --- 导出变量 ---

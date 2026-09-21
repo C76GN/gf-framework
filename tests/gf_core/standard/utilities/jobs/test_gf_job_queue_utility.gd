@@ -208,7 +208,7 @@ func test_job_worker_times_out_stuck_async_processor() -> void:
 	assert_same(processed_job, job, "Worker 超时后仍应返回当前任务。")
 	assert_eq(job.status, GFJob.Status.FAILED, "处理器 Signal 超时应把任务标记失败，避免队列永久卡住。")
 	assert_eq(job.error_message, "processor_signal_timeout", "超时失败原因应稳定可诊断。")
-	assert_push_warning("[GFJobWorker] 等待任务处理器 Signal 超时，任务将标记为失败。")
+	assert_push_warning("[GFJobWorker][job_worker.handler_signal_timeout] Timed out waiting for the task handler Signal; the task will be marked as failed.")
 	worker.free()
 	utility.dispose()
 

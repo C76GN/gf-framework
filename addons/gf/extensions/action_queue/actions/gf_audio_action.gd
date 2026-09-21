@@ -54,12 +54,12 @@ func _init(p_path: String = "", p_clip: GFAudioClip = null) -> void:
 func execute() -> Variant:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture == null:
-		push_warning("[GFAudioAction] 缺少 GFArchitecture，无法播放音效。")
+		push_warning("[GFAudioAction][audio_action.missing_architecture] Cannot play audio: GFArchitecture is required.")
 		return null
 
 	var audio: GFAudioUtility = _get_audio_utility_value(architecture.get_utility(GFAudioUtility))
 	if audio == null:
-		push_warning("[GFAudioAction] 缺少 GFAudioUtility，无法播放音效。")
+		push_warning("[GFAudioAction][audio_action.missing_audio_utility] Cannot play audio: GFAudioUtility is required.")
 		return null
 
 	if bank != null and clip_id != &"":

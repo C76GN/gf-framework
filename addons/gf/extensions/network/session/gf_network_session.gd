@@ -216,5 +216,5 @@ func _get_metadata_copy(options: Dictionary) -> Dictionary:
 
 	if metadata_variant is Dictionary:
 		return GFVariantData.to_dictionary(metadata_variant)
-	push_warning("[GFNetworkSession] metadata 必须是 Dictionary，已忽略。")
+	push_warning("[GFNetworkSession][network_session.invalid_metadata] metadata must be a Dictionary; the value was ignored.")
 	return {}

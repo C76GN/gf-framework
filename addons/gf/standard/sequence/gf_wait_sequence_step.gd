@@ -21,7 +21,7 @@ extends GFSequenceStep
 @export var duration: float = 0.0:
 	set(value):
 		if not is_finite(value):
-			push_warning("[GFWaitSequenceStep] 等待时长必须是有限数值。")
+			push_warning("[GFWaitSequenceStep][wait_sequence_step.duration_non_finite] Wait duration must be finite.")
 			return
 		duration = maxf(value, 0.0)
 

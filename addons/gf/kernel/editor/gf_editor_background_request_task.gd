@@ -54,7 +54,7 @@ func configure(
 	options: Dictionary = {}
 ) -> GFEditorBackgroundRequestTask:
 	if _started:
-		push_error("[GFEditorBackgroundRequestTask] 已启动的任务不能重新配置。")
+		push_error("[GFEditorBackgroundRequestTask][editor_background_request_task.configuration_frozen] A started task cannot be reconfigured.")
 		return self
 	_worker = worker
 	_request = request.duplicate(true)

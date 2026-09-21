@@ -147,7 +147,7 @@ func _add_project_settings_inspector_plugin(plugin: EditorPlugin) -> void:
 	if inspector_plugin == null:
 		return
 	if not inspector_plugin.has_method(&"configure"):
-		push_error("[GF Framework] ProjectSettings Inspector 缺少 configure()。")
+		push_error("[GFPluginInspectorTools][plugin_inspector_tools.configure_missing] The ProjectSettings Inspector has no configure() method.")
 		return
 
 	var _configure_result: Variant = inspector_plugin.call(
@@ -163,7 +163,7 @@ func _add_project_settings_inspector_plugin(plugin: EditorPlugin) -> void:
 func _setup_project_settings_section_presenter() -> void:
 	var presenter_value: Variant = _GF_PROJECT_SETTINGS_SECTION_PRESENTER_SCRIPT.new()
 	if not presenter_value is RefCounted:
-		push_error("[GF Framework] ProjectSettings 分区展示器实例化失败。")
+		push_error("[GFPluginInspectorTools][plugin_inspector_tools.section_presenter_instantiation_failed] Could not instantiate the ProjectSettings section presenter.")
 		return
 	_project_settings_section_presenter = presenter_value
 	var _setup_result: Variant = _project_settings_section_presenter.call(
@@ -195,12 +195,12 @@ func _setup_standard_export_plugins(plugin: EditorPlugin) -> void:
 func _setup_extension_export_plugin(plugin: EditorPlugin) -> void:
 	var export_script: Script = _load_script(EXTENSION_EXPORT_PLUGIN_SCRIPT_PATH)
 	if export_script == null or not export_script.can_instantiate():
-		push_error("[GF Framework] 扩展导出过滤插件脚本加载失败。")
+		push_error("[GFPluginInspectorTools][plugin_inspector_tools.extension_filter_load_failed] Could not load the extension export filter plugin script.")
 		return
 
 	_extension_export_plugin = _instantiate_export_plugin(export_script)
 	if _extension_export_plugin == null:
-		push_error("[GF Framework] 扩展导出过滤插件实例化失败。")
+		push_error("[GFPluginInspectorTools][plugin_inspector_tools.extension_filter_instantiation_failed] Could not instantiate the extension export filter plugin.")
 		return
 
 	plugin.add_export_plugin(_extension_export_plugin)
@@ -218,12 +218,12 @@ func _setup_enabled_extension_export_plugins(plugin: EditorPlugin) -> void:
 func _load_inspector_plugin(script_path: String, label: String) -> EditorInspectorPlugin:
 	var inspector_script: Script = _load_script(script_path)
 	if inspector_script == null or not inspector_script.can_instantiate():
-		push_error("[GF Framework] %s 插件脚本加载失败。" % label)
+		push_error("[GFPluginInspectorTools][plugin_inspector_tools.plugin_load_failed] Could not load the %s plugin script." % label)
 		return null
 
 	var inspector_plugin: EditorInspectorPlugin = _instantiate_inspector_plugin(inspector_script)
 	if inspector_plugin == null:
-		push_error("[GF Framework] %s 插件实例化失败。" % label)
+		push_error("[GFPluginInspectorTools][plugin_inspector_tools.plugin_instantiation_failed] Could not instantiate the %s plugin." % label)
 		return null
 
 	return inspector_plugin
@@ -232,12 +232,12 @@ func _load_inspector_plugin(script_path: String, label: String) -> EditorInspect
 func _load_export_plugin(script_path: String, label: String) -> EditorExportPlugin:
 	var export_script: Script = _load_script(script_path)
 	if export_script == null or not export_script.can_instantiate():
-		push_error("[GF Framework] %s 导出插件脚本加载失败。" % label)
+		push_error("[GFPluginInspectorTools][plugin_inspector_tools.export_plugin_load_failed] Could not load the %s export plugin script." % label)
 		return null
 
 	var export_plugin: EditorExportPlugin = _instantiate_export_plugin(export_script)
 	if export_plugin == null:
-		push_error("[GF Framework] %s 导出插件实例化失败。" % label)
+		push_error("[GFPluginInspectorTools][plugin_inspector_tools.export_plugin_instantiation_failed] Could not instantiate the %s export plugin." % label)
 		return null
 
 	return export_plugin

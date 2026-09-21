@@ -154,12 +154,12 @@ func apply() -> int:
 ## @return: 目标节点；解析失败时返回 null。
 func resolve_target() -> Object:
 	if target_path.is_empty():
-		_warn_invalid_target("目标路径为空。")
+		_warn_invalid_target("Target path is empty.")
 		return null
 
 	var target: Node = get_node_or_null(target_path)
 	if target == null:
-		_warn_invalid_target("目标节点不存在：%s。" % String(target_path))
+		_warn_invalid_target("Target node does not exist: %s." % String(target_path))
 		return null
 	return target
 
@@ -246,7 +246,7 @@ func _disconnect_profile_changed() -> void:
 
 func _warn_invalid_target(message: String) -> void:
 	if warn_on_invalid_target:
-		push_warning("[GFShaderParameterBinder] %s" % message)
+		push_warning("[GFShaderParameterBinder][shader_parameter_binder.binding_invalid] Shader parameter binding is invalid: %s." % message)
 
 
 # --- 信号处理函数 ---

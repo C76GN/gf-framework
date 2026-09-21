@@ -191,11 +191,11 @@ func test_post_rejects_removed_owner_option() -> void:
 		return legacy_owner.record_tail()
 	, { "owner": legacy_owner })
 
-	assert_push_error("[GFMainThreadDispatchQueue] post 失败：owner 选项已移除，请使用 post_method()。")
+	assert_push_error("[GFMainThreadDispatchQueue][main_thread_dispatch_queue.post_owner_removed] Cannot post: the owner option was removed; use post_method().")
 	var string_name_key_handle: int = queue.post(func() -> bool:
 		return legacy_owner.record_tail()
 	, { &"owner": legacy_owner })
-	assert_push_error("[GFMainThreadDispatchQueue] post 失败：owner 选项已移除，请使用 post_method()。")
+	assert_push_error("[GFMainThreadDispatchQueue][main_thread_dispatch_queue.post_owner_removed] Cannot post: the owner option was removed; use post_method().")
 
 	assert_eq(string_key_handle, 0, "String owner 选项必须 fail closed。")
 	assert_eq(string_name_key_handle, 0, "StringName owner 选项必须 fail closed。")

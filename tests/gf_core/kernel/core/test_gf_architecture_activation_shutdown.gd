@@ -624,7 +624,7 @@ func test_activation_failure_never_opens_runtime_admission() -> void:
 	assert_false(architecture.is_accepting_runtime_work())
 	assert_false(architecture.is_module_active(utility))
 	assert_eq(utility.dispose_count, 1)
-	assert_push_error("[GFArchitecture] activation 失败")
+	assert_push_error("[GFArchitecture][architecture.activation_failed]")
 	architecture.dispose()
 
 
@@ -637,7 +637,7 @@ func test_failed_initialization_requires_an_explicit_retry_call() -> void:
 	assert_true(architecture.has_initialization_failed())
 	assert_false(architecture.is_accepting_runtime_work())
 	assert_eq(utility.dispose_count, 1)
-	assert_push_error("[GFArchitecture] activation 失败")
+	assert_push_error("[GFArchitecture][architecture.activation_failed]")
 
 	assert_true(await architecture.init())
 	assert_true(architecture.is_inited())
@@ -656,7 +656,7 @@ func test_pre_cancelled_initialization_fails_closed() -> void:
 	assert_false(await architecture.init(source.get_token()))
 	assert_true(architecture.has_initialization_failed())
 	assert_false(architecture.is_accepting_runtime_work())
-	assert_push_error("[GFArchitecture] 初始化已取消")
+	assert_push_error("[GFArchitecture][architecture.initialization_cancelled]")
 	architecture.dispose()
 	source.dispose()
 
@@ -669,7 +669,7 @@ func test_pending_activation_without_scene_tree_fails_instead_of_busy_spin() -> 
 
 	assert_false(await architecture.init())
 	assert_true(architecture.has_initialization_failed())
-	assert_push_error("[GFArchitecture] activation 失败")
+	assert_push_error("[GFArchitecture][architecture.activation_failed]")
 	architecture.dispose()
 
 
@@ -704,7 +704,7 @@ func test_pending_activation_external_cancellation_rejects_late_success() -> voi
 	)
 	assert_false(utility.complete_activation(), "取消终态不得接受迟到 activation 成功。")
 	assert_eq(utility.dispose_count, 1)
-	assert_push_error("[GFArchitecture] activation 已取消")
+	assert_push_error("[GFArchitecture][architecture.activation_cancelled]")
 
 	architecture.dispose()
 	assert_eq(utility.dispose_count, 1)
@@ -783,7 +783,7 @@ func test_pending_activation_deadline_rejects_late_success() -> void:
 	assert_false(architecture.is_inited())
 	assert_false(architecture.is_accepting_runtime_work())
 	assert_eq(utility.dispose_count, 1)
-	assert_push_error("[GFArchitecture] activation 失败")
+	assert_push_error("[GFArchitecture][architecture.activation_failed]")
 
 	architecture.dispose()
 	assert_eq(utility.dispose_count, 1)
@@ -913,7 +913,7 @@ func test_failure_cleanup_reentrant_dispose_releases_each_module_once() -> void:
 	assert_not_null(result)
 	if result != null:
 		assert_eq(result.get_status(), GFArchitectureShutdownResult.Status.FORCED)
-	assert_push_error("[GFArchitecture] activation 失败")
+	assert_push_error("[GFArchitecture][architecture.activation_failed]")
 
 	architecture.dispose()
 	assert_eq(failing.dispose_count, 1)
@@ -960,7 +960,7 @@ func test_factory_creation_is_rejected_while_hot_topology_is_pending() -> void:
 	assert_false(architecture.is_accepting_runtime_work())
 	assert_null(architecture.create_instance(RuntimeFactoryProduct))
 	assert_eq(GFVariantData.get_option_int(invocation_state, "count"), 0)
-	assert_push_error("模块拓扑事务尚未完成")
+	assert_push_error("[architecture.execution_topology_transaction]")
 
 	assert_true(candidate.complete_activation())
 	await _wait_until_states_done([topology_state])
@@ -999,7 +999,7 @@ func test_factory_creation_is_rejected_after_quiesce_closes_admission() -> void:
 	assert_true(architecture.is_quiescing())
 	assert_null(architecture.create_instance(RuntimeFactoryProduct))
 	assert_eq(GFVariantData.get_option_int(invocation_state, "count"), 0)
-	assert_push_error("架构正在 quiesce")
+	assert_push_error("[architecture.execution_quiescing]")
 
 	assert_true(quiesce_gate.complete_quiesce())
 	await _wait_until_states_done([shutdown_state])
@@ -1030,7 +1030,7 @@ func test_synchronous_hot_activation_failure_does_not_restore_plan_or_double_dis
 		"同步成功 completion 不得在 fail_initialization 后恢复陈旧 lifecycle plan。"
 	)
 	assert_push_error("[test] fail during synchronous hot activation")
-	assert_push_error("[GFArchitecture] 热模块 activation 失败")
+	assert_push_error("[GFArchitecture][architecture.hot_activation_failed]")
 
 	architecture.dispose()
 	architecture.dispose()
@@ -1094,7 +1094,7 @@ func test_hot_unregister_rejects_removing_live_dependency() -> void:
 		architecture.get_utility(TickBootstrapUtility, true),
 		provider
 	)
-	assert_push_error("[GFArchitecture] hot unregister 失败")
+	assert_push_error("[GFArchitecture][architecture.dependency_plan_invalid] hot unregister")
 
 	var result: GFArchitectureShutdownResult = await architecture.shutdown_async()
 	assert_true(result.is_successful())
@@ -1285,7 +1285,7 @@ func test_topology_wait_timeout_forces_cleanup_without_late_commit_or_double_dis
 	assert_eq(previous.dispose_count, 1, "迟到恢复不得重复释放旧实例。")
 	assert_eq(replacement.dispose_count, 1, "迟到恢复不得重复释放替换候选。")
 	assert_true(architecture.is_disposed(), "迟到恢复不得重新提交 topology。")
-	assert_push_error("[GFArchitecture] 热模块 activation 失败")
+	assert_push_error("[GFArchitecture][architecture.hot_activation_failed]")
 
 
 func test_topology_wait_cancel_cleans_pending_replacement_before_return() -> void:
@@ -1329,7 +1329,7 @@ func test_topology_wait_cancel_cleans_pending_replacement_before_return() -> voi
 	await get_tree().process_frame
 	assert_eq(previous.dispose_count, 1)
 	assert_eq(replacement.dispose_count, 1, "迟到 continuation 不得重复清理替换候选。")
-	assert_push_error("[GFArchitecture] 热模块 activation 失败")
+	assert_push_error("[GFArchitecture][architecture.hot_activation_failed]")
 	source.dispose()
 
 
@@ -1653,7 +1653,7 @@ func test_init_rechecks_cancellation_after_async_init_before_ready() -> void:
 	assert_eq(utility.ready_count, 0, "async_init await 后必须先复检取消，再进入 ready。")
 	assert_eq(utility.activation_count, 0)
 	assert_eq(utility.dispose_count, 1)
-	assert_push_error("[GFArchitecture] 初始化已取消")
+	assert_push_error("[GFArchitecture][architecture.initialization_cancelled]")
 
 	architecture.dispose()
 	assert_eq(utility.dispose_count, 1)
@@ -1674,7 +1674,7 @@ func test_init_rechecks_cancellation_before_final_ready_commit() -> void:
 	assert_false(architecture.is_inited(), "最后一个 activation 成功后仍须复检取消，禁止提交 READY。")
 	assert_false(architecture.is_accepting_runtime_work())
 	assert_eq(utility.dispose_count, 1)
-	assert_push_error("[GFArchitecture] activation 已取消")
+	assert_push_error("[GFArchitecture][architecture.activation_cancelled]")
 
 	architecture.dispose()
 	assert_eq(utility.dispose_count, 1)
@@ -1707,7 +1707,7 @@ func test_activation_failure_cleans_plan_in_strict_reverse_order_exactly_once() 
 	assert_eq(failing.dispose_count, 1)
 	assert_eq(consumer.dispose_count, 1)
 	assert_eq(dependency.dispose_count, 1)
-	assert_push_error("[GFArchitecture] activation 失败")
+	assert_push_error("[GFArchitecture][architecture.activation_failed]")
 
 	architecture.dispose()
 	assert_eq(failing.dispose_count, 1)

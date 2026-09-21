@@ -32,6 +32,7 @@
 
 ### 🔄 机制更改 (Changed)
 
+- [开发者诊断](standard/utilities/runtime/debug-observability/runtime-telemetry/log-utility/index.md#开发者诊断与语言) 统一使用固定英文模板与稳定诊断码，保留原生错误与警告的严重级别、输出次数和调用栈；项目日志及运行时 Unicode 上下文继续保留原语言，编辑器显示文字独立管理。
 - [命令历史](kernel/messaging/command-history/index.md) 补充拖拽编辑示例：预览只修改草稿，确认执行一次命令，取消或净变化为零不产生历史；明确 `record()` 与 `execute_command()` 的使用边界。
 - [Storage 读取结果](standard/utilities/io/storage-snapshot/storage-utility.md) 减少隔离副本的中转深复制，迟到结算诊断只读取失败分类；保留结果归一化、来源授权及公开 getter 与信号的副本行为。
 - [3D 场景摆放](editor/tools/scene-placement.md) 确认失败时显示具体原因与排查建议，并保留原始原因标识和错误码，便于区分父节点失效、实例创建失败及撤销记录被拒绝等情况。

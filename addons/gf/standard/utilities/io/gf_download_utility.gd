@@ -228,19 +228,19 @@ func enqueue_download(
 	options: Dictionary = {}
 ) -> int:
 	if url.is_empty() or target_path.is_empty():
-		push_error("[GFDownloadUtility] enqueue_download 失败：url 或 target_path 为空。")
+		push_error("[GFDownloadUtility][download_utility.url_or_target_empty] Cannot enqueue_download: url or target_path is empty.")
 		return 0
 
 	var safe_target_path: String = _normalize_direct_download_path(target_path)
 	if safe_target_path.is_empty():
-		push_error("[GFDownloadUtility] enqueue_download 失败：target_path 不在受控 res:// 或 user:// 根内：%s。" % target_path)
+		push_error("[GFDownloadUtility][download_utility.target_path_outside_root] Cannot enqueue_download: target_path is outside the controlled res:// or user:// root: %s." % target_path)
 		return 0
 
 	if _has_dictionary_key(options, "temp_path"):
-		push_error("[GFDownloadUtility] enqueue_download 失败：temp_path 由 utility 独占管理，不接受调用方覆盖。")
+		push_error("[GFDownloadUtility][download_utility.temp_path_override] Cannot enqueue_download: temp_path is owned by the utility and cannot be overridden by callers.")
 		return 0
 	if _has_dictionary_key(options, "segment_path"):
-		push_error("[GFDownloadUtility] enqueue_download 失败：segment_path 由 utility 独占管理，不接受调用方覆盖。")
+		push_error("[GFDownloadUtility][download_utility.segment_path_override] Cannot enqueue_download: segment_path is owned by the utility and cannot be overridden by callers.")
 		return 0
 	var safe_temp_path: String = safe_target_path + _TEMP_FILE_SUFFIX
 	var safe_segment_path: String = safe_temp_path + _SEGMENT_FILE_SUFFIX
@@ -1048,7 +1048,7 @@ func _replace_download_target_atomically(task: GFDownloadTask) -> Error:
 		var cleanup_error: Error = _remove_file_for_commit(backup_path)
 		if cleanup_error != OK:
 			push_warning(
-				"[GFDownloadUtility] 下载已提交，但旧目标备份清理失败：%s (%s)"
+				"[GFDownloadUtility][download_utility.backup_cleanup_failed] Download committed, but the previous target backup could not be removed: %s (%s)."
 				% [backup_path, error_string(cleanup_error)]
 			)
 		return OK

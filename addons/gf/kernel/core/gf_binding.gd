@@ -108,7 +108,7 @@ func get_instance(requesting_architecture: GFArchitecture = null, resolution_con
 				return _cached_instance
 			if _is_resolving_singleton:
 				_mark_resolution_context_failed(resolution_context)
-				push_error("[GFBinding] Singleton 工厂正在解析中，检测到循环依赖。")
+				push_error("[GFBinding][binding.singleton_dependency_cycle] A circular dependency was detected while resolving the Singleton factory.")
 				return null
 
 			clear_cached_instance()
@@ -146,7 +146,7 @@ func get_instance(requesting_architecture: GFArchitecture = null, resolution_con
 
 		_:
 			_mark_resolution_context_failed(resolution_context)
-			push_error("[GFBinding] 未知生命周期：%s" % str(lifetime))
+			push_error("[GFBinding][binding.lifetime_unknown] Unknown lifetime: %s." % str(lifetime))
 			return null
 
 
@@ -245,19 +245,19 @@ func _provide(
 		if _resolution_context_has_failed(resolution_context):
 			return null
 		_mark_resolution_context_failed(resolution_context)
-		push_error("[GFBinding] 绑定来源返回了已失效的 Object 实例。")
+		push_error("[GFBinding][binding.source_object_invalid] The binding source returned an invalid Object instance.")
 		return null
 	if not value is Object:
 		if _resolution_context_has_failed(resolution_context):
 			return null
 		_mark_resolution_context_failed(resolution_context)
-		push_error("[GFBinding] 绑定来源必须返回 Object 实例。")
+		push_error("[GFBinding][binding.source_not_object] The binding source must return an Object instance.")
 		return null
 
 	var instance: Object = value
 	if not _instance_is_live(instance):
 		_mark_resolution_context_failed(resolution_context)
-		push_error("[GFBinding] 绑定来源返回了已失效的 Object 实例。")
+		push_error("[GFBinding][binding.source_object_invalid] The binding source returned an invalid Object instance.")
 		return null
 	if (
 		_resolution_context_has_failed(resolution_context)
@@ -272,7 +272,7 @@ func _provide(
 		return null
 	if not _instance_matches_key(instance):
 		_mark_resolution_context_failed(resolution_context)
-		push_error("[GFBinding] 绑定来源返回的实例脚本必须继承或等于绑定键。")
+		push_error("[GFBinding][binding.source_script_mismatch] The binding source instance script must extend or equal the binding key.")
 		_release_rejected_factory_instance(instance, false)
 		return null
 

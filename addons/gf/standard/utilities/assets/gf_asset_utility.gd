@@ -335,12 +335,12 @@ func load_async(path: String, on_loaded: Callable, type_hint: String = "", optio
 			on_loaded.call(null)
 		return
 	if path.is_empty() or not on_loaded.is_valid():
-		push_error("[GFAssetUtility] 无效的路径或回调。")
+		push_error("[GFAssetUtility][asset_utility.path_or_callback_invalid] Invalid path or callback.")
 		return
 
 	var identity: GFResourceIdentity = _make_resource_identity(path, type_hint)
 	if not identity.has_identity():
-		push_error("[GFAssetUtility] 无效的资源身份：%s" % path)
+		push_error("[GFAssetUtility][asset_utility.resource_identity_invalid] Invalid resource identity: %s." % path)
 		on_loaded.call(null)
 		return
 	_remember_resource_identity(identity)
@@ -350,7 +350,7 @@ func load_async(path: String, on_loaded: Callable, type_hint: String = "", optio
 	var cached: Resource = _get_cached_by_key(cache_key)
 	if cached != null:
 		if not _is_resource_compatible(cached, type_hint):
-			push_warning("[GFAssetUtility] 缓存资源类型与请求 type_hint 不匹配：%s (%s)" % [load_path, type_hint])
+			push_warning("[GFAssetUtility][asset_utility.cached_type_mismatch] Cached resource type does not match the requested type_hint: %s (%s)." % [load_path, type_hint])
 			on_loaded.call(null)
 			return
 
@@ -361,7 +361,7 @@ func load_async(path: String, on_loaded: Callable, type_hint: String = "", optio
 		var pending_request: Dictionary = _get_pending_request(cache_key)
 		var pending_type_hint: String = _get_pending_type_hint(pending_request)
 		if not _pending_type_hints_are_compatible(pending_type_hint, type_hint):
-			push_warning("[GFAssetUtility] 已存在相同资源身份但 type_hint 不同的加载请求，已拒绝新请求：%s (%s -> %s)" % [load_path, pending_type_hint, type_hint])
+			push_warning("[GFAssetUtility][asset_utility.active_type_hint_conflict] An active load request for this resource identity has a different type_hint; new request rejected: %s (%s -> %s)." % [load_path, pending_type_hint, type_hint])
 			on_loaded.call(null)
 			return
 
@@ -390,7 +390,7 @@ func load_async(path: String, on_loaded: Callable, type_hint: String = "", optio
 		var queued_request: Dictionary = _get_queued_request(cache_key)
 		var queued_type_hint: String = _get_pending_type_hint(queued_request)
 		if not _pending_type_hints_are_compatible(queued_type_hint, type_hint):
-			push_warning("[GFAssetUtility] 已存在相同资源身份但 type_hint 不同的排队加载请求，已拒绝新请求：%s (%s -> %s)" % [load_path, queued_type_hint, type_hint])
+			push_warning("[GFAssetUtility][asset_utility.queued_type_hint_conflict] A queued load request for this resource identity has a different type_hint; new request rejected: %s (%s -> %s)." % [load_path, queued_type_hint, type_hint])
 			on_loaded.call(null)
 			return
 
@@ -444,7 +444,7 @@ func load_handle_async(
 	options: Dictionary = {}
 ) -> void:
 	if path.is_empty() or not on_loaded.is_valid():
-		push_error("[GFAssetUtility] load_handle_async 失败：路径或回调无效。")
+		push_error("[GFAssetUtility][asset_utility.handle_path_or_callback_invalid] Cannot load_handle_async: path or callback is invalid.")
 		return
 
 	var owner_ref: WeakRef = weakref(owner) if owner != null else null
@@ -485,14 +485,14 @@ func acquire_handle(
 	resource_override: Resource = null
 ) -> GFAssetHandle:
 	if path.is_empty():
-		push_error("[GFAssetUtility] acquire_handle 失败：路径为空。")
+		push_error("[GFAssetUtility][asset_utility.handle_path_empty] Cannot acquire_handle: path is empty.")
 		return null
 
 	var resource: Resource = resource_override if resource_override != null else get_cached(path)
 	if resource == null:
 		return null
 	if not _is_resource_compatible(resource, type_hint):
-		push_warning("[GFAssetUtility] acquire_handle 失败：缓存资源类型与 type_hint 不匹配：%s (%s)" % [path, type_hint])
+		push_warning("[GFAssetUtility][asset_utility.handle_cached_type_mismatch] Cannot acquire_handle: cached resource type does not match type_hint: %s (%s)." % [path, type_hint])
 		return null
 
 	if not is_cached(path):
@@ -621,7 +621,7 @@ func preload_plan_async(
 ) -> void:
 	if asset_plan == null:
 		var null_validation: Dictionary = _make_preload_plan_validation(&"", &"", 0, "plan is required.")
-		var null_message: String = "[GFAssetUtility] preload_plan_async 失败：asset_plan 为空。"
+		var null_message: String = "[GFAssetUtility][asset_utility.preload_plan_null] Cannot preload_plan_async: asset_plan is null."
 		push_error(null_message)
 		_finish_preload_plan_report(
 			_make_preload_plan_error_report(null, &"", null_message, null_validation),
@@ -631,7 +631,7 @@ func preload_plan_async(
 
 	var validation: Dictionary = asset_plan.validate()
 	if asset_plan.group_id == &"":
-		var message: String = "[GFAssetUtility] preload_plan_async 失败：group_id 为空。"
+		var message: String = "[GFAssetUtility][asset_utility.preload_plan_group_empty] Cannot preload_plan_async: group_id is empty."
 		push_error(message)
 		_finish_preload_plan_report(
 			_make_preload_plan_error_report(asset_plan, asset_plan.group_id, message, validation),
@@ -674,14 +674,14 @@ func start_preload_session(
 	var session: GFAssetLoadSession = GFAssetLoadSession.new()
 	var configured: bool = session._gf_setup(self, session_id, asset_plan, options)
 	if not configured:
-		push_error("[GFAssetUtility] 无法配置事务预加载会话。")
+		push_error("[GFAssetUtility][asset_utility.preload_session_configuration_failed] Cannot configure the transactional preload session.")
 		return session
 	var connect_error: Error = session.completed.connect(
 		_on_asset_load_session_completed,
 		CONNECT_ONE_SHOT as Object.ConnectFlags
 	) as Error
 	if connect_error != OK:
-		push_error("[GFAssetUtility] 无法连接事务预加载会话终态信号。")
+		push_error("[GFAssetUtility][asset_utility.preload_terminal_connect_failed] Cannot connect the transactional preload session terminal signal.")
 		session._gf_abort(&"completion_tracking_failed")
 		return session
 	_load_sessions[String(session_id)] = session
@@ -725,7 +725,7 @@ func preload_group_async(
 	options: Dictionary = {}
 ) -> void:
 	if group_id == &"":
-		push_error("[GFAssetUtility] preload_group_async 失败：group_id 为空。")
+		push_error("[GFAssetUtility][asset_utility.preload_group_empty] Cannot preload_group_async: group_id is empty.")
 		return
 
 	var pin_loaded: bool = GFVariantData.get_option_bool(options, "pin_cache", true)
@@ -1493,7 +1493,7 @@ func _activate_load_request(cache_key: String, request: Dictionary, emit_initial
 	var error: Error = operation.get_request_error() if operation != null else ERR_UNCONFIGURED
 	if error != OK:
 		_end_lane_request(lane_id)
-		push_error("[GFAssetUtility] 无法发起异步加载请求：%s (错误码：%d)" % [path, error])
+		push_error("[GFAssetUtility][asset_utility.async_request_failed] Cannot start the asynchronous load request: %s (error code: %d)." % [path, error])
 		_dispatch_callbacks(_get_pending_callbacks(request), null)
 		return error
 
@@ -1671,7 +1671,7 @@ func _poll_pending() -> void:
 			_RESOURCE_LEASE_SCRIPT.STATUS_FAILED:
 				_erase_dictionary_key(_pending, cache_key)
 				if not cancelled:
-					push_error("[GFAssetUtility] 异步加载失败：%s" % path)
+					push_error("[GFAssetUtility][asset_utility.async_load_failed] Asynchronous load failed: %s." % path)
 					_dispatch_callbacks(callbacks, null)
 				_forget_threaded_operation(operation)
 				_complete_pending_lane(pending_request)
@@ -1830,7 +1830,7 @@ func _track_owner(owner: Object) -> void:
 			CONNECT_ONE_SHOT as Object.ConnectFlags
 		) as Error
 		if connect_error != OK:
-			push_warning("[GFAssetUtility] owner 退出树信号连接失败：%d。" % connect_error)
+			push_warning("[GFAssetUtility][asset_utility.owner_exit_connect_failed] Cannot connect the owner tree exit signal: %d." % connect_error)
 
 
 func _track_handle(handle: GFAssetHandle) -> void:

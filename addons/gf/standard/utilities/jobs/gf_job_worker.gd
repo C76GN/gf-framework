@@ -293,7 +293,7 @@ func _await_processor_signal_result(result_signal: Signal, job: GFJob) -> Dictio
 		"time_utility": _get_time_utility(),
 		"timeout_seconds": signal_timeout_seconds,
 		"respect_time_scale": signal_timeout_respects_time_scale,
-		"timeout_warning": "[GFJobWorker] 等待任务处理器 Signal 超时，任务将标记为失败。",
+		"timeout_warning": "[GFJobWorker][job_worker.handler_signal_timeout] Timed out waiting for the task handler Signal; the task will be marked as failed.",
 		"guard_node": guard_node,
 		"cancel_token": wait_source.get_token(),
 		"capture_payload": true,

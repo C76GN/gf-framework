@@ -89,7 +89,7 @@ static func from_int(value: int) -> GFBigNumber:
 ## @return: 归一化后的大数实例；任意有限非零 float 都会保留为非零量级。
 static func from_float(value: float) -> GFBigNumber:
 	if is_nan(value) or is_inf(value):
-		push_error("[GFBigNumber] from_float 收到非法浮点值。")
+		push_error("[GFBigNumber][big_number.float_invalid] from_float received an invalid floating-point value.")
 		return GFBigNumber.zero()
 
 	return GFBigNumber.new(value, 0)
@@ -112,7 +112,7 @@ static func from_string(
 ) -> GFBigNumber:
 	var normalization: Dictionary = _DECIMAL_STRING_FORMATTER.normalize_numeric_text(value, max_input_length)
 	if not GFVariantData.get_option_bool(normalization, "ok"):
-		push_error("[GFBigNumber] 无法解析数字字符串（%s）：%s" % [
+		push_error("[GFBigNumber][big_number.number_parse_failed_with_reason] Cannot parse the number string (%s): %s." % [
 			GFVariantData.get_option_string(normalization, "error", "invalid_input"),
 			value.left(128),
 		])
@@ -127,10 +127,10 @@ static func from_string(
 		var exponent_result: Dictionary = _try_parse_exponent_text(exponent_text)
 		if not GFVariantData.get_option_bool(exponent_result, &"ok", false):
 			if GFVariantData.get_option_string(exponent_result, &"reason") == "range":
-				push_error("[GFBigNumber] 指数超出支持范围。")
+				push_error("[GFBigNumber][big_number.exponent_out_of_range] Exponent exceeds the supported range.")
 				return GFBigNumber.zero()
 
-			push_error("[GFBigNumber] 无法解析科学计数法指数：%s" % value)
+			push_error("[GFBigNumber][big_number.exponent_parse_failed] Cannot parse the scientific notation exponent: %s." % value)
 			return GFBigNumber.zero()
 		exponent_offset = GFVariantData.get_option_int(exponent_result, &"value")
 
@@ -149,7 +149,7 @@ static func from_string(
 		fractional_part = trimmed.substr(decimal_index + 1)
 
 	if not _DECIMAL_STRING_FORMATTER.is_valid_decimal_parts(integer_part, fractional_part, decimal_index != -1):
-		push_error("[GFBigNumber] 无法解析数字字符串：%s" % value)
+		push_error("[GFBigNumber][big_number.number_parse_failed] Cannot parse the number string: %s." % value)
 		return GFBigNumber.zero()
 
 	var digits: String = integer_part + fractional_part
@@ -171,7 +171,7 @@ static func from_string(
 	var mantissa_value: float = mantissa_text.to_float() * sign_multiplier
 	var normalized_exponent: int = integer_part.length() - first_non_zero - 1 + exponent_offset
 	if not _exponent_is_supported(normalized_exponent):
-		push_error("[GFBigNumber] 指数超出支持范围。")
+		push_error("[GFBigNumber][big_number.exponent_out_of_range] Exponent exceeds the supported range.")
 		return GFBigNumber.zero()
 	return GFBigNumber.new(mantissa_value, normalized_exponent)
 
@@ -204,7 +204,7 @@ static func from_variant(value: Variant) -> GFBigNumber:
 		var string_value: String = value
 		return GFBigNumber.from_string(string_value)
 
-	push_error("[GFBigNumber] from_variant 收到不支持的值类型。")
+	push_error("[GFBigNumber][big_number.value_type_unsupported] from_variant received an unsupported value type.")
 	return GFBigNumber.zero()
 
 
@@ -348,7 +348,7 @@ func multiply(other: GFBigNumber) -> GFBigNumber:
 
 	var exponent_result: Dictionary = _try_add_exponents(exponent, other.exponent)
 	if not GFVariantData.get_option_bool(exponent_result, &"ok", false):
-		push_error("[GFBigNumber] 指数超出支持范围。")
+		push_error("[GFBigNumber][big_number.exponent_out_of_range] Exponent exceeds the supported range.")
 		return GFBigNumber.zero()
 
 	return GFBigNumber.new(mantissa * other.mantissa, GFVariantData.get_option_int(exponent_result, &"value"))
@@ -363,7 +363,7 @@ func multiply(other: GFBigNumber) -> GFBigNumber:
 ## @return 相除结果。
 func divide(other: GFBigNumber) -> GFBigNumber:
 	if other == null or other.is_zero():
-		push_error("[GFBigNumber] 尝试除以空值或零值。")
+		push_error("[GFBigNumber][big_number.divisor_null_or_zero] Cannot divide by a null or zero value.")
 		return GFBigNumber.zero()
 
 	if is_zero():
@@ -371,7 +371,7 @@ func divide(other: GFBigNumber) -> GFBigNumber:
 
 	var exponent_result: Dictionary = _try_add_exponents(exponent, -other.exponent)
 	if not GFVariantData.get_option_bool(exponent_result, &"ok", false):
-		push_error("[GFBigNumber] 指数超出支持范围。")
+		push_error("[GFBigNumber][big_number.exponent_out_of_range] Exponent exceeds the supported range.")
 		return GFBigNumber.zero()
 
 	return GFBigNumber.new(mantissa / other.mantissa, GFVariantData.get_option_int(exponent_result, &"value"))
@@ -387,7 +387,7 @@ func divide(other: GFBigNumber) -> GFBigNumber:
 func powi(power: int) -> GFBigNumber:
 	if is_zero():
 		if power < 0:
-			push_error("[GFBigNumber] 零值不能提升到负幂。")
+			push_error("[GFBigNumber][big_number.zero_negative_power] Zero cannot be raised to a negative power.")
 			return GFBigNumber.zero()
 		if power == 0:
 			return GFBigNumber.one()
@@ -408,12 +408,12 @@ func powi(power: int) -> GFBigNumber:
 ## @return 幂运算结果。
 func powf(power: float) -> GFBigNumber:
 	if is_nan(power) or is_inf(power):
-		push_error("[GFBigNumber] powf 收到非法指数。")
+		push_error("[GFBigNumber][big_number.power_invalid] powf received an invalid exponent.")
 		return GFBigNumber.zero()
 
 	if is_zero():
 		if power < 0.0:
-			push_error("[GFBigNumber] 零值不能提升到负幂。")
+			push_error("[GFBigNumber][big_number.zero_negative_power] Zero cannot be raised to a negative power.")
 			return GFBigNumber.zero()
 
 		if is_equal_approx(power, 0.0):
@@ -424,7 +424,7 @@ func powf(power: float) -> GFBigNumber:
 	var integer_power: float = round(power)
 	var is_integer_power: bool = is_equal_approx(power, integer_power)
 	if is_negative() and not is_integer_power:
-		push_error("[GFBigNumber] 负数不能执行非整数次幂。")
+		push_error("[GFBigNumber][big_number.negative_fractional_power] A negative number cannot be raised to a non-integer power.")
 		return GFBigNumber.zero()
 
 	var sign_multiplier: float = 1.0
@@ -488,7 +488,7 @@ func to_scientific_string(
 	var mantissa_text: String = _DECIMAL_STRING_FORMATTER.format_decimal_value(output_mantissa, decimal_places, trim_zeroes, use_truncation)
 	if absf(mantissa_text.to_float()) >= 10.0:
 		if not _exponent_is_supported(output_exponent + 1):
-			push_error("[GFBigNumber] 指数超出支持范围。")
+			push_error("[GFBigNumber][big_number.exponent_out_of_range] Exponent exceeds the supported range.")
 			return "0"
 
 		output_mantissa /= 10.0
@@ -504,12 +504,12 @@ func _pow_with_logarithm(power: float, sign_multiplier: float) -> GFBigNumber:
 	var abs_mantissa: float = absf(mantissa)
 	var power_log10: float = (log(abs_mantissa) / log(10.0) + float(exponent)) * power
 	if is_nan(power_log10) or is_inf(power_log10):
-		push_error("[GFBigNumber] 指数超出支持范围。")
+		push_error("[GFBigNumber][big_number.exponent_out_of_range] Exponent exceeds the supported range.")
 		return GFBigNumber.zero()
 
 	var power_log10_floor: float = floor(power_log10)
 	if power_log10_floor < -float(_MAX_EXPONENT_MAGNITUDE) or power_log10_floor > float(_MAX_EXPONENT_MAGNITUDE):
-		push_error("[GFBigNumber] 指数超出支持范围。")
+		push_error("[GFBigNumber][big_number.exponent_out_of_range] Exponent exceeds the supported range.")
 		return GFBigNumber.zero()
 
 	var power_exponent: int = int(power_log10_floor)
@@ -519,7 +519,7 @@ func _pow_with_logarithm(power: float, sign_multiplier: float) -> GFBigNumber:
 
 func _normalize() -> void:
 	if is_nan(mantissa) or is_inf(mantissa):
-		push_error("[GFBigNumber] mantissa 必须是有限浮点值。")
+		push_error("[GFBigNumber][big_number.mantissa_non_finite] mantissa must be finite.")
 		mantissa = 0.0
 		exponent = 0
 		return
@@ -554,7 +554,7 @@ func _normalize() -> void:
 		exponent = 0
 
 	if not _exponent_is_supported(exponent):
-		push_error("[GFBigNumber] 指数超出支持范围。")
+		push_error("[GFBigNumber][big_number.exponent_out_of_range] Exponent exceeds the supported range.")
 		mantissa = 0.0
 		exponent = 0
 

@@ -197,10 +197,10 @@ func validate_for_dispatch(
 	argument_label: String
 ) -> bool:
 	if not _callback.is_valid():
-		push_error("[GFEventListener] 注册的%s无效。" % callback_label)
+		push_error("[GFEventListener][event_listener.callback_invalid] The registered %s is invalid." % callback_label)
 		return false
 	if _dispatch_argument_count != dispatch_argument_count:
-		push_error("[GFEventListener] 注册的%s %s 声明接收 %d 个派发参数，但当前事件会传入 %d 个。" % [
+		push_error("[GFEventListener][event_listener.dispatch_argument_count_mismatch] The registered %s %s declares %d dispatch arguments, but this event supplies %d." % [
 			callback_label,
 			get_debug_label(),
 			_dispatch_argument_count,
@@ -208,14 +208,14 @@ func validate_for_dispatch(
 		])
 		return false
 	if _owner_is_released():
-		push_error("[GFEventListener] 注册的%s %s 的 owner 已释放。" % [callback_label, get_debug_label()])
+		push_error("[GFEventListener][event_listener.callback_owner_freed] The owner of the registered %s %s has been freed." % [callback_label, get_debug_label()])
 		return false
 
 	var target_obj: Object = _callback.get_object()
 	if target_obj == null:
 		return true
 	if not is_instance_valid(target_obj):
-		push_error("[GFEventListener] 注册的%s %s 的目标对象已失效。" % [callback_label, get_debug_label()])
+		push_error("[GFEventListener][event_listener.callback_target_invalid] The target object of the registered %s %s is invalid." % [callback_label, get_debug_label()])
 		return false
 
 	var method_name: StringName = _callback.get_method()
@@ -255,7 +255,7 @@ func _validate_method_arguments(
 	var accepts_varargs: bool = (flags & METHOD_FLAG_VARARG) != 0
 	var method_name: StringName = _callback.get_method()
 	if args.size() < dispatch_argument_count:
-		push_error("[GFEventListener] 注册的%s %s 必须至少包含 %d 个参数用于接收%s。" % [
+		push_error("[GFEventListener][event_listener.callback_arguments_missing] The registered %s %s must accept at least %d arguments for %s." % [
 			callback_label,
 			method_name,
 			dispatch_argument_count,
@@ -263,7 +263,7 @@ func _validate_method_arguments(
 		])
 		return false
 	if not accepts_varargs and args.size() < provided_arg_count:
-		push_error("[GFEventListener] 注册的%s %s 最多接收 %d 个参数，当前会传入 %d 个。" % [
+		push_error("[GFEventListener][event_listener.callback_arguments_exceeded] The registered %s %s accepts at most %d arguments, but %d will be supplied." % [
 			callback_label,
 			method_name,
 			args.size(),
@@ -271,7 +271,7 @@ func _validate_method_arguments(
 		])
 		return false
 	if required_arg_count > provided_arg_count:
-		push_error("[GFEventListener] 注册的%s %s 不能要求超过 %d 个未绑定参数，当前必填 %d 个。" % [
+		push_error("[GFEventListener][event_listener.callback_required_arguments_exceeded] The registered %s %s must require at most %d unbound arguments, but currently requires %d." % [
 			callback_label,
 			method_name,
 			dispatch_argument_count,

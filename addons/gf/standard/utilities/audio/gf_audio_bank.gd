@@ -65,7 +65,7 @@ enum LifecycleState {
 ## @param clip: 片段配置。
 func set_clip(clip_id: StringName, clip: GFAudioClip) -> void:
 	if clip_id == &"":
-		push_error("[GFAudioBank] set_clip 失败：clip_id 为空。")
+		push_error("[GFAudioBank][audio_bank.clip_id_empty] Cannot set_clip: clip_id is empty.")
 		return
 	if clip == null:
 		var _erased: bool = clips.erase(clip_id)
@@ -84,7 +84,7 @@ func set_clip(clip_id: StringName, clip: GFAudioClip) -> void:
 ## @schema clip_list: GFAudioClip 候选数组。
 func set_clips(clip_id: StringName, clip_list: Array[GFAudioClip]) -> void:
 	if clip_id == &"":
-		push_error("[GFAudioBank] set_clips 失败：clip_id 为空。")
+		push_error("[GFAudioBank][audio_bank.clips_id_empty] Cannot set_clips: clip_id is empty.")
 		return
 
 	var valid_clips: Array[GFAudioClip] = []

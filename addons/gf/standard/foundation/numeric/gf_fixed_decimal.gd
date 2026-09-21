@@ -118,12 +118,12 @@ static func from_float(
 ) -> GFFixedDecimal:
 	var places: int = _normalize_decimal_places(p_decimal_places)
 	if is_nan(value) or is_inf(value):
-		push_error("[GFFixedDecimal] from_float 收到非法浮点值。")
+		push_error("[GFFixedDecimal][fixed_decimal.float_invalid] from_float received an invalid floating-point value.")
 		return GFFixedDecimal.new(0, places)
 
 	var scaled_value: float = value * _pow10_float(places)
 	if is_nan(scaled_value) or is_inf(scaled_value) or absf(scaled_value) >= float(_MAX_INT_VALUE):
-		push_error("[GFFixedDecimal] from_float 缩放后超出可表示范围。")
+		push_error("[GFFixedDecimal][fixed_decimal.scaled_float_out_of_range] The scaled from_float value exceeds the representable range.")
 		return GFFixedDecimal.new(0, places)
 
 	var rounded: int = _round_scaled_float(scaled_value, rounding_mode)
@@ -154,7 +154,7 @@ static func from_string(
 	var places: int = _normalize_decimal_places(p_decimal_places)
 	var normalization: Dictionary = _DECIMAL_STRING_FORMATTER.normalize_numeric_text(value, max_input_length)
 	if not GFVariantData.get_option_bool(normalization, "ok"):
-		push_error("[GFFixedDecimal] 无法解析数字字符串（%s）：%s" % [
+		push_error("[GFFixedDecimal][fixed_decimal.number_parse_failed_with_reason] Cannot parse the number string (%s): %s." % [
 			GFVariantData.get_option_string(normalization, "error", "invalid_input"),
 			value.left(128),
 		])
@@ -163,7 +163,7 @@ static func from_string(
 
 	if trimmed.find("e") != -1 or trimmed.find("E") != -1:
 		if not trimmed.is_valid_float():
-			push_error("[GFFixedDecimal] 无法解析数字字符串：%s" % value)
+			push_error("[GFFixedDecimal][fixed_decimal.number_parse_failed] Cannot parse the number string: %s." % value)
 			return GFFixedDecimal.new(0, places)
 		return GFFixedDecimal.from_float(trimmed.to_float(), places, rounding_mode)
 
@@ -182,7 +182,7 @@ static func from_string(
 		fractional_part = trimmed.substr(decimal_index + 1)
 
 	if not _decimal_parts_are_valid(integer_part, fractional_part, decimal_index != -1):
-		push_error("[GFFixedDecimal] 无法解析数字字符串：%s" % value)
+		push_error("[GFFixedDecimal][fixed_decimal.number_parse_failed] Cannot parse the number string: %s." % value)
 		return GFFixedDecimal.new(0, places)
 
 	return GFFixedDecimal.new(
@@ -396,7 +396,7 @@ func divide(
 	rounding_mode: RoundingMode = RoundingMode.HALF_UP
 ) -> GFFixedDecimal:
 	if other == null or other.raw_value == 0:
-		push_error("[GFFixedDecimal] 尝试除以空值或零值。")
+		push_error("[GFFixedDecimal][fixed_decimal.divisor_null_or_zero] Cannot divide by a null or zero value.")
 		var fallback_places: int = decimal_places if target_decimal_places < 0 else _normalize_decimal_places(target_decimal_places)
 		return GFFixedDecimal.new(0, fallback_places)
 
@@ -531,7 +531,7 @@ func apply_dict(data: Dictionary) -> bool:
 		or not _state_value_is_int(raw_data)
 		or not _decimal_places_are_in_serialized_range(places)
 	):
-		push_error("[GFFixedDecimal] 不支持的状态字典格式。")
+		push_error("[GFFixedDecimal][fixed_decimal.state_format_unsupported] Unsupported state dictionary format.")
 		_reset_serialized_zero()
 		return false
 
@@ -571,13 +571,13 @@ func to_bytes() -> PackedByteArray:
 ## @return 字节序列有效并已应用时返回 true。
 func apply_bytes(data: PackedByteArray) -> bool:
 	if not _bytes_have_supported_header(data):
-		push_error("[GFFixedDecimal] 不支持的字节序列格式。")
+		push_error("[GFFixedDecimal][fixed_decimal.byte_format_unsupported] Unsupported byte sequence format.")
 		_reset_serialized_zero()
 		return false
 
 	var signed_value: int = _read_signed_magnitude(data, 6, _BYTE_MAGNITUDE_OFFSET)
 	if _signed_magnitude_is_invalid(signed_value):
-		push_error("[GFFixedDecimal] 不支持的字节序列格式。")
+		push_error("[GFFixedDecimal][fixed_decimal.byte_format_unsupported] Unsupported byte sequence format.")
 		_reset_serialized_zero()
 		return false
 
@@ -713,7 +713,7 @@ static func _divide_with_rounding(
 	rounding_mode: RoundingMode
 ) -> int:
 	if denominator == 0:
-		push_error("[GFFixedDecimal] 尝试进行零除。")
+		push_error("[GFFixedDecimal][fixed_decimal.division_by_zero] Cannot divide by zero.")
 		return 0
 
 	var negative: bool = (numerator < 0) != (denominator < 0)
@@ -793,7 +793,7 @@ static func _divide_with_decimal_strings(
 	rounding_mode: RoundingMode
 ) -> int:
 	if denominator == 0:
-		push_error("[GFFixedDecimal] 尝试进行零除。")
+		push_error("[GFFixedDecimal][fixed_decimal.division_by_zero] Cannot divide by zero.")
 		return 0
 
 	var negative: bool = (numerator < 0) != (denominator < 0)
@@ -1127,7 +1127,7 @@ static func _decimal_string_to_int_saturated(text: String, is_negative: bool, co
 		normalized_text.length() == 19
 		and normalized_text > str(_MAX_INT_VALUE)
 	):
-		push_error("[GFFixedDecimal] %s 结果超出可表示范围，已钳制。" % context)
+		push_error("[GFFixedDecimal][fixed_decimal.result_clamped] The %s result exceeds the representable range and was clamped." % context)
 		return _get_saturated_int(is_negative)
 
 	var result: int = 0
@@ -1189,7 +1189,7 @@ static func _parse_signed_digits(digits: String, sign_multiplier: int) -> int:
 		significant_digits.length() == 19
 		and significant_digits > str(_MAX_INT_VALUE)
 	):
-		push_error("[GFFixedDecimal] 数字超出可表示范围。")
+		push_error("[GFFixedDecimal][fixed_decimal.number_out_of_range] Number exceeds the representable range.")
 		return _get_saturated_int(sign_multiplier < 0)
 
 	var result: int = 0
@@ -1208,7 +1208,7 @@ static func _checked_multiply(left: int, right: int, context: String) -> int:
 
 	var negative: bool = (left < 0) != (right < 0)
 	if not _multiplication_fits(left, right):
-		push_error("[GFFixedDecimal] %s 结果超出可表示范围，已钳制。" % context)
+		push_error("[GFFixedDecimal][fixed_decimal.result_clamped] The %s result exceeds the representable range and was clamped." % context)
 		return _get_saturated_int(negative)
 	return left * right
 
@@ -1226,10 +1226,10 @@ static func _divide_truncated(numerator: int, denominator: int) -> int:
 
 static func _checked_add(left: int, right: int, context: String) -> int:
 	if right > 0 and left > _MAX_INT_VALUE - right:
-		push_error("[GFFixedDecimal] %s 结果超出可表示范围，已钳制。" % context)
+		push_error("[GFFixedDecimal][fixed_decimal.result_clamped] The %s result exceeds the representable range and was clamped." % context)
 		return _MAX_INT_VALUE
 	if right < 0 and left < -_MAX_INT_VALUE - right:
-		push_error("[GFFixedDecimal] %s 结果超出可表示范围，已钳制。" % context)
+		push_error("[GFFixedDecimal][fixed_decimal.result_clamped] The %s result exceeds the representable range and was clamped." % context)
 		return -_MAX_INT_VALUE
 	return left + right
 

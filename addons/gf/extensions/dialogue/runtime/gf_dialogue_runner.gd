@@ -762,7 +762,7 @@ func _get_resource_fingerprint(
 	if not GFVariantData.get_option_bool(identity_report, "ok", false):
 		if report_errors:
 			push_error(
-				"GFDialogueRunner refused an incomplete resource identity (%s at %s)." % [
+				"[GFDialogueRunner][dialogue_runner.incomplete_resource_identity] Refused an incomplete resource identity (%s at %s)." % [
 					GFVariantData.get_option_string(identity_report, "error", "unknown_error"),
 					GFVariantData.get_option_string(identity_report, "path", "$"),
 				]
@@ -783,7 +783,7 @@ func _get_resource_fingerprint(
 	var encoded_identity: String = JSON.stringify(canonical_identity, "", true)
 	if encoded_identity.is_empty():
 		if report_errors:
-			push_error("GFDialogueRunner could not encode the complete resource identity.")
+			push_error("[GFDialogueRunner][dialogue_runner.resource_identity_encoding_failed] Could not encode the complete resource identity.")
 		return ""
 	return encoded_identity.sha256_text()
 

@@ -135,14 +135,14 @@ func test_start_level_rejects_empty_id_without_emitting_started() -> void:
 	assert_true(data.is_empty(), "空关卡 ID 应被拒绝。")
 	assert_eq(_level.current_level_id, &"", "空 ID 不应创建不可操作的当前关卡状态。")
 	assert_signal_not_emitted(_level, "level_started", "空 ID 不应发出 level_started。")
-	assert_push_error("[GFLevelUtility] start_level 失败：关卡 ID 为空。")
+	assert_push_error("[GFLevelUtility][level_utility.empty_start_level_id] start_level failed: level ID is empty.")
 
 
 func test_load_level_data_rejects_empty_id_before_provider_lookup() -> void:
 	var data: Dictionary = _level.load_level_data("")
 
 	assert_true(data.is_empty(), "空关卡 ID 不应进入配置或目录查询。")
-	assert_push_error("[GFLevelUtility] load_level_data 失败：关卡 ID 为空。")
+	assert_push_error("[GFLevelUtility][level_utility.empty_load_level_id] load_level_data failed: level ID is empty.")
 
 
 func test_start_level_signal_data_cannot_mutate_current_state() -> void:
@@ -164,7 +164,7 @@ func test_strict_start_level_rejects_missing_data() -> void:
 
 	assert_true(data.is_empty(), "严格模式下缺失关卡数据应返回空字典。")
 	assert_eq(_level.current_level_id, &"", "严格模式下缺失关卡不应更新 current_level_id。")
-	assert_push_error("[GFLevelUtility] 找不到关卡数据：missing")
+	assert_push_error("[GFLevelUtility][level_utility.missing_level_data] Level data was not found: missing.")
 
 
 func test_restart_level_clears_runtime_and_emits_signal() -> void:
@@ -201,7 +201,7 @@ func test_strict_restart_resolves_data_before_runtime_cleanup() -> void:
 	assert_eq(_level.current_level_id, &"1", "失败重开不得改变当前关卡 ID。")
 	assert_eq(_level.current_level_data, before_data, "失败重开不得改变当前关卡数据。")
 	assert_eq(started_data, before_data, "测试基线应保存启动时的稳定数据。")
-	assert_push_error("[GFLevelUtility] 找不到关卡数据：1")
+	assert_push_error("[GFLevelUtility][level_utility.missing_level_data] Level data was not found: 1.")
 
 
 func test_register_runtime_cleanup_tracks_callbacks() -> void:

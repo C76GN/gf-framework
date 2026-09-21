@@ -71,7 +71,7 @@ func gather(node: Node, context: Dictionary = {}) -> Dictionary:
 		var property_value: Variant = GFObjectPropertyTools.read_property(node, NodePath(property_name))
 		var encoded_value: Variant = _encode_payload_property_value(property_value, context)
 		if _is_unsupported_property_marker(encoded_value):
-			push_warning("[GFNodePropertySerializer] Unsupported property value skipped: %s" % property_name)
+			push_warning("[GFNodePropertySerializer][node_property_serializer.unsupported_property_value] Unsupported property value skipped: %s." % property_name)
 			continue
 		result[property_name] = encoded_value
 	return result

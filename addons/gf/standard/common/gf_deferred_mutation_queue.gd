@@ -178,10 +178,10 @@ func dispose() -> void:
 ## @return 变更句柄；mutation 无效时返回 0。
 func record(mutation: Callable, options: Dictionary = {}) -> int:
 	if not mutation.is_valid():
-		push_error("[GFDeferredMutationQueue] record 失败：mutation 无效。")
+		push_error("[GFDeferredMutationQueue][deferred_mutation_queue.mutation_invalid] Cannot record: mutation is invalid.")
 		return 0
 	if options.has("owner") or options.has(&"owner"):
-		push_error("[GFDeferredMutationQueue] record 失败：owner 选项已移除，请使用 record_method()。")
+		push_error("[GFDeferredMutationQueue][deferred_mutation_queue.record_owner_removed] Cannot record: the owner option was removed; use record_method().")
 		return 0
 
 	return _enqueue(mutation, options)
@@ -210,10 +210,10 @@ func record_method(
 	options: Dictionary = {}
 ) -> int:
 	if owner == null or not is_instance_valid(owner):
-		push_error("[GFDeferredMutationQueue] record_method 失败：owner 无效。")
+		push_error("[GFDeferredMutationQueue][deferred_mutation_queue.record_method_owner_invalid] Cannot record_method: owner is invalid.")
 		return 0
 	if method_name == &"":
-		push_error("[GFDeferredMutationQueue] record_method 失败：method_name 为空。")
+		push_error("[GFDeferredMutationQueue][deferred_mutation_queue.record_method_name_empty] Cannot record_method: method_name is empty.")
 		return 0
 
 	var invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(owner, method_name)

@@ -90,7 +90,7 @@ func execute() -> Variant:
 		_clear_original_color()
 		return null
 	if not target.is_inside_tree():
-		push_warning("[GFFlashAction] 带时长动作需要位于场景树内的目标。")
+		push_warning("[GFFlashAction][flash_action.target_outside_tree] A timed action requires a target inside the scene tree.")
 		_clear_original_color()
 		return null
 
@@ -167,14 +167,14 @@ func _clear_active_tween(restore_original: bool = false) -> void:
 
 func _get_color_property_value() -> Variant:
 	if not _has_target_property_path():
-		push_warning("[GFFlashAction] 目标属性不存在：%s。" % String(property_name))
+		push_warning("[GFFlashAction][flash_action.missing_property] Target property does not exist: %s." % String(property_name))
 		return null
 
 	var value: Variant = target.get_indexed(property_name)
 	if value is Color:
 		return value
 
-	push_warning("[GFFlashAction] 目标属性不是 Color：%s。" % String(property_name))
+	push_warning("[GFFlashAction][flash_action.invalid_color_property] Target property is not a Color: %s." % String(property_name))
 	return null
 
 

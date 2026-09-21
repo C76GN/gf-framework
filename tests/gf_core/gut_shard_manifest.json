@@ -5,8 +5,8 @@
   "balancing_basis": "bootstrap_unweighted",
   "timing_observation_run_count": 0,
   "required_timing_observation_run_count": 5,
-  "script_count": 391,
-  "inventory_digest": "e8a8ae6d083977d0e117ab5973e9c385d725643c57d94d493740f15d5dd81204",
+  "script_count": 392,
+  "inventory_digest": "72beb846375a7fe8c0ca036f9988bcd69f53f0647cc2ae717ffc87cdf7f1b970",
   "shards": [
     {
       "name": "gut-contracts",
@@ -18,6 +18,7 @@
         "res://tests/gf_core/maintenance/test_docs_structure_validation.gd",
         "res://tests/gf_core/maintenance/test_gdscript_layout_validation.gd",
         "res://tests/gf_core/maintenance/test_gdscript_parse_validation.gd",
+        "res://tests/gf_core/maintenance/test_gf_diagnostic_output_contract.gd",
         "res://tests/gf_core/maintenance/test_layer_boundary_validation.gd",
         "res://tests/gf_core/support/test_gf_test_lifecycle_scope.gd"
       ]

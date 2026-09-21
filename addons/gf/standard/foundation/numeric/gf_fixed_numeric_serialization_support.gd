@@ -30,7 +30,7 @@ static func normalize_decimal_places(value: int, owner_name: String) -> int:
 	if value < 0:
 		return 0
 	if value > _MAX_DECIMAL_PLACES:
-		push_error("[%s] decimal_places 超出上限 %d，已自动钳制。" % [
+		push_error("[GFFixedNumericSerializationSupport][fixed_numeric_serialization_support.decimal_places_clamped] %s: decimal_places exceeds the limit %d and was clamped." % [
 			owner_name,
 			_MAX_DECIMAL_PLACES,
 		])
@@ -79,10 +79,10 @@ static func raw_value_is_supported(value: int) -> bool:
 ## @return 钳制后的 raw 值。
 static func normalize_raw_value(value: int, owner_name: String, context: String) -> int:
 	if value < -_MAX_SIGNED_MAGNITUDE:
-		push_error("[%s] %s 超出可表示范围，已钳制。" % [owner_name, context])
+		push_error("[GFFixedNumericSerializationSupport][fixed_numeric_serialization_support.value_clamped] %s: %s exceeds the representable range and was clamped." % [owner_name, context])
 		return -_MAX_SIGNED_MAGNITUDE
 	if value > _MAX_SIGNED_MAGNITUDE:
-		push_error("[%s] %s 超出可表示范围，已钳制。" % [owner_name, context])
+		push_error("[GFFixedNumericSerializationSupport][fixed_numeric_serialization_support.value_clamped] %s: %s exceeds the representable range and was clamped." % [owner_name, context])
 		return _MAX_SIGNED_MAGNITUDE
 	return value
 

@@ -1,0 +1,194 @@
+{
+  "schema_version": 1,
+  "forwarders": [
+    {
+      "path": "addons/gf/extensions/save/graph/gf_save_graph_utility.gd",
+      "function": "gather_scope",
+      "callee": "push_error",
+      "argument": "duplicate_source_error",
+      "count": 1,
+      "kind": "framework_message",
+      "reason": "The preceding local producer constructs the coded duplicate-source message, also returned in the gather report."
+    },
+    {
+      "path": "addons/gf/extensions/save/graph/gf_save_graph_utility.gd",
+      "function": "gather_scope",
+      "callee": "push_error",
+      "argument": "child_gather_error",
+      "count": 1,
+      "kind": "framework_message",
+      "reason": "The preceding local producer constructs the coded child-gather failure, preserving the same report detail."
+    },
+    {
+      "path": "addons/gf/extensions/save/graph/gf_save_graph_utility.gd",
+      "function": "gather_scope",
+      "callee": "push_error",
+      "argument": "duplicate_child_error",
+      "count": 1,
+      "kind": "framework_message",
+      "reason": "The preceding local producer constructs the coded duplicate-child failure used in the gather report."
+    },
+    {
+      "path": "addons/gf/kernel/core/gf.gd",
+      "function": "_report_project_installer_error",
+      "callee": "push_error",
+      "argument": "message",
+      "count": 1,
+      "kind": "framework_message",
+      "reason": "Installer admission callers supply complete coded templates and share the same detail with architecture failure settlement."
+    },
+    {
+      "path": "addons/gf/kernel/core/gf_architecture.gd",
+      "function": "_fail_initialization",
+      "callee": "push_error",
+      "argument": "reason",
+      "count": 1,
+      "kind": "project_message",
+      "reason": "Public fail_initialization accepts project-owned failure text; internal callers provide coded English templates without rewriting caller text."
+    },
+    {
+      "path": "addons/gf/kernel/core/gf_binding_plan.gd",
+      "function": "_settle_boundary_rejection",
+      "callee": "push_error",
+      "argument": "result . get_detail ( )",
+      "count": 1,
+      "kind": "framework_message",
+      "reason": "Binding rejection results contain the complete coded template produced by the shared boundary validator."
+    },
+    {
+      "path": "addons/gf/kernel/core/gf_project_reference_scanner.gd",
+      "function": "_emit_scan_warning",
+      "callee": "push_warning",
+      "argument": "warning_message",
+      "count": 1,
+      "kind": "framework_message",
+      "reason": "Scanner producers supply coded English bodies; warning_prefix remains a documented project-owned label and is prepended without translating either value."
+    },
+    {
+      "path": "addons/gf/kernel/extension/gf_extension_usage_audit.gd",
+      "function": "_emit_class_scan_warning",
+      "callee": "push_warning",
+      "argument": "warning_message",
+      "count": 1,
+      "kind": "framework_message",
+      "reason": "The helper prepends its fixed owner to coded English scan-budget and source-read details before preserving and emitting the same warning."
+    },
+    {
+      "path": "addons/gf/standard/common/gf_async_wait_support.gd",
+      "function": "await_signal_state",
+      "callee": "push_warning",
+      "argument": "timeout_warning",
+      "count": 1,
+      "kind": "project_message",
+      "reason": "The public timeout_warning argument is arbitrary caller-owned text; framework callers supply coded English templates."
+    },
+    {
+      "path": "addons/gf/standard/utilities/assets/gf_asset_utility.gd",
+      "function": "preload_plan_async",
+      "callee": "push_error",
+      "argument": "null_message",
+      "count": 1,
+      "kind": "framework_message",
+      "reason": "The local coded null-plan message is shared by the operation result and native diagnostic."
+    },
+    {
+      "path": "addons/gf/standard/utilities/assets/gf_asset_utility.gd",
+      "function": "preload_plan_async",
+      "callee": "push_error",
+      "argument": "message",
+      "count": 1,
+      "kind": "framework_message",
+      "reason": "The local coded invalid-plan message is shared by the operation result and native diagnostic."
+    },
+    {
+      "path": "addons/gf/standard/utilities/history/gf_command_history_utility.gd",
+      "function": "_push_history_operation_rejection",
+      "callee": "push_warning",
+      "argument": "async_message if _is_processing_async else sync_message",
+      "count": 1,
+      "kind": "framework_message",
+      "reason": "Private history operation callers supply distinct coded synchronous and asynchronous rejection templates."
+    },
+    {
+      "path": "addons/gf/standard/utilities/logging/gf_log_utility.gd",
+      "function": "_log",
+      "callee": "push_error",
+      "argument": "formatted",
+      "count": 1,
+      "kind": "project_message",
+      "reason": "Project logging is a general-purpose sink; tag, message and context keep the caller's language and existing severity/filter semantics."
+    },
+    {
+      "path": "addons/gf/standard/utilities/logging/gf_log_utility.gd",
+      "function": "_log",
+      "callee": "push_warning",
+      "argument": "formatted",
+      "count": 1,
+      "kind": "project_message",
+      "reason": "Project logging is a general-purpose sink; tag, message and context keep the caller's language and existing severity/filter semantics."
+    },
+    {
+      "path": "addons/gf/standard/utilities/scene/gf_scene_utility.gd",
+      "function": "load_scene_async",
+      "callee": "push_error",
+      "argument": "validation_error",
+      "count": 1,
+      "kind": "framework_message",
+      "reason": "Scene-path validation produces complete coded English messages shared by all load entry points."
+    },
+    {
+      "path": "addons/gf/standard/utilities/scene/gf_scene_utility.gd",
+      "function": "activate_background_scene",
+      "callee": "push_error",
+      "argument": "validation_error",
+      "count": 1,
+      "kind": "framework_message",
+      "reason": "Scene-path validation produces complete coded English messages shared by all load entry points."
+    },
+    {
+      "path": "addons/gf/standard/utilities/scene/gf_scene_utility.gd",
+      "function": "load_previous_scene",
+      "callee": "push_error",
+      "argument": "validation_error",
+      "count": 1,
+      "kind": "framework_message",
+      "reason": "Scene-path validation produces complete coded English messages shared by all load entry points."
+    },
+    {
+      "path": "addons/gf/standard/utilities/scene/gf_scene_utility.gd",
+      "function": "_preload_scene_with_admission",
+      "callee": "push_error",
+      "argument": "validation_error",
+      "count": 1,
+      "kind": "framework_message",
+      "reason": "Scene-path validation produces complete coded English messages shared by all load entry points."
+    },
+    {
+      "path": "addons/gf/standard/utilities/scene/gf_scene_utility.gd",
+      "function": "_fail_loading",
+      "callee": "push_error",
+      "argument": "message",
+      "count": 1,
+      "kind": "framework_message",
+      "reason": "Private scene-loading failure callers supply coded English templates and preserve the same message for completion callbacks."
+    },
+    {
+      "path": "addons/gf/standard/utilities/storage/editor/gf_storage_viewer_dock.gd",
+      "function": "_set_status",
+      "callee": "push_warning",
+      "argument": "diagnostic_message",
+      "count": 1,
+      "kind": "framework_message",
+      "reason": "Callers explicitly separate localized status-label text from a complete coded English developer diagnostic."
+    },
+    {
+      "path": "addons/gf/standard/utilities/time/gf_time_utility.gd",
+      "function": "_report_non_finite_once",
+      "callee": "push_error",
+      "argument": "message",
+      "count": 1,
+      "kind": "framework_message",
+      "reason": "Private time validation callers supply coded English templates; the helper retains existing once-per-operation emission semantics."
+    }
+  ]
+}

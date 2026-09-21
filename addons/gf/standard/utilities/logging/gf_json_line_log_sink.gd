@@ -118,7 +118,7 @@ func init(owner: Object) -> void:
 	_file = _open_jsonl_file(_effective_file_path)
 	if _file == null:
 		if _last_error == OK:
-			_record_error(FileAccess.get_open_error(), "无法创建日志文件：%s" % _effective_file_path, true)
+			_record_error(FileAccess.get_open_error(), "Cannot create log file: %s" % _effective_file_path, true)
 	else:
 		_active_files.append(weakref(_file))
 		_last_flush_msec = Time.get_ticks_msec()
@@ -148,7 +148,7 @@ func write(entry: Dictionary) -> void:
 	var stored: bool = _file.store_line(JSON.stringify(payload))
 	if not stored:
 		_write_error_count += 1
-		_record_error(_file.get_error(), "无法写入 JSONL 日志：%s" % _effective_file_path, true)
+		_record_error(_file.get_error(), "Cannot write JSONL log: %s" % _effective_file_path, true)
 		return
 	_has_unflushed_data = true
 	_flush_if_needed()
@@ -248,15 +248,15 @@ func _resolve_file_path(owner: Object) -> String:
 func _normalize_custom_file_path(path: String) -> String:
 	var normalized: String = path.replace("\\", "/").strip_edges()
 	if normalized.is_empty():
-		_record_error(ERR_INVALID_PARAMETER, "JSONL 日志路径为空", true)
+		_record_error(ERR_INVALID_PARAMETER, "JSONL log path is empty", true)
 		return ""
 	if not normalized.contains("://"):
 		if normalized.is_absolute_path() or normalized.contains(":") or _has_parent_segment(normalized):
-			_record_error(ERR_INVALID_PARAMETER, "相对 JSONL 日志路径不能越过 user://logs：%s" % path, true)
+			_record_error(ERR_INVALID_PARAMETER, "Relative JSONL log path must stay under user://logs: %s" % path, true)
 			return ""
 		return "user://logs".path_join(normalized.simplify_path())
 	if not normalized.begins_with("user://") or _has_parent_segment(normalized):
-		_record_error(ERR_INVALID_PARAMETER, "JSONL 日志路径必须位于 user:// 且不能包含父级越界片段：%s" % path, true)
+		_record_error(ERR_INVALID_PARAMETER, "JSONL log path must stay under user:// without parent traversal: %s" % path, true)
 		return ""
 	return "user://%s" % normalized.trim_prefix("user://").simplify_path()
 
@@ -277,14 +277,14 @@ func _ensure_parent_dir(path: String) -> Error:
 	if not DirAccess.dir_exists_absolute(absolute_base_dir):
 		var make_dir_error: Error = DirAccess.make_dir_recursive_absolute(absolute_base_dir)
 		if make_dir_error != OK:
-			_record_error(make_dir_error, "无法创建 JSONL 日志目录：%s" % base_dir, true)
+			_record_error(make_dir_error, "Cannot create JSONL log directory: %s" % base_dir, true)
 			return make_dir_error
 	return OK
 
 
 func _open_jsonl_file(path: String) -> FileAccess:
 	if file_open_mode == FileOpenMode.FAIL_IF_EXISTS and FileAccess.file_exists(path):
-		_record_error(ERR_ALREADY_EXISTS, "JSONL 日志文件已存在：%s" % path, true)
+		_record_error(ERR_ALREADY_EXISTS, "JSONL log file already exists: %s" % path, true)
 		return null
 
 	if file_open_mode == FileOpenMode.APPEND:
@@ -321,7 +321,7 @@ func _cleanup_old_jsonl_files() -> void:
 	var list_error: Error = dir.list_dir_begin()
 	if list_error != OK:
 		_cleanup_error_count += 1
-		_record_error(list_error, "无法列出 JSONL 日志目录：%s" % base_dir)
+		_record_error(list_error, "Cannot list JSONL log directory: %s" % base_dir)
 		return
 	var file_name: String = dir.get_next()
 	while file_name != "":
@@ -353,12 +353,12 @@ func _cleanup_old_jsonl_files() -> void:
 		var remove_error: Error = DirAccess.remove_absolute(candidate_path)
 		if remove_error != OK:
 			_cleanup_error_count += 1
-			_record_error(remove_error, "无法清理旧 JSONL 日志：%s" % candidate_path)
+			_record_error(remove_error, "Cannot remove old JSONL log: %s" % candidate_path)
 		else:
 			to_remove -= 1
 
 
 func _record_error(error: Error, message: String, _as_error: bool = false) -> void:
 	_last_error = error
-	_last_error_message = "%s，错误码：%s" % [message, error]
-	push_warning("[GFJsonLineLogSink] %s" % _last_error_message)
+	_last_error_message = "%s, error code: %s" % [message, error]
+	push_warning("[GFJsonLineLogSink][json_line_log_sink.sink_failed] Log sink failed: %s." % _last_error_message)

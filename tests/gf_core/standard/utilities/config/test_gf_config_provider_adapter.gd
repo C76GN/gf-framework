@@ -77,7 +77,7 @@ func test_config_provider_adapter_rejects_mismatched_schema_without_clearing_exi
 	assert_true(provider.has_schema(&"items"), "失败注册不应清掉原 schema。")
 	assert_false(provider.has_schema(&"runtime_items"), "失败注册不应留下错名 schema。")
 	assert_eq(GFVariantData.get_option_string(record, "name"), "Potion", "失败注册不应替换原表源。")
-	assert_push_error("[GFConfigProviderAdapter] register_table_source 失败：schema.table_name 与 table_name 不一致。")
+	assert_push_error("[GFConfigProviderAdapter][config_provider_adapter.schema_table_name_mismatch] Cannot register_table_source: schema.table_name does not match table_name.")
 
 
 func test_config_provider_adapter_clear_cache_updates_load_report() -> void:

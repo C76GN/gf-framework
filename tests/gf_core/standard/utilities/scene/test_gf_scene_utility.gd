@@ -94,7 +94,7 @@ func test_failed_load_restores_previous_scene_after_loading_scene() -> void:
 
 	var _load_error: Error = _scene_util.load_scene_async("res://icon.svg", loading_scene_path)
 
-	assert_push_error("[GFSceneUtility] load_scene_async 失败：资源不是 PackedScene：res://icon.svg")
+	assert_push_error("[GFSceneUtility][scene_utility.resource_not_scene] load_scene_async failed: resource is not a PackedScene: res://icon.svg.")
 	assert_false(_is_scene_utility_loading(_scene_util), "前置校验失败后不应进入 loading 状态。")
 	assert_eq(_scene_util.sync_scene_changes.size(), 0, "前置校验失败不应切到 loading scene。")
 	assert_eq(_scene_util.packed_scene_changes, 0, "错误资源不应触发正式场景切换。")
@@ -111,7 +111,7 @@ func test_failed_load_preserves_transients() -> void:
 	var arch: GFArchitecture = Gf.get_architecture()
 	assert_eq(arch.get_model(DummyModel), model, "异步切场失败后不应清理仍属于当前场景的瞬态 Model。")
 	assert_false(model.disposed, "异步切场失败不应触发瞬态 Model 的 dispose()。")
-	assert_push_error("[GFSceneUtility] load_scene_async 失败：资源不是 PackedScene：res://icon.svg")
+	assert_push_error("[GFSceneUtility][scene_utility.resource_not_scene] load_scene_async failed: resource is not a PackedScene: res://icon.svg.")
 
 
 func test_empty_scene_path_fails_before_loading_state_changes() -> void:
@@ -121,7 +121,7 @@ func test_empty_scene_path_fails_before_loading_state_changes() -> void:
 
 	assert_false(_is_scene_utility_loading(_scene_util), "空路径不应进入 loading 状态。")
 	assert_signal_emitted(_scene_util, "scene_load_failed", "前置校验失败仍应发出失败信号。")
-	assert_push_error("[GFSceneUtility] load_scene_async 失败：path 为空。")
+	assert_push_error("[GFSceneUtility][scene_utility.path_empty] load_scene_async failed: path is empty.")
 
 
 func test_preloaded_scene_cache_uses_lru_eviction() -> void:
@@ -202,7 +202,7 @@ func test_scene_path_normalization_rejects_parent_escape_above_res_root() -> voi
 
 	assert_eq(error, ERR_INVALID_PARAMETER, "越过 res:// 根的路径应 fail closed。")
 	assert_true(_scene_util.threaded_requested_paths.is_empty(), "根逃逸路径不得发起底层加载。")
-	assert_push_error("[GFSceneUtility] preload_scene 失败：path 为空。")
+	assert_push_error("[GFSceneUtility][scene_utility.path_empty] preload_scene failed: path is empty.")
 
 
 func test_setting_preloaded_scene_limit_to_zero_clears_cache() -> void:
@@ -230,6 +230,62 @@ func test_load_scene_async_uses_preloaded_scene() -> void:
 	assert_eq(_scene_util.packed_scene_changes, 1, "安全帧后应切换 PackedScene。")
 	assert_false(_is_scene_utility_loading(_scene_util), "缓存命中完成切场后应重置 loading 状态。")
 	assert_signal_emitted(_scene_util, "scene_load_completed", "缓存命中也应发出加载完成信号。")
+
+
+func test_missing_optional_loading_scene_warns_and_loads_target() -> void:
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	var loading_scene_path: String = "res://tests/不存在的加载场景.tscn"
+	_scene_util.put_preloaded_scene(scene_path, _make_empty_scene())
+	watch_signals(_scene_util)
+
+	var load_error: Error = _scene_util.load_scene_async(scene_path, loading_scene_path)
+
+	assert_eq(load_error, OK, "可选 loading scene 缺失不应拒绝有效目标场景。")
+	assert_push_warning(
+		"[GFSceneUtility][scene_utility.optional_loading_scene_invalid] Ignoring the optional loading scene.\n"
+		+ "[GFSceneUtility][scene_utility.resource_missing] loading_scene failed: resource does not exist: %s." % loading_scene_path
+	)
+	assert_true(_is_scene_utility_loading(_scene_util))
+	assert_signal_not_emitted(_scene_util, "scene_load_failed")
+
+	_scene_util.tick(0.0)
+	_scene_util.confirm_target_scene_commit()
+
+	assert_eq(_scene_util.packed_scene_changes, 1, "忽略可选 loading scene 后仍应提交目标场景。")
+	assert_eq(_scene_util.current_scene_path, scene_path)
+	assert_true(_scene_util.sync_scene_changes.is_empty(), "不能切入无效的 loading scene。")
+	assert_false(_is_scene_utility_loading(_scene_util))
+	assert_signal_emitted(_scene_util, "scene_load_completed")
+	assert_signal_not_emitted(_scene_util, "loading_scene_shown")
+	assert_signal_not_emitted(_scene_util, "scene_load_failed")
+
+
+func test_non_scene_optional_loading_resource_warns_and_loads_target() -> void:
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	var loading_scene_path: String = "res://icon.svg"
+	_scene_util.put_preloaded_scene(scene_path, _make_empty_scene())
+	watch_signals(_scene_util)
+
+	var load_error: Error = _scene_util.load_scene_async(scene_path, loading_scene_path)
+
+	assert_eq(load_error, OK, "可选 loading scene 类型错误不应拒绝有效目标场景。")
+	assert_push_warning(
+		"[GFSceneUtility][scene_utility.optional_loading_scene_invalid] Ignoring the optional loading scene.\n"
+		+ "[GFSceneUtility][scene_utility.resource_not_scene] loading_scene failed: resource is not a PackedScene: %s." % loading_scene_path
+	)
+	assert_true(_is_scene_utility_loading(_scene_util))
+	assert_signal_not_emitted(_scene_util, "scene_load_failed")
+
+	_scene_util.tick(0.0)
+	_scene_util.confirm_target_scene_commit()
+
+	assert_eq(_scene_util.packed_scene_changes, 1, "忽略可选 loading scene 后仍应提交目标场景。")
+	assert_eq(_scene_util.current_scene_path, scene_path)
+	assert_true(_scene_util.sync_scene_changes.is_empty(), "不能切入无效的 loading scene。")
+	assert_false(_is_scene_utility_loading(_scene_util))
+	assert_signal_emitted(_scene_util, "scene_load_completed")
+	assert_signal_not_emitted(_scene_util, "loading_scene_shown")
+	assert_signal_not_emitted(_scene_util, "scene_load_failed")
 
 
 func test_loading_scene_change_is_deferred_until_safe_tick() -> void:
@@ -478,7 +534,7 @@ func test_scene_transition_reports_immediate_target_validation_failure() -> void
 
 	assert_eq(error, ERR_INVALID_PARAMETER, "配置入口不得把同步校验失败伪装成已成功发起。")
 	assert_false(_is_scene_utility_loading(_scene_util), "校验失败不得留下活动加载状态。")
-	assert_push_error("[GFSceneUtility] load_scene_async 失败：资源不是 PackedScene：res://icon.svg")
+	assert_push_error("[GFSceneUtility][scene_utility.resource_not_scene] load_scene_async failed: resource is not a PackedScene: res://icon.svg.")
 
 
 func test_scene_transition_config_serializes_params_and_minimum_duration() -> void:
@@ -1223,7 +1279,7 @@ func test_typed_load_via_preload_shares_resource_type_mismatch_terminal() -> voi
 	_scene_util.threaded_complete = true
 	_scene_util.tick(0.0)
 	assert_push_error(
-		"[GFSceneUtility] 预加载完成，但目标资源不是 PackedScene：%s"
+		"[GFSceneUtility][scene_utility.preload_result_not_scene] Preloading completed, but the target resource is not a PackedScene: %s."
 		% scene_path
 	)
 	_assert_typed_terminal(
@@ -1262,7 +1318,7 @@ func test_typed_load_via_preload_prefreezes_shared_runtime_failure() -> void:
 	_scene_util.threaded_failed = true
 	_scene_util.tick(0.0)
 	assert_push_error(
-		"[GFSceneUtility] 场景预加载失败：%s" % scene_path
+		"[GFSceneUtility][scene_utility.preload_failed] Scene preloading failed: %s." % scene_path
 	)
 	_assert_typed_terminal(
 		preload_operation,
@@ -1499,7 +1555,10 @@ func test_typed_load_failed_super_can_fall_back_to_sync_custom_commit() -> void:
 		"Required object \"rp_scene\" is null.",
 		"测试显式接纳 super 使用 null PackedScene 的原生拒绝诊断。"
 	)
-	assert_push_error("[GFSceneUtility] 切换到目标场景失败，错误码：")
+	assert_push_error(
+		"[GFSceneUtility][scene_utility.target_transition_failed] Cannot switch to the target scene, error code: %d."
+		% ERR_INVALID_PARAMETER
+	)
 	assert_true(utility.framework_change_failed)
 	_assert_typed_terminal(operation, "COMPLETED", "REASON_SCENE_LOADED", OK)
 	assert_false(
@@ -3738,7 +3797,7 @@ func test_failed_load_listener_dispose_does_not_publish_duplicate_failure() -> v
 	_scene_util.threaded_failed = true
 
 	_scene_util.tick(0.0)
-	assert_push_error("[GFSceneUtility] 场景异步加载失败：%s" % scene_path)
+	assert_push_error("[GFSceneUtility][scene_utility.async_load_failed] Asynchronous scene loading failed: %s." % scene_path)
 	_assert_typed_terminal(
 		operation,
 		"FAILED",

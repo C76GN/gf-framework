@@ -328,7 +328,7 @@ func _resolve_rng(rng: Variant) -> Variant:
 		return rng
 
 	if rng != null:
-		push_error("[GFWeightedTable] rng 必须是 RandomNumberGenerator 或 GFDeterministicRandom。")
+		push_error("[GFWeightedTable][weighted_table.rng_type_invalid] rng must be a RandomNumberGenerator or GFDeterministicRandom.")
 
 	if deterministic_seed != 0:
 		return GFDeterministicRandom.from_seed(deterministic_seed)

@@ -144,7 +144,7 @@ func test_undo_last_rejects_async_command_and_preserves_stack() -> void:
 	assert_true(cmd.undo_called, "同步 undo_last 应调用命令以识别返回值。")
 	assert_eq(_history.undo_count, 1, "异步命令被拒绝后应放回撤销栈。")
 	assert_eq(_history.redo_count, 0, "异步命令被拒绝后不应进入重做栈。")
-	assert_push_warning("[GFCommandHistoryUtility] undo_last() 不支持异步命令，请使用 await undo_last_async()。")
+	assert_push_warning("[GFCommandHistoryUtility][command_history_utility.synchronous_undo_async_command] undo_last() does not support asynchronous commands; use await undo_last_async().")
 
 
 func test_failed_sync_undo_preserves_both_stack_orders() -> void:
@@ -226,7 +226,7 @@ func test_redo_rejects_async_command_and_preserves_stack() -> void:
 	assert_false(result, "同步 redo 不应接受异步命令。")
 	assert_eq(_history.undo_count, 0, "异步 redo 被拒绝后不应进入撤销栈。")
 	assert_eq(_history.redo_count, 1, "异步 redo 被拒绝后应放回重做栈。")
-	assert_push_warning("[GFCommandHistoryUtility] redo() 不支持异步命令，请使用 await redo_async()。")
+	assert_push_warning("[GFCommandHistoryUtility][command_history_utility.synchronous_redo_async_command] redo() does not support asynchronous commands; use await redo_async().")
 
 
 func test_failed_sync_redo_preserves_both_stack_orders() -> void:
@@ -329,10 +329,10 @@ func test_sync_outcome_hook_cannot_clear_or_reenter_history() -> void:
 	assert_eq(cmd.nested_execute_count, 0, "结果 hook 内的嵌套 execute_command 不得执行业务命令。")
 	assert_true(cmd.nested_execute_result == null, "被拒绝的嵌套 execute_command 应返回 null。")
 	assert_eq(cmd.observed_max_history_size, 3, "结果 hook 内不得修改历史容量。")
-	assert_push_warning("[GFCommandHistoryUtility] 当前正在处理历史操作，忽略新的历史记录。")
-	assert_push_warning("[GFCommandHistoryUtility] 当前正在处理历史操作，忽略新的执行请求。")
-	assert_push_warning("[GFCommandHistoryUtility] 当前正在处理历史操作，忽略容量修改请求。")
-	assert_push_warning("[GFCommandHistoryUtility] 当前正在处理历史操作，忽略清空请求。")
+	assert_push_warning("[GFCommandHistoryUtility][command_history_utility.record_during_operation] A history operation is active; new history record ignored.")
+	assert_push_warning("[GFCommandHistoryUtility][command_history_utility.execute_during_operation] A history operation is active; new execution request ignored.")
+	assert_push_warning("[GFCommandHistoryUtility][command_history_utility.capacity_change_during_operation] A history operation is active; capacity change ignored.")
+	assert_push_warning("[GFCommandHistoryUtility][command_history_utility.clear_during_operation] A history operation is active; clear request ignored.")
 	assert_eq(cmd.observed_serialized_history, serialized_before, "结果 hook 内序列化必须观察到提交前完整历史。")
 	_assert_same_history_ids(cmd.observed_undo_history_ids, undo_before, "结果 hook 内撤销栈必须保持提交前身份与顺序。")
 	_assert_same_history_ids(cmd.observed_redo_history_ids, redo_before, "结果 hook 内重做栈必须保持提交前身份与顺序。")
@@ -422,8 +422,8 @@ func test_async_stall_warning_keeps_history_locked_until_late_completion() -> vo
 
 	assert_false(_history.is_processing_async, "真实完成后应释放历史锁。")
 	assert_eq(_history.redo_count, 1, "迟到完成后命令应只进入正确的 redo 栈。")
-	assert_push_warning("[GFCommandHistoryUtility] 异步命令尚未完成；历史锁将保持到真实终态。")
-	assert_push_warning("[GFCommandHistoryUtility] 当前正在处理异步命令，忽略新的历史记录。")
+	assert_push_warning("[GFCommandHistoryUtility][command_history_utility.async_command_pending] The asynchronous command is still pending; the history lock remains held until its actual terminal state.")
+	assert_push_warning("[GFCommandHistoryUtility][command_history_utility.record_during_async_command] An asynchronous command is active; new history record ignored.")
 
 
 func test_dispose_cancels_pending_async_history_operation() -> void:
@@ -612,7 +612,7 @@ func test_deserialize_history_failure_preserves_existing_stacks() -> void:
 	_history.deserialize_history([{ "snapshot": 1 }], Callable())
 
 	_assert_history_identity(undo_before, redo_before, "无效 builder")
-	assert_push_error("[GFCommandHistoryUtility] deserialize_history 失败：传入的 builder Callable 无效。")
+	assert_push_error("[GFCommandHistoryUtility][command_history_utility.history_builder_invalid] Cannot deserialize_history: the supplied builder Callable is invalid.")
 
 	var builder_state: Dictionary = { "build_count": 0 }
 	var late_failure_builder: Callable = func(_data: Dictionary) -> Variant:
@@ -625,14 +625,14 @@ func test_deserialize_history_failure_preserves_existing_stacks() -> void:
 	)
 
 	_assert_history_identity(undo_before, redo_before, "中途构建失败")
-	assert_push_error("[GFCommandHistoryUtility] deserialize_history 失败：builder 未返回 GFUndoableCommand。")
+	assert_push_error("[GFCommandHistoryUtility][command_history_utility.builder_result_invalid] deserialize_history failed: builder did not return a GFUndoableCommand.")
 
 	var valid_builder: Callable = func(_data: Dictionary) -> GFUndoableCommand:
 		return GFUndoableCommand.new()
 	_history.deserialize_history([{ "snapshot": 1 }, "invalid"], valid_builder)
 
 	_assert_history_identity(undo_before, redo_before, "非法条目")
-	assert_push_error("[GFCommandHistoryUtility] deserialize_history 失败：历史条目必须是 Dictionary。")
+	assert_push_error("[GFCommandHistoryUtility][command_history_utility.history_entry_type_invalid] deserialize_history failed: history entries must be Dictionary values.")
 
 
 ## 验证 max_history_size 超限清理 (FIFO抛弃)。
@@ -667,7 +667,7 @@ func test_deserialize_full_history_failure_preserves_existing_stacks() -> void:
 	var redo_before: Array[GFUndoableCommand] = _history.get_redo_history()
 	_history.deserialize_full_history({ "undo": [] }, Callable())
 	_assert_history_identity(undo_before, redo_before, "完整历史无效 builder")
-	assert_push_error("[GFCommandHistoryUtility] deserialize_full_history 失败：传入的 builder Callable 无效。")
+	assert_push_error("[GFCommandHistoryUtility][command_history_utility.full_history_builder_invalid] Cannot deserialize_full_history: the supplied builder Callable is invalid.")
 
 	var builder_state: Dictionary = { "build_count": 0 }
 	var late_failure_builder: Callable = func(_data: Dictionary) -> Variant:
@@ -684,7 +684,7 @@ func test_deserialize_full_history_failure_preserves_existing_stacks() -> void:
 	)
 
 	_assert_history_identity(undo_before, redo_before, "完整历史中途构建失败")
-	assert_push_error("[GFCommandHistoryUtility] deserialize_full_history 失败：builder 未返回 GFUndoableCommand。")
+	assert_push_error("[GFCommandHistoryUtility][command_history_utility.builder_result_invalid] deserialize_full_history failed: builder did not return a GFUndoableCommand.")
 
 
 func test_history_size_limit() -> void:
@@ -751,7 +751,7 @@ func test_snapshot_rejects_runtime_references_transactionally() -> void:
 	assert_true(cmd.set_snapshot({ "value": 7 }), "初始纯数据快照应保存成功。")
 
 	assert_false(cmd.set_snapshot({ "owner": cmd }), "快照不应保留运行时 Object 引用。")
-	assert_push_error("[GFUndoableCommand] 快照必须是有界的纯 Variant 数据，不能包含运行时引用或递归结构。")
+	assert_push_error("[GFUndoableCommand][undoable_command.snapshot_invalid] Snapshots must contain bounded plain Variant data without runtime references or recursive structures.")
 	var preserved_snapshot: Dictionary = GFVariantData.as_dictionary(cmd.get_snapshot())
 	assert_eq(preserved_snapshot, { "value": 7 }, "无效快照不应覆盖最近一次有效快照。")
 
@@ -764,7 +764,7 @@ func test_snapshot_enforces_type_aware_cumulative_byte_budget() -> void:
 	)
 
 	assert_false(cmd.set_snapshot(oversized_text), "超出累计字节预算的单个 String 必须被拒绝。")
-	assert_push_error("[GFUndoableCommand] 快照必须是有界的纯 Variant 数据，不能包含运行时引用或递归结构。")
+	assert_push_error("[GFUndoableCommand][undoable_command.snapshot_invalid] Snapshots must contain bounded plain Variant data without runtime references or recursive structures.")
 	var preserved_snapshot: Dictionary = GFVariantData.as_dictionary(cmd.get_snapshot())
 	assert_eq(preserved_snapshot, { "value": 7 }, "字节预算失败不得覆盖最近一次有效快照。")
 

@@ -98,7 +98,7 @@ func test_ref_counted_pool_rejects_factory_returning_active_item() -> void:
 	assert_same(first, shared, "首次借出应接受未追踪对象。")
 	assert_null(second, "factory 返回已借出对象时不应重复借出同一身份。")
 	assert_eq(pool.active_count, 1, "重复借出被拒绝后 active 计数应保持唯一。")
-	assert_push_error("[GFRefCountedPool] acquire 失败：factory 返回了已被当前池追踪的对象，已拒绝重复借出。")
+	assert_push_error("[GFRefCountedPool][ref_counted_pool.factory_object_already_owned] Cannot acquire: factory returned an object already tracked by this pool; duplicate borrowing rejected.")
 
 
 func test_ref_counted_pool_prewarm_rejects_duplicate_available_item() -> void:
@@ -112,7 +112,7 @@ func test_ref_counted_pool_prewarm_rejects_duplicate_available_item() -> void:
 	assert_eq(created, 1, "prewarm 遇到重复可用对象时应停止继续加入。")
 	assert_eq(pool.available_count, 1, "重复对象不应以多个引用进入可用池。")
 	assert_eq(GFVariantData.get_option_int(pool.get_debug_snapshot(), "created_count"), 1, "被拒绝的重复对象不应计入已接受创建数。")
-	assert_push_error("[GFRefCountedPool] prewarm 失败：factory 返回了已被当前池追踪的对象，已停止预热。")
+	assert_push_error("[GFRefCountedPool][ref_counted_pool.prewarm_object_already_owned] Cannot prewarm: factory returned an object already tracked by this pool; prewarming stopped.")
 
 
 func test_ref_counted_pool_rejects_invalid_factory() -> void:
@@ -121,7 +121,7 @@ func test_ref_counted_pool_rejects_invalid_factory() -> void:
 	var acquired_item: RefCounted = pool.acquire()
 
 	assert_null(acquired_item, "无效 factory 不应创建对象。")
-	assert_push_error("[GFRefCountedPool] factory 无效，无法创建对象。")
+	assert_push_error("[GFRefCountedPool][ref_counted_pool.factory_invalid] Cannot create object: factory is invalid.")
 
 
 func test_ref_counted_pool_acquire_hook_release_wins_without_double_loan() -> void:
@@ -166,7 +166,7 @@ func test_ref_counted_pool_release_hook_reentry_is_rejected_without_recursion() 
 	assert_eq(item.release_count, 1, "release hook 只能执行一次。")
 	assert_eq(pool.active_count, 0, "release 完成后不应保留 active。")
 	assert_eq(pool.available_count, 1, "对象只能进入 available 一次。")
-	assert_push_warning("[GFRefCountedPool] release 收到未由当前池借出的对象，已忽略。")
+	assert_push_warning("[GFRefCountedPool][ref_counted_pool.release_foreign_object] Ignored release of an object not borrowed from this pool.")
 	item.pool = null
 	pool.factory = Callable()
 	pool.reset_pool()
@@ -191,7 +191,7 @@ func test_ref_counted_pool_reset_callback_cannot_reborrow_releasing_item() -> vo
 	assert_null(reentrant_acquired[0], "reset callback 不得经 factory 重借正在 release 的同一对象。")
 	assert_eq(pool.active_count, 0, "release callback 返回后不应保留幽灵 active borrow。")
 	assert_eq(pool.available_count, 1, "releasing item 应只进入 available。")
-	assert_push_error("[GFRefCountedPool] acquire 失败：factory 返回了已被当前池追踪的对象，已拒绝重复借出。")
+	assert_push_error("[GFRefCountedPool][ref_counted_pool.factory_object_already_owned] Cannot acquire: factory returned an object already tracked by this pool; duplicate borrowing rejected.")
 	pool.reset_callback = Callable()
 	pool.factory = Callable()
 	pool.reset_pool()

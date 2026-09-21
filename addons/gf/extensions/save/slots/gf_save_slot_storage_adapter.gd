@@ -162,13 +162,13 @@ func build_slot_file_plan(slot_index: int) -> Dictionary:
 		"metadata_target": "",
 	}
 	if slot_index < 0:
-		result["error"] = "slot_index 必须大于等于 0，当前为 %d。" % slot_index
+		result["error"] = "slot_index must be at least 0; received %d" % slot_index
 		return result
 	if not data_file_template.contains("{index}"):
-		result["error"] = "data_file_template 必须包含 {index}。"
+		result["error"] = "data_file_template must contain {index}"
 		return result
 	if not metadata_file_template.contains("{index}"):
-		result["error"] = "metadata_file_template 必须包含 {index}。"
+		result["error"] = "metadata_file_template must contain {index}"
 		return result
 
 	var data_file_name: String = _format_slot_file_name(data_file_template, slot_index)
@@ -188,10 +188,10 @@ func build_slot_file_plan(slot_index: int) -> Dictionary:
 	result["data_target"] = data_target
 	result["metadata_target"] = metadata_target
 	if data_target.is_empty() or metadata_target.is_empty():
-		result["error"] = "文件模板无法解析到有效存储目标。"
+		result["error"] = "File templates do not resolve to valid storage targets"
 		return result
 	if data_target == metadata_target:
-		result["error"] = "数据与元数据模板解析到同一存储目标：%s。" % data_target
+		result["error"] = "Data and metadata templates resolve to the same storage target: %s" % data_target
 		return result
 	result["ok"] = true
 	return result
@@ -220,11 +220,11 @@ func save_slot(
 	if not _can_access_slot(slot_index, "save_slot"):
 		return ERR_INVALID_PARAMETER
 	if document == null:
-		push_error("[GFSaveSlotStorageAdapter] save_slot 失败：document 为空。")
+		push_error("[GFSaveSlotStorageAdapter][save_slot_storage_adapter.missing_document] save_slot failed: document is null.")
 		return ERR_INVALID_PARAMETER
 	var document_validation: Dictionary = document.validate_document()
 	if not GFVariantData.get_option_bool(document_validation, "ok", false):
-		push_error("[GFSaveSlotStorageAdapter] save_slot 失败：document 无效。")
+		push_error("[GFSaveSlotStorageAdapter][save_slot_storage_adapter.invalid_document] save_slot failed: document is invalid.")
 		return ERR_INVALID_DATA
 	var document_payload: Dictionary = document.to_dict()
 	if not _validate_persisted_value(document_payload, "document", "save_slot"):
@@ -232,7 +232,7 @@ func save_slot(
 	if not _validate_persisted_value(metadata, "metadata", "save_slot"):
 		return ERR_INVALID_DATA
 	if not _metadata_matches_document(metadata, document):
-		push_error("[GFSaveSlotStorageAdapter] save_slot 失败：metadata schema 与 document 不一致。")
+		push_error("[GFSaveSlotStorageAdapter][save_slot_storage_adapter.metadata_schema_mismatch] save_slot failed: metadata schema does not match document.")
 		return ERR_INVALID_DATA
 
 	var metadata_payload: Dictionary = _make_metadata_payload(slot_index, metadata, document)
@@ -435,10 +435,10 @@ func list_slots() -> Array[Dictionary]:
 
 func _can_access_slot(slot_index: int, operation: String) -> bool:
 	if _storage == null:
-		push_error("[GFSaveSlotStorageAdapter] %s 失败：storage 为空。" % operation)
+		push_error("[GFSaveSlotStorageAdapter][save_slot_storage_adapter.missing_storage] %s failed: storage is null." % operation)
 		return false
 	if slot_index < 0:
-		push_error("[GFSaveSlotStorageAdapter] %s 失败：slot_index 必须大于等于 0，当前为 %d。" % [operation, slot_index])
+		push_error("[GFSaveSlotStorageAdapter][save_slot_storage_adapter.invalid_slot_index] %s failed: slot_index must be at least 0; received %d." % [operation, slot_index])
 		return false
 	if not _validate_file_templates(slot_index, operation):
 		return false
@@ -450,9 +450,9 @@ func _validate_file_templates(slot_index: int, operation: String) -> bool:
 	if GFVariantData.get_option_bool(plan, "ok", false):
 		return true
 	push_error(
-		"[GFSaveSlotStorageAdapter] %s 失败：%s" % [
+		"[GFSaveSlotStorageAdapter][save_slot_storage_adapter.invalid_file_templates] %s failed: invalid file templates (%s)." % [
 			operation,
-			GFVariantData.get_option_string(plan, "error", "文件模板无效。"),
+			GFVariantData.get_option_string(plan, "error", "File templates are invalid"),
 		]
 	)
 	return false
@@ -463,7 +463,7 @@ func _validate_persisted_value(value: Variant, label: String, operation: String)
 	if GFVariantData.get_option_bool(report, "ok", false):
 		return true
 	push_error(
-		"[GFSaveSlotStorageAdapter] %s 失败：%s 在 %s 不可持久化：%s。" % [
+		"[GFSaveSlotStorageAdapter][save_slot_storage_adapter.unpersistable_value] %s failed: %s at %s cannot be persisted: %s." % [
 			operation,
 			label,
 			GFVariantData.get_option_string(report, "path", "$"),

@@ -58,7 +58,7 @@ var _lifecycle_generation: int = 0
 ## @return 计时器句柄；callback 无效时返回 0。
 func schedule_at(target_tick: int, callback: Callable, options: Dictionary = {}) -> int:
 	if not callback.is_valid():
-		push_error("[GFManualTimerQueue] schedule_at 失败：callback 无效。")
+		push_error("[GFManualTimerQueue][manual_timer_queue.callback_invalid] Cannot schedule_at: callback is invalid.")
 		return 0
 
 	var owner: Object = _variant_to_object(GFVariantData.get_option_value(options, "owner"))
@@ -103,7 +103,7 @@ func schedule_after(delay_ticks: int, callback: Callable, options: Dictionary = 
 ## @return 计时器句柄；参数无效时返回 0。
 func schedule_at_owned(owner: Object, target_tick: int, callback: Callable, options: Dictionary = {}) -> int:
 	if owner == null:
-		push_error("[GFManualTimerQueue] schedule_at_owned 失败：owner 为空。")
+		push_error("[GFManualTimerQueue][manual_timer_queue.owner_null] Cannot schedule_at_owned: owner is null.")
 		return 0
 	var safe_options: Dictionary = options.duplicate(true)
 	safe_options["owner"] = owner

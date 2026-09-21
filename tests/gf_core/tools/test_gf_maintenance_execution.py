@@ -1401,10 +1401,10 @@ class MaintenanceSelfTestModuleTests(unittest.TestCase):
 
 class ValidationCatalogContractTests(unittest.TestCase):
 	_AUTHORITY_SNAPSHOT_SHA256 = (
-		"459cd719af11ea3cf9f5108de7655683dfc443f00c71b446f34a41aa2b858f2a"
+		"df2c09ff2683380f84d4839942366b8bba80928d6f8d90146c100078d64ddf3d"
 	)
 	_PRE_MIGRATION_EXECUTOR_PROJECTION_SHA256 = (
-		"957797cb7f6ca73aed1f0c2a77c408561df09b768fb8021de378144c1ff88032"
+		"1aa057a4521c432baef41500d57ecce3c30151d60e6d8d0a9fead4406a882736"
 	)
 
 	def test_default_catalog_matches_authority_snapshot_exactly(self) -> None:
@@ -1456,7 +1456,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				len(snapshot["suites"]),
 				len(snapshot["lanes"]),
 			),
-			(49, 2, 9, 13, 11, 4),
+			(51, 2, 9, 13, 11, 4),
 		)
 		self.assertEqual(
 			[name for name in catalog.action_names if name not in commands],
@@ -1647,6 +1647,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			"docs",
 			"changelog_policy",
 			"codeql_suppression_policy",
+			"diagnostic_policy",
 			"public_docs_boundary",
 			"public_api_boundary",
 			"resource_boundary",
@@ -1707,7 +1708,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				is gf_validation_catalog.ValidationExecutorKind.SUBPROCESS
 				for action_name in catalog.action_names
 			),
-			27,
+			28,
 		)
 		self.assertEqual(
 			sum(
@@ -1715,7 +1716,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				is gf_validation_catalog.ValidationExecutorKind.IN_PROCESS
 				for action_name in catalog.plan("full").actions
 			),
-			21,
+			22,
 		)
 		self.assertIs(
 			catalog.executor_kind("release_metadata"),
@@ -1957,13 +1958,13 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			for action in lane.owned_actions
 		]
 
-		self.assertEqual(len(plan.actions), 40)
+		self.assertEqual(len(plan.actions), 42)
 		self.assertEqual(tuple(lane.name for lane in plan.lanes), catalog.parallel_full_shard_suites)
 		self.assertEqual(set(owned_actions), set(catalog.check_group("full")))
 		self.assertEqual(len(owned_actions), len(set(owned_actions)))
 		self.assertEqual(
 			sum(len(lane.execution_actions) for lane in plan.lanes),
-			41,
+			43,
 			"隔离 lane 必须分别执行各自的依赖 occurrence，不能按全局 action 去重。",
 		)
 		self.assertEqual(
@@ -20542,6 +20543,8 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 						"credential_gate_tests",
 						"codeql_suppression_policy",
 						"codeql_suppression_policy_tests",
+						"diagnostic_policy",
+						"diagnostic_policy_tests",
 						"path_hygiene",
 						"maintenance_self_test",
 						"maintenance_execution_tests",

@@ -433,17 +433,17 @@ func test_wait_and_signal_timeout_reject_non_finite_values() -> void:
 	var wait_step: GFWaitSequenceStep = GFWaitSequenceStep.new()
 	wait_step.duration = 2.0
 	wait_step.duration = NAN
-	assert_push_warning("[GFWaitSequenceStep] 等待时长必须是有限数值。")
+	assert_push_warning("[GFWaitSequenceStep][wait_sequence_step.duration_non_finite] Wait duration must be finite.")
 	wait_step.duration = INF
-	assert_push_warning("[GFWaitSequenceStep] 等待时长必须是有限数值。")
+	assert_push_warning("[GFWaitSequenceStep][wait_sequence_step.duration_non_finite] Wait duration must be finite.")
 	assert_eq(wait_step.duration, 2.0, "非有限等待时长应保留最近有效值。")
 
 	var sequence: GFCommandSequence = GFCommandSequence.new()
 	sequence.signal_timeout_seconds = 3.0
 	var _nan_result: GFCommandSequence = sequence.with_signal_timeout(NAN)
-	assert_push_warning("[GFCommandSequence] Signal 超时时间必须是有限数值。")
+	assert_push_warning("[GFCommandSequence][command_sequence.signal_timeout_non_finite] Signal timeout must be finite.")
 	sequence.signal_timeout_seconds = INF
-	assert_push_warning("[GFCommandSequence] Signal 超时时间必须是有限数值。")
+	assert_push_warning("[GFCommandSequence][command_sequence.signal_timeout_non_finite] Signal timeout must be finite.")
 	assert_eq(sequence.signal_timeout_seconds, 3.0, "非有限 Signal timeout 应保留最近有效值。")
 
 
@@ -461,7 +461,7 @@ func test_sequence_signal_timeout_continues() -> void:
 	await get_tree().create_timer(0.05).timeout
 	await get_tree().process_frame
 
-	assert_push_warning("[GFCommandSequence] 等待 Signal 超时，序列已标记当前步骤失败。")
+	assert_push_warning("[GFCommandSequence][command_sequence.signal_wait_timeout] Signal wait timed out; the sequence marked the current step as failed.")
 	assert_eq(order, ["wait", "after"], "Signal 超时后应继续执行后续步骤。")
 	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "failed", false), "Signal 超时应进入顶层失败状态。")
 	assert_eq(GFVariantData.get_option_string(sequence.last_run_report, "error"), String(GFAsyncWaitUtility.STATUS_TIMEOUT), "顶层错误应保留 timeout 状态。")
@@ -648,7 +648,7 @@ func test_sequence_rollback_reports_async_undo_timeout() -> void:
 
 	var rollback_errors: Array = GFVariantData.get_option_array(sequence.last_run_report, "rollback_errors")
 	var rollback_error: Dictionary = GFVariantData.as_dictionary(rollback_errors[0])
-	assert_push_warning("[GFCommandSequence] 等待 Signal 超时，序列已标记当前步骤失败。")
+	assert_push_warning("[GFCommandSequence][command_sequence.signal_wait_timeout] Signal wait timed out; the sequence marked the current step as failed.")
 	assert_eq(order, ["first", "fail", "undo_first"], "异步 undo 超时时应记录已进入 rollback。")
 	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "rollback_failed", false), "rollback 超时应标记 rollback_failed。")
 	assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "rollback_timeout", false), "rollback 超时应有一等 timeout 字段。")

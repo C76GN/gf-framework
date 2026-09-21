@@ -96,7 +96,7 @@ func from_instance(instance: Object) -> GFBindBuilder:
 ## @return 当前 Builder，便于继续声明生命周期。
 func with_alias(alias_cls: Script) -> GFBindBuilder:
 	if _target_kind == TargetKind.FACTORY:
-		push_warning("[GFBindBuilder] with_alias() 仅对 Model/System/Utility 有效，Factory 绑定会忽略 alias。")
+		push_warning("[GFBindBuilder][bind_builder.factory_alias_ignored] with_alias() applies only to Model/System/Utility; Factory bindings ignore aliases.")
 		return self
 	_alias_cls = alias_cls
 	return self
@@ -111,7 +111,7 @@ func with_alias(alias_cls: Script) -> GFBindBuilder:
 ## @return 绑定成功时返回 true。
 func as_singleton() -> bool:
 	if _architecture == null:
-		push_error("[GFBindBuilder] 架构为空，无法完成绑定。")
+		push_error("[GFBindBuilder][bind_builder.architecture_null] The architecture is null; binding cannot complete.")
 		return false
 
 	if _target_kind == TargetKind.FACTORY:
@@ -137,11 +137,11 @@ func as_singleton() -> bool:
 ## @return 绑定成功时返回 true。
 func as_transient() -> bool:
 	if _architecture == null:
-		push_error("[GFBindBuilder] 架构为空，无法完成绑定。")
+		push_error("[GFBindBuilder][bind_builder.architecture_null] The architecture is null; binding cannot complete.")
 		return false
 
 	if _target_kind != TargetKind.FACTORY:
-		push_error("[GFBindBuilder] Model/System/Utility 是生命周期模块，不支持 as_transient()；请改用 bind_factory()。")
+		push_error("[GFBindBuilder][bind_builder.module_transient_unsupported] Model/System/Utility are lifecycle modules and do not support as_transient(); use bind_factory().")
 		return false
 
 	return _bind_factory(GFBindingLifetimesBase.Lifetime.TRANSIENT)
@@ -220,21 +220,21 @@ func execute_required_binding_for_framework(lifetime: int) -> RequiredBindingAtt
 			false,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Phase.VALIDATION,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Reason.ARCHITECTURE_UNAVAILABLE,
-			"Required binding architecture is unavailable."
+			"[GFBindBuilder][bind_builder.required_architecture_unavailable] Required binding architecture is unavailable."
 		)
 	if not _architecture.can_accept_required_binding_plan_for_framework():
 		return _make_required_attempt(
 			false,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Phase.VALIDATION,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Reason.ARCHITECTURE_UNAVAILABLE,
-			"Architecture admission is closed for required bindings."
+			"[GFBindBuilder][bind_builder.required_admission_closed] Architecture admission is closed for required bindings."
 		)
 	if _script_cls == null:
 		return _make_required_attempt(
 			false,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Phase.VALIDATION,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Reason.INVALID_ENTRY,
-			"Required binding target script is null."
+			"[GFBindBuilder][bind_builder.required_target_null] Required binding target script is null."
 		)
 	if (
 		lifetime != GFBindingLifetimesBase.Lifetime.SINGLETON
@@ -244,7 +244,7 @@ func execute_required_binding_for_framework(lifetime: int) -> RequiredBindingAtt
 			false,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Phase.VALIDATION,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Reason.INVALID_LIFETIME,
-			"Required binding lifetime is invalid."
+			"[GFBindBuilder][bind_builder.required_lifetime_invalid] Required binding lifetime is invalid."
 		)
 	if (
 		_target_kind != TargetKind.FACTORY
@@ -254,7 +254,7 @@ func execute_required_binding_for_framework(lifetime: int) -> RequiredBindingAtt
 			false,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Phase.VALIDATION,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Reason.INVALID_LIFETIME,
-			"Lifecycle modules require singleton binding semantics."
+			"[GFBindBuilder][bind_builder.required_module_lifetime_invalid] Lifecycle modules require singleton binding semantics."
 		)
 	if (
 		_target_kind == TargetKind.FACTORY
@@ -282,7 +282,7 @@ func execute_required_binding_for_framework(lifetime: int) -> RequiredBindingAtt
 		false,
 		_GF_BINDING_PLAN_RESULT_SCRIPT.Phase.REGISTRATION,
 		_GF_BINDING_PLAN_RESULT_SCRIPT.Reason.REGISTRATION_REJECTED,
-		"Required lifecycle attempt did not return a terminal result."
+		"[GFBindBuilder][bind_builder.required_attempt_result_missing] Required lifecycle attempt did not return a terminal result."
 	)
 
 
@@ -296,7 +296,7 @@ func _execute_required_lifecycle_binding() -> RequiredBindingAttempt:
 			false,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Phase.INSTANCE_CREATION,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Reason.INSTANCE_CREATION_FAILED,
-			"Required binding candidate creation failed."
+			"[GFBindBuilder][bind_builder.required_candidate_creation_failed] Required binding candidate creation failed."
 		)
 	var instance: Object = candidate
 	var registration_error: Error = _register_required_lifecycle_instance(instance)
@@ -309,20 +309,20 @@ func _execute_required_lifecycle_binding() -> RequiredBindingAttempt:
 				false,
 				_GF_BINDING_PLAN_RESULT_SCRIPT.Phase.INSTANCE_CREATION,
 				_GF_BINDING_PLAN_RESULT_SCRIPT.Reason.INSTANCE_CREATION_FAILED,
-				"Required binding candidate does not match the declared target."
+				"[GFBindBuilder][bind_builder.required_candidate_type_mismatch] Required binding candidate does not match the declared target."
 			)
 		return _make_required_attempt(
 			false,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Phase.REGISTRATION,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Reason.REGISTRATION_REJECTED,
-			"Required lifecycle registration was rejected."
+			"[GFBindBuilder][bind_builder.required_registration_rejected] Required lifecycle registration was rejected."
 		)
 	if not _register_alias_checked_for_required_plan(instance):
 		return _make_required_attempt(
 			false,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Phase.ALIAS,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Reason.ALIAS_REJECTED,
-			"Required binding alias registration was rejected."
+			"[GFBindBuilder][bind_builder.required_alias_rejected] Required binding alias registration was rejected."
 		)
 	return _make_required_attempt(
 		true,
@@ -336,17 +336,17 @@ func _create_instance_from_source() -> Variant:
 	match _source_kind:
 		SourceKind.SELF:
 			if _script_cls == null or not _script_cls.can_instantiate():
-				push_error("[GFBindBuilder] SELF 绑定需要可实例化的脚本类型。")
+				push_error("[GFBindBuilder][bind_builder.self_script_not_instantiable] SELF binding requires an instantiable script type.")
 				return null
 			return _instantiate_script_as_object(_script_cls)
 
 		SourceKind.FACTORY:
 			if not _factory.is_valid():
-				push_error("[GFBindBuilder] from_factory() 收到无效 Callable。")
+				push_error("[GFBindBuilder][bind_builder.factory_callable_invalid] from_factory() received an invalid Callable.")
 				return null
 			var value: Variant = _factory.call()
 			if typeof(value) != TYPE_OBJECT:
-				push_error("[GFBindBuilder] from_factory() 必须返回 Object 实例。")
+				push_error("[GFBindBuilder][bind_builder.factory_result_not_object] from_factory() must return an Object instance.")
 				return null
 			if not _candidate_is_live(value):
 				return null
@@ -354,7 +354,7 @@ func _create_instance_from_source() -> Variant:
 
 		SourceKind.INSTANCE:
 			if _instance == null:
-				push_error("[GFBindBuilder] from_instance() 收到空实例。")
+				push_error("[GFBindBuilder][bind_builder.instance_null] from_instance() received a null instance.")
 				return null
 			return _instance
 
@@ -445,7 +445,7 @@ func _bind_factory(lifetime: int) -> bool:
 	match _source_kind:
 		SourceKind.SELF:
 			if _script_cls == null or not _script_cls.can_instantiate():
-				push_error("[GFBindBuilder] bind_factory() 需要可实例化的脚本类型。")
+				push_error("[GFBindBuilder][bind_builder.factory_script_not_instantiable] bind_factory() requires an instantiable script type.")
 				return false
 			var self_factory: Callable = func() -> Variant:
 				return _instantiate_script_as_object(_script_cls)
@@ -456,7 +456,7 @@ func _bind_factory(lifetime: int) -> bool:
 
 		SourceKind.INSTANCE:
 			if lifetime == GFBindingLifetimesBase.Lifetime.TRANSIENT:
-				push_error("[GFBindBuilder] from_instance() 不支持 as_transient()；请改用 from_factory()。")
+				push_error("[GFBindBuilder][bind_builder.instance_transient_unsupported] from_instance() does not support as_transient(); use from_factory().")
 				return false
 			return _architecture.register_factory_instance(_script_cls, _instance)
 	return false
@@ -474,7 +474,7 @@ func _execute_required_factory_binding(lifetime: int) -> RequiredBindingAttempt:
 			false,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Phase.INSTANCE_CREATION,
 			_GF_BINDING_PLAN_RESULT_SCRIPT.Reason.INSTANCE_CREATION_FAILED,
-			"Required factory instance does not match the declared target."
+			"[GFBindBuilder][bind_builder.required_factory_type_mismatch] Required factory instance does not match the declared target."
 		)
 	var registered: bool = _bind_factory(lifetime)
 	if registered:
@@ -497,7 +497,7 @@ func _execute_required_factory_binding(lifetime: int) -> RequiredBindingAttempt:
 		false,
 		phase,
 		reason,
-		"Required factory binding was rejected."
+		"[GFBindBuilder][bind_builder.required_factory_rejected] Required factory binding was rejected."
 	)
 
 

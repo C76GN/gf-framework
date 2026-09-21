@@ -686,7 +686,7 @@ func request_entry_async(
 	type_hint_override: String = ""
 ) -> void:
 	if asset_utility == null or not on_loaded.is_valid():
-		push_error("[GFResourceRegistry] request_entry_async 失败：asset_utility 或 on_loaded 无效。")
+		push_error("[GFResourceRegistry][resource_registry.entry_callback_invalid] Cannot request_entry_async: asset_utility or on_loaded is invalid.")
 		if on_loaded.is_valid():
 			on_loaded.call(null)
 		return
@@ -723,7 +723,7 @@ func request_entry_handle_async(
 	type_hint_override: String = ""
 ) -> void:
 	if asset_utility == null or not on_loaded.is_valid():
-		push_error("[GFResourceRegistry] request_entry_handle_async 失败：asset_utility 或 on_loaded 无效。")
+		push_error("[GFResourceRegistry][resource_registry.entry_handle_callback_invalid] Cannot request_entry_handle_async: asset_utility or on_loaded is invalid.")
 		if on_loaded.is_valid():
 			on_loaded.call(null)
 		return

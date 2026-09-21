@@ -109,7 +109,7 @@ func inject_dependencies(architecture: GFArchitecture) -> void:
 
 func _gf_begin_execution_scope(architecture: GFArchitecture, lifecycle_serial: int) -> bool:
 	if _execution_started:
-		push_error("[GFQuery] 查询实例已经进入过执行作用域，请为每次发送创建新的查询实例。")
+		push_error("[GFQuery][query.already_executed] A query instance can only enter one execution scope; create a new query for each send.")
 		return false
 	_execution_started = true
 	_gf_set_dependency_scope(architecture, lifecycle_serial)

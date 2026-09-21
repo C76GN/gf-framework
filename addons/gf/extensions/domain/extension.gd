@@ -22,7 +22,7 @@ func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 			return
 		if not registered_level:
 			architecture.fail_initialization(
-				"[GFDomainExtension] GFLevelUtility registration failed."
+				"[GFDomainExtension][domain_extension.level_registration_failed] GFLevelUtility registration failed."
 			)
 			return
 	if architecture.get_local_utility(GFQuestUtility) == null:
@@ -33,7 +33,7 @@ func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 			return
 		if not registered_quest:
 			architecture.fail_initialization(
-				"[GFDomainExtension] GFQuestUtility registration failed."
+				"[GFDomainExtension][domain_extension.quest_registration_failed] GFQuestUtility registration failed."
 			)
 
 

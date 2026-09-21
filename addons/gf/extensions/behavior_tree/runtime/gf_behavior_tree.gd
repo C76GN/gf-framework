@@ -397,7 +397,7 @@ static func _duplicate_runtime_node(source: BTNode) -> BTNode:
 	):
 		return copy
 
-	push_error("[GFBehaviorTree] duplicate_runtime() 必须返回保持动态脚本类型的独立节点；具体内置节点的自定义子类也必须显式重写。")
+	push_error("[GFBehaviorTree][behavior_tree.invalid_runtime_duplicate] duplicate_runtime() must return an independent node preserving its dynamic script type; custom subclasses of concrete built-in nodes must also override it explicitly.")
 	var failure: BTNode = BTNode.new()
 	source._copy_base_fields_to(failure)
 	failure._runtime_duplicate_error = &"runtime_duplicate_missing_override"
@@ -571,7 +571,7 @@ class BTNode extends RefCounted:
 	## [br]
 	## @return: 运行时副本。
 	func duplicate_runtime() -> BTNode:
-		push_error("[GFBehaviorTree] BTNode 子类必须重写 duplicate_runtime() 才能被 Runner 默认复制；请返回独立运行副本，或显式创建 Runner(root, false) 共享运行树。")
+		push_error("[GFBehaviorTree][behavior_tree.missing_runtime_duplicate_override] BTNode subclasses must override duplicate_runtime() for the default Runner copy; return an independent runtime copy or explicitly create Runner(root, false) to share the runtime tree.")
 		var copy: BTNode = BTNode.new()
 		_copy_base_fields_to(copy)
 		copy._runtime_duplicate_error = &"runtime_duplicate_missing_override"
@@ -884,7 +884,7 @@ class BlackboardScope extends RefCounted:
 	## @return: 设置成功返回 true；会形成循环时返回 false。
 	func set_parent(parent_scope: BlackboardScope) -> bool:
 		if _would_create_parent_cycle(parent_scope):
-			push_error("[GFBehaviorTree] 拒绝设置会形成循环的 BlackboardScope parent。")
+			push_error("[GFBehaviorTree][behavior_tree.cyclic_blackboard_parent] Cannot set a BlackboardScope parent that would create a cycle.")
 			return false
 		_parent = parent_scope
 		return true
@@ -1591,7 +1591,7 @@ class Decorator extends BTNode:
 	## @return: 当前装饰器。
 	func set_child(child_node: BTNode) -> Decorator:
 		if _would_create_cycle(child_node):
-			push_error("[GFBehaviorTree] 拒绝设置会形成循环的 decorator 子节点。")
+			push_error("[GFBehaviorTree][behavior_tree.cyclic_decorator_child] Cannot set a decorator child that would create a cycle.")
 			return self
 		if _child == child_node:
 			return self
@@ -2390,7 +2390,7 @@ class Runner extends RefCounted:
 		if _root_node == null:
 			return Status.FAILURE
 		if _is_ticking:
-			push_error("[GFBehaviorTree] Runner.tick() 不允许同步重入。")
+			push_error("[GFBehaviorTree][behavior_tree.reentrant_tick] Runner.tick() cannot be reentered synchronously.")
 			return Status.ABORTED
 		_is_ticking = true
 		var reset_serial: int = _reset_serial

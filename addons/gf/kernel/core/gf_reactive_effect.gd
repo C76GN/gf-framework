@@ -144,7 +144,7 @@ func run() -> Variant:
 			break
 		rerun_count += 1
 		if rerun_count >= maxi(max_reruns_per_run, 1):
-			push_warning("[GFReactiveEffect] run 停止补跑：达到 max_reruns_per_run。")
+			push_warning("[GFReactiveEffect][reactive_effect.rerun_limit] run stopped scheduling reruns because max_reruns_per_run was reached.")
 			break
 	return value
 

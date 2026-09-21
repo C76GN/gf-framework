@@ -50,7 +50,7 @@ var bounds: Rect2:
 	set(value):
 		var normalized_bounds: Rect2 = _normalize_rect(value)
 		if not _is_finite_rect(normalized_bounds):
-			push_error("[GFQuadTreeUtility] bounds 必须只包含有限值。")
+			push_error("[GFQuadTreeUtility][quad_tree_utility.bounds_non_finite] bounds must contain only finite values.")
 			return
 		_bounds = normalized_bounds
 		_rebuild_root_from_current_entities()
@@ -105,7 +105,7 @@ func init() -> void:
 func setup(world_bounds: Rect2, depth: int = DEFAULT_MAX_DEPTH, entities_per_node: int = DEFAULT_MAX_ENTITIES) -> void:
 	var normalized_bounds: Rect2 = _normalize_rect(world_bounds)
 	if not _is_finite_rect(normalized_bounds):
-		push_error("[GFQuadTreeUtility] bounds 必须只包含有限值。")
+		push_error("[GFQuadTreeUtility][quad_tree_utility.bounds_non_finite] bounds must contain only finite values.")
 		return
 	max_depth = maxi(depth, 0)
 	max_entities_per_node = maxi(entities_per_node, 1)

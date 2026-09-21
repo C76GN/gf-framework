@@ -221,7 +221,7 @@ func test_scan_audio_paths_respects_audio_path_limit() -> void:
 	var paths: PackedStringArray = GFAudioBankTools.scan_audio_paths(root_path, {
 		"max_audio_paths": 1,
 	})
-	assert_push_warning("[GFAudioBankTools] scan_audio_paths 已达到 max_audio_paths=1，后续音频已跳过。")
+	assert_push_warning("[GFAudioBankTools][audio_bank_tools.audio_path_limit] scan_audio_paths reached max_audio_paths=1; remaining audio files were skipped.")
 
 	var _remove_absolute_result_133: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(first_path))
 	var _remove_absolute_result_134: Variant = DirAccess.remove_absolute(ProjectSettings.globalize_path(second_path))
@@ -252,7 +252,7 @@ func test_scan_audio_paths_caps_total_directory_entries() -> void:
 		"max_scanned_entries": 2,
 	})
 	assert_push_warning(
-		"[GFAudioBankTools] scan_audio_paths 已达到 max_scanned_entries=2，后续目录项已跳过。"
+		"[GFAudioBankTools][audio_bank_tools.scanned_entry_limit] scan_audio_paths reached max_scanned_entries=2; remaining directory entries were skipped."
 	)
 
 	for audio_path: String in audio_paths:

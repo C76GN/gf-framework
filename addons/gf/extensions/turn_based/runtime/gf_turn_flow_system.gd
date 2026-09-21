@@ -160,7 +160,7 @@ func set_context(p_context: GFTurnContext) -> void:
 		or _is_resolving_actions
 		or not _active_context_operation_leases.is_empty()
 	):
-		push_warning("[GFTurnFlowSystem] set_context 失败：存在活动 Context operation。")
+		push_warning("[GFTurnFlowSystem][turn_flow_system.context_operation_active] set_context failed: a Context operation is active.")
 		return
 	var next_context: GFTurnContext = p_context if p_context != null else GFTurnContext.new()
 	if _context == next_context:
@@ -178,12 +178,12 @@ func set_context(p_context: GFTurnContext) -> void:
 ## @param p_phases: 新阶段列表。
 func set_phases(p_phases: Array[GFTurnPhase]) -> void:
 	if _is_advancing_phase:
-		push_warning("[GFTurnFlowSystem] set_phases 失败：阶段正在推进中。")
+		push_warning("[GFTurnFlowSystem][turn_flow_system.set_phases_during_advance] set_phases failed: a phase is being advanced.")
 		return
 	_phases.clear()
 	for phase: GFTurnPhase in p_phases:
 		if phase == null:
-			push_warning("[GFTurnFlowSystem] set_phases 跳过空阶段。")
+			push_warning("[GFTurnFlowSystem][turn_flow_system.empty_set_phase] set_phases skipped a null phase.")
 			continue
 		_phases.append(phase)
 	_current_phase_index = -1
@@ -206,7 +206,7 @@ func start(reset_indices: bool = true) -> void:
 	if _lifecycle_state == _LifecycleState.STOPPING:
 		return
 	if _is_advancing_phase or _is_resolving_actions:
-		push_warning("[GFTurnFlowSystem] start 失败：流程正在推进或解析中。")
+		push_warning("[GFTurnFlowSystem][turn_flow_system.start_during_processing] start failed: the flow is advancing or resolving.")
 		return
 	if (
 		_lifecycle_state == _LifecycleState.STOPPED
@@ -224,7 +224,7 @@ func start(reset_indices: bool = true) -> void:
 		next_flow_serial
 	)
 	if start_lease == null:
-		push_warning("[GFTurnFlowSystem] start 失败：context 正由另一个 flow generation 持有。")
+		push_warning("[GFTurnFlowSystem][turn_flow_system.start_context_held] start failed: context is held by another flow generation.")
 		return
 	_lifecycle_state = _LifecycleState.STARTING
 	_flow_serial = next_flow_serial
@@ -298,7 +298,7 @@ func advance_phase() -> void:
 	if _is_disposed:
 		return
 	if _is_advancing_phase:
-		push_warning("[GFTurnFlowSystem] advance_phase 失败：阶段正在推进中。")
+		push_warning("[GFTurnFlowSystem][turn_flow_system.advance_during_advance] advance_phase failed: a phase is being advanced.")
 		return
 	if _phases.is_empty():
 		return
@@ -313,7 +313,7 @@ func advance_phase() -> void:
 		flow_serial
 	)
 	if phase_lease == null:
-		push_warning("[GFTurnFlowSystem] advance_phase 失败：context 正由另一个 flow generation 持有。")
+		push_warning("[GFTurnFlowSystem][turn_flow_system.advance_context_held] advance_phase failed: context is held by another flow generation.")
 		return
 	_is_advancing_phase = true
 	_active_operation_stop_requested = false
@@ -375,7 +375,7 @@ func advance_phase() -> void:
 				flow_serial,
 				active_context
 			),
-			"[GFTurnFlowSystem] 等待阶段 Signal 超时，阶段推进已中止。"
+			"[GFTurnFlowSystem][turn_flow_system.phase_signal_timeout] Waiting for the phase Signal timed out; phase advancement was aborted."
 		)
 		if (
 			not completed
@@ -396,7 +396,7 @@ func advance_phase() -> void:
 				flow_serial,
 				active_context
 			),
-			"[GFTurnFlowSystem] 等待阶段完成超时，阶段推进已中止。"
+			"[GFTurnFlowSystem][turn_flow_system.phase_completion_timeout] Waiting for phase completion timed out; phase advancement was aborted."
 		)
 		if (
 			not completed
@@ -437,7 +437,7 @@ func get_action_count() -> int:
 ## @since 8.0.0
 func clear_actions() -> void:
 	if _is_resolving_actions:
-		push_warning("[GFTurnFlowSystem] clear_actions 失败：行动正在解析中；请调用 stop(true)。")
+		push_warning("[GFTurnFlowSystem][turn_flow_system.clear_during_resolution] clear_actions failed: actions are being resolved; call stop(true).")
 		return
 	_clear_actions_internal()
 
@@ -453,7 +453,7 @@ func enqueue_action(action: GFTurnAction) -> void:
 	if action == null:
 		return
 	if not action.claim_for_queue():
-		push_warning("[GFTurnFlowSystem] enqueue_action 失败：action 实例只能入队一次。")
+		push_warning("[GFTurnFlowSystem][turn_flow_system.action_already_enqueued] enqueue_action failed: an action instance can be enqueued only once.")
 		return
 	_ensure_action_order(action)
 	_actions.append(action)
@@ -472,7 +472,7 @@ func resolve_actions(order_resolver: Callable = Callable()) -> void:
 	if _is_disposed:
 		return
 	if _is_resolving_actions:
-		push_warning("[GFTurnFlowSystem] resolve_actions 失败：行动正在解析中。")
+		push_warning("[GFTurnFlowSystem][turn_flow_system.resolution_active] resolve_actions failed: actions are being resolved.")
 		return
 
 	var flow_serial: int = _flow_serial
@@ -482,7 +482,7 @@ func resolve_actions(order_resolver: Callable = Callable()) -> void:
 		flow_serial
 	)
 	if action_lease == null:
-		push_warning("[GFTurnFlowSystem] resolve_actions 失败：context 正由另一个 flow generation 持有。")
+		push_warning("[GFTurnFlowSystem][turn_flow_system.resolve_context_held] resolve_actions failed: context is held by another flow generation.")
 		return
 	var pending_actions: Array[GFTurnAction] = _actions.duplicate()
 	var original_pending_actions: Array[GFTurnAction] = pending_actions.duplicate()
@@ -557,7 +557,7 @@ func resolve_actions(order_resolver: Callable = Callable()) -> void:
 					flow_serial,
 					active_context
 				),
-				"[GFTurnFlowSystem] 等待行动 Signal 超时，当前行动已跳过。"
+				"[GFTurnFlowSystem][turn_flow_system.action_signal_timeout] Waiting for the action Signal timed out; the current action was skipped."
 			)
 			if not _is_context_operation_lease_current(action_lease, flow_serial, active_context):
 				_restore_unresolved_actions(pending_actions, action_index)
@@ -624,7 +624,7 @@ func _next_valid_phase() -> Dictionary:
 			wrapped = true
 		var phase: GFTurnPhase = _phases[next_index]
 		if phase == null:
-			push_warning("[GFTurnFlowSystem] advance_phase 跳过空阶段。")
+			push_warning("[GFTurnFlowSystem][turn_flow_system.empty_advance_phase] advance_phase skipped a null phase.")
 			continue
 		return {
 			"index": next_index,

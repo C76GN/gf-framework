@@ -565,7 +565,7 @@ func test_kernel_merge_dictionary_rejects_depth_budget_before_mutating_any_targe
 		true,
 		{ "max_depth": 1 }
 	)
-	assert_push_error("[GFVariantAccess] merge_dictionary 失败：source 超出 max_depth 预算，target 未修改。")
+	assert_push_error("[GFVariantAccess][variant_access.merge_budget_exceeded] merge_dictionary failed: source exceeded the max_depth budget; target was not modified.")
 	var _ignored_shaped_merge: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.merge_dictionary(
 		shaped_target,
 		source,
@@ -573,7 +573,7 @@ func test_kernel_merge_dictionary_rejects_depth_budget_before_mutating_any_targe
 		true,
 		{ "max_depth": 1 }
 	)
-	assert_push_error("[GFVariantAccess] merge_dictionary 失败：source 超出 max_depth 预算，target 未修改。")
+	assert_push_error("[GFVariantAccess][variant_access.merge_budget_exceeded] merge_dictionary failed: source exceeded the max_depth budget; target was not modified.")
 
 	assert_eq(missing_branch_target.size(), 0, "target 缺少分支时也不得绕过深度预算。")
 	assert_eq(shaped_target, shaped_before, "target 已有同形分支时超限也必须保持原样。")
@@ -594,7 +594,7 @@ func test_kernel_merge_dictionary_rejects_node_and_collection_budgets_atomically
 		true,
 		{ "max_nodes": 1 }
 	)
-	assert_push_error("[GFVariantAccess] merge_dictionary 失败：source 超出 max_nodes 预算，target 未修改。")
+	assert_push_error("[GFVariantAccess][variant_access.merge_budget_exceeded] merge_dictionary failed: source exceeded the max_nodes budget; target was not modified.")
 	var _ignored_collection_merge: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.merge_dictionary(
 		collection_limited_target,
 		source,
@@ -602,7 +602,7 @@ func test_kernel_merge_dictionary_rejects_node_and_collection_budgets_atomically
 		true,
 		{ "max_collection_items": 1 }
 	)
-	assert_push_error("[GFVariantAccess] merge_dictionary 失败：source 超出 max_collection_items 预算，target 未修改。")
+	assert_push_error("[GFVariantAccess][variant_access.merge_budget_exceeded] merge_dictionary failed: source exceeded the max_collection_items budget; target was not modified.")
 
 	assert_eq(node_limited_target, { "kept": true }, "节点超限不得留下 partial merge。")
 	assert_eq(collection_limited_target, { "kept": true }, "集合元素超限不得留下 partial merge。")
@@ -653,7 +653,7 @@ func test_merge_dictionary_rejects_source_beyond_default_depth_budget() -> void:
 	var target: Dictionary = {}
 
 	var _ignored_merge: Dictionary = GFVariantData.merge_dictionary(target, source)
-	assert_push_error("[GFVariantAccess] merge_dictionary 失败：source 超出 max_depth 预算，target 未修改。")
+	assert_push_error("[GFVariantAccess][variant_access.merge_budget_exceeded] merge_dictionary failed: source exceeded the max_depth budget; target was not modified.")
 
 	assert_eq(target.size(), 0, "默认预算也必须在修改 target 前拒绝极深 source。")
 

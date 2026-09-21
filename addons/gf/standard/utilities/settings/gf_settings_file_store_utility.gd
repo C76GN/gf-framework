@@ -159,10 +159,10 @@ func _store_string_checked(file: FileAccess, value: String) -> Error:
 
 func _get_fallback_path(file_name: String) -> String:
 	if file_name.is_absolute_path():
-		push_error("[GFSettingsUtility] 已拒绝原生绝对设置路径：%s。" % file_name)
+		push_error("[GFSettingsUtility][settings_utility.absolute_path_rejected] Rejected a native absolute settings path: %s." % file_name)
 		return ""
 	if not _is_safe_fallback_file_name(file_name):
-		push_error("[GFSettingsUtility] 已拒绝不安全设置文件名：%s。" % file_name)
+		push_error("[GFSettingsUtility][settings_utility.filename_unsafe] Rejected an unsafe settings filename: %s." % file_name)
 		return ""
 	return "user://" + file_name
 

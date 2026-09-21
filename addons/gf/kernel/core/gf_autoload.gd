@@ -139,7 +139,7 @@ static func get_ready_architecture_or_null() -> GFArchitecture:
 static func get_architecture() -> GFArchitecture:
 	var architecture: GFArchitecture = get_architecture_or_null()
 	if architecture == null:
-		push_error("[GFAutoload] Gf AutoLoad 未就绪或架构尚未初始化，请先启用 GF 插件并注册架构。")
+		push_error("[GFAutoload][autoload.architecture_unavailable] The Gf AutoLoad is not ready or the architecture is not initialized; enable the GF plugin and register an architecture first.")
 	return architecture
 
 
@@ -151,5 +151,5 @@ static func get_architecture() -> GFArchitecture:
 static func get_ready_architecture() -> GFArchitecture:
 	var architecture: GFArchitecture = get_ready_architecture_or_null()
 	if architecture == null:
-		push_error("[GFAutoload] Gf AutoLoad 未就绪或架构尚未完成初始化，请先完成 Gf.init() 或 Gf.set_architecture()。")
+		push_error("[GFAutoload][autoload.initialization_incomplete] The Gf AutoLoad is not ready or architecture initialization is incomplete; complete Gf.init() or Gf.set_architecture() first.")
 	return architecture

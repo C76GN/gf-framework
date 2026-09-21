@@ -173,7 +173,7 @@ func test_diagnostics_command_schema_rejects_unknown_and_reserved_types() -> voi
 	)
 	assert_false(unknown_registered, "未知 parameter type 必须在注册阶段 fail closed。")
 	assert_push_error(
-		"[GFDiagnosticsUtility] 命令参数 schema 使用未知类型：interger。"
+		"[GFDiagnosticsUtility][diagnostics_utility.argument_type_unknown] Command argument schema uses an unknown type: interger."
 	)
 
 	var non_string_type_registered: bool = diagnostics.register_command(
@@ -197,7 +197,7 @@ func test_diagnostics_command_schema_rejects_unknown_and_reserved_types() -> voi
 		"非字符串 parameter type 不能被静默归一为 any。"
 	)
 	assert_push_error(
-		"[GFDiagnosticsUtility] 命令参数 schema 使用未知类型：<invalid:int>。"
+		"[GFDiagnosticsUtility][diagnostics_utility.argument_type_unknown] Command argument schema uses an unknown type: <invalid:int>."
 	)
 
 	var invalid_container_registered: bool = diagnostics.register_command(
@@ -211,7 +211,7 @@ func test_diagnostics_command_schema_rejects_unknown_and_reserved_types() -> voi
 	)
 	assert_false(invalid_container_registered, "非 Array/Dictionary schema 顶层必须拒绝。")
 	assert_push_error(
-		"[GFDiagnosticsUtility] 命令参数 schema 顶层必须是 Array 或 Dictionary。"
+		"[GFDiagnosticsUtility][diagnostics_utility.argument_schema_invalid] Command argument schema is invalid: Command argument schema must be an Array or Dictionary at the top level.."
 	)
 
 	var invalid_array_item_registered: bool = diagnostics.register_command(
@@ -225,7 +225,7 @@ func test_diagnostics_command_schema_rejects_unknown_and_reserved_types() -> voi
 	)
 	assert_false(invalid_array_item_registered, "Array schema 的非 Dictionary 项必须拒绝。")
 	assert_push_error(
-		"[GFDiagnosticsUtility] 命令参数 schema Array 的每一项都必须是 Dictionary。"
+		"[GFDiagnosticsUtility][diagnostics_utility.argument_schema_invalid] Command argument schema is invalid: Each command argument schema Array item must be a Dictionary.."
 	)
 
 	var invalid_map_value_registered: bool = diagnostics.register_command(
@@ -239,7 +239,7 @@ func test_diagnostics_command_schema_rejects_unknown_and_reserved_types() -> voi
 	)
 	assert_false(invalid_map_value_registered, "Dictionary schema 的非 Dictionary value 必须拒绝。")
 	assert_push_error(
-		"[GFDiagnosticsUtility] 命令参数 schema Dictionary 的值必须是 Dictionary。"
+		"[GFDiagnosticsUtility][diagnostics_utility.argument_schema_invalid] Command argument schema is invalid: Command argument schema Dictionary values must be Dictionary values.."
 	)
 
 	var reserved_registered: bool = diagnostics.register_command(
@@ -260,7 +260,7 @@ func test_diagnostics_command_schema_rejects_unknown_and_reserved_types() -> voi
 	)
 	assert_false(reserved_registered, "命令 schema 不得把认证字段重新引入 callback。")
 	assert_push_error(
-		"[GFDiagnosticsUtility] 命令参数 schema 不得声明保留认证字段：auth_token。"
+		"[GFDiagnosticsUtility][diagnostics_utility.authentication_field_reserved] Command argument schema must not declare a reserved authentication field: auth_token."
 	)
 
 
@@ -760,9 +760,9 @@ func test_diagnostics_rejects_external_contributions_for_reserved_snapshot_keys(
 	diagnostics.init()
 
 	var section_registered: bool = diagnostics.publish_snapshot_section(self, &"build", { "fake": true })
-	assert_push_warning("[GFDiagnosticsUtility] 快照分区使用了保留字段，已拒绝：build。")
+	assert_push_warning("[GFDiagnosticsUtility][diagnostics_utility.snapshot_partition_reserved_field] Snapshot partition uses a reserved field and was rejected: build.")
 	var tool_registered: bool = diagnostics.publish_tool_snapshot(self, &"timer", { "fake": true })
-	assert_push_warning("[GFDiagnosticsUtility] 工具快照使用了内置字段，已拒绝：timer。")
+	assert_push_warning("[GFDiagnosticsUtility][diagnostics_utility.tool_snapshot_reserved_field] Tool snapshot uses a built-in field and was rejected: timer.")
 	var snapshot: Dictionary = diagnostics.collect_snapshot({
 		"include_recent_logs": false,
 	})

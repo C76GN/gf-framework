@@ -303,7 +303,7 @@ func test_same_capability_instance_cannot_attach_to_multiple_receivers() -> void
 	assert_eq(first, capability, "能力实例应能挂载到第一个 receiver。")
 	assert_null(second, "同一个能力实例不应挂载到第二个 receiver。")
 	assert_false(_utility.has_capability(receiver_b, HealthCapability), "第二个 receiver 不应留下能力记录。")
-	assert_push_error("[GFCapabilityUtility] 同一个能力实例不能挂载到多个 receiver。")
+	assert_push_error("[GFCapabilityUtility][capability_utility.instance_already_attached] The same capability instance cannot be attached to multiple receivers.")
 
 
 func test_add_capability_instance_rejects_mismatched_declared_type() -> void:
@@ -316,7 +316,7 @@ func test_add_capability_instance_rejects_mismatched_declared_type() -> void:
 	assert_false(_utility.has_capability(receiver, DamageCapability), "错误声明类型不应污染 receiver。")
 	assert_false(_utility.has_capability(receiver, HealthCapability), "失败后不应按实例原始类型注册。")
 	assert_null(capability.receiver, "失败注册不应写入 receiver。")
-	assert_push_error("[GFCapabilityUtility] add_capability_instance 失败：能力实例脚本")
+	assert_push_error("[GFCapabilityUtility][capability_utility.incompatible_registration_script] add_capability_instance failed: capability instance script")
 
 
 func test_adopt_capability_instance_rejects_mismatched_instance_type() -> void:
@@ -329,7 +329,7 @@ func test_adopt_capability_instance_rejects_mismatched_instance_type() -> void:
 	assert_false(_utility.has_capability(receiver, DamageCapability), "错误 adopt 不应按声明类型注册。")
 	assert_false(_utility.has_capability(receiver, HealthCapability), "错误 adopt 不应按实例类型回退注册。")
 	assert_null(capability.receiver, "失败 adopt 不应写入 receiver 或接管所有权。")
-	assert_push_error("[GFCapabilityUtility] adopt_capability_instance 失败：能力实例脚本")
+	assert_push_error("[GFCapabilityUtility][capability_utility.incompatible_registration_script] adopt_capability_instance failed: capability instance script")
 
 
 func test_capability_lifecycle_hooks_observe_committed_boundaries_and_cannot_reenter() -> void:
@@ -362,7 +362,7 @@ func test_added_hook_that_frees_receiver_releases_registration_transition() -> v
 
 	assert_null(registered, "added hook 释放 receiver 后不得返回失效能力。")
 	assert_true(_utility._registration_states.is_empty(), "receiver 失效后仍必须按不可变事务令牌清理注册状态。")
-	assert_push_error("[GFCapabilityUtility] add_capability 失败：added hook 释放了 receiver 或 capability。")
+	assert_push_error("[GFCapabilityUtility][capability_utility.added_hook_released_instance] add_capability failed: the added hook freed receiver or capability.")
 
 
 func test_removed_hook_that_frees_receiver_releases_registration_transition() -> void:
@@ -460,7 +460,7 @@ func test_remove_required_dependency_is_rejected_while_owner_exists() -> void:
 
 	assert_true(_utility.has_capability(receiver, DamageCapability), "依赖能力移除失败不应影响 owner 能力。")
 	assert_true(_utility.has_capability(receiver, HealthCapability), "仍被依赖的能力不能被直接移除。")
-	assert_push_error("[GFCapabilityUtility] remove_capability 失败：能力")
+	assert_push_error("[GFCapabilityUtility][capability_utility.capability_still_required] remove_capability failed: capability")
 
 
 func test_auto_dependency_cleanup_keeps_explicit_dependency() -> void:
@@ -503,7 +503,7 @@ func test_dependency_creation_failure_rolls_back_auto_created_dependencies() -> 
 	assert_null(capability, "依赖链创建失败时主能力不应挂载。")
 	assert_false(_utility.has_capability(receiver, HealthCapability), "失败前自动补齐的依赖应被回滚。")
 	assert_false(_utility.has_capability(receiver, RollbackCycleCapability), "失败的循环依赖能力不应残留。")
-	assert_push_error("[GFCapabilityUtility] 检测到循环能力依赖：")
+	assert_push_error("[GFCapabilityUtility][capability_utility.cyclic_dependency] Detected a capability dependency cycle: ")
 
 
 func test_capability_receives_architecture_injection() -> void:
@@ -886,7 +886,7 @@ func test_add_scene_capability_frees_ignored_duplicate_instance() -> void:
 	var scene: PackedScene = _make_counting_capability_scene()
 
 	var result: Object = _utility.add_scene_capability(receiver, scene, CountingCapabilityNode)
-	assert_push_warning("[GFCapabilityUtility] add_scene_capability：目标对象已拥有该能力，已忽略新实例。")
+	assert_push_warning("[GFCapabilityUtility][capability_utility.duplicate_capability] add_scene_capability: the target already has this capability; the new instance was ignored.")
 	var duplicate_node: CountingCapabilityNode = CountingCapabilityNode.created_nodes.back()
 
 	assert_eq(result, existing, "重复挂载场景能力时应返回已有实例。")
@@ -907,7 +907,7 @@ func test_add_scene_capability_rejects_mismatched_declared_type_and_frees_instan
 	assert_null(result, "场景根节点脚本不继承声明类型时应拒绝注册。")
 	assert_false(_utility.has_capability(receiver, HealthCapability), "错误场景能力不应污染 receiver。")
 	assert_true(created_node.is_queued_for_deletion(), "被拒绝的场景能力实例应被释放。")
-	assert_push_error("[GFCapabilityUtility] add_scene_capability 失败：能力实例脚本")
+	assert_push_error("[GFCapabilityUtility][capability_utility.incompatible_registration_script] add_scene_capability failed: capability instance script")
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -1023,7 +1023,7 @@ func test_base_type_lookup_requires_unique_match() -> void:
 	var _add_capability_result_736: Variant = _utility.add_capability(receiver, ConcreteCapabilityB)
 	var ambiguous: Variant = _utility.get_capability(receiver, BaseCapability)
 
-	assert_push_warning("[GFCapabilityUtility] get_capability(")
+	assert_push_warning("[GFCapabilityUtility][capability_utility.ambiguous_capability] get_capability(")
 	assert_true(ambiguous == null, "多个子类能力匹配同一基类时应返回 null。")
 
 
@@ -1036,7 +1036,7 @@ func test_required_base_capability_rejects_ambiguous_existing_subclasses() -> vo
 
 	assert_null(capability, "基类依赖匹配到多个已存在实现时应拒绝挂载。")
 	assert_false(_utility.has_capability(receiver, RequiresBaseCapability), "依赖歧义失败后主能力不应残留。")
-	assert_push_error("[GFCapabilityUtility] 能力依赖匹配到多个实现：")
+	assert_push_error("[GFCapabilityUtility][capability_utility.ambiguous_dependency] Multiple implementations match capability dependency")
 
 
 func test_capability_active_state_updates_property_and_hook() -> void:
@@ -1126,7 +1126,7 @@ func test_capability_active_tree_budget_failure_is_atomic_and_silent() -> void:
 	assert_ne(second_child.process_mode, Node.PROCESS_MODE_DISABLED, "超预算时子节点处理模式不得部分改变。")
 	assert_true(capability.active_events.is_empty(), "失败的状态事务不得调用 active hook。")
 	assert_true(emitted_states.is_empty(), "失败的状态事务不得发出成功信号。")
-	assert_push_error("[GFCapabilityUtility] set active state 失败：能力节点树超过")
+	assert_push_error("[GFCapabilityUtility][capability_utility.capability_tree_limit_exceeded] set active state failed: the capability node tree exceeds")
 
 	receiver.queue_free()
 	await get_tree().process_frame
@@ -1148,7 +1148,7 @@ func test_capability_node_tree_budget_rejects_registration_without_partial_recor
 
 	assert_null(registered)
 	assert_false(_utility.has_capability(receiver, CapabilityNode), "超预算节点树不得留下部分注册记录。")
-	assert_push_error("[GFCapabilityUtility] register capability 失败：能力节点树超过")
+	assert_push_error("[GFCapabilityUtility][capability_utility.capability_tree_limit_exceeded] register capability failed: the capability node tree exceeds")
 
 	capability.free()
 	receiver.queue_free()
@@ -1296,12 +1296,12 @@ func test_capability_query_rejects_null_required_types_without_broadening_result
 	var null_rejected: Array[Script] = [null]
 
 	var null_only_result: Array[Object] = _utility.get_receivers_matching_capabilities(null_only)
-	assert_push_error("[GFCapabilityUtility] get_receivers_matching_capabilities 失败：required_capability_types 包含 null。")
+	assert_push_error("[GFCapabilityUtility][capability_utility.null_required_capability_type] get_receivers_matching_capabilities failed: required_capability_types contains null.")
 	var mixed_result: Array[Object] = _utility.get_receivers_matching_capabilities(mixed_required)
-	assert_push_error("[GFCapabilityUtility] get_receivers_matching_capabilities 失败：required_capability_types 包含 null。")
+	assert_push_error("[GFCapabilityUtility][capability_utility.null_required_capability_type] get_receivers_matching_capabilities failed: required_capability_types contains null.")
 	var duplicate_result: Array[Object] = _utility.get_receivers_matching_capabilities(duplicate_required)
 	var rejected_result: Array[Object] = _utility.get_receivers_matching_capabilities([], null_rejected)
-	assert_push_error("[GFCapabilityUtility] get_receivers_matching_capabilities 失败：rejected_capability_types 包含 null。")
+	assert_push_error("[GFCapabilityUtility][capability_utility.null_rejected_capability_type] get_receivers_matching_capabilities failed: rejected_capability_types contains null.")
 	var empty_result: Array[Object] = _utility.get_receivers_matching_capabilities()
 
 	assert_true(null_only_result.is_empty(), "[null] 不得退化为空条件并匹配所有 receiver。")
@@ -1315,7 +1315,7 @@ func test_capability_query_rejects_null_required_types_without_broadening_result
 	var query: GFCapabilityQuery = GFCapabilityQuery.new()
 	query.required_capability_types = null_only
 	assert_false(_utility.receiver_matches_query(receiver_a, query), "资源化查询也必须对 null required 失败关闭。")
-	assert_push_error("[GFCapabilityUtility] receiver_matches_query 失败：required_capability_types 包含 null。")
+	assert_push_error("[GFCapabilityUtility][capability_utility.null_required_capability_type] receiver_matches_query failed: required_capability_types contains null.")
 
 
 func test_read_only_capability_queries_do_not_write_receiver_metadata() -> void:
@@ -1405,7 +1405,7 @@ func test_property_bag_rejects_raw_keys_and_defensively_copies_collections() -> 
 		&"valid": source,
 		42: "invalid",
 	}
-	assert_push_warning("[GFPropertyBagCapability] values 只接受 String 或 StringName 键")
+	assert_push_warning("[GFPropertyBagCapability][property_bag_capability.invalid_key_type] values accepts only String or StringName keys")
 
 	var source_items: Array = GFVariantData.get_option_array(source, "items")
 	source_items.append(2)
@@ -1493,7 +1493,7 @@ func test_recipe_propagates_rejected_active_state_change() -> void:
 	var result: Dictionary = _utility.apply_recipe(receiver, recipe)
 	assert_false(GFVariantData.get_option_bool(result, "ok"))
 	assert_true(capability.active)
-	assert_push_error("[GFCapabilityUtility] set active state 失败：能力节点树超过")
+	assert_push_error("[GFCapabilityUtility][capability_utility.capability_tree_limit_exceeded] set active state failed: the capability node tree exceeds")
 	receiver.queue_free()
 	await get_tree().process_frame
 
@@ -1514,7 +1514,7 @@ func test_capability_recipe_rolls_back_added_entries_and_groups_on_failure() -> 
 	assert_true(GFVariantData.get_option_bool(result, "rolled_back"), "默认 transactional=true 时应执行回滚。")
 	assert_false(_utility.has_capability(receiver, ActiveCapability), "失败前已新增的能力应被移除。")
 	assert_false(_utility.get_receivers_in_group(&"targets").has(receiver), "失败前新增的分组也应回滚。")
-	assert_push_error("[GFCapabilityUtility] 检测到循环能力依赖：")
+	assert_push_error("[GFCapabilityUtility][capability_utility.cyclic_dependency] Detected a capability dependency cycle: ")
 
 
 func test_capability_recipe_rolls_back_auto_dependencies_on_failure() -> void:
@@ -1551,7 +1551,7 @@ func test_remove_recipe_reports_dependency_blocked_removal_as_skipped() -> void:
 	assert_eq(GFVariantData.get_option_string(first_skipped, "kind"), "remove_failed", "删除失败应进入 skipped 详情。")
 	assert_true(_utility.has_capability(receiver, HealthCapability), "被依赖能力应仍然存在。")
 	assert_true(_utility.has_capability(receiver, DamageCapability), "依赖 owner 也应保持不变。")
-	assert_push_error("[GFCapabilityUtility] remove_capability 失败：能力")
+	assert_push_error("[GFCapabilityUtility][capability_utility.capability_still_required] remove_capability failed: capability")
 
 
 func test_capability_recipe_validation_reports_invalid_entries() -> void:
@@ -1709,7 +1709,7 @@ func test_capability_inspector_active_tree_budget_failure_is_atomic() -> void:
 	assert_ne(capability.process_mode, Node.PROCESS_MODE_DISABLED)
 	assert_ne(first_child.process_mode, Node.PROCESS_MODE_DISABLED)
 	assert_ne(second_child.process_mode, Node.PROCESS_MODE_DISABLED)
-	assert_push_error("[GFCapabilityInspector] set active state 失败：节点树超过最大节点数 2。")
+	assert_push_error("[GFCapabilityInspector][capability_inspector.node_tree_limit_exceeded] set active state failed: the node tree exceeds the maximum node count 2.")
 	capability.free()
 
 

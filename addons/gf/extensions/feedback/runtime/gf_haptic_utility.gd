@@ -1298,7 +1298,7 @@ func _reject_output_reentrant_mutation(operation: String) -> bool:
 	if not _is_dispatching_outputs:
 		return false
 	push_error(
-		"[GFHapticUtility] %s 失败：输出后端或回调执行期间不允许同步修改震动状态。请在当前输出结束后再修改。"
+		"[GFHapticUtility][haptic_utility.mutation_during_output] %s failed: haptic state cannot be modified synchronously while an output backend or callback is running. Wait until the current output finishes."
 		% operation
 	)
 	return true

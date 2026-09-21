@@ -823,35 +823,35 @@ static func _warn_resource_path_limit(max_resource_paths: int, scan_state: Dicti
 	if max_resource_paths <= 0 or GFVariantData.get_option_bool(scan_state, "count_warning_emitted"):
 		return
 	scan_state["count_warning_emitted"] = true
-	push_warning("[GFResourceRegistryTools] scan_resource_paths 已达到 max_resource_paths=%d，后续资源已跳过。" % max_resource_paths)
+	push_warning("[GFResourceRegistryTools][resource_registry_tools.resource_path_limit] scan_resource_paths reached max_resource_paths=%d; remaining resources were skipped." % max_resource_paths)
 
 
 static func _warn_scanned_entry_limit(max_scanned_entries: int, scan_state: Dictionary) -> void:
 	if max_scanned_entries <= 0 or GFVariantData.get_option_bool(scan_state, "entry_warning_emitted"):
 		return
 	scan_state["entry_warning_emitted"] = true
-	push_warning("[GFResourceRegistryTools] scan_resource_paths 已达到 max_scanned_entries=%d，后续目录项已跳过。" % max_scanned_entries)
+	push_warning("[GFResourceRegistryTools][resource_registry_tools.scanned_entry_limit] scan_resource_paths reached max_scanned_entries=%d; remaining directory entries were skipped." % max_scanned_entries)
 
 
 static func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
 	if max_scan_depth <= 0 or GFVariantData.get_option_bool(scan_state, "depth_warning_emitted"):
 		return
 	scan_state["depth_warning_emitted"] = true
-	push_warning("[GFResourceRegistryTools] scan_resource_paths 已达到 max_scan_depth=%d，已跳过更深目录：%s。" % [max_scan_depth, path])
+	push_warning("[GFResourceRegistryTools][resource_registry_tools.resource_scan_depth_limit] scan_resource_paths reached max_scan_depth=%d; deeper directory skipped: %s." % [max_scan_depth, path])
 
 
 static func _warn_dependency_path_limit(max_dependency_paths: int, scan_state: Dictionary) -> void:
 	if max_dependency_paths <= 0 or GFVariantData.get_option_bool(scan_state, "count_warning_emitted"):
 		return
 	scan_state["count_warning_emitted"] = true
-	push_warning("[GFResourceRegistryTools] collect_dependency_paths 已达到 max_dependency_paths=%d，后续依赖已跳过。" % max_dependency_paths)
+	push_warning("[GFResourceRegistryTools][resource_registry_tools.dependency_path_limit] collect_dependency_paths reached max_dependency_paths=%d; remaining dependencies were skipped." % max_dependency_paths)
 
 
 static func _warn_dependency_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
 	if max_scan_depth <= 0 or GFVariantData.get_option_bool(scan_state, "depth_warning_emitted"):
 		return
 	scan_state["depth_warning_emitted"] = true
-	push_warning("[GFResourceRegistryTools] collect_dependency_paths 已达到 max_scan_depth=%d，已跳过更深依赖：%s。" % [max_scan_depth, path])
+	push_warning("[GFResourceRegistryTools][resource_registry_tools.dependency_scan_depth_limit] collect_dependency_paths reached max_scan_depth=%d; deeper dependency skipped: %s." % [max_scan_depth, path])
 
 
 static func _get_extensions(options: Dictionary) -> PackedStringArray:

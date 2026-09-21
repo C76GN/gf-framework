@@ -271,7 +271,7 @@ static func get_extension_selection_mode() -> String:
 static func set_extension_selection_mode(selection_mode: String) -> bool:
 	var normalized_mode: String = _normalize_extension_selection_mode(selection_mode)
 	if normalized_mode.is_empty():
-		push_error("[GFExtensionSettings] 扩展选择模式无效：%s" % selection_mode)
+		push_error("[GFExtensionSettings][extension_settings.selection_mode_invalid] Invalid extension selection mode: %s." % selection_mode)
 		return false
 
 	_set_extension_selection_mode_unchecked(normalized_mode)
@@ -578,7 +578,7 @@ static func apply_extension_preset(
 		}
 	)
 	if not unknown_ids.is_empty():
-		push_error("[GFExtensionSettings] apply_extension_preset 失败：preset 包含未知扩展 ID：%s" % ", ".join(unknown_ids))
+		push_error("[GFExtensionSettings][extension_settings.preset_extension_unknown] apply_extension_preset failed: preset contains unknown extension IDs: %s." % ", ".join(unknown_ids))
 		return false
 
 	set_enabled_extension_ids(preset.extension_ids, include_dependencies)
@@ -1249,7 +1249,7 @@ static func _selection_snapshot_allows_runtime_paths(snapshot: Dictionary, conte
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(snapshot, "paths_allowed", graph_ok):
 		return true
 	var graph_report: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(snapshot, "graph_report")
-	push_warning("[GFExtensionSettings] %s blocked: %s" % [context, _summarize_manifest_graph_report(graph_report)])
+	push_warning("[GFExtensionSettings][extension_settings.manifest_graph_invalid] %s blocked: %s." % [context, _summarize_manifest_graph_report(graph_report)])
 	return false
 
 

@@ -155,7 +155,7 @@ func test_subscribe_rejects_invalid_callback() -> void:
 	var unsubscribe: Callable = _prop.subscribe(Callable())
 
 	assert_false(unsubscribe.is_valid(), "无效 callback 不应返回有效取消函数。")
-	assert_push_error("[GFBindableProperty] subscribe 失败：callback 无效。")
+	assert_push_error("[GFBindableProperty][bindable_property.subscribe_callback_invalid] subscribe failed: callback is invalid.")
 
 
 func test_subscribe_token_cancels_subscription() -> void:
@@ -711,7 +711,7 @@ func test_computed_property_rejects_external_set() -> void:
 	computed.value = 10
 
 	assert_eq(_value_int(computed), 2, "外部写入 computed 属性不应改变派生值。")
-	assert_push_error("[GFComputedProperty] 当前属性由 compute 回调派生，请修改来源属性。")
+	assert_push_error("[GFComputedProperty][computed_property.read_only] This property is derived from the compute callback; modify its source properties.")
 	computed.dispose()
 
 

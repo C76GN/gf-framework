@@ -175,31 +175,31 @@ func build_headers() -> PackedStringArray:
 	var seen_header_names: Dictionary = { "content-type": true }
 	for key: Variant in headers:
 		if examined_candidate_count >= _MAX_HEADER_CANDIDATE_COUNT:
-			push_warning("[GFAnalyticsConfig] 自定义 HTTP Header 候选超过 256，已停止扫描。")
+			push_warning("[GFAnalyticsConfig][analytics_config.header_candidate_limit] Custom HTTP header candidates exceed 256; scanning stopped.")
 			break
 		examined_candidate_count += 1
 		if accepted_custom_count >= _MAX_CUSTOM_HEADER_COUNT:
-			push_warning("[GFAnalyticsConfig] 自定义 HTTP Header 数量超过 64，已忽略剩余字段。")
+			push_warning("[GFAnalyticsConfig][analytics_config.header_count_limit] Custom HTTP header count exceeds 64; remaining fields ignored.")
 			break
 		var header_name: String = GFVariantData.to_text(key)
 		var header_value: String = GFVariantData.to_text(headers[key])
 		if not _is_valid_header(header_name, header_value):
-			push_warning("[GFAnalyticsConfig] 忽略非法 HTTP Header：%s" % _escape_header_for_log(header_name))
+			push_warning("[GFAnalyticsConfig][analytics_config.header_invalid] Ignored invalid HTTP header: %s." % _escape_header_for_log(header_name))
 			continue
 		if _is_same_header_name(header_name, "Content-Type"):
-			push_warning("[GFAnalyticsConfig] 忽略自定义 Content-Type；analytics payload 固定为 application/json。")
+			push_warning("[GFAnalyticsConfig][analytics_config.content_type_override] Ignored custom Content-Type; analytics payloads use application/json.")
 			continue
 		if compress_payload and _is_same_header_name(header_name, "Content-Encoding"):
-			push_warning("[GFAnalyticsConfig] compress_payload 已启用，忽略自定义 Content-Encoding。")
+			push_warning("[GFAnalyticsConfig][analytics_config.content_encoding_override] compress_payload is enabled; custom Content-Encoding ignored.")
 			continue
 		var canonical_header_name: String = header_name.to_lower()
 		if seen_header_names.has(canonical_header_name):
-			push_warning("[GFAnalyticsConfig] 忽略重复 HTTP Header：%s" % _escape_header_for_log(header_name))
+			push_warning("[GFAnalyticsConfig][analytics_config.header_duplicate] Ignored duplicate HTTP header: %s." % _escape_header_for_log(header_name))
 			continue
 		var header_line: String = "%s: %s" % [header_name, header_value]
 		var header_line_bytes: int = header_line.to_utf8_buffer().size() + 2
 		if total_header_bytes + header_line_bytes > _MAX_TOTAL_HEADER_BYTES:
-			push_warning("[GFAnalyticsConfig] 自定义 HTTP Header 总字节数超过 65536，已忽略剩余字段。")
+			push_warning("[GFAnalyticsConfig][analytics_config.header_bytes_limit] Custom HTTP headers exceed 65536 bytes; remaining fields ignored.")
 			break
 		var _header_appended: bool = result.append(header_line)
 		seen_header_names[canonical_header_name] = true

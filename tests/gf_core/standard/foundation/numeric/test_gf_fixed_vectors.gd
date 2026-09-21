@@ -66,7 +66,7 @@ func test_vector2_serialization_normalizes_mutated_decimal_places() -> void:
 	var data: Dictionary = value.to_dict()
 	var bytes: PackedByteArray = value.to_bytes()
 
-	assert_push_error("[GFFixedVector2] decimal_places 超出上限 18，已自动钳制。")
+	assert_push_error("[GFFixedNumericSerializationSupport][fixed_numeric_serialization_support.decimal_places_clamped] GFFixedVector2: decimal_places exceeds the limit 18 and was clamped.")
 	assert_eq(GFVariantData.get_option_int(data, "decimal_places"), GFFixedDecimal.MAX_DECIMAL_PLACES)
 	assert_eq(bytes[5], GFFixedDecimal.MAX_DECIMAL_PLACES)
 
@@ -78,9 +78,9 @@ func test_vector2_public_field_setters_normalize_mutated_state() -> void:
 	value.raw_y = -9_223_372_036_854_775_807 - 1
 	value.decimal_places = 30
 
-	assert_push_error("[GFFixedVector2] raw_x 超出可表示范围，已钳制。")
-	assert_push_error("[GFFixedVector2] raw_y 超出可表示范围，已钳制。")
-	assert_push_error("[GFFixedVector2] decimal_places 超出上限 18，已自动钳制。")
+	assert_push_error("[GFFixedNumericSerializationSupport][fixed_numeric_serialization_support.value_clamped] GFFixedVector2: raw_x exceeds the representable range and was clamped.")
+	assert_push_error("[GFFixedNumericSerializationSupport][fixed_numeric_serialization_support.value_clamped] GFFixedVector2: raw_y exceeds the representable range and was clamped.")
+	assert_push_error("[GFFixedNumericSerializationSupport][fixed_numeric_serialization_support.decimal_places_clamped] GFFixedVector2: decimal_places exceeds the limit 18 and was clamped.")
 	assert_eq(value.raw_x, -9_223_372_036_854_775_807)
 	assert_eq(value.raw_y, -9_223_372_036_854_775_807)
 	assert_eq(value.decimal_places, GFFixedDecimal.MAX_DECIMAL_PLACES)
@@ -116,9 +116,9 @@ func test_vector2_rejects_unknown_serialized_format() -> void:
 	]))
 
 	assert_false(applied_dict)
-	assert_push_error("[GFFixedVector2] 不支持的状态字典格式。")
+	assert_push_error("[GFFixedVector2][fixed_vector2.state_format_unsupported] Unsupported state dictionary format.")
 	assert_false(applied_bytes)
-	assert_push_error("[GFFixedVector2] 不支持的字节序列格式。")
+	assert_push_error("[GFFixedVector2][fixed_vector2.byte_format_unsupported] Unsupported byte sequence format.")
 	assert_eq(value.raw_x, 0)
 	assert_eq(value.raw_y, 0)
 	assert_eq(value.decimal_places, 2)
@@ -176,7 +176,7 @@ func test_vector3_serialization_normalizes_mutated_decimal_places() -> void:
 	var data: Dictionary = value.to_dict()
 	var bytes: PackedByteArray = value.to_bytes()
 
-	assert_push_error("[GFFixedVector3] decimal_places 超出上限 18，已自动钳制。")
+	assert_push_error("[GFFixedNumericSerializationSupport][fixed_numeric_serialization_support.decimal_places_clamped] GFFixedVector3: decimal_places exceeds the limit 18 and was clamped.")
 	assert_eq(GFVariantData.get_option_int(data, "decimal_places"), GFFixedDecimal.MAX_DECIMAL_PLACES)
 	assert_eq(bytes[5], GFFixedDecimal.MAX_DECIMAL_PLACES)
 
@@ -189,10 +189,10 @@ func test_vector3_public_field_setters_normalize_mutated_state() -> void:
 	value.raw_z = -9_223_372_036_854_775_807 - 1
 	value.decimal_places = 30
 
-	assert_push_error("[GFFixedVector3] raw_x 超出可表示范围，已钳制。")
-	assert_push_error("[GFFixedVector3] raw_y 超出可表示范围，已钳制。")
-	assert_push_error("[GFFixedVector3] raw_z 超出可表示范围，已钳制。")
-	assert_push_error("[GFFixedVector3] decimal_places 超出上限 18，已自动钳制。")
+	assert_push_error("[GFFixedNumericSerializationSupport][fixed_numeric_serialization_support.value_clamped] GFFixedVector3: raw_x exceeds the representable range and was clamped.")
+	assert_push_error("[GFFixedNumericSerializationSupport][fixed_numeric_serialization_support.value_clamped] GFFixedVector3: raw_y exceeds the representable range and was clamped.")
+	assert_push_error("[GFFixedNumericSerializationSupport][fixed_numeric_serialization_support.value_clamped] GFFixedVector3: raw_z exceeds the representable range and was clamped.")
+	assert_push_error("[GFFixedNumericSerializationSupport][fixed_numeric_serialization_support.decimal_places_clamped] GFFixedVector3: decimal_places exceeds the limit 18 and was clamped.")
 	assert_eq(value.raw_x, -9_223_372_036_854_775_807)
 	assert_eq(value.raw_y, -9_223_372_036_854_775_807)
 	assert_eq(value.raw_z, -9_223_372_036_854_775_807)
@@ -232,9 +232,9 @@ func test_vector3_rejects_unknown_serialized_format() -> void:
 	]))
 
 	assert_false(applied)
-	assert_push_error("[GFFixedVector3] 不支持的字节序列格式。")
+	assert_push_error("[GFFixedVector3][fixed_vector3.byte_format_unsupported] Unsupported byte sequence format.")
 	assert_false(negative_zero_applied)
-	assert_push_error("[GFFixedVector3] 不支持的字节序列格式。")
+	assert_push_error("[GFFixedVector3][fixed_vector3.byte_format_unsupported] Unsupported byte sequence format.")
 	assert_eq(value.raw_x, 0)
 	assert_eq(value.raw_y, 0)
 	assert_eq(value.raw_z, 0)
@@ -280,12 +280,12 @@ func test_vector_serialization_rejects_malformed_raw_and_byte_edges() -> void:
 	]))
 
 	assert_false(invalid_raw_applied)
-	assert_push_error("[GFFixedVector2] 不支持的状态字典格式。")
+	assert_push_error("[GFFixedVector2][fixed_vector2.state_format_unsupported] Unsupported state dictionary format.")
 	assert_false(invalid_places_applied)
-	assert_push_error("[GFFixedVector2] 不支持的状态字典格式。")
+	assert_push_error("[GFFixedVector2][fixed_vector2.state_format_unsupported] Unsupported state dictionary format.")
 	assert_false(invalid_sign_applied)
-	assert_push_error("[GFFixedVector2] 不支持的字节序列格式。")
+	assert_push_error("[GFFixedVector2][fixed_vector2.byte_format_unsupported] Unsupported byte sequence format.")
 	assert_false(overflow_magnitude_applied)
-	assert_push_error("[GFFixedVector2] 不支持的字节序列格式。")
+	assert_push_error("[GFFixedVector2][fixed_vector2.byte_format_unsupported] Unsupported byte sequence format.")
 	assert_false(negative_zero_applied)
-	assert_push_error("[GFFixedVector2] 不支持的字节序列格式。")
+	assert_push_error("[GFFixedVector2][fixed_vector2.byte_format_unsupported] Unsupported byte sequence format.")

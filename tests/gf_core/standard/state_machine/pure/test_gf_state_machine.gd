@@ -330,7 +330,7 @@ func test_start_unknown_state_is_safe() -> void:
 	_fsm.start(&"Unknown")
 
 	assert_eq(_fsm.current_state_name, &"", "未找到状态时 current_state_name 应保持空。")
-	assert_push_warning("[GFStateMachine] 启动失败，未找到状态：Unknown")
+	assert_push_warning("[GFStateMachine][state_machine.start_state_missing] Cannot start: state not found: Unknown.")
 
 
 # --- 测试：状态切换 ---
@@ -674,7 +674,7 @@ func test_set_state_parent_rejects_cycles() -> void:
 	var changed: bool = _fsm.set_state_parent(&"Parent", &"Child")
 
 	assert_false(changed, "父子关系不能形成循环。")
-	assert_push_error("[GFStateMachine] 检测到循环状态父级：Parent -> Child")
+	assert_push_error("[GFStateMachine][state_machine.parent_cycle] Detected a state parent cycle: Parent -> Child.")
 
 
 func test_set_state_parent_stops_active_path_before_reparenting() -> void:
@@ -705,7 +705,7 @@ func test_change_state_unknown_is_safe() -> void:
 	assert_eq(_fsm.current_state_name, &"Idle", "未找到状态时 current_state_name 不应变化。")
 	assert_eq(idle.exit_count, 0, "未知目标不应退出当前状态。")
 	assert_signal_not_emitted(_fsm, "state_changed", "未知目标不应发出 state_changed。")
-	assert_push_warning("[GFStateMachine] 切换失败，未找到状态：NonExistent")
+	assert_push_warning("[GFStateMachine][state_machine.transition_state_missing] Cannot transition: state not found: NonExistent.")
 
 
 # --- 测试：update 与 stop ---
@@ -1162,7 +1162,7 @@ func test_get_dependency_with_released_context_returns_null() -> void:
 	var model: Object = _fsm.get_model(DummyModel)
 
 	assert_null(model, "context 失效后应拒绝获取 Model。")
-	assert_push_error("[GFStateMachine] 上下文无效，无法获取 Model。")
+	assert_push_error("[GFStateMachine][state_machine.context_invalid] Cannot retrieve Model: context is invalid.")
 
 
 # --- 私有/辅助方法 ---

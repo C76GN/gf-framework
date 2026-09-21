@@ -120,7 +120,7 @@ static func apply_soft_cap(
 	var cap_value: GFBigNumber = _to_big_number(soft_cap)
 
 	if power <= 0.0:
-		push_error("[GFProgressionMath] soft cap power 必须大于 0。")
+		push_error("[GFProgressionMath][progression_math.soft_cap_power_invalid] Soft cap power must be greater than zero.")
 		return cap_value
 
 	if big_value.compare_to(cap_value) <= 0 or is_equal_approx(power, 1.0):
@@ -292,7 +292,7 @@ static func _evaluate_phase(
 		CurveMode.EXPONENTIAL:
 			var multiplier: float = _get_option_progression_float(phase_config, "multiplier", 1.0)
 			if multiplier <= 0.0:
-				push_error("[GFProgressionMath] 指数曲线 multiplier 必须大于 0。")
+				push_error("[GFProgressionMath][progression_math.exponential_multiplier_invalid] The exponential curve multiplier must be greater than zero.")
 				return anchor_value.clone()
 
 			if delta_levels == 0:
@@ -370,7 +370,7 @@ static func _resolve_anchor_value(
 	if curve_config.has("base_value"):
 		return _to_big_number(GFVariantData.get_option_value(curve_config, "base_value"))
 
-	push_error("[GFProgressionMath] 曲线配置缺少 base_value。")
+	push_error("[GFProgressionMath][progression_math.base_value_missing] Curve configuration is missing base_value.")
 	return _to_big_number(0)
 
 

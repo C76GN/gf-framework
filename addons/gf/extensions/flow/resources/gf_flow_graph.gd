@@ -591,22 +591,22 @@ func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
 ## @schema data: serialize_runtime_state() 返回的运行态快照 Dictionary。
 func deserialize_runtime_state(data: Dictionary) -> void:
 	if not data.has("nodes"):
-		push_error("[GFFlowGraph] deserialize_runtime_state 失败：缺少 nodes 字段。")
+		push_error("[GFFlowGraph][flow_graph.missing_runtime_nodes] deserialize_runtime_state failed: the nodes field is missing.")
 		return
 	var node_states_value: Variant = data["nodes"]
 	if not (node_states_value is Dictionary):
-		push_error("[GFFlowGraph] deserialize_runtime_state 失败：nodes 必须是 Dictionary。")
+		push_error("[GFFlowGraph][flow_graph.invalid_runtime_nodes] deserialize_runtime_state failed: nodes must be a Dictionary.")
 		return
 
 	var node_states: Dictionary = node_states_value
 	for state_value: Variant in node_states.values():
 		if not (state_value is Dictionary):
-			push_error("[GFFlowGraph] deserialize_runtime_state 失败：每个节点状态必须是 Dictionary。")
+			push_error("[GFFlowGraph][flow_graph.invalid_node_runtime_state] deserialize_runtime_state failed: each node state must be a Dictionary.")
 			return
 	var leased_node_id: StringName = _get_leased_runtime_state_node_id()
 	if leased_node_id != &"":
 		push_error(
-			"[GFFlowGraph] deserialize_runtime_state 失败：节点运行态正被执行租约占用：%s。"
+			"[GFFlowGraph][flow_graph.deserialize_runtime_lease_active] deserialize_runtime_state failed: node runtime state is held by an execution lease: %s."
 			% String(leased_node_id)
 		)
 		return
@@ -628,7 +628,7 @@ func clear_runtime_state() -> void:
 	var leased_node_id: StringName = _get_leased_runtime_state_node_id()
 	if leased_node_id != &"":
 		push_error(
-			"[GFFlowGraph] clear_runtime_state 失败：节点运行态正被执行租约占用：%s。"
+			"[GFFlowGraph][flow_graph.clear_runtime_lease_active] clear_runtime_state failed: node runtime state is held by an execution lease: %s."
 			% String(leased_node_id)
 		)
 		return

@@ -34,14 +34,14 @@ func test_decimal_string_formatting_rejects_non_finite_values() -> void:
 		"0",
 		"非有限浮点值应格式化为稳定 fallback。"
 	)
-	assert_push_error("[GFDecimalStringFormatter] 只能格式化有限浮点值。")
+	assert_push_error("[GFDecimalStringFormatter][decimal_string_formatter.value_non_finite] Only finite floating-point values can be formatted.")
 
 	assert_eq(
 		GFDecimalStringFormatterBase.apply_decimal_places(NAN, 2, false),
 		0.0,
 		"直接调整非有限浮点值时也应返回稳定 fallback。"
 	)
-	assert_push_error("[GFDecimalStringFormatter] 只能格式化有限浮点值。")
+	assert_push_error("[GFDecimalStringFormatter][decimal_string_formatter.value_non_finite] Only finite floating-point values can be formatted.")
 
 
 func test_decimal_string_formatting_rejects_scaled_overflow() -> void:
@@ -50,13 +50,13 @@ func test_decimal_string_formatting_rejects_scaled_overflow() -> void:
 		0.0,
 		"有限输入在小数缩放后溢出时应返回稳定 fallback。"
 	)
-	assert_push_error("[GFDecimalStringFormatter] 小数缩放后超过有限浮点范围。")
+	assert_push_error("[GFDecimalStringFormatter][decimal_string_formatter.scaled_value_non_finite] The scaled decimal exceeds the finite floating-point range.")
 
 
 func test_decimal_string_formatting_clamps_excessive_decimal_places() -> void:
 	var text: String = GFDecimalStringFormatterBase.format_decimal_value(1.25, 1_000_000, false, false)
 
-	assert_push_error("[GFDecimalStringFormatter] decimal_places 不能超过 18，已钳制。")
+	assert_push_error("[GFDecimalStringFormatter][decimal_string_formatter.decimal_places_clamped] decimal_places exceeds 18 and was clamped.")
 	assert_eq(text, "1.250000000000000000", "超大小数位数应被钳制到显示层上限。")
 	assert_lte(text.length(), 24, "钳制后不应生成巨大字符串。")
 

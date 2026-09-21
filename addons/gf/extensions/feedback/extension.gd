@@ -22,7 +22,7 @@ func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 			return
 		if not registered_shake:
 			architecture.fail_initialization(
-				"[GFFeedbackExtension] GFShakeUtility registration failed."
+				"[GFFeedbackExtension][feedback_extension.shake_registration_failed] GFShakeUtility registration failed."
 			)
 			return
 	if architecture.get_local_utility(GFHapticUtility) == null:
@@ -33,7 +33,7 @@ func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 			return
 		if not registered_haptic:
 			architecture.fail_initialization(
-				"[GFFeedbackExtension] GFHapticUtility registration failed."
+				"[GFFeedbackExtension][feedback_extension.haptic_registration_failed] GFHapticUtility registration failed."
 			)
 
 

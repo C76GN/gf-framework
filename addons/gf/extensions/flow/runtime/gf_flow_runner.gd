@@ -112,7 +112,7 @@ var is_running: bool:
 	get:
 		return _is_running
 	set(_value):
-		push_error("[GFFlowRunner] is_running 是只读运行状态，不能由调用方修改。")
+		push_error("[GFFlowRunner][flow_runner.read_only_running_state] is_running is read-only runtime state and cannot be modified by callers.")
 
 ## 最多执行节点数量，避免循环图无限运行。小于等于 0 表示不限制。
 ## [br]
@@ -200,10 +200,10 @@ func inject_dependencies(architecture: GFArchitecture) -> void:
 ## @schema return: Dictionary，包含 schema_version、run_id、outcome、reason、单调时间、节点计数、pending_node_count、Signal 等待状态计数、trace 截断统计和有界 trace。
 func run(graph: GFFlowGraph, context: GFFlowContext = null) -> Dictionary:
 	if graph == null:
-		push_error("[GFFlowRunner] run 失败：graph 为空。")
+		push_error("[GFFlowRunner][flow_runner.missing_graph] run failed: graph is null.")
 		return _store_rejected_report(&"invalid_graph")
 	if _is_running:
-		push_warning("[GFFlowRunner] 流程正在执行，忽略重复 run()。")
+		push_warning("[GFFlowRunner][flow_runner.already_running] The flow is already running; the duplicate run() call was ignored.")
 		return _store_rejected_report(&"run_in_progress")
 
 	var flow_context: GFFlowContext = context if context != null else GFFlowContext.new(_get_architecture_or_null())
@@ -282,7 +282,7 @@ func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 	while pending_index < pending.size() and not _cancel_requested:
 		if max_executed_nodes > 0 and executed_count >= max_executed_nodes:
 			_abort_reason = &"max_executed_nodes"
-			push_warning("[GFFlowRunner] 达到最大节点执行数量，流程停止。")
+			push_warning("[GFFlowRunner][flow_runner.node_execution_limit] The maximum node execution count was reached; the flow stopped.")
 			break
 
 		var node_id: StringName = StringName(pending[pending_index])
@@ -293,7 +293,7 @@ func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 
 		var node: GFFlowNode = graph.get_node(node_id)
 		if node == null:
-			push_warning("[GFFlowRunner] 缺少流程节点：%s" % String(node_id))
+			push_warning("[GFFlowRunner][flow_runner.missing_node] Flow node was not found: %s." % String(node_id))
 			_increment_active_report_count("missing_node_count")
 			_append_trace_entry(_make_trace_entry(
 				node_id,
@@ -311,7 +311,7 @@ func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 			runtime_state_lease_id = node.acquire_runtime_state_lease()
 			if runtime_state_lease_id <= 0:
 				_abort_reason = &"node_runtime_state_busy"
-				push_error("[GFFlowRunner] 节点运行态已被其他执行租约占用：%s" % String(node_id))
+				push_error("[GFFlowRunner][flow_runner.runtime_lease_active] Node runtime state is held by another execution lease: %s." % String(node_id))
 				_append_trace_entry(_make_trace_entry(
 					node_id,
 					&"aborted",
@@ -370,7 +370,7 @@ func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 				if runtime_state_lease_id > 0:
 					if not node.release_runtime_state_lease(runtime_state_lease_id):
 						_abort_reason = &"node_runtime_state_lease_release_failed"
-						push_error("[GFFlowRunner] 无法释放异步节点运行态租约：%s" % String(node_id))
+						push_error("[GFFlowRunner][flow_runner.async_lease_release_failed] Could not release the asynchronous node runtime lease: %s." % String(node_id))
 						_append_trace_entry(_make_trace_entry(
 							node_id,
 							&"aborted",
@@ -410,7 +410,7 @@ func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 		elif runtime_state_lease_id > 0:
 			if not node.release_runtime_state_lease(runtime_state_lease_id):
 				_abort_reason = &"node_runtime_state_lease_release_failed"
-				push_error("[GFFlowRunner] 无法释放同步节点运行态租约：%s" % String(node_id))
+				push_error("[GFFlowRunner][flow_runner.sync_lease_release_failed] Could not release the synchronous node runtime lease: %s." % String(node_id))
 				_append_trace_entry(_make_trace_entry(
 					node_id,
 					&"aborted",
@@ -445,7 +445,7 @@ func _await_signal_safely(result_signal: Signal) -> Dictionary:
 		"time_utility": _get_time_utility(),
 		"timeout_seconds": signal_timeout_seconds,
 		"respect_time_scale": signal_timeout_respects_time_scale,
-		"timeout_warning": "[GFFlowRunner] 等待 Signal 超时，流程将继续执行后续节点。",
+		"timeout_warning": "[GFFlowRunner][flow_runner.signal_timeout] Waiting for the Signal timed out; the flow will continue with subsequent nodes.",
 	})
 
 
@@ -458,7 +458,7 @@ func _execute_node_with_runtime_state(
 		return node.execute(context)
 	if not node.begin_runtime_state_lease_write(runtime_state_lease_id):
 		_abort_reason = &"node_runtime_state_lease_invalid"
-		push_error("[GFFlowRunner] 无法进入节点运行态租约写阶段。")
+		push_error("[GFFlowRunner][flow_runner.lease_write_begin_failed] Could not enter the node runtime lease write phase.")
 		return null
 
 	var original_state: Dictionary = node.serialize_runtime_state()
@@ -470,12 +470,12 @@ func _execute_node_with_runtime_state(
 		context.end_node_runtime_execution(executing_node_id)
 	else:
 		_abort_reason = &"context_node_runtime_state_busy"
-		push_error("[GFFlowRunner] Context 节点运行态正被另一同步执行占用：%s" % String(executing_node_id))
+		push_error("[GFFlowRunner][flow_runner.context_runtime_state_busy] Context node runtime state is held by another synchronous execution: %s." % String(executing_node_id))
 	node.clear_runtime_state()
 	node.deserialize_runtime_state(original_state)
 	if not node.end_runtime_state_lease_write(runtime_state_lease_id):
 		_abort_reason = &"node_runtime_state_lease_invalid"
-		push_error("[GFFlowRunner] 无法结束节点运行态租约写阶段。")
+		push_error("[GFFlowRunner][flow_runner.lease_write_end_failed] Could not end the node runtime lease write phase.")
 		return null
 	return result
 
@@ -534,7 +534,7 @@ func _release_runtime_state_lease_when_signal_emits(
 		runtime_state_lease_id
 	)
 	_abort_reason = &"node_runtime_state_lease_connect_failed"
-	push_error("[GFFlowRunner] 无法建立非等待 Signal 的运行态租约释放连接。")
+	push_error("[GFFlowRunner][flow_runner.lease_release_connection_failed] Could not connect runtime lease release for a non-waited Signal.")
 	return false
 
 

@@ -496,7 +496,7 @@ func test_flow_runner_reports_real_signal_timeout_and_releases_runtime_lease() -
 	var report: Dictionary = await runner.run(graph, GFFlowContext.new())
 	var trace: Array = GFVariantData.get_option_array(report, "trace")
 
-	assert_push_warning("[GFFlowRunner] 等待 Signal 超时，流程将继续执行后续节点。")
+	assert_push_warning("[GFFlowRunner][flow_runner.signal_timeout] Waiting for the Signal timed out; the flow will continue with subsequent nodes.")
 	assert_eq(GFVariantData.get_option_string(report, "outcome"), "completed", "Signal 超时按既有策略继续流程时应完成运行。")
 	assert_eq(GFVariantData.get_option_int(report, "signal_wait_count"), 1, "报告应统计一次 Signal 等待。")
 	assert_eq(GFVariantData.get_option_int(report, "timed_out_signal_wait_count"), 1, "报告应统计真实超时。")
@@ -536,7 +536,7 @@ func test_flow_runner_rejected_reentry_has_independent_report_and_does_not_repla
 	var rejected: Dictionary = await runner.run(graph, GFFlowContext.new())
 	var rejected_copy: Dictionary = runner.get_last_run_report()
 
-	assert_push_warning("[GFFlowRunner] 流程正在执行，忽略重复 run()。")
+	assert_push_warning("[GFFlowRunner][flow_runner.already_running] The flow is already running; the duplicate run() call was ignored.")
 	assert_eq(GFVariantData.get_option_string(rejected, "outcome"), "rejected", "并发重入应返回 rejected。")
 	assert_eq(GFVariantData.get_option_string(rejected, "reason"), "run_in_progress", "并发重入应给出稳定原因。")
 	assert_eq(rejected_copy, rejected, "被拒绝的调用也应成为当时可查询的最近报告。")
@@ -573,8 +573,8 @@ func test_flow_runner_running_guard_cannot_be_cleared_by_project_code() -> void:
 	runner.is_running = false
 	var rejected: Dictionary = await runner.run(second_graph, GFFlowContext.new())
 
-	assert_push_error("[GFFlowRunner] is_running 是只读运行状态，不能由调用方修改。")
-	assert_push_warning("[GFFlowRunner] 流程正在执行，忽略重复 run()。")
+	assert_push_error("[GFFlowRunner][flow_runner.read_only_running_state] is_running is read-only runtime state and cannot be modified by callers.")
+	assert_push_warning("[GFFlowRunner][flow_runner.already_running] The flow is already running; the duplicate run() call was ignored.")
 	assert_eq(GFVariantData.get_option_string(rejected, "outcome"), "rejected", "写公开状态不得绕过同 Runner 重入保护。")
 	assert_eq(GFVariantData.get_option_string(rejected, "reason"), "run_in_progress", "敌意写入后的重入仍应给出稳定原因。")
 	assert_eq(second_order, [], "被拒绝的第二个流程不得执行节点。")
@@ -595,7 +595,7 @@ func test_flow_runner_missing_start_node_aborts_instead_of_completing() -> void:
 
 	var report: Dictionary = await runner.run(graph, GFFlowContext.new())
 
-	assert_push_warning("[GFFlowRunner] 缺少流程节点：missing")
+	assert_push_warning("[GFFlowRunner][flow_runner.missing_node] Flow node was not found: missing.")
 	assert_eq(GFVariantData.get_option_string(report, "outcome"), "aborted", "缺失 start 节点不得伪装成正常完成。")
 	assert_eq(GFVariantData.get_option_string(report, "reason"), "missing_node", "缺失节点应提供稳定中止原因。")
 	assert_eq(GFVariantData.get_option_int(report, "missing_node_count"), 1, "报告应保留缺失节点计数。")
@@ -612,7 +612,7 @@ func test_flow_runner_dynamic_missing_successor_aborts_instead_of_completing() -
 
 	var report: Dictionary = await runner.run(graph, GFFlowContext.new())
 
-	assert_push_warning("[GFFlowRunner] 缺少流程节点：right")
+	assert_push_warning("[GFFlowRunner][flow_runner.missing_node] Flow node was not found: right.")
 	assert_eq(GFVariantData.get_option_string(report, "outcome"), "aborted", "动态分支到缺失节点必须失败关闭。")
 	assert_eq(GFVariantData.get_option_string(report, "reason"), "missing_node", "动态缺失后继应使用统一原因。")
 	assert_eq(GFVariantData.get_option_int(report, "completed_node_count"), 1, "缺失后继前已完成节点仍应准确计数。")
@@ -631,7 +631,7 @@ func test_flow_runner_holds_non_waiting_signal_lease_until_signal_emits() -> voi
 	assert_eq(GFVariantData.get_option_string(report, "outcome"), "completed", "非等待 Signal 不应阻塞流程完成。")
 	assert_true(node.is_runtime_state_leased(), "异步工作发出完成 Signal 前仍应保护共享节点运行态。")
 	node.set_runtime_value(&"late", true)
-	assert_push_error("[GFFlowNode] set_runtime_value 失败：节点运行态已由隔离执行租约保护，必须通过当前 GFFlowContext 写入运行态。")
+	assert_push_error("[GFFlowNode][flow_node.runtime_lease_protected] set_runtime_value failed: node runtime state is protected by an isolated execution lease; write runtime state through the current GFFlowContext.")
 
 	node.complete()
 	await get_tree().process_frame
@@ -694,7 +694,7 @@ func test_flow_runner_acquires_shared_node_lease_before_node_started_signal() ->
 
 	assert_true(attempted_reentry[0], "node_started 监听器应实际尝试第二次执行。")
 	assert_signal_emitted(second_runner, "flow_cancelled", "共享节点的第二个 Runner 应在 execute 前失败关闭。")
-	assert_push_error("[GFFlowRunner] 节点运行态已被其他执行租约占用：runtime_wait")
+	assert_push_error("[GFFlowRunner][flow_runner.runtime_lease_active] Node runtime state is held by another execution lease: runtime_wait.")
 
 
 func test_flow_node_runtime_value_does_not_leak_mutable_aliases() -> void:
@@ -735,7 +735,7 @@ func test_flow_runner_rejects_async_node_state_mutation_after_signal_return() ->
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_push_error("[GFFlowNode] set_runtime_value 失败：节点运行态已由隔离执行租约保护，必须通过当前 GFFlowContext 写入运行态。")
+	assert_push_error("[GFFlowNode][flow_node.runtime_lease_protected] set_runtime_value failed: node runtime state is protected by an isolated execution lease; write runtime state through the current GFFlowContext.")
 	assert_eq(GFVariantData.to_int(node.get_runtime_value(&"count", 0)), 7, "异步回调不得污染共享 graph Resource。")
 	assert_eq(GFVariantData.to_int(context.get_node_runtime_value(node.node_id, &"count", 0)), 3, "Signal 返回前的同步运行态仍应写回 context。")
 
@@ -752,7 +752,7 @@ func test_flow_runner_loop_guard_cancels_instead_of_completing() -> void:
 	watch_signals(runner)
 
 	var report: Dictionary = await runner.run(graph, GFFlowContext.new())
-	assert_push_warning("[GFFlowRunner] 达到最大节点执行数量，流程停止。")
+	assert_push_warning("[GFFlowRunner][flow_runner.node_execution_limit] The maximum node execution count was reached; the flow stopped.")
 
 	assert_eq(order, ["start", "start"], "loop guard 应在达到上限后停止。")
 	assert_eq(GFVariantData.get_option_string(report, "outcome"), "aborted", "loop guard 应报告 aborted。")
@@ -1771,7 +1771,7 @@ func test_flow_graph_restore_rejects_active_lease_without_partial_writes() -> vo
 		},
 	})
 
-	assert_push_error("[GFFlowGraph] deserialize_runtime_state 失败：节点运行态正被执行租约占用：first。")
+	assert_push_error("[GFFlowGraph][flow_graph.deserialize_runtime_lease_active] deserialize_runtime_state failed: node runtime state is held by an execution lease: first.")
 	assert_eq(GFVariantData.to_int(first.get_runtime_value(&"value", 0)), 1, "leased 节点必须保持旧状态。")
 	assert_eq(GFVariantData.to_int(second.get_runtime_value(&"value", 0)), 2, "任一租约冲突时其他节点也不得部分写入。")
 	assert_true(first.release_runtime_state_lease(lease_id), "测试租约应正常释放。")

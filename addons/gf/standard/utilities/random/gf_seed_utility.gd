@@ -371,7 +371,7 @@ func _encode_branch_counters(source: Dictionary) -> Dictionary:
 
 func _try_decode_branch_counters(value: Variant, field_name: String) -> Dictionary:
 	if not (value is Dictionary):
-		return _make_parse_error("字段 %s 必须是 Dictionary" % field_name)
+		return _make_parse_error("Field %s must be a Dictionary" % field_name)
 
 	var result: Dictionary = {}
 	var dictionary: Dictionary = value
@@ -383,7 +383,7 @@ func _try_decode_branch_counters(value: Variant, field_name: String) -> Dictiona
 
 		var counter: int = GFVariantData.get_option_int(value_result, &"value")
 		if counter < 0:
-			return _make_parse_error("字段 %s.%s 必须是非负整数" % [field_name, key_text])
+			return _make_parse_error("Field %s.%s must be a nonnegative integer" % [field_name, key_text])
 
 		result[key_text] = counter
 	return _make_parse_value(result)
@@ -412,7 +412,7 @@ func _parse_full_state(state: Dictionary) -> Dictionary:
 
 	var schema_version: int = GFVariantData.get_option_int(schema_result, &"value")
 	if not _state_schema_version_is_supported(schema_version):
-		push_error("[GFSeedUtility] 不支持的完整随机状态 schema 版本：%d。" % schema_version)
+		push_error("[GFSeedUtility][seed_utility.state_schema_unsupported] Unsupported complete random state schema version: %d." % schema_version)
 		return _make_parse_error("unsupported_schema")
 
 	var global_seed_result: Dictionary = _try_get_required_state_int(state, &"global_seed")
@@ -478,7 +478,7 @@ func _try_get_required_state_value(state: Dictionary, key: StringName) -> Dictio
 	if state.has(string_key):
 		return _make_parse_value(state[string_key])
 
-	return _make_parse_error("缺少字段 %s" % string_key)
+	return _make_parse_error("Missing field %s" % string_key)
 
 
 func _try_state_value_to_int(value: Variant, field_name: String) -> Dictionary:
@@ -496,7 +496,7 @@ func _try_state_value_to_int(value: Variant, field_name: String) -> Dictionary:
 		if _signed_int_text_is_valid(text):
 			return _make_parse_value(text.to_int())
 
-	return _make_parse_error("字段 %s 必须是整数或十进制整数字符串" % field_name)
+	return _make_parse_error("Field %s must be an integer or a decimal integer string" % field_name)
 
 
 func _state_schema_version_is_supported(version: int) -> bool:
@@ -508,8 +508,8 @@ func _int_to_state_text(value: int) -> String:
 
 
 func _report_invalid_full_state(error_result: Dictionary) -> void:
-	var message: String = GFVariantData.get_option_string(error_result, &"error", "字段无效")
-	push_error("[GFSeedUtility] 无效完整随机状态：%s。" % message)
+	var message: String = GFVariantData.get_option_string(error_result, &"error", "Invalid field")
+	push_error("[GFSeedUtility][seed_utility.state_invalid] Invalid complete random state: %s." % message)
 
 
 func _make_parse_value(value: Variant) -> Dictionary:

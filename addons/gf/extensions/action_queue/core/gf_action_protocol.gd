@@ -153,7 +153,7 @@ static func should_wait_for_result(action: Object, result: Variant) -> bool:
 	if action.has_method("should_wait_for_result"):
 		var should_wait: bool = GFVariantData.to_bool(action.call("should_wait_for_result", result))
 		if should_wait and not result is Signal:
-			push_error("[GFActionProtocol] 动作声明等待，但 execute() 未返回 Signal。")
+			push_error("[GFActionProtocol][action_protocol.missing_wait_signal] The action requests waiting, but execute() did not return a Signal.")
 			return false
 		return should_wait
 	if (
@@ -200,7 +200,7 @@ static func await_result_safely(
 		_get_time_utility(architecture),
 		_get_signal_timeout_seconds(action),
 		_get_signal_timeout_respects_time_scale(action),
-		"[GFActionQueueSystem] 等待动作 Signal 超时，队列将继续执行后续动作。",
+		"[GFActionQueueSystem][action_queue_system.action_signal_timeout] Waiting for the action Signal timed out; the queue will continue with subsequent actions.",
 		_get_wait_guard_node(action),
 		should_pause_timeout
 	)

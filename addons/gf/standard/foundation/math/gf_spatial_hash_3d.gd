@@ -40,7 +40,7 @@ var cell_size: float:
 		return _cell_size
 	set(value):
 		if not _SPATIAL_BOUNDS_MATH.is_finite_float(value):
-			push_error("[GFSpatialHash3D] cell_size 必须是有限浮点值。")
+			push_error("[GFSpatialHash3D][spatial_hash3d.cell_size_non_finite] cell_size must be finite.")
 			return
 		_cell_size = maxf(value, _MIN_CELL_SIZE)
 		_rebuild()
@@ -74,7 +74,7 @@ var _bucket_entities: Dictionary = {}
 
 func _init(p_cell_size: float = _DEFAULT_CELL_SIZE) -> void:
 	if not _SPATIAL_BOUNDS_MATH.is_finite_float(p_cell_size):
-		push_error("[GFSpatialHash3D] cell_size 必须是有限浮点值。")
+		push_error("[GFSpatialHash3D][spatial_hash3d.cell_size_non_finite] cell_size must be finite.")
 		_cell_size = _DEFAULT_CELL_SIZE
 		return
 	_cell_size = maxf(p_cell_size, _MIN_CELL_SIZE)
@@ -89,7 +89,7 @@ func _init(p_cell_size: float = _DEFAULT_CELL_SIZE) -> void:
 ## @param p_cell_size: 单格世界尺寸。
 func configure(p_cell_size: float) -> void:
 	if not _SPATIAL_BOUNDS_MATH.is_finite_float(p_cell_size):
-		push_error("[GFSpatialHash3D] cell_size 必须是有限浮点值。")
+		push_error("[GFSpatialHash3D][spatial_hash3d.cell_size_non_finite] cell_size must be finite.")
 		return
 	_cell_size = maxf(p_cell_size, _MIN_CELL_SIZE)
 	clear()

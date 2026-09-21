@@ -56,10 +56,10 @@ func bind_items(
 ) -> bool:
 	var state_store: _GF_REACTIVE_STATE_STORE_SCRIPT = _as_state_store(store)
 	if state_store == null:
-		push_error("[GFItemListBinder] bind_items 失败：store 必须是 GFReactiveStateStore。")
+		push_error("[GFItemListBinder][item_list_binder.store_type_invalid] Cannot bind_items: store must be a GFReactiveStateStore.")
 		return false
 	if not _is_supported_target(target):
-		push_error("[GFItemListBinder] bind_items 失败：target 必须是 ItemList、OptionButton 或 PopupMenu。")
+		push_error("[GFItemListBinder][item_list_binder.target_type_invalid] Cannot bind_items: target must be an ItemList, OptionButton, or PopupMenu.")
 		return false
 
 	var _previous_binding_removed: bool = unbind_target(target)

@@ -167,10 +167,10 @@ func test_default_capture_does_not_record_failed_architecture_result() -> void:
 	assert_eq(snapshot_id, 0, "架构捕获失败时不得提交 SnapshotHistory 记录。")
 	assert_eq(history.snapshot_count, 0, "失败 Result 不得作为普通快照载荷写入历史。")
 	assert_push_error(
-		"[GFArchitecture] Model 快照键重复：snapshot_history_duplicate。请为每个 Model 提供唯一 get_save_key()。"
+		"[GFArchitecture][architecture.snapshot_key_duplicate] Duplicate Model snapshot keys were found.\nDuplicate Model snapshot key: snapshot_history_duplicate. Provide a unique get_save_key() for each Model."
 	)
 	assert_push_warning(
-		"[GFSnapshotHistoryUtility] capture() 失败：Model 快照键重复：snapshot_history_duplicate。请为每个 Model 提供唯一 get_save_key()。"
+		"[GFSnapshotHistoryUtility][snapshot_history_utility.capture_failed] capture() failed: Duplicate Model snapshot key: snapshot_history_duplicate. Provide a unique get_save_key() for each Model.."
 	)
 
 	arch.dispose()
@@ -212,7 +212,7 @@ func test_default_restore_failure_does_not_move_current_index() -> void:
 		"恢复失败后当前快照记录必须保持不变。"
 	)
 	assert_push_warning(
-		"[GFSnapshotHistoryUtility] restore 失败：快照包含未注册的 Model 键：unknown_model。"
+		"[GFSnapshotHistoryUtility][snapshot_history_utility.restore_failed] restore failed: The snapshot contains an unregistered Model key: unknown_model.."
 	)
 
 	arch.dispose()

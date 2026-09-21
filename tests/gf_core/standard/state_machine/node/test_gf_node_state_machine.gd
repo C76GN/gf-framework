@@ -858,7 +858,7 @@ func test_push_rejects_an_already_paused_state() -> void:
 	group.transition_to(&"First")
 	group.push_state(&"Second")
 	group.push_state(&"First")
-	assert_push_warning("[GFNodeStateGroup] push_state 失败：目标状态已在暂停栈中。")
+	assert_push_warning("[GFNodeStateGroup][node_state_group.state_already_suspended] Cannot push_state: the target state is already in the suspended stack.")
 	assert_eq(group.get_current_state(), second)
 	assert_eq(group.get_stack_depth(), 1)
 	assert_eq(first.enter_count, 1)

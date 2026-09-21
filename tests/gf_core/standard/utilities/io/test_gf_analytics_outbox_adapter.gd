@@ -676,7 +676,7 @@ func test_invalid_client_id_is_rejected_before_adapter_handoff() -> void:
 	assert_true(GFVariantData.get_option_bool(track_report, "accepted"), "保留的安全 client_id 应继续允许事件交接。")
 	assert_eq(analytics.get_queue_size(), 0, "Adapter 不应永久拒绝生产端接受的事件。")
 	assert_eq(outbox.get_queue_size(), 1, "安全事件应完成耐久交接。")
-	assert_push_warning("[GFAnalyticsUtility] client_id must contain 1..4096 characters without C0/DEL controls.")
+	assert_push_warning("[GFAnalyticsUtility][analytics_utility.client_id_invalid] client_id must contain 1..4096 characters without C0/DEL controls.")
 
 
 func test_versioned_analytics_requeues_when_durable_handoff_fails() -> void:

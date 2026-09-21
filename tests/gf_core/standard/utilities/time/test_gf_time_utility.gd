@@ -87,9 +87,9 @@ func test_non_finite_time_configuration_preserves_last_valid_values() -> void:
 		0.0001,
 		"非法 physics 子步上限不得覆盖上一有效值。"
 	)
-	assert_push_error("[GFTimeUtility] 忽略非有限 time_scale；保留上一有效值。")
-	assert_push_error("[GFTimeUtility] 忽略非有限 max_scaled_delta；保留上一有效值。")
-	assert_push_error("[GFTimeUtility] 忽略非有限 physics_substep_max_delta；保留上一有效值。")
+	assert_push_error("[GFTimeUtility][time_utility.time_scale_non_finite] Ignored non-finite time_scale; keeping the previous valid value.")
+	assert_push_error("[GFTimeUtility][time_utility.max_scaled_delta_non_finite] Ignored non-finite max_scaled_delta; keeping the previous valid value.")
+	assert_push_error("[GFTimeUtility][time_utility.substep_delta_non_finite] Ignored non-finite physics_substep_max_delta; keeping the previous valid value.")
 
 
 func test_non_finite_delta_inputs_and_scaled_overflow_return_finite_safe_values() -> void:
@@ -102,13 +102,13 @@ func test_non_finite_delta_inputs_and_scaled_overflow_return_finite_safe_values(
 	assert_eq(grouped_nan, 0.0, "非有限分组 delta 应返回安全零值。")
 	assert_eq(physics_steps, [0.0], "非有限 physics delta 应返回单个安全零步。")
 	assert_false(should_substep, "非有限 physics delta 不应触发子步。")
-	assert_push_error("[GFTimeUtility] delta 必须为有限数；本次返回安全零值。")
+	assert_push_error("[GFTimeUtility][time_utility.delta_non_finite] delta must be finite; returning a safe zero value for this call.")
 
 	_utility.init()
 	_utility.time_scale = 2.0
 	var overflow_result: float = _utility.get_scaled_delta(1.0e308)
 	assert_eq(overflow_result, 0.0, "两个有限数的乘积溢出时也不得向系统传播 Infinity。")
-	assert_push_error("[GFTimeUtility] scaled_delta 溢出为非有限数；本次返回安全零值。")
+	assert_push_error("[GFTimeUtility][time_utility.scaled_delta_overflow] scaled_delta overflowed to a non-finite value; returning a safe zero value for this call.")
 
 
 func test_finite_extreme_physics_ratio_uses_bounded_substep_count() -> void:

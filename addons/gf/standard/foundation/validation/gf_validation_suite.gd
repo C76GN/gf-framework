@@ -287,14 +287,14 @@ func _warn_collected_path_limit(scan_state: Dictionary) -> void:
 	if GFVariantData.get_option_bool(scan_state, "count_warning_emitted"):
 		return
 	scan_state["count_warning_emitted"] = true
-	push_warning("[GFValidationSuite] collect_paths 已达到 max_collected_paths=%d，后续路径已跳过。" % max_collected_paths)
+	push_warning("[GFValidationSuite][validation_suite.collected_path_limit] collect_paths reached max_collected_paths=%d; remaining paths were skipped." % max_collected_paths)
 
 
 func _warn_scan_depth_limit(path: String, scan_state: Dictionary) -> void:
 	if GFVariantData.get_option_bool(scan_state, "depth_warning_emitted"):
 		return
 	scan_state["depth_warning_emitted"] = true
-	push_warning("[GFValidationSuite] collect_paths 已达到 max_scan_depth=%d，已跳过更深目录：%s。" % [max_scan_depth, path])
+	push_warning("[GFValidationSuite][validation_suite.scan_depth_limit] collect_paths reached max_scan_depth=%d; deeper directory skipped: %s." % [max_scan_depth, path])
 
 
 func _is_supported_file(path: String) -> bool:

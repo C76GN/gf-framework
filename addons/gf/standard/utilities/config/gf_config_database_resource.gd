@@ -71,7 +71,7 @@ func get_database_key() -> StringName:
 ## @return: 注册成功返回 true。
 func register_table(table_resource: GFConfigTableResource) -> bool:
 	if table_resource == null or table_resource.get_table_key() == &"":
-		push_error("[GFConfigDatabaseResource] register_table 失败：table_resource 为空或 table_name 为空。")
+		push_error("[GFConfigDatabaseResource][config_database_resource.table_registration_invalid] Cannot register_table: table_resource is null or table_name is empty.")
 		return false
 
 	_remove_table_entry(table_resource.get_table_key())

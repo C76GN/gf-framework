@@ -190,7 +190,7 @@ static func _read_object_report(
 			normalized_path,
 			0,
 			"open_failed",
-			"JSON 文件无法打开：%s (%s)" % [
+			"[GFBoundedJsonObjectReader][bounded_json_object_reader.file_open_failed] Could not open the JSON file: %s (%s)." % [
 				normalized_path,
 				error_string(FileAccess.get_open_error()),
 			],
@@ -207,7 +207,7 @@ static func _read_object_report(
 			normalized_path,
 			declared_size_bytes,
 			"payload_too_large",
-			"JSON 文件超过 %d 字节上限：%s" % [
+			"[GFBoundedJsonObjectReader][bounded_json_object_reader.file_size_limit] The JSON file exceeds the %d byte limit: %s." % [
 				effective_max_bytes,
 				normalized_path,
 			],
@@ -226,7 +226,7 @@ static func _read_object_report(
 			normalized_path,
 			bytes.size(),
 			"read_failed",
-			"JSON 文件读取失败：%s (%s)" % [
+			"[GFBoundedJsonObjectReader][bounded_json_object_reader.file_read_failed] Could not read the JSON file: %s (%s)." % [
 				normalized_path,
 				error_string(read_error),
 			],
@@ -240,7 +240,7 @@ static func _read_object_report(
 			normalized_path,
 			maxi(bytes.size(), observed_size_bytes),
 			"payload_too_large",
-			"JSON 文件超过 %d 字节上限：%s" % [
+			"[GFBoundedJsonObjectReader][bounded_json_object_reader.file_size_limit] The JSON file exceeds the %d byte limit: %s." % [
 				effective_max_bytes,
 				normalized_path,
 			],
@@ -254,7 +254,7 @@ static func _read_object_report(
 			normalized_path,
 			bytes.size(),
 			"read_failed",
-			"JSON 文件读取期间发生变化：%s" % normalized_path,
+			"[GFBoundedJsonObjectReader][bounded_json_object_reader.file_changed] The JSON file changed while reading: %s." % normalized_path,
 			effective_max_bytes,
 			effective_max_depth
 		)
@@ -296,7 +296,7 @@ static func _parse_object_bytes_without_digest(
 			source_path,
 			size_bytes,
 			"payload_too_large",
-			"JSON 输入超过 %d 字节上限。" % max_bytes,
+			"[GFBoundedJsonObjectReader][bounded_json_object_reader.input_size_limit] JSON input exceeds the %d byte limit." % max_bytes,
 			max_bytes,
 			max_depth
 		)
@@ -308,7 +308,7 @@ static func _parse_object_bytes_without_digest(
 			source_path,
 			size_bytes,
 			"parse_failed",
-			"JSON 输入不得包含原始 NUL 字节。",
+			"[GFBoundedJsonObjectReader][bounded_json_object_reader.raw_nul_byte] JSON input must not contain raw NUL bytes.",
 			max_bytes,
 			max_depth
 		)
@@ -319,7 +319,7 @@ static func _parse_object_bytes_without_digest(
 			source_path,
 			size_bytes,
 			"read_failed",
-			"JSON 输入不是有效 UTF-8。",
+			"[GFBoundedJsonObjectReader][bounded_json_object_reader.utf8_invalid] JSON input is not valid UTF-8.",
 			max_bytes,
 			max_depth
 		)
@@ -331,7 +331,7 @@ static func _parse_object_bytes_without_digest(
 			source_path,
 			size_bytes,
 			"nesting_too_deep",
-			"JSON 嵌套深度超过 %d 层上限。" % max_depth,
+			"[GFBoundedJsonObjectReader][bounded_json_object_reader.nesting_depth_limit] JSON nesting depth exceeds the limit of %d levels." % max_depth,
 			max_bytes,
 			max_depth
 		)
@@ -345,7 +345,7 @@ static func _parse_object_bytes_without_digest(
 			source_path,
 			size_bytes,
 			"parse_failed",
-			"JSON 数字超出有限值范围。",
+			"[GFBoundedJsonObjectReader][bounded_json_object_reader.number_out_of_range] A JSON number is outside the finite range.",
 			max_bytes,
 			max_depth
 		)
@@ -357,7 +357,7 @@ static func _parse_object_bytes_without_digest(
 			source_path,
 			size_bytes,
 			"parse_failed",
-			"JSON 字符串转义不得解码为 U+0000。",
+			"[GFBoundedJsonObjectReader][bounded_json_object_reader.escaped_nul_character] JSON string escapes must not decode to U+0000.",
 			max_bytes,
 			max_depth
 		)
@@ -371,7 +371,7 @@ static func _parse_object_bytes_without_digest(
 			source_path,
 			size_bytes,
 			"parse_failed",
-			"JSON 解析失败（第 %d 行）：%s" % [
+			"[GFBoundedJsonObjectReader][bounded_json_object_reader.parse_failed] JSON parsing failed at line %d: %s." % [
 				parser.get_error_line(),
 				parser.get_error_message(),
 			],
@@ -386,7 +386,7 @@ static func _parse_object_bytes_without_digest(
 			source_path,
 			size_bytes,
 			"invalid_root_type",
-			"JSON 根节点必须是对象。",
+			"[GFBoundedJsonObjectReader][bounded_json_object_reader.root_type_invalid] The JSON root must be an object.",
 			max_bytes,
 			max_depth
 		)
@@ -398,7 +398,7 @@ static func _parse_object_bytes_without_digest(
 			source_path,
 			size_bytes,
 			"parse_failed",
-			"JSON 数字必须是有限值。",
+			"[GFBoundedJsonObjectReader][bounded_json_object_reader.number_not_finite] JSON numbers must be finite.",
 			max_bytes,
 			max_depth
 		)

@@ -266,7 +266,7 @@ func set_assignment(
 	if assignment == null:
 		return
 	if assignment.player_index < 0 or assignment.player_index >= max_players:
-		push_warning("[GFInputDeviceUtility] 忽略越界玩家设备映射：%d" % assignment.player_index)
+		push_warning("[GFInputDeviceUtility][input_device_utility.player_index_out_of_range] Ignored a player device mapping with an out-of-range index: %d." % assignment.player_index)
 		return
 
 	var active_player_before: int = active_player_index

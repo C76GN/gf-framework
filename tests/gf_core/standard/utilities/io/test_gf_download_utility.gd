@@ -510,11 +510,11 @@ func test_enqueue_download_rejects_unsafe_direct_paths() -> void:
 	assert_eq(unrelated_temp_id, 0, "temp_path 即使同属 user:// 也必须由 target 派生。")
 	assert_eq(unsafe_segment_id, 0, "segment_path 应与 target 位于同一受控根。")
 	assert_eq(_utility.request_log.size(), 0, "无效直接路径不应启动 HTTP 请求。")
-	assert_push_error("[GFDownloadUtility] enqueue_download 失败：target_path 不在受控 res:// 或 user:// 根内：../escape.txt。")
-	assert_push_error("[GFDownloadUtility] enqueue_download 失败：target_path 不在受控 res:// 或 user:// 根内：C:/gf_escape.txt。")
-	assert_push_error("[GFDownloadUtility] enqueue_download 失败：temp_path 由 utility 独占管理，不接受调用方覆盖。")
-	assert_push_error("[GFDownloadUtility] enqueue_download 失败：temp_path 由 utility 独占管理，不接受调用方覆盖。")
-	assert_push_error("[GFDownloadUtility] enqueue_download 失败：segment_path 由 utility 独占管理，不接受调用方覆盖。")
+	assert_push_error("[GFDownloadUtility][download_utility.target_path_outside_root] Cannot enqueue_download: target_path is outside the controlled res:// or user:// root: ../escape.txt.")
+	assert_push_error("[GFDownloadUtility][download_utility.target_path_outside_root] Cannot enqueue_download: target_path is outside the controlled res:// or user:// root: C:/gf_escape.txt.")
+	assert_push_error("[GFDownloadUtility][download_utility.temp_path_override] Cannot enqueue_download: temp_path is owned by the utility and cannot be overridden by callers.")
+	assert_push_error("[GFDownloadUtility][download_utility.temp_path_override] Cannot enqueue_download: temp_path is owned by the utility and cannot be overridden by callers.")
+	assert_push_error("[GFDownloadUtility][download_utility.segment_path_override] Cannot enqueue_download: segment_path is owned by the utility and cannot be overridden by callers.")
 
 
 # --- 私有/辅助方法 ---

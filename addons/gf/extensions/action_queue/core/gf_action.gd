@@ -145,7 +145,7 @@ static func tween(
 ) -> GFConfiguredTweenAction:
 	var replacement_value: Variant = GFVariantData.get_option_value(options, "replacement_scope")
 	if replacement_value != null and not replacement_value is GFTweenReplacementScope:
-		push_warning("[GFAction] tween 失败：replacement_scope 必须为 GFTweenReplacementScope 或 null。")
+		push_warning("[GFAction][action.invalid_replacement_scope] tween failed: replacement_scope must be a GFTweenReplacementScope or null.")
 		return null
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
 	var step: GFTweenActionStep = config.add_property_step(property_name, target_value, duration)

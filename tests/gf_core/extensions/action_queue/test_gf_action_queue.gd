@@ -906,7 +906,7 @@ func test_action_protocol_rejects_non_signal_custom_wait_result() -> void:
 	var should_wait: bool = GF_ACTION_PROTOCOL.should_wait_for_result(action, 42)
 
 	assert_false(should_wait, "duck-typed action 不得把非 Signal 强制声明为可等待结果。")
-	assert_push_error("[GFActionProtocol] 动作声明等待，但 execute() 未返回 Signal。")
+	assert_push_error("[GFActionProtocol][action_protocol.missing_wait_signal] The action requests waiting, but execute() did not return a Signal.")
 	if should_wait:
 		return
 
@@ -918,7 +918,7 @@ func test_action_protocol_rejects_non_signal_custom_wait_result() -> void:
 
 	assert_eq(action.execute_count, 1, "无效 wait 声明不应重复执行动作。")
 	assert_eq(order, ["AFTER_INVALID_WAIT"], "受控拒绝 wait 后队列仍应有界推进。")
-	assert_push_error("[GFActionProtocol] 动作声明等待，但 execute() 未返回 Signal。")
+	assert_push_error("[GFActionProtocol][action_protocol.missing_wait_signal] The action requests waiting, but execute() did not return a Signal.")
 
 
 func test_action_interceptor_can_stop_remaining_queue() -> void:
@@ -989,7 +989,7 @@ func test_signal_timeout_allows_queue_to_continue() -> void:
 	)
 	await get_tree().process_frame
 
-	assert_push_warning("[GFActionQueueSystem] 等待动作 Signal 超时，队列将继续执行后续动作。")
+	assert_push_warning("[GFActionQueueSystem][action_queue_system.action_signal_timeout] Waiting for the action Signal timed out; the queue will continue with subsequent actions.")
 	assert_eq(order, ["AFTER_TIMEOUT"], "Signal 超时后队列应继续执行后续动作。")
 	assert_false(_is_queue_processing(_system), "Signal 超时后队列不应继续卡在处理中。")
 	emitter.free()
@@ -1026,7 +1026,7 @@ func test_signal_timeout_respects_time_utility_pause() -> void:
 	)
 	await get_tree().process_frame
 
-	assert_push_warning("[GFActionQueueSystem] 等待动作 Signal 超时，队列将继续执行后续动作。")
+	assert_push_warning("[GFActionQueueSystem][action_queue_system.action_signal_timeout] Waiting for the action Signal timed out; the queue will continue with subsequent actions.")
 	assert_eq(order, ["AFTER_TIMEOUT"], "恢复时间后，Signal 超时应继续推进并执行后续动作。")
 	assert_false(_is_queue_processing(queue), "恢复时间并超时后队列应排空。")
 
@@ -1059,7 +1059,7 @@ func test_signal_timeout_is_frozen_while_current_action_is_paused() -> void:
 	)
 	await get_tree().process_frame
 
-	assert_push_warning("[GFActionQueueSystem] 等待动作 Signal 超时，队列将继续执行后续动作。")
+	assert_push_warning("[GFActionQueueSystem][action_queue_system.action_signal_timeout] Waiting for the action Signal timed out; the queue will continue with subsequent actions.")
 	assert_eq(order, ["AFTER_TIMEOUT"], "恢复后 Signal timeout 应继续执行后续动作。")
 	emitter.free()
 

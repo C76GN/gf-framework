@@ -455,7 +455,7 @@ func _reject_runtime_state_write(operation: String) -> bool:
 	if not is_runtime_state_leased() or _runtime_state_lease_write_depth > 0:
 		return false
 	push_error(
-		"[GFFlowNode] %s 失败：节点运行态已由隔离执行租约保护，必须通过当前 GFFlowContext 写入运行态。"
+		"[GFFlowNode][flow_node.runtime_lease_protected] %s failed: node runtime state is protected by an isolated execution lease; write runtime state through the current GFFlowContext."
 		% operation
 	)
 	return true

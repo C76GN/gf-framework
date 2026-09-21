@@ -511,7 +511,7 @@ func test_async_execution_mode_freezes_after_first_valid_async_queue() -> void:
 		return
 	assert_true(operation.is_pending())
 	storage.async_execution_mode = GFStorageUtility.AsyncExecutionMode.THREADED
-	assert_push_error("[GFStorageUtility] async_execution_mode 已在首个异步请求后冻结。")
+	assert_push_error("[GFStorageUtility][storage_utility.execution_mode_frozen] async_execution_mode is frozen after the first asynchronous request.")
 	assert_eq(
 		storage.async_execution_mode,
 		GFStorageUtility.AsyncExecutionMode.COOPERATIVE
@@ -1257,7 +1257,7 @@ func test_automatic_threadless_reentrant_same_file_wait_fails_busy_without_spinn
 	storage.tick(0.0)
 	assert_true(operation.is_pending())
 	storage.tick(0.0)
-	assert_push_error("wait_for_async_tasks 不能在 Storage executor 同步执行栈内重入")
+	assert_push_error("[GFStorageUtility][storage_utility.async_wait_reentrant] wait_for_async_tasks cannot reenter the synchronous Storage executor stack.")
 	_assert_physical_terminal(operation, "DOMAIN_RESULT", OK, true)
 	assert_true(storage.reentrant_read_returned, "重入同步读取必须有界返回。")
 	assert_not_null(storage.reentrant_read_result)

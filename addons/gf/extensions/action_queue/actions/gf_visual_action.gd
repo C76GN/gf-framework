@@ -230,7 +230,7 @@ func await_result_safely(result: Variant, should_continue: Callable = Callable()
 		_get_time_utility(),
 		signal_timeout_seconds,
 		signal_timeout_respects_time_scale,
-		"[GFVisualAction] 等待 Signal 超时，队列将继续执行后续动作。",
+		"[GFVisualAction][visual_action.signal_timeout] Waiting for the Signal timed out; the queue will continue with subsequent actions.",
 		get_wait_guard_node()
 	)
 

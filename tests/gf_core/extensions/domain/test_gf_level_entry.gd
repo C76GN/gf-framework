@@ -16,7 +16,7 @@ func test_get_level_id_does_not_use_resource_path_as_persistent_identity() -> vo
 	var catalog: GFLevelCatalog = GFLevelCatalog.new()
 	catalog.add_entry(entry)
 	assert_true(catalog.entries.is_empty(), "目录应拒绝缺少稳定 ID 的条目。")
-	assert_push_error("[GFLevelCatalog] add_entry 失败：关卡 ID 为空。")
+	assert_push_error("[GFLevelCatalog][level_catalog.empty_level_id] add_entry failed: level ID is empty.")
 
 
 func test_duplicate_entry_copies_metadata_deeply() -> void:

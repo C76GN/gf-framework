@@ -160,7 +160,7 @@ var is_running: bool = false
 var signal_timeout_seconds: float = 30.0:
 	set(value):
 		if not is_finite(value):
-			push_warning("[GFCommandSequence] Signal 超时时间必须是有限数值。")
+			push_warning("[GFCommandSequence][command_sequence.signal_timeout_non_finite] Signal timeout must be finite.")
 			return
 		signal_timeout_seconds = maxf(value, 0.0)
 
@@ -236,7 +236,7 @@ func inject_dependencies(architecture: GFArchitecture) -> void:
 ## @schema p_steps: Array of GFSequenceStep, GFCommand, Callable, or objects with execute()/resolve().
 func run(p_steps: Array = []) -> void:
 	if is_running:
-		push_warning("[GFCommandSequence] 序列正在执行，忽略重复 run()。")
+		push_warning("[GFCommandSequence][command_sequence.run_already_active] The sequence is running; repeated run() was ignored.")
 		return
 
 	var run_steps: Array = (p_steps if not p_steps.is_empty() else steps).duplicate()
@@ -595,7 +595,7 @@ func _await_signal_result_safely(result_signal: Signal) -> Variant:
 		_get_time_utility(),
 		signal_timeout_seconds,
 		signal_timeout_respects_time_scale,
-		"[GFCommandSequence] 等待 Signal 超时，序列已标记当前步骤失败。"
+		"[GFCommandSequence][command_sequence.signal_wait_timeout] Signal wait timed out; the sequence marked the current step as failed."
 	)
 	_last_wait_result = wait_result.duplicate(true)
 	if not GFVariantData.get_option_bool(wait_result, "completed"):

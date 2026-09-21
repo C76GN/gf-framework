@@ -432,7 +432,7 @@ func _resolve_activation_targets(context: RefCounted) -> bool:
 		if targeting_rule != null:
 			var utility: _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT = _get_targeting_utility_2d()
 			if utility == null:
-				push_error("[GFCombat] GFSkillTargetingUtility2D 尚未在架构中注册。")
+				push_error("[GFSkill][skill.missing_targeting_utility] GFSkillTargetingUtility2D is not registered in the architecture.")
 				var _missing_utility_report: Dictionary = _fail_activation_context(context, &"targeting_utility_missing")
 				return false
 
@@ -454,7 +454,7 @@ func _resolve_activation_targets(context: RefCounted) -> bool:
 
 		var utility: _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT = _get_targeting_utility_2d()
 		if utility == null:
-			push_error("[GFCombat] GFSkillTargetingUtility2D 尚未在架构中注册。")
+			push_error("[GFSkill][skill.missing_targeting_utility] GFSkillTargetingUtility2D is not registered in the architecture.")
 			var _missing_utility_report: Dictionary = _fail_activation_context(context, &"targeting_utility_missing")
 			return false
 

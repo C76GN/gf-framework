@@ -120,7 +120,7 @@ func set_value(new_value: Variant) -> void:
 ## @return 当前这次独立订阅的取消函数；callback 无效时返回空 Callable。
 func subscribe(callback: Callable, emit_current: bool = false) -> Callable:
 	if not callback.is_valid():
-		push_error("[GFBindableProperty] subscribe 失败：callback 无效。")
+		push_error("[GFBindableProperty][bindable_property.subscribe_callback_invalid] subscribe failed: callback is invalid.")
 		return Callable()
 	var subscription_token: GFSubscriptionToken = _subscribe_callable_token(callback, emit_current)
 	return _make_unsubscribe_callable(subscription_token)
@@ -139,7 +139,7 @@ func subscribe(callback: Callable, emit_current: bool = false) -> Callable:
 ## @return 当前这次独立订阅的可取消句柄；callback 无效时返回非活动句柄。
 func subscribe_token(callback: Callable, emit_current: bool = false) -> GFSubscriptionToken:
 	if not callback.is_valid():
-		push_error("[GFBindableProperty] subscribe_token 失败：callback 无效。")
+		push_error("[GFBindableProperty][bindable_property.subscribe_token_callback_invalid] subscribe_token failed: callback is invalid.")
 		return GFSubscriptionToken.new()
 	return _subscribe_callable_token(callback, emit_current)
 
@@ -160,10 +160,10 @@ func subscribe_token(callback: Callable, emit_current: bool = false) -> GFSubscr
 ## @return 当前这次独立订阅且绑定 owner 生命周期的句柄；owner 或 callback 无效时返回非活动句柄。
 func subscribe_owned(owner: Object, callback: Callable, emit_current: bool = false) -> GFLifetimeSubscription:
 	if owner == null or not is_instance_valid(owner):
-		push_error("[GFBindableProperty] subscribe_owned 失败：owner 无效。")
+		push_error("[GFBindableProperty][bindable_property.subscribe_owned_owner_invalid] subscribe_owned failed: owner is invalid.")
 		return GFLifetimeSubscription.new()
 	if not callback.is_valid():
-		push_error("[GFBindableProperty] subscribe_owned 失败：callback 无效。")
+		push_error("[GFBindableProperty][bindable_property.subscribe_owned_callback_invalid] subscribe_owned failed: callback is invalid.")
 		return GFLifetimeSubscription.new()
 	return _subscribe_owned_callable_token(owner, callback, emit_current)
 
@@ -184,10 +184,10 @@ func subscribe_owned(owner: Object, callback: Callable, emit_current: bool = fal
 ## @return 当前这次独立订阅且绑定 owner 生命周期的句柄；owner 或方法无效时返回非活动句柄。
 func subscribe_method(owner: Object, method_name: StringName, emit_current: bool = false) -> GFLifetimeSubscription:
 	if owner == null or not is_instance_valid(owner):
-		push_error("[GFBindableProperty] subscribe_method 失败：owner 无效。")
+		push_error("[GFBindableProperty][bindable_property.subscribe_method_owner_invalid] subscribe_method failed: owner is invalid.")
 		return GFLifetimeSubscription.new()
 	if method_name == &"" or not owner.has_method(method_name):
-		push_error("[GFBindableProperty] subscribe_method 失败：method_name 无效。")
+		push_error("[GFBindableProperty][bindable_property.subscribe_method_name_invalid] subscribe_method failed: method_name is invalid.")
 		return GFLifetimeSubscription.new()
 	return _subscribe_owner_method_token(owner, method_name, emit_current)
 
@@ -442,11 +442,11 @@ func disconnect_all_subscribers() -> void:
 ## @param callable: 绑定的回调函数。
 func bind_to(node: Node, callable: Callable) -> void:
 	if not is_instance_valid(node):
-		push_error("[GFBindableProperty] 尝试绑定到一个无效的 Node。")
+		push_error("[GFBindableProperty][bindable_property.binding_node_invalid] Cannot bind to an invalid Node.")
 		return
 
 	if not callable.is_valid():
-		push_error("[GFBindableProperty] 尝试绑定一个无效的 Callable。")
+		push_error("[GFBindableProperty][bindable_property.binding_callable_invalid] Cannot bind an invalid Callable.")
 		return
 
 	if _find_node_binding_index(node, callable) != -1:

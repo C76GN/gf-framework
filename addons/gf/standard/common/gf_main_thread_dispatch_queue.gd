@@ -179,10 +179,10 @@ func dispose() -> void:
 ## @return 派发句柄；callback 无效时返回 0。
 func post(callback: Callable, options: Dictionary = {}) -> int:
 	if not callback.is_valid():
-		push_error("[GFMainThreadDispatchQueue] post 失败：callback 无效。")
+		push_error("[GFMainThreadDispatchQueue][main_thread_dispatch_queue.callback_invalid] Cannot post: callback is invalid.")
 		return 0
 	if options.has("owner") or options.has(&"owner"):
-		push_error("[GFMainThreadDispatchQueue] post 失败：owner 选项已移除，请使用 post_method()。")
+		push_error("[GFMainThreadDispatchQueue][main_thread_dispatch_queue.post_owner_removed] Cannot post: the owner option was removed; use post_method().")
 		return 0
 
 	return _enqueue(callback, options)
@@ -206,10 +206,10 @@ func post(callback: Callable, options: Dictionary = {}) -> int:
 ## @return 派发句柄；owner 或 method_name 无效时返回 0。
 func post_method(owner: Object, method_name: StringName, options: Dictionary = {}) -> int:
 	if owner == null or not is_instance_valid(owner):
-		push_error("[GFMainThreadDispatchQueue] post_method 失败：owner 为空或已释放。")
+		push_error("[GFMainThreadDispatchQueue][main_thread_dispatch_queue.post_method_owner_invalid] Cannot post_method: owner is null or freed.")
 		return 0
 	if method_name == &"":
-		push_error("[GFMainThreadDispatchQueue] post_method 失败：method_name 为空。")
+		push_error("[GFMainThreadDispatchQueue][main_thread_dispatch_queue.post_method_name_empty] Cannot post_method: method_name is empty.")
 		return 0
 
 	var invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(owner, method_name)

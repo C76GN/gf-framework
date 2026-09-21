@@ -28,7 +28,7 @@ func test_get_record_default() -> void:
 	var provider: GFConfigProvider = GFConfigProvider.new()
 	var result: Variant = provider.get_record(&"ItemTable", 1)
 	assert_true(_is_null(result), "基类 get_record 默认应返回 null")
-	assert_push_error("[GFConfigProvider] 子类必须实现 get_record() 方法。")
+	assert_push_error("[GFConfigProvider][config_provider.get_record_unimplemented] Subclasses must implement get_record().")
 
 
 ## 验证调用基类的 get_table 会报错并返回 null。
@@ -36,7 +36,7 @@ func test_get_table_default() -> void:
 	var provider: GFConfigProvider = GFConfigProvider.new()
 	var result: Variant = provider.get_table(&"ItemTable")
 	assert_true(_is_null(result), "基类 get_table 默认应返回 null")
-	assert_push_error("[GFConfigProvider] 子类必须实现 get_table() 方法。")
+	assert_push_error("[GFConfigProvider][config_provider.get_table_unimplemented] Subclasses must implement get_table().")
 
 
 func test_config_table_resource_indexes_records_and_returns_copies() -> void:
@@ -165,7 +165,7 @@ func test_resource_config_provider_rejects_empty_table_key() -> void:
 	var table: GFConfigTableResource = GFConfigTableResource.new()
 
 	assert_false(provider.register_table(table), "空表名资源不应注册成功。")
-	assert_push_error("[GFResourceConfigProvider] register_table 失败：table_resource 为空或 table_name 为空。")
+	assert_push_error("[GFResourceConfigProvider][resource_config_provider.table_registration_invalid] Cannot register_table: table_resource is null or table_name is empty.")
 
 
 func test_resource_config_provider_rejects_schema_table_name_mismatch() -> void:
@@ -176,7 +176,7 @@ func test_resource_config_provider_rejects_schema_table_name_mismatch() -> void:
 	assert_false(provider.register_table(table), "表名与 schema 表名不一致时不应注册成功。")
 	assert_false(provider.has_table(&"items_runtime"), "注册失败不应留下表缓存。")
 	assert_false(provider.has_schema(&"items"), "注册失败不应留下 schema 缓存。")
-	assert_push_error("[GFResourceConfigProvider] register_table 失败：table_name 与 schema.table_name 不一致。")
+	assert_push_error("[GFResourceConfigProvider][resource_config_provider.schema_table_name_mismatch] Cannot register_table: table_name does not match schema.table_name.")
 
 
 func test_resource_config_provider_register_table_replaces_schema() -> void:
@@ -219,7 +219,7 @@ func test_resource_config_provider_set_tables_is_documented_best_effort_replacem
 	assert_false(provider.has_table(&"items"), "best-effort set 会先清掉旧表，不承诺 last-good rollback。")
 	assert_true(provider.has_table(&"owners"), "有效候选应保留在部分新状态中。")
 	assert_eq(provider.get_table_ids(), PackedStringArray(["owners"]), "无效候选不应留下匿名 registry 项。")
-	assert_push_error("[GFResourceConfigProvider] register_table 失败：table_resource 为空或 table_name 为空。")
+	assert_push_error("[GFResourceConfigProvider][resource_config_provider.table_registration_invalid] Cannot register_table: table_resource is null or table_name is empty.")
 
 
 func test_resource_config_provider_rebuild_table_registry_refreshes_mutated_table_keys() -> void:

@@ -77,7 +77,7 @@ func test_set_state_rejects_zero_state() -> void:
 	var changed: bool = rng.set_state(0)
 
 	assert_false(changed)
-	assert_push_error("[GFDeterministicRandom] xorshift32 状态不能为 0。")
+	assert_push_error("[GFDeterministicRandom][deterministic_random.zero_state] The xorshift32 state must not be zero.")
 	assert_eq(rng.get_state(), previous_state)
 
 
@@ -108,7 +108,7 @@ func test_int_range_rejects_span_larger_than_u32_without_advancing() -> void:
 
 	assert_eq(value, -2_147_483_648, "超过 u32 跨度时应返回规范化后的下界。")
 	assert_eq(rng.get_state(), previous_state, "非法跨度不应消耗随机序列。")
-	assert_push_error("[GFDeterministicRandom] next_int_range 只支持跨度不超过 u32 的闭区间。")
+	assert_push_error("[GFDeterministicRandom][deterministic_random.integer_range_too_wide] next_int_range requires a closed interval whose span does not exceed u32.")
 
 
 func test_float_unit_matches_scaled_u32_golden_sequence() -> void:
@@ -133,7 +133,7 @@ func test_float_range_rejects_non_finite_bounds() -> void:
 	var value: float = rng.next_float_range(NAN, 1.0)
 
 	assert_eq(value, 0.0)
-	assert_push_error("[GFDeterministicRandom] next_float_range 只支持有限浮点边界。")
+	assert_push_error("[GFDeterministicRandom][deterministic_random.float_bounds_non_finite] next_float_range requires finite floating-point bounds.")
 
 
 func test_float_range_rejects_non_finite_span_without_advancing() -> void:
@@ -144,7 +144,7 @@ func test_float_range_rejects_non_finite_span_without_advancing() -> void:
 
 	assert_eq(value, 0.0)
 	assert_eq(rng.get_state(), previous_state, "范围跨度变成非有限值时不应消耗随机序列。")
-	assert_push_error("[GFDeterministicRandom] next_float_range 只支持有限浮点范围。")
+	assert_push_error("[GFDeterministicRandom][deterministic_random.float_range_non_finite] next_float_range requires a finite floating-point range.")
 
 
 func test_skip_matches_manual_consumption() -> void:
@@ -184,7 +184,7 @@ func test_apply_dict_rejects_unknown_algorithm() -> void:
 	})
 
 	assert_false(applied)
-	assert_push_error("[GFDeterministicRandom] 不支持的状态字典格式。")
+	assert_push_error("[GFDeterministicRandom][deterministic_random.state_format_unsupported] Unsupported state dictionary format.")
 	assert_eq(rng.get_initial_seed(), GF_DETERMINISTIC_RANDOM.new().get_initial_seed())
 	assert_eq(rng.get_state(), GF_DETERMINISTIC_RANDOM.new().get_state())
 
@@ -199,7 +199,7 @@ func test_apply_dict_requires_every_state_identity_and_payload_field() -> void:
 		var applied: bool = rng.apply_dict(state_data)
 
 		assert_false(applied, "缺少 %s 时必须 fail closed。" % field_name)
-		assert_push_error("[GFDeterministicRandom] 不支持的状态字典格式。")
+		assert_push_error("[GFDeterministicRandom][deterministic_random.state_format_unsupported] Unsupported state dictionary format.")
 		assert_eq(rng.get_initial_seed(), GF_DETERMINISTIC_RANDOM.new().get_initial_seed())
 		assert_eq(rng.get_state(), GF_DETERMINISTIC_RANDOM.new().get_state())
 
@@ -215,6 +215,6 @@ func test_apply_dict_rejects_zero_state() -> void:
 	})
 
 	assert_false(applied)
-	assert_push_error("[GFDeterministicRandom] xorshift32 状态不能为 0。")
+	assert_push_error("[GFDeterministicRandom][deterministic_random.zero_state] The xorshift32 state must not be zero.")
 	assert_eq(rng.get_initial_seed(), GF_DETERMINISTIC_RANDOM.new().get_initial_seed())
 	assert_eq(rng.get_state(), GF_DETERMINISTIC_RANDOM.new().get_state())

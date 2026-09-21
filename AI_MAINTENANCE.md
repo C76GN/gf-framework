@@ -38,6 +38,16 @@
 - 参考项目维护在 GF 仓库同级目录 `../gf-reference-project`，也可用环境变量 `GF_REFERENCE_PROJECT_PATH` 指向其他本地路径；它不再位于仓库内 `examples/reference_project`。开发参考项目时，遇到重复劳动、框架痛点、抽象机会或最佳实践雏形，必须记录到 GF 侧 `ai_analysis/framework_feedback.md`。先判断它属于项目级约定、文档建议、工具能力还是框架候选，不要直接把单个示例项目的业务需求写进 `addons/gf`。
 - `tools/sync_reference_project.py` 默认执行只读检查，`--plan` 只输出计划，只有 `--apply` 才允许写入；参考项目路径按显式 `--project-root`、`GF_REFERENCE_PROJECT_PATH`、默认相邻目录的顺序解析，维护文档和检查命令不得绕过该优先级硬编码本机路径或项目场景。`tools/gf_maintenance.py check --suite examples` 默认只读校验外部项目中的 `addons/gf` 是否已经同步。需要在 examples suite 前自动写入同步时，必须显式传 `--sync-examples`，或先单独运行 `python tools\sync_reference_project.py --apply`。每次检查、计划和写入都必须从仓库固定的 `addons/gf` 捕获同一套有条目数、单文件、总字节、差异输出和墙钟预算的二进制精确 manifest，并输出稳定 payload SHA-256 与脱敏逻辑路径；源/目标重叠、内部 link/reparse、特殊文件、跨平台大小写或 Unicode 路径碰撞及捕获期变化必须失败关闭。Copy 同步使用该不可变内存快照完成 staging，再以异常可回滚事务替换；在版本化所有权标记落地前，Link 同步不得删除或替换既有目标。
 
+## 开发者诊断维护
+
+诊断内容遵循 `CODING_STYLE.md` 的“开发者诊断与显示语言”：框架自有模板使用固定英文和稳定 ID，运行时 Unicode 上下文及项目自由文本不受英文限制。修改时保留原生输出的严重级别、次数和调用栈；不要把框架诊断改接 `GFLogUtility`，不要用游戏本地化控制诊断语言。编辑器显示文字与诊断分别维护，现有工具 catalog 的 `en` / `zh_CN` 与英文回退不代表全部面板已双语化。
+
+新增或调整原生诊断后运行 `python tools\gf_maintenance.py diagnostic-policy --json`；检查器变更还应运行 `python tests\gf_core\tools\test_gf_diagnostic_policy.py`。`diagnostic_policy` 与 `diagnostic_policy_tests` 已进入 `quick`、`framework-static`、`full` 和 `release` 的自动检查，不得跳过。词法门禁校验静态模板、可解析的格式占位符及同一 ID 的 owner、模板和严重级别一致性；它不构成完整的数据流证明，动态详情仍需沿生产者人工审查。
+
+动态输出由 `tools/gf_diagnostic_forwarders.json` 精确登记，目前有 21 条经审查的转发记录。每条记录绑定 `path`、`function`、`callee`、`argument` 和 `count`，并注明 `kind` 与具体 `reason`；禁止通配放行或永久违规 baseline。`framework_message` 必须审查完整的框架模板和详情来源；`project_message` 保留项目提供的语言和内容，不翻译调用方文本。调用表达式、次数或生产者改变时重新核对记录，移除已失效的绑定，不把新增动态输出默认归入既有例外。
+
+诊断 ID 与 `error_kind` 等结果字段分别维护，不能把自然语言文案当作协议。先查找并复用语义相同的 ID，语义不变的措辞修正保留 ID。同步修改测试时保留 ID、关键路径或参数等断言，不用统一次数断言掩盖上下文丢失；涉及通用日志转发时继续验证项目中文消息与 Unicode 路径原样保留。
+
 ## 层级边界规范
 
 GF 源码依赖方向必须保持稳定单向：
@@ -224,6 +234,7 @@ Add installer timeout protection, manual scoped context initialization, assignab
 ```powershell
 python tools\gf_maintenance.py check --check gut --failed-only
 python tools\gf_maintenance.py dependency-boundary --json
+python tools\gf_maintenance.py diagnostic-policy --json
 python tools\gf_maintenance.py public-api-boundary --json
 python tools\gf_maintenance.py resource-boundary --json
 python tools\gf_maintenance.py content-package-boundary --json

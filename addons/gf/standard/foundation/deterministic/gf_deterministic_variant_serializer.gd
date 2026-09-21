@@ -76,7 +76,7 @@ static func to_canonical_json(value: Variant, options: Dictionary = {}) -> Strin
 	var canonical_json: String = JSON.stringify(canonical_value, "", true)
 	var max_output_bytes: int = maxi(GFVariantData.get_option_int(options, "max_output_bytes", _DEFAULT_MAX_OUTPUT_BYTES), 1)
 	if canonical_json.to_utf8_buffer().size() > max_output_bytes:
-		push_error("[GFDeterministicVariantSerializer] 规范输出超过 max_output_bytes。")
+		push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.output_limit] Canonical output exceeds max_output_bytes.")
 		return ""
 	return canonical_json
 
@@ -149,7 +149,7 @@ static func _canonicalize_value(value: Variant, state: Dictionary, visited: Arra
 	if not _consume_items(state, 1):
 		return null
 	if depth > GFVariantData.get_option_int(state, "max_depth", 256):
-		return _fail(state, "输入结构超过 max_depth。")
+		return _fail(state, "Input structure exceeds max_depth.")
 	var packed_item_count: int = _get_packed_item_count(value)
 	if packed_item_count > 0 and not _consume_items(state, packed_item_count):
 		return null
@@ -339,12 +339,12 @@ static func _canonicalize_value(value: Variant, state: Dictionary, visited: Arra
 			var vector_4_array: PackedVector4Array = value
 			return _make_typed_value("PackedVector4Array", _canonicalize_packed_vector4_array(vector_4_array, state))
 
-	return _fail(state, "不支持的 Variant 类型：%s。" % type_string(typeof(value)))
+	return _fail(state, "Unsupported Variant type: %s." % type_string(typeof(value)))
 
 
 static func _canonicalize_array(value: Variant, state: Dictionary, visited: Array, depth: int) -> Variant:
 	if _visited_contains_reference(visited, value):
-		return _fail(state, "输入包含循环 Array 引用。")
+		return _fail(state, "Input contains a cyclic Array reference.")
 
 	visited.append(value)
 	var array_value: Array = value
@@ -361,7 +361,7 @@ static func _canonicalize_array(value: Variant, state: Dictionary, visited: Arra
 
 static func _canonicalize_dictionary(value: Variant, state: Dictionary, visited: Array, depth: int) -> Variant:
 	if _visited_contains_reference(visited, value):
-		return _fail(state, "输入包含循环 Dictionary 引用。")
+		return _fail(state, "Input contains a cyclic Dictionary reference.")
 
 	visited.append(value)
 	var dictionary_value: Dictionary = value
@@ -422,17 +422,17 @@ static func _canonicalize_float_array(values: Array[float], state: Dictionary) -
 
 static func _canonicalize_float(value: float, state: Dictionary) -> String:
 	if not GFVariantData.get_option_bool(state, "allow_floats", false):
-		var _failed: Variant = _fail(state, "浮点值默认不参与确定性编码；请先使用定点数，或显式设置 allow_floats。")
+		var _failed: Variant = _fail(state, "Floating-point values are excluded from deterministic encoding by default; use fixed-point numbers or explicitly enable allow_floats.")
 		return ""
 	if is_nan(value) or is_inf(value):
-		var _failed: Variant = _fail(state, "浮点值不能是 NaN 或 Inf。")
+		var _failed: Variant = _fail(state, "Floating-point values must not be NaN or Inf.")
 		return ""
 	if value == 0.0:
 		return "ieee754le:0000000000000000"
 	var bytes: PackedByteArray = PackedByteArray()
 	var resize_error: Error = bytes.resize(8) as Error
 	if resize_error != OK:
-		var _failed: Variant = _fail(state, "无法分配浮点规范编码缓冲区。")
+		var _failed: Variant = _fail(state, "Cannot allocate the canonical floating-point encoding buffer.")
 		return ""
 	bytes.encode_double(0, value)
 	return "ieee754le:%s" % bytes.hex_encode()
@@ -520,7 +520,7 @@ static func _visited_contains_reference(visited: Array, value: Variant) -> bool:
 static func _consume_items(state: Dictionary, amount: int) -> bool:
 	var next_count: int = GFVariantData.get_option_int(state, "item_count") + maxi(amount, 0)
 	if next_count > GFVariantData.get_option_int(state, "max_items", _DEFAULT_MAX_ITEMS):
-		var _failed: Variant = _fail(state, "输入集合超过 max_items。")
+		var _failed: Variant = _fail(state, "Input collection exceeds max_items.")
 		return false
 	state["item_count"] = next_count
 	return true
@@ -529,7 +529,7 @@ static func _consume_items(state: Dictionary, amount: int) -> bool:
 static func _string_is_within_budget(value: String, state: Dictionary) -> bool:
 	if value.length() <= GFVariantData.get_option_int(state, "max_string_length", _DEFAULT_MAX_STRING_LENGTH):
 		return true
-	var _failed: Variant = _fail(state, "字符串超过 max_string_length。")
+	var _failed: Variant = _fail(state, "String exceeds max_string_length.")
 	return false
 
 
@@ -554,5 +554,5 @@ static func _get_packed_item_count(value: Variant) -> int:
 static func _fail(state: Dictionary, message: String) -> Variant:
 	if GFVariantData.get_option_bool(state, "ok", true):
 		state["ok"] = false
-		push_error("[GFDeterministicVariantSerializer] %s" % message)
+		push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.serialization_failed] Serialization failed: %s." % message)
 	return null

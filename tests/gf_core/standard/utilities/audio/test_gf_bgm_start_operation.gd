@@ -1347,7 +1347,7 @@ func test_session_id_exhaustion_fails_before_backend_handoff_stop() -> void:
 		"res://audio/issue88-id-exhaustion-local.ogg",
 		{"history_key": "issue88-id-exhaustion-local"}
 	)
-	assert_push_error("[GFAudioUtility] BGM session ID 空间已耗尽。")
+	assert_push_error("[GFAudioUtility][audio_utility.bgm_session_id_exhausted] BGM session ID space is exhausted.")
 	var failed_result: Object = _assert_completed_with_status(failed_operation, "FAILED")
 	if failed_result == null:
 		return

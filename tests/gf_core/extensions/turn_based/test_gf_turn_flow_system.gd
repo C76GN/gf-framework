@@ -385,8 +385,8 @@ func test_flow_started_holds_context_authority_until_observers_finish() -> void:
 	owner_system.start()
 	owner_system.flow_started.disconnect(started_callback)
 
-	assert_push_warning("[GFTurnFlowSystem] start 失败：context 正由另一个 flow generation 持有。")
-	assert_push_warning("[GFTurnFlowSystem] set_context 失败：存在活动 Context operation。")
+	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.start_context_held] start failed: context is held by another flow generation.")
+	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.context_operation_active] set_context failed: a Context operation is active.")
 	assert_same(owner_system.context, context, "start 通知期间不得替换仍被事务持有的 Context。")
 	assert_false(foreign_system.is_running, "flow_started 观察者不得穿插 foreign Context mutation。")
 	foreign_system.start()
@@ -455,7 +455,7 @@ func test_turn_flow_honors_restart_requested_from_nested_start_stop_notification
 	owner_system.flow_started.disconnect(started_callback)
 	owner_system.flow_stopped.disconnect(stopped_callback)
 
-	assert_push_warning("[GFTurnFlowSystem] start 失败：context 正由另一个 flow generation 持有。")
+	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.start_context_held] start failed: context is held by another flow generation.")
 	assert_eq(
 		events,
 		[
@@ -566,7 +566,7 @@ func test_phase_signal_timeout_aborts_without_exit() -> void:
 	await get_tree().create_timer(0.05).timeout
 	await get_tree().process_frame
 
-	assert_push_warning("[GFTurnFlowSystem] 等待阶段 Signal 超时，阶段推进已中止。")
+	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.phase_signal_timeout] Waiting for the phase Signal timed out; phase advancement was aborted.")
 	assert_eq(order, ["enter", "execute"], "阶段 Signal 超时后不应继续 finish/exit。")
 	assert_not_null(phase.completion_handle)
 	if phase.completion_handle != null:
@@ -587,7 +587,7 @@ func test_phase_completion_wait_timeout_invalidates_handle_without_exit() -> voi
 	await get_tree().create_timer(0.05).timeout
 	await get_tree().process_frame
 
-	assert_push_warning("[GFTurnFlowSystem] 等待阶段完成超时，阶段推进已中止。")
+	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.phase_completion_timeout] Waiting for phase completion timed out; phase advancement was aborted.")
 	assert_eq(phase.completions.size(), 1)
 	assert_true(phase.exited_contexts.is_empty(), "completion timeout 不得调用 phase exit。")
 	if not phase.completions.is_empty():
@@ -610,7 +610,7 @@ func test_advance_phase_reentry_is_rejected_while_waiting() -> void:
 	@warning_ignore("missing_await")
 	system.advance_phase()
 
-	assert_push_warning("[GFTurnFlowSystem] advance_phase 失败：阶段正在推进中。")
+	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.advance_during_advance] advance_phase failed: a phase is being advanced.")
 	assert_eq(order, ["enter", "execute"], "阶段等待中再次推进不应重复进入同一阶段。")
 
 	system.stop()
@@ -673,7 +673,7 @@ func test_advance_phase_skips_null_phase_entries_safely() -> void:
 	var order: Array[String] = []
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
 	system.phases = [null, RecordingPhase.new(&"play", order)]
-	assert_push_warning("[GFTurnFlowSystem] set_phases 跳过空阶段。")
+	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.empty_set_phase] set_phases skipped a null phase.")
 
 	system.start()
 	await system.advance_phase()
@@ -727,7 +727,7 @@ func test_context_replacement_is_rejected_during_awaited_action() -> void:
 	assert_same(system.context, old_context, "in-flight 解析必须持有启动时 context lease。")
 	assert_null(old_context.current_actor, "解析结束必须清理启动时 context 的 current_actor。")
 	assert_eq(_get_queued_actions(system).size(), 2, "stop(false) 应把未解析行动恢复到原 flow 队列。")
-	assert_push_warning("[GFTurnFlowSystem] set_context 失败：存在活动 Context operation。")
+	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.context_operation_active] set_context failed: a Context operation is active.")
 	system.stop(true)
 	actor.free()
 
@@ -843,7 +843,7 @@ func test_start_reentry_during_action_is_rejected_without_dropping_pending_actio
 
 	await system.resolve_actions()
 
-	assert_push_warning("[GFTurnFlowSystem] start 失败：流程正在推进或解析中。")
+	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.start_during_processing] start failed: the flow is advancing or resolving.")
 	assert_eq(order, ["start", "next"], "解析中 start 重入应被拒绝且不丢弃后续行动。")
 
 
@@ -859,7 +859,7 @@ func test_resolve_actions_reentry_is_rejected_while_waiting() -> void:
 	@warning_ignore("missing_await")
 	system.resolve_actions()
 
-	assert_push_warning("[GFTurnFlowSystem] resolve_actions 失败：行动正在解析中。")
+	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.resolution_active] resolve_actions failed: actions are being resolved.")
 	assert_eq(order, ["resolve"], "解析等待中再次调用 resolve_actions 不应重复执行同一批行动。")
 
 	system.stop()
@@ -1126,7 +1126,7 @@ func test_dispose_invalidates_completion_and_releases_context_after_unwind() -> 
 	assert_false(owner_system.is_running, "disposed Flow System 不得重新启动。")
 
 	foreign_system.start()
-	assert_push_warning("[GFTurnFlowSystem] start 失败：context 正由另一个 flow generation 持有。")
+	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.start_context_held] start failed: context is held by another flow generation.")
 	assert_false(foreign_system.is_running, "旧 continuation 清理前不得提前转交 Context。")
 	await get_tree().process_frame
 	foreign_system.start()
@@ -1194,12 +1194,12 @@ func test_shared_context_rejects_foreign_flow_before_phase_mutation() -> void:
 	var owned_round: int = context.round_index
 
 	foreign_start_system.start()
-	assert_push_warning("[GFTurnFlowSystem] start 失败：context 正由另一个 flow generation 持有。")
+	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.start_context_held] start failed: context is held by another flow generation.")
 	assert_false(foreign_start_system.is_running, "foreign start 失败后不得提交 lifecycle 状态。")
 	assert_eq(context.round_index, owned_round, "foreign start 不得提前重置 Context 轮次。")
 	@warning_ignore("missing_await")
 	foreign_system.advance_phase()
-	assert_push_warning("[GFTurnFlowSystem] advance_phase 失败：context 正由另一个 flow generation 持有。")
+	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.advance_context_held] advance_phase failed: context is held by another flow generation.")
 	assert_eq(foreign_system.current_phase_index, -1, "foreign advance 不得提前切换 phase index。")
 	assert_eq(context.round_index, owned_round, "foreign advance 不得提前推进 Context 轮次。")
 	assert_true(foreign_order.is_empty(), "foreign phase 不得 enter/execute/exit。")
@@ -1228,7 +1228,7 @@ func test_shared_context_rejects_foreign_action_before_queue_mutation() -> void:
 	foreign_system.enqueue_action(foreign_action)
 
 	await foreign_system.resolve_actions()
-	assert_push_warning("[GFTurnFlowSystem] resolve_actions 失败：context 正由另一个 flow generation 持有。")
+	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.resolve_context_held] resolve_actions failed: context is held by another flow generation.")
 	assert_eq(foreign_order, [], "foreign action 不得开始 resolve。")
 	assert_eq(foreign_system.get_action_count(), 1, "foreign rejection 不得清空或封存队列。")
 	assert_false(foreign_action.is_sealed(), "未接纳的 foreign action 必须保持待处理状态。")
@@ -1262,13 +1262,13 @@ func test_same_owner_phase_and_action_claims_block_foreign_until_both_finish() -
 	assert_eq(action_order, ["resolve"], "phase 内启动的同 owner action 必须真实进入 resolve。")
 	assert_same(context.current_actor, actor)
 	foreign_system.start()
-	assert_push_warning("[GFTurnFlowSystem] start 失败：context 正由另一个 flow generation 持有。")
+	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.start_context_held] start failed: context is held by another flow generation.")
 
 	phase.completed.emit()
 	await get_tree().process_frame
 	assert_same(context.current_actor, actor, "phase claim 释放后 action claim 仍应独占 Context。")
 	foreign_system.start()
-	assert_push_warning("[GFTurnFlowSystem] start 失败：context 正由另一个 flow generation 持有。")
+	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.start_context_held] start failed: context is held by another flow generation.")
 	assert_false(foreign_system.is_running)
 
 	action.completed.emit()
@@ -1374,8 +1374,8 @@ func test_action_instance_is_one_shot_and_configuration_seals_on_enqueue() -> vo
 	assert_eq(_get_queued_actions(system_b).size(), 0, "同一 action 实例不得跨 flow 复用。")
 	assert_eq(action.priority, 3, "action 入队后配置必须冻结。")
 	for _index: int in range(2):
-		assert_push_warning("[GFTurnFlowSystem] enqueue_action 失败：action 实例只能入队一次。")
-	assert_push_error("[GFTurnAction] 行动已入队，不能修改配置：priority。")
+		assert_push_warning("[GFTurnFlowSystem][turn_flow_system.action_already_enqueued] enqueue_action failed: an action instance can be enqueued only once.")
+	assert_push_error("[GFTurnAction][turn_action.queued_configuration_read_only] Cannot modify the configuration of an enqueued action: priority.")
 	system_a.stop(true)
 
 

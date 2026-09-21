@@ -103,7 +103,7 @@ func test_bounds_setter_rejects_non_finite_values_atomically() -> void:
 	_tree.bounds = Rect2(Vector2(NAN, 0.0), Vector2.ONE)
 
 	assert_true(inserted)
-	assert_push_error("[GFQuadTreeUtility] bounds 必须只包含有限值。")
+	assert_push_error("[GFQuadTreeUtility][quad_tree_utility.bounds_non_finite] bounds must contain only finite values.")
 	assert_eq(_tree.bounds, original_bounds, "非法配置不得覆盖最后有效边界。")
 	assert_eq(_tree.get_entity_rect(7), Rect2(100, 100, 20, 20), "非法配置不得删除实体。")
 	assert_true(_tree.query_point(Vector2(105, 105), false).has(7), "粗筛索引必须保留。")
@@ -119,7 +119,7 @@ func test_setup_rejects_non_finite_bounds_before_mutating_limits_or_entities() -
 	_tree.setup(Rect2(Vector2.ZERO, Vector2(INF, 1.0)), 1, 1)
 
 	assert_true(inserted)
-	assert_push_error("[GFQuadTreeUtility] bounds 必须只包含有限值。")
+	assert_push_error("[GFQuadTreeUtility][quad_tree_utility.bounds_non_finite] bounds must contain only finite values.")
 	assert_eq(_tree.bounds, original_bounds)
 	assert_eq(_tree.max_depth, original_max_depth)
 	assert_eq(_tree.max_entities_per_node, original_max_entities)

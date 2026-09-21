@@ -115,10 +115,10 @@ func tick(delta: float) -> void:
 ## @return 已排队定时器的句柄；无效回调或立即执行时返回 `0`。
 func execute_after(delay: float, callback: Callable) -> int:
 	if not callback.is_valid():
-		push_error("[GFTimerUtility] execute_after 失败：传入的 callback 无效。")
+		push_error("[GFTimerUtility][timer_utility.after_callback_invalid] Cannot execute_after: the supplied callback is invalid.")
 		return 0
 	if not _is_finite_time_value(delay):
-		push_error("[GFTimerUtility] execute_after 失败：delay 必须是有限值。")
+		push_error("[GFTimerUtility][timer_utility.after_delay_non_finite] Cannot execute_after: delay must be finite.")
 		return 0
 
 	if delay <= 0.0:
@@ -143,13 +143,13 @@ func execute_after(delay: float, callback: Callable) -> int:
 ## @return 已排队定时器的句柄；无效输入或立即执行时返回 `0`。
 func execute_after_owned(owner: Object, delay: float, callback: Callable) -> int:
 	if owner == null:
-		push_error("[GFTimerUtility] execute_after_owned 失败：owner 为空。")
+		push_error("[GFTimerUtility][timer_utility.after_owner_null] Cannot execute_after_owned: owner is null.")
 		return 0
 	if not callback.is_valid():
-		push_error("[GFTimerUtility] execute_after_owned 失败：传入的 callback 无效。")
+		push_error("[GFTimerUtility][timer_utility.after_owned_callback_invalid] Cannot execute_after_owned: the supplied callback is invalid.")
 		return 0
 	if not _is_finite_time_value(delay):
-		push_error("[GFTimerUtility] execute_after_owned 失败：delay 必须是有限值。")
+		push_error("[GFTimerUtility][timer_utility.after_owned_delay_non_finite] Cannot execute_after_owned: delay must be finite.")
 		return 0
 
 	if delay <= 0.0:
@@ -181,16 +181,16 @@ func execute_repeating(
 	initial_delay: float = -1.0
 ) -> int:
 	if not callback.is_valid():
-		push_error("[GFTimerUtility] execute_repeating 失败：传入的 callback 无效。")
+		push_error("[GFTimerUtility][timer_utility.repeating_callback_invalid] Cannot execute_repeating: the supplied callback is invalid.")
 		return 0
 	if not _is_finite_time_value(interval):
-		push_error("[GFTimerUtility] execute_repeating 失败：interval 必须是有限值。")
+		push_error("[GFTimerUtility][timer_utility.repeating_interval_non_finite] Cannot execute_repeating: interval must be finite.")
 		return 0
 	if interval <= 0.0:
-		push_error("[GFTimerUtility] execute_repeating 失败：interval 必须大于 0。")
+		push_error("[GFTimerUtility][timer_utility.repeating_interval_nonpositive] Cannot execute_repeating: interval must be greater than zero.")
 		return 0
 	if not _is_finite_time_value(initial_delay):
-		push_error("[GFTimerUtility] execute_repeating 失败：initial_delay 必须是有限值。")
+		push_error("[GFTimerUtility][timer_utility.repeating_initial_delay_non_finite] Cannot execute_repeating: initial_delay must be finite.")
 		return 0
 	if repeat_count == 0:
 		return 0
@@ -224,19 +224,19 @@ func execute_repeating_owned(
 	initial_delay: float = -1.0
 ) -> int:
 	if owner == null:
-		push_error("[GFTimerUtility] execute_repeating_owned 失败：owner 为空。")
+		push_error("[GFTimerUtility][timer_utility.repeating_owner_null] Cannot execute_repeating_owned: owner is null.")
 		return 0
 	if not callback.is_valid():
-		push_error("[GFTimerUtility] execute_repeating_owned 失败：传入的 callback 无效。")
+		push_error("[GFTimerUtility][timer_utility.repeating_owned_callback_invalid] Cannot execute_repeating_owned: the supplied callback is invalid.")
 		return 0
 	if not _is_finite_time_value(interval):
-		push_error("[GFTimerUtility] execute_repeating_owned 失败：interval 必须是有限值。")
+		push_error("[GFTimerUtility][timer_utility.repeating_owned_interval_non_finite] Cannot execute_repeating_owned: interval must be finite.")
 		return 0
 	if interval <= 0.0:
-		push_error("[GFTimerUtility] execute_repeating_owned 失败：interval 必须大于 0。")
+		push_error("[GFTimerUtility][timer_utility.repeating_owned_interval_nonpositive] Cannot execute_repeating_owned: interval must be greater than zero.")
 		return 0
 	if not _is_finite_time_value(initial_delay):
-		push_error("[GFTimerUtility] execute_repeating_owned 失败：initial_delay 必须是有限值。")
+		push_error("[GFTimerUtility][timer_utility.repeating_owned_initial_delay_non_finite] Cannot execute_repeating_owned: initial_delay must be finite.")
 		return 0
 	if repeat_count == 0:
 		return 0

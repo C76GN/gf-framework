@@ -304,7 +304,7 @@ func test_invalid_path_does_not_claim_transfer() -> void:
 	assert_eq(transfer.get_active_attempt_count(), 0)
 	assert_null(operation.get_payload_transfer())
 	assert_null(operation.reclaim_failed_payload())
-	assert_push_error("[GFStorageUtility] save_payload_request_async 失败：file_name 为空。")
+	assert_push_error("[GFStorageUtility][storage_utility.filename_empty] save_payload_request_async failed: file_name is empty.")
 
 
 func test_absolute_path_does_not_claim_transfer() -> void:
@@ -330,7 +330,7 @@ func test_absolute_path_does_not_claim_transfer() -> void:
 	assert_null(operation.reclaim_failed_payload())
 	assert_true(transfer.release())
 	assert_push_error(
-		"[GFStorageUtility] save_payload_request_async 失败：file_name 不满足 portable logical path profile。"
+		"[GFStorageUtility][storage_utility.filename_profile_invalid] save_payload_request_async failed: file_name does not satisfy the portable logical path profile."
 	)
 
 
@@ -733,7 +733,7 @@ func test_initialized_root_is_frozen_while_queued_task_keeps_original_family() -
 		"初始化后的 Storage root 不得漂移。"
 	)
 	assert_push_error(
-		"[GFStorageUtility] save_dir_name 已在 Storage 初始化后冻结；请为另一个 root 创建新的 Utility。"
+		"[GFStorageUtility][storage_utility.root_frozen] save_dir_name is frozen after Storage initialization; create a new utility for another root."
 	)
 	assert_eq(target_transfer.get_active_attempt_count(), 1)
 	await _pump_specific_storage(storage_utility)

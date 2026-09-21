@@ -6271,6 +6271,21 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		is gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
 		"CodeQL suppressions must remain forbidden by a tracked-source gate in quick, Full, and release flows.",
 	)
+	record_result(
+		"diagnostic_policy_is_a_static_gate_with_executable_contract",
+		all(
+			{"diagnostic_policy", "diagnostic_policy_tests"}.issubset(CHECK_SUITES[suite_name])
+			for suite_name in ("quick", "framework-static", "framework", "full", "release")
+		)
+		and {"diagnostic_policy", "diagnostic_policy_tests"}.issubset(LIGHT_BOUNDARY_CHECKS)
+		and "diagnostic-policy" in CHECK_DEFINITIONS["diagnostic_policy"]
+		and _VALIDATION_CATALOG.executor_kind("diagnostic_policy")
+		is gf_validation_catalog.ValidationExecutorKind.IN_PROCESS
+		and _VALIDATION_CATALOG.executor_kind("diagnostic_policy_tests")
+		is gf_validation_catalog.ValidationExecutorKind.SUBPROCESS
+		and "diagnostic_policy" in maintenance_in_process_adapter_registry(),
+		"Framework diagnostic conventions and their regression tests must run in quick, Full, and release flows.",
+	)
 	codeql_python_fixture_results = [
 		gf_codeql_suppression_policy.audit_python_source(
 			"tests/gf_core/tools/test_fixture.py",

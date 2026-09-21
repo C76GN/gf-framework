@@ -250,7 +250,7 @@ func transition_to(path: StringName, args: Dictionary = {}) -> void:
 	elif parts.size() == 2:
 		requested_transition.emit(StringName(parts[0]), StringName(parts[1]), args)
 	else:
-		push_error("[GFNodeState] transition_to 失败：路径格式无效。")
+		push_error("[GFNodeState][node_state.transition_path_invalid] Cannot transition_to: path format is invalid.")
 
 
 ## 状态初始化 Hook。状态加入状态组时调用一次。

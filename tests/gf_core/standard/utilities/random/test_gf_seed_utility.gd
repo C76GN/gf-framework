@@ -202,7 +202,7 @@ func test_full_state_rejects_future_schema_version_without_mutating_state() -> v
 
 	_seed_util.set_full_state(snapshot)
 
-	assert_push_error("[GFSeedUtility] 不支持的完整随机状态 schema 版本：99。")
+	assert_push_error("[GFSeedUtility][seed_utility.state_schema_unsupported] Unsupported complete random state schema version: 99.")
 	assert_eq(_seed_util.get_global_seed(), original_seed, "未来 schema 不应覆盖当前主种子。")
 	assert_eq(_seed_util.get_state(), original_state, "未来 schema 不应覆盖当前 RNG 状态。")
 
@@ -219,7 +219,7 @@ func test_full_state_rejects_old_schema_version_without_mutating_state() -> void
 
 	_seed_util.set_full_state(snapshot)
 
-	assert_push_error("[GFSeedUtility] 不支持的完整随机状态 schema 版本：1。")
+	assert_push_error("[GFSeedUtility][seed_utility.state_schema_unsupported] Unsupported complete random state schema version: 1.")
 	assert_eq(_seed_util.get_global_seed(), original_seed, "旧 schema 不应覆盖当前主种子。")
 	assert_eq(_seed_util.get_state(), original_state, "旧 schema 不应覆盖当前 RNG 状态。")
 
@@ -238,7 +238,7 @@ func test_full_state_rejects_malformed_rng_state_without_mutating_state() -> voi
 	_seed_util.set_full_state(invalid_snapshot)
 	var restored_rng: RandomNumberGenerator = _seed_util.get_branched_rng("loot")
 
-	assert_push_error("[GFSeedUtility] 无效完整随机状态：字段 rng_state 必须是整数或十进制整数字符串。")
+	assert_push_error("[GFSeedUtility][seed_utility.state_invalid] Invalid complete random state: Field rng_state must be an integer or a decimal integer string.")
 	assert_eq(_seed_util.get_global_seed(), GFVariantData.get_option_int(original_snapshot, &"global_seed"), "非法 rng_state 不应覆盖当前主种子。")
 	assert_eq(_seed_util.get_state(), GFVariantData.get_option_int(original_snapshot, &"rng_state"), "非法 rng_state 不应覆盖当前 RNG 状态。")
 	assert_eq(restored_rng.seed, expected_seed, "非法 rng_state 不应重置分支计数。")
@@ -259,7 +259,7 @@ func test_full_state_rejects_malformed_branch_counter_without_mutating_state() -
 	_seed_util.set_full_state(invalid_snapshot)
 	var restored_rng: RandomNumberGenerator = _seed_util.get_branched_rng("loot")
 
-	assert_push_error("[GFSeedUtility] 无效完整随机状态：字段 branch_counters.loot 必须是整数或十进制整数字符串。")
+	assert_push_error("[GFSeedUtility][seed_utility.state_invalid] Invalid complete random state: Field branch_counters.loot must be an integer or a decimal integer string.")
 	assert_eq(_seed_util.get_global_seed(), GFVariantData.get_option_int(original_snapshot, &"global_seed"), "非法分支计数不应覆盖当前主种子。")
 	assert_eq(_seed_util.get_state(), GFVariantData.get_option_int(original_snapshot, &"rng_state"), "非法分支计数不应覆盖当前 RNG 状态。")
 	assert_eq(restored_rng.seed, expected_seed, "非法分支计数不应改变下一次分支序列。")
@@ -312,12 +312,12 @@ func test_make_stable_seed_rejects_float_by_default() -> void:
 	assert_false(GFVariantData.get_option_bool(seed_result, &"ok", true), "结构化 seed 派生应报告编码失败。")
 	assert_eq(GFVariantData.get_option_int(seed_result, &"seed", -1), 0, "失败报告 seed 应固定为 0。")
 	assert_eq(GFVariantData.get_option_string(seed_result, &"error"), "canonical_encode_failed", "失败报告应提供稳定错误码。")
-	assert_push_error("[GFDeterministicVariantSerializer] 浮点值默认不参与确定性编码；请先使用定点数，或显式设置 allow_floats。")
+	assert_push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.serialization_failed] Serialization failed: Floating-point values are excluded from deterministic encoding by default; use fixed-point numbers or explicitly enable allow_floats..")
 
 	var seed_value: int = GFSeedUtility.make_stable_seed([1.25])
 
 	assert_eq(seed_value, 0, "默认确定性 seed 派生应拒绝浮点输入并返回 0。")
-	assert_push_error("[GFDeterministicVariantSerializer] 浮点值默认不参与确定性编码；请先使用定点数，或显式设置 allow_floats。")
+	assert_push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.serialization_failed] Serialization failed: Floating-point values are excluded from deterministic encoding by default; use fixed-point numbers or explicitly enable allow_floats..")
 
 
 func test_full_state_uses_json_safe_text_numbers() -> void:

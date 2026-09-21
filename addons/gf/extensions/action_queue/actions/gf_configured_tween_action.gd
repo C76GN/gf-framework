@@ -136,7 +136,7 @@ func execute() -> Variant:
 	if controlled:
 		captured_plan = GFTweenPlaybackPlan.capture(captured_config, requested_target, captured_config.ping_pong)
 		if not captured_plan.error.is_empty():
-			push_warning("[GFConfiguredTweenAction] 拒绝播放时间轴：%s" % captured_plan.error)
+			push_warning("[GFConfiguredTweenAction][configured_tween_action.invalid_timeline] Cannot play the timeline: %s." % captured_plan.error)
 			return null
 		# 先检查整组预算；仅接管后需重新捕获初值的路径保留配置副本。
 		if requested_scope != null:
@@ -146,7 +146,7 @@ func execute() -> Variant:
 	if request != _execute_request:
 		return null
 	if (controlled or captured_config.has_timed_steps()) and tween_host == null:
-		push_warning("[GFConfiguredTweenAction] 缺少有效 Tween 宿主节点。")
+		push_warning("[GFConfiguredTweenAction][configured_tween_action.missing_host] Cannot start playback: a valid host node is required.")
 		return null
 	_generation += 1
 	var generation: int = _generation
@@ -280,7 +280,7 @@ func finish() -> void:
 			_disconnect_finished()
 			var _stepped: bool = tween.custom_step(_native_finish_budget)
 		else:
-			push_warning("[GFConfiguredTweenAction] finish 超出有限求值预算，停止于当前姿态。")
+			push_warning("[GFConfiguredTweenAction][configured_tween_action.finish_budget_exceeded] finish exceeded the finite evaluation budget; playback stopped at the current pose.")
 	if generation == _generation:
 		_end_run(generation, _restore_on_finish)
 
@@ -491,7 +491,7 @@ func _start_native(captured_config: GFTweenActionConfig, generation: int) -> voi
 			continue
 		var property_error: String = step.get_property_validation_error(_run_target)
 		if not property_error.is_empty():
-			push_warning("[GFTweenActionStep] 跳过无效 Tween 步骤：%s" % property_error)
+			push_warning("[GFTweenActionStep][tween_action_step.invalid_tween_step] Skipped an invalid Tween step: %s." % property_error)
 			continue
 		var initial: Variant = _run_target.get_indexed(step.property_name)
 		if not _can_write(generation):

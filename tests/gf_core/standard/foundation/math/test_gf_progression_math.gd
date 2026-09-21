@@ -70,7 +70,7 @@ func test_invalid_exponential_multiplier_returns_anchor_value() -> void:
 
 	var result: GFBigNumber = GF_PROGRESSION_MATH.evaluate_curve(5, curve)
 
-	assert_push_error("[GFProgressionMath] 指数曲线 multiplier 必须大于 0。")
+	assert_push_error("[GFProgressionMath][progression_math.exponential_multiplier_invalid] The exponential curve multiplier must be greater than zero.")
 	assert_eq(result.to_plain_string(0), "10", "非法指数倍率应回退到锚点值。")
 
 

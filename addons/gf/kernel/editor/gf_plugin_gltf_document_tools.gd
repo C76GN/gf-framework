@@ -49,12 +49,12 @@ func cleanup() -> void:
 func _register_document_extension(script_path: String) -> void:
 	var extension_script: Script = _load_script(script_path)
 	if extension_script == null or not extension_script.can_instantiate():
-		push_error("[GF Framework] glTF 文档扩展脚本加载失败：%s" % script_path)
+		push_error("[GFPluginGltfDocumentTools][plugin_gltf_document_tools.extension_load_failed] Could not load the glTF document extension script: %s." % script_path)
 		return
 
 	var document_extension: GLTFDocumentExtension = _instantiate_document_extension(extension_script)
 	if document_extension == null:
-		push_error("[GF Framework] glTF 文档扩展实例化失败：%s" % script_path)
+		push_error("[GFPluginGltfDocumentTools][plugin_gltf_document_tools.extension_instantiation_failed] Could not instantiate the glTF document extension: %s." % script_path)
 		return
 
 	GLTFDocument.register_gltf_document_extension(document_extension)

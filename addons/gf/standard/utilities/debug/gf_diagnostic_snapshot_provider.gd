@@ -35,7 +35,7 @@ const DEFAULT_MAX_DURATION_USEC: int = 50_000
 var provider_id: StringName = &"":
 	set(value):
 		if _definition_locked and value != provider_id:
-			push_error("[GFDiagnosticSnapshotProvider] 已注册的 provider_id 不可修改。")
+			push_error("[GFDiagnosticSnapshotProvider][diagnostic_snapshot_provider.provider_id_frozen] Cannot change provider_id after registration.")
 			return
 		provider_id = value
 
@@ -47,7 +47,7 @@ var provider_id: StringName = &"":
 var max_duration_usec: int = DEFAULT_MAX_DURATION_USEC:
 	set(value):
 		if _definition_locked and value != max_duration_usec:
-			push_error("[GFDiagnosticSnapshotProvider] 已注册的 max_duration_usec 不可修改。")
+			push_error("[GFDiagnosticSnapshotProvider][diagnostic_snapshot_provider.duration_limit_frozen] Cannot change max_duration_usec after registration.")
 			return
 		max_duration_usec = value
 
@@ -61,7 +61,7 @@ var max_duration_usec: int = DEFAULT_MAX_DURATION_USEC:
 var metadata: Dictionary:
 	set(value):
 		if _definition_locked and value != _metadata:
-			push_error("[GFDiagnosticSnapshotProvider] 已注册的 metadata 不可修改。")
+			push_error("[GFDiagnosticSnapshotProvider][diagnostic_snapshot_provider.metadata_frozen] Cannot change metadata after registration.")
 			return
 		_metadata = _duplicate_dictionary(value)
 	get:

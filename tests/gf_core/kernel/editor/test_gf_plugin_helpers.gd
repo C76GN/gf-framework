@@ -170,7 +170,7 @@ func test_plugin_actions_template_generation_uses_guarded_writer() -> void:
 
 	assert_true(generated_text.contains("class_name GfPluginActionsGuarded"), "模板应成功生成。")
 	assert_eq(retained_text, generated_text, "已存在脚本不得被第二次生成覆盖。")
-	assert_push_error("[GF Framework] 文件已存在，已取消生成: %s" % output_path)
+	assert_push_error("[GFPluginActions][plugin_actions.output_exists] Generation cancelled because the file already exists: %s." % output_path)
 
 
 func test_plugin_actions_reject_invalid_generated_identifiers_before_writing() -> void:
@@ -201,11 +201,11 @@ func test_plugin_actions_reject_invalid_generated_identifiers_before_writing() -
 	assert_false(invalid_class_was_written, "数字开头的派生 class_name 应在写入前被拒绝。")
 	assert_false(invalid_base_was_written, "非法 base_class 应在写入前被拒绝。")
 	assert_push_error(
-		"[GF Framework] 文件名无法生成合法 GDScript class_name，已取消生成: %s"
+		"[GFPluginActions][plugin_actions.class_name_invalid] Generation cancelled because the filename cannot produce a valid GDScript class_name: %s."
 		% invalid_class_path
 	)
 	assert_push_error(
-		"[GF Framework] 模板 base_class 不是合法 GDScript 标识符，已取消生成: %s"
+		"[GFPluginActions][plugin_actions.base_class_invalid] Generation cancelled because template base_class is not a valid GDScript identifier: %s."
 		% "gf.test.editor:template.invalid_base"
 	)
 
@@ -510,7 +510,7 @@ func test_plugin_autoload_persists_ownership_marker_changes() -> void:
 	var source: String = _read_text_file("res://addons/gf/kernel/editor/gf_plugin_autoload.gd")
 
 	assert_true(source.contains("var save_result: Error = ProjectSettings.save()"), "Autoload 归属 marker 变更必须显式保存 ProjectSettings。")
-	assert_true(source.contains("push_error(\"[GFPluginAutoload] ProjectSettings.save() 失败"), "Autoload marker 保存失败必须有可观察错误。")
+	assert_true(source.contains("push_error(\"[GFPluginAutoload][plugin_autoload.settings_save_failed]"), "Autoload marker 保存失败必须有可观察错误。")
 
 
 func test_plugin_project_settings_does_not_persist_process_local_defaults() -> void:
@@ -1281,7 +1281,7 @@ func test_debugger_loader_rejects_non_plugin_before_instantiation() -> void:
 		"基类不匹配的脚本不得执行构造逻辑。"
 	)
 	assert_push_error(
-		"[GF Framework] Invalid fixture Debugger 插件脚本必须继承 EditorDebuggerPlugin。"
+		"[GFPluginDebuggerTools][plugin_debugger_tools.debugger_type_invalid] The Invalid fixture Debugger plugin script must extend EditorDebuggerPlugin."
 	)
 	_remove_path_if_exists(fixture_path)
 

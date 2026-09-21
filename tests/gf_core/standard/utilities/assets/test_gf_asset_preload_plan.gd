@@ -106,7 +106,7 @@ func test_preload_plan_async_reports_empty_group_without_hanging() -> void:
 		reports.append(report)
 	)
 
-	assert_push_error("[GFAssetUtility] preload_plan_async 失败：group_id 为空。")
+	assert_push_error("[GFAssetUtility][asset_utility.preload_plan_group_empty] Cannot preload_plan_async: group_id is empty.")
 	assert_eq(reports.size(), 1, "无效 group 也应立即回调失败报告。")
 	assert_false(GFVariantData.get_option_bool(reports[0], "ok"), "失败报告应标记 ok=false。")
 

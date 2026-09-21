@@ -57,7 +57,7 @@ func test_delaunay_rejects_non_finite_points() -> void:
 		Vector2(0.0, 1.0),
 	]))
 
-	assert_push_error("[GFVoronoi2D] points must contain finite Vector2 values.")
+	assert_push_error("[GFVoronoi2D][voronoi2d.generation_failed] Voronoi generation failed: points must contain finite Vector2 values..")
 	assert_false(GFVariantData.get_option_bool(result, "ok", true), "非法点集应返回结构化失败。")
 	assert_eq(GFVariantData.get_option_string(result, "error"), "points must contain finite Vector2 values.")
 	assert_eq(_get_triangles(result).size(), 0)
@@ -73,7 +73,7 @@ func test_delaunay_respects_max_points_after_deduplication() -> void:
 		"max_points": 2,
 	})
 
-	assert_push_error("[GFVoronoi2D] point_count exceeds max_points.")
+	assert_push_error("[GFVoronoi2D][voronoi2d.generation_failed] Voronoi generation failed: point_count exceeds max_points..")
 	assert_false(GFVariantData.get_option_bool(result, "ok", true), "超过 max_points 时应失败。")
 	assert_eq(GFVariantData.get_option_string(result, "error"), "point_count exceeds max_points.")
 	assert_eq(GFVariantData.get_option_int(result, "input_point_count", 0), 4)

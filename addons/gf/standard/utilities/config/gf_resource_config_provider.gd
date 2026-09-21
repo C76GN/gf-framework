@@ -31,12 +31,12 @@ var _tables_by_name: Dictionary = {}
 ## @return: 注册成功返回 true。
 func register_table(table_resource: GFConfigTableResource) -> bool:
 	if table_resource == null or table_resource.get_table_key() == &"":
-		push_error("[GFResourceConfigProvider] register_table 失败：table_resource 为空或 table_name 为空。")
+		push_error("[GFResourceConfigProvider][resource_config_provider.table_registration_invalid] Cannot register_table: table_resource is null or table_name is empty.")
 		return false
 
 	var table_key: StringName = table_resource.get_table_key()
 	if table_resource.schema != null and table_resource.schema.get_table_key() != table_key:
-		push_error("[GFResourceConfigProvider] register_table 失败：table_name 与 schema.table_name 不一致。")
+		push_error("[GFResourceConfigProvider][resource_config_provider.schema_table_name_mismatch] Cannot register_table: table_name does not match schema.table_name.")
 		return false
 
 	_remove_table_entry(table_key)
@@ -129,7 +129,7 @@ func get_table_resources(duplicate_tables: bool = true) -> Array[GFConfigTableRe
 ## @return: 新 Resource Provider；database 为空时返回 null。
 static func from_database(database: GFConfigDatabaseResource, duplicate_tables: bool = false) -> GFResourceConfigProvider:
 	if database == null:
-		push_error("[GFResourceConfigProvider] from_database 失败：database 为空。")
+		push_error("[GFResourceConfigProvider][resource_config_provider.database_null] Cannot from_database: database is null.")
 		return null
 
 	var provider: GFResourceConfigProvider = GFResourceConfigProvider.new()

@@ -213,8 +213,8 @@ func test_pure_data_api_rejects_empty_file_name() -> void:
 	assert_false(FileAccess.file_exists(_storage._get_full_path("_invalid_storage_file")), "空文件名不应写入兜底文件。")
 	assert_not_null(_storage.last_load_result, "失败读取也应留下结构化结果。")
 	assert_false(_storage.last_load_result.ok, "空文件名读取结果应标记失败。")
-	assert_push_error("[GFStorageUtility] save_data 失败：file_name 为空。")
-	assert_push_error("[GFStorageUtility] load_data 失败：file_name 为空。")
+	assert_push_error("[GFStorageUtility][storage_utility.filename_empty] save_data failed: file_name is empty.")
+	assert_push_error("[GFStorageUtility][storage_utility.filename_empty] load_data failed: file_name is empty.")
 
 
 func test_async_pure_data_api_rejects_empty_file_name_with_failure_signals() -> void:
@@ -229,8 +229,8 @@ func test_async_pure_data_api_rejects_empty_file_name_with_failure_signals() -> 
 	assert_signal_emitted(_storage, "load_completed", "空文件名异步读取应发出失败完成信号。")
 	assert_not_null(_storage.last_load_result, "异步失败应保存结构化结果。")
 	assert_false(_storage.last_load_result.ok, "空文件名异步读取结果应标记失败。")
-	assert_push_error("[GFStorageUtility] save_data_async 失败：file_name 为空。")
-	assert_push_error("[GFStorageUtility] load_data_async 失败：file_name 为空。")
+	assert_push_error("[GFStorageUtility][storage_utility.filename_empty] save_data_async failed: file_name is empty.")
+	assert_push_error("[GFStorageUtility][storage_utility.filename_empty] load_data_async failed: file_name is empty.")
 
 
 func test_async_save_and_load_data_emit_completion_signals() -> void:
@@ -298,7 +298,7 @@ func test_async_request_handle_rejects_invalid_path_without_hanging() -> void:
 		operation.get_result().get_read_result().failure_kind,
 		GFStorageReadResult.FailureKind.INVALID_REQUEST
 	)
-	assert_push_error("[GFStorageUtility] load_data_request_async 失败：file_name 为空。")
+	assert_push_error("[GFStorageUtility][storage_utility.filename_empty] load_data_request_async failed: file_name is empty.")
 
 
 func test_async_request_handle_and_signal_preserve_exact_canonical_identity() -> void:
@@ -344,7 +344,7 @@ func test_save_data_group_rejects_unsafe_paths() -> void:
 
 	assert_eq(err, ERR_INVALID_PARAMETER, "多文件事务应拒绝任意非法路径。")
 	assert_false(_storage.has_file("group/meta.json"), "路径校验失败时不应 claim 或写入其它 family。")
-	assert_push_error("[GFStorageUtility] save_data_group 失败：file_name 不满足 portable logical path profile。")
+	assert_push_error("[GFStorageUtility][storage_utility.filename_profile_invalid] save_data_group failed: file_name does not satisfy the portable logical path profile.")
 
 
 func test_save_data_group_rejects_noncanonical_member_before_claiming_any_family() -> void:
@@ -355,7 +355,7 @@ func test_save_data_group_rejects_noncanonical_member_before_claiming_any_family
 
 	assert_eq(err, ERR_INVALID_PARAMETER, "非 canonical member 必须在任何 family claim 前被拒绝。")
 	assert_false(_storage.has_file("group/alias.json"), "preflight 失败不得产生部分写入。")
-	assert_push_error("[GFStorageUtility] save_data_group 失败：file_name 不满足 portable logical path profile。")
+	assert_push_error("[GFStorageUtility][storage_utility.filename_profile_invalid] save_data_group failed: file_name does not satisfy the portable logical path profile.")
 
 
 func test_save_data_group_rejects_non_string_key_before_claiming_any_family() -> void:
@@ -384,7 +384,7 @@ func test_save_data_group_rejects_non_string_key_before_claiming_any_family() ->
 		DirAccess.dir_exists_absolute(GFVariantData.get_option_string(descriptor, "family_path")),
 		"key preflight 失败不得创建 private family。"
 	)
-	assert_push_error("[GFStorageUtility] save_data_group 失败：文件名键必须是 String。")
+	assert_push_error("[GFStorageUtility][storage_utility.group_filename_type_invalid] Cannot save_data_group: filename keys must be String values.")
 
 
 func test_save_data_group_rejects_oversized_group_before_claiming_any_family() -> void:
@@ -396,7 +396,7 @@ func test_save_data_group_rejects_oversized_group_before_claiming_any_family() -
 		descriptors.append(_storage._make_family_descriptor(file_name))
 
 	assert_eq(_storage.save_data_group(files), ERR_INVALID_PARAMETER)
-	assert_push_error("[GFStorageUtility] save_data_group 失败：成员数超过上限 64。")
+	assert_push_error("[GFStorageUtility][storage_utility.group_member_limit] Cannot save_data_group: member count exceeds the limit 64.")
 	for descriptor: Dictionary in descriptors:
 		assert_false(
 			FileAccess.file_exists(
@@ -823,7 +823,7 @@ func test_storage_paths_reject_parent_segments_before_simplification() -> void:
 	var err: Error = _storage.save_data("group/../escape.json", { "value": 1 })
 
 	assert_eq(err, ERR_INVALID_PARAMETER, "任何原始父目录段都应被路径策略拒绝。")
-	assert_push_error("[GFStorageUtility] save_data 失败：file_name 不满足 portable logical path profile。")
+	assert_push_error("[GFStorageUtility][storage_utility.filename_profile_invalid] save_data failed: file_name does not satisfy the portable logical path profile.")
 
 
 func test_runtime_storage_has_no_absolute_path_escape_hatch() -> void:
@@ -859,11 +859,11 @@ func test_public_storage_file_and_directory_apis_reject_absolute_paths() -> void
 		ERR_INVALID_PARAMETER,
 		"删除入口不得接受绝对路径。"
 	)
-	assert_push_error("[GFStorageUtility] canonicalize_data_file_name 失败：file_name 不满足 portable logical path profile。")
-	assert_push_error("[GFStorageUtility] save_data 失败：file_name 不满足 portable logical path profile。")
-	assert_push_error("[GFStorageUtility] has_file 失败：file_name 不满足 portable logical path profile。")
-	assert_push_error("[GFStorageUtility] list_files 失败：directory_name 非法。")
-	assert_push_error("[GFStorageUtility] delete_file 失败：file_name 不满足 portable logical path profile。")
+	assert_push_error("[GFStorageUtility][storage_utility.filename_profile_invalid] canonicalize_data_file_name failed: file_name does not satisfy the portable logical path profile.")
+	assert_push_error("[GFStorageUtility][storage_utility.filename_profile_invalid] save_data failed: file_name does not satisfy the portable logical path profile.")
+	assert_push_error("[GFStorageUtility][storage_utility.filename_profile_invalid] has_file failed: file_name does not satisfy the portable logical path profile.")
+	assert_push_error("[GFStorageUtility][storage_utility.directory_name_invalid] list_files failed: directory_name is invalid.")
+	assert_push_error("[GFStorageUtility][storage_utility.filename_profile_invalid] delete_file failed: file_name does not satisfy the portable logical path profile.")
 
 
 func test_storage_rejects_cross_platform_absolute_path_forms() -> void:
@@ -890,7 +890,7 @@ func test_storage_rejects_cross_platform_absolute_path_forms() -> void:
 			"",
 			"Windows、POSIX、UNC 与 Godot scheme 绝对路径都必须失败关闭：%s" % absolute_path
 		)
-		assert_push_error("[GFStorageUtility] canonicalize_data_file_name 失败：file_name 不满足 portable logical path profile。")
+		assert_push_error("[GFStorageUtility][storage_utility.filename_profile_invalid] canonicalize_data_file_name failed: file_name does not satisfy the portable logical path profile.")
 
 
 func test_invalid_storage_root_configuration_fails_closed() -> void:
@@ -905,7 +905,7 @@ func test_invalid_storage_root_configuration_fails_closed() -> void:
 		"nested//outside",
 		"C:drive-relative",
 	]
-	var root_error: String = "[GFStorageUtility] save_dir_name 必须满足 portable logical directory profile。"
+	var root_error: String = "[GFStorageUtility][storage_utility.root_profile_invalid] save_dir_name must satisfy the portable logical directory profile."
 
 	for root_value: String in invalid_roots:
 		var invalid_storage: GFStorageUtility = GFStorageUtility.new()
@@ -928,7 +928,7 @@ func test_invalid_storage_root_configuration_fails_closed() -> void:
 func test_invalid_storage_root_rejects_all_public_io_before_admission() -> void:
 	var invalid_storage: GFStorageUtility = GFStorageUtility.new()
 	invalid_storage.save_dir_name = "../escape"
-	var root_error: String = "[GFStorageUtility] save_dir_name 必须满足 portable logical directory profile。"
+	var root_error: String = "[GFStorageUtility][storage_utility.root_profile_invalid] save_dir_name must satisfy the portable logical directory profile."
 
 	assert_eq(invalid_storage.canonicalize_data_file_name("probe.json"), "")
 	assert_push_error(root_error)
@@ -1018,10 +1018,10 @@ func test_group_resource_and_async_storage_entries_reject_absolute_paths() -> vo
 	assert_eq(load_operation.get_result().get_file_name(), "")
 	assert_true(_storage._async_queue.is_empty(), "非法绝对路径不得进入异步队列。")
 	assert_true(_storage._async_tasks.is_empty(), "非法绝对路径不得启动 worker。")
-	assert_push_error("[GFStorageUtility] save_resource 失败：file_name 不满足 portable logical path profile。")
-	assert_push_error("[GFStorageUtility] save_data_group 失败：file_name 不满足 portable logical path profile。")
-	assert_push_error("[GFStorageUtility] save_data_request_async 失败：file_name 不满足 portable logical path profile。")
-	assert_push_error("[GFStorageUtility] load_data_request_async 失败：file_name 不满足 portable logical path profile。")
+	assert_push_error("[GFStorageUtility][storage_utility.filename_profile_invalid] save_resource failed: file_name does not satisfy the portable logical path profile.")
+	assert_push_error("[GFStorageUtility][storage_utility.filename_profile_invalid] save_data_group failed: file_name does not satisfy the portable logical path profile.")
+	assert_push_error("[GFStorageUtility][storage_utility.filename_profile_invalid] save_data_request_async failed: file_name does not satisfy the portable logical path profile.")
+	assert_push_error("[GFStorageUtility][storage_utility.filename_profile_invalid] load_data_request_async failed: file_name does not satisfy the portable logical path profile.")
 
 
 func test_parent_directory_path_is_rejected() -> void:
@@ -1194,18 +1194,18 @@ func test_resource_logical_paths_require_canonical_lowercase_extension() -> void
 		ERR_INVALID_PARAMETER,
 		"Resource 保存必须有 canonical 扩展名。"
 	)
-	assert_push_error("Resource logical path 必须包含 canonical lowercase 扩展名")
+	assert_push_error("[GFStorageUtility][storage_utility.resource_extension_noncanonical] save_resource failed: the Resource logical path must include a canonical lowercase extension.")
 	assert_null(
 		_storage.load_resource(no_extension, "Resource"),
 		"Resource 读取也必须在 claim 前拒绝无扩展名 logical path。"
 	)
-	assert_push_error("Resource logical path 必须包含 canonical lowercase 扩展名")
+	assert_push_error("[GFStorageUtility][storage_utility.resource_extension_noncanonical] load_resource failed: the Resource logical path must include a canonical lowercase extension.")
 	assert_eq(
 		_storage.save_resource(oversized_extension, Resource.new()),
 		ERR_INVALID_PARAMETER,
 		"Resource 扩展名必须满足有界 extension profile。"
 	)
-	assert_push_error("Resource logical path 必须包含 canonical lowercase 扩展名")
+	assert_push_error("[GFStorageUtility][storage_utility.resource_extension_noncanonical] save_resource failed: the Resource logical path must include a canonical lowercase extension.")
 	assert_eq(
 		_storage._family_store.validate_family_for_framework(
 			_storage._make_family_descriptor(no_extension)
@@ -1229,9 +1229,9 @@ func test_load_resource_requires_explicit_opt_in_and_type_hint() -> void:
 	assert_null(denied_resource, "默认策略不应允许 ResourceLoader 读取。")
 	assert_null(missing_allowlist_resource, "启用 Resource 读取后仍应要求 type_hint allowlist。")
 	assert_null(missing_type_hint_resource, "启用 Resource 读取后仍应要求 type_hint。")
-	assert_push_error("[GFStorageUtility] load_resource 已被默认安全策略拒绝：请先显式启用 allow_resource_loads。")
-	assert_push_error("[GFStorageUtility] load_resource 拒绝未允许的 type_hint：Resource。")
-	assert_push_error("[GFStorageUtility] load_resource 需要显式 type_hint。")
+	assert_push_error("[GFStorageUtility][storage_utility.resource_load_disabled] load_resource was rejected by the default safety policy; explicitly enable allow_resource_loads first.")
+	assert_push_error("[GFStorageUtility][storage_utility.resource_type_hint_disallowed] load_resource rejected a disallowed type_hint: Resource.")
+	assert_push_error("[GFStorageUtility][storage_utility.resource_type_hint_missing] load_resource requires an explicit type_hint.")
 
 
 func test_load_resource_validates_loaded_resource_type_hint() -> void:
@@ -1251,7 +1251,7 @@ func test_file_management_lists_and_deletes_logical_files() -> void:
 		_storage.list_files("managed", ".json", false).is_empty(),
 		"extension filter 必须是无点号的 canonical lowercase token。"
 	)
-	assert_push_error("[GFStorageUtility] list_files 失败：extension_filter 非法。")
+	assert_push_error("[GFStorageUtility][storage_utility.extension_filter_invalid] Cannot list_files: extension_filter is invalid.")
 
 	assert_eq(
 		_storage.list_files("managed", "json", false),
@@ -1286,13 +1286,13 @@ func test_runtime_storage_does_not_expose_physical_directory_management() -> voi
 
 func test_list_files_rejects_unsafe_directory_selector() -> void:
 	assert_true(_storage.list_files("../escape_dir").is_empty(), "跨目录 selector 应 fail closed。")
-	assert_push_error("[GFStorageUtility] list_files 失败：directory_name 非法。")
+	assert_push_error("[GFStorageUtility][storage_utility.directory_name_invalid] list_files failed: directory_name is invalid.")
 
 
 func test_file_management_rejects_empty_delete_file_path() -> void:
 	assert_eq(_storage.delete_file(""), ERR_INVALID_PARAMETER, "空文件名不应删除任何文件。")
 
-	assert_push_error("[GFStorageUtility] delete_file 失败：file_name 为空。")
+	assert_push_error("[GFStorageUtility][storage_utility.filename_empty] delete_file failed: file_name is empty.")
 
 
 func test_delete_file_cleans_transaction_family_and_prevents_recovery() -> void:
@@ -1456,7 +1456,7 @@ func test_async_group_marker_cannot_expand_to_unapproved_absolute_sibling() -> v
 	)
 	assert_true(FileAccess.file_exists(outsider_backup_path), "未授权绝对 sibling 的 backup 不得被消费。")
 	assert_push_error(
-		"[GFStorageUtility] 异步读取失败：%s，原因：Transaction recovery failed，错误码：%s" % [
+		"[GFStorageUtility][storage_utility.async_load_failed] Asynchronous load failed: %s, reason: Transaction recovery failed, error code: %s." % [
 			victim_file_name,
 			ERR_FILE_CORRUPT,
 		]
@@ -1657,7 +1657,7 @@ func test_async_single_member_load_recovers_entire_partially_committed_group() -
 	assert_eq(_storage._async_queue.size(), 1, "目标读取应先保持排队，以验证冻结的事务根。")
 	_storage.save_dir_name = _save_dir_name + "-other"
 	assert_eq(_storage.save_dir_name, _save_dir_name, "初始化后的 Storage root 不得发生漂移。")
-	assert_push_error("[GFStorageUtility] save_dir_name 已在 Storage 初始化后冻结；请为另一个 root 创建新的 Utility。")
+	assert_push_error("[GFStorageUtility][storage_utility.root_frozen] save_dir_name is frozen after Storage initialization; create a new utility for another root.")
 	_storage.wait_for_async_tasks()
 	var result: GFStorageReadResult = operation.get_result().get_read_result()
 
@@ -1712,7 +1712,7 @@ func test_async_group_recovery_preserves_markers_for_retry_after_restore_failure
 			FileAccess.file_exists(_storage._get_full_path(_storage._get_transaction_filename(file_name))),
 			"任一成员恢复失败后必须保留全组 marker 供幂等重试。"
 		)
-	assert_push_error("[GFStorageUtility] 异步读取失败：")
+	assert_push_error("[GFStorageUtility][storage_utility.async_load_failed] Asynchronous load failed:")
 	assert_eq(DirAccess.remove_absolute(blocked_final_path), OK, "解除模拟故障应成功。")
 
 	var retry_operation: GFStorageAsyncOperation = _storage.load_data_request_async(data_file_name)
@@ -1824,7 +1824,7 @@ func test_integrity_checksum_rejects_tampered_data() -> void:
 	assert_false(loaded.ok, "严格校验失败时不应返回被篡改数据。")
 	assert_true(loaded.payload.is_empty(), "失败结果不得暴露可误用的被篡改数据。")
 	assert_signal_emitted(_storage, "data_integrity_failed", "校验失败应发出信号。")
-	assert_push_warning("[GFStorageUtility] 读取数据失败：%s，原因：Integrity checksum mismatch" % path)
+	assert_push_warning("[GFStorageUtility][storage_utility.data_integrity_failed] Cannot read data: %s, reason: Integrity checksum mismatch." % path)
 
 
 func test_checksum_without_diagnostics_metadata_still_writes_data_version() -> void:
@@ -1863,7 +1863,7 @@ func test_checksum_enabled_rejects_missing_checksum_file_by_default() -> void:
 	assert_eq(loaded.integrity_status, GFStorageReadResult.IntegrityStatus.MISSING, "失败结果应区分缺少 checksum。")
 	assert_signal_emitted(_storage, "data_integrity_failed", "缺少 checksum 应发出完整性失败信号。")
 	assert_push_warning(
-		"[GFStorageUtility] 读取数据失败：%s，原因：Integrity checksum missing" % _storage._get_full_path(file_name)
+		"[GFStorageUtility][storage_utility.data_integrity_failed] Cannot read data: %s, reason: Integrity checksum missing." % _storage._get_full_path(file_name)
 	)
 
 
@@ -1898,7 +1898,7 @@ func test_plain_json_without_storage_document_is_rejected() -> void:
 
 	assert_false(loaded.ok, "运行时存储工具不应读取没有严格 Envelope 的 JSON。")
 	assert_signal_emitted(_storage, "data_integrity_failed", "非法存储文档应发出读取失败信号。")
-	assert_push_error("[GFStorageUtility] 读取数据失败：%s，原因：Storage document envelope missing or malformed" % _storage._get_full_path(file_name))
+	assert_push_error("[GFStorageUtility][storage_utility.data_read_failed] Cannot read data: %s, reason: Storage document envelope missing or malformed." % _storage._get_full_path(file_name))
 
 
 func test_removed_legacy_option_is_not_part_of_storage_utility() -> void:
@@ -2114,7 +2114,7 @@ func test_registered_migration_wrong_return_type_fails_without_advancing_version
 	assert_eq(result.data_version, 1)
 	assert_signal_not_emitted(_storage, "data_migrated")
 	assert_push_error(
-		"[GFStorageUtility] 读取数据失败：%s，原因：Migration step 1 -> 2 must return Dictionary." % _storage._get_full_path(file_name)
+		"[GFStorageUtility][storage_utility.data_read_failed] Cannot read data: %s, reason: Migration step 1 -> 2 must return Dictionary.." % _storage._get_full_path(file_name)
 	)
 
 
@@ -2174,7 +2174,7 @@ func test_future_storage_version_is_rejected_by_default() -> void:
 	)
 	assert_signal_emitted(_storage, "data_integrity_failed", "未来版本拒绝应发出数据失败信号。")
 	assert_push_error(
-		"[GFStorageUtility] 读取数据失败：%s，原因：Unsupported future storage version: 5 > 2" % _storage._get_full_path(file_name)
+		"[GFStorageUtility][storage_utility.data_read_failed] Cannot read data: %s, reason: Unsupported future storage version: 5 > 2." % _storage._get_full_path(file_name)
 	)
 
 
@@ -2204,9 +2204,9 @@ func test_missing_registered_migration_chain_fails_without_marking_target_versio
 	assert_eq(_storage.last_load_result.error, "Missing migration chain: 1 -> 3", "失败原因应指出缺失链路。")
 	assert_signal_emitted(_storage, "data_integrity_failed", "缺失迁移链应发出数据失败信号。")
 	assert_signal_not_emitted(_storage, "data_migrated", "缺失迁移链不应发出迁移成功信号。")
-	assert_push_warning("[GFStorageUtility] 未找到完整迁移链：1 -> 3。")
+	assert_push_warning("[GFStorageUtility][storage_utility.migration_chain_missing] No complete migration chain found: 1 -> 3.")
 	assert_push_error(
-		"[GFStorageUtility] 读取数据失败：%s，原因：Missing migration chain: 1 -> 3" % _storage._get_full_path(file_name)
+		"[GFStorageUtility][storage_utility.data_read_failed] Cannot read data: %s, reason: Missing migration chain: 1 -> 3." % _storage._get_full_path(file_name)
 	)
 
 
@@ -2234,7 +2234,7 @@ func test_strict_schema_migrations_rejects_version_bump_without_registered_steps
 	assert_signal_emitted(_storage, "data_integrity_failed", "严格迁移失败应发出数据失败信号。")
 	assert_signal_not_emitted(_storage, "data_migrated", "严格迁移失败不应发出迁移成功信号。")
 	assert_push_error(
-		"[GFStorageUtility] 读取数据失败：%s，原因：Missing migration chain: 1 -> 2" % _storage._get_full_path(file_name)
+		"[GFStorageUtility][storage_utility.data_read_failed] Cannot read data: %s, reason: Missing migration chain: 1 -> 2." % _storage._get_full_path(file_name)
 	)
 
 

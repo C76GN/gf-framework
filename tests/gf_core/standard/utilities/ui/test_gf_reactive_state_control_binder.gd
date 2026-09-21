@@ -52,9 +52,9 @@ func test_bind_control_rejects_invalid_store_and_control() -> void:
 	_track_control(line_edit)
 
 	assert_false(binder.bind_control(invalid_store, "profile.name", line_edit), "非 GFReactiveStateStore 不应被绑定。")
-	assert_push_error("[GFReactiveStateControlBinder] bind_control 失败：store 必须是 GFReactiveStateStore。")
+	assert_push_error("[GFReactiveStateControlBinder][reactive_state_control_binder.store_type_invalid] Cannot bind_control: store must be a GFReactiveStateStore.")
 	assert_false(binder.bind_control(store, "profile.name", null_control), "无效 Control 不应被绑定。")
-	assert_push_error("[GFReactiveStateControlBinder] bind_control 失败：control 无效。")
+	assert_push_error("[GFReactiveStateControlBinder][reactive_state_control_binder.control_invalid] Cannot bind_control: control is invalid.")
 	assert_eq(binder.get_binding_count(), 0, "无效绑定不应留下记录。")
 
 

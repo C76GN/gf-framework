@@ -150,7 +150,7 @@ func generate_with_report(output_path: String = DEFAULT_OUTPUT_PATH, options: Di
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 				collection,
 				"error",
-				"访问策略验证失败。"
+				"Access policy validation failed."
 			),
 			options
 		)
@@ -159,7 +159,7 @@ func generate_with_report(output_path: String = DEFAULT_OUTPUT_PATH, options: Di
 	if source.is_empty():
 		return _make_access_policy_generation_failure(
 			output_path,
-			"访问器源码准备失败。",
+			"Accessor source preparation failed.",
 			options
 		)
 	return save_source_with_report(output_path, source, options)
@@ -253,10 +253,10 @@ func build_source(records: Array) -> String:
 	var preparation: Dictionary = _prepare_records_for_source(records)
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(preparation, "valid"):
 		push_error(
-			"[GFAccessGenerator] %s" % _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			"[GFAccessGenerator][access_generator.records_invalid] Accessor records are invalid.\n%s" % _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 				preparation,
 				"error",
-				"访问器记录验证失败，整批生成已中止。"
+				"Accessor record validation failed; generation of the entire batch was aborted."
 			)
 		)
 		return ""
@@ -564,7 +564,7 @@ func _prepare_records_for_source(records: Array) -> Dictionary:
 		if not (record_value is Dictionary):
 			return {
 				"valid": false,
-				"error": "访问器记录必须是 Dictionary，整批生成已中止。",
+				"error": "Accessor records must be Dictionary values; generation of the entire batch was aborted.",
 				"records": [],
 			}
 		var source_record: Dictionary = record_value
@@ -579,7 +579,7 @@ func _prepare_records_for_source(records: Array) -> Dictionary:
 			if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(normalized_policy, "valid"):
 				return {
 					"valid": false,
-					"error": "access policy 无效，整批生成已中止：%s" % (
+					"error": "Invalid access policy; generation of the entire batch was aborted: %s." % (
 						_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 							prepared_record,
 							"class_name"
@@ -802,7 +802,7 @@ func _apply_access_policies_with_config(
 		var normalized_policy: Dictionary = _normalize_access_policy(record)
 		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(normalized_policy, "valid"):
 			return _fail_access_policy_validation(
-				"access policy 无效：%s" % class_name_value
+				"Invalid access policy: %s." % class_name_value
 			)
 		var script_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "path")
 		if configured_policies.has(script_path):
@@ -816,7 +816,7 @@ func _apply_access_policies_with_config(
 		normalized_policy = _normalize_access_policy(normalized_policy)
 		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(normalized_policy, "valid"):
 			return _fail_access_policy_validation(
-				"access policy 无效：%s" % class_name_value
+				"Invalid access policy: %s." % class_name_value
 			)
 		_write_normalized_access_policy(record, normalized_policy)
 	return {
@@ -830,7 +830,7 @@ func _get_configured_access_policies() -> Dictionary:
 	var value: Variant = ProjectSettings.get_setting(ACCESS_POLICIES_SETTING, {})
 	if not (value is Dictionary):
 		return _fail_access_policy_validation(
-			"gf/codegen/access_policies 必须是 Dictionary。"
+			"gf/codegen/access_policies must be a Dictionary."
 		)
 	var policies: Dictionary = value
 	return {
@@ -859,7 +859,7 @@ func _validate_configured_access_policies(
 	for raw_path: Variant in configured_policies:
 		if not (raw_path is String or raw_path is StringName):
 			return _fail_access_policy_validation(
-				"access policy 路径键必须是 String 或 StringName。"
+				"Access policy path keys must be String or StringName values."
 			)
 		var script_path: String = _GF_VARIANT_ACCESS_SCRIPT.to_text(raw_path)
 		if (
@@ -868,17 +868,17 @@ func _validate_configured_access_policies(
 			or not eligible_paths.has(script_path)
 		):
 			return _fail_access_policy_validation(
-				"access policy 路径未匹配可生成模块：%s" % script_path
+				"The access policy path does not match a generatable module: %s." % script_path
 			)
 		if normalized_paths.has(script_path):
 			return _fail_access_policy_validation(
-				"access policy 路径重复：%s" % script_path
+				"Duplicate access policy path: %s." % script_path
 			)
 		normalized_paths[script_path] = true
 		var configured_value: Variant = configured_policies.get(raw_path)
 		if not (configured_value is Dictionary):
 			return _fail_access_policy_validation(
-				"access policy 必须是 Dictionary：%s" % script_path
+				"The access policy must be a Dictionary: %s." % script_path
 			)
 		var configured_policy: Dictionary = configured_value
 		var field_normalization: Dictionary = _normalize_access_policy_fields(
@@ -892,10 +892,10 @@ func _validate_configured_access_policies(
 			)
 			if error_kind == "duplicate_field":
 				return _fail_access_policy_validation(
-					"access policy 包含等价重复字段：%s" % script_path
+					"The access policy contains equivalent duplicate fields: %s." % script_path
 				)
 			return _fail_access_policy_validation(
-				"access policy 包含未知字段：%s" % script_path
+				"The access policy contains an unknown field: %s." % script_path
 			)
 		var normalized_configured_policy: Dictionary = (
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
@@ -908,7 +908,7 @@ func _validate_configured_access_policies(
 			"valid"
 		):
 			return _fail_access_policy_validation(
-				"access policy 值无效：%s" % script_path
+				"Invalid access policy value: %s." % script_path
 			)
 		normalized_policies[script_path] = normalized_configured_policy.duplicate(true)
 	return {
@@ -919,7 +919,7 @@ func _validate_configured_access_policies(
 
 
 func _fail_access_policy_validation(message: String) -> Dictionary:
-	push_error("[GFAccessGenerator] %s" % message)
+	push_error("[GFAccessGenerator][access_generator.policy_invalid] Access policy validation failed.\n%s" % message)
 	return {
 		"valid": false,
 		"error": message,
@@ -1088,7 +1088,7 @@ func _append_access_generator_extension(
 	if extension.has_method("get_access_source_sections"):
 		var sections: Variant = extension.call("get_access_source_sections", records)
 		if not (sections is Array or sections is PackedStringArray):
-			push_error("[GFAccessGenerator] 访问器扩展返回值必须是数组：%s" % extension_path)
+			push_error("[GFAccessGenerator][access_generator.extension_result_not_array] An accessor extension must return an array: %s." % extension_path)
 			return
 		for section_variant: Variant in sections:
 			_append_source_section(builder, _GF_VARIANT_ACCESS_SCRIPT.to_text(section_variant))
@@ -1097,7 +1097,7 @@ func _append_access_generator_extension(
 	if extension.has_method("append_access_records"):
 		return
 
-	push_warning("[GFAccessGenerator] 访问器扩展缺少源码或记录扩展方法：%s" % extension_path)
+	push_warning("[GFAccessGenerator][access_generator.extension_method_missing] The accessor extension has no source or record extension method: %s." % extension_path)
 
 
 func _load_access_generator_extension(extension_path: String) -> Object:
@@ -1107,12 +1107,12 @@ func _load_access_generator_extension(extension_path: String) -> Object:
 
 	var extension_script: GDScript = _variant_to_gdscript(load(normalized_path))
 	if extension_script == null or not extension_script.can_instantiate():
-		push_error("[GFAccessGenerator] 访问器扩展脚本加载失败：%s" % normalized_path)
+		push_error("[GFAccessGenerator][access_generator.extension_load_failed] Could not load the accessor extension script: %s." % normalized_path)
 		return null
 
 	var extension: Object = _variant_to_object(extension_script.call("new"))
 	if extension == null:
-		push_error("[GFAccessGenerator] 访问器扩展实例创建失败：%s" % normalized_path)
+		push_error("[GFAccessGenerator][access_generator.extension_instantiation_failed] Could not instantiate the accessor extension: %s." % normalized_path)
 		return null
 	return extension
 
@@ -1128,7 +1128,7 @@ func _append_record_function(builder: GFSourceBuilder, record: Dictionary, used_
 	var access_policy: Dictionary = _normalize_access_policy(record)
 	var function_name: String = _get_function_name(class_name_value, kind)
 	if used_names.has(function_name):
-		push_warning("[GFAccessGenerator] 函数名重复，已跳过：%s" % function_name)
+		push_warning("[GFAccessGenerator][access_generator.function_name_duplicate] Skipped a duplicate function name: %s." % function_name)
 		return
 	used_names[function_name] = true
 

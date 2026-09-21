@@ -1285,7 +1285,7 @@ func test_pipeline_export_profile_preflights_access_before_writing_database() ->
 	var save_result: Dictionary = GFVariantData.get_option_dictionary(export_result, "save_result")
 	var access_result: Dictionary = GFVariantData.get_option_dictionary(export_result, "access_result")
 
-	assert_push_warning("[GFConfigAccessGenerator] 目标文件已存在，已跳过：%s" % access_path)
+	assert_push_warning("[GFGeneratedArtifactReport][generated_artifact_report.output_exists] Artifact operation for GFConfigAccessGenerator reported the following.\nThe target file already exists and was skipped: %s." % access_path)
 	assert_false(GFVariantData.get_option_bool(export_result, "success"), "访问器预检失败应让 Profile 导出整体失败。")
 	assert_true(GFVariantData.get_option_bool(save_result, "dry_run"), "导出失败时 save_result 应保留预检结果而非实际写入结果。")
 	assert_false(FileAccess.file_exists(output_path), "访问器预检失败时数据库不应提前写入。")
@@ -1424,7 +1424,7 @@ func test_pipeline_runner_rolls_back_all_outputs_when_manifest_commit_fails() ->
 	}])
 	var manifest_result: Dictionary = GFVariantData.get_option_dictionary(run_result, "manifest_result")
 
-	assert_push_error("[GFConfigPipelineArtifactManifest] 无法写入文本产物临时文件")
+	assert_push_error("[GFGeneratedArtifactReport][generated_artifact_report.temporary_file_open_failed] Artifact operation for GFConfigPipelineArtifactManifest reported the following.\nCould not write the text artifact temporary file")
 	assert_false(GFVariantData.get_option_bool(run_result, "success"), "manifest commit 失败必须让同一 operation transaction 整体失败。")
 	assert_false(GFVariantData.get_option_bool(manifest_result, "success"), "manifest_result 应保留最终写入失败。")
 	assert_false(FileAccess.file_exists(output_path), "manifest commit 失败后必须回滚新数据库。")

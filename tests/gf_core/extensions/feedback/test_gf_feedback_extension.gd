@@ -150,7 +150,7 @@ func test_feedback_installer_fails_and_rolls_back_when_second_registration_fails
 		architecture.get_local_utility(GFShakeUtility),
 		"初始化失败必须回滚本轮已注册的 Shake Utility。"
 	)
-	assert_push_error("[GFFeedbackExtension] GFHapticUtility registration failed.")
+	assert_push_error("[GFFeedbackExtension][feedback_extension.haptic_registration_failed] GFHapticUtility registration failed.")
 	architecture.dispose()
 
 
@@ -1188,7 +1188,7 @@ func test_haptic_output_callback_cannot_reenter_state_mutation() -> void:
 	var haptic_id: int = utility.play_haptic(&"impact", preset, 0)
 	var report: Dictionary = utility.apply_current_outputs()
 
-	assert_push_error("[GFHapticUtility] clear 失败：输出后端或回调执行期间不允许同步修改震动状态。请在当前输出结束后再修改。")
+	assert_push_error("[GFHapticUtility][haptic_utility.mutation_during_output] clear failed: haptic state cannot be modified synchronously while an output backend or callback is running. Wait until the current output finishes.")
 	assert_true(utility.is_haptic_active(haptic_id), "被拒绝的回调重入不得清除活跃状态。")
 	assert_eq(GFVariantData.get_option_int(report, "applied_count"), 1, "回调自身成功时本轮输出仍应按稳定快照完成。")
 	utility.dispose()
@@ -1210,7 +1210,7 @@ func test_haptic_output_callback_cannot_reenter_dispose() -> void:
 
 	var report: Dictionary = utility.apply_current_outputs()
 
-	assert_push_error("[GFHapticUtility] dispose 失败：输出后端或回调执行期间不允许同步修改震动状态。请在当前输出结束后再修改。")
+	assert_push_error("[GFHapticUtility][haptic_utility.mutation_during_output] dispose failed: haptic state cannot be modified synchronously while an output backend or callback is running. Wait until the current output finishes.")
 	assert_eq(GFVariantData.get_option_int(report, "applied_count"), 1)
 	assert_true(utility.is_haptic_active(haptic_id), "被拒绝的 dispose 不得破坏逻辑状态。")
 	assert_same(utility.haptic_backend, backend, "被拒绝的 dispose 不得释放当前输出 owner。")

@@ -43,7 +43,7 @@ static func ensure_setting(
 ) -> bool:
 	var normalized_name: String = setting_name.strip_edges()
 	if normalized_name.is_empty():
-		push_error("[GFProjectSettingsTools] setting_name 不能为空。")
+		push_error("[GFProjectSettingsTools][project_settings_tools.setting_name_empty] setting_name must not be empty.")
 		return false
 
 	var wrote_default: bool = false
@@ -83,7 +83,7 @@ static func register_property_info(
 ) -> void:
 	var normalized_name: String = setting_name.strip_edges()
 	if normalized_name.is_empty():
-		push_error("[GFProjectSettingsTools] setting_name 不能为空。")
+		push_error("[GFProjectSettingsTools][project_settings_tools.setting_name_empty] setting_name must not be empty.")
 		return
 
 	if value_type != TYPE_NIL:

@@ -431,8 +431,8 @@ func start_bgm(
 	)
 	if request_options.has("loop") or request_options.has("playback_region"):
 		push_warning(
-			"[GFAudioUtility] start_bgm 不接受 loop 或 playback_region；"
-			+ "请使用 GFAudioClip.playback_region 表达唯一的循环契约。"
+			"[GFAudioUtility][audio_utility.start_bgm_options_unsupported] start_bgm does not accept loop or playback_region; "
+			+ "use GFAudioClip.playback_region as the sole looping contract."
 		)
 		_complete_unadmitted_bgm_start(
 			operation,
@@ -620,8 +620,8 @@ func play_bgm_with_options(path: String, options: Dictionary = {}) -> void:
 	)
 	if request_options.has("loop") or request_options.has("playback_region"):
 		push_warning(
-			"[GFAudioUtility] play_bgm_with_options 不接受 loop 或 playback_region；"
-			+ "请使用 GFAudioClip.playback_region 表达唯一的循环契约。"
+			"[GFAudioUtility][audio_utility.play_bgm_options_unsupported] play_bgm_with_options does not accept loop or playback_region; "
+			+ "use GFAudioClip.playback_region as the sole looping contract."
 		)
 		return
 	if request_path.is_empty():
@@ -1178,14 +1178,14 @@ func clear_bgm_history() -> void:
 ## @param bank: 音频集合。
 func register_audio_bank(bank_id: StringName, bank: GFAudioBank) -> void:
 	if not _is_audio_bank_identifier_valid(bank_id):
-		push_error("[GFAudioUtility] register_audio_bank 失败：bank_id 非法或超限。")
+		push_error("[GFAudioUtility][audio_utility.register_bank_id_invalid] Cannot register_audio_bank: bank_id is invalid or exceeds the limit.")
 		return
 	if (
 		bank != null
 		and not _audio_banks.has(bank_id)
 		and _audio_banks.size() >= _AUDIO_BANK_MAX_REGISTERED_COUNT
 	):
-		push_error("[GFAudioUtility] register_audio_bank 失败：注册表容量已达上限。")
+		push_error("[GFAudioUtility][audio_utility.register_bank_capacity_limit] Cannot register_audio_bank: registry capacity limit reached.")
 		return
 	_clear_audio_bank_mount_state(bank_id)
 	if bank == null:
@@ -1233,19 +1233,19 @@ func mount_audio_bank(
 	restore_previous_bank: bool = true
 ) -> int:
 	if not _is_audio_bank_identifier_valid(bank_id):
-		push_error("[GFAudioUtility] mount_audio_bank 失败：bank_id 非法或超限。")
+		push_error("[GFAudioUtility][audio_utility.mount_bank_id_invalid] Cannot mount_audio_bank: bank_id is invalid or exceeds the limit.")
 		return 0
 	if bank == null:
-		push_error("[GFAudioUtility] mount_audio_bank 失败：bank 为空。")
+		push_error("[GFAudioUtility][audio_utility.mount_bank_null] Cannot mount_audio_bank: bank is null.")
 		return 0
 	if (
 		not _audio_banks.has(bank_id)
 		and _audio_banks.size() >= _AUDIO_BANK_MAX_REGISTERED_COUNT
 	):
-		push_error("[GFAudioUtility] mount_audio_bank 失败：注册表容量已达上限。")
+		push_error("[GFAudioUtility][audio_utility.mount_bank_capacity_limit] Cannot mount_audio_bank: registry capacity limit reached.")
 		return 0
 	if _audio_bank_retained_mount_count >= _AUDIO_BANK_MAX_RETAINED_MOUNT_COUNT:
-		push_error("[GFAudioUtility] mount_audio_bank 失败：挂载保留容量已达上限。")
+		push_error("[GFAudioUtility][audio_utility.mount_reservation_limit] Cannot mount_audio_bank: mount reservation capacity limit reached.")
 		return 0
 
 	if not _audio_bank_mount_stacks.has(bank_id):
@@ -1471,8 +1471,8 @@ func post_audio_event(event: GFAudioEvent, options: Dictionary = {}) -> GFAudioE
 		or event.metadata.has("playback_region")
 	):
 		push_warning(
-			"[GFAudioUtility] post_audio_event 不接受 metadata/options 中的 "
-			+ "loop 或 playback_region；请使用 GFAudioClip.playback_region。"
+			"[GFAudioUtility][audio_utility.event_options_unsupported] post_audio_event does not accept the following metadata/options fields: "
+			+ "loop or playback_region; use GFAudioClip.playback_region."
 		)
 		return null
 	var playback_region: GFAudioPlaybackRegion = null
@@ -2448,7 +2448,7 @@ func set_bus_volume_db(bus_name: String, volume_db: float, transition_seconds: f
 
 	var bus_index: int = AudioServer.get_bus_index(bus_name)
 	if bus_index < 0:
-		push_warning("[GFAudioUtility] 无法找到音轨总线: " + bus_name)
+		push_warning("[GFAudioUtility][audio_utility.bus_missing] Audio bus not found: %s." % bus_name)
 		return false
 
 	var target_db: float = maxf(volume_db, SILENCE_VOLUME_DB)
@@ -2512,7 +2512,7 @@ func set_bus_mute(bus_name: String, muted: bool) -> bool:
 
 	var bus_index: int = AudioServer.get_bus_index(bus_name)
 	if bus_index < 0:
-		push_warning("[GFAudioUtility] 无法找到音轨总线: " + bus_name)
+		push_warning("[GFAudioUtility][audio_utility.bus_missing] Audio bus not found: %s." % bus_name)
 		return false
 	AudioServer.set_bus_mute(bus_index, muted)
 	return true
@@ -2603,19 +2603,19 @@ func set_bus_effect_property(
 
 	var bus_index: int = AudioServer.get_bus_index(request_bus_name)
 	if bus_index < 0:
-		push_warning("[GFAudioUtility] 无法找到音轨总线: " + request_bus_name)
+		push_warning("[GFAudioUtility][audio_utility.bus_missing] Audio bus not found: %s." % request_bus_name)
 		return false
 	var effect_index: int = _resolve_bus_effect_index(bus_index, request_effect_ref)
 	if effect_index < 0:
 		push_warning(
-			"[GFAudioUtility] 无法在总线 %s 找到音频效果: %s"
+			"[GFAudioUtility][audio_utility.bus_effect_missing] Audio effect not found on bus %s: %s."
 			% [request_bus_name, str(request_effect_ref)]
 		)
 		return false
 	var effect: AudioEffect = AudioServer.get_bus_effect(bus_index, effect_index)
 	if effect == null or not _object_has_property(effect, request_property_name):
 		push_warning(
-			"[GFAudioUtility] 音频效果缺少属性: %s.%s"
+			"[GFAudioUtility][audio_utility.effect_property_missing] Audio effect property missing: %s.%s."
 			% [str(request_effect_ref), String(request_property_name)]
 		)
 		return false
@@ -2958,7 +2958,7 @@ func set_bus_volume(bus_name: String, volume_linear: float) -> void:
 			transaction_generation
 		)
 	else:
-		push_warning("[GFAudioUtility] 无法找到音轨总线: " + bus_name)
+		push_warning("[GFAudioUtility][audio_utility.bus_missing] Audio bus not found: %s." % bus_name)
 
 
 ## 获取音频总线音量
@@ -3138,8 +3138,8 @@ func _dispose_audio_now() -> void:
 		backend_stop_succeeded = _stop_backend_owned_sessions()
 	if not backend_stop_succeeded:
 		push_warning(
-			"[GFAudioUtility] dispose 强制终结：后端拒绝停止或正在回调，"
-			+ "将解除内部 owner 并继续释放生命周期资源。"
+			"[GFAudioUtility][audio_utility.dispose_stop_forced] dispose forced completion: the backend rejected stopping or is executing a callback; "
+			+ "the internal owner will be released and lifecycle resource cleanup will continue."
 		)
 	var _duck_buses_restored: bool = _restore_all_ducked_buses_for_lifecycle()
 	_invalidate_bgm_pending_request()
@@ -3162,8 +3162,8 @@ func _dispose_audio_now() -> void:
 		backend_cleared = _clear_audio_backend(true)
 	if not backend_cleared and _audio_backend != null:
 		push_warning(
-			"[GFAudioUtility] dispose 强制终结：后端 dispose 回调未完成，"
-			+ "已解除内部后端引用。"
+			"[GFAudioUtility][audio_utility.dispose_callback_forced] dispose forced completion: the backend dispose callback has not completed; "
+			+ "the internal backend reference was released."
 		)
 		_audio_backend = null
 	_release_all_sfx_players(0.0)
@@ -3308,17 +3308,17 @@ func _play_sfx_clip_handle_for_channel(
 
 func _connect_signal_checked(source_signal: Signal, callback: Callable, flags: int = 0) -> void:
 	if source_signal.is_null():
-		push_warning("[GFAudioUtility] Signal 连接失败：Signal 为空。")
+		push_warning("[GFAudioUtility][audio_utility.signal_null] Cannot connect signal: Signal is null.")
 		return
 	if not callback.is_valid():
-		push_warning("[GFAudioUtility] Signal 连接失败：Callable 无效。")
+		push_warning("[GFAudioUtility][audio_utility.signal_callable_invalid] Cannot connect signal: Callable is invalid.")
 		return
 	if source_signal.is_connected(callback):
 		return
 
 	var error: Error = source_signal.connect(callback, flags as Object.ConnectFlags) as Error
 	if error != OK:
-		push_warning("[GFAudioUtility] Signal 连接失败：%s" % error_string(error))
+		push_warning("[GFAudioUtility][audio_utility.signal_connect_failed] Cannot connect signal: %s." % error_string(error))
 
 
 func _is_backend_dispatch_in_progress() -> bool:
@@ -5012,7 +5012,7 @@ func _add_tween_method(
 		return
 	var tweener: Variant = tween.tween_method(method, from_value, to_value, maxf(duration_seconds, 0.0))
 	if tweener == null:
-		push_warning("[GFAudioUtility] Tween 方法步骤创建失败。")
+		push_warning("[GFAudioUtility][audio_utility.tween_method_creation_failed] Cannot create the Tween method step.")
 
 
 func _add_tween_property(
@@ -5031,7 +5031,7 @@ func _add_tween_property(
 		maxf(duration_seconds, 0.0)
 	)
 	if tweener == null:
-		push_warning("[GFAudioUtility] Tween 属性步骤创建失败。")
+		push_warning("[GFAudioUtility][audio_utility.tween_property_creation_failed] Cannot create the Tween property step.")
 
 
 func _begin_bus_transaction(bus_name: String) -> int:
@@ -5760,7 +5760,7 @@ func _restore_all_ducked_buses_for_lifecycle() -> bool:
 			continue
 		restored_all = false
 		push_warning(
-			"[GFAudioUtility] 生命周期清理无法恢复 duck 总线 \"%s\" 的基准混音。"
+			"[GFAudioUtility][audio_utility.duck_mix_restore_failed] Lifecycle cleanup could not restore the baseline mix for duck bus \"%s\"."
 			% bus_name
 		)
 	return restored_all
@@ -7080,7 +7080,7 @@ func _play_bgm_stream_with_settings(
 
 func _make_bgm_start_operation() -> GFBgmStartOperation:
 	if _next_bgm_start_request_id <= 0 or _next_bgm_start_request_id >= _MAX_STABLE_ID:
-		push_error("[GFAudioUtility] BGM start request ID 空间已耗尽。")
+		push_error("[GFAudioUtility][audio_utility.bgm_request_id_exhausted] BGM start request ID space is exhausted.")
 		return null
 	var request_id: int = _next_bgm_start_request_id
 	_next_bgm_start_request_id += 1
@@ -7089,7 +7089,7 @@ func _make_bgm_start_operation() -> GFBgmStartOperation:
 		request_id,
 		Callable(self, "_cancel_bgm_start_operation_for_framework")
 	):
-		push_error("[GFAudioUtility] 无法配置 BGM start Operation。")
+		push_error("[GFAudioUtility][audio_utility.bgm_start_configuration_failed] Cannot configure the BGM start Operation.")
 		return null
 	return operation
 
@@ -7113,10 +7113,10 @@ func _complete_unadmitted_bgm_start(
 		GFBgmSessionHandle.OwnerKind.NONE,
 		GFBgmStartResult.BackendDisposition.NOT_ATTEMPTED
 	):
-		push_error("[GFAudioUtility] 无法配置未接纳 BGM start 终态。")
+		push_error("[GFAudioUtility][audio_utility.bgm_unadmitted_terminal_failed] Cannot configure the unadmitted BGM start terminal result.")
 		return
 	if not operation.complete_for_framework(result):
-		push_error("[GFAudioUtility] 无法完成未接纳 BGM start Operation。")
+		push_error("[GFAudioUtility][audio_utility.bgm_unadmitted_completion_failed] Cannot complete the unadmitted BGM start Operation.")
 
 
 func _make_bgm_start_request(
@@ -7409,10 +7409,10 @@ func _freeze_bgm_start_record(
 		GFBgmSessionHandle.OwnerKind.NONE,
 		disposition
 	):
-		push_error("[GFAudioUtility] 无法配置 pending BGM start 终态。")
+		push_error("[GFAudioUtility][audio_utility.bgm_pending_terminal_failed] Cannot configure the pending BGM start terminal result.")
 		return null
 	if not operation.complete_for_framework(result, false):
-		push_error("[GFAudioUtility] 无法完成 pending BGM start Operation。")
+		push_error("[GFAudioUtility][audio_utility.bgm_pending_completion_failed] Cannot complete the pending BGM start Operation.")
 		return null
 	return operation
 
@@ -7457,7 +7457,7 @@ func _compensate_invalidated_backend_bgm_start() -> void:
 	)
 	if not _backend_dispatch_returned_true(stop_result):
 		push_warning(
-			"[GFAudioUtility] 已失效 backend BGM start 无法完成补偿停止。"
+			"[GFAudioUtility][audio_utility.bgm_compensating_stop_failed] Cannot complete the compensating stop for an invalidated backend BGM start."
 		)
 
 
@@ -8750,7 +8750,7 @@ func _prepare_started_bgm_publication(
 		owner_kind,
 		Callable(self, "_request_bgm_session_stop_for_framework")
 	):
-		push_error("[GFAudioUtility] 无法配置 BGM Session Handle。")
+		push_error("[GFAudioUtility][audio_utility.bgm_session_configuration_failed] Cannot configure the BGM Session Handle.")
 		return {}
 	var disposition: GFBgmStartResult.BackendDisposition = (
 		GFVariantData.get_option_int(
@@ -8777,10 +8777,10 @@ func _prepare_started_bgm_publication(
 		disposition,
 		handle
 	):
-		push_error("[GFAudioUtility] 无法配置 STARTED BGM 终态。")
+		push_error("[GFAudioUtility][audio_utility.bgm_started_terminal_failed] Cannot configure the STARTED BGM terminal result.")
 		return {}
 	if not operation.complete_for_framework(result, false):
-		push_error("[GFAudioUtility] 无法冻结 STARTED BGM Operation。")
+		push_error("[GFAudioUtility][audio_utility.bgm_started_freeze_failed] Cannot freeze the STARTED BGM Operation.")
 		return {}
 	var previous_session_id: int = _bgm_committed_session_id
 	var previous_end_kind: GFBgmSessionHandle.EndKind = (
@@ -9127,8 +9127,8 @@ func _stop_exact_committed_bgm_session(
 			):
 				return false
 			push_warning(
-				"[GFAudioUtility] backend 拒绝停止已接纳的 BGM 终态；"
-				+ "框架将终结逻辑 Session Handle 并解除 owner。"
+				"[GFAudioUtility][audio_utility.bgm_admitted_stop_rejected] The backend rejected stopping an admitted BGM terminal result; "
+				+ "the framework will finalize the logical Session Handle and release its owner."
 			)
 		var handle: GFBgmSessionHandle = _freeze_bgm_session_handle(
 			session_id,
@@ -9700,7 +9700,7 @@ func _create_bgm_session(
 
 func _reserve_bgm_session_id() -> int:
 	if _next_bgm_session_id <= 0 or _next_bgm_session_id >= _MAX_STABLE_ID:
-		push_error("[GFAudioUtility] BGM session ID 空间已耗尽。")
+		push_error("[GFAudioUtility][audio_utility.bgm_session_id_exhausted] BGM session ID space is exhausted.")
 		return 0
 	var session_id: int = _next_bgm_session_id
 	_next_bgm_session_id += 1
@@ -10914,7 +10914,7 @@ func _resolve_bus_name(bus_name: String) -> String:
 
 	if not _missing_bus_warnings.has(bus_name):
 		_missing_bus_warnings[bus_name] = true
-		push_warning("[GFAudioUtility] 无法找到音轨总线: %s，已回退到 %s。" % [bus_name, _FALLBACK_BUS_NAME])
+		push_warning("[GFAudioUtility][audio_utility.bus_fallback] Audio bus not found: %s; fell back to %s." % [bus_name, _FALLBACK_BUS_NAME])
 	return _FALLBACK_BUS_NAME
 
 

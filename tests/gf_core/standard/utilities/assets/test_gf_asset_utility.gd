@@ -698,7 +698,7 @@ func test_pending_load_rejects_same_path_with_different_type_hint() -> void:
 	_utility.load_async("res://same_path.tres", second_callback, "PackedScene")
 
 	var expected_type_hints: Array[String] = ["Resource"]
-	assert_push_warning("[GFAssetUtility] 已存在相同资源身份但 type_hint 不同的加载请求，已拒绝新请求：res://same_path.tres (Resource -> PackedScene)")
+	assert_push_warning("[GFAssetUtility][asset_utility.active_type_hint_conflict] An active load request for this resource identity has a different type_hint; new request rejected: res://same_path.tres (Resource -> PackedScene).")
 	assert_eq(results.size(), 1, "不同 type_hint 的第二个请求应立即回调。")
 	assert_true(_is_null(results[0]), "被拒绝的 type_hint 冲突请求应收到 null。")
 	assert_true(_utility.is_loading("res://same_path.tres", "Resource"), "原请求应继续保留。")
@@ -744,7 +744,7 @@ func test_failed_load_notifies_callback_with_null() -> void:
 			break
 		await get_tree().process_frame
 
-	assert_push_error("[GFAssetUtility] 异步加载失败：res://simulated_failure.tres")
+	assert_push_error("[GFAssetUtility][asset_utility.async_load_failed] Asynchronous load failed: res://simulated_failure.tres.")
 	assert_true(state.called, "加载失败时也应触发回调。")
 	assert_null(state.resource, "失败回调应收到 null 资源。")
 
@@ -975,7 +975,7 @@ func test_preload_session_partial_failure_never_commits_target_group() -> void:
 	)
 
 	var session: GFAssetLoadSession = _utility.start_preload_session(asset_plan)
-	assert_push_warning("[GFAssetUtility] 缓存资源类型与请求 type_hint 不匹配：res://session_wrong_type.tres (Texture2D)")
+	assert_push_warning("[GFAssetUtility][asset_utility.cached_type_mismatch] Cached resource type does not match the requested type_hint: res://session_wrong_type.tres (Texture2D).")
 	var result: GFAssetLoadSessionResult = session.get_result()
 
 	assert_not_null(result)

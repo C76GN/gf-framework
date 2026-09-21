@@ -347,7 +347,7 @@ func test_missing_broker_real_requests_fail_closed_with_unconfigured() -> void:
 		"Script"
 	)
 	assert_push_error(
-		"[GFAssetUtility] 无法发起异步加载请求：%s (错误码：%d)"
+		"[GFAssetUtility][asset_utility.async_request_failed] Cannot start the asynchronous load request: %s (error code: %d)."
 		% [ASSET_UTILITY_PATH, ERR_UNCONFIGURED]
 	)
 	var task: GFBackgroundWorkTask = jobs.submit_resource_load(
@@ -356,7 +356,7 @@ func test_missing_broker_real_requests_fail_closed_with_unconfigured() -> void:
 	)
 	var scene_error: Error = scenes.load_scene_async(NORMAL_GUI_SCENE)
 	assert_push_error(
-		"[GFSceneUtility] 无法发起场景异步加载：%s (错误码：%d)"
+		"[GFSceneUtility][scene_utility.async_load_request_failed] Cannot start asynchronous scene loading: %s (error code: %d)."
 		% [NORMAL_GUI_SCENE, ERR_UNCONFIGURED]
 	)
 

@@ -33,7 +33,7 @@ func setup(plugin: EditorPlugin) -> void:
 		return
 
 	cleanup(plugin)
-	_add_preview_generator(RESOURCE_PREVIEW_GENERATOR_PATH, "Resource 预览生成器")
+	_add_preview_generator(RESOURCE_PREVIEW_GENERATOR_PATH, "Resource preview generator")
 
 
 ## 注销已注册的 Resource 预览生成器。
@@ -69,12 +69,12 @@ func _add_preview_generator(script_path: String, label: String) -> void:
 func _load_preview_generator(script_path: String, label: String) -> EditorResourcePreviewGenerator:
 	var preview_script: Script = _load_script(script_path)
 	if preview_script == null or not preview_script.can_instantiate():
-		push_error("[GF Framework] %s 脚本加载失败。" % label)
+		push_error("[GFPluginPreviewTools][plugin_preview_tools.script_load_failed] Could not load the %s script." % label)
 		return null
 
 	var preview_generator: EditorResourcePreviewGenerator = _instantiate_preview_generator(preview_script)
 	if preview_generator == null:
-		push_error("[GF Framework] %s 实例化失败。" % label)
+		push_error("[GFPluginPreviewTools][plugin_preview_tools.instantiation_failed] Could not instantiate %s." % label)
 		return null
 
 	return preview_generator

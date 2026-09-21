@@ -135,12 +135,12 @@ func test_signal_params_correct() -> void:
 		received.message = message
 
 	var _connected: Variant = _log_util.log_emitted.connect(handler)
-	_log_util.error("ErrTag", "something broke")
+	_log_util.error("项目日志", "载入失败：user://存档/玩家一.json")
 
 	assert_eq(received.level, GFLogUtility.LogLevel.ERROR, "信号中的 level 应为 ERROR。")
-	assert_eq(received.tag, "ErrTag", "信号中的 tag 应正确传递。")
-	assert_eq(received.message, "something broke", "信号中的 message 应正确传递。")
-	assert_push_error("[ErrTag] something broke")
+	assert_eq(received.tag, "项目日志", "信号中的 tag 应正确传递。")
+	assert_eq(received.message, "载入失败：user://存档/玩家一.json", "信号中的 message 应正确传递。")
+	assert_push_error("[项目日志] 载入失败：user://存档/玩家一.json")
 
 
 func test_structured_log_entry_signal_includes_context() -> void:
@@ -533,7 +533,7 @@ func test_json_line_log_sink_can_fail_when_custom_file_exists() -> void:
 	_log_util.add_sink(sink)
 	var snapshot: Dictionary = sink.get_debug_snapshot()
 	assert_push_warning(
-		"[GFJsonLineLogSink] JSONL 日志文件已存在：%s，错误码：%d"
+		"[GFJsonLineLogSink][json_line_log_sink.sink_failed] Log sink failed: JSONL log file already exists: %s, error code: %d."
 		% [jsonl_path, ERR_ALREADY_EXISTS]
 	)
 
@@ -656,7 +656,7 @@ func test_json_line_log_sink_reports_parent_directory_errors() -> void:
 	var snapshot: Dictionary = sink.get_debug_snapshot()
 	var last_error: int = GFVariantData.get_option_int(snapshot, "last_error")
 	assert_push_warning(
-		"[GFJsonLineLogSink] 无法创建日志文件：%s，错误码：%d"
+		"[GFJsonLineLogSink][json_line_log_sink.sink_failed] Log sink failed: Cannot create log file: %s, error code: %d."
 		% [sink.file_path, last_error]
 	)
 

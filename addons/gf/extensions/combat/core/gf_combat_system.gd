@@ -498,7 +498,7 @@ func _connect_skill_cooldown(skill: GFSkill) -> void:
 		return
 	var connect_result: int = skill.cooldown_started.connect(_on_skill_cooldown_started)
 	if connect_result != OK:
-		push_warning("[GFCombatSystem] 无法连接技能冷却信号，错误码：%s" % connect_result)
+		push_warning("[GFCombatSystem][combat_system.cooldown_signal_connection_failed] Could not connect the skill cooldown signal; error code: %s." % connect_result)
 
 
 func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:

@@ -362,7 +362,7 @@ func test_save_scope_rejects_unsafe_values_at_persisted_boundary() -> void:
 
 	assert_eq(save_error, ERR_INVALID_DATA, "Save Graph 的持久化入口不得把 Object 静默转换为 null。")
 	assert_false(storage.has_file("unsafe_graph.sav"))
-	assert_push_error("[GFSaveGraphUtility] save_scope 失败：payload")
+	assert_push_error("[GFSaveGraphUtility][save_graph_utility.unpersistable_value] save_scope failed: payload")
 	var _delete_result: Error = storage.delete_file("unsafe_graph.sav")
 	_utility.release_dependencies()
 	architecture.dispose()
@@ -935,7 +935,7 @@ func test_gather_scope_rejects_duplicate_source_keys() -> void:
 	var payload: Dictionary = _utility.gather_scope(_scope)
 
 	assert_true(payload.is_empty(), "重复 Source key 不应生成存档载荷。")
-	assert_push_error("[GFSaveGraphUtility] gather_scope 失败：同一 Scope 内存在重复 Source key：state")
+	assert_push_error("[GFSaveGraphUtility][save_graph_utility.duplicate_source_key] gather_scope failed: duplicate Source key within the same Scope: state.")
 
 
 ## 验证子 Scope 采集失败会传播到父 Scope，而不是被当作空子树跳过。
@@ -959,8 +959,8 @@ func test_gather_scope_rejects_child_scope_failures() -> void:
 
 	assert_true(payload.is_empty(), "子 Scope 采集失败时，父 Scope 不应生成部分载荷。")
 	assert_gt(pipeline_context.errors.size(), 0, "采集失败应写入 pipeline_context.errors。")
-	assert_push_error("[GFSaveGraphUtility] gather_scope 失败：同一 Scope 内存在重复 Source key：state")
-	assert_push_error("[GFSaveGraphUtility] gather_scope 失败：子 Scope 采集失败：child")
+	assert_push_error("[GFSaveGraphUtility][save_graph_utility.duplicate_source_key] gather_scope failed: duplicate Source key within the same Scope: state.")
+	assert_push_error("[GFSaveGraphUtility][save_graph_utility.child_gather_failed] gather_scope failed: child Scope gathering failed: child.")
 
 
 ## 验证空载荷应用会显式失败。

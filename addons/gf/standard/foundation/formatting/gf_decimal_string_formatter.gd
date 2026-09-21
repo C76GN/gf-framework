@@ -34,7 +34,7 @@ const DEFAULT_MAX_NUMERIC_TEXT_LENGTH: int = 4096
 ## @return 调整后的值。
 static func apply_decimal_places(value: float, decimal_places: int, use_truncation: bool) -> float:
 	if _is_non_finite(value):
-		push_error("[GFDecimalStringFormatter] 只能格式化有限浮点值。")
+		push_error("[GFDecimalStringFormatter][decimal_string_formatter.value_non_finite] Only finite floating-point values can be formatted.")
 		return 0.0
 
 	var normalized_decimal_places: int = _normalize_decimal_places(decimal_places)
@@ -90,7 +90,7 @@ static func format_decimal_value(
 	use_truncation: bool
 ) -> String:
 	if _is_non_finite(value):
-		push_error("[GFDecimalStringFormatter] 只能格式化有限浮点值。")
+		push_error("[GFDecimalStringFormatter][decimal_string_formatter.value_non_finite] Only finite floating-point values can be formatted.")
 		return "0"
 
 	var normalized_decimal_places: int = _normalize_decimal_places(decimal_places)
@@ -369,7 +369,7 @@ static func _normalize_decimal_places(decimal_places: int) -> int:
 		return 0
 
 	if decimal_places > _MAX_DECIMAL_PLACES:
-		push_error("[GFDecimalStringFormatter] decimal_places 不能超过 %d，已钳制。" % _MAX_DECIMAL_PLACES)
+		push_error("[GFDecimalStringFormatter][decimal_string_formatter.decimal_places_clamped] decimal_places exceeds %d and was clamped." % _MAX_DECIMAL_PLACES)
 		return _MAX_DECIMAL_PLACES
 
 	return decimal_places
@@ -380,4 +380,4 @@ static func _is_non_finite(value: float) -> bool:
 
 
 static func _report_scaled_non_finite() -> void:
-	push_error("[GFDecimalStringFormatter] 小数缩放后超过有限浮点范围。")
+	push_error("[GFDecimalStringFormatter][decimal_string_formatter.scaled_value_non_finite] The scaled decimal exceeds the finite floating-point range.")

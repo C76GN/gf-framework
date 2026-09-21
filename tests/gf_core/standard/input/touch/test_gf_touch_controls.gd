@@ -204,7 +204,7 @@ func test_touch_joystick_empty_active_region_rejects_and_warns_once() -> void:
 		joystick._can_begin_at(Vector2.ZERO, Vector2(10.0, 10.0)),
 		"启用 active_region 但区域为空时应拒绝触摸起点。"
 	)
-	assert_push_warning("[GFTouchJoystick] use_active_region 已启用，但 active_region 为空；触摸起点和拖动将被拒绝。")
+	assert_push_warning("[GFTouchJoystick][touch_joystick.active_region_missing] use_active_region is enabled but active_region is empty; touch starts and dragging will be rejected.")
 
 	assert_false(
 		joystick._can_begin_at(Vector2.ZERO, Vector2(10.0, 10.0)),

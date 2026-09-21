@@ -134,7 +134,7 @@ func execute() -> Variant:
 		return null
 	var run_in_parallel: bool = is_parallel
 	if run_in_parallel and _has_duplicate_action_instance(action_plan):
-		push_error("[GFVisualActionGroup] 并行执行计划包含重复动作实例。")
+		push_error("[GFVisualActionGroup][visual_action_group.duplicate_parallel_action] The parallel execution plan contains a duplicate action instance.")
 		return null
 
 	_control_callback_in_progress = true

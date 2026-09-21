@@ -111,7 +111,7 @@ func _register_children(warn_if_missing_utility: bool = true) -> void:
 	var capability_utility: GFCapabilityUtility = _get_capability_utility()
 	if capability_utility == null:
 		if warn_if_missing_utility:
-			push_warning("[GFCapabilityContainer] 当前架构未注册 GFCapabilityUtility，无法注册子节点能力。")
+			push_warning("[GFCapabilityContainer][capability_container.missing_capability_utility] Cannot register child node capabilities: GFCapabilityUtility is not registered in the current architecture.")
 		return
 
 	_is_registering_children = true
