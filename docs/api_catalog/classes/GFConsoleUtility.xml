@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConsoleUtility" path="addons/gf/standard/utilities/debug/gf_console_utility.gd" module="standard" extends="GFUtility" classDigest="ae1dba4049eed2d717ce6e6cd00f604a108e3d24c87e3720df6004d35bba8ac2">
+<class name="GFConsoleUtility" path="addons/gf/standard/utilities/debug/gf_console_utility.gd" module="standard" extends="GFUtility" classDigest="3325b41a665ef3569d69ac18aee13fc1cb1471559ddbc8aed62398fb48d966be">
 	<description>GFConsoleUtility: 运行时开发者控制台。
 提供命令注册、解析与执行能力，并在初始化时构建覆盖全屏的调试 GUI。
 默认通过快捷键呼出，同时会消费 `GFLogUtility` 的日志信号进行彩色输出。</description>
@@ -225,11 +225,13 @@ prefix 和 raw_input。GF 会按当前参数前缀做一次稳定过滤。</desc
 		</member>
 		<member kind="method" name="execute_command">
 			<signature>func execute_command(raw_input: String) -&gt; bool:</signature>
-			<description>解析并执行一条原始输入。</description>
+			<description>解析并执行一条原始输入。
+返回值只表示是否派发给有效回调，不读取回调返回值；内置命令的参数错误通过控制台反馈。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">raw_input: 用户输入的完整字符串。</tag>
-				<tag name="return">找到并成功执行命令时返回 `true`。</tag>
+				<tag name="return">通过风险与确认检查并调用有效命令回调时返回 `true`，不保证回调业务成功。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_console_visible">

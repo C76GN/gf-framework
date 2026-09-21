@@ -3,6 +3,8 @@ extends GutTest
 
 var _console: GFConsoleUtility
 var _subscriptions: Array[GFLifetimeSubscription] = []
+var _console_test_scene: Node
+var _previous_scene: Node
 
 
 func before_each() -> void:
@@ -14,6 +16,12 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	if is_instance_valid(_console_test_scene):
+		get_tree().current_scene = _previous_scene if is_instance_valid(_previous_scene) else null
+		_console_test_scene.get_parent().remove_child(_console_test_scene)
+		_console_test_scene.queue_free()
+		_console_test_scene = null
+		_previous_scene = null
 	for subscription: GFLifetimeSubscription in _subscriptions:
 		var _cancelled: bool = subscription.cancel()
 	_subscriptions.clear()
@@ -64,6 +72,185 @@ func test_builtin_scene_commands_registered_as_observe() -> void:
 	assert_true(_console.has_command("scene.tree"), "init 后应注册只读场景树指令。")
 	assert_true(_console.has_command("scene.node"), "init 后应注册只读节点查看指令。")
 	assert_eq(GFVariantData.get_option_int(scene_tree_entry, "tier"), GFConsoleUtility.CommandTier.OBSERVE, "scene.tree 应是观察级命令。")
+
+
+func test_builtin_help_lists_usage_defaults_and_descriptions() -> void:
+	assert_true(_console.execute_command("help"), "无参数 help 应执行成功。")
+	_console.flush_output()
+	var output: String = "\n".join(_get_console_output_lines())
+
+	assert_true(output.contains("scene.tree [lb]max_depth=3[rb] [lb]max_nodes=80[rb] [lb]root_path=.[rb]"), "帮助应显示场景树位置参数、默认值和转义后的方括号。")
+	assert_true(output.contains("scene.node [lb]path=.[rb]"), "帮助应显示节点路径的默认值。")
+	assert_true(output.contains("显示所有可用指令。"), "help 应保留描述。")
+	assert_true(output.contains("清空控制台输出。"), "clear 应保留描述。")
+	assert_true(output.contains("输出只读场景树摘要。"), "scene.tree 应保留描述。")
+	assert_true(output.contains("查看节点的只读摘要。"), "scene.node 应保留描述。")
+	assert_false(output.contains("[max_depth=3]"), "usage 不应把方括号原样交给 RichText。")
+	var rendered_output: RichTextLabel = RichTextLabel.new()
+	rendered_output.bbcode_enabled = true
+	rendered_output.append_text(output)
+	var plain_text: String = rendered_output.get_parsed_text()
+	rendered_output.free()
+	assert_true(plain_text.contains("scene.tree [max_depth=3] [max_nodes=80] [root_path=.]"), "RichText 渲染后应保留完整可读的 usage 方括号。")
+	assert_false(plain_text.contains("[lb"), "RichText 渲染后不应残留损坏的转义标记。")
+
+
+func test_builtin_help_rejects_arguments_without_listing_commands() -> void:
+	for raw_input: String in PackedStringArray(["help scene.tree", "help --help", "help ''"]):
+		_console.clear_output()
+		_assert_builtin_command_rejected(raw_input, "help")
+		var output: String = "\n".join(_get_console_output_lines())
+		assert_false(output.contains("可用指令"), "错误的 help 调用不应执行命令列表输出。")
+
+
+func test_builtin_clear_rejects_arguments_without_clearing_output() -> void:
+	_console.append_output_line("existing-output")
+	_console.flush_output()
+	_console.append_output_line("pending-output")
+
+	_assert_builtin_command_rejected("clear unexpected", "clear")
+	var output: String = "\n".join(_get_console_output_lines())
+	assert_true(output.contains("existing-output"), "参数错误不能清空已显示的输出。")
+	assert_true(output.contains("pending-output"), "参数错误不能清空尚未刷新的输出。")
+
+	assert_true(_console.execute_command("clear"), "无参数 clear 应仍可执行。")
+	_console.flush_output()
+	assert_eq(_get_console_output_lines().size(), 0, "有效 clear 应清空输出。")
+
+
+func test_builtin_scene_commands_reject_extra_arguments_before_output() -> void:
+	_create_console_test_scene()
+	_assert_builtin_command_rejected("scene.tree 1 10 . unexpected", "scene.tree")
+	_console.clear_output()
+	_assert_builtin_command_rejected("scene.node . unexpected", "scene.node")
+
+
+func test_scene_tree_rejects_invalid_depth_and_int64_overflow() -> void:
+	_create_console_test_scene()
+	var invalid_depths: PackedStringArray = PackedStringArray([
+		"word", "1.5", "-1", "''", "+", "1x", "9223372036854775808",
+		"+0009223372036854775808", "-9223372036854775809", "[b]4[/b]",
+		"18446744073709551616", "9".repeat(128), "++1", "' 1'", "１",
+	])
+	for depth_argument: String in invalid_depths:
+		_console.clear_output()
+		_assert_builtin_command_rejected("scene.tree %s 10" % depth_argument, "scene.tree")
+		var output: String = "\n".join(_get_console_output_lines())
+		assert_true(output.contains("max_depth"), "深度错误应指出 max_depth 参数。")
+		if depth_argument == "[b]4[/b]":
+			assert_true(output.contains("[lb]b[rb]4[lb]/b[rb]"), "错误信息应转义用户提供的数字文本。")
+			assert_false(output.contains(depth_argument), "错误信息不能注入用户提供的 BBCode。")
+
+
+func test_scene_tree_rejects_nonpositive_or_invalid_node_limits() -> void:
+	_create_console_test_scene()
+	var invalid_limits: PackedStringArray = PackedStringArray([
+		"0", "+000", "-0", "-1", "1.5", "word", "''", "9223372036854775808",
+		"+0009223372036854775808", "-9223372036854775809",
+	])
+	for node_limit: String in invalid_limits:
+		_console.clear_output()
+		_assert_builtin_command_rejected("scene.tree 1 %s" % node_limit, "scene.tree")
+		var output: String = "\n".join(_get_console_output_lines())
+		assert_true(output.contains("max_nodes"), "节点数量错误应指出 max_nodes 参数。")
+
+
+func test_scene_tree_accepts_integer_forms_through_int64_maximum() -> void:
+	_create_console_test_scene()
+	var valid_limits: PackedStringArray = PackedStringArray([
+		"+0001 +0002", "0001 0002", "9223372036854775807 9223372036854775807",
+		"+0009223372036854775807 +0009223372036854775807",
+	])
+	for limit_arguments: String in valid_limits:
+		_console.clear_output()
+		assert_true(_console.execute_command("scene.tree %s" % limit_arguments), "正号、前导零和 int64 最大值应作为合法整数执行。")
+		_console.flush_output()
+		var output: String = "\n".join(_get_console_output_lines())
+		assert_true(output.contains("ConsoleFeedbackRoot"), "有效整数应输出根节点。")
+		assert_true(output.contains("ConsoleFeedbackChild"), "有效整数应输出预算内的子节点。")
+		assert_false(output.contains("[color=red]"), "合法整数不应触发错误。")
+
+
+func test_scene_tree_preserves_explicit_depth_and_node_budgets() -> void:
+	_create_console_test_scene()
+	for limit_arguments: String in PackedStringArray(["0 80", "+000 80", "-0 80", "3 1"]):
+		_console.clear_output()
+		assert_true(_console.execute_command("scene.tree %s" % limit_arguments), "零深度和一个节点的预算应合法。")
+		_console.flush_output()
+		var output: String = "\n".join(_get_console_output_lines())
+		assert_true(output.contains("ConsoleFeedbackRoot"), "有限预算应保留根节点。")
+		assert_false(output.contains("ConsoleFeedbackChild"), "深度或节点预算不得被新校验放宽。")
+		assert_true(output.contains("truncated"), "到达显式预算应保留截断提示。")
+
+
+func test_builtin_scene_commands_preserve_optional_and_quoted_paths() -> void:
+	_create_console_test_scene()
+	var spaced_child: Node = Node.new()
+	spaced_child.name = "Target With Spaces"
+	_console_test_scene.add_child(spaced_child)
+	for raw_input: String in PackedStringArray([
+		"scene.tree", "scene.tree 1", "scene.tree 1 10", "scene.tree 1 10 ''",
+		"scene.node", "scene.node ''",
+	]):
+		_console.clear_output()
+		assert_true(_console.execute_command(raw_input), "可选参数和空路径应保持兼容。")
+		_console.flush_output()
+		assert_true("\n".join(_get_console_output_lines()).contains("ConsoleFeedbackRoot"), "默认路径应解析为当前场景。")
+
+	for raw_input: String in PackedStringArray([
+		"scene.tree 1 10 \"Target With Spaces\"", "scene.tree 1 10 Target\\ With\\ Spaces",
+		"scene.node \"Target With Spaces\"", "scene.node Target\\ With\\ Spaces",
+	]):
+		_console.clear_output()
+		assert_true(_console.execute_command(raw_input), "引号和反斜杠转义的节点路径应可执行。")
+		_console.flush_output()
+		assert_true("\n".join(_get_console_output_lines()).contains("Target With Spaces"), "带空格的路径应解析到目标节点。")
+
+
+func test_builtin_scene_commands_report_missing_paths_with_escaped_usage() -> void:
+	_create_console_test_scene()
+	for command_name: String in PackedStringArray(["scene.tree", "scene.node"]):
+		_console.clear_output()
+		var arguments: String = "1 10 " if command_name == "scene.tree" else ""
+		_assert_builtin_command_rejected("%s %s[b]Missing[/b]" % [command_name, arguments], command_name)
+		var output: String = "\n".join(_get_console_output_lines())
+		assert_true(output.contains("[lb]b[rb]Missing[lb]/b[rb]"), "找不到路径时应显示转义后的原始路径。")
+		assert_false(output.contains("[b]Missing[/b]"), "错误路径不能作为 BBCode 注入输出。")
+
+
+func test_custom_command_keeps_packed_arguments_and_ignores_false_return() -> void:
+	var called: CommandCallState = CommandCallState.new()
+	var callback: Callable = func(args: PackedStringArray) -> bool:
+		called.count += 1
+		called.args = args.duplicate()
+		return false
+	_register_command("custom_args", callback, "项目自定义参数。")
+
+	assert_true(_console.execute_command("custom_args word -1 1.5 '' --help"), "自定义回调返回 false 不应改变原有执行成功语义。")
+	assert_eq(called.count, 1, "自定义命令应只调用一次。")
+	assert_eq(called.args, PackedStringArray(["word", "-1", "1.5", "", "--help"]), "内置参数校验不能施加到自定义命令。")
+
+
+func test_project_replacements_do_not_inherit_builtin_validation_or_help_usage() -> void:
+	for subscription_index: int in range(1, _console._builtin_command_subscriptions.size()):
+		assert_true(_console._builtin_command_subscriptions[subscription_index].cancel(), "测试应先取消内置命令所有权。")
+	var called: CommandCallState = CommandCallState.new()
+	var callback: Callable = func(args: PackedStringArray) -> bool:
+		called.count += 1
+		called.args = args.duplicate()
+		return false
+	for command_name: String in PackedStringArray(["clear", "scene.tree", "scene.node"]):
+		_register_command(command_name, callback, "项目替代命令。")
+		assert_true(_console.execute_command("%s word extra arguments accepted" % command_name), "同名项目回调不应继承内置参数限制或返回值语义。")
+	assert_eq(called.count, 3, "各同名项目命令应执行一次。")
+	assert_eq(called.args, PackedStringArray(["word", "extra", "arguments", "accepted"]), "项目替代命令应接收完整参数。")
+
+	assert_true(_console.execute_command("help"), "保留的 help 应列出当前注册项。")
+	_console.flush_output()
+	var output: String = "\n".join(_get_console_output_lines())
+	assert_true(output.contains("项目替代命令。"), "help 应展示项目替代命令的描述。")
+	assert_false(output.contains("max_depth"), "同名项目命令不应展示内置 scene.tree 用法。")
+	assert_false(output.contains("path=."), "同名项目命令不应展示内置 scene.node 用法。")
 
 
 func test_init_is_idempotent_for_console_overlay() -> void:
@@ -634,6 +821,32 @@ func test_dispose_disconnects_log_signal() -> void:
 		await arch.unregister_utility(_script_from_object(console))
 	)
 	assert_false(log_util.log_emitted.is_connected(log_callable), "dispose 后应断开日志信号，避免悬挂监听。")
+
+
+func _create_console_test_scene() -> void:
+	_previous_scene = get_tree().current_scene
+	_console_test_scene = Node.new()
+	_console_test_scene.name = "ConsoleFeedbackRoot"
+	var child: Node = Node.new()
+	child.name = "ConsoleFeedbackChild"
+	_console_test_scene.add_child(child)
+	get_tree().root.add_child(_console_test_scene)
+	get_tree().current_scene = _console_test_scene
+
+
+func _assert_builtin_command_rejected(raw_input: String, command_name: String) -> void:
+	assert_true(_console.execute_command(raw_input), "已分派到内置回调时应保留 execute_command 返回 true 的语义：%s" % raw_input)
+	_console.flush_output()
+	var output: String = "\n".join(_get_console_output_lines())
+	assert_true(output.contains("[color=red]"), "拒绝执行时应输出可见错误：%s" % raw_input)
+	assert_true(output.contains("用法"), "拒绝执行时应同时输出用法：%s" % raw_input)
+	assert_true(output.contains(command_name), "错误反馈应指出命令名称。")
+	if command_name == "scene.tree":
+		assert_true(output.contains("[lb]max_depth=3[rb] [lb]max_nodes=80[rb] [lb]root_path=.[rb]"), "scene.tree 错误应提供转义后的完整位置参数用法。")
+	elif command_name == "scene.node":
+		assert_true(output.contains("[lb]path=.[rb]"), "scene.node 错误应提供转义后的路径用法。")
+	assert_false(output.contains("ConsoleFeedbackRoot"), "无效参数不能执行场景树输出。")
+	assert_false(output.contains("type:"), "无效参数不能执行节点摘要输出。")
 
 
 func _register_command(
