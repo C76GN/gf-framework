@@ -1965,6 +1965,7 @@ func test_editor_workspace_dock_groups_gf_panels() -> void:
 	var page_count: int = _call_int(dock, &"get_page_count")
 	for index: int in range(page_count):
 		var page: Control = _as_control(tabs.get_child(index))
+		assert_true(_call_bool(dock, &"select_page", [String(page.name)]), "访问页面后检查其内容布局。")
 		var content: Control = _as_control(page.get_child(0))
 		assert_true(page.clip_contents, "每个页面容器都应裁剪内容，避免覆盖底部栏。")
 		assert_eq(page.custom_minimum_size, Vector2.ZERO, "页面容器不应继承内部工具最小高度。")

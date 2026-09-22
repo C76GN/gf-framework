@@ -115,6 +115,9 @@ var _selection_mode: String = GFExtensionSettingsBase.SELECTION_MODE_DEFAULT
 var _manifests: Array[GFExtensionManifest] = []
 var _selected_manifest_id: String = ""
 var _usage_report: Dictionary = {}
+var _usage_report_stale: bool = false
+var _usage_input_generation: int = 0
+var _editor_filesystem: EditorFileSystem = null
 
 
 # --- Godot 生命周期方法 ---
@@ -124,6 +127,30 @@ func _init() -> void:
 	GFEditorWorkspaceUI.apply_page_root(self)
 	_build_ui()
 	call_deferred("_refresh_extensions")
+
+
+func _enter_tree() -> void:
+	_connect_signal_checked(ProjectSettings.settings_changed, _on_audit_inputs_changed)
+	if not Engine.is_editor_hint():
+		return
+	_editor_filesystem = EditorInterface.get_resource_filesystem()
+	if _editor_filesystem == null:
+		return
+	_connect_signal_checked(_editor_filesystem.filesystem_changed, _on_audit_inputs_changed)
+	_connect_signal_checked(_editor_filesystem.resources_reimported, _on_audit_resources_changed)
+	_connect_signal_checked(_editor_filesystem.resources_reload, _on_audit_resources_changed)
+	_connect_signal_checked(_editor_filesystem.script_classes_updated, _on_audit_inputs_changed)
+
+
+func _exit_tree() -> void:
+	_disconnect_signal_checked(ProjectSettings.settings_changed, _on_audit_inputs_changed)
+	if _editor_filesystem != null and is_instance_valid(_editor_filesystem):
+		_disconnect_signal_checked(_editor_filesystem.filesystem_changed, _on_audit_inputs_changed)
+		_disconnect_signal_checked(_editor_filesystem.resources_reimported, _on_audit_resources_changed)
+		_disconnect_signal_checked(_editor_filesystem.resources_reload, _on_audit_resources_changed)
+		_disconnect_signal_checked(_editor_filesystem.script_classes_updated, _on_audit_inputs_changed)
+	_editor_filesystem = null
+	_invalidate_usage_report()
 
 
 # --- 私有/辅助方法 ---
@@ -137,6 +164,11 @@ func _connect_signal_checked(source_signal: Signal, callback: Callable, flags: i
 	var error: Error = source_signal.connect(callback, flags as Object.ConnectFlags) as Error
 	if error != OK:
 		push_warning("[GFExtensionManagerDock][extension_manager_dock.signal_connection_failed] Signal connection failed: %s." % error_string(error))
+
+
+func _disconnect_signal_checked(source_signal: Signal, callback: Callable) -> void:
+	if not source_signal.is_null() and source_signal.is_connected(callback):
+		source_signal.disconnect(callback)
 
 
 func _save_project_settings() -> Error:
@@ -283,7 +315,7 @@ func _refresh_extensions() -> void:
 	_auto_install_check.button_pressed = GFExtensionSettingsBase.should_auto_install_enabled_installers()
 	_export_exclude_check.button_pressed = GFExtensionSettingsBase.should_export_exclude_disabled_extensions()
 	_export_fail_check.button_pressed = GFExtensionSettingsBase.should_fail_export_on_disabled_extension_references()
-	_refresh_usage_report()
+	_invalidate_usage_report()
 
 	_refresh_visible_extension_rows()
 
@@ -382,12 +414,8 @@ func _apply_selection() -> void:
 	if save_error != OK:
 		_set_status("保存失败（%s），内存设置尚未写入 project.godot，请重试。" % error_string(save_error))
 		return
-	_refresh_usage_report()
 	_refresh_extensions()
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_usage_report, "reference_count", 0) > 0:
-		_set_status("扩展设置已保存，但发现禁用扩展仍被引用，请检查详情。")
-	else:
-		_set_status("扩展设置已保存。")
+	_set_status("扩展设置已保存。")
 
 
 func _write_selection_to_project_settings() -> void:
@@ -404,8 +432,9 @@ func _set_all_enabled(enabled: bool) -> void:
 	_selection_mode = GFExtensionSettingsBase.SELECTION_MODE_EXPLICIT
 	for manifest: GFExtensionManifest in _manifests:
 		_selection_by_id[manifest.id] = enabled
-	_refresh_usage_report()
+	_invalidate_usage_report()
 	_refresh_visible_extension_rows()
+	_refresh_selected_manifest_details()
 	_set_status("选择已更新，点击“保存设置”后生效。")
 
 
@@ -414,8 +443,9 @@ func _restore_default_selection() -> void:
 	var default_ids: Array[String] = GFExtensionSettingsBase.get_default_enabled_extension_ids()
 	for manifest: GFExtensionManifest in _manifests:
 		_selection_by_id[manifest.id] = default_ids.has(manifest.id)
-	_refresh_usage_report()
+	_invalidate_usage_report()
 	_refresh_visible_extension_rows()
+	_refresh_selected_manifest_details()
 	_set_status("已恢复默认选择，点击“保存设置”后生效。")
 
 
@@ -510,7 +540,7 @@ func _apply_extension_preset_by_id(preset_id: StringName) -> bool:
 	_selection_mode = GFExtensionSettingsBase.SELECTION_MODE_EXPLICIT
 	for manifest: GFExtensionManifest in _manifests:
 		_selection_by_id[manifest.id] = enabled_ids.has(manifest.id)
-	_refresh_usage_report()
+	_invalidate_usage_report()
 	_refresh_visible_extension_rows()
 	_refresh_selected_manifest_details()
 	_set_status("已应用扩展组合“%s”，点击“保存设置”后生效。" % preset.display_name)
@@ -620,8 +650,39 @@ func _refresh_usage_report() -> void:
 	)
 
 
+func _invalidate_usage_report() -> void:
+	_usage_input_generation += 1
+	if _usage_report.is_empty() or _usage_report_stale:
+		return
+	_usage_report_stale = true
+	_refresh_selected_manifest_details()
+	_set_selection_status()
+
+
+func _format_usage_status() -> String:
+	if _usage_report.is_empty():
+		return "引用审计未扫描；点击“扫描引用”检查当前选择。"
+	if _usage_report_stale:
+		return "引用审计已失效；选择、设置或项目文件已变化，请重新扫描。"
+	var reference_count: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_usage_report, "reference_count", 0)
+	if (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(_usage_report, "partial_scan")
+		or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(_usage_report, "budget_exceeded")
+		or _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_usage_report, "issue_count") > 0
+		or (not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(_usage_report, "ok") and reference_count == 0)
+	):
+		return "引用审计扫描不完整：已发现 %d 处禁用扩展引用，不能据此确认排除安全。" % reference_count
+	if reference_count > 0:
+		return "引用审计扫描完成：发现 %d 处禁用扩展引用，请检查详情。" % reference_count
+	return "引用审计扫描完成：本次扫描范围内未发现禁用扩展的直接引用。"
+
+
 func _append_usage_warning_lines(lines: PackedStringArray, manifest: GFExtensionManifest) -> void:
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(_selection_by_id, manifest.id, false):
+		return
+	_append_packed_string(lines, "")
+	_append_packed_string(lines, _format_usage_status())
+	if _usage_report.is_empty() or _usage_report_stale:
 		return
 
 	var extensions: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(
@@ -692,29 +753,22 @@ func _join_strings(values: Array[String]) -> String:
 
 func _set_selection_status() -> void:
 	var enabled_count: int = _get_selected_enabled_ids().size()
-	var reference_count: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_usage_report, "reference_count", 0)
 	var mode_label: String = "默认" if _selection_mode == GFExtensionSettingsBase.SELECTION_MODE_DEFAULT else "显式"
-	if reference_count > 0:
-		_set_status("%s模式：已选择 %d / %d 个扩展；发现 %d 处禁用扩展引用。" % [
-			mode_label,
-			enabled_count,
-			_manifests.size(),
-			reference_count,
-		])
-	else:
-		_set_status("%s模式：已选择 %d / %d 个扩展。禁用扩展可在导出阶段排除。" % [
-			mode_label,
-			enabled_count,
-			_manifests.size(),
-		])
+	_set_status("%s模式：已选择 %d / %d 个扩展。" % [
+		mode_label,
+		enabled_count,
+		_manifests.size(),
+	])
 
 
 func _set_status(message: String) -> void:
-	GFEditorWorkspaceUI.set_status(_status_label, message)
+	GFEditorWorkspaceUI.set_status(_status_label, "%s %s" % [message, _format_usage_status()])
 
 
 func _scan_disabled_extension_references() -> void:
+	var input_generation: int = _usage_input_generation
 	_refresh_usage_report()
+	_usage_report_stale = input_generation != _usage_input_generation
 	_refresh_selected_manifest_details()
 	_set_selection_status()
 
@@ -734,10 +788,18 @@ func _on_search_changed(_new_text: String) -> void:
 	_set_selection_status()
 
 
+func _on_audit_inputs_changed() -> void:
+	_invalidate_usage_report()
+
+
+func _on_audit_resources_changed(_paths: PackedStringArray) -> void:
+	_invalidate_usage_report()
+
+
 func _on_extension_toggled(enabled: bool, extension_id: String) -> void:
 	_selection_mode = GFExtensionSettingsBase.SELECTION_MODE_EXPLICIT
 	_selection_by_id[extension_id] = enabled
-	_refresh_usage_report()
+	_invalidate_usage_report()
 	if extension_id == _selected_manifest_id:
 		for manifest: GFExtensionManifest in _manifests:
 			if manifest.id == extension_id:
