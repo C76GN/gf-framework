@@ -20,6 +20,9 @@ var _roots: Array[Node] = []
 # --- Godot 生命周期方法 ---
 
 func after_each() -> void:
+	_CONTEXT_PAGE_SCRIPT.next_context_callback = Callable()
+	_CONTEXT_PAGE_SCRIPT.next_enter_callback = Callable()
+	_CONTEXT_PAGE_SCRIPT.next_exit_callback = Callable()
 	for root: Node in _roots:
 		if is_instance_valid(root):
 			root.free()
@@ -66,6 +69,7 @@ func test_dock_updates_and_revokes_context_for_all_existing_pages() -> void:
 	var original_context: GFEditorToolContext = GFEditorToolContext.new()
 	dock.setup(records, original_context)
 	add_child(dock)
+	assert_true(dock.select_page("Second"), "先访问第二页，使上下文更新覆盖所有已创建页面。")
 	var first: _CONTEXT_PAGE_SCRIPT = _get_context_page(dock, "First")
 	var second: _CONTEXT_PAGE_SCRIPT = _get_context_page(dock, "Second")
 	if first == null or second == null:
@@ -82,6 +86,199 @@ func test_dock_updates_and_revokes_context_for_all_existing_pages() -> void:
 	assert_null(second.current_context, "显式撤销应清除所有页面的编辑环境。")
 	assert_eq(first.enter_count, 1, "仅更新上下文不应让页面重复入树。")
 	assert_eq(second.enter_count, 1, "未选中的页面也不应因上下文更新重复入树。")
+
+
+func test_dock_creates_only_selected_page_and_reuses_visited_pages() -> void:
+	var dock: _WORKSPACE_DOCK_SCRIPT = _new_dock()
+	var records: Array[Dictionary] = _context_records("First")
+	records.append(_context_record("Second"))
+	records.append(_context_record("Third"))
+	dock.setup(records, GFEditorToolContext.new())
+	add_child(dock)
+	await get_tree().process_frame
+
+	assert_eq(dock.get_page_titles(), PackedStringArray(["First", "Second", "Third"]))
+	assert_null(dock.find_child("Second Content", true, false), "打开工作区不应创建未访问页面。")
+	assert_null(dock.find_child("Third Content", true, false), "延迟回调也不应提前创建隐藏页面。")
+	var first: _CONTEXT_PAGE_SCRIPT = _get_context_page(dock, "First")
+	assert_true(dock.select_page("Second"))
+	var second: _CONTEXT_PAGE_SCRIPT = _get_context_page(dock, "Second")
+	assert_true(dock.select_page("First"))
+	assert_true(dock.select_page("Second"))
+	assert_same(_get_context_page(dock, "First"), first, "往返切页必须保留首个页面状态。")
+	assert_same(_get_context_page(dock, "Second"), second, "已访问的页面只应创建一次。")
+	assert_eq(second.enter_count, 1)
+	assert_null(dock.find_child("Third Content", true, false))
+
+
+func test_unvisited_page_receives_latest_context_before_first_enter() -> void:
+	var dock: _WORKSPACE_DOCK_SCRIPT = _new_dock()
+	var records: Array[Dictionary] = _context_records("First")
+	records.append(_context_record("Second"))
+	dock.setup(records, GFEditorToolContext.new())
+	add_child(dock)
+	var latest_context: GFEditorToolContext = GFEditorToolContext.new()
+	dock.set_editor_context(latest_context)
+	assert_null(dock.find_child("Second Content", true, false), "替换上下文不应触发隐藏页面初始化。")
+	assert_true(dock.select_page("Second"))
+	var second: _CONTEXT_PAGE_SCRIPT = _get_context_page(dock, "Second")
+	assert_same(second.context_at_first_enter, latest_context)
+	assert_eq(second.context_update_count, 1, "首次创建只接收当前有效上下文。")
+	assert_false(second.first_context_was_in_tree)
+
+
+func test_off_tree_selection_creates_requested_page_before_mount() -> void:
+	var dock: _WORKSPACE_DOCK_SCRIPT = _new_dock()
+	var records: Array[Dictionary] = _context_records("First")
+	records.append(_context_record("Second"))
+	dock.setup(records, GFEditorToolContext.new())
+	assert_null(dock.find_child("Second Content", true, false))
+	assert_true(dock.select_page("Second"))
+	var second: _CONTEXT_PAGE_SCRIPT = _get_context_page(dock, "Second")
+	assert_eq(second.enter_count, 0, "离树状态下选页仍应创建目标，但不能提前入树。")
+	add_child(dock)
+	assert_eq(second.enter_count, 1)
+	assert_same(_get_context_page(dock, "Second"), second)
+
+
+func test_unlabeled_legacy_page_keeps_constructor_title_before_selection() -> void:
+	var dock: _WORKSPACE_DOCK_SCRIPT = _new_dock()
+	var records: Array[Dictionary] = _context_records("First")
+	records.append(_context_record(""))
+	dock.setup(records, GFEditorToolContext.new())
+	assert_eq(dock.get_page_titles(), PackedStringArray(["First", "Legacy Context"]))
+	assert_eq(dock.get_page_button_titles(), PackedStringArray(["First", "Legacy Context"]))
+	assert_true(dock.select_page("Legacy Context"), "没有显式标签的旧贡献仍须支持按构造器名称选页。")
+	var legacy: _CONTEXT_PAGE_SCRIPT = _get_context_page(dock, "Legacy Context")
+	if legacy == null:
+		return
+	assert_eq(legacy.context_update_count, 1)
+	assert_eq(legacy.enter_count, 0)
+	add_child(dock)
+	assert_eq(legacy.enter_count, 1)
+	assert_same(_get_context_page(dock, "Legacy Context"), legacy)
+
+
+func test_context_callback_reconfiguration_discards_unmounted_page() -> void:
+	var dock: _WORKSPACE_DOCK_SCRIPT = _new_dock()
+	var records: Array[Dictionary] = _context_records("First")
+	records.append(_context_record("Second"))
+	dock.setup(records, GFEditorToolContext.new())
+	add_child(dock)
+	var latest_context: GFEditorToolContext = GFEditorToolContext.new()
+	var discarded: Array[Control] = []
+	_CONTEXT_PAGE_SCRIPT.next_context_callback = func(page: _CONTEXT_PAGE_SCRIPT) -> void:
+		discarded.append(page)
+		_roots.append(page)
+		dock.setup(_context_records("Latest"), latest_context)
+	assert_true(dock.select_page("Second"))
+	assert_eq(dock.get_page_titles(), PackedStringArray(["Latest"]))
+	assert_eq(discarded.size(), 1)
+	var latest: _CONTEXT_PAGE_SCRIPT = _get_context_page(dock, "Latest")
+	assert_same(latest.context_at_first_enter, latest_context)
+	assert_null(discarded[0].get_parent(), "重入替换期间撤销的页面不能挂回旧占位容器。")
+	assert_true(discarded[0].is_queued_for_deletion(), "尚未挂载的过期页面也必须被释放。")
+
+
+func test_revocation_callback_coalesces_reconfiguration_before_rebuild() -> void:
+	var dock: _WORKSPACE_DOCK_SCRIPT = _new_dock()
+	dock.setup(_context_records(), GFEditorToolContext.new())
+	add_child(dock)
+	var old_page: _CONTEXT_PAGE_SCRIPT = _get_context_page(dock)
+	var latest_context: GFEditorToolContext = GFEditorToolContext.new()
+	_CONTEXT_PAGE_SCRIPT.next_context_callback = func(page: _CONTEXT_PAGE_SCRIPT) -> void:
+		assert_null(page.current_context)
+		dock.setup(_context_records("Latest"), latest_context)
+	dock.setup(_context_records("Superseded"), GFEditorToolContext.new())
+	assert_eq(dock.get_page_titles(), PackedStringArray(["Latest"]), "撤销回调发起的新配置只能生成一组页面。")
+	assert_null(old_page.context_at_last_exit)
+	assert_same(_get_context_page(dock, "Latest").context_at_first_enter, latest_context)
+
+
+func test_exit_callback_reconfiguration_waits_until_old_page_is_detached() -> void:
+	var dock: _WORKSPACE_DOCK_SCRIPT = _new_dock()
+	dock.setup(_context_records(), GFEditorToolContext.new())
+	add_child(dock)
+	var latest_context: GFEditorToolContext = GFEditorToolContext.new()
+	_CONTEXT_PAGE_SCRIPT.next_exit_callback = func(page: _CONTEXT_PAGE_SCRIPT) -> void:
+		assert_null(page.current_context)
+		dock.setup(_context_records("Latest"), latest_context)
+	dock.setup(_context_records("Superseded"), GFEditorToolContext.new())
+	assert_eq(dock.get_page_titles(), PackedStringArray(["Latest"]))
+	assert_same(_get_context_page(dock, "Latest").context_at_first_enter, latest_context)
+
+
+func test_enter_callback_reconfiguration_waits_until_page_attachment_finishes() -> void:
+	var dock: _WORKSPACE_DOCK_SCRIPT = _new_dock()
+	var records: Array[Dictionary] = _context_records("First")
+	records.append(_context_record("Second"))
+	dock.setup(records, GFEditorToolContext.new())
+	add_child(dock)
+	var latest_context: GFEditorToolContext = GFEditorToolContext.new()
+	var discarded: Array[_CONTEXT_PAGE_SCRIPT] = []
+	_CONTEXT_PAGE_SCRIPT.next_enter_callback = func(page: _CONTEXT_PAGE_SCRIPT) -> void:
+		discarded.append(page)
+		dock.setup(_context_records("Latest"), latest_context)
+	assert_true(dock.select_page("Second"))
+	assert_eq(dock.get_page_titles(), PackedStringArray(["Latest"]))
+	assert_eq(discarded.size(), 1)
+	assert_false(discarded[0].is_inside_tree())
+	assert_null(discarded[0].context_at_last_exit, "过期页面仍须先撤销上下文，再离树。")
+	assert_same(_get_context_page(dock, "Latest").context_at_first_enter, latest_context)
+
+
+func test_nested_context_update_does_not_overwrite_latest_context_on_later_pages() -> void:
+	var dock: _WORKSPACE_DOCK_SCRIPT = _new_dock()
+	var records: Array[Dictionary] = _context_records("First")
+	records.append(_context_record("Second"))
+	dock.setup(records, GFEditorToolContext.new())
+	add_child(dock)
+	assert_true(dock.select_page("Second"))
+	var latest_context: GFEditorToolContext = GFEditorToolContext.new()
+	_CONTEXT_PAGE_SCRIPT.next_context_callback = func(_page: _CONTEXT_PAGE_SCRIPT) -> void:
+		dock.set_editor_context(latest_context)
+	dock.set_editor_context(GFEditorToolContext.new())
+	assert_same(_get_context_page(dock, "First").current_context, latest_context)
+	assert_same(_get_context_page(dock, "Second").current_context, latest_context)
+
+
+func test_failed_page_does_not_preload_or_block_other_pages() -> void:
+	var dock: _WORKSPACE_DOCK_SCRIPT = _new_dock()
+	var records: Array[Dictionary] = _context_records("First")
+	records.append({
+		"path": "res://addons/gf/kernel/editor/gf_editor_tool_context.gd",
+		"label": "Invalid",
+	})
+	records.append(_context_record("Third"))
+	dock.setup(records, GFEditorToolContext.new())
+	add_child(dock)
+	assert_true(dock.select_page("Invalid"))
+	assert_push_error("[GFEditorWorkspaceDock][editor_workspace_dock.panel_instantiation_failed] Could not instantiate the workspace panel: res://addons/gf/kernel/editor/gf_editor_tool_context.gd.")
+	assert_true(dock.select_page("Third"), "无效页面不应阻止其余页面创建。")
+	assert_not_null(_get_context_page(dock, "Third"))
+	assert_true(dock.select_page("Invalid"), "再次选择失败页面应显示已有错误提示，避免重复初始化及报错。")
+	assert_eq(dock.get_page_count(), 3)
+
+
+func test_window_reopening_preserves_selected_page_and_unvisited_pages() -> void:
+	var workspace_window: _WORKSPACE_WINDOW_SCRIPT = _new_window()
+	var records: Array[Dictionary] = _context_records("First")
+	records.append(_context_record("Second"))
+	records.append(_context_record("Third"))
+	workspace_window.setup(records, GFEditorToolContext.new())
+	add_child(workspace_window)
+	var dock: _WORKSPACE_DOCK_SCRIPT = workspace_window.get_workspace()
+	assert_true(dock.select_page("Second"))
+	var second: _CONTEXT_PAGE_SCRIPT = _get_context_page(dock, "Second")
+	workspace_window.popup_workspace()
+	workspace_window.close_requested.emit()
+	assert_false(workspace_window.visible)
+	workspace_window.popup_workspace()
+	assert_same(_get_context_page(dock, "Second"), second)
+	assert_true(second.is_visible_in_tree(), "再次打开应保留当前页面。")
+	assert_eq(second.enter_count, 1)
+	assert_null(dock.find_child("Third Content", true, false))
+	workspace_window.hide()
 
 
 func test_dock_replacement_revokes_old_page_before_detaching_it() -> void:

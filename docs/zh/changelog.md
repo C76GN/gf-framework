@@ -32,6 +32,8 @@
 
 ### 🔄 机制更改 (Changed)
 
+- [GF Workspace](editor/workspace.md) 首次打开只创建当前页面，其他页面首次访问时创建并缓存；切页和重新打开保留已访问页面状态。扩展引用审计改为点击“扫描引用”后执行，选择或文件变化会明确标记旧报告失效，导出阶段保留独立审计。
+
 - [开发者控制台](standard/utilities/runtime/debug-observability/developer-console/window-builtins.md) 的内置命令显示完整用法，并在参数数量、整数范围或节点路径无效时报告原因并停止操作；修正方括号转义，保持项目命令的原始参数与回调派发语义。
 - [开发者诊断](standard/utilities/runtime/debug-observability/runtime-telemetry/log-utility/index.md#开发者诊断与语言) 统一使用固定英文模板与稳定诊断码，保留原生错误与警告的严重级别、输出次数和调用栈；项目日志及运行时 Unicode 上下文继续保留原语言，编辑器显示文字独立管理。
 - [命令历史](kernel/messaging/command-history/index.md) 补充拖拽编辑示例：预览只修改草稿，确认执行一次命令，取消或净变化为零不产生历史；明确 `record()` 与 `execute_command()` 的使用边界。

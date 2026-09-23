@@ -133,6 +133,12 @@ var _latest_release_url: String = RELEASES_URL
 var _dock_records: Array[Dictionary] = []
 var _editor_context: GFEditorToolContext = null
 var _page_controls: Array[Control] = []
+var _page_records: Array[Dictionary] = []
+var _page_load_attempted: Array[bool] = []
+var _rebuilding_pages: bool = false
+var _rebuild_pending: bool = false
+var _page_operation_depth: int = 0
+var _context_generation: int = 0
 
 
 # --- Godot 生命周期方法 ---
@@ -152,7 +158,7 @@ func _exit_tree() -> void:
 
 # --- 公共方法 ---
 
-## 设置工作区页面记录。
+## 设置工作区页面记录。显式命名的页面首次选中时创建并缓存；未命名的旧页面提前创建以保留构造器标题。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -166,6 +172,8 @@ func _exit_tree() -> void:
 func setup(dock_records: Array[Dictionary], editor_context: GFEditorToolContext = null) -> void:
 	_dock_records = _copy_records(dock_records)
 	_editor_context = editor_context
+	_context_generation += 1
+	_rebuild_pending = true
 	_rebuild_pages()
 
 
@@ -178,8 +186,16 @@ func setup(dock_records: Array[Dictionary], editor_context: GFEditorToolContext 
 ## @param editor_context: 当前上下文；null 表示编辑环境已撤销。
 func set_editor_context(editor_context: GFEditorToolContext) -> void:
 	_editor_context = editor_context
-	for page_control: Control in _page_controls:
+	_context_generation += 1
+	var generation: int = _context_generation
+	var page_controls: Array[Control] = _page_controls.duplicate()
+	_page_operation_depth += 1
+	for page_control: Control in page_controls:
+		if generation != _context_generation or _rebuild_pending:
+			break
 		_forward_page_context(page_control, editor_context)
+	_page_operation_depth -= 1
+	_rebuild_pages()
 
 
 ## 获取工作区页面数量。
@@ -248,9 +264,7 @@ func select_page(title: String) -> bool:
 		return false
 	for index: int in range(_tabs.get_child_count()):
 		if _tabs.get_child(index).name == title:
-			_tabs.current_tab = index
-			_sync_page_buttons()
-			_update_status()
+			_on_page_button_pressed(index)
 			return true
 	return false
 
@@ -334,30 +348,114 @@ func _build_ui() -> void:
 
 
 func _rebuild_pages() -> void:
-	if _tabs == null:
+	if _tabs == null or _page_operation_depth > 0:
 		return
 
-	for page_control: Control in _page_controls:
-		_forward_page_context(page_control, null)
-	_page_controls.clear()
+	# 用户页面的上下文、入树和离树回调都可能重新 setup；等当前操作结束后只应用最新配置。
+	while _rebuild_pending:
+		_rebuild_pending = false
+		_page_operation_depth += 1
+		_rebuilding_pages = true
+		var old_controls: Array[Control] = _page_controls
+		_page_controls = []
+		_page_records.clear()
+		_page_load_attempted.clear()
+		for page_control: Control in old_controls:
+			_forward_page_context(page_control, null)
+		for child: Node in _tabs.get_children():
+			_tabs.remove_child(child)
+			child.queue_free()
 
-	for child: Node in _tabs.get_children():
-		_tabs.remove_child(child)
-		child.queue_free()
+		if not _rebuild_pending:
+			for record: Dictionary in _dock_records:
+				var script_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "path", "").strip_edges()
+				if script_path.is_empty():
+					continue
+				var page: Control = _make_page(record, script_path)
+				_page_records.append(record)
+				_page_load_attempted.append(false)
+				_tabs.add_child(page)
+			if _tabs.get_child_count() == 0:
+				_tabs.add_child(_make_empty_page())
+			else:
+				_tabs.current_tab = clampi(_tabs.current_tab, 0, _tabs.get_child_count() - 1)
+		_rebuilding_pages = false
 
-	for record: Dictionary in _dock_records:
-		var page: Control = _instantiate_page(record)
-		if page == null:
-			continue
-		_tabs.add_child(page)
+		if not _rebuild_pending:
+			# 旧记录未提供 label 时，必须实例化才能取得原有的 dock.name，保持按标题选页兼容。
+			for index: int in range(_page_records.size()):
+				if _rebuild_pending:
+					break
+				if _GF_VARIANT_ACCESS_SCRIPT.get_option_string(_page_records[index], "label", "").is_empty():
+					_ensure_page(index)
+			_ensure_page(_tabs.current_tab)
+		if not _rebuild_pending:
+			_update_status()
+			_rebuild_page_buttons()
+		_page_operation_depth -= 1
 
-	if _tabs.get_child_count() <= 0:
-		_tabs.add_child(_make_empty_page())
-		_set_status(EMPTY_MESSAGE)
-	else:
-		_tabs.current_tab = clampi(_tabs.current_tab, 0, _tabs.get_child_count() - 1)
-		_update_status()
-	_rebuild_page_buttons()
+
+func _make_page(record: Dictionary, script_path: String) -> Control:
+	var label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "label", "")
+	if label.is_empty():
+		label = script_path.get_file().get_basename()
+	var page: Control = Control.new()
+	page.name = label
+	page.set_meta("short_label", _resolve_short_page_label(record, label))
+	page.clip_contents = true
+	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	return page
+
+
+func _ensure_page(index: int) -> void:
+	if _rebuilding_pages or _rebuild_pending or _tabs == null:
+		return
+	if index < 0 or index >= _page_records.size() or _page_load_attempted[index]:
+		return
+	_page_operation_depth += 1
+	_create_page(index)
+	_page_operation_depth -= 1
+	_rebuild_pages()
+
+
+func _create_page(index: int) -> void:
+	# 在用户页面构造前标记，避免入树或上下文回调重入时重复实例化。
+	_page_load_attempted[index] = true
+	var page: Control = _tabs.get_tab_control(index)
+	var record: Dictionary = _page_records[index]
+	var dock: Control = _instantiate_page(record)
+	if dock != null:
+		_page_controls.append(dock)
+		_forward_page_context(dock, _editor_context)
+	if _rebuild_pending:
+		if dock != null:
+			_page_controls.erase(dock)
+			_forward_page_context(dock, null)
+			dock.queue_free()
+		return
+	if dock == null:
+		var failure_label: Label = Label.new()
+		failure_label.text = "此页面加载失败，请检查 Godot 错误面板。修复后重新加载 GF 插件。"
+		failure_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		page.add_child(failure_label)
+		failure_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		return
+
+	var label: String = _resolve_page_label(dock, _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "label", ""))
+	page.name = label
+	page.set_meta("short_label", _resolve_short_page_label(record, label))
+	dock.name = "%s Content" % label
+	dock.clip_contents = true
+	dock.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	dock.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	page.add_child(dock)
+	if _rebuild_pending:
+		return
+	dock.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	if index < _page_buttons.size():
+		_page_buttons[index].text = _resolve_short_page_label(record, label)
+		_page_buttons[index].tooltip_text = "切换到 %s" % page.name
 
 
 func _instantiate_page(record: Dictionary) -> Control:
@@ -370,36 +468,22 @@ func _instantiate_page(record: Dictionary) -> Control:
 		push_error("[GFEditorWorkspaceDock][editor_workspace_dock.panel_load_failed] Could not load the workspace panel script: %s." % script_path)
 		return null
 
+	if not ClassDB.is_parent_class(dock_script.get_instance_base_type(), "Control"):
+		push_error("[GFEditorWorkspaceDock][editor_workspace_dock.panel_instantiation_failed] Could not instantiate the workspace panel: %s." % script_path)
+		return null
+
 	var dock_value: Variant = dock_script.call("new")
 	var dock: Control = _variant_to_control(dock_value)
 	if dock == null:
 		push_error("[GFEditorWorkspaceDock][editor_workspace_dock.panel_instantiation_failed] Could not instantiate the workspace panel: %s." % script_path)
 		return null
 
-	_page_controls.append(dock)
-	_forward_page_context(dock, _editor_context)
-
-	var label: String = _resolve_page_label(dock, _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "label", ""))
-	var short_label: String = _resolve_short_page_label(record, label)
-	var page: Control = Control.new()
-	page.name = label
-	page.set_meta("short_label", short_label)
-	page.clip_contents = true
-	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
-
-	dock.name = "%s Content" % label
-	dock.clip_contents = true
-	dock.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	dock.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	page.add_child(dock)
-	dock.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	return page
+	return dock
 
 
 func _forward_page_context(page_control: Control, editor_context: GFEditorToolContext) -> void:
 	if is_instance_valid(page_control) and page_control.has_method("set_editor_context"):
-		page_control.call("set_editor_context", editor_context)
+		var _context_result: Variant = page_control.call("set_editor_context", editor_context)
 
 
 func _make_empty_page() -> Control:
@@ -896,12 +980,19 @@ func _on_page_button_pressed(index: int) -> void:
 	if _tabs == null or index < 0 or index >= _tabs.get_child_count():
 		return
 
+	_page_operation_depth += 1
 	_tabs.current_tab = index
+	_ensure_page(index)
+	_page_operation_depth -= 1
+	_rebuild_pages()
 	_sync_page_buttons()
 	_update_status()
 
 
-func _on_tabs_tab_changed(_tab: int) -> void:
+func _on_tabs_tab_changed(tab: int) -> void:
+	if _rebuilding_pages:
+		return
+	_ensure_page(tab)
 	_sync_page_buttons()
 	_update_status()
 

@@ -93,6 +93,7 @@
       "res://tests/gf_core/kernel/editor/test_gf_editor_command_tools.gd",
       "res://tests/gf_core/kernel/editor/test_gf_editor_property_batch_command.gd",
       "res://tests/gf_core/kernel/editor/test_gf_editor_workspace_context.gd",
+      "res://tests/gf_core/kernel/editor/test_gf_extension_manager_audit.gd",
       "res://tests/gf_core/kernel/editor/test_gf_resource_table_editor.gd",
       "res://tests/gf_core/kernel/editor/test_gf_resource_table_multi_edit.gd",
       "res://tests/gf_core/kernel/editor/test_gf_editor_operation_plan.gd",
