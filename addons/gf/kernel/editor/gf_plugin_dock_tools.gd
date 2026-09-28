@@ -93,7 +93,15 @@ var _task_host: _TASK_HOST_SCRIPT = _TASK_HOST_SCRIPT.new()
 ## [br]
 ## @param standard_dock_records: 组合入口传入的标准库页面记录。
 ## [br]
+## @param task_records: 组合入口传入且已校验的任务记录，配置时复制。
+## [br]
+## @param resource_action_records: 组合入口传入且已校验的资源动作记录，配置时复制。
+## [br]
 ## @schema standard_dock_records: Array of Dictionary dock page records.
+## [br]
+## @schema task_records: Array[Dictionary]；每项包含 owner_package_id、全局 source_id、title、description、keywords、group、page_path、action_id。
+## [br]
+## @schema resource_action_records: Array[Dictionary]；任务记录字段加 resource_types: Array[String] 和 max_selection: int；action_id 非空。
 func setup(
 	plugin: EditorPlugin, standard_dock_records: Array[Dictionary] = [],
 	task_records: Array[Dictionary] = [], resource_action_records: Array[Dictionary] = []
@@ -190,6 +198,10 @@ func get_workspace_window() -> Window:
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
+## [br]
+## @param page_path: 当前贡献集合中页面脚本的完整 res:// 路径。
+## [br]
+## @return: 已打开页面的实际内容控件；路径未登记、加载失败或导航期间失效时返回 null。
 func open_workspace_page(page_path: String) -> Control:
 	for record: Dictionary in _dock_records:
 		if str(record.get("path", "")) != page_path:

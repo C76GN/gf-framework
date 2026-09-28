@@ -93,6 +93,8 @@ func _init() -> void:
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
+## [br]
+## @param context: 本代工具上下文；null 清空任务并撤销页面的路由入口。
 func set_editor_context(context: GFEditorToolContext) -> void:
 	_context = context
 	_tasks.clear()

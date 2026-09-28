@@ -27,6 +27,22 @@ const _RESOURCE_TYPES: Array[String] = [
 ## @api framework_internal
 ## [br]
 ## @layer kernel/extension
+## [br]
+## @param value: 待校验的任务或资源动作数组，最多 1024 项。
+## [br]
+## @param owner_id: 记录省略 owner_package_id 时使用的默认模块标识。
+## [br]
+## @param page_owners: 已贡献页面路径到所属模块标识的映射，限定同来源目标。
+## [br]
+## @param resource_actions: true 时额外校验资源类型、选择数量与非空 action_id。
+## [br]
+## @return: 有效记录的规范化副本及校验错误；单项失败不丢弃其他有效项。
+## [br]
+## @schema value: Array[Dictionary]；每项必需 source_id、title、page_path，可含 owner_package_id、description、keywords、group、action_id；资源动作另需 resource_types，可含 max_selection（默认 1）。
+## [br]
+## @schema page_owners: Dictionary[String, String]；键为贡献中登记的页面路径，值为其 owner_package_id。
+## [br]
+## @schema return: Dictionary；records: Array[Dictionary] 包含规范化记录，source_id 加所属模块前缀，默认字段补齐；errors: Array[String] 包含失败原因。
 static func parse_records(
 	value: Variant, owner_id: String, page_owners: Dictionary, resource_actions: bool = false
 ) -> Dictionary:

@@ -391,6 +391,10 @@ func select_page(title: String) -> bool:
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
+## [br]
+## @param page_id: 贡献的 source_id；旧贡献使用页面脚本路径。
+## [br]
+## @return: 找到对应页面并发起激活时返回 true；未登记时返回 false。
 func select_page_id(page_id: String) -> bool:
 	for index: int in range(_page_records.size()):
 		if _get_page_id(_page_records[index]) == page_id:
@@ -404,6 +408,8 @@ func select_page_id(page_id: String) -> bool:
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
+## [br]
+## @return: 当前选中页的 source_id 或兼容脚本路径；无有效选页时为空。
 func get_selected_page_id() -> String:
 	if _tabs == null or _tabs.current_tab < 0 or _tabs.current_tab >= _page_records.size():
 		return ""
@@ -415,6 +421,10 @@ func get_selected_page_id() -> String:
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
+## [br]
+## @param page_id: 要打开页面的 source_id 或兼容脚本路径。
+## [br]
+## @return: 本次请求的同代页面内容；加载失败、初始化重入切页或上下文更换时返回 null。
 func open_page(page_id: String) -> Control:
 	if _tabs == null:
 		return null
@@ -1261,6 +1271,25 @@ func _set_update_release_button(should_show: bool, release_url: String = "") -> 
 	_update_release_button.disabled = not should_show
 
 
+## 将来源 ID 或兼容路径作为稳定身份，不依赖可翻译的页面标题。
+## [br]
+## @api private
+func _get_page_id(record: Dictionary) -> String:
+	var source_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "source_id")
+	return source_id if not source_id.is_empty() else _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "path")
+
+
+## 保存有效选页，重建期间产生的临时 Tab 信号不会覆盖用户选择。
+## [br]
+## @api private
+func _save_selected_page() -> void:
+	if _rebuilding_pages or _rebuild_pending:
+		return
+	var page_id: String = get_selected_page_id()
+	if not page_id.is_empty():
+		_PREFERENCES_SCRIPT.set_value("selected_page", page_id)
+
+
 # --- 信号处理函数 ---
 
 ## 响应关于按钮并显示介绍弹窗。
@@ -1317,25 +1346,6 @@ func _on_tabs_tab_changed(tab: int) -> void:
 	_sync_page_buttons()
 	_update_status()
 	_save_selected_page()
-
-
-## 将来源 ID 或兼容路径作为稳定身份，不依赖可翻译的页面标题。
-## [br]
-## @api private
-func _get_page_id(record: Dictionary) -> String:
-	var source_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "source_id")
-	return source_id if not source_id.is_empty() else _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "path")
-
-
-## 保存有效选页，重建期间产生的临时 Tab 信号不会覆盖用户选择。
-## [br]
-## @api private
-func _save_selected_page() -> void:
-	if _rebuilding_pages or _rebuild_pending:
-		return
-	var page_id: String = get_selected_page_id()
-	if not page_id.is_empty():
-		_PREFERENCES_SCRIPT.set_value("selected_page", page_id)
 
 
 ## 保存明确选择的启动方式。
