@@ -722,7 +722,7 @@ func _dispatch_notification(event_record: Dictionary) -> void:
 				var report: Dictionary = report_value
 				preview_resolved.emit(report)
 
-## 先用共享数量与文本预算验证全部条目，再复制其数据构建并重建独立目录索引；任一条目失败都不发布候选目录。
+## 先用共享数量与文本预算验证全部条目，再复制数据并建立完整查找表；字段索引按需建立，任一条目失败都不发布候选目录。
 ## [br]
 ## @api private
 static func _make_isolated_catalog_snapshot(catalog: GFAssetCatalog) -> Dictionary:
@@ -754,7 +754,7 @@ static func _make_isolated_catalog_snapshot(catalog: GFAssetCatalog) -> Dictiona
 	for entry: GFAssetCatalogEntry in validated_entries:
 		candidate_catalog.entries.append(_copy_catalog_entry(entry))
 	candidate_catalog.mark_index_dirty()
-	candidate_catalog.rebuild_index()
+	var _snapshot_asset_ids: PackedStringArray = candidate_catalog.get_all_ids()
 	return {
 		"ok": true,
 		"error": "",

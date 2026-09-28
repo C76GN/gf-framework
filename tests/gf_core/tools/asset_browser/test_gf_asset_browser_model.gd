@@ -677,6 +677,33 @@ func test_query_filters_fail_closed_and_dispose_is_terminal_for_writes() -> void
 	renderer.free()
 
 
+func test_replacement_reads_current_entries_even_when_source_lookup_is_clean() -> void:
+	var source_catalog: GFAssetCatalog = _make_catalog([_make_entry(&"hero", "Old")])
+	assert_eq(source_catalog.get_entry(&"hero").title, "Old")
+	source_catalog.entries[0].title = "Current"
+	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
+	var report: Dictionary = model.replace_catalog(source_catalog)
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	var items: Array = GFVariantData.get_option_array(model.get_page(), "items")
+	assert_eq(GFVariantData.get_option_string(GFVariantData.as_dictionary(items[0]), "title"), "Current")
+	source_catalog.entries[0].title = "Later"
+	items = GFVariantData.get_option_array(model.get_page(), "items")
+	assert_eq(GFVariantData.get_option_string(GFVariantData.as_dictionary(items[0]), "title"), "Current")
+	model.dispose()
+
+
+func test_empty_search_pages_keep_items_empty() -> void:
+	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
+	var _replacement: Dictionary = model.replace_catalog(_make_catalog([_make_entry(&"hero", "Hero")]))
+	var _text_query: Dictionary = model.set_query("unmatchablequartz")
+	assert_eq(GFVariantData.get_option_int(model.get_page(), "total_count"), 0)
+	assert_eq(GFVariantData.get_option_array(model.get_page(), "items").size(), 0)
+	var _id_query: Dictionary = model.set_query("", PackedStringArray(["missing"]))
+	assert_eq(GFVariantData.get_option_int(model.get_page(), "total_count"), 0)
+	assert_eq(GFVariantData.get_option_array(model.get_page(), "items").size(), 0)
+	model.dispose()
+
+
 func _make_catalog(entries: Array[GFAssetCatalogEntry]) -> GFAssetCatalog:
 	var catalog: GFAssetCatalog = GFAssetCatalog.new()
 	for entry: GFAssetCatalogEntry in entries:
