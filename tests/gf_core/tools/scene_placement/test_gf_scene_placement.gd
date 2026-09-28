@@ -520,6 +520,31 @@ func test_dropping_undone_history_releases_detached_instance() -> void:
 	assert_eq(parent.get_child_count(), 0)
 
 
+func test_panel_continuous_placement_is_opt_in_and_separate_from_operation_options() -> void:
+	var panel: GFScenePlacementPanel = GFScenePlacementPanel.new()
+	add_child_autofree(panel)
+	assert_false(panel.is_continuous_placement_enabled())
+	var options_before: Dictionary = panel.get_options()
+	var control: Node = panel.find_child("ContinuousPlacement", true, false)
+	assert_true(control is CheckBox)
+	if not control is CheckBox:
+		return
+	var checkbox: CheckBox = control
+	var changes: Array[int] = [0]
+	var on_changed: Callable = func() -> void:
+		changes[0] += 1
+	var connected: int = panel.configuration_changed.connect(on_changed)
+	assert_eq(connected, OK)
+	checkbox.button_pressed = true
+	assert_true(panel.is_continuous_placement_enabled())
+	assert_eq(changes[0], 1, "启用连续模式必须使已捕获的摆放配置失效。")
+	assert_eq(panel.get_options(), options_before, "连续模式属于编辑器会话，不进入单次拾取几何选项。")
+	checkbox.button_pressed = false
+	assert_false(panel.is_continuous_placement_enabled())
+	assert_eq(changes[0], 2)
+	panel.configuration_changed.disconnect(on_changed)
+
+
 func test_panel_failure_reports_explain_known_causes_and_preserve_diagnostics() -> void:
 	var panel: GFScenePlacementPanel = GFScenePlacementPanel.new()
 	add_child_autofree(panel)

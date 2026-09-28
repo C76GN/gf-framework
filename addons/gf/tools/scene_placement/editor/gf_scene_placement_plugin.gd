@@ -39,6 +39,42 @@ var _scene_ref: WeakRef = null
 ## [br]
 var _options: Dictionary = {}
 
+## 本次会话开始时选定的源场景。
+## [br]
+## @api private
+## [br]
+var _source: PackedScene = null
+
+## 本次会话开始时选定的父节点弱引用。
+## [br]
+## @api private
+## [br]
+var _parent_ref: WeakRef = null
+
+## 本次会话是否在确认后继续拾取。
+## [br]
+## @api private
+## [br]
+var _continuous: bool = false
+
+## 本次会话固定的碰撞查询掩码。
+## [br]
+## @api private
+## [br]
+var _collision_mask: int = 0
+
+## 本次会话固定的线框代理尺寸。
+## [br]
+## @api private
+## [br]
+var _proxy_size: Vector3 = Vector3.ONE
+
+## 确认及其同步选择回调期间拒绝嵌套确认。
+## [br]
+## @api private
+## [br]
+var _confirming: bool = false
+
 ## 最近一次摆放操作报告。
 ## [br]
 ## @api private
@@ -198,14 +234,20 @@ func process_pointer(camera: Camera3D, event: InputEvent) -> int:
 ## [br]
 ## @since unreleased
 func cancel_placement() -> void:
-	if _operation != null:
-		_operation.cancel()
+	var operation: GFScenePlacementOperation = _operation
 	_operation = null
 	_scene_ref = null
 	_options.clear()
+	_source = null
+	_parent_ref = null
+	_continuous = false
+	_collision_mask = 0
+	_proxy_size = Vector3.ONE
 	_clear_preview()
 	if is_instance_valid(_panel):
 		_panel.show_status("预览已停止。修改参数后可重新开始。")
+	if operation != null:
+		operation.cancel()
 
 
 ## 获取不含引擎对象的当前交互摘要。
@@ -247,7 +289,7 @@ func _update_pointer(camera: Camera3D, position: Vector2) -> void:
 		if distance_value is float:
 			distance = distance_value
 		var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
-			origin, origin + direction * distance, _panel.get_collision_mask()
+			origin, origin + direction * distance, _collision_mask
 		)
 		query.collide_with_areas = false
 		if world != null and world.direct_space_state != null:
@@ -267,13 +309,21 @@ func _update_pointer(camera: Camera3D, position: Vector2) -> void:
 	_panel.show_status("左键 / Enter 确认；Esc / 右键取消。")
 
 
-## 提交捕获的操作后复核活动操作身份和面板存活状态；成功选择创建节点，失败显示报告，随后结束该次预览。
+## 拒绝确认栈内的嵌套确认；取消和开始仍可替换当前操作，由提交路径复核身份。
 ## [br]
 ## @api private
 func _confirm_placement() -> void:
-	if _operation == null or not _operation.can_apply():
+	if _confirming or _operation == null or not _operation.can_apply():
 		return
-	var operation: GFScenePlacementOperation = _operation
+	_confirming = true
+	_apply_placement(_operation)
+	_confirming = false
+
+
+## 成功提交后在每个编辑器选择回调边界复核身份；连续模式只从会话快照开启全新单次操作。
+## [br]
+## @api private
+func _apply_placement(operation: GFScenePlacementOperation) -> void:
 	var report: Dictionary = operation.apply()
 	if _operation != operation or not is_instance_valid(_panel):
 		return
@@ -284,15 +334,73 @@ func _confirm_placement() -> void:
 		cancel_placement()
 		_panel.show_placement_failure(_last_report)
 		return
+	_clear_preview()
 	var node_value: Variant = _last_report.get("node")
-	if node_value is Node3D and is_instance_valid(node_value):
+	if not _can_finish_confirmation(operation, node_value):
+		return
+	if node_value is Node3D:
 		var node: Node3D = node_value
 		var selection: EditorSelection = EditorInterface.get_selection()
 		selection.clear()
+		if not _can_finish_confirmation(operation, node_value):
+			return
 		selection.add_node(node)
+		if not _can_finish_confirmation(operation, node_value):
+			return
 		EditorInterface.edit_node(node)
+		if not _can_finish_confirmation(operation, node_value):
+			return
+	if _continuous:
+		if _begin_operation():
+			_panel.show_status("已摆放一个实例。移动指针或点击下一位置继续；Esc / 右键结束。每次摆放可独立撤销。")
+		return
 	cancel_placement()
 	_panel.show_status("已摆放一个实例。使用编辑器 Undo / Redo 撤销或重做。")
+
+
+## 旧提交不得影响已替换的操作；原操作的场景、父节点、面板或创建节点失效时停止会话。
+## [br]
+## @api private
+func _can_finish_confirmation(operation: GFScenePlacementOperation, node_value: Variant) -> bool:
+	if _operation != operation:
+		return false
+	if (not is_inside_tree() or is_queued_for_deletion() or not is_instance_valid(_panel)
+		or not _panel.is_visible_in_tree() or _panel.is_queued_for_deletion()
+		or _get_scene_root() != EditorInterface.get_edited_scene_root() or not operation.is_destination_valid()
+		or not is_instance_valid(node_value) or not node_value is Node3D
+	):
+		cancel_placement()
+		return false
+	var node: Node3D = node_value
+	if node.is_queued_for_deletion() or not node.is_inside_tree():
+		cancel_placement()
+		return false
+	return true
+
+
+## 使用开始时捕获的来源、目标和选项创建单次操作，不继承上一次命中或 READY 状态。
+## [br]
+## @api private
+func _begin_operation() -> bool:
+	var parent: Node3D = null
+	if _parent_ref != null:
+		var parent_value: Variant = _parent_ref.get_ref()
+		if parent_value is Node3D:
+			parent = parent_value
+	var operation: GFScenePlacementOperation = GFScenePlacementOperation.new()
+	var error: Error = operation.configure(_source, parent, _get_scene_root(), _options)
+	if error != OK:
+		cancel_placement()
+		_last_report = { "ok": false, "error_code": error }
+		_panel.show_status("无法开始：请选择 3D 场景及当前场景中的有效父节点，并检查参数。")
+		return false
+	var context: GFEditorToolContext = GFEditorToolContext.from_plugin(self)
+	if not operation.begin(context):
+		cancel_placement()
+		_panel.show_status("无法开始拾取。")
+		return false
+	_operation = operation
+	return true
 
 
 ## 按面板声明的代理尺寸懒建线框 RenderingServer 实例；只更新其场景与变换，不实例化源 PackedScene。
@@ -306,7 +414,7 @@ func _draw_preview(camera: Camera3D, transform: Transform3D) -> void:
 		material.albedo_color = Color(0.2, 0.8, 1.0)
 		material.no_depth_test = true
 		_preview_mesh.surface_begin(Mesh.PRIMITIVE_LINES, material)
-		var bounds: AABB = AABB(-_panel.get_proxy_size() * 0.5, _panel.get_proxy_size())
+		var bounds: AABB = AABB(-_proxy_size * 0.5, _proxy_size)
 		for axis: int in range(3):
 			for corner: int in range(8):
 				var paired: int = corner ^ (1 << axis)
@@ -345,27 +453,26 @@ func _get_scene_root() -> Node:
 
 # --- 信号处理函数 ---
 
-## 取消旧操作，以面板当前选项创建新操作；配置和 begin 都成功后才发布活动操作与场景弱引用。
+## 取消旧操作并捕获面板参数；连续摆放只复用这份会话快照，不从自动选中的实例推导父节点。
 ## [br]
 ## @api private
 func _on_placement_requested() -> void:
+	if (not is_inside_tree() or is_queued_for_deletion() or not is_instance_valid(_panel)
+		or not _panel.is_visible_in_tree() or _panel.is_queued_for_deletion()
+	):
+		return
 	cancel_placement()
 	var scene_root: Node = EditorInterface.get_edited_scene_root()
-	var operation: GFScenePlacementOperation = GFScenePlacementOperation.new()
+	_scene_ref = weakref(scene_root) if is_instance_valid(scene_root) else null
+	_source = _panel.get_source_scene()
+	var parent: Node3D = _panel.get_parent_node()
+	_parent_ref = weakref(parent) if is_instance_valid(parent) else null
 	_options = _panel.get_options()
-	var error: Error = operation.configure(
-		_panel.get_source_scene(), _panel.get_parent_node(), scene_root, _options
-	)
-	if error != OK:
-		_last_report = { "ok": false, "error_code": error }
-		_panel.show_status("无法开始：请选择 3D 场景及当前场景中的有效父节点，并检查参数。")
+	_continuous = _panel.is_continuous_placement_enabled()
+	_collision_mask = _panel.get_collision_mask()
+	_proxy_size = _panel.get_proxy_size()
+	if not _begin_operation():
 		return
-	var context: GFEditorToolContext = GFEditorToolContext.from_plugin(self)
-	if not operation.begin(context):
-		_panel.show_status("无法开始拾取。")
-		return
-	_operation = operation
-	_scene_ref = weakref(scene_root)
 	_last_report.clear()
 	_panel.show_status("移动 3D 视口指针预览；左键确认，Esc / 右键取消。")
 

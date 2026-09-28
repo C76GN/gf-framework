@@ -77,6 +77,12 @@ var _mode: OptionButton = null
 ## [br]
 var _align: CheckBox = null
 
+## 默认关闭的连续摆放选项控件。
+## [br]
+## @api private
+## [br]
+var _continuous: CheckBox = null
+
 ## 按参数名索引的 SpinBox 控件表。
 ## [br]
 ## @api private
@@ -198,6 +204,17 @@ func get_options() -> Dictionary:
 		"surface_offset": _numbers[&"SurfaceOffset"].value,
 		"max_distance": _numbers[&"MaxDistance"].value,
 	}
+
+
+## 获取本次交互是否需要在成功确认后继续拾取。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return 默认 false；此选项不属于单次 Operation 的 options。
+func is_continuous_placement_enabled() -> bool:
+	return _continuous.button_pressed
 
 
 ## 获取用户声明的线框代理尺寸。
@@ -329,6 +346,12 @@ func _build_ui() -> void:
 	note.text = "线框是尺寸代理。确认会实例化所选场景。\n开始后移动 3D 视口指针，左键确认；Esc / 右键取消。"
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_fields.add_child(note)
+	_continuous = CheckBox.new()
+	_continuous.name = "ContinuousPlacement"
+	_continuous.text = "连续摆放"
+	_continuous.tooltip_text = "每次确认后继续拾取；每个实例可独立撤销。Esc / 右键结束。"
+	_fields.add_child(_continuous)
+	var _continuous_connected: int = _continuous.toggled.connect(_on_configuration_changed.unbind(1))
 	_add_button("StartPlacement", "开始摆放", placement_requested.emit)
 	_add_button("CancelPlacement", "取消预览", cancel_requested.emit)
 	_add_button("ClosePlacementPlugin", "关闭摆放工具", close_requested.emit)

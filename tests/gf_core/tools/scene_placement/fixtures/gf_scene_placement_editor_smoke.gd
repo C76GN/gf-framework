@@ -85,6 +85,8 @@ func _startup() -> void:
 	_panel = _placement_plugin.get_panel()
 	if not _require(_panel != null and _panel.is_inside_tree(), "The native placement panel is missing."):
 		return
+	if not _require(not _panel.is_continuous_placement_enabled(), "Placement must remain single-use by default."):
+		return
 	_phase = &"scene_a"
 	EditorInterface.open_scene_from_path(_SCENE_A)
 
@@ -173,7 +175,7 @@ func _begin_native_forward() -> void:
 	_panel.set_source_scene(_load_scene(_ASSET))
 	_panel.set_parent_node(_parent)
 	_set_mode(0)
-	if not _press("StartPlacement"):
+	if not _start_placement():
 		return
 	_native_viewport = EditorInterface.get_editor_viewport_3d(0)
 	if not _require(_native_viewport != null, "The actual editor 3D SubViewport is unavailable."):
@@ -250,7 +252,7 @@ func _begin_pointer_plane() -> void:
 	_set_mode(0)
 	_parent_count = _parent.get_child_count()
 	_mesh_count = _scene.find_children("*", "MeshInstance3D", true, false).size()
-	if not _press("StartPlacement"):
+	if not _start_placement():
 		return
 	_pointer_position = _camera.get_viewport().get_visible_rect().size * 0.5
 	var ray_origin: Vector3 = _camera.project_ray_origin(_pointer_position)
@@ -294,7 +296,7 @@ func _after_cancel() -> void:
 		return
 	_panel.set_source_scene(_load_scene(_ASSET))
 	_panel.set_parent_node(_parent)
-	if not _press("StartPlacement"):
+	if not _start_placement():
 		return
 	var move: InputEventMouseMotion = InputEventMouseMotion.new()
 	move.position = _pointer_position
@@ -305,22 +307,206 @@ func _after_cancel() -> void:
 	var created: Node3D = _last_placed_child()
 	if not _require(created != null and created.global_position.is_equal_approx(_pointer_world), "Pointer confirmation did not use the camera-derived world hit."):
 		return
+	if not _require(not _bool(_placement_plugin.get_snapshot(), "active") and not _bool(_placement_plugin.get_snapshot(), "preview_visible"), "Default single placement retained an active preview."):
+		return
+	var late_click: int = _placement_plugin.process_pointer(_camera, _left_click())
+	if not _require(late_click == EditorPlugin.AFTER_GUI_INPUT_PASS and _parent.get_child_count() == _parent_count + 1, "Default single placement accepted another click without restarting."):
+		return
 	if not _require(_history.undo() and _parent.get_child_count() == _parent_count, "Pointer-created action was not routed to the current scene native history."):
 		return
 	_results["native_pointer_plane_cancel_and_confirm"] = true
+	if not _check_continuous_placement():
+		return
+	if not _check_continuous_invalidation():
+		return
+	if not _check_continuous_creation_cancellation():
+		return
+	if not _check_continuous_inspector_reentry(false):
+		return
+	if not _check_continuous_inspector_reentry(true):
+		return
+	_results["continuous_confirmation_reentry"] = true
 	_panel.set_source_scene(_load_scene(_ASSET))
 	_panel.set_parent_node(_parent)
 	_set_mode(1)
-	if not _press("StartPlacement"):
+	if not _start_placement():
 		return
 	_phase = &"surface_wait"
 	_frames = 0
 
 
+func _check_continuous_placement() -> bool:
+	if not _set_continuous(true) or not _start_placement():
+		return false
+	var children_before: int = _parent.get_child_count()
+	if not _move_pointer(_pointer_position):
+		return false
+	var first_confirm: int = _placement_plugin.process_pointer(_camera, _key_press(KEY_ENTER))
+	var first: Node3D = _last_placed_child()
+	if not _require(first_confirm != EditorPlugin.AFTER_GUI_INPUT_PASS and first != null and _parent.get_child_count() == children_before + 1, "Continuous Enter did not create exactly one first instance."):
+		return false
+	var first_id: int = first.get_instance_id()
+	var first_world: Transform3D = first.global_transform
+	if not _require_continuous_pending():
+		return false
+	var version_after_first: int = _history.get_version()
+	var _repeated_enter: int = _placement_plugin.process_pointer(_camera, _key_press(KEY_ENTER))
+	if not _require(_parent.get_child_count() == children_before + 1 and _history.get_version() == version_after_first, "Repeated Enter reused the previous placement hit."):
+		return false
+	if not _move_pointer(_pointer_position + Vector2(24.0, 0.0)):
+		return false
+	var second_confirm: int = _placement_plugin.process_pointer(_camera, _key_press(KEY_ENTER))
+	var second: Node3D = _last_placed_child()
+	if not _require(second_confirm != EditorPlugin.AFTER_GUI_INPUT_PASS and second != null and second != first and _parent.get_child_count() == children_before + 2, "Continuous mode did not create a distinct second instance under the original parent."):
+		return false
+	var second_id: int = second.get_instance_id()
+	var second_world: Transform3D = second.global_transform
+	if not _require(not first_world.origin.is_equal_approx(second_world.origin) and _panel.get_parent_node() == _parent, "The second hit or captured placement parent changed unexpectedly."):
+		return false
+	if not _require_continuous_pending() or not _move_pointer(_pointer_position):
+		return false
+	var history_before_cancel: int = _history.get_version()
+	var _escape_consumed: int = _placement_plugin.process_pointer(_camera, _key_press(KEY_ESCAPE))
+	if not _require_inactive("Escape"):
+		return false
+	var late_click: int = _placement_plugin.process_pointer(_camera, _left_click())
+	if not _require(late_click == EditorPlugin.AFTER_GUI_INPUT_PASS and _parent.get_child_count() == children_before + 2 and _history.get_version() == history_before_cancel, "Escape or a late click changed already confirmed continuous instances."):
+		return false
+	if not _require(_history.undo() and second.get_parent() == null and first.get_parent() == _parent and _parent.get_child_count() == children_before + 1, "First undo did not remove only the second continuous instance."):
+		return false
+	if not _require(_history.undo() and first.get_parent() == null and _parent.get_child_count() == children_before, "Second undo did not remove only the first continuous instance."):
+		return false
+	if not _require(_history.redo() and first.get_instance_id() == first_id and first.get_parent() == _parent and second.get_parent() == null, "First redo did not reattach the same first continuous instance."):
+		return false
+	if not _require(_history.redo() and second.get_instance_id() == second_id and second.get_parent() == _parent and _parent.get_child_count() == children_before + 2, "Second redo did not reattach the same second continuous instance."):
+		return false
+	if not _require(first.owner == _scene and second.owner == _scene and first.global_transform.is_equal_approx(first_world) and second.global_transform.is_equal_approx(second_world), "Continuous history replay lost scene owners or captured world transforms."):
+		return false
+	if not _require(_history.undo() and _history.undo() and _parent.get_child_count() == children_before, "Could not restore the fixture after continuous history checks."):
+		return false
+	_results["continuous_independent_undo_redo_and_cancel"] = true
+	return true
+
+
+func _check_continuous_invalidation() -> bool:
+	if not _start_placement() or not _move_pointer(_pointer_position):
+		return false
+	var children_before: int = _parent.get_child_count()
+	var history_before: int = _history.get_version()
+	if not _set_continuous(false) or not _require_inactive("Configuration change"):
+		return false
+	var late_click: int = _placement_plugin.process_pointer(_camera, _left_click())
+	if not _require(late_click == EditorPlugin.AFTER_GUI_INPUT_PASS and _parent.get_child_count() == children_before and _history.get_version() == history_before, "A configuration change left an armed continuous pointer or changed history."):
+		return false
+	if not _set_continuous(true):
+		return false
+	var temporary_parent: Node3D = Node3D.new()
+	temporary_parent.name = "ContinuousInvalidationParent"
+	_scene.add_child(temporary_parent)
+	temporary_parent.owner = _scene
+	_panel.set_parent_node(temporary_parent)
+	var began: bool = _start_placement() and _move_pointer(_pointer_position)
+	_scene.remove_child(temporary_parent)
+	var invalid_click: int = _placement_plugin.process_pointer(_camera, _left_click())
+	var unchanged: bool = temporary_parent.get_child_count() == 0 and _history.get_version() == history_before
+	_panel.set_parent_node(_parent)
+	temporary_parent.free()
+	if not began or not _require(invalid_click == EditorPlugin.AFTER_GUI_INPUT_PASS and unchanged, "An invalidated parent accepted another continuous placement."):
+		return false
+	if not _require_inactive("Parent invalidation"):
+		return false
+	if not _start_placement() or not _move_pointer(_pointer_position):
+		return false
+	_panel.hide()
+	var hidden_start_requested: bool = _press("StartPlacement")
+	var hidden_snapshot: Dictionary = _placement_plugin.get_snapshot()
+	_panel.show()
+	if not _require(hidden_start_requested and not _bool(hidden_snapshot, "active") and not _bool(hidden_snapshot, "preview_visible"), "A hidden panel accepted Start and revived its cancelled continuous session."):
+		return false
+	_results["continuous_configuration_and_parent_invalidation"] = true
+	return true
+
+
+func _check_continuous_creation_cancellation() -> bool:
+	if not _start_placement():
+		return false
+	var children_before: int = _parent.get_child_count()
+	var history_before: int = _history.get_version()
+	var observed: Array[bool] = [false]
+	var cancel_creation: Callable = func(_child: Node) -> void:
+		observed[0] = true
+		_placement_plugin.cancel_placement()
+	var connected: int = _parent.child_entered_tree.connect(cancel_creation)
+	if not _require(connected == OK, "Could not connect synchronous continuous creation cancellation."):
+		return false
+	var _confirm_consumed: int = _placement_plugin.process_pointer(_camera, _left_click())
+	_parent.child_entered_tree.disconnect(cancel_creation)
+	if not _require(observed[0] and _parent.get_child_count() == children_before and _history.get_version() == history_before, "Cancellation during creation left an instance or history entry."):
+		return false
+	return _require_inactive("Synchronous creation cancellation")
+
+
+func _check_continuous_inspector_reentry(replace_session: bool) -> bool:
+	if not _start_placement():
+		return false
+	var children_before: int = _parent.get_child_count()
+	var inspector: EditorInspector = EditorInterface.get_inspector()
+	var observed: Dictionary = { "entered": false, "replacement_ready": false }
+	var on_edited_object_changed: Callable = func() -> void:
+		if _bool(observed, "entered"):
+			return
+		var edited: Object = inspector.get_edited_object()
+		if not edited is Node3D:
+			return
+		var edited_node: Node3D = edited
+		if edited_node.get_parent() != _parent or _parent.get_child_count() != children_before + 1:
+			return
+		observed["entered"] = true
+		_placement_plugin.cancel_placement()
+		if replace_session:
+			observed["replacement_ready"] = _start_placement() and _move_pointer(_pointer_position + Vector2(12.0, 0.0))
+			var _nested_confirm: int = _placement_plugin.process_pointer(_camera, _key_press(KEY_ENTER))
+	var connected: int = inspector.edited_object_changed.connect(on_edited_object_changed)
+	if not _require(connected == OK, "Could not connect native Inspector confirmation reentry."):
+		return false
+	var _confirmed: int = _placement_plugin.process_pointer(_camera, _left_click())
+	inspector.edited_object_changed.disconnect(on_edited_object_changed)
+	if not _require(_bool(observed, "entered") and _parent.get_child_count() == children_before + 1, "Confirmation did not synchronously enter the real Inspector callback after committing one instance."):
+		return false
+	if replace_session:
+		var snapshot: Dictionary = _placement_plugin.get_snapshot()
+		if not _require(_bool(observed, "replacement_ready") and _bool(snapshot, "active") and _bool(snapshot, "preview_visible") and _int(snapshot, "state") == GFEditorPickOperation.State.READY, "The old confirmation replaced or cancelled the Inspector callback's newly armed session."):
+			return false
+		_placement_plugin.cancel_placement()
+	else:
+		if not _require_inactive("Inspector callback cancellation"):
+			return false
+	if not _require(_history.undo() and _parent.get_child_count() == children_before, "Inspector callback cancellation changed the committed instance's undo history."):
+		return false
+	return true
+
+
+func _require_continuous_pending() -> bool:
+	var snapshot: Dictionary = _placement_plugin.get_snapshot()
+	return _require(_bool(snapshot, "active") and not _bool(snapshot, "preview_visible") and _int(snapshot, "state") == GFEditorPickOperation.State.PICKING, "Continuous confirmation must await a fresh hit without reusing the old preview.")
+
+
+func _require_inactive(reason: String) -> bool:
+	var snapshot: Dictionary = _placement_plugin.get_snapshot()
+	return _require(not _bool(snapshot, "active") and not _bool(snapshot, "preview_visible"), reason + " retained an active operation or preview.")
+
+
+func _move_pointer(position: Vector2) -> bool:
+	var motion: InputEventMouseMotion = InputEventMouseMotion.new()
+	motion.position = position
+	var consumed: int = _placement_plugin.process_pointer(_camera, motion)
+	return _require(consumed != EditorPlugin.AFTER_GUI_INPUT_PASS and _bool(_placement_plugin.get_snapshot(), "preview_visible"), "Fresh native pointer motion did not produce a placement preview.")
+
+
 func _check_confirmation_failure_feedback() -> bool:
 	_panel.set_source_scene(_load_scene(_ASSET))
 	_panel.set_parent_node(_parent)
-	if not _press("StartPlacement"):
+	if not _start_placement():
 		return false
 	var history_version: int = _history.get_version()
 	var children_before: int = _parent.get_child_count()
@@ -375,9 +561,11 @@ func _surface_pointer() -> void:
 	_set_mode(0)
 	_panel.set_source_scene(_load_scene(_SCRIPTED_ASSET))
 	_panel.set_parent_node(_parent)
-	if not _press("StartPlacement"):
+	if not _start_placement():
 		return
 	var _preview_consumed: int = _placement_plugin.process_pointer(_camera, move)
+	if not _require(_panel.is_continuous_placement_enabled() and _bool(_placement_plugin.get_snapshot(), "active"), "Scene switching must interrupt an active continuous session."):
+		return
 	_phase = &"scene_b"
 	EditorInterface.open_scene_from_path(_SCENE_B)
 
@@ -416,6 +604,10 @@ func _return_scene_a() -> void:
 	if root == null or root.scene_file_path != _SCENE_A:
 		return
 	_phase = &"running"
+	_panel.set_source_scene(_load_scene(_SCRIPTED_ASSET))
+	_panel.set_parent_node(_parent)
+	if not _set_continuous(true) or not _start_placement() or not _move_pointer(_pointer_position):
+		return
 	_plugin_ref = weakref(_placement_plugin)
 	_panel_ref = weakref(_panel)
 	if not _press("ClosePlacementPlugin"):
@@ -429,6 +621,8 @@ func _return_scene_a() -> void:
 func _after_unload() -> void:
 	_phase = &"running"
 	if not _require(_plugin_ref.get_ref() == null and _panel_ref.get_ref() == null, "Plugin disable did not release the plugin and panel."):
+		return
+	if not _require(_canary_count() == 0, "Unloading an active continuous preview instantiated its scripted source."):
 		return
 	if not _require(_history.redo(), "History could not replay after the placement plugin was unloaded."):
 		return
@@ -695,6 +889,33 @@ func _set_mode(index: int) -> void:
 		picker.item_selected.emit(index)
 
 
+func _set_continuous(enabled: bool) -> bool:
+	var control: Node = _panel.find_child("ContinuousPlacement", true, false)
+	if not _require(control is CheckBox, "The continuous placement checkbox is missing."):
+		return false
+	if control is CheckBox:
+		var checkbox: CheckBox = control
+		checkbox.button_pressed = enabled
+	return _require(_panel.is_continuous_placement_enabled() == enabled, "The continuous placement getter disagrees with the native checkbox.")
+
+
+func _start_placement() -> bool:
+	var branch: Node = _panel
+	var ancestor: Node = branch.get_parent()
+	while ancestor != null:
+		if ancestor is TabContainer and branch is Control:
+			var tabs: TabContainer = ancestor
+			var tab_control: Control = branch
+			var index: int = tabs.get_tab_idx_from_control(tab_control)
+			if index >= 0:
+				tabs.current_tab = index
+		branch = ancestor
+		ancestor = ancestor.get_parent()
+	if not _require(_panel.is_visible_in_tree(), "The placement dock could not be selected."):
+		return false
+	return _press("StartPlacement")
+
+
 func _press(name_value: String) -> bool:
 	var node: Node = _panel.find_child(name_value, true, false)
 	var _valid: bool = _require(node is Button, "Missing placement control: " + name_value)
@@ -711,6 +932,13 @@ func _left_click() -> InputEventMouseButton:
 	var event: InputEventMouseButton = InputEventMouseButton.new()
 	event.position = _pointer_position
 	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = true
+	return event
+
+
+func _key_press(keycode: Key) -> InputEventKey:
+	var event: InputEventKey = InputEventKey.new()
+	event.keycode = keycode
 	event.pressed = true
 	return event
 
