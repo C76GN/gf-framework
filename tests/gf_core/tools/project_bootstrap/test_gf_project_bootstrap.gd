@@ -153,8 +153,17 @@ func test_package_has_only_kernel_dependency_and_editor_contribution() -> void:
 		var manifest: Dictionary = manifest_value
 		var schema_version: float = manifest["schema_version"]
 		var package_id: String = manifest["package_id"]
-		assert_eq(schema_version, 4.0)
+		assert_eq(schema_version, 5.0)
 		assert_eq(package_id, "gf.tool.project_bootstrap")
+		var tasks: Array = manifest["task_records"]
+		assert_eq(tasks.size(), 1)
+		var task: Dictionary = tasks[0]
+		var source_id: String = task["source_id"]
+		var action_id: String = task["action_id"]
+		var page_path: String = task["page_path"]
+		assert_eq(source_id, "project_bootstrap.task.create")
+		assert_eq(action_id, "new_project")
+		assert_eq(page_path, "res://addons/gf/tools/project_bootstrap/editor/gf_project_bootstrap_dock.gd")
 
 
 func test_template_substitution_never_reinterprets_tokens_in_user_values() -> void:

@@ -522,17 +522,24 @@ func _get_vector(key: StringName) -> Vector3:
 	return result
 
 
-# --- 信号处理函数 ---
-
+## 为原生拖放转发检查单个 PackedScene 路径，不加载或实例化场景。
+## [br]
+## @api private
 func _can_drop_scene(_position: Vector2, data: Variant) -> bool:
 	var paths: PackedStringArray = get_drag_resource_paths(data)
 	return paths.size() == 1 and not paths[0].contains("..") and ResourceLoader.exists(paths[0], "PackedScene")
 
 
+## 接收通过原生拖放转发交付的场景，仅更新摆放源。
+## [br]
+## @api private
 func _drop_scene(_position: Vector2, data: Variant) -> void:
 	var report: Dictionary = receive_resource_paths(get_drag_resource_paths(data))
 	if report.get("ok") != true:
 		show_status("无法接收场景：%s" % str(report.get("status")))
+
+
+# --- 信号处理函数 ---
 
 ## 打开已有场景选择对话框，不加载或实例化当前选择。
 ## [br]

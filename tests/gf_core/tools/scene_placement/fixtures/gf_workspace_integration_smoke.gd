@@ -15,6 +15,8 @@ const _HOME: String = "res://addons/gf/kernel/editor/workspace/gf_workspace_home
 const _ASSETS: String = "res://addons/gf/tools/asset_browser/editor/gf_asset_browser_dock.gd"
 const _PLACEMENT: String = "res://addons/gf/tools/scene_placement/editor/gf_scene_placement_launcher.gd"
 const _TWEEN: String = "res://addons/gf/extensions/action_queue/editor/gf_tween_authoring_dock.gd"
+const _CONFIG: String = "res://addons/gf/tools/config_pipeline/editor/gf_config_workbench_dock.gd"
+const _BOOTSTRAP: String = "res://addons/gf/tools/project_bootstrap/editor/gf_project_bootstrap_dock.gd"
 const _ACTION: String = "gf.tool.scene_placement:scene_placement.action.select_scene"
 
 
@@ -70,7 +72,7 @@ func _run_cases(plugin: EditorPlugin, placement: GFScenePlacementPlugin, scene_p
 	await plugin.get_tree().process_frame
 	await plugin.get_tree().process_frame
 	var home: Control = _find_page(workspace, _HOME)
-	if not _check(home != null and _find_page(workspace, _ASSETS) == null and _find_page(workspace, _PLACEMENT) == null and _find_page(workspace, _TWEEN) == null, "Showing Home eagerly instantiated an unrelated tool page."):
+	if not _check(home != null and _find_page(workspace, _ASSETS) == null and _find_page(workspace, _PLACEMENT) == null and _find_page(workspace, _TWEEN) == null and _find_page(workspace, _CONFIG) == null and _find_page(workspace, _BOOTSTRAP) == null, "Showing Home eagerly instantiated an unrelated tool page."):
 		return
 	var search: Node = home.find_child("TaskSearch", true, false)
 	if not _check(search is LineEdit and home.get_window() == window and home.is_visible_in_tree() and home.size.x > 200.0 and home.get_theme_default_font() != null, "The actual Workspace Home GUI/theme is not usable in its native Window."):
@@ -151,6 +153,8 @@ func _run_cases(plugin: EditorPlugin, placement: GFScenePlacementPlugin, scene_p
 	if not _check(old_asset.get_ref() == null and str(workspace.call("get_selected_page_id")) == selected_id, "Contribution refresh retained an old asset page or lost its stable page ID."):
 		return
 	context = _context()
+	if not _check_onboarding_tasks(context, workspace):
+		return
 	var tween_task: Dictionary = _find_task(context.get_workspace_tasks(), _TWEEN, "new_resource")
 	if not _check(not tween_task.is_empty(), "The enabled Tween extension did not publish its new-resource task."):
 		return
@@ -173,6 +177,28 @@ func _run_cases(plugin: EditorPlugin, placement: GFScenePlacementPlugin, scene_p
 	if not _check(window_ref.get_ref() == null and workspace_ref.get_ref() == null and dialog_ref.get_ref() == null and context.get_workspace_tasks().is_empty(), "Workspace cleanup left windows/pages/dialogs or a live routing context."):
 		return
 	_report["workspace_context_and_window_lifecycle"] = true
+
+
+func _check_onboarding_tasks(context: GFEditorToolContext, workspace: Control) -> bool:
+	var tasks: Array[Dictionary] = context.get_workspace_tasks()
+	var config_task: Dictionary = _find_task(tasks, _CONFIG)
+	var bootstrap_task: Dictionary = _find_task(tasks, _BOOTSTRAP, "new_project")
+	if not _check(not config_task.is_empty() and not bootstrap_task.is_empty(), "Configuration and minimal-project tasks must be contributed by their own tools."):
+		return false
+	var root_files: PackedStringArray = DirAccess.get_files_at("res://")
+	var settings_digest: String = FileAccess.get_sha256("res://project.godot")
+	var config_report: Dictionary = context.request_workspace_task(str(config_task.get("source_id")))
+	var config_page: Control = _find_page(workspace, _CONFIG)
+	if not _check(GFVariantData.get_option_bool(config_report, "ok") and config_page != null and config_page.is_visible_in_tree() and config_page.find_child("NewProfile", true, false) is Button, "The configuration task did not open the real workbench with its first-use action."):
+		return false
+	var bootstrap_report: Dictionary = context.request_workspace_task(str(bootstrap_task.get("source_id")))
+	var bootstrap_page: Control = _find_page(workspace, _BOOTSTRAP)
+	if not _check(GFVariantData.get_option_bool(bootstrap_report, "ok") and bootstrap_page != null and bootstrap_page.is_visible_in_tree() and bootstrap_page.find_child("OutputDirectory", true, false) is LineEdit, "The minimal-project task did not open the real wizard."):
+		return false
+	if not _check(DirAccess.get_files_at("res://") == root_files and FileAccess.get_sha256("res://project.godot") == settings_digest and not DirAccess.dir_exists_absolute("res://game/bootstrap") and not DirAccess.dir_exists_absolute("res://config"), "Opening onboarding tasks created default project files or saved project settings."):
+		return false
+	_report["workspace_onboarding_tasks"] = true
+	return true
 
 
 func _setup(plugin: EditorPlugin) -> void:

@@ -156,6 +156,7 @@ def run_phase(name: str, command: list[str], project: Path, environment: dict[st
 				"workspace_resource_action_handoff",
 				"workspace_native_ui",
 				"workspace_tween_task_dialog",
+				"workspace_onboarding_tasks",
 				"workspace_context_and_window_lifecycle",
 				"native_undo_redo_anchor_parent_transform_save_reload",
 				"native_gui_forwarded",

@@ -153,6 +153,10 @@ func test_builtin_authoring_records_route_to_their_own_contributed_pages() -> vo
 	var tasks: Array = records.get("task_records", [])
 	var actions: Array = records.get("resource_action_records", [])
 	assert_true(tasks.any(func(record: Dictionary) -> bool: return record.get("source_id") == "gf.tool.asset_browser:asset_browser.task.browse"))
+	assert_true(tasks.any(func(record: Dictionary) -> bool: return record.get("source_id") == "gf.tool.config_pipeline:config_pipeline.task.export"))
+	assert_true(tasks.any(func(record: Dictionary) -> bool:
+		return record.get("source_id") == "gf.tool.project_bootstrap:project_bootstrap.task.create" and record.get("action_id") == "new_project"
+	))
 	assert_true(actions.any(func(record: Dictionary) -> bool:
 		return record.get("source_id") == "gf.tool.scene_placement:scene_placement.action.select_scene" and record.get("resource_types") == ["PackedScene"] and record.get("max_selection") == 1
 	))

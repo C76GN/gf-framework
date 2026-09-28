@@ -44,9 +44,11 @@ const VIRTUAL_SECTION_MARKERS: Array[String] = [
 	"virtual",
 ]
 const GODOT_CALLBACK_NAMES: Dictionary = {
+	"_can_drop_data": true,
 	"_can_handle": true,
 	"_capture": true,
 	"_draw": true,
+	"_drop_data": true,
 	"_enter_tree": true,
 	"_export_begin": true,
 	"_export_end": true,
@@ -56,6 +58,7 @@ const GODOT_CALLBACK_NAMES: Dictionary = {
 	"_generate": true,
 	"_get": true,
 	"_get_configuration_warnings": true,
+	"_get_drag_data": true,
 	"_get_name": true,
 	"_get_plugin_name": true,
 	"_get_property_list": true,
@@ -196,7 +199,7 @@ func test_framework_internal_type_section_is_not_treated_as_inner_class() -> voi
 
 
 func test_editor_plugin_native_callbacks_use_callback_sections() -> void:
-	for method_name: String in ["_forward_3d_gui_input", "_get_plugin_name", "_make_custom_tooltip", "_handles", "_generate", "_set_read_only", "_update_property"]:
+	for method_name: String in ["_forward_3d_gui_input", "_get_plugin_name", "_make_custom_tooltip", "_handles", "_generate", "_set_read_only", "_update_property", "_get_drag_data", "_can_drop_data", "_drop_data"]:
 		assert_true(
 			_underscore_method_section_is_valid(method_name, "Godot 回调方法"),
 			"EditorPlugin 原生虚回调应保留 Godot 回调 section：" + method_name,

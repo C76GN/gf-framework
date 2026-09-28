@@ -19,6 +19,8 @@ python tests/gf_core/tools/scene_placement/run_editor_smoke.py --rendered --keep
 
 独立的 `gf_workspace_integration_smoke.gd` 夹具随后安装真实 Workspace 宿主，读取 Standard 与根工具贡献目录的纯数据记录，注入当前 `EditorPlugin` 和原生撤销管理器。它验证任务查询不创建窗口或工具页面、首页任务按钮打开资源页、原生资源菜单将 PackedScene 交给摆放工具但不创建节点或写入 Undo、材质选择的禁用原因，以及窗口隐藏重开、贡献刷新后的旧上下文撤销和弱引用清理。仅在隔离工程内显式启用 Action Queue；Tween 创建任务只打开原生对话框，取消前不写项目资源。
 
+同一宿主还要求配置工作台和最小项目向导的任务能打开真实页面及其首个操作入口，单纯打开页面不保存项目设置、不创建默认项目文件。各工具的独立原生验收继续覆盖实际导出、创建和失败恢复。
+
 渲染模式另存真实 Workspace Window 的 `workspace_home.png` 与 `workspace_assets.png`，检查窗口归属、可见控件结构和字体主题；不使用叠加容器替代宿主截图。任务按钮和菜单入口通过真实控件信号驱动，这些证据不等同于操作系统鼠标或键盘事件。运行器要求全部 Workspace 观察项与有界 PNG 都存在后才报告成功。
 
 入口监督所有 Godot 子进程，要求进程边界静默、独立日志和结构化断言结果一致，并拒绝错误、警告、输出截断与源文件摘要变化。无界面入口以 `scene_placement_editor_smoke` 登记到 `framework-integration`，随 Ready/main 的 Full 等价检查与 release 检查执行；Draft、纯静态检查和 GUT 分片不启动此原生编辑器测试。带渲染的截图检查仍按需运行。普通 GUT 不直接实例化编辑器拥有的插件。

@@ -519,6 +519,14 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 			python_script("tests/gf_core/tools/scene_placement/run_editor_smoke.py", "--keep-logs"),
 		),
 		subprocess_action(
+			"config_workbench_editor_smoke",
+			python_script("tests/gf_core/tools/config_pipeline/run_editor_smoke.py"),
+		),
+		subprocess_action(
+			"project_bootstrap_editor_smoke",
+			python_script("tests/gf_core/tools/project_bootstrap/run_editor_smoke.py", "--keep-logs"),
+		),
+		subprocess_action(
 			"ai_developer_kit_source",
 			python_script(
 				"tools/build_gf_ai_developer_kit.py",
@@ -854,6 +862,9 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		# run. A measured Windows run takes about 5.5 minutes, so retain a bounded
 		# 15-minute outer budget while each supervised Godot phase stays capped.
 		("ai_developer_adapter_acceptance", 900),
+		# Five owned editor/runtime phases, each capped at 180 seconds, plus
+		# bounded source capture, process cleanup and report publication.
+		("project_bootstrap_editor_smoke", 1200),
 	)
 
 	dependencies: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -929,6 +940,8 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		"ai_developer_adapter_acceptance",
 		"core_plugin_bootstrap_smoke",
 		"scene_placement_editor_smoke",
+		"config_workbench_editor_smoke",
+		"project_bootstrap_editor_smoke",
 	)
 	framework_static_checks = (
 		"api",

@@ -6154,6 +6154,19 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		== ["scene_placement_editor_smoke"],
 		"Native editor acceptance must run once through its headless isolated runner in integration/full/release, retaining logs for outer session hygiene without a root-workspace import or a static/Draft owner.",
 	)
+	for native_check, runner in (
+		("config_workbench_editor_smoke", "tests/gf_core/tools/config_pipeline/run_editor_smoke.py"),
+		("project_bootstrap_editor_smoke", "tests/gf_core/tools/project_bootstrap/run_editor_smoke.py"),
+	):
+		record_result(
+			native_check + "_has_one_headless_integration_owner",
+			all(CHECK_SUITES[suite].count(native_check) == 1 for suite in ("framework-integration", "framework", "full", "release"))
+			and all(native_check not in CHECK_SUITES[suite] for suite in ("quick", "api", "docs", "framework-static", "framework-gut", "framework-lsp"))
+			and CHECK_DEFINITIONS.get(native_check) == [sys.executable, runner, *(["--keep-logs"] if native_check == "project_bootstrap_editor_smoke" else [])]
+			and _VALIDATION_CATALOG.executor_kind(native_check).value == "subprocess"
+			and maintenance_check_graph().expand([native_check]) == [native_check],
+			"Authoring acceptance owns an isolated editor project and retained evidence without adding Godot to Draft or static checks.",
+		)
 	record_result(
 		"repository_policy_is_a_quick_and_full_gate",
 		"repository_policy" in CHECK_SUITES["quick"]
@@ -6607,7 +6620,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"framework-gut": "60",
 			"framework-lsp": "15",
 			"framework-static": "20",
-			"framework-integration": "40",
+			"framework-integration": "70",
 		}
 		and manual_full_timeout_value == str(gf_repository_policy.MANUAL_FULL_TIMEOUT_MINUTES)
 		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-gut"] * 60
@@ -6637,7 +6650,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		"generic timeout settings may raise budgets but must not erase measured longer check policies.",
 	)
 	record_result(
-		"scene_placement_smoke_preserves_the_closed_integration_envelope",
+		"authoring_smokes_preserve_the_closed_integration_envelope",
 		resolve_check_timeout_seconds("scene_placement_editor_smoke", None) == 600
 		and resolve_check_timeout_seconds("scene_placement_editor_smoke", 45) == 600
 		and resolve_check_timeout_seconds("scene_placement_editor_smoke", 900) == 900
@@ -6645,12 +6658,15 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			framework_integration_shard,
 			None,
 			validation_catalog=_VALIDATION_CATALOG,
-		) == 2160
-		and ci_framework_integration_timeout_value == "40"
-		and release_shard_timeouts["framework-integration"] == "40"
-		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-integration"] == 40
-		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-integration"] * 60 > 2160,
-		"Integration must preserve the 600-second smoke floor and 2,160-second child envelope inside its exact 40-minute Ready/main and release deadlines.",
+		) == 3960
+		and resolve_check_timeout_seconds("config_workbench_editor_smoke", None) == 600
+		and resolve_check_timeout_seconds("project_bootstrap_editor_smoke", None) == 1200
+		and resolve_check_timeout_seconds("project_bootstrap_editor_smoke", 45) == 1200
+		and ci_framework_integration_timeout_value == "70"
+		and release_shard_timeouts["framework-integration"] == "70"
+		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-integration"] == 70
+		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-integration"] * 60 > 3960,
+		"Integration must preserve each native smoke floor and its 3,960-second child envelope inside exact 70-minute Ready/main and release deadlines.",
 	)
 	record_result(
 		"in_process_checks_enforce_return_time_deadlines",
