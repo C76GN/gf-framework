@@ -691,6 +691,11 @@ PACKAGE_SOURCE_OPTIONAL_REFERENCES = {
 	),
 	(
 		"gf.kernel",
+		"addons/gf/gf_builtin_tool_contributions.json",
+		"addons/gf/tools/project_bootstrap/editor/gf_editor_contributions.json",
+	),
+	(
+		"gf.kernel",
 		"addons/gf/plugin.gd",
 		"addons/gf/standard/editor/gf_editor_contributions.json",
 	),

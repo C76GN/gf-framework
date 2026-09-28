@@ -2,10 +2,10 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "f2120cf4612134c3f859e8185e12374f715e89b1e8caa6af1eef9ba72d376fa0",
+  "source_digest": "a726182c83b2d66a5588c63b7fdac6a79aa2076c5dcbb5ceaa6b923f0d0eb8a1",
   "class_count": 867,
   "autoload_count": 1,
-  "package_count": 59,
+  "package_count": 60,
   "packages": [
     {
       "id": "gf.extension.action_queue",
@@ -555,6 +555,14 @@
         "gf.extension.network"
       ],
       "representative_path": "addons/gf/extensions/network/editor/gf_network_contract_audit.gd"
+    },
+    {
+      "id": "gf.tool.project_bootstrap",
+      "kind": "tool",
+      "dependencies": [
+        "gf.kernel"
+      ],
+      "representative_path": "addons/gf/tools/project_bootstrap/editor/gf_project_bootstrap_dock.gd"
     },
     {
       "id": "gf.tool.project_layout",

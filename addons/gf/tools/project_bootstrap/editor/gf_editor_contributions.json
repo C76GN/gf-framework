@@ -1,0 +1,14 @@
+{
+  "schema_version": 4,
+  "package_id": "gf.tool.project_bootstrap",
+  "dock_records": [
+    {
+      "owner_package_id": "gf.tool.project_bootstrap",
+      "source_id": "project_bootstrap.dock.bootstrap",
+      "path": "res://addons/gf/tools/project_bootstrap/editor/gf_project_bootstrap_dock.gd",
+      "label": "GF Project Bootstrap",
+      "short_label": "最小项目",
+      "order": 5
+    }
+  ]
+}

@@ -20,6 +20,10 @@
     {
       "package_id": "gf.tool.config_pipeline",
       "manifest_path": "res://addons/gf/tools/config_pipeline/editor/gf_editor_contributions.json"
+    },
+    {
+      "package_id": "gf.tool.project_bootstrap",
+      "manifest_path": "res://addons/gf/tools/project_bootstrap/editor/gf_editor_contributions.json"
     }
   ]
 }
