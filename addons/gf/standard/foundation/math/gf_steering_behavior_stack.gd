@@ -130,6 +130,10 @@ func duplicate_stack() -> Resource:
 
 # --- 私有/辅助方法 ---
 
+## 仅将 Script Variant 转换为 Script，其它类型返回 null。
+## [br]
+## @api private
+## [br]
 func _get_script_value(value: Variant) -> Script:
 	if value is Script:
 		var script: Script = value
@@ -137,6 +141,10 @@ func _get_script_value(value: Variant) -> Script:
 	return null
 
 
+## 收集启用行为的加速度和权重，求加权混合并按代理或栈上限裁剪。
+## [br]
+## @api private
+## [br]
 func _calculate_blend(agent: GFSteeringAgent, context: Dictionary) -> GFSteeringAcceleration:
 	var accelerations: Array[GFSteeringAcceleration] = []
 	var weights: Array[float] = []
@@ -153,6 +161,10 @@ func _calculate_blend(agent: GFSteeringAgent, context: Dictionary) -> GFSteering
 	)
 
 
+## 按列表顺序计算启用行为，返回首个超过零阈值的加速度并应用上限。
+## [br]
+## @api private
+## [br]
 func _calculate_priority(agent: GFSteeringAgent, context: Dictionary) -> GFSteeringAcceleration:
 	for behavior: GFSteeringBehaviorResource in behaviors:
 		if behavior == null or not behavior.enabled:
@@ -165,6 +177,10 @@ func _calculate_priority(agent: GFSteeringAgent, context: Dictionary) -> GFSteer
 	return GFSteeringAcceleration.new()
 
 
+## 深复制行为资源并验证复制结果类型；null 或类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _duplicate_behavior_or_null(behavior: GFSteeringBehaviorResource) -> GFSteeringBehaviorResource:
 	if behavior == null:
 		return null
@@ -175,9 +191,17 @@ func _duplicate_behavior_or_null(behavior: GFSteeringBehaviorResource) -> GFStee
 	return null
 
 
+## 栈上限为负时使用代理的最大线性加速度，否则使用栈上限。
+## [br]
+## @api private
+## [br]
 func _resolve_max_linear(agent: GFSteeringAgent) -> float:
 	return agent.linear_acceleration_max if max_linear < 0.0 else max_linear
 
 
+## 栈上限为负时使用代理的最大角加速度，否则使用栈上限。
+## [br]
+## @api private
+## [br]
 func _resolve_max_angular(agent: GFSteeringAgent) -> float:
 	return agent.angular_acceleration_max if max_angular < 0.0 else max_angular

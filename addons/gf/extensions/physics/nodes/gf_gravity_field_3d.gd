@@ -152,6 +152,10 @@ enum FalloffMode {
 
 # --- 私有变量 ---
 
+## 记录字段参数变化次数，供采样器检测缓存失效。
+## [br]
+## @api private
+## [br]
 var _gravity_revision: int = 0
 
 
@@ -236,17 +240,6 @@ func get_gravity_priority() -> int:
 	return priority
 
 
-## 获取供重力采样缓存使用的字段修订号。
-## [br]
-## @api framework_internal
-## [br]
-## @since 8.0.0
-## [br]
-## @return: 每次影响采样的字段变化后递增的修订号。
-func get_gravity_revision_for_probe() -> int:
-	return _gravity_revision
-
-
 # --- 可重写钩子 / 虚方法 ---
 
 ## 获取指定世界坐标处的方向。子类可重写以实现自定义场。
@@ -268,27 +261,50 @@ func _get_direction_at(world_position: Vector3) -> Vector3:
 			return global_position - world_position
 
 
+# --- 框架内部方法 ---
+
+## 获取供重力采样缓存使用的字段修订号。
+## [br]
+## @api framework_internal
+## [br]
+## @since 8.0.0
+## [br]
+## @return: 每次影响采样的字段变化后递增的修订号。
+func get_gravity_revision_for_probe() -> int:
+	return _gravity_revision
+
+
+# --- 私有/辅助方法 ---
+
+## 先递增重力配置 revision，再发出 field_changed 通知。
+## [br]
+## @api private
 func _mark_field_changed() -> void:
 	_gravity_revision += 1
 	field_changed.emit()
 
 
+## 仅在曲线存在且尚未连接时订阅 changed 信号。
+## [br]
+## @api private
 func _connect_falloff_curve() -> void:
 	if falloff_curve == null or falloff_curve.changed.is_connected(_on_falloff_curve_changed):
 		return
 	var _changed_connected: Error = falloff_curve.changed.connect(_on_falloff_curve_changed) as Error
 
 
+## 移除当前曲线已存在的 changed 订阅；空曲线或未连接时不操作。
+## [br]
+## @api private
 func _disconnect_falloff_curve() -> void:
 	if falloff_curve == null or not falloff_curve.changed.is_connected(_on_falloff_curve_changed):
 		return
 	falloff_curve.changed.disconnect(_on_falloff_curve_changed)
 
 
-func _on_falloff_curve_changed() -> void:
-	_mark_field_changed()
-
-
+## 保留已知方向模式，未知整数回退为朝向原点。
+## [br]
+## @api private
 func _normalize_direction_mode(value: int) -> DirectionMode:
 	match value:
 		DirectionMode.TOWARD_ORIGIN, DirectionMode.AWAY_FROM_ORIGIN, DirectionMode.CONSTANT_DIRECTION:
@@ -297,6 +313,9 @@ func _normalize_direction_mode(value: int) -> DirectionMode:
 			return DirectionMode.TOWARD_ORIGIN
 
 
+## 保留已知衰减模式，未知整数回退为恒定强度。
+## [br]
+## @api private
 func _normalize_falloff_mode(value: int) -> FalloffMode:
 	match value:
 		FalloffMode.CONSTANT, FalloffMode.LINEAR, FalloffMode.INVERSE_SQUARE, FalloffMode.CURVE:
@@ -305,10 +324,16 @@ func _normalize_falloff_mode(value: int) -> FalloffMode:
 			return FalloffMode.CONSTANT
 
 
+## 将 NaN 和无穷值替换为调用方提供的 fallback；不额外验证 fallback。
+## [br]
+## @api private
 func _finite_float_or(value: float, fallback: float) -> float:
 	return fallback if is_nan(value) or is_inf(value) else value
 
 
+## 仅当三个分量都不是 NaN 或无穷值时返回 true。
+## [br]
+## @api private
 func _is_finite_vector3(value: Vector3) -> bool:
 	return (
 		not is_nan(value.x)
@@ -318,3 +343,12 @@ func _is_finite_vector3(value: Vector3) -> bool:
 		and not is_nan(value.z)
 		and not is_inf(value.z)
 	)
+
+
+# --- 信号处理函数 ---
+
+## 将曲线资源内部变化转换为重力场 revision 变化通知。
+## [br]
+## @api private
+func _on_falloff_curve_changed() -> void:
+	_mark_field_changed()

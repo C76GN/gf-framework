@@ -14,19 +14,74 @@ extends RefCounted
 
 # --- 常量 ---
 
+## GFF3 固定字节格式的完整长度。
+## [br]
+## @api private
 const _BYTE_FORMAT_SIZE: int = 33
+
+## GFF3 字节头的第 1 个 ASCII 字节。
+## [br]
+## @api private
 const _BYTE_MAGIC_0: int = 71
+
+## GFF3 字节头的第 2 个 ASCII 字节。
+## [br]
+## @api private
 const _BYTE_MAGIC_1: int = 70
+
+## GFF3 字节头的第 3 个 ASCII 字节。
+## [br]
+## @api private
 const _BYTE_MAGIC_2: int = 70
+
+## GFF3 字节头的第 4 个 ASCII 字节。
+## [br]
+## @api private
 const _BYTE_MAGIC_3: int = 51
+
+## 固定字节格式中 X 分量 8 字节大端 magnitude 的起始偏移。
+## [br]
+## @api private
 const _BYTE_X_MAGNITUDE_OFFSET: int = 7
+
+## 固定字节格式中 Y 分量符号位的偏移。
+## [br]
+## @api private
 const _BYTE_Y_SIGN_OFFSET: int = 15
+
+## 固定字节格式中 Y 分量 8 字节大端 magnitude 的起始偏移。
+## [br]
+## @api private
 const _BYTE_Y_MAGNITUDE_OFFSET: int = 16
+
+## 固定字节格式中 Z 分量符号位的偏移。
+## [br]
+## @api private
 const _BYTE_Z_SIGN_OFFSET: int = 24
+
+## 固定字节格式中 Z 分量 8 字节大端 magnitude 的起始偏移。
+## [br]
+## @api private
 const _BYTE_Z_MAGNITUDE_OFFSET: int = 25
+
+## 承担定点分量规范化与序列化实现的共享脚本资源。
+## [br]
+## @api private
 const _SERIALIZATION_SUPPORT: Script = preload("res://addons/gf/standard/foundation/numeric/gf_fixed_numeric_serialization_support.gd")
+
+## 状态字典中的定点三维向量类型标识。
+## [br]
+## @api private
 const _SERIALIZATION_TYPE: String = "gf.fixed_vector3"
+
+## 状态字典与 GFF3 字节格式当前使用的版本号。
+## [br]
+## @api private
 const _SERIALIZATION_VERSION: int = 1
+
+## signed magnitude 解码失败时使用的内部哨兵。
+## [br]
+## @api private
 const _INVALID_SIGNED_MAGNITUDE: int = -9_223_372_036_854_775_807 - 1
 
 
@@ -540,10 +595,16 @@ func apply_bytes(data: PackedByteArray) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 按方法名和参数数组调用共享序列化脚本中的实现。
+## [br]
+## @api private
 static func _call_serialization_support(method_name: StringName, arguments: Array) -> Variant:
 	return _SERIALIZATION_SUPPORT.callv(method_name, arguments)
 
 
+## 调用共享实现，并在结果不是 bool 时返回 false。
+## [br]
+## @api private
 static func _call_serialization_support_bool(method_name: StringName, arguments: Array) -> bool:
 	var raw_result: Variant = _call_serialization_support(method_name, arguments)
 	if raw_result is bool:
@@ -552,6 +613,9 @@ static func _call_serialization_support_bool(method_name: StringName, arguments:
 	return false
 
 
+## 调用共享实现，并在结果不是 int 时返回给定回退值。
+## [br]
+## @api private
 static func _call_serialization_support_int(
 	method_name: StringName,
 	arguments: Array,
@@ -564,6 +628,9 @@ static func _call_serialization_support_int(
 	return fallback
 
 
+## 委托共享序列化脚本把有符号分量追加到目标字节数组，并返回该数组。
+## [br]
+## @api private
 static func _append_signed_magnitude(
 	target: PackedByteArray,
 	value: int,
@@ -578,6 +645,10 @@ static func _append_signed_magnitude(
 	return result
 
 
+## 委托共享脚本按 GFFixedVector3 类型和上下文规范化分量 raw 值。
+## 返回结果不是 int 时保留输入值。
+## [br]
+## @api private
 static func _normalize_raw_value(value: int, context: String) -> int:
 	return _call_serialization_support_int(
 		&"normalize_raw_value",
@@ -586,14 +657,23 @@ static func _normalize_raw_value(value: int, context: String) -> int:
 	)
 
 
+## 委托共享序列化脚本规范化分量共用的小数位数。
+## [br]
+## @api private
 static func _normalize_decimal_places(value: int) -> int:
 	return _call_serialization_support_int(&"normalize_decimal_places", [value, "GFFixedVector3"], value)
 
 
+## 委托共享序列化脚本检查小数位是否处于状态格式允许范围。
+## [br]
+## @api private
 static func _decimal_places_are_in_serialized_range(value: int) -> bool:
 	return _call_serialization_support_bool(&"decimal_places_are_in_serialized_range", [value])
 
 
+## 检查数据长度、GFF3 标识、版本号及小数位范围。
+## [br]
+## @api private
 static func _bytes_have_supported_header(data: PackedByteArray) -> bool:
 	return (
 		data.size() == _BYTE_FORMAT_SIZE
@@ -606,6 +686,9 @@ static func _bytes_have_supported_header(data: PackedByteArray) -> bool:
 	)
 
 
+## 委托共享脚本读取符号位与幅值；返回类型不符时使用无效哨兵。
+## [br]
+## @api private
 static func _read_signed_magnitude(data: PackedByteArray, sign_offset: int, magnitude_offset: int) -> int:
 	return _call_serialization_support_int(
 		&"read_signed_magnitude",
@@ -614,18 +697,30 @@ static func _read_signed_magnitude(data: PackedByteArray, sign_offset: int, magn
 	)
 
 
+## 委托共享脚本判断解码分量是否等于无效哨兵。
+## [br]
+## @api private
 static func _signed_magnitude_is_invalid(value: int) -> bool:
 	return _call_serialization_support_bool(&"signed_magnitude_is_invalid", [value])
 
 
+## 委托共享脚本判断状态字段是否是受支持的整数 raw 值。
+## [br]
+## @api private
 static func _state_value_is_int(value: Variant) -> bool:
 	return _call_serialization_support_bool(&"state_value_is_int", [value])
 
 
+## 委托共享脚本把已校验的状态字段转换为整数 raw 值。
+## [br]
+## @api private
 static func _state_value_to_int(value: Variant) -> int:
 	return _call_serialization_support_int(&"state_value_to_int", [value])
 
 
+## 序列化输入无效时将三个分量清零，并将小数位恢复为 2。
+## [br]
+## @api private
 func _reset_serialized_zero() -> void:
 	raw_x = 0
 	raw_y = 0

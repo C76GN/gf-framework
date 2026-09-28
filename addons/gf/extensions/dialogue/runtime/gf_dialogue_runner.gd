@@ -83,23 +83,73 @@ var skip_blocked_lines: bool = true
 
 # --- 私有变量 ---
 
+## 当前执行的对话资源。
+## [br]
+## @api private
 var _resource: GFDialogueResource = null
+
+## 当前会话使用的运行上下文。
+## [br]
+## @api private
 var _context: GFDialogueContext = null
+
+## 当前待处理或正在展示的行 ID。
+## [br]
+## @api private
 var _current_line_id: StringName = &""
+
+## 当前可展示行；会话尚未到达展示行时为 null。
+## [br]
+## @api private
 var _current_line: GFDialogueLine = null
+
+## 指示 Runner 是否处于活动会话中。
+## [br]
+## @api private
 var _is_running: bool = false
+
+## 保存架构实例的弱引用，供上下文准备时使用。
+## [br]
+## @api private
 var _architecture_ref: WeakRef = null
+
+## 当前资源完整身份的 SHA-256 指纹。
+## [br]
+## @api private
 var _resource_fingerprint: String = ""
+
+## 保留快照对应资源的强引用，使对话结束后仍能校验结束态快照的资源身份。
+## [br]
+## @api private
 var _snapshot_resource: GFDialogueResource = null
+
+## 标识当前会话代次，用于拒绝过期的同步回调结果。
+## [br]
+## @api private
 var _session_serial: int = 0
+
+## 当前快照推进深度所对应的会话代次。
+## [br]
+## @api private
 var _snapshot_transition_serial: int = -1
+
+## 当前会话内尚未结束的快照推进层数。
+## [br]
+## @api private
 var _snapshot_transition_depth: int = 0
+
+## 当前快照发布状态所对应的会话代次。
+## [br]
+## @api private
 var _snapshot_publication_serial: int = -1
+
+## 嵌套快照发布开始时记录的推进深度栈。
+## [br]
+## @api private
 var _snapshot_publication_transition_depths: Array[int] = []
 
 
 # --- 公共方法 ---
-
 
 ## 开始对话。
 ## [br]
@@ -348,6 +398,9 @@ func inject_dependencies(architecture: GFArchitecture) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 选择或创建运行上下文，并在其尚无架构时注入当前架构。
+## [br]
+## @api private
 func _prepare_context(context: GFDialogueContext = null) -> GFDialogueContext:
 	var resolved_context: GFDialogueContext = context if context != null else GFDialogueContext.new(_get_architecture_or_null())
 	if resolved_context.get_architecture() == null:
@@ -355,6 +408,9 @@ func _prepare_context(context: GFDialogueContext = null) -> GFDialogueContext:
 	return resolved_context
 
 
+## 使旧会话租约失效并清除当前会话的资源、行和运行标志。
+## [br]
+## @api private
 func _reset_runtime_state() -> void:
 	_session_serial += 1
 	_resource = null
@@ -364,6 +420,9 @@ func _reset_runtime_state() -> void:
 	_is_running = false
 
 
+## 处理可选响应或当前行的默认后继，再推进到下一条展示行。
+## [br]
+## @api private
 func _advance_for_current_session(response_id: StringName) -> GFDialogueLine:
 	if response_id != &"":
 		var session_lease: _DialogueSessionLease = _capture_session_lease()
@@ -395,6 +454,9 @@ func _advance_for_current_session(response_id: StringName) -> GFDialogueLine:
 	return _advance_to_next_text()
 
 
+## 跳过条件阻止的行并执行非展示行，直到到达文本行或会话结束。
+## [br]
+## @api private
 func _advance_to_next_text() -> GFDialogueLine:
 	var steps: int = 0
 	var visited_line_ids: Dictionary = {}
@@ -478,6 +540,9 @@ func _advance_to_next_text() -> GFDialogueLine:
 	return null
 
 
+## 校验并应用当前行响应，执行其 mutation 后切换到后继行。
+## [br]
+## @api private
 func _apply_response(response_id: StringName) -> bool:
 	var session_lease: _DialogueSessionLease = _capture_session_lease()
 	if session_lease._line == null:
@@ -538,6 +603,9 @@ func _apply_response(response_id: StringName) -> bool:
 	return true
 
 
+## 发出行 mutation 请求并委托上下文执行，返回处理结果。
+## [br]
+## @api private
 func _apply_line_mutation(line: GFDialogueLine) -> bool:
 	if line.mutation_id == &"":
 		return true
@@ -555,6 +623,9 @@ func _apply_line_mutation(line: GFDialogueLine) -> bool:
 	return GFVariantData.get_option_bool(mutation_result, "ok", false)
 
 
+## 发出阻止事件后尝试 fallback、默认跳过或结束当前会话。
+## [br]
+## @api private
 func _move_after_blocked_line(
 	line: GFDialogueLine,
 	session_lease: _DialogueSessionLease
@@ -573,6 +644,9 @@ func _move_after_blocked_line(
 	return false
 
 
+## 捕获当前会话字段，用于同步回调前后的代次校验。
+## [br]
+## @api private
 func _capture_session_lease() -> _DialogueSessionLease:
 	var lease: _DialogueSessionLease = _DialogueSessionLease.new()
 	lease._session_serial = _session_serial
@@ -583,6 +657,12 @@ func _capture_session_lease() -> _DialogueSessionLease:
 	return lease
 
 
+## 仅在租约有效时发送阻塞信号，并在同步信号回调后重新校验会话。
+## 回调可能结束或替换会话；调用方只能在返回 true 时继续修改原会话。
+## [br]
+## @api private
+## [br]
+## @return: 原会话租约仍有效；返回 false 不代表信号一定未发出。
 func _emit_line_blocked_for_lease(
 	session_lease: _DialogueSessionLease,
 	line_id: StringName,
@@ -594,6 +674,9 @@ func _emit_line_blocked_for_lease(
 	return _is_session_lease_current(session_lease)
 
 
+## 在会话租约仍有效时发送阻止事件并结束会话。
+## [br]
+## @api private
 func _end_session_after_block(
 	session_lease: _DialogueSessionLease,
 	line_id: StringName,
@@ -603,6 +686,9 @@ func _end_session_after_block(
 		_end_dialogue()
 
 
+## 在非展示步骤尚未达到推进上限时允许继续，否则结束会话。
+## [br]
+## @api private
 func _try_begin_non_display_step(
 	steps: int,
 	session_lease: _DialogueSessionLease,
@@ -614,6 +700,9 @@ func _try_begin_non_display_step(
 	return false
 
 
+## 清除运行会话、保留结束快照的资源引用并发出结束信号。
+## [br]
+## @api private
 func _end_dialogue() -> void:
 	var ended_resource: GFDialogueResource = _resource
 	_session_serial += 1
@@ -626,6 +715,9 @@ func _end_dialogue() -> void:
 		dialogue_ended.emit(ended_resource)
 
 
+## 检查租约记录的会话代次、资源、上下文和当前行是否仍匹配。
+## [br]
+## @api private
 func _is_session_lease_current(session_lease: _DialogueSessionLease) -> bool:
 	return (
 		_is_running
@@ -638,6 +730,9 @@ func _is_session_lease_current(session_lease: _DialogueSessionLease) -> bool:
 	)
 
 
+## 判断当前状态、推进窗口及资源身份是否允许生成运行快照。
+## [br]
+## @api private
 func _can_create_runtime_snapshot() -> bool:
 	if (
 		_resource_fingerprint.is_empty()
@@ -657,6 +752,9 @@ func _can_create_runtime_snapshot() -> bool:
 	return _snapshot_resource_identity_is_current()
 
 
+## 验证当前状态指向资源中同一实例的文本检查点。
+## [br]
+## @api private
 func _is_current_text_checkpoint_consistent() -> bool:
 	if (
 		not _is_running
@@ -670,6 +768,9 @@ func _is_current_text_checkpoint_consistent() -> bool:
 	return _resource.get_line(_current_line_id) == _current_line
 
 
+## 重新计算快照资源指纹并与会话保存的指纹比较。
+## [br]
+## @api private
 func _snapshot_resource_identity_is_current() -> bool:
 	var snapshot_resource: GFDialogueResource = _get_snapshot_resource_or_null()
 	if snapshot_resource == null:
@@ -678,12 +779,18 @@ func _snapshot_resource_identity_is_current() -> bool:
 	return not current_fingerprint.is_empty() and current_fingerprint == _resource_fingerprint
 
 
+## 返回活动会话资源；会话结束后返回保留的快照资源。
+## [br]
+## @api private
 func _get_snapshot_resource_or_null() -> GFDialogueResource:
 	if _resource != null:
 		return _resource
 	return _snapshot_resource
 
 
+## 开始当前会话的一层快照推进并返回会话代次。
+## [br]
+## @api private
 func _begin_snapshot_transition() -> int:
 	if _snapshot_transition_serial != _session_serial:
 		_snapshot_transition_serial = _session_serial
@@ -692,6 +799,9 @@ func _begin_snapshot_transition() -> int:
 	return _session_serial
 
 
+## 仅在代次匹配且深度有效时结束一层快照推进。
+## [br]
+## @api private
 func _end_snapshot_transition(transition_serial: int) -> void:
 	if (
 		_snapshot_transition_serial != transition_serial
@@ -701,6 +811,9 @@ func _end_snapshot_transition(transition_serial: int) -> void:
 	_snapshot_transition_depth -= 1
 
 
+## 记录当前推进深度并开始一层快照发布窗口。
+## [br]
+## @api private
 func _begin_snapshot_publication() -> int:
 	if _snapshot_publication_serial != _session_serial:
 		_snapshot_publication_serial = _session_serial
@@ -709,6 +822,9 @@ func _begin_snapshot_publication() -> int:
 	return _snapshot_transition_depth
 
 
+## 在会话代次和发布栈顶深度仍匹配时结束发布窗口。
+## [br]
+## @api private
 func _end_snapshot_publication(
 	publication_serial: int,
 	publication_transition_depth: int
@@ -722,6 +838,9 @@ func _end_snapshot_publication(
 	_snapshot_publication_transition_depths.pop_back()
 
 
+## 判断当前会话是否处于快照推进窗口。
+## [br]
+## @api private
 func _is_snapshot_transition_active() -> bool:
 	return (
 		_snapshot_transition_serial == _session_serial
@@ -729,6 +848,9 @@ func _is_snapshot_transition_active() -> bool:
 	)
 
 
+## 判断当前会话是否处于与当前推进深度匹配的发布窗口。
+## [br]
+## @api private
 func _is_snapshot_publication_active() -> bool:
 	return (
 		_snapshot_publication_serial == _session_serial
@@ -737,6 +859,9 @@ func _is_snapshot_publication_active() -> bool:
 	)
 
 
+## 优先从弱引用获取架构，失效时回退到全局架构访问器。
+## [br]
+## @api private
 func _get_architecture_or_null() -> GFArchitecture:
 	if _architecture_ref != null:
 		var architecture: GFArchitecture = _get_architecture_value(_architecture_ref.get_ref())
@@ -745,6 +870,9 @@ func _get_architecture_or_null() -> GFArchitecture:
 	return GFAutoload.get_architecture_or_null()
 
 
+## 将任意值收窄为 GFArchitecture 实例，否则返回 null。
+## [br]
+## @api private
 func _get_architecture_value(value: Variant) -> GFArchitecture:
 	if value is GFArchitecture:
 		var architecture: GFArchitecture = value
@@ -752,6 +880,10 @@ func _get_architecture_value(value: Variant) -> GFArchitecture:
 	return null
 
 
+## 生成资源完整身份的规范化 JSON SHA-256 指纹。
+## 身份无法完整编码时返回空字符串，并可选择输出诊断。
+## [br]
+## @api private
 func _get_resource_fingerprint(
 	resource: GFDialogueResource,
 	report_errors: bool = true
@@ -788,6 +920,9 @@ func _get_resource_fingerprint(
 	return encoded_identity.sha256_text()
 
 
+## 递归规范化身份 JSON，并对编码后的字典条目进行排序。
+## [br]
+## @api private
 func _canonicalize_identity_json(value: Variant) -> Variant:
 	if value is Array:
 		var source_array: Array = value
@@ -806,6 +941,9 @@ func _canonicalize_identity_json(value: Variant) -> Variant:
 	return value
 
 
+## 检查字典是否符合当前 JSON Codec 的编码字典标记结构。
+## [br]
+## @api private
 func _is_encoded_dictionary_marker(value: Dictionary) -> bool:
 	if value.size() != 1 or not value.has(GFVariantJsonCodec.JSON_MARKER_KEY):
 		return false
@@ -823,6 +961,9 @@ func _is_encoded_dictionary_marker(value: Dictionary) -> bool:
 	)
 
 
+## 按规范比较器排序编码字典条目并写回标记值。
+## [br]
+## @api private
 func _sort_encoded_dictionary_entries(value: Dictionary) -> void:
 	var marker: Dictionary = GFVariantData.as_dictionary(
 		value.get(GFVariantJsonCodec.JSON_MARKER_KEY)
@@ -836,6 +977,9 @@ func _sort_encoded_dictionary_entries(value: Dictionary) -> void:
 	value[GFVariantJsonCodec.JSON_MARKER_KEY] = marker
 
 
+## 先比较编码键，再比较完整条目的 JSON 文本以确定稳定顺序。
+## [br]
+## @api private
 func _encoded_dictionary_entry_less(first_value: Variant, second_value: Variant) -> bool:
 	var first: Dictionary = GFVariantData.as_dictionary(first_value)
 	var second: Dictionary = GFVariantData.as_dictionary(second_value)
@@ -848,9 +992,33 @@ func _encoded_dictionary_entry_less(first_value: Variant, second_value: Variant)
 
 # --- 内部类 ---
 
+## 记录一次回调前捕获的会话代次及资源、上下文和行状态。
+## [br]
+## @api private
 class _DialogueSessionLease extends RefCounted:
+	# --- 私有变量 ---
+
+	## 回调前捕获的会话代次，用于拒绝旧会话继续写回。
+	## [br]
+	## @api private
 	var _session_serial: int = 0
+
+	## 捕获时的对话资源引用，用于回调后身份复核。
+	## [br]
+	## @api private
 	var _resource: GFDialogueResource = null
+
+	## 捕获时的上下文引用，用于确认会话仍使用同一上下文。
+	## [br]
+	## @api private
 	var _context: GFDialogueContext = null
+
+	## 捕获时的行标识，供回调后当前行资格检查。
+	## [br]
+	## @api private
 	var _line_id: StringName = &""
+
+	## 捕获时的行资源引用；与行标识一起校验当前行身份。
+	## [br]
+	## @api private
 	var _line: GFDialogueLine = null

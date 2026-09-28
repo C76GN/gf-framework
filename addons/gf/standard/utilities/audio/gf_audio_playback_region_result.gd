@@ -103,6 +103,10 @@ var loop_mode: int = 0
 
 # --- 私有变量 ---
 
+## 用于 reason 属性访问器保存规范化后的原因标识。
+## [br]
+## @api private
+## [br]
 var _reason: StringName = &"none"
 
 
@@ -202,6 +206,10 @@ static func status_to_string(result_status: Status) -> StringName:
 
 # --- 私有/辅助方法 ---
 
+## 仅接受长度不超过 128 的小写 ASCII 标识字符，否则返回 invalid_reason。
+## [br]
+## @api private
+## [br]
 static func _normalize_reason(value: StringName) -> StringName:
 	var text: String = String(value)
 	if text.is_empty() or text.length() > 128:

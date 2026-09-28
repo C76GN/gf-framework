@@ -120,24 +120,82 @@ const MAX_FRAME_ADVANCES_PER_TICK: int = 4096
 ## @since 11.0.0
 const MAX_SPEED_SCALE: float = 1024.0
 
+## 层、变体和动画标识允许的最大字符数。
+## [br]
+## @api private
 const _MAX_ID_LENGTH: int = 128
 
 
 # --- 私有变量 ---
 
+## 保存复制后的公共动画时间轴帧拓扑。
+## [br]
+## @api private
 var _timeline_frames: SpriteFrames = null
+
+## 按名称排序的动画 ID 列表。
+## [br]
+## @api private
 var _animation_names: Array[StringName] = []
+
+## 按绘制顺序保存图层及其变体帧和绘制属性。
+## [br]
+## @api private
 var _layer_states: Array[Dictionary] = []
+
+## 按图层 ID 索引图层状态。
+## [br]
+## @api private
 var _layers_by_id: Dictionary = {}
+
+## 当前播放动画 ID。
+## [br]
+## @api private
 var _current_animation: StringName = &""
+
+## 当前时间轴帧索引。
+## [br]
+## @api private
 var _current_frame: int = 0
+
+## 当前帧内的播放进度。
+## [br]
+## @api private
 var _frame_progress: float = 0.0
+
+## 播放速度倍率，负值表示倒序推进。
+## [br]
+## @api private
 var _speed_scale: float = 1.0
+
+## 标记节点是否正在推进播放。
+## [br]
+## @api private
 var _playing: bool = false
+
+## 标记配置替换后是否可恢复此前播放游标。
+## [br]
+## @api private
 var _resume_cursor_available: bool = false
+
+## 阻止配置替换期间的运行时修改重入。
+## [br]
+## @api private
 var _configuration_in_progress: bool = false
+
+## 标记当前帧身份变更的递增代数。
+## [br]
+## @api private
 var _frame_identity_generation: int = 0
+
+## 标记播放状态变更的递增代数。
+## [br]
+## @api private
 var _state_generation: int = 0
+
+## 保存最近一次被拒绝配置或操作的原因码。
+## [br]
+## @api private
 var _last_rejection_reason: StringName = &""
 
 
@@ -661,6 +719,9 @@ func get_last_rejection_reason() -> StringName:
 
 # --- 私有/辅助方法 ---
 
+## 验证定义及资源数量、标识、拓扑、绘制数据后复制时间轴和图层状态；失败时记录拒绝原因。
+## [br]
+## @api private
 func _build_configuration_snapshot(definition: GFLayeredSpriteDefinition) -> Dictionary:
 	if definition == null or definition.timeline_frames == null:
 		_set_rejection_reason(&"missing_timeline")
@@ -803,6 +864,9 @@ func _build_configuration_snapshot(definition: GFLayeredSpriteDefinition) -> Dic
 	}
 
 
+## 统计指定动画帧引用的唯一纹理，超出上限时记录原因并返回 false。
+## [br]
+## @api private
 func _track_unique_textures(
 	frames: SpriteFrames,
 	animation_names: Array[StringName],
@@ -821,6 +885,9 @@ func _track_unique_textures(
 	return true
 
 
+## 在帧拓扑匹配且通过校验时复制动画名称、速度、循环配置和帧时长。
+## [br]
+## @api private
 func _copy_frame_topology(
 	texture_source: SpriteFrames,
 	timeline_source: SpriteFrames,
@@ -853,6 +920,9 @@ func _copy_frame_topology(
 	return result
 
 
+## 检查动画 ID、帧数、动画速度和各帧时长是否有效。
+## [br]
+## @api private
 func _validate_frame_topology(frames: SpriteFrames, animation_names: Array[StringName]) -> bool:
 	for animation_name: StringName in animation_names:
 		if not _is_valid_id(animation_name):
@@ -874,6 +944,9 @@ func _validate_frame_topology(frames: SpriteFrames, animation_names: Array[Strin
 	return true
 
 
+## 检查候选 SpriteFrames 的动画集合和各动画帧数是否与时间轴一致。
+## [br]
+## @api private
 func _matches_frame_topology(
 	frames: SpriteFrames,
 	timeline_frames: SpriteFrames,
@@ -894,6 +967,9 @@ func _matches_frame_topology(
 	return true
 
 
+## 推进或倒退一个帧边界，处理循环、播放结束、信号和重绘状态。
+## [br]
+## @api private
 func _advance_frame_boundary(forward: bool) -> bool:
 	var frame_count: int = _timeline_frames.get_frame_count(_current_animation)
 	var previous_frame: int = _current_frame
@@ -923,6 +999,9 @@ func _advance_frame_boundary(forward: bool) -> bool:
 	return false
 
 
+## 按 draw_order 排序图层，同序时保持源定义顺序。
+## [br]
+## @api private
 func _sort_layer_state(left: Dictionary, right: Dictionary) -> bool:
 	var left_order: int = GFVariantData.get_option_int(left, "draw_order")
 	var right_order: int = GFVariantData.get_option_int(right, "draw_order")
@@ -934,15 +1013,24 @@ func _sort_layer_state(left: Dictionary, right: Dictionary) -> bool:
 	return left_order < right_order
 
 
+## 检查标识非空、长度未超限且没有首尾空白。
+## [br]
+## @api private
 func _is_valid_id(value: StringName) -> bool:
 	var text: String = String(value)
 	return not text.is_empty() and text.length() <= _MAX_ID_LENGTH and text == text.strip_edges()
 
 
+## 检查 Vector2 两个分量是否有限。
+## [br]
+## @api private
 func _is_finite_vector2(value: Vector2) -> bool:
 	return _is_finite_float(value.x) and _is_finite_float(value.y)
 
 
+## 检查 Color 四个分量是否有限。
+## [br]
+## @api private
 func _is_finite_color(value: Color) -> bool:
 	return (
 		_is_finite_float(value.r)
@@ -952,22 +1040,37 @@ func _is_finite_color(value: Color) -> bool:
 	)
 
 
+## 检查浮点数既不是 NaN 也不是无穷大。
+## [br]
+## @api private
 func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 递增播放状态代数。
+## [br]
+## @api private
 func _bump_state_generation() -> void:
 	_state_generation += 1
 
 
+## 递增当前帧身份代数。
+## [br]
+## @api private
 func _bump_frame_identity_generation() -> void:
 	_frame_identity_generation += 1
 
 
+## 记录拒绝原因并返回 false。
+## [br]
+## @api private
 func _reject(reason: StringName) -> bool:
 	_set_rejection_reason(reason)
 	return false
 
 
+## 保存最近一次操作的拒绝原因码。
+## [br]
+## @api private
 func _set_rejection_reason(reason: StringName) -> void:
 	_last_rejection_reason = reason

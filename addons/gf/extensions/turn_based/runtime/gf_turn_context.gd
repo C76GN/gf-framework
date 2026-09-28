@@ -41,12 +41,46 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## Context 持有的参与者集合。
+## [br]
+## @api private
+## [br]
 var _actors: Array[Object] = []
+
+## current_actor 的后备存储。
+## [br]
+## @api private
+## [br]
 var _current_actor: Object = null
+
+## round_index 的后备存储。
+## [br]
+## @api private
+## [br]
 var _round_index: int = 0
+
+## 当前 Flow owner 的弱引用；最后一张租约释放时清空。
+## [br]
+## @api private
+## [br]
 var _flow_operation_owner_ref: WeakRef = null
+
+## 当前 Flow owner 所属的 generation。
+## [br]
+## @api private
+## [br]
 var _flow_operation_owner_serial: int = -1
+
+## 以租约 ID 索引当前保留的 Flow 操作租约。
+## [br]
+## @api private
+## [br]
 var _flow_operation_leases: Dictionary = {}
+
+## 下一张 Flow 操作租约使用的递增 ID。
+## [br]
+## @api private
+## [br]
 var _next_flow_operation_lease_id: int = 1
 
 
@@ -361,6 +395,10 @@ func advance_round_from_flow(
 
 # --- 私有/辅助方法 ---
 
+## 验证租约字典中的对象就是传入租约，且租约仍声明为本 Context 保留。
+## [br]
+## @api private
+## [br]
 func _is_flow_operation_lease_reserved(lease: FlowOperationLease) -> bool:
 	if lease == null:
 		return false
@@ -371,6 +409,12 @@ func _is_flow_operation_lease_reserved(lease: FlowOperationLease) -> bool:
 	)
 	return stored_value == lease and lease._is_reserved_for(self)
 
+
+## 确认目标对象暴露方法，并按其反射参数元数据检查传入参数。
+## 此辅助函数只判定是否可调用，不实际执行项目方法。
+## [br]
+## @api private
+## [br]
 func _can_invoke_actor_method(
 	actor: Object,
 	method_name: StringName,
@@ -393,6 +437,10 @@ func _can_invoke_actor_method(
 	return false
 
 
+## 按必需参数数、默认参数数和 vararg 标志判断方法是否接受给定实参数量。
+## [br]
+## @api private
+## [br]
 func _method_accepts_argument_count(method_info: Dictionary, argument_count: int) -> bool:
 	var method_arguments: Array = GFVariantData.get_option_array(method_info, "args")
 	var default_arguments: Array = GFVariantData.get_option_array(method_info, "default_args")
@@ -407,6 +455,10 @@ func _method_accepts_argument_count(method_info: Dictionary, argument_count: int
 	)
 
 
+## 按反射类型信息验证单个 Variant；实现明确处理空值、数值和 String/StringName 互换。
+## [br]
+## @api private
+## [br]
 func _method_argument_accepts_value(argument_info: Dictionary, value: Variant) -> bool:
 	var expected_type: int = GFVariantData.get_option_int(argument_info, "type", TYPE_NIL)
 	if expected_type == TYPE_NIL:
@@ -437,6 +489,10 @@ func _method_argument_accepts_value(argument_info: Dictionary, value: Variant) -
 	return _object_matches_class_name(object_value, expected_class_name)
 
 
+## 先匹配 Godot 原生类，再沿脚本继承链比较全局脚本名或资源路径。
+## [br]
+## @api private
+## [br]
 func _object_matches_class_name(value: Object, expected_class_name: StringName) -> bool:
 	if value == null or not is_instance_valid(value):
 		return false
@@ -465,13 +521,44 @@ func _object_matches_class_name(value: Object, expected_class_name: StringName) 
 ## [br]
 ## @since 11.0.0
 class FlowOperationLease extends RefCounted:
+	# --- 私有变量 ---
+
+	## 登记此 claim 的上下文弱引用。
+	## [br]
+	## @api private
 	var _context_ref: WeakRef = null
+
+	## claim 所属流程系统的弱引用。
+	## [br]
+	## @api private
 	var _owner_ref: WeakRef = null
+
+	## 建立 claim 时的流程代次。
+	## [br]
+	## @api private
 	var _flow_serial: int = -1
+
+	## 用于上下文登记表核对精确实例的租约标识。
+	## [br]
+	## @api private
 	var _lease_id: int = 0
+
+	## claim 是否仍可执行操作；取消后清除，但登记可继续保留。
+	## [br]
+	## @api private
 	var _active: bool = false
+
+	## claim 是否仍保留登记资格；release 后清除。
+	## [br]
+	## @api private
 	var _reserved: bool = false
 
+
+	# --- 私有/辅助方法 ---
+
+	## 保存上下文和 owner 的弱引用及代次、标识，并将新 claim 标为已预留且活跃。
+	## [br]
+	## @api private
 	func _configure(
 		context: GFTurnContext,
 		owner: GFTurnFlowSystem,
@@ -485,9 +572,17 @@ class FlowOperationLease extends RefCounted:
 		_active = true
 		_reserved = true
 
+
+	## 返回建立时的租约标识，供所属上下文匹配登记实例。
+	## [br]
+	## @api private
 	func _get_lease_id() -> int:
 		return _lease_id
 
+
+	## 检查 claim 仍被预留且弱引用指向指定 owner。
+	## [br]
+	## @api private
 	func _is_owned_by(owner: GFTurnFlowSystem) -> bool:
 		return (
 			_reserved
@@ -495,6 +590,10 @@ class FlowOperationLease extends RefCounted:
 			and _owner_ref.get_ref() == owner
 		)
 
+
+	## 检查 claim 仍被预留且弱引用指向指定上下文。
+	## [br]
+	## @api private
 	func _is_reserved_for(context: GFTurnContext) -> bool:
 		return (
 			_reserved
@@ -502,15 +601,27 @@ class FlowOperationLease extends RefCounted:
 			and _context_ref.get_ref() == context
 		)
 
+
+	## 同时核对活性、owner 身份及流程代次。
+	## [br]
+	## @api private
 	func _is_active_for(owner: GFTurnFlowSystem, flow_serial: int) -> bool:
 		return _active and _is_owned_by(owner) and _flow_serial == flow_serial
 
+
+	## 仅使仍活跃的预留 claim 失活；保留登记资格，重复取消返回 false。
+	## [br]
+	## @api private
 	func _cancel() -> bool:
 		if not _reserved or not _active:
 			return false
 		_active = false
 		return true
 
+
+	## 释放预留资格并清除弱引用；重复释放返回 false，不更改租约标识。
+	## [br]
+	## @api private
 	func _release() -> bool:
 		if not _reserved:
 			return false

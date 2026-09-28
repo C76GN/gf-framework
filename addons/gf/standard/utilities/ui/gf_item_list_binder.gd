@@ -15,13 +15,27 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 提供路径规范化、订阅和状态读取能力的响应式状态存储脚本。
+## [br]
+## @api private
 const _GF_REACTIVE_STATE_STORE_SCRIPT = preload("res://addons/gf/standard/utilities/state/gf_reactive_state_store.gd")
+
+## 提供通过弱引用解析仍有效 Object 的内部帮助脚本。
+## [br]
+## @api private
 const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
 
 
 # --- 私有变量 ---
 
+## 保存 store 与目标控件的弱引用、订阅句柄和目标生命周期回调。
+## [br]
+## @api private
 var _bindings: Array[Dictionary] = []
+
+## 为本实例后续绑定分配的递增标识。
+## [br]
+## @api private
 var _next_binding_id: int = 1
 
 
@@ -315,6 +329,9 @@ static func get_selected_metadata(target: Object) -> Array:
 
 # --- 私有/辅助方法 ---
 
+## 将状态变化中的新数组（或删除时的 default_items）写入有效目标控件。
+## [br]
+## @api private
 func _apply_store_change_to_target(binding: Dictionary, change: Dictionary) -> void:
 	var target: Object = _get_binding_target(binding)
 	if target == null:
@@ -331,6 +348,9 @@ func _apply_store_change_to_target(binding: Dictionary, change: Dictionary) -> v
 	var _written_count: int = write_items(target, _value_to_items(value), GFVariantData.get_option_dictionary(binding, "options"))
 
 
+## 按 binding_id 查找并断开绑定；记录缺少有效 ID 时返回 false。
+## [br]
+## @api private
 func _remove_binding(binding: Dictionary) -> bool:
 	var binding_id: int = GFVariantData.get_option_int(binding, "binding_id", -1)
 	if binding_id == -1:
@@ -344,6 +364,9 @@ func _remove_binding(binding: Dictionary) -> bool:
 	return false
 
 
+## 调用有效的 store unsubscribe，并断开目标节点上仍连接的 tree_exited 回调。
+## [br]
+## @api private
 func _disconnect_binding(binding: Dictionary) -> void:
 	var unsubscribe: Callable = _get_binding_callable(binding, "unsubscribe")
 	if unsubscribe.is_valid():
@@ -357,6 +380,9 @@ func _disconnect_binding(binding: Dictionary) -> void:
 			target_node.tree_exited.disconnect(tree_exited_callable)
 
 
+## 解析 store 弱引用并确认对象仍为 GFReactiveStateStore。
+## [br]
+## @api private
 func _get_binding_store(binding: Dictionary) -> _GF_REACTIVE_STATE_STORE_SCRIPT:
 	var store_ref: WeakRef = _get_binding_weak_ref(binding, "store_ref")
 	var raw_store: Object = _INSTANCE_GUARD._get_live_object_from_ref(store_ref)
@@ -366,6 +392,9 @@ func _get_binding_store(binding: Dictionary) -> _GF_REACTIVE_STATE_STORE_SCRIPT:
 	return null
 
 
+## 将 RefCounted 收窄为 GFReactiveStateStore，否则返回 null。
+## [br]
+## @api private
 func _as_state_store(store: RefCounted) -> _GF_REACTIVE_STATE_STORE_SCRIPT:
 	if store is _GF_REACTIVE_STATE_STORE_SCRIPT:
 		var state_store: _GF_REACTIVE_STATE_STORE_SCRIPT = store
@@ -373,11 +402,17 @@ func _as_state_store(store: RefCounted) -> _GF_REACTIVE_STATE_STORE_SCRIPT:
 	return null
 
 
+## 通过 target_ref 弱引用解析仍有效的绑定目标。
+## [br]
+## @api private
 func _get_binding_target(binding: Dictionary) -> Object:
 	var target_ref: WeakRef = _get_binding_weak_ref(binding, "target_ref")
 	return _INSTANCE_GUARD._get_live_object_from_ref(target_ref)
 
 
+## 从绑定记录读取 WeakRef 字段；其他类型返回 null。
+## [br]
+## @api private
 func _get_binding_weak_ref(binding: Dictionary, key: String) -> WeakRef:
 	var value: Variant = GFVariantData.get_option_value(binding, key)
 	if value is WeakRef:
@@ -386,6 +421,9 @@ func _get_binding_weak_ref(binding: Dictionary, key: String) -> WeakRef:
 	return null
 
 
+## 从绑定记录读取 Callable 字段；其他类型返回无效 Callable。
+## [br]
+## @api private
 func _get_binding_callable(binding: Dictionary, key: String) -> Callable:
 	var value: Variant = GFVariantData.get_option_value(binding, key, Callable())
 	if value is Callable:
@@ -394,6 +432,9 @@ func _get_binding_callable(binding: Dictionary, key: String) -> Callable:
 	return Callable()
 
 
+## 移除 store 或目标控件已无法解析的绑定，并断开其剩余连接。
+## [br]
+## @api private
 func _prune_invalid_bindings() -> void:
 	for index: int in range(_bindings.size() - 1, -1, -1):
 		var binding: Dictionary = _bindings[index]
@@ -402,19 +443,20 @@ func _prune_invalid_bindings() -> void:
 			_bindings.remove_at(index)
 
 
-func _on_target_tree_exited(binding_id: int) -> void:
-	for index: int in range(_bindings.size() - 1, -1, -1):
-		if GFVariantData.get_option_int(_bindings[index], "binding_id", -1) == binding_id:
-			var _removed_exited_binding: bool = _remove_binding(_bindings[index])
-			return
 
 
+## 限定目标为有效的 ItemList、OptionButton 或 PopupMenu 实例。
+## [br]
+## @api private
 static func _is_supported_target(target: Object) -> bool:
 	if target == null or not is_instance_valid(target):
 		return false
 	return target is ItemList or target is OptionButton or target is PopupMenu
 
 
+## 保留 Array 状态值；其他类型统一视为空条目列表。
+## [br]
+## @api private
 static func _value_to_items(value: Variant) -> Array:
 	if value is Array:
 		var items: Array = value
@@ -422,6 +464,9 @@ static func _value_to_items(value: Variant) -> Array:
 	return []
 
 
+## 按原数组索引逐项转换为控件写入所需的标准记录。
+## [br]
+## @api private
 static func _normalize_items(items: Array, options: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for index: int in range(items.size()):
@@ -429,6 +474,9 @@ static func _normalize_items(items: Array, options: Dictionary) -> Array[Diction
 	return result
 
 
+## 将字典或标量条目转换为文本、metadata、图标、状态标志和整数 ID 记录。
+## [br]
+## @api private
 static func _normalize_item(item: Variant, index: int, options: Dictionary) -> Dictionary:
 	if item is Dictionary:
 		var source: Dictionary = GFVariantData.as_dictionary(item)
@@ -456,6 +504,9 @@ static func _normalize_item(item: Variant, index: int, options: Dictionary) -> D
 	}
 
 
+## 按标准记录更新 ItemList 的条目属性与选中项，clear 默认会先清空列表。
+## [br]
+## @api private
 static func _write_item_list(item_list: ItemList, items: Array[Dictionary], options: Dictionary) -> int:
 	if GFVariantData.get_option_bool(options, "clear", true):
 		item_list.clear()
@@ -481,6 +532,9 @@ static func _write_item_list(item_list: ItemList, items: Array[Dictionary], opti
 	return items.size()
 
 
+## 按标准记录更新 OptionButton；仅应用首个标记为 selected 的项目。
+## [br]
+## @api private
 static func _write_option_button(option_button: OptionButton, items: Array[Dictionary], options: Dictionary) -> int:
 	if GFVariantData.get_option_bool(options, "clear", true):
 		option_button.clear()
@@ -508,6 +562,9 @@ static func _write_option_button(option_button: OptionButton, items: Array[Dicti
 	return items.size()
 
 
+## 按标准记录更新 PopupMenu 的条目、metadata、禁用状态和提示文本。
+## [br]
+## @api private
 static func _write_popup_menu(popup_menu: PopupMenu, items: Array[Dictionary], options: Dictionary) -> int:
 	if GFVariantData.get_option_bool(options, "clear", true):
 		popup_menu.clear()
@@ -529,6 +586,9 @@ static func _write_popup_menu(popup_menu: PopupMenu, items: Array[Dictionary], o
 	return items.size()
 
 
+## 优先使用映射文本键，再依次回退到 label、name、id，最后转换原条目。
+## [br]
+## @api private
 static func _get_item_text(source: Dictionary, item: Variant, options: Dictionary) -> String:
 	var text_key: StringName = _get_option_key(options, "text_key", &"text")
 	var text: String = GFVariantData.get_option_string(source, text_key)
@@ -541,6 +601,9 @@ static func _get_item_text(source: Dictionary, item: Variant, options: Dictionar
 	return GFVariantData.to_text(item)
 
 
+## 优先取显式 metadata 键，其次取 id 键；都不可用时以原条目作为 metadata。
+## [br]
+## @api private
 static func _get_metadata_value(source: Dictionary, item: Variant, options: Dictionary) -> Variant:
 	var metadata_key: StringName = _get_option_key(options, "metadata_key", &"")
 	if metadata_key != &"" and source.has(metadata_key):
@@ -551,6 +614,9 @@ static func _get_metadata_value(source: Dictionary, item: Variant, options: Dict
 	return item
 
 
+## 仅接受 id 字段中的整数作为控件 ID；其他情况回退到数组索引。
+## [br]
+## @api private
 static func _get_integer_item_id(source: Dictionary, index: int, options: Dictionary) -> int:
 	var id_key: StringName = _get_option_key(options, "id_key", &"id")
 	if id_key == &"":
@@ -562,13 +628,31 @@ static func _get_integer_item_id(source: Dictionary, index: int, options: Dictio
 	return index
 
 
+## 读取选项中的字段名并转换为 StringName，无效值使用给定回退键。
+## [br]
+## @api private
 static func _get_option_key(options: Dictionary, key: String, fallback: StringName) -> StringName:
 	var value: Variant = GFVariantData.get_option_value(options, key, fallback)
 	return GFVariantData.to_string_name(value, fallback)
 
 
+## 将 Texture2D Variant 收窄为 Texture2D；其他类型返回 null。
+## [br]
+## @api private
 static func _variant_to_texture(value: Variant) -> Texture2D:
 	if value is Texture2D:
 		var texture: Texture2D = value
 		return texture
 	return null
+
+
+# --- 信号处理函数 ---
+
+## 用绑定标识反向查找并清理首次匹配的记录；旧目标的退出通知不能移除同位置的新绑定。
+## [br]
+## @api private
+func _on_target_tree_exited(binding_id: int) -> void:
+	for index: int in range(_bindings.size() - 1, -1, -1):
+		if GFVariantData.get_option_int(_bindings[index], "binding_id", -1) == binding_id:
+			var _removed_exited_binding: bool = _remove_binding(_bindings[index])
+			return

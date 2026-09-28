@@ -4,7 +4,16 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 版本预检报告使用的主题名称。
+## [br]
+## @api private
+## [br]
 const _REPORT_SUBJECT: String = "Network contract version"
+
+## 生成统一验证报告字典的脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_VALIDATION_REPORT_DICTIONARY = preload(
 	"res://addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd"
 )
@@ -168,6 +177,10 @@ static func validate(
 
 # --- 私有/辅助方法 ---
 
+## 构造带契约 ID 及附加字段的版本预检问题字典。
+## [br]
+## @api private
+## [br]
 static func _make_issue(
 	contract_id: StringName,
 	severity: String,
@@ -185,6 +198,10 @@ static func _make_issue(
 	return issue
 
 
+## 提供契约 ID、主版本及 schema digest 错误的处理建议。
+## [br]
+## @api private
+## [br]
 static func _get_next_actions() -> Dictionary:
 	return {
 		"contract_id_missing": "Send contract_id with the peer network contract version or disable require_contract_id.",

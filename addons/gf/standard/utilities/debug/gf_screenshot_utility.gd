@@ -137,7 +137,16 @@ var default_quality: float = 0.9:
 
 # --- 私有变量 ---
 
+## 标记当前是否已有批量截图流程执行中。
+## [br]
+## @api private
+## [br]
 var _burst_capture_active: bool = false
+
+## 当前批量截图使用的异步取消作用域。
+## [br]
+## @api private
+## [br]
 var _burst_scope: GFAsyncScope = null
 
 
@@ -435,6 +444,10 @@ func capture_burst(options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 优先采用传入的有效 Viewport，否则退回主场景树根视口；不可用时返回 null。
+## [br]
+## @api private
+## [br]
 func _resolve_viewport(viewport: Viewport) -> Viewport:
 	if is_instance_valid(viewport):
 		return viewport
@@ -445,6 +458,10 @@ func _resolve_viewport(viewport: Viewport) -> Viewport:
 	return null
 
 
+## 从 Engine 主循环取得 SceneTree；主循环不是场景树时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_scene_tree() -> SceneTree:
 	var main_loop: MainLoop = Engine.get_main_loop()
 	if main_loop is SceneTree:
@@ -453,6 +470,10 @@ func _get_scene_tree() -> SceneTree:
 	return null
 
 
+## 仅当 options.cancellation_token 实际为 GFCancellationToken 时返回该值。
+## [br]
+## @api private
+## [br]
 func _get_cancellation_token_option(options: Dictionary) -> GFCancellationToken:
 	var token_value: Variant = GFVariantData.get_option_value(options, "cancellation_token")
 	if token_value is GFCancellationToken:
@@ -461,6 +482,10 @@ func _get_cancellation_token_option(options: Dictionary) -> GFCancellationToken:
 	return null
 
 
+## 检查作用域或外部令牌的取消状态；令牌取消时将原因转发到作用域。
+## [br]
+## @api private
+## [br]
 func _burst_should_cancel(scope: GFAsyncScope, cancellation_token: GFCancellationToken) -> bool:
 	if scope == null or scope.is_cancel_requested():
 		return true
@@ -471,6 +496,10 @@ func _burst_should_cancel(scope: GFAsyncScope, cancellation_token: GFCancellatio
 	return false
 
 
+## 记录原场景树暂停状态、语言和窗口尺寸，并按选项暂停场景树。
+## [br]
+## @api private
+## [br]
 func _begin_burst_environment_transaction(options: Dictionary) -> Dictionary:
 	var tree: SceneTree = _get_scene_tree()
 	var should_pause_tree: bool = GFVariantData.get_option_bool(options, "pause_tree", false)
@@ -488,10 +517,18 @@ func _begin_burst_environment_transaction(options: Dictionary) -> Dictionary:
 	return transaction
 
 
+## 标记批次事务期间发生过窗口缩放，以便恢复时写回保存尺寸。
+## [br]
+## @api private
+## [br]
 func _mark_burst_window_resized(transaction: Dictionary) -> void:
 	transaction["resized_window"] = true
 
 
+## 对尚未恢复的事务还原语言、曾被缩放时的有效窗口尺寸及暂停状态，再标记完成。
+## [br]
+## @api private
+## [br]
 func _restore_burst_environment(transaction: Dictionary) -> void:
 	if GFVariantData.get_option_bool(transaction, "restored"):
 		return
@@ -512,6 +549,10 @@ func _restore_burst_environment(transaction: Dictionary) -> void:
 	transaction["restored"] = true
 
 
+## 仅当 options.viewport 实际为 Viewport 时返回该值。
+## [br]
+## @api private
+## [br]
 func _get_viewport_option(options: Dictionary) -> Viewport:
 	var value: Variant = GFVariantData.get_option_value(options, "viewport")
 	if value is Viewport:
@@ -520,6 +561,10 @@ func _get_viewport_option(options: Dictionary) -> Viewport:
 	return null
 
 
+## 按显式格式、文件扩展名、默认格式的优先级选择并归一化格式。
+## [br]
+## @api private
+## [br]
 func _resolve_format(file_path: String, options: Dictionary) -> String:
 	var option_format: String = GFVariantData.get_option_string(options, "format", "")
 	if not option_format.is_empty():
@@ -531,6 +576,10 @@ func _resolve_format(file_path: String, options: Dictionary) -> String:
 	return _normalize_format(default_format)
 
 
+## 为空路径生成默认截图路径，否则补扩展名；按 unique 选项决定是否避开现有文件。
+## [br]
+## @api private
+## [br]
 func _resolve_file_path(file_path: String, options: Dictionary, format: String) -> String:
 	var path: String = file_path
 	if path.is_empty():
@@ -545,6 +594,10 @@ func _resolve_file_path(file_path: String, options: Dictionary, format: String) 
 	return path
 
 
+## 仅在路径没有扩展名时追加格式扩展名。
+## [br]
+## @api private
+## [br]
 func _ensure_extension(path: String, format: String) -> String:
 	var extension: String = path.get_extension().to_lower()
 	if extension.is_empty():
@@ -552,6 +605,10 @@ func _ensure_extension(path: String, format: String) -> String:
 	return path
 
 
+## 将格式文本归一为 png、jpg 或 webp；不支持的值回退为 png。
+## [br]
+## @api private
+## [br]
 func _normalize_format(value: String) -> String:
 	var format: String = value.strip_edges().trim_prefix(".").to_lower()
 	match format:
@@ -564,6 +621,10 @@ func _normalize_format(value: String) -> String:
 	return FORMAT_PNG
 
 
+## 根据格式选择 Image 保存方法；JPEG/WebP 使用限制在 0–1 的质量值。
+## [br]
+## @api private
+## [br]
 func _save_image_with_format(image: Image, path: String, format: String, options: Dictionary) -> Error:
 	var quality: float = clampf(GFVariantData.get_option_float(options, "quality", default_quality), 0.0, 1.0)
 	match format:
@@ -575,6 +636,10 @@ func _save_image_with_format(image: Image, path: String, format: String, options
 	return image.save_png(path)
 
 
+## 确保目标路径的父目录存在；目录为空或已存在时返回 OK，否则递归创建。
+## [br]
+## @api private
+## [br]
 func _ensure_directory_for_path(path: String) -> Error:
 	var directory: String = path.get_base_dir()
 	if directory.is_empty():
@@ -584,6 +649,10 @@ func _ensure_directory_for_path(path: String) -> Error:
 	return DirAccess.make_dir_recursive_absolute(directory)
 
 
+## 路径已存在时依次尝试 `_1` 至 `_9999` 后缀；找不到空位时返回原路径。
+## [br]
+## @api private
+## [br]
 func _make_unique_path(path: String) -> String:
 	if path.is_empty() or not FileAccess.file_exists(path):
 		return path
@@ -597,6 +666,10 @@ func _make_unique_path(path: String) -> String:
 	return path
 
 
+## 组装保存结果字段，并将 Error 转为整数码及 reason 文本。
+## [br]
+## @api private
+## [br]
 func _make_save_record(
 	ok: bool,
 	path: String,
@@ -618,12 +691,20 @@ func _make_save_record(
 	}
 
 
+## 成功错误码映射为空文本，其他错误码映射为 error_<整数码>。
+## [br]
+## @api private
+## [br]
 func _get_error_reason(error: Error) -> String:
 	if error == OK:
 		return ""
 	return "error_%d" % int(error)
 
 
+## 生成本地日期时间加毫秒余数的 `YYYYMMDD_HHMMSS_mmm` 文本。
+## [br]
+## @api private
+## [br]
 func _make_timestamp() -> String:
 	var datetime: Dictionary = Time.get_datetime_dict_from_system()
 	return "%04d%02d%02d_%02d%02d%02d_%03d" % [
@@ -637,6 +718,10 @@ func _make_timestamp() -> String:
 	]
 
 
+## 去除首尾空白，将路径分隔符和常见非法字符替换为下划线，并替换内部空格。
+## [br]
+## @api private
+## [br]
 func _sanitize_path_segment(value: String) -> String:
 	var result: String = value.strip_edges()
 	for invalid_character: String in ["\\", "/", ":", "*", "?", "\"", "<", ">", "|"]:
@@ -644,10 +729,19 @@ func _sanitize_path_segment(value: String) -> String:
 	return result.replace(" ", "_")
 
 
+## 从 options 读取指定值并委托给向量尺寸归一化函数。
+## [br]
+## @api private
+## [br]
 func _get_vector2i_option(options: Dictionary, key: Variant, default_value: Vector2i) -> Vector2i:
 	return _to_vector2i(GFVariantData.get_option_value(options, key), default_value)
 
 
+## 将 Vector2i、Vector2、含 x/y 的字典或至少两项的数组转换为整数尺寸。
+## 不支持的形态使用回退值；Vector2 分量按最近整数舍入。
+## [br]
+## @api private
+## [br]
 func _to_vector2i(value: Variant, default_value: Vector2i) -> Vector2i:
 	if value is Vector2i:
 		var vector2i: Vector2i = value
@@ -668,16 +762,28 @@ func _to_vector2i(value: Variant, default_value: Vector2i) -> Vector2i:
 	return default_value
 
 
+## 有效正尺寸格式化为 `宽x高`，否则返回空字符串。
+## [br]
+## @api private
+## [br]
 func _get_resolution_label(resolution: Vector2i) -> String:
 	if not _is_valid_resolution(resolution):
 		return ""
 	return "%dx%d" % [resolution.x, resolution.y]
 
 
+## 检查宽和高是否都大于零。
+## [br]
+## @api private
+## [br]
 func _is_valid_resolution(resolution: Vector2i) -> bool:
 	return resolution.x > 0 and resolution.y > 0
 
 
+## 读取 locales 数组或单个 locale；未提供有效值时返回仅含空字符串的数组。
+## [br]
+## @api private
+## [br]
 func _get_locale_values(options: Dictionary) -> PackedStringArray:
 	var locales: PackedStringArray = PackedStringArray()
 	var raw_locales: Variant = GFVariantData.get_option_value(options, "locales")
@@ -697,6 +803,10 @@ func _get_locale_values(options: Dictionary) -> PackedStringArray:
 	return locales
 
 
+## 优先读取 resolutions/sizes 集合，再读取单个 resolution/window_size；无值时返回零尺寸占位。
+## [br]
+## @api private
+## [br]
 func _get_resolution_values(options: Dictionary) -> Array[Vector2i]:
 	var resolutions: Array[Vector2i] = []
 	var raw_resolutions: Variant = GFVariantData.get_option_value(
@@ -724,6 +834,10 @@ func _get_resolution_values(options: Dictionary) -> Array[Vector2i]:
 	return resolutions
 
 
+## 读取并归一化 formats 集合或单个 format；结果为空时回退为默认格式。
+## [br]
+## @api private
+## [br]
 func _get_format_values(options: Dictionary) -> PackedStringArray:
 	var formats: PackedStringArray = PackedStringArray()
 	var raw_formats: Variant = GFVariantData.get_option_value(options, "formats")
@@ -743,12 +857,20 @@ func _get_format_values(options: Dictionary) -> PackedStringArray:
 	return formats
 
 
+## 将文本追加到 PackedStringArray；数组 API 的返回值不向调用方传播。
+## [br]
+## @api private
+## [br]
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 初始化尚未完成的批量报告及各组合数量、计划数和捕获上限。
+## [br]
+## @api private
+## [br]
 func _make_burst_report(
 	records: Array[Dictionary],
 	locale_count: int,
@@ -771,10 +893,18 @@ func _make_burst_report(
 	}
 
 
+## 返回语言、分辨率与格式三组组合的笛卡尔积数量。
+## [br]
+## @api private
+## [br]
 func _get_burst_capture_count(locales: PackedStringArray, resolutions: Array[Vector2i], formats: PackedStringArray) -> int:
 	return locales.size() * resolutions.size() * formats.size()
 
 
+## 统计成功与失败记录数，并在没有失败记录时将报告 ok 设为 true。
+## [br]
+## @api private
+## [br]
 func _update_burst_report_counts(report: Dictionary, records: Array[Dictionary]) -> void:
 	var saved_count: int = 0
 	var error_count: int = 0
@@ -789,6 +919,10 @@ func _update_burst_report_counts(report: Dictionary, records: Array[Dictionary])
 	report["error_count"] = error_count
 
 
+## 存在 SceneTree 时等待两个 process_frame，再按需等待可在暂停树中运行的计时器。
+## [br]
+## @api private
+## [br]
 func _wait_for_capture_frame(delay_seconds: float) -> void:
 	var tree: SceneTree = _get_scene_tree()
 	if tree == null:

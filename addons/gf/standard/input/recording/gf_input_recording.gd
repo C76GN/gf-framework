@@ -14,6 +14,10 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 录制内部用于同一时间戳事件稳定排序的顺序索引键。
+## [br]
+## @api private
+## [br]
 const _ORDER_INDEX_KEY: String = "_order_index"
 
 
@@ -50,7 +54,16 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 新增事件将使用的下一个稳定顺序索引。
+## [br]
+## @api private
+## [br]
 var _next_event_order_index: int = 0
+
+## 按时间和顺序索引排列的内部事件记录。
+## [br]
+## @api private
+## [br]
 var _events: Array[Dictionary] = []
 
 
@@ -236,6 +249,10 @@ static func from_dict(data: Dictionary, json_compatible: bool = false) -> GFInpu
 
 # --- 私有/辅助方法 ---
 
+## 尝试通过当前实例脚本构造同类录制并收窄类型；脚本或结果不可用时退回 GFInputRecording。
+## [br]
+## @api private
+## [br]
 func _new_recording_instance() -> GFInputRecording:
 	var recording_script: Script = _variant_to_script(get_script())
 	if recording_script != null:
@@ -245,6 +262,10 @@ func _new_recording_instance() -> GFInputRecording:
 	return GFInputRecording.new()
 
 
+## 将事件追加到已排序列表末尾；若它应排在已有事件之前，则通过二分定位插入位置。
+## [br]
+## @api private
+## [br]
 func _add_event_sorted(event: Dictionary) -> void:
 	if _events.is_empty():
 		_events.append(event)
@@ -259,6 +280,10 @@ func _add_event_sorted(event: Dictionary) -> void:
 	var _insert_result: Variant = _events.insert(insert_index, event)
 
 
+## 使用二分查找确定事件在当前列表中的排序插入索引。
+## [br]
+## @api private
+## [br]
 func _find_event_insert_index(event: Dictionary) -> int:
 	var low: int = 0
 	var high: int = _events.size()
@@ -272,6 +297,10 @@ func _find_event_insert_index(event: Dictionary) -> int:
 	return low
 
 
+## 将 Variant 收窄为 Script；类型不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_script(value: Variant) -> Script:
 	if value is Script:
 		var script: Script = value
@@ -279,6 +308,10 @@ func _variant_to_script(value: Variant) -> Script:
 	return null
 
 
+## 将 Variant 收窄为 GFInputRecording；类型不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_recording(value: Variant) -> GFInputRecording:
 	if value is GFInputRecording:
 		var recording: GFInputRecording = value
@@ -286,6 +319,10 @@ func _variant_to_recording(value: Variant) -> GFInputRecording:
 	return null
 
 
+## 将内部事件映射为公开字典，并按 json_compatible 选择值与元数据的 JSON 转换或 Variant 复制路径。
+## [br]
+## @api private
+## [br]
 func _event_to_dict(event: Dictionary, json_compatible: bool) -> Dictionary:
 	return {
 		"time_seconds": _get_event_time_seconds(event),
@@ -305,6 +342,10 @@ func _event_to_dict(event: Dictionary, json_compatible: bool) -> Dictionary:
 	}
 
 
+## 从公开事件字典构建内部事件记录，规范化时间并按 json_compatible 转换值与元数据。
+## [br]
+## @api private
+## [br]
 func _event_from_dict(event: Dictionary, json_compatible: bool) -> Dictionary:
 	var value: Variant = _get_event_value(event)
 	value = (
@@ -328,6 +369,10 @@ func _event_from_dict(event: Dictionary, json_compatible: bool) -> Dictionary:
 	}
 
 
+## 按事件时间升序比较；时间相同时按内部顺序索引升序排列。
+## [br]
+## @api private
+## [br]
 func _sort_recording_events(left: Dictionary, right: Dictionary) -> bool:
 	var left_time: float = _get_event_time_seconds(left)
 	var right_time: float = _get_event_time_seconds(right)
@@ -338,34 +383,66 @@ func _sort_recording_events(left: Dictionary, right: Dictionary) -> bool:
 	return _get_event_order_index(left) < _get_event_order_index(right)
 
 
+## 读取事件时间并转换为 float。
+## [br]
+## @api private
+## [br]
 func _get_event_time_seconds(event: Dictionary) -> float:
 	return GFVariantData.get_option_float(event, "time_seconds")
 
 
+## 读取事件动作标识并转换为 StringName。
+## [br]
+## @api private
+## [br]
 func _get_event_action_id(event: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(event, "action_id")
 
 
+## 读取事件的 value Variant。
+## [br]
+## @api private
+## [br]
 func _get_event_value(event: Dictionary) -> Variant:
 	return GFVariantData.get_option_value(event, "value")
 
 
+## 读取事件玩家索引；缺少字段时返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_event_player_index(event: Dictionary) -> int:
 	return GFVariantData.get_option_int(event, "player_index", -1)
 
 
+## 读取事件来源标识并转换为 StringName。
+## [br]
+## @api private
+## [br]
 func _get_event_source_id(event: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(event, "source_id")
 
 
+## 读取事件元数据并转换为 Dictionary。
+## [br]
+## @api private
+## [br]
 func _get_event_metadata(event: Dictionary) -> Dictionary:
 	return GFVariantData.get_option_dictionary(event, "metadata")
 
 
+## 读取事件的内部排序索引。
+## [br]
+## @api private
+## [br]
 func _get_event_order_index(event: Dictionary) -> int:
 	return GFVariantData.get_option_int(event, _ORDER_INDEX_KEY)
 
 
+## 扫描内部事件并返回最大的事件时间；空列表时从 0 开始返回。
+## [br]
+## @api private
+## [br]
 func _get_max_event_time_seconds() -> float:
 	var result: float = 0.0
 	for event: Dictionary in _events:
@@ -373,6 +450,10 @@ func _get_max_event_time_seconds() -> float:
 	return result
 
 
+## 将事件时间规范为有限非负值；NaN、无穷值转换为 0。
+## [br]
+## @api private
+## [br]
 func _normalize_time_seconds(value: float) -> float:
 	if is_nan(value) or is_inf(value):
 		return 0.0

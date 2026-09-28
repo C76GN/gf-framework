@@ -257,6 +257,10 @@ static func check_script_structure(
 
 # --- 私有/辅助方法 ---
 
+## 创建脚本结构描述的默认报告，并填入目标脚本的身份信息。
+## [br]
+## @api private
+## [br]
 static func _make_description_report(target_script: Script) -> Dictionary:
 	return {
 		"ok": true,
@@ -275,6 +279,10 @@ static func _make_description_report(target_script: Script) -> Dictionary:
 	}
 
 
+## 以结构描述报告为基础创建一致性检查报告。
+## [br]
+## @api private
+## [br]
 static func _make_check_report(target_script: Script, description: Dictionary) -> Dictionary:
 	return {
 		"ok": GFVariantData.get_option_bool(description, "ok", true),
@@ -286,6 +294,10 @@ static func _make_check_report(target_script: Script, description: Dictionary) -
 	}
 
 
+## 创建单个方法的格式化报告并预先记录参数数及返回类型索引。
+## [br]
+## @api private
+## [br]
 static func _make_method_format_report(method: Dictionary) -> Dictionary:
 	var return_info: Dictionary = _get_method_return_info(method)
 	return {
@@ -302,6 +314,10 @@ static func _make_method_format_report(method: Dictionary) -> Dictionary:
 	}
 
 
+## 读取方法 `args` 数组；为空时兼容旧字段 `arguments`。
+## [br]
+## @api private
+## [br]
 static func _get_method_arguments(method: Dictionary) -> Array:
 	var args: Array = GFVariantData.get_option_array(method, "args")
 	if args.is_empty():
@@ -309,6 +325,10 @@ static func _get_method_arguments(method: Dictionary) -> Array:
 	return args
 
 
+## 优先读取完整 `return` 字典，否则从旧式分散字段组装返回类型信息。
+## [br]
+## @api private
+## [br]
 static func _get_method_return_info(method: Dictionary) -> Dictionary:
 	var return_info: Dictionary = GFVariantData.get_option_dictionary(method, "return")
 	if not return_info.is_empty():
@@ -321,6 +341,10 @@ static func _get_method_return_info(method: Dictionary) -> Dictionary:
 	}
 
 
+## 格式化参数标识符、类型和尾部默认参数值。
+## [br]
+## @api private
+## [br]
 static func _format_argument_signature(
 	argument: Dictionary,
 	index: int,
@@ -347,6 +371,10 @@ static func _format_argument_signature(
 	return result
 
 
+## 按选项决定无类型返回值是否显示为 void、Variant 或空字符串。
+## [br]
+## @api private
+## [br]
 static func _format_return_type_name(return_info: Dictionary, options: Dictionary) -> String:
 	var return_type: int = GFVariantData.get_option_int(return_info, "type", TYPE_NIL)
 	if return_type == TYPE_NIL:
@@ -358,6 +386,10 @@ static func _format_return_type_name(return_info: Dictionary, options: Dictionar
 	return _format_type_name(return_info, false)
 
 
+## 将反射类型信息转为 GDScript 类型文本，并处理 Object 与 typed Array。
+## [br]
+## @api private
+## [br]
 static func _format_type_name(type_info: Dictionary, include_variant_for_nil: bool) -> String:
 	var type_index: int = GFVariantData.get_option_int(type_info, "type", TYPE_NIL)
 	if type_index == TYPE_NIL:
@@ -373,6 +405,10 @@ static func _format_type_name(type_info: Dictionary, include_variant_for_nil: bo
 	return type_string(type_index)
 
 
+## 优先采用调用方提供的 stub 正文，否则生成默认返回语句或 pass。
+## [br]
+## @api private
+## [br]
 static func _get_method_stub_body_lines(report: Dictionary, options: Dictionary) -> PackedStringArray:
 	var explicit_body_lines: PackedStringArray = _to_packed_string_lines(GFVariantData.get_option_value(options, "body_lines"))
 	if not explicit_body_lines.is_empty():
@@ -386,6 +422,10 @@ static func _get_method_stub_body_lines(report: Dictionary, options: Dictionary)
 	return PackedStringArray(["pass"])
 
 
+## 为受支持的内置类型选择默认返回字面量；无返回值时返回空字符串。
+## [br]
+## @api private
+## [br]
 static func _default_return_literal(return_type: int, return_type_name: String) -> String:
 	if return_type == TYPE_NIL or return_type_name == "void":
 		return ""
@@ -466,6 +506,10 @@ static func _default_return_literal(return_type: int, return_type_name: String) 
 			return "null"
 
 
+## 将常见 Variant 值转为 GDScript 字面量，其他类型回退到 var_to_str。
+## [br]
+## @api private
+## [br]
 static func _variant_literal(value: Variant) -> String:
 	if value == null:
 		return "null"
@@ -511,11 +555,19 @@ static func _variant_literal(value: Variant) -> String:
 			return var_to_str(value)
 
 
+## 确保浮点数文本包含小数点，避免整数外观的浮点字面量丢失类型。
+## [br]
+## @api private
+## [br]
 static func _float_literal(value: float) -> String:
 	var text: String = str(value)
 	return text if text.contains(".") else text + ".0"
 
 
+## 将字符串、StringName 或数组中的各项转成逐行文本。
+## [br]
+## @api private
+## [br]
 static func _to_packed_string_lines(value: Variant) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	if value is PackedStringArray:
@@ -531,6 +583,10 @@ static func _to_packed_string_lines(value: Variant) -> PackedStringArray:
 	return result
 
 
+## 清理反射得到的参数名为非保留 GDScript 标识符，无法修复时使用回退值。
+## [br]
+## @api private
+## [br]
 static func _normalize_identifier(value: String, fallback: String) -> String:
 	var trimmed: String = value.strip_edges()
 	if _is_valid_identifier(trimmed) and not _is_gdscript_reserved_word(trimmed):
@@ -558,6 +614,10 @@ static func _normalize_identifier(value: String, fallback: String) -> String:
 	return result
 
 
+## 检查标识符是否以字母或下划线开头且后续只含 ASCII 字母、数字或下划线。
+## [br]
+## @api private
+## [br]
 static func _is_valid_identifier(value: String) -> bool:
 	if value.is_empty():
 		return false
@@ -575,6 +635,10 @@ static func _is_valid_identifier(value: String) -> bool:
 	return true
 
 
+## 判断文本是否命中本工具维护的 GDScript 保留字集合。
+## [br]
+## @api private
+## [br]
 static func _is_gdscript_reserved_word(value: String) -> bool:
 	match value.to_lower():
 		"and", "as", "assert", "await", "break", "breakpoint", "class", "class_name", "const", "continue", "elif", "else", "enum", "extends", "false", "for", "func", "if", "in", "is", "match", "not", "null", "or", "pass", "preload", "return", "self", "signal", "static", "super", "true", "var", "void", "while", "yield":
@@ -583,6 +647,10 @@ static func _is_gdscript_reserved_word(value: String) -> bool:
 			return false
 
 
+## 从脚本常量映射生成排序后的常量记录，可选包含值并筛除私有名称。
+## [br]
+## @api private
+## [br]
 static func _describe_constants(target_script: Script, options: Dictionary, include_private_members: bool) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	var include_constant_values: bool = GFVariantData.get_option_bool(options, "include_constant_values", false)
@@ -604,6 +672,10 @@ static func _describe_constants(target_script: Script, options: Dictionary, incl
 	return records
 
 
+## 整理反射方法的参数、标志和返回类型记录，并按名称排序。
+## [br]
+## @api private
+## [br]
 static func _describe_method_records(method_list: Array, include_private_members: bool) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	for method_value: Variant in method_list:
@@ -627,6 +699,10 @@ static func _describe_method_records(method_list: Array, include_private_members
 	return records
 
 
+## 整理反射属性的类型、提示和 usage 字段，并按名称排序。
+## [br]
+## @api private
+## [br]
 static func _describe_property_records(property_list: Array, include_private_members: bool) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	for property_value: Variant in property_list:
@@ -646,6 +722,10 @@ static func _describe_property_records(property_list: Array, include_private_mem
 	return records
 
 
+## 整理反射信号的参数和标志字段，并按名称排序。
+## [br]
+## @api private
+## [br]
 static func _describe_signal_records(signal_list: Array, include_private_members: bool) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	for signal_value: Variant in signal_list:
@@ -664,6 +744,10 @@ static func _describe_signal_records(signal_list: Array, include_private_members
 	return records
 
 
+## 按原顺序将反射参数转换为含索引和类型提示字段的记录。
+## [br]
+## @api private
+## [br]
 static func _describe_argument_records(args: Array) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	for index: int in range(args.size()):
@@ -680,6 +764,10 @@ static func _describe_argument_records(args: Array) -> Array[Dictionary]:
 	return records
 
 
+## 从目标脚本开始记录基脚本链及深度；非正上限表示遍历完整链。
+## [br]
+## @api private
+## [br]
 static func _describe_base_chain(target_script: Script, options: Dictionary) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	var max_depth: int = maxi(
@@ -700,6 +788,10 @@ static func _describe_base_chain(target_script: Script, options: Dictionary) -> 
 	return records
 
 
+## 仅在期望值为 Script 时检查目标脚本是否继承该脚本。
+## [br]
+## @api private
+## [br]
 static func _check_base_script(report: Dictionary, target_script: Script, structure: Dictionary) -> void:
 	var expected_value: Variant = GFVariantData.get_option_value(structure, "base_script")
 	if not (expected_value is Script):
@@ -716,6 +808,10 @@ static func _check_base_script(report: Dictionary, target_script: Script, struct
 		)
 
 
+## 若声明了非空 base_class 要求，则核对脚本实例基类名称。
+## [br]
+## @api private
+## [br]
 static func _check_base_class(report: Dictionary, target_script: Script, structure: Dictionary) -> void:
 	if not structure.has("base_class") and not structure.has(&"base_class"):
 		return
@@ -734,6 +830,10 @@ static func _check_base_class(report: Dictionary, target_script: Script, structu
 		)
 
 
+## 仅在提供 can_instantiate 要求时比较脚本实例化能力。
+## [br]
+## @api private
+## [br]
 static func _check_can_instantiate(report: Dictionary, target_script: Script, structure: Dictionary) -> void:
 	if not structure.has("can_instantiate") and not structure.has(&"can_instantiate"):
 		return
@@ -750,6 +850,10 @@ static func _check_can_instantiate(report: Dictionary, target_script: Script, st
 	)
 
 
+## 查找各类必需成员，报告空名称或缺失项并继续检查找到的记录约束。
+## [br]
+## @api private
+## [br]
 static func _check_required_records(
 	report: Dictionary,
 	record_kind: String,
@@ -785,6 +889,10 @@ static func _check_required_records(
 		_check_record_constraints(report, record_kind, structure_key, record, requirement)
 
 
+## 对成员记录核对指定类型、类名和 usage，并继续核验参数数量。
+## [br]
+## @api private
+## [br]
 static func _check_record_constraints(
 	report: Dictionary,
 	record_kind: String,
@@ -831,6 +939,10 @@ static func _check_record_constraints(
 	_check_argument_constraints(report, record_kind, structure_key, record, requirement)
 
 
+## 核验要求中给出的精确参数数或最小参数数。
+## [br]
+## @api private
+## [br]
 static func _check_argument_constraints(
 	report: Dictionary,
 	record_kind: String,
@@ -864,6 +976,10 @@ static func _check_argument_constraints(
 			)
 
 
+## 将数组、PackedStringArray 或单个文本要求值统一转换成 Array。
+## [br]
+## @api private
+## [br]
 static func _get_requirement_list(structure: Dictionary, key: String) -> Array:
 	var value: Variant = GFVariantData.get_option_value(structure, key, [])
 	if value is PackedStringArray:
@@ -879,6 +995,10 @@ static func _get_requirement_list(structure: Dictionary, key: String) -> Array:
 	return []
 
 
+## 保留 Dictionary 要求对象；其他值转换为只含 name 的要求字典。
+## [br]
+## @api private
+## [br]
 static func _normalize_requirement(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		var requirement: Dictionary = value
@@ -888,6 +1008,10 @@ static func _normalize_requirement(value: Variant) -> Dictionary:
 	}
 
 
+## 在记录数组中返回首个名称匹配项；未找到时返回空字典。
+## [br]
+## @api private
+## [br]
 static func _find_named_record(records: Array, required_name: String) -> Dictionary:
 	for record_value: Variant in records:
 		var record: Dictionary = GFVariantData.as_dictionary(record_value)
@@ -896,6 +1020,10 @@ static func _find_named_record(records: Array, required_name: String) -> Diction
 	return {}
 
 
+## 向报告问题列表追加包含级别、类别、字段、成员名和消息的记录。
+## [br]
+## @api private
+## [br]
 static func _append_issue(
 	report: Dictionary,
 	severity: String,
@@ -915,6 +1043,10 @@ static func _append_issue(
 	report["issues"] = issues
 
 
+## 汇总问题级别和成员数量，更新报告 ok 标记及摘要文本。
+## [br]
+## @api private
+## [br]
 static func _finalize_report(report: Dictionary) -> Dictionary:
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 	var error_count: int = 0
@@ -947,6 +1079,10 @@ static func _finalize_report(report: Dictionary) -> Dictionary:
 	return report
 
 
+## 按目录深度及路径字典序排序路径，并转回 PackedStringArray。
+## [br]
+## @api private
+## [br]
 static func _sort_paths_by_depth(paths: PackedStringArray) -> PackedStringArray:
 	var path_array: Array[String] = []
 	for path: String in paths:
@@ -958,6 +1094,10 @@ static func _sort_paths_by_depth(paths: PackedStringArray) -> PackedStringArray:
 	return result
 
 
+## 先比较路径中的斜线数量，相同深度时按字典序比较。
+## [br]
+## @api private
+## [br]
 static func _compare_paths_by_depth(left: String, right: String) -> bool:
 	var left_depth: int = left.count("/")
 	var right_depth: int = right.count("/")
@@ -966,10 +1106,18 @@ static func _compare_paths_by_depth(left: String, right: String) -> bool:
 	return left_depth < right_depth
 
 
+## 按记录 name 字段升序比较两个成员记录。
+## [br]
+## @api private
+## [br]
 static func _compare_named_records(left: Dictionary, right: Dictionary) -> bool:
 	return GFVariantData.get_option_string(left, "name") < GFVariantData.get_option_string(right, "name")
 
 
+## 沿候选脚本的基脚本链按对象身份查找期望脚本。
+## [br]
+## @api private
+## [br]
 static func _script_extends_or_equals(candidate: Script, expected: Script) -> bool:
 	if candidate == null or expected == null:
 		return false
@@ -981,12 +1129,20 @@ static func _script_extends_or_equals(candidate: Script, expected: Script) -> bo
 	return false
 
 
+## 返回脚本资源路径；目标脚本为空时返回空字符串。
+## [br]
+## @api private
+## [br]
 static func _get_script_path(target_script: Script) -> String:
 	if target_script == null:
 		return ""
 	return target_script.resource_path
 
 
+## 在目标脚本支持 get_global_name 时读取全局类名，否则返回空字符串。
+## [br]
+## @api private
+## [br]
 static func _get_script_global_name(target_script: Script) -> String:
 	if target_script == null:
 		return ""
@@ -995,11 +1151,19 @@ static func _get_script_global_name(target_script: Script) -> String:
 	return ""
 
 
+## 返回脚本声明的实例基类类型；目标脚本为空时返回空字符串。
+## [br]
+## @api private
+## [br]
 static func _get_script_instance_base_type(target_script: Script) -> String:
 	if target_script == null:
 		return ""
 	return target_script.get_instance_base_type()
 
 
+## 仅在未请求私有成员时跳过以下划线开头的成员名称。
+## [br]
+## @api private
+## [br]
 static func _should_skip_private_name(member_name: String, include_private_members: bool) -> bool:
 	return not include_private_members and member_name.begins_with("_")

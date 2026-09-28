@@ -15,6 +15,10 @@ extends Resource
 
 # --- 常量 ---
 
+## 单个检查点可引用的 Provider ID 最大数量。
+## [br]
+## @api private
+## [br]
 const _MAX_CHECKPOINT_PROVIDERS: int = 256
 
 
@@ -230,5 +234,9 @@ func to_report_dictionary_for_framework() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 经 GFVariantData.duplicate_variant 处理输入后，将结果归一为 Dictionary。
+## [br]
+## @api private
+## [br]
 static func _duplicate_dictionary(value: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.duplicate_variant(value))

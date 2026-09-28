@@ -47,6 +47,9 @@ enum ScopeMode {
 	SCOPED,
 }
 
+## 节点上下文自身的安装、初始化、关闭与失败状态。
+## [br]
+## @api private
 enum _ContextState {
 	DETACHED,
 	INSTALLING,
@@ -61,6 +64,9 @@ enum _ContextState {
 
 # --- 常量 ---
 
+## 用于启动无需等待返回值的继承架构 ready 观察任务。
+## [br]
+## @api private
 const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
 
 
@@ -109,19 +115,57 @@ var architecture: GFArchitecture:
 
 # --- 私有变量 ---
 
+## 当前上下文使用的架构；可能由本节点创建，也可能从父级继承。
+## [br]
+## @api private
 var _architecture: GFArchitecture = null
+
+## 标记当前上下文是否负责创建和释放 Architecture。
+## [br]
+## @api private
 var _owns_architecture: bool = false
+
+## 节点上下文自己的生命周期状态。
+## [br]
+## @api private
 var _context_state: _ContextState = _ContextState.DETACHED
+
+## 首次进入失败终态时保存的原因。
+## [br]
+## @api private
 var _context_failure_reason: String = ""
+
+## 节点每次进入或退出场景树时递增，用于拒绝旧异步流程的结果。
+## [br]
+## @api private
 var _context_lifecycle_serial: int = 0
+
+## 当前 Scoped Architecture 安装流程的异步取消作用域。
+## [br]
+## @api private
 var _context_install_scope: GFAsyncScope = null
+
+## 初始化时绑定的父级或继承 Architecture。
+## [br]
+## @api private
 var _parent_architecture: GFArchitecture = null
+
+## 绑定父架构时记录的生命周期 generation；未绑定时为 -1。
+## [br]
+## @api private
 var _parent_architecture_initial_generation: int = -1
+
+## 父架构首次被确认 ready 时的 generation；尚未 ready 时为 -1。
+## [br]
+## @api private
 var _parent_architecture_ready_generation: int = -1
 
 
 # --- Godot 生命周期方法 ---
 
+## 开始新的上下文代次并建立架构；自有架构先等待父就绪，再依次等待安装和绑定安装且复核代次，继承架构则启动分离就绪观察。
+## [br]
+## @api private
 func _enter_tree() -> void:
 	_context_lifecycle_serial += 1
 	var lifecycle_serial: int = _context_lifecycle_serial
@@ -207,18 +251,27 @@ func _enter_tree() -> void:
 		)
 
 
+## 先同步上下文生命周期，仅在自有架构满足驱动条件时转发渲染帧 tick。
+## [br]
+## @api private
 func _process(delta: float) -> void:
 	_synchronize_context_lifecycle()
 	if _should_tick_owned_architecture():
 		_architecture.tick(delta)
 
 
+## 先同步上下文生命周期，仅在自有架构满足驱动条件时转发物理帧 tick。
+## [br]
+## @api private
 func _physics_process(delta: float) -> void:
 	_synchronize_context_lifecycle()
 	if _should_tick_owned_architecture():
 		_architecture.physics_tick(delta)
 
 
+## 使上下文代次失效并取消安装，只销毁自有架构，随后清空引用、状态和父架构跟踪，令迟到协程无法继续旧安装。
+## [br]
+## @api private
 func _exit_tree() -> void:
 	_context_lifecycle_serial += 1
 	_cancel_context_install_scope("The context has exited the tree.")
@@ -520,6 +573,9 @@ func inject_node_tree(node: Node) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 捕获最近父架构，并按 scope_mode 选择继承该架构或创建一个 owned child 架构。
+## [br]
+## @api private
 func _setup_architecture() -> void:
 	var parent_architecture: GFArchitecture = _find_parent_architecture()
 	_capture_parent_architecture(parent_architecture)
@@ -539,6 +595,9 @@ func _setup_architecture() -> void:
 			_context_state = _ContextState.INSTALLING
 
 
+## 仅为仍属当前上下文代次的自有架构执行初始化，等待前后校验父架构和自身身份；成功发出就绪，失败或未完成转入上下文失败。
+## [br]
+## @api private
 func _initialize_owned_architecture(
 	architecture_instance: GFArchitecture = null,
 	lifecycle_serial: int = -1
@@ -582,6 +641,9 @@ func _initialize_owned_architecture(
 		_fail_context("Context architecture initialization did not complete.")
 
 
+## 先让出一帧再观察继承架构，在上下文代次有效期间等待其就绪；逐帧检查父生命周期及超时，身份改变后退出旧观察。
+## [br]
+## @api private
 func _watch_inherited_architecture_ready(inherited_architecture: GFArchitecture, lifecycle_serial: int) -> void:
 	await get_tree().process_frame
 	if _context_state == _ContextState.FAILED:
@@ -602,6 +664,9 @@ func _watch_inherited_architecture_ready(inherited_architecture: GFArchitecture,
 		await get_tree().process_frame
 
 
+## 等待父架构就绪并在每次让帧前后校验自有架构代次；超时或任一生命周期失效令上下文失败，没有关联架构时直接成功。
+## [br]
+## @api private
 func _wait_for_parent_architecture_ready(
 	architecture_instance: GFArchitecture = null,
 	lifecycle_serial: int = -1,
@@ -664,6 +729,9 @@ func _wait_for_parent_architecture_ready(
 	return _validate_parent_architecture_lifecycle(false)
 
 
+## 从最近的父 GFNodeContext 查找可用 Architecture，未找到时回退到 GFAutoload。
+## [br]
+## @api private
 func _find_parent_architecture() -> GFArchitecture:
 	var current_node: Node = get_parent()
 	while current_node != null:
@@ -677,6 +745,9 @@ func _find_parent_architecture() -> GFArchitecture:
 	return GFAutoload.get_architecture_or_null()
 
 
+## 仅当开关开启、上下文拥有已初始化且 READY 的架构时允许驱动 tick。
+## [br]
+## @api private
 func _should_tick_owned_architecture() -> bool:
 	return (
 		process_scoped_ticks
@@ -687,6 +758,9 @@ func _should_tick_owned_architecture() -> bool:
 	)
 
 
+## 超时未启用或等待未超时时返回空字符串，否则返回传入的失败原因。
+## [br]
+## @api private
 func _get_wait_timeout_reason(start_msec: int, reason: String) -> String:
 	if context_wait_timeout_seconds <= 0.0:
 		return ""
@@ -696,6 +770,9 @@ func _get_wait_timeout_reason(start_msec: int, reason: String) -> String:
 	return ""
 
 
+## 在允许的状态下先写入失败并取消安装，再销毁自有架构；取消或销毁回调改变上下文后抑制旧代次的失败信号。
+## [br]
+## @api private
 func _fail_context(reason: String, allow_ready_transition: bool = false) -> void:
 	if reason.is_empty():
 		return
@@ -723,10 +800,16 @@ func _fail_context(reason: String, allow_ready_transition: bool = false) -> void
 	context_failed.emit(reason)
 
 
+## 上下文处于 CLOSING 或 CLOSED 时返回 true。
+## [br]
+## @api private
 func _is_context_ending() -> bool:
 	return _context_state == _ContextState.CLOSING or _context_state == _ContextState.CLOSED
 
 
+## 将自有架构的关闭、静默及失败状态同步到上下文；正常关闭进入 CLOSED，强制终止或就绪生命周期失效转为失败。
+## [br]
+## @api private
 func _synchronize_context_lifecycle() -> void:
 	if (
 		_context_state == _ContextState.DETACHED
@@ -761,6 +844,9 @@ func _synchronize_context_lifecycle() -> void:
 		_fail_context("The context architecture lifecycle is no longer valid.", true)
 
 
+## 保存父架构身份和初始 generation；若它已初始化，同时记录 ready generation。
+## [br]
+## @api private
 func _capture_parent_architecture(parent_architecture: GFArchitecture) -> void:
 	_parent_architecture = parent_architecture
 	_parent_architecture_initial_generation = -1
@@ -773,12 +859,18 @@ func _capture_parent_architecture(parent_architecture: GFArchitecture) -> void:
 		_parent_architecture_ready_generation = lifecycle_generation
 
 
+## 清空父架构引用及其两个 generation 快照。
+## [br]
+## @api private
 func _clear_parent_architecture_tracking() -> void:
 	_parent_architecture = null
 	_parent_architecture_initial_generation = -1
 	_parent_architecture_ready_generation = -1
 
 
+## 验证当前绑定父架构的身份、失败状态与初始化代次；首次就绪时锁定其代次，之后不接受重新初始化，必要时令已就绪上下文失败。
+## [br]
+## @api private
 func _validate_parent_architecture_lifecycle(allow_pending: bool) -> bool:
 	var bound_parent_architecture: GFArchitecture = _get_bound_parent_architecture()
 	var relationship_name: String = "Parent architecture" if _owns_architecture else "Inherited architecture"
@@ -822,6 +914,9 @@ func _validate_parent_architecture_lifecycle(allow_pending: bool) -> bool:
 	return true
 
 
+## 返回当前绑定的父架构；owned 模式读取 Architecture parent，其余模式重新查找父级。
+## [br]
+## @api private
 func _get_bound_parent_architecture() -> GFArchitecture:
 	if not _owns_architecture:
 		return _find_parent_architecture()
@@ -830,6 +925,9 @@ func _get_bound_parent_architecture() -> GFArchitecture:
 	return _architecture.get_parent_architecture()
 
 
+## 等待期接受记录的初始代次，或恰好递增一次且生命周期仍活跃的代次；更大的跳变视为父架构已换生命周期。
+## [br]
+## @api private
 func _is_parent_architecture_wait_generation_valid(lifecycle_generation: int) -> bool:
 	if lifecycle_generation == _parent_architecture_initial_generation:
 		return true
@@ -840,12 +938,18 @@ func _is_parent_architecture_wait_generation_valid(lifecycle_generation: int) ->
 	)
 
 
+## 优先返回 Architecture 保存的初始化错误；没有时返回调用方提供的原因。
+## [br]
+## @api private
 func _get_architecture_failure_reason(architecture_instance: GFArchitecture, fallback_reason: String) -> String:
 	if architecture_instance != null and not architecture_instance.last_initialization_error.is_empty():
 		return architecture_instance.last_initialization_error
 	return fallback_reason
 
 
+## 检查节点仍在树内、仍拥有同一架构，并可选地匹配捕获的 context serial。
+## [br]
+## @api private
 func _is_owned_architecture_current(
 	architecture_instance: GFArchitecture,
 	lifecycle_serial: int = -1
@@ -861,6 +965,9 @@ func _is_owned_architecture_current(
 	)
 
 
+## 确认父架构等待仍指向本轮自有架构；上下文已失效时返回 false，架构销毁、初始化失败或代次改变时同时记录上下文失败。
+## [br]
+## @api private
 func _validate_owned_architecture_wait_target(
 	architecture_instance: GFArchitecture,
 	lifecycle_serial: int,
@@ -892,6 +999,9 @@ func _validate_owned_architecture_wait_target(
 	return true
 
 
+## 检查节点仍在树内、未拥有架构，且架构身份、serial 与非 DETACHED/FAILED 状态匹配。
+## [br]
+## @api private
 func _is_inherited_architecture_current(architecture_instance: GFArchitecture, lifecycle_serial: int) -> bool:
 	return (
 		is_inside_tree()
@@ -903,6 +1013,9 @@ func _is_inherited_architecture_current(architecture_instance: GFArchitecture, l
 	)
 
 
+## 仅为树内且仍在等待或初始化的当前架构标记就绪，先验证父链；发出信号后再同步生命周期以接住监听器造成的状态变化。
+## [br]
+## @api private
 func _mark_context_ready(architecture_instance: GFArchitecture) -> void:
 	if architecture_instance == null:
 		return
@@ -932,6 +1045,9 @@ func _mark_context_ready(architecture_instance: GFArchitecture) -> void:
 	_synchronize_context_lifecycle()
 
 
+## 取消并替换旧安装作用域，返回并保存新的 GFAsyncScope。
+## [br]
+## @api private
 func _begin_context_install_scope() -> GFAsyncScope:
 	_cancel_context_install_scope("A new context installation has started.")
 	var install_scope: GFAsyncScope = GFAsyncScope.new()
@@ -939,6 +1055,9 @@ func _begin_context_install_scope() -> GFAsyncScope:
 	return install_scope
 
 
+## 仅在安装的架构、上下文代次及作用域仍有效时完成作用域并转入等待初始化；旧协程不能结算新一轮安装。
+## [br]
+## @api private
 func _finish_context_install_if_current(
 	lifecycle_serial: int,
 	architecture_instance: GFArchitecture,
@@ -958,6 +1077,9 @@ func _finish_context_install_if_current(
 	return true
 
 
+## 先清空当前作用域字段，再以给定原因取消已保存的作用域。
+## [br]
+## @api private
 func _cancel_context_install_scope(reason: String) -> void:
 	if _context_install_scope == null:
 		return
@@ -966,6 +1088,9 @@ func _cancel_context_install_scope(reason: String) -> void:
 	var _cancelled: bool = install_scope.cancel(reason)
 
 
+## 仅当参数与当前作用域为同一对象时取消当前安装作用域。
+## [br]
+## @api private
 func _cancel_context_install_scope_if_current(install_scope: GFAsyncScope, reason: String) -> void:
 	if install_scope == null:
 		return
@@ -974,6 +1099,9 @@ func _cancel_context_install_scope_if_current(install_scope: GFAsyncScope, reaso
 	_cancel_context_install_scope(reason)
 
 
+## 检查安装状态、架构身份与 generation、作用域身份和取消状态，以及父架构准入状态。
+## [br]
+## @api private
 func _can_continue_context_install(
 	lifecycle_serial: int,
 	architecture_instance: GFArchitecture,
@@ -997,6 +1125,9 @@ func _can_continue_context_install(
 	return _validate_parent_architecture_lifecycle(false)
 
 
+## 只为仍处于安装阶段的当前自有架构解释中断，按取消、销毁、初始化失败、代次或作用域失效选择原因并转入失败。
+## [br]
+## @api private
 func _handle_context_install_interruption(
 	lifecycle_serial: int,
 	architecture_instance: GFArchitecture,

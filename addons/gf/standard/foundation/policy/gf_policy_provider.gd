@@ -237,6 +237,9 @@ func _evaluate_policy(_artifact: Dictionary, _context: Dictionary) -> Dictionary
 
 # --- 私有/辅助方法 ---
 
+## 以 make_result 补齐标准字段；失败状态强制 ok=false，合并 metadata 并保留非保留字段。
+## [br]
+## @api private
 func _normalize_result(result: Dictionary, artifact: Dictionary) -> Dictionary:
 	var status: StringName = GFVariantData.get_option_string_name(result, "status", &"passed")
 	var ok: bool = GFVariantData.get_option_bool(result, "ok", not _status_implies_failure(status))
@@ -265,6 +268,9 @@ func _normalize_result(result: Dictionary, artifact: Dictionary) -> Dictionary:
 	return normalized
 
 
+## 优先读取 artifact_kind；缺失时回退到 kind。
+## [br]
+## @api private
 static func _get_artifact_kind(artifact: Dictionary) -> String:
 	return GFVariantData.get_option_string(
 		artifact,
@@ -273,6 +279,9 @@ static func _get_artifact_kind(artifact: Dictionary) -> String:
 	)
 
 
+## 判断 status 是否属于 blocked、denied、error、failed 或 rejected。
+## [br]
+## @api private
 static func _status_implies_failure(status: StringName) -> bool:
 	return [
 		&"blocked",
@@ -283,6 +292,9 @@ static func _status_implies_failure(status: StringName) -> bool:
 	].has(status)
 
 
+## 判断结果字段是否由 Provider 规范化逻辑保留并生成。
+## [br]
+## @api private
 static func _is_reserved_result_key(key: Variant) -> bool:
 	var text: String = GFVariantData.to_text(key)
 	return [

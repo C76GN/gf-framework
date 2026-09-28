@@ -64,35 +64,184 @@ const SFX_BUS_NAME: String = "SFX"
 ## @api public
 const SILENCE_VOLUME_DB: float = -80.0
 
+## 后端或配置总线不可用时采用的回退总线名。
+## [br]
+## @api private
+## [br]
 const _FALLBACK_BUS_NAME: String = "Master"
+
+## 空间设置对象应用到 2D 播放器时调用的方法名。
+## [br]
+## @api private
+## [br]
 const _APPLY_SPATIAL_SETTINGS_2D_METHOD: StringName = &"apply_to_2d"
+
+## 空间设置对象应用到 3D 播放器时调用的方法名。
+## [br]
+## @api private
+## [br]
 const _APPLY_SPATIAL_SETTINGS_3D_METHOD: StringName = &"apply_to_3d"
+
+## 2D 空间播放器区域遮罩的缺省值。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_SPATIAL_AREA_MASK: int = 1
+
+## 混音快照中总线数组对应的字段名。
+## [br]
+## @api private
+## [br]
 const _MIX_SNAPSHOT_BUSES_KEY: String = "buses"
+
+## 混音快照中总线效果数组对应的字段名。
+## [br]
+## @api private
+## [br]
 const _MIX_SNAPSHOT_EFFECTS_KEY: String = "effects"
+
+## 播放器节点元数据中保存 SFX playback session ID 的键。
+## [br]
+## @api private
+## [br]
 const _PLAYBACK_SESSION_META: StringName = &"_gf_audio_playback_session_id"
+
+## 播放器节点元数据中保存 BGM session ID 的键。
+## [br]
+## @api private
+## [br]
 const _BGM_SESSION_META: StringName = &"_gf_audio_bgm_session_id"
+
+## 表示当前播放会话没有 owner 的内部标识。
+## [br]
+## @api private
+## [br]
 const _OWNER_NONE: StringName = &"none"
+
+## 表示本地播放器持有会话的内部标识。
+## [br]
+## @api private
+## [br]
 const _OWNER_LOCAL: StringName = &"local"
+
+## 表示音频 backend 持有会话的内部标识。
+## [br]
+## @api private
+## [br]
 const _OWNER_BACKEND: StringName = &"backend"
+
+## BGM 没有活跃播放时使用的状态值。
+## [br]
+## @api private
+## [br]
 const _STATE_STOPPED: StringName = &"stopped"
+
+## BGM 请求正在加载素材时使用的状态值。
+## [br]
+## @api private
+## [br]
 const _STATE_LOADING: StringName = &"loading"
+
+## 本地 BGM 正常播放时使用的状态值。
+## [br]
+## @api private
+## [br]
 const _STATE_PLAYING: StringName = &"playing"
+
+## BGM 两个会话交叉淡化时使用的状态值。
+## [br]
+## @api private
+## [br]
 const _STATE_CROSSFADING: StringName = &"crossfading"
+
+## BGM 正在执行暂停淡化时使用的状态值。
+## [br]
+## @api private
+## [br]
 const _STATE_PAUSING: StringName = &"pausing"
+
+## BGM 已完成暂停时使用的状态值。
+## [br]
+## @api private
+## [br]
 const _STATE_PAUSED: StringName = &"paused"
+
+## BGM 正在停止淡化时使用的状态值。
+## [br]
+## @api private
+## [br]
 const _STATE_STOPPING: StringName = &"stopping"
+
+## BGM 会话已退役但仍等待收尾时使用的状态值。
+## [br]
+## @api private
+## [br]
 const _STATE_RETIRING: StringName = &"retiring"
+
+## 限制单次 backend 请求快照可遍历的嵌套深度。
+## [br]
+## @api private
+## [br]
 const _BACKEND_REQUEST_SNAPSHOT_MAX_DEPTH: int = 16
+
+## 限制单次 backend 请求快照可访问的容器项目数。
+## [br]
+## @api private
+## [br]
 const _BACKEND_REQUEST_SNAPSHOT_MAX_ITEMS: int = 1024
+
+## 限制单次 backend 请求快照可复制的字节总量。
+## [br]
+## @api private
+## [br]
 const _BACKEND_REQUEST_SNAPSHOT_MAX_BYTES: int = 64 * 1024 * 1024
+
+## 限制单次 backend 请求快照可复制的 packed array 元素数。
+## [br]
+## @api private
+## [br]
 const _BACKEND_REQUEST_SNAPSHOT_MAX_PACKED_ELEMENTS: int = 16 * 1024 * 1024
+
+## 限制注册的音频 bank 数量。
+## [br]
+## @api private
+## [br]
 const _AUDIO_BANK_MAX_REGISTERED_COUNT: int = 1024
+
+## 限制被 mount 栈保留的 bank 数量。
+## [br]
+## @api private
+## [br]
 const _AUDIO_BANK_MAX_RETAINED_MOUNT_COUNT: int = 1024
+
+## 限制单次 bank 候选选择的条目数量。
+## [br]
+## @api private
+## [br]
 const _AUDIO_BANK_MAX_CANDIDATE_COUNT: int = 1024
+
+## 限制 bank 标识文本长度。
+## [br]
+## @api private
+## [br]
 const _AUDIO_BANK_MAX_IDENTIFIER_CHARACTERS: int = 1024
+
+## 限制 bank 回退分隔符文本长度。
+## [br]
+## @api private
+## [br]
 const _AUDIO_BANK_MAX_SEPARATOR_CHARACTERS: int = 16
+
+## 限制 bank clip 回退链的最大遍历步数。
+## [br]
+## @api private
+## [br]
 const _AUDIO_BANK_MAX_FALLBACK_STEPS: int = 16
+
+## 稳定递增 ID 可分配的最大有符号 64 位值。
+## [br]
+## @api private
+## [br]
 const _MAX_STABLE_ID: int = 9223372036854775807
 
 
@@ -138,73 +287,412 @@ var max_bgm_history: int = 16
 
 # --- 私有变量 ---
 
+## 本地 BGM 主播放器节点。
+## [br]
+## @api private
+## [br]
 var _bgm_player: AudioStreamPlayer
+
+## BGM 交叉淡化时正在淡出的播放器节点。
+## [br]
+## @api private
+## [br]
 var _bgm_fade_player: AudioStreamPlayer
+
+## 可供下次普通 SFX 播放复用的空闲播放器池。
+## [br]
+## @api private
+## [br]
 var _idle_sfx_players: Array[AudioStreamPlayer] = []
+
+## 音频播放器和节点附属对象所在的运行时根节点。
+## [br]
+## @api private
+## [br]
 var _root: Node
+
+## BGM pending 请求令牌分配计数。
+## [br]
+## @api private
+## [br]
 var _bgm_pending_request_counter: int = 0
+
+## 当前保留的 BGM pending 请求令牌。
+## [br]
+## @api private
+## [br]
 var _bgm_pending_request_token: int = 0
+
+## 下一个 BGM start operation 使用的请求 ID。
+## [br]
+## @api private
+## [br]
 var _next_bgm_start_request_id: int = 1
+
+## 最近已被接纳的 BGM start request ID。
+## [br]
+## @api private
+## [br]
 var _latest_admitted_bgm_start_request_id: int = 0
+
+## 当前待处理 BGM start 请求及其参数快照。
+## [br]
+## @api private
+## [br]
 var _bgm_pending_start_request: Dictionary = {}
+
+## 标记 pending start 是否允许接纳新请求。
+## [br]
+## @api private
+## [br]
 var _bgm_start_admission_open: bool = false
+
+## 标记 disposal 请求是否需在安全边界延后执行。
+## [br]
+## @api private
+## [br]
 var _audio_dispose_deferred: bool = false
+
+## 标记当前是否正在清理音频运行时状态。
+## [br]
+## @api private
+## [br]
 var _audio_dispose_in_progress: bool = false
+
+## 标记 deferred audio cleanup 是否已排入事件队列。
+## [br]
+## @api private
+## [br]
 var _deferred_audio_drain_scheduled: bool = false
+
+## 保存等待延迟分发的 BGM 会话终态通知。
+## [br]
+## @api private
+## [br]
 var _deferred_bgm_session_terminal: Dictionary = {}
+
+## BGM 请求序号，用于识别请求流程中的状态更新。
+## [br]
+## @api private
+## [br]
 var _bgm_request_serial: int = 0
+
+## BGM 状态代次，用于区分先后替换操作。
+## [br]
+## @api private
+## [br]
 var _bgm_generation: int = 0
+
+## 下一个 BGM session ID。
+## [br]
+## @api private
+## [br]
 var _next_bgm_session_id: int = 1
+
+## 当前正在播放的 BGM session ID。
+## [br]
+## @api private
+## [br]
 var _bgm_current_session_id: int = 0
+
+## 当前作为替换目标淡入的 BGM session ID。
+## [br]
+## @api private
+## [br]
 var _bgm_incoming_session_id: int = 0
+
+## 最近提交给播放状态的 BGM session ID。
+## [br]
+## @api private
+## [br]
 var _bgm_committed_session_id: int = 0
+
+## 按 session ID 保存 BGM 播放会话记录。
+## [br]
+## @api private
+## [br]
 var _bgm_sessions: Dictionary = {}
+
+## 按 session ID 保存 BGM 会话生命周期与 owner 连接信息。
+## [br]
+## @api private
+## [br]
 var _bgm_session_lifecycles: Dictionary = {}
+
+## 当前 BGM 播放流程状态。
+## [br]
+## @api private
+## [br]
 var _bgm_state: StringName = _STATE_STOPPED
+
+## 当前播放会话的本地或 backend owner。
+## [br]
+## @api private
+## [br]
 var _bgm_owner: StringName = _OWNER_NONE
+
+## BGM 淡化序号，用于识别仍有效的淡化回调。
+## [br]
+## @api private
+## [br]
 var _bgm_fade_serial: int = 0
+
+## 当前 BGM 淡化 Tween 的弱引用。
+## [br]
+## @api private
+## [br]
 var _bgm_fade_tween_ref: WeakRef = null
+
+## 当前 BGM 停止 Tween 的弱引用。
+## [br]
+## @api private
+## [br]
 var _bgm_stop_tween_ref: WeakRef = null
+
+## BGM 停止淡化完成通知的备用 Timer。
+## [br]
+## @api private
+## [br]
 var _bgm_stop_fallback_timer: Timer = null
+
+## BGM 停止备用 Timer 使用的回调实例。
+## [br]
+## @api private
+## [br]
 var _bgm_stop_fallback_callback: Callable = Callable()
+
+## BGM 暂停代次，用于识别仍有效的暂停回调。
+## [br]
+## @api private
+## [br]
 var _bgm_pause_serial: int = 0
+
+## 当前 BGM 暂停或恢复 transport Tween 的弱引用。
+## [br]
+## @api private
+## [br]
 var _bgm_transport_tween_ref: WeakRef = null
+
+## 标记当前 BGM 会话是否处于暂停状态。
+## [br]
+## @api private
+## [br]
 var _bgm_paused: bool = false
+
+## 暂停前保存的 BGM 音量值。
+## [br]
+## @api private
+## [br]
 var _bgm_pause_volume_db: float = 0.0
+
+## SFX 播放器生命周期变更序号。
+## [br]
+## @api private
+## [br]
 var _sfx_lifecycle_serial: int = 0
+
+## 下一个 SFX playback session ID。
+## [br]
+## @api private
+## [br]
 var _next_playback_session_id: int = 1
+
+## 按会话 ID 保存关联的 SFX emitter handle 引用。
+## [br]
+## @api private
+## [br]
 var _playback_session_handles: Dictionary = {}
+
+## 按会话 ID 保存 SFX 播放状态与播放器信息。
+## [br]
+## @api private
+## [br]
 var _playback_sessions: Dictionary = {}
+
+## 按 bus 名记录已发出缺失总线警告的集合。
+## [br]
+## @api private
+## [br]
 var _missing_bus_warnings: Dictionary = {}
+
+## 正在播放的普通 SFX 播放器列表。
+## [br]
+## @api private
+## [br]
 var _active_sfx_players: Array[AudioStreamPlayer] = []
+
+## 正在播放的空间 SFX 节点列表。
+## [br]
+## @api private
+## [br]
 var _active_spatial_sfx_players: Array[Node] = []
+
+## 正在退出淡化流程的普通 SFX 播放器列表。
+## [br]
+## @api private
+## [br]
 var _retiring_sfx_players: Array[AudioStreamPlayer] = []
+
+## 正在退出淡化流程的空间 SFX 节点列表。
+## [br]
+## @api private
+## [br]
 var _retiring_spatial_sfx_players: Array[Node] = []
+
+## 最近 BGM 播放历史键的有序列表。
+## [br]
+## @api private
+## [br]
 var _bgm_history: PackedStringArray = PackedStringArray()
+
+## 当前 BGM 对应的播放历史键。
+## [br]
+## @api private
+## [br]
 var _current_bgm_key: String = ""
+
+## 当前 BGM 播放区间的快照。
+## [br]
+## @api private
+## [br]
 var _current_bgm_region: Dictionary = {}
+
+## 最近一次拒绝播放区间的诊断信息。
+## [br]
+## @api private
+## [br]
 var _last_playback_region_rejection: Dictionary = {}
+
+## 按 ambient channel 保存播放器及会话状态。
+## [br]
+## @api private
+## [br]
 var _ambient_players: Dictionary = {}
+
+## 当前 ambient 空闲播放器频道的有序列表。
+## [br]
+## @api private
+## [br]
 var _ambient_idle_channels: Array[StringName] = []
+
+## Ambient pending 请求令牌分配计数。
+## [br]
+## @api private
+## [br]
 var _ambient_pending_request_counter: int = 0
+
+## 按频道保存仍有效的 ambient pending 请求令牌。
+## [br]
+## @api private
+## [br]
 var _ambient_pending_request_tokens: Dictionary = {}
+
+## 按频道保存 ambient 请求序号。
+## [br]
+## @api private
+## [br]
 var _ambient_request_serials: Dictionary = {}
+
+## Ambient 会话代次分配计数。
+## [br]
+## @api private
+## [br]
 var _ambient_generation_counter: int = 0
+
+## 按频道保存 ambient 播放会话。
+## [br]
+## @api private
+## [br]
 var _ambient_sessions: Dictionary = {}
+
+## 按频道保存 ambient 淡化 Tween 的弱引用。
+## [br]
+## @api private
+## [br]
 var _ambient_tween_refs: Dictionary = {}
+
+## 用于变体音频选择和随机播放的本地随机数生成器。
+## [br]
+## @api private
+## [br]
 var _audio_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+
+## 按 bank ID 保存已注册音频集合。
+## [br]
+## @api private
+## [br]
 var _audio_banks: Dictionary = {}
+
+## 保存 mount 前各 bank ID 对应的基础注册值。
+## [br]
+## @api private
+## [br]
 var _audio_bank_base_values: Dictionary = {}
+
+## 按 bank ID 保存覆盖挂载栈。
+## [br]
+## @api private
+## [br]
 var _audio_bank_mount_stacks: Dictionary = {}
+
+## 下一个 audio bank mount token。
+## [br]
+## @api private
+## [br]
 var _audio_bank_mount_token: int = 0
+
+## 当前 mount 栈保留的 bank 总数。
+## [br]
+## @api private
+## [br]
 var _audio_bank_retained_mount_count: int = 0
+
+## 当前配置的可选音频 backend。
+## [br]
+## @api private
+## [br]
 var _audio_backend: GFAudioBackend = null
+
+## 嵌套 backend 方法分发的当前调用深度。
+## [br]
+## @api private
+## [br]
 var _backend_dispatch_depth: int = 0
+
+## 按 bus 保存音量淡化 Tween 的弱引用。
+## [br]
+## @api private
+## [br]
 var _bus_volume_tween_refs: Dictionary = {}
+
+## bus 混音事务代次分配计数。
+## [br]
+## @api private
+## [br]
 var _bus_generation_counter: int = 0
+
+## 按 bus 保存当前混音事务代次。
+## [br]
+## @api private
+## [br]
 var _bus_transaction_generations: Dictionary = {}
+
+## 按 bus 和效果属性保存效果 Tween 的弱引用。
+## [br]
+## @api private
+## [br]
 var _bus_effect_tween_refs: Dictionary = {}
+
+## 按 bus 保存当前 duck 状态及待恢复的基础混音值。
+## [br]
+## @api private
+## [br]
 var _duck_bus_states: Dictionary = {}
+
+## 标记音频 utility 是否已成功初始化。
+## [br]
+## @api private
+## [br]
 var _is_initialized: bool = false
 
 
@@ -3094,6 +3582,10 @@ func get_last_playback_region_rejection() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 执行音频工具的立即释放收尾流程。
+## [br]
+## @api private
+## [br]
 func _dispose_audio_now() -> void:
 	if not _is_initialized or _audio_dispose_in_progress:
 		return
@@ -3207,6 +3699,10 @@ func _dispose_audio_now() -> void:
 		bgm_finished.emit(deferred_natural_history_key)
 
 
+## 将音频事件交给本地事件处理与播放路径。
+## [br]
+## @api private
+## [br]
 func _post_audio_event_locally(
 	request_event: GFAudioEvent,
 	request_options: Dictionary
@@ -3224,6 +3720,10 @@ func _post_audio_event_locally(
 			return _post_sfx_event(request_event, request_event.channel)
 
 
+## 按指定通道播放 SFX 片段，并返回创建的 GFAudioEmitterHandle。
+## [br]
+## @api private
+## [br]
 func _play_sfx_clip_handle_for_channel(
 	clip: GFAudioClip,
 	rejection_channel: StringName
@@ -3306,6 +3806,10 @@ func _play_sfx_clip_handle_for_channel(
 	return handle
 
 
+## 检查信号与回调有效后连接；连接失败时记录警告。
+## [br]
+## @api private
+## [br]
 func _connect_signal_checked(source_signal: Signal, callback: Callable, flags: int = 0) -> void:
 	if source_signal.is_null():
 		push_warning("[GFAudioUtility][audio_utility.signal_null] Cannot connect signal: Signal is null.")
@@ -3321,10 +3825,18 @@ func _connect_signal_checked(source_signal: Signal, callback: Callable, flags: i
 		push_warning("[GFAudioUtility][audio_utility.signal_connect_failed] Cannot connect signal: %s." % error_string(error))
 
 
+## 根据 backend 派发深度判断当前是否正处于 backend 调用中。
+## [br]
+## @api private
+## [br]
 func _is_backend_dispatch_in_progress() -> bool:
 	return _backend_dispatch_depth > 0
 
 
+## 检查是否存在尚待处理的 BGM 会话终态或音频释放工作。
+## [br]
+## @api private
+## [br]
 func _has_bgm_terminal_barrier_work() -> bool:
 	return (
 		_audio_dispose_deferred
@@ -3336,12 +3848,20 @@ func _has_bgm_terminal_barrier_work() -> bool:
 	)
 
 
+## 退出 backend 调用后，处理排队的 BGM 会话终态和音频释放工作。
+## [br]
+## @api private
+## [br]
 func _drain_bgm_terminal_barrier_if_needed() -> void:
 	if _is_backend_dispatch_in_progress() or not _has_bgm_terminal_barrier_work():
 		return
 	_run_deferred_audio_dispose_if_needed()
 
 
+## 在统一的 backend 身份与重入保护下派发方法调用。
+## [br]
+## @api private
+## [br]
 func _dispatch_backend_call(
 	method_name: StringName,
 	arguments: Array,
@@ -3387,6 +3907,10 @@ func _dispatch_backend_call(
 	}
 
 
+## 判断派发结果是否实际调用了 backend 方法。
+## [br]
+## @api private
+## [br]
 func _backend_dispatch_completed(result: Dictionary) -> bool:
 	return (
 		GFVariantData.get_option_bool(result, "called")
@@ -3394,6 +3918,10 @@ func _backend_dispatch_completed(result: Dictionary) -> bool:
 	)
 
 
+## 判断已完成的 backend 调用是否返回 true。
+## [br]
+## @api private
+## [br]
 func _backend_dispatch_returned_true(result: Dictionary) -> bool:
 	if not _backend_dispatch_completed(result):
 		return false
@@ -3401,6 +3929,10 @@ func _backend_dispatch_returned_true(result: Dictionary) -> bool:
 	return value is bool and value
 
 
+## 读取派发结果中的浮点值；未完成调用时返回默认值。
+## [br]
+## @api private
+## [br]
 func _backend_dispatch_float(result: Dictionary, default_value: float) -> float:
 	if not _backend_dispatch_completed(result):
 		return default_value
@@ -3410,6 +3942,10 @@ func _backend_dispatch_float(result: Dictionary, default_value: float) -> float:
 	return GFVariantData.to_float(value, default_value)
 
 
+## 读取派发结果中的字典值；未完成调用时返回空字典。
+## [br]
+## @api private
+## [br]
 func _backend_dispatch_dictionary(result: Dictionary) -> Dictionary:
 	if not _backend_dispatch_completed(result):
 		return {}
@@ -3417,6 +3953,10 @@ func _backend_dispatch_dictionary(result: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(value)
 
 
+## 读取派发结果中的 emitter handle。
+## [br]
+## @api private
+## [br]
 func _backend_dispatch_handle(result: Dictionary) -> GFAudioEmitterHandle:
 	if not _backend_dispatch_completed(result):
 		return null
@@ -3427,6 +3967,10 @@ func _backend_dispatch_handle(result: Dictionary) -> GFAudioEmitterHandle:
 	return null
 
 
+## 通知后端停止BGM。
+## [br]
+## @api private
+## [br]
 func _notify_backend_stop_bgm(fade_seconds: float) -> bool:
 	var expected_backend: GFAudioBackend = _audio_backend
 	var expected_request_serial: int = _bgm_request_serial
@@ -3448,6 +3992,10 @@ func _notify_backend_stop_bgm(fade_seconds: float) -> bool:
 	)
 
 
+## 通知后端停止环境音。
+## [br]
+## @api private
+## [br]
 func _notify_backend_stop_ambient(channel: StringName, fade_seconds: float) -> bool:
 	var expected_backend: GFAudioBackend = _audio_backend
 	var expected_request_serial: int = _get_ambient_request_serial(channel)
@@ -3477,6 +4025,10 @@ func _notify_backend_stop_ambient(channel: StringName, fade_seconds: float) -> b
 	)
 
 
+## 通知后端停止全部SFX。
+## [br]
+## @api private
+## [br]
 func _notify_backend_stop_all_sfx(fade_seconds: float) -> void:
 	var expected_backend: GFAudioBackend = _audio_backend
 	var expected_lifecycle_serial: int = _sfx_lifecycle_serial
@@ -3495,27 +4047,47 @@ func _notify_backend_stop_all_sfx(fade_seconds: float) -> void:
 		return
 
 
+## 从音频工具跟踪状态中移除指定 emitter handle。
+## [br]
+## @api private
+## [br]
 func _forget_audio_handle(handle: GFAudioEmitterHandle) -> void:
 	if handle == null:
 		return
 
 
+## 从字典移除指定键，并向快照跟踪状态登记该变更。
+## [br]
+## @api private
+## [br]
 func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 	var removed: bool = target.erase(key)
 	if removed:
 		return
 
 
+## 向数组追加元素，并向快照跟踪状态登记该变更。
+## [br]
+## @api private
+## [br]
 func _append_array_item(target: Array, value: Variant) -> void:
 	target.append(value)
 
 
+## 向 PackedStringArray 追加字符串，并向快照跟踪状态登记该变更。
+## [br]
+## @api private
+## [br]
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 从 Engine 主循环取得 SceneTree；主循环类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_scene_tree() -> SceneTree:
 	var main_loop: MainLoop = Engine.get_main_loop()
 	if not (main_loop is SceneTree):
@@ -3524,6 +4096,10 @@ func _get_scene_tree() -> SceneTree:
 	return tree
 
 
+## 检查节点是否仍是可用的音频根节点。
+## [br]
+## @api private
+## [br]
 func _is_live_audio_root(root: Node) -> bool:
 	return (
 		is_instance_valid(root)
@@ -3532,6 +4108,10 @@ func _is_live_audio_root(root: Node) -> bool:
 	)
 
 
+## 检查播放器是否为指定音频根节点的直接子节点。
+## [br]
+## @api private
+## [br]
 func _is_exact_audio_root_child(
 	root: Node,
 	player: AudioStreamPlayer
@@ -3545,6 +4125,10 @@ func _is_exact_audio_root_child(
 	)
 
 
+## 撤销部分完成的音频节点初始化。
+## [br]
+## @api private
+## [br]
 func _rollback_audio_initialization(
 	initialization_primary: AudioStreamPlayer,
 	initialization_fade: AudioStreamPlayer
@@ -3562,6 +4146,10 @@ func _rollback_audio_initialization(
 		initialization_fade.queue_free()
 
 
+## 检查初始化期间记录的根节点及播放器拓扑是否仍一致。
+## [br]
+## @api private
+## [br]
 func _is_audio_initialization_topology_current(
 	initialization_root: Node,
 	initialization_primary: AudioStreamPlayer,
@@ -3587,12 +4175,20 @@ func _is_audio_initialization_topology_current(
 	)
 
 
+## 复制播放区段资源，供传给 backend 的请求使用。
+## [br]
+## @api private
+## [br]
 func _snapshot_playback_region(
 	region: GFAudioPlaybackRegion
 ) -> GFAudioPlaybackRegion:
 	return region.duplicate_region() if region != null else null
 
 
+## 创建后端请求快照所需的预算与循环引用跟踪状态。
+## [br]
+## @api private
+## [br]
 func _new_backend_request_snapshot_state() -> Dictionary:
 	return {
 		"remaining_items": _BACKEND_REQUEST_SNAPSHOT_MAX_ITEMS,
@@ -3607,6 +4203,10 @@ func _new_backend_request_snapshot_state() -> Dictionary:
 	}
 
 
+## 复制播放区段验证结果及其中的区段资源。
+## [br]
+## @api private
+## [br]
 func _snapshot_playback_region_result(
 	result: GFAudioPlaybackRegionResult
 ) -> Dictionary:
@@ -3622,6 +4222,10 @@ func _snapshot_playback_region_result(
 	}
 
 
+## 复制音频片段及其播放区段设置供 backend 请求使用。
+## [br]
+## @api private
+## [br]
 func _snapshot_audio_clip(
 	clip: GFAudioClip,
 	playback_region: GFAudioPlaybackRegion,
@@ -3637,6 +4241,10 @@ func _snapshot_audio_clip(
 	)
 
 
+## 在共享快照状态和预算下复制音频片段及播放区段。
+## [br]
+## @api private
+## [br]
 func _snapshot_audio_clip_with_state(
 	clip: GFAudioClip,
 	playback_region: GFAudioPlaybackRegion,
@@ -3763,6 +4371,10 @@ func _snapshot_audio_clip_with_state(
 	return snapshot
 
 
+## 复制音频事件及其播放区段设置供 backend 请求使用。
+## [br]
+## @api private
+## [br]
 func _snapshot_audio_event(
 	event: GFAudioEvent,
 	playback_region: GFAudioPlaybackRegion,
@@ -3778,6 +4390,10 @@ func _snapshot_audio_event(
 	)
 
 
+## 在共享快照状态和预算下复制音频事件及播放区段。
+## [br]
+## @api private
+## [br]
 func _snapshot_audio_event_with_state(
 	event: GFAudioEvent,
 	playback_region: GFAudioPlaybackRegion,
@@ -3854,10 +4470,18 @@ func _snapshot_audio_event_with_state(
 	return snapshot
 
 
+## 尝试将音频选项复制为可隔离的 backend 请求快照。
+## [br]
+## @api private
+## [br]
 func _try_snapshot_audio_options(options: Dictionary) -> Dictionary:
 	return _try_snapshot_backend_request_value(options, true)
 
 
+## 尝试创建 backend 请求值的快照，并返回复制结果。
+## [br]
+## @api private
+## [br]
 func _try_snapshot_backend_request_value(
 	value: Variant,
 	duplicate_resources: bool
@@ -3866,11 +4490,19 @@ func _try_snapshot_backend_request_value(
 	return _snapshot_backend_request_value(value, duplicate_resources, state, 0)
 
 
+## 为 backend 请求值创建独立快照并返回结果。
+## [br]
+## @api private
+## [br]
 func _try_snapshot_isolated_backend_request_value(value: Variant) -> Dictionary:
 	var state: Dictionary = _new_backend_request_snapshot_state()
 	return _snapshot_backend_request_value(value, true, state, 0, true)
 
 
+## 递归复制 backend 请求值并维护预算与对象身份跟踪。
+## [br]
+## @api private
+## [br]
 func _snapshot_backend_request_value(
 	value: Variant,
 	duplicate_resources: bool,
@@ -3982,18 +4614,30 @@ func _snapshot_backend_request_value(
 	return _successful_backend_request_snapshot(value)
 
 
+## 从快照状态中扣除一个条目的预算。
+## [br]
+## @api private
+## [br]
 func _consume_backend_request_snapshot_item(state: Dictionary, depth: int) -> bool:
 	if depth > _BACKEND_REQUEST_SNAPSHOT_MAX_DEPTH:
 		return false
 	return _consume_backend_request_snapshot_items(state, 1)
 
 
+## 检查 backend 请求快照状态是否还容得下指定数量的条目。
+## [br]
+## @api private
+## [br]
 func _backend_request_snapshot_has_items(state: Dictionary, count: int) -> bool:
 	if count < 0:
 		return false
 	return GFVariantData.get_option_int(state, "remaining_items") >= count
 
 
+## 从快照状态中扣除指定数量条目的预算。
+## [br]
+## @api private
+## [br]
 func _consume_backend_request_snapshot_items(state: Dictionary, count: int) -> bool:
 	if not _backend_request_snapshot_has_items(state, count):
 		return false
@@ -4002,6 +4646,10 @@ func _consume_backend_request_snapshot_items(state: Dictionary, count: int) -> b
 	return true
 
 
+## 为复制内容预留指定数量的快照字节预算。
+## [br]
+## @api private
+## [br]
 func _reserve_backend_request_snapshot_bytes(state: Dictionary, count: int) -> bool:
 	if count < 0:
 		return false
@@ -4012,6 +4660,10 @@ func _reserve_backend_request_snapshot_bytes(state: Dictionary, count: int) -> b
 	return true
 
 
+## 按字符数乘以四预留 UTF-8 最坏情况字节预算；余额不足此保守上界时拒绝。
+## [br]
+## @api private
+## [br]
 func _reserve_backend_request_snapshot_string_bytes(
 	state: Dictionary,
 	value: String
@@ -4025,11 +4677,19 @@ func _reserve_backend_request_snapshot_string_bytes(
 	return _reserve_backend_request_snapshot_bytes(state, character_count * 4)
 
 
+## 检查文本是否能在 backend 请求快照字节预算内保存。
+## [br]
+## @api private
+## [br]
 func _is_backend_request_text_within_budget(text: String) -> bool:
 	var state: Dictionary = _new_backend_request_snapshot_state()
 	return _reserve_backend_request_snapshot_string_bytes(state, text)
 
 
+## 为 Packed 数组元素预留快照项目预算。
+## [br]
+## @api private
+## [br]
 func _reserve_backend_request_snapshot_packed_elements(
 	state: Dictionary,
 	count: int
@@ -4046,6 +4706,10 @@ func _reserve_backend_request_snapshot_packed_elements(
 	return true
 
 
+## 判断 Variant 类型是否为受支持的 Packed 数组。
+## [br]
+## @api private
+## [br]
 func _is_backend_snapshot_packed_array_type(value_type: int) -> bool:
 	return (
 		value_type == TYPE_PACKED_BYTE_ARRAY
@@ -4061,6 +4725,10 @@ func _is_backend_snapshot_packed_array_type(value_type: int) -> bool:
 	)
 
 
+## 复制受支持的 Packed 数组并计入快照预算。
+## [br]
+## @api private
+## [br]
 func _snapshot_backend_request_packed_array(
 	value: Variant,
 	value_type: int,
@@ -4102,6 +4770,10 @@ func _snapshot_backend_request_packed_array(
 	return _successful_backend_request_snapshot(snapshot)
 
 
+## 读取 Packed 数组的元素数量。
+## [br]
+## @api private
+## [br]
 func _get_backend_snapshot_packed_array_size(value: Variant, value_type: int) -> int:
 	match value_type:
 		TYPE_PACKED_BYTE_ARRAY:
@@ -4137,6 +4809,10 @@ func _get_backend_snapshot_packed_array_size(value: Variant, value_type: int) ->
 	return -1
 
 
+## 读取指定 Packed 数组类型的单元素字节数。
+## [br]
+## @api private
+## [br]
 func _get_backend_snapshot_packed_element_bytes(value_type: int) -> int:
 	match value_type:
 		TYPE_PACKED_BYTE_ARRAY:
@@ -4156,6 +4832,10 @@ func _get_backend_snapshot_packed_element_bytes(value_type: int) -> int:
 	return 0
 
 
+## 复制指定类型的 Packed 数组值。
+## [br]
+## @api private
+## [br]
 func _duplicate_backend_snapshot_packed_array(value: Variant, value_type: int) -> Variant:
 	match value_type:
 		TYPE_PACKED_BYTE_ARRAY:
@@ -4191,6 +4871,10 @@ func _duplicate_backend_snapshot_packed_array(value: Variant, value_type: int) -
 	return null
 
 
+## 创建与源数组类型约束一致的快照数组。
+## [br]
+## @api private
+## [br]
 func _create_backend_snapshot_array(source: Array) -> Array:
 	if not source.is_typed():
 		return []
@@ -4202,6 +4886,10 @@ func _create_backend_snapshot_array(source: Array) -> Array:
 	)
 
 
+## 创建与源字典类型约束一致的快照字典。
+## [br]
+## @api private
+## [br]
 func _create_backend_snapshot_dictionary(source: Dictionary) -> Dictionary:
 	if not source.is_typed():
 		return {}
@@ -4216,6 +4904,10 @@ func _create_backend_snapshot_dictionary(source: Dictionary) -> Dictionary:
 	)
 
 
+## 创建 Resource 的独立 backend 请求副本，并校验复制结果。
+## [br]
+## @api private
+## [br]
 func _snapshot_backend_request_resource(
 	source: Resource,
 	state: Dictionary,
@@ -4418,6 +5110,10 @@ func _snapshot_backend_request_resource(
 	return _successful_backend_request_snapshot(snapshot)
 
 
+## 尝试实例化供 backend 快照使用的资源副本。
+## [br]
+## @api private
+## [br]
 func _instantiate_backend_snapshot_resource(source: Resource) -> Resource:
 	if source == null or source is Script:
 		return null
@@ -4445,6 +5141,10 @@ func _instantiate_backend_snapshot_resource(source: Resource) -> Resource:
 	return snapshot
 
 
+## 按属性名索引 Resource 的存储属性描述。
+## [br]
+## @api private
+## [br]
 func _index_backend_snapshot_storage_properties(
 	property_list: Array[Dictionary]
 ) -> Dictionary:
@@ -4472,6 +5172,10 @@ func _index_backend_snapshot_storage_properties(
 	}
 
 
+## 检查源资源与副本的存储属性结构是否匹配。
+## [br]
+## @api private
+## [br]
 func _backend_snapshot_property_schemas_match(
 	source_properties: Dictionary,
 	target_properties: Dictionary
@@ -4484,6 +5188,10 @@ func _backend_snapshot_property_schemas_match(
 	return true
 
 
+## 检查复制到资源副本的属性值是否与预期匹配。
+## [br]
+## @api private
+## [br]
 func _backend_snapshot_property_value_matches(
 	applied_value: Variant,
 	expected_value: Variant,
@@ -4503,6 +5211,10 @@ func _backend_snapshot_property_value_matches(
 	)
 
 
+## 判断快照值是否要求维持源对象身份。
+## [br]
+## @api private
+## [br]
 func _backend_snapshot_value_requires_identity(value: Variant) -> bool:
 	var value_type: int = typeof(value)
 	return (
@@ -4513,6 +5225,10 @@ func _backend_snapshot_value_requires_identity(value: Variant) -> bool:
 	)
 
 
+## 判断值是否共享可变对象身份。
+## [br]
+## @api private
+## [br]
 func _backend_snapshot_value_shares_mutable_identity(value: Variant) -> bool:
 	var value_type: int = typeof(value)
 	return (
@@ -4523,6 +5239,10 @@ func _backend_snapshot_value_shares_mutable_identity(value: Variant) -> bool:
 	)
 
 
+## 将调用方提供的值包装为成功结果；此处不复制值，隔离范围由上游快照模式决定。
+## [br]
+## @api private
+## [br]
 func _successful_backend_request_snapshot(value: Variant) -> Dictionary:
 	return {
 		"ok": true,
@@ -4530,6 +5250,10 @@ func _successful_backend_request_snapshot(value: Variant) -> Dictionary:
 	}
 
 
+## 构造失败的 backend 请求快照结果。
+## [br]
+## @api private
+## [br]
 func _failed_backend_request_snapshot() -> Dictionary:
 	return {
 		"ok": false,
@@ -4537,10 +5261,18 @@ func _failed_backend_request_snapshot() -> Dictionary:
 	}
 
 
+## 检查 backend 请求快照结果的成功标记。
+## [br]
+## @api private
+## [br]
 func _backend_request_snapshot_succeeded(result: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(result, "ok")
 
 
+## 从成功的快照结果中读取字典值。
+## [br]
+## @api private
+## [br]
 func _get_backend_request_snapshot_dictionary(result: Dictionary) -> Dictionary:
 	if not _backend_request_snapshot_succeeded(result):
 		return {}
@@ -4551,6 +5283,10 @@ func _get_backend_request_snapshot_dictionary(result: Dictionary) -> Dictionary:
 	return {}
 
 
+## 检查集合是否已在当前递归快照路径中。
+## [br]
+## @api private
+## [br]
 func _backend_snapshot_has_active_collection(state: Dictionary, value: Variant) -> bool:
 	var active_collections: Array = GFVariantData.as_array(
 		GFVariantData.get_option_value(state, "active_collections")
@@ -4561,6 +5297,10 @@ func _backend_snapshot_has_active_collection(state: Dictionary, value: Variant) 
 	return false
 
 
+## 将集合加入当前递归快照路径，以识别循环引用。
+## [br]
+## @api private
+## [br]
 func _push_backend_snapshot_active_collection(state: Dictionary, value: Variant) -> void:
 	var active_collections: Array = GFVariantData.as_array(
 		GFVariantData.get_option_value(state, "active_collections")
@@ -4568,6 +5308,10 @@ func _push_backend_snapshot_active_collection(state: Dictionary, value: Variant)
 	_append_array_item(active_collections, value)
 
 
+## 从当前递归快照路径移除最近加入的集合。
+## [br]
+## @api private
+## [br]
 func _pop_backend_snapshot_active_collection(state: Dictionary) -> void:
 	var active_collections: Array = GFVariantData.as_array(
 		GFVariantData.get_option_value(state, "active_collections")
@@ -4577,6 +5321,10 @@ func _pop_backend_snapshot_active_collection(state: Dictionary) -> void:
 	var _removed_collection: Variant = active_collections.pop_back()
 
 
+## 查找源集合是否已有对应的快照集合。
+## [br]
+## @api private
+## [br]
 func _get_backend_snapshot_collection(state: Dictionary, source: Variant) -> Variant:
 	var collection_sources: Array = GFVariantData.as_array(
 		GFVariantData.get_option_value(state, "collection_sources")
@@ -4593,6 +5341,10 @@ func _get_backend_snapshot_collection(state: Dictionary, source: Variant) -> Var
 	return null
 
 
+## 登记源集合与快照集合的对应关系。
+## [br]
+## @api private
+## [br]
 func _record_backend_snapshot_collection(
 	state: Dictionary,
 	source: Variant,
@@ -4608,6 +5360,10 @@ func _record_backend_snapshot_collection(
 	_append_array_item(collection_snapshots, snapshot)
 
 
+## 检查资源是否已在当前递归快照路径中。
+## [br]
+## @api private
+## [br]
 func _backend_snapshot_has_active_resource(state: Dictionary, source: Resource) -> bool:
 	var active_resources: Array = GFVariantData.as_array(
 		GFVariantData.get_option_value(state, "active_resources")
@@ -4618,6 +5374,10 @@ func _backend_snapshot_has_active_resource(state: Dictionary, source: Resource) 
 	return false
 
 
+## 将 Resource 加入当前递归快照路径，以识别循环引用。
+## [br]
+## @api private
+## [br]
 func _push_backend_snapshot_active_resource(state: Dictionary, source: Resource) -> void:
 	var active_resources: Array = GFVariantData.as_array(
 		GFVariantData.get_option_value(state, "active_resources")
@@ -4625,6 +5385,10 @@ func _push_backend_snapshot_active_resource(state: Dictionary, source: Resource)
 	_append_array_item(active_resources, source)
 
 
+## 从当前递归快照路径移除最近加入的 Resource。
+## [br]
+## @api private
+## [br]
 func _pop_backend_snapshot_active_resource(state: Dictionary) -> void:
 	var active_resources: Array = GFVariantData.as_array(
 		GFVariantData.get_option_value(state, "active_resources")
@@ -4634,6 +5398,10 @@ func _pop_backend_snapshot_active_resource(state: Dictionary) -> void:
 	var _removed_resource: Variant = active_resources.pop_back()
 
 
+## 查找源 Resource 是否已有对应的快照资源。
+## [br]
+## @api private
+## [br]
 func _get_backend_snapshot_resource(state: Dictionary, source: Resource) -> Resource:
 	var resource_sources: Array = GFVariantData.as_array(
 		GFVariantData.get_option_value(state, "resource_sources")
@@ -4654,6 +5422,10 @@ func _get_backend_snapshot_resource(state: Dictionary, source: Resource) -> Reso
 	return null
 
 
+## 登记源 Resource 与快照 Resource 的对应关系。
+## [br]
+## @api private
+## [br]
 func _record_backend_snapshot_resource(
 	state: Dictionary,
 	source: Resource,
@@ -4669,6 +5441,10 @@ func _record_backend_snapshot_resource(
 	_append_array_item(resource_snapshots, snapshot)
 
 
+## 预先登记 Resource 的源对象和副本映射。
+## [br]
+## @api private
+## [br]
 func _seed_backend_snapshot_resource(
 	state: Dictionary,
 	source: Resource,
@@ -4685,6 +5461,10 @@ func _seed_backend_snapshot_resource(
 	return true
 
 
+## 校验播放区段请求及其通道上下文。
+## [br]
+## @api private
+## [br]
 func _validate_playback_region_request(
 	region: GFAudioPlaybackRegion,
 	channel: StringName
@@ -4699,6 +5479,10 @@ func _validate_playback_region_request(
 	return false
 
 
+## 根据播放区段为本地播放器准备可执行的音频流。
+## [br]
+## @api private
+## [br]
 func _prepare_playback_region_stream(
 	stream: AudioStream,
 	region: GFAudioPlaybackRegion,
@@ -4719,6 +5503,10 @@ func _prepare_playback_region_stream(
 	return rejected_result
 
 
+## 根据流和播放区段构建本地播放执行计划。
+## [br]
+## @api private
+## [br]
 func _build_local_playback_execution_plan(
 	stream: AudioStream,
 	region: GFAudioPlaybackRegion,
@@ -4754,6 +5542,10 @@ func _build_local_playback_execution_plan(
 	return plan
 
 
+## 构造播放区段拒绝结果并记录诊断信息。
+## [br]
+## @api private
+## [br]
 func _reject_playback_region(
 	channel: StringName,
 	result: GFAudioPlaybackRegionResult
@@ -4771,6 +5563,10 @@ func _reject_playback_region(
 	playback_region_rejected.emit(channel, reason)
 
 
+## 通过当前 backend 评估其能否执行指定播放区段。
+## [br]
+## @api private
+## [br]
 func _evaluate_backend_playback_region(
 	expected_backend: GFAudioBackend,
 	clip: GFAudioClip,
@@ -4876,6 +5672,10 @@ func _evaluate_backend_playback_region(
 	)
 
 
+## 构造带有稳定拒绝原因和消息的快照拒绝结果。
+## [br]
+## @api private
+## [br]
 func _backend_request_snapshot_rejection(
 	reason: StringName,
 	message: String
@@ -4887,6 +5687,10 @@ func _backend_request_snapshot_rejection(
 	return result
 
 
+## 将已验证的播放区段数据写入播放请求。
+## [br]
+## @api private
+## [br]
 func _apply_validated_playback_region(
 	region: GFAudioPlaybackRegion,
 	result: GFAudioPlaybackRegionResult
@@ -4899,6 +5703,10 @@ func _apply_validated_playback_region(
 	region.loop_mode = result.loop_mode as GFAudioPlaybackRegion.LoopMode
 
 
+## 从播放区段结果中取得可执行的区段值。
+## [br]
+## @api private
+## [br]
 func _playback_region_from_result(
 	result: GFAudioPlaybackRegionResult
 ) -> GFAudioPlaybackRegion:
@@ -4907,16 +5715,28 @@ func _playback_region_from_result(
 	return region
 
 
+## 保留受支持的诊断通道；其它通道归类为 custom。
+## [br]
+## @api private
+## [br]
 func _playback_region_diagnostic_channel(channel: StringName) -> StringName:
 	if channel in [&"bgm", &"ambient", &"sfx", &"spatial_sfx"]:
 		return channel
 	return &"custom"
 
 
+## 读取指定音频库的挂载栈。
+## [br]
+## @api private
+## [br]
 func _get_audio_bank_mount_stack(bank_id: StringName) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(_audio_bank_mount_stacks, bank_id, []))
 
 
+## 清理指定音频库的挂载栈与关联状态。
+## [br]
+## @api private
+## [br]
 func _clear_audio_bank_mount_state(bank_id: StringName) -> void:
 	if _audio_bank_mount_stacks.has(bank_id):
 		var stack: Array = _get_audio_bank_mount_stack(bank_id)
@@ -4928,30 +5748,58 @@ func _clear_audio_bank_mount_state(bank_id: StringName) -> void:
 	_erase_dictionary_key(_audio_bank_mount_stacks, bank_id)
 
 
+## 读取挂载记录中的 token。
+## [br]
+## @api private
+## [br]
 func _get_mount_entry_token(entry: Dictionary) -> int:
 	return GFVariantData.get_option_int(entry, "token", 0)
 
 
+## 读取挂载记录是否需要恢复先前的音频库。
+## [br]
+## @api private
+## [br]
 func _get_mount_entry_restore_previous(entry: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(entry, "restore_previous_bank", true)
 
 
+## 按 ID 读取已注册的音频库。
+## [br]
+## @api private
+## [br]
 func _get_audio_bank_by_id(bank_id: StringName) -> GFAudioBank:
 	return _get_audio_bank_value(GFVariantData.get_option_value(_audio_banks, bank_id))
 
 
+## 读取环境音播放器。
+## [br]
+## @api private
+## [br]
 func _get_ambient_player(channel: StringName) -> AudioStreamPlayer:
 	return _get_audio_stream_player_value(GFVariantData.get_option_value(_ambient_players, channel))
 
 
+## 从报告字段中读取数组；字段缺失或类型不符时返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_report_array(report: Dictionary, key: Variant) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(report, key, []))
 
 
+## 读取指定环境音通道的当前请求序号。
+## [br]
+## @api private
+## [br]
 func _get_ambient_request_serial(channel: StringName) -> int:
 	return GFVariantData.get_option_int(_ambient_request_serials, channel, 0)
 
 
+## 读取对象属性。
+## [br]
+## @api private
+## [br]
 func _get_object_property(object: Object, property_name: StringName, default_value: Variant = null) -> Variant:
 	if object == null or property_name == &"":
 		return default_value
@@ -4959,48 +5807,80 @@ func _get_object_property(object: Object, property_name: StringName, default_val
 	return default_value if value == null else value
 
 
+## 仅当值为 PackedStringArray 时返回该数组，否则返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_packed_string_array_value(value: Variant) -> PackedStringArray:
 	if value is PackedStringArray:
 		return value
 	return PackedStringArray()
 
 
+## 仅当 Variant 值为 AudioStream 时返回该流。
+## [br]
+## @api private
+## [br]
 func _get_audio_stream_value(value: Variant) -> AudioStream:
 	if value is AudioStream:
 		return value
 	return null
 
 
+## 仅当 Variant 值为 GFAudioBank 时返回该音频库。
+## [br]
+## @api private
+## [br]
 func _get_audio_bank_value(value: Variant) -> GFAudioBank:
 	if value is GFAudioBank:
 		return value
 	return null
 
 
+## 仅当 Variant 值为 AudioStreamPlayer 时返回该播放器。
+## [br]
+## @api private
+## [br]
 func _get_audio_stream_player_value(value: Variant) -> AudioStreamPlayer:
 	if value is AudioStreamPlayer:
 		return value
 	return null
 
 
+## 仅当 Variant 值为 WeakRef 时返回该弱引用。
+## [br]
+## @api private
+## [br]
 func _get_weak_ref_value(value: Variant) -> WeakRef:
 	if value is WeakRef:
 		return value
 	return null
 
 
+## 仅当 Variant 值为 Tween 时返回该补间动画。
+## [br]
+## @api private
+## [br]
 func _get_tween_value(value: Variant) -> Tween:
 	if value is Tween:
 		return value
 	return null
 
 
+## 仅当 Variant 值为 Script 时返回该脚本。
+## [br]
+## @api private
+## [br]
 func _get_script_value(value: Variant) -> Script:
 	if value is Script:
 		return value
 	return null
 
 
+## 把 Callable 动画步骤加入指定 Tween。
+## [br]
+## @api private
+## [br]
 func _add_tween_method(
 	tween: Tween,
 	method: Callable,
@@ -5015,6 +5895,10 @@ func _add_tween_method(
 		push_warning("[GFAudioUtility][audio_utility.tween_method_creation_failed] Cannot create the Tween method step.")
 
 
+## 把对象属性动画步骤加入指定 Tween。
+## [br]
+## @api private
+## [br]
 func _add_tween_property(
 	tween: Tween,
 	target: Object,
@@ -5034,6 +5918,10 @@ func _add_tween_property(
 		push_warning("[GFAudioUtility][audio_utility.tween_property_creation_failed] Cannot create the Tween property step.")
 
 
+## 开始总线事务。
+## [br]
+## @api private
+## [br]
 func _begin_bus_transaction(bus_name: String) -> int:
 	_bus_generation_counter += 1
 	var generation: int = _bus_generation_counter
@@ -5042,12 +5930,20 @@ func _begin_bus_transaction(bus_name: String) -> int:
 	return generation
 
 
+## 检查指定总线上的事务代次是否仍为当前代次。
+## [br]
+## @api private
+## [br]
 func _is_bus_transaction_current(bus_name: String, generation: int) -> bool:
 	return generation > 0 and GFVariantData.to_int(
 		_bus_transaction_generations.get(bus_name)
 	) == generation
 
 
+## 开始由本地总线控制状态支持的混音过渡事务。
+## [br]
+## @api private
+## [br]
 func _start_local_bus_mix_transaction(
 	bus_name: String,
 	bus_index: int,
@@ -5098,6 +5994,10 @@ func _start_local_bus_mix_transaction(
 	return true
 
 
+## 应用总线增益dB。
+## [br]
+## @api private
+## [br]
 func _apply_bus_gain_db(bus_index: int, volume_db: float) -> void:
 	if bus_index < 0 or not _is_finite_float(volume_db):
 		return
@@ -5105,6 +6005,10 @@ func _apply_bus_gain_db(bus_index: int, volume_db: float) -> void:
 	AudioServer.set_bus_volume_db(bus_index, target_db)
 
 
+## 应用总线音量补间动画值。
+## [br]
+## @api private
+## [br]
 func _apply_bus_volume_tween_value(
 	value: float,
 	bus_name: String,
@@ -5117,6 +6021,10 @@ func _apply_bus_volume_tween_value(
 		_apply_bus_gain_db(bus_index, value)
 
 
+## 完成总线音量补间动画。
+## [br]
+## @api private
+## [br]
 func _finish_bus_volume_tween(
 	bus_name: String,
 	generation: int,
@@ -5132,11 +6040,19 @@ func _finish_bus_volume_tween(
 	_erase_dictionary_key(_bus_volume_tween_refs, bus_name)
 
 
+## 应用总线效果补间动画值。
+## [br]
+## @api private
+## [br]
 func _apply_bus_effect_tween_value(value: float, effect: Object, property_name: StringName) -> void:
 	if effect != null and _is_finite_float(value):
 		effect.set(String(property_name), value)
 
 
+## 完成总线效果补间动画。
+## [br]
+## @api private
+## [br]
 func _finish_bus_effect_tween(
 	tween_key: String,
 	effect: Object,
@@ -5148,6 +6064,10 @@ func _finish_bus_effect_tween(
 	_erase_dictionary_key(_bus_effect_tween_refs, tween_key)
 
 
+## 清理混音控制补间动画。
+## [br]
+## @api private
+## [br]
 func _clear_mix_control_tweens() -> void:
 	for bus_name_variant: Variant in _bus_transaction_generations.keys():
 		var bus_name: String = GFVariantData.to_text(bus_name_variant)
@@ -5161,6 +6081,10 @@ func _clear_mix_control_tweens() -> void:
 	_bus_effect_tween_refs.clear()
 
 
+## 终止并清理总线音量补间动画。
+## [br]
+## @api private
+## [br]
 func _kill_bus_volume_tween(bus_name: String) -> void:
 	if not _bus_volume_tween_refs.has(bus_name):
 		return
@@ -5168,6 +6092,10 @@ func _kill_bus_volume_tween(bus_name: String) -> void:
 	_erase_dictionary_key(_bus_volume_tween_refs, bus_name)
 
 
+## 终止并清理总线效果补间动画。
+## [br]
+## @api private
+## [br]
 func _kill_bus_effect_tween(tween_key: String) -> void:
 	if not _bus_effect_tween_refs.has(tween_key):
 		return
@@ -5175,6 +6103,10 @@ func _kill_bus_effect_tween(tween_key: String) -> void:
 	_erase_dictionary_key(_bus_effect_tween_refs, tween_key)
 
 
+## 解析总线效果索引。
+## [br]
+## @api private
+## [br]
 func _resolve_bus_effect_index(bus_index: int, effect_ref: Variant) -> int:
 	if typeof(effect_ref) == TYPE_INT:
 		var index: int = GFVariantData.to_int(effect_ref, -1)
@@ -5190,6 +6122,10 @@ func _resolve_bus_effect_index(bus_index: int, effect_ref: Variant) -> int:
 	return -1
 
 
+## 检查总线效果是否匹配给定的索引或名称引用。
+## [br]
+## @api private
+## [br]
 func _effect_matches_ref(effect: Object, expected: String) -> bool:
 	if effect == null:
 		return false
@@ -5204,10 +6140,18 @@ func _effect_matches_ref(effect: Object, expected: String) -> bool:
 	return false
 
 
+## 规范化效果匹配文本。
+## [br]
+## @api private
+## [br]
 func _normalize_effect_match_text(value: String) -> String:
 	return value.to_lower().replace("audioeffect", "").replace("filter", "").replace("_", "").replace(" ", "")
 
 
+## 检查 Object 是否声明指定属性。
+## [br]
+## @api private
+## [br]
 func _object_has_property(object: Object, property_name: StringName) -> bool:
 	if object == null:
 		return false
@@ -5217,11 +6161,19 @@ func _object_has_property(object: Object, property_name: StringName) -> bool:
 	return false
 
 
+## 判断 Variant 值是否为整数或浮点数。
+## [br]
+## @api private
+## [br]
 func _is_numeric_variant(value: Variant) -> bool:
 	var value_type: int = typeof(value)
 	return value_type == TYPE_INT or value_type == TYPE_FLOAT
 
 
+## 判断数值 Variant 是否有限；整数值视为有限。
+## [br]
+## @api private
+## [br]
 func _is_finite_numeric_variant(value: Variant) -> bool:
 	if value is int:
 		return true
@@ -5231,18 +6183,34 @@ func _is_finite_numeric_variant(value: Variant) -> bool:
 	return false
 
 
+## 有限时返回原浮点值，否则返回给定默认值。
+## [br]
+## @api private
+## [br]
 func _finite_or_default(value: float, default_value: float) -> float:
 	return value if _is_finite_float(value) else default_value
 
 
+## 保留有限的非负值；非有限或负值归零。
+## [br]
+## @api private
+## [br]
 func _finite_non_negative_or_zero(value: float) -> float:
 	return maxf(value, 0.0) if _is_finite_float(value) else 0.0
 
 
+## 检查浮点值是否既非 NaN 也非无穷大。
+## [br]
+## @api private
+## [br]
 func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 验证混音快照的总线和效果字段是否符合接受的数据结构。
+## [br]
+## @api private
+## [br]
 func _validate_mix_snapshot_shape(snapshot: Dictionary, report: Dictionary) -> bool:
 	var is_valid: bool = true
 	if snapshot.has(_MIX_SNAPSHOT_BUSES_KEY):
@@ -5322,6 +6290,10 @@ func _validate_mix_snapshot_shape(snapshot: Dictionary, report: Dictionary) -> b
 	return is_valid
 
 
+## 按混音快照逐项应用总线音量与静音设置。
+## [br]
+## @api private
+## [br]
 func _apply_mix_snapshot_buses(
 	bus_payload: Variant,
 	transition_seconds: float,
@@ -5361,6 +6333,10 @@ func _apply_mix_snapshot_buses(
 			_append_mix_failure(report, bus_name, "invalid_bus_entry", "总线快照条目必须是 Dictionary 或数值。")
 
 
+## 校验并应用一个混音快照总线条目。
+## [br]
+## @api private
+## [br]
 func _apply_mix_snapshot_bus_entry(
 	bus_name: String,
 	entry: Dictionary,
@@ -5476,6 +6452,10 @@ func _apply_mix_snapshot_bus_entry(
 		_append_mix_applied(report, "bus:%s:muted" % bus_name)
 
 
+## 按混音快照逐项应用总线效果属性。
+## [br]
+## @api private
+## [br]
 func _apply_mix_snapshot_effects(effect_payload: Variant, transition_seconds: float, report: Dictionary) -> void:
 	if effect_payload == null:
 		return
@@ -5522,6 +6502,10 @@ func _apply_mix_snapshot_effects(effect_payload: Variant, transition_seconds: fl
 	)
 
 
+## 校验并应用一个混音快照效果条目。
+## [br]
+## @api private
+## [br]
 func _apply_mix_snapshot_effect_entry(entry: Dictionary, transition_seconds: float, report: Dictionary) -> void:
 	var bus_name: String = GFVariantData.get_option_string(entry, "bus", "")
 	var property_name: StringName = GFVariantData.get_option_string_name(entry, "property", &"")
@@ -5542,6 +6526,10 @@ func _apply_mix_snapshot_effect_entry(entry: Dictionary, transition_seconds: flo
 		_append_mix_failure(report, bus_name, "effect_failed", "无法设置效果属性。")
 
 
+## 将已应用的混音目标追加到报告。
+## [br]
+## @api private
+## [br]
 func _append_mix_applied(report: Dictionary, value: String) -> void:
 	var applied: PackedStringArray = _get_packed_string_array_value(
 		GFVariantData.get_option_value(report, "applied", PackedStringArray())
@@ -5550,12 +6538,20 @@ func _append_mix_applied(report: Dictionary, value: String) -> void:
 	report["applied"] = applied
 
 
+## 向混音报告追加一条警告。
+## [br]
+## @api private
+## [br]
 func _append_mix_warning(report: Dictionary, message: String) -> void:
 	var warnings: Array = _get_report_array(report, "warnings")
 	_append_array_item(warnings, message)
 	report["warnings"] = warnings
 
 
+## 向混音报告追加一条失败记录及其原因。
+## [br]
+## @api private
+## [br]
 func _append_mix_failure(report: Dictionary, bus_name: String, reason: String, message: String) -> void:
 	var failed: Array = _get_report_array(report, "failed")
 	_append_array_item(failed, {
@@ -5566,6 +6562,10 @@ func _append_mix_failure(report: Dictionary, bus_name: String, reason: String, m
 	report["failed"] = failed
 
 
+## 读取指定总线当前的 duck 状态。
+## [br]
+## @api private
+## [br]
 func _get_duck_bus_state(bus_name: String) -> Dictionary:
 	var state_value: Variant = _duck_bus_states.get(bus_name)
 	if state_value is Dictionary:
@@ -5574,6 +6574,10 @@ func _get_duck_bus_state(bus_name: String) -> Dictionary:
 	return {}
 
 
+## 读取总线 duck 开始前可用于恢复的基准状态。
+## [br]
+## @api private
+## [br]
 func _capture_duck_bus_base_state(bus_name: String) -> Dictionary:
 	if _is_backend_dispatch_in_progress():
 		return { "ok": false }
@@ -5629,6 +6633,10 @@ func _capture_duck_bus_base_state(bus_name: String) -> Dictionary:
 	}
 
 
+## 从 duck 状态记录读取绑定的 backend。
+## [br]
+## @api private
+## [br]
 func _get_duck_state_backend(state: Dictionary) -> GFAudioBackend:
 	var backend_value: Variant = GFVariantData.get_option_value(state, "backend")
 	if backend_value is GFAudioBackend:
@@ -5637,6 +6645,10 @@ func _get_duck_state_backend(state: Dictionary) -> GFAudioBackend:
 	return null
 
 
+## 通过绑定的 backend 应用总线 duck 混音状态。
+## [br]
+## @api private
+## [br]
 func _apply_backend_duck_bus_mix_state(
 	bus_name: String,
 	state: Dictionary,
@@ -5662,6 +6674,10 @@ func _apply_backend_duck_bus_mix_state(
 	return _backend_dispatch_returned_true(volume_result) and _audio_backend == expected_backend
 
 
+## 应用总线 duck 状态中的音量与静音设置。
+## [br]
+## @api private
+## [br]
 func _apply_duck_bus_mix_state(
 	bus_name: String,
 	state: Dictionary,
@@ -5699,6 +6715,10 @@ func _apply_duck_bus_mix_state(
 	)
 
 
+## 在 backend 切换前恢复由旧 backend 持有的 duck 总线。
+## [br]
+## @api private
+## [br]
 func _restore_ducked_buses_for_backend_transition(expected_backend: GFAudioBackend) -> bool:
 	var bus_names: PackedStringArray = PackedStringArray()
 	for bus_name_value: Variant in _duck_bus_states.keys():
@@ -5723,6 +6743,10 @@ func _restore_ducked_buses_for_backend_transition(expected_backend: GFAudioBacke
 	return true
 
 
+## 按当前作用域重新计算并应用总线 duck 状态。
+## [br]
+## @api private
+## [br]
 func _apply_duck_bus_state(bus_name: String, transition_seconds: float) -> bool:
 	var state: Dictionary = _get_duck_bus_state(bus_name)
 	if state.is_empty():
@@ -5745,6 +6769,10 @@ func _apply_duck_bus_state(bus_name: String, transition_seconds: float) -> bool:
 	)
 
 
+## 在音频生命周期结束时恢复所有 duck 总线。
+## [br]
+## @api private
+## [br]
 func _restore_all_ducked_buses_for_lifecycle() -> bool:
 	if _duck_bus_states.is_empty():
 		return true
@@ -5766,6 +6794,10 @@ func _restore_all_ducked_buses_for_lifecycle() -> bool:
 	return restored_all
 
 
+## 在音频生命周期结束时恢复指定总线的基准音量和静音状态。
+## [br]
+## @api private
+## [br]
 func _restore_duck_bus_base_for_lifecycle(bus_name: String, state: Dictionary) -> bool:
 	var base_db: float = GFVariantData.get_option_float(state, "base_db", SILENCE_VOLUME_DB)
 	var base_muted: bool = GFVariantData.get_option_bool(state, "base_muted")
@@ -5778,6 +6810,10 @@ func _restore_duck_bus_base_for_lifecycle(bus_name: String, state: Dictionary) -
 	)
 
 
+## 清除当前 backend；按参数决定是否调用其释放流程。
+## [br]
+## @api private
+## [br]
 func _clear_audio_backend(dispose_backend: bool) -> bool:
 	if _audio_backend == null:
 		return true
@@ -5796,6 +6832,10 @@ func _clear_audio_backend(dispose_backend: bool) -> bool:
 	return true
 
 
+## 请求当前 backend 停止其持有的 BGM、环境音和 SFX 会话。
+## [br]
+## @api private
+## [br]
 func _stop_backend_owned_sessions(
 	emit_bgm_terminal_signal: bool = true,
 	frozen_bgm_handles: Array[GFBgmSessionHandle] = [],
@@ -5889,6 +6929,10 @@ func _stop_backend_owned_sessions(
 	return still_current
 
 
+## 尝试后端停止全部环境音。
+## [br]
+## @api private
+## [br]
 func _try_backend_stop_all_ambient(
 	backend_channels: Array[StringName],
 	fade_seconds: float
@@ -5932,6 +6976,10 @@ func _try_backend_stop_all_ambient(
 	return true
 
 
+## 检查指定环境音通道的 backend 会话是否仍与当前请求匹配。
+## [br]
+## @api private
+## [br]
 func _is_backend_ambient_session_current(
 	channel: StringName,
 	expected_generation: int,
@@ -5950,10 +6998,18 @@ func _is_backend_ambient_session_current(
 	)
 
 
+## 按字符串字典序比较两个 StringName。
+## [br]
+## @api private
+## [br]
 func _is_string_name_lexically_before(left: StringName, right: StringName) -> bool:
 	return String(left) < String(right)
 
 
+## 音频库卸载后依据挂载栈恢复先前选中的库。
+## [br]
+## @api private
+## [br]
 func _restore_audio_bank_after_unmount(
 	bank_id: StringName,
 	stack: Array,
@@ -5976,6 +7032,10 @@ func _restore_audio_bank_after_unmount(
 	_erase_dictionary_key(_audio_banks, bank_id)
 
 
+## 尝试将 BGM 路径播放请求派发给当前 backend。
+## [br]
+## @api private
+## [br]
 func _try_backend_play_bgm_path(path: String, options: Dictionary) -> bool:
 	var expected_backend: GFAudioBackend = _audio_backend
 	var expected_request_serial: int = _bgm_request_serial
@@ -6016,6 +7076,10 @@ func _try_backend_play_bgm_path(path: String, options: Dictionary) -> bool:
 	)
 
 
+## 尝试将 BGM 片段播放请求派发给当前 backend。
+## [br]
+## @api private
+## [br]
 func _try_backend_play_bgm_clip(clip: GFAudioClip, options: Dictionary) -> Dictionary:
 	var outcome: Dictionary = {
 		"handled": false,
@@ -6100,6 +7164,10 @@ func _try_backend_play_bgm_clip(clip: GFAudioClip, options: Dictionary) -> Dicti
 	return outcome
 
 
+## 通过类型化 backend 接口提交 BGM 路径请求。
+## [br]
+## @api private
+## [br]
 func _try_typed_backend_bgm_path(
 	request_id: int,
 	path: String,
@@ -6155,6 +7223,10 @@ func _try_typed_backend_bgm_path(
 	return outcome
 
 
+## 通过类型化 backend 接口提交 BGM 片段请求。
+## [br]
+## @api private
+## [br]
 func _try_typed_backend_bgm_clip(
 	request_id: int,
 	clip: GFAudioClip,
@@ -6260,6 +7332,10 @@ func _try_typed_backend_bgm_clip(
 	return outcome
 
 
+## 尝试将环境音路径请求派发给当前 backend。
+## [br]
+## @api private
+## [br]
 func _try_backend_play_ambient_path(path: String, channel: StringName, options: Dictionary) -> bool:
 	var expected_backend: GFAudioBackend = _audio_backend
 	var expected_request_serial: int = _get_ambient_request_serial(channel)
@@ -6310,6 +7386,10 @@ func _try_backend_play_ambient_path(path: String, channel: StringName, options: 
 	)
 
 
+## 尝试将环境音片段请求派发给当前 backend。
+## [br]
+## @api private
+## [br]
 func _try_backend_play_ambient_clip(
 	clip: GFAudioClip,
 	channel: StringName,
@@ -6409,6 +7489,10 @@ func _try_backend_play_ambient_clip(
 	return outcome
 
 
+## 检查通道的环境音请求序号是否仍然有效。
+## [br]
+## @api private
+## [br]
 func _is_ambient_backend_request_current(
 	channel: StringName,
 	expected_request_serial: int,
@@ -6424,6 +7508,10 @@ func _is_ambient_backend_request_current(
 	)
 
 
+## 尝试将 SFX 路径请求派发给当前 backend。
+## [br]
+## @api private
+## [br]
 func _try_backend_play_sfx_path(path: String, options: Dictionary) -> GFAudioEmitterHandle:
 	var expected_backend: GFAudioBackend = _audio_backend
 	var expected_lifecycle_serial: int = _sfx_lifecycle_serial
@@ -6459,6 +7547,10 @@ func _try_backend_play_sfx_path(path: String, options: Dictionary) -> GFAudioEmi
 	return _backend_dispatch_handle(play_result)
 
 
+## 尝试将 SFX 片段请求派发给当前 backend。
+## [br]
+## @api private
+## [br]
 func _try_backend_play_sfx_clip(
 	clip: GFAudioClip,
 	options: Dictionary,
@@ -6535,6 +7627,10 @@ func _try_backend_play_sfx_clip(
 	return outcome
 
 
+## 尝试将空间 SFX 片段请求派发给当前 backend。
+## [br]
+## @api private
+## [br]
 func _try_backend_play_spatial_sfx_clip(
 	clip: GFAudioClip,
 	source: Node,
@@ -6618,6 +7714,10 @@ func _try_backend_play_spatial_sfx_clip(
 	return outcome
 
 
+## 将 BGM 事件交由本地 BGM 播放流程执行。
+## [br]
+## @api private
+## [br]
 func _post_bgm_event(event: GFAudioEvent, options: Dictionary) -> void:
 	var fade_seconds: float = GFVariantData.get_option_float(options, "fade_seconds", 0.0)
 	if event.clip != null:
@@ -6628,6 +7728,10 @@ func _post_bgm_event(event: GFAudioEvent, options: Dictionary) -> void:
 		play_bgm(event.path, fade_seconds)
 
 
+## 将环境音事件交由本地环境音播放流程执行。
+## [br]
+## @api private
+## [br]
 func _post_ambient_event(event: GFAudioEvent, options: Dictionary) -> void:
 	var fade_seconds: float = GFVariantData.get_option_float(options, "fade_seconds", 0.0)
 	if event.clip != null:
@@ -6638,6 +7742,10 @@ func _post_ambient_event(event: GFAudioEvent, options: Dictionary) -> void:
 		play_ambient(event.path, event.ambient_channel, fade_seconds)
 
 
+## 将 SFX 事件交由本地音效播放流程执行。
+## [br]
+## @api private
+## [br]
 func _post_sfx_event(
 	event: GFAudioEvent,
 	rejection_channel: StringName = &"sfx"
@@ -6651,6 +7759,10 @@ func _post_sfx_event(
 	return null
 
 
+## 将空间 SFX 事件交由本地空间音效流程执行。
+## [br]
+## @api private
+## [br]
 func _post_spatial_sfx_event(event: GFAudioEvent, options: Dictionary) -> GFAudioEmitterHandle:
 	var source: Node = _get_node_option(options, "source")
 	if source == null:
@@ -6669,6 +7781,10 @@ func _post_spatial_sfx_event(event: GFAudioEvent, options: Dictionary) -> GFAudi
 	return _play_spatial_sfx_event_clip(clip, source, follow_source)
 
 
+## 按空间 SFX 事件的设置播放其中的音频片段。
+## [br]
+## @api private
+## [br]
 func _play_spatial_sfx_event_clip(clip: GFAudioClip, source: Node, follow_source: bool) -> GFAudioEmitterHandle:
 	if source is Node2D:
 		var source_2d: Node2D = source
@@ -6679,6 +7795,10 @@ func _play_spatial_sfx_event_clip(clip: GFAudioClip, source: Node, follow_source
 	return null
 
 
+## 从节点配置中读取指定选项值。
+## [br]
+## @api private
+## [br]
 func _get_node_option(options: Dictionary, key: Variant) -> Node:
 	var value: Variant = GFVariantData.get_option_value(options, key)
 	if value is Node:
@@ -6687,6 +7807,10 @@ func _get_node_option(options: Dictionary, key: Variant) -> Node:
 	return null
 
 
+## 从当前音频库中读取已注册片段。
+## [br]
+## @api private
+## [br]
 func _get_registered_clip(event_id: StringName, bank_id: StringName = &"") -> GFAudioClip:
 	if not _is_audio_bank_identifier_valid(event_id):
 		return null
@@ -6722,6 +7846,10 @@ func _get_registered_clip(event_id: StringName, bank_id: StringName = &"") -> GF
 	return null
 
 
+## 在限定音频库范围内解析片段引用。
+## [br]
+## @api private
+## [br]
 func _resolve_bounded_audio_bank_clip(
 	bank: GFAudioBank,
 	clip_id: StringName
@@ -6774,6 +7902,10 @@ func _resolve_bounded_audio_bank_clip(
 	return null
 
 
+## 从限定音频库范围中选择可播放片段。
+## [br]
+## @api private
+## [br]
 func _select_bounded_audio_bank_clip(
 	bank: GFAudioBank,
 	clip_id: StringName
@@ -6820,10 +7952,18 @@ func _select_bounded_audio_bank_clip(
 	return last_positive_candidate
 
 
+## 检查音频库标识是否符合当前接受规则。
+## [br]
+## @api private
+## [br]
 func _is_audio_bank_identifier_valid(value: StringName) -> bool:
 	return _is_audio_bank_identifier_text_valid(String(value))
 
 
+## 检查音频库标识文本是否为可接受的非空文本。
+## [br]
+## @api private
+## [br]
 func _is_audio_bank_identifier_text_valid(value: String) -> bool:
 	return (
 		not value.is_empty()
@@ -6831,6 +7971,10 @@ func _is_audio_bank_identifier_text_valid(value: String) -> bool:
 	)
 
 
+## 创建空间 SFX 播放节点并启动片段播放。
+## [br]
+## @api private
+## [br]
 func _play_spatial_sfx_clip(clip: GFAudioClip, source: Node, follow_source: bool = false) -> Node:
 	if _is_backend_dispatch_in_progress() or not _is_initialized or not _is_live_audio_root(_root):
 		return null
@@ -6938,6 +8082,10 @@ func _play_spatial_sfx_clip(clip: GFAudioClip, source: Node, follow_source: bool
 	return player
 
 
+## 解析空间 SFX 请求并应用播放器及节点设置。
+## [br]
+## @api private
+## [br]
 func _apply_spatial_sfx_request(
 	request_serial: int,
 	player: Node,
@@ -7015,6 +8163,10 @@ func _apply_spatial_sfx_request(
 	return true
 
 
+## 读取片段关联的空间播放设置。
+## [br]
+## @api private
+## [br]
 func _get_clip_spatial_settings(clip: GFAudioClip) -> Resource:
 	if clip == null or clip.spatial_settings == null:
 		return null
@@ -7026,6 +8178,10 @@ func _get_clip_spatial_settings(clip: GFAudioClip) -> Resource:
 	return clip.spatial_settings
 
 
+## 将空间设置应用到 2D 音频播放器。
+## [br]
+## @api private
+## [br]
 func _apply_spatial_settings_2d(player: AudioStreamPlayer2D, spatial_settings: Resource) -> void:
 	if spatial_settings != null and spatial_settings.has_method(_APPLY_SPATIAL_SETTINGS_2D_METHOD):
 		var apply_result: Variant = spatial_settings.call(_APPLY_SPATIAL_SETTINGS_2D_METHOD, player)
@@ -7035,6 +8191,10 @@ func _apply_spatial_settings_2d(player: AudioStreamPlayer2D, spatial_settings: R
 	player.area_mask = _DEFAULT_SPATIAL_AREA_MASK
 
 
+## 将空间设置应用到 3D 音频播放器。
+## [br]
+## @api private
+## [br]
 func _apply_spatial_settings_3d(player: AudioStreamPlayer3D, spatial_settings: Resource) -> void:
 	if spatial_settings != null and spatial_settings.has_method(_APPLY_SPATIAL_SETTINGS_3D_METHOD):
 		var apply_result: Variant = spatial_settings.call(_APPLY_SPATIAL_SETTINGS_3D_METHOD, player)
@@ -7044,6 +8204,10 @@ func _apply_spatial_settings_3d(player: AudioStreamPlayer3D, spatial_settings: R
 	player.area_mask = _DEFAULT_SPATIAL_AREA_MASK
 
 
+## 解析空间 SFX 播放节点应挂接的父节点。
+## [br]
+## @api private
+## [br]
 func _get_spatial_sfx_parent(source: Node) -> Node:
 	var tree: SceneTree = source.get_tree()
 	if tree != null and tree.current_scene != null:
@@ -7051,10 +8215,18 @@ func _get_spatial_sfx_parent(source: Node) -> Node:
 	return _root if is_instance_valid(_root) else source
 
 
+## 使用默认设置启动 BGM 音频流。
+## [br]
+## @api private
+## [br]
 func _play_bgm_stream(stream: AudioStream) -> void:
 	_play_bgm_stream_with_settings(stream, BGM_BUS_NAME, 0.0, 1.0)
 
 
+## 使用给定的总线、音量和淡入设置启动 BGM 音频流。
+## [br]
+## @api private
+## [br]
 func _play_bgm_stream_with_settings(
 	stream: AudioStream,
 	bus_name: String,
@@ -7078,6 +8250,10 @@ func _play_bgm_stream_with_settings(
 	)
 
 
+## 创建待处理 BGM 启动操作，并为其初始化完成状态。
+## [br]
+## @api private
+## [br]
 func _make_bgm_start_operation() -> GFBgmStartOperation:
 	if _next_bgm_start_request_id <= 0 or _next_bgm_start_request_id >= _MAX_STABLE_ID:
 		push_error("[GFAudioUtility][audio_utility.bgm_request_id_exhausted] BGM start request ID space is exhausted.")
@@ -7094,6 +8270,10 @@ func _make_bgm_start_operation() -> GFBgmStartOperation:
 	return operation
 
 
+## 为未接纳的 BGM 启动请求创建完成结果。
+## [br]
+## @api private
+## [br]
 func _complete_unadmitted_bgm_start(
 	operation: GFBgmStartOperation,
 	status: GFBgmStartResult.Status,
@@ -7119,6 +8299,10 @@ func _complete_unadmitted_bgm_start(
 		push_error("[GFAudioUtility][audio_utility.bgm_unadmitted_completion_failed] Cannot complete the unadmitted BGM start Operation.")
 
 
+## 从调用参数构造 BGM 启动请求记录。
+## [br]
+## @api private
+## [br]
 func _make_bgm_start_request(
 	operation: GFBgmStartOperation,
 	path: String,
@@ -7161,6 +8345,10 @@ func _make_bgm_start_request(
 	}
 
 
+## 校验并接纳新的 BGM 启动请求。
+## [br]
+## @api private
+## [br]
 func _admit_bgm_start_request(request: Dictionary) -> bool:
 	var operation: GFBgmStartOperation = _get_bgm_start_operation(request)
 	var owner: Node = _get_bgm_start_owner(request)
@@ -7220,6 +8408,10 @@ func _admit_bgm_start_request(request: Dictionary) -> bool:
 	return _is_pending_bgm_start_request(operation.get_request_id())
 
 
+## 检查 BGM 启动操作的 owner 是否仍可用。
+## [br]
+## @api private
+## [br]
 func _is_bgm_start_owner_available(owner: Node) -> bool:
 	return (
 		owner == null
@@ -7231,6 +8423,10 @@ func _is_bgm_start_owner_available(owner: Node) -> bool:
 	)
 
 
+## 读取BGM启动操作。
+## [br]
+## @api private
+## [br]
 func _get_bgm_start_operation(request: Dictionary) -> GFBgmStartOperation:
 	var value: Variant = GFVariantData.get_option_value(request, "operation")
 	if value is GFBgmStartOperation:
@@ -7239,6 +8435,10 @@ func _get_bgm_start_operation(request: Dictionary) -> GFBgmStartOperation:
 	return null
 
 
+## 读取BGM启动所有者。
+## [br]
+## @api private
+## [br]
 func _get_bgm_start_owner(request: Dictionary) -> Node:
 	var owner_ref_value: Variant = GFVariantData.get_option_value(request, "owner_ref")
 	if not owner_ref_value is WeakRef:
@@ -7257,10 +8457,18 @@ func _get_bgm_start_owner(request: Dictionary) -> Node:
 	return owner
 
 
+## 检查待处理 BGM 启动操作是否关联有效 owner。
+## [br]
+## @api private
+## [br]
 func _pending_bgm_start_has_owner(request: Dictionary) -> bool:
 	return GFVariantData.get_option_int(request, "owner_instance_id") != 0
 
 
+## 检查请求记录是否仍对应当前待处理 BGM 启动操作。
+## [br]
+## @api private
+## [br]
 func _is_pending_bgm_start_request(request_id: int) -> bool:
 	return (
 		request_id > 0
@@ -7272,6 +8480,10 @@ func _is_pending_bgm_start_request(request_id: int) -> bool:
 	)
 
 
+## 断开BGM启动所有者。
+## [br]
+## @api private
+## [br]
 func _disconnect_bgm_start_owner(request: Dictionary) -> void:
 	var owner: Node = _get_bgm_start_owner(request)
 	var callback_value: Variant = GFVariantData.get_option_value(
@@ -7284,6 +8496,10 @@ func _disconnect_bgm_start_owner(request: Dictionary) -> void:
 			owner.tree_exiting.disconnect(callback)
 
 
+## 按框架取消语义结束 BGM 启动操作。
+## [br]
+## @api private
+## [br]
 func _cancel_bgm_start_operation_for_framework(
 	operation: GFBgmStartOperation
 ) -> bool:
@@ -7301,6 +8517,10 @@ func _cancel_bgm_start_operation_for_framework(
 	)
 
 
+## 取消当前待处理 BGM 启动请求并执行收尾。
+## [br]
+## @api private
+## [br]
 func _cancel_pending_bgm_start(
 	status: GFBgmStartResult.Status,
 	reason: StringName,
@@ -7327,6 +8547,10 @@ func _cancel_pending_bgm_start(
 	return _complete_bgm_start_record(request, status, reason, error_code)
 
 
+## backend 更换时冻结当前待处理 BGM 启动记录。
+## [br]
+## @api private
+## [br]
 func _freeze_pending_bgm_start_for_backend_change() -> GFBgmStartOperation:
 	if _bgm_pending_start_request.is_empty():
 		return null
@@ -7347,6 +8571,10 @@ func _freeze_pending_bgm_start_for_backend_change() -> GFBgmStartOperation:
 	)
 
 
+## 完成BGM启动记录。
+## [br]
+## @api private
+## [br]
 func _complete_bgm_start_record(
 	request: Dictionary,
 	status: GFBgmStartResult.Status,
@@ -7362,6 +8590,10 @@ func _complete_bgm_start_record(
 	return operation != null and operation.emit_completed_for_framework()
 
 
+## 冻结BGM启动记录。
+## [br]
+## @api private
+## [br]
 func _freeze_bgm_start_record(
 	request: Dictionary,
 	status: GFBgmStartResult.Status,
@@ -7417,6 +8649,10 @@ func _freeze_bgm_start_record(
 	return operation
 
 
+## 记录待处理 BGM 启动操作收到的终态意图。
+## [br]
+## @api private
+## [br]
 func _record_pending_bgm_terminal_intent(
 	status: GFBgmStartResult.Status,
 	reason: StringName,
@@ -7438,6 +8674,10 @@ func _record_pending_bgm_terminal_intent(
 	return true
 
 
+## 检查待处理 BGM 启动操作是否已有终态意图。
+## [br]
+## @api private
+## [br]
 func _pending_bgm_has_terminal_intent(request_id: int) -> bool:
 	return (
 		_is_pending_bgm_start_request(request_id)
@@ -7445,6 +8685,10 @@ func _pending_bgm_has_terminal_intent(request_id: int) -> bool:
 	)
 
 
+## 为已失效的 backend BGM 启动请求执行补偿。
+## [br]
+## @api private
+## [br]
 func _compensate_invalidated_backend_bgm_start() -> void:
 	var expected_backend: GFAudioBackend = _audio_backend
 	if expected_backend == null:
@@ -7461,6 +8705,10 @@ func _compensate_invalidated_backend_bgm_start() -> void:
 		)
 
 
+## 收敛已失效的 backend BGM 启动记录及其结果。
+## [br]
+## @api private
+## [br]
 func _settle_invalidated_backend_bgm_start(
 	request_id: int,
 	backend_started: bool
@@ -7528,6 +8776,10 @@ func _settle_invalidated_backend_bgm_start(
 		bgm_finished.emit(natural_history_key)
 
 
+## 暂存 BGM 会话终态，供 backend 派发结束后处理。
+## [br]
+## @api private
+## [br]
 func _record_deferred_bgm_session_terminal(
 	session_id: int,
 	end_kind: GFBgmSessionHandle.EndKind,
@@ -7545,6 +8797,10 @@ func _record_deferred_bgm_session_terminal(
 	return true
 
 
+## 取出并清除暂存的 BGM 会话终态记录。
+## [br]
+## @api private
+## [br]
 func _take_deferred_bgm_session_terminal(session_id: int) -> Dictionary:
 	if (
 		session_id <= 0
@@ -7559,6 +8815,10 @@ func _take_deferred_bgm_session_terminal(session_id: int) -> Dictionary:
 	return terminal_intent
 
 
+## 读取最终适用的 BGM 会话结束类型。
+## [br]
+## @api private
+## [br]
 func _take_effective_bgm_session_end_kind(
 	session_id: int,
 	fallback_end_kind: GFBgmSessionHandle.EndKind
@@ -7574,6 +8834,10 @@ func _take_effective_bgm_session_end_kind(
 	) as GFBgmSessionHandle.EndKind
 
 
+## 在自然结束条件成立时记录 BGM 历史。
+## [br]
+## @api private
+## [br]
 func _emit_bgm_natural_history_if_needed(
 	end_kind: GFBgmSessionHandle.EndKind,
 	history_key: String
@@ -7585,6 +8849,10 @@ func _emit_bgm_natural_history_if_needed(
 		bgm_finished.emit(history_key)
 
 
+## 组装稍后发出的 BGM 会话终态通知数据。
+## [br]
+## @api private
+## [br]
 func _capture_bgm_session_terminal_notification(
 	handle: GFBgmSessionHandle,
 	end_kind: GFBgmSessionHandle.EndKind,
@@ -7599,6 +8867,10 @@ func _capture_bgm_session_terminal_notification(
 		_emit_captured_bgm_session_terminal_notification(settlement)
 
 
+## 发出已捕获的 BGM 会话终态通知。
+## [br]
+## @api private
+## [br]
 func _emit_captured_bgm_session_terminal_notification(
 	settlement: Dictionary
 ) -> void:
@@ -7619,6 +8891,10 @@ func _emit_captured_bgm_session_terminal_notification(
 	)
 
 
+## 安排在安全时机排空延迟音频释放工作。
+## [br]
+## @api private
+## [br]
 func _schedule_deferred_audio_drain() -> void:
 	if _deferred_audio_drain_scheduled:
 		return
@@ -7626,6 +8902,10 @@ func _schedule_deferred_audio_drain() -> void:
 	call_deferred("_run_deferred_audio_dispose_if_needed")
 
 
+## 条件满足时执行延迟的音频工具释放。
+## [br]
+## @api private
+## [br]
 func _run_deferred_audio_dispose_if_needed() -> void:
 	_deferred_audio_drain_scheduled = false
 	if _is_backend_dispatch_in_progress():
@@ -7697,6 +8977,10 @@ func _run_deferred_audio_dispose_if_needed() -> void:
 		)
 
 
+## 取出待处理 BGM 操作的终态意图并执行相应收尾。
+## [br]
+## @api private
+## [br]
 func _consume_pending_bgm_terminal_intent(request_id: int) -> bool:
 	if not _is_pending_bgm_start_request(request_id):
 		return false
@@ -7719,23 +9003,12 @@ func _consume_pending_bgm_terminal_intent(request_id: int) -> bool:
 	)
 
 
-func _on_bgm_start_owner_tree_exiting(request_id: int) -> void:
-	if _is_pending_bgm_start_request(request_id):
-		var _pending_cancelled: bool = _cancel_pending_bgm_start(
-			GFBgmStartResult.Status.CANCELLED,
-			GFBgmStartResult.REASON_OWNER_RELEASED,
-			ERR_SKIP
-		)
-		return
-	var session_id: int = _find_bgm_lifecycle_session_for_request(request_id)
-	if session_id > 0:
-		var _session_stop_requested: bool = _request_bgm_session_stop_by_id(
-			session_id,
-			0.0,
-			GFBgmSessionHandle.EndKind.OWNER_RELEASED
-		)
 
 
+## 将待处理 BGM 路径请求交给 backend 或本地异步加载流程。
+## [br]
+## @api private
+## [br]
 func _dispatch_pending_bgm_path_request(request_id: int) -> void:
 	if not _is_pending_bgm_start_request(request_id):
 		return
@@ -7782,6 +9055,10 @@ func _dispatch_pending_bgm_path_request(request_id: int) -> void:
 	_run_deferred_audio_dispose_if_needed()
 
 
+## 将待处理 BGM 片段请求交给 backend 或本地播放流程。
+## [br]
+## @api private
+## [br]
 func _dispatch_pending_bgm_clip_request(request_id: int) -> void:
 	if not _is_pending_bgm_start_request(request_id):
 		return
@@ -7852,6 +9129,10 @@ func _dispatch_pending_bgm_clip_request(request_id: int) -> void:
 	_run_deferred_audio_dispose_if_needed()
 
 
+## 构造待处理 BGM 请求交给 backend 的选项字典。
+## [br]
+## @api private
+## [br]
 func _make_pending_bgm_backend_options(request: Dictionary) -> Dictionary:
 	var backend_options: Dictionary = {
 		"crossfade_seconds": _resolve_bgm_crossfade_seconds(
@@ -7876,6 +9157,10 @@ func _make_pending_bgm_backend_options(request: Dictionary) -> Dictionary:
 	return backend_options
 
 
+## 记录待处理 BGM 请求的 backend 处置结果。
+## [br]
+## @api private
+## [br]
 func _set_pending_bgm_backend_disposition(
 	request_id: int,
 	disposition: GFBgmStartResult.BackendDisposition
@@ -7885,6 +9170,10 @@ func _set_pending_bgm_backend_disposition(
 	_bgm_pending_start_request["backend_disposition"] = disposition
 
 
+## 为待处理 BGM 启动操作预留会话 ID。
+## [br]
+## @api private
+## [br]
 func _reserve_pending_bgm_start_session_id(request_id: int) -> int:
 	if not _is_pending_bgm_start_request(request_id):
 		return 0
@@ -7900,6 +9189,10 @@ func _reserve_pending_bgm_start_session_id(request_id: int) -> int:
 	return reserved_session_id
 
 
+## 异步加载待处理本地 BGM 启动请求的资源。
+## [br]
+## @api private
+## [br]
 func _load_pending_local_bgm_start(
 	request_id: int,
 	immediate_stream: AudioStream
@@ -7934,20 +9227,12 @@ func _load_pending_local_bgm_start(
 	asset_util.load_async(path, on_loaded)
 
 
-func _on_bgm_start_asset_loaded(request_id: int, resource: Resource) -> void:
-	if not _is_pending_bgm_start_request(request_id):
-		return
-	var stream: AudioStream = _get_audio_stream_value(resource)
-	if stream == null:
-		_fail_pending_bgm_start(
-			request_id,
-			_resolve_pending_bgm_local_failure_reason(request_id),
-			ERR_CANT_OPEN
-		)
-		return
-	_try_commit_typed_pending_local_bgm_start(request_id, stream)
 
 
+## 根据待处理本地 BGM 请求状态确定失败原因。
+## [br]
+## @api private
+## [br]
 func _resolve_pending_bgm_local_failure_reason(request_id: int) -> StringName:
 	if not _is_pending_bgm_start_request(request_id):
 		return GFBgmStartResult.REASON_ASSET_LOAD_FAILED
@@ -7963,6 +9248,10 @@ func _resolve_pending_bgm_local_failure_reason(request_id: int) -> StringName:
 	)
 
 
+## 按给定原因结束并清理待处理 BGM 启动操作。
+## [br]
+## @api private
+## [br]
 func _fail_pending_bgm_start(
 	request_id: int,
 	reason: StringName,
@@ -7984,6 +9273,10 @@ func _fail_pending_bgm_start(
 	)
 
 
+## 尝试提交类型化的待处理本地 BGM 启动操作。
+## [br]
+## @api private
+## [br]
 func _try_commit_typed_pending_local_bgm_start(
 	request_id: int,
 	stream: AudioStream
@@ -8167,6 +9460,10 @@ func _try_commit_typed_pending_local_bgm_start(
 	_finalize_started_bgm_publication(publication)
 
 
+## 为类型化本地 BGM 请求准备候选播放器和资源。
+## [br]
+## @api private
+## [br]
 func _prepare_typed_local_bgm_candidate(
 	request: Dictionary,
 	execution_plan: Dictionary
@@ -8247,6 +9544,10 @@ func _prepare_typed_local_bgm_candidate(
 	return candidate
 
 
+## 创建类型化BGM替换播放器。
+## [br]
+## @api private
+## [br]
 func _create_typed_bgm_replacement_player() -> AudioStreamPlayer:
 	var player: AudioStreamPlayer = AudioStreamPlayer.new()
 	player.name = "GFBGMFadePlayer"
@@ -8258,6 +9559,10 @@ func _create_typed_bgm_replacement_player() -> AudioStreamPlayer:
 	return player
 
 
+## 冻结类型化本地 BGM 候选对象，供后续提交使用。
+## [br]
+## @api private
+## [br]
 func _seal_typed_local_bgm_candidate(
 	request_id: int,
 	candidate_root: Node,
@@ -8321,6 +9626,10 @@ func _seal_typed_local_bgm_candidate(
 	)
 
 
+## 检查类型化 BGM 交叉淡化所需的来源播放器是否就绪。
+## [br]
+## @api private
+## [br]
 func _is_typed_bgm_crossfade_source_ready(
 	candidate_root: Node,
 	player: AudioStreamPlayer
@@ -8333,6 +9642,10 @@ func _is_typed_bgm_crossfade_source_ready(
 	)
 
 
+## 检查类型化 BGM 候选播放器是否就绪。
+## [br]
+## @api private
+## [br]
 func _is_typed_bgm_candidate_player_ready(
 	candidate_root: Node,
 	player: AudioStreamPlayer
@@ -8344,6 +9657,10 @@ func _is_typed_bgm_candidate_player_ready(
 	)
 
 
+## 检查类型化 BGM 替换播放器是否就绪。
+## [br]
+## @api private
+## [br]
 func _is_typed_bgm_replacement_player_ready(
 	candidate_root: Node,
 	player: AudioStreamPlayer
@@ -8356,6 +9673,10 @@ func _is_typed_bgm_replacement_player_ready(
 	)
 
 
+## 读取 BGM 候选对象中的播放器。
+## [br]
+## @api private
+## [br]
 func _get_bgm_candidate_player(candidate: Dictionary) -> AudioStreamPlayer:
 	var value: Variant = GFVariantData.get_option_value(candidate, "player")
 	if value is AudioStreamPlayer:
@@ -8364,6 +9685,10 @@ func _get_bgm_candidate_player(candidate: Dictionary) -> AudioStreamPlayer:
 	return null
 
 
+## 读取 BGM 候选对象的根节点。
+## [br]
+## @api private
+## [br]
 func _get_bgm_candidate_root(candidate: Dictionary) -> Node:
 	var value: Variant = GFVariantData.get_option_value(candidate, "candidate_root")
 	if value is Node:
@@ -8372,6 +9697,10 @@ func _get_bgm_candidate_root(candidate: Dictionary) -> Node:
 	return null
 
 
+## 读取 BGM 候选对象中的替换播放器。
+## [br]
+## @api private
+## [br]
 func _get_bgm_candidate_replacement_player(candidate: Dictionary) -> AudioStreamPlayer:
 	var value: Variant = GFVariantData.get_option_value(candidate, "replacement_player")
 	if value is AudioStreamPlayer:
@@ -8380,6 +9709,10 @@ func _get_bgm_candidate_replacement_player(candidate: Dictionary) -> AudioStream
 	return null
 
 
+## 检查候选播放器的节点插入位置是否仍符合当前请求。
+## [br]
+## @api private
+## [br]
 func _is_typed_bgm_candidate_insertion_current(
 	request_id: int,
 	candidate_root: Node,
@@ -8399,11 +9732,19 @@ func _is_typed_bgm_candidate_insertion_current(
 	return true
 
 
+## 释放类型化本地 BGM 候选对象及其关联资源。
+## [br]
+## @api private
+## [br]
 func _release_typed_bgm_candidate(candidate: Dictionary) -> void:
 	_release_typed_bgm_player(_get_bgm_candidate_player(candidate))
 	_release_typed_bgm_player(_get_bgm_candidate_replacement_player(candidate))
 
 
+## 释放类型化 BGM 播放器。
+## [br]
+## @api private
+## [br]
 func _release_typed_bgm_player(player: AudioStreamPlayer) -> void:
 	if not is_instance_valid(player):
 		return
@@ -8411,6 +9752,10 @@ func _release_typed_bgm_player(player: AudioStreamPlayer) -> void:
 	player.queue_free()
 
 
+## 按 owner 交接结果处理待提交的本地 BGM 候选对象。
+## [br]
+## @api private
+## [br]
 func _settle_pending_local_handoff_intent(
 	request_id: int,
 	backend_was_released: bool
@@ -8460,6 +9805,10 @@ func _settle_pending_local_handoff_intent(
 		var _handle_emitted: bool = handle.emit_ended_for_framework()
 
 
+## 收敛未能发布的 BGM 启动结果及其资源。
+## [br]
+## @api private
+## [br]
 func _settle_failed_bgm_publication(
 	request_id: int,
 	reason: StringName,
@@ -8510,6 +9859,10 @@ func _settle_failed_bgm_publication(
 	_emit_bgm_natural_history_if_needed(end_kind, natural_history_key)
 
 
+## 提交已准备好的类型化本地 BGM 候选对象。
+## [br]
+## @api private
+## [br]
 func _commit_typed_local_bgm_candidate(
 	request: Dictionary,
 	execution_plan: Dictionary,
@@ -8592,6 +9945,10 @@ func _commit_typed_local_bgm_candidate(
 	_record_bgm_history(GFVariantData.get_option_string(request, "history_key"))
 
 
+## 为已提交的 BGM 会话启动交叉淡化。
+## [br]
+## @api private
+## [br]
 func _start_committed_bgm_crossfade(
 	outgoing_session_id: int,
 	incoming_session_id: int,
@@ -8633,6 +9990,10 @@ func _start_committed_bgm_crossfade(
 	)
 
 
+## 提交已由 backend 启动的待处理 BGM 请求。
+## [br]
+## @api private
+## [br]
 func _commit_pending_backend_bgm_start(
 	request_id: int,
 	playback_region: Dictionary
@@ -8697,6 +10058,10 @@ func _commit_pending_backend_bgm_start(
 	_finalize_started_bgm_publication(publication)
 
 
+## 收敛 backend 已启动但会话发布失败的状态。
+## [br]
+## @api private
+## [br]
 func _settle_backend_bgm_publication_failure(
 	request_id: int,
 	previous_owner: StringName
@@ -8730,6 +10095,10 @@ func _settle_backend_bgm_publication_failure(
 	)
 
 
+## 准备发布已经启动的 BGM 会话所需的数据。
+## [br]
+## @api private
+## [br]
 func _prepare_started_bgm_publication(
 	request_id: int,
 	session_id: int,
@@ -8808,6 +10177,10 @@ func _prepare_started_bgm_publication(
 	}
 
 
+## 完成已启动 BGM 会话的发布收尾。
+## [br]
+## @api private
+## [br]
 func _finalize_started_bgm_publication(publication: Dictionary) -> void:
 	var request: Dictionary = GFVariantData.get_option_dictionary(
 		publication,
@@ -8863,6 +10236,10 @@ func _finalize_started_bgm_publication(publication: Dictionary) -> void:
 			bgm_finished.emit(previous_history_key)
 
 
+## 登记 BGM 会话及其 owner 生命周期连接。
+## [br]
+## @api private
+## [br]
 func _register_bgm_session_lifecycle(
 	session_id: int,
 	request: Dictionary,
@@ -8883,6 +10260,10 @@ func _register_bgm_session_lifecycle(
 	}
 
 
+## 按会话 ID 读取 BGM 会话控制句柄。
+## [br]
+## @api private
+## [br]
 func _get_bgm_session_handle(session_id: int) -> GFBgmSessionHandle:
 	var lifecycle: Dictionary = GFVariantData.as_dictionary(
 		_bgm_session_lifecycles.get(session_id)
@@ -8900,6 +10281,10 @@ func _get_bgm_session_handle(session_id: int) -> GFBgmSessionHandle:
 	return null
 
 
+## 冻结指定 BGM 会话句柄并确定终态。
+## [br]
+## @api private
+## [br]
 func _freeze_bgm_session_handle(
 	session_id: int,
 	end_kind: GFBgmSessionHandle.EndKind
@@ -8921,6 +10306,10 @@ func _freeze_bgm_session_handle(
 	return null
 
 
+## 将指定 BGM 会话句柄推进到完成状态。
+## [br]
+## @api private
+## [br]
 func _complete_bgm_session_handle(
 	session_id: int,
 	end_kind: GFBgmSessionHandle.EndKind
@@ -8932,6 +10321,10 @@ func _complete_bgm_session_handle(
 	return handle != null and handle.emit_ended_for_framework()
 
 
+## 完成所有仍登记的 BGM 会话句柄。
+## [br]
+## @api private
+## [br]
 func _complete_all_bgm_session_handles(
 	end_kind: GFBgmSessionHandle.EndKind
 ) -> void:
@@ -8941,6 +10334,10 @@ func _complete_all_bgm_session_handles(
 	_emit_bgm_session_handles(handles)
 
 
+## 冻结所有仍登记的 BGM 会话句柄并返回它们。
+## [br]
+## @api private
+## [br]
 func _freeze_all_bgm_session_handles(
 	end_kind: GFBgmSessionHandle.EndKind
 ) -> Array[GFBgmSessionHandle]:
@@ -8959,11 +10356,19 @@ func _freeze_all_bgm_session_handles(
 	return handles
 
 
+## 发出已冻结 BGM 会话句柄的终态信号。
+## [br]
+## @api private
+## [br]
 func _emit_bgm_session_handles(handles: Array[GFBgmSessionHandle]) -> void:
 	for handle: GFBgmSessionHandle in handles:
 		var _emitted: bool = handle.emit_ended_for_framework()
 
 
+## 断开 BGM 会话 owner 的生命周期回调。
+## [br]
+## @api private
+## [br]
 func _disconnect_bgm_session_owner(lifecycle: Dictionary) -> void:
 	var owner_ref_value: Variant = GFVariantData.get_option_value(
 		lifecycle,
@@ -8984,6 +10389,10 @@ func _disconnect_bgm_session_owner(lifecycle: Dictionary) -> void:
 			owner.tree_exiting.disconnect(callback)
 
 
+## 按请求 ID 查找对应的 BGM 会话生命周期记录。
+## [br]
+## @api private
+## [br]
 func _find_bgm_lifecycle_session_for_request(request_id: int) -> int:
 	for session_id_value: Variant in _bgm_session_lifecycles.keys():
 		var session_id: int = GFVariantData.to_int(session_id_value)
@@ -8995,6 +10404,10 @@ func _find_bgm_lifecycle_session_for_request(request_id: int) -> int:
 	return 0
 
 
+## 把框架对句柄的停止请求转为指定 BGM 会话的内部停止操作。
+## [br]
+## @api private
+## [br]
 func _request_bgm_session_stop_for_framework(
 	handle: GFBgmSessionHandle,
 	fade_seconds: float
@@ -9013,6 +10426,10 @@ func _request_bgm_session_stop_for_framework(
 	)
 
 
+## 按会话 ID 请求停止对应 BGM 会话。
+## [br]
+## @api private
+## [br]
 func _request_bgm_session_stop_by_id(
 	session_id: int,
 	fade_seconds: float,
@@ -9056,6 +10473,10 @@ func _request_bgm_session_stop_by_id(
 	return _stop_exact_committed_bgm_session(session_id, fade_seconds, end_kind)
 
 
+## 仅停止与给定 ID 匹配的已提交 BGM 会话。
+## [br]
+## @api private
+## [br]
 func _stop_exact_committed_bgm_session(
 	session_id: int,
 	fade_seconds: float,
@@ -9205,6 +10626,10 @@ func _stop_exact_committed_bgm_session(
 	return true
 
 
+## 停止未被会话表跟踪的本地 BGM 播放。
+## [br]
+## @api private
+## [br]
 func _stop_untracked_bgm_physical(fade_seconds: float) -> void:
 	var previous_state: StringName = _bgm_state
 	var previous_paused: bool = _bgm_paused
@@ -9245,26 +10670,46 @@ func _stop_untracked_bgm_physical(fade_seconds: float) -> void:
 	)
 
 
+## 生成并登记新的 BGM 待处理请求令牌。
+## [br]
+## @api private
+## [br]
 func _reserve_bgm_pending_request() -> int:
 	_bgm_pending_request_counter += 1
 	_bgm_pending_request_token = _bgm_pending_request_counter
 	return _bgm_pending_request_token
 
 
+## 检查给定令牌是否仍对应当前 BGM 待处理请求。
+## [br]
+## @api private
+## [br]
 func _is_bgm_pending_request_current(pending_token: int) -> bool:
 	return pending_token > 0 and pending_token == _bgm_pending_request_token
 
 
+## 令牌仍有效时清除当前 BGM 待处理请求。
+## [br]
+## @api private
+## [br]
 func _complete_bgm_pending_request(pending_token: int) -> void:
 	if _is_bgm_pending_request_current(pending_token):
 		_bgm_pending_request_token = 0
 
 
+## 使当前 BGM 待处理请求令牌失效。
+## [br]
+## @api private
+## [br]
 func _invalidate_bgm_pending_request() -> void:
 	_bgm_pending_request_counter += 1
 	_bgm_pending_request_token = 0
 
 
+## 开始用新请求替换当前 BGM 会话。
+## [br]
+## @api private
+## [br]
 func _begin_bgm_replacement(pending_token: int = 0) -> int:
 	if pending_token > 0:
 		if not _is_bgm_pending_request_current(pending_token):
@@ -9284,6 +10729,10 @@ func _begin_bgm_replacement(pending_token: int = 0) -> int:
 	return _bgm_request_serial
 
 
+## 将 backend BGM 播放登记为当前已提交会话。
+## [br]
+## @api private
+## [br]
 func _commit_backend_bgm_session(
 	request_serial: int,
 	history_key: String,
@@ -9305,6 +10754,10 @@ func _commit_backend_bgm_session(
 	return _bgm_current_session_id
 
 
+## 检查 backend 和请求序号是否仍对应当前 BGM 会话。
+## [br]
+## @api private
+## [br]
 func _is_backend_bgm_session_current(
 	expected_backend: GFAudioBackend,
 	expected_request_serial: int,
@@ -9323,6 +10776,10 @@ func _is_backend_bgm_session_current(
 	)
 
 
+## 提交本地 BGM 播放请求。
+## [br]
+## @api private
+## [br]
 func _commit_local_bgm_request(
 	request_serial: int,
 	stream: AudioStream,
@@ -9354,6 +10811,10 @@ func _commit_local_bgm_request(
 	)
 
 
+## 按本地执行计划提交 BGM 播放。
+## [br]
+## @api private
+## [br]
 func _commit_local_bgm_execution_plan(
 	request_serial: int,
 	execution_plan: Dictionary,
@@ -9430,6 +10891,10 @@ func _commit_local_bgm_execution_plan(
 	return _bgm_current_session_id
 
 
+## 尝试将待处理本地 BGM 请求提交为播放会话。
+## [br]
+## @api private
+## [br]
 func _try_commit_pending_local_bgm_request(
 	pending_token: int,
 	stream: AudioStream,
@@ -9466,6 +10931,10 @@ func _try_commit_pending_local_bgm_request(
 	)
 
 
+## 按请求序号应用 BGM 播放请求。
+## [br]
+## @api private
+## [br]
 func _apply_bgm_request(
 	request_serial: int,
 	stream: AudioStream,
@@ -9486,6 +10955,10 @@ func _apply_bgm_request(
 	)
 
 
+## 按给定播放器设置应用 BGM 播放请求。
+## [br]
+## @api private
+## [br]
 func _apply_bgm_request_with_settings(
 	request_serial: int,
 	stream: AudioStream,
@@ -9511,6 +10984,10 @@ func _apply_bgm_request_with_settings(
 	)
 
 
+## 为新旧 BGM 播放器启动交叉淡化。
+## [br]
+## @api private
+## [br]
 func _start_bgm_crossfade(
 	request_serial: int,
 	stream: AudioStream,
@@ -9586,6 +11063,10 @@ func _start_bgm_crossfade(
 	return incoming_session_id
 
 
+## 结束 BGM 交叉淡化并收敛播放器状态。
+## [br]
+## @api private
+## [br]
 func _complete_bgm_crossfade(
 	operation_generation: int,
 	fade_serial: int,
@@ -9646,6 +11127,10 @@ func _complete_bgm_crossfade(
 	).duplicate(true)
 
 
+## 按当前暂停操作应用 BGM 播放状态变化。
+## [br]
+## @api private
+## [br]
 func _apply_bgm_pause(
 	operation_generation: int,
 	pause_serial: int,
@@ -9672,6 +11157,10 @@ func _apply_bgm_pause(
 	_bgm_paused = true
 
 
+## 创建 BGM 会话状态记录。
+## [br]
+## @api private
+## [br]
 func _create_bgm_session(
 	player: AudioStreamPlayer,
 	request_serial: int,
@@ -9698,6 +11187,10 @@ func _create_bgm_session(
 	return session_id
 
 
+## 分配并检查下一个 BGM 会话 ID。
+## [br]
+## @api private
+## [br]
 func _reserve_bgm_session_id() -> int:
 	if _next_bgm_session_id <= 0 or _next_bgm_session_id >= _MAX_STABLE_ID:
 		push_error("[GFAudioUtility][audio_utility.bgm_session_id_exhausted] BGM session ID space is exhausted.")
@@ -9707,6 +11200,10 @@ func _reserve_bgm_session_id() -> int:
 	return session_id
 
 
+## 将本地播放器安装为指定 BGM 会话的 owner。
+## [br]
+## @api private
+## [br]
 func _install_local_bgm_session(
 	session_id: int,
 	player: AudioStreamPlayer,
@@ -9728,6 +11225,10 @@ func _install_local_bgm_session(
 	player.set_meta(_BGM_SESSION_META, session_id)
 
 
+## 创建并登记由 backend 持有的 BGM 会话。
+## [br]
+## @api private
+## [br]
 func _create_backend_bgm_session(
 	request_serial: int,
 	history_key: String,
@@ -9748,6 +11249,10 @@ func _create_backend_bgm_session(
 	return session_id
 
 
+## 按会话 ID 读取 BGM 会话状态字典。
+## [br]
+## @api private
+## [br]
 func _get_bgm_session(session_id: int) -> Dictionary:
 	var session_value: Variant = _bgm_sessions.get(session_id)
 	if session_value is Dictionary:
@@ -9756,6 +11261,10 @@ func _get_bgm_session(session_id: int) -> Dictionary:
 	return {}
 
 
+## 从 BGM 会话记录中读取本地播放器。
+## [br]
+## @api private
+## [br]
 func _get_bgm_session_player(session: Dictionary) -> AudioStreamPlayer:
 	var player_value: Variant = GFVariantData.get_option_value(session, "player")
 	if player_value is AudioStreamPlayer:
@@ -9764,6 +11273,10 @@ func _get_bgm_session_player(session: Dictionary) -> AudioStreamPlayer:
 	return null
 
 
+## 更新指定 BGM 会话的 owner 角色。
+## [br]
+## @api private
+## [br]
 func _set_bgm_session_role(session_id: int, role: StringName) -> void:
 	var session: Dictionary = _get_bgm_session(session_id)
 	if session.is_empty():
@@ -9772,6 +11285,10 @@ func _set_bgm_session_role(session_id: int, role: StringName) -> void:
 	_bgm_sessions[session_id] = session
 
 
+## 移除 BGM 会话记录，并按参数决定是否停止播放器。
+## [br]
+## @api private
+## [br]
 func _remove_bgm_session(session_id: int, stop_player: bool) -> void:
 	if session_id <= 0:
 		return
@@ -9791,6 +11308,10 @@ func _remove_bgm_session(session_id: int, stop_player: bool) -> void:
 		_bgm_incoming_session_id = 0
 
 
+## 移除与指定播放器关联的 BGM 会话记录。
+## [br]
+## @api private
+## [br]
 func _remove_bgm_session_for_player(player: AudioStreamPlayer, stop_player: bool) -> void:
 	if not is_instance_valid(player):
 		return
@@ -9799,6 +11320,10 @@ func _remove_bgm_session_for_player(player: AudioStreamPlayer, stop_player: bool
 		_remove_bgm_session(session_id, stop_player)
 
 
+## 检查播放器元数据和会话记录是否仍对应给定会话 ID。
+## [br]
+## @api private
+## [br]
 func _is_bgm_player_session_current(player: AudioStreamPlayer, session_id: int) -> bool:
 	return (
 		session_id > 0
@@ -9808,6 +11333,10 @@ func _is_bgm_player_session_current(player: AudioStreamPlayer, session_id: int) 
 	)
 
 
+## 中止进入中的 BGM 会话及其淡化工作。
+## [br]
+## @api private
+## [br]
 func _abort_bgm_incoming_session(_incoming_finished: bool) -> void:
 	_bgm_fade_serial += 1
 	_cancel_bgm_fade_tween()
@@ -9842,11 +11371,19 @@ func _abort_bgm_incoming_session(_incoming_finished: bool) -> void:
 	_current_bgm_region.clear()
 
 
+## 取消进入中的 BGM 会话并清理其交叉淡化操作。
+## [br]
+## @api private
+## [br]
 func _cancel_bgm_incoming_session() -> void:
 	if _bgm_incoming_session_id > 0 or _bgm_state == _STATE_CROSSFADING:
 		_abort_bgm_incoming_session(false)
 
 
+## 在当前 BGM 请求失败后恢复先前会话状态。
+## [br]
+## @api private
+## [br]
 func _restore_bgm_state_after_failed_request(request_serial: int) -> void:
 	if request_serial != _bgm_request_serial:
 		return
@@ -9883,6 +11420,10 @@ func _restore_bgm_state_after_failed_request(request_serial: int) -> void:
 	_current_bgm_region.clear()
 
 
+## 停止全部本地BGM播放器。
+## [br]
+## @api private
+## [br]
 func _stop_all_local_bgm_players() -> void:
 	_cancel_bgm_fade_tween()
 	_cancel_bgm_stop_tween()
@@ -9895,6 +11436,10 @@ func _stop_all_local_bgm_players() -> void:
 	_bgm_incoming_session_id = 0
 
 
+## 清理本地 BGM 会话、播放器与停止操作状态。
+## [br]
+## @api private
+## [br]
 func _clear_bgm_session_state() -> void:
 	_cancel_bgm_stop_tween()
 	_sanitize_local_bgm_player_references()
@@ -9910,6 +11455,10 @@ func _clear_bgm_session_state() -> void:
 	_current_bgm_region.clear()
 
 
+## 清除已失效的本地 BGM 播放器引用。
+## [br]
+## @api private
+## [br]
 func _sanitize_local_bgm_player_references() -> void:
 	if not is_instance_valid(_bgm_player):
 		_bgm_player = null
@@ -9917,6 +11466,10 @@ func _sanitize_local_bgm_player_references() -> void:
 		_bgm_fade_player = null
 
 
+## 停止本地BGM播放器。
+## [br]
+## @api private
+## [br]
 func _stop_local_bgm_player(player: AudioStreamPlayer) -> void:
 	if player == null:
 		return
@@ -9926,11 +11479,19 @@ func _stop_local_bgm_player(player: AudioStreamPlayer) -> void:
 	_clear_local_bgm_player_session_meta(player)
 
 
+## 清除播放器上记录的 BGM 会话 ID 元数据。
+## [br]
+## @api private
+## [br]
 func _clear_local_bgm_player_session_meta(player: AudioStreamPlayer) -> void:
 	if player != null and player.has_meta(_BGM_SESSION_META):
 		player.remove_meta(_BGM_SESSION_META)
 
 
+## 启动指定本地 BGM 会话的停止与淡出流程。
+## [br]
+## @api private
+## [br]
 func _start_bgm_session_stop(
 	player: AudioStreamPlayer,
 	session_id: int,
@@ -9962,6 +11523,10 @@ func _start_bgm_session_stop(
 	)
 
 
+## 完成指定 BGM 会话的停止收尾。
+## [br]
+## @api private
+## [br]
 func _finish_bgm_session_stop(
 	operation_generation: int,
 	session_id: int,
@@ -9980,6 +11545,10 @@ func _finish_bgm_session_stop(
 	_clear_bgm_session_state()
 
 
+## 应用播放器设置。
+## [br]
+## @api private
+## [br]
 func _apply_player_settings(
 	player: AudioStreamPlayer,
 	stream: AudioStream,
@@ -9994,12 +11563,20 @@ func _apply_player_settings(
 	player.stream_paused = false
 
 
+## 根据配置与请求解析实际交叉淡化时长。
+## [br]
+## @api private
+## [br]
 func _resolve_bgm_crossfade_seconds(crossfade_seconds: float) -> float:
 	var requested_seconds: float = _finite_or_default(crossfade_seconds, -1.0)
 	var seconds: float = bgm_crossfade_seconds if requested_seconds < 0.0 else requested_seconds
 	return _finite_non_negative_or_zero(seconds)
 
 
+## 记录BGM历史。
+## [br]
+## @api private
+## [br]
 func _record_bgm_history(history_key: String) -> void:
 	_current_bgm_key = history_key
 	if history_key.is_empty():
@@ -10015,6 +11592,10 @@ func _record_bgm_history(history_key: String) -> void:
 		_bgm_history = PackedStringArray()
 
 
+## 读取片段用于 BGM 播放历史的标识键。
+## [br]
+## @api private
+## [br]
 func _get_clip_history_key(clip: GFAudioClip) -> String:
 	if clip == null:
 		return ""
@@ -10025,6 +11606,10 @@ func _get_clip_history_key(clip: GFAudioClip) -> String:
 	return "clip:%d" % clip.get_instance_id()
 
 
+## 分配新的环境音请求代次。
+## [br]
+## @api private
+## [br]
 func _next_ambient_request_serial(channel: StringName) -> int:
 	_ambient_generation_counter += 1
 	var next_serial: int = _ambient_generation_counter
@@ -10032,6 +11617,10 @@ func _next_ambient_request_serial(channel: StringName) -> int:
 	return next_serial
 
 
+## 生成并登记指定通道的环境音待处理请求令牌。
+## [br]
+## @api private
+## [br]
 func _reserve_ambient_pending_request(channel: StringName) -> int:
 	_ambient_pending_request_counter += 1
 	var pending_token: int = _ambient_pending_request_counter
@@ -10039,6 +11628,10 @@ func _reserve_ambient_pending_request(channel: StringName) -> int:
 	return pending_token
 
 
+## 检查给定令牌是否仍对应当前通道的环境音请求。
+## [br]
+## @api private
+## [br]
 func _is_ambient_pending_request_current(
 	channel: StringName,
 	pending_token: int
@@ -10050,6 +11643,10 @@ func _is_ambient_pending_request_current(
 	)
 
 
+## 令牌仍有效时清除该通道的环境音待处理请求。
+## [br]
+## @api private
+## [br]
 func _complete_ambient_pending_request(
 	channel: StringName,
 	pending_token: int
@@ -10058,16 +11655,28 @@ func _complete_ambient_pending_request(
 		_erase_dictionary_key(_ambient_pending_request_tokens, channel)
 
 
+## 使指定通道的环境音待处理请求令牌失效。
+## [br]
+## @api private
+## [br]
 func _invalidate_ambient_pending_request(channel: StringName) -> void:
 	_ambient_pending_request_counter += 1
 	_erase_dictionary_key(_ambient_pending_request_tokens, channel)
 
 
+## 使全部环境音通道的待处理请求令牌失效。
+## [br]
+## @api private
+## [br]
 func _invalidate_all_ambient_pending_requests() -> void:
 	_ambient_pending_request_counter += 1
 	_ambient_pending_request_tokens.clear()
 
 
+## 开始以新请求替换指定环境音通道的当前会话。
+## [br]
+## @api private
+## [br]
 func _begin_ambient_replacement(
 	channel: StringName,
 	pending_token: int = 0
@@ -10099,6 +11708,10 @@ func _begin_ambient_replacement(
 	return request_serial
 
 
+## 将 backend 环境音播放登记为当前通道会话。
+## [br]
+## @api private
+## [br]
 func _commit_backend_ambient_session(
 	channel: StringName,
 	request_serial: int,
@@ -10123,6 +11736,10 @@ func _commit_backend_ambient_session(
 	)
 
 
+## 应用环境音请求。
+## [br]
+## @api private
+## [br]
 func _apply_ambient_request(
 	request_serial: int,
 	channel: StringName,
@@ -10154,6 +11771,10 @@ func _apply_ambient_request(
 	)
 
 
+## 按本地执行计划提交环境音播放。
+## [br]
+## @api private
+## [br]
 func _commit_local_ambient_execution_plan(
 	request_serial: int,
 	channel: StringName,
@@ -10233,6 +11854,10 @@ func _commit_local_ambient_execution_plan(
 			)
 
 
+## 尝试将待处理本地环境音请求提交为播放会话。
+## [br]
+## @api private
+## [br]
 func _try_commit_pending_local_ambient_request(
 	pending_token: int,
 	channel: StringName,
@@ -10269,6 +11894,10 @@ func _try_commit_pending_local_ambient_request(
 	)
 
 
+## 在当前环境音请求失败后恢复先前通道状态。
+## [br]
+## @api private
+## [br]
 func _restore_ambient_state_after_failed_request(channel: StringName, request_serial: int) -> void:
 	if request_serial != _get_ambient_request_serial(channel):
 		return
@@ -10320,6 +11949,10 @@ func _restore_ambient_state_after_failed_request(channel: StringName, request_se
 	_set_ambient_session(channel, request_serial, _STATE_STOPPED, _OWNER_NONE, 0)
 
 
+## 完成指定环境音会话的淡化并更新播放状态。
+## [br]
+## @api private
+## [br]
 func _finish_ambient_fade(
 	channel: StringName,
 	request_serial: int,
@@ -10334,6 +11967,10 @@ func _finish_ambient_fade(
 	_erase_dictionary_key(_ambient_tween_refs, channel)
 
 
+## 启动指定环境音会话的停止流程。
+## [br]
+## @api private
+## [br]
 func _start_ambient_session_stop(
 	channel: StringName,
 	request_serial: int,
@@ -10362,6 +11999,10 @@ func _start_ambient_session_stop(
 	)
 
 
+## 完成指定环境音会话的停止收尾。
+## [br]
+## @api private
+## [br]
 func _finish_ambient_session_stop(
 	channel: StringName,
 	request_serial: int,
@@ -10383,6 +12024,10 @@ func _finish_ambient_session_stop(
 	_set_ambient_session(channel, request_serial, _STATE_STOPPED, _OWNER_NONE, 0)
 
 
+## 释放环境音会话及其关联播放器。
+## [br]
+## @api private
+## [br]
 func _release_ambient_session(
 	player: Node,
 	channel: StringName,
@@ -10421,29 +12066,12 @@ func _release_ambient_session(
 	)
 
 
-func _on_ambient_player_finished(
-	channel: StringName,
-	player: AudioStreamPlayer,
-	playback_session_id: int
-) -> void:
-	var session: Dictionary = _get_ambient_session(channel)
-	if (
-		GFVariantData.get_option_int(session, "playback_session_id") != playback_session_id
-		or not _is_playback_session_current(player, playback_session_id)
-	):
-		return
-	_cancel_ambient_tween(channel)
-	_invalidate_playback_session(player, playback_session_id)
-	player.stream = null
-	_set_ambient_session(
-		channel,
-		_get_ambient_request_serial(channel),
-		_STATE_STOPPED,
-		_OWNER_NONE,
-		0
-	)
 
 
+## 读取环境音结束回调。
+## [br]
+## @api private
+## [br]
 func _get_ambient_finished_callback(
 	channel: StringName,
 	player: AudioStreamPlayer,
@@ -10452,6 +12080,10 @@ func _get_ambient_finished_callback(
 	return _on_ambient_player_finished.bind(channel, player, playback_session_id)
 
 
+## 断开环境音结束回调。
+## [br]
+## @api private
+## [br]
 func _disconnect_ambient_finished_callback(
 	channel: StringName,
 	player: AudioStreamPlayer,
@@ -10464,6 +12096,10 @@ func _disconnect_ambient_finished_callback(
 		player.finished.disconnect(callback)
 
 
+## 按通道读取环境音会话状态字典。
+## [br]
+## @api private
+## [br]
 func _get_ambient_session(channel: StringName) -> Dictionary:
 	var session_value: Variant = _ambient_sessions.get(channel)
 	if session_value is Dictionary:
@@ -10472,6 +12108,10 @@ func _get_ambient_session(channel: StringName) -> Dictionary:
 	return {}
 
 
+## 协调失去活动播放器的本地环境音会话状态。
+## [br]
+## @api private
+## [br]
 func _converge_inactive_local_ambient_session(channel: StringName) -> void:
 	var session: Dictionary = _get_ambient_session(channel)
 	var request_serial: int = _get_ambient_request_serial(channel)
@@ -10505,6 +12145,10 @@ func _converge_inactive_local_ambient_session(channel: StringName) -> void:
 	_set_ambient_session(channel, request_serial, _STATE_STOPPED, _OWNER_NONE, 0)
 
 
+## 保存指定通道的环境音会话状态。
+## [br]
+## @api private
+## [br]
 func _set_ambient_session(
 	channel: StringName,
 	generation: int,
@@ -10528,6 +12172,10 @@ func _set_ambient_session(
 		_mark_ambient_player_idle(channel)
 
 
+## 取消环境音补间动画。
+## [br]
+## @api private
+## [br]
 func _cancel_ambient_tween(channel: StringName) -> void:
 	if not _ambient_tween_refs.has(channel):
 		return
@@ -10535,12 +12183,20 @@ func _cancel_ambient_tween(channel: StringName) -> void:
 	_erase_dictionary_key(_ambient_tween_refs, channel)
 
 
+## 移除环境音空闲通道。
+## [br]
+## @api private
+## [br]
 func _remove_ambient_idle_channel(channel: StringName) -> void:
 	var idle_index: int = _ambient_idle_channels.find(channel)
 	if idle_index >= 0:
 		_ambient_idle_channels.remove_at(idle_index)
 
 
+## 将可复用的环境音播放器标记为空闲。
+## [br]
+## @api private
+## [br]
 func _mark_ambient_player_idle(channel: StringName) -> void:
 	var player: AudioStreamPlayer = _get_ambient_player(channel)
 	if (
@@ -10554,6 +12210,10 @@ func _mark_ambient_player_idle(channel: StringName) -> void:
 	_trim_idle_ambient_players()
 
 
+## 把缓存的空闲环境音播放器数量裁剪到上限。
+## [br]
+## @api private
+## [br]
 func _trim_idle_ambient_players() -> void:
 	var limit: int = maxi(max_idle_ambient_players, 0)
 	while _ambient_idle_channels.size() > limit:
@@ -10588,6 +12248,10 @@ func _trim_idle_ambient_players() -> void:
 			var _serial_erased: bool = _ambient_request_serials.erase(channel)
 
 
+## 复用指定通道的环境音播放器；不存在时创建。
+## [br]
+## @api private
+## [br]
 func _get_or_create_ambient_player(channel: StringName) -> AudioStreamPlayer:
 	var existing: AudioStreamPlayer = _get_ambient_player(channel)
 	if is_instance_valid(existing):
@@ -10605,6 +12269,10 @@ func _get_or_create_ambient_player(channel: StringName) -> AudioStreamPlayer:
 	return player
 
 
+## 释放所有环境音播放器及其会话资源。
+## [br]
+## @api private
+## [br]
 func _free_all_ambient_players() -> void:
 	_invalidate_all_ambient_pending_requests()
 	for channel_variant: Variant in _ambient_players.keys():
@@ -10629,6 +12297,10 @@ func _free_all_ambient_players() -> void:
 	_ambient_tween_refs.clear()
 
 
+## 淡化播放器音量。
+## [br]
+## @api private
+## [br]
 func _fade_player_volume(player: AudioStreamPlayer, volume_db: float, fade_seconds: float) -> Tween:
 	if not _is_finite_float(volume_db) or not _is_finite_float(fade_seconds):
 		return null
@@ -10641,23 +12313,39 @@ func _fade_player_volume(player: AudioStreamPlayer, volume_db: float, fade_secon
 	return tween
 
 
+## 尝试创建补间动画；没有有效音频根节点时返回 null。
+## [br]
+## @api private
+## [br]
 func _create_tween_or_null() -> Tween:
 	if is_instance_valid(_root):
 		return _root.create_tween()
 	return null
 
 
+## 取消BGM淡化补间动画。
+## [br]
+## @api private
+## [br]
 func _cancel_bgm_fade_tween() -> void:
 	_kill_tween_ref(_bgm_fade_tween_ref)
 	_bgm_fade_tween_ref = null
 
 
+## 取消BGM停止补间动画。
+## [br]
+## @api private
+## [br]
 func _cancel_bgm_stop_tween() -> void:
 	_kill_tween_ref(_bgm_stop_tween_ref)
 	_bgm_stop_tween_ref = null
 	_cancel_bgm_stop_fallback_timer()
 
 
+## 按停止淡出时长启动 BGM 停止回退计时器。
+## [br]
+## @api private
+## [br]
 func _start_bgm_stop_fallback_timer(
 	fade_seconds: float,
 	operation_generation: int,
@@ -10685,6 +12373,10 @@ func _start_bgm_stop_fallback_timer(
 	_bgm_stop_fallback_timer.start(fade_seconds)
 
 
+## 取消BGM停止回退计时器。
+## [br]
+## @api private
+## [br]
 func _cancel_bgm_stop_fallback_timer() -> void:
 	if is_instance_valid(_bgm_stop_fallback_timer):
 		_bgm_stop_fallback_timer.stop()
@@ -10700,6 +12392,10 @@ func _cancel_bgm_stop_fallback_timer() -> void:
 	_bgm_stop_fallback_callback = Callable()
 
 
+## 释放BGM停止回退计时器。
+## [br]
+## @api private
+## [br]
 func _free_bgm_stop_fallback_timer() -> void:
 	_cancel_bgm_stop_fallback_timer()
 	if is_instance_valid(_bgm_stop_fallback_timer):
@@ -10707,16 +12403,28 @@ func _free_bgm_stop_fallback_timer() -> void:
 	_bgm_stop_fallback_timer = null
 
 
+## 取消BGM传输补间动画。
+## [br]
+## @api private
+## [br]
 func _cancel_bgm_transport_tween() -> void:
 	_kill_tween_ref(_bgm_transport_tween_ref)
 	_bgm_transport_tween_ref = null
 
 
+## 清理BGM传输补间动画。
+## [br]
+## @api private
+## [br]
 func _clear_bgm_transport_tween(operation_generation: int, pause_serial: int) -> void:
 	if operation_generation == _bgm_generation and pause_serial == _bgm_pause_serial:
 		_bgm_transport_tween_ref = null
 
 
+## 终止并清理补间动画引用。
+## [br]
+## @api private
+## [br]
 func _kill_tween_ref(tween_ref: WeakRef) -> void:
 	if tween_ref == null:
 		return
@@ -10726,6 +12434,10 @@ func _kill_tween_ref(tween_ref: WeakRef) -> void:
 		tween.kill()
 
 
+## 应用SFX请求。
+## [br]
+## @api private
+## [br]
 func _apply_sfx_request(
 	request_serial: int,
 	stream: AudioStream,
@@ -10750,6 +12462,10 @@ func _apply_sfx_request(
 			_attach_handle_to_playback_session(handle, player, Callable(self, "_release_sfx_session"))
 
 
+## 应用SFX请求与设置。
+## [br]
+## @api private
+## [br]
 func _apply_sfx_request_with_settings(
 	request_serial: int,
 	stream: AudioStream,
@@ -10799,10 +12515,18 @@ func _apply_sfx_request_with_settings(
 			_attach_handle_to_playback_session(handle, player, Callable(self, "_release_sfx_session"))
 
 
+## 播放SFX流。
+## [br]
+## @api private
+## [br]
 func _play_sfx_stream(stream: AudioStream) -> AudioStreamPlayer:
 	return _play_sfx_stream_with_settings(stream, SFX_BUS_NAME, 0.0, 1.0)
 
 
+## 播放SFX流与设置。
+## [br]
+## @api private
+## [br]
 func _play_sfx_stream_with_settings(
 	stream: AudioStream,
 	bus_name: String,
@@ -10844,61 +12568,16 @@ func _play_sfx_stream_with_settings(
 	return player
 
 
-func _on_bgm_player_finished(player: AudioStreamPlayer) -> void:
-	if not is_instance_valid(player):
-		return
-	var session_id: int = GFVariantData.to_int(player.get_meta(_BGM_SESSION_META, 0))
-	var session: Dictionary = _get_bgm_session(session_id)
-	if session.is_empty():
-		return
-	var role: StringName = GFVariantData.get_option_string_name(session, "role", &"")
-	var logical_current_finished: bool = session_id == _bgm_committed_session_id
-	player.stream = null
-	if logical_current_finished:
-		var _natural_intent_recorded: bool = (
-			_record_deferred_bgm_session_terminal(
-				session_id,
-				GFBgmSessionHandle.EndKind.NATURAL_FINISH,
-				0.0
-			)
-		)
-		if _is_backend_dispatch_in_progress():
-			_schedule_deferred_audio_drain()
-		else:
-			_drain_bgm_terminal_barrier_if_needed()
-		return
-	if (
-		role == &"current"
-		and _bgm_state == _STATE_STOPPING
-		and session_id == _bgm_current_session_id
-	):
-		_cancel_bgm_stop_tween()
-		player.stop()
-		_remove_bgm_session(session_id, false)
-		_clear_bgm_session_state()
-		return
-	if role == &"outgoing" and not logical_current_finished:
-		player.stop()
-		_remove_bgm_session(session_id, false)
-		return
-	if not logical_current_finished:
-		player.stop()
-		_remove_bgm_session(session_id, false)
-		return
 
 
-func _on_sfx_finished(player: AudioStreamPlayer, playback_session_id: int) -> void:
-	if not _is_playback_session_current(player, playback_session_id):
-		return
-	_finish_release_sfx_player(player, playback_session_id)
 
 
-func _on_spatial_sfx_finished(player: Node, playback_session_id: int) -> void:
-	if not _is_playback_session_current(player, playback_session_id):
-		return
-	_finish_release_spatial_sfx_player(player, playback_session_id)
 
 
+## 读取资源工具。
+## [br]
+## @api private
+## [br]
 func _get_asset_util() -> GFAssetUtility:
 	var arch: Object = _get_architecture_or_null()
 	if arch != null and arch.has_method("get_utility"):
@@ -10908,6 +12587,10 @@ func _get_asset_util() -> GFAssetUtility:
 	return null
 
 
+## 解析可用的总线名；指定总线不存在时采用回退总线。
+## [br]
+## @api private
+## [br]
 func _resolve_bus_name(bus_name: String) -> String:
 	if AudioServer.get_bus_index(bus_name) >= 0:
 		return bus_name
@@ -10918,6 +12601,10 @@ func _resolve_bus_name(bus_name: String) -> String:
 	return _FALLBACK_BUS_NAME
 
 
+## 判断SFX容量已满。
+## [br]
+## @api private
+## [br]
 func _is_sfx_capacity_full() -> bool:
 	if max_sfx_players <= 0:
 		return false
@@ -10927,6 +12614,10 @@ func _is_sfx_capacity_full() -> bool:
 	return _get_tracked_sfx_count() >= max_sfx_players
 
 
+## 按并发上限及溢出策略确保有 SFX 播放容量。
+## [br]
+## @api private
+## [br]
 func _ensure_sfx_capacity_available() -> bool:
 	while _is_sfx_capacity_full():
 		if sfx_overflow_policy != SFXOverflowPolicy.STOP_OLDEST:
@@ -10939,50 +12630,90 @@ func _ensure_sfx_capacity_available() -> bool:
 	return true
 
 
+## 读取当前跟踪的普通与空间 SFX 总数。
+## [br]
+## @api private
+## [br]
 func _get_tracked_sfx_count() -> int:
 	return _get_tracked_normal_sfx_count() + _get_tracked_spatial_sfx_count()
 
 
+## 读取跟踪普通SFX数量。
+## [br]
+## @api private
+## [br]
 func _get_tracked_normal_sfx_count() -> int:
 	return _active_sfx_players.size() + _retiring_sfx_players.size()
 
 
+## 读取跟踪空间SFX数量。
+## [br]
+## @api private
+## [br]
 func _get_tracked_spatial_sfx_count() -> int:
 	return _active_spatial_sfx_players.size() + _retiring_spatial_sfx_players.size()
 
 
+## 将活动普通 SFX 播放器加入跟踪列表。
+## [br]
+## @api private
+## [br]
 func _track_sfx_player(player: AudioStreamPlayer) -> void:
 	_prune_inactive_sfx_players()
 	if not _active_sfx_players.has(player):
 		_active_sfx_players.append(player)
 
 
+## 从活动普通 SFX 播放器列表移除节点。
+## [br]
+## @api private
+## [br]
 func _untrack_sfx_player(player: AudioStreamPlayer) -> void:
 	_active_sfx_players.erase(player)
 
 
+## 将正在释放的普通 SFX 播放器纳入跟踪。
+## [br]
+## @api private
+## [br]
 func _track_retiring_sfx_player(player: AudioStreamPlayer) -> void:
 	_untrack_sfx_player(player)
 	if is_instance_valid(player) and not _retiring_sfx_players.has(player):
 		_retiring_sfx_players.append(player)
 
 
+## 将活动空间 SFX 播放器加入跟踪列表。
+## [br]
+## @api private
+## [br]
 func _track_spatial_sfx_player(player: Node) -> void:
 	_prune_inactive_spatial_sfx_players()
 	if is_instance_valid(player) and not _active_spatial_sfx_players.has(player):
 		_active_spatial_sfx_players.append(player)
 
 
+## 从活动空间 SFX 播放器列表移除节点。
+## [br]
+## @api private
+## [br]
 func _untrack_spatial_sfx_player(player: Node) -> void:
 	_active_spatial_sfx_players.erase(player)
 
 
+## 将正在释放的空间 SFX 播放器纳入跟踪。
+## [br]
+## @api private
+## [br]
 func _track_retiring_spatial_sfx_player(player: Node) -> void:
 	_untrack_spatial_sfx_player(player)
 	if is_instance_valid(player) and not _retiring_spatial_sfx_players.has(player):
 		_retiring_spatial_sfx_players.append(player)
 
 
+## 按启动顺序停止最早的普通或空间 SFX。
+## [br]
+## @api private
+## [br]
 func _stop_oldest_sfx() -> void:
 	_prune_inactive_sfx_players()
 	_prune_inactive_spatial_sfx_players()
@@ -11029,6 +12760,10 @@ func _stop_oldest_sfx() -> void:
 		_release_spatial_sfx_player(oldest_player, 0.0)
 
 
+## 为新播放节点分配播放会话 ID 并建立跟踪记录。
+## [br]
+## @api private
+## [br]
 func _begin_playback_session(player: Node) -> int:
 	if not is_instance_valid(player):
 		return 0
@@ -11047,6 +12782,10 @@ func _begin_playback_session(player: Node) -> int:
 	return playback_session_id
 
 
+## 将 emitter handle 关联到指定播放会话。
+## [br]
+## @api private
+## [br]
 func _attach_handle_to_playback_session(
 	handle: GFAudioEmitterHandle,
 	player: Node,
@@ -11069,6 +12808,10 @@ func _attach_handle_to_playback_session(
 	handle.set_player(player)
 
 
+## 按会话 ID 释放普通 SFX 播放器及其跟踪状态。
+## [br]
+## @api private
+## [br]
 func _release_sfx_session(player: Node, playback_session_id: int) -> void:
 	if player is AudioStreamPlayer:
 		var stream_player: AudioStreamPlayer = player
@@ -11076,17 +12819,29 @@ func _release_sfx_session(player: Node, playback_session_id: int) -> void:
 			_release_sfx_player(stream_player, 0.0)
 
 
+## 按会话 ID 释放空间 SFX 播放节点及其跟踪状态。
+## [br]
+## @api private
+## [br]
 func _release_spatial_sfx_session(player: Node, playback_session_id: int) -> void:
 	if _is_playback_session_current(player, playback_session_id):
 		_release_spatial_sfx_player(player, 0.0)
 
 
+## 从节点元数据读取当前播放会话 ID。
+## [br]
+## @api private
+## [br]
 func _get_playback_session_id(player: Node) -> int:
 	if not is_instance_valid(player):
 		return 0
 	return GFVariantData.to_int(player.get_meta(_PLAYBACK_SESSION_META, 0))
 
 
+## 检查节点是否仍对应指定的播放会话。
+## [br]
+## @api private
+## [br]
 func _is_playback_session_current(player: Node, playback_session_id: int) -> bool:
 	if (
 		playback_session_id <= 0
@@ -11102,10 +12857,18 @@ func _is_playback_session_current(player: Node, playback_session_id: int) -> boo
 	return player_ref.get_ref() == player
 
 
+## 按 ID 读取播放会话状态字典。
+## [br]
+## @api private
+## [br]
 func _get_playback_session(playback_session_id: int) -> Dictionary:
 	return GFVariantData.as_dictionary(_playback_sessions.get(playback_session_id))
 
 
+## 读取指定播放会话的状态字段。
+## [br]
+## @api private
+## [br]
 func _get_playback_session_state(playback_session_id: int) -> StringName:
 	return GFVariantData.get_option_string_name(
 		_get_playback_session(playback_session_id),
@@ -11114,6 +12877,10 @@ func _get_playback_session_state(playback_session_id: int) -> StringName:
 	)
 
 
+## 更新指定播放会话的状态字段。
+## [br]
+## @api private
+## [br]
 func _set_playback_session_state(
 	player: Node,
 	playback_session_id: int,
@@ -11126,6 +12893,10 @@ func _set_playback_session_state(
 	_playback_sessions[playback_session_id] = session
 
 
+## 登记播放会话释放阶段使用的补间动画引用。
+## [br]
+## @api private
+## [br]
 func _set_playback_session_retiring_tween(
 	player: Node,
 	playback_session_id: int,
@@ -11138,6 +12909,10 @@ func _set_playback_session_retiring_tween(
 	_playback_sessions[playback_session_id] = session
 
 
+## 终止指定播放会话记录的待回收补间动画。
+## [br]
+## @api private
+## [br]
 func _kill_playback_session_retiring_tween(playback_session_id: int) -> void:
 	var session: Dictionary = _get_playback_session(playback_session_id)
 	var tween_ref_value: Variant = GFVariantData.get_option_value(
@@ -11152,11 +12927,19 @@ func _kill_playback_session_retiring_tween(playback_session_id: int) -> void:
 		_playback_sessions[playback_session_id] = session
 
 
+## 清除指定播放会话记录及其待回收动画。
+## [br]
+## @api private
+## [br]
 func _erase_playback_session(playback_session_id: int) -> void:
 	_kill_playback_session_retiring_tween(playback_session_id)
 	var _session_erased: bool = _playback_sessions.erase(playback_session_id)
 
 
+## 完成并移除播放会话关联的 emitter handle。
+## [br]
+## @api private
+## [br]
 func _complete_playback_session_handle(playback_session_id: int) -> void:
 	var handle_refs: Array = _get_playback_session_handle_refs(playback_session_id)
 	var _handle_erased: bool = _playback_session_handles.erase(playback_session_id)
@@ -11170,6 +12953,10 @@ func _complete_playback_session_handle(playback_session_id: int) -> void:
 			handle._complete_playback_session(playback_session_id)
 
 
+## 读取指定播放会话关联的句柄弱引用列表。
+## [br]
+## @api private
+## [br]
 func _get_playback_session_handle_refs(playback_session_id: int) -> Array:
 	var handle_refs_value: Variant = _playback_session_handles.get(playback_session_id)
 	var handle_refs: Array = []
@@ -11187,6 +12974,10 @@ func _get_playback_session_handle_refs(playback_session_id: int) -> Array:
 	return handle_refs
 
 
+## 按会话 ID 顺序完成所有播放会话句柄。
+## [br]
+## @api private
+## [br]
 func _complete_all_playback_session_handles() -> void:
 	var playback_session_ids: Array = _playback_session_handles.keys()
 	playback_session_ids.sort()
@@ -11195,6 +12986,10 @@ func _complete_all_playback_session_handles() -> void:
 	_playback_session_handles.clear()
 
 
+## 使指定播放会话失效并释放其关联状态。
+## [br]
+## @api private
+## [br]
 func _invalidate_playback_session(player: Node, playback_session_id: int) -> void:
 	if not _is_playback_session_current(player, playback_session_id):
 		return
@@ -11203,6 +12998,10 @@ func _invalidate_playback_session(player: Node, playback_session_id: int) -> voi
 	player.remove_meta(_PLAYBACK_SESSION_META)
 
 
+## 释放全部SFX播放器。
+## [br]
+## @api private
+## [br]
 func _release_all_sfx_players(fade_seconds: float = 0.0) -> void:
 	_prune_inactive_sfx_players()
 	var players: Array[AudioStreamPlayer] = _active_sfx_players.duplicate()
@@ -11214,6 +13013,10 @@ func _release_all_sfx_players(fade_seconds: float = 0.0) -> void:
 		_release_sfx_player(player, fade_seconds)
 
 
+## 释放全部空间SFX播放器。
+## [br]
+## @api private
+## [br]
 func _release_all_spatial_sfx_players(fade_seconds: float = 0.0) -> void:
 	_prune_inactive_spatial_sfx_players()
 	var players: Array[Node] = _active_spatial_sfx_players.duplicate()
@@ -11225,6 +13028,10 @@ func _release_all_spatial_sfx_players(fade_seconds: float = 0.0) -> void:
 		_release_spatial_sfx_player(player, fade_seconds)
 
 
+## 释放SFX播放器。
+## [br]
+## @api private
+## [br]
 func _release_sfx_player(player: AudioStreamPlayer, fade_seconds: float = 0.0) -> void:
 	if not is_instance_valid(player):
 		return
@@ -11255,6 +13062,10 @@ func _release_sfx_player(player: AudioStreamPlayer, fade_seconds: float = 0.0) -
 	_finish_release_sfx_player(player, playback_session_id)
 
 
+## 完成释放SFX播放器。
+## [br]
+## @api private
+## [br]
 func _finish_release_sfx_player(player: AudioStreamPlayer, playback_session_id: int) -> void:
 	if not _is_playback_session_current(player, playback_session_id):
 		return
@@ -11281,6 +13092,10 @@ func _finish_release_sfx_player(player: AudioStreamPlayer, playback_session_id: 
 	_trim_idle_sfx_players()
 
 
+## 释放空间SFX播放器。
+## [br]
+## @api private
+## [br]
 func _release_spatial_sfx_player(player: Node, fade_seconds: float = 0.0) -> void:
 	if not is_instance_valid(player):
 		return
@@ -11311,6 +13126,10 @@ func _release_spatial_sfx_player(player: Node, fade_seconds: float = 0.0) -> voi
 	_finish_release_spatial_sfx_player(player, playback_session_id)
 
 
+## 完成释放空间SFX播放器。
+## [br]
+## @api private
+## [br]
 func _finish_release_spatial_sfx_player(player: Node, playback_session_id: int) -> void:
 	if not _is_playback_session_current(player, playback_session_id):
 		return
@@ -11332,6 +13151,10 @@ func _finish_release_spatial_sfx_player(player: Node, playback_session_id: int) 
 	player.queue_free()
 
 
+## 从活动列表移除已停止或无效的普通 SFX 播放器。
+## [br]
+## @api private
+## [br]
 func _prune_inactive_sfx_players() -> void:
 	for i: int in range(_active_sfx_players.size() - 1, -1, -1):
 		var player: AudioStreamPlayer = _active_sfx_players[i]
@@ -11369,6 +13192,10 @@ func _prune_inactive_sfx_players() -> void:
 	_prune_orphaned_playback_sessions()
 
 
+## 从活动列表移除已停止或无效的空间 SFX 播放器。
+## [br]
+## @api private
+## [br]
 func _prune_inactive_spatial_sfx_players() -> void:
 	for i: int in range(_active_spatial_sfx_players.size() - 1, -1, -1):
 		var player: Node = _active_spatial_sfx_players[i]
@@ -11406,6 +13233,10 @@ func _prune_inactive_spatial_sfx_players() -> void:
 	_prune_orphaned_playback_sessions()
 
 
+## 清理已没有有效播放器节点的播放会话记录。
+## [br]
+## @api private
+## [br]
 func _prune_orphaned_playback_sessions() -> void:
 	var playback_session_ids: Array = _playback_sessions.keys()
 	for playback_session_id_value: Variant in playback_session_ids:
@@ -11420,6 +13251,10 @@ func _prune_orphaned_playback_sessions() -> void:
 		_erase_playback_session(playback_session_id)
 
 
+## 停止并重置普通 SFX 播放器以供复用。
+## [br]
+## @api private
+## [br]
 func _reset_sfx_player_for_reuse(player: AudioStreamPlayer) -> void:
 	if not is_instance_valid(player):
 		return
@@ -11437,6 +13272,10 @@ func _reset_sfx_player_for_reuse(player: AudioStreamPlayer) -> void:
 	player.playback_type = AudioServer.PLAYBACK_TYPE_DEFAULT
 
 
+## 取得SFX播放器。
+## [br]
+## @api private
+## [br]
 func _take_sfx_player() -> AudioStreamPlayer:
 	_trim_idle_sfx_players()
 	var player: AudioStreamPlayer = null
@@ -11448,6 +13287,10 @@ func _take_sfx_player() -> AudioStreamPlayer:
 	return player
 
 
+## 根据空闲缓存上限释放多余的 SFX 播放器。
+## [br]
+## @api private
+## [br]
 func _trim_idle_sfx_players(reserved_slots: int = 0) -> void:
 	for index: int in range(_idle_sfx_players.size() - 1, -1, -1):
 		var player: AudioStreamPlayer = _idle_sfx_players[index]
@@ -11469,6 +13312,10 @@ func _trim_idle_sfx_players(reserved_slots: int = 0) -> void:
 		player.queue_free()
 
 
+## 释放空闲SFX播放器。
+## [br]
+## @api private
+## [br]
 func _free_idle_sfx_players() -> void:
 	var players: Array[AudioStreamPlayer] = _idle_sfx_players
 	_idle_sfx_players = []
@@ -11477,10 +13324,18 @@ func _free_idle_sfx_players() -> void:
 			player.queue_free()
 
 
+## 构造绑定播放器和会话 ID 的 SFX 结束回调。
+## [br]
+## @api private
+## [br]
 func _get_sfx_finished_callback(player: AudioStreamPlayer, playback_session_id: int) -> Callable:
 	return _on_sfx_finished.bind(player, playback_session_id)
 
 
+## 断开SFX结束回调。
+## [br]
+## @api private
+## [br]
 func _disconnect_sfx_finished_callback(
 	player: AudioStreamPlayer,
 	playback_session_id: int
@@ -11492,10 +13347,18 @@ func _disconnect_sfx_finished_callback(
 		player.finished.disconnect(finished_callback)
 
 
+## 构造绑定节点和会话 ID 的空间 SFX 结束回调。
+## [br]
+## @api private
+## [br]
 func _get_spatial_sfx_finished_callback(player: Node, playback_session_id: int) -> Callable:
 	return _on_spatial_sfx_finished.bind(player, playback_session_id)
 
 
+## 断开空间SFX结束回调。
+## [br]
+## @api private
+## [br]
 func _disconnect_spatial_sfx_finished_callback(player: Node, playback_session_id: int) -> void:
 	var finished_callback: Callable = _get_spatial_sfx_finished_callback(player, playback_session_id)
 	if player is AudioStreamPlayer2D:
@@ -11508,6 +13371,10 @@ func _disconnect_spatial_sfx_finished_callback(player: Node, playback_session_id
 			player_3d.finished.disconnect(finished_callback)
 
 
+## 检查受支持的 AudioStreamPlayer 节点是否正在播放。
+## [br]
+## @api private
+## [br]
 func _is_audio_node_playing(player: Node) -> bool:
 	if player is AudioStreamPlayer:
 		var stream_player: AudioStreamPlayer = player
@@ -11521,6 +13388,10 @@ func _is_audio_node_playing(player: Node) -> bool:
 	return false
 
 
+## 为音频节点创建到目标音量的淡化动画。
+## [br]
+## @api private
+## [br]
 func _fade_audio_node_volume(player: Node, volume_db: float, fade_seconds: float) -> Tween:
 	if not _is_finite_float(volume_db) or not _is_finite_float(fade_seconds):
 		return null
@@ -11531,3 +13402,143 @@ func _fade_audio_node_volume(player: Node, volume_db: float, fade_seconds: float
 
 	_add_tween_property(tween, player, "volume_db", volume_db, maxf(fade_seconds, 0.0))
 	return tween
+
+
+# --- 信号处理函数 ---
+
+## 所有者退出时优先取消对应待启动请求；若已提交，则按请求找到会话并以 OWNER_RELEASED 请求立即停止。
+## [br]
+## @api private
+func _on_bgm_start_owner_tree_exiting(request_id: int) -> void:
+	if _is_pending_bgm_start_request(request_id):
+		var _pending_cancelled: bool = _cancel_pending_bgm_start(
+			GFBgmStartResult.Status.CANCELLED,
+			GFBgmStartResult.REASON_OWNER_RELEASED,
+			ERR_SKIP
+		)
+		return
+	var session_id: int = _find_bgm_lifecycle_session_for_request(request_id)
+	if session_id > 0:
+		var _session_stop_requested: bool = _request_bgm_session_stop_by_id(
+			session_id,
+			0.0,
+			GFBgmSessionHandle.EndKind.OWNER_RELEASED
+		)
+
+
+
+
+## 仅处理仍为当前请求的加载结果；无有效音频流时结算失败，否则尝试提交本地 BGM 启动。
+## [br]
+## @api private
+func _on_bgm_start_asset_loaded(request_id: int, resource: Resource) -> void:
+	if not _is_pending_bgm_start_request(request_id):
+		return
+	var stream: AudioStream = _get_audio_stream_value(resource)
+	if stream == null:
+		_fail_pending_bgm_start(
+			request_id,
+			_resolve_pending_bgm_local_failure_reason(request_id),
+			ERR_CANT_OPEN
+		)
+		return
+	_try_commit_typed_pending_local_bgm_start(request_id, stream)
+
+
+
+
+## 同时核对环境音通道和播放器会话身份；仅当前播放可清理渐变、释放流并把通道置为停止。
+## [br]
+## @api private
+func _on_ambient_player_finished(
+	channel: StringName,
+	player: AudioStreamPlayer,
+	playback_session_id: int
+) -> void:
+	var session: Dictionary = _get_ambient_session(channel)
+	if (
+		GFVariantData.get_option_int(session, "playback_session_id") != playback_session_id
+		or not _is_playback_session_current(player, playback_session_id)
+	):
+		return
+	_cancel_ambient_tween(channel)
+	_invalidate_playback_session(player, playback_session_id)
+	player.stream = null
+	_set_ambient_session(
+		channel,
+		_get_ambient_request_serial(channel),
+		_STATE_STOPPED,
+		_OWNER_NONE,
+		0
+	)
+
+
+
+
+## 逻辑当前 BGM 的自然结束先登记终态意图，经后端通知屏障统一结算；旧输出会话则直接清理。
+## 正在主动停止的当前播放器结束时还会撤销停止渐变，避免晚到回调重复处理。
+## [br]
+## @api private
+func _on_bgm_player_finished(player: AudioStreamPlayer) -> void:
+	if not is_instance_valid(player):
+		return
+	var session_id: int = GFVariantData.to_int(player.get_meta(_BGM_SESSION_META, 0))
+	var session: Dictionary = _get_bgm_session(session_id)
+	if session.is_empty():
+		return
+	var role: StringName = GFVariantData.get_option_string_name(session, "role", &"")
+	var logical_current_finished: bool = session_id == _bgm_committed_session_id
+	player.stream = null
+	if logical_current_finished:
+		var _natural_intent_recorded: bool = (
+			_record_deferred_bgm_session_terminal(
+				session_id,
+				GFBgmSessionHandle.EndKind.NATURAL_FINISH,
+				0.0
+			)
+		)
+		if _is_backend_dispatch_in_progress():
+			_schedule_deferred_audio_drain()
+		else:
+			_drain_bgm_terminal_barrier_if_needed()
+		return
+	if (
+		role == &"current"
+		and _bgm_state == _STATE_STOPPING
+		and session_id == _bgm_current_session_id
+	):
+		_cancel_bgm_stop_tween()
+		player.stop()
+		_remove_bgm_session(session_id, false)
+		_clear_bgm_session_state()
+		return
+	if role == &"outgoing" and not logical_current_finished:
+		player.stop()
+		_remove_bgm_session(session_id, false)
+		return
+	if not logical_current_finished:
+		player.stop()
+		_remove_bgm_session(session_id, false)
+		return
+
+
+
+
+## 只归还仍匹配捕获会话的非空间音效播放器；复用后到达的旧 finished 回调无效。
+## [br]
+## @api private
+func _on_sfx_finished(player: AudioStreamPlayer, playback_session_id: int) -> void:
+	if not _is_playback_session_current(player, playback_session_id):
+		return
+	_finish_release_sfx_player(player, playback_session_id)
+
+
+
+
+## 只归还仍匹配捕获会话的空间音效播放器，避免旧完成信号回收已复用实例。
+## [br]
+## @api private
+func _on_spatial_sfx_finished(player: Node, playback_session_id: int) -> void:
+	if not _is_playback_session_current(player, playback_session_id):
+		return
+	_finish_release_spatial_sfx_player(player, playback_session_id)

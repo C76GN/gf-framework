@@ -15,8 +15,22 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 成功或失败工厂结果对应的 Godot Error 码。
+## [br]
+## @api private
+## [br]
 var _error_code: Error = ERR_INVALID_PARAMETER
+
+## 成功时保留的原 Resource 对象引用。
+## [br]
+## @api private
+## [br]
 var _resource: Resource = null
+
+## 与本次 Resource 读取配对的不可变 committed revision。
+## [br]
+## @api private
+## [br]
 var _committed_revision: GFStorageRevisionResult = null
 
 

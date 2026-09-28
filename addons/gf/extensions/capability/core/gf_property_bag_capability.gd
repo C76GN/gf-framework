@@ -59,6 +59,9 @@ signal property_removed(key: StringName, old_value: Variant)
 
 # --- 私有变量 ---
 
+## 以非空 StringName 键保存的属性值表。
+## [br]
+## @api private
 var _values: Dictionary = {}
 
 
@@ -244,12 +247,18 @@ func get_color(key: StringName, default_value: Color = Color.WHITE) -> Color:
 
 # --- 私有/辅助方法 ---
 
+## 返回属性值的深拷贝，缺失时返回默认值的深拷贝。
+## [br]
+## @api private
 func _get_value(key: StringName, default_value: Variant = null) -> Variant:
 	if not _values.has(key):
 		return GFVariantData.duplicate_variant(default_value, true, false)
 	return GFVariantData.duplicate_variant(_values[key], true, false)
 
 
+## 规范化新属性表并发出对应的移除和变更信号。
+## [br]
+## @api private
 func _replace_values(source: Dictionary) -> void:
 	var normalized: Dictionary = {}
 	for raw_key: Variant in source.keys():
@@ -273,10 +282,16 @@ func _replace_values(source: Dictionary) -> void:
 		set_property_value(key, normalized[key])
 
 
+## 返回属性表的深拷贝。
+## [br]
+## @api private
 func _duplicate_values() -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.duplicate_variant(_values, true, false))
 
 
+## 返回按名称排序的有效 StringName 属性键。
+## [br]
+## @api private
 func _get_sorted_keys() -> Array[StringName]:
 	var result: Array[StringName] = []
 	for raw_key: Variant in _values.keys():

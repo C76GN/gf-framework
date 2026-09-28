@@ -28,6 +28,9 @@ const MATCH_ANY: StringName = &"any"
 ## @since 7.0.0
 const MATCH_ALL: StringName = &"all"
 
+## 未指定有效报告主题时使用的默认主题。
+## [br]
+## @api private
 const _DEFAULT_SUBJECT: String = "Compatibility preflight"
 
 
@@ -590,6 +593,10 @@ func get_report(options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 解析实际版本和可选边界，生成范围检查；遇到缺失、非法或越界值时追加对应问题。
+## 最大版本按排他边界处理。
+## [br]
+## @api private
 func _require_version_range(
 	kind: StringName,
 	actual_version: String,
@@ -654,6 +661,10 @@ func _require_version_range(
 	return check
 
 
+## 规范化实际值与候选值，并按 MATCH_ANY 或集合包含全部的方式记录检查结果。
+## 检查失败时按传入严重级别追加缺失能力问题。
+## [br]
+## @api private
 func _require_string_set(
 	kind: StringName,
 	actual_values: PackedStringArray,
@@ -691,6 +702,9 @@ func _require_string_set(
 	return check
 
 
+## 深拷贝检查的期望值和实际值，附加 metadata 后保存并返回检查记录副本。
+## [br]
+## @api private
 func _append_check(
 	check_id: StringName,
 	kind: StringName,
@@ -711,6 +725,9 @@ func _append_check(
 	return check.duplicate(true)
 
 
+## 通过 GFValidationReportDictionary 构造单条问题并追加到 issues。
+## [br]
+## @api private
 func _append_issue(severity: StringName, kind: StringName, message: String, fields: Dictionary) -> void:
 	var report: Dictionary = { "issues": [] }
 	var issue: Dictionary = GFValidationReportDictionary.append_issue(
@@ -723,30 +740,51 @@ func _append_issue(severity: StringName, kind: StringName, message: String, fiel
 	issues.append(issue)
 
 
+## 返回当前 Profile 的 Godot 版本；没有 Profile 时返回空字符串。
+## [br]
+## @api private
 func _get_profile_godot_version() -> String:
 	return profile.godot_version if profile != null else ""
 
 
+## 返回当前 Profile 的 GF 框架版本；没有 Profile 时返回空字符串。
+## [br]
+## @api private
 func _get_profile_framework_version() -> String:
 	return profile.framework_version if profile != null else ""
 
 
+## 返回当前 Profile 的平台列表副本；没有 Profile 时返回空列表。
+## [br]
+## @api private
 func _get_profile_platforms() -> PackedStringArray:
 	return profile.platforms.duplicate() if profile != null else PackedStringArray()
 
 
+## 返回当前 Profile 的功能列表副本；没有 Profile 时返回空列表。
+## [br]
+## @api private
 func _get_profile_features() -> PackedStringArray:
 	return profile.features.duplicate() if profile != null else PackedStringArray()
 
 
+## 从当前 Profile 读取指定包条目；没有 Profile 时返回空字典。
+## [br]
+## @api private
 func _get_profile_package(package_id: StringName) -> Dictionary:
 	return profile.get_package(package_id) if profile != null else {}
 
 
+## 从当前 Profile 读取指定 artifact 条目；没有 Profile 时返回空字典。
+## [br]
+## @api private
 func _get_profile_artifact(artifact_id: StringName) -> Dictionary:
 	return profile.get_artifact(artifact_id) if profile != null else {}
 
 
+## 无额外约束时返回 artifact ID；否则生成包含所启用路径、类型、文件、摘要和大小约束的字典。
+## [br]
+## @api private
 static func _get_artifact_expected_value(
 	artifact_id: StringName,
 	require_path: bool,
@@ -783,6 +821,9 @@ static func _get_artifact_expected_value(
 	return expected
 
 
+## 修剪路径、将反斜线改为斜线，再简化路径片段。
+## [br]
+## @api private
 static func _normalize_artifact_path(path: String) -> String:
 	var normalized: String = path.strip_edges().replace("\\", "/")
 	if normalized.is_empty():
@@ -790,6 +831,9 @@ static func _normalize_artifact_path(path: String) -> String:
 	return normalized.simplify_path()
 
 
+## 按需读取路径的存在状态、文件长度和 SHA-256；不检查文件时返回空字典。
+## [br]
+## @api private
 static func _get_artifact_file_metadata(path: String, inspect_file: bool) -> Dictionary:
 	if not inspect_file:
 		return {}
@@ -812,10 +856,16 @@ static func _get_artifact_file_metadata(path: String, inspect_file: bool) -> Dic
 	return file_metadata
 
 
+## 修剪 SHA-256 文本两端空白并转为小写。
+## [br]
+## @api private
 static func _normalize_sha256(value: String) -> String:
 	return value.strip_edges().to_lower()
 
 
+## 将 artifact 问题的类别、消息和字段封装为待追加记录。
+## [br]
+## @api private
 static func _make_pending_artifact_issue(kind: StringName, message: String, fields: Dictionary) -> Dictionary:
 	return {
 		"kind": kind,
@@ -824,6 +874,9 @@ static func _make_pending_artifact_issue(kind: StringName, message: String, fiel
 	}
 
 
+## 深拷贝条目数组中的每个字典。
+## [br]
+## @api private
 static func _copy_entries(source_entries: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in source_entries:
@@ -831,6 +884,9 @@ static func _copy_entries(source_entries: Array[Dictionary]) -> Array[Dictionary
 	return result
 
 
+## 去除字符串首尾空白、空项和重复项，并按字符串顺序排序。
+## [br]
+## @api private
 static func _normalize_string_set(items: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for item: String in items:
@@ -842,6 +898,9 @@ static func _normalize_string_set(items: PackedStringArray) -> PackedStringArray
 	return result
 
 
+## required 为空时返回 true，否则存在任一实际匹配项时返回 true。
+## [br]
+## @api private
 static func _has_any(actual: PackedStringArray, required: PackedStringArray) -> bool:
 	if required.is_empty():
 		return true
@@ -851,6 +910,9 @@ static func _has_any(actual: PackedStringArray, required: PackedStringArray) -> 
 	return false
 
 
+## 仅当每个 required 项都出现在 actual 中时返回 true；空 required 集合也通过。
+## [br]
+## @api private
 static func _has_all(actual: PackedStringArray, required: PackedStringArray) -> bool:
 	for item: String in required:
 		if not actual.has(item):
@@ -858,6 +920,9 @@ static func _has_all(actual: PackedStringArray, required: PackedStringArray) -> 
 	return true
 
 
+## 比较两个语义版本的主版本、次版本、修订号，再比较预发布标识。
+## [br]
+## @api private
 static func _compare_versions(left: String, right: String) -> int:
 	var left_version: Dictionary = _parse_semver(left)
 	var right_version: Dictionary = _parse_semver(right)
@@ -874,6 +939,10 @@ static func _compare_versions(left: String, right: String) -> int:
 	)
 
 
+## 解析三段式语义版本及可选预发布、构建标识；输入不合规时返回 ok=false。
+## 核心数字拒绝前导零，版本文本长度上限为 128。
+## [br]
+## @api private
 static func _parse_semver(version: String) -> Dictionary:
 	var normalized: String = version.strip_edges()
 	if normalized.is_empty() or normalized.length() > 128:
@@ -911,6 +980,9 @@ static func _parse_semver(version: String) -> Dictionary:
 	}
 
 
+## 校验点分隔标识中的字符及空段，并可选择拒绝纯数字标识的前导零。
+## [br]
+## @api private
 static func _semver_identifiers_are_valid(value: String, reject_numeric_leading_zeroes: bool) -> bool:
 	if value.is_empty():
 		return false
@@ -926,6 +998,10 @@ static func _semver_identifiers_are_valid(value: String, reject_numeric_leading_
 	return true
 
 
+## 按语义版本规则比较预发布标识；正式版本高于预发布版本。
+## 数字标识按数值长度和字典序比较，且低于非数字标识。
+## [br]
+## @api private
 static func _compare_prerelease(left: PackedStringArray, right: PackedStringArray) -> int:
 	if left.is_empty() and right.is_empty():
 		return 0
@@ -958,6 +1034,9 @@ static func _compare_prerelease(left: PackedStringArray, right: PackedStringArra
 	return 0
 
 
+## 判断非空字符串是否只包含十进制数字字符。
+## [br]
+## @api private
 static func _is_numeric_identifier(value: String) -> bool:
 	if value.is_empty():
 		return false

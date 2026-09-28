@@ -6,6 +6,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -296,6 +297,400 @@ class Inner:
 			parsed.inner_classes[0].properties[0].signature,
 			'var identifier: StringName = &""',
 		)
+
+
+def documented_data_member_spacing_issues(source: str, path: str = "fixture.gd") -> list[str]:
+	"""Check documented data members, including properties with accessor bodies."""
+	lines = source.splitlines()
+	structural_lines, starts_in_multiline = gdscript_api_parser.scan_gdscript_structure(lines)
+	issues: list[str] = []
+
+	def block_end(start: int, limit: int, indent: int) -> tuple[int, int]:
+		# The last occupied line excludes trailing separators but includes literal content.
+		last_occupied = start - 1
+		index = start
+		while index < limit:
+			if not starts_in_multiline[index] and lines[index].strip():
+				if gdscript_api_parser.get_indent_level(lines[index]) <= indent:
+					break
+			if lines[index].strip():
+				last_occupied = index
+			index += 1
+		return index, last_occupied
+
+	def visit_scope(start: int, limit: int, indent: int) -> None:
+		documented = False
+		index = start
+		while index < limit:
+			raw = lines[index]
+			structural = structural_lines[index].strip()
+			if starts_in_multiline[index] or not raw.strip():
+				index += 1
+				continue
+			if gdscript_api_parser.get_indent_level(raw) != indent:
+				index += 1
+				continue
+			if raw.lstrip().startswith("##"):
+				documented = True
+				index += 1
+				continue
+			if re.match(r"(?:static\s+)?func\s+", structural):
+				_, signature_end = gdscript_api_parser.collect_callable_signature(lines, index, "function")
+				index, _ = block_end(signature_end, limit, indent)
+				documented = False
+				continue
+			if re.match(r"class\s+", structural):
+				_, signature_end = gdscript_api_parser.collect_data_signature(lines, index, "class")
+				class_end, _ = block_end(signature_end, limit, indent)
+				child_indents = [
+					gdscript_api_parser.get_indent_level(lines[child])
+					for child in range(signature_end, class_end)
+					if lines[child].strip() and not starts_in_multiline[child]
+				]
+				if child_indents:
+					visit_scope(signature_end, class_end, min(child_indents))
+				index = class_end
+				documented = False
+				continue
+
+			match = re.match(r"(?:static\s+)?(var|const|signal|enum)\s+(\w+)", structural)
+			if match is None and structural.startswith("@"):
+				match = re.search(r"\b(var)\s+(\w+)", structural)
+				if match is None:
+					_, index = gdscript_api_parser.collect_data_signature(lines, index, "annotation")
+					continue
+			if match is None:
+				documented = False
+				index += 1
+				continue
+
+			kind, name = match.groups()
+			declaration_line = index + 1
+			if kind == "signal":
+				_, signature_end = gdscript_api_parser.collect_callable_signature(lines, index, kind)
+			elif kind == "enum":
+				_, signature_end = gdscript_api_parser.collect_block_signature(lines, index, limit)
+			else:
+				_, signature_end = gdscript_api_parser.collect_data_signature(lines, index, kind, limit=limit)
+			last_occupied = signature_end - 1
+			index = signature_end
+			if kind in {"var", "const"}:
+				index, last_occupied = block_end(signature_end, limit, indent)
+			if documented and last_occupied + 1 < len(lines) and lines[last_occupied + 1].strip():
+				issues.append(
+					f"{path}:{declaration_line} documented {kind} {name} requires a blank line "
+					f"after its complete declaration (line {last_occupied + 1})"
+				)
+			documented = False
+
+	visit_scope(0, len(lines), 0)
+	return issues
+
+
+class DocumentedDataMemberSpacingTests(unittest.TestCase):
+	def test_reports_adjacent_documented_data_members_at_complete_declaration_end(self) -> None:
+		for declaration in (
+			"var _value: int = 1",
+			"static var _value: int = 1",
+			"@export_storage var _value: int = 1",
+			"@export_range(0, 2)\nvar _value: int = 1",
+			'const _VALUE: Array[String] = [\n\t"]", # ignored delimiter ]\n\t"#",\n]',
+			'signal _changed(\n\tvalue: String = ")"\n)',
+			"enum _Mode {\n\tFIRST, # ignored delimiter }\n\tSECOND,\n}",
+		):
+			with self.subTest(declaration=declaration):
+				source = "## Member documentation.\n" + declaration + "\n## Next member.\nvar _next: int\n"
+				self.assertEqual(len(documented_data_member_spacing_issues(source)), 1)
+				separated = source.replace("\n## Next member.", "\n\n## Next member.")
+				self.assertEqual(documented_data_member_spacing_issues(separated), [])
+
+	def test_classless_nested_members_and_setters_use_the_full_property_block(self) -> None:
+		source = '''extends RefCounted
+
+class _Outer:
+	class _Inner:
+		## Backing property.
+		var _value: int = 0:
+			set(value):
+				_value = value
+			get:
+				return _value
+		## Next member.
+		static var _next: int = 0
+'''
+		issues = documented_data_member_spacing_issues(source)
+		self.assertEqual(len(issues), 1)
+		self.assertIn("documented var _value", issues[0])
+		self.assertIn("(line 10)", issues[0])
+		self.assertEqual(
+			documented_data_member_spacing_issues(source.replace("\t\t## Next member.", "\n\t\t## Next member.")),
+			[],
+		)
+
+	def test_ignores_strings_local_variables_and_undocumented_members(self) -> None:
+		source = '\n'.join([
+			'extends RefCounted',
+			'const SAMPLE = """',
+			'## Fake declaration.',
+			'var fake = 1',
+			'## Another fake.',
+			'var fake_again = 2',
+			'"""',
+			'var undocumented = 1',
+			'var also_undocumented = 2',
+			'func work() -> void:',
+			'\t## Local variables are outside the member rule.',
+			'\tvar local = 1',
+			'\tvar next_local = 2',
+			'\tprint(local + next_local)',
+			'## Last member at EOF needs no extra blank line.',
+			'var _last: int = 0',
+		])
+		self.assertEqual(documented_data_member_spacing_issues(source), [])
+		with_documented_literal = source.replace('const SAMPLE', '## Literal sample.\nconst SAMPLE')
+		issues = documented_data_member_spacing_issues(with_documented_literal)
+		self.assertEqual(len(issues), 1)
+		self.assertIn("documented const SAMPLE", issues[0])
+
+	def test_framework_documented_data_members_have_a_blank_line(self) -> None:
+		paths = sorted(
+			path for path in (ROOT / "addons/gf").rglob("*")
+			if path.is_file() and (path.suffix == ".gd" or path.name.endswith(".gd.txt"))
+		)
+		self.assertTrue(paths)
+		issues = [
+			issue
+			for path in paths
+			for issue in documented_data_member_spacing_issues(
+				path.read_text(encoding="utf-8"), path.relative_to(ROOT).as_posix()
+			)
+		]
+		self.assertEqual(issues, [], "Documented members need a blank line:\n" + "\n".join(issues))
+
+
+class PrivateApiDocumentationTests(unittest.TestCase):
+	SOURCE = '''## Public fixture.
+## [br]
+## @api public
+## [br]
+## @category value_object
+## [br]
+## @since 3.17.0
+class_name PrivateDocumentationFixture
+extends RefCounted
+
+## Private maintenance note.
+## [br]
+## @api private
+const _CACHE_LIMIT: int = 2
+
+## Private maintenance note.
+## [br]
+## @api private
+var _cached_value: int = 0
+
+## Private maintenance note.
+## [br]
+## @api private
+func _rebuild_cache(value: int) -> int:
+	return value
+
+## Returns the value.
+## [br]
+## @api public
+## [br]
+## @return: Current value.
+func read_value() -> int:
+	return _cached_value
+
+## Allows subclasses to normalize the value.
+## [br]
+## @api protected
+## [br]
+## @param value: Input value.
+## [br]
+## @return: Normalized value.
+func _normalize_value(value: int) -> int:
+	return value
+
+## Public detail.
+## [br]
+## @api public
+## [br]
+## @category value_object
+## [br]
+## @since 3.17.0
+class Detail:
+	## Current value.
+	## [br]
+	## @api public
+	var value: int = 0
+
+	## Private maintenance note.
+	## [br]
+	## @api private
+	const _INNER_LIMIT: int = 1
+
+	## Private maintenance note.
+	## [br]
+	## @api private
+	var _inner_cache: int = 0
+
+	## Private maintenance note.
+	## [br]
+	## @api private
+	func _clear_inner_cache() -> void:
+		_inner_cache = 0
+
+## Private maintenance note.
+## [br]
+## @api private
+class _CacheEntry:
+	## Private maintenance note.
+	## [br]
+	## @api private
+	var _entry_value: int = 0
+'''
+
+	def parse_fixture(self, source: str = "") -> gdscript_api_parser.ApiScript:
+		return gdscript_api_parser.parse_gdscript_source(
+			source or self.SOURCE,
+			"addons/gf/kernel/core/private_documentation_fixture.gd",
+			"kernel",
+		)
+
+	def public_owners(self, script: gdscript_api_parser.ApiScript) -> list[gf_api_owners.ApiOwner]:
+		return [
+			gf_api_owners.ApiOwner(owner.kind, owner.name, owner.script, "gf.kernel")
+			for owner in gf_api_owners.select_api_owners([script], ())
+		]
+
+	def test_private_members_are_parsed_but_excluded_from_public_products(self) -> None:
+		script = self.parse_fixture()
+		detail, cache_entry = script.inner_classes
+		private_members = [
+			*script.constants,
+			*script.properties,
+			script.methods[0],
+			*detail.constants,
+			detail.properties[1],
+			*detail.methods,
+			*cache_entry.properties,
+		]
+		self.assertEqual([member.name for member in private_members], [
+			"_CACHE_LIMIT", "_cached_value", "_rebuild_cache", "_INNER_LIMIT",
+			"_inner_cache", "_clear_inner_cache", "_entry_value",
+		])
+		for member in [*private_members, cache_entry]:
+			self.assertEqual(gdscript_api_parser.visibility_of(member.docs), "private")
+			self.assertEqual(member.docs.description, ["Private maintenance note."])
+
+		owners = self.public_owners(script)
+		self.assertEqual(len(owners), 1)
+		public_script = owners[0].script
+		self.assertEqual([method.name for method in public_script.methods], ["read_value", "_normalize_value"])
+		self.assertEqual(public_script.constants, [])
+		self.assertEqual(public_script.properties, [])
+		self.assertEqual([inner.name for inner in public_script.inner_classes], ["Detail"])
+		self.assertEqual([member.name for member in public_script.inner_classes[0].properties], ["value"])
+		self.assertEqual(public_script.inner_classes[0].constants, [])
+		self.assertEqual(public_script.inner_classes[0].methods, [])
+		self.assertEqual(len(script.methods), 3)
+		self.assertEqual(len(script.inner_classes), 2)
+		self.assertEqual(len(detail.properties), 2)
+
+		classes = generate_api_reference.api_classes_from_owners(owners)
+		catalog = generate_api_reference.render_catalog_files(classes, ROOT / "addons/gf")
+		reference = generate_api_reference.render_reference_files(classes, catalog["index.xml"])
+		ai_outputs = generate_ai_api.render_outputs(owners, ROOT / "addons/gf")
+		for product, files in (("catalog", catalog), ("reference", reference), ("AI", ai_outputs)):
+			with self.subTest(product=product):
+				text = "\n".join(files.values())
+				for token in ["Private maintenance note.", "_CacheEntry", *(member.name for member in private_members)]:
+					self.assertNotIn(token, text)
+				self.assertIn("read_value", text)
+				self.assertIn("_normalize_value", text)
+
+	def test_private_documentation_edits_preserve_public_semantic_digests(self) -> None:
+		original = self.parse_fixture()
+		changed = self.parse_fixture(self.SOURCE.replace(
+			"Private maintenance note.", "Revised private maintenance note.",
+		).replace(
+			"## Revised private maintenance note.",
+			"## Revised private maintenance note.\n## Additional implementation constraint.",
+			1,
+		))
+		self.assertNotEqual(original.constants[0].docs.description, changed.constants[0].docs.description)
+		self.assertNotEqual(original.methods[1].line, changed.methods[1].line)
+		catalog_digests: list[str] = []
+		ai_payloads: list[dict] = []
+		for script in (original, changed):
+			owners = self.public_owners(script)
+			classes = generate_api_reference.api_classes_from_owners(owners)
+			catalog = generate_api_reference.render_catalog_files(classes, ROOT / "addons/gf")
+			catalog_digests.append(generate_api_reference.ET.fromstring(catalog["index.xml"]).get("sourceDigest", ""))
+			ai_payloads.append(json.loads(generate_ai_api.render_outputs(owners, ROOT / "addons/gf")["api.json"]))
+		self.assertTrue(catalog_digests[0])
+		self.assertEqual(catalog_digests[0], catalog_digests[1])
+		self.assertEqual(ai_payloads[0]["source_digest"], ai_payloads[1]["source_digest"])
+		self.assertNotEqual(ai_payloads[0]["location_digest"], ai_payloads[1]["location_digest"])
+
+	def test_private_class_and_classless_members_do_not_create_public_owners(self) -> None:
+		private_class = self.parse_fixture(self.SOURCE.replace("@api public", "@api private", 1))
+		self.assertEqual(self.public_owners(private_class), [])
+		classless = gdscript_api_parser.parse_gdscript_source(
+			'''# Classless maintenance helper.
+extends RefCounted
+## Keeps the cache local to this helper.
+## [br]
+## @api private
+func _rebuild_cache() -> void:
+	pass
+''',
+			"addons/gf/kernel/core/private_helper.gd",
+		)
+		self.assertEqual([member.name for member in classless.methods], ["_rebuild_cache"])
+		self.assertEqual(gf_api_owners.select_api_owners([classless], ()), [])
+
+	def test_private_file_docs_do_not_bind_to_extends_or_grant_an_owner(self) -> None:
+		script = gdscript_api_parser.parse_gdscript_source(
+			"## Private script note.\n## @api private\nextends Node\n",
+			"addons/gf/kernel/core/private_helper.gd",
+		)
+		self.assertEqual(script.docs.description, [])
+		self.assertEqual(script.docs.tags, {})
+		self.assertEqual(script.api_owner_kind, "")
+		self.assertEqual(script.api_owner_name, "")
+		self.assertEqual(gf_api_owners.select_api_owners([script], ()), [])
+
+	def test_private_visibility_does_not_relax_controlled_autoload_owner(self) -> None:
+		source = '''## Private script note.
+## @api private
+## @api_owner autoload Gf
+extends Node
+## Public entry.
+## @api public
+func run() -> void:
+	pass
+'''
+		contract = gf_api_owners.GF_AUTOLOAD_CONTRACT
+		controlled = gdscript_api_parser.parse_gdscript_source(source, contract.source_path)
+		with self.assertRaisesRegex(ValueError, "not public/protected"):
+			gf_api_owners.select_api_owners([controlled], (contract,))
+		unknown = gdscript_api_parser.parse_gdscript_source(source, "addons/gf/unknown_autoload.gd")
+		with self.assertRaisesRegex(ValueError, "no controlled owner contract"):
+			gf_api_owners.select_api_owners([unknown], ())
+		public_source = source.replace("@api private", "@api public", 1) + '''
+## Keeps the implementation local to Gf.
+## @api private
+func _reset_cache() -> void:
+	pass
+'''
+		public_owner = gdscript_api_parser.parse_gdscript_source(public_source, contract.source_path)
+		self.assertEqual([member.name for member in public_owner.methods], ["run", "_reset_cache"])
+		selected = gf_api_owners.select_api_owners([public_owner], (contract,))
+		self.assertEqual([(owner.kind, owner.name) for owner in selected], [("autoload", "Gf")])
+		self.assertEqual([member.name for member in selected[0].script.methods], ["run"])
 
 
 class GeneratedTreeBoundaryTests(unittest.TestCase):

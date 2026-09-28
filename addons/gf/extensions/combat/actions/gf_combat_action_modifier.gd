@@ -14,6 +14,9 @@ extends Resource
 
 # --- 常量 ---
 
+## 提供数值 setter 和状态检查共用的有限浮点数判断。
+## [br]
+## @api private
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
 
@@ -95,9 +98,24 @@ const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/g
 
 # --- 私有变量 ---
 
+## 保存最近一次有限加成赋值；非有限赋值不会覆盖此数值。
+## [br]
+## @api private
 var _amount_add: float = 0.0
+
+## 记录最近一次加成赋值是否有限；无效赋值时旧数值仍保留，但状态标记为无效。
+## [br]
+## @api private
 var _amount_add_is_valid: bool = true
+
+## 保存最近一次有限乘数赋值；非有限赋值不会覆盖此数值。
+## [br]
+## @api private
 var _amount_multiplier: float = 1.0
+
+## 记录最近一次乘数赋值是否有限；无效赋值时旧数值仍保留，但状态标记为无效。
+## [br]
+## @api private
 var _amount_multiplier_is_valid: bool = true
 
 

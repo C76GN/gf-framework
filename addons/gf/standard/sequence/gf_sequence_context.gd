@@ -23,6 +23,10 @@ var values: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 所属架构的弱引用；引用失效时由 get_architecture() 尝试全局回退。
+## [br]
+## @api private
+## [br]
 var _architecture_ref: WeakRef = null
 
 
@@ -102,6 +106,10 @@ func get_value(key: StringName, default_value: Variant = null) -> Variant:
 
 # --- 私有/辅助方法 ---
 
+## 将 Variant 窄化为 GFArchitecture；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_architecture(value: Variant) -> GFArchitecture:
 	if value is GFArchitecture:
 		var architecture: GFArchitecture = value

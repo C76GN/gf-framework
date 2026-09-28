@@ -21,13 +21,27 @@ extends RefCounted
 ## @since 5.0.0
 const DEFAULT_CAPACITY: int = 8
 
+## 底层 Array 允许分配的最大容量。
+## [br]
+## @api private
 const _MAX_CAPACITY: int = 2_147_483_647
 
 
 # --- 私有变量 ---
 
+## 保存环形队列元素的底层数组。
+## [br]
+## @api private
 var _data: Array = []
+
+## 队头元素在底层数组中的物理索引。
+## [br]
+## @api private
 var _front_index: int = 0
+
+## 当前队列中的元素数量。
+## [br]
+## @api private
 var _count: int = 0
 
 
@@ -382,6 +396,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按倍增策略扩展容量；超过上限或分配失败时返回 false。
+## [br]
+## @api private
 func _ensure_capacity(required_capacity: int) -> bool:
 	if required_capacity > _MAX_CAPACITY:
 		push_error("[GFDeque][deque.capacity_out_of_range] Requested capacity exceeds the representable range.")
@@ -395,6 +412,10 @@ func _ensure_capacity(required_capacity: int) -> bool:
 	return _resize_storage(next_capacity)
 
 
+## 分配新数组、按逻辑顺序复制现有元素，并将队头重置到索引 0。
+## 分配失败时保留当前存储。
+## [br]
+## @api private
 func _resize_storage(new_capacity: int) -> bool:
 	if new_capacity > _MAX_CAPACITY:
 		push_error("[GFDeque][deque.capacity_out_of_range] Requested capacity exceeds the representable range.")
@@ -411,10 +432,16 @@ func _resize_storage(new_capacity: int) -> bool:
 	return true
 
 
+## 把队列顺序索引映射到环形数组中的物理索引。
+## [br]
+## @api private
 func _physical_index(index: int) -> int:
 	return (_front_index + index) % _data.size()
 
 
+## 解析负向索引并检查范围；越界时返回 -1。
+## [br]
+## @api private
 func _normalize_index(index: int) -> int:
 	var normalized_index: int = index
 	if normalized_index < 0:

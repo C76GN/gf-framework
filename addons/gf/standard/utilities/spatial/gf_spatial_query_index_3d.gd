@@ -35,7 +35,16 @@ const STRATEGY_LINEAR: StringName = &"linear"
 ## @since 7.0.0
 const STRATEGY_SPATIAL_HASH: StringName = &"spatial_hash"
 
+## 为调试快照提供 JSON 兼容值转换的内部编解码器。
+## [br]
+## @api private
+## [br]
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+
+## 提供 AABB 规范化和有限性检查的空间数学工具。
+## [br]
+## @api private
+## [br]
 const _SPATIAL_BOUNDS_MATH = preload("res://addons/gf/standard/foundation/math/gf_spatial_bounds_math.gd")
 
 
@@ -77,9 +86,28 @@ var auto_spatial_hash_threshold: int = 64:
 
 # --- 私有变量 ---
 
+## 按空间身份键保存实体、包围盒和元数据的记录。
+## [br]
+## @api private
+## [br]
 var _records: Dictionary = {}
+
+## 延迟构建的空间哈希查询后端。
+## [br]
+## @api private
+## [br]
 var _spatial_hash: GFSpatialHash3D
+
+## 记录空间哈希是否需要重建。
+## [br]
+## @api private
+## [br]
 var _index_dirty: bool = true
+
+## 最近一次空间哈希构建是否失败；索引变脏时会重置。
+## [br]
+## @api private
+## [br]
 var _backend_build_failed: bool = false
 
 
@@ -493,6 +521,10 @@ func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 扫描全部记录，返回包围盒与查询 AABB 相交的身份键。
+## [br]
+## @api private
+## [br]
 func _query_aabb_linear(area: AABB) -> Array[String]:
 	var result: Array[String] = []
 	for entity_key: String in _records.keys():
@@ -502,6 +534,10 @@ func _query_aabb_linear(area: AABB) -> Array[String]:
 	return result
 
 
+## 对身份键排序、去重并按过滤 AABB 检查后追加记录快照。
+## [br]
+## @api private
+## [br]
 func _append_records_for_keys(
 	entity_keys: Array[String],
 	filter_area: AABB,
@@ -519,6 +555,10 @@ func _append_records_for_keys(
 			out_records.append(_record_to_snapshot(entity_record))
 
 
+## 清理失效实体并取得点查询候选键，再追加精确包含该点的记录。
+## [br]
+## @api private
+## [br]
 func _append_point_records(point: Vector3, out_records: Array[Dictionary]) -> void:
 	prune_invalid_entities()
 	if not _SPATIAL_BOUNDS_MATH.is_finite_vector3(point):
@@ -535,6 +575,10 @@ func _append_point_records(point: Vector3, out_records: Array[Dictionary]) -> vo
 	_append_point_records_for_keys(candidate_keys, point, out_records)
 
 
+## 对候选键排序去重，并仅追加 AABB 包含指定点的记录快照。
+## [br]
+## @api private
+## [br]
 func _append_point_records_for_keys(
 	entity_keys: Array[String],
 	point: Vector3,
@@ -552,6 +596,10 @@ func _append_point_records_for_keys(
 			out_records.append(_record_to_snapshot(entity_record))
 
 
+## 使用包含边界的比较判断 AABB 是否覆盖指定点。
+## [br]
+## @api private
+## [br]
 func _aabb_contains_point(bounds: AABB, point: Vector3) -> bool:
 	return (
 		point.x >= bounds.position.x
@@ -563,10 +611,18 @@ func _aabb_contains_point(bounds: AABB, point: Vector3) -> bool:
 	)
 
 
+## 委托空间身份工具比较两个实体键的排序顺序。
+## [br]
+## @api private
+## [br]
 func _sort_entity_keys(left_key: String, right_key: String) -> bool:
 	return GFSpatialQueryIdentity.sort_keys(left_key, right_key)
 
 
+## 延迟重建空间哈希；对象弱引用失效时跳过记录，插入失败时记录失败并允许线性回退。
+## [br]
+## @api private
+## [br]
 func _ensure_spatial_hash() -> bool:
 	if not _index_dirty:
 		return _spatial_hash != null and not _backend_build_failed
@@ -588,6 +644,10 @@ func _ensure_spatial_hash() -> bool:
 	return true
 
 
+## 尝试使用首选策略；空间哈希不可用时返回线性策略。
+## [br]
+## @api private
+## [br]
 func _get_active_strategy() -> StringName:
 	var preferred_strategy: StringName = _get_preferred_strategy()
 	if preferred_strategy == STRATEGY_SPATIAL_HASH and _ensure_spatial_hash():
@@ -595,6 +655,10 @@ func _get_active_strategy() -> StringName:
 	return STRATEGY_LINEAR
 
 
+## 按显式策略或实体数量阈值选择首选查询策略。
+## [br]
+## @api private
+## [br]
 func _get_preferred_strategy() -> StringName:
 	if strategy == STRATEGY_LINEAR:
 		return STRATEGY_LINEAR
@@ -605,6 +669,10 @@ func _get_preferred_strategy() -> StringName:
 	return STRATEGY_LINEAR
 
 
+## 从实体身份和包围盒构造记录；对象以弱引用保存，值身份按身份定义保存。
+## [br]
+## @api private
+## [br]
 func _make_record(entity: Variant, entity_bounds: AABB, p_metadata: Dictionary) -> Dictionary:
 	var identity: GFSpatialQueryIdentity = GFSpatialQueryIdentity.from_value(entity)
 	if identity.key.is_empty():
@@ -630,6 +698,10 @@ func _make_record(entity: Variant, entity_bounds: AABB, p_metadata: Dictionary) 
 	}
 
 
+## 生成记录快照，并复制身份与元数据字典。
+## [br]
+## @api private
+## [br]
 func _record_to_snapshot(entity_record: Dictionary) -> Dictionary:
 	return {
 		"identity": GFVariantData.get_option_dictionary(entity_record, "identity").duplicate(true),
@@ -639,6 +711,10 @@ func _record_to_snapshot(entity_record: Dictionary) -> Dictionary:
 	}
 
 
+## 从对象弱引用解析实体，或返回记录中保存的值身份。
+## [br]
+## @api private
+## [br]
 func _record_to_entity(entity_record: Dictionary) -> Variant:
 	var entity_ref_variant: Variant = GFVariantData.get_option_value(entity_record, "entity_ref")
 	if entity_ref_variant is WeakRef:
@@ -647,6 +723,10 @@ func _record_to_entity(entity_record: Dictionary) -> Variant:
 	return GFVariantData.get_option_value(entity_record, "entity")
 
 
+## 拒绝空记录及其对象弱引用已失效的记录；值身份记录有效。
+## [br]
+## @api private
+## [br]
 func _record_is_valid(entity_record: Dictionary) -> bool:
 	if entity_record.is_empty():
 		return false
@@ -657,6 +737,10 @@ func _record_is_valid(entity_record: Dictionary) -> bool:
 	return true
 
 
+## 从记录读取 AABB bounds 字段；缺失或类型不符时返回空包围盒。
+## [br]
+## @api private
+## [br]
 func _get_record_bounds(entity_record: Dictionary) -> AABB:
 	var value: Variant = GFVariantData.get_option_value(entity_record, "bounds", AABB())
 	if value is AABB:
@@ -665,15 +749,27 @@ func _get_record_bounds(entity_record: Dictionary) -> AABB:
 	return AABB()
 
 
+## 委托空间身份工具生成实体键。
+## [br]
+## @api private
+## [br]
 func _make_entity_key(entity: Variant) -> String:
 	return GFSpatialQueryIdentity.make_key(entity)
 
 
+## 标记空间哈希待重建，并清除上次后端构建失败标记。
+## [br]
+## @api private
+## [br]
 func _mark_index_dirty() -> void:
 	_index_dirty = true
 	_backend_build_failed = false
 
 
+## 仅接受 linear 和 spatial_hash；其他值规范化为 auto。
+## [br]
+## @api private
+## [br]
 func _normalize_strategy(value: StringName) -> StringName:
 	match value:
 		STRATEGY_LINEAR, STRATEGY_SPATIAL_HASH:
@@ -682,10 +778,18 @@ func _normalize_strategy(value: StringName) -> StringName:
 			return STRATEGY_AUTO
 
 
+## 委托空间边界工具规范化 AABB。
+## [br]
+## @api private
+## [br]
 func _normalize_aabb(entity_bounds: AABB) -> AABB:
 	return _SPATIAL_BOUNDS_MATH.normalize_aabb(entity_bounds)
 
 
+## 将 Variant 收窄为 WeakRef；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_weak_ref(value: Variant) -> WeakRef:
 	if value is WeakRef:
 		var entity_ref: WeakRef = value

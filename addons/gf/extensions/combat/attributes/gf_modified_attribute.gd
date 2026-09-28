@@ -15,7 +15,14 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 创建供 current_value 暴露的只读 bindable property 视图。
+## [br]
+## @api private
 const _READ_ONLY_BINDABLE_PROPERTY_SCRIPT = preload("res://addons/gf/kernel/core/gf_read_only_bindable_property.gd")
+
+## 为基础值、修饰器聚合和公式中间结果提供有限浮点数检查。
+## [br]
+## @api private
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
 
@@ -31,8 +38,19 @@ var current_value: GFBindableProperty:
 
 # --- 私有变量 ---
 
+## 缓存公开 current_value 使用的只读视图；仅在公式重算通过全部检查后更新。
+## [br]
+## @api private
 var _current_value_view: GFBindableProperty
+
+## 保存有限的基础值，参与每次属性公式重算。
+## [br]
+## @api private
 var _base_value: float = 0.0
+
+## 按添加顺序保存修饰器实例引用；重算会逐项验证并累计其数值。
+## [br]
+## @api private
 var _modifiers: Array[GFModifier] = []
 
 
@@ -125,6 +143,9 @@ func force_recalculate() -> void:
 # --- 私有/辅助方法 ---
 
 # 执行公式重算：(Base + BaseAdd) * (1.0 + PercentAdd) + FinalAdd
+## 汇总三类修饰值并计算属性公式；输入或中间结果无效时保留上一次已发布值。
+## [br]
+## @api private
 func _recalculate() -> void:
 	if not _GF_COMBAT_FINITE_MATH.is_finite_float(_base_value):
 		return

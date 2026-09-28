@@ -17,11 +17,19 @@ extends Node2D
 
 # --- 常量 ---
 
+## 表示当前没有被捕获的指针索引。
+## [br]
+## @api private
+## [br]
 const _NO_POINTER_ID: int = -1
 
 
 # --- 私有变量 ---
 
+## 当前捕获的触点索引；未捕获时为 _NO_POINTER_ID。
+## [br]
+## @api private
+## [br]
 var _active_touch_index: int = _NO_POINTER_ID
 
 
@@ -83,6 +91,10 @@ func get_active_touch_index() -> int:
 
 # --- 私有/辅助方法 ---
 
+## 捕获指定触点；拒绝哨兵索引，已有捕获时仅允许同一触点继续匹配。
+## [br]
+## @api private
+## [br]
 func _try_capture_touch_index(touch_index: int) -> bool:
 	if touch_index == _NO_POINTER_ID:
 		return false
@@ -92,6 +104,10 @@ func _try_capture_touch_index(touch_index: int) -> bool:
 	return _active_touch_index == touch_index
 
 
+## 释放触点捕获；可选索引必须匹配当前捕获，省略或传哨兵值时释放任意当前捕获。
+## [br]
+## @api private
+## [br]
 func _release_touch_capture(touch_index: int = _NO_POINTER_ID) -> bool:
 	if _active_touch_index == _NO_POINTER_ID:
 		return false
@@ -101,10 +117,18 @@ func _release_touch_capture(touch_index: int = _NO_POINTER_ID) -> bool:
 	return true
 
 
+## 检查给定触点索引是否等于当前捕获索引。
+## [br]
+## @api private
+## [br]
 func _touch_matches(touch_index: int) -> bool:
 	return _active_touch_index == touch_index
 
 
+## 将屏幕位置经当前 Viewport 的 canvas 逆变换换算到画布坐标；无 Viewport 时原样返回。
+## [br]
+## @api private
+## [br]
 func _screen_to_global_position(screen_position: Vector2) -> Vector2:
 	var viewport: Viewport = get_viewport()
 	if viewport == null:
@@ -112,6 +136,10 @@ func _screen_to_global_position(screen_position: Vector2) -> Vector2:
 	return viewport.get_canvas_transform().affine_inverse() * screen_position
 
 
+## 若存在当前 Viewport，将本次输入标记为已处理。
+## [br]
+## @api private
+## [br]
 func _mark_input_as_handled() -> void:
 	var viewport: Viewport = get_viewport()
 	if viewport != null:

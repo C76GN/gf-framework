@@ -49,14 +49,49 @@ const ORIENTATION_MAX: int = 63
 ## @api public
 const INVALID_KEY: int = -1
 
+## 每个坐标分量编码所覆盖的无符号取值数。
+## [br]
+## @api private
 const _COORDINATE_SPAN: int = 1 << COORDINATE_BITS
+
+## 将有符号坐标平移到无符号编码区间的偏移量。
+## [br]
+## @api private
 const _COORDINATE_OFFSET: int = _COORDINATE_SPAN >> 1
+
+## 提取单个坐标编码低位所用的掩码。
+## [br]
+## @api private
 const _COORDINATE_MASK: int = _COORDINATE_SPAN - 1
+
+## X 坐标字段在打包 key 中的位移量。
+## [br]
+## @api private
 const _X_SHIFT: int = 0
+
+## Y 坐标字段在打包 key 中的位移量。
+## [br]
+## @api private
 const _Y_SHIFT: int = COORDINATE_BITS
+
+## Z 坐标字段在打包 key 中的位移量。
+## [br]
+## @api private
 const _Z_SHIFT: int = COORDINATE_BITS * 2
+
+## 方向字段在打包 key 中的位移量。
+## [br]
+## @api private
 const _ORIENTATION_SHIFT: int = COORDINATE_BITS * 3
+
+## 被视为可能有效的最大非负 key 值。
+## [br]
+## @api private
 const _MAX_PACKED_KEY: int = 9223372036854775807
+
+## 量化时单轴格尺寸允许的最小绝对值。
+## [br]
+## @api private
 const _MIN_CELL_SIZE: float = 0.000001
 
 
@@ -278,14 +313,23 @@ static func pack_position(
 
 # --- 私有/辅助方法 ---
 
+## 将有符号格坐标加偏移量编码到无符号字段。
+## [br]
+## @api private
 static func _encode_coordinate(value: int) -> int:
 	return value + _COORDINATE_OFFSET
 
 
+## 将无符号坐标字段减去偏移量还原为有符号值。
+## [br]
+## @api private
 static func _decode_coordinate(value: int) -> int:
 	return value - _COORDINATE_OFFSET
 
 
+## 以安全格尺寸逐轴计算 position 相对 origin 的 floor 格坐标。
+## [br]
+## @api private
 static func _quantize_position_to_cell(
 	position: Vector3,
 	cell_size: Vector3,
@@ -299,6 +343,9 @@ static func _quantize_position_to_cell(
 	)
 
 
+## 将格尺寸各轴取绝对值并限制在最小尺寸以上。
+## [br]
+## @api private
 static func _get_safe_cell_size(cell_size: Vector3) -> Vector3:
 	return Vector3(
 		maxf(absf(cell_size.x), _MIN_CELL_SIZE),
@@ -307,9 +354,15 @@ static func _get_safe_cell_size(cell_size: Vector3) -> Vector3:
 	)
 
 
+## 仅当 Vector3 的三个分量都通过有限数检查时返回 true。
+## [br]
+## @api private
 static func _is_finite_vector3(value: Vector3) -> bool:
 	return _is_finite_float(value.x) and _is_finite_float(value.y) and _is_finite_float(value.z)
 
 
+## 排除 NaN 和正负无穷大的浮点数。
+## [br]
+## @api private
 static func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)

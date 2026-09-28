@@ -37,10 +37,34 @@ var resource: Resource = null
 
 # --- 私有变量 ---
 
+## 对创建此句柄的资源工具的弱引用。
+## [br]
+## @api private
+## [br]
 var _utility_ref: WeakRef = null
+
+## 标记此句柄是否已经归还资源引用。
+## [br]
+## @api private
+## [br]
 var _released: bool = false
+
+## 创建句柄时绑定的 owner 实例 ID。
+## [br]
+## @api private
+## [br]
 var _owner_id: int = 0
+
+## 创建句柄时捕获的资源路径。
+## [br]
+## @api private
+## [br]
 var _lease_path: String = ""
+
+## 创建句柄时捕获的缓存身份。
+## [br]
+## @api private
+## [br]
 var _lease_cache_key: String = ""
 
 
@@ -183,6 +207,10 @@ func release_local_reference() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 解析仍存活且类型匹配的资源工具；否则返回 null。
+## [br]
+## @api private
+## [br]
 func _get_utility() -> GFAssetUtility:
 	if _utility_ref == null:
 		return null

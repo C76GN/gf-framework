@@ -14,7 +14,9 @@ extends Resource
 
 # --- 常量 ---
 
-# 同时限制 schema 和 field 的活动路径，使定义预检最多保留 64 层递归定义调用。
+## schema 与 field 递归定义预检允许的最大活动深度。
+## [br]
+## @api private
 const _MAX_DEFINITION_DEPTH: int = 64
 
 
@@ -57,7 +59,14 @@ const _MAX_DEFINITION_DEPTH: int = 64
 
 # --- 私有变量 ---
 
+## 按字段 StringName 键缓存首个有效字段声明。
+## [br]
+## @api private
 var _field_lookup_cache: Dictionary = {}
+
+## 与缓存对应的字段顺序、实例 ID 和键签名；字段集合变化时触发重建。
+## [br]
+## @api private
 var _field_lookup_signature: String = ""
 
 
@@ -402,6 +411,19 @@ func describe() -> Dictionary:
 
 # --- 框架内部方法 ---
 
+## 为单个字段建立新的定义递归状态，选择显式路径或字段名作为根路径，并把嵌套定义问题追加到调用方报告。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/foundation/schema
+## [br]
+## @param field: 要检查的有效字段定义，调用方须提供非空实例。
+## [br]
+## @param report: 接收新增问题的报告，不会先清空。
+## [br]
+## @param options: 路径、主题和来源等校验上下文。
+## [br]
+## @schema options: 可含 path、subject、source_path/source、line 和 column；path 缺省时使用字段名。
 func _validate_field_definition_into(
 	field: GFSchemaField,
 	report: GFValidationReport,
@@ -411,6 +433,21 @@ func _validate_field_definition_into(
 	_validate_nested_field_definition(field, report, field_path, options, _make_definition_state())
 
 
+## 在共享活动身份集合中校验当前 schema 的字段与嵌套定义；回边、空字段、空名称和重名写入报告，进入前登记当前 schema，正常遍历后移除其活动标记。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/foundation/schema
+## [br]
+## @param report: 追加定义问题的报告。
+## [br]
+## @param options: 当前定义位置和诊断上下文。
+## [br]
+## @param state: 同一次递归校验共享并原地更新的活动集合。
+## [br]
+## @schema options: 可含 path、subject、source_path/source、line 和 column；嵌套检查按字段位置派生上下文。
+## [br]
+## @schema state: 包含 active_schemas 与 active_fields 字典，键为当前递归路径上的实例 ID；用于检测回边和活动深度。
 func _validate_definition_into(report: GFValidationReport, options: Dictionary, state: Dictionary) -> void:
 	var root_path: String = GFVariantData.get_option_string(options, "path")
 	if _is_schema_active(state, self):
@@ -446,6 +483,17 @@ func _validate_definition_into(report: GFValidationReport, options: Dictionary, 
 	_pop_active_schema(state, self)
 
 
+## 通过共享实例映射复制 schema 图；先登记新副本再复制字段，使回边与共享引用指向同一副本，空字段保留原位置。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/foundation/schema
+## [br]
+## @param state: 本次图复制共享并原地更新的身份映射。
+## [br]
+## @return: 当前 schema 的副本；已经访问过时返回此前登记的同一副本。
+## [br]
+## @schema state: 包含 schemas 和 fields 字典，分别把源 schema/field 实例 ID 映射到对应副本。
 func _duplicate_schema(state: Dictionary) -> GFDictionarySchema:
 	var schema_key: int = get_instance_id()
 	var visited_schemas: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(state, "schemas", {}))
@@ -472,6 +520,9 @@ func _duplicate_schema(state: Dictionary) -> GFDictionarySchema:
 
 # --- 私有/辅助方法 ---
 
+## 选择调用方 subject、schema_id 或类名作为主题，并附加 schema 标识和元数据。
+## [br]
+## @api private
 func _make_report(options: Dictionary) -> GFValidationReport:
 	var subject: String = GFVariantData.get_option_string(options, "subject")
 	if subject.is_empty() and schema_id != &"":
@@ -484,6 +535,10 @@ func _make_report(options: Dictionary) -> GFValidationReport:
 	})
 
 
+## 按字段声明尝试转换现有值或可用默认值，并按配置把转换失败写为 warning 或 error。
+## 返回键已规范化且包含尝试转换结果的字典。
+## [br]
+## @api private
 func _coerce_values_for_validation(values: Dictionary, report: GFValidationReport, options: Dictionary) -> Dictionary:
 	var result: Dictionary = _normalize_keys(values)
 	for field: GFSchemaField in fields:
@@ -524,6 +579,10 @@ func _coerce_values_for_validation(values: Dictionary, report: GFValidationRepor
 	return result
 
 
+## 检查规范化键冲突、必填字段和值约束，并在禁止额外字段时报告未声明键。
+## 开启 coerce_values 时使用转换后的值校验，但仍用原始键集合检查必填字段是否真实提供。
+## [br]
+## @api private
 func _validate_dictionary_values(values: Dictionary, report: GFValidationReport, options: Dictionary) -> void:
 	_add_normalized_key_collision_errors(values, report, options)
 	var source_values: Dictionary = _normalize_keys(values)
@@ -595,6 +654,9 @@ func _validate_dictionary_values(values: Dictionary, report: GFValidationReport,
 			)
 
 
+## 将输入字典的键转换为 StringName，并复制各自的值。
+## [br]
+## @api private
 func _normalize_keys(values: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for key_variant: Variant in values.keys():
@@ -602,6 +664,9 @@ func _normalize_keys(values: Dictionary) -> Dictionary:
 	return result
 
 
+## 检测多个原始键规范化到同一 StringName 的情况，并为每个冲突键只追加一次错误。
+## [br]
+## @api private
 func _add_normalized_key_collision_errors(
 	values: Dictionary,
 	report: GFValidationReport,
@@ -635,6 +700,9 @@ func _add_normalized_key_collision_errors(
 		)
 
 
+## 以原始 Variant 类型名和 GFVariantData 文本形式描述来源键。
+## [br]
+## @api private
 func _describe_source_key(key_variant: Variant) -> String:
 	return "%s:%s" % [
 		type_string(typeof(key_variant)),
@@ -642,6 +710,9 @@ func _describe_source_key(key_variant: Variant) -> String:
 	]
 
 
+## 按当前字段签名返回缓存查找表；失效时按字段顺序重建，每个键保留首个声明。
+## [br]
+## @api private
 func _get_field_lookup() -> Dictionary:
 	var signature: String = _make_field_lookup_signature()
 	if signature == _field_lookup_signature:
@@ -659,6 +730,9 @@ func _get_field_lookup() -> Dictionary:
 	return _field_lookup_cache
 
 
+## 生成包含字段位置、实例 ID 和 field key 的签名，用于发现查找表结构变化。
+## [br]
+## @api private
 func _make_field_lookup_signature() -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	for index: int in range(fields.size()):
@@ -674,11 +748,17 @@ func _make_field_lookup_signature() -> String:
 	return "|".join(parts)
 
 
+## 清空字段查找缓存并重置签名，使下次读取时重新构建。
+## [br]
+## @api private
 func _invalidate_field_lookup() -> void:
 	_field_lookup_cache.clear()
 	_field_lookup_signature = ""
 
 
+## 规范化一行字段键，按选项转换已有值和默认值，并可去除未声明字段。
+## [br]
+## @api private
 func _normalize_dictionary_row(
 	values: Dictionary,
 	include_optional: bool,
@@ -708,6 +788,9 @@ func _normalize_dictionary_row(
 	return result
 
 
+## 转换字段值；成功时返回转换值，失败时可记录错误并返回来源值的副本。
+## [br]
+## @api private
 func _coerce_row_value(
 	field: GFSchemaField,
 	source_value: Variant,
@@ -737,6 +820,10 @@ func _coerce_row_value(
 	return GFVariantData.duplicate_variant(source_value)
 
 
+## 必填字段始终允许填默认值；可选字段仅在 include_optional 为 true 时处理。
+## 有非 null 默认值或字段允许 null 时返回 true。
+## [br]
+## @api private
 func _should_fill_row_default(field: GFSchemaField, include_optional: bool) -> bool:
 	if not field.required and not include_optional:
 		return false
@@ -745,6 +832,9 @@ func _should_fill_row_default(field: GFSchemaField, include_optional: bool) -> b
 	return field.allow_null
 
 
+## 检查规范化结果中出现、但来源字典未实际提供的必填字段，并追加缺失错误。
+## [br]
+## @api private
 func _validate_normalized_required_source_fields(
 	source_values: Dictionary,
 	normalized_values: Dictionary,
@@ -775,6 +865,9 @@ func _validate_normalized_required_source_fields(
 		)
 
 
+## 只复制声明字段中实际存在的值，形成移除额外字段后的字典。
+## [br]
+## @api private
 func _strip_extra_fields(values: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for field: GFSchemaField in fields:
@@ -786,6 +879,9 @@ func _strip_extra_fields(values: Dictionary) -> Dictionary:
 	return result
 
 
+## 深拷贝行级选项并设置 path；缺少 subject 且 schema 有 ID 时补入该 ID。
+## [br]
+## @api private
 func _make_row_options(options: Dictionary, row_path: String) -> Dictionary:
 	var row_options: Dictionary = options.duplicate(true)
 	row_options["path"] = row_path
@@ -794,6 +890,9 @@ func _make_row_options(options: Dictionary, row_path: String) -> Dictionary:
 	return row_options
 
 
+## 为不是 Dictionary 的数组项追加 invalid_row 错误及其索引、路径和值类型。
+## [br]
+## @api private
 func _add_invalid_row_error(
 	report: GFValidationReport,
 	index: int,
@@ -818,6 +917,9 @@ func _add_invalid_row_error(
 	)
 
 
+## 深拷贝字段校验选项，并加入 schema_id、字段键、字段路径和默认主题。
+## [br]
+## @api private
 func _make_field_context(field_key: StringName, options: Dictionary) -> Dictionary:
 	var context: Dictionary = options.duplicate(true)
 	context["schema_id"] = String(schema_id)
@@ -828,6 +930,9 @@ func _make_field_context(field_key: StringName, options: Dictionary) -> Dictiona
 	return context
 
 
+## 将字段键接到可选根路径；根路径为空时只返回字段键。
+## [br]
+## @api private
 func _make_field_path(field_key: StringName, options: Dictionary) -> String:
 	var root_path: String = GFVariantData.get_option_string(options, "path")
 	if root_path.is_empty():
@@ -835,16 +940,25 @@ func _make_field_path(field_key: StringName, options: Dictionary) -> String:
 	return root_path.path_join(String(field_key))
 
 
+## 将数组行索引追加到基础路径；基础路径为空时生成 [index]。
+## [br]
+## @api private
 func _make_path(base_path: String, index: int) -> String:
 	return "%s[%d]" % [base_path, index] if not base_path.is_empty() else "[%d]" % index
 
 
+## 将字段键接到 schema 定义校验的可选根路径。
+## [br]
+## @api private
 func _make_definition_field_path(field_key: StringName, root_path: String) -> String:
 	if root_path.is_empty():
 		return String(field_key)
 	return root_path.path_join(String(field_key))
 
 
+## 生成含 schema_id 和 field_index 的定义错误元数据。
+## [br]
+## @api private
 func _make_definition_metadata(index: int) -> Dictionary:
 	return {
 		"schema_id": String(schema_id),
@@ -852,6 +966,10 @@ func _make_definition_metadata(index: int) -> Dictionary:
 	}
 
 
+## 跟踪当前字段并校验其嵌套 Dictionary schema 或数组项 schema 定义。
+## 已活动字段形成循环时报告错误，未超深度时递归检查子 schema，最后移除活动标记。
+## [br]
+## @api private
 func _validate_nested_field_definition(
 	field: GFSchemaField,
 	report: GFValidationReport,
@@ -875,6 +993,9 @@ func _validate_nested_field_definition(
 	_pop_active_field(state, field)
 
 
+## 在 field_path 后追加 []，跟踪数组项字段，并递归检查其字典或数组 schema。
+## [br]
+## @api private
 func _validate_array_item_definition(
 	item_schema: GFSchemaField,
 	report: GFValidationReport,
@@ -899,6 +1020,10 @@ func _validate_array_item_definition(
 	_pop_active_field(state, item_schema)
 
 
+## 允许循环身份交由专用循环分支处理；否则检查 schema 与 field 活动路径总深度。
+## 超过上限时追加 schema_depth_exceeded 并返回 false。
+## [br]
+## @api private
 func _can_visit_definition(
 	definition: Resource,
 	report: GFValidationReport,
@@ -931,6 +1056,9 @@ func _can_visit_definition(
 	return false
 
 
+## 深拷贝嵌套定义选项并设置子路径；缺少 subject 且 schema 有 ID 时补入 schema ID。
+## [br]
+## @api private
 func _make_nested_definition_options(field_path: String, options: Dictionary) -> Dictionary:
 	var nested_options: Dictionary = options.duplicate(true)
 	nested_options["path"] = field_path
@@ -939,6 +1067,9 @@ func _make_nested_definition_options(field_path: String, options: Dictionary) ->
 	return nested_options
 
 
+## 通过 report.add_error 追加问题，并将上下文中的来源位置和主题应用到问题对象。
+## [br]
+## @api private
 func _add_error(
 	report: GFValidationReport,
 	kind: StringName,
@@ -952,6 +1083,10 @@ func _add_error(
 	_apply_context_to_issue(issue, options)
 
 
+## 对 GFValidationIssue 补入 source_path、行、列和 subject；source_path 为空时可回退到 source。
+## 非 GFValidationIssue 输入不作修改。
+## [br]
+## @api private
 func _apply_context_to_issue(issue: RefCounted, context: Dictionary) -> void:
 	if not (issue is GFValidationIssue):
 		return
@@ -964,6 +1099,9 @@ func _apply_context_to_issue(issue: RefCounted, context: Dictionary) -> void:
 	validation_issue.subject = GFVariantData.get_option_string(context, "subject", validation_issue.subject)
 
 
+## 创建用于定义递归校验的活动 schema/field 集合。
+## [br]
+## @api private
 func _make_definition_state() -> Dictionary:
 	return {
 		"active_schemas": {},
@@ -971,6 +1109,9 @@ func _make_definition_state() -> Dictionary:
 	}
 
 
+## 创建用于递归深拷贝的 schema/field 身份映射。
+## [br]
+## @api private
 func _make_duplicate_state() -> Dictionary:
 	return {
 		"schemas": {},
@@ -978,6 +1119,9 @@ func _make_duplicate_state() -> Dictionary:
 	}
 
 
+## 深拷贝值校验选项，并在 active_value_schemas 中标记当前 schema 实例。
+## [br]
+## @api private
 func _make_value_validation_options(options: Dictionary) -> Dictionary:
 	var value_options: Dictionary = options.duplicate(true)
 	var active_schemas: Dictionary = GFVariantData.get_option_dictionary(value_options, "active_value_schemas")
@@ -987,11 +1131,17 @@ func _make_value_validation_options(options: Dictionary) -> Dictionary:
 	return value_options
 
 
+## 检查当前 schema 实例是否已在值校验的 active_value_schemas 中。
+## [br]
+## @api private
 func _is_value_schema_active(options: Dictionary) -> bool:
 	var active_schemas: Dictionary = GFVariantData.get_option_dictionary(options, "active_value_schemas")
 	return active_schemas.has(get_instance_id())
 
 
+## 检查 schema 实例 ID 是否已存在于定义校验状态的活动 schema 集合。
+## [br]
+## @api private
 func _is_schema_active(state: Dictionary, schema: GFDictionarySchema) -> bool:
 	if schema == null:
 		return false
@@ -999,18 +1149,27 @@ func _is_schema_active(state: Dictionary, schema: GFDictionarySchema) -> bool:
 	return active_schemas.has(schema.get_instance_id())
 
 
+## 将 schema 实例 ID 加入定义校验的活动集合。
+## [br]
+## @api private
 func _push_active_schema(state: Dictionary, schema: GFDictionarySchema) -> void:
 	var active_schemas: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(state, "active_schemas", {}))
 	active_schemas[schema.get_instance_id()] = true
 	state["active_schemas"] = active_schemas
 
 
+## 从定义校验的活动 schema 集合移除实例 ID。
+## [br]
+## @api private
 func _pop_active_schema(state: Dictionary, schema: GFDictionarySchema) -> void:
 	var active_schemas: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(state, "active_schemas", {}))
 	var _erased_schema: bool = active_schemas.erase(schema.get_instance_id())
 	state["active_schemas"] = active_schemas
 
 
+## 检查 field 实例 ID 是否已存在于定义校验状态的活动 field 集合。
+## [br]
+## @api private
 func _is_field_active(state: Dictionary, field: GFSchemaField) -> bool:
 	if field == null:
 		return false
@@ -1018,18 +1177,27 @@ func _is_field_active(state: Dictionary, field: GFSchemaField) -> bool:
 	return active_fields.has(field.get_instance_id())
 
 
+## 将 field 实例 ID 加入定义校验的活动集合。
+## [br]
+## @api private
 func _push_active_field(state: Dictionary, field: GFSchemaField) -> void:
 	var active_fields: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(state, "active_fields", {}))
 	active_fields[field.get_instance_id()] = true
 	state["active_fields"] = active_fields
 
 
+## 从定义校验的活动 field 集合移除实例 ID。
+## [br]
+## @api private
 func _pop_active_field(state: Dictionary, field: GFSchemaField) -> void:
 	var active_fields: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(state, "active_fields", {}))
 	var _erased_field: bool = active_fields.erase(field.get_instance_id())
 	state["active_fields"] = active_fields
 
 
+## 报告 field schema 循环引用，并附带字段键、路径和 schema ID。
+## [br]
+## @api private
 func _add_definition_cycle_error(report: GFValidationReport, field: GFSchemaField, field_path: String) -> void:
 	var field_key: StringName = field.get_field_key() if field != null else &""
 	var _circular_field_issue: RefCounted = report.add_error(

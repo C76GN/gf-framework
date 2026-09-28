@@ -14,8 +14,19 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 生成 JSON-safe 诊断文本时使用的报告值编码器。
+## [br]
+## @api private
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+
+## 将 Variant key 转为稳定 token 时使用的 key 编码器。
+## [br]
+## @api private
 const _GF_VARIANT_KEY_CODEC_SCRIPT = preload("res://addons/gf/standard/foundation/variant/gf_variant_key_codec.gd")
+
+## 统计计数器允许达到的最大值。
+## [br]
+## @api private
 const _MAX_COUNTER_VALUE: int = 9223372036854775807
 
 
@@ -31,13 +42,44 @@ var cache_id: StringName = &""
 
 # --- 私有变量 ---
 
+## 缓存命中总数。
+## [br]
+## @api private
 var _hit_count: int = 0
+
+## 缓存未命中总数。
+## [br]
+## @api private
 var _miss_count: int = 0
+
+## 缓存写入总数。
+## [br]
+## @api private
 var _write_count: int = 0
+
+## 缓存淘汰总数。
+## [br]
+## @api private
 var _eviction_count: int = 0
+
+## 缓存失效总数。
+## [br]
+## @api private
 var _invalidation_count: int = 0
+
+## 按失效原因累计的计数。
+## [br]
+## @api private
 var _invalidation_reasons: Dictionary = {}
+
+## 最近一次记录的缓存事件。
+## [br]
+## @api private
 var _last_event: Dictionary = {}
+
+## 任一计数达到饱和值时置为 true，reset() 会清除此标志。
+## [br]
+## @api private
 var _counter_saturated: bool = false
 
 
@@ -180,6 +222,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按原因累计失效数量；空原因使用 invalidated 作为键。
+## [br]
+## @api private
 func _record_invalidation_reason(reason: StringName, amount: int = 1) -> void:
 	if amount <= 0:
 		return
@@ -190,6 +235,9 @@ func _record_invalidation_reason(reason: StringName, amount: int = 1) -> void:
 	)
 
 
+## 增加非负计数；达到上限时饱和并记录饱和标志。
+## [br]
+## @api private
 func _add_counter(current: int, amount: int) -> int:
 	if amount <= 0:
 		return current
@@ -199,6 +247,9 @@ func _add_counter(current: int, amount: int) -> int:
 	return current + amount
 
 
+## 创建包含类型、key 文本、数量和毫秒 tick 的事件字典。
+## [br]
+## @api private
 func _make_event(event_type: StringName, key: Variant, amount: int = 1) -> Dictionary:
 	return {
 		"type": event_type,
@@ -208,6 +259,9 @@ func _make_event(event_type: StringName, key: Variant, amount: int = 1) -> Dicti
 	}
 
 
+## 将 key 编码为诊断文本；null 为空，编码器无 token 时使用 JSON-safe 文本。
+## [br]
+## @api private
 func _make_key_text(key: Variant) -> String:
 	if key == null:
 		return ""

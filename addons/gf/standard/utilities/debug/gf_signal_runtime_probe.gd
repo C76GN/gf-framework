@@ -51,6 +51,10 @@ signal signal_watch_stopped(source_path: String, signal_name: StringName)
 ## @api public
 const DEFAULT_MAX_EVENTS: int = 256
 
+## 探针支持为信号生成回调的最大参数数量。
+## [br]
+## @api private
+## [br]
 const _MAX_SUPPORTED_ARGUMENT_COUNT: int = 16
 
 ## 默认单个信号最多追踪的参数数量。
@@ -96,6 +100,10 @@ const DEFAULT_MAX_SNAPSHOT_BYTES: int = 64 * 1024
 ## @since 8.0.0
 const DEFAULT_MAX_SNAPSHOT_DEPTH: int = 8
 
+## 用于按实例 ID 或弱引用安全解析仍有效 Node 的实例守卫脚本。
+## [br]
+## @api private
+## [br]
 const _INSTANCE_GUARD: Script = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
 
 
@@ -150,7 +158,16 @@ var max_snapshot_depth: int = DEFAULT_MAX_SNAPSHOT_DEPTH:
 
 # --- 私有变量 ---
 
+## 按来源实例和信号键保存当前监视记录及连接 Callable。
+## [br]
+## @api private
+## [br]
 var _watched: Dictionary = {}
+
+## 按时间顺序保存最近的信号发射快照。
+## [br]
+## @api private
+## [br]
 var _events: Array[Dictionary] = []
 
 
@@ -397,6 +414,10 @@ func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 为指定 Node 信号连接参数数目匹配的回调，并登记弱引用监视信息。
+## [br]
+## @api private
+## [br]
 func _watch_signal(source: Node, signal_name: StringName, argument_count: int, connect_flags: int) -> Error:
 	_prune_invalid_watches()
 	var key: String = _make_watch_key(source.get_instance_id(), signal_name)
@@ -426,6 +447,10 @@ func _watch_signal(source: Node, signal_name: StringName, argument_count: int, c
 	return OK
 
 
+## 在来源和回调仍有效且已连接时断开信号，并发出停止监视信号。
+## [br]
+## @api private
+## [br]
 func _disconnect_entry(entry: Dictionary) -> bool:
 	var source_ref: WeakRef = _get_dictionary_weak_ref(entry, "source_ref")
 	var source: Node = _get_live_node_from_ref(source_ref)
@@ -440,6 +465,10 @@ func _disconnect_entry(entry: Dictionary) -> bool:
 	return false
 
 
+## 构造包含时间、来源、参数快照及连接信息的事件，按容量保留并发出信号。
+## [br]
+## @api private
+## [br]
 func _record_signal(source_id: int, source_path: String, signal_name: StringName, arguments: Array) -> void:
 	var source: Node = _get_live_node_from_id(source_id)
 	var argument_snapshot: Dictionary = _snapshot_signal_arguments(arguments)
@@ -462,6 +491,10 @@ func _record_signal(source_id: int, source_path: String, signal_name: StringName
 	signal_emitted.emit(event.duplicate(true))
 
 
+## 逐个创建信号参数快照，并返回本次采样的节点数、字节数及截断预算信息。
+## [br]
+## @api private
+## [br]
 func _snapshot_signal_arguments(arguments: Array) -> Dictionary:
 	var state: Dictionary = {
 		"node_count": 0,
@@ -487,6 +520,10 @@ func _snapshot_signal_arguments(arguments: Array) -> Dictionary:
 	}
 
 
+## 按深度、节点、容器和字节上限递归快照参数，并为不支持的值生成安全表示。
+## [br]
+## @api private
+## [br]
 func _snapshot_signal_argument(value: Variant, depth: int, state: Dictionary) -> Variant:
 	if depth > max_snapshot_depth:
 		return _make_snapshot_truncation_marker(state, "max_depth")
@@ -536,6 +573,10 @@ func _snapshot_signal_argument(value: Variant, depth: int, state: Dictionary) ->
 	return GFVariantData.duplicate_variant(value, true, true)
 
 
+## 快照字典键；若键快照成为容器，则转换为文本键。
+## [br]
+## @api private
+## [br]
 func _snapshot_dictionary_key(value: Variant, depth: int, state: Dictionary) -> Variant:
 	var snapshot: Variant = _snapshot_signal_argument(value, depth, state)
 	if snapshot is Array or snapshot is Dictionary:
@@ -543,6 +584,10 @@ func _snapshot_dictionary_key(value: Variant, depth: int, state: Dictionary) -> 
 	return snapshot
 
 
+## 将对象转换为类名、实例 ID、文本及适用的资源或脚本路径信息。
+## [br]
+## @api private
+## [br]
 func _snapshot_object_argument(object_value: Object, state: Dictionary) -> Dictionary:
 	var result: Dictionary = {
 		"type": "Object",
@@ -561,6 +606,10 @@ func _snapshot_object_argument(object_value: Object, state: Dictionary) -> Dicti
 	return result
 
 
+## 读取 PackedArray 的有界样本，并保留原始元素数量和截断状态。
+## [br]
+## @api private
+## [br]
 func _snapshot_packed_array(value: Variant, depth: int, state: Dictionary) -> Dictionary:
 	var item_count: int = _get_packed_array_size(value)
 	var sample: Array = []
@@ -578,6 +627,10 @@ func _snapshot_packed_array(value: Variant, depth: int, state: Dictionary) -> Di
 	}
 
 
+## 在剩余 UTF-8 字节预算内保存文本；超限时截断并标记原因。
+## [br]
+## @api private
+## [br]
 func _snapshot_text(value: String, state: Dictionary) -> Variant:
 	var byte_count: int = value.to_utf8_buffer().size()
 	var remaining_bytes: int = maxi(max_snapshot_bytes - GFVariantData.get_option_int(state, "estimated_bytes"), 0)
@@ -594,6 +647,10 @@ func _snapshot_text(value: String, state: Dictionary) -> Variant:
 	}
 
 
+## 通过二分查找截取不超过 UTF-8 字节上限的文本前缀。
+## [br]
+## @api private
+## [br]
 func _truncate_text_to_utf8_bytes(value: String, byte_limit: int) -> String:
 	if byte_limit <= 0 or value.is_empty():
 		return ""
@@ -608,6 +665,10 @@ func _truncate_text_to_utf8_bytes(value: String, byte_limit: int) -> String:
 	return value.substr(0, low)
 
 
+## 检查字节预算并在可容纳时累计已估算用量。
+## [br]
+## @api private
+## [br]
 func _try_charge_snapshot_bytes(state: Dictionary, byte_count: int) -> bool:
 	var used_bytes: int = GFVariantData.get_option_int(state, "estimated_bytes")
 	if byte_count < 0 or used_bytes + byte_count > max_snapshot_bytes:
@@ -616,6 +677,10 @@ func _try_charge_snapshot_bytes(state: Dictionary, byte_count: int) -> bool:
 	return true
 
 
+## 构造包含截断原因和可选省略数量的快照标记。
+## [br]
+## @api private
+## [br]
 func _make_snapshot_truncation_marker(state: Dictionary, reason: String, omitted_count: int = 0) -> Dictionary:
 	var marker: Dictionary = {
 		"__gf_truncated__": true,
@@ -626,12 +691,20 @@ func _make_snapshot_truncation_marker(state: Dictionary, reason: String, omitted
 	return marker
 
 
+## 设置截断状态并递增被截断值计数，返回原因文本。
+## [br]
+## @api private
+## [br]
 func _mark_snapshot_truncated(state: Dictionary, reason: String) -> String:
 	state["truncated"] = true
 	state["truncated_value_count"] = GFVariantData.get_option_int(state, "truncated_value_count") + 1
 	return reason
 
 
+## 判断 Variant 是否属于本探针显式处理的 PackedArray 类型。
+## [br]
+## @api private
+## [br]
 func _variant_is_packed_array(value: Variant) -> bool:
 	return typeof(value) in [
 		TYPE_PACKED_BYTE_ARRAY,
@@ -647,6 +720,10 @@ func _variant_is_packed_array(value: Variant) -> bool:
 	]
 
 
+## 返回受支持 PackedArray 的元素数量；其他类型返回 0。
+## [br]
+## @api private
+## [br]
 func _get_packed_array_size(value: Variant) -> int:
 	match typeof(value):
 		TYPE_PACKED_BYTE_ARRAY:
@@ -683,6 +760,10 @@ func _get_packed_array_size(value: Variant) -> int:
 			return 0
 
 
+## 读取受支持 PackedArray 的指定元素；其他类型返回 null。
+## [br]
+## @api private
+## [br]
 func _get_packed_array_item(value: Variant, index: int) -> Variant:
 	match typeof(value):
 		TYPE_PACKED_BYTE_ARRAY:
@@ -719,6 +800,10 @@ func _get_packed_array_item(value: Variant, index: int) -> Variant:
 			return null
 
 
+## 列出信号当前连接的目标文本、方法名和连接标志。
+## [br]
+## @api private
+## [br]
 func _describe_signal_connections(source: Node, signal_name: StringName) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if source == null or signal_name == &"":
@@ -738,6 +823,10 @@ func _describe_signal_connections(source: Node, signal_name: StringName) -> Arra
 	return result
 
 
+## 生成当前监视项的来源路径、信号名和参数数量摘要。
+## [br]
+## @api private
+## [br]
 func _describe_watches() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry_variant: Variant in _watched.values():
@@ -752,12 +841,20 @@ func _describe_watches() -> Array[Dictionary]:
 	return result
 
 
+## 先按选项处理探针路径，再使用 GFReportValueCodec 转为 JSON 兼容字典。
+## [br]
+## @api private
+## [br]
 func _to_json_compatible_probe_dictionary(value: Dictionary, options: Dictionary) -> Dictionary:
 	var codec_options: Dictionary = options.duplicate(true)
 	var redacted_value: Variant = _redact_probe_paths(value, codec_options)
 	return GFVariantData.as_dictionary(GFReportValueCodec.to_json_compatible(redacted_value, codec_options))
 
 
+## 递归处理字典和数组，仅对已识别的路径字段应用路径脱敏。
+## [br]
+## @api private
+## [br]
 func _redact_probe_paths(value: Variant, options: Dictionary) -> Variant:
 	if value is Dictionary:
 		var source_dictionary: Dictionary = value
@@ -779,10 +876,18 @@ func _redact_probe_paths(value: Variant, options: Dictionary) -> Variant:
 	return value
 
 
+## 识别来源节点、来源、资源和脚本路径字段。
+## [br]
+## @api private
+## [br]
 func _is_probe_path_field(key: String) -> bool:
 	return key == "source_node_path" or key == "source_path" or key == "resource_path" or key == "script_path"
 
 
+## 按 none、basename 或 hash 选项保留、取文件名或哈希路径；其他值替换为占位文本。
+## [br]
+## @api private
+## [br]
 func _redact_probe_path(path: String, options: Dictionary) -> String:
 	var path_redaction: String = GFVariantData.get_option_string(options, "path_redaction", "redact")
 	if path_redaction == "none":
@@ -797,6 +902,10 @@ func _redact_probe_path(path: String, options: Dictionary) -> String:
 	return "<redacted_path>"
 
 
+## 按信号参数数量选择对应的固定签名处理函数；超出支持范围时返回空 Callable。
+## [br]
+## @api private
+## [br]
 func _make_emit_callable(argument_count: int) -> Callable:
 	match argument_count:
 		0:
@@ -837,11 +946,19 @@ func _make_emit_callable(argument_count: int) -> Callable:
 			return Callable()
 
 
+## 从信号元数据的 args 数组取得参数数量。
+## [br]
+## @api private
+## [br]
 func _get_signal_argument_count(signal_info: Dictionary) -> int:
 	var arguments: Array = GFVariantData.get_option_array(signal_info, "args")
 	return arguments.size()
 
 
+## 收集节点及可选子树，在递归扫描中遵守节点数和深度上限并记录达到的限制。
+## [br]
+## @api private
+## [br]
 func _collect_nodes(
 	root: Node,
 	result: Array[Node],
@@ -873,10 +990,18 @@ func _collect_nodes(
 		_collect_nodes(child, result, recursive, include_internal_nodes, depth + 1, max_node_depth, max_nodes, scan_state)
 
 
+## 判断是否还可收集节点；非正数上限表示不设节点数限制。
+## [br]
+## @api private
+## [br]
 func _can_collect_more_nodes(result: Array[Node], max_nodes: int) -> bool:
 	return max_nodes <= 0 or result.size() < max_nodes
 
 
+## 创建用于记录节点和深度扫描上限状态的初始字典。
+## [br]
+## @api private
+## [br]
 func _make_tree_scan_state() -> Dictionary:
 	return {
 		"depth_limit_reached": false,
@@ -884,6 +1009,10 @@ func _make_tree_scan_state() -> Dictionary:
 	}
 
 
+## 将已达到的节点数或深度上限转换为错误代码文本。
+## [br]
+## @api private
+## [br]
 func _get_tree_scan_errors(scan_state: Dictionary, max_node_depth: int, max_nodes: int) -> Array[String]:
 	var errors: Array[String] = []
 	if GFVariantData.get_option_bool(scan_state, "depth_limit_reached"):
@@ -893,6 +1022,10 @@ func _get_tree_scan_errors(scan_state: Dictionary, max_node_depth: int, max_node
 	return errors
 
 
+## 移除来源、Callable 或信号连接已失效的监视项，并发出停止监视信号。
+## [br]
+## @api private
+## [br]
 func _prune_invalid_watches() -> void:
 	for key: String in _watched.keys().duplicate():
 		var entry: Dictionary = _get_watch_entry(key)
@@ -915,10 +1048,18 @@ func _prune_invalid_watches() -> void:
 		)
 
 
+## 从监视表读取指定键的字典记录。
+## [br]
+## @api private
+## [br]
 func _get_watch_entry(key: String) -> Dictionary:
 	return GFVariantData.get_option_dictionary(_watched, key)
 
 
+## 通过实例守卫从弱引用解析仍有效的 Node。
+## [br]
+## @api private
+## [br]
 func _get_live_node_from_ref(source_ref: WeakRef) -> Node:
 	var result: Variant = _INSTANCE_GUARD.call("_get_live_node_from_ref", source_ref)
 	if result is Node:
@@ -927,14 +1068,26 @@ func _get_live_node_from_ref(source_ref: WeakRef) -> Node:
 	return null
 
 
+## 读取字典字段并将值转换为 WeakRef；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 static func _get_dictionary_weak_ref(source: Dictionary, key: Variant) -> WeakRef:
 	return _variant_to_weak_ref(GFVariantData.get_option_value(source, key))
 
 
+## 读取字典字段并将值转换为 Callable；类型不符时返回空 Callable。
+## [br]
+## @api private
+## [br]
 static func _get_dictionary_callable(source: Dictionary, key: Variant) -> Callable:
 	return _variant_to_callable(GFVariantData.get_option_value(source, key, Callable()))
 
 
+## 将 Variant 转换为 WeakRef；值不是 WeakRef 时返回 null。
+## [br]
+## @api private
+## [br]
 static func _variant_to_weak_ref(value: Variant) -> WeakRef:
 	if value is WeakRef:
 		var source_ref: WeakRef = value
@@ -942,6 +1095,10 @@ static func _variant_to_weak_ref(value: Variant) -> WeakRef:
 	return null
 
 
+## 将 Variant 转换为 Callable；值不是 Callable 时返回空 Callable。
+## [br]
+## @api private
+## [br]
 static func _variant_to_callable(value: Variant) -> Callable:
 	if value is Callable:
 		var callback: Callable = value
@@ -949,6 +1106,10 @@ static func _variant_to_callable(value: Variant) -> Callable:
 	return Callable()
 
 
+## 在节点位于场景树时返回其完整路径，否则返回节点名称；空节点返回空文本。
+## [br]
+## @api private
+## [br]
 func _get_node_path_text(node: Node) -> String:
 	if node == null:
 		return ""
@@ -957,6 +1118,10 @@ func _get_node_path_text(node: Node) -> String:
 	return node.name
 
 
+## 通过实例守卫按实例 ID 解析仍有效的 Node。
+## [br]
+## @api private
+## [br]
 func _get_live_node_from_id(instance_id: int) -> Node:
 	var result: Variant = _INSTANCE_GUARD.call("_get_live_node_from_id", instance_id)
 	if result is Node:
@@ -965,10 +1130,18 @@ func _get_live_node_from_id(instance_id: int) -> Node:
 	return null
 
 
+## 组合来源实例 ID 和信号名，生成监视表键。
+## [br]
+## @api private
+## [br]
 func _make_watch_key(source_id: int, signal_name: StringName) -> String:
 	return "%d:%s" % [source_id, String(signal_name)]
 
 
+## 构造包含成功标志、监视数量、跳过数量和错误副本的报告。
+## [br]
+## @api private
+## [br]
 func _make_report(ok: bool, watched_count: int, skipped_count: int, errors: Array[String]) -> Dictionary:
 	return {
 		"ok": ok,
@@ -980,14 +1153,26 @@ func _make_report(ok: bool, watched_count: int, skipped_count: int, errors: Arra
 
 # --- 信号处理函数 ---
 
+## 接收无参数信号并将空参数数组交给事件记录流程。
+## [br]
+## @api private
+## [br]
 func _on_signal_emitted_0(source_id: int, source_path: String, signal_name: StringName) -> void:
 	_record_signal(source_id, source_path, signal_name, [])
 
 
+## 接收 1 个信号参数，按发射顺序封装后交给事件记录流程。
+## [br]
+## @api private
+## [br]
 func _on_signal_emitted_1(arg0: Variant, source_id: int, source_path: String, signal_name: StringName) -> void:
 	_record_signal(source_id, source_path, signal_name, [arg0])
 
 
+## 接收 2 个信号参数，按发射顺序封装后交给事件记录流程。
+## [br]
+## @api private
+## [br]
 func _on_signal_emitted_2(
 	arg0: Variant,
 	arg1: Variant,
@@ -998,6 +1183,10 @@ func _on_signal_emitted_2(
 	_record_signal(source_id, source_path, signal_name, [arg0, arg1])
 
 
+## 接收 3 个信号参数，按发射顺序封装后交给事件记录流程。
+## [br]
+## @api private
+## [br]
 func _on_signal_emitted_3(
 	arg0: Variant,
 	arg1: Variant,
@@ -1009,6 +1198,10 @@ func _on_signal_emitted_3(
 	_record_signal(source_id, source_path, signal_name, [arg0, arg1, arg2])
 
 
+## 接收 4 个信号参数，按发射顺序封装后交给事件记录流程。
+## [br]
+## @api private
+## [br]
 func _on_signal_emitted_4(
 	arg0: Variant,
 	arg1: Variant,
@@ -1021,6 +1214,10 @@ func _on_signal_emitted_4(
 	_record_signal(source_id, source_path, signal_name, [arg0, arg1, arg2, arg3])
 
 
+## 接收 5 个信号参数，按发射顺序封装后交给事件记录流程。
+## [br]
+## @api private
+## [br]
 func _on_signal_emitted_5(
 	arg0: Variant,
 	arg1: Variant,
@@ -1034,6 +1231,10 @@ func _on_signal_emitted_5(
 	_record_signal(source_id, source_path, signal_name, [arg0, arg1, arg2, arg3, arg4])
 
 
+## 接收 6 个信号参数，按发射顺序封装后交给事件记录流程。
+## [br]
+## @api private
+## [br]
 func _on_signal_emitted_6(
 	arg0: Variant,
 	arg1: Variant,
@@ -1048,6 +1249,10 @@ func _on_signal_emitted_6(
 	_record_signal(source_id, source_path, signal_name, [arg0, arg1, arg2, arg3, arg4, arg5])
 
 
+## 接收 7 个信号参数，按发射顺序封装后交给事件记录流程。
+## [br]
+## @api private
+## [br]
 func _on_signal_emitted_7(
 	arg0: Variant,
 	arg1: Variant,
@@ -1063,6 +1268,10 @@ func _on_signal_emitted_7(
 	_record_signal(source_id, source_path, signal_name, [arg0, arg1, arg2, arg3, arg4, arg5, arg6])
 
 
+## 接收 8 个信号参数，按发射顺序封装后交给事件记录流程。
+## [br]
+## @api private
+## [br]
 func _on_signal_emitted_8(
 	arg0: Variant,
 	arg1: Variant,
@@ -1079,6 +1288,10 @@ func _on_signal_emitted_8(
 	_record_signal(source_id, source_path, signal_name, [arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7])
 
 
+## 接收 9 个信号参数，按发射顺序封装后交给事件记录流程。
+## [br]
+## @api private
+## [br]
 func _on_signal_emitted_9(
 	arg0: Variant,
 	arg1: Variant,
@@ -1096,6 +1309,10 @@ func _on_signal_emitted_9(
 	_record_signal(source_id, source_path, signal_name, [arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8])
 
 
+## 接收 10 个信号参数，按发射顺序封装后交给事件记录流程。
+## [br]
+## @api private
+## [br]
 func _on_signal_emitted_10(
 	arg0: Variant,
 	arg1: Variant,
@@ -1116,6 +1333,10 @@ func _on_signal_emitted_10(
 	])
 
 
+## 接收 11 个信号参数，按发射顺序封装后交给事件记录流程。
+## [br]
+## @api private
+## [br]
 func _on_signal_emitted_11(
 	arg0: Variant,
 	arg1: Variant,
@@ -1137,6 +1358,10 @@ func _on_signal_emitted_11(
 	])
 
 
+## 接收 12 个信号参数，按发射顺序封装后交给事件记录流程。
+## [br]
+## @api private
+## [br]
 func _on_signal_emitted_12(
 	arg0: Variant,
 	arg1: Variant,
@@ -1159,6 +1384,10 @@ func _on_signal_emitted_12(
 	])
 
 
+## 接收 13 个信号参数，按发射顺序封装后交给事件记录流程。
+## [br]
+## @api private
+## [br]
 func _on_signal_emitted_13(
 	arg0: Variant,
 	arg1: Variant,
@@ -1182,6 +1411,10 @@ func _on_signal_emitted_13(
 	])
 
 
+## 接收 14 个信号参数，按发射顺序封装后交给事件记录流程。
+## [br]
+## @api private
+## [br]
 func _on_signal_emitted_14(
 	arg0: Variant,
 	arg1: Variant,
@@ -1206,6 +1439,10 @@ func _on_signal_emitted_14(
 	])
 
 
+## 接收 15 个信号参数，按发射顺序封装后交给事件记录流程。
+## [br]
+## @api private
+## [br]
 func _on_signal_emitted_15(
 	arg0: Variant,
 	arg1: Variant,
@@ -1232,6 +1469,10 @@ func _on_signal_emitted_15(
 	])
 
 
+## 接收 16 个信号参数，按发射顺序封装后交给事件记录流程。
+## [br]
+## @api private
+## [br]
 func _on_signal_emitted_16(
 	arg0: Variant,
 	arg1: Variant,

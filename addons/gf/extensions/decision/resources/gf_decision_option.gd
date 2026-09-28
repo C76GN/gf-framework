@@ -33,6 +33,9 @@ enum Aggregation {
 
 # --- 常量 ---
 
+## 提供分数、权重归一化和加法贡献限幅。
+## [br]
+## @api private
 const _GF_DECISION_NUMERIC_POLICY = preload("res://addons/gf/extensions/decision/runtime/gf_decision_numeric_policy.gd")
 
 
@@ -228,6 +231,11 @@ func get_validation_report() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按数组快照评分，跳过空项、禁用项、空 ID 和本轮重复 ID。
+## [br]
+## 每项记录归一化分数、权重及加权分数供聚合阶段使用。
+## [br]
+## @api private
 func _score_considerations(context: GFDecisionContext) -> Array[Dictionary]:
 	var details: Array[Dictionary] = []
 	var seen_considerations: Dictionary = {}
@@ -251,6 +259,9 @@ func _score_considerations(context: GFDecisionContext) -> Array[Dictionary]:
 	return details
 
 
+## 根据 aggregation 选择聚合器；没有有效考虑项时返回归一化 base_score。
+## [br]
+## @api private
 func _aggregate_scores(details: Array[Dictionary]) -> float:
 	if details.is_empty():
 		return _normalized_score(base_score)
@@ -268,6 +279,9 @@ func _aggregate_scores(details: Array[Dictionary]) -> float:
 			return _aggregate_multiply(details)
 
 
+## 从 base_score 开始，依次乘入各项 weighted_score 并逐步归一化。
+## [br]
+## @api private
 func _aggregate_multiply(details: Array[Dictionary]) -> float:
 	var result: float = _normalized_score(base_score)
 	for detail: Dictionary in details:
@@ -275,6 +289,9 @@ func _aggregate_multiply(details: Array[Dictionary]) -> float:
 	return result
 
 
+## 以权重最大值缩放后计算加权均值，再乘 base_score；无有效权重时回退到 base。
+## [br]
+## @api private
 func _aggregate_weighted_average(details: Array[Dictionary]) -> float:
 	var maximum_weight: float = 0.0
 	for detail: Dictionary in details:
@@ -301,6 +318,9 @@ func _aggregate_weighted_average(details: Array[Dictionary]) -> float:
 	return _normalized_score(_normalized_score(base_score) * (normalized_total / normalized_weight_total))
 
 
+## 将每项的限幅贡献累加到 base_score，并在每步归一化结果。
+## [br]
+## @api private
 func _aggregate_sum(details: Array[Dictionary]) -> float:
 	var result: float = _normalized_score(base_score)
 	for detail: Dictionary in details:
@@ -311,6 +331,9 @@ func _aggregate_sum(details: Array[Dictionary]) -> float:
 	return result
 
 
+## 取考虑项原始分数的最小值，再与归一化 base_score 相乘。
+## [br]
+## @api private
 func _aggregate_min(details: Array[Dictionary]) -> float:
 	var result: float = 1.0
 	for detail: Dictionary in details:
@@ -318,6 +341,9 @@ func _aggregate_min(details: Array[Dictionary]) -> float:
 	return _normalized_score(_normalized_score(base_score) * result)
 
 
+## 取考虑项原始分数的最大值，再与归一化 base_score 相乘。
+## [br]
+## @api private
 func _aggregate_max(details: Array[Dictionary]) -> float:
 	var result: float = 0.0
 	for detail: Dictionary in details:
@@ -325,6 +351,9 @@ func _aggregate_max(details: Array[Dictionary]) -> float:
 	return _normalized_score(_normalized_score(base_score) * result)
 
 
+## 将分数提升到归一化权重次方；非正权重按中性值 1.0 处理。
+## [br]
+## @api private
 func _apply_weight(raw_score: float, raw_weight: float) -> float:
 	var normalized_score: float = _normalized_score(raw_score)
 	var normalized_weight: float = _GF_DECISION_NUMERIC_POLICY.normalize_weight(raw_weight)
@@ -333,10 +362,16 @@ func _apply_weight(raw_score: float, raw_weight: float) -> float:
 	return _normalized_score(pow(normalized_score, normalized_weight))
 
 
+## 把候选分数归一化交给共享数值策略。
+## [br]
+## @api private
 func _normalized_score(value: float) -> float:
 	return _GF_DECISION_NUMERIC_POLICY.normalize_score(value)
 
 
+## 合并考虑项校验问题，并将子项路径前缀为 considerations[index]。
+## [br]
+## @api private
 func _append_consideration_validation_issues(
 	report: Dictionary,
 	consideration: GFDecisionConsideration,
@@ -363,6 +398,9 @@ func _append_consideration_validation_issues(
 		)
 
 
+## 以 decision_id 和字段路径为上下文追加一条候选配置错误。
+## [br]
+## @api private
 func _append_validation_issue(
 	report: Dictionary,
 	kind: StringName,

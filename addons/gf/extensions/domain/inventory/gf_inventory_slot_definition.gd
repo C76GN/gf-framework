@@ -178,6 +178,9 @@ static func from_dict(data: Dictionary) -> GFInventorySlotDefinition:
 
 # --- 私有/辅助方法 ---
 
+## 按分类列表及 require_all_categories 规则匹配物品定义。
+## [br]
+## @api private
 func _matches_categories(definition: GFInventoryItemDefinition) -> bool:
 	if accepted_categories.is_empty():
 		return true
@@ -192,6 +195,9 @@ func _matches_categories(definition: GFInventoryItemDefinition) -> bool:
 	return false
 
 
+## 将 StringName 数组逐项转换为 PackedStringArray。
+## [br]
+## @api private
 static func _string_name_array_to_packed_string_array(values: Array[StringName]) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for value: StringName in values:

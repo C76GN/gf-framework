@@ -335,6 +335,10 @@ static func from_dict(data: Dictionary) -> GFNetworkLobbyDescriptor:
 
 # --- 私有/辅助方法 ---
 
+## 复制成员对象或将成员字典转换为类型化成员列表。
+## [br]
+## @api private
+## [br]
 static func _copy_members_from_array(source_members: Array) -> Array[GFNetworkLobbyMember]:
 	var result: Array[GFNetworkLobbyMember] = []
 	for member_value: Variant in source_members:
@@ -347,6 +351,10 @@ static func _copy_members_from_array(source_members: Array) -> Array[GFNetworkLo
 	return result
 
 
+## 裁剪字符串、移除空项和重复项并排序返回。
+## [br]
+## @api private
+## [br]
 static func _normalize_string_set(items: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for item: String in items:

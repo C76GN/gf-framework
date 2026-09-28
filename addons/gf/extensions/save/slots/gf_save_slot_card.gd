@@ -181,6 +181,10 @@ static func from_slot_summary(
 # --- 私有/辅助方法 ---
 
 
+## 优先读取显式槽位索引，再从摘要、元数据或兜底 ID 中解析索引。
+## [br]
+## @api private
+## [br]
 func _get_summary_slot_index(
 	summary: Dictionary,
 	summary_metadata: Dictionary,
@@ -201,6 +205,10 @@ func _get_summary_slot_index(
 	return slot_index
 
 
+## 将数值、整数文本或文本尾部连续数字解析为索引，无法识别时返回 -1。
+## [br]
+## @api private
+## [br]
 func _parse_slot_index(value: Variant) -> int:
 	if value == null:
 		return -1

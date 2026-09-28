@@ -14,11 +14,40 @@ extends Resource
 
 # --- 常量 ---
 
+## build_headers() 接受的自定义 Header 数量上限。
+## [br]
+## @api private
+## [br]
 const _MAX_CUSTOM_HEADER_COUNT: int = 64
+
+## build_headers() 最多扫描的自定义 Header 候选项数量。
+## [br]
+## @api private
+## [br]
 const _MAX_HEADER_CANDIDATE_COUNT: int = 256
+
+## Header 名称允许的最大 UTF-8 字节数。
+## [br]
+## @api private
+## [br]
 const _MAX_HEADER_NAME_BYTES: int = 256
+
+## Header 值允许的最大 UTF-8 字节数。
+## [br]
+## @api private
+## [br]
 const _MAX_HEADER_VALUE_BYTES: int = 8192
+
+## build_headers() 返回的全部 Header 行允许占用的总字节数。
+## [br]
+## @api private
+## [br]
 const _MAX_TOTAL_HEADER_BYTES: int = 64 * 1024
+
+## HTTP token 名称允许的 ASCII 标点字符集合。
+## [br]
+## @api private
+## [br]
 const _HTTP_TOKEN_PUNCTUATION: String = "!#$%&'*+-.^_`|~"
 
 
@@ -212,10 +241,18 @@ func build_headers() -> PackedStringArray:
 
 # --- 私有/辅助方法 ---
 
+## 同时检查 Header 名称的 token 格式和 Header 值的长度及控制字符。
+## [br]
+## @api private
+## [br]
 func _is_valid_header(header_name: String, header_value: String) -> bool:
 	return _is_valid_header_name(header_name) and _is_valid_header_value(header_value)
 
 
+## 检查名称非空、UTF-8 长度不超限，且每个字符均符合 HTTP token 规则。
+## [br]
+## @api private
+## [br]
 func _is_valid_header_name(header_name: String) -> bool:
 	if (
 		header_name.is_empty()
@@ -228,6 +265,10 @@ func _is_valid_header_name(header_name: String) -> bool:
 	return true
 
 
+## 检查值的 UTF-8 长度，并拒绝首尾空格/Tab、非 Tab 控制字符和 DEL。
+## [br]
+## @api private
+## [br]
 func _is_valid_header_value(header_value: String) -> bool:
 	if header_value.to_utf8_buffer().size() > _MAX_HEADER_VALUE_BYTES:
 		return false
@@ -245,6 +286,10 @@ func _is_valid_header_value(header_value: String) -> bool:
 	return true
 
 
+## 判断码点是否为 ASCII 字母数字或 HTTP token 标点集合中的可见字符。
+## [br]
+## @api private
+## [br]
 func _is_http_token_codepoint(codepoint: int) -> bool:
 	if (
 		(codepoint >= 0x30 and codepoint <= 0x39)
@@ -257,10 +302,18 @@ func _is_http_token_codepoint(codepoint: int) -> bool:
 	return _HTTP_TOKEN_PUNCTUATION.contains(String.chr(codepoint))
 
 
+## 以小写形式比较两个 Header 名称，执行大小写不敏感匹配。
+## [br]
+## @api private
+## [br]
 func _is_same_header_name(header_name: String, expected_name: String) -> bool:
 	return header_name.to_lower() == expected_name.to_lower()
 
 
+## 将 CR/LF 和其他控制码点转义，避免原始控制字符进入 Header 相关日志。
+## [br]
+## @api private
+## [br]
 func _escape_header_for_log(header_name: String) -> String:
 	var escaped: String = ""
 	for index: int in range(header_name.length()):

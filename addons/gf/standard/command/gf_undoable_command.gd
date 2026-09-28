@@ -16,8 +16,19 @@ extends GFCommand
 
 # --- 常量 ---
 
+## 快照容器递归校验允许的最大深度；超过此值的值会被拒绝。
+## [br]
+## @api private
 const _MAX_SNAPSHOT_DEPTH: int = 128
+
+## 单次快照校验允许访问的最大 Variant 项数，容器中的键和值也分别计数。
+## [br]
+## @api private
 const _MAX_SNAPSHOT_ITEMS: int = 100_000
+
+## 每个参与校验的 Variant 项在快照成本预算中计入的固定字节数。
+## [br]
+## @api private
 const _SNAPSHOT_ITEM_OVERHEAD_BYTES: int = 64
 
 ## 单个命令快照允许的最大保守内存成本估算，单位字节。
@@ -42,7 +53,9 @@ var action_name: String = ""
 
 # --- 私有变量 ---
 
-# 执行前保存的状态快照，用于 undo() 时还原。
+## 由 set_snapshot() 接受并保存的命令状态数据，供 get_snapshot() 在 undo() 时读取。
+## [br]
+## @api private
 var _snapshot: Variant = null
 
 
@@ -157,6 +170,9 @@ func get_snapshot() -> Variant:
 
 # --- 私有/辅助方法 ---
 
+## 递归检查快照值的类型、深度、访问项数和估算成本是否都在限制内。
+## [br]
+## @api private
 func _is_snapshot_value_supported(value: Variant, depth: int, state: Dictionary) -> bool:
 	if depth > _MAX_SNAPSHOT_DEPTH:
 		return false
@@ -225,10 +241,16 @@ func _is_snapshot_value_supported(value: Variant, depth: int, state: Dictionary)
 	return true
 
 
+## 按快照估算规则将字符串长度换算为字节成本并计入共享预算。
+## [br]
+## @api private
 func _consume_snapshot_text(state: Dictionary, value: String) -> bool:
 	return _consume_snapshot_units(state, value.length(), 4)
 
 
+## 检查指定数量的单位能否在剩余字节预算内计费；成功时更新 state 中的累计值。
+## [br]
+## @api private
 func _consume_snapshot_units(
 	state: Dictionary,
 	unit_count: int,
@@ -245,5 +267,8 @@ func _consume_snapshot_units(
 	return true
 
 
+## 将字节数按每单位 1 字节计入快照预算。
+## [br]
+## @api private
 func _consume_snapshot_bytes(state: Dictionary, byte_count: int) -> bool:
 	return _consume_snapshot_units(state, byte_count, 1)

@@ -11,20 +11,79 @@ extends VBoxContainer
 
 # --- 私有变量 ---
 
+## 当前绑定的 Tween 配置资源。
+## [br]
+## @api private
 var _config: Resource = null
+
+## 执行配置预览的子视口。
+## [br]
+## @api private
 var _viewport: GFTweenPreviewViewport = null
+
+## 选择预览目标类型的选项控件。
+## [br]
+## @api private
 var _target_kind: OptionButton = null
+
+## 启动或继续预览的按钮。
+## [br]
+## @api private
 var _play_button: Button = null
+
+## 暂停预览的按钮。
+## [br]
+## @api private
 var _pause_button: Button = null
+
+## 显示预览播放状态或错误的标签。
+## [br]
+## @api private
 var _status_label: Label = null
+
+## 显示当前预览属性值的标签。
+## [br]
+## @api private
 var _values_label: Label = null
+
+## 容纳时间滑块和定位输入控件的容器。
+## [br]
+## @api private
 var _time_controls: VBoxContainer = null
+
+## 控制预览时间位置的滑块。
+## [br]
+## @api private
 var _time_slider: HSlider = null
+
+## 输入预览时间位置的数值控件。
+## [br]
+## @api private
 var _time_input: SpinBox = null
+
+## 将输入的时间位置应用到预览的按钮。
+## [br]
+## @api private
 var _inspect_button: Button = null
+
+## 显示当前时间和预览时长的标签。
+## [br]
+## @api private
 var _time_label: Label = null
+
+## 容纳样机初始属性编辑器的容器。
+## [br]
+## @api private
 var _initial_fields: VBoxContainer = null
+
+## 指示预览面板是否已停止处理和释放预览。
+## [br]
+## @api private
 var _disposed: bool = false
+
+## 上一帧记录的单调时钟微秒值，用于计算帧间隔。
+## [br]
+## @api private
 var _last_tick_usec: int = 0
 
 
@@ -85,6 +144,9 @@ func dispose_preview() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 创建预览面板的目标选择、视口、时间控件和状态展示。
+## [br]
+## @api private
 func _build_controls() -> void:
 	name = "TweenPreviewPanel"
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -149,6 +211,9 @@ func _build_controls() -> void:
 	add_child(hint)
 
 
+## 创建并连接一个按钮，然后添加到指定容器。
+## [br]
+## @api private
 func _add_button(parent: HBoxContainer, node_name: String, text: String, callback: Callable) -> Button:
 	var button: Button = Button.new()
 	button.name = node_name
@@ -159,6 +224,9 @@ func _add_button(parent: HBoxContainer, node_name: String, text: String, callbac
 	return button
 
 
+## 退役旧时间控件并根据当前会话重建时间轴控件。
+## [br]
+## @api private
 func _rebuild_time_controls() -> void:
 	if _disposed or _time_controls == null:
 		return
@@ -204,6 +272,9 @@ func _rebuild_time_controls() -> void:
 	var _input_connected: int = _time_input.value_changed.connect(_on_time_changed.bind(_time_input))
 
 
+## 根据视口会话同步时间范围、当前位置和控件可编辑状态。
+## [br]
+## @api private
 func _refresh_time_controls() -> void:
 	if _time_slider == null or _time_input == null:
 		return
@@ -225,6 +296,9 @@ func _refresh_time_controls() -> void:
 	_time_label.text = "/ %.3f s" % duration_seconds if has_session else "先播放以捕获时间轴"
 
 
+## 根据视口的初始属性值重建编辑字段。
+## [br]
+## @api private
 func _rebuild_initial_fields() -> void:
 	for child: Node in _initial_fields.get_children():
 		child.name = "RetiredInitialValue"
@@ -243,6 +317,9 @@ func _rebuild_initial_fields() -> void:
 		_initial_fields.add_child(field)
 
 
+## 按视口状态更新按钮和状态标签，并刷新属性值展示。
+## [br]
+## @api private
 func _refresh_state() -> void:
 	if _status_label == null or _disposed:
 		return
@@ -264,6 +341,9 @@ func _refresh_state() -> void:
 	_refresh_values()
 
 
+## 将当前属性值写入展示标签，并同步时间控件。
+## [br]
+## @api private
 func _refresh_values() -> void:
 	if _values_label == null:
 		return
@@ -277,6 +357,9 @@ func _refresh_values() -> void:
 
 # --- 信号处理函数 ---
 
+## 播放或继续预览，并在捕获新会话后更新时间控件。
+## [br]
+## @api private
 func _on_play_pressed() -> void:
 	if not _disposed:
 		var captures_new_session: bool = _viewport.get_state() != &"paused"
@@ -286,22 +369,34 @@ func _on_play_pressed() -> void:
 			_rebuild_time_controls()
 
 
+## 暂停当前预览会话。
+## [br]
+## @api private
 func _on_pause_pressed() -> void:
 	if not _disposed:
 		_viewport.pause()
 
 
+## 停止当前预览会话并保留当前画面。
+## [br]
+## @api private
 func _on_stop_pressed() -> void:
 	if not _disposed:
 		_viewport.stop()
 
 
+## 重置预览并刷新时间控件。
+## [br]
+## @api private
 func _on_reset_pressed() -> void:
 	if not _disposed:
 		_viewport.reset_preview()
 		_rebuild_time_controls()
 
 
+## 重新配置目标类型对应的预览，并刷新初值和状态控件。
+## [br]
+## @api private
 func _on_target_kind_selected(index: int) -> void:
 	if _disposed:
 		return
@@ -311,11 +406,17 @@ func _on_target_kind_selected(index: int) -> void:
 	_refresh_state()
 
 
+## 按切换状态显示或隐藏初始属性编辑器。
+## [br]
+## @api private
 func _on_initial_values_toggled(pressed: bool) -> void:
 	if not _disposed:
 		_initial_fields.visible = pressed
 
 
+## 更新样机初始属性；值无效时将字段恢复为当前初值。
+## [br]
+## @api private
 func _on_initial_value_changed(value: Variant, property_name: StringName, field: GFEditorValueField) -> void:
 	if (
 		_disposed or not is_instance_valid(field) or field.is_queued_for_deletion()
@@ -328,6 +429,9 @@ func _on_initial_value_changed(value: Variant, property_name: StringName, field:
 	_refresh_state()
 
 
+## 将有效时间控件提交的位置应用为视口预览时间。
+## [br]
+## @api private
 func _on_time_changed(time_seconds: float, source: Range) -> void:
 	if (
 		_disposed or not is_visible_in_tree() or not is_instance_valid(source)
@@ -339,11 +443,17 @@ func _on_time_changed(time_seconds: float, source: Range) -> void:
 	_refresh_state()
 
 
+## 将定位输入控件的当前数值交给时间变更处理函数。
+## [br]
+## @api private
 func _on_inspect_time_pressed(source: SpinBox) -> void:
 	if is_instance_valid(source):
 		_on_time_changed(source.value, source)
 
 
+## 面板隐藏时重置预览并重建时间控件状态。
+## [br]
+## @api private
 func _on_visibility_changed() -> void:
 	if not _disposed and _viewport != null and not is_visible_in_tree():
 		_viewport.reset_preview()

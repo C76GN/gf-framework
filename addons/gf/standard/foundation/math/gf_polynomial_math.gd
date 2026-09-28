@@ -206,6 +206,10 @@ static func real_roots(
 
 # --- 私有/辅助方法 ---
 
+## 递归求导函数临界点，以其划分区间并用容差识别驻点根、用二分处理变号区间。
+## [br]
+## @api private
+## [br]
 static func _solve_roots_in_range(
 	coefficients: PackedFloat64Array,
 	min_x: float,
@@ -264,6 +268,10 @@ static func _solve_roots_in_range(
 	return _unique_sorted_roots(roots, merge_epsilon)
 
 
+## 直接求解一次多项式，并仅收录给定闭区间及容差范围内的根。
+## [br]
+## @api private
+## [br]
 static func _solve_linear_in_range(
 	coefficients: PackedFloat64Array,
 	min_x: float,
@@ -280,6 +288,10 @@ static func _solve_linear_in_range(
 	return result
 
 
+## 用判别式求解二次式；近零二次项退化为一次式，实根按容差收录。
+## [br]
+## @api private
+## [br]
 static func _solve_quadratic_in_range(
 	coefficients: PackedFloat64Array,
 	min_x: float,
@@ -307,6 +319,10 @@ static func _solve_quadratic_in_range(
 	return _unique_sorted_roots(result, epsilon)
 
 
+## 在已有异号端点间执行有界二分，并按函数残差或区间宽度提前结束。
+## [br]
+## @api private
+## [br]
 static func _bisect_root(
 	coefficients: PackedFloat64Array,
 	left: float,
@@ -338,6 +354,10 @@ static func _bisect_root(
 	return max_value
 
 
+## 将区间两端和范围内的导数根合并排序，形成后续根搜索的分段点。
+## [br]
+## @api private
+## [br]
 static func _make_interval_points(
 	min_x: float,
 	max_x: float,
@@ -351,6 +371,10 @@ static func _make_interval_points(
 	return _unique_sorted_roots(points, merge_epsilon)
 
 
+## 忽略非有限或超出容差范围的根，并将可接纳根夹到区间端点内追加。
+## [br]
+## @api private
+## [br]
 static func _append_root_if_in_range(
 	roots: PackedFloat64Array,
 	root: float,
@@ -365,6 +389,10 @@ static func _append_root_if_in_range(
 	var _root_appended: bool = roots.append(clampf(root, min_x, max_x))
 
 
+## 丢弃非有限项、排序候选根，并把间距不超过阈值的相邻项平均合并。
+## [br]
+## @api private
+## [br]
 static func _unique_sorted_roots(roots: PackedFloat64Array, merge_epsilon: float) -> PackedFloat64Array:
 	var sorted_roots: Array[float] = []
 	for root: float in roots:
@@ -387,6 +415,10 @@ static func _unique_sorted_roots(roots: PackedFloat64Array, merge_epsilon: float
 	return result
 
 
+## 以最高次系数为分母估计搜索半径，返回至少为 1 的系数比界限。
+## [br]
+## @api private
+## [br]
 static func _estimate_root_bound(coefficients: PackedFloat64Array) -> float:
 	if coefficients.size() <= 1:
 		return 1.0
@@ -401,16 +433,28 @@ static func _estimate_root_bound(coefficients: PackedFloat64Array) -> float:
 	return maxf(1.0, 1.0 + max_ratio)
 
 
+## 判断两个非零函数值是否异号。
+## [br]
+## @api private
+## [br]
 static func _has_sign_change(left_value: float, right_value: float) -> bool:
 	return (left_value < 0.0 and right_value > 0.0) or (left_value > 0.0 and right_value < 0.0)
 
 
+## 读取指定键并转为浮点数；键不存在或转换失败时返回默认值。
+## [br]
+## @api private
+## [br]
 static func _get_option_float_or(options: Dictionary, key: String, default_value: float) -> float:
 	if not options.has(key):
 		return default_value
 	return GFVariantData.to_float(options[key], default_value)
 
 
+## 检查系数数组是否含有 NaN 或正负无穷。
+## [br]
+## @api private
+## [br]
 static func _has_non_finite_coefficients(coefficients: PackedFloat64Array) -> bool:
 	for coefficient: float in coefficients:
 		if is_nan(coefficient) or is_inf(coefficient):

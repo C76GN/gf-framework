@@ -42,6 +42,9 @@ const KEY_HINT: String = "hint"
 ## @since 6.0.0
 const KEY_HINT_STRING: String = "hint_string"
 
+## 将 Theme.DataType 映射到 Control theme override 分组名。
+## [br]
+## @api private
 const _GROUP_BY_DATA_TYPE: Dictionary = {
 	Theme.DATA_TYPE_COLOR: "theme_override_colors",
 	Theme.DATA_TYPE_CONSTANT: "theme_override_constants",
@@ -51,6 +54,9 @@ const _GROUP_BY_DATA_TYPE: Dictionary = {
 	Theme.DATA_TYPE_STYLEBOX: "theme_override_styles",
 }
 
+## 将 Theme.DataType 映射到 Inspector PropertyInfo 类型。
+## [br]
+## @api private
 const _TYPE_BY_DATA_TYPE: Dictionary = {
 	Theme.DATA_TYPE_COLOR: TYPE_COLOR,
 	Theme.DATA_TYPE_CONSTANT: TYPE_INT,
@@ -60,6 +66,9 @@ const _TYPE_BY_DATA_TYPE: Dictionary = {
 	Theme.DATA_TYPE_STYLEBOX: TYPE_OBJECT,
 }
 
+## 为资源型 Theme.DataType 提供默认资源 hint_string。
+## [br]
+## @api private
 const _HINT_STRING_BY_DATA_TYPE: Dictionary = {
 	Theme.DATA_TYPE_FONT: "Font",
 	Theme.DATA_TYPE_ICON: "Texture2D",
@@ -390,6 +399,9 @@ static func make_theme_from_values(
 
 # --- 私有/辅助方法 ---
 
+## 按受支持的 Theme.DataType 分组定义，并复制每条定义字典。
+## [br]
+## @api private
 static func _group_definitions(definitions: Array) -> Dictionary:
 	var grouped: Dictionary = {}
 	for definition_variant: Variant in definitions:
@@ -404,6 +416,9 @@ static func _group_definitions(definitions: Array) -> Dictionary:
 	return grouped
 
 
+## 从分组键中筛出 int 类型并按数值升序返回。
+## [br]
+## @api private
 static func _get_sorted_data_types(grouped: Dictionary) -> Array[int]:
 	var result: Array[int] = []
 	for data_type_variant: Variant in grouped.keys():
@@ -414,6 +429,9 @@ static func _get_sorted_data_types(grouped: Dictionary) -> Array[int]:
 	return result
 
 
+## 生成 Inspector 属性项，并在控件已有非空 override 时加入 storage usage。
+## [br]
+## @api private
 static func _make_property_entry(control: Control, property_path: String, definition: Dictionary) -> Dictionary:
 	var data_type: int = GFVariantData.get_option_int(definition, KEY_DATA_TYPE, -1)
 	var usage: int = PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_CHECKABLE
@@ -429,6 +447,9 @@ static func _make_property_entry(control: Control, property_path: String, defini
 	}
 
 
+## 使用显式 hint；否则资源类型选择 RESOURCE_TYPE，其余使用 NONE。
+## [br]
+## @api private
 static func _get_property_hint(definition: Dictionary, data_type: int) -> int:
 	if definition.has(KEY_HINT):
 		return GFVariantData.get_option_int(definition, KEY_HINT)
@@ -437,16 +458,25 @@ static func _get_property_hint(definition: Dictionary, data_type: int) -> int:
 	return PROPERTY_HINT_NONE
 
 
+## 使用显式 hint_string；缺省时读取对应数据类型的默认资源名。
+## [br]
+## @api private
 static func _get_property_hint_string(definition: Dictionary, data_type: int) -> String:
 	if definition.has(KEY_HINT_STRING):
 		return GFVariantData.get_option_string(definition, KEY_HINT_STRING)
 	return GFVariantData.get_option_string(_HINT_STRING_BY_DATA_TYPE, data_type)
 
 
+## 从 Theme.DataType 分组映射中取得组名；未支持的类型返回空字符串。
+## [br]
+## @api private
 static func _get_group_name(data_type: int) -> String:
 	return GFVariantData.get_option_string(_GROUP_BY_DATA_TYPE, data_type)
 
 
+## 按数据类型及值的实际类型，将单个覆盖项写入 Theme。
+## [br]
+## @api private
 static func _apply_theme_value(
 	theme: Theme,
 	theme_type: StringName,
@@ -485,6 +515,9 @@ static func _apply_theme_value(
 				theme.set_stylebox(override_name, theme_type, stylebox_value)
 
 
+## 向 issues 数组追加 property_path、kind 和 message 字段。
+## [br]
+## @api private
 static func _append_report_issue(
 	issues: Array[Dictionary],
 	property_path: String,

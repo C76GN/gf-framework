@@ -240,6 +240,10 @@ func _apply_save_data(
 
 # --- 私有/辅助方法 ---
 
+## 将 Dictionary、bool 或 Error 返回值统一转换为 Source 结果字典。
+## [br]
+## @api private
+## [br]
 func _normalize_apply_result(result: Variant) -> Dictionary:
 	if result is Dictionary:
 		var dictionary: Dictionary = GFVariantData.as_dictionary(result)
@@ -254,6 +258,10 @@ func _normalize_apply_result(result: Variant) -> Dictionary:
 	return make_result(true)
 
 
+## 将来源键与属性名附加到错误载荷，并写入可用的流程上下文。
+## [br]
+## @api private
+## [br]
 func _record_source_error(context: Dictionary, message: String, payload: Dictionary = {}) -> void:
 	var source_payload: Dictionary = payload.duplicate(true)
 	source_payload["source_key"] = get_source_key()
@@ -263,10 +271,18 @@ func _record_source_error(context: Dictionary, message: String, payload: Diction
 		pipeline_context.add_error(message, source_payload)
 
 
+## 检查对象是否声明指定属性。
+## [br]
+## @api private
+## [br]
 func _has_object_property(object: Object, property_name: StringName) -> bool:
 	return GFObjectPropertyTools.has_property(object, property_name)
 
 
+## 获取对象脚本的资源路径；对象或脚本不可用时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _get_object_script_path(object: Object) -> String:
 	if object == null:
 		return ""
@@ -277,6 +293,10 @@ func _get_object_script_path(object: Object) -> String:
 	return script.resource_path
 
 
+## 将有效对象 Variant 转为 Object；其他值返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_valid_object(value: Variant) -> Object:
 	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
 		var object_value: Object = value
@@ -284,6 +304,10 @@ func _variant_to_valid_object(value: Variant) -> Object:
 	return null
 
 
+## 将 Variant 转为 GFSavePipelineContext；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_pipeline_context(value: Variant) -> GFSavePipelineContext:
 	if value is GFSavePipelineContext:
 		var pipeline_context: GFSavePipelineContext = value
@@ -291,6 +315,10 @@ func _variant_to_pipeline_context(value: Variant) -> GFSavePipelineContext:
 	return null
 
 
+## 将 Variant 转为 Script；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_script(value: Variant) -> Script:
 	if value is Script:
 		var script: Script = value

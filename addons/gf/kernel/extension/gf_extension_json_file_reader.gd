@@ -11,14 +11,41 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 规范化 JSON 资源路径的辅助脚本。
+## [br]
+## @api private
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+## 读取预算与 JSON 报告字典字段的 Variant 访问辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 在字节和深度限制内读取 JSON object 的底层脚本。
+## [br]
+## @api private
 const _GF_BOUNDED_JSON_OBJECT_READER_SCRIPT = preload(
 	"res://addons/gf/kernel/core/gf_bounded_json_object_reader.gd"
 )
+
+## 单个 JSON 文件的硬字节上限（1 MiB）。
+## [br]
+## @api private
 const _HARD_MAX_FILE_BYTES: int = 1024 * 1024
+
+## 一次扩展 JSON 发现操作的硬累计字节上限（64 MiB）。
+## [br]
+## @api private
 const _HARD_MAX_TOTAL_BYTES: int = 64 * 1024 * 1024
+
+## JSON object 的硬最大嵌套深度。
+## [br]
+## @api private
 const _HARD_MAX_DEPTH: int = 64
+
+## 文件签名计算每次读取的数据块大小（64 KiB）。
+## [br]
+## @api private
 const _HASH_CHUNK_BYTES: int = 64 * 1024
 
 
@@ -295,6 +322,9 @@ static func make_file_signature(
 
 # --- 私有/辅助方法 ---
 
+## 将调用选项和当前状态的限额分别收紧至两者较小值，并规范累计字节与超限标记。
+## [br]
+## @api private
 static func _ensure_budget_state(budget_state: Dictionary, options: Dictionary) -> void:
 	var option_limits: Dictionary = get_limit_policy(options)
 	var state_limits: Dictionary = get_limit_policy(budget_state)
@@ -349,6 +379,9 @@ static func _ensure_budget_state(budget_state: Dictionary, options: Dictionary) 
 	)
 
 
+## 返回正的请求限额与硬上限中的较小值；非正请求值采用硬上限。
+## [br]
+## @api private
 static func _get_bounded_limit(options: Dictionary, key: String, hard_limit: int) -> int:
 	var requested_limit: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 		options,
@@ -360,6 +393,9 @@ static func _get_bounded_limit(options: Dictionary, key: String, hard_limit: int
 	return mini(requested_limit, hard_limit)
 
 
+## 检查单文件和累计字节预算；超限时标记预算状态并返回错误文本，否则递增 consumed_bytes。
+## [br]
+## @api private
 static func _reserve_file_bytes(path: String, size_bytes: int, budget_state: Dictionary) -> String:
 	var max_file_bytes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 		budget_state,
@@ -394,6 +430,9 @@ static func _reserve_file_bytes(path: String, size_bytes: int, budget_state: Dic
 	return ""
 
 
+## 将底层读取器的 error_kind 和字段映射为兼容的错误文本。
+## [br]
+## @api private
 static func _legacy_error_message(
 	public_report: Dictionary,
 	options: Dictionary,
@@ -462,6 +501,9 @@ static func _legacy_error_message(
 	return public_error
 
 
+## 组装读取结果字典，并复制 data 与 errors 后附上当前预算超限状态。
+## [br]
+## @api private
 static func _make_report(
 	ok: bool,
 	source_path: String,

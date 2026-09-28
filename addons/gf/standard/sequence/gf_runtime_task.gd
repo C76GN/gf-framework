@@ -38,10 +38,34 @@ var interruptible: bool = true
 
 # --- 私有变量 ---
 
+## 任务要求独占的运行时对象列表。
+## [br]
+## @api private
+## [br]
 var _requirements: Array[Object] = []
+
+## 任务当前是否已被调度器或任务组调度。
+## [br]
+## @api private
+## [br]
 var _scheduled: bool = false
+
+## 当前调度代是否已完成初始化。
+## [br]
+## @api private
+## [br]
 var _initialized: bool = false
+
+## 调度器当前是否锁定 requirement 配置以进行仲裁或排程。
+## [br]
+## @api private
+## [br]
 var _schedule_resolution_locked: bool = false
+
+## 标识任务调度生命周期的代数，用于拒绝过期调用。
+## [br]
+## @api private
+## [br]
 var _schedule_generation: int = 0
 
 
@@ -505,6 +529,10 @@ func mark_initialized() -> void:
 
 # --- 私有/辅助方法 ---
 
+## requirement 可变时返回 true；仲裁或调度后被冻结时告警并返回 false。
+## [br]
+## @api private
+## [br]
 func _can_mutate_requirements() -> bool:
 	if not is_configuration_locked():
 		return true

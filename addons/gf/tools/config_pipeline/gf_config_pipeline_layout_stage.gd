@@ -28,15 +28,64 @@ const STAGE_ID: String = "gf.config.layout.builtin"
 ## @since 9.0.0
 const IMPLEMENTATION_VERSION: int = 3
 
+## XLSX 单个 ZIP 条目默认允许的压缩或解压字节数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_XLSX_ENTRY_BYTES: int = 8 * 1024 * 1024
+
+## XLSX 整个归档默认允许的文件字节数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_XLSX_FILE_BYTES: int = 64 * 1024 * 1024
+
+## XLSX ZIP 归档默认允许的条目数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_XLSX_ENTRY_COUNT: int = 4096
+
+## XLSX ZIP 条目默认允许的压缩率上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_XLSX_COMPRESSION_RATIO: int = 100
+
+## XLSX ZIP 条目路径默认允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_XLSX_PATH_LENGTH: int = 512
+
+## XLSX ZIP 条目路径默认允许的最大目录深度。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_XLSX_PATH_DEPTH: int = 32
+
+## XLSX 工作簿默认允许读取的共享字符串数量。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_XLSX_SHARED_STRINGS: int = 100000
+
+## XLSX 工作表默认允许解析的行数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_XLSX_ROWS: int = 100000
+
+## XLSX 工作表默认允许解析的列数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_XLSX_COLUMNS: int = 512
+
+## 提供有界 XLSX ZIP 归档读取的内部支持脚本。
+## [br]
+## @api private
+## [br]
 const _GF_BOUNDED_ZIP_SUPPORT = preload("res://addons/gf/tools/config_pipeline/gf_bounded_zip_support.gd")
 
 
@@ -159,6 +208,10 @@ func get_stage_descriptor() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 将解析器结果补齐为 Layout 阶段约定的来源、格式和错误字段。
+## [br]
+## @api private
+## [br]
 func _with_stage_result(
 	parse_result: Dictionary,
 	source_path: String,
@@ -179,6 +232,9 @@ func _with_stage_result(
 	return result
 
 
+## 按文件及归档预算打开 XLSX，并以可选 Reader 收据约束文件身份；读取共享字符串、工作簿及目标表后关闭会话，清理失败优先于读取结果，成功才解析表内容。
+## [br]
+## @api private
 func _parse_xlsx_file(
 	path: String,
 	options: Dictionary,
@@ -323,12 +379,20 @@ func _parse_xlsx_file(
 	return _parse_xlsx_sheet(worksheet_bytes, shared_strings, options, worksheet_path)
 
 
+## 将 XLSX 文件大小限制中的零值解析为 ZIP 支持脚本的绝对归档上限。
+## [br]
+## @api private
+## [br]
 func _resolve_xlsx_archive_file_limit(file_limit: int) -> int:
 	if file_limit != 0:
 		return file_limit
 	return _GF_BOUNDED_ZIP_SUPPORT.get_absolute_max_archive_bytes()
 
 
+## 解析 XLSX 总解压大小限制；配置为零时使用 ZIP 支持脚本的绝对上限。
+## [br]
+## @api private
+## [br]
 func _resolve_xlsx_total_uncompressed_limit(
 	options: Dictionary,
 	file_limit: int
@@ -346,6 +410,9 @@ func _resolve_xlsx_total_uncompressed_limit(
 	)
 
 
+## 有界读取共享字符串 XML，将同一 si 内各 t 的文本和 CDATA 拼接为一项；缺失内容视为空表，数量或解析失败保留部分值但返回失败状态。
+## [br]
+## @api private
 func _read_xlsx_shared_strings(
 	archive_session: Dictionary,
 	files: PackedStringArray,
@@ -426,6 +493,10 @@ func _read_xlsx_shared_strings(
 	return _make_xlsx_shared_strings_result(true, result)
 
 
+## 统一构造共享字符串读取结果，并复制传入的 PackedStringArray。
+## [br]
+## @api private
+## [br]
 func _make_xlsx_shared_strings_result(
 	success: bool,
 	strings: PackedStringArray,
@@ -438,6 +509,9 @@ func _make_xlsx_shared_strings_result(
 	}
 
 
+## 读取工作簿及关系表，将非空关系目标归一后写入对应 sheet；缺失关系保留空路径，由后续工作表选择处理。
+## [br]
+## @api private
 func _read_xlsx_workbook_sheets(
 	archive_session: Dictionary,
 	files: PackedStringArray,
@@ -511,6 +585,9 @@ func _read_xlsx_workbook_sheets(
 	return { "success": true, "sheets": sheets, "error": "" }
 
 
+## 验证精确 workbook 根名后按文档顺序收集 sheet 的名称、编号和 r:id 或 id；此处不拒绝空标识或重复标识。
+## [br]
+## @api private
 func _parse_xlsx_workbook_sheet_entries(bytes: PackedByteArray) -> Dictionary:
 	var result: Array[Dictionary] = []
 	var structure_error: String = _get_xlsx_xml_structure_error(
@@ -559,6 +636,9 @@ func _parse_xlsx_workbook_sheet_entries(bytes: PackedByteArray) -> Dictionary:
 	return { "success": true, "sheets": result, "error": "" }
 
 
+## 读取精确 Relationship 元素的 Id 和 Target，跳过空 Id，重复 Id 由后项覆盖；空关系文件作为空映射成功返回。
+## [br]
+## @api private
 func _parse_xlsx_workbook_relationships(bytes: PackedByteArray) -> Dictionary:
 	var result: Dictionary = {}
 	if bytes.size() == 0:
@@ -607,6 +687,9 @@ func _parse_xlsx_workbook_relationships(bytes: PackedByteArray) -> Dictionary:
 	return { "success": true, "relationships": result, "error": "" }
 
 
+## 优先按明确 sheet_name 查找且不回退；否则按非负索引选择关系路径，不可用时尝试标准 sheetN.xml，最终必须存在于归档列表。
+## [br]
+## @api private
 func _resolve_xlsx_worksheet_path(
 	files: PackedStringArray,
 	sheets: Array[Dictionary],
@@ -632,6 +715,9 @@ func _resolve_xlsx_worksheet_path(
 	return fallback_path if _zip_has_file(files, fallback_path) else ""
 
 
+## 把 v 和 inlineStr 文本收集为稀疏单元格并解析共享字符串、布尔值；无效列引用被忽略，行列预算按读取行数和列索引检查，错误附物理行列。
+## [br]
+## @api private
 func _parse_xlsx_sheet(
 	bytes: PackedByteArray,
 	shared_strings: PackedStringArray,
@@ -742,6 +828,9 @@ func _parse_xlsx_sheet(
 	return _xlsx_rows_to_parse_result(rows, options)
 
 
+## 将稀疏单元格展开为行数组，同时传递物理行号；复制选项后强制要求非空表头，由通用行导入器处理表头位置和跳空行。
+## [br]
+## @api private
 func _xlsx_rows_to_parse_result(rows: Array[Dictionary], options: Dictionary) -> Dictionary:
 	var trim_cells: bool = GFVariantData.get_option_bool(options, "trim_cells", true)
 	var parsed_rows: Array[PackedStringArray] = []
@@ -760,6 +849,10 @@ func _xlsx_rows_to_parse_result(rows: Array[Dictionary], options: Dictionary) ->
 	return GFConfigTableImporter.parse_rows_table(parsed_rows, row_options)
 
 
+## 将按零起始列索引存储的单元格字典展开为行；缺失列为空串，并可裁剪边缘空白。
+## [br]
+## @api private
+## [br]
 func _xlsx_cells_to_row(cells: Dictionary, trim_cells: bool) -> PackedStringArray:
 	var max_column_index: int = -1
 	for key: Variant in cells.keys():
@@ -774,6 +867,10 @@ func _xlsx_cells_to_row(cells: Dictionary, trim_cells: bool) -> PackedStringArra
 	return result
 
 
+## 将 XLSX 单元格原始值解析为文本；共享字符串索引无效或越界时返回失败结果。
+## [br]
+## @api private
+## [br]
 func _resolve_xlsx_cell_value(
 	raw_value: String,
 	cell_type: String,
@@ -812,6 +909,10 @@ func _resolve_xlsx_cell_value(
 	}
 
 
+## 从单元格引用开头的字母列名计算零起始列索引；没有字母时返回 -1。
+## [br]
+## @api private
+## [br]
 func _xlsx_column_index_from_cell_ref(cell_ref: String) -> int:
 	var result: int = 0
 	var has_letters: bool = false
@@ -825,12 +926,20 @@ func _xlsx_column_index_from_cell_ref(cell_ref: String) -> int:
 	return result - 1 if has_letters else -1
 
 
+## 解析正整数文本；有效整数至少返回 1，无效文本返回调用方给定的回退值。
+## [br]
+## @api private
+## [br]
 func _parse_positive_int(text: String, fallback_value: int) -> int:
 	if text.is_valid_int():
 		return maxi(text.to_int(), 1)
 	return fallback_value
 
 
+## 从有界 ZIP 会话读取指定条目，并以统一字典返回存在状态、字节或错误文本。
+## [br]
+## @api private
+## [br]
 func _zip_read_bytes(
 	archive_session: Dictionary,
 	files: PackedStringArray,
@@ -869,18 +978,29 @@ func _zip_read_bytes(
 	}
 
 
+## 检查非空归档路径是否列在 ZIP 文件清单中。
+## [br]
+## @api private
+## [br]
 func _zip_has_file(files: PackedStringArray, path: String) -> bool:
 	if path.is_empty():
 		return false
 	return files.has(path)
 
 
+## 将归档会话关闭操作转交给有界 ZIP 支持脚本。
+## [br]
+## @api private
+## [br]
 func _close_zip_session(archive_session: Dictionary) -> Error:
 	return _GF_BOUNDED_ZIP_SUPPORT.close_archive(
 		archive_session
 	)
 
 
+## 统一关系目标的路径分隔符；根路径相对归档根解析，其余相对工作簿目录解析，随后折叠点段。
+## [br]
+## @api private
 func _normalize_xlsx_relationship_target(base_path: String, target: String) -> String:
 	var normalized_target: String = target.replace("\\", "/")
 	if normalized_target.begins_with("/"):
@@ -888,6 +1008,9 @@ func _normalize_xlsx_relationship_target(base_path: String, target: String) -> S
 	return _normalize_zip_path("%s/%s" % [base_path.get_base_dir(), normalized_target])
 
 
+## 折叠空段、当前目录和父目录段；父目录越过归档根时返回空串，仅做文本归一而不确认条目存在。
+## [br]
+## @api private
 func _normalize_zip_path(path: String) -> String:
 	var stack: PackedStringArray = PackedStringArray()
 	var parts: PackedStringArray = path.split("/", false)
@@ -903,6 +1026,10 @@ func _normalize_zip_path(path: String) -> String:
 	return "/".join(stack)
 
 
+## 按名称读取 XML 当前元素的属性；未找到时返回空串。
+## [br]
+## @api private
+## [br]
 func _get_xml_attribute(parser: XMLParser, attribute_name: String) -> String:
 	for attribute_index: int in range(parser.get_attribute_count()):
 		if parser.get_attribute_name(attribute_index) == attribute_name:
@@ -910,6 +1037,10 @@ func _get_xml_attribute(parser: XMLParser, attribute_name: String) -> String:
 	return ""
 
 
+## 按给定顺序查找 XML 当前元素的属性，并返回首个非空值。
+## [br]
+## @api private
+## [br]
 func _get_xml_attribute_any(parser: XMLParser, attribute_names: PackedStringArray) -> String:
 	for attribute_name: String in attribute_names:
 		var value: String = _get_xml_attribute(parser, attribute_name)
@@ -918,6 +1049,9 @@ func _get_xml_attribute_any(parser: XMLParser, attribute_names: PackedStringArra
 	return ""
 
 
+## 检查精确根名、标签配对和根外文本，并要求去空白后的文档以根闭合文本结束；不接受带前缀的替代根名或闭合根后的注释。
+## [br]
+## @api private
 func _get_xlsx_xml_structure_error(
 	bytes: PackedByteArray,
 	expected_root: String,
@@ -992,6 +1126,10 @@ func _get_xlsx_xml_structure_error(
 	return ""
 
 
+## 构造 XLSX 解析失败结果，并保留来源以及可选的行列位置。
+## [br]
+## @api private
+## [br]
 func _make_xlsx_parse_failure(
 	message: String,
 	source: String,
@@ -1009,16 +1147,27 @@ func _make_xlsx_parse_failure(
 	}
 
 
+## 读取 XLSX 整数限制选项；缺少键时用默认值，存在时将值钳制到非负范围。
+## [br]
+## @api private
+## [br]
 func _get_xlsx_limit(options: Dictionary, key: String, default_value: int) -> int:
 	if not options.has(key):
 		return default_value
 	return maxi(GFVariantData.get_option_int(options, key, default_value), 0)
 
 
+## 仅当限制为正数且当前值大于限制时判定超限；零表示不在此处限制。
+## [br]
+## @api private
+## [br]
 func _is_xlsx_limit_exceeded(value: int, limit: int) -> bool:
 	return limit > 0 and value > limit
 
 
+## 先把来源身份变化映射为收据失效，再按固定预算错误优先级生成 XLSX 提示；其他预检错误取首项，缺失诊断时给出通用失败说明。
+## [br]
+## @api private
 func _xlsx_archive_session_error(archive_session: Dictionary) -> String:
 	var direct_codes: PackedStringArray = _get_packed_string_array_value(
 		GFVariantData.get_option_value(archive_session, "issue_codes")
@@ -1054,6 +1203,10 @@ func _xlsx_archive_session_error(archive_session: Dictionary) -> String:
 	return "XLSX archive preflight failed."
 
 
+## 仅在 Variant 是 PackedByteArray 时取回数组，否则返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_packed_byte_array_value(value: Variant) -> PackedByteArray:
 	if value is PackedByteArray:
 		var array_value: PackedByteArray = value
@@ -1061,6 +1214,10 @@ func _get_packed_byte_array_value(value: Variant) -> PackedByteArray:
 	return PackedByteArray()
 
 
+## 仅在 Variant 是 PackedStringArray 时取回数组，否则返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_packed_string_array_value(value: Variant) -> PackedStringArray:
 	if value is PackedStringArray:
 		var array_value: PackedStringArray = value
@@ -1068,6 +1225,10 @@ func _get_packed_string_array_value(value: Variant) -> PackedStringArray:
 	return PackedStringArray()
 
 
+## 从 Variant 数组中筛出 Dictionary 项；非数组输入返回空结果。
+## [br]
+## @api private
+## [br]
 func _get_dictionary_array_value(value: Variant) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if not value is Array:
@@ -1080,6 +1241,10 @@ func _get_dictionary_array_value(value: Variant) -> Array[Dictionary]:
 	return result
 
 
+## 构造 Layout 阶段失败结果，并深复制可选上下文。
+## [br]
+## @api private
+## [br]
 func _make_layout_failure(
 	error_kind: String,
 	message: String,

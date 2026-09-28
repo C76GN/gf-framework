@@ -115,12 +115,46 @@ const DEBUGGER_MESSAGE_CATALOG: String = "gf_diagnostics:catalog"
 ## @since 6.0.0
 const DEBUGGER_MESSAGE_COMMAND_RESULT: String = "gf_diagnostics:command_result"
 
+## 单次收集请求最多接受的 Provider ID 数量。
+## [br]
+## @api private
+## [br]
 const _MAX_DIAGNOSTIC_PROVIDER_REQUEST_IDS: int = 1024
+
+## 信号图默认采集的最大信号数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_SIGNAL_GRAPH_MAX_SIGNALS: int = 1024
+
+## 信号图默认采集的最大连接数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_SIGNAL_GRAPH_MAX_CONNECTIONS: int = 2048
+
+## 信号图默认序列化字节预算。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_SIGNAL_GRAPH_MAX_BYTES: int = 262_144
+
+## 诊断命令保留的认证字段名。
+## [br]
+## @api private
+## [br]
 const _COMMAND_AUTH_ARGUMENT_NAMES: Array[String] = ["auth_token", "_auth_token"]
+
+## 标记无效命令参数 schema 的内部错误字段名。
+## [br]
+## @api private
+## [br]
 const _COMMAND_PARAMETER_SCHEMA_ERROR_KEY: String = "__gf_parameter_schema_error"
+
+## 参数 schema 支持的类型名称及别名。
+## [br]
+## @api private
+## [br]
 const _COMMAND_PARAMETER_TYPES: Array[String] = [
 	"",
 	"any",
@@ -251,18 +285,82 @@ var max_diagnostic_providers: int = 32:
 
 # --- 私有变量 ---
 
+## 按命令名保存带所有者弱引用的诊断命令登记项。
+## [br]
+## @api private
+## [br]
 var _commands: Dictionary = {}
+
+## 暂停执行的命令名集合。
+## [br]
+## @api private
+## [br]
 var _disabled_commands: Dictionary = {}
+
+## 按 ID 保存带采样回调与所有者弱引用的监控项。
+## [br]
+## @api private
+## [br]
 var _monitors: Dictionary = {}
+
+## 按 ID 保存监控预设及其监控 ID 列表。
+## [br]
+## @api private
+## [br]
 var _monitor_presets: Dictionary = {}
+
+## 按 ID 保存扩展发布的快照分区。
+## [br]
+## @api private
+## [br]
 var _snapshot_sections: Dictionary = {}
+
+## 按 ID 保存扩展发布的工具快照回调。
+## [br]
+## @api private
+## [br]
 var _tool_snapshots: Dictionary = {}
+
+## 按稳定 Provider ID 保存惰性诊断 Provider 登记项。
+## [br]
+## @api private
+## [br]
 var _diagnostic_providers: Dictionary = {}
+
+## 当前正在采集的 Provider ID，用于拒绝同 ID 的递归采集。
+## [br]
+## @api private
+## [br]
 var _active_diagnostic_provider_ids: Dictionary = {}
+
+## Provider 注册表修订号，用于采集期间检测登记变化。
+## [br]
+## @api private
+## [br]
 var _diagnostic_provider_revision: int = 0
+
+## 分配给新监控项的显示顺序值。
+## [br]
+## @api private
+## [br]
 var _monitor_order_counter: int = 0
+
+## 当前找到的 GFConsoleUtility 实例。
+## [br]
+## @api private
+## [br]
 var _console_utility: GFConsoleUtility = null
+
+## diagnostics 控制台命令的生命周期订阅句柄。
+## [br]
+## @api private
+## [br]
 var _console_command_subscription: GFLifetimeSubscription = null
+
+## 标记本 Utility 是否登记了 EditorDebugger 消息捕获器。
+## [br]
+## @api private
+## [br]
 var _debugger_capture_registered: bool = false
 
 
@@ -1580,6 +1678,11 @@ func collect_signal_graph_snapshot(root: Node = null, options: Dictionary = {}) 
 
 # --- 私有/辅助方法 ---
 
+## 按节点、信号、连接数和估算字节预算遍历场景树并汇总截断状态。
+## 选项同时控制内部信号、外部目标、持久连接、路径脱敏和空信号。
+## [br]
+## @api private
+## [br]
 func _build_runtime_signal_graph(root: Node, options: Dictionary) -> Dictionary:
 	var state: Dictionary = {
 		"include_internal": GFVariantData.get_option_bool(options, "include_internal", false),
@@ -1661,6 +1764,10 @@ func _build_runtime_signal_graph(root: Node, options: Dictionary) -> Dictionary:
 	return graph
 
 
+## 收集一个节点、符合选项的信号与连接，并递归处理子节点直至预算用尽。
+## [br]
+## @api private
+## [br]
 func _collect_signal_graph_node(root: Node, node: Node, graph: Dictionary, state: Dictionary) -> void:
 	if node == null or GFVariantData.get_option_bool(state, "truncated", false):
 		return
@@ -1718,6 +1825,10 @@ func _collect_signal_graph_node(root: Node, node: Node, graph: Dictionary, state
 		_collect_signal_graph_node(root, child, graph, state)
 
 
+## 过滤连接标志、有效回调和不允许的目标，再按预算生成连接字段。
+## [br]
+## @api private
+## [br]
 func _filter_signal_connections(
 	root: Node,
 	source_path: String,
@@ -1763,6 +1874,10 @@ func _filter_signal_connections(
 	return result
 
 
+## 在节点/信号/连接计数和总字节预算内记账；超限时写入截断原因并返回 false。
+## [br]
+## @api private
+## [br]
 func _try_consume_signal_graph_budget(
 	state: Dictionary,
 	category: String,
@@ -1793,6 +1908,10 @@ func _try_consume_signal_graph_budget(
 	return true
 
 
+## 撤销已预留的指定类别计数和估算字节数，结果下限为零。
+## [br]
+## @api private
+## [br]
 func _release_signal_graph_budget(
 	state: Dictionary,
 	category: String,
@@ -1809,6 +1928,10 @@ func _release_signal_graph_budget(
 	)
 
 
+## 返回信号图总字节预算扣除已估算用量后的非负余量。
+## [br]
+## @api private
+## [br]
 func _remaining_signal_graph_bytes(state: Dictionary) -> int:
 	return maxi(
 		GFVariantData.get_option_int(
@@ -1821,6 +1944,10 @@ func _remaining_signal_graph_bytes(state: Dictionary) -> int:
 	)
 
 
+## 在给定剩余预算内估算 JSON 兼容条目及固定开销；超出时返回大于预算的值。
+## [br]
+## @api private
+## [br]
 func _estimate_signal_graph_entry_bytes(entry: Dictionary, max_bytes: int) -> int:
 	# Signal graph entries are already JSON-compatible. Estimate them directly with
 	# the caller's remaining budget so GFReportValueCodec's independent 1 MiB
@@ -1832,6 +1959,11 @@ func _estimate_signal_graph_entry_bytes(entry: Dictionary, max_bytes: int) -> in
 	return value_bytes + 8
 
 
+## 有界估算 JSON 支持的标量、字符串、数组和字符串键字典编码长度。
+## 不支持类型、非法字典键或超限值返回大于 max_bytes 的标记值。
+## [br]
+## @api private
+## [br]
 func _estimate_signal_graph_json_bytes(value: Variant, max_bytes: int) -> int:
 	if max_bytes < 0:
 		return 0
@@ -1891,6 +2023,10 @@ func _estimate_signal_graph_json_bytes(value: Variant, max_bytes: int) -> int:
 	return max_bytes + 1
 
 
+## 累加数组括号、逗号及各元素估算长度，超出预算时返回 max_bytes 加一。
+## [br]
+## @api private
+## [br]
 func _estimate_signal_graph_json_array_bytes(values: Array, max_bytes: int) -> int:
 	var array_bytes: int = 2
 	if array_bytes > max_bytes:
@@ -1911,6 +2047,10 @@ func _estimate_signal_graph_json_array_bytes(values: Array, max_bytes: int) -> i
 	return array_bytes
 
 
+## 按 JSON 转义后的控制字符和 UTF-8 码点宽度估算带引号字符串长度。
+## [br]
+## @api private
+## [br]
 func _estimate_signal_graph_json_string_bytes(value: String, max_bytes: int) -> int:
 	var string_bytes: int = 2
 	if string_bytes > max_bytes:
@@ -1942,6 +2082,10 @@ func _estimate_signal_graph_json_string_bytes(value: String, max_bytes: int) -> 
 	return string_bytes
 
 
+## 允许所有外部目标选项启用时通过，否则只接受根节点及其后代 Node。
+## [br]
+## @api private
+## [br]
 func _signal_connection_target_allowed(root: Node, target: Object, state: Dictionary) -> bool:
 	if GFVariantData.get_option_bool(state, "include_external_targets", true):
 		return true
@@ -1951,6 +2095,10 @@ func _signal_connection_target_allowed(root: Node, target: Object, state: Dictio
 	return target_node == root or root.is_ancestor_of(target_node)
 
 
+## 将连接列表按来源路径和非空目标路径分别建立索引，并复制索引中的记录。
+## [br]
+## @api private
+## [br]
 func _index_signal_graph(graph: Dictionary) -> Dictionary:
 	var by_source: Dictionary = {}
 	var by_target: Dictionary = {}
@@ -1970,6 +2118,10 @@ func _index_signal_graph(graph: Dictionary) -> Dictionary:
 	}
 
 
+## 判断 ID 是否与 GFDiagnosticsUtility 内置快照分区重名。
+## [br]
+## @api private
+## [br]
 func _is_reserved_snapshot_section_id(section_id: StringName) -> bool:
 	match section_id:
 		&"timestamp_unix", &"engine", &"build", &"architecture", &"event_system", &"performance", &"logs", &"tools", &"scene_tree", &"signal_graph", &"monitors":
@@ -1978,6 +2130,10 @@ func _is_reserved_snapshot_section_id(section_id: StringName) -> bool:
 			return false
 
 
+## 判断工具快照 ID 是否与内置工具分区占用的 ID 重名。
+## [br]
+## @api private
+## [br]
 func _is_builtin_tool_snapshot_id(tool_id: StringName) -> bool:
 	match tool_id:
 		&"build_info", &"timer", &"object_pool", &"operation_diagnostics", &"async_tracker":
@@ -1986,6 +2142,10 @@ func _is_builtin_tool_snapshot_id(tool_id: StringName) -> bool:
 			return false
 
 
+## 获取已注册的 GFBuildInfoUtility；不存在或类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_build_info_utility() -> GFBuildInfoUtility:
 	var utility: Variant = _find_optional_utility(GFBuildInfoUtility)
 	if utility is GFBuildInfoUtility:
@@ -1994,6 +2154,10 @@ func _get_build_info_utility() -> GFBuildInfoUtility:
 	return null
 
 
+## 获取已注册的 GFLogUtility；不存在或类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_log_utility() -> GFLogUtility:
 	var utility: Variant = _find_optional_utility(GFLogUtility)
 	if utility is GFLogUtility:
@@ -2002,6 +2166,10 @@ func _get_log_utility() -> GFLogUtility:
 	return null
 
 
+## 获取已注册的 GFConsoleUtility；不存在或类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_console_utility() -> GFConsoleUtility:
 	var utility: Variant = _find_optional_utility(GFConsoleUtility)
 	if utility is GFConsoleUtility:
@@ -2010,6 +2178,10 @@ func _get_console_utility() -> GFConsoleUtility:
 	return null
 
 
+## 从当前 GFArchitecture 查找指定 Utility；架构不可用时返回 null。
+## [br]
+## @api private
+## [br]
 func _find_optional_utility(utility_type: Script) -> Object:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture == null:
@@ -2017,6 +2189,10 @@ func _find_optional_utility(utility_type: Script) -> Object:
 	return architecture.find_utility(utility_type)
 
 
+## 从 Engine 主循环取得 SceneTree；主循环不是场景树时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_main_scene_tree() -> SceneTree:
 	var main_loop: MainLoop = Engine.get_main_loop()
 	if main_loop is SceneTree:
@@ -2025,6 +2201,10 @@ func _get_main_scene_tree() -> SceneTree:
 	return null
 
 
+## 仅当指定字典键存在且值为 Dictionary 时返回该条目，否则返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_dictionary_entry(source: Dictionary, key: Variant) -> Dictionary:
 	if not source.has(key):
 		return {}
@@ -2035,6 +2215,10 @@ func _get_dictionary_entry(source: Dictionary, key: Variant) -> Dictionary:
 	return entry
 
 
+## 允许新 ID 或同一所有者复用登记；清除所有者已释放的旧条目后允许复用。
+## [br]
+## @api private
+## [br]
 func _can_register_owned_entry(registry: Dictionary, entry_id: Variant, owner: Object) -> bool:
 	if owner == null:
 		return false
@@ -2049,6 +2233,10 @@ func _can_register_owned_entry(registry: Dictionary, entry_id: Variant, owner: O
 	return true
 
 
+## 判断指定 ID 的登记条目是否仍由给定 Object 所有。
+## [br]
+## @api private
+## [br]
 func _owned_entry_matches(registry: Dictionary, entry_id: Variant, owner: Object) -> bool:
 	if owner == null or not registry.has(entry_id):
 		return false
@@ -2056,6 +2244,10 @@ func _owned_entry_matches(registry: Dictionary, entry_id: Variant, owner: Object
 	return _get_registration_owner(entry) == owner
 
 
+## 检查登记 ID 的所有者是否存活；死弱引用条目会在检查时移除。
+## [br]
+## @api private
+## [br]
 func _owned_registry_has_live_entry(registry: Dictionary, entry_id: Variant) -> bool:
 	if not registry.has(entry_id):
 		return false
@@ -2065,6 +2257,10 @@ func _owned_registry_has_live_entry(registry: Dictionary, entry_id: Variant) -> 
 	return false
 
 
+## 移除指定所有者注册表中弱引用目标已释放的全部条目。
+## [br]
+## @api private
+## [br]
 func _prune_released_owned_entries(registry: Dictionary) -> void:
 	var stale_ids: Array[Variant] = []
 	for entry_id: Variant in registry.keys():
@@ -2074,6 +2270,10 @@ func _prune_released_owned_entries(registry: Dictionary) -> void:
 		var _stale_entry_erased: bool = registry.erase(entry_id)
 
 
+## 检查命令登记所有者是否存活；无效登记同时清除对应禁用标记。
+## [br]
+## @api private
+## [br]
 func _command_registration_is_live(command_name: StringName) -> bool:
 	if _owned_registry_has_live_entry(_commands, command_name):
 		return true
@@ -2081,6 +2281,10 @@ func _command_registration_is_live(command_name: StringName) -> bool:
 	return false
 
 
+## 清理已释放所有者的命令及不再对应登记项的禁用命令名。
+## [br]
+## @api private
+## [br]
 func _prune_released_commands() -> void:
 	_prune_released_owned_entries(_commands)
 	var stale_disabled_names: Array[Variant] = []
@@ -2091,6 +2295,10 @@ func _prune_released_commands() -> void:
 		var _disabled_erased: bool = _disabled_commands.erase(command_name)
 
 
+## 从登记项的 WeakRef 取得仍有效的 Object；字段类型错误或对象失效时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_registration_owner(entry: Dictionary) -> Object:
 	var owner_ref_value: Variant = GFVariantData.get_option_value(entry, "owner_ref")
 	if not (owner_ref_value is WeakRef):
@@ -2105,6 +2313,10 @@ func _get_registration_owner(entry: Dictionary) -> Object:
 	return owner
 
 
+## 从登记项的弱引用字段取得有效 GFDiagnosticSnapshotProvider，否则返回 null。
+## [br]
+## @api private
+## [br]
 func _get_diagnostic_provider(entry: Dictionary) -> GFDiagnosticSnapshotProvider:
 	var provider_ref_value: Variant = GFVariantData.get_option_value(entry, "provider_ref")
 	if not (provider_ref_value is WeakRef):
@@ -2119,6 +2331,10 @@ func _get_diagnostic_provider(entry: Dictionary) -> GFDiagnosticSnapshotProvider
 	return provider
 
 
+## 仅当 Variant 实际为 Callable 时返回其值，否则返回空 Callable。
+## [br]
+## @api private
+## [br]
 func _get_callable_value(value: Variant) -> Callable:
 	if value is Callable:
 		var callable: Callable = value
@@ -2126,6 +2342,10 @@ func _get_callable_value(value: Variant) -> Callable:
 	return Callable()
 
 
+## 移除所有者已释放或 Provider 实例已失效的登记，并按移除数更新修订号。
+## [br]
+## @api private
+## [br]
 func _prune_diagnostic_providers() -> void:
 	var previous_size: int = _diagnostic_providers.size()
 	_prune_released_owned_entries(_diagnostic_providers)
@@ -2142,6 +2362,10 @@ func _prune_diagnostic_providers() -> void:
 			_diagnostic_provider_revision += 1
 
 
+## 将注册表非空 ID 转为文本并按字典序排序。
+## [br]
+## @api private
+## [br]
 func _get_sorted_registry_ids(registry: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for key_value: Variant in registry.keys():
@@ -2152,6 +2376,10 @@ func _get_sorted_registry_ids(registry: Dictionary) -> PackedStringArray:
 	return result
 
 
+## 去除 ID 两侧空白、拒绝空值或超长值、统计重复/无效/超量项并截取本批 ID。
+## [br]
+## @api private
+## [br]
 func _prepare_diagnostic_provider_selection(provider_ids: PackedStringArray) -> Dictionary:
 	var selected_ids: PackedStringArray = PackedStringArray()
 	var seen: Dictionary = {}
@@ -2181,6 +2409,11 @@ func _prepare_diagnostic_provider_selection(provider_ids: PackedStringArray) -> 
 	}
 
 
+## 执行单个显式请求的 Provider，并检查重入、登记变更、返回类型和回传时长预算。
+## 成功值与元数据还会经贡献预算及脱敏编码；各失败分支返回结构化错误结果。
+## [br]
+## @api private
+## [br]
 func _collect_diagnostic_provider(provider_id: StringName, request: Dictionary) -> Dictionary:
 	if _active_diagnostic_provider_ids.has(provider_id):
 		return _make_diagnostic_provider_failure(
@@ -2295,6 +2528,10 @@ func _collect_diagnostic_provider(provider_id: StringName, request: Dictionary) 
 	}
 
 
+## 组装 Provider 失败结果字典，并将时长限制在不小于零的范围。
+## [br]
+## @api private
+## [br]
 func _make_diagnostic_provider_failure(
 	provider_id: StringName,
 	error_code: StringName,
@@ -2313,6 +2550,10 @@ func _make_diagnostic_provider_failure(
 	}
 
 
+## 仅当 Variant 实际为 Script 时返回该脚本，否则返回 null。
+## [br]
+## @api private
+## [br]
 func _get_script_value(value: Variant) -> Script:
 	if value is Script:
 		var script: Script = value
@@ -2320,10 +2561,18 @@ func _get_script_value(value: Variant) -> Script:
 	return null
 
 
+## 判断值是否为可转换为 float 的 int、float 或 bool。
+## [br]
+## @api private
+## [br]
 func _is_float_convertible(value: Variant) -> bool:
 	return value is int or value is float or value is bool
 
 
+## 将 float、int 或 bool 转换为 float；其余类型返回 0.0。
+## [br]
+## @api private
+## [br]
 func _number_to_float(value: Variant) -> float:
 	if value is float:
 		var float_value: float = value
@@ -2337,6 +2586,10 @@ func _number_to_float(value: Variant) -> float:
 	return 0.0
 
 
+## 控制台可用且 diagnostics 命令名空闲时登记摘要命令。
+## [br]
+## @api private
+## [br]
 func _bind_console_command() -> void:
 	_console_utility = _get_console_utility()
 	if _console_utility == null:
@@ -2349,6 +2602,10 @@ func _bind_console_command() -> void:
 	})
 
 
+## 仅在运行时 EditorDebugger 活跃且名称未占用时登记消息捕获器。
+## [br]
+## @api private
+## [br]
 func _register_debugger_capture() -> void:
 	if Engine.is_editor_hint():
 		return
@@ -2361,6 +2618,10 @@ func _register_debugger_capture() -> void:
 	_debugger_capture_registered = true
 
 
+## 仅在本实例曾登记捕获器且名称仍存在时注销，并清除本地登记标记。
+## [br]
+## @api private
+## [br]
 func _unregister_debugger_capture() -> void:
 	if not _debugger_capture_registered:
 		return
@@ -2369,6 +2630,10 @@ func _unregister_debugger_capture() -> void:
 	_debugger_capture_registered = false
 
 
+## 处理快照、目录和命令消息；识别的消息发出响应并返回 true。
+## [br]
+## @api private
+## [br]
 func _handle_debugger_message(message: String, data: Array) -> bool:
 	match _normalize_debugger_message(message):
 		"request_snapshot":
@@ -2391,6 +2656,10 @@ func _handle_debugger_message(message: String, data: Array) -> bool:
 			return false
 
 
+## 移除消息开头的 GF Diagnostics capture 前缀；其他文本保持原样。
+## [br]
+## @api private
+## [br]
 func _normalize_debugger_message(message: String) -> String:
 	var prefix: String = String(DEBUGGER_CAPTURE_NAME) + ":"
 	if message.begins_with(prefix):
@@ -2398,6 +2667,10 @@ func _normalize_debugger_message(message: String) -> String:
 	return message
 
 
+## 汇总命令、监控、预设、Provider 目录及 Debugger 桥接状态。
+## [br]
+## @api private
+## [br]
 func _make_debugger_catalog() -> Dictionary:
 	return {
 		"commands": get_command_catalog(),
@@ -2408,10 +2681,18 @@ func _make_debugger_catalog() -> Dictionary:
 	}
 
 
+## 将 Variant 转为可通过 Debugger 消息传输的 JSON 兼容值。
+## [br]
+## @api private
+## [br]
 func _make_debugger_payload(value: Variant) -> Variant:
 	return GFVariantJsonCodec.variant_to_json_compatible(value)
 
 
+## 从指定参数位置读取字典并深复制；索引越界或值不是字典时返回空字典。
+## [br]
+## @api private
+## [br]
 func _debugger_data_dictionary(data: Array, index: int) -> Dictionary:
 	if index < 0 or index >= data.size():
 		return {}
@@ -2422,12 +2703,20 @@ func _debugger_data_dictionary(data: Array, index: int) -> Dictionary:
 	return {}
 
 
+## 从指定参数位置归一化 StringName；索引越界时返回空值。
+## [br]
+## @api private
+## [br]
 func _debugger_data_string_name(data: Array, index: int) -> StringName:
 	if index < 0 or index >= data.size():
 		return &""
 	return GFVariantData.to_string_name(data[index])
 
 
+## 组装诊断命令结果，并深复制 metadata 字段。
+## [br]
+## @api private
+## [br]
 func _make_command_result(ok: bool, value: Variant, error: String, metadata: Dictionary = {}) -> Dictionary:
 	var result: Dictionary = {
 		"ok": ok,
@@ -2438,6 +2727,10 @@ func _make_command_result(ok: bool, value: Variant, error: String, metadata: Dic
 	return result
 
 
+## 生成带命令名的校验摘要，并在存在错误种类计数时追加其汇总行。
+## [br]
+## @api private
+## [br]
 func _make_command_validation_summary(report: GFValidationReport, command_name: StringName) -> String:
 	var summary: String = report.make_summary(String(command_name))
 	var issue_kinds: PackedStringArray = PackedStringArray()
@@ -2453,14 +2746,26 @@ func _make_command_validation_summary(report: GFValidationReport, command_name: 
 	return "%s Issues: %s." % [summary, ", ".join(issue_kinds)]
 
 
+## 将诊断命令参数原样转交给快照采集入口。
+## [br]
+## @api private
+## [br]
 func _command_collect_snapshot(args: Dictionary) -> Dictionary:
 	return collect_snapshot(args)
 
 
+## 通过诊断命令接口返回性能监控快照。
+## [br]
+## @api private
+## [br]
 func _command_collect_performance(_args: Dictionary) -> Dictionary:
 	return collect_performance_snapshot()
 
 
+## 使用命令参数覆盖默认日志数量和是否包含最近日志后采集日志快照。
+## [br]
+## @api private
+## [br]
 func _command_collect_logs(args: Dictionary) -> Dictionary:
 	return collect_log_snapshot(
 		GFVariantData.get_option_int(args, "recent_log_count", default_recent_log_count),
@@ -2468,6 +2773,10 @@ func _command_collect_logs(args: Dictionary) -> Dictionary:
 	)
 
 
+## 提供 preset_id 时采集该监控预设，否则采集指定 monitor_ids。
+## [br]
+## @api private
+## [br]
 func _command_collect_monitors(args: Dictionary) -> Dictionary:
 	var preset_id: StringName = GFVariantData.get_option_string_name(args, "preset_id", &"")
 	if preset_id != &"":
@@ -2480,18 +2789,35 @@ func _command_collect_monitors(args: Dictionary) -> Dictionary:
 	)
 
 
+## 通过诊断命令接口返回已登记工具调试快照。
+## [br]
+## @api private
+## [br]
 func _command_collect_tools(_args: Dictionary) -> Dictionary:
 	return _collect_tool_debug_snapshots()
 
 
+## 使用命令参数采集场景树快照。
+## [br]
+## @api private
+## [br]
 func _command_collect_scene(args: Dictionary) -> Dictionary:
 	return collect_scene_tree_snapshot(null, args)
 
 
+## 使用命令参数采集信号连接图快照。
+## [br]
+## @api private
+## [br]
 func _command_collect_signals(args: Dictionary) -> Dictionary:
 	return collect_signal_graph_snapshot(null, args)
 
 
+## 生成节点信息及可选 Owner/脚本路径/分组，并按深度和节点数预算递归采集子项。
+## 达到任一限制且仍有子节点时，在节点或共享计数器中标记截断。
+## [br]
+## @api private
+## [br]
 func _collect_scene_tree_node(node: Node, depth: int, options: Dictionary, counters: Dictionary) -> Dictionary:
 	counters["count"] = GFVariantData.get_option_int(counters, "count", 0) + 1
 	var include_internal: bool = GFVariantData.get_option_bool(options, "include_internal", false)
@@ -2531,6 +2857,10 @@ func _collect_scene_tree_node(node: Node, depth: int, options: Dictionary, count
 	return info
 
 
+## 优先按 root_path 在 SceneTree 根和当前场景中查找，失败时退回当前场景或根节点。
+## [br]
+## @api private
+## [br]
 func _resolve_scene_tree_root(options: Dictionary) -> Node:
 	var root_path: NodePath = NodePath(GFVariantData.get_option_string(options, "root_path"))
 	var tree: SceneTree = _get_main_scene_tree()
@@ -2549,6 +2879,10 @@ func _resolve_scene_tree_root(options: Dictionary) -> Node:
 	return tree.current_scene if tree.current_scene != null else tree.root
 
 
+## 返回节点树路径；不在树中时返回节点名，空引用时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _get_node_path_or_empty(node: Node) -> String:
 	if node == null:
 		return ""
@@ -2557,6 +2891,10 @@ func _get_node_path_or_empty(node: Node) -> String:
 	return String(node.name)
 
 
+## 返回节点脚本资源路径；节点脚本不是 Script 时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _get_node_script_path(node: Node) -> String:
 	var script: Script = _get_script_value(node.get_script())
 	if script == null:
@@ -2564,12 +2902,20 @@ func _get_node_script_path(node: Node) -> String:
 	return script.resource_path
 
 
+## redact_paths 启用且路径非空时替换为固定脱敏标记。
+## [br]
+## @api private
+## [br]
 func _redact_path_if_needed(path: String, options: Dictionary) -> String:
 	if path.is_empty() or not GFVariantData.get_option_bool(options, "redact_paths", false):
 		return path
 	return "<redacted>"
 
 
+## 读取节点分组名并按字典序排序。
+## [br]
+## @api private
+## [br]
 func _get_node_group_names(node: Node) -> PackedStringArray:
 	var groups: PackedStringArray = PackedStringArray()
 	for group: StringName in node.get_groups():
@@ -2578,6 +2924,10 @@ func _get_node_group_names(node: Node) -> PackedStringArray:
 	return groups
 
 
+## 登记内置性能、架构、事件系统和计时器监控项及其常用预设。
+## [br]
+## @api private
+## [br]
 func _register_builtin_monitors() -> void:
 	_register_builtin_monitor(&"performance.fps", &"_monitor_performance_fps", "FPS", "Performance")
 	_register_builtin_monitor(&"performance.process_time", &"_monitor_performance_process_time", "Process Time", "Performance")
@@ -2619,6 +2969,10 @@ func _register_builtin_monitors() -> void:
 	]), "Overlay")
 
 
+## 通过实例方法名建立可信内置监控项，并保留重登记前的顺序和最近采样缓存。
+## [br]
+## @api private
+## [br]
 func _register_builtin_monitor(
 	monitor_id: StringName,
 	method_name: StringName,
@@ -2649,11 +3003,20 @@ func _register_builtin_monitor(
 	}
 
 
+## 登记带显示标签的内置监控预设；登记失败时输出警告。
+## [br]
+## @api private
+## [br]
 func _register_builtin_monitor_preset(preset_id: StringName, monitor_ids: PackedStringArray, label: String) -> void:
 	if not register_monitor_preset(preset_id, monitor_ids, { "label": label }):
 		push_warning("[GFDiagnosticsUtility][diagnostics_utility.builtin_monitor_preset_registration_failed] Failed to register built-in diagnostic monitor preset: %s." % String(preset_id))
 
 
+## 生成一次监控样本；可信回调按采样间隔复用缓存并校验新值，外部发布值则读取缓存字段。
+## 所有者失效、无发布值或贡献值校验失败时在样本中记录错误。
+## [br]
+## @api private
+## [br]
 func _sample_monitor(monitor_id: StringName, entry: Dictionary) -> Dictionary:
 	var sample: Dictionary = {
 		"id": monitor_id,
@@ -2711,38 +3074,74 @@ func _sample_monitor(monitor_id: StringName, entry: Dictionary) -> Dictionary:
 	return sample
 
 
+## 读取 Godot TIME_FPS 性能监视器。
+## [br]
+## @api private
+## [br]
 func _monitor_performance_fps() -> float:
 	return Performance.get_monitor(Performance.TIME_FPS)
 
 
+## 读取 Godot TIME_PROCESS 性能监视器。
+## [br]
+## @api private
+## [br]
 func _monitor_performance_process_time() -> float:
 	return Performance.get_monitor(Performance.TIME_PROCESS)
 
 
+## 读取 Godot TIME_PHYSICS_PROCESS 性能监视器。
+## [br]
+## @api private
+## [br]
 func _monitor_performance_physics_time() -> float:
 	return Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)
 
 
+## 读取 Godot MEMORY_STATIC 性能监视器。
+## [br]
+## @api private
+## [br]
 func _monitor_performance_static_memory() -> float:
 	return Performance.get_monitor(Performance.MEMORY_STATIC)
 
 
+## 读取 Godot OBJECT_NODE_COUNT 性能监视器。
+## [br]
+## @api private
+## [br]
 func _monitor_performance_node_count() -> float:
 	return Performance.get_monitor(Performance.OBJECT_NODE_COUNT)
 
 
+## 读取 GFArchitecture models 调试分区的项目数。
+## [br]
+## @api private
+## [br]
 func _monitor_architecture_model_count() -> int:
 	return _get_architecture_debug_section_count("models")
 
 
+## 读取 GFArchitecture systems 调试分区的项目数。
+## [br]
+## @api private
+## [br]
 func _monitor_architecture_system_count() -> int:
 	return _get_architecture_debug_section_count("systems")
 
 
+## 读取 GFArchitecture utilities 调试分区的项目数。
+## [br]
+## @api private
+## [br]
 func _monitor_architecture_utility_count() -> int:
 	return _get_architecture_debug_section_count("utilities")
 
 
+## 获取 GFArchitecture 的事件系统调试统计；架构不可用时返回空字典。
+## [br]
+## @api private
+## [br]
 func _monitor_event_system_stats() -> Dictionary:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture == null:
@@ -2750,12 +3149,20 @@ func _monitor_event_system_stats() -> Dictionary:
 	return architecture.get_event_debug_stats()
 
 
+## 获取可选 GFTimerUtility 的调试快照。
+## [br]
+## @api private
+## [br]
 func _monitor_tool_timer_snapshot() -> Dictionary:
 	return _get_instance_debug_snapshot(
 		_find_optional_utility(GFTimerUtility)
 	)
 
 
+## 汇总内置工具调试快照，再加入未被内置项占用的外部发布快照。
+## [br]
+## @api private
+## [br]
 func _collect_tool_debug_snapshots() -> Dictionary:
 	var result: Dictionary = {}
 	_add_tool_debug_snapshot(
@@ -2787,12 +3194,20 @@ func _collect_tool_debug_snapshots() -> Dictionary:
 	return result
 
 
+## 将非空实例调试快照写入结果字典指定键。
+## [br]
+## @api private
+## [br]
 func _add_tool_debug_snapshot(result: Dictionary, key: StringName, instance: Object) -> void:
 	var snapshot: Dictionary = _get_instance_debug_snapshot(instance)
 	if not snapshot.is_empty():
 		result[key] = snapshot
 
 
+## 清理失效所有者后，将非空外部工具快照加入结果，保留已有内置项优先级。
+## [br]
+## @api private
+## [br]
 func _add_published_tool_snapshots(result: Dictionary) -> void:
 	_prune_released_owned_entries(_tool_snapshots)
 	for tool_id: StringName in _tool_snapshots.keys():
@@ -2804,6 +3219,10 @@ func _add_published_tool_snapshots(result: Dictionary) -> void:
 			result[tool_id] = snapshot.duplicate(true)
 
 
+## 清理失效所有者后，将未占用的非空外部快照分区写入采集结果。
+## [br]
+## @api private
+## [br]
 func _collect_published_snapshot_sections(snapshot: Dictionary) -> void:
 	_prune_released_owned_entries(_snapshot_sections)
 	for section_id: StringName in _snapshot_sections.keys():
@@ -2815,6 +3234,10 @@ func _collect_published_snapshot_sections(snapshot: Dictionary) -> void:
 			snapshot[section_id] = section.duplicate(true)
 
 
+## 对实现 get_debug_snapshot 的实例调用该方法并将返回值归一为字典。
+## [br]
+## @api private
+## [br]
 func _get_instance_debug_snapshot(instance: Object) -> Dictionary:
 	if instance == null or not instance.has_method("get_debug_snapshot"):
 		return {}
@@ -2822,6 +3245,10 @@ func _get_instance_debug_snapshot(instance: Object) -> Dictionary:
 	return GFVariantData.to_dictionary(value)
 
 
+## 先验证外部贡献预算；通过后再按调试脱敏和节点、集合、深度、文本限制编码。
+## [br]
+## @api private
+## [br]
 func _prepare_contribution_value(value: Variant) -> Dictionary:
 	var validation: Dictionary = _validate_contribution_value(value)
 	if not GFVariantData.get_option_bool(validation, "ok"):
@@ -2841,6 +3268,10 @@ func _prepare_contribution_value(value: Variant) -> Dictionary:
 	}
 
 
+## 初始化节点数和估算字节计数，递归校验贡献值后返回校验状态。
+## [br]
+## @api private
+## [br]
 func _validate_contribution_value(value: Variant) -> Dictionary:
 	var state: Dictionary = {
 		"ok": true,
@@ -2853,6 +3284,11 @@ func _validate_contribution_value(value: Variant) -> Dictionary:
 	return state
 
 
+## 逐层检查深度、节点数、集合大小和估算字节预算，并拒绝递归容器引用。
+## visited 只沿当前递归路径保留数组/字典引用，完成该分支后移除。
+## [br]
+## @api private
+## [br]
 func _validate_contribution_value_recursive(
 	value: Variant,
 	depth: int,
@@ -2900,12 +3336,20 @@ func _validate_contribution_value_recursive(
 	return true
 
 
+## 将校验状态设为失败并记录原因，供递归调用立即返回 false。
+## [br]
+## @api private
+## [br]
 func _fail_contribution_value_validation(state: Dictionary, reason: StringName) -> bool:
 	state["ok"] = false
 	state["reason"] = reason
 	return false
 
 
+## 使用 is_same 检查当前递归路径中是否已经出现同一容器引用。
+## [br]
+## @api private
+## [br]
 func _contribution_visited_contains_reference(visited: Array[Variant], value: Variant) -> bool:
 	for existing_value: Variant in visited:
 		if is_same(existing_value, value):
@@ -2913,6 +3357,10 @@ func _contribution_visited_contains_reference(visited: Array[Variant], value: Va
 	return false
 
 
+## 返回数组、字典或支持的 PackedArray 元素数；其他值返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_contribution_collection_size(value: Variant) -> int:
 	match typeof(value):
 		TYPE_ARRAY:
@@ -2955,6 +3403,11 @@ func _get_contribution_collection_size(value: Variant) -> int:
 			return -1
 
 
+## 按字符串 UTF-8 长度、容器元素数或 PackedArray 元素宽度估算贡献值字节数。
+## 该估算为预算用途，其他未专门处理类型使用固定基数。
+## [br]
+## @api private
+## [br]
 func _estimate_contribution_value_bytes(value: Variant) -> int:
 	match typeof(value):
 		TYPE_STRING:
@@ -2991,6 +3444,10 @@ func _estimate_contribution_value_bytes(value: Variant) -> int:
 			return 16
 
 
+## 读取 GFArchitecture 指定调试生命周期分区的条目数；架构不可用时返回零。
+## [br]
+## @api private
+## [br]
 func _get_architecture_debug_section_count(section_name: String) -> int:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture == null:
@@ -3001,6 +3458,10 @@ func _get_architecture_debug_section_count(section_name: String) -> int:
 	return section.size()
 
 
+## 按监控 ID 排序，将非空样本格式化为标签、分组和值的多行文本。
+## [br]
+## @api private
+## [br]
 func _export_monitor_snapshot_as_text(snapshot: Dictionary) -> String:
 	var lines: PackedStringArray = PackedStringArray()
 	var monitors: Dictionary = GFVariantData.get_option_dictionary(snapshot, "monitors")
@@ -3023,6 +3484,10 @@ func _export_monitor_snapshot_as_text(snapshot: Dictionary) -> String:
 	return "\n".join(lines)
 
 
+## 按监控 ID 排序导出固定列 CSV；无监控时仍返回表头行。
+## [br]
+## @api private
+## [br]
 func _export_monitor_snapshot_as_csv(snapshot: Dictionary) -> String:
 	var lines: PackedStringArray = PackedStringArray(["id,label,group,value,valid,error"])
 	var monitors: Dictionary = GFVariantData.get_option_dictionary(snapshot, "monitors")
@@ -3048,6 +3513,10 @@ func _export_monitor_snapshot_as_csv(snapshot: Dictionary) -> String:
 	return "\n".join(lines)
 
 
+## 将双引号加倍，并在包含逗号、换行或双引号时为字段加引号。
+## [br]
+## @api private
+## [br]
 func _escape_csv(value: String) -> String:
 	var escaped: String = value.replace("\"", "\"\"")
 	if escaped.contains(",") or escaped.contains("\n") or escaped.contains("\""):
@@ -3055,18 +3524,12 @@ func _escape_csv(value: String) -> String:
 	return escaped
 
 
-func _on_console_diagnostics_command(_args: PackedStringArray) -> void:
-	var snapshot: Dictionary = collect_snapshot({
-		"include_recent_logs": false,
-	})
-	var summary: String = _make_console_summary(snapshot)
-	var log_utility: GFLogUtility = _get_log_utility()
-	if log_utility != null:
-		log_utility.info("Diagnostics", summary)
-	else:
-		print(summary)
 
 
+## 从快照读取架构对象数量和 FPS，生成一行诊断摘要文本。
+## [br]
+## @api private
+## [br]
 func _make_console_summary(snapshot: Dictionary) -> String:
 	var architecture: Dictionary = GFVariantData.get_option_dictionary(snapshot, "architecture")
 	var models: Dictionary = GFVariantData.get_option_dictionary(architecture, "models")
@@ -3082,6 +3545,10 @@ func _make_console_summary(snapshot: Dictionary) -> String:
 	]
 
 
+## 要求命令等级不高于配置上限，且 DANGER 命令另行启用。
+## [br]
+## @api private
+## [br]
 func _is_tier_allowed(tier: int) -> bool:
 	if tier > int(max_command_tier):
 		return false
@@ -3090,6 +3557,10 @@ func _is_tier_allowed(tier: int) -> bool:
 	return true
 
 
+## 未要求令牌时放行；否则要求已配置非空 token 并与两种保留参数之一的值精确相等。
+## [br]
+## @api private
+## [br]
 func _is_auth_allowed(args: Dictionary) -> bool:
 	if not require_auth_token:
 		return true
@@ -3104,6 +3575,10 @@ func _is_auth_allowed(args: Dictionary) -> bool:
 	return provided == auth_token
 
 
+## 将字典或数组形式的参数 schema 归一为字典数组，并把结构错误保留为错误项。
+## [br]
+## @api private
+## [br]
 func _normalize_parameter_schema(parameters: Variant) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if parameters is Dictionary:
@@ -3141,12 +3616,21 @@ func _normalize_parameter_schema(parameters: Variant) -> Array[Dictionary]:
 	return result
 
 
+## 使用保留错误键封装参数 schema 结构错误文本。
+## [br]
+## @api private
+## [br]
 func _make_invalid_parameter_schema(error_message: String) -> Dictionary:
 	return {
 		_COMMAND_PARAMETER_SCHEMA_ERROR_KEY: error_message,
 	}
 
 
+## 归一化单个参数的名称、类型、必需/null 规则、默认值、候选值、数值边界和元数据。
+## 名称为空时返回空字典，类型字段不是文本时记录无效类型标记。
+## [br]
+## @api private
+## [br]
 func _normalize_parameter_definition(definition: Dictionary) -> Dictionary:
 	var parameter_name: String = GFVariantData.get_option_string(definition, "name")
 	if parameter_name.is_empty():
@@ -3172,6 +3656,10 @@ func _normalize_parameter_definition(definition: Dictionary) -> Dictionary:
 	}
 
 
+## 深复制命令参数、移除两种认证字段，并为缺失的参数填入已配置默认值。
+## [br]
+## @api private
+## [br]
 func _prepare_command_args(args: Dictionary, entry: Dictionary) -> Dictionary:
 	var prepared: Dictionary = args.duplicate(true)
 	for auth_argument_name: String in _COMMAND_AUTH_ARGUMENT_NAMES:
@@ -3190,6 +3678,10 @@ func _prepare_command_args(args: Dictionary, entry: Dictionary) -> Dictionary:
 	return prepared
 
 
+## 按登记 schema 逐项验证准备后的参数，并返回 GFValidationReport。
+## [br]
+## @api private
+## [br]
 func _validate_command_args(entry: Dictionary, prepared_args: Dictionary, original_args: Dictionary) -> GFValidationReport:
 	var report: GFValidationReport = GFValidationReport.new("Diagnostic command arguments")
 	var parameters: Array = GFVariantData.get_option_array(entry, "parameters")
@@ -3204,6 +3696,11 @@ func _validate_command_args(entry: Dictionary, prepared_args: Dictionary, origin
 	return report
 
 
+## 检查单项必填、null、类型、允许值和数值范围约束，并向报告追加错误。
+## 必填判断使用原始参数表，因此仅存在默认值不算调用方显式传入。
+## [br]
+## @api private
+## [br]
 func _validate_command_parameter(
 	report: GFValidationReport,
 	parameter: Dictionary,
@@ -3241,6 +3738,10 @@ func _validate_command_parameter(
 	_validate_numeric_range(report, parameter, parameter_name, value)
 
 
+## allowed_values 非空时要求值与其中一项相等。
+## [br]
+## @api private
+## [br]
 func _validate_allowed_values(
 	report: GFValidationReport,
 	parameter: Dictionary,
@@ -3256,6 +3757,10 @@ func _validate_allowed_values(
 	var _value_issue: RefCounted = report.add_error(&"parameter_value_not_allowed", "Diagnostic command parameter value is not allowed.", name)
 
 
+## 对 int/float 参数拒绝非有限值，并分别检查可转换的最小值和最大值。
+## [br]
+## @api private
+## [br]
 func _validate_numeric_range(
 	report: GFValidationReport,
 	parameter: Dictionary,
@@ -3276,6 +3781,10 @@ func _validate_numeric_range(
 		var _max_issue: RefCounted = report.add_error(&"parameter_above_maximum", "Diagnostic command parameter is above maximum.", name)
 
 
+## 按已支持的类型名称及别名检查 Variant；未知类型名称不匹配。
+## [br]
+## @api private
+## [br]
 func _does_value_match_parameter_type(value: Variant, type_name: String) -> bool:
 	match type_name:
 		"", "any", "variant":
@@ -3310,6 +3819,10 @@ func _does_value_match_parameter_type(value: Variant, type_name: String) -> bool
 			return false
 
 
+## 检查归一 schema 错误、空名、认证保留名、重复名和未知类型，首个错误即停止。
+## [br]
+## @api private
+## [br]
 func _is_command_parameter_schema_valid(parameters: Array[Dictionary]) -> bool:
 	var used_names: Dictionary = {}
 	for parameter: Dictionary in parameters:
@@ -3347,6 +3860,10 @@ func _is_command_parameter_schema_valid(parameters: Array[Dictionary]) -> bool:
 	return true
 
 
+## 将命令等级整数转换为 input/control/danger 文本，其他值映射为 observe。
+## [br]
+## @api private
+## [br]
 func _get_tier_name(tier: int) -> String:
 	match tier:
 		CommandTier.INPUT:
@@ -3359,5 +3876,26 @@ func _get_tier_name(tier: int) -> String:
 			return "observe"
 
 
+## 判断浮点值是否既非 NaN 也非无穷。
+## [br]
+## @api private
+## [br]
 func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
+
+
+# --- 信号处理函数 ---
+
+## 控制台命令采集不含近期日志的诊断快照，避免输出包含自身日志；优先写日志工具，无工具时直接打印摘要。
+## [br]
+## @api private
+func _on_console_diagnostics_command(_args: PackedStringArray) -> void:
+	var snapshot: Dictionary = collect_snapshot({
+		"include_recent_logs": false,
+	})
+	var summary: String = _make_console_summary(snapshot)
+	var log_utility: GFLogUtility = _get_log_utility()
+	if log_utility != null:
+		log_utility.info("Diagnostics", summary)
+	else:
+		print(summary)

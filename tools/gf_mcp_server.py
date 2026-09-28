@@ -276,13 +276,14 @@ def list_tools() -> list[dict[str, Any]]:
 		},
 		{
 			"name": "gf_api_search",
-			"description": "Search GF API classes and members without reading the whole repository.",
+			"description": "Search GF public API by default; opt into maintenance scope for documented internal/private declarations.",
 			"inputSchema": {
 				"type": "object",
 				"properties": {
 					"query": {"type": "string", "minLength": 1, "maxLength": 256},
 					"kind": {"type": "string", "enum": ["all", "class", "member"], "default": "all"},
 					"limit": {"type": "integer", "minimum": 1, "maximum": 80, "default": 20},
+					"scope": {"type": "string", "enum": list(gf_maintenance.API_QUERY_SCOPES), "default": "public"},
 				},
 				"required": ["query"],
 				"additionalProperties": False,
@@ -291,12 +292,13 @@ def list_tools() -> list[dict[str, Any]]:
 		},
 		{
 			"name": "gf_api_class",
-			"description": "Return source path, docs, reference page, and public members for one GF class.",
+			"description": "Return one GF class, inner class, controlled AutoLoad, or source path; maintenance scope includes documented internal/private declarations.",
 			"inputSchema": {
 				"type": "object",
 				"properties": {
 					"class_name": {"type": "string", "minLength": 1, "maxLength": 256},
 					"include_members": {"type": "boolean", "default": True},
+					"scope": {"type": "string", "enum": list(gf_maintenance.API_QUERY_SCOPES), "default": "public"},
 				},
 				"required": ["class_name"],
 				"additionalProperties": False,
@@ -305,13 +307,14 @@ def list_tools() -> list[dict[str, Any]]:
 		},
 		{
 			"name": "gf_api_module",
-			"description": "Return compact class and member-count context for a GF API module without dumping the full API index.",
+			"description": "Return compact public API owner and member-count context for a GF module; maintenance scope adds documented internal/private declarations and classless scripts.",
 			"inputSchema": {
 				"type": "object",
 				"properties": {
 					"module": {"type": "string", "minLength": 1, "maxLength": 512, "description": "Module id such as kernel, standard, extensions/domain, or domain."},
 					"include_members": {"type": "boolean", "default": False},
 					"limit": {"type": "integer", "minimum": 1, "maximum": 160, "default": 80},
+					"scope": {"type": "string", "enum": list(gf_maintenance.API_QUERY_SCOPES), "default": "public"},
 				},
 				"required": ["module"],
 				"additionalProperties": False,
@@ -445,17 +448,20 @@ def call_tool(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
 				str(arguments.get("query", "")),
 				kind=str(arguments.get("kind", "all")),
 				limit=int(arguments.get("limit", 20)),
+				scope=str(arguments.get("scope", "public")),
 			)
 		elif name == "gf_api_class":
 			data = gf_maintenance.api_class(
 				str(arguments.get("class_name", "")),
 				include_members=bool(arguments.get("include_members", True)),
+				scope=str(arguments.get("scope", "public")),
 			)
 		elif name == "gf_api_module":
 			data = gf_maintenance.api_module(
 				str(arguments.get("module", "")),
 				include_members=bool(arguments.get("include_members", False)),
 				limit=int(arguments.get("limit", 80)),
+				scope=str(arguments.get("scope", "public")),
 			)
 		elif name == "gf_workspace_status":
 			data = gf_maintenance.workspace_status()

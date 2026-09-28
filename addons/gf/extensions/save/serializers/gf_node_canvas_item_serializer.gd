@@ -13,6 +13,10 @@ extends GFNodeSerializer
 
 # --- 常量 ---
 
+## gather/apply 共用的 CanvasItem 可见性与调制字段类型清单。
+## [br]
+## @api private
+## [br]
 const _PROPERTY_SPECS: Array[Dictionary] = [
 	{ "key": "visible", "kind": &"bool" },
 	{ "key": "modulate", "kind": &"color" },
@@ -95,6 +99,10 @@ func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictio
 
 # --- 私有/辅助方法 ---
 
+## 将 CanvasItem 类型节点返回为强类型引用。
+## [br]
+## @api private
+## [br]
 func _get_canvas_item(node: Node) -> CanvasItem:
 	if node is CanvasItem:
 		var canvas_item: CanvasItem = node

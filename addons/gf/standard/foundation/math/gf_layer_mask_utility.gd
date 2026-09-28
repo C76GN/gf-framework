@@ -201,11 +201,19 @@ static func get_project_physics_layer_names(
 
 # --- 私有/辅助方法 ---
 
+## 安全读取指定零基层索引的名称；越界返回空字符串，其它值转为文本。
+## [br]
+## @api private
+## [br]
 static func _get_layer_name(layer_names: Array, layer_index: int) -> String:
 	if layer_index < 0 or layer_index >= layer_names.size():
 		return ""
 	return GFVariantData.to_text(layer_names[layer_index])
 
 
+## 按零基索引生成面向用户的一基默认名称，例如 Layer 1。
+## [br]
+## @api private
+## [br]
 static func _make_default_layer_name(layer_index: int) -> String:
 	return "Layer %d" % (layer_index + 1)

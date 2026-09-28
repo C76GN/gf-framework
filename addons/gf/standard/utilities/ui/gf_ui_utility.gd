@@ -122,9 +122,24 @@ enum AsyncPanelLoadStatus {
 
 # --- 常量 ---
 
+## 转发到实例守卫的存活节点与控件引用解析。
+## [br]
+## @api private
 const _INSTANCE_GUARD: Script = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
+
+## HUD 逻辑层默认使用的 CanvasLayer.layer 值。
+## [br]
+## @api private
 const _DEFAULT_HUD_CANVAS_LAYER: int = 50
+
+## POPUP 逻辑层默认使用的 CanvasLayer.layer 值。
+## [br]
+## @api private
 const _DEFAULT_POPUP_CANVAS_LAYER: int = 60
+
+## TOP 逻辑层默认使用的 CanvasLayer.layer 值。
+## [br]
+## @api private
 const _DEFAULT_TOP_CANVAS_LAYER: int = 70
 
 ## 未指定 layer 参数时使用的默认逻辑层 ID，与 Layer.POPUP 相同。
@@ -138,40 +153,80 @@ const DEFAULT_LAYER_ID: int = 1
 # --- 私有变量 ---
 
 # 各层级的 CanvasLayer 根节点。
+## 以逻辑层 ID 为键保存 CanvasLayer 根节点。
+## [br]
+## @api private
 var _layer_roots: Dictionary = {}
 
 # 各层级的面板栈。
+## 以逻辑层 ID 为键保存该层按打开顺序排列的面板栈。
+## [br]
+## @api private
 var _panel_stacks: Dictionary = {}
 
 # 逻辑层 ID 到不可变定义副本的映射。
+## 逻辑层 ID 到已复制层定义的映射。
+## [br]
+## @api private
 var _layer_definitions: Dictionary = {}
 
 # 是否自动隐藏同层级下方的面板。
+## 新层默认采用的同层下方面板隐藏策略。
+## [br]
+## @api private
 var _auto_hide_under: bool = true
 
 # Utility 生命周期标记，防止异步回调落到已销毁实例上。
+## 标记 UI 工具是否已初始化并可接受面板操作。
+## [br]
+## @api private
 var _is_active: bool = false
 
 # 面板实例 id 到策略选项的映射。
+## 以面板实例 ID 为键保存入栈时规范化的交互选项。
+## [br]
+## @api private
 var _panel_options: Dictionary = {}
 
 # 面板实例 id 到打开前焦点控件的映射。
+## 以面板实例 ID 为键保存可选的前序焦点控件弱引用。
+## [br]
+## @api private
 var _previous_focus_by_panel_id: Dictionary = {}
 
 # 每次入栈都取得独立身份；同一节点关闭后重开也不会延续旧聚焦遍历。
+## 以面板实例 ID 为键记录本次入栈身份序号。
+## [br]
+## @api private
 var _panel_open_serials: Dictionary = {}
+
+## 为每次成功入栈分配新的身份序号。
+## [br]
+## @api private
 var _next_panel_open_serial: int = 1
 
 # 每个层级的结构性变更序号，用于阻止迟到异步回调污染新状态。
+## 记录各层最近一次结构性请求序号，用于识别过期异步回调。
+## [br]
+## @api private
 var _layer_request_serials: Dictionary = {}
 
 # 跨 init/dispose 单调递增的异步请求序号，避免旧资源回调与新请求身份碰撞。
+## 在同一工具实例生命周期内递增的异步面板请求序号。
+## [br]
+## @api private
 var _next_async_panel_request_serial: int = 1
 
 # 同一层级、同一路径的异步 push 请求序号，避免连点造成重复面板实例。
+## 以路径和层级键记录正在等待的异步 push 序号，抑制重复实例化。
+## [br]
+## @api private
 var _pending_async_push_serials: Dictionary = {}
 
 # 当前仍在等待资源回调的异步面板请求。
+## 按请求键保存尚未进入终态的异步面板请求。
+## [br]
+## @api private
 var _pending_async_panel_requests: Dictionary = {}
 
 
@@ -1176,6 +1231,9 @@ func keep_focus_inside_top_modal(layer: int = Layer.POPUP) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 同步加载并实例化场景，按参数选择是否使该层 pending 请求失效后再入栈。
+## [br]
+## @api private
 func _replace_layer_synchronously(
 	path: String,
 	layer: int,
@@ -1200,6 +1258,9 @@ func _replace_layer_synchronously(
 
 	return panel_instance
 
+## 清空指定层的面板栈，但不取消该层正在等待的异步请求。
+## [br]
+## @api private
 func _clear_layer_without_invalidating_requests(layer: int) -> void:
 	_prune_layer_stack(layer)
 	var stack: Array = _get_layer_stack(layer)
@@ -1213,18 +1274,27 @@ func _clear_layer_without_invalidating_requests(layer: int) -> void:
 	_emit_navigation_changed(layer)
 
 
+## 若节点仍有父节点且场景树未处于退出阶段，则将其移出父节点。
+## [br]
+## @api private
 func _detach_node_from_tree(node: Node) -> void:
 	var parent: Node = node.get_parent()
 	if parent != null and not GFAutoload.is_tree_exit_in_progress():
 		parent.remove_child(node)
 
 
+## 为该层保留新请求序号，并取消该层其他等待中的面板请求。
+## [br]
+## @api private
 func _next_layer_request_serial(layer: int) -> int:
 	var next_serial: int = _reserve_layer_request_serial(layer)
 	_cancel_pending_async_panel_requests_for_layer(layer)
 	return next_serial
 
 
+## 从全局递增序列取号并记录为指定层当前请求序号。
+## [br]
+## @api private
 func _reserve_layer_request_serial(layer: int) -> int:
 	var next_serial: int = _next_async_panel_request_serial
 	_next_async_panel_request_serial += 1
@@ -1232,6 +1302,9 @@ func _reserve_layer_request_serial(layer: int) -> int:
 	return next_serial
 
 
+## 仅当拒绝的序号仍是当前值时，恢复之前序号或移除该层记录。
+## [br]
+## @api private
 func _restore_layer_request_serial_after_rejection(
 	layer: int,
 	rejected_serial: int,
@@ -1245,22 +1318,37 @@ func _restore_layer_request_serial_after_rejection(
 		var _erased: bool = _layer_request_serials.erase(layer)
 
 
+## 读取层请求序号；未记录时返回 0。
+## [br]
+## @api private
 func _get_layer_request_serial(layer: int) -> int:
 	return GFVariantData.get_option_int(_layer_request_serials, layer, 0)
 
 
+## 判断给定请求序号是否仍是指定层当前记录的序号。
+## [br]
+## @api private
 func _is_layer_request_serial_current(layer: int, request_serial: int) -> bool:
 	return _get_layer_request_serial(layer) == request_serial
 
 
+## 组合层级与场景路径，生成异步 push 去重键。
+## [br]
+## @api private
 func _make_async_push_key(path: String, layer: int) -> String:
 	return "%d:%s" % [layer, path]
 
 
+## 组合操作、层级、请求序号和路径，生成异步面板请求键。
+## [br]
+## @api private
 func _make_async_panel_request_key(operation: StringName, path: String, layer: int, request_serial: int) -> String:
 	return "%s:%d:%d:%s" % [String(operation), layer, request_serial, path]
 
 
+## 配置终态句柄并登记请求；配置或回调连接失败时返回 null。
+## [br]
+## @api private
 func _track_async_panel_request(
 	request_key: String,
 	path: String,
@@ -1287,6 +1375,9 @@ func _track_async_panel_request(
 	return operation_handle
 
 
+## 将有效完成回调以一次性连接方式接到异步面板句柄。
+## [br]
+## @api private
 func _connect_async_panel_completion_callback(
 	operation_handle: GFUIPanelAsyncOperation,
 	completion_callback: Callable
@@ -1302,6 +1393,9 @@ func _connect_async_panel_completion_callback(
 	return connection_error == OK
 
 
+## 验证成功面板仍在目标层栈中，移除请求记录并完成句柄及结束信号。
+## [br]
+## @api private
 func _finish_async_panel_request(request_key: String, status: int, panel: Node) -> void:
 	if not _pending_async_panel_requests.has(request_key):
 		return
@@ -1347,11 +1441,17 @@ func _finish_async_panel_request(request_key: String, status: int, panel: Node) 
 	)
 
 
+## 仅当键当前仍对应给定序号时清除异步 push 占位。
+## [br]
+## @api private
 func _clear_pending_async_push(request_key: String, request_serial: int) -> void:
 	if GFVariantData.get_option_int(_pending_async_push_serials, request_key, -1) == request_serial:
 		var _erased: bool = _pending_async_push_serials.erase(request_key)
 
 
+## 取消指定层的 pending 请求，可排除当前正在启动的请求键。
+## [br]
+## @api private
 func _cancel_pending_async_panel_requests_for_layer(
 	layer: int,
 	excluded_request_key: String = ""
@@ -1364,6 +1464,9 @@ func _cancel_pending_async_panel_requests_for_layer(
 			_finish_async_panel_request(request_key, AsyncPanelLoadStatus.CANCELLED, null)
 
 
+## 取消指定层所有尚未完成的 replace 面板请求。
+## [br]
+## @api private
 func _cancel_pending_async_replace_requests_for_layer(layer: int) -> void:
 	for request_key: String in _pending_async_panel_requests.keys():
 		var request: Dictionary = _get_pending_async_panel_request(request_key)
@@ -1377,16 +1480,25 @@ func _cancel_pending_async_replace_requests_for_layer(layer: int) -> void:
 		_finish_async_panel_request(request_key, AsyncPanelLoadStatus.CANCELLED, null)
 
 
+## 将所有 pending 异步面板请求以 CANCELLED 状态终结。
+## [br]
+## @api private
 func _cancel_all_pending_async_panel_requests() -> void:
 	for request_key: String in _pending_async_panel_requests.keys():
 		_finish_async_panel_request(request_key, AsyncPanelLoadStatus.CANCELLED, null)
 
 
+## 按已注册层 ID 创建或更新所有 CanvasLayer 根节点。
+## [br]
+## @api private
 func _create_layers() -> void:
 	for layer_id: int in get_layer_ids():
 		var _created: bool = _create_or_update_layer_root(layer_id)
 
 
+## 按层定义更新现有 CanvasLayer，或将新节点加入 SceneTree 根节点。
+## [br]
+## @api private
 func _create_or_update_layer_root(layer: int) -> bool:
 	var definition: GFUILayerDefinition = _get_layer_definition_value(layer)
 	if definition == null:
@@ -1412,12 +1524,18 @@ func _create_or_update_layer_root(layer: int) -> bool:
 	return true
 
 
+## 为 HUD、POPUP、TOP 注册当前尚未定义的预置层。
+## [br]
+## @api private
 func _ensure_default_layer_definitions() -> void:
 	_register_default_layer_if_missing(Layer.HUD, &"HUD", _DEFAULT_HUD_CANVAS_LAYER)
 	_register_default_layer_if_missing(Layer.POPUP, &"POPUP", _DEFAULT_POPUP_CANVAS_LAYER)
 	_register_default_layer_if_missing(Layer.TOP, &"TOP", _DEFAULT_TOP_CANVAS_LAYER)
 
 
+## 仅在层 ID 尚未注册时创建并保存默认层定义。
+## [br]
+## @api private
 func _register_default_layer_if_missing(layer: int, display_name: StringName, canvas_layer: int) -> void:
 	if _layer_definitions.has(layer):
 		return
@@ -1430,6 +1548,9 @@ func _register_default_layer_if_missing(layer: int, display_name: StringName, ca
 	_layer_definitions[layer] = definition
 
 
+## 根据层显示名生成节点名；空名时使用层 ID 作为后缀。
+## [br]
+## @api private
 func _make_layer_node_name(definition: GFUILayerDefinition) -> StringName:
 	var suffix: String = String(definition.display_name).validate_node_name()
 	if suffix.is_empty():
@@ -1437,6 +1558,10 @@ func _make_layer_node_name(definition: GFUILayerDefinition) -> StringName:
 	return StringName("GFUILayer_%s" % suffix)
 
 
+## 校验层根节点和面板身份，配置并入栈后同步可见性、焦点及导航通知。
+## 每个用户回调或信号后再次确认面板仍为本次打开身份，避免继续处理被替换的节点。
+## [br]
+## @api private
 func _add_panel_instance(
 	panel: Node,
 	layer: int,
@@ -1499,11 +1624,17 @@ func _add_panel_instance(
 	return _get_valid_panel_from_variant(panel) != null and _is_panel_open_current(panel, layer, open_serial)
 
 
+## 清理所有已注册层栈中的失效面板条目。
+## [br]
+## @api private
 func _prune_all_layer_stacks() -> void:
 	for layer_idx: int in _panel_stacks.keys():
 		_prune_layer_stack(layer_idx)
 
 
+## 将值解析为未释放且未排队删除的面板节点。
+## [br]
+## @api private
 func _get_valid_panel_from_variant(value: Variant) -> Node:
 	var panel: Node = _get_live_node(value)
 	if panel == null:
@@ -1513,6 +1644,9 @@ func _get_valid_panel_from_variant(value: Variant) -> Node:
 	return panel
 
 
+## 从层栈移除失效项，对排队删除的面板执行关闭清理并刷新显示状态。
+## [br]
+## @api private
 func _prune_layer_stack(layer: int) -> void:
 	var stack: Array = _get_layer_stack(layer)
 	var removed_any: bool = false
@@ -1534,6 +1668,9 @@ func _prune_layer_stack(layer: int) -> void:
 		_sync_layer_visibility(layer)
 
 
+## 检查面板实例是否已经出现在任一逻辑层栈中。
+## [br]
+## @api private
 func _is_panel_in_any_stack(panel: Node) -> bool:
 	for stack: Array in _panel_stacks.values():
 		if stack.has(panel):
@@ -1541,6 +1678,9 @@ func _is_panel_in_any_stack(panel: Node) -> bool:
 	return false
 
 
+## 从栈顶向下更新可见性；首个启用 hide_under 的上层面板隐藏其下方项。
+## [br]
+## @api private
 func _sync_layer_visibility(layer: int) -> void:
 	var stack: Array = _get_layer_stack(layer)
 	var hidden_by_upper_panel: bool = false
@@ -1556,10 +1696,16 @@ func _sync_layer_visibility(layer: int) -> void:
 				hidden_by_upper_panel = true
 
 
+## 发出层级导航变化信号，并附带当前栈顶面板。
+## [br]
+## @api private
 func _emit_navigation_changed(layer: int) -> void:
 	navigation_changed.emit(layer, get_top_panel(layer))
 
 
+## 向顶层面板发送关闭请求；按选项调用 resolve_cancel 或弹出该面板。
+## [br]
+## @api private
 func _request_dismiss_layer(layer: int, reason: String) -> bool:
 	var top_panel: Node = get_top_panel(layer)
 	if top_panel == null:
@@ -1578,6 +1724,9 @@ func _request_dismiss_layer(layer: int, reason: String) -> bool:
 	return true
 
 
+## 清理层栈后统计其中仍有效且为 Modal 模式的面板数。
+## [br]
+## @api private
 func _count_modals_in_layer(layer: int) -> int:
 	_prune_layer_stack(layer)
 	var count: int = 0
@@ -1588,6 +1737,9 @@ func _count_modals_in_layer(layer: int) -> int:
 	return count
 
 
+## 归一化交互模式及遮挡、取消、焦点和元数据选项。
+## [br]
+## @api private
 func _normalize_panel_options(options: Dictionary, layer: int) -> Dictionary:
 	var is_modal: bool = GFVariantData.get_option_bool(options, "modal", false)
 	var mode: int = GFVariantData.get_option_int(options, "mode", PanelMode.MODAL if is_modal else PanelMode.NORMAL)
@@ -1602,6 +1754,9 @@ func _normalize_panel_options(options: Dictionary, layer: int) -> Dictionary:
 	}
 
 
+## 启用关闭还原焦点时，将当前焦点控件以弱引用关联到新面板。
+## [br]
+## @api private
 func _capture_previous_focus(
 	panel: Node,
 	options: Dictionary,
@@ -1616,11 +1771,17 @@ func _capture_previous_focus(
 		_previous_focus_by_panel_id[panel.get_instance_id()] = weakref(focused)
 
 
+## 选项启用 focus_on_open 时尝试聚焦面板内第一个可聚焦控件。
+## [br]
+## @api private
 func _apply_open_focus_policy(panel: Node, options: Dictionary) -> void:
 	if GFVariantData.get_option_bool(options, "focus_on_open", false):
 		var _focused: bool = _focus_first_control(panel)
 
 
+## 清除面板打开身份和选项，并按策略恢复之前的焦点控件。
+## [br]
+## @api private
 func _handle_panel_closed(panel: Node) -> void:
 	var panel_id: int = panel.get_instance_id()
 	var _serial_erased: bool = _panel_open_serials.erase(panel_id)
@@ -1631,6 +1792,9 @@ func _handle_panel_closed(panel: Node) -> void:
 	var _focus_erased: bool = _previous_focus_by_panel_id.erase(panel_id)
 
 
+## 从指定面板记录解析前序控件；控件仍在场景树中时调用 grab_focus。
+## [br]
+## @api private
 func _restore_previous_focus(panel_id: int) -> void:
 	var previous_ref: WeakRef = _get_weak_ref(GFVariantData.get_option_value(_previous_focus_by_panel_id, panel_id))
 	if previous_ref == null:
@@ -1640,6 +1804,9 @@ func _restore_previous_focus(panel_id: int) -> void:
 		previous.grab_focus()
 
 
+## 在仍打开的面板子树中按节点遍历顺序寻找并聚焦第一个可聚焦控件。
+## [br]
+## @api private
 func _focus_first_control(panel: Node) -> bool:
 	if not is_instance_valid(panel):
 		return false
@@ -1647,6 +1814,9 @@ func _focus_first_control(panel: Node) -> bool:
 	return _focus_first_control_in_branch(panel, panel, _find_panel_layer(panel), open_serial)
 
 
+## 递归检查子树中的控件；每次聚焦后确认原面板打开身份仍有效。
+## [br]
+## @api private
 func _focus_first_control_in_branch(root: Node, panel: Node, layer: int, open_serial: int) -> bool:
 	if not is_instance_valid(panel) or not _is_current_focus_panel(panel, layer, open_serial):
 		return false
@@ -1672,6 +1842,9 @@ func _focus_first_control_in_branch(root: Node, panel: Node, layer: int, open_se
 	return false
 
 
+## 判断面板仍在指定层栈中且其打开序号匹配给定身份。
+## [br]
+## @api private
 func _is_panel_open_current(panel: Node, layer: int, open_serial: int) -> bool:
 	if not is_instance_valid(panel):
 		return false
@@ -1680,6 +1853,9 @@ func _is_panel_open_current(panel: Node, layer: int, open_serial: int) -> bool:
 	return _get_layer_stack(layer).has(panel)
 
 
+## 检查打开身份有效、节点仍在树中且面板仍为该层有效栈顶。
+## [br]
+## @api private
 func _is_current_focus_panel(panel: Node, layer: int, open_serial: int) -> bool:
 	if not _is_panel_open_current(panel, layer, open_serial):
 		return false
@@ -1689,6 +1865,9 @@ func _is_current_focus_panel(panel: Node, layer: int, open_serial: int) -> bool:
 	return not stack.is_empty() and _get_valid_panel_from_variant(stack.back()) == panel
 
 
+## 排除树外或排队删除的控件及祖先，再查询框架焦点工具的控件条件。
+## [br]
+## @api private
 func _can_focus_control(control: Control) -> bool:
 	if not is_instance_valid(control) or not control.is_inside_tree():
 		return false
@@ -1700,6 +1879,9 @@ func _can_focus_control(control: Control) -> bool:
 	return GFControlFocusUtility.is_focusable_control_for_framework(control)
 
 
+## 沿父节点链检查 node 是否为 ancestor 本身或其后代。
+## [br]
+## @api private
 func _is_descendant_of(node: Node, ancestor: Node) -> bool:
 	var current: Node = node
 	while current != null:
@@ -1709,6 +1891,9 @@ func _is_descendant_of(node: Node, ancestor: Node) -> bool:
 	return false
 
 
+## 从当前架构取得 GFAssetUtility；架构缺失或类型不符时返回 null。
+## [br]
+## @api private
 func _get_asset_util() -> GFAssetUtility:
 	var arch: GFArchitecture = _get_architecture_or_null()
 	if arch == null:
@@ -1722,6 +1907,9 @@ func _get_asset_util() -> GFAssetUtility:
 
 # --- 私有/辅助方法 (类型收口) ---
 
+## 从层栈映射读取数组；值不是 Array 时返回空数组。
+## [br]
+## @api private
 func _get_layer_stack(layer: int) -> Array:
 	var value: Variant = GFVariantData.get_option_value(_panel_stacks, layer, [])
 	if value is Array:
@@ -1730,6 +1918,9 @@ func _get_layer_stack(layer: int) -> Array:
 	return []
 
 
+## 从层定义映射读取 GFUILayerDefinition；缺失或类型不符时返回 null。
+## [br]
+## @api private
 func _get_layer_definition_value(layer: int) -> GFUILayerDefinition:
 	var value: Variant = GFVariantData.get_option_value(_layer_definitions, layer)
 	if value is GFUILayerDefinition:
@@ -1738,11 +1929,17 @@ func _get_layer_definition_value(layer: int) -> GFUILayerDefinition:
 	return null
 
 
+## 返回指定层策略；没有有效层定义时使用全局默认值。
+## [br]
+## @api private
 func _get_layer_auto_hide_under(layer: int) -> bool:
 	var definition: GFUILayerDefinition = _get_layer_definition_value(layer)
 	return definition.auto_hide_under if definition != null else _auto_hide_under
 
 
+## 查找包含面板的逻辑层；未找到时返回 -1。
+## [br]
+## @api private
 func _find_panel_layer(panel: Node) -> int:
 	for layer_id: int in _panel_stacks.keys():
 		if _get_layer_stack(layer_id).has(panel):
@@ -1750,12 +1947,18 @@ func _find_panel_layer(panel: Node) -> int:
 	return -1
 
 
+## 获取已注册层 ID，并按 CanvasLayer.layer 与 ID 排序。
+## [br]
+## @api private
 func _get_layer_ids_by_display_order() -> Array[int]:
 	var result: Array[int] = get_layer_ids()
 	result.sort_custom(_is_layer_before)
 	return result
 
 
+## 比较两个层的绘制顺序；CanvasLayer.layer 相同时按逻辑层 ID 排序。
+## [br]
+## @api private
 func _is_layer_before(left: int, right: int) -> bool:
 	var left_definition: GFUILayerDefinition = _get_layer_definition_value(left)
 	var right_definition: GFUILayerDefinition = _get_layer_definition_value(right)
@@ -1766,19 +1969,31 @@ func _is_layer_before(left: int, right: int) -> bool:
 	return left_canvas_layer < right_canvas_layer
 
 
+## 按面板实例 ID 读取选项字典；缺失或非字典值返回空字典。
+## [br]
+## @api private
 func _get_panel_options_for_id(panel_id: int) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_panel_options, panel_id, {}))
 
 
+## 按请求键读取 pending 异步面板条目；缺失时返回空字典。
+## [br]
+## @api private
 func _get_pending_async_panel_request(request_key: String) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_pending_async_panel_requests, request_key, {}))
 
 
+## 从 pending 请求条目取出并收窄异步面板操作句柄。
+## [br]
+## @api private
 func _get_async_panel_operation_from_request(request_key: String) -> GFUIPanelAsyncOperation:
 	var request: Dictionary = _get_pending_async_panel_request(request_key)
 	return _get_ui_panel_async_operation_value(request.get("operation_handle"))
 
 
+## 将 Variant 收窄为 GFUIPanelAsyncOperation；类型不符时返回 null。
+## [br]
+## @api private
 static func _get_ui_panel_async_operation_value(value: Variant) -> GFUIPanelAsyncOperation:
 	if value is GFUIPanelAsyncOperation:
 		var operation_handle: GFUIPanelAsyncOperation = value
@@ -1786,6 +2001,9 @@ static func _get_ui_panel_async_operation_value(value: Variant) -> GFUIPanelAsyn
 	return null
 
 
+## 委托实例守卫解析 Variant 中仍有效的 Node。
+## [br]
+## @api private
 func _get_live_node(value: Variant) -> Node:
 	var result: Variant = _INSTANCE_GUARD.call("_get_live_node", value)
 	if result is Node:
@@ -1794,6 +2012,9 @@ func _get_live_node(value: Variant) -> Node:
 	return null
 
 
+## 委托实例守卫解析仍有效的弱引用 Control。
+## [br]
+## @api private
 func _get_live_control_from_ref(object_ref: WeakRef) -> Control:
 	var result: Variant = _INSTANCE_GUARD.call("_get_live_control_from_ref", object_ref)
 	if result is Control:
@@ -1802,6 +2023,9 @@ func _get_live_control_from_ref(object_ref: WeakRef) -> Control:
 	return null
 
 
+## 将 Variant 收窄为 CanvasLayer；类型不符时返回 null。
+## [br]
+## @api private
 static func _get_canvas_layer(value: Variant) -> CanvasLayer:
 	if value is CanvasLayer:
 		var canvas: CanvasLayer = value
@@ -1809,6 +2033,9 @@ static func _get_canvas_layer(value: Variant) -> CanvasLayer:
 	return null
 
 
+## 将 Variant 收窄为 CanvasItem；类型不符时返回 null。
+## [br]
+## @api private
 static func _get_canvas_item(value: Variant) -> CanvasItem:
 	if value is CanvasItem:
 		var canvas_item: CanvasItem = value
@@ -1816,6 +2043,9 @@ static func _get_canvas_item(value: Variant) -> CanvasItem:
 	return null
 
 
+## 将 Variant 收窄为 PackedScene；类型不符时返回 null。
+## [br]
+## @api private
 static func _get_packed_scene(value: Variant) -> PackedScene:
 	if value is PackedScene:
 		var scene: PackedScene = value
@@ -1823,11 +2053,17 @@ static func _get_packed_scene(value: Variant) -> PackedScene:
 	return null
 
 
+## 从路径加载资源并收窄为 PackedScene；其他资源类型返回 null。
+## [br]
+## @api private
 static func _load_packed_scene(path: String) -> PackedScene:
 	var resource: Resource = load(path)
 	return _get_packed_scene(resource)
 
 
+## 将 Variant 收窄为 WeakRef；类型不符时返回 null。
+## [br]
+## @api private
 static func _get_weak_ref(value: Variant) -> WeakRef:
 	if value is WeakRef:
 		var object_ref: WeakRef = value
@@ -1837,6 +2073,9 @@ static func _get_weak_ref(value: Variant) -> WeakRef:
 
 # --- 信号处理函数 ---
 
+## 面板离开场景树时，从对应层栈移除并发出关闭、可见性及导航更新。
+## [br]
+## @api private
 func _on_panel_tree_exited(panel: Node, layer: int) -> void:
 	if not _panel_stacks.has(layer):
 		return

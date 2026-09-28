@@ -42,6 +42,10 @@ enum State {
 ## [br]
 ## @layer kernel/editor
 const GFEditorToolContextBase = preload("res://addons/gf/kernel/editor/gf_editor_tool_context.gd")
+
+## 从拾取响应中读取并复制 Dictionary 值的工具脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -67,9 +71,24 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 拾取流程当前所处的状态机状态。
+## [br]
+## @api private
 var _state: State = State.IDLE
+
+## 当前或最近一次操作使用的工具上下文；结束状态下会保留到下一次 begin。
+## [br]
+## @api private
 var _context: GFEditorToolContextBase = null
+
+## 最近一次 pick 响应中的预览字典，供读取接口深复制返回。
+## [br]
+## @api private
 var _preview: Dictionary = {}
+
+## 最近一次 pick 响应中的结果字典，应用时再深复制交给覆写钩子。
+## [br]
+## @api private
 var _result: Dictionary = {}
 
 

@@ -23,6 +23,11 @@ const DEFAULT_MAX_RAYCAST_RESULTS: int = 32
 ## [br]
 ## @api public
 const DEFAULT_RAYCAST_MARGIN: float = 0.01
+
+## 提供向量和浮点有限性检查的空间边界数学工具。
+## [br]
+## @api private
+## [br]
 const _SPATIAL_BOUNDS_MATH = preload("res://addons/gf/standard/foundation/math/gf_spatial_bounds_math.gd")
 
 
@@ -111,6 +116,10 @@ func raycast_all_3d(
 
 # --- 私有/辅助方法 ---
 
+## 根据选项创建一次 3D 射线查询参数。
+## [br]
+## @api private
+## [br]
 func _make_raycast_query_3d(
 	from: Vector3,
 	to: Vector3,
@@ -129,6 +138,10 @@ func _make_raycast_query_3d(
 	return query
 
 
+## 从 RID 或 CollisionObject3D 排除项中收集有效且不重复的 RID。
+## [br]
+## @api private
+## [br]
 func _get_exclude_rids(options: Dictionary) -> Array[RID]:
 	var result: Array[RID] = []
 	var values: Array = GFVariantData.get_option_array(options, "exclude", [])
@@ -145,6 +158,10 @@ func _get_exclude_rids(options: Dictionary) -> Array[RID]:
 	return result
 
 
+## 从命中结果的 rid 字段或 collider 对象提取 RID；无法提取时返回无效 RID。
+## [br]
+## @api private
+## [br]
 func _get_hit_rid(hit: Dictionary) -> RID:
 	var rid_value: Variant = GFVariantData.get_option_value(hit, "rid", RID())
 	if rid_value is RID:

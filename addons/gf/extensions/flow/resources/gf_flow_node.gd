@@ -13,6 +13,9 @@ extends Resource
 
 # --- 常量 ---
 
+## 为节点运行时状态报告提供 schema 投影工具。
+## [br]
+## @api private
 const _REPORT_SCHEMA_PROJECTION = preload(
 	"res://addons/gf/kernel/core/gf_report_schema_projection.gd"
 )
@@ -121,9 +124,24 @@ var runtime_state: Dictionary:
 
 # --- 私有变量 ---
 
+## 保存节点运行时状态租约的运行时状态。
+## [br]
+## @api private
 var _runtime_state: Dictionary = {}
+
+## 保存节点运行时状态租约的运行时状态租约序号。
+## [br]
+## @api private
 var _runtime_state_lease_serial: int = 0
+
+## 保存节点运行时状态租约的运行时状态租约ID。
+## [br]
+## @api private
 var _runtime_state_lease_id: int = 0
+
+## 保存节点运行时状态租约的运行时状态租约写入深度。
+## [br]
+## @api private
 var _runtime_state_lease_write_depth: int = 0
 
 
@@ -451,6 +469,9 @@ func is_runtime_state_leased() -> bool:
 # --- 私有/辅助方法 ---
 
 
+## 运行时状态处于租约保护时拒绝外部写入并记录错误。
+## [br]
+## @api private
 func _reject_runtime_state_write(operation: String) -> bool:
 	if not is_runtime_state_leased() or _runtime_state_lease_write_depth > 0:
 		return false
@@ -460,6 +481,9 @@ func _reject_runtime_state_write(operation: String) -> bool:
 	)
 	return true
 
+## 按端口 ID 在指定端口数组中查找端口。
+## [br]
+## @api private
 func _find_port(ports: Array[GFFlowPort], port_id: StringName) -> GFFlowPort:
 	for port: GFFlowPort in ports:
 		if port != null and _get_port_id(port) == port_id:
@@ -467,6 +491,9 @@ func _find_port(ports: Array[GFFlowPort], port_id: StringName) -> GFFlowPort:
 	return null
 
 
+## 将非空端口资源转换为描述字典数组。
+## [br]
+## @api private
 func _describe_ports(ports: Array[GFFlowPort]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for port: GFFlowPort in ports:
@@ -475,6 +502,9 @@ func _describe_ports(ports: Array[GFFlowPort]) -> Array[Dictionary]:
 	return result
 
 
+## 提取端口属性并构造描述字典。
+## [br]
+## @api private
 func _describe_port(port: GFFlowPort) -> Dictionary:
 	var port_id: StringName = _get_port_id(port)
 	return {
@@ -491,6 +521,9 @@ func _describe_port(port: GFFlowPort) -> Dictionary:
 	}
 
 
+## 读取端口稳定 ID。
+## [br]
+## @api private
 func _get_port_id(port: GFFlowPort) -> StringName:
 	if port == null:
 		return &""
@@ -499,6 +532,9 @@ func _get_port_id(port: GFFlowPort) -> StringName:
 	return &""
 
 
+## 读取端口显示名，缺省时回退到端口 ID、资源名或通用名称。
+## [br]
+## @api private
 func _get_port_display_name(port: GFFlowPort, port_id: StringName) -> String:
 	if port == null:
 		return "Flow Port"

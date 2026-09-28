@@ -152,12 +152,18 @@ func duplicate_rule() -> GFDerivedAttributeRule:
 
 # --- 私有/辅助方法 ---
 
+## 按规则的最小值和最大值范围限制计算结果。
+## [br]
+## @api private
 func _clamp_result(value: float) -> float:
 	var safe_min: float = minf(min_value, max_value)
 	var safe_max: float = maxf(min_value, max_value)
 	return clampf(value, safe_min, safe_max)
 
 
+## 将任意值收窄为 GFDerivedAttributeRule 实例，否则返回 null。
+## [br]
+## @api private
 func _get_derived_attribute_rule_value(value: Variant) -> GFDerivedAttributeRule:
 	if value is GFDerivedAttributeRule:
 		var rule: GFDerivedAttributeRule = value

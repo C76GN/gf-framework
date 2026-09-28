@@ -15,15 +15,25 @@ extends EditorDebuggerPlugin
 
 # --- 私有变量 ---
 
+## 按 EditorDebuggerSession ID 保存对应的运行时诊断页签实例。
+## [br]
+## @api private
+## [br]
 var _tabs_by_session_id: Dictionary = {}
 
 
 # --- Godot 回调方法 ---
 
+## 仅声明接收 GF 诊断的 capture 名称，其他调试协议交给编辑器的其余处理器。
+## [br]
+## @api private
 func _has_capture(capture: String) -> bool:
 	return capture == String(GFDiagnosticsUtility.DEBUGGER_CAPTURE_NAME)
 
 
+## 找到会话页签后按消息类型转交快照、目录或命令结果；页签不存在或消息未知时返回未处理。
+## [br]
+## @api private
 func _capture(message: String, data: Array, session_id: int) -> bool:
 	var tab: GFRuntimeDebuggerTab = _get_tab(session_id)
 	if tab == null:
@@ -43,6 +53,9 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			return false
 
 
+## 为编辑器调试会话创建并登记页签，交由 EditorDebuggerSession 持有；远端 stopped 不释放该页签，支持跨运行复用。
+## [br]
+## @api private
 func _setup_session(session_id: int) -> void:
 	var session: EditorDebuggerSession = get_session(session_id)
 	if session == null:
@@ -79,6 +92,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 读取指定调试会话的页签；缺少记录或值类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_tab(session_id: int) -> GFRuntimeDebuggerTab:
 	var value: Variant = GFVariantData.get_option_value(_tabs_by_session_id, session_id, null)
 	if value is GFRuntimeDebuggerTab:
@@ -87,6 +104,10 @@ func _get_tab(session_id: int) -> GFRuntimeDebuggerTab:
 	return null
 
 
+## 读取指定消息数据项；索引越界或值不是字典时返回空字典，字典值返回深复制。
+## [br]
+## @api private
+## [br]
 func _data_dictionary(data: Array, index: int) -> Dictionary:
 	if index < 0 or index >= data.size():
 		return {}
@@ -97,6 +118,10 @@ func _data_dictionary(data: Array, index: int) -> Dictionary:
 	return {}
 
 
+## 读取指定消息数据项并转换为 StringName；索引越界时返回空名称。
+## [br]
+## @api private
+## [br]
 func _data_string_name(data: Array, index: int) -> StringName:
 	if index < 0 or index >= data.size():
 		return &""

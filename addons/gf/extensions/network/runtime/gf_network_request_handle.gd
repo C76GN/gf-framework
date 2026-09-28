@@ -27,11 +27,40 @@ signal completed(result: GFNetworkRequestResult)
 
 # --- 私有变量 ---
 
+## 记录请求句柄是否已由网络层完成一次性配置。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
+
+## 关联此句柄的请求标识。
+## [br]
+## @api private
+## [br]
 var _request_id: String = ""
+
+## 请求目标或响应来源的 peer 标识。
+## [br]
+## @api private
+## [br]
 var _peer_id: int = -1
+
+## 请求跟踪器的弱引用，避免句柄延长其生命周期。
+## [br]
+## @api private
+## [br]
 var _tracker_ref: WeakRef = null
+
+## 此请求已提交的最终结果。
+## [br]
+## @api private
+## [br]
 var _result: GFNetworkRequestResult = null
+
+## 记录最终结果是否已发布给等待方。
+## [br]
+## @api private
+## [br]
 var _published: bool = false
 
 

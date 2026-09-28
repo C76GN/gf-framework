@@ -79,6 +79,10 @@ const KIND_SCREEN_DRAG: StringName = &"screen_drag"
 ## @since 8.0.0
 const KIND_UNKNOWN: StringName = &"unknown"
 
+## 预载输入事件工具脚本，供事件类型收窄及事件记录操作复用。
+## [br]
+## @api private
+## [br]
 const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_input_event_tools.gd")
 
 
@@ -329,6 +333,10 @@ static func from_dictionary(data: Dictionary) -> GFInputEventIdentity:
 
 # --- 私有/辅助方法 ---
 
+## 从 InputEventAction 填充身份类别、动作键、显示键、图标键和 action 元数据。
+## [br]
+## @api private
+## [br]
 static func _apply_action_event(identity: GFInputEventIdentity, event: InputEventAction) -> void:
 	var action_text: String = String(event.action)
 	identity.kind = KIND_ACTION
@@ -342,6 +350,10 @@ static func _apply_action_event(identity: GFInputEventIdentity, event: InputEven
 	}
 
 
+## 从物理或逻辑按键及修饰键选项生成键盘事件身份和图标候选。
+## [br]
+## @api private
+## [br]
 static func _apply_key_event(identity: GFInputEventIdentity, event: InputEventKey, options: Dictionary) -> void:
 	var keycode: int = int(event.physical_keycode)
 	if keycode == int(KEY_NONE):
@@ -377,6 +389,10 @@ static func _apply_key_event(identity: GFInputEventIdentity, event: InputEventKe
 	}
 
 
+## 从鼠标按钮枚举生成事件身份，并添加语义及数字图标候选。
+## [br]
+## @api private
+## [br]
 static func _apply_mouse_button_event(identity: GFInputEventIdentity, event: InputEventMouseButton) -> void:
 	identity.kind = KIND_MOUSE_BUTTON
 	identity.primary_key = "mouse_button:%d" % int(event.button_index)
@@ -391,6 +407,10 @@ static func _apply_mouse_button_event(identity: GFInputEventIdentity, event: Inp
 	}
 
 
+## 从手柄按钮枚举生成事件身份，并添加标准按钮名及数字图标候选。
+## [br]
+## @api private
+## [br]
 static func _apply_joy_button_event(identity: GFInputEventIdentity, event: InputEventJoypadButton) -> void:
 	identity.kind = KIND_JOY_BUTTON
 	identity.primary_key = "joy_button:%d" % int(event.button_index)
@@ -405,6 +425,10 @@ static func _apply_joy_button_event(identity: GFInputEventIdentity, event: Input
 	}
 
 
+## 按轴和显式覆盖或事件值符号生成手柄轴身份、冲突键与元数据。
+## [br]
+## @api private
+## [br]
 static func _apply_joy_axis_event(identity: GFInputEventIdentity, event: InputEventJoypadMotion, options: Dictionary) -> void:
 	var sign_override: int = clampi(GFVariantData.get_option_int(options, &"joy_axis_sign"), -1, 1)
 	var sign_value: int = sign_override if sign_override != 0 else _get_axis_sign(event.axis_value)
@@ -423,6 +447,10 @@ static func _apply_joy_axis_event(identity: GFInputEventIdentity, event: InputEv
 	}
 
 
+## 根据是否匹配触点索引生成屏幕触摸身份，图标键固定为 touch。
+## [br]
+## @api private
+## [br]
 static func _apply_touch_event(identity: GFInputEventIdentity, event: InputEventScreenTouch, options: Dictionary) -> void:
 	var match_touch_index: bool = GFVariantData.get_option_bool(options, &"match_touch_index", false)
 	identity.kind = KIND_TOUCH
@@ -436,6 +464,10 @@ static func _apply_touch_event(identity: GFInputEventIdentity, event: InputEvent
 	}
 
 
+## 根据是否匹配触点索引生成屏幕拖动身份，并清空图标键。
+## [br]
+## @api private
+## [br]
 static func _apply_screen_drag_event(identity: GFInputEventIdentity, event: InputEventScreenDrag, options: Dictionary) -> void:
 	var match_touch_index: bool = GFVariantData.get_option_bool(options, &"match_touch_index", false)
 	identity.kind = KIND_SCREEN_DRAG
@@ -449,6 +481,10 @@ static func _apply_screen_drag_event(identity: GFInputEventIdentity, event: Inpu
 	}
 
 
+## 用事件文本生成未知事件的身份键，并记录事件类名。
+## [br]
+## @api private
+## [br]
 static func _apply_unknown_event(identity: GFInputEventIdentity, event: InputEvent) -> void:
 	var event_text: String = event.as_text()
 	identity.kind = KIND_UNKNOWN
@@ -462,6 +498,10 @@ static func _apply_unknown_event(identity: GFInputEventIdentity, event: InputEve
 	}
 
 
+## 按修饰键组合、按键名称和数字键码顺序追加键盘图标候选。
+## [br]
+## @api private
+## [br]
 static func _append_key_icon_candidates(candidates: PackedStringArray, event: InputEventKey, options: Dictionary) -> void:
 	var keycode: int = int(event.physical_keycode)
 	if keycode == int(KEY_NONE):
@@ -478,6 +518,10 @@ static func _append_key_icon_candidates(candidates: PackedStringArray, event: In
 	_append_unique_candidate(candidates, "key:%d" % keycode)
 
 
+## 追加鼠标按钮的常见语义图标名，并始终追加数字回退名。
+## [br]
+## @api private
+## [br]
 static func _append_mouse_button_icon_candidates(candidates: PackedStringArray, button: MouseButton) -> void:
 	match button:
 		MOUSE_BUTTON_LEFT:
@@ -493,6 +537,10 @@ static func _append_mouse_button_icon_candidates(candidates: PackedStringArray, 
 	_append_unique_candidate(candidates, "mouse:%d" % int(button))
 
 
+## 追加常见手柄按钮的标准图标名，并始终追加数字回退名。
+## [br]
+## @api private
+## [br]
 static func _append_joy_button_icon_candidates(candidates: PackedStringArray, button: JoyButton) -> void:
 	match button:
 		JOY_BUTTON_A:
@@ -526,6 +574,10 @@ static func _append_joy_button_icon_candidates(candidates: PackedStringArray, bu
 	_append_unique_candidate(candidates, "joy_button:%d" % int(button))
 
 
+## 按轴类别和轴向追加手柄轴图标候选，触发器使用专用名称并保留数字回退。
+## [br]
+## @api private
+## [br]
 static func _append_joy_axis_icon_candidates(candidates: PackedStringArray, event: InputEventJoypadMotion, options: Dictionary) -> void:
 	var sign_override: int = clampi(GFVariantData.get_option_int(options, &"joy_axis_sign"), -1, 1)
 	var sign_value: int = sign_override if sign_override != 0 else _get_axis_sign(event.axis_value)
@@ -546,12 +598,20 @@ static func _append_joy_axis_icon_candidates(candidates: PackedStringArray, even
 	_append_unique_candidate(candidates, "joy_axis:%d:%s" % [int(event.axis), suffix])
 
 
+## 仅在候选非空且尚未出现时追加图标名称。
+## [br]
+## @api private
+## [br]
 static func _append_unique_candidate(target: PackedStringArray, value: String) -> void:
 	if value.is_empty() or target.has(value):
 		return
 	var _append_result: bool = target.append(value)
 
 
+## 按 ctrl、alt、shift、meta 顺序返回当前按下的修饰键名称。
+## [br]
+## @api private
+## [br]
 static func _get_key_modifier_names(event: InputEventKey) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	if event.ctrl_pressed:
@@ -565,11 +625,19 @@ static func _get_key_modifier_names(event: InputEventKey) -> PackedStringArray:
 	return result
 
 
+## 读取 Godot 按键显示文本；无文本时回退为 key:数字键码。
+## [br]
+## @api private
+## [br]
 static func _get_key_display_text(keycode: int) -> String:
 	var key_text: String = OS.get_keycode_string(keycode)
 	return key_text if not key_text.is_empty() else "key:%d" % keycode
 
 
+## 将正、负和零轴值映射为 1、-1 和 0。
+## [br]
+## @api private
+## [br]
 static func _get_axis_sign(axis_value: float) -> int:
 	if axis_value > 0.0:
 		return 1
@@ -578,6 +646,10 @@ static func _get_axis_sign(axis_value: float) -> int:
 	return 0
 
 
+## 将轴符号映射为冲突键方向字符 +、- 或 *。
+## [br]
+## @api private
+## [br]
 static func _axis_sign_to_conflict_direction(sign_value: int) -> String:
 	if sign_value > 0:
 		return "+"
@@ -586,6 +658,10 @@ static func _axis_sign_to_conflict_direction(sign_value: int) -> String:
 	return "*"
 
 
+## 修剪并小写图标名，将空格、斜线、反斜线和点替换为下划线。
+## [br]
+## @api private
+## [br]
 static func _sanitize_icon_name(value: String) -> String:
 	var result: String = value.strip_edges().to_lower()
 	result = result.replace(" ", "_")

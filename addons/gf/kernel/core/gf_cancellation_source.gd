@@ -33,16 +33,42 @@ signal cancel_requested(reason: StringName, metadata: Dictionary)
 
 # --- 常量 ---
 
+## 用于复制取消元数据及读取内部连接记录的 Variant 辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
 # --- 私有变量 ---
 
+## 此 source 拥有并更新的取消 token。
+## [br]
+## @api private
 var _token: GFCancellationToken = GFCancellationToken.new()
+
+## 按上游 token 实例 ID 保存 token 与其取消信号回调。
+## [br]
+## @api private
 var _linked_tokens: Dictionary = {}
+
+## 按节点实例 ID 保存节点弱引用及 tree_exited 回调。
+## [br]
+## @api private
 var _node_lifetime_callbacks: Dictionary = {}
+
+## 当前超时取消使用的 SceneTreeTimer。
+## [br]
+## @api private
 var _timeout_timer: SceneTreeTimer = null
+
+## 当前超时 timer 连接的回调。
+## [br]
+## @api private
 var _timeout_callback: Callable = Callable()
+
+## 标记 source 是否已进入不可逆 dispose 终态。
+## [br]
+## @api private
 var _disposed: bool = false
 
 
@@ -343,6 +369,9 @@ static func create_linked(
 
 # --- 私有/辅助方法 ---
 
+## 清除超时引用、断开仍连接的 timeout 回调，并将有效 timer 的 time_left 设为零。
+## [br]
+## @api private
 func _disconnect_timeout() -> void:
 	var timeout_timer: SceneTreeTimer = _timeout_timer
 	var timeout_callback: Callable = _timeout_callback
@@ -355,6 +384,9 @@ func _disconnect_timeout() -> void:
 	timeout_timer.time_left = 0.0
 
 
+## 断开所有仍有效的上游 token 回调，并清空上游记录。
+## [br]
+## @api private
 func _disconnect_linked_tokens() -> void:
 	for entry_value: Variant in _linked_tokens.values():
 		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_value)
@@ -369,6 +401,9 @@ func _disconnect_linked_tokens() -> void:
 	_linked_tokens.clear()
 
 
+## 通过节点弱引用断开仍有效节点的 tree_exited 回调，并清空节点记录。
+## [br]
+## @api private
 func _disconnect_node_lifetime_callbacks() -> void:
 	for entry_value: Variant in _node_lifetime_callbacks.values():
 		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_value)
@@ -384,6 +419,9 @@ func _disconnect_node_lifetime_callbacks() -> void:
 	_node_lifetime_callbacks.clear()
 
 
+## 仅当当前主循环是 SceneTree 时返回它。
+## [br]
+## @api private
 func _get_main_scene_tree() -> SceneTree:
 	var main_loop: MainLoop = Engine.get_main_loop()
 	if main_loop is SceneTree:
@@ -392,6 +430,9 @@ func _get_main_scene_tree() -> SceneTree:
 	return null
 
 
+## 仅允许主线程执行 source 状态变更；其他线程会记录错误并返回 false。
+## [br]
+## @api private
 func _can_mutate_on_current_thread(operation_name: String) -> bool:
 	if Thread.is_main_thread():
 		return true
@@ -399,6 +440,9 @@ func _can_mutate_on_current_thread(operation_name: String) -> bool:
 	return false
 
 
+## 使用 GFVariantAccess 复制 metadata，仅在结果为 Dictionary 时返回该值。
+## [br]
+## @api private
 func _snapshot_metadata(metadata: Dictionary) -> Dictionary:
 	var snapshot_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(metadata)
 	if snapshot_value is Dictionary:
@@ -407,6 +451,9 @@ func _snapshot_metadata(metadata: Dictionary) -> Dictionary:
 	return {}
 
 
+## 分别复制两份 metadata，再以 extra 中的同名键覆盖 base。
+## [br]
+## @api private
 func _merge_metadata(base: Dictionary, extra: Dictionary) -> Dictionary:
 	var result: Dictionary = _snapshot_metadata(base)
 	var extra_snapshot: Dictionary = _snapshot_metadata(extra)
@@ -415,6 +462,9 @@ func _merge_metadata(base: Dictionary, extra: Dictionary) -> Dictionary:
 	return result
 
 
+## 将 Variant 收窄为 GFCancellationToken；类型不匹配时返回 null。
+## [br]
+## @api private
 func _variant_to_cancel_token(value: Variant) -> GFCancellationToken:
 	if value is GFCancellationToken:
 		var token: GFCancellationToken = value
@@ -422,6 +472,9 @@ func _variant_to_cancel_token(value: Variant) -> GFCancellationToken:
 	return null
 
 
+## 将 Variant 收窄为 Callable；类型不匹配时返回空 Callable。
+## [br]
+## @api private
 func _variant_to_callable(value: Variant) -> Callable:
 	if value is Callable:
 		var callback: Callable = value
@@ -429,6 +482,9 @@ func _variant_to_callable(value: Variant) -> Callable:
 	return Callable()
 
 
+## 将 Variant 收窄为 WeakRef；类型不匹配时返回 null。
+## [br]
+## @api private
 func _variant_to_weak_ref(value: Variant) -> WeakRef:
 	if value is WeakRef:
 		var weak_ref: WeakRef = value
@@ -436,6 +492,9 @@ func _variant_to_weak_ref(value: Variant) -> WeakRef:
 	return null
 
 
+## 解析弱引用并返回其中的 Node；引用为空或目标类型不符时返回 null。
+## [br]
+## @api private
 func _weak_ref_to_node(weak_ref: WeakRef) -> Node:
 	if weak_ref == null:
 		return null
@@ -446,6 +505,9 @@ func _weak_ref_to_node(weak_ref: WeakRef) -> Node:
 	return null
 
 
+## 解析弱引用并返回其中的 GFCancellationToken；引用为空或目标类型不符时返回 null。
+## [br]
+## @api private
 func _weak_ref_to_cancel_token(weak_ref: WeakRef) -> GFCancellationToken:
 	if weak_ref == null:
 		return null
@@ -458,6 +520,9 @@ func _weak_ref_to_cancel_token(weak_ref: WeakRef) -> GFCancellationToken:
 
 # --- 信号处理函数 ---
 
+## 上游取消时解析弱引用、选取覆盖原因并合并元数据，再请求当前 source 取消。
+## [br]
+## @api private
 func _on_linked_token_cancelled(
 	parent_reason: StringName,
 	token_ref: WeakRef,
@@ -475,9 +540,15 @@ func _on_linked_token_cancelled(
 	var _cancelled_from_link: bool = cancel(linked_reason, linked_metadata)
 
 
+## 节点退出场景树时，以绑定的原因和 metadata 请求取消。
+## [br]
+## @api private
 func _on_node_tree_exited(reason: StringName, metadata_snapshot: Dictionary) -> void:
 	var _cancelled_from_node: bool = cancel(reason, metadata_snapshot)
 
 
+## 超时回调触发时，以绑定的原因和 metadata 请求取消。
+## [br]
+## @api private
 func _on_timeout_elapsed(reason: StringName, metadata_snapshot: Dictionary) -> void:
 	var _cancelled_from_timeout: bool = cancel(reason, metadata_snapshot)

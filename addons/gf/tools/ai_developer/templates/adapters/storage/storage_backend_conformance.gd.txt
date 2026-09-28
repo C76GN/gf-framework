@@ -9,6 +9,9 @@ extends GutTest
 
 # --- 常量 ---
 
+## 一致性检查要求 backend 返回的精确能力键集合，初始化前后均须满足。
+## [br]
+## @api private
 const _BACKEND_CAPABILITY_KEYS: PackedStringArray = [
 	"protocol_version",
 	"read",
@@ -24,9 +27,24 @@ const _BACKEND_CAPABILITY_KEYS: PackedStringArray = [
 
 # --- 私有变量 ---
 
+## 本次测试创建的项目 provider 工厂，负责提供 provider、故障驱动及配置。
+## [br]
+## @api private
 var _factory: ProjectStorageProviderFactory = null
+
+## 当前测试由工厂创建的 provider，交给 backend 初始化，清理时解除引用。
+## [br]
+## @api private
 var _provider: ProjectStorageProvider = null
+
+## 仅用于测试的故障注入入口，必须与当前 provider 实例绑定。
+## [br]
+## @api private
 var _fault_driver: ProjectStorageProviderFaultDriver = null
+
+## 当前测试专用的存储适配器，teardown 负责调用 shutdown 后释放引用。
+## [br]
+## @api private
 var _backend: ProjectStorageBackend = null
 
 
@@ -654,12 +672,33 @@ func run_defensive_copies_and_idempotent_shutdown() -> void:
 
 # --- 可重写钩子 / 虚方法 ---
 
+## 为一致性基类及具体测试子类读取布尔断言字段，缺失或类型错误按 false 处理。
+## [br]
+## @api protected
+## [br]
+## @param values: 待断言的响应或验证结果。
+## [br]
+## @schema values: Dictionary，按 field_name 查询字段；该字段允许缺失，只有精确 bool 才被读取。
+## [br]
+## @param field_name: 要检查的响应字段名。
+## [br]
+## @return: 字段的布尔值，缺失或类型不符返回 false。
+func _get_bool(values: Dictionary, field_name: String) -> bool:
+	var value: Variant = values.get(field_name)
+	if not value is bool:
+		return false
+	var boolean_value: bool = value
+	return boolean_value
+
 func _create_provider_factory() -> ProjectStorageProviderFactory:
 	return null
 
 
 # --- 私有/辅助方法 ---
 
+## 要求测试夹具齐备，合并工厂默认配置和本次覆盖选项后调用 backend 初始化。
+## [br]
+## @api private
 func _initialize_backend(options: Dictionary = {}) -> Error:
 	assert_true(_backend != null, "The Backend fixture must exist.")
 	assert_true(_provider != null, "The Provider fixture must exist.")
@@ -675,6 +714,9 @@ func _initialize_backend(options: Dictionary = {}) -> Error:
 	return _backend.initialize(config)
 
 
+## 断言故障驱动存在并支持指定故障，再显式布置该故障，防止测试静默跳过故障场景。
+## [br]
+## @api private
 func _require_fault(fault_id: StringName) -> void:
 	assert_true(
 		_fault_driver != null,
@@ -692,6 +734,9 @@ func _require_fault(fault_id: StringName) -> void:
 	)
 
 
+## 读取记录并断言成功及 revision 为文本，结构不符时返回空串供测试继续报告。
+## [br]
+## @api private
 func _read_revision(file_name: String) -> String:
 	var result: Dictionary = _backend.load_data(file_name)
 	assert_true(
@@ -714,6 +759,9 @@ func _read_revision(file_name: String) -> String:
 	return revision_value if revision_value is String else ""
 
 
+## 重新读取记录，验证顶层或嵌套权威值及不透明修订完全未变，用于证明失败写未污染已提交状态。
+## [br]
+## @api private
 func _assert_record(
 	file_name: String,
 	expected_value: int,
@@ -767,6 +815,9 @@ func _assert_record(
 	)
 
 
+## 以字段数量和每个必需键存在性断言闭合响应结构。
+## [br]
+## @api private
 func _assert_exact_keys(
 	values: Dictionary,
 	expected_keys: PackedStringArray
@@ -782,14 +833,9 @@ func _assert_exact_keys(
 		)
 
 
-func _get_bool(values: Dictionary, field_name: String) -> bool:
-	var value: Variant = values.get(field_name)
-	if not value is bool:
-		return false
-	var boolean_value: bool = value
-	return boolean_value
-
-
+## 提供不执行任何操作的 Callable 样本，用于验证纯数据边界拒绝回调值。
+## [br]
+## @api private
 func _unused_callback() -> void:
 	pass
 

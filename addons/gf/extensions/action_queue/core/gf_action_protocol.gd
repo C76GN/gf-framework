@@ -3,10 +3,29 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 动作组协议中 FIRE_AND_FORGET 完成模式的枚举值。
+## [br]
+## @api private
 const _COMPLETION_MODE_FIRE_AND_FORGET: int = 2
+
+## 动作没有超时配置时采用的默认等待秒数。
+## [br]
+## @api private
 const _DEFAULT_SIGNAL_TIMEOUT_SECONDS: float = 30.0
+
+## 动作没有超时缩放配置时默认跟随时间缩放。
+## [br]
+## @api private
 const _DEFAULT_SIGNAL_TIMEOUT_RESPECTS_TIME_SCALE: bool = true
+
+## 等待动作完成 Signal 的安全等待实现。
+## [br]
+## @api private
 const _GF_ASYNC_WAIT_SUPPORT = preload("res://addons/gf/standard/common/gf_async_wait_support.gd")
+
+## 归一化动作超时时间的策略工具。
+## [br]
+## @api private
 const _ACTION_TIME_POLICY = preload("res://addons/gf/extensions/action_queue/core/gf_action_time_policy.gd")
 
 
@@ -208,11 +227,17 @@ static func await_result_safely(
 
 # --- 私有/辅助方法 ---
 
+## 仅当动作对象有效且实现指定方法时调用该方法。
+## [br]
+## @api private
 static func _call_optional(action: Object, method_name: StringName) -> void:
 	if is_instance_valid(action) and action.has_method(method_name):
 		action.call(method_name)
 
 
+## 在有效对象的属性列表中查找指定 StringName 属性。
+## [br]
+## @api private
 static func _has_property(action: Object, property_name: StringName) -> bool:
 	if not is_instance_valid(action):
 		return false
@@ -222,12 +247,18 @@ static func _has_property(action: Object, property_name: StringName) -> bool:
 	return false
 
 
+## 调用可选 get_wait_guard_node 方法，并将返回值收窄为 Node。
+## [br]
+## @api private
 static func _get_wait_guard_node(action: Object) -> Node:
 	if is_instance_valid(action) and action.has_method("get_wait_guard_node"):
 		return _get_node_value(action.call("get_wait_guard_node"))
 	return null
 
 
+## 读取并归一化动作自定义超时；缺少属性时返回默认秒数。
+## [br]
+## @api private
 static func _get_signal_timeout_seconds(action: Object) -> float:
 	if _has_property(action, "signal_timeout_seconds"):
 		return _ACTION_TIME_POLICY.sanitize_non_negative_seconds(
@@ -239,6 +270,9 @@ static func _get_signal_timeout_seconds(action: Object) -> float:
 	return _DEFAULT_SIGNAL_TIMEOUT_SECONDS
 
 
+## 读取动作超时是否跟随时间缩放；缺少属性时返回默认 true。
+## [br]
+## @api private
 static func _get_signal_timeout_respects_time_scale(action: Object) -> bool:
 	if _has_property(action, "signal_timeout_respects_time_scale"):
 		return GFVariantData.to_bool(
@@ -248,6 +282,9 @@ static func _get_signal_timeout_respects_time_scale(action: Object) -> bool:
 	return _DEFAULT_SIGNAL_TIMEOUT_RESPECTS_TIME_SCALE
 
 
+## 从指定架构或自动加载器取得 GFTimeUtility。
+## [br]
+## @api private
 static func _get_time_utility(architecture: GFArchitecture) -> GFTimeUtility:
 	if architecture == null:
 		architecture = GFAutoload.get_architecture_or_null()
@@ -256,6 +293,9 @@ static func _get_time_utility(architecture: GFArchitecture) -> GFTimeUtility:
 	return _get_time_utility_value(architecture.get_utility(GFTimeUtility))
 
 
+## 将 Variant 收窄为 Node；类型不符时返回 null。
+## [br]
+## @api private
 static func _get_node_value(value: Variant) -> Node:
 	if value is Node:
 		var node: Node = value
@@ -263,6 +303,9 @@ static func _get_node_value(value: Variant) -> Node:
 	return null
 
 
+## 将 Variant 收窄为 GFTimeUtility；类型不符时返回 null。
+## [br]
+## @api private
 static func _get_time_utility_value(value: Variant) -> GFTimeUtility:
 	if value is GFTimeUtility:
 		var utility: GFTimeUtility = value

@@ -143,6 +143,9 @@ func validate_recipe() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 检查分组名称是否为空或重复，并向报告追加警告。
+## [br]
+## @api private
 func _validate_groups(report: GFValidationReport) -> void:
 	var seen_groups: Dictionary = {}
 	for index: int in range(groups.size()):
@@ -174,6 +177,9 @@ func _validate_groups(report: GFValidationReport) -> void:
 		seen_groups[group_name] = true
 
 
+## 检查条目缺失、无效及重复键并追加对应报告问题。
+## [br]
+## @api private
 func _validate_entries(report: GFValidationReport) -> void:
 	var seen_keys: Dictionary = {}
 	for index: int in range(entries.size()):
@@ -218,6 +224,9 @@ func _validate_entries(report: GFValidationReport) -> void:
 		seen_keys[key] = true
 
 
+## 按全局类名、脚本路径或场景路径生成条目比较键。
+## [br]
+## @api private
 func _get_entry_key(entry: GFCapabilityRecipeEntry) -> String:
 	if entry == null:
 		return ""
@@ -232,14 +241,23 @@ func _get_entry_key(entry: GFCapabilityRecipeEntry) -> String:
 	return ""
 
 
+## 格式化 Recipe 条目在校验报告中的路径。
+## [br]
+## @api private
 func _make_entry_path(index: int) -> String:
 	return "entries[%d]" % index
 
 
+## 格式化 Recipe 分组在校验报告中的路径。
+## [br]
+## @api private
 func _make_group_path(index: int) -> String:
 	return "groups[%d]" % index
 
 
+## 将带 Recipe 元数据与资源路径的问题加入校验报告。
+## [br]
+## @api private
 func _add_recipe_issue(
 	report: GFValidationReport,
 	severity: GFValidationIssue.Severity,
@@ -264,6 +282,9 @@ func _add_recipe_issue(
 		validation_issue.source_path = resource_path
 
 
+## 返回 Recipe 校验问题类型到建议动作的映射。
+## [br]
+## @api private
 func _get_next_actions() -> Dictionary:
 	return {
 		"null_entry": "Remove the null Recipe entry or replace it with a valid GFCapabilityRecipeEntry.",

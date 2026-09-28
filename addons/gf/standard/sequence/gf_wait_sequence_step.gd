@@ -33,6 +33,10 @@ extends GFSequenceStep
 
 # --- 私有变量 ---
 
+## 按 SequenceContext 实例 ID 保存本步骤尚可能完成的计时器弱引用。
+## [br]
+## @api private
+## [br]
 var _active_timer_refs_by_context: Dictionary = {}
 
 
@@ -97,10 +101,18 @@ func cancel(context: GFSequenceContext) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 以 context 实例 ID 隔离计时器；null context 使用 0。
+## [br]
+## @api private
+## [br]
 func _get_context_id(context: GFSequenceContext) -> int:
 	return context.get_instance_id() if context != null else 0
 
 
+## 从上下文表读取并筛出 WeakRef 元素，返回新的弱引用数组。
+## [br]
+## @api private
+## [br]
 func _get_active_timer_refs(context_id: int) -> Array[WeakRef]:
 	var result: Array[WeakRef] = []
 	var refs_value: Variant = _active_timer_refs_by_context.get(context_id)
@@ -113,6 +125,22 @@ func _get_active_timer_refs(context_id: int) -> Array[WeakRef]:
 	return result
 
 
+## 将 Variant 窄化为 SceneTree；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
+func _variant_to_scene_tree(value: Variant) -> SceneTree:
+	if value is SceneTree:
+		var tree: SceneTree = value
+		return tree
+	return null
+
+
+# --- 信号处理函数 ---
+
+## 按 context/timer 身份移除已到期和失效的弱引用，保留同一上下文中其他仍存活的计时器。
+## [br]
+## @api private
 func _on_wait_timer_timeout(context_id: int, timer_id: int) -> void:
 	var retained_refs: Array[WeakRef] = []
 	for timer_ref: WeakRef in _get_active_timer_refs(context_id):
@@ -128,9 +156,3 @@ func _on_wait_timer_timeout(context_id: int, timer_id: int) -> void:
 		var _removed_context: bool = _active_timer_refs_by_context.erase(context_id)
 	else:
 		_active_timer_refs_by_context[context_id] = retained_refs
-
-func _variant_to_scene_tree(value: Variant) -> SceneTree:
-	if value is SceneTree:
-		var tree: SceneTree = value
-		return tree
-	return null

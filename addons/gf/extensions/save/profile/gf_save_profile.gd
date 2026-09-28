@@ -257,6 +257,10 @@ func get_providers() -> Array[GFSaveSectionProvider]:
 
 # --- 私有/辅助方法 ---
 
+## 将一条错误诊断及其路径和元数据追加到报告。
+## [br]
+## @api private
+## [br]
 func _append_issue(
 	report: Dictionary,
 	kind: StringName,
@@ -275,6 +279,10 @@ func _append_issue(
 	)
 
 
+## 将嵌套报告的问题复制到当前报告，并在路径前添加父路径前缀。
+## [br]
+## @api private
+## [br]
 func _append_nested_issues(report: Dictionary, nested_report: Dictionary, prefix: String) -> void:
 	for issue_value: Variant in GFVariantData.get_option_array(nested_report, "issues"):
 		var issue: Dictionary = GFVariantData.as_dictionary(issue_value)

@@ -12,7 +12,20 @@ extends EditorProperty
 ## [br]
 ## @layer kernel/editor
 const TOOLTIP_METADATA: StringName = &"_gf_project_setting_tooltip"
+
+## 无法按窗口宽度自动决定时，普通文本悬浮标签采用的最小宽度。
+## [br]
+## @api private
 const _MINIMUM_TOOLTIP_WIDTH: float = 420.0
+
+
+# --- Godot 回调方法 ---
+
+## 使用当前属性控件的已配置信息构建纯文本提示控件，不使用引擎传入的展示字符串。
+## [br]
+## @api private
+func _make_custom_tooltip(_for_text: String) -> Object:
+	return make_tooltip(self)
 
 
 # --- 框架内部方法 ---
@@ -45,9 +58,3 @@ static func make_tooltip(editor_property: EditorProperty) -> Object:
 	tooltip_label.custom_minimum_size = Vector2(_MINIMUM_TOOLTIP_WIDTH, 0.0)
 	tooltip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return tooltip_label
-
-
-# --- 私有/辅助方法 ---
-
-func _make_custom_tooltip(_for_text: String) -> Object:
-	return make_tooltip(self)

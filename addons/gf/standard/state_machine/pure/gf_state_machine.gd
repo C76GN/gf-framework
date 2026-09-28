@@ -80,26 +80,81 @@ var blackboard: Dictionary = {}
 # --- 私有变量 ---
 
 # 已注册的所有状态，Key 为 StringName，Value 为 GFState 实例。
+## 按注册名保存的状态实例表；dispose() 时清空。
+## [br]
+## @api private
+## [br]
 var _states: Dictionary = {}
 
 # 状态父级索引，Key 为子状态名，Value 为父状态名。
+## 按子状态名保存父状态名的层级索引；dispose() 时清空。
+## [br]
+## @api private
+## [br]
 var _state_parents: Dictionary = {}
 
 # 当前激活状态路径，按 root -> leaf 排列。
+## 当前激活的状态注册名路径，顺序为 root 到 leaf。
+## [br]
+## @api private
+## [br]
 var _active_path: Array[StringName] = []
 
 # 当前激活的叶子状态实例。
+## 当前激活路径末端对应的状态实例；由 _set_current_from_active_path() 同步。
+## [br]
+## @api private
+## [br]
 var _current_state: GFState = null
 
 # 用于守卫框架依赖访问的上下文对象弱引用。
 # 使用弱引用避免 RefCounted 环状引用。
+## 状态机上下文对象的弱引用；dispose() 时清空。
+## [br]
+## @api private
+## [br]
 var _context_ref: WeakRef = null
+
+## 通过事件代理登记过的架构弱引用列表，供后续注销事件监听器时解析。
+## [br]
+## @api private
+## [br]
 var _event_architecture_refs: Array[WeakRef] = []
+
+## 状态切换及相关变更的序号，供守卫和回调返回后检查操作是否已过期。
+## [br]
+## @api private
+## [br]
 var _transition_serial: int = 0
+
+## 激活路径变化计数；状态事件派发用它检测处理器执行期间路径是否改变。
+## [br]
+## @api private
+## [br]
 var _activation_epoch: int = 0
+
+## 标记状态退出回调执行期间，使 change_state() 暂存请求供退出流程处理。
+## [br]
+## @api private
+## [br]
 var _is_exiting_current_state: bool = false
+
+## 指示退出回调是否留下了待处理的状态切换请求。
+## [br]
+## @api private
+## [br]
 var _has_queued_exit_transition: bool = false
+
+## 退出回调期间暂存的状态切换目标名。
+## [br]
+## @api private
+## [br]
 var _queued_exit_state_name: StringName = &""
+
+## 与暂存目标对应的状态切换消息字典。
+## [br]
+## @api private
+## [br]
 var _queued_exit_msg: Dictionary = {}
 
 
@@ -681,6 +736,10 @@ func unregister_owner_events(owner: Object) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 替换前先撤下激活路径末端，再执行旧状态 exit 并注销事件；退出中的重定向暂存到替换流程后处理。
+## 返回时要求激活代次和原注册实例仍匹配，且切换序号未变或已有排队的退出重定向。
+## [br]
+## @api private
 func _exit_current_state_for_replacement(state_name: StringName, state: GFState) -> bool:
 	var exit_serial: int = _transition_serial
 	var exit_epoch: int = _activation_epoch
@@ -698,6 +757,10 @@ func _exit_current_state_for_replacement(state_name: StringName, state: GFState)
 	)
 
 
+## 先运行路径守卫，再退出共同前缀外的旧路径并逐个进入新路径；守卫或 enter 重入改变切换序号时停止旧流程。
+## 只有最终仍位于请求目标且序号未过期时才发送 state_changed；同路径切换会重新进出末端状态。
+## [br]
+## @api private
 func _transition_to_state(state_name: StringName, msg: Dictionary, emit_changed: bool) -> void:
 	var target_path: Array[StringName] = _build_state_path(state_name)
 	if target_path.is_empty():
@@ -745,6 +808,10 @@ func _transition_to_state(state_name: StringName, msg: Dictionary, emit_changed:
 		state_changed.emit(from_name, state_name)
 
 
+## 从叶到根退出共同前缀外的状态并注销事件，随后更新当前路径；可在首次排队重定向处停止继续退出。
+## 若处理排队请求，会取走该请求并执行新切换后返回 false，令原切换停止；禁用处理时丢弃队列并返回 true。
+## [br]
+## @api private
 func _exit_active_path_to(
 	common_count: int,
 	process_queued_transition: bool = true,
@@ -782,6 +849,10 @@ func _exit_active_path_to(
 	return false
 
 
+## 按旧路径叶到根检查 can_exit，再按新路径根到叶检查 can_enter；每次用户守卫后先核对切换序号。
+## 重入改变序号时返回 stale，优先于守卫拒绝；缺失状态跳过，首个拒绝返回相应 block_reason。
+## [br]
+## @api private
 func _get_transition_guard_result(
 	target_path: Array[StringName],
 	common_count: int,
@@ -813,6 +884,10 @@ func _get_transition_guard_result(
 	return { "block_reason": &"" }
 
 
+## 校验父状态名；空值保持根状态，未注册父级回退为根状态，自身或循环关系也不接受。
+## [br]
+## @api private
+## [br]
 func _normalize_parent_state_name(state_name: StringName, parent_state_name: StringName) -> StringName:
 	if parent_state_name == &"":
 		return &""
@@ -828,6 +903,10 @@ func _normalize_parent_state_name(state_name: StringName, parent_state_name: Str
 	return parent_state_name
 
 
+## 按父状态名更新层级索引；空父级会移除该状态已有的父级记录。
+## [br]
+## @api private
+## [br]
 func _set_parent_state_name(state_name: StringName, parent_state_name: StringName) -> void:
 	if parent_state_name == &"":
 		var _erased_parent: bool = _state_parents.erase(state_name)
@@ -835,6 +914,10 @@ func _set_parent_state_name(state_name: StringName, parent_state_name: StringNam
 		_state_parents[state_name] = parent_state_name
 
 
+## 沿父级链检查是否回到给定状态或遇到重复节点，以识别循环关系。
+## [br]
+## @api private
+## [br]
 func _creates_parent_cycle(state_name: StringName, parent_state_name: StringName) -> bool:
 	var current_name: StringName = parent_state_name
 	var visited: Dictionary = {}
@@ -848,6 +931,10 @@ func _creates_parent_cycle(state_name: StringName, parent_state_name: StringName
 	return false
 
 
+## 从目标状态沿父级链构造 root 到 leaf 的路径；遇到未注册状态或循环时返回空数组。
+## [br]
+## @api private
+## [br]
 func _build_state_path(state_name: StringName) -> Array[StringName]:
 	var reversed_path: Array[StringName] = []
 	var current_name: StringName = state_name
@@ -872,6 +959,10 @@ func _build_state_path(state_name: StringName) -> Array[StringName]:
 	return result
 
 
+## 返回两个状态路径从索引零开始相同的连续元素数量。
+## [br]
+## @api private
+## [br]
 func _get_common_prefix_count(left: Array[StringName], right: Array[StringName]) -> int:
 	var count: int = mini(left.size(), right.size())
 	for index: int in range(count):
@@ -880,6 +971,10 @@ func _get_common_prefix_count(left: Array[StringName], right: Array[StringName])
 	return count
 
 
+## 判断两条路径长度相同且每个位置的状态名都相同。
+## [br]
+## @api private
+## [br]
 func _paths_equal(left: Array[StringName], right: Array[StringName]) -> bool:
 	if left.size() != right.size():
 		return false
@@ -889,6 +984,10 @@ func _paths_equal(left: Array[StringName], right: Array[StringName]) -> bool:
 	return true
 
 
+## 将路径中的状态名依次写入新数组并返回。
+## [br]
+## @api private
+## [br]
 func _copy_path(path: Array[StringName]) -> Array[StringName]:
 	var result: Array[StringName] = []
 	for state_name: StringName in path:
@@ -896,6 +995,10 @@ func _copy_path(path: Array[StringName]) -> Array[StringName]:
 	return result
 
 
+## 将路径前缀复制到新数组；复制长度限制在零到路径长度之间。
+## [br]
+## @api private
+## [br]
 func _copy_path_prefix(path: Array[StringName], count: int) -> Array[StringName]:
 	var result: Array[StringName] = []
 	var safe_count: int = clampi(count, 0, path.size())
@@ -904,6 +1007,10 @@ func _copy_path_prefix(path: Array[StringName], count: int) -> Array[StringName]
 	return result
 
 
+## 从激活路径末端同步当前状态名和实例；路径为空时同时清空二者。
+## [br]
+## @api private
+## [br]
 func _set_current_from_active_path() -> void:
 	if _active_path.is_empty():
 		_current_state = null
@@ -914,6 +1021,10 @@ func _set_current_from_active_path() -> void:
 	_current_state = _get_registered_state(current_state_name)
 
 
+## 为首次遇到的有效架构保存弱引用，跳过空引用、无效实例和已记录架构。
+## [br]
+## @api private
+## [br]
 func _remember_event_architecture(architecture: GFArchitecture) -> void:
 	if architecture == null or not is_instance_valid(architecture):
 		return
@@ -925,6 +1036,10 @@ func _remember_event_architecture(architecture: GFArchitecture) -> void:
 	_event_architecture_refs.append(weakref(architecture))
 
 
+## 解析已跟踪的有效架构弱引用，剔除失效项并返回当前可用架构列表。
+## [br]
+## @api private
+## [br]
 func _get_tracked_event_architectures() -> Array[GFArchitecture]:
 	var result: Array[GFArchitecture] = []
 	var live_refs: Array[WeakRef] = []
@@ -938,12 +1053,20 @@ func _get_tracked_event_architectures() -> Array[GFArchitecture]:
 	return result
 
 
+## 返回上下文弱引用当前指向的对象；没有上下文引用时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_context() -> Object:
 	if _context_ref == null:
 		return null
 	return _context_ref.get_ref()
 
 
+## 优先从有效上下文取得架构；上下文不可用或全局架构未初始化时返回 null 并报告错误。
+## [br]
+## @api private
+## [br]
 func _get_available_architecture(dependency_name: String) -> GFArchitecture:
 	var context: Object = _get_context()
 	if _context_ref != null and not is_instance_valid(context):
@@ -963,6 +1086,10 @@ func _get_available_architecture(dependency_name: String) -> GFArchitecture:
 	return global_architecture
 
 
+## 按候选方法顺序从上下文对象读取首个可用 GFArchitecture。
+## [br]
+## @api private
+## [br]
 func _get_context_architecture(context: Object) -> GFArchitecture:
 	var method_names: Array[StringName] = [
 		&"get_architecture_or_null",
@@ -976,6 +1103,10 @@ func _get_context_architecture(context: Object) -> GFArchitecture:
 	return null
 
 
+## 从状态表读取指定值，并仅在其为 GFState 时返回实例。
+## [br]
+## @api private
+## [br]
 func _get_registered_state(state_name: StringName) -> GFState:
 	var state_value: Variant = GFVariantData.get_option_value(_states, state_name)
 	if state_value is GFState:
@@ -983,22 +1114,38 @@ func _get_registered_state(state_name: StringName) -> GFState:
 	return null
 
 
+## 从父级索引读取状态的父名称；没有记录时返回空名称。
+## [br]
+## @api private
+## [br]
 func _get_parent_state_name(state_name: StringName) -> StringName:
 	return GFVariantData.get_option_string_name(_state_parents, state_name)
 
 
+## 覆盖退出期间待处理的目标和消息字典，并设置存在待处理请求的标志。
+## [br]
+## @api private
+## [br]
 func _queue_exit_transition(state_name: StringName, msg: Dictionary) -> void:
 	_has_queued_exit_transition = true
 	_queued_exit_state_name = state_name
 	_queued_exit_msg = msg
 
 
+## 清除退出期间待处理切换的标志、目标名称和消息字典。
+## [br]
+## @api private
+## [br]
 func _clear_queued_exit_transition() -> void:
 	_has_queued_exit_transition = false
 	_queued_exit_state_name = &""
 	_queued_exit_msg = {}
 
 
+## 有待处理请求时返回其目标和消息并清空队列；否则以给定回退值创建结果。
+## [br]
+## @api private
+## [br]
 func _take_queued_exit_transition(default_state_name: StringName, default_msg: Dictionary) -> _QueuedExitTransition:
 	if not _has_queued_exit_transition:
 		return _QueuedExitTransition.new(default_state_name, default_msg)
@@ -1008,6 +1155,10 @@ func _take_queued_exit_transition(default_state_name: StringName, default_msg: D
 	return result
 
 
+## 调用上下文对象上存在的指定方法，并将返回值收窄为 GFArchitecture。
+## [br]
+## @api private
+## [br]
 func _call_context_architecture_method(context: Object, method_name: StringName) -> GFArchitecture:
 	if not context.has_method(method_name):
 		return null
@@ -1015,6 +1166,10 @@ func _call_context_architecture_method(context: Object, method_name: StringName)
 	return _variant_to_architecture(architecture_value)
 
 
+## 仅当 Variant 持有 GFArchitecture 时返回该架构引用，否则返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_architecture(value: Variant) -> GFArchitecture:
 	if value is GFArchitecture:
 		return value
@@ -1023,10 +1178,27 @@ func _variant_to_architecture(value: Variant) -> GFArchitecture:
 
 # --- 内部类 ---
 
+## 从退出重定向槽中取出的目标与消息；容器引用沿用原请求，不在此记录中复制。
+## [br]
+## @api private
 class _QueuedExitTransition:
+	# --- 私有变量 ---
+
+	## 退出回调要求随后进入的注册状态名。
+	## [br]
+	## @api private
 	var _state_name: StringName = &""
+
+	## 原重定向请求的消息字典引用，交给后续 transition 使用。
+	## [br]
+	## @api private
 	var _msg: Dictionary = {}
 
+	# --- Godot 生命周期方法 ---
+
+	## 保存调用方给定的目标与消息引用；未请求重定向时也用于承载默认值。
+	## [br]
+	## @api private
 	func _init(p_state_name: StringName = &"", p_msg: Dictionary = {}) -> void:
 		_state_name = p_state_name
 		_msg = p_msg

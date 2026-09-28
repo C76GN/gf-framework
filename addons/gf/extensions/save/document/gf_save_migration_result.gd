@@ -14,15 +14,64 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 迁移是否完整成功。
+## [br]
+## @api private
+## [br]
 var _ok: bool = false
+
+## 成功时可读取的目标文档。
+## [br]
+## @api private
+## [br]
 var _document: GFSaveDocument = null
+
+## 迁移结果的 Godot Error 码。
+## [br]
+## @api private
+## [br]
 var _error_code: Error = FAILED
+
+## 迁移失败时的说明。
+## [br]
+## @api private
+## [br]
 var _error: String = ""
+
+## 失败迁移步骤的 ID。
+## [br]
+## @api private
+## [br]
 var _failed_step_id: StringName = &""
+
+## 源文档 schema 版本。
+## [br]
+## @api private
+## [br]
 var _source_document_version: int = 0
+
+## 目标文档 schema 版本。
+## [br]
+## @api private
+## [br]
 var _target_document_version: int = 0
+
+## 源文档各分区的版本映射。
+## [br]
+## @api private
+## [br]
 var _source_section_versions: Dictionary = {}
+
+## 目标文档各分区的版本映射。
+## [br]
+## @api private
+## [br]
 var _target_section_versions: Dictionary = {}
+
+## 按执行顺序记录的迁移步骤轨迹。
+## [br]
+## @api private
+## [br]
 var _trace: Array[Dictionary] = []
 
 
@@ -156,9 +205,40 @@ func duplicate_result() -> GFSaveMigrationResult:
 	return result
 
 
-# --- 私有/辅助方法 ---
+# --- 框架内部方法 ---
 
 # 由 Save document 层配置终态结果。
+## 由迁移注册表填充终态结果；成功时复制文档并清除失败字段，失败时不保存部分迁移文档。源目标版本、分区版本和轨迹均保留，字典与轨迹数组深复制。
+## [br]
+## @api framework_internal
+## [br]
+## @layer extensions/save
+## [br]
+## @param ok: 迁移是否成功。
+## [br]
+## @param document: 成功时复制保存的目标文档，可为 null。
+## [br]
+## @param error_code: 失败时保存的错误码。
+## [br]
+## @param error: 失败时去除两端空白后保存的错误说明。
+## [br]
+## @param failed_step_id: 失败步骤标识；成功时清空。
+## [br]
+## @param source_document_version: 迁移前文档版本。
+## [br]
+## @param target_document_version: 期望到达的文档版本。
+## [br]
+## @param source_section_versions: 迁移前分区版本映射。
+## [br]
+## @param target_section_versions: 目标分区版本映射。
+## [br]
+## @param trace: 已经执行的迁移轨迹。
+## [br]
+## @schema source_section_versions: 以分区标识为键、整数版本为值的字典。
+## [br]
+## @schema target_section_versions: 以分区标识为键、整数版本为值的字典。
+## [br]
+## @schema trace: 迁移注册表生成的步骤记录数组；保留每项原有字段，失败时可包含已执行步骤。
 func _gf_configure(
 	ok: bool,
 	document: GFSaveDocument,

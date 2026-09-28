@@ -425,6 +425,10 @@ func from_dict(data: Dictionary) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 比较两份缓存指定格子的整条记录，或只比较指定字段的值。
+## [br]
+## @api private
+## [br]
 func _cell_value_changed(cell: Vector2i, other: GFTileMapCache, compare_key: StringName) -> bool:
 	var current: Dictionary = _get_cell_record(cell)
 	var previous: Dictionary = other._get_cell_record(cell)
@@ -433,10 +437,18 @@ func _cell_value_changed(cell: Vector2i, other: GFTileMapCache, compare_key: Str
 	return GFVariantData.get_option_value(current, compare_key) != GFVariantData.get_option_value(previous, compare_key)
 
 
+## 读取格子记录；缺失或非字典值返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_cell_record(cell: Vector2i) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(cells, cell, {}))
 
 
+## 解析以逗号分隔的两个整数格坐标，并报告格式有效性。
+## [br]
+## @api private
+## [br]
 func _parse_cell_key(key: String) -> Dictionary:
 	var parts: PackedStringArray = key.split(",")
 	if parts.size() != 2:
@@ -446,6 +458,10 @@ func _parse_cell_key(key: String) -> Dictionary:
 	return { "ok": true, "cell": Vector2i(int(parts[0]), int(parts[1])) }
 
 
+## 从解析结果中读取 Vector2i cell 字段；缺失或类型不符时返回零坐标。
+## [br]
+## @api private
+## [br]
 func _get_parsed_cell(parse_result: Dictionary) -> Vector2i:
 	var value: Variant = GFVariantData.get_option_value(parse_result, "cell", Vector2i.ZERO)
 	if value is Vector2i:
@@ -454,6 +470,10 @@ func _get_parsed_cell(parse_result: Dictionary) -> Vector2i:
 	return Vector2i.ZERO
 
 
+## 返回当前所有格坐标的新数组，并按 y、x 顺序排序。
+## [br]
+## @api private
+## [br]
 func _get_sorted_cells() -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
 	for cell: Vector2i in cells:
@@ -462,16 +482,28 @@ func _get_sorted_cells() -> Array[Vector2i]:
 	return result
 
 
+## 先按 y 升序、再按 x 升序比较格坐标。
+## [br]
+## @api private
+## [br]
 func _sort_cells(left: Vector2i, right: Vector2i) -> bool:
 	if left.y != right.y:
 		return left.y < right.y
 	return left.x < right.x
 
 
+## 读取图块记录的 source_id，缺失时返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_record_source_id(record: Dictionary) -> int:
 	return GFVariantData.get_option_int(record, "source_id", -1)
 
 
+## 将记录中的图集坐标解码为 Vector2i，并兼容向量及二元数组形式。
+## [br]
+## @api private
+## [br]
 func _get_record_atlas_coords(record: Dictionary) -> Vector2i:
 	var value: Variant = GFVariantData.get_option_value(record, "atlas_coords", Vector2i(-1, -1))
 	if value is Dictionary:
@@ -489,10 +521,18 @@ func _get_record_atlas_coords(record: Dictionary) -> Vector2i:
 	return Vector2i(-1, -1)
 
 
+## 读取 alternative_tile，缺失时使用零。
+## [br]
+## @api private
+## [br]
 func _get_record_alternative_tile(record: Dictionary) -> int:
 	return GFVariantData.get_option_int(record, "alternative_tile", 0)
 
 
+## 按完整图块身份或 source_id 查找映射，支持字段合并、身份替换及仅替换来源。
+## [br]
+## @api private
+## [br]
 func _remap_record(record: Dictionary, remaps: Dictionary, preserve_unknown: bool) -> Dictionary:
 	var identity: Vector4i = _make_tile_identity(record)
 	var remap_value: Variant = null
@@ -528,6 +568,10 @@ func _remap_record(record: Dictionary, remaps: Dictionary, preserve_unknown: boo
 	return result
 
 
+## 将来源 ID、图集坐标和替代图块组成 Vector4i 身份键。
+## [br]
+## @api private
+## [br]
 func _make_tile_identity(record: Dictionary) -> Vector4i:
 	var atlas_coords: Vector2i = _get_record_atlas_coords(record)
 	return Vector4i(
@@ -538,12 +582,20 @@ func _make_tile_identity(record: Dictionary) -> Vector4i:
 	)
 
 
+## 将 Vector4i 身份拆回 source_id、atlas_coords 和 alternative_tile 字段。
+## [br]
+## @api private
+## [br]
 func _apply_tile_identity(record: Dictionary, identity: Vector4i) -> void:
 	record["source_id"] = identity.x
 	record["atlas_coords"] = Vector2i(identity.y, identity.z)
 	record["alternative_tile"] = identity.w
 
 
+## 读取 Vector2i 选项，也接受按整数截取的 Vector2；其它类型使用默认值。
+## [br]
+## @api private
+## [br]
 func _get_option_vector2i(options: Dictionary, key: String, default_value: Vector2i) -> Vector2i:
 	var value: Variant = GFVariantData.get_option_value(options, key, default_value)
 	if value is Vector2i:
@@ -555,6 +607,10 @@ func _get_option_vector2i(options: Dictionary, key: String, default_value: Vecto
 	return default_value
 
 
+## 将格坐标追加到报告中指定键对应的数组并写回该数组。
+## [br]
+## @api private
+## [br]
 func _append_report_cell(report: Dictionary, key: String, cell: Vector2i) -> void:
 	var values: Array = GFVariantData.get_option_array(report, key)
 	values.append(cell)

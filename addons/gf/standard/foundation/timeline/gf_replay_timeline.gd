@@ -61,6 +61,10 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 为新建事件分配稳定次序值，用于相同时间事件的排序。
+## [br]
+## @api private
+## [br]
 var _next_event_sequence: int = 0
 
 
@@ -408,6 +412,10 @@ static func from_dictionary(data: Dictionary, json_compatible: bool = false) -> 
 
 # --- 私有/辅助方法 ---
 
+## 规范化时间并创建带新序号、载荷副本和元数据副本的事件字典。
+## [br]
+## @api private
+## [br]
 func _make_event(
 	time_seconds: float,
 	event_kind: StringName,
@@ -424,11 +432,19 @@ func _make_event(
 	}
 
 
+## 追加事件而不排序，并据此扩展时间线总时长。
+## [br]
+## @api private
+## [br]
 func _append_event_unsorted(event: Dictionary) -> void:
 	events.append(event)
 	duration_seconds = maxf(duration_seconds, _get_event_time(event))
 
 
+## 把事件转为序列化字典，并按选项复制或转换载荷和元数据。
+## [br]
+## @api private
+## [br]
 func _event_to_dictionary(event: Dictionary, json_compatible: bool) -> Dictionary:
 	return {
 		"time_seconds": _get_event_time(event),
@@ -439,6 +455,10 @@ func _event_to_dictionary(event: Dictionary, json_compatible: bool) -> Dictionar
 	}
 
 
+## 从序列化字典恢复规范事件字段，并按选项转换载荷和元数据。
+## [br]
+## @api private
+## [br]
 func _event_from_dictionary(event: Dictionary, json_compatible: bool) -> Dictionary:
 	var payload: Variant = GFVariantData.get_option_value(event, "payload")
 	payload = GFVariantJsonCodec.json_compatible_to_variant(payload) if json_compatible else GFVariantData.duplicate_variant(payload)
@@ -453,6 +473,10 @@ func _event_from_dictionary(event: Dictionary, json_compatible: bool) -> Diction
 	}
 
 
+## 从对象的 events 属性读取事件数组；属性不是数组时返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_timeline_events(timeline: RefCounted) -> Array:
 	var value: Variant = _get_object_property(timeline, "events")
 	if value is Array:
@@ -461,34 +485,62 @@ func _get_timeline_events(timeline: RefCounted) -> Array:
 	return []
 
 
+## 读取事件时间并规范化为有限的非负秒数。
+## [br]
+## @api private
+## [br]
 func _get_event_time(event: Dictionary) -> float:
 	return _normalize_time_seconds(GFVariantData.get_option_float(event, "time_seconds"))
 
 
+## 把 NaN 和无穷时间归零，并将有限时间限制为非负值。
+## [br]
+## @api private
+## [br]
 static func _normalize_time_seconds(value: float) -> float:
 	if is_nan(value) or is_inf(value):
 		return 0.0
 	return maxf(value, 0.0)
 
 
+## 读取事件类型为 StringName。
+## [br]
+## @api private
+## [br]
 func _get_event_kind(event: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(event, "event_kind")
 
 
+## 读取事件类型为 String。
+## [br]
+## @api private
+## [br]
 func _get_event_kind_text(event: Dictionary) -> String:
 	return GFVariantData.get_option_string(event, "event_kind")
 
 
+## 读取事件序号；缺省或无法转换时使用 0。
+## [br]
+## @api private
+## [br]
 func _get_event_sequence(event: Dictionary) -> int:
 	return GFVariantData.get_option_int(event, "sequence", 0)
 
 
+## 返回当前下一个事件序号，并将计数加一。
+## [br]
+## @api private
+## [br]
 func _take_event_sequence() -> int:
 	var event_sequence: int = _next_event_sequence
 	_next_event_sequence += 1
 	return event_sequence
 
 
+## 保留有效且唯一的序号，为缺失或重复序号分配未占用值并更新计数器。
+## [br]
+## @api private
+## [br]
 func _normalize_event_sequences() -> void:
 	var used_sequences: Dictionary = {}
 	_next_event_sequence = 0
@@ -503,6 +555,10 @@ func _normalize_event_sequences() -> void:
 		_next_event_sequence = maxi(_next_event_sequence, event_sequence + 1)
 
 
+## 目标非空且属性名非空时按 NodePath 读取对象属性，否则返回 null。
+## [br]
+## @api private
+## [br]
 func _get_object_property(target: Object, property_name: String) -> Variant:
 	if target == null or property_name.is_empty():
 		return null

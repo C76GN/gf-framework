@@ -60,13 +60,52 @@ const STATUS_CLAIMED: StringName = &"claimed"
 
 # --- 私有变量 ---
 
+## Snapshot Operation 当前状态。
+## [br]
+## @api private
+## [br]
 var _status: StringName = STATUS_PENDING
+
+## 配置后绑定的 section ID。
+## [br]
+## @api private
+## [br]
 var _section_id: StringName = &""
+
+## 配置后绑定的 section schema 版本。
+## [br]
+## @api private
+## [br]
 var _schema_version: int = 0
+
+## Provider 已成功准备但尚未被框架接管的 Snapshot。
+## [br]
+## @api private
+## [br]
 var _snapshot: GFSaveSectionSnapshot = null
+
+## 失败或取消状态下保存的 Error 码。
+## [br]
+## @api private
+## [br]
 var _error_code: Error = OK
+
+## 失败或取消状态下保存的错误描述。
+## [br]
+## @api private
+## [br]
 var _error: String = ""
+
+## 框架按 slice 计入的累计 work units。
+## [br]
+## @api private
+## [br]
 var _consumed_work_units: int = 0
+
+## 标记 section 身份是否已由框架配置。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
 
 
@@ -367,6 +406,10 @@ func cancel_for_framework() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 检查 Snapshot 的 section ID 和 schema 版本是否匹配配置身份。
+## [br]
+## @api private
+## [br]
 func _snapshot_matches_definition(snapshot: GFSaveSectionSnapshot) -> bool:
 	return (
 		snapshot != null
@@ -375,6 +418,10 @@ func _snapshot_matches_definition(snapshot: GFSaveSectionSnapshot) -> bool:
 	)
 
 
+## 仅在成功态释放未领取 Snapshot，并将该操作改为失败态。
+## [br]
+## @api private
+## [br]
 func _replace_success_with_failure(error_code: Error, error: String) -> bool:
 	if _status != STATUS_SUCCEEDED:
 		return false

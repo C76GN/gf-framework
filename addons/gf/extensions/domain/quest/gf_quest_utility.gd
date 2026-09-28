@@ -106,9 +106,24 @@ const STATUS_CANCELLED: StringName = &"cancelled"
 ## @api public
 const STATUS_FAILED: StringName = &"failed"
 
+## 饱和整数加法使用的有符号 64 位上界。
+## [br]
+## @api private
 const _INT64_MAX: int = 9223372036854775807
+
+## 饱和整数加法使用的有符号 64 位下界。
+## [br]
+## @api private
 const _INT64_MIN: int = -9223372036854775807 - 1
+
+## 用于检查浮点 payload 是否达到 int64 上界的独占阈值。
+## [br]
+## @api private
 const _INT64_UPPER_EXCLUSIVE_AS_FLOAT: float = 9.223372036854776e18
+
+## 用于检查浮点 payload 是否低于 int64 下界的浮点阈值。
+## [br]
+## @api private
 const _INT64_MIN_AS_FLOAT: float = -9.223372036854776e18
 
 
@@ -123,33 +138,22 @@ var allow_negative_progress: bool = false
 # --- 私有变量 ---
 
 # 任务表：quest_id -> _QuestData。
+## 按任务 ID 保存任务运行状态。
+## [br]
+## @api private
 var _quests: Dictionary = {}
 
 # 事件到任务列表的映射：event_id -> Array[StringName]。
+## 按事件 ID 保存正在监听该事件的任务 ID 列表。
+## [br]
+## @api private
 var _event_to_quests: Dictionary = {}
 
 # 已注册的事件处理器：event_id -> Callable。
+## 按事件 ID 保存已注册的 simple event 监听器。
+## [br]
+## @api private
 var _event_handlers: Dictionary = {}
-
-
-# --- GF 生命周期方法 ---
-
-## 初始化任务监听状态。
-## [br]
-## @api framework_internal
-func init() -> void:
-	_unregister_all_event_handlers()
-	_quests.clear()
-	_event_to_quests.clear()
-
-
-## 释放任务监听状态并注销 simple event 回调。
-## [br]
-## @api framework_internal
-func dispose() -> void:
-	_unregister_all_event_handlers()
-	_quests.clear()
-	_event_to_quests.clear()
 
 
 # --- 公共方法 ---
@@ -542,32 +546,31 @@ func get_debug_snapshot() -> Dictionary:
 	}
 
 
+# --- 框架内部方法 ---
+
+## 初始化任务监听状态。
+## [br]
+## @api framework_internal
+func init() -> void:
+	_unregister_all_event_handlers()
+	_quests.clear()
+	_event_to_quests.clear()
+
+
+## 释放任务监听状态并注销 simple event 回调。
+## [br]
+## @api framework_internal
+func dispose() -> void:
+	_unregister_all_event_handlers()
+	_quests.clear()
+	_event_to_quests.clear()
+
+
 # --- 私有/辅助方法 ---
 
-func _on_quest_event_triggered(payload: Variant, event_id: StringName) -> void:
-	if not _event_to_quests.has(event_id):
-		return
-
-	var amount: int = _payload_to_amount(payload)
-	if not allow_negative_progress:
-		amount = maxi(amount, 0)
-
-	var list: Array = _get_event_quest_list(event_id).duplicate()
-	for quest_id_variant: Variant in list:
-		var quest_id: StringName = GFVariantData.to_string_name(quest_id_variant)
-		var data: _QuestData = _get_quest_data(quest_id)
-		if data == null or data._status != STATUS_ACTIVE or data._is_completed:
-			continue
-
-		data._current_count = _add_int_saturated(data._current_count, amount)
-		if data._current_count >= data._target_count:
-			data._current_count = data._target_count
-			quest_progressed.emit(quest_id, data._current_count, data._target_count)
-			var _completed: bool = _try_complete_quest(data)
-		else:
-			quest_progressed.emit(quest_id, data._current_count, data._target_count)
-
-
+## 为事件创建并注册一个绑定该事件 ID 的任务监听器。
+## [br]
+## @api private
 func _register_event_handler(event_id: StringName) -> void:
 	var arch: GFArchitecture = _get_arch()
 	if arch == null:
@@ -582,6 +585,9 @@ func _register_event_handler(event_id: StringName) -> void:
 	register_simple_event(event_id, event_handler)
 
 
+## 注销指定事件的监听器并从注册表移除。
+## [br]
+## @api private
 func _unregister_event_handler(event_id: StringName) -> void:
 	if not _event_handlers.has(event_id):
 		return
@@ -593,6 +599,9 @@ func _unregister_event_handler(event_id: StringName) -> void:
 	_erase_dictionary_key(_event_handlers, event_id)
 
 
+## 注销已注册的全部事件监听器并清空监听器表。
+## [br]
+## @api private
 func _unregister_all_event_handlers() -> void:
 	var arch: GFArchitecture = _get_arch()
 	if arch != null:
@@ -603,10 +612,16 @@ func _unregister_all_event_handlers() -> void:
 	_event_handlers.clear()
 
 
+## 返回工具当前关联的 GFArchitecture。
+## [br]
+## @api private
 func _get_arch() -> GFArchitecture:
 	return _get_architecture_or_null()
 
 
+## 从嵌套 amount 字段读取整数或有限浮点数量，其他输入回退为 1。
+## [br]
+## @api private
 func _payload_to_amount(payload: Variant) -> int:
 	var current_payload: Variant = payload
 	var depth: int = 0
@@ -636,6 +651,9 @@ func _payload_to_amount(payload: Variant) -> int:
 	return 1
 
 
+## 将两个整数相加，并在有符号 64 位边界处饱和。
+## [br]
+## @api private
 func _add_int_saturated(left: int, right: int) -> int:
 	if right > 0 and left > _INT64_MAX - right:
 		return _INT64_MAX
@@ -644,6 +662,9 @@ func _add_int_saturated(left: int, right: int) -> int:
 	return left + right
 
 
+## 创建任务运行记录并深拷贝任务元数据。
+## [br]
+## @api private
 func _create_quest_data(
 	quest_id: StringName,
 	target_event: StringName,
@@ -658,6 +679,9 @@ func _create_quest_data(
 	return data
 
 
+## 将任务加入事件监听列表，并在该事件首次被监听时注册处理器。
+## [br]
+## @api private
 func _attach_quest_to_event(data: _QuestData) -> void:
 	if data == null or data._event_id == &"":
 		return
@@ -670,6 +694,9 @@ func _attach_quest_to_event(data: _QuestData) -> void:
 		list.append(data._quest_id)
 
 
+## 从事件任务列表移除任务；列表变空时删除映射并注销处理器。
+## [br]
+## @api private
 func _detach_quest_from_event(data: _QuestData) -> void:
 	if data == null or data._event_id == &"" or not _event_to_quests.has(data._event_id):
 		return
@@ -680,6 +707,9 @@ func _detach_quest_from_event(data: _QuestData) -> void:
 		_unregister_event_handler(data._event_id)
 
 
+## 检查完成阻塞条件，通过后停止监听、写入完成状态并发出信号。
+## [br]
+## @api private
 func _try_complete_quest(data: _QuestData) -> bool:
 	if not _is_current_active_quest(data) or data._is_completed:
 		return false
@@ -698,6 +728,9 @@ func _try_complete_quest(data: _QuestData) -> bool:
 	return true
 
 
+## 依序执行有效条件回调，并规范化首个拒绝原因或成功结果。
+## [br]
+## @api private
 func _check_conditions(conditions: Array[Callable], data: _QuestData) -> Dictionary:
 	for condition: Callable in conditions:
 		if not condition.is_valid():
@@ -726,6 +759,9 @@ func _check_conditions(conditions: Array[Callable], data: _QuestData) -> Diction
 	}
 
 
+## 从当前父任务移除该子任务并清除其父级 ID。
+## [br]
+## @api private
 func _detach_quest_parent(data: _QuestData) -> void:
 	if data == null or data._parent_id == &"":
 		return
@@ -737,6 +773,9 @@ func _detach_quest_parent(data: _QuestData) -> void:
 	data._parent_id = &""
 
 
+## 遍历子任务关系，判断指定任务是否位于根任务后代中。
+## [br]
+## @api private
 func _is_descendant_quest(root_quest_id: StringName, expected_descendant_id: StringName) -> bool:
 	var root: _QuestData = _get_quest_data(root_quest_id)
 	if root == null:
@@ -760,6 +799,9 @@ func _is_descendant_quest(root_quest_id: StringName, expected_descendant_id: Str
 	return false
 
 
+## 以迭代后序遍历构建任务树报告和聚合完成进度。
+## [br]
+## @api private
 func _build_quest_tree_report(data: _QuestData) -> Dictionary:
 	if data == null:
 		return {}
@@ -812,6 +854,9 @@ func _build_quest_tree_report(data: _QuestData) -> Dictionary:
 	return _get_report_dictionary_ref(reports, data._quest_id)
 
 
+## 从报告表中读取指定任务报告并收窄为 Dictionary。
+## [br]
+## @api private
 func _get_report_dictionary_ref(reports: Dictionary, quest_id: StringName) -> Dictionary:
 	var value: Variant = GFVariantData.get_option_value(reports, quest_id, {})
 	if value is Dictionary:
@@ -820,20 +865,32 @@ func _get_report_dictionary_ref(reports: Dictionary, quest_id: StringName) -> Di
 	return {}
 
 
+## 从任务表读取指定记录并收窄为内部任务数据类型。
+## [br]
+## @api private
 func _get_quest_data(quest_id: StringName) -> _QuestData:
 	return _variant_to_quest_data(GFVariantData.get_option_value(_quests, quest_id))
 
 
+## 检查任务对象仍是表中当前实例且状态匹配。
+## [br]
+## @api private
 func _is_current_quest_in_status(data: _QuestData, expected_status: StringName) -> bool:
 	if data == null:
 		return false
 	return _get_quest_data(data._quest_id) == data and data._status == expected_status
 
 
+## 检查任务记录仍是当前活动任务。
+## [br]
+## @api private
 func _is_current_active_quest(data: _QuestData) -> bool:
 	return _is_current_quest_in_status(data, STATUS_ACTIVE)
 
 
+## 从事件监听器表读取并收窄指定事件的 GFEventListener。
+## [br]
+## @api private
 func _get_event_handler(event_id: StringName) -> GFEventListener:
 	var value: Variant = GFVariantData.get_option_value(_event_handlers, event_id)
 	if value is GFEventListener:
@@ -842,10 +899,16 @@ func _get_event_handler(event_id: StringName) -> GFEventListener:
 	return null
 
 
+## 获取指定事件的任务列表；映射缺失时返回空数组。
+## [br]
+## @api private
 func _get_event_quest_list(event_id: StringName) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(_event_to_quests, event_id, []))
 
 
+## 返回已有事件任务数组，或创建并保存新的 StringName 数组。
+## [br]
+## @api private
 func _ensure_event_quest_list(event_id: StringName) -> Array:
 	if _event_to_quests.has(event_id):
 		var existing_value: Variant = GFVariantData.get_option_value(_event_to_quests, event_id, [])
@@ -857,35 +920,127 @@ func _ensure_event_quest_list(event_id: StringName) -> Array:
 	return list
 
 
+## 从字典中移除指定键。
+## [br]
+## @api private
 func _erase_dictionary_key(source: Dictionary, key: Variant) -> void:
 	var _erased: bool = source.erase(key)
 
 
+## 向 PackedStringArray 追加一个字符串。
+## [br]
+## @api private
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var _appended: bool = target.append(value)
 
 
+## 将任意值收窄为内部任务数据实例，否则返回 null。
+## [br]
+## @api private
 func _variant_to_quest_data(value: Variant) -> _QuestData:
 	if value is _QuestData:
 		return value
 	return null
 
 
+# --- 信号处理函数 ---
+
+## 对事件映射的任务列表副本累加有效任务进度；达到目标时先发进度信号，再由完成路径重新核对任务资格。
+## [br]
+## @api private
+func _on_quest_event_triggered(payload: Variant, event_id: StringName) -> void:
+	if not _event_to_quests.has(event_id):
+		return
+
+	var amount: int = _payload_to_amount(payload)
+	if not allow_negative_progress:
+		amount = maxi(amount, 0)
+
+	var list: Array = _get_event_quest_list(event_id).duplicate()
+	for quest_id_variant: Variant in list:
+		var quest_id: StringName = GFVariantData.to_string_name(quest_id_variant)
+		var data: _QuestData = _get_quest_data(quest_id)
+		if data == null or data._status != STATUS_ACTIVE or data._is_completed:
+			continue
+
+		data._current_count = _add_int_saturated(data._current_count, amount)
+		if data._current_count >= data._target_count:
+			data._current_count = data._target_count
+			quest_progressed.emit(quest_id, data._current_count, data._target_count)
+			var _completed: bool = _try_complete_quest(data)
+		else:
+			quest_progressed.emit(quest_id, data._current_count, data._target_count)
+
+
 # --- 内部类 ---
 
+## 保存单个任务的状态、父子关系、元数据与条件回调。
+## [br]
+## @api private
 class _QuestData extends RefCounted:
+	# --- 私有变量 ---
+
+	## 任务在工具实例中的索引键。
+	## [br]
+	## @api private
 	var _quest_id: StringName
+
+	## 驱动此任务计数的事件标识。
+	## [br]
+	## @api private
 	var _event_id: StringName
+
+	## 任务达成所需的目标计数。
+	## [br]
+	## @api private
 	var _target_count: int = 1
+
+	## 当前累计进度，导出时与目标计数一同提供。
+	## [br]
+	## @api private
 	var _current_count: int = 0
+
+	## 与任务完成状态一同维护的完成标记。
+	## [br]
+	## @api private
 	var _is_completed: bool = false
+
+	## 任务的当前状态标识，参与回调后的实例和状态复核。
+	## [br]
+	## @api private
 	var _status: StringName = &"available"
+
+	## 父任务标识；空名表示没有父任务。
+	## [br]
+	## @api private
 	var _parent_id: StringName = &""
+
+	## 直接子任务标识列表；导出字典时复制该数组。
+	## [br]
+	## @api private
 	var _child_ids: PackedStringArray = PackedStringArray()
+
+	## 任务附带的数据字典；导出时使用 duplicate(true)。
+	## [br]
+	## @api private
 	var _metadata: Dictionary = {}
+
+	## 接受任务前运行的条件回调列表。
+	## [br]
+	## @api private
 	var _acceptance_conditions: Array[Callable] = []
+
+	## 完成任务前检查的阻断回调列表。
+	## [br]
+	## @api private
 	var _completion_blockers: Array[Callable] = []
 
+
+	# --- 私有/辅助方法 ---
+
+	## 导出任务状态与父子标识，复制子项列表和元数据；条件回调仅导出数量。
+	## [br]
+	## @api private
 	func _to_dict() -> Dictionary:
 		return {
 			"quest_id": String(_quest_id),

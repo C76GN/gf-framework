@@ -38,18 +38,69 @@ enum RoundingMode {
 ## @api public
 const MAX_DECIMAL_PLACES: int = 18
 
+## GFBigNumber 脚本资源，用于把格式化后的十进制文本转换为大数对象。
+## [br]
+## @api private
 const _BIG_NUMBER_SCRIPT: Script = preload("res://addons/gf/standard/foundation/numeric/gf_big_number.gd")
+
+## 本类使用的数值文本正规化与小数部分验证器。
+## [br]
+## @api private
 const _DECIMAL_STRING_FORMATTER = preload("res://addons/gf/standard/foundation/formatting/gf_decimal_string_formatter.gd")
+
+## 承担定点数序列化与边界规范化实现的脚本资源。
+## [br]
+## @api private
 const _SERIALIZATION_SUPPORT: Script = preload("res://addons/gf/standard/foundation/numeric/gf_fixed_numeric_serialization_support.gd")
+
+## 固定字节格式要求的完整字节数。
+## [br]
+## @api private
 const _BYTE_FORMAT_SIZE: int = 15
+
+## GFFD 字节头的第 1 个 ASCII 字节。
+## [br]
+## @api private
 const _BYTE_MAGIC_0: int = 71
+
+## GFFD 字节头的第 2 个 ASCII 字节。
+## [br]
+## @api private
 const _BYTE_MAGIC_1: int = 70
+
+## GFFD 字节头的第 3 个 ASCII 字节。
+## [br]
+## @api private
 const _BYTE_MAGIC_2: int = 70
+
+## GFFD 字节头的第 4 个 ASCII 字节。
+## [br]
+## @api private
 const _BYTE_MAGIC_3: int = 68
+
+## 固定字节格式中有符号幅值数据的起始偏移。
+## [br]
+## @api private
 const _BYTE_MAGNITUDE_OFFSET: int = 7
+
+## 状态字典中的定点数类型标识。
+## [br]
+## @api private
 const _SERIALIZATION_TYPE: String = "gf.fixed_decimal"
+
+## 状态字典与固定字节格式当前使用的版本号。
+## [br]
+## @api private
 const _SERIALIZATION_VERSION: int = 1
+
+## 定点数采用对称正负范围时的最大幅值。
+## [br]
+## @api private
 const _MAX_INT_VALUE: int = 9_223_372_036_854_775_807
+
+## 有符号幅值解码失败时使用的 int64 最小值哨兵。
+## [br]
+## @api private
 const _INVALID_SIGNED_MAGNITUDE: int = -9_223_372_036_854_775_807 - 1
 
 
@@ -588,10 +639,16 @@ func apply_bytes(data: PackedByteArray) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 按方法名和参数数组调用序列化支持脚本中的实现。
+## [br]
+## @api private
 static func _call_serialization_support(method_name: StringName, arguments: Array) -> Variant:
 	return _SERIALIZATION_SUPPORT.callv(method_name, arguments)
 
 
+## 调用序列化支持方法，并在结果不是 bool 时返回 false。
+## [br]
+## @api private
 static func _call_serialization_support_bool(method_name: StringName, arguments: Array) -> bool:
 	var raw_result: Variant = _call_serialization_support(method_name, arguments)
 	if raw_result is bool:
@@ -600,6 +657,9 @@ static func _call_serialization_support_bool(method_name: StringName, arguments:
 	return false
 
 
+## 调用序列化支持方法，并在结果不是 int 时返回指定回退值。
+## [br]
+## @api private
 static func _call_serialization_support_int(
 	method_name: StringName,
 	arguments: Array,
@@ -612,6 +672,9 @@ static func _call_serialization_support_int(
 	return fallback
 
 
+## 委托序列化支持脚本将有符号值追加到目标字节数组并返回该数组。
+## [br]
+## @api private
 static func _append_signed_magnitude(
 	target: PackedByteArray,
 	value: int,
@@ -626,6 +689,9 @@ static func _append_signed_magnitude(
 	return result
 
 
+## 从固定字节数据读取有符号幅值；结果类型不符时返回无效哨兵。
+## [br]
+## @api private
 static func _read_signed_magnitude(
 	data: PackedByteArray,
 	sign_offset: int,
@@ -638,10 +704,16 @@ static func _read_signed_magnitude(
 	)
 
 
+## 通过序列化支持脚本判断解码值是否等于无效哨兵。
+## [br]
+## @api private
 static func _signed_magnitude_is_invalid(value: int) -> bool:
 	return _call_serialization_support_bool(&"signed_magnitude_is_invalid", [value])
 
 
+## 调用 GFBigNumber 的 from_string；脚本调用未返回该类型时回退到零值。
+## [br]
+## @api private
 static func _make_big_number_from_string(value: String) -> GFBigNumber:
 	var result: Variant = _BIG_NUMBER_SCRIPT.call(&"from_string", value)
 	if result is GFBigNumber:
@@ -649,6 +721,9 @@ static func _make_big_number_from_string(value: String) -> GFBigNumber:
 	return GFBigNumber.zero()
 
 
+## 把整数、小数文本及小数点是否存在交给共享格式器验证。
+## [br]
+## @api private
 static func _decimal_parts_are_valid(
 	integer_part: String,
 	fractional_part: String,
@@ -661,12 +736,19 @@ static func _decimal_parts_are_valid(
 	)
 
 
+## 将一个字符串追加到 PackedStringArray。
+## [br]
+## @api private
 static func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 对齐小数位后比较两个 raw 整数值，并返回 -1、0 或 1。
+## 使用十进制字符串扩位，避免先把对齐结果乘进 int。
+## [br]
+## @api private
 static func _compare_scaled_raw_values(
 	left_raw: int,
 	left_places: int,
@@ -691,6 +773,9 @@ static func _compare_scaled_raw_values(
 	return -magnitude_compare if left_negative else magnitude_compare
 
 
+## 按目标小数位重缩放 raw 值；升位时检查乘法边界，降位时应用指定舍入。
+## [br]
+## @api private
 static func _rescale_raw(
 	value: int,
 	from_places: int,
@@ -707,6 +792,10 @@ static func _rescale_raw(
 	return _divide_with_rounding(value, divisor, rounding_mode)
 
 
+## 对整数分子与分母求商，并依舍入模式处理余数和符号。
+## 分母为零时记录错误并返回 0。
+## [br]
+## @api private
 static func _divide_with_rounding(
 	numerator: int,
 	denominator: int,
@@ -745,6 +834,9 @@ static func _divide_with_rounding(
 	return -adjusted if negative else adjusted
 
 
+## 按指定舍入模式把已缩放的浮点值转换为整数。
+## [br]
+## @api private
 static func _round_scaled_float(value: float, rounding_mode: RoundingMode) -> int:
 	match rounding_mode:
 		RoundingMode.FLOOR:
@@ -786,6 +878,10 @@ static func _round_scaled_float(value: float, rounding_mode: RoundingMode) -> in
 	return int(fallback_rounded)
 
 
+## 以十进制字符串完成带位移的整数除法，再舍入并饱和为 raw 整数。
+## 用于原生整数缩放无法容纳中间值的路径。
+## [br]
+## @api private
 static func _divide_with_decimal_strings(
 	numerator: int,
 	denominator: int,
@@ -834,6 +930,9 @@ static func _divide_with_decimal_strings(
 	return _decimal_string_to_int_saturated(adjusted_text, negative)
 
 
+## 以十进制字符串计算 raw 乘积，按 scale_diff 移位或舍入后转回饱和整数。
+## [br]
+## @api private
 static func _multiply_rescaled_raw(
 	left_raw: int,
 	right_raw: int,
@@ -850,6 +949,9 @@ static func _multiply_rescaled_raw(
 	return _decimal_string_to_int_saturated(adjusted_text, negative, "multiply")
 
 
+## 将整数与小数部分转换为目标精度的 raw 值，并按模式处理被丢弃的小数位。
+## [br]
+## @api private
 static func _parse_decimal_to_raw(
 	integer_part: String,
 	fractional_part: String,
@@ -875,6 +977,9 @@ static func _parse_decimal_to_raw(
 	return parsed_raw
 
 
+## 根据首个被丢弃数字、后续非零位、保留值奇偶性和符号判断是否进位。
+## [br]
+## @api private
 static func _should_round_discarded(
 	discarded: String,
 	kept_abs_raw: int,
@@ -904,6 +1009,9 @@ static func _should_round_discarded(
 	return false
 
 
+## 判断文本中是否至少含有一个非零数字字符。
+## [br]
+## @api private
 static func _has_non_zero_digit(text: String) -> bool:
 	for i: int in range(text.length()):
 		if text.substr(i, 1) != "0":
@@ -911,6 +1019,10 @@ static func _has_non_zero_digit(text: String) -> bool:
 	return false
 
 
+## 用逐位长除法计算非负十进制数字串的商与余数。
+## 分母为零时返回字符串形式的零商和零余数。
+## [br]
+## @api private
 static func _divide_decimal_strings(numerator_digits: String, denominator_digits: String) -> Dictionary:
 	var numerator_text: String = _normalize_decimal_string(numerator_digits)
 	var denominator_text: String = _normalize_decimal_string(denominator_digits)
@@ -939,6 +1051,9 @@ static func _divide_decimal_strings(numerator_digits: String, denominator_digits
 	}
 
 
+## 去除十进制数字串的多余前导零，并把空文本规范为 "0"。
+## [br]
+## @api private
 static func _normalize_decimal_string(text: String) -> String:
 	var result: String = text
 	while result.length() > 1 and result.begins_with("0"):
@@ -948,6 +1063,9 @@ static func _normalize_decimal_string(text: String) -> String:
 	return result
 
 
+## 通过逐位乘法和部分积相加计算两个非负十进制数字串的乘积。
+## [br]
+## @api private
 static func _multiply_decimal_strings(left: String, right: String) -> String:
 	var normalized_left: String = _normalize_decimal_string(left)
 	var normalized_right: String = _normalize_decimal_string(right)
@@ -966,6 +1084,9 @@ static func _multiply_decimal_strings(left: String, right: String) -> String:
 	return _normalize_decimal_string(result)
 
 
+## 从最低位开始相加两个非负十进制数字串，并传播进位。
+## [br]
+## @api private
 static func _add_decimal_strings(left: String, right: String) -> String:
 	var left_text: String = _normalize_decimal_string(left)
 	var right_text: String = _normalize_decimal_string(right)
@@ -987,6 +1108,9 @@ static func _add_decimal_strings(left: String, right: String) -> String:
 	return _normalize_decimal_string("".join(result_parts))
 
 
+## 按十进制位数拆分商与余数，并按舍入模式决定是否给商加一。
+## [br]
+## @api private
 static func _round_decimal_string_by_power(
 	value: String,
 	scale_diff: int,
@@ -1010,6 +1134,9 @@ static func _round_decimal_string_by_power(
 	return _normalize_decimal_string(quotient)
 
 
+## 依据余数文本、商的奇偶性、结果符号和舍入模式判断是否进位。
+## [br]
+## @api private
 static func _should_round_decimal_remainder(
 	remainder: String,
 	quotient: String,
@@ -1038,14 +1165,23 @@ static func _should_round_decimal_remainder(
 	return false
 
 
+## 委托序列化支持脚本判断状态字段是否为可接受的整数值。
+## [br]
+## @api private
 static func _state_value_is_int(value: Variant) -> bool:
 	return _call_serialization_support_bool(&"state_value_is_int", [value])
 
 
+## 委托序列化支持脚本把状态字段转换为 int。
+## [br]
+## @api private
 static func _state_value_to_int(value: Variant) -> int:
 	return _call_serialization_support_int(&"state_value_to_int", [value])
 
 
+## 规范化两个数字串后按长度和字典序比较其非负数值。
+## [br]
+## @api private
 static func _compare_decimal_strings(left: String, right: String) -> int:
 	var normalized_left: String = _normalize_decimal_string(left)
 	var normalized_right: String = _normalize_decimal_string(right)
@@ -1058,6 +1194,9 @@ static func _compare_decimal_strings(left: String, right: String) -> int:
 	return 1 if normalized_left > normalized_right else -1
 
 
+## 对两个非负数字串逐位相减；调用方需保证左侧数值不小于右侧。
+## [br]
+## @api private
 static func _subtract_decimal_strings(left: String, right: String) -> String:
 	var left_text: String = _normalize_decimal_string(left)
 	var right_text: String = _normalize_decimal_string(right)
@@ -1082,6 +1221,10 @@ static func _subtract_decimal_strings(left: String, right: String) -> String:
 	return _normalize_decimal_string("".join(result_parts))
 
 
+## 将非负数字串乘以一个数字，使用逐位乘法和进位。
+## digit 小于等于 0 时返回 "0"，等于 1 时只做规范化。
+## [br]
+## @api private
 static func _multiply_decimal_string_by_digit(text: String, digit: int) -> String:
 	if digit <= 0:
 		return "0"
@@ -1102,6 +1245,9 @@ static func _multiply_decimal_string_by_digit(text: String, digit: int) -> Strin
 	return _normalize_decimal_string("".join(result_parts))
 
 
+## 给规范化后的非负十进制数字串加一。
+## [br]
+## @api private
 static func _add_one_decimal_string(text: String) -> String:
 	var result: String = _normalize_decimal_string(text)
 	var carry: int = 1
@@ -1116,11 +1262,17 @@ static func _add_one_decimal_string(text: String) -> String:
 	return "1" + result
 
 
+## 规范化数字串后检查其个位是否为奇数。
+## [br]
+## @api private
 static func _decimal_string_is_odd(text: String) -> bool:
 	var normalized_text: String = _normalize_decimal_string(text)
 	return normalized_text.substr(normalized_text.length() - 1, 1).to_int() % 2 != 0
 
 
+## 将非负数字串转为对称 int 范围内的整数，超界时记录错误并钳制到对应边界。
+## [br]
+## @api private
 static func _decimal_string_to_int_saturated(text: String, is_negative: bool, context: String = "divide") -> int:
 	var normalized_text: String = _normalize_decimal_string(text)
 	if normalized_text.length() > 19 or (
@@ -1138,6 +1290,9 @@ static func _decimal_string_to_int_saturated(text: String, is_negative: bool, co
 	return -result if is_negative else result
 
 
+## 重复指定字符 max(count, 0) 次。
+## [br]
+## @api private
 static func _repeat_character(character: String, count: int) -> String:
 	var result: String = ""
 	for _i: int in range(maxi(count, 0)):
@@ -1145,6 +1300,9 @@ static func _repeat_character(character: String, count: int) -> String:
 	return result
 
 
+## 将小数位数规范化后以整数乘法计算对应的 10 的幂。
+## [br]
+## @api private
 static func _pow10_int(power: int) -> int:
 	var safe_power: int = _normalize_decimal_places(power)
 	var result: int = 1
@@ -1153,10 +1311,16 @@ static func _pow10_int(power: int) -> int:
 	return result
 
 
+## 将小数位数规范化后计算对应的浮点 10 的幂。
+## [br]
+## @api private
 static func _pow10_float(power: int) -> float:
 	return pow(10.0, _normalize_decimal_places(power))
 
 
+## 在文本左侧补充指定字符，直到达到目标宽度。
+## [br]
+## @api private
 static func _left_pad(text: String, width: int, fill_char: String) -> String:
 	var result: String = text
 	while result.length() < width:
@@ -1164,6 +1328,9 @@ static func _left_pad(text: String, width: int, fill_char: String) -> String:
 	return result
 
 
+## 委托序列化支持脚本按 owner 与 context 规范 raw 值，结果非 int 时保留输入值。
+## [br]
+## @api private
 static func _normalize_raw_value(value: int, context: String) -> int:
 	return _call_serialization_support_int(
 		&"normalize_raw_value",
@@ -1172,14 +1339,23 @@ static func _normalize_raw_value(value: int, context: String) -> int:
 	)
 
 
+## 委托序列化支持脚本规范化小数位数。
+## [br]
+## @api private
 static func _normalize_decimal_places(value: int) -> int:
 	return _call_serialization_support_int(&"normalize_decimal_places", [value, "GFFixedDecimal"], value)
 
 
+## 委托序列化支持脚本检查小数位是否处于序列化允许范围。
+## [br]
+## @api private
 static func _decimal_places_are_in_serialized_range(value: int) -> bool:
 	return _call_serialization_support_bool(&"decimal_places_are_in_serialized_range", [value])
 
 
+## 把已验证的十进制数字串解析为 raw 整数，超出对称范围时按符号钳制。
+## [br]
+## @api private
 static func _parse_signed_digits(digits: String, sign_multiplier: int) -> int:
 	var significant_digits: String = digits
 	while significant_digits.length() > 1 and significant_digits.begins_with("0"):
@@ -1202,6 +1378,9 @@ static func _parse_signed_digits(digits: String, sign_multiplier: int) -> int:
 	return result
 
 
+## 检查整数乘积是否溢出；溢出时记录错误并返回相应符号的饱和值。
+## [br]
+## @api private
 static func _checked_multiply(left: int, right: int, context: String) -> int:
 	if left == 0 or right == 0:
 		return 0
@@ -1213,17 +1392,26 @@ static func _checked_multiply(left: int, right: int, context: String) -> int:
 	return left * right
 
 
+## 通过除法边界判断两个非零整数相乘是否位于对称 int 范围内。
+## [br]
+## @api private
 static func _multiplication_fits(left: int, right: int) -> bool:
 	if left == 0 or right == 0:
 		return true
 	return _abs_int(left) <= _divide_truncated(_MAX_INT_VALUE, _abs_int(right))
 
 
+## 执行朝零截断的整数除法。
+## [br]
+## @api private
 static func _divide_truncated(numerator: int, denominator: int) -> int:
 	@warning_ignore("integer_division")
 	return numerator / denominator
 
 
+## 检查加法结果是否越过对称 int 边界；越界时记录错误并返回饱和值。
+## [br]
+## @api private
 static func _checked_add(left: int, right: int, context: String) -> int:
 	if right > 0 and left > _MAX_INT_VALUE - right:
 		push_error("[GFFixedDecimal][fixed_decimal.result_clamped] The %s result exceeds the representable range and was clamped." % context)
@@ -1234,14 +1422,23 @@ static func _checked_add(left: int, right: int, context: String) -> int:
 	return left + right
 
 
+## 根据符号返回对称范围内的最大正值或负值。
+## [br]
+## @api private
 static func _get_saturated_int(is_negative: bool) -> int:
 	return -_MAX_INT_VALUE if is_negative else _MAX_INT_VALUE
 
 
+## 委托序列化支持脚本计算对称范围内的绝对值。
+## [br]
+## @api private
 static func _abs_int(value: int) -> int:
 	return _call_serialization_support_int(&"abs_symmetric", [value])
 
 
+## 检查字节数据的长度、GFFD 标识、版本号及小数位范围。
+## [br]
+## @api private
 static func _bytes_have_supported_header(data: PackedByteArray) -> bool:
 	return (
 		data.size() == _BYTE_FORMAT_SIZE
@@ -1254,11 +1451,18 @@ static func _bytes_have_supported_header(data: PackedByteArray) -> bool:
 	)
 
 
+## 将反序列化失败后的对象重置为 raw 零值和 2 位小数。
+## [br]
+## @api private
 func _reset_serialized_zero() -> void:
 	raw_value = 0
 	decimal_places = 2
 
 
+## 在不计算 2 * remainder 的情况下比较其与 denominator 的两倍关系。
+## 返回余数小于、等于或大于一半时的 -1、0 或 1。
+## [br]
+## @api private
 static func _compare_twice_remainder(remainder: int, denominator: int) -> int:
 	var complement: int = denominator - remainder
 	if remainder > complement:

@@ -69,21 +69,64 @@ enum DependencyRemovalPolicy {
 
 # --- 常量 ---
 
+## receiver 上已注册能力类型列表的元数据键。
+## [br]
+## @api private
 const _META_CAPABILITY_TYPES: StringName = &"_gf_capability_types"
+
+## 能力实例启用状态的元数据键。
+## [br]
+## @api private
 const _META_CAPABILITY_ACTIVE: StringName = &"_gf_capability_active"
+
+## receiver 上能力实例元数据键的前缀。
+## [br]
+## @api private
 const _META_CAPABILITY_INSTANCE_PREFIX: String = "_gf_capability_"
 
 ## 识别旧场景或编辑器工具创建的能力容器节点的元数据键。
 ## [br]
 ## @api framework_internal
 const META_CAPABILITY_CONTAINER: StringName = &"_gf_capability_container"
+
+## 按所属能力记录依赖类型的元数据键。
+## [br]
+## @api private
 const _META_CAPABILITY_DEPENDENCIES: StringName = &"_gf_capability_dependencies"
+
+## 按依赖类型记录其所属能力的反向元数据键。
+## [br]
+## @api private
 const _META_CAPABILITY_DEPENDENCY_OF: StringName = &"_gf_capability_dependency_of"
+
+## 标记顶层显式注册能力类型的元数据键。
+## [br]
+## @api private
 const _META_CAPABILITY_TOP_LEVEL_TYPES: StringName = &"_gf_capability_top_level_types"
+
+## 记录 Utility 是否拥有能力实例的元数据键。
+## [br]
+## @api private
 const _META_CAPABILITY_OWNED_TYPES: StringName = &"_gf_capability_owned_types"
+
+## 记录已忽略场景能力类型的元数据键。
+## [br]
+## @api private
 const _META_CAPABILITY_IGNORED_SCENE_TYPES: StringName = &"_gf_capability_ignored_scene_types"
+
+## 暂存节点停用前 process_mode 的元数据键。
+## [br]
+## @api private
 const _META_ORIGINAL_PROCESS_MODE: StringName = &"_gf_capability_original_process_mode"
+
+## 能力注册过程的状态值。
+## [br]
+## @api private
 const _REGISTRATION_STATE_ADDING: int = 1
+
+## 能力移除过程的状态值。
+## [br]
+## @api private
 const _REGISTRATION_STATE_REMOVING: int = 2
 
 ## 能力对象可选实现：返回运行时依赖的能力类型列表。
@@ -113,8 +156,20 @@ const HOOK_ON_REMOVED: StringName = &"on_gf_capability_removed"
 ## [br]
 ## @api public
 const HOOK_ON_ACTIVE_CHANGED: StringName = &"on_gf_capability_active_changed"
+
+## 能力容器节点脚本资源。
+## [br]
+## @api private
 const _GF_CAPABILITY_CONTAINER_SCRIPT = preload("res://addons/gf/extensions/capability/nodes/gf_capability_container.gd")
+
+## 提供有效实例与节点解析的 Guard 脚本。
+## [br]
+## @api private
 const _INSTANCE_GUARD: Script = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
+
+## 提供脚本继承关系查询的 Inspector 脚本。
+## [br]
+## @api private
 const _SCRIPT_TYPE_INSPECTOR: Script = preload("res://addons/gf/kernel/core/gf_script_type_inspector.gd")
 
 
@@ -141,14 +196,49 @@ var max_capability_tree_nodes: int = 65536:
 
 # --- 私有变量 ---
 
+## 嵌套能力创建期间的 receiver 与类型键栈。
+## [br]
+## @api private
 var _creation_stack: Array[String] = []
+
+## 以 receiver 实例 ID 为键保存的弱引用。
+## [br]
+## @api private
 var _receiver_refs: Dictionary = {}
+
+## 按能力脚本类型索引 receiver 实例 ID。
+## [br]
+## @api private
 var _capability_receivers: Dictionary = {}
+
+## 按分组名称索引 receiver 实例 ID。
+## [br]
+## @api private
 var _receiver_groups: Dictionary = {}
+
+## 按 receiver 实例 ID 索引其分组名称。
+## [br]
+## @api private
 var _receiver_group_names: Dictionary = {}
+
+## 正在同步场景能力容器的 receiver 实例 ID 集合。
+## [br]
+## @api private
 var _scene_container_sync_receivers: Dictionary = {}
+
+## 按 receiver 和能力类型键记录中的注册状态。
+## [br]
+## @api private
 var _registration_states: Dictionary = {}
+
+## 自上次周期清理后经过的秒数。
+## [br]
+## @api private
 var _elapsed_since_prune: float = 0.0
+
+## 分批清理 receiver 索引时的当前位置。
+## [br]
+## @api private
 var _prune_receiver_cursor: int = 0
 
 
@@ -972,6 +1062,9 @@ func inspect_receiver(receiver: Object) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 从接收者能力检查报告中提取依赖有效状态和缺失项。
+## [br]
+## @api private
 func _validate_receiver_dependencies_native(receiver: Object) -> Dictionary:
 	var report: Dictionary = _inspect_receiver_native(receiver)
 	return {
@@ -980,6 +1073,9 @@ func _validate_receiver_dependencies_native(receiver: Object) -> Dictionary:
 	}
 
 
+## 汇总接收者的能力、依赖、启用状态、顶层状态及分组。
+## [br]
+## @api private
 func _inspect_receiver_native(receiver: Object) -> Dictionary:
 	if not is_instance_valid(receiver):
 		return {
@@ -1030,6 +1126,9 @@ func _inspect_receiver_native(receiver: Object) -> Dictionary:
 		"missing_dependencies": missing_dependencies,
 		"groups": _string_name_array_to_strings(get_receiver_groups(receiver)),
 	}
+## 从 Variant 数组中筛选 Script 项并返回类型化数组。
+## [br]
+## @api private
 func _get_script_array_value(value: Variant) -> Array[Script]:
 	var result: Array[Script] = []
 	if value is Array:
@@ -1039,25 +1138,40 @@ func _get_script_array_value(value: Variant) -> Array[Script]:
 	return result
 
 
+## 创建空的 Script 类型化数组。
+## [br]
+## @api private
 func _empty_script_array() -> Array[Script]:
 	var result: Array[Script] = []
 	return result
 
 
+## 创建空的 Object 类型化数组。
+## [br]
+## @api private
 func _empty_object_array() -> Array[Object]:
 	var result: Array[Object] = []
 	return result
 
 
+## 创建空的 StringName 类型化数组。
+## [br]
+## @api private
 func _empty_string_name_array() -> Array[StringName]:
 	var result: Array[StringName] = []
 	return result
 
 
+## 从字典读取指定键的字典值，无效或缺失时返回空字典。
+## [br]
+## @api private
 func _get_dictionary_ref(source: Dictionary, key: Variant) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(source, key, {}))
 
 
+## 将整数映射为有效的节点处理模式，未知值回退为继承模式。
+## [br]
+## @api private
 func _to_process_mode(value: int) -> Node.ProcessMode:
 	match value:
 		Node.PROCESS_MODE_PAUSABLE:
@@ -1072,86 +1186,137 @@ func _to_process_mode(value: int) -> Node.ProcessMode:
 			return Node.PROCESS_MODE_INHERIT
 
 
+## 将 Variant 收窄为 Object，其他值返回 null。
+## [br]
+## @api private
 func _get_object_value(value: Variant) -> Object:
 	if value is Object:
 		return value
 	return null
 
 
+## 将 Variant 收窄为 Node，其他值返回 null。
+## [br]
+## @api private
 func _get_node_value(value: Variant) -> Node:
 	if value is Node:
 		return value
 	return null
 
 
+## 将 Variant 收窄为 Script，其他值返回 null。
+## [br]
+## @api private
 func _get_script_value(value: Variant) -> Script:
 	if value is Script:
 		return value
 	return null
 
 
+## 将 Variant 收窄为 WeakRef，其他值返回 null。
+## [br]
+## @api private
 func _get_weak_ref_value(value: Variant) -> WeakRef:
 	if value is WeakRef:
 		return value
 	return null
 
 
+## 将 Variant 收窄为 Callable，无效时返回空 Callable。
+## [br]
+## @api private
 func _get_callable_value(value: Variant) -> Callable:
 	if value is Callable:
 		return value
 	return Callable()
 
 
+## 将 Variant 收窄为 PackedScene，其他值返回 null。
+## [br]
+## @api private
 func _get_packed_scene_value(value: Variant) -> PackedScene:
 	if value is PackedScene:
 		return value
 	return null
 
 
+## 从目标字典中移除指定键。
+## [br]
+## @api private
 func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 	var removed: bool = target.erase(key)
 	if removed:
 		return
 
 
+## 将值追加到报告字典指定键所存的数组。
+## [br]
+## @api private
 func _append_report_array_item(report: Dictionary, key: String, value: Variant) -> void:
 	var items: Array = GFVariantData.as_array(GFVariantData.get_option_value(report, key, []))
 	items.append(value)
 	report[key] = items
 
 
+## 将 Script 追加到类型化数组。
+## [br]
+## @api private
 func _append_script_item(target: Array[Script], value: Script) -> void:
 	target.append(value)
 
 
+## 将 StringName 追加到类型化数组。
+## [br]
+## @api private
 func _append_string_name_item(target: Array[StringName], value: StringName) -> void:
 	target.append(value)
 
 
+## 将 Object 追加到类型化数组。
+## [br]
+## @api private
 func _append_object_item(target: Array[Object], value: Object) -> void:
 	target.append(value)
 
 
+## 将 Dictionary 追加到类型化数组。
+## [br]
+## @api private
 func _append_dictionary_item(target: Array[Dictionary], value: Dictionary) -> void:
 	target.append(value)
 
 
+## 通过脚本类型检查器判断类型相同或继承关系。
+## [br]
+## @api private
 func _script_extends_or_equals(script: Script, base_script: Script) -> bool:
 	return GFVariantData.to_bool(_SCRIPT_TYPE_INSPECTOR.call("script_extends_or_equals", script, base_script))
 
 
+## 通过实例 Guard 解析有效 Object，并收窄返回类型。
+## [br]
+## @api private
 func _get_live_object_value(value: Variant) -> Object:
 	return _get_object_value(_INSTANCE_GUARD.call("_get_live_object", value))
 
 
+## 通过实例 Guard 从弱引用解析有效 Object。
+## [br]
+## @api private
 func _get_live_object_from_ref(receiver_ref: WeakRef) -> Object:
 	return _get_object_value(_INSTANCE_GUARD.call("_get_live_object_from_ref", receiver_ref))
 
 
+## 通过实例 Guard 按实例 ID 解析有效 Node。
+## [br]
+## @api private
 func _get_live_node_from_instance_id(instance_id: int) -> Node:
 	return _get_node_value(_INSTANCE_GUARD.call("_get_live_node_from_id", instance_id))
 
 
+## 遍历已跟踪 receiver 并逐个注销其能力。
+## [br]
+## @api private
 func _dispose_registered_capabilities() -> void:
 	var receiver_ids: Array = _receiver_refs.keys()
 	for receiver_id_variant: Variant in receiver_ids:
@@ -1162,6 +1327,9 @@ func _dispose_registered_capabilities() -> void:
 		_dispose_receiver_capabilities(receiver)
 
 
+## 按依赖叶端顺序移除 receiver 能力并清理空元数据。
+## [br]
+## @api private
 func _dispose_receiver_capabilities(receiver: Object) -> void:
 	if not is_instance_valid(receiver):
 		return
@@ -1186,6 +1354,9 @@ func _dispose_receiver_capabilities(receiver: Object) -> void:
 	_clear_empty_capability_metadata(receiver)
 
 
+## 检查依赖与事务状态后摘除能力记录、通知钩子，并按策略清理实例和自动依赖。
+## [br]
+## @api private
 func _remove_capability(receiver: Object, capability_type: Script, free_instance: bool) -> bool:
 	if _get_registration_state(receiver, capability_type) != 0:
 		return false
@@ -1240,6 +1411,9 @@ func _remove_capability(receiver: Object, capability_type: Script, free_instance
 	return true
 
 
+## 应用单个配方条目并把结果加入成功或失败报告。
+## [br]
+## @api private
 func _apply_recipe_entry(
 	receiver: Object,
 	entry: GFCapabilityRecipeEntry,
@@ -1303,6 +1477,9 @@ func _apply_recipe_entry(
 		_append_report_array_item(result, "added", entry_report)
 
 
+## 移除本轮新增能力，恢复复用能力状态并撤销新加分组。
+## [br]
+## @api private
 func _rollback_recipe_apply(
 	receiver: Object,
 	added_types: Array[Script],
@@ -1321,6 +1498,9 @@ func _rollback_recipe_apply(
 		remove_receiver_from_group(receiver, group_name)
 
 
+## 向配方报告的失败列表追加带索引的失败条目。
+## [br]
+## @api private
 func _append_recipe_failure(result: Dictionary, index: int, kind: String, message: String) -> void:
 	_append_report_array_item(result, "failed", {
 		"index": index,
@@ -1329,10 +1509,16 @@ func _append_recipe_failure(result: Dictionary, index: int, kind: String, messag
 	})
 
 
+## 深复制报告字典中的 Variant 数据。
+## [br]
+## @api private
 func _duplicate_report_dictionary(data: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.duplicate_variant(data, true, false))
 
 
+## 使用公开报告配置将报告编码为可安全输出的字典。
+## [br]
+## @api private
 func _encode_report(report: Dictionary) -> Dictionary:
 	return GFReportValueCodec.to_report_dictionary(
 		report,
@@ -1346,6 +1532,9 @@ func _encode_report(report: Dictionary) -> Dictionary:
 	)
 
 
+## 优先取配方显式类型，否则读取场景根节点脚本类型。
+## [br]
+## @api private
 func _resolve_recipe_entry_type(receiver: Object, entry: GFCapabilityRecipeEntry) -> Script:
 	if entry == null:
 		return null
@@ -1358,6 +1547,9 @@ func _resolve_recipe_entry_type(receiver: Object, entry: GFCapabilityRecipeEntry
 	return _get_packed_scene_root_script(entry.scene)
 
 
+## 从 PackedScene 根节点属性中读取脚本资源。
+## [br]
+## @api private
 func _get_packed_scene_root_script(scene: PackedScene) -> Script:
 	if scene == null:
 		return null
@@ -1376,6 +1568,9 @@ func _get_packed_scene_root_script(scene: PackedScene) -> Script:
 	return null
 
 
+## 创建、复用并注册指定类型的能力实例。
+## [br]
+## @api private
 func _add_capability(
 	receiver: Object,
 	capability_type: Script,
@@ -1412,6 +1607,9 @@ func _add_capability(
 	return registered
 
 
+## 校验实例及依赖后注册能力，并执行注入、挂接和生命周期通知。
+## [br]
+## @api private
 func _add_capability_instance(
 	receiver: Object,
 	capability: Object,
@@ -1513,6 +1711,9 @@ func _add_capability_instance(
 	return capability
 
 
+## 检查 receiver 是否有效且能力脚本类型非空。
+## [br]
+## @api private
 func _validate_receiver_and_type(receiver: Object, capability_type: Script, context: String) -> bool:
 	if not is_instance_valid(receiver):
 		push_error("[GFCapabilityUtility][capability_utility.invalid_receiver] %s failed: receiver is invalid." % context)
@@ -1523,6 +1724,9 @@ func _validate_receiver_and_type(receiver: Object, capability_type: Script, cont
 	return true
 
 
+## 实例化可创建的能力脚本类型。
+## [br]
+## @api private
 func _create_capability(capability_type: Script) -> Object:
 	if not capability_type.can_instantiate():
 		push_error("[GFCapabilityUtility][capability_utility.capability_not_instantiable] Capability type cannot be instantiated: %s." % _get_script_key(capability_type))
@@ -1531,6 +1735,9 @@ func _create_capability(capability_type: Script) -> Object:
 	return _get_object_value(capability_type.call("new"))
 
 
+## 为能力解析并补齐必需类型，返回已解析及本轮创建的类型列表。
+## [br]
+## @api private
 func _ensure_required_capabilities(receiver: Object, capability: Object) -> Dictionary:
 	var required_types: Array[Script] = _get_required_capabilities(capability)
 	var resolved_types: Array[Script] = []
@@ -1575,6 +1782,9 @@ func _ensure_required_capabilities(receiver: Object, capability: Object) -> Dict
 	}
 
 
+## 调用可选依赖钩子并收集其返回的 Script 项。
+## [br]
+## @api private
 func _get_required_capabilities(capability: Object) -> Array[Script]:
 	if capability == null or not capability.has_method(HOOK_GET_REQUIRED_CAPABILITIES):
 		return _empty_script_array()
@@ -1591,6 +1801,9 @@ func _get_required_capabilities(capability: Object) -> Array[Script]:
 	return result
 
 
+## 确认能力实例未绑定到其他 receiver。
+## [br]
+## @api private
 func _can_attach_capability_instance(receiver: Object, capability: Object) -> bool:
 	if capability == null or not ("receiver" in capability):
 		return true
@@ -1603,6 +1816,9 @@ func _can_attach_capability_instance(receiver: Object, capability: Object) -> bo
 	return false
 
 
+## 确认实例脚本存在并继承声明的能力类型。
+## [br]
+## @api private
 func _validate_capability_instance_type(capability: Object, capability_type: Script, context: String) -> bool:
 	var instance_script: Script = _get_script_value(capability.get_script())
 	if instance_script == null:
@@ -1617,6 +1833,9 @@ func _validate_capability_instance_type(capability: Object, capability_type: Scr
 	return true
 
 
+## 写入注册元数据和索引，记录依赖并注入、挂接实例。
+## [br]
+## @api private
 func _commit_capability_registration(
 	receiver: Object,
 	capability_type: Script,
@@ -1645,6 +1864,9 @@ func _commit_capability_registration(
 	)
 
 
+## 读取或创建 receiver 上持久保存的类型化能力列表。
+## [br]
+## @api private
 func _get_capability_type_list(receiver: Object) -> Array[Script]:
 	if not receiver.has_meta(_META_CAPABILITY_TYPES):
 		receiver.set_meta(_META_CAPABILITY_TYPES, _empty_script_array())
@@ -1654,12 +1876,18 @@ func _get_capability_type_list(receiver: Object) -> Array[Script]:
 	return types
 
 
+## 非写入地读取 receiver 的已注册能力类型列表。
+## [br]
+## @api private
 func _read_capability_type_list(receiver: Object) -> Array[Script]:
 	if not is_instance_valid(receiver) or not receiver.has_meta(_META_CAPABILITY_TYPES):
 		return _empty_script_array()
 	return _get_script_array_value(receiver.get_meta(_META_CAPABILITY_TYPES))
 
 
+## 从 receiver 的能力类型元数据列表移除指定类型。
+## [br]
+## @api private
 func _remove_capability_type_from_meta(receiver: Object, capability_type: Script) -> void:
 	if not receiver.has_meta(_META_CAPABILITY_TYPES):
 		return
@@ -1667,6 +1895,9 @@ func _remove_capability_type_from_meta(receiver: Object, capability_type: Script
 	types.erase(capability_type)
 
 
+## 记录或移除能力类型的顶层注册标记。
+## [br]
+## @api private
 func _mark_capability_top_level(
 	receiver: Object,
 	capability_type: Script,
@@ -1684,6 +1915,9 @@ func _mark_capability_top_level(
 		top_level_types[capability_type] = is_top_level
 
 
+## 查询能力类型的顶层注册标记，缺省按顶层处理。
+## [br]
+## @api private
 func _is_capability_top_level(receiver: Object, capability_type: Script) -> bool:
 	if not is_instance_valid(receiver) or capability_type == null:
 		return false
@@ -1692,12 +1926,18 @@ func _is_capability_top_level(receiver: Object, capability_type: Script) -> bool
 	return GFVariantData.get_option_bool(top_level_types, capability_type, true)
 
 
+## 读取或创建 receiver 的顶层能力类型映射。
+## [br]
+## @api private
 func _get_top_level_type_map(receiver: Object) -> Dictionary:
 	if not receiver.has_meta(_META_CAPABILITY_TOP_LEVEL_TYPES):
 		receiver.set_meta(_META_CAPABILITY_TOP_LEVEL_TYPES, {})
 	return GFVariantData.as_dictionary(receiver.get_meta(_META_CAPABILITY_TOP_LEVEL_TYPES))
 
 
+## 记录或移除 Utility 对能力实例的所有权标记。
+## [br]
+## @api private
 func _mark_capability_owned(
 	receiver: Object,
 	capability_type: Script,
@@ -1715,6 +1955,9 @@ func _mark_capability_owned(
 		owned_types[capability_type] = owns_instance
 
 
+## 查询 Utility 是否拥有指定能力实例。
+## [br]
+## @api private
 func _owns_capability_instance(receiver: Object, capability_type: Script) -> bool:
 	if not is_instance_valid(receiver) or capability_type == null:
 		return false
@@ -1723,6 +1966,9 @@ func _owns_capability_instance(receiver: Object, capability_type: Script) -> boo
 	return GFVariantData.get_option_bool(owned_types, capability_type, false)
 
 
+## 判断移除的非拥有节点是否仍属于 receiver 的现有场景容器。
+## [br]
+## @api private
 func _should_ignore_removed_scene_capability(receiver: Object, capability: Object, owns_instance: bool) -> bool:
 	if owns_instance:
 		return false
@@ -1734,12 +1980,18 @@ func _should_ignore_removed_scene_capability(receiver: Object, capability: Objec
 	return _is_existing_receiver_container(receiver_node, capability_node.get_parent())
 
 
+## 读取或创建 receiver 的能力实例所有权映射。
+## [br]
+## @api private
 func _get_owned_type_map(receiver: Object) -> Dictionary:
 	if not receiver.has_meta(_META_CAPABILITY_OWNED_TYPES):
 		receiver.set_meta(_META_CAPABILITY_OWNED_TYPES, {})
 	return GFVariantData.as_dictionary(receiver.get_meta(_META_CAPABILITY_OWNED_TYPES))
 
 
+## 设置或清除被忽略的场景能力类型标记。
+## [br]
+## @api private
 func _mark_scene_capability_ignored(
 	receiver: Object,
 	capability_type: Script,
@@ -1755,6 +2007,9 @@ func _mark_scene_capability_ignored(
 		_erase_dictionary_key(ignored_types, capability_type)
 
 
+## 查询指定场景能力类型是否被标记为忽略。
+## [br]
+## @api private
 func _is_scene_capability_ignored(receiver: Object, capability_type: Script) -> bool:
 	if not is_instance_valid(receiver) or capability_type == null:
 		return false
@@ -1765,12 +2020,18 @@ func _is_scene_capability_ignored(receiver: Object, capability_type: Script) -> 
 	return GFVariantData.get_option_bool(ignored_types, capability_type, false)
 
 
+## 读取或创建 receiver 的忽略场景能力类型映射。
+## [br]
+## @api private
 func _get_ignored_scene_type_map(receiver: Object) -> Dictionary:
 	if not receiver.has_meta(_META_CAPABILITY_IGNORED_SCENE_TYPES):
 		receiver.set_meta(_META_CAPABILITY_IGNORED_SCENE_TYPES, {})
 	return GFVariantData.as_dictionary(receiver.get_meta(_META_CAPABILITY_IGNORED_SCENE_TYPES))
 
 
+## 移除 receiver 上已变为空的能力相关元数据。
+## [br]
+## @api private
 func _clear_empty_capability_metadata(receiver: Object) -> void:
 	if not is_instance_valid(receiver):
 		return
@@ -1789,6 +2050,9 @@ func _clear_empty_capability_metadata(receiver: Object) -> void:
 		receiver.remove_meta(_META_CAPABILITY_DEPENDENCY_OF)
 
 
+## 同时更新能力依赖关系和反向所属关系映射。
+## [br]
+## @api private
 func _record_dependency(receiver: Object, owner_type: Script, dependency_type: Script) -> void:
 	if not is_instance_valid(receiver) or owner_type == null or dependency_type == null:
 		return
@@ -1808,6 +2072,9 @@ func _record_dependency(receiver: Object, owner_type: Script, dependency_type: S
 	dependency_owners[owner_type] = true
 
 
+## 获取指定所属能力记录的依赖类型列表。
+## [br]
+## @api private
 func _get_dependency_types(receiver: Object, owner_type: Script) -> Array[Script]:
 	if not is_instance_valid(receiver) or owner_type == null:
 		return _empty_script_array()
@@ -1820,6 +2087,9 @@ func _get_dependency_types(receiver: Object, owner_type: Script) -> Array[Script
 	return result
 
 
+## 获取依赖指定类型的所属能力类型列表。
+## [br]
+## @api private
 func _get_dependency_owner_types(receiver: Object, dependency_type: Script) -> Array[Script]:
 	if not is_instance_valid(receiver) or dependency_type == null:
 		return _empty_script_array()
@@ -1832,6 +2102,9 @@ func _get_dependency_owner_types(receiver: Object, dependency_type: Script) -> A
 	return result
 
 
+## 从双向依赖映射中移除类型作为依赖方和所属方的关联。
+## [br]
+## @api private
 func _remove_dependency_links(receiver: Object, removed_type: Script) -> void:
 	if not is_instance_valid(receiver) or removed_type == null:
 		return
@@ -1855,6 +2128,9 @@ func _remove_dependency_links(receiver: Object, removed_type: Script) -> void:
 	_erase_dictionary_key(dependency_of, removed_type)
 
 
+## 移除仍存在、非顶层且已无其他所属能力的自动依赖。
+## [br]
+## @api private
 func _remove_unused_auto_dependencies(receiver: Object, dependency_types: Array[Script]) -> void:
 	if not is_instance_valid(receiver):
 		return
@@ -1869,6 +2145,9 @@ func _remove_unused_auto_dependencies(receiver: Object, dependency_types: Array[
 		remove_capability(receiver, dependency_type)
 
 
+## 逆序撤销本轮创建且不再被顶层或其他能力引用的依赖。
+## [br]
+## @api private
 func _rollback_created_dependencies(receiver: Object, created_types: Array) -> void:
 	if not is_instance_valid(receiver):
 		return
@@ -1886,6 +2165,9 @@ func _rollback_created_dependencies(receiver: Object, created_types: Array) -> v
 		remove_capability(receiver, dependency_type)
 
 
+## 返回添加前后类型列表的新增能力类型。
+## [br]
+## @api private
 func _get_created_capability_types(before_types: Array, after_types: Array[Script]) -> Array[Script]:
 	var result: Array[Script] = []
 	for capability_type: Script in after_types:
@@ -1894,24 +2176,36 @@ func _get_created_capability_types(before_types: Array, after_types: Array[Scrip
 	return result
 
 
+## 将来源中非空且尚未收录的脚本类型追加到目标列表。
+## [br]
+## @api private
 func _append_unique_scripts(target: Array[Script], source: Array[Script]) -> void:
 	for script: Script in source:
 		if script != null and not target.has(script):
 			target.append(script)
 
 
+## 读取或创建 receiver 的所属能力到依赖映射。
+## [br]
+## @api private
 func _get_dependency_map(receiver: Object) -> Dictionary:
 	if not receiver.has_meta(_META_CAPABILITY_DEPENDENCIES):
 		receiver.set_meta(_META_CAPABILITY_DEPENDENCIES, {})
 	return GFVariantData.as_dictionary(receiver.get_meta(_META_CAPABILITY_DEPENDENCIES))
 
 
+## 读取或创建 receiver 的依赖类型到所属能力反向映射。
+## [br]
+## @api private
 func _get_dependency_of_map(receiver: Object) -> Dictionary:
 	if not receiver.has_meta(_META_CAPABILITY_DEPENDENCY_OF):
 		receiver.set_meta(_META_CAPABILITY_DEPENDENCY_OF, {})
 	return GFVariantData.as_dictionary(receiver.get_meta(_META_CAPABILITY_DEPENDENCY_OF))
 
 
+## 查找唯一匹配记录，可先同步场景容器；多重匹配时返回空字典。
+## [br]
+## @api private
 func _find_capability_record(receiver: Object, capability_type: Script, sync_scene_containers: bool = true) -> Dictionary:
 	if not _validate_receiver_and_type(receiver, capability_type, "get_capability"):
 		return {}
@@ -1928,6 +2222,9 @@ func _find_capability_record(receiver: Object, capability_type: Script, sync_sce
 	return {}
 
 
+## 收集精确类型或其子类对应的有效能力记录。
+## [br]
+## @api private
 func _get_matching_capability_records(receiver: Object, capability_type: Script) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if not is_instance_valid(receiver) or capability_type == null:
@@ -1954,10 +2251,16 @@ func _get_matching_capability_records(receiver: Object, capability_type: Script)
 	return result
 
 
+## 将能力实例写入 receiver 对应的元数据键。
+## [br]
+## @api private
 func _set_capability_instance(receiver: Object, capability_type: Script, capability: Object) -> void:
 	receiver.set_meta(_get_capability_meta_name(capability_type), capability)
 
 
+## 从元数据读取有效实例，失效时清除相关注册与依赖记录。
+## [br]
+## @api private
 func _get_capability_instance(receiver: Object, capability_type: Script) -> Object:
 	if receiver == null or capability_type == null:
 		return null
@@ -1976,6 +2279,9 @@ func _get_capability_instance(receiver: Object, capability_type: Script) -> Obje
 	return null
 
 
+## 清除类型列表、顶层与所有权标记、索引和实例元数据。
+## [br]
+## @api private
 func _remove_capability_record(receiver: Object, capability_type: Script) -> void:
 	_remove_capability_type_from_meta(receiver, capability_type)
 	_mark_capability_top_level(receiver, capability_type, false, true)
@@ -1986,6 +2292,9 @@ func _remove_capability_record(receiver: Object, capability_type: Script) -> voi
 		receiver.remove_meta(meta_name)
 
 
+## 将节点能力放入匹配容器，必要时重设父节点或添加为子节点。
+## [br]
+## @api private
 func _attach_node_capability(receiver: Object, capability: Object) -> void:
 	if not (receiver is Node) or not (capability is Node):
 		return
@@ -2006,6 +2315,9 @@ func _attach_node_capability(receiver: Object, capability: Object) -> void:
 		_add_child_to_container(container, capability_node)
 
 
+## 扫描 receiver 的能力容器并注册其中尚未同步的子节点能力。
+## [br]
+## @api private
 func _sync_scene_capability_containers(receiver: Object) -> void:
 	if not (receiver is Node):
 		return
@@ -2024,6 +2336,9 @@ func _sync_scene_capability_containers(receiver: Object) -> void:
 	_erase_dictionary_key(_scene_container_sync_receivers, receiver_id)
 
 
+## 收集 receiver 的直接子级能力容器节点。
+## [br]
+## @api private
 func _get_receiver_capability_containers(receiver: Node) -> Array[Node]:
 	var result: Array[Node] = []
 	for child_variant: Variant in receiver.get_children(true):
@@ -2033,6 +2348,9 @@ func _get_receiver_capability_containers(receiver: Node) -> Array[Node]:
 	return result
 
 
+## 将容器中未忽略且带脚本的直接子节点注册为能力实例。
+## [br]
+## @api private
 func _register_container_child_capabilities(receiver: Node, container: Node) -> void:
 	for child_variant: Variant in container.get_children():
 		var child: Node = _get_node_value(child_variant)
@@ -2050,6 +2368,9 @@ func _register_container_child_capabilities(receiver: Node, container: Node) -> 
 			continue
 
 
+## 查找适配能力类型的现有容器，否则创建并挂接新容器。
+## [br]
+## @api private
 func _get_or_create_container(receiver: Node, capability: Node) -> Node:
 	for child_variant: Variant in receiver.get_children(true):
 		var child: Node = _get_node_value(child_variant)
@@ -2063,6 +2384,9 @@ func _get_or_create_container(receiver: Node, capability: Node) -> Node:
 	return container
 
 
+## 按 receiver 与能力节点类型创建对应的容器节点。
+## [br]
+## @api private
 func _create_container_node(receiver: Node, capability: Node) -> Node:
 	var container: Node
 	if receiver is Node3D and capability is Node3D:
@@ -2082,6 +2406,9 @@ func _create_container_node(receiver: Node, capability: Node) -> Node:
 	return container
 
 
+## 检查脚本可实例化且基类兼容后附加到容器。
+## [br]
+## @api private
 func _try_attach_capability_container_script(container: Node) -> void:
 	var container_script: Script = _GF_CAPABILITY_CONTAINER_SCRIPT
 	if container_script == null or not container_script.can_instantiate():
@@ -2096,6 +2423,9 @@ func _try_attach_capability_container_script(container: Node) -> void:
 	container.set_script(container_script)
 
 
+## 将 Control 容器配置为忽略鼠标并铺满锚点区域。
+## [br]
+## @api private
 func _configure_control_container(container: Control) -> void:
 	container.mouse_filter = Control.MOUSE_FILTER_IGNORE as Control.MouseFilter
 	container.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -2105,6 +2435,9 @@ func _configure_control_container(container: Control) -> void:
 	container.offset_bottom = 0.0
 
 
+## 检查容器节点类型是否与能力节点类型匹配。
+## [br]
+## @api private
 func _container_matches_capability(container: Node, capability: Node) -> bool:
 	if capability is Node3D:
 		return container is Node3D
@@ -2115,6 +2448,9 @@ func _container_matches_capability(container: Node, capability: Node) -> bool:
 	return not (container is Node2D) and not (container is Node3D) and not (container is Control)
 
 
+## 检查节点是否为 receiver 的直接能力容器子节点。
+## [br]
+## @api private
 func _is_existing_receiver_container(receiver: Node, container: Node) -> bool:
 	return (
 		receiver != null
@@ -2124,6 +2460,9 @@ func _is_existing_receiver_container(receiver: Node, container: Node) -> bool:
 	)
 
 
+## 通过脚本类型、元数据或名称识别能力容器节点。
+## [br]
+## @api private
 func _is_capability_container(node: Node) -> bool:
 	if node == null:
 		return false
@@ -2135,6 +2474,9 @@ func _is_capability_container(node: Node) -> bool:
 	)
 
 
+## 检查名称是否属于已识别的能力容器名称。
+## [br]
+## @api private
 func _is_capability_container_name(node_name: StringName) -> bool:
 	return node_name in [
 		&"GFCapabilityContainer",
@@ -2144,6 +2486,9 @@ func _is_capability_container_name(node_name: StringName) -> bool:
 	]
 
 
+## receiver 尚未就绪时延迟添加子节点，否则立即添加。
+## [br]
+## @api private
 func _add_child_to_receiver(receiver: Node, child: Node) -> void:
 	if receiver.is_inside_tree() and not receiver.is_node_ready():
 		_add_child_deferred.call_deferred(receiver.get_instance_id(), child.get_instance_id(), Node.INTERNAL_MODE_BACK)
@@ -2151,6 +2496,9 @@ func _add_child_to_receiver(receiver: Node, child: Node) -> void:
 		receiver.add_child(child, true, Node.INTERNAL_MODE_BACK)
 
 
+## 容器尚未就绪时延迟添加子节点，否则立即添加。
+## [br]
+## @api private
 func _add_child_to_container(container: Node, child: Node) -> void:
 	if container.is_inside_tree() and not container.is_node_ready():
 		_add_child_deferred.call_deferred(container.get_instance_id(), child.get_instance_id(), Node.INTERNAL_MODE_BACK)
@@ -2158,6 +2506,9 @@ func _add_child_to_container(container: Node, child: Node) -> void:
 		container.add_child(child, true, Node.INTERNAL_MODE_BACK)
 
 
+## 优先读取能力的 active 属性，其次读取元数据，缺省返回 true。
+## [br]
+## @api private
 func _read_capability_active(capability: Object) -> bool:
 	if capability == null:
 		return false
@@ -2168,6 +2519,9 @@ func _read_capability_active(capability: Object) -> bool:
 	return true
 
 
+## 更新能力属性、元数据和节点树处理状态，可选发送启停钩子。
+## [br]
+## @api private
 func _apply_capability_active_state(receiver: Object, capability: Object, active: bool, notify_hook: bool) -> bool:
 	if not is_instance_valid(receiver) or not is_instance_valid(capability):
 		return false
@@ -2196,6 +2550,9 @@ func _apply_capability_active_state(receiver: Object, capability: Object, active
 	return true
 
 
+## 禁用节点时保存原处理模式，启用时恢复并移除暂存元数据。
+## [br]
+## @api private
 func _set_node_active_state(node: Node, active: bool) -> void:
 	if active:
 		if node.has_meta(_META_ORIGINAL_PROCESS_MODE):
@@ -2210,18 +2567,27 @@ func _set_node_active_state(node: Node, active: bool) -> void:
 	node.process_mode = Node.PROCESS_MODE_DISABLED as Node.ProcessMode
 
 
+## 将 receiver 实例 ID 写入指定能力类型的索引。
+## [br]
+## @api private
 func _track_capability_index(receiver: Object, capability_type: Script) -> void:
 	var receiver_id: int = _track_receiver(receiver)
 	var receiver_ids: Dictionary = _get_capability_receiver_ids(capability_type)
 	receiver_ids[receiver_id] = true
 
 
+## 以弱引用登记 receiver 并返回其实例 ID。
+## [br]
+## @api private
 func _track_receiver(receiver: Object) -> int:
 	var receiver_id: int = receiver.get_instance_id()
 	_receiver_refs[receiver_id] = weakref(receiver)
 	return receiver_id
 
 
+## 从能力类型索引移除 receiver，并删除空索引项。
+## [br]
+## @api private
 func _remove_capability_index(receiver_id: int, capability_type: Script) -> void:
 	if not _capability_receivers.has(capability_type):
 		return
@@ -2232,12 +2598,18 @@ func _remove_capability_index(receiver_id: int, capability_type: Script) -> void
 		_erase_dictionary_key(_capability_receivers, capability_type)
 
 
+## 获取或创建指定能力类型的 receiver ID 索引。
+## [br]
+## @api private
 func _get_capability_receiver_ids(capability_type: Script) -> Dictionary:
 	if not _capability_receivers.has(capability_type):
 		_capability_receivers[capability_type] = {}
 	return GFVariantData.as_dictionary(_capability_receivers[capability_type])
 
 
+## 按首次出现顺序移除空值和重复脚本类型。
+## [br]
+## @api private
 func _deduplicate_script_list(source: Array[Script]) -> Array[Script]:
 	var result: Array[Script] = []
 	var seen: Dictionary = {}
@@ -2249,6 +2621,9 @@ func _deduplicate_script_list(source: Array[Script]) -> Array[Script]:
 	return result
 
 
+## 拒绝 required 或 rejected 列表中的 null 类型并记录错误。
+## [br]
+## @api private
 func _validate_query_script_lists(
 	required_types: Array[Script],
 	rejected_types: Array[Script],
@@ -2269,6 +2644,9 @@ func _validate_query_script_lists(
 	return true
 
 
+## 从全部 receiver、分组和 required 类型索引中筛选候选 ID。
+## [br]
+## @api private
 func _get_capability_query_candidate_ids(
 	required_types: Array[Script],
 	include_subclasses: bool,
@@ -2300,6 +2678,9 @@ func _get_capability_query_candidate_ids(
 	return best_ids
 
 
+## 只保留属于指定分组的候选 receiver ID。
+## [br]
+## @api private
 func _filter_candidate_ids_by_group(candidate_ids: Array, group_name: StringName) -> Array:
 	if group_name == &"":
 		return candidate_ids
@@ -2316,6 +2697,9 @@ func _filter_candidate_ids_by_group(candidate_ids: Array, group_name: StringName
 	return result
 
 
+## 汇集精确类型或子类索引中的去重 receiver ID。
+## [br]
+## @api private
 func _get_capability_receiver_candidate_ids(capability_type: Script, include_subclasses: bool) -> Array:
 	var result: Array = []
 	var seen_ids: Dictionary = {}
@@ -2329,6 +2713,9 @@ func _get_capability_receiver_candidate_ids(capability_type: Script, include_sub
 	return result
 
 
+## 判断 receiver 是否拥有列表中的每一种能力类型。
+## [br]
+## @api private
 func _receiver_has_all_capability_types(
 	receiver: Object,
 	capability_types: Array[Script],
@@ -2340,6 +2727,9 @@ func _receiver_has_all_capability_types(
 	return true
 
 
+## 判断 receiver 是否拥有列表中的任一种能力类型。
+## [br]
+## @api private
 func _receiver_has_any_capability_type(
 	receiver: Object,
 	capability_types: Array[Script],
@@ -2351,6 +2741,9 @@ func _receiver_has_any_capability_type(
 	return false
 
 
+## 检查精确能力类型，并按选项检查已注册子类类型。
+## [br]
+## @api private
 func _receiver_has_capability_type(
 	receiver: Object,
 	capability_type: Script,
@@ -2373,12 +2766,18 @@ func _receiver_has_capability_type(
 	return false
 
 
+## 获取或创建指定分组的 receiver ID 集合。
+## [br]
+## @api private
 func _get_group_receiver_ids(group_name: StringName) -> Dictionary:
 	if not _receiver_groups.has(group_name):
 		_receiver_groups[group_name] = {}
 	return GFVariantData.as_dictionary(_receiver_groups[group_name])
 
 
+## 返回索引中匹配精确类型及可选子类的脚本类型。
+## [br]
+## @api private
 func _get_indexed_capability_types(capability_type: Script, include_subclasses: bool) -> Array[Script]:
 	var result: Array[Script] = []
 	for registered_type: Script in _capability_receivers:
@@ -2389,6 +2788,9 @@ func _get_indexed_capability_types(capability_type: Script, include_subclasses: 
 	return result
 
 
+## 从弱引用索引解析 receiver，失效时清除其索引。
+## [br]
+## @api private
 func _get_receiver_from_id(receiver_id: int) -> Object:
 	var receiver_ref: WeakRef = _get_weak_ref_value(GFVariantData.get_option_value(_receiver_refs, receiver_id))
 	if receiver_ref == null:
@@ -2401,6 +2803,9 @@ func _get_receiver_from_id(receiver_id: int) -> Object:
 	return null
 
 
+## 全量遍历 receiver 弱引用并清除失效项。
+## [br]
+## @api private
 func _prune_invalid_receivers() -> void:
 	var receiver_ids: Array = _receiver_refs.keys()
 	for receiver_id: int in receiver_ids:
@@ -2410,6 +2815,9 @@ func _prune_invalid_receivers() -> void:
 	_prune_receiver_cursor = 0
 
 
+## 从当前游标开始分批检查至多指定数量的 receiver。
+## [br]
+## @api private
 func _prune_invalid_receivers_step(max_count: int) -> void:
 	var receiver_ids: Array = _receiver_refs.keys()
 	if receiver_ids.is_empty():
@@ -2433,6 +2841,9 @@ func _prune_invalid_receivers_step(max_count: int) -> void:
 		checked_count += 1
 
 
+## 从 receiver、能力类型和分组索引中清除指定实例 ID。
+## [br]
+## @api private
 func _remove_receiver_index(receiver_id: int) -> void:
 	_erase_dictionary_key(_receiver_refs, receiver_id)
 
@@ -2451,6 +2862,9 @@ func _remove_receiver_index(receiver_id: int) -> void:
 	_erase_dictionary_key(_receiver_group_names, receiver_id)
 
 
+## 为能力及其节点子树中支持注入的对象提供架构依赖。
+## [br]
+## @api private
 func _inject_if_needed(capability: Object) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if capability == null or architecture == null:
@@ -2462,6 +2876,9 @@ func _inject_if_needed(capability: Object) -> void:
 		_inject_node_children_if_needed(capability_node, architecture)
 
 
+## 遍历能力节点子树并为各节点执行依赖注入。
+## [br]
+## @api private
 func _inject_node_children_if_needed(node: Node, architecture: GFArchitecture) -> void:
 	for child: Node in _collect_capability_node_tree(
 		node,
@@ -2472,6 +2889,9 @@ func _inject_node_children_if_needed(node: Node, architecture: GFArchitecture) -
 		_inject_object_if_needed(child, architecture)
 
 
+## 收集能力节点子树，超过配置预算时报告错误并返回空数组。
+## [br]
+## @api private
 func _collect_capability_node_tree(
 	root: Node,
 	include_root: bool,
@@ -2495,6 +2915,9 @@ func _collect_capability_node_tree(
 	return []
 
 
+## 对对象依次调用其支持的 inject_dependencies() 与 inject()。
+## [br]
+## @api private
 func _inject_object_if_needed(instance: Object, architecture: GFArchitecture) -> void:
 	if instance == null or architecture == null:
 		return
@@ -2505,16 +2928,25 @@ func _inject_object_if_needed(instance: Object, architecture: GFArchitecture) ->
 		instance.call("inject", architecture)
 
 
+## 调用能力对象实现的挂载后钩子。
+## [br]
+## @api private
 func _call_added_hook(receiver: Object, capability: Object) -> void:
 	if capability != null and capability.has_method(HOOK_ON_ADDED):
 		capability.call(HOOK_ON_ADDED, receiver)
 
 
+## 对包含 receiver 属性的能力对象写入所属对象。
+## [br]
+## @api private
 func _set_capability_receiver(capability: Object, receiver: Object) -> void:
 	if capability != null and "receiver" in capability:
 		capability.set("receiver", receiver)
 
 
+## 读取能力的依赖移除策略，缺失或非法时回退到默认策略。
+## [br]
+## @api private
 func _get_dependency_removal_policy(capability: Object) -> int:
 	if capability == null or not capability.has_method(HOOK_GET_DEPENDENCY_REMOVAL_POLICY):
 		return DependencyRemovalPolicy.REMOVE_AUTO_DEPENDENCIES
@@ -2534,24 +2966,39 @@ func _get_dependency_removal_policy(capability: Object) -> int:
 	return policy
 
 
+## 调用能力对象实现的移除前钩子。
+## [br]
+## @api private
 func _call_removed_hook(receiver: Object, capability: Object) -> void:
 	if capability != null and capability.has_method(HOOK_ON_REMOVED):
 		capability.call(HOOK_ON_REMOVED, receiver)
 
 
+## 调用能力对象实现的启停变化钩子。
+## [br]
+## @api private
 func _call_active_changed_hook(receiver: Object, capability: Object, active: bool) -> void:
 	if capability != null and capability.has_method(HOOK_ON_ACTIVE_CHANGED):
 		capability.call(HOOK_ON_ACTIVE_CHANGED, receiver, active)
 
 
+## 按未注册实例路径释放或排队释放能力对象。
+## [br]
+## @api private
 func _free_unregistered_capability(capability: Object) -> void:
 	_free_capability(capability, false)
 
 
+## 按已注册实例路径分离节点后释放能力对象。
+## [br]
+## @api private
 func _free_registered_capability(capability: Object) -> void:
 	_free_capability(capability, true)
 
 
+## 根据对象类型和分离选项清理节点、引用计数对象或普通对象。
+## [br]
+## @api private
 func _free_capability(capability: Object, detach_node: bool) -> void:
 	if not is_instance_valid(capability):
 		return
@@ -2579,6 +3026,9 @@ func _free_capability(capability: Object, detach_node: bool) -> void:
 		capability.free()
 
 
+## 从父节点移除能力节点，并清理其空生成容器。
+## [br]
+## @api private
 func _detach_capability_node(parent: Node, node: Node) -> void:
 	if parent.is_inside_tree() and not parent.is_node_ready():
 		_remove_child_deferred.call_deferred(parent.get_instance_id(), node.get_instance_id())
@@ -2589,6 +3039,9 @@ func _detach_capability_node(parent: Node, node: Node) -> void:
 	_free_empty_generated_container(parent)
 
 
+## 在容器为空或场景树退出条件满足时移除并排队释放生成容器。
+## [br]
+## @api private
 func _free_empty_generated_container(container: Node) -> void:
 	if container == null:
 		return
@@ -2619,6 +3072,9 @@ func _free_empty_generated_container(container: Node) -> void:
 	container.queue_free()
 
 
+## 通过实例 ID 解析节点并延迟安全地添加子节点。
+## [br]
+## @api private
 func _add_child_deferred(parent_id: int, child_id: int, internal_mode: int) -> void:
 	var parent: Node = _get_live_node_from_id(parent_id)
 	var child: Node = _get_live_node_from_id(child_id)
@@ -2634,6 +3090,9 @@ func _add_child_deferred(parent_id: int, child_id: int, internal_mode: int) -> v
 	parent.add_child(child, true, internal_mode)
 
 
+## 通过实例 ID 解析节点并延迟安全地移除子节点。
+## [br]
+## @api private
 func _remove_child_deferred(parent_id: int, child_id: int) -> void:
 	var parent: Node = _get_live_node_from_id(parent_id)
 	var child: Node = _get_live_node_from_id(child_id)
@@ -2645,6 +3104,9 @@ func _remove_child_deferred(parent_id: int, child_id: int) -> void:
 	parent.remove_child(child)
 
 
+## 通过实例 ID 解析生成容器并执行延迟清理。
+## [br]
+## @api private
 func _free_empty_generated_container_deferred(container_id: int) -> void:
 	var container: Node = _get_live_node_from_id(container_id)
 	if container == null:
@@ -2653,14 +3115,23 @@ func _free_empty_generated_container_deferred(container_id: int) -> void:
 	_free_empty_generated_container(container)
 
 
+## 从实例 ID 解析有效节点。
+## [br]
+## @api private
 func _get_live_node_from_id(instance_id: int) -> Node:
 	return _get_live_node_from_instance_id(instance_id)
 
 
+## 将能力类型键转换为带前缀的实例元数据名。
+## [br]
+## @api private
 func _get_capability_meta_name(capability_type: Script) -> StringName:
 	return StringName(_META_CAPABILITY_INSTANCE_PREFIX + _get_script_key(capability_type).md5_text())
 
 
+## 按全局类名、资源路径或实例 ID 生成脚本键。
+## [br]
+## @api private
 func _get_script_key(script: Script) -> String:
 	if script == null:
 		return "<null>"
@@ -2673,6 +3144,9 @@ func _get_script_key(script: Script) -> String:
 	return str(script.get_instance_id())
 
 
+## 将脚本类型列表转为排序后的脚本键列表。
+## [br]
+## @api private
 func _script_array_to_keys(scripts: Array[Script]) -> Array[String]:
 	var result: Array[String] = []
 	for script: Script in scripts:
@@ -2681,6 +3155,9 @@ func _script_array_to_keys(scripts: Array[Script]) -> Array[String]:
 	return result
 
 
+## 将 StringName 列表转换为 String 列表。
+## [br]
+## @api private
 func _string_name_array_to_strings(values: Array[StringName]) -> Array[String]:
 	var result: Array[String] = []
 	for value: StringName in values:
@@ -2688,10 +3165,16 @@ func _string_name_array_to_strings(values: Array[StringName]) -> Array[String]:
 	return result
 
 
+## 组合 receiver 实例 ID 与脚本键生成注册状态键。
+## [br]
+## @api private
 func _get_creation_key(receiver: Object, capability_type: Script) -> String:
 	return "%s:%s" % [receiver.get_instance_id(), _get_script_key(capability_type)]
 
 
+## 校验并登记 receiver 与类型对应的生命周期转换。
+## [br]
+## @api private
 func _begin_registration_transition(
 	receiver: Object,
 	capability_type: Script,
@@ -2711,12 +3194,18 @@ func _begin_registration_transition(
 	return key
 
 
+## 移除指定的生命周期转换状态。
+## [br]
+## @api private
 func _end_registration_transition(transition_key: String) -> void:
 	if transition_key.is_empty():
 		return
 	_erase_dictionary_key(_registration_states, transition_key)
 
 
+## 查询 receiver 与能力类型当前的生命周期转换状态。
+## [br]
+## @api private
 func _get_registration_state(receiver: Object, capability_type: Script) -> int:
 	if not is_instance_valid(receiver) or capability_type == null:
 		return 0
@@ -2727,6 +3216,9 @@ func _get_registration_state(receiver: Object, capability_type: Script) -> int:
 	)
 
 
+## 将待加入键与当前创建栈合并为依赖链文本。
+## [br]
+## @api private
 func _describe_creation_stack(next_key: String) -> String:
 	var display_stack: Array[String] = _creation_stack.duplicate()
 	display_stack.append(next_key)

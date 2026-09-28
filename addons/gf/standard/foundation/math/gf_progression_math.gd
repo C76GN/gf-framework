@@ -29,7 +29,10 @@ enum CurveMode {
 
 # --- 常量 ---
 
-# 默认的软上限幂指数。
+## 默认软上限曲线采用的幂指数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_SOFT_CAP_POWER: float = 0.5
 
 
@@ -238,12 +241,20 @@ static func settle_offline_progress(
 
 # --- 私有/辅助方法 ---
 
+## 从曲线起始等级及解析出的锚点值计算单阶段曲线。
+## [br]
+## @api private
+## [br]
 static func _evaluate_single_curve(level: int, curve_config: Dictionary) -> GFBigNumber:
 	var start_level: int = GFVariantData.get_option_int(curve_config, "start_level", 0)
 	var anchor_value: GFBigNumber = _resolve_anchor_value(curve_config, curve_config, null)
 	return _evaluate_phase(level, curve_config, anchor_value, start_level)
 
 
+## 排序阶段，选择目标等级所在阶段，并逐段传递或覆盖切换等级处的锚点值。
+## [br]
+## @api private
+## [br]
 static func _evaluate_piecewise_curve(level: int, phases: Array, curve_config: Dictionary) -> GFBigNumber:
 	var sorted_phases: Array[Dictionary] = _sort_phase_configs(phases)
 	if sorted_phases.is_empty():
@@ -272,6 +283,10 @@ static func _evaluate_piecewise_curve(level: int, phases: Array, curve_config: D
 	return _evaluate_phase(level, current_phase, anchor_value, anchor_level)
 
 
+## 根据阶段模式，以非负等级差计算常量、线性或指数曲线值。
+## [br]
+## @api private
+## [br]
 static func _evaluate_phase(
 	level: int,
 	phase_config: Dictionary,
@@ -303,6 +318,10 @@ static func _evaluate_phase(
 	return anchor_value.clone()
 
 
+## 按阶段速率结算时长，并在产出超过剩余存储时缩短实际消耗时长。
+## [br]
+## @api private
+## [br]
 static func _settle_segment(
 	base_rate: GFBigNumber,
 	duration_seconds: float,
@@ -342,6 +361,10 @@ static func _settle_segment(
 	}
 
 
+## 从基础速率解析阶段覆盖值，再应用乘数和每秒加成。
+## [br]
+## @api private
+## [br]
 static func _resolve_segment_rate(base_rate: GFBigNumber, segment: Dictionary) -> GFBigNumber:
 	var rate: GFBigNumber = base_rate.clone()
 	if segment.has("rate_per_second"):
@@ -356,6 +379,10 @@ static func _resolve_segment_rate(base_rate: GFBigNumber, segment: Dictionary) -
 	return rate
 
 
+## 按阶段基值、继承值、曲线基值的优先级解析锚点，缺失时报告错误并回零。
+## [br]
+## @api private
+## [br]
 static func _resolve_anchor_value(
 	phase_config: Dictionary,
 	curve_config: Dictionary,
@@ -374,6 +401,10 @@ static func _resolve_anchor_value(
 	return _to_big_number(0)
 
 
+## 从字典中先按整数等级、再按十进制文本等级查找覆盖值。
+## [br]
+## @api private
+## [br]
 static func _find_override_value(level: int, overrides: Variant) -> Variant:
 	if not (overrides is Dictionary):
 		return null
@@ -389,6 +420,10 @@ static func _find_override_value(level: int, overrides: Variant) -> Variant:
 	return null
 
 
+## 忽略非字典阶段，并稳定按 start_level 升序构造新的阶段数组。
+## [br]
+## @api private
+## [br]
 static func _sort_phase_configs(phases: Array) -> Array[Dictionary]:
 	var sorted: Array[Dictionary] = []
 
@@ -413,6 +448,10 @@ static func _sort_phase_configs(phases: Array) -> Array[Dictionary]:
 	return sorted
 
 
+## 将整数、String 或 StringName 模式解析为枚举，未知值回退到 CONSTANT。
+## [br]
+## @api private
+## [br]
 static func _parse_curve_mode(mode_value: Variant) -> CurveMode:
 	match typeof(mode_value):
 		TYPE_INT:
@@ -433,14 +472,26 @@ static func _parse_curve_mode(mode_value: Variant) -> CurveMode:
 	return CurveMode.CONSTANT
 
 
+## 通过 GFBigNumber.from_variant 统一转换数值输入。
+## [br]
+## @api private
+## [br]
 static func _to_big_number(value: Variant) -> GFBigNumber:
 	return GFBigNumber.from_variant(value)
 
 
+## 读取字典选项并转换为 GFBigNumber；未设置时以零为默认值。
+## [br]
+## @api private
+## [br]
 static func _get_option_big_number(options: Dictionary, key: Variant) -> GFBigNumber:
 	return _to_big_number(GFVariantData.get_option_value(options, key, 0))
 
 
+## 读取指定配置值并用进度曲线规则转换为浮点数。
+## [br]
+## @api private
+## [br]
 static func _get_option_progression_float(
 	options: Dictionary,
 	key: Variant,
@@ -449,6 +500,10 @@ static func _get_option_progression_float(
 	return _to_progression_float(GFVariantData.get_option_value(options, key, default_value), default_value)
 
 
+## 优先调用对象的 to_float 方法，否则按通用 Variant 数值转换并回退默认值。
+## [br]
+## @api private
+## [br]
 static func _to_progression_float(value: Variant, default_value: float = 0.0) -> float:
 	if value is Object:
 		var object: Object = value

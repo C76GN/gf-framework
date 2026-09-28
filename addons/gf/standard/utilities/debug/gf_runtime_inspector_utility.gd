@@ -61,10 +61,34 @@ var debug_build_writes_only: bool = true
 
 # --- 私有变量 ---
 
+## 按目标 ID 保存弱引用、属性列表和显示选项。
+## [br]
+## @api private
+## [br]
 var _targets: Dictionary = {}
+
+## 分配给新目标项的显示顺序值。
+## [br]
+## @api private
+## [br]
 var _target_order_counter: int = 0
+
+## 当前关联的 Overlay 面板 ID；空值表示尚未关联。
+## [br]
+## @api private
+## [br]
 var _attached_overlay_panel_id: StringName = &""
+
+## 目标注册表变更代次，用于写入期间检测登记变化并作废过期操作。
+## [br]
+## @api private
+## [br]
 var _registry_generation: int = 0
+
+## 按目标 ID 和属性 ID 跟踪正在执行的写入回调。
+## [br]
+## @api private
+## [br]
 var _active_writes: Dictionary = {}
 
 
@@ -408,12 +432,20 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 读取目标登记条目；目标 ID 不存在时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_entry(target_id: StringName) -> Dictionary:
 	if not _targets.has(target_id):
 		return {}
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_targets, target_id, {}))
 
 
+## 获取已注册的 GFDebugOverlayUtility；类型不符或不存在时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_debug_overlay_utility() -> GFDebugOverlayUtility:
 	var utility: Variant = get_utility(GFDebugOverlayUtility)
 	if utility is GFDebugOverlayUtility:
@@ -422,6 +454,10 @@ func _get_debug_overlay_utility() -> GFDebugOverlayUtility:
 	return null
 
 
+## 通过目标条目的弱引用取得有效对象；缺失、失效或已释放时返回 null。
+## [br]
+## @api private
+## [br]
 func _resolve_target(target_id: StringName) -> Object:
 	var entry: Dictionary = _get_entry(target_id)
 	if entry.is_empty():
@@ -433,6 +469,10 @@ func _resolve_target(target_id: StringName) -> Object:
 	return target if is_instance_valid(target) else null
 
 
+## 从目标条目的属性索引中解析指定属性定义。
+## [br]
+## @api private
+## [br]
 func _resolve_property(target_id: StringName, property_id: StringName) -> GFRuntimeTunableProperty:
 	var entry: Dictionary = _get_entry(target_id)
 	if entry.is_empty():
@@ -441,6 +481,10 @@ func _resolve_property(target_id: StringName, property_id: StringName) -> GFRunt
 	return _get_tunable_property(properties_by_id, property_id)
 
 
+## 整理目标登记条目，按需排除隐藏目标并按注册顺序和 ID 排序。
+## [br]
+## @api private
+## [br]
 func _get_sorted_entries(include_hidden: bool) -> Array[Dictionary]:
 	var entries: Array[Dictionary] = []
 	for target_id: StringName in _targets:
@@ -453,6 +497,10 @@ func _get_sorted_entries(include_hidden: bool) -> Array[Dictionary]:
 	return entries
 
 
+## 移除弱引用目标已失效的登记项，并在至少移除一项时递增注册表代次。
+## [br]
+## @api private
+## [br]
 func _prune_invalid_targets() -> void:
 	var invalid_target_ids: PackedStringArray = PackedStringArray()
 	for target_id: StringName in _targets.keys():
@@ -464,6 +512,10 @@ func _prune_invalid_targets() -> void:
 		_registry_generation += 1
 
 
+## 为目标属性取得写入重入标记；同属性已有活动标记时返回 false。
+## [br]
+## @api private
+## [br]
 func _begin_write(target_id: StringName, property_id: StringName) -> bool:
 	var target_writes: Dictionary = {}
 	if _active_writes.has(target_id):
@@ -475,6 +527,10 @@ func _begin_write(target_id: StringName, property_id: StringName) -> bool:
 	return true
 
 
+## 清除目标属性写入标记，并在该目标不再有活动写入时移除目标项。
+## [br]
+## @api private
+## [br]
 func _end_write(target_id: StringName, property_id: StringName) -> void:
 	if not _active_writes.has(target_id):
 		return
@@ -486,6 +542,10 @@ func _end_write(target_id: StringName, property_id: StringName) -> void:
 		_erase_dictionary_key(_active_writes, target_id)
 
 
+## 按目标注册顺序排序，同序时按目标 ID 文本排序。
+## [br]
+## @api private
+## [br]
 func _sort_entries(left: Dictionary, right: Dictionary) -> bool:
 	var left_order: int = GFVariantData.get_option_int(left, "order")
 	var right_order: int = GFVariantData.get_option_int(right, "order")
@@ -494,6 +554,10 @@ func _sort_entries(left: Dictionary, right: Dictionary) -> bool:
 	return GFVariantData.get_option_string(left, "id") < GFVariantData.get_option_string(right, "id")
 
 
+## 将目标和属性定义投影为快照，并在目标有效时读取各属性当前值。
+## [br]
+## @api private
+## [br]
 func _build_target_snapshot(entry: Dictionary, include_hidden: bool) -> Dictionary:
 	var target_id: StringName = GFVariantData.get_option_string_name(entry, "id")
 	var target: Object = _resolve_target(target_id)
@@ -518,6 +582,10 @@ func _build_target_snapshot(entry: Dictionary, include_hidden: bool) -> Dictiona
 	}
 
 
+## 按 allow_writes 和 debug_build_writes_only 配置判断当前是否允许写入。
+## [br]
+## @api private
+## [br]
 func _writes_are_allowed() -> bool:
 	if not allow_writes:
 		return false
@@ -526,12 +594,20 @@ func _writes_are_allowed() -> bool:
 	return true
 
 
+## 已关联 Overlay 面板时刷新其显示内容。
+## [br]
+## @api private
+## [br]
 func _refresh_attached_overlay_panel() -> void:
 	if _attached_overlay_panel_id == &"":
 		return
 	var _refreshed: bool = refresh_debug_overlay_panel()
 
 
+## 将可见目标及其属性值排成 Overlay 文本；没有目标时返回提示文本。
+## [br]
+## @api private
+## [br]
 func _build_overlay_panel_text() -> String:
 	var lines: PackedStringArray = PackedStringArray()
 	for target: Dictionary in get_target_snapshot(false):
@@ -550,6 +626,10 @@ func _build_overlay_panel_text() -> String:
 	return "\n".join(lines)
 
 
+## 读取字典中的数组；值不是 Array 时创建空数组写回指定键并返回。
+## [br]
+## @api private
+## [br]
 func _get_array_ref(source: Dictionary, key: Variant) -> Array:
 	var value: Variant = GFVariantData.get_option_value(source, key, [])
 	if value is Array:
@@ -560,6 +640,10 @@ func _get_array_ref(source: Dictionary, key: Variant) -> Array:
 	return new_array
 
 
+## 仅当字典字段实际为 WeakRef 时返回该值，否则返回 null。
+## [br]
+## @api private
+## [br]
 func _get_dictionary_weak_ref(source: Dictionary, key: Variant) -> WeakRef:
 	var value: Variant = GFVariantData.get_option_value(source, key, null)
 	if value is WeakRef:
@@ -568,6 +652,10 @@ func _get_dictionary_weak_ref(source: Dictionary, key: Variant) -> WeakRef:
 	return null
 
 
+## 仅当字典字段实际为 GFRuntimeTunableProperty 时返回该定义，否则返回 null。
+## [br]
+## @api private
+## [br]
 func _get_tunable_property(source: Dictionary, key: Variant) -> GFRuntimeTunableProperty:
 	var value: Variant = GFVariantData.get_option_value(source, key, null)
 	if value is GFRuntimeTunableProperty:
@@ -576,17 +664,29 @@ func _get_tunable_property(source: Dictionary, key: Variant) -> GFRuntimeTunable
 	return null
 
 
+## 将文本追加到 PackedStringArray；数组 API 的返回值不向调用方传播。
+## [br]
+## @api private
+## [br]
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 从字典移除指定键；字典 API 的返回值不向调用方传播。
+## [br]
+## @api private
+## [br]
 func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 	var erased: bool = target.erase(key)
 	if erased:
 		return
 
 
+## 从数组中移除匹配值。
+## [br]
+## @api private
+## [br]
 func _erase_array_value(target: Array, value: Variant) -> void:
 	target.erase(value)

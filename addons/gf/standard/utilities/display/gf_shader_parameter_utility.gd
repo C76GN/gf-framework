@@ -20,12 +20,25 @@ extends GFUtility
 ## @api public
 const DEFAULT_MATERIAL_PROPERTY: NodePath = ^"material"
 
+## ProjectSettings 中全局 shader 参数声明使用的固定前缀。
+## [br]
+## @api private
+## [br]
 const _GLOBAL_SHADER_SETTING_PREFIX: String = "shader_globals/"
+
+## 表示无法推断 RenderingServer 全局参数类型的内部哨兵值。
+## [br]
+## @api private
+## [br]
 const _INVALID_GLOBAL_PARAMETER_TYPE: int = -1
 
 
 # --- 私有变量 ---
 
+## 记录本工具在当前运行会话中注册过的全局 shader 参数名。
+## [br]
+## @api private
+## [br]
 static var _registered_global_parameter_names: Dictionary = {}
 
 
@@ -550,6 +563,10 @@ func has_global_parameter_declaration(parameter_name: StringName) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 校验目标材质属性，并按需复制材质后写回目标。
+## [br]
+## @api private
+## [br]
 func _resolve_shader_material(
 	target: Object,
 	material_property: NodePath,
@@ -603,6 +620,10 @@ func _resolve_shader_material(
 	return duplicated_material
 
 
+## 将选项中的 NodePath、String 或 StringName 转为 NodePath，其余情况返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_option_node_path(options: Dictionary, key: Variant, default_value: NodePath) -> NodePath:
 	var raw_value: Variant = GFVariantData.get_option_value(options, key, default_value)
 	if raw_value is NodePath:
@@ -617,11 +638,19 @@ func _get_option_node_path(options: Dictionary, key: Variant, default_value: Nod
 	return default_value
 
 
+## 按开关发出 shader 参数操作失败警告。
+## [br]
+## @api private
+## [br]
 func _warn_invalid_target(message: String, enabled: bool) -> void:
 	if enabled:
 		push_warning("[GFShaderParameterUtility][shader_parameter_utility.parameter_operation_failed] Shader parameter operation failed: %s." % message)
 
 
+## 执行全局参数校验、live 注册或更新及可选的 ProjectSettings 持久化。
+## [br]
+## @api private
+## [br]
 func _ensure_global_parameter_internal(
 	parameter_name: StringName,
 	parameter_type: int,
@@ -695,6 +724,10 @@ func _ensure_global_parameter_internal(
 	return report
 
 
+## 构建并按覆盖、dry-run 与保存选项写入全局参数 ProjectSettings 声明。
+## [br]
+## @api private
+## [br]
 func _persist_global_parameter_project_setting(
 	parameter_name: StringName,
 	parameter_type: int,
@@ -750,6 +783,10 @@ func _persist_global_parameter_project_setting(
 	return report
 
 
+## 将本工具登记过的有效参数名追加到结果数组。
+## [br]
+## @api private
+## [br]
 func _append_registered_global_parameter_names(names: Array[StringName]) -> void:
 	for raw_parameter_name: Variant in _registered_global_parameter_names.keys():
 		var parameter_name: StringName = _variant_to_parameter_name(raw_parameter_name)
@@ -757,6 +794,10 @@ func _append_registered_global_parameter_names(names: Array[StringName]) -> void
 			_append_unique_global_parameter_name(names, parameter_name)
 
 
+## 扫描 shader_globals/ 设置并追加其中的全局参数名。
+## [br]
+## @api private
+## [br]
 func _append_project_setting_global_parameter_names(names: Array[StringName]) -> void:
 	for property_info_value: Variant in ProjectSettings.get_property_list():
 		if not (property_info_value is Dictionary):
@@ -777,16 +818,28 @@ func _append_project_setting_global_parameter_names(names: Array[StringName]) ->
 			_append_unique_global_parameter_name(names, StringName(parameter_text))
 
 
+## 仅在名称非空且尚未存在时将参数名追加到数组。
+## [br]
+## @api private
+## [br]
 func _append_unique_global_parameter_name(names: Array[StringName], parameter_name: StringName) -> void:
 	if parameter_name != &"" and not names.has(parameter_name):
 		names.append(parameter_name)
 
 
+## 将非空参数名登记到当前会话的全局参数注册表。
+## [br]
+## @api private
+## [br]
 func _track_global_parameter(parameter_name: StringName) -> void:
 	if parameter_name != &"":
 		_registered_global_parameter_names[parameter_name] = true
 
 
+## 深复制批量选项，并合并指定参数对应的持久化类型或完整定义。
+## [br]
+## @api private
+## [br]
 func _build_global_parameter_options(options: Dictionary, parameter_name: StringName) -> Dictionary:
 	var entry_options: Dictionary = options.duplicate(true)
 	var project_setting_types: Dictionary = GFVariantData.get_option_dictionary(
@@ -816,6 +869,10 @@ func _build_global_parameter_options(options: Dictionary, parameter_name: String
 	return entry_options
 
 
+## 优先复制显式声明，否则按参数类型和默认值构造 ProjectSettings 定义。
+## [br]
+## @api private
+## [br]
 func _build_project_shader_global_definition(
 	parameter_type: int,
 	default_value: Variant,
@@ -842,10 +899,18 @@ func _build_project_shader_global_definition(
 	}
 
 
+## 根据参数名生成 shader_globals/ 下的固定设置路径。
+## [br]
+## @api private
+## [br]
 func _get_global_project_setting_path(parameter_name: StringName) -> String:
 	return _GLOBAL_SHADER_SETTING_PREFIX + String(parameter_name)
 
 
+## 创建字段齐全且计数归零的全局参数批量报告。
+## [br]
+## @api private
+## [br]
 func _make_global_batch_report() -> Dictionary:
 	return {
 		"ok": true,
@@ -860,6 +925,10 @@ func _make_global_batch_report() -> Dictionary:
 	}
 
 
+## 创建单个全局参数的 live 注册与持久化状态报告。
+## [br]
+## @api private
+## [br]
 func _make_global_parameter_report(parameter_name: StringName, parameter_type: int) -> Dictionary:
 	return {
 		"ok": true,
@@ -880,6 +949,10 @@ func _make_global_parameter_report(parameter_name: StringName, parameter_type: i
 	}
 
 
+## 将单参数报告标记为失败、写入错误文本并按开关警告。
+## [br]
+## @api private
+## [br]
 func _fail_global_parameter_report(
 	report: Dictionary,
 	message: String,
@@ -892,6 +965,10 @@ func _fail_global_parameter_report(
 	return report
 
 
+## 按支持的 Variant 类型推断 RenderingServer 全局参数类型。
+## [br]
+## @api private
+## [br]
 func _infer_global_parameter_type(value: Variant) -> int:
 	match typeof(value):
 		TYPE_BOOL:
@@ -919,6 +996,10 @@ func _infer_global_parameter_type(value: Variant) -> int:
 	return _INVALID_GLOBAL_PARAMETER_TYPE
 
 
+## 将支持的 RenderingServer 类型映射为 ProjectSettings 声明类型名。
+## [br]
+## @api private
+## [br]
 func _global_parameter_type_to_project_setting_type(parameter_type: int) -> String:
 	match parameter_type:
 		RenderingServer.GLOBAL_VAR_TYPE_BOOL:
@@ -946,6 +1027,10 @@ func _global_parameter_type_to_project_setting_type(parameter_type: int) -> Stri
 	return ""
 
 
+## 将 ShaderMaterial Variant 转为目标类型，其余值返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_shader_material(value: Variant) -> ShaderMaterial:
 	if value is ShaderMaterial:
 		var material: ShaderMaterial = value
@@ -953,6 +1038,10 @@ func _variant_to_shader_material(value: Variant) -> ShaderMaterial:
 	return null
 
 
+## 将 StringName 或 String 参数名转换为 StringName，其余值返回空名。
+## [br]
+## @api private
+## [br]
 func _variant_to_parameter_name(value: Variant) -> StringName:
 	if value is StringName:
 		var string_name_value: StringName = value
@@ -963,6 +1052,10 @@ func _variant_to_parameter_name(value: Variant) -> StringName:
 	return &""
 
 
+## 查找原键或等价 String/StringName 键，均不存在时返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_equivalent_dictionary_value(data: Dictionary, key: Variant, default_value: Variant) -> Variant:
 	if data.has(key):
 		return data[key]

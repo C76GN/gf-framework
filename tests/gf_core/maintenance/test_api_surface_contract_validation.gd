@@ -23,6 +23,7 @@ const API_TAGS: Array[String] = [
 	"protected",
 	"framework_internal",
 	"layer_internal",
+	"private",
 ]
 const PUBLIC_API_TAGS: Array[String] = [
 	"public",
@@ -294,16 +295,289 @@ func test_gf_source_api_doc_tags_use_godot_render_separator() -> void:
 	)
 
 
-func test_private_doc_comments_are_rejected() -> void:
+func test_private_doc_comments_allow_partial_contracts() -> void:
 	var source: String = """
-## 私有方法不应进入 API 文档。
-##
+extends Node
+
+# --- 私有变量 ---
+
+## 缓存仅供本文件复用。
+## [br]
 ## @api private
-func _normalize() -> void:
+var _cache: Dictionary = {}
+
+# --- Godot 生命周期方法 ---
+
+## 构造时接收缓存选项。
+## [br]
+## @api private
+func _init(options: Dictionary = {}) -> void:
+	pass
+
+# --- Godot 回调方法 ---
+
+## 由引擎通知缓存失效。
+## [br]
+## @api private
+func _notification(what: int) -> void:
+	pass
+
+# --- 私有/辅助方法 ---
+
+## 只复制需要隔离的请求字段。
+## [br]
+## @api private
+## [br]
+## @param options: 当前批次的复制选项。
+## [br]
+## @schema options: 复制选项字典。
+func _normalize(value: Variant, options: Dictionary, fallback: Variant) -> Dictionary:
+	return {}
+
+func _undocumented(value: Variant) -> Variant:
+	return value
+
+# --- 内部类 ---
+
+## 临时游标不参与持久化。
+## [br]
+## @api private
+class _Cursor:
+	extends RefCounted
+"""
+	var issues: Array[String] = _collect_api_surface_issues(source, VALID_FULL_EXAMPLE_PATH)
+	assert_eq(issues, [], "私有文档允许只记录必要参数，不强制 since/category/return/schema：\n%s" % _join_lines(issues))
+
+
+func test_private_doc_comments_require_explicit_single_visibility_and_prose() -> void:
+	var source: String = "# --- 私有/辅助方法 ---\n\n%s\nfunc _normalize() -> void:\n\tpass\n"
+	for docs: String in [
+		"## 维护约束。",
+		"## 维护约束。\n## @api private\n## @api private",
+		"## 维护约束。\n## @api private\n## @api public",
+		"## 维护约束。\n## @api private extra",
+		"## 维护约束。\n## @api private\n## @api: public",
+		"## 维护约束。\n## @api unknown",
+	]:
+		_assert_invalid(source % docs, "exactly one valid @api")
+	_assert_invalid(source % "## [br]\n## @api private", "private doc must contain explanatory prose")
+	_assert_invalid(source % "## 维护约束。\n## @api public", "private members must declare @api private")
+
+
+func test_private_documentation_supports_member_kinds_and_callback_sections() -> void:
+	var source: String = """
+extends Node
+
+# --- 信号 ---
+
+## 通知本文件内的批次消费者。
+## @api private
+## @param payload: 当前批次的值。
+signal _changed(serial: int, payload: Dictionary)
+
+# --- 枚举 ---
+
+## 只表示本地工作阶段。
+## @api private
+enum _Phase {
+	IDLE,
+	RUNNING,
+}
+
+# --- 常量 ---
+
+## 调试窗口的固定容量。
+## @api private
+const _LIMIT: int = 16
+
+# --- 导出变量 ---
+
+## 编辑器填写，仅供本节点使用。
+## @api private
+@export var _source: Resource
+
+# --- 私有变量 ---
+
+## 清理后丢弃本批状态。
+## @api private
+## @schema _state: 以批次编号索引的临时字段。
+var _state: Dictionary = {}
+
+# --- @onready 变量 ---
+
+## 就绪后才读取场景树引用。
+## @api private
+@onready var _parent: Node = get_parent()
+
+# --- Godot 生命周期方法 ---
+
+## 节点就绪后开始接受批次。
+## @api private
+func _ready() -> void:
+	pass
+
+# --- Godot 回调方法 ---
+
+## Inspector 仅处理本工具支持的目标。
+## @api private
+func _can_handle(object: Object) -> bool:
+	return false
+
+# --- 信号处理函数 ---
+
+## 外部信号到达时使本批缓存失效。
+## @api private
+func _on_changed(payload: Dictionary) -> void:
 	pass
 """
+	assert_eq(_collect_api_surface_issues(source, VALID_FULL_EXAMPLE_PATH), [], "所有受支持的私有声明按各自语义保留 canonical 分区。")
 
-	_assert_invalid(source, "private members must not use ##")
+
+func test_public_constructor_and_other_api_contracts_keep_complete_validation() -> void:
+	var source: String = """
+## 公开类型。
+## @api public
+## @category protocol
+## @since 3.17.0
+class_name GFPrivateDocConstructor
+extends RefCounted
+
+# --- Godot 生命周期方法 ---
+
+## 创建对象。
+## @api public
+## @param value: 初始值。
+func _init(value: int) -> void:
+	pass
+"""
+	assert_eq(_collect_api_surface_issues(source, VALID_FULL_EXAMPLE_PATH), [], "公开构造函数仍使用既有生命周期规则。")
+	_assert_invalid(source.replace("## @param value: 初始值。\n", ""), "missing @param for 'value'")
+	var internal_source: String = "# --- 框架内部方法 ---\n## 协作入口。\n## @api framework_internal\nfunc run(value: Dictionary) -> Dictionary:\n\treturn value\n"
+	_assert_invalid(internal_source, "missing @param for 'value'")
+	_assert_invalid(internal_source, "missing @return")
+	_assert_invalid(internal_source, "missing @schema for 'value'")
+
+
+func test_private_visibility_cannot_hide_public_names_or_global_owners() -> void:
+	for declaration: String in [
+		"func normalize() -> void:\n\tpass",
+		"var cache: Dictionary = {}",
+		"class Cursor:\n\textends RefCounted",
+	]:
+		_assert_invalid("## 内部约束。\n## @api private\n" + declaration, "private API must use an underscore name")
+	_assert_invalid("## 内部类型。\n## @api private\nclass_name _GlobalCache\nextends RefCounted", "class_name cannot declare @api private")
+	_assert_invalid("## 文件说明。\n## @api private\nextends Node", "documented API construct is not supported")
+	_assert_invalid("## 悬空说明。\n## @api private", "documented API construct is not supported")
+
+
+func test_underscore_internal_collaboration_keeps_full_contract_validation() -> void:
+	for visibility: String in ["framework_internal", "layer_internal"]:
+		var section: String = "框架内部方法" if visibility == "framework_internal" else "层内方法"
+		var source: String = """extends RefCounted
+
+# --- %s ---
+
+## 接收协作方传入的批次状态。
+## @api %s
+## @layer tools/project_layout
+## @param state: 当前批次字段。
+## @return: 原样返回批次字段。
+## @schema state: 调用方持有的批次字典。
+## @schema return: 与输入相同的批次字典。
+func _accept_state(state: Dictionary) -> Dictionary:
+	return state
+""" % [section, visibility]
+		var path: String = PROJECT_LAYOUT_STRICT_ROOT + "gf_internal_doc_fixture.gd"
+		assert_eq(_collect_api_surface_issues(source, path), [], "内部协作可见性不应被下划线前缀覆盖。")
+		_assert_invalid(source.replace("## @param state: 当前批次字段。\n", ""), "missing @param for 'state'")
+		_assert_invalid(source.replace("## @return: 原样返回批次字段。\n", ""), "missing @return")
+		_assert_invalid(source.replace("## @schema state: 调用方持有的批次字典。\n", ""), "missing @schema for 'state'")
+		if visibility == "layer_internal":
+			_assert_invalid(source.replace("## @layer tools/project_layout\n", ""), "layer_internal API must declare @layer")
+		var wrong_section_issues: Array[String] = _collect_api_surface_issues(source.replace(section, "私有/辅助方法"), path)
+		assert_false(wrong_section_issues.is_empty(), "内部协作入口仍必须位于相应内部方法分区。")
+
+
+func test_private_documented_declarations_keep_their_canonical_sections() -> void:
+	var cases: Array[Dictionary] = [
+		{ "section": "公共方法", "declaration": "func _helper() -> void:\n\tpass" },
+		{ "section": "可重写钩子 / 虚方法", "declaration": "func _helper() -> void:\n\tpass" },
+		{ "section": "私有/辅助方法", "declaration": "func _init() -> void:\n\tpass" },
+		{ "section": "私有/辅助方法", "declaration": "func _ready() -> void:\n\tpass" },
+		{ "section": "公共变量", "declaration": "var _cache: Dictionary = {}" },
+		{ "section": "私有变量", "declaration": "const _LIMIT: int = 1" },
+		{ "section": "私有变量", "declaration": "signal _changed(value: int)" },
+		{ "section": "私有变量", "declaration": "enum _State { READY }" },
+		{ "section": "私有变量", "declaration": "class _Cache:\n\textends RefCounted" },
+	]
+	for test_case: Dictionary in cases:
+		var source: String = "# --- %s ---\n\n## 维护约束。\n## @api private\n%s" % [test_case["section"], test_case["declaration"]]
+		_assert_invalid(source, "private API uses an incompatible section")
+
+
+func test_private_optional_params_reject_invalid_partial_documentation() -> void:
+	var source: String = "# --- 私有/辅助方法 ---\n\n## 维护约束。\n## @api private\n%s\nfunc _normalize(first: int, second: int, third: int) -> void:\n\tpass\n"
+	var cases: Dictionary = {
+		"## @param missing: 未知参数。": "unknown @param",
+		"## @param second:": "non-empty description",
+		"## @param second": "non-empty description",
+		"## @param": "non-empty description",
+		"## @param second: 第二项。\n## @param second: 重复。": "duplicate @param",
+		"## @param third: 第三项。\n## @param first: 第一项。": "@param order",
+	}
+	for docs: String in cases:
+		_assert_invalid(source % docs, GF_VARIANT_ACCESS.get_option_string(cases, docs))
+	var valid_source: String = source % "## @param first: 第一项。\n## @param third: 第三项。"
+	assert_eq(_collect_api_surface_issues(valid_source, VALID_FULL_EXAMPLE_PATH), [], "私有参数子集保持签名中的相对顺序即可。")
+
+
+func test_private_optional_return_and_schema_tags_are_validated() -> void:
+	var source: String = "# --- 私有/辅助方法 ---\n\n## 维护约束。\n## @api private\n%s\nfunc _normalize(value: Dictionary) -> Dictionary:\n\treturn value\n"
+	var cases: Dictionary = {
+		"## @return:": "non-empty description",
+		"## @schema missing: 错误目标。": "unknown @schema target",
+		"## @schema value:": "non-empty description",
+		"## @schema value": "non-empty description",
+		"## @schema": "non-empty description",
+		"## @schema value {\n## }": "non-empty description",
+		"## @schema value: 第一份。\n## @schema value: 第二份。": "duplicate @schema",
+	}
+	for docs: String in cases:
+		_assert_invalid(source % docs, GF_VARIANT_ACCESS.get_option_string(cases, docs))
+	var valid_source: String = source % "## @return: 隔离后的字段。\n## @schema value: {\"type\": \"Dictionary\"}\n## @schema return: 复制后的字段字典。"
+	assert_eq(_collect_api_surface_issues(valid_source, VALID_FULL_EXAMPLE_PATH), [], "私有文档支持按需返回值及非空 schema 说明。")
+	_assert_invalid((source % "## @return: 不存在的返回值。").replace("-> Dictionary", "-> void"), "@return requires a non-void function")
+	_assert_invalid((source % "## @schema return: 不存在的返回值。").replace("-> Dictionary", "-> void"), "unknown @schema target")
+	_assert_invalid("# --- 私有变量 ---\n## 维护约束。\n## @api private\n## @return: 不存在的返回值。\nvar _value: int = 0", "@return requires a non-void function")
+	_assert_invalid("# --- 私有变量 ---\n## 维护约束。\n## @api private\n## @param value: 不存在的参数。\nvar _value: int = 0", "unknown @param")
+
+
+func test_documented_private_types_still_cannot_escape_public_signatures() -> void:
+	var source: String = """
+## 公开类型。
+## @api public
+## @category protocol
+## @since 3.17.0
+class_name GFPrivateDocExposure
+extends RefCounted
+
+# --- 公共方法 ---
+
+## 获取游标。
+## @api public
+## @return: 游标。
+func get_cursor() -> _Cursor:
+	return null
+
+# --- 内部类 ---
+
+## 仅供解析实现保存位置。
+## @api private
+class _Cursor:
+	extends RefCounted
+"""
+	_assert_invalid(source, "public API exposes internal type _Cursor")
+
 
 
 func test_public_function_requires_doc_comment() -> void:
@@ -952,6 +1226,38 @@ extends %s
 	)
 
 
+func test_controlled_gf_autoload_owner_requires_exactly_one_public_visibility() -> void:
+	var template: String = """
+## 受控全局入口。
+## [br]
+%s
+## [br]
+## @api_owner autoload Gf
+## [br]
+## @category runtime_service
+## [br]
+## @since 1.0.0
+## [br]
+## @layer kernel/core
+extends Node
+"""
+	var valid_source: String = template % "## @api public"
+	assert_eq(_collect_api_surface_issues(valid_source, GF_AUTOLOAD_OWNER_PATH), [], "单一精确 public 标签应保留受控 owner。")
+	assert_true(_has_controlled_gf_autoload_owner(valid_source, GF_AUTOLOAD_OWNER_PATH))
+	for api_docs: String in [
+		"## @api public\n## [br]\n## @api private",
+		"## @api public\n## [br]\n## @api public",
+		"## @api private\n## [br]\n## @api public",
+		"## @api public extra",
+		"## @api\tpublic",
+		"## @api public\n## [br]\n## @api: private",
+		"## @api",
+	]:
+		var source: String = template % api_docs
+		_assert_invalid_at_path(source, "must declare exactly one @api public", GF_AUTOLOAD_OWNER_PATH)
+		assert_false(_has_controlled_gf_autoload_owner(source, GF_AUTOLOAD_OWNER_PATH), "含糊的可见性不得授予 classless public owner。")
+
+
 func test_api_owner_rejects_duplicate_or_orphan_declarations() -> void:
 	var duplicate_source: String = """
 ## 受控入口。
@@ -1441,8 +1747,13 @@ func _collect_gf_autoload_owner_declaration_issues(
 		])
 	if not _collect_top_level_class_name(source).is_empty():
 		issues.append("%s @api_owner autoload Gf must not coexist with class_name" % location)
-	if _parse_tag_value(docs, "api") != "public":
-		issues.append("%s @api_owner autoload Gf must declare @api public" % location)
+	var api_values: PackedStringArray = _parse_tag_values(docs, "api")
+	if (
+		api_values.size() != 1
+		or api_values[0] != "public"
+		or _parse_tag_value(docs, "api") != "public"
+	):
+		issues.append("%s @api_owner autoload Gf must declare exactly one @api public" % location)
 	if _parse_tag_value(docs, "category") != "runtime_service":
 		issues.append("%s @api_owner autoload Gf must declare @category runtime_service" % location)
 	if _parse_tag_value(docs, "since") != PLACEHOLDER_SINCE_VERSION:
@@ -1708,6 +2019,8 @@ func _parse_declarations(source: String, path: String) -> Array[Dictionary]:
 			declaration["indent"] = indent
 			declaration["section"] = _get_section_for_indent(section_by_indent, indent)
 			declaration["docs"] = docs.duplicate()
+			declaration["is_onready"] = GF_VARIANT_ACCESS.get_option_string(signature, "text").begins_with("@onready ")
+			declaration["is_export"] = GF_VARIANT_ACCESS.get_option_string(signature, "text").begins_with("@export")
 			declaration["api"] = _parse_tag_value(docs, "api")
 			declaration["category"] = _parse_tag_value(docs, "category")
 			declaration["layer"] = _parse_tag_value(docs, "layer")
@@ -2036,8 +2349,12 @@ func _collect_declaration_issues(declaration: Dictionary, type_visibility: Dicti
 	if not api.is_empty() and not API_TAGS.has(api):
 		issues.append("%s %s has invalid @api '%s'" % [location, declaration_name, api])
 
-	if api == "private" or (is_private and not docs.is_empty()):
-		issues.append("%s %s private members must not use ## or @api private" % [location, declaration_name])
+	if not docs.is_empty():
+		var api_values: PackedStringArray = _parse_tag_values(docs, "api")
+		if api_values.size() != 1 or not API_TAGS.has(api_values[0]):
+			issues.append("%s %s doc comment must declare exactly one valid @api" % [location, declaration_name])
+	if is_private and not docs.is_empty() and api != "private":
+		issues.append("%s %s private members must declare @api private" % [location, declaration_name])
 
 	if not docs.is_empty() and api.is_empty():
 		issues.append("%s %s doc comment missing @api" % [location, declaration_name])
@@ -2110,13 +2427,16 @@ func _collect_declaration_issues(declaration: Dictionary, type_visibility: Dicti
 		if not GF_VARIANT_ACCESS.get_option_bool(declaration, "has_since", false):
 			issues.append("%s %s public class must declare @since" % [location, declaration_name])
 
-	if not api.is_empty() and (kind == "func" or kind == "signal"):
+	if api == "private":
+		issues.append_array(_collect_private_declaration_issues(declaration))
+		issues.append_array(_collect_private_optional_tag_issues(declaration))
+	elif not api.is_empty() and (kind == "func" or kind == "signal"):
 		issues.append_array(_collect_param_doc_issues(declaration))
 
-	if not api.is_empty() and kind == "func":
+	if not api.is_empty() and api != "private" and kind == "func":
 		issues.append_array(_collect_return_doc_issues(declaration))
 
-	if not api.is_empty():
+	if not api.is_empty() and api != "private":
 		issues.append_array(_collect_schema_issues(declaration))
 
 	if PUBLIC_API_TAGS.has(api):
@@ -2126,6 +2446,124 @@ func _collect_declaration_issues(declaration: Dictionary, type_visibility: Dicti
 		issues.append_array(_collect_enum_value_doc_issues(declaration))
 
 	return issues
+
+
+func _collect_private_declaration_issues(declaration: Dictionary) -> Array[String]:
+	var issues: Array[String] = []
+	var declaration_name: String = GF_VARIANT_ACCESS.get_option_string(declaration, "name")
+	var kind: String = GF_VARIANT_ACCESS.get_option_string(declaration, "kind")
+	var location: String = _format_location(declaration)
+	if not declaration_name.begins_with("_"):
+		issues.append("%s %s private API must use an underscore name" % [location, declaration_name])
+	if kind == "class_name":
+		issues.append("%s %s class_name cannot declare @api private" % [location, declaration_name])
+	var has_prose: bool = false
+	for raw_doc: Variant in GF_VARIANT_ACCESS.get_option_array(declaration, "docs"):
+		var body: String = _doc_body(GF_VARIANT_ACCESS.to_text(raw_doc)).replace(DOC_RENDER_SEPARATOR, "").strip_edges()
+		if not body.is_empty() and not body.begins_with("@"):
+			has_prose = true
+	if not has_prose:
+		issues.append("%s %s private doc must contain explanatory prose" % [location, declaration_name])
+	var allowed_sections: Array[String] = []
+	match kind:
+		"func":
+			if declaration_name == "_init":
+				allowed_sections = ["Godot 生命周期方法"]
+			elif GODOT_CALLBACK_NAMES.has(declaration_name):
+				allowed_sections = ["Godot 生命周期方法", "Godot 回调方法"]
+			elif declaration_name.begins_with("_on_"):
+				allowed_sections = ["信号处理函数"]
+			else:
+				allowed_sections = ["私有/辅助方法", "Godot 回调方法"]
+		"var":
+			if GF_VARIANT_ACCESS.get_option_bool(declaration, "is_onready"):
+				allowed_sections = ["@onready 变量"]
+			elif GF_VARIANT_ACCESS.get_option_bool(declaration, "is_export"):
+				allowed_sections = ["导出变量"]
+			else:
+				allowed_sections = ["私有变量"]
+		"const":
+			allowed_sections = ["常量"]
+		"enum":
+			allowed_sections = ["枚举"]
+		"signal":
+			allowed_sections = ["信号"]
+		"class":
+			allowed_sections = ["内部类"]
+	var section_name: String = _canonical_section_name(GF_VARIANT_ACCESS.get_option_string(declaration, "section"))
+	if kind != "class_name" and not allowed_sections.has(section_name):
+		issues.append("%s %s private API uses an incompatible section '%s'" % [location, declaration_name, section_name])
+	return issues
+
+
+func _collect_private_optional_tag_issues(declaration: Dictionary) -> Array[String]:
+	var issues: Array[String] = []
+	var location: String = _format_location(declaration)
+	var declaration_name: String = GF_VARIANT_ACCESS.get_option_string(declaration, "name")
+	var kind: String = GF_VARIANT_ACCESS.get_option_string(declaration, "kind")
+	var return_type: String = GF_VARIANT_ACCESS.get_option_string(declaration, "return_type")
+	var has_return: bool = kind == "func" and not return_type.is_empty() and return_type != "void"
+	var actual_params: Array[String] = []
+	if kind == "func" or kind == "signal":
+		for param: Dictionary in GF_VARIANT_ACCESS.get_option_array(declaration, "params"):
+			actual_params.append(GF_VARIANT_ACCESS.get_option_string(param, "name"))
+	var schema_targets: Array[String] = actual_params.duplicate()
+	if has_return:
+		schema_targets.append("return")
+	if kind == "var" or kind == "const":
+		schema_targets.append(declaration_name)
+	var seen_params: Dictionary = {}
+	var seen_schemas: Dictionary = {}
+	var previous_param_index: int = -1
+	var return_count: int = 0
+	for raw_doc: Variant in GF_VARIANT_ACCESS.get_option_array(declaration, "docs"):
+		var body: String = _doc_body(GF_VARIANT_ACCESS.to_text(raw_doc))
+		if _is_doc_tag_line(body, "return"):
+			return_count += 1
+			if not has_return:
+				issues.append("%s %s @return requires a non-void function" % [location, declaration_name])
+			var return_description: String = body.trim_prefix("@return").strip_edges().trim_prefix(":").strip_edges()
+			if return_description.replace(DOC_RENDER_SEPARATOR, "").strip_edges().is_empty():
+				issues.append("%s %s @return requires a non-empty description" % [location, declaration_name])
+			continue
+		for tag_name: String in ["param", "schema"]:
+			if not _is_doc_tag_line(body, tag_name):
+				continue
+			var rest: String = body.trim_prefix("@" + tag_name).strip_edges()
+			var colon_index: int = rest.find(":")
+			var target_name: String = rest.substr(0, colon_index).strip_edges() if colon_index >= 0 else rest
+			var description: String = rest.substr(colon_index + 1).strip_edges() if colon_index >= 0 else ""
+			if (
+				target_name.is_empty()
+				or target_name != _read_identifier(target_name)
+				or description.replace(DOC_RENDER_SEPARATOR, "").strip_edges().is_empty()
+			):
+				issues.append("%s %s @%s requires a target and non-empty description after ':'" % [location, declaration_name, tag_name])
+				continue
+			if tag_name == "schema":
+				if not schema_targets.has(target_name):
+					issues.append("%s %s unknown @schema target '%s'" % [location, declaration_name, target_name])
+				if seen_schemas.has(target_name):
+					issues.append("%s %s duplicate @schema '%s'" % [location, declaration_name, target_name])
+				seen_schemas[target_name] = true
+				continue
+			var param_index: int = actual_params.find(target_name)
+			if param_index == -1:
+				issues.append("%s %s documents unknown @param '%s'" % [location, declaration_name, target_name])
+			if seen_params.has(target_name):
+				issues.append("%s %s duplicate @param '%s'" % [location, declaration_name, target_name])
+			if param_index >= 0 and param_index < previous_param_index:
+				issues.append("%s %s @param order must follow the signature" % [location, declaration_name])
+			seen_params[target_name] = true
+			previous_param_index = maxi(previous_param_index, param_index)
+	if return_count > 1:
+		issues.append("%s %s duplicate @return" % [location, declaration_name])
+	return issues
+
+
+func _is_doc_tag_line(body: String, tag_name: String) -> bool:
+	var prefix: String = "@" + tag_name
+	return body == prefix or body.begins_with(prefix + " ") or body.begins_with(prefix + ":") or body.begins_with(prefix + "\t")
 
 
 func _internal_section_rule_is_enforced(path: String) -> bool:
@@ -2384,7 +2822,7 @@ func _declaration_requires_api_doc(declaration: Dictionary) -> bool:
 func _is_private_declaration(declaration: Dictionary) -> bool:
 	var declaration_name: String = GF_VARIANT_ACCESS.get_option_string(declaration, "name", "")
 	var api: String = GF_VARIANT_ACCESS.get_option_string(declaration, "api", "")
-	if api == "protected":
+	if api in ["protected", "framework_internal", "layer_internal"]:
 		return false
 	if declaration_name == "_init" and not api.is_empty():
 		return false
@@ -2416,8 +2854,8 @@ func _parse_tag_values(docs: Array, tag_name: String) -> PackedStringArray:
 		if body == prefix:
 			var _append_empty_result: Variant = result.append("")
 			continue
-		if body.begins_with(prefix + " "):
-			var _append_value_result: Variant = result.append(body.substr(prefix.length() + 1).strip_edges())
+		if _is_doc_tag_line(body, tag_name):
+			var _append_value_result: Variant = result.append(body.substr(prefix.length()).strip_edges())
 	return result
 
 

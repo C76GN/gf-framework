@@ -52,24 +52,97 @@ enum EndKind {
 
 # --- 常量 ---
 
+## caller 终态原因允许保留的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_REASON_CHARACTERS: int = 128
+
+## save 操作的内部分类值。
+## [br]
+## @api private
+## [br]
 const _OPERATION_SAVE: StringName = &"save"
+
+## load 操作的内部分类值。
+## [br]
+## @api private
+## [br]
 const _OPERATION_LOAD: StringName = &"load"
+
+## delete 操作的内部分类值。
+## [br]
+## @api private
+## [br]
 const _OPERATION_DELETE: StringName = &"delete"
+
+## reset 操作的内部分类值。
+## [br]
+## @api private
+## [br]
 const _OPERATION_RESET: StringName = &"reset"
 
 
 # --- 私有变量 ---
 
+## 配置成功后写入的 Utility 内 consumer ID；0 表示尚未配置。
+## [br]
+## @api private
+## [br]
 var _consumer_id: int = 0
+
+## 该 caller 对应的物理请求 ID；未配置时为 0。
+## [br]
+## @api private
+## [br]
 var _request_id: int = 0
+
+## caller 对应的 save/load/delete/reset 操作名。
+## [br]
+## @api private
+## [br]
 var _operation: StringName = &""
+
+## 经调用方验证后保留的 portable logical 文件名。
+## [br]
+## @api private
+## [br]
 var _file_name: String = ""
+
+## caller 的闭合状态分类。
+## [br]
+## @api private
+## [br]
 var _status: Status = Status.CANCELLED
+
+## caller 终态的来源分类。
+## [br]
+## @api private
+## [br]
 var _end_kind: EndKind = EndKind.PHYSICAL_SETTLEMENT
+
+## 规范化并限制长度后的终态原因。
+## [br]
+## @api private
+## [br]
 var _reason: StringName = &""
+
+## caller 终态写入时记录的单调毫秒时间。
+## [br]
+## @api private
+## [br]
 var _completed_at_msec: int = 0
+
+## caller 终态对应的 Godot Error 码。
+## [br]
+## @api private
+## [br]
 var _error_code: Error = ERR_UNCONFIGURED
+
+## 配置时复制保存的可选物理请求终态。
+## [br]
+## @api private
+## [br]
 var _physical_result: GFStorageAsyncResult = null
 
 
@@ -363,6 +436,10 @@ func configure_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 检查物理结果的请求 ID、操作、文件名与 Error 是否和 caller 终态一致。
+## [br]
+## @api private
+## [br]
 static func _matches_physical_result(
 	physical_result: GFStorageAsyncResult,
 	request_id: int,
@@ -378,6 +455,10 @@ static func _matches_physical_result(
 	)
 
 
+## 空原因使用终态来源默认值，超长文本截到上限后转成 StringName。
+## [br]
+## @api private
+## [br]
 static func _normalize_reason(reason: StringName, end_kind: EndKind) -> StringName:
 	var reason_text: String = String(reason)
 	if reason_text.is_empty():
@@ -387,6 +468,10 @@ static func _normalize_reason(reason: StringName, end_kind: EndKind) -> StringNa
 	return StringName(reason_text)
 
 
+## 将各个 EndKind 映射为稳定的英文原因标识，未列出的值使用通用标识。
+## [br]
+## @api private
+## [br]
 static func _default_reason(end_kind: EndKind) -> String:
 	match end_kind:
 		EndKind.PHYSICAL_SETTLEMENT:

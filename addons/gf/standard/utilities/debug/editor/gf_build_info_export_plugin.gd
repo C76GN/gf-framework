@@ -53,6 +53,10 @@ const SAVE_PROJECT_SETTINGS_SETTING: String = GFBuildInfo.EXPORT_SAVE_PROJECT_SE
 ## @since 6.0.0
 const EXTRA_METADATA_SETTING: String = GFBuildInfo.EXPORT_EXTRA_METADATA_SETTING
 
+## 导出插件写入的构建设置键列表，也用于记录和恢复这些键的导出前状态。
+## [br]
+## @api private
+## [br]
 const _BUILD_SETTING_PATHS: Array[String] = [
 	GFBuildInfo.BUILD_ID_SETTING,
 	GFBuildInfo.COMMIT_HASH_SETTING,
@@ -67,16 +71,31 @@ const _BUILD_SETTING_PATHS: Array[String] = [
 
 # --- 私有变量 ---
 
+## 保存本次导出前各构建设置键的存在状态及原值。
+## [br]
+## @api private
+## [br]
 var _previous_settings: Dictionary = {}
+
+## 标记本次导出是否已写入构建元数据，以决定结束时是否恢复设置。
+## [br]
+## @api private
+## [br]
 var _export_wrote_metadata: bool = false
 
 
-# --- Godot 生命周期方法 ---
+# --- Godot 回调方法 ---
 
+## 向编辑器返回稳定插件标识，用于区分导出插件实例。
+## [br]
+## @api private
 func _get_name() -> String:
 	return "GFBuildInfoExportPlugin"
 
 
+## 导出功能启用时保存原项目设置并写入导出元数据，登记已写入状态供结束阶段恢复。
+## [br]
+## @api private
 func _export_begin(
 	_features: PackedStringArray,
 	_is_debug: bool,
@@ -90,6 +109,9 @@ func _export_begin(
 	_export_wrote_metadata = true
 
 
+## 只收尾确实写过元数据的导出；按配置恢复原设置并可选保存项目，最后清除临时快照与标志。
+## [br]
+## @api private
 func _export_end() -> void:
 	if not _export_wrote_metadata:
 		return
@@ -105,6 +127,10 @@ func _export_end() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 先捕获构建设置原状，再复制 ProjectSettings 中的构建与附加元数据交由 GFBuildInfo 写入，并返回原状快照。
+## [br]
+## @api private
+## [br]
 static func _write_export_metadata_from_project_settings() -> Dictionary:
 	var previous_settings: Dictionary = _capture_build_settings()
 	var build_data: Dictionary = GFVariantData.to_dictionary(ProjectSettings.get_setting(BUILD_METADATA_SETTING, {}))
@@ -117,6 +143,10 @@ static func _write_export_metadata_from_project_settings() -> Dictionary:
 	return previous_settings
 
 
+## 逐键还原导出前存在的构建设置；原先不存在的键通过清理辅助方法移除。
+## [br]
+## @api private
+## [br]
 static func _restore_export_metadata(previous_settings: Dictionary) -> void:
 	for setting_path: String in _BUILD_SETTING_PATHS:
 		var entry: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(previous_settings, setting_path, {}))
@@ -126,6 +156,10 @@ static func _restore_export_metadata(previous_settings: Dictionary) -> void:
 			_clear_project_setting_if_exists(setting_path)
 
 
+## 为每个构建设置键记录是否存在，并在存在时保存当前值。
+## [br]
+## @api private
+## [br]
 static func _capture_build_settings() -> Dictionary:
 	var previous_settings: Dictionary = {}
 	for setting_path: String in _BUILD_SETTING_PATHS:
@@ -138,6 +172,10 @@ static func _capture_build_settings() -> Dictionary:
 	return previous_settings
 
 
+## 仅在 ProjectSettings 中存在该键时清除它。
+## [br]
+## @api private
+## [br]
 static func _clear_project_setting_if_exists(setting_path: String) -> void:
 	if ProjectSettings.has_setting(setting_path):
 		ProjectSettings.clear(setting_path)

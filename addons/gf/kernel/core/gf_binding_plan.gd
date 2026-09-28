@@ -30,30 +30,99 @@ const GFBindingLifetimesBase = preload("res://addons/gf/kernel/core/gf_binding_l
 ## @since 11.0.0
 const GFBindingPlanResultBase = preload("res://addons/gf/kernel/core/gf_binding_plan_result.gd")
 
+## Plan 尚可追加 required entry 且尚未执行的状态值。
+## [br]
+## @api private
 const _STATE_BUILDING: int = 0
+
+## Plan 正在顺序执行 required entry 的状态值。
+## [br]
+## @api private
 const _STATE_EXECUTING: int = 1
+
+## Plan 已冻结终态结果、正在清理引用的状态值。
+## [br]
+## @api private
 const _STATE_SETTLING: int = 2
+
+## Plan 已完成终态清理、不可再次执行的状态值。
+## [br]
+## @api private
 const _STATE_SETTLED: int = 3
+
+## required binding ID 的最大字符数。
+## [br]
+## @api private
 const _MAX_BINDING_ID_LENGTH: int = 128
+
+## required binding target path 的最大字符数。
+## [br]
+## @api private
 const _MAX_TARGET_PATH_LENGTH: int = 512
 
 
 # --- 私有变量 ---
 
+## 创建 Plan 的候选 Architecture；结算完成后清空。
+## [br]
+## @api private
 var _architecture: GFArchitecture = null
+
+## 按声明顺序保存已冻结的 required entry。
+## [br]
+## @api private
 var _entries: Array[RequiredBindingEntry] = []
+
+## 已接纳 binding ID 的集合，用于拒绝重复 ID。
+## [br]
+## @api private
 var _binding_ids: Dictionary = {}
+
+## 已处理声明的序号计数；追加 entry 时先递增并据此分配索引。
+## [br]
+## @api private
 var _declaration_count: int = 0
+
+## 配置阶段首次发现的问题对应的 entry；Plan 级错误时也保存其声明快照。
+## [br]
+## @api private
 var _configuration_failure: RequiredBindingEntry = null
+
+## 标记配置错误是否应关联到具体 entry。
+## [br]
+## @api private
 var _configuration_failure_has_entry: bool = false
+
+## 首个配置错误的结果原因。
+## [br]
+## @api private
 var _configuration_reason: int = GFBindingPlanResultBase.Reason.NONE
+
+## 首个配置错误的详细说明。
+## [br]
+## @api private
 var _configuration_detail: String = ""
+
+## 当前 Plan 执行与终态结算阶段。
+## [br]
+## @api private
 var _state: int = _STATE_BUILDING
+
+## 冻结的终态结果副本。
+## [br]
+## @api private
 var _terminal_result: GFBindingPlanResult = null
 
 
 # --- Godot 生命周期方法 ---
 
+## 捕获 Binder 提供的候选架构，开始可追加条目的计划；此时不执行绑定或初始化。
+## [br]
+## @api framework_internal
+## [br]
+## @param architecture: 本计划稍后提交必需绑定的候选架构。
+## [br]
+## @return 无返回值。
 func _init(architecture: GFArchitecture) -> void:
 	_architecture = architecture
 
@@ -290,6 +359,9 @@ func execute(scope: GFAsyncScope) -> GFBindingPlanResult:
 
 # --- 私有/辅助方法 ---
 
+## 冻结 Builder 配置并按顺序追加 entry；首次验证失败会保存配置错误供 execute() 返回。
+## [br]
+## @api private
 func _append_required_entry(
 	binding_id: StringName,
 	builder: GFBindBuilder,
@@ -364,6 +436,9 @@ func _append_required_entry(
 	return self
 
 
+## 仅保存第一次发现的配置错误及其关联 entry 信息。
+## [br]
+## @api private
 func _freeze_configuration_failure(
 	entry: RequiredBindingEntry,
 	reason: int,
@@ -378,6 +453,9 @@ func _freeze_configuration_failure(
 	_configuration_detail = detail
 
 
+## 使用冻结的 entry 元数据构造类型化结果，并在配置失败时记录错误。
+## [br]
+## @api private
 func _make_entry_result(
 	status: int,
 	entry: RequiredBindingEntry,
@@ -404,6 +482,9 @@ func _make_entry_result(
 	return result
 
 
+## 构造不关联具体 entry 的 Plan 级类型化结果。
+## [br]
+## @api private
 func _make_no_entry_result(
 	status: int,
 	phase: int,
@@ -429,6 +510,9 @@ func _make_no_entry_result(
 	return result
 
 
+## 冻结边界拒绝结果，可选输出错误，然后清理 Plan 并返回结果副本。
+## [br]
+## @api private
 func _settle_boundary_rejection(
 	result: GFBindingPlanResult,
 	report_error: bool
@@ -440,6 +524,9 @@ func _settle_boundary_rejection(
 	return result.duplicate_result()
 
 
+## 冻结候选失败结果、通知 Architecture 失败、取消仍活动的 scope 并清理 Plan。
+## [br]
+## @api private
 func _settle_candidate_failure(
 	result: GFBindingPlanResult,
 	scope: GFAsyncScope
@@ -452,17 +539,26 @@ func _settle_candidate_failure(
 	return result.duplicate_result()
 
 
+## 冻结成功结果、清理 Plan，并返回结果副本。
+## [br]
+## @api private
 func _settle_success(result: GFBindingPlanResult) -> GFBindingPlanResult:
 	_freeze_terminal(result)
 	_finish_terminal_settlement()
 	return result.duplicate_result()
 
 
+## 复制终态结果并将 Plan 切换到结算状态。
+## [br]
+## @api private
 func _freeze_terminal(result: GFBindingPlanResult) -> void:
 	_terminal_result = result.duplicate_result()
 	_state = _STATE_SETTLING
 
 
+## 清空 entry、ID 和配置错误引用，解除 Architecture 引用并标记 Plan 已结算。
+## [br]
+## @api private
 func _finish_terminal_settlement() -> void:
 	_entries.clear()
 	_binding_ids.clear()
@@ -484,14 +580,42 @@ func _finish_terminal_settlement() -> void:
 ## [br]
 ## @since 11.0.0
 class RequiredBindingEntry extends RefCounted:
+	# --- 私有变量 ---
+	## 条目在计划中的提交序号，失败结果沿用该序号定位原始配置。
+	## [br]
+	## @api private
 	var _index: int = -1
+
+	## 调用方指定的稳定绑定标识，用于失败结果关联与计划内重复检查。
+	## [br]
+	## @api private
 	var _binding_id: StringName = &""
+
+	## 本条目绑定的模块或工厂类别，保存 BindingKind 枚举值。
+	## [br]
+	## @api private
 	var _binding_kind: int = GFBindingPlanResultBase.BindingKind.NONE
+
+	## 捕获的目标脚本路径，仅用于计划条目与结果中的定位信息。
+	## [br]
+	## @api private
 	var _target_path: String = ""
+
+	## 执行本条目时传入 builder 的生命周期选项，非适用场景沿用哨兵值。
+	## [br]
+	## @api private
 	var _lifetime: int = -1
+
+	## 经计划配置校验后冻结的绑定构建器；执行阶段通过它提交必需绑定。
+	## [br]
+	## @api private
 	var _builder: GFBindBuilder = null
 
 
+	# --- Godot 生命周期方法 ---
+	## 捕获条目的原始定位信息与 builder 引用；外层计划完成校验后可替换为冻结的 builder。
+	## [br]
+	## @api private
 	func _init(
 		entry_index: int,
 		entry_binding_id: StringName,

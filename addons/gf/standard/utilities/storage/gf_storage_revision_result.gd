@@ -41,8 +41,22 @@ enum Status {
 
 # --- 私有变量 ---
 
+## 当前 committed revision 查询状态。
+## [br]
+## @api private
+## [br]
 var _status: Status = Status.INVALID_REQUEST
+
+## 当前结果对应的 Godot Error 码。
+## [br]
+## @api private
+## [br]
 var _error_code: Error = ERR_INVALID_PARAMETER
+
+## AVAILABLE 时保存的原始不透明 revision 字符串。
+## [br]
+## @api private
+## [br]
 var _revision: String = ""
 
 

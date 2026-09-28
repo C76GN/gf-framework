@@ -19,11 +19,35 @@ class_name GFTypeEventSystem
 ## [br]
 ## @api public
 const DEFAULT_MAX_DISPATCH_DEPTH: int = 64
+
+## 校验 owner WeakRef 目标仍有效的对象实例守卫。
+## [br]
+## @api private
 const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
+
+## 查询事件脚本继承链的共享工具。
+## [br]
+## @api private
 const _SCRIPT_TYPE_INSPECTOR = preload("res://addons/gf/kernel/core/gf_script_type_inspector.gd")
+
+## 安全读取监听条目和 Variant 选项的辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 普通脚本类型事件轨道的内部标识。
+## [br]
+## @api private
 const _TRACK_TYPE: StringName = &"type"
+
+## 可赋值脚本类型事件轨道的内部标识。
+## [br]
+## @api private
 const _TRACK_ASSIGNABLE: StringName = &"assignable"
+
+## StringName 简单事件轨道的内部标识。
+## [br]
+## @api private
 const _TRACK_SIMPLE: StringName = &"simple"
 
 
@@ -52,33 +76,122 @@ var max_trace_entries: int = 64:
 
 # --- 私有变量 ---
 
+## 普通脚本类型事件的监听轨道。
+## [br]
+## @api private
 var _type_track: EventListenerTrack = EventListenerTrack.new(&"event_type")
+
+## 可赋值脚本类型事件的监听轨道。
+## [br]
+## @api private
 var _assignable_type_track: EventListenerTrack = EventListenerTrack.new(&"event_type")
+
+## 简单 StringName 事件的监听轨道。
+## [br]
+## @api private
 var _simple_track: EventListenerTrack = EventListenerTrack.new(&"event_id")
+
+## 指向普通脚本类型轨道监听字典的别名。
+## [br]
+## @api private
 var _event_listeners: Dictionary = _type_track.listeners
+
+## 指向可赋值类型轨道监听字典的别名。
+## [br]
+## @api private
 var _assignable_event_listeners: Dictionary = _assignable_type_track.listeners
+
+## 指向简单事件轨道监听字典的别名。
+## [br]
+## @api private
 var _simple_event_listeners: Dictionary = _simple_track.listeners
+
+## 按事件脚本缓存组合后的类型监听条目。
+## [br]
+## @api private
 var _type_dispatch_cache: Dictionary = {}
+
+## 按脚本缓存继承链成员的查找字典。
+## [br]
+## @api private
 var _script_ancestry_cache: Dictionary = {}
+
+## 当前普通类型事件的嵌套派发层数。
+## [br]
+## @api private
 var _type_dispatch_depth: int = 0
+
+## 已开始的普通类型事件派发次数。
+## [br]
+## @api private
 var _type_dispatch_count: int = 0
+
+## 观察到的最大普通类型事件嵌套层数。
+## [br]
+## @api private
 var _max_type_dispatch_depth_observed: int = 0
+
+## 类型事件派发期间收到的清空请求；当前遍历据此提前停止，最外层派发结束后结算清空。
+## [br]
+## @api private
 var _clear_requested_type: bool = false
 
+## 当前简单事件的嵌套派发层数。
+## [br]
+## @api private
 var _simple_dispatch_depth: int = 0
+
+## 已开始的简单事件派发次数。
+## [br]
+## @api private
 var _simple_dispatch_count: int = 0
+
+## 观察到的最大简单事件嵌套层数。
+## [br]
+## @api private
 var _max_simple_dispatch_depth_observed: int = 0
+
+## 简单事件派发期间收到的清空请求；当前遍历据此提前停止，最外层派发结束后结算清空。
+## [br]
+## @api private
 var _clear_requested_simple: bool = false
+
+## 类型与简单事件共用的当前嵌套派发层数。
+## [br]
+## @api private
 var _dispatch_depth: int = 0
+
+## 观察到的最大总事件嵌套派发层数。
+## [br]
+## @api private
 var _max_dispatch_depth_observed: int = 0
+
+## 追踪模式下分配给派发记录的递增序号。
+## [br]
+## @api private
 var _dispatch_sequence: int = 0
+
+## 监听器注册顺序计数器。
+## [br]
+## @api private
 var _listener_order_counter: int = 0
+
+## 可取消订阅的身份计数器。
+## [br]
+## @api private
 var _subscription_id_counter: int = 0
+
+## 有界的事件派发追踪记录。
+## [br]
+## @api private
 var _dispatch_trace: Array[Dictionary] = []
 
 
 # --- Godot 生命周期方法 ---
 
+## 在对象预删除通知中清空三个监听轨道及其令牌，避免事件系统销毁后订阅仍显示活跃。
+## [br]
+## @api private
 func _notification(what: int) -> void:
 	if what != NOTIFICATION_PREDELETE:
 		return
@@ -862,10 +975,16 @@ func clear() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 根据 assignable 选择普通或可赋值类型事件轨道。
+## [br]
+## @api private
 func _get_type_track(assignable: bool) -> EventListenerTrack:
 	return _assignable_type_track if assignable else _type_track
 
 
+## 为类型监听分配独立订阅 ID 与弱持有令牌；派发中登记到待添加队列，空闲时立即按优先级加入监听表。
+## [br]
+## @api private
 func _subscribe_type_listener(
 	track: EventListenerTrack,
 	track_kind: StringName,
@@ -914,6 +1033,9 @@ func _subscribe_type_listener(
 	return subscription_token
 
 
+## 通过对事件系统的弱方法调用构造取消回调；有 owner 时使用离树或生命周期订阅令牌，令牌不强持有事件系统。
+## [br]
+## @api private
 func _create_subscription_token(
 	track_kind: StringName,
 	event_key: Variant,
@@ -943,6 +1065,9 @@ func _create_subscription_token(
 	return GFSubscriptionToken.new(cancel_callback, debug_label)
 
 
+## 按订阅 ID 撤销待添加项或已登记监听；派发中延迟移除，空闲时直接移除并清理空键，零 ID 和未知轨道忽略。
+## [br]
+## @api private
 func _cancel_subscription(
 	track_kind: StringName,
 	event_key: Variant,
@@ -971,6 +1096,9 @@ func _cancel_subscription(
 	_erase_listener_key_if_empty(track.listeners, event_key)
 
 
+## 将轨道标识映射到对应轨道；未知标识返回 null。
+## [br]
+## @api private
 func _get_track_by_kind(track_kind: StringName) -> EventListenerTrack:
 	match track_kind:
 		_TRACK_TYPE:
@@ -982,10 +1110,16 @@ func _get_track_by_kind(track_kind: StringName) -> EventListenerTrack:
 	return null
 
 
+## 返回简单轨道或类型轨道当前的派发嵌套层数。
+## [br]
+## @api private
 func _get_track_dispatch_depth(track_kind: StringName) -> int:
 	return _simple_dispatch_depth if track_kind == _TRACK_SIMPLE else _type_dispatch_depth
 
 
+## 一次性订阅在回调之前先停用令牌并排队移除，使嵌套派发不会再次执行该订阅。
+## [br]
+## @api private
 func _retire_once_subscription_before_dispatch(
 	track: EventListenerTrack,
 	event_key: Variant,
@@ -998,6 +1132,9 @@ func _retire_once_subscription_before_dispatch(
 	track.queue_subscription_remove(event_key, subscription_id)
 
 
+## 在指定事件键下按 Callable 与可选 owner ID 使匹配令牌失效；不直接删除监听记录，实际移除由调用流程完成。
+## [br]
+## @api private
 func _deactivate_matching_subscription_tokens(
 	track: EventListenerTrack,
 	event_key: Variant,
@@ -1017,6 +1154,9 @@ func _deactivate_matching_subscription_tokens(
 		_deactivate_subscription_token_from_entry(entry)
 
 
+## 遍历一个监听轨道并停用指定 owner ID 的全部令牌；保持监听表结构，供派发安全的移除流程使用。
+## [br]
+## @api private
 func _deactivate_owner_subscription_tokens(track: EventListenerTrack, owner_id: int) -> void:
 	for event_key: Variant in track.listeners.keys():
 		var listeners: Array = _get_registry_array(track.listeners, event_key)
@@ -1026,6 +1166,9 @@ func _deactivate_owner_subscription_tokens(track: EventListenerTrack, owner_id: 
 				_deactivate_subscription_token_from_entry(entry)
 
 
+## 读取条目的令牌弱引用并从事件源侧停用仍存活的订阅，避免执行令牌的取消回调造成递归注销。
+## [br]
+## @api private
 func _deactivate_subscription_token_from_entry(entry: Dictionary) -> void:
 	var subscription_token_ref: WeakRef = _get_subscription_token_ref(entry)
 	if subscription_token_ref == null:
@@ -1036,6 +1179,9 @@ func _deactivate_subscription_token_from_entry(entry: Dictionary) -> void:
 		var _deactivated: bool = subscription_token._deactivate_from_source()
 
 
+## 从监听条目读取 WeakRef 类型的订阅句柄引用。
+## [br]
+## @api private
 func _get_subscription_token_ref(entry: Dictionary) -> WeakRef:
 	var token_ref_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
 		entry,
@@ -1047,19 +1193,31 @@ func _get_subscription_token_ref(entry: Dictionary) -> WeakRef:
 	return null
 
 
+## 从监听条目读取订阅身份；缺失或不可转为整数时使用 0。
+## [br]
+## @api private
 func _entry_subscription_id(entry: Dictionary) -> int:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry, "subscription_id", 0)
 
 
+## 从监听条目读取 once 标志，缺失时为 false。
+## [br]
+## @api private
 func _entry_is_once(entry: Dictionary) -> bool:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "once", false)
 
 
+## 判断条目是否属于待移除列表中的非零 owner ID。
+## [br]
+## @api private
 func _is_pending_owner_remove(entry: Dictionary, pending_owner_ids: Array[int]) -> bool:
 	var owner_id: int = _entry_owner_id(entry)
 	return owner_id != 0 and pending_owner_ids.has(owner_id)
 
 
+## 按优先级降序、注册序号升序插入类型监听并失效相关派发缓存；旧式零 ID 监听按 Callable 与 owner 去重，独立订阅不去重。
+## [br]
+## @api private
 func _add_listener_entry(
 	registry: Dictionary,
 	event_type: Script,
@@ -1107,6 +1265,9 @@ func _add_listener_entry(
 	_invalidate_type_dispatch_cache_for_event(event_type, assignable)
 
 
+## 按注册顺序追加简单事件监听；仅旧式零 ID 监听按 Callable 与 owner 去重，条目弱持有 owner 和订阅令牌。
+## [br]
+## @api private
 func _add_simple_listener_entry(
 	event_id: StringName,
 	on_event: Callable,
@@ -1136,6 +1297,9 @@ func _add_simple_listener_entry(
 	})
 
 
+## 合并精确类型及可赋值基类监听的浅拷贝，按优先级和注册序号排序后缓存；条目附带原始轨道信息供派发期间注销。
+## [br]
+## @api private
 func _get_type_dispatch_entries(event_type: Script) -> Array[Dictionary]:
 	if _type_dispatch_cache.has(event_type):
 		return _get_registry_array(_type_dispatch_cache, event_type)
@@ -1170,6 +1334,9 @@ func _get_type_dispatch_entries(event_type: Script) -> Array[Dictionary]:
 	return result
 
 
+## 逐项过滤待移除、无效 owner 或 Callable，回调前退役一次性订阅；清空请求、事件释放或被消费时结束当前派发。
+## [br]
+## @api private
 func _dispatch_type_listener_entries(event_instance: Object, listeners: Array[Dictionary]) -> void:
 	for entry: Dictionary in listeners:
 		if _clear_requested_type:
@@ -1209,6 +1376,9 @@ func _dispatch_type_listener_entries(event_instance: Object, listeners: Array[Di
 			break
 
 
+## 仅当事件具有布尔类型的 is_consumed 属性且值为 true 时返回 true。
+## [br]
+## @api private
 func _event_is_consumed(event_instance: Object) -> bool:
 	if event_instance == null or not is_instance_valid(event_instance):
 		return false
@@ -1225,6 +1395,9 @@ func _event_is_consumed(event_instance: Object) -> bool:
 	return false
 
 
+## 将按类型轨道选择的事件监听移除请求写入对应轨道队列。
+## [br]
+## @api private
 func _append_pending_type_remove(
 	event_type: Script,
 	callback: Callable,
@@ -1235,15 +1408,24 @@ func _append_pending_type_remove(
 	_get_type_track(assignable).queue_remove(event_type, callback, owner_id, owner_filter_enabled)
 
 
+## 判断正数嵌套上限是否已被当前总派发深度达到。
+## [br]
+## @api private
 func _would_exceed_dispatch_depth() -> bool:
 	return max_dispatch_depth > 0 and _dispatch_depth >= max_dispatch_depth
 
 
+## 报告指定轨道达到嵌套深度限制的错误。
+## [br]
+## @api private
 func _report_dispatch_depth_exceeded(track: String, event_key: String) -> void:
 	var key_suffix: String = ": %s" % event_key if not event_key.is_empty() else ""
 	push_error("[GFTypeEventSystem][type_event_system.dispatch_depth_exceeded] %s event dispatch exceeded the maximum nesting depth of %d%s." % [track, max_dispatch_depth, key_suffix])
 
 
+## 在追踪启用且容量为正时追加派发摘要，再修剪超出的旧条目。
+## [br]
+## @api private
 func _record_dispatch_trace(track: String, event_key: String, listener_count: int, depth: int) -> void:
 	if not trace_enabled:
 		return
@@ -1262,6 +1444,9 @@ func _record_dispatch_trace(track: String, event_key: String, listener_count: in
 	_trim_dispatch_trace()
 
 
+## 清空禁用的追踪列表，或删除超出配置容量的最旧记录。
+## [br]
+## @api private
 func _trim_dispatch_trace() -> void:
 	if max_trace_entries <= 0:
 		_dispatch_trace.clear()
@@ -1277,6 +1462,9 @@ func _trim_dispatch_trace() -> void:
 	_dispatch_trace = kept_trace
 
 
+## 通过缓存的继承链判断脚本是否等于或派生自指定基类。
+## [br]
+## @api private
 func _script_extends_or_equals(script_cls: Script, base_script: Script) -> bool:
 	if script_cls == null or base_script == null:
 		return false
@@ -1285,6 +1473,9 @@ func _script_extends_or_equals(script_cls: Script, base_script: Script) -> bool:
 	return ancestry.has(base_script)
 
 
+## 按脚本引用缓存继承链集合，供可赋值事件匹配复用；返回缓存本身，不向调用方提供独立副本。
+## [br]
+## @api private
 func _get_script_ancestry(script_cls: Script) -> Dictionary:
 	if _script_ancestry_cache.has(script_cls):
 		return _get_registry_dictionary(_script_ancestry_cache, script_cls)
@@ -1296,6 +1487,9 @@ func _get_script_ancestry(script_cls: Script) -> Dictionary:
 	return ancestry
 
 
+## 将脚本类型监听表汇总为可读名称到条目数的字典。
+## [br]
+## @api private
 func _collect_listener_stats(registry: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for event_type: Script in registry.keys():
@@ -1303,6 +1497,9 @@ func _collect_listener_stats(registry: Dictionary) -> Dictionary:
 	return result
 
 
+## 将简单事件监听表汇总为事件名到条目数的字典。
+## [br]
+## @api private
 func _collect_simple_listener_stats() -> Dictionary:
 	var result: Dictionary = {}
 	for event_id: StringName in _simple_event_listeners.keys():
@@ -1310,6 +1507,9 @@ func _collect_simple_listener_stats() -> Dictionary:
 	return result
 
 
+## 汇总轨道键数、监听数、失效项和暂存操作数，可选附带逐项摘要。
+## [br]
+## @api private
 func _collect_track_diagnostics(track_name: String, track: EventListenerTrack, include_entries: bool) -> Dictionary:
 	var key_count: int = 0
 	var listener_count: int = 0
@@ -1344,6 +1544,9 @@ func _collect_track_diagnostics(track_name: String, track: EventListenerTrack, i
 	return result
 
 
+## 从监听条目抽取 owner、callback、优先级、顺序与订阅状态字段。
+## [br]
+## @api private
 func _make_listener_diagnostic_entry(
 	track_name: String,
 	key: Variant,
@@ -1367,6 +1570,9 @@ func _make_listener_diagnostic_entry(
 	}
 
 
+## 将 Script 或 StringName 轨道键格式化为诊断文本。
+## [br]
+## @api private
 func _track_key_debug_string(key: Variant) -> String:
 	if key is Script:
 		var script_cls: Script = key
@@ -1377,6 +1583,9 @@ func _track_key_debug_string(key: Variant) -> String:
 	return _GF_VARIANT_ACCESS_SCRIPT.to_text(key)
 
 
+## 优先使用全局类名，其次资源路径，最后使用 Script 实例 ID。
+## [br]
+## @api private
 func _script_debug_key(script_cls: Script) -> String:
 	if script_cls == null:
 		return ""
@@ -1388,20 +1597,32 @@ func _script_debug_key(script_cls: Script) -> String:
 	return "Script:%d" % script_cls.get_instance_id()
 
 
+## 将轨道键收窄为 Script；不匹配时返回 null。
+## [br]
+## @api private
 func _event_type_from_key(key: Variant) -> Script:
 	return _variant_to_script(key)
 
 
+## 仅当 Variant 已是 Script 时返回该值，否则返回 null。
+## [br]
+## @api private
 func _variant_to_script(value: Variant) -> Script:
 	if value is Script:
 		return value
 	return null
 
 
+## 从字典安全读取选项并将结果收窄为 Script。
+## [br]
+## @api private
 func _get_script_option(source: Dictionary, key: Variant) -> Script:
 	return _variant_to_script(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(source, key))
 
 
+## 从字典安全读取选项并将结果收窄为 Callable。
+## [br]
+## @api private
 func _get_callable_option(source: Dictionary, key: Variant) -> Callable:
 	var value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(source, key, Callable())
 	if value is Callable:
@@ -1410,14 +1631,23 @@ func _get_callable_option(source: Dictionary, key: Variant) -> Callable:
 	return Callable()
 
 
+## 安全读取注册表字段并将值收窄为 Dictionary。
+## [br]
+## @api private
 func _get_registry_dictionary(registry: Dictionary, key: Variant) -> Dictionary:
 	return _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(registry, key, {}))
 
 
+## 安全读取注册表字段并将值收窄为 Array。
+## [br]
+## @api private
 func _get_registry_array(registry: Dictionary, key: Variant) -> Array:
 	return _GF_VARIANT_ACCESS_SCRIPT.as_array(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(registry, key, []))
 
 
+## 依次结算精确与可赋值轨道的单项移除、owner 移除和新增，确保派发期积累的删除先于新增生效。
+## [br]
+## @api private
 func _flush_type_pending() -> void:
 	_flush_listener_track_removes(_type_track, false)
 	_flush_listener_track_removes(_assignable_type_track, true)
@@ -1427,12 +1657,18 @@ func _flush_type_pending() -> void:
 	_flush_type_track_adds(_assignable_type_track, true)
 
 
+## 在简单事件派发结束后先结算单项与 owner 移除，再添加延迟监听。
+## [br]
+## @api private
 func _flush_simple_pending() -> void:
 	_flush_listener_track_removes(_simple_track, false)
 	_flush_listener_track_owner_removes(_simple_track, false)
 	_flush_simple_track_adds()
 
 
+## 按订阅 ID 或 Callable 与 owner 条件落实待移除队列，清理空事件键并失效类型缓存，最后清空队列。
+## [br]
+## @api private
 func _flush_listener_track_removes(track: EventListenerTrack, assignable: bool) -> void:
 	for pending: Dictionary in track.pending_removes:
 		var key: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(pending, track.key_field)
@@ -1460,12 +1696,18 @@ func _flush_listener_track_removes(track: EventListenerTrack, assignable: bool) 
 	track.pending_removes.clear()
 
 
+## 逐个 owner ID 清理本轨道已登记监听，再清空待移除 owner 集合。
+## [br]
+## @api private
 func _flush_listener_track_owner_removes(track: EventListenerTrack, assignable: bool) -> void:
 	for owner_id: int in track.pending_owner_removes:
 		_remove_owner_from_listener_track(track, owner_id, assignable)
 	track.pending_owner_removes.clear()
 
 
+## 将延迟类型监听移入排序注册表，期间 owner 已释放或事件脚本无效的项只停用令牌；全部处理后清空待添加队列。
+## [br]
+## @api private
 func _flush_type_track_adds(track: EventListenerTrack, assignable: bool) -> void:
 	for pending: Dictionary in track.pending_adds:
 		var owner_ref: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(pending, "owner_ref")
@@ -1492,6 +1734,9 @@ func _flush_type_track_adds(track: EventListenerTrack, assignable: bool) -> void
 	track.pending_adds.clear()
 
 
+## 将延迟简单监听按记录顺序追加，owner 已释放或事件 ID 为空时停用令牌并跳过，随后清空待添加队列。
+## [br]
+## @api private
 func _flush_simple_track_adds() -> void:
 	for pending: Dictionary in _simple_track.pending_adds:
 		var owner_ref: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(pending, "owner_ref")
@@ -1515,18 +1760,30 @@ func _flush_simple_track_adds() -> void:
 	_simple_track.pending_adds.clear()
 
 
+## 从普通脚本类型轨道移除指定 owner 的监听。
+## [br]
+## @api private
 func _remove_owner_from_type_listeners(owner_id: int) -> void:
 	_remove_owner_from_listener_track(_type_track, owner_id, false)
 
 
+## 从可赋值脚本类型轨道移除指定 owner 的监听。
+## [br]
+## @api private
 func _remove_owner_from_assignable_type_listeners(owner_id: int) -> void:
 	_remove_owner_from_listener_track(_assignable_type_track, owner_id, true)
 
 
+## 从简单事件轨道移除指定 owner 的监听。
+## [br]
+## @api private
 func _remove_owner_from_simple_listeners(owner_id: int) -> void:
 	_remove_owner_from_listener_track(_simple_track, owner_id, false)
 
 
+## 按事件键清除指定 owner 的监听及令牌，再删除空键；类型轨道同时更新受影响的派发缓存。
+## [br]
+## @api private
 func _remove_owner_from_listener_track(track: EventListenerTrack, owner_id: int, assignable: bool) -> void:
 	for key: Variant in track.listeners.keys():
 		var listeners: Array = _get_registry_array(track.listeners, key)
@@ -1534,6 +1791,9 @@ func _remove_owner_from_listener_track(track: EventListenerTrack, owner_id: int,
 		_erase_listener_key_if_empty(track.listeners, key)
 
 
+## 逆序删除匹配 Callable 及可选 owner ID 的全部条目，先停用订阅令牌；实际删除类型监听时失效相关缓存。
+## [br]
+## @api private
 func _remove_entry_by_callable(
 	listeners: Array,
 	on_event: Callable,
@@ -1553,6 +1813,9 @@ func _remove_entry_by_callable(
 		_invalidate_type_dispatch_cache_for_event(event_type, assignable)
 
 
+## 逆序寻找非零订阅 ID，停用令牌并移除首个匹配条目；类型监听同时失效缓存，依赖订阅 ID 的唯一性。
+## [br]
+## @api private
 func _remove_entry_by_subscription_id(
 	listeners: Array,
 	subscription_id: int,
@@ -1572,6 +1835,9 @@ func _remove_entry_by_subscription_id(
 		return
 
 
+## 逆序删除存储 owner ID 匹配的全部监听并停用令牌，存在类型删除时一次性失效相关派发缓存。
+## [br]
+## @api private
 func _remove_entries_by_owner_id(
 	listeners: Array,
 	owner_id: int,
@@ -1589,6 +1855,9 @@ func _remove_entries_by_owner_id(
 		_invalidate_type_dispatch_cache_for_event(event_type, assignable)
 
 
+## 当注册表中的监听数组为空时移除对应键。
+## [br]
+## @api private
 func _erase_listener_key_if_empty(registry: Dictionary, key: Variant) -> void:
 	if not registry.has(key):
 		return
@@ -1597,16 +1866,25 @@ func _erase_listener_key_if_empty(registry: Dictionary, key: Variant) -> void:
 		var _erase_result_818: Variant = registry.erase(key)
 
 
+## 仅将原本附带 owner 引用且已无法解析为存活对象的条目标记为释放；无 owner 的监听保持有效。
+## [br]
+## @api private
 func _entry_owner_is_released(entry: Dictionary) -> bool:
 	var owner_ref: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "owner_ref")
 	return owner_ref != null and _owner_from_ref(owner_ref) == null
 
 
+## 检查条目中的 Callable 有效且其目标对象未释放。
+## [br]
+## @api private
 func _entry_callable_is_valid(entry: Dictionary) -> bool:
 	var callback: Callable = _get_callable_option(entry, "callable")
 	return callback.is_valid() and (callback.get_object() == null or is_instance_valid(callback.get_object()))
 
 
+## 优先读取登记时的非零 owner ID，缺失时才从弱引用恢复；对象释放后仍可用已保存 ID 执行注销。
+## [br]
+## @api private
 func _entry_owner_id(entry: Dictionary) -> int:
 	var stored_owner_id: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry, "owner_id", 0)
 	if stored_owner_id != 0:
@@ -1614,22 +1892,34 @@ func _entry_owner_id(entry: Dictionary) -> int:
 	return _owner_id_from_ref(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "owner_ref"))
 
 
+## 从暂存操作读取 owner_id，缺失或不可转为整数时使用 0。
+## [br]
+## @api private
 func _get_pending_owner_id(pending: Dictionary) -> int:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(pending, "owner_id", 0)
 
 
+## 为仍有效的 owner 创建 WeakRef；null 或已释放对象返回 null。
+## [br]
+## @api private
 func _make_owner_ref(owner: Object) -> WeakRef:
 	if owner == null or not is_instance_valid(owner):
 		return null
 	return weakref(owner)
 
 
+## 返回有效 owner 的实例 ID；null 或已释放对象返回 0。
+## [br]
+## @api private
 func _owner_instance_id(owner: Object) -> int:
 	if owner == null or not is_instance_valid(owner):
 		return 0
 	return owner.get_instance_id()
 
 
+## 从 WeakRef 读取仍有效的 Object；其他值或失效引用返回 null。
+## [br]
+## @api private
 func _owner_from_ref(owner_ref_variant: Variant) -> Object:
 	if not (owner_ref_variant is WeakRef):
 		return null
@@ -1637,6 +1927,9 @@ func _owner_from_ref(owner_ref_variant: Variant) -> Object:
 	return _INSTANCE_GUARD._get_live_object_from_ref(owner_ref)
 
 
+## 从 owner 弱引用读取实例 ID；无有效目标时返回 0。
+## [br]
+## @api private
 func _owner_id_from_ref(owner_ref_variant: Variant) -> int:
 	var owner: Object = _owner_from_ref(owner_ref_variant)
 	if owner == null:
@@ -1644,6 +1937,9 @@ func _owner_id_from_ref(owner_ref_variant: Variant) -> int:
 	return owner.get_instance_id()
 
 
+## 仅匹配旧式零订阅 ID 条目，要求 Callable 与 owner ID 一致；独立令牌订阅不会被旧注册去重逻辑合并。
+## [br]
+## @api private
 func _listener_entry_matches(entry: Dictionary, on_event: Callable, owner: Object) -> bool:
 	if _entry_subscription_id(entry) != 0:
 		return false
@@ -1655,22 +1951,34 @@ func _listener_entry_matches(entry: Dictionary, on_event: Callable, owner: Objec
 	return _entry_owner_id(entry) == owner_id
 
 
+## 递增并返回监听器注册顺序计数器。
+## [br]
+## @api private
 func _next_listener_order() -> int:
 	_listener_order_counter += 1
 	return _listener_order_counter
 
 
+## 递增并返回可取消订阅身份计数器。
+## [br]
+## @api private
 func _next_subscription_id() -> int:
 	_subscription_id_counter += 1
 	return _subscription_id_counter
 
 
+## 读取暂存记录中的 order；缺失时分配新的注册顺序。
+## [br]
+## @api private
 func _pending_listener_order(pending: Dictionary) -> int:
 	if pending.has("order"):
 		return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(pending, "order", 0)
 	return _next_listener_order()
 
 
+## 拒绝空 listener，并转发其余参数签名校验。
+## [br]
+## @api private
 func _validate_listener(
 	listener: GFEventListener,
 	dispatch_argument_count: int,
@@ -1683,6 +1991,9 @@ func _validate_listener(
 	return listener.validate_for_dispatch(dispatch_argument_count, callback_label, arg_label)
 
 
+## 验证 owner 非空且实例仍有效；失败时按 operation 报错。
+## [br]
+## @api private
 func _validate_live_owner(owner: Object, operation: String) -> bool:
 	if owner != null and is_instance_valid(owner):
 		return true
@@ -1690,12 +2001,18 @@ func _validate_live_owner(owner: Object, operation: String) -> bool:
 	return false
 
 
+## 从非空 listener 取得 callback；listener 为空时返回无效 Callable。
+## [br]
+## @api private
 func _get_listener_callback(listener: GFEventListener) -> Callable:
 	if listener == null:
 		return Callable()
 	return listener.get_callback()
 
 
+## 验证简单事件 ID 非空；失败时按 operation 报错。
+## [br]
+## @api private
 func _validate_simple_event_id(event_id: StringName, operation: String) -> bool:
 	if event_id != &"":
 		return true
@@ -1703,6 +2020,9 @@ func _validate_simple_event_id(event_id: StringName, operation: String) -> bool:
 	return false
 
 
+## 精确监听仅清除对应事件缓存，可赋值监听清除所有派生事件缓存；空事件类型退回全量失效。
+## [br]
+## @api private
 func _invalidate_type_dispatch_cache_for_event(event_type: Script, assignable: bool) -> void:
 	if event_type == null:
 		_invalidate_type_dispatch_cache()
@@ -1718,10 +2038,16 @@ func _invalidate_type_dispatch_cache_for_event(event_type: Script, assignable: b
 			var _erase_result_944: Variant = _type_dispatch_cache.erase(cached_event_type)
 
 
+## 清空按事件脚本缓存的派发条目。
+## [br]
+## @api private
 func _invalidate_type_dispatch_cache() -> void:
 	_type_dispatch_cache.clear()
 
 
+## 统计并退役已释放 owner 的条目；派发中排队移除，空闲时直接删除、清理空键并更新类型缓存。
+## [br]
+## @api private
 func _compact_released_owner_entries(track: EventListenerTrack, assignable: bool, defer_remove: bool) -> int:
 	var compacted_count: int = 0
 	for key: Variant in track.listeners.keys():
@@ -1753,6 +2079,8 @@ func _compact_released_owner_entries(track: EventListenerTrack, assignable: bool
 ## [br]
 ## @layer kernel/core
 class EventListenerTrack:
+	# --- 公共变量 ---
+
 	## 监听器字典使用的键字段名。
 	## [br]
 	## @api framework_internal
@@ -1784,8 +2112,15 @@ class EventListenerTrack:
 	## @api framework_internal
 	var pending_owner_removes: Array[int] = []
 
+	# --- Godot 生命周期方法 ---
+	## 保存本轨道延迟记录所用的事件键字段名，类型轨道使用 event_type，简单轨道使用 event_id。
+	## [br]
+	## @api private
 	func _init(p_key_field: StringName) -> void:
 		key_field = p_key_field
+
+
+	# --- 框架内部方法 ---
 
 	## 暂存派发中的监听注册。
 	## [br]
@@ -1834,6 +2169,7 @@ class EventListenerTrack:
 		pending[key_field] = key
 		pending_adds.append(pending)
 
+
 	## 暂存派发中的监听注销。
 	## [br]
 	## @api framework_internal
@@ -1861,6 +2197,7 @@ class EventListenerTrack:
 		pending[key_field] = key
 		pending_removes.append(pending)
 
+
 	## 暂存按稳定身份注销订阅。
 	## [br]
 	## @api framework_internal
@@ -1880,6 +2217,7 @@ class EventListenerTrack:
 		}
 		pending[key_field] = key
 		pending_removes.append(pending)
+
 
 	## 移除同一派发周期内尚未落地的注册。
 	## [br]
@@ -1916,6 +2254,7 @@ class EventListenerTrack:
 				_deactivate_entry_subscription(pending)
 				pending_adds.remove_at(i)
 
+
 	## 按稳定身份移除同一派发周期内尚未落地的订阅。
 	## [br]
 	## @api framework_internal
@@ -1937,6 +2276,7 @@ class EventListenerTrack:
 			return true
 		return false
 
+
 	## 移除指定 owner 在同一派发周期内尚未落地的注册。
 	## [br]
 	## @api framework_internal
@@ -1952,6 +2292,7 @@ class EventListenerTrack:
 			if pending_owner_id == owner_id:
 				_deactivate_entry_subscription(pending)
 				pending_adds.remove_at(i)
+
 
 	## 查询指定监听是否已暂存注销。
 	## [br]
@@ -1993,6 +2334,7 @@ class EventListenerTrack:
 				return true
 		return false
 
+
 	## 查询指定稳定身份是否已暂存注销。
 	## [br]
 	## @api framework_internal
@@ -2018,17 +2360,6 @@ class EventListenerTrack:
 				return true
 		return false
 
-	func _get_owner_id_from_pending(pending: Dictionary) -> int:
-		if not pending.has("owner_id"):
-			return 0
-		var owner_id_value: Variant = pending["owner_id"]
-		if owner_id_value is int:
-			var owner_id: int = owner_id_value
-			return owner_id
-		if owner_id_value is float:
-			var owner_id_float: float = owner_id_value
-			return int(owner_id_float)
-		return 0
 
 	## 暂存 owner 注销，重复 owner 只记录一次。
 	## [br]
@@ -2038,6 +2369,7 @@ class EventListenerTrack:
 	func append_unique_owner_remove(owner_id: int) -> void:
 		if not pending_owner_removes.has(owner_id):
 			pending_owner_removes.append(owner_id)
+
 
 	## 清空已落地监听器和所有暂存操作。
 	## [br]
@@ -2055,6 +2387,7 @@ class EventListenerTrack:
 		listeners.clear()
 		clear_pending()
 
+
 	## 清空所有暂存操作。
 	## [br]
 	## @api framework_internal
@@ -2065,6 +2398,28 @@ class EventListenerTrack:
 		pending_removes.clear()
 		pending_owner_removes.clear()
 
+
+	# --- 私有/辅助方法 ---
+
+	## 从延迟操作记录读取 owner ID，兼容数值型浮点转整数；缺失或非数字值返回零。
+	## [br]
+	## @api private
+	func _get_owner_id_from_pending(pending: Dictionary) -> int:
+		if not pending.has("owner_id"):
+			return 0
+		var owner_id_value: Variant = pending["owner_id"]
+		if owner_id_value is int:
+			var owner_id: int = owner_id_value
+			return owner_id
+		if owner_id_value is float:
+			var owner_id_float: float = owner_id_value
+			return int(owner_id_float)
+		return 0
+
+
+	## 从监听或延迟记录读取订阅 ID，兼容数值型浮点转整数；缺失或非数字值按旧式零 ID 处理。
+	## [br]
+	## @api private
 	func _get_subscription_id_from_entry(entry: Dictionary) -> int:
 		if not entry.has("subscription_id"):
 			return 0
@@ -2077,6 +2432,10 @@ class EventListenerTrack:
 			return int(subscription_id_float)
 		return 0
 
+
+	## 通过条目中的 WeakRef 停用仍存活的订阅令牌，不触发取消回调；缺少引用或类型不符时忽略。
+	## [br]
+	## @api private
 	func _deactivate_entry_subscription(entry: Dictionary) -> void:
 		if not entry.has("subscription_token_ref"):
 			return

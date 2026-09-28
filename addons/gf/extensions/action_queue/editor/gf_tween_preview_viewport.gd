@@ -20,23 +20,77 @@ signal state_changed
 
 # --- 常量 ---
 
+## 预览子视口的固定尺寸。
+## [br]
+## @api private
 const _PREVIEW_SIZE: Vector2i = Vector2i(480, 320)
+
+## 二维和三维样机共用的显示颜色。
+## [br]
+## @api private
 const _SAMPLE_COLOR: Color = Color(0.35, 0.72, 1.0)
+
+## 读取冻结步骤字典中的可选字段。
+## [br]
+## @api private
 const _VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
 # --- 私有变量 ---
 
+## 当前配置资源；开始新播放时由计划对象捕获其快照。
+## [br]
+## @api private
 var _config: Resource = null
+
+## 当前样机类型：二维、UI 或三维。
+## [br]
+## @api private
 var _target_kind: int = 0
+
+## 当前独立样机场景的根节点。
+## [br]
+## @api private
 var _sample_root: Node = null
+
+## 接受 Tween 属性变化的样机目标节点。
+## [br]
+## @api private
 var _target: Node = null
+
+## 当前样机属性的可编辑初值。
+## [br]
+## @api private
 var _initial_values: Dictionary = {}
+
+## 当前手动推进的原生 Tween 实例。
+## [br]
+## @api private
 var _tween: Tween = null
+
+## 当前播放或定位会话使用的冻结预览计划。
+## [br]
+## @api private
 var _plan: GFTweenPreviewPlan = null
+
+## 当前会话已经播放或定位到的秒数。
+## [br]
+## @api private
 var _elapsed_seconds: float = 0.0
+
+## 当前计划正常完成后是否恢复到样机初值。
+## [br]
+## @api private
 var _restore_on_finish: bool = false
+
+## 当前播放状态标识。
+## [br]
+## @api private
 var _state: StringName = &"idle"
+
+## 最近一次操作失败时保存的错误说明。
+## [br]
+## @api private
 var _error: String = ""
 
 
@@ -332,6 +386,9 @@ func dispose_preview() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 按当前目标类型创建隔离的二维、UI 或三维样机。
+## [br]
+## @api private
 func _build_sample() -> void:
 	_sample_root = Node.new()
 	_sample_root.name = "PreviewSample"
@@ -370,6 +427,9 @@ func _build_sample() -> void:
 	_sample_root.add_child(_target)
 
 
+## 安排样机根节点释放并清除目标引用。
+## [br]
+## @api private
 func _release_sample() -> void:
 	if is_instance_valid(_sample_root):
 		_sample_root.queue_free()
@@ -377,18 +437,27 @@ func _release_sample() -> void:
 	_target = null
 
 
+## 终止当前有效 Tween 并清除实例引用。
+## [br]
+## @api private
 func _clear_tween() -> void:
 	if is_instance_valid(_tween):
 		_tween.kill()
 	_tween = null
 
 
+## 清除当前 Tween、冻结计划和已播放时间。
+## [br]
+## @api private
 func _clear_session() -> void:
 	_clear_tween()
 	_plan = null
 	_elapsed_seconds = 0.0
 
 
+## 检查视口和目标是否仍在场景树中且未排队释放。
+## [br]
+## @api private
 func _is_sample_available() -> bool:
 	return (
 		is_inside_tree() and not is_queued_for_deletion()
@@ -396,6 +465,9 @@ func _is_sample_available() -> bool:
 	)
 
 
+## 按冻结计划创建暂停状态的原生 Tween 和所有属性步骤。
+## [br]
+## @api private
 func _build_session_tween() -> bool:
 	_tween = create_tween()
 	_tween.pause()
@@ -421,12 +493,18 @@ func _build_session_tween() -> bool:
 	return true
 
 
+## 保存定位拒绝原因、发出状态变更信号并返回 false。
+## [br]
+## @api private
 func _reject_seek(message: String) -> bool:
 	_error = message
 	state_changed.emit()
 	return false
 
 
+## 将样机完整属性恢复为当前初值并请求渲染。
+## [br]
+## @api private
 func _restore_initial_values() -> void:
 	if not is_instance_valid(_target):
 		return
@@ -437,6 +515,9 @@ func _restore_initial_values() -> void:
 	_request_render()
 
 
+## 立即应用单个步骤目标值，并按步骤设置处理相对值。
+## [br]
+## @api private
 func _apply_instant_step(step: Dictionary) -> void:
 	var property_path: NodePath = _step_path(step)
 	var value: Variant = step.get("target_value")
@@ -445,6 +526,9 @@ func _apply_instant_step(step: Dictionary) -> void:
 	_target.set_indexed(property_path, value)
 
 
+## 为数值、向量或颜色叠加相对值；不兼容时返回目标值本身。
+## [br]
+## @api private
 func _relative_value(current: Variant, next: Variant) -> Variant:
 	if (current is int or current is float) and (next is int or next is float):
 		return _number_value(current) + _number_value(next)
@@ -463,6 +547,9 @@ func _relative_value(current: Variant, next: Variant) -> Variant:
 	return next
 
 
+## 完成播放、记录总时长，并按计划策略恢复初值和更新状态。
+## [br]
+## @api private
 func _finish_playback() -> void:
 	_clear_tween()
 	_elapsed_seconds = get_duration_seconds()
@@ -472,6 +559,9 @@ func _finish_playback() -> void:
 	_set_state(&"finished")
 
 
+## 终止会话、恢复初值并进入错误状态。
+## [br]
+## @api private
 func _fail(message: String) -> void:
 	_clear_session()
 	_restore_initial_values()
@@ -479,15 +569,24 @@ func _fail(message: String) -> void:
 	_set_state(&"error")
 
 
+## 保存播放状态并发出状态变更信号。
+## [br]
+## @api private
 func _set_state(state: StringName) -> void:
 	_state = state
 	state_changed.emit()
 
 
+## 请求子视口在下一次更新时渲染一帧。
+## [br]
+## @api private
 func _request_render() -> void:
 	render_target_update_mode = SubViewport.UPDATE_ONCE
 
 
+## 从冻结步骤读取属性路径；字段类型不匹配时返回空路径。
+## [br]
+## @api private
 func _step_path(step: Dictionary) -> NodePath:
 	var value: Variant = step.get("property_name")
 	if value is NodePath:
@@ -496,6 +595,9 @@ func _step_path(step: Dictionary) -> NodePath:
 	return NodePath()
 
 
+## 读取冻结步骤中的浮点字段；类型不匹配时返回零。
+## [br]
+## @api private
 func _step_float(step: Dictionary, key: String) -> float:
 	var value: Variant = step.get(key)
 	if value is float:
@@ -504,6 +606,9 @@ func _step_float(step: Dictionary, key: String) -> float:
 	return 0.0
 
 
+## 读取冻结步骤中的整数枚举字段；类型不匹配时返回零。
+## [br]
+## @api private
 func _step_int(step: Dictionary, key: String) -> int:
 	var value: Variant = step.get(key)
 	if value is int:
@@ -512,6 +617,9 @@ func _step_int(step: Dictionary, key: String) -> int:
 	return 0
 
 
+## 读取冻结步骤中的布尔字段；类型不匹配时返回 false。
+## [br]
+## @api private
 func _step_bool(step: Dictionary, key: String) -> bool:
 	var value: Variant = step.get(key)
 	if value is bool:
@@ -520,6 +628,9 @@ func _step_bool(step: Dictionary, key: String) -> bool:
 	return false
 
 
+## 将整数或浮点 Variant 转为浮点数；其他类型返回零。
+## [br]
+## @api private
 func _number_value(value: Variant) -> float:
 	if value is float:
 		var float_value: float = value
@@ -532,6 +643,9 @@ func _number_value(value: Variant) -> float:
 
 # --- 信号处理函数 ---
 
+## 尺寸变化时将样机画布原点移到子视口中心并请求渲染。
+## [br]
+## @api private
 func _on_size_changed() -> void:
 	if not is_inside_tree():
 		return

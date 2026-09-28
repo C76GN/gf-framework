@@ -16,6 +16,9 @@ const RESOURCE_PREVIEW_GENERATOR_PATH: String = "res://addons/gf/kernel/editor/g
 
 # --- 私有变量 ---
 
+## 保存已注册的预览生成器实例，供 cleanup(plugin) 从 EditorResourcePreview 移除。
+## [br]
+## @api private
 var _preview_generators: Array[EditorResourcePreviewGenerator] = []
 
 
@@ -56,6 +59,9 @@ func cleanup(plugin: EditorPlugin) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 创建指定预览生成器，加入 Godot 预览器并保存实例供清理。
+## [br]
+## @api private
 func _add_preview_generator(script_path: String, label: String) -> void:
 	var preview_generator: EditorResourcePreviewGenerator = _load_preview_generator(script_path, label)
 	if preview_generator == null:
@@ -66,6 +72,9 @@ func _add_preview_generator(script_path: String, label: String) -> void:
 	_preview_generators.append(preview_generator)
 
 
+## 加载并实例化预览生成器；脚本无效或实例类型不符时记录错误并返回 null。
+## [br]
+## @api private
 func _load_preview_generator(script_path: String, label: String) -> EditorResourcePreviewGenerator:
 	var preview_script: Script = _load_script(script_path)
 	if preview_script == null or not preview_script.can_instantiate():
@@ -80,6 +89,9 @@ func _load_preview_generator(script_path: String, label: String) -> EditorResour
 	return preview_generator
 
 
+## 加载路径对应的资源，仅在结果是 Script 时返回脚本。
+## [br]
+## @api private
 func _load_script(script_path: String) -> Script:
 	var resource: Resource = load(script_path)
 	if resource is Script:
@@ -88,6 +100,9 @@ func _load_script(script_path: String) -> Script:
 	return null
 
 
+## 调用脚本的 new()，并仅返回 EditorResourcePreviewGenerator 类型的实例。
+## [br]
+## @api private
 func _instantiate_preview_generator(script: Script) -> EditorResourcePreviewGenerator:
 	var instance: Variant = script.call("new")
 	if instance is EditorResourcePreviewGenerator:

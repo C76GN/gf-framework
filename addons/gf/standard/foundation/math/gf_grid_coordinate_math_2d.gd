@@ -14,6 +14,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 正交邻居枚举采用的右、左、下、上方向。
+## [br]
+## @api private
 const _ORTHOGONAL_DIRECTIONS: Array[Vector2i] = [
 	Vector2i.RIGHT,
 	Vector2i.LEFT,
@@ -21,6 +24,9 @@ const _ORTHOGONAL_DIRECTIONS: Array[Vector2i] = [
 	Vector2i.UP,
 ]
 
+## 对角邻居枚举采用的四个斜向方向。
+## [br]
+## @api private
 const _DIAGONAL_DIRECTIONS: Array[Vector2i] = [
 	Vector2i(1, 1),
 	Vector2i(1, -1),
@@ -28,7 +34,14 @@ const _DIAGONAL_DIRECTIONS: Array[Vector2i] = [
 	Vector2i(-1, -1),
 ]
 
+## Vector2i 坐标分量的最小 32 位有符号整数值。
+## [br]
+## @api private
 const _MIN_VECTOR2I_COMPONENT: int = -2147483648
+
+## Vector2i 坐标分量的最大 32 位有符号整数值。
+## [br]
+## @api private
 const _MAX_VECTOR2I_COMPONENT: int = 2147483647
 
 
@@ -529,12 +542,18 @@ static func flood_fill(
 
 # --- 私有/辅助方法 ---
 
+## 任一网格轴为负时视为未指定边界，否则委托标准网格范围检查。
+## [br]
+## @api private
 static func _is_in_optional_bounds(cell: Vector2i, grid_size: Vector2i) -> bool:
 	if grid_size.x < 0 or grid_size.y < 0:
 		return true
 	return is_in_bounds(cell, grid_size)
 
 
+## 返回半径查询在单轴上的裁剪闭区间；无交集或有效范围为空时返回空数组。
+## [br]
+## @api private
 static func _get_query_axis_span(center: int, radius: int, grid_extent: int) -> Array[int]:
 	var minimum: int = _MIN_VECTOR2I_COMPONENT
 	var maximum: int = _MAX_VECTOR2I_COMPONENT
@@ -558,6 +577,9 @@ static func _get_query_axis_span(center: int, radius: int, grid_extent: int) -> 
 	return [query_minimum, query_maximum]
 
 
+## 将窗口形状别名归一为 circle、square 或 diamond，未知值归为 circle。
+## [br]
+## @api private
 static func _normalize_chunk_window_shape(shape: StringName) -> StringName:
 	match shape:
 		&"circle", &"euclidean":
@@ -570,6 +592,9 @@ static func _normalize_chunk_window_shape(shape: StringName) -> StringName:
 			return &"circle"
 
 
+## 按方形、菱形或默认圆形度量检查偏移是否位于半径内。
+## [br]
+## @api private
 static func _is_chunk_window_cell_in_shape(delta: Vector2i, radius: int, shape: StringName) -> bool:
 	match shape:
 		&"square":
@@ -580,6 +605,9 @@ static func _is_chunk_window_cell_in_shape(delta: Vector2i, radius: int, shape: 
 			return delta.length_squared() <= radius * radius
 
 
+## 将 Vector2i 列表转为字典键集合，重复格子折叠为同一键。
+## [br]
+## @api private
 static func _make_vector2i_set(cells: Array[Vector2i]) -> Dictionary:
 	var result: Dictionary = {}
 	for cell: Vector2i in cells:
@@ -587,12 +615,18 @@ static func _make_vector2i_set(cells: Array[Vector2i]) -> Dictionary:
 	return result
 
 
+## 按对角选项返回 Chebyshev 距离或 Manhattan 距离。
+## [br]
+## @api private
 static func _get_grid_distance(from_cell: Vector2i, to_cell: Vector2i, include_diagonal: bool) -> int:
 	var dx: int = absi(to_cell.x - from_cell.x)
 	var dy: int = absi(to_cell.y - from_cell.y)
 	return maxi(dx, dy) if include_diagonal else dx + dy
 
 
+## 调用有效格子谓词并转换为 bool；无效回调或转换失败时使用 fallback。
+## [br]
+## @api private
 static func _call_cell_predicate(predicate: Callable, cell: Vector2i, fallback: bool = false) -> bool:
 	if not predicate.is_valid():
 		return fallback

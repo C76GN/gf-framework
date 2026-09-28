@@ -228,6 +228,9 @@ func describe() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 确定源输出端口和目标输入端口后检查方向、值类型和类提示。
+## [br]
+## @api private
 func _get_compatibility_report(target_port: GFFlowPort) -> Dictionary:
 	if target_port == null:
 		return _make_compatibility_report(self, null, false, "missing_target_port", "Target port is null.")
@@ -247,12 +250,18 @@ func _get_compatibility_report(target_port: GFFlowPort) -> Dictionary:
 
 	return _make_compatibility_report(source_port, input_port, true, "", "")
 
+## 值类型相同或至少一方为 ANY 时视为兼容。
+## [br]
+## @api private
 func _value_types_are_compatible(source_type: ValueType, target_type: ValueType) -> bool:
 	if source_type == ValueType.ANY or target_type == ValueType.ANY:
 		return true
 	return source_type == target_type
 
 
+## 对象端口的类提示缺省或相同时视为兼容。
+## [br]
+## @api private
 func _class_hints_are_compatible(source_port: GFFlowPort, target_port: GFFlowPort) -> bool:
 	if source_port.value_type != ValueType.OBJECT or target_port.value_type != ValueType.OBJECT:
 		return true
@@ -261,6 +270,9 @@ func _class_hints_are_compatible(source_port: GFFlowPort, target_port: GFFlowPor
 	return source_port.class_name_hint == target_port.class_name_hint
 
 
+## 构造端口兼容性结果及两端有效端口信息。
+## [br]
+## @api private
 func _make_compatibility_report(
 	source_port: GFFlowPort,
 	target_port: GFFlowPort,
@@ -279,6 +291,9 @@ func _make_compatibility_report(
 	}
 
 
+## 读取端口有效 ID。
+## [br]
+## @api private
 func _get_effective_port_id(port: GFFlowPort) -> StringName:
 	if port == null:
 		return &""
@@ -287,6 +302,9 @@ func _get_effective_port_id(port: GFFlowPort) -> StringName:
 	return &""
 
 
+## 读取有效显示名，缺省时回退到端口 ID、资源名或通用名称。
+## [br]
+## @api private
 func _get_effective_display_name(port: GFFlowPort, effective_port_id: StringName) -> String:
 	if port == null:
 		return "Flow Port"

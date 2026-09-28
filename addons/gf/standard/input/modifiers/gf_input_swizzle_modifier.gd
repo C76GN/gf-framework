@@ -76,6 +76,10 @@ func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction
 
 # --- 私有/辅助方法 ---
 
+## 按 SwizzleOrder 对 Vector3 的 x、y、z 分量重排；未列出的默认顺序保持原值。
+## [br]
+## @api private
+## [br]
 func _swizzle(value: Vector3) -> Vector3:
 	match order:
 		SwizzleOrder.XZY:

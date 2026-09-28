@@ -23,7 +23,16 @@ extends Resource
 
 # --- 私有变量 ---
 
+## 分层查询使用的标签前缀计数缓存。
+## [br]
+## @api private
+## [br]
 var _hierarchical_count_cache: Dictionary = {}
+
+## 用于检测 `tag_counts` 内容变化的排序签名缓存。
+## [br]
+## @api private
+## [br]
 var _tag_count_cache_signature: String = ""
 
 
@@ -207,6 +216,10 @@ static func from_dictionary(data: Dictionary) -> GFTagSet:
 
 # --- 私有/辅助方法 ---
 
+## 在标签计数签名变化时重建精确标签及其各级前缀的计数缓存。
+## [br]
+## @api private
+## [br]
 func _ensure_hierarchical_count_cache() -> void:
 	var signature: String = _make_tag_counts_signature()
 	if signature == _tag_count_cache_signature:
@@ -231,6 +244,10 @@ func _ensure_hierarchical_count_cache() -> void:
 	_tag_count_cache_signature = signature
 
 
+## 生成与字典键顺序无关的标签计数内容签名。
+## [br]
+## @api private
+## [br]
 func _make_tag_counts_signature() -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	for tag_variant: Variant in tag_counts.keys():
@@ -241,6 +258,10 @@ func _make_tag_counts_signature() -> String:
 	return "|".join(parts)
 
 
+## 清空分层计数缓存并使旧签名失效。
+## [br]
+## @api private
+## [br]
 func _invalidate_count_cache() -> void:
 	_hierarchical_count_cache.clear()
 	_tag_count_cache_signature = ""

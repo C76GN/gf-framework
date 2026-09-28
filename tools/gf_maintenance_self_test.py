@@ -5656,6 +5656,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"tests/gf_core/tools/test_gf_gut_sharding.py",
 			"tests/gf_core/tools/test_gf_gut_shard_worker.py",
 			"tests/gf_core/tools/test_build_gf_release_artifacts.py",
+			"tests/gf_core/tools/test_gf_private_docs_queries.py",
 		],
 		(
 			"Real POSIX watchdog and GUT shard protocol tests must stay in the existing "

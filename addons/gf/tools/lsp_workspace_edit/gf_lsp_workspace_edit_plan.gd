@@ -15,11 +15,40 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 标记计划是否已由适配器执行过首次初始化。
+## [br]
+## @api private
+## [br]
 var _initialized: bool = false
+
+## 初始化时写入的预检有效状态。
+## [br]
+## @api private
+## [br]
 var _valid: bool = false
+
+## 标记适配器是否已认领此计划进入一次性提交流程。
+## [br]
+## @api private
+## [br]
 var _consumed: bool = false
+
+## 有效计划绑定的完整载荷 SHA-256。
+## [br]
+## @api private
+## [br]
 var _plan_sha256: String = ""
+
+## 初始化时保存的公开计划报告。
+## [br]
+## @api private
+## [br]
 var _report: Dictionary = {}
+
+## 有效计划提交复核所需的内部载荷。
+## [br]
+## @api private
+## [br]
 var _payload: Dictionary = {}
 
 

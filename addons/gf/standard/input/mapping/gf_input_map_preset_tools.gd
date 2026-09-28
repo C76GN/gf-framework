@@ -23,6 +23,10 @@ extends RefCounted
 ## @since 6.0.0
 const PRESET_VERSION: int = 1
 
+## 预载输入事件工具脚本，用于事件记录恢复和类型收窄。
+## [br]
+## @api private
+## [br]
 const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_input_event_tools.gd")
 
 
@@ -227,6 +231,10 @@ static func ensure_input_map_preset(preset: Dictionary, options: Dictionary = {}
 
 # --- 私有/辅助方法 ---
 
+## 校验预设版本、动作选择、UI 过滤、deadzone 和事件记录，生成可应用动作计划并累计跳过数。
+## [br]
+## @api private
+## [br]
 static func _collect_preset_action_plans(
 	preset: Dictionary,
 	options: Dictionary,
@@ -293,6 +301,10 @@ static func _collect_preset_action_plans(
 	return plans
 
 
+## 启用补事件时收集无效性已排除且当前动作不存在或尚未绑定的事件。
+## [br]
+## @api private
+## [br]
 static func _collect_missing_events(
 	action_id: StringName,
 	events: Array,
@@ -312,6 +324,10 @@ static func _collect_missing_events(
 	return missing_events
 
 
+## 读取 InputMap 动作并返回非空 StringName 转成的文本列表。
+## [br]
+## @api private
+## [br]
 static func _get_all_input_map_actions() -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for action_value: Variant in InputMap.get_actions():
@@ -321,6 +337,10 @@ static func _get_all_input_map_actions() -> PackedStringArray:
 	return result
 
 
+## 把选项中的 PackedStringArray、Array 或单个文本动作 ID 归一为唯一字符串数组。
+## [br]
+## @api private
+## [br]
 static func _get_action_ids_from_options(options: Dictionary) -> PackedStringArray:
 	var raw_action_ids: Variant = GFVariantData.get_option_value(options, "action_ids")
 	var result: PackedStringArray = PackedStringArray()
@@ -337,12 +357,20 @@ static func _get_action_ids_from_options(options: Dictionary) -> PackedStringArr
 	return result
 
 
+## 仅将非空且尚未出现的动作 ID 文本追加到列表。
+## [br]
+## @api private
+## [br]
 static func _append_action_id(action_ids: PackedStringArray, action_id_text: String) -> void:
 	if action_id_text.is_empty() or action_ids.has(action_id_text):
 		return
 	var _append_result_209: bool = action_ids.append(action_id_text)
 
 
+## 把非空动作 ID 文本转成 StringName 键值查找表。
+## [br]
+## @api private
+## [br]
 static func _make_action_lookup(action_ids: PackedStringArray) -> Dictionary:
 	var result: Dictionary = {}
 	for action_id_string: String in action_ids:
@@ -352,10 +380,18 @@ static func _make_action_lookup(action_ids: PackedStringArray) -> Dictionary:
 	return result
 
 
+## 判断动作 ID 文本是否以 ui_ 开头。
+## [br]
+## @api private
+## [br]
 static func _is_ui_action(action_id: StringName) -> bool:
 	return String(action_id).begins_with("ui_")
 
 
+## 向问题数组追加含 action_id、kind 和 message 的记录。
+## [br]
+## @api private
+## [br]
 static func _append_issue(
 	issues: Array[Dictionary],
 	action_id: StringName,

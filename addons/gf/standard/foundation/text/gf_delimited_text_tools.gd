@@ -49,9 +49,28 @@ const ERROR_UNMATCHED_CLOSING: StringName = &"unmatched_closing"
 ## @since 8.0.0
 const ERROR_UNMATCHED_OPENING: StringName = &"unmatched_opening"
 
+## 默认扫描时识别的单引号与双引号字符。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_QUOTE_CHARS: String = "\"'"
+
+## 默认用于转义引号内容的反斜杠字符。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_ESCAPE_CHAR: String = "\\"
+
+## 字面量扫描模式使用的默认逗号分隔符。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_DELIMITER: String = ","
+
+## 默认识别的圆括号、方括号和花括号配对。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_PAIRS: Dictionary = {
 	"(": ")",
 	"[": "]",
@@ -130,6 +149,10 @@ static func split_top_level(text: String, delimiter: String = _DEFAULT_DELIMITER
 
 # --- 私有/辅助方法 ---
 
+## 扫描文本并收集引号及括号栈之外的分隔符位置与结构问题。
+## [br]
+## @api private
+## [br]
 static func _scan_top_level_delimiters(text: String, delimiter: String, options: Dictionary) -> Dictionary:
 	var mode: StringName = _resolve_delimiter_mode(options)
 	var effective_delimiter: String = "\\s" if mode == DELIMITER_MODE_WHITESPACE else delimiter
@@ -193,6 +216,10 @@ static func _scan_top_level_delimiters(text: String, delimiter: String, options:
 	return _make_scan_report(issues.is_empty(), _first_issue_kind(issues), mode, effective_delimiter, delimiter_spans, issues)
 
 
+## 按原始字符范围提取一段文本，可选择去边缘空白或跳过空段，并记录该段范围。
+## [br]
+## @api private
+## [br]
 static func _append_part(
 	text: String,
 	start_index: int,
@@ -213,6 +240,10 @@ static func _append_part(
 	part_spans.append(Vector2i(clamped_start, clamped_end))
 
 
+## 将选项中的模式归一为 whitespace 或默认 literal。
+## [br]
+## @api private
+## [br]
 static func _resolve_delimiter_mode(options: Dictionary) -> StringName:
 	var mode: StringName = GFVariantData.get_option_string_name(options, "delimiter_mode", DELIMITER_MODE_LITERAL)
 	if mode == DELIMITER_MODE_WHITESPACE:
@@ -220,6 +251,10 @@ static func _resolve_delimiter_mode(options: Dictionary) -> StringName:
 	return DELIMITER_MODE_LITERAL
 
 
+## 在给定字符位置匹配连续空白段或字面量分隔符，未匹配时返回空范围。
+## [br]
+## @api private
+## [br]
 static func _match_delimiter(text: String, index: int, delimiter: String, mode: StringName) -> Vector2i:
 	if mode == DELIMITER_MODE_WHITESPACE:
 		if not _is_whitespace(text.substr(index, 1)):
@@ -237,6 +272,10 @@ static func _match_delimiter(text: String, index: int, delimiter: String, mode: 
 	return Vector2i(index, index)
 
 
+## 把括号配置键和值转为首个字符，并忽略空配对。
+## [br]
+## @api private
+## [br]
 static func _normalize_pairs(raw_pairs: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for raw_key: Variant in raw_pairs.keys():
@@ -248,6 +287,10 @@ static func _normalize_pairs(raw_pairs: Dictionary) -> Dictionary:
 	return result
 
 
+## 从开启符到关闭符的配对表生成反向查找表。
+## [br]
+## @api private
+## [br]
 static func _make_closing_to_opening(pairs: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for raw_key: Variant in pairs.keys():
@@ -259,14 +302,26 @@ static func _make_closing_to_opening(pairs: Dictionary) -> Dictionary:
 	return result
 
 
+## 检查非空字符是否包含在配置的引号字符串中。
+## [br]
+## @api private
+## [br]
 static func _is_quote_character(character: String, quote_chars: String) -> bool:
 	return not character.is_empty() and quote_chars.find(character) >= 0
 
 
+## 识别空格、制表符、换行符和回车符。
+## [br]
+## @api private
+## [br]
 static func _is_whitespace(character: String) -> bool:
 	return character == " " or character == "\t" or character == "\n" or character == "\r"
 
 
+## 创建记录开启符、关闭符、起始索引及引号标志的扫描栈项。
+## [br]
+## @api private
+## [br]
 static func _make_stack_entry(open_text: String, close_text: String, index: int, is_quote: bool) -> Dictionary:
 	return {
 		"open": open_text,
@@ -276,6 +331,10 @@ static func _make_stack_entry(open_text: String, close_text: String, index: int,
 	}
 
 
+## 检查扫描栈顶项是否表示引号。
+## [br]
+## @api private
+## [br]
 static func _is_stack_top_quote(stack: Array[Dictionary]) -> bool:
 	if stack.is_empty():
 		return false
@@ -283,6 +342,10 @@ static func _is_stack_top_quote(stack: Array[Dictionary]) -> bool:
 	return GFVariantData.get_option_bool(entry, "is_quote", false)
 
 
+## 读取扫描栈顶项的关闭符；栈为空时返回空字符串。
+## [br]
+## @api private
+## [br]
 static func _stack_top_close(stack: Array[Dictionary]) -> String:
 	if stack.is_empty():
 		return ""
@@ -290,6 +353,10 @@ static func _stack_top_close(stack: Array[Dictionary]) -> String:
 	return GFVariantData.get_option_string(entry, "close")
 
 
+## 按扫描问题字段构造问题字典。
+## [br]
+## @api private
+## [br]
 static func _make_issue(
 	kind: StringName,
 	index: int,
@@ -306,6 +373,10 @@ static func _make_issue(
 	}
 
 
+## 按扫描状态、模式、分隔符位置和问题列表构造报告。
+## [br]
+## @api private
+## [br]
 static func _make_scan_report(
 	ok: bool,
 	error: StringName,
@@ -325,6 +396,10 @@ static func _make_scan_report(
 	}
 
 
+## 读取首个扫描问题的 kind；没有问题时返回空 StringName。
+## [br]
+## @api private
+## [br]
 static func _first_issue_kind(issues: Array[Dictionary]) -> StringName:
 	if issues.is_empty():
 		return &""
@@ -332,6 +407,10 @@ static func _first_issue_kind(issues: Array[Dictionary]) -> StringName:
 	return GFVariantData.get_option_string_name(first_issue, "kind")
 
 
+## 从 Variant 数组中筛出 Vector2i 范围并返回类型化数组。
+## [br]
+## @api private
+## [br]
 static func _to_vector2i_array(value: Variant) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
 	if not value is Array:

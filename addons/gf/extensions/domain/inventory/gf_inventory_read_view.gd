@@ -15,8 +15,19 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 当前同步规划步骤隔离出的候选槽位。
+## [br]
+## @api private
 var _candidate_slots: Array = []
+
+## 用于候选堆叠实例兼容性查询的注册表。
+## [br]
+## @api private
 var _registry: GFInventoryItemRegistry = null
+
+## 指示该临时视图是否仍可查询。
+## [br]
+## @api private
 var _active: bool = false
 
 
@@ -258,18 +269,27 @@ func invalidate_for_framework() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 在视图有效且索引存在时读取候选槽位并收窄为堆叠资源。
+## [br]
+## @api private
 func _get_stack_ref(slot_index: int) -> GFInventoryStack:
 	if not is_valid_slot(slot_index):
 		return null
 	return _get_stack_value(_candidate_slots[slot_index])
 
 
+## 使用注册表规范实例数据；未绑定注册表时返回深拷贝。
+## [br]
+## @api private
 func _normalize_instance_data(item_id: StringName, instance_data: Dictionary) -> Dictionary:
 	if _registry == null:
 		return instance_data.duplicate(true)
 	return _registry.normalize_instance_data(item_id, instance_data)
 
 
+## 将任意值收窄为 GFInventoryStack 实例，否则返回 null。
+## [br]
+## @api private
 static func _get_stack_value(value: Variant) -> GFInventoryStack:
 	if value is GFInventoryStack:
 		var stack: GFInventoryStack = value
@@ -277,5 +297,8 @@ static func _get_stack_value(value: Variant) -> GFInventoryStack:
 	return null
 
 
+## 将槽位索引追加到查询结果数组。
+## [br]
+## @api private
 static func _append_slot_index(target: PackedInt32Array, slot_index: int) -> void:
 	var _appended: bool = target.append(slot_index)

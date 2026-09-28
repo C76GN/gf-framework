@@ -56,7 +56,16 @@ var default_priority: Priority = Priority.NORMAL
 
 # --- 私有变量 ---
 
+## 保存上次采样的同步状态快照。
+## [br]
+## @api private
+## [br]
 var _baseline: Dictionary = {}
+
+## 按状态字段保存其变更同步优先级。
+## [br]
+## @api private
+## [br]
 var _priorities: Dictionary = {}
 
 
@@ -247,6 +256,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 将 Array、PackedInt32Array 或 PackedStringArray 归一为优先级成员集合。
+## [br]
+## @api private
+## [br]
 func _make_allowed_priority_lookup(values: Variant) -> Dictionary:
 	var result: Dictionary = {}
 	if values is Array:
@@ -264,6 +277,10 @@ func _make_allowed_priority_lookup(values: Variant) -> Dictionary:
 	return result
 
 
+## 查找 state 中以 StringName 或 String 形式保存的字段键。
+## [br]
+## @api private
+## [br]
 func _resolve_state_key(state: Dictionary, field_id: StringName) -> Variant:
 	if state.has(field_id):
 		return field_id
@@ -273,6 +290,10 @@ func _resolve_state_key(state: Dictionary, field_id: StringName) -> Variant:
 	return null
 
 
+## 先比较 Variant 类型，再对浮点、Vector2、Vector3 和 Color 按 epsilon 比较。
+## [br]
+## @api private
+## [br]
 func _values_equal(left: Variant, right: Variant) -> bool:
 	if left == null and right == null:
 		return true
@@ -302,6 +323,10 @@ func _values_equal(left: Variant, right: Variant) -> bool:
 	return left == right
 
 
+## 将同步优先级枚举转换为调试名称。
+## [br]
+## @api private
+## [br]
 func _priority_name(priority: Priority) -> String:
 	match priority:
 		Priority.REALTIME:
@@ -318,6 +343,10 @@ func _priority_name(priority: Priority) -> String:
 			return "normal"
 
 
+## 将优先级名称转换为枚举，未知名称回退到 NORMAL。
+## [br]
+## @api private
+## [br]
 func _priority_from_name(priority_name: String) -> int:
 	match priority_name.to_lower():
 		"realtime":

@@ -17,26 +17,92 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 用于创建 tick 缓存记录的脚本。
+## [br]
+## @api private
 const _GF_ARCHITECTURE_TICK_RECORD_SCRIPT = preload("res://addons/gf/kernel/core/gf_architecture_tick_record.gd")
+
+## 用于读取时间提供器和生命周期阶段字典的 Variant 工具脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## lifecycle READY 阶段的整数值。
+## [br]
+## @api private
 const _LIFECYCLE_STAGE_READY: int = 3
+
+## lifecycle ACTIVE 阶段的整数值。
+## [br]
+## @api private
 const _LIFECYCLE_STAGE_ACTIVE: int = 4
+
+## lifecycle tick delta 的最大秒数。
+## [br]
+## @api private
 const _MAX_LIFECYCLE_TICK_DELTA_SECONDS: float = 0.1
 
 
 # --- 私有变量 ---
 
+## configure 提供的 System 注册字典引用。
+## [br]
+## @api private
 var _systems: Dictionary = {}
+
+## configure 提供的 Utility 注册字典引用。
+## [br]
+## @api private
 var _utilities: Dictionary = {}
+
+## configure 提供的模块生命周期阶段字典引用。
+## [br]
+## @api private
 var _module_lifecycle_stages: Dictionary = {}
+
+## 按优先级排序的 System tick 记录。
+## [br]
+## @api private
 var _tick_systems: Array[GFArchitectureTickRecord] = []
+
+## 按优先级排序的 System physics_tick 记录。
+## [br]
+## @api private
 var _physics_systems: Array[GFArchitectureTickRecord] = []
+
+## 按优先级排序的 Utility tick 记录。
+## [br]
+## @api private
 var _tick_utilities: Array[GFArchitectureTickRecord] = []
+
+## 按优先级排序的 Utility physics_tick 记录。
+## [br]
+## @api private
 var _physics_utilities: Array[GFArchitectureTickRecord] = []
+
+## 合并 System 和 Utility 后的普通 tick 记录。
+## [br]
+## @api private
 var _tick_records: Array[GFArchitectureTickRecord] = []
+
+## 合并 System 和 Utility 后的 physics_tick 记录。
+## [br]
+## @api private
 var _physics_records: Array[GFArchitectureTickRecord] = []
+
+## 未提交到注册表、只参与 lifecycle tick 的候选记录映射。
+## [br]
+## @api private
 var _lifecycle_candidate_records: Dictionary = {}
+
+## 当前驱动 tick 的嵌套深度；非零时拒绝重入。
+## [br]
+## @api private
 var _drive_depth: int = 0
+
+## 驱动期间请求过缓存刷新时置为 true。
+## [br]
+## @api private
 var _tick_caches_dirty: bool = false
 
 
@@ -188,6 +254,7 @@ func drive_physics_tick(delta: float, time_provider: Object) -> void:
 	_drive_physics_tick(delta, time_provider)
 	_end_drive()
 
+
 ## 获取 tick 缓存诊断计数。
 ## [br]
 ## @api framework_internal
@@ -232,6 +299,9 @@ func get_module_debug_fields(instance: Object) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按时间提供器的 substep 策略驱动 physics_tick；否则使用单个缩放 delta。
+## [br]
+## @api private
 func _drive_physics_tick(delta: float, time_provider: Object) -> void:
 	if time_provider != null and _GF_VARIANT_ACCESS_SCRIPT.to_bool(time_provider.call("should_substep_physics", delta)):
 		var raw_scaled_steps: Variant = time_provider.call("get_physics_scaled_delta_steps", delta)
@@ -249,11 +319,17 @@ func _drive_physics_tick(delta: float, time_provider: Object) -> void:
 	_drive_physics_tick_step(delta, scaled_delta, time_provider)
 
 
+## 读取暂停状态，并用当前 raw/scaled delta 驱动物理记录。
+## [br]
+## @api private
 func _drive_physics_tick_step(raw_delta: float, scaled_delta: float, time_provider: Object) -> void:
 	var time_paused: bool = _is_time_paused(time_provider)
 	_drive_records(_physics_records, raw_delta, scaled_delta, time_paused)
 
 
+## 仅驱动当前已进入 ACTIVE 阶段且记录有效的普通或物理 tick 项。
+## [br]
+## @api private
 func _drive_records(
 	records: Array[GFArchitectureTickRecord],
 	raw_delta: float,
@@ -265,6 +341,9 @@ func _drive_records(
 			record.invoke(raw_delta, scaled_delta, time_paused)
 
 
+## 按事务允许实例集合推进有效且至少 READY 的缓存记录，raw 与 scaled delta 均使用传入值。
+## [br]
+## @api private
 func _drive_lifecycle_records(
 	records: Array[GFArchitectureTickRecord],
 	delta: float,
@@ -275,6 +354,9 @@ func _drive_lifecycle_records(
 			record.invoke(delta, delta, false)
 
 
+## 推进已登记的临时候选记录，并要求候选实例属于 allowed_instances 且已 READY。
+## [br]
+## @api private
 func _drive_lifecycle_candidate_records(
 	delta: float,
 	allowed_instances: Dictionary
@@ -287,6 +369,9 @@ func _drive_lifecycle_candidate_records(
 			record.invoke(delta, delta, false)
 
 
+## 拒绝嵌套驱动并警告；非重入时增加 drive depth 并返回 true。
+## [br]
+## @api private
 func _begin_drive() -> bool:
 	if _drive_depth > 0:
 		push_warning(
@@ -299,24 +384,36 @@ func _begin_drive() -> bool:
 	return true
 
 
+## 结束当前驱动深度；回到零时刷新驱动期间延迟的 tick 缓存。
+## [br]
+## @api private
 func _end_drive() -> void:
 	_drive_depth -= 1
 	if _drive_depth == 0:
 		_flush_tick_cache_refresh()
 
 
+## 没有 time provider 时返回原始 delta，否则读取其缩放结果并以原值作收窄回退。
+## [br]
+## @api private
 func _get_scaled_delta(delta: float, time_provider: Object) -> float:
 	if time_provider == null:
 		return delta
 	return _GF_VARIANT_ACCESS_SCRIPT.to_float(time_provider.call("get_scaled_delta", delta), delta)
 
 
+## 没有 time provider 时返回 false，否则读取并收窄其 is_time_paused() 结果。
+## [br]
+## @api private
 func _is_time_paused(time_provider: Object) -> bool:
 	if time_provider == null:
 		return false
 	return _GF_VARIANT_ACCESS_SCRIPT.to_bool(time_provider.call("is_time_paused"))
 
 
+## 从 System 和 Utility 注册表重建 tick/physics_tick 记录，再按优先级与顺序排序。
+## [br]
+## @api private
 func _rebuild_tick_caches() -> void:
 	_tick_systems.clear()
 	_physics_systems.clear()
@@ -384,11 +481,17 @@ func _rebuild_tick_caches() -> void:
 	_sort_tick_records_for_tick(_physics_utilities)
 
 
+## 缓存被标脏时执行一次完整重建。
+## [br]
+## @api private
 func _flush_tick_cache_refresh() -> void:
 	if _tick_caches_dirty:
 		_rebuild_tick_caches()
 
 
+## 按 priority 降序、order 升序原地排序记录数组。
+## [br]
+## @api private
 func _sort_tick_records_for_tick(records: Array[GFArchitectureTickRecord]) -> void:
 	records.sort_custom(func(left: GFArchitectureTickRecord, right: GFArchitectureTickRecord) -> bool:
 		if left.priority == right.priority:
@@ -397,12 +500,18 @@ func _sort_tick_records_for_tick(records: Array[GFArchitectureTickRecord]) -> vo
 	)
 
 
+## 记录有效且所属模块已到 ACTIVE 阶段时返回 true。
+## [br]
+## @api private
 func _is_tick_record_ready_for_tick(record: GFArchitectureTickRecord) -> bool:
 	if record == null or not record.is_valid_record():
 		return false
 	return _is_module_active_for_tick(record.module)
 
 
+## 记录有效、实例列入允许集合且模块已到 READY 阶段时返回 true。
+## [br]
+## @api private
 func _is_tick_record_ready_for_lifecycle_tick(
 	record: GFArchitectureTickRecord,
 	allowed_instances: Dictionary
@@ -414,6 +523,9 @@ func _is_tick_record_ready_for_lifecycle_tick(
 	return _is_module_ready_for_lifecycle_tick(record.module)
 
 
+## 实例记录的生命周期阶段不低于 ACTIVE 阶段时返回 true。
+## [br]
+## @api private
 func _is_module_active_for_tick(instance: Object) -> bool:
 	return (
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(_module_lifecycle_stages, instance, 0)
@@ -421,6 +533,9 @@ func _is_module_active_for_tick(instance: Object) -> bool:
 	)
 
 
+## 实例记录的生命周期阶段不低于 READY 阶段时返回 true。
+## [br]
+## @api private
 func _is_module_ready_for_lifecycle_tick(instance: Object) -> bool:
 	return (
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(_module_lifecycle_stages, instance, 0)
@@ -428,12 +543,18 @@ func _is_module_ready_for_lifecycle_tick(instance: Object) -> bool:
 	)
 
 
+## 非有限 delta 归零，其余值限制在 0.0 至 lifecycle 上限之间。
+## [br]
+## @api private
 func _normalize_lifecycle_delta(delta: float) -> float:
 	if not is_finite(delta):
 		return 0.0
 	return clampf(delta, 0.0, _MAX_LIFECYCLE_TICK_DELTA_SECONDS)
 
 
+## 模块符合参与条件且 Callable 有效时创建并配置缓存记录，否则返回 null。
+## [br]
+## @api private
 func _make_tick_record(
 	instance: Object,
 	method_name: StringName,
@@ -457,6 +578,9 @@ func _make_tick_record(
 	)
 
 
+## 检查实例类型、方法存在性和显式启用字段；未显式启用时还检查派生脚本声明。
+## [br]
+## @api private
 func _module_participates_in_tick(instance: Object, method_name: StringName, explicit_property: StringName) -> bool:
 	if instance == null:
 		return false
@@ -471,6 +595,9 @@ func _module_participates_in_tick(instance: Object, method_name: StringName, exp
 	return false
 
 
+## 从 GFSystem 或 GFUtility 读取 tick_enabled / physics_tick_enabled 指定字段。
+## [br]
+## @api private
 func _get_module_bool(instance: Object, property_name: StringName) -> bool:
 	if instance == null:
 		return false
@@ -491,6 +618,9 @@ func _get_module_bool(instance: Object, property_name: StringName) -> bool:
 	return false
 
 
+## 从 GFSystem 或 GFUtility 读取 tick_priority / physics_tick_priority 指定字段。
+## [br]
+## @api private
 func _get_module_priority(instance: Object, property_name: StringName) -> int:
 	if instance is GFSystem:
 		var system: GFSystem = instance
@@ -509,6 +639,9 @@ func _get_module_priority(instance: Object, property_name: StringName) -> int:
 	return 0
 
 
+## 返回 GFSystem 或 GFUtility 的 ignore_pause 值；其他实例返回 false。
+## [br]
+## @api private
 func _module_ignores_pause(instance: Object) -> bool:
 	if instance is GFSystem:
 		var system: GFSystem = instance
@@ -519,6 +652,9 @@ func _module_ignores_pause(instance: Object) -> bool:
 	return false
 
 
+## 返回 GFSystem 或 GFUtility 的 ignore_time_scale 值；其他实例返回 false。
+## [br]
+## @api private
 func _module_ignores_time_scale(instance: Object) -> bool:
 	if instance is GFSystem:
 		var system: GFSystem = instance
@@ -529,6 +665,9 @@ func _module_ignores_time_scale(instance: Object) -> bool:
 	return false
 
 
+## 沿脚本继承链比较目标方法条目数；到达 GFSystem/Utility 基类即停止检查。
+## [br]
+## @api private
 func _script_chain_declares_method_before_framework_base(instance: Object, method_name: StringName) -> bool:
 	var script: Script = _get_instance_script(instance)
 	var framework_method_count: int = _get_framework_module_method_count(instance, method_name)
@@ -541,10 +680,16 @@ func _script_chain_declares_method_before_framework_base(instance: Object, metho
 	return false
 
 
+## script 与 GFSystem 或 GFUtility 全局脚本对象相等时返回 true。
+## [br]
+## @api private
 func _is_framework_module_base_script(script: Script) -> bool:
 	return script == GFSystem or script == GFUtility
 
 
+## 返回实例所属 GFSystem 或 GFUtility 基类中目标方法的脚本条目数。
+## [br]
+## @api private
 func _get_framework_module_method_count(instance: Object, method_name: StringName) -> int:
 	if instance is GFSystem:
 		return _count_script_methods(GFSystem, method_name)
@@ -553,6 +698,9 @@ func _get_framework_module_method_count(instance: Object, method_name: StringNam
 	return 0
 
 
+## 统计 Script.get_script_method_list() 中 name 等于目标方法名的条目数。
+## [br]
+## @api private
 func _count_script_methods(script: Script, method_name: StringName) -> int:
 	var count: int = 0
 	for method: Dictionary in script.get_script_method_list():
@@ -561,6 +709,9 @@ func _count_script_methods(script: Script, method_name: StringName) -> int:
 	return count
 
 
+## 返回实例附带的 Script；实例为空或脚本字段不是 Script 时返回 null。
+## [br]
+## @api private
 func _get_instance_script(instance: Object) -> Script:
 	if instance == null:
 		return null

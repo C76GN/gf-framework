@@ -30,8 +30,19 @@ signal batch_closed(report: Dictionary)
 
 # --- 常量 ---
 
+## 启动 detached 自动计时与容量通知排空任务的异步调用工具。
+## [br]
+## @api private
 const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
+
+## 自动计时每次等待的毫秒切片上限。
+## [br]
+## @api private
 const _MAX_TIMER_SLICE_MSEC: int = 1000
+
+## 单次容量通知 drain 最多派发的批次数。
+## [br]
+## @api private
 const _MAX_CAPACITY_NOTIFICATIONS_PER_DRAIN: int = 64
 
 ## 最后一条消息后的静默窗口到达。
@@ -137,11 +148,34 @@ var merge_callback: Callable = Callable()
 
 # --- 私有变量 ---
 
+## 按 key 保存当前打开的批次状态。
+## [br]
+## @api private
 var _batches: Dictionary = {}
+
+## 下一个新建批次使用的递增 batch_id。
+## [br]
+## @api private
 var _batch_serial: int = 0
+
+## 自动计时生命周期版本；旧计时协程会通过捕获值检查是否仍有效。
+## [br]
+## @api private
 var _lifecycle_serial: int = 0
+
+## 等待后续跨帧通知的容量淘汰批次及其关闭时间。
+## [br]
+## @api private
 var _pending_capacity_notifications: Array[Dictionary] = []
+
+## 是否正在同步发送容量淘汰批次通知。
+## [br]
+## @api private
 var _is_dispatching_capacity_notification: bool = false
+
+## 是否已经安排容量通知 drain 的延迟调用。
+## [br]
+## @api private
 var _capacity_notification_drain_scheduled: bool = false
 
 
@@ -361,6 +395,9 @@ func get_debug_snapshot(max_entries: int = 32) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 分配新 batch_id 并初始化 key、打开时间、最后消息时间和消息数组。
+## [br]
+## @api private
 func _create_batch(key: StringName, now_msec: int) -> void:
 	_batch_serial += 1
 	_batches[key] = {
@@ -373,6 +410,9 @@ func _create_batch(key: StringName, now_msec: int) -> void:
 	}
 
 
+## 从批次表读取 key 对应批次；值不是 Dictionary 时返回空字典。
+## [br]
+## @api private
 func _get_batch(key: StringName) -> Dictionary:
 	var value: Variant = GFVariantData.get_option_value(_batches, key)
 	if value is Dictionary:
@@ -381,6 +421,9 @@ func _get_batch(key: StringName) -> Dictionary:
 	return {}
 
 
+## 取出 key 对应批次并从当前打开批次表中移除。
+## [br]
+## @api private
 func _take_batch(key: StringName) -> Dictionary:
 	var batch: Dictionary = _get_batch(key)
 	if batch.is_empty():
@@ -389,6 +432,9 @@ func _take_batch(key: StringName) -> Dictionary:
 	return batch
 
 
+## 批次尚未启动计时器时设置标记并创建携带 batch_id 与生命周期版本的计时任务。
+## [br]
+## @api private
 func _start_batch_timer_if_needed(key: StringName, batch: Dictionary) -> void:
 	if GFVariantData.get_option_bool(batch, "timer_started"):
 		return
@@ -401,6 +447,10 @@ func _start_batch_timer_if_needed(key: StringName, batch: Dictionary) -> void:
 	)
 
 
+## 每次让帧后重新核对生命周期版本和批次 ID，防止旧计时任务关闭同 key 的新批次。
+## auto_flush 关闭或没有 SceneTree 时撤销当前批次的计时标记；达到窗口后交给关闭流程。
+## [br]
+## @api private
 func _run_batch_timer(key: StringName, batch_id: int, lifecycle_serial: int) -> void:
 	while lifecycle_serial == _lifecycle_serial:
 		var batch: Dictionary = _get_batch(key)
@@ -426,6 +476,9 @@ func _run_batch_timer(key: StringName, batch_id: int, lifecycle_serial: int) -> 
 		await tree.create_timer(float(timer_slice_msec) / 1000.0, true, false, true).timeout
 
 
+## 先检查最大窗口，再检查最后消息静默窗口，返回首个达到的关闭原因。
+## [br]
+## @api private
 func _get_ready_reason(batch: Dictionary, now_msec: int) -> StringName:
 	if batch.is_empty():
 		return &""
@@ -438,6 +491,9 @@ func _get_ready_reason(batch: Dictionary, now_msec: int) -> StringName:
 	return &""
 
 
+## 计算静默与最大窗口中的较早 deadline，并至少返回 1 毫秒。
+## [br]
+## @api private
 func _get_next_wait_msec(batch: Dictionary, now_msec: int) -> int:
 	var last_message_msec: int = GFVariantData.get_option_int(batch, "last_message_msec")
 	var deadline_msec: int = last_message_msec + quiet_window_msec
@@ -447,6 +503,9 @@ func _get_next_wait_msec(batch: Dictionary, now_msec: int) -> int:
 	return maxi(deadline_msec - now_msec, 1)
 
 
+## 移除指定打开批次，并将其交给关闭报告生成流程。
+## [br]
+## @api private
 func _close_batch(key: StringName, reason: StringName, closed_msec: int) -> Dictionary:
 	var batch: Dictionary = _take_batch(key)
 	if batch.is_empty():
@@ -454,6 +513,10 @@ func _close_batch(key: StringName, reason: StringName, closed_msec: int) -> Dict
 	return _finalize_closed_batch(batch, reason, closed_msec)
 
 
+## 为已从活动表取出的批次生成关闭报告；merge_callback 和 batch_closed 均同步调用，允许发起新的批次。
+## 传给合并回调和信号的是容器副本；本方法不再检查或删除活动表中的同 key 新批次。
+## [br]
+## @api private
 func _finalize_closed_batch(
 	batch: Dictionary,
 	reason: StringName,
@@ -481,6 +544,9 @@ func _finalize_closed_batch(
 	return report
 
 
+## 没有积压和在途通知时同步发送容量淘汰通知，否则追加队列，保留已有通知先行的顺序。
+## [br]
+## @api private
 func _dispatch_capacity_notification(batch: Dictionary, closed_msec: int) -> void:
 	if (
 		_is_dispatching_capacity_notification
@@ -500,6 +566,9 @@ func _dispatch_capacity_notification(batch: Dictionary, closed_msec: int) -> voi
 	_schedule_capacity_notification_drain()
 
 
+## 保存批次容器副本和原关闭时刻，按追加顺序排队；不按 key 合并不同批次的通知。
+## [br]
+## @api private
 func _enqueue_capacity_notification(batch: Dictionary, closed_msec: int) -> void:
 	_pending_capacity_notifications.append({
 		"batch": batch.duplicate(true),
@@ -508,6 +577,9 @@ func _enqueue_capacity_notification(batch: Dictionary, closed_msec: int) -> void
 	_schedule_capacity_notification_drain()
 
 
+## 仅为非空通知队列启动一个待执行 drain；排程标记合并重复调度请求。
+## [br]
+## @api private
 func _schedule_capacity_notification_drain() -> void:
 	if _capacity_notification_drain_scheduled or _pending_capacity_notifications.is_empty():
 		return
@@ -515,6 +587,9 @@ func _schedule_capacity_notification_drain() -> void:
 	_GF_ASYNC_CALL_SCRIPT.run_detached(Callable(self, &"_run_capacity_notification_drain"))
 
 
+## 等待一个 process_frame 再清除排程标记并排空一批；缺少 SceneTree 时保留队列供后续调度。
+## [br]
+## @api private
 func _run_capacity_notification_drain() -> void:
 	var main_loop: MainLoop = Engine.get_main_loop()
 	if not main_loop is SceneTree:
@@ -526,6 +601,10 @@ func _run_capacity_notification_drain() -> void:
 	_drain_capacity_notifications()
 
 
+## 按进入时的队列长度及单轮上限处理 FIFO 通知；回调追加不会扩大本轮次数，剩余项结束后再排程。
+## 正在同步通知时不递归发送，只请求下一轮 drain。
+## [br]
+## @api private
 func _drain_capacity_notifications() -> void:
 	_capacity_notification_drain_scheduled = false
 	if _is_dispatching_capacity_notification:
@@ -552,6 +631,9 @@ func _drain_capacity_notifications() -> void:
 	_schedule_capacity_notification_drain()
 
 
+## 先将最旧批次从活动表移出直至满足容量，再排队发送淘汰通知，避免通知重入影响本轮挑选。
+## [br]
+## @api private
 func _trim_pending_batches_to_limit(closed_msec: int) -> void:
 	var evicted_batches: Array[Dictionary] = []
 	while _batches.size() > max_pending_batches:
@@ -565,6 +647,10 @@ func _trim_pending_batches_to_limit(closed_msec: int) -> void:
 		_enqueue_capacity_notification(evicted_batch, closed_msec)
 
 
+## 推进生命周期版本使旧计时任务失效，并清除现有批次计时标记；启用 auto_flush 时关闭已到期批次或重启计时。
+## 遍历的是 key 快照，每次取当前批次，关闭回调可能改变后续 key 对应的内容。
+## [br]
+## @api private
 func _restart_auto_flush_timers() -> void:
 	_lifecycle_serial += 1
 	var keys: Array = _batches.keys()
@@ -589,6 +675,9 @@ func _restart_auto_flush_timers() -> void:
 			_start_batch_timer_if_needed(key, batch)
 
 
+## 按 batch_id 升序生成当前批次的 key 与 ID 身份快照。
+## [br]
+## @api private
 func _get_batch_identity_snapshot() -> Array[Dictionary]:
 	var remaining: Dictionary = {}
 	for key_value: Variant in _batches.keys():
@@ -617,6 +706,9 @@ func _get_batch_identity_snapshot() -> Array[Dictionary]:
 	return result
 
 
+## 返回当前 batch_id 最小的 key；没有批次时返回空 StringName。
+## [br]
+## @api private
 func _find_oldest_key() -> StringName:
 	var found: bool = false
 	var oldest_key: StringName = &""

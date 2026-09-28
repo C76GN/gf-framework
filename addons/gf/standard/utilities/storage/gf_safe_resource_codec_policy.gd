@@ -17,6 +17,10 @@ extends Resource
 
 # --- 常量 ---
 
+## 提供资源路径规范化的路径工具脚本。
+## [br]
+## @api private
+## [br]
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 
 
@@ -218,12 +222,20 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 忽略空值和已存在项，将其他值追加到 allowlist。
+## [br]
+## @api private
+## [br]
 func _append_unique(values: PackedStringArray, value: String) -> void:
 	if value.is_empty() or values.has(value):
 		return
 	var _appended: bool = values.append(value)
 
 
+## 判断非空值是否与任一非空模式完全相同或匹配通配模式。
+## [br]
+## @api private
+## [br]
 func _matches_any_pattern(value: String, patterns: PackedStringArray) -> bool:
 	if value.is_empty():
 		return false
@@ -235,6 +247,10 @@ func _matches_any_pattern(value: String, patterns: PackedStringArray) -> bool:
 	return false
 
 
+## 规范化候选路径与每个 allowlist 模式，再检查精确相等或通配匹配。
+## [br]
+## @api private
+## [br]
 func _matches_any_path_pattern(value: String, patterns: PackedStringArray) -> bool:
 	var normalized_value: String = _normalize_candidate_path(value)
 	if normalized_value.is_empty():
@@ -248,6 +264,10 @@ func _matches_any_path_pattern(value: String, patterns: PackedStringArray) -> bo
 	return false
 
 
+## 规范化候选资源路径；结果为空或包含父目录段时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _normalize_candidate_path(path: String) -> String:
 	var normalized_path: String = _GF_PATH_TOOLS.normalize_resource_path(path, "", false)
 	if normalized_path.is_empty() or _path_has_parent_segment(normalized_path):
@@ -255,6 +275,10 @@ func _normalize_candidate_path(path: String) -> String:
 	return _GF_PATH_TOOLS.normalize_resource_path(normalized_path)
 
 
+## 规范化 allowlist 路径模式；结果为空或包含父目录段时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _normalize_allowlist_path_pattern(path_pattern: String) -> String:
 	var normalized_pattern: String = _GF_PATH_TOOLS.normalize_resource_path(path_pattern, "", false)
 	if normalized_pattern.is_empty() or _path_has_parent_segment(normalized_pattern):
@@ -262,6 +286,10 @@ func _normalize_allowlist_path_pattern(path_pattern: String) -> String:
 	return _GF_PATH_TOOLS.normalize_resource_path(normalized_pattern)
 
 
+## 按斜杠分段检查路径中是否存在完整的 .. 父目录段。
+## [br]
+## @api private
+## [br]
 func _path_has_parent_segment(path: String) -> bool:
 	for segment: String in path.split("/", false):
 		if segment == "..":

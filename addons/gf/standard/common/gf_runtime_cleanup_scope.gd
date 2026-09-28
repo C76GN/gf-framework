@@ -14,7 +14,14 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 按 scope_id 保存各作用域的清理记录数组。
+## [br]
+## @api private
 var _records_by_scope: Dictionary = {}
+
+## 下一个清理记录使用的递增注册顺序值。
+## [br]
+## @api private
 var _next_order: int = 0
 
 
@@ -216,6 +223,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 读取作用域记录并将其中的 Dictionary 记录加入返回数组。
+## [br]
+## @api private
 func _get_scope_records(scope_id: StringName) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var records_value: Variant = _records_by_scope.get(scope_id)
@@ -230,6 +240,9 @@ func _get_scope_records(scope_id: StringName) -> Array[Dictionary]:
 	return result
 
 
+## 作用域记录为空时删除键，否则将记录数组写回作用域表。
+## [br]
+## @api private
 func _set_scope_records(scope_id: StringName, records: Array[Dictionary]) -> void:
 	if records.is_empty():
 		var _erased_scope: bool = _records_by_scope.erase(scope_id)
@@ -237,6 +250,9 @@ func _set_scope_records(scope_id: StringName, records: Array[Dictionary]) -> voi
 	_records_by_scope[scope_id] = records
 
 
+## 从清理记录读取 callback；类型不符时返回空 Callable。
+## [br]
+## @api private
 func _get_record_callback(record: Dictionary) -> Callable:
 	var value: Variant = GFVariantData.get_option_value(record, "callback")
 	if value is Callable:
@@ -245,6 +261,9 @@ func _get_record_callback(record: Dictionary) -> Callable:
 	return Callable()
 
 
+## priority 不同时按降序排列，相同时按注册 order 升序排列。
+## [br]
+## @api private
 static func _sort_records(left: Dictionary, right: Dictionary) -> bool:
 	var left_priority: int = GFVariantData.get_option_int(left, "priority")
 	var right_priority: int = GFVariantData.get_option_int(right, "priority")

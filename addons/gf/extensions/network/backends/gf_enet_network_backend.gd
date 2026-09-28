@@ -30,10 +30,34 @@ var max_packets_per_poll: int = 64
 
 # --- 私有变量 ---
 
+## 当前使用的 ENet 多人 Peer。
+## [br]
+## @api private
+## [br]
 var _peer: ENetMultiplayerPeer
+
+## 上次观测到的连接状态，用于识别状态转换。
+## [br]
+## @api private
+## [br]
 var _last_status: int = MultiplayerPeer.CONNECTION_DISCONNECTED
+
+## 当前主机或客户端端点地址。
+## [br]
+## @api private
+## [br]
 var _endpoint: String = ""
+
+## 标记当前 Peer 是否以服务器模式运行。
+## [br]
+## @api private
+## [br]
 var _is_server: bool = false
+
+## 当前仍处于连接状态的远端 peer ID 集合。
+## [br]
+## @api private
+## [br]
 var _connected_peer_ids: Dictionary = {}
 
 
@@ -198,6 +222,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 将 Peer 的远端连接与断开信号连接到后端处理函数。
+## [br]
+## @api private
+## [br]
 func _connect_peer_signals() -> void:
 	if _peer == null:
 		return
@@ -207,6 +235,10 @@ func _connect_peer_signals() -> void:
 		var _peer_disconnected_error: int = _peer.peer_disconnected.connect(_on_peer_disconnected)
 
 
+## 移除后端安装的 Peer 信号连接。
+## [br]
+## @api private
+## [br]
 func _disconnect_peer_signals() -> void:
 	if _peer == null:
 		return
@@ -216,6 +248,10 @@ func _disconnect_peer_signals() -> void:
 		_peer.peer_disconnected.disconnect(_on_peer_disconnected)
 
 
+## 关闭并清空当前 Peer，同时按需通知连接断开。
+## [br]
+## @api private
+## [br]
 func _close_peer(should_emit_signal: bool) -> void:
 	if _peer == null:
 		_emit_tracked_peer_disconnections()
@@ -232,6 +268,10 @@ func _close_peer(should_emit_signal: bool) -> void:
 		_emit_disconnected("closed")
 
 
+## 从端点和选项解析主机地址与端口。
+## [br]
+## @api private
+## [br]
 func _parse_endpoint(endpoint: String, options: Dictionary) -> Dictionary:
 	var address: String = endpoint.strip_edges()
 	var port: int = GFVariantData.get_option_int(options, "port")
@@ -257,12 +297,20 @@ func _parse_endpoint(endpoint: String, options: Dictionary) -> Dictionary:
 	}
 
 
+## 将框架广播标识转换为 MultiplayerPeer 广播目标。
+## [br]
+## @api private
+## [br]
 func _map_target_peer(peer_id: int) -> int:
 	if peer_id == BROADCAST_PEER_ID:
 		return MultiplayerPeer.TARGET_PEER_BROADCAST
 	return peer_id
 
 
+## 根据显式模式或 reliable 选项确定传输模式。
+## [br]
+## @api private
+## [br]
 func _get_transfer_mode(options: Dictionary) -> MultiplayerPeer.TransferMode:
 	if options.has("transfer_mode"):
 		return _to_transfer_mode(GFVariantData.to_int(options["transfer_mode"]))
@@ -271,6 +319,10 @@ func _get_transfer_mode(options: Dictionary) -> MultiplayerPeer.TransferMode:
 	return MultiplayerPeer.TRANSFER_MODE_UNRELIABLE
 
 
+## 将整数值限制为 ENet 支持的传输模式。
+## [br]
+## @api private
+## [br]
 func _to_transfer_mode(value: int) -> MultiplayerPeer.TransferMode:
 	match value:
 		MultiplayerPeer.TRANSFER_MODE_UNRELIABLE:
@@ -281,6 +333,10 @@ func _to_transfer_mode(value: int) -> MultiplayerPeer.TransferMode:
 			return MultiplayerPeer.TRANSFER_MODE_RELIABLE
 
 
+## 检查 Peer 连接状态变化并发出对应连接信号。
+## [br]
+## @api private
+## [br]
 func _update_connection_status() -> void:
 	if _peer == null:
 		return
@@ -298,6 +354,10 @@ func _update_connection_status() -> void:
 			_emit_disconnected("connection_status_disconnected")
 
 
+## 将 MultiplayerPeer 连接状态转换为调试名称。
+## [br]
+## @api private
+## [br]
 func _get_status_name(status: int) -> String:
 	match status:
 		MultiplayerPeer.CONNECTION_DISCONNECTED:
@@ -310,16 +370,10 @@ func _get_status_name(status: int) -> String:
 			return "unknown"
 
 
-func _on_peer_connected(peer_id: int) -> void:
-	_connected_peer_ids[peer_id] = true
-	_emit_peer_connected(peer_id)
-
-
-func _on_peer_disconnected(peer_id: int) -> void:
-	var _erased_peer: bool = _connected_peer_ids.erase(peer_id)
-	_emit_peer_disconnected(peer_id)
-
-
+## 按 ID 顺序通知并清除所有仍被跟踪的 peer 断开状态。
+## [br]
+## @api private
+## [br]
 func _emit_tracked_peer_disconnections() -> void:
 	var peer_ids: Array[int] = []
 	for peer_id_value: Variant in _connected_peer_ids.keys():
@@ -328,3 +382,23 @@ func _emit_tracked_peer_disconnections() -> void:
 	_connected_peer_ids.clear()
 	for peer_id: int in peer_ids:
 		_emit_peer_disconnected(peer_id)
+
+
+# --- 信号处理函数 ---
+
+## 记录刚连接的 peer 并转发连接信号。
+## [br]
+## @api private
+## [br]
+func _on_peer_connected(peer_id: int) -> void:
+	_connected_peer_ids[peer_id] = true
+	_emit_peer_connected(peer_id)
+
+
+## 移除已断开的 peer 记录并转发断开信号。
+## [br]
+## @api private
+## [br]
+func _on_peer_disconnected(peer_id: int) -> void:
+	var _erased_peer: bool = _connected_peer_ids.erase(peer_id)
+	_emit_peer_disconnected(peer_id)

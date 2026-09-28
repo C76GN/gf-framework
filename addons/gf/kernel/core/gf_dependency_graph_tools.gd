@@ -14,7 +14,14 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 迭代 DFS 中已进入且尚未完成的节点状态值。
+## [br]
+## @api private
 const _STATE_VISITING: int = 1
+
+## 依赖已处理完成的节点状态值。
+## [br]
+## @api private
 const _STATE_DONE: int = 2
 
 
@@ -70,6 +77,9 @@ static func sort_dependency_first(node_ids: PackedStringArray, dependency_map: D
 
 # --- 私有/辅助方法 ---
 
+## 使用显式 frame 栈遍历依赖，记录缺失项与循环，并按依赖先于节点的顺序追加结果。
+## [br]
+## @api private
 static func _visit_node_iterative(
 	node_id: String,
 	dependency_map: Dictionary,
@@ -142,6 +152,9 @@ static func _visit_node_iterative(
 		_remove_last_path_id(path_stack, current_id)
 
 
+## 创建一次 DFS 访问所需的节点、依赖列表、游标和进入标记记录。
+## [br]
+## @api private
 static func _make_visit_frame(node_id: String) -> Dictionary:
 	return {
 		"node_id": node_id,
@@ -151,10 +164,16 @@ static func _make_visit_frame(node_id: String) -> Dictionary:
 	}
 
 
+## 从 DFS frame 读取节点 ID，并转换为文本。
+## [br]
+## @api private
 static func _get_frame_node_id(frame: Dictionary) -> String:
 	return _to_text(frame.get("node_id", ""))
 
 
+## 从 DFS frame 读取 PackedStringArray 依赖列表；缺失或类型不符时返回空列表。
+## [br]
+## @api private
 static func _get_frame_dependencies(frame: Dictionary) -> PackedStringArray:
 	var value: Variant = frame.get("dependencies", PackedStringArray())
 	if value is PackedStringArray:
@@ -163,6 +182,9 @@ static func _get_frame_dependencies(frame: Dictionary) -> PackedStringArray:
 	return PackedStringArray()
 
 
+## 读取非负依赖游标；缺失、负数或类型不符时返回零。
+## [br]
+## @api private
 static func _get_frame_dependency_index(frame: Dictionary) -> int:
 	var value: Variant = frame.get("dependency_index", 0)
 	if value is int:
@@ -171,6 +193,9 @@ static func _get_frame_dependency_index(frame: Dictionary) -> int:
 	return 0
 
 
+## 读取 DFS frame 的 entered 标记；缺失或类型不符时返回 false。
+## [br]
+## @api private
 static func _get_frame_entered(frame: Dictionary) -> bool:
 	var value: Variant = frame.get("entered", false)
 	if value is bool:
@@ -179,6 +204,9 @@ static func _get_frame_entered(frame: Dictionary) -> bool:
 	return false
 
 
+## 从路径栈移除指定节点；优先移除末项，否则从末尾向前移除最后一个匹配项。
+## [br]
+## @api private
 static func _remove_last_path_id(path_stack: PackedStringArray, node_id: String) -> void:
 	if path_stack.is_empty():
 		return
@@ -191,6 +219,9 @@ static func _remove_last_path_id(path_stack: PackedStringArray, node_id: String)
 			return
 
 
+## 读取 DFS 节点状态；缺失或非整数值返回零。
+## [br]
+## @api private
 static func _get_state(states: Dictionary, node_id: String) -> int:
 	if not states.has(node_id):
 		return 0
@@ -200,15 +231,24 @@ static func _get_state(states: Dictionary, node_id: String) -> int:
 	return 0
 
 
+## 读取节点依赖值，并规范化为 PackedStringArray。
+## [br]
+## @api private
 static func _get_dependencies(dependency_map: Dictionary, node_id: String) -> PackedStringArray:
 	var value: Variant = _get_map_value(dependency_map, node_id, PackedStringArray())
 	return _to_packed_string_array(value)
 
 
+## 检查依赖表是否以 String 或 StringName 形式包含节点 ID。
+## [br]
+## @api private
 static func _has_node(dependency_map: Dictionary, node_id: String) -> bool:
 	return dependency_map.has(node_id) or dependency_map.has(StringName(node_id))
 
 
+## 按 String、再按 StringName 查找节点依赖值；均缺失时返回 fallback。
+## [br]
+## @api private
 static func _get_map_value(dependency_map: Dictionary, node_id: String, fallback: Variant) -> Variant:
 	if dependency_map.has(node_id):
 		return dependency_map[node_id]
@@ -218,6 +258,9 @@ static func _get_map_value(dependency_map: Dictionary, node_id: String, fallback
 	return fallback
 
 
+## 将支持的依赖值转换为字符串列表，并去除首尾空白、空项和重复项。
+## [br]
+## @api private
 static func _to_packed_string_array(value: Variant) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	if value is PackedStringArray:
@@ -242,6 +285,9 @@ static func _to_packed_string_array(value: Variant) -> PackedStringArray:
 	return result
 
 
+## 去除根节点 ID 的首尾空白、空项与重复项，同时保留首次出现顺序。
+## [br]
+## @api private
 static func _copy_unique_ids(node_ids: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for node_id: String in node_ids:
@@ -252,6 +298,9 @@ static func _copy_unique_ids(node_ids: PackedStringArray) -> PackedStringArray:
 	return result
 
 
+## 仅在缺失依赖记录中尚无相同节点与依赖组合时追加记录。
+## [br]
+## @api private
 static func _append_missing_dependency(
 	node_id: String,
 	dependency_id: String,
@@ -269,6 +318,9 @@ static func _append_missing_dependency(
 	})
 
 
+## 根据当前 DFS 路径构造闭合循环，并按生成的路径文本去重后追加。
+## [br]
+## @api private
 static func _append_cycle(
 	node_id: String,
 	stack: PackedStringArray,
@@ -290,10 +342,16 @@ static func _append_cycle(
 	dependency_cycles.append(cycle)
 
 
+## 将循环节点序列用 ` -> ` 连接为去重键。
+## [br]
+## @api private
 static func _make_cycle_key(cycle: PackedStringArray) -> String:
 	return " -> ".join(Array(cycle))
 
 
+## 将 null 转为空字符串，其余 Variant 使用 str() 转换。
+## [br]
+## @api private
 static func _to_text(value: Variant) -> String:
 	if value == null:
 		return ""

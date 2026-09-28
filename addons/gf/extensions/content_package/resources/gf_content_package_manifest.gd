@@ -14,7 +14,14 @@ extends Resource
 
 # --- 常量 ---
 
+## 提供资源路径与根目录的归一化及边界检查。
+## [br]
+## @api private
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+## 为安全校验构建资源依赖报告的工具脚本。
+## [br]
+## @api private
 const _GF_RESOURCE_REGISTRY_TOOLS = preload("res://addons/gf/standard/utilities/assets/gf_resource_registry_tools.gd")
 
 ## 内容包 JSON manifest 默认文件名。
@@ -28,28 +35,119 @@ const FILE_NAME: String = "gf_content_package.json"
 const SCHEMA_VERSION: int = 1
 
 
+## 校验报告中用于 finalize 的固定主题。
+## [br]
+## @api private
 const _REPORT_SUBJECT: String = "Content package manifest"
+
+## 缺少必填内容包 ID 时使用的问题类型。
+## [br]
+## @api private
 const _KIND_MISSING_PACKAGE_ID: String = "missing_package_id"
+
+## 缺少必填版本字符串时使用的问题类型。
+## [br]
+## @api private
 const _KIND_MISSING_VERSION: String = "missing_version"
+
+## manifest 未提供 schema_version 时使用的问题类型。
+## [br]
+## @api private
 const _KIND_MISSING_SCHEMA_VERSION: String = "missing_schema_version"
+
+## schema_version 不是整数值时使用的问题类型。
+## [br]
+## @api private
 const _KIND_INVALID_SCHEMA_VERSION: String = "invalid_schema_version"
+
+## schema_version 与当前支持版本不一致时使用的问题类型。
+## [br]
+## @api private
 const _KIND_UNSUPPORTED_SCHEMA_VERSION: String = "unsupported_schema_version"
+
+## content_types 含空值时使用的问题类型。
+## [br]
+## @api private
 const _KIND_INVALID_CONTENT_TYPE: String = "invalid_content_type"
+
+## dependencies 含空值时使用的问题类型。
+## [br]
+## @api private
 const _KIND_INVALID_DEPENDENCY: String = "invalid_dependency"
+
+## 资源条目结构不合法时使用的问题类型。
+## [br]
+## @api private
 const _KIND_INVALID_RESOURCE_ENTRY: String = "invalid_resource_entry"
+
+## 资源键缺失或为空时使用的问题类型。
+## [br]
+## @api private
 const _KIND_INVALID_RESOURCE_KEY: String = "invalid_resource_key"
+
+## 同一 manifest 中的资源键重复时使用的问题类型。
+## [br]
+## @api private
 const _KIND_DUPLICATE_RESOURCE_KEY: String = "duplicate_resource_key"
+
+## 资源路径缺失或为空时使用的问题类型。
+## [br]
+## @api private
 const _KIND_INVALID_RESOURCE_PATH: String = "invalid_resource_path"
+
+## 资源路径无法归一化为允许的路径形式时使用的问题类型。
+## [br]
+## @api private
 const _KIND_RESOURCE_PATH_NOT_ALLOWED: String = "resource_path_not_allowed"
+
+## 归一化后的资源路径越出内容包根目录时使用的问题类型。
+## [br]
+## @api private
 const _KIND_RESOURCE_PATH_OUTSIDE_PACKAGE: String = "resource_path_outside_package"
+
+## 资源扩展名被安全策略禁止时使用的问题类型。
+## [br]
+## @api private
 const _KIND_RESOURCE_EXTENSION_FORBIDDEN: String = "resource_extension_forbidden"
+
+## 启用存在性检查但找不到资源文件时使用的问题类型。
+## [br]
+## @api private
 const _KIND_MISSING_RESOURCE_FILE: String = "missing_resource_file"
+
+## safety_kind 不属于支持值时使用的问题类型。
+## [br]
+## @api private
 const _KIND_INVALID_SAFETY_KIND: String = "invalid_safety_kind"
+
+## manifest 含不在白名单中的字段时使用的问题类型。
+## [br]
+## @api private
 const _KIND_UNKNOWN_FIELD: String = "unknown_field"
+
+## 兼容别名与规范字段值冲突时使用的问题类型。
+## [br]
+## @api private
 const _KIND_CONFLICTING_ALIAS_FIELDS: String = "conflicting_alias_fields"
+
+## manifest 字段类型与 schema 不符时使用的问题类型。
+## [br]
+## @api private
 const _KIND_INVALID_MANIFEST_FIELD_TYPE: String = "invalid_manifest_field_type"
+
+## 资源条目字段类型与 schema 不符时使用的问题类型。
+## [br]
+## @api private
 const _KIND_INVALID_RESOURCE_FIELD_TYPE: String = "invalid_resource_field_type"
+
+## 资源的传递依赖含安全策略禁止扩展名时使用的问题类型。
+## [br]
+## @api private
 const _KIND_RESOURCE_DEPENDENCY_EXTENSION_FORBIDDEN: String = "resource_dependency_extension_forbidden"
+
+## 资源依赖扫描未能生成可验证报告时使用的问题类型。
+## [br]
+## @api private
 const _KIND_RESOURCE_DEPENDENCY_SCAN_FAILED: String = "resource_dependency_scan_failed"
 
 ## 只允许数据资源的内容包安全分类。
@@ -66,6 +164,9 @@ const SAFETY_KIND_DATA_ONLY: StringName = &"data_only"
 ## @since 6.0.0
 const SAFETY_KIND_TRUSTED_DEVELOPER: StringName = &"trusted_developer"
 
+## data_only 安全分类始终拒绝的可执行或代码资源扩展名。
+## [br]
+## @api private
 const _DATA_ONLY_FORBIDDEN_EXTENSIONS: PackedStringArray = [
 	"bat",
 	"cmd",
@@ -84,6 +185,9 @@ const _DATA_ONLY_FORBIDDEN_EXTENSIONS: PackedStringArray = [
 	"so",
 ]
 
+## manifest 根字典可识别的字段名及其兼容别名。
+## [br]
+## @api private
 const _ALLOWED_FIELDS: PackedStringArray = [
 	"schema_version",
 	"package_id",
@@ -99,6 +203,9 @@ const _ALLOWED_FIELDS: PackedStringArray = [
 	"metadata",
 ]
 
+## 资源映射字典可识别的字段名及其兼容别名。
+## [br]
+## @api private
 const _ALLOWED_RESOURCE_FIELDS: PackedStringArray = [
 	"key",
 	"resource_key",
@@ -188,9 +295,24 @@ var source_path: String = ""
 
 # --- 私有变量 ---
 
+## 记录输入字典是否显式包含 schema_version。
+## [br]
+## @api private
 var _schema_version_was_present: bool = true
+
+## 记录 schema_version 是否为整数或无小数部分的有限浮点数。
+## [br]
+## @api private
 var _schema_version_has_valid_type: bool = true
+
+## 暂存输入 manifest 中未被字段白名单接纳的键名。
+## [br]
+## @api private
 var _unknown_fields: PackedStringArray = PackedStringArray()
+
+## 暂存字典解析期间收集的结构和字段类型问题。
+## [br]
+## @api private
 var _schema_issues: Array[Dictionary] = []
 
 
@@ -521,6 +643,9 @@ static func load_from_path(path: String) -> GFContentPackageManifest:
 
 # --- 私有/辅助方法 ---
 
+## 从字典读取 schema_version，并分别记录字段是否存在及其值类型是否可接受。
+## [br]
+## @api private
 func _apply_schema_version(data: Dictionary) -> void:
 	_schema_version_was_present = data.has("schema_version") or data.has(&"schema_version")
 	_schema_version_has_valid_type = true
@@ -540,6 +665,9 @@ func _apply_schema_version(data: Dictionary) -> void:
 	_schema_version_has_valid_type = false
 
 
+## 将 schema_version 缺失、类型无效或版本不支持的情况写入报告。
+## [br]
+## @api private
 func _validate_schema_version(report: Dictionary) -> void:
 	if not _schema_version_was_present:
 		_add_manifest_issue(
@@ -577,6 +705,9 @@ func _validate_schema_version(report: Dictionary) -> void:
 		)
 
 
+## 检查 package_id 与去除首尾空白后的 version 是否为空。
+## [br]
+## @api private
 func _validate_required_fields(report: Dictionary) -> void:
 	if package_id == &"":
 		_add_manifest_issue(
@@ -600,6 +731,9 @@ func _validate_required_fields(report: Dictionary) -> void:
 		)
 
 
+## 将字符串列表中的空白项逐项报告，保留其原始值和索引。
+## [br]
+## @api private
 func _validate_string_list(
 	items: PackedStringArray,
 	field_name: String,
@@ -623,6 +757,9 @@ func _validate_string_list(
 		)
 
 
+## 校验每个资源条目的结构、资源键唯一性及路径相关约束。
+## [br]
+## @api private
 func _validate_resources(
 	options: Dictionary,
 	report: Dictionary
@@ -662,6 +799,9 @@ func _validate_resources(
 		_validate_resource_path(entry, index, resource_key, options, report)
 
 
+## 归一化单个资源路径并检查路径范围、安全扩展名及可选依赖和存在性。
+## [br]
+## @api private
 func _validate_resource_path(
 	entry: Dictionary,
 	index: int,
@@ -736,6 +876,9 @@ func _validate_resource_path(
 		)
 
 
+## 仅接受 data_only 和 trusted_developer 两种安全分类。
+## [br]
+## @api private
 func _validate_safety_kind(report: Dictionary) -> void:
 	if safety_kind == SAFETY_KIND_DATA_ONLY or safety_kind == SAFETY_KIND_TRUSTED_DEVELOPER:
 		return
@@ -751,6 +894,9 @@ func _validate_safety_kind(report: Dictionary) -> void:
 	)
 
 
+## 把解析阶段收集的未知 manifest 字段逐项追加为校验问题。
+## [br]
+## @api private
 func _validate_unknown_fields(report: Dictionary) -> void:
 	for field_name: String in _unknown_fields:
 		_add_manifest_issue(
@@ -765,6 +911,9 @@ func _validate_unknown_fields(report: Dictionary) -> void:
 		)
 
 
+## 将字典解析阶段暂存的结构问题转成 validation report 条目。
+## [br]
+## @api private
 func _append_schema_issues(report: Dictionary) -> void:
 	for issue: Dictionary in _schema_issues:
 		var _issue: Dictionary = GFValidationReportDictionary.append_issue(
@@ -776,6 +925,9 @@ func _append_schema_issues(report: Dictionary) -> void:
 		)
 
 
+## 检查资源条目的未知字段、文本字段类型、priority 和 metadata 类型。
+## [br]
+## @api private
 func _validate_resource_entry_schema(entry: Dictionary, index: int, report: Dictionary) -> void:
 	for key_value: Variant in entry.keys():
 		var field_name: String = GFVariantData.to_text(key_value)
@@ -813,6 +965,9 @@ func _validate_resource_entry_schema(entry: Dictionary, index: int, report: Dict
 		)
 
 
+## 对资源条目中存在的文本字段及其兼容别名校验 String/StringName 类型。
+## [br]
+## @api private
 func _validate_resource_text_field(
 	entry: Dictionary,
 	index: int,
@@ -836,6 +991,9 @@ func _validate_resource_text_field(
 	)
 
 
+## 为类型错误的资源字段构造带行号、字段路径和预期类型的问题。
+## [br]
+## @api private
 func _add_invalid_resource_field_type(
 	report: Dictionary,
 	index: int,
@@ -859,6 +1017,9 @@ func _add_invalid_resource_field_type(
 	)
 
 
+## 按有效禁止扩展名列表检查归一化资源路径的后缀。
+## [br]
+## @api private
 func _validate_resource_safety(
 	normalized_path: String,
 	index: int,
@@ -887,6 +1048,9 @@ func _validate_resource_safety(
 	)
 
 
+## 扫描资源依赖闭包；报告扫描失败并检查依赖文件的禁止扩展名。
+## [br]
+## @api private
 func _validate_resource_dependencies(
 	normalized_path: String,
 	index: int,
@@ -938,6 +1102,9 @@ func _validate_resource_dependencies(
 		)
 
 
+## 为资源行问题合并来源、行索引、资源键等上下文后追加报告项。
+## [br]
+## @api private
 func _add_resource_issue(
 	report: Dictionary,
 	kind: String,
@@ -965,6 +1132,9 @@ func _add_resource_issue(
 	)
 
 
+## 为 manifest 级问题合并包 ID 和来源路径等上下文后追加报告项。
+## [br]
+## @api private
 func _add_manifest_issue(
 	report: Dictionary,
 	kind: String,
@@ -989,6 +1159,9 @@ func _add_manifest_issue(
 	)
 
 
+## 初始化含主题、版本、包身份和空 issues 列表的校验报告字典。
+## [br]
+## @api private
 func _make_validation_report() -> Dictionary:
 	return {
 		"subject": _REPORT_SUBJECT,
@@ -1000,6 +1173,9 @@ func _make_validation_report() -> Dictionary:
 	}
 
 
+## 使用内容包专属的成功与失败行动文本完成报告汇总。
+## [br]
+## @api private
 func _finalize_validation_report(report: Dictionary) -> Dictionary:
 	return GFValidationReportDictionary.finalize_report(report, _REPORT_SUBJECT, {
 		"fallback_action": "Review the first content package manifest issue.",
@@ -1007,6 +1183,9 @@ func _finalize_validation_report(report: Dictionary) -> Dictionary:
 	})
 
 
+## 从输入字典读取 resources，并跳过类型错误的条目、记录对应 schema 问题。
+## [br]
+## @api private
 func _get_resource_entries(data: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if not _has_field(data, "resources"):
@@ -1036,6 +1215,9 @@ func _get_resource_entries(data: Dictionary) -> Array[Dictionary]:
 	return result
 
 
+## 校验并归一化一个资源条目，保留可识别字段并复制 metadata。
+## [br]
+## @api private
 func _parse_resource_entry(data: Dictionary, index: int) -> Dictionary:
 	var result: Dictionary = {}
 	for key_value: Variant in data.keys():
@@ -1080,6 +1262,9 @@ func _parse_resource_entry(data: Dictionary, index: int) -> Dictionary:
 	return result
 
 
+## 读取资源文本字段并去除首尾空白；类型错误时记问题并返回空字符串。
+## [br]
+## @api private
 func _read_resource_text_value(data: Dictionary, field_name: String, index: int) -> String:
 	var value: Variant = _get_field_value(data, field_name)
 	if _is_text_value(value):
@@ -1093,6 +1278,9 @@ func _read_resource_text_value(data: Dictionary, field_name: String, index: int)
 	return ""
 
 
+## 读取资源整数值字段；无效类型记问题并以 0 作为回退值。
+## [br]
+## @api private
 func _read_resource_integer_value(data: Dictionary, field_name: String, index: int) -> int:
 	var value: Variant = _get_field_value(data, field_name)
 	if _is_integer_value(value):
@@ -1106,6 +1294,9 @@ func _read_resource_integer_value(data: Dictionary, field_name: String, index: i
 	return 0
 
 
+## 清空从字典载入的业务字段和暂存 schema 问题，为下一次解析复位状态。
+## [br]
+## @api private
 func _reset_dictionary_fields() -> void:
 	package_id = &""
 	display_name = ""
@@ -1119,16 +1310,25 @@ func _reset_dictionary_fields() -> void:
 	_schema_issues.clear()
 
 
+## 校验根字典中的 package_id/id 与 display_name/name 别名对。
+## [br]
+## @api private
 func _validate_manifest_aliases(data: Dictionary) -> void:
 	_validate_text_alias_pair(data, "package_id", "id", "", -1)
 	_validate_text_alias_pair(data, "display_name", "name", "", -1)
 
 
+## 校验资源行中的 key/resource_key 与 path/resource_path 别名对。
+## [br]
+## @api private
 func _validate_resource_aliases(data: Dictionary, index: int) -> void:
 	_validate_text_alias_pair(data, "key", "resource_key", "resources", index)
 	_validate_text_alias_pair(data, "path", "resource_path", "resources", index)
 
 
+## 两个别名同时出现时检查值类型和内容一致性，并保留冲突字段路径。
+## [br]
+## @api private
 func _validate_text_alias_pair(
 	data: Dictionary,
 	canonical_name: String,
@@ -1178,6 +1378,9 @@ func _validate_text_alias_pair(
 	)
 
 
+## 优先读取规范字段，规范字段缺失时回退到别名；两者都缺失则返回空串。
+## [br]
+## @api private
 func _read_text_alias(data: Dictionary, field_name: String, alias_name: String) -> String:
 	var selected_field: String = _select_field_name(data, field_name, alias_name)
 	if selected_field.is_empty():
@@ -1185,6 +1388,9 @@ func _read_text_alias(data: Dictionary, field_name: String, alias_name: String) 
 	return _read_text_field(data, selected_field)
 
 
+## 读取 String/StringName 字段并裁去首尾空白；类型错误时记问题并返回默认值。
+## [br]
+## @api private
 func _read_text_field(data: Dictionary, field_name: String, default_value: String = "") -> String:
 	if not _has_field(data, field_name):
 		return default_value
@@ -1195,6 +1401,9 @@ func _read_text_field(data: Dictionary, field_name: String, default_value: Strin
 	return default_value
 
 
+## 接受 PackedStringArray 或字符串数组，转换可读项并记录非文本项的问题。
+## [br]
+## @api private
 func _read_string_list_field(data: Dictionary, field_name: String) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	if not _has_field(data, field_name):
@@ -1221,6 +1430,9 @@ func _read_string_list_field(data: Dictionary, field_name: String) -> PackedStri
 	return result
 
 
+## 读取并深复制 Dictionary 字段；缺失或类型错误时返回空字典。
+## [br]
+## @api private
 func _read_dictionary_field(data: Dictionary, field_name: String) -> Dictionary:
 	if not _has_field(data, field_name):
 		return {}
@@ -1232,6 +1444,9 @@ func _read_dictionary_field(data: Dictionary, field_name: String) -> Dictionary:
 	return {}
 
 
+## 按字段路径和实际 Variant 类型记录 schema 类型错误。
+## [br]
+## @api private
 func _append_schema_type_issue(kind: String, path: String, expected_type: String, actual_value: Variant) -> void:
 	_append_schema_issue(
 		kind,
@@ -1245,6 +1460,9 @@ func _append_schema_type_issue(kind: String, path: String, expected_type: String
 	)
 
 
+## 将 kind、message 与字段上下文深复制后暂存为解析阶段问题。
+## [br]
+## @api private
 func _append_schema_issue(kind: String, message: String, fields: Dictionary) -> void:
 	_schema_issues.append({
 		"kind": StringName(kind),
@@ -1253,6 +1471,9 @@ func _append_schema_issue(kind: String, message: String, fields: Dictionary) -> 
 	})
 
 
+## 按 key 优先、resource_key 次之读取资源键；无文本值时返回空 StringName。
+## [br]
+## @api private
 func _get_resource_key(entry: Dictionary) -> StringName:
 	var field_name: String = _select_field_name(entry, "key", "resource_key")
 	if field_name.is_empty():
@@ -1261,6 +1482,9 @@ func _get_resource_key(entry: Dictionary) -> StringName:
 	return StringName(_to_text_value(value).strip_edges()) if _is_text_value(value) else &""
 
 
+## 按 path 优先、resource_path 次之读取已去除首尾空白的路径文本。
+## [br]
+## @api private
 func _get_resource_path(entry: Dictionary) -> String:
 	var field_name: String = _select_field_name(entry, "path", "resource_path")
 	if field_name.is_empty():
@@ -1269,10 +1493,16 @@ func _get_resource_path(entry: Dictionary) -> String:
 	return _to_text_value(value).strip_edges() if _is_text_value(value) else ""
 
 
+## 使用当前 root_path 归一化资源条目的路径。
+## [br]
+## @api private
 func _get_normalized_entry_path(entry: Dictionary) -> String:
 	return _normalize_package_resource_path(_get_resource_path(entry), root_path)
 
 
+## 获取资源条目的文本字段；缺失或不是 String/StringName 时返回空串。
+## [br]
+## @api private
 func _get_resource_text_field(entry: Dictionary, field_name: String) -> String:
 	if not _has_field(entry, field_name):
 		return ""
@@ -1280,6 +1510,9 @@ func _get_resource_text_field(entry: Dictionary, field_name: String) -> String:
 	return _to_text_value(value).strip_edges() if _is_text_value(value) else ""
 
 
+## 获取资源优先级；字段缺失或不是整数值时回退为 0。
+## [br]
+## @api private
 func _get_resource_priority(entry: Dictionary) -> int:
 	if not _has_field(entry, "priority"):
 		return 0
@@ -1287,6 +1520,9 @@ func _get_resource_priority(entry: Dictionary) -> int:
 	return _to_integer_value(value) if _is_integer_value(value) else 0
 
 
+## 复制资源 metadata，并写入 package_id、package_version 与 content_types。
+## [br]
+## @api private
 func _make_resource_metadata(entry: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	if _has_field(entry, "metadata"):
@@ -1300,6 +1536,9 @@ func _make_resource_metadata(entry: Dictionary) -> Dictionary:
 	return result
 
 
+## 逐项递归复制资源字典，避免结果沿用输入条目的嵌套容器。
+## [br]
+## @api private
 static func _copy_resource_entries(entries: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in entries:
@@ -1307,10 +1546,16 @@ static func _copy_resource_entries(entries: Array[Dictionary]) -> Array[Dictiona
 	return result
 
 
+## 复制 PackedStringArray，供调用方隔离可变数组存储。
+## [br]
+## @api private
 static func _copy_packed_string_array(items: PackedStringArray) -> PackedStringArray:
 	return items.duplicate()
 
 
+## 去除各字符串首尾空白并按首次出现顺序移除重复项。
+## [br]
+## @api private
 static func _normalize_string_list(items: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for item: String in items:
@@ -1321,6 +1566,9 @@ static func _normalize_string_list(items: PackedStringArray) -> PackedStringArra
 	return result
 
 
+## 合并调用方禁用项与 data_only 默认禁用项，并排序返回。
+## [br]
+## @api private
 func _get_effective_forbidden_extensions() -> PackedStringArray:
 	var result: PackedStringArray = _normalize_extensions(forbidden_resource_extensions)
 	if safety_kind == SAFETY_KIND_DATA_ONLY or safety_kind == &"":
@@ -1330,6 +1578,9 @@ func _get_effective_forbidden_extensions() -> PackedStringArray:
 	return result
 
 
+## 归一化扩展名、移除空值与重复值，最后按字典序排序。
+## [br]
+## @api private
 static func _normalize_extensions(items: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for item: String in items:
@@ -1338,6 +1589,9 @@ static func _normalize_extensions(items: PackedStringArray) -> PackedStringArray
 	return result
 
 
+## 归一化单个扩展名，仅在非空且尚未存在时追加到数组。
+## [br]
+## @api private
 static func _append_unique_extension(items: PackedStringArray, value: String) -> void:
 	var extension: String = _normalize_extension(value)
 	if extension.is_empty() or items.has(extension):
@@ -1345,6 +1599,9 @@ static func _append_unique_extension(items: PackedStringArray, value: String) ->
 	var _append_extension: bool = items.append(extension)
 
 
+## 去除首尾空白、转为小写并剥除所有前导点号。
+## [br]
+## @api private
 static func _normalize_extension(value: String) -> String:
 	var extension: String = value.strip_edges().to_lower()
 	while extension.begins_with("."):
@@ -1352,6 +1609,9 @@ static func _normalize_extension(value: String) -> String:
 	return extension
 
 
+## 先归一路径；相对路径以包根目录拼接，根目录无效时返回空串。
+## [br]
+## @api private
 static func _normalize_package_resource_path(path: String, package_root: String) -> String:
 	var normalized_path: String = _normalize_resource_path(path, "")
 	if normalized_path.is_empty():
@@ -1367,18 +1627,30 @@ static func _normalize_package_resource_path(path: String, package_root: String)
 	return _normalize_resource_path(normalized_root.path_join(normalized_path), "")
 
 
+## 将资源路径归一化工作委托给路径工具，并透传回退路径。
+## [br]
+## @api private
 static func _normalize_resource_path(path: String, fallback: String) -> String:
 	return _GF_PATH_TOOLS.normalize_resource_path(path, fallback)
 
 
+## 使用路径工具归一化内容包根目录。
+## [br]
+## @api private
 static func _normalize_root_path(path: String) -> String:
 	return _GF_PATH_TOOLS.normalize_root_path(path)
 
 
+## 判断归一化路径是否以 res:// 或 user:// 开头。
+## [br]
+## @api private
 static func _is_supported_resource_path(path: String) -> bool:
 	return path.begins_with("res://") or path.begins_with("user://")
 
 
+## 归一化包根目录后，将路径边界判断委托给路径工具。
+## [br]
+## @api private
 static func _is_path_inside_root(path: String, package_root: String) -> bool:
 	var normalized_root: String = _normalize_root_path(package_root)
 	if normalized_root.is_empty():
@@ -1386,10 +1658,16 @@ static func _is_path_inside_root(path: String, package_root: String) -> bool:
 	return _GF_PATH_TOOLS.is_path_under_root(path, normalized_root, true, false)
 
 
+## 同时检查 String 与 StringName 键形式的字段是否存在。
+## [br]
+## @api private
 static func _has_field(data: Dictionary, field_name: String) -> bool:
 	return data.has(field_name) or data.has(StringName(field_name))
 
 
+## 优先读取 String 键，其次读取同名 StringName 键；都不存在则返回 null。
+## [br]
+## @api private
 static func _get_field_value(data: Dictionary, field_name: String) -> Variant:
 	if data.has(field_name):
 		return data[field_name]
@@ -1397,6 +1675,9 @@ static func _get_field_value(data: Dictionary, field_name: String) -> Variant:
 	return data[field_key] if data.has(field_key) else null
 
 
+## 选择已存在的规范键，若无则选非空且存在的兼容别名。
+## [br]
+## @api private
 static func _select_field_name(data: Dictionary, field_name: String, alias_name: String) -> String:
 	if _has_field(data, field_name):
 		return field_name
@@ -1405,10 +1686,16 @@ static func _select_field_name(data: Dictionary, field_name: String, alias_name:
 	return ""
 
 
+## 仅把 String 与 StringName 判定为可接受文本值。
+## [br]
+## @api private
 static func _is_text_value(value: Variant) -> bool:
 	return value is String or value is StringName
 
 
+## 将 StringName 转成 String，保留 String 原值，其余类型转为空串。
+## [br]
+## @api private
 static func _to_text_value(value: Variant) -> String:
 	if value is String:
 		var string_value: String = value
@@ -1419,6 +1706,9 @@ static func _to_text_value(value: Variant) -> String:
 	return ""
 
 
+## 接受 int 或有限且没有小数部分的 float。
+## [br]
+## @api private
 static func _is_integer_value(value: Variant) -> bool:
 	if value is int:
 		return true
@@ -1428,6 +1718,9 @@ static func _is_integer_value(value: Variant) -> bool:
 	return is_finite(float_value) and float_value == floorf(float_value)
 
 
+## 将 int 原样返回、float 转为 int，其他 Variant 回退为 0。
+## [br]
+## @api private
 static func _to_integer_value(value: Variant) -> int:
 	if value is int:
 		var int_value: int = value
@@ -1438,6 +1731,9 @@ static func _to_integer_value(value: Variant) -> int:
 	return 0
 
 
+## 收集不在根字段白名单中的键名，转换为文本并排序。
+## [br]
+## @api private
 static func _collect_unknown_fields(data: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for key: Variant in data.keys():
@@ -1449,6 +1745,9 @@ static func _collect_unknown_fields(data: Dictionary) -> PackedStringArray:
 	return result
 
 
+## 先按 type_hint 查询 ResourceLoader，再回退检查文件系统路径。
+## [br]
+## @api private
 static func _resource_path_exists(path: String, type_hint: String = "") -> bool:
 	if ResourceLoader.exists(path, type_hint):
 		return true

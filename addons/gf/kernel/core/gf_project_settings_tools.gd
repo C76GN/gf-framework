@@ -14,6 +14,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 读取可选 ProjectSettings 注册参数的 Variant 辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 

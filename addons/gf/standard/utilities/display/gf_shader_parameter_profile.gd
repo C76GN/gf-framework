@@ -302,6 +302,10 @@ static func from_dict(data: Dictionary) -> GFShaderParameterProfile:
 
 # --- 私有/辅助方法 ---
 
+## 优先查找 StringName 键，其次查找同名 String 键；名称为空或不存在时返回 null。
+## [br]
+## @api private
+## [br]
 func _find_parameter_key(parameter_name: StringName) -> Variant:
 	if parameter_name == &"":
 		return null
@@ -314,6 +318,10 @@ func _find_parameter_key(parameter_name: StringName) -> Variant:
 	return null
 
 
+## 将可识别的 String/StringName 参数键规范为 StringName，并复制各参数值。
+## [br]
+## @api private
+## [br]
 static func _duplicate_parameter_dictionary(source: Dictionary) -> Dictionary:
 	var copy: Dictionary = {}
 	for raw_key: Variant in source.keys():
@@ -324,6 +332,10 @@ static func _duplicate_parameter_dictionary(source: Dictionary) -> Dictionary:
 	return copy
 
 
+## 对同类数字、Color、Vector2/3/4 和 Quaternion 插值；整数两端仍返回取整整数，其他类型保留起点副本。
+## [br]
+## @api private
+## [br]
 static func _blend_value(from_value: Variant, to_value: Variant, weight: float) -> Variant:
 	if weight <= 0.0:
 		return GFVariantData.duplicate_variant(from_value)
@@ -358,10 +370,18 @@ static func _blend_value(from_value: Variant, to_value: Variant, weight: float) 
 	return GFVariantData.duplicate_variant(from_value)
 
 
+## 判断 Variant 是否为原生 int 或 float。
+## [br]
+## @api private
+## [br]
 static func _is_numeric_value(value: Variant) -> bool:
 	return typeof(value) == TYPE_INT or typeof(value) == TYPE_FLOAT
 
 
+## 将 int 或 float 转换为 float；其他类型返回 0.0。
+## [br]
+## @api private
+## [br]
 static func _number_to_float(value: Variant) -> float:
 	match typeof(value):
 		TYPE_FLOAT:
@@ -373,6 +393,10 @@ static func _number_to_float(value: Variant) -> float:
 	return 0.0
 
 
+## 将 String 或 StringName 转为参数名；其他值返回空名称。
+## [br]
+## @api private
+## [br]
 static func _variant_to_parameter_name(value: Variant) -> StringName:
 	if value is StringName:
 		var string_name_value: StringName = value

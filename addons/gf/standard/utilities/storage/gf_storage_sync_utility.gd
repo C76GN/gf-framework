@@ -94,6 +94,10 @@ enum SyncStatus {
 
 # --- 常量 ---
 
+## 表示记录元数据无法按数值顺序比较的内部哨兵值。
+## [br]
+## @api private
+## [br]
 const _COMPARISON_UNORDERED: int = 2
 
 
@@ -112,8 +116,22 @@ var write_resolved_by_default: bool = true
 
 # --- 私有变量 ---
 
+## 调试快照中的已完成同步次数。
+## [br]
+## @api private
+## [br]
 var _sync_count: int = 0
+
+## 调试快照中的冲突处理次数。
+## [br]
+## @api private
+## [br]
 var _conflict_count: int = 0
+
+## 调试快照中的失败次数。
+## [br]
+## @api private
+## [br]
 var _failed_count: int = 0
 
 
@@ -246,6 +264,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 从后端读取逻辑文件并规范化为内部记录字典。
+## [br]
+## @api private
+## [br]
 func _load_record(source: StringName, backend: GFStorageBackend, file_name: String) -> Dictionary:
 	var load_result: Dictionary = backend.load_data(file_name)
 	var data_value: Variant = GFVariantData.get_option_value(load_result, "data", {})
@@ -265,6 +287,10 @@ func _load_record(source: StringName, backend: GFStorageBackend, file_name: Stri
 	return GFResultDictionary.make(ok, record)
 
 
+## 生成不含数据正文的记录摘要供同步结果返回。
+## [br]
+## @api private
+## [br]
 func _summarize_record(record: Dictionary) -> Dictionary:
 	var summary: Dictionary = {
 		"source": GFVariantData.get_option_string_name(record, "source"),
@@ -275,10 +301,18 @@ func _summarize_record(record: Dictionary) -> Dictionary:
 	return summary
 
 
+## 判断两条记录的数据字典是否相等。
+## [br]
+## @api private
+## [br]
 func _records_have_same_data(local_record: Dictionary, remote_record: Dictionary) -> bool:
 	return _get_record_data(local_record) == _get_record_data(remote_record)
 
 
+## 生成冲突报告、应用选定策略并按选项写回已解决的数据。
+## [br]
+## @api private
+## [br]
 func _resolve_and_write_conflict(
 	result: Dictionary,
 	local_record: Dictionary,
@@ -337,6 +371,10 @@ func _resolve_and_write_conflict(
 	return _finish_completed(result)
 
 
+## 按配置策略选择本地、远端、最新记录、自定义结果或未解决状态。
+## [br]
+## @api private
+## [br]
 func _resolve_conflict(
 	report: GFStorageConflictReport,
 	local_record: Dictionary,
@@ -367,6 +405,10 @@ func _resolve_conflict(
 			return _make_unresolved_resolution(report, "Manual storage conflict resolution required.")
 
 
+## 将指定记录包装为冲突解决结果并更新报告的解决值。
+## [br]
+## @api private
+## [br]
 func _make_record_resolution(
 	report: GFStorageConflictReport,
 	record: Dictionary,
@@ -385,6 +427,10 @@ func _make_record_resolution(
 	return GFResultDictionary.make_success(result)
 
 
+## 调用自定义解析器并校验其返回的数据与元数据字典。
+## [br]
+## @api private
+## [br]
 func _resolve_with_callback(
 	report: GFStorageConflictReport,
 	local_record: Dictionary,
@@ -433,6 +479,10 @@ func _resolve_with_callback(
 	return GFResultDictionary.make_success(result)
 
 
+## 标记报告为未解决并生成失败结果。
+## [br]
+## @api private
+## [br]
 func _make_unresolved_resolution(report: GFStorageConflictReport, error: String) -> Dictionary:
 	report.resolution = GFStorageConflictReport.Resolution.UNRESOLVED
 	return GFResultDictionary.make_failure(error, {
@@ -440,6 +490,10 @@ func _make_unresolved_resolution(report: GFStorageConflictReport, error: String)
 	})
 
 
+## 构造传给自定义解析器的来源、数据和元数据快照字典。
+## [br]
+## @api private
+## [br]
 func _make_callback_record(record: Dictionary) -> Dictionary:
 	var callback_record: Dictionary = {
 		"source": GFVariantData.get_option_string_name(record, "source"),
@@ -449,6 +503,10 @@ func _make_callback_record(record: Dictionary) -> Dictionary:
 	return callback_record
 
 
+## 使用两端记录生成初始冲突报告。
+## [br]
+## @api private
+## [br]
 func _make_conflict_report(file_name: String, local_record: Dictionary, remote_record: Dictionary) -> GFStorageConflictReport:
 	var report: GFStorageConflictReport = GFStorageConflictReport.new()
 	report.file_name = file_name
@@ -462,6 +520,10 @@ func _make_conflict_report(file_name: String, local_record: Dictionary, remote_r
 	return report
 
 
+## 将可读记录作为选定来源，并按写回选项复制到目标后端。
+## [br]
+## @api private
+## [br]
 func _copy_record_to_backend(
 	result: Dictionary,
 	source_record: Dictionary,
@@ -486,6 +548,10 @@ func _copy_record_to_backend(
 	return _finish_completed(result)
 
 
+## 保存同步数据到一个后端并记录成功目标或错误。
+## [br]
+## @api private
+## [br]
 func _write_backend(
 	result: Dictionary,
 	backend: GFStorageBackend,
@@ -501,6 +567,10 @@ func _write_backend(
 	_set_result_error(result, backend_name, error_string(error))
 
 
+## 先按版本键比较记录，结果相同时再按时间戳键比较。
+## [br]
+## @api private
+## [br]
 func _compare_records(local_record: Dictionary, remote_record: Dictionary, options: Dictionary) -> int:
 	var revision_comparison: int = _compare_metadata_by_keys(
 		local_record,
@@ -517,6 +587,10 @@ func _compare_records(local_record: Dictionary, remote_record: Dictionary, optio
 	)
 
 
+## 按给定顺序查找两端共有的元数据键并返回首个非零比较结果。
+## [br]
+## @api private
+## [br]
 func _compare_metadata_by_keys(local_record: Dictionary, remote_record: Dictionary, keys: Array[String]) -> int:
 	var local_metadata: Dictionary = _get_record_metadata(local_record)
 	var remote_metadata: Dictionary = _get_record_metadata(remote_record)
@@ -530,6 +604,10 @@ func _compare_metadata_by_keys(local_record: Dictionary, remote_record: Dictiona
 	return 0
 
 
+## 比较元数据值；有限数值按数值比较，其余值按字符串比较。
+## [br]
+## @api private
+## [br]
 func _compare_metadata_values(left: Variant, right: Variant) -> int:
 	if _is_numeric_value(left) and _is_numeric_value(right):
 		var left_number: float = GFVariantData.to_float(left)
@@ -547,6 +625,10 @@ func _compare_metadata_values(left: Variant, right: Variant) -> int:
 	return 1 if left_text > right_text else -1
 
 
+## 判断值是否为数值或可解析为浮点数的字符串。
+## [br]
+## @api private
+## [br]
 func _is_numeric_value(value: Variant) -> bool:
 	if value is int or value is float:
 		return true
@@ -556,40 +638,72 @@ func _is_numeric_value(value: Variant) -> bool:
 	return false
 
 
+## 从记录中读取并规范化数据字典。
+## [br]
+## @api private
+## [br]
 static func _get_record_data(record: Dictionary) -> Dictionary:
 	return GFVariantData.to_dictionary(GFVariantData.get_option_value(record, GFResultDictionary.KEY_DATA, {}))
 
 
+## 从记录中读取并规范化元数据字典。
+## [br]
+## @api private
+## [br]
 static func _get_record_metadata(record: Dictionary) -> Dictionary:
 	return GFVariantData.to_dictionary(GFVariantData.get_option_value(record, GFResultDictionary.KEY_METADATA, {}))
 
 
+## 从同步结果中读取逻辑文件名。
+## [br]
+## @api private
+## [br]
 static func _get_result_file_name(result: Dictionary) -> String:
 	return GFVariantData.get_option_string(result, "file_name")
 
 
+## 判断同步结果的错误字典是否非空。
+## [br]
+## @api private
+## [br]
 static func _has_result_errors(result: Dictionary) -> bool:
 	return not GFVariantData.as_dictionary(GFVariantData.get_option_value(result, GFResultDictionary.KEY_ERRORS, {})).is_empty()
 
 
+## 将冲突报告序列化后追加到结果的冲突列表。
+## [br]
+## @api private
+## [br]
 static func _append_result_conflict(result: Dictionary, report: GFStorageConflictReport) -> void:
 	var conflicts: Array = GFVariantData.as_array(GFVariantData.get_option_value(result, "conflicts", []))
 	conflicts.append(report.to_dict())
 	result["conflicts"] = conflicts
 
 
+## 将成功写回的后端名称追加到结果列表。
+## [br]
+## @api private
+## [br]
 static func _append_written_backend(result: Dictionary, backend_name: StringName) -> void:
 	var written_backends: Array = GFVariantData.as_array(GFVariantData.get_option_value(result, "written_backends", []))
 	written_backends.append(String(backend_name))
 	result["written_backends"] = written_backends
 
 
+## 在结果错误字典中记录指定后端的写入错误。
+## [br]
+## @api private
+## [br]
 static func _set_result_error(result: Dictionary, backend_name: StringName, error: String) -> void:
 	var errors: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(result, GFResultDictionary.KEY_ERRORS, {}))
 	errors[backend_name] = error
 	result[GFResultDictionary.KEY_ERRORS] = errors
 
 
+## 读取指定字段中的冲突报告；类型不符时返回备用报告。
+## [br]
+## @api private
+## [br]
 static func _get_conflict_report(source: Dictionary, key: Variant, fallback: GFStorageConflictReport) -> GFStorageConflictReport:
 	var value: Variant = GFVariantData.get_option_value(source, key, fallback)
 	if value is GFStorageConflictReport:
@@ -598,6 +712,10 @@ static func _get_conflict_report(source: Dictionary, key: Variant, fallback: GFS
 	return fallback
 
 
+## 将 Variant 转换为 Callable，类型不符时返回无效 Callable。
+## [br]
+## @api private
+## [br]
 static func _variant_to_callable(value: Variant) -> Callable:
 	if value is Callable:
 		var callback: Callable = value
@@ -605,6 +723,10 @@ static func _variant_to_callable(value: Variant) -> Callable:
 	return Callable()
 
 
+## 将整数限制到冲突解决枚举范围并映射为有效枚举值。
+## [br]
+## @api private
+## [br]
 static func _to_conflict_resolution(value: int) -> GFStorageConflictReport.Resolution:
 	match clampi(value, GFStorageConflictReport.Resolution.UNRESOLVED, GFStorageConflictReport.Resolution.SKIPPED):
 		GFStorageConflictReport.Resolution.USE_LOCAL:
@@ -619,6 +741,10 @@ static func _to_conflict_resolution(value: int) -> GFStorageConflictReport.Resol
 			return GFStorageConflictReport.Resolution.UNRESOLVED
 
 
+## 将整数限制到冲突策略枚举范围并映射为有效策略。
+## [br]
+## @api private
+## [br]
 static func _to_conflict_strategy(value: int) -> ConflictStrategy:
 	match clampi(value, ConflictStrategy.USE_NEWEST, ConflictStrategy.CUSTOM):
 		ConflictStrategy.USE_LOCAL:
@@ -633,22 +759,42 @@ static func _to_conflict_strategy(value: int) -> ConflictStrategy:
 			return ConflictStrategy.USE_NEWEST
 
 
+## 从选项读取策略并转换为有效冲突策略。
+## [br]
+## @api private
+## [br]
 func _get_strategy(options: Dictionary) -> ConflictStrategy:
 	return _to_conflict_strategy(GFVariantData.get_option_int(options, "strategy", default_conflict_strategy))
 
 
+## 读取是否启用冲突解决结果的写回。
+## [br]
+## @api private
+## [br]
 func _write_resolved_enabled(options: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(options, "write_resolved", write_resolved_by_default)
 
 
+## 读取指定后端写回选项，并使用调用方给定的默认值。
+## [br]
+## @api private
+## [br]
 func _should_write_to_backend(options: Dictionary, key: String, fallback: bool) -> bool:
 	return GFVariantData.get_option_bool(options, key, fallback)
 
 
+## 从选项读取字符串数组；缺少该项时使用给定默认数组。
+## [br]
+## @api private
+## [br]
 func _get_string_array_option(options: Dictionary, key: String, fallback: Array[String]) -> Array[String]:
 	return GFVariantData.get_option_string_array(options, key, fallback)
 
 
+## 构造带默认状态、两端摘要字段及空数据的同步结果。
+## [br]
+## @api private
+## [br]
 func _make_base_result(file_name: String) -> Dictionary:
 	var result: Dictionary = {
 		"file_name": file_name,
@@ -667,12 +813,20 @@ func _make_base_result(file_name: String) -> Dictionary:
 	return GFResultDictionary.make(false, result)
 
 
+## 更新成功计数、发出完成信号并返回结果。
+## [br]
+## @api private
+## [br]
 func _finish_completed(result: Dictionary) -> Dictionary:
 	_sync_count += 1
 	sync_completed.emit(_get_result_file_name(result), result.duplicate(true))
 	return result
 
 
+## 写入失败状态和错误，更新失败计数、发出失败信号并返回结果。
+## [br]
+## @api private
+## [br]
 func _finish_failed(result: Dictionary, error: String) -> Dictionary:
 	result["ok"] = false
 	result["status"] = SyncStatus.FAILED
@@ -683,12 +837,20 @@ func _finish_failed(result: Dictionary, error: String) -> Dictionary:
 	return result
 
 
+## 保持冲突状态，发出未解决信号并返回结果。
+## [br]
+## @api private
+## [br]
 func _finish_conflict(result: Dictionary) -> Dictionary:
 	result["ok"] = false
 	sync_conflict_unresolved.emit(_get_result_file_name(result), result.duplicate(true))
 	return result
 
 
+## 将同步状态枚举映射为结果字典使用的稳定名称。
+## [br]
+## @api private
+## [br]
 func _get_status_name(status: int) -> StringName:
 	match status:
 		SyncStatus.UNCHANGED:

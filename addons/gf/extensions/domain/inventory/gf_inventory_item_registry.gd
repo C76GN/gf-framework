@@ -47,7 +47,14 @@ extends Resource
 
 # --- 私有变量 ---
 
+## 未注册物品的单堆叠容量存储值，由导出属性访问器限制为至少 1。
+## [br]
+## @api private
 var _default_max_stack_amount: int = 99
+
+## 未注册物品的堆叠数量上限存储值，由导出属性访问器限制为非负数。
+## [br]
+## @api private
 var _default_max_stack_count: int = 0
 
 
@@ -265,6 +272,9 @@ static func from_dict(data: Dictionary) -> GFInventoryItemRegistry:
 
 # --- 私有/辅助方法 ---
 
+## 将任意值收窄为 GFInventoryItemDefinition 实例，否则返回 null。
+## [br]
+## @api private
 func _get_item_definition_value(value: Variant) -> GFInventoryItemDefinition:
 	if value is GFInventoryItemDefinition:
 		var definition: GFInventoryItemDefinition = value

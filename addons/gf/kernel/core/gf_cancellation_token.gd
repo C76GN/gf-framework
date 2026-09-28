@@ -29,9 +29,24 @@ signal cancel_requested(reason: StringName)
 
 # --- 私有变量 ---
 
+## 首次取消请求到达后的单向状态标记。
+## [br]
+## @api private
 var _cancel_requested: bool = false
+
+## 首次取消请求的原因；空原因会规范化为 `cancelled`。
+## [br]
+## @api private
 var _cancel_reason: StringName = &""
+
+## 首次取消请求时复制保存的元数据。
+## [br]
+## @api private
 var _cancel_metadata: Dictionary = {}
+
+## 首次取消请求记录的毫秒 tick；尚未取消时为零。
+## [br]
+## @api private
 var _cancel_requested_msec: int = 0
 
 

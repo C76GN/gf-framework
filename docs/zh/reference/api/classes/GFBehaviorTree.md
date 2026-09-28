@@ -119,21 +119,21 @@ static func build_debug_snapshot(node: Variant, options: Dictionary = {}) -> Dic
 | [`GFBehaviorTree.Action`](#gfbehaviortreeaction) | 领域模型 (`domain_model`) | `BTNode` | 2 |
 | [`GFBehaviorTree.AlwaysFail`](#gfbehaviortreealwaysfail) | 领域模型 (`domain_model`) | `Decorator` | 2 |
 | [`GFBehaviorTree.AlwaysSucceed`](#gfbehaviortreealwayssucceed) | 领域模型 (`domain_model`) | `Decorator` | 2 |
-| [`GFBehaviorTree.BTNode`](#gfbehaviortreebtnode) | 协议与扩展点 (`protocol`) | `RefCounted` | 13 |
+| [`GFBehaviorTree.BTNode`](#gfbehaviortreebtnode) | 协议与扩展点 (`protocol`) | `RefCounted` | 14 |
 | [`GFBehaviorTree.BlackboardScope`](#gfbehaviortreeblackboardscope) | 领域模型 (`domain_model`) | `RefCounted` | 7 |
 | [`GFBehaviorTree.Condition`](#gfbehaviortreecondition) | 领域模型 (`domain_model`) | `BTNode` | 2 |
 | [`GFBehaviorTree.Cooldown`](#gfbehaviortreecooldown) | 领域模型 (`domain_model`) | `Decorator` | 6 |
-| [`GFBehaviorTree.Decorator`](#gfbehaviortreedecorator) | 协议与扩展点 (`protocol`) | `BTNode` | 3 |
+| [`GFBehaviorTree.Decorator`](#gfbehaviortreedecorator) | 协议与扩展点 (`protocol`) | `BTNode` | 4 |
 | [`GFBehaviorTree.Inverter`](#gfbehaviortreeinverter) | 领域模型 (`domain_model`) | `Decorator` | 2 |
 | [`GFBehaviorTree.Limit`](#gfbehaviortreelimit) | 领域模型 (`domain_model`) | `Decorator` | 4 |
-| [`GFBehaviorTree.Parallel`](#gfbehaviortreeparallel) | 领域模型 (`domain_model`) | `BTNode` | 4 |
+| [`GFBehaviorTree.Parallel`](#gfbehaviortreeparallel) | 领域模型 (`domain_model`) | `BTNode` | 5 |
 | [`GFBehaviorTree.Probability`](#gfbehaviortreeprobability) | 领域模型 (`domain_model`) | `Decorator` | 5 |
-| [`GFBehaviorTree.RandomSelector`](#gfbehaviortreerandomselector) | 领域模型 (`domain_model`) | `BTNode` | 4 |
-| [`GFBehaviorTree.RandomSequence`](#gfbehaviortreerandomsequence) | 领域模型 (`domain_model`) | `BTNode` | 4 |
+| [`GFBehaviorTree.RandomSelector`](#gfbehaviortreerandomselector) | 领域模型 (`domain_model`) | `BTNode` | 5 |
+| [`GFBehaviorTree.RandomSequence`](#gfbehaviortreerandomsequence) | 领域模型 (`domain_model`) | `BTNode` | 5 |
 | [`GFBehaviorTree.Repeat`](#gfbehaviortreerepeat) | 领域模型 (`domain_model`) | `Decorator` | 4 |
 | [`GFBehaviorTree.Runner`](#gfbehaviortreerunner) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 6 |
-| [`GFBehaviorTree.Selector`](#gfbehaviortreeselector) | 领域模型 (`domain_model`) | `BTNode` | 3 |
-| [`GFBehaviorTree.Sequence`](#gfbehaviortreesequence) | 领域模型 (`domain_model`) | `BTNode` | 3 |
+| [`GFBehaviorTree.Selector`](#gfbehaviortreeselector) | 领域模型 (`domain_model`) | `BTNode` | 4 |
+| [`GFBehaviorTree.Sequence`](#gfbehaviortreesequence) | 领域模型 (`domain_model`) | `BTNode` | 4 |
 | [`GFBehaviorTree.TimeLimit`](#gfbehaviortreetimelimit) | 领域模型 (`domain_model`) | `Decorator` | 5 |
 | [`GFBehaviorTree.UntilFail`](#gfbehaviortreeuntilfail) | 领域模型 (`domain_model`) | `Decorator` | 2 |
 | [`GFBehaviorTree.UntilSuccess`](#gfbehaviortreeuntilsuccess) | 领域模型 (`domain_model`) | `Decorator` | 2 |
@@ -342,6 +342,7 @@ func duplicate_runtime() -> BTNode:
 | 方法 | [`clear_debug_state`](#member-gfbehaviortree-btnode-methods-clear_debug_state) | `func clear_debug_state(recursive: bool = true) -> void:` |
 | 方法 | [`record_status`](#member-gfbehaviortree-btnode-methods-record_status) | `func record_status(status: int, reason: StringName = &"", elapsed_usec: int = 0) -> int:` |
 | 方法 | [`get_debug_snapshot`](#member-gfbehaviortree-btnode-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+| 方法 | [`_get_debug_children`](#member-gfbehaviortree-btnode-methods-_get_debug_children) | `func _get_debug_children() -> Array[BTNode]:` |
 
 #### 属性
 
@@ -546,6 +547,21 @@ func get_debug_snapshot() -> Dictionary:
 
 - `return`: 包含 node_id、name、status、status_text、reason、tick_count、last_tick_usec、child_count、captured_child_count、omitted_child_count、children 和 metadata 字段的 Dictionary；children 在 _get_debug_children() 返回后按递归预算限制，自定义 override 必须自行保证其内部构造有界；metadata 为有界 JSON-safe 投影；截断会通过节点字段和顶层 debug_budget 诊断；真实回边以 cycle=true 表示，非回边的重复 identity 以 shared_reference=true 表示。
 
+<a id="member-gfbehaviortree-btnode-methods-_get_debug_children"></a>
+
+##### `_get_debug_children`
+
+- API：`protected`
+- 首次版本：`3.17.0`
+
+```gdscript
+func _get_debug_children() -> Array[BTNode]:
+```
+
+供调试遍历取得直接子节点的扩展点；默认返回空数组。重写应自行限制构造成本，调用方仅在返回后应用遍历预算。
+
+返回：直接子节点列表；返回节点引用，调试遍历会识别环和共享身份。
+
 ### GFBehaviorTree.BlackboardScope
 
 - 路径：`addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd`
@@ -678,6 +694,7 @@ func get_value(key: StringName, default_value: Variant = null) -> Variant:
 ##### `has_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func has_value(key: StringName) -> bool:
@@ -698,6 +715,7 @@ func has_value(key: StringName) -> bool:
 ##### `to_dictionary`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func to_dictionary() -> Dictionary:
@@ -902,6 +920,7 @@ func duplicate_runtime() -> BTNode:
 | 方法 | [`set_child`](#member-gfbehaviortree-decorator-methods-set_child) | `func set_child(child_node: BTNode) -> Decorator:` |
 | 方法 | [`reset`](#member-gfbehaviortree-decorator-methods-reset) | `func reset() -> void:` |
 | 方法 | [`duplicate_runtime`](#member-gfbehaviortree-decorator-methods-duplicate_runtime) | `func duplicate_runtime() -> BTNode:` |
+| 方法 | [`_get_debug_children`](#member-gfbehaviortree-decorator-methods-_get_debug_children) | `func _get_debug_children() -> Array[BTNode]:` |
 
 #### 方法
 
@@ -951,6 +970,21 @@ func duplicate_runtime() -> BTNode:
 创建可独立运行的装饰器副本。
 
 返回：复制后的运行时节点。
+
+<a id="member-gfbehaviortree-decorator-methods-_get_debug_children"></a>
+
+##### `_get_debug_children`
+
+- API：`protected`
+- 首次版本：`3.17.0`
+
+```gdscript
+func _get_debug_children() -> Array[BTNode]:
+```
+
+将当前子节点包装成调试遍历列表；没有子节点时返回空数组。
+
+返回：最多含一个节点引用的新数组。
 
 ### GFBehaviorTree.Inverter
 
@@ -1115,6 +1149,7 @@ func duplicate_runtime() -> BTNode:
 | 方法 | [`tick`](#member-gfbehaviortree-parallel-methods-tick) | `func tick(blackboard: Dictionary) -> int:` |
 | 方法 | [`reset`](#member-gfbehaviortree-parallel-methods-reset) | `func reset() -> void:` |
 | 方法 | [`duplicate_runtime`](#member-gfbehaviortree-parallel-methods-duplicate_runtime) | `func duplicate_runtime() -> BTNode:` |
+| 方法 | [`_get_debug_children`](#member-gfbehaviortree-parallel-methods-_get_debug_children) | `func _get_debug_children() -> Array[BTNode]:` |
 
 #### 属性
 
@@ -1181,6 +1216,21 @@ func duplicate_runtime() -> BTNode:
 创建可独立运行的并行节点副本。
 
 返回：复制后的运行时节点。
+
+<a id="member-gfbehaviortree-parallel-methods-_get_debug_children"></a>
+
+##### `_get_debug_children`
+
+- API：`protected`
+- 首次版本：`3.17.0`
+
+```gdscript
+func _get_debug_children() -> Array[BTNode]:
+```
+
+为调试遍历返回并行节点管理的子节点引用数组。
+
+返回：当前子节点引用列表。
 
 ### GFBehaviorTree.Probability
 
@@ -1300,6 +1350,7 @@ func duplicate_runtime() -> BTNode:
 | 方法 | [`tick`](#member-gfbehaviortree-randomselector-methods-tick) | `func tick(blackboard: Dictionary) -> int:` |
 | 方法 | [`reset`](#member-gfbehaviortree-randomselector-methods-reset) | `func reset() -> void:` |
 | 方法 | [`duplicate_runtime`](#member-gfbehaviortree-randomselector-methods-duplicate_runtime) | `func duplicate_runtime() -> BTNode:` |
+| 方法 | [`_get_debug_children`](#member-gfbehaviortree-randomselector-methods-_get_debug_children) | `func _get_debug_children() -> Array[BTNode]:` |
 
 #### 属性
 
@@ -1367,6 +1418,21 @@ func duplicate_runtime() -> BTNode:
 
 返回：复制后的运行时节点。
 
+<a id="member-gfbehaviortree-randomselector-methods-_get_debug_children"></a>
+
+##### `_get_debug_children`
+
+- API：`protected`
+- 首次版本：`3.17.0`
+
+```gdscript
+func _get_debug_children() -> Array[BTNode]:
+```
+
+返回原始候选引用列表供调试查看，顺序不使用当前随机执行排列。
+
+返回：原始候选子节点引用列表。
+
 ### GFBehaviorTree.RandomSequence
 
 - 路径：`addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd`
@@ -1386,6 +1452,7 @@ func duplicate_runtime() -> BTNode:
 | 方法 | [`tick`](#member-gfbehaviortree-randomsequence-methods-tick) | `func tick(blackboard: Dictionary) -> int:` |
 | 方法 | [`reset`](#member-gfbehaviortree-randomsequence-methods-reset) | `func reset() -> void:` |
 | 方法 | [`duplicate_runtime`](#member-gfbehaviortree-randomsequence-methods-duplicate_runtime) | `func duplicate_runtime() -> BTNode:` |
+| 方法 | [`_get_debug_children`](#member-gfbehaviortree-randomsequence-methods-_get_debug_children) | `func _get_debug_children() -> Array[BTNode]:` |
 
 #### 属性
 
@@ -1452,6 +1519,21 @@ func duplicate_runtime() -> BTNode:
 创建可独立运行的随机顺序节点副本。
 
 返回：复制后的运行时节点。
+
+<a id="member-gfbehaviortree-randomsequence-methods-_get_debug_children"></a>
+
+##### `_get_debug_children`
+
+- API：`protected`
+- 首次版本：`3.17.0`
+
+```gdscript
+func _get_debug_children() -> Array[BTNode]:
+```
+
+返回原始子节点引用列表供调试查看。
+
+返回：原始子节点列表，不使用当前随机执行排列。
 
 ### GFBehaviorTree.Repeat
 
@@ -1668,6 +1750,7 @@ func get_debug_snapshot() -> Dictionary:
 | 方法 | [`tick`](#member-gfbehaviortree-selector-methods-tick) | `func tick(blackboard: Dictionary) -> int:` |
 | 方法 | [`reset`](#member-gfbehaviortree-selector-methods-reset) | `func reset() -> void:` |
 | 方法 | [`duplicate_runtime`](#member-gfbehaviortree-selector-methods-duplicate_runtime) | `func duplicate_runtime() -> BTNode:` |
+| 方法 | [`_get_debug_children`](#member-gfbehaviortree-selector-methods-_get_debug_children) | `func _get_debug_children() -> Array[BTNode]:` |
 
 #### 方法
 
@@ -1721,6 +1804,21 @@ func duplicate_runtime() -> BTNode:
 
 返回：复制后的运行时节点。
 
+<a id="member-gfbehaviortree-selector-methods-_get_debug_children"></a>
+
+##### `_get_debug_children`
+
+- API：`protected`
+- 首次版本：`3.17.0`
+
+```gdscript
+func _get_debug_children() -> Array[BTNode]:
+```
+
+为调试遍历返回选择器的候选子节点引用数组。
+
+返回：当前候选节点引用列表。
+
 ### GFBehaviorTree.Sequence
 
 - 路径：`addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd`
@@ -1739,6 +1837,7 @@ func duplicate_runtime() -> BTNode:
 | 方法 | [`tick`](#member-gfbehaviortree-sequence-methods-tick) | `func tick(blackboard: Dictionary) -> int:` |
 | 方法 | [`reset`](#member-gfbehaviortree-sequence-methods-reset) | `func reset() -> void:` |
 | 方法 | [`duplicate_runtime`](#member-gfbehaviortree-sequence-methods-duplicate_runtime) | `func duplicate_runtime() -> BTNode:` |
+| 方法 | [`_get_debug_children`](#member-gfbehaviortree-sequence-methods-_get_debug_children) | `func _get_debug_children() -> Array[BTNode]:` |
 
 #### 方法
 
@@ -1791,6 +1890,21 @@ func duplicate_runtime() -> BTNode:
 创建可独立运行的顺序节点副本。
 
 返回：复制后的运行时节点。
+
+<a id="member-gfbehaviortree-sequence-methods-_get_debug_children"></a>
+
+##### `_get_debug_children`
+
+- API：`protected`
+- 首次版本：`3.17.0`
+
+```gdscript
+func _get_debug_children() -> Array[BTNode]:
+```
+
+为调试遍历返回本序列的子节点引用数组。
+
+返回：当前子节点引用列表，不在此复制节点。
 
 ### GFBehaviorTree.TimeLimit
 

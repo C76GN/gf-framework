@@ -63,14 +63,58 @@ var max_packets_per_poll: int = 64
 
 # --- 私有变量 ---
 
+## 当前挂接的 MultiplayerPeer 实例。
+## [br]
+## @api private
+## [br]
 var _peer: MultiplayerPeer = null
+
+## 当前 Peer 的资源所有权策略。
+## [br]
+## @api private
+## [br]
 var _ownership: Ownership = Ownership.BORROWED
+
+## 当前 Peer 会话的服务器或客户端角色。
+## [br]
+## @api private
+## [br]
 var _role: Role = Role.UNKNOWN
+
+## 当前连接使用的端点地址。
+## [br]
+## @api private
+## [br]
 var _endpoint: String = ""
+
+## 当前 Peer 是否支持指定传输频道。
+## [br]
+## @api private
+## [br]
 var _supports_channels: bool = true
+
+## 当前 Peer 是否支持指定传输模式。
+## [br]
+## @api private
+## [br]
 var _supports_transfer_modes: bool = true
+
+## 上次观测到的连接状态，用于识别状态转换。
+## [br]
+## @api private
+## [br]
 var _last_status: int = MultiplayerPeer.CONNECTION_DISCONNECTED
+
+## 当前仍被跟踪的远端 peer ID 集合。
+## [br]
+## @api private
+## [br]
 var _connected_peer_ids: Dictionary[int, bool] = {}
+
+## Peer 挂接代次，用于使旧会话回调失效。
+## [br]
+## @api private
+## [br]
 var _peer_generation: int = 0
 
 
@@ -330,6 +374,10 @@ func _enrich_transport_metrics(
 
 # --- 私有/辅助方法 ---
 
+## 将当前 Peer 的远端连接信号接入后端回调。
+## [br]
+## @api private
+## [br]
 func _connect_peer_signals() -> void:
 	if _peer == null:
 		return
@@ -343,6 +391,10 @@ func _connect_peer_signals() -> void:
 		) as Error
 
 
+## 移除当前 Peer 上由后端建立的信号连接。
+## [br]
+## @api private
+## [br]
 func _disconnect_peer_signals() -> void:
 	if _peer == null:
 		return
@@ -352,6 +404,10 @@ func _disconnect_peer_signals() -> void:
 		_peer.peer_disconnected.disconnect(_on_peer_disconnected)
 
 
+## 释放当前 Peer 的信号、角色和指标状态，按所有权关闭旧 Peer，并返回已脱离的实例。
+## [br]
+## @api private
+## [br]
 func _detach_peer(
 	close_owned: bool,
 	should_emit_disconnected: bool,
@@ -382,6 +438,10 @@ func _detach_peer(
 	return detached_peer
 
 
+## 读取状态变化并执行连接完成或断开清理。
+## [br]
+## @api private
+## [br]
 func _update_connection_status() -> void:
 	if _peer == null:
 		return
@@ -400,6 +460,10 @@ func _update_connection_status() -> void:
 			)
 
 
+## 将框架广播标识转换为 MultiplayerPeer 广播目标。
+## [br]
+## @api private
+## [br]
 func _map_target_peer(peer_id: int) -> int:
 	return (
 		MultiplayerPeer.TARGET_PEER_BROADCAST
@@ -408,6 +472,10 @@ func _map_target_peer(peer_id: int) -> int:
 	)
 
 
+## 按显式模式或 reliable 选项选择传输模式。
+## [br]
+## @api private
+## [br]
 func _get_transfer_mode(options: Dictionary) -> MultiplayerPeer.TransferMode:
 	if options.has("transfer_mode"):
 		return _to_transfer_mode(GFVariantData.to_int(options["transfer_mode"]))
@@ -418,6 +486,10 @@ func _get_transfer_mode(options: Dictionary) -> MultiplayerPeer.TransferMode:
 	)
 
 
+## 将整数值限制为支持的 MultiplayerPeer 传输模式。
+## [br]
+## @api private
+## [br]
 func _to_transfer_mode(value: int) -> MultiplayerPeer.TransferMode:
 	match value:
 		MultiplayerPeer.TRANSFER_MODE_UNRELIABLE:
@@ -428,10 +500,18 @@ func _to_transfer_mode(value: int) -> MultiplayerPeer.TransferMode:
 			return MultiplayerPeer.TRANSFER_MODE_RELIABLE
 
 
+## 将输入值归一化为 owned 或 borrowed 所有权。
+## [br]
+## @api private
+## [br]
 func _get_ownership(value: int) -> Ownership:
 	return Ownership.OWNED if value == Ownership.OWNED else Ownership.BORROWED
 
 
+## 将输入值归一化为已知服务器或客户端角色。
+## [br]
+## @api private
+## [br]
 func _get_role(value: int) -> Role:
 	match value:
 		Role.SERVER:
@@ -442,10 +522,18 @@ func _get_role(value: int) -> Role:
 			return Role.UNKNOWN
 
 
+## 将 Peer 所有权转换为调试文本。
+## [br]
+## @api private
+## [br]
 func _get_ownership_name(value: Ownership) -> String:
 	return "owned" if value == Ownership.OWNED else "borrowed"
 
 
+## 将 Peer 角色转换为调试文本。
+## [br]
+## @api private
+## [br]
 func _get_role_name(value: Role) -> String:
 	match value:
 		Role.SERVER:
@@ -456,6 +544,10 @@ func _get_role_name(value: Role) -> String:
 			return "unknown"
 
 
+## 将 MultiplayerPeer 连接状态转换为调试名称。
+## [br]
+## @api private
+## [br]
 func _get_status_name(status: int) -> String:
 	match status:
 		MultiplayerPeer.CONNECTION_DISCONNECTED:
@@ -468,16 +560,10 @@ func _get_status_name(status: int) -> String:
 			return "unknown"
 
 
-func _on_peer_connected(peer_id: int) -> void:
-	_connected_peer_ids[peer_id] = true
-	_emit_peer_connected(peer_id)
-
-
-func _on_peer_disconnected(peer_id: int) -> void:
-	var _erased: bool = _connected_peer_ids.erase(peer_id)
-	_emit_peer_disconnected(peer_id)
-
-
+## 按 ID 排序取出并清空当前跟踪的 peer 集合。
+## [br]
+## @api private
+## [br]
 func _take_tracked_peer_ids() -> Array[int]:
 	var peer_ids: Array[int] = []
 	for peer_id: int in _connected_peer_ids.keys():
@@ -487,8 +573,32 @@ func _take_tracked_peer_ids() -> Array[int]:
 	return peer_ids
 
 
+## 逐个转发断开通知，并在 Peer 代次变化时停止派发。
+## [br]
+## @api private
+## [br]
 func _emit_tracked_peer_disconnections(peer_ids: Array[int], generation: int) -> void:
 	for peer_id: int in peer_ids:
 		if generation != _peer_generation:
 			return
 		_emit_peer_disconnected(peer_id)
+
+
+# --- 信号处理函数 ---
+
+## 登记新连接的 peer 并转发连接信号。
+## [br]
+## @api private
+## [br]
+func _on_peer_connected(peer_id: int) -> void:
+	_connected_peer_ids[peer_id] = true
+	_emit_peer_connected(peer_id)
+
+
+## 移除已断开的 peer 记录并转发断开信号。
+## [br]
+## @api private
+## [br]
+func _on_peer_disconnected(peer_id: int) -> void:
+	var _erased: bool = _connected_peer_ids.erase(peer_id)
+	_emit_peer_disconnected(peer_id)

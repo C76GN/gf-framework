@@ -39,6 +39,9 @@ var text_resolver: Callable = Callable()
 
 # --- 私有变量 ---
 
+## 保存架构实例的弱引用，以便按需解析所属架构。
+## [br]
+## @api private
 var _architecture_ref: WeakRef = null
 
 
@@ -224,6 +227,9 @@ func deserialize_values(data: Dictionary) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 将处理器返回值规范为包含 ok、reason 和 value 的结果字典。
+## [br]
+## @api private
 func _normalize_result(raw_result: Variant, default_reason: StringName = &"ok") -> Dictionary:
 	if raw_result is Dictionary:
 		var result: Dictionary = GFVariantData.to_dictionary(raw_result, {}, true)
@@ -243,6 +249,9 @@ func _normalize_result(raw_result: Variant, default_reason: StringName = &"ok") 
 	}
 
 
+## 将任意值收窄为 GFArchitecture 实例，否则返回 null。
+## [br]
+## @api private
 func _get_architecture_value(value: Variant) -> GFArchitecture:
 	if value is GFArchitecture:
 		var architecture: GFArchitecture = value

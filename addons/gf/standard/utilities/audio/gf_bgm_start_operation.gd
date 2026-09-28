@@ -31,10 +31,34 @@ signal completed(result: GFBgmStartResult)
 
 # --- 私有变量 ---
 
+## Utility 分配并在配置后固定的 start request ID。
+## [br]
+## @api private
+## [br]
 var _request_id: int = 0
+
+## 完成时保存的闭合结果副本。
+## [br]
+## @api private
+## [br]
 var _result: GFBgmStartResult = null
+
+## 尚未取消时可调用的弱方法取消委托。
+## [br]
+## @api private
+## [br]
 var _cancel_delegate: GFWeakMethodInvocation = null
+
+## 记录取消是否已经请求。
+## [br]
+## @api private
+## [br]
 var _cancel_requested: bool = false
+
+## 防止 completed 信号重复发出的标记。
+## [br]
+## @api private
+## [br]
 var _completed_signal_emitted: bool = false
 
 
@@ -199,6 +223,10 @@ func emit_completed_for_framework() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 将有效的零绑定参数对象方法 Callable 转成弱方法调用描述。
+## [br]
+## @api private
+## [br]
 static func _make_weak_invocation(method_delegate: Callable) -> GFWeakMethodInvocation:
 	if (
 		not method_delegate.is_valid()
@@ -216,6 +244,10 @@ static func _make_weak_invocation(method_delegate: Callable) -> GFWeakMethodInvo
 	return GFWeakMethodInvocation.new(delegate_owner, delegate_method)
 
 
+## 仅当调用结果明确标记 invoked 与 bool 返回值都为 true 时返回 true。
+## [br]
+## @api private
+## [br]
 static func _invocation_returned_true(invocation_result: Dictionary) -> bool:
 	var invoked_value: Variant = invocation_result.get("invoked", false)
 	var return_value: Variant = invocation_result.get("value", false)

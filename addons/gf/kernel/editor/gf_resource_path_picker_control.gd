@@ -20,26 +20,75 @@ signal path_changed(path: String)
 
 # --- 常量 ---
 
+## 浏览按钮的稳定 Node 名。
+## [br]
+## @api private
 const _BROWSE_BUTTON_NAME: StringName = &"ResourcePathBrowseButton"
+
+## 清除按钮的稳定 Node 名。
+## [br]
+## @api private
 const _CLEAR_BUTTON_NAME: StringName = &"ResourcePathClearButton"
+
+## 文件选择对话框的稳定 Node 名。
+## [br]
+## @api private
 const _FILE_DIALOG_NAME: StringName = &"ResourcePathFileDialog"
+
+## 浏览和清除按钮使用的最小宽度。
+## [br]
+## @api private
 const _BUTTON_MIN_WIDTH: float = 28.0
+
+## 项目资源路径前缀。
+## [br]
+## @api private
 const _RESOURCE_PREFIX: String = "res://"
+
+## Godot 资源 UID 路径前缀。
+## [br]
+## @api private
 const _UID_PREFIX: String = "uid://"
 
 
 # --- 私有变量 ---
 
+## 编辑资源路径文本的 LineEdit。
+## [br]
+## @api private
 var _path_edit: LineEdit
+
+## 打开当前 Inspector 窗口文件选择器的按钮。
+## [br]
+## @api private
 var _browse_button: Button
+
+## 清空当前路径的按钮。
+## [br]
+## @api private
 var _clear_button: Button
+
+## 限定为项目资源并以单文件打开模式工作的文件对话框。
+## [br]
+## @api private
 var _file_dialog: EditorFileDialog
+
+## 当前已提交并用于对话框定位的路径文本。
+## [br]
+## @api private
 var _committed_path: String = ""
+
+## 内部同步控件值时的信号抑制标记。
+## [br]
+## @api private
 var _is_updating: bool = false
 
 
 # --- Godot 生命周期方法 ---
 
+## 构建路径输入、浏览与清除按钮及项目资源对话框，并绑定提交和选择事件。
+## [br]
+## @api private
 func _init() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
@@ -90,8 +139,9 @@ func _init() -> void:
 	_update_clear_button()
 
 
-# --- Godot 回调方法 ---
-
+## 收到主题变化通知时重新应用编辑器图标。
+## [br]
+## @api private
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_THEME_CHANGED:
 		_apply_editor_icons()
@@ -129,6 +179,9 @@ func set_path(path: String) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 忽略内部同步；否则修剪路径并同步 LineEdit，值发生变化时发出 path_changed。
+## [br]
+## @api private
 func _commit_path(path: String) -> void:
 	if _is_updating:
 		return
@@ -142,6 +195,9 @@ func _commit_path(path: String) -> void:
 	path_changed.emit(normalized_path)
 
 
+## 优先使用编辑器主题中的 Load/Clear 图标；图标不可用时保留按钮文字。
+## [br]
+## @api private
 func _apply_editor_icons() -> void:
 	if _browse_button == null or _clear_button == null:
 		return
@@ -160,6 +216,10 @@ func _apply_editor_icons() -> void:
 		_clear_button.text = ""
 
 
+## 将当前 UID 路径解析为项目路径并设置对话框目录与文件名。
+## 路径无法解析或结果不是 res:// 时不改动对话框位置。
+## [br]
+## @api private
 func _prepare_dialog_path() -> void:
 	var resolved_path: String = _resolve_resource_path(_committed_path)
 	if resolved_path.is_empty() or not resolved_path.begins_with(_RESOURCE_PREFIX):
@@ -168,6 +228,9 @@ func _prepare_dialog_path() -> void:
 	_file_dialog.current_file = resolved_path.get_file()
 
 
+## 原样返回 res:// 路径；有效且已登记的 uid:// 路径返回其项目路径，其余输入返回空字符串。
+## [br]
+## @api private
 func _resolve_resource_path(path: String) -> String:
 	if path.begins_with(_RESOURCE_PREFIX):
 		return path
@@ -179,6 +242,9 @@ func _resolve_resource_path(path: String) -> String:
 	return ResourceUID.get_id_path(uid)
 
 
+## 仅在清除按钮已创建时，根据已提交路径是否为空更新 disabled 状态。
+## [br]
+## @api private
 func _update_clear_button() -> void:
 	if _clear_button != null:
 		_clear_button.disabled = _committed_path.is_empty()
@@ -186,22 +252,37 @@ func _update_clear_button() -> void:
 
 # --- 信号处理函数 ---
 
+## 将提交的文本交给统一路径提交逻辑。
+## [br]
+## @api private
 func _on_text_submitted(text: String) -> void:
 	_commit_path(text)
 
 
+## 输入框失去焦点时提交其中的当前文本。
+## [br]
+## @api private
 func _on_path_edit_focus_exited() -> void:
 	_commit_path(_path_edit.text)
 
 
+## 先按当前路径定位文件对话框，再打开该对话框。
+## [br]
+## @api private
 func _on_browse_pressed() -> void:
 	_prepare_dialog_path()
 	_file_dialog.popup_file_dialog()
 
 
+## 将空路径交给统一提交逻辑，以清除选择。
+## [br]
+## @api private
 func _on_clear_pressed() -> void:
 	_commit_path("")
 
 
+## 将文件对话框选出的路径交给统一提交逻辑。
+## [br]
+## @api private
 func _on_file_selected(path: String) -> void:
 	_commit_path(path)

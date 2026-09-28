@@ -14,6 +14,10 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 避免除以近零长度并判定退化方向的容差。
+## [br]
+## @api private
+## [br]
 const _EPSILON: float = 0.00001
 
 
@@ -532,6 +536,10 @@ static func path_follow_target(
 
 # --- 私有/辅助方法 ---
 
+## 按当前距离除以代理速度估算预测时间，并限制在非负最大时长内。
+## [br]
+## @api private
+## [br]
 static func _predict_seconds(
 	agent: GFSteeringAgent,
 	target_agent: GFSteeringAgent,
@@ -545,12 +553,20 @@ static func _predict_seconds(
 	return minf(distance / speed, maxf(max_prediction_seconds, 0.0))
 
 
+## 将 XY 平面方向或 XZ 平面方向转换为对应的 atan2 朝向角。
+## [br]
+## @api private
+## [br]
 static func _direction_to_orientation(direction: Vector3, use_z_axis: bool) -> float:
 	if use_z_axis:
 		return atan2(direction.x, direction.z)
 	return atan2(direction.y, direction.x)
 
 
+## 将角度周期映射到 [-PI, PI) 区间。
+## [br]
+## @api private
+## [br]
 static func _map_to_pi(angle: float) -> float:
 	var mapped: float = fmod(angle + PI, TAU)
 	if mapped < 0.0:
@@ -558,6 +574,10 @@ static func _map_to_pi(angle: float) -> float:
 	return mapped - PI
 
 
+## 将位置投影到每条路径线段并返回最近投影对应的线段索引与插值比例。
+## [br]
+## @api private
+## [br]
 static func _find_closest_path_projection(position: Vector3, path: Array[Vector3]) -> _PathProjection:
 	var best_distance_squared: float = INF
 	var best_segment_index: int = 0
@@ -581,6 +601,10 @@ static func _find_closest_path_projection(position: Vector3, path: Array[Vector3
 	return _PathProjection.new(best_segment_index, best_t)
 
 
+## 从线段投影位置沿折线路径前进非负距离，超出末端时停在最后一点。
+## [br]
+## @api private
+## [br]
 static func _advance_along_path(
 	path: Array[Vector3],
 	segment_index: int,
@@ -606,6 +630,10 @@ static func _advance_along_path(
 	return current
 
 
+## 使用显式非负碰撞半径，或将两个代理的非负半径相加。
+## [br]
+## @api private
+## [br]
 static func _resolve_collision_radius(
 	agent: GFSteeringAgent,
 	target: GFSteeringAgent,
@@ -616,12 +644,20 @@ static func _resolve_collision_radius(
 	return maxf(agent.radius, 0.0) + maxf(target.radius, 0.0)
 
 
+## 用碰撞半径替代负分离距离，否则返回两者较大值。
+## [br]
+## @api private
+## [br]
 static func _resolve_minimum_separation(collision_radius: float, minimum_separation: float) -> float:
 	if minimum_separation < 0.0:
 		return collision_radius
 	return maxf(minimum_separation, collision_radius)
 
 
+## 按即时位置差、预测位置差和速度垂线的顺序选择避让方向。
+## [br]
+## @api private
+## [br]
 static func _get_avoidance_direction(
 	agent: GFSteeringAgent,
 	target: GFSteeringAgent,
@@ -648,6 +684,10 @@ static func _get_avoidance_direction(
 	return Vector3.ZERO
 
 
+## 依次尝试与 FORWARD、UP 和 RIGHT 的叉积，取得非退化垂直方向。
+## [br]
+## @api private
+## [br]
 static func _get_perpendicular_direction(direction: Vector3) -> Vector3:
 	var perpendicular: Vector3 = direction.cross(Vector3.FORWARD)
 	if perpendicular.length_squared() > _EPSILON:
@@ -660,9 +700,24 @@ static func _get_perpendicular_direction(direction: Vector3) -> Vector3:
 
 # --- 内部类 ---
 
+## 保存最近路径投影对应的线段索引和线段内插值比例。
+## [br]
+## @api private
+## [br]
 class _PathProjection:
+	# --- 私有变量 ---
+
+	## 最近投影命中的路径线段起点索引。
+	## [br]
+	## @api private
 	var _segment_index: int = 0
+
+	## 命中点在线段内的插值比例，后续沿路径推进从此位置开始。
+	## [br]
+	## @api private
 	var _segment_t: float = 0.0
+
+	# --- Godot 生命周期方法 ---
 
 	func _init(p_segment_index: int = 0, p_segment_t: float = 0.0) -> void:
 		_segment_index = p_segment_index

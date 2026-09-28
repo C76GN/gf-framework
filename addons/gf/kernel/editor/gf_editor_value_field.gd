@@ -52,11 +52,29 @@ signal value_parse_failed(text: String, error_message: String)
 
 # --- 常量 ---
 
+## 将数组和字典值编码为受调试脱敏策略约束的 JSON 文本。
+## [br]
+## @api private
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+
+## 读取属性信息、规范选项并处理编辑值的类型转换工具。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
+## 标记由注册工厂创建的自定义编辑器控件。
+## [br]
+## @api private
 const _CUSTOM_EDITOR_META: StringName = &"gf_editor_value_field_custom"
+
+## 标记承载多个向量分量输入框的容器。
+## [br]
+## @api private
 const _VECTOR_EDITOR_META: StringName = &"gf_editor_value_field_vector"
+
+## 缓存枚举选项标签与整数值的控件 metadata 键。
+## [br]
+## @api private
 const _ENUM_ITEMS_META: StringName = &"gf_editor_value_field_enum_items"
 
 
@@ -86,13 +104,44 @@ var debounce_seconds: float = 0.0
 
 # --- 私有变量 ---
 
+## configure 提供的属性信息副本，驱动输入控件类型与 hint 设置。
+## [br]
+## @api private
 var _property_info: Dictionary = {}
+
+## 当前字段值；程序化同步期间不会从控件回写。
+## [br]
+## @api private
 var _value: Variant = null
+
+## 当前生成或由工厂提供的编辑控件。
+## [br]
+## @api private
 var _editor: Control = null
+
+## 按需创建并显示在输入控件左侧的标签节点。
+## [br]
+## @api private
 var _label: Label = null
+
+## 首次需要防抖通知时懒创建的一次性 Timer。
+## [br]
+## @api private
 var _debounce_timer: Timer = null
+
+## 当前控件是否允许编辑。
+## [br]
+## @api private
 var _editable: bool = true
+
+## 程序化更新控件值期间为 true，用于抑制控件变更回调。
+## [br]
+## @api private
 var _is_updating: bool = false
+
+## 由 Variant.Type 映射到调用方自定义控件工厂 Callable 的注册表。
+## [br]
+## @api private
 var _editor_factories: Dictionary = {}
 
 
@@ -250,6 +299,10 @@ func get_registered_editor_types() -> PackedInt32Array:
 
 # --- 私有/辅助方法 ---
 
+## 替换旧编辑器并按属性 Variant 类型创建控件，随后同步标签、可编辑状态和值。
+## 旧控件从树移除后排队释放。
+## [br]
+## @api private
 func _rebuild_editor() -> void:
 	if _editor != null:
 		remove_child(_editor)
@@ -264,6 +317,9 @@ func _rebuild_editor() -> void:
 	_sync_editor_from_value()
 
 
+## 按 show_label 懒创建或隐藏标签，并同步文字和横向收缩布局。
+## [br]
+## @api private
 func _sync_label() -> void:
 	if show_label and _label == null:
 		_label = Label.new()
@@ -276,6 +332,10 @@ func _sync_label() -> void:
 	_label.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 
 
+## 优先尝试自定义工厂，再选择 enum、多行文本或对应基础类型控件。
+## 未专门处理的类型使用 LineEdit。
+## [br]
+## @api private
 func _create_editor_for_type(value_type: Variant.Type) -> Control:
 	var custom_editor: Control = _create_custom_editor(value_type)
 	if custom_editor != null:
@@ -330,6 +390,10 @@ func _create_editor_for_type(value_type: Variant.Type) -> Control:
 			return line_edit
 
 
+## 调用该类型已注册工厂，并验证返回值是 Control 后标记和连接自定义控件。
+## 工厂缺失、无效或返回非 Control 时返回 null 以使用内置控件。
+## [br]
+## @api private
 func _create_custom_editor(value_type: Variant.Type) -> Control:
 	if not _editor_factories.has(value_type):
 		return null
@@ -346,6 +410,9 @@ func _create_custom_editor(value_type: Variant.Type) -> Control:
 	return null
 
 
+## 解析属性 hint_string 为枚举项，保存项 metadata 并连接选择信号。
+## [br]
+## @api private
 func _create_enum_editor() -> OptionButton:
 	var option_button: OptionButton = OptionButton.new()
 	var enum_items: Array[Dictionary] = _parse_enum_items(_get_property_hint_string())
@@ -359,6 +426,9 @@ func _create_enum_editor() -> OptionButton:
 	return option_button
 
 
+## 创建指定数量的向量 SpinBox 分量，并记录分量数量及整数模式 metadata。
+## [br]
+## @api private
 func _create_vector_editor(component_count: int, integer_components: bool) -> HBoxContainer:
 	var container: HBoxContainer = HBoxContainer.new()
 	container.set_meta(_VECTOR_EDITOR_META, {
@@ -378,6 +448,10 @@ func _create_vector_editor(component_count: int, integer_components: bool) -> HB
 	return container
 
 
+## 将 `_value` 写入当前控件；同步期间开启 `_is_updating` 抑制变更信号回写。
+## 自定义控件、enum、多行文本和各内置类型走对应同步分支。
+## [br]
+## @api private
 func _sync_editor_from_value() -> void:
 	if _editor == null:
 		return
@@ -422,6 +496,10 @@ func _sync_editor_from_value() -> void:
 	_is_updating = false
 
 
+## 从当前编辑控件读取值，并按属性类型解析 enum、向量、JSON 或基础控件值。
+## 控件缺失或数组/字典 JSON 无法解析时保留当前 `_value`。
+## [br]
+## @api private
 func _read_editor_value() -> Variant:
 	if _editor == null:
 		return _value
@@ -472,6 +550,9 @@ func _read_editor_value() -> Variant:
 			return line_edit.text if line_edit != null else _value
 
 
+## 将 editable 状态应用到内置控件及子控件，并向支持 set_editable 的自定义控件转发。
+## [br]
+## @api private
 func _apply_editable_state(control: Control) -> void:
 	if control is BaseButton:
 		var button: BaseButton = control
@@ -497,6 +578,10 @@ func _apply_editable_state(control: Control) -> void:
 			_apply_editable_state(child_control)
 
 
+## 按 PROPERTY_HINT_RANGE 设置 SpinBox 的有效 min、max 和 step。
+## 无 range hint 时允许小于和大于默认范围；整数步长至少为 1。
+## [br]
+## @api private
 func _apply_spin_options(spin: SpinBox, integer_value: bool) -> void:
 	if _get_property_hint() != PROPERTY_HINT_RANGE:
 		spin.allow_lesser = true
@@ -514,30 +599,49 @@ func _apply_spin_options(spin: SpinBox, integer_value: bool) -> void:
 			spin.step = parts[2].to_float()
 
 
+## 自定义控件实现 set_value 时，将 Variant 工具复制的当前值传入。
+## [br]
+## @api private
 func _sync_custom_editor_from_value(control: Control) -> void:
 	if control.has_method("set_value"):
 		control.call("set_value", _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(_value))
 
 
+## 自定义控件实现 get_value 时读取其值，否则退回当前 `_value`。
+## [br]
+## @api private
 func _read_custom_editor_value(control: Control) -> Variant:
 	if control.has_method("get_value"):
 		return control.call("get_value")
 	return _value
 
 
+## 自定义控件提供 value_changed 信号时连接到本字段的值变更处理器。
+## [br]
+## @api private
 func _connect_custom_editor(control: Control) -> void:
 	if control.has_signal("value_changed"):
 		var _connect_result_custom: Error = control.connect("value_changed", Callable(self, "_on_custom_value_changed")) as Error
 
 
+## 根据自定义编辑器 metadata 判断控件是否由注册工厂提供。
+## [br]
+## @api private
 func _is_custom_editor(control: Control) -> bool:
 	return control != null and control.has_meta(_CUSTOM_EDITOR_META)
 
 
+## 仅将带 PROPERTY_HINT_ENUM 的整数属性识别为枚举输入。
+## [br]
+## @api private
 func _is_enum_property(value_type: Variant.Type) -> bool:
 	return value_type == TYPE_INT and _get_property_hint() == PROPERTY_HINT_ENUM
 
 
+## 将逗号分隔的枚举 hint 拆成 label/value 字典；缺少或无效显式值时使用递增值。
+## 空白项跳过，下一默认值跟随最近加入项的值加一。
+## [br]
+## @api private
 func _parse_enum_items(hint_string: String) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var next_value: int = 0
@@ -561,6 +665,9 @@ func _parse_enum_items(hint_string: String) -> Array[Dictionary]:
 	return result
 
 
+## 选中与当前整数值匹配的 OptionButton 项；没有匹配项时选择第一项。
+## [br]
+## @api private
 func _sync_enum_from_value() -> void:
 	var option_button: OptionButton = _get_option_button_editor()
 	if option_button == null:
@@ -574,6 +681,9 @@ func _sync_enum_from_value() -> void:
 		option_button.select(0)
 
 
+## 将当前向量按声明类型展开，并依序写入对应 SpinBox 子控件。
+## [br]
+## @api private
 func _sync_vector_from_value() -> void:
 	var container: HBoxContainer = _get_vector_editor()
 	if container == null:
@@ -587,6 +697,10 @@ func _sync_vector_from_value() -> void:
 			index += 1
 
 
+## 收集向量容器中所有 SpinBox 值，并按属性类型重新构造向量。
+## 容器缺失时返回当前 `_value`。
+## [br]
+## @api private
 func _read_vector_editor_value() -> Variant:
 	var container: HBoxContainer = _get_vector_editor()
 	if container == null:
@@ -599,6 +713,9 @@ func _read_vector_editor_value() -> Variant:
 	return _make_vector_value(components, _get_property_type())
 
 
+## 返回匹配 Variant 向量的浮点分量；类型不匹配时按声明维度返回零填充值。
+## [br]
+## @api private
 func _get_vector_components(value: Variant, value_type: Variant.Type) -> Array[float]:
 	match value_type:
 		TYPE_VECTOR2:
@@ -633,6 +750,10 @@ func _get_vector_components(value: Variant, value_type: Variant.Type) -> Array[f
 	return result
 
 
+## 按声明类型用分量数组构造 Vector2/3/4 或整数向量；缺失分量由读取辅助函数补零。
+## 非向量类型返回当前 `_value`。
+## [br]
+## @api private
 func _make_vector_value(components: Array[float], value_type: Variant.Type) -> Variant:
 	match value_type:
 		TYPE_VECTOR2:
@@ -650,26 +771,44 @@ func _make_vector_value(components: Array[float], value_type: Variant.Type) -> V
 	return _value
 
 
+## 读取有效索引的浮点分量；索引越界时返回 0.0。
+## [br]
+## @api private
 func _get_component_float(components: Array[float], index: int) -> float:
 	return components[index] if index >= 0 and index < components.size() else 0.0
 
 
+## 将有效分量四舍五入为整数；索引越界分量按 0.0 处理。
+## [br]
+## @api private
 func _get_component_int(components: Array[float], index: int) -> int:
 	return int(roundf(_get_component_float(components, index)))
 
 
+## 从属性信息读取 type；字段缺失或类型不符时退回 TYPE_STRING。
+## [br]
+## @api private
 func _get_property_type() -> Variant.Type:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_property_info, "type", TYPE_STRING) as Variant.Type
 
 
+## 从属性信息读取 hint；字段缺失或类型不符时退回 PROPERTY_HINT_NONE。
+## [br]
+## @api private
 func _get_property_hint() -> PropertyHint:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_property_info, "hint", PROPERTY_HINT_NONE) as PropertyHint
 
 
+## 从属性信息读取 hint_string；缺失或类型不符时返回空字符串。
+## [br]
+## @api private
 func _get_property_hint_string() -> String:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string(_property_info, "hint_string")
 
 
+## 当前控件为 CheckBox 时返回强类型引用，否则返回 null。
+## [br]
+## @api private
 func _get_checkbox_editor() -> CheckBox:
 	if _editor is CheckBox:
 		var checkbox: CheckBox = _editor
@@ -677,6 +816,9 @@ func _get_checkbox_editor() -> CheckBox:
 	return null
 
 
+## 当前控件为 SpinBox 时返回强类型引用，否则返回 null。
+## [br]
+## @api private
 func _get_spin_editor() -> SpinBox:
 	if _editor is SpinBox:
 		var spin: SpinBox = _editor
@@ -684,6 +826,9 @@ func _get_spin_editor() -> SpinBox:
 	return null
 
 
+## 当前控件为 OptionButton 时返回强类型引用，否则返回 null。
+## [br]
+## @api private
 func _get_option_button_editor() -> OptionButton:
 	if _editor is OptionButton:
 		var option_button: OptionButton = _editor
@@ -691,6 +836,9 @@ func _get_option_button_editor() -> OptionButton:
 	return null
 
 
+## 当前控件是带向量容器 metadata 的 HBoxContainer 时返回该容器，否则返回 null。
+## [br]
+## @api private
 func _get_vector_editor() -> HBoxContainer:
 	if _editor is HBoxContainer and _editor.has_meta(_VECTOR_EDITOR_META):
 		var container: HBoxContainer = _editor
@@ -698,6 +846,9 @@ func _get_vector_editor() -> HBoxContainer:
 	return null
 
 
+## 当前控件为 ColorPickerButton 时返回强类型引用，否则返回 null。
+## [br]
+## @api private
 func _get_color_picker_editor() -> ColorPickerButton:
 	if _editor is ColorPickerButton:
 		var color_picker: ColorPickerButton = _editor
@@ -705,6 +856,9 @@ func _get_color_picker_editor() -> ColorPickerButton:
 	return null
 
 
+## 当前控件为 LineEdit 时返回强类型引用，否则返回 null。
+## [br]
+## @api private
 func _get_line_edit_editor() -> LineEdit:
 	if _editor is LineEdit:
 		var line_edit: LineEdit = _editor
@@ -712,6 +866,9 @@ func _get_line_edit_editor() -> LineEdit:
 	return null
 
 
+## 仅当 Variant 为 Callable 时返回其值，否则返回空 Callable。
+## [br]
+## @api private
 func _variant_to_callable(value: Variant) -> Callable:
 	if value is Callable:
 		var callback: Callable = value
@@ -719,6 +876,9 @@ func _variant_to_callable(value: Variant) -> Callable:
 	return Callable()
 
 
+## 仅当 Variant 为 Color 时返回其值，否则返回调用方给定 fallback。
+## [br]
+## @api private
 func _variant_to_color(value: Variant, fallback: Color) -> Color:
 	if value is Color:
 		var color: Color = value
@@ -726,6 +886,9 @@ func _variant_to_color(value: Variant, fallback: Color) -> Color:
 	return fallback
 
 
+## 数组和字典用调试脱敏 profile 编为 JSON，null 返回空串，其余值使用 str()。
+## [br]
+## @api private
 func _stringify_value(value: Variant) -> String:
 	if value is Dictionary or value is Array:
 		return _GF_REPORT_VALUE_CODEC_SCRIPT.stringify_json_compatible(
@@ -741,6 +904,10 @@ func _stringify_value(value: Variant) -> String:
 	return str(value)
 
 
+## 解析 JSON 并可选要求结果为 Array 或 Dictionary。
+## 失败报告保留当前 `_value` 和解析错误文本；成功报告携带解析结果。
+## [br]
+## @api private
 func _try_parse_json_value(text: String, expected_type: Variant.Type = TYPE_NIL) -> Dictionary:
 	var json: JSON = JSON.new()
 	if json.parse(text) != OK:
@@ -768,6 +935,9 @@ func _try_parse_json_value(text: String, expected_type: Variant.Type = TYPE_NIL)
 	}
 
 
+## 非程序化同步期间更新 `_value` 并立即发出 value_changed，随后安排防抖通知。
+## [br]
+## @api private
 func _emit_value_changed(value: Variant) -> void:
 	if _is_updating:
 		return
@@ -776,6 +946,10 @@ func _emit_value_changed(value: Variant) -> void:
 	_emit_or_schedule_debounced_value()
 
 
+## debounce_seconds 非正时立即发出 debounced_value_changed，否则重启一次性 Timer。
+## Timer 到期后读取届时的当前 `_value`。
+## [br]
+## @api private
 func _emit_or_schedule_debounced_value() -> void:
 	if debounce_seconds <= 0.0:
 		debounced_value_changed.emit(_value)
@@ -785,6 +959,9 @@ func _emit_or_schedule_debounced_value() -> void:
 	timer.start()
 
 
+## 懒创建并复用一次性防抖 Timer，连接 timeout 后将其加入控件子树。
+## [br]
+## @api private
 func _ensure_debounce_timer() -> Timer:
 	if _debounce_timer != null:
 		return _debounce_timer
@@ -797,26 +974,44 @@ func _ensure_debounce_timer() -> Timer:
 
 # --- 信号处理函数 ---
 
+## 将 CheckBox 状态作为新的字段值发出。
+## [br]
+## @api private
 func _on_bool_toggled(pressed: bool) -> void:
 	_emit_value_changed(pressed)
 
 
+## 数值控件变化后从当前编辑器读取并发出规范值。
+## [br]
+## @api private
 func _on_number_changed(_value_float: float) -> void:
 	_emit_value_changed(_read_editor_value())
 
 
+## enum 项选择变化后读取当前 OptionButton 选中 ID 并发出。
+## [br]
+## @api private
 func _on_enum_item_selected(_index: int) -> void:
 	_emit_value_changed(_read_editor_value())
 
 
+## 任一向量分量变化后重读全部分量并发出完整向量值。
+## [br]
+## @api private
 func _on_vector_component_changed(_component_value: float) -> void:
 	_emit_value_changed(_read_editor_value())
 
 
+## 将 ColorPickerButton 的新 Color 值发出。
+## [br]
+## @api private
 func _on_color_changed(color: Color) -> void:
 	_emit_value_changed(color)
 
 
+## 自定义编辑器显式给出值时转发该值；信号参数为 null 时从控件调用 get_value。
+## [br]
+## @api private
 func _on_custom_value_changed(value: Variant = null) -> void:
 	if value == null:
 		_emit_value_changed(_read_editor_value())
@@ -824,6 +1019,9 @@ func _on_custom_value_changed(value: Variant = null) -> void:
 		_emit_value_changed(value)
 
 
+## 忽略非当前 TextEdit 或与当前值相同的延迟通知，其余文本变化作为新值发出。
+## [br]
+## @api private
 func _on_multiline_text_changed(source: TextEdit) -> void:
 	# TextEdit 合并延迟通知，旧输入或已被程序赋值替换的输入不得产生新编辑。
 	if source != _editor or source.text == _stringify_value(_value):
@@ -831,6 +1029,10 @@ func _on_multiline_text_changed(source: TextEdit) -> void:
 	_emit_value_changed(source.text)
 
 
+## Array/Dictionary 的 LineEdit 内容按 JSON 解析，失败时只发解析失败信号。
+## 其他类型从控件读取当前值并发出。
+## [br]
+## @api private
 func _on_text_changed(_text: String) -> void:
 	var value_type: Variant.Type = _get_property_type()
 	if value_type == TYPE_ARRAY or value_type == TYPE_DICTIONARY:
@@ -850,5 +1052,8 @@ func _on_text_changed(_text: String) -> void:
 	_emit_value_changed(_read_editor_value())
 
 
+## 防抖计时到期时发出当下保存的 `_value`。
+## [br]
+## @api private
 func _on_debounce_timeout() -> void:
 	debounced_value_changed.emit(_value)

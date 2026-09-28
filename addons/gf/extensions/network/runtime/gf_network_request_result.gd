@@ -80,11 +80,40 @@ const STATUS_INVALID_RESPONSE: StringName = &"invalid_response"
 
 # --- 私有变量 ---
 
+## 记录结果是否已由网络层完成一次性配置。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
+
+## 此结果对应的请求标识。
+## [br]
+## @api private
+## [br]
 var _request_id: String = ""
+
+## 请求目标或响应来源的 peer 标识。
+## [br]
+## @api private
+## [br]
 var _peer_id: int = -1
+
+## 请求终结状态。
+## [br]
+## @api private
+## [br]
 var _status: StringName = STATUS_REJECTED
+
+## 请求对应的响应载荷。
+## [br]
+## @api private
+## [br]
 var _response: Variant = null
+
+## 发送阶段产生的 Godot 错误码。
+## [br]
+## @api private
+## [br]
 var _send_error: Error = OK
 
 

@@ -384,6 +384,9 @@ func describe() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 默认读取路径：从 Dictionary 键或同名 Object 属性取值；缺失时返回 null。
+## [br]
+## @api private
 func _read_default_value(row_data: Variant) -> Variant:
 	var key: StringName = get_value_key()
 	if row_data is Dictionary:
@@ -396,6 +399,9 @@ func _read_default_value(row_data: Variant) -> Variant:
 	return null
 
 
+## 默认写入路径：更新 Dictionary 键或现有 Object 属性，目标类型或属性不支持时返回 false。
+## [br]
+## @api private
 func _write_default_value(row_data: Variant, new_value: Variant) -> bool:
 	var key: StringName = get_value_key()
 	if row_data is Dictionary:
@@ -411,6 +417,9 @@ func _write_default_value(row_data: Variant, new_value: Variant) -> bool:
 	return false
 
 
+## 通过 Object 的 property_list 查找与键名相同的属性。
+## [br]
+## @api private
 func _object_has_property(object_ref: Object, property_key: StringName) -> bool:
 	for property_info: Dictionary in object_ref.get_property_list():
 		var raw_property_name: Variant = GFVariantData.get_option_value(property_info, "name")
@@ -421,6 +430,9 @@ func _object_has_property(object_ref: Object, property_key: StringName) -> bool:
 	return false
 
 
+## 返回显式排序方式；AUTO 时仅在两侧类型均为数字或均为 bool 时选择对应比较器，否则使用文本排序。
+## [br]
+## @api private
 func _resolve_sort_mode(left_value: Variant, right_value: Variant) -> SortMode:
 	if sort_mode != SortMode.AUTO:
 		return sort_mode
@@ -431,6 +443,9 @@ func _resolve_sort_mode(left_value: Variant, right_value: Variant) -> SortMode:
 	return SortMode.TEXT
 
 
+## 将两侧值转换为 float；近似相等时返回 0，否则按数值顺序返回 -1 或 1。
+## [br]
+## @api private
 func _compare_float_values(left_value: Variant, right_value: Variant) -> int:
 	var left_number: float = GFVariantData.to_float(left_value)
 	var right_number: float = GFVariantData.to_float(right_value)
@@ -439,6 +454,9 @@ func _compare_float_values(left_value: Variant, right_value: Variant) -> int:
 	return -1 if left_number < right_number else 1
 
 
+## 按 false 小于 true 的顺序比较转换后的布尔值。
+## [br]
+## @api private
 func _compare_bool_values(left_value: Variant, right_value: Variant) -> int:
 	var left_bool: bool = GFVariantData.to_bool(left_value)
 	var right_bool: bool = GFVariantData.to_bool(right_value)
@@ -447,6 +465,9 @@ func _compare_bool_values(left_value: Variant, right_value: Variant) -> int:
 	return 1 if left_bool else -1
 
 
+## 将两侧格式化文本转为小写后按字典序比较。
+## [br]
+## @api private
 func _compare_text_values(
 	left_value: Variant,
 	right_value: Variant,
@@ -460,6 +481,9 @@ func _compare_text_values(
 	return -1 if left_text < right_text else 1
 
 
+## 将自定义比较结果规整为 -1、0 或 1；bool true 映射为 -1，false 映射为 1。
+## [br]
+## @api private
 func _normalize_compare_result(compare_result: Variant) -> int:
 	if compare_result is bool:
 		var bool_result: bool = compare_result
@@ -472,5 +496,8 @@ func _normalize_compare_result(compare_result: Variant) -> int:
 	return 0
 
 
+## 仅 int 和 float 被视为数字类型。
+## [br]
+## @api private
 func _is_number_like(value: Variant) -> bool:
 	return value is int or value is float

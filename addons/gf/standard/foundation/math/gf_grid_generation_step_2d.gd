@@ -108,12 +108,18 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 无选择器时返回候选格子的副本，否则委托选择器筛选。
+## [br]
+## @api private
 func _select_cells(candidates: Array[Vector2i], context: Dictionary) -> Array[Vector2i]:
 	if selection == null:
 		return candidates.duplicate()
 	return selection.select_cells(candidates, context)
 
 
+## 调用有效值回调并传入旧值副本；未配置回调时返回配置值的副本。
+## [br]
+## @api private
 func _resolve_value(cell: Vector2i, previous_value: Variant, context: Dictionary) -> Variant:
 	if value_callback.is_valid():
 		return value_callback.call(cell, GFVariantData.duplicate_variant(previous_value), context)

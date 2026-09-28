@@ -42,13 +42,52 @@ enum State {
 
 # --- 私有变量 ---
 
+## 传递句柄当前的所有权状态。
+## [br]
+## @api private
+## [br]
 var _state: State = State.EMPTY
+
+## 接收所有权且不向调用方暴露 getter 的 payload。
+## [br]
+## @api private
+## [br]
 var _payload: Dictionary = {}
+
+## 首次 Storage claim 时绑定的 Storage 实例 ID。
+## [br]
+## @api private
+## [br]
 var _bound_storage_id: int = 0
+
+## 首次 Storage claim 时绑定的规范文件名。
+## [br]
+## @api private
+## [br]
 var _bound_file_name: String = ""
+
+## 首次 Storage claim 时绑定的 target family identity。
+## [br]
+## @api private
+## [br]
 var _bound_target_file_key: String = ""
+
+## 首次 claim 时深拷贝并冻结的 codec options。
+## [br]
+## @api private
+## [br]
 var _bound_codec_options: Dictionary = {}
+
+## 下一个待分配 attempt ID，溢出或越界时回到正数区间。
+## [br]
+## @api private
+## [br]
 var _next_attempt_id: int = 1
+
+## 当前尚未结束的 attempt ID 集合。
+## [br]
+## @api private
+## [br]
 var _active_attempt_ids: Dictionary = {}
 
 
@@ -224,6 +263,10 @@ func finish_attempt_for_framework(attempt_id: int) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 清空 payload、冻结绑定与活动 attempt 记录，并将句柄设为 RELEASED。
+## [br]
+## @api private
+## [br]
 func _release_payload() -> void:
 	_payload = {}
 	_bound_codec_options.clear()

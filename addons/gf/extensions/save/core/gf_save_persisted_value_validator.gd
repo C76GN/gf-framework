@@ -4,7 +4,16 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 递归持久化值校验使用的默认深度预算。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_DEPTH: int = 64
+
+## 递归持久化值校验使用的默认节点预算。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_NODES: int = 100000
 
 
@@ -45,6 +54,10 @@ static func validate(value: Variant, options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按深度和节点预算递归检查值类型及其浮点分量，返回首个问题位置。
+## [br]
+## @api private
+## [br]
 static func _validate_value(value: Variant, state: Dictionary, depth: int, path: String) -> Dictionary:
 	if depth > GFVariantData.get_option_int(state, "max_depth"):
 		return _make_issue("max_depth_exceeded", path)
@@ -152,6 +165,10 @@ static func _validate_value(value: Variant, state: Dictionary, depth: int, path:
 			return _make_issue("unsupported_type_%s" % type_string(typeof(value)), path)
 
 
+## 检查数组的循环引用，并逐项递归校验其值。
+## [br]
+## @api private
+## [br]
 static func _validate_array(value: Array, state: Dictionary, depth: int, path: String) -> Dictionary:
 	if _visited_contains(state, value):
 		return _make_issue("circular_reference", path)
@@ -165,6 +182,10 @@ static func _validate_array(value: Array, state: Dictionary, depth: int, path: S
 	return {}
 
 
+## 检查字典的循环引用，并依次递归校验键和值。
+## [br]
+## @api private
+## [br]
 static func _validate_dictionary(value: Dictionary, state: Dictionary, depth: int, path: String) -> Dictionary:
 	if _visited_contains(state, value):
 		return _make_issue("circular_reference", path)
@@ -183,6 +204,10 @@ static func _validate_dictionary(value: Dictionary, state: Dictionary, depth: in
 	return {}
 
 
+## 检查浮点 Variant 列表是否均为有限值。
+## [br]
+## @api private
+## [br]
 static func _validate_floats(values: Array, path: String) -> Dictionary:
 	for value: Variant in values:
 		if not _is_finite_float(value):
@@ -190,11 +215,19 @@ static func _validate_floats(values: Array, path: String) -> Dictionary:
 	return {}
 
 
+## 判断 Variant 转换得到的浮点值是否有限。
+## [br]
+## @api private
+## [br]
 static func _is_finite_float(value: Variant) -> bool:
 	var number: float = GFVariantData.to_float(value)
 	return not is_nan(number) and not is_inf(number)
 
 
+## 通过 `is_same` 检查访问路径中的容器是否已出现。
+## [br]
+## @api private
+## [br]
 static func _visited_contains(state: Dictionary, value: Variant) -> bool:
 	for visited_value: Variant in _get_visited(state):
 		if is_same(visited_value, value):
@@ -202,10 +235,18 @@ static func _visited_contains(state: Dictionary, value: Variant) -> bool:
 	return false
 
 
+## 读取校验状态中的 visited 容器数组。
+## [br]
+## @api private
+## [br]
 static func _get_visited(state: Dictionary) -> Array:
 	return GFVariantData.get_option_array(state, "visited")
 
 
+## 构造包含错误码和路径的校验问题字典。
+## [br]
+## @api private
+## [br]
 static func _make_issue(error: String, path: String) -> Dictionary:
 	return {
 		"error": error,

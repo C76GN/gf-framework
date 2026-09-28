@@ -105,9 +105,24 @@ enum Reason {
 
 # --- 常量 ---
 
+## 终态诊断文本的最大字符数。
+## [br]
+## @api private
 const _MAX_DETAIL_LENGTH: int = 512
+
+## binding ID 的最大字符数。
+## [br]
+## @api private
 const _MAX_BINDING_ID_LENGTH: int = 128
+
+## 目标脚本路径的最大字符数。
+## [br]
+## @api private
 const _MAX_TARGET_PATH_LENGTH: int = 512
+
+## 用于校验结果中生命周期值的枚举脚本。
+## [br]
+## @api private
 const _GF_BINDING_LIFETIMES_SCRIPT = preload(
 	"res://addons/gf/kernel/core/gf_binding_lifetimes.gd"
 )
@@ -115,16 +130,59 @@ const _GF_BINDING_LIFETIMES_SCRIPT = preload(
 
 # --- 私有变量 ---
 
+## 标记 configure_for_framework() 是否已成功写入字段。
+## [br]
+## @api private
 var _configured: bool = false
+
+## Plan 的终态状态。
+## [br]
+## @api private
 var _status: Status = Status.INVALID_REQUEST
+
+## 首个失败 entry 的绑定类别；没有具体 entry 时为 NONE。
+## [br]
+## @api private
 var _binding_kind: BindingKind = BindingKind.NONE
+
+## 首个失败阶段；成功结果为 NONE。
+## [br]
+## @api private
 var _failed_phase: Phase = Phase.VALIDATION
+
+## 稳定失败原因。
+## [br]
+## @api private
 var _reason: Reason = Reason.INVALID_PLAN
+
+## 首个失败 entry 的索引；Plan 级结果或成功时为 -1。
+## [br]
+## @api private
 var _entry_index: int = -1
+
+## 首个失败 entry 的调用方 ID；没有具体 entry 时为空。
+## [br]
+## @api private
 var _binding_id: StringName = &""
+
+## 首个失败 entry 的目标脚本路径；不可识别时为空。
+## [br]
+## @api private
 var _target_path: String = ""
+
+## 首个失败 entry 请求的生命周期；无具体 entry 时为 -1。
+## [br]
+## @api private
 var _lifetime: int = -1
+
+## 已进入 Builder attempt 的 entry 数量。
+## [br]
+## @api private
 var _executed_count: int = 0
+
+## 有界稳定诊断文本；尚未配置时保留初始化提示。
+## [br]
+## @api private
 var _detail: String = "Binding plan result is not configured."
 
 

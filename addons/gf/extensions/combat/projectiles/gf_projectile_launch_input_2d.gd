@@ -28,9 +28,24 @@ enum TargetKind {
 
 # --- 私有变量 ---
 
+## 选择本输入当前解释为无目标、节点目标或固定位置目标。
+## [br]
+## @api private
 var _target_kind: TargetKind = TargetKind.NONE
+
+## 保存 NODE 目标的弱引用；目标释放或排队删除后 getter 返回 null。
+## [br]
+## @api private
 var _target_ref: WeakRef = null
+
+## 保存 POSITION 目标值；是否采用由 `_target_kind` 决定。
+## [br]
+## @api private
 var _target_position: Vector2 = Vector2.ZERO
+
+## 保存经 `set_metadata()` 复制的项目发射上下文。
+## [br]
+## @api private
 var _metadata: Dictionary = {}
 
 

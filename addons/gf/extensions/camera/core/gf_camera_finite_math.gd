@@ -4,6 +4,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 判断 Basis 分量退化或行列式接近零时使用的阈值。
+## [br]
+## @api private
 const _BASIS_EPSILON: float = 0.000001
 
 
@@ -165,6 +168,9 @@ static func sanitize_transform3d(
 
 # --- 私有/辅助方法 ---
 
+## 检查 Basis 分量有限且非退化、行列式有限且绝对值高于阈值。
+## [br]
+## @api private
 static func _is_finite_non_degenerate_basis(value: Basis) -> bool:
 	if (
 		not is_finite_vector3(value.x)
@@ -182,6 +188,9 @@ static func _is_finite_non_degenerate_basis(value: Basis) -> bool:
 	return is_finite(determinant) and absf(determinant) > _BASIS_EPSILON
 
 
+## 从有效 Basis 提取正交旋转；输入或结果无效时返回回退 Basis。
+## [br]
+## @api private
 static func _extract_proper_rotation(value: Basis, fallback: Basis) -> Basis:
 	if not _is_finite_non_degenerate_basis(value):
 		return fallback

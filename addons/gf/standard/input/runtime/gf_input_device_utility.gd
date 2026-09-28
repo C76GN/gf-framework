@@ -71,6 +71,10 @@ signal assignment_event_recorded(event_record: Dictionary)
 ## @since 7.0.0
 const DEFAULT_MAX_ASSIGNMENT_EVENTS: int = 64
 
+## 提供输入事件类型提取和事件复制操作。
+## [br]
+## @api private
+## [br]
 const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_input_event_tools.gd")
 
 
@@ -147,9 +151,28 @@ var active_player_index: int = 0
 
 # --- 私有变量 ---
 
+## 按玩家保存的当前设备映射。
+## [br]
+## @api private
+## [br]
 var _assignments: Array[GFInputDeviceAssignment] = []
+
+## 玩家索引到死区覆盖值的映射。
+## [br]
+## @api private
+## [br]
 var _player_deadzones: Dictionary = {}
+
+## 受 max_assignment_events 限制的设备分配诊断历史。
+## [br]
+## @api private
+## [br]
 var _assignment_events: Array[Dictionary] = []
+
+## 下一条设备分配诊断事件使用的索引，从 1 开始。
+## [br]
+## @api private
+## [br]
 var _next_assignment_event_index: int = 1
 
 
@@ -759,6 +782,10 @@ func get_assignment_report(event_limit: int = 10, json_compatible: bool = true) 
 
 # --- 私有/辅助方法 ---
 
+## 在线性扫描中查找指定玩家的当前设备映射；未找到时返回 null。
+## [br]
+## @api private
+## [br]
 func _find_assignment(player_index: int) -> GFInputDeviceAssignment:
 	for assignment: GFInputDeviceAssignment in _assignments:
 		if assignment.player_index == player_index:
@@ -766,6 +793,11 @@ func _find_assignment(player_index: int) -> GFInputDeviceAssignment:
 	return null
 
 
+## 将映射和死区裁剪到当前 max_players，必要时发出映射变更、记录移除原因并修复活跃玩家。
+## 被移除的映射按玩家索引排序后逐条记录；previous_max_players 用于诊断元数据。
+## [br]
+## @api private
+## [br]
 func _prune_state_to_player_capacity(previous_max_players: int) -> void:
 	var removed_assignments: Array[GFInputDeviceAssignment] = []
 	for index: int in range(_assignments.size() - 1, -1, -1):
@@ -812,11 +844,19 @@ func _prune_state_to_player_capacity(previous_max_players: int) -> void:
 		)
 
 
+## 仅在 OS 名称为 Android 或 iOS 时返回 true。
+## [br]
+## @api private
+## [br]
 func _is_touch_platform() -> bool:
 	var os_name: String = OS.get_name()
 	return os_name == "Android" or os_name == "iOS"
 
 
+## 将键鼠、触摸和手柄事件归类为设备类型；其他事件返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_event_device_type(event: InputEvent) -> int:
 	if event is InputEventKey or event is InputEventMouse:
 		return GFInputDeviceAssignment.DeviceType.KEYBOARD_MOUSE
@@ -827,6 +867,10 @@ func _get_event_device_type(event: InputEvent) -> int:
 	return -1
 
 
+## 读取事件对应的设备 ID；键鼠固定为 0、触摸固定为 -1，其他类型使用 event.device。
+## [br]
+## @api private
+## [br]
 func _get_event_device_id(
 	event: InputEvent,
 	device_type: GFInputDeviceAssignment.DeviceType
@@ -842,6 +886,10 @@ func _get_event_device_id(
 			return event.device
 
 
+## 将键鼠和触摸设备 ID 规范为固定值；其他设备类型保留传入 ID。
+## [br]
+## @api private
+## [br]
 func _normalize_device_id(
 	device_type: GFInputDeviceAssignment.DeviceType,
 	device_id: int
@@ -855,6 +903,11 @@ func _normalize_device_id(
 			return device_id
 
 
+## 组装带顺序索引、前后映射、输入事件及元数据的诊断记录，按保留上限存储并发出记录信号。
+## 上限不大于 0 时不保留历史，但仍递增索引并发出当前记录。
+## [br]
+## @api private
+## [br]
 func _record_assignment_event(
 	event_type: StringName,
 	assignment: GFInputDeviceAssignment,
@@ -884,6 +937,10 @@ func _record_assignment_event(
 	assignment_event_recorded.emit(record.duplicate(true))
 
 
+## 按 max_assignment_events 清理诊断历史；上限不大于 0 时清空，否则从最旧端移除超量事件。
+## [br]
+## @api private
+## [br]
 func _trim_assignment_events() -> void:
 	if max_assignment_events <= 0:
 		_assignment_events.clear()
@@ -892,6 +949,10 @@ func _trim_assignment_events() -> void:
 		_assignment_events.pop_front()
 
 
+## 将设备映射转换为报告字典；空映射返回空字典，metadata 按 JSON 选项转换或复制。
+## [br]
+## @api private
+## [br]
 func _assignment_to_dictionary(assignment: GFInputDeviceAssignment, json_compatible: bool = false) -> Dictionary:
 	if assignment == null:
 		return {}
@@ -904,6 +965,10 @@ func _assignment_to_dictionary(assignment: GFInputDeviceAssignment, json_compati
 	}
 
 
+## 将事件数组中的字典记录转换为报告数组，忽略非字典元素。
+## [br]
+## @api private
+## [br]
 func _assignment_events_to_array(events: Array, json_compatible: bool) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for event_value: Variant in events:
@@ -913,6 +978,10 @@ func _assignment_events_to_array(events: Array, json_compatible: bool) -> Array[
 	return result
 
 
+## 复制诊断记录并转换 assignment、previous_assignment、metadata，以及可选的 JSON 兼容 input_event。
+## [br]
+## @api private
+## [br]
 func _assignment_event_to_dictionary(record: Dictionary, json_compatible: bool) -> Dictionary:
 	var result: Dictionary = record.duplicate(true)
 	var assignment_value: Variant = GFVariantData.get_option_value(record, "assignment")
@@ -931,18 +1000,30 @@ func _assignment_event_to_dictionary(record: Dictionary, json_compatible: bool) 
 	return result
 
 
+## 复制设备映射字典，并按 json_compatible 转换或复制其中的 metadata。
+## [br]
+## @api private
+## [br]
 func _assignment_data_to_dictionary(data: Dictionary, json_compatible: bool) -> Dictionary:
 	var result: Dictionary = data.duplicate(true)
 	result["metadata"] = _report_metadata(GFVariantData.get_option_dictionary(data, "metadata"), json_compatible)
 	return result
 
 
+## 根据 JSON 兼容选项将 metadata 转换为 JSON 值或返回其复制结果。
+## [br]
+## @api private
+## [br]
 func _report_metadata(metadata: Dictionary, json_compatible: bool) -> Variant:
 	if json_compatible:
 		return GFVariantJsonCodec.variant_to_json_compatible(metadata)
 	return metadata.duplicate(true)
 
 
+## 将已知设备枚举转换为稳定文本；未识别值返回 "unknown"。
+## [br]
+## @api private
+## [br]
 func _device_type_to_text(device_type: int) -> String:
 	match device_type:
 		GFInputDeviceAssignment.DeviceType.KEYBOARD_MOUSE:
@@ -959,6 +1040,10 @@ func _device_type_to_text(device_type: int) -> String:
 			return "unknown"
 
 
+## 将受支持的输入事件提取为诊断字典；空事件返回空字典，未专门处理的类型只含 class 和 device。
+## [br]
+## @api private
+## [br]
 func _input_event_to_dictionary(event: InputEvent) -> Dictionary:
 	if event == null:
 		return {}
@@ -994,6 +1079,10 @@ func _input_event_to_dictionary(event: InputEvent) -> Dictionary:
 	return result
 
 
+## 从 0 到 max_players - 1 查找第一个未分配的玩家席位；没有空位时返回 -1。
+## [br]
+## @api private
+## [br]
 func _find_first_empty_player_index() -> int:
 	for player_index: int in range(max_players):
 		if _find_assignment(player_index) == null:
@@ -1001,6 +1090,10 @@ func _find_first_empty_player_index() -> int:
 	return -1
 
 
+## 对摇杆轴使用自动分配阈值；其他事件沿用活跃玩家事件阈值。
+## [br]
+## @api private
+## [br]
 func _is_event_active_enough_for_assignment(event: InputEvent) -> bool:
 	var joy_motion: InputEventJoypadMotion = _INPUT_EVENT_TOOLS.get_joypad_motion_event(event)
 	if joy_motion != null:
@@ -1008,6 +1101,10 @@ func _is_event_active_enough_for_assignment(event: InputEvent) -> bool:
 	return _is_event_active_enough_for_active_player(event)
 
 
+## 按事件类型判断是否足以切换活跃玩家；按钮类要求 pressed，摇杆轴按幅度阈值判断，其他类型返回 true。
+## [br]
+## @api private
+## [br]
 func _is_event_active_enough_for_active_player(event: InputEvent) -> bool:
 	var key_event: InputEventKey = _INPUT_EVENT_TOOLS.get_key_event(event)
 	if key_event != null:
@@ -1031,6 +1128,10 @@ func _is_event_active_enough_for_active_player(event: InputEvent) -> bool:
 	return true
 
 
+## 判断事件是否匹配加入模板；动作事件按 action 和 pressed 检查，其他事件还需处于足够活跃状态。
+## [br]
+## @api private
+## [br]
 func _event_matches_template(template: InputEvent, event: InputEvent) -> bool:
 	if template == null or event == null:
 		return false
@@ -1043,6 +1144,10 @@ func _event_matches_template(template: InputEvent, event: InputEvent) -> bool:
 	return _is_event_active_enough_for_active_player(event) and template.is_match(event, true)
 
 
+## 创建指定键码且标记为按下的键盘加入模板。
+## [br]
+## @api private
+## [br]
 func _make_join_key_event(key: Key) -> InputEventKey:
 	var event: InputEventKey = InputEventKey.new()
 	event.keycode = key
@@ -1051,6 +1156,10 @@ func _make_join_key_event(key: Key) -> InputEventKey:
 	return event
 
 
+## 创建指定按钮、标记为按下且 pressure 为 1 的手柄加入模板。
+## [br]
+## @api private
+## [br]
 func _make_join_joy_button_event(button: JoyButton) -> InputEventJoypadButton:
 	var event: InputEventJoypadButton = InputEventJoypadButton.new()
 	event.button_index = button
@@ -1059,6 +1168,10 @@ func _make_join_joy_button_event(button: JoyButton) -> InputEventJoypadButton:
 	return event
 
 
+## 若玩家索引发生变化则更新活跃玩家，先发出玩家变化信号，再发出对应设备变化通知。
+## [br]
+## @api private
+## [br]
 func _set_active_player(
 	player_index: int,
 	event: InputEvent = null,
@@ -1072,6 +1185,10 @@ func _set_active_player(
 	_emit_active_device_changed(assignment, event, reason)
 
 
+## 复制可选输入事件、记录活跃设备诊断事件，再发出包含映射副本和事件副本的设备变化信号。
+## [br]
+## @api private
+## [br]
 func _emit_active_device_changed(
 	assignment: GFInputDeviceAssignment,
 	event: InputEvent,
@@ -1088,12 +1205,20 @@ func _emit_active_device_changed(
 	)
 
 
+## 活跃玩家仍有映射时不处理；否则选择首个已分配玩家并更新活跃状态。
+## [br]
+## @api private
+## [br]
 func _repair_active_player_after_assignments_changed(reason: StringName) -> void:
 	if active_player_index >= 0 and _find_assignment(active_player_index) != null:
 		return
 	_set_active_player(_find_first_assigned_player_index(), null, reason)
 
 
+## 返回分配列表中最小的玩家索引；列表为空时返回 -1。
+## [br]
+## @api private
+## [br]
 func _find_first_assigned_player_index() -> int:
 	if _assignments.is_empty():
 		return -1
@@ -1103,6 +1228,10 @@ func _find_first_assigned_player_index() -> int:
 	return first_player_index
 
 
+## 除 AI 类型且设备 ID 为负数外，其他映射都参与设备唯一性检查。
+## [br]
+## @api private
+## [br]
 func _should_enforce_unique_device(assignment: GFInputDeviceAssignment) -> bool:
 	if assignment == null:
 		return false
@@ -1111,6 +1240,11 @@ func _should_enforce_unique_device(assignment: GFInputDeviceAssignment) -> bool:
 	return true
 
 
+# --- 信号处理函数 ---
+
+## 仅处理断开事件：移除该手柄的全部分配并逐项记录，再发送分配快照并修复活动玩家。
+## [br]
+## @api private
 func _on_joy_connection_changed(device: int, connected: bool) -> void:
 	if connected:
 		return

@@ -40,23 +40,77 @@ enum Status {
 
 # --- 常量 ---
 
+## 单种关闭模块条目最多保留的数量。
+## [br]
+## @api private
 const _MAX_MODULE_ENTRIES: int = 256
+
+## kind 和 status 字段的最大字符数。
+## [br]
+## @api private
 const _MAX_IDENTIFIER_LENGTH: int = 128
+
+## script 字段的最大字符数。
+## [br]
+## @api private
 const _MAX_SCRIPT_LENGTH: int = 512
+
+## reason 和 cancel_reason 字段的最大字符数。
+## [br]
+## @api private
 const _MAX_REASON_LENGTH: int = 1024
+
+## error 字段的最大字符数。
+## [br]
+## @api private
 const _MAX_ERROR_LENGTH: int = 2048
 
 
 # --- 私有变量 ---
 
+## 规范化后的关闭终态。
+## [br]
+## @api private
 var _status: Status = Status.FAILED
+
+## 非负的单调关闭开始时间（毫秒）。
+## [br]
+## @api private
 var _started_at_msec: int = 0
+
+## 不早于开始时间的单调完成时间（毫秒）。
+## [br]
+## @api private
 var _completed_at_msec: int = 0
+
+## 已完成模块的规范化结果条目。
+## [br]
+## @api private
 var _module_results: Array[Dictionary] = []
+
+## 强制释放时尚未完成模块的规范化条目。
+## [br]
+## @api private
 var _unfinished_modules: Array[Dictionary] = []
+
+## 复用同一关闭流程的重复请求数量。
+## [br]
+## @api private
 var _duplicate_request_count: int = 0
+
+## 关闭结果错误码。
+## [br]
+## @api private
 var _error_code: Error = FAILED
+
+## 长度受限的关闭错误说明。
+## [br]
+## @api private
 var _error: String = ""
+
+## 仅取消终态保留的原因文本。
+## [br]
+## @api private
 var _cancel_reason: String = ""
 
 
@@ -549,6 +603,9 @@ func to_dict() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 保留已知 Status 值，其他数值归一为 FAILED。
+## [br]
+## @api private
 static func _normalize_status(status: Status) -> Status:
 	if status in [
 		Status.SUCCEEDED,
@@ -562,6 +619,9 @@ static func _normalize_status(status: Status) -> Status:
 	return Status.FAILED
 
 
+## 将关闭终态映射为稳定的小写名称；未知值回退为 failed。
+## [br]
+## @api private
 static func _status_name(status: Status) -> StringName:
 	match status:
 		Status.SUCCEEDED:
@@ -580,6 +640,9 @@ static func _status_name(status: Status) -> StringName:
 			return &"failed"
 
 
+## 截断至条目上限，并仅复制允许的字段且逐字段规范化类型和长度。
+## [br]
+## @api private
 static func _normalize_module_entries(entries: Array[Dictionary]) -> Array[Dictionary]:
 	var normalized_entries: Array[Dictionary] = []
 	var entry_count: int = mini(entries.size(), _MAX_MODULE_ENTRIES)
@@ -598,6 +661,9 @@ static func _normalize_module_entries(entries: Array[Dictionary]) -> Array[Dicti
 	return normalized_entries
 
 
+## 深拷贝模块条目数组中的每个字典。
+## [br]
+## @api private
 static func _duplicate_module_entries(entries: Array[Dictionary]) -> Array[Dictionary]:
 	var duplicated_entries: Array[Dictionary] = []
 	var _resize_error: Error = duplicated_entries.resize(entries.size()) as Error
@@ -606,6 +672,9 @@ static func _duplicate_module_entries(entries: Array[Dictionary]) -> Array[Dicti
 	return duplicated_entries
 
 
+## 读取 String 或 StringName 字段并限制最大长度；缺失或其他类型返回空字符串。
+## [br]
+## @api private
 static func _get_bounded_string(
 	entry: Dictionary,
 	key: String,
@@ -621,6 +690,9 @@ static func _get_bounded_string(
 	return ""
 
 
+## 将有界字符串字段转换为 StringName。
+## [br]
+## @api private
 static func _get_bounded_string_name(
 	entry: Dictionary,
 	key: String,
@@ -629,6 +701,9 @@ static func _get_bounded_string_name(
 	return StringName(_get_bounded_string(entry, key, max_length))
 
 
+## 读取整数并将负值归零；缺失或其他类型返回 0。
+## [br]
+## @api private
 static func _get_non_negative_int(entry: Dictionary, key: String) -> int:
 	var value: Variant = entry.get(key)
 	if value is int:
@@ -637,6 +712,9 @@ static func _get_non_negative_int(entry: Dictionary, key: String) -> int:
 	return 0
 
 
+## 读取整数值；缺失或类型不匹配时返回 0。
+## [br]
+## @api private
 static func _get_int(entry: Dictionary, key: String) -> int:
 	var value: Variant = entry.get(key)
 	if value is int:

@@ -14,11 +14,17 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 将稳定 Variant 值编码为查询签名 token 的 key codec 脚本。
+## [br]
+## @api private
 const _GF_VARIANT_KEY_CODEC_SCRIPT = preload("res://addons/gf/standard/foundation/variant/gf_variant_key_codec.gd")
 
 
 # --- 私有变量 ---
 
+## 按域名保存编码值 token 集合。
+## [br]
+## @api private
 var _domains: Dictionary = {}
 
 
@@ -189,6 +195,9 @@ static func from_dictionary(domains: Dictionary) -> GFQuerySignature:
 
 # --- 私有/辅助方法 ---
 
+## 返回按字典序排序的域名数组。
+## [br]
+## @api private
 func _get_sorted_domain_keys() -> PackedStringArray:
 	var keys: PackedStringArray = PackedStringArray()
 	for domain_key: String in _domains.keys():
@@ -197,6 +206,9 @@ func _get_sorted_domain_keys() -> PackedStringArray:
 	return keys
 
 
+## 将支持的集合展开为值数组；数组中的 null 值会跳过。
+## [br]
+## @api private
 func _extract_values(values: Variant) -> Array:
 	var result: Array = []
 	if values == null:
@@ -235,10 +247,16 @@ func _extract_values(values: Variant) -> Array:
 	return result
 
 
+## 使用 Variant key codec 将单个域值编码为 token。
+## [br]
+## @api private
 func _make_value_key(value: Variant) -> String:
 	return _GF_VARIANT_KEY_CODEC_SCRIPT.make_key_token(value)
 
 
+## 从输入集合筛出 gfv1 编码 token，并合入指定域的集合。
+## [br]
+## @api private
 func _set_encoded_values(domain: StringName, values: Variant) -> GFQuerySignature:
 	if domain == &"":
 		return self
@@ -257,6 +275,9 @@ func _set_encoded_values(domain: StringName, values: Variant) -> GFQuerySignatur
 	return self
 
 
+## 从 PackedStringArray、字符串数组或字符串键字典提取并排序 token。
+## [br]
+## @api private
 static func _extract_encoded_value_keys(values: Variant) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	if values is PackedStringArray:
@@ -279,5 +300,8 @@ static func _extract_encoded_value_keys(values: Variant) -> PackedStringArray:
 	return result
 
 
+## 检查 token 是否带有 gfv1: 前缀且前缀后仍有内容。
+## [br]
+## @api private
 static func _is_encoded_value_key(value_key: String) -> bool:
 	return value_key.begins_with("gfv1:") and value_key.length() > "gfv1:".length()

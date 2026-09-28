@@ -44,6 +44,9 @@ signal attribute_changed(attribute_id: StringName, current_value: float, previou
 
 # --- 私有变量 ---
 
+## 以 StringName 为键保存属性实例；set、remove 和 clear 会维护对应的变更信号连接。
+## [br]
+## @api private
 var _attributes: Dictionary[StringName, GFModifiedAttribute] = {}
 
 
@@ -380,12 +383,18 @@ func restore_base_value_snapshot(snapshot: Dictionary, clear_existing: bool = fa
 
 # --- 私有/辅助方法 ---
 
+## 为属性当前值建立带 attribute_id 的变更回调连接，避免重复连接同一 Callable。
+## [br]
+## @api private
 func _connect_attribute(attribute_id: StringName, attribute: GFModifiedAttribute) -> void:
 	var callable: Callable = _get_attribute_changed_callable(attribute_id)
 	if not attribute.current_value.value_changed.is_connected(callable):
 		var _connected: int = attribute.current_value.value_changed.connect(callable)
 
 
+## 属性非空且变更信号已连接时，断开对应 attribute_id 的 Callable。
+## [br]
+## @api private
 func _disconnect_attribute(attribute_id: StringName, attribute: GFModifiedAttribute) -> void:
 	if attribute == null:
 		return
@@ -394,10 +403,16 @@ func _disconnect_attribute(attribute_id: StringName, attribute: GFModifiedAttrib
 		attribute.current_value.value_changed.disconnect(callable)
 
 
+## 创建转发属性变更事件的 Callable，并把 attribute_id 绑定为末尾参数。
+## [br]
+## @api private
 func _get_attribute_changed_callable(attribute_id: StringName) -> Callable:
 	return Callable(self, "_on_attribute_value_changed").bind(attribute_id)
 
 
+## 将字典取值收窄为 GFModifiedAttribute，类型不符时返回 null。
+## [br]
+## @api private
 func _get_attribute_value(value: Variant) -> GFModifiedAttribute:
 	if value is GFModifiedAttribute:
 		var attribute: GFModifiedAttribute = value
@@ -405,6 +420,11 @@ func _get_attribute_value(value: Variant) -> GFModifiedAttribute:
 	return null
 
 
+# --- 信号处理函数 ---
+
+## 将绑定的属性标识与收窄后的新旧浮点值转发为 attribute_changed，输出参数按新值、旧值排列。
+## [br]
+## @api private
 func _on_attribute_value_changed(previous_value: Variant, current_value: Variant, attribute_id: StringName) -> void:
 	attribute_changed.emit(
 		attribute_id,

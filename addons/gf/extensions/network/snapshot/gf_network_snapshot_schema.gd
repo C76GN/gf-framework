@@ -245,16 +245,28 @@ func duplicate_schema() -> GFNetworkSnapshotSchema:
 
 # --- 私有/辅助方法 ---
 
+## 检查状态字典是否含 StringName 或对应 String 字段。
+## [br]
+## @api private
+## [br]
 func _state_has_field(state: Dictionary, field_name: StringName) -> bool:
 	return state.has(field_name) or state.has(String(field_name))
 
 
+## 从状态字典读取 StringName 字段，必要时回退到对应 String 键。
+## [br]
+## @api private
+## [br]
 func _state_get_field(state: Dictionary, field_name: StringName) -> Variant:
 	if state.has(field_name):
 		return state[field_name]
 	return GFVariantData.get_option_value(state, String(field_name))
 
 
+## 按 encode 方向转换 patch 的 set 与 erase 部分。
+## [br]
+## @api private
+## [br]
 func _transform_patch(patch: Dictionary, encode: bool) -> Dictionary:
 	var result: Dictionary = patch.duplicate(true)
 	result["set"] = _transform_patch_set_ops(GFVariantData.get_option_value(patch, "set", []), encode)
@@ -262,6 +274,10 @@ func _transform_patch(patch: Dictionary, encode: bool) -> Dictionary:
 	return result
 
 
+## 转换数组或字典形式的 set 操作，并按 Schema 配置筛选路径。
+## [br]
+## @api private
+## [br]
 func _transform_patch_set_ops(set_value: Variant, encode: bool) -> Variant:
 	if set_value is Dictionary:
 		return _transform_patch_set_dictionary(GFVariantData.as_dictionary(set_value), encode)
@@ -283,6 +299,10 @@ func _transform_patch_set_ops(set_value: Variant, encode: bool) -> Variant:
 	return result
 
 
+## 转换字典形式 set 操作中的各个顶层字段值。
+## [br]
+## @api private
+## [br]
 func _transform_patch_set_dictionary(set_values: Dictionary, encode: bool) -> Dictionary:
 	var result: Dictionary = {}
 	for key: Variant in set_values.keys():
@@ -293,6 +313,10 @@ func _transform_patch_set_dictionary(set_values: Dictionary, encode: bool) -> Di
 	return result
 
 
+## 按 Schema 配置筛选 PackedStringArray 或 Array 形式的 erase 路径。
+## [br]
+## @api private
+## [br]
 func _filter_patch_erase_ops(erase_value: Variant) -> Variant:
 	if erase_value is PackedStringArray:
 		var erase_keys: PackedStringArray = PackedStringArray()
@@ -312,6 +336,10 @@ func _filter_patch_erase_ops(erase_value: Variant) -> Variant:
 	return erase_paths
 
 
+## 对已注册的顶层字段调用编码器或解码器，其他路径返回复制后的值。
+## [br]
+## @api private
+## [br]
 func _transform_patch_value_for_path(path: Array, value: Variant, encode: bool) -> Variant:
 	if path.size() != 1:
 		return GFVariantData.duplicate_variant(value)
@@ -324,12 +352,20 @@ func _transform_patch_value_for_path(path: Array, value: Variant, encode: bool) 
 	return serializer.deserialize_value(value)
 
 
+## 判断 patch 路径是否符合是否保留未注册字段的配置。
+## [br]
+## @api private
+## [br]
 func _should_include_patch_path(path: Array) -> bool:
 	if path.is_empty() or include_unregistered_fields:
 		return true
 	return has_field_serializer(StringName(str(path[0])))
 
 
+## 将 PackedStringArray、Array 或单个字符串路径值转换为 Array。
+## [br]
+## @api private
+## [br]
 func _patch_path_from_value(path_value: Variant) -> Array:
 	var result: Array = []
 	if path_value is PackedStringArray:
@@ -343,6 +379,10 @@ func _patch_path_from_value(path_value: Variant) -> Array:
 	return result
 
 
+## 将 Variant 转为字段编码器类型；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_field_serializer(value: Variant) -> GFNetworkFieldSerializer:
 	if value is GFNetworkFieldSerializer:
 		var serializer: GFNetworkFieldSerializer = value
@@ -350,6 +390,10 @@ func _variant_to_field_serializer(value: Variant) -> GFNetworkFieldSerializer:
 	return null
 
 
+## 将字符串追加到 PackedStringArray；目标不接受时不再处理。
+## [br]
+## @api private
+## [br]
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:

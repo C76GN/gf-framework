@@ -37,6 +37,9 @@ extends Resource
 
 # --- 私有变量 ---
 
+## 由 amount 导出属性访问器维护的非负数量存储值。
+## [br]
+## @api private
 var _amount: int = 0
 
 

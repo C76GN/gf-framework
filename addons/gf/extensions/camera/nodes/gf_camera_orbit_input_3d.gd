@@ -29,6 +29,9 @@ enum UpdateMode {
 
 # --- 常量 ---
 
+## 相机输入有限数值处理工具。
+## [br]
+## @api private
 const _GF_CAMERA_FINITE_MATH := preload("res://addons/gf/extensions/camera/core/gf_camera_finite_math.gd")
 
 
@@ -144,12 +147,39 @@ var input_mapping_utility: GFInputMappingUtility = null
 
 # --- 私有变量 ---
 
+## 是否处于鼠标环绕捕获状态。
+## [br]
+## @api private
 var _mouse_orbit_active: bool = false
+
+## 发起当前鼠标捕获的输入设备编号。
+## [br]
+## @api private
 var _mouse_orbit_device: int = 0
+
+## 当前捕获所关联的鼠标按键。
+## [br]
+## @api private
 var _mouse_orbit_capture_button: MouseButton = MOUSE_BUTTON_NONE
+
+## 当前捕获 Rig 的弱引用。
+## [br]
+## @api private
 var _mouse_orbit_rig_ref: WeakRef = null
+
+## 当前捕获 Rig 的实例 ID。
+## [br]
+## @api private
 var _mouse_orbit_rig_instance_id: int = 0
+
+## 当前鼠标捕获的代次编号，未捕获时为零。
+## [br]
+## @api private
 var _mouse_orbit_capture_generation: int = 0
+
+## 下一次鼠标捕获使用的代次编号。
+## [br]
+## @api private
 var _next_mouse_orbit_capture_generation: int = 1
 
 
@@ -328,6 +358,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 将捕获状态下的鼠标位移转换为 Rig 环绕增量。
+## [br]
+## @api private
 func _apply_captured_mouse_orbit(relative_pixels: Vector2) -> bool:
 	var rig: GFCameraOrbitRig3D = _get_captured_mouse_orbit_rig()
 	if rig == null:
@@ -340,6 +373,9 @@ func _apply_captured_mouse_orbit(relative_pixels: Vector2) -> bool:
 	)
 
 
+## 校验环绕输入并将缩放后的角度增量应用到指定 Rig。
+## [br]
+## @api private
 func _apply_orbit_vector_to_rig(
 	rig: GFCameraOrbitRig3D,
 	value: Vector2,
@@ -365,6 +401,9 @@ func _apply_orbit_vector_to_rig(
 	return true
 
 
+## 将滚轮按键事件转换为缩放增量。
+## [br]
+## @api private
 func _apply_mouse_wheel(event: InputEventMouseButton) -> bool:
 	if not event.pressed:
 		return false
@@ -375,6 +414,9 @@ func _apply_mouse_wheel(event: InputEventMouseButton) -> bool:
 	return false
 
 
+## 根据鼠标按键事件开始或结束 Rig 捕获。
+## [br]
+## @api private
 func _apply_mouse_orbit_button(event: InputEventMouseButton) -> bool:
 	if event.pressed:
 		var rig: GFCameraOrbitRig3D = get_orbit_rig()
@@ -401,6 +443,9 @@ func _apply_mouse_orbit_button(event: InputEventMouseButton) -> bool:
 	return false
 
 
+## 清除记录的鼠标按键、设备、Rig 和捕获代次。
+## [br]
+## @api private
 func _clear_mouse_orbit_capture() -> void:
 	_mouse_orbit_active = false
 	_mouse_orbit_device = 0
@@ -410,6 +455,9 @@ func _clear_mouse_orbit_capture() -> void:
 	_mouse_orbit_capture_generation = 0
 
 
+## 校验并返回当前捕获的 Rig，无效时清除捕获状态。
+## [br]
+## @api private
 func _get_captured_mouse_orbit_rig() -> GFCameraOrbitRig3D:
 	if not _mouse_orbit_active or _mouse_orbit_rig_ref == null:
 		return null
@@ -425,6 +473,9 @@ func _get_captured_mouse_orbit_rig() -> GFCameraOrbitRig3D:
 	return rig
 
 
+## 将布尔、向量或其他输入值转换为缩放标量。
+## [br]
+## @api private
 func _coerce_zoom_value(value: Variant) -> float:
 	if value == null:
 		return 0.0
@@ -440,6 +491,9 @@ func _coerce_zoom_value(value: Variant) -> float:
 	return GFVariantData.to_float(value)
 
 
+## 优先返回显式输入映射工具，否则从节点上下文查询。
+## [br]
+## @api private
 func _get_input_mapping_utility() -> GFInputMappingUtility:
 	if input_mapping_utility != null:
 		return input_mapping_utility
@@ -450,12 +504,18 @@ func _get_input_mapping_utility() -> GFInputMappingUtility:
 	return _get_input_mapping_value(context.get_utility(GFInputMappingUtility))
 
 
+## 按显式路径或父节点查找 GFNodeContext。
+## [br]
+## @api private
 func _get_node_context() -> GFNodeContext:
 	if not node_context_path.is_empty():
 		return _get_node_context_value(get_node_or_null(node_context_path))
 	return _get_node_context_value(GFNodeTreeOps.find_first_parent_of_type(self, GFNodeContext))
 
 
+## 将输入值收窄为鼠标移动事件，其他类型返回 null。
+## [br]
+## @api private
 func _get_mouse_motion_event(value: Variant) -> InputEventMouseMotion:
 	if value is InputEventMouseMotion:
 		var event: InputEventMouseMotion = value
@@ -463,6 +523,9 @@ func _get_mouse_motion_event(value: Variant) -> InputEventMouseMotion:
 	return null
 
 
+## 将输入值收窄为鼠标按键事件，其他类型返回 null。
+## [br]
+## @api private
 func _get_mouse_button_event(value: Variant) -> InputEventMouseButton:
 	if value is InputEventMouseButton:
 		var event: InputEventMouseButton = value
@@ -470,6 +533,9 @@ func _get_mouse_button_event(value: Variant) -> InputEventMouseButton:
 	return null
 
 
+## 将值收窄为 GFCameraOrbitRig3D，其他类型返回 null。
+## [br]
+## @api private
 func _get_orbit_rig_value(value: Variant) -> GFCameraOrbitRig3D:
 	if value is GFCameraOrbitRig3D:
 		var rig: GFCameraOrbitRig3D = value
@@ -477,6 +543,9 @@ func _get_orbit_rig_value(value: Variant) -> GFCameraOrbitRig3D:
 	return null
 
 
+## 将值收窄为 GFInputMappingUtility，其他类型返回 null。
+## [br]
+## @api private
 func _get_input_mapping_value(value: Variant) -> GFInputMappingUtility:
 	if value is GFInputMappingUtility:
 		var utility: GFInputMappingUtility = value
@@ -484,6 +553,9 @@ func _get_input_mapping_value(value: Variant) -> GFInputMappingUtility:
 	return null
 
 
+## 将值收窄为 GFNodeContext，其他类型返回 null。
+## [br]
+## @api private
 func _get_node_context_value(value: Variant) -> GFNodeContext:
 	if value is GFNodeContext:
 		var context: GFNodeContext = value
@@ -491,6 +563,9 @@ func _get_node_context_value(value: Variant) -> GFNodeContext:
 	return null
 
 
+## 收集已配置但工具中无值的环绕或缩放动作 ID。
+## [br]
+## @api private
 func _get_missing_action_ids(input_mapping: GFInputMappingUtility) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	if not use_input_mapping:
@@ -500,6 +575,9 @@ func _get_missing_action_ids(input_mapping: GFInputMappingUtility) -> PackedStri
 	return result
 
 
+## 在动作 ID 非空且尚未收录时追加缺失项。
+## [br]
+## @api private
 func _append_missing_action_id(
 	result: PackedStringArray,
 	input_mapping: GFInputMappingUtility,

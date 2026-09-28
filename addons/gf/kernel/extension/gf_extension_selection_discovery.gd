@@ -37,23 +37,69 @@ const STATUS_PARTIAL: StringName = &"partial"
 ## @since 11.0.0
 const STATUS_INVALID: StringName = &"invalid"
 
+## 扩展编辑器工具贡献清单的文件名。
+## [br]
+## @api private
 const _TOOL_CONTRIBUTION_FILE_NAME: String = "gf_tool_contribution.json"
+
+## 从 manifest 汇总的路径字段名称。
+## [br]
+## @api private
 const _MANIFEST_PATH_FIELDS: Array[String] = [
 	"installer_paths",
 ]
+
+## 快照内部贡献归属记录字典使用的键名。
+## [br]
+## @api private
 const _INTERNAL_TOOL_CONTRIBUTION_RECORDS_KEY: String = "_tool_contribution_records"
+
+## 排序 manifest 依赖图的辅助脚本。
+## [br]
+## @api private
 const _GF_DEPENDENCY_GRAPH_TOOLS = preload("res://addons/gf/kernel/core/gf_dependency_graph_tools.gd")
+
+## 解析 editor/gf_tool_contribution.json 的辅助脚本。
+## [br]
+## @api private
 const _GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_tool_contribution.gd")
+
+## 规范化资源路径并检查扩展根目录边界的辅助脚本。
+## [br]
+## @api private
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+## 读取快照、选项与审计结果字段的 Variant 访问辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 创建共享 JSON 预算并读取贡献文件签名的辅助脚本。
+## [br]
+## @api private
 const _GF_EXTENSION_JSON_FILE_READER_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_json_file_reader.gd")
 
 
 # --- 私有变量 ---
 
+## 最近一次写入的扩展启用选择快照。
+## [br]
+## @api private
 static var _snapshot_cache: Dictionary = {}
+
+## 最近一次快照对应的工具贡献路径归属记录。
+## [br]
+## @api private
 static var _tool_contribution_records_cache: Dictionary = {}
+
+## 标记当前是否有可读取的启用选择快照。
+## [br]
+## @api private
 static var _has_snapshot_cache: bool = false
+
+## 每次写入快照时递增的缓存修订号。
+## [br]
+## @api private
 static var _cache_revision: int = 0
 
 
@@ -153,6 +199,7 @@ static func get_tool_contribution_records(
 			[]
 		)
 	)
+
 
 ## 根据 manifest 依赖关系补齐启用扩展。
 ## [br]
@@ -371,6 +418,9 @@ static func make_discovery_signature(
 
 # --- 私有/辅助方法 ---
 
+## 复制 manifest 后按依赖优先解析请求 ID；无环时使用图排序，有环时可发警告并按 manifest 原顺序筛选已解析集合。
+## [br]
+## @api private
 static func _resolve_extension_dependencies(
 	extension_ids: Array[String],
 	manifests: Array[GFExtensionManifest],
@@ -407,6 +457,9 @@ static func _resolve_extension_dependencies(
 	return ordered
 
 
+## 汇总依赖图、配置 ID 和工具贡献路径；图无效时不放行启用路径，未知 ID 或贡献错误形成部分结果，并保留供缓存提取的内部贡献来源记录。
+## [br]
+## @api private
 static func _make_snapshot(
 	manifests: Array[GFExtensionManifest],
 	configured_ids: Array[String],
@@ -481,6 +534,9 @@ static func _make_snapshot(
 	}
 
 
+## 递增缓存版本并单独保存内部工具贡献来源记录，再存储去除内部记录的快照副本。
+## [br]
+## @api private
 static func _store_snapshot(snapshot: Dictionary) -> void:
 	_cache_revision += 1
 	_tool_contribution_records_cache = _get_tool_contribution_record_dictionary(
@@ -496,12 +552,18 @@ static func _store_snapshot(snapshot: Dictionary) -> void:
 	_has_snapshot_cache = true
 
 
+## 仅当当前 hash 非空且与缓存中的 signature_hash 相同时返回 true。
+## [br]
+## @api private
 static func _snapshot_matches_signature(signature: Dictionary) -> bool:
 	var current_hash: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(signature, "hash")
 	var cached_hash: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(_snapshot_cache, "signature_hash")
 	return not current_hash.is_empty() and current_hash == cached_hash
 
 
+## 复制选择快照并去掉内部贡献记录键，重建 manifest 副本及路径、问题集合；部分字典字段通过共享访问器取出，不承诺全部深层引用隔离。
+## [br]
+## @api private
 static func _duplicate_snapshot(snapshot: Dictionary) -> Dictionary:
 	var result: Dictionary = snapshot.duplicate(true)
 	var _internal_records_removed: bool = result.erase(
@@ -533,6 +595,9 @@ static func _duplicate_snapshot(snapshot: Dictionary) -> Dictionary:
 	return result
 
 
+## 按 manifest 路径字段收集去重后的路径字典。
+## [br]
+## @api private
 static func _collect_manifest_path_dictionary(manifests: Array[GFExtensionManifest]) -> Dictionary:
 	var result: Dictionary = _make_empty_path_dictionary(_MANIFEST_PATH_FIELDS)
 	for manifest: GFExtensionManifest in manifests:
@@ -544,6 +609,9 @@ static func _collect_manifest_path_dictionary(manifests: Array[GFExtensionManife
 	return result
 
 
+## 按启用 manifest 读取可选工具贡献 JSON，校验 schema 和路径后按字段去重收集；错误追加到传入列表，成功项同时写入扩展来源记录。
+## [br]
+## @api private
 static func _collect_tool_contribution_path_dictionary(
 	manifests: Array[GFExtensionManifest],
 	errors: Array[Dictionary],
@@ -612,6 +680,9 @@ static func _collect_tool_contribution_path_dictionary(
 	return result
 
 
+## 合并两个路径字典，并按字段顺序追加去重后的路径。
+## [br]
+## @api private
 static func _merge_path_dictionaries(first_paths: Dictionary, second_paths: Dictionary) -> Dictionary:
 	var field_names: Array[String] = _get_all_path_fields()
 	var result: Dictionary = _make_empty_path_dictionary(field_names)
@@ -623,6 +694,9 @@ static func _merge_path_dictionaries(first_paths: Dictionary, second_paths: Dict
 	return result
 
 
+## 返回 manifest 路径字段与工具贡献路径字段的去重合并列表。
+## [br]
+## @api private
 static func _get_all_path_fields() -> Array[String]:
 	var field_names: Array[String] = _MANIFEST_PATH_FIELDS.duplicate()
 	for property_name: String in _GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.PATH_FIELDS:
@@ -631,6 +705,9 @@ static func _get_all_path_fields() -> Array[String]:
 	return field_names
 
 
+## 为每个字段创建空数组值的字典。
+## [br]
+## @api private
 static func _make_empty_path_dictionary(field_names: Array[String]) -> Dictionary:
 	var result: Dictionary = {}
 	for field_name: String in field_names:
@@ -638,6 +715,9 @@ static func _make_empty_path_dictionary(field_names: Array[String]) -> Dictionar
 	return result
 
 
+## 从 Variant 读取工具贡献记录字典，并为每个路径字段规范化记录数组。
+## [br]
+## @api private
 static func _get_tool_contribution_record_dictionary(value: Variant) -> Dictionary:
 	var source: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(value)
 	var result: Dictionary = _make_empty_path_dictionary(
@@ -650,6 +730,9 @@ static func _get_tool_contribution_record_dictionary(value: Variant) -> Dictiona
 	return result
 
 
+## 筛选包含非空 path 和 extension_id 字符串的工具贡献记录。
+## [br]
+## @api private
 static func _get_tool_contribution_record_array(value: Variant) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if not value is Array:
@@ -673,11 +756,17 @@ static func _get_tool_contribution_record_array(value: Variant) -> Array[Diction
 	return result
 
 
+## 逐项调用路径追加辅助方法，把来源路径合并到目标数组。
+## [br]
+## @api private
 static func _append_unique_paths(target_paths: Array, source_paths: Array[String]) -> void:
 	for source_path: String in source_paths:
 		_append_unique_path(target_paths, source_path)
 
 
+## 去除路径首尾空白，并仅在非空且目标数组尚无该值时追加。
+## [br]
+## @api private
 static func _append_unique_path(target_paths: Array, raw_path: String) -> void:
 	var normalized_path: String = raw_path.strip_edges()
 	if normalized_path.is_empty() or target_paths.has(normalized_path):
@@ -685,6 +774,9 @@ static func _append_unique_path(target_paths: Array, raw_path: String) -> void:
 	target_paths.append(normalized_path)
 
 
+## 按 ID 顺序从映射中取回有效 manifest，跳过未找到的 ID。
+## [br]
+## @api private
 static func _get_manifests_for_ids(
 	extension_ids: Array[String],
 	manifest_by_id: Dictionary
@@ -697,6 +789,9 @@ static func _get_manifests_for_ids(
 	return result
 
 
+## 返回 ID 不在启用列表中的非 null manifest。
+## [br]
+## @api private
 static func _get_disabled_manifests(
 	manifests: Array[GFExtensionManifest],
 	enabled_ids: Array[String]
@@ -710,6 +805,9 @@ static func _get_disabled_manifests(
 	return result
 
 
+## 返回扩展根目录下 editor/gf_tool_contribution.json 的规范化资源路径。
+## [br]
+## @api private
 static func _get_tool_contribution_path(manifest: GFExtensionManifest) -> String:
 	if manifest == null or manifest.root_path.is_empty():
 		return ""
@@ -718,6 +816,9 @@ static func _get_tool_contribution_path(manifest: GFExtensionManifest) -> String
 	)
 
 
+## 将相对路径锚定扩展根，拒绝越出根、非 gd 或不可加载的脚本路径并追加来源错误；空路径直接忽略。
+## [br]
+## @api private
 static func _normalize_tool_contribution_resource_path(
 	raw_path: String,
 	root_path: String,
@@ -754,6 +855,9 @@ static func _normalize_tool_contribution_resource_path(
 	return normalized_path
 
 
+## 组装 stage 为 tool_contribution 的扩展 ID、来源路径和错误记录。
+## [br]
+## @api private
 static func _make_tool_contribution_error_record(
 	extension_id: String,
 	source_path: String,
@@ -767,6 +871,9 @@ static func _make_tool_contribution_error_record(
 	}
 
 
+## 深复制 JSON 读取选项，再以工具贡献文件专用错误文案覆盖读取器选项。
+## [br]
+## @api private
 static func _make_tool_contribution_json_reader_options(options: Dictionary = {}) -> Dictionary:
 	var reader_options: Dictionary = options.duplicate(true)
 	reader_options.merge({
@@ -779,6 +886,9 @@ static func _make_tool_contribution_json_reader_options(options: Dictionary = {}
 	return reader_options
 
 
+## 收集启用扩展的贡献文件路径、去重排序后逐项生成文件签名。
+## [br]
+## @api private
 static func _make_tool_contribution_file_signatures(
 	manifests: Array[GFExtensionManifest],
 	options: Dictionary,
@@ -801,6 +911,9 @@ static func _make_tool_contribution_file_signatures(
 	return result
 
 
+## 将非 null manifest 的字典、根路径、来源路径及校验错误序列化为排序后的 token。
+## [br]
+## @api private
 static func _make_manifest_tokens(manifests: Array[GFExtensionManifest]) -> Array[String]:
 	var tokens: Array[String] = []
 	for manifest: GFExtensionManifest in manifests:
@@ -816,6 +929,9 @@ static func _make_manifest_tokens(manifests: Array[GFExtensionManifest]) -> Arra
 	return tokens
 
 
+## 读取 builtin_extension_ids 选项，缺省为 gf.kernel 与 gf.standard，并排序去重。
+## [br]
+## @api private
 static func _get_builtin_extension_ids(options: Dictionary) -> Array[String]:
 	return _sorted_unique(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(
 		options,
@@ -824,6 +940,9 @@ static func _get_builtin_extension_ids(options: Dictionary) -> Array[String]:
 	))
 
 
+## 去空格后排除内置 ID 与 manifest 映射已知 ID，排序返回其余唯一 ID。
+## [br]
+## @api private
 static func _get_unknown_enabled_ids(
 	extension_ids: Array[String],
 	manifest_by_id: Dictionary,
@@ -840,6 +959,9 @@ static func _get_unknown_enabled_ids(
 	return result
 
 
+## 将 manifest 加载错误转换为 invalid manifest 记录，stage 缺省为 load。
+## [br]
+## @api private
 static func _manifest_load_error_to_invalid_manifest(load_error: Dictionary) -> Dictionary:
 	return {
 		"stage": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(load_error, "stage", "load"),
@@ -849,6 +971,9 @@ static func _manifest_load_error_to_invalid_manifest(load_error: Dictionary) -> 
 	}
 
 
+## 仅将 Variant Array 中的 Dictionary 项转换为标准 issue record。
+## [br]
+## @api private
 static func _get_issue_records_from_value(value: Variant) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if not (value is Array):
@@ -867,6 +992,9 @@ static func _get_issue_records_from_value(value: Variant) -> Array[Dictionary]:
 	return result
 
 
+## 组装 stage、扩展 ID、来源路径和错误数组副本。
+## [br]
+## @api private
 static func _make_issue_record(
 	stage: String,
 	extension_id: String,
@@ -881,6 +1009,9 @@ static func _make_issue_record(
 	}
 
 
+## 将 Variant 字典的键转为非空字符串，并读取对应的字符串数组值。
+## [br]
+## @api private
 static func _get_path_dictionary_from_value(value: Variant) -> Dictionary:
 	var result: Dictionary = {}
 	if not (value is Dictionary):
@@ -895,6 +1026,9 @@ static func _get_path_dictionary_from_value(value: Variant) -> Dictionary:
 	return result
 
 
+## 跳过 null 项，并为其余 manifest 调用 duplicate_manifest() 后返回新数组。
+## [br]
+## @api private
 static func _duplicate_manifest_array(manifests: Array[GFExtensionManifest]) -> Array[GFExtensionManifest]:
 	var result: Array[GFExtensionManifest] = []
 	for manifest: GFExtensionManifest in manifests:
@@ -904,6 +1038,9 @@ static func _duplicate_manifest_array(manifests: Array[GFExtensionManifest]) -> 
 	return result
 
 
+## 仅当 Variant 是 Array 时筛选并返回其中的 GFExtensionManifest 项。
+## [br]
+## @api private
 static func _get_manifest_array_from_value(value: Variant) -> Array[GFExtensionManifest]:
 	var result: Array[GFExtensionManifest] = []
 	if not (value is Array):
@@ -917,6 +1054,9 @@ static func _get_manifest_array_from_value(value: Variant) -> Array[GFExtensionM
 	return result
 
 
+## 按非空 manifest ID 建立映射；相同 ID 只保留首次遇到的实例。
+## [br]
+## @api private
 static func _build_manifest_map(manifests: Array[GFExtensionManifest]) -> Dictionary:
 	var result: Dictionary = {}
 	for manifest: GFExtensionManifest in manifests:
@@ -926,6 +1066,9 @@ static func _build_manifest_map(manifests: Array[GFExtensionManifest]) -> Dictio
 	return result
 
 
+## 从映射中读取值，仅当值为 GFExtensionManifest 时返回该实例。
+## [br]
+## @api private
 static func _get_manifest_from_map_or_null(
 	manifest_by_id: Dictionary,
 	extension_id: String
@@ -936,6 +1079,9 @@ static func _get_manifest_from_map_or_null(
 	return null
 
 
+## 为每个有效 manifest 建立依赖数组，过滤空 ID、非法 ID、内置 ID 和未知 ID。
+## [br]
+## @api private
 static func _build_dependency_map(manifest_by_id: Dictionary, builtin_ids: Array[String]) -> Dictionary:
 	var result: Dictionary = {}
 	for extension_id_variant: Variant in manifest_by_id.keys():
@@ -960,6 +1106,9 @@ static func _build_dependency_map(manifest_by_id: Dictionary, builtin_ids: Array
 	return result
 
 
+## 去空格、空值和重复项后按输入顺序复制为 PackedStringArray。
+## [br]
+## @api private
 static func _array_to_packed_string_array(values: Array[String]) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for value: String in values:
@@ -970,6 +1119,9 @@ static func _array_to_packed_string_array(values: Array[String]) -> PackedString
 	return result
 
 
+## 将字典键转为非空、去重的字符串并按遇到顺序追加为 PackedStringArray。
+## [br]
+## @api private
 static func _dictionary_keys_to_packed_string_array(values: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for key: Variant in values.keys():
@@ -980,6 +1132,9 @@ static func _dictionary_keys_to_packed_string_array(values: Dictionary) -> Packe
 	return result
 
 
+## 将字符串数组中的每个值映射到 true。
+## [br]
+## @api private
 static func _make_lookup_from_packed_string_array(values: PackedStringArray) -> Dictionary:
 	var result: Dictionary = {}
 	for value: String in values:
@@ -987,10 +1142,16 @@ static func _make_lookup_from_packed_string_array(values: PackedStringArray) -> 
 	return result
 
 
+## 从图报告读取 ordered_ids；缺失或类型不符时返回空 PackedStringArray。
+## [br]
+## @api private
 static func _get_graph_ordered_ids(report: Dictionary) -> PackedStringArray:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(report, "ordered_ids", PackedStringArray())
 
 
+## 将图报告中的依赖环转换为 PackedStringArray 列表。
+## [br]
+## @api private
 static func _get_graph_cycles(report: Dictionary) -> Array[PackedStringArray]:
 	var result: Array[PackedStringArray] = []
 	var cycles: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "dependency_cycles", [])
@@ -1004,12 +1165,18 @@ static func _get_graph_cycles(report: Dictionary) -> Array[PackedStringArray]:
 	return result
 
 
+## manifest 为 null 或没有该属性时返回 null，否则通过 NodePath 读取属性值。
+## [br]
+## @api private
 static func _get_manifest_property(manifest: GFExtensionManifest, property_name: String) -> Variant:
 	if manifest == null or not property_name in manifest:
 		return null
 	return manifest.get_indexed(NodePath(property_name))
 
 
+## 去除字符串首尾空白、空项和重复项，再对结果排序。
+## [br]
+## @api private
 static func _sorted_unique(values: Array[String]) -> Array[String]:
 	var result: Array[String] = []
 	for value: String in values:

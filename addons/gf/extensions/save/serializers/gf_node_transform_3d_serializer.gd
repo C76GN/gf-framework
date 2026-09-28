@@ -13,6 +13,10 @@ extends GFNodeSerializer
 
 # --- 常量 ---
 
+## gather/apply 共用的 Node3D 变换字段及其编码类型清单。
+## [br]
+## @api private
+## [br]
 const _PROPERTY_SPECS: Array[Dictionary] = [
 	{ "key": "position", "kind": &"vector3" },
 	{ "key": "rotation", "kind": &"vector3" },
@@ -91,6 +95,10 @@ func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictio
 
 # --- 私有/辅助方法 ---
 
+## 将 Node3D 类型节点返回为强类型引用。
+## [br]
+## @api private
+## [br]
 func _get_node_3d(node: Node) -> Node3D:
 	if node is Node3D:
 		var node_3d: Node3D = node

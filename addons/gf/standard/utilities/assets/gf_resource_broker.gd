@@ -58,10 +58,34 @@ const REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED: String = "active_type_hint_not_sati
 ## @since 11.0.0
 const REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED: String = "active_admission_constraints_not_satisfied"
 
+## 执行底层 ResourceLoader threaded request 的适配器脚本。
+## [br]
+## @api private
+## [br]
 const _THREADED_RESOURCE_LOAD_ADAPTER = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_load_adapter.gd")
+
+## 消费者资源租约的脚本类型。
+## [br]
+## @api private
+## [br]
 const _RESOURCE_LEASE_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_resource_lease.gd")
+
+## 请求尚未获得底层加载 admission 的状态值。
+## [br]
+## @api private
+## [br]
 const _REQUEST_QUEUED: int = 0
+
+## 请求已由 Broker 发起底层加载的状态值。
+## [br]
+## @api private
+## [br]
 const _REQUEST_ACTIVE: int = 1
+
+## 消费者已取消但底层加载仍在收敛的状态值。
+## [br]
+## @api private
+## [br]
 const _REQUEST_DRAINING: int = 2
 
 
@@ -99,10 +123,34 @@ var max_pending_requests: int = DEFAULT_MAX_PENDING_REQUESTS:
 
 # --- 私有变量 ---
 
+## 按资源身份键索引等待、活动或 drain 中的请求记录。
+## [br]
+## @api private
+## [br]
 var _requests_by_key: Dictionary = {}
+
+## 按 admission 顺序保存等待启动的请求记录。
+## [br]
+## @api private
+## [br]
 var _pending_requests: Array[ResourceRequestRecord] = []
+
+## 已发起且尚未回收的底层请求，包括所有消费者都已取消的 draining 请求。
+## 只有底层请求终结后才释放活动配额，不能按消费者数量提前移除。
+## [br]
+## @api private
 var _active_requests: Array[ResourceRequestRecord] = []
+
+## 标记当前是否有独占请求占用 Broker。
+## [br]
+## @api private
+## [br]
 var _active_exclusive: bool = false
+
+## 标记 Broker 是否已停止接受新请求。
+## [br]
+## @api private
+## [br]
 var _disposed: bool = false
 
 
@@ -401,6 +449,10 @@ func release_lease(lease: GFResourceLease, reason: StringName = &"released") -> 
 
 # --- 私有/辅助方法 ---
 
+## 按 FIFO 发起等待请求；队首要求独占或空闲时，后续请求不能绕过它。
+## draining 请求仍占用活动配额，因此必须等底层请求回收后才能满足空闲条件。
+## [br]
+## @api private
 func _admit_pending_requests() -> void:
 	if _disposed or _active_exclusive:
 		return
@@ -434,6 +486,10 @@ func _admit_pending_requests() -> void:
 			return
 
 
+## 轮询活动底层请求、推进 Lease 状态并处理终态记录。
+## [br]
+## @api private
+## [br]
 func _poll_active_requests() -> void:
 	if _active_requests.is_empty():
 		return
@@ -485,6 +541,10 @@ func _poll_active_requests() -> void:
 				)
 
 
+## 将有效消费者 Lease 标记为完成并从活动记录中移除请求。
+## [br]
+## @api private
+## [br]
 func _complete_record(record: ResourceRequestRecord, resource: Resource) -> void:
 	for lease: GFResourceLease in record.leases:
 		if lease != null and not lease.is_terminal():
@@ -492,6 +552,10 @@ func _complete_record(record: ResourceRequestRecord, resource: Resource) -> void
 	_remove_active_record(record)
 
 
+## 将有效消费者 Lease 标记为失败并从等待或活动记录中移除请求。
+## [br]
+## @api private
+## [br]
 func _fail_record(record: ResourceRequestRecord, request_error: Error, message: String) -> void:
 	for lease: GFResourceLease in record.leases:
 		if lease != null and not lease.is_terminal():
@@ -502,6 +566,10 @@ func _fail_record(record: ResourceRequestRecord, request_error: Error, message: 
 		_remove_active_record(record)
 
 
+## 从等待队列移除请求记录并清理其身份映射。
+## [br]
+## @api private
+## [br]
 func _remove_pending_record(record: ResourceRequestRecord) -> void:
 	var index: int = _pending_requests.find(record)
 	if index >= 0:
@@ -509,6 +577,10 @@ func _remove_pending_record(record: ResourceRequestRecord) -> void:
 	_forget_record(record)
 
 
+## 从活动列表移除请求、清除独占标志并清理身份映射。
+## [br]
+## @api private
+## [br]
 func _remove_active_record(record: ResourceRequestRecord) -> void:
 	var index: int = _active_requests.find(record)
 	if index >= 0:
@@ -518,6 +590,10 @@ func _remove_active_record(record: ResourceRequestRecord) -> void:
 	_forget_record(record)
 
 
+## 仅当身份映射仍指向该对象时移除请求键。
+## [br]
+## @api private
+## [br]
 func _forget_record(record: ResourceRequestRecord) -> void:
 	if record == null:
 		return
@@ -525,6 +601,10 @@ func _forget_record(record: ResourceRequestRecord) -> void:
 		var _erased: bool = _requests_by_key.erase(record.request_key)
 
 
+## 按资源身份键读取请求记录，不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_request_record(request_key: String) -> ResourceRequestRecord:
 	var value: Variant = GFVariantData.get_option_value(_requests_by_key, request_key)
 	if value is ResourceRequestRecord:
@@ -533,6 +613,10 @@ func _get_request_record(request_key: String) -> ResourceRequestRecord:
 	return null
 
 
+## 检查请求记录是否至少有一个未释放且未终结的 Lease。
+## [br]
+## @api private
+## [br]
 func _record_has_live_consumers(record: ResourceRequestRecord) -> bool:
 	for lease: GFResourceLease in record.leases:
 		if lease != null and not lease.is_released() and not lease.is_terminal():
@@ -540,6 +624,10 @@ func _record_has_live_consumers(record: ResourceRequestRecord) -> bool:
 	return false
 
 
+## 清除终结 Lease 并按剩余消费者重算排队请求约束。
+## [br]
+## @api private
+## [br]
 func _recompute_queued_record_constraints(record: ResourceRequestRecord) -> void:
 	record.type_hint = ""
 	record.exclusive = false
@@ -563,10 +651,18 @@ func _recompute_queued_record_constraints(record: ResourceRequestRecord) -> void
 		)
 
 
+## 类型提示相同或任一为空时视为兼容。
+## [br]
+## @api private
+## [br]
 func _type_hints_are_compatible(left: String, right: String) -> bool:
 	return left.is_empty() or right.is_empty() or left == right
 
 
+## 将 Variant 收窄为 Resource；其他值返回 null。
+## [br]
+## @api private
+## [br]
 func _get_resource_value(value: Variant) -> Resource:
 	if value is Resource:
 		var resource: Resource = value
@@ -574,6 +670,10 @@ func _get_resource_value(value: Variant) -> Resource:
 	return null
 
 
+## 构造缺少 Lease 时使用的失败轮询结果。
+## [br]
+## @api private
+## [br]
 func _make_missing_lease_result() -> Dictionary:
 	return {
 		"status": _RESOURCE_LEASE_SCRIPT.STATUS_FAILED,

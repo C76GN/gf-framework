@@ -77,6 +77,10 @@ extends Resource
 
 # --- 私有变量 ---
 
+## 标记影响 section 身份和能力的导出定义是否已锁定。
+## [br]
+## @api private
+## [br]
 var _definition_locked: bool = false
 
 
@@ -388,6 +392,10 @@ func lock_definition_for_framework() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 验证 section 身份与内容后返回其副本。
+## [br]
+## @api private
+## [br]
 func _normalize_section(section: GFSaveSection) -> GFSaveSection:
 	if section == null:
 		return null
@@ -397,6 +405,10 @@ func _normalize_section(section: GFSaveSection) -> GFSaveSection:
 		return null
 	return section.duplicate_section()
 
+## 检查 section 非空、身份与版本匹配且自身校验通过。
+## [br]
+## @api private
+## [br]
 func _matches_section(section: GFSaveSection) -> bool:
 	return (
 		section != null

@@ -164,30 +164,154 @@ const STATUS_OUTCOME_UNKNOWN: StringName = &"outcome_unknown"
 
 # --- 私有变量 ---
 
+## 保存操作是否成功。
+## [br]
+## @api private
+## [br]
 var _ok: bool = false
+
+## 操作最终状态标识。
+## [br]
+## @api private
+## [br]
 var _status: StringName = &""
+
+## 产生该结果的 save、load 或 flush 操作。
+## [br]
+## @api private
+## [br]
 var _operation: StringName = &""
+
+## 结果关联的 Profile ID。
+## [br]
+## @api private
+## [br]
 var _profile_id: StringName = &""
+
+## 操作请求的 generation。
+## [br]
+## @api private
+## [br]
 var _requested_generation: int = 0
+
+## 操作成功持久化的 generation。
+## [br]
+## @api private
+## [br]
 var _persisted_generation: int = 0
+
+## 操作尝试次数。
+## [br]
+## @api private
+## [br]
 var _attempt_count: int = 0
+
+## 操作开始时的单调时间戳，单位为毫秒。
+## [br]
+## @api private
+## [br]
 var _started_at_msec: int = 0
+
+## 操作完成时的单调时间戳，单位为毫秒。
+## [br]
+## @api private
+## [br]
 var _completed_at_msec: int = 0
+
+## 标记该结果是否来自合并后的操作。
+## [br]
+## @api private
+## [br]
 var _coalesced: bool = false
+
+## 标记读取流程是否执行了恢复处理。
+## [br]
+## @api private
+## [br]
 var _recovered: bool = false
+
+## 已执行的恢复动作标识。
+## [br]
+## @api private
+## [br]
 var _recovery_action: StringName = &""
+
+## 失败时关联的 section ID。
+## [br]
+## @api private
+## [br]
 var _failed_section_id: StringName = &""
+
+## 操作错误码；成功结果使用 OK。
+## [br]
+## @api private
+## [br]
 var _error_code: Error = FAILED
+
+## 操作失败消息。
+## [br]
+## @api private
+## [br]
 var _error: String = ""
+
+## 结果关联的存档文档。
+## [br]
+## @api private
+## [br]
 var _document: GFSaveDocument = null
+
+## 底层读取操作的结果。
+## [br]
+## @api private
+## [br]
 var _storage_result: GFStorageReadResult = null
+
+## 文档迁移流程的结果。
+## [br]
+## @api private
+## [br]
 var _migration_result: GFSaveMigrationResult = null
+
+## Profile 或载荷校验报告。
+## [br]
+## @api private
+## [br]
 var _validation_report: Dictionary = {}
+
+## 操作执行期间收集的回滚失败记录。
+## [br]
+## @api private
+## [br]
 var _rollback_errors: Array[GFSaveRollbackFailure] = []
+
+## 附加到结果的元数据。
+## [br]
+## @api private
+## [br]
 var _metadata: Dictionary = {}
+
+## 底层 Storage 操作涉及的请求 ID。
+## [br]
+## @api private
+## [br]
 var _storage_request_ids: PackedInt64Array = PackedInt64Array()
+
+## 文档准备阶段耗时，单位为毫秒。
+## [br]
+## @api private
+## [br]
 var _preparation_duration_msec: int = 0
+
+## Storage 阶段耗时，单位为毫秒。
+## [br]
+## @api private
+## [br]
 var _storage_duration_msec: int = 0
+
+## 文档准备阶段完成的工作单元数。
+## [br]
+## @api private
+## [br]
 var _preparation_work_units: int = 0
 
 
@@ -664,6 +788,10 @@ func configure_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 跳过空记录，并用每项的 duplicate_failure() 构造回滚失败数组。
+## [br]
+## @api private
+## [br]
 func _duplicate_rollback_errors(
 	errors: Array[GFSaveRollbackFailure]
 ) -> Array[GFSaveRollbackFailure]:
@@ -674,6 +802,10 @@ func _duplicate_rollback_errors(
 	return copies
 
 
+## 将非空回滚失败记录转换为字典数组。
+## [br]
+## @api private
+## [br]
 func _rollback_errors_to_dicts() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for failure: GFSaveRollbackFailure in _rollback_errors:
@@ -682,6 +814,10 @@ func _rollback_errors_to_dicts() -> Array[Dictionary]:
 	return result
 
 
+## 返回不含 payload 字段的 Storage 结果摘要；无结果时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_storage_result_summary() -> Dictionary:
 	if _storage_result == null:
 		return {}
@@ -690,6 +826,10 @@ func _get_storage_result_summary() -> Dictionary:
 	return summary
 
 
+## 返回不含 document 字段的迁移结果摘要；无结果时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_migration_result_summary() -> Dictionary:
 	if _migration_result == null:
 		return {}

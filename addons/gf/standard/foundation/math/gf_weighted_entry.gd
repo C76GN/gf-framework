@@ -124,6 +124,10 @@ static func from_dict(data: Dictionary) -> GFWeightedEntry:
 
 # --- 私有/辅助方法 ---
 
+## 非有限权重报告错误并归零，有限权重原样保留。
+## [br]
+## @api private
+## [br]
 static func _normalize_weight(raw_weight: float) -> float:
 	if is_nan(raw_weight) or is_inf(raw_weight):
 		push_error("[GFWeightedEntry][weighted_entry.weight_non_finite] weight must be finite and was reset to zero.")

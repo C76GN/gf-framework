@@ -70,7 +70,16 @@ signal workflow_replay_completed(result: Dictionary)
 
 # --- 常量 ---
 
+## 请求信封允许配置的最大重试次数。
+## [br]
+## @api private
+## [br]
 const _MAX_REQUEST_ATTEMPTS: int = 64
+
+## 工作流接受的报告 ID 最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_REPORT_ID_LENGTH: int = 4096
 
 
@@ -159,11 +168,40 @@ var session_metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 当前工作流实例构建的报告总数。
+## [br]
+## @api private
+## [br]
 var _reports_built_count: int = 0
+
+## 当前工作流实例直接提交成功的报告总数。
+## [br]
+## @api private
+## [br]
 var _reports_submitted_count: int = 0
+
+## 当前工作流实例成功持久化入队的报告总数。
+## [br]
+## @api private
+## [br]
 var _reports_queued_count: int = 0
+
+## 生命周期仍匹配并完成回放后累计的次数。
+## [br]
+## @api private
+## [br]
 var _replay_completed_count: int = 0
+
+## 记录由当前工作流自动安装传输回调的 Outbox。
+## [br]
+## @api private
+## [br]
 var _wired_outbox: GFRequestOutboxUtility = null
+
+## 工作流或 Outbox 生命周期变更的代次，用于拒绝过期回放结果。
+## [br]
+## @api private
+## [br]
 var _lifecycle_generation: int = 0
 
 
@@ -631,12 +669,20 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 返回已配置的报告工具；未配置时创建并缓存新实例。
+## [br]
+## @api private
+## [br]
 func _get_support_report_utility() -> GFSupportReportUtility:
 	if support_report_utility == null:
 		support_report_utility = GFSupportReportUtility.new()
 	return support_report_utility
 
 
+## 从选项读取传输回调；不是 Callable 时返回空回调。
+## [br]
+## @api private
+## [br]
 func _get_transport_from_options(options: Dictionary) -> Callable:
 	var transport_value: Variant = GFVariantData.get_option_value(options, "transport", transport_callback)
 	if transport_value is Callable:
@@ -645,6 +691,10 @@ func _get_transport_from_options(options: Dictionary) -> Callable:
 	return Callable()
 
 
+## 仅在启用自动绑定且未安装其他传输时，将本工作流回调绑定到 Outbox。
+## [br]
+## @api private
+## [br]
 func _wire_outbox_transport() -> void:
 	if request_outbox == null or not auto_wire_outbox_transport or not transport_callback.is_valid():
 		return
@@ -658,6 +708,10 @@ func _wire_outbox_transport() -> void:
 	_wired_outbox = request_outbox
 
 
+## 仅当 Outbox 仍使用本工作流回调时清除绑定，然后清空所有权记录。
+## [br]
+## @api private
+## [br]
 func _unwire_outbox_transport() -> void:
 	if _wired_outbox == null:
 		return
@@ -667,6 +721,10 @@ func _unwire_outbox_transport() -> void:
 	_wired_outbox = null
 
 
+## 校验 Support Report 请求信封及传输回调后，将报告和传输选项交给回调。
+## [br]
+## @api private
+## [br]
 func _send_outbox_envelope(envelope: GFRequestEnvelope) -> Variant:
 	if not handles_request(envelope):
 		return {
@@ -684,10 +742,18 @@ func _send_outbox_envelope(envelope: GFRequestEnvelope) -> Variant:
 	return transport_callback.call(report, transport_options)
 
 
+## 判断值是否为 String 或 StringName。
+## [br]
+## @api private
+## [br]
 func _is_text_value(value: Variant) -> bool:
 	return value is String or value is StringName
 
 
+## 读取报告的 report_id，并检查其文本类型、长度及控制字符。
+## [br]
+## @api private
+## [br]
 func _has_valid_report_id(report: Dictionary) -> bool:
 	var report_id_value: Variant = GFVariantData.get_option_value(report, "report_id")
 	return (
@@ -696,6 +762,10 @@ func _has_valid_report_id(report: Dictionary) -> bool:
 	)
 
 
+## 要求 ID 非空、不超过长度上限且不含 C0 或 DEL 控制字符。
+## [br]
+## @api private
+## [br]
 func _is_valid_report_id(report_id: String) -> bool:
 	if report_id.is_empty() or report_id.length() > _MAX_REPORT_ID_LENGTH:
 		return false
@@ -706,6 +776,10 @@ func _is_valid_report_id(report_id: String) -> bool:
 	return true
 
 
+## 将 Variant 转换为 GFRequestEnvelope；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_request_envelope(value: Variant) -> GFRequestEnvelope:
 	if value is GFRequestEnvelope:
 		var envelope: GFRequestEnvelope = value
@@ -713,6 +787,10 @@ func _variant_to_request_envelope(value: Variant) -> GFRequestEnvelope:
 	return null
 
 
+## 构造工作流结果并深复制报告、直接提交结果和排队结果。
+## [br]
+## @api private
+## [br]
 func _make_workflow_result(
 	ok: bool,
 	status: StringName,
@@ -731,6 +809,10 @@ func _make_workflow_result(
 	}
 
 
+## 构造排队结果，并复制请求信封及记录持久化状态和错误。
+## [br]
+## @api private
+## [br]
 func _make_queue_result(
 	ok: bool,
 	status: StringName,
@@ -751,6 +833,10 @@ func _make_queue_result(
 	}
 
 
+## 保留 Outbox 原结果副本，同时标记工作流生命周期已变化且不应用该回放提交。
+## [br]
+## @api private
+## [br]
 func _make_stale_replay_result(outbox_result: Dictionary) -> Dictionary:
 	var result: Dictionary = outbox_result.duplicate(true)
 	result["outbox_reason"] = GFVariantData.get_option_string(outbox_result, "reason")

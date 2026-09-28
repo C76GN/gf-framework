@@ -17,13 +17,44 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 规范 typed marker 字典使用的顶层键名。
+## [br]
+## @api private
 const _MARKER_KEY: String = "__gf_deterministic_variant__"
+
+## typed marker 字典写入的 schema 版本。
+## [br]
+## @api private
 const _SCHEMA_VERSION: int = 1
+
+## typed marker 字典中的类型字段名。
+## [br]
+## @api private
 const _TYPE_KEY: String = "type"
+
+## typed marker 字典中的值字段名。
+## [br]
+## @api private
 const _VALUE_KEY: String = "value"
+
+## typed marker 字典中的版本字段名。
+## [br]
+## @api private
 const _VERSION_KEY: String = "version"
+
+## 默认可处理的元素计数上限。
+## [br]
+## @api private
 const _DEFAULT_MAX_ITEMS: int = 100_000
+
+## 默认字符串长度上限。
+## [br]
+## @api private
 const _DEFAULT_MAX_STRING_LENGTH: int = 1_048_576
+
+## 默认规范 JSON 输出字节上限。
+## [br]
+## @api private
 const _DEFAULT_MAX_OUTPUT_BYTES: int = 16 * 1024 * 1024
 
 
@@ -131,6 +162,9 @@ static func sha256(value: Variant, options: Dictionary = {}) -> String:
 
 # --- 私有/辅助方法 ---
 
+## 从选项构造编码状态，并应用最小为 1 的深度、元素和字符串限制。
+## [br]
+## @api private
 static func _make_state(options: Dictionary) -> Dictionary:
 	var max_depth: int = GFVariantData.get_option_int(options, "max_depth", 256)
 	return {
@@ -143,6 +177,9 @@ static func _make_state(options: Dictionary) -> Dictionary:
 	}
 
 
+## 消耗元素预算并检查递归深度，再按 Variant 类型编码或委派给容器助手。
+## [br]
+## @api private
 static func _canonicalize_value(value: Variant, state: Dictionary, visited: Array, depth: int) -> Variant:
 	if not GFVariantData.get_option_bool(state, "ok", true):
 		return null
@@ -342,6 +379,9 @@ static func _canonicalize_value(value: Variant, state: Dictionary, visited: Arra
 	return _fail(state, "Unsupported Variant type: %s." % type_string(typeof(value)))
 
 
+## 拒绝当前递归路径中已出现的同一 Array 引用，并编码其元素。
+## [br]
+## @api private
 static func _canonicalize_array(value: Variant, state: Dictionary, visited: Array, depth: int) -> Variant:
 	if _visited_contains_reference(visited, value):
 		return _fail(state, "Input contains a cyclic Array reference.")
@@ -359,6 +399,9 @@ static func _canonicalize_array(value: Variant, state: Dictionary, visited: Arra
 	return _make_typed_value("Array", result)
 
 
+## 规范化键和值，并按 canonical key 的 JSON 文本排序后编码字典条目。
+## [br]
+## @api private
 static func _canonicalize_dictionary(value: Variant, state: Dictionary, visited: Array, depth: int) -> Variant:
 	if _visited_contains_reference(visited, value):
 		return _fail(state, "Input contains a cyclic Dictionary reference.")
@@ -396,6 +439,9 @@ static func _canonicalize_dictionary(value: Variant, state: Dictionary, visited:
 	return _make_typed_value("Dictionary", result)
 
 
+## 创建包含 serializer marker、类型、值和 schema 版本的字典。
+## [br]
+## @api private
 static func _make_typed_value(type_name: String, typed_value: Variant) -> Dictionary:
 	return {
 		_MARKER_KEY: {
@@ -406,6 +452,9 @@ static func _make_typed_value(type_name: String, typed_value: Variant) -> Dictio
 	}
 
 
+## 将整数数组的各项转换为十进制字符串。
+## [br]
+## @api private
 static func _canonicalize_int_array(values: Array[int]) -> Array[String]:
 	var result: Array[String] = []
 	for value: int in values:
@@ -413,6 +462,9 @@ static func _canonicalize_int_array(values: Array[int]) -> Array[String]:
 	return result
 
 
+## 逐项以当前编码状态规范化浮点数组。
+## [br]
+## @api private
 static func _canonicalize_float_array(values: Array[float], state: Dictionary) -> Array[String]:
 	var result: Array[String] = []
 	for value: float in values:
@@ -420,6 +472,9 @@ static func _canonicalize_float_array(values: Array[float], state: Dictionary) -
 	return result
 
 
+## 按 allow_floats 规则拒绝禁用值、NaN 或 Inf，并编码 IEEE-754 little-endian 字节。
+## [br]
+## @api private
 static func _canonicalize_float(value: float, state: Dictionary) -> String:
 	if not GFVariantData.get_option_bool(state, "allow_floats", false):
 		var _failed: Variant = _fail(state, "Floating-point values are excluded from deterministic encoding by default; use fixed-point numbers or explicitly enable allow_floats.")
@@ -438,6 +493,9 @@ static func _canonicalize_float(value: float, state: Dictionary) -> String:
 	return "ieee754le:%s" % bytes.hex_encode()
 
 
+## 将 PackedByteArray 的每个字节转换为十进制字符串。
+## [br]
+## @api private
 static func _canonicalize_packed_byte_array(value: PackedByteArray) -> Array[String]:
 	var result: Array[String] = []
 	for item: int in value:
@@ -445,6 +503,9 @@ static func _canonicalize_packed_byte_array(value: PackedByteArray) -> Array[Str
 	return result
 
 
+## 将 PackedInt32Array 的每个整数转换为十进制字符串。
+## [br]
+## @api private
 static func _canonicalize_packed_int32_array(value: PackedInt32Array) -> Array[String]:
 	var result: Array[String] = []
 	for item: int in value:
@@ -452,6 +513,9 @@ static func _canonicalize_packed_int32_array(value: PackedInt32Array) -> Array[S
 	return result
 
 
+## 将 PackedInt64Array 的每个整数转换为十进制字符串。
+## [br]
+## @api private
 static func _canonicalize_packed_int64_array(value: PackedInt64Array) -> Array[String]:
 	var result: Array[String] = []
 	for item: int in value:
@@ -459,6 +523,9 @@ static func _canonicalize_packed_int64_array(value: PackedInt64Array) -> Array[S
 	return result
 
 
+## 逐项使用当前状态规范化 PackedFloat32Array。
+## [br]
+## @api private
 static func _canonicalize_packed_float32_array(value: PackedFloat32Array, state: Dictionary) -> Array[String]:
 	var result: Array[String] = []
 	for item: float in value:
@@ -466,6 +533,9 @@ static func _canonicalize_packed_float32_array(value: PackedFloat32Array, state:
 	return result
 
 
+## 逐项使用当前状态规范化 PackedFloat64Array。
+## [br]
+## @api private
 static func _canonicalize_packed_float64_array(value: PackedFloat64Array, state: Dictionary) -> Array[String]:
 	var result: Array[String] = []
 	for item: float in value:
@@ -473,6 +543,9 @@ static func _canonicalize_packed_float64_array(value: PackedFloat64Array, state:
 	return result
 
 
+## 校验 PackedStringArray 中每项的字符串预算并保留其文本。
+## [br]
+## @api private
 static func _canonicalize_packed_string_array(value: PackedStringArray, state: Dictionary) -> Array[String]:
 	var result: Array[String] = []
 	for item: String in value:
@@ -482,6 +555,9 @@ static func _canonicalize_packed_string_array(value: PackedStringArray, state: D
 	return result
 
 
+## 将 PackedVector2Array 编码为逐项的规范浮点分量数组。
+## [br]
+## @api private
 static func _canonicalize_packed_vector2_array(value: PackedVector2Array, state: Dictionary) -> Array:
 	var result: Array = []
 	for item: Vector2 in value:
@@ -489,6 +565,9 @@ static func _canonicalize_packed_vector2_array(value: PackedVector2Array, state:
 	return result
 
 
+## 将 PackedVector3Array 编码为逐项的规范浮点分量数组。
+## [br]
+## @api private
 static func _canonicalize_packed_vector3_array(value: PackedVector3Array, state: Dictionary) -> Array:
 	var result: Array = []
 	for item: Vector3 in value:
@@ -496,6 +575,9 @@ static func _canonicalize_packed_vector3_array(value: PackedVector3Array, state:
 	return result
 
 
+## 将 PackedColorArray 编码为逐项的规范颜色分量数组。
+## [br]
+## @api private
 static func _canonicalize_packed_color_array(value: PackedColorArray, state: Dictionary) -> Array:
 	var result: Array = []
 	for item: Color in value:
@@ -503,6 +585,9 @@ static func _canonicalize_packed_color_array(value: PackedColorArray, state: Dic
 	return result
 
 
+## 将 PackedVector4Array 编码为逐项的规范浮点分量数组。
+## [br]
+## @api private
 static func _canonicalize_packed_vector4_array(value: PackedVector4Array, state: Dictionary) -> Array:
 	var result: Array = []
 	for item: Vector4 in value:
@@ -510,6 +595,9 @@ static func _canonicalize_packed_vector4_array(value: PackedVector4Array, state:
 	return result
 
 
+## 检查 visited 中是否已包含同一容器引用。
+## [br]
+## @api private
 static func _visited_contains_reference(visited: Array, value: Variant) -> bool:
 	for item: Variant in visited:
 		if is_same(item, value):
@@ -517,6 +605,9 @@ static func _visited_contains_reference(visited: Array, value: Variant) -> bool:
 	return false
 
 
+## 增加非负元素数并检查 max_items；超限时将 state 标为失败。
+## [br]
+## @api private
 static func _consume_items(state: Dictionary, amount: int) -> bool:
 	var next_count: int = GFVariantData.get_option_int(state, "item_count") + maxi(amount, 0)
 	if next_count > GFVariantData.get_option_int(state, "max_items", _DEFAULT_MAX_ITEMS):
@@ -526,6 +617,9 @@ static func _consume_items(state: Dictionary, amount: int) -> bool:
 	return true
 
 
+## 检查字符串长度；超限时记录失败并返回 false。
+## [br]
+## @api private
 static func _string_is_within_budget(value: String, state: Dictionary) -> bool:
 	if value.length() <= GFVariantData.get_option_int(state, "max_string_length", _DEFAULT_MAX_STRING_LENGTH):
 		return true
@@ -533,6 +627,9 @@ static func _string_is_within_budget(value: String, state: Dictionary) -> bool:
 	return false
 
 
+## 返回支持的 PackedArray 元素数量，其他 Variant 返回 0。
+## [br]
+## @api private
 static func _get_packed_item_count(value: Variant) -> int:
 	var value_type: Variant.Type = typeof(value) as Variant.Type
 	if value_type in [
@@ -551,6 +648,9 @@ static func _get_packed_item_count(value: Variant) -> int:
 	return 0
 
 
+## 记录首个序列化失败并输出错误；后续失败不覆盖已有状态。
+## [br]
+## @api private
 static func _fail(state: Dictionary, message: String) -> Variant:
 	if GFVariantData.get_option_bool(state, "ok", true):
 		state["ok"] = false

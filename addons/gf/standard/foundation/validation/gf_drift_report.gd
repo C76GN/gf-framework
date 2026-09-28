@@ -35,6 +35,10 @@ const KIND_EXTRA: StringName = &"drift_extra"
 ## @since 7.0.0
 const KIND_STALE: StringName = &"drift_stale"
 
+## 漂移报告未提供主题时使用的默认标题。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_SUBJECT: String = "Drift report"
 
 
@@ -199,6 +203,10 @@ static func compare_entries(
 
 # --- 私有/辅助方法 ---
 
+## 把条目键转成去空白文本、跳过空键，并复制对应值。
+## [br]
+## @api private
+## [br]
 static func _normalize_entry_keys(source: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for raw_key: Variant in source.keys():
@@ -209,6 +217,10 @@ static func _normalize_entry_keys(source: Dictionary) -> Dictionary:
 	return result
 
 
+## 根据 info、warning 或其他严重级别向报告追加对应问题。
+## [br]
+## @api private
+## [br]
 static func _add_drift_issue(
 	report: GFValidationReport,
 	severity: String,
@@ -226,10 +238,18 @@ static func _add_drift_issue(
 			var _error_issue: RefCounted = report.add_error(kind, message, key, "", metadata)
 
 
+## 委托 GFVariantData 按选项比较两个 Variant 值。
+## [br]
+## @api private
+## [br]
 static func _variant_values_equal(left: Variant, right: Variant, options: Dictionary) -> bool:
 	return GFVariantData.values_equal(left, right, options)
 
 
+## 把字典键转换为文本并按升序返回。
+## [br]
+## @api private
+## [br]
 static func _sorted_dictionary_keys(data: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for raw_key: Variant in data.keys():
@@ -238,6 +258,10 @@ static func _sorted_dictionary_keys(data: Dictionary) -> PackedStringArray:
 	return result
 
 
+## 将 PackedStringArray 复制为普通 Array。
+## [br]
+## @api private
+## [br]
 static func _packed_to_array(values: PackedStringArray) -> Array:
 	var result: Array = []
 	for value: String in values:

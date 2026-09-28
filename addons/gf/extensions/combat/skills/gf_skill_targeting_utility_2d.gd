@@ -14,6 +14,9 @@ extends GFUtility
 
 # --- 常量 ---
 
+## 校验 2D 索敌坐标和距离计算中的有限值。
+## [br]
+## @api private
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
 
@@ -87,6 +90,9 @@ func find_targets(p_center: Vector2, p_rule: GFSkillTargetingRule2D, p_available
 
 # --- 私有/辅助方法 ---
 
+## 按矩形、圆形、单体或扇形规则判断位置；非有限偏移不命中。
+## [br]
+## @api private
 func _is_position_in_shape(position: Vector2, p_center: Vector2, p_rule: GFSkillTargetingRule2D) -> bool:
 	var offset: Vector2 = position - p_center
 	if not _GF_COMBAT_FINITE_MATH.is_finite_vector2(offset):
@@ -121,6 +127,9 @@ func _is_position_in_shape(position: Vector2, p_center: Vector2, p_rule: GFSkill
 
 
 # 检查实体标签是否符合规则。
+## 检查实体 tag component；缺少组件时仅在 require_tags 为空时通过。
+## [br]
+## @api private
 func _check_tags(p_entity: Object, p_rule: GFSkillTargetingRule2D) -> bool:
 	if not p_entity.has_method(&"get_tag_component"):
 		return p_rule.require_tags.is_empty()
@@ -141,6 +150,9 @@ func _check_tags(p_entity: Object, p_rule: GFSkillTargetingRule2D) -> bool:
 
 
 # 在排序前一次性读取反射属性，保证比较器使用稳定快照。
+## 预先为候选设置排序键，再按规则方向排序并用 instance id 处理并列项。
+## [br]
+## @api private
 func _sort_candidates(
 	candidates: Array[Dictionary],
 	center: Vector2,
@@ -185,6 +197,9 @@ func _sort_candidates(
 
 
 # 获取实体坐标位置。
+## 只接受非 Node 或 Node2D 的有限 global_position。
+## [br]
+## @api private
 func _get_entity_position(p_entity: Object) -> Variant:
 	if p_entity is Node and not p_entity is Node2D:
 		return null
@@ -198,6 +213,9 @@ func _get_entity_position(p_entity: Object) -> Variant:
 	return null
 
 
+## 返回中心到位置的平方距离；偏移或平方距离非有限时返回大哨兵值。
+## [br]
+## @api private
 func _get_distance_sort_value(center: Vector2, position: Vector2) -> float:
 	var offset: Vector2 = position - center
 	if not _GF_COMBAT_FINITE_MATH.is_finite_vector2(offset):
@@ -206,6 +224,9 @@ func _get_distance_sort_value(center: Vector2, position: Vector2) -> float:
 	return distance_squared if _GF_COMBAT_FINITE_MATH.is_finite_float(distance_squared) else 1.0e300
 
 
+## 以半径和归一化向量长度检查圆内位置，半径为零时只接受零偏移。
+## [br]
+## @api private
 func _is_within_radius(offset: Vector2, radius: float) -> bool:
 	if radius == 0.0:
 		return offset == Vector2.ZERO
@@ -216,6 +237,9 @@ func _is_within_radius(offset: Vector2, radius: float) -> bool:
 
 
 # 获取实体属性值。
+## 优先读取 GFModifiedAttribute，其次读取同名属性；缺失或非有限数值按零处理。
+## [br]
+## @api private
 func _get_entity_attribute_value(p_entity: Object, p_attr_name: StringName) -> float:
 	if not is_instance_valid(p_entity):
 		return 0.0
@@ -233,12 +257,18 @@ func _get_entity_attribute_value(p_entity: Object, p_attr_name: StringName) -> f
 	return 0.0
 
 
+## 将随机种子与实体 instance id 组合后取字符串 hash 作为排序键。
+## [br]
+## @api private
 func _get_random_sort_key(entity: Object, random_seed: int) -> int:
 	if not is_instance_valid(entity):
 		return 0
 	return ("%d:%d" % [random_seed, entity.get_instance_id()]).hash()
 
 
+## 从候选字典读取仍有效的 entity Object。
+## [br]
+## @api private
 func _get_candidate_entity(candidate: Dictionary) -> Object:
 	var value: Variant = GFVariantData.get_option_value(candidate, "entity")
 	if typeof(value) != TYPE_OBJECT or not is_instance_valid(value):
@@ -247,6 +277,9 @@ func _get_candidate_entity(candidate: Dictionary) -> Object:
 	return entity
 
 
+## 将 Variant 收窄为 GFTagComponent，否则返回 null。
+## [br]
+## @api private
 func _get_tag_component_value(value: Variant) -> GFTagComponent:
 	if value is GFTagComponent:
 		var tag_component: GFTagComponent = value
@@ -254,6 +287,9 @@ func _get_tag_component_value(value: Variant) -> GFTagComponent:
 	return null
 
 
+## 将 Variant 收窄为 GFModifiedAttribute，否则返回 null。
+## [br]
+## @api private
 func _get_modified_attribute_value(value: Variant) -> GFModifiedAttribute:
 	if value is GFModifiedAttribute:
 		var attribute: GFModifiedAttribute = value

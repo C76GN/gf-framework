@@ -131,22 +131,38 @@ func apply(node: Node, payload: Dictionary, context: Dictionary = {}) -> Diction
 
 # --- 私有/辅助方法 ---
 
+## Object 值编码为引用标记，其余值转换为 JSON 兼容 Variant。
+## [br]
+## @api private
+## [br]
 func _encode_payload_property_value(value: Variant, context: Dictionary) -> Variant:
 	if value is Object:
 		return GFVariantReferenceCodec.encode_reference(value, context)
 	return GFVariantJsonCodec.variant_to_json_compatible(value, { "encode_dictionary_keys": true })
 
 
+## 引用标记通过 ReferenceCodec 解码，其余值交给 JSON codec 转换。
+## [br]
+## @api private
+## [br]
 func _decode_payload_property_value(value: Variant, context: Dictionary) -> Dictionary:
 	if GFVariantReferenceCodec.is_reference_marker(value):
 		return GFVariantReferenceCodec.decode_reference(value, _make_reference_decode_context(context))
 	return GFVariantJsonCodec.json_compatible_to_variant_result(value)
 
 
+## 检查编码值是否为 ReferenceCodec 标记的不可支持引用。
+## [br]
+## @api private
+## [br]
 func _is_unsupported_property_marker(value: Variant) -> bool:
 	return GFVariantReferenceCodec.is_unsupported_reference_marker(value)
 
 
+## 已提供资源恢复策略时沿用 context，否则把本地白名单合并到副本。
+## [br]
+## @api private
+## [br]
 func _make_reference_decode_context(context: Dictionary) -> Dictionary:
 	if _context_has_resource_decode_policy(context):
 		return context
@@ -161,6 +177,10 @@ func _make_reference_decode_context(context: Dictionary) -> Dictionary:
 	return result
 
 
+## 检查 context 是否含非空的资源根目录或路径模式白名单。
+## [br]
+## @api private
+## [br]
 func _context_has_resource_decode_policy(context: Dictionary) -> bool:
 	return (
 		not GFVariantData.get_option_packed_string_array(

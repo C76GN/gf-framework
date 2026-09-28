@@ -93,6 +93,10 @@ func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction
 
 # --- 私有/辅助方法 ---
 
+## 按 allowed_sign 保留非负或非正分量，并可将结果绝对化映射为正值。
+## [br]
+## @api private
+## [br]
 func _apply_sign(value: float) -> float:
 	var result: float = maxf(value, 0.0)
 	if allowed_sign == AllowedSign.NEGATIVE:

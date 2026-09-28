@@ -6,6 +6,10 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 提供 resource URI 规范化实现的路径工具脚本。
+## [br]
+## @api private
+## [br]
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 
 
@@ -90,6 +94,10 @@ static func resolve_output_path(
 
 # --- 私有/辅助方法 ---
 
+## 识别以 res:// 或 user:// 开头的路径方案；其他输入返回空 StringName。
+## [br]
+## @api private
+## [br]
 static func _resolve_supported_scheme(path: String) -> StringName:
 	if path.begins_with("res://"):
 		return &"res"
@@ -98,6 +106,10 @@ static func _resolve_supported_scheme(path: String) -> StringName:
 	return &""
 
 
+## 按路径片段跟踪 resource 根下的深度，拒绝未允许的 .. 和越过根目录的路径。
+## [br]
+## @api private
+## [br]
 static func _validate_parent_segments(
 	body: String,
 	allow_parent_output_path: bool,
@@ -119,12 +131,20 @@ static func _validate_parent_segments(
 	return ""
 
 
+## 忽略大小写判断路径是否等于 res://addons/gf 或位于其子目录。
+## [br]
+## @api private
+## [br]
 static func _is_gf_source_output_path(path: String) -> bool:
 	var lower_path: String = path.to_lower()
 	const GF_SOURCE_ROOT: String = "res://addons/gf"
 	return lower_path == GF_SOURCE_ROOT or lower_path.begins_with(GF_SOURCE_ROOT + "/")
 
 
+## 生成参数无效的路径策略失败结果，并保留未经规范化的输入路径。
+## [br]
+## @api private
+## [br]
 static func _make_failure(output_path: String, message: String) -> Dictionary:
 	return {
 		"success": false,

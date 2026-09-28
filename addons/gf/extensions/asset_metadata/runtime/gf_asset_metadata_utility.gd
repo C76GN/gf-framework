@@ -45,7 +45,14 @@ const METADATA_STATE_EMPTY: StringName = &"empty"
 ## @since 8.0.0
 const METADATA_STATE_VALID: StringName = &"valid"
 
+## 自定义来源键后用于分隔来源前缀与键名编码的文本。
+## [br]
+## @api private
 const _CUSTOM_SOURCE_KEY_SEPARATOR: String = "__"
+
+## 将 UTF-8 字节转换为小写十六进制文本时使用的数字表。
+## [br]
+## @api private
 const _HEX_DIGITS: String = "0123456789abcdef"
 
 
@@ -366,6 +373,9 @@ func build_node_tree_report(root: Node, options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 遍历节点树并收集记录，同时返回访问数量和节点限制状态。
+## [br]
+## @api private
 func _collect_node_tree_data(root: Node, options: Dictionary) -> Dictionary:
 	var records: Array[GFAssetMetadataRecord] = []
 	if root == null:
@@ -424,6 +434,9 @@ func _collect_node_tree_data(root: Node, options: Dictionary) -> Dictionary:
 	}
 
 
+## 从集合结果中筛选并返回 GFAssetMetadataRecord 实例。
+## [br]
+## @api private
 func _get_record_array(collection: Dictionary) -> Array[GFAssetMetadataRecord]:
 	var records: Array[GFAssetMetadataRecord] = []
 	for record_value: Variant in GFVariantData.get_option_array(collection, "records"):
@@ -433,6 +446,9 @@ func _get_record_array(collection: Dictionary) -> Array[GFAssetMetadataRecord]:
 	return records
 
 
+## 将记录转换为字典，并按选项选择是否编码为 JSON 安全字典。
+## [br]
+## @api private
 func _records_to_dicts(records: Array[GFAssetMetadataRecord], options: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for record: GFAssetMetadataRecord in records:
@@ -443,6 +459,9 @@ func _records_to_dicts(records: Array[GFAssetMetadataRecord], options: Dictionar
 	return result
 
 
+## 为节点创建记录，保存相对根路径和来源场景信息。
+## [br]
+## @api private
 func _make_record_for_node(
 	root: Node,
 	node: Node,
@@ -463,6 +482,9 @@ func _make_record_for_node(
 	return record
 
 
+## 按选项中的来源和对象路径信息创建元数据记录。
+## [br]
+## @api private
 func _make_record_for_object(
 	_target: Object,
 	metadata: Dictionary,
@@ -478,6 +500,9 @@ func _make_record_for_object(
 	return record
 
 
+## 优先返回显式来源路径，否则使用根场景路径或空字符串。
+## [br]
+## @api private
 func _get_source_path(root: Node, options: Dictionary) -> String:
 	var explicit_source_path: String = GFVariantData.get_option_string(options, "source_path")
 	if not explicit_source_path.is_empty():
@@ -487,6 +512,9 @@ func _get_source_path(root: Node, options: Dictionary) -> String:
 	return ""
 
 
+## 读取非空 metadata_key 选项，否则返回默认元数据键。
+## [br]
+## @api private
 func _get_metadata_key(options: Dictionary) -> StringName:
 	if options.has("metadata_key"):
 		var metadata_key: StringName = GFVariantData.get_option_string_name(options, "metadata_key")
@@ -495,6 +523,9 @@ func _get_metadata_key(options: Dictionary) -> StringName:
 	return META_ASSET_METADATA
 
 
+## 生成去重后的元数据键列表；缺少有效列表时使用单个默认键。
+## [br]
+## @api private
 func _get_metadata_keys(options: Dictionary) -> Array[StringName]:
 	if options.has("metadata_keys"):
 		var configured_keys: Array[StringName] = []
@@ -508,11 +539,17 @@ func _get_metadata_keys(options: Dictionary) -> Array[StringName]:
 	return result
 
 
+## 仅将非空且尚未出现的键追加到元数据键列表。
+## [br]
+## @api private
 func _append_metadata_key(result: Array[StringName], key: StringName) -> void:
 	if key != &"" and not result.has(key):
 		result.append(key)
 
 
+## 复制校验选项并补齐 subject、path 和可用的来源路径。
+## [br]
+## @api private
 func _make_schema_validation_options(target: Object, options: Dictionary) -> Dictionary:
 	var result: Dictionary = options.duplicate(true)
 	if not result.has("subject"):
@@ -529,6 +566,9 @@ func _make_schema_validation_options(target: Object, options: Dictionary) -> Dic
 	return result
 
 
+## 获取元数据来源键；自定义元数据键会编码后附加到来源前缀。
+## [br]
+## @api private
 func _get_metadata_source_key(metadata_key: StringName) -> StringName:
 	if metadata_key == META_ASSET_METADATA:
 		return META_ASSET_METADATA_SOURCE
@@ -541,6 +581,9 @@ func _get_metadata_source_key(metadata_key: StringName) -> StringName:
 	)
 
 
+## 将字符串的 UTF-8 字节逐字节编码为小写十六进制文本。
+## [br]
+## @api private
 func _utf8_hex(value: String) -> String:
 	var bytes: PackedByteArray = value.to_utf8_buffer()
 	var result: String = ""
@@ -550,10 +593,16 @@ func _utf8_hex(value: String) -> String:
 	return result
 
 
+## 使用资源路径工具规范化来源路径。
+## [br]
+## @api private
 func _normalize_source_path(path: String) -> String:
 	return GFPathTools.normalize_resource_path(path)
 
 
+## 将 Variant 收窄为 Node；其他类型返回 null。
+## [br]
+## @api private
 func _get_node_value(value: Variant) -> Node:
 	if value is Node:
 		var node: Node = value
@@ -561,14 +610,23 @@ func _get_node_value(value: Variant) -> Node:
 	return null
 
 
+## 按报告编码选项转换字典以供 JSON 安全输出。
+## [br]
+## @api private
 func _to_json_safe_dictionary(data: Dictionary) -> Dictionary:
 	return GFReportValueCodec.to_report_dictionary(data, _get_report_encoding_options())
 
 
+## 按报告编码选项将报告字典编码为标准输出字典。
+## [br]
+## @api private
 func _encode_report(report: Dictionary) -> Dictionary:
 	return GFReportValueCodec.to_report_dictionary(report, _get_report_encoding_options())
 
 
+## 创建保留资源路径字段的公开报告编码与脱敏选项。
+## [br]
+## @api private
 func _get_report_encoding_options() -> Dictionary:
 	return GFReportValueCodec.make_redaction_options(
 		GFReportValueCodec.REDACTION_PROFILE_PUBLIC,
@@ -579,6 +637,9 @@ func _get_report_encoding_options() -> Dictionary:
 	)
 
 
+## 返回节点树报告使用的下一步建议和兜底说明。
+## [br]
+## @api private
 func _get_report_options() -> Dictionary:
 	return {
 		"next_actions": {

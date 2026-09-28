@@ -70,10 +70,28 @@ const MAX_LAG_COUNT: int = 4096
 ## @since 8.0.0
 const MAX_CORRELATION_OPERATIONS: int = 8_000_000
 
+## 默认分析时使用的输入采样数量上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_SAMPLE_COUNT: int = 8192
+
+## 默认分析时使用的延迟搜索数量上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_LAG_COUNT: int = 2048
+
+## 默认相关运算预算；当前值与公开绝对运算上限相同。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_CORRELATION_OPERATIONS: int = MAX_CORRELATION_OPERATIONS
 
+## 将 MIDI 音级余数映射为音名的十二平均律名称表。
+## [br]
+## @api private
+## [br]
 const _NOTE_NAMES: Array[String] = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
 
@@ -355,6 +373,10 @@ static func frequency_to_note(frequency_hz: float) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按起点和请求数量截取样本，并受最大采样数限制时标记报告为截断。
+## [br]
+## @api private
+## [br]
 static func _slice_samples(
 	samples: PackedFloat32Array,
 	options: Dictionary,
@@ -373,6 +395,10 @@ static func _slice_samples(
 	return result
 
 
+## 将选项中的最大样本数限制在 8 到公开上限之间。
+## [br]
+## @api private
+## [br]
 static func _resolve_max_sample_count(options: Dictionary) -> int:
 	return clampi(
 		GFVariantData.get_option_int(options, "max_sample_count", _DEFAULT_MAX_SAMPLE_COUNT),
@@ -381,6 +407,10 @@ static func _resolve_max_sample_count(options: Dictionary) -> int:
 	)
 
 
+## 计算样本均值并返回逐项减去该直流偏移的新数组。
+## [br]
+## @api private
+## [br]
 static func _remove_dc_offset(samples: PackedFloat32Array) -> PackedFloat32Array:
 	var mean: float = 0.0
 	for sample: float in samples:
@@ -393,6 +423,10 @@ static func _remove_dc_offset(samples: PackedFloat32Array) -> PackedFloat32Array
 	return result
 
 
+## 在 mid、side、left、right 候选中选择 RMS 最大的样本通道。
+## [br]
+## @api private
+## [br]
 static func _select_stereo_pitch_candidate(
 	left: PackedFloat32Array,
 	right: PackedFloat32Array,
@@ -412,6 +446,10 @@ static func _select_stereo_pitch_candidate(
 	return best
 
 
+## 将 Variant 收窄为 PackedFloat32Array；其他类型返回空数组。
+## [br]
+## @api private
+## [br]
 static func _get_float_array_value(value: Variant) -> PackedFloat32Array:
 	if value is PackedFloat32Array:
 		var samples: PackedFloat32Array = value
@@ -419,6 +457,10 @@ static func _get_float_array_value(value: Variant) -> PackedFloat32Array:
 	return PackedFloat32Array()
 
 
+## 计算指定 lag 的能量归一化自相关；样本或能量无效时返回 -1。
+## [br]
+## @api private
+## [br]
 static func _normalized_autocorrelation(samples: PackedFloat32Array, lag: int) -> float:
 	var count: int = samples.size() - lag
 	if count <= 1:
@@ -444,6 +486,10 @@ static func _normalized_autocorrelation(samples: PackedFloat32Array, lag: int) -
 	return numerator / sqrt(left_energy * right_energy)
 
 
+## 检查所有样本是否均为有限浮点值。
+## [br]
+## @api private
+## [br]
 static func _samples_are_finite(samples: PackedFloat32Array) -> bool:
 	for sample: float in samples:
 		if not _is_finite_float(sample):
@@ -451,14 +497,26 @@ static func _samples_are_finite(samples: PackedFloat32Array) -> bool:
 	return true
 
 
+## 有限浮点值保持原样，非有限值回退到指定默认值。
+## [br]
+## @api private
+## [br]
 static func _finite_or_default(value: float, default_value: float) -> float:
 	return value if _is_finite_float(value) else default_value
 
 
+## 检查浮点值既非 NaN 也非正负无穷。
+## [br]
+## @api private
+## [br]
 static func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 创建音高分析报告的默认字段、结果值、预算计数和问题列表。
+## [br]
+## @api private
+## [br]
 static func _make_report() -> Dictionary:
 	return {
 		"ok": false,
@@ -481,6 +539,10 @@ static func _make_report() -> Dictionary:
 	}
 
 
+## 向音高报告的问题列表追加类别和消息。
+## [br]
+## @api private
+## [br]
 static func _add_issue(report: Dictionary, kind: StringName, message: String) -> void:
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 	issues.append({
@@ -490,6 +552,10 @@ static func _add_issue(report: Dictionary, kind: StringName, message: String) ->
 	report["issues"] = issues
 
 
+## 按问题列表长度更新 issue_count 并返回报告。
+## [br]
+## @api private
+## [br]
 static func _finalize_report(report: Dictionary) -> Dictionary:
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 	report["issue_count"] = issues.size()

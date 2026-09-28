@@ -57,17 +57,64 @@ enum PreviewMode {
 
 # --- 私有变量 ---
 
+## 此请求选择的渲染或预览计划类型。
+## [br]
+## @api private
 var _kind: Kind = Kind.NONE
+
+## Node3D 渲染请求的来源节点。
+## [br]
+## @api private
 var _source_node3d: Node3D = null
+
+## CanvasItem 渲染请求的来源节点。
+## [br]
+## @api private
 var _source_canvas_item: CanvasItem = null
+
+## Mesh 渲染请求的来源网格。
+## [br]
+## @api private
 var _mesh: Mesh = null
+
+## MeshLibrary 预览计划的来源库。
+## [br]
+## @api private
 var _mesh_library: MeshLibrary = null
+
+## 请求的输出图像尺寸；创建器按调用方传入值保存。
+## [br]
+## @api private
 var _size: Vector2i = Vector2i(256, 256)
+
+## 输出是否使用透明背景。
+## [br]
+## @api private
 var _transparent: bool = true
+
+## MeshLibrary 预览计划是否覆盖已有预览。
+## [br]
+## @api private
 var _overwrite_existing: bool = true
+
+## 有效时使用的来源局部坐标 2D 内容边界。
+## [br]
+## @api private
 var _content_bounds: Rect2 = Rect2()
+
+## 是否已提供两个边长都为正的显式内容边界。
+## [br]
+## @api private
 var _has_content_bounds: bool = false
+
+## CanvasItem 内容边界的相对留白比例；有限值会钳制到 0.0–1.0。
+## [br]
+## @api private
 var _margin_ratio: float = 0.08
+
+## Node 类预览请求选择的静态或可信动态执行模式。
+## [br]
+## @api private
 var _preview_mode: PreviewMode = PreviewMode.STATIC
 
 
@@ -427,6 +474,9 @@ func is_valid() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 创建非 CanvasItem 请求并原样保存输入类型、来源、尺寸、背景和覆盖选项。
+## [br]
+## @api private
 static func _make_request(
 	kind: Kind,
 	source_node3d: Node3D,
@@ -449,6 +499,10 @@ static func _make_request(
 	return request
 
 
+## 创建 CanvasItem 请求；仅两边长均为正时保留显式边界，并将有限留白钳制到 0.0–1.0。
+## 非有限留白值保留在请求中，供 is_valid() 判为无效。
+## [br]
+## @api private
 static func _make_canvas_item_request(
 	kind: Kind,
 	source_canvas_item: CanvasItem,

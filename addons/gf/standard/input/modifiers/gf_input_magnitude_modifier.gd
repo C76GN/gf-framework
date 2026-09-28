@@ -83,6 +83,10 @@ func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction
 
 # --- 私有/辅助方法 ---
 
+## 计算二维向量长度；绝对值模式直接返回长度，否则按最大绝对分量的符号保留方向。
+## [br]
+## @api private
+## [br]
 func _get_magnitude_2d(value: Vector2) -> float:
 	var magnitude: float = value.length()
 	if absolute_value:
@@ -90,6 +94,10 @@ func _get_magnitude_2d(value: Vector2) -> float:
 	return magnitude * _get_dominant_sign(Vector3(value.x, value.y, 0.0))
 
 
+## 计算三维向量长度；绝对值模式直接返回长度，否则按主导分量符号保留方向。
+## [br]
+## @api private
+## [br]
 func _get_magnitude_3d(value: Vector3) -> float:
 	var magnitude: float = value.length()
 	if absolute_value:
@@ -97,6 +105,10 @@ func _get_magnitude_3d(value: Vector3) -> float:
 	return magnitude * _get_dominant_sign(value)
 
 
+## 选择绝对值最大的 x/y/z 分量并返回其符号；最大分量为零时返回正号。
+## [br]
+## @api private
+## [br]
 func _get_dominant_sign(value: Vector3) -> float:
 	var axis_value: float = value.x
 	if absf(value.y) > absf(axis_value):
@@ -106,5 +118,9 @@ func _get_dominant_sign(value: Vector3) -> float:
 	return -1.0 if axis_value < 0.0 else 1.0
 
 
+## 按 preserve_unselected_components 配置保留未输出分量，否则返回零。
+## [br]
+## @api private
+## [br]
 func _preserve_component(value: float) -> float:
 	return value if preserve_unselected_components else 0.0

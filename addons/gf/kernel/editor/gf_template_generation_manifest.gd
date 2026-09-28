@@ -67,10 +67,22 @@ const MAX_JSON_DEPTH: int = 64
 ## [br]
 ## @layer kernel/editor
 const GFGeneratedArtifactReportBase = preload("res://addons/gf/kernel/editor/gf_generated_artifact_report.gd")
+
+## 提供带字节数和嵌套深度限制的 JSON sidecar 读取与解析。
+## [br]
+## @api private
 const _GF_BOUNDED_JSON_READER_SCRIPT = preload(
 	"res://addons/gf/kernel/editor/gf_bounded_json_reader.gd"
 )
+
+## 将摘要字段转换为 JSON-safe 报告值并应用支持报告脱敏规则。
+## [br]
+## @api private
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+
+## 清单选项和记录字段的类型化读取辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -411,6 +423,9 @@ static func summarize_manifests(manifests: Array[Dictionary], options: Dictionar
 
 # --- 私有/辅助方法 ---
 
+## 将每份清单转换为单份报告字典，并保留输入顺序。
+## [br]
+## @api private
 static func _to_manifest_report_array(manifests: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for manifest: Dictionary in manifests:
@@ -418,6 +433,10 @@ static func _to_manifest_report_array(manifests: Array[Dictionary]) -> Array[Dic
 	return result
 
 
+## 组装稳定清单报告字段；状态/所有权为空时分别回退为 invalid/generated。
+## Dictionary 字段经报告 codec 转换，存在时额外包含 sidecar_path。
+## [br]
+## @api private
 static func _to_manifest_report_dictionary(manifest: Dictionary) -> Dictionary:
 	var status_text: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(manifest, "status")
 	if status_text.is_empty():
@@ -444,10 +463,16 @@ static func _to_manifest_report_dictionary(manifest: Dictionary) -> Dictionary:
 	return result
 
 
+## 使用支持报告脱敏选项将输入字典转换为报告字典。
+## [br]
+## @api private
 static func _to_report_dictionary(value: Dictionary) -> Dictionary:
 	return _GF_REPORT_VALUE_CODEC_SCRIPT.to_report_dictionary(value, _make_report_codec_options())
 
 
+## 创建支持报告 codec 选项，并将路径脱敏模式设为 basename。
+## [br]
+## @api private
 static func _make_report_codec_options() -> Dictionary:
 	return _GF_REPORT_VALUE_CODEC_SCRIPT.make_redaction_options(
 		_GF_REPORT_VALUE_CODEC_SCRIPT.REDACTION_PROFILE_SUPPORT,
@@ -455,6 +480,9 @@ static func _make_report_codec_options() -> Dictionary:
 	)
 
 
+## 将 PackedStringArray 的各项复制到普通 Array 并保持顺序。
+## [br]
+## @api private
 static func _packed_to_array(values: PackedStringArray) -> Array:
 	var result: Array = []
 	for value: String in values:
@@ -462,6 +490,10 @@ static func _packed_to_array(values: PackedStringArray) -> Array:
 	return result
 
 
+## 检查规范化路径的协议、嵌套协议、本地绝对路径形式和父目录路径段。
+## 每项不满足条件时向 errors 追加字段名对应的错误文本。
+## [br]
+## @api private
 static func _append_manifest_path_errors(field_name: String, path: String, errors: Array[String]) -> void:
 	var normalized: String = _normalize_manifest_path(path)
 	if not (normalized.begins_with("res://") or normalized.begins_with("user://")):
@@ -478,10 +510,16 @@ static func _append_manifest_path_errors(field_name: String, path: String, error
 		errors.append("%s 不能包含 .. 路径段。" % field_name)
 
 
+## 修剪路径首尾空白并将反斜线统一替换为正斜线。
+## [br]
+## @api private
 static func _normalize_manifest_path(path: String) -> String:
 	return path.strip_edges().replace("\\", "/")
 
 
+## 按正斜线拆分路径，仅当某个完整路径段等于 .. 时返回 true。
+## [br]
+## @api private
 static func _path_has_parent_segment(path: String) -> bool:
 	for part: String in path.split("/", false):
 		if part == "..":
@@ -489,6 +527,9 @@ static func _path_has_parent_segment(path: String) -> bool:
 	return false
 
 
+## 从默认字段派生或创建空清单，再覆盖无效状态和单条错误说明。
+## [br]
+## @api private
 static func _make_invalid_manifest(status: StringName, message: String, defaults: Dictionary = {}) -> Dictionary:
 	var manifest: Dictionary = from_dictionary(defaults) if not defaults.is_empty() else make_manifest(&"", "", "")
 	manifest["valid"] = false

@@ -58,6 +58,10 @@ func write_settings(file_name: String, data: Dictionary) -> Error:
 
 # --- 私有/辅助方法 ---
 
+## 创建带 UNAVAILABLE 分类、未检查完整性的默认读取失败结果。
+## [br]
+## @api private
+## [br]
 func _make_unavailable_read_result(_file_name: String) -> GFStorageReadResult:
 	return GFStorageReadResult.new().configure_failure(
 		"Settings persistence store is unavailable.",
@@ -69,5 +73,9 @@ func _make_unavailable_read_result(_file_name: String) -> GFStorageReadResult:
 	)
 
 
+## 基类默认拒绝写入并返回 ERR_UNAVAILABLE。
+## [br]
+## @api private
+## [br]
 func _reject_unavailable_write(_file_name: String, _data: Dictionary) -> Error:
 	return ERR_UNAVAILABLE

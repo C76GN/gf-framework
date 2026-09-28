@@ -14,6 +14,10 @@ extends GFSettingsStoreUtility
 
 # --- 私有变量 ---
 
+## ready 阶段解析并缓存的 GFStorageUtility；依赖释放时清空。
+## [br]
+## @api private
+## [br]
 var _storage_utility: GFStorageUtility = null
 
 

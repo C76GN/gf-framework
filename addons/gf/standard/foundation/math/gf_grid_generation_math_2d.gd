@@ -14,6 +14,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 生成与区域枚举采用的右、左、下、上方向。
+## [br]
+## @api private
 const _ORTHOGONAL_DIRECTIONS: Array[Vector2i] = [
 	Vector2i.RIGHT,
 	Vector2i.LEFT,
@@ -21,6 +24,9 @@ const _ORTHOGONAL_DIRECTIONS: Array[Vector2i] = [
 	Vector2i.UP,
 ]
 
+## 对角邻接枚举采用的四个斜向方向。
+## [br]
+## @api private
 const _DIAGONAL_DIRECTIONS: Array[Vector2i] = [
 	Vector2i(1, 1),
 	Vector2i(1, -1),
@@ -477,12 +483,18 @@ static func filter_cell_regions_by_size(
 
 # --- 私有/辅助方法 ---
 
+## 调用有效格子谓词并转换为 bool；无效回调或转换失败时使用 fallback。
+## [br]
+## @api private
 static func _call_cell_predicate(predicate: Callable, cell: Vector2i, fallback: bool = false) -> bool:
 	if not predicate.is_valid():
 		return fallback
 	return GFVariantData.to_bool(predicate.call(cell), fallback)
 
 
+## 按 y/x 遍历网格，并以启用回调结果建立可用格子集合。
+## [br]
+## @api private
 static func _make_rect_maze_available_cells(grid_size: Vector2i, is_cell_enabled: Callable) -> Dictionary:
 	var result: Dictionary = {}
 	for y: int in range(grid_size.y):
@@ -493,6 +505,9 @@ static func _make_rect_maze_available_cells(grid_size: Vector2i, is_cell_enabled
 	return result
 
 
+## 获取位于网格内、可用且尚未访问的相邻格子。
+## [br]
+## @api private
 static func _get_rect_maze_unvisited_neighbors(
 	cell: Vector2i,
 	grid_size: Vector2i,
@@ -507,6 +522,9 @@ static func _get_rect_maze_unvisited_neighbors(
 	return result
 
 
+## 将目标格追加到起点的连接列表并回写字典。
+## [br]
+## @api private
 static func _append_rect_maze_connection(connections: Dictionary, from_cell: Vector2i, to_cell: Vector2i) -> void:
 	var neighbors: Array = []
 	var value: Variant = GFVariantData.get_option_value(connections, from_cell)
@@ -516,6 +534,9 @@ static func _append_rect_maze_connection(connections: Dictionary, from_cell: Vec
 	connections[from_cell] = neighbors
 
 
+## 以零可用格和非负阻挡数转交矩形迷宫失败报告构造器。
+## [br]
+## @api private
 static func _make_rect_maze_failure(
 	grid_size: Vector2i,
 	start_cell: Vector2i,
@@ -538,6 +559,9 @@ static func _make_rect_maze_failure(
 	)
 
 
+## 组装矩形迷宫失败报告，并将 cell_count 限制为非负数。
+## [br]
+## @api private
 static func _make_rect_maze_failure_with_counts(
 	grid_size: Vector2i,
 	start_cell: Vector2i,
@@ -569,6 +593,9 @@ static func _make_rect_maze_failure_with_counts(
 	}
 
 
+## 按 y/x 遍历网格，以初始状态回调或确定性随机阈值填充格子状态。
+## [br]
+## @api private
 static func _make_cellular_automata_initial_cells(
 	grid_size: Vector2i,
 	is_initial_alive: Callable,
@@ -586,6 +613,9 @@ static func _make_cellular_automata_initial_cells(
 	return cells
 
 
+## 根据旧状态邻居计数和存活/生成阈值生成一轮新格子状态。
+## [br]
+## @api private
 static func _step_cellular_automata_cells(
 	cells: Dictionary,
 	grid_size: Vector2i,
@@ -615,6 +645,9 @@ static func _step_cellular_automata_cells(
 	return next_cells
 
 
+## 统计指定方向集中的存活邻居，网格外位置按 outside_alive 计数。
+## [br]
+## @api private
 static func _count_cellular_automata_alive_neighbors(
 	cell: Vector2i,
 	grid_size: Vector2i,
@@ -634,6 +667,9 @@ static func _count_cellular_automata_alive_neighbors(
 	return count
 
 
+## 返回正交方向，并按选项追加对角方向。
+## [br]
+## @api private
 static func _get_cellular_automata_directions(include_diagonal: bool) -> Array[Vector2i]:
 	var directions: Array[Vector2i] = []
 	directions.append_array(_ORTHOGONAL_DIRECTIONS)
@@ -642,10 +678,16 @@ static func _get_cellular_automata_directions(include_diagonal: bool) -> Array[V
 	return directions
 
 
+## 复用细胞自动机的正交或八方向列表作为区域邻接方向。
+## [br]
+## @api private
 static func _get_cell_region_directions(include_diagonal: bool) -> Array[Vector2i]:
 	return _get_cellular_automata_directions(include_diagonal)
 
 
+## 去除重复格子并按 y 后 x 的升序生成稳定列表。
+## [br]
+## @api private
 static func _make_unique_sorted_cells(cells: Array[Vector2i]) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
 	var seen: Dictionary = {}
@@ -658,6 +700,9 @@ static func _make_unique_sorted_cells(cells: Array[Vector2i]) -> Array[Vector2i]
 	return result
 
 
+## 将 Vector2i 列表转换为字典键集合。
+## [br]
+## @api private
 static func _make_vector2i_set(cells: Array[Vector2i]) -> Dictionary:
 	var result: Dictionary = {}
 	for cell: Vector2i in cells:
@@ -665,6 +710,9 @@ static func _make_vector2i_set(cells: Array[Vector2i]) -> Dictionary:
 	return result
 
 
+## 从起点广度优先收集同属 cell_set 的未访问邻接格。
+## [br]
+## @api private
 static func _collect_cell_region(
 	start_cell: Vector2i,
 	cell_set: Dictionary,
@@ -691,6 +739,9 @@ static func _collect_cell_region(
 	return result
 
 
+## 仅将 Array 中的 Vector2i 元素追加到目标数组。
+## [br]
+## @api private
 static func _append_vector2i_values(target: Array[Vector2i], values: Array) -> void:
 	for value: Variant in values:
 		if value is Vector2i:
@@ -698,12 +749,18 @@ static func _append_vector2i_values(target: Array[Vector2i], values: Array) -> v
 			target.append(cell)
 
 
+## 按 y 坐标优先、x 坐标次之比较两个格子。
+## [br]
+## @api private
 static func _sort_cells_yx(left: Vector2i, right: Vector2i) -> bool:
 	if left.y == right.y:
 		return left.x < right.x
 	return left.y < right.y
 
 
+## 按顺序检查规则下限、上下限关系及邻居计数上界，并返回首个错误。
+## [br]
+## @api private
 static func _validate_cellular_automata_rules(
 	survive_min: int,
 	survive_max: int,
@@ -722,6 +779,9 @@ static func _validate_cellular_automata_rules(
 	return ""
 
 
+## 汇总存活格、死亡数和规则选项，生成成功自动机报告。
+## [br]
+## @api private
 static func _make_cellular_automata_success(
 	cells: Dictionary,
 	grid_size: Vector2i,
@@ -767,6 +827,9 @@ static func _make_cellular_automata_success(
 	}
 
 
+## 创建带错误文本和空区域数据的失败报告。
+## [br]
+## @api private
 static func _make_cell_region_failure(
 	include_diagonal: bool,
 	input_count: int,
@@ -791,6 +854,9 @@ static func _make_cell_region_failure(
 	}
 
 
+## 创建带过滤参数和空保留/移除结果的失败报告。
+## [br]
+## @api private
 static func _make_cell_region_filter_failure(
 	include_diagonal: bool,
 	minimum_region_size: int,
@@ -821,6 +887,9 @@ static func _make_cell_region_filter_failure(
 	}
 
 
+## 创建带失败原因、生成选项和空状态集合的自动机报告。
+## [br]
+## @api private
 static func _make_cellular_automata_failure(
 	grid_size: Vector2i,
 	automata_seed: int,

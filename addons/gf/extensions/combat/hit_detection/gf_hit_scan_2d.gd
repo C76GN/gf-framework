@@ -73,6 +73,9 @@ signal hit_rejected(context: GFCombatHitContext, receiver: Object, report: Dicti
 
 # --- 常量 ---
 
+## 提供命中接收器解析与报告归一化的共享派发辅助方法。
+## [br]
+## @api private
 const _MESSAGE_DISPATCH_SUPPORT = preload("res://addons/gf/standard/common/gf_message_dispatch_support.gd")
 
 
@@ -217,6 +220,9 @@ func scan(payload_override: Variant = null, hit_id_override: StringName = &"") -
 
 # --- 私有/辅助方法 ---
 
+## 构造失败报告并发出其深副本，返回值与监听者接收的字典彼此分离。
+## [br]
+## @api private
 func _emit_missed(reason: StringName) -> Dictionary:
 	var report: Dictionary = {
 		"ok": false,
@@ -227,6 +233,9 @@ func _emit_missed(reason: StringName) -> Dictionary:
 	return report
 
 
+## 先发出 scan_hit，再按 report.ok 发出 accepted 或 rejected；每个信号收到报告深副本。
+## [br]
+## @api private
 func _emit_scan_result(context: GFCombatHitContext, receiver: Object, report: Dictionary) -> void:
 	var accepted: bool = GFVariantData.get_option_bool(report, "ok", false)
 	scan_hit.emit(context, receiver, report.duplicate(true))
@@ -236,6 +245,9 @@ func _emit_scan_result(context: GFCombatHitContext, receiver: Object, report: Di
 		hit_rejected.emit(context, receiver, report.duplicate(true))
 
 
+## sender_path 能解析到节点时返回该节点，否则回退到当前 HitScan。
+## [br]
+## @api private
 func _resolve_sender() -> Object:
 	if sender_path != NodePath(""):
 		var sender: Node = get_node_or_null(sender_path)
@@ -244,5 +256,8 @@ func _resolve_sender() -> Object:
 	return self
 
 
+## 委托共享派发辅助方法，将射线碰撞对象解析为 receive_hit 接收器。
+## [br]
+## @api private
 func _resolve_hit_receiver(candidate: Object) -> Object:
 	return _MESSAGE_DISPATCH_SUPPORT._resolve_receiver(candidate, &"receive_hit")

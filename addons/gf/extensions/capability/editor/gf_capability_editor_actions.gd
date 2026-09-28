@@ -60,6 +60,9 @@ func get_template_records() -> Array[Dictionary]:
 
 # --- 私有/辅助方法 ---
 
+## 返回用于生成 Capability 脚本的模板文本。
+## [br]
+## @api private
 func _get_capability_template() -> String:
 	return """## {ClassName}: TODO。
 ## [br]

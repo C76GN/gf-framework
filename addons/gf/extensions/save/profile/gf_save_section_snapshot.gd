@@ -39,10 +39,34 @@ const STATE_DISCARDED: StringName = &"discarded"
 
 # --- 私有变量 ---
 
+## Snapshot 记录的 section 身份。
+## [br]
+## @api private
+## [br]
 var _section_id: StringName = &""
+
+## Snapshot 记录的 section schema 版本。
+## [br]
+## @api private
+## [br]
 var _schema_version: int = 0
+
+## 尚未接管的 section 纯数据载荷。
+## [br]
+## @api private
+## [br]
 var _payload: Variant = null
+
+## 尚未接管的 section 持久化元数据。
+## [br]
+## @api private
+## [br]
 var _metadata: Dictionary = {}
+
+## 标记 Snapshot 是否可用、已接管或已释放。
+## [br]
+## @api private
+## [br]
 var _state: StringName = STATE_DISCARDED
 
 

@@ -107,25 +107,104 @@ var max_seconds_per_tick: float = 0.0:
 
 # --- 私有变量 ---
 
+## 保护入队、取消、计数和派发快照状态的互斥锁。
+## [br]
+## @api private
 var _mutex: Mutex = Mutex.new()
+
+## 当前待派发记录队列。
+## [br]
+## @api private
 var _queue: Array[Dictionary] = []
+
+## dispatch() 开始时移出的待处理记录快照。
+## [br]
+## @api private
 var _dispatch_snapshot: Array[Dictionary] = []
+
+## 派发期间通过 front 选项新入队的记录。
+## [br]
+## @api private
 var _dispatch_front_records: Array[Dictionary] = []
+
+## 派发期间未指定 front 的新入队记录。
+## [br]
+## @api private
 var _dispatch_back_records: Array[Dictionary] = []
+
+## 下一条待读取的快照槽位索引。
+## [br]
+## @api private
 var _dispatch_snapshot_cursor: int = 0
+
+## 快照中尚未取出的记录数量。
+## [br]
+## @api private
 var _dispatch_snapshot_pending_count: int = 0
+
+## 是否正在把新入队记录分流到 front/back 派发暂存区。
+## [br]
+## @api private
 var _dispatch_snapshot_active: bool = false
+
+## 主队列、派发快照及派发期间新增记录中的待处理总数。
+## [br]
+## @api private
 var _pending_count: int = 0
+
+## 下一个分配的派发句柄；clear() 不重置此值。
+## [br]
+## @api private
 var _next_handle: int = 1
+
+## 是否已标记该实例具有显式派发上下文。
+## [br]
+## @api private
 var _dispatch_context_marked: bool = false
+
+## dispatch() 当前是否正在执行同步派发调用。
+## [br]
+## @api private
 var _dispatch_in_progress: bool = false
+
+## 已成功登记的回调总数。
+## [br]
+## @api private
 var _posted_count: int = 0
+
+## 已成功派发的回调总数。
+## [br]
+## @api private
 var _dispatched_count: int = 0
+
+## 已取消的待派发记录总数。
+## [br]
+## @api private
 var _cancelled_count: int = 0
+
+## 调用失败或返回失败结果的派发记录总数。
+## [br]
+## @api private
 var _failed_count: int = 0
+
+## 因弱 owner 已释放而跳过的派发记录总数。
+## [br]
+## @api private
 var _skipped_owner_count: int = 0
+
+## 观测到的待派发记录数量峰值。
+## [br]
+## @api private
 var _high_watermark: int = 0
+
+## 因队列容量已满而拒绝登记的回调总数。
+## [br]
+## @api private
 var _rejected_count: int = 0
+
+## 调试快照中的 dropped_count 字段；此脚本中初始化后只写入快照。
+## [br]
+## @api private
 var _dropped_count: int = 0
 
 
@@ -507,6 +586,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 在锁内检查容量、分配句柄并登记 Callable 回调记录。
+## [br]
+## @api private
 func _enqueue(callback: Callable, options: Dictionary) -> int:
 	_mutex.lock()
 	if _pending_count >= max_pending_callbacks:
@@ -539,6 +621,9 @@ func _enqueue(callback: Callable, options: Dictionary) -> int:
 	return handle
 
 
+## 在锁内检查容量、分配句柄并登记弱方法调用记录。
+## [br]
+## @api private
 func _enqueue_method(
 	invocation: GFWeakMethodInvocation,
 	owner_id: int,
@@ -574,6 +659,9 @@ func _enqueue_method(
 	return handle
 
 
+## 在锁内把队列移入本轮快照并初始化 front/back 记录分区。
+## [br]
+## @api private
 func _begin_dispatch_snapshot() -> void:
 	_mutex.lock()
 	_dispatch_snapshot = _queue
@@ -586,6 +674,9 @@ func _begin_dispatch_snapshot() -> void:
 	_mutex.unlock()
 
 
+## 在锁内取出游标处下一条非空快照记录并更新待派发计数。
+## [br]
+## @api private
 func _pop_next_dispatch_record() -> Dictionary:
 	_mutex.lock()
 	while _dispatch_snapshot_cursor < _dispatch_snapshot.size():
@@ -604,6 +695,9 @@ func _pop_next_dispatch_record() -> Dictionary:
 	return {}
 
 
+## 在锁内检查本轮快照是否仍有未取出的记录。
+## [br]
+## @api private
 func _has_dispatch_snapshot_records() -> bool:
 	_mutex.lock()
 	var has_records: bool = _dispatch_snapshot_pending_count > 0
@@ -611,6 +705,9 @@ func _has_dispatch_snapshot_records() -> bool:
 	return has_records
 
 
+## 按 front 记录、快照剩余记录和 back 记录的顺序重建队列并结束快照。
+## [br]
+## @api private
 func _finish_dispatch_snapshot() -> void:
 	_mutex.lock()
 	var merged_records: Array[Dictionary] = []
@@ -639,6 +736,9 @@ func _finish_dispatch_snapshot() -> void:
 	_mutex.unlock()
 
 
+## 在调用方持锁时从主队列或派发各暂存区移除指定句柄。
+## [br]
+## @api private
 func _cancel_handle_locked(handle: int) -> bool:
 	if not _dispatch_snapshot_active:
 		for index: int in range(_queue.size()):
@@ -678,6 +778,9 @@ func _cancel_handle_locked(handle: int) -> bool:
 	return false
 
 
+## 在调用方持锁时移除指定 owner_id 的待派发记录并返回数量。
+## [br]
+## @api private
 func _cancel_owner_locked(owner_id: int) -> int:
 	var removed_count: int = 0
 	if not _dispatch_snapshot_active:
@@ -726,6 +829,9 @@ func _cancel_owner_locked(owner_id: int) -> int:
 	return removed_count
 
 
+## 在调用方持锁时按派发顺序收集所有非空待处理记录。
+## [br]
+## @api private
 func _collect_pending_records_locked() -> Array[Dictionary]:
 	var pending_records: Array[Dictionary] = []
 	if not _dispatch_snapshot_active:
@@ -748,6 +854,9 @@ func _collect_pending_records_locked() -> Array[Dictionary]:
 	return pending_records
 
 
+## 将 source_records 从 start_index 起的非空记录追加到目标数组。
+## [br]
+## @api private
 func _append_non_empty_records(
 	target_records: Array[Dictionary],
 	source_records: Array[Dictionary],
@@ -760,6 +869,9 @@ func _append_non_empty_records(
 		target_records.append(record)
 
 
+## 按倒序将 source_records 中的非空记录追加到目标数组。
+## [br]
+## @api private
 func _append_non_empty_records_reversed(
 	target_records: Array[Dictionary],
 	source_records: Array[Dictionary]
@@ -771,6 +883,9 @@ func _append_non_empty_records_reversed(
 		target_records.append(record)
 
 
+## 时间预算启用且至少处理一条记录后，检查已耗秒数是否达到上限。
+## [br]
+## @api private
 func _is_dispatch_budget_exhausted(started_usec: int, max_seconds: float, processed_count: int) -> bool:
 	if max_seconds <= 0.0 or processed_count <= 0:
 		return false
@@ -778,6 +893,9 @@ func _is_dispatch_budget_exhausted(started_usec: int, max_seconds: float, proces
 	return elapsed_seconds >= max_seconds
 
 
+## bool 结果按自身真假判定；Dictionary 读取 ok，其他 Variant 视为成功。
+## [br]
+## @api private
 func _callback_result_is_failure(result: Variant) -> bool:
 	if result is bool:
 		var bool_result: bool = result
@@ -788,14 +906,23 @@ func _callback_result_is_failure(result: Variant) -> bool:
 	return false
 
 
+## 从派发记录中读取 handle 字段。
+## [br]
+## @api private
 func _get_record_handle(record: Dictionary) -> int:
 	return GFVariantData.get_option_int(record, "handle")
 
 
+## 从派发记录中读取 owner_id 字段。
+## [br]
+## @api private
 func _get_record_owner_id(record: Dictionary) -> int:
 	return GFVariantData.get_option_int(record, "owner_id")
 
 
+## 从记录中读取 callback Callable；类型不符时返回空 Callable。
+## [br]
+## @api private
 func _get_record_callback(record: Dictionary) -> Callable:
 	var value: Variant = GFVariantData.get_option_value(record, "callback", Callable())
 	if value is Callable:
@@ -804,6 +931,9 @@ func _get_record_callback(record: Dictionary) -> Callable:
 	return Callable()
 
 
+## 从记录中读取 GFWeakMethodInvocation；类型不符时返回 null。
+## [br]
+## @api private
 func _get_record_method_invocation(record: Dictionary) -> GFWeakMethodInvocation:
 	var value: Variant = GFVariantData.get_option_value(record, "invocation")
 	if value is GFWeakMethodInvocation:

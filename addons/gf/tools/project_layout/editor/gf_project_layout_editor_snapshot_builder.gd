@@ -16,27 +16,66 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 共享 Project Layout analysis 与库存边界实现脚本。
+## [br]
+## @api private
+## [br]
 const _ANALYSIS_CONTRACT_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd"
 )
+
+## begin() 接受的捕获选项字段名集合。
+## [br]
+## @api private
+## [br]
 const _OPTION_FIELDS: PackedStringArray = [
 	"include_hidden",
 	"max_scanned_files",
 	"max_scanned_directories",
 	"max_scan_depth",
 ]
+
+## snapshot issue 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _SNAPSHOT_ISSUE_FIELDS: PackedStringArray = [
 	"severity",
 	"kind",
 	"path",
 	"message",
 ]
+
+## snapshot issues 数组允许的最大元素数。
+## [br]
+## @api private
+## [br]
 const _MAX_SNAPSHOT_ISSUES: int = 1_024
+
+## 默认最大扫描文件数，沿用共享库存上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_SCANNED_FILES: int = \
 	_ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_FILES
+
+## 默认最大扫描目录数，沿用共享库存上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_SCANNED_DIRECTORIES: int = \
 	_ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_DIRECTORIES
+
+## 默认最大扫描深度，沿用共享库存上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_SCAN_DEPTH: int = _ANALYSIS_CONTRACT_SCRIPT.MAX_SCAN_DEPTH
+
+## 项目源码库存排除的目录前缀。
+## [br]
+## @api private
+## [br]
 const _PROJECT_SOURCE_EXCLUDED_PREFIXES: PackedStringArray = [
 	".git",
 	".godot",
@@ -46,22 +85,106 @@ const _PROJECT_SOURCE_EXCLUDED_PREFIXES: PackedStringArray = [
 
 # --- 私有变量 ---
 
+## 当前捕获使用的项目资源根路径。
+## [br]
+## @api private
+## [br]
 var _root_path: String = "res://"
+
+## 当前捕获是否枚举隐藏路径。
+## [br]
+## @api private
+## [br]
 var _include_hidden: bool = true
+
+## 当前捕获的文件数上限。
+## [br]
+## @api private
+## [br]
 var _max_scanned_files: int = _DEFAULT_MAX_SCANNED_FILES
+
+## 当前捕获的目录数上限。
+## [br]
+## @api private
+## [br]
 var _max_scanned_directories: int = _DEFAULT_MAX_SCANNED_DIRECTORIES
+
+## 当前捕获的最大目录深度。
+## [br]
+## @api private
+## [br]
 var _max_scan_depth: int = _DEFAULT_MAX_SCAN_DEPTH
+
+## 已捕获文件的相对路径列表。
+## [br]
+## @api private
+## [br]
 var _files: PackedStringArray = PackedStringArray()
+
+## 已捕获目录的相对路径列表。
+## [br]
+## @api private
+## [br]
 var _directories: PackedStringArray = PackedStringArray()
+
+## 等待枚举的目录路径与深度记录队列。
+## [br]
+## @api private
+## [br]
 var _pending_directories: Array[Dictionary] = []
+
+## 待处理目录队列中的下一个索引。
+## [br]
+## @api private
+## [br]
 var _pending_cursor: int = 0
+
+## 当前打开并枚举的目录句柄。
+## [br]
+## @api private
+## [br]
 var _current_directory: DirAccess = null
+
+## 当前打开目录的相对路径。
+## [br]
+## @api private
+## [br]
 var _current_relative_path: String = ""
+
+## 当前打开目录的扫描深度。
+## [br]
+## @api private
+## [br]
 var _current_depth: int = 0
+
+## 当前捕获状态字符串。
+## [br]
+## @api private
+## [br]
 var _status: String = "idle"
+
+## 当前捕获积累的诊断数组。
+## [br]
+## @api private
+## [br]
 var _issues: Array[Dictionary] = []
+
+## 当前捕获是否收到取消请求。
+## [br]
+## @api private
+## [br]
 var _cancel_requested: bool = false
+
+## 当前库存字符串累计的 UTF-8 字节数。
+## [br]
+## @api private
+## [br]
 var _inventory_string_bytes: int = 0
+
+## 当前捕获是否触及不可关闭的资源上限。
+## [br]
+## @api private
+## [br]
 var _resource_limit_failed: bool = false
 
 
@@ -298,6 +421,9 @@ func make_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 消费下一待扫描目录，打开前后都检查链接边界；打开或枚举失败即结束为 partial，队列耗尽则结束为 complete。
+## [br]
+## @api private
 func _open_next_directory() -> bool:
 	if _pending_cursor >= _pending_directories.size():
 		_finish("complete")
@@ -342,6 +468,9 @@ func _open_next_directory() -> bool:
 	return true
 
 
+## 结束当前目录枚举并释放 DirAccess 引用，同时清空当前相对路径和深度。
+## [br]
+## @api private
 func _close_current_directory() -> void:
 	if _current_directory != null:
 		_current_directory.list_dir_end()
@@ -350,11 +479,17 @@ func _close_current_directory() -> void:
 	_current_depth = 0
 
 
+## 关闭当前目录并写入终态；已收集清单、问题和待处理队列由调用方决定保留或重置。
+## [br]
+## @api private
 func _finish(status: String) -> void:
 	_close_current_directory()
 	_status = status
 
 
+## 关闭当前枚举并恢复默认根、预算及 idle 状态，丢弃上次清单、问题、取消标志和累计文本预算。
+## [br]
+## @api private
 func _reset_state() -> void:
 	_close_current_directory()
 	_root_path = "res://"
@@ -373,6 +508,9 @@ func _reset_state() -> void:
 	_resource_limit_failed = false
 
 
+## 按闭合字段集合及类型读取选项，超出共享上限记录资源失败；选项逐项写入，后项失败不会撤销先前已接受的设置。
+## [br]
+## @api private
 func _read_options(options: Dictionary) -> bool:
 	if options.size() > _OPTION_FIELDS.size():
 		_set_resource_limit_failure()
@@ -431,6 +569,9 @@ func _read_options(options: Dictionary) -> bool:
 	return true
 
 
+## 在拼接前按字符数检查条目及完整相对路径长度；分隔符仅在已有父路径时计入。
+## [br]
+## @api private
 func _entry_path_length_is_admissible(entry_name: String) -> bool:
 	if entry_name.length() > _ANALYSIS_CONTRACT_SCRIPT.MAX_RELATIVE_PATH_LENGTH:
 		return false
@@ -443,6 +584,9 @@ func _entry_path_length_is_admissible(entry_name: String) -> bool:
 	)
 
 
+## 先检查相对路径字符上限，再预留其 UTF-8 字节预算；失败不增加累计值。
+## [br]
+## @api private
 func _reserve_inventory_path(relative_path: String) -> bool:
 	if relative_path.length() > _ANALYSIS_CONTRACT_SCRIPT.MAX_RELATIVE_PATH_LENGTH:
 		return false
@@ -456,6 +600,9 @@ func _reserve_inventory_path(relative_path: String) -> bool:
 	return true
 
 
+## 重新验证导出清单的数量、路径、预算和闭合问题字段，并累计完整快照文本字节；只读检查，不修复候选内容。
+## [br]
+## @api private
 func _captured_inventory_is_admissible() -> bool:
 	if _resource_limit_failed:
 		return false
@@ -522,6 +669,9 @@ func _captured_inventory_is_admissible() -> bool:
 	return true
 
 
+## 计算快照固定字段、根、状态和固定排除路径的 UTF-8 字节；清单路径和问题文本由调用方另行累加。
+## [br]
+## @api private
 func _snapshot_base_string_bytes(root_path: String, capture_status: String) -> int:
 	var result: int = 0
 	for text: String in [
@@ -554,6 +704,10 @@ func _snapshot_base_string_bytes(root_path: String, capture_status: String) -> i
 	return result
 
 
+## 判断字典键均为允许字段集合中的字符串且未超字段数量边界。
+## [br]
+## @api private
+## [br]
 func _dictionary_has_only_fields(
 	value: Dictionary,
 	allowed_fields: PackedStringArray
@@ -572,6 +726,9 @@ func _dictionary_has_only_fields(
 	return true
 
 
+## 仅在尚无问题时记录一次选项格式失败；终态仍由外层扫描入口设置。
+## [br]
+## @api private
 func _set_option_admission_failure() -> void:
 	if not _issues.is_empty():
 		return
@@ -582,6 +739,9 @@ func _set_option_admission_failure() -> void:
 	)
 
 
+## 幂等标记资源失败，关闭目录并丢弃清单与队列，以单个预算问题替换原问题；过长根回退到 res://。
+## [br]
+## @api private
 func _set_resource_limit_failure() -> void:
 	if _resource_limit_failed:
 		return
@@ -602,6 +762,10 @@ func _set_resource_limit_failure() -> void:
 	)
 
 
+## 追加包含固定 error severity 的 snapshot 诊断。
+## [br]
+## @api private
+## [br]
 func _add_issue(kind: String, path: String, message: String) -> void:
 	_issues.append({
 		"severity": "error",
@@ -611,6 +775,9 @@ func _add_issue(kind: String, path: String, message: String) -> void:
 	})
 
 
+## 只接受无首尾空白的 res:// 根或规范子路径，拒绝反斜线、尾分隔符、空段、点段和冒号。
+## [br]
+## @api private
 func _is_canonical_root_path(path: String) -> bool:
 	if (
 		path.is_empty()
@@ -630,6 +797,9 @@ func _is_canonical_root_path(path: String) -> bool:
 	return true
 
 
+## 从绝对路径逐级检查父目录中的链接项；无法打开父目录也按越界处理，检查结果不构成后续访问的原子保证。
+## [br]
+## @api private
 func _path_crosses_link(path: String) -> bool:
 	var probe_path: String = ProjectSettings.globalize_path(path).replace("\\", "/").simplify_path()
 	while not probe_path.is_empty():
@@ -645,12 +815,18 @@ func _path_crosses_link(path: String) -> bool:
 	return false
 
 
+## 拼接父相对路径和条目并统一分隔符；此处不检查点段或项目边界。
+## [br]
+## @api private
 func _join_relative_path(base_path: String, entry_name: String) -> String:
 	if base_path.is_empty():
 		return entry_name.replace("\\", "/")
 	return base_path.path_join(entry_name).replace("\\", "/")
 
 
+## 按完整路径段匹配固定排除目录及其后代，避免把名称相同的前缀误判为排除项。
+## [br]
+## @api private
 func _is_excluded_project_source_path(relative_path: String) -> bool:
 	for excluded_prefix: String in _PROJECT_SOURCE_EXCLUDED_PREFIXES:
 		if (
@@ -661,11 +837,19 @@ func _is_excluded_project_source_path(relative_path: String) -> bool:
 	return false
 
 
+## 读取字典中的 String 字段；类型不匹配时返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_string(source: Dictionary, key: String, default_value: String = "") -> String:
 	var value: Variant = source.get(key, default_value)
 	return value if value is String else default_value
 
 
+## 读取字典中的 int 字段；类型不匹配时返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_int(source: Dictionary, key: String, default_value: int = 0) -> int:
 	var value: Variant = source.get(key, default_value)
 	return value if value is int else default_value

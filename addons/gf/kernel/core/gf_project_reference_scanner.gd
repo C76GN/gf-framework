@@ -15,11 +15,18 @@ class_name GFProjectReferenceScanner
 extends RefCounted
 
 
+# --- 常量 ---
+
+## 共享选项访问脚本，供扫描预算、目标与报告字典的类型收窄使用。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 统一扫描根和资源路径的规范化及边界匹配规则，避免本扫描器重复维护路径格式。
+## [br]
+## @api private
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 
-
-# --- 常量 ---
 
 ## Godot 依赖图确认的资源引用。
 ## [br]
@@ -144,10 +151,17 @@ const TEXT_FILE_EXTENSIONS: Array[String] = [
 	"tres",
 ]
 
+## 通过 ResourceLoader 依赖图处理的二进制资源扩展名。
+## [br]
+## @api private
 const _BINARY_RESOURCE_EXTENSIONS: Array[String] = [
 	"res",
 	"scn",
 ]
+
+## 接受二进制资源头时要求的最小文件字节数。
+## [br]
+## @api private
 const _MIN_BINARY_RESOURCE_HEADER_BYTES: int = 24
 
 
@@ -381,6 +395,9 @@ static func scan_root_references(
 
 # --- 私有/辅助方法 ---
 
+## 规范化根路径、补足空 ID、排序 class_names，并报告无效根或重复目标 ID。
+## [br]
+## @api private
 static func _normalize_targets(
 	targets: Array[Dictionary],
 	scan_state: Dictionary
@@ -430,6 +447,9 @@ static func _normalize_targets(
 	return result
 
 
+## 规范化、去重并排序扫描根，合并忽略根后按共享深度和文件预算收集候选；无效根令报告变为部分结果，最终文件列表稳定排序。
+## [br]
+## @api private
 static func _collect_reference_scan_files(options: Dictionary, scan_state: Dictionary) -> Array[String]:
 	var raw_scan_roots: Array[String] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(
 		options,
@@ -489,6 +509,9 @@ static func _collect_reference_scan_files(options: Dictionary, scan_state: Dicti
 	return files
 
 
+## 按名称排序递归收集支持的资源文件，跳过隐藏项和忽略根；目录不可读或预算触发会写入扫描状态，文件去重集合跨根共享。
+## [br]
+## @api private
 static func _collect_scan_files(
 	root_path: String,
 	ignored_roots: PackedStringArray,
@@ -561,6 +584,9 @@ static func _collect_scan_files(
 		result.append(path)
 
 
+## 在单文件和总字节预算内读取文本，二进制资源仅验证头和可加载性；成功才累加扫描数及声明大小，总预算超限要求停止扫描。
+## [br]
+## @api private
 static func _read_scan_source(path: String, options: Dictionary, scan_state: Dictionary) -> Dictionary:
 	var result: Dictionary = {
 		"ok": false,
@@ -637,6 +663,9 @@ static func _read_scan_source(path: String, options: Dictionary, scan_state: Dic
 	return result
 
 
+## 合并资源依赖、GDScript 或资源文本强引用，使用剩余额度加一探测截断；强引用未截断时才收集弱引用，并返回两类独立截断标志。
+## [br]
+## @api private
 static func _collect_file_references_for_target(
 	path: String,
 	source_lines: PackedStringArray,
@@ -728,6 +757,9 @@ static func _collect_file_references_for_target(
 	return result
 
 
+## 创建单文件目标扫描结果的空容器及两个截断标志。
+## [br]
+## @api private
 static func _make_file_reference_report() -> Dictionary:
 	return {
 		"references": [],
@@ -737,6 +769,9 @@ static func _make_file_reference_report() -> Dictionary:
 	}
 
 
+## 将匹配目标根目录的依赖路径转换为 verified Godot 依赖引用。
+## [br]
+## @api private
 static func _collect_dependency_references(
 	path: String,
 	dependency_paths: PackedStringArray,
@@ -768,6 +803,9 @@ static func _collect_dependency_references(
 	return result
 
 
+## 预检文本资源头并读取 ResourceLoader 依赖记录，解析 URI 或 UID 后去重排序；无法读取或解析时记录部分扫描，空列表不代表肯定无依赖。
+## [br]
+## @api private
 static func _collect_resource_dependency_paths(
 	path: String,
 	source: String,
@@ -810,6 +848,9 @@ static func _collect_resource_dependency_paths(
 	return result
 
 
+## 将资源依赖不可用记录为 partial scan issue。
+## [br]
+## @api private
 static func _mark_resource_dependencies_unavailable(
 	path: String,
 	scan_state: Dictionary
@@ -824,6 +865,9 @@ static func _mark_resource_dependencies_unavailable(
 	)
 
 
+## 逐行识别加载语境中的目标路径与代码标识符中的目标类名，按额度去重记录强引用；这是文本扫描，不执行脚本或完整语法解析。
+## [br]
+## @api private
 static func _collect_gdscript_file_references(
 	path: String,
 	code_lines: PackedStringArray,
@@ -877,6 +921,9 @@ static func _collect_gdscript_file_references(
 	return result
 
 
+## 从资源文本中筛选同时包含目标根和资源路径语境的行，生成强引用直到额度耗尽；不加载资源对象。
+## [br]
+## @api private
 static func _collect_resource_text_file_references(
 	path: String,
 	lines: PackedStringArray,
@@ -911,6 +958,9 @@ static func _collect_resource_text_file_references(
 	return result
 
 
+## 按文本中的根路径或类名收集弱引用，排除与已有强引用重合的记录；达到数量上限即停止，不将普通文本命中升级为依赖。
+## [br]
+## @api private
 static func _collect_weak_text_file_references(
 	path: String,
 	lines: PackedStringArray,
@@ -962,6 +1012,9 @@ static func _collect_weak_text_file_references(
 			break
 
 
+## 构造统一引用记录，并为 path 类型推导 target_path 与 blocking 标志。
+## [br]
+## @api private
 static func _make_reference(
 	path: String,
 	line: int,
@@ -994,6 +1047,9 @@ static func _make_reference(
 	}
 
 
+## 将数组中的 Dictionary 引用逐项交给唯一键追加逻辑。
+## [br]
+## @api private
 static func _append_reference_array_unique(
 	result: Array,
 	values: Array,
@@ -1005,6 +1061,9 @@ static func _append_reference_array_unique(
 			_append_reference_unique(result, reference_record, max_count)
 
 
+## 按引用键去重；重复项保留等级较高者，新项受 max_count 限制。
+## [br]
+## @api private
 static func _append_reference_unique(
 	result: Array,
 	candidate: Dictionary,
@@ -1030,6 +1089,9 @@ static func _append_reference_unique(
 	result.append(candidate)
 
 
+## 若阻断引用中不存在相同键，则按普通唯一规则追加弱引用。
+## [br]
+## @api private
 static func _append_weak_reference_unique(
 	result: Array,
 	blocking_references: Array,
@@ -1041,6 +1103,9 @@ static func _append_weak_reference_unique(
 	_append_reference_unique(result, candidate, max_count)
 
 
+## 检查引用数组中是否已存在给定唯一键。
+## [br]
+## @api private
 static func _reference_key_exists(references: Array, reference_key: String) -> bool:
 	for reference_value: Variant in references:
 		if not (reference_value is Dictionary):
@@ -1051,6 +1116,9 @@ static func _reference_key_exists(references: Array, reference_key: String) -> b
 	return false
 
 
+## 由源文件、目标根、引用种类和匹配文本组成去重键。
+## [br]
+## @api private
 static func _make_reference_key(reference_record: Dictionary) -> String:
 	return "%s|%s|%s|%s" % [
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(reference_record, "path"),
@@ -1060,6 +1128,9 @@ static func _make_reference_key(reference_record: Dictionary) -> String:
 	]
 
 
+## 将 verified、strong、weak 等级映射为 3、2、1，未知等级为零。
+## [br]
+## @api private
 static func _get_reference_rank(reference_record: Dictionary) -> int:
 	var strength: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(reference_record, "strength")
 	if strength == String(REFERENCE_STRENGTH_VERIFIED):
@@ -1071,6 +1142,9 @@ static func _get_reference_rank(reference_record: Dictionary) -> int:
 	return 0
 
 
+## 拆分 ResourceLoader 的双冒号依赖字段，保留资源或用户 URI 并解析已登记 UID；无法解析的 UID 忽略，输出保持去重。
+## [br]
+## @api private
 static func _extract_dependency_resource_paths(dependency_entry: String) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var normalized_entry: String = dependency_entry.strip_edges()
@@ -1093,6 +1167,9 @@ static func _extract_dependency_resource_paths(dependency_entry: String) -> Pack
 	return result
 
 
+## 遍历一行内符合根边界的路径命中，检查其前缀是否类似继承或加载表达式；只是加载语境启发式判断。
+## [br]
+## @api private
 static func _line_has_gdscript_path_context(line: String, root_path: String) -> bool:
 	var normalized_line: String = _normalize_source_line_path_separators(line)
 	var normalized_root: String = _GF_PATH_TOOLS.normalize_root_path(root_path)
@@ -1105,6 +1182,9 @@ static func _line_has_gdscript_path_context(line: String, root_path: String) -> 
 	return false
 
 
+## 通过 extends 前缀或最近左括号前的加载函数后缀识别路径语境；不验证完整调用表达式或作用域。
+## [br]
+## @api private
 static func _context_before_path_is_gdscript_load(before_path: String) -> bool:
 	var stripped: String = before_path.strip_edges()
 	if stripped.begins_with("extends"):
@@ -1124,6 +1204,9 @@ static func _context_before_path_is_gdscript_load(before_path: String) -> bool:
 	)
 
 
+## 按 ext_resource 段开头及 path/script 赋值片段识别资源路径语境；这是行级筛选，不能替代资源格式解析。
+## [br]
+## @api private
 static func _line_has_resource_path_context(line: String) -> bool:
 	var stripped: String = line.strip_edges()
 	return (
@@ -1135,6 +1218,9 @@ static func _line_has_resource_path_context(line: String) -> bool:
 	)
 
 
+## 在单行内跳过带转义的单引号或双引号字符串，仅截去字符串外的井号后缀；不维护跨行字符串状态。
+## [br]
+## @api private
 static func _strip_gdscript_line_comment(line: String) -> String:
 	var in_string: bool = false
 	var quote_character: String = ""
@@ -1158,6 +1244,9 @@ static func _strip_gdscript_line_comment(line: String) -> String:
 	return line
 
 
+## 将单行引号片段逐字符替为空格，保留非字符串字符位置供标识符匹配；不跨行追踪多行字符串。
+## [br]
+## @api private
 static func _replace_quoted_segments(line: String) -> String:
 	var result: String = ""
 	var in_string: bool = false
@@ -1184,6 +1273,9 @@ static func _replace_quoted_segments(line: String) -> String:
 	return result
 
 
+## 先规范化路径分隔符，再检查根路径及其文本变体的边界命中，避免把同名前缀目录直接视为目标根。
+## [br]
+## @api private
 static func _line_references_root(line: String, root_path: String) -> bool:
 	var normalized_line: String = _normalize_source_line_path_separators(line)
 	var normalized_root: String = _GF_PATH_TOOLS.normalize_root_path(root_path)
@@ -1196,6 +1288,9 @@ static func _line_references_root(line: String, root_path: String) -> bool:
 	return false
 
 
+## 将扫描行中的反斜杠和重复资源 URI 分隔符规范化。
+## [br]
+## @api private
 static func _normalize_source_line_path_separators(line: String) -> String:
 	var normalized_line: String = line.replace("\\\\", "/").replace("\\", "/")
 	normalized_line = normalized_line.replace("res:/", "res://").replace("user:/", "user://")
@@ -1206,6 +1301,9 @@ static func _normalize_source_line_path_separators(line: String) -> String:
 	return normalized_line
 
 
+## 检查行中是否出现带有效尾部边界的目标根路径变体。
+## [br]
+## @api private
 static func _line_references_root_variant(line: String, root_path: String) -> bool:
 	if root_path.is_empty():
 		return false
@@ -1222,10 +1320,16 @@ static func _line_references_root_variant(line: String, root_path: String) -> bo
 	return false
 
 
+## 返回行内首个带有效尾部边界的目标根路径起始位置。
+## [br]
+## @api private
 static func _find_root_reference_start(line: String, root_path: String) -> int:
 	return _find_root_reference_start_from(line, root_path, 0)
 
 
+## 从指定偏移处查找目标根路径，并忽略尾部边界不成立的命中。
+## [br]
+## @api private
 static func _find_root_reference_start_from(line: String, root_path: String, from_index: int) -> int:
 	if root_path.is_empty():
 		return -1
@@ -1242,6 +1346,9 @@ static func _find_root_reference_start_from(line: String, root_path: String, fro
 	return -1
 
 
+## 生成规范路径及其两种反斜杠写法。
+## [br]
+## @api private
 static func _root_reference_variants(root_path: String) -> PackedStringArray:
 	var normalized_root: String = _GF_PATH_TOOLS.normalize_root_path(root_path)
 	var variants: PackedStringArray = PackedStringArray()
@@ -1251,12 +1358,18 @@ static func _root_reference_variants(root_path: String) -> PackedStringArray:
 	return variants
 
 
+## 将非空且尚未存在的路径变体追加到数组。
+## [br]
+## @api private
 static func _append_unique_variant(values: PackedStringArray, value: String) -> void:
 	if value.is_empty() or values.has(value):
 		return
 	var _append_value: bool = values.append(value)
 
 
+## 检查标识符是否以 ASCII 标识符字符边界完整出现在行中。
+## [br]
+## @api private
 static func _line_references_identifier(line: String, identifier: String) -> bool:
 	if identifier.is_empty():
 		return false
@@ -1272,6 +1385,9 @@ static func _line_references_identifier(line: String, identifier: String) -> boo
 	return false
 
 
+## 判断单个字符是否属于此扫描器接受的 ASCII 标识符字符。
+## [br]
+## @api private
 static func _is_identifier_character(character: String) -> bool:
 	if character.is_empty():
 		return false
@@ -1284,27 +1400,45 @@ static func _is_identifier_character(character: String) -> bool:
 	)
 
 
+## 判断字符是否可作为引用路径命中的尾部边界。
+## [br]
+## @api private
 static func _is_reference_boundary(character: String) -> bool:
 	return ["/", "\\", "\"", "'", ")", "]", "}", ",", " ", "\t"].has(character)
 
 
+## 按公开文本扩展名列表判断文件是否进入文本扫描。
+## [br]
+## @api private
 static func _is_text_resource_file(path: String) -> bool:
 	var extension: String = path.get_extension().to_lower()
 	return TEXT_FILE_EXTENSIONS.has(extension)
 
 
+## 判断文件扩展名是否属于由 ResourceLoader 处理的二进制资源。
+## [br]
+## @api private
 static func _is_binary_resource_file(path: String) -> bool:
 	return _BINARY_RESOURCE_EXTENSIONS.has(path.get_extension().to_lower())
 
 
+## 判断路径是否为扫描器支持的可加载文本或二进制资源。
+## [br]
+## @api private
 static func _is_loadable_resource_file(path: String) -> bool:
 	return ["res", "scn", "tres", "tscn"].has(path.get_extension().to_lower())
 
 
+## 判断路径是否为可解析的 `.tres` 或 `.tscn` 文本资源。
+## [br]
+## @api private
 static func _is_loadable_text_resource_file(path: String) -> bool:
 	return ["tres", "tscn"].has(path.get_extension().to_lower())
 
 
+## 检查 tscn/tres 的起始头及已识别段行是否闭合；允许 BOM 和外围空白，此预检不保证完整资源可解析。
+## [br]
+## @api private
 static func _resource_text_has_valid_header(path: String, source: String) -> bool:
 	var normalized_source: String = source.trim_prefix("\uFEFF").strip_edges()
 	match path.get_extension().to_lower():
@@ -1321,6 +1455,9 @@ static func _resource_text_has_valid_header(path: String, source: String) -> boo
 	return true
 
 
+## 判断去除首尾空白后的行是否以已识别的资源段标记开头。
+## [br]
+## @api private
 static func _is_resource_section_prefix(line: String) -> bool:
 	return (
 		line.begins_with("[gd_scene")
@@ -1334,18 +1471,30 @@ static func _is_resource_section_prefix(line: String) -> bool:
 	)
 
 
+## 判断扩展名是否属于包含资源路径字段的文本配置类型。
+## [br]
+## @api private
 static func _is_resource_text_extension(extension: String) -> bool:
 	return ["tscn", "tres", "godot", "import"].has(extension)
 
 
+## 判断值是否以 Godot 资源、用户或 UID 路径前缀开头。
+## [br]
+## @api private
 static func _is_resource_path_text(value: String) -> bool:
 	return value.begins_with("res://") or value.begins_with("user://") or value.begins_with("uid://")
 
 
+## 委托路径工具判断路径是否落在忽略根目录内。
+## [br]
+## @api private
 static func _is_path_ignored(path: String, ignored_roots: PackedStringArray) -> bool:
 	return _GF_PATH_TOOLS.is_path_excluded(path, ignored_roots)
 
 
+## 判断当前目录是否可继续递归，并在达到正数深度上限时记录截断。
+## [br]
+## @api private
 static func _can_scan_deeper(path: String, current_depth: int, max_scan_depth: int, scan_state: Dictionary) -> bool:
 	if max_scan_depth <= 0 or current_depth < max_scan_depth:
 		return true
@@ -1353,6 +1502,9 @@ static func _can_scan_deeper(path: String, current_depth: int, max_scan_depth: i
 	return false
 
 
+## 创建扫描计数、截断标志、诊断数组及警告选项的初始状态。
+## [br]
+## @api private
 static func _make_scan_state(options: Dictionary) -> Dictionary:
 	return {
 		"input_target_count": 0,
@@ -1375,6 +1527,9 @@ static func _make_scan_state(options: Dictionary) -> Dictionary:
 	}
 
 
+## 将扫描状态、目标结果和引用数组汇总为公开报告字典。
+## [br]
+## @api private
 static func _make_scan_report(
 	scan_targets: Array[Dictionary],
 	references: Array[Dictionary],
@@ -1411,10 +1566,16 @@ static func _make_scan_report(
 	}
 
 
+## 标记扫描结果不完整。
+## [br]
+## @api private
 static func _mark_scan_partial(scan_state: Dictionary) -> void:
 	scan_state["partial_scan"] = true
 
 
+## 标记目标引用配额导致的截断，并为该目标追加诊断。
+## [br]
+## @api private
 static func _mark_target_quota_truncated(
 	target_id: String,
 	reason: String,
@@ -1431,6 +1592,9 @@ static func _mark_target_quota_truncated(
 	)
 
 
+## 记录读取预算耗尽、跳过文件及单次预算警告。
+## [br]
+## @api private
 static func _mark_budget_exceeded(
 	path: String,
 	reason: String,
@@ -1458,6 +1622,9 @@ static func _mark_budget_exceeded(
 	)
 
 
+## 将因读取限制而跳过的文件及对应限制值加入扫描状态。
+## [br]
+## @api private
 static func _append_skipped_file(
 	path: String,
 	reason: String,
@@ -1477,6 +1644,9 @@ static func _append_skipped_file(
 	scan_state["skipped_files"] = skipped_files
 
 
+## 按 code、path 与 target_id 去重后追加扫描诊断。
+## [br]
+## @api private
 static func _append_scan_issue(
 	code: String,
 	path: String,
@@ -1504,6 +1674,9 @@ static func _append_scan_issue(
 	scan_state["issues"] = issues
 
 
+## 首次达到正数文件数上限时停止收集并记录截断诊断。
+## [br]
+## @api private
 static func _warn_scanned_file_limit(max_scanned_files: int, scan_state: Dictionary) -> void:
 	if max_scanned_files <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "count_warning_emitted"):
 		return
@@ -1521,6 +1694,9 @@ static func _warn_scanned_file_limit(max_scanned_files: int, scan_state: Diction
 	_emit_scan_warning("[project_reference_scanner.file_limit_reached] max_scanned_files=%d was reached; subsequent files were skipped." % max_scanned_files, scan_state)
 
 
+## 首次达到正数目录深度上限时记录截断诊断。
+## [br]
+## @api private
 static func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
 	if max_scan_depth <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "depth_warning_emitted"):
 		return
@@ -1537,6 +1713,9 @@ static func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state
 	_emit_scan_warning("[project_reference_scanner.depth_limit_reached] max_scan_depth=%d was reached; deeper directories were skipped: %s." % [max_scan_depth, path], scan_state)
 
 
+## 添加警告前缀、保存警告文本并发送 Godot warning。
+## [br]
+## @api private
 static func _emit_scan_warning(message: String, scan_state: Dictionary) -> void:
 	var warning_prefix: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		scan_state,
@@ -1550,6 +1729,9 @@ static func _emit_scan_warning(message: String, scan_state: Dictionary) -> void:
 	push_warning(warning_message)
 
 
+## 将附加忽略根选项转换并规范化为打包字符串数组。
+## [br]
+## @api private
 static func _read_additional_ignored_roots(options: Dictionary) -> PackedStringArray:
 	var value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(options, "additional_ignored_roots", PackedStringArray())
 	if value is PackedStringArray:
@@ -1558,6 +1740,9 @@ static func _read_additional_ignored_roots(options: Dictionary) -> PackedStringA
 	return _GF_PATH_TOOLS.normalize_root_paths(PackedStringArray(_GF_VARIANT_ACCESS_SCRIPT.to_string_array(value)))
 
 
+## 优先读取主键；主键不存在时读取兼容别名及默认值。
+## [br]
+## @api private
 static func _get_option_int_with_alias(
 	options: Dictionary,
 	key: String,
@@ -1569,5 +1754,8 @@ static func _get_option_int_with_alias(
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, alias, default_value)
 
 
+## 同时检查 String 和 StringName 形式的选项键。
+## [br]
+## @api private
 static func _has_option_key(options: Dictionary, key: String) -> bool:
 	return options.has(key) or options.has(StringName(key))

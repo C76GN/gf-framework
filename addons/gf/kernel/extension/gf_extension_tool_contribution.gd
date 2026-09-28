@@ -55,6 +55,10 @@ const ALLOWED_FIELDS: Array[String] = [
 	"gltf_document_extension_paths",
 	"import_plugin_paths",
 ]
+
+## 校验工具贡献文件 extension_id 的辅助脚本。
+## [br]
+## @api private
 const _GF_EXTENSION_ID_VALIDATOR_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_id_validator.gd")
 
 
@@ -154,6 +158,9 @@ static func parse_dictionary(data: Dictionary, expected_extension_id: String = "
 
 # --- 私有/辅助方法 ---
 
+## 接受 int 或有限且等于其 floor 值的 float，其余类型返回 -1。
+## [br]
+## @api private
 static func _parse_schema_version(value: Variant) -> int:
 	if value is int:
 		return value

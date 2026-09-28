@@ -190,6 +190,10 @@ static func project_with_report(source: Variant, options: Dictionary = {}) -> Di
 
 # --- 私有/辅助方法 ---
 
+## 按选项递归投影单个值，并统一返回成功状态、投影值或不支持原因。
+## [br]
+## @api private
+## [br]
 static func _project_value(value: Variant, depth: int, state: Dictionary) -> Dictionary:
 	var max_depth: int = GFVariantData.get_option_int(state, "max_depth", 8)
 	if max_depth > 0 and depth > max_depth:
@@ -212,6 +216,10 @@ static func _project_value(value: Variant, depth: int, state: Dictionary) -> Dic
 	return _handle_unsupported("unsupported_value", value, state)
 
 
+## 遍历字典键值，检测循环容器、过滤不允许的字段，并递归投影保留项。
+## [br]
+## @api private
+## [br]
 static func _project_dictionary_value(value: Dictionary, depth: int, state: Dictionary) -> Dictionary:
 	if _is_container_active(value, state):
 		return _handle_unsupported("circular_reference", value, state)
@@ -233,6 +241,10 @@ static func _project_dictionary_value(value: Dictionary, depth: int, state: Dict
 	}
 
 
+## 递归投影数组元素；子项失败时按配置保留 null 以维持数组位置。
+## [br]
+## @api private
+## [br]
 static func _project_array_value(value: Array, depth: int, state: Dictionary) -> Dictionary:
 	if _is_container_active(value, state):
 		return _handle_unsupported("circular_reference", value, state)
@@ -254,6 +266,10 @@ static func _project_array_value(value: Array, depth: int, state: Dictionary) ->
 	}
 
 
+## 记录不支持值的问题，并依配置返回 null、文本、元数据或丢弃结果。
+## [br]
+## @api private
+## [br]
 static func _handle_unsupported(reason: String, value: Variant, state: Dictionary) -> Dictionary:
 	_record_projection_issue(reason, value, state)
 	var mode: String = GFVariantData.get_option_string(state, "unsupported", "drop").to_lower()
@@ -274,6 +290,10 @@ static func _handle_unsupported(reason: String, value: Variant, state: Dictionar
 			return { "ok": false }
 
 
+## 根据选项建立投影状态，包含深度和不支持策略、schema、报告、路径及活动容器。
+## [br]
+## @api private
+## [br]
 static func _make_state(options: Dictionary) -> Dictionary:
 	return {
 		"max_depth": maxi(GFVariantData.get_option_int(options, "max_depth", 8), 0),
@@ -286,6 +306,10 @@ static func _make_state(options: Dictionary) -> Dictionary:
 	}
 
 
+## 把允许字段或 schema 字段整理为键查找表，供字典投影过滤使用。
+## [br]
+## @api private
+## [br]
 static func _make_allowed_lookup(options: Dictionary, schema: GFDictionarySchema) -> Dictionary:
 	var allowed_fields: PackedStringArray = _to_packed_string_array(GFVariantData.get_option_value(options, "allowed_fields"))
 	if allowed_fields.is_empty() and schema != null and GFVariantData.get_option_bool(options, "schema_fields_only", false):
@@ -298,6 +322,10 @@ static func _make_allowed_lookup(options: Dictionary, schema: GFDictionarySchema
 	return result
 
 
+## 优先按字段名查找重命名配置，依次尝试 String 与 StringName 键，缺省时返回原键。
+## [br]
+## @api private
+## [br]
 static func _rename_key(source_key: Variant, field_name: String, rename_fields: Dictionary) -> Variant:
 	if rename_fields.has(field_name):
 		return GFVariantData.get_option_value(rename_fields, field_name)
@@ -307,6 +335,10 @@ static func _rename_key(source_key: Variant, field_name: String, rename_fields: 
 	return source_key
 
 
+## 从选项读取 GFDictionarySchema；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 static func _read_schema(options: Dictionary) -> GFDictionarySchema:
 	var schema_value: Variant = GFVariantData.get_option_value(options, "schema")
 	if schema_value is GFDictionarySchema:
@@ -315,6 +347,10 @@ static func _read_schema(options: Dictionary) -> GFDictionarySchema:
 	return null
 
 
+## 按 schema 规范化字典，并把校验报告合并到投影报告后返回规范化字典。
+## [br]
+## @api private
+## [br]
 static func _normalize_dictionary_with_schema(
 	values: Dictionary,
 	schema: GFDictionarySchema,
@@ -342,10 +378,18 @@ static func _normalize_dictionary_with_schema(
 	return values.duplicate(true)
 
 
+## 判断键是否属于支持的纯键类型：String、StringName 或 int。
+## [br]
+## @api private
+## [br]
 static func _is_plain_key(value: Variant) -> bool:
 	return value is String or value is StringName or value is int
 
 
+## 判断值是否属于此投影器明确支持的标量、几何值或 Packed 数组类型。
+## [br]
+## @api private
+## [br]
 static func _is_plain_value(value: Variant) -> bool:
 	var value_type: int = typeof(value)
 	return (
@@ -375,6 +419,10 @@ static func _is_plain_value(value: Variant) -> bool:
 	)
 
 
+## 按输出选项保留字典，或在 json_safe 模式下将其编码为 JSON 文本。
+## [br]
+## @api private
+## [br]
 static func _dictionary_to_requested_output(value: Dictionary, options: Dictionary) -> Dictionary:
 	if not GFVariantData.get_option_bool(options, "json_safe", false):
 		return value
@@ -385,6 +433,10 @@ static func _dictionary_to_requested_output(value: Dictionary, options: Dictiona
 	return {}
 
 
+## 将 PackedStringArray、普通数组或单个文本值转换为 PackedStringArray。
+## [br]
+## @api private
+## [br]
 static func _to_packed_string_array(value: Variant) -> PackedStringArray:
 	if value is PackedStringArray:
 		var packed_value: PackedStringArray = value
@@ -403,6 +455,10 @@ static func _to_packed_string_array(value: Variant) -> PackedStringArray:
 	return result
 
 
+## 检查同一容器是否已位于当前递归路径中，以识别循环引用。
+## [br]
+## @api private
+## [br]
 static func _is_container_active(value: Variant, state: Dictionary) -> bool:
 	var active_containers: Array = _get_active_containers(state)
 	for item: Variant in active_containers:
@@ -411,12 +467,20 @@ static func _is_container_active(value: Variant, state: Dictionary) -> bool:
 	return false
 
 
+## 将当前容器压入递归活动栈。
+## [br]
+## @api private
+## [br]
 static func _push_active_container(value: Variant, state: Dictionary) -> void:
 	var active_containers: Array = _get_active_containers(state)
 	active_containers.append(value)
 	state["active_containers"] = active_containers
 
 
+## 移除递归活动栈顶的容器，配对结束一次容器遍历。
+## [br]
+## @api private
+## [br]
 static func _pop_active_container(state: Dictionary) -> void:
 	var active_containers: Array = _get_active_containers(state)
 	if active_containers.is_empty():
@@ -425,6 +489,10 @@ static func _pop_active_container(state: Dictionary) -> void:
 	state["active_containers"] = active_containers
 
 
+## 从状态读取活动容器栈，不存在或类型不符时返回空数组。
+## [br]
+## @api private
+## [br]
 static func _get_active_containers(state: Dictionary) -> Array:
 	var active_value: Variant = GFVariantData.get_option_value(state, "active_containers", [])
 	if active_value is Array:
@@ -435,6 +503,10 @@ static func _get_active_containers(state: Dictionary) -> Array:
 	return active_containers
 
 
+## 复制投影状态并在路径段列表末尾追加子项路径。
+## [br]
+## @api private
+## [br]
 static func _make_child_state(state: Dictionary, path_segment: Variant) -> Dictionary:
 	var child_state: Dictionary = state.duplicate(false)
 	var path_segments: Array = GFVariantData.get_option_array(state, "path_segments")
@@ -443,6 +515,10 @@ static func _make_child_state(state: Dictionary, path_segment: Variant) -> Dicti
 	return child_state
 
 
+## 在有效报告中记录投影警告，包含原因、路径、末端键及值类型信息。
+## [br]
+## @api private
+## [br]
 static func _record_projection_issue(reason: String, value: Variant, state: Dictionary) -> void:
 	var report: GFValidationReport = _variant_to_validation_report(GFVariantData.get_option_value(state, "report"))
 	if report == null:
@@ -462,6 +538,10 @@ static func _record_projection_issue(reason: String, value: Variant, state: Dict
 	)
 
 
+## 把路径段格式化为可读路径，整数段使用方括号，其余段使用点号。
+## [br]
+## @api private
+## [br]
 static func _format_projection_path(path_segments: Array) -> String:
 	var path_text: String = ""
 	for segment: Variant in path_segments:
@@ -479,6 +559,10 @@ static func _format_projection_path(path_segments: Array) -> String:
 	return path_text
 
 
+## 仅当输入是 GFValidationReport 时返回该报告，否则返回 null。
+## [br]
+## @api private
+## [br]
 static func _variant_to_validation_report(value: Variant) -> GFValidationReport:
 	if value is GFValidationReport:
 		var report: GFValidationReport = value

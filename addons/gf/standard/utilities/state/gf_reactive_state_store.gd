@@ -67,17 +67,55 @@ const SUBSCRIBE_PREFIX: int = 1
 ## @since 5.0.0
 const SUBSCRIBE_ANY: int = 2
 
+## 用于解析订阅 owner 弱引用的实例有效性辅助脚本。
+## [br]
+## @api private
+## [br]
 const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
 
 
 # --- 私有变量 ---
 
+## 当前保存的状态字典，路径读写和变更比较均以它为根。
+## [br]
+## @api private
+## [br]
 var _state: Dictionary = {}
+
+## 当前批处理嵌套层数；大于零时普通写入不会自动派发变更。
+## [br]
+## @api private
+## [br]
 var _batch_depth: int = 0
+
+## 等待派发且按路径合并后的变更记录。
+## [br]
+## @api private
+## [br]
 var _dirty_changes: Array[Dictionary] = []
+
+## 将变更路径身份映射到 dirty 队列下标，以便合并同一路径的记录。
+## [br]
+## @api private
+## [br]
 var _dirty_change_indices: Dictionary = {}
+
+## 当前注册的订阅记录，包含路径、模式、回调和可选 owner 引用。
+## [br]
+## @api private
+## [br]
 var _subscriptions: Array[Dictionary] = []
+
+## 下一个订阅使用的 ID；每次注册后递增。
+## [br]
+## @api private
+## [br]
 var _next_subscription_id: int = 1
+
+## 标记是否正在派发 dirty 队列，用于阻止 flush 重入。
+## [br]
+## @api private
+## [br]
 var _is_flushing: bool = false
 
 
@@ -558,6 +596,10 @@ func dispose() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 将路径段编码为文本；整数段写成方括号索引，其余段以点号分隔。
+## [br]
+## @api private
+## [br]
 static func _format_path_segments(segments: Array) -> String:
 	var path_text: String = ""
 	for segment: Variant in segments:
@@ -574,6 +616,10 @@ static func _format_path_segments(segments: Array) -> String:
 	return path_text
 
 
+## 将一个点分路径片段拆入路径数组，并解析方括号中的整数索引。
+## [br]
+## @api private
+## [br]
 static func _append_text_path_part(segments: Array, part: String) -> void:
 	if part.is_empty():
 		return
@@ -607,10 +653,18 @@ static func _append_text_path_part(segments: Array, part: String) -> void:
 		segments.append(StringName(key_text))
 
 
+## 使用 GFVariantData 的值比较规则判断两个 Variant 是否相等。
+## [br]
+## @api private
+## [br]
 static func _variant_values_equal(left: Variant, right: Variant) -> bool:
 	return GFVariantData.values_equal(left, right)
 
 
+## 沿字典键和数组整数索引读取状态路径，返回 found 与 value；空路径指向整份状态。
+## [br]
+## @api private
+## [br]
 func _read_path(segments: Array) -> Dictionary:
 	if segments.is_empty():
 		return {
@@ -644,6 +698,10 @@ func _read_path(segments: Array) -> Dictionary:
 	}
 
 
+## 写入非空状态路径；先验证并规划中间字典，再提交赋值，越界数组索引或不兼容路径返回 false。
+## [br]
+## @api private
+## [br]
 func _write_path(segments: Array, new_value: Variant) -> bool:
 	var current: Variant = _state
 	var planned_assignments: Array[Dictionary] = []
@@ -735,6 +793,10 @@ func _write_path(segments: Array, new_value: Variant) -> bool:
 	return true
 
 
+## 从字典或数组父容器中删除路径末段；父路径不存在、末段无效或键不存在时返回 false。
+## [br]
+## @api private
+## [br]
 func _erase_path(segments: Array) -> bool:
 	var parent_segments: Array = segments.slice(0, segments.size() - 1)
 	var parent_result: Dictionary = _read_path(parent_segments)
@@ -759,6 +821,10 @@ func _erase_path(segments: Array) -> bool:
 	return false
 
 
+## 查找字典键，优先精确匹配，再允许 String 与 StringName 按文本匹配。
+## [br]
+## @api private
+## [br]
 func _find_dictionary_key(dictionary: Dictionary, key: Variant) -> Dictionary:
 	if dictionary.has(key):
 		return {
@@ -788,10 +854,18 @@ func _find_dictionary_key(dictionary: Dictionary, key: Variant) -> Dictionary:
 	}
 
 
+## 判断值是否可继续承载状态路径，即 Dictionary 或 Array。
+## [br]
+## @api private
+## [br]
 func _is_path_container(value: Variant) -> bool:
 	return value is Dictionary or value is Array
 
 
+## 按状态变更格式构造记录，并保存路径、旧新值、存在标记及值类型。
+## [br]
+## @api private
+## [br]
 func _make_change(
 	kind: String,
 	segments: Array,
@@ -813,6 +887,10 @@ func _make_change(
 	}
 
 
+## 为指定路径读取当前值并构造 kind 为 current 的订阅初始记录。
+## [br]
+## @api private
+## [br]
 func _make_current_change(segments: Array) -> Dictionary:
 	var read_result: Dictionary = _read_path(segments)
 	var exists: bool = GFVariantData.get_option_bool(read_result, "found", false)
@@ -820,6 +898,10 @@ func _make_current_change(segments: Array) -> Dictionary:
 	return _make_change("current", segments, current_value, current_value, exists, exists)
 
 
+## 将 diff 报告中的相对路径变更加上前缀，转换为 store 记录并逐条入队。
+## [br]
+## @api private
+## [br]
 func _enqueue_report_changes(diff_report: Dictionary, prefix_segments: Array) -> void:
 	var changes: Array = GFVariantData.get_option_array(diff_report, "changes")
 	for change_variant: Variant in changes:
@@ -836,6 +918,10 @@ func _enqueue_report_changes(diff_report: Dictionary, prefix_segments: Array) ->
 		))
 
 
+## 按路径身份合并 dirty 记录，更新最终值；若首尾状态无净变化则移除记录。
+## [br]
+## @api private
+## [br]
 func _enqueue_change(change: Dictionary) -> void:
 	var path_identity: String = _make_path_identity(GFVariantData.get_option_array(change, "path_segments"))
 	if _dirty_change_indices.has(path_identity):
@@ -856,6 +942,10 @@ func _enqueue_change(change: Dictionary) -> void:
 	_dirty_changes.append(GFVariantData.to_dictionary(change))
 
 
+## 合并同一路径连续变更的 kind，保留初次 added，并将 removed 后 added 合并为 changed。
+## [br]
+## @api private
+## [br]
 func _merge_change_kind(previous_kind: String, next_kind: String) -> String:
 	if previous_kind == "added":
 		return "added"
@@ -864,6 +954,10 @@ func _merge_change_kind(previous_kind: String, next_kind: String) -> String:
 	return next_kind
 
 
+## 比较记录的首尾存在状态和值，判断合并后的变更是否没有净效果。
+## [br]
+## @api private
+## [br]
 func _change_has_no_net_effect(change: Dictionary) -> bool:
 	var old_exists: bool = GFVariantData.get_option_bool(change, "old_exists")
 	var new_exists: bool = GFVariantData.get_option_bool(change, "new_exists")
@@ -875,6 +969,10 @@ func _change_has_no_net_effect(change: Dictionary) -> bool:
 	)
 
 
+## 删除指定 dirty 记录，并重建其余路径身份到队列下标的索引。
+## [br]
+## @api private
+## [br]
 func _remove_dirty_change_at(change_index: int) -> void:
 	_dirty_changes.remove_at(change_index)
 	_dirty_change_indices.clear()
@@ -883,6 +981,10 @@ func _remove_dirty_change_at(change_index: int) -> void:
 		_dirty_change_indices[_make_path_identity(path_segments)] = index
 
 
+## 生成区分整数索引与文本键的路径身份字符串，用于 dirty 记录查重。
+## [br]
+## @api private
+## [br]
 func _make_path_identity(segments: Array) -> String:
 	var identity_parts: PackedStringArray = PackedStringArray()
 	for segment: Variant in segments:
@@ -893,12 +995,20 @@ func _make_path_identity(segments: Array) -> String:
 	return "|".join(identity_parts)
 
 
+## 仅在非批处理且当前未派发时调用 flush。
+## [br]
+## @api private
+## [br]
 func _flush_if_ready() -> void:
 	if _batch_depth > 0 or _is_flushing:
 		return
 	var _changes: Array[Dictionary] = flush()
 
 
+## 将变更数组中的每条记录经 GFVariantData.to_dictionary 转换后组成新数组。
+## [br]
+## @api private
+## [br]
 func _copy_changes(changes: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for change: Dictionary in changes:
@@ -906,6 +1016,10 @@ func _copy_changes(changes: Array[Dictionary]) -> Array[Dictionary]:
 	return result
 
 
+## 遍历订阅快照并派发匹配变更；已移除订阅会跳过，无效回调会先取消订阅。
+## [br]
+## @api private
+## [br]
 func _notify_subscribers(changes: Array[Dictionary]) -> void:
 	var subscriptions_snapshot: Array = _subscriptions.duplicate()
 	for subscription_variant: Variant in subscriptions_snapshot:
@@ -924,6 +1038,10 @@ func _notify_subscribers(changes: Array[Dictionary]) -> void:
 				callback.call(GFVariantData.to_dictionary(change), self)
 
 
+## 按订阅模式判断记录是否匹配；根级 state_replaced 记录会匹配任意订阅路径。
+## [br]
+## @api private
+## [br]
 func _subscription_matches_change(subscription: Dictionary, change: Dictionary) -> bool:
 	if (
 		GFVariantData.get_option_string(change, "kind") == "state_replaced"
@@ -942,6 +1060,10 @@ func _subscription_matches_change(subscription: Dictionary, change: Dictionary) 
 	return _segments_equal(subscription_segments, change_segments)
 
 
+## 判断第一组路径段是否为第二组的前缀，逐段使用路径键比较规则。
+## [br]
+## @api private
+## [br]
 func _segments_are_prefix(prefix_segments: Array, segments: Array) -> bool:
 	if prefix_segments.size() > segments.size():
 		return false
@@ -951,24 +1073,40 @@ func _segments_are_prefix(prefix_segments: Array, segments: Array) -> bool:
 	return true
 
 
+## 判断两组路径段长度相同且逐段相等。
+## [br]
+## @api private
+## [br]
 func _segments_equal(left: Array, right: Array) -> bool:
 	if left.size() != right.size():
 		return false
 	return _segments_are_prefix(left, right)
 
 
+## 比较两个路径段：整数按值比较，其他段按文本表示比较。
+## [br]
+## @api private
+## [br]
 func _path_segments_equal(left: Variant, right: Variant) -> bool:
 	if left is int or right is int:
 		return left == right
 	return GFVariantData.to_text(left) == GFVariantData.to_text(right)
 
 
+## 保留 PREFIX 与 ANY 模式；其他整数统一回退为 EXACT。
+## [br]
+## @api private
+## [br]
 func _normalize_subscribe_mode(mode: int) -> int:
 	if mode == SUBSCRIBE_PREFIX or mode == SUBSCRIBE_ANY:
 		return mode
 	return SUBSCRIBE_EXACT
 
 
+## 从订阅选项取出有效 Object owner；缺失、非对象或已失效时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_options_owner(options: Dictionary) -> Object:
 	var owner_value: Variant = GFVariantData.get_option_value(options, "owner")
 	if owner_value is Object and is_instance_valid(owner_value):
@@ -977,6 +1115,10 @@ func _get_options_owner(options: Dictionary) -> Object:
 	return null
 
 
+## 创建通过弱引用回到 store 并按订阅 ID 调用 unsubscribe 的闭包。
+## [br]
+## @api private
+## [br]
 func _make_unsubscribe_callable(subscription_id: int) -> Callable:
 	var store_ref: WeakRef = weakref(self)
 	return func() -> void:
@@ -987,6 +1129,10 @@ func _make_unsubscribe_callable(subscription_id: int) -> Callable:
 		var _unsubscribe_result: bool = store.unsubscribe(subscription_id)
 
 
+## 在线性扫描订阅数组中查找 ID，未找到时返回 -1。
+## [br]
+## @api private
+## [br]
 func _find_subscription_index(subscription_id: int) -> int:
 	for index: int in range(_subscriptions.size()):
 		if GFVariantData.get_option_int(_subscriptions[index], "subscription_id", -1) == subscription_id:
@@ -994,6 +1140,10 @@ func _find_subscription_index(subscription_id: int) -> int:
 	return -1
 
 
+## 从订阅记录提取 Callable 字段；缺失或类型不符时返回空 Callable。
+## [br]
+## @api private
+## [br]
 func _get_subscription_callback(subscription: Dictionary) -> Callable:
 	var callback_value: Variant = GFVariantData.get_option_value(subscription, "callback", Callable())
 	if callback_value is Callable:
@@ -1002,6 +1152,10 @@ func _get_subscription_callback(subscription: Dictionary) -> Callable:
 	return Callable()
 
 
+## 通过订阅记录的 WeakRef 和实例有效性辅助器解析 owner。
+## [br]
+## @api private
+## [br]
 func _get_subscription_owner(subscription: Dictionary) -> Object:
 	var owner_ref_value: Variant = GFVariantData.get_option_value(subscription, "owner_ref")
 	if not owner_ref_value is WeakRef:
@@ -1010,6 +1164,10 @@ func _get_subscription_owner(subscription: Dictionary) -> Object:
 	return _INSTANCE_GUARD._get_live_object_from_ref(owner_ref)
 
 
+## owner 为 Node 且退出树回调仍连接时，断开该订阅持有的 tree_exited 连接。
+## [br]
+## @api private
+## [br]
 func _disconnect_subscription_owner_signal(subscription: Dictionary) -> void:
 	var subscription_owner: Object = _get_subscription_owner(subscription)
 	if not subscription_owner is Node:
@@ -1020,6 +1178,10 @@ func _disconnect_subscription_owner_signal(subscription: Dictionary) -> void:
 		owner_node.tree_exited.disconnect(exit_callable)
 
 
+## 从订阅记录提取 tree_exited 回调；缺失或类型不符时返回空 Callable。
+## [br]
+## @api private
+## [br]
 func _get_subscription_exit_callable(subscription: Dictionary) -> Callable:
 	var callable_value: Variant = GFVariantData.get_option_value(subscription, "exit_callable", Callable())
 	if callable_value is Callable:
@@ -1028,6 +1190,10 @@ func _get_subscription_exit_callable(subscription: Dictionary) -> Callable:
 	return Callable()
 
 
+## 从后向前移除无效回调或已失效 owner 的订阅，并断开其 owner 信号连接。
+## [br]
+## @api private
+## [br]
 func _prune_invalid_subscriptions() -> void:
 	for index: int in range(_subscriptions.size() - 1, -1, -1):
 		var subscription: Dictionary = _subscriptions[index]
@@ -1038,5 +1204,12 @@ func _prune_invalid_subscriptions() -> void:
 			_subscriptions.remove_at(index)
 
 
+
+
+# --- 信号处理函数 ---
+
+## 按绑定时捕获的订阅标识注销离树所有者的监听；标识已移除时沿用 unsubscribe 的无操作结果。
+## [br]
+## @api private
 func _on_subscription_owner_tree_exited(subscription_id: int) -> void:
 	var _unsubscribe_result: bool = unsubscribe(subscription_id)

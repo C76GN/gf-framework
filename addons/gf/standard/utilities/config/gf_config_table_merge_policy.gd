@@ -179,6 +179,10 @@ func describe() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 以 base 字典为起点应用 patch 字段，并按配置处理删除标记。
+## [br]
+## @api private
+## [br]
 func _merge_dictionaries(base_record: Dictionary, patch_record: Dictionary) -> Dictionary:
 	var result: Dictionary = base_record.duplicate(true)
 	for key: Variant in patch_record.keys():
@@ -196,10 +200,18 @@ func _merge_dictionaries(base_record: Dictionary, patch_record: Dictionary) -> D
 	return result
 
 
+## 将 Variant 的类型编号和值文本组合成比较键。
+## [br]
+## @api private
+## [br]
 func _make_variant_key(value: Variant) -> String:
 	return "%d:%s" % [typeof(value), var_to_str(value)]
 
 
+## 仅当 Variant 值为 GFConfigTableMergePolicy 时返回该合并策略。
+## [br]
+## @api private
+## [br]
 func _variant_to_merge_policy(value: Variant) -> GFConfigTableMergePolicy:
 	if value is GFConfigTableMergePolicy:
 		var policy: GFConfigTableMergePolicy = value

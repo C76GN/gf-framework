@@ -46,17 +46,32 @@ enum ScientificStyle {
 # --- 常量 ---
 
 # 自动模式切换到科学计数法的小数阈值。
+## AUTO 模式采用科学计数法的小数指数下界。
+## [br]
+## @api private
 const _AUTO_SMALL_SCIENTIFIC_THRESHOLD: int = -4
 
 # 自动模式切换到紧凑缩写的指数阈值。
+## AUTO 模式采用紧凑缩写的指数下界。
+## [br]
+## @api private
 const _AUTO_COMPACT_THRESHOLD: int = 3
 
 # FULL 模式允许的最大普通十进制指数。
+## FULL 模式仍使用普通十进制表示的最大指数。
+## [br]
+## @api private
 const _FULL_MAX_EXPONENT: int = 15
 
+## 提供精确十进制文本舍入和数字校验的内部格式器。
+## [br]
+## @api private
 const _DECIMAL_STRING_FORMATTER = preload("res://addons/gf/standard/foundation/formatting/gf_decimal_string_formatter.gd")
 
 # FULL 模式允许的最小普通十进制指数。
+## FULL 模式仍使用普通十进制表示的最小指数。
+## [br]
+## @api private
 const _FULL_MIN_EXPONENT: int = -6
 
 
@@ -381,7 +396,9 @@ static func format_auto(
 
 # --- 私有/辅助方法 ---
 
-
+## 保留符号与小数部分，并从右向左为整数部分每三位插入逗号。
+## [br]
+## @api private
 static func _group_integer_part(text: String) -> String:
 	var sign_text: String = ""
 	var body: String = text

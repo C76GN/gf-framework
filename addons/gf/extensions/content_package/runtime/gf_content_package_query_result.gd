@@ -38,12 +38,39 @@ const STATUS_INVALID_CATALOG: StringName = &"invalid_catalog"
 
 # --- 私有变量 ---
 
+## 标记目录查询是否完成，包括无匹配项的成功结果。
+## [br]
+## @api private
 var _successful: bool = false
+
+## 保存查询结果的稳定终态状态。
+## [br]
+## @api private
 var _status: StringName = STATUS_INVALID_QUERY
+
+## 保存产生此结果的查询 ID。
+## [br]
+## @api private
 var _query_id: StringName = &""
+
+## 保存不含自动依赖扩展的直接命中 ID。
+## [br]
+## @api private
 var _direct_package_ids: PackedStringArray = PackedStringArray()
+
+## 保存最终命中 ID，包括查询要求加入的依赖闭包。
+## [br]
+## @api private
 var _package_ids: PackedStringArray = PackedStringArray()
+
+## 按 package_id 保存结果持有的 manifest 副本。
+## [br]
+## @api private
 var _manifests: Dictionary = {}
+
+## 保存与查询终态对应的隔离验证报告。
+## [br]
+## @api private
 var _report: Dictionary = {}
 
 
@@ -221,6 +248,9 @@ func configure_result(
 
 # --- 私有/辅助方法 ---
 
+## 从结果快照中取出类型正确的 manifest；无对应条目时返回 null。
+## [br]
+## @api private
 func _get_manifest_ref(package_id: StringName) -> GFContentPackageManifest:
 	var manifest_value: Variant = _manifests.get(package_id)
 	if manifest_value is GFContentPackageManifest:

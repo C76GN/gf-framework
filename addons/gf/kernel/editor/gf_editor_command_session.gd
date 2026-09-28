@@ -61,6 +61,9 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 在会话未交由外部 UndoRedo 管理时，按提交顺序保存可撤销的命令。
+## [br]
+## @api private
 var _history: Array[GFEditorCommandBase] = []
 
 
@@ -217,6 +220,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按会话当前状态组装命令操作结果，并深复制调用方上下文与会话元数据。
+## 命令为空时以空名称和未执行状态填充结果。
+## [br]
+## @api private
 func _make_command_result(
 	ok: bool,
 	status: StringName,

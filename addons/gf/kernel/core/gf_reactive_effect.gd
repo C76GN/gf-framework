@@ -28,7 +28,14 @@ signal effect_ran(value: Variant)
 
 # --- 常量 ---
 
+## 校验 WeakRef 目标是否仍是可用 Node 的实例守卫。
+## [br]
+## @api private
 const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
+
+## 安全读取连接记录中可选值的 Variant 辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -42,12 +49,39 @@ var max_reruns_per_run: int = 8
 
 # --- 私有变量 ---
 
+## 去重后的属性监听来源。
+## [br]
+## @api private
 var _sources: Array[GFBindableProperty] = []
+
+## 当前 effect 配置的回调。
+## [br]
+## @api private
 var _callback: Callable = Callable()
+
+## 生命周期宿主的弱引用；configure 连接其 tree_exited 到 stop，本字段不延长宿主寿命。
+## [br]
+## @api private
 var _owner_ref: WeakRef = null
+
+## 保留来源属性和回调的连接记录；stop 按是否存在宿主选择 unbind 或直接断开信号。
+## [br]
+## @api private
 var _connections: Array[Dictionary] = []
+
+## 标记当前配置是否有可调用的 effect。
+## [br]
+## @api private
 var _active: bool = false
+
+## 仅在用户回调执行期间为 true；effect_ran 发出前清除，stop 也会清除此标记。
+## [br]
+## @api private
 var _running: bool = false
+
+## 将回调执行期间的多个 run 请求合并；每次执行前清除，达到补跑上限时结束当前循环。
+## [br]
+## @api private
 var _rerun_requested: bool = false
 
 
@@ -205,6 +239,9 @@ func get_sources() -> Array[GFBindableProperty]:
 
 # --- 私有/辅助方法 ---
 
+## 记录来源强引用与统一回调；有宿主时委托 bind_to 管理离树解绑，否则直接连接且避免重复连接。
+## [br]
+## @api private
 func _bind_source(source: GFBindableProperty, owner: Node) -> void:
 	var callback: Callable = Callable(self, "_on_source_changed")
 	_connections.append({
@@ -217,6 +254,9 @@ func _bind_source(source: GFBindableProperty, owner: Node) -> void:
 		var _connect_result_216: Variant = source.value_changed.connect(callback)
 
 
+## 移除空来源并保留输入中首次出现的每个属性。
+## [br]
+## @api private
 func _filter_sources(sources: Array[GFBindableProperty]) -> Array[GFBindableProperty]:
 	var result: Array[GFBindableProperty] = []
 	for source: GFBindableProperty in sources:
@@ -225,16 +265,18 @@ func _filter_sources(sources: Array[GFBindableProperty]) -> Array[GFBindableProp
 	return result
 
 
+## 通过实例守卫从弱引用取得仍有效的 Node。
+## [br]
+## @api private
 func _get_owner() -> Node:
 	if _owner_ref == null:
 		return null
 	return _INSTANCE_GUARD._get_live_node_from_ref(_owner_ref)
 
 
-func _on_source_changed(_old_value: Variant, _new_value: Variant) -> void:
-	run()
-
-
+## 从连接记录读取 source，并拒绝非 GFBindableProperty 值。
+## [br]
+## @api private
 func _get_connection_source(connection: Dictionary) -> GFBindableProperty:
 	var raw_source: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(connection, "source")
 	if raw_source is GFBindableProperty:
@@ -243,9 +285,21 @@ func _get_connection_source(connection: Dictionary) -> GFBindableProperty:
 	return null
 
 
+## 从连接记录读取 callable，并拒绝非 Callable 值。
+## [br]
+## @api private
 func _get_connection_callable(connection: Dictionary) -> Callable:
 	var raw_callable: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(connection, "callable", Callable())
 	if raw_callable is Callable:
 		var callback: Callable = raw_callable
 		return callback
 	return Callable()
+
+
+# --- 信号处理函数 ---
+
+## 属性变化时请求执行 effect；回调执行中的再次变化由 run 合并为补跑请求。
+## [br]
+## @api private
+func _on_source_changed(_old_value: Variant, _new_value: Variant) -> void:
+	run()

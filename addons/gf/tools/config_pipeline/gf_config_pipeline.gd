@@ -14,16 +14,70 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 默认输入格式选择标记。
+## [br]
+## @api private
+## [br]
 const _FORMAT_AUTO: StringName = &"auto"
+
+## 默认输出格式选择标记。
+## [br]
+## @api private
+## [br]
 const _OUTPUT_FORMAT_AUTO: StringName = &"auto"
+
+## JSON 输出格式名。
+## [br]
+## @api private
+## [br]
 const _OUTPUT_FORMAT_JSON: StringName = &"json"
+
+## Resource 输出格式名。
+## [br]
+## @api private
+## [br]
 const _OUTPUT_FORMAT_RESOURCE: StringName = &"resource"
+
+## GF Config Pipeline 产物所有者标识。
+## [br]
+## @api private
+## [br]
 const _ARTIFACT_OWNER: String = "gf.tool.config_pipeline"
+
+## JSON 产物中记录所有者标识的字段名。
+## [br]
+## @api private
+## [br]
 const _ARTIFACT_OWNER_FIELD: String = "artifact_owner"
+
+## Resource 产物中记录所有者标识的 metadata 键。
+## [br]
+## @api private
+## [br]
 const _RESOURCE_ARTIFACT_OWNER_META: StringName = &"_gf_config_pipeline_artifact_owner"
+
+## 生成 access 脚本开头写入的所有者 marker。
+## [br]
+## @api private
+## [br]
 const _ACCESS_ARTIFACT_MARKER: String = "# @generated_by gf.tool.config_pipeline"
+
+## provider_accessor 允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_PROVIDER_ACCESSOR_LENGTH: int = 512
+
+## 生成文件并建立产物报告的内部服务。
+## [br]
+## @api private
+## [br]
 const _GENERATED_ARTIFACT_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_generated_artifact_report.gd")
+
+## 输出路径策略验证器。
+## [br]
+## @api private
+## [br]
 const _OUTPUT_PATH_POLICY_SCRIPT = preload(
 	"res://addons/gf/tools/config_pipeline/gf_config_pipeline_output_path_policy.gd"
 )
@@ -31,10 +85,34 @@ const _OUTPUT_PATH_POLICY_SCRIPT = preload(
 
 # --- 私有变量 ---
 
+## 读取配置源并生成 reader 报告的阶段实例。
+## [br]
+## @api private
+## [br]
 var _reader_stage: GFConfigPipelineReaderStage = GFConfigPipelineReaderStage.new()
+
+## 解码源表布局的阶段实例。
+## [br]
+## @api private
+## [br]
 var _layout_stage: GFConfigPipelineLayoutStage = GFConfigPipelineLayoutStage.new()
+
+## 校验并编译表 IR 的阶段实例。
+## [br]
+## @api private
+## [br]
 var _validation_stage: GFConfigPipelineValidationStage = GFConfigPipelineValidationStage.new()
+
+## 将表 IR 物化为目标资源的阶段实例。
+## [br]
+## @api private
+## [br]
 var _target_stage: GFConfigPipelineTargetStage = GFConfigPipelineTargetStage.new()
+
+## 协调产物写入的阶段实例。
+## [br]
+## @api private
+## [br]
 var _commit_stage: GFConfigPipelineCommitStage = GFConfigPipelineCommitStage.new()
 
 
@@ -1067,11 +1145,18 @@ func generate_access(
 
 # --- 私有/辅助方法 ---
 
+## 通过 Reader 读取来源，再把原始读取结果交给统一的布局及校验链路，保持来源收据随编译结果传递。
+## [br]
+## @api private
 func _compile_table(source: GFConfigPipelineTableSource, options: Dictionary) -> Dictionary:
 	var read_result: Dictionary = _reader_stage.read_source(source, options)
 	return _compile_table_from_reader_result(source, read_result, options)
 
 
+## 在 descriptor 副本缺少 implementation_path 时从 stage Script 路径补入该字段。
+## [br]
+## @api private
+## [br]
 func _with_stage_implementation_path(descriptor: Dictionary, stage: Object) -> Dictionary:
 	var result: Dictionary = descriptor.duplicate(true)
 	if not GFVariantData.get_option_string(result, "implementation_path").is_empty():
@@ -1085,6 +1170,9 @@ func _with_stage_implementation_path(descriptor: Dictionary, stage: Object) -> D
 	return result
 
 
+## 依次执行布局解码和表校验，由各阶段解释前一阶段失败；非空读取收据深复制到最终编译结果，避免共享收据容器。
+## [br]
+## @api private
 func _compile_table_from_reader_result(
 	source: GFConfigPipelineTableSource,
 	read_result: Dictionary,
@@ -1101,6 +1189,9 @@ func _compile_table_from_reader_result(
 	return compile_result
 
 
+## 编译失败时保留报告与来源收据；成功必须携带 Table IR，再物化资源并补齐编译上下文，缺少 IR 或目标失败转为统一表错误。
+## [br]
+## @api private
 func _materialize_table_compile_result(
 	compile_result: Dictionary,
 	options: Dictionary
@@ -1150,6 +1241,10 @@ func _materialize_table_compile_result(
 	return target_result
 
 
+## 从结果字段读取 TableIR；值类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_table_ir_from_result(result: Dictionary) -> GFConfigPipelineTableIR:
 	var ir_value: Variant = GFVariantData.get_option_value(result, "ir")
 	if ir_value is GFConfigPipelineTableIR:
@@ -1158,6 +1253,10 @@ func _get_table_ir_from_result(result: Dictionary) -> GFConfigPipelineTableIR:
 	return null
 
 
+## 优先使用 error，缺失时用 status；存在 issues 时追加分号分隔的诊断。
+## [br]
+## @api private
+## [br]
 func _join_commit_error(result: Dictionary) -> String:
 	var message: String = GFVariantData.get_option_string(result, "error")
 	if message.is_empty():
@@ -1170,6 +1269,10 @@ func _join_commit_error(result: Dictionary) -> String:
 	return message
 
 
+## 将每个路径规范化后取父目录，并按首次出现顺序去重。
+## [br]
+## @api private
+## [br]
 func _collect_commit_roots(paths: PackedStringArray) -> PackedStringArray:
 	var roots: PackedStringArray = PackedStringArray()
 	for path: String in paths:
@@ -1180,6 +1283,10 @@ func _collect_commit_roots(paths: PackedStringArray) -> PackedStringArray:
 	return roots
 
 
+## 构造表编译失败结果，并通过 GFConfigValidationReport 创建错误报告。
+## [br]
+## @api private
+## [br]
 func _make_table_failure(
 	table_name: StringName,
 	kind: String,
@@ -1197,6 +1304,10 @@ func _make_table_failure(
 	}
 
 
+## 构造保存结果，并从 artifact_report 投影状态、写入、变更和 dry-run 字段。
+## [br]
+## @api private
+## [br]
 func _make_save_result(
 	success: bool,
 	output_path: String,
@@ -1219,6 +1330,10 @@ func _make_save_result(
 	}
 
 
+## 构造 Profile 导出失败结果，数据库为空且 table_results 为空数组。
+## [br]
+## @api private
+## [br]
 func _make_profile_failure(
 	profile_id: StringName,
 	kind: String,
@@ -1237,6 +1352,9 @@ func _make_profile_failure(
 	}
 
 
+## 汇集各阶段报告并复制报告容器；恢复要求、动作和恢复事务只取自事务结果，不把导出失败本身等同于可执行恢复。
+## [br]
+## @api private
 func _make_profile_export_result(
 	success: bool,
 	build_result: Dictionary,
@@ -1291,6 +1409,10 @@ func _make_profile_export_result(
 	}
 
 
+## 显式 manifest_path 优先；否则由 profile 输出路径推导默认清单路径。
+## [br]
+## @api private
+## [br]
 func _resolve_manifest_path(
 	profile: GFConfigPipelineProfile,
 	options: Dictionary,
@@ -1304,6 +1426,10 @@ func _resolve_manifest_path(
 	return manifest_helper.get_default_manifest_path(profile.resolve_output_path(options))
 
 
+## 仅在调用方要求且处于 Editor 时请求 EditorFileSystem 扫描。
+## [br]
+## @api private
+## [br]
 func _scan_filesystem_if_needed(scan_filesystem: bool) -> void:
 	if not scan_filesystem or not Engine.is_editor_hint():
 		return
@@ -1312,6 +1438,10 @@ func _scan_filesystem_if_needed(scan_filesystem: bool) -> void:
 		filesystem.scan()
 
 
+## manifest 路径非空且 changed_only、write_manifest 或显式路径至少一项成立时返回 true。
+## [br]
+## @api private
+## [br]
 func _should_write_manifest(options: Dictionary, manifest_path: String) -> bool:
 	if manifest_path.is_empty():
 		return false
@@ -1322,6 +1452,10 @@ func _should_write_manifest(options: Dictionary, manifest_path: String) -> bool:
 	)
 
 
+## 从 manifest_options 副本读取配置，并补入顶层提供但内层缺少的三个输出许可项。
+## [br]
+## @api private
+## [br]
 func _make_manifest_options(options: Dictionary) -> Dictionary:
 	var result: Dictionary = GFVariantData.get_option_dictionary(options, "manifest_options").duplicate(true)
 	for key: String in PackedStringArray([
@@ -1334,6 +1468,10 @@ func _make_manifest_options(options: Dictionary) -> Dictionary:
 	return result
 
 
+## 构造 access 生成结果，记录输入/输出/跳过 schema 数及产物报告。
+## [br]
+## @api private
+## [br]
 func _make_access_result(
 	success: bool,
 	output_path: String,
@@ -1368,6 +1506,10 @@ func _make_access_result(
 	}
 
 
+## 按数据库 table ID 顺序收集非空 schema；缺少 schema 时合成 table_name 记录。
+## [br]
+## @api private
+## [br]
 func _collect_access_schemas(database: GFConfigDatabaseResource) -> Array:
 	var schemas: Array = []
 	if database == null:
@@ -1385,6 +1527,10 @@ func _collect_access_schemas(database: GFConfigDatabaseResource) -> Array:
 	return schemas
 
 
+## 从结果字段读取数据库资源；值类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_database_from_result(result: Dictionary) -> GFConfigDatabaseResource:
 	var database_value: Variant = GFVariantData.get_option_value(result, "database")
 	if database_value is GFConfigDatabaseResource:
@@ -1393,14 +1539,23 @@ func _get_database_from_result(result: Dictionary) -> GFConfigDatabaseResource:
 	return null
 
 
+## 复制表结果的报告字段，排除 table 和 ir 资源入口，供汇总报告持有。
+## [br]
+## @api private
 func _duplicate_result_dictionary(result: Dictionary) -> Dictionary:
 	return _duplicate_dictionary_without_keys(result, { "table": true, "ir": true })
 
 
+## 复制数据库构建结果的报告字段，排除 database 和 ir 入口；其他字段按通用 Variant 副本规则处理。
+## [br]
+## @api private
 func _duplicate_database_result_dictionary(result: Dictionary) -> Dictionary:
 	return _duplicate_dictionary_without_keys(result, { "database": true, "ir": true })
 
 
+## 保留原键并逐值调用 Variant 副本规则，跳过指定键；复制容器不承诺隔离其中的 Object 身份。
+## [br]
+## @api private
 func _duplicate_dictionary_without_keys(result: Dictionary, skipped_keys: Dictionary) -> Dictionary:
 	var copy: Dictionary = {}
 	for key: Variant in result.keys():
@@ -1410,6 +1565,9 @@ func _duplicate_dictionary_without_keys(result: Dictionary, skipped_keys: Dictio
 	return copy
 
 
+## 只在已有文件将被覆盖且未显式允许非受管覆盖时检查 GF 所有权；关闭覆盖时由后续保存策略负责跳过。
+## [br]
+## @api private
 func _validate_existing_artifact_ownership(
 	output_path: String,
 	artifact_kind: StringName,
@@ -1426,6 +1584,9 @@ func _validate_existing_artifact_ownership(
 	return "拒绝覆盖不属于 GF Config Pipeline 的已有产物：%s。若已人工确认所有权，请显式传入 allow_unowned_overwrite。" % output_path
 
 
+## 按产物类型读取资源元数据或最多 64 KiB 文本标记判断所有权；资源路径会触发替换缓存模式加载，文本标记只作产物识别。
+## [br]
+## @api private
 func _is_owned_artifact(output_path: String, artifact_kind: StringName) -> bool:
 	if artifact_kind == &"database_resource":
 		var loaded_value: Variant = ResourceLoader.load(output_path, "", ResourceLoader.CACHE_MODE_REPLACE)
@@ -1449,6 +1610,9 @@ func _is_owned_artifact(output_path: String, artifact_kind: StringName) -> bool:
 	return false
 
 
+## 检查有界单行表达式的禁用字符、引号及括号配对；这是生成前的文本约束，不进行 GDScript 语法或执行安全证明。
+## [br]
+## @api private
 func _validate_provider_accessor(accessor: String) -> String:
 	if accessor.length() > _MAX_PROVIDER_ACCESSOR_LENGTH:
 		return "provider_accessor 超过最大长度 %d。" % _MAX_PROVIDER_ACCESSOR_LENGTH
@@ -1488,6 +1652,9 @@ func _validate_provider_accessor(accessor: String) -> String:
 	return ""
 
 
+## 在写入前以文件存在性判定 NEW 或 CHANGED，关闭覆盖时返回 SKIPPED；written 始终为假，changed 表示待处理变化而非已写入。
+## [br]
+## @api private
 func _make_pending_resource_artifact_report(
 	output_path: String,
 	output_format: StringName,
@@ -1522,6 +1689,10 @@ func _make_pending_resource_artifact_report(
 	)
 
 
+## 委托 artifact report 服务生成资源产物报告，并附上写入状态与格式 metadata。
+## [br]
+## @api private
+## [br]
 func _make_resource_artifact_report(
 	output_path: String,
 	output_format: StringName,
@@ -1540,6 +1711,10 @@ func _make_resource_artifact_report(
 	})
 
 
+## 在 options 的 duplicate(true) 结果中设置 GFConfigPipeline 标签和产物 metadata。
+## [br]
+## @api private
+## [br]
 func _make_text_artifact_options(options: Dictionary, output_format: StringName) -> Dictionary:
 	var artifact_options: Dictionary = options.duplicate(true)
 	artifact_options["label"] = "GFConfigPipeline"
@@ -1547,18 +1722,29 @@ func _make_text_artifact_options(options: Dictionary, output_format: StringName)
 	return artifact_options
 
 
+## 复制 artifact_metadata 并覆盖其中的 format 字段。
+## [br]
+## @api private
+## [br]
 func _make_artifact_metadata(options: Dictionary, output_format: StringName) -> Dictionary:
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(options, "artifact_metadata").duplicate(true)
 	metadata["format"] = output_format
 	return metadata
 
 
+## 在 options 的 duplicate(true) 结果中将 dry_run 设为 true。
+## [br]
+## @api private
+## [br]
 func _make_dry_run_options(options: Dictionary) -> Dictionary:
 	var result: Dictionary = options.duplicate(true)
 	result["dry_run"] = true
 	return result
 
 
+## 统一分隔符和边缘空白，再简化路径；含协议时小写协议名并独立简化协议后的路径段，不执行路径许可校验。
+## [br]
+## @api private
 func _normalize_output_path(path: String) -> String:
 	var normalized: String = path.replace("\\", "/").strip_edges()
 	if normalized.contains("://"):
@@ -1567,6 +1753,10 @@ func _normalize_output_path(path: String) -> String:
 		return "%s://%s" % [scheme, body]
 	return normalized.simplify_path()
 
+## 使用显式非 auto 格式；否则仅 .json 扩展名选择 JSON，其余选择 Resource。
+## [br]
+## @api private
+## [br]
 func _resolve_output_format(output_path: String, options: Dictionary) -> StringName:
 	var configured_format: StringName = GFVariantData.get_option_string_name(options, "output_format", _OUTPUT_FORMAT_AUTO)
 	if configured_format != &"" and configured_format != _OUTPUT_FORMAT_AUTO:
@@ -1578,6 +1768,10 @@ func _resolve_output_format(output_path: String, options: Dictionary) -> StringN
 	return _OUTPUT_FORMAT_RESOURCE
 
 
+## 扩展名与数据库 ResourceSaver 可识别扩展名不区分大小写匹配时通过。
+## [br]
+## @api private
+## [br]
 func _validate_resource_output_extension(
 	database: GFConfigDatabaseResource,
 	output_path: String
@@ -1589,6 +1783,9 @@ func _validate_resource_output_extension(
 	return "配置数据库资源输出路径的扩展名未被当前 ResourceSaver 识别：%s。" % output_path
 
 
+## 先核对已有产物所有权，再完成数据库 JSON 投影，最后委托文本产物保存；各失败阶段保留其错误码与可用产物报告。
+## [br]
+## @api private
 func _save_database_json(
 	database: GFConfigDatabaseResource,
 	output_path: String,

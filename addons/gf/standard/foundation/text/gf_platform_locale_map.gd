@@ -269,6 +269,10 @@ static func from_dict(data: Dictionary) -> GFPlatformLocaleMap:
 
 # --- 私有/辅助方法 ---
 
+## 按平台标识和规范化后的平台语言键查找条目索引。
+## [br]
+## @api private
+## [br]
 func _find_entry_index(platform_id: StringName, platform_locale: String) -> int:
 	var normalized_platform_locale: String = _normalize_platform_locale(platform_locale)
 	for index: int in range(entries.size()):
@@ -281,6 +285,10 @@ func _find_entry_index(platform_id: StringName, platform_locale: String) -> int:
 	return -1
 
 
+## 深拷贝映射条目数组中的每个字典。
+## [br]
+## @api private
+## [br]
 static func _copy_entries(source_entries: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in source_entries:
@@ -288,5 +296,9 @@ static func _copy_entries(source_entries: Array[Dictionary]) -> Array[Dictionary
 	return result
 
 
+## 去除平台语言键首尾空白并转为小写。
+## [br]
+## @api private
+## [br]
 static func _normalize_platform_locale(platform_locale: String) -> String:
 	return platform_locale.strip_edges().to_lower()

@@ -69,9 +69,28 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 按逻辑 key 保存注册文本及其元数据副本。
+## [br]
+## @api private
+## [br]
 var _registered_texts: Dictionary = {}
+
+## 按注册顺序保存自定义加载回调及元数据。
+## [br]
+## @api private
+## [br]
 var _custom_loaders: Array[Dictionary] = []
+
+## 按来源类型与 key 保存成功加载结果的内存缓存。
+## [br]
+## @api private
+## [br]
 var _cache: Dictionary = {}
+
+## 累积加载错误并提供给报告查询方法的诊断对象。
+## [br]
+## @api private
+## [br]
 var _report: GFValidationReport = GFValidationReport.new("Source text loader")
 
 
@@ -369,12 +388,20 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 读取已注册条目的文本和元数据，并构造标准加载结果。
+## [br]
+## @api private
+## [br]
 func _load_registered_text(source_key: String, resolved: Dictionary, caller_span: Variant) -> Dictionary:
 	var entry: Dictionary = GFVariantData.get_option_dictionary(_registered_texts, source_key)
 	var text: String = GFVariantData.get_option_string(entry, "text")
 	return _make_loaded_result(text, resolved, true, false, caller_span, GFVariantData.get_option_dictionary(entry, "metadata"))
 
 
+## 按 max_bytes 读取文件，拒绝不完整读取或无效 UTF-8 后构造结果。
+## [br]
+## @api private
+## [br]
 func _load_file_text(path: String, resolved: Dictionary, caller_span: Variant) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return _failure(&"file_not_found", "Source text file does not exist.", caller_span, resolved)
@@ -402,6 +429,10 @@ func _load_file_text(path: String, resolved: Dictionary, caller_span: Variant) -
 	return _make_loaded_result(bytes.get_string_from_utf8(), resolved, false, false, caller_span)
 
 
+## 按注册顺序调用可用加载器；空结果表示继续，首个非空结果结束尝试。
+## [br]
+## @api private
+## [br]
 func _load_custom_text(source_key: String, caller_span: Variant) -> Dictionary:
 	if not allow_custom_loaders or _custom_loaders.is_empty():
 		return {}
@@ -437,6 +468,10 @@ func _load_custom_text(source_key: String, caller_span: Variant) -> Dictionary:
 	return {}
 
 
+## 检查文本字节上限并生成含 SHA-256、来源信息、元数据和报告的成功结果。
+## [br]
+## @api private
+## [br]
 func _make_loaded_result(
 	text: String,
 	resolved: Dictionary,
@@ -467,6 +502,11 @@ func _make_loaded_result(
 	})
 
 
+## 将自定义加载器的 String、字节数组或结果字典转换为统一结果。
+## 字典可声明 handled=false 继续尝试，也可提供 text、content 或 bytes。
+## [br]
+## @api private
+## [br]
 func _normalize_custom_loader_result(
 	raw_result: Variant,
 	source_key: String,
@@ -509,6 +549,10 @@ func _normalize_custom_loader_result(
 	})
 
 
+## 接受 String 或 PackedByteArray 作为字典中的文本值，其余类型生成失败结果。
+## [br]
+## @api private
+## [br]
 func _make_custom_text_value_result(
 	text_value: Variant,
 	data: Dictionary,
@@ -531,6 +575,10 @@ func _make_custom_text_value_result(
 	})
 
 
+## 验证自定义加载器字节为 UTF-8 后解码并构造标准成功结果。
+## [br]
+## @api private
+## [br]
 func _make_custom_bytes_loaded_result(
 	bytes: PackedByteArray,
 	data: Dictionary,
@@ -557,6 +605,10 @@ func _make_custom_bytes_loaded_result(
 	)
 
 
+## 合并加载器元数据与结果 metadata，再添加自定义来源信息并构造成功结果。
+## [br]
+## @api private
+## [br]
 func _make_custom_loaded_result(
 	text: String,
 	data: Dictionary,
@@ -588,6 +640,10 @@ func _make_custom_loaded_result(
 	return result
 
 
+## 记录自定义加载器提供的失败原因和消息，并补入来源索引及报告。
+## [br]
+## @api private
+## [br]
 func _make_custom_loader_failure(data: Dictionary, source_key: String, loader_index: int, caller_span: Variant) -> Dictionary:
 	var reason: StringName = GFVariantData.get_option_string_name(data, GFResultDictionary.KEY_REASON, &"custom_loader_failed")
 	var message: String = GFVariantData.get_option_string(data, GFResultDictionary.KEY_MESSAGE, "Custom source text loader failed.")
@@ -604,6 +660,10 @@ func _make_custom_loader_failure(data: Dictionary, source_key: String, loader_in
 	return result
 
 
+## 将错误加入诊断报告，并用字段副本构造拒绝结果。
+## [br]
+## @api private
+## [br]
 func _failure(reason: StringName, message: String, caller_span: Variant, fields: Dictionary = {}) -> Dictionary:
 	_add_error(reason, message, caller_span, fields)
 	var result: Dictionary = fields.duplicate(true)
@@ -611,6 +671,10 @@ func _failure(reason: StringName, message: String, caller_span: Variant, fields:
 	return GFResultDictionary.make_rejected(reason, message, result)
 
 
+## 取出缓存结果；超出当前字节上限时删除该项并返回错误，否则标记为缓存命中。
+## [br]
+## @api private
+## [br]
 func _get_cached_result(cache_key: String, caller_span: Variant) -> Dictionary:
 	var cached: Dictionary = GFVariantData.get_option_dictionary(_cache, cache_key)
 	var byte_size: int = GFVariantData.get_option_int(cached, "byte_size", -1)
@@ -628,6 +692,10 @@ func _get_cached_result(cache_key: String, caller_span: Variant) -> Dictionary:
 	return GFResultDictionary.normalize(cached, true)
 
 
+## 检查字节序列是否为合法 UTF-8，拒绝截断、非法续字节、过长编码与无效码位。
+## [br]
+## @api private
+## [br]
 static func _is_valid_utf8_bytes(bytes: PackedByteArray) -> bool:
 	var index: int = 0
 	while index < bytes.size():
@@ -676,10 +744,18 @@ static func _is_valid_utf8_bytes(bytes: PackedByteArray) -> bool:
 	return true
 
 
+## 判断字节是否处于 UTF-8 续字节范围 0x80–0xBF。
+## [br]
+## @api private
+## [br]
 static func _is_utf8_continuation(value: int) -> bool:
 	return value >= 0x80 and value <= 0xbf
 
 
+## 合并加载器元数据与错误字段；定位有效时记来源错误，否则记普通错误。
+## [br]
+## @api private
+## [br]
 func _add_error(reason: StringName, message: String, caller_span: Variant, fields: Dictionary) -> void:
 	var issue_metadata: Dictionary = metadata.duplicate(true)
 	var _merged_fields: Dictionary = GFVariantData.merge_dictionary(issue_metadata, fields, true, true)
@@ -689,6 +765,10 @@ func _add_error(reason: StringName, message: String, caller_span: Variant, field
 		var _issue: RefCounted = _report.add_error(reason, message, null, "", issue_metadata)
 
 
+## 返回规范化绝对来源路径，或将相对 key 拼入已规范化根路径。
+## [br]
+## @api private
+## [br]
 static func _resolve_file_path(source_key: String, normalized_root: String) -> String:
 	var normalized_key: String = _normalize_path(source_key)
 	if _is_absolute_source_path(normalized_key):
@@ -696,6 +776,10 @@ static func _resolve_file_path(source_key: String, normalized_root: String) -> S
 	return _normalize_path(normalized_root.path_join(source_key))
 
 
+## 统一反斜线并简化路径；保留 res://、user:// 根，其他路径去掉末尾斜线。
+## [br]
+## @api private
+## [br]
 static func _normalize_path(path: String) -> String:
 	var normalized: String = path.replace("\\", "/").simplify_path()
 	if normalized == "res://" or normalized == "user://":
@@ -703,6 +787,10 @@ static func _normalize_path(path: String) -> String:
 	return normalized.trim_suffix("/")
 
 
+## 规范化后按路径边界检查相等或子路径，避免普通字符串前缀误匹配。
+## [br]
+## @api private
+## [br]
 static func _is_under_root(path: String, root: String) -> bool:
 	var normalized_path: String = _normalize_path(path)
 	var normalized_root: String = _normalize_path(root)
@@ -714,10 +802,18 @@ static func _is_under_root(path: String, root: String) -> bool:
 	return comparable_path == comparable_root or comparable_path.begins_with(child_prefix)
 
 
+## 识别 res://、user:// 或 Godot 判定为绝对路径的来源 key。
+## [br]
+## @api private
+## [br]
 static func _is_absolute_source_path(path: String) -> bool:
 	return path.begins_with("res://") or path.begins_with("user://") or path.is_absolute_path()
 
 
+## 规范化比较路径；带盘符冒号的普通路径转为小写，Godot URI 保留原大小写。
+## [br]
+## @api private
+## [br]
 static func _to_comparable_path(path: String) -> String:
 	var normalized: String = _normalize_path(path)
 	if normalized.find(":") >= 0 and not normalized.begins_with("res://") and not normalized.begins_with("user://"):
@@ -725,6 +821,10 @@ static func _to_comparable_path(path: String) -> String:
 	return normalized
 
 
+## 构造加载器调用上下文，并深复制加载器元数据。
+## [br]
+## @api private
+## [br]
 static func _make_custom_loader_context(source_key: String, loader_index: int, loader_metadata: Dictionary, caller_span: Variant) -> Dictionary:
 	return {
 		"source_key": source_key,
@@ -734,5 +834,9 @@ static func _make_custom_loader_context(source_key: String, loader_index: int, l
 	}
 
 
+## 将来源类型和来源 key 序列化为缓存字典键。
+## [br]
+## @api private
+## [br]
 static func _make_cache_key(source_kind: String, source_key: String) -> String:
 	return JSON.stringify([source_kind, source_key])

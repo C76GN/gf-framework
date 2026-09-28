@@ -216,6 +216,10 @@ func duplicate_suite() -> GFValidationSuite:
 
 # --- 私有/辅助方法 ---
 
+## 收集单个文件或递归遍历目录，并在达到数量上限时停止。
+## [br]
+## @api private
+## [br]
 func _collect_path(path: String, result: PackedStringArray, depth: int, scan_state: Dictionary) -> void:
 	if not _can_collect_more_paths(result):
 		_warn_collected_path_limit(scan_state)
@@ -250,6 +254,10 @@ func _collect_path(path: String, result: PackedStringArray, depth: int, scan_sta
 	dir.list_dir_end()
 
 
+## 按隐藏目录、排除路径和最大深度决定是否继续进入目录。
+## [br]
+## @api private
+## [br]
 func _should_scan_directory(entry: String, path: String, current_depth: int, scan_state: Dictionary) -> bool:
 	if not include_hidden and entry.begins_with("."):
 		return false
@@ -261,6 +269,10 @@ func _should_scan_directory(entry: String, path: String, current_depth: int, sca
 	return true
 
 
+## 仅追加套件匹配且未重复的路径，并遵守收集数量上限。
+## [br]
+## @api private
+## [br]
 func _append_path_if_allowed(path: String, result: PackedStringArray, scan_state: Dictionary) -> void:
 	if not matches_path(path) or _scan_state_has_path(scan_state, path):
 		return
@@ -271,10 +283,18 @@ func _append_path_if_allowed(path: String, result: PackedStringArray, scan_state
 	_scan_state_add_path(scan_state, path)
 
 
+## 检查未配置上限或当前结果数量仍低于上限。
+## [br]
+## @api private
+## [br]
 func _can_collect_more_paths(result: PackedStringArray) -> bool:
 	return max_collected_paths <= 0 or result.size() < max_collected_paths
 
 
+## 创建路径扫描状态，记录限额警告标志和已见路径查找表。
+## [br]
+## @api private
+## [br]
 func _make_scan_state() -> Dictionary:
 	return {
 		"count_warning_emitted": false,
@@ -283,6 +303,10 @@ func _make_scan_state() -> Dictionary:
 	}
 
 
+## 首次达到路径数量上限时发出警告并记录已告警标志。
+## [br]
+## @api private
+## [br]
 func _warn_collected_path_limit(scan_state: Dictionary) -> void:
 	if GFVariantData.get_option_bool(scan_state, "count_warning_emitted"):
 		return
@@ -290,6 +314,10 @@ func _warn_collected_path_limit(scan_state: Dictionary) -> void:
 	push_warning("[GFValidationSuite][validation_suite.collected_path_limit] collect_paths reached max_collected_paths=%d; remaining paths were skipped." % max_collected_paths)
 
 
+## 首次达到扫描深度上限时发出带目录路径的警告。
+## [br]
+## @api private
+## [br]
 func _warn_scan_depth_limit(path: String, scan_state: Dictionary) -> void:
 	if GFVariantData.get_option_bool(scan_state, "depth_warning_emitted"):
 		return
@@ -297,11 +325,19 @@ func _warn_scan_depth_limit(path: String, scan_state: Dictionary) -> void:
 	push_warning("[GFValidationSuite][validation_suite.scan_depth_limit] collect_paths reached max_scan_depth=%d; deeper directory skipped: %s." % [max_scan_depth, path])
 
 
+## 按小写扩展名检查路径是否属于资源或场景扩展名集合。
+## [br]
+## @api private
+## [br]
 func _is_supported_file(path: String) -> bool:
 	var extension: String = path.get_extension().to_lower()
 	return resource_extensions.has(extension) or scene_extensions.has(extension)
 
 
+## 按精确路径、路径前缀或 glob 规则检查路径是否排除。
+## [br]
+## @api private
+## [br]
 func _is_excluded(path: String) -> bool:
 	for pattern: String in exclude_paths:
 		if pattern.is_empty():
@@ -314,17 +350,29 @@ func _is_excluded(path: String) -> bool:
 	return false
 
 
+## 检查扫描状态的路径查找表是否已包含该路径。
+## [br]
+## @api private
+## [br]
 func _scan_state_has_path(scan_state: Dictionary, path: String) -> bool:
 	var path_lookup: Dictionary = GFVariantData.get_option_dictionary(scan_state, "path_lookup")
 	return path_lookup.has(path)
 
 
+## 把路径写入扫描状态的去重查找表。
+## [br]
+## @api private
+## [br]
 func _scan_state_add_path(scan_state: Dictionary, path: String) -> void:
 	var path_lookup: Dictionary = GFVariantData.get_option_dictionary(scan_state, "path_lookup")
 	path_lookup[path] = true
 	scan_state["path_lookup"] = path_lookup
 
 
+## 向 PackedStringArray 追加一段文本。
+## [br]
+## @api private
+## [br]
 static func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:

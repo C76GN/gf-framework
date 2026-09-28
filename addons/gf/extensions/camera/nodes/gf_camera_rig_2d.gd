@@ -12,9 +12,6 @@ class_name GFCameraRig2D
 extends Node2D
 
 
-const _GF_CAMERA_FINITE_MATH = preload("res://addons/gf/extensions/camera/core/gf_camera_finite_math.gd")
-
-
 # --- 信号 ---
 
 ## Rig 激活状态变化后发出。
@@ -30,6 +27,14 @@ signal active_changed(active: bool)
 ## [br]
 ## @param priority: 当前优先级。
 signal priority_changed(priority: int)
+
+
+# --- 常量 ---
+
+## 集中处理相机姿态中的有限数值检查与安全数学运算。
+## [br]
+## @api private
+const _GF_CAMERA_FINITE_MATH = preload("res://addons/gf/extensions/camera/core/gf_camera_finite_math.gd")
 
 
 # --- 导出变量 ---
@@ -124,7 +129,14 @@ signal priority_changed(priority: int)
 
 # --- 私有变量 ---
 
+## 当前配置的自动注册分组名。
+## [br]
+## @api private
 var _group_name: StringName = &"gf_camera_rig_2d"
+
+## 当前已登记的分组名，未登记时为空。
+## [br]
+## @api private
 var _registered_group_name: StringName = &""
 
 
@@ -229,6 +241,9 @@ func is_available() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 更新配置的分组名并同步场景树登记。
+## [br]
+## @api private
 func _set_group_name(value: StringName) -> void:
 	if _group_name == value:
 		return
@@ -236,6 +251,9 @@ func _set_group_name(value: StringName) -> void:
 	_update_group_registration()
 
 
+## 根据当前配置将 Rig 加入对应分组并移除旧分组。
+## [br]
+## @api private
 func _update_group_registration() -> void:
 	if not is_inside_tree():
 		return
@@ -247,6 +265,9 @@ func _update_group_registration() -> void:
 		_registered_group_name = _group_name
 
 
+## 从当前已登记分组移除 Rig。
+## [br]
+## @api private
 func _unregister_group() -> void:
 	if _registered_group_name == &"":
 		return
@@ -254,6 +275,9 @@ func _unregister_group() -> void:
 	_registered_group_name = &""
 
 
+## 将节点值收窄为 Node2D，其他类型返回 null。
+## [br]
+## @api private
 func _get_node_2d_value(value: Variant) -> Node2D:
 	if value is Node2D:
 		var node: Node2D = value
@@ -261,9 +285,15 @@ func _get_node_2d_value(value: Variant) -> Node2D:
 	return null
 
 
+## 使用相机有限数值工具清理浮点数。
+## [br]
+## @api private
 func _sanitize_float(value: float, fallback: float) -> float:
 	return _GF_CAMERA_FINITE_MATH.sanitize_float(value, fallback)
 
 
+## 使用相机有限数值工具清理二维向量。
+## [br]
+## @api private
 func _sanitize_vector2(value: Vector2, fallback: Vector2) -> Vector2:
 	return _GF_CAMERA_FINITE_MATH.sanitize_vector2(value, fallback)

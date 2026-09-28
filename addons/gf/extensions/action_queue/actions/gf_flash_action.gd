@@ -43,9 +43,24 @@ var property_name: NodePath = ^"modulate"
 
 # --- 私有变量 ---
 
+## 当前驱动闪色与还原的 Tween。
+## [br]
+## @api private
 var _active_tween: Tween = null
+
+## 经时间策略归一化后的动作时长。
+## [br]
+## @api private
 var _duration: float = 0.12
+
+## 执行开始时从目标属性取得的颜色。
+## [br]
+## @api private
 var _original_color: Color = Color.WHITE
+
+## 标记当前是否保存了可恢复的原色。
+## [br]
+## @api private
 var _has_original_color: bool = false
 
 
@@ -154,6 +169,9 @@ func get_wait_guard_node() -> Node:
 
 # --- 私有/辅助方法 ---
 
+## 断开并终止当前 Tween，可选恢复原色，然后清除原色有效标记。
+## [br]
+## @api private
 func _clear_active_tween(restore_original: bool = false) -> void:
 	if is_instance_valid(_active_tween):
 		if _active_tween.finished.is_connected(_on_active_tween_finished):
@@ -165,6 +183,9 @@ func _clear_active_tween(restore_original: bool = false) -> void:
 	_clear_original_color()
 
 
+## 检查目标颜色属性路径并读取值；路径缺失或值不是 Color 时发出警告并返回 null。
+## [br]
+## @api private
 func _get_color_property_value() -> Variant:
 	if not _has_target_property_path():
 		push_warning("[GFFlashAction][flash_action.missing_property] Target property does not exist: %s." % String(property_name))
@@ -178,6 +199,9 @@ func _get_color_property_value() -> Variant:
 	return null
 
 
+## 通过目标属性列表确认 NodePath 的根属性名称存在。
+## [br]
+## @api private
 func _has_target_property_path() -> bool:
 	var base_name: String = _get_property_base_name(property_name)
 	if base_name.is_empty():
@@ -189,6 +213,9 @@ func _has_target_property_path() -> bool:
 	return false
 
 
+## 优先取 NodePath 首个名称段；没有名称段时截取冒号前的属性文本。
+## [br]
+## @api private
 func _get_property_base_name(path: NodePath) -> String:
 	if path.get_name_count() > 0:
 		return String(path.get_name(0))
@@ -200,6 +227,9 @@ func _get_property_base_name(path: NodePath) -> String:
 	return text
 
 
+## 将 Variant 收窄为 Color；类型不符时使用白色。
+## [br]
+## @api private
 func _get_color_value(value: Variant) -> Color:
 	if value is Color:
 		var color: Color = value
@@ -207,17 +237,26 @@ func _get_color_value(value: Variant) -> Color:
 	return Color.WHITE
 
 
+## 仅在原色标记有效且目标仍存活时将原色写回指定属性。
+## [br]
+## @api private
 func _restore_original_color() -> void:
 	if _has_original_color and is_instance_valid(target):
 		target.set_indexed(property_name, _original_color)
 
 
+## 清除保存原色的有效标记。
+## [br]
+## @api private
 func _clear_original_color() -> void:
 	_has_original_color = false
 
 
 # --- 信号处理函数 ---
 
+## Tween 完成后清空句柄、丢弃原色记录并释放动作等待者。
+## [br]
+## @api private
 func _on_active_tween_finished() -> void:
 	_active_tween = null
 	_clear_original_color()

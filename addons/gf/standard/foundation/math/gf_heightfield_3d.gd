@@ -14,14 +14,37 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 世界范围各轴必须至少达到的跨度，避免无效或近零的坐标映射。
+## [br]
+## @api private
+## [br]
 const _MIN_WORLD_SPAN: float = 0.000001
 
 
 # --- 私有变量 ---
 
+## 当前高度样本网格尺寸；x 对应世界 X，y 对应世界 Z。
+## [br]
+## @api private
+## [br]
 var _grid_size: Vector2i = Vector2i.ZERO
+
+## 当前高度场的最小 X/Z 世界坐标。
+## [br]
+## @api private
+## [br]
 var _world_min: Vector2 = Vector2.ZERO
+
+## 当前高度场的最大 X/Z 世界坐标。
+## [br]
+## @api private
+## [br]
 var _world_max: Vector2 = Vector2.ONE
+
+## 当前高度场拥有的行优先 float32 高度样本副本。
+## [br]
+## @api private
+## [br]
 var _height_samples: PackedFloat32Array = PackedFloat32Array()
 
 
@@ -690,6 +713,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 复制打包浮点数组，避免高度场与调用方共享可变样本存储。
+## [br]
+## @api private
+## [br]
 static func _copy_float_samples(samples: PackedFloat32Array) -> PackedFloat32Array:
 	var result: PackedFloat32Array = PackedFloat32Array()
 	var _resize_result: int = result.resize(samples.size())
@@ -698,12 +725,20 @@ static func _copy_float_samples(samples: PackedFloat32Array) -> PackedFloat32Arr
 	return result
 
 
+## 将归一化颜色通道夹取并四舍五入为 0 至 255 的字节值；非有限输入按零处理。
+## [br]
+## @api private
+## [br]
 static func _color_channel_to_byte(channel: float) -> int:
 	if not _is_finite_float(channel):
 		return 0
 	return clampi(roundi(clampf(channel, 0.0, 1.0) * 255.0), 0, 255)
 
 
+## 创建字段完整且初始成功的 Terrain-RGB 样本报告。
+## [br]
+## @api private
+## [br]
 static func _make_terrain_rgb_samples_report() -> Dictionary:
 	return {
 		"ok": true,
@@ -718,6 +753,10 @@ static func _make_terrain_rgb_samples_report() -> Dictionary:
 	}
 
 
+## 将一条类型和说明组成的问题记录追加到样本报告。
+## [br]
+## @api private
+## [br]
 static func _append_terrain_rgb_issue(report: Dictionary, kind: String, message: String) -> void:
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 	issues.append({
@@ -727,6 +766,10 @@ static func _append_terrain_rgb_issue(report: Dictionary, kind: String, message:
 	report["issues"] = issues
 
 
+## 根据问题与样本字段更新计数、成功标志和摘要，并返回报告。
+## [br]
+## @api private
+## [br]
 static func _finalize_terrain_rgb_samples_report(report: Dictionary) -> Dictionary:
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 	var counts: Dictionary = GFVariantData.get_option_dictionary(report, "counts")
@@ -738,10 +781,18 @@ static func _finalize_terrain_rgb_samples_report(report: Dictionary) -> Dictiona
 	return report
 
 
+## 判断浮点值既不是 NaN 也不是正负无穷。
+## [br]
+## @api private
+## [br]
 static func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 将 null 或非数字 fallback 转为 NAN，并将整数或浮点数转成采样高度。
+## [br]
+## @api private
+## [br]
 static func _sample_fallback_to_float(value: Variant) -> float:
 	if value == null:
 		return NAN
@@ -754,14 +805,26 @@ static func _sample_fallback_to_float(value: Variant) -> float:
 	return NAN
 
 
+## 判断二维向量的两个分量是否均为有限浮点值。
+## [br]
+## @api private
+## [br]
 static func _is_finite_vector2(value: Vector2) -> bool:
 	return _is_finite_float(value.x) and _is_finite_float(value.y)
 
 
+## 判断三维向量的三个分量是否均为有限浮点值。
+## [br]
+## @api private
+## [br]
 static func _is_finite_vector3(value: Vector3) -> bool:
 	return _is_finite_float(value.x) and _is_finite_float(value.y) and _is_finite_float(value.z)
 
 
+## 检查打包高度样本中的每个值是否均可作为有限高度使用。
+## [br]
+## @api private
+## [br]
 static func _samples_are_finite(samples: PackedFloat32Array) -> bool:
 	for height_value: float in samples:
 		if not _is_finite_float(height_value):
@@ -769,6 +832,10 @@ static func _samples_are_finite(samples: PackedFloat32Array) -> bool:
 	return true
 
 
+## 校验尺寸、样本数量、有限范围、最小世界跨度和所有高度值。
+## [br]
+## @api private
+## [br]
 static func _can_configure(
 	grid_size: Vector2i,
 	height_samples: PackedFloat32Array,
@@ -786,10 +853,18 @@ static func _can_configure(
 	return _samples_are_finite(height_samples)
 
 
+## 判断整数样本坐标是否位于当前网格尺寸内。
+## [br]
+## @api private
+## [br]
 func _cell_is_inside(cell: Vector2i) -> bool:
 	return cell.x >= 0 and cell.x < _grid_size.x and cell.y >= 0 and cell.y < _grid_size.y
 
 
+## 判断连续网格坐标有限且落在首末样本坐标闭区间内。
+## [br]
+## @api private
+## [br]
 func _grid_position_is_inside(grid_position: Vector2) -> bool:
 	if not _is_finite_vector2(grid_position):
 		return false
@@ -801,10 +876,18 @@ func _grid_position_is_inside(grid_position: Vector2) -> bool:
 	)
 
 
+## 将二维样本坐标转换为行优先的一维数组索引。
+## [br]
+## @api private
+## [br]
 func _cell_to_index(cell: Vector2i) -> int:
 	return cell.y * _grid_size.x + cell.x
 
 
+## 将连续坐标夹到网格边界后，对所在四个样本执行双线性插值。
+## [br]
+## @api private
+## [br]
 func _sample_grid_bilinear_clamped(grid_position: Vector2) -> float:
 	var clamped_x: float = clampf(grid_position.x, 0.0, float(_grid_size.x - 1))
 	var clamped_z: float = clampf(grid_position.y, 0.0, float(_grid_size.y - 1))
@@ -823,6 +906,10 @@ func _sample_grid_bilinear_clamped(grid_position: Vector2) -> float:
 	return lerpf(h0, h1, tz)
 
 
+## 计算相邻样本的 X/Z 世界间距；单样本网格对应轴使用完整世界跨度。
+## [br]
+## @api private
+## [br]
 func _get_cell_world_size() -> Vector2:
 	var world_span: Vector2 = _world_max - _world_min
 	return Vector2(

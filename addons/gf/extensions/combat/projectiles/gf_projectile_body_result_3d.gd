@@ -11,14 +11,32 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 提供 3D 变换和向量的有限值校验。
+## [br]
+## @api private
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
 
 # --- 私有变量 ---
 
+## 标记结果是否由成功工厂创建。
+## [br]
+## @api private
 var _successful: bool = false
+
+## 保存失败原因；成功结果使用空 `StringName`。
+## [br]
+## @api private
 var _failure_reason: StringName = &"unconfigured"
+
+## 保存工厂确认有限的结果变换；失败输入保留单位变换默认值。
+## [br]
+## @api private
 var _transform: Transform3D = Transform3D.IDENTITY
+
+## 保存操作实际产生的世界位移；未成功应用时保持零向量。
+## [br]
+## @api private
 var _actual_displacement: Vector3 = Vector3.ZERO
 
 

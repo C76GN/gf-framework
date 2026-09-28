@@ -650,6 +650,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				"tests/gf_core/tools/test_gf_gut_sharding.py",
 				"tests/gf_core/tools/test_gf_gut_shard_worker.py",
 				"tests/gf_core/tools/test_build_gf_release_artifacts.py",
+				"tests/gf_core/tools/test_gf_private_docs_queries.py",
 			),
 		),
 		subprocess_action(

@@ -56,6 +56,10 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 拖拽来源对象的弱引用；对象被释放后不由会话继续持有。
+## [br]
+## @api private
+## [br]
 var _source_ref: WeakRef = null
 
 
@@ -174,6 +178,10 @@ func to_dictionary(json_compatible: bool = true) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 仅将 Object 类型 Variant 收窄为对象；其他类型返回 null。
+## [br]
+## @api private
+## [br]
 func _get_object(value: Variant) -> Object:
 	if value is Object:
 		var object: Object = value

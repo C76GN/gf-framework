@@ -22,13 +22,52 @@ extends Resource
 const DEFAULT_MATERIALIZE_DIR: String = "user://gf/artifacts"
 
 
+## 目标路径为空时使用的失败原因码。
+## [br]
+## @api private
+## [br]
 const _REASON_EMPTY_TARGET_PATH: String = "empty_target_path"
+
+## 写入位置不在允许的 URI scheme 中时使用的失败原因码。
+## [br]
+## @api private
+## [br]
 const _REASON_PATH_NOT_ALLOWED: String = "path_not_allowed"
+
+## 文件名不符合可移植规则时使用的失败原因码。
+## [br]
+## @api private
+## [br]
 const _REASON_INVALID_FILE_NAME: String = "invalid_file_name"
+
+## artifact 不包含数据时使用的失败原因码。
+## [br]
+## @api private
+## [br]
 const _REASON_EMPTY_DATA: String = "empty_data"
+
+## 写入事务未成功时使用的失败原因码。
+## [br]
+## @api private
+## [br]
 const _REASON_WRITE_FAILED: String = "write_failed"
+
+## 可移植文件名的 UTF-8 字节数上限。
+## [br]
+## @api private
+## [br]
 const _MAX_PORTABLE_FILE_NAME_BYTES: int = 255
+
+## 自动生成扩展名组件的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_GENERATED_EXTENSION_BYTES: int = 32
+
+## 提交原始字节文件写入事务的预加载脚本。
+## [br]
+## @api private
+## [br]
 const _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT = preload(
 	"res://addons/gf/kernel/editor/gf_artifact_write_transaction.gd"
 )
@@ -275,6 +314,10 @@ func to_summary_dictionary() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按 allow_user_path/allow_res_path 选项检查 user:// 或 res:// 路径。
+## [br]
+## @api private
+## [br]
 func _path_is_allowed(path: String, options: Dictionary) -> bool:
 	if path.begins_with("user://"):
 		return GFVariantData.get_option_bool(options, "allow_user_path", true)
@@ -283,6 +326,10 @@ func _path_is_allowed(path: String, options: Dictionary) -> bool:
 	return false
 
 
+## 将条目和事务选项转交给 artifact 写入事务脚本提交。
+## [br]
+## @api private
+## [br]
 func _commit_materialization(
 	entries: Array[Dictionary],
 	options: Dictionary
@@ -290,6 +337,10 @@ func _commit_materialization(
 	return _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.commit(entries, options)
 
 
+## 构造物化报告，并复制恢复事务数据及来源元信息。
+## [br]
+## @api private
+## [br]
 func _make_report(
 	ok: bool,
 	path: String,
@@ -313,6 +364,10 @@ func _make_report(
 	}
 
 
+## 从来源名、可选扩展名和数据哈希生成受限长度的 ASCII 文件名。
+## [br]
+## @api private
+## [br]
 func _make_default_file_name(options: Dictionary) -> String:
 	var base_name: String = source_path.get_file()
 	if base_name.is_empty():
@@ -361,6 +416,10 @@ func _make_default_file_name(options: Dictionary) -> String:
 	return "artifact%s" % hash_suffix
 
 
+## 仅保留 ASCII 字母、数字、连字符和下划线。
+## [br]
+## @api private
+## [br]
 func _make_portable_ascii_component(value: String) -> String:
 	var result: String = ""
 	for index: int in range(value.length()):
@@ -376,6 +435,10 @@ func _make_portable_ascii_component(value: String) -> String:
 	return result
 
 
+## 检查文件名长度、字符、末尾标点及 Windows 保留设备名约束。
+## [br]
+## @api private
+## [br]
 func _is_portable_file_name(file_name: String) -> bool:
 	if (
 		file_name.is_empty()
@@ -416,6 +479,10 @@ func _is_portable_file_name(file_name: String) -> bool:
 	return true
 
 
+## 检查字符串是否只包含 ASCII 码点。
+## [br]
+## @api private
+## [br]
 func _string_is_ascii(value: String) -> bool:
 	for index: int in range(value.length()):
 		if value.unicode_at(index) > 0x7f:
@@ -423,6 +490,10 @@ func _string_is_ascii(value: String) -> bool:
 	return true
 
 
+## 检查字符串是否含 C0 或 DEL 控制字符。
+## [br]
+## @api private
+## [br]
 func _string_has_control_character(value: String) -> bool:
 	for index: int in range(value.length()):
 		var codepoint: int = value.unicode_at(index)

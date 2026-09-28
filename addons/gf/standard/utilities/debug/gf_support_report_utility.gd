@@ -137,9 +137,28 @@ var include_screenshot_by_default: bool = false
 
 # --- 私有变量 ---
 
+## 按分区 ID 保存已注册的同步 Provider 及其展示元数据。
+## [br]
+## @api private
+## [br]
 var _section_providers: Dictionary = {}
+
+## 当前实例成功构建的报告总数。
+## [br]
+## @api private
+## [br]
 var _reports_built_count: int = 0
+
+## 当前实例成功保存且临时文件提交完成的报告总数。
+## [br]
+## @api private
+## [br]
 var _reports_saved_count: int = 0
+
+## 提交回调返回成功结果的报告总数。
+## [br]
+## @api private
+## [br]
 var _reports_submitted_count: int = 0
 
 
@@ -632,10 +651,18 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 为目标路径生成带用途、进程 ID 和时钟读数的临时或备份旁文件名。
+## [br]
+## @api private
+## [br]
 func _make_report_sidecar_path(path: String, role: String) -> String:
 	return "%s.gf-support-%s-%d-%d" % [path, role, OS.get_process_id(), Time.get_ticks_usec()]
 
 
+## 将临时报告文件重命名为目标文件；替换失败时尝试恢复旧文件，并返回提交或清理错误。
+## [br]
+## @api private
+## [br]
 func _commit_report_temp_file(path: String, temp_path: String) -> Error:
 	var absolute_path: String = ProjectSettings.globalize_path(path)
 	var absolute_temp_path: String = ProjectSettings.globalize_path(temp_path)
@@ -663,24 +690,40 @@ func _commit_report_temp_file(path: String, temp_path: String) -> Error:
 	return replace_error
 
 
+## 目标文件不存在或路径为空时返回成功，否则删除该文件。
+## [br]
+## @api private
+## [br]
 func _remove_file_if_exists(path: String) -> Error:
 	if path.is_empty() or not FileAccess.file_exists(path):
 		return OK
 	return DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
 
+## 从字典删除指定键，并忽略删除结果。
+## [br]
+## @api private
+## [br]
 func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 	var erased: bool = target.erase(key)
 	if erased:
 		return
 
 
+## 向 PackedStringArray 追加文本，并忽略追加结果。
+## [br]
+## @api private
+## [br]
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 调用附件追加流程并丢弃其返回结果。
+## [br]
+## @api private
+## [br]
 func _append_attachment_without_result(
 	attachments: Dictionary,
 	attachment_id: StringName,
@@ -692,18 +735,30 @@ func _append_attachment_without_result(
 		return
 
 
+## 将文本写入已打开文件，并忽略写入方法的返回值。
+## [br]
+## @api private
+## [br]
 func _store_file_string(file: FileAccess, value: String) -> void:
 	var stored: Variant = file.store_string(value)
 	if stored == null:
 		return
 
 
+## 将字节缓冲区写入已打开文件，并忽略写入方法的返回值。
+## [br]
+## @api private
+## [br]
 func _store_file_buffer(file: FileAccess, bytes: PackedByteArray) -> void:
 	var stored: Variant = file.store_buffer(bytes)
 	if stored == null:
 		return
 
 
+## 将 Variant 转换为 Callable；类型不符时返回空 Callable。
+## [br]
+## @api private
+## [br]
 func _variant_to_callable(value: Variant) -> Callable:
 	if value is Callable:
 		var callback: Callable = value
@@ -711,6 +766,10 @@ func _variant_to_callable(value: Variant) -> Callable:
 	return Callable()
 
 
+## 从 Engine 主循环读取 SceneTree；其他主循环类型返回 null。
+## [br]
+## @api private
+## [br]
 func _get_scene_tree() -> SceneTree:
 	var main_loop: MainLoop = Engine.get_main_loop()
 	if main_loop is SceneTree:
@@ -719,6 +778,10 @@ func _get_scene_tree() -> SceneTree:
 	return null
 
 
+## 通过 utility 注册表取得 GFDiagnosticsUtility；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_diagnostics_utility() -> GFDiagnosticsUtility:
 	var utility: Object = get_utility(GFDiagnosticsUtility)
 	if utility is GFDiagnosticsUtility:
@@ -726,6 +789,10 @@ func _get_diagnostics_utility() -> GFDiagnosticsUtility:
 	return null
 
 
+## 通过 utility 注册表取得 GFLogUtility；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_log_utility() -> GFLogUtility:
 	var utility: Object = get_utility(GFLogUtility)
 	if utility is GFLogUtility:
@@ -733,10 +800,18 @@ func _get_log_utility() -> GFLogUtility:
 	return null
 
 
+## 组合 Unix 秒数和单调时钟毫秒数生成报告标识文本。
+## [br]
+## @api private
+## [br]
 func _make_report_id() -> String:
 	return "%d-%d" % [int(Time.get_unix_time_from_system()), Time.get_ticks_msec()]
 
 
+## 保留 minimal、coarse 或 full 精度值，未知值回退到 minimal。
+## [br]
+## @api private
+## [br]
 func _normalize_runtime_detail(value: int) -> RuntimeDetail:
 	match value:
 		RuntimeDetail.MINIMAL, RuntimeDetail.COARSE, RuntimeDetail.FULL:
@@ -745,6 +820,10 @@ func _normalize_runtime_detail(value: int) -> RuntimeDetail:
 			return RuntimeDetail.MINIMAL
 
 
+## 将运行时精度枚举映射为 minimal、coarse 或 full 文本标识。
+## [br]
+## @api private
+## [br]
 func _get_runtime_detail_name(detail: RuntimeDetail) -> StringName:
 	match detail:
 		RuntimeDetail.COARSE:
@@ -755,6 +834,10 @@ func _get_runtime_detail_name(detail: RuntimeDetail) -> StringName:
 			return &"minimal"
 
 
+## 将非负整数放入给定上界定义的闭区间分桶，超出时返回加号桶。
+## [br]
+## @api private
+## [br]
 func _make_range_bucket(value: int, upper_bounds: PackedInt64Array) -> String:
 	var safe_value: int = maxi(value, 0)
 	var lower_bound: int = 0
@@ -765,6 +848,10 @@ func _make_range_bucket(value: int, upper_bounds: PackedInt64Array) -> String:
 	return "%d+" % lower_bound
 
 
+## 读取当前场景名称和资源路径，并按可配置深度与节点数限制统计节点。
+## [br]
+## @api private
+## [br]
 func _collect_scene_snapshot(options: Dictionary = {}) -> Dictionary:
 	var tree: SceneTree = _get_scene_tree()
 	if tree == null or tree.current_scene == null:
@@ -787,6 +874,10 @@ func _collect_scene_snapshot(options: Dictionary = {}) -> Dictionary:
 	}
 
 
+## 优先调用诊断工具采集快照；不可用时尝试读取日志工具，否则报告不可用。
+## [br]
+## @api private
+## [br]
 func _collect_diagnostics_snapshot(options: Dictionary) -> Dictionary:
 	var diagnostics: GFDiagnosticsUtility = _get_diagnostics_utility()
 	if diagnostics != null:
@@ -810,11 +901,19 @@ func _collect_diagnostics_snapshot(options: Dictionary) -> Dictionary:
 	}
 
 
+## 通过截图工具捕获指定 Viewport 的 PNG 字节缓冲区。
+## [br]
+## @api private
+## [br]
 func _capture_viewport_png_buffer(viewport: Viewport) -> PackedByteArray:
 	var screenshot_utility: GFScreenshotUtility = GFScreenshotUtility.new()
 	return screenshot_utility.capture_viewport_png_buffer(viewport)
 
 
+## 拒绝空附件 ID；否则规范化内容并将条目存入附件字典。
+## [br]
+## @api private
+## [br]
 func _append_attachment(
 	attachments: Dictionary,
 	attachment_id: StringName,
@@ -832,6 +931,10 @@ func _append_attachment(
 	return entry
 
 
+## 合并附件选项并按 path、PackedByteArray 或 String 内容类型委派创建条目。
+## [br]
+## @api private
+## [br]
 func _make_attachment_entry(attachment_id: StringName, content: Variant, options: Dictionary) -> Dictionary:
 	var attachment_options: Dictionary = options.duplicate(true)
 	var payload: Variant = content
@@ -874,6 +977,10 @@ func _make_attachment_entry(attachment_id: StringName, content: Variant, options
 	}
 
 
+## 检查二进制附件大小上限，生成 Base64 条目，并在请求时保存字节。
+## [br]
+## @api private
+## [br]
 func _make_binary_attachment_entry(
 	bytes: PackedByteArray,
 	filename: String,
@@ -898,6 +1005,10 @@ func _make_binary_attachment_entry(
 	return entry
 
 
+## 按 UTF-8 字节数检查文本附件上限并生成文本编码条目。
+## [br]
+## @api private
+## [br]
 func _make_text_attachment_entry(
 	text: String,
 	filename: String,
@@ -921,6 +1032,10 @@ func _make_text_attachment_entry(
 	}
 
 
+## 构造包含原始大小、上限和过大原因的失败附件条目。
+## [br]
+## @api private
+## [br]
 func _make_rejected_attachment_entry(
 	filename: String,
 	mime_type: String,
@@ -939,6 +1054,10 @@ func _make_rejected_attachment_entry(
 	}
 
 
+## 验证保存路径根目录及路径组件后写入字节；记录保存错误，成功时保存经脱敏的路径和文件名。
+## [br]
+## @api private
+## [br]
 func _save_attachment_if_requested(entry: Dictionary, bytes: PackedByteArray, options: Dictionary) -> void:
 	var save_path: String = GFVariantData.get_option_string(options, "save_path")
 	if save_path.is_empty():
@@ -999,6 +1118,10 @@ func _save_attachment_if_requested(entry: Dictionary, bytes: PackedByteArray, op
 		entry["save_error"] = error
 
 
+## 仅在选项允许且路径位于允许根目录、未检测到链接组件时读取文件，并检查大小上限。
+## [br]
+## @api private
+## [br]
 func _make_path_attachment_entry(path: String, options: Dictionary) -> Dictionary:
 	var filename: String = GFVariantData.get_option_string(options, "filename", path.get_file())
 	var mime_type: String = GFVariantData.get_option_string(options, "mime_type", "application/octet-stream")
@@ -1038,6 +1161,10 @@ func _make_path_attachment_entry(path: String, options: Dictionary) -> Dictionar
 	return _make_binary_attachment_entry(bytes, filename, mime_type, metadata, options)
 
 
+## 构造包含文件名、大小、原因和元数据的路径附件失败条目。
+## [br]
+## @api private
+## [br]
 func _make_path_rejected_attachment_entry(
 	filename: String,
 	mime_type: String,
@@ -1055,6 +1182,10 @@ func _make_path_rejected_attachment_entry(
 	}
 
 
+## 读取并规范化配置根目录；选项未提供有效根时使用给定默认根。
+## [br]
+## @api private
+## [br]
 func _get_path_roots(options: Dictionary, key: String, default_roots: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var raw_roots: Array = GFVariantData.get_option_array(options, key)
@@ -1067,6 +1198,10 @@ func _get_path_roots(options: Dictionary, key: String, default_roots: PackedStri
 	return result
 
 
+## 规范化目标和根目录，并仅接受根目录本身或其目录分隔符边界下的路径。
+## [br]
+## @api private
+## [br]
 func _is_path_under_allowed_roots(path: String, roots: PackedStringArray) -> bool:
 	var normalized_path: String = _canonical_path_for_boundary(path)
 	if normalized_path.is_empty():
@@ -1085,6 +1220,10 @@ func _is_path_under_allowed_roots(path: String, roots: PackedStringArray) -> boo
 	return false
 
 
+## 规范化 user://、res:// 虚拟路径或简化普通文件系统路径。
+## [br]
+## @api private
+## [br]
 func _canonical_path_for_boundary(path: String) -> String:
 	var normalized_path: String = path.replace("\\", "/").strip_edges()
 	if normalized_path.begins_with("user://"):
@@ -1094,6 +1233,10 @@ func _canonical_path_for_boundary(path: String) -> String:
 	return normalized_path.simplify_path()
 
 
+## 规整虚拟路径的 . 与 .. 段；试图越过虚拟根时返回空路径。
+## [br]
+## @api private
+## [br]
 func _canonical_virtual_path(path: String, prefix: String) -> String:
 	var relative_path: String = path.substr(prefix.length())
 	var segments: PackedStringArray = relative_path.split("/", false)
@@ -1112,6 +1255,10 @@ func _canonical_virtual_path(path: String, prefix: String) -> String:
 	return prefix + "/".join(stack)
 
 
+## 检查规范化路径及其祖先的组件是否为链接；任一组件不可检查时按存在链接处理。
+## [br]
+## @api private
+## [br]
 func _path_has_link_component(path: String) -> bool:
 	var current: String = ProjectSettings.globalize_path(path).replace("\\", "/").simplify_path()
 	while not current.is_empty():
@@ -1126,6 +1273,10 @@ func _path_has_link_component(path: String) -> bool:
 	return false
 
 
+## 检查写入路径上现存目录项是否为链接，并将无法打开的现存父目录视为拒绝。
+## [br]
+## @api private
+## [br]
 func _path_has_link_component_for_write(path: String) -> bool:
 	var current: String = (
 		ProjectSettings.globalize_path(path)
@@ -1154,6 +1305,10 @@ func _path_has_link_component_for_write(path: String) -> bool:
 	return false
 
 
+## 检查路径末段在其父目录中是否为链接；父目录不可打开时返回 true。
+## [br]
+## @api private
+## [br]
 func _path_component_is_link(path: String) -> bool:
 	var normalized: String = path.replace("\\", "/")
 	while normalized.length() > 1 and normalized.ends_with("/"):
@@ -1168,6 +1323,10 @@ func _path_component_is_link(path: String) -> bool:
 	return directory.is_link(component_name)
 
 
+## 规范化含 ok 字段的字典结果；其他返回值包装为成功结果的 value。
+## [br]
+## @api private
+## [br]
 func _normalize_submit_result(raw_result: Variant) -> Dictionary:
 	if raw_result is Dictionary:
 		var data: Dictionary = GFVariantData.as_dictionary(raw_result)
@@ -1186,6 +1345,10 @@ func _normalize_submit_result(raw_result: Variant) -> Dictionary:
 	}
 
 
+## 向 Markdown 报告写入 ID、时间戳以及非空描述和标签摘要。
+## [br]
+## @api private
+## [br]
 func _append_markdown_summary(lines: PackedStringArray, report: Dictionary) -> void:
 	_append_packed_string(lines, "## Summary")
 	_append_packed_string(lines, "")
@@ -1200,6 +1363,10 @@ func _append_markdown_summary(lines: PackedStringArray, report: Dictionary) -> v
 	_append_packed_string(lines, "")
 
 
+## 按给定字段顺序输出非空字典；没有给定字段时按排序键输出全部字段。
+## [br]
+## @api private
+## [br]
 func _append_markdown_dictionary_fields(
 	lines: PackedStringArray,
 	title: String,
@@ -1225,6 +1392,10 @@ func _append_markdown_dictionary_fields(
 	_append_packed_string(lines, "")
 
 
+## 将非空字典按排序后的键值对写入 Markdown。
+## [br]
+## @api private
+## [br]
 func _append_markdown_dictionary(lines: PackedStringArray, title: String, value: Variant) -> void:
 	if not (value is Dictionary):
 		return
@@ -1239,6 +1410,10 @@ func _append_markdown_dictionary(lines: PackedStringArray, title: String, value:
 	_append_packed_string(lines, "")
 
 
+## 写入诊断可用性、时间、键列表以及存在的性能和日志摘要字段。
+## [br]
+## @api private
+## [br]
 func _append_markdown_diagnostics(lines: PackedStringArray, value: Variant) -> void:
 	if not (value is Dictionary):
 		return
@@ -1273,6 +1448,10 @@ func _append_markdown_diagnostics(lines: PackedStringArray, value: Variant) -> v
 	_append_packed_string(lines, "")
 
 
+## 按 ID 顺序写入分区标签、状态、错误和 JSON 格式的值。
+## [br]
+## @api private
+## [br]
 func _append_markdown_sections(lines: PackedStringArray, value: Variant) -> void:
 	if not (value is Dictionary):
 		return
@@ -1304,6 +1483,10 @@ func _append_markdown_sections(lines: PackedStringArray, value: Variant) -> void
 		_append_packed_string(lines, "")
 
 
+## 按附件 ID 顺序写入附件状态、文件名、媒体类型、大小及可用原因或保存路径。
+## [br]
+## @api private
+## [br]
 func _append_markdown_attachments(lines: PackedStringArray, value: Variant) -> void:
 	if not (value is Dictionary):
 		return
@@ -1332,15 +1515,27 @@ func _append_markdown_attachments(lines: PackedStringArray, value: Variant) -> v
 		_append_packed_string(lines, "")
 
 
+## 按排序后的字典键逐项写入 Markdown 字段。
+## [br]
+## @api private
+## [br]
 func _append_markdown_dictionary_items(lines: PackedStringArray, dictionary: Dictionary) -> void:
 	for key: Variant in _get_sorted_dictionary_keys(dictionary):
 		_append_markdown_field(lines, GFVariantData.to_text(key), dictionary[key])
 
 
+## 将标签和值格式化为一条 Markdown 列表项。
+## [br]
+## @api private
+## [br]
 func _append_markdown_field(lines: PackedStringArray, label: String, value: Variant) -> void:
 	_append_packed_string(lines, "- %s: %s" % [_markdown_line(label), _markdown_value(value)])
 
 
+## 将字典或数组序列化为 JSON，将 PackedStringArray 连接，并把最终值放入行内代码格式。
+## [br]
+## @api private
+## [br]
 func _markdown_value(value: Variant) -> String:
 	if value is Dictionary or value is Array:
 		return "`%s`" % _markdown_inline(_variant_to_json_text(value))
@@ -1350,15 +1545,27 @@ func _markdown_value(value: Variant) -> String:
 	return "`%s`" % _markdown_inline(GFVariantData.to_text(value))
 
 
+## 将换行替换为空格并修剪文本；空结果用连字符占位。
+## [br]
+## @api private
+## [br]
 func _markdown_line(value: String) -> String:
 	var result: String = value.replace("\r", " ").replace("\n", " ").strip_edges()
 	return result if not result.is_empty() else "-"
 
 
+## 先清理单行文本，再将反引号替换为撇号以保持行内代码边界。
+## [br]
+## @api private
+## [br]
 func _markdown_inline(value: String) -> String:
 	return _markdown_line(value).replace("`", "'")
 
 
+## 将正数时间戳转换为 ISO 风格日期时间文本；其他值保留为通用文本。
+## [br]
+## @api private
+## [br]
 func _format_unix_timestamp(value: Variant) -> String:
 	if value is int or value is float:
 		var timestamp: int = GFVariantData.to_int(value)
@@ -1367,6 +1574,10 @@ func _format_unix_timestamp(value: Variant) -> String:
 	return GFVariantData.to_text(value)
 
 
+## 将 PackedStringArray 或数组元素转换为逗号分隔的标签文本。
+## [br]
+## @api private
+## [br]
 func _tags_to_markdown_text(value: Variant) -> String:
 	var tags: PackedStringArray = PackedStringArray()
 	if value is PackedStringArray:
@@ -1377,10 +1588,18 @@ func _tags_to_markdown_text(value: Variant) -> String:
 	return ", ".join(tags)
 
 
+## 使用 GFReportValueCodec 以制表符缩进序列化 JSON 兼容值。
+## [br]
+## @api private
+## [br]
 func _variant_to_json_text(value: Variant) -> String:
 	return GFReportValueCodec.stringify_json_compatible(value, "\t")
 
 
+## 按键的文本表示升序返回字典键。
+## [br]
+## @api private
+## [br]
 func _get_sorted_dictionary_keys(dictionary: Dictionary) -> Array:
 	var keys: Array = dictionary.keys()
 	keys.sort_custom(func(a: Variant, b: Variant) -> bool:
@@ -1389,12 +1608,20 @@ func _get_sorted_dictionary_keys(dictionary: Dictionary) -> Array:
 	return keys
 
 
+## 仅当 Variant 是 Viewport 时返回该值，否则返回 null。
+## [br]
+## @api private
+## [br]
 func _get_viewport_value(value: Variant) -> Viewport:
 	if value is Viewport:
 		return value
 	return null
 
 
+## 读取 PackedStringArray；可选返回副本，类型不符时返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_packed_string_array_value(value: Variant, duplicate_value: bool = false) -> PackedStringArray:
 	if value is PackedStringArray:
 		var array: PackedStringArray = value
@@ -1402,10 +1629,18 @@ func _get_packed_string_array_value(value: Variant, duplicate_value: bool = fals
 	return PackedStringArray()
 
 
+## 通过 GFVariantData 读取并转换指定字典选项。
+## [br]
+## @api private
+## [br]
 func _get_dictionary_option(options: Dictionary, key: String) -> Dictionary:
 	return GFVariantData.get_option_dictionary(options, key)
 
 
+## 将 PackedStringArray 复制返回，或把数组元素转换为字符串数组。
+## [br]
+## @api private
+## [br]
 func _get_tags(value: Variant) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	if value is PackedStringArray:
@@ -1416,6 +1651,10 @@ func _get_tags(value: Variant) -> PackedStringArray:
 	return result
 
 
+## 递归统计场景节点，在正数深度或节点数上限处停止并更新截断状态。
+## [br]
+## @api private
+## [br]
 func _count_nodes(root: Node, depth: int, max_depth: int, max_nodes: int, counters: Dictionary) -> int:
 	if root == null:
 		return 0
@@ -1438,10 +1677,18 @@ func _count_nodes(root: Node, depth: int, max_depth: int, max_nodes: int, counte
 	return count
 
 
+## 判断当前计数是否低于正数节点上限；非正数上限表示不限制数量。
+## [br]
+## @api private
+## [br]
 func _can_count_more_nodes(counters: Dictionary, max_nodes: int) -> bool:
 	return max_nodes <= 0 or GFVariantData.get_option_int(counters, "count", 0) < max_nodes
 
 
+## 创建含节点计数和截断标记的初始计数字典。
+## [br]
+## @api private
+## [br]
 func _make_node_count_counters() -> Dictionary:
 	return {
 		"count": 0,

@@ -31,7 +31,16 @@ enum MatchMode {
 
 # --- 常量 ---
 
+## 子条件图允许的最大递归深度。
+## [br]
+## @api private
+## [br]
 const _MAX_EVALUATION_DEPTH: int = 64
+
+## 单次子条件图评估可消耗的最大节点预算。
+## [br]
+## @api private
+## [br]
 const _MAX_EVALUATED_CONDITIONS: int = 4096
 
 
@@ -141,6 +150,10 @@ func _evaluate(
 
 # --- 私有/辅助方法 ---
 
+## 在共享评估上下文中检查深度、预算和活动递归环，再求值并移除当前组活动标记。
+## [br]
+## @api private
+## [br]
 func _evaluate_with_context(
 	state: GFNodeState,
 	phase: StringName,
@@ -170,6 +183,10 @@ func _evaluate_with_context(
 	return result
 
 
+## 按 ANY、NONE 或 ALL 组合有效子条件；子图无效会向上传播，空集合使用 empty_result。
+## [br]
+## @api private
+## [br]
 func _evaluate_conditions(
 	state: GFNodeState,
 	phase: StringName,
@@ -238,10 +255,18 @@ func _evaluate_conditions(
 					return { "valid": true, "accepted": false }
 			return { "valid": true, "accepted": empty_result if evaluated_count == 0 else true }
 
+## 条件资源非空且实现 evaluate() 时可参加组合评估。
+## [br]
+## @api private
+## [br]
 func _is_valid_condition(condition: Resource) -> bool:
 	return condition != null and condition.has_method("evaluate")
 
 
+## 嵌套条件组使用同一上下文递归并应用子组 invert；普通条件先消费节点预算再转为 bool。
+## [br]
+## @api private
+## [br]
 func _evaluate_child_with_context(
 	condition: Resource,
 	state: GFNodeState,
@@ -278,6 +303,10 @@ func _evaluate_child_with_context(
 	}
 
 
+## 创建一次组合评估共用的活动组 ID 集合和已评估节点计数。
+## [br]
+## @api private
+## [br]
 func _make_evaluation_context() -> Dictionary:
 	return {
 		"active_group_ids": {},
@@ -285,6 +314,10 @@ func _make_evaluation_context() -> Dictionary:
 	}
 
 
+## 将共享已评估节点数加一，并检查是否未超过单次评估上限。
+## [br]
+## @api private
+## [br]
 func _consume_evaluation_budget(context: Dictionary) -> bool:
 	var evaluated_count: int = GFVariantData.get_option_int(context, "evaluated_count") + 1
 	context["evaluated_count"] = evaluated_count

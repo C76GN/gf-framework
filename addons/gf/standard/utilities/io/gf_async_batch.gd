@@ -141,19 +141,88 @@ var cancel_remaining_on_finish: bool = false
 
 # --- 私有变量 ---
 
+## 按调用方 key 保存条目状态、结果、错误、元数据及取消回调。
+## [br]
+## @api private
+## [br]
 var _items: Dictionary = {}
+
+## 标记批处理是否已经发出终态报告与结果。
+## [br]
+## @api private
+## [br]
 var _completed: bool = false
+
+## 保存每个仍在监听的 GFHttpResponse 及其完成信号回调。
+## [br]
+## @api private
+## [br]
 var _watched_responses: Dictionary = {}
+
+## 保存每个仍在监听的 GFAsyncCompletion 及其完成信号回调。
+## [br]
+## @api private
+## [br]
 var _watched_completions: Dictionary = {}
+
+## 按条目进入终态的顺序保存 key。
+## [br]
+## @api private
+## [br]
 var _completion_order: Array = []
+
+## 首个进入任意终态的条目 key。
+## [br]
+## @api private
+## [br]
 var _first_completed_key: Variant = null
+
+## 首个成功完成的条目 key。
+## [br]
+## @api private
+## [br]
 var _first_success_key: Variant = null
+
+## 按取消 token 实例 ID 保存用于断开的 token 与回调。
+## [br]
+## @api private
+## [br]
 var _cancel_token_callbacks: Dictionary = {}
+
+## 当前由批处理持有并负责 dispose 的超时取消源。
+## [br]
+## @api private
+## [br]
 var _timeout_source: GFCancellationSource = null
+
+## 标记整个批处理是否经 cancel() 进入取消终态。
+## [br]
+## @api private
+## [br]
 var _cancelled: bool = false
+
+## 标记整批取消原因是否恰为 timeout。
+## [br]
+## @api private
+## [br]
 var _timed_out: bool = false
+
+## 保存整批取消的规范化原因。
+## [br]
+## @api private
+## [br]
 var _cancel_reason: StringName = &""
+
+## 保存整批取消上下文，并在写入时复制调用方字典。
+## [br]
+## @api private
+## [br]
 var _cancel_metadata: Dictionary = {}
+
+## 暂停终态就绪检查，避免取消剩余条目时递归结束批处理。
+## [br]
+## @api private
+## [br]
 var _finalizing: bool = false
 
 
@@ -647,6 +716,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 只接受已登记且仍待处理的 key，更新状态、清理监听并发出条目终态通知。
+## [br]
+## @api private
+## [br]
 func _mark_item_terminal(
 	key: Variant,
 	state: ItemState,
@@ -687,6 +760,10 @@ func _mark_item_terminal(
 	return true
 
 
+## 按 ALL、ANY、EACH 与 fail_fast 规则判断是否需要结束批处理。
+## [br]
+## @api private
+## [br]
 func _emit_completed_if_ready() -> void:
 	if _completed or _finalizing:
 		return
@@ -714,6 +791,10 @@ func _emit_completed_if_ready() -> void:
 				_finalize_batch()
 
 
+## 只结束一次；可先取消剩余项，再断开外部监听并依次发出 settled、completed。
+## [br]
+## @api private
+## [br]
 func _finalize_batch() -> void:
 	if _completed:
 		return
@@ -728,6 +809,10 @@ func _finalize_batch() -> void:
 	completed.emit(get_results())
 
 
+## 将仍待处理的所有条目标记为同一取消原因。
+## [br]
+## @api private
+## [br]
 func _cancel_pending_items(reason: StringName) -> void:
 	for key: Variant in _items.keys():
 		var item: Dictionary = _get_item(key)
@@ -736,6 +821,10 @@ func _cancel_pending_items(reason: StringName) -> void:
 		var _cancelled_item: bool = mark_cancelled(key, reason)
 
 
+## 按 GFHttpResponse 的取消、失败或成功状态映射到对应条目终态。
+## [br]
+## @api private
+## [br]
 func _mark_response_completed(response: GFHttpResponse, key: Variant) -> void:
 	if response.state == GFHttpResponse.State.CANCELLED:
 		var _cancelled_item: bool = mark_cancelled(key, StringName(response.error), response)
@@ -746,6 +835,10 @@ func _mark_response_completed(response: GFHttpResponse, key: Variant) -> void:
 	var _completed_item: bool = mark_completed(key, response)
 
 
+## 将 GFAsyncCompletion 的取消、失败或成功结果及终态元数据写入条目。
+## [br]
+## @api private
+## [br]
 func _mark_completion_completed(completion: GFAsyncCompletion, key: Variant) -> void:
 	var terminal_metadata: Dictionary = completion.get_metadata()
 	if completion.is_cancelled():
@@ -778,6 +871,10 @@ func _mark_completion_completed(completion: GFAsyncCompletion, key: Variant) -> 
 	)
 
 
+## 整批已取消时返回 false；ANY 看首个成功项，其它策略要求全部成功。
+## [br]
+## @api private
+## [br]
 func _compute_success() -> bool:
 	if _cancelled:
 		return false
@@ -788,10 +885,18 @@ func _compute_success() -> bool:
 			return get_count() > 0 and get_completed_count() == get_count() and not _has_failed_or_cancelled_item()
 
 
+## 检查是否存在失败或取消状态的条目。
+## [br]
+## @api private
+## [br]
 func _has_failed_or_cancelled_item() -> bool:
 	return get_failed_count() > 0 or get_cancelled_count() > 0
 
 
+## 统计状态规范化后与目标 ItemState 相同的条目数。
+## [br]
+## @api private
+## [br]
 func _count_items_with_state(state: ItemState) -> int:
 	var count: int = 0
 	for item_variant: Variant in _items.values():
@@ -801,6 +906,10 @@ func _count_items_with_state(state: ItemState) -> int:
 	return count
 
 
+## 为每个 key 生成包含状态、结果、错误、取消原因和元数据的报告项。
+## [br]
+## @api private
+## [br]
 func _get_items_report() -> Dictionary:
 	var result: Dictionary = {}
 	for key: Variant in _items.keys():
@@ -819,6 +928,10 @@ func _get_items_report() -> Dictionary:
 	return result
 
 
+## 移除指定响应的监听记录，并在回调仍连接时断开 completed 信号。
+## [br]
+## @api private
+## [br]
 func _disconnect_watched_response(key: Variant) -> void:
 	var entry: Dictionary = _get_watched_response_entry(key)
 	var _erase_result: bool = _watched_responses.erase(key)
@@ -831,6 +944,10 @@ func _disconnect_watched_response(key: Variant) -> void:
 		response.completed.disconnect(callback)
 
 
+## 移除指定完成源的监听记录，并在回调仍连接时断开 completed 信号。
+## [br]
+## @api private
+## [br]
 func _disconnect_watched_completion(key: Variant) -> void:
 	var entry: Dictionary = _get_watched_completion_entry(key)
 	var _erase_result: bool = _watched_completions.erase(key)
@@ -843,18 +960,30 @@ func _disconnect_watched_completion(key: Variant) -> void:
 		completion.completed.disconnect(callback)
 
 
+## 断开并清空所有仍登记的 GFHttpResponse 监听。
+## [br]
+## @api private
+## [br]
 func _disconnect_all_watched_responses() -> void:
 	for key: Variant in _watched_responses.keys():
 		_disconnect_watched_response(key)
 	_watched_responses.clear()
 
 
+## 断开并清空所有仍登记的 GFAsyncCompletion 监听。
+## [br]
+## @api private
+## [br]
 func _disconnect_all_watched_completions() -> void:
 	for key: Variant in _watched_completions.keys():
 		_disconnect_watched_completion(key)
 	_watched_completions.clear()
 
 
+## 断开所有已登记取消 token 的回调并清空关联表。
+## [br]
+## @api private
+## [br]
 func _disconnect_cancel_token() -> void:
 	for entry_value: Variant in _cancel_token_callbacks.values():
 		var entry: Dictionary = GFVariantData.as_dictionary(entry_value)
@@ -865,12 +994,20 @@ func _disconnect_cancel_token() -> void:
 	_cancel_token_callbacks.clear()
 
 
+## 释放当前超时取消源并将引用清空。
+## [br]
+## @api private
+## [br]
 func _dispose_timeout_source() -> void:
 	if _timeout_source != null:
 		_timeout_source.dispose()
 	_timeout_source = null
 
 
+## 若条目取消回调有效，则以 key 和原因调用。
+## [br]
+## @api private
+## [br]
 func _call_item_cancel_callback(key: Variant, reason: StringName) -> void:
 	var item: Dictionary = _get_item(key)
 	var callback: Callable = _get_item_cancel_callback(item)
@@ -878,14 +1015,26 @@ func _call_item_cancel_callback(key: Variant, reason: StringName) -> void:
 		callback.call(key, reason)
 
 
+## 从条目表读取并转换记录；key 不存在时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_item(key: Variant) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_items, key, {}))
 
 
+## 读取条目 done 标记，缺失时按 false 处理。
+## [br]
+## @api private
+## [br]
 func _is_item_done(item: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(item, "done", false)
 
 
+## 将记录中的状态整数收窄为已知 ItemState，未知值回退到 PENDING。
+## [br]
+## @api private
+## [br]
 func _get_item_state(item: Dictionary) -> ItemState:
 	var state_value: int = GFVariantData.get_option_int(item, "state", ItemState.PENDING)
 	match state_value:
@@ -899,34 +1048,66 @@ func _get_item_state(item: Dictionary) -> ItemState:
 			return ItemState.PENDING
 
 
+## 读取条目 result 字段，缺失时返回 Variant 默认值。
+## [br]
+## @api private
+## [br]
 func _get_item_result(item: Dictionary) -> Variant:
 	return GFVariantData.get_option_value(item, "result")
 
 
+## 将条目取消回调字段收窄为 Callable，其他值返回空 Callable。
+## [br]
+## @api private
+## [br]
 func _get_item_cancel_callback(item: Dictionary) -> Callable:
 	return _variant_to_callable(GFVariantData.get_option_value(item, "cancel_callback", Callable()))
 
 
+## 读取响应监听记录；缺失或类型不符时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_watched_response_entry(key: Variant) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_watched_responses, key, {}))
 
 
+## 读取完成源监听记录；缺失或类型不符时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_watched_completion_entry(key: Variant) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_watched_completions, key, {}))
 
 
+## 将监听记录的 response 字段收窄为 GFHttpResponse。
+## [br]
+## @api private
+## [br]
 func _get_entry_response(entry: Dictionary) -> GFHttpResponse:
 	return _variant_to_http_response(GFVariantData.get_option_value(entry, "response"))
 
 
+## 将监听记录的 completion 字段收窄为 GFAsyncCompletion。
+## [br]
+## @api private
+## [br]
 func _get_entry_completion(entry: Dictionary) -> GFAsyncCompletion:
 	return _variant_to_async_completion(GFVariantData.get_option_value(entry, "completion"))
 
 
+## 将监听记录的 callback 字段收窄为 Callable。
+## [br]
+## @api private
+## [br]
 func _get_entry_callback(entry: Dictionary) -> Callable:
 	return _variant_to_callable(GFVariantData.get_option_value(entry, "callback", Callable()))
 
 
+## 将终态元数据逐键合并进条目元数据，同名键由终态值覆盖。
+## [br]
+## @api private
+## [br]
 func _merge_item_metadata(item: Dictionary, terminal_metadata: Dictionary) -> Dictionary:
 	var result: Dictionary = GFVariantData.get_option_dictionary(item, "metadata")
 	for metadata_key: Variant in terminal_metadata.keys():
@@ -934,6 +1115,10 @@ func _merge_item_metadata(item: Dictionary, terminal_metadata: Dictionary) -> Di
 	return result
 
 
+## 将 GFHttpResponse Variant 收窄为目标类型，其余值返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_http_response(value: Variant) -> GFHttpResponse:
 	if value is GFHttpResponse:
 		var response: GFHttpResponse = value
@@ -941,6 +1126,10 @@ func _variant_to_http_response(value: Variant) -> GFHttpResponse:
 	return null
 
 
+## 将 GFAsyncCompletion Variant 收窄为目标类型，其余值返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_async_completion(value: Variant) -> GFAsyncCompletion:
 	if value is GFAsyncCompletion:
 		var completion: GFAsyncCompletion = value
@@ -948,6 +1137,10 @@ func _variant_to_async_completion(value: Variant) -> GFAsyncCompletion:
 	return null
 
 
+## 将 GFCancellationToken Variant 收窄为目标类型，其余值返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_cancel_token(value: Variant) -> GFCancellationToken:
 	if value is GFCancellationToken:
 		var token: GFCancellationToken = value
@@ -955,6 +1148,10 @@ func _variant_to_cancel_token(value: Variant) -> GFCancellationToken:
 	return null
 
 
+## 将 Callable Variant 收窄为 Callable，其余值返回空 Callable。
+## [br]
+## @api private
+## [br]
 func _variant_to_callable(value: Variant) -> Callable:
 	if value is Callable:
 		var callback: Callable = value
@@ -962,6 +1159,10 @@ func _variant_to_callable(value: Variant) -> Callable:
 	return Callable()
 
 
+## 将终态枚举映射为稳定的 succeeded、failed、cancelled 或 pending 名称。
+## [br]
+## @api private
+## [br]
 func _state_to_name(state: ItemState) -> StringName:
 	match state:
 		ItemState.SUCCEEDED:
@@ -976,11 +1177,19 @@ func _state_to_name(state: ItemState) -> StringName:
 
 # --- 信号处理函数 ---
 
+## 响应完成信号处理器：先清理监听，再按响应状态写入条目终态。
+## [br]
+## @api private
+## [br]
 func _on_response_completed(response: GFHttpResponse, key: Variant) -> void:
 	_disconnect_watched_response(key)
 	_mark_response_completed(response, key)
 
 
+## 通用完成信号处理器：先清理监听，再复制完成源的终态数据到条目。
+## [br]
+## @api private
+## [br]
 func _on_completion_completed(completion: GFAsyncCompletion, key: Variant) -> void:
 	_disconnect_watched_completion(key)
 	_mark_completion_completed(completion, key)

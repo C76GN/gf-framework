@@ -6,6 +6,9 @@ extends EditorResourcePreviewGenerator
 
 # --- 常量 ---
 
+## 创建默认预览来源 registry 的脚本。
+## [br]
+## @api private
 const _GF_RESOURCE_PREVIEW_SOURCE_REGISTRY_SCRIPT = preload("res://addons/gf/kernel/editor/gf_resource_preview_source_registry.gd")
 
 ## GF Resource 预览纹理方法名。
@@ -44,20 +47,32 @@ const ICON_TEXTURE_PROPERTY: StringName = &"icon"
 const DEFAULT_BASE_TYPE: String = "Resource"
 
 # 不应进入通用预览回退的翻译资源基类名。
+## 通用回退排除 Translation 及其 ClassDB 子类。
+## [br]
+## @api private
 const _TRANSLATION_BASE_TYPE: String = "Translation"
 
 
 # --- 私有变量 ---
 
+## 本生成器委托注册来源、生成预览和读取纹理的默认 registry 实例。
+## [br]
+## @api private
 var _registry: _GF_RESOURCE_PREVIEW_SOURCE_REGISTRY_SCRIPT = _GF_RESOURCE_PREVIEW_SOURCE_REGISTRY_SCRIPT.make_default()
 
 
-# --- 可重写钩子 / 虚方法 ---
+# --- Godot 回调方法 ---
 
+## 将编辑器资源类型查询交给本生成器的类型支持规则。
+## [br]
+## @api private
 func _handles(type: String) -> bool:
 	return _handles_resource_type(type)
 
 
+## 让注册表按请求尺寸构建资源预览，并从结果中提取可用 Texture2D；未成功生成时沿用提取助手的空值结果。
+## [br]
+## @api private
 func _generate(resource: Resource, size: Vector2i, _metadata: Dictionary) -> Texture2D:
 	var result: Dictionary = _registry.build_preview_result(resource, size)
 	return _get_result_texture(result)
@@ -164,6 +179,9 @@ static func make_preview_texture(texture: Texture2D, size: Vector2i) -> Texture2
 
 # --- 私有/辅助方法 ---
 
+## 排除 Translation 及其 ClassDB 子类；Resource 本身与未知 ClassDB 类型可进入通用生成器。
+## [br]
+## @api private
 static func _handles_resource_type(type: String) -> bool:
 	if type == _TRANSLATION_BASE_TYPE:
 		return false
@@ -176,6 +194,9 @@ static func _handles_resource_type(type: String) -> bool:
 	return true
 
 
+## 仅当结果字典的 texture 字段是 Texture2D 时返回该纹理，否则返回 null。
+## [br]
+## @api private
 static func _get_result_texture(result: Dictionary) -> Texture2D:
 	var value: Variant = result.get("texture")
 	if value is Texture2D:

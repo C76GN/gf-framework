@@ -70,17 +70,76 @@ enum FileOpenMode {
 
 # --- 私有变量 ---
 
+## 所有实例当前打开文件的弱引用，用于清理时跳过仍在使用的文件。
+## [br]
+## @api private
+## [br]
 static var _active_files: Array[WeakRef] = []
+
+## 当前 JSONL 文件句柄；未成功打开或已关闭时为空引用。
+## [br]
+## @api private
+## [br]
 var _file: FileAccess
+
+## 初始化解析出的实际输出路径。
+## [br]
+## @api private
+## [br]
 var _effective_file_path: String = ""
+
+## 最近一次 flush 的单调毫秒 tick。
+## [br]
+## @api private
+## [br]
 var _last_flush_msec: int = 0
+
+## 由 tick 累加的自动 flush 毫秒数。
+## [br]
+## @api private
+## [br]
 var _elapsed_since_flush_msec: float = 0.0
+
+## 文件中是否有尚未 flush 的写入。
+## [br]
+## @api private
+## [br]
 var _has_unflushed_data: bool = false
+
+## 当前实际路径是否由空 file_path 派生。
+## [br]
+## @api private
+## [br]
 var _uses_default_file_path: bool = false
+
+## 最近一次记录的文件或目录操作错误码。
+## [br]
+## @api private
+## [br]
 var _last_error: Error = OK
+
+## 最近一次文件或目录操作错误的格式化消息。
+## [br]
+## @api private
+## [br]
 var _last_error_message: String = ""
+
+## JSONL 写入失败累计数。
+## [br]
+## @api private
+## [br]
 var _write_error_count: int = 0
+
+## 旧 JSONL 文件清理失败累计数。
+## [br]
+## @api private
+## [br]
 var _cleanup_error_count: int = 0
+
+## 当前实例是否已成功初始化并打开文件。
+## [br]
+## @api private
+## [br]
 var _is_initialized: bool = false
 
 
@@ -232,6 +291,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 规范自定义路径；否则从 owner 日志路径派生独占文件名，或生成 user:// 默认名。
+## [br]
+## @api private
+## [br]
 func _resolve_file_path(owner: Object) -> String:
 	_uses_default_file_path = file_path.is_empty()
 	if not file_path.is_empty():
@@ -245,6 +308,10 @@ func _resolve_file_path(owner: Object) -> String:
 	return "user://logs/gf_log_%d_sink_%d.jsonl" % [Time.get_ticks_msec(), get_instance_id()]
 
 
+## 将自定义路径限制在 user://；相对路径置于 user://logs 并拒绝绝对路径及 .. 段。
+## [br]
+## @api private
+## [br]
 func _normalize_custom_file_path(path: String) -> String:
 	var normalized: String = path.replace("\\", "/").strip_edges()
 	if normalized.is_empty():
@@ -261,6 +328,10 @@ func _normalize_custom_file_path(path: String) -> String:
 	return "user://%s" % normalized.trim_prefix("user://").simplify_path()
 
 
+## 检查去掉 user:// 前缀后的路径片段是否含独立的 ..。
+## [br]
+## @api private
+## [br]
 func _has_parent_segment(path: String) -> bool:
 	for segment: String in path.trim_prefix("user://").split("/", false):
 		if segment == "..":
@@ -268,6 +339,10 @@ func _has_parent_segment(path: String) -> bool:
 	return false
 
 
+## 必要时创建目标文件的父目录，返回目录创建错误码。
+## [br]
+## @api private
+## [br]
 func _ensure_parent_dir(path: String) -> Error:
 	var base_dir: String = path.get_base_dir()
 	if base_dir.is_empty() or base_dir == ".":
@@ -282,6 +357,11 @@ func _ensure_parent_dir(path: String) -> Error:
 	return OK
 
 
+## 按 FAIL_IF_EXISTS、APPEND 或默认 WRITE 策略打开 JSONL 文件。
+## APPEND 会先尝试 READ_WRITE，失败时用 WRITE 创建，再定位到末尾。
+## [br]
+## @api private
+## [br]
 func _open_jsonl_file(path: String) -> FileAccess:
 	if file_open_mode == FileOpenMode.FAIL_IF_EXISTS and FileAccess.file_exists(path):
 		_record_error(ERR_ALREADY_EXISTS, "JSONL log file already exists: %s" % path, true)
@@ -298,6 +378,10 @@ func _open_jsonl_file(path: String) -> FileAccess:
 	return FileAccess.open(path, FileAccess.WRITE)
 
 
+## 文件已打开且立即刷新、间隔为 0 或 tick 间隔到期时执行 flush。
+## [br]
+## @api private
+## [br]
 func _flush_if_needed() -> void:
 	if _file == null:
 		return
@@ -311,6 +395,10 @@ func _flush_if_needed() -> void:
 		flush()
 
 
+## 按文件名排序清理默认日志目录的旧 gf_log_*.jsonl 文件，并跳过活动文件。
+## [br]
+## @api private
+## [br]
 func _cleanup_old_jsonl_files() -> void:
 	var base_dir: String = _effective_file_path.get_base_dir()
 	var dir: DirAccess = DirAccess.open(base_dir)
@@ -358,6 +446,10 @@ func _cleanup_old_jsonl_files() -> void:
 			to_remove -= 1
 
 
+## 保存错误码和格式化消息，并发出 sink_failed 警告。
+## [br]
+## @api private
+## [br]
 func _record_error(error: Error, message: String, _as_error: bool = false) -> void:
 	_last_error = error
 	_last_error_message = "%s, error code: %s" % [message, error]

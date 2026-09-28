@@ -16,17 +16,55 @@ extends GFUtility
 
 # --- 常量 ---
 
+## 完整随机状态字典所使用的 schema 版本。
+## [br]
+## @api private
+## [br]
 const _STATE_SCHEMA_VERSION: int = 3
+
+## FNV-1a 32 位哈希的初始偏移值。
+## [br]
+## @api private
+## [br]
 const _FNV_32_OFFSET: int = 2_166_136_261
+
+## FNV-1a 32 位哈希的乘数常量。
+## [br]
+## @api private
+## [br]
 const _FNV_32_PRIME: int = 16_777_619
+
+## 将哈希结果限制在无符号 32 位范围内的位掩码。
+## [br]
+## @api private
+## [br]
 const _UINT_32_MASK: int = 0xffffffff
 
 
 # --- 私有变量 ---
 
+## 管理全局主随机流的 Godot 随机数生成器。
+## [br]
+## @api private
+## [br]
 var _rng: RandomNumberGenerator
+
+## 当前全局主种子。
+## [br]
+## @api private
+## [br]
 var _global_seed: int
+
+## 按字符串标签记录 Godot RNG 分支已使用的调用序号。
+## [br]
+## @api private
+## [br]
 var _branch_counters: Dictionary = {}
+
+## 按字符串标签记录确定性随机分支已使用的调用序号。
+## [br]
+## @api private
+## [br]
 var _deterministic_branch_counters: Dictionary = {}
 
 
@@ -342,6 +380,10 @@ func get_branched_deterministic_random(string_seed: String) -> GFDeterministicRa
 
 # --- 私有/辅助方法 ---
 
+## 将 UTF-8 文本按 FNV-1a 32 位算法映射为整数哈希。
+## [br]
+## @api private
+## [br]
 static func _stable_hash(text: String) -> int:
 	var hash_value: int = _FNV_32_OFFSET
 	var bytes: PackedByteArray = text.to_utf8_buffer()
@@ -350,12 +392,20 @@ static func _stable_hash(text: String) -> int:
 	return hash_value
 
 
+## 读取标签当前分支序号并将对应计数加一。
+## [br]
+## @api private
+## [br]
 func _next_branch_index(counter_map: Dictionary, string_seed: String) -> int:
 	var branch_index: int = GFVariantData.get_option_int(counter_map, string_seed)
 	counter_map[string_seed] = branch_index + 1
 	return branch_index
 
 
+## 按字符串键排序并将分支计数编码为 JSON 安全十进制文本。
+## [br]
+## @api private
+## [br]
 func _encode_branch_counters(source: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	var keys: PackedStringArray = PackedStringArray()
@@ -369,6 +419,10 @@ func _encode_branch_counters(source: Dictionary) -> Dictionary:
 	return result
 
 
+## 校验分支计数字典并将非负整数值解码到规范结果字典。
+## [br]
+## @api private
+## [br]
 func _try_decode_branch_counters(value: Variant, field_name: String) -> Dictionary:
 	if not (value is Dictionary):
 		return _make_parse_error("Field %s must be a Dictionary" % field_name)
@@ -389,6 +443,10 @@ func _try_decode_branch_counters(value: Variant, field_name: String) -> Dictiona
 	return _make_parse_value(result)
 
 
+## 按 String、StringName 或文本等值键取得分支计数，缺失时返回零。
+## [br]
+## @api private
+## [br]
 func _get_branch_counter_value(source: Dictionary, key_text: String) -> Variant:
 	if source.has(key_text):
 		return source[key_text]
@@ -404,6 +462,10 @@ func _get_branch_counter_value(source: Dictionary, key_text: String) -> Variant:
 	return 0
 
 
+## 解析并验证完整随机状态，失败时报告错误并返回解析错误字典。
+## [br]
+## @api private
+## [br]
 func _parse_full_state(state: Dictionary) -> Dictionary:
 	var schema_result: Dictionary = _try_get_required_state_int(state, &"state_schema_version")
 	if not GFVariantData.get_option_bool(schema_result, &"ok", false):
@@ -460,6 +522,10 @@ func _parse_full_state(state: Dictionary) -> Dictionary:
 	}
 
 
+## 读取必需状态字段并把字段值解码为整数。
+## [br]
+## @api private
+## [br]
 func _try_get_required_state_int(state: Dictionary, key: StringName) -> Dictionary:
 	var value_result: Dictionary = _try_get_required_state_value(state, key)
 	if not GFVariantData.get_option_bool(value_result, &"ok", false):
@@ -470,6 +536,10 @@ func _try_get_required_state_int(state: Dictionary, key: StringName) -> Dictiona
 	)
 
 
+## 读取 StringName 或对应 String 键；两者均缺失时返回解析错误。
+## [br]
+## @api private
+## [br]
 func _try_get_required_state_value(state: Dictionary, key: StringName) -> Dictionary:
 	if state.has(key):
 		return _make_parse_value(state[key])
@@ -481,6 +551,10 @@ func _try_get_required_state_value(state: Dictionary, key: StringName) -> Dictio
 	return _make_parse_error("Missing field %s" % string_key)
 
 
+## 将整数、JSON 安全整数字面值或有符号十进制文本解码为整数。
+## [br]
+## @api private
+## [br]
 func _try_state_value_to_int(value: Variant, field_name: String) -> Dictionary:
 	if value is int:
 		var int_value: int = value
@@ -499,19 +573,35 @@ func _try_state_value_to_int(value: Variant, field_name: String) -> Dictionary:
 	return _make_parse_error("Field %s must be an integer or a decimal integer string" % field_name)
 
 
+## 检查保存状态使用的 schema 版本是否与当前版本完全相同。
+## [br]
+## @api private
+## [br]
 func _state_schema_version_is_supported(version: int) -> bool:
 	return version == _STATE_SCHEMA_VERSION
 
 
+## 将整数转成可由 JSON 精确保留的十进制字符串。
+## [br]
+## @api private
+## [br]
 func _int_to_state_text(value: int) -> String:
 	return str(value)
 
 
+## 从解析错误字典读取消息并报告完整随机状态无效。
+## [br]
+## @api private
+## [br]
 func _report_invalid_full_state(error_result: Dictionary) -> void:
 	var message: String = GFVariantData.get_option_string(error_result, &"error", "Invalid field")
 	push_error("[GFSeedUtility][seed_utility.state_invalid] Invalid complete random state: %s." % message)
 
 
+## 创建表示成功解析值的字典。
+## [br]
+## @api private
+## [br]
 func _make_parse_value(value: Variant) -> Dictionary:
 	return {
 		&"ok": true,
@@ -519,6 +609,10 @@ func _make_parse_value(value: Variant) -> Dictionary:
 	}
 
 
+## 创建表示解析失败及其消息的字典。
+## [br]
+## @api private
+## [br]
 func _make_parse_error(message: String) -> Dictionary:
 	return {
 		&"ok": false,
@@ -526,6 +620,10 @@ func _make_parse_error(message: String) -> Dictionary:
 	}
 
 
+## 检查文本是否是范围可表示的有符号 64 位十进制整数。
+## [br]
+## @api private
+## [br]
 func _signed_int_text_is_valid(text: String) -> bool:
 	if text.is_empty():
 		return false
@@ -556,6 +654,10 @@ func _signed_int_text_is_valid(text: String) -> bool:
 	return true
 
 
+## 检查浮点值是否为有限、整数且处于 JSON 精确整数范围内。
+## [br]
+## @api private
+## [br]
 func _float_value_is_json_safe_integer(value: float) -> bool:
 	if is_nan(value) or is_inf(value):
 		return false
@@ -564,6 +666,10 @@ func _float_value_is_json_safe_integer(value: float) -> bool:
 	return value >= -9_007_199_254_740_991.0 and value <= 9_007_199_254_740_991.0
 
 
+## 主 RNG 尚未创建时调用初始化方法补齐其状态。
+## [br]
+## @api private
+## [br]
 func _ensure_rng() -> void:
 	if _rng == null:
 		init()

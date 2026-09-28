@@ -172,12 +172,18 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按优先级升序、同优先级按 Provider ID 排序注册数组。
+## [br]
+## @api private
 func _sort_providers() -> void:
 	providers.sort_custom(func(left: GFPolicyProvider, right: GFPolicyProvider) -> bool:
 		return _compare_providers(left, right)
 	)
 
 
+## 构造仅含非空 Provider 引用的新数组，并按与注册列表相同的规则排序。
+## [br]
+## @api private
 func _get_sorted_provider_snapshot() -> Array[GFPolicyProvider]:
 	var snapshot: Array[GFPolicyProvider] = []
 	for provider: GFPolicyProvider in providers:
@@ -189,6 +195,9 @@ func _get_sorted_provider_snapshot() -> Array[GFPolicyProvider]:
 	return snapshot
 
 
+## 先比较优先级；相同优先级时按 Provider ID 字符串升序比较。
+## [br]
+## @api private
 func _compare_providers(left: GFPolicyProvider, right: GFPolicyProvider) -> bool:
 	var left_priority: int = left.priority if left != null else 0
 	var right_priority: int = right.priority if right != null else 0

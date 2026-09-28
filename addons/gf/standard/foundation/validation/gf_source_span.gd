@@ -354,10 +354,18 @@ static func make(
 
 # --- 私有/辅助方法 ---
 
+## 创建新的空 GFSourceSpan 实例。
+## [br]
+## @api private
+## [br]
 static func _new_span() -> GFSourceSpan:
 	return GFSourceSpan.new()
 
 
+## 优先读取 source_path，缺失时兼容读取 source，再缺失时返回默认路径。
+## [br]
+## @api private
+## [br]
 static func _read_source_path(data: Dictionary, default_value: String = "") -> String:
 	if data.has("source_path"):
 		return GFVariantData.get_option_string(data, "source_path")
@@ -366,6 +374,10 @@ static func _read_source_path(data: Dictionary, default_value: String = "") -> S
 	return default_value
 
 
+## 读取指定数值字段，将浮点值四舍五入并把结果限制为非负整数。
+## [br]
+## @api private
+## [br]
 static func _read_non_negative_int(data: Dictionary, field_name: String, default_value: int) -> int:
 	if not data.has(field_name):
 		return default_value

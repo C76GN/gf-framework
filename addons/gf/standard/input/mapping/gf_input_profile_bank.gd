@@ -276,6 +276,10 @@ func duplicate_bank() -> GFInputProfileBank:
 
 # --- 私有/辅助方法 ---
 
+## 按 profile_id 查找存储键并将对应值收窄为 GFInputRemapConfig。
+## [br]
+## @api private
+## [br]
 func _get_stored_profile(profile_id: StringName) -> GFInputRemapConfig:
 	var key: Variant = _find_profile_key(profile_id)
 	if key == null:
@@ -283,6 +287,10 @@ func _get_stored_profile(profile_id: StringName) -> GFInputRemapConfig:
 	return _variant_to_remap_config(profiles[key])
 
 
+## 优先匹配 StringName profile_id，随后尝试同文本 String 键，未找到返回 null。
+## [br]
+## @api private
+## [br]
 func _find_profile_key(profile_id: StringName) -> Variant:
 	if profiles.has(profile_id):
 		return profile_id
@@ -293,12 +301,20 @@ func _find_profile_key(profile_id: StringName) -> Variant:
 	return null
 
 
+## 配置非空时调用 duplicate_config 生成副本，null 输入返回 null。
+## [br]
+## @api private
+## [br]
 func _duplicate_config(config: GFInputRemapConfig) -> GFInputRemapConfig:
 	if config == null:
 		return null
 	return config.duplicate_config()
 
 
+## 将 Variant 收窄为 GFInputRemapConfig，类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_remap_config(value: Variant) -> GFInputRemapConfig:
 	if value is GFInputRemapConfig:
 		var config: GFInputRemapConfig = value

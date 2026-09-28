@@ -101,6 +101,10 @@ const PROJECT_NAME_SETTING: String = "application/config/name"
 ## @api public
 const PROJECT_VERSION_SETTING: String = "application/config/version"
 
+## GF 插件版本信息所在的配置文件路径。
+## [br]
+## @api private
+## [br]
 const _FRAMEWORK_PLUGIN_CONFIG_PATH: String = "res://addons/gf/plugin.cfg"
 
 
@@ -332,12 +336,20 @@ func duplicate_info() -> GFBuildInfo:
 
 # --- 私有/辅助方法 ---
 
+## 读取项目设置并转换为文本；设置不存在时返回空字符串。
+## [br]
+## @api private
+## [br]
 static func _get_project_setting_text(path: String) -> String:
 	if not ProjectSettings.has_setting(path):
 		return ""
 	return GFVariantData.to_text(ProjectSettings.get_setting(path, ""))
 
 
+## 从 GF 插件配置读取版本文本；配置无法加载时返回空字符串。
+## [br]
+## @api private
+## [br]
 static func _read_framework_version() -> String:
 	var config: ConfigFile = ConfigFile.new()
 	var error: int = config.load(_FRAMEWORK_PLUGIN_CONFIG_PATH)
@@ -346,6 +358,10 @@ static func _read_framework_version() -> String:
 	return GFVariantData.to_text(config.get_value("plugin", "version", ""))
 
 
+## 优先使用引擎提供的版本字符串，缺失时由主次修订号和可选状态拼成文本。
+## [br]
+## @api private
+## [br]
 static func _format_engine_version(version_info: Dictionary) -> String:
 	var version_text: String = GFVariantData.get_option_string(version_info, "string")
 	if not version_text.is_empty():
@@ -361,6 +377,10 @@ static func _format_engine_version(version_info: Dictionary) -> String:
 	return result
 
 
+## 仅当数据含指定键时，将其字符串值写入 ProjectSettings 和已写入数据表。
+## [br]
+## @api private
+## [br]
 static func _set_string_setting_from_data(
 	written_data: Dictionary,
 	source: Dictionary,
@@ -375,6 +395,10 @@ static func _set_string_setting_from_data(
 	written_data[key] = setting_value
 
 
+## 仅当数据含指定键时，将其整数值写入 ProjectSettings 和已写入数据表。
+## [br]
+## @api private
+## [br]
 static func _set_int_setting_from_data(
 	written_data: Dictionary,
 	source: Dictionary,
@@ -389,6 +413,10 @@ static func _set_int_setting_from_data(
 	written_data[key] = setting_value
 
 
+## 仅当数据含指定键时，将其布尔值写入 ProjectSettings 和已写入数据表。
+## [br]
+## @api private
+## [br]
 static func _set_bool_setting_from_data(
 	written_data: Dictionary,
 	source: Dictionary,

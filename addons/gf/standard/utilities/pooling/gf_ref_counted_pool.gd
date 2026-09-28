@@ -76,10 +76,34 @@ var active_count: int:
 
 # --- 私有变量 ---
 
+## 按后进先出顺序保存当前可复用对象。
+## [br]
+## @api private
+## [br]
 var _available: Array[RefCounted] = []
+
+## 以实例 ID 到借出令牌的映射记录当前借出的对象。
+## [br]
+## @api private
+## [br]
 var _active_ids: Dictionary = {}
+
+## 以实例 ID 到过渡令牌的映射保护回调期间的状态转换。
+## [br]
+## @api private
+## [br]
 var _transition_tokens: Dictionary = {}
+
+## 对象池生命周期内由工厂创建并接纳的对象累计数。
+## [br]
+## @api private
+## [br]
 var _created_count: int = 0
+
+## 经 max_available 属性规范化后的可用对象上限。
+## [br]
+## @api private
+## [br]
 var _max_available: int = 0
 
 
@@ -255,6 +279,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 调用工厂并仅接受 RefCounted 返回值。
+## [br]
+## @api private
+## [br]
 func _create_item() -> RefCounted:
 	if not factory.is_valid():
 		push_error("[GFRefCountedPool][ref_counted_pool.factory_invalid] Cannot create object: factory is invalid.")
@@ -269,14 +297,26 @@ func _create_item() -> RefCounted:
 	return null
 
 
+## 判断对象实例 ID 是否当前处于借出记录中。
+## [br]
+## @api private
+## [br]
 func _is_active_item(item: RefCounted) -> bool:
 	return item != null and _active_ids.has(item.get_instance_id())
 
 
+## 判断对象实例 ID 是否当前处于回调驱动的状态转换中。
+## [br]
+## @api private
+## [br]
 func _is_transitioning_item(item: RefCounted) -> bool:
 	return item != null and _transition_tokens.has(item.get_instance_id())
 
 
+## 判断对象是否已出现在借出、转换或可用记录中。
+## [br]
+## @api private
+## [br]
 func _is_tracked_item(item: RefCounted) -> bool:
 	return (
 		_is_active_item(item)
@@ -285,6 +325,10 @@ func _is_tracked_item(item: RefCounted) -> bool:
 	)
 
 
+## 按实例 ID 检查可用数组中是否已包含该对象。
+## [br]
+## @api private
+## [br]
 func _available_has_item(item: RefCounted) -> bool:
 	if item == null:
 		return false
@@ -295,6 +339,10 @@ func _available_has_item(item: RefCounted) -> bool:
 	return false
 
 
+## 检查记录中保存的令牌是否仍与本次转换令牌相同。
+## [br]
+## @api private
+## [br]
 func _token_matches(records: Dictionary, item_id: int, expected_token: RefCounted) -> bool:
 	if not records.has(item_id):
 		return false
@@ -305,6 +353,10 @@ func _token_matches(records: Dictionary, item_id: int, expected_token: RefCounte
 	return false
 
 
+## 按释放 hook、重置回调、reset hook 的顺序清理对象。
+## [br]
+## @api private
+## [br]
 func _prepare_item_for_reuse(item: RefCounted) -> void:
 	_call_optional_hook(item, HOOK_ON_RELEASE)
 	if reset_callback.is_valid():
@@ -312,11 +364,19 @@ func _prepare_item_for_reuse(item: RefCounted) -> void:
 	_call_optional_hook(item, HOOK_RESET)
 
 
+## 对象实现指定 hook 时调用它。
+## [br]
+## @api private
+## [br]
 func _call_optional_hook(item: RefCounted, hook_name: StringName) -> void:
 	if item.has_method(hook_name):
 		item.call(hook_name)
 
 
+## 可用数量超出正数上限时，从数组末尾移除多余引用。
+## [br]
+## @api private
+## [br]
 func _trim_available() -> void:
 	if max_available <= 0:
 		return

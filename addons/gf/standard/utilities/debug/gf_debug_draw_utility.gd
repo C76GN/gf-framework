@@ -72,8 +72,22 @@ var max_items: int = 2048
 
 # --- 私有变量 ---
 
+## 按加入顺序保存待绘制命令及其生命周期字段。
+## [br]
+## @api private
+## [br]
 var _items: Array[Dictionary] = []
+
+## 各调试绘制通道的启用状态。
+## [br]
+## @api private
+## [br]
 var _channels_enabled: Dictionary = {}
+
+## 下一个绘制命令使用的内部 ID。
+## [br]
+## @api private
+## [br]
 var _next_item_id: int = 1
 
 
@@ -617,18 +631,30 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 应用 scale 选项并按 length_mode 处理二维调试向量。
+## [br]
+## @api private
+## [br]
 func _resolve_debug_vector_2d(vector: Vector2, options: Dictionary) -> Vector2:
 	var scale: float = GFVariantData.get_option_float(options, "scale", 1.0)
 	var scaled: Vector2 = vector * scale
 	return _apply_debug_vector_length_mode_2d(scaled, options)
 
 
+## 应用 scale 选项并按 length_mode 处理三维调试向量。
+## [br]
+## @api private
+## [br]
 func _resolve_debug_vector_3d(vector: Vector3, options: Dictionary) -> Vector3:
 	var scale: float = GFVariantData.get_option_float(options, "scale", 1.0)
 	var scaled: Vector3 = vector * scale
 	return _apply_debug_vector_length_mode_3d(scaled, options)
 
 
+## 对二维向量执行 clamp 或 normalize 模式；无效长度上限时保留原向量或返回零向量。
+## [br]
+## @api private
+## [br]
 func _apply_debug_vector_length_mode_2d(vector: Vector2, options: Dictionary) -> Vector2:
 	var length_mode: String = GFVariantData.get_option_string(options, "length_mode", "normal").to_lower()
 	var max_length: float = GFVariantData.get_option_float(options, "max_length")
@@ -641,6 +667,10 @@ func _apply_debug_vector_length_mode_2d(vector: Vector2, options: Dictionary) ->
 			return vector
 
 
+## 对三维向量执行 clamp 或 normalize 模式；无效长度上限时保留原向量或返回零向量。
+## [br]
+## @api private
+## [br]
 func _apply_debug_vector_length_mode_3d(vector: Vector3, options: Dictionary) -> Vector3:
 	var length_mode: String = GFVariantData.get_option_string(options, "length_mode", "normal").to_lower()
 	var max_length: float = GFVariantData.get_option_float(options, "max_length")
@@ -653,6 +683,10 @@ func _apply_debug_vector_length_mode_3d(vector: Vector3, options: Dictionary) ->
 			return vector
 
 
+## 沿目标端点追加两条二维箭头头部线段；方向为零或头部尺寸不大于零时不绘制。
+## [br]
+## @api private
+## [br]
 func _append_vector_arrowhead_2d(
 	result: Array[int],
 	begin: Vector2,
@@ -674,6 +708,10 @@ func _append_vector_arrowhead_2d(
 	result.append(draw_line_2d(end, end - normal.rotated(-PI / 6.0) * size, color, lifetime_seconds, channel, width))
 
 
+## 仅在选项值为 Color 时采用它，否则返回给定颜色回退值。
+## [br]
+## @api private
+## [br]
 func _get_debug_color_option(options: Dictionary, key: String, fallback: Color) -> Color:
 	if not options.has(key):
 		return fallback
@@ -681,16 +719,28 @@ func _get_debug_color_option(options: Dictionary, key: String, fallback: Color) 
 	return value if value is Color else fallback
 
 
+## 将负生命周期替换为默认值，非负值原样保留。
+## [br]
+## @api private
+## [br]
 func _resolve_lifetime(lifetime_seconds: float) -> float:
 	if lifetime_seconds < 0.0:
 		return default_lifetime_seconds
 	return lifetime_seconds
 
 
+## 判断浮点值是否既非 NaN 也非无穷。
+## [br]
+## @api private
+## [br]
 func _is_finite(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 扣减有限时长命令的剩余秒数并移除已到期项；仅发生移除时发出 items_changed。
+## [br]
+## @api private
+## [br]
 func _expire_items(delta: float) -> void:
 	if _items.is_empty():
 		return
@@ -710,6 +760,10 @@ func _expire_items(delta: float) -> void:
 		items_changed.emit()
 
 
+## 超出正数 max_items 时保留队列末尾的新项；容量不受限或调整失败时不修改队列。
+## [br]
+## @api private
+## [br]
 func _trim_to_max_items() -> void:
 	if max_items <= 0:
 		return
@@ -725,13 +779,25 @@ func _trim_to_max_items() -> void:
 	_items = retained_items
 
 
+## 从绘制项读取通道名，字段缺失时使用 default。
+## [br]
+## @api private
+## [br]
 func _get_item_channel(item: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(item, "channel", &"default")
 
 
+## 从绘制项读取图元类型，字段缺失时使用 CUSTOM。
+## [br]
+## @api private
+## [br]
 func _get_item_primitive_type(item: Dictionary) -> int:
 	return GFVariantData.get_option_int(item, "type", PrimitiveType.CUSTOM)
 
 
+## 将字典中指定键的整数值加一，缺失或不可转为整数时从零开始。
+## [br]
+## @api private
+## [br]
 func _increment_dictionary_int(target: Dictionary, key: Variant) -> void:
 	target[key] = GFVariantData.get_option_int(target, key) + 1

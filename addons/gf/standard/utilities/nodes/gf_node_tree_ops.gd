@@ -503,6 +503,10 @@ static func free_children(parent: Node, include_internal: bool = false) -> int:
 
 # --- 私有/辅助方法 ---
 
+## 按类型过滤结果并追加节点，同时返回是否还能继续收集。
+## [br]
+## @api private
+## [br]
 static func _append_if_matches(
 	result: Array[Node],
 	node: Node,
@@ -516,10 +520,18 @@ static func _append_if_matches(
 	return not _is_result_limit_reached(result, limit)
 
 
+## 判断结果数组是否已达到非负数量上限。
+## [br]
+## @api private
+## [br]
 static func _is_result_limit_reached(result: Array[Node], limit: int) -> bool:
 	return limit >= 0 and result.size() >= limit
 
 
+## 按父节点当前子节点顺序查找目标节点的直接索引。
+## [br]
+## @api private
+## [br]
 static func _find_child_index(parent: Node, target: Node, include_internal: bool) -> int:
 	if parent == null or target == null:
 		return -1
@@ -529,6 +541,10 @@ static func _find_child_index(parent: Node, target: Node, include_internal: bool
 	return -1
 
 
+## 判断节点是否符合 Variant 类型过滤器；空过滤器匹配所有非空节点。
+## [br]
+## @api private
+## [br]
 static func _matches_type(node: Node, type_filter: Variant) -> bool:
 	if node == null:
 		return false
@@ -539,6 +555,10 @@ static func _matches_type(node: Node, type_filter: Variant) -> bool:
 	return is_instance_of(node, type_filter)
 
 
+## 按原生类名、脚本全局类名或脚本资源路径匹配节点。
+## [br]
+## @api private
+## [br]
 static func _matches_type_name(node: Node, type_name: String) -> bool:
 	if type_name.is_empty():
 		return true
@@ -553,6 +573,10 @@ static func _matches_type_name(node: Node, type_name: String) -> bool:
 	return false
 
 
+## 选择显式 owner、父节点 owner 或父节点自身作为子节点 owner。
+## [br]
+## @api private
+## [br]
 static func _resolve_child_owner(parent: Node, explicit_owner: Node) -> Node:
 	if explicit_owner != null and _can_apply_owner(parent, explicit_owner):
 		return explicit_owner
@@ -561,6 +585,10 @@ static func _resolve_child_owner(parent: Node, explicit_owner: Node) -> Node:
 	return parent
 
 
+## 仅在 owner 是节点祖先时设置节点的 owner。
+## [br]
+## @api private
+## [br]
 static func _apply_owner(node: Node, owner: Node) -> void:
 	if node == null or owner == null:
 		return
@@ -568,12 +596,20 @@ static func _apply_owner(node: Node, owner: Node) -> void:
 		node.owner = owner
 
 
+## 判断 owner 是否为节点的非自身祖先。
+## [br]
+## @api private
+## [br]
 static func _can_apply_owner(node: Node, owner: Node) -> bool:
 	if node == null or owner == null or node == owner:
 		return false
 	return owner.is_ancestor_of(node)
 
 
+## 将 Variant 转为 Script；值不是脚本资源时返回 null。
+## [br]
+## @api private
+## [br]
 static func _variant_to_script(value: Variant) -> Script:
 	if value is Script:
 		var script: Script = value

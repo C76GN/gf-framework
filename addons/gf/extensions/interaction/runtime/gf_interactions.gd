@@ -101,6 +101,9 @@ static func is_method_call_compatible_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 处理交互运行时内部数据。
+## [br]
+## @api private
 static func _method_accepts_argument_count(
 	method_info: Dictionary,
 	argument_count: int
@@ -118,6 +121,9 @@ static func _method_accepts_argument_count(
 	)
 
 
+## 处理交互运行时内部数据。
+## [br]
+## @api private
 static func _method_argument_accepts_value(
 	argument_info: Dictionary,
 	value: Variant
@@ -151,6 +157,9 @@ static func _method_argument_accepts_value(
 	return _object_matches_class_name(object_value, expected_class_name)
 
 
+## 处理交互运行时内部数据。
+## [br]
+## @api private
 static func _object_matches_class_name(
 	value: Object,
 	expected_class_name: StringName
@@ -171,6 +180,9 @@ static func _object_matches_class_name(
 		script_value = script.get_base_script()
 	return false
 
+## 处理交互运行时内部数据。
+## [br]
+## @api private
 static func _inject_if_possible(instance: Object, architecture: GFArchitecture = null) -> void:
 	var resolved_architecture: GFArchitecture = architecture
 	if resolved_architecture == null:

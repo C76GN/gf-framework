@@ -11,6 +11,9 @@ extends GFProjectileMotion
 
 # --- 常量 ---
 
+## 为线性运动配置和锁定速度提供有限数值检查。
+## [br]
+## @api private
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
 
@@ -131,8 +134,20 @@ func _compute_intent_3d(
 
 # --- 内部类 ---
 
+## 保存一次 projectile session 建立后的 2D 与 3D 锁定速度。
+## [br]
+## @api private
 class _LinearState:
 	extends GFProjectileMotionState
 
+	# --- 私有变量 ---
+
+	## 创建 session 状态时确定的二维速度，后续 intent 直接复用。
+	## [br]
+	## @api private
 	var _velocity_2d: Vector2 = Vector2.ZERO
+
+	## 创建 session 状态时确定的三维速度，后续 intent 直接复用。
+	## [br]
+	## @api private
 	var _velocity_3d: Vector3 = Vector3.ZERO

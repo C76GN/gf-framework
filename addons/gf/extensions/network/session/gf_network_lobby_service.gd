@@ -174,12 +174,46 @@ var default_timeout_msec: int = 15000
 
 # --- 私有变量 ---
 
+## 用于操作超时和持续时间的单调时钟。
+## [br]
+## @api private
+## [br]
 var _clock: GFClock = null
+
+## 标记时钟是否由调用方显式配置。
+## [br]
+## @api private
+## [br]
 var _clock_explicit: bool = false
+
+## 当前由 Lobby Service 驱动的 Backend。
+## [br]
+## @api private
+## [br]
 var _backend: GFNetworkLobbyBackend = null
+
+## Backend 替换代次，用于区分新旧连接回调。
+## [br]
+## @api private
+## [br]
 var _backend_generation: int = 0
+
+## 按 Lobby ID 保存的 Lobby 描述副本。
+## [br]
+## @api private
+## [br]
 var _known_lobbies: Dictionary = {}
+
+## 按 request_id 保存待完成操作及其截止时间。
+## [br]
+## @api private
+## [br]
 var _pending_operations: Dictionary = {}
+
+## 自动生成 Lobby 请求 ID 时使用的递增序号。
+## [br]
+## @api private
+## [br]
 var _request_serial: int = 0
 
 
@@ -193,7 +227,7 @@ func _init(clock: GFClock = null) -> void:
 	ignore_time_scale = true
 
 
-# --- GF 生命周期方法 ---
+# --- 公共方法 ---
 
 ## 在架构中自动采用已注册 GFTimeProvider 的底层时钟。
 ## [br]
@@ -238,8 +272,6 @@ func dispose() -> void:
 	_known_lobbies.clear()
 	_pending_operations.clear()
 
-
-# --- 公共方法 ---
 
 ## 设置 Lobby Backend。
 ##
@@ -625,6 +657,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 生成或接受 request_id，并将服务选项、Provider 选项和请求字段分开封装。
+## [br]
+## @api private
+## [br]
 func _make_request(
 	operation: StringName,
 	options: Dictionary,
@@ -649,6 +685,10 @@ func _make_request(
 	)
 
 
+## 构造已终结的 Lobby 操作拒绝句柄。
+## [br]
+## @api private
+## [br]
 func _make_rejected_handle(
 	request: GFNetworkLobbyOperationRequest,
 	status: StringName,
@@ -664,6 +704,10 @@ func _make_rejected_handle(
 	return handle
 
 
+## 连接 Backend 的 Lobby、成员、邀请和错误信号。
+## [br]
+## @api private
+## [br]
 func _connect_backend_signals(target_backend: GFNetworkLobbyBackend) -> void:
 	var _lobby_connected: Error = target_backend.lobby_updated.connect(
 		_on_backend_lobby_updated
@@ -682,6 +726,10 @@ func _connect_backend_signals(target_backend: GFNetworkLobbyBackend) -> void:
 	) as Error
 
 
+## 移除 Service 对 Backend 建立的 Lobby 和成员信号连接。
+## [br]
+## @api private
+## [br]
 func _disconnect_backend_signals(target_backend: GFNetworkLobbyBackend) -> void:
 	if target_backend.lobby_updated.is_connected(_on_backend_lobby_updated):
 		target_backend.lobby_updated.disconnect(_on_backend_lobby_updated)
@@ -695,6 +743,10 @@ func _disconnect_backend_signals(target_backend: GFNetworkLobbyBackend) -> void:
 		target_backend.backend_error.disconnect(_on_backend_error)
 
 
+## 从待处理记录读取并类型检查操作句柄。
+## [br]
+## @api private
+## [br]
 func _get_pending_handle(
 	request_id: StringName
 ) -> GFNetworkLobbyOperationHandle:
@@ -712,6 +764,10 @@ func _get_pending_handle(
 	return null
 
 
+## 按给定单调时间遍历待处理请求并终结已到期句柄。
+## [br]
+## @api private
+## [br]
 func _expire_operations(now_msec: int) -> void:
 	for request_key: Variant in _pending_operations.keys().duplicate():
 		var record_value: Variant = GFVariantData.get_option_value(
@@ -731,6 +787,10 @@ func _expire_operations(now_msec: int) -> void:
 			var _timed_out: bool = handle.timeout_from_network_layer()
 
 
+## 取消当前全部待处理 Lobby 操作。
+## [br]
+## @api private
+## [br]
 func _cancel_pending_operations(reason: StringName) -> void:
 	for request_key: Variant in _pending_operations.keys().duplicate():
 		var handle: GFNetworkLobbyOperationHandle = _get_pending_handle(
@@ -740,6 +800,10 @@ func _cancel_pending_operations(reason: StringName) -> void:
 			var _cancelled: bool = handle.cancel(reason)
 
 
+## 仅在没有待处理操作且 Backend 接受时更换 Service 单调时钟。
+## [br]
+## @api private
+## [br]
 func _apply_clock(clock: GFClock, explicit: bool) -> bool:
 	if clock == null or not _pending_operations.is_empty():
 		return false
@@ -751,14 +815,10 @@ func _apply_clock(clock: GFClock, explicit: bool) -> bool:
 	return true
 
 
-func _on_operation_completed(
-	result: GFNetworkLobbyOperationResult,
-	request_id: StringName
-) -> void:
-	var _erased: bool = _pending_operations.erase(String(request_id))
-	_finalize_result(result)
-
-
+## 读取操作句柄结果并交由结果终结流程处理。
+## [br]
+## @api private
+## [br]
 func _finalize_handle(handle: GFNetworkLobbyOperationHandle) -> void:
 	if handle == null:
 		return
@@ -767,6 +827,10 @@ func _finalize_handle(handle: GFNetworkLobbyOperationHandle) -> void:
 		_finalize_result(result)
 
 
+## 复制结果、更新成功状态并发出通用及操作专属完成信号。
+## [br]
+## @api private
+## [br]
 func _finalize_result(result: GFNetworkLobbyOperationResult) -> void:
 	if result == null:
 		return
@@ -789,6 +853,10 @@ func _finalize_result(result: GFNetworkLobbyOperationResult) -> void:
 			member_metadata_set.emit(copy.duplicate_result())
 
 
+## 缓存成功结果中的 Lobby，并更新创建、加入或离开后的当前 Lobby。
+## [br]
+## @api private
+## [br]
 func _apply_successful_result(result: GFNetworkLobbyOperationResult) -> void:
 	if result.lobby != null:
 		_store_lobby(result.lobby)
@@ -802,6 +870,59 @@ func _apply_successful_result(result: GFNetworkLobbyOperationResult) -> void:
 				current_lobby = null
 
 
+## 以 Lobby ID 缓存有效 Lobby 的副本。
+## [br]
+## @api private
+## [br]
+func _store_lobby(lobby: GFNetworkLobbyDescriptor) -> void:
+	if lobby != null and not lobby.lobby_id.is_empty():
+		_known_lobbies[lobby.lobby_id] = lobby.duplicate_lobby()
+
+
+## 裁剪 Lobby ID 后读取并类型检查缓存描述。
+## [br]
+## @api private
+## [br]
+func _get_stored_lobby(lobby_id: String) -> GFNetworkLobbyDescriptor:
+	var value: Variant = GFVariantData.get_option_value(
+		_known_lobbies,
+		lobby_id.strip_edges()
+	)
+	if value is GFNetworkLobbyDescriptor:
+		var lobby: GFNetworkLobbyDescriptor = value
+		return lobby.duplicate_lobby()
+	return null
+
+
+## 优先使用显式 Lobby ID，空值时回退到当前 Lobby ID。
+## [br]
+## @api private
+## [br]
+func _resolve_lobby_id(lobby_id: String) -> String:
+	var resolved_lobby_id: String = lobby_id.strip_edges()
+	if resolved_lobby_id.is_empty() and current_lobby != null:
+		resolved_lobby_id = current_lobby.lobby_id
+	return resolved_lobby_id
+
+
+# --- 信号处理函数 ---
+
+## 移除已完成请求记录并执行结果汇总与派发。
+## [br]
+## @api private
+## [br]
+func _on_operation_completed(
+	result: GFNetworkLobbyOperationResult,
+	request_id: StringName
+) -> void:
+	var _erased: bool = _pending_operations.erase(String(request_id))
+	_finalize_result(result)
+
+
+## 缓存 Backend 的 Lobby 更新并转发副本。
+## [br]
+## @api private
+## [br]
 func _on_backend_lobby_updated(lobby: GFNetworkLobbyDescriptor) -> void:
 	if lobby == null:
 		return
@@ -811,6 +932,10 @@ func _on_backend_lobby_updated(lobby: GFNetworkLobbyDescriptor) -> void:
 	lobby_updated.emit(lobby.duplicate_lobby())
 
 
+## 更新缓存成员及当前 Lobby 后转发加入事件。
+## [br]
+## @api private
+## [br]
 func _on_backend_member_joined(
 	lobby_id: String,
 	member: GFNetworkLobbyMember
@@ -827,6 +952,10 @@ func _on_backend_member_joined(
 	)
 
 
+## 从缓存 Lobby 移除成员、更新当前 Lobby 并转发离开事件。
+## [br]
+## @api private
+## [br]
 func _on_backend_member_left(
 	lobby_id: String,
 	peer_id: int,
@@ -841,36 +970,21 @@ func _on_backend_member_left(
 	member_left.emit(lobby_id, peer_id, reason)
 
 
+## 转发 Backend 邀请的副本。
+## [br]
+## @api private
+## [br]
 func _on_backend_invite_received(invite: GFNetworkLobbyInvite) -> void:
 	invite_received.emit(invite.duplicate_invite() if invite != null else null)
 
 
+## 复制错误详情并转发 Backend 错误。
+## [br]
+## @api private
+## [br]
 func _on_backend_error(
 	operation: StringName,
 	error: StringName,
 	details: Dictionary
 ) -> void:
 	backend_error.emit(operation, error, details.duplicate(true))
-
-
-func _store_lobby(lobby: GFNetworkLobbyDescriptor) -> void:
-	if lobby != null and not lobby.lobby_id.is_empty():
-		_known_lobbies[lobby.lobby_id] = lobby.duplicate_lobby()
-
-
-func _get_stored_lobby(lobby_id: String) -> GFNetworkLobbyDescriptor:
-	var value: Variant = GFVariantData.get_option_value(
-		_known_lobbies,
-		lobby_id.strip_edges()
-	)
-	if value is GFNetworkLobbyDescriptor:
-		var lobby: GFNetworkLobbyDescriptor = value
-		return lobby.duplicate_lobby()
-	return null
-
-
-func _resolve_lobby_id(lobby_id: String) -> String:
-	var resolved_lobby_id: String = lobby_id.strip_edges()
-	if resolved_lobby_id.is_empty() and current_lobby != null:
-		resolved_lobby_id = current_lobby.lobby_id
-	return resolved_lobby_id

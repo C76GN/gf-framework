@@ -42,7 +42,14 @@ signal activation_committed(skill: GFSkill, context: RefCounted)
 
 # --- 常量 ---
 
+## 提供技能激活上下文实例。
+## [br]
+## @api private
 const _GF_SKILL_ACTIVATION_CONTEXT = preload("res://addons/gf/extensions/combat/skills/gf_skill_activation_context.gd")
+
+## 提供 2D 目标筛选工具的脚本类型。
+## [br]
+## @api private
 const _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT = preload("res://addons/gf/extensions/combat/skills/gf_skill_targeting_utility_2d.gd")
 
 
@@ -109,8 +116,19 @@ var activation_steps: Array[GFSkillActivationStep] = []
 
 # --- 私有变量 ---
 
+## 弱引用保存注入的架构；不可用时由读取入口回退到 autoload。
+## [br]
+## @api private
 var _architecture_ref: WeakRef = null
+
+## 标记本实例当前是否正在执行完整激活流程。
+## [br]
+## @api private
 var _activation_in_progress: bool = false
+
+## 防止发出重入失败信号时再次递归报告同一类失败。
+## [br]
+## @api private
 var _reporting_reentrant_failure: bool = false
 
 
@@ -300,6 +318,9 @@ func _try_activate(context: RefCounted) -> bool:
 # --- 私有/辅助方法 ---
 
 # 在实例级重入守卫内执行一次完整激活。
+## 创建上下文并依次执行验证、目标解析、回调、事务提交和技能激活。
+## [br]
+## @api private
 func _execute_once(
 	manual_target: Object,
 	cast_center: Variant,
@@ -348,6 +369,9 @@ func _execute_once(
 	return true
 
 
+## 为同步重入创建失败上下文、记录 activation_in_progress 并发出失败信号。
+## [br]
+## @api private
 func _reject_reentrant_execution(
 	manual_target: Object,
 	cast_center: Variant,
@@ -372,6 +396,9 @@ func _reject_reentrant_execution(
 	_reporting_reentrant_failure = false
 	return false
 
+## 检查上下文、冷却、owner、标签、query 与自定义钩子，并可选运行检查回调。
+## [br]
+## @api private
 func _validate_activation_context(context: RefCounted, include_callbacks: bool) -> Dictionary:
 	if context == null:
 		return {
@@ -403,6 +430,9 @@ func _validate_activation_context(context: RefCounted, include_callbacks: bool) 
 	return _context_to_report(context)
 
 
+## 逐项验证 require_tags；首个缺失标签会写入失败报告。
+## [br]
+## @api private
 func _validate_required_tags(context: RefCounted, tag_source: Variant) -> bool:
 	for tag: StringName in require_tags:
 		if not GFTagSourceAdapter.source_has_tag(tag_source, tag):
@@ -413,6 +443,9 @@ func _validate_required_tags(context: RefCounted, tag_source: Variant) -> bool:
 	return true
 
 
+## 逐项验证 ignore_tags；首个已存在的阻止标签会写入失败报告。
+## [br]
+## @api private
 func _validate_blocked_tags(context: RefCounted, tag_source: Variant) -> bool:
 	for tag: StringName in ignore_tags:
 		if GFTagSourceAdapter.source_has_tag(tag_source, tag):
@@ -423,6 +456,9 @@ func _validate_blocked_tags(context: RefCounted, tag_source: Variant) -> bool:
 	return true
 
 
+## 按手动目标、targeting_rule、owner 候选和 2D targeting utility 填入最终目标。
+## [br]
+## @api private
 func _resolve_activation_targets(context: RefCounted) -> bool:
 	var final_targets: Array[Object] = []
 	var manual_target: Object = _get_context_object(context, "manual_target")
@@ -468,6 +504,9 @@ func _resolve_activation_targets(context: RefCounted) -> bool:
 	return true
 
 
+## 依次跳过无效 Callable、执行有效检查并在首个失败报告处停止。
+## [br]
+## @api private
 func _run_activation_callbacks(
 	context: RefCounted,
 	callbacks: Array[Callable],
@@ -483,6 +522,9 @@ func _run_activation_callbacks(
 	return _context_to_report(context)
 
 
+## 为 activation_steps 建立事务步骤；校验 ID 唯一且按 rollback_required 配置补偿回调。
+## [br]
+## @api private
 func _build_activation_transaction(context: RefCounted) -> GFActivationTransaction:
 	var transaction: GFActivationTransaction = GFActivationTransaction.new()
 	var transaction_id: StringName = StringName("skill_activation:%s" % String(id))
@@ -519,6 +561,9 @@ func _build_activation_transaction(context: RefCounted) -> GFActivationTransacti
 	return transaction
 
 
+## 按 validate、apply 或 rollback 阶段调用单个 activation step。
+## [br]
+## @api private
 func _invoke_activation_step(
 	transaction_context: Dictionary,
 	step: GFSkillActivationStep,
@@ -546,6 +591,9 @@ func _invoke_activation_step(
 	return _normalize_activation_step_result(context, result)
 
 
+## 对字典结果复制并合并 metadata；失败结果缺少 kind 时用 reason 补齐。
+## [br]
+## @api private
 func _normalize_activation_step_result(context: RefCounted, result: Variant) -> Variant:
 	if not (result is Dictionary):
 		return result
@@ -563,12 +611,18 @@ func _normalize_activation_step_result(context: RefCounted, result: Variant) -> 
 	return normalized
 
 
+## 将 activation context 放入 GFActivationTransaction 使用的上下文键。
+## [br]
+## @api private
 func _make_transaction_context(context: RefCounted) -> Dictionary:
 	return {
 		"activation_context": context,
 	}
 
 
+## 从事务字典取出并收窄为 GFSkillActivationContext。
+## [br]
+## @api private
 func _get_transaction_activation_context(transaction_context: Dictionary) -> GFSkillActivationContext:
 	var value: Variant = GFVariantData.get_option_value(transaction_context, "activation_context")
 	if value is GFSkillActivationContext:
@@ -576,6 +630,9 @@ func _get_transaction_activation_context(transaction_context: Dictionary) -> GFS
 	return null
 
 
+## 从事务报告首个 issue 读取失败 kind，并写回激活上下文。
+## [br]
+## @api private
 func _fail_from_transaction(
 	context: RefCounted,
 	transaction_report: Dictionary,
@@ -591,6 +648,9 @@ func _fail_from_transaction(
 	})
 
 
+## 解释回调返回的字典或 false，并将失败或 metadata 合并到上下文报告。
+## [br]
+## @api private
 func _apply_activation_callback_result(
 	context: RefCounted,
 	result: Variant,
@@ -610,6 +670,9 @@ func _apply_activation_callback_result(
 	return _context_to_report(context)
 
 
+## 将额外 metadata 的键合并到上下文，并复制每个写入值。
+## [br]
+## @api private
 func _merge_activation_metadata(context: RefCounted, extra_metadata: Dictionary) -> void:
 	var metadata_value: Variant = GFObjectPropertyTools.read_property(context, NodePath("metadata"), {})
 	var metadata: Dictionary = GFVariantData.as_dictionary(metadata_value)
@@ -618,6 +681,9 @@ func _merge_activation_metadata(context: RefCounted, extra_metadata: Dictionary)
 	context.set("metadata", metadata)
 
 
+## 调用上下文的 fail/to_report 方法；不支持该协议时构造本地失败报告。
+## [br]
+## @api private
 func _fail_activation_context(
 	context: RefCounted,
 	reason: StringName,
@@ -634,6 +700,9 @@ func _fail_activation_context(
 	}
 
 
+## 优先读取 owner 的 tag component，否则在 owner 暴露标签接口时返回 owner。
+## [br]
+## @api private
 func _get_owner_tag_source(valid_owner: Object) -> Variant:
 	if valid_owner.has_method("get_tag_component"):
 		return valid_owner.call("get_tag_component")
@@ -641,6 +710,9 @@ func _get_owner_tag_source(valid_owner: Object) -> Variant:
 		return valid_owner
 	return null
 
+## 使用显式 Vector2 施法中心，或从 owner.global_position 读取，最后回退到零向量。
+## [br]
+## @api private
 func _resolve_cast_center(cast_center: Variant) -> Vector2:
 	if cast_center is Vector2:
 		return cast_center
@@ -654,12 +726,18 @@ func _resolve_cast_center(cast_center: Variant) -> Vector2:
 	return Vector2.ZERO
 
 
+## 返回当前 owner；引用为空或 Godot 对象已失效时返回 null。
+## [br]
+## @api private
 func _get_valid_owner() -> Object:
 	if owner == null or not is_instance_valid(owner):
 		return null
 	return owner
 
 
+## 从可用架构获取目标筛选工具并收窄类型。
+## [br]
+## @api private
 func _get_targeting_utility_2d() -> _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture == null:
@@ -668,6 +746,9 @@ func _get_targeting_utility_2d() -> _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT:
 	return _variant_to_targeting_utility_2d(architecture.get_utility(_GF_SKILL_TARGETING_UTILITY_2D_SCRIPT))
 
 
+## 优先解析注入架构弱引用；失败时查询 autoload 架构。
+## [br]
+## @api private
 func _get_architecture_or_null() -> GFArchitecture:
 	if _architecture_ref != null:
 		var architecture: GFArchitecture = _variant_to_architecture(_architecture_ref.get_ref())
@@ -676,22 +757,34 @@ func _get_architecture_or_null() -> GFArchitecture:
 	return GFAutoload.get_architecture_or_null()
 
 
+## 从报告的 ok 字段读取布尔结果，缺失时视为失败。
+## [br]
+## @api private
 func _report_ok(report: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(report, "ok", false)
 
 
+## 通过上下文的 to_report 转换为 Dictionary；协议不可用时返回空字典。
+## [br]
+## @api private
 func _context_to_report(context: RefCounted) -> Dictionary:
 	if context == null or not context.has_method("to_report"):
 		return {}
 	return GFVariantData.as_dictionary(context.call("to_report"))
 
 
+## 读取上下文属性并收窄为有效 Object。
+## [br]
+## @api private
 func _get_context_object(context: RefCounted, key: String) -> Object:
 	if context == null:
 		return null
 	return _variant_to_object(GFObjectPropertyTools.read_property(context, NodePath(key)))
 
 
+## 读取上下文属性；值不是 Vector2 时返回调用方默认值。
+## [br]
+## @api private
 func _get_context_vector2(context: RefCounted, key: String, default_value: Vector2) -> Vector2:
 	if context == null:
 		return default_value
@@ -701,24 +794,36 @@ func _get_context_vector2(context: RefCounted, key: String, default_value: Vecto
 	return default_value
 
 
+## 读取上下文属性并通过 GFVariantData 转换为 Array。
+## [br]
+## @api private
 func _get_context_array(context: RefCounted, key: String) -> Array:
 	if context == null:
 		return []
 	return GFVariantData.as_array(GFObjectPropertyTools.read_property(context, NodePath(key), []))
 
 
+## 将有效 Variant 对象收窄为 Object。
+## [br]
+## @api private
 func _variant_to_object(value: Variant) -> Object:
 	if is_instance_valid(value) and value is Object:
 		return value
 	return null
 
 
+## 将有效 Variant 收窄为 GFArchitecture。
+## [br]
+## @api private
 func _variant_to_architecture(value: Variant) -> GFArchitecture:
 	if is_instance_valid(value) and value is GFArchitecture:
 		return value
 	return null
 
 
+## 将有效 Variant 收窄为 2D targeting utility 脚本类型。
+## [br]
+## @api private
 func _variant_to_targeting_utility_2d(value: Variant) -> _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT:
 	if is_instance_valid(value) and value is _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT:
 		return value

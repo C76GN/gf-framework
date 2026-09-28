@@ -99,6 +99,9 @@ static func build_month_grid(
 
 # --- 私有/辅助方法 ---
 
+## 创建网格结果并尝试写入调用方给出的失败状态与说明。
+## [br]
+## @api private
 static func _make_failure(status: StringName, error: String) -> GFCalendarGrid:
 	var grid: GFCalendarGrid = GFCalendarGrid.new()
 	var _configured: bool = grid.configure_from_time_layer(status, 0, 0, 0, 0, [], error)

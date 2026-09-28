@@ -13,21 +13,56 @@ extends RefCounted
 ## @layer kernel/editor
 const SCHEMA_VERSION: int = 1
 
+## 单个可选 catalog 输入允许读取的最大字节数。
+## [br]
+## @api private
 const _MAX_CATALOG_BYTES: int = 262_144
+
+## catalog JSON 解析允许的最大嵌套深度。
+## [br]
+## @api private
 const _MAX_JSON_DEPTH: int = 16
+
+## catalog 中可接受的 manifest 记录上限。
+## [br]
+## @api private
 const _MAX_MANIFEST_RECORD_COUNT: int = 128
+
+## 有界 JSON object reader 脚本，用于读取受字节数和深度限制的 catalog。
+## [br]
+## @api private
 const _GF_BOUNDED_JSON_READER_SCRIPT = preload(
 	"res://addons/gf/kernel/editor/gf_bounded_json_reader.gd"
 )
+
+## manifest 校验及贡献记录结构的注册表脚本。
+## [br]
+## @api private
 const _GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT = preload(
 	"res://addons/gf/kernel/editor/gf_editor_contribution_registry.gd"
 )
+
+## 资源路径规范化工具脚本。
+## [br]
+## @api private
 const _GF_PATH_TOOLS_SCRIPT = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+## 从不可信 Variant 输入中读取类型化选项的工具脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## catalog 根对象允许出现的字段名。
+## [br]
+## @api private
 const _CATALOG_ALLOWED_KEYS: Array[String] = [
 	"schema_version",
 	"manifest_records",
 ]
+
+## catalog 内单条 manifest 记录允许出现的字段名。
+## [br]
+## @api private
 const _MANIFEST_RECORD_ALLOWED_KEYS: Array[String] = [
 	"package_id",
 	"manifest_path",
@@ -255,6 +290,10 @@ static func load_catalog_report(
 
 # --- 私有/辅助方法 ---
 
+## 通过有界 reader 解码 catalog object，并把读取错误映射为 catalog issue。
+## payload 超限和嵌套过深会使用专用 issue 种类，其余 reader 错误保留原始种类前缀。
+## [br]
+## @api private
 static func _read_catalog_object(
 	path: String,
 	issues: Array[Dictionary]
@@ -289,6 +328,10 @@ static func _read_catalog_object(
 	return {}
 
 
+## 检查 manifest_records 数组和每条记录的字段、标识及路径，并收集有效规范化记录。
+## 发现无效项时向 issues 追加诊断；调用方随后将有 issue 的 catalog 作为 invalid 处理。
+## [br]
+## @api private
 static func _collect_manifest_records(
 	data: Dictionary,
 	catalog_path: String,
@@ -424,6 +467,9 @@ static func _collect_manifest_records(
 	return records
 
 
+## 拒绝 catalog 根对象中首个不在稳定字段清单内的键。
+## [br]
+## @api private
 static func _catalog_uses_allowed_keys(
 	data: Dictionary,
 	catalog_path: String,
@@ -443,6 +489,9 @@ static func _catalog_uses_allowed_keys(
 	return true
 
 
+## 拒绝 manifest 记录中首个不在记录字段清单内的键，并标记记录索引。
+## [br]
+## @api private
 static func _record_uses_allowed_keys(
 	record: Dictionary,
 	catalog_path: String,
@@ -464,6 +513,10 @@ static func _record_uses_allowed_keys(
 	return true
 
 
+## 校验 package id 是否由小写、非空的标识符段组成，且以 `gf.tool.` 开头。
+## 输入首尾空白不被规范化接受。
+## [br]
+## @api private
 static func _is_valid_tool_package_id(package_id: String) -> bool:
 	if package_id != package_id.strip_edges() or not package_id.begins_with("gf.tool."):
 		return false
@@ -480,6 +533,9 @@ static func _is_valid_tool_package_id(package_id: String) -> bool:
 	return true
 
 
+## 要求输入路径原样等于规范化结果，并是无首尾空白的 `res://` JSON 路径。
+## [br]
+## @api private
 static func _is_valid_manifest_path(raw_path: String, normalized_path: String) -> bool:
 	return (
 		raw_path == raw_path.strip_edges()
@@ -489,6 +545,10 @@ static func _is_valid_manifest_path(raw_path: String, normalized_path: String) -
 	)
 
 
+## 按注册表的记录族结构构造新字典，并从 source 提取各族中的有效记录。
+## 记录字典由 `_get_record_array` 深复制。
+## [br]
+## @api private
 static func _copy_record_sets(source: Dictionary) -> Dictionary:
 	var records: Dictionary = _GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT.empty_records()
 	for record_key: String in records.keys():
@@ -496,6 +556,9 @@ static func _copy_record_sets(source: Dictionary) -> Dictionary:
 	return records
 
 
+## 从指定记录族中筛出字典项并深复制；缺失或非数组字段返回空数组。
+## [br]
+## @api private
 static func _get_record_array(records: Dictionary, record_key: String) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var raw_records_value: Variant = records.get(record_key, [])
@@ -509,6 +572,10 @@ static func _get_record_array(records: Dictionary, record_key: String) -> Array[
 	return result
 
 
+## 将现有记录中首个非空 source_id 和 payload 标识写入两个去重索引。
+## source_id 会去除首尾空白，payload 标识由 `_get_record_payload_id` 生成。
+## [br]
+## @api private
 static func _index_record_identities(
 	records: Dictionary,
 	source_ids: Dictionary,
@@ -527,6 +594,10 @@ static func _index_record_identities(
 				payload_ids[payload_id] = true
 
 
+## 先在副本索引上检查 incoming 的 source_id 与 payload 是否冲突，再合并各记录族。
+## 有冲突时保留 target 和原索引；只有整批检查通过才提交记录与索引更新。
+## [br]
+## @api private
 static func _try_merge_manifest_records(
 	target: Dictionary,
 	incoming: Dictionary,
@@ -585,6 +656,10 @@ static func _try_merge_manifest_records(
 	return true
 
 
+## 按 path、template_path、name 的顺序取首个非空值，并附带字段名形成去重标识。
+## 没有可用字段时返回空字符串。
+## [br]
+## @api private
 static func _get_record_payload_id(record: Dictionary) -> String:
 	for field: String in ["path", "template_path", "name"]:
 		var value: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
@@ -596,6 +671,9 @@ static func _get_record_payload_id(record: Dictionary) -> String:
 	return ""
 
 
+## 深复制 manifest 报告，移除内部 records，并附加其 catalog package id 和路径。
+## [br]
+## @api private
 static func _make_catalog_manifest_report(
 	package_id: String,
 	manifest_path: String,
@@ -608,6 +686,10 @@ static func _make_catalog_manifest_report(
 	return report
 
 
+## 组装 catalog 汇总报告，并深复制记录、manifest 报告和 issue 集合。
+## issue_count 从传入 issues 的当前长度计算。
+## [br]
+## @api private
 static func _make_report(
 	ok: bool,
 	state: String,
@@ -637,6 +719,9 @@ static func _make_report(
 	}
 
 
+## 组装 catalog 诊断字典；package_id、field 和 actual_value 仅在非空时加入。
+## [br]
+## @api private
 static func _make_issue(
 	kind: String,
 	package_id: String,

@@ -191,5 +191,8 @@ static func from_dict(data: Dictionary) -> GFPlatformBridgeRequest:
 
 # --- 私有/辅助方法 ---
 
+## 移除 StringName 标识两端空白并返回规范化值。
+## [br]
+## @api private
 static func _normalize_id(value: StringName) -> StringName:
 	return StringName(String(value).strip_edges())

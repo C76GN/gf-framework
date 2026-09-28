@@ -13,6 +13,9 @@ extends Control
 
 # --- 常量 ---
 
+## 提供能力依赖与 receiver 辅助操作的脚本资源。
+## [br]
+## @api private
 const _CAPABILITY_SUPPORT_SCRIPT = preload("res://addons/gf/extensions/capability/nodes/gf_node_capability_support.gd")
 
 
@@ -47,7 +50,14 @@ var active: bool = true
 
 # --- 私有变量 ---
 
+## 当前架构的弱引用。
+## [br]
+## @api private
 var _architecture_ref: WeakRef = null
+
+## 当前所属对象的弱引用。
+## [br]
+## @api private
 var _receiver_ref: WeakRef = null
 
 
@@ -161,10 +171,16 @@ func inject_dependencies(architecture: GFArchitecture) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 通过共享辅助脚本从弱引用读取架构。
+## [br]
+## @api private
 func _get_architecture_or_null() -> GFArchitecture:
 	return _CAPABILITY_SUPPORT_SCRIPT.get_architecture_or_null(_architecture_ref)
 
 
+## 返回有效的 receiver 对象，弱引用失效时返回 null。
+## [br]
+## @api private
 func _get_receiver_or_null() -> Object:
 	if _receiver_ref == null:
 		return null

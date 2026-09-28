@@ -16,6 +16,9 @@ const GFExtensionSettingsBase = preload("res://addons/gf/kernel/extension/gf_ext
 
 # --- 私有变量 ---
 
+## 保存已交给 EditorPlugin 注册的导入插件实例，供 cleanup(plugin) 移除。
+## [br]
+## @api private
 var _import_plugins: Array[EditorImportPlugin] = []
 
 
@@ -56,6 +59,9 @@ func cleanup(plugin: EditorPlugin) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 从脚本路径创建导入插件，注册到传入的 EditorPlugin 后保存实例。
+## [br]
+## @api private
 func _add_import_plugin(plugin: EditorPlugin, script_path: String) -> void:
 	var import_plugin: EditorImportPlugin = _load_import_plugin(script_path)
 	if import_plugin == null:
@@ -65,6 +71,9 @@ func _add_import_plugin(plugin: EditorPlugin, script_path: String) -> void:
 	_import_plugins.append(import_plugin)
 
 
+## 加载并实例化导入插件脚本；脚本无效或实例类型不符时记录错误并返回 null。
+## [br]
+## @api private
 func _load_import_plugin(script_path: String) -> EditorImportPlugin:
 	var import_script: Script = _load_script(script_path)
 	if import_script == null or not import_script.can_instantiate():
@@ -79,6 +88,9 @@ func _load_import_plugin(script_path: String) -> EditorImportPlugin:
 	return import_plugin
 
 
+## 加载路径对应的资源，仅在结果是 Script 时返回脚本。
+## [br]
+## @api private
 func _load_script(script_path: String) -> Script:
 	var resource: Resource = load(script_path)
 	if resource is Script:
@@ -87,6 +99,9 @@ func _load_script(script_path: String) -> Script:
 	return null
 
 
+## 调用脚本的 new()，并仅返回 EditorImportPlugin 类型的实例。
+## [br]
+## @api private
 func _instantiate_import_plugin(script: Script) -> EditorImportPlugin:
 	var instance: Variant = script.call("new")
 	if instance is EditorImportPlugin:

@@ -50,35 +50,178 @@ const PROTOCOL_VERSION: int = 1
 ## @since 10.0.0
 const SCHEMA_VERSION: int = 1
 
+## session 策略 artifact 使用的 kind 标识。
+## [br]
+## @api private
+## [br]
 const _SESSION_POLICY_KIND: String = "gf.runtime_agent.session"
+
+## 请求执行策略 artifact 使用的 kind 标识。
+## [br]
+## @api private
+## [br]
 const _REQUEST_POLICY_KIND: String = "gf.runtime_agent.request"
+
+## 生成 bearer token 时请求的随机字节数，十六进制编码前使用。
+## [br]
+## @api private
+## [br]
 const _TOKEN_BYTE_COUNT: int = 32
+
+## 32 个随机字节十六进制编码后的 token 字符数。
+## [br]
+## @api private
+## [br]
 const _TOKEN_TEXT_LENGTH: int = _TOKEN_BYTE_COUNT * 2
+
+## `_is_valid_identifier()` 接受的标识符最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_IDENTIFIER_LENGTH: int = 128
+
+## endpoint 注册数量及单次 session grant 输入数量的上限。
+## [br]
+## @api private
+## [br]
 const _MAX_ENDPOINTS: int = 128
+
+## 同时保留的活动 session 数量上限。
+## [br]
+## @api private
+## [br]
 const _MAX_ACTIVE_SESSIONS: int = 32
+
+## 受限 schema 递归检查允许的最大深度。
+## [br]
+## @api private
+## [br]
 const _MAX_SCHEMA_DEPTH: int = 16
+
+## 受限 schema 递归检查累计处理的 schema 与字段节点上限。
+## [br]
+## @api private
+## [br]
 const _MAX_SCHEMA_NODES: int = 512
+
+## 单个 schema 可包含的字段数量上限。
+## [br]
+## @api private
+## [br]
 const _MAX_SCHEMA_FIELDS: int = 64
+
+## JSON 值递归检查允许的最大嵌套深度。
+## [br]
+## @api private
+## [br]
 const _MAX_VALUE_DEPTH: int = 32
+
+## JSON 值遍历和报告编码使用的节点预算上限。
+## [br]
+## @api private
+## [br]
 const _MAX_VALUE_NODES: int = 2048
+
+## JSON 值验证及报告编码使用的字节预算上限。
+## [br]
+## @api private
+## [br]
 const _MAX_VALUE_BYTES: int = 64 * 1024
+
+## 内存中保留的审计事件数量上限。
+## [br]
+## @api private
+## [br]
 const _MAX_AUDIT_EVENTS: int = 256
+
+## 等待发出审计通知的队列容量上限。
+## [br]
+## @api private
+## [br]
 const _MAX_PENDING_AUDIT_NOTIFICATIONS: int = 256
+
+## 单次审计通知 drain 最多派发的事件数量。
+## [br]
+## @api private
+## [br]
 const _MAX_AUDIT_NOTIFICATIONS_PER_DRAIN: int = 256
+
+## session 未指定 TTL 时使用的时长，单位为毫秒。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_SESSION_TTL_MSEC: int = 60_000
+
+## session TTL 可配置的最大时长，单位为毫秒。
+## [br]
+## @api private
+## [br]
 const _MAX_SESSION_TTL_MSEC: int = 15 * 60_000
+
+## session 未指定限流窗口时使用的时长，单位为毫秒。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_RATE_WINDOW_MSEC: int = 60_000
+
+## 限流窗口可配置的最大时长，单位为毫秒。
+## [br]
+## @api private
+## [br]
 const _MAX_RATE_WINDOW_MSEC: int = 5 * 60_000
+
+## session 未指定窗口请求数时使用的默认上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_REQUESTS_PER_WINDOW: int = 60
+
+## 单个限流窗口可配置的最大请求数。
+## [br]
+## @api private
+## [br]
 const _MAX_REQUESTS_PER_WINDOW: int = 256
+
+## session 未指定 request id 预算时使用的默认上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_REQUEST_IDS: int = 256
+
+## 单个 session 可配置的 request id 预算上限。
+## [br]
+## @api private
+## [br]
 const _MAX_REQUEST_IDS: int = 512
+
+## JSON 安全整数检查使用的最大允许整数值。
+## [br]
+## @api private
+## [br]
 const _JSON_SAFE_INTEGER_MAX: int = 9_007_199_254_740_991
+
+## JSON 安全整数检查使用的最小允许整数值。
+## [br]
+## @api private
+## [br]
 const _JSON_SAFE_INTEGER_MIN: int = -9_007_199_254_740_991
+
+## 报告值编码使用的保留 marker 键，并由纯 JSON 校验器拒绝。
+## [br]
+## @api private
+## [br]
 const _REPORT_MARKER_KEY: String = "__gf_report_value__"
+
+## Variant 报告编码使用的保留 marker 键，并由纯 JSON 校验器拒绝。
+## [br]
+## @api private
+## [br]
 const _VARIANT_MARKER_KEY: String = "__gf_variant__"
 
+## Runtime Agent 请求 envelope 接受的完整键集合。
+## [br]
+## @api private
+## [br]
 const _REQUEST_KEYS: Array[String] = [
 	"protocol_version",
 	"session_id",
@@ -86,12 +229,22 @@ const _REQUEST_KEYS: Array[String] = [
 	"request_id",
 	"payload",
 ]
+
+## open_session() 允许配置的 session 选项键集合。
+## [br]
+## @api private
+## [br]
 const _SESSION_OPTION_KEYS: Array[String] = [
 	"ttl_msec",
 	"max_requests_per_window",
 	"rate_window_msec",
 	"max_request_ids",
 ]
+
+## 受限 schema 检查允许的 JSON 字段类型集合。
+## [br]
+## @api private
+## [br]
 const _ALLOWED_SCHEMA_TYPES: Array[int] = [
 	GFSchemaField.ValueType.BOOL,
 	GFSchemaField.ValueType.INT,
@@ -148,17 +301,76 @@ var policy_registry: GFPolicyRegistry = GFPolicyRegistry.new():
 
 # --- 私有变量 ---
 
+## 创建实例时记录的线程 ID，供公开入口执行拥有线程检查。
+## [br]
+## @api private
+## [br]
 var _owner_thread_id: int = 0
+
+## 策略上下文变更计数，写入策略签名并在相关配置失效时递增。
+## [br]
+## @api private
+## [br]
 var _security_context_epoch: int = 0
+
+## 按 endpoint ID 保存 generation、schema 副本和 handler 的注册表。
+## [br]
+## @api private
+## [br]
 var _endpoints: Dictionary = {}
+
+## 按 session ID 保存 token 摘要、授权 grant、时限、限流状态和已用 request id 摘要。
+## [br]
+## @api private
+## [br]
 var _sessions: Dictionary = {}
+
+## 按 sequence 保留的内存审计事件列表，追加时受数量上限约束。
+## [br]
+## @api private
+## [br]
 var _audit_events: Array[Dictionary] = []
+
+## 等待发出 audit_event_recorded 信号的事件副本队列。
+## [br]
+## @api private
+## [br]
 var _audit_notification_queue: Array[Dictionary] = []
+
+## 下次注册 endpoint 时分配的 generation 计数。
+## [br]
+## @api private
+## [br]
 var _next_endpoint_generation: int = 0
+
+## 下次追加审计事件时分配的 sequence 计数。
+## [br]
+## @api private
+## [br]
 var _next_audit_sequence: int = 0
+
+## 标记 handler.call() 正在执行，以拒绝嵌套请求执行。
+## [br]
+## @api private
+## [br]
 var _handler_active: bool = false
+
+## 标记策略注册表正在评估 artifact，以拒绝递归策略评估入口。
+## [br]
+## @api private
+## [br]
 var _policy_evaluation_active: bool = false
+
+## 标记审计通知正在派发，以阻止回调递归启动另一轮 drain。
+## [br]
+## @api private
+## [br]
 var _audit_notification_draining: bool = false
+
+## 标记 dispose() 正在执行，用于抑制关闭环境时产生的额外审计通知。
+## [br]
+## @api private
+## [br]
 var _disposing: bool = false
 
 
@@ -1118,6 +1330,10 @@ func _get_current_time_msec() -> int:
 
 # --- 私有/辅助方法 ---
 
+## 当前线程与记录的拥有线程 ID 相同，或尚未设置拥有线程 ID 时返回 true。
+## [br]
+## @api private
+## [br]
 func _is_owner_thread() -> bool:
 	return (
 		_owner_thread_id == 0
@@ -1125,6 +1341,10 @@ func _is_owner_thread() -> bool:
 	)
 
 
+## 检查请求是否恰含允许键、正确字段类型、当前协议版本和有效标识符。
+## [br]
+## @api private
+## [br]
 func _validate_request_envelope(request: Dictionary) -> Dictionary:
 	if request.size() != _REQUEST_KEYS.size():
 		return {
@@ -1175,6 +1395,10 @@ func _validate_request_envelope(request: Dictionary) -> Dictionary:
 	return { "ok": true }
 
 
+## 校验 session 选项键与整数类型，应用默认值并检查 TTL、限流及 request id 范围。
+## [br]
+## @api private
+## [br]
 func _parse_session_options(options: Dictionary) -> Dictionary:
 	for key: Variant in options.keys():
 		if (
@@ -1219,6 +1443,10 @@ func _parse_session_options(options: Dictionary) -> Dictionary:
 	}
 
 
+## 对 endpoint ID 去重并按字符串顺序排序。
+## [br]
+## @api private
+## [br]
 func _normalize_endpoint_ids(endpoint_ids: PackedStringArray) -> Array[String]:
 	var seen: Dictionary = {}
 	var result: Array[String] = []
@@ -1231,6 +1459,10 @@ func _normalize_endpoint_ids(endpoint_ids: PackedStringArray) -> Array[String]:
 	return result
 
 
+## 先校验会话和令牌摘要，再核对策略签名、有效期及时间单调性；策略变化或时间失效会撤销会话。
+## 成功时更新原会话的 last_seen_msec 并返回同一字典引用，供后续流程继续维护状态。
+## [br]
+## @api private
 func _authenticate_session(
 	session_id: String,
 	bearer_token: String,
@@ -1294,6 +1526,10 @@ func _authenticate_session(
 	}
 
 
+## 检查 session 是否授予指定 endpoint，且 grant generation 仍匹配当前注册。
+## [br]
+## @api private
+## [br]
 func _validate_session_grant(session: Dictionary, endpoint_id: String) -> Dictionary:
 	var grants: Dictionary = _get_session_dictionary(session, "grants")
 	if not grants.has(endpoint_id):
@@ -1318,6 +1554,10 @@ func _validate_session_grant(session: Dictionary, endpoint_id: String) -> Dictio
 	return { "ok": true }
 
 
+## 按固定窗口检查请求预算；时钟回退或窗口到期时重置计数，允许时递增计数。
+## [br]
+## @api private
+## [br]
 func _consume_rate_budget(session: Dictionary, now_msec: int) -> Dictionary:
 	var window_started_at_msec: int = GFVariantData.get_option_int(
 		session,
@@ -1337,6 +1577,9 @@ func _consume_rate_budget(session: Dictionary, now_msec: int) -> Dictionary:
 	return { "ok": true }
 
 
+## 阻止策略求值同步重入，向捕获的注册表传入 artifact/context 容器副本；回调后核对注册表身份及签名，变化时拒绝旧裁决。
+## [br]
+## @api private
 func _evaluate_policy(artifact: Dictionary, context: Dictionary) -> Dictionary:
 	if policy_registry == null:
 		return {
@@ -1377,6 +1620,10 @@ func _evaluate_policy(artifact: Dictionary, context: Dictionary) -> Dictionary:
 	return { "ok": true }
 
 
+## 把安全代次、提供者身份与声明配置编码成稳定 JSON 摘要；仅接受受限 JSON 值，配置不合法时返回空串。
+## 签名反映这里显式列出的配置，不代表提供者任意运行时内部状态。
+## [br]
+## @api private
 func _make_policy_registry_signature(registry: GFPolicyRegistry) -> String:
 	if registry == null:
 		return ""
@@ -1411,6 +1658,9 @@ func _make_policy_registry_signature(registry: GFPolicyRegistry) -> String:
 	return JSON.stringify(signature_snapshot, "", true).sha256_text()
 
 
+## 在用户回调后复核会话、端点代次与策略注册表身份及签名；会话过期时同时移除会话记录。
+## [br]
+## @api private
 func _is_execution_context_current(
 	session_id: String,
 	endpoint_id: String,
@@ -1437,6 +1687,10 @@ func _is_execution_context_current(
 	return _make_policy_registry_signature(registry_snapshot) == registry_signature
 
 
+## 检查每个 endpoint grant 仍对应已注册 endpoint 且 generation 相同。
+## [br]
+## @api private
+## [br]
 func _are_grants_current(grants: Dictionary) -> bool:
 	for endpoint_key: Variant in grants.keys():
 		if not (endpoint_key is String):
@@ -1453,6 +1707,10 @@ func _are_grants_current(grants: Dictionary) -> bool:
 	return true
 
 
+## 创建递归检查状态，校验受限 schema 结构并调用定义校验器确认其有效。
+## [br]
+## @api private
+## [br]
 func _is_safe_schema(schema: GFDictionarySchema) -> bool:
 	if schema == null:
 		return false
@@ -1466,6 +1724,9 @@ func _is_safe_schema(schema: GFDictionarySchema) -> bool:
 	return schema.validate_definition().is_ok()
 
 
+## 以当前递归路径检测 schema 环，累积节点预算，并要求封闭字段、禁用转换及空元数据；字段名必须唯一。
+## [br]
+## @api private
 func _validate_safe_schema_node(
 	schema: GFDictionarySchema,
 	state: Dictionary,
@@ -1505,6 +1766,10 @@ func _validate_safe_schema_node(
 	return true
 
 
+## 校验远程端点允许的字段子集，拒绝默认值、运行时规则和元数据；数组项使用无名称且非 required 的字段定义。
+## 按当前路径检测字段循环，并递归约束 Dictionary/Array 只能挂接对应子定义。
+## [br]
+## @api private
 func _validate_safe_field_node(
 	field: GFSchemaField,
 	state: Dictionary,
@@ -1551,6 +1816,10 @@ func _validate_safe_field_node(
 	return valid
 
 
+## 将 schema 转为只包含 schema_id、allow_extra_fields 和递归字段描述的字典。
+## [br]
+## @api private
+## [br]
 func _describe_safe_schema(schema: GFDictionarySchema) -> Dictionary:
 	var fields: Array[Dictionary] = []
 	if schema != null:
@@ -1563,6 +1832,10 @@ func _describe_safe_schema(schema: GFDictionarySchema) -> Dictionary:
 	}
 
 
+## 将字段转为名称、类型、required、allow_null 及嵌套结构描述。
+## [br]
+## @api private
+## [br]
 func _describe_safe_field(field: GFSchemaField) -> Dictionary:
 	var result: Dictionary = {
 		"name": String(field.field_name),
@@ -1577,6 +1850,10 @@ func _describe_safe_field(field: GFSchemaField) -> Dictionary:
 	return result
 
 
+## 将受限 schema 的字段类型枚举映射为目录使用的小写类型名。
+## [br]
+## @api private
+## [br]
 func _schema_type_name(value_type: GFSchemaField.ValueType) -> String:
 	match value_type:
 		GFSchemaField.ValueType.BOOL:
@@ -1594,6 +1871,10 @@ func _schema_type_name(value_type: GFSchemaField.ValueType) -> String:
 	return "unsupported"
 
 
+## 检查字典键均为 schema 字段、必需字段存在且各值满足对应字段规则。
+## [br]
+## @api private
+## [br]
 func _matches_safe_schema(values: Dictionary, schema: GFDictionarySchema) -> bool:
 	if schema == null or values.size() > schema.fields.size():
 		return false
@@ -1614,6 +1895,10 @@ func _matches_safe_schema(values: Dictionary, schema: GFDictionarySchema) -> boo
 	return true
 
 
+## 按字段类型与 allow_null 校验值，并递归检查字典字段和数组项。
+## [br]
+## @api private
+## [br]
 func _matches_safe_field(value: Variant, field: GFSchemaField) -> bool:
 	if field == null:
 		return false
@@ -1644,6 +1929,9 @@ func _matches_safe_field(value: Variant, field: GFSchemaField) -> bool:
 	return false
 
 
+## 先作带节点、深度和工作字节预算的类型遍历，再实际 JSON 编码核对最终 UTF-8 字节数；成功报告不复制输入。
+## [br]
+## @api private
 func _validate_plain_json_value(value: Variant) -> Dictionary:
 	var state: Dictionary = {
 		"node_count": 0,
@@ -1670,6 +1958,10 @@ func _validate_plain_json_value(value: Variant) -> Dictionary:
 	}
 
 
+## 只接纳受限 JSON 基础值、字符串键字典和数组，拒绝不安全整数、非有限数、保留标记及当前路径循环。
+## 共享 state 累计访问和工作预算，容器离开时移除路径标记，因此不同分支可共享无环容器。
+## [br]
+## @api private
 func _validate_plain_json_node(
 	value: Variant,
 	state: Dictionary,
@@ -1786,6 +2078,10 @@ func _validate_plain_json_node(
 			return "non_json_value"
 
 
+## 将非负工作字节数累计到遍历状态，超过上限时返回 max_bytes_exceeded。
+## [br]
+## @api private
+## [br]
 func _consume_json_work_bytes(state: Dictionary, amount: int) -> String:
 	state["work_bytes"] = GFVariantData.get_option_int(state, "work_bytes") + maxi(amount, 0)
 	if GFVariantData.get_option_int(state, "work_bytes") > _MAX_VALUE_BYTES:
@@ -1793,6 +2089,10 @@ func _consume_json_work_bytes(state: Dictionary, amount: int) -> String:
 	return ""
 
 
+## 递归检查字典或数组中是否出现任一报告/Variant 保留 marker 键。
+## [br]
+## @api private
+## [br]
 func _contains_report_marker(value: Variant) -> bool:
 	if value is Dictionary:
 		var dictionary_value: Dictionary = value
@@ -1809,10 +2109,18 @@ func _contains_report_marker(value: Variant) -> bool:
 	return false
 
 
+## 比较两个值按当前 JSON.stringify 参数编码后的文本是否相同。
+## [br]
+## @api private
+## [br]
 func _json_values_are_identical(left: Variant, right: Variant) -> bool:
 	return JSON.stringify(left, "", true) == JSON.stringify(right, "", true)
 
 
+## 判断错误码是否属于深度、节点数或字节预算超限。
+## [br]
+## @api private
+## [br]
 func _is_budget_error(error: String) -> bool:
 	return error in [
 		"max_depth_exceeded",
@@ -1821,6 +2129,10 @@ func _is_budget_error(error: String) -> bool:
 	]
 
 
+## 删除截止时间不晚于 now_msec 的 session，并为每个删除项追加审计事件。
+## [br]
+## @api private
+## [br]
 func _prune_expired_sessions_internal(now_msec: int) -> int:
 	var expired_ids: Array[String] = []
 	for session_key: Variant in _sessions.keys():
@@ -1836,6 +2148,10 @@ func _prune_expired_sessions_internal(now_msec: int) -> int:
 	return expired_ids.size()
 
 
+## 最多尝试四个 UUID，返回首个有效且未占用的 session ID；失败时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _make_unique_session_id() -> String:
 	for _attempt: int in range(4):
 		var candidate: String = GFUuid.generate_v4()
@@ -1844,15 +2160,27 @@ func _make_unique_session_id() -> String:
 	return ""
 
 
+## 生成指定字节数的随机值并返回其小写十六进制文本。
+## [br]
+## @api private
+## [br]
 func _generate_token() -> String:
 	var crypto: Crypto = Crypto.new()
 	return crypto.generate_random_bytes(_TOKEN_BYTE_COUNT).hex_encode()
 
 
+## 对 session ID 与 token 组成的文本计算 SHA-256 摘要。
+## [br]
+## @api private
+## [br]
 func _hash_token(session_id: String, token: String) -> String:
 	return ("%s:%s" % [session_id, token]).sha256_text()
 
 
+## 要求两个摘要文本长度均为 64，并逐位累积字符码点差异后判断是否全相同。
+## [br]
+## @api private
+## [br]
 func _constant_time_hash_equal(left: String, right: String) -> bool:
 	if left.length() != 64 or right.length() != 64:
 		return false
@@ -1862,6 +2190,10 @@ func _constant_time_hash_equal(left: String, right: String) -> bool:
 	return mismatch == 0
 
 
+## 检查 token 是否恰为 64 个小写十六进制字符。
+## [br]
+## @api private
+## [br]
 func _is_valid_token_text(token: String) -> bool:
 	if token.length() != _TOKEN_TEXT_LENGTH:
 		return false
@@ -1875,6 +2207,10 @@ func _is_valid_token_text(token: String) -> bool:
 	return true
 
 
+## 检查标识符长度为 1 至 128，且字符仅为 ASCII 字母、数字或 `- . / : _`。
+## [br]
+## @api private
+## [br]
 func _is_valid_identifier(value: String) -> bool:
 	if value.is_empty() or value.length() > _MAX_IDENTIFIER_LENGTH:
 		return false
@@ -1891,6 +2227,10 @@ func _is_valid_identifier(value: String) -> bool:
 	return true
 
 
+## 分配 sequence 并保存固定字段审计事件；内存记录受限，队列未满时加入通知副本并启动 drain。
+## [br]
+## @api private
+## [br]
 func _append_audit(
 	action: String,
 	outcome: String,
@@ -1920,6 +2260,9 @@ func _append_audit(
 	_drain_audit_notifications()
 
 
+## 用重入门禁串行发送审计副本；回调追加的记录可在同轮继续发送，达到每轮上限后直接丢弃余队列以终止通知级联。
+## [br]
+## @api private
 func _drain_audit_notifications() -> void:
 	if _audit_notification_draining:
 		return
@@ -1937,6 +2280,10 @@ func _drain_audit_notifications() -> void:
 	_audit_notification_draining = false
 
 
+## 根据结果生成审计 outcome，追加审计记录后返回传入的结果字典。
+## [br]
+## @api private
+## [br]
 func _audit_result(
 	result: Dictionary,
 	action: String,
@@ -1960,6 +2307,10 @@ func _audit_result(
 	return result
 
 
+## 创建带 schema/protocol 版本、状态和原因的结果字典，并合入附加字段。
+## [br]
+## @api private
+## [br]
 func _make_result(
 	ok: bool,
 	status: String,
@@ -1978,6 +2329,10 @@ func _make_result(
 	return result
 
 
+## 仅在选项值的实际类型为 int 时返回该值，否则返回默认值。
+## [br]
+## @api private
+## [br]
 func _strict_option_int(options: Dictionary, key: String, default_value: int) -> int:
 	if options.has(key):
 		var value: Variant = options[key]
@@ -1986,6 +2341,10 @@ func _strict_option_int(options: Dictionary, key: String, default_value: int) ->
 	return default_value
 
 
+## 从 session 读取指定值；仅当值为 Dictionary 时返回，否则返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_session_dictionary(session: Dictionary, key: String) -> Dictionary:
 	var value: Variant = session.get(key)
 	if value is Dictionary:
@@ -1994,6 +2353,10 @@ func _get_session_dictionary(session: Dictionary, key: String) -> Dictionary:
 	return {}
 
 
+## 从遍历状态读取指定值；仅当值为 Array 时返回，否则返回空数组。
+## [br]
+## @api private
+## [br]
 func _state_array(state: Dictionary, key: String) -> Array:
 	var value: Variant = state.get(key)
 	if value is Array:
@@ -2002,6 +2365,10 @@ func _state_array(state: Dictionary, key: String) -> Array:
 	return []
 
 
+## 使用 is_same() 检查遍历数组中是否已有与 value 相同的对象引用。
+## [br]
+## @api private
+## [br]
 func _visited_contains(visited: Array, value: Variant) -> bool:
 	for existing: Variant in visited:
 		if is_same(existing, value):
@@ -2009,6 +2376,10 @@ func _visited_contains(visited: Array, value: Variant) -> bool:
 	return false
 
 
+## 仅当 Variant 为 Dictionary 时返回其字典值，否则返回空字典。
+## [br]
+## @api private
+## [br]
 func _as_dictionary(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		var dictionary_value: Dictionary = value
@@ -2016,6 +2387,10 @@ func _as_dictionary(value: Variant) -> Dictionary:
 	return {}
 
 
+## 仅当 Variant 为 GFDictionarySchema 时返回 schema，否则返回 null。
+## [br]
+## @api private
+## [br]
 func _as_schema(value: Variant) -> GFDictionarySchema:
 	if value is GFDictionarySchema:
 		var schema: GFDictionarySchema = value
@@ -2023,6 +2398,10 @@ func _as_schema(value: Variant) -> GFDictionarySchema:
 	return null
 
 
+## 仅当 Variant 为 Callable 时返回该值，否则返回空 Callable。
+## [br]
+## @api private
+## [br]
 func _as_callable(value: Variant) -> Callable:
 	if value is Callable:
 		var callable_value: Callable = value

@@ -92,8 +92,19 @@ var focusable_callback: Callable:
 
 # --- 私有变量 ---
 
+## 当前有效条目数量，始终不小于零。
+## [br]
+## @api private
 var _item_count: int = 0
+
+## 当前虚拟焦点索引；无焦点时为 NO_FOCUS。
+## [br]
+## @api private
 var _focused_index: int = NO_FOCUS
+
+## 判断索引是否可聚焦的可选回调。
+## [br]
+## @api private
 var _focusable_callback: Callable = Callable()
 
 
@@ -336,6 +347,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 将条目数量限制为非负值，并按参数使用旧焦点修正当前焦点。
+## [br]
+## @api private
 func _apply_item_count(value: int, repair_focus_enabled: bool) -> void:
 	var previous_focus_index: int = _focused_index
 	_item_count = maxi(value, 0)
@@ -343,6 +357,9 @@ func _apply_item_count(value: int, repair_focus_enabled: bool) -> void:
 		_repair_focus_internal(previous_focus_index)
 
 
+## 接受 NO_FOCUS 或当前可聚焦索引；其他索引不改变焦点。
+## [br]
+## @api private
 func _apply_focused_index(item_index: int) -> void:
 	if item_index == NO_FOCUS:
 		_set_focus_unchecked(NO_FOCUS)
@@ -352,6 +369,10 @@ func _apply_focused_index(item_index: int) -> void:
 	_set_focus_unchecked(item_index)
 
 
+## 依次尝试首选索引、当前索引、最近可聚焦项和可选自动首项策略修正焦点。
+## 无条目或找不到候选时清空焦点。
+## [br]
+## @api private
 func _repair_focus_internal(preferred_index: int) -> void:
 	if _item_count <= 0:
 		_set_focus_unchecked(NO_FOCUS)
@@ -379,6 +400,10 @@ func _repair_focus_internal(preferred_index: int) -> void:
 	_set_focus_unchecked(NO_FOCUS)
 
 
+## 沿指定方向寻找下一个可聚焦项，最多检查条目总数并遵守环绕设置。
+## 不含起始索引；没有候选时返回 NO_FOCUS。
+## [br]
+## @api private
 func _find_next_focusable(from_index: int, direction: int) -> int:
 	if _item_count <= 0:
 		return NO_FOCUS
@@ -400,6 +425,9 @@ func _find_next_focusable(from_index: int, direction: int) -> int:
 	return NO_FOCUS
 
 
+## 从夹紧后的起点沿指定方向线性查找首个可聚焦索引。
+## [br]
+## @api private
 func _find_first_focusable(start_index: int, direction: int) -> int:
 	if _item_count <= 0:
 		return NO_FOCUS
@@ -415,6 +443,9 @@ func _find_first_focusable(start_index: int, direction: int) -> int:
 	return NO_FOCUS
 
 
+## 以 seed 为中心按每段距离先查前向、再查后向的顺序寻找可聚焦索引。
+## [br]
+## @api private
 func _find_nearest_focusable(seed_index: int) -> int:
 	if _item_count <= 0:
 		return NO_FOCUS
@@ -433,6 +464,9 @@ func _find_nearest_focusable(seed_index: int) -> int:
 	return NO_FOCUS
 
 
+## 更新焦点并在索引实际变化时发出 previous 与 current 值。
+## [br]
+## @api private
 func _set_focus_unchecked(next_index: int) -> void:
 	if _focused_index == next_index:
 		return
@@ -441,6 +475,9 @@ func _set_focus_unchecked(next_index: int) -> void:
 	focused_index_changed.emit(previous_focus_index, _focused_index)
 
 
+## 将索引夹紧到当前条目范围；没有条目时返回 NO_FOCUS。
+## [br]
+## @api private
 func _clamp_index(item_index: int) -> int:
 	if _item_count <= 0:
 		return NO_FOCUS

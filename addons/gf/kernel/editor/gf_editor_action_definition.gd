@@ -66,6 +66,10 @@ const INVOCATION_STATUS_COMMAND_UNAVAILABLE: StringName = &"command_unavailable"
 ## [br]
 ## @layer kernel/editor
 const GFEditorCommandBase = preload("res://addons/gf/kernel/editor/gf_editor_command.gd")
+
+## 引用报告值编解码工具，供动作报告生成时处理 metadata。
+## [br]
+## @api private
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 
 
@@ -302,6 +306,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 调用配置的命令工厂，仅接受 GFEditorCommandBase 实例，其他返回 null。
+## [br]
+## @api private
 func _create_command_from_factory(context: Dictionary) -> GFEditorCommandBase:
 	var command_variant: Variant = command_factory.call(context)
 	if command_variant is GFEditorCommandBase:
@@ -310,6 +317,9 @@ func _create_command_from_factory(context: Dictionary) -> GFEditorCommandBase:
 	return null
 
 
+## 组装动作调用报告字段，并通过报告编解码器转换 metadata。
+## [br]
+## @api private
 func _make_invocation_report(
 	ok: bool,
 	status: StringName,
@@ -335,12 +345,18 @@ func _make_invocation_report(
 	}
 
 
+## 使用 basename 路径脱敏选项转换报告字典。
+## [br]
+## @api private
 func _to_report_dictionary(value: Dictionary) -> Dictionary:
 	return _GF_REPORT_VALUE_CODEC_SCRIPT.to_report_dictionary(value, {
 		"path_redaction": "basename",
 	})
 
 
+## 调用可用性回调，仅把 bool 结果作为有效值；其他类型返回 false。
+## [br]
+## @api private
 func _call_availability_callback(context: Dictionary) -> bool:
 	var result: Variant = availability_callback.call(context)
 	if result is bool:

@@ -32,12 +32,22 @@ signal catalog_rebuilt(catalog: GFContentPackageCatalog)
 ## @since 10.0.0
 const DEFAULT_SOURCE_ROOT_OWNER_ID: StringName = &"gf.content_package.manual"
 
+## 负责 source root 的路径归一化。
+## [br]
+## @api private
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 
 
 # --- 私有变量 ---
 
+## 将 owner ID 映射到该 owner 已注册且排序的 source root 集合。
+## [br]
+## @api private
 var _source_roots_by_owner: Dictionary = {}
+
+## 当前服务发布的内容包目录快照。
+## [br]
+## @api private
 var _catalog: GFContentPackageCatalog = GFContentPackageCatalog.new()
 
 
@@ -434,6 +444,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 收集根目录自身及其直接子目录中的 manifest 文件，不递归更深层目录。
+## [br]
+## @api private
 func _append_manifest_paths_for_root(root_path: String, result: PackedStringArray) -> void:
 	if root_path.is_empty() or not _is_supported_source_root(root_path):
 		return
@@ -457,6 +470,9 @@ func _append_manifest_paths_for_root(root_path: String, result: PackedStringArra
 	dir.list_dir_end()
 
 
+## 归一化路径后仅在结果数组中尚未出现时追加。
+## [br]
+## @api private
 func _append_unique_path(result: PackedStringArray, path: String) -> void:
 	var normalized_path: String = _normalize_root_path(path)
 	if result.has(normalized_path):
@@ -464,6 +480,9 @@ func _append_unique_path(result: PackedStringArray, path: String) -> void:
 	var _append_result: bool = result.append(normalized_path)
 
 
+## 将无法加载的 manifest 路径逐项记录为错误并完成报告；无失败时原样返回。
+## [br]
+## @api private
 func _add_manifest_load_failures(report: Dictionary, failed_manifest_paths: PackedStringArray) -> Dictionary:
 	if failed_manifest_paths.is_empty():
 		return report
@@ -490,21 +509,33 @@ func _add_manifest_load_failures(report: Dictionary, failed_manifest_paths: Pack
 	})
 
 
+## 读取报告的 ok 标志，缺失时按 false 处理。
+## [br]
+## @api private
 func _report_ok(report: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(report, "ok", false)
 
 
+## 根集合改变后替换为空目录，并发出新目录的隔离快照信号。
+## [br]
+## @api private
 func _reset_catalog_after_roots_changed() -> void:
 	_catalog = GFContentPackageCatalog.new()
 	catalog_rebuilt.emit(_catalog.duplicate_catalog())
 
 
+## 比较变更前后的有效 root 列表，仅在集合不同时重置目录。
+## [br]
+## @api private
 func _reset_catalog_if_effective_roots_changed(previous_roots: PackedStringArray) -> void:
 	if previous_roots == get_source_roots():
 		return
 	_reset_catalog_after_roots_changed()
 
 
+## 读取 owner 的 root 数组；字典值不是 PackedStringArray 时返回空数组。
+## [br]
+## @api private
 func _get_owner_roots_ref(owner_id: StringName) -> PackedStringArray:
 	var roots_value: Variant = _source_roots_by_owner.get(owner_id)
 	if roots_value is PackedStringArray:
@@ -513,6 +544,9 @@ func _get_owner_roots_ref(owner_id: StringName) -> PackedStringArray:
 	return PackedStringArray()
 
 
+## 将 String/StringName 收窄为 owner ID，其余 Variant 返回空 ID。
+## [br]
+## @api private
 static func _variant_to_owner_id(value: Variant) -> StringName:
 	if value is StringName:
 		var owner_id: StringName = value
@@ -523,9 +557,15 @@ static func _variant_to_owner_id(value: Variant) -> StringName:
 	return &""
 
 
+## 将 source root 路径归一化工作委托给 GFPathTools。
+## [br]
+## @api private
 static func _normalize_root_path(path: String) -> String:
 	return _GF_PATH_TOOLS.normalize_root_path(path)
 
 
+## 仅接受以 res:// 或 user:// 开头的 source root。
+## [br]
+## @api private
 static func _is_supported_source_root(path: String) -> bool:
 	return path.begins_with("res://") or path.begins_with("user://")

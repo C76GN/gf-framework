@@ -18,6 +18,9 @@ extends GFEditorCommand
 
 # --- 常量 ---
 
+## 深复制 metadata 值并读取配置选项的工具脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -84,12 +87,39 @@ var remove_on_execute: bool:
 
 # --- 私有变量 ---
 
+## 当前命令要修改的节点引用。
+## [br]
+## @api private
 var _target_node: Node = null
+
+## 当前命令要修改的 metadata 键。
+## [br]
+## @api private
 var _metadata_key: StringName = &""
+
+## 执行时要写入的值；配置时按选项复制，getter 也返回复制值。
+## [br]
+## @api private
 var _value: Variant = null
+
+## 执行时是否删除键而不设置新值。
+## [br]
+## @api private
 var _remove_on_execute: bool = false
+
+## 首次执行前目标是否已有该 metadata 键。
+## [br]
+## @api private
 var _previous_exists: bool = false
+
+## 首次执行前的 metadata 值副本，供撤销恢复。
+## [br]
+## @api private
 var _previous_value: Variant = null
+
+## 当前是否已捕获可供 undo 使用的前态快照。
+## [br]
+## @api private
 var _has_previous_snapshot: bool = false
 
 
@@ -221,6 +251,9 @@ func _get_undo_context() -> Object:
 
 # --- 私有/辅助方法 ---
 
+## 首次执行前记录 metadata 是否存在及其值；已有快照或目标失效时不重复读取。
+## [br]
+## @api private
 func _capture_previous_if_needed() -> void:
 	if _has_previous_snapshot or not is_instance_valid(_target_node):
 		return
@@ -231,6 +264,9 @@ func _capture_previous_if_needed() -> void:
 	_has_previous_snapshot = true
 
 
+## 用 Variant 工具深复制新值，并按选项决定是否复制 Resource。
+## [br]
+## @api private
 func _set_value_unsealed(new_value: Variant, duplicate_resources: bool = false) -> void:
 	_value = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(
 		new_value,
@@ -239,6 +275,9 @@ func _set_value_unsealed(new_value: Variant, duplicate_resources: bool = false) 
 	)
 
 
+## 清除保存的旧键存在状态和值，使下一次执行重新捕获当前 metadata。
+## [br]
+## @api private
 func _clear_previous_snapshot() -> void:
 	_previous_exists = false
 	_previous_value = null

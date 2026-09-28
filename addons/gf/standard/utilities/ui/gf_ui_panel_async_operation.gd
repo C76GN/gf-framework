@@ -46,19 +46,58 @@ const OPERATION_PUSH: StringName = &"push"
 ## [br]
 ## @since 11.0.0
 const OPERATION_REPLACE: StringName = &"replace"
+
+## 内部终态码：面板已打开。
+## [br]
+## @api private
 const _STATUS_OPENED: int = 0
+
+## 内部终态码：面板请求失败。
+## [br]
+## @api private
 const _STATUS_FAILED: int = 1
+
+## 内部终态码：面板请求已取消。
+## [br]
+## @api private
 const _STATUS_CANCELLED: int = 2
 
 
 # --- 私有变量 ---
 
+## 由 GFUIUtility 分配的请求序号。
+## [br]
+## @api private
 var _serial: int = 0
+
+## 请求创建时冻结的面板场景路径。
+## [br]
+## @api private
 var _path: String = ""
+
+## 请求创建时冻结的目标逻辑层。
+## [br]
+## @api private
 var _layer: int = -1
+
+## 请求创建时冻结的 push 或 replace 操作。
+## [br]
+## @api private
 var _operation: StringName = &""
+
+## 当前终态码；配置完成前为 STATUS_PENDING。
+## [br]
+## @api private
 var _status: int = STATUS_PENDING
+
+## 成功打开面板的弱引用，不延长面板节点生命周期。
+## [br]
+## @api private
 var _panel_reference: WeakRef = null
+
+## 是否已由 GFUIUtility 初始化请求身份。
+## [br]
+## @api private
 var _configured: bool = false
 
 

@@ -609,6 +609,10 @@ static func build_resource_chain(base_resource: Resource, patch_chain: Array, op
 
 # --- 私有/辅助方法 ---
 
+## 补齐属性存在性、值复制与 Resource 复制的实例默认选项。
+## [br]
+## @api private
+## [br]
 func _merge_default_options(options: Dictionary) -> Dictionary:
 	var merged: Dictionary = options.duplicate(true)
 	if not merged.has("require_existing_property"):
@@ -620,6 +624,10 @@ func _merge_default_options(options: Dictionary) -> Dictionary:
 	return merged
 
 
+## 按规范化属性路径索引定义字典的深拷贝。
+## [br]
+## @api private
+## [br]
 static func _build_definition_map(patch_definitions: Array) -> Dictionary:
 	var result: Dictionary = {}
 	for definition_variant: Variant in patch_definitions:
@@ -631,6 +639,10 @@ static func _build_definition_map(patch_definitions: Array) -> Dictionary:
 	return result
 
 
+## 依次读取 property_path、path 或 name 并规范化。
+## [br]
+## @api private
+## [br]
 static func _get_definition_path(definition: Dictionary) -> StringName:
 	var raw_path: Variant = GFVariantData.get_option_value(
 		definition,
@@ -644,6 +656,10 @@ static func _get_definition_path(definition: Dictionary) -> StringName:
 	return _normalize_property_path(raw_path)
 
 
+## 规范化补丁键并按选项复制对应 Variant 值。
+## [br]
+## @api private
+## [br]
 static func _normalize_patch_values(
 	patch_values: Dictionary,
 	should_copy_values: bool,
@@ -662,6 +678,10 @@ static func _normalize_patch_values(
 	return result
 
 
+## 将 Variant 转为去空白的属性路径 StringName。
+## [br]
+## @api private
+## [br]
 static func _normalize_property_path(value: Variant) -> StringName:
 	var text: String = GFVariantData.to_text(value).strip_edges()
 	if text.is_empty():
@@ -669,6 +689,10 @@ static func _normalize_property_path(value: Variant) -> StringName:
 	return StringName(text)
 
 
+## 按 StringName、字符串或规范化后的键查找属性路径。
+## [br]
+## @api private
+## [br]
 static func _find_dictionary_key(source: Dictionary, property_path: StringName) -> Variant:
 	if source.has(property_path):
 		return property_path
@@ -681,6 +705,10 @@ static func _find_dictionary_key(source: Dictionary, property_path: StringName) 
 	return null
 
 
+## 在对象属性列表中检查是否声明了指定属性名。
+## [br]
+## @api private
+## [br]
 static func _object_has_property(target: Object, property_path: StringName) -> bool:
 	if target == null:
 		return false
@@ -692,12 +720,20 @@ static func _object_has_property(target: Object, property_path: StringName) -> b
 	return false
 
 
+## 按复制选项返回原值或深复制 Variant。
+## [br]
+## @api private
+## [br]
 static func _copy_value(value: Variant, should_copy_values: bool, should_duplicate_resources: bool) -> Variant:
 	if not should_copy_values:
 		return value
 	return GFVariantData.duplicate_variant(value, true, should_duplicate_resources)
 
 
+## 校验 null、Variant 类型及 Object hint，返回空串或稳定错误码。
+## [br]
+## @api private
+## [br]
 static func _validate_value(definition: Dictionary, value: Variant) -> String:
 	if value == null:
 		return "" if GFVariantData.get_option_bool(definition, KEY_ALLOW_NULL, true) else "null_not_allowed"
@@ -716,6 +752,10 @@ static func _validate_value(definition: Dictionary, value: Variant) -> String:
 	return "" if typeof(value) == property_type else "type_mismatch"
 
 
+## 按原生类、当前脚本或基类脚本名称/路径匹配 Object hint。
+## [br]
+## @api private
+## [br]
 static func _object_matches_hint(value: Object, hint_string: String) -> bool:
 	var trimmed_hint: String = hint_string.strip_edges()
 	if value == null or trimmed_hint.is_empty():
@@ -731,6 +771,10 @@ static func _object_matches_hint(value: Object, hint_string: String) -> bool:
 	return false
 
 
+## 将 Variant 收窄为 Script；其他值返回 null。
+## [br]
+## @api private
+## [br]
 static func _get_script_value(value: Variant) -> Script:
 	if value is Script:
 		var script: Script = value
@@ -738,6 +782,10 @@ static func _get_script_value(value: Variant) -> Script:
 	return null
 
 
+## 构造 Inspector 属性项，并为已有补丁值添加 storage usage。
+## [br]
+## @api private
+## [br]
 static func _make_property_entry(
 	definition: Dictionary,
 	property_path: StringName,
@@ -757,6 +805,10 @@ static func _make_property_entry(
 	}
 
 
+## 优先返回定义的 type；未定义时从 default_value 推导 Variant 类型。
+## [br]
+## @api private
+## [br]
 static func _get_property_type(definition: Dictionary) -> int:
 	var property_type: int = GFVariantData.get_option_int(definition, KEY_TYPE, TYPE_NIL)
 	if property_type != TYPE_NIL:
@@ -765,6 +817,10 @@ static func _get_property_type(definition: Dictionary) -> int:
 	return typeof(default_value)
 
 
+## 构造带可选前缀的 Inspector 属性分组项。
+## [br]
+## @api private
+## [br]
 static func _make_group_entry(group_prefix: String, group_name: String) -> Dictionary:
 	var entry_name: String = group_name
 	if not group_prefix.is_empty():
@@ -776,6 +832,10 @@ static func _make_group_entry(group_prefix: String, group_name: String) -> Dicti
 	}
 
 
+## 创建单个补丁应用报告的空计数和路径字段。
+## [br]
+## @api private
+## [br]
 static func _make_report() -> Dictionary:
 	return {
 		"ok": true,
@@ -789,6 +849,10 @@ static func _make_report() -> Dictionary:
 	}
 
 
+## 创建补丁链报告并复制调用方 metadata。
+## [br]
+## @api private
+## [br]
 static func _make_chain_report(options: Dictionary) -> Dictionary:
 	var report: Dictionary = _make_report()
 	report["patch_count"] = 0
@@ -797,6 +861,10 @@ static func _make_chain_report(options: Dictionary) -> Dictionary:
 	return report
 
 
+## 将 Variant 收窄为 GFResourcePropertyPatch；其他值返回 null。
+## [br]
+## @api private
+## [br]
 static func _variant_to_patch(value: Variant) -> GFResourcePropertyPatch:
 	if value is GFResourcePropertyPatch:
 		var patch: GFResourcePropertyPatch = value
@@ -804,6 +872,10 @@ static func _variant_to_patch(value: Variant) -> GFResourcePropertyPatch:
 	return null
 
 
+## 汇总单个补丁的计数、路径与错误，并按选项保留报告副本。
+## [br]
+## @api private
+## [br]
 static func _merge_patch_report(
 	target_report: Dictionary,
 	patch_report: Dictionary,
@@ -829,6 +901,10 @@ static func _merge_patch_report(
 		target_report["patch_reports"] = patch_reports
 
 
+## 将路径列表追加到报告指定的 PackedStringArray 字段。
+## [br]
+## @api private
+## [br]
 static func _append_report_paths(target_report: Dictionary, key: String, paths: PackedStringArray) -> void:
 	var target_paths: PackedStringArray = _get_report_paths(target_report, key)
 	for path: String in paths:
@@ -836,6 +912,10 @@ static func _append_report_paths(target_report: Dictionary, key: String, paths: 
 	target_report[key] = target_paths
 
 
+## 深复制补丁错误并补入补丁索引和 metadata。
+## [br]
+## @api private
+## [br]
 static func _append_patch_errors(
 	target_report: Dictionary,
 	patch_report: Dictionary,
@@ -851,6 +931,10 @@ static func _append_patch_errors(
 	target_report["errors"] = target_errors
 
 
+## 追加链级错误并为新错误附加补丁索引和 metadata。
+## [br]
+## @api private
+## [br]
 static func _add_chain_error(
 	report: Dictionary,
 	patch_index: int,
@@ -869,6 +953,10 @@ static func _add_chain_error(
 	report["errors"] = errors
 
 
+## 递增 applied_count 并记录成功应用的属性路径。
+## [br]
+## @api private
+## [br]
 static func _add_report_applied(report: Dictionary, property_path: StringName) -> void:
 	report["applied_count"] = GFVariantData.get_option_int(report, "applied_count") + 1
 	var paths: PackedStringArray = _get_report_paths(report, "applied_paths")
@@ -876,6 +964,10 @@ static func _add_report_applied(report: Dictionary, property_path: StringName) -
 	report["applied_paths"] = paths
 
 
+## 递增 skipped_count，并按需增加 unchanged_count 和跳过路径。
+## [br]
+## @api private
+## [br]
 static func _add_report_skip(report: Dictionary, property_path: StringName, unchanged: bool) -> void:
 	report["skipped_count"] = GFVariantData.get_option_int(report, "skipped_count") + 1
 	if unchanged:
@@ -885,6 +977,10 @@ static func _add_report_skip(report: Dictionary, property_path: StringName, unch
 	report["skipped_paths"] = paths
 
 
+## 标记报告失败、增加计数并记录错误及跳过路径。
+## [br]
+## @api private
+## [br]
 static func _add_report_error(
 	report: Dictionary,
 	property_path: StringName,
@@ -905,6 +1001,10 @@ static func _add_report_error(
 	report["skipped_paths"] = paths
 
 
+## 从报告字段读取 PackedStringArray 路径列表。
+## [br]
+## @api private
+## [br]
 static func _get_report_paths(report: Dictionary, key: String) -> PackedStringArray:
 	var value: Variant = GFVariantData.get_option_value(report, key, PackedStringArray())
 	if value is PackedStringArray:

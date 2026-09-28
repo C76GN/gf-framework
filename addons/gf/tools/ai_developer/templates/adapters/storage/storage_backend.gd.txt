@@ -24,6 +24,9 @@ const MAX_PROVIDER_OPTIONS_BYTES: int = 64 * 1024
 const MAX_LOGICAL_KEY_LENGTH: int = 512
 const MAX_REVISION_TOKEN_BYTES: int = 128
 const MAX_REQUEST_ID_BYTES: int = 128
+## 适配器配置允许字段，provider 必需，其余配置可省略并使用默认值。
+## [br]
+## @api private
 const _CONFIG_KEYS: PackedStringArray = [
 	"provider",
 	"provider_options",
@@ -36,6 +39,10 @@ const _CONFIG_KEYS: PackedStringArray = [
 	"max_string_bytes",
 	"max_container_entries",
 ]
+
+## provider 能力声明的精确字段集合，所有值必须为 bool。
+## [br]
+## @api private
 const _CAPABILITY_KEYS: PackedStringArray = [
 	"read",
 	"write",
@@ -46,26 +53,46 @@ const _CAPABILITY_KEYS: PackedStringArray = [
 	"cancellation",
 	"sync",
 ]
+
+## provider 读取响应的闭合字段，额外原始 SDK 信息不得穿过此边界。
+## [br]
+## @api private
 const _READ_RESULT_KEYS: PackedStringArray = [
 	"ok",
 	"data",
 	"metadata",
 	"error_code",
 ]
+
+## provider 列表响应的闭合字段，记录结构由独立字段集合继续验证。
+## [br]
+## @api private
 const _LIST_RESULT_KEYS: PackedStringArray = [
 	"ok",
 	"records",
 	"error_code",
 ]
+
+## 每条列表记录仅允许存储键及 metadata，禁止混入完整 payload。
+## [br]
+## @api private
 const _LIST_RECORD_KEYS: PackedStringArray = [
 	"storage_key",
 	"metadata",
 ]
+
+## 允许的原子写选项，包括条件修订、仅创建和幂等请求标识。
+## [br]
+## @api private
 const _WRITE_OPTION_KEYS: PackedStringArray = [
 	"expected_revision",
 	"create_if_absent",
 	"request_id",
 ]
+
+## 允许透出的稳定 Godot 错误码集合，未知 provider 值转换为操作回退错误。
+## [br]
+## @api private
 const _ALLOWED_PROVIDER_ERRORS: PackedInt32Array = [
 	OK,
 	FAILED,
@@ -87,7 +114,15 @@ const _ALLOWED_PROVIDER_ERRORS: PackedInt32Array = [
 	ERR_ALREADY_EXISTS,
 	ERR_ALREADY_IN_USE,
 ]
+
+## 逻辑键片段禁止的跨平台路径字符，不把逻辑键当作原始系统文件路径。
+## [br]
+## @api private
 const _FORBIDDEN_COMPONENT_CHARACTERS: String = "<>:\"\\|?*"
+
+## Windows 保留设备名称的小写集合，校验时忽略扩展名并兼容上标数字变体。
+## [br]
+## @api private
 const _RESERVED_COMPONENT_STEMS: PackedStringArray = [
 	"aux",
 	"con",
@@ -116,16 +151,59 @@ const _RESERVED_COMPONENT_STEMS: PackedStringArray = [
 
 # --- 私有变量 ---
 
+## 初始化完整验证成功后才接管的 provider 引用，失败候选先 shutdown，正常关闭后清空。
+## [br]
+## @api private
 var _provider: ProjectStorageProvider = null
+
+## 初始化提交的规范逻辑前缀，非空时带尾斜线；列表结果须先剥离此命名空间。
+## [br]
+## @api private
 var _key_prefix: String = ""
+
+## 当前实例读写 payload 的字节上限，初始化提交后生效，关闭恢复默认值。
+## [br]
+## @api private
 var _max_payload_bytes: int = DEFAULT_MAX_PAYLOAD_BYTES
+
+## provider 列表和适配器响应允许的最大记录数。
+## [br]
+## @api private
 var _max_list_items: int = DEFAULT_MAX_LIST_ITEMS
+
+## 完整列表响应的聚合字节预算，不能仅对单条记录分别计费。
+## [br]
+## @api private
 var _max_list_bytes: int = DEFAULT_MAX_LIST_BYTES
+
+## 每次纯数据验证允许的结构节点上限，同时传给 provider 供分配前检查。
+## [br]
+## @api private
 var _max_graph_nodes: int = DEFAULT_MAX_GRAPH_NODES
+
+## 纯数据图递归深度上限，provider 必须在解码或构建结果前遵守。
+## [br]
+## @api private
 var _max_graph_depth: int = DEFAULT_MAX_GRAPH_DEPTH
+
+## 每条 String 的 UTF-8 字节上限，独立于整份响应的字节预算。
+## [br]
+## @api private
 var _max_string_bytes: int = DEFAULT_MAX_STRING_BYTES
+
+## 每个普通数组或字典的条目上限，包括列表外层容器。
+## [br]
+## @api private
 var _max_container_entries: int = DEFAULT_MAX_CONTAINER_ENTRIES
+
+## 仅在 provider 初始化和前后能力一致性检查全部成功后为真。
+## [br]
+## @api private
 var _initialized: bool = false
+
+## 初始化时捕获的条件写能力，控制修订前置条件及读取 metadata 的 revision 要求。
+## [br]
+## @api private
 var _supports_conditional_write: bool = false
 
 
@@ -336,38 +414,6 @@ func _save_data(
 	return _save_validated_data(storage_key, data, metadata)
 
 
-func _save_validated_data(
-	storage_key: String,
-	data: Dictionary,
-	metadata: Dictionary
-) -> Error:
-	if metadata.has("revision"):
-		return ERR_INVALID_PARAMETER
-
-	var write_options_value: Variant = metadata.get("write_options", {})
-	if not write_options_value is Dictionary:
-		return ERR_INVALID_PARAMETER
-	var write_options: Dictionary = write_options_value
-	if not _write_options_are_valid(write_options):
-		return ERR_INVALID_PARAMETER
-	if (
-		(write_options.has("expected_revision")
-			or _get_bool(write_options, "create_if_absent"))
-		and not _supports_conditional_write
-	):
-		return ERR_UNAVAILABLE
-
-	var stored_metadata: Dictionary = metadata.duplicate(true)
-	var _erase_result: bool = stored_metadata.erase("write_options")
-	var provider_error: Error = _provider.write_record_atomic(
-		storage_key,
-		data.duplicate(true),
-		stored_metadata,
-		write_options.duplicate(true)
-	)
-	return _map_provider_error(int(provider_error), ERR_CANT_CREATE)
-
-
 func _load_data(file_name: String) -> Dictionary:
 	if not _is_ready():
 		return _make_read_result(
@@ -568,16 +614,59 @@ func _get_capabilities() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 消费已通过 payload 预算的候选，剥离 write_options 并检查条件写能力；向 provider 传深复制容器，原子提交由 provider 负责。
+## [br]
+## @api private
+func _save_validated_data(
+	storage_key: String,
+	data: Dictionary,
+	metadata: Dictionary
+) -> Error:
+	if metadata.has("revision"):
+		return ERR_INVALID_PARAMETER
+
+	var write_options_value: Variant = metadata.get("write_options", {})
+	if not write_options_value is Dictionary:
+		return ERR_INVALID_PARAMETER
+	var write_options: Dictionary = write_options_value
+	if not _write_options_are_valid(write_options):
+		return ERR_INVALID_PARAMETER
+	if (
+		(write_options.has("expected_revision")
+			or _get_bool(write_options, "create_if_absent"))
+		and not _supports_conditional_write
+	):
+		return ERR_UNAVAILABLE
+
+	var stored_metadata: Dictionary = metadata.duplicate(true)
+	var _erase_result: bool = stored_metadata.erase("write_options")
+	var provider_error: Error = _provider.write_record_atomic(
+		storage_key,
+		data.duplicate(true),
+		stored_metadata,
+		write_options.duplicate(true)
+	)
+	return _map_provider_error(int(provider_error), ERR_CANT_CREATE)
+
+## 只有初始化已提交且 provider 引用存在时允许操作。
+## [br]
+## @api private
 func _is_ready() -> bool:
 	return _initialized and _provider != null
 
 
+## 验证便携逻辑名称后加实例前缀，非法名称返回空串。
+## [br]
+## @api private
 func _resolve_storage_key(file_name: String) -> String:
 	if not _is_valid_logical_name(file_name):
 		return ""
 	return _key_prefix + file_name
 
 
+## 要求存储键属于当前前缀，并验证剥离后的逻辑名称；命名空间外或非法键返回空串。
+## [br]
+## @api private
 func _logical_name_from_storage_key(storage_key: String) -> String:
 	if not storage_key.begins_with(_key_prefix):
 		return ""
@@ -585,6 +674,9 @@ func _logical_name_from_storage_key(storage_key: String) -> String:
 	return logical_name if _is_valid_logical_name(logical_name) else ""
 
 
+## 允许空前缀，否则去掉一个尾斜线、验证逻辑路径后统一追加斜线，非法输入返回空串。
+## [br]
+## @api private
 func _normalize_prefix(prefix: String) -> String:
 	if prefix.is_empty():
 		return ""
@@ -594,6 +686,9 @@ func _normalize_prefix(prefix: String) -> String:
 	return candidate + "/"
 
 
+## 限制名称长度并拒绝控制码、空段、点段、设备名和跨平台非法字符，允许斜线分隔的逻辑层级。
+## [br]
+## @api private
 func _is_valid_logical_name(file_name: String) -> bool:
 	if (
 		file_name.is_empty()
@@ -623,6 +718,9 @@ func _is_valid_logical_name(file_name: String) -> bool:
 	return true
 
 
+## 按首个点之前的小写名称干判断 Windows 设备名，同时将上标 1、2、3 归一为普通数字。
+## [br]
+## @api private
 func _is_reserved_component(component: String) -> bool:
 	var first_dot: int = component.find(".")
 	var component_stem: String = (
@@ -638,6 +736,9 @@ func _is_reserved_component(component: String) -> bool:
 	return _RESERVED_COMPONENT_STEMS.has(component_stem)
 
 
+## 限制写选项字段及不透明 token，create_if_absent 为真时不能同时指定 expected_revision。
+## [br]
+## @api private
 func _write_options_are_valid(options: Dictionary) -> bool:
 	if not _has_only_keys(options, _WRITE_OPTION_KEYS):
 		return false
@@ -671,6 +772,9 @@ func _write_options_are_valid(options: Dictionary) -> bool:
 	return true
 
 
+## 条件写能力开启时要求 metadata 带合法非空修订 token；未开启时不强制 revision。
+## [br]
+## @api private
 func _record_metadata_is_valid(metadata: Dictionary) -> bool:
 	if not _supports_conditional_write:
 		return true
@@ -684,6 +788,9 @@ func _record_metadata_is_valid(metadata: Dictionary) -> bool:
 	)
 
 
+## 检查非空 token 的 UTF-8 字节上限和控制码，不解读 token 内容或将其转成数字。
+## [br]
+## @api private
 func _is_valid_opaque_token(value: String, maximum_bytes: int) -> bool:
 	if value.is_empty() or value.length() > maximum_bytes:
 		return false
@@ -697,6 +804,9 @@ func _is_valid_opaque_token(value: String, maximum_bytes: int) -> bool:
 	return true
 
 
+## 要求能力精确闭合且全部布尔，读写删列及原子写必须支持，取消和同步必须为 false。
+## [br]
+## @api private
 func _provider_capabilities_are_valid(capabilities: Dictionary) -> bool:
 	if not _has_exact_keys(capabilities, _CAPABILITY_KEYS):
 		return false
@@ -718,6 +828,9 @@ func _provider_capabilities_are_valid(capabilities: Dictionary) -> bool:
 	)
 
 
+## 检查 provider 读取结果精确字段及基础类型，数据图预算和成功状态一致性由调用者继续验证。
+## [br]
+## @api private
 func _read_result_schema_is_valid(result: Dictionary) -> bool:
 	return (
 		_has_exact_keys(result, _READ_RESULT_KEYS)
@@ -728,6 +841,9 @@ func _read_result_schema_is_valid(result: Dictionary) -> bool:
 	)
 
 
+## 检查 provider 列表信封的精确字段和基础类型，记录及总响应预算另行验证。
+## [br]
+## @api private
 func _list_result_schema_is_valid(result: Dictionary) -> bool:
 	return (
 		_has_exact_keys(result, _LIST_RESULT_KEYS)
@@ -737,6 +853,9 @@ func _list_result_schema_is_valid(result: Dictionary) -> bool:
 	)
 
 
+## 读取配置整数或默认值，非 int、非正数或超过绝对上限返回 -1。
+## [br]
+## @api private
 func _read_bounded_integer(
 	values: Dictionary,
 	field_name: String,
@@ -752,6 +871,9 @@ func _read_bounded_integer(
 	return integer_value
 
 
+## 将当前 payload、节点、深度、字符串及集合限制投影为纯数据验证器预算。
+## [br]
+## @api private
 func _make_payload_limits() -> Dictionary:
 	return ProjectStorageValueLimits.make_limits(
 		_max_payload_bytes,
@@ -762,6 +884,9 @@ func _make_payload_limits() -> Dictionary:
 	)
 
 
+## 构造交给 provider 的闭合读取预算，要求其在下载、解码或分配结果前执行限制。
+## [br]
+## @api private
 func _make_read_limits() -> Dictionary:
 	return {
 		"max_payload_bytes": _max_payload_bytes,
@@ -772,6 +897,9 @@ func _make_read_limits() -> Dictionary:
 	}
 
 
+## 构造列表记录数、聚合字节及图结构预算，供 provider 在形成完整响应前执行。
+## [br]
+## @api private
 func _make_list_limits() -> Dictionary:
 	return {
 		"max_items": _max_list_items,
@@ -783,6 +911,9 @@ func _make_list_limits() -> Dictionary:
 	}
 
 
+## 使用聚合列表字节上限构造本地纯数据图复验预算。
+## [br]
+## @api private
 func _make_list_value_limits() -> Dictionary:
 	return ProjectStorageValueLimits.make_limits(
 		_max_list_bytes,
@@ -793,6 +924,9 @@ func _make_list_value_limits() -> Dictionary:
 	)
 
 
+## 只透传允许集合中的 int 错误码，其他类型或未知数值使用操作指定的稳定回退码。
+## [br]
+## @api private
 func _map_provider_error(
 	error_value: Variant,
 	fallback: Error
@@ -805,6 +939,9 @@ func _map_provider_error(
 	return numeric_error as Error
 
 
+## 严格要求验证结果 ok 为真且 error_code 为整数 OK，拒绝矛盾或不完整结果。
+## [br]
+## @api private
 func _validation_succeeded(validation: Dictionary) -> bool:
 	return (
 		validation.get("ok") is bool
@@ -814,6 +951,9 @@ func _validation_succeeded(validation: Dictionary) -> bool:
 	)
 
 
+## 仅保留验证器的资源超限错误，其余失败统一映射为 ERR_INVALID_DATA。
+## [br]
+## @api private
 func _validation_error(validation: Dictionary) -> Error:
 	if typeof(validation.get("error_code")) != TYPE_INT:
 		return ERR_INVALID_DATA
@@ -823,6 +963,9 @@ func _validation_error(validation: Dictionary) -> Error:
 	return ERR_INVALID_DATA
 
 
+## 拒绝未知或非文本键后，再要求所有必需键存在。
+## [br]
+## @api private
 func _has_exact_or_optional_keys(
 	values: Dictionary,
 	allowed_keys: PackedStringArray,
@@ -836,6 +979,9 @@ func _has_exact_or_optional_keys(
 	return true
 
 
+## 用字段数量及允许键检查构成闭合字典校验。
+## [br]
+## @api private
 func _has_exact_keys(
 	values: Dictionary,
 	expected_keys: PackedStringArray
@@ -846,6 +992,9 @@ func _has_exact_keys(
 	)
 
 
+## 要求所有键均为 String 且属于白名单，不要求可选字段出现。
+## [br]
+## @api private
 func _has_only_keys(
 	values: Dictionary,
 	allowed_keys: PackedStringArray
@@ -859,6 +1008,9 @@ func _has_only_keys(
 	return true
 
 
+## 读取精确 bool 字段，缺失或类型不符返回 false。
+## [br]
+## @api private
 func _get_bool(values: Dictionary, field_name: String) -> bool:
 	var value: Variant = values.get(field_name)
 	if not value is bool:
@@ -867,6 +1019,9 @@ func _get_bool(values: Dictionary, field_name: String) -> bool:
 	return boolean_value
 
 
+## 读取精确 int 字段，缺失或类型不符返回零。
+## [br]
+## @api private
 func _get_int(values: Dictionary, field_name: String) -> int:
 	var value: Variant = values.get(field_name)
 	if not value is int:
@@ -875,6 +1030,9 @@ func _get_int(values: Dictionary, field_name: String) -> int:
 	return integer_value
 
 
+## 深复制 data 和 metadata 后构造适配器读取结果，隔离 provider 和调用者容器。
+## [br]
+## @api private
 func _make_read_result(
 	ok: bool,
 	data: Dictionary,

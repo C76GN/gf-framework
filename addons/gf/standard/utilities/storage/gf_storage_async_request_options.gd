@@ -15,10 +15,34 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 标记 create() 是否接受并写入了全部选项。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
+
+## 对配置 owner 的弱引用，不延长其生命周期。
+## [br]
+## @api private
+## [br]
 var _owner_ref: WeakRef = null
+
+## 创建选项时记录的 owner 实例 ID，用于核对弱引用目标。
+## [br]
+## @api private
+## [br]
 var _owner_id: int = 0
+
+## 创建时绑定的可选只读取消令牌。
+## [br]
+## @api private
+## [br]
 var _cancel_token: GFCancellationToken = null
+
+## 创建时冻结的非负 timeout 毫秒数，0 表示不设截止时间。
+## [br]
+## @api private
+## [br]
 var _timeout_msec: int = 0
 
 

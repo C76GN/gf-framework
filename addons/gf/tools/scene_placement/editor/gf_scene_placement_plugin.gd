@@ -15,19 +15,66 @@ extends EditorPlugin
 
 # --- 私有变量 ---
 
+## 当前插件侧栏面板。
+## [br]
+## @api private
+## [br]
 var _panel: GFScenePlacementPanel = null
+
+## 当前活动的单次场景摆放操作。
+## [br]
+## @api private
+## [br]
 var _operation: GFScenePlacementOperation = null
+
+## 当前编辑场景根节点的弱引用。
+## [br]
+## @api private
+## [br]
 var _scene_ref: WeakRef = null
+
+## 当前摆放操作读取的选项副本。
+## [br]
+## @api private
+## [br]
 var _options: Dictionary = {}
+
+## 最近一次摆放操作报告。
+## [br]
+## @api private
+## [br]
 var _last_report: Dictionary = {}
+
+## 当前预览线框使用的 ImmediateMesh。
+## [br]
+## @api private
+## [br]
 var _preview_mesh: ImmediateMesh = null
+
+## 当前由插件创建的预览 RenderingServer 实例 RID。
+## [br]
+## @api private
+## [br]
 var _preview_instance: RID = RID()
+
+## 当前指针操作累计收到的输入事件数。
+## [br]
+## @api private
+## [br]
 var _input_count: int = 0
+
+## Editor 根 Control 的弱引用。
+## [br]
+## @api private
+## [br]
 var _editor_base_ref: WeakRef = null
 
 
 # --- Godot 生命周期方法 ---
 
+## 登记原生插件身份，创建侧栏并连接编辑器和面板事件，然后启用视口输入转发及目标有效性巡检。
+## [br]
+## @api private
 func _enter_tree() -> void:
 	GFScenePlacementLauncher.notify_plugin_lifecycle(self, true)
 	_editor_base_ref = weakref(EditorInterface.get_base_control())
@@ -44,6 +91,9 @@ func _enter_tree() -> void:
 	set_process(true)
 
 
+## 活动操作的目标失效或编辑场景已切换时取消预览，避免继续向旧场景确认。
+## [br]
+## @api private
 func _process(_delta: float) -> void:
 	if _operation == null:
 		return
@@ -52,6 +102,9 @@ func _process(_delta: float) -> void:
 		_panel.show_status("场景或父节点已失效，请重新选择。")
 
 
+## 先撤销原生插件身份和摆放操作，再移除并排队释放侧栏，清空基座引用与诊断报告。
+## [br]
+## @api private
 func _exit_tree() -> void:
 	GFScenePlacementLauncher.notify_plugin_lifecycle(self, false)
 	cancel_placement()
@@ -65,10 +118,17 @@ func _exit_tree() -> void:
 
 # --- Godot 回调方法 ---
 
+## 返回插件显示名称。
+## [br]
+## @api private
+## [br]
 func _get_plugin_name() -> String:
 	return "GF Scene Placement"
 
 
+## 把原生 3D 编辑器输入转交给同一指针处理入口，并原样返回事件消费结果。
+## [br]
+## @api private
 func _forward_3d_gui_input(camera: Camera3D, event: InputEvent) -> int:
 	return process_pointer(camera, event)
 
@@ -173,6 +233,9 @@ func get_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 从相机生成射线，表面模式另查询物理命中；只对 READY 且携带有效世界变换的拾取结果绘制代理预览。
+## [br]
+## @api private
 func _update_pointer(camera: Camera3D, position: Vector2) -> void:
 	var origin: Vector3 = camera.project_ray_origin(position)
 	var direction: Vector3 = camera.project_ray_normal(position)
@@ -204,6 +267,9 @@ func _update_pointer(camera: Camera3D, position: Vector2) -> void:
 	_panel.show_status("左键 / Enter 确认；Esc / 右键取消。")
 
 
+## 提交捕获的操作后复核活动操作身份和面板存活状态；成功选择创建节点，失败显示报告，随后结束该次预览。
+## [br]
+## @api private
 func _confirm_placement() -> void:
 	if _operation == null or not _operation.can_apply():
 		return
@@ -229,6 +295,9 @@ func _confirm_placement() -> void:
 	_panel.show_status("已摆放一个实例。使用编辑器 Undo / Redo 撤销或重做。")
 
 
+## 按面板声明的代理尺寸懒建线框 RenderingServer 实例；只更新其场景与变换，不实例化源 PackedScene。
+## [br]
+## @api private
 func _draw_preview(camera: Camera3D, transform: Transform3D) -> void:
 	if not _preview_instance.is_valid():
 		_preview_mesh = ImmediateMesh.new()
@@ -251,6 +320,9 @@ func _draw_preview(camera: Camera3D, transform: Transform3D) -> void:
 	RenderingServer.instance_set_transform(_preview_instance, transform)
 
 
+## 释放预览 RenderingServer RID 并清空网格引用；重复清理不会再次释放无效 RID。
+## [br]
+## @api private
 func _clear_preview() -> void:
 	if _preview_instance.is_valid():
 		RenderingServer.free_rid(_preview_instance)
@@ -258,6 +330,10 @@ func _clear_preview() -> void:
 	_preview_mesh = null
 
 
+## 从编辑场景弱引用中取得仍存活的根节点。
+## [br]
+## @api private
+## [br]
 func _get_scene_root() -> Node:
 	if _scene_ref != null:
 		var value: Variant = _scene_ref.get_ref()
@@ -269,6 +345,9 @@ func _get_scene_root() -> Node:
 
 # --- 信号处理函数 ---
 
+## 取消旧操作，以面板当前选项创建新操作；配置和 begin 都成功后才发布活动操作与场景弱引用。
+## [br]
+## @api private
 func _on_placement_requested() -> void:
 	cancel_placement()
 	var scene_root: Node = EditorInterface.get_edited_scene_root()
@@ -291,6 +370,9 @@ func _on_placement_requested() -> void:
 	_panel.show_status("移动 3D 视口指针预览；左键确认，Esc / 右键取消。")
 
 
+## 只有编辑器恰好选择一个 Node3D 时更新父节点，否则保留选择并提示用户。
+## [br]
+## @api private
 func _on_parent_pick_requested() -> void:
 	var selected: Array[Node] = EditorInterface.get_selection().get_selected_nodes()
 	if selected.size() == 1 and selected[0] is Node3D:
@@ -300,6 +382,9 @@ func _on_parent_pick_requested() -> void:
 		_panel.show_status("请在场景树中仅选择一个 Node3D，再点击此按钮。")
 
 
+## 切换场景时取消当前操作并清除面板父节点，要求用户在新场景重新选择。
+## [br]
+## @api private
 func _on_scene_changed(_scene_root: Node) -> void:
 	cancel_placement()
 	if is_instance_valid(_panel):
@@ -307,11 +392,17 @@ func _on_scene_changed(_scene_root: Node) -> void:
 		_panel.show_status("已切换场景，请重新选择父 Node3D。")
 
 
+## 侧栏被隐藏时取消摆放，释放不再可见的工具预览。
+## [br]
+## @api private
 func _on_visibility_changed() -> void:
 	if is_instance_valid(_panel) and not _panel.is_visible_in_tree():
 		cancel_placement()
 
 
+## 先取消摆放，再通过存活的编辑器基座向启动器排队请求关闭插件。
+## [br]
+## @api private
 func _on_close_requested() -> void:
 	cancel_placement()
 	if _editor_base_ref == null:

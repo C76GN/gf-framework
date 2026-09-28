@@ -4,7 +4,16 @@ extends GFInstaller
 
 # --- 常量 ---
 
+## Network 扩展运行时工具的脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_NETWORK_UTILITY_SCRIPT = preload("res://addons/gf/extensions/network/runtime/gf_network_utility.gd")
+
+## Network 扩展大厅服务的脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_NETWORK_LOBBY_SERVICE_SCRIPT = preload("res://addons/gf/extensions/network/session/gf_network_lobby_service.gd")
 
 

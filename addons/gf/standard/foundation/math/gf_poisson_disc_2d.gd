@@ -36,7 +36,16 @@ const DEFAULT_MAX_POINTS: int = 4096
 ## @since 5.0.0
 const DEFAULT_MAX_GRID_CELLS: int = 262144
 
+## 计算空间网格单元尺寸时使用的根号二常量。
+## [br]
+## @api private
+## [br]
 const _SQRT_TWO: float = 1.4142135623730951
+
+## 用于将采样报告转换为 JSON 兼容值的报告编码脚本。
+## [br]
+## @api private
+## [br]
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 
 
@@ -177,6 +186,10 @@ static func to_json_compatible_report(report: Dictionary, options: Dictionary = 
 
 # --- 私有/辅助方法 ---
 
+## 校验矩形位置和尺寸有限且为正，并要求最小距离是有限正数。
+## [br]
+## @api private
+## [br]
 static func _get_input_error(area: Rect2, minimum_distance: float) -> String:
 	if not _is_finite_point(area.position) or not _is_finite_point(area.size):
 		return "area must contain finite values."
@@ -187,6 +200,10 @@ static func _get_input_error(area: Rect2, minimum_distance: float) -> String:
 	return ""
 
 
+## 校验用户起点，或使用确定性随机源在矩形范围生成起始点。
+## [br]
+## @api private
+## [br]
 static func _resolve_start_point(area: Rect2, rng: GFDeterministicRandom, options: Dictionary) -> Dictionary:
 	if options.has("start_point"):
 		var start_value: Variant = GFVariantData.get_option_value(options, "start_point")
@@ -207,6 +224,10 @@ static func _resolve_start_point(area: Rect2, rng: GFDeterministicRandom, option
 	return { "ok": true, "error": "", "point": random_point }
 
 
+## 将点加入输出和活动列表，并在空间网格中记录其一基索引。
+## [br]
+## @api private
+## [br]
 static func _add_point(
 	point: Vector2,
 	area: Rect2,
@@ -223,6 +244,10 @@ static func _add_point(
 	grid[_cell_to_index(cell, grid_size)] = point_index + 1
 
 
+## 拒绝非有限或越界候选，并检查附近五乘五网格邻域的最小点距。
+## [br]
+## @api private
+## [br]
 static func _is_candidate_valid(
 	candidate: Vector2,
 	area: Rect2,
@@ -251,6 +276,10 @@ static func _is_candidate_valid(
 	return true
 
 
+## 将区域内的点映射到空间哈希网格并夹取到有效单元范围。
+## [br]
+## @api private
+## [br]
 static func _point_to_cell(point: Vector2, area: Rect2, cell_size: float, grid_size: Vector2i) -> Vector2i:
 	var local: Vector2 = point - area.position
 	return Vector2i(
@@ -259,10 +288,18 @@ static func _point_to_cell(point: Vector2, area: Rect2, cell_size: float, grid_s
 	)
 
 
+## 将二维空间网格单元映射到行优先的一维数组索引。
+## [br]
+## @api private
+## [br]
 static func _cell_to_index(cell: Vector2i, grid_size: Vector2i) -> int:
 	return cell.y * grid_size.x + cell.x
 
 
+## 组装成功采样报告并派生点数量，保留本次执行的边界参数与截断标志。
+## [br]
+## @api private
+## [br]
 static func _make_success_result(
 	area: Rect2,
 	minimum_distance: float,
@@ -288,6 +325,10 @@ static func _make_success_result(
 	}
 
 
+## 组装无点失败报告，并把选项中的限制值规范化后写入结果。
+## [br]
+## @api private
+## [br]
 static func _make_failure_result(
 	area: Rect2,
 	minimum_distance: float,
@@ -315,5 +356,9 @@ static func _make_failure_result(
 	}
 
 
+## 判断二维点的两个坐标分量均为有限浮点值。
+## [br]
+## @api private
+## [br]
 static func _is_finite_point(point: Vector2) -> bool:
 	return not is_nan(point.x) and not is_inf(point.x) and not is_nan(point.y) and not is_inf(point.y)

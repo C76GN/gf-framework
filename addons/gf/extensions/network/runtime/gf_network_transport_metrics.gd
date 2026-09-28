@@ -127,6 +127,10 @@ var sample_window_msec: int = 0
 
 # --- 私有变量 ---
 
+## 按指标 ID 保存当前采样值。
+## [br]
+## @api private
+## [br]
 var _metrics: Dictionary[StringName, float] = {}
 
 
@@ -335,6 +339,10 @@ static func from_dict(data: Dictionary) -> GFNetworkTransportMetrics:
 
 # --- 私有/辅助方法 ---
 
+## 裁剪首尾空白并拒绝为空或超过长度上限的指标 ID。
+## [br]
+## @api private
+## [br]
 static func _normalize_metric_id(metric_id: StringName) -> StringName:
 	var raw_text: String = String(metric_id)
 	if raw_text.length() > ABSOLUTE_MAX_METRIC_ID_LENGTH:
@@ -348,6 +356,10 @@ static func _normalize_metric_id(metric_id: StringName) -> StringName:
 	return StringName(normalized_text)
 
 
+## 检查指标 ID 是否属于框架定义的内建指标。
+## [br]
+## @api private
+## [br]
 static func _is_builtin_metric_id(metric_id: StringName) -> bool:
 	return metric_id in [
 		BYTES_SENT,
@@ -363,6 +375,10 @@ static func _is_builtin_metric_id(metric_id: StringName) -> bool:
 	]
 
 
+## 统计当前已登记的非内建指标数量。
+## [br]
+## @api private
+## [br]
 func _get_custom_metric_count() -> int:
 	var custom_metric_count: int = 0
 	for metric_id: StringName in _metrics:

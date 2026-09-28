@@ -23,6 +23,9 @@ var context: GFInteractionContext
 
 # --- 私有变量 ---
 
+## 弱引用交互事件所属的架构。
+## [br]
+## @api private
 var _architecture_ref: WeakRef = null
 
 
@@ -130,6 +133,9 @@ func send_event(event_instance: Object) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 优先调用对象的 set_interaction_context 方法，否则写入兼容的 interaction_context 属性。
+## [br]
+## @api private
 func _apply_context(instance: Object) -> void:
 	if instance == null or context == null:
 		return
@@ -144,6 +150,9 @@ func _apply_context(instance: Object) -> void:
 		instance.set("interaction_context", context)
 
 
+## 优先从弱引用读取架构；引用失效时回退到 GFAutoload。
+## [br]
+## @api private
 func _get_architecture_or_null() -> GFArchitecture:
 	if _architecture_ref != null:
 		var architecture: GFArchitecture = _get_architecture_value(_architecture_ref.get_ref())
@@ -152,6 +161,9 @@ func _get_architecture_or_null() -> GFArchitecture:
 	return GFAutoload.get_architecture_or_null()
 
 
+## 将 Variant 转换为 GFArchitecture，类型不符时返回 null。
+## [br]
+## @api private
 func _get_architecture_value(value: Variant) -> GFArchitecture:
 	if value is GFArchitecture:
 		var architecture: GFArchitecture = value
@@ -159,6 +171,9 @@ func _get_architecture_value(value: Variant) -> GFArchitecture:
 	return null
 
 
+## 在对象属性列表中查找指定属性名。
+## [br]
+## @api private
 func _has_property(instance: Object, property_name: StringName) -> bool:
 	for property_info: Dictionary in instance.get_property_list():
 		if StringName(GFVariantData.get_option_string(property_info, "name")) == property_name:

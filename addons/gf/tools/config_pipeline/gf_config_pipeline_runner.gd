@@ -14,9 +14,28 @@ extends RefCounted
 
 # --- 常量 ---
 
+## Runner 结果使用的构建操作标识。
+## [br]
+## @api private
+## [br]
 const _OPERATION_BUILD: StringName = &"build"
+
+## Runner 结果使用的导出操作标识。
+## [br]
+## @api private
+## [br]
 const _OPERATION_EXPORT: StringName = &"export"
+
+## Runner 结果使用的 Profile 加载操作标识。
+## [br]
+## @api private
+## [br]
 const _OPERATION_LOAD: StringName = &"load"
+
+## 用于校验并规范化生成产物路径的内部策略脚本。
+## [br]
+## @api private
+## [br]
 const _OUTPUT_PATH_POLICY_SCRIPT = preload(
 	"res://addons/gf/tools/config_pipeline/gf_config_pipeline_output_path_policy.gd"
 )
@@ -209,6 +228,10 @@ func export_profile_path(profile_path: String, options: Dictionary = {}) -> Dict
 
 # --- 私有/辅助方法 ---
 
+## 生成 Profile 加载失败结果，并附带加载操作的验证报告。
+## [br]
+## @api private
+## [br]
 func _make_load_failure(
 	profile_path: String,
 	kind: String,
@@ -233,6 +256,10 @@ func _make_load_failure(
 	}
 
 
+## 将加载失败转换为统一 Runner 失败结果，并排除嵌套 Profile 资源。
+## [br]
+## @api private
+## [br]
 func _make_run_failure(operation: StringName, profile_path: String, load_result: Dictionary) -> Dictionary:
 	return {
 		"success": false,
@@ -259,6 +286,10 @@ func _make_run_failure(operation: StringName, profile_path: String, load_result:
 	}
 
 
+## 把构建阶段结果整理为包含来源加载结果和默认导出字段的 Runner 结果。
+## [br]
+## @api private
+## [br]
 func _make_build_run_result(profile_path: String, load_result: Dictionary, build_result: Dictionary) -> Dictionary:
 	return {
 		"success": GFVariantData.get_option_bool(build_result, "success"),
@@ -285,6 +316,10 @@ func _make_build_run_result(profile_path: String, load_result: Dictionary, build
 	}
 
 
+## 把导出阶段结果整理为 Runner 结果，并保留构建、保存和访问器子结果。
+## [br]
+## @api private
+## [br]
 func _make_export_run_result(profile_path: String, load_result: Dictionary, export_result: Dictionary) -> Dictionary:
 	return {
 		"success": GFVariantData.get_option_bool(export_result, "success"),
@@ -311,6 +346,10 @@ func _make_export_run_result(profile_path: String, load_result: Dictionary, expo
 	}
 
 
+## 为 freshness 判定后跳过的导出构造成功结果，并携带已存储 manifest 和 freshness 摘要。
+## [br]
+## @api private
+## [br]
 func _make_skipped_export_run_result(
 	profile_path: String,
 	load_result: Dictionary,
@@ -349,6 +388,10 @@ func _make_skipped_export_run_result(
 	}
 
 
+## 将 freshness 扫描失败转换为 changed_only 导出失败结果。
+## [br]
+## @api private
+## [br]
 func _make_freshness_scan_failure_run_result(
 	profile_path: String,
 	load_result: Dictionary,
@@ -395,6 +438,10 @@ func _make_freshness_scan_failure_run_result(
 	}
 
 
+## 将输出路径计划失败转换为 Runner 失败结果；manifest 路径失败时也请求一次 dry_run 保存结果。
+## [br]
+## @api private
+## [br]
 func _make_output_path_failure_run_result(
 	profile_path: String,
 	load_result: Dictionary,
@@ -438,6 +485,10 @@ func _make_output_path_failure_run_result(
 	return result
 
 
+## 优先返回显式 manifest_path；未指定时从 Profile 的数据库输出路径推导默认路径。
+## [br]
+## @api private
+## [br]
 func _resolve_manifest_path(
 	profile: GFConfigPipelineProfile,
 	options: Dictionary,
@@ -451,6 +502,9 @@ func _resolve_manifest_path(
 	return manifest_helper.get_default_manifest_path(profile.resolve_output_path(options))
 
 
+## 复制选项并依次准入数据库、可选访问器和启用的 manifest 输出路径，把规范路径写回副本；在 freshness 扫描前统一路径身份，失败保留已完成的计划信息。
+## [br]
+## @api private
 func _make_export_output_path_plan(
 	profile: GFConfigPipelineProfile,
 	options: Dictionary,
@@ -542,6 +596,10 @@ func _make_export_output_path_plan(
 	}
 
 
+## 深复制嵌套 manifest_options，并仅在其未设置对应键时继承两个顶层路径许可选项。
+## [br]
+## @api private
+## [br]
 func _make_manifest_path_options(options: Dictionary) -> Dictionary:
 	var result: Dictionary = GFVariantData.get_option_dictionary(
 		options,
@@ -556,6 +614,10 @@ func _make_manifest_path_options(options: Dictionary) -> Dictionary:
 	return result
 
 
+## 组装输出路径计划失败结果，并深复制当前有效选项。
+## [br]
+## @api private
+## [br]
 func _make_output_path_plan_failure(
 	artifact: String,
 	input_path: String,
@@ -578,6 +640,10 @@ func _make_output_path_plan_failure(
 	}
 
 
+## 仅当加载结果中的 profile 值为 GFConfigPipelineProfile 时返回该资源。
+## [br]
+## @api private
+## [br]
 func _get_profile_from_load_result(load_result: Dictionary) -> GFConfigPipelineProfile:
 	var profile_value: Variant = GFVariantData.get_option_value(load_result, "profile")
 	if profile_value is GFConfigPipelineProfile:
@@ -586,6 +652,10 @@ func _get_profile_from_load_result(load_result: Dictionary) -> GFConfigPipelineP
 	return null
 
 
+## 仅当阶段结果中的 database 值为 GFConfigDatabaseResource 时返回该资源。
+## [br]
+## @api private
+## [br]
 func _get_database_from_result(result: Dictionary) -> GFConfigDatabaseResource:
 	var database_value: Variant = GFVariantData.get_option_value(result, "database")
 	if database_value is GFConfigDatabaseResource:
@@ -594,24 +664,44 @@ func _get_database_from_result(result: Dictionary) -> GFConfigDatabaseResource:
 	return null
 
 
+## 先查询 ResourceLoader，再查询路径全局化后的文件是否存在。
+## [br]
+## @api private
+## [br]
 func _resource_path_exists(profile_path: String) -> bool:
 	if ResourceLoader.exists(profile_path):
 		return true
 	return FileAccess.file_exists(ProjectSettings.globalize_path(profile_path))
 
 
+## 判断 Profile 路径是否以 res:// 或 user:// 开头。
+## [br]
+## @api private
+## [br]
 func _is_godot_resource_path(profile_path: String) -> bool:
 	return profile_path.begins_with("res://") or profile_path.begins_with("user://")
 
 
+## 复制加载结果字典时排除 profile 资源值。
+## [br]
+## @api private
+## [br]
 func _duplicate_load_result(load_result: Dictionary) -> Dictionary:
 	return _duplicate_dictionary_without_keys(load_result, { "profile": true })
 
 
+## 复制阶段结果字典时排除 database 资源值。
+## [br]
+## @api private
+## [br]
 func _duplicate_database_result(result: Dictionary) -> Dictionary:
 	return _duplicate_dictionary_without_keys(result, { "database": true })
 
 
+## 新建结果字典，跳过指定键，并通过 GFVariantData.duplicate_variant 复制其余值。
+## [br]
+## @api private
+## [br]
 func _duplicate_dictionary_without_keys(result: Dictionary, skipped_keys: Dictionary) -> Dictionary:
 	var copy: Dictionary = {}
 	for key: Variant in result.keys():

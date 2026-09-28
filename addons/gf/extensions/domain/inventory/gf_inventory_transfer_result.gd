@@ -78,14 +78,49 @@ const STATUS_STALE_PLAN: StringName = &"stale_plan"
 
 # --- 私有变量 ---
 
+## 标记结果是否已经通过一次性框架配置。
+## [br]
+## @api private
 var _configured: bool = false
+
+## 当前事务阶段或失败状态。
+## [br]
+## @api private
 var _status: StringName = STATUS_INVALID_REQUEST
+
+## 本次转移的物品 ID。
+## [br]
+## @api private
 var _item_id: StringName = &""
+
+## 请求处理的数量。
+## [br]
+## @api private
 var _requested_amount: int = 0
+
+## 已准备或提交的实际转移数量。
+## [br]
+## @api private
 var _transferred_amount: int = 0
+
+## 转移来源槽位；无有效值时为 -1。
+## [br]
+## @api private
 var _source_slot: int = -1
+
+## 显式目标槽位；自动选择时为 -1。
+## [br]
+## @api private
 var _target_slot: int = -1
+
+## 结果绑定的来源模型 revision。
+## [br]
+## @api private
 var _source_revision: int = -1
+
+## 结果绑定的目标模型 revision。
+## [br]
+## @api private
 var _target_revision: int = -1
 
 
@@ -325,6 +360,9 @@ func configure_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 返回 configure_for_framework 接受的全部事务状态常量。
+## [br]
+## @api private
 static func _get_valid_statuses() -> Array[StringName]:
 	return [
 		STATUS_PREPARED,

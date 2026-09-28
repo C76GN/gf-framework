@@ -259,6 +259,10 @@ static func wait_any_completion_async(completions: Dictionary, options: Dictiona
 
 # --- 私有/辅助方法 ---
 
+## 在主线程订阅待完成项并通过有界通道等待；已有终态先按输入遍历顺序登记，后续按取出的通知登记。
+## 达到结束条件或等待被取消后，按选项取消剩余项，再补收终态并断开本次订阅、释放本次取消源。
+## [br]
+## @api private
 static func _wait_completions_async(completions: Dictionary, wait_for_any_success: bool, options: Dictionary) -> Dictionary:
 	if not Thread.is_main_thread():
 		return _make_completion_wait_invalid_report(
@@ -379,6 +383,9 @@ static func _wait_completions_async(completions: Dictionary, wait_for_any_succes
 	return _make_completion_wait_invalid_report("completion wait ended unexpectedly.", null, options)
 
 
+## 将 Callable、GFAsyncCompletion 或带 ok 字段的字典转换为统一操作结果。
+## [br]
+## @api private
 static func _normalize_async_result(raw_result: Variant, options: Dictionary) -> Dictionary:
 	if raw_result is GFAsyncCompletion:
 		var completion: GFAsyncCompletion = raw_result
@@ -407,6 +414,9 @@ static func _normalize_async_result(raw_result: Variant, options: Dictionary) ->
 	return _make_operation_result(true, raw_result, "")
 
 
+## 根据选项生成传给操作回调的项目值和索引/尝试序号参数。
+## [br]
+## @api private
 static func _make_operation_args(options: Dictionary, index: int, item: Variant) -> Array:
 	var args: Array = []
 	if item != null or GFVariantData.get_option_bool(options, "pass_null_item", false):
@@ -416,6 +426,9 @@ static func _make_operation_args(options: Dictionary, index: int, item: Variant)
 	return args
 
 
+## 若取消令牌已请求取消，则构造取消报告并附上令牌原因与元数据。
+## [br]
+## @api private
 static func _get_cancel_result(options: Dictionary, attempt_index: int, history: Array[Dictionary]) -> Dictionary:
 	var token: GFCancellationToken = _get_cancel_token(options)
 	if token == null or not token.is_cancel_requested():
@@ -426,6 +439,9 @@ static func _get_cancel_result(options: Dictionary, attempt_index: int, history:
 	return report
 
 
+## 构造状态为 STATUS_CANCELLED 的流程报告，并在存在取消令牌时附加其信息。
+## [br]
+## @api private
 static func _make_cancelled_report(options: Dictionary, attempt_index: int, history: Array[Dictionary]) -> Dictionary:
 	var token: GFCancellationToken = _get_cancel_token(options)
 	var report: Dictionary = _make_report(
@@ -443,6 +459,9 @@ static func _make_cancelled_report(options: Dictionary, attempt_index: int, hist
 	return report
 
 
+## 组装单次操作的 ok、value、error 和 metadata 字段。
+## [br]
+## @api private
 static func _make_operation_result(ok: bool, value: Variant, error: String, metadata: Dictionary = {}) -> Dictionary:
 	return {
 		"ok": ok,
@@ -452,6 +471,9 @@ static func _make_operation_result(ok: bool, value: Variant, error: String, meta
 	}
 
 
+## 组装流程报告，并通过 _copy_history() 写入 history 与选项中的 metadata。
+## [br]
+## @api private
 static func _make_report(
 	ok: bool,
 	status: StringName,
@@ -472,6 +494,9 @@ static func _make_report(
 	}
 
 
+## 逐项复制历史字典并返回新的历史数组。
+## [br]
+## @api private
 static func _copy_history(history: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in history:
@@ -479,6 +504,9 @@ static func _copy_history(history: Array[Dictionary]) -> Array[Dictionary]:
 	return result
 
 
+## 从历史尾部向前返回首个非空 error；没有错误文本时返回通用失败信息。
+## [br]
+## @api private
 static func _get_last_error(history: Array[Dictionary]) -> String:
 	for index: int in range(history.size() - 1, -1, -1):
 		var error: String = GFVariantData.get_option_string(history[index], "error")
@@ -487,6 +515,9 @@ static func _get_last_error(history: Array[Dictionary]) -> String:
 	return "operation failed."
 
 
+## 从 options 中读取 GFCancellationToken 类型的 cancel_token。
+## [br]
+## @api private
 static func _get_cancel_token(options: Dictionary) -> GFCancellationToken:
 	var value: Variant = GFVariantData.get_option_value(options, "cancel_token")
 	if value is GFCancellationToken:
@@ -495,6 +526,9 @@ static func _get_cancel_token(options: Dictionary) -> GFCancellationToken:
 	return null
 
 
+## 从 entries 中为仍 pending 的完成源连接一次性完成回调，并登记连接信息。
+## [br]
+## @api private
 static func _connect_pending_completions(entries: Dictionary, channel: GFAsyncChannel, callbacks: Dictionary) -> Dictionary:
 	for key: Variant in entries.keys():
 		var completion: GFAsyncCompletion = _get_completion_entry(entries, key)
@@ -516,6 +550,9 @@ static func _connect_pending_completions(entries: Dictionary, channel: GFAsyncCh
 	return { "ok": true }
 
 
+## 创建把完成事件写入通道的回调；非主线程触发时直接返回。
+## [br]
+## @api private
 static func _make_completion_channel_callback(channel: GFAsyncChannel, key: Variant) -> Callable:
 	var stored_key: Variant = GFVariantData.duplicate_variant(key)
 	return func(_completion: GFAsyncCompletion) -> void:
@@ -527,6 +564,9 @@ static func _make_completion_channel_callback(channel: GFAsyncChannel, key: Vari
 		var _write_result: bool = channel.try_write(event)
 
 
+## 断开登记表中仍处于连接状态的完成回调，并清空登记表。
+## [br]
+## @api private
 static func _disconnect_completion_callbacks(callbacks: Dictionary) -> void:
 	for entry_variant: Variant in callbacks.values():
 		var entry: Dictionary = GFVariantData.as_dictionary(entry_variant)
@@ -540,6 +580,9 @@ static func _disconnect_completion_callbacks(callbacks: Dictionary) -> void:
 	callbacks.clear()
 
 
+## 按 options 中的取消令牌和正向超时设置创建可选的等待取消源。
+## [br]
+## @api private
 static func _make_completion_wait_cancel_source(options: Dictionary) -> GFCancellationSource:
 	var token: GFCancellationToken = _get_cancel_token(options)
 	var timeout_seconds: float = maxf(GFVariantData.get_option_float(options, "timeout_seconds", 0.0), 0.0)
@@ -558,6 +601,9 @@ static func _make_completion_wait_cancel_source(options: Dictionary) -> GFCancel
 	return source
 
 
+## 复制等待器支持的选项，并用 wait_source 的令牌或原令牌设置 cancel_token。
+## [br]
+## @api private
 static func _make_completion_wait_options(options: Dictionary, wait_source: GFCancellationSource) -> Dictionary:
 	var wait_options: Dictionary = {}
 	for option_key: String in ["guard_node", "tree", "time_utility", "respect_time_scale", "process_in_physics"]:
@@ -572,6 +618,9 @@ static func _make_completion_wait_options(options: Dictionary, wait_source: GFCa
 	return wait_options
 
 
+## 仅当 options 中的 tree 值是 SceneTree 时返回该值，否则返回 null。
+## [br]
+## @api private
 static func _get_scene_tree_option(options: Dictionary) -> SceneTree:
 	var tree_value: Variant = GFVariantData.get_option_value(options, "tree")
 	if tree_value is SceneTree:
@@ -580,6 +629,9 @@ static func _get_scene_tree_option(options: Dictionary) -> SceneTree:
 	return null
 
 
+## 汇总完成源状态、计数、键顺序和结果，生成组合等待报告。
+## [br]
+## @api private
 static func _make_completion_wait_report(
 	entries: Dictionary,
 	completion_order: Array,
@@ -649,6 +701,9 @@ static func _make_completion_wait_report(
 	return report
 
 
+## 为存在取消项且没有失败项的失败报告补上默认的 cancelled 原因。
+## [br]
+## @api private
 static func _finalize_completion_wait_report(report: Dictionary) -> Dictionary:
 	if GFVariantData.get_option_bool(report, "ok"):
 		return report
@@ -658,6 +713,9 @@ static func _finalize_completion_wait_report(report: Dictionary) -> Dictionary:
 	return report
 
 
+## 从空完成集合构造失败报告，并加入错误文本和 invalid_key。
+## [br]
+## @api private
 static func _make_completion_wait_invalid_report(error: String, key: Variant, options: Dictionary) -> Dictionary:
 	var report: Dictionary = _make_completion_wait_report({}, [], false, options)
 	report["ok"] = false
@@ -667,6 +725,9 @@ static func _make_completion_wait_invalid_report(error: String, key: Variant, op
 	return report
 
 
+## 根据空输入、任一成功、fail_fast 失败/取消或全部终态判断是否结束等待。
+## [br]
+## @api private
 static func _is_completion_wait_finished(report: Dictionary, wait_for_any_success: bool, fail_fast: bool) -> bool:
 	if GFVariantData.get_option_int(report, "count") == 0:
 		return true
@@ -680,6 +741,9 @@ static func _is_completion_wait_finished(report: Dictionary, wait_for_any_succes
 	return GFVariantData.get_option_int(report, "pending_count") == 0
 
 
+## 仅在 cancel_remaining_on_finish 开启时取消 entries 中仍 pending 的完成源。
+## [br]
+## @api private
 static func _cancel_remaining_completions_if_requested(entries: Dictionary, options: Dictionary) -> void:
 	if not GFVariantData.get_option_bool(options, "cancel_remaining_on_finish", false):
 		return
@@ -691,6 +755,9 @@ static func _cancel_remaining_completions_if_requested(entries: Dictionary, opti
 			})
 
 
+## 将 entries 中已进入终态的键加入 completion_order。
+## [br]
+## @api private
 static func _append_precompleted_keys(entries: Dictionary, completion_order: Array) -> void:
 	for key: Variant in entries.keys():
 		var completion: GFAsyncCompletion = _get_completion_entry(entries, key)
@@ -698,6 +765,9 @@ static func _append_precompleted_keys(entries: Dictionary, completion_order: Arr
 			_append_completion_order(completion_order, key)
 
 
+## 键尚未出现在顺序数组中时，将其追加到末尾。
+## [br]
+## @api private
 static func _append_completion_order(completion_order: Array, key: Variant) -> void:
 	for existing_key: Variant in completion_order:
 		if existing_key == key:
@@ -705,6 +775,9 @@ static func _append_completion_order(completion_order: Array, key: Variant) -> v
 	completion_order.append(GFVariantData.duplicate_variant(key))
 
 
+## 从 entries 读取指定键，并仅在值为 GFAsyncCompletion 时返回该值。
+## [br]
+## @api private
 static func _get_completion_entry(entries: Dictionary, key: Variant) -> GFAsyncCompletion:
 	var value: Variant = GFVariantData.get_option_value(entries, key)
 	if value is GFAsyncCompletion:
@@ -713,6 +786,9 @@ static func _get_completion_entry(entries: Dictionary, key: Variant) -> GFAsyncC
 	return null
 
 
+## 按成功、仅取消和其他失败三种情况选择组合等待状态。
+## [br]
+## @api private
 static func _get_completion_wait_status(ok: bool, failed_count: int, cancelled_count: int) -> StringName:
 	if ok:
 		return STATUS_SUCCEEDED
@@ -721,6 +797,9 @@ static func _get_completion_wait_status(ok: bool, failed_count: int, cancelled_c
 	return STATUS_FAILED
 
 
+## 按失败、取消、仍 pending 的优先次序选择组合等待错误文本。
+## [br]
+## @api private
 static func _get_completion_wait_error(failed_count: int, cancelled_count: int, pending_count: int) -> String:
 	if failed_count > 0:
 		return "completion failed."

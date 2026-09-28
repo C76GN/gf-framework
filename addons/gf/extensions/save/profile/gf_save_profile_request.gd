@@ -15,10 +15,34 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 标记三个输入字典是否通过请求校验。
+## [br]
+## @api private
+## [br]
 var _ready: bool = false
+
+## 标记请求是否已被框架领取。
+## [br]
+## @api private
+## [br]
 var _claimed: bool = false
+
+## 保存请求持有的文档元数据。
+## [br]
+## @api private
+## [br]
 var _document_metadata: Dictionary = {}
+
+## 保存 Provider 操作所用上下文。
+## [br]
+## @api private
+## [br]
 var _context: Dictionary = {}
+
+## 保存要附加到操作终态的元数据。
+## [br]
+## @api private
+## [br]
 var _result_metadata: Dictionary = {}
 
 

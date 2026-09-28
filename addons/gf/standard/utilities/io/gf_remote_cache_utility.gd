@@ -39,7 +39,16 @@ signal fetch_failed(url: String, result: Dictionary)
 
 # --- 常量 ---
 
+## cache_dir_name 无效时使用的默认 user:// 子目录名。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_CACHE_DIR_NAME: String = "gf_remote_cache"
+
+## 远程响应与缓存内容的默认字节上限（16 MiB）。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_RESPONSE_BYTES: int = 16 * 1024 * 1024
 
 
@@ -91,8 +100,22 @@ var cache_key_builder: Callable = Callable()
 
 # --- 私有变量 ---
 
+## 按加入顺序等待处理的请求数据。
+## [br]
+## @api private
+## [br]
 var _pending_requests: Array[Dictionary] = []
+
+## 当前唯一正在处理的请求数据；为空字典时没有活动请求。
+## [br]
+## @api private
+## [br]
 var _active_request: Dictionary = {}
+
+## 执行活动请求的 HTTPRequest 节点；不存在或已释放时为 null。
+## [br]
+## @api private
+## [br]
 var _http_request: HTTPRequest = null
 
 
@@ -406,6 +429,10 @@ func _complete_active_request(
 
 # --- 私有/辅助方法 ---
 
+## 检查缓存、合并相同 key 的回调，并在队列容量允许时登记远程请求。
+## [br]
+## @api private
+## [br]
 func _queue_fetch(
 	url: String,
 	callback: Callable,
@@ -445,6 +472,10 @@ func _queue_fetch(
 	_process_next_request()
 
 
+## 仅在没有活动请求时从等待队列取出下一项并启动处理。
+## [br]
+## @api private
+## [br]
 func _process_next_request() -> void:
 	if not _active_request.is_empty() or _pending_requests.is_empty():
 		return
@@ -456,6 +487,10 @@ func _process_next_request() -> void:
 		_complete_active_request(false, 0, "", "Request failed: %s" % error_string(error))
 
 
+## 将回调并入活动或等待中的同 key 请求，找到请求时返回 true。
+## [br]
+## @api private
+## [br]
 func _append_callback_to_existing_request(cache_key: String, callback: Callable) -> bool:
 	if not _active_request.is_empty() and GFVariantData.get_option_string(_active_request, "cache_key") == cache_key:
 		_append_request_callback(_active_request, callback)
@@ -468,6 +503,10 @@ func _append_callback_to_existing_request(cache_key: String, callback: Callable)
 	return false
 
 
+## 移除指定 key 的等待项或取消活动项，并返回被丢弃的回调数量。
+## [br]
+## @api private
+## [br]
 func _cancel_by_cache_key(cache_key: String) -> int:
 	var cancelled: int = 0
 	var next_pending: Array[Dictionary] = []
@@ -486,6 +525,10 @@ func _cancel_by_cache_key(cache_key: String) -> int:
 	return cancelled
 
 
+## 取消并排队释放当前 HTTPRequest 节点，然后清空节点引用。
+## [br]
+## @api private
+## [br]
 func _cancel_http_request() -> void:
 	if is_instance_valid(_http_request):
 		_http_request.cancel_request()
@@ -493,6 +536,10 @@ func _cancel_http_request() -> void:
 	_http_request = null
 
 
+## 从请求字典中筛出 Callable 回调并返回新数组。
+## [br]
+## @api private
+## [br]
 func _get_request_callbacks(request_data: Dictionary) -> Array[Callable]:
 	var result: Array[Callable] = []
 	var callbacks: Variant = GFVariantData.get_option_value(request_data, "callbacks", [])
@@ -507,12 +554,20 @@ func _get_request_callbacks(request_data: Dictionary) -> Array[Callable]:
 	return result
 
 
+## 将回调追加到请求字典的 callbacks 数组。
+## [br]
+## @api private
+## [br]
 func _append_request_callback(request_data: Dictionary, callback: Callable) -> void:
 	var callbacks: Array[Callable] = _get_request_callbacks(request_data)
 	callbacks.append(callback)
 	request_data["callbacks"] = callbacks
 
 
+## 复用有效请求节点，或在 SceneTree 根节点创建并连接完成信号。
+## [br]
+## @api private
+## [br]
 func _ensure_http_request() -> HTTPRequest:
 	if is_instance_valid(_http_request):
 		return _http_request
@@ -534,12 +589,20 @@ func _ensure_http_request() -> HTTPRequest:
 	return _http_request
 
 
+## 将单个即时结果交给统一的回调和信号分发流程。
+## [br]
+## @api private
+## [br]
 func _finish_immediate(callback: Callable, result: Dictionary) -> void:
 	var callbacks: Array[Callable] = []
 	callbacks.append(callback)
 	_finish_callbacks(callbacks, result)
 
 
+## 依次调用有效回调，再按结果 success 发出完成或失败信号。
+## [br]
+## @api private
+## [br]
 func _finish_callbacks(callbacks: Array[Callable], result: Dictionary) -> void:
 	for callback: Callable in callbacks:
 		if callback.is_valid():
@@ -552,6 +615,10 @@ func _finish_callbacks(callbacks: Array[Callable], result: Dictionary) -> void:
 		fetch_failed.emit(url, result)
 
 
+## 构造成功结果；format 为 json 时解析 content 并填入 data。
+## [br]
+## @api private
+## [br]
 func _build_success(
 	url: String,
 	content: String,
@@ -583,6 +650,10 @@ func _build_success(
 	return result
 
 
+## 构造 content 为空、data 为 null 的失败结果字典。
+## [br]
+## @api private
+## [br]
 func _build_failure(url: String, response_code: int, error: String) -> Dictionary:
 	return {
 		"success": false,
@@ -596,12 +667,20 @@ func _build_failure(url: String, response_code: int, error: String) -> Dictionar
 	}
 
 
+## 使用非负的单次 TTL；负值时改用非负的默认 TTL。
+## [br]
+## @api private
+## [br]
 func _resolve_ttl(ttl_seconds: int) -> int:
 	if ttl_seconds >= 0:
 		return ttl_seconds
 	return maxi(default_ttl_seconds, 0)
 
 
+## 创建尚不存在的缓存目录，创建失败时记录警告。
+## [br]
+## @api private
+## [br]
 func _ensure_cache_dir() -> void:
 	var dir_path: String = _get_cache_dir_path()
 	if not DirAccess.dir_exists_absolute(dir_path):
@@ -610,10 +689,18 @@ func _ensure_cache_dir() -> void:
 			push_warning("[GFRemoteCacheUtility][remote_cache_utility.cache_directory_failed] Cannot create the cache directory: %s, error code: %s." % [dir_path, error])
 
 
+## 返回由 cache_dir_name 拼成的 user:// 缓存目录路径。
+## [br]
+## @api private
+## [br]
 func _get_cache_dir_path() -> String:
 	return "user://%s" % cache_dir_name
 
 
+## 规范化目录名；空值、路径、URI 或含冒号的值回退到默认名。
+## [br]
+## @api private
+## [br]
 func _sanitize_cache_dir_name(value: String) -> String:
 	var normalized: String = value.replace("\\", "/").strip_edges()
 	if normalized.is_empty() or normalized == "." or normalized == "..":
@@ -625,6 +712,10 @@ func _sanitize_cache_dir_name(value: String) -> String:
 	return normalized
 
 
+## 检查以斜线分隔的路径片段中是否包含 ..。
+## [br]
+## @api private
+## [br]
 func _has_parent_path_segment(path: String) -> bool:
 	for segment: String in path.split("/", false):
 		if segment == "..":
@@ -632,6 +723,10 @@ func _has_parent_path_segment(path: String) -> bool:
 	return false
 
 
+## 优先使用非空自定义 key；否则生成默认 key。
+## [br]
+## @api private
+## [br]
 func _build_cache_key(url: String, headers: PackedStringArray, format: StringName) -> String:
 	if cache_key_builder.is_valid():
 		var custom_key: Variant = cache_key_builder.call(url, headers, format)
@@ -642,24 +737,44 @@ func _build_cache_key(url: String, headers: PackedStringArray, format: StringNam
 	return _build_default_cache_key(url, headers, format)
 
 
+## 将格式、URL 与排序后的请求头序列化为默认缓存 key。
+## [br]
+## @api private
+## [br]
 func _build_default_cache_key(url: String, headers: PackedStringArray, format: StringName) -> String:
 	var sorted_headers: PackedStringArray = headers.duplicate()
 	sorted_headers.sort()
 	return JSON.stringify([String(format), url, sorted_headers])
 
 
+## 返回缓存 key 对应的 .cache 文件路径，文件名使用 key 的 MD5 文本。
+## [br]
+## @api private
+## [br]
 func _get_cache_path(cache_key: String) -> String:
 	return "%s/%s.cache" % [_get_cache_dir_path(), cache_key.md5_text()]
 
 
+## 返回缓存目标旁的 .tmp 临时文件路径。
+## [br]
+## @api private
+## [br]
 func _get_cache_temp_path(cache_key: String) -> String:
 	return "%s.tmp" % _get_cache_path(cache_key)
 
 
+## 返回缓存目标旁的 .bak 备份文件路径。
+## [br]
+## @api private
+## [br]
 func _get_cache_backup_path(cache_key: String) -> String:
 	return "%s.bak" % _get_cache_path(cache_key)
 
 
+## 检查 key 对应文件在大小限制内且修改时间未超过正 TTL。
+## [br]
+## @api private
+## [br]
 func _has_valid_cache_key(cache_key: String, ttl_seconds: int) -> bool:
 	if cache_key.is_empty():
 		return false
@@ -677,11 +792,19 @@ func _has_valid_cache_key(cache_key: String, ttl_seconds: int) -> bool:
 	return now - modified_time <= ttl
 
 
+## 检查缓存文件存在且文件大小不超过 max_response_bytes。
+## [br]
+## @api private
+## [br]
 func _has_cache_file(cache_key: String) -> bool:
 	var path: String = _get_cache_path(cache_key)
 	return FileAccess.file_exists(path) and _get_file_size(path) <= max_response_bytes
 
 
+## 读取符合大小上限的缓存文本；文件无效或无法打开时返回空串。
+## [br]
+## @api private
+## [br]
 func _read_cache_text(cache_key: String) -> String:
 	if not _has_cache_file(cache_key):
 		return ""
@@ -694,6 +817,10 @@ func _read_cache_text(cache_key: String) -> String:
 	return content
 
 
+## 检查字节上限后写入 .tmp；提交时暂存旧文件，失败会尝试回滚，成功后清理并修剪缓存。
+## [br]
+## @api private
+## [br]
 func _write_cache_text(cache_key: String, content: String) -> Error:
 	if content.to_utf8_buffer().size() > max_response_bytes:
 		return ERR_OUT_OF_MEMORY
@@ -738,6 +865,10 @@ func _write_cache_text(cache_key: String, content: String) -> Error:
 	return OK
 
 
+## 保留至少一个最新缓存条目，按修改时间删除最旧项并清理临时侧文件。
+## [br]
+## @api private
+## [br]
 func _prune_cache() -> void:
 	var max_entries: int = maxi(max_cache_entries, 1)
 	var dir_path: String = _get_cache_dir_path()
@@ -775,22 +906,38 @@ func _prune_cache() -> void:
 		var _remove_error: Error = _remove_absolute_file_if_exists(entry._path)
 
 
+## 将文本交给 FileAccess.store_string；实际写入错误由调用方读取检查。
+## [br]
+## @api private
+## [br]
 func _store_string_checked(file: FileAccess, value: String) -> void:
 	var store_result: Variant = file.store_string(value)
 	if store_result != null:
 		return
 
 
+## 文件不存在时返回 OK，否则删除绝对路径并返回 Godot 错误码。
+## [br]
+## @api private
+## [br]
 func _remove_absolute_file_if_exists(path: String) -> Error:
 	if not FileAccess.file_exists(path):
 		return OK
 	return DirAccess.remove_absolute(path)
 
 
+## 生成包含当前 max_response_bytes 值的响应超限错误文本。
+## [br]
+## @api private
+## [br]
 func _get_response_budget_error() -> String:
 	return "Response body exceeds max_response_bytes=%d" % max_response_bytes
 
 
+## 打开文件读取长度；无法打开时返回 0。
+## [br]
+## @api private
+## [br]
 func _get_file_size(path: String) -> int:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
@@ -802,6 +949,10 @@ func _get_file_size(path: String) -> int:
 
 # --- 信号处理函数 ---
 
+## 将 HTTPRequest 的响应大小、传输结果与状态码转换为完成结果。
+## [br]
+## @api private
+## [br]
 func _on_request_completed(
 	result: int,
 	response_code: int,
@@ -824,10 +975,30 @@ func _on_request_completed(
 
 # --- 内部类 ---
 
+## 缓存修剪时承载文件路径及修改时间的排序条目。
+## [br]
+## @api private
+## [br]
 class _CacheEntry:
+
+	# --- 私有变量 ---
+
+	## 本次清理枚举得到的缓存文件路径，供排序后删除使用。
+	## [br]
+	## @api private
 	var _path: String = ""
+
+	## 枚举时读取的修改时间快照，用于优先淘汰较旧文件；删除前不会因此重新读取时间。
+	## [br]
+	## @api private
 	var _modified_time: int = 0
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 记录同一次枚举取得的路径与修改时间，使清理排序不依赖后续文件变化。
+	## [br]
+	## @api private
 	func _init(entry_path: String, entry_modified_time: int) -> void:
 		_path = entry_path
 		_modified_time = entry_modified_time

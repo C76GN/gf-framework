@@ -53,7 +53,16 @@ enum ValueType {
 
 # --- 常量 ---
 
+## 生成统一验证报告字典的脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_VALIDATION_REPORT_DICTIONARY = preload("res://addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd")
+
+## 检查 Variant 值是否可安全传输的验证器脚本资源。
+## [br]
+## @api private
+## [br]
 const _TRANSPORT_VALUE_VALIDATOR = preload("res://addons/gf/extensions/network/runtime/gf_network_transport_value_validator.gd")
 
 
@@ -238,6 +247,10 @@ func describe() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 校验默认值的声明类型和传输安全性，返回首个问题或空字典。
+## [br]
+## @api private
+## [br]
 func _get_default_value_issue() -> Dictionary:
 	var type_issue: Dictionary = _get_value_type_issue(default_value)
 	if value_type == ValueType.FLOAT and typeof(default_value) != TYPE_FLOAT:
@@ -260,6 +273,10 @@ func _get_default_value_issue() -> Dictionary:
 		)
 	return {}
 
+## 按声明的 ValueType 检查 Variant 类型并返回不匹配问题。
+## [br]
+## @api private
+## [br]
 func _get_value_type_issue(value: Variant) -> Dictionary:
 	match value_type:
 		ValueType.BOOL:
@@ -308,6 +325,10 @@ func _get_value_type_issue(value: Variant) -> Dictionary:
 	return {}
 
 
+## 沿对象类名和脚本继承链检查其是否匹配 class_name_hint。
+## [br]
+## @api private
+## [br]
 func _object_matches_class_hint(value: Object) -> bool:
 	if value == null or class_name_hint == &"":
 		return true
@@ -324,10 +345,18 @@ func _object_matches_class_hint(value: Object) -> bool:
 	return false
 
 
+## 构造字段值类型不匹配问题。
+## [br]
+## @api private
+## [br]
 func _make_type_issue(expected_type: String) -> Dictionary:
 	return _make_issue("error", "type_mismatch", "Network contract field expected %s." % expected_type)
 
 
+## 构造包含字段名及字段路径的验证问题字典。
+## [br]
+## @api private
+## [br]
 func _make_issue(severity: String, kind: String, message: String) -> Dictionary:
 	var issue: Dictionary = {
 		"severity": severity,
@@ -340,6 +369,10 @@ func _make_issue(severity: String, kind: String, message: String) -> Dictionary:
 	return issue
 
 
+## 补齐字段修复建议并统一封装验证报告。
+## [br]
+## @api private
+## [br]
 func _finalize_report(issues: Array[Dictionary]) -> Dictionary:
 	var report: Dictionary = {
 		"subject": "Network contract field",
@@ -352,6 +385,10 @@ func _finalize_report(issues: Array[Dictionary]) -> Dictionary:
 	})
 
 
+## 按字段默认值、类型及传输安全错误提供修复建议。
+## [br]
+## @api private
+## [br]
 func _get_validation_next_actions() -> Dictionary:
 	return {
 		"empty_field_name": "Assign every network contract field a stable field_name.",
@@ -365,6 +402,10 @@ func _get_validation_next_actions() -> Dictionary:
 	}
 
 
+## 深复制容器和 Packed 数组默认值，其他值按原值返回。
+## [br]
+## @api private
+## [br]
 func _duplicate_value(value: Variant) -> Variant:
 	if value is Dictionary:
 		return GFVariantData.as_dictionary(value).duplicate(true)
@@ -391,6 +432,10 @@ func _duplicate_value(value: Variant) -> Variant:
 	return value
 
 
+## 仅当 Variant 为 Object 时返回对象实例。
+## [br]
+## @api private
+## [br]
 func _get_object_value(value: Variant) -> Object:
 	if value is Object:
 		var object_value: Object = value
@@ -398,6 +443,10 @@ func _get_object_value(value: Variant) -> Object:
 	return null
 
 
+## 仅当 Variant 为 Script 时返回脚本实例。
+## [br]
+## @api private
+## [br]
 func _get_script_value(value: Variant) -> Script:
 	if value is Script:
 		var script: Script = value

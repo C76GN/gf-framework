@@ -65,7 +65,14 @@ const DEFAULT_MAX_VALUE: float = 1.0e20
 
 # --- 私有变量 ---
 
+## 在快照恢复期间暂停派生属性重算。
+## [br]
+## @api private
 var _suspend_derived_recalculation: bool = false
+
+## 标记派生规则回调正在计算，阻止其重入修改属性集合。
+## [br]
+## @api private
 var _is_evaluating_derived_rule: bool = false
 
 
@@ -514,18 +521,30 @@ func from_dict(data: Dictionary) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 从属性表中读取记录并规范为 Dictionary。
+## [br]
+## @api private
 func _get_attribute_record(attribute_id: StringName) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(attributes, attribute_id, {}))
 
 
+## 判断数值既不是 NAN 也不是无穷大。
+## [br]
+## @api private
 func _is_finite_number(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 对有限数值原样返回，否则使用回退值。
+## [br]
+## @api private
 func _finite_or_default(value: float, default_value: float) -> float:
 	return value if _is_finite_number(value) else default_value
 
 
+## 重算直接依赖来源属性的规则，并沿已变化目标继续传播。
+## [br]
+## @api private
 func _recalculate_derived_dependents(source_attribute_id: StringName, visited: Dictionary = {}) -> void:
 	if _suspend_derived_recalculation:
 		return
@@ -536,6 +555,9 @@ func _recalculate_derived_dependents(source_attribute_id: StringName, visited: D
 			var _dependent_rule_applied: bool = _apply_derived_rule(rule, visited, cycle_targets)
 
 
+## 检查规则目标与递归路径后计算、写入目标值并传播变化。
+## [br]
+## @api private
 func _apply_derived_rule(
 	rule: GFDerivedAttributeRule,
 	visited: Dictionary,
@@ -562,6 +584,9 @@ func _apply_derived_rule(
 	return did_change
 
 
+## 派生规则正在执行时拒绝同一属性集合上的公开变更。
+## [br]
+## @api private
 func _reject_derived_mutation(method_name: String) -> bool:
 	if not _is_evaluating_derived_rule:
 		return false
@@ -569,6 +594,9 @@ func _reject_derived_mutation(method_name: String) -> bool:
 	return true
 
 
+## 构建派生规则图并收集所有循环中的目标属性 ID。
+## [br]
+## @api private
 func _get_derived_cycle_targets() -> Dictionary:
 	var rule_map: Dictionary = _get_derived_rule_map()
 	var states: Dictionary = {}
@@ -579,6 +607,9 @@ func _get_derived_cycle_targets() -> Dictionary:
 	return cycle_targets
 
 
+## 建立非空目标 ID 到有效派生规则的查找表。
+## [br]
+## @api private
 func _get_derived_rule_map() -> Dictionary:
 	var result: Dictionary = {}
 	for rule: GFDerivedAttributeRule in derived_rules:
@@ -587,6 +618,9 @@ func _get_derived_rule_map() -> Dictionary:
 	return result
 
 
+## 使用 DFS 状态访问依赖规则，并标记回边形成的循环目标。
+## [br]
+## @api private
 func _visit_derived_rule_for_cycles(
 	attribute_id: StringName,
 	rule_map: Dictionary,
@@ -611,6 +645,9 @@ func _visit_derived_rule_for_cycles(
 	states[attribute_id] = 2
 
 
+## 将 DFS 栈中从重复目标开始到栈尾的属性标记为循环成员。
+## [br]
+## @api private
 func _mark_derived_cycle_targets(
 	first_repeated_attribute_id: StringName,
 	stack: Array[StringName],
@@ -624,6 +661,9 @@ func _mark_derived_cycle_targets(
 			cycle_targets[attribute_id] = true
 
 
+## 从规则映射中读取并类型检查指定目标的规则。
+## [br]
+## @api private
 func _get_derived_rule_from_map(rule_map: Dictionary, attribute_id: StringName) -> GFDerivedAttributeRule:
 	var value: Variant = GFVariantData.get_option_value(rule_map, attribute_id)
 	if value is GFDerivedAttributeRule:
@@ -632,6 +672,9 @@ func _get_derived_rule_from_map(rule_map: Dictionary, attribute_id: StringName) 
 	return null
 
 
+## 将字典键转成 StringName，并按文本顺序生成排序数组。
+## [br]
+## @api private
 func _get_sorted_string_name_keys(dictionary: Dictionary) -> Array[StringName]:
 	var values: PackedStringArray = PackedStringArray()
 	for key: Variant in dictionary.keys():
@@ -643,6 +686,9 @@ func _get_sorted_string_name_keys(dictionary: Dictionary) -> Array[StringName]:
 	return result
 
 
+## 验证派生值后创建或更新目标属性，并按配置同步基础值。
+## [br]
+## @api private
 func _write_derived_value(rule: GFDerivedAttributeRule, value: float) -> bool:
 	if not _is_finite_number(value):
 		return false

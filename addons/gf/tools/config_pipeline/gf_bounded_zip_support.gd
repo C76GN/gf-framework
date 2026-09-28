@@ -15,58 +15,301 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 未显式提供时允许读取的最大归档压缩字节数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_ARCHIVE_BYTES: int = 64 * 1024 * 1024
+
+## 默认允许的归档 entry 数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_ENTRY_COUNT: int = 4096
+
+## 单个 entry 默认允许的最大压缩字节数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_ENTRY_COMPRESSED_BYTES: int = 8 * 1024 * 1024
+
+## 单个 entry 默认允许的最大声明解压字节数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_ENTRY_UNCOMPRESSED_BYTES: int = 8 * 1024 * 1024
+
+## 会话内所有 entry 默认允许的最大累计声明解压字节数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_TOTAL_UNCOMPRESSED_BYTES: int = 64 * 1024 * 1024
+
+## 默认允许的最大压缩比。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_COMPRESSION_RATIO: int = 100
+
+## entry 路径默认允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_PATH_LENGTH: int = 512
+
+## entry 路径默认允许的最大组件深度。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_PATH_DEPTH: int = 32
+
+## central directory 默认允许的最大字节数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_CENTRAL_DIRECTORY_BYTES: int = 8 * 1024 * 1024
+
+## 框架强制的最大归档压缩字节数。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_ARCHIVE_BYTES: int = 1024 * 1024 * 1024
+
+## 框架强制的最大 entry 数。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_ENTRY_COUNT: int = 20_000
+
+## 框架强制的单个 entry 最大压缩字节数。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_ENTRY_COMPRESSED_BYTES: int = 64 * 1024 * 1024
+
+## 框架强制的单个 entry 最大声明解压字节数。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_ENTRY_UNCOMPRESSED_BYTES: int = 64 * 1024 * 1024
+
+## 框架强制的会话累计声明解压字节数上限。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_TOTAL_UNCOMPRESSED_BYTES: int = 512 * 1024 * 1024
+
+## 框架强制的最大压缩比。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_COMPRESSION_RATIO: int = 100
+
+## 框架强制的 entry 路径最大字符数。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_PATH_LENGTH: int = 512
+
+## 框架强制的 entry 路径最大组件深度。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_PATH_DEPTH: int = 32
+
+## 框架强制的 central directory 最大字节数。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_CENTRAL_DIRECTORY_BYTES: int = 16 * 1024 * 1024
+
+## 同一进程同时登记的会话最大数量。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_ACTIVE_SESSIONS: int = 32
+
+## 同一进程保留的快照累计最大字节数。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_PROCESS_SNAPSHOT_BYTES: int = 2 * 1024 * 1024 * 1024
+
+## 单份预检报告最多保留的问题数。
+## [br]
+## @api private
+## [br]
 const _MAX_ISSUE_COUNT: int = 256
+
+## 复制归档或哈希读取使用的缓冲块大小。
+## [br]
+## @api private
+## [br]
 const _COPY_BUFFER_BYTES: int = 64 * 1024
+
+## opaque session 句柄使用的格式标识。
+## [br]
+## @api private
+## [br]
 const _SESSION_FORMAT: String = "gf.bounded_zip.session"
+
+## opaque session 句柄当前格式版本。
+## [br]
+## @api private
+## [br]
 const _SESSION_VERSION: int = 1
+
+## 会话快照目录的 user:// 根路径。
+## [br]
+## @api private
+## [br]
 const _SESSION_ROOT_BASE: String = "user://.gf_bounded_zip_sessions"
+
+## 标识当前进程所有的快照根目录的 marker 文件名。
+## [br]
+## @api private
+## [br]
 const _PROCESS_ROOT_MARKER_FILE: String = ".gf-bounded-zip-owner"
+
+## 进程根目录 marker 内容格式标识。
+## [br]
+## @api private
+## [br]
 const _PROCESS_ROOT_MARKER_FORMAT: String = "gf.bounded_zip.process_root@1"
+
+## EOCD 固定结构所需的最小字节数。
+## [br]
+## @api private
+## [br]
 const _EOCD_FIXED_BYTES: int = 22
+
+## 反向查找 EOCD 时检查的最大尾部字节数。
+## [br]
+## @api private
+## [br]
 const _MAX_EOCD_SEARCH_BYTES: int = 65_557
+
+## ZIP central directory 固定 header 的字节数。
+## [br]
+## @api private
+## [br]
 const _CENTRAL_HEADER_BYTES: int = 46
+
+## ZIP local file header 固定部分的字节数。
+## [br]
+## @api private
+## [br]
 const _LOCAL_HEADER_BYTES: int = 30
+
+## ZIP64 extra field 的标识值。
+## [br]
+## @api private
+## [br]
 const _ZIP64_EXTRA_FIELD_ID: int = 0x0001
+
+## ZIP encrypted 标志位。
+## [br]
+## @api private
+## [br]
 const _ZIP_FLAG_ENCRYPTED: int = 0x0001
+
+## ZIP data descriptor 标志位。
+## [br]
+## @api private
+## [br]
 const _ZIP_FLAG_DATA_DESCRIPTOR: int = 0x0008
+
+## ZIP patched-data 标志位。
+## [br]
+## @api private
+## [br]
 const _ZIP_FLAG_PATCHED_DATA: int = 0x0020
+
+## ZIP strong-encryption 标志位。
+## [br]
+## @api private
+## [br]
 const _ZIP_FLAG_STRONG_ENCRYPTION: int = 0x0040
+
+## ZIP UTF-8 文件名标志位。
+## [br]
+## @api private
+## [br]
 const _ZIP_FLAG_UTF8: int = 0x0800
+
+## ZIP masked local header 标志位。
+## [br]
+## @api private
+## [br]
 const _ZIP_FLAG_MASKED_HEADERS: int = 0x2000
+
+## 本实现接受的 ZIP 压缩方法编号：store 与 deflate。
+## [br]
+## @api private
+## [br]
 const _SUPPORTED_COMPRESSION_METHODS: Array[int] = [0, 8]
 
 
 # --- 私有变量 ---
 
+## 进程内活动会话状态，以不透明 session ID 为键。
+## [br]
+## @api private
+## [br]
 static var _active_sessions: Dictionary[String, Dictionary] = {}
+
+## 正在取得活动会话容量的请求数。
+## [br]
+## @api private
+## [br]
 static var _pending_session_reservations: int = 0
+
+## 延迟生成并复用的 CRC32 查找表。
+## [br]
+## @api private
+## [br]
 static var _crc32_lookup: PackedInt64Array = PackedInt64Array()
+
+## 当前进程使用的会话快照根目录。
+## [br]
+## @api private
+## [br]
 static var _process_session_root: String = ""
+
+## 快照根目录 marker 文件内容的 SHA-256。
+## [br]
+## @api private
+## [br]
 static var _process_root_marker_sha256: String = ""
+
+## 当前进程登记拥有的快照及身份数据，以快照路径为键。
+## [br]
+## @api private
+## [br]
 static var _owned_snapshots: Dictionary[String, Dictionary] = {}
+
+## 当前已计入进程快照字节预算的总量。
+## [br]
+## @api private
+## [br]
 static var _reserved_snapshot_bytes: int = 0
+
+## 等待稍后重试清理的快照路径。
+## [br]
+## @api private
+## [br]
 static var _pending_snapshot_cleanup: Dictionary[String, bool] = {}
+
+## 串行化会话登记与容量预留访问的互斥锁。
+## [br]
+## @api private
+## [br]
 static var _session_mutex: Mutex = Mutex.new()
+
+## 串行化快照登记、预算及清理状态访问的互斥锁。
+## [br]
+## @api private
+## [br]
 static var _snapshot_mutex: Mutex = Mutex.new()
 
 
@@ -190,6 +433,317 @@ static func inspect_archive(
 	return inspection
 
 
+## 返回 open_archive() 会话绑定的只读 inspection 副本。
+## [br]
+## @api framework_internal
+## [br]
+## @layer tools/config_pipeline
+## [br]
+## @param session: open_archive() 返回的 opaque session。
+## [br]
+## @return 会话绑定的只读预检报告副本。
+## [br]
+## @schema session: Dictionary，必须是当前进程中仍处于 active 状态、且由当前线程创建的原始会话句柄。
+## [br]
+## @schema return: Dictionary，包含 ok、archive_size_bytes、entries、total_declared_uncompressed_bytes、compressed_work_bytes、issues、issue_codes 和 limits。
+static func get_inspection(session: Dictionary) -> Dictionary:
+	var access: Dictionary = _get_session_access(session)
+	if not _option_bool(access, "ok"):
+		return _make_inspection(
+			"",
+			0,
+			[],
+			0,
+			{},
+			PackedStringArray([
+				_option_string(
+					access,
+					"error",
+					"bounded ZIP session access failed."
+				),
+			]),
+			PackedStringArray([
+				_option_string(access, "issue_code", "invalid_session"),
+			])
+		)
+	var state: Dictionary = _option_dictionary(access, "state")
+	return _option_dictionary(state, "inspection").duplicate(true)
+
+
+## 返回 open_archive() 会话中按中央目录顺序排列的精确 entry 路径。
+## [br]
+## @api framework_internal
+## [br]
+## @layer tools/config_pipeline
+## [br]
+## @param session: open_archive() 返回的 opaque session。
+## [br]
+## @return 中央目录中的精确 entry 路径副本。
+## [br]
+## @schema session: Dictionary，必须是当前进程中仍处于 active 状态、且由当前线程创建的原始会话句柄。
+static func get_files(session: Dictionary) -> PackedStringArray:
+	var access: Dictionary = _get_session_access(session)
+	if not _option_bool(access, "ok"):
+		return PackedStringArray()
+	var state: Dictionary = _option_dictionary(access, "state")
+	return _option_packed_string_array(state, "files").duplicate()
+
+
+## 只读取 open_archive() 会话已经预检的普通文件 entry。
+##
+## 每个普通文件 entry 在同一 session 中只能消费一次；开始读取后即使内容
+## 校验失败也不能重试。读取直接使用同一受控快照中的预检 data offset，
+## 避免 ZIPReader 按 entry 从头线性定位；实际解压长度与 CRC32 仍在返回前
+## 复核，并计入 session 的累计 max_total_uncompressed_bytes 硬预算。
+## [br]
+## @api framework_internal
+## [br]
+## @layer tools/config_pipeline
+## [br]
+## @param session: open_archive() 返回的 opaque session。
+## [br]
+## @param entry_path: 中央目录中的精确 entry 路径。
+## [br]
+## @param max_actual_bytes: 调用方附加的单项实际字节上限；小于 1 时使用 session 上限。
+## [br]
+## @return 读取结果；ok 为 true 时 bytes 可用。
+## [br]
+## @schema session: Dictionary，必须是当前进程中仍处于 active 状态、且由当前线程创建的原始会话句柄。
+## [br]
+## @schema return: Dictionary，包含 ok、path、bytes、declared_size_bytes、
+## actual_size_bytes、error 和 error_code。
+static func read_entry(
+	session: Dictionary,
+	entry_path: String,
+	max_actual_bytes: int = -1
+) -> Dictionary:
+	var access: Dictionary = _get_session_access(session)
+	if not _option_bool(access, "ok"):
+		var access_error_code: Error = (
+			ERR_UNAUTHORIZED
+			if _option_string(access, "issue_code") == "wrong_thread"
+			else ERR_INVALID_PARAMETER
+		)
+		return _make_read_failure(
+			entry_path,
+			_option_string(
+				access,
+				"error",
+				"bounded ZIP session access failed."
+			),
+			access_error_code
+		)
+	var state: Dictionary = _option_dictionary(access, "state")
+	var entries_by_path: Dictionary = _option_dictionary(
+		state,
+		"entries_by_path"
+	)
+	var entry: Dictionary = _option_dictionary(
+		entries_by_path,
+		entry_path
+	)
+	if entry.is_empty():
+		return _make_read_failure(entry_path, "ZIP entry is not present in inspection.", ERR_FILE_NOT_FOUND)
+	if _option_bool(entry, "is_directory"):
+		return _make_read_failure(entry_path, "ZIP directory entries cannot be read as files.", ERR_INVALID_PARAMETER)
+	var consumed_entries: Dictionary = _option_dictionary(
+		state,
+		"consumed_entries"
+	)
+	if consumed_entries.has(entry_path):
+		return _make_read_failure(
+			entry_path,
+			"ZIP entry has already been consumed by this session.",
+			ERR_ALREADY_IN_USE
+		)
+
+	var declared_size: int = _option_int(entry, "uncompressed_size", -1)
+	var inspection: Dictionary = _option_dictionary(state, "inspection")
+	var limits: Dictionary = _option_dictionary(inspection, "limits")
+	var effective_limit: int = _limit(limits, "max_entry_uncompressed_bytes")
+	var consumed_actual_bytes: int = _option_int(
+		state,
+		"consumed_actual_bytes"
+	)
+	var session_actual_limit: int = _limit(
+		limits,
+		"max_total_uncompressed_bytes"
+	)
+	var remaining_session_bytes: int = (
+		session_actual_limit - consumed_actual_bytes
+	)
+	if max_actual_bytes > 0:
+		effective_limit = mini(effective_limit, max_actual_bytes)
+	effective_limit = mini(effective_limit, remaining_session_bytes)
+	if declared_size < 0 or declared_size > effective_limit:
+		return _make_read_failure(
+			entry_path,
+			"ZIP entry declared size exceeds the caller or session read budget.",
+			ERR_OUT_OF_MEMORY,
+			declared_size
+		)
+
+	var archive_file_value: Variant = state.get("archive_file")
+	if not archive_file_value is FileAccess:
+		return _make_read_failure(
+			entry_path,
+			"bounded ZIP session archive handle is unavailable.",
+			ERR_INVALID_DATA,
+			declared_size
+		)
+	var archive_file: FileAccess = archive_file_value
+	var data_offset: int = _option_int(entry, "data_offset", -1)
+	var compressed_size: int = _option_int(entry, "compressed_size", -1)
+	var compressed_limit: int = _limit(
+		limits,
+		"max_entry_compressed_bytes"
+	)
+	var compression_method: int = _option_int(
+		entry,
+		"compression_method",
+		-1
+	)
+	if (
+		data_offset < 0
+		or compressed_size < 0
+		or compressed_size > compressed_limit
+	):
+		return _make_read_failure(
+			entry_path,
+			"ZIP entry compressed data exceeds its bound or is invalid.",
+			ERR_OUT_OF_MEMORY,
+			declared_size
+		)
+	consumed_entries[entry_path] = true
+	state["consumed_entries"] = consumed_entries
+	archive_file.seek(data_offset)
+	var compressed_bytes: PackedByteArray = archive_file.get_buffer(
+		compressed_size
+	)
+	if (
+		archive_file.get_error() != OK
+		or compressed_bytes.size() != compressed_size
+	):
+		return _make_read_failure(
+			entry_path,
+			"ZIP entry compressed bytes could not be read completely.",
+			ERR_FILE_CORRUPT,
+			declared_size
+		)
+	var expected_compressed_sha256: String = _option_string(
+		entry,
+		"compressed_sha256"
+	)
+	var actual_compressed_sha256: String = _hash_bytes_sha256(
+		compressed_bytes
+	)
+	if (
+		not _is_sha256(expected_compressed_sha256)
+		or actual_compressed_sha256 != expected_compressed_sha256
+	):
+		return _make_read_failure(
+			entry_path,
+			"ZIP entry no longer matches the inspected snapshot.",
+			ERR_FILE_CORRUPT,
+			declared_size
+		)
+	var bytes: PackedByteArray = PackedByteArray()
+	var declared_crc32: int = _option_int(entry, "crc32", -1)
+	if compression_method == 0:
+		bytes = compressed_bytes
+	elif compression_method == 8:
+		bytes = _decompress_zip_deflate(
+			compressed_bytes,
+			declared_size,
+			declared_crc32
+		)
+	else:
+		return _make_read_failure(
+			entry_path,
+			"ZIP entry compression method is unsupported.",
+			ERR_UNAVAILABLE,
+			declared_size
+		)
+	var actual_size: int = bytes.size()
+	if actual_size > remaining_session_bytes:
+		state["consumed_actual_bytes"] = session_actual_limit
+		return _make_read_failure(
+			entry_path,
+			"ZIP entry actual size exceeds the remaining session read budget.",
+			ERR_OUT_OF_MEMORY,
+			declared_size,
+			actual_size
+		)
+	state["consumed_actual_bytes"] = consumed_actual_bytes + actual_size
+	if actual_size > effective_limit:
+		return _make_read_failure(
+			entry_path,
+			"ZIP entry actual size exceeds the read budget.",
+			ERR_OUT_OF_MEMORY,
+			declared_size,
+			actual_size
+		)
+	if actual_size != declared_size:
+		return _make_read_failure(
+			entry_path,
+			"ZIP entry actual size does not match its central-directory declaration.",
+			ERR_FILE_CORRUPT,
+			declared_size,
+			actual_size
+		)
+	if declared_crc32 < 0 or _crc32_table(bytes) != declared_crc32:
+		return _make_read_failure(
+			entry_path,
+			"ZIP entry CRC32 does not match its central-directory declaration.",
+			ERR_FILE_CORRUPT,
+			declared_size,
+			actual_size
+		)
+	return {
+		"ok": true,
+		"path": entry_path,
+		"bytes": bytes,
+		"declared_size_bytes": declared_size,
+		"actual_size_bytes": actual_size,
+		"error": "",
+		"error_code": OK,
+	}
+
+
+## 关闭会话持有的归档句柄并删除私有快照。
+## [br]
+## @api framework_internal
+## [br]
+## @layer tools/config_pipeline
+## [br]
+## @param session: open_archive() 返回的 opaque session。
+## [br]
+## @return 关闭句柄并清理受控快照的 Godot 错误码。
+## [br]
+## @schema session: Dictionary，必须是当前进程中仍处于 active 状态、且由当前线程创建的原始会话句柄。
+static func close_archive(session: Dictionary) -> Error:
+	var access: Dictionary = _take_session_access(session)
+	if not _option_bool(access, "ok"):
+		return (
+			ERR_UNAUTHORIZED
+			if _option_string(access, "issue_code") == "wrong_thread"
+			else ERR_INVALID_PARAMETER
+		)
+	var state: Dictionary = _option_dictionary(access, "state")
+	var archive_file_value: Variant = state.get("archive_file")
+	if archive_file_value is FileAccess:
+		var archive_file: FileAccess = archive_file_value
+		archive_file.close()
+	return _remove_or_defer_snapshot(
+		_option_string(state, "snapshot_path")
+	)
+
+
+# --- 私有/辅助方法 ---
+
+## 对快照执行有界 ZIP 结构预检，核对中央目录、本地记录、路径身份、尺寸和不重叠区间；无问题后才计算压缩区摘要，返回部分条目及有界问题列表。
+## [br]
+## @api private
 static func _inspect_archive_file(
 	archive_path: String,
 	reported_archive_path: String,
@@ -857,315 +1411,9 @@ static func _inspect_archive_file(
 		compressed_work_bytes
 	)
 
-
-## 返回 open_archive() 会话绑定的只读 inspection 副本。
+## 在外层已预留会话名额后物化并检查快照，以 ZIPReader 验证兼容性后关闭它，再注册 FileAccess 会话；失败清理快照，未消费名额由外层释放。
 ## [br]
-## @api framework_internal
-## [br]
-## @layer tools/config_pipeline
-## [br]
-## @param session: open_archive() 返回的 opaque session。
-## [br]
-## @return 会话绑定的只读预检报告副本。
-## [br]
-## @schema session: Dictionary，必须是当前进程中仍处于 active 状态、且由当前线程创建的原始会话句柄。
-## [br]
-## @schema return: Dictionary，包含 ok、archive_size_bytes、entries、total_declared_uncompressed_bytes、compressed_work_bytes、issues、issue_codes 和 limits。
-static func get_inspection(session: Dictionary) -> Dictionary:
-	var access: Dictionary = _get_session_access(session)
-	if not _option_bool(access, "ok"):
-		return _make_inspection(
-			"",
-			0,
-			[],
-			0,
-			{},
-			PackedStringArray([
-				_option_string(
-					access,
-					"error",
-					"bounded ZIP session access failed."
-				),
-			]),
-			PackedStringArray([
-				_option_string(access, "issue_code", "invalid_session"),
-			])
-		)
-	var state: Dictionary = _option_dictionary(access, "state")
-	return _option_dictionary(state, "inspection").duplicate(true)
-
-
-## 返回 open_archive() 会话中按中央目录顺序排列的精确 entry 路径。
-## [br]
-## @api framework_internal
-## [br]
-## @layer tools/config_pipeline
-## [br]
-## @param session: open_archive() 返回的 opaque session。
-## [br]
-## @return 中央目录中的精确 entry 路径副本。
-## [br]
-## @schema session: Dictionary，必须是当前进程中仍处于 active 状态、且由当前线程创建的原始会话句柄。
-static func get_files(session: Dictionary) -> PackedStringArray:
-	var access: Dictionary = _get_session_access(session)
-	if not _option_bool(access, "ok"):
-		return PackedStringArray()
-	var state: Dictionary = _option_dictionary(access, "state")
-	return _option_packed_string_array(state, "files").duplicate()
-
-
-## 只读取 open_archive() 会话已经预检的普通文件 entry。
-##
-## 每个普通文件 entry 在同一 session 中只能消费一次；开始读取后即使内容
-## 校验失败也不能重试。读取直接使用同一受控快照中的预检 data offset，
-## 避免 ZIPReader 按 entry 从头线性定位；实际解压长度与 CRC32 仍在返回前
-## 复核，并计入 session 的累计 max_total_uncompressed_bytes 硬预算。
-## [br]
-## @api framework_internal
-## [br]
-## @layer tools/config_pipeline
-## [br]
-## @param session: open_archive() 返回的 opaque session。
-## [br]
-## @param entry_path: 中央目录中的精确 entry 路径。
-## [br]
-## @param max_actual_bytes: 调用方附加的单项实际字节上限；小于 1 时使用 session 上限。
-## [br]
-## @return 读取结果；ok 为 true 时 bytes 可用。
-## [br]
-## @schema session: Dictionary，必须是当前进程中仍处于 active 状态、且由当前线程创建的原始会话句柄。
-## [br]
-## @schema return: Dictionary，包含 ok、path、bytes、declared_size_bytes、
-## actual_size_bytes、error 和 error_code。
-static func read_entry(
-	session: Dictionary,
-	entry_path: String,
-	max_actual_bytes: int = -1
-) -> Dictionary:
-	var access: Dictionary = _get_session_access(session)
-	if not _option_bool(access, "ok"):
-		var access_error_code: Error = (
-			ERR_UNAUTHORIZED
-			if _option_string(access, "issue_code") == "wrong_thread"
-			else ERR_INVALID_PARAMETER
-		)
-		return _make_read_failure(
-			entry_path,
-			_option_string(
-				access,
-				"error",
-				"bounded ZIP session access failed."
-			),
-			access_error_code
-		)
-	var state: Dictionary = _option_dictionary(access, "state")
-	var entries_by_path: Dictionary = _option_dictionary(
-		state,
-		"entries_by_path"
-	)
-	var entry: Dictionary = _option_dictionary(
-		entries_by_path,
-		entry_path
-	)
-	if entry.is_empty():
-		return _make_read_failure(entry_path, "ZIP entry is not present in inspection.", ERR_FILE_NOT_FOUND)
-	if _option_bool(entry, "is_directory"):
-		return _make_read_failure(entry_path, "ZIP directory entries cannot be read as files.", ERR_INVALID_PARAMETER)
-	var consumed_entries: Dictionary = _option_dictionary(
-		state,
-		"consumed_entries"
-	)
-	if consumed_entries.has(entry_path):
-		return _make_read_failure(
-			entry_path,
-			"ZIP entry has already been consumed by this session.",
-			ERR_ALREADY_IN_USE
-		)
-
-	var declared_size: int = _option_int(entry, "uncompressed_size", -1)
-	var inspection: Dictionary = _option_dictionary(state, "inspection")
-	var limits: Dictionary = _option_dictionary(inspection, "limits")
-	var effective_limit: int = _limit(limits, "max_entry_uncompressed_bytes")
-	var consumed_actual_bytes: int = _option_int(
-		state,
-		"consumed_actual_bytes"
-	)
-	var session_actual_limit: int = _limit(
-		limits,
-		"max_total_uncompressed_bytes"
-	)
-	var remaining_session_bytes: int = (
-		session_actual_limit - consumed_actual_bytes
-	)
-	if max_actual_bytes > 0:
-		effective_limit = mini(effective_limit, max_actual_bytes)
-	effective_limit = mini(effective_limit, remaining_session_bytes)
-	if declared_size < 0 or declared_size > effective_limit:
-		return _make_read_failure(
-			entry_path,
-			"ZIP entry declared size exceeds the caller or session read budget.",
-			ERR_OUT_OF_MEMORY,
-			declared_size
-		)
-
-	var archive_file_value: Variant = state.get("archive_file")
-	if not archive_file_value is FileAccess:
-		return _make_read_failure(
-			entry_path,
-			"bounded ZIP session archive handle is unavailable.",
-			ERR_INVALID_DATA,
-			declared_size
-		)
-	var archive_file: FileAccess = archive_file_value
-	var data_offset: int = _option_int(entry, "data_offset", -1)
-	var compressed_size: int = _option_int(entry, "compressed_size", -1)
-	var compressed_limit: int = _limit(
-		limits,
-		"max_entry_compressed_bytes"
-	)
-	var compression_method: int = _option_int(
-		entry,
-		"compression_method",
-		-1
-	)
-	if (
-		data_offset < 0
-		or compressed_size < 0
-		or compressed_size > compressed_limit
-	):
-		return _make_read_failure(
-			entry_path,
-			"ZIP entry compressed data exceeds its bound or is invalid.",
-			ERR_OUT_OF_MEMORY,
-			declared_size
-		)
-	consumed_entries[entry_path] = true
-	state["consumed_entries"] = consumed_entries
-	archive_file.seek(data_offset)
-	var compressed_bytes: PackedByteArray = archive_file.get_buffer(
-		compressed_size
-	)
-	if (
-		archive_file.get_error() != OK
-		or compressed_bytes.size() != compressed_size
-	):
-		return _make_read_failure(
-			entry_path,
-			"ZIP entry compressed bytes could not be read completely.",
-			ERR_FILE_CORRUPT,
-			declared_size
-		)
-	var expected_compressed_sha256: String = _option_string(
-		entry,
-		"compressed_sha256"
-	)
-	var actual_compressed_sha256: String = _hash_bytes_sha256(
-		compressed_bytes
-	)
-	if (
-		not _is_sha256(expected_compressed_sha256)
-		or actual_compressed_sha256 != expected_compressed_sha256
-	):
-		return _make_read_failure(
-			entry_path,
-			"ZIP entry no longer matches the inspected snapshot.",
-			ERR_FILE_CORRUPT,
-			declared_size
-		)
-	var bytes: PackedByteArray = PackedByteArray()
-	var declared_crc32: int = _option_int(entry, "crc32", -1)
-	if compression_method == 0:
-		bytes = compressed_bytes
-	elif compression_method == 8:
-		bytes = _decompress_zip_deflate(
-			compressed_bytes,
-			declared_size,
-			declared_crc32
-		)
-	else:
-		return _make_read_failure(
-			entry_path,
-			"ZIP entry compression method is unsupported.",
-			ERR_UNAVAILABLE,
-			declared_size
-		)
-	var actual_size: int = bytes.size()
-	if actual_size > remaining_session_bytes:
-		state["consumed_actual_bytes"] = session_actual_limit
-		return _make_read_failure(
-			entry_path,
-			"ZIP entry actual size exceeds the remaining session read budget.",
-			ERR_OUT_OF_MEMORY,
-			declared_size,
-			actual_size
-		)
-	state["consumed_actual_bytes"] = consumed_actual_bytes + actual_size
-	if actual_size > effective_limit:
-		return _make_read_failure(
-			entry_path,
-			"ZIP entry actual size exceeds the read budget.",
-			ERR_OUT_OF_MEMORY,
-			declared_size,
-			actual_size
-		)
-	if actual_size != declared_size:
-		return _make_read_failure(
-			entry_path,
-			"ZIP entry actual size does not match its central-directory declaration.",
-			ERR_FILE_CORRUPT,
-			declared_size,
-			actual_size
-		)
-	if declared_crc32 < 0 or _crc32_table(bytes) != declared_crc32:
-		return _make_read_failure(
-			entry_path,
-			"ZIP entry CRC32 does not match its central-directory declaration.",
-			ERR_FILE_CORRUPT,
-			declared_size,
-			actual_size
-		)
-	return {
-		"ok": true,
-		"path": entry_path,
-		"bytes": bytes,
-		"declared_size_bytes": declared_size,
-		"actual_size_bytes": actual_size,
-		"error": "",
-		"error_code": OK,
-	}
-
-
-## 关闭会话持有的归档句柄并删除私有快照。
-## [br]
-## @api framework_internal
-## [br]
-## @layer tools/config_pipeline
-## [br]
-## @param session: open_archive() 返回的 opaque session。
-## [br]
-## @return 关闭句柄并清理受控快照的 Godot 错误码。
-## [br]
-## @schema session: Dictionary，必须是当前进程中仍处于 active 状态、且由当前线程创建的原始会话句柄。
-static func close_archive(session: Dictionary) -> Error:
-	var access: Dictionary = _take_session_access(session)
-	if not _option_bool(access, "ok"):
-		return (
-			ERR_UNAUTHORIZED
-			if _option_string(access, "issue_code") == "wrong_thread"
-			else ERR_INVALID_PARAMETER
-		)
-	var state: Dictionary = _option_dictionary(access, "state")
-	var archive_file_value: Variant = state.get("archive_file")
-	if archive_file_value is FileAccess:
-		var archive_file: FileAccess = archive_file_value
-		archive_file.close()
-	return _remove_or_defer_snapshot(
-		_option_string(state, "snapshot_path")
-	)
-
-
-# --- 私有/辅助方法 ---
-
+## @api private
 static func _open_archive_with_reserved_capacity(
 	archive_path: String,
 	resolved_limits: Dictionary,
@@ -1264,6 +1512,9 @@ static func _open_archive_with_reserved_capacity(
 	return handle.duplicate(true)
 
 
+## 持有快照互斥锁先重试待清理文件，任何遗留清理失败都阻止新快照；成功后在同一锁内完成源文件复制和身份绑定。
+## [br]
+## @api private
 static func _materialize_archive_snapshot(
 	archive_path: String,
 	limits: Dictionary,
@@ -1289,6 +1540,9 @@ static func _materialize_archive_snapshot(
 	return result
 
 
+## 在调用方持有快照锁时准入来源与期望身份，预留容量后边复制边哈希，再复核长度及快照哈希；失败清理或登记待清理，清理错误优先返回。
+## [br]
+## @api private
 static func _materialize_archive_snapshot_locked(
 	archive_path: String,
 	limits: Dictionary,
@@ -1494,6 +1748,9 @@ static func _materialize_archive_snapshot_locked(
 	}
 
 
+## 允许空身份或 size_bytes、sha256 两个可选字段，要求精确非负整数和小写十六进制摘要；只检查形状，实际内容比较由复制阶段执行。
+## [br]
+## @api private
 static func _get_expected_identity_error(identity: Dictionary) -> String:
 	for raw_key: Variant in identity.keys():
 		var key: String = ""
@@ -1529,6 +1786,9 @@ static func _get_expected_identity_error(identity: Dictionary) -> String:
 	return ""
 
 
+## 在受管进程目录与容量均有效时最多尝试八个新文件名，拒绝已存在或跨链接路径；只登记未就绪快照并预留字节，尚未创建文件。
+## [br]
+## @api private
 static func _allocate_snapshot_path(archive_size: int) -> String:
 	if archive_size < 0 or not _ensure_process_session_root():
 		return ""
@@ -1556,6 +1816,9 @@ static func _allocate_snapshot_path(archive_size: int) -> String:
 	return ""
 
 
+## 要求已登记的预留字节数与完成大小一致，才在原登记中写入长度、摘要并标记就绪；失败不自行撤销预留。
+## [br]
+## @api private
 static func _bind_snapshot_identity(
 	snapshot_path: String,
 	size_bytes: int,
@@ -1580,6 +1843,9 @@ static func _bind_snapshot_identity(
 	return true
 
 
+## 删除前核对进程目录所有权、登记、路径和快照身份；就绪文件验证大小与哈希，未完成文件只允许预留大小内内容，确认删除后才释放容量。
+## [br]
+## @api private
 static func _remove_snapshot(snapshot_path: String) -> Error:
 	if (
 		not _process_root_is_owned()
@@ -1630,6 +1896,10 @@ static func _remove_snapshot(snapshot_path: String) -> Error:
 	return OK
 
 
+## 扣减记录中的保留字节数并移除该快照的 owned registry 项。
+## [br]
+## @api private
+## [br]
 static func _release_snapshot_reservation(
 	snapshot_path: String,
 	record: Dictionary
@@ -1645,6 +1915,9 @@ static func _release_snapshot_reservation(
 	var _record_erased: bool = _owned_snapshots.erase(snapshot_path)
 
 
+## 持有快照锁执行受管删除并返回原错误，使删除与待清理登记对其他快照操作保持串行。
+## [br]
+## @api private
 static func _remove_or_defer_snapshot(snapshot_path: String) -> Error:
 	_snapshot_mutex.lock()
 	var remove_error: Error = _remove_or_defer_snapshot_locked(
@@ -1654,6 +1927,9 @@ static func _remove_or_defer_snapshot(snapshot_path: String) -> Error:
 	return remove_error
 
 
+## 调用方持有快照锁时删除文件；成功移除待清理记录，失败在容量允许时登记重试但不释放所有权及字节预留。
+## [br]
+## @api private
 static func _remove_or_defer_snapshot_locked(
 	snapshot_path: String
 ) -> Error:
@@ -1668,6 +1944,9 @@ static func _remove_or_defer_snapshot_locked(
 	return remove_error
 
 
+## 取得快照锁后重试待清理集合，再原样返回结果；不持锁调用锁内帮助方法的外部入口。
+## [br]
+## @api private
 static func _retry_pending_snapshot_cleanup() -> Error:
 	_snapshot_mutex.lock()
 	var cleanup_error: Error = _retry_pending_snapshot_cleanup_locked()
@@ -1675,6 +1954,9 @@ static func _retry_pending_snapshot_cleanup() -> Error:
 	return cleanup_error
 
 
+## 按路径排序逐个重试受管删除，成功即移除记录；首个失败立即停止，保留该项及后续项供再次重试。
+## [br]
+## @api private
 static func _retry_pending_snapshot_cleanup_locked() -> Error:
 	if _pending_snapshot_cleanup.is_empty():
 		return OK
@@ -1694,6 +1976,9 @@ static func _retry_pending_snapshot_cleanup_locked() -> Error:
 	return OK
 
 
+## 复用已验证的进程目录，或最多尝试八个 PID 加 nonce 目录并写入随机所有权标记；复核路径链接与标记哈希后才发布目录身份。
+## [br]
+## @api private
 static func _ensure_process_session_root() -> bool:
 	var absolute_base: String = ProjectSettings.globalize_path(
 		_SESSION_ROOT_BASE
@@ -1765,6 +2050,9 @@ static func _ensure_process_session_root() -> bool:
 	return false
 
 
+## 复核进程目录位置、名称、存在性和无链接路径，再要求标记文件哈希等于本进程创建时保存的摘要。
+## [br]
+## @api private
 static func _process_root_is_owned() -> bool:
 	if (
 		_process_session_root.is_empty()
@@ -1793,6 +2081,10 @@ static func _process_root_is_owned() -> bool:
 	)
 
 
+## 检查新增快照字节数是否会超过进程预算，并返回对应 Error。
+## [br]
+## @api private
+## [br]
 static func _process_snapshot_capacity_error(additional_bytes: int) -> Error:
 	if additional_bytes < 0:
 		return ERR_INVALID_PARAMETER
@@ -1807,6 +2099,10 @@ static func _process_snapshot_capacity_error(additional_bytes: int) -> Error:
 	return OK
 
 
+## 进程目录名必须是正整数 PID、连字符和 32 位小写十六进制 nonce。
+## [br]
+## @api private
+## [br]
 static func _is_process_directory_name(directory_name: String) -> bool:
 	var separator_index: int = directory_name.find("-")
 	if separator_index <= 0:
@@ -1820,6 +2116,10 @@ static func _is_process_directory_name(directory_name: String) -> bool:
 	)
 
 
+## 快照文件名必须是 32 位小写十六进制 nonce 加 .zip 后缀。
+## [br]
+## @api private
+## [br]
 static func _is_snapshot_file_name(file_name: String) -> bool:
 	return (
 		file_name.length() == 36
@@ -1828,6 +2128,10 @@ static func _is_snapshot_file_name(file_name: String) -> bool:
 	)
 
 
+## 组装包含单条诊断和空 session 身份的失败句柄。
+## [br]
+## @api private
+## [br]
 static func _make_session_failure(
 	issue_code: String,
 	message: String
@@ -1853,6 +2157,10 @@ static func _make_session_failure(
 	}
 
 
+## 将 limits 解析诊断包装为失败 session 句柄和 inspection 报告。
+## [br]
+## @api private
+## [br]
 static func _make_session_failure_from_limits(
 	limits_result: Dictionary
 ) -> Dictionary:
@@ -1885,6 +2193,10 @@ static func _make_session_failure_from_limits(
 	}
 
 
+## 将 inspection 报告中的诊断复制到失败 session 句柄。
+## [br]
+## @api private
+## [br]
 static func _make_session_failure_from_inspection(
 	inspection: Dictionary
 ) -> Dictionary:
@@ -1906,6 +2218,9 @@ static func _make_session_failure_from_inspection(
 	}
 
 
+## 在会话锁内把活动会话和未完成预留共同计入上限，成功即增加预留数，防止并发打开绕过容量限制。
+## [br]
+## @api private
 static func _reserve_session_capacity() -> bool:
 	_session_mutex.lock()
 	var has_capacity: bool = (
@@ -1918,6 +2233,9 @@ static func _reserve_session_capacity() -> bool:
 	return has_capacity
 
 
+## 在会话锁内释放一个尚未注册的打开预留；外层只在打开失败时调用，计数已为零时保持不变。
+## [br]
+## @api private
 static func _release_session_capacity_reservation() -> void:
 	_session_mutex.lock()
 	if _pending_session_reservations > 0:
@@ -1925,6 +2243,9 @@ static func _release_session_capacity_reservation() -> void:
 	_session_mutex.unlock()
 
 
+## 在会话锁内消费一个预留，生成句柄并把状态引用与当前线程绑定到活动登记；失败保持预留供外层释放，也不接管清理责任。
+## [br]
+## @api private
 static func _register_reserved_session(state: Dictionary) -> Dictionary:
 	_session_mutex.lock()
 	var handle: Dictionary
@@ -1963,6 +2284,9 @@ static func _register_reserved_session(state: Dictionary) -> Dictionary:
 	return handle
 
 
+## 在会话锁内验证句柄及线程，返回登记状态引用；解锁后不移除登记，资源仍由会话持有。
+## [br]
+## @api private
 static func _get_session_access(session: Dictionary) -> Dictionary:
 	_session_mutex.lock()
 	var access: Dictionary = _get_session_access_locked(session)
@@ -1970,6 +2294,9 @@ static func _get_session_access(session: Dictionary) -> Dictionary:
 	return access
 
 
+## 在会话锁内验证句柄和所属线程，成功即移除登记并返回状态引用交由关闭路径清理，使同一旧句柄不能再次使用。
+## [br]
+## @api private
 static func _take_session_access(session: Dictionary) -> Dictionary:
 	_session_mutex.lock()
 	var access: Dictionary = _get_session_access_locked(session)
@@ -1980,6 +2307,9 @@ static func _take_session_access(session: Dictionary) -> Dictionary:
 	return access
 
 
+## 调用方持有会话锁时先校验完整句柄，再核对当前线程；只在两者通过时返回登记状态引用，失败不暴露状态。
+## [br]
+## @api private
 static func _get_session_access_locked(session: Dictionary) -> Dictionary:
 	var validation_error: String = _get_session_validation_error_locked(
 		session
@@ -2014,6 +2344,9 @@ static func _get_session_access_locked(session: Dictionary) -> Dictionary:
 	}
 
 
+## 依次检查成功标志、格式、版本、活动 ID 和完整句柄字典相等性；线程归属由获取访问状态的上层另行检查。
+## [br]
+## @api private
 static func _get_session_validation_error_locked(
 	session: Dictionary
 ) -> String:
@@ -2032,6 +2365,9 @@ static func _get_session_validation_error_locked(
 	return ""
 
 
+## 在会话锁内最多生成八次候选 ID，返回首个不与活动登记碰撞的非空值，耗尽返回空串。
+## [br]
+## @api private
 static func _make_unique_session_id_locked() -> String:
 	for _attempt: int in range(8):
 		var candidate: String = _make_session_id()
@@ -2040,6 +2376,9 @@ static func _make_unique_session_id_locked() -> String:
 	return ""
 
 
+## 优先以 16 字节 Crypto 随机值生成 32 位十六进制标识；随机读取失败时回退进程 ID 和时间组合的摘要前缀。
+## [br]
+## @api private
 static func _make_session_id() -> String:
 	var bytes: PackedByteArray = Crypto.new().generate_random_bytes(16)
 	if bytes.size() == 16:
@@ -2053,6 +2392,10 @@ static func _make_session_id() -> String:
 	).sha256_text().substr(0, 32)
 
 
+## 打开文件读取长度并关闭句柄；打开失败时返回 -1。
+## [br]
+## @api private
+## [br]
 static func _file_size(path: String) -> int:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
@@ -2062,6 +2405,9 @@ static func _file_size(path: String) -> int:
 	return size
 
 
+## 把路径转为绝对路径并向根逐段检查引擎可识别的链接；结果依赖 DirAccess 能力，不提供对并发路径替换的原子保护。
+## [br]
+## @api private
 static func _path_has_link_component(path: String) -> bool:
 	var absolute_path: String = ProjectSettings.globalize_path(path)
 	var current: String = absolute_path
@@ -2075,6 +2421,9 @@ static func _path_has_link_component(path: String) -> bool:
 	return false
 
 
+## 打开父目录查询单个路径段的链接标志；没有可查询的父目录或打开失败时返回 false，不能单独证明路径存在或安全。
+## [br]
+## @api private
 static func _path_component_is_link(path: String) -> bool:
 	var parent: String = path.get_base_dir()
 	var component_name: String = path.get_file()
@@ -2086,6 +2435,9 @@ static func _path_component_is_link(path: String) -> bool:
 	return directory.is_link(component_name)
 
 
+## 按闭合键集合解析归档预算并套用各自默认值和绝对上限；未知键或非法值保留诊断并使结果失败，仍返回完整已解析限额。
+## [br]
+## @api private
 static func _resolve_limits(limits: Dictionary) -> Dictionary:
 	var issues: PackedStringArray = PackedStringArray()
 	var issue_codes: PackedStringArray = PackedStringArray()
@@ -2196,6 +2548,9 @@ static func _resolve_limits(limits: Dictionary) -> Dictionary:
 	}
 
 
+## 优先读取文本键，再读取 StringName 别名；缺值采用默认值，非精确正整数或超过框架绝对上限时记录问题并回退默认值。
+## [br]
+## @api private
 static func _resolve_limit_option(
 	options: Dictionary,
 	key: String,
@@ -2226,6 +2581,9 @@ static func _resolve_limit_option(
 	return fallback
 
 
+## 对照中央目录核对本地名称、标志、方法和尺寸，验证可选的 12 或 16 字节描述符及数据边界；结构不可定位时返回空映射，其他冲突写入共享问题列表。
+## [br]
+## @api private
 static func _validate_local_header(
 	file: FileAccess,
 	central_offset: int,
@@ -2399,6 +2757,10 @@ static func _validate_local_header(
 	}
 
 
+## 从字节数组末尾向前查找注释长度恰好覆盖数组尾部的 EOCD。
+## [br]
+## @api private
+## [br]
 static func _find_eocd_index(bytes: PackedByteArray) -> int:
 	for index: int in range(bytes.size() - _EOCD_FIXED_BYTES, -1, -1):
 		if not _signature_matches(bytes, index, 0x50, 0x4b, 0x05, 0x06):
@@ -2409,6 +2771,10 @@ static func _find_eocd_index(bytes: PackedByteArray) -> int:
 	return -1
 
 
+## 检查 EOCD 前 20 字节处是否有 ZIP64 locator 签名。
+## [br]
+## @api private
+## [br]
 static func _has_zip64_locator(bytes: PackedByteArray, eocd_index: int) -> bool:
 	return (
 		eocd_index >= 20
@@ -2416,6 +2782,10 @@ static func _has_zip64_locator(bytes: PackedByteArray, eocd_index: int) -> bool:
 	)
 
 
+## 扫描 extra-field 结构；发现 ZIP64 ID 或长度越界、尾部残余字节时返回 true。
+## [br]
+## @api private
+## [br]
 static func _extra_fields_contain_zip64(bytes: PackedByteArray) -> bool:
 	var offset: int = 0
 	while offset + 4 <= bytes.size():
@@ -2430,6 +2800,10 @@ static func _extra_fields_contain_zip64(bytes: PackedByteArray) -> bool:
 	return offset != bytes.size()
 
 
+## 按 UTF-8 解码 entry 名；未声明 UTF-8 的高位字节或非往返编码返回空串。
+## [br]
+## @api private
+## [br]
 static func _decode_entry_path(bytes: PackedByteArray, flags: int) -> String:
 	if bytes.is_empty():
 		return ""
@@ -2443,6 +2817,9 @@ static func _decode_entry_path(bytes: PackedByteArray, flags: int) -> String:
 	return decoded
 
 
+## 统一分隔符并按目录标志保留尾斜线，拒绝绝对路径、协议、冒号和非 ASCII 或不可移植路径段；失败返回空串。
+## [br]
+## @api private
 static func _normalize_entry_path(path: String, is_directory: bool) -> String:
 	if path.is_empty() or path != path.strip_edges():
 		return ""
@@ -2469,6 +2846,10 @@ static func _normalize_entry_path(path: String, is_directory: bool) -> String:
 	return result + "/" if is_directory else result
 
 
+## 检查传统加密、强加密或 masked-header 标志位是否设置。
+## [br]
+## @api private
+## [br]
 static func _flags_are_encrypted(flags: int) -> bool:
 	return (
 		(flags & _ZIP_FLAG_ENCRYPTED) != 0
@@ -2477,6 +2858,10 @@ static func _flags_are_encrypted(flags: int) -> bool:
 	)
 
 
+## 在 offset 起始处比较四个签名字节；越界位置返回 false。
+## [br]
+## @api private
+## [br]
 static func _signature_matches(
 	bytes: PackedByteArray,
 	offset: int,
@@ -2495,12 +2880,20 @@ static func _signature_matches(
 	)
 
 
+## 从字节数组读取 16 位小端整数；偏移无效时返回 0。
+## [br]
+## @api private
+## [br]
 static func _read_uint16_le(bytes: PackedByteArray, offset: int) -> int:
 	if offset < 0 or offset + 1 >= bytes.size():
 		return 0
 	return bytes[offset] | (bytes[offset + 1] << 8)
 
 
+## 从字节数组读取 32 位小端整数；偏移无效时返回 0。
+## [br]
+## @api private
+## [br]
 static func _read_uint32_le(bytes: PackedByteArray, offset: int) -> int:
 	if offset < 0 or offset + 3 >= bytes.size():
 		return 0
@@ -2512,6 +2905,10 @@ static func _read_uint32_le(bytes: PackedByteArray, offset: int) -> int:
 	)
 
 
+## 初始化共享 CRC32 查找表后，计算并返回输入字节的 CRC32 值。
+## [br]
+## @api private
+## [br]
 static func _crc32_table(bytes: PackedByteArray) -> int:
 	_session_mutex.lock()
 	if _crc32_lookup.size() != 256:
@@ -2536,6 +2933,10 @@ static func _crc32_table(bytes: PackedByteArray) -> int:
 	return (crc ^ 0xffffffff) & 0xffffffff
 
 
+## 从 offset 开始分块哈希 byte_count 字节；失败返回空串，文件游标留在读取末端。
+## [br]
+## @api private
+## [br]
 static func _hash_file_range_sha256(
 	file: FileAccess,
 	offset: int,
@@ -2559,6 +2960,10 @@ static func _hash_file_range_sha256(
 	return context.finish().hex_encode()
 
 
+## 返回字节数组的 SHA-256 小写十六进制文本；HashingContext 失败时返回空串。
+## [br]
+## @api private
+## [br]
 static func _hash_bytes_sha256(bytes: PackedByteArray) -> String:
 	var context: HashingContext = HashingContext.new()
 	if context.start(HashingContext.HASH_SHA256) != OK:
@@ -2568,6 +2973,9 @@ static func _hash_bytes_sha256(bytes: PackedByteArray) -> String:
 	return context.finish().hex_encode()
 
 
+## 把 ZIP 原始 DEFLATE 数据及声明的 CRC32、大小包成最小 gzip 内容，交给引擎按声明大小解压；调用方继续检查解压结果。
+## [br]
+## @api private
 static func _decompress_zip_deflate(
 	compressed_bytes: PackedByteArray,
 	declared_size: int,
@@ -2589,6 +2997,10 @@ static func _decompress_zip_deflate(
 	)
 
 
+## 将 value 的低 32 位按小端顺序追加四个字节。
+## [br]
+## @api private
+## [br]
 static func _append_uint32_le(bytes: PackedByteArray, value: int) -> void:
 	var _byte_appended: bool = bytes.append(value & 0xff)
 	_byte_appended = bytes.append((value >> 8) & 0xff)
@@ -2596,6 +3008,10 @@ static func _append_uint32_le(bytes: PackedByteArray, value: int) -> void:
 	_byte_appended = bytes.append((value >> 24) & 0xff)
 
 
+## 组装归档预检结果，并从公开 limits 中去掉内部归档路径键。
+## [br]
+## @api private
+## [br]
 static func _make_inspection(
 	archive_path: String,
 	archive_size: int,
@@ -2628,6 +3044,10 @@ static func _make_inspection(
 	}
 
 
+## 构造读取失败报告，并将 bytes 初始化为空 PackedByteArray。
+## [br]
+## @api private
+## [br]
 static func _make_read_failure(
 	entry_path: String,
 	error_message: String,
@@ -2646,6 +3066,10 @@ static func _make_read_failure(
 	}
 
 
+## 追加清理过的诊断；超过问题预算时用单条 issue_budget_exceeded 替代末项。
+## [br]
+## @api private
+## [br]
 static func _append_issue(
 	issues: PackedStringArray,
 	issue_codes: PackedStringArray,
@@ -2667,6 +3091,10 @@ static func _append_issue(
 	var _code_appended: bool = issue_codes.append(issue_code)
 
 
+## 将快照清理失败诊断追加到 inspection 并把 ok 置为 false。
+## [br]
+## @api private
+## [br]
 static func _append_inspection_cleanup_issue(inspection: Dictionary) -> void:
 	var issues: PackedStringArray = _option_packed_string_array(
 		inspection,
@@ -2687,6 +3115,10 @@ static func _append_inspection_cleanup_issue(inspection: Dictionary) -> void:
 	inspection["issue_codes"] = issue_codes
 
 
+## 最多保留 1024 个字符，将控制字符替换为 ?，超长文本追加省略号。
+## [br]
+## @api private
+## [br]
 static func _sanitize_issue_message(message: String) -> String:
 	var safe: String = ""
 	var max_characters: int = mini(message.length(), 1024)
@@ -2698,6 +3130,10 @@ static func _sanitize_issue_message(message: String) -> String:
 	return safe
 
 
+## 所有 Unicode code point 均不高于 0x7f 时返回 true。
+## [br]
+## @api private
+## [br]
 static func _string_is_ascii(value: String) -> bool:
 	for index: int in range(value.length()):
 		if value.unicode_at(index) > 0x7f:
@@ -2705,6 +3141,9 @@ static func _string_is_ascii(value: String) -> bool:
 	return true
 
 
+## 拒绝空段、点段、尾部点空格、控制或保留字符以及 DOS 设备名；ASCII 限制由路径规范化调用方单独执行。
+## [br]
+## @api private
 static func _is_portable_literal_path_component(component: String) -> bool:
 	if (
 		component.is_empty()
@@ -2733,6 +3172,10 @@ static func _is_portable_literal_path_component(component: String) -> bool:
 	return true
 
 
+## 验证字符串长度精确匹配且每个字符均为小写十六进制数字。
+## [br]
+## @api private
+## [br]
 static func _is_lower_hex(value: String, expected_length: int) -> bool:
 	if value.length() != expected_length or value != value.to_lower():
 		return false
@@ -2743,6 +3186,10 @@ static func _is_lower_hex(value: String, expected_length: int) -> bool:
 	return true
 
 
+## 末项为 issue_budget_exceeded 且数量达到上限时返回 true。
+## [br]
+## @api private
+## [br]
 static func _issues_exhausted(issue_codes: PackedStringArray) -> bool:
 	return (
 		issue_codes.size() >= _MAX_ISSUE_COUNT
@@ -2752,35 +3199,63 @@ static func _issues_exhausted(issue_codes: PackedStringArray) -> bool:
 	)
 
 
+## 读取整数限制并把结果夹到至少 1。
+## [br]
+## @api private
+## [br]
 static func _limit(limits: Dictionary, key: String) -> int:
 	return maxi(_option_int(limits, key, 1), 1)
 
 
+## 只接受布尔类型字典值，否则返回 fallback。
+## [br]
+## @api private
+## [br]
 static func _option_bool(options: Dictionary, key: String, fallback: bool = false) -> bool:
 	var value: Variant = options.get(key)
 	return value if value is bool else fallback
 
 
+## 只接受整数类型字典值，否则返回 fallback。
+## [br]
+## @api private
+## [br]
 static func _option_int(options: Dictionary, key: String, fallback: int = 0) -> int:
 	var value: Variant = options.get(key)
 	return value if value is int else fallback
 
 
+## 只接受 String 类型字典值，否则返回 fallback。
+## [br]
+## @api private
+## [br]
 static func _option_string(options: Dictionary, key: String, fallback: String = "") -> String:
 	var value: Variant = options.get(key)
 	return value if value is String else fallback
 
 
+## 只接受 Dictionary 类型字典值，否则返回空字典。
+## [br]
+## @api private
+## [br]
 static func _option_dictionary(options: Dictionary, key: String) -> Dictionary:
 	var value: Variant = options.get(key)
 	return value if value is Dictionary else {}
 
 
+## 只接受 Array 类型字典值，否则返回空数组。
+## [br]
+## @api private
+## [br]
 static func _option_array(options: Dictionary, key: String) -> Array:
 	var value: Variant = options.get(key)
 	return value if value is Array else []
 
 
+## 只接受 PackedStringArray 类型字典值，否则返回空 packed 数组。
+## [br]
+## @api private
+## [br]
 static func _option_packed_string_array(
 	options: Dictionary,
 	key: String
@@ -2792,6 +3267,10 @@ static func _option_packed_string_array(
 	return PackedStringArray()
 
 
+## 验证 value 是由 64 个小写十六进制字符组成的 SHA-256 文本。
+## [br]
+## @api private
+## [br]
 static func _is_sha256(value: String) -> bool:
 	if value.length() != 64:
 		return false

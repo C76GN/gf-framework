@@ -16,14 +16,37 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 文本 provider 注册项使用的类型标识。
+## [br]
+## @api private
+## [br]
 const _PROVIDER_KIND_TEXT: StringName = &"text"
+
+## 图标 provider 注册项使用的类型标识。
+## [br]
+## @api private
+## [br]
 const _PROVIDER_KIND_ICON: StringName = &"icon"
 
 
 # --- 私有变量 ---
 
+## 按优先级和注册顺序保存的文本 provider 注册项。
+## [br]
+## @api private
+## [br]
 var _text_entries: Array[Dictionary] = []
+
+## 按优先级和注册顺序保存的图标 provider 注册项。
+## [br]
+## @api private
+## [br]
 var _icon_entries: Array[Dictionary] = []
+
+## 为新注册项分配稳定先后顺序的递增序号。
+## [br]
+## @api private
+## [br]
 var _next_order: int = 0
 
 
@@ -218,6 +241,10 @@ func release_registration(registration: GFInputProviderRegistration) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 清理失效项，复用同 provider 的活动注册，或创建带 owner 弱引用的注册并排序。
+## [br]
+## @api private
+## [br]
 func _register_provider(
 	entries: Array[Dictionary],
 	provider_kind: StringName,
@@ -245,6 +272,10 @@ func _register_provider(
 	return registration
 
 
+## 按 provider 对象身份查找现有注册句柄，未找到时返回 null。
+## [br]
+## @api private
+## [br]
 func _find_registration_for_provider(entries: Array[Dictionary], provider: Resource) -> GFInputProviderRegistration:
 	for entry: Dictionary in entries:
 		var entry_provider: Resource = _get_provider_from_entry(entry)
@@ -254,6 +285,10 @@ func _find_registration_for_provider(entries: Array[Dictionary], provider: Resou
 	return null
 
 
+## 移除匹配 provider 的全部注册项，标记其句柄已释放并保留其他项。
+## [br]
+## @api private
+## [br]
 func _remove_provider(entries: Array[Dictionary], provider: Resource) -> bool:
 	if provider == null:
 		return false
@@ -271,6 +306,10 @@ func _remove_provider(entries: Array[Dictionary], provider: Resource) -> bool:
 	return removed
 
 
+## 按注册句柄对象身份移除对应项并保留其余项。
+## [br]
+## @api private
+## [br]
 func _remove_registration(entries: Array[Dictionary], registration: GFInputProviderRegistration) -> bool:
 	var removed: bool = false
 	var kept_entries: Array[Dictionary] = []
@@ -284,12 +323,20 @@ func _remove_registration(entries: Array[Dictionary], registration: GFInputProvi
 	return removed
 
 
+## 把所有注册句柄标记为已释放后清空注册项数组。
+## [br]
+## @api private
+## [br]
 func _clear_entries(entries: Array[Dictionary]) -> void:
 	for entry: Dictionary in entries:
 		_mark_entry_registration_released(entry)
 	entries.clear()
 
 
+## 保留仍有效的 provider、注册句柄和 owner 项，释放并计数清除失效项。
+## [br]
+## @api private
+## [br]
 func _prune_entries(entries: Array[Dictionary]) -> int:
 	var pruned_count: int = 0
 	var kept_entries: Array[Dictionary] = []
@@ -303,6 +350,10 @@ func _prune_entries(entries: Array[Dictionary]) -> int:
 	return pruned_count
 
 
+## 要求 provider 与活动句柄有效，且 owner 弱引用为空或仍指向对象。
+## [br]
+## @api private
+## [br]
 func _entry_is_live(entry: Dictionary) -> bool:
 	if _get_provider_from_entry(entry) == null:
 		return false
@@ -313,6 +364,10 @@ func _entry_is_live(entry: Dictionary) -> bool:
 	return owner_ref == null or owner_ref.get_ref() != null
 
 
+## 按 provider 优先级降序、注册顺序升序稳定排序。
+## [br]
+## @api private
+## [br]
 func _sort_entries(entries: Array[Dictionary]) -> void:
 	entries.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
 		var left_priority: int = _get_entry_priority(left)
@@ -323,12 +378,20 @@ func _sort_entries(entries: Array[Dictionary]) -> void:
 	)
 
 
+## 用给定保留项重建注册数组。
+## [br]
+## @api private
+## [br]
 func _replace_entries(entries: Array[Dictionary], kept_entries: Array[Dictionary]) -> void:
 	entries.clear()
 	for entry: Dictionary in kept_entries:
 		entries.append(entry)
 
 
+## 读取文本或图标 provider 的优先级，未知资源类型返回 0。
+## [br]
+## @api private
+## [br]
 func _get_entry_priority(entry: Dictionary) -> int:
 	var provider: Resource = _get_provider_from_entry(entry)
 	if provider is GFInputTextProvider:
@@ -340,10 +403,18 @@ func _get_entry_priority(entry: Dictionary) -> int:
 	return 0
 
 
+## 从注册项读取注册序号。
+## [br]
+## @api private
+## [br]
 func _get_entry_order(entry: Dictionary) -> int:
 	return GFVariantData.get_option_int(entry, &"order")
 
 
+## 从注册项读取 Resource provider，类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_provider_from_entry(entry: Dictionary) -> Resource:
 	var provider_value: Variant = GFVariantData.get_option_value(entry, &"provider")
 	if provider_value is Resource:
@@ -352,6 +423,10 @@ func _get_provider_from_entry(entry: Dictionary) -> Resource:
 	return null
 
 
+## 将注册项 provider 收窄为 GFInputTextProvider。
+## [br]
+## @api private
+## [br]
 func _get_text_provider_from_entry(entry: Dictionary) -> GFInputTextProvider:
 	var provider: Resource = _get_provider_from_entry(entry)
 	if provider is GFInputTextProvider:
@@ -360,6 +435,10 @@ func _get_text_provider_from_entry(entry: Dictionary) -> GFInputTextProvider:
 	return null
 
 
+## 将注册项 provider 收窄为 GFInputIconProvider。
+## [br]
+## @api private
+## [br]
 func _get_icon_provider_from_entry(entry: Dictionary) -> GFInputIconProvider:
 	var provider: Resource = _get_provider_from_entry(entry)
 	if provider is GFInputIconProvider:
@@ -368,6 +447,10 @@ func _get_icon_provider_from_entry(entry: Dictionary) -> GFInputIconProvider:
 	return null
 
 
+## 将注册项句柄收窄为 GFInputProviderRegistration。
+## [br]
+## @api private
+## [br]
 func _get_registration_from_entry(entry: Dictionary) -> GFInputProviderRegistration:
 	var registration_value: Variant = GFVariantData.get_option_value(entry, &"registration")
 	if registration_value is GFInputProviderRegistration:
@@ -376,6 +459,10 @@ func _get_registration_from_entry(entry: Dictionary) -> GFInputProviderRegistrat
 	return null
 
 
+## 将注册项 owner_ref 收窄为 WeakRef。
+## [br]
+## @api private
+## [br]
 func _get_owner_ref_from_entry(entry: Dictionary) -> WeakRef:
 	var owner_ref_value: Variant = GFVariantData.get_option_value(entry, &"owner_ref")
 	if owner_ref_value is WeakRef:
@@ -384,6 +471,10 @@ func _get_owner_ref_from_entry(entry: Dictionary) -> WeakRef:
 	return null
 
 
+## 若注册项含有效句柄则调用 mark_released 清除关联状态。
+## [br]
+## @api private
+## [br]
 func _mark_entry_registration_released(entry: Dictionary) -> void:
 	var registration: GFInputProviderRegistration = _get_registration_from_entry(entry)
 	if registration != null:

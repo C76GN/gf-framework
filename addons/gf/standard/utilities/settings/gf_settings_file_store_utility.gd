@@ -132,6 +132,10 @@ func write_settings(file_name: String, data: Dictionary) -> Error:
 
 # --- 私有/辅助方法 ---
 
+## 构造未检查完整性且携带指定失败分类的存储读取结果。
+## [br]
+## @api private
+## [br]
 func _make_read_failure(
 	error_message: String,
 	error_code: Error,
@@ -147,6 +151,10 @@ func _make_read_failure(
 	)
 
 
+## 写入字符串并返回写入标志或 FileAccess 错误所指示的结果码。
+## [br]
+## @api private
+## [br]
 func _store_string_checked(file: FileAccess, value: String) -> Error:
 	if file == null:
 		return ERR_INVALID_PARAMETER
@@ -157,6 +165,10 @@ func _store_string_checked(file: FileAccess, value: String) -> Error:
 	return store_error if store_error != OK else ERR_FILE_CANT_WRITE
 
 
+## 验证安全 basename 后构造 user:// 文件路径。
+## [br]
+## @api private
+## [br]
 func _get_fallback_path(file_name: String) -> String:
 	if file_name.is_absolute_path():
 		push_error("[GFSettingsUtility][settings_utility.absolute_path_rejected] Rejected a native absolute settings path: %s." % file_name)
@@ -167,6 +179,10 @@ func _get_fallback_path(file_name: String) -> String:
 	return "user://" + file_name
 
 
+## 拒绝空白变化、路径片段、..、分隔符与盘符的文件名。
+## [br]
+## @api private
+## [br]
 func _is_safe_fallback_file_name(file_name: String) -> bool:
 	var normalized_file_name: String = file_name.strip_edges()
 	if normalized_file_name.is_empty() or normalized_file_name != file_name:

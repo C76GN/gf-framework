@@ -51,11 +51,34 @@ var metadata: Dictionary:
 
 # --- 私有变量 ---
 
+## 保存 public command_name 属性对应的默认显示名。
+## [br]
+## @api private
 var _command_name: String = "GF Editor Command"
+
+## 保存 public metadata 属性的内部字典值。
+## [br]
+## @api private
 var _metadata: Dictionary = {}
+
+## 记录 execute() 是否成功完成过，用于控制后续撤销与重复执行流程。
+## [br]
+## @api private
 var _executed: bool = false
+
+## 缓存最近一次 execute() 返回的 Godot 错误码。
+## [br]
+## @api private
 var _last_execute_error: Error = OK
+
+## 缓存最近一次 revert() 返回的 Godot 错误码。
+## [br]
+## @api private
 var _last_revert_error: Error = OK
+
+## 标记命令配置是否已冻结，公开属性的 setter 在该状态下拒绝修改。
+## [br]
+## @api private
 var _configuration_sealed: bool = false
 
 

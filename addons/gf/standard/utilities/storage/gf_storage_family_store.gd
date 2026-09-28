@@ -17,28 +17,136 @@ extends RefCounted
 
 # --- 常量 ---
 
+## Storage 私有数据目录名。
+## [br]
+## @api private
+## [br]
 const _PRIVATE_ROOT_NAME: String = ".gf-storage"
+
+## 当前私有布局目录版本号。
+## [br]
+## @api private
+## [br]
 const _LAYOUT_VERSION: int = 1
+
+## 逻辑路径校验规则的稳定标识。
+## [br]
+## @api private
+## [br]
 const _PATH_PROFILE: String = "portable-ascii-v1"
+
+## family identity 派生算法的稳定标识。
+## [br]
+## @api private
+## [br]
 const _IDENTITY_ALGORITHM: String = "sha256-domain-nul-uuidv8-v1"
+
+## portable logical path 的最大长度。
+## [br]
+## @api private
+## [br]
 const _MAX_LOGICAL_PATH_BYTES: int = 255
+
+## 单个 logical path 段的最大长度。
+## [br]
+## @api private
+## [br]
 const _MAX_LOGICAL_SEGMENT_BYTES: int = 64
+
+## logical path 可包含的最大段数。
+## [br]
+## @api private
+## [br]
 const _MAX_LOGICAL_SEGMENTS: int = 16
+
+## 扩展名过滤 token 的最大长度。
+## [br]
+## @api private
+## [br]
 const _MAX_EXTENSION_BYTES: int = 16
+
+## 可读取 manifest JSON 的最大字节数。
+## [br]
+## @api private
+## [br]
 const _MAX_MANIFEST_BYTES: int = 16 * 1024
+
+## reset layout 检查时遍历单层目录的最大条目数。
+## [br]
+## @api private
+## [br]
 const _MAX_RESET_LAYOUT_INSPECTION_ENTRIES: int = 64
+
+## claim staging 协调时接受的候选目录上限。
+## [br]
+## @api private
+## [br]
 const _MAX_CLAIM_STAGING_CANDIDATES: int = 64
+
+## publish pending 协调时接受的候选文件上限。
+## [br]
+## @api private
+## [br]
 const _MAX_PUBLISH_PENDING_CANDIDATES: int = 64
 
+## logical family SHA-256 输入前缀中的域分隔文本。
+## [br]
+## @api private
+## [br]
 const _IDENTITY_DOMAIN: String = "gf.storage.family/v1"
+
+## 布局 manifest 的 schema 标识。
+## [br]
+## @api private
+## [br]
 const _LAYOUT_SCHEMA: String = "gf.storage.layout"
+
+## catalog identity record 的 schema 标识。
+## [br]
+## @api private
+## [br]
 const _CATALOG_SCHEMA: String = "gf.storage.catalog-entry"
+
+## family owner identity record 的 schema 标识。
+## [br]
+## @api private
+## [br]
 const _OWNER_SCHEMA: String = "gf.storage.family-owner"
+
+## 原子发布暂存文件名中的目标与随机 ID 分隔符。
+## [br]
+## @api private
+## [br]
 const _PUBLISH_PENDING_SEPARATOR: String = ".pending-"
+
+## claim staging 目录名中的 family 与随机 ID 分隔符。
+## [br]
+## @api private
+## [br]
 const _CLAIM_STAGING_SEPARATOR: String = ".claim-"
+
+## 小写十六进制字符集。
+## [br]
+## @api private
+## [br]
 const _HEX_CHARS: String = "0123456789abcdef"
+
+## logical path 段允许使用的 ASCII 字符。
+## [br]
+## @api private
+## [br]
 const _ALLOWED_SEGMENT_CHARS: String = "abcdefghijklmnopqrstuvwxyz0123456789._-"
+
+## ASCII 字母和数字字符集。
+## [br]
+## @api private
+## [br]
 const _ALNUM_CHARS: String = "abcdefghijklmnopqrstuvwxyz0123456789"
+
+## Windows 保留设备名的段首名称列表。
+## [br]
+## @api private
+## [br]
 const _RESERVED_DEVICE_STEMS: Array[String] = [
 	"con", "prn", "aux", "nul",
 	"com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8", "com9",
@@ -48,8 +156,22 @@ const _RESERVED_DEVICE_STEMS: Array[String] = [
 
 # --- 私有变量 ---
 
+## 当前实例绑定的 canonical Storage root。
+## [br]
+## @api private
+## [br]
 var _storage_root_path: String = ""
+
+## 创建 schema 2 layout 时临时使用的 incarnation。
+## [br]
+## @api private
+## [br]
 var _creation_incarnation: String = ""
+
+## 显式离线 revision upgrade 期间冻结的 intent 记录。
+## [br]
+## @api private
+## [br]
 var _revision_upgrade_intent: Dictionary = {}
 
 
@@ -1031,6 +1153,10 @@ func has_file_for_framework(descriptor: Dictionary) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 校验 logical path 长度、段数及每段的 portable 规则，可按参数允许空根 selector。
+## [br]
+## @api private
+## [br]
 static func _is_valid_logical_path(logical_path: String, allow_empty: bool) -> bool:
 	if logical_path.is_empty():
 		return allow_empty
@@ -1045,6 +1171,10 @@ static func _is_valid_logical_path(logical_path: String, allow_empty: bool) -> b
 	return true
 
 
+## 校验单段长度、首尾字符、允许字符及 Windows 保留设备名。
+## [br]
+## @api private
+## [br]
 static func _is_valid_logical_segment(segment: String) -> bool:
 	if segment.is_empty() or segment.length() > _MAX_LOGICAL_SEGMENT_BYTES:
 		return false
@@ -1059,10 +1189,18 @@ static func _is_valid_logical_segment(segment: String) -> bool:
 	return not _RESERVED_DEVICE_STEMS.has(stem)
 
 
+## 判断单个字符是否属于小写 ASCII 字母或数字集合。
+## [br]
+## @api private
+## [br]
 static func _is_ascii_alnum(character: String) -> bool:
 	return character.length() == 1 and _ALNUM_CHARS.contains(character)
 
 
+## 接受精确 user:// 根，或其下符合 portable logical directory 规则的路径。
+## [br]
+## @api private
+## [br]
 static func _is_valid_storage_root(storage_root_path: String) -> bool:
 	if storage_root_path == "user://":
 		return true
@@ -1072,6 +1210,10 @@ static func _is_valid_storage_root(storage_root_path: String) -> bool:
 	return is_valid_logical_directory_path_for_framework(relative_root)
 
 
+## 按域文本、NUL 分隔字节和 logical path 顺序计算 SHA-256 十六进制摘要。
+## [br]
+## @api private
+## [br]
 static func _make_logical_digest(logical_path: String) -> String:
 	var hashing: HashingContext = HashingContext.new()
 	var start_error: Error = hashing.start(HashingContext.HASH_SHA256)
@@ -1089,6 +1231,10 @@ static func _make_logical_digest(logical_path: String) -> String:
 	return hashing.finish().hex_encode()
 
 
+## 保留合法 lowercase 扩展名；缺失或不合法时使用 bin。
+## [br]
+## @api private
+## [br]
 static func _derive_physical_extension(logical_path: String) -> String:
 	var extension: String = logical_path.get_extension()
 	if not is_valid_extension_filter_for_framework(extension):
@@ -1096,12 +1242,20 @@ static func _derive_physical_extension(logical_path: String) -> String:
 	return extension if not extension.is_empty() else "bin"
 
 
+## 将相对私有路径拼到 root；user:// 根单独处理以避免多余分隔符。
+## [br]
+## @api private
+## [br]
 static func _join_storage_root(storage_root_path: String, relative_path: String) -> String:
 	if storage_root_path == "user://":
 		return "user://" + relative_path
 	return storage_root_path + "/" + relative_path
 
 
+## 创建包含 schema、版本、路径 profile、identity 算法和私有命名空间的基础 manifest。
+## [br]
+## @api private
+## [br]
 static func _make_layout_manifest() -> Dictionary:
 	return {
 		"schema": _LAYOUT_SCHEMA,
@@ -1112,6 +1266,10 @@ static func _make_layout_manifest() -> Dictionary:
 	}
 
 
+## 只读检查 revision 创建前缀，并验证 layout pending 候选的结构及 incarnation 一致性。
+## [br]
+## @api private
+## [br]
 func _inspect_revision_creation_prefix(private_root: String) -> Dictionary:
 	# Utility 在进入前验证 user:// 到 private root 的所有祖先；这里不跟随待续建目录或记录的链接。
 	if _path_leaf_is_link(private_root):
@@ -1157,6 +1315,10 @@ func _inspect_revision_creation_prefix(private_root: String) -> Dictionary:
 	return {"error": OK, "incarnation": incarnation}
 
 
+## 接受精确基础 manifest，或携带合法 UUID v4 incarnation 的 schema 2 manifest。
+## [br]
+## @api private
+## [br]
 static func _is_valid_layout_manifest(manifest: Dictionary) -> bool:
 	if _records_match_expected(manifest, _make_layout_manifest()):
 		return true
@@ -1167,6 +1329,10 @@ static func _is_valid_layout_manifest(manifest: Dictionary) -> bool:
 	)
 
 
+## 从基础 manifest 构造 schema_version 为 2 并写入 incarnation 的布局记录。
+## [br]
+## @api private
+## [br]
 static func _make_revision_layout_manifest(incarnation: String) -> Dictionary:
 	var result: Dictionary = _make_layout_manifest()
 	result["schema_version"] = 2
@@ -1174,6 +1340,10 @@ static func _make_revision_layout_manifest(incarnation: String) -> Dictionary:
 	return result
 
 
+## 组装 reset layout 检查使用的 status 与 Error 字段。
+## [br]
+## @api private
+## [br]
 static func _make_layout_inspection(status: StringName, error: Error) -> Dictionary:
 	return {
 		"status": status,
@@ -1181,6 +1351,10 @@ static func _make_layout_inspection(status: StringName, error: Error) -> Diction
 	}
 
 
+## 按给定 schema 和 descriptor 构造含 logical identity 摘要及 payload leaf 的固定记录。
+## [br]
+## @api private
+## [br]
 static func _make_identity_record(schema: String, descriptor: Dictionary) -> Dictionary:
 	return {
 		"schema": schema,
@@ -1194,10 +1368,18 @@ static func _make_identity_record(schema: String, descriptor: Dictionary) -> Dic
 	}
 
 
+## 将记录与由 schema 和 descriptor 派生的固定 identity 字段逐项比较。
+## [br]
+## @api private
+## [br]
 static func _matches_identity_record(record: Dictionary, schema: String, descriptor: Dictionary) -> bool:
 	return _records_match_expected(record, _make_identity_record(schema, descriptor))
 
 
+## 要求记录键数量和集合与 expected 完全一致，并按类型比较各字段值。
+## [br]
+## @api private
+## [br]
 static func _records_match_expected(record: Dictionary, expected: Dictionary) -> bool:
 	if record.size() != expected.size():
 		return false
@@ -1214,6 +1396,10 @@ static func _records_match_expected(record: Dictionary, expected: Dictionary) ->
 	return true
 
 
+## 重新派生 descriptor 并要求其与当前 root 下的完整预期字典相等。
+## [br]
+## @api private
+## [br]
 func _validate_descriptor(descriptor: Dictionary) -> Error:
 	if _storage_root_path.is_empty():
 		return ERR_INVALID_PARAMETER
@@ -1224,6 +1410,10 @@ func _validate_descriptor(descriptor: Dictionary) -> Error:
 	return OK
 
 
+## 在 revision upgrade 上下文中检查固定目录、intent 与旧/暂存 layout 记录。
+## [br]
+## @api private
+## [br]
 func _validate_revision_upgrade_layout() -> Error:
 	if _storage_root_path.is_empty() or _revision_upgrade_intent.is_empty():
 		return ERR_INVALID_PARAMETER
@@ -1288,6 +1478,10 @@ func _validate_revision_upgrade_layout() -> Error:
 	) else ERR_FILE_CORRUPT
 
 
+## 校验 family 目录仅含匹配 descriptor 的 owner.json。
+## [br]
+## @api private
+## [br]
 func _validate_owner_only_claim(descriptor: Dictionary) -> Error:
 	var family_path: String = GFVariantData.get_option_string(descriptor, "family_path")
 	var owner_path: String = GFVariantData.get_option_string(descriptor, "owner_path")
@@ -1316,6 +1510,10 @@ func _validate_owner_only_claim(descriptor: Dictionary) -> Error:
 	return OK
 
 
+## 在单写者根目录契约下枚举并验证有限数量的 claim 暂存目录；未发布的空或截断写入可清理。
+## 目标 family 尚不存在时提升排序后的首个合法暂存目录，再清理其余暂存；非法命名、链接或未知内容均返回错误。
+## [br]
+## @api private
 func _reconcile_claim_staging(descriptor: Dictionary) -> Error:
 	var family_path: String = GFVariantData.get_option_string(descriptor, "family_path")
 	var family_parent: String = family_path.get_base_dir()
@@ -1372,6 +1570,10 @@ func _reconcile_claim_staging(descriptor: Dictionary) -> Error:
 	return OK
 
 
+## 校验 claim staging 目录、owner.json 形状及其 descriptor identity。
+## [br]
+## @api private
+## [br]
 func _validate_claim_staging(descriptor: Dictionary, staging_path: String) -> Error:
 	if (
 		not DirAccess.dir_exists_absolute(staging_path)
@@ -1405,6 +1607,10 @@ func _validate_claim_staging(descriptor: Dictionary, staging_path: String) -> Er
 	) else ERR_FILE_CORRUPT
 
 
+## 限制 family 目录中的文件名集合，并拒绝链接或子目录成员。
+## [br]
+## @api private
+## [br]
 func _validate_family_entries(descriptor: Dictionary) -> Error:
 	var family_path: String = GFVariantData.get_option_string(descriptor, "family_path")
 	var entries: Dictionary = _read_directory_entries_bounded(family_path, 16)
@@ -1433,6 +1639,10 @@ func _validate_family_entries(descriptor: Dictionary) -> Error:
 	return OK
 
 
+## 遍历两级十六进制 shard，校验 catalog leaf 形状并返回排序后的路径数组。
+## [br]
+## @api private
+## [br]
 func _collect_catalog_paths(catalog_root: String) -> Dictionary:
 	var result: Array[String] = []
 	var first_level: Dictionary = _read_directory_entries(catalog_root)
@@ -1469,6 +1679,10 @@ func _collect_catalog_paths(catalog_root: String) -> Dictionary:
 	return {"error": OK, "paths": result}
 
 
+## 扫描 catalog 分片中的 pending 记录，验证逻辑身份后按目标路径排序并发布。
+## [br]
+## @api private
+## [br]
 func _reconcile_catalog_publish_residue(catalog_root: String) -> Error:
 	var pending_targets: Dictionary = {}
 	var first_level: Dictionary = _read_directory_entries(catalog_root)
@@ -1556,12 +1770,20 @@ func _reconcile_catalog_publish_residue(catalog_root: String) -> Error:
 	return OK
 
 
+## 判断 shard 名是否恰为两个小写十六进制字符。
+## [br]
+## @api private
+## [br]
 static func _is_hex_shard(value: String) -> bool:
 	if value.length() != 2:
 		return false
 	return _HEX_CHARS.contains(value.substr(0, 1)) and _HEX_CHARS.contains(value.substr(1, 1))
 
 
+## 校验 catalog leaf 是以给定两级 shard 开头的 64 位小写 SHA-256 JSON 文件名。
+## [br]
+## @api private
+## [br]
 static func _is_catalog_leaf(leaf_name: String, first_shard: String, second_shard: String) -> bool:
 	if not leaf_name.ends_with(".json"):
 		return false
@@ -1574,6 +1796,10 @@ static func _is_catalog_leaf(leaf_name: String, first_shard: String, second_shar
 	return true
 
 
+## 校验 pending leaf 使用目标文件名、固定分隔符和 UUID v4 后缀。
+## [br]
+## @api private
+## [br]
 static func _is_publish_pending_leaf(leaf_name: String, target_leaf: String) -> bool:
 	var prefix: String = target_leaf + _PUBLISH_PENDING_SEPARATOR
 	if not leaf_name.begins_with(prefix):
@@ -1581,6 +1807,10 @@ static func _is_publish_pending_leaf(leaf_name: String, target_leaf: String) -> 
 	return GFUuid.is_valid(leaf_name.trim_prefix(prefix), 4)
 
 
+## 按目录前缀、recursive 标志和最大相对深度筛选 logical path。
+## [br]
+## @api private
+## [br]
 static func _matches_list_selector(
 	logical_path: String,
 	directory_name: String,
@@ -1599,6 +1829,10 @@ static func _matches_list_selector(
 	return max_scan_depth <= 0 or directory_depth <= max_scan_depth
 
 
+## 在目标缺失时写入并验证 pending JSON 后重命名发布；已有目标必须与预期记录相同。
+## [br]
+## @api private
+## [br]
 func _publish_json_if_absent(path: String, data: Dictionary) -> Error:
 	if path.is_empty():
 		return ERR_INVALID_PARAMETER
@@ -1649,6 +1883,10 @@ func _publish_json_if_absent(path: String, data: Dictionary) -> Error:
 	return OK
 
 
+## 扫描目标旁的 pending 文件，验证候选、恢复缺失目标并清理其余候选。
+## [br]
+## @api private
+## [br]
 func _reconcile_publish_pending_files(path: String, expected: Dictionary) -> Error:
 	var parent_path: String = path.get_base_dir()
 	var target_leaf: String = path.get_file()
@@ -1746,6 +1984,10 @@ func _reconcile_publish_pending_files(path: String, expected: Dictionary) -> Err
 	return OK
 
 
+## 将字典 JSON 写入目标文件、flush 并关闭后返回文件 I/O 错误码。
+## [br]
+## @api private
+## [br]
 static func _write_json_direct(path: String, data: Dictionary) -> Error:
 	if path.is_empty():
 		return ERR_INVALID_PARAMETER
@@ -1759,6 +2001,10 @@ static func _write_json_direct(path: String, data: Dictionary) -> Error:
 	return write_error
 
 
+## 读取不超过 manifest 上限的 JSON 文件，并仅接受顶层 Dictionary。
+## [br]
+## @api private
+## [br]
 static func _read_json_dictionary(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {"ok": false, "error": ERR_FILE_NOT_FOUND, "data": {}}
@@ -1784,6 +2030,10 @@ static func _read_json_dictionary(path: String) -> Dictionary:
 	return {"ok": true, "error": OK, "data": data}
 
 
+## 确保路径目录存在；空路径返回参数错误，否则递归创建缺失目录。
+## [br]
+## @api private
+## [br]
 static func _ensure_directory(path: String) -> Error:
 	if path.is_empty():
 		return ERR_INVALID_PARAMETER
@@ -1792,12 +2042,20 @@ static func _ensure_directory(path: String) -> Error:
 	return DirAccess.make_dir_recursive_absolute(path)
 
 
+## 文件不存在时返回 OK；存在时调用 DirAccess.remove_absolute。
+## [br]
+## @api private
+## [br]
 static func _remove_file_if_exists(path: String) -> Error:
 	if not FileAccess.file_exists(path):
 		return OK
 	return DirAccess.remove_absolute(path)
 
 
+## 校验 staging 目录与 owner 项形状后移除 owner 文件和 staging 目录。
+## [br]
+## @api private
+## [br]
 static func _remove_claim_staging(staging_path: String) -> Error:
 	if _path_leaf_is_link(staging_path):
 		return ERR_FILE_CORRUPT
@@ -1818,6 +2076,10 @@ static func _remove_claim_staging(staging_path: String) -> Error:
 	return DirAccess.remove_absolute(staging_path)
 
 
+## 读取目录全部条目并按名称排序，返回 names 与 Error。
+## [br]
+## @api private
+## [br]
 static func _read_directory_entries(path: String) -> Dictionary:
 	var dir: DirAccess = DirAccess.open(path)
 	if dir == null:
@@ -1835,6 +2097,10 @@ static func _read_directory_entries(path: String) -> Dictionary:
 	return {"error": OK, "names": names}
 
 
+## 包含隐藏条目读取目录；超过 max_entries 或参数无效时返回错误和空 names。
+## [br]
+## @api private
+## [br]
 static func _read_directory_entries_bounded(path: String, max_entries: int) -> Dictionary:
 	if max_entries <= 0:
 		return {"error": ERR_INVALID_PARAMETER, "names": []}
@@ -1859,6 +2125,10 @@ static func _read_directory_entries_bounded(path: String, max_entries: int) -> D
 	return {"error": OK, "names": names}
 
 
+## 通过父目录 DirAccess 检查目标 leaf 是否为链接。
+## [br]
+## @api private
+## [br]
 static func _path_leaf_is_link(path: String) -> bool:
 	var parent_path: String = path.get_base_dir()
 	var leaf_name: String = path.get_file()
@@ -1868,6 +2138,10 @@ static func _path_leaf_is_link(path: String) -> bool:
 	return parent != null and parent.is_link(leaf_name)
 
 
+## 检查目标是否为文件、目录或链接。
+## [br]
+## @api private
+## [br]
 static func _path_leaf_exists(path: String) -> bool:
 	return (
 		FileAccess.file_exists(path)

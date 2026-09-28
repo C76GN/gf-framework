@@ -14,8 +14,22 @@ extends Resource
 
 # --- 常量 ---
 
+## FNV-1a 32 位选择种子哈希的初始偏移值。
+## [br]
+## @api private
+## [br]
 const _FNV_32_OFFSET: int = 2_166_136_261
+
+## FNV-1a 32 位哈希每字节处理时使用的乘数。
+## [br]
+## @api private
+## [br]
 const _FNV_32_PRIME: int = 16_777_619
+
+## 将哈希运算限制在无符号 32 位范围的掩码。
+## [br]
+## @api private
+## [br]
 const _UINT_32_MASK: int = 0xffffffff
 
 
@@ -43,10 +57,19 @@ const _UINT_32_MASK: int = 0xffffffff
 
 # --- 私有变量 ---
 
+## 以邻域值逐级索引分支，并在终端节点保存加权结果的规则 trie。
+## [br]
+## @api private
+## [br]
 var _rules: Dictionary = {
 	"branches": {},
 	"results": [],
 }
+
+## 已注册规则记录数，与各终端节点的候选结果总数对应。
+## [br]
+## @api private
+## [br]
 var _rule_count: int = 0
 
 
@@ -156,6 +179,10 @@ func has_rule(neighbor_values: Array) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 创建包含空分支字典与空结果数组的规则 trie 节点。
+## [br]
+## @api private
+## [br]
 func _make_node() -> Dictionary:
 	return {
 		"branches": {},
@@ -163,6 +190,10 @@ func _make_node() -> Dictionary:
 	}
 
 
+## 读取节点 branches 字典；类型不符时创建并写回空字典。
+## [br]
+## @api private
+## [br]
 func _get_branches(node: Dictionary) -> Dictionary:
 	var branches_value: Variant = GFVariantData.get_option_value(node, "branches")
 	if branches_value is Dictionary:
@@ -172,6 +203,10 @@ func _get_branches(node: Dictionary) -> Dictionary:
 	return branches
 
 
+## 读取节点 results 数组；类型不符时创建并写回空数组。
+## [br]
+## @api private
+## [br]
 func _get_results(node: Dictionary) -> Array:
 	var results_value: Variant = GFVariantData.get_option_value(node, "results")
 	if results_value is Array:
@@ -181,6 +216,10 @@ func _get_results(node: Dictionary) -> Array:
 	return results
 
 
+## 对多候选结果按非负权重确定性抽取；总权重非正时选首项。
+## [br]
+## @api private
+## [br]
 func _pick_result(results: Array, cell: Vector2i, selection_seed: int) -> Variant:
 	if results.size() == 1:
 		return _read_result_value(results, 0)
@@ -204,22 +243,38 @@ func _pick_result(results: Array, cell: Vector2i, selection_seed: int) -> Varian
 	return _read_result_value(results, results.size() - 1)
 
 
+## 安全读取指定结果项的 value；索引越界时返回 default_result。
+## [br]
+## @api private
+## [br]
 func _read_result_value(results: Array, index: int) -> Variant:
 	if index < 0 or index >= results.size():
 		return default_result
 	return _read_result_entry_value(results[index])
 
 
+## 从结果记录字典中读取 value 字段。
+## [br]
+## @api private
+## [br]
 func _read_result_entry_value(result_entry: Variant) -> Variant:
 	var data: Dictionary = GFVariantData.as_dictionary(result_entry)
 	return GFVariantData.get_option_value(data, "value")
 
 
+## 从结果记录字典中读取浮点权重，缺失时按零处理。
+## [br]
+## @api private
+## [br]
 func _get_result_weight(result_entry: Variant) -> float:
 	var data: Dictionary = GFVariantData.as_dictionary(result_entry)
 	return GFVariantData.get_option_float(data, "weight", 0.0)
 
 
+## 对格坐标、选择种子和候选数的文本字节执行 FNV-1a 32 位哈希。
+## [br]
+## @api private
+## [br]
 func _stable_seed_for_choice(cell: Vector2i, selection_seed: int, result_count: int) -> int:
 	var hash_value: int = _FNV_32_OFFSET
 	var bytes: PackedByteArray = ("%d:%d:%d:%d" % [

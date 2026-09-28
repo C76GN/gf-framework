@@ -26,12 +26,39 @@ enum State {
 
 # --- 私有变量 ---
 
+## 保存 reservation 的单向状态；未初始化对象默认无效。
+## [br]
+## @api private
 var _state: State = State.INVALIDATED
+
+## 以弱引用保存持有 launch claim 的 runtime。
+## [br]
+## @api private
 var _runtime_ref: WeakRef = null
+
+## 保存 reserve 边界绑定的 topology 快照。
+## [br]
+## @api private
 var _binding: GFProjectileBinding = null
+
+## 保存当前 reservation 关联的 typed launch input。
+## [br]
+## @api private
 var _launch_input: Resource = null
+
+## 以弱引用保存唯一有权处理本 reservation 的 allocator owner。
+## [br]
+## @api private
 var _owner_ref: WeakRef = null
+
+## 初始化时冻结的 owner instance id，供 owner 失效后的清理入口核对。
+## [br]
+## @api private
 var _owner_id: int = 0
+
+## runtime 在 ACTIVATING 阶段记录的 session，供 consume 结果确认使用。
+## [br]
+## @api private
 var _activated_session: GFProjectileSession = null
 
 
@@ -284,6 +311,9 @@ func record_activation_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 比较实参与保存的 owner 弱引用、存活状态及 instance id。
+## [br]
+## @api private
 func _is_same_live_owner(owner: Object) -> bool:
 	if not _owner_is_live(owner) or _owner_ref == null:
 		return false
@@ -295,6 +325,9 @@ func _is_same_live_owner(owner: Object) -> bool:
 	)
 
 
+## 检查 binding topology 与 runtime launch claim 是否仍有效；失效时冻结 binding 原因。
+## [br]
+## @api private
 func _is_current_claim() -> bool:
 	if (
 		_binding == null
@@ -321,11 +354,17 @@ func _is_current_claim() -> bool:
 	return claim_is_current
 
 
+## 将 reservation 标记为 INVALIDATED 并请求 runtime 释放 launch claim。
+## [br]
+## @api private
 func _invalidate() -> void:
 	_state = State.INVALIDATED
 	_release_claim()
 
 
+## 按 runtime 维度调用对应的 framework claim 释放入口。
+## [br]
+## @api private
 func _release_claim() -> void:
 	var runtime: Node = _node_from_ref(_runtime_ref)
 	if runtime is GFProjectile2D:
@@ -336,6 +375,9 @@ func _release_claim() -> void:
 		runtime_3d.release_launch_claim_for_framework(self)
 
 
+## 从弱引用取回仍存活且未排队删除的节点。
+## [br]
+## @api private
 func _node_from_ref(weak_reference: WeakRef) -> Node:
 	if weak_reference == null:
 		return null
@@ -348,6 +390,9 @@ func _node_from_ref(weak_reference: WeakRef) -> Node:
 	return null
 
 
+## 检查对象实例仍有效；若对象是 Node，还要求它未排队删除。
+## [br]
+## @api private
 func _owner_is_live(value: Variant) -> bool:
 	if typeof(value) != TYPE_OBJECT or not is_instance_valid(value):
 		return false

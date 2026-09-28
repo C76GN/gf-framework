@@ -32,10 +32,34 @@ enum Status {
 
 # --- 私有变量 ---
 
+## 本次借用请求的最终状态。
+## [br]
+## @api private
+## [br]
 var _status: Status = Status.INVALID
+
+## 本次请求完成或失败时所处的阶段。
+## [br]
+## @api private
+## [br]
 var _stage: StringName = &"validation"
+
+## 本次请求对应的稳定原因标识。
+## [br]
+## @api private
+## [br]
 var _reason: StringName = &"unconfigured"
+
+## 成功结果保留的对象池借用句柄。
+## [br]
+## @api private
+## [br]
 var _lease: GFObjectPoolLease = null
+
+## 标记结果是否已由框架配置；配置后不会再次修改。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
 
 

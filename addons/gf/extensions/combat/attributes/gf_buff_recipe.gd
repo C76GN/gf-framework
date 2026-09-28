@@ -14,6 +14,9 @@ extends Resource
 
 # --- 常量 ---
 
+## 提供配方时长和周期 Tick 间隔共用的有限浮点数判断。
+## [br]
+## @api private
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
 
@@ -263,12 +266,18 @@ func to_dictionary() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 仅接受有限的永久标记 -1 或非负持续时间。
+## [br]
+## @api private
 func _is_duration_valid() -> bool:
 	return (
 		_GF_COMBAT_FINITE_MATH.is_finite_float(duration)
 		and (duration == -1.0 or duration >= 0.0)
 	)
 
+## 优先创建配方脚本定义的 Buff，实例不合型时退回基础 GFBuff。
+## [br]
+## @api private
 func _instantiate_buff() -> GFBuff:
 	var scripted: GFBuff = _instantiate_script_buff(buff_script)
 	if scripted != null:
@@ -276,6 +285,9 @@ func _instantiate_buff() -> GFBuff:
 	return GFBuff.new()
 
 
+## 调用脚本的 new 并收窄结果为 GFBuff；脚本为空或结果类型不符时返回 null。
+## [br]
+## @api private
 func _instantiate_script_buff(script: Script) -> GFBuff:
 	if script == null:
 		return null
@@ -286,6 +298,9 @@ func _instantiate_script_buff(script: Script) -> GFBuff:
 	return null
 
 
+## 按 modifier_entries 顺序构建 GFModifier，跳过无法恢复的条目。
+## [br]
+## @api private
 func _make_modifiers() -> Array[GFModifier]:
 	var result: Array[GFModifier] = []
 	for entry: Dictionary in modifier_entries:
@@ -295,6 +310,9 @@ func _make_modifiers() -> Array[GFModifier]:
 	return result
 
 
+## 深复制非空检查资源；复制结果类型不符时保留原资源引用。
+## [br]
+## @api private
 func _duplicate_checks() -> Array[GFBuffCheck]:
 	var result: Array[GFBuffCheck] = []
 	for check: GFBuffCheck in checks:
@@ -309,6 +327,9 @@ func _duplicate_checks() -> Array[GFBuffCheck]:
 	return result
 
 
+## 深复制非空效果资源；复制结果类型不符时保留原资源引用。
+## [br]
+## @api private
 func _duplicate_effects() -> Array[GFBuffEffect]:
 	var result: Array[GFBuffEffect] = []
 	for effect: GFBuffEffect in effects:
@@ -323,6 +344,9 @@ func _duplicate_effects() -> Array[GFBuffEffect]:
 	return result
 
 
+## 按原顺序深复制 modifier_entries 中的字典，供序列化结果使用。
+## [br]
+## @api private
 func _copy_modifier_entries() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in modifier_entries:

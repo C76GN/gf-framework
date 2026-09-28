@@ -17,12 +17,46 @@ extends Resource
 
 # --- 常量 ---
 
+## 单个 Registry 可注册的事件 Schema 总数上限。
+## [br]
+## @api private
+## [br]
 const _MAX_SCHEMA_COUNT: int = 1024
+
+## 同一事件名下可注册的精确版本数量上限。
+## [br]
+## @api private
+## [br]
 const _MAX_VERSIONS_PER_EVENT: int = 32
+
+## 注册与查询接受的最大 schema_version。
+## [br]
+## @api private
+## [br]
 const _MAX_SCHEMA_VERSION: int = 2_147_483_647
+
+## 所有已注册 Schema 共用的图节点累计上限。
+## [br]
+## @api private
+## [br]
 const _MAX_TOTAL_GRAPH_NODES: int = 65_536
+
+## 所有已注册 Schema 共用的 metadata/default 辅助节点累计上限。
+## [br]
+## @api private
+## [br]
 const _MAX_TOTAL_AUXILIARY_NODES: int = 131_072
+
+## 所有已注册 Schema 共用的定义文本 UTF-8 字节累计上限。
+## [br]
+## @api private
+## [br]
 const _MAX_TOTAL_TEXT_BYTES: int = 16 * 1024 * 1024
+
+## 注册表接受的内置 GFAnalyticsEventSchema 脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_ANALYTICS_EVENT_SCHEMA_SCRIPT = preload(
 	"res://addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd"
 )
@@ -30,10 +64,34 @@ const _GF_ANALYTICS_EVENT_SCHEMA_SCRIPT = preload(
 
 # --- 私有变量 ---
 
+## 按事件名再按精确 schema_version 保存的隔离 Schema 副本。
+## [br]
+## @api private
+## [br]
 var _schemas_by_event: Dictionary = {}
+
+## 当前注册的 Schema 总数缓存。
+## [br]
+## @api private
+## [br]
 var _schema_count: int = 0
+
+## 当前所有注册定义占用的图节点累计数。
+## [br]
+## @api private
+## [br]
 var _registered_graph_nodes: int = 0
+
+## 当前所有注册定义占用的辅助节点累计数。
+## [br]
+## @api private
+## [br]
 var _registered_auxiliary_nodes: int = 0
+
+## 当前所有注册定义占用的文本 UTF-8 字节累计数。
+## [br]
+## @api private
+## [br]
 var _registered_text_bytes: int = 0
 
 
@@ -303,6 +361,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 读取事件名对应的版本字典；缺失或类型不符时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_event_bucket(event_name: StringName) -> Dictionary:
 	var bucket_value: Variant = _schemas_by_event.get(event_name)
 	if bucket_value is Dictionary:
@@ -311,6 +373,10 @@ func _get_event_bucket(event_name: StringName) -> Dictionary:
 	return {}
 
 
+## 验证事件名与版本范围后读取对应已注册 Schema 实例；缺失时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_stored_schema(
 	event_name: StringName,
 	schema_version: int
@@ -325,6 +391,10 @@ func _get_stored_schema(
 	return null
 
 
+## 构造包含事件名、版本和可选 metadata 的错误报告，再封装注册失败结果。
+## [br]
+## @api private
+## [br]
 func _make_registration_failure(
 	kind: StringName,
 	message: String,
@@ -357,6 +427,10 @@ func _make_registration_failure(
 	)
 
 
+## 生成带注册状态、事件版本、当前计数和校验报告字典的结果。
+## [br]
+## @api private
+## [br]
 func _make_registration_result(
 	ok: bool,
 	reason: String,

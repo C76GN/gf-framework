@@ -11,13 +11,27 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 扩展 ID 的正则语法：点分段且每段以小写字母开头。
+## [br]
+## @api private
 const _EXTENSION_ID_PATTERN: String = "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
 
 
 # --- 私有变量 ---
 
+## 已编译并缓存的扩展 ID 正则；编译失败时为 null。
+## [br]
+## @api private
 static var _extension_id_regex: RegEx = null
+
+## 标记是否已尝试编译扩展 ID 正则。
+## [br]
+## @api private
 static var _has_compile_attempt: bool = false
+
+## 最近一次扩展 ID 正则编译返回的错误码。
+## [br]
+## @api private
 static var _compile_error: Error = OK
 
 
@@ -62,6 +76,9 @@ static func get_extension_id_validation_error(extension_id: String, field_name: 
 
 # --- 私有/辅助方法 ---
 
+## 首次调用时编译 ID 正则并缓存结果；编译失败时缓存 null。
+## [br]
+## @api private
 static func _get_extension_id_regex() -> RegEx:
 	if not _has_compile_attempt:
 		_has_compile_attempt = true

@@ -85,6 +85,9 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 按添加顺序保存的条件定义字典。
+## [br]
+## @api private
 var _conditions: Array[Dictionary] = []
 
 
@@ -344,6 +347,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按统一结构创建条件，并整理 mode、label、negate 和 metadata 选项。
+## [br]
+## @api private
 func _make_condition(condition_id: StringName, kind: StringName, options: Dictionary) -> Dictionary:
 	return {
 		"condition_id": condition_id,
@@ -355,6 +361,9 @@ func _make_condition(condition_id: StringName, kind: StringName, options: Dictio
 	}
 
 
+## 按条件种类检查谓词、key 存在性或 context 值，并应用 negate 选项。
+## [br]
+## @api private
 func _evaluate_condition(condition: Dictionary, context: Dictionary) -> Dictionary:
 	var report: Dictionary = _condition_to_snapshot(condition)
 	var passed: bool = false
@@ -387,6 +396,9 @@ func _evaluate_condition(condition: Dictionary, context: Dictionary) -> Dictiona
 	return report
 
 
+## 以 context 副本调用谓词，并规范化 Dictionary 或普通返回值的 ok/error/result。
+## [br]
+## @api private
 func _evaluate_predicate(condition: Dictionary, context: Dictionary) -> Dictionary:
 	var predicate: Callable = _get_condition_predicate(condition)
 	if not predicate.is_valid():
@@ -408,6 +420,9 @@ func _evaluate_predicate(condition: Dictionary, context: Dictionary) -> Dictiona
 	}
 
 
+## 提取条件公开字段为快照，并按定义包含 key、expected 和 has_predicate。
+## [br]
+## @api private
 func _condition_to_snapshot(condition: Dictionary) -> Dictionary:
 	var snapshot: Dictionary = {
 		"condition_id": GFVariantData.get_option_string_name(condition, "condition_id"),
@@ -425,6 +440,9 @@ func _condition_to_snapshot(condition: Dictionary) -> Dictionary:
 	return snapshot
 
 
+## 依次检查原始 key、其文本形式和 StringName 形式是否存在于 context。
+## [br]
+## @api private
 func _context_has_key(context: Dictionary, key: Variant) -> bool:
 	if context.has(key):
 		return true
@@ -437,6 +455,9 @@ func _context_has_key(context: Dictionary, key: Variant) -> bool:
 	return string_name_key != &"" and context.has(string_name_key)
 
 
+## 按原始 key、文本 key、StringName key 顺序读取值，均未命中时返回 null。
+## [br]
+## @api private
 func _get_context_value(context: Dictionary, key: Variant) -> Variant:
 	if context.has(key):
 		return GFVariantData.duplicate_variant(context[key], true)
@@ -452,6 +473,9 @@ func _get_context_value(context: Dictionary, key: Variant) -> Variant:
 	return null
 
 
+## 仅保留 MODE_ANY 和 MODE_NONE，其余模式归一化为 MODE_ALL。
+## [br]
+## @api private
 func _normalize_mode(mode: StringName) -> StringName:
 	match mode:
 		MODE_ANY, MODE_NONE:
@@ -460,6 +484,9 @@ func _normalize_mode(mode: StringName) -> StringName:
 			return MODE_ALL
 
 
+## 从条件字典读取 predicate Callable；类型不符时返回空 Callable。
+## [br]
+## @api private
 func _get_condition_predicate(condition: Dictionary) -> Callable:
 	var value: Variant = GFVariantData.get_option_value(condition, "predicate", Callable())
 	if value is Callable:

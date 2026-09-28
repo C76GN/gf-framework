@@ -29,7 +29,16 @@ signal button_released
 
 # --- 常量 ---
 
+## 输入事件提取辅助脚本。
+## [br]
+## @api private
+## [br]
 const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_input_event_tools.gd")
+
+## 虚拟输入动作和手柄按钮桥接脚本。
+## [br]
+## @api private
+## [br]
 const _VIRTUAL_INPUT_BRIDGE = preload("res://addons/gf/standard/input/common/gf_virtual_input_bridge.gd")
 
 
@@ -99,12 +108,46 @@ const _VIRTUAL_INPUT_BRIDGE = preload("res://addons/gf/standard/input/common/gf_
 
 # --- 私有变量 ---
 
+## 当前鼠标指针是否在本按钮内按下并由此控件跟踪。
+## [br]
+## @api private
+## [br]
 var _mouse_pressed_inside: bool = false
+
+## 当前按钮是否处于按下状态。
+## [br]
+## @api private
+## [br]
 var _pressed: bool = false
+
+## 当前按压是否已冻结输出绑定配置。
+## [br]
+## @api private
+## [br]
 var _output_binding_active: bool = false
+
+## 当前按压开始时冻结的 InputMap 动作名。
+## [br]
+## @api private
+## [br]
 var _active_action_name: StringName = &""
+
+## 当前按压开始时冻结的虚拟手柄按钮事件开关。
+## [br]
+## @api private
+## [br]
 var _active_emit_joypad_button: bool = false
+
+## 当前按压开始时冻结的虚拟手柄设备 ID。
+## [br]
+## @api private
+## [br]
 var _active_joypad_device_id: int = -2
+
+## 当前按压开始时冻结的手柄按钮。
+## [br]
+## @api private
+## [br]
 var _active_joy_button: JoyButton = JOY_BUTTON_A
 
 
@@ -164,6 +207,10 @@ func release() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 在触点按下命中圆形区域时获取该触点并按下；匹配触点抬起时释放并标记输入已处理。
+## [br]
+## @api private
+## [br]
 func _handle_touch(event: InputEventScreenTouch) -> void:
 	var local_pos: Vector2 = to_local(_screen_to_global_position(event.position))
 	if event.pressed:
@@ -176,6 +223,10 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 		_mark_input_as_handled()
 
 
+## 只跟踪已捕获触点的拖动；触点离开半径时释放，跟踪中的拖动会标记为已处理。
+## [br]
+## @api private
+## [br]
 func _handle_drag(event: InputEventScreenDrag) -> void:
 	if not _touch_matches(event.index):
 		return
@@ -186,6 +237,10 @@ func _handle_drag(event: InputEventScreenDrag) -> void:
 	_mark_input_as_handled()
 
 
+## 处理左键鼠标模拟：按下时判断命中区域并开始跟踪，跟踪中的释放完成按钮释放。
+## [br]
+## @api private
+## [br]
 func _handle_mouse_button(event: InputEventMouseButton) -> void:
 	if event.button_index != MOUSE_BUTTON_LEFT:
 		return
@@ -202,6 +257,10 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 			_mark_input_as_handled()
 
 
+## 只跟踪本按钮内开始的鼠标按压；指针移出半径后释放并标记输入已处理。
+## [br]
+## @api private
+## [br]
 func _handle_mouse_motion(event: InputEventMouseMotion) -> void:
 	if not _mouse_pressed_inside:
 		return
@@ -212,6 +271,10 @@ func _handle_mouse_motion(event: InputEventMouseMotion) -> void:
 	_mark_input_as_handled()
 
 
+## 忽略重复状态；按下时冻结输出配置，再应用动作和手柄事件、发信号并请求重绘。
+## [br]
+## @api private
+## [br]
 func _set_pressed(next_pressed: bool) -> void:
 	if _pressed == next_pressed:
 		return
@@ -230,6 +293,10 @@ func _set_pressed(next_pressed: bool) -> void:
 	queue_redraw()
 
 
+## 根据本次按压冻结的动作名（若尚未冻结则用当前配置）经虚拟输入桥接按下或释放动作。
+## [br]
+## @api private
+## [br]
 func _apply_input_action(pressed: bool) -> void:
 	var bound_action_name: StringName = _active_action_name if _output_binding_active else action_name
 	if bound_action_name == &"":
@@ -248,6 +315,10 @@ func _apply_input_action(pressed: bool) -> void:
 		)
 
 
+## 根据当前按压冻结的开关、设备 ID 和按钮（尚未冻结时使用当前配置）发送手柄按钮事件。
+## [br]
+## @api private
+## [br]
 func _emit_joypad_button(pressed: bool) -> void:
 	var should_emit: bool = (
 		_active_emit_joypad_button
@@ -262,6 +333,10 @@ func _emit_joypad_button(pressed: bool) -> void:
 	_VIRTUAL_INPUT_BRIDGE.emit_joypad_button(device_id, button, pressed)
 
 
+## 在按压开始时复制动作映射和虚拟手柄输出设置，保证释放与本次按压配置配对。
+## [br]
+## @api private
+## [br]
 func _capture_output_binding() -> void:
 	_output_binding_active = true
 	_active_action_name = action_name
@@ -270,6 +345,10 @@ func _capture_output_binding() -> void:
 	_active_joy_button = joy_button
 
 
+## 清除当前按压冻结的输出绑定并恢复内部字段的默认值。
+## [br]
+## @api private
+## [br]
 func _clear_output_binding() -> void:
 	_output_binding_active = false
 	_active_action_name = &""

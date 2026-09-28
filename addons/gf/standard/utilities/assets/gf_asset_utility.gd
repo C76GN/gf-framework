@@ -91,7 +91,17 @@ signal asset_load_queued(path: String, lane_id: StringName)
 ## [br]
 ## @since 6.0.0
 const DEFAULT_LOAD_LANE_ID: StringName = &"_default"
+
+## 用于动态解析共享 GFResourceBroker 实现的预加载脚本。
+## [br]
+## @api private
+## [br]
 const _RESOURCE_BROKER_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_resource_broker.gd")
+
+## 用于异步资源操作句柄的预加载脚本类型。
+## [br]
+## @api private
+## [br]
 const _RESOURCE_LEASE_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_resource_lease.gd")
 
 
@@ -122,35 +132,140 @@ var default_max_concurrent_loads: int = 0
 
 # --- 私有变量 ---
 
+## 规范化后的 LRU 缓存容量上限。
+## [br]
+## @api private
+## [br]
 var _max_cache_size: int = 64
 
 # 正在加载中的请求：`cache_key -> { path: String, identity: Dictionary, type_hint: String, callbacks: Array[Callable], cancelled: bool }`。
+## 按 cache_key 保存当前在途的异步加载请求。
+## [br]
+## @api private
+## [br]
 var _pending: Dictionary = {}
 
 # 等待开始的请求。
+## 尚未激活的异步请求序列。
+## [br]
+## @api private
+## [br]
 var _queued_requests: Array = []
+
+## 按 cache_key 查找等待中的请求。
+## [br]
+## @api private
+## [br]
 var _queued_by_path: Dictionary = {}
+
+## 各并发 lane 当前已激活的请求数。
+## [br]
+## @api private
+## [br]
 var _lane_active_counts: Dictionary = {}
 
 # 资源缓存：`GFResourceIdentity.cache_key -> Resource`。
+## 以稳定缓存键索引资源实例。
+## [br]
+## @api private
+## [br]
 var _cache: Dictionary = {}
 
 # LRU 访问序号，数值越大表示越新。
+## 记录各缓存键最近访问时的序号。
+## [br]
+## @api private
+## [br]
 var _cache_access_order: Dictionary = {}
+
+## 生成 LRU 访问序号的递增计数器。
+## [br]
+## @api private
+## [br]
 var _cache_access_serial: int = 0
+
+## 按缓存键保存可还原公开路径的资源身份字典。
+## [br]
+## @api private
+## [br]
 var _resource_identities: Dictionary = {}
+
+## 按缓存键记录当前 pin 引用数。
+## [br]
+## @api private
+## [br]
 var _pinned_cache_paths: Dictionary = {}
+
+## 按缓存键记录活动句柄的总引用数。
+## [br]
+## @api private
+## [br]
 var _reference_counts: Dictionary = {}
+
+## 按缓存键和 owner 实例 ID 记录句柄引用数。
+## [br]
+## @api private
+## [br]
 var _owner_reference_counts: Dictionary = {}
+
+## 按 owner 实例 ID 保存 owner 的弱引用。
+## [br]
+## @api private
+## [br]
 var _owner_refs: Dictionary = {}
+
+## 已创建句柄的弱引用列表。
+## [br]
+## @api private
+## [br]
 var _handle_refs: Array[WeakRef] = []
+
+## 按分组记录其登记的缓存键集合。
+## [br]
+## @api private
+## [br]
 var _group_paths: Dictionary = {}
+
+## 按分组和缓存键记录该分组贡献的 pin 数。
+## [br]
+## @api private
+## [br]
 var _group_pin_counts: Dictionary = {}
+
+## 按会话 ID 索引当前资产预加载会话。
+## [br]
+## @api private
+## [br]
 var _load_sessions: Dictionary = {}
+
+## 用于生成下一个资产加载会话 ID 的序号。
+## [br]
+## @api private
+## [br]
 var _next_load_session_id: int = 1
+
+## 记录资源缓存的命中、写入、驱逐和失效诊断。
+## [br]
+## @api private
+## [br]
 var _cache_diagnostics: GFCacheDiagnostics = GFCacheDiagnostics.new()
+
+## 执行资源异步请求的共享或独立 Broker。
+## [br]
+## @api private
+## [br]
 var _resource_broker: GFResourceBroker = null
+
+## 标记当前 Broker 是否由此 Utility 创建并负责释放。
+## [br]
+## @api private
+## [br]
 var _owns_resource_broker: bool = false
+
+## 标记 Utility 是否已进入释放状态。
+## [br]
+## @api private
+## [br]
 var _disposed: bool = false
 
 
@@ -1100,38 +1215,70 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 从字典移除指定键。
+## [br]
+## @api private
+## [br]
 func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 	var erased: bool = target.erase(key)
 	if erased:
 		return
 
 
+## 向数组追加一个 Variant 值。
+## [br]
+## @api private
+## [br]
 func _append_array_value(target: Array, value: Variant) -> void:
 	target.append(value)
 
 
+## 向 PackedStringArray 追加一个字符串。
+## [br]
+## @api private
+## [br]
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 从字典安全读取并转换为 Dictionary 的值。
+## [br]
+## @api private
+## [br]
 func _get_dictionary_reference(source: Dictionary, key: Variant) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(source, key, {}))
 
 
+## 按缓存键读取在途请求字典。
+## [br]
+## @api private
+## [br]
 func _get_pending_request(path: String) -> Dictionary:
 	return _get_dictionary_reference(_pending, path)
 
 
+## 按缓存键读取等待中的请求字典。
+## [br]
+## @api private
+## [br]
 func _get_queued_request(path: String) -> Dictionary:
 	return _get_dictionary_reference(_queued_by_path, path)
 
 
+## 不检查文件是否存在地构造资源身份。
+## [br]
+## @api private
+## [br]
 func _make_resource_identity(path: String, type_hint: String = "", resource_key: StringName = &"") -> GFResourceIdentity:
 	return GFResourceIdentity.from_path(path, resource_key, type_hint, { "check_exists": false })
 
 
+## 从路径生成缓存键并记住其资源身份；身份无效时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _get_cache_key_for_path(path: String, type_hint: String = "") -> String:
 	var identity: GFResourceIdentity = _make_resource_identity(path, type_hint)
 	if not identity.has_identity():
@@ -1140,12 +1287,20 @@ func _get_cache_key_for_path(path: String, type_hint: String = "") -> String:
 	return identity.cache_key
 
 
+## 将有效资源身份序列化后按缓存键保存。
+## [br]
+## @api private
+## [br]
 func _remember_resource_identity(identity: GFResourceIdentity) -> void:
 	if identity == null or not identity.has_identity():
 		return
 	_resource_identities[identity.cache_key] = identity.to_dictionary()
 
 
+## 优先返回资源身份的 canonical_path，否则回退到 raw_path。
+## [br]
+## @api private
+## [br]
 func _get_identity_load_path(identity: GFResourceIdentity) -> String:
 	if identity == null:
 		return ""
@@ -1154,6 +1309,10 @@ func _get_identity_load_path(identity: GFResourceIdentity) -> String:
 	return identity.raw_path
 
 
+## 从已记录身份还原公开路径；缺少路径信息时回退到缓存键。
+## [br]
+## @api private
+## [br]
 func _get_public_path_for_cache_key(cache_key: String) -> String:
 	var identity_data: Dictionary = GFVariantData.get_option_dictionary(_resource_identities, cache_key)
 	var canonical_path: String = GFVariantData.get_option_string(identity_data, "canonical_path")
@@ -1165,14 +1324,26 @@ func _get_public_path_for_cache_key(cache_key: String) -> String:
 	return cache_key
 
 
+## 从请求字典读取资源路径。
+## [br]
+## @api private
+## [br]
 func _get_pending_path(pending_request: Dictionary) -> String:
 	return GFVariantData.get_option_string(pending_request, "path")
 
 
+## 从请求字典读取缓存键。
+## [br]
+## @api private
+## [br]
 func _get_pending_cache_key(pending_request: Dictionary) -> String:
 	return GFVariantData.get_option_string(pending_request, "cache_key")
 
 
+## 深复制当前记录的资源身份字典映射。
+## [br]
+## @api private
+## [br]
 func _make_identity_snapshot() -> Dictionary:
 	var result: Dictionary = {}
 	for cache_key: String in _resource_identities.keys():
@@ -1180,6 +1351,10 @@ func _make_identity_snapshot() -> Dictionary:
 	return result
 
 
+## 将缓存键引用计数映射为公开资源路径索引。
+## [br]
+## @api private
+## [br]
 func _make_public_reference_counts() -> Dictionary:
 	var result: Dictionary = {}
 	for cache_key: String in _reference_counts.keys():
@@ -1187,6 +1362,10 @@ func _make_public_reference_counts() -> Dictionary:
 	return result
 
 
+## 按缓存键读取资源并更新命中诊断与 LRU 访问序号。
+## [br]
+## @api private
+## [br]
 func _get_cached_by_key(cache_key: String) -> Resource:
 	if cache_key.is_empty() or not _cache.has(cache_key):
 		if not cache_key.is_empty():
@@ -1201,6 +1380,10 @@ func _get_cached_by_key(cache_key: String) -> Resource:
 	return null
 
 
+## 在缓存启用且键、资源有效时写入资源并执行 LRU 容量整理。
+## [br]
+## @api private
+## [br]
 func _put_cache_by_key(cache_key: String, path: String, resource: Resource) -> void:
 	if cache_key.is_empty() or resource == null or max_cache_size <= 0:
 		return
@@ -1213,6 +1396,10 @@ func _put_cache_by_key(cache_key: String, path: String, resource: Resource) -> v
 	_evict_lru()
 
 
+## 移除缓存资源及其句柄、计数、分组和身份记录。
+## [br]
+## @api private
+## [br]
 func _remove_cache_by_key(
 	cache_key: String,
 	invalidation_reason: StringName = &"manual_remove"
@@ -1231,30 +1418,58 @@ func _remove_cache_by_key(
 	_erase_dictionary_key(_resource_identities, cache_key)
 
 
+## 从请求字典读取资源类型提示。
+## [br]
+## @api private
+## [br]
 func _get_pending_type_hint(pending_request: Dictionary) -> String:
 	return GFVariantData.get_option_string(pending_request, "type_hint", "")
 
 
+## 从请求字典读取回调数组。
+## [br]
+## @api private
+## [br]
 func _get_pending_callbacks(pending_request: Dictionary) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(pending_request, "callbacks", []))
 
 
+## 从请求字典读取已记录的加载进度。
+## [br]
+## @api private
+## [br]
 func _get_pending_progress(pending_request: Dictionary) -> float:
 	return GFVariantData.get_option_float(pending_request, "progress", 0.0)
 
 
+## 从请求字典读取并发 lane ID。
+## [br]
+## @api private
+## [br]
 func _get_pending_lane_id(pending_request: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(pending_request, "lane_id", &"")
 
 
+## 从请求字典读取并发 lane 上限。
+## [br]
+## @api private
+## [br]
 func _get_pending_lane_limit(pending_request: Dictionary) -> int:
 	return GFVariantData.get_option_int(pending_request, "max_concurrent_loads", 0)
 
 
+## 检查请求字典是否标记为已取消。
+## [br]
+## @api private
+## [br]
 func _is_pending_cancelled(pending_request: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(pending_request, "cancelled", false)
 
 
+## 将请求中的 operation 值收窄为资源租约对象。
+## [br]
+## @api private
+## [br]
 func _get_pending_operation(pending_request: Dictionary) -> _RESOURCE_LEASE_SCRIPT:
 	var value: Variant = GFVariantData.get_option_value(pending_request, "operation")
 	if value is _RESOURCE_LEASE_SCRIPT:
@@ -1263,33 +1478,57 @@ func _get_pending_operation(pending_request: Dictionary) -> _RESOURCE_LEASE_SCRI
 	return null
 
 
+## 通过已配置 Broker 申请资源租约；Utility 已释放或无 Broker 时返回 null。
+## [br]
+## @api private
+## [br]
 func _request_threaded_operation(path: String, type_hint: String) -> _RESOURCE_LEASE_SCRIPT:
 	if _disposed or _resource_broker == null:
 		return null
 	return _resource_broker.request(path, type_hint, { "consumer_id": &"asset" })
 
 
+## 使用给定原因取消非空资源租约。
+## [br]
+## @api private
+## [br]
 func _cancel_threaded_operation(operation: _RESOURCE_LEASE_SCRIPT, reason: StringName) -> void:
 	if operation != null:
 		operation.cancel(reason)
 
 
+## 轮询资源租约；未配置 Broker 时返回缺失 Broker 报告。
+## [br]
+## @api private
+## [br]
 func _poll_threaded_operation(operation: _RESOURCE_LEASE_SCRIPT) -> Dictionary:
 	if _resource_broker == null:
 		return _make_missing_resource_broker_result()
 	return _resource_broker.poll_lease(operation)
 
 
+## 释放非空资源租约。
+## [br]
+## @api private
+## [br]
 func _forget_threaded_operation(operation: _RESOURCE_LEASE_SCRIPT) -> void:
 	if operation != null:
 		operation.release()
 
 
+## 推进已配置 Broker 的待处理操作。
+## [br]
+## @api private
+## [br]
 func _drain_cancelled_threaded_operations() -> void:
 	if _resource_broker != null:
 		_resource_broker.pump()
 
 
+## 构造表示 Broker 未配置的失败结果字典。
+## [br]
+## @api private
+## [br]
 func _make_missing_resource_broker_result() -> Dictionary:
 	return {
 		"status": _RESOURCE_LEASE_SCRIPT.STATUS_FAILED,
@@ -1301,6 +1540,10 @@ func _make_missing_resource_broker_result() -> Dictionary:
 	}
 
 
+## 获取 Broker 诊断快照并附加配置、错误和释放状态字段。
+## [br]
+## @api private
+## [br]
 func _get_resource_broker_debug_snapshot() -> Dictionary:
 	if _resource_broker == null:
 		return {
@@ -1317,14 +1560,26 @@ func _get_resource_broker_debug_snapshot() -> Dictionary:
 	return snapshot
 
 
+## 读取指定分组的缓存键成员字典。
+## [br]
+## @api private
+## [br]
 func _get_group_path_map(group_id: StringName) -> Dictionary:
 	return _get_dictionary_reference(_group_paths, group_id)
 
 
+## 读取指定分组的缓存键 pin 计数字典。
+## [br]
+## @api private
+## [br]
 func _get_group_pin_map(group_id: StringName) -> Dictionary:
 	return _get_dictionary_reference(_group_pin_counts, group_id)
 
 
+## 检查缓存键是否仍登记在任一资源分组中。
+## [br]
+## @api private
+## [br]
 func _is_cache_key_registered_in_any_group(cache_key: String) -> bool:
 	if cache_key.is_empty():
 		return false
@@ -1335,34 +1590,65 @@ func _is_cache_key_registered_in_any_group(cache_key: String) -> bool:
 	return false
 
 
+## 从字典读取整数计数，缺失或无效时返回 0。
+## [br]
+## @api private
+## [br]
 func _get_count_value(source: Dictionary, key: Variant) -> int:
 	return GFVariantData.get_option_int(source, key, 0)
 
 
+## 从预加载报告读取 completed 数量。
+## [br]
+## @api private
+## [br]
 func _get_report_completed(report: Dictionary) -> int:
 	return GFVariantData.get_option_int(report, "completed", 0)
 
 
+## 从预加载报告读取 total 数量。
+## [br]
+## @api private
+## [br]
 func _get_report_total(report: Dictionary) -> int:
 	return GFVariantData.get_option_int(report, "total", 0)
 
 
+## 将预加载报告的 completed 数量加一。
+## [br]
+## @api private
+## [br]
 func _increment_report_completed(report: Dictionary) -> void:
 	report["completed"] = _get_report_completed(report) + 1
 
 
+## 同时检查完成数量达到总量及共享单元素 finished 标志，供多个加载回调争取一次结算资格。
+## [br]
+## @api private
 func _is_group_preload_finished(report: Dictionary, finished: Array) -> bool:
 	return _get_report_completed(report) >= _get_report_total(report) and not GFVariantData.to_bool(finished[0])
 
 
+## 从预加载请求字典读取资源路径。
+## [br]
+## @api private
+## [br]
 func _get_group_entry_path(request: Dictionary) -> String:
 	return GFVariantData.get_option_string(request, "path", "")
 
 
+## 从预加载请求字典读取资源类型提示。
+## [br]
+## @api private
+## [br]
 func _get_group_entry_type_hint(request: Dictionary) -> String:
 	return GFVariantData.get_option_string(request, "type_hint", "")
 
 
+## 构造缺少计划参数时的失败校验报告。
+## [br]
+## @api private
+## [br]
 func _make_preload_plan_validation(
 	plan_id: StringName,
 	group_id: StringName,
@@ -1388,6 +1674,10 @@ func _make_preload_plan_validation(
 	}
 
 
+## 构造预加载计划启动失败的报告并附带计划校验信息。
+## [br]
+## @api private
+## [br]
 func _make_preload_plan_error_report(
 	asset_plan: GFAssetPreloadPlan,
 	group_id: StringName,
@@ -1409,6 +1699,10 @@ func _make_preload_plan_error_report(
 	return _with_preload_plan_metadata(report, asset_plan, validation)
 
 
+## 将计划 ID、元数据和校验报告合入报告的 metadata。
+## [br]
+## @api private
+## [br]
 func _with_preload_plan_metadata(
 	report: Dictionary,
 	asset_plan: GFAssetPreloadPlan,
@@ -1426,23 +1720,43 @@ func _with_preload_plan_metadata(
 	return result
 
 
+## 若回调有效，则以报告深拷贝调用完成回调。
+## [br]
+## @api private
+## [br]
 func _finish_preload_plan_report(report: Dictionary, on_completed: Callable) -> void:
 	if on_completed.is_valid():
 		on_completed.call(report.duplicate(true))
 
 
+## 从报告字段读取 PackedStringArray 路径列表。
+## [br]
+## @api private
+## [br]
 func _get_report_paths(report: Dictionary, key: String) -> PackedStringArray:
 	return _get_packed_string_array_value(GFVariantData.get_option_value(report, key, PackedStringArray()))
 
 
+## 从回调条目读取 Callable。
+## [br]
+## @api private
+## [br]
 func _get_callback_entry_callable(entry: Dictionary) -> Callable:
 	return _get_callable_value(GFVariantData.get_option_value(entry, "callable", Callable()))
 
 
+## 从回调条目读取资源类型提示。
+## [br]
+## @api private
+## [br]
 func _get_callback_entry_type_hint(entry: Dictionary) -> String:
 	return GFVariantData.get_option_string(entry, "type_hint", "")
 
 
+## 将路径追加到报告中的字符串数组字段。
+## [br]
+## @api private
+## [br]
 func _append_report_path(report: Dictionary, key: String, path: String) -> void:
 	var paths: PackedStringArray = _get_packed_string_array_value(
 		GFVariantData.get_option_value(report, key, PackedStringArray())
@@ -1451,18 +1765,29 @@ func _append_report_path(report: Dictionary, key: String, path: String) -> void:
 	report[key] = paths
 
 
+## 将 Variant 收窄为 PackedStringArray；类型不符时返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_packed_string_array_value(value: Variant) -> PackedStringArray:
 	if value is PackedStringArray:
 		return value
 	return PackedStringArray()
 
 
+## 将 Variant 收窄为 Callable；类型不符时返回空 Callable。
+## [br]
+## @api private
+## [br]
 func _get_callable_value(value: Variant) -> Callable:
 	if value is Callable:
 		return value
 	return Callable()
 
 
+## 按通道限额选择启动或排队；队列和按路径索引共享同一请求字典，并在通知排队前登记索引。
+## [br]
+## @api private
 func _start_or_queue_request(cache_key: String, request: Dictionary) -> void:
 	var lane_id: StringName = _get_pending_lane_id(request)
 	var lane_limit: int = _get_pending_lane_limit(request)
@@ -1480,6 +1805,10 @@ func _start_or_queue_request(cache_key: String, request: Dictionary) -> void:
 		return
 
 
+## 先占用通道额度再请求底层加载；启动失败归还额度并向等待者回传 null。
+## 成功时先保存操作与待处理记录，再可选发送初始进度，供重入回调查询或取消。
+## [br]
+## @api private
 func _activate_load_request(cache_key: String, request: Dictionary, emit_initial_progress: bool) -> Error:
 	if _disposed:
 		_dispatch_callbacks(_get_pending_callbacks(request), null)
@@ -1505,18 +1834,30 @@ func _activate_load_request(cache_key: String, request: Dictionary, emit_initial
 	return OK
 
 
+## 检查有效 lane 的活动请求数是否已达到上限。
+## [br]
+## @api private
+## [br]
 func _should_queue_request(lane_id: StringName, lane_limit: int) -> bool:
 	if lane_id == &"" or lane_limit <= 0:
 		return false
 	return _get_count_value(_lane_active_counts, lane_id) >= lane_limit
 
 
+## 为非空 lane 增加一个活动请求计数。
+## [br]
+## @api private
+## [br]
 func _begin_lane_request(lane_id: StringName) -> void:
 	if lane_id == &"":
 		return
 	_lane_active_counts[lane_id] = _get_count_value(_lane_active_counts, lane_id) + 1
 
 
+## 为非空 lane 减少活动请求计数，归零后移除该计数项。
+## [br]
+## @api private
+## [br]
 func _end_lane_request(lane_id: StringName) -> void:
 	if lane_id == &"":
 		return
@@ -1527,6 +1868,9 @@ func _end_lane_request(lane_id: StringName) -> void:
 		_erase_dictionary_key(_lane_active_counts, lane_id)
 
 
+## 逐项剔除无效或已取消请求，启动当前通道有额度的条目；受限通道不阻挡后面的其他通道。
+## [br]
+## @api private
 func _drain_load_queue() -> void:
 	var index: int = 0
 	while index < _queued_requests.size():
@@ -1549,6 +1893,10 @@ func _drain_load_queue() -> void:
 		var _error: Error = _activate_load_request(cache_key, request, false)
 
 
+## 按 serial_lane_id、lane_id 和并发限制解析请求 lane。
+## [br]
+## @api private
+## [br]
 func _resolve_load_lane_id(options: Dictionary) -> StringName:
 	var lane_id: StringName = GFVariantData.get_option_string_name(options, "serial_lane_id", &"")
 	if lane_id == &"":
@@ -1560,6 +1908,10 @@ func _resolve_load_lane_id(options: Dictionary) -> StringName:
 	return &""
 
 
+## 按请求选项、Utility 默认值和显式 lane 解析并发上限。
+## [br]
+## @api private
+## [br]
 func _resolve_load_lane_limit(options: Dictionary) -> int:
 	var explicit_limit: int = GFVariantData.get_option_int(options, "max_concurrent_loads", 0)
 	if explicit_limit > 0:
@@ -1572,6 +1924,10 @@ func _resolve_load_lane_limit(options: Dictionary) -> int:
 	return 1 if explicit_lane != &"" else 0
 
 
+## 复制加载选项，并在需要时为分组并发限制补充 serial_lane_id。
+## [br]
+## @api private
+## [br]
 func _make_group_load_options(options: Dictionary, group_id: StringName) -> Dictionary:
 	var load_options: Dictionary = options.duplicate(true)
 	if (
@@ -1583,6 +1939,10 @@ func _make_group_load_options(options: Dictionary, group_id: StringName) -> Dict
 	return load_options
 
 
+## 收集未取消且带路径的等待请求，并按文本排序。
+## [br]
+## @api private
+## [br]
 func _get_queued_paths() -> PackedStringArray:
 	var paths: PackedStringArray = PackedStringArray()
 	for request_variant: Variant in _queued_requests:
@@ -1594,24 +1954,40 @@ func _get_queued_paths() -> PackedStringArray:
 	return paths
 
 
+## 将 Variant 收窄为 Resource；其他值返回 null。
+## [br]
+## @api private
+## [br]
 func _get_resource_value(value: Variant) -> Resource:
 	if value is Resource:
 		return value
 	return null
 
 
+## 将 Variant 收窄为 Script；其他值返回 null。
+## [br]
+## @api private
+## [br]
 func _get_script_value(value: Variant) -> Script:
 	if value is Script:
 		return value
 	return null
 
 
+## 将 Variant 收窄为 GFAssetHandle；其他值返回 null。
+## [br]
+## @api private
+## [br]
 func _get_asset_handle_value(value: Variant) -> GFAssetHandle:
 	if value is GFAssetHandle:
 		return value
 	return null
 
 
+## 解析 WeakRef 中仍有效的 Object；引用无效时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_live_object_from_ref(object_ref: WeakRef) -> Object:
 	if object_ref == null:
 		return null
@@ -1622,6 +1998,10 @@ func _get_live_object_from_ref(object_ref: WeakRef) -> Object:
 	return object
 
 
+## 遍历待处理键快照，在进度通知后复查 disposed、记录身份和取消状态，避免结算被重入替换的请求。
+## 完成时先移除记录，再按取消状态缓存及通知，最后遗忘底层操作并归还通道额度。
+## [br]
+## @api private
 func _poll_pending() -> void:
 	if _pending.is_empty():
 		return
@@ -1682,6 +2062,10 @@ func _poll_pending() -> void:
 				_complete_pending_lane(pending_request)
 
 
+## 优先用加载完成状态或 ResourceLoader 进度结果生成有界进度值。
+## [br]
+## @api private
+## [br]
 func _get_threaded_progress(
 	pending_request: Dictionary,
 	progress_result: Array,
@@ -1694,6 +2078,10 @@ func _get_threaded_progress(
 	return _get_pending_progress(pending_request)
 
 
+## 将进度限制在 0–1 范围；变化时更新请求并发出进度信号。
+## [br]
+## @api private
+## [br]
 func _update_pending_progress(path: String, pending_request: Dictionary, progress: float) -> void:
 	var clamped_progress: float = clampf(progress, 0.0, 1.0)
 	var previous_progress: float = _get_pending_progress(pending_request)
@@ -1704,11 +2092,19 @@ func _update_pending_progress(path: String, pending_request: Dictionary, progres
 	asset_load_progress.emit(path, clamped_progress)
 
 
+## 结束请求所在 lane 的活动计数并尝试启动等待队列。
+## [br]
+## @api private
+## [br]
 func _complete_pending_lane(pending_request: Dictionary) -> void:
 	_end_lane_request(_get_pending_lane_id(pending_request))
 	_drain_load_queue()
 
 
+## 按数组顺序调用有效回调；资源类型不符时向该回调传入 null。
+## [br]
+## @api private
+## [br]
 func _dispatch_callbacks(callbacks: Array, resource: Resource) -> void:
 	for callback_entry: Variant in callbacks:
 		var entry: Dictionary = GFVariantData.as_dictionary(callback_entry)
@@ -1723,6 +2119,10 @@ func _dispatch_callbacks(callbacks: Array, resource: Resource) -> void:
 			callback.call(resource if resource == null or _is_resource_compatible(resource, type_hint) else null)
 
 
+## 先标记每个请求取消，再取消底层操作并用回调数组快照发送 null；排队请求也收到失败通知。
+## 本方法不清空索引，后续释放流程负责移除记录。
+## [br]
+## @api private
 func _cancel_pending_requests_for_dispose() -> void:
 	for pending_value: Variant in _pending.values():
 		var pending_request: Dictionary = GFVariantData.as_dictionary(pending_value)
@@ -1740,10 +2140,18 @@ func _cancel_pending_requests_for_dispose() -> void:
 		_dispatch_callbacks(_get_pending_callbacks(queued_request).duplicate(), null)
 
 
+## 获取 owner 实例 ID；owner 为空时返回 0。
+## [br]
+## @api private
+## [br]
 func _owner_instance_id(owner: Object) -> int:
 	return owner.get_instance_id() if owner != null else 0
 
 
+## 增加缓存键的句柄引用与 pin，并登记可选分组和 owner 计数。
+## [br]
+## @api private
+## [br]
 func _increment_reference(path: String, owner: Object, group_id: StringName) -> String:
 	var cache_key: String = _get_cache_key_for_path(path)
 	if cache_key.is_empty():
@@ -1765,11 +2173,19 @@ func _increment_reference(path: String, owner: Object, group_id: StringName) -> 
 	return cache_key
 
 
+## 根据资源路径解析缓存键并减少对应引用。
+## [br]
+## @api private
+## [br]
 func _decrement_reference(path: String, owner_id: int, release_count: int = 1) -> int:
 	var cache_key: String = _get_cache_key_for_path(path)
 	return _decrement_reference_by_cache_key(cache_key, owner_id, release_count)
 
 
+## 按缓存键扣减句柄引用、对应 pin 和 owner 计数，并返回剩余总引用数。
+## [br]
+## @api private
+## [br]
 func _decrement_reference_by_cache_key(cache_key: String, owner_id: int, release_count: int = 1) -> int:
 	if cache_key.is_empty():
 		return 0
@@ -1797,12 +2213,20 @@ func _decrement_reference_by_cache_key(cache_key: String, owner_id: int, release
 	return next_count
 
 
+## 为非空缓存键增加一个 pin 计数。
+## [br]
+## @api private
+## [br]
 func _pin_cache_key(cache_key: String) -> void:
 	if cache_key.is_empty():
 		return
 	_pinned_cache_paths[cache_key] = _get_count_value(_pinned_cache_paths, cache_key) + 1
 
 
+## 减少缓存键的 pin 计数并重新检查 LRU 容量。
+## [br]
+## @api private
+## [br]
 func _unpin_cache_key(cache_key: String) -> void:
 	if cache_key.is_empty() or not _pinned_cache_paths.has(cache_key):
 		return
@@ -1814,6 +2238,10 @@ func _unpin_cache_key(cache_key: String) -> void:
 	_evict_lru()
 
 
+## 保存 owner 弱引用，并为 Node owner 连接一次性退出树释放回调。
+## [br]
+## @api private
+## [br]
 func _track_owner(owner: Object) -> void:
 	if owner == null:
 		return
@@ -1833,11 +2261,19 @@ func _track_owner(owner: Object) -> void:
 			push_warning("[GFAssetUtility][asset_utility.owner_exit_connect_failed] Cannot connect the owner tree exit signal: %d." % connect_error)
 
 
+## 将非空句柄的弱引用加入待维护列表。
+## [br]
+## @api private
+## [br]
 func _track_handle(handle: GFAssetHandle) -> void:
 	if handle != null:
 		_append_array_value(_handle_refs, weakref(handle))
 
 
+## 移除已失效或已释放的句柄弱引用。
+## [br]
+## @api private
+## [br]
 func _prune_handle_refs() -> void:
 	for index: int in range(_handle_refs.size() - 1, -1, -1):
 		var handle: GFAssetHandle = _get_asset_handle_value(_handle_refs[index].get_ref())
@@ -1845,6 +2281,10 @@ func _prune_handle_refs() -> void:
 			_handle_refs.remove_at(index)
 
 
+## 清空句柄列表并释放其中仍存活句柄的本地资源引用。
+## [br]
+## @api private
+## [br]
 func _release_all_handles() -> void:
 	for handle_ref: WeakRef in _handle_refs:
 		var handle: GFAssetHandle = _get_asset_handle_value(handle_ref.get_ref())
@@ -1853,6 +2293,10 @@ func _release_all_handles() -> void:
 	_handle_refs.clear()
 
 
+## 释放指定缓存键对应的句柄引用，并移除失效句柄记录。
+## [br]
+## @api private
+## [br]
 func _release_handles_for_cache_key(cache_key: String) -> void:
 	for index: int in range(_handle_refs.size() - 1, -1, -1):
 		var handle: GFAssetHandle = _get_asset_handle_value(_handle_refs[index].get_ref())
@@ -1863,6 +2307,10 @@ func _release_handles_for_cache_key(cache_key: String) -> void:
 			_handle_refs.remove_at(index)
 
 
+## 释放指定 owner 实例持有的句柄引用并移除失效记录。
+## [br]
+## @api private
+## [br]
 func _release_owner_handles(owner_id: int) -> void:
 	for index: int in range(_handle_refs.size() - 1, -1, -1):
 		var handle: GFAssetHandle = _get_asset_handle_value(_handle_refs[index].get_ref())
@@ -1873,6 +2321,9 @@ func _release_owner_handles(owner_id: int) -> void:
 			_handle_refs.remove_at(index)
 
 
+## 按缓存键快照移除指定所有者的全部引用并逐项通知，再释放其句柄和弱引用记录；返回移除的引用次数总和。
+## [br]
+## @api private
 func _release_owner_id(owner_id: int) -> int:
 	if owner_id == 0:
 		return 0
@@ -1898,6 +2349,10 @@ func _release_owner_id(owner_id: int) -> int:
 	return released_count
 
 
+## 从所有分组成员表和分组 pin 表移除指定缓存键。
+## [br]
+## @api private
+## [br]
 func _remove_cache_key_from_groups(cache_key: String) -> void:
 	if cache_key.is_empty():
 		return
@@ -1916,6 +2371,10 @@ func _remove_cache_key_from_groups(cache_key: String) -> void:
 			_erase_dictionary_key(_group_pin_counts, group_id)
 
 
+## 将字符串或字典形式的预加载条目规范化为 path/type_hint 字典。
+## [br]
+## @api private
+## [br]
 func _normalize_group_entry(entry: Variant) -> Dictionary:
 	if entry is Dictionary:
 		var data: Dictionary = GFVariantData.as_dictionary(entry)
@@ -1930,6 +2389,9 @@ func _normalize_group_entry(entry: Variant) -> Dictionary:
 	}
 
 
+## 排序报告路径后先向信号发送报告副本，再为完成回调复制该副本；信号监听者对副本的改动会进入后一次复制。
+## [br]
+## @api private
 func _finish_group_preload(group_id: StringName, report: Dictionary, on_completed: Callable) -> void:
 	var paths: PackedStringArray = _get_report_paths(report, "paths")
 	paths.sort()
@@ -1945,13 +2407,11 @@ func _finish_group_preload(group_id: StringName, report: Dictionary, on_complete
 		on_completed.call(report_copy.duplicate(true))
 
 
-func _on_asset_load_session_completed(result: GFAssetLoadSessionResult) -> void:
-	if result == null:
-		return
-	_erase_dictionary_key(_load_sessions, String(result.get_session_id()))
-	asset_load_session_completed.emit(result.duplicate_result())
 
 
+## 遍历会话键快照并在每步读取当前会话后中止；最后清空会话表，回调中新增的表项也会被清空。
+## [br]
+## @api private
 func _abort_asset_load_sessions(reason: StringName) -> void:
 	var session_keys: Array = _load_sessions.keys().duplicate()
 	for session_key: Variant in session_keys:
@@ -1962,6 +2422,10 @@ func _abort_asset_load_sessions(reason: StringName) -> void:
 	_load_sessions.clear()
 
 
+## 检查资源是否符合原生类名或当前及基类脚本名称/路径提示。
+## [br]
+## @api private
+## [br]
 func _is_resource_compatible(resource: Resource, type_hint: String) -> bool:
 	if resource == null:
 		return false
@@ -1976,6 +2440,10 @@ func _is_resource_compatible(resource: Resource, type_hint: String) -> bool:
 	return false
 
 
+## 类型提示相同或任一为空时允许合并到同一资源请求。
+## [br]
+## @api private
+## [br]
 func _pending_type_hints_are_compatible(pending_type_hint: String, requested_type_hint: String) -> bool:
 	return (
 		pending_type_hint == requested_type_hint
@@ -1984,6 +2452,10 @@ func _pending_type_hints_are_compatible(pending_type_hint: String, requested_typ
 	)
 
 
+## 将回调和对应类型提示打包为请求回调条目。
+## [br]
+## @api private
+## [br]
 func _make_callback_entry(callback: Callable, type_hint: String) -> Dictionary:
 	return {
 		"callable": callback,
@@ -1991,6 +2463,10 @@ func _make_callback_entry(callback: Callable, type_hint: String) -> Dictionary:
 	}
 
 
+## 检查回调数组中的字典条目或裸 Callable 是否已包含指定回调。
+## [br]
+## @api private
+## [br]
 func _callback_entries_have_callable(callbacks: Array, callback: Callable) -> bool:
 	for callback_entry: Variant in callbacks:
 		var entry: Dictionary = GFVariantData.as_dictionary(callback_entry)
@@ -2001,11 +2477,19 @@ func _callback_entries_have_callable(callbacks: Array, callback: Callable) -> bo
 	return false
 
 
+## 推进 LRU 序号并记录指定缓存键最近一次访问。
+## [br]
+## @api private
+## [br]
 func _touch_cache(path: String) -> void:
 	_cache_access_serial += 1
 	_cache_access_order[path] = _cache_access_serial
 
 
+## 超过容量时逐出最久未访问且未 pin 的缓存项。
+## [br]
+## @api private
+## [br]
 func _evict_lru() -> void:
 	while _cache.size() > max_cache_size and max_cache_size > 0:
 		var oldest_path: String = _get_oldest_cached_path()
@@ -2018,6 +2502,10 @@ func _evict_lru() -> void:
 		_erase_dictionary_key(_resource_identities, oldest_path)
 
 
+## 返回访问序号最小的未 pin 缓存键；没有候选时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _get_oldest_cached_path() -> String:
 	var oldest_path: String = ""
 	var oldest_access: int = 0
@@ -2034,5 +2522,21 @@ func _get_oldest_cached_path() -> String:
 	return oldest_path
 
 
+## 从 Broker 加载结果中读取 Resource 值。
+## [br]
+## @api private
+## [br]
 func _get_load_result_resource(load_result: Dictionary) -> Resource:
 	return _get_resource_value(GFVariantData.get_option_value(load_result, "resource"))
+
+
+# --- 信号处理函数 ---
+
+## 先按结果会话标识移除活动会话，再向工具监听者发送独立结果对象，避免完成通知中继续查到活动记录。
+## [br]
+## @api private
+func _on_asset_load_session_completed(result: GFAssetLoadSessionResult) -> void:
+	if result == null:
+		return
+	_erase_dictionary_key(_load_sessions, String(result.get_session_id()))
+	asset_load_session_completed.emit(result.duplicate_result())

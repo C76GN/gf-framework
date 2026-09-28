@@ -17,6 +17,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## effective_priority 可返回的最大有限浮点值。
+## [br]
+## @api private
 const _MAX_FINITE_FLOAT: float = 1.7976931348623157e308
 
 
@@ -52,8 +55,19 @@ var max_size: int = 0:
 
 # --- 私有变量 ---
 
+## 保存工作载荷、基础优先级、入队时间与稳定顺序值。
+## [br]
+## @api private
 var _entries: Array[Dictionary] = []
+
+## 普通同优先级条目使用的下一个顺序值。
+## [br]
+## @api private
 var _next_order: int = 0
+
+## front 条目使用的递减顺序值。
+## [br]
+## @api private
 var _next_front_order: int = 0
 
 
@@ -344,6 +358,9 @@ func get_debug_snapshot(now_msec: int = -1) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 为 front 条目分配递减顺序值，否则递增普通顺序值。
+## [br]
+## @api private
 func _make_order(front: bool) -> int:
 	if front:
 		_next_front_order -= 1
@@ -353,6 +370,9 @@ func _make_order(front: bool) -> int:
 	return order
 
 
+## 队列变空时重置两类同优先级顺序计数器。
+## [br]
+## @api private
 func _reset_order_if_empty() -> void:
 	if not _entries.is_empty():
 		return
@@ -360,10 +380,16 @@ func _reset_order_if_empty() -> void:
 	_next_front_order = 0
 
 
+## 在当前条目列表中查找有效优先级最高项的索引。
+## [br]
+## @api private
 func _find_best_index(now_msec: int) -> int:
 	return _find_best_index_in(_entries, maxi(now_msec, 0))
 
 
+## 扫描给定条目列表并返回最先出队项的索引；列表为空时返回 -1。
+## [br]
+## @api private
 func _find_best_index_in(entries: Array[Dictionary], now_msec: int) -> int:
 	if entries.is_empty():
 		return -1
@@ -374,6 +400,9 @@ func _find_best_index_in(entries: Array[Dictionary], now_msec: int) -> int:
 	return best_index
 
 
+## 使用共同尺度比较有效优先级；相等时 order 较小的条目在前。
+## [br]
+## @api private
 func _entry_is_before(left: Dictionary, right: Dictionary, now_msec: int) -> bool:
 	var scale: float = maxf(
 		maxf(
@@ -389,6 +418,9 @@ func _entry_is_before(left: Dictionary, right: Dictionary, now_msec: int) -> boo
 	return GFVariantData.get_option_int(left, "order") < GFVariantData.get_option_int(right, "order")
 
 
+## 将缩放后的优先级还原为有限值，并饱和到最大有限浮点边界。
+## [br]
+## @api private
 func _get_effective_priority(entry: Dictionary, now_msec: int) -> float:
 	var priority: float = GFVariantData.get_option_float(entry, "priority")
 	var scale: float = maxf(absf(priority), aging_step)
@@ -404,6 +436,9 @@ func _get_effective_priority(entry: Dictionary, now_msec: int) -> float:
 	return _MAX_FINITE_FLOAT if scaled_priority >= 0.0 else -_MAX_FINITE_FLOAT
 
 
+## 将基础优先级和等待加成按给定尺度相加，供比较器排序。
+## [br]
+## @api private
 func _get_scaled_effective_priority(
 	entry: Dictionary,
 	now_msec: int,
@@ -414,12 +449,18 @@ func _get_scaled_effective_priority(
 	return priority / scale + float(aging_intervals) * (aging_step / scale)
 
 
+## 根据非负等待时长除以 aging_interval_msec 计算完整等待区间数。
+## [br]
+## @api private
 func _get_aging_intervals(entry: Dictionary, now_msec: int) -> int:
 	var enqueued_msec: int = GFVariantData.get_option_int(entry, "enqueued_msec")
 	var waited_msec: int = maxi(now_msec - enqueued_msec, 0)
 	return floori(float(waited_msec) / float(aging_interval_msec))
 
 
+## 导出队列条目；deep 为 true 时通过 Variant 辅助函数处理载荷。
+## [br]
+## @api private
 func _duplicate_entries(deep: bool) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in _entries:
@@ -433,6 +474,9 @@ func _duplicate_entries(deep: bool) -> Array[Dictionary]:
 	return result
 
 
+## 对象参与比较时使用 `==`，其余 Variant 使用共享值比较器。
+## [br]
+## @api private
 func _values_equal(left: Variant, right: Variant) -> bool:
 	if left is Object or right is Object:
 		return left == right

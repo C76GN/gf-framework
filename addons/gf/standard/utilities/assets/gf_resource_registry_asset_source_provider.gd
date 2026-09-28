@@ -122,6 +122,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 复制 provider 默认条目选项，并合并本次目录构建传入的条目选项。
+## [br]
+## @api private
+## [br]
 func _resolve_entry_options(options: Dictionary) -> Dictionary:
 	var resolved: Dictionary = entry_options.duplicate(true)
 	var override_options: Dictionary = GFVariantData.get_option_dictionary(options, "entry_options")
@@ -129,6 +133,10 @@ func _resolve_entry_options(options: Dictionary) -> Dictionary:
 	return resolved
 
 
+## 将候选值收窄为注册表条目；类型不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_registry_entry(value: Variant) -> GFResourceRegistryEntry:
 	if value is GFResourceRegistryEntry:
 		var entry: GFResourceRegistryEntry = value

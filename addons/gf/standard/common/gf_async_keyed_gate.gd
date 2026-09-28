@@ -93,9 +93,24 @@ signal request_timed_out(request_id: int, key: Variant, metadata: Dictionary)
 
 # --- 常量 ---
 
+## 将 key 等值转换为调试报告可序列化表示的辅助脚本。
+## [br]
+## @api private
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+
+## 将外部 key 编码为 gate 内部索引令牌的辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_KEY_CODEC_SCRIPT = preload("res://addons/gf/standard/foundation/variant/gf_variant_key_codec.gd")
+
+## 非主线程入口返回结果使用的内部原因值。
+## [br]
+## @api private
 const _STATUS_WRONG_THREAD: StringName = &"wrong_thread"
+
+## 计算请求与租约 deadline 时用于饱和加法的 int64 上限。
+## [br]
+## @api private
 const _INT64_MAX: int = 9_223_372_036_854_775_807
 
 ## 请求已获得租约。
@@ -424,62 +439,289 @@ var max_pump_work_items: int:
 
 # --- 私有变量 ---
 
+## 按 key token 保存等待队列的头、尾和长度。
+## [br]
+## @api private
 var _queue_states_by_key: Dictionary = {}
+
+## 按 request_id 索引尚在处理中的请求记录。
+## [br]
+## @api private
 var _request_records: Dictionary = {}
+
+## 按取消令牌实例 ID 保存令牌、共享取消回调及关联请求 ID。
+## [br]
+## @api private
 var _cancel_token_states: Dictionary = {}
+
+## 按 key token 保存当前活动租约，以 lease_id 为键。
+## [br]
+## @api private
 var _active_by_key: Dictionary = {}
+
+## 按 key token 和请求级并发限制值统计相应的活动租约数。
+## [br]
+## @api private
 var _active_limit_counts_by_key: Dictionary = {}
+
+## 各 key 当前活动请求所带限制值中的最小值。
+## [br]
+## @api private
 var _active_min_limit_by_key: Dictionary = {}
+
+## 显式配置的 key token 到并发上限映射。
+## [br]
+## @api private
 var _key_limits: Dictionary = {}
+
+## 已跟踪 key 的原始 key 值及其 key token 记录。
+## [br]
+## @api private
 var _key_data: Dictionary = {}
+
+## 以槽位顺序保存当前 key token；空字符串表示空槽。
+## [br]
+## @api private
 var _key_slots: Array[String] = []
+
+## 可复用的 key 槽位索引。
+## [br]
+## @api private
 var _free_key_slots: Array[int] = []
+
+## 从 key token 查找其在 _key_slots 中的位置。
+## [br]
+## @api private
 var _key_slot_by_token: Dictionary = {}
+
+## 按 lease_id 保存活动租约及其请求、key、计时和限制信息。
+## [br]
+## @api private
 var _lease_records: Dictionary = {}
+
+## 等待请求的可复用扫描槽位，0 表示空槽。
+## [br]
+## @api private
 var _waiting_request_slots: Array[int] = []
+
+## 可复用的等待请求槽位索引。
+## [br]
+## @api private
 var _free_waiting_request_slots: Array[int] = []
+
+## 从 request_id 查找其等待请求扫描槽位。
+## [br]
+## @api private
 var _waiting_slot_by_request_id: Dictionary = {}
+
+## 等待请求过期扫描使用的游标。
+## [br]
+## @api private
 var _waiting_expire_cursor: int = 0
+
+## 活动租约的可复用扫描槽位，0 表示空槽。
+## [br]
+## @api private
 var _active_lease_slots: Array[int] = []
+
+## 可复用的活动租约槽位索引。
+## [br]
+## @api private
 var _free_active_lease_slots: Array[int] = []
+
+## 从 lease_id 查找其活动租约扫描槽位。
+## [br]
+## @api private
 var _active_slot_by_lease_id: Dictionary = {}
+
+## 活动租约过期扫描使用的游标。
+## [br]
+## @api private
 var _active_expire_cursor: int = 0
+
+## 最近 gate 事件的循环缓冲数据。
+## [br]
+## @api private
 var _events: Array[Dictionary] = []
+
+## 最近事件环形缓冲区的起始槽位索引。
+## [br]
+## @api private
 var _event_start_index: int = 0
+
+## 未配置 key 自身并发限制时使用的默认值。
+## [br]
+## @api private
 var _default_max_concurrency: int = DEFAULT_MAX_CONCURRENCY
+
+## 最近事件缓冲区当前容量。
+## [br]
+## @api private
 var _max_recent_events: int = DEFAULT_MAX_RECENT_EVENTS
+
+## 当前活动租约总数上限。
+## [br]
+## @api private
 var _max_active_leases: int = DEFAULT_MAX_ACTIVE_LEASES
+
+## 当前全部 key 共享的等待请求总数上限。
+## [br]
+## @api private
 var _max_waiting_requests: int = DEFAULT_MAX_WAITING_REQUESTS
+
+## 单个 key 当前允许的等待请求数量上限。
+## [br]
+## @api private
 var _max_waiting_per_key: int = DEFAULT_MAX_WAITING_PER_KEY
+
+## 当前可跟踪的 key 数量上限。
+## [br]
+## @api private
 var _max_tracked_keys: int = DEFAULT_MAX_TRACKED_KEYS
+
+## 每轮队列推进允许处理的等待请求工作项上限。
+## [br]
+## @api private
 var _max_pump_work_items: int = DEFAULT_MAX_PUMP_WORK_ITEMS
+
+## 下一次发放的 request_id。
+## [br]
+## @api private
 var _next_request_id: int = 1
+
+## 下一次发放的 lease_id。
+## [br]
+## @api private
 var _next_lease_id: int = 1
+
+## 下一次写入最近事件的 event_index。
+## [br]
+## @api private
 var _next_event_index: int = 1
+
+## 队列推进扫描 key 槽位时的下一个位置。
+## [br]
+## @api private
 var _pump_key_cursor: int = 0
+
+## 是否正在运行队列推进扫描。
+## [br]
+## @api private
 var _pump_in_progress: bool = false
+
+## 当前嵌套信号通知层数。
+## [br]
+## @api private
 var _notification_depth: int = 0
+
+## 每层通知对应的请求 ID 可见截止值。
+## [br]
+## @api private
 var _notification_cutoffs: Array[int] = []
+
+## 当前嵌套生命周期批处理层数。
+## [br]
+## @api private
 var _lifecycle_batch_depth: int = 0
+
+## 按 lease_id 保存尚待提交的释放请求。
+## [br]
+## @api private
 var _pending_releases: Dictionary = {}
+
+## 记录待处理释放的 lease_id 顺序。
+## [br]
+## @api private
 var _pending_release_order: Array[int] = []
+
+## 是否正在排空待处理释放队列。
+## [br]
+## @api private
 var _draining_pending_releases: bool = false
+
+## 待处理队列推进所允许看到的最早请求截止值。
+## [br]
+## @api private
 var _pending_pump_cutoff: int = 0
+
+## 是否已经排定延后的 key 队列推进调用。
+## [br]
+## @api private
 var _deferred_pump_scheduled: bool = false
+
+## 队列推进因重入或预算限制而需要后续处理的标记。
+## [br]
+## @api private
 var _pump_dirty: bool = false
+
+## 当前分轮 key 扫描尚余的槽位数。
+## [br]
+## @api private
 var _pump_scan_remaining_keys: int = 0
+
+## 当前扫描周期内已处理的等待请求数。
+## [br]
+## @api private
 var _pump_cycle_progress_count: int = 0
+
+## 本轮扫描允许处理的最大 request_id。
+## [br]
+## @api private
 var _pump_snapshot_request_cutoff: int = 0
+
+## 当前扫描快照之后有新请求加入时请求再进行一轮扫描的标记。
+## [br]
+## @api private
 var _pump_followup_requested: bool = false
+
+## 当前排队请求总数。
+## [br]
+## @api private
 var _queued_count: int = 0
+
+## 已取消等待请求的累计数。
+## [br]
+## @api private
 var _cancelled_count: int = 0
+
+## 已超时等待请求的累计数。
+## [br]
+## @api private
 var _timeout_count: int = 0
+
+## 已发放租约的累计数。
+## [br]
+## @api private
 var _acquired_count: int = 0
+
+## 已释放租约的累计数。
+## [br]
+## @api private
 var _released_count: int = 0
+
+## 未排队立即失败的 fail-fast 请求累计数。
+## [br]
+## @api private
 var _busy_count: int = 0
+
+## 观测到的等待请求数峰值。
+## [br]
+## @api private
 var _high_watermark: int = 0
+
+## 观测到的跟踪 key 数峰值。
+## [br]
+## @api private
 var _key_high_watermark: int = 0
+
+## 因容量限制被拒绝的请求累计数。
+## [br]
+## @api private
 var _rejected_count: int = 0
+
+## 调试快照中的 dropped_count 诊断字段；本脚本中初始化后只写入快照。
+## [br]
+## @api private
 var _dropped_count: int = 0
 
 
@@ -1172,6 +1414,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 从等待队列移除指定请求并以取消状态完成它，随后清理临时 key 记录。
+## [br]
+## @api private
 func _cancel_request_on_main_thread(
 	request_id: int,
 	reason: StringName,
@@ -1208,6 +1453,9 @@ func _cancel_request_on_main_thread(
 	return true
 
 
+## 在主线程执行按 token_id 查找并取消相关请求的工作。
+## [br]
+## @api private
 func _cancel_requests_for_token_from_worker(
 	token_id: int,
 	reason: StringName
@@ -1222,6 +1470,10 @@ func _cancel_requests_for_token_from_worker(
 	)
 
 
+## 提交租约前最后检查已观测到的取消；接受后先登记活动租约和请求终态，再完成 completion 并发送 acquired。
+## 通知期间冻结请求 ID 截止值，使回调新建请求不混入当前推进批次。
+## [br]
+## @api private
 func _activate_request(
 	request: Dictionary,
 	now_msec: int,
@@ -1320,6 +1572,10 @@ func _activate_request(
 	return result
 
 
+## 仅接纳主线程上仍匹配活动记录的租约；通知重入时只登记待释放，true 不表示通知已经发出。
+## 延迟释放沿用最外层通知的请求截止值，避免重入请求提前获得空出的配额。
+## [br]
+## @api private
 func _release_lease_from_handle(
 	lease: GFAsyncGateLease,
 	reason: StringName = &"manual"
@@ -1362,6 +1618,10 @@ func _release_lease_from_handle(
 	return true
 
 
+## 先提交租约终态并移除 Gate 活动记录，再依次发送租约和 Gate 的释放信号。
+## 释放出的配额通过保存的请求截止值参与后续推进；信号回调看到的是已解除所有权的租约。
+## [br]
+## @api private
 func _release_lease_now(
 	lease: GFAsyncGateLease,
 	reason: StringName,
@@ -1403,6 +1663,9 @@ func _release_lease_now(
 	return true
 
 
+## 按 lease_id 去重并设置租约 release_pending；保存原因与截止值，实际终态由 drain 提交。
+## [br]
+## @api private
 func _queue_pending_release(
 	lease: GFAsyncGateLease,
 	reason: StringName,
@@ -1422,6 +1685,10 @@ func _queue_pending_release(
 	return true
 
 
+## 只在通知和生命周期批次之外排空释放队列；动态读取队列长度，因此释放回调追加的项也可在本轮处理。
+## drain 标记阻止递归排空，并为成功释放保留最早请求截止值；返回实际提交的数量。
+## [br]
+## @api private
 func _drain_pending_releases() -> int:
 	if (
 		_notification_depth > 0
@@ -1463,6 +1730,9 @@ func _drain_pending_releases() -> int:
 	return released_count
 
 
+## 进入一层信号通知，并记录本层允许处理的请求 ID 截止值。
+## [br]
+## @api private
 func _begin_notification(eligible_cutoff: int) -> void:
 	_notification_depth += 1
 	_notification_cutoffs.append(
@@ -1472,6 +1742,9 @@ func _begin_notification(eligible_cutoff: int) -> void:
 	)
 
 
+## 退出一层通知；最外层通知和生命周期批次结束后调用 _flush_lifecycle()。
+## [br]
+## @api private
 func _end_notification() -> void:
 	if _notification_depth <= 0:
 		return
@@ -1486,16 +1759,25 @@ func _end_notification() -> void:
 		_flush_lifecycle()
 
 
+## 返回最外层信号通知的请求 ID 截止值；没有通知层时返回当前最大请求 ID。
+## [br]
+## @api private
 func _get_current_notification_cutoff() -> int:
 	if _notification_cutoffs.is_empty():
 		return _next_request_id - 1
 	return _notification_cutoffs[0]
 
 
+## 增加生命周期批处理嵌套层数。
+## [br]
+## @api private
 func _begin_lifecycle_batch() -> void:
 	_lifecycle_batch_depth += 1
 
 
+## 结束一层生命周期批处理；最外层结束时按参数将积压工作提交到 _flush_lifecycle()。
+## [br]
+## @api private
 func _end_lifecycle_batch_and_flush(
 	default_cutoff: int = 0,
 	allow_immediate_pump: bool = true
@@ -1507,6 +1789,9 @@ func _end_lifecycle_batch_and_flush(
 	_flush_lifecycle(default_cutoff, allow_immediate_pump)
 
 
+## 保存最小的正请求 ID 截止值，供后续队列推进读取。
+## [br]
+## @api private
 func _remember_pending_pump_cutoff(eligible_cutoff: int) -> void:
 	if eligible_cutoff <= 0:
 		return
@@ -1519,12 +1804,19 @@ func _remember_pending_pump_cutoff(eligible_cutoff: int) -> void:
 		)
 
 
+## 取出待处理队列推进截止值并将存储值重置为 0。
+## [br]
+## @api private
 func _take_pending_pump_cutoff() -> int:
 	var cutoff: int = _pending_pump_cutoff
 	_pending_pump_cutoff = 0
 	return cutoff
 
 
+## 保存截止值后先排空待释放项，再决定立即推进或安排 deferred 推进；仍在通知或批次中时保留积压。
+## 禁止立即推进时不消费截止值；没有排队请求时才清除它。
+## [br]
+## @api private
 func _flush_lifecycle(
 	default_cutoff: int = 0,
 	allow_immediate_pump: bool = true
@@ -1557,6 +1849,10 @@ func _flush_lifecycle(
 	var _pumped_count: int = _pump_all_keys(false, cutoff)
 
 
+## 批量接纳尚未待释放的租约；通知中排队，否则提交释放，返回接纳或提交的数量。
+## 本方法不直接调用 pump；调用方的生命周期批次结束流程负责汇总推进。
+## [br]
+## @api private
 func _release_leases_without_pump(
 	leases: Array[GFAsyncGateLease],
 	reason: StringName,
@@ -1587,6 +1883,10 @@ func _release_leases_without_pump(
 	return released_count
 
 
+## 用保留游标和每轮工作/活动配额预算扫描 key；一次扫描固定请求 ID 上界，更新到来的请求留待后续快照。
+## 嵌套调用只标脏并安排后续轮次；返回本轮激活租约数，不承诺不同 key 的等待时长相等。
+## [br]
+## @api private
 func _pump_all_keys(
 	continue_scan: bool = false,
 	request_cutoff: int = 0
@@ -1715,6 +2015,9 @@ func _pump_all_keys(
 	return activated_count
 
 
+## 处理指定 key 的队首请求，并返回本次激活数与终态处理数。
+## [br]
+## @api private
 func _pump_key(
 	key_token: String,
 	snapshot_max_request_id: int
@@ -1787,6 +2090,9 @@ func _pump_key(
 	}
 
 
+## 判断 key 队首请求是否存在且不晚于本轮扫描的 request_id 截止值。
+## [br]
+## @api private
 func _queue_front_is_in_snapshot(
 	key_token: String,
 	snapshot_max_request_id: int
@@ -1795,6 +2101,9 @@ func _queue_front_is_in_snapshot(
 	return request_id > 0 and request_id <= snapshot_max_request_id
 
 
+## 若尚无延迟调用排队，则安排一次 _flush_deferred_key_pump()。
+## [br]
+## @api private
 func _schedule_deferred_key_pump() -> void:
 	if _deferred_pump_scheduled:
 		return
@@ -1804,6 +2113,9 @@ func _schedule_deferred_key_pump() -> void:
 	)
 
 
+## 在延迟调用中恢复或启动一次队列推进扫描。
+## [br]
+## @api private
 func _flush_deferred_key_pump() -> void:
 	_deferred_pump_scheduled = false
 	if not Thread.is_main_thread():
@@ -1823,6 +2135,9 @@ func _flush_deferred_key_pump() -> void:
 	)
 
 
+## 从请求记录移除等待请求，并构造取消或超时终态结果、计数、事件和通知。
+## [br]
+## @api private
 func _complete_waiting_request(
 	request: Dictionary,
 	status: StringName,
@@ -1898,6 +2213,9 @@ func _complete_waiting_request(
 	return result
 
 
+## 组装租约请求结果，并按标记选择是否包含 lease 与 completion。
+## [br]
+## @api private
 func _make_request_result(
 	status: StringName,
 	ok: bool,
@@ -1925,6 +2243,9 @@ func _make_request_result(
 	return result
 
 
+## 组装 key 编码失败的请求结果，保留编码器提供的失败原因。
+## [br]
+## @api private
 func _make_invalid_key_result(key: Variant, key_report: Dictionary) -> Dictionary:
 	return {
 		"ok": false,
@@ -1938,6 +2259,9 @@ func _make_invalid_key_result(key: Variant, key_report: Dictionary) -> Dictionar
 	}
 
 
+## 构造非主线程 request_lease() 调用的无效结果。
+## [br]
+## @api private
 func _make_wrong_thread_request_result() -> Dictionary:
 	return {
 		"ok": false,
@@ -1951,6 +2275,9 @@ func _make_wrong_thread_request_result() -> Dictionary:
 	}
 
 
+## 构造非主线程 key 快照查询的占位结果。
+## [br]
+## @api private
 func _make_wrong_thread_key_snapshot() -> Dictionary:
 	return {
 		"ok": false,
@@ -1966,6 +2293,9 @@ func _make_wrong_thread_key_snapshot() -> Dictionary:
 	}
 
 
+## 构造非主线程调试快照查询的占位结果。
+## [br]
+## @api private
 func _make_wrong_thread_debug_snapshot() -> Dictionary:
 	return {
 		"ok": false,
@@ -1994,6 +2324,9 @@ func _make_wrong_thread_debug_snapshot() -> Dictionary:
 	}
 
 
+## 递增拒绝计数、构造容量拒绝结果并记录对应事件。
+## [br]
+## @api private
 func _make_rejected_request_result(
 	request: Dictionary,
 	reason: StringName,
@@ -2014,6 +2347,9 @@ func _make_rejected_request_result(
 	return result
 
 
+## 构造 fail-fast 未取得租约且未排队的结果。
+## [br]
+## @api private
 func _make_busy_request_result(key: Variant, options: Dictionary) -> Dictionary:
 	return {
 		"ok": false,
@@ -2027,6 +2363,9 @@ func _make_busy_request_result(key: Variant, options: Dictionary) -> Dictionary:
 	}
 
 
+## 将请求 ID 登记到取消令牌共享状态，并为新状态连接一次性取消回调。
+## [br]
+## @api private
 func _bind_request_cancel_token(request: Dictionary) -> bool:
 	var token: GFCancellationToken = _variant_to_cancel_token(
 		GFVariantData.get_option_value(request, "cancel_token")
@@ -2075,6 +2414,9 @@ func _bind_request_cancel_token(request: Dictionary) -> bool:
 	return true
 
 
+## 在主线程直接处理令牌取消；若回调来自 worker，则延迟投递一次主线程处理。
+## [br]
+## @api private
 func _handle_cancel_token_requested(
 	reason: StringName,
 	token_id: int
@@ -2096,6 +2438,9 @@ func _handle_cancel_token_requested(
 	)
 
 
+## 使用一次性连接监听取消令牌，并返回信号连接结果。
+## [br]
+## @api private
 func _connect_request_cancel_token(
 	token: GFCancellationToken,
 	callback: Callable
@@ -2106,6 +2451,9 @@ func _connect_request_cancel_token(
 	) as Error
 
 
+## 从令牌共享状态移除请求 ID；没有关联请求时断开回调并删除该状态。
+## [br]
+## @api private
 func _disconnect_request_cancel_token(request: Dictionary) -> void:
 	var token_id: int = GFVariantData.get_option_int(
 		request,
@@ -2147,6 +2495,10 @@ func _disconnect_request_cancel_token(request: Dictionary) -> void:
 	request["cancel_callback"] = Callable()
 
 
+## 主线程先摘下令牌订阅并对整批请求登记取消、解除队列资格，再逐项发送完成通知。
+## 通知在生命周期批次内执行，队列推进延至整批结束；新建请求不属于已取出的 request_ids 集合。
+## [br]
+## @api private
 func _cancel_requests_for_token_on_main_thread(
 	token_id: int,
 	reason: StringName
@@ -2214,6 +2566,9 @@ func _cancel_requests_for_token_on_main_thread(
 	return detached_requests.size()
 
 
+## 检查请求记录中的取消标记或其令牌当前是否已请求取消。
+## [br]
+## @api private
 func _request_has_observed_cancellation(request: Dictionary) -> bool:
 	if GFVariantData.get_option_bool(request, "cancel_observed"):
 		return true
@@ -2223,6 +2578,9 @@ func _request_has_observed_cancellation(request: Dictionary) -> bool:
 	return token != null and token.is_cancel_requested()
 
 
+## 优先返回请求已存原因，其次读取已取消令牌原因，最后使用 STATUS_CANCELLED。
+## [br]
+## @api private
 func _get_request_cancel_reason(request: Dictionary) -> StringName:
 	var stored_reason: StringName = GFVariantData.get_option_string_name(
 		request,
@@ -2240,6 +2598,9 @@ func _get_request_cancel_reason(request: Dictionary) -> StringName:
 	return STATUS_CANCELLED
 
 
+## 优先返回请求保存的取消元数据，其次读取已取消令牌元数据。
+## [br]
+## @api private
 func _get_request_cancel_metadata(request: Dictionary) -> Dictionary:
 	var stored_metadata: Dictionary = GFVariantData.get_option_dictionary(
 		request,
@@ -2255,6 +2616,9 @@ func _get_request_cancel_metadata(request: Dictionary) -> Dictionary:
 	return {}
 
 
+## 同时检查全局活动租约上限和该 key 的有效并发限制。
+## [br]
+## @api private
 func _can_activate_request(key_token: String, request: Dictionary) -> bool:
 	return (
 		_lease_records.size() < _max_active_leases
@@ -2263,6 +2627,9 @@ func _can_activate_request(key_token: String, request: Dictionary) -> bool:
 	)
 
 
+## 返回 key 的显式并发限制，未配置时使用默认值。
+## [br]
+## @api private
 func _get_key_limit(key_token: String) -> int:
 	if _key_limits.has(key_token):
 		return clampi(
@@ -2276,6 +2643,9 @@ func _get_key_limit(key_token: String) -> int:
 	return _default_max_concurrency
 
 
+## 将 key 当前限制与正数请求级限制取较小值作为本请求有效上限。
+## [br]
+## @api private
 func _get_effective_request_limit(key_token: String, request: Dictionary) -> int:
 	var configured_limit: int = _get_current_active_limit(key_token)
 	var request_limit: int = GFVariantData.get_option_int(request, "max_concurrency", 0)
@@ -2287,6 +2657,9 @@ func _get_effective_request_limit(key_token: String, request: Dictionary) -> int
 	return configured_limit
 
 
+## 返回 key 配置限制与该 key 活动请求限制下界中的较小值。
+## [br]
+## @api private
 func _get_current_active_limit(key_token: String) -> int:
 	var limit: int = _get_key_limit(key_token)
 	if _active_min_limit_by_key.has(key_token):
@@ -2300,6 +2673,9 @@ func _get_current_active_limit(key_token: String) -> int:
 	return limit
 
 
+## 从请求选项读取正数 max_concurrency 并限制在允许范围内，否则返回 0。
+## [br]
+## @api private
 func _get_request_max_concurrency(options: Dictionary) -> int:
 	var limit: int = GFVariantData.get_option_int(options, "max_concurrency", 0)
 	if limit <= 0:
@@ -2307,6 +2683,9 @@ func _get_request_max_concurrency(options: Dictionary) -> int:
 	return clampi(limit, 1, ABSOLUTE_MAX_CONCURRENCY)
 
 
+## 为新 key token 分配可复用槽位并记录原始 key 与 token。
+## [br]
+## @api private
 func _remember_key(key_token: String, key: Variant) -> void:
 	if _key_data.has(key_token):
 		return
@@ -2324,20 +2703,32 @@ func _remember_key(key_token: String, key: Variant) -> void:
 	}
 
 
+## 判断 key token 是否已存在于跟踪数据中。
+## [br]
+## @api private
 func _is_key_tracked(key_token: String) -> bool:
 	return _key_data.has(key_token)
 
 
+## 用当前跟踪 key 数更新 key 数量峰值。
+## [br]
+## @api private
 func _update_key_high_watermark() -> void:
 	_key_high_watermark = maxi(_key_high_watermark, _key_data.size())
 
 
+## 返回 key token 对应的队列状态；未创建时返回空字典。
+## [br]
+## @api private
 func _get_queue_state(key_token: String) -> Dictionary:
 	if not _queue_states_by_key.has(key_token):
 		return {}
 	return GFVariantData.as_dictionary(_queue_states_by_key[key_token])
 
 
+## 读取 key 队列状态，不存在时初始化头、尾 request_id 和 size。
+## [br]
+## @api private
 func _get_or_create_queue_state(key_token: String) -> Dictionary:
 	if not _queue_states_by_key.has(key_token):
 		_queue_states_by_key[key_token] = {
@@ -2348,6 +2739,9 @@ func _get_or_create_queue_state(key_token: String) -> Dictionary:
 	return GFVariantData.as_dictionary(_queue_states_by_key[key_token])
 
 
+## 返回指定 key 当前等待队列长度。
+## [br]
+## @api private
 func _get_queue_size(key_token: String) -> int:
 	return GFVariantData.get_option_int(
 		_get_queue_state(key_token),
@@ -2355,6 +2749,9 @@ func _get_queue_size(key_token: String) -> int:
 	)
 
 
+## 返回指定 key 等待队列的头部 request_id。
+## [br]
+## @api private
 func _get_queue_head_request_id(key_token: String) -> int:
 	return GFVariantData.get_option_int(
 		_get_queue_state(key_token),
@@ -2362,12 +2759,18 @@ func _get_queue_head_request_id(key_token: String) -> int:
 	)
 
 
+## 返回正 request_id 对应的活动请求记录；无效或不存在时返回空字典。
+## [br]
+## @api private
 func _get_request_record(request_id: int) -> Dictionary:
 	if request_id <= 0 or not _request_records.has(request_id):
 		return {}
 	return GFVariantData.as_dictionary(_request_records[request_id])
 
 
+## 将请求接到其 key 队列尾部并更新 request_id 索引和等待计数。
+## [br]
+## @api private
 func _enqueue_waiting_request(request: Dictionary) -> void:
 	var request_id: int = GFVariantData.get_option_int(
 		request,
@@ -2403,6 +2806,9 @@ func _enqueue_waiting_request(request: Dictionary) -> void:
 	_queued_count += 1
 
 
+## 若请求仍在队列中，则摘除其双向链接并回收等待扫描槽位。
+## [br]
+## @api private
 func _detach_waiting_request(request: Dictionary) -> bool:
 	if (
 		GFVariantData.get_option_string_name(
@@ -2462,6 +2868,9 @@ func _detach_waiting_request(request: Dictionary) -> bool:
 	return true
 
 
+## 按等待槽位遍历请求记录，摘下仍处于队列中的请求并返回这些记录。
+## [br]
+## @api private
 func _detach_all_waiting_requests() -> Array[Dictionary]:
 	var detached_requests: Array[Dictionary] = []
 	for request_id: int in _waiting_request_slots:
@@ -2475,6 +2884,9 @@ func _detach_all_waiting_requests() -> Array[Dictionary]:
 	return detached_requests
 
 
+## 将请求从队列、取消令牌订阅和请求记录中移除，并标记为 terminal。
+## [br]
+## @api private
 func _forget_request_record(request: Dictionary) -> void:
 	if (
 		GFVariantData.get_option_string_name(
@@ -2493,6 +2905,9 @@ func _forget_request_record(request: Dictionary) -> void:
 	request["location"] = &"terminal"
 
 
+## 为等待 request_id 分配或复用扫描槽位并登记反向索引。
+## [br]
+## @api private
 func _register_waiting_request_slot(request_id: int) -> void:
 	var slot_index: int = 0
 	if _free_waiting_request_slots.is_empty():
@@ -2504,6 +2919,9 @@ func _register_waiting_request_slot(request_id: int) -> void:
 	_waiting_slot_by_request_id[request_id] = slot_index
 
 
+## 清除等待 request_id 的槽位并把其索引放回空闲列表。
+## [br]
+## @api private
 func _unregister_waiting_request_slot(request_id: int) -> void:
 	if not _waiting_slot_by_request_id.has(request_id):
 		return
@@ -2518,16 +2936,25 @@ func _unregister_waiting_request_slot(request_id: int) -> void:
 	_free_waiting_request_slots.append(slot_index)
 
 
+## 返回指定 key 的活动租约字典；没有活动记录时返回空字典。
+## [br]
+## @api private
 func _get_active_lease_map(key_token: String) -> Dictionary:
 	if not _active_by_key.has(key_token):
 		return {}
 	return GFVariantData.as_dictionary(_active_by_key[key_token])
 
 
+## 返回指定 key 当前活动租约数量。
+## [br]
+## @api private
 func _get_active_count(key_token: String) -> int:
 	return _get_active_lease_map(key_token).size()
 
 
+## 登记活动租约，并在请求有限制时更新该 key 的限制计数与最小值。
+## [br]
+## @api private
 func _add_active_lease(
 	key_token: String,
 	lease: GFAsyncGateLease,
@@ -2558,6 +2985,9 @@ func _add_active_lease(
 		_active_min_limit_by_key[key_token] = safe_limit
 
 
+## 移除活动租约并同步减少请求限制计数，必要时重算该 key 的最小限制。
+## [br]
+## @api private
 func _remove_active_lease(
 	key_token: String,
 	lease_id: int,
@@ -2610,6 +3040,9 @@ func _remove_active_lease(
 	_active_min_limit_by_key[key_token] = next_minimum
 
 
+## 为活动 lease_id 分配或复用扫描槽位并登记反向索引。
+## [br]
+## @api private
 func _register_active_lease_slot(lease_id: int) -> void:
 	var slot_index: int = 0
 	if _free_active_lease_slots.is_empty():
@@ -2621,6 +3054,9 @@ func _register_active_lease_slot(lease_id: int) -> void:
 	_active_slot_by_lease_id[lease_id] = slot_index
 
 
+## 清除活动 lease_id 的扫描槽位并把其索引放回空闲列表。
+## [br]
+## @api private
 func _unregister_active_lease_slot(lease_id: int) -> void:
 	if not _active_slot_by_lease_id.has(lease_id):
 		return
@@ -2635,6 +3071,9 @@ func _unregister_active_lease_slot(lease_id: int) -> void:
 	_free_active_lease_slots.append(slot_index)
 
 
+## 按活动租约扫描槽位收集仍可从租约记录中取出的句柄。
+## [br]
+## @api private
 func _collect_active_leases() -> Array[GFAsyncGateLease]:
 	var leases: Array[GFAsyncGateLease] = []
 	for lease_id: int in _active_lease_slots:
@@ -2651,6 +3090,9 @@ func _collect_active_leases() -> Array[GFAsyncGateLease]:
 	return leases
 
 
+## 汇总单个 key 的编码值、等待 request_id、活动 lease_id 和容量配置。
+## [br]
+## @api private
 func _get_key_snapshot_by_token(key_token: String) -> Dictionary:
 	var key_record: Dictionary = GFVariantData.as_dictionary(
 		GFVariantData.get_option_value(_key_data, key_token, {})
@@ -2683,6 +3125,9 @@ func _get_key_snapshot_by_token(key_token: String) -> Dictionary:
 	}
 
 
+## 构造不稳定 key 的无效快照，并将输入 key 转成报告可用值。
+## [br]
+## @api private
 func _make_invalid_key_snapshot(key: Variant) -> Dictionary:
 	return {
 		"ok": false,
@@ -2698,6 +3143,9 @@ func _make_invalid_key_snapshot(key: Variant) -> Dictionary:
 	}
 
 
+## 按 key 槽位顺序收集非空 key token。
+## [br]
+## @api private
 func _collect_key_tokens() -> Array:
 	var key_tokens: Array[String] = []
 	for key_token: String in _key_slots:
@@ -2706,6 +3154,9 @@ func _collect_key_tokens() -> Array:
 	return key_tokens
 
 
+## 当 key 没有队列、活动租约或显式限制时删除其跟踪记录并回收槽位。
+## [br]
+## @api private
 func _prune_key_if_transient(key_token: String) -> void:
 	if (
 		_queue_states_by_key.has(key_token)
@@ -2727,14 +3178,23 @@ func _prune_key_if_transient(key_token: String) -> void:
 	_free_key_slots.append(slot_index)
 
 
+## 返回全部 key 的等待请求总数。
+## [br]
+## @api private
 func _get_total_queued_count() -> int:
 	return _queued_count
 
 
+## 返回当前活动租约记录总数。
+## [br]
+## @api private
 func _get_total_active_count() -> int:
 	return _lease_records.size()
 
 
+## 计算毫秒 deadline；非正超时返回 0，正超时溢出时饱和到 int64 上限。
+## [br]
+## @api private
 func _make_deadline_msec(now_msec: int, timeout_msec: int) -> int:
 	if timeout_msec <= 0:
 		return 0
@@ -2744,6 +3204,9 @@ func _make_deadline_msec(now_msec: int, timeout_msec: int) -> int:
 	return safe_now_msec + timeout_msec
 
 
+## 将请求或租约事件写入有界环形历史，容量为 0 时不记录。
+## [br]
+## @api private
 func _record_event(event_type: StringName, source: Dictionary, lease: GFAsyncGateLease, reason: StringName) -> void:
 	if _max_recent_events <= 0:
 		return
@@ -2768,6 +3231,9 @@ func _record_event(event_type: StringName, source: Dictionary, lease: GFAsyncGat
 	)
 
 
+## 按当前事件容量保留最近事件并重建从索引 0 开始的缓冲区。
+## [br]
+## @api private
 func _trim_events() -> void:
 	if _max_recent_events <= 0:
 		_events.clear()
@@ -2791,22 +3257,34 @@ func _trim_events() -> void:
 	_event_start_index = 0
 
 
+## 返回当前 request_id 并递增下一个请求 ID。
+## [br]
+## @api private
 func _take_request_id() -> int:
 	var result: int = _next_request_id
 	_next_request_id += 1
 	return result
 
 
+## 返回当前 lease_id 并递增下一个租约 ID。
+## [br]
+## @api private
 func _take_lease_id() -> int:
 	var result: int = _next_lease_id
 	_next_lease_id += 1
 	return result
 
 
+## 通过 key codec 将 Variant key 编码为 gate 内部 token。
+## [br]
+## @api private
 func _make_key_token(key: Variant) -> String:
 	return _GF_VARIANT_KEY_CODEC_SCRIPT.make_key_token(key)
 
 
+## 仅当 Variant 值是 GFCancellationToken 时返回其类型化引用。
+## [br]
+## @api private
 func _variant_to_cancel_token(value: Variant) -> GFCancellationToken:
 	if value is GFCancellationToken:
 		var token: GFCancellationToken = value
@@ -2814,6 +3292,9 @@ func _variant_to_cancel_token(value: Variant) -> GFCancellationToken:
 	return null
 
 
+## 仅当 Variant 值是 GFAsyncCompletion 时返回其类型化引用。
+## [br]
+## @api private
 func _variant_to_completion(value: Variant) -> GFAsyncCompletion:
 	if value is GFAsyncCompletion:
 		var completion: GFAsyncCompletion = value
@@ -2821,6 +3302,9 @@ func _variant_to_completion(value: Variant) -> GFAsyncCompletion:
 	return null
 
 
+## 仅当 Variant 值是 GFAsyncGateLease 时返回其类型化引用。
+## [br]
+## @api private
 func _variant_to_lease(value: Variant) -> GFAsyncGateLease:
 	if value is GFAsyncGateLease:
 		var lease: GFAsyncGateLease = value
@@ -2828,6 +3312,9 @@ func _variant_to_lease(value: Variant) -> GFAsyncGateLease:
 	return null
 
 
+## 仅当 Variant 值是 Callable 时返回该回调，否则返回空 Callable。
+## [br]
+## @api private
 func _variant_to_callable(value: Variant) -> Callable:
 	if value is Callable:
 		var callable: Callable = value
@@ -2835,6 +3322,9 @@ func _variant_to_callable(value: Variant) -> Callable:
 	return Callable()
 
 
+## 将等待超时、无效或取消状态映射到 gate 原因，其余状态原样返回。
+## [br]
+## @api private
 func _wait_status_to_cancel_reason(wait_status: StringName) -> StringName:
 	if wait_status == GFAsyncWaitUtility.STATUS_TIMEOUT:
 		return STATUS_TIMEOUT

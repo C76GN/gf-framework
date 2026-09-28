@@ -323,12 +323,20 @@ static func make_bridge_entries(
 
 # --- 私有/辅助方法 ---
 
+## 从指定 options 键读取 PackedStringArray，并规范化为去重排序集合。
+## [br]
+## @api private
+## [br]
 static func _get_string_set(source: Dictionary, key: String) -> PackedStringArray:
 	return _normalize_string_set(
 		GFVariantData.get_option_packed_string_array(source, key)
 	)
 
 
+## 去除首尾空白、过滤空值、去重并排序字符串集合。
+## [br]
+## @api private
+## [br]
 static func _normalize_string_set(values: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for value: String in values:
@@ -339,6 +347,10 @@ static func _normalize_string_set(values: PackedStringArray) -> PackedStringArra
 	return result
 
 
+## 从指定 options 键复制 Dictionary 元素；其他类型的数组项会被跳过。
+## [br]
+## @api private
+## [br]
 static func _get_dictionary_entries(source: Dictionary, key: String) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for value: Variant in GFVariantData.get_option_array(source, key):

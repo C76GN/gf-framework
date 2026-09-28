@@ -196,6 +196,10 @@ func to_dict() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 将 Variant 转为 ShaderMaterial；类型不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_shader_material(value: Variant) -> ShaderMaterial:
 	if value is ShaderMaterial:
 		var material: ShaderMaterial = value

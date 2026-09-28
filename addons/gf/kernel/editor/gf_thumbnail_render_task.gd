@@ -85,10 +85,29 @@ enum State {
 
 # --- 私有变量 ---
 
+## 创建任务时保存的调度器任务 ID。
+## [br]
+## @api private
 var _task_id: int = 0
+
+## 此任务要执行的渲染请求。
+## [br]
+## @api private
 var _request: GFThumbnailRenderRequest = null
+
+## 标记渲染器是否已将此任务置为运行状态。
+## [br]
+## @api private
 var _running: bool = false
+
+## 此任务独有的取消源，cancel() 通过它发布取消请求与原因。
+## [br]
+## @api private
 var _cancel_source: GFCancellationSource = GFCancellationSource.new()
+
+## 保存任务终态、结果、错误并驱动完成信号的完成源。
+## [br]
+## @api private
 var _completion: GFAsyncCompletion = GFAsyncCompletion.new()
 
 
@@ -398,17 +417,29 @@ func finish_cancelled(reason: StringName = &"cancelled", result: Variant = null)
 
 # --- 信号处理函数 ---
 
+## 将完成源的 completed 事件转发为带当前任务句柄的 completed 信号。
+## [br]
+## @api private
 func _on_completion_completed(_completion_source: GFAsyncCompletion) -> void:
 	completed.emit(self)
 
 
+## 将完成源的成功结果转发为带当前任务句柄的 succeeded 信号。
+## [br]
+## @api private
 func _on_completion_succeeded(result: Variant, _metadata: Dictionary) -> void:
 	succeeded.emit(self, result)
 
 
+## 将完成源的失败说明转发为带当前任务句柄的 failed 信号。
+## [br]
+## @api private
 func _on_completion_failed(error: String, _metadata: Dictionary) -> void:
 	failed.emit(self, error)
 
 
+## 将完成源的取消原因转发为带当前任务句柄的 cancelled 信号。
+## [br]
+## @api private
 func _on_completion_cancelled(reason: StringName, _metadata: Dictionary) -> void:
 	cancelled.emit(self, reason)

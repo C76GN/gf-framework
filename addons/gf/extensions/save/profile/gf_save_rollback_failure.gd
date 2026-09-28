@@ -11,7 +11,16 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 回滚失败所属的 section ID。
+## [br]
+## @api private
+## [br]
 var _section_id: StringName = &""
+
+## 回滚操作报告的 Error 码。
+## [br]
+## @api private
+## [br]
 var _error_code: Error = FAILED
 
 

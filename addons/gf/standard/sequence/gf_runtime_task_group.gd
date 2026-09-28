@@ -117,12 +117,46 @@ var cancel_remaining_on_finish: bool = true
 
 # --- 私有变量 ---
 
+## 所属调度器的弱引用，子任务初始化时通过它提供上下文。
+## [br]
+## @api private
+## [br]
 var _scheduler_ref: WeakRef = null
+
+## 顺序模式下一项待启动子任务的索引。
+## [br]
+## @api private
+## [br]
 var _current_index: int = 0
+
+## 以子任务实例 ID 为键记录其已在当前组调度代完成的代数。
+## [br]
+## @api private
+## [br]
 var _completed_task_ids: Dictionary = {}
+
+## 当前正在执行 initialize() 的子任务实例 ID 集合。
+## [br]
+## @api private
+## [br]
 var _initializing_task_ids: Dictionary = {}
+
+## 由该组直接管理的子任务列表。
+## [br]
+## @api private
+## [br]
 var _tasks: Array[GFRuntimeTask] = []
+
+## 当前子任务推进模式。
+## [br]
+## @api private
+## [br]
 var _mode: Mode = Mode.SEQUENCE
+
+## 本组所有后代任务去重后的 requirement 聚合快照。
+## [br]
+## @api private
+## [br]
 var _child_requirements: Array[Object] = []
 
 
@@ -525,6 +559,10 @@ func get_schedule_members() -> Array[GFRuntimeTask]:
 
 # --- 私有/辅助方法 ---
 
+## 按顺序初始化并推进当前子任务；每次调用后检查组和子任务代数，完成后进入下一项。
+## [br]
+## @api private
+## [br]
 func _tick_sequence(delta: float, use_physics: bool) -> void:
 	var group_generation: int = get_schedule_generation()
 	if not is_schedule_generation_current(group_generation):
@@ -564,6 +602,10 @@ func _tick_sequence(delta: float, use_physics: bool) -> void:
 		_initialize_sequence_child(group_generation)
 
 
+## 初始化并推进所有未完成子任务；PARALLEL_RACE 的首个完成者可按配置中断其余任务。
+## [br]
+## @api private
+## [br]
 func _tick_parallel(delta: float, use_physics: bool) -> void:
 	var group_generation: int = get_schedule_generation()
 	for task: GFRuntimeTask in get_tasks():
@@ -600,6 +642,10 @@ func _tick_parallel(delta: float, use_physics: bool) -> void:
 				return
 
 
+## 在组代仍有效且顺序索引未越界时初始化当前子任务。
+## [br]
+## @api private
+## [br]
 func _initialize_sequence_child(group_generation: int) -> void:
 	if (
 		not is_schedule_generation_current(group_generation)
@@ -611,6 +657,10 @@ func _initialize_sequence_child(group_generation: int) -> void:
 		var _child_initialize_result: bool = _initialize_child(task, group_generation)
 
 
+## 检查组和子任务代数，保护初始化过程免受同步重入影响，并标记成功初始化的子任务。
+## [br]
+## @api private
+## [br]
 func _initialize_child(task: GFRuntimeTask, group_generation: int) -> bool:
 	if (
 		not is_schedule_generation_current(group_generation)
@@ -636,6 +686,10 @@ func _initialize_child(task: GFRuntimeTask, group_generation: int) -> bool:
 	return true
 
 
+## 记录子任务在当前组代完成，清除初始化标记、解除排程并调用 end(interrupted)。
+## [br]
+## @api private
+## [br]
 func _finish_child(task: GFRuntimeTask, interrupted: bool) -> void:
 	if task == null or _is_child_completed(task):
 		return
@@ -646,6 +700,10 @@ func _finish_child(task: GFRuntimeTask, interrupted: bool) -> void:
 	task.end(interrupted)
 
 
+## 结束已初始化或正在初始化的开放子任务；未初始化但已预留的子树仅解除排程。
+## [br]
+## @api private
+## [br]
 func _cancel_open_children(interrupted: bool) -> void:
 	for task: GFRuntimeTask in get_tasks():
 		if task == null or _is_child_completed(task):
@@ -656,14 +714,26 @@ func _cancel_open_children(interrupted: bool) -> void:
 			_release_uninitialized_task_tree(task)
 
 
+## 检查子任务是否已在当前组调度代中完成。
+## [br]
+## @api private
+## [br]
 func _is_child_completed(task: GFRuntimeTask) -> bool:
 	return task != null and _completed_task_ids.get(task.get_instance_id(), -1) == get_schedule_generation()
 
 
+## 检查子任务实例当前是否正在执行 initialize()。
+## [br]
+## @api private
+## [br]
 func _is_child_initializing(task: GFRuntimeTask) -> bool:
 	return task != null and _initializing_task_ids.has(task.get_instance_id())
 
 
+## 释放任务子树中所有已排程但尚未初始化的成员。
+## [br]
+## @api private
+## [br]
 func _release_uninitialized_task_tree(task: GFRuntimeTask) -> void:
 	if task == null:
 		return
@@ -672,6 +742,10 @@ func _release_uninitialized_task_tree(task: GFRuntimeTask) -> void:
 			member.mark_unscheduled()
 
 
+## 从弱引用返回仍有效且类型匹配的 RuntimeTaskScheduler。
+## [br]
+## @api private
+## [br]
 func _get_scheduler_or_null() -> GFRuntimeTaskScheduler:
 	if _scheduler_ref == null:
 		return null
@@ -681,6 +755,10 @@ func _get_scheduler_or_null() -> GFRuntimeTaskScheduler:
 	return null
 
 
+## 检查当前任务图并在有效时重新计算自身及后代组的 requirement 聚合。
+## [br]
+## @api private
+## [br]
 func _rebuild_requirements_unchecked() -> void:
 	var graph: Dictionary = _inspect_task_graph(_tasks)
 	if not GFVariantData.get_option_bool(graph, "ok"):
@@ -688,6 +766,10 @@ func _rebuild_requirements_unchecked() -> void:
 	_refresh_graph_requirements(graph, _tasks)
 
 
+## 汇总直接子任务的 requirements，去除重复对象并替换本组聚合列表。
+## [br]
+## @api private
+## [br]
 func _rebuild_direct_requirements_unchecked(source_tasks: Array[GFRuntimeTask]) -> void:
 	var aggregate_requirements: Array[Object] = []
 	for task: GFRuntimeTask in source_tasks:
@@ -699,6 +781,10 @@ func _rebuild_direct_requirements_unchecked(source_tasks: Array[GFRuntimeTask]) 
 	_child_requirements = aggregate_requirements
 
 
+## 检查并行子任务各自的 requirement 聚合是否由不同任务重复占用。
+## [br]
+## @api private
+## [br]
 func _tasks_have_parallel_requirement_conflict(source_tasks: Array[GFRuntimeTask]) -> bool:
 	var owners_by_requirement_id: Dictionary = {}
 	for task: GFRuntimeTask in source_tasks:
@@ -714,6 +800,10 @@ func _tasks_have_parallel_requirement_conflict(source_tasks: Array[GFRuntimeTask
 	return false
 
 
+## 检查候选子任务是否与现有任一子任务共享有效 requirement 对象。
+## [br]
+## @api private
+## [br]
 func _would_create_parallel_requirement_conflict(next_task: GFRuntimeTask) -> bool:
 	for next_requirement: Object in _get_child_requirements(next_task):
 		if next_requirement == null or not is_instance_valid(next_requirement):
@@ -724,6 +814,10 @@ func _would_create_parallel_requirement_conflict(next_task: GFRuntimeTask) -> bo
 	return false
 
 
+## 对嵌套任务组返回其 requirement 快照，对普通任务返回 requirements；空任务返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_child_requirements(task: GFRuntimeTask) -> Array[Object]:
 	if task == null:
 		return []
@@ -732,6 +826,10 @@ func _get_child_requirements(task: GFRuntimeTask) -> Array[Object]:
 	return task.get_requirements()
 
 
+## 按图后序重建所有非根后代任务组的直接 requirement 聚合。
+## [br]
+## @api private
+## [br]
 func _refresh_descendant_requirements(graph: Dictionary) -> void:
 	for group_value: Variant in GFVariantData.get_option_array(graph, "groups_postorder"):
 		if not (group_value is GFRuntimeTaskGroup):
@@ -742,6 +840,10 @@ func _refresh_descendant_requirements(graph: Dictionary) -> void:
 		group._rebuild_direct_requirements_unchecked(group._tasks)
 
 
+## 按图后序刷新全部组的聚合；根组使用候选根任务列表，嵌套组使用各自子任务。
+## [br]
+## @api private
+## [br]
 func _refresh_graph_requirements(
 	graph: Dictionary,
 	root_tasks: Array[GFRuntimeTask]
@@ -755,6 +857,10 @@ func _refresh_graph_requirements(
 		)
 
 
+## 迭代遍历子任务图，检测无效/重复实例、环、深度和节点上限，并返回成员与组后序列表。
+## [br]
+## @api private
+## [br]
 func _inspect_task_graph(root_tasks: Array[GFRuntimeTask]) -> Dictionary:
 	var visit_states: Dictionary = {
 		get_instance_id(): 1,
@@ -827,6 +933,10 @@ func _inspect_task_graph(root_tasks: Array[GFRuntimeTask]) -> Dictionary:
 	}
 
 
+## 构造失败图检查结果，包含失败原因和空成员/后序组列表。
+## [br]
+## @api private
+## [br]
 func _make_graph_inspection_failure(reason: StringName) -> Dictionary:
 	return {
 		"ok": false,
@@ -836,6 +946,10 @@ func _make_graph_inspection_failure(reason: StringName) -> Dictionary:
 	}
 
 
+## 仅接受整数形式的 SEQUENCE、PARALLEL_ALL 或 PARALLEL_RACE。
+## [br]
+## @api private
+## [br]
 func _is_valid_mode(value: Variant) -> bool:
 	return (
 		value is int
@@ -847,6 +961,10 @@ func _is_valid_mode(value: Variant) -> bool:
 	)
 
 
+## requirement 配置未冻结时允许重配；已锁定时发出稳定警告并拒绝。
+## [br]
+## @api private
+## [br]
 func _can_reconfigure_group() -> bool:
 	if not is_configuration_locked():
 		return true

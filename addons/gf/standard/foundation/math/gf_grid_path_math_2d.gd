@@ -352,6 +352,9 @@ static func build_flow_field(
 
 # --- 私有/辅助方法 ---
 
+## 沿前驱字典从目标回溯并反向构造路径；链路缺失时返回空数组。
+## [br]
+## @api private
 static func _reconstruct_path(start: Vector2i, goal: Vector2i, came_from: Dictionary) -> Array[Vector2i]:
 	var path: Array[Vector2i] = [goal]
 	var current: Vector2i = goal
@@ -366,6 +369,9 @@ static func _reconstruct_path(start: Vector2i, goal: Vector2i, came_from: Dictio
 	return path
 
 
+## 将格子与优先级打包后推入路径搜索队列。
+## [br]
+## @api private
 static func _push_cell_priority(priority_queue: GFPriorityQueue, cell: Vector2i, priority: float) -> void:
 	var _cell_queued: bool = priority_queue.push({
 		"cell": cell,
@@ -373,10 +379,16 @@ static func _push_cell_priority(priority_queue: GFPriorityQueue, cell: Vector2i,
 	}, priority)
 
 
+## 从路径搜索队列取出元素，并转换为 Dictionary。
+## [br]
+## @api private
 static func _pop_cell_priority(priority_queue: GFPriorityQueue) -> Dictionary:
 	return GFVariantData.as_dictionary(priority_queue.pop({}))
 
 
+## 按名称计算格子距离；未知名称默认 Manhattan，allow_diagonal 与 `auto` 同用时采用 Chebyshev。
+## [br]
+## @api private
 static func _heuristic_distance(
 	from_cell: Vector2i,
 	to_cell: Vector2i,
@@ -398,6 +410,9 @@ static func _heuristic_distance(
 			return float(maxi(dx, dy)) if allow_diagonal and heuristic == &"auto" else float(dx + dy)
 
 
+## 使用有效代价回调并以 -1.0 作为转换失败值；无回调时正交步为 1、斜步为 √2。
+## [br]
+## @api private
 static func _get_step_cost(from_cell: Vector2i, to_cell: Vector2i, step_cost: Callable) -> float:
 	if step_cost.is_valid():
 		return GFVariantData.to_float(step_cost.call(from_cell, to_cell), -1.0)
@@ -406,12 +421,18 @@ static func _get_step_cost(from_cell: Vector2i, to_cell: Vector2i, step_cost: Ca
 	return 1.41421356237 if absi(delta.x) == 1 and absi(delta.y) == 1 else 1.0
 
 
+## 调用有效格子谓词并转换为 bool；无效回调或转换失败时使用 fallback。
+## [br]
+## @api private
 static func _call_cell_predicate(predicate: Callable, cell: Vector2i, fallback: bool = false) -> bool:
 	if not predicate.is_valid():
 		return fallback
 	return GFVariantData.to_bool(predicate.call(cell), fallback)
 
 
+## 从字典读取 Vector2i；缺失或类型不符时返回 fallback。
+## [br]
+## @api private
 static func _get_dictionary_vector2i(dictionary: Dictionary, key: Variant, fallback: Vector2i) -> Vector2i:
 	var value: Variant = GFVariantData.get_option_value(dictionary, key, fallback)
 	if value is Vector2i:
@@ -420,6 +441,9 @@ static func _get_dictionary_vector2i(dictionary: Dictionary, key: Variant, fallb
 	return fallback
 
 
+## 将 Vector2i Variant 原样取出，其他类型映射为 (-1, -1)。
+## [br]
+## @api private
 static func _variant_to_vector2i(value: Variant) -> Vector2i:
 	if value is Vector2i:
 		var cell: Vector2i = value
@@ -427,6 +451,9 @@ static func _variant_to_vector2i(value: Variant) -> Vector2i:
 	return Vector2i(-1, -1)
 
 
+## 委托通用图搜索状态工厂创建指定起终点和原因的无效句柄。
+## [br]
+## @api private
 static func _make_invalid_path_search(
 	start: Variant,
 	goal: Variant,

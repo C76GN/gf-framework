@@ -233,6 +233,10 @@ func to_dictionary() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 构造传给目标方法的桥接上下文字典。
+## [br]
+## @api private
+## [br]
 func _make_context(signal_args: Array) -> Dictionary:
 	return {
 		"bridge_id": bridge_id,
@@ -243,6 +247,10 @@ func _make_context(signal_args: Array) -> Dictionary:
 	}
 
 
+## 创建带桥接 ID 的直接调用结果字典。
+## [br]
+## @api private
+## [br]
 func _make_result(ok: bool, reason: StringName, value: Variant) -> Dictionary:
 	return {
 		"ok": ok,
@@ -252,6 +260,10 @@ func _make_result(ok: bool, reason: StringName, value: Variant) -> Dictionary:
 	}
 
 
+## 将负索引及已知参数范围之外的索引追加为校验问题。
+## [br]
+## @api private
+## [br]
 func _validate_argument_indices(report: Dictionary, signal_argument_count: int) -> void:
 	for argument_index: int in argument_indices:
 		if argument_index < 0:
@@ -278,6 +290,10 @@ func _validate_argument_indices(report: Dictionary, signal_argument_count: int) 
 			)
 
 
+## 根据目标方法元数据检查桥接提供的参数个数是否满足 required、maximum 和 vararg 约束。
+## [br]
+## @api private
+## [br]
 func _validate_callable_argument_count(report: Dictionary, root: Node, signal_argument_count: int) -> void:
 	var provided_argument_count: int = _get_provided_callable_argument_count(signal_argument_count)
 	if provided_argument_count < 0:
@@ -318,6 +334,10 @@ func _validate_callable_argument_count(report: Dictionary, root: Node, signal_ar
 		return
 
 
+## 统计信号映射参数、常量、上下文和目标默认参数的总数；信号参数数未知且未选择索引时返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_provided_callable_argument_count(signal_argument_count: int) -> int:
 	var count: int = 0
 	if argument_indices.is_empty():
@@ -334,6 +354,10 @@ func _get_provided_callable_argument_count(signal_argument_count: int) -> int:
 	return count
 
 
+## 添加包含 bridge_id 与路径的错误问题，并合并额外字段。
+## [br]
+## @api private
+## [br]
 func _append_validation_issue(
 	report: Dictionary,
 	kind: StringName,
@@ -349,6 +373,10 @@ func _append_validation_issue(
 	var _append_issue_result_349: Variant = GFValidationReportDictionary.append_issue(report, "error", kind, message, issue_fields)
 
 
+## 返回信号桥接校验问题类型到建议操作的映射。
+## [br]
+## @api private
+## [br]
 func _get_validation_next_actions() -> Dictionary:
 	return {
 		"missing_source": "Assign a GFSignalSourceRef before connecting the bridge.",

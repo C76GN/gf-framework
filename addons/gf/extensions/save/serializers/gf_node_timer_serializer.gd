@@ -112,6 +112,10 @@ func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictio
 
 # --- 私有/辅助方法 ---
 
+## 将 Timer 类型节点返回为强类型引用。
+## [br]
+## @api private
+## [br]
 func _get_timer(node: Node) -> Timer:
 	if node is Timer:
 		var timer: Timer = node

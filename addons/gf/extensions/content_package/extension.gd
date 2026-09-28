@@ -4,6 +4,9 @@ extends GFInstaller
 
 # --- 常量 ---
 
+## Content Package 运行时工具脚本，用于查找和注册服务实例。
+## [br]
+## @api private
 const _GF_CONTENT_PACKAGE_UTILITY_SCRIPT = preload("res://addons/gf/extensions/content_package/runtime/gf_content_package_utility.gd")
 
 

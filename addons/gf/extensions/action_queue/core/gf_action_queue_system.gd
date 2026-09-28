@@ -18,14 +18,27 @@ extends GFSystem
 ## @api public
 signal queue_drained
 
-# 内部使用：暂停状态变化时唤醒队列处理协程。
+## 唤醒等待中的队列协程，使其重新检查暂停状态。
+## [br]
+## @api private
 signal _pause_state_changed
 
 
 # --- 常量 ---
 
+## 提供动作协议检查、依赖注入和生命周期控制操作。
+## [br]
+## @api private
 const _ACTION_PROTOCOL = preload("res://addons/gf/extensions/action_queue/core/gf_action_protocol.gd")
+
+## 启动不阻塞当前调用栈的队列处理协程。
+## [br]
+## @api private
 const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
+
+## 限制诊断快照展开命名队列的最大递归深度。
+## [br]
+## @api private
 const _DEBUG_SNAPSHOT_MAX_DEPTH: int = 8
 
 
@@ -62,47 +75,97 @@ var max_debug_named_queue_entries: int:
 # --- 私有变量 ---
 
 # 内部动作队列。
+## 按待执行顺序存放主队列中的动作对象。
+## [br]
+## @api private
 var _queue: Array[Object] = []
 
 # 当前队头索引，避免消费队列时频繁 pop_front() 触发数组搬移。
+## 指向下一个待处理动作，并与数组切片配合延后压缩。
+## [br]
+## @api private
 var _queue_head_index: int = 0
 
 # 当前处理轮次，用于取消正在等待 Signal 的旧消费协程。
+## 使暂停、清空或结束操作前启动的消费协程失效。
+## [br]
+## @api private
 var _processing_serial: int = 0
 
 # 当前正在执行或等待的动作。
+## 保存当前由主队列交给动作协议执行的动作。
+## [br]
+## @api private
 var _current_action: Object = null
 
 # 外部动作控制 hook 正在执行；阻止 hook 同步反调队列后重复控制同一动作。
+## 标记 pause、resume、finish 或 cancel 回调执行期间的重入保护状态。
+## [br]
+## @api private
 var _current_action_control_in_progress: bool = false
 
 # 控制 hook 期间收到的生命周期取消请求；按动作身份去重并保持请求顺序。
+## 暂存控制回调期间重入产生的取消请求，待回调返回后依序处理。
+## [br]
+## @api private
 var _deferred_action_cancellations: Array[Object] = []
 
 # 按名称分流的子队列。
+## 保存由名称索引的子动作队列。
+## [br]
+## @api private
 var _named_queues: Dictionary = {}
 
 # 当前队列绑定节点的弱引用。
+## 跟踪绑定节点是否仍存活，而不延长其生命周期。
+## [br]
+## @api private
 var _linked_node_ref: WeakRef = null
 
 # 当前队列绑定节点；用于主动断开 tree_exited。
+## 保存可用于断开 tree_exited 连接的节点引用。
+## [br]
+## @api private
 var _linked_node: Node = null
 
 # 动作执行拦截器。
+## 保存参与动作执行前后拦截的实例。
+## [br]
+## @api private
 var _interceptors: Array[GFActionInterceptor] = []
 
 # 拦截器注册序；priority 相同时维持确定顺序。
+## 记录每个拦截器的注册序号以稳定排序同优先级项。
+## [br]
+## @api private
 var _interceptor_registration_order: Dictionary = {}
+
+## 分配给新拦截器的下一个注册序号。
+## [br]
+## @api private
 var _next_interceptor_registration_order: int = 0
 
 # 当前队列暂停状态。
+## 指示消费协程是否应等待恢复信号。
+## [br]
+## @api private
 var _is_paused: bool = false
 
 # 当前队列是否已经释放。
+## 阻止已释放队列继续接收或处理动作。
+## [br]
+## @api private
 var _is_disposed: bool = false
 
 # 单帧同步消费预算的受控存储。
+## 保存每个处理切片允许立即消费的动作数。
+## [br]
+## @api private
 var _max_immediate_actions_per_slice: int = 256
+
+## 保存诊断快照中最多展开的命名子队列数量。
+## [br]
+## @api private
 var _max_debug_named_queue_entries: int = 64
 
 
@@ -619,6 +682,9 @@ func tick(_delta: float) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 构建当前队列及其有限层级命名子队列的诊断数据。
+## [br]
+## @api private
 func _build_debug_snapshot(remaining_depth: int) -> Dictionary:
 	var named_snapshots: Dictionary = {}
 	var queue_names: Array[StringName] = []
@@ -651,6 +717,9 @@ func _build_debug_snapshot(remaining_depth: int) -> Dictionary:
 		"interceptor_count": _interceptors.size(),
 	}
 
+## 在队列未释放时启动消费协程，并刷新诊断贡献。
+## [br]
+## @api private
 func _try_start_processing() -> void:
 	if _is_disposed:
 		return
@@ -659,6 +728,9 @@ func _try_start_processing() -> void:
 	_publish_diagnostics_contribution()
 
 
+## 按队列顺序执行动作，处理拦截结果、暂停以及等待切片预算。
+## [br]
+## @api private
 func _process_queue() -> void:
 	if _is_disposed:
 		return
@@ -752,10 +824,16 @@ func _process_queue() -> void:
 	queue_drained.emit()
 
 
+## 判断队头索引之后是否仍有待处理动作。
+## [br]
+## @api private
 func _has_queued_actions() -> bool:
 	return _queue_head_index < _queue.size()
 
 
+## 取出队头动作、清空其槽位并在需要时压缩队列。
+## [br]
+## @api private
 func _dequeue_action() -> Object:
 	var action: Object = _variant_to_action(_queue[_queue_head_index])
 	_queue[_queue_head_index] = null
@@ -765,6 +843,9 @@ func _dequeue_action() -> Object:
 	return action
 
 
+## 将动作放到下一个待处理位置之前。
+## [br]
+## @api private
 func _push_front_action(action: Object) -> void:
 	if _queue_head_index > 0:
 		_queue_head_index -= 1
@@ -773,6 +854,9 @@ func _push_front_action(action: Object) -> void:
 		var _insert_result: int = _queue.insert(0, action)
 
 
+## 在已消费前缀足够大时切片队列以回收无效槽位。
+## [br]
+## @api private
 func _compact_queue_if_needed() -> void:
 	if _queue_head_index < 64 or _queue_head_index * 2 < _queue.size():
 		return
@@ -781,15 +865,24 @@ func _compact_queue_if_needed() -> void:
 	_queue_head_index = 0
 
 
+## 将当前架构依赖注入动作对象。
+## [br]
+## @api private
 func _inject_action_dependencies(action: Object) -> void:
 	_ACTION_PROTOCOL.inject_dependencies(action, _get_architecture_or_null())
 
 
+## 在拦截器支持依赖注入时传入当前架构。
+## [br]
+## @api private
 func _inject_interceptor_dependencies(interceptor: GFActionInterceptor) -> void:
 	if interceptor != null and interceptor.has_method("inject_dependencies"):
 		interceptor.call("inject_dependencies", _get_architecture_or_null())
 
 
+## 按优先级降序排序拦截器，并以注册序稳定同优先级顺序。
+## [br]
+## @api private
 func _sort_interceptors() -> void:
 	_interceptors.sort_custom(func(left: GFActionInterceptor, right: GFActionInterceptor) -> bool:
 		if left == null:
@@ -802,6 +895,9 @@ func _sort_interceptors() -> void:
 	)
 
 
+## 依序运行启用的前置拦截器并返回继续、替换、跳过或停止结果。
+## [br]
+## @api private
 func _apply_before_interceptors(action: Object) -> GFActionInterceptionResult:
 	var current_action: Object = action
 	for interceptor: GFActionInterceptor in _get_enabled_interceptors():
@@ -816,6 +912,9 @@ func _apply_before_interceptors(action: Object) -> GFActionInterceptionResult:
 	return GFActionInterceptionResult.replace_with(current_action) if current_action != action else GFActionInterceptionResult.continue_action()
 
 
+## 依序运行启用的后置拦截器，并在要求停止时返回该结果。
+## [br]
+## @api private
 func _apply_after_interceptors(
 	action: Object,
 	execute_result: Variant
@@ -827,6 +926,9 @@ func _apply_after_interceptors(
 	return GFActionInterceptionResult.continue_action()
 
 
+## 返回按执行顺序排列且当前启用的拦截器。
+## [br]
+## @api private
 func _get_enabled_interceptors() -> Array[GFActionInterceptor]:
 	_sort_interceptors()
 	var result: Array[GFActionInterceptor] = []
@@ -836,30 +938,50 @@ func _get_enabled_interceptors() -> Array[GFActionInterceptor]:
 	return result
 
 
+## 读取拦截器的注册序号；缺失或非整数时返回零。
+## [br]
+## @api private
 func _get_interceptor_registration_order(interceptor: GFActionInterceptor) -> int:
 	var order_value: Variant = _interceptor_registration_order.get(interceptor, 0)
 	return order_value if order_value is int else 0
 
 
+## 将空拦截结果规范化为继续执行结果。
+## [br]
+## @api private
 func _normalize_interception_result(result: GFActionInterceptionResult) -> GFActionInterceptionResult:
 	if result == null:
 		return GFActionInterceptionResult.continue_action()
 	return result
 
 
+## 判断消费协程持有的轮次编号是否仍为当前轮次。
+## [br]
+## @api private
 func _is_processing_serial_current(serial: int) -> bool:
 	return serial == _processing_serial
 
 
+## 判断指定轮次仍有效且队列处于暂停状态。
+## [br]
+## @api private
 func _is_wait_timeout_paused(serial: int) -> bool:
 	return serial == _processing_serial and _is_paused
 
 
+## 在轮次有效且队列暂停时等待暂停状态变化信号。
+## [br]
+## @api private
 func _wait_until_resumed(serial: int) -> void:
 	while serial == _processing_serial and _is_paused:
 		await _pause_state_changed
 
 
+## 等待下一个 process frame 以让出当前切片的执行预算。
+## [br]
+## @return 恢复后队列未释放且轮次仍有效时返回 true。
+## [br]
+## @api private
 func _wait_for_next_processing_slice(serial: int) -> bool:
 	var main_loop: Variant = Engine.get_main_loop()
 	if not (main_loop is SceneTree):
@@ -869,6 +991,9 @@ func _wait_for_next_processing_slice(serial: int) -> bool:
 	return not _is_disposed and serial == _processing_serial
 
 
+## 更新暂停状态，并在状态变化时发布诊断数据和唤醒等待者。
+## [br]
+## @api private
 func _set_paused(paused: bool) -> void:
 	if _is_paused == paused:
 		return
@@ -877,6 +1002,9 @@ func _set_paused(paused: bool) -> void:
 	_pause_state_changed.emit()
 
 
+## 清除当前动作并通过重入安全队列请求取消。
+## [br]
+## @api private
 func _cancel_current_action() -> void:
 	var action: Object = _current_action
 	_current_action = null
@@ -885,12 +1013,18 @@ func _cancel_current_action() -> void:
 	_flush_deferred_action_cancellations()
 
 
+## 暂存有效且尚未登记的动作取消请求。
+## [br]
+## @api private
 func _queue_deferred_action_cancellation(action: Object) -> void:
 	if not is_instance_valid(action) or _deferred_action_cancellations.has(action):
 		return
 	_deferred_action_cancellations.append(action)
 
 
+## 在没有动作控制回调运行时依序执行暂存的取消请求。
+## [br]
+## @api private
 func _flush_deferred_action_cancellations() -> void:
 	if _current_action_control_in_progress:
 		return
@@ -905,6 +1039,9 @@ func _flush_deferred_action_cancellations() -> void:
 		_deferred_action_cancellations.remove_at(0)
 
 
+## 释放全部命名队列、清空映射并释放各子队列的依赖作用域。
+## [br]
+## @api private
 func _dispose_all_named_queues() -> void:
 	var queues: Array = _named_queues.values()
 	_named_queues.clear()
@@ -916,10 +1053,16 @@ func _dispose_all_named_queues() -> void:
 		queue._release_dependency_scope()
 
 
+## 读取并转换指定名称对应的命名队列。
+## [br]
+## @api private
 func _get_named_queue_value(queue_name: StringName) -> GFActionQueueSystem:
 	return _variant_to_action_queue(GFVariantData.get_option_value(_named_queues, queue_name))
 
 
+## 将 Variant 转为动作队列；值不是目标类型时返回 null。
+## [br]
+## @api private
 func _variant_to_action_queue(value: Variant) -> GFActionQueueSystem:
 	if value is GFActionQueueSystem:
 		var queue: GFActionQueueSystem = value
@@ -927,6 +1070,9 @@ func _variant_to_action_queue(value: Variant) -> GFActionQueueSystem:
 	return null
 
 
+## 将 Variant 转为 Object；值不是对象时返回 null。
+## [br]
+## @api private
 func _variant_to_action(value: Variant) -> Object:
 	if value is Object:
 		var action: Object = value
@@ -934,6 +1080,9 @@ func _variant_to_action(value: Variant) -> Object:
 	return null
 
 
+## 获取当前架构中的诊断工具；类型不匹配时返回 null。
+## [br]
+## @api private
 func _get_diagnostics_utility() -> GFDiagnosticsUtility:
 	var utility: Object = get_utility(GFDiagnosticsUtility)
 	if utility is GFDiagnosticsUtility:
@@ -942,6 +1091,9 @@ func _get_diagnostics_utility() -> GFDiagnosticsUtility:
 	return null
 
 
+## 注册动作队列监视项、加入工具预设并发布初始快照。
+## [br]
+## @api private
 func _register_diagnostics_contribution() -> void:
 	var diagnostics: GFDiagnosticsUtility = _get_diagnostics_utility()
 	if diagnostics == null:
@@ -955,6 +1107,9 @@ func _register_diagnostics_contribution() -> void:
 	_publish_diagnostics_contribution()
 
 
+## 移除动作队列工具快照及其监视项注册。
+## [br]
+## @api private
 func _unregister_diagnostics_contribution() -> void:
 	var diagnostics: GFDiagnosticsUtility = _get_diagnostics_utility()
 	if diagnostics == null:
@@ -964,6 +1119,9 @@ func _unregister_diagnostics_contribution() -> void:
 	var _monitor_unregistered: bool = diagnostics.unregister_monitor(self, &"tools.action_queue")
 
 
+## 将当前调试快照发布到诊断工具快照和监视样本。
+## [br]
+## @api private
 func _publish_diagnostics_contribution() -> void:
 	var diagnostics: GFDiagnosticsUtility = _get_diagnostics_utility()
 	if diagnostics == null:
@@ -977,6 +1135,11 @@ func _publish_diagnostics_contribution() -> void:
 	)
 
 
+## 使当前消费轮次失效、清空待处理动作并结束处理状态。
+## [br]
+## @param cancel_current: 为 true 时同时请求取消当前动作。
+## [br]
+## @api private
 func _stop_processing_from_interceptor(cancel_current: bool) -> void:
 	var was_processing: bool = is_processing
 	_processing_serial += 1
@@ -992,6 +1155,9 @@ func _stop_processing_from_interceptor(cancel_current: bool) -> void:
 		queue_drained.emit()
 
 
+## 断开绑定节点的退出信号并清除节点引用。
+## [br]
+## @api private
 func _disconnect_linked_node() -> void:
 	if is_instance_valid(_linked_node) and _linked_node.tree_exited.is_connected(_on_linked_node_tree_exited):
 		_linked_node.tree_exited.disconnect(_on_linked_node_tree_exited)
@@ -1000,6 +1166,9 @@ func _disconnect_linked_node() -> void:
 
 # --- 信号处理函数 ---
 
+## 绑定节点离开场景树时清除引用并停止、清空当前队列。
+## [br]
+## @api private
 func _on_linked_node_tree_exited() -> void:
 	_linked_node_ref = null
 	_linked_node = null

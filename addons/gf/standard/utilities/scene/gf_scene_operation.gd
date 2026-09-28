@@ -60,14 +60,58 @@ enum Kind {
 
 # --- 私有变量 ---
 
+## Scene Utility 分配的请求身份；未配置时为零。
+## [br]
+## @api private
+## [br]
 var _request_id: int = 0
+
+## 当前 Operation 的 LOAD 或 PRELOAD 种类。
+## [br]
+## @api private
+## [br]
 var _kind: Kind = Kind.LOAD
+
+## 请求配置时复制并冻结的资源身份。
+## [br]
+## @api private
+## [br]
 var _scene_identity: GFResourceIdentity = null
+
+## 当前 consumer 的进度比例。
+## [br]
+## @api private
+## [br]
 var _progress_ratio: float = 0.0
+
+## 完成后冻结的终态结果副本。
+## [br]
+## @api private
+## [br]
 var _result: GFSceneOperationResult = null
+
+## 指向 Scene Utility 方法的弱取消委托。
+## [br]
+## @api private
+## [br]
 var _cancel_delegate: GFWeakMethodInvocation = null
+
+## 标记取消委托是否已接受本次 caller 的取消 intent。
+## [br]
+## @api private
+## [br]
 var _cancel_requested: bool = false
+
+## 防止同一 Operation 重复发出完成信号。
+## [br]
+## @api private
+## [br]
 var _completed_signal_emitted: bool = false
+
+## 标记完成信号发出前是否还要发送最终进度通知。
+## [br]
+## @api private
+## [br]
 var _final_progress_signal_pending: bool = false
 
 
@@ -326,6 +370,10 @@ func is_configured_for_framework() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 将无绑定参数的对象方法 Callable 转为弱方法调用句柄。
+## [br]
+## @api private
+## [br]
 static func _make_weak_invocation(method_delegate: Callable) -> GFWeakMethodInvocation:
 	if (
 		not method_delegate.is_valid()
@@ -343,6 +391,10 @@ static func _make_weak_invocation(method_delegate: Callable) -> GFWeakMethodInvo
 	return GFWeakMethodInvocation.new(delegate_owner, delegate_method)
 
 
+## 仅当调用已发生且返回值严格为布尔 true 时返回 true。
+## [br]
+## @api private
+## [br]
 static func _invocation_returned_true(invocation_result: Dictionary) -> bool:
 	var invoked_value: Variant = invocation_result.get("invoked", false)
 	var return_value: Variant = invocation_result.get("value", false)

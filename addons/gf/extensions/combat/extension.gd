@@ -4,7 +4,14 @@ extends GFInstaller
 
 # --- 常量 ---
 
+## Combat System 脚本资源。
+## [br]
+## @api private
 const _GF_COMBAT_SYSTEM_SCRIPT = preload("res://addons/gf/extensions/combat/core/gf_combat_system.gd")
+
+## 2D 技能目标选择 Utility 脚本资源。
+## [br]
+## @api private
 const _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT = preload("res://addons/gf/extensions/combat/skills/gf_skill_targeting_utility_2d.gd")
 
 

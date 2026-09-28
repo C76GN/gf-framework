@@ -14,14 +14,32 @@ extends RefCounted
 
 # --- 常量 ---
 
+## predicate_id 允许的最大 UTF-8 字节数。
+## [br]
+## @api private
 const _MAX_PREDICATE_ID_UTF8_BYTES: int = 128
 
 
 # --- 私有变量 ---
 
+## 注册项的稳定谓词 ID。
+## [br]
+## @api private
 var _predicate_id: StringName = &""
+
+## 参与投影判断的类型化谓词对象。
+## [br]
+## @api private
 var _predicate: GFTableRowPredicate = null
+
+## 注册项参与求值时使用的顺序值。
+## [br]
+## @api private
 var _order: int = 0
+
+## 是否将该谓词纳入投影求值。
+## [br]
+## @api private
 var _enabled: bool = true
 
 

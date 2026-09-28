@@ -54,10 +54,34 @@ enum State {
 
 # --- 私有变量 ---
 
+## 共享物理请求与 caller 生命周期状态。
+## [br]
+## @api private
+## [br]
 var _request: GFStorageAsyncRequestState = null
+
+## 当前 owned-read 领取权状态。
+## [br]
+## @api private
+## [br]
 var _state: State = State.INVALID
+
+## 已冻结的不含载荷 caller 终态诊断。
+## [br]
+## @api private
+## [br]
 var _receipt: GFStorageOwnedReadReceipt = null
+
+## 等待领取的完整读取结果；成功领取或释放时清空。
+## [br]
+## @api private
+## [br]
 var _read_result: GFStorageReadResult = null
+
+## 标记 completed 通知权是否已消费。
+## [br]
+## @api private
+## [br]
 var _completion_notified: bool = false
 
 
@@ -307,6 +331,10 @@ func notify_completion_for_framework(emit_completion_signal: bool = true) -> voi
 
 # --- 私有/辅助方法 ---
 
+## 创建领取状态结果对象，并交由框架配置状态和可选读取结果。
+## [br]
+## @api private
+## [br]
 func _make_take_result(
 	status: GFStorageOwnedReadTakeResult.Status,
 	read_result: GFStorageReadResult = null

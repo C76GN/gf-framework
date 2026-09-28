@@ -42,6 +42,10 @@ extends GFSaveSource
 
 # --- 私有变量 ---
 
+## 按当前属性配置维护的节点属性序列化器。
+## [br]
+## @api private
+## [br]
 var _property_serializer: GFNodePropertySerializer = GFNodePropertySerializer.new()
 
 
@@ -125,6 +129,10 @@ func _apply_save_data(
 
 # --- 私有/辅助方法 ---
 
+## 按解析出的序列化器计划采集目标节点数据。
+## [br]
+## @api private
+## [br]
 func _gather_configured_serializers(
 	target: Node,
 	context: Dictionary,
@@ -149,6 +157,10 @@ func _gather_configured_serializers(
 	return result
 
 
+## 按序列化器 ID 匹配载荷并应用到目标节点，汇总应用数和错误。
+## [br]
+## @api private
+## [br]
 func _apply_configured_serializers(
 	target: Node,
 	serializer_payloads: Array,
@@ -205,6 +217,10 @@ func _apply_configured_serializers(
 	}
 
 
+## 合并属性序列化器、本地序列化器和可选注册表序列化器，拒绝空 ID 或重复 ID。
+## [br]
+## @api private
+## [br]
 func _build_configured_serializer_plan(
 	target: Node,
 	serializer_registry: GFNodeSerializerRegistry
@@ -256,6 +272,10 @@ func _build_configured_serializer_plan(
 	}
 
 
+## 将序列化器计划错误写入调用上下文中的 SavePipelineContext。
+## [br]
+## @api private
+## [br]
 func _add_serializer_plan_error(context: Dictionary, message: String) -> void:
 	var pipeline_value: Variant = GFVariantData.get_option_value(context, "pipeline_context")
 	if pipeline_value is GFSavePipelineContext:
@@ -263,6 +283,10 @@ func _add_serializer_plan_error(context: Dictionary, message: String) -> void:
 		pipeline_context.add_error(message, { "kind": "serializer_id_conflict" })
 
 
+## 将导出的属性与资源允许列表同步到属性序列化器。
+## [br]
+## @api private
+## [br]
 func _prepare_property_serializer() -> void:
 	_property_serializer.properties = properties
 	_property_serializer.skip_missing_properties = skip_missing_properties
@@ -270,6 +294,10 @@ func _prepare_property_serializer() -> void:
 	_property_serializer.allowed_resource_patterns = allowed_resource_patterns
 
 
+## 将 Variant 转为 GFNodeSerializer；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_node_serializer_value(value: Variant) -> GFNodeSerializer:
 	if value is GFNodeSerializer:
 		var serializer: GFNodeSerializer = value

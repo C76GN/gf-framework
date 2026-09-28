@@ -37,6 +37,11 @@ func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 			)
 
 
+# --- 私有/辅助方法 ---
+
+## 检查架构与安装作用域仍可用；作用域失活、初始化失败或架构已释放时停止继续安装。
+## [br]
+## @api private
 func _should_stop_installation(
 	architecture: GFArchitecture,
 	scope: GFAsyncScope

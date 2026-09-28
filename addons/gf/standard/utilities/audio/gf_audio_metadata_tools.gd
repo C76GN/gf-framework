@@ -16,16 +16,70 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 用于识别 ID3v2 标签头部的 ASCII 前缀。
+## [br]
+## @api private
+## [br]
 const _ID3_PREFIX: String = "ID3"
+
+## ID3v2 标签头部的固定字节数。
+## [br]
+## @api private
+## [br]
 const _ID3_HEADER_SIZE: int = 10
+
+## ID3v2.3/2.4 帧头部的固定字节数。
+## [br]
+## @api private
+## [br]
 const _FRAME_HEADER_SIZE: int = 10
+
+## ID3 文本帧 UTF-8 编码标识。
+## [br]
+## @api private
+## [br]
 const _TEXT_ENCODING_UTF8: int = 3
+
+## ID3 文本帧 Latin-1 编码标识。
+## [br]
+## @api private
+## [br]
 const _TEXT_ENCODING_LATIN1: int = 0
+
+## ID3 文本帧带 BOM 的 UTF-16 编码标识。
+## [br]
+## @api private
+## [br]
 const _TEXT_ENCODING_UTF16: int = 1
+
+## ID3 文本帧 UTF-16BE 编码标识。
+## [br]
+## @api private
+## [br]
 const _TEXT_ENCODING_UTF16BE: int = 2
+
+## ID3 标签头中表示 unsynchronisation 的标志位。
+## [br]
+## @api private
+## [br]
 const _ID3_FLAG_UNSYNCHRONISATION: int = 0x80
+
+## ID3 标签头中表示扩展头的标志位。
+## [br]
+## @api private
+## [br]
 const _ID3_FLAG_EXTENDED_HEADER: int = 0x40
+
+## ID3 标签头中表示实验性标签的标志位。
+## [br]
+## @api private
+## [br]
 const _ID3_FLAG_EXPERIMENTAL: int = 0x20
+
+## ID3v2.4 标签头中表示 footer 的标志位。
+## [br]
+## @api private
+## [br]
 const _ID3_V24_FLAG_FOOTER: int = 0x10
 
 ## 默认单次 ID3 读取与解析的字节上限（含 10-byte header）。
@@ -43,6 +97,10 @@ const DEFAULT_MAX_ID3_BYTES: int = 1024 * 1024
 ## @since 11.0.0
 const ABSOLUTE_MAX_ID3_BYTES: int = 8 * 1024 * 1024
 
+## 受支持的 ID3 文本帧 ID 到规范化元数据字段名的映射。
+## [br]
+## @api private
+## [br]
 const _FRAME_TO_TAG: Dictionary = {
 	"TALB": "album",
 	"TBPM": "bpm",
@@ -545,6 +603,10 @@ static func apply_clip_metadata(clip: GFAudioClip, options: Dictionary = {}) -> 
 
 # --- 私有/辅助方法 ---
 
+## 创建音频元数据报告的默认状态、元数据和问题列表。
+## [br]
+## @api private
+## [br]
 static func _make_report(subject: String) -> Dictionary:
 	return {
 		"ok": true,
@@ -556,6 +618,10 @@ static func _make_report(subject: String) -> Dictionary:
 	}
 
 
+## 追加带类别、消息和可选帧 ID 的报告问题，并更新错误状态与计数。
+## [br]
+## @api private
+## [br]
 static func _add_issue(
 	report: Dictionary,
 	kind: StringName,
@@ -575,6 +641,10 @@ static func _add_issue(
 	report["ok"] = false
 
 
+## 合并子报告的问题、recognized 状态及白名单诊断字段。
+## [br]
+## @api private
+## [br]
 static func _merge_child_report(report: Dictionary, child_report: Dictionary) -> void:
 	var child_issues: Array = GFVariantData.get_option_array(child_report, "issues")
 	if not child_issues.is_empty():
@@ -610,6 +680,10 @@ static func _merge_child_report(report: Dictionary, child_report: Dictionary) ->
 			)
 
 
+## 将 String 与 StringName 保持为文本，其余值使用 str 转换。
+## [br]
+## @api private
+## [br]
 static func _variant_to_key_text(value: Variant) -> String:
 	if value is String:
 		var string_value: String = value
@@ -620,6 +694,10 @@ static func _variant_to_key_text(value: Variant) -> String:
 	return str(value)
 
 
+## 在对象属性列表中查找指定 StringName 属性。
+## [br]
+## @api private
+## [br]
 static func _object_has_property(object: Object, property_name: StringName) -> bool:
 	if object == null:
 		return false
@@ -629,6 +707,10 @@ static func _object_has_property(object: Object, property_name: StringName) -> b
 	return false
 
 
+## 仅复制流上存在且有效的属性值到元数据，忽略空值和非有限浮点值。
+## [br]
+## @api private
+## [br]
 static func _copy_stream_property(
 	stream: AudioStream,
 	property_name: StringName,
@@ -649,6 +731,10 @@ static func _copy_stream_property(
 	metadata[property_name] = GFVariantData.duplicate_variant(value, true, true)
 
 
+## 返回 MP3 流内嵌数据；其他音频流类型返回空字节数组。
+## [br]
+## @api private
+## [br]
 static func _get_audio_stream_bytes(stream: AudioStream) -> PackedByteArray:
 	if stream is AudioStreamMP3:
 		var mp3_stream: AudioStreamMP3 = stream
@@ -656,6 +742,10 @@ static func _get_audio_stream_bytes(stream: AudioStream) -> PackedByteArray:
 	return PackedByteArray()
 
 
+## 读取固定标签头并在识别 ID3 后按声明长度、文件大小和上限读取前缀。
+## [br]
+## @api private
+## [br]
 static func _read_bounded_id3_prefix(path: String, max_bytes: int) -> Dictionary:
 	var result: Dictionary = {
 		"ok": false,
@@ -702,6 +792,10 @@ static func _read_bounded_id3_prefix(path: String, max_bytes: int) -> Dictionary
 	return result
 
 
+## 将当前解析器不支持的 ID3 头标志转换为稳定特性名称列表。
+## [br]
+## @api private
+## [br]
 static func _get_unsupported_id3_header_features(
 	major_version: int,
 	header_flags: int
@@ -718,6 +812,10 @@ static func _get_unsupported_id3_header_features(
 	return features
 
 
+## 分派特殊 ID3 帧与受支持文本帧，并按字段规则写入解析元数据。
+## [br]
+## @api private
+## [br]
 static func _parse_id3_frame(
 	frame_id: String,
 	frame_data: PackedByteArray,
@@ -766,6 +864,10 @@ static func _parse_id3_frame(
 	return true
 
 
+## 提取 COMM 帧描述符后的文本并存入 comments 字段。
+## [br]
+## @api private
+## [br]
 static func _parse_comment_frame(frame_data: PackedByteArray, report: Dictionary) -> bool:
 	if frame_data.size() <= 4:
 		return false
@@ -783,6 +885,10 @@ static func _parse_comment_frame(frame_data: PackedByteArray, report: Dictionary
 	return true
 
 
+## 提取 TXXX 帧的文本值并追加到 user_defined_texts 列表。
+## [br]
+## @api private
+## [br]
 static func _parse_user_text_frame(frame_data: PackedByteArray, report: Dictionary) -> bool:
 	if frame_data.is_empty():
 		return false
@@ -802,6 +908,10 @@ static func _parse_user_text_frame(frame_data: PackedByteArray, report: Dictiona
 	return true
 
 
+## 记录 APIC 帧是否含封面、MIME 类型和图像字节数，不解码图像内容。
+## [br]
+## @api private
+## [br]
 static func _parse_picture_frame(frame_data: PackedByteArray, report: Dictionary) -> bool:
 	if frame_data.size() <= 4:
 		return false
@@ -820,6 +930,10 @@ static func _parse_picture_frame(frame_data: PackedByteArray, report: Dictionary
 	return true
 
 
+## 按首字节编码标记解码 ID3 文本，并为未知标记采用有损回退路径。
+## [br]
+## @api private
+## [br]
 static func _decode_id3_text(frame_data: PackedByteArray) -> String:
 	if frame_data.is_empty():
 		return ""
@@ -839,6 +953,10 @@ static func _decode_id3_text(frame_data: PackedByteArray) -> String:
 			return _decode_lossy_utf16ish(_trim_null_bytes(payload))
 
 
+## 按 UTF-16 BOM 选择端序；缺少 BOM 时按小端序解码。
+## [br]
+## @api private
+## [br]
 static func _decode_utf16_text(payload: PackedByteArray) -> String:
 	if payload.size() >= 2:
 		if payload[0] == 0xfe and payload[1] == 0xff:
@@ -848,10 +966,18 @@ static func _decode_utf16_text(payload: PackedByteArray) -> String:
 	return _decode_utf16_units(payload, true)
 
 
+## 按大端序解码 UTF-16 单元。
+## [br]
+## @api private
+## [br]
 static func _decode_utf16be_text(payload: PackedByteArray) -> String:
 	return _decode_utf16_units(payload, false)
 
 
+## 按端序读取 UTF-16 单元，合成有效代理对并在零单元处结束。
+## [br]
+## @api private
+## [br]
 static func _decode_utf16_units(payload: PackedByteArray, little_endian: bool) -> String:
 	var result: String = ""
 	var index: int = 0
@@ -872,12 +998,20 @@ static func _decode_utf16_units(payload: PackedByteArray, little_endian: bool) -
 	return result
 
 
+## 按指定端序从两个字节组合一个 UTF-16 code unit。
+## [br]
+## @api private
+## [br]
 static func _read_utf16_code_unit(payload: PackedByteArray, index: int, little_endian: bool) -> int:
 	if little_endian:
 		return payload[index] | (payload[index + 1] << 8)
 	return (payload[index] << 8) | payload[index + 1]
 
 
+## 移除字节数组末尾连续的 UTF-16 双零终止单元。
+## [br]
+## @api private
+## [br]
 static func _trim_utf16_terminator(value: PackedByteArray) -> PackedByteArray:
 	var end_index: int = value.size()
 	while end_index >= 2 and value[end_index - 1] == 0 and value[end_index - 2] == 0:
@@ -885,6 +1019,10 @@ static func _trim_utf16_terminator(value: PackedByteArray) -> PackedByteArray:
 	return value.slice(0, end_index)
 
 
+## 丢弃零、FE 和 FF 字节后将剩余字节按 UTF-8 解码。
+## [br]
+## @api private
+## [br]
 static func _decode_lossy_utf16ish(payload: PackedByteArray) -> String:
 	var filtered: PackedByteArray = PackedByteArray()
 	for byte_value: int in payload:
@@ -894,6 +1032,10 @@ static func _decode_lossy_utf16ish(payload: PackedByteArray) -> String:
 	return filtered.get_string_from_utf8()
 
 
+## 移除字节数组末尾连续的零字节。
+## [br]
+## @api private
+## [br]
 static func _trim_null_bytes(value: PackedByteArray) -> PackedByteArray:
 	var end_index: int = value.size()
 	while end_index > 0 and value[end_index - 1] == 0:
@@ -901,6 +1043,10 @@ static func _trim_null_bytes(value: PackedByteArray) -> PackedByteArray:
 	return value.slice(0, end_index)
 
 
+## 按文本编码标记定位描述符后的值起点；未找到终止符时沿用起点。
+## [br]
+## @api private
+## [br]
 static func _find_id3_text_value_start(
 	frame_data: PackedByteArray,
 	description_start: int,
@@ -919,6 +1065,10 @@ static func _find_id3_text_value_start(
 	return description_start
 
 
+## 将斜线分隔的曲目文本写入 track_number 与 track_count。
+## [br]
+## @api private
+## [br]
 static func _apply_track_text(metadata: Dictionary, text: String) -> void:
 	var parts: PackedStringArray = text.split("/", false)
 	if parts.size() >= 1:
@@ -927,6 +1077,10 @@ static func _apply_track_text(metadata: Dictionary, text: String) -> void:
 		metadata[&"track_count"] = GFVariantData.to_int(parts[1], -1)
 
 
+## 优先解析文本前四位年份，其次解析整段整数；无法解析时返回 0。
+## [br]
+## @api private
+## [br]
 static func _parse_year(text: String) -> int:
 	var trimmed: String = text.strip_edges()
 	if trimmed.length() >= 4:
@@ -938,6 +1092,10 @@ static func _parse_year(text: String) -> int:
 	return 0
 
 
+## 去除流派文本首尾空白，并剥除包住内容的一对圆括号。
+## [br]
+## @api private
+## [br]
 static func _normalize_genre_text(text: String) -> String:
 	var genre: String = text.strip_edges()
 	if genre.begins_with("(") and genre.ends_with(")") and genre.length() > 2:
@@ -945,6 +1103,10 @@ static func _normalize_genre_text(text: String) -> String:
 	return genre
 
 
+## 将短于四位或全部由零组成的帧 ID 识别为 padding。
+## [br]
+## @api private
+## [br]
 static func _is_padding_frame_id(frame_id: String) -> bool:
 	if frame_id.length() < 4:
 		return true
@@ -954,6 +1116,10 @@ static func _is_padding_frame_id(frame_id: String) -> bool:
 	return true
 
 
+## 按大端序将字节序列累积成整数。
+## [br]
+## @api private
+## [br]
 static func _bytes_to_int(bytes: PackedByteArray) -> int:
 	var result: int = 0
 	for byte_value: int in bytes:
@@ -961,6 +1127,10 @@ static func _bytes_to_int(bytes: PackedByteArray) -> int:
 	return result
 
 
+## 每字节只取低七位并按 128 进位解析 syncsafe 整数。
+## [br]
+## @api private
+## [br]
 static func _syncsafe_to_int(bytes: PackedByteArray) -> int:
 	var result: int = 0
 	for byte_value: int in bytes:
@@ -968,5 +1138,9 @@ static func _syncsafe_to_int(bytes: PackedByteArray) -> int:
 	return result
 
 
+## 检查浮点值既非 NaN 也非正负无穷。
+## [br]
+## @api private
+## [br]
 static func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)

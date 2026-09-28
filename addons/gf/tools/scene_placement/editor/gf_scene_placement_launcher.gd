@@ -13,22 +13,57 @@ extends VBoxContainer
 
 # --- 常量 ---
 
+## 原生场景摆放插件在 EditorInterface 中的名称。
+## [br]
+## @api private
+## [br]
 const _PLUGIN_NAME: String = "gf/tools/scene_placement"
 
 
 # --- 私有变量 ---
 
+## 使旧的延迟关闭请求失效的共享代数。
+## [br]
+## @api private
+## [br]
 static var _ownership_generation: int = 0
+
+## 原生插件入口当前实例的弱引用。
+## [br]
+## @api private
+## [br]
 static var _native_plugin_ref: WeakRef = null
+
+## 启动页当前管理的插件实例弱引用。
+## [br]
+## @api private
+## [br]
 static var _managed_plugin_ref: WeakRef = null
 
+## 启动页是否持有有效的编辑器上下文。
+## [br]
+## @api private
+## [br]
 var _has_context: bool = false
+
+## 此启动页认领的插件所有权代数。
+## [br]
+## @api private
+## [br]
 var _owned_generation: int = 0
+
+## Editor 根 Control 的弱引用。
+## [br]
+## @api private
+## [br]
 var _editor_base_ref: WeakRef = null
 
 
 # --- Godot 生命周期方法 ---
 
+## 创建启动说明与开关按钮，并把操作连接到本启动页的所有权管理回调。
+## [br]
+## @api private
 func _init() -> void:
 	name = "GFScenePlacementLauncher"
 	var description: Label = Label.new()
@@ -47,6 +82,9 @@ func _init() -> void:
 	var _close_connected: int = close_button.pressed.connect(_on_close_pressed)
 
 
+## 先撤销页面上下文，再请求延迟关闭仍属于该页面代次的原生插件。
+## [br]
+## @api private
 func _exit_tree() -> void:
 	_has_context = false
 	_request_owned_close()
@@ -126,12 +164,18 @@ static func request_plugin_close(editor_base: Control) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 推进共享所有权代次并保存插件弱引用，使之前排队的关闭请求失效。
+## [br]
+## @api private
 func _claim_ownership(plugin: EditorPlugin) -> void:
 	_ownership_generation += 1
 	_owned_generation = _ownership_generation
 	_managed_plugin_ref = weakref(plugin)
 
 
+## 消费本页的所有权代次；编辑器基座和插件身份仍匹配时排队静态关闭回调，避免退树调用栈中卸载插件。
+## [br]
+## @api private
 func _request_owned_close() -> void:
 	if _owned_generation == 0:
 		return
@@ -149,6 +193,9 @@ func _request_owned_close() -> void:
 	GFScenePlacementLauncher._disable_owned_plugin.call_deferred(closing_generation, _editor_base_ref, weakref(plugin))
 
 
+## 延迟执行时重新核对所有权代次、基座和原生插件身份；任一已替换或失效就放弃关闭。
+## [br]
+## @api private
 static func _disable_owned_plugin(closing_generation: int, editor_base_ref: WeakRef, plugin_ref: WeakRef) -> void:
 	if closing_generation != _ownership_generation:
 		return
@@ -163,6 +210,9 @@ static func _disable_owned_plugin(closing_generation: int, editor_base_ref: Weak
 		EditorInterface.set_plugin_enabled(_PLUGIN_NAME, false)
 
 
+## 仅返回仍存活且等于当前原生实例的受管插件；旧实例或失效弱引用返回 null。
+## [br]
+## @api private
 static func _get_managed_plugin() -> EditorPlugin:
 	var plugin: EditorPlugin = _resolve_plugin(_managed_plugin_ref)
 	if plugin != null and plugin == _resolve_plugin(_native_plugin_ref):
@@ -170,6 +220,10 @@ static func _get_managed_plugin() -> EditorPlugin:
 	return null
 
 
+## 解析仍存活的 EditorPlugin 弱引用；无效引用返回 null。
+## [br]
+## @api private
+## [br]
 static func _resolve_plugin(plugin_ref: WeakRef) -> EditorPlugin:
 	if plugin_ref == null:
 		return null
@@ -181,6 +235,10 @@ static func _resolve_plugin(plugin_ref: WeakRef) -> EditorPlugin:
 	return null
 
 
+## 解析仍在场景树中的 Editor 根 Control 弱引用。
+## [br]
+## @api private
+## [br]
 static func _resolve_editor_base(editor_base_ref: WeakRef) -> Control:
 	if editor_base_ref == null:
 		return null
@@ -194,6 +252,9 @@ static func _resolve_editor_base(editor_base_ref: WeakRef) -> Control:
 
 # --- 信号处理函数 ---
 
+## 启用或续领本页管理的插件；用户独立启用的实例不被接管，启用期间代次变化会取消本次认领。
+## [br]
+## @api private
 func _on_open_pressed() -> void:
 	if Engine.is_editor_hint() and _has_context and _resolve_editor_base(_editor_base_ref) != null:
 		if EditorInterface.is_plugin_enabled(_PLUGIN_NAME):
@@ -214,6 +275,9 @@ func _on_open_pressed() -> void:
 			_claim_ownership(activated_plugin)
 
 
+## 有编辑器上下文时请求关闭当前原生插件，并撤销本页的所有权记录。
+## [br]
+## @api private
 func _on_close_pressed() -> void:
 	if Engine.is_editor_hint() and _has_context:
 		request_plugin_close(_resolve_editor_base(_editor_base_ref))

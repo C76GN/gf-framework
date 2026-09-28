@@ -21,12 +21,46 @@ extends RefCounted
 ## @since 7.0.0
 const DEFAULT_MAX_COVERED_CELLS: int = 262144
 
+## 半开边界点查询与最大角点收缩使用的单元尺寸比例。
+## [br]
+## @api private
+## [br]
 const _CELL_BOUNDARY_EPSILON_RATIO: float = 0.000001
+
+## 默认哈希单元世界边长。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_CELL_SIZE: float = 4.0
+
+## 哈希单元允许的最小世界边长。
+## [br]
+## @api private
+## [br]
 const _MIN_CELL_SIZE: float = 0.0001
+
+## 在浮点缩放坐标转换成整数格坐标前允许的最大绝对值。
+## [br]
+## @api private
+## [br]
 const _MAX_SAFE_CELL_COORDINATE: float = 9.0e18
+
+## 可存入 Vector3i 的最小单轴格坐标。
+## [br]
+## @api private
+## [br]
 const _MIN_VECTOR3I_COMPONENT: int = -2147483648
+
+## 可存入 Vector3i 的最大单轴格坐标。
+## [br]
+## @api private
+## [br]
 const _MAX_VECTOR3I_COMPONENT: int = 2147483647
+
+## 提供边界有限性检查与 AABB 归一化的内部几何工具。
+## [br]
+## @api private
+## [br]
 const _SPATIAL_BOUNDS_MATH = preload("res://addons/gf/standard/foundation/math/gf_spatial_bounds_math.gd")
 
 
@@ -64,9 +98,28 @@ var max_covered_cells: int:
 
 # --- 私有变量 ---
 
+## 当前单格边长。
+## [br]
+## @api private
+## [br]
 var _cell_size: float = _DEFAULT_CELL_SIZE
+
+## 插入或查询一次允许覆盖的最大格子数。
+## [br]
+## @api private
+## [br]
 var _max_covered_cells: int = DEFAULT_MAX_COVERED_CELLS
+
+## 以身份键映射到实体引用、边界框和占用格列表。
+## [br]
+## @api private
+## [br]
 var _entity_records: Dictionary = {}
+
+## 以格坐标映射到该桶中的实体身份键数组。
+## [br]
+## @api private
+## [br]
 var _bucket_entities: Dictionary = {}
 
 
@@ -414,6 +467,10 @@ func clear() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 获取单元桶；不存在时创建空数组后返回其内部数组。
+## [br]
+## @api private
+## [br]
 func _get_or_create_bucket(cell_key: Vector3i) -> Array:
 	if _bucket_entities.has(cell_key):
 		return _get_bucket(cell_key)
@@ -423,6 +480,10 @@ func _get_or_create_bucket(cell_key: Vector3i) -> Array:
 	return bucket
 
 
+## 安全读取单元桶，仅在存储值为 Array 时返回其内部数组。
+## [br]
+## @api private
+## [br]
 func _get_bucket(cell_key: Vector3i) -> Array:
 	var bucket_value: Variant = GFVariantData.get_option_value(_bucket_entities, cell_key, [])
 	if bucket_value is Array:
@@ -430,10 +491,18 @@ func _get_bucket(cell_key: Vector3i) -> Array:
 	return []
 
 
+## 从实体记录读取并转换 bounds 字段，缺失或类型不符时返回空 AABB。
+## [br]
+## @api private
+## [br]
 func _get_record_bounds(record: Dictionary) -> AABB:
 	return _variant_to_aabb(GFVariantData.get_option_value(record, "bounds", AABB()))
 
 
+## 从实体记录提取 cells 数组中的 Vector3i 项。
+## [br]
+## @api private
+## [br]
 func _get_record_cells(record: Dictionary) -> Array[Vector3i]:
 	var result: Array[Vector3i] = []
 	var cells_value: Variant = GFVariantData.get_option_value(record, "cells", [])
@@ -448,10 +517,18 @@ func _get_record_cells(record: Dictionary) -> Array[Vector3i]:
 	return result
 
 
+## 从字典删除指定键并接收删除状态以满足严格警告配置。
+## [br]
+## @api private
+## [br]
 func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 	var _removed: bool = target.erase(key)
 
 
+## 仅将 AABB Variant 转成边界值，其它类型返回空 AABB。
+## [br]
+## @api private
+## [br]
 func _variant_to_aabb(value: Variant) -> AABB:
 	if value is AABB:
 		var result: AABB = value
@@ -459,6 +536,10 @@ func _variant_to_aabb(value: Variant) -> AABB:
 	return AABB()
 
 
+## 仅将 Object Variant 转为 Object，其它类型返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_object(value: Variant) -> Object:
 	if value is Object:
 		var result: Object = value
@@ -466,6 +547,10 @@ func _variant_to_object(value: Variant) -> Object:
 	return null
 
 
+## 仅将 WeakRef Variant 转为 WeakRef，其它类型返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_weak_ref(value: Variant) -> WeakRef:
 	if value is WeakRef:
 		var result: WeakRef = value
@@ -473,6 +558,10 @@ func _variant_to_weak_ref(value: Variant) -> WeakRef:
 	return null
 
 
+## 清除无效实体后收集点所在及边界相邻桶中的去重实体候选。
+## [br]
+## @api private
+## [br]
 func _query_point_candidates(point: Vector3) -> Array[Variant]:
 	prune_invalid_entities()
 	if not _position_can_map_to_cell(point):
@@ -495,6 +584,10 @@ func _query_point_candidates(point: Vector3) -> Array[Variant]:
 	return result
 
 
+## 在查询点贴近当前单元下界时把搜索下界扩展到前一格。
+## [br]
+## @api private
+## [br]
 func _get_point_min_cell(position: float, cell: int) -> int:
 	var lower_boundary: float = float(cell) * _cell_size
 	if position - lower_boundary <= _cell_size * _CELL_BOUNDARY_EPSILON_RATIO:
@@ -502,6 +595,10 @@ func _get_point_min_cell(position: float, cell: int) -> int:
 	return cell
 
 
+## 收集 AABB 覆盖桶中的唯一实体键，作为后续精确边界相交判断的候选集。
+## [br]
+## @api private
+## [br]
 func _query_candidate_keys(area: AABB) -> Array[String]:
 	var result: Array[String] = []
 	var span: Array[Vector3i] = _get_cell_span_for_aabb(area)
@@ -519,6 +616,10 @@ func _query_candidate_keys(area: AABB) -> Array[String]:
 	return result
 
 
+## 将指定桶内可解析的实体追加到结果，并以身份键去重。
+## [br]
+## @api private
+## [br]
 func _append_cell_entities(cell_key: Vector3i, result: Array[Variant], seen: Dictionary) -> void:
 	var bucket: Array = _get_bucket(cell_key)
 	for entity_key: String in bucket:
@@ -531,6 +632,10 @@ func _append_cell_entities(cell_key: Vector3i, result: Array[Variant], seen: Dic
 		result.append(_record_to_entity(record))
 
 
+## 获取 AABB 的完整格子列表；覆盖范围超过上限时返回空列表。
+## [br]
+## @api private
+## [br]
 func _get_cells_for_aabb(bounds: AABB) -> Array[Vector3i]:
 	var span: Array[Vector3i] = _get_cell_span_for_aabb(bounds)
 	if not _is_cell_span_within_limit(span):
@@ -538,6 +643,10 @@ func _get_cells_for_aabb(bounds: AABB) -> Array[Vector3i]:
 	return _get_cells_for_span(span)
 
 
+## 按包含两端的整数格范围枚举三维全部格子。
+## [br]
+## @api private
+## [br]
 func _get_cells_for_span(span: Array[Vector3i]) -> Array[Vector3i]:
 	var cells: Array[Vector3i] = []
 	if span.size() < 2:
@@ -551,6 +660,10 @@ func _get_cells_for_span(span: Array[Vector3i]) -> Array[Vector3i]:
 	return cells
 
 
+## 将 AABB 的最小角和半开最大角映射成包含式单元跨度。
+## [br]
+## @api private
+## [br]
 func _get_cell_span_for_aabb(bounds: AABB) -> Array[Vector3i]:
 	var min_cell: Vector3i = _world_to_cell(bounds.position)
 	var max_corner: Vector3 = _get_half_open_max_corner(bounds)
@@ -558,6 +671,10 @@ func _get_cell_span_for_aabb(bounds: AABB) -> Array[Vector3i]:
 	return [min_cell, max_cell]
 
 
+## 安全计算三个轴的格数并判断其乘积是否不超过覆盖上限。
+## [br]
+## @api private
+## [br]
 func _is_cell_span_within_limit(span: Array[Vector3i]) -> bool:
 	if span.size() < 2:
 		return false
@@ -574,6 +691,10 @@ func _is_cell_span_within_limit(span: Array[Vector3i]) -> bool:
 	return z_count <= _divide_truncated(_max_covered_cells, xy_count)
 
 
+## 以中心格和各轴绝对半径生成包含式格范围，越过 Vector3i 边界时返回空。
+## [br]
+## @api private
+## [br]
 func _get_cell_range_span(center_cell: Vector3i, radius: Vector3i) -> Array[Vector3i]:
 	var radius_x: int = absi(int(radius.x))
 	var radius_y: int = absi(int(radius.y))
@@ -599,6 +720,10 @@ func _get_cell_range_span(center_cell: Vector3i, radius: Vector3i) -> Array[Vect
 	]
 
 
+## 以世界坐标除单元边长并向负无穷取整，得到哈希格坐标。
+## [br]
+## @api private
+## [br]
 func _world_to_cell(position: Vector3) -> Vector3i:
 	return Vector3i(
 		floori(position.x / _cell_size),
@@ -607,6 +732,10 @@ func _world_to_cell(position: Vector3) -> Vector3i:
 	)
 
 
+## 计算闭区间轴向格数；无效、非正或超过单轴预算时返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_limited_axis_cell_count(minimum: int, maximum: int) -> int:
 	var count: float = float(maximum) - float(minimum) + 1.0
 	if not _SPATIAL_BOUNDS_MATH.is_finite_float(count) or count <= 0.0 or count > float(_max_covered_cells):
@@ -614,15 +743,27 @@ func _get_limited_axis_cell_count(minimum: int, maximum: int) -> int:
 	return int(count)
 
 
+## 执行整数除法并截去小数部分。
+## [br]
+## @api private
+## [br]
 func _divide_truncated(numerator: int, denominator: int) -> int:
 	@warning_ignore("integer_division")
 	return numerator / denominator
 
 
+## 判断 AABB 的位置角与半开最大角都能安全映射到整数格坐标。
+## [br]
+## @api private
+## [br]
 func _aabb_can_map_to_cells(bounds: AABB) -> bool:
 	return _position_can_map_to_cell(bounds.position) and _position_can_map_to_cell(_get_half_open_max_corner(bounds))
 
 
+## 验证位置有限且缩放后的各轴绝对值处于安全格坐标范围。
+## [br]
+## @api private
+## [br]
 func _position_can_map_to_cell(position: Vector3) -> bool:
 	if not _SPATIAL_BOUNDS_MATH.is_finite_vector3(position):
 		return false
@@ -635,10 +776,18 @@ func _position_can_map_to_cell(position: Vector3) -> bool:
 	)
 
 
+## 委托 GFSpatialQueryIdentity 生成实体的稳定身份键。
+## [br]
+## @api private
+## [br]
 func _make_entity_key(entity: Variant) -> String:
 	return GFSpatialQueryIdentity.make_key(entity)
 
 
+## 构造含身份、边界和占用格的记录；Object 保存弱引用，其它值保存标量值。
+## [br]
+## @api private
+## [br]
 func _make_entity_record(entity: Variant, bounds: AABB, cells: Array[Vector3i]) -> Dictionary:
 	var identity: GFSpatialQueryIdentity = GFSpatialQueryIdentity.from_value(entity)
 	if identity.key.is_empty():
@@ -664,6 +813,10 @@ func _make_entity_record(entity: Variant, bounds: AABB, cells: Array[Vector3i]) 
 	}
 
 
+## 从记录解引用 Object，或读取非 Object 的 entity 字段。
+## [br]
+## @api private
+## [br]
 func _record_to_entity(record: Dictionary) -> Variant:
 	var entity_ref_variant: Variant = GFVariantData.get_option_value(record, "entity_ref")
 	if entity_ref_variant is WeakRef:
@@ -672,6 +825,10 @@ func _record_to_entity(record: Dictionary) -> Variant:
 	return GFVariantData.get_option_value(record, "entity")
 
 
+## 拒绝空记录，并要求弱引用记录仍能解析到存活实体。
+## [br]
+## @api private
+## [br]
 func _record_is_valid(record: Dictionary) -> bool:
 	if record.is_empty():
 		return false
@@ -683,6 +840,10 @@ func _record_is_valid(record: Dictionary) -> bool:
 	return true
 
 
+## 读取身份键对应的记录；缺失或非字典值返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_record(entity_key: String) -> Dictionary:
 	var record_variant: Variant = GFVariantData.get_option_value(_entity_records, entity_key, {})
 	if record_variant is Dictionary:
@@ -690,6 +851,10 @@ func _get_record(entity_key: String) -> Dictionary:
 	return {}
 
 
+## 从记录列出的全部桶中移除实体键，删除空桶并清除实体记录。
+## [br]
+## @api private
+## [br]
 func _remove_by_key(entity_key: String) -> void:
 	var record: Dictionary = _get_record(entity_key)
 	if record.is_empty():
@@ -706,10 +871,18 @@ func _remove_by_key(entity_key: String) -> void:
 	_erase_dictionary_key(_entity_records, entity_key)
 
 
+## 委托空间边界工具把负尺寸 AABB 规范化为非负尺寸。
+## [br]
+## @api private
+## [br]
 func _normalize_aabb(bounds: AABB) -> AABB:
 	return _SPATIAL_BOUNDS_MATH.normalize_aabb(bounds)
 
 
+## 逐轴收缩正尺寸边界的最大角点，使占格范围按半开最大端计算。
+## [br]
+## @api private
+## [br]
 func _get_half_open_max_corner(bounds: AABB) -> Vector3:
 	var max_corner: Vector3 = bounds.position + bounds.size
 	if bounds.size.x > 0.0:
@@ -721,12 +894,20 @@ func _get_half_open_max_corner(bounds: AABB) -> Vector3:
 	return max_corner
 
 
+## 将轴向最大端向内缩 epsilon，但不允许缩到最小端之外。
+## [br]
+## @api private
+## [br]
 func _get_half_open_axis_max(axis_min: float, axis_size: float) -> float:
 	var axis_max: float = axis_min + axis_size
 	var epsilon: float = minf(axis_size * 0.5, _cell_size * _CELL_BOUNDARY_EPSILON_RATIO)
 	return maxf(axis_min, axis_max - maxf(epsilon, 0.000000001))
 
 
+## 清空桶与索引后，按当前配置重新插入仍有效的旧实体记录。
+## [br]
+## @api private
+## [br]
 func _rebuild() -> void:
 	var records: Dictionary = _entity_records.duplicate(true)
 	_entity_records.clear()

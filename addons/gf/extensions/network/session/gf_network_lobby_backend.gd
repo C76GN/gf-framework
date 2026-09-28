@@ -84,9 +84,28 @@ var backend_id: StringName = &""
 
 # --- 私有变量 ---
 
+## 为大厅操作截止时间和耗时计算提供单调时钟。
+## [br]
+## @api private
+## [br]
 var _clock: GFClock = GFClock.new()
+
+## 按请求 ID 保存当前由 Backend 管理的操作句柄。
+## [br]
+## @api private
+## [br]
 var _active_handles: Dictionary = {}
+
+## 标记大厅 Backend 是否已关闭。
+## [br]
+## @api private
+## [br]
 var _closed: bool = false
+
+## 记录句柄已终结后被忽略的重复终结尝试次数。
+## [br]
+## @api private
+## [br]
 var _ignored_terminal_count: int = 0
 
 
@@ -473,6 +492,10 @@ func set_service_clock(clock: GFClock) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 按请求 ID 从活动操作记录中读取并类型检查句柄。
+## [br]
+## @api private
+## [br]
 func _get_active_handle(
 	request_id: StringName
 ) -> GFNetworkLobbyOperationHandle:
@@ -486,6 +509,13 @@ func _get_active_handle(
 	return null
 
 
+
+# --- 信号处理函数 ---
+
+## 将句柄发出的取消请求转交给可重写的取消操作钩子。
+## [br]
+## @api private
+## [br]
 func _on_handle_cancel_requested(
 	reason: StringName,
 	handle: GFNetworkLobbyOperationHandle

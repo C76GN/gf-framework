@@ -22,24 +22,78 @@ extends RefCounted
 ## @since 11.0.0
 const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"
 
+## 用于读取有界 JSON 对象的解析器脚本。
+## [br]
+## @api private
+## [br]
 const _BOUNDED_JSON_OBJECT_READER_SCRIPT = preload(
 	"res://addons/gf/kernel/core/gf_bounded_json_object_reader.gd"
 )
+
+## Project Layout analysis 与库存契约实现脚本。
+## [br]
+## @api private
+## [br]
 const _ANALYSIS_CONTRACT_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd"
 )
+
+## finding 解释器实现脚本。
+## [br]
+## @api private
+## [br]
 const _EXPLAINER_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/gf_project_layout_explainer.gd"
 )
+
+## 影响分析器实现脚本。
+## [br]
+## @api private
+## [br]
 const _IMPACT_ANALYZER_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/gf_project_layout_impact_analyzer.gd"
 )
+
+## profile 编译器实现脚本。
+## [br]
+## @api private
+## [br]
 const _PROFILE_COMPILER_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_profile_compiler.gd")
+
+## bucket_size 规则的 kind 值。
+## [br]
+## @api private
+## [br]
 const _RULE_BUCKET_SIZE: String = "bucket_size"
+
+## feature_module_contract 规则的 kind 值。
+## [br]
+## @api private
+## [br]
 const _RULE_FEATURE_MODULE_CONTRACT: String = "feature_module_contract"
+
+## forbid_root_files 规则的 kind 值。
+## [br]
+## @api private
+## [br]
 const _RULE_FORBID_ROOT_FILES: String = "forbid_root_files"
+
+## generated_boundary 规则的 kind 值。
+## [br]
+## @api private
+## [br]
 const _RULE_GENERATED_BOUNDARY: String = "generated_boundary"
+
+## naming_convention 规则的 kind 值。
+## [br]
+## @api private
+## [br]
 const _RULE_NAMING_CONVENTION: String = "naming_convention"
+
+## snapshot 输入字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _SNAPSHOT_FIELDS: PackedStringArray = [
 	"schema_version",
 	"kind",
@@ -51,11 +105,21 @@ const _SNAPSHOT_FIELDS: PackedStringArray = [
 	"directories",
 	"issues",
 ]
+
+## snapshot 接受的 capture_status 值集合。
+## [br]
+## @api private
+## [br]
 const _SNAPSHOT_CAPTURE_STATUSES: PackedStringArray = [
 	"complete",
 	"partial",
 	"not_started",
 ]
+
+## snapshot scope 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _SNAPSHOT_SCOPE_FIELDS: PackedStringArray = [
 	"kind",
 	"root_path",
@@ -65,34 +129,109 @@ const _SNAPSHOT_SCOPE_FIELDS: PackedStringArray = [
 	"max_scanned_directories",
 	"max_scan_depth",
 ]
+
+## snapshot issue 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _SNAPSHOT_ISSUE_FIELDS: PackedStringArray = [
 	"severity",
 	"kind",
 	"path",
 	"message",
 ]
+
+## snapshot issues 数组允许的最大元素数。
+## [br]
+## @api private
+## [br]
 const _MAX_SNAPSHOT_ISSUE_COUNT: int = 1024
+
+## snapshot envelope 遍历允许检查的最大结构值数。
+## [br]
+## @api private
+## [br]
 const _MAX_SNAPSHOT_STRUCTURE_VALUES: int = 200000
+
+## snapshot envelope 遍历允许的最大嵌套深度。
+## [br]
+## @api private
+## [br]
 const _MAX_SNAPSHOT_DEPTH: int = 64
+
+## profile 编译 envelope 遍历允许的最大嵌套深度。
+## [br]
+## @api private
+## [br]
 const _MAX_COMPILATION_DEPTH: int = _MAX_SNAPSHOT_DEPTH + 1
+
+## options 字典允许的最大字段数。
+## [br]
+## @api private
+## [br]
 const _MAX_OPTION_FIELDS: int = 6
+
+## options 准入成功的状态码。
+## [br]
+## @api private
+## [br]
 const _ADMISSION_OK: int = 0
+
+## options 准入失败且不属于资源上限的状态码。
+## [br]
+## @api private
+## [br]
 const _ADMISSION_INVALID: int = 1
+
+## options 准入因资源上限拒绝的状态码。
+## [br]
+## @api private
+## [br]
 const _ADMISSION_RESOURCE_LIMIT: int = 2
+
+## 默认最大扫描文件数，沿用 analysis contract 的共享上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_SCANNED_FILES: int = \
 	_ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_FILES
+
+## 默认最大扫描目录数，沿用 analysis contract 的共享上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_SCANNED_DIRECTORIES: int = \
 	_ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_DIRECTORIES
+
+## 默认扫描深度，沿用 analysis contract 的共享上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_SCAN_DEPTH: int = _ANALYSIS_CONTRACT_SCRIPT.MAX_SCAN_DEPTH
+
+## 项目源码扫描默认排除的根相对目录前缀。
+## [br]
+## @api private
+## [br]
 const _PROJECT_SOURCE_EXCLUDED_PREFIXES: PackedStringArray = [
 	".git",
 	".godot",
 	".import",
 ]
+
+## 依赖缺失时用于 attachment 证据处理的 finding kind 集合。
+## [br]
+## @api private
+## [br]
 const _ABSENCE_FINDING_KINDS: PackedStringArray = [
 	"missing_required_zone_root",
 	"missing_feature_subdir",
 ]
+
+## validate 入口允许的 options 字段名集合。
+## [br]
+## @api private
+## [br]
 const _VALIDATOR_OPTION_FIELDS: PackedStringArray = [
 	"root_path",
 	"include_hidden",
@@ -101,15 +240,30 @@ const _VALIDATOR_OPTION_FIELDS: PackedStringArray = [
 	"max_scan_depth",
 	"allow_missing_root",
 ]
+
+## validate 入口中类型为 bool 的 options 字段名集合。
+## [br]
+## @api private
+## [br]
 const _VALIDATOR_BOOL_OPTION_FIELDS: PackedStringArray = [
 	"include_hidden",
 	"allow_missing_root",
 ]
+
+## validate 入口中类型为整数的 options 字段名集合。
+## [br]
+## @api private
+## [br]
 const _VALIDATOR_INTEGER_OPTION_FIELDS: PackedStringArray = [
 	"max_scanned_files",
 	"max_scanned_directories",
 	"max_scan_depth",
 ]
+
+## 编译器返回字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _COMPILATION_FIELDS: PackedStringArray = [
 	"success",
 	"profile",
@@ -120,6 +274,11 @@ const _COMPILATION_FIELDS: PackedStringArray = [
 	"contract_digest",
 	"capabilities",
 ]
+
+## 编译器 issue 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _COMPILATION_ISSUE_FIELDS: PackedStringArray = [
 	"severity",
 	"kind",
@@ -128,6 +287,11 @@ const _COMPILATION_ISSUE_FIELDS: PackedStringArray = [
 	"message",
 	"context",
 ]
+
+## 编译器 capability 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _COMPILATION_CAPABILITY_FIELDS: PackedStringArray = [
 	"executor_id",
 	"operation",
@@ -135,6 +299,11 @@ const _COMPILATION_CAPABILITY_FIELDS: PackedStringArray = [
 	"rule_fields",
 	"zone_fields",
 ]
+
+## compiled profile 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _COMPILED_PROFILE_FIELDS: PackedStringArray = [
 	"schema_version",
 	"id",
@@ -144,6 +313,11 @@ const _COMPILED_PROFILE_FIELDS: PackedStringArray = [
 	"rules",
 	"metadata",
 ]
+
+## compiled zone 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _COMPILED_ZONE_FIELDS: PackedStringArray = [
 	"id",
 	"description",
@@ -152,6 +326,11 @@ const _COMPILED_ZONE_FIELDS: PackedStringArray = [
 	"severity",
 	"metadata",
 ]
+
+## 各 compiled rule 共用的字段名集合。
+## [br]
+## @api private
+## [br]
 const _COMPILED_RULE_COMMON_FIELDS: PackedStringArray = [
 	"id",
 	"description",
@@ -159,6 +338,11 @@ const _COMPILED_RULE_COMMON_FIELDS: PackedStringArray = [
 	"severity",
 	"metadata",
 ]
+
+## 按 rule kind 列出的专属字段名集合。
+## [br]
+## @api private
+## [br]
 const _COMPILED_RULE_FIELDS_BY_KIND: Dictionary = {
 	"bucket_size": ["roots", "max_files"],
 	"feature_module_contract": [
@@ -177,29 +361,108 @@ const _COMPILED_RULE_FIELDS_BY_KIND: Dictionary = {
 		"target",
 	],
 }
+
+## runtime evaluation 配置字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _RUNTIME_FIELDS: PackedStringArray = [
 	"cancel_check",
 	"max_work_units",
 	"max_findings",
 ]
+
+## 单次分析默认工作单位上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_WORK_UNITS: int = 2_000_000
+
+## 单次分析默认 finding 数量上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_FINDINGS: int = 1_024
+
+## runtime 可配置工作单位上限的绝对上限。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_WORK_UNITS: int = _DEFAULT_MAX_WORK_UNITS
+
+## runtime 可配置 finding 数量上限的绝对上限。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_FINDINGS: int = _DEFAULT_MAX_FINDINGS
+
+## runtime 工作量检查之间允许累计的工作单位数。
+## [br]
+## @api private
+## [br]
 const _RUNTIME_CANCEL_POLL_INTERVAL: int = 64
+
+## Project Layout profile compiler contract 的标识符。
+## [br]
+## @api private
+## [br]
 const _PROFILE_CONTRACT_ID: String = "gf.project_layout.profile.v1"
 
 
 # --- 私有变量 ---
 
+## 当前是否存在活动的 runtime evaluation。
+## [br]
+## @api private
+## [br]
 var _runtime_active: bool = false
+
+## 当前 runtime evaluation 的取消检查回调。
+## [br]
+## @api private
+## [br]
 var _runtime_cancel_check: Callable = Callable()
+
+## 当前 runtime evaluation 的有效工作单位上限。
+## [br]
+## @api private
+## [br]
 var _runtime_max_work_units: int = _DEFAULT_MAX_WORK_UNITS
+
+## 当前 runtime evaluation 的有效 finding 上限。
+## [br]
+## @api private
+## [br]
 var _runtime_max_findings: int = _DEFAULT_MAX_FINDINGS
+
+## 当前 runtime evaluation 已消费的工作单位数。
+## [br]
+## @api private
+## [br]
 var _runtime_work_units: int = 0
+
+## 自上次取消检查后累计的工作单位数。
+## [br]
+## @api private
+## [br]
 var _runtime_units_since_cancel_check: int = 0
+
+## 当前 runtime evaluation 的终止状态字符串。
+## [br]
+## @api private
+## [br]
 var _runtime_abort_status: String = ""
+
+## 当前终止 finding 是否已加入报告。
+## [br]
+## @api private
+## [br]
 var _runtime_terminal_finding_added: bool = false
+
+## 当前 runtime evaluation 写入的报告字典。
+## [br]
+## @api private
+## [br]
 var _runtime_report: Dictionary = {}
 
 
@@ -584,6 +847,9 @@ func analyze_compiled_profile_snapshot(
 
 # --- 私有/辅助方法 ---
 
+## 构建本实例支持的规则处理器及实际消费字段集合，供编译能力绑定和评估派发共同使用。
+## [br]
+## @api private
 func _make_rule_registry() -> Dictionary:
 	return {
 		_RULE_BUCKET_SIZE: {
@@ -616,6 +882,9 @@ func _make_rule_registry() -> Dictionary:
 	}
 
 
+## 清空活动报告、取消回调、累计工作量及终止标志，恢复默认边界；同一实例的 runtime 属于当前操作。
+## [br]
+## @api private
 func _reset_evaluation_runtime() -> void:
 	_runtime_active = false
 	_runtime_cancel_check = Callable()
@@ -628,6 +897,9 @@ func _reset_evaluation_runtime() -> void:
 	_runtime_report = {}
 
 
+## 启用 runtime 并借用活动报告；非空配置必须精确提供无参取消回调及正整数上限，否则立即记录 runtime 终止。
+## [br]
+## @api private
 func _configure_evaluation_runtime(runtime: Dictionary, report: Dictionary) -> void:
 	_runtime_active = true
 	_runtime_report = report
@@ -668,10 +940,17 @@ func _configure_evaluation_runtime(runtime: Dictionary, report: Dictionary) -> v
 	_runtime_max_findings = max_findings
 
 
+## 检查当前 runtime evaluation 是否已有非空终止状态。
+## [br]
+## @api private
+## [br]
 func _runtime_is_aborted() -> bool:
 	return not _runtime_abort_status.is_empty()
 
 
+## 每次至少计费一个单位，按间隔轮询取消并检查总工作量；取消与超限同时到达时优先记录取消。
+## [br]
+## @api private
 func _evaluation_checkpoint(report: Dictionary, work_units: int = 1) -> bool:
 	if not _runtime_active:
 		return true
@@ -706,6 +985,9 @@ func _evaluation_checkpoint(report: Dictionary, work_units: int = 1) -> bool:
 	return true
 
 
+## 调用有效取消回调，非布尔返回也视为取消；未配置或已失效的 Callable 返回未取消。
+## [br]
+## @api private
 func _runtime_cancel_requested() -> bool:
 	if not _runtime_cancel_check.is_valid():
 		return false
@@ -713,12 +995,18 @@ func _runtime_cancel_requested() -> bool:
 	return not cancel_value is bool or cancel_value
 
 
+## 将无参遍历回调计费到活动报告；活动报告已清空时拒绝继续。
+## [br]
+## @api private
 func _runtime_checkpoint_callback() -> bool:
 	if _runtime_report.is_empty():
 		return false
 	return _evaluation_checkpoint(_runtime_report)
 
 
+## 只保留首个终止状态并最多追加一次终态 finding；runtime 无效记为错误，其他中止保留为警告。
+## [br]
+## @api private
 func _set_runtime_abort(report: Dictionary, status: String, message: String) -> void:
 	if _runtime_is_aborted():
 		return
@@ -740,6 +1028,9 @@ func _set_runtime_abort(report: Dictionary, status: String, message: String) -> 
 	)
 
 
+## 验证编译信封闭合字段、诊断计数和分析器能力；成功结果须绑定当前契约摘要并携带合法规范 profile。
+## [br]
+## @api private
 func _compilation_is_valid(
 	compilation: Dictionary,
 	rule_registry: Dictionary,
@@ -840,6 +1131,9 @@ func _compilation_is_valid(
 	return true
 
 
+## 从规则注册表提取并排序执行字段，构造分析器精确能力身份用于编译结果比对。
+## [br]
+## @api private
 func _expected_compilation_capabilities(rule_registry: Dictionary) -> Dictionary:
 	var rule_kinds: Array[String] = []
 	var rule_fields: Dictionary = {}
@@ -866,6 +1160,9 @@ func _expected_compilation_capabilities(rule_registry: Dictionary) -> Dictionary
 	}
 
 
+## 逐项校验规范 profile、zone 和规则的字段、唯一 ID、严重性及种类值；评估检查点拒绝时立即失败。
+## [br]
+## @api private
 func _compiled_profile_is_valid(
 	profile: Dictionary,
 	rule_registry: Dictionary,
@@ -943,6 +1240,9 @@ func _compiled_profile_is_valid(
 	return true
 
 
+## 要求记录 ID 为非空文本且尚未出现，成功后立即写入调用方的去重集合。
+## [br]
+## @api private
 func _compiled_record_identity_is_valid(record: Dictionary, ids: Dictionary) -> bool:
 	if not _is_non_empty_string_value(record.get("id")):
 		return false
@@ -953,6 +1253,9 @@ func _compiled_record_identity_is_valid(record: Dictionary, ids: Dictionary) -> 
 	return true
 
 
+## 按字段用途区分相对路径与 glob 集合，再验证各规则所需预算、正则、目标和开关。
+## [br]
+## @api private
 func _compiled_rule_values_are_valid(
 	rule: Dictionary,
 	kind: String,
@@ -1013,6 +1316,9 @@ func _compiled_rule_values_are_valid(
 	return true
 
 
+## 验证文本集合非空要求、唯一项及可选路径或 glob 语义；提供报告时逐项执行评估检查点。
+## [br]
+## @api private
 func _string_collection_value_is_valid(
 	value: Variant,
 	allow_empty: bool,
@@ -1053,10 +1359,17 @@ func _string_collection_value_is_valid(
 	return true
 
 
+## 判断 severity 是否为 error、warning 或 info 字符串。
+## [br]
+## @api private
+## [br]
 func _severity_value_is_valid(value: Variant) -> bool:
 	return value is String and ["error", "warning", "info"].has(value)
 
 
+## 通过统一问题入口写入固定种类和原因码的编译信封失败。
+## [br]
+## @api private
 func _add_invalid_compilation_issue(report: Dictionary, message: String) -> void:
 	_add_issue(
 		report,
@@ -1069,6 +1382,9 @@ func _add_invalid_compilation_issue(report: Dictionary, message: String) -> void
 	)
 
 
+## 深复制能力容器，并在评估预算内把编译问题逐项转入分析报告。
+## [br]
+## @api private
 func _append_compiler_result(compile_result: Dictionary, report: Dictionary) -> void:
 	report["capabilities"] = _get_dictionary(compile_result, "capabilities").duplicate(true)
 	var issues: Array = _get_array(compile_result, "issues")
@@ -1089,6 +1405,9 @@ func _append_compiler_result(compile_result: Dictionary, report: Dictionary) -> 
 		)
 
 
+## 有界读取 JSON profile，区分文件缺失、读取失败、根类型及格式错误，成功保留读取器字典和源路径。
+## [br]
+## @api private
 func _load_profile(profile_path: String) -> Dictionary:
 	if profile_path.strip_edges().is_empty():
 		return _make_load_result(false, {}, "missing_profile_path", "项目结构 profile 路径为空。", profile_path)
@@ -1137,6 +1456,9 @@ func _load_profile(profile_path: String) -> Dictionary:
 	return _make_load_result(false, {}, "invalid_profile_root", "项目结构 profile 根节点必须是 Dictionary。", source_path)
 
 
+## 包装 profile 加载状态及来源路径，沿用传入 profile 引用。
+## [br]
+## @api private
 func _make_load_result(
 	success: bool,
 	profile: Dictionary,
@@ -1153,6 +1475,9 @@ func _make_load_result(
 	}
 
 
+## 创建默认输入不完整的只读报告，附未开始的空库存图及内部 finding 去重状态，供后续扫描结果替换。
+## [br]
+## @api private
 func _make_report(profile_id: String, root_path: String) -> Dictionary:
 	var report: Dictionary = {
 		"schema_version": 1,
@@ -1197,6 +1522,9 @@ func _make_report(profile_id: String, root_path: String) -> Dictionary:
 	return report
 
 
+## 重置 runtime 并构造单一准入失败报告，区分资源超限和结构无效，然后执行正常报告收尾。
+## [br]
+## @api private
 func _make_input_admission_report(admission_status: int) -> Dictionary:
 	_reset_evaluation_runtime()
 	var report: Dictionary = _make_report("", "res://")
@@ -1220,6 +1548,9 @@ func _make_input_admission_report(admission_status: int) -> Dictionary:
 	return _finalize_report(report)
 
 
+## 在读取项目之前检查选项闭合字段、类型和固有上限，分别返回格式无效、资源超限或可接受。
+## [br]
+## @api private
 func _options_admission_status(options: Dictionary) -> int:
 	if options.size() > _MAX_OPTION_FIELDS:
 		return _ADMISSION_RESOURCE_LIMIT
@@ -1266,6 +1597,9 @@ func _options_admission_status(options: Dictionary) -> int:
 	return _ADMISSION_OK
 
 
+## 先限制快照字段、路径数量及长度和 scope 预算，再验证整个纯数据树；缺少必需字段的语义诊断由后续阶段完成。
+## [br]
+## @api private
 func _snapshot_envelope_is_admissible(snapshot: Dictionary) -> bool:
 	if snapshot.size() > _SNAPSHOT_FIELDS.size():
 		return false
@@ -1342,10 +1676,16 @@ func _snapshot_envelope_is_admissible(snapshot: Dictionary) -> bool:
 	return _snapshot_tree_is_admissible(snapshot)
 
 
+## 复用纯数据树准入，使用容纳编译信封额外层级的深度上限。
+## [br]
+## @api private
 func _compilation_envelope_is_admissible(compilation: Dictionary) -> bool:
 	return _snapshot_tree_is_admissible(compilation, _MAX_COMPILATION_DEPTH)
 
 
+## 检查 scope 已提供字段的类型、排除集合和预算上限，并要求已观察文件及目录数不超过所声明预算。
+## [br]
+## @api private
 func _snapshot_scope_envelope_is_admissible(
 	scope: Dictionary,
 	file_count: int,
@@ -1417,6 +1757,10 @@ func _snapshot_scope_envelope_is_admissible(
 	return true
 
 
+## 返回 Array 或 PackedStringArray 的元素数；其他类型返回 -1。
+## [br]
+## @api private
+## [br]
 func _snapshot_collection_size(value: Variant) -> int:
 	if value is Array:
 		var array_value: Array = value
@@ -1427,6 +1771,9 @@ func _snapshot_collection_size(value: Variant) -> int:
 	return -1
 
 
+## 接受文本数组并检查每条路径字符长度，普通数组中的非 String 项直接拒绝。
+## [br]
+## @api private
 func _snapshot_path_collection_lengths_are_admissible(value: Variant) -> bool:
 	if value is PackedStringArray:
 		var packed_value: PackedStringArray = value
@@ -1446,6 +1793,9 @@ func _snapshot_path_collection_lengths_are_admissible(value: Variant) -> bool:
 	return true
 
 
+## 用显式栈累计结构值及 UTF-8 文本总量，拒绝超深、超大、非有限或非文本键数据；活动容器身份栈拒绝真实循环。
+## [br]
+## @api private
 func _snapshot_tree_is_admissible(
 	snapshot: Dictionary,
 	max_depth: int = _MAX_SNAPSHOT_DEPTH
@@ -1562,6 +1912,10 @@ func _snapshot_tree_is_admissible(
 	return true
 
 
+## 检查容器是否已出现在当前 snapshot 递归路径的活动容器列表中。
+## [br]
+## @api private
+## [br]
 func _active_snapshot_container_exists(
 	active_containers: Array,
 	value: Variant
@@ -1572,6 +1926,9 @@ func _active_snapshot_container_exists(
 	return false
 
 
+## 未指定根时使用 res://；已指定根保留原文本拼写，非文本或全空白返回空串等待诊断。
+## [br]
+## @api private
 func _report_root_path(options: Dictionary) -> String:
 	if not options.has("root_path"):
 		return "res://"
@@ -1584,6 +1941,9 @@ func _report_root_path(options: Dictionary) -> String:
 	return root_path
 
 
+## 把未知选项、非法根类型和非正整数预算转成分析问题，不直接修正传入选项。
+## [br]
+## @api private
 func _validate_options(options: Dictionary, report: Dictionary) -> void:
 	for key_value: Variant in options.keys():
 		var option_name: String = _string_value(key_value)
@@ -1622,6 +1982,9 @@ func _validate_options(options: Dictionary, report: Dictionary) -> void:
 		)
 
 
+## 要求规范项目源码根，并检查访问链不穿过符号链接或目录联接；失败写入报告。
+## [br]
+## @api private
 func _validate_root_path(root_path: String, _options: Dictionary, report: Dictionary) -> void:
 	if not _is_canonical_project_source_root(root_path):
 		_add_issue(report, "error", "unsupported_root_path", root_path, "项目源码根必须是规范 res:// 根或子根，不能使用 user://、绝对路径或路径 alias。")
@@ -1630,6 +1993,9 @@ func _validate_root_path(root_path: String, _options: Dictionary, report: Dictio
 		_add_issue(report, "error", "linked_path_not_allowed", root_path, "项目根路径不能穿过符号链接或目录联接。")
 
 
+## 按捕获预算扫描项目并整理排序清单；缺失根、隐藏项省略或扫描中止都保持不完整，导出前移除扫描临时计数。
+## [br]
+## @api private
 func _scan_project(root_path: String, options: Dictionary, report: Dictionary) -> Dictionary:
 	var include_hidden: bool = _get_bool(options, "include_hidden", true)
 	var max_scanned_files: int = _get_positive_integer_option(
@@ -1760,6 +2126,9 @@ func _scan_project(root_path: String, options: Dictionary, report: Dictionary) -
 	return result
 
 
+## 验证快照状态、scope、路径角色及父目录闭包并转入扫描结构；非权威范围降为 partial，捕获问题保留来源严重性。
+## [br]
+## @api private
 func _scan_from_snapshot(snapshot: Dictionary, report: Dictionary) -> Dictionary:
 	var result: Dictionary = {
 		"files": PackedStringArray(),
@@ -1873,6 +2242,9 @@ func _scan_from_snapshot(snapshot: Dictionary, report: Dictionary) -> Dictionary
 	return result
 
 
+## 验证规范路径并报告重复或非法项，收集合法项后排序；中止时可能返回尚未排序的部分列表，外层须检查 runtime。
+## [br]
+## @api private
 func _snapshot_path_list(
 	snapshot: Dictionary,
 	field_name: String,
@@ -1952,6 +2324,9 @@ func _snapshot_path_list(
 	return result
 
 
+## 逐键检查快照只使用允许的文本字段名，按评估检查点可提前终止。
+## [br]
+## @api private
 func _validate_snapshot_fields(snapshot: Dictionary, report: Dictionary) -> void:
 	for key_value: Variant in snapshot.keys():
 		if not _evaluation_checkpoint(report):
@@ -1964,6 +2339,9 @@ func _validate_snapshot_fields(snapshot: Dictionary, report: Dictionary) -> void
 			_add_issue(report, "error", "unsupported_snapshot_field", key, "项目结构 snapshot 包含不受支持的字段。")
 
 
+## 要求支持的终态 capture_status，并在 complete 类型正确时校验二者一致。
+## [br]
+## @api private
 func _validate_snapshot_capture_status(snapshot: Dictionary, report: Dictionary) -> void:
 	if not snapshot.has("capture_status"):
 		_add_issue(
@@ -1988,6 +2366,9 @@ func _validate_snapshot_capture_status(snapshot: Dictionary, report: Dictionary)
 			_add_issue(report, "error", "snapshot_capture_status_mismatch", "capture_status", "capture_status 与 complete 不一致。")
 
 
+## 验证闭合 project_source 范围并重建 scope；仅包含隐藏项且精确声明固定排除列表时赋予完整库存的权威范围标记。
+## [br]
+## @api private
 func _validate_snapshot_scope(
 	snapshot: Dictionary,
 	root_path: String,
@@ -2078,6 +2459,9 @@ func _validate_snapshot_scope(
 	return result
 
 
+## 保序读取唯一规范排除前缀，格式错误返回空列表；取消或预算中止可返回部分值，由外层状态判定。
+## [br]
+## @api private
 func _snapshot_scope_excluded_prefixes(
 	scope: Dictionary,
 	report: Dictionary
@@ -2114,6 +2498,9 @@ func _snapshot_scope_excluded_prefixes(
 	return result
 
 
+## 核对文件、目录数量与声明预算，并逐条检查路径深度、排除前缀和隐藏项约束。
+## [br]
+## @api private
 func _validate_snapshot_scope_inventory(
 	scope: Dictionary,
 	directories: PackedStringArray,
@@ -2156,6 +2543,9 @@ func _validate_snapshot_scope_inventory(
 		)
 
 
+## 校验单一路径与 scope 一致，目录检查深度，所有项检查排除前缀和隐藏段；问题累加到报告。
+## [br]
+## @api private
 func _validate_snapshot_path_against_scope(
 	relative_path: String,
 	is_directory: bool,
@@ -2172,6 +2562,9 @@ func _validate_snapshot_path_against_scope(
 		_add_issue(report, "error", "snapshot_scope_hidden_mismatch", relative_path, "snapshot 包含 scope 声明未捕获的隐藏路径。")
 
 
+## 逐项要求文件和目录的直接父目录显式存在于目录集合，通过全部项共同保证父链闭合。
+## [br]
+## @api private
 func _validate_snapshot_parent_closure(
 	directories: PackedStringArray,
 	files: PackedStringArray,
@@ -2188,6 +2581,9 @@ func _validate_snapshot_parent_closure(
 		_validate_snapshot_parent(relative_path, directory_set, report)
 
 
+## 根级条目无需额外父项；其他条目缺少直接父目录时记录来源路径及缺失父路径。
+## [br]
+## @api private
 func _validate_snapshot_parent(
 	relative_path: String,
 	directory_set: Dictionary,
@@ -2206,6 +2602,9 @@ func _validate_snapshot_parent(
 	)
 
 
+## 过滤并重建合法捕获问题；完整快照携带任何捕获问题都报矛盾，部分快照统一以 warning 转发并保留原严重性。
+## [br]
+## @api private
 func _append_snapshot_capture_issues(
 	snapshot: Dictionary,
 	result: Dictionary,
@@ -2275,6 +2674,10 @@ func _append_snapshot_capture_issues(
 		)
 
 
+## 判断字典的所有键是否都是字符串且属于允许字段集合。
+## [br]
+## @api private
+## [br]
 func _dictionary_has_only_fields(
 	value: Dictionary,
 	allowed_fields: PackedStringArray
@@ -2288,6 +2691,9 @@ func _dictionary_has_only_fields(
 	return true
 
 
+## 以捕获根、隐藏项开关及预算构造 project_source 范围，并新建固定排除前缀数组。
+## [br]
+## @api private
 func _make_project_source_scope(
 	root_path: String,
 	include_hidden: bool,
@@ -2306,6 +2712,10 @@ func _make_project_source_scope(
 	}
 
 
+## 将字符串列表转为以各字符串为键、true 为值的字典，可选按 runtime 预算检查。
+## [br]
+## @api private
+## [br]
 func _make_string_set(
 	values: PackedStringArray,
 	report: Dictionary = {}
@@ -2318,6 +2728,9 @@ func _make_string_set(
 	return result
 
 
+## 以完整路径段匹配排除前缀本身或后代，避免匹配仅名称开头相同的路径。
+## [br]
+## @api private
 func _is_under_excluded_prefix(
 	relative_path: String,
 	excluded_prefixes: PackedStringArray
@@ -2331,6 +2744,10 @@ func _is_under_excluded_prefix(
 	return false
 
 
+## 判断斜杠分隔的相对路径是否有任一以点号开头的段。
+## [br]
+## @api private
+## [br]
 func _path_contains_hidden_segment(relative_path: String) -> bool:
 	for segment: String in relative_path.split("/", false):
 		if segment.begins_with("."):
@@ -2338,10 +2755,16 @@ func _path_contains_hidden_segment(relative_path: String) -> bool:
 	return false
 
 
+## 复用项目源码根校验，使快照和直接扫描接受相同的 res:// 根形状。
+## [br]
+## @api private
 func _is_canonical_snapshot_root(root_path: String) -> bool:
 	return _is_canonical_project_source_root(root_path)
 
 
+## 要求无首尾空白和反斜线的 res:// 根；子根部分必须满足规范相对路径规则。
+## [br]
+## @api private
 func _is_canonical_project_source_root(root_path: String) -> bool:
 	if (
 		root_path.is_empty()
@@ -2356,6 +2779,9 @@ func _is_canonical_project_source_root(root_path: String) -> bool:
 	return _is_canonical_snapshot_path(relative_part)
 
 
+## 只接受非空规范相对路径，拒绝空白边界、绝对前缀、反斜线、冒号、尾分隔符及空段或点段。
+## [br]
+## @api private
 func _is_canonical_snapshot_path(relative_path: String) -> bool:
 	if relative_path.is_empty() or relative_path != relative_path.strip_edges():
 		return false
@@ -2368,6 +2794,9 @@ func _is_canonical_snapshot_path(relative_path: String) -> bool:
 			return false
 	return true
 
+## 在打开目录前后检查链接边界，递归枚举时累计数量和文本预算；中止保留已捕获部分，已开始的枚举最后关闭。
+## [br]
+## @api private
 func _scan_directory(
 	root_path: String,
 	relative_path: String,
@@ -2484,6 +2913,9 @@ func _scan_directory(
 	directory.list_dir_end()
 
 
+## 计算库存固定字段、根和排除目录的 UTF-8 字节，路径及最终捕获状态由后续预留。
+## [br]
+## @api private
 func _initial_scan_inventory_string_bytes(root_path: String) -> int:
 	var result: int = 0
 	for text: String in [
@@ -2510,6 +2942,9 @@ func _initial_scan_inventory_string_bytes(root_path: String) -> int:
 	return result
 
 
+## 在创建拼接字符串前按字符数检查父路径、必要分隔符和条目名的总长度。
+## [br]
+## @api private
 func _scan_joined_path_length_is_admissible(
 	relative_path: String,
 	entry_name: String
@@ -2525,6 +2960,9 @@ func _scan_joined_path_length_is_admissible(
 	)
 
 
+## 检查相对路径字符上限，再向库存文本总预算预留该路径。
+## [br]
+## @api private
 func _reserve_scan_inventory_path(result: Dictionary, relative_path: String) -> bool:
 	if relative_path.length() > _ANALYSIS_CONTRACT_SCRIPT.MAX_RELATIVE_PATH_LENGTH:
 		return false
@@ -2535,6 +2973,9 @@ func _reserve_scan_inventory_path(result: Dictionary, relative_path: String) -> 
 	)
 
 
+## 检查单字符串字符长度和剩余 UTF-8 字节预算，只有成功时更新结果中的累计字节。
+## [br]
+## @api private
 func _reserve_scan_inventory_text(
 	result: Dictionary,
 	text: String,
@@ -2556,6 +2997,9 @@ func _reserve_scan_inventory_text(
 	return true
 
 
+## 幂等进入输入资源终态，清空已捕获清单及旧捕获问题，并把活动报告替换为单一准入失败。
+## [br]
+## @api private
 func _abort_scan_resource_limit(result: Dictionary, report: Dictionary) -> void:
 	if _get_bool(result, "_input_resource_limit_exceeded"):
 		return
@@ -2578,6 +3022,9 @@ func _abort_scan_resource_limit(result: Dictionary, report: Dictionary) -> void:
 	_replace_report_with_input_resource_terminal(report)
 
 
+## 构造资源准入终态并原地替换报告全部内容，保留调用者持有的报告字典身份。
+## [br]
+## @api private
 func _replace_report_with_input_resource_terminal(report: Dictionary) -> void:
 	var terminal_report: Dictionary = _make_input_admission_report(
 		_ADMISSION_RESOURCE_LIMIT
@@ -2587,6 +3034,9 @@ func _replace_report_with_input_resource_terminal(report: Dictionary) -> void:
 		report[key_value] = terminal_report[key_value]
 
 
+## 首次扫描失败时标记中止，并同时登记捕获原因和分析错误；保留此前已收集的路径。
+## [br]
+## @api private
 func _abort_scan(
 	result: Dictionary,
 	report: Dictionary,
@@ -2601,6 +3051,9 @@ func _abort_scan(
 	_add_issue(report, "error", kind, path, message)
 
 
+## 向扫描结果已有的捕获问题数组追加 severity、kind、path、message；不在此重新校验字段。
+## [br]
+## @api private
 func _append_capture_issue(
 	result: Dictionary,
 	severity: String,
@@ -2617,6 +3070,9 @@ func _append_capture_issue(
 	})
 
 
+## 只检查必需 zone 的各根是否出现在扫描清单，缺失时按 zone 严重性报告；存在性接受文件或目录。
+## [br]
+## @api private
 func _validate_zones(profile: Dictionary, scan: Dictionary, report: Dictionary) -> void:
 	var zones: Array = _get_array(profile, "zones")
 	for zone_value: Variant in zones:
@@ -2648,6 +3104,9 @@ func _validate_zones(profile: Dictionary, scan: Dictionary, report: Dictionary) 
 				)
 
 
+## 浅复制扫描结构并附共享根契约索引，按注册表逐规则执行；中止的规则不追加完成摘要。
+## [br]
+## @api private
 func _validate_rules(profile: Dictionary, scan: Dictionary, report: Dictionary, rule_registry: Dictionary) -> void:
 	var execution_scan: Dictionary = scan.duplicate()
 	execution_scan["_feature_contract_rules_by_root"] = (
@@ -2690,6 +3149,9 @@ func _validate_rules(profile: Dictionary, scan: Dictionary, report: Dictionary, 
 		_finalize_rule_result(rule_result, report)
 
 
+## 按精确根路径收集功能模块契约引用，保留规则顺序，供共享根允许子目录取并集。
+## [br]
+## @api private
 func _index_feature_contract_rules_by_root(
 	profile: Dictionary,
 	report: Dictionary
@@ -2713,6 +3175,9 @@ func _index_feature_contract_rules_by_root(
 	return result
 
 
+## 只检查项目根直接文件，未列入允许文件集合的条目按规则严重性记录问题。
+## [br]
+## @api private
 func _validate_forbid_root_files(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary) -> void:
 	var allowed_files: PackedStringArray = _get_string_list(rule, "allowed_files")
 	var allowed_file_set: Dictionary = _make_string_set(allowed_files, report)
@@ -2737,6 +3202,9 @@ func _validate_forbid_root_files(rule: Dictionary, scan: Dictionary, report: Dic
 			)
 
 
+## 编译规则正则，对范围内且未排除的文件及目录按 path、name 或 stem 检查，并累计实际检查数量。
+## [br]
+## @api private
 func _validate_naming_convention(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary) -> void:
 	var pattern: String = _get_string(rule, "pattern")
 	var target: String = _get_string(rule, "target")
@@ -2772,6 +3240,9 @@ func _validate_naming_convention(rule: Dictionary, scan: Dictionary, report: Dic
 			)
 
 
+## 按目标选择完整相对路径、文件名或去扩展名名称，未知目标回退完整路径。
+## [br]
+## @api private
 func _naming_target_value(relative_path: String, target: String) -> String:
 	if target == "name":
 		return relative_path.get_file()
@@ -2780,6 +3251,9 @@ func _naming_target_value(relative_path: String, target: String) -> String:
 	return relative_path
 
 
+## 对各根的直接功能目录检查 ID、必需子目录及根文件；共享根允许子目录取契约并集，其余问题仍归属来源规则。
+## [br]
+## @api private
 func _validate_feature_module_contract(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary) -> void:
 	var severity: String = _get_string(rule, "severity")
 	var feature_id_pattern: String = _get_string(rule, "feature_id_pattern")
@@ -2825,6 +3299,9 @@ func _validate_feature_module_contract(rule: Dictionary, scan: Dictionary, repor
 				_validate_feature_root_files(scan, report, rule_result, feature_root, severity)
 
 
+## 合并同根所有契约的允许子目录并保序去重；没有有效索引时复制回退集合，中止时可能返回部分并集。
+## [br]
+## @api private
 func _feature_allowed_subdirs_for_root(
 	scan: Dictionary,
 	root: String,
@@ -2857,6 +3334,9 @@ func _feature_allowed_subdirs_for_root(
 	return result
 
 
+## 检查契约要求的子路径存在，并要求直接子目录在共享允许集合中；所有诊断归属当前规则。
+## [br]
+## @api private
 func _validate_feature_subdirs(
 	rule: Dictionary,
 	scan: Dictionary,
@@ -2909,6 +3389,9 @@ func _validate_feature_subdirs(
 		)
 
 
+## 查找直接位于功能根的文件并逐项记录问题，不包含更深层文件。
+## [br]
+## @api private
 func _validate_feature_root_files(
 	scan: Dictionary,
 	report: Dictionary,
@@ -2932,6 +3415,9 @@ func _validate_feature_root_files(
 		)
 
 
+## 只检查命中 include 模式的文件及目录，要求它们位于声明根内并累计命中数量。
+## [br]
+## @api private
 func _validate_generated_boundary(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary) -> void:
 	var include: PackedStringArray = _get_string_list(rule, "include")
 	var roots: PackedStringArray = _get_string_list(rule, "roots")
@@ -2956,6 +3442,9 @@ func _validate_generated_boundary(rule: Dictionary, scan: Dictionary, report: Di
 			)
 
 
+## 按根统计含后代的文件数量，超出规则上限时记录数量证据；中止统计不发布该根结论。
+## [br]
+## @api private
 func _validate_bucket_size(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary) -> void:
 	var max_files: int = _get_int(rule, "max_files")
 	var severity: String = _get_string(rule, "severity")
@@ -2979,6 +3468,9 @@ func _validate_bucket_size(rule: Dictionary, scan: Dictionary, report: Dictionar
 			)
 
 
+## 投影规则身份和严重性，并创建检查数、问题数均为零的候选规则摘要。
+## [br]
+## @api private
 func _make_rule_result(rule: Dictionary) -> Dictionary:
 	return {
 		"id": _get_string(rule, "id"),
@@ -2990,12 +3482,18 @@ func _make_rule_result(rule: Dictionary) -> Dictionary:
 	}
 
 
+## 以问题数是否为零确定规则 success，再深复制摘要加入报告；警告问题也使该规则 success 为 false。
+## [br]
+## @api private
 func _finalize_rule_result(rule_result: Dictionary, report: Dictionary) -> void:
 	rule_result["success"] = _get_int(rule_result, "issue_count") == 0
 	var rule_results: Array = _get_array(report, "rule_results")
 	rule_results.append(rule_result.duplicate(true))
 
 
+## 复制 context 并绑定规则 ID，只有统一入口实际接受问题时才增加规则问题计数。
+## [br]
+## @api private
 func _add_rule_issue(
 	report: Dictionary,
 	rule_result: Dictionary,
@@ -3011,6 +3509,9 @@ func _add_rule_issue(
 		rule_result["issue_count"] = _get_int(rule_result, "issue_count") + 1
 
 
+## 把普通分析问题转交带预算的统一入口，调用者不需要接收是否成功追加的结果。
+## [br]
+## @api private
 func _add_issue(
 	report: Dictionary,
 	severity: String,
@@ -3031,6 +3532,9 @@ func _add_issue(
 	)
 
 
+## 为终态 finding 预留最后一个名额；达到上限先检查取消，再记录终止原因，只有接受普通问题时返回 true。
+## [br]
+## @api private
 func _try_add_issue(
 	report: Dictionary,
 	severity: String,
@@ -3070,6 +3574,9 @@ func _try_add_issue(
 	return true
 
 
+## 绕过名额检查追加问题，按语义身份和出现次数生成 finding ID，并同步严重性计数；供已准入问题和唯一终态问题使用。
+## [br]
+## @api private
 func _append_issue_unchecked(
 	report: Dictionary,
 	severity: String,
@@ -3113,6 +3620,9 @@ func _append_issue_unchecked(
 		report["info_count"] = _get_int(report, "info_count") + 1
 
 
+## 新建 context 字典，把非文本或空键替换为位置名称并清理值；此层保留全部条目，嵌套值另有层数及条目限制。
+## [br]
+## @api private
 func _sanitize_issue_context(context: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	var entry_index: int = 0
@@ -3125,6 +3635,9 @@ func _sanitize_issue_context(context: Dictionary) -> Dictionary:
 	return result
 
 
+## 递归复制普通容器并限制八层及每层 128 项，非有限浮点转文本，其他对象降为类型摘要；PackedStringArray 整体复制。
+## [br]
+## @api private
 func _sanitize_report_value(value: Variant, depth: int) -> Variant:
 	if depth >= 8:
 		return _describe_value(value)
@@ -3163,6 +3676,9 @@ func _sanitize_report_value(value: Variant, depth: int) -> Variant:
 	return _describe_value(value)
 
 
+## 生成类型摘要，标量保留可序列化值，容器只附数量，不展开对象或嵌套内容。
+## [br]
+## @api private
 func _describe_value(value: Variant) -> Dictionary:
 	var value_type: int = typeof(value)
 	var result: Dictionary = {
@@ -3194,6 +3710,9 @@ func _describe_value(value: Variant) -> Dictionary:
 	return result
 
 
+## 未中止时补缺失证据，以错误数决定 success、输入和捕获状态决定评估完整性；复制 issues 为 findings 并删除内部 ID 状态。
+## [br]
+## @api private
 func _finalize_report(report: Dictionary) -> Dictionary:
 	if not _runtime_is_aborted():
 		_attach_absence_evidence(report)
@@ -3219,6 +3738,9 @@ func _finalize_report(report: Dictionary) -> Dictionary:
 	return report
 
 
+## 通过分析契约构建库存图及摘要并接管报告字段；空附件按选项保留等价未观察图，或替换为输入资源终态。
+## [br]
+## @api private
 func _attach_scan_result(
 	report: Dictionary,
 	scan: Dictionary,
@@ -3255,6 +3777,9 @@ func _attach_scan_result(
 	report["graph"] = _get_dictionary(attachment, "graph")
 
 
+## 判断当前报告是否已有相同 scope 的未开始空图和摘要，避免将等价的无观察结果误判为附件构建失败。
+## [br]
+## @api private
 func _report_has_equivalent_unobserved_attachment(
 	report: Dictionary,
 	scan: Dictionary
@@ -3279,6 +3804,9 @@ func _report_has_equivalent_unobserved_attachment(
 	)
 
 
+## 仅在库存图完整时，把边界证据附到尚无证据且路径确实未观察到的指定缺失类问题。
+## [br]
+## @api private
 func _attach_absence_evidence(report: Dictionary) -> void:
 	var graph: Dictionary = _get_dictionary(report, "graph")
 	if not _get_bool(graph, "complete"):
@@ -3318,6 +3846,9 @@ func _attach_absence_evidence(report: Dictionary) -> void:
 		issue["evidence_ids"] = [inventory_evidence_id]
 
 
+## 在目录和文件清单中查找精确路径；评估检查点中止也返回 false，外层通过 runtime 避免发布结论。
+## [br]
+## @api private
 func _path_exists_in_scan(
 	relative_path: String,
 	scan: Dictionary,
@@ -3338,6 +3869,9 @@ func _path_exists_in_scan(
 	return false
 
 
+## 按目录在前、文件在后复制清单，不额外排序或去重；中止可返回部分列表。
+## [br]
+## @api private
 func _make_scanned_paths(scan: Dictionary, report: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var directories: PackedStringArray = _get_packed_string_array(scan, "directories")
@@ -3353,6 +3887,9 @@ func _make_scanned_paths(scan: Dictionary, report: Dictionary) -> PackedStringAr
 	return result
 
 
+## 从目录清单选择根的直接子项，返回去重后的子目录名；根本身及深层后代不纳入。
+## [br]
+## @api private
 func _get_direct_child_directories(
 	scan: Dictionary,
 	root: String,
@@ -3375,6 +3912,9 @@ func _get_direct_child_directories(
 	return result
 
 
+## 按完整路径段统计根及后代文件，检查点中止时返回已累计数量，调用者须检查 runtime。
+## [br]
+## @api private
 func _count_files_under_root(
 	scan: Dictionary,
 	root: String,
@@ -3390,6 +3930,9 @@ func _count_files_under_root(
 	return count
 
 
+## 空根集合表示不限范围，否则逐根按完整路径段匹配；中止检查返回 false。
+## [br]
+## @api private
 func _is_under_any_root(
 	relative_path: String,
 	roots: PackedStringArray,
@@ -3405,12 +3948,18 @@ func _is_under_any_root(
 	return false
 
 
+## 空根接受所有路径，其余只匹配根本身或以根加分隔符开头的后代。
+## [br]
+## @api private
 func _is_path_under_root(relative_path: String, root: String) -> bool:
 	if root.is_empty():
 		return true
 	return relative_path == root or relative_path.begins_with("%s/" % root)
 
 
+## 取根之后的相对余段；路径等于根或不位于根下都返回空串。
+## [br]
+## @api private
 func _relative_remainder(relative_path: String, root: String) -> String:
 	if root.is_empty():
 		return relative_path
@@ -3421,6 +3970,9 @@ func _relative_remainder(relative_path: String, root: String) -> String:
 	return ""
 
 
+## 逐模式执行评估检查点，任一匹配即成功；空集合或中止返回 false。
+## [br]
+## @api private
 func _matches_any_pattern(
 	relative_path: String,
 	patterns: PackedStringArray,
@@ -3436,6 +3988,9 @@ func _matches_any_pattern(
 	return false
 
 
+## 含星号时使用 glob 编译器，否则按完整文本相等比较；单独问号不会触发 glob 路径。
+## [br]
+## @api private
 func _matches_pattern(relative_path: String, pattern: String) -> bool:
 	if pattern.contains("*"):
 		var expression: RegEx = _compile_glob(pattern)
@@ -3443,6 +3998,9 @@ func _matches_pattern(relative_path: String, pattern: String) -> bool:
 	return relative_path == pattern
 
 
+## 编译带首尾锚点的路径模式，单星和问号不跨斜线，双星可跨目录，双星加斜线允许零层目录。
+## [br]
+## @api private
 func _compile_glob(pattern: String) -> RegEx:
 	var escaped: String = ""
 	var index: int = 0
@@ -3476,6 +4034,9 @@ func _compile_glob(pattern: String) -> RegEx:
 	return expression
 
 
+## 构造并编译正则，失败返回 null；表达式匹配范围由传入模式自行约束。
+## [br]
+## @api private
 func _compile_regex(pattern: String) -> RegEx:
 	var expression: RegEx = RegEx.new()
 	var compile_result: Error = expression.compile(pattern)
@@ -3484,12 +4045,18 @@ func _compile_regex(pattern: String) -> RegEx:
 	return expression
 
 
+## 拼接父相对路径与条目名并统一斜线，路径规范性由调用方事先保证。
+## [br]
+## @api private
 func _join_relative_path(base_path: String, file_name: String) -> String:
 	if base_path.is_empty():
 		return file_name.replace("\\", "/")
 	return base_path.path_join(file_name).replace("\\", "/")
 
 
+## 取最后一个正斜线前的文本，根级相对路径返回空串，不执行路径归一。
+## [br]
+## @api private
 func _get_parent_path(relative_path: String) -> String:
 	var slash_index: int = relative_path.rfind("/")
 	if slash_index < 0:
@@ -3497,6 +4064,9 @@ func _get_parent_path(relative_path: String) -> String:
 	return relative_path.substr(0, slash_index)
 
 
+## 统一斜线并跳过协议前缀后检查精确 .. 段，不把名称中的连续点当作父目录。
+## [br]
+## @api private
 func _path_has_parent_segment(path: String) -> bool:
 	var normalized_path: String = path.replace("\\", "/")
 	var body: String = normalized_path
@@ -3509,6 +4079,9 @@ func _path_has_parent_segment(path: String) -> bool:
 	return false
 
 
+## 逐级检查现存父目录中的链接项，跳过不存在的祖先，打不开现存父目录也按越界处理；检查不提供原子访问保证。
+## [br]
+## @api private
 func _path_crosses_link(path: String) -> bool:
 	var probe_path: String = ProjectSettings.globalize_path(path).replace("\\", "/").simplify_path()
 	while not probe_path.is_empty():
@@ -3531,6 +4104,10 @@ func _path_crosses_link(path: String) -> bool:
 	return false
 
 
+## 将 StringName 转为 String；String 原样返回，其他类型返回空字符串。
+## [br]
+## @api private
+## [br]
 func _string_value(value: Variant) -> String:
 	if value is String:
 		var string_value: String = value
@@ -3541,10 +4118,18 @@ func _string_value(value: Variant) -> String:
 	return ""
 
 
+## 判断 String 或 StringName 去除首尾空白后是否非空。
+## [br]
+## @api private
+## [br]
 func _is_non_empty_string_value(value: Variant) -> bool:
 	return not _string_value(value).strip_edges().is_empty()
 
 
+## 读取字典中的 String 或 StringName 字段；缺失或类型不匹配时返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_string(source: Dictionary, key: String, default_value: String = "") -> String:
 	if not source.has(key):
 		return default_value
@@ -3558,6 +4143,10 @@ func _get_string(source: Dictionary, key: String, default_value: String = "") ->
 	return default_value
 
 
+## 读取字典中的 bool 字段；缺失或类型不匹配时返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_bool(source: Dictionary, key: String, default_value: bool = false) -> bool:
 	if not source.has(key):
 		return default_value
@@ -3568,6 +4157,10 @@ func _get_bool(source: Dictionary, key: String, default_value: bool = false) -> 
 	return default_value
 
 
+## 读取字典中的 int 或数值精确的有限 float；其他值返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_int(source: Dictionary, key: String, default_value: int = 0) -> int:
 	if not source.has(key):
 		return default_value
@@ -3580,6 +4173,10 @@ func _get_int(source: Dictionary, key: String, default_value: int = 0) -> int:
 	return default_value
 
 
+## 判断值是否为 int，或有限且等于其向下取整结果的 float。
+## [br]
+## @api private
+## [br]
 func _is_exact_integer(value: Variant) -> bool:
 	if value is int:
 		return true
@@ -3589,6 +4186,10 @@ func _is_exact_integer(value: Variant) -> bool:
 	return is_finite(float_value) and float_value == floorf(float_value)
 
 
+## 将 int 或精确整数 float 转为 int；其他值返回默认值。
+## [br]
+## @api private
+## [br]
 func _exact_integer_value(value: Variant, default_value: int = 0) -> int:
 	if value is int:
 		return value
@@ -3599,6 +4200,9 @@ func _exact_integer_value(value: Variant, default_value: int = 0) -> int:
 	return default_value
 
 
+## 缺失时使用默认预算，已提供值必须为正整数；非法值记录错误并返回默认值供外层终止判断。
+## [br]
+## @api private
 func _get_positive_integer_option(options: Dictionary, key: String, default_value: int, report: Dictionary) -> int:
 	if not options.has(key):
 		return default_value
@@ -3616,6 +4220,10 @@ func _get_positive_integer_option(options: Dictionary, key: String, default_valu
 	return default_value
 
 
+## 返回指定字段中的 Array；缺失或类型不匹配时返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_array(source: Dictionary, key: String) -> Array:
 	if not source.has(key):
 		return []
@@ -3626,6 +4234,10 @@ func _get_array(source: Dictionary, key: String) -> Array:
 	return []
 
 
+## 返回指定字段中的 Dictionary；缺失或类型不匹配时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_dictionary(source: Dictionary, key: String) -> Dictionary:
 	if not source.has(key):
 		return {}
@@ -3636,6 +4248,10 @@ func _get_dictionary(source: Dictionary, key: String) -> Dictionary:
 	return {}
 
 
+## 返回指定字段中的 PackedStringArray；缺失或类型不匹配时返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_packed_string_array(source: Dictionary, key: String) -> PackedStringArray:
 	if not source.has(key):
 		return PackedStringArray()
@@ -3646,6 +4262,10 @@ func _get_packed_string_array(source: Dictionary, key: String) -> PackedStringAr
 	return PackedStringArray()
 
 
+## 将 String、StringName、PackedStringArray 或对应数组读作字符串列表。
+## [br]
+## @api private
+## [br]
 func _get_string_list(source: Dictionary, key: String) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	if not source.has(key):

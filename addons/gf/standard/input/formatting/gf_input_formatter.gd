@@ -11,11 +11,19 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 预载输入事件类型收窄工具，供通用文本格式化分支复用。
+## [br]
+## @api private
+## [br]
 const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_input_event_tools.gd")
 
 
 # --- 私有变量 ---
 
+## 延迟创建并供静态格式化入口共享的默认 provider 注册表。
+## [br]
+## @api private
+## [br]
 static var _default_registry: GFInputFormatterRegistry = null
 
 
@@ -469,6 +477,10 @@ static func get_icon_providers() -> Array[GFInputIconProvider]:
 
 # --- 私有/辅助方法 ---
 
+## 按首选设备类型过滤动作事件，并使用有效的 preferred_event_index 选择事件。
+## [br]
+## @api private
+## [br]
 static func _select_action_event(action_name: StringName, options: Dictionary) -> InputEvent:
 	var action_events: Array[InputEvent] = _get_action_events(action_name)
 	if action_events.is_empty():
@@ -485,6 +497,10 @@ static func _select_action_event(action_name: StringName, options: Dictionary) -
 	return candidate_events[preferred_index]
 
 
+## 读取 InputMap 动作事件；没有有效事件时回退到 ProjectSettings。
+## [br]
+## @api private
+## [br]
 static func _get_action_events(action_name: StringName) -> Array[InputEvent]:
 	var events: Array[InputEvent] = []
 	if InputMap.has_action(action_name):
@@ -497,6 +513,10 @@ static func _get_action_events(action_name: StringName) -> Array[InputEvent]:
 	return _get_project_setting_action_events(action_name)
 
 
+## 从 input/<action> 设置的 events 数组提取有效 InputEvent。
+## [br]
+## @api private
+## [br]
 static func _get_project_setting_action_events(action_name: StringName) -> Array[InputEvent]:
 	var setting_name: String = "input/%s" % String(action_name)
 	if not ProjectSettings.has_setting(setting_name):
@@ -520,6 +540,10 @@ static func _get_project_setting_action_events(action_name: StringName) -> Array
 	return events
 
 
+## 无设备偏好时复制全部动作事件，否则只保留匹配首选设备类型的事件。
+## [br]
+## @api private
+## [br]
 static func _filter_action_events_by_device(
 	action_events: Array[InputEvent],
 	preferred_device_type: StringName
@@ -534,6 +558,10 @@ static func _filter_action_events_by_device(
 	return result
 
 
+## 按键盘、鼠标、手柄或触屏别名判断事件所属设备类别。
+## [br]
+## @api private
+## [br]
 static func _event_matches_preferred_device_type(
 	input_event: InputEvent,
 	preferred_device_type: StringName
@@ -553,6 +581,10 @@ static func _event_matches_preferred_device_type(
 			return false
 
 
+## 构造动作事件并按注册顺序请求首个返回非空 RichText 的图标 provider。
+## [br]
+## @api private
+## [br]
 static func _action_event_as_rich_text(action_name: StringName, options: Dictionary) -> String:
 	var action_event: InputEventAction = _make_action_event(action_name)
 	for provider: GFInputIconProvider in _get_formatter_registry(options).get_icon_providers():
@@ -564,6 +596,10 @@ static func _action_event_as_rich_text(action_name: StringName, options: Diction
 	return ""
 
 
+## 构造动作事件并按注册顺序请求首个返回非空纹理的图标 provider。
+## [br]
+## @api private
+## [br]
 static func _action_event_icon(action_name: StringName, options: Dictionary) -> Texture2D:
 	var action_event: InputEventAction = _make_action_event(action_name)
 	for provider: GFInputIconProvider in _get_formatter_registry(options).get_icon_providers():
@@ -575,6 +611,10 @@ static func _action_event_icon(action_name: StringName, options: Dictionary) -> 
 	return null
 
 
+## 创建 pressed 为 true 且 strength 为 1 的 InputEventAction。
+## [br]
+## @api private
+## [br]
 static func _make_action_event(action_name: StringName) -> InputEventAction:
 	var action_event: InputEventAction = InputEventAction.new()
 	action_event.action = action_name
@@ -583,6 +623,10 @@ static func _make_action_event(action_name: StringName) -> InputEventAction:
 	return action_event
 
 
+## 优先使用 options 中的 GFInputFormatterRegistry，否则返回默认注册表。
+## [br]
+## @api private
+## [br]
 static func _get_formatter_registry(options: Dictionary) -> GFInputFormatterRegistry:
 	var registry_value: Variant = GFVariantData.get_option_value(options, &"formatter_registry")
 	if registry_value is GFInputFormatterRegistry:
@@ -591,6 +635,10 @@ static func _get_formatter_registry(options: Dictionary) -> GFInputFormatterRegi
 	return get_default_registry()
 
 
+## 按修饰键顺序拼接显示名，并优先采用物理键码作为按键文本。
+## [br]
+## @api private
+## [br]
 static func _key_event_as_text(event: InputEventKey) -> String:
 	var parts: Array[String] = []
 	if event.ctrl_pressed:
@@ -611,6 +659,10 @@ static func _key_event_as_text(event: InputEventKey) -> String:
 	return " + ".join(parts)
 
 
+## 将常用鼠标按钮映射为文本，其余按钮返回带枚举值的编号文本。
+## [br]
+## @api private
+## [br]
 static func _mouse_button_as_text(button: MouseButton) -> String:
 	match button:
 		MOUSE_BUTTON_LEFT:
@@ -627,6 +679,10 @@ static func _mouse_button_as_text(button: MouseButton) -> String:
 			return "Mouse Button %d" % int(button)
 
 
+## 把方括号分别替换为 RichTextLabel 的 [lb] 与 [rb] 转义标记。
+## [br]
+## @api private
+## [br]
 static func _escape_bbcode(text: String) -> String:
 	var result: String = ""
 	for index: int in range(text.length()):

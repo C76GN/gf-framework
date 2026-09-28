@@ -31,6 +31,10 @@ enum ClipIdMode {
 
 # --- 常量 ---
 
+## 音频扫描和路径 ID 构造共用的路径规范化工具脚本。
+## [br]
+## @api private
+## [br]
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 
 ## 默认音频扩展名白名单，不包含点号。
@@ -342,14 +346,26 @@ static func make_clip_id(path: String, options: Dictionary = {}) -> StringName:
 
 # --- 私有/辅助方法 ---
 
+## 创建空的音频资源集合实例。
+## [br]
+## @api private
+## [br]
 static func _make_bank() -> GFAudioBank:
 	return GFAudioBank.new()
 
 
+## 按主题创建音频集合校验报告。
+## [br]
+## @api private
+## [br]
 static func _make_report(subject: String) -> GFValidationReport:
 	return GFValidationReport.new(subject)
 
 
+## 从路径和选项创建 clip，并应用总线、音量、音高及元数据。
+## [br]
+## @api private
+## [br]
 static func _make_clip(path: String, options: Dictionary) -> GFAudioClip:
 	var clip: GFAudioClip = GFAudioClip.new()
 	clip.path = path
@@ -360,6 +376,10 @@ static func _make_clip(path: String, options: Dictionary) -> GFAudioClip:
 	return clip
 
 
+## 复制基础元数据，并将对应路径的元数据合并到 clip。
+## [br]
+## @api private
+## [br]
 static func _apply_clip_metadata(clip: GFAudioClip, path: String, options: Dictionary) -> void:
 	var base_metadata: Dictionary = GFVariantData.get_option_dictionary(options, "metadata", {})
 	if not base_metadata.is_empty():
@@ -376,6 +396,10 @@ static func _apply_clip_metadata(clip: GFAudioClip, path: String, options: Dicti
 	var _merged_metadata: Dictionary = GFVariantData.merge_metadata(clip.metadata, path_metadata, true, true)
 
 
+## 检查 clip 的扩展名与可选的音频总线存在性，并记录警告。
+## [br]
+## @api private
+## [br]
 static func _validate_clip_playback(
 	report: GFValidationReport,
 	clip_id: StringName,
@@ -413,6 +437,10 @@ static func _validate_clip_playback(
 		)
 
 
+## 遍历目录收集音频路径，跳过排除目录、隐藏项与符号链接并应用限制。
+## [br]
+## @api private
+## [br]
 static func _scan_audio_paths_recursive(
 	dir_path: String,
 	recursive: bool,
@@ -477,6 +505,10 @@ static func _scan_audio_paths_recursive(
 	dir.list_dir_end()
 
 
+## 检查当前目录深度是否允许递归，触顶时发出一次深度警告。
+## [br]
+## @api private
+## [br]
 static func _can_scan_deeper(path: String, current_depth: int, max_scan_depth: int, scan_state: Dictionary) -> bool:
 	if current_depth < max_scan_depth:
 		return true
@@ -484,10 +516,18 @@ static func _can_scan_deeper(path: String, current_depth: int, max_scan_depth: i
 	return false
 
 
+## 检查已收集音频路径数量是否仍低于本次扫描上限。
+## [br]
+## @api private
+## [br]
 static func _can_collect_more_audio_paths(result: PackedStringArray, max_audio_paths: int) -> bool:
 	return result.size() < max_audio_paths
 
 
+## 创建追踪扫描项计数和各类单次警告的状态字典。
+## [br]
+## @api private
+## [br]
 static func _make_scan_state() -> Dictionary:
 	return {
 		"scanned_entry_count": 0,
@@ -498,6 +538,10 @@ static func _make_scan_state() -> Dictionary:
 	}
 
 
+## 音频路径数触顶时至多发出一次扫描警告。
+## [br]
+## @api private
+## [br]
 static func _warn_audio_path_limit(max_audio_paths: int, scan_state: Dictionary) -> void:
 	if GFVariantData.get_option_bool(scan_state, "count_warning_emitted"):
 		return
@@ -505,6 +549,10 @@ static func _warn_audio_path_limit(max_audio_paths: int, scan_state: Dictionary)
 	push_warning("[GFAudioBankTools][audio_bank_tools.audio_path_limit] scan_audio_paths reached max_audio_paths=%d; remaining audio files were skipped." % max_audio_paths)
 
 
+## 目录深度触顶时至多发出一次警告并指出未展开的目录。
+## [br]
+## @api private
+## [br]
 static func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
 	if GFVariantData.get_option_bool(scan_state, "depth_warning_emitted"):
 		return
@@ -512,6 +560,10 @@ static func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state
 	push_warning("[GFAudioBankTools][audio_bank_tools.scan_depth_limit] scan_audio_paths reached max_scan_depth=%d; deeper directory skipped: %s." % [max_scan_depth, path])
 
 
+## 消耗一个目录项扫描配额；超过上限时发出警告并返回 false。
+## [br]
+## @api private
+## [br]
 static func _try_consume_scan_entry(
 	max_scanned_entries: int,
 	scan_state: Dictionary
@@ -527,6 +579,10 @@ static func _try_consume_scan_entry(
 	return true
 
 
+## 已检查目录项数触顶时至多发出一次扫描警告。
+## [br]
+## @api private
+## [br]
 static func _warn_scanned_entry_limit(
 	max_scanned_entries: int,
 	scan_state: Dictionary
@@ -540,6 +596,10 @@ static func _warn_scanned_entry_limit(
 	)
 
 
+## 首次跳过符号链接时发出警告并指出该路径。
+## [br]
+## @api private
+## [br]
 static func _warn_scan_link_skipped(path: String, scan_state: Dictionary) -> void:
 	if GFVariantData.get_option_bool(scan_state, "link_warning_emitted"):
 		return
@@ -549,6 +609,10 @@ static func _warn_scan_link_skipped(path: String, scan_state: Dictionary) -> voi
 	)
 
 
+## 负值采用默认限制，零值采用绝对上限，正值不超过绝对上限。
+## [br]
+## @api private
+## [br]
 static func _resolve_scan_limit(
 	requested_limit: int,
 	default_limit: int,
@@ -561,12 +625,20 @@ static func _resolve_scan_limit(
 	return mini(requested_limit, absolute_limit)
 
 
+## 从扫描选项读取扩展名并统一规范化。
+## [br]
+## @api private
+## [br]
 static func _get_extensions(options: Dictionary) -> PackedStringArray:
 	return _normalize_extensions(
 		GFVariantData.get_option_packed_string_array(options, "extensions", AUDIO_EXTENSIONS)
 	)
 
 
+## 解析排除根目录；启用 addons 扫描时返回空列表。
+## [br]
+## @api private
+## [br]
 static func _get_excluded_paths(options: Dictionary) -> PackedStringArray:
 	if GFVariantData.get_option_bool(options, "include_addons", false):
 		return PackedStringArray()
@@ -574,6 +646,10 @@ static func _get_excluded_paths(options: Dictionary) -> PackedStringArray:
 	return _GF_PATH_TOOLS.normalize_root_paths(paths, false)
 
 
+## 清理扩展名空白、前导点和大小写，并跳过空值。
+## [br]
+## @api private
+## [br]
 static func _normalize_extensions(extensions: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for extension: String in extensions:
@@ -585,6 +661,10 @@ static func _normalize_extensions(extensions: PackedStringArray) -> PackedString
 	return result
 
 
+## 将数字或文本配置映射为 clip ID 模式，未识别值使用 basename。
+## [br]
+## @api private
+## [br]
 static func _resolve_id_mode(value: Variant) -> ClipIdMode:
 	if value is int or value is bool or value is float:
 		var mode_value: int = GFVariantData.to_int(value, ClipIdMode.BASENAME)
@@ -605,6 +685,10 @@ static func _resolve_id_mode(value: Variant) -> ClipIdMode:
 			return ClipIdMode.BASENAME
 
 
+## 生成相对路径；无法生成时回退到规范化的完整资源路径。
+## [br]
+## @api private
+## [br]
 static func _make_relative_path(path: String, base_path: String) -> String:
 	var relative_path: String = _GF_PATH_TOOLS.make_relative_path(path, base_path)
 	if relative_path.is_empty():
@@ -612,14 +696,26 @@ static func _make_relative_path(path: String, base_path: String) -> String:
 	return relative_path
 
 
+## 按路径工具规则规范化扫描根目录。
+## [br]
+## @api private
+## [br]
 static func _normalize_dir_path(path: String) -> String:
 	return _GF_PATH_TOOLS.normalize_root_path(path, "", false)
 
 
+## 委托路径工具检查路径是否位于排除根目录下。
+## [br]
+## @api private
+## [br]
 static func _is_excluded_path(path: String, excluded_paths: PackedStringArray) -> bool:
 	return _GF_PATH_TOOLS.is_path_excluded(path, excluded_paths)
 
 
+## 将警告及其关联键、路径和元数据转交给校验报告。
+## [br]
+## @api private
+## [br]
 static func _add_report_warning(
 	report: GFValidationReport,
 	kind: StringName,
@@ -631,6 +727,10 @@ static func _add_report_warning(
 	var _issue: RefCounted = report.add_warning(kind, message, key, path, metadata)
 
 
+## 将错误及其关联键、路径和元数据转交给校验报告。
+## [br]
+## @api private
+## [br]
 static func _add_report_error(
 	report: GFValidationReport,
 	kind: StringName,
@@ -642,10 +742,18 @@ static func _add_report_error(
 	var _issue: RefCounted = report.add_error(kind, message, key, path, metadata)
 
 
+## 将来源报告合并到目标报告，可选择包含来源元数据。
+## [br]
+## @api private
+## [br]
 static func _merge_report(target: GFValidationReport, source: Variant, include_metadata: bool = true) -> void:
 	var _merged_report: RefCounted = target.merge(source, include_metadata)
 
 
+## 将文本追加到 PackedStringArray，并在追加成功时结束处理。
+## [br]
+## @api private
+## [br]
 static func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:

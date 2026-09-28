@@ -69,9 +69,28 @@ signal download_cancelled(task_id: int, result: Dictionary)
 
 # --- 常量 ---
 
+## 续传分段追加时每次读取的缓冲区大小。
+## [br]
+## @api private
+## [br]
 const _APPEND_BUFFER_SIZE_BYTES: int = 64 * 1024
+
+## 由目标路径派生的下载临时文件后缀。
+## [br]
+## @api private
+## [br]
 const _TEMP_FILE_SUFFIX: String = ".download"
+
+## Range 续传响应先写入的分段文件后缀。
+## [br]
+## @api private
+## [br]
 const _SEGMENT_FILE_SUFFIX: String = ".segment"
+
+## 替换目标文件时用于保留旧目标的备份后缀。
+## [br]
+## @api private
+## [br]
 const _BACKUP_FILE_SUFFIX: String = ".gf_download_backup"
 
 
@@ -105,14 +124,58 @@ var default_retry_delay_seconds: float = 0.0
 
 # --- 私有变量 ---
 
+## 等待启动或等待重试时间到达的下载任务队列。
+## [br]
+## @api private
+## [br]
 var _pending_tasks: Array[GFDownloadTask] = []
+
+## 当前唯一活动的下载任务。
+## [br]
+## @api private
+## [br]
 var _active_task: GFDownloadTask = null
+
+## 当前请求使用的数据；请求结束时先复制该字典再清空活动状态。
+## [br]
+## @api private
+## [br]
 var _active_request_data: Dictionary = {}
+
+## 由本工具复用的 HTTPRequest 节点。
+## [br]
+## @api private
+## [br]
 var _http_request: HTTPRequest = null
+
+## 下一个分配的任务句柄；init/dispose 时重置为 1。
+## [br]
+## @api private
+## [br]
 var _next_task_id: int = 1
+
+## 暂停标记；为 true 时不启动队列任务。
+## [br]
+## @api private
+## [br]
 var _paused: bool = false
+
+## 按任务句柄保存的最近一次终态结果。
+## [br]
+## @api private
+## [br]
 var _results: Dictionary = {}
+
+## 按任务句柄保存的完成回调，终态处理时取出并删除。
+## [br]
+## @api private
+## [br]
 var _callbacks: Dictionary = {}
+
+## 上次发出下载进度信号时的单调时钟毫秒值。
+## [br]
+## @api private
+## [br]
 var _last_progress_emit_msec: int = 0
 
 
@@ -674,6 +737,10 @@ func _complete_active_download(
 
 # --- 私有/辅助方法 ---
 
+## 将 JSON 字符串解析为 Variant；空文本或解析失败时返回空数组。
+## [br]
+## @api private
+## [br]
 static func _parse_manifest_data(data: Variant) -> Variant:
 	if data is String:
 		var manifest_text: String = data
@@ -687,6 +754,10 @@ static func _parse_manifest_data(data: Variant) -> Variant:
 	return data
 
 
+## 接受数组清单，或按 files、entries、downloads 优先级读取字典条目。
+## [br]
+## @api private
+## [br]
 static func _get_manifest_raw_entries(data: Variant) -> Array:
 	if data is Array:
 		var array_entries: Array = data
@@ -703,6 +774,10 @@ static func _get_manifest_raw_entries(data: Variant) -> Array:
 	return []
 
 
+## 合并调用选项与清单级 base_url、默认 Header 和 metadata。
+## [br]
+## @api private
+## [br]
 static func _build_manifest_defaults(data: Variant, options: Dictionary) -> Dictionary:
 	var defaults: Dictionary = {
 		"base_url": GFVariantData.get_option_string(options, "base_url").strip_edges(),
@@ -725,6 +800,10 @@ static func _build_manifest_defaults(data: Variant, options: Dictionary) -> Dict
 	return defaults
 
 
+## 将字符串或字典条目规范为 URL、目标路径、合并选项和清单来源 metadata。
+## [br]
+## @api private
+## [br]
 static func _normalize_manifest_entry(value: Variant, defaults: Dictionary, index: int) -> Dictionary:
 	var entry: Dictionary = {}
 	if value is Dictionary:
@@ -779,6 +858,10 @@ static func _normalize_manifest_entry(value: Variant, defaults: Dictionary, inde
 	return normalized
 
 
+## 深复制选项并移除仅供清单解析使用的 base_url、Header 与 metadata 字段。
+## [br]
+## @api private
+## [br]
 static func _strip_manifest_parse_options(options: Dictionary) -> Dictionary:
 	var result: Dictionary = options.duplicate(true)
 	_erase_dictionary_key_static(result, "base_url")
@@ -792,6 +875,10 @@ static func _strip_manifest_parse_options(options: Dictionary) -> Dictionary:
 	return result
 
 
+## 保留空值或带 URI scheme 的 URL，否则将相对值拼到规范化 base_url 后。
+## [br]
+## @api private
+## [br]
 static func _resolve_manifest_url(url: String, base_url: String) -> String:
 	var value: String = url.strip_edges()
 	if value.is_empty() or _has_uri_scheme(value) or base_url.strip_edges().is_empty():
@@ -799,10 +886,18 @@ static func _resolve_manifest_url(url: String, base_url: String) -> String:
 	return base_url.strip_edges().trim_suffix("/") + "/" + value.trim_prefix("/")
 
 
+## 识别包含 :// 或以 uid:// 开头的 URI。
+## [br]
+## @api private
+## [br]
 static func _has_uri_scheme(value: String) -> bool:
 	return value.contains("://") or value.begins_with("uid://")
 
 
+## 去除 URL 查询与片段部分后读取末级文件名。
+## [br]
+## @api private
+## [br]
 static func _get_url_file_name(url: String) -> String:
 	var path: String = url
 	var query_index: int = path.find("?")
@@ -814,6 +909,10 @@ static func _get_url_file_name(url: String) -> String:
 	return path.get_file()
 
 
+## 按候选键顺序取第一个存在值并转成去首尾空白字符串。
+## [br]
+## @api private
+## [br]
 static func _first_entry_string(entry: Dictionary, keys: Array, default_value: String = "") -> String:
 	for key: Variant in keys:
 		if _has_dictionary_key(entry, key):
@@ -821,6 +920,10 @@ static func _first_entry_string(entry: Dictionary, keys: Array, default_value: S
 	return default_value
 
 
+## 按候选键顺序读取首个整数选项，均不存在时返回默认值。
+## [br]
+## @api private
+## [br]
 static func _first_entry_int(entry: Dictionary, keys: Array, default_value: int = 0) -> int:
 	for key: Variant in keys:
 		if _has_dictionary_key(entry, key):
@@ -828,6 +931,10 @@ static func _first_entry_int(entry: Dictionary, keys: Array, default_value: int 
 	return default_value
 
 
+## 优先读取 expected_sha256 或 sha256，否则仅接受长度为 64 的通用 hash。
+## [br]
+## @api private
+## [br]
 static func _get_entry_expected_sha256(entry: Dictionary) -> String:
 	var value: String = _first_entry_string(entry, ["expected_sha256", "sha256"]).to_lower()
 	if not value.is_empty():
@@ -836,12 +943,20 @@ static func _get_entry_expected_sha256(entry: Dictionary) -> String:
 	return generic_hash if generic_hash.length() == 64 else ""
 
 
+## 仅在源条目含该键时，将值复制到规范条目。
+## [br]
+## @api private
+## [br]
 static func _copy_manifest_entry_option(source: Dictionary, target: Dictionary, key: String) -> void:
 	if not _has_dictionary_key(source, key):
 		return
 	target[key] = GFVariantData.duplicate_variant(GFVariantData.get_option_value(source, key))
 
 
+## 检查原始键及对应 String/StringName 形式是否存在。
+## [br]
+## @api private
+## [br]
 static func _has_dictionary_key(source: Dictionary, key: Variant) -> bool:
 	if source.has(key):
 		return true
@@ -854,12 +969,20 @@ static func _has_dictionary_key(source: Dictionary, key: Variant) -> bool:
 	return false
 
 
+## 复制第一组 Header 后按顺序追加第二组，不做键级去重。
+## [br]
+## @api private
+## [br]
 static func _merge_headers(first: PackedStringArray, second: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = first.duplicate()
 	result.append_array(second)
 	return result
 
 
+## 深复制基础 metadata，再以第二组键值覆盖并复制覆盖值。
+## [br]
+## @api private
+## [br]
 static func _merge_metadata(first: Dictionary, second: Dictionary) -> Dictionary:
 	var result: Dictionary = first.duplicate(true)
 	for key: Variant in second.keys():
@@ -867,11 +990,19 @@ static func _merge_metadata(first: Dictionary, second: Dictionary) -> Dictionary
 	return result
 
 
+## 从静态清单选项字典中删除指定键。
+## [br]
+## @api private
+## [br]
 static func _erase_dictionary_key_static(target: Dictionary, key: Variant) -> void:
 	var erased: bool = target.erase(key)
 	if erased:
 		return
 
+## 仅在未暂停且无活动任务时取首个可重试任务并启动请求。
+## [br]
+## @api private
+## [br]
 func _try_start_next_download() -> void:
 	if _paused or _active_task != null or _pending_tasks.is_empty():
 		return
@@ -911,6 +1042,10 @@ func _try_start_next_download() -> void:
 	download_started.emit(task.task_id, task.duplicate_task())
 
 
+## 按任务状态构建请求；存在可续传临时文件时改用分段文件并添加 Range 头。
+## [br]
+## @api private
+## [br]
 func _build_request_data(task: GFDownloadTask) -> Dictionary:
 	var resume_offset: int = 0
 	if task.resume and FileAccess.file_exists(task.temp_path):
@@ -931,6 +1066,10 @@ func _build_request_data(task: GFDownloadTask) -> Dictionary:
 	}
 
 
+## 复用现有 HTTPRequest，或在当前 SceneTree 根节点下创建并连接完成信号。
+## [br]
+## @api private
+## [br]
 func _ensure_http_request() -> HTTPRequest:
 	if is_instance_valid(_http_request):
 		return _http_request
@@ -949,6 +1088,10 @@ func _ensure_http_request() -> HTTPRequest:
 	return _http_request
 
 
+## 取消并释放当前 HTTPRequest 节点，然后清空工具持有的引用。
+## [br]
+## @api private
+## [br]
 func _cancel_and_discard_http_request() -> void:
 	if is_instance_valid(_http_request):
 		_http_request.cancel_request()
@@ -956,6 +1099,10 @@ func _cancel_and_discard_http_request() -> void:
 	_http_request = null
 
 
+## 按续传响应整合分段文件、校验临时文件并尝试提交到最终路径。
+## [br]
+## @api private
+## [br]
 func _commit_download_file(task: GFDownloadTask, request_data: Dictionary, response_code: int) -> Error:
 	var resume_offset: int = GFVariantData.get_option_int(request_data, "resume_offset")
 	if resume_offset > 0:
@@ -979,6 +1126,10 @@ func _commit_download_file(task: GFDownloadTask, request_data: Dictionary, respo
 	return _replace_download_target_atomically(task)
 
 
+## 分块追加源文件；写入或读取失败时尝试把目标恢复到追加前长度。
+## [br]
+## @api private
+## [br]
 func _append_file(source_path: String, target_path: String) -> Error:
 	if not FileAccess.file_exists(source_path):
 		return OK
@@ -1019,6 +1170,12 @@ func _append_file(source_path: String, target_path: String) -> Error:
 	return OK
 
 
+## 通过目标旁备份文件执行替换，并在新文件改名失败时尝试恢复旧目标。
+## [br]
+## 备份清理失败只发警告；恢复也失败时错误信息保留备份路径。
+## [br]
+## @api private
+## [br]
 func _replace_download_target_atomically(task: GFDownloadTask) -> Error:
 	var backup_path: String = task.target_path + _BACKUP_FILE_SUFFIX
 	if FileAccess.file_exists(backup_path):
@@ -1064,25 +1221,45 @@ func _replace_download_target_atomically(task: GFDownloadTask) -> Error:
 	return commit_error
 
 
+## 将文件改名/移动操作委托给 DirAccess.rename_absolute。
+## [br]
+## @api private
+## [br]
 func _rename_file_for_commit(source_path: String, target_path: String) -> Error:
 	return DirAccess.rename_absolute(source_path, target_path)
 
 
+## 文件不存在时视为成功，否则返回绝对路径删除结果。
+## [br]
+## @api private
+## [br]
 func _remove_file_for_commit(path: String) -> Error:
 	if not FileAccess.file_exists(path):
 		return OK
 	return DirAccess.remove_absolute(path)
 
 
+## 将分段字节写入目标文件并返回 FileAccess 当前错误码。
+## [br]
+## @api private
+## [br]
 func _store_append_chunk(target: FileAccess, chunk: PackedByteArray) -> Error:
 	var _store_buffer_result: Variant = target.store_buffer(chunk)
 	return target.get_error()
 
 
+## 按任务预期校验临时下载文件的 SHA-256。
+## [br]
+## @api private
+## [br]
 func _verify_checksum(task: GFDownloadTask) -> bool:
 	return _verify_file_checksum(task, task.temp_path, "temp file")
 
 
+## 未配置摘要时通过；否则检查文件存在及小写 SHA-256 是否匹配。
+## [br]
+## @api private
+## [br]
 func _verify_file_checksum(task: GFDownloadTask, file_path: String, label: String) -> bool:
 	if task.expected_sha256.is_empty():
 		return true
@@ -1097,6 +1274,10 @@ func _verify_file_checksum(task: GFDownloadTask, file_path: String, label: Strin
 	return true
 
 
+## 保存终态结果、取出并调用一次性回调，再发出成功、失败或取消信号。
+## [br]
+## @api private
+## [br]
 func _finish_task(
 	task: GFDownloadTask,
 	success: bool,
@@ -1123,6 +1304,10 @@ func _finish_task(
 		download_failed.emit(task.task_id, result)
 
 
+## 标记活动任务暂停、丢弃请求并将任务放回队首，保留其临时文件。
+## [br]
+## @api private
+## [br]
 func _pause_active_task() -> void:
 	if _active_task == null:
 		return
@@ -1135,6 +1320,10 @@ func _pause_active_task() -> void:
 	_pending_tasks.push_front(task)
 
 
+## 将 PackedStringArray、Array 或 Dictionary 转为 Header 行数组，其它类型返回空数组。
+## [br]
+## @api private
+## [br]
 static func _normalize_headers(value: Variant) -> PackedStringArray:
 	if value is PackedStringArray:
 		var headers: PackedStringArray = value
@@ -1153,6 +1342,10 @@ static func _normalize_headers(value: Variant) -> PackedStringArray:
 	return PackedStringArray()
 
 
+## 将清单相对目标解析到受控 res:// 或 user:// 根下，拒绝绝对目标与越界路径。
+## [br]
+## @api private
+## [br]
 func _resolve_manifest_target_path(entry: Dictionary, target_root: String) -> String:
 	var target_path: String = _first_entry_string(entry, ["target_path", "path", "file"])
 	if target_path.is_empty():
@@ -1176,10 +1369,18 @@ func _resolve_manifest_target_path(entry: Dictionary, target_root: String) -> St
 	return resolved_target
 
 
+## 只接受以 res:// 或 user:// 开头的目标根路径。
+## [br]
+## @api private
+## [br]
 func _is_supported_absolute_target_path(path: String) -> bool:
 	return path.begins_with("res://") or path.begins_with("user://")
 
 
+## 拒绝空路径、绝对路径、URI/盘符、无文件名和任一 .. 路径段。
+## [br]
+## @api private
+## [br]
 func _is_safe_relative_download_path(path: String) -> bool:
 	if path.is_empty() or path.begins_with("/") or path.contains("://") or path.contains(":"):
 		return false
@@ -1188,6 +1389,10 @@ func _is_safe_relative_download_path(path: String) -> bool:
 	return true
 
 
+## 规范化直接下载路径；只保留受控根内且含文件名、无 .. 段的路径。
+## [br]
+## @api private
+## [br]
 func _normalize_direct_download_path(path: String) -> String:
 	var normalized: String = path.replace("\\", "/").strip_edges()
 	if not _is_supported_absolute_target_path(normalized):
@@ -1198,6 +1403,10 @@ func _normalize_direct_download_path(path: String) -> String:
 	return normalized.simplify_path()
 
 
+## 检查以斜线分隔的任一路径段是否严格等于 ..。
+## [br]
+## @api private
+## [br]
 func _has_parent_path_segment(path: String) -> bool:
 	for segment: String in path.split("/", false):
 		if segment == "..":
@@ -1205,6 +1414,10 @@ func _has_parent_path_segment(path: String) -> bool:
 	return false
 
 
+## 复制入队选项、去除临时路径覆写，并合并清单 Header、metadata 与条目专属字段。
+## [br]
+## @api private
+## [br]
 func _build_manifest_download_options(entry: Dictionary, options: Dictionary, index: int) -> Dictionary:
 	var result: Dictionary = options.duplicate(true)
 	_erase_dictionary_key_static(result, "temp_path")
@@ -1229,6 +1442,10 @@ func _build_manifest_download_options(entry: Dictionary, options: Dictionary, in
 	return result
 
 
+## 优先读取任务快照顶层 expected_size，再回退到 metadata 中的同名键。
+## [br]
+## @api private
+## [br]
 func _get_snapshot_expected_size(snapshot: Dictionary) -> int:
 	var expected_size: int = GFVariantData.get_option_int(snapshot, "expected_size", -1)
 	if expected_size >= 0:
@@ -1237,6 +1454,10 @@ func _get_snapshot_expected_size(snapshot: Dictionary) -> int:
 	return GFVariantData.get_option_int(metadata, "expected_size", -1)
 
 
+## 为请求的正数 ID 汇集活动任务、排队任务及已保存终态结果快照。
+## [br]
+## @api private
+## [br]
 func _make_task_snapshot_lookup(task_ids: PackedInt32Array) -> Dictionary:
 	var requested_ids: Dictionary = {}
 	for task_id: int in task_ids:
@@ -1260,6 +1481,10 @@ func _make_task_snapshot_lookup(task_ids: PackedInt32Array) -> Dictionary:
 	return snapshots
 
 
+## 从队列移除首个 retry_not_before_msec 已到期的任务，均未到期时返回 null。
+## [br]
+## @api private
+## [br]
 func _pop_next_ready_task() -> GFDownloadTask:
 	var now_msec: int = Time.get_ticks_msec()
 	for index: int in range(_pending_tasks.size()):
@@ -1271,6 +1496,10 @@ func _pop_next_ready_task() -> GFDownloadTask:
 	return null
 
 
+## 先记录错误；允许且成功排定重试时清理失败响应文件，否则完成为失败。
+## [br]
+## @api private
+## [br]
 func _fail_or_retry_task(
 	task: GFDownloadTask,
 	error: String,
@@ -1287,6 +1516,10 @@ func _fail_or_retry_task(
 	_finish_task(task, false, false)
 
 
+## 未达到最大重试次数时更新计数和可重试时间，并将任务放回队首。
+## [br]
+## @api private
+## [br]
 func _schedule_retry(task: GFDownloadTask) -> bool:
 	if task.retry_count >= task.max_retries:
 		return false
@@ -1301,10 +1534,18 @@ func _schedule_retry(task: GFDownloadTask) -> bool:
 	return true
 
 
+## 将无响应码、408、425、429 和所有 5xx 以上响应码判为可重试。
+## [br]
+## @api private
+## [br]
 func _is_retryable_http_failure(response_code: int) -> bool:
 	return response_code == 0 or response_code == 408 or response_code == 425 or response_code == 429 or response_code >= 500
 
 
+## 响应码为零时保留断点文件；非零时尝试删除本次响应写入的文件。
+## [br]
+## @api private
+## [br]
 func _cleanup_failed_retry_download_file(request_data: Dictionary, response_code: int) -> void:
 	if response_code == 0:
 		return
@@ -1315,6 +1556,10 @@ func _cleanup_failed_retry_download_file(request_data: Dictionary, response_code
 	_remove_absolute_file_if_exists(download_file)
 
 
+## 若存在则分别尝试删除任务临时文件与续传分段文件。
+## [br]
+## @api private
+## [br]
 func _delete_task_temp_files(task: GFDownloadTask) -> void:
 	if FileAccess.file_exists(task.temp_path):
 		_remove_absolute_file_if_exists(task.temp_path)
@@ -1322,6 +1567,10 @@ func _delete_task_temp_files(task: GFDownloadTask) -> void:
 		_remove_absolute_file_if_exists(task.segment_path)
 
 
+## 打开文件读取长度；无法打开时返回 0。
+## [br]
+## @api private
+## [br]
 func _get_file_size(path: String) -> int:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
@@ -1331,6 +1580,10 @@ func _get_file_size(path: String) -> int:
 	return size
 
 
+## 确保目标父目录存在；目录创建错误由底层调用返回但此处不向上传递。
+## [br]
+## @api private
+## [br]
 func _ensure_parent_dir(path: String) -> void:
 	var dir_path: String = path.get_base_dir()
 	if dir_path.is_empty() or DirAccess.dir_exists_absolute(dir_path):
@@ -1338,10 +1591,18 @@ func _ensure_parent_dir(path: String) -> void:
 	_make_dir_recursive_absolute(dir_path)
 
 
+## 从字典读取选项并规范化为 PackedStringArray Header 行。
+## [br]
+## @api private
+## [br]
 func _get_dictionary_packed_string_array(source: Dictionary, key: Variant) -> PackedStringArray:
 	return _normalize_headers(GFVariantData.get_option_value(source, key, PackedStringArray()))
 
 
+## 按任务 ID 读取完成回调；值不是 Callable 时返回空 Callable。
+## [br]
+## @api private
+## [br]
 func _get_callback(task_id: int) -> Callable:
 	var value: Variant = GFVariantData.get_option_value(_callbacks, task_id, Callable())
 	if value is Callable:
@@ -1350,40 +1611,68 @@ func _get_callback(task_id: int) -> Callable:
 	return Callable()
 
 
+## 将 HTTPRequest.request_completed 连接到本工具的请求完成处理器。
+## [br]
+## @api private
+## [br]
 func _connect_request_completed(request: HTTPRequest) -> void:
 	var error: Error = request.request_completed.connect(_on_request_completed) as Error
 	if error != OK:
 		return
 
 
+## 将任务句柄追加到 PackedInt32Array。
+## [br]
+## @api private
+## [br]
 static func _append_packed_int32(target: PackedInt32Array, value: int) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 将字符串追加到 PackedStringArray。
+## [br]
+## @api private
+## [br]
 static func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 从运行时字典中删除指定键。
+## [br]
+## @api private
+## [br]
 func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 	var erased: bool = target.erase(key)
 	if erased:
 		return
 
 
+## 文件存在时委托删除，但不向调用方返回删除错误。
+## [br]
+## @api private
+## [br]
 func _remove_absolute_file_if_exists(path: String) -> void:
 	var _remove_error: Error = _remove_file_for_commit(path)
 
 
+## 请求递归创建绝对目录，并忽略底层错误码。
+## [br]
+## @api private
+## [br]
 func _make_dir_recursive_absolute(path: String) -> void:
 	var _mkdir_error: Error = DirAccess.make_dir_recursive_absolute(path)
 
 
 # --- 信号处理函数 ---
 
+## HTTPRequest 完成处理器：将非成功结果或非 2xx 响应交给失败流程，其余交给提交流程。
+## [br]
+## @api private
+## [br]
 func _on_request_completed(
 	result: int,
 	response_code: int,

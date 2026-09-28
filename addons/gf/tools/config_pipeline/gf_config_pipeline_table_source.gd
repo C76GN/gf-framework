@@ -208,6 +208,10 @@ func describe() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 根据路径扩展名推断 CSV、JSON、ConfigFile 或 XLSX；未知扩展名返回 FORMAT_AUTO。
+## [br]
+## @api private
+## [br]
 func _format_from_path(path: String) -> StringName:
 	var extension: String = path.get_extension().to_lower()
 	if extension == "csv":
@@ -221,6 +225,10 @@ func _format_from_path(path: String) -> StringName:
 	return FORMAT_AUTO
 
 
+## 从路径文件名移除末尾扩展名作为表名；没有文件名时返回空 StringName。
+## [br]
+## @api private
+## [br]
 func _table_name_from_path(path: String) -> StringName:
 	var file_name: String = path.get_file()
 	if file_name.is_empty():

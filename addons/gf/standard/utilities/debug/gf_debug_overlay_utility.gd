@@ -98,12 +98,46 @@ var debug_only: bool = true
 
 # --- 私有变量 ---
 
+## 当前创建的调试覆盖层 GUI 实例。
+## [br]
+## @api private
+## [br]
 var _overlay_gui: _GFDebugGUI
+
+## 按 ID 保存 Watch 的显示值与选项。
+## [br]
+## @api private
+## [br]
 var _watches: Dictionary = {}
+
+## 分配给新 Watch 项的显示顺序值。
+## [br]
+## @api private
+## [br]
 var _watch_order_counter: int = 0
+
+## 按 ID 保存自定义面板的内容与选项。
+## [br]
+## @api private
+## [br]
 var _panels: Dictionary = {}
+
+## 分配给新面板项的显示顺序值。
+## [br]
+## @api private
+## [br]
 var _panel_order_counter: int = 0
+
+## 按指标 ID 保存 Overlay 自己登记的指标序列。
+## [br]
+## @api private
+## [br]
 var _metric_series: Dictionary = {}
+
+## 标识当前计划中的 GUI 挂接代次，用于丢弃过期延迟回调。
+## [br]
+## @api private
+## [br]
 var _overlay_attach_generation: int = 0
 
 
@@ -585,6 +619,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 从 Engine 主循环取得 SceneTree；主循环不是场景树时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_main_scene_tree() -> SceneTree:
 	var main_loop: MainLoop = Engine.get_main_loop()
 	if main_loop is SceneTree:
@@ -593,6 +631,10 @@ func _get_main_scene_tree() -> SceneTree:
 	return null
 
 
+## 仅在代次仍匹配且 GUI、根节点有效时，将尚无父节点的 GUI 挂到场景根节点。
+## [br]
+## @api private
+## [br]
 func _add_overlay_gui_if_current(generation: int) -> void:
 	if generation != _overlay_attach_generation:
 		return
@@ -608,6 +650,10 @@ func _add_overlay_gui_if_current(generation: int) -> void:
 		tree.root.add_child(overlay_gui)
 
 
+## 获取已注册的 GFLogUtility；类型不符或不存在时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_log_utility() -> GFLogUtility:
 	var utility: Variant = get_utility(GFLogUtility)
 	if utility is GFLogUtility:
@@ -616,6 +662,10 @@ func _get_log_utility() -> GFLogUtility:
 	return null
 
 
+## 获取已注册的 GFDiagnosticsUtility；类型不符或不存在时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_diagnostics_utility() -> GFDiagnosticsUtility:
 	var utility: Variant = get_utility(GFDiagnosticsUtility)
 	if utility is GFDiagnosticsUtility:
@@ -624,6 +674,10 @@ func _get_diagnostics_utility() -> GFDiagnosticsUtility:
 	return null
 
 
+## 从指标表读取指定序列；值不是 GFMetricSeries 时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_metric_series_or_null(metric_id: StringName) -> GFMetricSeries:
 	var value: Variant = GFVariantData.get_option_value(_metric_series, metric_id)
 	if value is GFMetricSeries:
@@ -632,6 +686,10 @@ func _get_metric_series_or_null(metric_id: StringName) -> GFMetricSeries:
 	return null
 
 
+## 已登记的指标可继续更新；新指标仅在容量不限或尚未达到上限时允许登记。
+## [br]
+## @api private
+## [br]
 func _has_metric_series_capacity(metric_id: StringName) -> bool:
 	if _metric_series.has(metric_id):
 		return true
@@ -640,18 +698,30 @@ func _has_metric_series_capacity(metric_id: StringName) -> bool:
 	return _metric_series.size() < max_metric_series
 
 
+## 从字典移除指定键；字典 API 的返回值不向调用方传播。
+## [br]
+## @api private
+## [br]
 func _erase_dictionary_key(source: Dictionary, key: Variant) -> void:
 	var erased: bool = source.erase(key)
 	if erased:
 		return
 
 
+## 将一条文本追加到 PackedStringArray；数组 API 的返回值不向调用方传播。
+## [br]
+## @api private
+## [br]
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 新建或更新 Watch 条目，补齐默认显示字段后写回 Watch 表。
+## [br]
+## @api private
+## [br]
 func _upsert_watch_entry(id: StringName, value: Variant, options: Dictionary) -> void:
 	var entry: Dictionary = {}
 	if _watches.has(id):
@@ -670,6 +740,10 @@ func _upsert_watch_entry(id: StringName, value: Variant, options: Dictionary) ->
 	_watches[id] = entry
 
 
+## 为 Watch 条目补齐默认值，并仅应用非空标签/分组和布尔型可见选项。
+## [br]
+## @api private
+## [br]
 func _apply_watch_options(entry: Dictionary, id: StringName, options: Dictionary) -> void:
 	if not entry.has("label") or GFVariantData.get_option_string(entry, "label", "").is_empty():
 		entry["label"] = String(id)
@@ -692,6 +766,10 @@ func _apply_watch_options(entry: Dictionary, id: StringName, options: Dictionary
 			entry["visible"] = visible_value
 
 
+## 按 Watch 顺序排序，同序时按 ID 文本排序。
+## [br]
+## @api private
+## [br]
 func _sort_watch_entries(left: Dictionary, right: Dictionary) -> bool:
 	var left_order: int = GFVariantData.get_option_int(left, "order", 0)
 	var right_order: int = GFVariantData.get_option_int(right, "order", 0)
@@ -700,6 +778,10 @@ func _sort_watch_entries(left: Dictionary, right: Dictionary) -> bool:
 	return GFVariantData.get_option_string(left, "id", "") < GFVariantData.get_option_string(right, "id", "")
 
 
+## 新建或更新面板条目，补齐默认显示字段后写回面板表。
+## [br]
+## @api private
+## [br]
 func _upsert_panel_entry(panel_id: StringName, content: String, options: Dictionary) -> void:
 	var entry: Dictionary = {}
 	if _panels.has(panel_id):
@@ -718,6 +800,10 @@ func _upsert_panel_entry(panel_id: StringName, content: String, options: Diction
 	_panels[panel_id] = entry
 
 
+## 为面板条目补齐默认值，并仅应用非空标签/分组和布尔型可见选项。
+## [br]
+## @api private
+## [br]
 func _apply_panel_options(entry: Dictionary, panel_id: StringName, options: Dictionary) -> void:
 	if not entry.has("label") or GFVariantData.get_option_string(entry, "label", "").is_empty():
 		entry["label"] = String(panel_id)
@@ -740,6 +826,10 @@ func _apply_panel_options(entry: Dictionary, panel_id: StringName, options: Dict
 			entry["visible"] = visible_value
 
 
+## 将内部面板条目投影为快照字段，并补上有效状态和空错误文本。
+## [br]
+## @api private
+## [br]
 func _build_panel_snapshot_entry(entry: Dictionary) -> Dictionary:
 	return {
 		"id": GFVariantData.get_option_string_name(entry, "id", &""),
@@ -751,6 +841,10 @@ func _build_panel_snapshot_entry(entry: Dictionary) -> Dictionary:
 	}
 
 
+## 按面板顺序排序，同序时按 ID 文本排序。
+## [br]
+## @api private
+## [br]
 func _sort_panel_entries(left: Dictionary, right: Dictionary) -> bool:
 	var left_order: int = GFVariantData.get_option_int(left, "order", 0)
 	var right_order: int = GFVariantData.get_option_int(right, "order", 0)
@@ -759,6 +853,10 @@ func _sort_panel_entries(left: Dictionary, right: Dictionary) -> bool:
 	return GFVariantData.get_option_string(left, "id", "") < GFVariantData.get_option_string(right, "id", "")
 
 
+## 先按分组、再按标签、最后按 ID 文本排序指标条目。
+## [br]
+## @api private
+## [br]
 func _sort_metric_series_entries(left: Dictionary, right: Dictionary) -> bool:
 	var left_group: String = GFVariantData.get_option_string(left, "group", "Runtime")
 	var right_group: String = GFVariantData.get_option_string(right, "group", "Runtime")
@@ -771,6 +869,10 @@ func _sort_metric_series_entries(left: Dictionary, right: Dictionary) -> bool:
 	return GFVariantData.get_option_string(left, "id", "") < GFVariantData.get_option_string(right, "id", "")
 
 
+## 将集合值转为 JSON 兼容文本、其他值转为字符串，并按面板字符上限截断。
+## [br]
+## @api private
+## [br]
 func _format_panel_content(value: Variant) -> String:
 	var content: String = ""
 	if value is Dictionary or value is Array:
@@ -782,6 +884,10 @@ func _format_panel_content(value: Variant) -> String:
 	return "%s\n<truncated>" % content.substr(0, max_panel_content_chars)
 
 
+## 使用调试脱敏配置和集合、节点、深度、字符串预算编码推送值。
+## [br]
+## @api private
+## [br]
 func _bound_published_value(value: Variant) -> Variant:
 	return GFReportValueCodec.to_json_compatible(
 		value,
@@ -794,6 +900,10 @@ func _bound_published_value(value: Variant) -> Variant:
 	)
 
 
+## 将指标快照的最新值、平均值、最小值、最大值和 sparkline 汇总为面板项。
+## [br]
+## @api private
+## [br]
 func _append_metric_series_panel(snapshot: Array[Dictionary], include_hidden: bool) -> void:
 	var metrics: Array[Dictionary] = get_metric_series_snapshot(include_hidden)
 	if metrics.is_empty():
@@ -819,10 +929,18 @@ func _append_metric_series_panel(snapshot: Array[Dictionary], include_hidden: bo
 	})
 
 
+## 将指标数值格式化为保留三位小数的文本。
+## [br]
+## @api private
+## [br]
 func _format_metric_number(value: float) -> String:
 	return "%.3f" % value
 
 
+## 读取最近日志并在存在条目时追加 Diagnostics 分组面板。
+## [br]
+## @api private
+## [br]
 func _append_recent_log_panel(snapshot: Array[Dictionary], include_hidden: bool) -> void:
 	var log_utility: GFLogUtility = _get_log_utility()
 	if log_utility == null:
@@ -849,6 +967,10 @@ func _append_recent_log_panel(snapshot: Array[Dictionary], include_hidden: bool)
 	})
 
 
+## 读取配置的监控预设或全量监控快照，将有效监控按 ID 顺序追加到快照。
+## [br]
+## @api private
+## [br]
 func _append_diagnostics_watch_snapshot(snapshot: Array[Dictionary], include_hidden: bool) -> void:
 	var diagnostics: GFDiagnosticsUtility = _get_diagnostics_utility()
 	if diagnostics == null:
@@ -882,21 +1004,61 @@ func _append_diagnostics_watch_snapshot(snapshot: Array[Dictionary], include_hid
 
 # --- 内部类 ---
 
+## 显示调试监控、面板和模型属性的私有 GUI 实现。
+## [br]
+## @api private
+## [br]
 class _GFDebugGUI extends CanvasLayer:
+
+	# --- 私有变量 ---
+
+	## 承载标题与富文本的垂直容器，由 GUI 构造并随节点树释放。
+	## [br]
+	## @api private
 	var _container: VBoxContainer
+
+	## 显示最近生成的 BBCode 调试文本；文本未变化时不重复赋值。
+	## [br]
+	## @api private
 	var _label: RichTextLabel
+
+	## 由外层工具设置的开关按键，只处理按下且非回声的事件。
+	## [br]
+	## @api private
 	var _toggle_key: Key
+
+	## 可见时刷新间隔；非正值表示每帧刷新，由外层工具同步配置。
+	## [br]
+	## @api private
 	var _refresh_interval_seconds: float = 0.25
+
+	## 同步取得当前架构的回调；不把一次取得的架构永久缓存。
+	## [br]
+	## @api private
 	var _architecture_provider: Callable
+
+	## 同步提供 watch 数组快照的回调；无效或返回非数组时隐藏该部分。
+	## [br]
+	## @api private
 	var _watch_snapshot_provider: Callable
+
+	## 同步提供自定义面板快照的回调；渲染时转义内容。
+	## [br]
+	## @api private
 	var _panel_snapshot_provider: Callable
+
+	## 距上次刷新的累计时间；隐藏或刚显示时设为间隔值，使下一可见帧立即刷新。
+	## [br]
+	## @api private
 	var _refresh_elapsed: float = 0.25
 
-	func _append_packed_string(target: PackedStringArray, value: String) -> void:
-		var appended: bool = target.append(value)
-		if appended:
-			return
 	
+
+	# --- Godot 生命周期方法 ---
+
+	## 构建初始隐藏、忽略鼠标的覆盖层控件树；ALWAYS 模式使暂停期间仍可切换和刷新。
+	## [br]
+	## @api private
 	func _init() -> void:
 		layer = 120 # 确保在所有 UI 之上
 		visible = false
@@ -935,6 +1097,9 @@ class _GFDebugGUI extends CanvasLayer:
 		_container.add_child(_label)
 
 
+	## 仅处理开关按键的首次按下；打开时使刷新计时到期，并消费该事件。
+	## [br]
+	## @api private
 	func _input(event: InputEvent) -> void:
 		if event is InputEventKey:
 			var key_event: InputEventKey = event
@@ -947,6 +1112,9 @@ class _GFDebugGUI extends CanvasLayer:
 				get_viewport().set_input_as_handled()
 
 
+	## 隐藏时不生成调试文本；可见时按间隔累计，间隔非正则每帧刷新。
+	## [br]
+	## @api private
 	func _process(delta: float) -> void:
 		if not visible:
 			_refresh_elapsed = _refresh_interval_seconds
@@ -961,16 +1129,28 @@ class _GFDebugGUI extends CanvasLayer:
 		_refresh_now()
 
 
+
+	# --- 私有/辅助方法 ---
+
+	## 同步读取提供者并构建文本，仅在内容变化时写 RichTextLabel，减少无变化重排。
+	## [br]
+	## @api private
 	func _refresh_now() -> void:
 		var text: String = _build_debug_text()
 		if _label.text != text:
 			_label.text = text
 
 
+	## 返回当前已渲染文本而不触发刷新，供外层调试快照读取。
+	## [br]
+	## @api private
 	func _get_rendered_text() -> String:
 		return _label.text if _label != null else ""
 
 
+	## 依次取 watch、面板和架构数据，按 watch、model、panel 顺序组合；无内容时区分无架构与无模型提示。
+	## [br]
+	## @api private
 	func _build_debug_text() -> String:
 		var watch_text: String = _build_watch_text()
 		var panel_text: String = _build_panel_text()
@@ -990,6 +1170,9 @@ class _GFDebugGUI extends CanvasLayer:
 		return _join_non_empty(PackedStringArray([watch_text, model_text, panel_text]))
 
 
+	## 按快照首次出现的组顺序组织 watch，失效值显示占位符；标签与值均转义后进入 BBCode。
+	## [br]
+	## @api private
 	func _build_watch_text() -> String:
 		if not _watch_snapshot_provider.is_valid():
 			return ""
@@ -1047,6 +1230,9 @@ class _GFDebugGUI extends CanvasLayer:
 		return text
 
 
+	## 按快照顺序拼接自定义面板，失效项显示占位符；把面板内容作为普通文本转义。
+	## [br]
+	## @api private
 	func _build_panel_text() -> String:
 		if not _panel_snapshot_provider.is_valid():
 			return ""
@@ -1079,6 +1265,9 @@ class _GFDebugGUI extends CanvasLayer:
 		return text
 
 
+	## 读取架构模型索引与模型脚本变量，不缓存属性值；输出类型标题及转义后的属性和值。
+	## [br]
+	## @api private
 	func _build_model_text(arch: Object) -> String:
 		var models_value: Variant = GFObjectPropertyTools.read_property(arch, NodePath("_models"))
 		if not (models_value is Dictionary):
@@ -1124,6 +1313,9 @@ class _GFDebugGUI extends CanvasLayer:
 		return text
 
 
+	## 过滤空段再以换行连接，避免缺失 watch/model/panel 时产生额外分隔行。
+	## [br]
+	## @api private
 	func _join_non_empty(parts: PackedStringArray) -> String:
 		var non_empty: PackedStringArray = PackedStringArray()
 		for part: String in parts:
@@ -1132,6 +1324,9 @@ class _GFDebugGUI extends CanvasLayer:
 		return "\n".join(non_empty)
 
 
+	## 逐字符把方括号替换为 BBCode 字面转义，防止监控值或用户标签注入格式。
+	## [br]
+	## @api private
 	func _escape_bbcode(text: String) -> String:
 		var escaped: PackedStringArray = PackedStringArray()
 		for index: int in range(text.length()):
@@ -1143,3 +1338,14 @@ class _GFDebugGUI extends CanvasLayer:
 			else:
 				_append_packed_string(escaped, character)
 		return "".join(escaped)
+
+
+	# --- 私有/辅助方法 ---
+
+	## 为分组顺序和转义片段原地追加文本，并显式消费 append 的返回值。
+	## [br]
+	## @api private
+	func _append_packed_string(target: PackedStringArray, value: String) -> void:
+		var appended: bool = target.append(value)
+		if appended:
+			return

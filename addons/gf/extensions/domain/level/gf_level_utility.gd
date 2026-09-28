@@ -70,6 +70,9 @@ signal level_lost(level_id: StringName)
 
 # --- 常量 ---
 
+## 关卡运行时清理回调共用的作用域 ID。
+## [br]
+## @api private
 const _LEVEL_CLEANUP_SCOPE_ID: StringName = &"level"
 
 
@@ -109,7 +112,14 @@ var fail_on_missing_level_data: bool = false
 
 # --- 私有变量 ---
 
+## 当前关卡启动时保存的数据覆盖副本。
+## [br]
+## @api private
 var _current_level_override: Dictionary = {}
+
+## 管理关卡运行时清理回调的作用域。
+## [br]
+## @api private
 var _runtime_cleanup_scope: GFRuntimeCleanupScope = GFRuntimeCleanupScope.new()
 
 
@@ -479,6 +489,9 @@ func is_level_unlocked(level_id: StringName) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 从当前架构查找配置提供器并收窄为 GFConfigProvider。
+## [br]
+## @api private
 func _get_config_provider() -> GFConfigProvider:
 	var utility: Object = get_utility(GFConfigProvider)
 	if utility is GFConfigProvider:
@@ -486,6 +499,9 @@ func _get_config_provider() -> GFConfigProvider:
 	return null
 
 
+## 从当前架构查找关卡进度模型并收窄其类型。
+## [br]
+## @api private
 func _get_progress_model() -> GFLevelProgressModel:
 	var model: Object = get_model(GFLevelProgressModel)
 	if model is GFLevelProgressModel:
@@ -493,6 +509,9 @@ func _get_progress_model() -> GFLevelProgressModel:
 	return null
 
 
+## 优先返回启动时的数据覆盖，否则重新读取指定关卡数据。
+## [br]
+## @api private
 func _resolve_level_data(level_id: Variant) -> Dictionary:
 	if not _current_level_override.is_empty():
 		return _current_level_override.duplicate(true)
@@ -500,6 +519,9 @@ func _resolve_level_data(level_id: Variant) -> Dictionary:
 	return load_level_data(level_id)
 
 
+## 解锁目录条目声明的所有完成后续关卡。
+## [br]
+## @api private
 func _unlock_declared_next_levels(level_id: StringName, progress: GFLevelProgressModel) -> void:
 	if catalog == null or progress == null:
 		return
@@ -512,10 +534,16 @@ func _unlock_declared_next_levels(level_id: StringName, progress: GFLevelProgres
 		progress.unlock_level(next_level_id)
 
 
+## 将项目传入的关卡标识转换为 StringName。
+## [br]
+## @api private
 func _to_level_id(value: Variant) -> StringName:
 	return GFVariantData.to_string_name(value)
 
 
+## 将有效 Object Variant 收窄为 Object，否则返回 null。
+## [br]
+## @api private
 func _variant_to_object(value: Variant) -> Object:
 	if value is Object:
 		var object: Object = value

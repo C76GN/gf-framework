@@ -166,6 +166,9 @@ static func read_object_with_content_sha256(
 
 # --- 私有/辅助方法 ---
 
+## 按夹紧后的字节及深度预算读取资源路径文件，读取前后检查大小并关闭句柄；拒绝超限、短读或观察到的大小变化后才进入字节解析。
+## [br]
+## @api private
 static func _read_object_report(
 	path: String,
 	max_bytes: int,
@@ -266,6 +269,9 @@ static func _read_object_report(
 	)
 
 
+## 在无摘要解析报告上附加输入原始字节的 SHA-256。
+## [br]
+## @api private
 static func _parse_object_bytes(
 	bytes: PackedByteArray,
 	source_path: String,
@@ -282,6 +288,9 @@ static func _parse_object_bytes(
 	return report
 
 
+## 依次检查大小、原始 NUL、UTF-8、嵌套深度、数字及 NUL 转义，再解析对象根并复核数字有限性；返回阶段化报告，不在此计算摘要。
+## [br]
+## @api private
 static func _parse_object_bytes_without_digest(
 	bytes: PackedByteArray,
 	source_path: String,
@@ -414,6 +423,9 @@ static func _parse_object_bytes_without_digest(
 	)
 
 
+## 使用 HashingContext 计算 SHA-256；初始化、更新或摘要长度异常时返回空字符串。
+## [br]
+## @api private
 static func _content_sha256(bytes: PackedByteArray) -> String:
 	var hashing_context: HashingContext = HashingContext.new()
 	if hashing_context.start(HashingContext.HASH_SHA256) != OK:
@@ -426,12 +438,18 @@ static func _content_sha256(bytes: PackedByteArray) -> String:
 	return digest_bytes.hex_encode()
 
 
+## 非正请求值采用 fallback，否则将请求值限制在 absolute_maximum 以内。
+## [br]
+## @api private
 static func _effective_limit(requested: int, fallback: int, absolute_maximum: int) -> int:
 	if requested <= 0:
 		return fallback
 	return mini(requested, absolute_maximum)
 
 
+## 只统计字符串外的对象/数组括号深度；超过上限时提前返回 true，闭括号不会将深度降到零以下。
+## [br]
+## @api private
 static func _exceeds_json_depth(text: String, max_depth: int) -> bool:
 	var depth: int = 0
 	var in_string: bool = false
@@ -457,6 +475,9 @@ static func _exceeds_json_depth(text: String, max_depth: int) -> bool:
 	return false
 
 
+## 跳过字符串内容扫描数字候选，仅重写需要规避解析器指数警告的数字片段；结构非法或无法安全归一的候选返回空数组。
+## [br]
+## @api private
 static func _normalize_json_numbers_for_parser(text: String) -> PackedStringArray:
 	var fragments: PackedStringArray = PackedStringArray()
 	var unchanged_start: int = 0
@@ -499,6 +520,9 @@ static func _normalize_json_numbers_for_parser(text: String) -> PackedStringArra
 	return fragments
 
 
+## 检查 JSON 字符串内容中是否含有解码后为 U+0000 的 `\u0000` 转义。
+## [br]
+## @api private
 static func _contains_json_nul_escape(text: String) -> bool:
 	var index: int = 0
 	var in_string: bool = false
@@ -528,6 +552,9 @@ static func _contains_json_nul_escape(text: String) -> bool:
 	return false
 
 
+## 从起点扫描连续的 ASCII 数字、正负号、小数点和指数标记并返回结束索引。
+## [br]
+## @api private
 static func _scan_json_number_candidate_end(text: String, start_index: int) -> int:
 	var index: int = start_index
 	while index < text.length():
@@ -546,6 +573,9 @@ static func _scan_json_number_candidate_end(text: String, start_index: int) -> i
 	return index
 
 
+## 检查数值 token 的符号、整数、小数和指数片段是否完整，且不含尾随字符。
+## [br]
+## @api private
 static func _json_number_token_is_structurally_valid(token: String) -> bool:
 	var index: int = 0
 	if token.is_empty():
@@ -589,6 +619,9 @@ static func _json_number_token_is_structurally_valid(token: String) -> bool:
 	return index == token.length()
 
 
+## 对已通过语法检查的数字提取最多 18 位有效数字并转换必要的科学计数表示；仍触发解析器指数警告则拒绝，不保证超长数字的任意精度。
+## [br]
+## @api private
 static func _normalize_json_number_token(token: String) -> String:
 	var parser_would_warn: bool = (
 		_json_number_token_triggers_parser_exponent_warning(token)
@@ -646,6 +679,9 @@ static func _normalize_json_number_token(token: String) -> String:
 	return normalized
 
 
+## 模拟解析器按最多 18 位尾数计算有效十进制指数的边界，绝对值超过 511 即判为会触发指数警告；不是完整数值有限性检查。
+## [br]
+## @api private
 static func _json_number_token_triggers_parser_exponent_warning(token: String) -> bool:
 	var unsigned_token: String = token.trim_prefix("-")
 	var exponent_index: int = unsigned_token.find("e")
@@ -674,6 +710,9 @@ static func _json_number_token_triggers_parser_exponent_warning(token: String) -
 	return absi(effective_exponent) > 511
 
 
+## 读取已校验数字 token 的有符号指数，跳过前导零并在输入预算加余量处饱和；用于边界判断而非保留任意大的精确指数。
+## [br]
+## @api private
 static func _parse_bounded_decimal_exponent(token: String) -> int:
 	var saturation_limit: int = ABSOLUTE_MAX_BYTES + 1024
 	var exponent_sign: int = 1
@@ -697,10 +736,16 @@ static func _parse_bounded_decimal_exponent(token: String) -> int:
 	return exponent_sign * value
 
 
+## 判断 Unicode codepoint 是否为 ASCII 字符 0 到 9。
+## [br]
+## @api private
 static func _is_ascii_digit(codepoint: int) -> bool:
 	return codepoint >= 48 and codepoint <= 57
 
 
+## 逐序列检查 UTF-8 首字节与续字节，拒绝截断、过长编码、代理区和超出 Unicode 上限的编码；ASCII 字节在此通过，NUL 由上层另行拒绝。
+## [br]
+## @api private
 static func _is_valid_utf8(bytes: PackedByteArray) -> bool:
 	var index: int = 0
 	while index < bytes.size():
@@ -747,6 +792,9 @@ static func _is_valid_utf8(bytes: PackedByteArray) -> bool:
 	return true
 
 
+## 递归检查 Array 与 Dictionary 中的值，并拒绝非有限浮点数。
+## [br]
+## @api private
 static func _has_only_json_safe_numbers(value: Variant) -> bool:
 	if value is float:
 		var number: float = value
@@ -765,6 +813,9 @@ static func _has_only_json_safe_numbers(value: Variant) -> bool:
 	return true
 
 
+## 验证多字节序列的第二字节范围与后续 continuation 字节。
+## [br]
+## @api private
 static func _has_utf8_second_byte(
 	bytes: PackedByteArray,
 	index: int,
@@ -784,6 +835,9 @@ static func _has_utf8_second_byte(
 	return true
 
 
+## 使用 UTF-8 continuation 字节范围委托检查多字节序列。
+## [br]
+## @api private
 static func _has_utf8_continuations(
 	bytes: PackedByteArray,
 	index: int,
@@ -798,6 +852,9 @@ static func _has_utf8_continuations(
 	)
 
 
+## 创建读取报告副本，深复制 data 并将 size_bytes 限制为非负数。
+## [br]
+## @api private
 static func _make_report(
 	ok: bool,
 	data: Dictionary,

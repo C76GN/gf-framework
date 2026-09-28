@@ -269,6 +269,10 @@ static func get_cell_overlay_segments(
 
 # --- 私有/辅助方法 ---
 
+## 创建尚未成功且不含变更格的元数据补丁初值。
+## [br]
+## @api private
+## [br]
 static func _make_empty_patch(key: StringName, erase: bool) -> Dictionary:
 	return {
 		"ok": false,
@@ -282,6 +286,10 @@ static func _make_empty_patch(key: StringName, erase: bool) -> Dictionary:
 	}
 
 
+## 将补丁指定一侧写入图层，删除空数据项并在格子变化时发出 changed。
+## [br]
+## @api private
+## [br]
 static func _apply_patch_side(layer: GFTileMetadataLayer, patch: Dictionary, side_key: String) -> Dictionary:
 	var report: Dictionary = {
 		"ok": layer != null and GFVariantData.get_option_bool(patch, "ok", false),
@@ -306,6 +314,10 @@ static func _apply_patch_side(layer: GFTileMetadataLayer, patch: Dictionary, sid
 	return report
 
 
+## 为补丁指定一侧的每格状态向 UndoRedo 对象登记 do 或 undo 调用。
+## [br]
+## @api private
+## [br]
 static func _add_patch_side_to_undo(
 	layer: GFTileMetadataLayer,
 	patch: Dictionary,
@@ -324,6 +336,10 @@ static func _add_patch_side_to_undo(
 			undo_manager.call(method_name, layer, "set_cell_data", cell, data)
 
 
+## 去除重复格坐标并按 y、x 顺序排序。
+## [br]
+## @api private
+## [br]
 static func _unique_sorted_cells(target_cells: Array[Vector2i]) -> Array[Vector2i]:
 	var seen: Dictionary = {}
 	var result: Array[Vector2i] = []
@@ -336,6 +352,10 @@ static func _unique_sorted_cells(target_cells: Array[Vector2i]) -> Array[Vector2
 	return result
 
 
+## 从 Array Variant 中筛选 Vector2i 格坐标。
+## [br]
+## @api private
+## [br]
 static func _variant_to_cell_array(value: Variant) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
 	if not value is Array:
@@ -347,6 +367,10 @@ static func _variant_to_cell_array(value: Variant) -> Array[Vector2i]:
 	return result
 
 
+## 先按 field_order 收录存在且不重复的键，再排序追加剩余元数据键。
+## [br]
+## @api private
+## [br]
 static func _get_ordered_cell_keys(cell_data: Dictionary, options: Dictionary) -> Array[StringName]:
 	var result: Array[StringName] = []
 	var seen: Dictionary = {}
@@ -367,6 +391,10 @@ static func _get_ordered_cell_keys(cell_data: Dictionary, options: Dictionary) -
 	return result
 
 
+## 按 paint_color、editor_color、color 顺序读取首个可解码颜色。
+## [br]
+## @api private
+## [br]
 static func _get_schema_color(metadata: Dictionary, fallback: Color) -> Color:
 	for key: StringName in [&"paint_color", &"editor_color", &"color"]:
 		var color: Color = _variant_to_color(GFVariantData.get_option_value(metadata, key), Color(-1.0, -1.0, -1.0, -1.0))
@@ -375,6 +403,10 @@ static func _get_schema_color(metadata: Dictionary, fallback: Color) -> Color:
 	return fallback
 
 
+## 按 paint_value、default 顺序取得复制值，两者都缺失时返回 true。
+## [br]
+## @api private
+## [br]
 static func _get_schema_paint_value(metadata: Dictionary) -> Variant:
 	if _has_metadata_key(metadata, &"paint_value"):
 		return GFVariantData.duplicate_variant(_get_metadata_value(metadata, &"paint_value"))
@@ -383,20 +415,36 @@ static func _get_schema_paint_value(metadata: Dictionary) -> Variant:
 	return true
 
 
+## 检查 metadata 是否包含 StringName 键或同文本 String 键。
+## [br]
+## @api private
+## [br]
 static func _has_metadata_key(metadata: Dictionary, key: StringName) -> bool:
 	return metadata.has(key) or metadata.has(String(key))
 
 
+## 优先按 StringName 读取 metadata，缺失时回退到同文本 String 键。
+## [br]
+## @api private
+## [br]
 static func _get_metadata_value(metadata: Dictionary, key: StringName) -> Variant:
 	if metadata.has(key):
 		return metadata[key]
 	return metadata[String(key)]
 
 
+## 读取颜色选项并交由统一 Variant 颜色转换器处理。
+## [br]
+## @api private
+## [br]
 static func _get_option_color(options: Dictionary, key: String, fallback: Color) -> Color:
 	return _variant_to_color(GFVariantData.get_option_value(options, key), fallback)
 
 
+## 接受 Color 或 HTML 色值文本，无法识别时返回给定颜色。
+## [br]
+## @api private
+## [br]
 static func _variant_to_color(value: Variant, fallback: Color) -> Color:
 	if value is Color:
 		var color: Color = value
@@ -408,11 +456,19 @@ static func _variant_to_color(value: Variant, fallback: Color) -> Color:
 	return fallback
 
 
+## 按 y 升序、再按 x 升序比较格坐标。
+## [br]
+## @api private
+## [br]
 static func _sort_cells(left: Vector2i, right: Vector2i) -> bool:
 	if left.y != right.y:
 		return left.y < right.y
 	return left.x < right.x
 
 
+## 按 StringName 转成的文本顺序排序。
+## [br]
+## @api private
+## [br]
 static func _sort_string_names(left: StringName, right: StringName) -> bool:
 	return String(left) < String(right)

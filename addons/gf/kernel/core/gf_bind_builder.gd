@@ -37,22 +37,56 @@ enum SourceKind {
 ## [br]
 ## @api framework_internal
 const GFBindingLifetimesBase = preload("res://addons/gf/kernel/core/gf_binding_lifetimes.gd")
+
+## 用于解析 required binding 阶段与原因枚举的结果脚本。
+## [br]
+## @api private
 const _GF_BINDING_PLAN_RESULT_SCRIPT = preload("res://addons/gf/kernel/core/gf_binding_plan_result.gd")
 
 
 # --- 私有变量 ---
 
+## 当前 Builder 绑定的 Architecture。
+## [br]
+## @api private
 var _architecture: GFArchitecture = null
+
+## 绑定目标属于 Model、System、Utility 或 Factory 的类别。
+## [br]
+## @api private
 var _target_kind: TargetKind = TargetKind.FACTORY
+
+## 要绑定的目标 Script。
+## [br]
+## @api private
 var _script_cls: Script = null
+
+## 当前实例来源类别。
+## [br]
+## @api private
 var _source_kind: SourceKind = SourceKind.SELF
+
+## from_factory() 保存的实例创建 Callable。
+## [br]
+## @api private
 var _factory: Callable = Callable()
+
+## from_instance() 保存的实例引用。
+## [br]
+## @api private
 var _instance: Object = null
+
+## 可选的 Model/System/Utility 查询别名脚本。
+## [br]
+## @api private
 var _alias_cls: Script = null
 
 
 # --- Godot 生命周期方法 ---
 
+## 保存后续绑定所需的 Architecture、目标类别和脚本键。
+## [br]
+## @api private
 func _init(architecture: GFArchitecture, target_kind: TargetKind, script_cls: Script) -> void:
 	_architecture = architecture
 	_target_kind = target_kind
@@ -289,6 +323,9 @@ func execute_required_binding_for_framework(lifetime: int) -> RequiredBindingAtt
 # --- 私有/辅助方法 ---
 
 
+## 创建候选并提交必需生命周期绑定，将创建、注册及别名失败分别包装为尝试结果；别名失败不在本 helper 内回滚已注册实例。
+## [br]
+## @api private
 func _execute_required_lifecycle_binding() -> RequiredBindingAttempt:
 	var candidate: Variant = _create_instance_from_source()
 	if not _candidate_is_live(candidate):
@@ -332,6 +369,9 @@ func _execute_required_lifecycle_binding() -> RequiredBindingAttempt:
 	)
 
 
+## 按 SELF、FACTORY 或 INSTANCE 来源创建/取得候选；factory 来源只接受存活 Object。
+## [br]
+## @api private
 func _create_instance_from_source() -> Variant:
 	match _source_kind:
 		SourceKind.SELF:
@@ -362,6 +402,9 @@ func _create_instance_from_source() -> Variant:
 			return null
 
 
+## 按目标类别等待 Architecture 注册 Model、System 或 Utility 实例。
+## [br]
+## @api private
 func _register_lifecycle_instance(instance: Object) -> bool:
 	match _target_kind:
 		TargetKind.MODEL:
@@ -375,6 +418,9 @@ func _register_lifecycle_instance(instance: Object) -> bool:
 	return false
 
 
+## 按 Model、System 或 Utility 目标调用架构的必需计划注册入口；显式实例来源保留调用方所有权，其他来源允许失败时清理候选。
+## [br]
+## @api private
 func _register_required_lifecycle_instance(instance: Object) -> Error:
 	var release_owned_candidate_on_rejection: bool = (
 		_source_kind != SourceKind.INSTANCE
@@ -403,6 +449,9 @@ func _register_required_lifecycle_instance(instance: Object) -> Error:
 	return ERR_INVALID_PARAMETER
 
 
+## 未配置 alias 或实例为空时成功返回；否则按目标类别尝试登记实例脚本 alias。
+## [br]
+## @api private
 func _register_alias_if_needed(instance: Object) -> bool:
 	if _alias_cls == null or instance == null:
 		return true
@@ -426,6 +475,9 @@ func _register_alias_if_needed(instance: Object) -> bool:
 	return false
 
 
+## required-plan 有 alias 时，使用声明脚本键调用 Architecture 的类别专用检查入口。
+## [br]
+## @api private
 func _register_alias_checked_for_required_plan(instance: Object) -> bool:
 	if _alias_cls == null:
 		return true
@@ -441,6 +493,9 @@ func _register_alias_checked_for_required_plan(instance: Object) -> bool:
 	return false
 
 
+## 按自身构造、Callable 或现成实例来源注册工厂；现成实例不支持瞬态生命周期，不可实例化脚本或未知来源返回失败。
+## [br]
+## @api private
 func _bind_factory(lifetime: int) -> bool:
 	match _source_kind:
 		SourceKind.SELF:
@@ -462,6 +517,9 @@ func _bind_factory(lifetime: int) -> bool:
 	return false
 
 
+## 执行必需工厂注册并将无效实例、脚本或 Callable 判为创建失败，其余拒绝判为注册失败；成功仅表示绑定已登记。
+## [br]
+## @api private
 func _execute_required_factory_binding(lifetime: int) -> RequiredBindingAttempt:
 	if (
 		_source_kind == SourceKind.INSTANCE
@@ -501,6 +559,9 @@ func _execute_required_factory_binding(lifetime: int) -> RequiredBindingAttempt:
 	)
 
 
+## 按给定成功标记、阶段、原因和详情创建 RequiredBindingAttempt。
+## [br]
+## @api private
 func _make_required_attempt(
 	ok: bool,
 	phase: int,
@@ -510,6 +571,9 @@ func _make_required_attempt(
 	return RequiredBindingAttempt.new(ok, phase, reason, detail)
 
 
+## 候选存活且实际脚本继承或等于声明目标脚本时返回 true。
+## [br]
+## @api private
 func _candidate_matches_declared_target(instance: Object) -> bool:
 	if not _candidate_is_live(instance) or _script_cls == null:
 		return false
@@ -522,6 +586,9 @@ func _candidate_matches_declared_target(instance: Object) -> bool:
 	)
 
 
+## 候选必须是有效 Object；Node 还必须未 queued for deletion。
+## [br]
+## @api private
 func _candidate_is_live(candidate: Variant) -> bool:
 	if (
 		candidate == null
@@ -537,6 +604,9 @@ func _candidate_is_live(candidate: Variant) -> bool:
 	return true
 
 
+## 实例存活且附带 Script 时返回该脚本，否则返回 null。
+## [br]
+## @api private
 func _get_instance_script(instance: Object) -> Script:
 	if not _candidate_is_live(instance):
 		return null
@@ -547,6 +617,9 @@ func _get_instance_script(instance: Object) -> Script:
 	return null
 
 
+## Script 非空时调用其 new() 方法创建实例并原样返回结果。
+## [br]
+## @api private
 func _instantiate_script_as_object(script_cls: Script) -> Variant:
 	if script_cls == null:
 		return null
@@ -563,12 +636,32 @@ func _instantiate_script_as_object(script_cls: Script) -> Variant:
 ## [br]
 ## @since 11.0.0
 class RequiredBindingAttempt extends RefCounted:
+	# --- 私有变量 ---
+	## 本次必需绑定尝试是否完成登记及要求的别名阶段。
+	## [br]
+	## @api private
 	var _successful: bool = false
+
+	## 结果所属的校验、注册或别名阶段，供计划结果封装使用。
+	## [br]
+	## @api private
 	var _phase: int = _GF_BINDING_PLAN_RESULT_SCRIPT.Phase.VALIDATION
+
+	## 表达失败类别的稳定 Reason 枚举，成功时由构造方传入 NONE。
+	## [br]
+	## @api private
 	var _reason: int = _GF_BINDING_PLAN_RESULT_SCRIPT.Reason.INVALID_ENTRY
+
+	## 随尝试结果保存的诊断文本；本容器不自行重写或裁剪构造参数。
+	## [br]
+	## @api private
 	var _detail: String = ""
 
 
+	# --- Godot 生命周期方法 ---
+	## 保存一次绑定尝试的成功标志、阶段、原因及诊断文本，供外层计划读取。
+	## [br]
+	## @api private
 	func _init(
 		successful: bool,
 		phase: int,
@@ -581,6 +674,7 @@ class RequiredBindingAttempt extends RefCounted:
 		_detail = detail
 
 
+	# --- 框架内部方法 ---
 	## 返回 attempt 是否成功。
 	## [br]
 	## @api framework_internal

@@ -50,23 +50,112 @@ enum Status {
 
 # --- 私有变量 ---
 
+## 当前脉冲状态；PENDING 表示尚未进入终态。
+## [br]
+## @api private
+## [br]
 var _status: Status = Status.PENDING
+
+## 终态原因；等待中为空。
+## [br]
+## @api private
+## [br]
 var _terminal_reason: StringName = &""
+
+## Source 分配的脉冲代际。
+## [br]
+## @api private
+## [br]
 var _generation: int = 0
+
+## 创建时冻结的虚拟输入源标识。
+## [br]
+## @api private
+## [br]
 var _source_id: StringName = &""
+
+## 创建时冻结的玩家索引。
+## [br]
+## @api private
+## [br]
 var _player_index: int = -1
+
+## 创建时冻结的动作标识。
+## [br]
+## @api private
+## [br]
 var _action_id: StringName = &""
+
+## 配置后的脉冲持续秒数。
+## [br]
+## @api private
+## [br]
 var _duration_seconds: float = 0.0
+
+## 操作配置时读取的系统毫秒时间。
+## [br]
+## @api private
+## [br]
 var _started_at_msec: int = 0
+
+## 首次进入终态时读取的系统毫秒时间。
+## [br]
+## @api private
+## [br]
 var _completed_at_msec: int = 0
+
+## Mapping 为本 lease 实际执行匹配释放时记为 1，否则为 0。
+## [br]
+## @api private
+## [br]
 var _release_count: int = 0
+
+## Mapping 是否已确认取得该操作的脉冲 lease。
+## [br]
+## @api private
+## [br]
 var _lease_acquired: bool = false
+
+## 创建时 Mapping 的弱引用。
+## [br]
+## @api private
+## [br]
 var _mapping_ref: WeakRef = null
+
+## 通知 Source 本操作结束的弱方法调用句柄。
+## [br]
+## @api private
+## [br]
 var _source_completion_invocation: GFWeakMethodInvocation = null
+
+## 注入定时器工具的弱引用。
+## [br]
+## @api private
+## [br]
 var _timer_ref: WeakRef = null
+
+## 注入定时器工具返回的任务句柄。
+## [br]
+## @api private
+## [br]
 var _timer_handle: int = 0
+
+## 可选 owner 生命周期订阅。
+## [br]
+## @api private
+## [br]
 var _owner_lifetime: GFLifetimeSubscription = null
+
+## 可选取消 token。
+## [br]
+## @api private
+## [br]
 var _cancel_token: GFCancellationToken = null
+
+## 当前操作连接到 cancellation_token.cancel_requested 的回调。
+## [br]
+## @api private
+## [br]
 var _cancel_token_callback: Callable = Callable()
 
 
@@ -440,6 +529,11 @@ func finish_without_lease_for_framework(status: Status, reason: StringName) -> b
 
 # --- 私有/辅助方法 ---
 
+## 请求进入终态；优先委托创建时 Mapping 终止 lease，已取得 lease 但委托未完成时拒绝本地重复终止。
+## 没有 Mapping 接管时由句柄本地完成终态。
+## [br]
+## @api private
+## [br]
 func _request_terminal(status: Status, reason: StringName) -> bool:
 	if not is_pending():
 		return false
@@ -457,6 +551,10 @@ func _request_terminal(status: Status, reason: StringName) -> bool:
 	return _finish(status, reason, false)
 
 
+## 只允许从 PENDING 进入非 PENDING 终态，记录原因、时间和释放计数，断开锚点后通知 Source 并发出 completed。
+## [br]
+## @api private
+## [br]
 func _finish(status: Status, reason: StringName, release_performed: bool) -> bool:
 	if not is_pending() or status == Status.PENDING:
 		return false
@@ -471,6 +569,10 @@ func _finish(status: Status, reason: StringName, release_performed: bool) -> boo
 	return true
 
 
+## 可选绑定 owner 生命周期；失效对象或尚未入树的 Node 返回 false，其余情况建立释放回调订阅。
+## [br]
+## @api private
+## [br]
 func _bind_owner(owner: Object) -> bool:
 	if owner == null:
 		return true
@@ -494,6 +596,10 @@ func _bind_owner(owner: Object) -> bool:
 	return _owner_lifetime.is_active()
 
 
+## 绑定取消 token；处理已取消或已完成 scope、一次性取消信号连接错误，并在连接后再次检查取消状态。
+## [br]
+## @api private
+## [br]
 func _bind_cancellation_token(cancellation_token: GFCancellationToken) -> bool:
 	if cancellation_token == null:
 		return true
@@ -531,6 +637,10 @@ func _bind_cancellation_token(cancellation_token: GFCancellationToken) -> bool:
 	return true
 
 
+## 取消该对象名下的定时任务，取消活跃 owner 订阅，断开取消信号连接并清空锚点字段。
+## [br]
+## @api private
+## [br]
 func _disconnect_runtime_anchors() -> void:
 	var timer_utility: GFTimerUtility = _get_timer_utility()
 	if timer_utility != null and _timer_handle > 0:
@@ -550,6 +660,10 @@ func _disconnect_runtime_anchors() -> void:
 	_cancel_token_callback = Callable()
 
 
+## 从 Mapping 弱引用中取得 GFInputMappingUtility；引用失效或类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_input_mapping() -> GFInputMappingUtility:
 	if _mapping_ref == null:
 		return null
@@ -560,6 +674,10 @@ func _get_input_mapping() -> GFInputMappingUtility:
 	return null
 
 
+## 从定时器弱引用中取得 GFTimerUtility；引用失效或类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_timer_utility() -> GFTimerUtility:
 	if _timer_ref == null:
 		return null
@@ -570,6 +688,10 @@ func _get_timer_utility() -> GFTimerUtility:
 	return null
 
 
+## 返回各终态对应的默认稳定原因；未列出状态返回空 StringName。
+## [br]
+## @api private
+## [br]
 func _default_reason_for_status(status: Status) -> StringName:
 	match status:
 		Status.COMPLETED:
@@ -585,14 +707,25 @@ func _default_reason_for_status(status: Status) -> StringName:
 	return &""
 
 
+# --- 信号处理函数 ---
+
+## 计时到期请求 COMPLETED 终态，实际资格检查和清理由统一终态入口处理。
+## [br]
+## @api private
 func _on_pulse_timer_elapsed() -> void:
 	var _completed_now: bool = _request_terminal(Status.COMPLETED, &"duration_elapsed")
 
 
+## 生命周期 owner 释放时请求 CANCELLED，统一终态入口避免重复结算。
+## [br]
+## @api private
 func _on_pulse_owner_released() -> void:
 	var _cancelled_now: bool = _request_terminal(Status.CANCELLED, &"owner_released")
 
 
+## 沿用令牌取消原因请求终态；空原因规范化为 cancellation_requested。
+## [br]
+## @api private
 func _on_pulse_token_cancelled(reason: StringName) -> void:
 	var _cancelled_now: bool = _request_terminal(
 		Status.CANCELLED,

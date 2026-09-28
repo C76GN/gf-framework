@@ -105,24 +105,100 @@ const GFBindingLifetimesBase = preload("res://addons/gf/kernel/core/gf_binding_l
 ## [br]
 ## @layer kernel/core
 const GFTimeProviderBase = preload("res://addons/gf/kernel/base/gf_time_provider.gd")
+
+## 提供异步调用完成回调的 detached 执行工具。
+## [br]
+## @api private
 const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
+
+## 构造和校验架构生命周期计划。
+## [br]
+## @api private
 const _GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT = preload("res://addons/gf/kernel/core/gf_architecture_lifecycle_plan.gd")
+
+## 创建架构关闭结果。
+## [br]
+## @api private
 const _GF_ARCHITECTURE_SHUTDOWN_RESULT_SCRIPT = preload("res://addons/gf/kernel/core/gf_architecture_shutdown_result.gd")
+
+## 管理架构快照保存与恢复。
+## [br]
+## @api private
 const _GF_ARCHITECTURE_SNAPSHOT_COORDINATOR_SCRIPT = preload("res://addons/gf/kernel/core/gf_architecture_snapshot_coordinator.gd")
+
+## 维护模块 tick 和 physics tick 调度缓存。
+## [br]
+## @api private
 const _GF_ARCHITECTURE_TICK_SCHEDULER_SCRIPT = preload("res://addons/gf/kernel/core/gf_architecture_tick_scheduler.gd")
+
+## 管理架构运行时生命周期和事务状态。
+## [br]
+## @api private
 const _GF_KERNEL_RUNTIME_SCRIPT = preload("res://addons/gf/kernel/core/gf_kernel_runtime.gd")
+
+## 安全读取内部字典和 Variant 值。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 工厂解析上下文中当前绑定的字段名。
+## [br]
+## @api private
 const _FACTORY_RESOLUTION_BINDING_KEY: String = "binding"
+
+## 工厂解析上下文中记录新建单例的字段名。
+## [br]
+## @api private
 const _FACTORY_RESOLUTION_CREATED_SINGLETONS_KEY: String = "created_singletons"
+
+## 工厂解析上下文中的失败标记字段名。
+## [br]
+## @api private
 const _FACTORY_RESOLUTION_FAILED_KEY: String = "failed"
+
+## 工厂解析记录中实例字段名。
+## [br]
+## @api private
 const _FACTORY_RESOLUTION_INSTANCE_KEY: String = "instance"
+
+## 工厂解析记录中脚本字段名。
+## [br]
+## @api private
 const _FACTORY_RESOLUTION_SCRIPT_KEY: String = "script"
+
+## 工厂解析上下文中保存递归解析栈的字段名。
+## [br]
+## @api private
 const _FACTORY_RESOLUTION_STACK_KEY: String = "stack"
+
+## 父架构链诊断记录中保存访问条目的字段名。
+## [br]
+## @api private
 const _PARENT_CHAIN_ENTRIES_KEY: String = "entries"
+
+## 父架构链诊断记录中的循环检测标记字段名。
+## [br]
+## @api private
 const _PARENT_CHAIN_CYCLE_DETECTED_KEY: String = "cycle_detected"
+
+## 父架构链诊断记录中循环架构键字段名。
+## [br]
+## @api private
 const _PARENT_CHAIN_CYCLE_ARCHITECTURE_KEY: String = "cycle_architecture"
+
+## 父架构链诊断记录中循环深度字段名。
+## [br]
+## @api private
 const _PARENT_CHAIN_CYCLE_DEPTH_KEY: String = "cycle_depth"
+
+## 父架构链诊断记录中循环起始深度字段名。
+## [br]
+## @api private
 const _PARENT_CHAIN_CYCLE_START_DEPTH_KEY: String = "cycle_start_depth"
+
+## 父架构链诊断记录中的深度截断标记字段名。
+## [br]
+## @api private
 const _PARENT_CHAIN_TRUNCATED_KEY: String = "truncated"
 
 ## 命令历史服务 capability key。
@@ -138,12 +214,40 @@ const SERVICE_COMMAND_HISTORY_STORE: StringName = &"gf.kernel.command_history_st
 ## [br]
 ## @since 5.0.0
 const DEFAULT_SNAPSHOT_MODELS_PER_FRAME: int = 8
+
+## 生命周期超时设置允许的最大秒数。
+## [br]
+## @api private
 const _MAX_LIFECYCLE_TIMEOUT_SECONDS: float = 86_400.0
+
+## 生命周期依赖解析允许遍历的最大父架构深度。
+## [br]
+## @api private
 const _MAX_LIFECYCLE_PARENT_DEPTH: int = 64
+
+## 单个拓扑事务可暂存的服务意图数量上限。
+## [br]
+## @api private
 const _MAX_TOPOLOGY_SERVICE_INTENTS: int = 64
+
+## 注册检查结果：候选已由本架构接纳。
+## [br]
+## @api private
 const _REQUIRED_REGISTRATION_ACCEPTED: int = 0
+
+## 注册检查结果：拒绝后候选仍由调用方持有。
+## [br]
+## @api private
 const _REQUIRED_REGISTRATION_REJECTED_CALLER_OWNS: int = 1
+
+## 注册检查结果：拒绝前架构已结算候选。
+## [br]
+## @api private
 const _REQUIRED_REGISTRATION_REJECTED_ARCHITECTURE_SETTLED: int = 2
+
+## 注册检查结果：拒绝时候选仍归架构持有。
+## [br]
+## @api private
 const _REQUIRED_REGISTRATION_REJECTED_ARCHITECTURE_OWNS: int = 3
 
 
@@ -221,42 +325,189 @@ var last_initialization_error: String = ""
 
 # --- 私有变量 ---
 
+## System 模块及其脚本别名的注册表。
+## [br]
+## @api private
 var _system_registry: ModuleRegistry = ModuleRegistry.new("System")
+
+## Model 模块及其脚本别名的注册表。
+## [br]
+## @api private
 var _model_registry: ModuleRegistry = ModuleRegistry.new("Model")
+
+## Utility 模块及其脚本别名的注册表。
+## [br]
+## @api private
 var _utility_registry: ModuleRegistry = ModuleRegistry.new("Utility")
+
+## 指向 System 注册表实例字典的快捷引用。
+## [br]
+## @api private
 var _systems: Dictionary = _system_registry.instances
+
+## 指向 Model 注册表实例字典的快捷引用。
+## [br]
+## @api private
 var _models: Dictionary = _model_registry.instances
+
+## 指向 Utility 注册表实例字典的快捷引用。
+## [br]
+## @api private
 var _utilities: Dictionary = _utility_registry.instances
+
+## 按请求脚本类型索引的工厂绑定表。
+## [br]
+## @api private
 var _factories: Dictionary = {}
+
+## 保存当前递归工厂解析上下文的栈。
+## [br]
+## @api private
 var _factory_resolution_context_stack: Array[Dictionary] = []
+
+## 记录已注册模块到达的生命周期阶段。
+## [br]
+## @api private
 var _module_lifecycle_stages: Dictionary = {}
+
+## 按 service key 保存当前服务提供者。
+## [br]
+## @api private
 var _services: Dictionary = {}
+
+## 架构拥有的类型事件系统。
+## [br]
+## @api private
 var _event_system: GFTypeEventSystem
+
+## 当前架构本地注册的时间提供器缓存。
+## [br]
+## @api private
 var _time_provider: Object
+
+## 架构 tick 与 physics tick 的调度器。
+## [br]
+## @api private
 var _tick_scheduler: GFArchitectureTickScheduler
+
+## 架构存档和恢复的协调器。
+## [br]
+## @api private
 var _snapshot_coordinator: GFArchitectureSnapshotCoordinator
+
+## 管理架构运行时状态和拓扑事务的运行时对象。
+## [br]
+## @api private
 var _runtime: GFKernelRuntime
+
+## 可选父架构，用于允许时的模块、服务和依赖回退查找。
+## [br]
+## @api private
 var _parent_architecture: GFArchitecture = null
+
+## 当前架构是否已完成项目 Installer 阶段。
+## [br]
+## @api private
 var _project_installers_applied: bool = false
+
+## 当前是否有项目 Installer 阶段正在执行。
+## [br]
+## @api private
 var _project_installers_running: bool = false
+
+## 迟到异步回调结算期间的写入屏障计数；大于零时拒绝运行期变更，解除时下限为零。
+## [br]
+## @api private
 var _stale_async_write_block_count: int = 0
+
+## 初始化失败结算的重入屏障，覆盖作用域取消及失败状态清理，结算结束后复位。
+## [br]
+## @api private
 var _initialization_failure_settlement_in_progress: bool = false
+
+## 架构当前追踪的异步作用域；批量取消先复制并清空列表，再调用各作用域的取消逻辑。
+## [br]
+## @api private
 var _active_async_scopes: Array[GFAsyncScope] = []
+
+## 当前提交生效的生命周期计划；初始化和拓扑事务成功后替换，失败清理或释放时清空。
+## [br]
+## @api private
 var _active_lifecycle_plan: GFArchitectureLifecyclePlan = null
+
+## 初始化已编译但尚未提交的计划，供失败时按计划顺序清理；成功提交后清空。
+## [br]
+## @api private
 var _lifecycle_plan_in_progress: GFArchitectureLifecyclePlan = null
+
+## 本轮计划激活的取消与完成作用域；激活收尾或架构清理时解除引用。
+## [br]
+## @api private
 var _activation_scope: GFAsyncScope = null
+
+## 当前 shutdown 阶段的共享作用域，等待模块静默时使用并在收尾时解除引用。
+## [br]
+## @api private
 var _shutdown_scope: GFAsyncScope = null
+
+## 当前 shutdown 请求共享的终结信号，重复请求观察同一结果而不重新启动退出流程。
+## [br]
+## @api private
 var _shutdown_completion: GFAsyncCompletion = null
+
+## 发布时复制保存的最近退出结果，供后续查询使用，不直接保存调用方的结果对象。
+## [br]
+## @api private
 var _last_shutdown_result: GFArchitectureShutdownResult = null
+
+## 当前退出流程收到的重复请求数；新退出流程建立时归零，并写入退出结果。
+## [br]
+## @api private
 var _shutdown_duplicate_request_count: int = 0
+
+## 调用模块生命周期钩子时的嵌套深度，供拓扑变更入口识别并拒绝钩子中的重入修改。
+## [br]
+## @api private
 var _lifecycle_hook_depth: int = 0
+
+## 唯一在途拓扑事务；续体仅在身份和所有权仍匹配时可提交，shutdown 接管会解除此引用。
+## [br]
+## @api private
 var _topology_mutation: TopologyMutation = null
+
+## 为新拓扑事务递增分配的诊断 ID，事务有效性仍以对象身份及所有权判定。
+## [br]
+## @api private
 var _next_topology_mutation_id: int = 1
+
+## 最近一次生命周期计划编译错误文本。
+## [br]
+## @api private
 var _last_lifecycle_plan_error: String = ""
+
+## 正在由模块释放流程处理的实例集合。
+## [br]
+## @api private
 var _module_disposal_claims: Dictionary = {}
+
+## 当前嵌套模块释放会话的深度。
+## [br]
+## @api private
 var _module_disposal_session_depth: int = 0
+
+## 生效生命周期计划持有的父级依赖租约；计划切换时由候选租约替换，清理时集中释放。
+## [br]
+## @api private
 var _active_external_dependency_leases: Array[Dictionary] = []
+
+## 按租约 ID 索引子架构消费者的弱引用、代次与拓扑阻塞标志，供父级变更前检查活动依赖。
+## [br]
+## @api private
 var _child_external_dependency_leases: Dictionary = {}
+
+## 为新子架构依赖租约分配的递增 ID；释放还需匹配消费者身份，不能仅凭 ID 清除。
+## [br]
+## @api private
 var _next_child_external_dependency_lease_id: int = 1
 
 
@@ -2871,8 +3122,32 @@ func register_utility_instance_for_required_plan_for_framework(
 	return registration_error
 
 
+## 供 Gf 的超时 Installer 续体登记迟到写入屏障；实际续体返回后必须对应解除。
+## [br]
+## @api framework_internal
+func _begin_stale_async_write_block() -> void:
+	_stale_async_write_block_count += 1
+
+
+## 解除一个迟到写入屏障，计数下限为零；不会恢复已失败的生命周期。
+## [br]
+## @api framework_internal
+func _end_stale_async_write_block() -> void:
+	_stale_async_write_block_count = maxi(_stale_async_write_block_count - 1, 0)
+
+
+## 供 System/Utility 的 tick 配置变化请求调度器重建缓存。
+## [br]
+## @api framework_internal
+func _refresh_tick_caches() -> void:
+	_tick_scheduler.refresh()
+
+
 # --- 私有/辅助方法 ---
 
+## 等待指定代次已有的初始化，并在取消或完成后断开临时连接；仅成功且架构就绪、代次仍当前时返回 true。
+## [br]
+## @api private
 func _await_existing_initialization(
 	waiting_serial: int,
 	cancellation_token: GFCancellationToken
@@ -2911,6 +3186,9 @@ func _await_existing_initialization(
 	)
 
 
+## 将 lifecycle plan 中的模块与依赖解析结果整理为诊断报告；没有 plan 时报告错误并返回空列表。
+## [br]
+## @api private
 func _build_dependency_diagnostics_from_plan(
 	plan: GFArchitectureLifecyclePlan
 ) -> Dictionary:
@@ -3026,6 +3304,9 @@ func _build_dependency_diagnostics_from_plan(
 	)
 
 
+## 从单条依赖诊断中提取模块、解析范围、实例标识和父链循环信息。
+## [br]
+## @api private
 func _make_plan_dependency_diagnostic_record(
 	source: Dictionary
 ) -> Dictionary:
@@ -3111,6 +3392,9 @@ func _make_plan_dependency_diagnostic_record(
 	}
 
 
+## 将 plan 诊断转换为 DependencyDiagnosticsReport 条目，并把内部字段放入 metadata。
+## [br]
+## @api private
 func _append_lifecycle_plan_dependency_issue(
 	report: DependencyDiagnosticsReport,
 	diagnostic: Dictionary
@@ -3163,6 +3447,9 @@ func _append_lifecycle_plan_dependency_issue(
 	)
 
 
+## 生成 dependency diagnostics 报告使用的隐藏字段、后续动作和回退说明选项。
+## [br]
+## @api private
 func _get_dependency_diagnostics_report_options() -> Dictionary:
 	return {
 		"include_subject": false,
@@ -3176,6 +3463,9 @@ func _get_dependency_diagnostics_report_options() -> Dictionary:
 	}
 
 
+## 从依赖映射读取指定类别的 Array；字段不是 Array 时返回空数组。
+## [br]
+## @api private
 func _get_dependency_script_array(
 	dependencies: Dictionary,
 	dependency_kind: String
@@ -3191,6 +3481,9 @@ func _get_dependency_script_array(
 	return []
 
 
+## 仅当 Variant 是 Object 时返回其对象引用，否则返回 null。
+## [br]
+## @api private
 func _variant_to_object(value: Variant) -> Object:
 	if value is Object:
 		var object_value: Object = value
@@ -3198,6 +3491,9 @@ func _variant_to_object(value: Variant) -> Object:
 	return null
 
 
+## 仅当 Variant 是 GFBinding 时返回绑定，否则返回 null。
+## [br]
+## @api private
 func _variant_to_binding(value: Variant) -> GFBinding:
 	if value is GFBinding:
 		var binding: GFBinding = value
@@ -3205,6 +3501,9 @@ func _variant_to_binding(value: Variant) -> GFBinding:
 	return null
 
 
+## 仅当 Variant 是 Dictionary 时返回该字典，否则返回空字典。
+## [br]
+## @api private
 func _variant_to_dictionary(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		var dictionary_value: Dictionary = value
@@ -3212,6 +3511,9 @@ func _variant_to_dictionary(value: Variant) -> Dictionary:
 	return {}
 
 
+## 仅当 Variant 是 Script 时返回脚本，否则返回 null。
+## [br]
+## @api private
 func _variant_to_script(value: Variant) -> Script:
 	if value is Script:
 		var script_value: Script = value
@@ -3219,26 +3521,44 @@ func _variant_to_script(value: Variant) -> Script:
 	return null
 
 
+## 安全读取字典字段并收窄为 Object；字段缺失或类型不符时返回 null。
+## [br]
+## @api private
 func _get_dictionary_object(source: Dictionary, field_name: Variant) -> Object:
 	return _variant_to_object(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(source, field_name))
 
 
+## 安全读取字典字段并收窄为 GFBinding；字段缺失或类型不符时返回 null。
+## [br]
+## @api private
 func _get_dictionary_binding(source: Dictionary, field_name: Variant) -> GFBinding:
 	return _variant_to_binding(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(source, field_name))
 
 
+## 安全读取字典字段并收窄为 Script；字段缺失或类型不符时返回 null。
+## [br]
+## @api private
 func _get_dictionary_script(source: Dictionary, field_name: Variant) -> Script:
 	return _variant_to_script(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(source, field_name))
 
 
+## 读取 Object 属性并转换为 int；对象/属性不可读或转换失败时使用默认值。
+## [br]
+## @api private
 func _get_object_int_property(instance: Object, property_name: StringName, default_value: int) -> int:
 	return _GF_VARIANT_ACCESS_SCRIPT.to_int(_get_object_property(instance, property_name, default_value), default_value)
 
 
+## 读取 Object 属性并转换为 bool；对象/属性不可读或转换失败时使用默认值。
+## [br]
+## @api private
 func _get_object_bool_property(instance: Object, property_name: StringName, default_value: bool = false) -> bool:
 	return _GF_VARIANT_ACCESS_SCRIPT.to_bool(_get_object_property(instance, property_name, default_value), default_value)
 
 
+## 通过 indexed property 读取对象属性；对象为空或属性不存在时返回默认值。
+## [br]
+## @api private
 func _get_object_property(instance: Object, property_name: StringName, default_value: Variant = null) -> Variant:
 	if instance == null:
 		return default_value
@@ -3247,6 +3567,9 @@ func _get_object_property(instance: Object, property_name: StringName, default_v
 	return instance.get_indexed(NodePath(String(property_name)))
 
 
+## 获取实例附加的脚本；实例为空或返回值不是 Script 时返回 null。
+## [br]
+## @api private
 func _get_instance_script(instance: Object) -> Script:
 	if instance == null:
 		return null
@@ -3254,6 +3577,9 @@ func _get_instance_script(instance: Object) -> Script:
 	return _variant_to_script(raw_script)
 
 
+## 主循环是 SceneTree 时返回该场景树，否则返回 null。
+## [br]
+## @api private
 func _get_scene_tree_or_null() -> SceneTree:
 	var main_loop: Variant = Engine.get_main_loop()
 	if main_loop is SceneTree:
@@ -3262,6 +3588,9 @@ func _get_scene_tree_or_null() -> SceneTree:
 	return null
 
 
+## 将各类依赖脚本列表转换为可读调试键，并保留 models/systems/utilities/factories 四类键。
+## [br]
+## @api private
 func _dependency_map_to_keys(dependencies: Dictionary) -> Dictionary:
 	return {
 		"models": _script_array_to_debug_keys(_get_dependency_script_array(dependencies, "models")),
@@ -3271,6 +3600,9 @@ func _dependency_map_to_keys(dependencies: Dictionary) -> Dictionary:
 	}
 
 
+## 忽略非 Script 项，收集脚本调试键并排序后返回。
+## [br]
+## @api private
 func _script_array_to_debug_keys(scripts: Array) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for script_variant: Variant in scripts:
@@ -3282,16 +3614,25 @@ func _script_array_to_debug_keys(scripts: Array) -> PackedStringArray:
 	return result
 
 
+## 向 PackedStringArray 追加字符串；调用者不使用 append 的返回值。
+## [br]
+## @api private
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var _added: bool = target.append(value)
 
 
+## 实例和方法均可用时按 arguments 调用该方法；否则直接返回。
+## [br]
+## @api private
 func _call_module_void(instance: Object, method_name: StringName, arguments: Array = []) -> void:
 	if instance == null or not instance.has_method(method_name):
 		return
 	var _result: Variant = instance.callv(method_name, arguments)
 
 
+## 按 Model、System 或 Utility 类型调用实例的 init，并在调用期间增加 lifecycle hook 深度。
+## [br]
+## @api private
 func _call_module_init(instance: Object) -> void:
 	_lifecycle_hook_depth += 1
 	if instance is GFModel:
@@ -3306,6 +3647,9 @@ func _call_module_init(instance: Object) -> void:
 	_lifecycle_hook_depth -= 1
 
 
+## 按模块类型取得 async_init 回调；回调有效时在 lifecycle hook 深度内等待其完成。
+## [br]
+## @api private
 func _call_module_async_init(instance: Object, async_scope: GFAsyncScope) -> void:
 	var async_init_callback: Callable = Callable()
 	if instance is GFModel:
@@ -3323,6 +3667,9 @@ func _call_module_async_init(instance: Object, async_scope: GFAsyncScope) -> voi
 		_lifecycle_hook_depth -= 1
 
 
+## 按 Model、System 或 Utility 类型调用实例的 ready，并在调用期间增加 lifecycle hook 深度。
+## [br]
+## @api private
 func _call_module_ready(instance: Object) -> void:
 	_lifecycle_hook_depth += 1
 	if instance is GFModel:
@@ -3337,6 +3684,9 @@ func _call_module_ready(instance: Object) -> void:
 	_lifecycle_hook_depth -= 1
 
 
+## 按模块类型调用 begin_activation，并返回模块提供的异步完成对象。
+## [br]
+## @api private
 func _call_module_begin_activation(
 	instance: Object,
 	scope: GFAsyncScope
@@ -3356,6 +3706,9 @@ func _call_module_begin_activation(
 	return completion
 
 
+## 按模块类型调用 begin_quiesce，并返回模块提供的异步完成对象。
+## [br]
+## @api private
 func _call_module_begin_quiesce(
 	instance: Object,
 	scope: GFAsyncScope
@@ -3375,6 +3728,9 @@ func _call_module_begin_quiesce(
 	return completion
 
 
+## 按 Model、System 或 Utility 类型调用实例的 dispose，并在调用期间增加 lifecycle hook 深度。
+## [br]
+## @api private
 func _call_module_dispose(instance: Object) -> void:
 	_lifecycle_hook_depth += 1
 	if instance is GFModel:
@@ -3389,6 +3745,9 @@ func _call_module_dispose(instance: Object) -> void:
 	_lifecycle_hook_depth -= 1
 
 
+## 按模块类型调用实例的 release_dependencies。
+## [br]
+## @api private
 func _call_module_release_dependencies(instance: Object) -> void:
 	if instance is GFModel:
 		var model: GFModel = instance
@@ -3401,6 +3760,9 @@ func _call_module_release_dependencies(instance: Object) -> void:
 		utility.release_dependencies()
 
 
+## 沿受控父链查找模块；本级已找到但未就绪时直接返回 null，strict miss 或不允许回退时不继续查父级。
+## [br]
+## @api private
 func _get_registered_instance_with_parent_lookup(
 	registry_kind: String,
 	script_cls: Script,
@@ -3429,6 +3791,9 @@ func _get_registered_instance_with_parent_lookup(
 	return null
 
 
+## 按 model/system/utility 的字符串种类返回对应注册表；未知种类返回 null。
+## [br]
+## @api private
 func _get_module_registry_by_kind(registry_kind: String) -> ModuleRegistry:
 	match registry_kind:
 		"model", "models":
@@ -3441,6 +3806,9 @@ func _get_module_registry_by_kind(registry_kind: String) -> ModuleRegistry:
 			return null
 
 
+## 按 ModuleKind 枚举值返回对应注册表；未知值返回 null。
+## [br]
+## @api private
 func _get_module_registry_for_access_kind(module_kind: ModuleKind) -> ModuleRegistry:
 	match module_kind:
 		ModuleKind.MODEL:
@@ -3453,12 +3821,18 @@ func _get_module_registry_for_access_kind(module_kind: ModuleKind) -> ModuleRegi
 			return null
 
 
+## 仅当请求既没有未解析别名也没有本地可赋值实例时允许向父架构回退。
+## [br]
+## @api private
 func _should_fallback_after_local_module_miss(module_registry: ModuleRegistry, script_cls: Script) -> bool:
 	if _has_unresolved_alias(module_registry, script_cls):
 		return false
 	return not _has_assignable_instance(module_registry, script_cls)
 
 
+## 创建包含当前架构 instance id、初始深度及循环标记的父链访问记录。
+## [br]
+## @api private
 func _create_parent_lookup_visited() -> Dictionary:
 	return {
 		get_instance_id(): 0,
@@ -3467,6 +3841,9 @@ func _create_parent_lookup_visited() -> Dictionary:
 	}
 
 
+## 严格查找或父级为空时停止；遇到已访问父级记录循环并可选报错，否则推进访问深度。
+## [br]
+## @api private
 func _get_next_parent_for_lookup(
 	current: GFArchitecture,
 	visited: Dictionary,
@@ -3489,10 +3866,16 @@ func _get_next_parent_for_lookup(
 	return parent
 
 
+## 根据 instance id 判断架构是否已出现在本次父链遍历中。
+## [br]
+## @api private
 func _parent_lookup_visited_has_architecture(visited: Dictionary, architecture: GFArchitecture) -> bool:
 	return architecture != null and visited.has(architecture.get_instance_id())
 
 
+## 只记录首次发现的父链循环及其架构键、发现深度和起始深度。
+## [br]
+## @api private
 func _record_parent_lookup_cycle(
 	visited: Dictionary,
 	cycle_architecture: GFArchitecture,
@@ -3509,6 +3892,9 @@ func _record_parent_lookup_cycle(
 	visited[_PARENT_CHAIN_CYCLE_START_DEPTH_KEY] = _get_parent_lookup_visited_depth(visited, cycle_instance_id)
 
 
+## 返回记录中的整数访问深度；缺少键或值不是 int 时返回 -1。
+## [br]
+## @api private
 func _get_parent_lookup_visited_depth(visited: Dictionary, architecture_instance_id: int) -> int:
 	if not visited.has(architecture_instance_id):
 		return -1
@@ -3519,10 +3905,16 @@ func _get_parent_lookup_visited_depth(visited: Dictionary, architecture_instance
 	return -1
 
 
+## 读取本次父链访问记录中的循环检测标记。
+## [br]
+## @api private
 func _has_parent_lookup_cycle(visited: Dictionary) -> bool:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(visited, _PARENT_CHAIN_CYCLE_DETECTED_KEY, false)
 
 
+## 将访问记录投影为 parent_cycle 依赖状态，并保留循环架构键及深度信息。
+## [br]
+## @api private
 func _make_parent_lookup_cycle_status(visited: Dictionary, architecture_depth: int) -> Dictionary:
 	return {
 		"resolved": false,
@@ -3535,6 +3927,9 @@ func _make_parent_lookup_cycle_status(visited: Dictionary, architecture_depth: i
 	}
 
 
+## 为指定查找上下文报告父架构循环和循环架构调试键。
+## [br]
+## @api private
 func _report_parent_lookup_cycle(context: String, cycle_architecture: GFArchitecture) -> void:
 	push_error("[GFArchitecture][architecture.parent_chain_cycle] %s failed: the parent architecture chain contains a cycle: %s." % [
 		context,
@@ -3542,12 +3937,18 @@ func _report_parent_lookup_cycle(context: String, cycle_architecture: GFArchitec
 	])
 
 
+## 返回 GFArchitecture 实例 id 调试键；架构为空时返回空字符串。
+## [br]
+## @api private
 func _get_architecture_debug_key(architecture: GFArchitecture) -> String:
 	if architecture == null:
 		return ""
 	return "GFArchitecture:%d" % architecture.get_instance_id()
 
 
+## 将已知复数依赖类别转换为单数名称，未知类别统一返回 dependency。
+## [br]
+## @api private
 func _dependency_kind_to_singular(dependency_kind: String) -> String:
 	match dependency_kind:
 		"models":
@@ -3562,6 +3963,9 @@ func _dependency_kind_to_singular(dependency_kind: String) -> String:
 			return "dependency"
 
 
+## 返回依赖诊断 issue kind 到建议修复动作的静态映射。
+## [br]
+## @api private
 func _get_dependency_diagnostics_next_actions() -> Dictionary:
 	return {
 		"missing_model_dependency": "Register the required Model locally or in an allowed parent architecture.",
@@ -3578,6 +3982,9 @@ func _get_dependency_diagnostics_next_actions() -> Dictionary:
 	}
 
 
+## 清除项目 installer 的已应用与运行标志；原先处于运行态时发出完成信号。
+## [br]
+## @api private
 func _reset_project_installers() -> void:
 	var was_running: bool = _project_installers_running
 	_project_installers_applied = false
@@ -3586,6 +3993,9 @@ func _reset_project_installers() -> void:
 		project_installers_finished.emit()
 
 
+## 仅在运行时 NEW/FAILED 阶段可修改父架构；拒绝自身或会形成循环的父级。
+## [br]
+## @api private
 func _assign_parent_architecture(parent_architecture: GFArchitecture, context: String) -> void:
 	if _runtime.get_state() not in [
 		GFKernelRuntime.LifecycleState.NEW,
@@ -3609,6 +4019,9 @@ func _assign_parent_architecture(parent_architecture: GFArchitecture, context: S
 	_parent_architecture = parent_architecture
 
 
+## 沿父链按实例 id 查找 expected；遇到重复节点时停止并返回 false。
+## [br]
+## @api private
 func _parent_chain_contains(parent_architecture: GFArchitecture, expected: GFArchitecture) -> bool:
 	var visited: Dictionary = {}
 	var current: GFArchitecture = parent_architecture
@@ -3623,6 +4036,9 @@ func _parent_chain_contains(parent_architecture: GFArchitecture, expected: GFArc
 	return false
 
 
+## 按 lifecycle_priority 排序模块；正向为高优先级先行，反向为低优先级先行，同值按输入顺序处理，反向时同值顺序也反转。
+## [br]
+## @api private
 func _get_modules_by_lifecycle_priority(registry: Dictionary, reverse: bool = false) -> Array[Object]:
 	var entries: Array[Dictionary] = []
 	var order: int = 0
@@ -3652,6 +4068,9 @@ func _get_modules_by_lifecycle_priority(registry: Dictionary, reverse: bool = fa
 	return result
 
 
+## 读取已支持属性的模块优先级；null 实例或未知属性返回 0。
+## [br]
+## @api private
 func _get_module_priority(instance: Object, property_name: StringName) -> int:
 	if instance == null:
 		return 0
@@ -3662,6 +4081,9 @@ func _get_module_priority(instance: Object, property_name: StringName) -> int:
 			return 0
 
 
+## 从 Model、System 或 Utility 读取 lifecycle_priority；其他实例返回 0。
+## [br]
+## @api private
 func _get_lifecycle_priority(instance: Object) -> int:
 	if instance is GFModel:
 		var model: GFModel = instance
@@ -3675,6 +4097,9 @@ func _get_lifecycle_priority(instance: Object) -> int:
 	return 0
 
 
+## 为注册表中的模块生成阶段名称、ready/active 标记、生命周期优先级和 tick 诊断字段。
+## [br]
+## @api private
 func _collect_module_debug_state(registry: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for script_cls: Script in registry.keys():
@@ -3692,6 +4117,9 @@ func _collect_module_debug_state(registry: Dictionary) -> Dictionary:
 	return result
 
 
+## 汇总一个模块注册表的计数；include_entries 为 true 时附加实例、别名和缓存明细。
+## [br]
+## @api private
 func _collect_binding_registry_diagnostics(
 	module_kind: String,
 	module_registry: ModuleRegistry,
@@ -3751,6 +4179,9 @@ func _collect_binding_registry_diagnostics(
 	return result
 
 
+## 汇总 factory binding 数量与无效项；include_entries 为 true 时附加各脚本的 lifetime 和有效性。
+## [br]
+## @api private
 func _collect_binding_factory_diagnostics(include_entries: bool) -> Dictionary:
 	var result: Dictionary = {
 		"count": _factories.size(),
@@ -3779,6 +4210,9 @@ func _collect_binding_factory_diagnostics(include_entries: bool) -> Dictionary:
 	return result
 
 
+## 将目标未注册的别名转换为 invalid_alias error 条目追加到 issues。
+## [br]
+## @api private
 func _append_binding_registry_issues(issues: Array[Dictionary], registries: Dictionary) -> void:
 	for registry_key: Variant in registries.keys():
 		var registry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(registries[registry_key])
@@ -3796,6 +4230,9 @@ func _append_binding_registry_issues(issues: Array[Dictionary], registries: Dict
 			})
 
 
+## 将无效的 factory binding 转换为 invalid_factory_binding error 条目追加到 issues。
+## [br]
+## @api private
 func _append_binding_factory_issues(issues: Array[Dictionary], factories: Dictionary) -> void:
 	for entry_variant: Variant in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(factories, "entries"):
 		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
@@ -3809,6 +4246,9 @@ func _append_binding_factory_issues(issues: Array[Dictionary], factories: Dictio
 		})
 
 
+## 从注册表诊断和 factory 诊断字典中移除较大的 entries、aliases 与缓存明细字段。
+## [br]
+## @api private
 func _strip_binding_diagnostic_entries(registries: Dictionary, factories: Dictionary) -> void:
 	for registry_key: Variant in registries.keys():
 		var registry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(registries[registry_key])
@@ -3818,6 +4258,9 @@ func _strip_binding_diagnostic_entries(registries: Dictionary, factories: Dictio
 	var _removed_factory_entries: bool = factories.erase("entries")
 
 
+## 收集父链生命周期和注册数量，按实例 ID 截断循环；正深度上限触发 truncated，非正值不限制深度。
+## [br]
+## @api private
 func _collect_parent_chain_report(max_parent_depth: int) -> Dictionary:
 	var entries: Array[Dictionary] = []
 	var report: Dictionary = {
@@ -3862,6 +4305,9 @@ func _collect_parent_chain_report(max_parent_depth: int) -> Dictionary:
 	return report
 
 
+## parent chain 报告标记循环时，追加包含循环深度信息的 parent_chain_cycle error。
+## [br]
+## @api private
 func _append_parent_chain_issues(issues: Array[Dictionary], parent_chain_report: Dictionary) -> void:
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(parent_chain_report, _PARENT_CHAIN_CYCLE_DETECTED_KEY, false):
 		return
@@ -3877,6 +4323,9 @@ func _append_parent_chain_issues(issues: Array[Dictionary], parent_chain_report:
 	})
 
 
+## 移除指定脚本的 factory binding，并在找到 binding 时释放其缓存实例。
+## [br]
+## @api private
 func _clear_factory_binding(script_cls: Script) -> void:
 	if script_cls == null or not _factories.has(script_cls):
 		return
@@ -3887,6 +4336,9 @@ func _clear_factory_binding(script_cls: Script) -> void:
 		binding.dispose_cached_instance()
 
 
+## 先按可用计划退出顺序、再按各注册表逆优先级清理，并以共享释放会话去重；随后清空注册与租约。
+## [br]
+## @api private
 func _clear_failed_initialization_state() -> void:
 	var disposed_instances: Dictionary = _begin_module_disposal_session()
 	var cleanup_plan: GFArchitectureLifecyclePlan = (
@@ -3936,6 +4388,9 @@ func _clear_failed_initialization_state() -> void:
 	_end_module_disposal_session()
 
 
+## 为每个工厂脚本生成 lifetime、lifetime_name 和绑定有效性诊断字段。
+## [br]
+## @api private
 func _collect_factory_debug_state() -> Dictionary:
 	var result: Dictionary = {}
 	for script_cls: Script in _factories.keys():
@@ -3951,6 +4406,9 @@ func _collect_factory_debug_state() -> Dictionary:
 	return result
 
 
+## 将注册、init、async_init、ready、active 阶段码映射为名称，未知码返回 unknown。
+## [br]
+## @api private
 func _get_lifecycle_stage_name(stage: int) -> String:
 	match stage:
 		0:
@@ -3967,6 +4425,9 @@ func _get_lifecycle_stage_name(stage: int) -> String:
 			return "unknown"
 
 
+## 将 TRANSIENT/SINGLETON 生命周期码映射为名称，其他值返回 unknown。
+## [br]
+## @api private
 func _get_binding_lifetime_name(lifetime: int) -> String:
 	match lifetime:
 		GFBindingLifetimesBase.Lifetime.TRANSIENT:
@@ -3977,6 +4438,9 @@ func _get_binding_lifetime_name(lifetime: int) -> String:
 			return "unknown"
 
 
+## 仅接受 TRANSIENT 或 SINGLETON；其他值按 context 报错并返回 false。
+## [br]
+## @api private
 func _validate_factory_lifetime(lifetime: int, context: String) -> bool:
 	if (
 		lifetime == GFBindingLifetimesBase.Lifetime.TRANSIENT
@@ -3988,6 +4452,9 @@ func _validate_factory_lifetime(lifetime: int, context: String) -> bool:
 	return false
 
 
+## 优先返回全局类名或脚本资源路径；缺少脚本键时回退实例脚本路径/instance id，均不可用时返回空串。
+## [br]
+## @api private
 func _get_script_debug_key(script_cls: Script, instance: Object = null) -> String:
 	if script_cls != null:
 		var global_name: StringName = script_cls.get_global_name()
@@ -4003,6 +4470,9 @@ func _get_script_debug_key(script_cls: Script, instance: Object = null) -> Strin
 	return ""
 
 
+## 返回实例脚本的调试键；实例为空时为 null，缺少脚本键时使用 instance id。
+## [br]
+## @api private
 func _get_instance_debug_key(instance: Object) -> String:
 	if instance == null:
 		return "null"
@@ -4012,8 +4482,9 @@ func _get_instance_debug_key(instance: Object) -> String:
 	return "Instance:%d" % instance.get_instance_id()
 
 
-# 从脚本类获取用于序列化的稳定字符串键。
-# 优先使用 Model.get_save_key()，其次使用 class_name（全局类名）。
+## 为存档获取 Model 键：优先使用非空 get_save_key()，其次使用 class_name；都不可用时记录错误并返回空串。
+## [br]
+## @api private
 func _get_model_key(script_cls: Script, model: GFModel = null) -> String:
 	if model != null:
 		var save_key: String = String(model.get_save_key())
@@ -4027,6 +4498,9 @@ func _get_model_key(script_cls: Script, model: GFModel = null) -> String:
 	return ""
 
 
+## 仅在没有在途事务时创建并登记候选，分配递增 ID；已有事务时返回 null，不接管旧事务。
+## [br]
+## @api private
 func _begin_topology_mutation(
 	operation: StringName,
 	module_registry: ModuleRegistry,
@@ -4049,6 +4523,9 @@ func _begin_topology_mutation(
 	return transaction
 
 
+## 仅允许当前候选登记自己的服务意图，并保存现有 provider 与存在性供提交复核；不立即写入服务表。
+## [br]
+## @api private
 func _stage_topology_service_registration(
 	transaction: TopologyMutation,
 	service_key: StringName,
@@ -4099,6 +4576,9 @@ func _stage_topology_service_registration(
 	return true
 
 
+## 候选可撤销自己的待提交服务；旧模块只确认当前服务归属，不在事务尚未提交时移除生效服务。
+## [br]
+## @api private
 func _stage_topology_service_unregistration(
 	transaction: TopologyMutation,
 	service_key: StringName,
@@ -4141,6 +4621,9 @@ func _stage_topology_service_unregistration(
 	return false
 
 
+## 提交前复核事务身份及每项服务的原始存在性和 provider，发现外部变化即拒绝提交。
+## [br]
+## @api private
 func _validate_topology_service_intents(
 	transaction: TopologyMutation
 ) -> bool:
@@ -4176,6 +4659,9 @@ func _validate_topology_service_intents(
 	return true
 
 
+## 把已验证的非空候选 provider 写入服务表；调用方负责先验证事务和服务意图。
+## [br]
+## @api private
 func _commit_topology_service_intents(
 	transaction: TopologyMutation
 ) -> void:
@@ -4188,6 +4674,9 @@ func _commit_topology_service_intents(
 			_services[service_key] = provider
 
 
+## 要求事务仍被本架构持有、归续体所有且未中止或终结，防止 shutdown 接管后的迟到提交。
+## [br]
+## @api private
 func _is_topology_mutation_current(
 	transaction: TopologyMutation
 ) -> bool:
@@ -4200,6 +4689,9 @@ func _is_topology_mutation_current(
 	)
 
 
+## 仅终结当前续体事务；未决结果改为回滚，释放未提升的租约后清空在途槽并完成等待门。
+## [br]
+## @api private
 func _finish_topology_mutation(
 	transaction: TopologyMutation
 ) -> void:
@@ -4214,6 +4706,9 @@ func _finish_topology_mutation(
 		var _completed_topology: bool = transaction._gate.succeed()
 
 
+## 把在途事务所有权转交 shutdown 并标记中止，立即解除架构槽；取消等待门由后续结算负责。
+## [br]
+## @api private
 func _abort_topology_mutation(
 	_reason: StringName
 ) -> TopologyMutation:
@@ -4227,6 +4722,9 @@ func _abort_topology_mutation(
 	return transaction
 
 
+## 仅取消中止事务尚未终结的等待门，不再次清理候选或修改事务所有权。
+## [br]
+## @api private
 func _finalize_aborted_topology_mutation(
 	transaction: TopologyMutation,
 	reason: StringName
@@ -4235,6 +4733,9 @@ func _finalize_aborted_topology_mutation(
 		var _cancelled_topology: bool = transaction._gate.cancel(reason)
 
 
+## 将当前事务标记为致命失败，清理候选并解除在途槽，最后以错误终结等待门。
+## [br]
+## @api private
 func _fail_topology_mutation(
 	transaction: TopologyMutation,
 	error: String
@@ -4249,6 +4750,9 @@ func _fail_topology_mutation(
 		var _failed_topology: bool = transaction._gate.fail(error)
 
 
+## 先释放候选租约，再把待清理权标记为已认领；已登记候选经注销清理，未提交候选直接清理，避免重复领取。
+## [br]
+## @api private
 func _cleanup_topology_candidate(
 	transaction: TopologyMutation
 ) -> void:
@@ -4283,6 +4787,9 @@ func _cleanup_topology_candidate(
 	transaction._candidate_cleanup_state = TopologyMutation._CLEANUP_DONE
 
 
+## 清理候选并把未决结果改为回滚，结束运行时事务后再尝试终结仍由续体持有的拓扑事务。
+## [br]
+## @api private
 func _rollback_topology_candidate(
 	topology_transaction: TopologyMutation,
 	runtime_transaction: Dictionary
@@ -4300,6 +4807,9 @@ func _rollback_topology_candidate(
 	_finish_topology_mutation(topology_transaction)
 
 
+## 以候选计划完成准备、ready 和异步激活后才提交注册与服务；各回调后复核代次和事务，失败回收候选。
+## [br]
+## @api private
 func _register_initialized_module(
 	module_registry: ModuleRegistry,
 	script_cls: Script,
@@ -4490,6 +5000,9 @@ func _register_initialized_module(
 	return committed
 
 
+## 在有期限的作用域中等待候选激活，可临时加入 tick 候选；收尾移除临时资格并复核代次与事务后才标记阶段 4。
+## [br]
+## @api private
 func _activate_topology_candidate(
 	instance: Object,
 	candidate_plan: GFArchitectureLifecyclePlan,
@@ -4572,6 +5085,9 @@ func _activate_topology_candidate(
 	return activated
 
 
+## 优先复用显式上下文，其次复用当前解析栈顶，均不存在时创建独立解析上下文。
+## [br]
+## @api private
 func _get_or_create_factory_resolution_context(resolution_context: Dictionary) -> Dictionary:
 	if not resolution_context.is_empty():
 		return resolution_context
@@ -4580,6 +5096,9 @@ func _get_or_create_factory_resolution_context(resolution_context: Dictionary) -
 	return _create_factory_resolution_context()
 
 
+## 创建本次工厂解析的单例回滚清单、失败标记与递归绑定栈；容器随解析过程原地更新。
+## [br]
+## @api private
 func _create_factory_resolution_context() -> Dictionary:
 	return {
 		_FACTORY_RESOLUTION_CREATED_SINGLETONS_KEY: [],
@@ -4588,6 +5107,9 @@ func _create_factory_resolution_context() -> Dictionary:
 	}
 
 
+## 仅把非空且不同于当前栈顶的字典身份压栈；返回 true 的调用方负责对应弹栈。
+## [br]
+## @api private
 func _push_factory_resolution_context_if_needed(resolution_context: Dictionary) -> bool:
 	if resolution_context.is_empty():
 		return false
@@ -4599,6 +5121,9 @@ func _push_factory_resolution_context_if_needed(resolution_context: Dictionary) 
 	return true
 
 
+## 调用本地绑定前检测同一绑定的递归解析环，失败标记共享上下文；正常调用前后压入并弹出绑定栈。
+## [br]
+## @api private
 func _create_instance_from_local_factory(
 	script_cls: Script,
 	requesting_architecture: GFArchitecture,
@@ -4624,6 +5149,9 @@ func _create_instance_from_local_factory(
 	return resolved_instance
 
 
+## 把绑定及请求脚本追加到共享解析栈，供后续递归检测和环路诊断使用。
+## [br]
+## @api private
 func _push_factory_resolution_entry(
 	resolution_context: Dictionary,
 	binding: GFBinding,
@@ -4637,6 +5165,9 @@ func _push_factory_resolution_entry(
 	resolution_context[_FACTORY_RESOLUTION_STACK_KEY] = resolution_stack
 
 
+## 移除共享解析栈的最后一项；空栈直接返回，不改变解析失败标记。
+## [br]
+## @api private
 func _pop_factory_resolution_entry(resolution_context: Dictionary) -> void:
 	var resolution_stack: Array = _get_factory_resolution_stack(resolution_context)
 	if resolution_stack.is_empty():
@@ -4645,6 +5176,9 @@ func _pop_factory_resolution_entry(resolution_context: Dictionary) -> void:
 	resolution_context[_FACTORY_RESOLUTION_STACK_KEY] = resolution_stack
 
 
+## 取得 factory resolution context 的递归栈；缺失或类型不符时创建空 Array 并写回。
+## [br]
+## @api private
 func _get_factory_resolution_stack(resolution_context: Dictionary) -> Array:
 	var stack_value: Variant = resolution_context.get(_FACTORY_RESOLUTION_STACK_KEY, [])
 	if stack_value is Array:
@@ -4655,6 +5189,9 @@ func _get_factory_resolution_stack(resolution_context: Dictionary) -> Array:
 	return new_resolution_stack
 
 
+## 取得当前 factory resolution context 创建的 singleton 记录；缺失或类型不符时初始化为空 Array。
+## [br]
+## @api private
 func _get_factory_resolution_created_singletons(resolution_context: Dictionary) -> Array:
 	var created_value: Variant = resolution_context.get(_FACTORY_RESOLUTION_CREATED_SINGLETONS_KEY, [])
 	if created_value is Array:
@@ -4665,6 +5202,9 @@ func _get_factory_resolution_created_singletons(resolution_context: Dictionary) 
 	return new_created_singletons
 
 
+## 返回栈中与 binding 为同一对象的首个索引；未找到时返回 -1。
+## [br]
+## @api private
 func _find_factory_resolution_binding_index(resolution_context: Dictionary, binding: GFBinding) -> int:
 	var resolution_stack: Array = _get_factory_resolution_stack(resolution_context)
 	for index: int in range(resolution_stack.size()):
@@ -4675,6 +5215,9 @@ func _find_factory_resolution_binding_index(resolution_context: Dictionary, bind
 	return -1
 
 
+## 从重复绑定首次出现处拼接脚本标签，并追加当前请求以闭合诊断链。
+## [br]
+## @api private
 func _describe_factory_resolution_cycle(
 	resolution_context: Dictionary,
 	binding: GFBinding,
@@ -4694,6 +5237,9 @@ func _describe_factory_resolution_cycle(
 	return " -> ".join(labels)
 
 
+## 返回脚本的调试标识；没有可用名称时回退到 Script 实例 ID 或 null。
+## [br]
+## @api private
 func _get_factory_resolution_script_label(script_cls: Script) -> String:
 	var label: String = _get_script_debug_key(script_cls)
 	if not label.is_empty():
@@ -4703,12 +5249,18 @@ func _get_factory_resolution_script_label(script_cls: Script) -> String:
 	return "null"
 
 
+## 把非空共享解析上下文置为失败，使根解析在收尾时统一回滚已创建单例。
+## [br]
+## @api private
 func _mark_factory_resolution_failed(resolution_context: Dictionary) -> void:
 	if resolution_context.is_empty():
 		return
 	resolution_context[_FACTORY_RESOLUTION_FAILED_KEY] = true
 
 
+## resolution context 非空且 failed 字段严格为 true 时返回 true。
+## [br]
+## @api private
 func _factory_resolution_context_has_failed(resolution_context: Dictionary) -> bool:
 	if resolution_context.is_empty():
 		return false
@@ -4716,6 +5268,9 @@ func _factory_resolution_context_has_failed(resolution_context: Dictionary) -> b
 	return failed_value == true
 
 
+## 逆序要求绑定拒绝本次记录的缓存实例，随后清空回滚清单；不处理解析前已有的缓存。
+## [br]
+## @api private
 func _rollback_factory_resolution_context(resolution_context: Dictionary) -> void:
 	var created_singletons: Array = _get_factory_resolution_created_singletons(resolution_context)
 	for index: int in range(created_singletons.size() - 1, -1, -1):
@@ -4728,6 +5283,9 @@ func _rollback_factory_resolution_context(resolution_context: Dictionary) -> voi
 	resolution_context[_FACTORY_RESOLUTION_CREATED_SINGLETONS_KEY] = created_singletons
 
 
+## 跨父架构共享递归解析上下文但保留原请求方；strict miss 终止回退，根解析失败时统一回滚新单例。
+## [br]
+## @api private
 func _create_instance_for_requester(
 	script_cls: Script,
 	requesting_architecture: GFArchitecture,
@@ -4791,6 +5349,9 @@ func _create_instance_for_requester(
 	return resolved_instance
 
 
+## 编译当前注册集的初始化计划；只有同一代次仍在初始化时才把编译失败结算为架构初始化失败。
+## [br]
+## @api private
 func _compile_lifecycle_plan_or_fail(
 	lifecycle_serial: int
 ) -> GFArchitectureLifecyclePlan:
@@ -4819,6 +5380,9 @@ func _compile_lifecycle_plan_or_fail(
 	return null
 
 
+## 编译候选快照后复核有效性守卫，保存首条计划诊断并按需报错；无效或已过期均返回 null。
+## [br]
+## @api private
 func _compile_candidate_lifecycle_plan(
 	model_instances: Dictionary,
 	utility_instances: Dictionary,
@@ -4859,6 +5423,9 @@ func _compile_candidate_lifecycle_plan(
 	return null
 
 
+## 为给定注册集建立独立计划并注入相同候选集的依赖解析器，返回计划供调用方检查诊断。
+## [br]
+## @api private
 func _build_candidate_lifecycle_plan_snapshot(
 	model_instances: Dictionary,
 	utility_instances: Dictionary,
@@ -4882,6 +5449,9 @@ func _build_candidate_lifecycle_plan_snapshot(
 	return plan
 
 
+## 捕获代次及可选事务，供编译回调后复核；初始化要求仍 initializing，拓扑编译要求 ready 且事务仍当前。
+## [br]
+## @api private
 func _create_lifecycle_plan_validity_guard(
 	lifecycle_serial: int,
 	topology_transaction: TopologyMutation = null,
@@ -4909,12 +5479,18 @@ func _create_lifecycle_plan_validity_guard(
 		return _runtime.is_initializing()
 
 
+## 未提供有效守卫时允许编译；有守卫时调用并收窄其结果，不缓存此前资格。
+## [br]
+## @api private
 func _is_lifecycle_plan_compilation_valid(validity_guard: Callable) -> bool:
 	if not validity_guard.is_valid():
 		return true
 	return _GF_VARIANT_ACCESS_SCRIPT.to_bool(validity_guard.call())
 
 
+## 仅在主线程为外部依赖覆盖的父链去重申请租约；任一申请失败即释放本次已取得的租约。
+## [br]
+## @api private
 func _acquire_external_dependency_leases(
 	plan: GFArchitectureLifecyclePlan,
 	lifecycle_serial: int
@@ -5021,6 +5597,9 @@ func _acquire_external_dependency_leases(
 	}
 
 
+## 从报告的 leases 字段筛出 Dictionary 项；字段缺失或不是 Array 时返回空数组。
+## [br]
+## @api private
 func _get_external_dependency_lease_array(
 	report: Dictionary
 ) -> Array[Dictionary]:
@@ -5035,6 +5614,9 @@ func _get_external_dependency_lease_array(
 	return leases
 
 
+## 主线程且父架构 ready、无拓扑事务、消费者代次活动时登记弱引用租约；不满足条件返回 -1。
+## [br]
+## @api private
 func _acquire_child_external_dependency_lease(
 	consumer: GFArchitecture,
 	consumer_lifecycle_serial: int,
@@ -5064,6 +5646,9 @@ func _acquire_child_external_dependency_lease(
 	return lease_id
 
 
+## 仅在主线程按租约 ID 释放，存活消费者身份不匹配时保留记录；失效弱引用不阻止清除。
+## [br]
+## @api private
 func _release_child_external_dependency_lease(
 	lease_id: int,
 	consumer: GFArchitecture
@@ -5089,6 +5674,9 @@ func _release_child_external_dependency_lease(
 	)
 
 
+## 先复制并清空调用方租约数组，再通知仍可解析的父架构逐项释放，避免重复遍历同一批。
+## [br]
+## @api private
 func _release_external_dependency_leases(
 	leases: Array[Dictionary]
 ) -> void:
@@ -5115,6 +5703,9 @@ func _release_external_dependency_leases(
 		)
 
 
+## 清除无法解析消费者的租约并检查阻塞标志；不复核消费者代次，非主线程保守返回 true。
+## [br]
+## @api private
 func _has_live_child_external_dependency_leases(
 	require_module_topology_block: bool = false
 ) -> bool:
@@ -5155,6 +5746,9 @@ func _has_live_child_external_dependency_leases(
 	return has_matching_lease
 
 
+## 为当前事务释放旧候选租约并申请新计划租约，仅成功时保存新候选集合。
+## [br]
+## @api private
 func _stage_topology_external_dependency_leases(
 	transaction: TopologyMutation,
 	plan: GFArchitectureLifecyclePlan,
@@ -5179,6 +5773,9 @@ func _stage_topology_external_dependency_leases(
 	return true
 
 
+## 先从事务取走候选租约并替换活动集合，再释放原计划租约；事务不再拥有已提升的集合。
+## [br]
+## @api private
 func _promote_topology_external_dependency_leases(
 	transaction: TopologyMutation
 ) -> void:
@@ -5195,6 +5792,9 @@ func _promote_topology_external_dependency_leases(
 	_release_external_dependency_leases(previous_leases)
 
 
+## 释放并清空事务尚未提升的外部依赖租约；空事务直接返回。
+## [br]
+## @api private
 func _release_topology_external_dependency_leases(
 	transaction: TopologyMutation
 ) -> void:
@@ -5205,6 +5805,9 @@ func _release_topology_external_dependency_leases(
 	)
 
 
+## 除显式排除实例外，旧活动模块必须仍存在于候选计划且依赖签名不变，否则拒绝热变更。
+## [br]
+## @api private
 func _validate_candidate_plan_stability(
 	previous_plan: GFArchitectureLifecyclePlan,
 	candidate_plan: GFArchitectureLifecyclePlan,
@@ -5256,6 +5859,9 @@ func _validate_candidate_plan_stability(
 	return true
 
 
+## 按模块实例收集声明快照和解析记录，深复制后移除 module_key，使比较不受注册键更换影响。
+## [br]
+## @api private
 func _index_plan_dependency_signatures(
 	plan: GFArchitectureLifecyclePlan
 ) -> Dictionary:
@@ -5298,6 +5904,9 @@ func _index_plan_dependency_signatures(
 	return result
 
 
+## 以给定候选注册表捕获 model/utility/system 查询闭包；factory 查询仍使用架构的当前工厂绑定。
+## [br]
+## @api private
 func _create_candidate_lifecycle_dependency_resolvers(
 	model_instances: Dictionary,
 	utility_instances: Dictionary,
@@ -5327,6 +5936,9 @@ func _create_candidate_lifecycle_dependency_resolvers(
 	}
 
 
+## 优先返回候选本地解析结果，仅 missing 且非 strict 时查父链；歧义或失效别名不被父级结果掩盖。
+## [br]
+## @api private
 func _resolve_candidate_lifecycle_dependency_status(
 	registry_kind: String,
 	script_cls: Script,
@@ -5363,6 +5975,9 @@ func _resolve_candidate_lifecycle_dependency_status(
 	)
 
 
+## 按精确键、显式别名、可赋值类型依次解析；多个可赋值实例报告 ambiguous，坏别名报告 stale_alias。
+## [br]
+## @api private
 func _resolve_local_lifecycle_dependency_status(
 	registry_kind: String,
 	script_cls: Script,
@@ -5442,6 +6057,9 @@ func _resolve_local_lifecycle_dependency_status(
 	)
 
 
+## 先排除父链循环或过深，再要求逐级父架构稳定且目标模块 active；strict miss 或非 missing 状态终止回退。
+## [br]
+## @api private
 func _resolve_parent_lifecycle_dependency_status(
 	registry_kind: String,
 	script_cls: Script
@@ -5538,6 +6156,9 @@ func _resolve_parent_lifecycle_dependency_status(
 	)
 
 
+## 只检查工厂绑定是否存在，不实例化；父链必须稳定，strict miss、循环或深度问题均停止解析。
+## [br]
+## @api private
 func _resolve_candidate_factory_dependency_status(
 	script_cls: Script
 ) -> Dictionary:
@@ -5618,6 +6239,9 @@ func _resolve_candidate_factory_dependency_status(
 	)
 
 
+## 在生命周期父链深度预算内检测重复实例，异常返回状态字典；链完整且无环时返回空字典。
+## [br]
+## @api private
 func _get_lifecycle_parent_chain_issue() -> Dictionary:
 	var visited: Dictionary = {get_instance_id(): 0}
 	var current: GFArchitecture = _parent_architecture
@@ -5655,6 +6279,9 @@ func _get_lifecycle_parent_chain_issue() -> Dictionary:
 	return {}
 
 
+## 创建依赖解析状态字典，并仅在提供时加入实例和注册脚本字段。
+## [br]
+## @api private
 func _make_lifecycle_dependency_status(
 	status: StringName,
 	resolution_kind: StringName,
@@ -5679,6 +6306,9 @@ func _make_lifecycle_dependency_status(
 	return result
 
 
+## 按激活顺序逐模块推进并跳过已达阶段；取消、脱离注册或推进失败仅在仍属当前初始化时结算失败。
+## [br]
+## @api private
 func _advance_lifecycle_plan_to_stage(
 	plan: GFArchitectureLifecyclePlan,
 	target_stage: int,
@@ -5736,6 +6366,9 @@ func _advance_lifecycle_plan_to_stage(
 	return _all_registered_modules_reached_stage(target_stage)
 
 
+## 按 Model、Utility、System 的顺序查找包含该实例的注册表；未登记时返回 null。
+## [br]
+## @api private
 func _get_module_registry_for_instance(instance: Object) -> ModuleRegistry:
 	if _module_registry_contains_instance(_model_registry, instance):
 		return _model_registry
@@ -5746,6 +6379,9 @@ func _get_module_registry_for_instance(instance: Object) -> ModuleRegistry:
 	return null
 
 
+## 按计划顺序激活模块，共享一个总截止时间与作用域；每次等待后复核取消，成功模块标记阶段 4。
+## [br]
+## @api private
 func _activate_lifecycle_plan(
 	plan: GFArchitectureLifecyclePlan,
 	lifecycle_serial: int,
@@ -5825,6 +6461,9 @@ func _activate_lifecycle_plan(
 	return true
 
 
+## 等待时仅驱动允许依赖集合的生命周期 tick；完成后仍复核代次、取消与截止时间，避免迟到成功覆盖失效资格。
+## [br]
+## @api private
 func _await_lifecycle_completion(
 	completion: GFAsyncCompletion,
 	scope: GFAsyncScope,
@@ -5961,6 +6600,9 @@ func _await_lifecycle_completion(
 	}
 
 
+## 将秒数 timeout 转为基于 started_at_msec 的毫秒截止值；非正 timeout 返回 -1。
+## [br]
+## @api private
 func _make_deadline_msec(started_at_msec: int, timeout_seconds: float) -> int:
 	if timeout_seconds <= 0.0:
 		return -1
@@ -5968,6 +6610,9 @@ func _make_deadline_msec(started_at_msec: int, timeout_seconds: float) -> int:
 	return started_at_msec + int(timeout_msec)
 
 
+## 在 shutdown 截止时间内等待已接纳事务的门结束；不取消事务本身，只有门成功且事务不再当前才算稳定。
+## [br]
+## @api private
 func _await_topology_stability(
 	cancellation_token: GFCancellationToken,
 	deadline_msec: int
@@ -6056,6 +6701,9 @@ func _await_topology_stability(
 	}
 
 
+## 将拓扑等待失败转换为退出报告，把活动计划和仍需清理的候选列为未完成模块。
+## [br]
+## @api private
 func _make_topology_wait_shutdown_report(
 	topology_wait_report: Dictionary
 ) -> Dictionary:
@@ -6090,6 +6738,9 @@ func _make_topology_wait_shutdown_report(
 	}
 
 
+## 仅记录未提交且仍持待清理权的候选，按实例 ID 去重，并附上拓扑阶段和生命周期阶段。
+## [br]
+## @api private
 func _append_topology_mutation_unfinished(
 	target: Array[Dictionary],
 	transaction: TopologyMutation,
@@ -6128,6 +6779,9 @@ func _append_topology_mutation_unfinished(
 	target.append(entry)
 
 
+## 按退出顺序共享总截止时间等待静默；普通模块失败仍继续，超时、全局取消或代次中断则记录剩余跳过项。
+## [br]
+## @api private
 func _quiesce_active_modules(
 	cancellation_token: GFCancellationToken,
 	deadline_msec: int
@@ -6291,6 +6945,9 @@ func _quiesce_active_modules(
 	}
 
 
+## 从指定退出顺序索引起把非空模块记为 skipped，不调用模块钩子或修改生命周期阶段。
+## [br]
+## @api private
 func _append_unfinished_modules(
 	target: Array[Dictionary],
 	shutdown_order: Array[Object],
@@ -6306,6 +6963,9 @@ func _append_unfinished_modules(
 		)
 
 
+## 生成不持有模块对象的退出条目，记录实例 ID、脚本、状态与原因，并将耗时毫秒限制为非负。
+## [br]
+## @api private
 func _make_shutdown_module_entry(
 	instance: Object,
 	status: String,
@@ -6322,6 +6982,9 @@ func _make_shutdown_module_entry(
 	}
 
 
+## 将退出报告状态映射为结果枚举与错误码，附上时间和重复请求数；未识别状态按失败处理。
+## [br]
+## @api private
 func _make_shutdown_result(
 	report: Dictionary,
 	started_at_msec: int,
@@ -6376,6 +7039,9 @@ func _make_shutdown_result(
 	)
 
 
+## 只保留指定字段中为 Dictionary 的数组元素；返回新数组但不复制条目字典。
+## [br]
+## @api private
 func _get_shutdown_report_entries(
 	report: Dictionary,
 	key: String
@@ -6391,6 +7057,9 @@ func _get_shutdown_report_entries(
 	return result
 
 
+## 在强制释放前按可用计划收集已进入生命周期的模块并按对象去重，另加入仍待清理的拓扑候选。
+## [br]
+## @api private
 func _snapshot_forced_unfinished_modules(
 	reason: String
 ) -> Array[Dictionary]:
@@ -6434,6 +7103,9 @@ func _snapshot_forced_unfinished_modules(
 	return unfinished_modules
 
 
+## 取得 dispose 资格后接管并取消拓扑事务，先清理候选再以共享会话释放模块，最后清空注册、租约并终结运行时。
+## [br]
+## @api private
 func _force_dispose_internal() -> void:
 	_fail_active_factory_resolution_contexts()
 	if not _runtime.begin_dispose():
@@ -6513,6 +7185,9 @@ func _force_dispose_internal() -> void:
 	_end_module_disposal_session()
 
 
+## 先按对象登记已领取的释放权，再撤销 owner 事件与服务、执行 dispose 并解除依赖，避免回调重入重复释放。
+## [br]
+## @api private
 func _dispose_module_once(
 	instance: Object,
 	disposed_instances: Dictionary
@@ -6526,11 +7201,17 @@ func _dispose_module_once(
 	_release_module_dependencies(instance)
 
 
+## 进入可重入释放会话并返回共享领取表，嵌套清理沿用同一表避免重复释放实例。
+## [br]
+## @api private
 func _begin_module_disposal_session() -> Dictionary:
 	_module_disposal_session_depth += 1
 	return _module_disposal_claims
 
 
+## 降低释放会话深度，仅最外层结束时清空领取表；深度下限为零。
+## [br]
+## @api private
 func _end_module_disposal_session() -> void:
 	_module_disposal_session_depth = maxi(
 		_module_disposal_session_depth - 1,
@@ -6540,6 +7221,9 @@ func _end_module_disposal_session() -> void:
 		_module_disposal_claims.clear()
 
 
+## 只发布到尚未终结的退出 completion；保存、completion 载荷与信号载荷分别复制，避免共享可变结果。
+## [br]
+## @api private
 func _publish_shutdown_result(result: GFArchitectureShutdownResult) -> void:
 	if result == null:
 		return
@@ -6555,6 +7239,9 @@ func _publish_shutdown_result(result: GFArchitectureShutdownResult) -> void:
 	shutdown_finished.emit(result.duplicate_result())
 
 
+## 所有 Model、Utility 与 System 注册表中的实例均达到 target_stage 时返回 true。
+## [br]
+## @api private
 func _all_registered_modules_reached_stage(target_stage: int) -> bool:
 	return (
 		_module_registry_reached_stage(_model_registry, target_stage)
@@ -6563,6 +7250,9 @@ func _all_registered_modules_reached_stage(target_stage: int) -> bool:
 	)
 
 
+## 注册表中任一实例低于 target_stage 时返回 false；空注册表返回 true。
+## [br]
+## @api private
 func _module_registry_reached_stage(module_registry: ModuleRegistry, target_stage: int) -> bool:
 	for instance: Object in module_registry.instances.values():
 		var current_stage: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_module_lifecycle_stages, instance, 0)
@@ -6571,6 +7261,9 @@ func _module_registry_reached_stage(module_registry: ModuleRegistry, target_stag
 	return true
 
 
+## 顺序执行 init、async_init、ready，每步前后复核代次和注册归属，只有仍有效才提交阶段号。
+## [br]
+## @api private
 func _advance_module_to_stage(
 	module_registry: ModuleRegistry,
 	instance: Object,
@@ -6613,6 +7306,9 @@ func _advance_module_to_stage(
 	return current_stage >= target_stage
 
 
+## 有 SceneTree 时轮询取消、代次与超时，超时为迟到续体设置写屏障；无树时直接 await，不能在此轮询超时。
+## [br]
+## @api private
 func _await_module_async_init(
 	instance: Object,
 	lifecycle_serial: int,
@@ -6686,6 +7382,9 @@ func _await_module_async_init(
 	return _complete_module_async_scope(async_scope, lifecycle_serial)
 
 
+## 等待异步 init 真正返回后解除它持有的迟到写屏障、解除作用域追踪，再设置共享 done 标记。
+## [br]
+## @api private
 func _complete_module_async_init(instance: Object, completion_state: Dictionary, async_scope: GFAsyncScope) -> void:
 	await _call_module_async_init(instance, async_scope)
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(completion_state, "write_blocked", false):
@@ -6694,6 +7393,9 @@ func _complete_module_async_init(instance: Object, completion_state: Dictionary,
 	completion_state["done"] = true
 
 
+## 仅当前代次首次失败可结算；在重入屏障内取消异步工作、清空失败注册集并发出终结信号。
+## [br]
+## @api private
 func _fail_initialization(reason: String, lifecycle_serial: int) -> void:
 	if not _runtime.fail_initialization(lifecycle_serial):
 		return
@@ -6712,6 +7414,9 @@ func _fail_initialization(reason: String, lifecycle_serial: int) -> void:
 	_initialization_failure_settlement_in_progress = false
 
 
+## 只为非空且尚未追踪的实例写入阶段 0，保留已经推进的生命周期阶段。
+## [br]
+## @api private
 func _track_registered_module(instance: Object) -> void:
 	if instance == null:
 		return
@@ -6719,12 +7424,18 @@ func _track_registered_module(instance: Object) -> void:
 		_module_lifecycle_stages[instance] = 0
 
 
+## 通过实例反向索引检查 instance 是否仍有直接注册键。
+## [br]
+## @api private
 func _module_registry_contains_instance(module_registry: ModuleRegistry, instance: Object) -> bool:
 	if instance == null:
 		return false
 	return module_registry._get_key_for_instance(instance) != null
 
 
+## 将带所有权区分的注册结果收窄为 bool，仅 ACCEPTED 返回 true。
+## [br]
+## @api private
 func _register_module(module_registry: ModuleRegistry, script_cls: Script, instance: Object) -> bool:
 	return (
 		_register_module_checked(module_registry, script_cls, instance)
@@ -6732,6 +7443,9 @@ func _register_module(module_registry: ModuleRegistry, script_cls: Script, insta
 	)
 
 
+## 在共享释放会话中执行注册并返回所有权结算状态，使注入重入引起的清理能够去重。
+## [br]
+## @api private
 func _register_module_checked(
 	module_registry: ModuleRegistry,
 	script_cls: Script,
@@ -6747,6 +7461,9 @@ func _register_module_checked(
 	return outcome
 
 
+## 注入前后复核注册键、实例归属与事务；区分调用方仍持有、架构持有、架构已结算的拒绝结果。
+## [br]
+## @api private
 func _register_module_checked_in_disposal_session(
 	module_registry: ModuleRegistry,
 	script_cls: Script,
@@ -6835,6 +7552,9 @@ func _register_module_checked_in_disposal_session(
 	return _REQUIRED_REGISTRATION_ACCEPTED
 
 
+## 为必需绑定建立释放会话，并把注册结果转为 Error；候选拒绝后的释放遵循来源所有权参数。
+## [br]
+## @api private
 func _register_required_plan_module(
 	module_registry: ModuleRegistry,
 	script_cls: Script,
@@ -6852,6 +7572,9 @@ func _register_required_plan_module(
 	return registration_error
 
 
+## 先验证候选存活和声明匹配，仅在拒绝仍归调用方且来源授权释放时清理；不会重复释放已被架构接管的实例。
+## [br]
+## @api private
 func _register_required_plan_module_in_disposal_session(
 	module_registry: ModuleRegistry,
 	script_cls: Script,
@@ -6893,6 +7616,9 @@ func _register_required_plan_module_in_disposal_session(
 	return ERR_CANT_CREATE
 
 
+## 候选实例类型符合注册表类别且其脚本继承或等于声明脚本时返回 true。
+## [br]
+## @api private
 func _required_plan_candidate_matches_declaration(
 	module_registry: ModuleRegistry,
 	script_cls: Script,
@@ -6909,12 +7635,18 @@ func _required_plan_candidate_matches_declaration(
 	)
 
 
+## 仅清理既不在模块注册表、也不由工厂缓存持有的注册候选。
+## [br]
+## @api private
 func _cleanup_registration_candidate_if_unretained(instance: Object) -> void:
 	if _required_plan_candidate_is_retained_by_architecture(instance):
 		return
 	_cleanup_uncommitted_module(instance)
 
 
+## 为未被架构保留的来源候选领取唯一清理权，dispose 后再次检查存活；仅释放无父且未排队的 Node 或非 RefCounted 对象。
+## [br]
+## @api private
 func _cleanup_required_source_owned_candidate(instance: Object) -> void:
 	if not _registration_candidate_is_live(instance):
 		return
@@ -6952,6 +7684,9 @@ func _cleanup_required_source_owned_candidate(instance: Object) -> void:
 		instance.free()
 
 
+## 检查任一模块注册表或工厂绑定是否仍保留该实例，供拒绝路径判断清理权。
+## [br]
+## @api private
 func _required_plan_candidate_is_retained_by_architecture(instance: Object) -> bool:
 	if _get_module_registry_for_instance(instance) != null:
 		return true
@@ -6962,6 +7697,9 @@ func _required_plan_candidate_is_retained_by_architecture(instance: Object) -> b
 	return false
 
 
+## 要求目标脚本兼容别名类型；相同已有关系视为成功，冲突直接拒绝，其余委托常规别名注册。
+## [br]
+## @api private
 func _register_required_plan_alias(
 	module_registry: ModuleRegistry,
 	alias_cls: Script,
@@ -6981,6 +7719,9 @@ func _register_required_plan_alias(
 	return _register_module_alias(module_registry, alias_cls, target_cls)
 
 
+## 拒绝跨键重复实例，同实例替换直接成功；按架构是否 ready 分派冷替换或异步热替换。
+## [br]
+## @api private
 func _replace_module(module_registry: ModuleRegistry, script_cls: Script, instance: Object) -> bool:
 	if not _can_mutate_registration_state("replace_%s" % module_registry._label_key()):
 		return false
@@ -7010,6 +7751,9 @@ func _replace_module(module_registry: ModuleRegistry, script_cls: Script, instan
 	)
 
 
+## 候选注入后反复验证事务和旧值身份，再清理旧实例并提交新实例；回调使状态变化时清理未接管候选。
+## [br]
+## @api private
 func _replace_uninitialized_module(
 	module_registry: ModuleRegistry,
 	script_cls: Script,
@@ -7072,6 +7816,9 @@ func _replace_uninitialized_module(
 	return true
 
 
+## 先准备并激活候选，再静默旧模块后提交；旧模块静默失败可能终止架构，不能承诺恢复旧运行状态。
+## [br]
+## @api private
 func _replace_initialized_module(module_registry: ModuleRegistry, script_cls: Script, instance: Object) -> bool:
 	var previous_instance: Object = _get_dictionary_object(module_registry.instances, script_cls)
 	var topology_transaction: TopologyMutation = _begin_topology_mutation(
@@ -7278,6 +8025,9 @@ func _replace_initialized_module(module_registry: ModuleRegistry, script_cls: Sc
 	return true
 
 
+## 返回 module_registry 对应的候选实例字典；非 Model、Utility 或 System 注册表时返回空字典。
+## [br]
+## @api private
 func _get_candidate_registry_dictionary(
 	module_registry: ModuleRegistry,
 	model_instances: Dictionary,
@@ -7293,6 +8043,9 @@ func _get_candidate_registry_dictionary(
 	return {}
 
 
+## 在独立截止时间和依赖闭包 tick 范围内等待旧模块静默，收尾解除作用域引用；失败报告诊断并返回 false。
+## [br]
+## @api private
 func _quiesce_topology_module(
 	instance: Object,
 	plan: GFArchitectureLifecyclePlan,
@@ -7350,6 +8103,9 @@ func _quiesce_topology_module(
 	return succeeded
 
 
+## 仅当目标注册表未保留实例时清理候选，避免把已被重入注册接管的实例直接释放。
+## [br]
+## @api private
 func _cleanup_uncommitted_module_if_unregistered(
 	module_registry: ModuleRegistry,
 	instance: Object
@@ -7359,6 +8115,9 @@ func _cleanup_uncommitted_module_if_unregistered(
 	_cleanup_uncommitted_module(instance)
 
 
+## 只清理仍存活候选，复用当前释放领取表去重，并删除它的生命周期阶段记录。
+## [br]
+## @api private
 func _cleanup_uncommitted_module(instance: Object) -> void:
 	if not _registration_candidate_is_live(instance):
 		return
@@ -7371,6 +8130,9 @@ func _cleanup_uncommitted_module(instance: Object) -> void:
 	var _removed_stage: bool = _module_lifecycle_stages.erase(instance)
 
 
+## 按注入、init、异步 init 顺序准备候选，各阶段后确认代次仍有效；此处不执行 ready 或提交注册。
+## [br]
+## @api private
 func _prepare_replacement_module(instance: Object, lifecycle_serial: int) -> bool:
 	if not _inject_dependencies_if_needed(instance, lifecycle_serial):
 		return false
@@ -7386,6 +8148,9 @@ func _prepare_replacement_module(instance: Object, lifecycle_serial: int) -> boo
 	return _is_lifecycle_current(lifecycle_serial) and not _runtime.has_failed()
 
 
+## 有树且配置正超时时轮询候选初始化，超时阻止迟到写回；未配置超时或没有树时直接 await。
+## [br]
+## @api private
 func _await_replacement_module_async_init(instance: Object, lifecycle_serial: int) -> bool:
 	var async_scope: GFAsyncScope = _begin_module_async_scope()
 	if module_async_init_timeout_seconds <= 0.0:
@@ -7423,6 +8188,9 @@ func _await_replacement_module_async_init(instance: Object, lifecycle_serial: in
 	return _complete_module_async_scope(async_scope, lifecycle_serial)
 
 
+## 候选异步 init 真正返回后解除它的超时写屏障并取消追踪，最后置 done，供等待方读取。
+## [br]
+## @api private
 func _complete_replacement_module_async_init(instance: Object, completion_state: Dictionary, async_scope: GFAsyncScope) -> void:
 	await _call_module_async_init(instance, async_scope)
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(completion_state, "write_blocked", false):
@@ -7431,6 +8199,9 @@ func _complete_replacement_module_async_init(instance: Object, completion_state:
 	completion_state["done"] = true
 
 
+## 集中拒绝冻结生命周期、迟到写屏障、工厂重入、子架构租约、在途事务及生命周期钩子内的注册修改。
+## [br]
+## @api private
 func _can_mutate_registration_state(context: String) -> bool:
 	if _runtime.is_disposed() or _runtime.is_disposing():
 		push_error("[GFArchitecture][architecture.registry_write_disposed] %s failed: the architecture is disposed and its registry cannot be modified." % context)
@@ -7478,11 +8249,17 @@ func _can_mutate_registration_state(context: String) -> bool:
 	return true
 
 
+## 使所有在栈工厂解析上下文失败，由对应根解析收尾处理新单例回滚。
+## [br]
+## @api private
 func _fail_active_factory_resolution_contexts() -> void:
 	for resolution_context: Dictionary in _factory_resolution_context_stack:
 		_mark_factory_resolution_failed(resolution_context)
 
 
+## 仅检查 ready 后工厂拓扑冻结规则；其他生命周期写入条件仍由调用方的守卫负责。
+## [br]
+## @api private
 func _can_mutate_factory_topology(context: String) -> bool:
 	if not _runtime.is_ready():
 		return true
@@ -7494,6 +8271,9 @@ func _can_mutate_factory_topology(context: String) -> bool:
 	return false
 
 
+## 拒绝 disposed、disposing、quiescing 或失败状态的运行期写入；不在此要求 ready。
+## [br]
+## @api private
 func _can_mutate_runtime(context: String) -> bool:
 	if _runtime.is_disposed() or _runtime.is_disposing():
 		push_error("[GFArchitecture][architecture.runtime_write_disposed] %s failed: the architecture is disposed and runtime state cannot be modified." % context)
@@ -7507,6 +8287,9 @@ func _can_mutate_runtime(context: String) -> bool:
 	return true
 
 
+## 运行请求必须在 ready 且没有拓扑事务时接纳，退出或失败状态均拒绝。
+## [br]
+## @api private
 func _can_execute_runtime(context: String) -> bool:
 	if _runtime.is_disposed() or _runtime.is_disposing():
 		push_error("[GFArchitecture][architecture.execution_disposed] %s failed: the architecture is disposed and cannot execute." % context)
@@ -7526,24 +8309,25 @@ func _can_execute_runtime(context: String) -> bool:
 	return true
 
 
+## runtime 已 READY 且当前没有拓扑事务时返回 true。
+## [br]
+## @api private
 func _is_runtime_execution_admitted() -> bool:
 	return _runtime.is_ready() and _topology_mutation == null
 
 
-func _begin_stale_async_write_block() -> void:
-	_stale_async_write_block_count += 1
-
-
-func _end_stale_async_write_block() -> void:
-	_stale_async_write_block_count = maxi(_stale_async_write_block_count - 1, 0)
-
-
+## 创建作用域并立即交架构追踪；若架构已失败或释放，追踪逻辑会同步取消它。
+## [br]
+## @api private
 func _begin_module_async_scope() -> GFAsyncScope:
 	var async_scope: GFAsyncScope = GFAsyncScope.new()
 	_track_async_scope(async_scope)
 	return async_scope
 
 
+## 只有代次有效、架构未失败且作用域未取消才 complete；无论成功与否都解除该作用域追踪。
+## [br]
+## @api private
 func _complete_module_async_scope(async_scope: GFAsyncScope, lifecycle_serial: int) -> bool:
 	if async_scope == null:
 		return _is_lifecycle_current(lifecycle_serial) and not _runtime.has_failed()
@@ -7558,6 +8342,9 @@ func _complete_module_async_scope(async_scope: GFAsyncScope, lifecycle_serial: i
 	return completed
 
 
+## 取消给定作用域，空原因补充生命周期取消诊断；不在此解除追踪或强行终止异步函数。
+## [br]
+## @api private
 func _cancel_module_async_scope(async_scope: GFAsyncScope, reason: String) -> void:
 	if async_scope == null:
 		return
@@ -7567,6 +8354,9 @@ func _cancel_module_async_scope(async_scope: GFAsyncScope, reason: String) -> vo
 	var _cancelled_scope: bool = async_scope.cancel(cancel_reason)
 
 
+## 拒绝追踪失败或释放状态的新工作并同步取消；活动集合按作用域实例去重。
+## [br]
+## @api private
 func _track_async_scope(scope: GFAsyncScope) -> void:
 	if scope == null:
 		return
@@ -7581,12 +8371,18 @@ func _track_async_scope(scope: GFAsyncScope) -> void:
 	_active_async_scopes.append(scope)
 
 
+## 从活动集合移除指定作用域，不主动取消或完成它。
+## [br]
+## @api private
 func _untrack_async_scope(scope: GFAsyncScope) -> void:
 	var scope_index: int = _active_async_scopes.find(scope)
 	if scope_index >= 0:
 		_active_async_scopes.remove_at(scope_index)
 
 
+## 先复制并清空活动集合再逐个取消，使取消回调重入不会再次遍历同一批作用域。
+## [br]
+## @api private
 func _cancel_active_async_scopes(reason: String) -> void:
 	var scopes: Array[GFAsyncScope] = _active_async_scopes.duplicate()
 	_active_async_scopes.clear()
@@ -7595,6 +8391,9 @@ func _cancel_active_async_scopes(reason: String) -> void:
 			var _cancelled_scope: bool = scope.cancel(reason)
 
 
+## 只接受直接注册键；ready 状态走异步拓扑注销，冷状态直接清理，别名须使用专门的别名入口。
+## [br]
+## @api private
 func _unregister_module(module_registry: ModuleRegistry, script_cls: Script) -> bool:
 	if not _can_mutate_registration_state("unregister_%s" % module_registry._label_key()):
 		return false
@@ -7617,6 +8416,9 @@ func _unregister_module(module_registry: ModuleRegistry, script_cls: Script) -> 
 	return false
 
 
+## 先编译并验证删除候选计划再静默目标；静默失败可导致架构释放，成功后切换计划并清理原实例。
+## [br]
+## @api private
 func _unregister_active_module(
 	module_registry: ModuleRegistry,
 	script_cls: Script
@@ -7756,6 +8558,9 @@ func _unregister_active_module(
 	return true
 
 
+## 先移除注册与反向索引，再按选项移除别名及 dispose；即使不 dispose 也解除事件、服务和依赖作用域。
+## [br]
+## @api private
 func _remove_registered_module(
 	module_registry: ModuleRegistry,
 	registered_key: Script,
@@ -7784,6 +8589,9 @@ func _remove_registered_module(
 	return instance
 
 
+## 按一次性执行资格、作用域、inject_dependencies、inject 顺序协作，每次用户调用后复核实例存活与代次。
+## [br]
+## @api private
 func _inject_dependencies_if_needed(
 	instance: Object,
 	lifecycle_serial: int = -1,
@@ -7823,6 +8631,9 @@ func _inject_dependencies_if_needed(
 	)
 
 
+## 未绑定代次仅排除失败或释放；显式代次还要求当前且活动，防止过期注入继续执行。
+## [br]
+## @api private
 func _is_dependency_injection_current(lifecycle_serial: int) -> bool:
 	if lifecycle_serial < 0:
 		return (
@@ -7839,6 +8650,9 @@ func _is_dependency_injection_current(lifecycle_serial: int) -> bool:
 	)
 
 
+## 仅对存活且支持作用域入口的实例绑定；GF 五种基础类型传递代次，其他兼容对象仅传架构。
+## [br]
+## @api private
 func _bind_dependency_scope_if_needed(instance: Object, lifecycle_serial: int = -1) -> void:
 	if (
 		not _registration_candidate_is_live(instance)
@@ -7851,6 +8665,9 @@ func _bind_dependency_scope_if_needed(instance: Object, lifecycle_serial: int = 
 	instance.call("_gf_set_dependency_scope", self)
 
 
+## 优先通过 _gf_set_dependency_scope(null) 解除注入，缺少该入口时才调用旧式释放入口。
+## [br]
+## @api private
 func _clear_injected_scope(instance: Object) -> void:
 	if not _registration_candidate_is_live(instance):
 		return
@@ -7860,6 +8677,9 @@ func _clear_injected_scope(instance: Object) -> void:
 		instance.call("_release_dependency_scope")
 
 
+## 在生命周期钩子深度保护下先通知模块解除依赖，再清空注入作用域。
+## [br]
+## @api private
 func _release_module_dependencies(instance: Object) -> void:
 	if not _registration_candidate_is_live(instance):
 		return
@@ -7869,6 +8689,9 @@ func _release_module_dependencies(instance: Object) -> void:
 	_lifecycle_hook_depth -= 1
 
 
+## 清除 Installer 已应用和运行中标志，并返回原运行状态供失败流程决定是否发出结束信号。
+## [br]
+## @api private
 func _stop_project_installers_after_failure() -> bool:
 	var was_running: bool = _project_installers_running
 	_project_installers_applied = false
@@ -7876,12 +8699,18 @@ func _stop_project_installers_after_failure() -> bool:
 	return was_running
 
 
+## 对当前节点尝试注入后递归所有子节点（含内部节点），单节点注入结果不终止整棵遍历。
+## [br]
+## @api private
 func _inject_node_tree(node: Node) -> void:
 	var _injected_dependencies: bool = _inject_dependencies_if_needed(node)
 	for child: Node in node.get_children(true):
 		_inject_node_tree(child)
 
 
+## 检查注册实例非空、未释放、继承 Module，且其脚本与声明键可匹配。
+## [br]
+## @api private
 func _validate_registration(script_cls: Script, instance: Object, label: String) -> bool:
 	if script_cls == null:
 		push_error("[GFArchitecture][architecture.register_script_null] register_%s failed: the script type is null." % label.to_lower())
@@ -7906,6 +8735,9 @@ func _validate_registration(script_cls: Script, instance: Object, label: String)
 	return true
 
 
+## 候选值必须是有效 Object；若为 Node，还必须未进入 queued-for-deletion 状态。
+## [br]
+## @api private
 func _registration_candidate_is_live(candidate: Variant) -> bool:
 	if candidate == null or not is_instance_valid(candidate):
 		return false
@@ -7917,6 +8749,9 @@ func _registration_candidate_is_live(candidate: Variant) -> bool:
 	return true
 
 
+## 返回实例的 GDScript 脚本；实例已释放或没有可用脚本时按 context 报错并返回 null。
+## [br]
+## @api private
 func _get_instance_script_or_null(instance: Object, context: String) -> Script:
 	if instance == null:
 		push_error("[GFArchitecture][architecture.instance_null] %s failed: the instance is null." % context)
@@ -7930,6 +8765,9 @@ func _get_instance_script_or_null(instance: Object, context: String) -> Script:
 	return script
 
 
+## 按 label 验证实例是否属于 GFModel、GFSystem 或 GFUtility；其他标签不限制类型。
+## [br]
+## @api private
 func _instance_matches_registration_label(instance: Object, label: String) -> bool:
 	match label:
 		"Model":
@@ -7945,10 +8783,16 @@ func _instance_matches_registration_label(instance: Object, label: String) -> bo
 			return true
 
 
+## 只从本架构 Utility 注册表刷新时间提供者缓存，不在此向父架构查找。
+## [br]
+## @api private
 func _refresh_cached_utility_refs() -> void:
 	_time_provider = _get_local_registered_instance(_utility_registry, GFTimeProviderBase)
 
 
+## 按受控父链寻找首个本地时间提供者，循环或父链结束时返回 null。
+## [br]
+## @api private
 func _get_time_provider() -> Object:
 	var current: GFArchitecture = self
 	var visited: Dictionary = _create_parent_lookup_visited()
@@ -7960,6 +8804,9 @@ func _get_time_provider() -> Object:
 	return null
 
 
+## 本地时间提供器缓存为空时先刷新，再返回缓存值或 null。
+## [br]
+## @api private
 func _get_local_time_provider() -> Object:
 	if _time_provider == null:
 		_refresh_cached_utility_refs()
@@ -7968,10 +8815,16 @@ func _get_local_time_provider() -> Object:
 	return null
 
 
+## 沿允许的父架构链查找命令历史服务。
+## [br]
+## @api private
 func _get_command_history_store() -> Object:
 	return _get_service_with_parent_lookup(SERVICE_COMMAND_HISTORY_STORE, true)
 
 
+## 逐级检查本地服务；include_parent 为 false 时只检查当前架构。
+## [br]
+## @api private
 func _get_service_with_parent_lookup(service_key: StringName, include_parent: bool) -> Object:
 	var current: GFArchitecture = self
 	var visited: Dictionary = _create_parent_lookup_visited()
@@ -7985,6 +8838,9 @@ func _get_service_with_parent_lookup(service_key: StringName, include_parent: bo
 	return null
 
 
+## 返回本地有效服务提供者；空引用或无效实例会从服务表移除并返回 null。
+## [br]
+## @api private
 func _get_local_service(service_key: StringName) -> Object:
 	if not _services.has(service_key):
 		return null
@@ -7998,6 +8854,9 @@ func _get_local_service(service_key: StringName) -> Object:
 	return service_provider
 
 
+## 从服务表移除提供者与 owner 对象相同的所有键。
+## [br]
+## @api private
 func _unregister_services_for_owner(owner: Object) -> void:
 	if owner == null:
 		return
@@ -8007,20 +8866,25 @@ func _unregister_services_for_owner(owner: Object) -> void:
 			var _removed_service: bool = _services.erase(service_key)
 
 
-func _refresh_tick_caches() -> void:
-	_tick_scheduler.refresh()
-
-
+## 生命周期活动时返回当前 generation，否则返回未绑定哨兵 -1。
+## [br]
+## @api private
 func _get_active_lifecycle_serial_or_unbound() -> int:
 	if is_lifecycle_active():
 		return _runtime.get_lifecycle_generation()
 	return -1
 
 
+## 委托运行时判断给定 lifecycle generation 是否仍为当前代次。
+## [br]
+## @api private
 func _is_lifecycle_current(lifecycle_serial: int) -> bool:
 	return _runtime.is_generation_current(lifecycle_serial)
 
 
+## 将 Model、System、Utility 实例映射为小写种类名，其他对象映射为 module。
+## [br]
+## @api private
 func _get_module_label_for_instance(instance: Object) -> String:
 	if instance is GFModel:
 		return "model"
@@ -8031,10 +8895,16 @@ func _get_module_label_for_instance(instance: Object) -> String:
 	return "module"
 
 
+## 以 lifecycle stage 3（ready）作为查找可见性的最低阶段。
+## [br]
+## @api private
 func _is_module_ready_for_lookup(instance: Object) -> bool:
 	return _is_committed_module_at_lifecycle_stage(instance, 3)
 
 
+## 模块已登记且到达目标生命周期阶段时返回 true。
+## [br]
+## @api private
 func _is_committed_module_at_lifecycle_stage(
 	instance: Object,
 	target_stage: int
@@ -8045,6 +8915,9 @@ func _is_committed_module_at_lifecycle_stage(
 	)
 
 
+## 仅在 runtime lifecycle active 时比较记录阶段；空实例或未活动时返回 false。
+## [br]
+## @api private
 func _has_module_reached_lifecycle_stage(instance: Object, target_stage: int) -> bool:
 	return (
 		instance != null
@@ -8057,6 +8930,9 @@ func _has_module_reached_lifecycle_stage(instance: Object, target_stage: int) ->
 	)
 
 
+## 校验拓扑可变、别名非空且 target 继承 alias 后写入映射并清缓存；target 未注册时仍写入并警告。
+## [br]
+## @api private
 func _register_module_alias(
 	module_registry: ModuleRegistry,
 	alias_cls: Script,
@@ -8084,6 +8960,9 @@ func _register_module_alias(
 	return module_registry.aliases.has(alias_cls)
 
 
+## 拓扑冻结或别名无效时拒绝删除；删除成功后清除可赋值查询缓存。
+## [br]
+## @api private
 func _unregister_module_alias(module_registry: ModuleRegistry, alias_cls: Script) -> bool:
 	if not _can_mutate_registration_state("unregister_%s_alias" % module_registry._label_key()):
 		return false
@@ -8104,6 +8983,9 @@ func _unregister_module_alias(module_registry: ModuleRegistry, alias_cls: Script
 	return true
 
 
+## 优先解析直接注册键，其次解析已注册目标的别名；失效别名会报错并返回 null。
+## [br]
+## @api private
 func _resolve_registered_key(module_registry: ModuleRegistry, script_cls: Script) -> Script:
 	if script_cls == null:
 		return null
@@ -8117,6 +8999,9 @@ func _resolve_registered_key(module_registry: ModuleRegistry, script_cls: Script
 	return null
 
 
+## 按直接键、别名、有效缓存、唯一可赋值类型的顺序解析本地实例；多重匹配不选取实例。
+## [br]
+## @api private
 func _get_local_registered_instance(module_registry: ModuleRegistry, script_cls: Script) -> Object:
 	var registered_key: Script = _resolve_registered_key(module_registry, script_cls)
 	if registered_key != null:
@@ -8133,6 +9018,9 @@ func _get_local_registered_instance(module_registry: ModuleRegistry, script_cls:
 	return null
 
 
+## 为 strict_dependency_lookup 下缺少的本地模块记录带类型和脚本键的错误。
+## [br]
+## @api private
 func _report_strict_lookup_miss(script_cls: Script, label: String) -> void:
 	push_error("[GFArchitecture][architecture.strict_module_missing] strict_dependency_lookup: this architecture has no registered %s: %s." % [
 		label,
@@ -8140,6 +9028,9 @@ func _report_strict_lookup_miss(script_cls: Script, label: String) -> void:
 	])
 
 
+## 移除所有指向指定注册脚本键的别名。
+## [br]
+## @api private
 func _remove_aliases_for(module_registry: ModuleRegistry, registered_key: Script) -> void:
 	var keys_to_remove: Array = []
 	for alias_cls: Script in module_registry.aliases:
@@ -8149,6 +9040,9 @@ func _remove_aliases_for(module_registry: ModuleRegistry, registered_key: Script
 		var _removed_alias: bool = module_registry.aliases.erase(alias_cls)
 
 
+## 请求键存在本地别名但其目标为空或未直接注册时返回 true。
+## [br]
+## @api private
 func _has_unresolved_alias(module_registry: ModuleRegistry, script_cls: Script) -> bool:
 	if script_cls == null or not module_registry.aliases.has(script_cls):
 		return false
@@ -8156,6 +9050,9 @@ func _has_unresolved_alias(module_registry: ModuleRegistry, script_cls: Script) 
 	return target_cls == null or not module_registry._has_direct(target_cls)
 
 
+## 记录模块类别、别名和缺失目标的未解析别名错误。
+## [br]
+## @api private
 func _report_unresolved_alias(module_registry: ModuleRegistry, alias_cls: Script, target_cls: Script) -> void:
 	push_error("[GFArchitecture][architecture.alias_target_missing] get_%s(%s) failed: the alias target is not registered: %s." % [
 		module_registry._label_key(),
@@ -8164,6 +9061,9 @@ func _report_unresolved_alias(module_registry: ModuleRegistry, alias_cls: Script
 	])
 
 
+## 返回仍直接注册的可赋值缓存键；缓存目标失效时删除该缓存并返回 null。
+## [br]
+## @api private
 func _resolve_assignable_cached_key(module_registry: ModuleRegistry, script_cls: Script) -> Script:
 	if script_cls == null or not module_registry.assignable_cache.has(script_cls):
 		return null
@@ -8174,6 +9074,9 @@ func _resolve_assignable_cached_key(module_registry: ModuleRegistry, script_cls:
 	return null
 
 
+## 返回唯一可赋值注册键；多个匹配时警告并返回 null。
+## [br]
+## @api private
 func _find_assignable_registered_key(module_registry: ModuleRegistry, script_cls: Script) -> Script:
 	if script_cls == null:
 		return null
@@ -8191,6 +9094,9 @@ func _find_assignable_registered_key(module_registry: ModuleRegistry, script_cls
 	return null
 
 
+## 任一直接注册脚本可赋值给请求脚本时返回 true。
+## [br]
+## @api private
 func _has_assignable_instance(module_registry: ModuleRegistry, script_cls: Script) -> bool:
 	if script_cls == null:
 		return false
@@ -8213,47 +9119,210 @@ func _has_assignable_instance(module_registry: ModuleRegistry, script_cls: Scrip
 class TopologyMutation:
 	extends RefCounted
 
+	# --- 常量 ---
+
+	## 候选注册集与依赖计划仍在准备，尚未进入激活的事务阶段。
+	## [br]
+	## @api private
 	const _PHASE_PREPARING: StringName = &"preparing"
+
+	## 候选已完成准备，正在等待运行期激活的事务阶段。
+	## [br]
+	## @api private
 	const _PHASE_ACTIVATING: StringName = &"activating"
+
+	## 候选可用后正在等待旧模块静默，尚未提交替换或注销。
+	## [br]
+	## @api private
 	const _PHASE_QUIESCING_PREVIOUS: StringName = &"quiescing_previous"
+
+	## 即将替换生效注册、服务和依赖计划的同步提交阶段。
+	## [br]
+	## @api private
 	const _PHASE_COMMITTING: StringName = &"committing"
+
+	## 新拓扑已经提交，正在清理已脱离注册的旧实例。
+	## [br]
+	## @api private
 	const _PHASE_CLEANING_DETACHED: StringName = &"cleaning_detached"
+
+	## 提交及必要清理已完成，等待事务收尾的阶段。
+	## [br]
+	## @api private
 	const _PHASE_COMMITTED: StringName = &"committed"
+
+	## 事务已被中止或致命失败，不再允许原续体提交。
+	## [br]
+	## @api private
 	const _PHASE_ABORTED: StringName = &"aborted"
+
+	## 事务收尾结束的终态阶段，架构不再持有在途槽。
+	## [br]
+	## @api private
 	const _PHASE_FINISHED: StringName = &"finished"
+
+	## 正常异步续体持有事务提交资格的所有者标记。
+	## [br]
+	## @api private
 	const _OWNER_CONTINUATION: StringName = &"continuation"
+
+	## 退出流程已接管事务，原续体只可观察失效状态。
+	## [br]
+	## @api private
 	const _OWNER_SHUTDOWN: StringName = &"shutdown"
+
+	## 尚未确定提交、回滚或中止结果的事务状态。
+	## [br]
+	## @api private
 	const _OUTCOME_PENDING: StringName = &"pending"
+
+	## 候选拓扑已经提交的结果，候选清理权随之转交架构。
+	## [br]
+	## @api private
 	const _OUTCOME_COMMITTED: StringName = &"committed"
+
+	## 候选没有提交，正常失败路径已选择回滚的结果。
+	## [br]
+	## @api private
 	const _OUTCOME_ROLLED_BACK: StringName = &"rolled_back"
+
+	## 退出流程接管而中止事务的结果。
+	## [br]
+	## @api private
 	const _OUTCOME_ABORTED: StringName = &"aborted"
+
+	## 事务在无法继续安全提交或收尾时记录的致命失败结果。
+	## [br]
+	## @api private
 	const _OUTCOME_FATAL: StringName = &"fatal"
+
+	## 没有需要由事务清理的候选，例如注销事务的空候选。
+	## [br]
+	## @api private
 	const _CLEANUP_NOT_REQUIRED: StringName = &"not_required"
+
+	## 事务尚持有候选清理责任，清理入口可以领取一次。
+	## [br]
+	## @api private
 	const _CLEANUP_PENDING: StringName = &"pending"
+
+	## 清理入口已领取候选清理权，阻止重入再次清理。
+	## [br]
+	## @api private
 	const _CLEANUP_CLAIMED: StringName = &"claimed"
+
+	## 事务候选已经完成清理，不再拥有待执行清理工作。
+	## [br]
+	## @api private
 	const _CLEANUP_DONE: StringName = &"done"
+
+	## 候选已提交到架构，事务不再负责释放它。
+	## [br]
+	## @api private
 	const _CLEANUP_TRANSFERRED: StringName = &"transferred"
 
+	# --- 私有变量 ---
+
+	## 由架构分配的事务诊断 ID；有效性判断仍使用事务对象身份。
+	## [br]
+	## @api private
 	var _id: int = 0
+
+	## 记录 register、replace 或 unregister 操作类别，供事务诊断使用。
+	## [br]
+	## @api private
 	var _operation: StringName = &""
+
+	## 本次操作关联的注册表引用；使用 Variant 避免内部类声明顺序造成类型依赖。
+	## [br]
+	## @api private
 	var _module_registry: Variant = null
+
+	## 本次注册、替换或注销操作的直接脚本键。
+	## [br]
+	## @api private
 	var _script_cls: Script = null
+
+	## 待接纳的候选实例；注销事务为 null，清理权由候选状态字段限定。
+	## [br]
+	## @api private
 	var _candidate: Object = null
+
+	## 事务开始时的旧实例，替换和注销在提交前使用它核对身份。
+	## [br]
+	## @api private
 	var _previous: Object = null
+
+	## 开始变更时保留的生效计划，用于稳定性比较和旧模块静默顺序。
+	## [br]
+	## @api private
 	var _previous_plan: GFArchitectureLifecyclePlan = null
+
+	## 按候选注册集编译的计划，提交时转为架构活动计划。
+	## [br]
+	## @api private
 	var _candidate_plan: GFArchitectureLifecyclePlan = null
+
+	## 接纳事务时捕获的架构生命周期代次，异步阶段后用于复核资格。
+	## [br]
+	## @api private
 	var _lifecycle_serial: int = -1
+
+	## 当前事务阶段；原续体不得在 aborted 或 finished 后继续提交。
+	## [br]
+	## @api private
 	var _phase: StringName = _PHASE_PREPARING
+
+	## 当前事务控制权归属；shutdown 接管后原续体的身份守卫失效。
+	## [br]
+	## @api private
 	var _owner: StringName = _OWNER_CONTINUATION
+
+	## 事务结果标记，与阶段分离以区分已提交后清理失败等情况。
+	## [br]
+	## @api private
 	var _outcome: StringName = _OUTCOME_PENDING
+
+	## 供 shutdown 等待事务稳定的完成门，在正常收尾、取消或致命失败时终结。
+	## [br]
+	## @api private
 	var _gate: GFAsyncCompletion = GFAsyncCompletion.new()
+
+	## 事务当前激活或静默步骤使用的作用域，供 shutdown 同步取消。
+	## [br]
+	## @api private
 	var _active_scope: GFAsyncScope = null
+
+	## 候选唯一清理权状态；清理前先认领，提交成功后转移给架构。
+	## [br]
+	## @api private
 	var _candidate_cleanup_state: StringName = _CLEANUP_NOT_REQUIRED
+
+	## 候选待提交的服务键到 provider 映射，生效服务表在提交前保持原值。
+	## [br]
+	## @api private
 	var _service_intents: Dictionary = {}
+
+	## 首次暂存服务意图时记录键是否存在，提交前复核以检测重入变更。
+	## [br]
+	## @api private
 	var _expected_service_presence: Dictionary = {}
+
+	## 首次暂存服务意图时的 provider 引用，与存在性一起用于提交前冲突检测。
+	## [br]
+	## @api private
 	var _expected_service_providers: Dictionary = {}
+
+	## 候选计划已取得但尚未提升的父级租约，事务回滚释放，提交时移交活动集合。
+	## [br]
+	## @api private
 	var _candidate_external_dependency_leases: Array[Dictionary] = []
 
+	# --- Godot 生命周期方法 ---
+
+	## 固定事务 ID、操作和候选/旧实例引用，其他阶段及所有权字段保留初始未决状态。
+	## [br]
+	## @api private
 	func _init(
 		p_id: int,
 		p_operation: StringName,
@@ -8268,6 +9337,8 @@ class TopologyMutation:
 		_script_cls = p_script_cls
 		_candidate = p_candidate
 		_previous = p_previous
+
+
 ## DependencyDiagnosticsReport: 架构依赖诊断报告构建器。
 ## [br]
 ## @api framework_internal
@@ -8276,7 +9347,14 @@ class TopologyMutation:
 class DependencyDiagnosticsReport:
 	extends RefCounted
 
+	# --- 常量 ---
+
+	## 读取诊断选项和条目中 Variant 字段的类型收窄辅助脚本。
+	## [br]
+	## @api private
 	const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+	# --- 公共变量 ---
 
 	## 诊断报告主体名称。
 	## [br]
@@ -8290,8 +9368,16 @@ class DependencyDiagnosticsReport:
 	## @schema issues: Array of Dictionary dependency diagnostic entries.
 	var issues: Array[Dictionary] = []
 
+	# --- Godot 生命周期方法 ---
+
+	## 保存报告主体名称，后续摘要在空名称时使用默认主体。
+	## [br]
+	## @api private
 	func _init(p_subject: String = "") -> void:
 		subject = p_subject
+
+
+	# --- 框架内部方法 ---
 
 	## 添加一个 warning 级别的依赖诊断条目。
 	## [br]
@@ -8323,6 +9409,7 @@ class DependencyDiagnosticsReport:
 	) -> Dictionary:
 		return _add_issue("warning", kind, message, key, path, metadata)
 
+
 	## 添加一个 error 级别的依赖诊断条目。
 	## [br]
 	## @api framework_internal
@@ -8352,6 +9439,7 @@ class DependencyDiagnosticsReport:
 		metadata: Dictionary = {}
 	) -> Dictionary:
 		return _add_issue("error", kind, message, key, path, metadata)
+
 
 	## 汇总诊断条目并转换为可序列化字典。
 	## [br]
@@ -8403,6 +9491,12 @@ class DependencyDiagnosticsReport:
 		result["issues"] = issues.duplicate(true)
 		return result
 
+
+	# --- 私有/辅助方法 ---
+
+	## 构造并追加诊断条目；key 保留原值，非空 metadata 深复制，返回的是列表中同一个条目字典。
+	## [br]
+	## @api private
 	func _add_issue(
 		severity: String,
 		kind: StringName,
@@ -8425,6 +9519,10 @@ class DependencyDiagnosticsReport:
 		issues.append(issue)
 		return issue
 
+
+	## 按错误优先、其次警告的顺序生成主体摘要，空主体使用默认名称。
+	## [br]
+	## @api private
 	func _make_summary(error_count: int, warning_count: int) -> String:
 		var label: String = subject
 		if label.is_empty():
@@ -8435,6 +9533,10 @@ class DependencyDiagnosticsReport:
 			return "%s has %d warning(s)." % [label, warning_count]
 		return "%s is healthy." % label
 
+
+	## 优先选最高严重性问题对应的行动，兼容 String 和 StringName 键；无问题返回 no_action。
+	## [br]
+	## @api private
 	func _get_next_action(options: Dictionary) -> String:
 		var next_actions: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "next_actions", {})
 		var fallback_action: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "fallback_action", "Review the first reported issue.")
@@ -8450,6 +9552,10 @@ class DependencyDiagnosticsReport:
 			return _GF_VARIANT_ACCESS_SCRIPT.to_text(next_actions[kind_name])
 		return fallback_action
 
+
+	## 优先返回首个 error，其次首个 warning，再取首条其他问题；无问题返回空字典。
+	## [br]
+	## @api private
 	func _get_first_issue_by_priority() -> Dictionary:
 		for issue: Dictionary in issues:
 			if _GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "severity", "") == "error":
@@ -8468,6 +9574,8 @@ class DependencyDiagnosticsReport:
 ## [br]
 ## @layer kernel/core
 class ModuleRegistry:
+	# --- 公共变量 ---
+
 	## 注册表显示名称。
 	## [br]
 	## @api framework_internal
@@ -8501,28 +9609,59 @@ class ModuleRegistry:
 	## @schema instance_keys: Dictionary keyed by Object instance id, storing registered Script.
 	var instance_keys: Dictionary = {}
 
+	# --- Godot 生命周期方法 ---
+
+	## 保存注册表类别名称，实例、别名和索引容器保持独立空状态。
+	## [br]
+	## @api private
 	func _init(p_label: String) -> void:
 		label = p_label
 
+
+	# --- 私有/辅助方法 ---
+
+	## 把注册表显示名称转为小写，用于拼接架构操作名和诊断。
+	## [br]
+	## @api private
 	func _label_key() -> String:
 		return label.to_lower()
 
+
+	## 仅检查非空脚本的直接注册项，不解析别名或可赋值缓存。
+	## [br]
+	## @api private
 	func _has_direct(script_cls: Script) -> bool:
 		return script_cls != null and instances.has(script_cls)
 
+
+	## 在注册拓扑变化后清空可赋值查询结果，避免复用旧的唯一匹配。
+	## [br]
+	## @api private
 	func _clear_assignable_cache() -> void:
 		assignable_cache.clear()
 
+
+	## 为非空实例和脚本记录实例 ID 到直接键的反向索引。
+	## [br]
+	## @api private
 	func _track_instance_key(instance: Object, script_cls: Script) -> void:
 		if instance == null or script_cls == null:
 			return
 		instance_keys[instance.get_instance_id()] = script_cls
 
+
+	## 移除实例 ID 的反向索引；注册表主映射由调用方单独维护。
+	## [br]
+	## @api private
 	func _untrack_instance(instance: Object) -> void:
 		if instance == null:
 			return
 		var _removed_instance_key: bool = instance_keys.erase(instance.get_instance_id())
 
+
+	## 读取反向索引并核对主映射对象身份；失效键或对象不匹配时删除缓存并返回 null。
+	## [br]
+	## @api private
 	func _get_key_for_instance(instance: Object) -> Script:
 		if instance == null:
 			return null
@@ -8538,12 +9677,20 @@ class ModuleRegistry:
 			return null
 		return script_cls
 
+
+	## 同时清空直接实例、别名、可赋值缓存和反向索引，不主动调用模块 dispose。
+	## [br]
+	## @api private
 	func _clear() -> void:
 		instances.clear()
 		aliases.clear()
 		assignable_cache.clear()
 		instance_keys.clear()
 
+
+	## 仅接受 Script 值作为反向索引目标，其余类型返回 null。
+	## [br]
+	## @api private
 	func _get_script_from_variant(value: Variant) -> Script:
 		if value is Script:
 			var script_cls: Script = value

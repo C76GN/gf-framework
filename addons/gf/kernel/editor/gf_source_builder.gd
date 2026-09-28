@@ -18,7 +18,14 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 按生成顺序累积的源码行；构建结果会以 LF 连接。
+## [br]
+## @api private
 var _lines: PackedStringArray = PackedStringArray()
+
+## 当前非空源码行前写入的 Tab 缩进层级。
+## [br]
+## @api private
 var _indent_level: int = 0
 
 

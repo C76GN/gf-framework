@@ -225,6 +225,10 @@ func _validate(_target: Variant, _report: GFValidationReport, _context: Dictiona
 
 # --- 私有/辅助方法 ---
 
+## 将规则返回的报告、字典、问题数组、布尔值或文本按对应形式合并或生成问题。
+## [br]
+## @api private
+## [br]
 func _apply_result(report: GFValidationReport, value: Variant, context: Dictionary) -> void:
 	if value == null:
 		return
@@ -249,6 +253,10 @@ func _apply_result(report: GFValidationReport, value: Variant, context: Dictiona
 			_add_issue_if_valid(report, _make_issue(message, context))
 
 
+## 创建带规则类别、上下文定位及规则元数据的问题。
+## [br]
+## @api private
+## [br]
 func _make_issue(message: String, context: Dictionary) -> GFValidationIssue:
 	var issue: GFValidationIssue = GFValidationIssue.new(severity, _get_issue_kind(), message)
 	issue.subject = _make_subject(context)
@@ -266,10 +274,18 @@ func _make_issue(message: String, context: Dictionary) -> GFValidationIssue:
 	return issue
 
 
+## 优先以非空 rule_id 作为问题 kind，否则使用固定规则失败类别。
+## [br]
+## @api private
+## [br]
 func _get_issue_kind() -> StringName:
 	return rule_id if rule_id != &"" else &"validation_rule_failed"
 
 
+## 优先取上下文主题，其次取 rule_id，最后使用规则类默认主题。
+## [br]
+## @api private
+## [br]
 func _make_subject(context: Dictionary) -> String:
 	var subject: String = GFVariantData.get_option_string(context, "subject")
 	if not subject.is_empty():
@@ -279,6 +295,10 @@ func _make_subject(context: Dictionary) -> String:
 	return "GFValidationRule"
 
 
+## 按配置的 TargetKind 检查目标是否为对应 Godot 对象或容器类型。
+## [br]
+## @api private
+## [br]
 func _target_kind_matches(target: Variant, kind: TargetKind) -> bool:
 	match kind:
 		TargetKind.NODE:
@@ -297,10 +317,18 @@ func _target_kind_matches(target: Variant, kind: TargetKind) -> bool:
 			return true
 
 
+## 把问题输入委托给报告的 add_issue 入口。
+## [br]
+## @api private
+## [br]
 func _add_issue_if_valid(report: GFValidationReport, issue: Variant) -> void:
 	var _added_issue: RefCounted = report.add_issue(issue)
 
 
+## 将整数夹到 TargetKind 枚举范围并返回对应值。
+## [br]
+## @api private
+## [br]
 static func _target_kind_from_int(value: int) -> TargetKind:
 	match clampi(value, TargetKind.ANY, TargetKind.OBJECT):
 		TargetKind.NODE:

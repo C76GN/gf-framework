@@ -14,6 +14,10 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 创建配置表合并校验报告的类脚本引用。
+## [br]
+## @api private
+## [br]
 const _CONFIG_VALIDATION_REPORT = preload("res://addons/gf/standard/utilities/config/gf_config_validation_report.gd")
 
 
@@ -65,6 +69,10 @@ static func merge_tables(
 
 # --- 私有/辅助方法 ---
 
+## 将输入表数据规范化为记录条目数组。
+## [br]
+## @api private
+## [br]
 static func _normalize_table(table_data: Variant) -> Variant:
 	var rows: Array[Dictionary] = []
 	if table_data is Array:
@@ -94,10 +102,18 @@ static func _normalize_table(table_data: Variant) -> Variant:
 	return null
 
 
+## 检查表数据是否为 Dictionary 形式。
+## [br]
+## @api private
+## [br]
 static func _is_dictionary_table(table_data: Variant) -> bool:
 	return table_data is Dictionary
 
 
+## 创建合并结果报告，并初始化与输入表相同形状的数据容器。
+## [br]
+## @api private
+## [br]
 static func _make_result(dictionary_output: bool, base_table: Variant) -> Dictionary:
 	var result: Dictionary = _CONFIG_VALIDATION_REPORT.new().make_report()
 	if dictionary_output:
@@ -119,6 +135,10 @@ static func _make_result(dictionary_output: bool, base_table: Variant) -> Dictio
 	return result
 
 
+## 从基础记录构造有序行状态，供后续 patch 操作使用。
+## [br]
+## @api private
+## [br]
 static func _build_base_state(rows: Array[Dictionary], policy: GFConfigTableMergePolicy, report: Dictionary) -> Dictionary:
 	var state: Dictionary = {
 		"order": [],
@@ -146,6 +166,10 @@ static func _build_base_state(rows: Array[Dictionary], policy: GFConfigTableMerg
 	return state
 
 
+## 按顺序将 patch 行操作应用到合并状态。
+## [br]
+## @api private
+## [br]
 static func _apply_patch_rows(
 	state: Dictionary,
 	rows: Array[Dictionary],
@@ -168,6 +192,10 @@ static func _apply_patch_rows(
 			_apply_insert(state, key, record, outer_key, policy, report)
 
 
+## 从合并状态删除匹配的记录。
+## [br]
+## @api private
+## [br]
 static func _apply_delete(
 	state: Dictionary,
 	key: String,
@@ -186,6 +214,10 @@ static func _apply_delete(
 	_increment_report_count(report, "deleted_count")
 
 
+## 将 patch 字段合并到已存在的目标记录。
+## [br]
+## @api private
+## [br]
 static func _apply_update(
 	state: Dictionary,
 	key: String,
@@ -202,6 +234,10 @@ static func _apply_update(
 	_increment_report_count(report, "updated_count")
 
 
+## 将新记录加入合并状态。
+## [br]
+## @api private
+## [br]
 static func _apply_insert(
 	state: Dictionary,
 	key: String,
@@ -228,6 +264,10 @@ static func _apply_insert(
 	_increment_report_count(report, "inserted_count")
 
 
+## 按合并状态和输出表形状组装最终数据。
+## [br]
+## @api private
+## [br]
 static func _build_output_data(state: Dictionary, dictionary_output: bool, policy: GFConfigTableMergePolicy) -> Variant:
 	var records: Dictionary = _get_state_dictionary(state, "records")
 	var order: Array = _get_state_array(state, "order")
@@ -245,6 +285,10 @@ static func _build_output_data(state: Dictionary, dictionary_output: bool, polic
 	return array_result
 
 
+## 按配置保留基础键顺序或输出排序后的记录键。
+## [br]
+## @api private
+## [br]
 static func _ordered_keys(order: Array, records: Dictionary, preserve_base_order: bool) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	if preserve_base_order:
@@ -263,14 +307,26 @@ static func _ordered_keys(order: Array, records: Dictionary, preserve_base_order
 	return result
 
 
+## 将一条行级问题追加到合并报告。
+## [br]
+## @api private
+## [br]
 static func _add_issue(report: Dictionary, severity: String, kind: String, row_key: Variant, message: String) -> void:
 	_CONFIG_VALIDATION_REPORT.new().add_issue(report, severity, kind, &"", row_key, &"", message)
 
 
+## 完成合并报告的计数与汇总字段。
+## [br]
+## @api private
+## [br]
 static func _finalize_result(report: Dictionary) -> void:
 	_CONFIG_VALIDATION_REPORT.new().finalize_report(report)
 
 
+## 将数组表或字典表转换为统一的行条目。
+## [br]
+## @api private
+## [br]
 static func _collect_row_entries(value: Variant) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	if value is Array:
@@ -282,6 +338,10 @@ static func _collect_row_entries(value: Variant) -> Array[Dictionary]:
 	return rows
 
 
+## 从合并状态中读取数组字段。
+## [br]
+## @api private
+## [br]
 static func _get_state_array(state: Dictionary, key: String) -> Array:
 	var value: Variant = GFVariantData.get_option_value(state, key, [])
 	if value is Array:
@@ -291,6 +351,10 @@ static func _get_state_array(state: Dictionary, key: String) -> Array:
 	return created
 
 
+## 从合并状态中读取字典字段。
+## [br]
+## @api private
+## [br]
 static func _get_state_dictionary(state: Dictionary, key: String) -> Dictionary:
 	var value: Variant = GFVariantData.get_option_value(state, key, {})
 	if value is Dictionary:
@@ -300,17 +364,33 @@ static func _get_state_dictionary(state: Dictionary, key: String) -> Dictionary:
 	return created
 
 
+## 从标准化行条目读取记录字典。
+## [br]
+## @api private
+## [br]
 static func _get_row_record(row_entry: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(row_entry, "record", {}))
 
 
+## 从标准化行条目读取字典表外层键。
+## [br]
+## @api private
+## [br]
 static func _get_row_outer_key(row_entry: Dictionary) -> Variant:
 	return GFVariantData.get_option_value(row_entry, "outer_key")
 
 
+## 按内部行键从记录映射读取记录字典。
+## [br]
+## @api private
+## [br]
 static func _get_record_by_key(records: Dictionary, key: String) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(records, key, {}))
 
 
+## 将报告中的指定计数增加一。
+## [br]
+## @api private
+## [br]
 static func _increment_report_count(report: Dictionary, key: String) -> void:
 	report[key] = GFVariantData.get_option_int(report, key) + 1

@@ -398,12 +398,18 @@ static func from_dict(data: Dictionary) -> GFPlatformRuntimeContext:
 
 # --- 私有/辅助方法 ---
 
+## 能力集合为空引用时，按当前平台和 adapter 标识创建空集合。
+## [br]
+## @api private
 func _ensure_capabilities() -> void:
 	if capabilities != null:
 		return
 	capabilities = GFPlatformCapabilitySet.new().configure(platform_id, PackedStringArray(), {}, adapter_id)
 
 
+## 从选项中的集合、字典或 capability_ids 创建能力集合，并补齐缺失的平台与 adapter 标识。
+## [br]
+## @api private
 static func _make_capability_set_from_options(
 	p_platform_id: StringName,
 	options: Dictionary
@@ -430,6 +436,9 @@ static func _make_capability_set_from_options(
 	return GFPlatformCapabilitySet.new().configure(p_platform_id, capability_ids, {}, adapter)
 
 
+## 修剪存储根字典的键和值，并丢弃任一为空的条目。
+## [br]
+## @api private
 static func _normalize_storage_roots(source: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for key: Variant in source.keys():
@@ -441,6 +450,10 @@ static func _normalize_storage_roots(source: Dictionary) -> Dictionary:
 	return result
 
 
+## 将 Vector2i、Vector2、含 x/y 的字典或至少两个元素的数组转换为非负 Vector2i。
+## 不支持的输入返回 default_value。
+## [br]
+## @api private
 static func _to_vector2i(value: Variant, default_value: Vector2i) -> Vector2i:
 	if value is Vector2i:
 		var value_vector2i: Vector2i = value
@@ -462,6 +475,10 @@ static func _to_vector2i(value: Variant, default_value: Vector2i) -> Vector2i:
 	return default_value
 
 
+## 将 Rect2i、Rect2、含 x/y/width/height 的字典或至少四项的数组转换为 Rect2i。
+## 字典与数组输入会把宽高下限设为 0；不支持的输入返回 default_value。
+## [br]
+## @api private
 static func _to_rect2i(value: Variant, default_value: Rect2i) -> Rect2i:
 	if value is Rect2i:
 		var value_rect2i: Rect2i = value
@@ -487,6 +504,9 @@ static func _to_rect2i(value: Variant, default_value: Rect2i) -> Rect2i:
 	return default_value
 
 
+## 分别把 Vector2i 的 X、Y 分量限制为不小于 0。
+## [br]
+## @api private
 static func _clamp_vector2i(value: Vector2i) -> Vector2i:
 	var clamped_x: int = max(value.x, 0)
 	var clamped_y: int = max(value.y, 0)

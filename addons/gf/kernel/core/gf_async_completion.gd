@@ -92,19 +92,57 @@ enum Status {
 
 # --- 常量 ---
 
+## 用于复制 Variant 结果和收窄取消字典字段的工具脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
 # --- 私有变量 ---
 
+## 完成源当前状态。
+## [br]
+## @api private
 var _status: Status = Status.PENDING
+
+## 成功或取消终态携带的结果值。
+## [br]
+## @api private
 var _result: Variant = null
+
+## 失败终态携带的错误文本。
+## [br]
+## @api private
 var _error: String = ""
+
+## 取消终态携带的原因。
+## [br]
+## @api private
 var _cancel_reason: StringName = &""
+
+## 进入终态时保存的元数据字典。
+## [br]
+## @api private
 var _metadata: Dictionary = {}
+
+## 完成源创建时读取的单调毫秒时间。
+## [br]
+## @api private
 var _created_msec: int = Time.get_ticks_msec()
+
+## 完成源进入终态时读取的单调毫秒时间；尚未完成时为 0。
+## [br]
+## @api private
 var _completed_msec: int = 0
+
+## 当前绑定的取消 token。
+## [br]
+## @api private
 var _cancel_token: GFCancellationToken = null
+
+## 连接到当前 token 的一次性取消回调。
+## [br]
+## @api private
 var _cancel_callback: Callable = Callable()
 
 
@@ -378,6 +416,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 主线程首次提交终态时复制结果与元数据、断开 token 并按状态发信号。
+## [br]
+## @api private
 func _complete(
 	status: Status,
 	result: Variant,
@@ -412,6 +453,9 @@ func _complete(
 	return true
 
 
+## token 回调在主线程应用时，仅接受仍与当前绑定 token 相同的对象并提交取消。
+## [br]
+## @api private
 func _apply_cancel_token_request(
 	reason: StringName,
 	token_ref: WeakRef
@@ -425,6 +469,9 @@ func _apply_cancel_token_request(
 	var _cancelled_from_token: bool = cancel(reason, cancel_metadata)
 
 
+## 当前位于主线程时返回 true，否则报告操作名并返回 false。
+## [br]
+## @api private
 func _can_mutate_on_current_thread(operation_name: String) -> bool:
 	if Thread.is_main_thread():
 		return true
@@ -432,6 +479,9 @@ func _can_mutate_on_current_thread(operation_name: String) -> bool:
 	return false
 
 
+## 断开仍连接的 token 回调，并清空 token 与 Callable 字段。
+## [br]
+## @api private
 func _disconnect_cancel_token() -> void:
 	if (
 		_cancel_token != null
@@ -443,6 +493,9 @@ func _disconnect_cancel_token() -> void:
 	_cancel_callback = Callable()
 
 
+## 从 WeakRef 取回 GFCancellationToken；引用失效或类型不符时返回 null。
+## [br]
+## @api private
 func _weak_ref_to_cancel_token(token_ref: WeakRef) -> GFCancellationToken:
 	if token_ref == null:
 		return null
@@ -455,6 +508,9 @@ func _weak_ref_to_cancel_token(token_ref: WeakRef) -> GFCancellationToken:
 
 # --- 信号处理函数 ---
 
+## token 取消回调；非主线程时延后到主线程应用取消请求。
+## [br]
+## @api private
 func _on_cancel_token_requested(
 	reason: StringName,
 	token_ref: WeakRef

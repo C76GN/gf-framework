@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "007f5b732a0a38e6fd430125166a671bb496b317a0f7fc9154c6944b765532c3",
+  "source_digest": "3bf53c42da930fc706424fed4d6acaae5007b2333d7526cd6ab95a6b0e56ad8e",
   "class_count": 867,
   "autoload_count": 1,
   "package_count": 59,
@@ -54480,6 +54480,13 @@
           "name": "_apply_property_specs",
           "signature": "func _apply_property_specs(node: Object, payload: Dictionary, specs: Array[Dictionary]) -> Array[String]",
           "summary": "按属性规格将载荷应用到节点。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_validate_property_specs_payload",
+          "signature": "func _validate_property_specs_payload(payload: Dictionary, specs: Array[Dictionary]) -> Array[String]",
+          "summary": "供节点序列化子类在写回前按属性规格校验载荷，不修改节点或载荷。仅检查具有有效 key 且载荷中存在的规格；缺失键不会报错，额外键不参与校验。按规格顺序收集类型或非有限数值错误，未知 kind 不增加限制。",
           "visibility": "protected"
         },
         {

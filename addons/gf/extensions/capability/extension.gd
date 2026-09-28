@@ -4,6 +4,9 @@ extends GFInstaller
 
 # --- 常量 ---
 
+## Capability 运行时 Utility 的预加载脚本资源。
+## [br]
+## @api private
 const _GF_CAPABILITY_UTILITY_SCRIPT = preload("res://addons/gf/extensions/capability/core/gf_capability_utility.gd")
 
 

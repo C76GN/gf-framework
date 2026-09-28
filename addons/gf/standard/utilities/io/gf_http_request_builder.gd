@@ -103,8 +103,22 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 按 Header 名称保存的请求头值；同名 set_header 会覆盖旧值。
+## [br]
+## @api private
+## [br]
 var _headers: Dictionary = {}
+
+## 按添加顺序保存 query 参数，允许重复名称。
+## [br]
+## @api private
+## [br]
 var _query_parameters: Array[Dictionary] = []
+
+## 已编码为文本的请求体，供请求快照及执行路径复用。
+## [br]
+## @api private
+## [br]
 var _body_text: String = ""
 
 
@@ -427,6 +441,10 @@ func parse_body(body: PackedByteArray) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 释放一次性 HTTPRequest，并将传输、HTTP 状态或解析结果写入响应终态。
+## [br]
+## @api private
+## [br]
 func _complete_response(
 	response: GFHttpResponse,
 	request_node: HTTPRequest,
@@ -469,6 +487,10 @@ func _complete_response(
 	response.complete_success(fields)
 
 
+## 返回当前 SceneTree.root；主循环不是 SceneTree 或不可用时返回 null。
+## [br]
+## @api private
+## [br]
 func _resolve_default_parent() -> Node:
 	var main_loop: MainLoop = Engine.get_main_loop()
 	if not (main_loop is SceneTree):
@@ -479,6 +501,10 @@ func _resolve_default_parent() -> Node:
 	return tree.root
 
 
+## 将 Method 枚举映射为 HTTPClient 常量，未知值回退到 GET。
+## [br]
+## @api private
+## [br]
 func _to_http_client_method(next_method: Method) -> int:
 	match next_method:
 		Method.GET:

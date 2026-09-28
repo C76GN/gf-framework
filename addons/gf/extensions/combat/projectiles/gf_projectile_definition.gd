@@ -49,8 +49,19 @@ extends Resource
 @export var lifetime_policy: GFProjectileLifetimePolicy = null
 
 
-# --- 私有/辅助方法 ---
+# --- 框架内部方法 ---
 
+## 供框架二维、三维定义共用的绑定实现；捕获资源身份与路径，在 adapter 回调后复核配置和节点资格，再验证唯一 runtime 与命中来源拓扑。
+## [br]
+## @api framework_internal
+## [br]
+## @param root: 待绑定且应在树中的场景根节点。
+## [br]
+## @param dimension: 本次绑定要求的二维或三维空间。
+## [br]
+## @param body_adapter: 定义所选的运动体适配资源。
+## [br]
+## @return: 对应维度的绑定结果；失败时包含确定的 FailureReason，不提交成功拓扑。
 func _bind_instance(
 	root: Node,
 	dimension: GFProjectileSession.Dimension,
@@ -179,6 +190,11 @@ func _bind_instance(
 	)
 
 
+# --- 私有/辅助方法 ---
+
+## 在拓扑解析步骤之间比对 root 与 definition 的当前声明是否仍等于入口快照。
+## [br]
+## @api private
 func _bind_fence_is_current(
 	root: Node,
 	dimension: GFProjectileSession.Dimension,
@@ -218,6 +234,9 @@ func _bind_fence_is_current(
 	return false
 
 
+## 判断 root 的 2D/3D 节点类型是否与请求维度匹配。
+## [br]
+## @api private
 func _root_matches_dimension(root: Node, dimension: GFProjectileSession.Dimension) -> bool:
 	return (
 		(root is Node2D and dimension == GFProjectileSession.Dimension.TWO_D)
@@ -225,6 +244,9 @@ func _root_matches_dimension(root: Node, dimension: GFProjectileSession.Dimensio
 	)
 
 
+## 检查候选 runtime 是否属于与请求相反的 projectile 维度。
+## [br]
+## @api private
 func _runtime_has_opposite_dimension(
 	runtime: Node,
 	dimension: GFProjectileSession.Dimension
@@ -235,6 +257,9 @@ func _runtime_has_opposite_dimension(
 	)
 
 
+## 深度遍历实例子树并收集未排队删除的 2D/3D projectile runtime。
+## [br]
+## @api private
 func _collect_runtimes(
 	node: Node,
 	result: Array[Node]
@@ -247,6 +272,9 @@ func _collect_runtimes(
 		_collect_runtimes(child, result)
 
 
+## 检查 impact source 是否是请求维度支持的 hit box 或 hit scan。
+## [br]
+## @api private
 func _impact_matches_dimension(
 	source: Node,
 	dimension: GFProjectileSession.Dimension
@@ -263,6 +291,9 @@ func _impact_matches_dimension(
 	)
 
 
+## 检查 impact source 是否明确属于另一维度。
+## [br]
+## @api private
 func _impact_has_opposite_dimension(
 	source: Node,
 	dimension: GFProjectileSession.Dimension
@@ -279,6 +310,9 @@ func _impact_has_opposite_dimension(
 	)
 
 
+## 将 root 校验委派给对应维度的 body adapter。
+## [br]
+## @api private
 func _validate_adapter(
 	root: Node,
 	dimension: GFProjectileSession.Dimension,
@@ -293,6 +327,9 @@ func _validate_adapter(
 	return ERR_INVALID_PARAMETER
 
 
+## 判断 runtime 是否 active、已释放或持有发射 reservation。
+## [br]
+## @api private
 func _runtime_is_claimed(runtime: Node) -> bool:
 	if runtime is GFProjectile2D:
 		var runtime_2d: GFProjectile2D = runtime

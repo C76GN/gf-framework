@@ -16,6 +16,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 安全读取 Godot 属性描述及转换属性名时使用的 Variant 辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -766,6 +769,9 @@ static func prepare_direct_property_write(
 
 # --- 私有/辅助方法 ---
 
+## 仅接受具有非空名称且未标记为 group、subgroup 或 category 的属性描述。
+## [br]
+## @api private
 static func _is_concrete_property_info(property_info: Dictionary) -> bool:
 	var property_name: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
 		property_info,
@@ -786,6 +792,9 @@ static func _is_concrete_property_info(property_info: Dictionary) -> bool:
 	)
 
 
+## 直接属性使用属性描述中的类型；嵌套路径优先使用当前值的实际类型。
+## [br]
+## @api private
 static func _get_effective_property_type(
 	property_path: NodePath,
 	property_info: Dictionary,
@@ -798,10 +807,16 @@ static func _get_effective_property_type(
 	return TYPE_NIL
 
 
+## 判断路径是否至多包含一个属性名且没有 subname。
+## [br]
+## @api private
 static func _is_direct_property_path(property_path: NodePath) -> bool:
 	return property_path.get_name_count() <= 1 and property_path.get_subname_count() == 0
 
 
+## 检查根属性存在，并逐段确认当前支持的嵌套子属性可读取。
+## [br]
+## @api private
 static func _property_path_can_resolve(object: Object, property_path: NodePath) -> bool:
 	if not is_instance_valid(object) or property_path.is_empty():
 		return false
@@ -826,6 +841,9 @@ static func _property_path_can_resolve(object: Object, property_path: NodePath) 
 	return true
 
 
+## 读取 Object、Dictionary 或受支持数学类型的直接子属性，结果以 ok/value 字段表示。
+## [br]
+## @api private
 static func _get_supported_subproperty_value(value: Variant, subname: StringName) -> Dictionary:
 	if subname == &"":
 		return { "ok": false }
@@ -1021,6 +1039,9 @@ static func _get_supported_subproperty_value(value: Variant, subname: StringName
 	return { "ok": false }
 
 
+## 将字符串、StringName、PackedStringArray 或 Array 转成按名称查找的集合。
+## [br]
+## @api private
 static func _make_property_name_filter(value: Variant) -> Dictionary:
 	var result: Dictionary = {}
 	if value is PackedStringArray:
@@ -1041,6 +1062,9 @@ static func _make_property_name_filter(value: Variant) -> Dictionary:
 	return result
 
 
+## 应用 include/exclude 集合判断属性名是否进入对象快照。
+## [br]
+## @api private
 static func _should_snapshot_property(
 	property_name: StringName,
 	include_filter: Dictionary,
@@ -1055,6 +1079,9 @@ static func _should_snapshot_property(
 	return true
 
 
+## 将属性名、问题类型与消息追加为一条应用结果问题。
+## [br]
+## @api private
 static func _append_apply_issue(
 	issues: Array[Dictionary],
 	property_name: StringName,
@@ -1068,6 +1095,9 @@ static func _append_apply_issue(
 	})
 
 
+## 构造包含成功标志、错误文本、属性名及旧新值的统一写入结果。
+## [br]
+## @api private
 static func _make_write_result(
 	ok: bool,
 	error_message: String = "",

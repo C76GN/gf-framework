@@ -4,10 +4,25 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 捕获曲线允许的最大控制点数。
+## [br]
+## @api private
 const _MAX_POINTS: int = 256
+
+## 捕获曲线允许的最小烘焙分辨率。
+## [br]
+## @api private
 const _MIN_BAKE_RESOLUTION: int = 2
+
 # 原生 Curve.set_bake_resolution 的上限为 1000。
+## 原生 Curve 接受的最大烘焙分辨率。
+## [br]
+## @api private
 const _MAX_BAKE_RESOLUTION: int = 1000
+
+## 烘焙采样值允许的最大绝对值。
+## [br]
+## @api private
 const _MAX_SAMPLE_MAGNITUDE: float = 16.0
 
 
@@ -173,10 +188,16 @@ static func get_point_count(data: Dictionary) -> int:
 
 # --- 私有/辅助方法 ---
 
+## 创建包含错误说明且不含部分捕获数据的失败结果。
+## [br]
+## @api private
 static func _failure(message: String) -> Dictionary:
 	return { "error": message, "data": {} }
 
 
+## 校验捕获数据字段类型、数组形状、范围、点序、切线及模式。
+## [br]
+## @api private
 static func _get_data_error(data: Dictionary) -> String:
 	var positions_value: Variant = data.get("positions")
 	var tangents_value: Variant = data.get("tangents")
@@ -218,6 +239,9 @@ static func _get_data_error(data: Dictionary) -> String:
 	return ""
 
 
+## 按捕获数据重建并烘焙无脚本原生 Curve，保留保存的切线数据。
+## [br]
+## @api private
 static func _build_curve(data: Dictionary) -> Curve:
 	var positions_value: Variant = data["positions"]
 	var tangents_value: Variant = data["tangents"]
@@ -250,6 +274,9 @@ static func _build_curve(data: Dictionary) -> Curve:
 	return private_curve
 
 
+## 检查重建曲线的烘焙采样是否有限且绝对值不超过上限。
+## [br]
+## @api private
 static func _get_sample_error(private_curve: Curve) -> String:
 	if private_curve == null:
 		return "Easing curve snapshot could not be reconstructed."

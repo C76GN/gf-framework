@@ -16,16 +16,42 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 发现扩展目录并读取 manifest 的目录服务脚本。
+## [br]
+## @api private
 const _GF_EXTENSION_CATALOG_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_catalog.gd")
+
+## 规范化扩展根目录和资源路径的辅助脚本。
+## [br]
+## @api private
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+## 读取快照、错误和签名字段的 Variant 访问辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 创建共享 JSON 预算并计算文件签名的辅助脚本。
+## [br]
+## @api private
 const _GF_EXTENSION_JSON_FILE_READER_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_json_file_reader.gd")
 
 
 # --- 私有变量 ---
 
+## 最近一次写入的 manifest 发现快照。
+## [br]
+## @api private
 static var _snapshot_cache: Dictionary = {}
+
+## 标记当前是否有可读取的发现快照。
+## [br]
+## @api private
 static var _has_snapshot_cache: bool = false
+
+## 每次写入快照时递增的缓存修订号。
+## [br]
+## @api private
 static var _cache_revision: int = 0
 
 
@@ -201,6 +227,9 @@ static func make_discovery_signature(
 
 # --- 私有/辅助方法 ---
 
+## 复制目录加载选项并共享本次 JSON 预算状态，收集 manifests 及目录最后加载错误后构造非手动快照。
+## [br]
+## @api private
 static func _load_snapshot(
 	external_roots: Array[String],
 	signature: Dictionary,
@@ -217,6 +246,9 @@ static func _load_snapshot(
 	return _make_snapshot(manifests, load_errors, external_roots, signature, false)
 
 
+## 复制 manifest 资源并分别汇总加载与语义校验问题，计算有效及无效数量；新快照 revision 为零，缓存存储阶段再赋正式版本。
+## [br]
+## @api private
 static func _make_snapshot(
 	manifests: Array[GFExtensionManifest],
 	load_errors: Array[Dictionary],
@@ -252,6 +284,9 @@ static func _make_snapshot(
 	}
 
 
+## 递增本进程缓存版本，复制快照并写入该版本后整体替换缓存，最后标记已有缓存。
+## [br]
+## @api private
 static func _store_snapshot(snapshot: Dictionary) -> void:
 	_cache_revision += 1
 	var stored_snapshot: Dictionary = _duplicate_snapshot(snapshot)
@@ -260,12 +295,18 @@ static func _store_snapshot(snapshot: Dictionary) -> void:
 	_has_snapshot_cache = true
 
 
+## 仅当当前 hash 非空且与缓存中的 signature_hash 相同时返回 true。
+## [br]
+## @api private
 static func _snapshot_matches_signature(signature: Dictionary) -> bool:
 	var current_hash: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(signature, "hash")
 	var cached_hash: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(_snapshot_cache, "signature_hash")
 	return not current_hash.is_empty() and current_hash == cached_hash
 
 
+## 以 GF 内置扩展目录开头，按输入顺序追加去重后的外部根目录。
+## [br]
+## @api private
 static func _make_discovery_roots(external_roots: Array[String]) -> Array[String]:
 	var roots: Array[String] = [_GF_EXTENSION_CATALOG_SCRIPT.EXTENSIONS_PATH]
 	for root_path: String in external_roots:
@@ -275,6 +316,9 @@ static func _make_discovery_roots(external_roots: Array[String]) -> Array[String
 	return roots
 
 
+## 规范化外部扩展根目录，并移除与 GF 内置根目录相同的项。
+## [br]
+## @api private
 static func _normalize_extra_root_paths(root_paths: Array[String]) -> Array[String]:
 	var result: Array[String] = []
 	var normalized_paths: PackedStringArray = _GF_PATH_TOOLS.normalize_root_paths(PackedStringArray(root_paths))
@@ -285,6 +329,9 @@ static func _normalize_extra_root_paths(root_paths: Array[String]) -> Array[Stri
 	return result
 
 
+## 深复制快照容器并重建 manifest 副本与类型化集合，补齐计数默认值；部分字典字段随后由共享访问器重新取出，不承诺所有字段完全脱离源引用。
+## [br]
+## @api private
 static func _duplicate_snapshot(snapshot: Dictionary) -> Dictionary:
 	var result: Dictionary = snapshot.duplicate(true)
 	result["manifests"] = _duplicate_manifest_array(_get_manifest_array_from_value(
@@ -320,6 +367,9 @@ static func _duplicate_snapshot(snapshot: Dictionary) -> Dictionary:
 	return result
 
 
+## 跳过 null 项，并为其余 manifest 调用 duplicate_manifest() 后返回新数组。
+## [br]
+## @api private
 static func _duplicate_manifest_array(manifests: Array[GFExtensionManifest]) -> Array[GFExtensionManifest]:
 	var result: Array[GFExtensionManifest] = []
 	for manifest: GFExtensionManifest in manifests:
@@ -329,6 +379,9 @@ static func _duplicate_manifest_array(manifests: Array[GFExtensionManifest]) -> 
 	return result
 
 
+## 仅当 Variant 是 Array 时筛选并返回其中的 GFExtensionManifest 项。
+## [br]
+## @api private
 static func _get_manifest_array_from_value(value: Variant) -> Array[GFExtensionManifest]:
 	var result: Array[GFExtensionManifest] = []
 	if not (value is Array):
@@ -342,10 +395,16 @@ static func _get_manifest_array_from_value(value: Variant) -> Array[GFExtensionM
 	return result
 
 
+## 将 Variant 转交给 issue record 转换器读取为字典数组。
+## [br]
+## @api private
 static func _get_load_errors_from_value(value: Variant) -> Array[Dictionary]:
 	return _get_issue_records_from_value(value)
 
 
+## 将读取错误转换为 stage 为 load 的 issue record。
+## [br]
+## @api private
 static func _make_manifest_load_issue_records(load_errors: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for load_error: Dictionary in load_errors:
@@ -358,6 +417,9 @@ static func _make_manifest_load_issue_records(load_errors: Array[Dictionary]) ->
 	return result
 
 
+## 跳过 null manifest，并为存在校验错误的实例构造 validation issue record。
+## [br]
+## @api private
 static func _make_manifest_validation_issue_records(manifests: Array[GFExtensionManifest]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for manifest: GFExtensionManifest in manifests:
@@ -375,6 +437,9 @@ static func _make_manifest_validation_issue_records(manifests: Array[GFExtension
 	return result
 
 
+## 深复制第一组与第二组 issue record 并按原组内顺序连接。
+## [br]
+## @api private
 static func _merge_issue_records(
 	first_records: Array[Dictionary],
 	second_records: Array[Dictionary]
@@ -387,6 +452,9 @@ static func _merge_issue_records(
 	return result
 
 
+## 仅转换 Array 中的 Dictionary 项，并用其字段重新构造 issue record。
+## [br]
+## @api private
 static func _get_issue_records_from_value(value: Variant) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if not (value is Array):
@@ -405,6 +473,9 @@ static func _get_issue_records_from_value(value: Variant) -> Array[Dictionary]:
 	return result
 
 
+## 组装 stage、扩展 ID、来源路径和错误数组字段。
+## [br]
+## @api private
 static func _make_issue_record(
 	stage: String,
 	extension_id: String,

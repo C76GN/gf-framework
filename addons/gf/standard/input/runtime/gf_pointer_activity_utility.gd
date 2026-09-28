@@ -107,6 +107,10 @@ signal pointer_idle_ended(pointer_id: int, position: Vector2)
 
 # --- 常量 ---
 
+## 用于按具体事件类型提取鼠标和触摸输入。
+## [br]
+## @api private
+## [br]
 const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_input_event_tools.gd")
 
 
@@ -180,6 +184,10 @@ var last_position: Vector2 = Vector2.ZERO
 
 # --- 私有变量 ---
 
+## 自最近一次指针活动以来累计的秒数。
+## [br]
+## @api private
+## [br]
 var _idle_elapsed_seconds: float = 0.0
 
 
@@ -268,6 +276,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 只处理配置的主鼠标按钮；按下或释放时更新指针状态并返回 true。
+## [br]
+## @api private
+## [br]
 func _handle_mouse_button(event: InputEventMouseButton) -> bool:
 	if event.button_index != mouse_button_index:
 		return false
@@ -278,11 +290,19 @@ func _handle_mouse_button(event: InputEventMouseButton) -> bool:
 	return true
 
 
+## 将鼠标移动事件转发为指针 ID 0 的移动。
+## [br]
+## @api private
+## [br]
 func _handle_mouse_motion(event: InputEventMouseMotion) -> bool:
 	_move_pointer(0, event.position, event)
 	return true
 
 
+## 只接受当前唯一活动触点的按下/释放；其他触点在活动指针冲突时返回 false。
+## [br]
+## @api private
+## [br]
 func _handle_screen_touch(event: InputEventScreenTouch) -> bool:
 	if event.pressed:
 		if active_pointer_id != -1 and active_pointer_id != event.index:
@@ -295,6 +315,10 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> bool:
 	return true
 
 
+## 活动指针未锁定或索引与当前活动触点一致时，将拖动事件转发为移动。
+## [br]
+## @api private
+## [br]
 func _handle_screen_drag(event: InputEventScreenDrag) -> bool:
 	if active_pointer_id != -1 and active_pointer_id != event.index:
 		return false
@@ -302,6 +326,10 @@ func _handle_screen_drag(event: InputEventScreenDrag) -> bool:
 	return true
 
 
+## 初始化按下指针的状态与位置，标记活动并发出 pointer_pressed。
+## [br]
+## @api private
+## [br]
 func _press_pointer(pointer_id: int, position: Vector2, event: InputEvent) -> void:
 	active_pointer_id = pointer_id
 	is_pointer_pressed = true
@@ -312,6 +340,10 @@ func _press_pointer(pointer_id: int, position: Vector2, event: InputEvent) -> vo
 	pointer_pressed.emit(pointer_id, position, event)
 
 
+## 忽略与当前活动指针不一致的释放；匹配时先记录活动，必要时发出拖拽结束，再清状态并发出释放信号。
+## [br]
+## @api private
+## [br]
 func _release_pointer(pointer_id: int, position: Vector2, event: InputEvent) -> void:
 	if active_pointer_id != -1 and active_pointer_id != pointer_id:
 		return
@@ -326,6 +358,10 @@ func _release_pointer(pointer_id: int, position: Vector2, event: InputEvent) -> 
 	pointer_released.emit(pointer_id, position, event)
 
 
+## 忽略与当前活动指针冲突的移动；更新位置并发出移动信号，按距离阈值进入拖拽并报告位移。
+## [br]
+## @api private
+## [br]
 func _move_pointer(pointer_id: int, position: Vector2, event: InputEvent) -> void:
 	if active_pointer_id != -1 and active_pointer_id != pointer_id:
 		return
@@ -346,6 +382,10 @@ func _move_pointer(pointer_id: int, position: Vector2, event: InputEvent) -> voi
 		pointer_dragged.emit(pointer_id, position, position - previous_position, event)
 
 
+## 记录最近活动指针及位置，重置空闲计时；从空闲转为活动时发出 pointer_idle_ended。
+## [br]
+## @api private
+## [br]
 func _mark_pointer_activity(pointer_id: int, position: Vector2) -> void:
 	var was_idle: bool = is_pointer_idle
 	last_pointer_id = pointer_id

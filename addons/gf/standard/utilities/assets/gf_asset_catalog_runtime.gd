@@ -45,12 +45,46 @@ const CONFLICT_KEEP_HIGH_PRIORITY: StringName = &"keep_high_priority"
 
 # --- 私有变量 ---
 
+## 当前应用于目录合并的资产 ID 冲突政策。
+## [br]
+## @api private
+## [br]
 var _conflict_policy: StringName = CONFLICT_REJECT
+
+## 按挂载保存的内部记录列表。
+## [br]
+## @api private
+## [br]
 var _mount_records: Array[Dictionary] = []
+
+## 最近一次成功提交的合并目录。
+## [br]
+## @api private
+## [br]
 var _catalog: GFAssetCatalog = GFAssetCatalog.new()
+
+## 最近一次成功提交所使用的目录 revision。
+## [br]
+## @api private
+## [br]
 var _revision: int = 0
+
+## 下一个新挂载使用的内部 token。
+## [br]
+## @api private
+## [br]
 var _next_token: int = 1
+
+## 最近一次成功或失败操作产生的运行时报告。
+## [br]
+## @api private
+## [br]
 var _last_report: Dictionary = {}
+
+## 标记 Runtime 是否已经释放。
+## [br]
+## @api private
+## [br]
 var _disposed: bool = false
 
 
@@ -472,6 +506,10 @@ func release_mount(token: int) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 按挂载顺序合并目录条目并生成冲突与有效性报告。
+## [br]
+## @api private
+## [br]
 func _compose_mount_records(records: Array[Dictionary]) -> Dictionary:
 	var ordered_records: Array[Dictionary] = _copy_mount_records(records)
 	ordered_records.sort_custom(_compare_mount_records)
@@ -516,6 +554,10 @@ func _compose_mount_records(records: Array[Dictionary]) -> Dictionary:
 	}
 
 
+## 保存合并结果与挂载记录，更新报告统计并发出变更信号。
+## [br]
+## @api private
+## [br]
 func _commit_composition(
 	records: Array[Dictionary],
 	committed_catalog: GFAssetCatalog,
@@ -530,6 +572,10 @@ func _commit_composition(
 	catalog_changed.emit(_duplicate_catalog(_catalog), _revision)
 
 
+## 生成失败报告、更新最近报告并返回非活动句柄。
+## [br]
+## @api private
+## [br]
 func _make_failed_mount(
 	status: StringName,
 	owner_id: StringName,
@@ -559,6 +605,10 @@ func _make_failed_mount(
 	)
 
 
+## 组合 Runtime 状态、数量统计和问题列表形成报告字典。
+## [br]
+## @api private
+## [br]
 func _make_runtime_report(
 	ok: bool,
 	status: StringName,
@@ -590,6 +640,10 @@ func _make_runtime_report(
 	}
 
 
+## 查找 owner 与 mount ID 同时匹配的记录下标。
+## [br]
+## @api private
+## [br]
 func _find_mount_record_index(owner_id: StringName, mount_id: StringName) -> int:
 	for index: int in range(_mount_records.size()):
 		var mount_record: Dictionary = _mount_records[index]
@@ -601,6 +655,10 @@ func _find_mount_record_index(owner_id: StringName, mount_id: StringName) -> int
 	return -1
 
 
+## 按内部 token 查找挂载记录下标。
+## [br]
+## @api private
+## [br]
 func _find_mount_record_index_by_token(token: int) -> int:
 	for index: int in range(_mount_records.size()):
 		if GFVariantData.get_option_int(_mount_records[index], "token") == token:
@@ -608,6 +666,10 @@ func _find_mount_record_index_by_token(token: int) -> int:
 	return -1
 
 
+## 按 Mount 句柄对象查找其记录下标。
+## [br]
+## @api private
+## [br]
 func _find_mount_record_index_by_handle(mount: GFAssetCatalogMount) -> int:
 	for index: int in range(_mount_records.size()):
 		if _get_mount_handle(_mount_records[index]) == mount:
@@ -615,6 +677,10 @@ func _find_mount_record_index_by_handle(mount: GFAssetCatalogMount) -> int:
 	return -1
 
 
+## 逐项复制挂载记录字典并返回新数组。
+## [br]
+## @api private
+## [br]
 func _copy_mount_records(records: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for mount_record: Dictionary in records:
@@ -622,6 +688,10 @@ func _copy_mount_records(records: Array[Dictionary]) -> Array[Dictionary]:
 	return result
 
 
+## 按运行时记录字段重建单条挂载记录字典。
+## [br]
+## @api private
+## [br]
 func _copy_mount_record(mount_record: Dictionary) -> Dictionary:
 	return {
 		"token": GFVariantData.get_option_int(mount_record, "token"),
@@ -634,6 +704,10 @@ func _copy_mount_record(mount_record: Dictionary) -> Dictionary:
 	}
 
 
+## 从挂载记录安全读取目录对象，不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_mount_catalog(mount_record: Dictionary) -> GFAssetCatalog:
 	var catalog_value: Variant = mount_record.get("catalog")
 	if catalog_value is GFAssetCatalog:
@@ -642,6 +716,10 @@ func _get_mount_catalog(mount_record: Dictionary) -> GFAssetCatalog:
 	return null
 
 
+## 从挂载记录安全读取句柄对象，不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_mount_handle(mount_record: Dictionary) -> GFAssetCatalogMount:
 	var handle_value: Variant = mount_record.get("handle")
 	if handle_value is GFAssetCatalogMount:
@@ -650,6 +728,10 @@ func _get_mount_handle(mount_record: Dictionary) -> GFAssetCatalogMount:
 	return null
 
 
+## 用指定终态和 revision 完成全部可读取的 Mount 句柄。
+## [br]
+## @api private
+## [br]
 func _complete_all_mounts(status: StringName, revision: int) -> void:
 	for mount_record: Dictionary in _mount_records:
 		var mount: GFAssetCatalogMount = _get_mount_handle(mount_record)
@@ -657,6 +739,10 @@ func _complete_all_mounts(status: StringName, revision: int) -> void:
 			mount.complete(status, revision)
 
 
+## 从合并结果取出目录对象；缺失或类型不符时返回空目录。
+## [br]
+## @api private
+## [br]
 func _get_composed_catalog(composition: Dictionary) -> GFAssetCatalog:
 	var catalog_value: Variant = composition.get("catalog")
 	if catalog_value is GFAssetCatalog:
@@ -665,10 +751,18 @@ func _get_composed_catalog(composition: Dictionary) -> GFAssetCatalog:
 	return GFAssetCatalog.new()
 
 
+## 通过序列化往返复制目录；输入为空时创建空目录。
+## [br]
+## @api private
+## [br]
 static func _duplicate_catalog(catalog: GFAssetCatalog) -> GFAssetCatalog:
 	return GFAssetCatalog.from_dict(catalog.to_dict()) if catalog != null else GFAssetCatalog.new()
 
 
+## 按优先级降序、owner 与 mount ID 升序、token 升序比较挂载记录。
+## [br]
+## @api private
+## [br]
 static func _compare_mount_records(left: Dictionary, right: Dictionary) -> bool:
 	var left_priority: int = GFVariantData.get_option_int(left, "priority")
 	var right_priority: int = GFVariantData.get_option_int(right, "priority")
@@ -685,6 +779,10 @@ static func _compare_mount_records(left: Dictionary, right: Dictionary) -> bool:
 	return GFVariantData.get_option_int(left, "token") < GFVariantData.get_option_int(right, "token")
 
 
+## 检查问题列表中是否不存在 severity 为 error 的条目。
+## [br]
+## @api private
+## [br]
 static func _issues_have_no_errors(issues: Array[Dictionary]) -> bool:
 	for issue: Dictionary in issues:
 		if GFVariantData.get_option_string(issue, "severity") == "error":

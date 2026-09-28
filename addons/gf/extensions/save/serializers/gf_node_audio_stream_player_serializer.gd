@@ -13,6 +13,10 @@ extends GFNodeSerializer
 
 # --- 常量 ---
 
+## gather 时按节点实际暴露情况读取的可选音频属性。
+## [br]
+## @api private
+## [br]
 const _OPTIONAL_PROPERTIES: PackedStringArray = [
 	"stream_paused",
 	"volume_db",
@@ -22,6 +26,10 @@ const _OPTIONAL_PROPERTIES: PackedStringArray = [
 	"attenuation",
 ]
 
+## apply 前验证的音频播放与可选属性字段类型。
+## [br]
+## @api private
+## [br]
 const _APPLY_PROPERTY_SPECS: Array[Dictionary] = [
 	{ "key": "playing", "kind": &"bool" },
 	{ "key": "playback_position", "kind": &"float" },
@@ -125,6 +133,10 @@ func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictio
 
 # --- 私有/辅助方法 ---
 
+## 节点没有 stream 属性时允许开始播放，否则要求其 stream 非空。
+## [br]
+## @api private
+## [br]
 func _can_start_playback(node: Object) -> bool:
 	if not _has_property(node, "stream"):
 		return true

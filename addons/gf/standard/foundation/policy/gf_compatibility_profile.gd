@@ -422,6 +422,9 @@ static func from_dict(data: Dictionary) -> GFCompatibilityProfile:
 
 # --- 私有/辅助方法 ---
 
+## 去除平台或功能标识首尾空白、空项与重复项，并按字符串顺序排序。
+## [br]
+## @api private
 static func _normalize_string_set(items: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for item: String in items:
@@ -433,6 +436,9 @@ static func _normalize_string_set(items: PackedStringArray) -> PackedStringArray
 	return result
 
 
+## 深拷贝字典条目数组。
+## [br]
+## @api private
 static func _copy_entries(source_entries: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in source_entries:
@@ -440,6 +446,9 @@ static func _copy_entries(source_entries: Array[Dictionary]) -> Array[Dictionary
 	return result
 
 
+## 从 Variant 数组筛选 Dictionary 项并逐项深拷贝，忽略其他类型。
+## [br]
+## @api private
 static func _copy_entries_from_array(source_entries: Array) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry_value: Variant in source_entries:
@@ -449,6 +458,9 @@ static func _copy_entries_from_array(source_entries: Array) -> Array[Dictionary]
 	return result
 
 
+## 优先读取条目的 id，缺失时读取指定 fallback_key。
+## [br]
+## @api private
 static func _get_entry_id(entry: Dictionary, fallback_key: String) -> StringName:
 	return GFVariantData.get_option_string_name(
 		entry,
@@ -457,6 +469,9 @@ static func _get_entry_id(entry: Dictionary, fallback_key: String) -> StringName
 	)
 
 
+## 返回 ID 匹配的首个条目索引；遍历结束仍未找到时返回 -1。
+## [br]
+## @api private
 static func _find_entry_index(entries: Array[Dictionary], entry_id: StringName, fallback_key: String) -> int:
 	for index: int in range(entries.size()):
 		if _get_entry_id(entries[index], fallback_key) == entry_id:

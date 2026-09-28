@@ -14,7 +14,16 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 弱引用由 turn-based 运行态绑定的目标。
+## [br]
+## @api private
+## [br]
 var _runtime_ref: WeakRef = null
+
+## 防止同一句柄重复绑定运行态。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
 
 

@@ -259,6 +259,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 检查消息类型、频道、发送者、序号、tick、必填 payload 键和可选契约约束。
+## [br]
+## @api private
+## [br]
 func _validate_message_internal(message: GFNetworkMessage, peer_id: int, has_peer_context: bool) -> Dictionary:
 	var errors: PackedStringArray = PackedStringArray()
 	if message == null:
@@ -299,6 +303,10 @@ func _validate_message_internal(message: GFNetworkMessage, peer_id: int, has_pee
 	return _make_report(errors)
 
 
+## 将错误集合封装为包含 ok 状态的验证结果字典。
+## [br]
+## @api private
+## [br]
 func _make_report(errors: PackedStringArray) -> Dictionary:
 	return {
 		"ok": errors.is_empty(),
@@ -306,12 +314,20 @@ func _make_report(errors: PackedStringArray) -> Dictionary:
 	}
 
 
+## 检查 payload 是否含 String 或等值 StringName 键。
+## [br]
+## @api private
+## [br]
 func _payload_has_key(payload: Dictionary, key: String) -> bool:
 	if payload.has(key):
 		return true
 	return payload.has(StringName(key))
 
 
+## 裁剪并登记非空字符串；新值插入后对集合排序。
+## [br]
+## @api private
+## [br]
 func _append_unique_string(items: PackedStringArray, value: String) -> bool:
 	var normalized: String = value.strip_edges()
 	if normalized.is_empty():
@@ -322,10 +338,18 @@ func _append_unique_string(items: PackedStringArray, value: String) -> bool:
 	return true
 
 
+## 裁剪待查字符串后检查其是否存在于集合。
+## [br]
+## @api private
+## [br]
 func _string_set_has(items: PackedStringArray, value: String) -> bool:
 	return items.has(value.strip_edges())
 
 
+## 将契约验证报告中的问题类型追加为 contract: 前缀错误。
+## [br]
+## @api private
+## [br]
 func _append_contract_errors(errors: PackedStringArray, report: Dictionary) -> void:
 	for issue_value: Variant in GFVariantData.get_option_array(report, "issues"):
 		var issue: Dictionary = GFVariantData.as_dictionary(issue_value)

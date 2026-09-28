@@ -154,23 +154,112 @@ enum StackExitPolicy {
 
 # --- 私有变量 ---
 
+## 以注册名为键保存当前状态节点。
+## [br]
+## @api private
+## [br]
 var _states: Dictionary = {}
+
+## 以状态实例 ID 为键保存其注册名的反向索引。
+## [br]
+## @api private
+## [br]
 var _state_keys_by_instance_id: Dictionary = {}
+
+## 当前正在活动的状态节点。
+## [br]
+## @api private
+## [br]
 var _current_state: GFNodeState = null
+
+## 被当前状态覆盖并等待恢复的状态栈。
+## [br]
+## @api private
+## [br]
 var _state_stack: Array[GFNodeState] = []
+
+## 按转场顺序保存的近期状态历史。
+## [br]
+## @api private
+## [br]
 var _history: Array[StringName] = []
+
+## 所属状态机的弱引用。
+## [br]
+## @api private
+## [br]
 var _machine_ref: WeakRef = null
+
+## 状态组运行时初始化是否已完成。
+## [br]
+## @api private
+## [br]
 var _is_ready: bool = false
+
+## 是否已排队从子节点重载状态的延迟调用。
+## [br]
+## @api private
+## [br]
 var _reload_queued: bool = false
+
+## 递增转场序号，用于检测条件或生命周期回调重入造成的过期转场。
+## [br]
+## @api private
+## [br]
 var _transition_serial: int = 0
+
+## 递增激活代数，用于标识当前状态组活动周期。
+## [br]
+## @api private
+## [br]
 var _activation_epoch: int = 0
+
+## 当前状态是否正在 exit 回调中。
+## [br]
+## @api private
+## [br]
 var _is_exiting_current_state: bool = false
+
+## 当前 exit 回调是否已请求延后提交另一转场。
+## [br]
+## @api private
+## [br]
 var _has_queued_exit_transition: bool = false
+
+## exit 回调排队的目标状态名。
+## [br]
+## @api private
+## [br]
 var _queued_exit_state_name: StringName = &""
+
+## exit 回调排队转场的参数副本。
+## [br]
+## @api private
+## [br]
 var _queued_exit_args: Dictionary = {}
+
+## exit 回调排队转场使用的栈退出策略。
+## [br]
+## @api private
+## [br]
 var _queued_exit_stack_policy: int = StackExitPolicy.REQUIRE_GUARDS
+
+## 当前是否正在应用经过验证的状态快照。
+## [br]
+## @api private
+## [br]
 var _is_restoring_snapshot: bool = false
+
+## 快照恢复保护期间被拒绝的操作标识去重列表。
+## [br]
+## @api private
+## [br]
 var _restore_blocked_operations: Array[StringName] = []
+
+## 外部 Machine 对本组建立的嵌套快照恢复保护深度。
+## [br]
+## @api private
+## [br]
 var _machine_restore_guard_depth: int = 0
 
 
@@ -998,6 +1087,10 @@ func end_machine_restore_guard() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 快照恢复保护未激活时允许变更；保护期间记录操作并同步告知所属 Machine。
+## [br]
+## @api private
+## [br]
 func _reject_mutation_during_restore(operation: StringName) -> bool:
 	if not _is_restoring_snapshot and _machine_restore_guard_depth <= 0:
 		return false
@@ -1009,11 +1102,19 @@ func _reject_mutation_during_restore(operation: StringName) -> bool:
 	return true
 
 
+## 将被恢复保护拒绝的操作标识去重后加入报告列表。
+## [br]
+## @api private
+## [br]
 func _record_restore_blocked_operation(operation: StringName) -> void:
 	if not _restore_blocked_operations.has(operation):
 		_restore_blocked_operations.append(operation)
 
 
+## 使旧转场失效，退出活动状态并清空当前状态、栈、历史和排队转场。
+## [br]
+## @api private
+## [br]
 func _stop_internal() -> void:
 	_transition_serial += 1
 	if _current_state != null or not _state_stack.is_empty():
@@ -1026,6 +1127,10 @@ func _stop_internal() -> void:
 	_clear_queued_exit_transition()
 
 
+## 应用已验证快照中的黑板、活动栈和历史；先停止旧运行态并复制黑板数据。
+## [br]
+## @api private
+## [br]
 func _apply_validated_restore(validation: Dictionary, report: Dictionary) -> void:
 	var current_state_name: StringName = GFVariantData.get_option_string_name(validation, "current_state")
 	var stack_names: Array[StringName] = _get_snapshot_state_name_array(validation, "stack")
@@ -1036,6 +1141,10 @@ func _apply_validated_restore(validation: Dictionary, report: Dictionary) -> voi
 	_restore_history(history_names, report)
 
 
+## 根据实际运行状态填充当前态、栈、历史和黑板的恢复后置检查结果。
+## [br]
+## @api private
+## [br]
 func _update_restore_postconditions(validation: Dictionary, report: Dictionary) -> void:
 	var expected_current_state: StringName = GFVariantData.get_option_string_name(validation, "current_state")
 	var expected_stack: Array[StringName] = _get_snapshot_state_name_array(validation, "stack")
@@ -1050,6 +1159,10 @@ func _update_restore_postconditions(validation: Dictionary, report: Dictionary) 
 	report["blackboard_restored"] = blackboard == GFVariantData.get_option_dictionary(validation, "blackboard")
 
 
+## 检查当前态、活动栈、预期历史和黑板是否已与验证快照一致。
+## [br]
+## @api private
+## [br]
 func _restore_validation_matches_runtime(validation: Dictionary) -> bool:
 	return (
 		GFVariantData.get_option_string_name(validation, "current_state") == get_current_state_name()
@@ -1059,12 +1172,20 @@ func _restore_validation_matches_runtime(validation: Dictionary) -> bool:
 	)
 
 
+## 从状态机弱引用取得所属 Machine；引用未设置或已释放时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_machine() -> Object:
 	if _machine_ref == null:
 		return null
 	return _machine_ref.get_ref()
 
 
+## 从父节点脱离有效节点并请求 queue_free，避免其继续参与场景树。
+## [br]
+## @api private
+## [br]
 func _queue_free_detached(node: Node) -> void:
 	if not is_instance_valid(node):
 		return
@@ -1075,6 +1196,10 @@ func _queue_free_detached(node: Node) -> void:
 		node.queue_free()
 
 
+## 返回当前状态及暂停栈中从栈顶到栈底的有效事件接收候选。
+## [br]
+## @api private
+## [br]
 func _get_event_dispatch_candidates() -> Array[GFNodeState]:
 	var result: Array[GFNodeState] = []
 	if _current_state != null:
@@ -1086,6 +1211,10 @@ func _get_event_dispatch_candidates() -> Array[GFNodeState]:
 	return result
 
 
+## 将暂停栈节点转换为当前注册名并按栈底到栈顶顺序返回。
+## [br]
+## @api private
+## [br]
 func _get_stack_state_names() -> Array[StringName]:
 	var result: Array[StringName] = []
 	for state: GFNodeState in _state_stack:
@@ -1094,6 +1223,10 @@ func _get_stack_state_names() -> Array[StringName]:
 	return result
 
 
+## 从快照字典读取状态名数组，过滤空 StringName 项。
+## [br]
+## @api private
+## [br]
 func _get_snapshot_state_name_array(snapshot: Dictionary, key: String) -> Array[StringName]:
 	var result: Array[StringName] = []
 	for value: Variant in GFVariantData.get_option_array(snapshot, key):
@@ -1103,6 +1236,10 @@ func _get_snapshot_state_name_array(snapshot: Dictionary, key: String) -> Array[
 	return result
 
 
+## 收集快照当前态和栈中尚未注册的唯一状态名。
+## [br]
+## @api private
+## [br]
 func _get_missing_restore_states(
 	current_state_name: StringName,
 	stack_names: Array[StringName]
@@ -1116,6 +1253,10 @@ func _get_missing_restore_states(
 	return result
 
 
+## 不经转场守卫地按快照重建暂停栈与当前状态，并递增代数使旧回调失效。
+## [br]
+## @api private
+## [br]
 func _restore_active_state_stack(stack_names: Array[StringName], current_state_name: StringName) -> void:
 	_transition_serial += 1
 	_activation_epoch += 1
@@ -1154,6 +1295,10 @@ func _restore_active_state_stack(stack_names: Array[StringName], current_state_n
 	_current_state = restored_current
 
 
+## 恢复仍已注册的历史条目，收集缺失项并按 history_max_size 裁剪。
+## [br]
+## @api private
+## [br]
 func _restore_history(history_names: Array[StringName], report: Dictionary) -> void:
 	_history.clear()
 	var skipped_history_states: Array[StringName] = []
@@ -1167,6 +1312,10 @@ func _restore_history(history_names: Array[StringName], report: Dictionary) -> v
 	report["skipped_history_states"] = skipped_history_states
 
 
+## 创建包含恢复状态、缺失项、被阻操作和后置检查字段的失败默认报告。
+## [br]
+## @api private
+## [br]
 func _make_restore_report() -> Dictionary:
 	return {
 		"report_schema_version": 1,
@@ -1187,6 +1336,10 @@ func _make_restore_report() -> Dictionary:
 	}
 
 
+## 返回状态注册表中当前所有状态名。
+## [br]
+## @api private
+## [br]
 func _get_registered_state_names() -> Array[StringName]:
 	var result: Array[StringName] = []
 	for state_name: StringName in _states.keys():
@@ -1194,11 +1347,19 @@ func _get_registered_state_names() -> Array[StringName]:
 	return result
 
 
+## 为当前已注册的所有状态注入所属 Machine 和本状态组。
+## [br]
+## @api private
+## [br]
 func _setup_existing_states() -> void:
 	for state: GFNodeState in _states.values():
 		state.setup(_get_machine(), self)
 
 
+## 以退出标记包围当前态及栈内状态的清理退出，并注销各状态拥有的事件。
+## [br]
+## @api private
+## [br]
 func _exit_active_states_for_clear() -> void:
 	var current_state: GFNodeState = _current_state
 	var stacked_states: Array[GFNodeState] = _copy_state_stack()
@@ -1215,16 +1376,28 @@ func _exit_active_states_for_clear() -> void:
 	_clear_queued_exit_transition()
 
 
+## 判断节点是否能被窄化为 GFNodeState。
+## [br]
+## @api private
+## [br]
 func _is_node_state(node: Node) -> bool:
 	return _node_as_state(node) != null
 
 
+## 将 Node 窄化为 GFNodeState；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _node_as_state(node: Node) -> GFNodeState:
 	if node is GFNodeState:
 		return node
 	return null
 
 
+## 从注册表取出指定状态名对应的 GFNodeState。
+## [br]
+## @api private
+## [br]
 func _get_registered_state(state_name: StringName) -> GFNodeState:
 	var state_value: Variant = GFVariantData.get_option_value(_states, state_name)
 	if state_value is GFNodeState:
@@ -1232,6 +1405,10 @@ func _get_registered_state(state_name: StringName) -> GFNodeState:
 	return null
 
 
+## 通过实例 ID 反向索引取得状态注册名，缺失时回退到节点自身状态名。
+## [br]
+## @api private
+## [br]
 func _get_registered_state_key(state: GFNodeState) -> StringName:
 	if state == null:
 		return &""
@@ -1243,6 +1420,10 @@ func _get_registered_state_key(state: GFNodeState) -> StringName:
 	return GFVariantData.to_string_name(key_value)
 
 
+## 对栈索引做边界检查并返回对应 GFNodeState。
+## [br]
+## @api private
+## [br]
 func _get_stack_state_at(index: int) -> GFNodeState:
 	if index < 0 or index >= _state_stack.size():
 		return null
@@ -1252,6 +1433,10 @@ func _get_stack_state_at(index: int) -> GFNodeState:
 	return null
 
 
+## 从暂停栈顶移除并返回状态；栈空或类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _pop_stack_state() -> GFNodeState:
 	if _state_stack.is_empty():
 		return null
@@ -1261,6 +1446,10 @@ func _pop_stack_state() -> GFNodeState:
 	return null
 
 
+## 复制当前暂停栈节点列表。
+## [br]
+## @api private
+## [br]
 func _copy_state_stack() -> Array[GFNodeState]:
 	var result: Array[GFNodeState] = []
 	for state: GFNodeState in _state_stack:
@@ -1268,10 +1457,18 @@ func _copy_state_stack() -> Array[GFNodeState]:
 	return result
 
 
+## 发出包含缺失状态名的稳定转场警告。
+## [br]
+## @api private
+## [br]
 func _warn_missing_state(state_name: StringName) -> void:
 	push_warning("[GFNodeStateGroup][node_state_group.transition_state_missing] Cannot transition: state not found: %s." % state_name)
 
 
+## 先执行当前态退出守卫再执行目标态进入守卫，并用转场序号拒绝回调重入后的过期结果。
+## [br]
+## @api private
+## [br]
 func _can_transition(
 	previous_state: GFNodeState,
 	next_state: GFNodeState,
@@ -1295,6 +1492,10 @@ func _can_transition(
 	return true
 
 
+## 执行被压入栈顶状态的进入守卫，并确认评估期间转场序号未变化。
+## [br]
+## @api private
+## [br]
 func _can_push_state(
 	previous_state: GFNodeState,
 	next_state: GFNodeState,
@@ -1312,18 +1513,30 @@ func _can_push_state(
 	return true
 
 
+## 状态为空时允许退出，否则委托状态节点评估 can_exit。
+## [br]
+## @api private
+## [br]
 func _can_exit_state(state: GFNodeState, next_state_name: StringName, args: Dictionary) -> bool:
 	if state == null:
 		return true
 	return state.can_exit(next_state_name, args)
 
 
+## 状态为空时允许进入，否则委托状态节点评估 can_enter。
+## [br]
+## @api private
+## [br]
 func _can_enter_state(state: GFNodeState, previous_state_name: StringName, args: Dictionary) -> bool:
 	if state == null:
 		return true
 	return state.can_enter(previous_state_name, args)
 
 
+## FORCE 策略跳过栈守卫；否则从栈顶向下检查所有状态并验证回调期间转场序号。
+## [br]
+## @api private
+## [br]
 func _can_exit_stacked_states(
 	next_state_name: StringName,
 	args: Dictionary,
@@ -1345,27 +1558,47 @@ func _can_exit_stacked_states(
 	return true
 
 
+## 仅保留 FORCE，其余输入统一规范为 REQUIRE_GUARDS。
+## [br]
+## @api private
+## [br]
 func _normalize_stack_exit_policy(stack_exit_policy: int) -> int:
 	if stack_exit_policy == StackExitPolicy.FORCE:
 		return StackExitPolicy.FORCE
 	return StackExitPolicy.REQUIRE_GUARDS
 
 
+## 发出转场阻止信号，并传递参数字典的深复制。
+## [br]
+## @api private
+## [br]
 func _emit_transition_blocked(from_state: GFNodeState, to_state_name: StringName, args: Dictionary, reason: String) -> void:
 	transition_blocked.emit(from_state, to_state_name, args.duplicate(true), reason)
 
 
+## 将状态名追加到历史并按配置容量裁剪。
+## [br]
+## @api private
+## [br]
 func _push_history(state_name: StringName) -> void:
 	_history.append(state_name)
 	_trim_history()
 
 
+## 将历史容量下限设为 1，并从最旧端移除超出的条目。
+## [br]
+## @api private
+## [br]
 func _trim_history() -> void:
 	var max_size: int = maxi(history_max_size, 1)
 	while _history.size() > max_size:
 		_history.pop_front()
 
 
+## 从栈顶向下退出全部暂停状态并注销其拥有的事件。
+## [br]
+## @api private
+## [br]
 func _clear_stack(next_state_name: StringName, args: Dictionary) -> void:
 	while not _state_stack.is_empty():
 		var state: GFNodeState = _pop_stack_state()
@@ -1374,6 +1607,10 @@ func _clear_stack(next_state_name: StringName, args: Dictionary) -> void:
 			state.unregister_owner_events()
 
 
+## 保存 exit 回调期间请求的后续目标、参数和规范化栈退出策略。
+## [br]
+## @api private
+## [br]
 func _queue_exit_transition(state_name: StringName, args: Dictionary, stack_exit_policy: int) -> void:
 	_has_queued_exit_transition = true
 	_queued_exit_state_name = state_name
@@ -1381,6 +1618,10 @@ func _queue_exit_transition(state_name: StringName, args: Dictionary, stack_exit
 	_queued_exit_stack_policy = _normalize_stack_exit_policy(stack_exit_policy)
 
 
+## 清空排队目标与参数，并恢复默认栈退出策略。
+## [br]
+## @api private
+## [br]
 func _clear_queued_exit_transition() -> void:
 	_has_queued_exit_transition = false
 	_queued_exit_state_name = &""
@@ -1388,6 +1629,10 @@ func _clear_queued_exit_transition() -> void:
 	_queued_exit_stack_policy = StackExitPolicy.REQUIRE_GUARDS
 
 
+## 取出并清空排队转场；不存在时构造调用方提供的默认转场。
+## [br]
+## @api private
+## [br]
 func _take_queued_exit_transition(
 	default_state_name: StringName,
 	default_args: Dictionary,
@@ -1405,6 +1650,10 @@ func _take_queued_exit_transition(
 	return result
 
 
+## 退出并移除当前状态，消费 exit 回调排队转场或恢复有效栈态，同时保护嵌套转场免于覆盖。
+## [br]
+## @api private
+## [br]
 func _remove_current_state(state: GFNodeState, state_name: StringName) -> void:
 	var previous_state: GFNodeState = _current_state
 	var restore_state: GFNodeState = _peek_stack_restore_state(state)
@@ -1455,6 +1704,10 @@ func _remove_current_state(state: GFNodeState, state_name: StringName) -> void:
 	current_state_changed.emit(previous_state, _current_state)
 
 
+## 从栈顶向下查找第一个有效且不是指定节点的可恢复状态，但不移除它。
+## [br]
+## @api private
+## [br]
 func _peek_stack_restore_state(excluded_state: GFNodeState) -> GFNodeState:
 	for index: int in range(_state_stack.size() - 1, -1, -1):
 		var state: GFNodeState = _get_stack_state_at(index)
@@ -1463,6 +1716,10 @@ func _peek_stack_restore_state(excluded_state: GFNodeState) -> GFNodeState:
 	return null
 
 
+## 从栈顶弹出节点直到找到有效且不是指定节点的可恢复状态。
+## [br]
+## @api private
+## [br]
 func _pop_stack_restore_state(excluded_state: GFNodeState) -> GFNodeState:
 	while not _state_stack.is_empty():
 		var state: GFNodeState = _pop_stack_state()
@@ -1471,6 +1728,10 @@ func _pop_stack_restore_state(excluded_state: GFNodeState) -> GFNodeState:
 	return null
 
 
+## 验证候选节点存活、未被排除且仍以其当前注册名映射回同一实例。
+## [br]
+## @api private
+## [br]
 func _is_valid_stack_restore_state(state: GFNodeState, excluded_state: GFNodeState) -> bool:
 	if state == null or state == excluded_state or not is_instance_valid(state):
 		return false
@@ -1478,6 +1739,10 @@ func _is_valid_stack_restore_state(state: GFNodeState, excluded_state: GFNodeSta
 	return _get_registered_state(state_name) == state
 
 
+## 从暂停栈中移除指定节点的所有重复项，并对每项执行退出与事件注销。
+## [br]
+## @api private
+## [br]
 func _remove_from_stack(state: GFNodeState) -> void:
 	var index: int = _state_stack.find(state)
 	while index != -1:
@@ -1487,17 +1752,10 @@ func _remove_from_stack(state: GFNodeState) -> void:
 		index = _state_stack.find(state)
 
 
-func _on_state_requested_transition(
-	target_group_name: StringName,
-	target_state_name: StringName,
-	args: Dictionary
-) -> void:
-	if target_group_name == &"" or target_group_name == get_group_name():
-		transition_to(target_state_name, args)
-	else:
-		requested_transition.emit(target_group_name, target_state_name, args)
-
-
+## 满足运行态、自动重载配置且尚未排队时，延迟安排一次子节点状态重载。
+## [br]
+## @api private
+## [br]
 func _queue_reload_from_children() -> void:
 	if not _is_ready or not reload_states_on_ready or _reload_queued:
 		return
@@ -1506,12 +1764,20 @@ func _queue_reload_from_children() -> void:
 	call_deferred("_reload_from_children_deferred")
 
 
+## 仅在编辑器中延迟刷新此状态组的配置警告。
+## [br]
+## @api private
+## [br]
 func _queue_configuration_warning_update() -> void:
 	if not Engine.is_editor_hint():
 		return
 	call_deferred("update_configuration_warnings")
 
 
+## 清除排队标记；编辑器只刷新警告，运行态按配置重载状态并可自动启动。
+## [br]
+## @api private
+## [br]
 func _reload_from_children_deferred() -> void:
 	_reload_queued = false
 	if Engine.is_editor_hint():
@@ -1523,6 +1789,25 @@ func _reload_from_children_deferred() -> void:
 			start()
 
 
+# --- 信号处理函数 ---
+
+## 空目标组或当前组在本组执行切换；指向其他组的请求交给上层路由。
+## [br]
+## @api private
+func _on_state_requested_transition(
+	target_group_name: StringName,
+	target_state_name: StringName,
+	args: Dictionary
+) -> void:
+	if target_group_name == &"" or target_group_name == get_group_name():
+		transition_to(target_state_name, args)
+	else:
+		requested_transition.emit(target_group_name, target_state_name, args)
+
+
+## 状态子节点入树时，编辑器排程警告刷新，运行态合并排程状态重载。
+## [br]
+## @api private
 func _on_child_entered_tree(child: Node) -> void:
 	if Engine.is_editor_hint():
 		if _is_node_state(child):
@@ -1533,6 +1818,9 @@ func _on_child_entered_tree(child: Node) -> void:
 		_queue_reload_from_children()
 
 
+## 状态子节点离树时，编辑器排程警告刷新，运行态合并排程状态重载。
+## [br]
+## @api private
 func _on_child_exiting_tree(child: Node) -> void:
 	if Engine.is_editor_hint():
 		if _is_node_state(child):
@@ -1545,10 +1833,28 @@ func _on_child_exiting_tree(child: Node) -> void:
 
 # --- 内部类 ---
 
+## 退出回调重定向的暂存值，携带目标、原参数引用与已经规范化的栈退出策略。
+## [br]
+## @api private
 class _QueuedExitTransition:
+	# --- 私有变量 ---
+
+	## 退出完成后应尝试进入的目标状态名。
+	## [br]
+	## @api private
 	var _state_name: StringName = &""
+
+	## 原重定向请求的参数字典引用，此记录不做快照复制。
+	## [br]
+	## @api private
 	var _args: Dictionary = {}
+
+	## 后续切换清理暂停状态栈时采用的守卫策略。
+	## [br]
+	## @api private
 	var _stack_exit_policy: int = StackExitPolicy.REQUIRE_GUARDS
+
+	# --- Godot 生命周期方法 ---
 
 	func _init(
 		p_state_name: StringName = &"",

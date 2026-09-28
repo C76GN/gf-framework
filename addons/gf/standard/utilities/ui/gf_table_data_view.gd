@@ -108,22 +108,89 @@ const MAX_ROW_PREDICATE_COUNT: int = 64
 
 # --- 私有变量 ---
 
+## 稳定行 ID 所用字段键；空值时以源行索引作为 ID。
+## [br]
+## @api private
 var _row_id_column: StringName = &"id"
+
+## 文本过滤是否区分大小写。
+## [br]
+## @api private
 var _case_sensitive_filter: bool = false
+
+## 当前视图使用的选择模型。
+## [br]
+## @api private
 var _selection_model: GFTableSelectionModel = GFTableSelectionModel.new()
+
+## 源行数据集合。
+## [br]
+## @api private
 var _rows: Array = []
+
+## 当前列定义及其显示顺序。
+## [br]
+## @api private
 var _columns: Array[GFTableColumnDefinition] = []
+
+## 以 column_id 索引的列定义查找表。
+## [br]
+## @api private
 var _columns_by_id: Dictionary = {}
+
+## 已提交投影中可见行对应的源行索引。
+## [br]
+## @api private
 var _visible_row_indices: Array[int] = []
+
+## 当前文本过滤查询。
+## [br]
+## @api private
 var _filter_query: String = ""
+
+## 当前排序列 ID；空值表示未按列排序。
+## [br]
+## @api private
 var _sort_column_id: StringName = &""
+
+## 当前列排序是否为升序。
+## [br]
+## @api private
 var _sort_ascending: bool = true
+
+## 当前已提交的行谓词注册列表。
+## [br]
+## @api private
 var _row_predicates: Array[GFTableRowPredicateRegistration] = []
+
+## 以 predicate_id 索引的行谓词注册查找表。
+## [br]
+## @api private
 var _row_predicates_by_id: Dictionary = {}
+
+## 已提交可见行投影的递增 revision。
+## [br]
+## @api private
 var _view_revision: int = 0
+
+## 最近一次发布的投影重建结果。
+## [br]
+## @api private
 var _last_view_rebuild_result: GFTableViewRebuildResult = null
+
+## 是否正在构建候选投影或提交单元格变更。
+## [br]
+## @api private
 var _view_rebuild_in_progress: bool = false
+
+## 当前受保护操作中是否出现过递归重建请求。
+## [br]
+## @api private
 var _reentrant_rebuild_attempted: bool = false
+
+## 是否正在发布已提交视图状态及相关信号。
+## [br]
+## @api private
 var _state_publication_in_progress: bool = false
 
 
@@ -1431,6 +1498,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 组装行描述；行索引无效时仅返回失败标记，选项可控制值与原始行数据字段。
+## [br]
+## @api private
 func _describe_row(row_index: int, visible_row_index: int, options: Dictionary) -> Dictionary:
 	if not _is_valid_row_index(row_index):
 		return {
@@ -1458,6 +1528,9 @@ func _describe_row(row_index: int, visible_row_index: int, options: Dictionary) 
 	return result
 
 
+## 读取当前可见列的值，并按 copy_values 选项决定是否复制输出值。
+## [br]
+## @api private
 func _describe_row_values(row_data: Variant, options: Dictionary) -> Dictionary:
 	var copy_values: bool = GFVariantData.get_option_bool(options, "copy_values", true)
 	var include_hidden_columns: bool = GFVariantData.get_option_bool(options, "include_hidden_columns", false)
@@ -1471,6 +1544,9 @@ func _describe_row_values(row_data: Variant, options: Dictionary) -> Dictionary:
 	return values
 
 
+## 按列顺序生成列摘要，默认跳过隐藏列。
+## [br]
+## @api private
 func _describe_columns(options: Dictionary) -> Array[Dictionary]:
 	var include_hidden_columns: bool = GFVariantData.get_option_bool(options, "include_hidden_columns", false)
 	var result: Array[Dictionary] = []
@@ -1483,12 +1559,18 @@ func _describe_columns(options: Dictionary) -> Array[Dictionary]:
 	return result
 
 
+## copy_values 为 false 时返回原值，否则使用 GFVariantData.duplicate_variant(value, true, false)。
+## [br]
+## @api private
 func _copy_snapshot_value(value: Variant, copy_values: bool) -> Variant:
 	if not copy_values:
 		return value
 	return GFVariantData.duplicate_variant(value, true, false)
 
 
+## 查找源行索引在当前可见投影中的位置；不可见时返回 -1。
+## [br]
+## @api private
 func _find_visible_row_index(row_index: int) -> int:
 	for visible_index: int in range(_visible_row_indices.size()):
 		if _visible_row_indices[visible_index] == row_index:
@@ -1496,6 +1578,9 @@ func _find_visible_row_index(row_index: int) -> int:
 	return -1
 
 
+## 构建从源行索引到当前可见行位置的查找字典。
+## [br]
+## @api private
 func _make_visible_row_index_map() -> Dictionary:
 	var result: Dictionary = {}
 	for visible_index: int in range(_visible_row_indices.size()):
@@ -1503,6 +1588,9 @@ func _make_visible_row_index_map() -> Dictionary:
 	return result
 
 
+## 校验一批单元格变更，并在候选行上暂存写入及完整投影；成功后发布候选状态，失败时保留当前行、投影、选择和 revision。
+## [br]
+## @api private
 func _commit_cell_value_changes(changes: Array[Dictionary], use_visible_rows: bool) -> Dictionary:
 	var reentrant_failure: GFTableViewRebuildResult = _reject_reentrant_rebuild_request()
 	if reentrant_failure != null:
@@ -1835,6 +1923,9 @@ func _commit_cell_value_changes(changes: Array[Dictionary], use_visible_rows: bo
 	return _make_commit_batch_result(changes.size(), staged_reports, [])
 
 
+## 从提交报告读取行、ID、列和值，并发出 cell_value_committed。
+## [br]
+## @api private
 func _emit_cell_value_committed(report: Dictionary) -> void:
 	cell_value_committed.emit(
 		GFVariantData.get_option_int(report, "row_index", -1),
@@ -1845,6 +1936,9 @@ func _emit_cell_value_committed(report: Dictionary) -> void:
 	)
 
 
+## 汇总请求数、已变化数、未变化数、失败数及逐项结果。
+## [br]
+## @api private
 func _make_commit_batch_result(
 	requested_count: int,
 	committed: Array[Dictionary],
@@ -1866,6 +1960,9 @@ func _make_commit_batch_result(
 	}
 
 
+## 构造一条成功的单元格提交记录。
+## [br]
+## @api private
 func _make_cell_commit_success(
 	row_index: int,
 	row_id: Variant,
@@ -1887,6 +1984,9 @@ func _make_cell_commit_success(
 	}
 
 
+## 构造一条提交错误记录，并按需附带 visible_row_index。
+## [br]
+## @api private
 func _make_commit_error(
 	change_index: int,
 	reason: StringName,
@@ -1906,6 +2006,9 @@ func _make_commit_error(
 	return error
 
 
+## 按行 ID 转换映射所选 ID，并去除映射后的重复项。
+## [br]
+## @api private
 func _map_selected_row_ids(selected_ids: Array, reports: Array[Dictionary]) -> Array:
 	var mapped_ids: Array = []
 	for selected_id: Variant in selected_ids:
@@ -1915,6 +2018,9 @@ func _map_selected_row_ids(selected_ids: Array, reports: Array[Dictionary]) -> A
 	return mapped_ids
 
 
+## 返回转换报告中首个匹配 row_id 的 next_row_id；无匹配时保留原 ID。
+## [br]
+## @api private
 func _map_row_id(row_id: Variant, reports: Array[Dictionary]) -> Variant:
 	for report: Dictionary in reports:
 		var previous_row_id: Variant = GFVariantData.get_option_value(report, "row_id")
@@ -1923,6 +2029,9 @@ func _map_row_id(row_id: Variant, reports: Array[Dictionary]) -> Variant:
 	return row_id
 
 
+## 使用 GFVariantData.values_equal() 检查数组中是否已有相等值。
+## [br]
+## @api private
 func _variant_array_has(values: Array, expected: Variant) -> bool:
 	for value: Variant in values:
 		if GFVariantData.values_equal(value, expected):
@@ -1930,6 +2039,9 @@ func _variant_array_has(values: Array, expected: Variant) -> bool:
 	return false
 
 
+## 检查 options 是否含指定 key，并兼容 String 与 StringName 两种键类型。
+## [br]
+## @api private
 func _has_option_key(options: Dictionary, key: Variant) -> bool:
 	if options.has(key):
 		return true
@@ -1942,6 +2054,9 @@ func _has_option_key(options: Dictionary, key: Variant) -> bool:
 	return false
 
 
+## 在投影构建或状态发布期间拒绝递归修改，并返回 reentrant_rebuild 结果。
+## [br]
+## @api private
 func _reject_reentrant_rebuild_request() -> GFTableViewRebuildResult:
 	if not _view_rebuild_in_progress and not _state_publication_in_progress:
 		return null
@@ -1953,6 +2068,9 @@ func _reject_reentrant_rebuild_request() -> GFTableViewRebuildResult:
 	)
 
 
+## 设置重建保护并生成候选投影；可选地附加旧、新行 ID 的逐源行转换记录。
+## [br]
+## @api private
 func _try_build_projection(
 	rows: Array,
 	columns: Array[GFTableColumnDefinition],
@@ -2007,6 +2125,9 @@ func _try_build_projection(
 	return build_report
 
 
+## 在调用方已设置重建保护时扫描候选行，执行过滤、谓词和排序并返回索引与计数。
+## [br]
+## @api private
 func _build_projection_under_guard(
 	rows: Array,
 	columns: Array[GFTableColumnDefinition],
@@ -2187,6 +2308,9 @@ func _build_projection_under_guard(
 	}
 
 
+## 使用给定行、列和大小写设置检查文本查询是否命中可见且可过滤的列。
+## [br]
+## @api private
 func _row_matches_filter_for_state(
 	row_index: int,
 	rows: Array,
@@ -2215,6 +2339,9 @@ func _row_matches_filter_for_state(
 	return false
 
 
+## 读取行 ID 与列值并配置谓词用行视图；ID 不稳定、回调重入或快照无效时返回失败报告。
+## [br]
+## @api private
 func _make_predicate_row_view(
 	row_index: int,
 	rows: Array,
@@ -2274,6 +2401,9 @@ func _make_predicate_row_view(
 	}
 
 
+## 构造含错误码、消息及行 ID 的谓词行视图失败报告。
+## [br]
+## @api private
 func _make_row_view_failure(
 	error_code: StringName,
 	error_message: String,
@@ -2288,6 +2418,9 @@ func _make_row_view_failure(
 	}
 
 
+## 在前后行数相同的前提下，按源行位置构建旧 ID 到新 ID 的转换记录。
+## [br]
+## @api private
 func _make_row_id_transitions_under_guard(
 	previous_rows: Array,
 	next_rows: Array,
@@ -2344,6 +2477,9 @@ func _make_row_id_transitions_under_guard(
 	return { "ok": true, "transitions": transitions }
 
 
+## 从指定行数组读取稳定 ID；键为空或属性值为 null 时使用源行索引。
+## [br]
+## @api private
 func _get_row_id_for_state(
 	row_index: int,
 	rows: Array,
@@ -2357,6 +2493,9 @@ func _get_row_id_for_state(
 	return row_index if row_id == null else row_id
 
 
+## 按列比较两个源行索引；值相等时以源索引升序打破平局。
+## [br]
+## @api private
 func _compare_projection_row_indices(
 	left_index: int,
 	right_index: int,
@@ -2390,6 +2529,9 @@ func _compare_projection_row_indices(
 	return compare_result < 0 if sort_ascending else compare_result > 0
 
 
+## 限制谓词注册数量，逐项验证注册及非空且唯一的 predicate_id。
+## [br]
+## @api private
 func _validate_row_predicate_registrations(
 	registrations: Array[GFTableRowPredicateRegistration]
 ) -> GFTableViewRebuildResult:
@@ -2429,6 +2571,9 @@ func _validate_row_predicate_registrations(
 	return null
 
 
+## 先按 registration order 升序排列，同序时按 predicate_id 文本升序排列。
+## [br]
+## @api private
 func _compare_row_predicate_registrations(
 	left: GFTableRowPredicateRegistration,
 	right: GFTableRowPredicateRegistration
@@ -2438,6 +2583,9 @@ func _compare_row_predicate_registrations(
 	return String(left.get_predicate_id()) < String(right.get_predicate_id())
 
 
+## 比较两组注册的长度、predicate_id、predicate、order 和 enabled 状态。
+## [br]
+## @api private
 func _row_predicate_registrations_equal(
 	left: Array[GFTableRowPredicateRegistration],
 	right: Array[GFTableRowPredicateRegistration]
@@ -2458,6 +2606,9 @@ func _row_predicate_registrations_equal(
 	return true
 
 
+## 保持 null 项，并为其他注册逐项创建框架快照。
+## [br]
+## @api private
 func _snapshot_row_predicate_registrations(
 	registrations: Array[GFTableRowPredicateRegistration]
 ) -> Array[GFTableRowPredicateRegistration]:
@@ -2470,6 +2621,9 @@ func _snapshot_row_predicate_registrations(
 	return snapshots
 
 
+## 通过 GFTableRowPredicateRegistration 的框架入口创建单项快照。
+## [br]
+## @api private
 func _snapshot_row_predicate_registration(
 	registration: GFTableRowPredicateRegistration
 ) -> GFTableRowPredicateRegistration:
@@ -2478,6 +2632,9 @@ func _snapshot_row_predicate_registration(
 	)
 
 
+## 按 predicate_id 将注册列表整理为字典查找表。
+## [br]
+## @api private
 func _make_row_predicate_lookup(
 	registrations: Array[GFTableRowPredicateRegistration]
 ) -> Dictionary:
@@ -2487,6 +2644,9 @@ func _make_row_predicate_lookup(
 	return lookup
 
 
+## 用相同 predicate_id 的注册替换当前项，然后交由 set_row_predicates() 提交。
+## [br]
+## @api private
 func _replace_row_predicate_registration(
 	replacement: GFTableRowPredicateRegistration
 ) -> GFTableViewRebuildResult:
@@ -2499,6 +2659,9 @@ func _replace_row_predicate_registration(
 	return set_row_predicates(next_predicates)
 
 
+## 从构建报告取 GFTableViewRebuildResult；报告不含有效失败对象时生成 invalid_rebuild_report。
+## [br]
+## @api private
 func _get_build_failure(build_report: Dictionary) -> GFTableViewRebuildResult:
 	var failure_value: Variant = GFVariantData.get_option_value(build_report, "failure")
 	if failure_value is GFTableViewRebuildResult:
@@ -2510,6 +2673,9 @@ func _get_build_failure(build_report: Dictionary) -> GFTableViewRebuildResult:
 	)
 
 
+## 从构建报告的 indices 数组中筛出 int 项。
+## [br]
+## @api private
 func _get_build_indices(build_report: Dictionary) -> Array[int]:
 	var indices: Array[int] = []
 	for index_value: Variant in GFVariantData.get_option_array(build_report, "indices"):
@@ -2519,6 +2685,9 @@ func _get_build_indices(build_report: Dictionary) -> Array[int]:
 	return indices
 
 
+## 提交可见行索引并递增 revision，再构造和缓存成功结果。
+## [br]
+## @api private
 func _commit_projection_state(build_report: Dictionary) -> GFTableViewRebuildResult:
 	_visible_row_indices = _get_build_indices(build_report)
 	_view_revision += 1
@@ -2539,6 +2708,9 @@ func _commit_projection_state(build_report: Dictionary) -> GFTableViewRebuildRes
 	return result
 
 
+## 构造并缓存成功结果；投影构建或发布期间调用时拒绝递归请求。
+## [br]
+## @api private
 func _publish_rebuild_success(
 	committed: bool,
 	scanned_row_count: int,
@@ -2559,6 +2731,9 @@ func _publish_rebuild_success(
 	return result
 
 
+## 在非重入状态下缓存并发出失败结果；投影构建或发布期间不递归发布。
+## [br]
+## @api private
 func _publish_rebuild_failure(
 	result: GFTableViewRebuildResult
 ) -> GFTableViewRebuildResult:
@@ -2574,6 +2749,9 @@ func _publish_rebuild_failure(
 	return result
 
 
+## 使用当前 revision 与可见行数配置 GFTableViewRebuildResult 成功对象。
+## [br]
+## @api private
 func _make_rebuild_success(
 	committed: bool,
 	scanned_row_count: int,
@@ -2590,6 +2768,9 @@ func _make_rebuild_success(
 	return result
 
 
+## 将失败原因、定位信息及当前投影摘要写入 GFTableViewRebuildResult。
+## [br]
+## @api private
 func _make_rebuild_failure(
 	error_code: StringName,
 	error_message: String,
@@ -2614,6 +2795,9 @@ func _make_rebuild_failure(
 	return result
 
 
+## 从 Dictionary 键或 Object 同名属性读取值；类型或属性不支持时返回 null。
+## [br]
+## @api private
 func _read_row_property(row_data: Variant, property_key: StringName) -> Variant:
 	if row_data is Dictionary:
 		var dictionary: Dictionary = row_data
@@ -2629,5 +2813,8 @@ func _read_row_property(row_data: Variant, property_key: StringName) -> Variant:
 	return null
 
 
+## 检查源行索引是否位于 _rows 的有效范围内。
+## [br]
+## @api private
 func _is_valid_row_index(row_index: int) -> bool:
 	return row_index >= 0 and row_index < _rows.size()

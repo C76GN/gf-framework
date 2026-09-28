@@ -599,6 +599,10 @@ static func find_minimum_spanning_tree(
 
 # --- 私有/辅助方法 ---
 
+## 以 g+h 优先级搜索并忽略负步长边；已关闭节点不再开放，因此任意启发函数下不保证最短路径。
+## 邻居回调无效或搜索耗尽返回空数组；起终点相等时返回只含起点的路径。
+## [br]
+## @api private
 static func _find_path(
 	start: Variant,
 	goal: Variant,
@@ -649,6 +653,9 @@ static func _find_path(
 	return []
 
 
+## 沿 came_from 从目标回溯并反向构造包含起点和目标的路径。
+## [br]
+## @api private
 static func _reconstruct_path(start: Variant, goal: Variant, came_from: Dictionary) -> Array:
 	var path: Array = [goal]
 	var current: Variant = goal
@@ -663,6 +670,9 @@ static func _reconstruct_path(start: Variant, goal: Variant, came_from: Dictiona
 	return path
 
 
+## 将节点与优先级打包后推入路径搜索队列。
+## [br]
+## @api private
 static func _push_node_priority(priority_queue: GFPriorityQueue, node: Variant, priority: float) -> void:
 	var _node_queued: bool = priority_queue.push({
 		"node": node,
@@ -670,10 +680,16 @@ static func _push_node_priority(priority_queue: GFPriorityQueue, node: Variant, 
 	}, priority)
 
 
+## 从路径搜索队列取出元素，并转换为 Dictionary。
+## [br]
+## @api private
 static func _pop_node_priority(priority_queue: GFPriorityQueue) -> Dictionary:
 	return GFVariantData.as_dictionary(priority_queue.pop({}))
 
 
+## 调用邻居回调并将非 Array 结果规范为空数组。
+## [br]
+## @api private
 static func _get_neighbors(node: Variant, get_neighbors: Callable) -> Array:
 	var raw_neighbors: Variant = get_neighbors.call(node)
 	if typeof(raw_neighbors) != TYPE_ARRAY:
@@ -682,6 +698,9 @@ static func _get_neighbors(node: Variant, get_neighbors: Callable) -> Array:
 	return GFVariantData.as_array(raw_neighbors)
 
 
+## 调用有效步长回调并转为 float；回调无效时每步使用 1.0。
+## [br]
+## @api private
 static func _get_step_cost(from_node: Variant, to_node: Variant, get_step_cost: Callable) -> float:
 	if get_step_cost.is_valid():
 		return GFVariantData.to_float(get_step_cost.call(from_node, to_node), -1.0)
@@ -689,6 +708,9 @@ static func _get_step_cost(from_node: Variant, to_node: Variant, get_step_cost: 
 	return 1.0
 
 
+## 调用有效启发回调并将结果限制为非负值；回调无效时返回零。
+## [br]
+## @api private
 static func _get_heuristic(node: Variant, goal: Variant, heuristic: Callable) -> float:
 	if heuristic.is_valid():
 		return maxf(0.0, GFVariantData.to_float(heuristic.call(node, goal), 0.0))
@@ -696,10 +718,16 @@ static func _get_heuristic(node: Variant, goal: Variant, heuristic: Callable) ->
 	return 0.0
 
 
+## 从队列项读取 priority 浮点值，缺失或无效时使用 fallback。
+## [br]
+## @api private
 static func _get_entry_priority(entry: Dictionary, fallback: float = INF) -> float:
 	return GFVariantData.get_option_float(entry, "priority", fallback)
 
 
+## 调用依赖回调，仅接受 Array 结果并将其他类型规范为空数组。
+## [br]
+## @api private
 static func _get_topological_dependencies(node: Variant, get_dependencies: Callable) -> Array:
 	var raw_dependencies: Variant = get_dependencies.call(node)
 	if raw_dependencies is Array:
@@ -708,6 +736,9 @@ static func _get_topological_dependencies(node: Variant, get_dependencies: Calla
 	return []
 
 
+## 从拓扑中间字典读取 Array 项；字段缺失或类型不符时返回空数组。
+## [br]
+## @api private
 static func _get_topological_array(source: Dictionary, key: Variant) -> Array:
 	var value: Variant = source.get(key, [])
 	if value is Array:
@@ -716,6 +747,9 @@ static func _get_topological_array(source: Dictionary, key: Variant) -> Array:
 	return []
 
 
+## 从拓扑中间字典读取 int 项；字段缺失或类型不符时返回零。
+## [br]
+## @api private
 static func _get_topological_int(source: Dictionary, key: Variant) -> int:
 	var value: Variant = source.get(key, 0)
 	if value is int:
@@ -724,6 +758,9 @@ static func _get_topological_int(source: Dictionary, key: Variant) -> int:
 	return 0
 
 
+## 以节点文本组合键去重外部邻接记录，并深复制记录中的两个值。
+## [br]
+## @api private
 static func _record_external_neighbor(
 	node: Variant,
 	neighbor: Variant,
@@ -741,16 +778,25 @@ static func _record_external_neighbor(
 	})
 
 
+## 调用有效边权回调并转为 float；无回调时默认边权为 1.0。
+## [br]
+## @api private
 static func _get_spanning_edge_weight(from_node: Variant, to_node: Variant, get_edge_weight: Callable) -> float:
 	if get_edge_weight.is_valid():
 		return GFVariantData.to_float(get_edge_weight.call(from_node, to_node), NAN)
 	return 1.0
 
 
+## 排除 NaN 和无穷大的图边权值。
+## [br]
+## @api private
 static func _is_finite_graph_weight(weight: float) -> bool:
 	return not (is_nan(weight) or is_inf(weight))
 
 
+## 创建包含方向端点、权重及输入序号的内部生成树边记录。
+## [br]
+## @api private
 static func _make_spanning_edge(from_node: Variant, to_node: Variant, weight: float, sequence: int) -> Dictionary:
 	return {
 		"from": from_node,
@@ -760,6 +806,9 @@ static func _make_spanning_edge(from_node: Variant, to_node: Variant, weight: fl
 	}
 
 
+## 从内部边记录提取面向报告的 from、to 和 weight 字段。
+## [br]
+## @api private
 static func _make_spanning_edge_report(edge: Dictionary) -> Dictionary:
 	return {
 		"from": GFVariantData.get_option_value(edge, "from"),
@@ -768,6 +817,9 @@ static func _make_spanning_edge_report(edge: Dictionary) -> Dictionary:
 	}
 
 
+## 将边追加到节点的邻接列表并回写拓扑字典。
+## [br]
+## @api private
 static func _append_spanning_adjacency_edge(
 	adjacency_by_node: Dictionary,
 	node: Variant,
@@ -778,6 +830,9 @@ static func _append_spanning_adjacency_edge(
 	adjacency_by_node[node] = edges
 
 
+## 将当前节点尚未访问的字典边加入生成树优先队列。
+## [br]
+## @api private
 static func _push_spanning_frontier(
 	frontier: GFPriorityQueue,
 	adjacency_by_node: Dictionary,
@@ -800,6 +855,9 @@ static func _push_spanning_frontier(
 		)
 
 
+## 将边及其权重、输入序号传给优先队列的 push_with_order()。
+## [br]
+## @api private
 static func _push_spanning_edge(
 	priority_queue: GFPriorityQueue,
 	edge: Dictionary,
@@ -809,10 +867,16 @@ static func _push_spanning_edge(
 	var _edge_queued: bool = priority_queue.push_with_order(edge, priority, sequence)
 
 
+## 从生成树队列取出元素，并转换为 Dictionary。
+## [br]
+## @api private
 static func _pop_spanning_edge(priority_queue: GFPriorityQueue) -> Dictionary:
 	return GFVariantData.as_dictionary(priority_queue.pop({}))
 
 
+## 将端点的深复制、非法权重值追加到无效边报告数组。
+## [br]
+## @api private
 static func _record_invalid_spanning_edge(
 	from_node: Variant,
 	to_node: Variant,
@@ -826,6 +890,9 @@ static func _record_invalid_spanning_edge(
 	})
 
 
+## 组装生成树或生成森林报告，并从连通分量派生相关计数字段。
+## [br]
+## @api private
 static func _make_minimum_spanning_tree_report(
 	ok: bool,
 	reason: StringName,
@@ -858,6 +925,9 @@ static func _make_minimum_spanning_tree_report(
 	}
 
 
+## 使用数组队列从起点广度优先收集分量节点并写入访问及分量索引。
+## [br]
+## @api private
 static func _collect_connected_component(
 	start_node: Variant,
 	component_index: int,
@@ -883,6 +953,9 @@ static func _collect_connected_component(
 	return component
 
 
+## 仅在数组尚未含该值时追加，并返回是否实际追加。
+## [br]
+## @api private
 static func _append_unique_variant(values: Array, value: Variant) -> bool:
 	if values.has(value):
 		return false
@@ -890,6 +963,9 @@ static func _append_unique_variant(values: Array, value: Variant) -> bool:
 	return true
 
 
+## 对未访问节点执行一次 DFS，收集递归栈回边产生的环见证；不枚举图中所有简单环。
+## [br]
+## @api private
 static func _find_topological_cycles(nodes: Array, dependencies_by_node: Dictionary) -> Array:
 	var cycles: Array = []
 	var states: Dictionary = {}
@@ -902,6 +978,10 @@ static func _find_topological_cycles(nodes: Array, dependencies_by_node: Diction
 	return cycles
 
 
+## 用 visiting/finished 状态维护当前 DFS 路径；回边截取的见证重复末尾起点，并按该路径文本去重。
+## 不把同一环的旋转表示归一化，也不重新遍历已完成节点。
+## [br]
+## @api private
 static func _collect_topological_cycles(
 	node: Variant,
 	dependencies_by_node: Dictionary,
@@ -929,6 +1009,9 @@ static func _collect_topological_cycles(
 	states[node] = 2
 
 
+## 将环中各节点的 var_to_str 表示以箭头连接成去重键。
+## [br]
+## @api private
 static func _make_topological_cycle_key(cycle: Array) -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	for node: Variant in cycle:

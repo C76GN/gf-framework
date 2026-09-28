@@ -270,6 +270,10 @@ static func predict_next_cell_3d(
 
 # --- 私有/辅助方法 ---
 
+## 返回仅包含有限二维坐标的新数组，忽略含非有限分量的输入点。
+## [br]
+## @api private
+## [br]
 static func _filter_finite_positions_2d(positions: Array[Vector2]) -> Array[Vector2]:
 	var result: Array[Vector2] = []
 	for position: Vector2 in positions:
@@ -278,6 +282,10 @@ static func _filter_finite_positions_2d(positions: Array[Vector2]) -> Array[Vect
 	return result
 
 
+## 返回仅包含有限三维坐标的新数组，忽略含非有限分量的输入点。
+## [br]
+## @api private
+## [br]
 static func _filter_finite_positions_3d(positions: Array[Vector3]) -> Array[Vector3]:
 	var result: Array[Vector3] = []
 	for position: Vector3 in positions:
@@ -286,6 +294,10 @@ static func _filter_finite_positions_3d(positions: Array[Vector3]) -> Array[Vect
 	return result
 
 
+## 将超过正长度上限的二维步长按方向缩短，并报告是否发生夹取。
+## [br]
+## @api private
+## [br]
 static func _clamp_step_2d(step: Vector2, max_step_length: float) -> Dictionary:
 	if max_step_length <= 0.0:
 		return { "step": step, "clamped": false }
@@ -298,6 +310,10 @@ static func _clamp_step_2d(step: Vector2, max_step_length: float) -> Dictionary:
 	}
 
 
+## 将超过正长度上限的三维步长按方向缩短，并报告是否发生夹取。
+## [br]
+## @api private
+## [br]
 static func _clamp_step_3d(step: Vector3, max_step_length: float) -> Dictionary:
 	if max_step_length <= 0.0:
 		return { "step": step, "clamped": false }
@@ -310,6 +326,10 @@ static func _clamp_step_3d(step: Vector3, max_step_length: float) -> Dictionary:
 	}
 
 
+## 从报告读取 Vector2 步长；字段缺失或类型不符时返回零向量。
+## [br]
+## @api private
+## [br]
 static func _get_step_2d(report: Dictionary) -> Vector2:
 	var value: Variant = GFVariantData.get_option_value(report, "step", Vector2.ZERO)
 	if value is Vector2:
@@ -318,6 +338,10 @@ static func _get_step_2d(report: Dictionary) -> Vector2:
 	return Vector2.ZERO
 
 
+## 从报告读取 Vector3 步长；字段缺失或类型不符时返回零向量。
+## [br]
+## @api private
+## [br]
 static func _get_step_3d(report: Dictionary) -> Vector3:
 	var value: Variant = GFVariantData.get_option_value(report, "step", Vector3.ZERO)
 	if value is Vector3:
@@ -326,6 +350,10 @@ static func _get_step_3d(report: Dictionary) -> Vector3:
 	return Vector3.ZERO
 
 
+## 读取有限正的最大步长；缺失、非有限或非正选项均返回零。
+## [br]
+## @api private
+## [br]
 static func _get_max_step_length(options: Dictionary) -> float:
 	var value: float = GFVariantData.get_option_float(options, "max_step_length", 0.0)
 	if not _is_finite_float(value) or value <= 0.0:
@@ -333,6 +361,10 @@ static func _get_max_step_length(options: Dictionary) -> float:
 	return value
 
 
+## 组装二维位置预测报告，并从源数量与有效数量计算忽略项数量。
+## [br]
+## @api private
+## [br]
 static func _make_position_2d_report(
 	ok: bool,
 	mode: StringName,
@@ -358,6 +390,10 @@ static func _make_position_2d_report(
 	}
 
 
+## 组装三维位置预测报告，并从源数量与有效数量计算忽略项数量。
+## [br]
+## @api private
+## [br]
 static func _make_position_3d_report(
 	ok: bool,
 	mode: StringName,
@@ -383,6 +419,10 @@ static func _make_position_3d_report(
 	}
 
 
+## 组装整数二维格子预测报告；所有输入格子按有效项计数。
+## [br]
+## @api private
+## [br]
 static func _make_cell_2d_report(
 	mode: StringName,
 	cell: Vector2i,
@@ -401,6 +441,10 @@ static func _make_cell_2d_report(
 	}
 
 
+## 组装整数三维格子预测报告；所有输入格子按有效项计数。
+## [br]
+## @api private
+## [br]
 static func _make_cell_3d_report(
 	mode: StringName,
 	cell: Vector3i,
@@ -419,13 +463,25 @@ static func _make_cell_3d_report(
 	}
 
 
+## 判断二维向量的两个分量是否均为有限浮点值。
+## [br]
+## @api private
+## [br]
 static func _is_finite_vector2(value: Vector2) -> bool:
 	return _is_finite_float(value.x) and _is_finite_float(value.y)
 
 
+## 判断三维向量的三个分量是否均为有限浮点值。
+## [br]
+## @api private
+## [br]
 static func _is_finite_vector3(value: Vector3) -> bool:
 	return _is_finite_float(value.x) and _is_finite_float(value.y) and _is_finite_float(value.z)
 
 
+## 判断浮点值既不是 NaN 也不是正负无穷。
+## [br]
+## @api private
+## [br]
 static func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)

@@ -14,18 +14,47 @@ extends GFUtility
 
 # --- 常量 ---
 
+## 单个到期重复计时器在一次补跑中的最大回调次数。
+## [br]
+## @api private
 const _MAX_CATCH_UP_EXECUTIONS: int = 1024
 
 
 # --- 私有变量 ---
 
-# 待执行的延时任务列表。每项包含 `id`、`remaining`、`interval`、`repeat_count` 与 `callback` 字段。
+## 保存尚未到期的任务记录；tick 会更新其剩余时间，到期后移入 ready 队列。
+## [br]
+## @api private
 var _pending_timers: Array[Dictionary] = []
+
+## 保存本次 tick 已到期、尚待按顺序执行的任务，供回调取消同帧后续任务。
+## [br]
+## @api private
 var _ready_timers: Dictionary = {}
+
+## 下一个要分配的正数句柄；init() 和 dispose() 会重置为 1。
+## [br]
+## @api private
 var _next_timer_id: int = 1
+
+## 标记当前正在调用回调的句柄，以支持执行期间取消。
+## [br]
+## @api private
 var _executing_handles: Dictionary = {}
+
+## 按执行中句柄保存对应任务记录，供 owner 查询和取消使用。
+## [br]
+## @api private
 var _executing_timers: Dictionary = {}
+
+## 暂存执行中任务的取消标记，回调返回后据此阻止重复排队。
+## [br]
+## @api private
 var _cancelled_handles: Dictionary = {}
+
+## 在 init() 或 dispose() 时递增，使当前 tick 放弃旧队列代次的剩余工作。
+## [br]
+## @api private
 var _lifecycle_generation: int = 0
 
 
@@ -360,10 +389,16 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 判断时间值是否既非 NaN 也非正负无穷。
+## [br]
+## @api private
 func _is_finite_time_value(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 分配句柄并创建含剩余时间、重复配置、回调与 owner 弱引用的待执行记录。
+## [br]
+## @api private
 func _queue_timer(
 	delay: float,
 	callback: Callable,
@@ -385,6 +420,10 @@ func _queue_timer(
 	return handle
 
 
+## 执行一个到期记录，并处理回调中的取消、owner 释放和生命周期重置。
+## 重复任务按超时量补跑，达到单次上限后重新排入 pending；回调返回值不参与判定。
+## [br]
+## @api private
 func _execute_ready_timer(timer_data: Dictionary, lifecycle_generation: int) -> void:
 	var handle: int = _get_timer_id(timer_data)
 	var overshoot: float = maxf(GFVariantData.get_option_float(timer_data, "overshoot", 0.0), 0.0)
@@ -434,6 +473,9 @@ func _execute_ready_timer(timer_data: Dictionary, lifecycle_generation: int) -> 
 		overshoot -= interval
 
 
+## 判断 owner 弱引用是否已失效；没有 owner 引用的普通任务返回 false。
+## [br]
+## @api private
 func _timer_owner_is_released(timer_data: Dictionary) -> bool:
 	if not _timer_has_owner_ref(timer_data):
 		return false
@@ -441,10 +483,16 @@ func _timer_owner_is_released(timer_data: Dictionary) -> bool:
 	return owner_ref == null or owner_ref.get_ref() == null
 
 
+## 从任务记录读取句柄编号，缺失或类型不符时返回 0。
+## [br]
+## @api private
 func _get_timer_id(timer_data: Dictionary) -> int:
 	return GFVariantData.get_option_int(timer_data, "id", 0)
 
 
+## 读取正在执行的任务记录；缺失或类型不符时返回空字典。
+## [br]
+## @api private
 func _get_executing_timer(handle: int) -> Dictionary:
 	var timer_value: Variant = GFVariantData.get_option_value(_executing_timers, handle, {})
 	if timer_value is Dictionary:
@@ -453,6 +501,9 @@ func _get_executing_timer(handle: int) -> Dictionary:
 	return {}
 
 
+## 读取已到期任务记录；缺失或类型不符时返回空字典。
+## [br]
+## @api private
 func _get_ready_timer(handle: int) -> Dictionary:
 	var timer_value: Variant = GFVariantData.get_option_value(_ready_timers, handle, {})
 	if timer_value is Dictionary:
@@ -461,34 +512,58 @@ func _get_ready_timer(handle: int) -> Dictionary:
 	return {}
 
 
+## 从任务记录读取剩余秒数，缺失时返回 0.0。
+## [br]
+## @api private
 func _get_timer_remaining(timer_data: Dictionary) -> float:
 	return GFVariantData.get_option_float(timer_data, "remaining", 0.0)
 
 
+## 从任务记录读取重复间隔秒数，缺失时返回 0.0。
+## [br]
+## @api private
 func _get_timer_interval(timer_data: Dictionary) -> float:
 	return GFVariantData.get_option_float(timer_data, "interval", 0.0)
 
 
+## 从任务记录读取剩余触发次数，缺失时返回 0。
+## [br]
+## @api private
 func _get_timer_repeat_count(timer_data: Dictionary) -> int:
 	return GFVariantData.get_option_int(timer_data, "repeat_count", 0)
 
 
+## 从任务记录读取 owner 实例编号，缺失时返回 0。
+## [br]
+## @api private
 func _get_timer_owner_id(timer_data: Dictionary) -> int:
 	return GFVariantData.get_option_int(timer_data, "owner_id", 0)
 
 
+## 从任务记录读取并验证回调；字段无效时返回无效 Callable。
+## [br]
+## @api private
 func _get_timer_callback(timer_data: Dictionary) -> Callable:
 	return _variant_to_callable(GFVariantData.get_option_value(timer_data, "callback", Callable()))
 
 
+## 从任务记录读取 owner 弱引用；字段类型不符时返回 null。
+## [br]
+## @api private
 func _get_timer_owner_ref(timer_data: Dictionary) -> WeakRef:
 	return _variant_to_weak_ref(GFVariantData.get_option_value(timer_data, "owner_ref"))
 
 
+## 检查任务记录是否包含非 null 的 owner_ref 字段。
+## [br]
+## @api private
 func _timer_has_owner_ref(timer_data: Dictionary) -> bool:
 	return GFVariantData.get_option_value(timer_data, "owner_ref") != null
 
 
+## 通过实例编号和弱引用解析出的对象身份共同匹配 owner。
+## [br]
+## @api private
 func _timer_is_owned_by(timer_data: Dictionary, owner: Object) -> bool:
 	if timer_data.is_empty() or owner == null or not is_instance_valid(owner):
 		return false
@@ -498,6 +573,9 @@ func _timer_is_owned_by(timer_data: Dictionary, owner: Object) -> bool:
 	return owner_ref != null and owner_ref.get_ref() == owner
 
 
+## 将 Callable Variant 收窄为 Callable；其他类型返回无效 Callable。
+## [br]
+## @api private
 func _variant_to_callable(value: Variant) -> Callable:
 	if value is Callable:
 		var callback: Callable = value
@@ -505,6 +583,9 @@ func _variant_to_callable(value: Variant) -> Callable:
 	return Callable()
 
 
+## 将 WeakRef Variant 收窄为 WeakRef；其他类型返回 null。
+## [br]
+## @api private
 func _variant_to_weak_ref(value: Variant) -> WeakRef:
 	if value is WeakRef:
 		var owner_ref: WeakRef = value

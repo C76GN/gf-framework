@@ -14,8 +14,19 @@ extends GFClock
 
 # --- 私有变量 ---
 
+## 保存只能通过 advance 方法向前推进的单调微秒值。
+## [br]
+## @api private
 var _monotonic_usec: int = 0
+
+## 保存可由推进或显式设置操作调整的 Unix epoch 毫秒值。
+## [br]
+## @api private
 var _unix_time_msec: int = 0
+
+## 累积微秒推进中尚未折算成整毫秒的余数。
+## [br]
+## @api private
 var _wall_remainder_usec: int = 0
 
 

@@ -96,15 +96,38 @@ const DEFAULT_MAX_TARGET_DIMENSION: int = 1024
 ## @layer kernel/editor
 const DEFAULT_MAX_TARGET_PIXELS: int = 1_048_576
 
+## 注册记录字段读取和结果字典转换所用的辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## provider 读取预览纹理时使用的方法名。
+## [br]
+## @api private
 const _SOURCE_METHOD_NAME: StringName = &"get_preview_texture"
+
+## provider 可选资源适用性判断方法名。
+## [br]
+## @api private
 const _SUPPORTS_METHOD_NAME: StringName = &"supports_resource"
+
+## provider 可选来源 ID 查询方法名。
+## [br]
+## @api private
 const _SOURCE_ID_METHOD_NAME: StringName = &"get_preview_source_id"
 
 
 # --- 私有变量 ---
 
+## 按 priority 降序、注册顺序升序排列的来源记录。
+## 每项保存 provider、来源 ID、优先级及稳定排序序号。
+## [br]
+## @api private
 var _sources: Array[Dictionary] = []
+
+## 分配给下一项新来源记录的注册顺序编号。
+## [br]
+## @api private
 var _next_order: int = 0
 
 
@@ -421,6 +444,9 @@ func make_preview_texture(texture: Texture2D, size: Vector2i, options: Dictionar
 
 # --- 私有/辅助方法 ---
 
+## 优先使用 options 中修剪后的 source_id，其次调用 provider 方法，最后按注册序号生成 ID。
+## [br]
+## @api private
 func _resolve_source_id(preview_source: RefCounted, options: Dictionary) -> String:
 	var source_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "source_id").strip_edges()
 	if not source_id.is_empty():
@@ -430,6 +456,9 @@ func _resolve_source_id(preview_source: RefCounted, options: Dictionary) -> Stri
 	return "source_%d" % _next_order
 
 
+## 从来源记录读取 source；值不是 RefCounted 时返回 null。
+## [br]
+## @api private
 func _get_record_source(record: Dictionary) -> RefCounted:
 	var value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(record, "source")
 	if value is RefCounted:
@@ -438,6 +467,10 @@ func _get_record_source(record: Dictionary) -> RefCounted:
 	return null
 
 
+## provider 未实现 supports_resource 时视为支持；否则仅接受返回 bool 的结果。
+## 非 bool 返回值按不支持处理。
+## [br]
+## @api private
 func _source_supports_resource(preview_source: RefCounted, resource: Resource) -> bool:
 	if not preview_source.has_method(_SUPPORTS_METHOD_NAME):
 		return true
@@ -448,6 +481,9 @@ func _source_supports_resource(preview_source: RefCounted, resource: Resource) -
 	return false
 
 
+## 调用 provider 的 get_preview_texture(resource)，只接受 Texture2D 返回值。
+## [br]
+## @api private
 func _get_source_texture(preview_source: RefCounted, resource: Resource) -> Texture2D:
 	var value: Variant = preview_source.call(_SOURCE_METHOD_NAME, resource)
 	if value is Texture2D:
@@ -456,6 +492,9 @@ func _get_source_texture(preview_source: RefCounted, resource: Resource) -> Text
 	return null
 
 
+## 从结果字典读取 texture 字段；值不是 Texture2D 时返回 null。
+## [br]
+## @api private
 func _get_result_texture(result: Dictionary) -> Texture2D:
 	var value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(result, "texture")
 	if value is Texture2D:
@@ -464,6 +503,9 @@ func _get_result_texture(result: Dictionary) -> Texture2D:
 	return null
 
 
+## 组装 provider 查找结果所用的 ok、status、source_id 和 texture 字段。
+## [br]
+## @api private
 func _make_source_result(ok: bool, status: StringName, source_id: String, texture: Texture2D) -> Dictionary:
 	return {
 		"ok": ok,
@@ -473,6 +515,9 @@ func _make_source_result(ok: bool, status: StringName, source_id: String, textur
 	}
 
 
+## 组装完整预览结果中的状态、来源、纹理、源/目标尺寸和错误文本。
+## [br]
+## @api private
 func _make_preview_result(
 	ok: bool,
 	status: StringName,
@@ -493,10 +538,17 @@ func _make_preview_result(
 	}
 
 
+## 将目标尺寸每一边限制为至少 1 像素。
+## [br]
+## @api private
 func _normalize_size(size: Vector2i) -> Vector2i:
 	return Vector2i(maxi(size.x, 1), maxi(size.y, 1))
 
 
+## 当 max_dimension 大于 0 时检查边长；当 max_pixels 大于 0 时再检查像素数。
+## 非正限制值不限制对应维度或像素数。
+## [br]
+## @api private
 func _is_size_within_budget(size: Vector2i, max_dimension: int, max_pixels: int) -> bool:
 	if max_dimension > 0 and (size.x > max_dimension or size.y > max_dimension):
 		return false
@@ -504,11 +556,17 @@ func _is_size_within_budget(size: Vector2i, max_dimension: int, max_pixels: int)
 	return max_pixels <= 0 or pixel_count <= max_pixels
 
 
+## 读取预算整数，并将负数预算规范为 0（由预算检查解释为不限制）。
+## [br]
+## @api private
 func _get_budget_int(options: Dictionary, key: String, default_value: int) -> int:
 	var value: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, key, default_value)
 	return maxi(value, 0)
 
 
+## 按目标尺寸等比缩放源尺寸，宽高各自至少返回 1 像素。
+## [br]
+## @api private
 func _fit_size(source_size: Vector2i, target_size: Vector2i) -> Vector2i:
 	var source_width: int = maxi(source_size.x, 1)
 	var source_height: int = maxi(source_size.y, 1)
@@ -521,6 +579,9 @@ func _fit_size(source_size: Vector2i, target_size: Vector2i) -> Vector2i:
 	)
 
 
+## 优先级较高的记录排前；同优先级时按较早注册的 order 排前。
+## [br]
+## @api private
 static func _compare_source_records(left: Dictionary, right: Dictionary) -> bool:
 	var left_priority: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(left, "priority", 0)
 	var right_priority: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(right, "priority", 0)
@@ -531,12 +592,22 @@ static func _compare_source_records(left: Dictionary, right: Dictionary) -> bool
 
 # --- 内部类 ---
 
+## 从 Resource 约定方法读取预览纹理的内置 provider。
+## [br]
+## @api private
 class _MethodPreviewSource:
 	extends RefCounted
 
 	# --- 常量 ---
 
+	## Resource 约定预览纹理方法名。
+	## [br]
+	## @api private
 	const _PREVIEW_TEXTURE_METHOD: StringName = &"get_gf_preview_texture"
+
+	## Resource 约定图标纹理方法名。
+	## [br]
+	## @api private
 	const _ICON_TEXTURE_METHOD: StringName = &"get_gf_icon_texture"
 
 
@@ -560,6 +631,9 @@ class _MethodPreviewSource:
 
 	# --- 私有/辅助方法 ---
 
+	## 若 Resource 实现指定方法且返回 Texture2D，则返回该纹理，否则返回 null。
+	## [br]
+	## @api private
 	func _get_texture_from_method(resource: Resource, method_name: StringName) -> Texture2D:
 		if resource == null or not resource.has_method(method_name):
 			return null
@@ -570,13 +644,22 @@ class _MethodPreviewSource:
 			return texture
 		return null
 
-
+## 从 Resource 约定属性读取预览纹理的内置 provider。
+## [br]
+## @api private
 class _PropertyPreviewSource:
 	extends RefCounted
 
 	# --- 常量 ---
 
+	## Resource 约定预览纹理属性名。
+	## [br]
+	## @api private
 	const _PREVIEW_TEXTURE_PROPERTY: StringName = &"preview_texture"
+
+	## Resource 约定图标纹理属性名。
+	## [br]
+	## @api private
 	const _ICON_TEXTURE_PROPERTY: StringName = &"icon"
 
 
@@ -600,6 +683,9 @@ class _PropertyPreviewSource:
 
 	# --- 私有/辅助方法 ---
 
+	## 属性存在且值是 Texture2D 时返回纹理，否则返回 null。
+	## [br]
+	## @api private
 	func _get_texture_from_property(resource: Resource, property_name: StringName) -> Texture2D:
 		if resource == null or not _has_property(resource, property_name):
 			return null
@@ -610,6 +696,9 @@ class _PropertyPreviewSource:
 			return texture
 		return null
 
+	## 逐项扫描属性列表，按 String/StringName 名称匹配指定属性。
+	## [br]
+	## @api private
 	func _has_property(resource: Resource, property_name: StringName) -> bool:
 		for property_info: Dictionary in resource.get_property_list():
 			var raw_name: Variant = property_info.get("name", "")
@@ -617,6 +706,9 @@ class _PropertyPreviewSource:
 				return true
 		return false
 
+	## 将 StringName 或 String 转为 StringName，其他类型返回空名称。
+	## [br]
+	## @api private
 	func _to_string_name(value: Variant) -> StringName:
 		if value is StringName:
 			var name_value: StringName = value

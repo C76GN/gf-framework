@@ -50,16 +50,70 @@ const OPERATION_FLUSH: StringName = &"flush"
 
 # --- 私有变量 ---
 
+## 当前操作的 save、load 或 flush 标识。
+## [br]
+## @api private
+## [br]
 var _operation: StringName = &""
+
+## 当前操作关联的存档 Profile ID。
+## [br]
+## @api private
+## [br]
 var _profile_id: StringName = &""
+
+## 请求执行所针对的 Profile generation。
+## [br]
+## @api private
+## [br]
 var _requested_generation: int = 0
+
+## 操作开始时记录的单调时钟毫秒值。
+## [br]
+## @api private
+## [br]
 var _started_at_msec: int = 0
+
+## 标记操作当前是否处于运行阶段。
+## [br]
+## @api private
+## [br]
 var _running: bool = false
+
+## 操作完成后保存的结果对象。
+## [br]
+## @api private
+## [br]
 var _result: GFSaveProfileResult = null
+
+## 标记完成信号是否已发出。
+## [br]
+## @api private
+## [br]
 var _completion_emitted: bool = false
+
+## 操作使用的 Provider 上下文。
+## [br]
+## @api private
+## [br]
 var _context: Dictionary = {}
+
+## 附加到操作结果的元数据。
+## [br]
+## @api private
+## [br]
 var _result_metadata: Dictionary = {}
+
+## 标记该操作是否要求严格恢复路径。
+## [br]
+## @api private
+## [br]
 var _strict_recovery: bool = false
+
+## 与操作关联的框架管理许可对象。
+## [br]
+## @api private
+## [br]
 var _manager_permit: RefCounted = null
 
 

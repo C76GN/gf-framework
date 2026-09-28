@@ -4,11 +4,30 @@ extends GFInstaller
 
 # --- 常量 ---
 
+## Save 图谱工具脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_SAVE_GRAPH_UTILITY_SCRIPT = preload("res://addons/gf/extensions/save/graph/gf_save_graph_utility.gd")
+
+## Save profile 读写工具脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_SAVE_PROFILE_UTILITY_SCRIPT = preload("res://addons/gf/extensions/save/profile/gf_save_profile_utility.gd")
+
+## 协调 profile 事务的运行时服务脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_SAVE_PROFILE_TRANSACTION_COORDINATOR_SCRIPT = preload(
 	"res://addons/gf/extensions/save/profile/gf_save_profile_transaction_coordinator.gd"
 )
+
+## 存储工具脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_STORAGE_UTILITY_SCRIPT = preload("res://addons/gf/standard/utilities/storage/gf_storage_utility.gd")
 
 

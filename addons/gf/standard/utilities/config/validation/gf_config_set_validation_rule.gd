@@ -13,6 +13,10 @@ extends GFConfigValidationRule
 
 # --- 常量 ---
 
+## 验证报告可直接包含的允许值数量上限。
+## [br]
+## @api private
+## [br]
 const _SUPPORTED_VALUES_INLINE_LIMIT: int = 32
 
 
@@ -33,7 +37,16 @@ const _SUPPORTED_VALUES_INLINE_LIMIT: int = 32
 
 # --- 私有变量 ---
 
+## 缓存允许值对应的比较键查找表。
+## [br]
+## @api private
+## [br]
 var _lookup_cache: Dictionary = {}
+
+## 记录允许值及大小写设置的签名，用于检测缓存是否过期。
+## [br]
+## @api private
+## [br]
 var _lookup_signature: String = ""
 
 
@@ -87,6 +100,10 @@ func _validate_value(value: Variant, context: Dictionary, report: Dictionary) ->
 
 # --- 私有/辅助方法 ---
 
+## 在签名变化时重建允许值查找表，否则复用缓存。
+## [br]
+## @api private
+## [br]
 func _build_lookup() -> Dictionary:
 	var signature: String = _make_lookup_signature()
 	if signature == _lookup_signature:
@@ -100,12 +117,20 @@ func _build_lookup() -> Dictionary:
 	return lookup
 
 
+## 按大小写设置规范化字符串值，否则使用带类型的 Variant 键。
+## [br]
+## @api private
+## [br]
 func _make_comparison_key(value: Variant) -> String:
 	if not case_sensitive and (typeof(value) == TYPE_STRING or typeof(value) == TYPE_STRING_NAME):
 		return "string:%s" % GFVariantData.to_text(value).to_lower()
 	return _make_variant_key(value)
 
 
+## 复制诊断上下文并按数量限制内联展示允许值。
+## [br]
+## @api private
+## [br]
 func _make_issue_context(context: Dictionary, value: Variant) -> Dictionary:
 	var issue_context: Dictionary = context.duplicate(true)
 	issue_context["value"] = GFVariantData.duplicate_variant(value)
@@ -127,6 +152,10 @@ func _make_issue_context(context: Dictionary, value: Variant) -> Dictionary:
 	return issue_context
 
 
+## 根据大小写设置和允许值构造缓存有效性签名。
+## [br]
+## @api private
+## [br]
 func _make_lookup_signature() -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	var _case_sensitive_appended: bool = parts.append("case:%s" % str(case_sensitive))

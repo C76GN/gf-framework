@@ -53,10 +53,34 @@ var default_transparent_bg: bool = false
 
 # --- 私有变量 ---
 
+## 弱引用当前分屏布局根 Control，供 tick 检测根节点释放。
+## [br]
+## @api private
+## [br]
 var _root_ref: WeakRef = null
+
+## 当前分屏布局创建的 GridContainer 根节点。
+## [br]
+## @api private
+## [br]
 var _grid: GridContainer = null
+
+## 按分屏槽位顺序保存创建的容器节点。
+## [br]
+## @api private
+## [br]
 var _containers: Array[SubViewportContainer] = []
+
+## 按分屏槽位顺序保存创建的子 Viewport。
+## [br]
+## @api private
+## [br]
 var _viewports: Array[SubViewport] = []
+
+## 按槽位保存已挂载相机；未设置相机的槽位为 null。
+## [br]
+## @api private
+## [br]
 var _cameras: Array[Node] = []
 
 
@@ -645,6 +669,10 @@ func tick(_delta: float) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 创建一个容器与 SubViewport，并将它们及空相机槽位追加到对应数组。
+## [br]
+## @api private
+## [br]
 func _create_viewport_slot(index: int, options: Dictionary) -> void:
 	var resolved_size: Vector2i = _resolve_viewport_size(options)
 	var container: SubViewportContainer = SubViewportContainer.new()
@@ -668,12 +696,20 @@ func _create_viewport_slot(index: int, options: Dictionary) -> void:
 	_cameras.append(null)
 
 
+## 按槽位索引读取相机；索引越界时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_camera_at(index: int) -> Node:
 	if index < 0 or index >= _cameras.size():
 		return null
 	return _cameras[index]
 
 
+## 读取正的 Vector2i/有限 Vector2 尺寸，否则使用 640×360，再应用缩放。
+## [br]
+## @api private
+## [br]
 func _resolve_viewport_size(options: Dictionary) -> Vector2i:
 	var configured_size: Variant = GFVariantData.get_option_value(options, "viewport_size", Vector2i.ZERO)
 	if configured_size is Vector2i:
@@ -687,6 +723,10 @@ func _resolve_viewport_size(options: Dictionary) -> Vector2i:
 	return _scale_size(Vector2i(640, 360))
 
 
+## 按 viewport_resolution_scale 缩放尺寸并将每个边长至少限制为 1。
+## [br]
+## @api private
+## [br]
 func _scale_size(size: Vector2i) -> Vector2i:
 	return Vector2i(
 		maxi(roundi(float(size.x) * viewport_resolution_scale), 1),
@@ -694,10 +734,18 @@ func _scale_size(size: Vector2i) -> Vector2i:
 	)
 
 
+## 为单视口返回一列，为多视口返回两列。
+## [br]
+## @api private
+## [br]
 func _get_default_columns(count: int) -> int:
 	return 1 if count <= 1 else 2
 
 
+## 启用 Camera2D，或将 Camera3D 设为当前相机。
+## [br]
+## @api private
+## [br]
 func _activate_camera(camera: Node) -> void:
 	if camera is Camera2D:
 		var camera_2d: Camera2D = camera
@@ -707,6 +755,10 @@ func _activate_camera(camera: Node) -> void:
 		camera_3d.current = true
 
 
+## 构造安全区换算的初始失败报告，保留输入尺寸与安全区。
+## [br]
+## @api private
+## [br]
 func _make_safe_area_report(safe_area: Rect2i, window_size: Vector2i, viewport_size: Vector2) -> Dictionary:
 	return {
 		"ok": false,
@@ -722,6 +774,10 @@ func _make_safe_area_report(safe_area: Rect2i, window_size: Vector2i, viewport_s
 	}
 
 
+## 构造窗口矩形换算的初始失败报告及坐标映射输入。
+## [br]
+## @api private
+## [br]
 func _make_control_window_rect_report(
 	control_rect: Rect2,
 	viewport_size: Vector2,
@@ -745,6 +801,10 @@ func _make_control_window_rect_report(
 	}
 
 
+## 优先读取 content_rect，否则以 viewport_offset 和窗口尺寸构造内容矩形。
+## [br]
+## @api private
+## [br]
 func _resolve_control_window_content_rect(options: Dictionary, window_size: Vector2i) -> Rect2i:
 	if options.has("content_rect"):
 		return _get_option_rect2i(options, "content_rect", Rect2i())
@@ -752,6 +812,10 @@ func _resolve_control_window_content_rect(options: Dictionary, window_size: Vect
 	return Rect2i(viewport_offset, window_size)
 
 
+## 将 Vector2i 或有限 Vector2 选项规范为整数坐标，其它情况返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_option_vector2i(options: Dictionary, key: String, default_value: Vector2i) -> Vector2i:
 	var value: Variant = GFVariantData.get_option_value(options, key, default_value)
 	if value is Vector2i:
@@ -765,6 +829,10 @@ func _get_option_vector2i(options: Dictionary, key: String, default_value: Vecto
 	return default_value
 
 
+## 将 Rect2i 或有限 Rect2 选项规范为整数矩形，其它情况返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_option_rect2i(options: Dictionary, key: String, default_value: Rect2i) -> Rect2i:
 	var value: Variant = GFVariantData.get_option_value(options, key, default_value)
 	if value is Rect2i:
@@ -781,6 +849,10 @@ func _get_option_rect2i(options: Dictionary, key: String, default_value: Rect2i)
 	return default_value
 
 
+## 检查 Rect2 内容矩形及 Vector2 偏移选项是否包含有限坐标。
+## [br]
+## @api private
+## [br]
 func _control_window_options_are_finite(options: Dictionary) -> bool:
 	var content_rect_value: Variant = GFVariantData.get_option_value(options, "content_rect")
 	if content_rect_value is Rect2:
@@ -795,6 +867,10 @@ func _control_window_options_are_finite(options: Dictionary) -> bool:
 	return true
 
 
+## 确认指定选项键对应的浮点值均为有限数。
+## [br]
+## @api private
+## [br]
 func _float_options_are_finite(options: Dictionary, keys: PackedStringArray) -> bool:
 	for key: String in keys:
 		if options.has(key) and not is_finite(GFVariantData.get_option_float(options, key)):
@@ -802,9 +878,17 @@ func _float_options_are_finite(options: Dictionary, keys: PackedStringArray) -> 
 	return true
 
 
+## 检查 Vector2 的两个分量是否均为有限数。
+## [br]
+## @api private
+## [br]
 static func _is_finite_vector2(value: Vector2) -> bool:
 	return is_finite(value.x) and is_finite(value.y)
 
 
+## 检查 Rect2 的位置与尺寸分量是否均为有限数。
+## [br]
+## @api private
+## [br]
 static func _is_finite_rect2(value: Rect2) -> bool:
 	return _is_finite_vector2(value.position) and _is_finite_vector2(value.size)

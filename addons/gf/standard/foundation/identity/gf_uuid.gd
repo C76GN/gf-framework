@@ -25,17 +25,47 @@ const BYTE_COUNT: int = 16
 ## @api public
 const CANONICAL_LENGTH: int = 36
 
+## UUID 十六进制字符表；用于字符校验和 nibble 转换。
+## [br]
+## @api private
 const _HEX_CHARS: String = "0123456789abcdef"
+
+## UUID v7 时间戳可写入的最大 48 位 Unix 毫秒值。
+## [br]
+## @api private
 const _MAX_UNIX_TIME_MSEC: int = 281474976710655
+
+## UUID v7 时间字段之后可用的 12 位单调序列上限。
+## [br]
+## @api private
 const _MAX_V7_SEQUENCE: int = 4095
+
+## UUID v7 在时间戳和 12 位序列达到边界后使用的 62 位尾部序列上限。
+## [br]
+## @api private
 const _MAX_V7_TAIL_SEQUENCE: int = 4611686018427387903
 
 
 # --- 私有变量 ---
 
+## 最近一次保留的 UUID v7 48 位 Unix 毫秒时间戳；状态由互斥锁保护。
+## [br]
+## @api private
 static var _last_v7_timestamp_msec: int = -1
+
+## 最近一次保留的 UUID v7 12 位单调序列；状态由互斥锁保护。
+## [br]
+## @api private
 static var _last_v7_sequence: int = -1
+
+## 时间戳与 12 位序列到达最大值时使用的最近尾部序列；状态由互斥锁保护。
+## [br]
+## @api private
 static var _last_v7_tail_sequence: int = -1
+
+## 串行保护 UUID v7 单调状态的互斥锁。
+## [br]
+## @api private
 static var _v7_state_mutex: Mutex = Mutex.new()
 
 
@@ -118,11 +148,17 @@ static func is_valid(value: String, version: int = 0) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 生成一个 UUID 字节长度的随机字节数组。
+## [br]
+## @api private
 static func _generate_random_bytes() -> PackedByteArray:
 	var crypto: Crypto = Crypto.new()
 	return crypto.generate_random_bytes(BYTE_COUNT)
 
 
+## 将请求时间解析为 UUID v7 可表示范围内的 Unix 毫秒时间戳。
+## [br]
+## @api private
 static func _resolve_unix_time_msec(unix_time_msec: int) -> int:
 	if unix_time_msec < 0:
 		return GFVariantData.to_int(floor(Time.get_unix_time_from_system() * 1000.0))
@@ -131,6 +167,10 @@ static func _resolve_unix_time_msec(unix_time_msec: int) -> int:
 	return unix_time_msec
 
 
+## 在互斥锁内预留时间戳与序号，时钟回退时沿用上次时间；序号用尽先推进时间，再使用尾部序号。
+## 时间戳、主序号及尾序号全部耗尽后保持饱和值，不承诺越过表示范围后仍严格递增。
+## [br]
+## @api private
 static func _reserve_v7_monotonic_state(timestamp_msec: int) -> Dictionary:
 	_v7_state_mutex.lock()
 	var effective_timestamp: int = timestamp_msec
@@ -162,6 +202,9 @@ static func _reserve_v7_monotonic_state(timestamp_msec: int) -> Dictionary:
 	return result
 
 
+## 将 62 位尾部序列写入 UUID v7 的变体位和末尾 7 个字节。
+## [br]
+## @api private
 static func _write_v7_tail_sequence(bytes: PackedByteArray, tail_sequence: int) -> void:
 	var clamped_sequence: int = mini(maxi(tail_sequence, 0), _MAX_V7_TAIL_SEQUENCE)
 	bytes[8] = 0x80 | ((clamped_sequence >> 56) & 0x3f)
@@ -169,6 +212,9 @@ static func _write_v7_tail_sequence(bytes: PackedByteArray, tail_sequence: int) 
 		bytes[9 + index] = (clamped_sequence >> ((6 - index) * 8)) & 0xff
 
 
+## 将 UUID 字节编码为带连字符的小写 canonical 字符串。
+## [br]
+## @api private
 static func _format_uuid_bytes(bytes: PackedByteArray) -> String:
 	var hex: String = bytes.hex_encode()
 	return "%s-%s-%s-%s-%s" % [
@@ -180,9 +226,15 @@ static func _format_uuid_bytes(bytes: PackedByteArray) -> String:
 	]
 
 
+## 判断单字符字符串是否属于小写十六进制字符表。
+## [br]
+## @api private
 static func _is_hex_char(character: String) -> bool:
 	return _HEX_CHARS.find(character) >= 0
 
 
+## 将整数的低 4 位映射为小写十六进制字符。
+## [br]
+## @api private
 static func _hex_nibble(value: int) -> String:
 	return _HEX_CHARS.substr(value & 0x0f, 1)

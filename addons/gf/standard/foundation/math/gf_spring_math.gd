@@ -15,7 +15,16 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 弹簧更新使用的最小有效频率。
+## [br]
+## @api private
+## [br]
 const _MIN_FREQUENCY_HZ: float = 0.001
+
+## 稳定性下界计算使用的安全系数。
+## [br]
+## @api private
+## [br]
 const _STABILITY_SAFETY_MARGIN: float = 1.1
 
 
@@ -246,6 +255,10 @@ static func step_vector3(
 
 # --- 私有/辅助方法 ---
 
+## 对标量状态执行带稳定下界的半隐式弹簧步进并返回值与速度。
+## [br]
+## @api private
+## [br]
 static func _step_float_values(
 	current_value: float,
 	velocity: float,

@@ -11,6 +11,9 @@ extends GFProjectileMotion
 
 # --- 常量 ---
 
+## 为运动配置、目标偏移和 intent 位移提供有限数值检查。
+## [br]
+## @api private
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
 
@@ -192,6 +195,9 @@ func _compute_intent_3d(
 
 # --- 私有/辅助方法 ---
 
+## 校验运动输入后计算 2D 速度；可选按到达距离截短本帧路程，非正 delta 返回零速度 intent。
+## [br]
+## @api private
 func _make_intent_2d(
 	direction: Vector2,
 	distance: float,
@@ -214,6 +220,9 @@ func _make_intent_2d(
 	return GFProjectileMotionIntent2D.move(direction * (travel_distance / delta), delta)
 
 
+## 校验运动输入后计算 3D 速度；可选按到达距离截短本帧路程，非正 delta 返回零速度 intent。
+## [br]
+## @api private
 func _make_intent_3d(
 	direction: Vector3,
 	distance: float,
@@ -236,6 +245,9 @@ func _make_intent_3d(
 	return GFProjectileMotionIntent3D.move(direction * (travel_distance / delta), delta)
 
 
+## 检查 speed 与 arrival_distance 是否均为有限浮点数。
+## [br]
+## @api private
 func _motion_configuration_is_finite() -> bool:
 	return (
 		_GF_COMBAT_FINITE_MATH.is_finite_float(speed)
@@ -243,6 +255,9 @@ func _motion_configuration_is_finite() -> bool:
 	)
 
 
+## 从 WeakRef 读取仍可用且未排队删除的 Node2D；其他状态返回 null。
+## [br]
+## @api private
 func _node_2d_from_ref(weak_reference: WeakRef) -> Node2D:
 	if weak_reference == null:
 		return null
@@ -254,6 +269,10 @@ func _node_2d_from_ref(weak_reference: WeakRef) -> Node2D:
 		return node
 	return null
 
+
+## 从 WeakRef 读取仍可用且未排队删除的 Node3D；其他状态返回 null。
+## [br]
+## @api private
 func _node_3d_from_ref(weak_reference: WeakRef) -> Node3D:
 	if weak_reference == null:
 		return null
@@ -266,22 +285,56 @@ func _node_3d_from_ref(weak_reference: WeakRef) -> Node3D:
 	return null
 
 
+## 节点在场景树内时读取 global_position，否则读取本地 position。
+## [br]
+## @api private
 func _get_position_3d(node: Node3D) -> Vector3:
 	return node.global_position if node.is_inside_tree() else node.position
 
 
+## 节点在场景树内时读取 global_position，否则读取本地 position。
+## [br]
+## @api private
 func _get_position_2d(node: Node2D) -> Vector2:
 	return node.global_position if node.is_inside_tree() else node.position
 
 
 # --- 内部类 ---
 
+## 保存单个 projectile session 的目标种类、弱引用、目标位置快照和锁定方向。
+## [br]
+## @api private
 class _HomingState:
 	extends GFProjectileMotionState
 
+	# --- 私有变量 ---
+
+	## 启动输入的目标种类，用于区分无目标、位置快照与节点追踪。
+	## [br]
+	## @api private
 	var _target_kind: int = 0
+
+	## 节点目标的弱引用；读取失效后由 track_target 决定拒绝或沿锁定方向继续。
+	## [br]
+	## @api private
 	var _target_ref: WeakRef = null
+
+	## 启动时捕获的二维目标位置；动态追踪时会在计算中重新读取节点位置。
+	## [br]
+	## @api private
 	var _target_position_2d: Vector2 = Vector2.ZERO
+
+	## 启动时捕获的三维目标位置；动态追踪时会在计算中重新读取节点位置。
+	## [br]
+	## @api private
 	var _target_position_3d: Vector3 = Vector3.ZERO
+
+	## 已计算的二维方向，用于不追踪目标时保持航向。
+	## [br]
+	## @api private
 	var _locked_direction_2d: Vector2 = Vector2.ZERO
+
+	## 已计算的三维方向，用于不追踪目标时保持航向。
+	## [br]
+	## @api private
 	var _locked_direction_3d: Vector3 = Vector3.ZERO

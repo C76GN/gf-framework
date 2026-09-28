@@ -85,27 +85,106 @@ signal persistence_failed(operation: StringName, error: Error, path: String)
 
 # --- 常量 ---
 
+## 持久化队列文件使用的格式版本号。
+## [br]
+## @api private
+## [br]
 const _STORAGE_VERSION: int = 2
+
+## 持久化写入临时文件使用的后缀。
+## [br]
+## @api private
+## [br]
 const _TEMP_SUFFIX: String = ".tmp"
+
+## 持久化事务备份文件使用的后缀。
+## [br]
+## @api private
+## [br]
 const _BACKUP_SUFFIX: String = ".bak"
+
+## max_storage_bytes 的默认值（16 MiB）。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_STORAGE_BYTES: int = 16 * 1024 * 1024
+
+## 编码前值图允许的最大嵌套深度。
+## [br]
+## @api private
+## [br]
 const _PERSISTENCE_MAX_DEPTH: int = 64
+
+## 编码前单个集合允许的最大元素数。
+## [br]
+## @api private
+## [br]
 const _PERSISTENCE_MAX_COLLECTION_ITEMS: int = 65_536
+
+## 编码前字符串允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _PERSISTENCE_MAX_STRING_LENGTH: int = 65_536
+
+## 编码前值图允许累计的最大节点数。
+## [br]
+## @api private
+## [br]
 const _PERSISTENCE_MAX_TOTAL_NODES: int = 1_000_000
+
+## 编码前值图允许的最大估算工作量字节数。
+## [br]
+## @api private
+## [br]
 const _PERSISTENCE_MAX_ESTIMATED_BYTES: int = 64 * 1024 * 1024
+
+## 值图预算中每个标量节点的固定估算字节数。
+## [br]
+## @api private
+## [br]
 const _PERSISTENCE_SCALAR_ESTIMATED_BYTES: int = 32
+
+## 值图预算中每个集合节点的固定估算开销。
+## [br]
+## @api private
+## [br]
 const _PERSISTENCE_COLLECTION_ESTIMATED_BYTES: int = 64
+
+## 将编码前结构预算放宽为 JSON 表示预算时使用的倍数。
+## [br]
+## @api private
+## [br]
 const _PERSISTENCE_JSON_CODEC_EXPANSION_FACTOR: int = 8
+
+## JSON 编码标记校验采用的最大递归深度。
+## [br]
+## @api private
+## [br]
 const _PERSISTENCE_JSON_MAX_DEPTH: int = (
 	_PERSISTENCE_MAX_DEPTH * _PERSISTENCE_JSON_CODEC_EXPANSION_FACTOR + 32
 )
+
+## JSON 编码标记校验采用的最大累计节点数。
+## [br]
+## @api private
+## [br]
 const _PERSISTENCE_JSON_MAX_TOTAL_NODES: int = (
 	_PERSISTENCE_MAX_TOTAL_NODES * _PERSISTENCE_JSON_CODEC_EXPANSION_FACTOR
 )
+
+## JSON 编码标记校验采用的最大估算工作量字节数。
+## [br]
+## @api private
+## [br]
 const _PERSISTENCE_JSON_MAX_ESTIMATED_BYTES: int = (
 	_PERSISTENCE_MAX_ESTIMATED_BYTES * _PERSISTENCE_JSON_CODEC_EXPANSION_FACTOR
 )
+
+## max_storage_bytes 关闭时仍强制执行的原始存储文件上限（512 MiB）。
+## [br]
+## @api private
+## [br]
 const _PERSISTENCE_MAX_RAW_STORAGE_BYTES: int = _PERSISTENCE_JSON_MAX_ESTIMATED_BYTES
 
 
@@ -186,17 +265,76 @@ var replay_filter: Callable = Callable()
 
 # --- 私有变量 ---
 
+## 内存中的待重放请求列表。
+## [br]
+## @api private
+## [br]
 var _queue: Array[GFRequestEnvelope] = []
+
+## 按配置保留的失败请求列表。
+## [br]
+## @api private
+## [br]
 var _failed_requests: Array[GFRequestEnvelope] = []
+
+## 防止同时启动多个 replay() 调用的运行状态标记。
+## [br]
+## @api private
+## [br]
 var _is_replaying: bool = false
+
+## 标记工具已释放；释放后入队会被拒绝，等待中的重放会中断。
+## [br]
+## @api private
+## [br]
 var _disposed: bool = false
+
+## 重放失效代数；重放挂起期间变化时，返回后的续段会停止处理。
+## [br]
+## @api private
+## [br]
 var _replay_generation: int = 0
+
+## 最近一次保存或读取记录的 Godot 错误码。
+## [br]
+## @api private
+## [br]
 var _last_persistence_error: Error = OK
+
+## 每次内存队列状态变更时递增的版本号。
+## [br]
+## @api private
+## [br]
 var _queue_revision: int = 0
+
+## 最近一次持久化证明对应的队列版本号。
+## [br]
+## @api private
+## [br]
 var _persisted_revision: int = 0
+
+## 最近一次持久化证明对应的 storage_path。
+## [br]
+## @api private
+## [br]
 var _persisted_storage_path: String = "user://gf_request_outbox.json"
+
+## 最近一次保存或读取证明采用的规范化状态文本。
+## [br]
+## @api private
+## [br]
 var _persisted_state_text: String = ""
+
+## 防止 persistence_failed 信号监听器递归触发同一信号。
+## [br]
+## @api private
+## [br]
 var _is_emitting_persistence_failure: bool = false
+
+## 在组合操作期间暂时抑制 persistence_failed 信号的状态标记。
+## [br]
+## @api private
+## [br]
 var _suppress_persistence_failure_signal: bool = false
 
 
@@ -734,19 +872,35 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 读取报告计数字段；字段缺失或无法转为整数时由访问器返回默认值 0。
+## [br]
+## @api private
+## [br]
 func _get_report_count(report: Dictionary, key: String) -> int:
 	return GFVariantData.get_option_int(report, key)
 
 
+## 增加重放代数并清除当前重放标记，使挂起调用返回后识别失效。
+## [br]
+## @api private
+## [br]
 func _invalidate_replay() -> void:
 	_replay_generation += 1
 	_is_replaying = false
 
 
+## 当前已释放或捕获的重放代数已变化时返回 true。
+## [br]
+## @api private
+## [br]
 func _is_replay_invalid(replay_generation: int) -> bool:
 	return _disposed or replay_generation != _replay_generation
 
 
+## 将报告标为释放或重放失效，并刷新待处理数与失败保存数。
+## [br]
+## @api private
+## [br]
 func _make_interrupted_replay_report(report: Dictionary, replay_generation: int) -> Dictionary:
 	report["ok"] = false
 	report["pending"] = _queue.size()
@@ -757,6 +911,10 @@ func _make_interrupted_replay_report(report: Dictionary, replay_generation: int)
 	return report
 
 
+## 将报告标为持久化失败，附上最近错误并结束重放状态。
+## [br]
+## @api private
+## [br]
 func _make_persistence_failed_replay_report(report: Dictionary) -> Dictionary:
 	report["ok"] = false
 	report["pending"] = _queue.size()
@@ -767,23 +925,43 @@ func _make_persistence_failed_replay_report(report: Dictionary) -> Dictionary:
 	return report
 
 
+## 将报告中指定计数字段递增一。
+## [br]
+## @api private
+## [br]
 func _increment_report_count(report: Dictionary, key: String) -> void:
 	report[key] = _get_report_count(report, key) + 1
 
 
+## 读取 transport 结果中的 ok 布尔字段。
+## [br]
+## @api private
+## [br]
 func _get_result_ok(result: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(result, "ok")
 
 
+## 读取 transport 结果中的 success 布尔字段。
+## [br]
+## @api private
+## [br]
 func _get_result_success(result: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(result, "success")
 
 
+## 读取 error 文本；缺少时使用 reason，再缺少时使用 request_failed。
+## [br]
+## @api private
+## [br]
 func _get_result_error_text(result: Dictionary) -> String:
 	var fallback: String = GFVariantData.get_option_string(result, "reason", "request_failed")
 	return GFVariantData.get_option_string(result, "error", fallback)
 
 
+## 先检查请求重试时间与次数，再用隔离副本调用可选重放过滤器。
+## [br]
+## @api private
+## [br]
 func _can_replay_envelope(envelope: GFRequestEnvelope, now_unix_msec: int) -> bool:
 	if envelope == null or not envelope.can_attempt(now_unix_msec):
 		return false
@@ -792,6 +970,10 @@ func _can_replay_envelope(envelope: GFRequestEnvelope, now_unix_msec: int) -> bo
 	return true
 
 
+## 将请求副本交给 transport；返回 Signal 时等待其发出值，再统一规范化。
+## [br]
+## @api private
+## [br]
 func _call_transport(envelope: GFRequestEnvelope) -> Dictionary:
 	var value: Variant = transport_callback.call(envelope.duplicate_request())
 	if value is Signal:
@@ -800,6 +982,11 @@ func _call_transport(envelope: GFRequestEnvelope) -> Dictionary:
 	return _normalize_transport_result(value)
 
 
+## 将数组、字典、布尔值、错误码及其他 Variant 统一为结果字典。
+## 空数组转为失败；数组首项作为结果，后续参数保存在 signal_args。
+## [br]
+## @api private
+## [br]
 func _normalize_transport_result(value: Variant) -> Dictionary:
 	if value is Array:
 		var values: Array = GFVariantData.as_array(value)
@@ -822,6 +1009,10 @@ func _normalize_transport_result(value: Variant) -> Dictionary:
 	return { "ok": value != null }
 
 
+## 优先按 ok 判断，缺少 ok 时按 success 判断；两者都缺少则视为失败。
+## [br]
+## @api private
+## [br]
 func _is_success_result(result: Dictionary) -> bool:
 	if result.has("ok"):
 		return _get_result_ok(result)
@@ -830,6 +1021,10 @@ func _is_success_result(result: Dictionary) -> bool:
 	return false
 
 
+## 按对象身份查找队列中同一个请求实例，不按字段值匹配。
+## [br]
+## @api private
+## [br]
 func _find_queue_index(envelope: GFRequestEnvelope) -> int:
 	for index: int in range(_queue.size()):
 		if is_same(_queue[index], envelope):
@@ -837,6 +1032,10 @@ func _find_queue_index(envelope: GFRequestEnvelope) -> int:
 	return -1
 
 
+## 补齐缺失的请求 ID、幂等键和创建时间，不覆盖已有值。
+## [br]
+## @api private
+## [br]
 func _prepare_envelope_identity(envelope: GFRequestEnvelope) -> void:
 	if envelope.request_id == &"":
 		envelope.request_id = StringName(_generate_request_id())
@@ -846,6 +1045,10 @@ func _prepare_envelope_identity(envelope: GFRequestEnvelope) -> void:
 		envelope.created_at_unix = int(Time.get_unix_time_from_system())
 
 
+## 构造入队报告，并附上 envelope 副本及当前持久化证明状态。
+## [br]
+## @api private
+## [br]
 func _make_enqueue_report(
 	ok: bool,
 	status: StringName,
@@ -863,6 +1066,10 @@ func _make_enqueue_report(
 	}
 
 
+## 暂时将保存目标切到指定路径并抑制失败信号，保存后恢复原配置。
+## [br]
+## @api private
+## [br]
 func _checkpoint_enqueue_state_at(path: String) -> Error:
 	var configured_path: String = storage_path
 	var previous_suppression: bool = _suppress_persistence_failure_signal
@@ -874,6 +1081,10 @@ func _checkpoint_enqueue_state_at(path: String) -> Error:
 	return checkpoint_error
 
 
+## 创建累计节点、估算字节数、活动集合与预算上限的校验状态字典。
+## [br]
+## @api private
+## [br]
 func _make_persistence_validation_state(
 	max_depth: int = _PERSISTENCE_MAX_DEPTH,
 	max_total_nodes: int = _PERSISTENCE_MAX_TOTAL_NODES,
@@ -889,10 +1100,18 @@ func _make_persistence_validation_state(
 	}
 
 
+## 使用同一组安全预算检查等待队列和失败列表中的所有请求。
+## [br]
+## @api private
+## [br]
 func _validate_persistable_queue() -> bool:
 	return _validate_persistable_envelope_arrays(_queue, _failed_requests)
 
 
+## 从根集合预算开始，累计校验 pending 与 failed 中的每个请求。
+## [br]
+## @api private
+## [br]
 func _validate_persistable_envelope_arrays(
 	pending: Array[GFRequestEnvelope],
 	failed: Array[GFRequestEnvelope]
@@ -913,6 +1132,10 @@ func _validate_persistable_envelope_arrays(
 	return true
 
 
+## 检查请求非空、文本字段预算及 headers、body、metadata 的可编码值。
+## [br]
+## @api private
+## [br]
 func _validate_persistable_envelope(
 	envelope: GFRequestEnvelope,
 	state: Dictionary
@@ -940,6 +1163,11 @@ func _validate_persistable_envelope(
 	return _validate_persistable_value(envelope.metadata, 0, state)
 
 
+## 递归限制持久化值的类型、深度、集合大小、循环引用、节点数与估算字节数。
+## 字典键不能是集合或 packed 数组；不支持的 Variant 类型返回 false。
+## [br]
+## @api private
+## [br]
 func _validate_persistable_value(
 	value: Variant,
 	depth: int,
@@ -1044,6 +1272,10 @@ func _validate_persistable_value(
 	return false
 
 
+## 限制文本字符数，并将其节点数及 UTF-8 字节数计入累计预算。
+## [br]
+## @api private
+## [br]
 func _validate_persistence_text(value: String, state: Dictionary) -> bool:
 	if value.length() > _PERSISTENCE_MAX_STRING_LENGTH:
 		return false
@@ -1054,6 +1286,10 @@ func _validate_persistence_text(value: String, state: Dictionary) -> bool:
 	)
 
 
+## 检查累计节点数和估算字节数是否超限；通过时才写回新计数。
+## [br]
+## @api private
+## [br]
 func _reserve_persistence_budget(
 	state: Dictionary,
 	node_count: int,
@@ -1083,6 +1319,10 @@ func _reserve_persistence_budget(
 	return true
 
 
+## 返回各 packed 数组元素的估算字节数，未列出的类型使用标量预算。
+## [br]
+## @api private
+## [br]
 func _get_persistence_packed_element_bytes(value_type: int) -> int:
 	match value_type:
 		TYPE_PACKED_BYTE_ARRAY:
@@ -1100,6 +1340,10 @@ func _get_persistence_packed_element_bytes(value_type: int) -> int:
 	return _PERSISTENCE_SCALAR_ESTIMATED_BYTES
 
 
+## 按对象身份检查集合是否已在当前递归路径的活动集合栈中。
+## [br]
+## @api private
+## [br]
 func _is_active_persistence_collection(value: Variant, state: Dictionary) -> bool:
 	var active_value: Variant = GFVariantData.get_option_value(state, "active", [])
 	if not (active_value is Array):
@@ -1111,12 +1355,20 @@ func _is_active_persistence_collection(value: Variant, state: Dictionary) -> boo
 	return false
 
 
+## 将当前递归访问的集合压入预算状态中的活动集合栈。
+## [br]
+## @api private
+## [br]
 func _push_active_persistence_collection(value: Variant, state: Dictionary) -> void:
 	var active: Array = _get_active_persistence_collections(state)
 	active.append(value)
 	state["active"] = active
 
 
+## 从活动集合栈移除末项；栈为空时不作修改。
+## [br]
+## @api private
+## [br]
 func _pop_active_persistence_collection(state: Dictionary) -> void:
 	var active: Array = _get_active_persistence_collections(state)
 	if not active.is_empty():
@@ -1124,6 +1376,10 @@ func _pop_active_persistence_collection(state: Dictionary) -> void:
 	state["active"] = active
 
 
+## 返回预算状态中的活动集合数组；字段无效时创建并存回空数组。
+## [br]
+## @api private
+## [br]
 func _get_active_persistence_collections(state: Dictionary) -> Array:
 	var active_value: Variant = GFVariantData.get_option_value(state, "active", [])
 	if active_value is Array:
@@ -1134,6 +1390,10 @@ func _get_active_persistence_collections(state: Dictionary) -> Array:
 	return fallback
 
 
+## 按尝试次数选取重试延迟；空序列返回 0，索引夹在首末项且结果不小于 0。
+## [br]
+## @api private
+## [br]
 func _get_retry_delay_msec(attempt_count: int) -> int:
 	if retry_delays_msec.is_empty():
 		return 0
@@ -1141,6 +1401,10 @@ func _get_retry_delay_msec(attempt_count: int) -> int:
 	return maxi(retry_delays_msec[index], 0)
 
 
+## 按保留配置追加失败请求，并从队首移除超出上限的最旧项。
+## [br]
+## @api private
+## [br]
 func _store_failed_request(envelope: GFRequestEnvelope) -> void:
 	if not keep_failed_requests or max_failed_requests <= 0:
 		return
@@ -1149,6 +1413,10 @@ func _store_failed_request(envelope: GFRequestEnvelope) -> void:
 		_failed_requests.pop_front()
 
 
+## 增加队列版本，按配置保存，然后发出当前调试快照。
+## [br]
+## @api private
+## [br]
 func _persist_and_emit_changed() -> void:
 	_mark_queue_changed()
 	if auto_persist:
@@ -1156,6 +1424,10 @@ func _persist_and_emit_changed() -> void:
 	queue_changed.emit(get_debug_snapshot())
 
 
+## 自动持久化关闭时直接成功；否则保存状态、更新报告并发出快照。
+## [br]
+## @api private
+## [br]
 func _checkpoint_replay_state(report: Dictionary) -> bool:
 	if not auto_persist:
 		return true
@@ -1165,6 +1437,10 @@ func _checkpoint_replay_state(report: Dictionary) -> bool:
 	return save_error == OK
 
 
+## 将等待和失败请求转换为带格式版本号的存储字典。
+## [br]
+## @api private
+## [br]
 func _to_storage_dict() -> Dictionary:
 	var pending: Array[Dictionary] = []
 	for envelope: GFRequestEnvelope in _queue:
@@ -1181,6 +1457,10 @@ func _to_storage_dict() -> Dictionary:
 	}
 
 
+## 将请求转成字典，并用 JSON codec 编码 body、metadata 及字典键。
+## [br]
+## @api private
+## [br]
 func _envelope_to_storage_dict(envelope: GFRequestEnvelope) -> Dictionary:
 	var result: Dictionary = envelope.to_dict()
 	var codec_options: Dictionary = {
@@ -1197,6 +1477,10 @@ func _envelope_to_storage_dict(envelope: GFRequestEnvelope) -> Dictionary:
 	return result
 
 
+## 校验存储根字典的精确版本与字段，再解析两组请求并拒绝重复 ID 或超预算数据。
+## [br]
+## @api private
+## [br]
 func _parse_storage_dict(data: Dictionary) -> Dictionary:
 	if (
 		data.size() != 3
@@ -1232,6 +1516,10 @@ func _parse_storage_dict(data: Dictionary) -> Dictionary:
 	}
 
 
+## 解析有数量上限的请求数组，并验证每项结构、字段约束与方法名称一致性。
+## [br]
+## @api private
+## [br]
 func _parse_envelope_array(value: Variant, max_count: int) -> Dictionary:
 	if not (value is Array):
 		return { "ok": false }
@@ -1259,6 +1547,10 @@ func _parse_envelope_array(value: Variant, max_count: int) -> Dictionary:
 	return { "ok": true, "requests": requests }
 
 
+## 要求请求字典字段集合和 JSON 类型完全匹配，并检查必填值及 Header 类型。
+## [br]
+## @api private
+## [br]
 func _is_exact_stored_envelope(data: Dictionary) -> bool:
 	var required_fields: PackedStringArray = PackedStringArray([
 		"request_id",
@@ -1319,6 +1611,10 @@ func _is_exact_stored_envelope(data: Dictionary) -> bool:
 	return true
 
 
+## 接受整数，或有限、无小数且处于 JSON 安全整数范围内的浮点数。
+## [br]
+## @api private
+## [br]
 func _is_exact_json_integer(value: Variant) -> bool:
 	if value is int:
 		return true
@@ -1332,6 +1628,10 @@ func _is_exact_json_integer(value: Variant) -> bool:
 	)
 
 
+## 从报告字段中筛出 GFRequestEnvelope 实例并返回类型化数组。
+## [br]
+## @api private
+## [br]
 func _get_parsed_envelopes(report: Dictionary, key: String) -> Array[GFRequestEnvelope]:
 	var result: Array[GFRequestEnvelope] = []
 	var values: Variant = GFVariantData.get_option_value(report, key, [])
@@ -1343,6 +1643,10 @@ func _get_parsed_envelopes(report: Dictionary, key: String) -> Array[GFRequestEn
 	return result
 
 
+## 检查 pending 与 failed 两组请求之间是否有重复 request_id。
+## [br]
+## @api private
+## [br]
 func _has_duplicate_request_ids(
 	pending: Array[GFRequestEnvelope],
 	failed: Array[GFRequestEnvelope]
@@ -1359,6 +1663,10 @@ func _has_duplicate_request_ids(
 	return false
 
 
+## 使旧重放失效后，用解析结果替换两组内存请求并递增队列版本。
+## [br]
+## @api private
+## [br]
 func _commit_loaded_state(
 	pending: Array[GFRequestEnvelope],
 	failed: Array[GFRequestEnvelope]
@@ -1371,6 +1679,10 @@ func _commit_loaded_state(
 	_mark_queue_changed()
 
 
+## 按输入顺序收集请求 ID 的字符串表示。
+## [br]
+## @api private
+## [br]
 func _get_request_ids(requests: Array[GFRequestEnvelope]) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for envelope: GFRequestEnvelope in requests:
@@ -1378,6 +1690,10 @@ func _get_request_ids(requests: Array[GFRequestEnvelope]) -> PackedStringArray:
 	return result
 
 
+## 组合 Unix 微秒、进程 ID 和随机整数生成 req_ 前缀请求 ID。
+## [br]
+## @api private
+## [br]
 func _generate_request_id() -> String:
 	return "req_%d_%d_%d" % [
 		int(Time.get_unix_time_from_system() * 1000000.0),
@@ -1386,6 +1702,10 @@ func _generate_request_id() -> String:
 	]
 
 
+## 仅接受非空 user:// 相对路径，并拒绝任一 .. 路径片段。
+## [br]
+## @api private
+## [br]
 func _is_allowed_storage_path(path: String) -> bool:
 	var normalized_path: String = path.replace("\\", "/").strip_edges()
 	if not normalized_path.begins_with("user://"):
@@ -1399,32 +1719,56 @@ func _is_allowed_storage_path(path: String) -> bool:
 	return true
 
 
+## 将文本交给 FileAccess.store_string；文件错误由调用方读取检查。
+## [br]
+## @api private
+## [br]
 func _store_string_checked(file: FileAccess, value: String) -> void:
 	var store_result: Variant = file.store_string(value)
 	if store_result != null:
 		return
 
 
+## 返回系统 Unix 时间的毫秒整数值。
+## [br]
+## @api private
+## [br]
 func _get_unix_time_msec() -> int:
 	return int(Time.get_unix_time_from_system() * 1000.0)
 
 
+## 将内存队列版本号递增一。
+## [br]
+## @api private
+## [br]
 func _mark_queue_changed() -> void:
 	_queue_revision += 1
 
 
+## 记录当前队列版本、存储路径和状态文本作为持久化证明。
+## [br]
+## @api private
+## [br]
 func _set_persistence_proof(path: String, state_text: String) -> void:
 	_persisted_revision = _queue_revision
 	_persisted_storage_path = path
 	_persisted_state_text = state_text
 
 
+## 将持久化版本设为 -1，并清空证明路径和状态文本。
+## [br]
+## @api private
+## [br]
 func _clear_persistence_proof() -> void:
 	_persisted_revision = -1
 	_persisted_storage_path = ""
 	_persisted_state_text = ""
 
 
+## 校验配置路径、已保存路径、队列版本、可编码性及序列化文本是否全部匹配。
+## [br]
+## @api private
+## [br]
 func _has_current_persistence_proof(path: String = storage_path) -> bool:
 	if not (
 		not path.is_empty()
@@ -1438,11 +1782,19 @@ func _has_current_persistence_proof(path: String = storage_path) -> bool:
 	return _serialize_current_queue_state() == _persisted_state_text
 
 
+## 将当前存储字典编码为缩进 JSON，并附加换行符。
+## [br]
+## @api private
+## [br]
 func _serialize_current_queue_state() -> String:
 	var data: Variant = GFVariantJsonCodec.variant_to_json_compatible(_to_storage_dict())
 	return JSON.stringify(data, "\t") + "\n"
 
 
+## 更新最近错误；失败时清除证明并按抑制状态发信号，保存成功时记录证明。
+## [br]
+## @api private
+## [br]
 func _record_persistence_result(
 	operation: StringName,
 	error: Error,
@@ -1458,6 +1810,10 @@ func _record_persistence_result(
 	return error
 
 
+## 发出持久化失败信号，并以重入标记阻止监听器递归发信号。
+## [br]
+## @api private
+## [br]
 func _emit_persistence_failure(operation: StringName, error: Error) -> void:
 	if _is_emitting_persistence_failure:
 		return
@@ -1466,6 +1822,10 @@ func _emit_persistence_failure(operation: StringName, error: Error) -> void:
 	_is_emitting_persistence_failure = false
 
 
+## 写入并校验临时文件，再备份旧文件并重命名提交；失败时清理临时文件并尝试恢复备份。
+## [br]
+## @api private
+## [br]
 func _write_storage_transaction(text: String) -> Error:
 	var temp_path: String = storage_path + _TEMP_SUFFIX
 	var backup_path: String = storage_path + _BACKUP_SUFFIX
@@ -1512,6 +1872,11 @@ func _write_storage_transaction(text: String) -> Error:
 	return OK
 
 
+## 按正式文件、临时文件、备份文件顺序读取首个有效候选并处理旧候选清理。
+## 找到的候选均无效时返回解析失败；候选不存在时报告 found=false。
+## [br]
+## @api private
+## [br]
 func _load_storage_with_recovery() -> Dictionary:
 	var temp_path: String = storage_path + _TEMP_SUFFIX
 	var backup_path: String = storage_path + _BACKUP_SUFFIX
@@ -1546,6 +1911,10 @@ func _load_storage_with_recovery() -> Dictionary:
 	}
 
 
+## 按字节预算精确读取 UTF-8 JSON，校验结构预算与 codec 标记后解析请求状态。
+## [br]
+## @api private
+## [br]
 func _parse_storage_path(path: String) -> Dictionary:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
@@ -1592,6 +1961,10 @@ func _parse_storage_path(path: String) -> Dictionary:
 	return parse_report
 
 
+## 递归检查 JSON codec 标记；单键标记字典必须解码后重新编码为相同值。
+## [br]
+## @api private
+## [br]
 func _validate_canonical_json_codec_markers(value: Variant) -> bool:
 	if value is Array:
 		var array: Array = value
@@ -1617,6 +1990,10 @@ func _validate_canonical_json_codec_markers(value: Variant) -> bool:
 	return true
 
 
+## 深度受限地比较 JSON 值；数组按顺序比较，字典按键和值比较，有限数值跨 int/float 对比。
+## [br]
+## @api private
+## [br]
 func _json_compatible_values_match(left: Variant, right: Variant, depth: int = 0) -> bool:
 	if depth > _PERSISTENCE_JSON_MAX_DEPTH:
 		return false
@@ -1662,6 +2039,10 @@ func _json_compatible_values_match(left: Variant, right: Variant, depth: int = 0
 	return left == right
 
 
+## 删除现有正式文件后提升恢复候选，并清理其他临时及备份文件。
+## [br]
+## @api private
+## [br]
 func _promote_recovery_candidate(candidate_path: String) -> Error:
 	var temp_path: String = storage_path + _TEMP_SUFFIX
 	var backup_path: String = storage_path + _BACKUP_SUFFIX
@@ -1679,6 +2060,10 @@ func _promote_recovery_candidate(candidate_path: String) -> Error:
 	return OK
 
 
+## 文件不存在时返回 OK，否则删除绝对路径并返回 Godot 错误码。
+## [br]
+## @api private
+## [br]
 func _remove_file_if_exists(path: String) -> Error:
 	if not FileAccess.file_exists(path):
 		return OK

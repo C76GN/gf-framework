@@ -14,6 +14,9 @@ extends Resource
 
 # --- 常量 ---
 
+## 提供发射策略浮点配置与 charge 计算的有限值检查。
+## [br]
+## @api private
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
 
@@ -85,13 +88,44 @@ const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/g
 
 # --- 私有变量 ---
 
+## 最近一次通过提交记账的时间；负值表示尚无发射时间记录。
+## [br]
+## @api private
 var _last_emission_msec: int = -1
+
+## 当前 charge 值对应的最近更新时间；负值表示尚未记录更新时间。
+## [br]
+## @api private
 var _last_charge_update_msec: int = -1
+
+## 已保存的 charge 数；负值作为尚未初始化存量的哨兵值。
+## [br]
+## @api private
 var _charges: float = -1.0
+
+## 当前策略状态中已提交记账的发射请求数，reset 时清零。
+## [br]
+## @api private
 var _emission_count: int = 0
+
+## 策略状态代际；重置或提交记账时递增，用来拒绝旧报告。
+## [br]
+## @api private
 var _state_generation: int = 0
+
+## 延迟用户提交钩子的嵌套深度；正值时事务不立即调用提交钩子。
+## [br]
+## @api private
 var _defer_commit_hook_depth: int = 0
+
+## 标记普通提交正在执行，供提交入口和 reset 拒绝重入。
+## [br]
+## @api private
 var _commit_in_progress: bool = false
+
+## 标记 deferred 发布或补偿正在结算，供两条结算路径拒绝重入。
+## [br]
+## @api private
 var _deferred_settlement_in_progress: bool = false
 
 
@@ -501,6 +535,9 @@ func _commit_emission(_emitter: Node, _prepare_report: Dictionary, _emitted_coun
 
 # --- 私有/辅助方法 ---
 
+## 校验准备报告与当前策略状态；策略启用时再记账 charge、冷却时间、计数和状态代际。
+## [br]
+## @api private
 func _commit_emission_transaction(
 	emitter: Node,
 	prepare_report: Dictionary,
@@ -585,6 +622,9 @@ func _commit_emission_transaction(
 	return _make_commit_report(true, true, &"", emitted_count, consumed_charges, now_msec)
 
 
+## 仅在策略身份和提交后代际仍匹配时恢复 deferred commit 前的状态字段。
+## [br]
+## @api private
 func _compensate_deferred_transaction(
 	snapshot: Dictionary,
 	expected_generation: int
@@ -603,6 +643,9 @@ func _compensate_deferred_transaction(
 	return { "ok": true, "compensated": true, "reason": &"" }
 
 
+## 汇总准备阶段的请求、限制、冷却和 charge 观测值。
+## [br]
+## @api private
 func _make_prepare_report(
 	ok: bool,
 	reason: StringName,
@@ -631,6 +674,9 @@ func _make_prepare_report(
 	}
 
 
+## 将当前可配置门控字段写入策略报告使用的字典。
+## [br]
+## @api private
 func _capture_configuration() -> Dictionary:
 	return {
 		"enabled": enabled,
@@ -644,6 +690,9 @@ func _capture_configuration() -> Dictionary:
 	}
 
 
+## 汇总提交结果以及提交后的请求数和 charge 观测值。
+## [br]
+## @api private
 func _make_commit_report(
 	ok: bool,
 	committed: bool,
@@ -665,6 +714,9 @@ func _make_commit_report(
 	}
 
 
+## 若 charge 门控启用，则按给定时间更新保存的恢复后 charge 和时间戳。
+## [br]
+## @api private
 func _recover_charges(now_msec: int) -> void:
 	if not _uses_charges():
 		return
@@ -672,6 +724,9 @@ func _recover_charges(now_msec: int) -> void:
 	_last_charge_update_msec = now_msec
 
 
+## 不写回状态地计算给定时间可用的 charge；配置无效或未启用 charge 时返回零。
+## [br]
+## @api private
 func _get_available_charges_raw(now_msec: int) -> float:
 	if (
 		not _GF_COMBAT_FINITE_MATH.is_finite_float(charge_capacity)
@@ -701,6 +756,9 @@ func _get_available_charges_raw(now_msec: int) -> float:
 	return clampf(current_charges + recovered, 0.0, capacity)
 
 
+## 按请求成本与非负生成数量计算 charge 需求，非有限总和返回 `INF`。
+## [br]
+## @api private
 func _get_required_charges_raw(emit_count: int) -> float:
 	if (
 		not _GF_COMBAT_FINITE_MATH.is_finite_float(charge_capacity)
@@ -723,6 +781,9 @@ func _get_required_charges_raw(emit_count: int) -> float:
 	return total_cost if _GF_COMBAT_FINITE_MATH.is_finite_float(total_cost) else INF
 
 
+## 依据毫秒时间戳计算非负剩余冷却秒数；尚无记录或配置无效时返回零。
+## [br]
+## @api private
 func _get_remaining_cooldown_seconds_raw(now_msec: int) -> float:
 	if (
 		not _GF_COMBAT_FINITE_MATH.is_finite_float(cooldown_seconds)
@@ -737,6 +798,9 @@ func _get_remaining_cooldown_seconds_raw(now_msec: int) -> float:
 	return maxf(cooldown_seconds - elapsed_seconds, 0.0)
 
 
+## 根据容量、已保存 charge 和时间差计算恢复后的 charge，不写回成员状态。
+## [br]
+## @api private
 func _get_recovered_charges(now_msec: int) -> float:
 	if not _uses_charges():
 		return 0.0
@@ -749,6 +813,9 @@ func _get_recovered_charges(now_msec: int) -> float:
 	return clampf(current_charges + recovered, 0.0, capacity)
 
 
+## 检查有效配置是否启用正容量且至少一种正成本的 charge 门控。
+## [br]
+## @api private
 func _uses_charges() -> bool:
 	return is_configuration_valid() and charge_capacity > 0.0 and (
 		charge_cost_per_request > 0.0
@@ -756,12 +823,18 @@ func _uses_charges() -> bool:
 	)
 
 
+## 返回有限且非负的 charge 容量；非有限配置按零处理。
+## [br]
+## @api private
 func _get_charge_capacity() -> float:
 	if not _GF_COMBAT_FINITE_MATH.is_finite_float(charge_capacity):
 		return 0.0
 	return maxf(charge_capacity, 0.0)
 
 
+## 使用显式非负毫秒值，否则读取 Godot 单调时钟。
+## [br]
+## @api private
 func _resolve_now_msec(now_msec: int) -> int:
 	if now_msec >= 0:
 		return now_msec

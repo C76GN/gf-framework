@@ -17,45 +17,162 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 单个计划最多保留的诊断数量；超出时标记诊断已截断。
+## [br]
+## @api private
 const _DIAGNOSTIC_LIMIT: int = 64
+
+## 单条循环诊断最多列出的成员键数量。
+## [br]
+## @api private
 const _MAX_CYCLE_MEMBERS_PER_DIAGNOSTIC: int = 32
 
+## 用于检查模块脚本继承关系的内部工具脚本。
+## [br]
+## @api private
 const _GF_SCRIPT_TYPE_INSPECTOR_SCRIPT = preload("res://addons/gf/kernel/core/gf_script_type_inspector.gd")
 
+## Model 节点使用的模块种类标识。
+## [br]
+## @api private
 const _KIND_MODEL: StringName = &"Model"
+
+## Utility 节点使用的模块种类标识。
+## [br]
+## @api private
 const _KIND_UTILITY: StringName = &"Utility"
+
+## System 节点使用的模块种类标识。
+## [br]
+## @api private
 const _KIND_SYSTEM: StringName = &"System"
 
+## 依赖解析器字典中的 Model 类别键。
+## [br]
+## @api private
 const _REGISTRY_MODELS: StringName = &"models"
+
+## 依赖解析器字典中的 Utility 类别键。
+## [br]
+## @api private
 const _REGISTRY_UTILITIES: StringName = &"utilities"
+
+## 依赖解析器字典中的 System 类别键。
+## [br]
+## @api private
 const _REGISTRY_SYSTEMS: StringName = &"systems"
+
+## 依赖解析器字典中的 Factory 类别键。
+## [br]
+## @api private
 const _REGISTRY_FACTORIES: StringName = &"factories"
 
+## Model 依赖声明 hook 的方法名。
+## [br]
+## @api private
 const _HOOK_REQUIRED_MODELS: StringName = &"get_required_models"
+
+## Utility 依赖声明 hook 的方法名。
+## [br]
+## @api private
 const _HOOK_REQUIRED_UTILITIES: StringName = &"get_required_utilities"
+
+## System 依赖声明 hook 的方法名。
+## [br]
+## @api private
 const _HOOK_REQUIRED_SYSTEMS: StringName = &"get_required_systems"
+
+## Factory 依赖声明 hook 的方法名。
+## [br]
+## @api private
 const _HOOK_REQUIRED_FACTORIES: StringName = &"get_required_factories"
 
+## 依赖由本地注册模块满足时使用的解析状态。
+## [br]
+## @api private
 const _STATUS_LOCAL: StringName = &"local"
+
+## 依赖由本地计划之外的 resolver 实例满足时使用的解析状态。
+## [br]
+## @api private
 const _STATUS_EXTERNAL: StringName = &"external"
+
+## 没有找到依赖实现时使用的解析状态。
+## [br]
+## @api private
 const _STATUS_MISSING: StringName = &"missing"
+
+## 依赖被失效 alias 阻断时使用的解析状态。
+## [br]
+## @api private
 const _STATUS_STALE_ALIAS: StringName = &"stale_alias"
+
+## 多个本地注册都可匹配依赖时使用的解析状态。
+## [br]
+## @api private
 const _STATUS_AMBIGUOUS: StringName = &"ambiguous"
+
+## resolver 检测到父架构循环时使用的解析状态。
+## [br]
+## @api private
 const _STATUS_PARENT_CYCLE: StringName = &"parent_cycle"
+
+## resolver 返回值格式或内容无效时使用的解析状态。
+## [br]
+## @api private
 const _STATUS_INVALID: StringName = &"invalid"
 
 
 # --- 私有变量 ---
 
+## 最近一次 compile 的计划有效标记。
+## [br]
+## @api private
 var _valid: bool = false
+
+## 编译后按依赖顺序保存的本地模块实例。
+## [br]
+## @api private
 var _activation_order: Array[Object] = []
+
+## activation_order 的严格反向关闭顺序。
+## [br]
+## @api private
 var _shutdown_order: Array[Object] = []
+
+## 编译过程中收集的依赖诊断条目。
+## [br]
+## @api private
 var _diagnostics: Array[Dictionary] = []
+
+## 诊断数量达到上限后置为 true。
+## [br]
+## @api private
 var _diagnostics_truncated: bool = false
+
+## 由外部 resolver 满足的依赖声明计数。
+## [br]
+## @api private
 var _external_dependency_count: int = 0
+
+## 本地模块实例到图节点 ID 的索引。
+## [br]
+## @api private
 var _node_id_by_instance: Dictionary = {}
+
+## 本地模块实例到其本地依赖实例数组的映射。
+## [br]
+## @api private
 var _local_dependencies_by_instance: Dictionary = {}
+
+## compile 时捕获的本地模块依赖声明快照。
+## [br]
+## @api private
 var _dependency_snapshot: Array[Dictionary] = []
+
+## 每条依赖的解析结果记录。
+## [br]
+## @api private
 var _dependency_records: Array[Dictionary] = []
 
 
@@ -279,6 +396,9 @@ func get_dependency_records() -> Array[Dictionary]:
 
 # --- 私有/辅助方法 ---
 
+## 清除上次 compile 收集的计划状态、节点索引、依赖快照和诊断。
+## [br]
+## @api private
 func _reset() -> void:
 	_valid = false
 	_activation_order.clear()
@@ -292,6 +412,9 @@ func _reset() -> void:
 	_dependency_records.clear()
 
 
+## 从一个注册快照收集合法且唯一的模块节点，并建立脚本与实例索引。
+## [br]
+## @api private
 func _collect_registry_nodes(
 	registry: Dictionary,
 	kind: StringName,
@@ -361,6 +484,9 @@ func _collect_registry_nodes(
 		ordinal += 1
 
 
+## 按类别调用模块依赖 hook，捕获声明快照；有效性检查失败时停止并返回 false。
+## [br]
+## @api private
 func _collect_dependency_declarations(
 	nodes: Array[Dictionary],
 	validity_guard: Callable
@@ -414,6 +540,9 @@ func _collect_dependency_declarations(
 	return true
 
 
+## 调用单个依赖声明 hook，检查其 Array[Script] 内容并去除重复脚本。
+## [br]
+## @api private
 func _capture_dependency_hook(
 	node: Dictionary,
 	declarations: Dictionary,
@@ -457,6 +586,9 @@ func _capture_dependency_hook(
 	declarations[dependency_kind] = dependencies
 
 
+## 调用 resolver 解析每条声明，记录结果并将本地非 Factory 依赖加入图边。
+## [br]
+## @api private
 func _collect_dependency_edges(
 	nodes: Array[Dictionary],
 	node_ids_by_kind: Dictionary,
@@ -518,12 +650,18 @@ func _collect_dependency_edges(
 	return true
 
 
+## 未提供有效 guard 时返回 true，否则返回 guard 调用结果的布尔收窄值。
+## [br]
+## @api private
 func _is_compilation_valid(validity_guard: Callable) -> bool:
 	if not validity_guard.is_valid():
 		return true
 	return _to_bool(validity_guard.call(), false)
 
 
+## 优先使用类别 resolver；没有 resolver 时 Factory 记为 missing，其他类别按本地快照解析。
+## [br]
+## @api private
 func _resolve_dependency(
 	dependency_script: Script,
 	dependency_kind: StringName,
@@ -562,6 +700,9 @@ func _resolve_dependency(
 	)
 
 
+## 按本地注册快照先精确匹配脚本，再接受唯一可赋值注册；多重匹配标为 ambiguous。
+## [br]
+## @api private
 func _resolve_local_dependency(
 	dependency_script: Script,
 	dependency_kind: StringName,
@@ -612,6 +753,9 @@ func _resolve_local_dependency(
 	return _make_resolution(_STATUS_MISSING)
 
 
+## 验证节点 ID 和注册表类别后，构造带实例、脚本与本地范围的解析结果。
+## [br]
+## @api private
 func _make_local_resolution(
 	nodes: Array[Dictionary],
 	node_id: int,
@@ -640,6 +784,9 @@ func _make_local_resolution(
 	)
 
 
+## 校验 resolver 返回值及 status，并规范化本地实例、脚本、范围和父链诊断字段。
+## [br]
+## @api private
 func _normalize_dependency_resolution(
 	raw_resolution: Variant,
 	dependency_kind: StringName,
@@ -740,6 +887,9 @@ func _normalize_dependency_resolution(
 	return resolution
 
 
+## 生成带默认范围、深度、解析方式和父链循环字段的结果字典，再合并额外字段。
+## [br]
+## @api private
 func _make_resolution(
 	status: StringName,
 	fields: Dictionary = {}
@@ -759,6 +909,9 @@ func _make_resolution(
 	return result
 
 
+## 生成 status 和 scope 均为 invalid，并附带 reason 的结果字典。
+## [br]
+## @api private
 func _make_invalid_resolution(reason: String) -> Dictionary:
 	return _make_resolution(
 		_STATUS_INVALID,
@@ -769,6 +922,9 @@ func _make_invalid_resolution(reason: String) -> Dictionary:
 	)
 
 
+## 将一条解析结果展开为包含模块、依赖、范围、实例和父链诊断字段的记录。
+## [br]
+## @api private
 func _make_dependency_record(
 	node: Dictionary,
 	dependency_kind: StringName,
@@ -815,6 +971,9 @@ func _make_dependency_record(
 	}
 
 
+## 按解析状态选择诊断代码与消息，并附加 resolver 返回的原因和父链信息。
+## [br]
+## @api private
 func _append_resolution_diagnostic(
 	node: Dictionary,
 	dependency_kind: StringName,
@@ -870,14 +1029,23 @@ func _append_resolution_diagnostic(
 	)
 
 
+## 读取结果的 status；不是 StringName 或 String 时回退为 invalid。
+## [br]
+## @api private
 func _get_resolution_status(resolution: Dictionary) -> StringName:
 	return _to_string_name(resolution.get("status"), _STATUS_INVALID)
 
 
+## 读取结果的 node_id；不是 int 时回退为 -1。
+## [br]
+## @api private
 func _get_resolution_node_id(resolution: Dictionary) -> int:
 	return _to_int(resolution.get("node_id"), -1)
 
 
+## 在依赖 ID 有效且尚未连接时更新节点的依赖/依赖者列表与本地实例依赖表。
+## [br]
+## @api private
 func _add_local_edge(nodes: Array[Dictionary], node: Dictionary, dependency_id: int) -> void:
 	if dependency_id < 0 or dependency_id >= nodes.size():
 		return
@@ -900,6 +1068,9 @@ func _add_local_edge(nodes: Array[Dictionary], node: Dictionary, dependency_id: 
 	_local_dependencies_by_instance[instance] = local_dependencies
 
 
+## 使用 Kahn 算法生成依赖顺序；每轮按 _node_precedes 排序可用节点，返回可排出的节点 ID。
+## [br]
+## @api private
 func _build_kahn_order(nodes: Array[Dictionary]) -> Array[int]:
 	var indegrees: Array[int] = []
 	var ready: Array[int] = []
@@ -924,6 +1095,9 @@ func _build_kahn_order(nodes: Array[Dictionary]) -> Array[int]:
 	return result
 
 
+## 比较节点排序键：kind_rank 升序、priority 降序、ordinal 升序，最后按 module key 排序。
+## [br]
+## @api private
 func _node_precedes(left: Dictionary, right: Dictionary) -> bool:
 	var left_kind_rank: int = _to_int(left.get("kind_rank"))
 	var right_kind_rank: int = _to_int(right.get("kind_rank"))
@@ -940,6 +1114,9 @@ func _node_precedes(left: Dictionary, right: Dictionary) -> bool:
 	return _get_node_key(left) < _get_node_key(right)
 
 
+## 在 Kahn 未排出的节点中按互相可达关系收集循环组；每组输出一条诊断并限制列出的成员数。
+## [br]
+## @api private
 func _append_cycle_diagnostics(nodes: Array[Dictionary], ordered_node_ids: Array[int]) -> void:
 	var remaining: Dictionary = {}
 	for node_id: int in range(nodes.size()):
@@ -999,6 +1176,9 @@ func _append_cycle_diagnostics(nodes: Array[Dictionary], ordered_node_ids: Array
 		)
 
 
+## 仅沿 allowed_ids 中的依赖边搜索 target_id 是否可从 from_id 到达。
+## [br]
+## @api private
 func _is_reachable(
 	from_id: int,
 	target_id: int,
@@ -1022,6 +1202,9 @@ func _is_reachable(
 	return false
 
 
+## 未达诊断容量上限时追加 error 条目；达到上限后仅标记诊断已截断。
+## [br]
+## @api private
 func _append_diagnostic(
 	code: StringName,
 	module_kind: StringName,
@@ -1047,6 +1230,9 @@ func _append_diagnostic(
 	_diagnostics.append(diagnostic)
 
 
+## 根据 kind 检查实例是否为对应的 Model、Utility 或 System。
+## [br]
+## @api private
 func _is_expected_module_kind(instance: Object, kind: StringName) -> bool:
 	match kind:
 		_KIND_MODEL:
@@ -1059,6 +1245,9 @@ func _is_expected_module_kind(instance: Object, kind: StringName) -> bool:
 			return false
 
 
+## 根据依赖注册表类别检查实例是否为对应的模块类型。
+## [br]
+## @api private
 func _is_expected_dependency_kind(
 	instance: Object,
 	dependency_kind: StringName
@@ -1074,6 +1263,9 @@ func _is_expected_dependency_kind(
 			return false
 
 
+## 返回 Model、Utility、System 的排序等级；未知 kind 返回 3。
+## [br]
+## @api private
 func _get_kind_rank(kind: StringName) -> int:
 	match kind:
 		_KIND_MODEL:
@@ -1086,6 +1278,9 @@ func _get_kind_rank(kind: StringName) -> int:
 			return 3
 
 
+## 读取模块的 lifecycle_priority；不属于三类模块时返回 0。
+## [br]
+## @api private
 func _get_lifecycle_priority(instance: Object) -> int:
 	if instance is GFModel:
 		var model: GFModel = instance
@@ -1099,10 +1294,16 @@ func _get_lifecycle_priority(instance: Object) -> int:
 	return 0
 
 
+## 组合模块种类、注册序号和脚本键生成诊断用模块标识。
+## [br]
+## @api private
 func _make_module_key(kind: StringName, script_cls: Script, ordinal: int) -> String:
 	return "%s[%d]:%s" % [kind, ordinal, _get_script_key(script_cls)]
 
 
+## 返回脚本的全局类名或资源路径；无有效标识时返回固定占位文本。
+## [br]
+## @api private
 func _get_script_key(script_cls: Script) -> String:
 	if script_cls == null:
 		return "<null>"
@@ -1114,26 +1315,44 @@ func _get_script_key(script_cls: Script) -> String:
 	return "<anonymous>"
 
 
+## 从图节点字典读取 instance 并收窄为 Object。
+## [br]
+## @api private
 func _get_node_instance(node: Dictionary) -> Object:
 	return _as_object(node.get("instance"))
 
 
+## 从图节点字典读取 kind 并收窄为 StringName。
+## [br]
+## @api private
 func _get_node_kind(node: Dictionary) -> StringName:
 	return _to_string_name(node.get("kind"))
 
 
+## 从图节点字典读取 registry_key 并收窄为 StringName。
+## [br]
+## @api private
 func _get_node_registry_key(node: Dictionary) -> StringName:
 	return _to_string_name(node.get("registry_key"))
 
 
+## 从图节点字典读取 script 并收窄为 Script。
+## [br]
+## @api private
 func _get_node_script(node: Dictionary) -> Script:
 	return _as_script(node.get("script"))
 
 
+## 从图节点字典读取 module_key 并收窄为字符串。
+## [br]
+## @api private
 func _get_node_key(node: Dictionary) -> String:
 	return _variant_to_string(node.get("module_key"))
 
 
+## 将 models、utilities、systems 注册表键映射为诊断使用的单数类别名。
+## [br]
+## @api private
 func _registry_key_to_module_kind(registry_key: StringName) -> StringName:
 	match registry_key:
 		_REGISTRY_MODELS:
@@ -1146,6 +1365,9 @@ func _registry_key_to_module_kind(registry_key: StringName) -> StringName:
 			return &""
 
 
+## 创建包含 models、systems、utilities 和 factories 空数组的依赖映射。
+## [br]
+## @api private
 func _make_dependency_map() -> Dictionary:
 	return {
 		_REGISTRY_MODELS: [],
@@ -1155,6 +1377,9 @@ func _make_dependency_map() -> Dictionary:
 	}
 
 
+## 复制四类依赖脚本数组，并过滤非 Script 元素。
+## [br]
+## @api private
 func _duplicate_dependency_map(source: Dictionary) -> Dictionary:
 	return {
 		_REGISTRY_MODELS: _get_script_array(
@@ -1172,6 +1397,9 @@ func _duplicate_dependency_map(source: Dictionary) -> Dictionary:
 	}
 
 
+## 对数组中的每个 Dictionary 调用 duplicate(true)，返回新的容器数组。
+## [br]
+## @api private
 func _duplicate_dictionary_array(
 	source: Array[Dictionary]
 ) -> Array[Dictionary]:
@@ -1181,6 +1409,9 @@ func _duplicate_dictionary_array(
 	return result
 
 
+## Variant 为 Object 时返回对象引用，其他类型返回 null。
+## [br]
+## @api private
 func _as_object(value: Variant) -> Object:
 	if value is Object:
 		var object_value: Object = value
@@ -1188,6 +1419,9 @@ func _as_object(value: Variant) -> Object:
 	return null
 
 
+## Variant 为 Script 时返回脚本引用，其他类型返回 null。
+## [br]
+## @api private
 func _as_script(value: Variant) -> Script:
 	if value is Script:
 		var script_value: Script = value
@@ -1195,6 +1429,9 @@ func _as_script(value: Variant) -> Script:
 	return null
 
 
+## 收窄 StringName 或将 String 转为 StringName；不匹配时返回默认值。
+## [br]
+## @api private
 func _to_string_name(
 	value: Variant,
 	default_value: StringName = &""
@@ -1208,6 +1445,9 @@ func _to_string_name(
 	return default_value
 
 
+## 返回 String，或将 StringName 转为 String；不匹配时返回默认值。
+## [br]
+## @api private
 func _variant_to_string(
 	value: Variant,
 	default_value: String = ""
@@ -1221,6 +1461,9 @@ func _variant_to_string(
 	return default_value
 
 
+## Variant 为 int 时返回其值，其他类型返回 default_value。
+## [br]
+## @api private
 func _to_int(value: Variant, default_value: int = 0) -> int:
 	if value is int:
 		var int_value: int = value
@@ -1228,6 +1471,9 @@ func _to_int(value: Variant, default_value: int = 0) -> int:
 	return default_value
 
 
+## Variant 为 bool 时返回其值，其他类型返回 default_value。
+## [br]
+## @api private
 func _to_bool(value: Variant, default_value: bool = false) -> bool:
 	if value is bool:
 		var bool_value: bool = value
@@ -1235,6 +1481,9 @@ func _to_bool(value: Variant, default_value: bool = false) -> bool:
 	return default_value
 
 
+## 返回字段值中的 Dictionary；缺失或类型不匹配时返回空字典。
+## [br]
+## @api private
 func _get_dictionary(source: Dictionary, key: Variant) -> Dictionary:
 	var value: Variant = source.get(key, {})
 	if value is Dictionary:
@@ -1243,6 +1492,9 @@ func _get_dictionary(source: Dictionary, key: Variant) -> Dictionary:
 	return {}
 
 
+## 从 Array 中保留 int 元素；输入不是 Array 时返回空数组。
+## [br]
+## @api private
 func _get_int_array(value: Variant) -> Array[int]:
 	var result: Array[int] = []
 	if not value is Array:
@@ -1254,6 +1506,9 @@ func _get_int_array(value: Variant) -> Array[int]:
 	return result
 
 
+## 从 Array 中保留非空 Object 元素；输入不是 Array 时返回空数组。
+## [br]
+## @api private
 func _get_object_array(value: Variant) -> Array[Object]:
 	var result: Array[Object] = []
 	if not value is Array:
@@ -1266,6 +1521,9 @@ func _get_object_array(value: Variant) -> Array[Object]:
 	return result
 
 
+## 从 Array 中保留 Script 元素；输入不是 Array 时返回空数组。
+## [br]
+## @api private
 func _get_script_array(value: Variant) -> Array[Script]:
 	var result: Array[Script] = []
 	if not value is Array:

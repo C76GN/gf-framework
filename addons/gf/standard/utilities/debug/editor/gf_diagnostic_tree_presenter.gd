@@ -116,6 +116,10 @@ static func sanitize_for_display(value: Variant) -> Variant:
 
 # --- 私有/辅助方法 ---
 
+## 按键文本顺序将字典写入 Tree；字典值只在首层继续展开一层子项。
+## [br]
+## @api private
+## [br]
 static func _append_dictionary_items(
 	tree: Tree,
 	parent: TreeItem,
@@ -138,6 +142,10 @@ static func _append_dictionary_items(
 			)
 
 
+## 将字典键转换为文本并升序排列后返回。
+## [br]
+## @api private
+## [br]
 static func _get_sorted_keys(source: Dictionary) -> PackedStringArray:
 	var keys: PackedStringArray = PackedStringArray()
 	for key: Variant in source.keys():

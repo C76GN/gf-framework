@@ -80,12 +80,39 @@ var restore_initial_value_on_finish: bool = false
 
 # --- 私有变量 ---
 
+## 当前驱动参数缓动的 Tween。
+## [br]
+## @api private
 var _active_tween: Tween = null
+
+## 本次执行实际写入的 ShaderMaterial。
+## [br]
+## @api private
 var _active_material: ShaderMaterial = null
+
+## 本次执行冻结的 uniform 参数名。
+## [br]
+## @api private
 var _active_parameter_name: StringName = &""
+
+## 本次执行冻结的目标参数值。
+## [br]
+## @api private
 var _active_target_value: Variant = null
+
+## 经时间策略归一化后的 Tween 时长。
+## [br]
+## @api private
 var _duration: float = 0.2
+
+## 本次执行捕获的参数初始值。
+## [br]
+## @api private
 var _initial_value: Variant = null
+
+## 标记本次执行是否取得可恢复的初始值。
+## [br]
+## @api private
 var _has_initial_value: bool = false
 
 
@@ -222,6 +249,9 @@ func get_wait_guard_node() -> Node:
 
 # --- 私有/辅助方法 ---
 
+## 断开当前 Tween 的完成回调、终止 Tween 并清空句柄。
+## [br]
+## @api private
 func _clear_active_tween() -> void:
 	if is_instance_valid(_active_tween):
 		if _active_tween.finished.is_connected(_on_active_tween_finished):
@@ -230,6 +260,9 @@ func _clear_active_tween() -> void:
 	_active_tween = null
 
 
+## 从 target 本身或 material_property 解析 ShaderMaterial，并报告无效属性路径。
+## [br]
+## @api private
 func _resolve_shader_material() -> ShaderMaterial:
 	if target is ShaderMaterial:
 		return _get_shader_material_value(target)
@@ -250,6 +283,9 @@ func _resolve_shader_material() -> ShaderMaterial:
 	return _get_shader_material_value(material_value)
 
 
+## 按配置选择原材质，或深复制并写回目标属性作为本次执行材质。
+## [br]
+## @api private
 func _activate_shader_material(material: ShaderMaterial) -> ShaderMaterial:
 	if not duplicate_material_on_execute or target is ShaderMaterial:
 		return material
@@ -262,6 +298,9 @@ func _activate_shader_material(material: ShaderMaterial) -> ShaderMaterial:
 	return duplicated_material
 
 
+## 验证参数名非空、材质存在 Shader、uniform 已声明且目标值符合接口类型。
+## [br]
+## @api private
 func _accepts_shader_parameter(
 	material: ShaderMaterial,
 	execution_parameter_name: StringName,
@@ -298,6 +337,9 @@ func _accepts_shader_parameter(
 	return true
 
 
+## 复制材质当前参数值到恢复快照并标记快照有效。
+## [br]
+## @api private
 func _capture_initial_value(material: ShaderMaterial) -> void:
 	_initial_value = GFVariantData.duplicate_variant(
 		material.get_shader_parameter(_active_parameter_name)
@@ -305,6 +347,9 @@ func _capture_initial_value(material: ShaderMaterial) -> void:
 	_has_initial_value = true
 
 
+## 要求已捕获初值且初值与目标值属于受支持的 Tween 类型。
+## [br]
+## @api private
 func _can_tween_parameter_value() -> bool:
 	if not _has_initial_value:
 		return false
@@ -317,22 +362,34 @@ func _can_tween_parameter_value() -> bool:
 	return false
 
 
+## 当前执行材质有效时，将值写入冻结的 uniform 参数。
+## [br]
+## @api private
 func _set_shader_parameter(value: Variant) -> void:
 	if _active_material == null:
 		return
 	_active_material.set_shader_parameter(_active_parameter_name, value)
 
 
+## 仅在取消恢复选项启用时调用初值恢复。
+## [br]
+## @api private
 func _restore_initial_value_on_cancel() -> void:
 	if restore_initial_value_on_cancel:
 		_restore_initial_value()
 
 
+## 仅在完成恢复选项启用时调用初值恢复。
+## [br]
+## @api private
 func _restore_initial_value_on_finish() -> void:
 	if restore_initial_value_on_finish:
 		_restore_initial_value()
 
 
+## 活动材质和初值均有效时，将初值的复制写回 uniform 参数。
+## [br]
+## @api private
 func _restore_initial_value() -> void:
 	if _active_material == null or not _has_initial_value:
 		return
@@ -342,6 +399,9 @@ func _restore_initial_value() -> void:
 	)
 
 
+## 优先返回有效且在树内的显式宿主，否则尝试把 Node target 用作宿主。
+## [br]
+## @api private
 func _get_tween_host() -> Node:
 	if is_instance_valid(host_node) and host_node.is_inside_tree():
 		return host_node
@@ -352,6 +412,9 @@ func _get_tween_host() -> Node:
 	return null
 
 
+## 通过目标对象属性列表确认材质 NodePath 根属性名称存在。
+## [br]
+## @api private
 func _has_target_property_path() -> bool:
 	var base_name: String = _get_property_base_name(material_property)
 	if base_name.is_empty():
@@ -363,6 +426,9 @@ func _has_target_property_path() -> bool:
 	return false
 
 
+## 优先取 NodePath 首个名称段；没有名称段时截取冒号前的属性文本。
+## [br]
+## @api private
 func _get_property_base_name(path: NodePath) -> String:
 	if path.get_name_count() > 0:
 		return String(path.get_name(0))
@@ -374,6 +440,9 @@ func _get_property_base_name(path: NodePath) -> String:
 	return text
 
 
+## 接受整数与浮点数混合，或两端同为 Vector2、Vector3、Vector4 或 Color。
+## [br]
+## @api private
 func _values_are_tween_compatible(current_value: Variant, next_value: Variant) -> bool:
 	if _is_numeric_value(current_value) and _is_numeric_value(next_value):
 		return true
@@ -388,10 +457,16 @@ func _values_are_tween_compatible(current_value: Variant, next_value: Variant) -
 	return false
 
 
+## 判断值类型是否为整数或浮点数。
+## [br]
+## @api private
 func _is_numeric_value(value: Variant) -> bool:
 	return typeof(value) == TYPE_INT or typeof(value) == TYPE_FLOAT
 
 
+## 将 Variant 收窄为 Node；类型不符时返回 null。
+## [br]
+## @api private
 func _get_node_value(value: Variant) -> Node:
 	if value is Node:
 		var node: Node = value
@@ -399,6 +474,9 @@ func _get_node_value(value: Variant) -> Node:
 	return null
 
 
+## 将 Variant 收窄为 ShaderMaterial；类型不符时返回 null。
+## [br]
+## @api private
 func _get_shader_material_value(value: Variant) -> ShaderMaterial:
 	if value is ShaderMaterial:
 		var material: ShaderMaterial = value
@@ -408,6 +486,9 @@ func _get_shader_material_value(value: Variant) -> ShaderMaterial:
 
 # --- 信号处理函数 ---
 
+## Tween 结束后清空句柄、按配置恢复参数并通知等待者。
+## [br]
+## @api private
 func _on_active_tween_finished() -> void:
 	_active_tween = null
 	_restore_initial_value_on_finish()

@@ -23,6 +23,9 @@ signal active_changed(active: bool)
 
 # --- 常量 ---
 
+## 提供子树内受管理节点的收集逻辑。
+## [br]
+## @api private
 const _GF_HIT_BOX_STATE_SUPPORT = preload("res://addons/gf/extensions/combat/hit_detection/gf_hit_box_state_support.gd")
 
 
@@ -67,6 +70,9 @@ const _GF_HIT_BOX_STATE_SUPPORT = preload("res://addons/gf/extensions/combat/hit
 
 # --- 私有变量 ---
 
+## active 导出属性的存储值；变更时由 setter 同步到受管理节点。
+## [br]
+## @api private
 var _active: bool = true
 
 
@@ -125,6 +131,9 @@ func get_managed_nodes() -> Array[Node]:
 
 # --- 私有/辅助方法 ---
 
+## 忽略重复值；实际变化时先更新存储并在场景树内应用状态，再发出 active_changed。
+## [br]
+## @api private
 func _set_active(value: bool) -> void:
 	if _active == value:
 		return
@@ -134,10 +143,16 @@ func _set_active(value: bool) -> void:
 		active_changed.emit(_active)
 
 
+## 仅管理 GFHitBox2D、GFHurtBox2D 和 Area2D 节点。
+## [br]
+## @api private
 func _is_managed_node(node: Node) -> bool:
 	return node is GFHitBox2D or node is GFHurtBox2D or node is Area2D
 
 
+## 按管理开关同步 hit/hurt enabled、Area2D 监测状态和 CanvasItem 可见性。
+## [br]
+## @api private
 func _apply_to_node(node: Node) -> void:
 	if manage_enabled:
 		if node is GFHitBox2D:

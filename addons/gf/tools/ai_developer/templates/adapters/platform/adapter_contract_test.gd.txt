@@ -1,6 +1,8 @@
 extends GutTest
 
 
+# --- 公共方法（测试） ---
+
 func test_adapter_declares_complete_static_contract() -> void:
 	var adapter: ProjectPlatformAdapter = _make_adapter_with_fake_provider()
 	var report: Dictionary = GFPlatformAdapterConformance.inspect(adapter, {
@@ -39,6 +41,11 @@ func test_native_adapter_acceptance_matrix() -> void:
 	fail_test("Replace this sentinel with the native Adapter acceptance matrix.")
 
 
+# --- 私有/辅助方法 ---
+
+## 创建配置了最小静态能力和假 provider 的适配器，仅用于契约检查；不模拟实际 SDK 的完成或取消行为。
+## [br]
+## @api private
 func _make_adapter_with_fake_provider() -> ProjectPlatformAdapter:
 	var adapter: ProjectPlatformAdapter = ProjectPlatformAdapter.new()
 	var capabilities: GFPlatformCapabilitySet = GFPlatformCapabilitySet.new().configure(
@@ -61,5 +68,8 @@ func _make_adapter_with_fake_provider() -> ProjectPlatformAdapter:
 	return adapter
 
 
+# --- 内部类 ---
+
+# 最小 provider 占位类型，仅供静态契约装配，不实现 SDK 行为。
 class FakeProvider extends RefCounted:
 	pass

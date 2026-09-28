@@ -12,7 +12,12 @@
 class_name GFVariantKeyCodec
 extends RefCounted
 
+# --- 常量 ---
 
+## 稳定键编码使用的 schema 版本前缀。
+## [br]
+## @api private
+## [br]
 const _KEY_SCHEMA_PREFIX: String = "gfv1"
 
 
@@ -121,10 +126,18 @@ static func make_key_token(value: Variant, options: Dictionary = {}) -> String:
 
 # --- 私有/辅助方法 ---
 
+## 判断浮点数既非 NaN 也非正负无穷。
+## [br]
+## @api private
+## [br]
 static func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 检查浮点数组，遇到首个非有限值即返回 false。
+## [br]
+## @api private
+## [br]
 static func _are_finite_floats(values: Array[float]) -> bool:
 	for value: float in values:
 		if not _is_finite_float(value):

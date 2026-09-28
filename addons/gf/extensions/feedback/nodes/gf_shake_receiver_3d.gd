@@ -11,6 +11,9 @@ extends Node
 
 # --- 常量 ---
 
+## 通过弱引用检查和解析有效节点的框架内部脚本。
+## [br]
+## @api private
 const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
 
 
@@ -87,13 +90,44 @@ var utility: GFShakeUtility = null
 
 # --- 私有变量 ---
 
+## 当前目标节点的弱引用。
+## [br]
+## @api private
 var _target_ref: WeakRef = null
+
+## 捕获的目标基础位置。
+## [br]
+## @api private
 var _base_position: Vector3 = Vector3.ZERO
+
+## 捕获的目标基础欧拉角。
+## [br]
+## @api private
 var _base_rotation_degrees: Vector3 = Vector3.ZERO
+
+## 捕获的目标基础缩放。
+## [br]
+## @api private
 var _base_scale: Vector3 = Vector3.ONE
+
+## 指示是否已成功捕获目标基础变换。
+## [br]
+## @api private
 var _has_captured_base: bool = false
+
+## 上次施加到目标位置的反馈偏移。
+## [br]
+## @api private
 var _last_position_offset: Vector3 = Vector3.ZERO
+
+## 上次施加到目标角度的反馈偏移。
+## [br]
+## @api private
 var _last_rotation_offset: Vector3 = Vector3.ZERO
+
+## 上次施加到目标缩放的反馈偏移。
+## [br]
+## @api private
 var _last_scale_offset: Vector3 = Vector3.ZERO
 
 
@@ -241,6 +275,9 @@ func reset_to_base() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 优先返回显式工具，否则从全局架构查找 GFShakeUtility。
+## [br]
+## @api private
 func _get_utility() -> GFShakeUtility:
 	if utility != null:
 		return utility
@@ -250,6 +287,9 @@ func _get_utility() -> GFShakeUtility:
 	return _get_shake_utility_value(architecture.get_utility(GFShakeUtility))
 
 
+## 按 target_path、自身、父节点的顺序解析 Node3D 目标。
+## [br]
+## @api private
 func _resolve_target() -> Node3D:
 	if target_path != NodePath(""):
 		return _get_node_3d_value(get_node_or_null(target_path))
@@ -259,6 +299,9 @@ func _resolve_target() -> Node3D:
 	return _get_node_3d_value(get_parent())
 
 
+## 清除上次偏移、重新绑定目标弱引用并按参数选择性捕获基础变换。
+## [br]
+## @api private
 func _rebind_target(should_capture_base: bool) -> void:
 	_clear_last_offsets()
 	_has_captured_base = false
@@ -268,6 +311,9 @@ func _rebind_target(should_capture_base: bool) -> void:
 		var _capture_base_transform_result: Variant = capture_base_transform()
 
 
+## 将任意值收窄为 Node3D 实例，否则返回 null。
+## [br]
+## @api private
 func _get_node_3d_value(value: Variant) -> Node3D:
 	if value is Node3D:
 		var node: Node3D = value
@@ -275,6 +321,9 @@ func _get_node_3d_value(value: Variant) -> Node3D:
 	return null
 
 
+## 将任意值收窄为 GFShakeUtility 实例，否则返回 null。
+## [br]
+## @api private
 func _get_shake_utility_value(value: Variant) -> GFShakeUtility:
 	if value is GFShakeUtility:
 		var shake_utility: GFShakeUtility = value
@@ -282,15 +331,24 @@ func _get_shake_utility_value(value: Variant) -> GFShakeUtility:
 	return null
 
 
+## 清零上次记录的位置、角度和缩放偏移。
+## [br]
+## @api private
 func _clear_last_offsets() -> void:
 	_last_position_offset = Vector3.ZERO
 	_last_rotation_offset = Vector3.ZERO
 	_last_scale_offset = Vector3.ZERO
 
 
+## 检查位置、角度和缩放中的所有浮点分量是否有限。
+## [br]
+## @api private
 func _transform_is_finite(position: Vector3, rotation_degrees: Vector3, scale: Vector3) -> bool:
 	return _vector3_is_finite(position) and _vector3_is_finite(rotation_degrees) and _vector3_is_finite(scale)
 
 
+## 检查 Vector3 的三个分量是否均为有限数值。
+## [br]
+## @api private
 func _vector3_is_finite(value: Vector3) -> bool:
 	return is_finite(value.x) and is_finite(value.y) and is_finite(value.z)

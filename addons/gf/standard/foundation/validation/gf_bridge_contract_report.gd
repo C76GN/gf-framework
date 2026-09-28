@@ -85,6 +85,10 @@ const KIND_ADAPTER_VERSION_MISMATCH: StringName = &"bridge_adapter_version_misma
 ## @since 7.0.0
 const KIND_ADAPTER_CAPABILITY_MISSING: StringName = &"bridge_adapter_capability_missing"
 
+## 报告构建器未提供主题时使用的默认标题。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_SUBJECT: String = "Bridge contract coverage"
 
 
@@ -470,6 +474,10 @@ static func make_engine_singleton_adapter_entry(
 
 # --- 私有/辅助方法 ---
 
+## 初始化契约覆盖统计与集合，收集规范化条目、评估适配器并生成最终报告。
+## [br]
+## @api private
+## [br]
 static func _build_report(
 	source_contracts: Array[Dictionary],
 	source_adapters: Array[Dictionary],
@@ -522,6 +530,10 @@ static func _build_report(
 	})
 
 
+## 规范化契约条目，拒绝空或重复 ID，并应用默认多适配器设置。
+## [br]
+## @api private
+## [br]
 static func _collect_contracts(
 	source_contracts: Array[Dictionary],
 	normalized_contracts: Array[Dictionary],
@@ -563,6 +575,10 @@ static func _collect_contracts(
 		normalized_contracts.append(contract)
 
 
+## 规范化适配器条目，统计无效或禁用条目，并按已知契约建立索引。
+## [br]
+## @api private
+## [br]
 static func _collect_adapters(
 	source_adapters: Array[Dictionary],
 	normalized_adapters: Array[Dictionary],
@@ -627,6 +643,10 @@ static func _collect_adapters(
 			adapter_lookup[contract_id] = entries
 
 
+## 逐个计算契约覆盖、重复适配器和兼容适配器，并更新报告集合与计数。
+## [br]
+## @api private
+## [br]
 static func _evaluate_contracts(
 	normalized_contracts: Array[Dictionary],
 	adapter_lookup: Dictionary,
@@ -667,6 +687,10 @@ static func _evaluate_contracts(
 			_append_string_unique(report, "compatible", String(contract_id))
 
 
+## 按契约 required 状态登记缺失，并按选项决定是否为可选缺失生成问题。
+## [br]
+## @api private
+## [br]
 static func _handle_missing_contract(contract: Dictionary, report: Dictionary, options: Dictionary) -> void:
 	var contract_id: StringName = GFVariantData.get_option_string_name(contract, "contract_id")
 	if GFVariantData.get_option_bool(contract, "required", true):
@@ -699,6 +723,10 @@ static func _handle_missing_contract(contract: Dictionary, report: Dictionary, o
 		)
 
 
+## 当契约不允许多适配器且覆盖数量超过一个时记录重复覆盖问题。
+## [br]
+## @api private
+## [br]
 static func _check_duplicate_adapters(
 	contract: Dictionary,
 	adapter_ids: PackedStringArray,
@@ -722,6 +750,10 @@ static func _check_duplicate_adapters(
 	)
 
 
+## 依次检查签名、版本和能力，并汇总适配器是否满足契约。
+## [br]
+## @api private
+## [br]
 static func _adapter_matches_contract(
 	adapter: Dictionary,
 	contract: Dictionary,
@@ -738,6 +770,10 @@ static func _adapter_matches_contract(
 	return matches
 
 
+## 契约提供非空签名时比较适配器签名，不匹配则记录签名问题。
+## [br]
+## @api private
+## [br]
 static func _check_signature(
 	adapter: Dictionary,
 	contract: Dictionary,
@@ -765,6 +801,10 @@ static func _check_signature(
 	return false
 
 
+## 契约提供非空版本时比较适配器版本，不匹配则记录版本问题。
+## [br]
+## @api private
+## [br]
 static func _check_version(
 	adapter: Dictionary,
 	contract: Dictionary,
@@ -792,6 +832,10 @@ static func _check_version(
 	return false
 
 
+## 检查适配器是否包含契约要求的全部能力，并为缺少项记录问题。
+## [br]
+## @api private
+## [br]
 static func _check_capabilities(
 	adapter: Dictionary,
 	contract: Dictionary,
@@ -824,6 +868,10 @@ static func _check_capabilities(
 	return false
 
 
+## 增加不匹配计数、记录相关契约，并追加包含契约和适配器标识的问题。
+## [br]
+## @api private
+## [br]
 static func _append_mismatch_issue(
 	report: Dictionary,
 	options: Dictionary,
@@ -851,6 +899,10 @@ static func _append_mismatch_issue(
 	)
 
 
+## 将契约字段别名转换为统一字段，并记录原始条目索引。
+## [br]
+## @api private
+## [br]
 static func _normalize_contract(entry: Dictionary, entry_index: int) -> Dictionary:
 	var contract_id: StringName = _get_first_string_name(entry, PackedStringArray([
 		"contract_id",
@@ -875,6 +927,10 @@ static func _normalize_contract(entry: Dictionary, entry_index: int) -> Dictiona
 	}
 
 
+## 将适配器字段别名转换为统一字段，并解析契约 ID、启用状态和能力。
+## [br]
+## @api private
+## [br]
 static func _normalize_adapter(entry: Dictionary, entry_index: int) -> Dictionary:
 	var adapter_id: StringName = _get_first_string_name(entry, PackedStringArray([
 		"adapter_id",
@@ -900,6 +956,10 @@ static func _normalize_adapter(entry: Dictionary, entry_index: int) -> Dictionar
 	}
 
 
+## 从指定字段读取数组，筛出字典条目并返回深拷贝。
+## [br]
+## @api private
+## [br]
 static func _get_dictionary_array(source: Dictionary, key: String) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for value: Variant in GFVariantData.get_option_array(source, key):
@@ -909,6 +969,10 @@ static func _get_dictionary_array(source: Dictionary, key: String) -> Array[Dict
 	return result
 
 
+## 合并适配器的单值及数组契约字段，去除空值和重复值后排序。
+## [br]
+## @api private
+## [br]
 static func _get_adapter_contract_ids(entry: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	_append_string_name_value(result, GFVariantData.get_option_value(entry, "contract_id"))
@@ -921,6 +985,10 @@ static func _get_adapter_contract_ids(entry: Dictionary) -> PackedStringArray:
 	return result
 
 
+## 提取适配器字典中的非空 ID，去重后排序。
+## [br]
+## @api private
+## [br]
 static func _get_adapter_ids(adapter_entries: Array) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for adapter_value: Variant in adapter_entries:
@@ -932,6 +1000,10 @@ static func _get_adapter_ids(adapter_entries: Array) -> PackedStringArray:
 	return result
 
 
+## 按候选键顺序读取第一个字符串或 StringName 字段并去除首尾空白。
+## [br]
+## @api private
+## [br]
 static func _get_first_string(entry: Dictionary, keys: PackedStringArray, default_value: String = "") -> String:
 	for key: String in keys:
 		if entry.has(key):
@@ -942,11 +1014,19 @@ static func _get_first_string(entry: Dictionary, keys: PackedStringArray, defaul
 	return default_value
 
 
+## 按候选键顺序读取字符串并转换为 StringName。
+## [br]
+## @api private
+## [br]
 static func _get_first_string_name(entry: Dictionary, keys: PackedStringArray, default_value: StringName = &"") -> StringName:
 	var text: String = _get_first_string(entry, keys, String(default_value))
 	return StringName(text) if not text.is_empty() else default_value
 
 
+## 按候选键顺序读取第一个布尔值，均缺失时返回默认值。
+## [br]
+## @api private
+## [br]
 static func _get_first_bool(entry: Dictionary, keys: PackedStringArray, default_value: bool = false) -> bool:
 	for key: String in keys:
 		if entry.has(key):
@@ -957,6 +1037,10 @@ static func _get_first_bool(entry: Dictionary, keys: PackedStringArray, default_
 	return default_value
 
 
+## 按候选键顺序读取第一个非空字符串数组，并排序后返回。
+## [br]
+## @api private
+## [br]
 static func _get_first_packed_string_array(entry: Dictionary, keys: PackedStringArray) -> PackedStringArray:
 	for key: String in keys:
 		var values: PackedStringArray = GFVariantData.get_option_packed_string_array(entry, key)
@@ -966,6 +1050,10 @@ static func _get_first_packed_string_array(entry: Dictionary, keys: PackedString
 	return PackedStringArray()
 
 
+## 将非空且尚未存在的去空白文本追加到字符串数组。
+## [br]
+## @api private
+## [br]
 static func _append_string_name_value(target: PackedStringArray, value: Variant) -> void:
 	var text: String = GFVariantData.to_text(value).strip_edges()
 	if text.is_empty() or target.has(text):
@@ -973,6 +1061,10 @@ static func _append_string_name_value(target: PackedStringArray, value: Variant)
 	var _appended: bool = target.append(text)
 
 
+## 委托 GFValidationReportDictionary 向报告追加问题。
+## [br]
+## @api private
+## [br]
 static func _append_issue(
 	report: Dictionary,
 	severity: Variant,
@@ -983,6 +1075,10 @@ static func _append_issue(
 	var _issue: Dictionary = GFValidationReportDictionary.append_issue(report, severity, kind, message, fields)
 
 
+## 把值唯一追加到报告指定数组，随后排序并回写。
+## [br]
+## @api private
+## [br]
 static func _append_string_unique(report: Dictionary, field_name: String, value: String) -> void:
 	var values: Array = GFVariantData.get_option_array(report, field_name)
 	if values.has(value):
@@ -992,10 +1088,18 @@ static func _append_string_unique(report: Dictionary, field_name: String, value:
 	report[field_name] = values
 
 
+## 将报告中指定计数字段增加一。
+## [br]
+## @api private
+## [br]
 static func _increment_report_count(report: Dictionary, field_name: String) -> void:
 	report[field_name] = GFVariantData.get_option_int(report, field_name) + 1
 
 
+## 深拷贝条目数组中的每个字典。
+## [br]
+## @api private
+## [br]
 static func _copy_entries(source_entries: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in source_entries:
@@ -1003,6 +1107,10 @@ static func _copy_entries(source_entries: Array[Dictionary]) -> Array[Dictionary
 	return result
 
 
+## 检查条目是否包含候选字符串键或 StringName 键。
+## [br]
+## @api private
+## [br]
 static func _entry_has_any(entry: Dictionary, keys: PackedStringArray) -> bool:
 	for key: String in keys:
 		if entry.has(key):
@@ -1012,6 +1120,10 @@ static func _entry_has_any(entry: Dictionary, keys: PackedStringArray) -> bool:
 	return false
 
 
+## 检查有效对象是否缺少所需方法；对象无效时返回全部要求项。
+## [br]
+## @api private
+## [br]
 static func _get_missing_object_methods(target: Object, required_methods: PackedStringArray) -> PackedStringArray:
 	var missing: PackedStringArray = PackedStringArray()
 	if not is_instance_valid(target):
@@ -1024,6 +1136,10 @@ static func _get_missing_object_methods(target: Object, required_methods: Packed
 	return missing
 
 
+## 检查有效对象是否缺少所需信号；对象无效时返回全部要求项。
+## [br]
+## @api private
+## [br]
 static func _get_missing_object_signals(target: Object, required_signals: PackedStringArray) -> PackedStringArray:
 	var missing: PackedStringArray = PackedStringArray()
 	if not is_instance_valid(target):

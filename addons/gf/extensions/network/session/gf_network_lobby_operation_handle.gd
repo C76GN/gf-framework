@@ -35,11 +35,40 @@ signal cancel_requested(reason: StringName)
 
 # --- 私有变量 ---
 
+## 此操作句柄关联的大厅请求。
+## [br]
+## @api private
+## [br]
 var _request: GFNetworkLobbyOperationRequest = null
+
+## 此操作句柄已提交的成功或失败结果。
+## [br]
+## @api private
+## [br]
 var _result: GFNetworkLobbyOperationResult = null
+
+## 用于记录操作耗时和判断截止时间的单调时钟。
+## [br]
+## @api private
+## [br]
 var _clock: GFClock = null
+
+## 操作开始时的单调毫秒时间戳。
+## [br]
+## @api private
+## [br]
 var _started_at_msec: int = -1
+
+## 操作允许完成的截止毫秒时间戳，负值表示无截止时间。
+## [br]
+## @api private
+## [br]
 var _deadline_msec: int = -1
+
+## 记录句柄是否已完成一次性初始化。
+## [br]
+## @api private
+## [br]
 var _initialized: bool = false
 
 
@@ -309,6 +338,10 @@ func resolve_from_network_layer(result: GFNetworkLobbyOperationResult) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 仅在操作仍待处理时提交失败结果并按需发出取消信号。
+## [br]
+## @api private
+## [br]
 func _finish_failure(
 	status: StringName,
 	message: String,
@@ -335,6 +368,10 @@ func _finish_failure(
 	return true
 
 
+## 检查操作仍待处理且非负截止时间已经到达。
+## [br]
+## @api private
+## [br]
 func _has_expired() -> bool:
 	return (
 		is_pending()
@@ -343,6 +380,10 @@ func _has_expired() -> bool:
 	)
 
 
+## 构造请求 ID、操作、Lobby、peer 和超时信息的调试摘要。
+## [br]
+## @api private
+## [br]
 func _make_request_debug_summary() -> Dictionary:
 	if _request == null:
 		return {}
@@ -355,6 +396,10 @@ func _make_request_debug_summary() -> Dictionary:
 	}
 
 
+## 构造操作结果状态、错误及持续时间的调试摘要。
+## [br]
+## @api private
+## [br]
 func _make_result_debug_summary() -> Dictionary:
 	if _result == null:
 		return {}

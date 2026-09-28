@@ -86,9 +86,28 @@ const DEFAULT_MAX_SAMPLE_COUNT: int = 1024
 const ABSOLUTE_MAX_SAMPLE_COUNT: int = 16_384
 
 # Godot 标准构建的 real_t 为 float32；双精度构建使用 float64。
+## IEEE float32 的机器精度常量。
+## [br]
+## @api private
+## [br]
 const _FLOAT32_MACHINE_EPSILON: float = 0.00000011920928955078125
+
+## IEEE float64 的机器精度常量。
+## [br]
+## @api private
+## [br]
 const _FLOAT64_MACHINE_EPSILON: float = 0.0000000000000002220446049250313
+
+## float32 在 1.0 处的半 ULP，用于检测 real_t 分量精度。
+## [br]
+## @api private
+## [br]
 const _FLOAT32_HALF_ULP_AT_ONE: float = 0.000000059604644775390625
+
+## 判别式舍入误差上限相对于机器精度的倍率。
+## [br]
+## @api private
+## [br]
 const _DISCRIMINANT_ROUNDOFF_FACTOR: float = 1.0
 
 
@@ -698,6 +717,10 @@ static func sample_formula_3d(
 
 # --- 私有/辅助方法 ---
 
+## 求解相对运动的非负拦截根，使用判别式舍入界和稳定二次公式并选择最早根。
+## [br]
+## @api private
+## [br]
 static func _solve_intercept_time(
 	relative_distance_squared: float,
 	relative_position_dot_velocity: float,
@@ -795,6 +818,10 @@ static func _solve_intercept_time(
 	return _make_time_report(true, REASON_NONE, "", intercept_time)
 
 
+## 通过 Vector2 分量精度探测返回引擎 real_t 对应的 float32 或 float64 精度。
+## [br]
+## @api private
+## [br]
 static func _get_real_component_machine_epsilon() -> float:
 	var precision_probe: float = Vector2(1.0 + _FLOAT32_HALF_ULP_AT_ONE, 0.0).x
 	if precision_probe == 1.0:
@@ -802,6 +829,10 @@ static func _get_real_component_machine_epsilon() -> float:
 	return _FLOAT64_MACHINE_EPSILON
 
 
+## 仅将有限且非负的根追加到候选列表。
+## [br]
+## @api private
+## [br]
 static func _append_nonnegative_root(
 	roots: PackedFloat64Array,
 	root: float
@@ -812,6 +843,10 @@ static func _append_nonnegative_root(
 	var _root_appended: bool = roots.append(normalized_root)
 
 
+## 校验轨迹采样回调、有限时间端点及受绝对上限约束的采样数量。
+## [br]
+## @api private
+## [br]
 static func _validate_sample_request(
 	position_provider: Callable,
 	start_time_seconds: float,
@@ -832,6 +867,10 @@ static func _validate_sample_request(
 	return REASON_NONE
 
 
+## 将采样验证原因映射为面向报告的错误说明。
+## [br]
+## @api private
+## [br]
 static func _get_sample_validation_error(reason: StringName) -> String:
 	match reason:
 		REASON_INVALID_PROVIDER:
@@ -842,6 +881,10 @@ static func _get_sample_validation_error(reason: StringName) -> String:
 			return "Sample times and limits must be finite and within the documented bounds."
 
 
+## 在起止时刻间均匀插值采样时刻；单样本时返回起始时刻。
+## [br]
+## @api private
+## [br]
 static func _get_sample_time(
 	start_time_seconds: float,
 	end_time_seconds: float,
@@ -854,6 +897,10 @@ static func _get_sample_time(
 	return start_time_seconds * (1.0 - ratio) + end_time_seconds * ratio
 
 
+## 组装二维运动预测报告，并将非有限时间、位置或速度替换为安全默认值。
+## [br]
+## @api private
+## [br]
 static func _make_motion_report_2d(
 	ok: bool,
 	reason: StringName,
@@ -872,6 +919,10 @@ static func _make_motion_report_2d(
 	}
 
 
+## 组装三维运动预测报告，并将非有限时间、位置或速度替换为安全默认值。
+## [br]
+## @api private
+## [br]
 static func _make_motion_report_3d(
 	ok: bool,
 	reason: StringName,
@@ -890,6 +941,10 @@ static func _make_motion_report_3d(
 	}
 
 
+## 组装二维拦截报告并验证时间、位置、发射速度和非负距离字段。
+## [br]
+## @api private
+## [br]
 static func _make_intercept_report_2d(
 	ok: bool,
 	reason: StringName,
@@ -910,6 +965,10 @@ static func _make_intercept_report_2d(
 	}
 
 
+## 组装三维拦截报告并验证时间、位置、发射速度和非负距离字段。
+## [br]
+## @api private
+## [br]
 static func _make_intercept_report_3d(
 	ok: bool,
 	reason: StringName,
@@ -930,6 +989,10 @@ static func _make_intercept_report_3d(
 	}
 
 
+## 组装二维轨迹采样报告并记录请求数、采样数、失败索引和点序列。
+## [br]
+## @api private
+## [br]
 static func _make_sample_report_2d(
 	ok: bool,
 	reason: StringName,
@@ -957,6 +1020,10 @@ static func _make_sample_report_2d(
 	}
 
 
+## 组装三维轨迹采样报告并记录请求数、采样数、失败索引和点序列。
+## [br]
+## @api private
+## [br]
 static func _make_sample_report_3d(
 	ok: bool,
 	reason: StringName,
@@ -984,6 +1051,10 @@ static func _make_sample_report_3d(
 	}
 
 
+## 创建统一的时间求解报告。
+## [br]
+## @api private
+## [br]
 static func _make_time_report(
 	ok: bool,
 	reason: StringName,
@@ -998,11 +1069,19 @@ static func _make_time_report(
 	}
 
 
+## 读取报告 ok 标志；缺失或类型不符时返回 false。
+## [br]
+## @api private
+## [br]
 static func _get_report_ok(report: Dictionary) -> bool:
 	var value: Variant = report.get("ok", false)
 	return value if value is bool else false
 
 
+## 读取报告 reason 并转换 String 值；无效字段回退到参数错误原因。
+## [br]
+## @api private
+## [br]
 static func _get_report_reason(report: Dictionary) -> StringName:
 	var value: Variant = report.get("reason", REASON_INVALID_ARGUMENT)
 	if value is StringName:
@@ -1014,6 +1093,10 @@ static func _get_report_reason(report: Dictionary) -> StringName:
 	return REASON_INVALID_ARGUMENT
 
 
+## 读取 String 或 StringName 错误字段，其它类型返回空字符串。
+## [br]
+## @api private
+## [br]
 static func _get_report_error(report: Dictionary) -> String:
 	var value: Variant = report.get("error", "")
 	if value is String:
@@ -1025,6 +1108,10 @@ static func _get_report_error(report: Dictionary) -> String:
 	return ""
 
 
+## 读取浮点或整数时间字段并转换为 float，无效类型返回 -1。
+## [br]
+## @api private
+## [br]
 static func _get_report_time(report: Dictionary) -> float:
 	var value: Variant = report.get("time_seconds", -1.0)
 	if value is float:
@@ -1036,34 +1123,66 @@ static func _get_report_time(report: Dictionary) -> float:
 	return -1.0
 
 
+## 保留正 epsilon；非正值回退到默认容差。
+## [br]
+## @api private
+## [br]
 static func _normalize_epsilon(epsilon: float) -> float:
 	return epsilon if epsilon > 0.0 else DEFAULT_EPSILON
 
 
+## 保留有限数值，非有限值归零。
+## [br]
+## @api private
+## [br]
 static func _finite_or_zero(value: float) -> float:
 	return value if _is_finite_float(value) else 0.0
 
 
+## 将二维向量的两个分量乘以标量。
+## [br]
+## @api private
+## [br]
 static func _scale_vector2(value: Vector2, scalar: float) -> Vector2:
 	return Vector2(value.x * scalar, value.y * scalar)
 
 
+## 将三维向量的三个分量乘以标量。
+## [br]
+## @api private
+## [br]
 static func _scale_vector3(value: Vector3, scalar: float) -> Vector3:
 	return Vector3(value.x * scalar, value.y * scalar, value.z * scalar)
 
 
+## 判断数值有限且大于或等于零。
+## [br]
+## @api private
+## [br]
 static func _is_nonnegative_finite_float(value: float) -> bool:
 	return value >= 0.0 and _is_finite_float(value)
 
 
+## 判断浮点值既不是 NaN 也不是正负无穷。
+## [br]
+## @api private
+## [br]
 static func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 判断二维向量的两个分量是否均为有限浮点值。
+## [br]
+## @api private
+## [br]
 static func _is_finite_vector2(value: Vector2) -> bool:
 	return _is_finite_float(value.x) and _is_finite_float(value.y)
 
 
+## 判断三维向量的三个分量是否均为有限浮点值。
+## [br]
+## @api private
+## [br]
 static func _is_finite_vector3(value: Vector3) -> bool:
 	return (
 		_is_finite_float(value.x)

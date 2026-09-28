@@ -76,39 +76,187 @@ const DOMAIN_STATE_RECONCILIATION_REQUIRED: StringName = &"reconciliation_requir
 ## @since 11.0.0
 const DOMAIN_STATE_DISPOSED: StringName = &"disposed"
 
+## 恢复激活阶段的事务阶段标识。
+## [br]
+## @api private
+## [br]
 const _STAGE_ACTIVATE_LOAD: StringName = &"activate_load"
+
+## Profile 切换期间刷新源 Profile 的阶段标识。
+## [br]
+## @api private
+## [br]
 const _STAGE_SOURCE_FLUSH: StringName = &"source_flush"
+
+## Profile 切换期间读取目标 Profile 的阶段标识。
+## [br]
+## @api private
+## [br]
 const _STAGE_TARGET_LOAD: StringName = &"target_load"
+
+## 恢复流程写入保存文档的阶段标识。
+## [br]
+## @api private
+## [br]
 const _STAGE_RECOVERY_SAVE: StringName = &"recovery_save"
+
+## 恢复流程刷新源 Profile 的阶段标识。
+## [br]
+## @api private
+## [br]
 const _STAGE_RECOVERY_SOURCE_FLUSH: StringName = &"recovery_source_flush"
+
+## 恢复流程执行 Storage reset 的阶段标识。
+## [br]
+## @api private
+## [br]
 const _STAGE_RECOVERY_RESET: StringName = &"recovery_reset"
+
+## 恢复流程写入目标 Profile 的阶段标识。
+## [br]
+## @api private
+## [br]
 const _STAGE_RECOVERY_TARGET_SAVE: StringName = &"recovery_target_save"
+
+## section mutation 前刷新当前文档的阶段标识。
+## [br]
+## @api private
+## [br]
 const _STAGE_MUTATION_FLUSH: StringName = &"mutation_flush"
+
+## section mutation 排队等待应用的阶段标识。
+## [br]
+## @api private
+## [br]
 const _STAGE_MUTATION_QUEUED: StringName = &"mutation_queued"
+
+## 应用 section mutation 的阶段标识。
+## [br]
+## @api private
+## [br]
 const _STAGE_MUTATION_APPLY: StringName = &"mutation_apply"
+
+## 写入 section mutation 结果的阶段标识。
+## [br]
+## @api private
+## [br]
 const _STAGE_MUTATION_SAVE: StringName = &"mutation_save"
+
+## 读取文档以执行显式 reconciliation 的阶段标识。
+## [br]
+## @api private
+## [br]
 const _STAGE_RECONCILE_LOAD: StringName = &"reconcile_load"
+
+## profile result evidence 中错误文本的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_PROFILE_RESULT_EVIDENCE_ERROR_LENGTH: int = 2_048
 
 
 # --- 私有变量 ---
 
+## 负责 Profile 实际读写操作的 Utility。
+## [br]
+## @api private
+## [br]
 var _profile_utility: GFSaveProfileUtility = null
+
+## 标记 Profile Utility 是否由调用方显式注入。
+## [br]
+## @api private
+## [br]
 var _profile_utility_explicit: bool = false
+
+## 按 Profile ID 索引的托管 Profile 记录。
+## [br]
+## @api private
+## [br]
 var _profiles: Dictionary = {}
+
+## 按 domain ID 索引的共享 Provider domain 状态。
+## [br]
+## @api private
+## [br]
 var _domains: Dictionary = {}
+
+## Profile ID 到其 Provider domain ID 的索引。
+## [br]
+## @api private
+## [br]
 var _domain_id_by_profile: Dictionary = {}
+
+## 按 Lease ID 索引的恢复记录。
+## [br]
+## @api private
+## [br]
 var _recovery_records: Dictionary = {}
+
+## 按 Lease ID 索引的 reconciliation 记录。
+## [br]
+## @api private
+## [br]
 var _reconcile_records: Dictionary = {}
+
+## 下一个 Provider domain 使用的递增 ID。
+## [br]
+## @api private
+## [br]
 var _next_domain_id: int = 1
+
+## 下一个事务使用的递增 ID。
+## [br]
+## @api private
+## [br]
 var _next_transaction_id: int = 1
+
+## 下一个恢复或 reconciliation Lease 使用的递增 ID。
+## [br]
+## @api private
+## [br]
 var _next_lease_id: int = 1
+
+## 标记 Coordinator 是否已释放。
+## [br]
+## @api private
+## [br]
 var _disposed: bool = false
+
+## 标记是否已请求在安全时机执行释放。
+## [br]
+## @api private
+## [br]
 var _dispose_requested: bool = false
+
+## 标记是否接受新的事务 admission。
+## [br]
+## @api private
+## [br]
 var _admission_open: bool = true
+
+## 当前通知回调嵌套深度。
+## [br]
+## @api private
+## [br]
 var _notification_depth: int = 0
+
+## 当前事务处理嵌套深度。
+## [br]
+## @api private
+## [br]
 var _processing_depth: int = 0
+
+## 等待异步处理的 Provider domain ID 队列。
+## [br]
+## @api private
+## [br]
 var _pending_domain_ids: PackedInt64Array = PackedInt64Array()
+
+## 等待 Coordinator 完成 quiesce 的异步完成对象。
+## [br]
+## @api private
+## [br]
 var _quiesce_completion: GFAsyncCompletion = null
 
 
@@ -120,7 +268,7 @@ func _init() -> void:
 	ignore_time_scale = true
 
 
-# --- GF 生命周期方法 ---
+# --- 公共方法 ---
 
 ## 声明底层 Save Profile Utility 依赖。
 ## [br]
@@ -244,8 +392,6 @@ func release_dependencies() -> void:
 	_disconnect_profile_utility()
 	super.release_dependencies()
 
-
-# --- 公共方法 ---
 
 ## 显式注入底层 Profile Utility，供 standalone 场景与测试使用。
 ## [br]
@@ -950,8 +1096,11 @@ func reconcile_profile(
 	return transaction.operation
 
 
-# --- 私有/辅助方法（底层操作编排） ---
+# --- 私有/辅助方法 ---
 
+## 使用目标档案的精确 permit 发起严格恢复加载并观察结果；目标或工具缺失时在当前阶段结束事务。
+## [br]
+## @api private
 func _start_strict_load(
 	domain: DomainState,
 	transaction: TransactionState,
@@ -979,6 +1128,9 @@ func _start_strict_load(
 	_observe_profile_operation(domain, transaction, operation)
 
 
+## 使用源档案 permit 发起 flush，并记录是否已准入等待中的正 generation 写入屏障，再统一观察结果。
+## [br]
+## @api private
 func _start_flush(
 	domain: DomainState,
 	transaction: TransactionState,
@@ -1010,6 +1162,9 @@ func _start_flush(
 	_observe_profile_operation(domain, transaction, operation)
 
 
+## 使用目标 permit 和 mutation 候选发起保存；以请求是否已被领取记录写入准入，随后清空本事务的候选数组并观察操作。
+## [br]
+## @api private
 func _start_save(
 	domain: DomainState,
 	transaction: TransactionState,
@@ -1040,6 +1195,9 @@ func _start_save(
 	_observe_profile_operation(domain, transaction, operation)
 
 
+## 持有事务当前 Profile 操作，以 domain 和 transaction id 绑定完成回调；已完成操作走同一路径，空操作直接拒绝事务。
+## [br]
+## @api private
 func _observe_profile_operation(
 	domain: DomainState,
 	transaction: TransactionState,
@@ -1074,6 +1232,9 @@ func _observe_profile_operation(
 	) as Error
 
 
+## 严格加载成功后提交活动档案；缺失或损坏转为显式恢复租约，回滚失败建立对账阻断，其他失败不切换活动档案。
+## [br]
+## @api private
 func _handle_activate_load_result(
 	domain: DomainState,
 	transaction: TransactionState,
@@ -1152,6 +1313,9 @@ func _handle_activate_load_result(
 	)
 
 
+## 源档案 flush 成功后开始目标严格加载；结果未知时为源档案建立对账阻断，其他失败终止切换。
+## [br]
+## @api private
 func _handle_switch_flush_result(
 	domain: DomainState,
 	transaction: TransactionState,
@@ -1194,6 +1358,9 @@ func _handle_switch_flush_result(
 	)
 
 
+## 目标严格加载成功才提交活动档案；缺失或损坏要求显式恢复，回滚失败为原活动档案建立对账阻断，失败证据保留源 flush 结果。
+## [br]
+## @api private
 func _handle_switch_target_result(
 	domain: DomainState,
 	transaction: TransactionState,
@@ -1290,6 +1457,9 @@ func _handle_switch_target_result(
 	)
 
 
+## 恢复保存成功后激活目标并报告 bootstrap/adopt；结果未知建立目标对账租约，确定失败报告持久化失败。
+## [br]
+## @api private
 func _handle_recovery_save_result(
 	domain: DomainState,
 	transaction: TransactionState,
@@ -1346,6 +1516,9 @@ func _handle_recovery_save_result(
 	)
 
 
+## 源 flush 成功后按恢复类型进入授权 family reset 或目标保存；结果未知阻断源档案对账，缺少必要 reset 授权则拒绝继续。
+## [br]
+## @api private
 func _handle_switch_recovery_flush_result(
 	domain: DomainState,
 	transaction: TransactionState,
@@ -1405,6 +1578,9 @@ func _handle_switch_recovery_flush_result(
 	)
 
 
+## 重新验证目标与 family reset 授权，提交 reset 后立即清除事务持有的授权；是否准入以授权已被领取为依据。
+## [br]
+## @api private
 func _start_switch_recovery_reset(
 	domain: DomainState,
 	transaction: TransactionState
@@ -1454,6 +1630,9 @@ func _start_switch_recovery_reset(
 	_observe_storage_reset_operation(domain, transaction, operation)
 
 
+## 记录事务 reset 操作，并按 domain 与 transaction id 观察完成；空操作报告 reset 阶段未准入。
+## [br]
+## @api private
 func _observe_storage_reset_operation(
 	domain: DomainState,
 	transaction: TransactionState,
@@ -1492,6 +1671,9 @@ func _observe_storage_reset_operation(
 	) as Error
 
 
+## 保存 reset 证据，仅在匹配 RESET 操作且 family reset 成功时继续目标保存，否则在 reset 阶段结束。
+## [br]
+## @api private
 func _handle_switch_recovery_reset_result(
 	domain: DomainState,
 	transaction: TransactionState,
@@ -1530,6 +1712,9 @@ func _handle_switch_recovery_reset_result(
 	)
 
 
+## 将事务元数据和上下文交给保存请求后清空原槽，切换到目标保存阶段并启动保存。
+## [br]
+## @api private
 func _start_switch_recovery_target_save(
 	domain: DomainState,
 	transaction: TransactionState
@@ -1546,6 +1731,9 @@ func _start_switch_recovery_target_save(
 	_start_save(domain, transaction, transaction.target_profile_id, request)
 
 
+## 目标保存成功才提交活动档案并报告恢复切换成功；结果未知建立目标对账阻断，证据合并之前的 flush/reset 阶段。
+## [br]
+## @api private
 func _handle_switch_recovery_target_save_result(
 	domain: DomainState,
 	transaction: TransactionState,
@@ -1603,6 +1791,9 @@ func _handle_switch_recovery_target_save_result(
 	)
 
 
+## flush 成功后将 mutation 排入后续 domain tick；结果未知先建立对账阻断，确定失败不应用候选。
+## [br]
+## @api private
 func _handle_mutation_flush_result(
 	domain: DomainState,
 	transaction: TransactionState,
@@ -1645,6 +1836,9 @@ func _handle_mutation_flush_result(
 	)
 
 
+## 仅为当前排队事务消费候选记录并事务应用；失败保留回滚诊断，释放请求出现时回滚已应用候选，成功则保留回滚快照并发起固定候选的保存。
+## [br]
+## @api private
 func _apply_mutation_candidates(
 	domain: DomainState,
 	transaction: TransactionState
@@ -1773,6 +1967,9 @@ func _apply_mutation_candidates(
 	_start_save(domain, transaction, transaction.target_profile_id, save_request)
 
 
+## 保存成功提交 domain generation；确定保存失败逆序恢复内存候选，回滚失败建立强制对账阻断；结果未知时保留当前内存状态等待对账而不贸然回滚。
+## [br]
+## @api private
 func _handle_mutation_save_result(
 	domain: DomainState,
 	transaction: TransactionState,
@@ -1872,6 +2069,9 @@ func _handle_mutation_save_result(
 	_end_processing()
 
 
+## 严格重载成功后提交活动档案和新 domain generation，解决并移除对账阻断；失败则释放本次对账占用，保留租约以供后续重试。
+## [br]
+## @api private
 func _handle_reconcile_load_result(
 	domain: DomainState,
 	transaction: TransactionState,
@@ -1920,8 +2120,9 @@ func _handle_reconcile_load_result(
 	)
 
 
-# --- 私有/辅助方法（事务建立与终态） ---
-
+## 核对无活动档案的恢复租约、原因和请求可用性，先取得底层保存准入，再领取租约并建立事务；未准入不会消费恢复租约。
+## [br]
+## @api private
 func _start_recovery_save(
 	operation_kind: StringName,
 	expected_reason: StringName,
@@ -2045,6 +2246,9 @@ func _start_recovery_save(
 	return transaction.operation
 
 
+## 为当前活动源预留准入并先发起 reflush；返回后重新核对源、目标、domain 代次与租约，再领取请求和恢复权限，防止准入回调改变边界后继续切换。
+## [br]
+## @api private
 func _start_switch_recovery(
 	operation_kind: StringName,
 	expected_reason: StringName,
@@ -2268,6 +2472,9 @@ func _start_switch_recovery(
 	return transaction.operation
 
 
+## 将底层恢复保存未准入的结果映射为事务拒绝状态，保留底层错误码和说明。
+## [br]
+## @api private
 func _reject_recovery_save_admission(
 	operation_kind: StringName,
 	profile_id: StringName,
@@ -2306,6 +2513,9 @@ func _reject_recovery_save_admission(
 	)
 
 
+## 将源 reflush 未准入结果映射为恢复切换拒绝，保留源、目标身份及错误原因。
+## [br]
+## @api private
 func _reject_switch_recovery_flush_admission(
 	operation_kind: StringName,
 	source_profile_id: StringName,
@@ -2345,6 +2555,9 @@ func _reject_switch_recovery_flush_admission(
 	)
 
 
+## 使旧恢复租约失效并推进事务 epoch，登记当前事务为 TRANSACTING 后更新托管访问权限。
+## [br]
+## @api private
 func _begin_domain_transaction(
 	domain: DomainState,
 	operation_kind: StringName,
@@ -2367,6 +2580,9 @@ func _begin_domain_transaction(
 	return transaction
 
 
+## 以现有对账租约创建并登记事务，不推进原阻断的 epoch，随后收紧托管访问。
+## [br]
+## @api private
 func _begin_reconcile_transaction(
 	domain: DomainState,
 	lease: GFSaveProfileReconcileLease,
@@ -2387,6 +2603,10 @@ func _begin_reconcile_transaction(
 	return transaction
 
 
+## 分配事务 ID、创建已启动的操作句柄并复制结果元数据到状态对象。
+## [br]
+## @api private
+## [br]
 func _make_transaction_state(
 	operation_kind: StringName,
 	source_profile_id: StringName,
@@ -2417,6 +2637,9 @@ func _make_transaction_state(
 	return transaction
 
 
+## 校验并构造一次性终态，先解除当前事务和观察回调、清空载荷，再派发完成通知；终态契约失败尝试诊断回退，通知退出后处理延期释放与静默完成。
+## [br]
+## @api private
 func _finish_domain_transaction(
 	domain: DomainState,
 	transaction: TransactionState,
@@ -2518,6 +2741,9 @@ func _finish_domain_transaction(
 	_try_complete_quiesce()
 
 
+## 创建不占用 domain.current_transaction 的操作，并通过统一终态路径立即拒绝；活动档案前后身份取当前可解析的 domain。
+## [br]
+## @api private
 func _reject_transaction(
 	operation_kind: StringName,
 	source_profile_id: StringName,
@@ -2556,6 +2782,9 @@ func _reject_transaction(
 	return transaction.operation
 
 
+## 将准入失败字典的状态、错误码和说明转为拒绝操作；字段缺失时按 BUSY 处理。
+## [br]
+## @api private
 func _reject_from_admission(
 	operation_kind: StringName,
 	source_profile_id: StringName,
@@ -2584,8 +2813,9 @@ func _reject_from_admission(
 	)
 
 
-# --- 私有/辅助方法（Domain 与 Lease 管理） ---
-
+## 仅在活动档案改变时写入新身份并推进 domain generation，撤销旧恢复租约后发送变化通知。
+## [br]
+## @api private
 func _commit_active_profile(domain: DomainState, profile_id: StringName) -> void:
 	if domain == null or domain.active_profile_id == profile_id:
 		return
@@ -2596,6 +2826,9 @@ func _commit_active_profile(domain: DomainState, profile_id: StringName) -> void
 	_emit_active_profile_changed(previous_profile_id, profile_id)
 
 
+## 在 notification depth 保护内发出活动档案变化，供外层延迟处理释放与其他重入工作。
+## [br]
+## @api private
 func _emit_active_profile_changed(
 	previous_profile_id: StringName,
 	current_profile_id: StringName
@@ -2605,6 +2838,9 @@ func _emit_active_profile_changed(
 	_notification_depth -= 1
 
 
+## 将恢复权限绑定事务、档案、domain generation 与 epoch；切换中的结构损坏还必须取得 family reset 授权，否则返回 null。
+## [br]
+## @api private
 func _create_recovery_lease(
 	domain: DomainState,
 	transaction: TransactionState,
@@ -2656,6 +2892,9 @@ func _create_recovery_lease(
 	return lease
 
 
+## 捕获相关 generation 和存储请求证据，登记对账租约并阻断 domain；内存状态不确定时可直接标记待对账，否则依据写入证据刷新准备状态。
+## [br]
+## @api private
 func _create_reconcile_fence(
 	domain: DomainState,
 	transaction: TransactionState,
@@ -2727,6 +2966,9 @@ func _create_reconcile_fence(
 	return lease
 
 
+## 仅刷新 domain 当前仍等待中的租约；generation 证据进入 persisted、failed 或 unresolved 后标记可对账，其他状态继续等待。
+## [br]
+## @api private
 func _refresh_reconcile_lease(
 	domain: DomainState,
 	lease: GFSaveProfileReconcileLease
@@ -2761,6 +3003,9 @@ func _refresh_reconcile_lease(
 	var _marked_ready: bool = _mark_reconcile_ready(lease, evidence)
 
 
+## 在通知深度保护内提交租约的准备状态与证据，返回租约是否接受该转换。
+## [br]
+## @api private
 func _mark_reconcile_ready(
 	lease: GFSaveProfileReconcileLease,
 	evidence: Dictionary
@@ -2773,6 +3018,9 @@ func _mark_reconcile_ready(
 	return marked
 
 
+## 在通知深度保护内把租约标为释放后未解决，空租约返回 false。
+## [br]
+## @api private
 func _mark_reconcile_disposed(
 	lease: GFSaveProfileReconcileLease
 ) -> bool:
@@ -2784,6 +3032,9 @@ func _mark_reconcile_disposed(
 	return marked
 
 
+## 将指定 domain 的恢复租约标为过期，再批量删除登记，遍历期间不直接修改字典键集合。
+## [br]
+## @api private
 func _invalidate_recovery_leases(domain: DomainState) -> void:
 	if domain == null:
 		return
@@ -2806,6 +3057,10 @@ func _invalidate_recovery_leases(domain: DomainState) -> void:
 		var _erased: bool = _recovery_records.erase(lease_id)
 
 
+## 依 Lease ID 查找记录，并仅在记录持有同一 Lease 实例时返回。
+## [br]
+## @api private
+## [br]
 func _get_recovery_record(lease: GFSaveProfileRecoveryLease) -> Dictionary:
 	if lease == null:
 		return {}
@@ -2815,6 +3070,10 @@ func _get_recovery_record(lease: GFSaveProfileRecoveryLease) -> Dictionary:
 	return record if GFVariantData.get_option_value(record, "lease") == lease else {}
 
 
+## 依 Lease ID 查找记录，并仅在记录持有同一 Lease 实例时返回。
+## [br]
+## @api private
+## [br]
 func _get_reconcile_record(lease: GFSaveProfileReconcileLease) -> Dictionary:
 	if lease == null:
 		return {}
@@ -2824,6 +3083,10 @@ func _get_reconcile_record(lease: GFSaveProfileReconcileLease) -> Dictionary:
 	return record if GFVariantData.get_option_value(record, "lease") == lease else {}
 
 
+## 返回 domain 缺失、Coordinator 关闭/忙碌或 domain 已占用时的 admission 错误。
+## [br]
+## @api private
+## [br]
 func _get_domain_admission_failure(domain: DomainState) -> Dictionary:
 	if domain == null:
 		return {
@@ -2870,6 +3133,10 @@ func _get_domain_admission_failure(domain: DomainState) -> Dictionary:
 	return {}
 
 
+## 比较候选 Provider 实例顺序与现存 domain，拒绝部分重叠拓扑。
+## [br]
+## @api private
+## [br]
 func _inspect_registration_topology(
 	providers: Array[GFSaveSectionProvider]
 ) -> Dictionary:
@@ -2919,6 +3186,10 @@ func _inspect_registration_topology(
 	}
 
 
+## 创建或复用 Provider domain，并登记 Profile 与 Provider 实例身份。
+## [br]
+## @api private
+## [br]
 func _attach_profile_to_domain(
 	profile_id: StringName,
 	descriptor: Dictionary,
@@ -2957,6 +3228,9 @@ func _attach_profile_to_domain(
 	return domain
 
 
+## 检查请求仍可用且包含唯一非空 section，要求每项属于目标档案并匹配可读可写 Provider 的 schema；返回首项失败或 ok。
+## [br]
+## @api private
 func _validate_mutation_request(
 	profile: ManagedProfile,
 	request: GFSaveProfileMutationRequest
@@ -3011,6 +3285,10 @@ func _validate_mutation_request(
 	return {"ok": true}
 
 
+## 根据 Coordinator/domain 状态更新各受管 Profile 的直接访问级别。
+## [br]
+## @api private
+## [br]
 func _update_domain_managed_access(domain: DomainState) -> void:
 	if domain == null or _profile_utility == null:
 		return
@@ -3037,6 +3315,10 @@ func _update_domain_managed_access(domain: DomainState) -> void:
 		)
 
 
+## 构造含单条错误诊断和 Profile 标识的注册失败报告。
+## [br]
+## @api private
+## [br]
 func _make_registration_failure(
 	profile: GFSaveProfile,
 	kind: StringName,
@@ -3071,6 +3353,10 @@ func _make_registration_failure(
 	)
 
 
+## 提取 Profile result 的事务证据，并将错误消息截到配置上限。
+## [br]
+## @api private
+## [br]
 func _make_profile_result_evidence(result: GFSaveProfileResult) -> Dictionary:
 	if result == null:
 		return {}
@@ -3097,6 +3383,10 @@ func _make_profile_result_evidence(result: GFSaveProfileResult) -> Dictionary:
 	}
 
 
+## 复制事务阶段证据，并在 reset 仍进行时加入请求 ID 和操作类型。
+## [br]
+## @api private
+## [br]
 func _make_dispose_stage_evidence(transaction: TransactionState) -> Dictionary:
 	if transaction == null:
 		return {}
@@ -3109,6 +3399,10 @@ func _make_dispose_stage_evidence(transaction: TransactionState) -> Dictionary:
 	return evidence
 
 
+## 将尚未排队的 domain ID 加入待处理队列，并设置其 pending 标记。
+## [br]
+## @api private
+## [br]
 func _enqueue_domain_tick(domain: DomainState) -> void:
 	if domain == null or domain.pending_tick:
 		return
@@ -3116,8 +3410,9 @@ func _enqueue_domain_tick(domain: DomainState) -> void:
 	var _appended: bool = _pending_domain_ids.append(domain.domain_id)
 
 
-# --- 私有/辅助方法（依赖与关闭） ---
-
+## 先置 disposed 防止重复进入，再逐 domain 收尾事务和租约，清空管理索引并断开 Profile Utility，最后尝试完成静默句柄。
+## [br]
+## @api private
 func _dispose_now() -> void:
 	if _disposed:
 		return
@@ -3138,6 +3433,9 @@ func _dispose_now() -> void:
 	_try_complete_quiesce()
 
 
+## 替换工具前断开旧证据通知，再订阅新工具的 generation 证据变化；相同实例不重复连接。
+## [br]
+## @api private
 func _set_profile_utility(profile_utility: GFSaveProfileUtility) -> void:
 	if _profile_utility == profile_utility:
 		return
@@ -3156,6 +3454,9 @@ func _set_profile_utility(profile_utility: GFSaveProfileUtility) -> void:
 		)
 
 
+## 断开证据变化通知并释放本协调器持有的工具引用，不释放外部工具对象。
+## [br]
+## @api private
 func _disconnect_profile_utility() -> void:
 	if _profile_utility == null:
 		return
@@ -3168,6 +3469,9 @@ func _disconnect_profile_utility() -> void:
 	_profile_utility = null
 
 
+## 断开事务当前 Profile 操作的完成观察并清空引用，不取消底层操作。
+## [br]
+## @api private
 func _disconnect_transaction_profile_operation(
 	transaction: TransactionState
 ) -> void:
@@ -3187,6 +3491,9 @@ func _disconnect_transaction_profile_operation(
 	transaction.profile_operation = null
 
 
+## 断开事务当前 Storage 操作的完成观察并清空引用，不取消底层 reset。
+## [br]
+## @api private
 func _disconnect_transaction_storage_operation(
 	transaction: TransactionState
 ) -> void:
@@ -3206,6 +3513,9 @@ func _disconnect_transaction_storage_operation(
 	transaction.storage_operation = null
 
 
+## 根据已准入写入、加载应用阶段或强制回滚失败保留未解决对账证据，再终结事务、撤销恢复权限并放弃各档案管理；不把在途写入报告为确定未落盘。
+## [br]
+## @api private
 func _dispose_domain(domain: DomainState) -> void:
 	if domain == null or domain.state == DOMAIN_STATE_DISPOSED:
 		return
@@ -3295,6 +3605,9 @@ func _dispose_domain(domain: DomainState) -> void:
 		profile.permit = null
 
 
+## 只有处理与通知均已退出、所有 domain 无事务/对账阻断/待 tick，且底层档案工作已结算时才完成静默句柄。
+## [br]
+## @api private
 func _try_complete_quiesce() -> void:
 	if (
 		_quiesce_completion == null
@@ -3319,6 +3632,9 @@ func _try_complete_quiesce() -> void:
 	var _succeeded: bool = _quiesce_completion.succeed()
 
 
+## 读取各档案状态快照检查模式、排队、当前 generation 与脱离写入；缺少 Profile Utility 时保守视为尚有工作。
+## [br]
+## @api private
 func _domain_has_unsettled_profile_work(domain: DomainState) -> bool:
 	if domain == null:
 		return false
@@ -3345,22 +3661,36 @@ func _domain_has_unsettled_profile_work(domain: DomainState) -> bool:
 	return false
 
 
+## 增加同步事务处理嵌套深度。
+## [br]
+## @api private
+## [br]
 func _begin_processing() -> void:
 	_processing_depth += 1
 
 
+## 减少同步事务处理深度；归零且已有释放请求时执行延迟释放。
+## [br]
+## @api private
+## [br]
 func _end_processing() -> void:
 	_processing_depth = maxi(_processing_depth - 1, 0)
 	if _processing_depth == 0 and _dispose_requested:
 		_dispose_now()
 
 
-# --- 私有/辅助方法（类型与集合辅助） ---
-
+## 按 Profile ID 读取记录，并返回类型匹配的 ManagedProfile。
+## [br]
+## @api private
+## [br]
 func _get_profile(profile_id: StringName) -> ManagedProfile:
 	return _get_profile_value(GFVariantData.get_option_value(_profiles, profile_id))
 
 
+## 将 Variant 值转换为 ManagedProfile，类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_profile_value(value: Variant) -> ManagedProfile:
 	if value is ManagedProfile:
 		var profile: ManagedProfile = value
@@ -3368,10 +3698,18 @@ func _get_profile_value(value: Variant) -> ManagedProfile:
 	return null
 
 
+## 按 domain ID 读取状态，并返回类型匹配的 DomainState。
+## [br]
+## @api private
+## [br]
 func _get_domain(domain_id: int) -> DomainState:
 	return _get_domain_value(GFVariantData.get_option_value(_domains, domain_id))
 
 
+## 将 Variant 值转换为 DomainState，类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_domain_value(value: Variant) -> DomainState:
 	if value is DomainState:
 		var domain: DomainState = value
@@ -3379,12 +3717,20 @@ func _get_domain_value(value: Variant) -> DomainState:
 	return null
 
 
+## 经 Profile 到 domain 的索引查找其 DomainState。
+## [br]
+## @api private
+## [br]
 func _get_domain_for_profile(profile_id: StringName) -> DomainState:
 	return _get_domain(
 		GFVariantData.get_option_int(_domain_id_by_profile, profile_id)
 	)
 
 
+## 从 Variant Array 中筛出 GFSaveSectionProvider 项。
+## [br]
+## @api private
+## [br]
 func _read_providers(value: Variant) -> Array[GFSaveSectionProvider]:
 	var providers: Array[GFSaveSectionProvider] = []
 	if not value is Array:
@@ -3397,11 +3743,19 @@ func _read_providers(value: Variant) -> Array[GFSaveSectionProvider]:
 	return providers
 
 
+## 从字典读取指定字段，仅在值为 Dictionary 时返回该值。
+## [br]
+## @api private
+## [br]
 func _get_dictionary_claim(source: Dictionary, key: String) -> Dictionary:
 	var value: Variant = GFVariantData.get_option_value(source, key)
 	return value if value is Dictionary else {}
 
 
+## 从数组字段中筛出 Dictionary 项并按原顺序返回。
+## [br]
+## @api private
+## [br]
 func _get_dictionary_array_claim(
 	source: Dictionary,
 	key: String
@@ -3418,6 +3772,10 @@ func _get_dictionary_array_claim(
 	return records
 
 
+## 从 Variant Array 中筛出 GFSaveRollbackFailure 项。
+## [br]
+## @api private
+## [br]
 func _read_rollback_errors(value: Variant) -> Array[GFSaveRollbackFailure]:
 	var errors: Array[GFSaveRollbackFailure] = []
 	if not value is Array:
@@ -3430,6 +3788,10 @@ func _read_rollback_errors(value: Variant) -> Array[GFSaveRollbackFailure]:
 	return errors
 
 
+## 按 Provider ID 逆序构造错误码为 ERR_UNAVAILABLE 的回滚记录。
+## [br]
+## @api private
+## [br]
 func _make_management_rollback_failures(
 	provider_ids: PackedStringArray
 ) -> Array[GFSaveRollbackFailure]:
@@ -3444,6 +3806,10 @@ func _make_management_rollback_failures(
 	return failures
 
 
+## 复制 PackedStringArray，或从 String/StringName 数组项构建结果。
+## [br]
+## @api private
+## [br]
 func _get_packed_string_array(value: Variant) -> PackedStringArray:
 	if value is PackedStringArray:
 		var packed: PackedStringArray = value
@@ -3461,6 +3827,10 @@ func _get_packed_string_array(value: Variant) -> PackedStringArray:
 	return result
 
 
+## 复制 PackedInt64Array，或筛选 Variant Array 中的整数项。
+## [br]
+## @api private
+## [br]
 func _get_int64_array(value: Variant) -> PackedInt64Array:
 	if value is PackedInt64Array:
 		var packed: PackedInt64Array = value
@@ -3475,6 +3845,10 @@ func _get_int64_array(value: Variant) -> PackedInt64Array:
 	return result
 
 
+## 将 StringName 数组按原顺序转换为 PackedStringArray。
+## [br]
+## @api private
+## [br]
 func _string_name_array_to_packed(values: Array[StringName]) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for value: StringName in values:
@@ -3482,6 +3856,10 @@ func _string_name_array_to_packed(values: Array[StringName]) -> PackedStringArra
 	return result
 
 
+## 逐项比较两个 PackedInt64Array 是否等长且内容相同。
+## [br]
+## @api private
+## [br]
 func _int64_arrays_equal(
 	left: PackedInt64Array,
 	right: PackedInt64Array
@@ -3494,6 +3872,10 @@ func _int64_arrays_equal(
 	return true
 
 
+## 检查左侧数组是否存在也出现在右侧数组中的值。
+## [br]
+## @api private
+## [br]
 func _int64_arrays_overlap(
 	left: PackedInt64Array,
 	right: PackedInt64Array
@@ -3504,6 +3886,10 @@ func _int64_arrays_overlap(
 	return false
 
 
+## 读取字典中的错误码；字段缺失时使用传入的 fallback。
+## [br]
+## @api private
+## [br]
 func _get_error_code(
 	source: Dictionary,
 	key: String,
@@ -3514,6 +3900,9 @@ func _get_error_code(
 
 # --- 信号处理函数 ---
 
+## 仅接收当前 domain 事务身份匹配的结果，先断开观察并更新未知写入标记，再按事务阶段路由，非法阶段转为错误终态。
+## [br]
+## @api private
 func _on_profile_operation_completed(
 	result: GFSaveProfileResult,
 	domain_id: int,
@@ -3568,6 +3957,9 @@ func _on_profile_operation_completed(
 			)
 
 
+## 仅接收当前事务且仍处于恢复 reset 阶段的结果，断开观察并清除在途写入标记后处理 reset 结果。
+## [br]
+## @api private
 func _on_storage_reset_operation_completed(
 	result: GFStorageAsyncResult,
 	domain_id: int,
@@ -3594,6 +3986,9 @@ func _on_storage_reset_operation_completed(
 	_handle_switch_recovery_reset_result(domain, transaction, result)
 
 
+## 从登记值快照中刷新档案与 generation 匹配的对账租约，再处理延期释放或静默完成。
+## [br]
+## @api private
 func _on_profile_generation_evidence_changed(
 	profile_id: StringName,
 	generation: int
@@ -3863,6 +4258,9 @@ class TransactionState extends RefCounted:
 	## [br]
 	## @api framework_internal
 	var write_admitted: bool = false
+
+
+	# --- 框架内部方法 ---
 
 	## 在终态提交前清空不应跨操作生命期保留的请求与 mutation payload。
 	## [br]

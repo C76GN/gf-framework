@@ -14,6 +14,9 @@ extends Resource
 
 # --- 常量 ---
 
+## 提供决策分数有效性检查和归一化。
+## [br]
+## @api private
 const _GF_DECISION_NUMERIC_POLICY = preload("res://addons/gf/extensions/decision/runtime/gf_decision_numeric_policy.gd")
 
 
@@ -279,6 +282,9 @@ func get_validation_report() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 将有效分数排在无效分数前，再按分数降序及 decision_order 升序比较。
+## [br]
+## @api private
 func _sort_score_desc(left: GFDecisionScore, right: GFDecisionScore) -> bool:
 	if left == null:
 		return false
@@ -293,16 +299,25 @@ func _sort_score_desc(left: GFDecisionScore, right: GFDecisionScore) -> bool:
 	return _normalized_order(left.decision_order) < _normalized_order(right.decision_order)
 
 
+## 将负 decision_order 映射到 999999，供排序时排在正常索引之后。
+## [br]
+## @api private
 func _normalized_order(order: int) -> int:
 	if order < 0:
 		return 999999
 	return order
 
 
+## 将 minimum_score 归一化；无效值使用策略提供的 1.0 回退值。
+## [br]
+## @api private
 func _normalized_minimum_score() -> float:
 	return _GF_DECISION_NUMERIC_POLICY.normalize_score(minimum_score, 1.0)
 
 
+## 解析预计算分数；null 时按上下文评分，非数组或非评分成员会被忽略。
+## [br]
+## @api private
 func _resolve_score_snapshot(context: GFDecisionContext, scores: Variant) -> Array[GFDecisionScore]:
 	if scores == null:
 		return score_all(context) if context != null else []
@@ -317,6 +332,9 @@ func _resolve_score_snapshot(context: GFDecisionContext, scores: Variant) -> Arr
 	return result
 
 
+## 复制字典并检查结果类型；复制结果不是 Dictionary 时返回空字典。
+## [br]
+## @api private
 func _copy_dictionary(source: Dictionary) -> Dictionary:
 	var copied: Variant = GFVariantData.duplicate_variant(source)
 	if copied is Dictionary:
@@ -325,6 +343,9 @@ func _copy_dictionary(source: Dictionary) -> Dictionary:
 	return {}
 
 
+## 合并候选项校验问题，并在路径前加入 decisions[index]。
+## [br]
+## @api private
 func _append_option_validation_issues(
 	report: Dictionary,
 	decision: GFDecisionOption,
@@ -347,6 +368,9 @@ func _append_option_validation_issues(
 		)
 
 
+## 以 decision_set_id 和字段路径为上下文追加集合级配置错误。
+## [br]
+## @api private
 func _append_validation_issue(
 	report: Dictionary,
 	kind: StringName,

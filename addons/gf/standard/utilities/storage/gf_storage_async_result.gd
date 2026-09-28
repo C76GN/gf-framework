@@ -54,16 +54,70 @@ enum WriteFailureKind {
 
 # --- 私有变量 ---
 
+## Utility 分配的物理请求 ID。
+## [br]
+## @api private
+## [br]
 var _request_id: int = 0
+
+## 该终态对应的 save、load、delete 或 reset 操作。
+## [br]
+## @api private
+## [br]
 var _operation: StringName = &""
+
+## 已验证的规范逻辑文件名；路径校验前失败时可为空。
+## [br]
+## @api private
+## [br]
 var _file_name: String = ""
+
+## 区分领域操作结果与 worker 接纳前取消的物理终态类型。
+## [br]
+## @api private
+## [br]
 var _settlement_kind: SettlementKind = SettlementKind.DOMAIN_RESULT
+
+## 当前领域请求是否成功；接纳前取消固定为 false。
+## [br]
+## @api private
+## [br]
 var _ok: bool = false
+
+## 当前终态对应的 Godot Error 码。
+## [br]
+## @api private
+## [br]
 var _error_code: Error = FAILED
+
+## load 请求的类型化结果；其他操作及取消终态为空。
+## [br]
+## @api private
+## [br]
 var _read_result: GFStorageReadResult = null
+
+## delete 请求的类型化结果；其他操作及取消终态为空。
+## [br]
+## @api private
+## [br]
 var _delete_result: GFStorageDeleteResult = null
+
+## reset 请求的类型化结果；其他操作及取消终态为空。
+## [br]
+## @api private
+## [br]
 var _reset_result: GFStorageFamilyResetResult = null
+
+## save 请求的稳定失败分类；非 save 或成功结果使用 NONE。
+## [br]
+## @api private
+## [br]
 var _write_failure_kind: WriteFailureKind = WriteFailureKind.NONE
+
+## save worker payload 预检报告的深拷贝；未执行预检时为空字典。
+## [br]
+## @api private
+## [br]
 var _write_validation_report: Dictionary = {}
 
 
@@ -380,6 +434,10 @@ func configure_cancelled_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 校验操作/终态类型、Error 与成功标记，以及对应领域结果和写入诊断字段组合。
+## [br]
+## @api private
+## [br]
 static func _is_valid_configuration(
 	operation: StringName,
 	ok: bool,

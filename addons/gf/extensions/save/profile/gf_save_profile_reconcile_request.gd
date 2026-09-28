@@ -15,15 +15,43 @@ extends RefCounted
 
 # --- 常量 ---
 
+## reconcile request 输入校验允许的最大递归深度。
+## [br]
+## @api private
+## [br]
 const _MAX_DEPTH: int = 64
+
+## reconcile request 输入校验允许的最大值数量。
+## [br]
+## @api private
+## [br]
 const _MAX_ITEMS: int = 100_000
 
 
 # --- 私有变量 ---
 
+## 标记请求的输入校验是否已经完成。
+## [br]
+## @api private
+## [br]
 var _ready: bool = false
+
+## 标记请求是否已被框架领取。
+## [br]
+## @api private
+## [br]
 var _claimed: bool = false
+
+## 对账 Provider 使用的临时上下文。
+## [br]
+## @api private
+## [br]
 var _context: Dictionary = {}
+
+## 写入对账终态结果的附加元数据。
+## [br]
+## @api private
+## [br]
 var _result_metadata: Dictionary = {}
 
 
@@ -125,6 +153,10 @@ func claim_for_framework() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 以新的深度、数量与访问路径状态检查对账输入字典。
+## [br]
+## @api private
+## [br]
 static func _is_dictionary_supported(value: Dictionary) -> bool:
 	var state: Dictionary = {
 		"items": 0,
@@ -133,6 +165,10 @@ static func _is_dictionary_supported(value: Dictionary) -> bool:
 	return _is_value_supported(value, 0, state)
 
 
+## 检查值类型、容器内容与递归深度，并拒绝访问路径中的循环容器。
+## [br]
+## @api private
+## [br]
 static func _is_value_supported(value: Variant, depth: int, state: Dictionary) -> bool:
 	if depth > _MAX_DEPTH:
 		return false
@@ -172,10 +208,18 @@ static func _is_value_supported(value: Variant, depth: int, state: Dictionary) -
 	return true
 
 
+## 从递归检查状态中读取当前容器访问路径。
+## [br]
+## @api private
+## [br]
 static func _get_visited(state: Dictionary) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(state, "visited"))
 
 
+## 按对象身份检查候选容器是否已在当前递归路径中。
+## [br]
+## @api private
+## [br]
 static func _contains_collection_identity(collections: Array, candidate: Variant) -> bool:
 	for collection: Variant in collections:
 		if is_same(collection, candidate):

@@ -220,6 +220,9 @@ static func measure_text(control: Control, text: String, font_size: int, options
 
 # --- 私有/辅助方法 ---
 
+## 从字典指定键读取 Font；值类型不匹配时返回 null。
+## [br]
+## @api private
 static func _get_dictionary_font(source: Dictionary, key: Variant) -> Font:
 	var value: Variant = GFVariantData.get_option_value(source, key)
 	if value is Font:
@@ -227,6 +230,9 @@ static func _get_dictionary_font(source: Dictionary, key: Variant) -> Font:
 	return null
 
 
+## 复制并归一化字体名、字号范围、尺寸约束和测量模式选项。
+## [br]
+## @api private
 static func _resolve_options(
 	control: Control,
 	options: Dictionary,
@@ -252,6 +258,9 @@ static func _resolve_options(
 	return resolved
 
 
+## 复制调用方选项，并仅为尚未显式设置的键填入控件文本信息。
+## [br]
+## @api private
 static func _merge_control_text_options(options: Dictionary, text_info: Dictionary) -> Dictionary:
 	var merged: Dictionary = options.duplicate(true)
 	if not merged.has("font_name"):
@@ -274,6 +283,9 @@ static func _merge_control_text_options(options: Dictionary, text_info: Dictiona
 	return merged
 
 
+## 优先使用 options.text，否则按支持的 Control 类型提取文本与布局信息。
+## [br]
+## @api private
 static func _get_control_text_info(control: Control, options: Dictionary) -> Dictionary:
 	if options.has("text"):
 		return {
@@ -310,6 +322,9 @@ static func _get_control_text_info(control: Control, options: Dictionary) -> Dic
 	return {}
 
 
+## 提取 Button 文本、对齐、换行设置及包含样式和图标的内容边距。
+## [br]
+## @api private
 static func _get_button_text_info(button: Button) -> Dictionary:
 	var insets: Vector4 = _get_stylebox_insets(button, &"normal")
 	var icon: Texture2D = button.icon
@@ -327,6 +342,9 @@ static func _get_button_text_info(button: Button) -> Dictionary:
 	}
 
 
+## 读取 LineEdit 文本；文本为空时可按 use_placeholder 选项改用 placeholder_text。
+## [br]
+## @api private
 static func _get_line_edit_text_info(line_edit: LineEdit, options: Dictionary) -> Dictionary:
 	var text: String = line_edit.text
 	if text.is_empty() and GFVariantData.get_option_bool(options, "use_placeholder", true):
@@ -342,6 +360,9 @@ static func _get_line_edit_text_info(line_edit: LineEdit, options: Dictionary) -
 	}
 
 
+## 从 Label 提取文本、主题字体键和排版选项。
+## [br]
+## @api private
 static func _get_label_text_info(label: Label) -> Dictionary:
 	return {
 		"text": label.text,
@@ -355,6 +376,9 @@ static func _get_label_text_info(label: Label) -> Dictionary:
 	}
 
 
+## 从 RichTextLabel 提取文本与布局选项；启用 BBCode 时先移除标签。
+## [br]
+## @api private
 static func _get_rich_text_label_text_info(label: RichTextLabel) -> Dictionary:
 	var text: String = label.text
 	if label.bbcode_enabled:
@@ -371,6 +395,9 @@ static func _get_rich_text_label_text_info(label: RichTextLabel) -> Dictionary:
 	}
 
 
+## 按单行一次测量、字号候选或二分搜索路径寻找可容纳的最大字号。
+## [br]
+## @api private
 static func _find_largest_fitting_font_size(control: Control, text: String, options: Dictionary) -> int:
 	var min_font_size: int = GFVariantData.get_option_int(options, "min_font_size", DEFAULT_MIN_FONT_SIZE)
 	var max_font_size: int = GFVariantData.get_option_int(options, "max_font_size", DEFAULT_MAX_FONT_SIZE)
@@ -415,6 +442,9 @@ static func _find_largest_fitting_font_size(control: Control, text: String, opti
 	return best_size
 
 
+## 在 max_font_size 测量一次，按宽高缩放估算字号，并按需选择不超过估值的候选字号。
+## [br]
+## @api private
 static func _find_single_line_font_size_one_pass(
 	control: Control,
 	text: String,
@@ -451,6 +481,9 @@ static func _find_single_line_font_size_one_pass(
 	return min_font_size
 
 
+## 按候选字号从大到小返回首个适配值；都不适配时返回 fallback_font_size。
+## [br]
+## @api private
 static func _find_largest_candidate_font_size(
 	control: Control,
 	text: String,
@@ -464,6 +497,9 @@ static func _find_largest_candidate_font_size(
 	return fallback_font_size
 
 
+## 过滤范围外和重复字号后，以降序返回有效整数候选列表。
+## [br]
+## @api private
 static func _resolve_font_size_candidates(options: Dictionary, min_font_size: int, max_font_size: int) -> Array[int]:
 	var raw_candidates: Array[int] = GFVariantData.get_option_int_array(options, "font_size_candidates", [])
 	var result: Array[int] = []
@@ -481,6 +517,9 @@ static func _resolve_font_size_candidates(options: Dictionary, min_font_size: in
 	return result
 
 
+## 测量指定字号，并仅在启用且可用尺寸为正的宽高方向检查是否容纳。
+## [br]
+## @api private
 static func _fits(control: Control, text: String, font_size: int, options: Dictionary) -> bool:
 	var available_size: Vector2 = _resolve_available_size(control, options)
 	if available_size.x <= 0.0 and available_size.y <= 0.0:
@@ -496,6 +535,9 @@ static func _fits(control: Control, text: String, font_size: int, options: Dicti
 	return true
 
 
+## 解析 Vector2、Vector2i 或回退到控件自身尺寸。
+## [br]
+## @api private
 static func _resolve_available_size(control: Control, options: Dictionary) -> Vector2:
 	var available_size: Variant = GFVariantData.get_option_value(options, "available_size", control.size)
 	if available_size is Vector2i:
@@ -507,6 +549,9 @@ static func _resolve_available_size(control: Control, options: Dictionary) -> Ve
 	return control.size
 
 
+## 从可用尺寸中扣除左右和上下边距，并将结果限制为非负值。
+## [br]
+## @api private
 static func _resolve_content_available_size(control: Control, options: Dictionary) -> Vector2:
 	var size: Vector2 = _resolve_available_size(control, options)
 	var insets: Vector4 = _resolve_content_insets(GFVariantData.get_option_value(options, "content_insets", Vector4.ZERO))
@@ -516,6 +561,9 @@ static func _resolve_content_available_size(control: Control, options: Dictionar
 	)
 
 
+## 将 Vector4、Rect2 或 left/top/right/bottom 字典归一为边距向量。
+## [br]
+## @api private
 static func _resolve_content_insets(value: Variant) -> Vector4:
 	if value is Vector4:
 		var vector: Vector4 = value
@@ -534,6 +582,9 @@ static func _resolve_content_insets(value: Variant) -> Vector4:
 	return Vector4.ZERO
 
 
+## 读取指定主题 StyleBox 的四边 margin；样式不存在时返回零边距。
+## [br]
+## @api private
 static func _get_stylebox_insets(control: Control, stylebox_name: StringName) -> Vector4:
 	var stylebox: StyleBox = control.get_theme_stylebox(stylebox_name)
 	if stylebox == null:
@@ -546,6 +597,9 @@ static func _get_stylebox_insets(control: Control, stylebox_name: StringName) ->
 	)
 
 
+## 按显式模式、旧版开关或排版选项是否存在决定多行测量路径。
+## [br]
+## @api private
 static func _uses_multiline_text_measurement(options: Dictionary) -> bool:
 	var measurement_mode: int = _get_measurement_mode(options)
 	if measurement_mode == MeasurementMode.MULTILINE:
@@ -567,6 +621,9 @@ static func _uses_multiline_text_measurement(options: Dictionary) -> bool:
 	return false
 
 
+## 将 measurement_mode 限制在 AUTO 到 MULTILINE 的枚举范围内。
+## [br]
+## @api private
 static func _get_measurement_mode(options: Dictionary) -> int:
 	return clampi(
 		GFVariantData.get_option_int(options, "measurement_mode", MeasurementMode.AUTO),
@@ -575,6 +632,9 @@ static func _get_measurement_mode(options: Dictionary) -> int:
 	)
 
 
+## 使用 Font.get_string_size() 测量单行文本，并为空文本保留至少一个字号高度。
+## [br]
+## @api private
 static func _measure_single_line_text(
 	font: Font,
 	text: String,
@@ -603,6 +663,9 @@ static func _measure_single_line_text(
 	return size
 
 
+## 使用 Font.get_multiline_string_size() 测量排版文本，并为空文本保留至少一个字号高度。
+## [br]
+## @api private
 static func _measure_multiline_text(
 	font: Font,
 	text: String,
@@ -637,6 +700,9 @@ static func _measure_multiline_text(
 	return size
 
 
+## 将 Godot autowrap 模式映射为 mandatory、grapheme 或 word break flags。
+## [br]
+## @api private
 static func _autowrap_mode_to_line_break_flags(autowrap_mode: int, trim_flags: int = 0) -> int:
 	var flags: int = int(TextServer.BREAK_MANDATORY) | trim_flags
 	match autowrap_mode:
@@ -649,6 +715,9 @@ static func _autowrap_mode_to_line_break_flags(autowrap_mode: int, trim_flags: i
 	return flags
 
 
+## 按换行拆分文本并累计各行尺寸；超过 wrap_width 的行交给 _measure_wrapped_line()。
+## [br]
+## @api private
 static func _measure_lines(font: Font, text: String, font_size: int, wrap_width: float) -> Vector2:
 	var lines: PackedStringArray = text.split("\n")
 	var max_width: float = 0.0
@@ -666,6 +735,9 @@ static func _measure_lines(font: Font, text: String, font_size: int, wrap_width:
 	return Vector2(max_width, total_height)
 
 
+## 逐段扩展当前行文本，宽度将超限时开始新行并累计行高。
+## [br]
+## @api private
 static func _measure_wrapped_line(
 	font: Font,
 	line: String,
@@ -696,6 +768,9 @@ static func _measure_wrapped_line(
 	return Vector2(max_width, line_height * float(line_count))
 
 
+## 用正则表达式移除方括号标签；正则编译失败时返回原文本。
+## [br]
+## @api private
 static func _strip_bbcode(text: String) -> String:
 	var regex: RegEx = RegEx.new()
 	var error: Error = regex.compile("\\[[^\\]]*\\]")

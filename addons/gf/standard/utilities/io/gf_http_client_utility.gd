@@ -46,14 +46,58 @@ const DEFAULT_MAX_RESPONSE_BYTES: int = 16 * 1024 * 1024
 
 # --- 私有变量 ---
 
+## configure() 设置的活动请求容量下限为 1。
+## [br]
+## @api private
+## [br]
 var _max_concurrent_requests: int = 4
+
+## 等待队列容量；configure() 将其限制为非负数。
+## [br]
+## @api private
+## [br]
 var _max_pending_requests: int = 256
+
+## 用于继承默认响应字节预算的内部值。
+## [br]
+## @api private
+## [br]
 var _default_max_response_bytes: int = DEFAULT_MAX_RESPONSE_BYTES
+
+## 可选 worker 父节点的弱引用；引用失效时不会退回默认根节点。
+## [br]
+## @api private
+## [br]
 var _request_parent_ref: WeakRef = null
+
+## 按提交顺序保存尚未取得 HTTPRequest worker 的请求记录。
+## [br]
+## @api private
+## [br]
 var _pending_requests: Array[Dictionary] = []
+
+## 以 worker instance ID 为键保存当前活动请求记录。
+## [br]
+## @api private
+## [br]
 var _active_requests: Dictionary = {}
+
+## 客户端池当前跟踪的全部 HTTPRequest worker。
+## [br]
+## @api private
+## [br]
 var _workers: Array[HTTPRequest] = []
+
+## 可供下一请求复用的 worker 子集。
+## [br]
+## @api private
+## [br]
 var _idle_workers: Array[HTTPRequest] = []
+
+## 标记客户端池是否已由 init() 激活。
+## [br]
+## @api private
+## [br]
 var _is_active: bool = false
 
 
@@ -351,6 +395,10 @@ func _complete_request(
 
 # --- 私有/辅助方法 ---
 
+## 在并发预算内启动等待请求，并在开始信号回调后重新核对池和请求状态。
+## [br]
+## @api private
+## [br]
 func _pump_queue() -> void:
 	if not _is_active:
 		return
@@ -379,6 +427,10 @@ func _pump_queue() -> void:
 			_fail_request_start(worker, response, error)
 
 
+## 清理启动失败的活动记录并归还 worker；只完成尚未进入终态的响应。
+## [br]
+## @api private
+## [br]
 func _fail_request_start(worker: HTTPRequest, response: GFHttpResponse, error: Error) -> void:
 	var entry: Dictionary = _get_active_entry(worker)
 	_disconnect_entry_completion(entry)
@@ -390,6 +442,10 @@ func _fail_request_start(worker: HTTPRequest, response: GFHttpResponse, error: E
 		})
 
 
+## 按响应身份从等待队列移除，或取消匹配的活动请求并异步恢复队列调度。
+## [br]
+## @api private
+## [br]
 func _cancel_response(response: GFHttpResponse) -> void:
 	for index: int in range(_pending_requests.size() - 1, -1, -1):
 		if _get_entry_response(_pending_requests[index]) == response:
@@ -410,6 +466,10 @@ func _cancel_response(response: GFHttpResponse) -> void:
 		return
 
 
+## 清除响应上的池回调后取消未终结响应，避免再进入 worker 回收路径。
+## [br]
+## @api private
+## [br]
 func _cancel_response_without_callback(response: GFHttpResponse, reason: String) -> void:
 	if response == null or response.is_finished():
 		return
@@ -417,6 +477,10 @@ func _cancel_response_without_callback(response: GFHttpResponse, reason: String)
 	response.cancel(reason)
 
 
+## 清理失效/过期 worker 后复用空闲项，必要时在当前父节点创建新 worker。
+## [br]
+## @api private
+## [br]
 func _acquire_worker() -> HTTPRequest:
 	_prune_workers()
 	_retire_idle_workers_with_stale_parent()
@@ -441,6 +505,10 @@ func _acquire_worker() -> HTTPRequest:
 	return worker
 
 
+## 活动时将仍属于当前父节点的 worker 放回空闲池，否则退役该 worker。
+## [br]
+## @api private
+## [br]
 func _release_worker(worker: HTTPRequest) -> void:
 	if not _is_active or not is_instance_valid(worker):
 		return
@@ -452,6 +520,10 @@ func _release_worker(worker: HTTPRequest) -> void:
 	_trim_idle_workers_to_limit()
 
 
+## 退役所有不再属于当前请求父节点的空闲 worker。
+## [br]
+## @api private
+## [br]
 func _retire_idle_workers_with_stale_parent() -> void:
 	for index: int in range(_idle_workers.size() - 1, -1, -1):
 		var worker: HTTPRequest = _idle_workers[index]
@@ -459,12 +531,20 @@ func _retire_idle_workers_with_stale_parent() -> void:
 			_retire_worker(worker)
 
 
+## worker 总数超过并发容量时，从空闲池末尾退役 worker。
+## [br]
+## @api private
+## [br]
 func _trim_idle_workers_to_limit() -> void:
 	while _workers.size() > _max_concurrent_requests and not _idle_workers.is_empty():
 		var worker: HTTPRequest = _idle_workers.back()
 		_retire_worker(worker)
 
 
+## 从两组 worker 列表移除实例后释放节点。
+## [br]
+## @api private
+## [br]
 func _retire_worker(worker: HTTPRequest) -> void:
 	if not is_instance_valid(worker):
 		return
@@ -472,6 +552,10 @@ func _retire_worker(worker: HTTPRequest) -> void:
 	_free_worker(worker)
 
 
+## 检查 worker 实例仍有效、未排队删除且挂在当前预期父节点下。
+## [br]
+## @api private
+## [br]
 func _worker_has_current_parent(worker: HTTPRequest) -> bool:
 	if not is_instance_valid(worker) or worker.is_queued_for_deletion():
 		return false
@@ -479,6 +563,10 @@ func _worker_has_current_parent(worker: HTTPRequest) -> bool:
 	return expected_parent != null and worker.get_parent() == expected_parent
 
 
+## 在场景树未退出时先从父节点移除，再排队释放 worker。
+## [br]
+## @api private
+## [br]
 func _free_worker(worker: HTTPRequest) -> void:
 	if not is_instance_valid(worker):
 		return
@@ -488,6 +576,10 @@ func _free_worker(worker: HTTPRequest) -> void:
 	worker.queue_free()
 
 
+## 从 worker 与空闲 worker 数组中移除已失效实例。
+## [br]
+## @api private
+## [br]
 func _prune_workers() -> void:
 	for index: int in range(_workers.size() - 1, -1, -1):
 		if not is_instance_valid(_workers[index]):
@@ -497,6 +589,12 @@ func _prune_workers() -> void:
 			_idle_workers.remove_at(index)
 
 
+## 使用有效且在树内的配置父节点；未配置时使用 SceneTree.root。
+## [br]
+## 配置过的弱引用失效时返回 null，不回退到 SceneTree.root。
+## [br]
+## @api private
+## [br]
 func _get_request_parent() -> Node:
 	if _request_parent_ref != null:
 		var value: Variant = _request_parent_ref.get_ref()
@@ -513,6 +611,10 @@ func _get_request_parent() -> Node:
 	return scene_tree.root
 
 
+## 若请求完成回调仍连接，则从 entry 指向的 worker 上断开。
+## [br]
+## @api private
+## [br]
 func _disconnect_entry_completion(entry: Dictionary) -> void:
 	var worker: HTTPRequest = _get_entry_worker(entry)
 	var completion: Callable = _get_entry_completion(entry)
@@ -520,16 +622,28 @@ func _disconnect_entry_completion(entry: Dictionary) -> void:
 		worker.request_completed.disconnect(completion)
 
 
+## 按 worker 实例 ID 读取活动请求记录；无效 worker 返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_active_entry(worker: HTTPRequest) -> Dictionary:
 	if not is_instance_valid(worker):
 		return {}
 	return _get_active_entry_by_id(worker.get_instance_id())
 
 
+## 从活动表读取 worker ID 对应的请求记录。
+## [br]
+## @api private
+## [br]
 func _get_active_entry_by_id(worker_id: int) -> Dictionary:
 	return GFVariantData.get_option_dictionary(_active_requests, worker_id)
 
 
+## 将请求记录的 builder 字段收窄为 GFHttpRequestBuilder。
+## [br]
+## @api private
+## [br]
 func _get_entry_builder(entry: Dictionary) -> GFHttpRequestBuilder:
 	var value: Variant = GFVariantData.get_option_value(entry, "builder")
 	if value is GFHttpRequestBuilder:
@@ -538,6 +652,10 @@ func _get_entry_builder(entry: Dictionary) -> GFHttpRequestBuilder:
 	return null
 
 
+## 将请求记录的 response 字段收窄为 GFHttpResponse。
+## [br]
+## @api private
+## [br]
 func _get_entry_response(entry: Dictionary) -> GFHttpResponse:
 	var value: Variant = GFVariantData.get_option_value(entry, "response")
 	if value is GFHttpResponse:
@@ -546,6 +664,10 @@ func _get_entry_response(entry: Dictionary) -> GFHttpResponse:
 	return null
 
 
+## 将请求记录的 worker 字段收窄为 HTTPRequest。
+## [br]
+## @api private
+## [br]
 func _get_entry_worker(entry: Dictionary) -> HTTPRequest:
 	var value: Variant = GFVariantData.get_option_value(entry, "worker")
 	if value is HTTPRequest:
@@ -554,6 +676,10 @@ func _get_entry_worker(entry: Dictionary) -> HTTPRequest:
 	return null
 
 
+## 将请求记录的 completion 字段收窄为 Callable。
+## [br]
+## @api private
+## [br]
 func _get_entry_completion(entry: Dictionary) -> Callable:
 	var value: Variant = GFVariantData.get_option_value(entry, "completion")
 	if value is Callable:
@@ -562,6 +688,10 @@ func _get_entry_completion(entry: Dictionary) -> Callable:
 	return Callable()
 
 
+## 按 instance ID 从全部与空闲 worker 列表移除对应有效实例。
+## [br]
+## @api private
+## [br]
 func _remove_worker_reference(worker_id: int) -> void:
 	for index: int in range(_workers.size() - 1, -1, -1):
 		var worker: HTTPRequest = _workers[index]
@@ -573,6 +703,10 @@ func _remove_worker_reference(worker_id: int) -> void:
 			_idle_workers.remove_at(index)
 
 
+## 将请求构建器方法枚举转换为 HTTPClient 常量，未知值回退到 GET。
+## [br]
+## @api private
+## [br]
 static func _to_http_client_method(method: GFHttpRequestBuilder.Method) -> int:
 	match method:
 		GFHttpRequestBuilder.Method.GET:
@@ -593,6 +727,10 @@ static func _to_http_client_method(method: GFHttpRequestBuilder.Method) -> int:
 
 # --- 信号处理函数 ---
 
+## worker 离树后清理池引用；若其仍承载活动请求则失败响应并恢复队列。
+## [br]
+## @api private
+## [br]
 func _on_worker_tree_exited(worker_id: int) -> void:
 	_remove_worker_reference(worker_id)
 	var entry: Dictionary = _get_active_entry_by_id(worker_id)

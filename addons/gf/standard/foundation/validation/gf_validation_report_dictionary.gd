@@ -14,8 +14,22 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 用于静态调用问题序列化及严重级别转换的内部脚本引用。
+## [br]
+## @api private
+## [br]
 const _GF_VALIDATION_ISSUE_SCRIPT: Script = preload("res://addons/gf/standard/foundation/validation/gf_validation_issue.gd")
+
+## 用于构造校验报告实例的内部脚本引用。
+## [br]
+## @api private
+## [br]
 const _GF_VALIDATION_REPORT_SCRIPT = preload("res://addons/gf/standard/foundation/validation/gf_validation_report.gd")
+
+## 用于转换源码定位范围的内部脚本引用。
+## [br]
+## @api private
+## [br]
 const _GF_SOURCE_SPAN_SCRIPT = preload("res://addons/gf/standard/foundation/validation/gf_source_span.gd")
 
 
@@ -460,6 +474,10 @@ static func promote_warnings(report: Dictionary, kinds: PackedStringArray = Pack
 
 # --- 私有/辅助方法 ---
 
+## 读取报告 issues 数组；字段不是 Array 时创建空数组并写回报告。
+## [br]
+## @api private
+## [br]
 static func _get_issue_array(report: Dictionary) -> Array:
 	var issues_variant: Variant = GFVariantData.get_option_value(report, "issues", [])
 	if not (issues_variant is Array):
@@ -471,6 +489,10 @@ static func _get_issue_array(report: Dictionary) -> Array:
 	return issues
 
 
+## 把源码范围对象或兼容字典转换为带元数据的源码范围字典。
+## [br]
+## @api private
+## [br]
 static func _source_span_to_dict(source_span: Variant) -> Dictionary:
 	var source_span_instance: RefCounted = _get_script_instance(source_span, _GF_SOURCE_SPAN_SCRIPT)
 	if source_span_instance != null:
@@ -485,6 +507,10 @@ static func _source_span_to_dict(source_span: Variant) -> Dictionary:
 	return {}
 
 
+## 按 warnings_as_errors 或提升类别选项把符合条件的警告视为错误。
+## [br]
+## @api private
+## [br]
 static func _get_effective_severity(issue: Dictionary, options: Dictionary) -> String:
 	var severity_name: String = _severity_to_string(GFVariantData.get_option_value(issue, "severity", "error"))
 	if severity_name == "warning":
@@ -495,6 +521,10 @@ static func _get_effective_severity(issue: Dictionary, options: Dictionary) -> S
 	return severity_name
 
 
+## 检查问题类别是否出现在 PackedStringArray 或 Array 提升列表中。
+## [br]
+## @api private
+## [br]
 static func _kind_is_promoted(kind_key: String, promoted_kinds: Variant) -> bool:
 	if promoted_kinds is PackedStringArray:
 		var promoted_names: PackedStringArray = promoted_kinds
@@ -505,12 +535,20 @@ static func _kind_is_promoted(kind_key: String, promoted_kinds: Variant) -> bool
 	return false
 
 
+## 读取问题 kind 并转成文本；空值时使用 unknown。
+## [br]
+## @api private
+## [br]
 static func _get_issue_kind(issue: Dictionary) -> String:
 	var kind_value: Variant = GFVariantData.get_option_value(issue, "kind", "unknown")
 	var kind_text: String = GFVariantData.to_text(kind_value)
 	return kind_text if not kind_text.is_empty() else "unknown"
 
 
+## 依次返回有效错误、有效警告或首个可转换的问题字典。
+## [br]
+## @api private
+## [br]
 static func _get_first_issue_by_priority(report: Dictionary, options: Dictionary) -> Dictionary:
 	for issue_variant: Variant in _get_issue_array(report):
 		var issue: Dictionary = issue_to_dict(issue_variant)
@@ -527,6 +565,10 @@ static func _get_first_issue_by_priority(report: Dictionary, options: Dictionary
 	return {}
 
 
+## 构造忽略类别、键、路径、路径模式和指纹所需的查找上下文。
+## [br]
+## @api private
+## [br]
 static func _make_filter_context(options: Dictionary) -> Dictionary:
 	var fingerprint_fields: PackedStringArray = _to_packed_string_array(GFVariantData.get_option_value(options, "fingerprint_fields", PackedStringArray()))
 	return {
@@ -539,6 +581,10 @@ static func _make_filter_context(options: Dictionary) -> Dictionary:
 	}
 
 
+## 按类别、键、路径、源码路径或指纹判断问题是否命中过滤项。
+## [br]
+## @api private
+## [br]
 static func _issue_matches_filter(issue: Dictionary, filter_context: Dictionary) -> bool:
 	var kind: String = _get_issue_kind(issue)
 	var ignored_kinds: Dictionary = GFVariantData.get_option_dictionary(filter_context, "ignored_kinds")
@@ -570,6 +616,10 @@ static func _issue_matches_filter(issue: Dictionary, filter_context: Dictionary)
 	return false
 
 
+## 合并显式忽略指纹、基线指纹及基线问题生成的指纹。
+## [br]
+## @api private
+## [br]
 static func _make_filter_fingerprint_lookup(options: Dictionary, fingerprint_fields: PackedStringArray) -> Dictionary:
 	var lookup: Dictionary = _make_string_lookup(GFVariantData.get_option_value(options, "ignored_fingerprints", PackedStringArray()))
 	for fingerprint: String in _to_packed_string_array(GFVariantData.get_option_value(options, "baseline_fingerprints", PackedStringArray())):
@@ -584,6 +634,10 @@ static func _make_filter_fingerprint_lookup(options: Dictionary, fingerprint_fie
 	return lookup
 
 
+## 把字符串数组形式的值转换为非空字符串键查找字典。
+## [br]
+## @api private
+## [br]
 static func _make_string_lookup(value: Variant) -> Dictionary:
 	var lookup: Dictionary = {}
 	for item: String in _to_packed_string_array(value):
@@ -592,14 +646,26 @@ static func _make_string_lookup(value: Variant) -> Dictionary:
 	return lookup
 
 
+## 仅当查询文本非空且查找字典含有该键时返回 true。
+## [br]
+## @api private
+## [br]
 static func _lookup_has_value(lookup: Dictionary, value: String) -> bool:
 	return not value.is_empty() and lookup.has(value)
 
 
+## 检查字典是否含指定字符串键或同名 StringName 键。
+## [br]
+## @api private
+## [br]
 static func _has_text_key(data: Dictionary, key: String) -> bool:
 	return data.has(key) or data.has(StringName(key))
 
 
+## 把 PackedStringArray、Array、String 或 StringName 转为字符串数组。
+## [br]
+## @api private
+## [br]
 static func _to_packed_string_array(value: Variant) -> PackedStringArray:
 	if value is PackedStringArray:
 		var packed_value: PackedStringArray = value
@@ -618,12 +684,20 @@ static func _to_packed_string_array(value: Variant) -> PackedStringArray:
 	return result
 
 
+## 将路径与给定 glob 模式编译后逐一匹配。
+## [br]
+## @api private
+## [br]
 static func _path_matches_patterns(path: String, patterns: Variant) -> bool:
 	if path.is_empty():
 		return false
 	return _path_matches_compiled_patterns(path, _make_path_pattern_regexes(patterns))
 
 
+## 把非空 glob 模式转为带首尾锚点的正则，跳过编译失败项。
+## [br]
+## @api private
+## [br]
 static func _make_path_pattern_regexes(patterns: Variant) -> Array[RegEx]:
 	var regexes: Array[RegEx] = []
 	for pattern: String in _to_packed_string_array(patterns):
@@ -636,6 +710,10 @@ static func _make_path_pattern_regexes(patterns: Variant) -> Array[RegEx]:
 	return regexes
 
 
+## 对非空路径逐一搜索有效 RegEx 并在首个匹配时返回 true。
+## [br]
+## @api private
+## [br]
 static func _path_matches_compiled_patterns(path: String, regexes: Array) -> bool:
 	if path.is_empty():
 		return false
@@ -647,6 +725,10 @@ static func _path_matches_compiled_patterns(path: String, regexes: Array) -> boo
 	return false
 
 
+## 将单星号转换为不跨斜线匹配、双星号转换为任意文本，并转义正则元字符。
+## [br]
+## @api private
+## [br]
 static func _glob_to_regex(pattern: String) -> String:
 	var result: String = ""
 	var index: int = 0
@@ -670,6 +752,10 @@ static func _glob_to_regex(pattern: String) -> String:
 	return result
 
 
+## 把值转换为 JSON 兼容形式（不支持类型写为 null）后序列化为文本。
+## [br]
+## @api private
+## [br]
 static func _fingerprint_value(value: Variant) -> String:
 	var compatible: Variant = GFVariantJsonCodec.variant_to_json_compatible(value, {
 		"unsupported": "null",
@@ -677,6 +763,10 @@ static func _fingerprint_value(value: Variant) -> String:
 	return JSON.stringify(compatible, "", true)
 
 
+## 递归检查允许用于指纹的值类型，并限制深度和节点数以避免无界遍历。
+## [br]
+## @api private
+## [br]
 static func _is_stable_fingerprint_value(
 	value: Variant,
 	active_containers: Array,
@@ -742,6 +832,10 @@ static func _is_stable_fingerprint_value(
 	return false
 
 
+## 按实例身份检查容器是否已在当前递归路径中。
+## [br]
+## @api private
+## [br]
 static func _fingerprint_active_contains(active_containers: Array, value: Variant) -> bool:
 	for active_value: Variant in active_containers:
 		if is_same(active_value, value):
@@ -749,6 +843,10 @@ static func _fingerprint_active_contains(active_containers: Array, value: Varian
 	return false
 
 
+## 仅当对象继承自指定脚本且为 RefCounted 时返回该实例。
+## [br]
+## @api private
+## [br]
 static func _get_script_instance(value: Variant, expected_script: Script) -> RefCounted:
 	if not (value is RefCounted):
 		return null
@@ -758,6 +856,10 @@ static func _get_script_instance(value: Variant, expected_script: Script) -> Ref
 	return null
 
 
+## 沿脚本继承链检查是否包含指定基脚本。
+## [br]
+## @api private
+## [br]
 static func _script_matches(instance: Object, expected_script: Script) -> bool:
 	var script_value: Variant = instance.get_script()
 	if not (script_value is Script):
@@ -770,18 +872,34 @@ static func _script_matches(instance: Object, expected_script: Script) -> bool:
 	return false
 
 
+## 创建新的 GFValidationIssue 实例。
+## [br]
+## @api private
+## [br]
 static func _make_validation_issue() -> RefCounted:
 	return GFValidationIssue.new()
 
 
+## 创建新的 GFValidationReport 实例。
+## [br]
+## @api private
+## [br]
 static func _make_validation_report() -> RefCounted:
 	return GFValidationReport.new()
 
 
+## 创建新的 GFSourceSpan 实例。
+## [br]
+## @api private
+## [br]
 static func _make_source_span() -> RefCounted:
 	return GFSourceSpan.new()
 
 
+## 对非空实例调用指定方法并把结果规范化为字典。
+## [br]
+## @api private
+## [br]
 static func _call_dictionary(instance: RefCounted, method_name: StringName, arguments: Array = []) -> Dictionary:
 	if instance == null:
 		return {}
@@ -789,23 +907,39 @@ static func _call_dictionary(instance: RefCounted, method_name: StringName, argu
 	return GFVariantData.as_dictionary(result)
 
 
+## 对非空实例调用指定方法并忽略返回值。
+## [br]
+## @api private
+## [br]
 static func _call_void(instance: RefCounted, method_name: StringName, arguments: Array = []) -> void:
 	if instance == null:
 		return
 	var _result: Variant = instance.callv(method_name, arguments)
 
 
+## 通过问题脚本转换严重级别为文本，无法得到文本时使用 error。
+## [br]
+## @api private
+## [br]
 static func _severity_to_string(value: Variant) -> String:
 	var severity_value: Variant = _GF_VALIDATION_ISSUE_SCRIPT.call(&"severity_to_string", value)
 	var severity_name: String = GFVariantData.to_text(severity_value, "error")
 	return severity_name if not severity_name.is_empty() else "error"
 
 
+## 通过问题脚本归一化 error 严重级别并返回整数值。
+## [br]
+## @api private
+## [br]
 static func _error_severity_value() -> int:
 	var severity_value: Variant = _GF_VALIDATION_ISSUE_SCRIPT.call(&"normalize_severity", "error")
 	return GFVariantData.to_int(severity_value, 2)
 
 
+## 向 PackedStringArray 追加一段文本。
+## [br]
+## @api private
+## [br]
 static func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:

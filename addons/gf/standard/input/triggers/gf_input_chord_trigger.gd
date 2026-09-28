@@ -13,6 +13,10 @@ extends GFInputTrigger
 
 # --- 常量 ---
 
+## 实例存活检查辅助脚本。
+## [br]
+## @api private
+## [br]
 const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
 
 
@@ -100,5 +104,9 @@ func update(raw_active: bool, _value: Variant, _delta: float, state: Dictionary)
 
 # --- 私有/辅助方法 ---
 
+## 从状态字典读取 input_runtime 并通过实例守卫返回仍有效的对象。
+## [br]
+## @api private
+## [br]
 func _get_input_runtime(state: Dictionary) -> Object:
 	return _INSTANCE_GUARD._get_live_object(GFVariantData.get_option_value(state, "input_runtime"))

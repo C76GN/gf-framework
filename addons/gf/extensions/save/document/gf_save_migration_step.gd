@@ -180,6 +180,10 @@ func _migrate_section(
 
 # --- 私有/辅助方法 ---
 
+## 返回迁移步骤校验问题对应的后续操作建议。
+## [br]
+## @api private
+## [br]
 func _get_validation_next_actions() -> Dictionary:
 	return {
 		"missing_migration_step_id": "Assign a stable migration step_id.",

@@ -8,7 +8,14 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 处理超预算或键不适合 object schema 时的保真编码。
+## [br]
+## @api private
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+
+## 未提供 max_collection_items 时采用的投影项数上限。
+## [br]
+## @api private
 const _DEFAULT_MAX_COLLECTION_ITEMS: int = 1024
 
 
@@ -51,6 +58,9 @@ static func to_report_dictionary(source: Dictionary, options: Dictionary = {}) -
 
 # --- 私有/辅助方法 ---
 
+## 读取整数选项；接受有限浮点并截为整数，其余值使用默认值。
+## [br]
+## @api private
 static func _get_int_option(options: Dictionary, key: String, default_value: int) -> int:
 	var value: Variant = options.get(key, default_value)
 	if value is int:

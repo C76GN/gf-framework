@@ -15,7 +15,14 @@ extends GLTFDocumentExtension
 
 # --- 常量 ---
 
+## 标记由 glTF 节点 extras 导入的元数据来源。
+## [br]
+## @api private
 const _GLTF_NODE_EXTRAS_SOURCE: String = "gltf_node_extras"
+
+## 保存导入载荷哈希的节点元数据键，用于识别后续用户修改。
+## [br]
+## @api private
 const _GLTF_OWNED_PAYLOAD_HASH_KEY: StringName = &"gf_asset_metadata_gltf_owned_payload_hash"
 
 
@@ -64,6 +71,9 @@ func _import_node(
 
 # --- 私有/辅助方法 ---
 
+## 仅在来源和载荷仍由本插件拥有时删除资产元数据，否则保留载荷并清理哈希标记。
+## [br]
+## @api private
 func _clear_gltf_metadata_if_owned(node: Node) -> void:
 	if not node.has_meta(GFAssetMetadataUtility.META_ASSET_METADATA_SOURCE):
 		_clear_ownership_marker(node)
@@ -81,6 +91,9 @@ func _clear_gltf_metadata_if_owned(node: Node) -> void:
 	_clear_ownership_marker(node)
 
 
+## 比较节点上的来源哈希与当前规范化资产元数据载荷。
+## [br]
+## @api private
 func _has_unchanged_owned_payload(node: Node) -> bool:
 	if not node.has_meta(_GLTF_OWNED_PAYLOAD_HASH_KEY):
 		return false
@@ -92,10 +105,16 @@ func _has_unchanged_owned_payload(node: Node) -> bool:
 	return GFVariantData.to_text(node.get_meta(_GLTF_OWNED_PAYLOAD_HASH_KEY)) == _make_payload_hash(metadata)
 
 
+## 将元数据字典序列化并计算其 SHA-256 文本哈希。
+## [br]
+## @api private
 func _make_payload_hash(metadata: Dictionary) -> String:
 	return JSON.stringify(metadata, "", true).sha256_text()
 
 
+## 若节点带有本插件的载荷哈希键，则移除该所有权标记。
+## [br]
+## @api private
 func _clear_ownership_marker(node: Node) -> void:
 	if node.has_meta(_GLTF_OWNED_PAYLOAD_HASH_KEY):
 		node.remove_meta(_GLTF_OWNED_PAYLOAD_HASH_KEY)

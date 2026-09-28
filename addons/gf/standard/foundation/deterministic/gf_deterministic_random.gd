@@ -15,17 +15,47 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 状态字典使用的算法标识。
+## [br]
+## @api private
 const _ALGORITHM: String = "xorshift32"
+
+## xorshift32 零状态时使用的非零默认种子。
+## [br]
+## @api private
 const _DEFAULT_SEED: int = 0x6d2b79f5
+
+## u32 位运算使用的掩码。
+## [br]
+## @api private
 const _MASK_U32: int = 0xffffffff
+
+## 将整数归约到 u32 范围时使用的模数。
+## [br]
+## @api private
 const _MOD_U32: int = 0x100000000
+
+## 派生子随机源时混入的固定盐值。
+## [br]
+## @api private
 const _STREAM_SALT: int = 0x9e3779b9
+
+## 状态字典的格式版本号。
+## [br]
+## @api private
 const _STATE_VERSION: int = 1
 
 
 # --- 私有变量 ---
 
+## 最近设置或恢复的非零 u32 种子。
+## [br]
+## @api private
 var _initial_seed: int = _DEFAULT_SEED
+
+## 下一次输出前使用的当前 xorshift32 状态。
+## [br]
+## @api private
 var _state: int = _DEFAULT_SEED
 
 
@@ -314,15 +344,24 @@ func apply_dict(data: Dictionary) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 将整数约束到 u32 并把零状态映射为默认种子。
+## [br]
+## @api private
 static func _normalize_state(value: int) -> int:
 	var result: int = _to_u32(value)
 	return _DEFAULT_SEED if result == 0 else result
 
 
+## 检查状态字典是否含 String 或 StringName 形式的字段键。
+## [br]
+## @api private
 static func _has_state_field(data: Dictionary, field_name: String) -> bool:
 	return data.has(field_name) or data.has(StringName(field_name))
 
 
+## 用模运算将任意有符号整数映射到 0..0xffffffff。
+## [br]
+## @api private
 static func _to_u32(value: int) -> int:
 	var result: int = value % _MOD_U32
 	if result < 0:
@@ -330,6 +369,9 @@ static func _to_u32(value: int) -> int:
 	return result
 
 
+## 执行一次 xorshift32 位移异或转换并归一化结果。
+## [br]
+## @api private
 static func _step(state_value: int) -> int:
 	var next_state: int = _to_u32(state_value)
 	next_state = _to_u32(next_state ^ ((next_state << 13) & _MASK_U32))
@@ -338,6 +380,9 @@ static func _step(state_value: int) -> int:
 	return _normalize_state(next_state)
 
 
+## 判断状态值是否为 u32 整数或有效十进制文本。
+## [br]
+## @api private
 static func _state_value_is_u32(value: Variant) -> bool:
 	if value is int:
 		var int_value: int = value
@@ -347,6 +392,9 @@ static func _state_value_is_u32(value: Variant) -> bool:
 	return false
 
 
+## 将已通过验证的整数或十进制状态文本转成 int。
+## [br]
+## @api private
 static func _state_value_to_int(value: Variant) -> int:
 	if value is int:
 		var int_value: int = value
@@ -354,6 +402,10 @@ static func _state_value_to_int(value: Variant) -> int:
 	return str(value).strip_edges().to_int()
 
 
+## 验证不带正负号的十进制文本是否表示有效 u32。
+## 去除首尾空格，允许前导零，并检查上界。
+## [br]
+## @api private
 static func _u32_text_is_valid(text: String) -> bool:
 	var trimmed: String = text.strip_edges()
 	if trimmed.is_empty() or trimmed.begins_with("-") or trimmed.begins_with("+"):

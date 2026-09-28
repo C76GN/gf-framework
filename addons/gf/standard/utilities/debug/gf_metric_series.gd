@@ -60,6 +60,10 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 按时间顺序保存受 max_samples 限制的指标采样字典。
+## [br]
+## @api private
+## [br]
 var _samples: Array[Dictionary] = []
 
 
@@ -282,6 +286,10 @@ func duplicate_series(include_samples: bool = true) -> GFMetricSeries:
 
 # --- 私有/辅助方法 ---
 
+## 使用保留样本的尾段生成指定宽度的 sparkline，并将归一化值映射到字符梯度。
+## [br]
+## @api private
+## [br]
 func _make_sparkline_for_range(width: int, min_value: float, max_value: float) -> String:
 	# 范围仍来自全部保留采样，只为实际显示的尾段分配归一化值。
 	var start_index: int = maxi(_samples.size() - width, 0)
@@ -293,15 +301,27 @@ func _make_sparkline_for_range(width: int, min_value: float, max_value: float) -
 		var _appended: bool = output.append(SPARKLINE_CHARACTERS.substr(char_index, 1))
 	return "".join(output)
 
+## 移除最旧样本，直到数量不超过 max_samples。
+## [br]
+## @api private
+## [br]
 func _trim_samples() -> void:
 	while _samples.size() > max_samples:
 		_samples.pop_front()
 
 
+## 从采样字典读取数值；字段缺失时按 0.0 处理。
+## [br]
+## @api private
+## [br]
 func _get_sample_value(sample: Dictionary) -> float:
 	return GFVariantData.get_option_float(sample, "value", 0.0)
 
 
+## 计算保留样本的最小值、最大值和算术平均值；空序列的三项均为零。
+## [br]
+## @api private
+## [br]
 func _calculate_statistics() -> Dictionary:
 	if _samples.is_empty():
 		return {
@@ -325,6 +345,10 @@ func _calculate_statistics() -> Dictionary:
 	}
 
 
+## 将 start_index 起的样本按给定范围归一化到 0–1；零跨度统一返回 0.5。
+## [br]
+## @api private
+## [br]
 func _get_normalized_values_for_range(min_value: float, max_value: float, start_index: int = 0) -> PackedFloat32Array:
 	var values: PackedFloat32Array = PackedFloat32Array()
 	var span: float = max_value - min_value
@@ -338,5 +362,9 @@ func _get_normalized_values_for_range(min_value: float, max_value: float, start_
 	return values
 
 
+## 判断浮点值是否既非 NaN 也非无穷。
+## [br]
+## @api private
+## [br]
 func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)

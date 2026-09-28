@@ -180,6 +180,10 @@ static func calculate_value(base_value: float, modifiers: Array, options: Dictio
 
 # --- 私有/辅助方法 ---
 
+## 检查并规范化候选修饰器，记录无效或禁用项，并为有效项保存原始索引。
+## [br]
+## @api private
+## [br]
 static func _collect_sortable_modifiers(
 	modifiers: Array,
 	issues: Array[Dictionary],
@@ -223,6 +227,10 @@ static func _collect_sortable_modifiers(
 	return result
 
 
+## 执行一个已排序修饰器的加、乘或除操作，并记录成功、跳过或错误结果。
+## [br]
+## @api private
+## [br]
 static func _apply_modifier(
 	current_value: float,
 	modifier: Dictionary,
@@ -268,6 +276,10 @@ static func _apply_modifier(
 	return next_value
 
 
+## 按启用选项解析上下限并夹取数值；无效界限或反向区间会记录问题。
+## [br]
+## @api private
+## [br]
 static func _apply_clamp(value: float, options: Dictionary, issues: Array[Dictionary]) -> Dictionary:
 	if not GFVariantData.get_option_bool(options, "clamp_enabled", false):
 		return { "value": value, "clamped": false }
@@ -299,6 +311,10 @@ static func _apply_clamp(value: float, options: Dictionary, issues: Array[Dictio
 	}
 
 
+## 保留有限基值；否则使用经有限性校验的 fallback 并记录输入问题。
+## [br]
+## @api private
+## [br]
 static func _sanitize_base_value(
 	base_value: float,
 	options: Dictionary,
@@ -316,6 +332,10 @@ static func _sanitize_base_value(
 	return fallback_value
 
 
+## 返回有限原值，否则返回有限 fallback；两者都无效时返回零。
+## [br]
+## @api private
+## [br]
 static func _sanitize_finite_float(value: float, fallback_value: float = 0.0) -> float:
 	if _is_finite_float(value):
 		return value
@@ -324,17 +344,29 @@ static func _sanitize_finite_float(value: float, fallback_value: float = 0.0) ->
 	return 0.0
 
 
+## 读取修饰器 id；未提供 id 键时回退到 modifier_id。
+## [br]
+## @api private
+## [br]
 static func _get_modifier_id(raw_modifier: Dictionary) -> StringName:
 	if raw_modifier.has("id"):
 		return GFVariantData.get_option_string_name(raw_modifier, "id", &"")
 	return GFVariantData.get_option_string_name(raw_modifier, "modifier_id", &"")
 
 
+## 将 metadata 安全转换为字典并返回递归深拷贝。
+## [br]
+## @api private
+## [br]
 static func _get_modifier_metadata(raw_modifier: Dictionary) -> Dictionary:
 	var raw_metadata: Variant = GFVariantData.get_option_value(raw_modifier, "metadata", {})
 	return GFVariantData.as_dictionary(raw_metadata).duplicate(true)
 
 
+## 优先读取 primary_key；仅当主键不存在时读取 alias_key。
+## [br]
+## @api private
+## [br]
 static func _get_option_float_alias(
 	options: Dictionary,
 	primary_key: String,
@@ -346,6 +378,10 @@ static func _get_option_float_alias(
 	return GFVariantData.get_option_float(options, alias_key, default_value)
 
 
+## 校验操作值是否为受支持的整数枚举或加、乘、除文本别名。
+## [br]
+## @api private
+## [br]
 static func _is_valid_operation_value(value: Variant) -> bool:
 	if value is int:
 		var int_value: int = value
@@ -367,6 +403,10 @@ static func _is_valid_operation_value(value: Variant) -> bool:
 	return false
 
 
+## 将整数或文本操作值映射到枚举；无法识别的输入回退为加法。
+## [br]
+## @api private
+## [br]
 static func _operation_from_variant(value: Variant) -> int:
 	if value is int:
 		var int_value: int = value
@@ -383,6 +423,10 @@ static func _operation_from_variant(value: Variant) -> int:
 	return Operation.ADD
 
 
+## 将 String 或 StringName 操作值去首尾空格并转为小写文本。
+## [br]
+## @api private
+## [br]
 static func _operation_text_from_variant(value: Variant) -> String:
 	if value is String:
 		var string_value: String = value
@@ -393,6 +437,10 @@ static func _operation_text_from_variant(value: Variant) -> String:
 	return ""
 
 
+## 将乘法和除法枚举写成标准名称，其它枚举值写成 add。
+## [br]
+## @api private
+## [br]
 static func _operation_to_text(operation: int) -> String:
 	match operation:
 		Operation.MULTIPLY:
@@ -402,6 +450,10 @@ static func _operation_to_text(operation: int) -> String:
 	return "add"
 
 
+## 按升序比较优先级；同优先级时按保存在 _index 中的输入顺序排序。
+## [br]
+## @api private
+## [br]
 static func _compare_modifier_priority(left: Dictionary, right: Dictionary) -> bool:
 	var left_priority: int = GFVariantData.get_option_int(left, "priority", 0)
 	var right_priority: int = GFVariantData.get_option_int(right, "priority", 0)
@@ -410,6 +462,10 @@ static func _compare_modifier_priority(left: Dictionary, right: Dictionary) -> b
 	return left_priority < right_priority
 
 
+## 创建问题记录，并仅在有效时附加输入索引和修饰器 ID。
+## [br]
+## @api private
+## [br]
 static func _make_issue(
 	kind: String,
 	message: String,
@@ -427,6 +483,10 @@ static func _make_issue(
 	return issue
 
 
+## 创建跳过项记录；有修饰器数据时附加 ID、优先级、操作和有限数值。
+## [br]
+## @api private
+## [br]
 static func _make_skipped_entry(index: int, reason: String, modifier: Dictionary = {}) -> Dictionary:
 	var entry: Dictionary = {
 		"index": index,
@@ -442,9 +502,17 @@ static func _make_skipped_entry(index: int, reason: String, modifier: Dictionary
 	return entry
 
 
+## 将修饰器的 StringName ID 转换为 String。
+## [br]
+## @api private
+## [br]
 static func _modifier_id_string(modifier: Dictionary) -> String:
 	return String(GFVariantData.get_option_string_name(modifier, "id", &""))
 
 
+## 判断浮点值既不是 NaN 也不是正负无穷。
+## [br]
+## @api private
+## [br]
 static func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)

@@ -115,10 +115,29 @@ const OPERATION_REPLACE: StringName = &"replace"
 
 # --- 私有变量 ---
 
+## 当前嵌套批量变更的深度。
+## [br]
+## @api private
 var _batch_depth: int = 0
+
+## 当前批次累计的元数据。
+## [br]
+## @api private
 var _batch_metadata: Dictionary = {}
+
+## 批次结束时待发布的变更报告。
+## [br]
+## @api private
 var _pending_changes: Array[Dictionary] = []
+
+## 等待按序派发的变更通知项。
+## [br]
+## @api private
 var _change_emission_queue: Array[Dictionary] = []
+
+## 指示变更通知队列当前是否正在派发。
+## [br]
+## @api private
 var _is_emitting_changes: bool = false
 
 
@@ -376,6 +395,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 复制变更报告；批次内暂存，非批次内交给通知队列派发。
+## [br]
+## @api private
 func _record_change(change: Dictionary) -> void:
 	var copied_change: Dictionary = change.duplicate(true)
 	if _batch_depth > 0:
@@ -389,6 +411,9 @@ func _record_change(change: Dictionary) -> void:
 	)
 
 
+## 将变更列表和元数据封装成队列项，并启动通知队列处理。
+## [br]
+## @api private
 func _enqueue_change_emission(
 	changes: Array[Dictionary],
 	change_metadata: Dictionary,
@@ -402,6 +427,10 @@ func _enqueue_change_emission(
 	_drain_change_emission_queue()
 
 
+## 按 FIFO 依次发送单项详情、批量详情和 Resource.changed；回调产生的新变更追加到队尾，当前轮继续处理。
+## 发射标记阻止嵌套 drain，保证同一队列项的三类通知不会被新变更插入。
+## [br]
+## @api private
 func _drain_change_emission_queue() -> void:
 	if _is_emitting_changes:
 		return
@@ -424,6 +453,9 @@ func _drain_change_emission_queue() -> void:
 	_is_emitting_changes = false
 
 
+## 从通知项中筛出 Dictionary 类型的变更报告。
+## [br]
+## @api private
 func _get_emission_changes(emission: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for change_value: Variant in GFVariantData.get_option_array(emission, "changes"):
@@ -433,6 +465,9 @@ func _get_emission_changes(emission: Dictionary) -> Array[Dictionary]:
 	return result
 
 
+## 创建成功的变更报告，并通过 Variant 辅助函数处理旧值与新值。
+## [br]
+## @api private
 func _make_change(
 	operation: StringName,
 	index: int,
@@ -451,6 +486,9 @@ func _make_change(
 	}
 
 
+## 创建索引操作失败报告；旧值、新值为空且元数据为空字典。
+## [br]
+## @api private
 func _make_failure(operation: StringName, index: int, error: String) -> Dictionary:
 	return {
 		"ok": false,
@@ -463,6 +501,9 @@ func _make_failure(operation: StringName, index: int, error: String) -> Dictiona
 	}
 
 
+## 复制变更报告数组中的每个 Dictionary。
+## [br]
+## @api private
 func _copy_changes(source_changes: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for change: Dictionary in source_changes:

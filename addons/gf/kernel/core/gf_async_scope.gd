@@ -16,7 +16,14 @@ extends GFCancellationToken
 
 # --- 私有变量 ---
 
+## 尚未消费的取消清理回调；cancel() 逆序执行，complete() 直接丢弃。
+## [br]
+## @api private
 var _cleanup_callbacks: Array[Callable] = []
+
+## 作用域正常完成标记；取消请求已发生时 complete() 不会设置此值。
+## [br]
+## @api private
 var _completed: bool = false
 
 
@@ -129,6 +136,10 @@ func complete() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 消费当前清理批次；调用前必须已提交取消状态。
+## 执行前清空成员队列，再逆序调用本批回调，避免回调重入修改本批集合。
+## [br]
+## @api private
 func _run_cleanup_callbacks() -> void:
 	var callbacks: Array[Callable] = _cleanup_callbacks.duplicate()
 	_cleanup_callbacks.clear()

@@ -14,7 +14,16 @@ extends GFInputIconProvider
 
 # --- 常量 ---
 
+## 预载输入事件工具，用于键盘事件收窄和副本转换。
+## [br]
+## @api private
+## [br]
 const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_input_event_tools.gd")
+
+## 预载输入事件身份工具，用于生成按优先级排列的通用图标键。
+## [br]
+## @api private
+## [br]
 const _INPUT_EVENT_IDENTITY = preload("res://addons/gf/standard/input/common/gf_input_event_identity.gd")
 
 
@@ -93,9 +102,28 @@ const _INPUT_EVENT_IDENTITY = preload("res://addons/gf/standard/input/common/gf_
 
 # --- 私有变量 ---
 
+## 按资源路径保存已加载 Texture2D 的容量受限缓存。
+## [br]
+## @api private
+## [br]
 var _texture_cache: Dictionary = {}
+
+## 按资源路径保存已确认缺失图标的缓存。
+## [br]
+## @api private
+## [br]
 var _missing_path_cache: Dictionary = {}
+
+## 记录纹理缓存插入顺序，用于容量超限时先淘汰较早项。
+## [br]
+## @api private
+## [br]
 var _texture_cache_order: PackedStringArray = PackedStringArray()
+
+## 记录缺失路径缓存插入顺序，用于容量超限时先淘汰较早项。
+## [br]
+## @api private
+## [br]
 var _missing_path_cache_order: PackedStringArray = PackedStringArray()
 
 
@@ -280,18 +308,30 @@ func get_event_icon_candidates(input_event: InputEvent, options: Dictionary = {}
 
 # --- 私有/辅助方法 ---
 
+## 从字典移除指定键。
+## [br]
+## @api private
+## [br]
 func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 	var removed: bool = target.erase(key)
 	if removed:
 		return
 
 
+## 向 PackedStringArray 追加一个文本值。
+## [br]
+## @api private
+## [br]
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 按选项拆分修饰键图标与纯按键图标；任一路径缺失时返回空列表。
+## [br]
+## @api private
+## [br]
 func _get_rich_text_icon_paths(input_event: InputEvent, options: Dictionary) -> PackedStringArray:
 	var key_event: InputEventKey = _INPUT_EVENT_TOOLS.get_key_event(input_event)
 	if key_event != null and GFVariantData.get_option_bool(options, "split_key_modifiers", split_key_modifiers):
@@ -321,6 +361,10 @@ func _get_rich_text_icon_paths(input_event: InputEvent, options: Dictionary) -> 
 	return PackedStringArray([icon_path])
 
 
+## 按候选顺序查找显式纹理映射，返回首个 Texture2D。
+## [br]
+## @api private
+## [br]
 func _resolve_texture_for_candidates(candidates: PackedStringArray) -> Texture2D:
 	for candidate: String in candidates:
 		var texture: Variant = _get_mapping_value(icon_textures, candidate)
@@ -329,6 +373,10 @@ func _resolve_texture_for_candidates(candidates: PackedStringArray) -> Texture2D
 	return null
 
 
+## 先按候选查显式路径，再按候选生成模板路径，仅返回允许路径。
+## [br]
+## @api private
+## [br]
 func _resolve_path_for_candidates(candidates: PackedStringArray, options: Dictionary) -> String:
 	for candidate: String in candidates:
 		var mapped_path: String = GFVariantData.to_text(_get_mapping_value(icon_paths, candidate))
@@ -342,6 +390,10 @@ func _resolve_path_for_candidates(candidates: PackedStringArray, options: Dictio
 	return ""
 
 
+## 用 options 或 provider 的 root/style/platform/path_pattern 替换模板标记并生成图标路径。
+## [br]
+## @api private
+## [br]
 func _build_icon_path(icon_key: String, options: Dictionary) -> String:
 	var root: String = GFVariantData.get_option_string(options, "root_path", root_path)
 	var selected_style: String = GFVariantData.get_option_string(options, "style", str(style))
@@ -357,6 +409,10 @@ func _build_icon_path(icon_key: String, options: Dictionary) -> String:
 	return resolved_path
 
 
+## 检查路径 scheme；按选项允许缺失路径或验证资源存在，不存在时记录缺失缓存。
+## [br]
+## @api private
+## [br]
 func _path_is_allowed(icon_resource_path: String, options: Dictionary) -> bool:
 	if icon_resource_path.is_empty():
 		return false
@@ -372,12 +428,20 @@ func _path_is_allowed(icon_resource_path: String, options: Dictionary) -> bool:
 	return false
 
 
+## 仅在缺失路径缓存启用时检查指定路径是否已有缺失记录。
+## [br]
+## @api private
+## [br]
 func _path_is_known_missing(icon_resource_path: String, options: Dictionary) -> bool:
 	if not GFVariantData.get_option_bool(options, "cache_missing_paths", cache_missing_paths):
 		return false
 	return _missing_path_cache.has(icon_resource_path)
 
 
+## 容量启用时缓存纹理、维护插入顺序并清除同路径的缺失记录。
+## [br]
+## @api private
+## [br]
 func _remember_texture(icon_resource_path: String, texture: Texture2D) -> void:
 	if icon_resource_path.is_empty() or texture == null or max_cached_textures <= 0:
 		return
@@ -387,6 +451,10 @@ func _remember_texture(icon_resource_path: String, texture: Texture2D) -> void:
 	_erase_cache_entry(_missing_path_cache, _missing_path_cache_order, icon_resource_path)
 
 
+## 在缺失缓存启用且容量为正时记录路径并按容量裁剪。
+## [br]
+## @api private
+## [br]
 func _remember_missing_path(icon_resource_path: String, options: Dictionary) -> void:
 	if icon_resource_path.is_empty() or max_cached_missing_paths <= 0:
 		return
@@ -397,12 +465,20 @@ func _remember_missing_path(icon_resource_path: String, options: Dictionary) -> 
 	_prune_cache_to_capacity(_missing_path_cache, _missing_path_cache_order, max_cached_missing_paths)
 
 
+## 仅在顺序数组尚无该路径时追加缓存键。
+## [br]
+## @api private
+## [br]
 func _append_cache_key(order: PackedStringArray, icon_resource_path: String) -> void:
 	if order.has(icon_resource_path):
 		return
 	var _append_result: bool = order.append(icon_resource_path)
 
 
+## 从缓存字典及其顺序数组同时移除指定路径。
+## [br]
+## @api private
+## [br]
 func _erase_cache_entry(cache: Dictionary, order: PackedStringArray, icon_resource_path: String) -> void:
 	_erase_dictionary_key(cache, icon_resource_path)
 	var index: int = order.find(icon_resource_path)
@@ -410,6 +486,10 @@ func _erase_cache_entry(cache: Dictionary, order: PackedStringArray, icon_resour
 		order.remove_at(index)
 
 
+## 反复淘汰顺序最早的缓存路径，直到数量不超过容量。
+## [br]
+## @api private
+## [br]
 func _prune_cache_to_capacity(cache: Dictionary, order: PackedStringArray, capacity: int) -> void:
 	while order.size() > capacity:
 		var oldest_key: String = order[0]
@@ -417,6 +497,10 @@ func _prune_cache_to_capacity(cache: Dictionary, order: PackedStringArray, capac
 		_erase_dictionary_key(cache, oldest_key)
 
 
+## 只允许 res://、uid:// 或 user:// 资源路径 scheme。
+## [br]
+## @api private
+## [br]
 func _path_has_allowed_scheme(icon_resource_path: String) -> bool:
 	return (
 		icon_resource_path.begins_with("res://")
@@ -425,6 +509,10 @@ func _path_has_allowed_scheme(icon_resource_path: String) -> bool:
 	)
 
 
+## 转义资源路径并生成带可选尺寸的 RichTextLabel img 标记。
+## [br]
+## @api private
+## [br]
 func _make_image_tag(icon_resource_path: String, size: int) -> String:
 	var escaped_path: String = _escape_bbcode(icon_resource_path)
 	if size > 0:
@@ -432,6 +520,10 @@ func _make_image_tag(icon_resource_path: String, size: int) -> String:
 	return "[img]%s[/img]" % escaped_path
 
 
+## 将文本中的方括号替换为 RichTextLabel 的 lb/rb 转义标记。
+## [br]
+## @api private
+## [br]
 func _escape_bbcode(text: String) -> String:
 	var result: String = ""
 	for index: int in range(text.length()):
@@ -445,6 +537,10 @@ func _escape_bbcode(text: String) -> String:
 	return result
 
 
+## 优先用 StringName 键、随后用 String 键查映射，均未命中返回 null。
+## [br]
+## @api private
+## [br]
 func _get_mapping_value(mapping: Dictionary, key: String) -> Variant:
 	var string_name_key: StringName = StringName(key)
 	if mapping.has(string_name_key):
@@ -454,6 +550,10 @@ func _get_mapping_value(mapping: Dictionary, key: String) -> Variant:
 	return null
 
 
+## 把 Variant 收窄为 Texture2D，其他类型返回 null。
+## [br]
+## @api private
+## [br]
 func _get_texture(value: Variant) -> Texture2D:
 	if value is Texture2D:
 		var texture: Texture2D = value
@@ -461,16 +561,28 @@ func _get_texture(value: Variant) -> Texture2D:
 	return null
 
 
+## 通过 ResourceLoader 以 Texture2D 类型和复用缓存模式载入资源。
+## [br]
+## @api private
+## [br]
 func _load_texture(icon_path: String) -> Texture2D:
 	var resource: Resource = ResourceLoader.load(icon_path, "Texture2D", ResourceLoader.CACHE_MODE_REUSE)
 	return _get_texture(resource)
 
 
+## 复制键盘事件并将副本收窄为 InputEventKey。
+## [br]
+## @api private
+## [br]
 func _duplicate_key_event(event: InputEventKey) -> InputEventKey:
 	var duplicate_event: Resource = event.duplicate()
 	return _INPUT_EVENT_TOOLS.get_key_event(duplicate_event)
 
 
+## 按 ctrl、alt、shift、meta 顺序返回已按下的修饰键名称。
+## [br]
+## @api private
+## [br]
 func _get_key_modifier_names(event: InputEventKey) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	if event.ctrl_pressed:
@@ -484,6 +596,10 @@ func _get_key_modifier_names(event: InputEventKey) -> PackedStringArray:
 	return result
 
 
+## 修剪并小写图标键，将空格、斜线、反斜线和点换为下划线。
+## [br]
+## @api private
+## [br]
 func _sanitize_icon_name(value: String) -> String:
 	var result: String = value.strip_edges().to_lower()
 	result = result.replace(" ", "_")

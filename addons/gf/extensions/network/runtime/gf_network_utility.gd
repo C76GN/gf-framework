@@ -128,17 +128,56 @@ var max_transport_metric_samples: int:
 
 # --- 私有变量 ---
 
+## 按 channel_id 注册的网络通道集合。
+## [br]
+## @api private
+## [br]
 var _channels: Dictionary = {}
+
+## 当前安装并使用的网络传输后端。
+## [br]
+## @api private
+## [br]
 var _backend: GFNetworkBackend = null
+
+## 传输指标历史记录允许保留的样本数。
+## [br]
+## @api private
+## [br]
 var _max_transport_metric_samples: int = 120
+
+## 标记客户端连接超时计时是否启用。
+## [br]
+## @api private
+## [br]
 var _connect_timeout_active: bool = false
+
+## 当前客户端连接已累计的超时毫秒数。
+## [br]
+## @api private
+## [br]
 var _connect_timeout_elapsed_msec: int = 0
+
+## 此网络工具在诊断快照中的分区键。
+## [br]
+## @api private
+## [br]
 var _diagnostics_section_key: StringName = &""
+
+## 距下一次传输指标采样累计的毫秒数。
+## [br]
+## @api private
+## [br]
 var _transport_metric_elapsed_msec: int = 0
+
+## 按采样顺序保存的传输指标快照。
+## [br]
+## @api private
+## [br]
 var _transport_metric_samples: Array[GFNetworkTransportMetrics] = []
 
 
-# --- GF 生命周期方法 ---
+# --- 公共方法 ---
 
 ## 注册网络诊断快照贡献。
 ## [br]
@@ -169,8 +208,6 @@ func dispose() -> void:
 	if session != null:
 		session.close("disposed")
 
-
-# --- 公共方法 ---
 
 ## 设置网络后端。
 ## [br]
@@ -431,6 +468,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 校验并序列化消息、按相关通道检查 packet 后调用后端发送。
+## [br]
+## @api private
+## [br]
 func _send_message_internal(
 	peer_id: int,
 	message: GFNetworkMessage,
@@ -470,6 +511,10 @@ func _send_message_internal(
 	return error
 
 
+## 将后端连接、peer 和消息信号连接到工具处理函数。
+## [br]
+## @api private
+## [br]
 func _connect_backend_signals(target_backend: GFNetworkBackend) -> void:
 	var _connect_result_341: Variant = target_backend.connected.connect(_on_backend_connected)
 	var _connect_result_342: Variant = target_backend.disconnected.connect(_on_backend_disconnected)
@@ -478,6 +523,10 @@ func _connect_backend_signals(target_backend: GFNetworkBackend) -> void:
 	var _connect_result_345: Variant = target_backend.message_received.connect(_on_backend_message_received)
 
 
+## 移除工具对后端信号建立的所有连接。
+## [br]
+## @api private
+## [br]
 func _disconnect_backend_signals(target_backend: GFNetworkBackend) -> void:
 	if target_backend.connected.is_connected(_on_backend_connected):
 		target_backend.connected.disconnect(_on_backend_connected)
@@ -491,6 +540,10 @@ func _disconnect_backend_signals(target_backend: GFNetworkBackend) -> void:
 		target_backend.message_received.disconnect(_on_backend_message_received)
 
 
+## 结束旧后端与会话，接入新后端、应用接管信息并刷新诊断。
+## [br]
+## @api private
+## [br]
 func _replace_backend(next_backend: GFNetworkBackend, close_reason: String) -> void:
 	if _backend == next_backend:
 		return
@@ -514,6 +567,10 @@ func _replace_backend(next_backend: GFNetworkBackend, close_reason: String) -> v
 	_publish_diagnostics_contribution()
 
 
+## 按配置的样本上限从最旧端移除过量指标快照。
+## [br]
+## @api private
+## [br]
 func _trim_transport_metric_samples() -> void:
 	if _max_transport_metric_samples <= 0:
 		_transport_metric_samples.clear()
@@ -524,6 +581,10 @@ func _trim_transport_metric_samples() -> void:
 		)
 
 
+## 仅在无活动会话时根据后端接管信息启动主机或客户端会话。
+## [br]
+## @api private
+## [br]
 func _apply_backend_session_bootstrap(target_backend: GFNetworkBackend) -> void:
 	if target_backend == null or session == null or session.is_active:
 		return
@@ -550,6 +611,253 @@ func _apply_backend_session_bootstrap(target_backend: GFNetworkBackend) -> void:
 			session.start_client(endpoint, options)
 
 
+## 收集所有非空注册通道的描述字典。
+## [br]
+## @api private
+## [br]
+func _describe_channels() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for channel: GFNetworkChannel in _channels.values():
+		if channel != null:
+			result.append(channel.describe())
+	return result
+
+
+## 优先按消息 channel_id 查找发送通道，未命中时按 message_type 查找。
+## [br]
+## @api private
+## [br]
+func _resolve_primary_outbound_channel(message: GFNetworkMessage) -> GFNetworkChannel:
+	if message == null:
+		return null
+	var channel: GFNetworkChannel = get_channel(message.channel_id)
+	if channel != null:
+		return channel
+	return get_channel(message.message_type)
+
+
+## 按 message_type 和不同的 channel_id 收集入站校验通道。
+## [br]
+## @api private
+## [br]
+func _resolve_inbound_channels(message: GFNetworkMessage) -> Array[GFNetworkChannel]:
+	var result: Array[GFNetworkChannel] = []
+	if message == null:
+		return result
+	_append_inbound_channel(result, message.message_type)
+	if message.channel_id != message.message_type:
+		_append_inbound_channel(result, message.channel_id)
+	return result
+
+
+## 将已注册且尚未加入结果的非空通道 ID 对应通道加入列表。
+## [br]
+## @api private
+## [br]
+func _append_inbound_channel(result: Array[GFNetworkChannel], channel_id: StringName) -> void:
+	if channel_id == &"" or not _channels.has(channel_id):
+		return
+	var channel: GFNetworkChannel = _get_network_channel_value(_channels[channel_id])
+	if channel == null or result.has(channel):
+		return
+	result.append(channel)
+
+
+## 检查相关入站通道及主通道的正数 packet 大小上限。
+## [br]
+## @api private
+## [br]
+func _message_exceeds_channel_limit(
+	bytes: PackedByteArray,
+	message: GFNetworkMessage,
+	primary_channel: GFNetworkChannel
+) -> bool:
+	var policy_channels: Array[GFNetworkChannel] = _resolve_inbound_channels(message)
+	if primary_channel != null and not policy_channels.has(primary_channel):
+		policy_channels.append(primary_channel)
+	for policy_channel: GFNetworkChannel in policy_channels:
+		if policy_channel.max_packet_size > 0 and bytes.size() > policy_channel.max_packet_size:
+			return true
+	return false
+
+
+## 清零连接超时计数并按超时配置启用计时。
+## [br]
+## @api private
+## [br]
+func _begin_connect_timeout() -> void:
+	_connect_timeout_elapsed_msec = 0
+	_connect_timeout_active = connect_timeout_msec > 0
+
+
+## 关闭连接超时计时并将累计时间归零。
+## [br]
+## @api private
+## [br]
+func _end_connect_timeout() -> void:
+	_connect_timeout_active = false
+	_connect_timeout_elapsed_msec = 0
+
+
+## 累计客户端连接等待时间；到期后断开后端、关闭会话并发出超时信号。
+## [br]
+## @api private
+## [br]
+func _update_connect_timeout(delta: float) -> void:
+	if not _connect_timeout_active or connect_timeout_msec <= 0:
+		return
+	if session == null or not session.is_active or session.mode != GFNetworkSession.Mode.CLIENT:
+		_end_connect_timeout()
+		return
+	if session.has_connection:
+		_end_connect_timeout()
+		return
+
+	_connect_timeout_elapsed_msec += maxi(roundi(delta * 1000.0), 0)
+	if _connect_timeout_elapsed_msec < connect_timeout_msec:
+		return
+
+	_end_connect_timeout()
+	if backend != null:
+		_disconnect_backend_signals(backend)
+		backend.disconnect_backend()
+		_connect_backend_signals(backend)
+	if session != null:
+		session.close("connect_timeout")
+	disconnected.emit("connect_timeout")
+
+
+## 累计有效帧时间，并在达到采样间隔时捕获传输指标快照。
+## [br]
+## @api private
+## [br]
+func _update_transport_metrics(delta: float) -> void:
+	if (
+		backend == null
+		or transport_metrics_sample_interval_msec <= 0
+		or not is_finite(delta)
+		or delta <= 0.0
+	):
+		return
+	_transport_metric_elapsed_msec += maxi(roundi(delta * 1000.0), 0)
+	if _transport_metric_elapsed_msec < transport_metrics_sample_interval_msec:
+		return
+	_transport_metric_elapsed_msec %= transport_metrics_sample_interval_msec
+	var _metrics: GFNetworkTransportMetrics = capture_transport_metrics()
+
+
+## 复制消息及其载荷并替换 channel_id。
+## [br]
+## @api private
+## [br]
+func _copy_message_for_channel(message: GFNetworkMessage, channel_id: StringName) -> GFNetworkMessage:
+	if message == null:
+		return null
+
+	return GFNetworkMessage.new(
+		message.message_type,
+		message.payload,
+		message.sequence,
+		message.tick,
+		message.sender_id,
+		channel_id
+	)
+
+
+## 向诊断工具注册当前网络状态快照分区。
+## [br]
+## @api private
+## [br]
+func _register_diagnostics_contribution() -> void:
+	var diagnostics: GFDiagnosticsUtility = _get_diagnostics_utility_value(get_utility(GFDiagnosticsUtility))
+	if diagnostics == null:
+		return
+
+	_diagnostics_section_key = _get_diagnostics_section_key()
+	var _snapshot_published: bool = diagnostics.publish_snapshot_section(
+		self,
+		_diagnostics_section_key,
+		get_debug_snapshot()
+	)
+
+
+## 移除已注册的网络诊断分区并清空其键。
+## [br]
+## @api private
+## [br]
+func _unregister_diagnostics_contribution() -> void:
+	var diagnostics: GFDiagnosticsUtility = _get_diagnostics_utility_value(get_utility(GFDiagnosticsUtility))
+	if diagnostics == null or _diagnostics_section_key == &"":
+		return
+
+	var _snapshot_removed: bool = diagnostics.remove_snapshot_section(self, _diagnostics_section_key)
+	_diagnostics_section_key = &""
+
+
+## 存在诊断分区时发布当前网络状态快照。
+## [br]
+## @api private
+## [br]
+func _publish_diagnostics_contribution() -> void:
+	if _diagnostics_section_key == &"":
+		return
+	var diagnostics: GFDiagnosticsUtility = _get_diagnostics_utility_value(get_utility(GFDiagnosticsUtility))
+	if diagnostics == null:
+		return
+	var _snapshot_published: bool = diagnostics.publish_snapshot_section(
+		self,
+		_diagnostics_section_key,
+		get_debug_snapshot()
+	)
+
+
+## 返回网络诊断快照使用的分区键。
+## [br]
+## @api private
+## [br]
+func _get_diagnostics_section_key() -> StringName:
+	return &"network"
+
+
+## 仅当 Variant 是 GFNetworkChannel 时返回该通道。
+## [br]
+## @api private
+## [br]
+func _get_network_channel_value(value: Variant) -> GFNetworkChannel:
+	if value is GFNetworkChannel:
+		var channel: GFNetworkChannel = value
+		return channel
+	return null
+
+
+## 仅当 Variant 是 GFNetworkMessage 时返回该消息。
+## [br]
+## @api private
+## [br]
+func _get_network_message_value(value: Variant) -> GFNetworkMessage:
+	if value is GFNetworkMessage:
+		var message: GFNetworkMessage = value
+		return message
+	return null
+
+
+## 仅当 Variant 是 GFDiagnosticsUtility 时返回该工具。
+## [br]
+## @api private
+## [br]
+func _get_diagnostics_utility_value(value: Variant) -> GFDiagnosticsUtility:
+	if value is GFDiagnosticsUtility:
+		var diagnostics: GFDiagnosticsUtility = value
+		return diagnostics
+	return null
+
+
+# --- 信号处理函数 ---
+
+## 结束连接计时、同步会话连接状态并转发 connected 信号。
+## [br]
+## @api private
+## [br]
 func _on_backend_connected() -> void:
 	_end_connect_timeout()
 	if session != null:
@@ -559,6 +867,10 @@ func _on_backend_connected() -> void:
 	connected.emit()
 
 
+## 结束连接计时、关闭会话、刷新诊断并转发断开原因。
+## [br]
+## @api private
+## [br]
 func _on_backend_disconnected(reason: String) -> void:
 	_end_connect_timeout()
 	if session != null:
@@ -567,16 +879,28 @@ func _on_backend_disconnected(reason: String) -> void:
 	disconnected.emit(reason)
 
 
+## 刷新诊断后转发远端 peer 连接信号。
+## [br]
+## @api private
+## [br]
 func _on_backend_peer_connected(peer_id: int) -> void:
 	_publish_diagnostics_contribution()
 	peer_connected.emit(peer_id)
 
 
+## 刷新诊断后转发远端 peer 断开信号。
+## [br]
+## @api private
+## [br]
 func _on_backend_peer_disconnected(peer_id: int) -> void:
 	_publish_diagnostics_contribution()
 	peer_disconnected.emit(peer_id)
 
 
+## 校验并解码入站 bytes，设置发送者、检查通道和消息约束后派发消息。
+## [br]
+## @api private
+## [br]
 func _on_backend_message_received(peer_id: int, bytes: PackedByteArray) -> void:
 	if serializer == null:
 		return
@@ -611,176 +935,3 @@ func _on_backend_message_received(peer_id: int, bytes: PackedByteArray) -> void:
 			return
 	_publish_diagnostics_contribution()
 	message_received.emit(peer_id, message)
-
-
-func _describe_channels() -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	for channel: GFNetworkChannel in _channels.values():
-		if channel != null:
-			result.append(channel.describe())
-	return result
-
-
-func _resolve_primary_outbound_channel(message: GFNetworkMessage) -> GFNetworkChannel:
-	if message == null:
-		return null
-	var channel: GFNetworkChannel = get_channel(message.channel_id)
-	if channel != null:
-		return channel
-	return get_channel(message.message_type)
-
-
-func _resolve_inbound_channels(message: GFNetworkMessage) -> Array[GFNetworkChannel]:
-	var result: Array[GFNetworkChannel] = []
-	if message == null:
-		return result
-	_append_inbound_channel(result, message.message_type)
-	if message.channel_id != message.message_type:
-		_append_inbound_channel(result, message.channel_id)
-	return result
-
-
-func _append_inbound_channel(result: Array[GFNetworkChannel], channel_id: StringName) -> void:
-	if channel_id == &"" or not _channels.has(channel_id):
-		return
-	var channel: GFNetworkChannel = _get_network_channel_value(_channels[channel_id])
-	if channel == null or result.has(channel):
-		return
-	result.append(channel)
-
-
-func _message_exceeds_channel_limit(
-	bytes: PackedByteArray,
-	message: GFNetworkMessage,
-	primary_channel: GFNetworkChannel
-) -> bool:
-	var policy_channels: Array[GFNetworkChannel] = _resolve_inbound_channels(message)
-	if primary_channel != null and not policy_channels.has(primary_channel):
-		policy_channels.append(primary_channel)
-	for policy_channel: GFNetworkChannel in policy_channels:
-		if policy_channel.max_packet_size > 0 and bytes.size() > policy_channel.max_packet_size:
-			return true
-	return false
-
-
-func _begin_connect_timeout() -> void:
-	_connect_timeout_elapsed_msec = 0
-	_connect_timeout_active = connect_timeout_msec > 0
-
-
-func _end_connect_timeout() -> void:
-	_connect_timeout_active = false
-	_connect_timeout_elapsed_msec = 0
-
-
-func _update_connect_timeout(delta: float) -> void:
-	if not _connect_timeout_active or connect_timeout_msec <= 0:
-		return
-	if session == null or not session.is_active or session.mode != GFNetworkSession.Mode.CLIENT:
-		_end_connect_timeout()
-		return
-	if session.has_connection:
-		_end_connect_timeout()
-		return
-
-	_connect_timeout_elapsed_msec += maxi(roundi(delta * 1000.0), 0)
-	if _connect_timeout_elapsed_msec < connect_timeout_msec:
-		return
-
-	_end_connect_timeout()
-	if backend != null:
-		_disconnect_backend_signals(backend)
-		backend.disconnect_backend()
-		_connect_backend_signals(backend)
-	if session != null:
-		session.close("connect_timeout")
-	disconnected.emit("connect_timeout")
-
-
-func _update_transport_metrics(delta: float) -> void:
-	if (
-		backend == null
-		or transport_metrics_sample_interval_msec <= 0
-		or not is_finite(delta)
-		or delta <= 0.0
-	):
-		return
-	_transport_metric_elapsed_msec += maxi(roundi(delta * 1000.0), 0)
-	if _transport_metric_elapsed_msec < transport_metrics_sample_interval_msec:
-		return
-	_transport_metric_elapsed_msec %= transport_metrics_sample_interval_msec
-	var _metrics: GFNetworkTransportMetrics = capture_transport_metrics()
-
-
-func _copy_message_for_channel(message: GFNetworkMessage, channel_id: StringName) -> GFNetworkMessage:
-	if message == null:
-		return null
-
-	return GFNetworkMessage.new(
-		message.message_type,
-		message.payload,
-		message.sequence,
-		message.tick,
-		message.sender_id,
-		channel_id
-	)
-
-
-func _register_diagnostics_contribution() -> void:
-	var diagnostics: GFDiagnosticsUtility = _get_diagnostics_utility_value(get_utility(GFDiagnosticsUtility))
-	if diagnostics == null:
-		return
-
-	_diagnostics_section_key = _get_diagnostics_section_key()
-	var _snapshot_published: bool = diagnostics.publish_snapshot_section(
-		self,
-		_diagnostics_section_key,
-		get_debug_snapshot()
-	)
-
-
-func _unregister_diagnostics_contribution() -> void:
-	var diagnostics: GFDiagnosticsUtility = _get_diagnostics_utility_value(get_utility(GFDiagnosticsUtility))
-	if diagnostics == null or _diagnostics_section_key == &"":
-		return
-
-	var _snapshot_removed: bool = diagnostics.remove_snapshot_section(self, _diagnostics_section_key)
-	_diagnostics_section_key = &""
-
-
-func _publish_diagnostics_contribution() -> void:
-	if _diagnostics_section_key == &"":
-		return
-	var diagnostics: GFDiagnosticsUtility = _get_diagnostics_utility_value(get_utility(GFDiagnosticsUtility))
-	if diagnostics == null:
-		return
-	var _snapshot_published: bool = diagnostics.publish_snapshot_section(
-		self,
-		_diagnostics_section_key,
-		get_debug_snapshot()
-	)
-
-
-func _get_diagnostics_section_key() -> StringName:
-	return &"network"
-
-
-func _get_network_channel_value(value: Variant) -> GFNetworkChannel:
-	if value is GFNetworkChannel:
-		var channel: GFNetworkChannel = value
-		return channel
-	return null
-
-
-func _get_network_message_value(value: Variant) -> GFNetworkMessage:
-	if value is GFNetworkMessage:
-		var message: GFNetworkMessage = value
-		return message
-	return null
-
-
-func _get_diagnostics_utility_value(value: Variant) -> GFDiagnosticsUtility:
-	if value is GFDiagnosticsUtility:
-		var diagnostics: GFDiagnosticsUtility = value
-		return diagnostics
-	return null

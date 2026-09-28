@@ -186,6 +186,9 @@ func get_stage_descriptor() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 数组输入保序，字典输入按排序后的键取行；逐行深复制字典，任一非字典行使整次规范化失败。
+## [br]
+## @api private
 func _normalize_records(table_data: Variant) -> Dictionary:
 	var records: Array[Dictionary] = []
 	if table_data is Array:
@@ -220,6 +223,9 @@ func _normalize_records(table_data: Variant) -> Dictionary:
 	return _make_records_failure(table_data)
 
 
+## 优先复制来源显式 schema，其次复制类型化表头 schema，最后按开关推断；只在候选表名为空时回填当前表名。
+## [br]
+## @api private
 func _resolve_schema(
 	source: GFConfigPipelineTableSource,
 	table_name: StringName,
@@ -237,6 +243,9 @@ func _resolve_schema(
 	return schema
 
 
+## 缺少 schema 时仅记录警告；否则合并来源和本次解析选项，补齐文件与行位置后分别校验定义及记录并汇总报告。
+## [br]
+## @api private
 func _validate_table_source(
 	source: GFConfigPipelineTableSource,
 	table_name: StringName,
@@ -276,6 +285,9 @@ func _validate_table_source(
 	return report
 
 
+## 按开关解析类型化表头并重映射字段；类型行模式先移除其记录和位置，后续失败不会恢复已移除的来源位置，成功后才重映射字段位置。
+## [br]
+## @api private
 func _apply_typed_header_schema(
 	source: GFConfigPipelineTableSource,
 	table_name: StringName,
@@ -337,6 +349,10 @@ func _apply_typed_header_schema(
 	}
 
 
+## 优先收集解析结果中的表头字段名；没有可用表头时改从记录键收集。
+## [br]
+## @api private
+## [br]
 func _collect_typed_header_field_names(parse_result: Dictionary, records: Array[Dictionary]) -> Array[StringName]:
 	var header_fields: Array[StringName] = _collect_header_field_names(GFVariantData.get_option_value(parse_result, "header"))
 	if not header_fields.is_empty():
@@ -344,6 +360,10 @@ func _collect_typed_header_field_names(parse_result: Dictionary, records: Array[
 	return _collect_record_field_names(records)
 
 
+## 从 PackedStringArray 或 Array 表头提取去空白、去空值并去重的字段名。
+## [br]
+## @api private
+## [br]
 func _collect_header_field_names(header_value: Variant) -> Array[StringName]:
 	var result: Array[StringName] = []
 	var seen_fields: Dictionary = {}
@@ -358,6 +378,10 @@ func _collect_header_field_names(header_value: Variant) -> Array[StringName]:
 	return result
 
 
+## 去除列名首尾空白后，将非空且尚未出现的 StringName 追加到目标数组。
+## [br]
+## @api private
+## [br]
 func _append_header_field_name(target: Array[StringName], seen_fields: Dictionary, column_name: String) -> void:
 	var field_name: StringName = StringName(column_name.strip_edges())
 	if field_name == &"" or seen_fields.has(field_name):
@@ -366,6 +390,10 @@ func _append_header_field_name(target: Array[StringName], seen_fields: Dictionar
 	target.append(field_name)
 
 
+## 按记录和各记录键的遍历顺序收集首个出现的非空字段名。
+## [br]
+## @api private
+## [br]
 func _collect_record_field_names(records: Array[Dictionary]) -> Array[StringName]:
 	var result: Array[StringName] = []
 	var seen_fields: Dictionary = {}
@@ -379,6 +407,9 @@ func _collect_record_field_names(records: Array[Dictionary]) -> Array[StringName
 	return result
 
 
+## 优先使用解析表头顺序，否则收集记录字段；将首条记录的类型文本附到字段名，空类型保留裸字段交由后续按 any 解析。
+## [br]
+## @api private
 func _collect_typed_header_type_row_field_names(
 	parse_result: Dictionary,
 	records: Array[Dictionary]
@@ -417,6 +448,10 @@ func _collect_typed_header_type_row_field_names(
 	}
 
 
+## 将结果字典的 fields 数组转为 StringName，并跳过空名称。
+## [br]
+## @api private
+## [br]
 func _get_typed_header_field_array(data: Dictionary) -> Array[StringName]:
 	var result: Array[StringName] = []
 	for field_value: Variant in GFVariantData.get_option_array(data, "fields"):
@@ -426,6 +461,10 @@ func _get_typed_header_field_array(data: Dictionary) -> Array[StringName]:
 	return result
 
 
+## 优先按 StringName 查找记录字段，再按对应 String 查找；都不存在时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_record_field_value(record: Dictionary, field_name: StringName) -> Variant:
 	if record.has(field_name):
 		return record[field_name]
@@ -435,6 +474,10 @@ func _get_record_field_value(record: Dictionary, field_name: StringName) -> Vari
 	return null
 
 
+## 返回从索引 1 开始的记录数组，保留其余记录值的原有引用。
+## [br]
+## @api private
+## [br]
 func _drop_first_record(records: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for index: int in range(1, records.size()):
@@ -442,6 +485,10 @@ func _drop_first_record(records: Array[Dictionary]) -> Array[Dictionary]:
 	return result
 
 
+## 若 parse_result.row_locations 是非空数组，则移除首项并写回该字段。
+## [br]
+## @api private
+## [br]
 func _drop_first_parse_result_row_location(parse_result: Dictionary) -> void:
 	var row_locations_value: Variant = GFVariantData.get_option_value(parse_result, "row_locations", [])
 	if not (row_locations_value is Array):
@@ -453,6 +500,10 @@ func _drop_first_parse_result_row_location(parse_result: Dictionary) -> void:
 	parse_result["row_locations"] = row_locations
 
 
+## 根据 schema_options 创建类型化表头 schema，并写入默认值和表头来源元数据。
+## [br]
+## @api private
+## [br]
 func _make_typed_header_schema(table_name: StringName, schema_options: Dictionary) -> GFConfigTableSchema:
 	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
 	schema.table_name = table_name
@@ -469,6 +520,9 @@ func _make_typed_header_schema(table_name: StringName, schema_options: Dictionar
 	return schema
 
 
+## 以最后一个冒号拆分字段和类型并剥离尾部标记；无类型默认 any，任意必填标记最终禁止 null，不支持的类型返回字段诊断。
+## [br]
+## @api private
 func _parse_typed_header_column(raw_field_name: StringName) -> Dictionary:
 	var raw_text: String = String(raw_field_name).strip_edges()
 	if raw_text.is_empty():
@@ -506,6 +560,9 @@ func _parse_typed_header_column(raw_field_name: StringName) -> Dictionary:
 	}
 
 
+## 先从字段尾部再从类型尾部逐个剥离 ! 和 ?；出现 ! 后 required 保持为真，allow_null 随扫描更新，调用方最终用 required 收紧空值许可。
+## [br]
+## @api private
 func _strip_typed_header_markers(field_text: String, type_text: String) -> Dictionary:
 	var required: bool = false
 	var allow_null: bool = true
@@ -533,6 +590,10 @@ func _strip_typed_header_markers(field_text: String, type_text: String) -> Dicti
 	}
 
 
+## 将内置类型别名映射到列 ValueType；无法识别的文本返回 false。
+## [br]
+## @api private
+## [br]
 func _assign_typed_header_value_type(column: GFConfigTableColumn, type_text: String) -> bool:
 	match type_text:
 		"", "any", "variant":
@@ -562,6 +623,9 @@ func _assign_typed_header_value_type(column: GFConfigTableColumn, type_text: Str
 	return true
 
 
+## 逐行新建字典并复制值，键归一为目标 StringName；空目标被跳过，多个原键映射到同一目标时后写覆盖前写。
+## [br]
+## @api private
 func _remap_record_fields(records: Array[Dictionary], field_name_map: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for record: Dictionary in records:
@@ -576,6 +640,9 @@ func _remap_record_fields(records: Array[Dictionary], field_name_map: Dictionary
 	return result
 
 
+## 直接在各行共享 fields 字典中添加规范字段名及文本别名；沿用原位置字典引用并保留旧字段键。
+## [br]
+## @api private
 func _remap_parse_result_field_locations(parse_result: Dictionary, field_name_map: Dictionary) -> void:
 	var raw_locations: Variant = GFVariantData.get_option_value(parse_result, "row_locations", [])
 	if not (raw_locations is Array):
@@ -601,6 +668,10 @@ func _remap_parse_result_field_locations(parse_result: Dictionary, field_name_ma
 				fields[String(target_field_name)] = field_location
 
 
+## 生成类型化表头失败结果，并附带字段名及支持的类型别名列表。
+## [br]
+## @api private
+## [br]
 func _make_typed_header_failure(
 	kind: String,
 	message: String,
@@ -630,6 +701,10 @@ func _make_typed_header_failure(
 	}
 
 
+## 按输入顺序调用 schema.coerce_record() 转换每条记录并收集结果。
+## [br]
+## @api private
+## [br]
 func _coerce_records(records: Array[Dictionary], schema: GFConfigTableSchema) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for record: Dictionary in records:
@@ -637,6 +712,10 @@ func _coerce_records(records: Array[Dictionary], schema: GFConfigTableSchema) ->
 	return result
 
 
+## 从来源元数据的深拷贝构造表元数据，并写入来源路径与解析格式。
+## [br]
+## @api private
+## [br]
 func _make_table_metadata(source: GFConfigPipelineTableSource, resolved_format: StringName) -> Dictionary:
 	var result: Dictionary = source.metadata.duplicate(true)
 	result["source_path"] = source.source_path
@@ -644,6 +723,10 @@ func _make_table_metadata(source: GFConfigPipelineTableSource, resolved_format: 
 	return result
 
 
+## 生成来源映射，复制 source 与 row_locations，并附带可选的 header、sections。
+## [br]
+## @api private
+## [br]
 func _make_source_map(layout_result: Dictionary) -> Dictionary:
 	var result: Dictionary = {
 		"source": GFVariantData.get_option_string(layout_result, "source"),
@@ -657,6 +740,10 @@ func _make_source_map(layout_result: Dictionary) -> Dictionary:
 	return result
 
 
+## 生成 Validation 失败结果；深复制上下文，按需补入 source 并创建错误报告。
+## [br]
+## @api private
+## [br]
 func _make_compile_failure(
 	table_name: StringName,
 	kind: String,
@@ -681,6 +768,10 @@ func _make_compile_failure(
 	}
 
 
+## 返回记录载荷类型无效的结果，并以 type_string() 标出实际 Variant 类型。
+## [br]
+## @api private
+## [br]
 func _make_records_failure(table_data: Variant) -> Dictionary:
 	return {
 		"success": false,
@@ -689,6 +780,10 @@ func _make_records_failure(table_data: Variant) -> Dictionary:
 	}
 
 
+## 从结果的 records 数组中筛选 Dictionary 项；缺失或非数组时返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_result_records(result: Dictionary) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	var raw_records: Variant = GFVariantData.get_option_value(result, "records", [])
@@ -702,6 +797,10 @@ func _get_result_records(result: Dictionary) -> Array[Dictionary]:
 	return records
 
 
+## 仅当结果中的 schema 值为 GFConfigTableSchema 时返回该对象。
+## [br]
+## @api private
+## [br]
 func _get_schema_from_result(result: Dictionary) -> GFConfigTableSchema:
 	var schema_value: Variant = GFVariantData.get_option_value(result, "schema")
 	if schema_value is GFConfigTableSchema:
@@ -710,6 +809,10 @@ func _get_schema_from_result(result: Dictionary) -> GFConfigTableSchema:
 	return null
 
 
+## 仅当结果中的 column 值为 GFConfigTableColumn 时返回该对象。
+## [br]
+## @api private
+## [br]
 func _get_column_from_result(result: Dictionary) -> GFConfigTableColumn:
 	var column_value: Variant = GFVariantData.get_option_value(result, "column")
 	if column_value is GFConfigTableColumn:

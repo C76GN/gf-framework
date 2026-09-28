@@ -15,9 +15,28 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 构建但不导出的命令操作名。
+## [br]
+## @api private
+## [br]
 const _OPERATION_BUILD: StringName = &"build"
+
+## 默认 Profile 导出操作名。
+## [br]
+## @api private
+## [br]
 const _OPERATION_EXPORT: StringName = &"export"
+
+## 加载 Profile 并报告状态的操作名。
+## [br]
+## @api private
+## [br]
 const _OPERATION_LOAD: StringName = &"load"
+
+## 未指定 operation 时使用导出操作。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_OPERATION: StringName = _OPERATION_EXPORT
 
 
@@ -157,6 +176,9 @@ func get_usage() -> String:
 
 # --- 私有/辅助方法 ---
 
+## 复制基础选项后从左到右处理参数和别名，重复赋值以后者为准；未知参数、缺值和不支持操作立即失败，help 只免除 profile 必填检查。
+## [br]
+## @api private
 func _parse_arguments(arguments: PackedStringArray, base_options: Dictionary) -> Dictionary:
 	var profile_path: String = ""
 	var operation: StringName = _DEFAULT_OPERATION
@@ -288,6 +310,9 @@ func _parse_arguments(arguments: PackedStringArray, base_options: Dictionary) ->
 	}
 
 
+## 仅按第一个等号拆分选项；保留后续等号及空内联值，并用 has_value 区分未提供等号的 token。
+## [br]
+## @api private
 func _split_option_token(raw_token: String) -> Dictionary:
 	var equal_index: int = raw_token.find("=")
 	if equal_index < 0:
@@ -303,6 +328,9 @@ func _split_option_token(raw_token: String) -> Dictionary:
 	}
 
 
+## 优先接收内联值，包括空串；否则消费下一 token，但拒绝缺项和以减号开头的 token，并返回下一次解析索引。
+## [br]
+## @api private
 func _read_option_value(
 	arguments: PackedStringArray,
 	index: int,
@@ -340,6 +368,10 @@ func _read_option_value(
 	}
 
 
+## 按操作名委托给 runner 的 load_profile、build_profile_path 或 export_profile_path。
+## [br]
+## @api private
+## [br]
 func _run_operation(
 	runner: GFConfigPipelineRunner,
 	operation: StringName,
@@ -353,6 +385,10 @@ func _run_operation(
 	return runner.export_profile_path(profile_path, options)
 
 
+## 仅接受 export、build 和 load 三种操作。
+## [br]
+## @api private
+## [br]
 func _is_supported_operation(operation: StringName) -> bool:
 	return (
 		operation == _OPERATION_EXPORT
@@ -361,6 +397,10 @@ func _is_supported_operation(operation: StringName) -> bool:
 	)
 
 
+## 报告包含正 warning_count 或非空 warnings 数组时返回 true。
+## [br]
+## @api private
+## [br]
 func _runner_result_has_warnings(result: Dictionary) -> bool:
 	var report: Dictionary = GFVariantData.get_option_dictionary(result, "report")
 	if GFVariantData.get_option_int(report, "warning_count") > 0:
@@ -369,6 +409,10 @@ func _runner_result_has_warnings(result: Dictionary) -> bool:
 	return not warnings.is_empty()
 
 
+## 构造参数解析失败结果，固定 exit_code 为 2 并保留解析状态。
+## [br]
+## @api private
+## [br]
 func _make_parse_failure(
 	operation: StringName,
 	profile_path: String,
@@ -393,6 +437,10 @@ func _make_parse_failure(
 	}
 
 
+## 构造 CLI 最终结果，并附加 options、runner_result 与常用输出标志。
+## [br]
+## @api private
+## [br]
 func _make_command_result(
 	success: bool,
 	exit_code: int,
@@ -424,6 +472,10 @@ func _make_command_result(
 	}
 
 
+## 生成人类可读的多行状态摘要，包含操作、Profile、退出码及可用清单/错误信息。
+## [br]
+## @api private
+## [br]
 func _make_summary_text(result: Dictionary) -> String:
 	var lines: PackedStringArray = PackedStringArray()
 	var operation: String = String(GFVariantData.get_option_string_name(result, "operation"))
@@ -444,10 +496,17 @@ func _make_summary_text(result: Dictionary) -> String:
 	return "\n".join(lines)
 
 
+## 将单行文本追加到摘要行数组。
+## [br]
+## @api private
+## [br]
 func _append_line(lines: PackedStringArray, text: String) -> void:
 	var _append_result: bool = lines.append(text)
 
 
+## 为命令行 JSON 报告配置 DEBUG 脱敏及深度、文本、集合和总节点预算，并保持字典键原样编码。
+## [br]
+## @api private
 func _make_report_codec_options() -> Dictionary:
 	return GFReportValueCodec.make_redaction_options(
 		GFReportValueCodec.REDACTION_PROFILE_DEBUG,

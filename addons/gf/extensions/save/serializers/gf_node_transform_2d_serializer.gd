@@ -13,6 +13,10 @@ extends GFNodeSerializer
 
 # --- 常量 ---
 
+## gather/apply 共用的 Node2D 变换字段及其编码类型清单。
+## [br]
+## @api private
+## [br]
 const _PROPERTY_SPECS: Array[Dictionary] = [
 	{ "key": "position", "kind": &"vector2" },
 	{ "key": "rotation", "kind": &"float" },
@@ -92,6 +96,10 @@ func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictio
 
 # --- 私有/辅助方法 ---
 
+## 将 Node2D 类型节点返回为强类型引用。
+## [br]
+## @api private
+## [br]
 func _get_node_2d(node: Node) -> Node2D:
 	if node is Node2D:
 		var node_2d: Node2D = node

@@ -6,11 +6,40 @@ extends EditorProperty
 
 # --- 私有变量 ---
 
+## InspectorProperty 内部承载网格的根容器。
+## [br]
+## @api private
+## [br]
 var _root: MarginContainer
+
+## 显示 Pattern2D 格子的复选框网格。
+## [br]
+## @api private
+## [br]
 var _grid: GridContainer
+
+## 当前编辑过程中的启用格子集合。
+## [br]
+## @api private
+## [br]
 var _current_cells: Array[Vector2i] = []
+
+## 防止程序化更新控件时递归处理其信号。
+## [br]
+## @api private
+## [br]
 var _is_updating: bool = false
+
+## 表示鼠标左键拖动涂绘仍处于活动状态。
+## [br]
+## @api private
+## [br]
 var _is_dragging: bool = false
+
+## 当前拖动手势需要应用到后续格子的启用状态。
+## [br]
+## @api private
+## [br]
 var _drag_value: bool = false
 
 
@@ -42,6 +71,10 @@ func _update_property() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 释放旧网格控件并根据 pattern 尺寸和已选格子重建复选框。
+## [br]
+## @api private
+## [br]
 func _rebuild_grid(pattern: GFPattern2D) -> void:
 	for child: Node in _grid.get_children():
 		_grid.remove_child(child)
@@ -57,6 +90,10 @@ func _rebuild_grid(pattern: GFPattern2D) -> void:
 			_grid.add_child(_create_cell_button(Vector2i(x, y), cells))
 
 
+## 创建一个格子复选框、初始化选中状态并连接输入与鼠标信号。
+## [br]
+## @api private
+## [br]
 func _create_cell_button(cell: Vector2i, cells: Array) -> CheckBox:
 	var checkbox: CheckBox = CheckBox.new()
 	checkbox.focus_mode = Control.FOCUS_NONE
@@ -70,6 +107,10 @@ func _create_cell_button(cell: Vector2i, cells: Array) -> CheckBox:
 	return checkbox
 
 
+## 从当前格集合增删指定格，并返回按行再列排序的新数组。
+## [br]
+## @api private
+## [br]
 func _make_next_cells(cell: Vector2i, enabled: bool) -> Array[Vector2i]:
 	var edited_object: Object = get_edited_object()
 	var next_cells: Array[Vector2i] = []
@@ -90,6 +131,10 @@ func _make_next_cells(cell: Vector2i, enabled: bool) -> Array[Vector2i]:
 	return next_cells
 
 
+## 忽略控件同步期间的事件；数据变化时更新本地格集合并通知 Inspector。
+## [br]
+## @api private
+## [br]
 func _apply_cell_change(cell: Vector2i, enabled: bool) -> void:
 	if _is_updating:
 		return
@@ -102,6 +147,10 @@ func _apply_cell_change(cell: Vector2i, enabled: bool) -> void:
 	emit_changed("cells", next_cells)
 
 
+## 在更新保护标志内同步复选框状态，避免再次响应程序化信号。
+## [br]
+## @api private
+## [br]
 func _set_checkbox_pressed(checkbox: CheckBox, enabled: bool) -> void:
 	if checkbox.button_pressed == enabled:
 		return
@@ -112,12 +161,20 @@ func _set_checkbox_pressed(checkbox: CheckBox, enabled: bool) -> void:
 
 # --- 信号处理函数 ---
 
+## 将格子开关信号转发到统一的数据变更处理。
+## [br]
+## @api private
+## [br]
 func _on_cell_toggled(enabled: bool, cell: Vector2i) -> void:
 	if _is_updating:
 		return
 	_apply_cell_change(cell, enabled)
 
 
+## 处理左键按下和释放，设置拖动绘制值并更新当前格子。
+## [br]
+## @api private
+## [br]
 func _on_cell_gui_input(event: InputEvent, checkbox: CheckBox, cell: Vector2i) -> void:
 	if not (event is InputEventMouseButton):
 		return
@@ -137,6 +194,10 @@ func _on_cell_gui_input(event: InputEvent, checkbox: CheckBox, cell: Vector2i) -
 		checkbox.accept_event()
 
 
+## 左键拖动经过格子时沿用拖动起始状态并应用格子变更。
+## [br]
+## @api private
+## [br]
 func _on_cell_mouse_entered(checkbox: CheckBox, cell: Vector2i) -> void:
 	if not _is_dragging:
 		return

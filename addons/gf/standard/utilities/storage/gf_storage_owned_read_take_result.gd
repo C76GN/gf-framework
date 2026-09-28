@@ -39,8 +39,22 @@ enum Status {
 
 # --- 私有变量 ---
 
+## 标记框架是否已配置领取终态。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
+
+## 本次领取尝试的闭合状态。
+## [br]
+## @api private
+## [br]
 var _status: Status = Status.INVALID
+
+## SUCCESS 时直接接收的已移交读取结果。
+## [br]
+## @api private
+## [br]
 var _read_result: GFStorageReadResult = null
 
 

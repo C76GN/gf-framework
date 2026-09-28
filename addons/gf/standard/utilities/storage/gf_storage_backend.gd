@@ -265,6 +265,10 @@ func _get_capabilities() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 通过 GFResultDictionary 组装后端读取报告，并深拷贝 data 与 metadata。
+## [br]
+## @api private
+## [br]
 func _make_result(
 	ok: bool,
 	data: Dictionary,
@@ -280,6 +284,10 @@ func _make_result(
 	})
 
 
+## 提取非空 file_name 并排序，供能力报告列出数据名称。
+## [br]
+## @api private
+## [br]
 func _get_data_names_from_list(entries: Array[Dictionary]) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for entry: Dictionary in entries:

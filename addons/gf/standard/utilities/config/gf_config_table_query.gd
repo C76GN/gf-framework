@@ -49,17 +49,55 @@ enum Operator {
 
 # --- 常量 ---
 
+## 用于整数与浮点数比较的 int64 最小值浮点边界。
+## [br]
+## @api private
+## [br]
 const _INT64_MIN_AS_FLOAT: float = -9223372036854775808.0
+
+## 用于整数与浮点数比较的 int64 上界浮点边界。
+## [br]
+## @api private
+## [br]
 const _INT64_MAX_EXCLUSIVE_AS_FLOAT: float = 9223372036854775808.0
 
 
 # --- 私有变量 ---
 
+## 当前查询使用的记录数组。
+## [br]
+## @api private
+## [br]
 var _records: Array[Dictionary] = []
+
+## 当前查询累积的过滤条件。
+## [br]
+## @api private
+## [br]
 var _filters: Array[Dictionary] = []
+
+## 排序时读取的记录字段路径。
+## [br]
+## @api private
+## [br]
 var _sort_path: String = ""
+
+## 记录排序是否按升序排列。
+## [br]
+## @api private
+## [br]
 var _sort_ascending: bool = true
+
+## 结果记录数上限；负值表示不限制。
+## [br]
+## @api private
+## [br]
 var _limit: int = -1
+
+## 从匹配结果开头跳过的记录数。
+## [br]
+## @api private
+## [br]
 var _offset: int = 0
 
 
@@ -559,6 +597,10 @@ func describe_query() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 将指定路径、运算符和值追加为查询条件。
+## [br]
+## @api private
+## [br]
 func _add_value_filter(operator: Operator, path: String, value: Variant) -> GFConfigTableQuery:
 	var normalized_path: String = path.strip_edges()
 	if normalized_path.is_empty():
@@ -572,6 +614,10 @@ func _add_value_filter(operator: Operator, path: String, value: Variant) -> GFCo
 	return self
 
 
+## 将一组子条件作为组合条件追加到查询。
+## [br]
+## @api private
+## [br]
 func _add_condition_group(
 	operator: Operator,
 	conditions: Array[Dictionary],
@@ -590,6 +636,10 @@ func _add_condition_group(
 	return self
 
 
+## 筛选符合当前所有条件的记录。
+## [br]
+## @api private
+## [br]
 func _collect_matched_records() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for record: Dictionary in _records:
@@ -598,6 +648,10 @@ func _collect_matched_records() -> Array[Dictionary]:
 	return result
 
 
+## 检查记录是否通过当前查询中的全部顶层过滤条件。
+## [br]
+## @api private
+## [br]
 func _record_matches(record: Dictionary) -> bool:
 	for filter: Dictionary in _filters:
 		if not _filter_matches(record, filter):
@@ -605,6 +659,10 @@ func _record_matches(record: Dictionary) -> bool:
 	return true
 
 
+## 按条件字典中的运算符判断记录字段是否匹配。
+## [br]
+## @api private
+## [br]
 func _filter_matches(record: Dictionary, filter: Dictionary) -> bool:
 	var operator: int = GFVariantData.get_option_int(filter, "operator", Operator.EQ)
 	if operator == Operator.PREDICATE:
@@ -646,6 +704,10 @@ func _filter_matches(record: Dictionary, filter: Dictionary) -> bool:
 			return false
 
 
+## 检查一组子过滤条件中是否至少有一个匹配记录。
+## [br]
+## @api private
+## [br]
 func _any_child_filter_matches(record: Dictionary, child_filters: Array) -> bool:
 	for child_filter_value: Variant in child_filters:
 		var child_filter: Dictionary = GFVariantData.as_dictionary(child_filter_value)
@@ -654,6 +716,10 @@ func _any_child_filter_matches(record: Dictionary, child_filters: Array) -> bool
 	return false
 
 
+## 按配置的排序路径比较两条记录的先后顺序。
+## [br]
+## @api private
+## [br]
 func _compare_records(left_record: Dictionary, right_record: Dictionary) -> bool:
 	var left_read: Dictionary = _read_path(left_record, _sort_path)
 	var right_read: Dictionary = _read_path(right_record, _sort_path)
@@ -671,6 +737,10 @@ func _compare_records(left_record: Dictionary, right_record: Dictionary) -> bool
 	return comparison < 0 if _sort_ascending else comparison > 0
 
 
+## 按 offset 和 limit 截取记录，并按参数决定是否复制记录。
+## [br]
+## @api private
+## [br]
 func _slice_records(records: Array[Dictionary], duplicate_records: bool) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var start_index: int = mini(_offset, records.size())
@@ -683,6 +753,10 @@ func _slice_records(records: Array[Dictionary], duplicate_records: bool) -> Arra
 	return result
 
 
+## 校验并规范化单个过滤条件字典。
+## [br]
+## @api private
+## [br]
 func _normalize_filter_condition(condition_data: Dictionary) -> Dictionary:
 	if condition_data.is_empty():
 		return {}
@@ -728,6 +802,10 @@ func _normalize_filter_condition(condition_data: Dictionary) -> Dictionary:
 	}
 
 
+## 筛选并规范化条件数组中的有效条件。
+## [br]
+## @api private
+## [br]
 func _normalize_condition_array(conditions: Array) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for condition_value: Variant in conditions:
@@ -738,6 +816,10 @@ func _normalize_condition_array(conditions: Array) -> Array[Dictionary]:
 	return result
 
 
+## 构造过滤条件的可读描述字典。
+## [br]
+## @api private
+## [br]
 func _describe_filter(filter: Dictionary) -> Dictionary:
 	var operator: int = GFVariantData.get_option_int(filter, "operator", Operator.EQ)
 	var description: Dictionary = {
@@ -756,6 +838,10 @@ func _describe_filter(filter: Dictionary) -> Dictionary:
 	return description
 
 
+## 沿点分隔路径读取 Variant 中的字段，并返回 found/value 结果。
+## [br]
+## @api private
+## [br]
 static func _read_path(source: Variant, path: String) -> Dictionary:
 	var normalized_path: String = path.strip_edges()
 	if normalized_path.is_empty():
@@ -779,6 +865,10 @@ static func _read_path(source: Variant, path: String) -> Dictionary:
 	}
 
 
+## 从字典、数组或对象中读取一个字段路径片段。
+## [br]
+## @api private
+## [br]
 static func _read_segment(source: Variant, segment: String) -> Dictionary:
 	if typeof(source) == TYPE_OBJECT and not is_instance_valid(source):
 		return {
@@ -827,16 +917,28 @@ static func _read_segment(source: Variant, segment: String) -> Dictionary:
 	}
 
 
+## 检查字典是否含 String 键或对应的 StringName 键。
+## [br]
+## @api private
+## [br]
 static func _dictionary_has_key(dictionary: Dictionary, key: String) -> bool:
 	return dictionary.has(key) or dictionary.has(StringName(key))
 
 
+## 按 String 键或对应的 StringName 键读取字典值。
+## [br]
+## @api private
+## [br]
 static func _get_dictionary_value(dictionary: Dictionary, key: String) -> Variant:
 	if dictionary.has(key):
 		return dictionary[key]
 	return dictionary[StringName(key)]
 
 
+## 将文本解析为非负数组索引；无效输入返回 -1。
+## [br]
+## @api private
+## [br]
 static func _parse_non_negative_index(text: String) -> int:
 	if text.is_empty() or not text.is_valid_int():
 		return -1
@@ -844,6 +946,10 @@ static func _parse_non_negative_index(text: String) -> int:
 	return index if index >= 0 else -1
 
 
+## 比较两个值并返回排序关系结果。
+## [br]
+## @api private
+## [br]
 static func _compare_values(left: Variant, right: Variant) -> int:
 	if GFVariantData.values_equal(left, right, { "match_string_names": true }):
 		return 0
@@ -891,6 +997,10 @@ static func _compare_values(left: Variant, right: Variant) -> int:
 	return -1 if left_fallback_text < right_fallback_text else 1
 
 
+## 在避免浮点精度损失的情况下比较 int64 与 float。
+## [br]
+## @api private
+## [br]
 static func _compare_integer_to_float(integer_value: int, float_value: float) -> int:
 	if is_nan(float_value) or float_value == INF:
 		return -1
@@ -913,6 +1023,10 @@ static func _compare_integer_to_float(integer_value: int, float_value: float) ->
 	return -1 if truncated_as_float < float_value else 1
 
 
+## 检查源数组或文本值是否包含给定值。
+## [br]
+## @api private
+## [br]
 static func _matches_contains(source_value: Variant, value: Variant) -> bool:
 	if source_value is Array:
 		var source_array: Array = source_value
@@ -932,14 +1046,26 @@ static func _matches_contains(source_value: Variant, value: Variant) -> bool:
 	return false
 
 
+## 判断 Variant 值是否为 int 或 float。
+## [br]
+## @api private
+## [br]
 static func _is_number(value: Variant) -> bool:
 	return value is int or value is float
 
 
+## 判断 Variant 值是否为 String 或 StringName。
+## [br]
+## @api private
+## [br]
 static func _is_text_value(value: Variant) -> bool:
 	return value is String or value is StringName
 
 
+## 仅当 Variant 值为 Callable 时返回该回调。
+## [br]
+## @api private
+## [br]
 func _variant_to_callable(value: Variant) -> Callable:
 	if value is Callable:
 		var callable_value: Callable = value

@@ -30,9 +30,24 @@ const STATUS_INVALID_DATE: StringName = &"invalid_date"
 
 # --- 私有变量 ---
 
+## 标记日期关系是否已由时间工具层配置。
+## [br]
+## @api private
 var _configured: bool = false
+
+## 当前日期关系结果状态。
+## [br]
+## @api private
 var _status: StringName = STATUS_INVALID_DATE
+
+## 成功时保存右侧日期减左侧日期的有符号日差。
+## [br]
+## @api private
 var _days: int = 0
+
+## 失败结果的说明；成功时为空字符串。
+## [br]
+## @api private
 var _error: String = ""
 
 

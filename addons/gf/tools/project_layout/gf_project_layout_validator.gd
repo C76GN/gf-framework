@@ -26,6 +26,10 @@ extends RefCounted
 const DEFAULT_FEATURE_COHESIVE_PROFILE_PATH: String = \
 	"res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"
 
+## 兼容校验入口所委托使用的 Analyzer 脚本。
+## [br]
+## @api private
+## [br]
 const _ANALYZER_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/gf_project_layout_analyzer.gd"
 )

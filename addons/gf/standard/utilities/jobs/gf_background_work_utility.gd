@@ -70,9 +70,28 @@ signal work_applied(task: GFBackgroundWorkTask)
 
 # --- 常量 ---
 
+## 线程 payload 递归检查允许的最大深度。
+## [br]
+## @api private
+## [br]
 const _MAX_PAYLOAD_DEPTH: int = 64
+
+## 提供 CPU/IO 等待任务优先级队列实现的脚本。
+## [br]
+## @api private
+## [br]
 const _GF_PRIORITY_WORK_QUEUE_SCRIPT = preload("res://addons/gf/standard/foundation/collections/gf_priority_work_queue.gd")
+
+## 创建或类型检查 GFResourceBroker 所用的脚本。
+## [br]
+## @api private
+## [br]
 const _RESOURCE_BROKER_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_resource_broker.gd")
+
+## Resource 请求记录中 operation 字段的类型脚本。
+## [br]
+## @api private
+## [br]
 const _RESOURCE_LEASE_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_resource_lease.gd")
 
 
@@ -137,15 +156,64 @@ var priority_aging_step: float = 1.0:
 
 # --- 私有变量 ---
 
+## 为缺少显式 ID 的新任务递增的序号。
+## [br]
+## @api private
+## [br]
 var _work_serial: int = 0
+
+## 以 work_id 为键保存当前可查询的任务记录。
+## [br]
+## @api private
+## [br]
 var _tasks: Dictionary = {}
+
+## 等待启动的 CPU/IO 任务优先级队列。
+## [br]
+## @api private
+## [br]
 var _queued_thread_tasks: _GF_PRIORITY_WORK_QUEUE_SCRIPT = _GF_PRIORITY_WORK_QUEUE_SCRIPT.new()
+
+## 以 work_id 为键保存正在运行的 Thread 和对应任务。
+## [br]
+## @api private
+## [br]
 var _active_thread_tasks: Dictionary = {}
+
+## 按资源路径分组的 Resource 请求、Lease 和消费者任务记录。
+## [br]
+## @api private
+## [br]
 var _resource_requests: Dictionary = {}
+
+## 等待主线程执行 apply_callback 的任务队列。
+## [br]
+## @api private
+## [br]
 var _apply_queue: Array = []
+
+## 为调试保留的终态任务历史。
+## [br]
+## @api private
+## [br]
 var _finished_tasks: Array = []
+
+## 是否暂停启动新的 CPU/IO 等待任务。
+## [br]
+## @api private
+## [br]
 var _paused: bool = false
+
+## 当前注入或由本工具建立的共享资源 Broker。
+## [br]
+## @api private
+## [br]
 var _resource_broker: GFResourceBroker = null
+
+## 标记当前 Broker 是否由本工具建立并由本工具负责 dispose。
+## [br]
+## @api private
+## [br]
 var _owns_resource_broker: bool = false
 
 
@@ -527,6 +595,11 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 校验线程回调与 payload，准备取消上下文、登记任务并加入优先级队列。
+## 输入无效或登记失败时返回已标记失败的任务记录。
+## [br]
+## @api private
+## [br]
 func _submit_threaded_work(
 	kind: GFBackgroundWorkTask.Kind,
 	worker: Callable,
@@ -574,6 +647,10 @@ func _submit_threaded_work(
 	return task
 
 
+## 创建任务记录，设置 kind、ID、优先级、元数据、创建 tick 和回调。
+## [br]
+## @api private
+## [br]
 func _create_task(
 	kind: GFBackgroundWorkTask.Kind,
 	worker: Callable,
@@ -593,6 +670,10 @@ func _create_task(
 	return task
 
 
+## 仅登记 ID 非空且尚未占用的任务。
+## [br]
+## @api private
+## [br]
 func _register_task(task: GFBackgroundWorkTask) -> bool:
 	if task == null or task.work_id == &"" or _tasks.has(task.work_id):
 		return false
@@ -600,6 +681,11 @@ func _register_task(task: GFBackgroundWorkTask) -> bool:
 	return true
 
 
+## 未暂停时按优先队列顺序启动任务，直到达到并发上限或队列为空。
+## 已取消及状态不再为 QUEUED 的条目会跳过或直接转为取消终态。
+## [br]
+## @api private
+## [br]
 func _start_queued_thread_tasks() -> void:
 	if _paused:
 		return
@@ -614,6 +700,10 @@ func _start_queued_thread_tasks() -> void:
 		_start_thread_task(task)
 
 
+## 按任务优先级、创建 tick 和 front 选项插入等待队列。
+## [br]
+## @api private
+## [br]
 func _insert_queued_thread_task(task: GFBackgroundWorkTask, front: bool) -> void:
 	var _task_queued: bool = _queued_thread_tasks.push_at(
 		task,
@@ -623,6 +713,10 @@ func _insert_queued_thread_task(task: GFBackgroundWorkTask, front: bool) -> void
 	)
 
 
+## 将公开配置的 aging 间隔和步长同步到优先队列。
+## [br]
+## @api private
+## [br]
 func _configure_priority_work_queue() -> void:
 	if _queued_thread_tasks == null:
 		return
@@ -630,6 +724,10 @@ func _configure_priority_work_queue() -> void:
 	_queued_thread_tasks.aging_step = priority_aging_step
 
 
+## 从优先队列条目中收集有效任务的 ID，保持条目顺序。
+## [br]
+## @api private
+## [br]
 func _queued_task_ids(entries: Array[Dictionary]) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for entry: Dictionary in entries:
@@ -639,6 +737,10 @@ func _queued_task_ids(entries: Array[Dictionary]) -> PackedStringArray:
 	return result
 
 
+## 为有效等待任务提取 ID、原始与有效优先级、等待时长和顺序号。
+## [br]
+## @api private
+## [br]
 func _queued_priority_summaries(entries: Array[Dictionary]) -> Array[Dictionary]:
 	var summaries: Array[Dictionary] = []
 	for entry: Dictionary in entries:
@@ -655,10 +757,19 @@ func _queued_priority_summaries(entries: Array[Dictionary]) -> Array[Dictionary]
 	return summaries
 
 
+## 返回当前单调毫秒 tick。
+## [br]
+## @api private
+## [br]
 func _get_now_msec() -> int:
 	return Time.get_ticks_msec()
 
 
+## 启动绑定 worker 参数的 Thread；成功后记录活动线程和开始时间并发出开始信号。
+## 线程启动错误会将任务转为失败终态。
+## [br]
+## @api private
+## [br]
 func _start_thread_task(task: GFBackgroundWorkTask) -> void:
 	var thread: Thread = Thread.new()
 	var error: Error = thread.start(Callable(self, "_run_threaded_task").bind(
@@ -680,6 +791,10 @@ func _start_thread_task(task: GFBackgroundWorkTask) -> void:
 	work_started.emit(task)
 
 
+## 检查活动线程；线程结束后等待结果、释放 worker 回调目标并处理结果。
+## [br]
+## @api private
+## [br]
 func _poll_thread_tasks() -> void:
 	var active_ids: Array = _active_thread_tasks.keys()
 	for work_id: StringName in active_ids:
@@ -697,6 +812,10 @@ func _poll_thread_tasks() -> void:
 		_finish_thread_task(task, result_variant)
 
 
+## 丢弃无效终态任务；取消、非字典或拒绝结果分别取消或失败，否则提取 result 并排入应用阶段。
+## [br]
+## @api private
+## [br]
 func _finish_thread_task(task: GFBackgroundWorkTask, result_variant: Variant) -> void:
 	if task == null or task.is_finished():
 		return
@@ -717,6 +836,11 @@ func _finish_thread_task(task: GFBackgroundWorkTask, result_variant: Variant) ->
 	_queue_apply_or_complete(task)
 
 
+## 调用 worker 并包装结果；字典 ok=false 或直接返回 false 时生成失败结果。
+## worker 启用取消契约时附带 context，其余情况仅传 input_data。
+## [br]
+## @api private
+## [br]
 func _run_threaded_task(
 	worker: Callable,
 	input_data: Variant,
@@ -746,6 +870,11 @@ func _run_threaded_task(
 	})
 
 
+## 按资源路径合并消费者；类型提示冲突时失败，否则向 Broker 获取新的 Lease。
+## 若已有 Lease 已取消，先退役该请求记录再为仍有效的任务重试。
+## [br]
+## @api private
+## [br]
 func _start_resource_task(task: GFBackgroundWorkTask) -> void:
 	var path: String = task.resource_path
 	if _resource_requests.has(path):
@@ -805,12 +934,21 @@ func _start_resource_task(task: GFBackgroundWorkTask) -> void:
 	_start_task_without_thread(task)
 
 
+## 将不经 Thread 执行的资源任务标记为运行并记录开始 tick。
+## [br]
+## @api private
+## [br]
 func _start_task_without_thread(task: GFBackgroundWorkTask) -> void:
 	task.status = GFBackgroundWorkTask.Status.RUNNING
 	task.started_msec = Time.get_ticks_msec()
 	work_started.emit(task)
 
 
+## 轮询每个资源 Lease，更新有效消费者进度，并按 queued/loading/completed/failed/cancelled 分发处理。
+## 终态分支会移除路径记录并调用 Lease.release()。
+## [br]
+## @api private
+## [br]
 func _poll_resource_requests() -> void:
 	var paths: Array = _resource_requests.keys()
 	for path: String in paths:
@@ -868,6 +1006,10 @@ func _poll_resource_requests() -> void:
 				operation.release()
 
 
+## 取消已请求取消的任务，拒绝空资源结果，否则保存资源并排入应用阶段。
+## [br]
+## @api private
+## [br]
 func _finish_resource_task(task: GFBackgroundWorkTask, resource: Resource) -> void:
 	if task == null or task.is_finished():
 		return
@@ -883,6 +1025,10 @@ func _finish_resource_task(task: GFBackgroundWorkTask, resource: Resource) -> vo
 	_queue_apply_or_complete(task)
 
 
+## 已请求取消时结束为取消；有 apply 回调则排入主线程队列，否则直接完成。
+## [br]
+## @api private
+## [br]
 func _queue_apply_or_complete(task: GFBackgroundWorkTask) -> void:
 	if task.cancel_requested:
 		_cancel_task(task)
@@ -894,6 +1040,11 @@ func _queue_apply_or_complete(task: GFBackgroundWorkTask) -> void:
 	_complete_task(task)
 
 
+## 按单帧数量和时间预算执行主线程 apply 回调，并处理其成功或失败结果。
+## 失败字典的 ok=false 或直接返回 false 会使任务失败。
+## [br]
+## @api private
+## [br]
 func _process_apply_queue() -> void:
 	var remaining: int = maxi(max_apply_per_tick, 1)
 	var started_usec: int = Time.get_ticks_usec()
@@ -930,6 +1081,10 @@ func _process_apply_queue() -> void:
 		_complete_task(task)
 
 
+## 设置完成状态、进度与结束 tick，释放回调，加入终态历史并发出完成信号。
+## [br]
+## @api private
+## [br]
 func _complete_task(task: GFBackgroundWorkTask) -> void:
 	if task == null or task.is_finished():
 		return
@@ -942,6 +1097,10 @@ func _complete_task(task: GFBackgroundWorkTask) -> void:
 	work_completed.emit(task)
 
 
+## 从等待及应用队列移除任务，写入错误和结果后加入终态历史并发出失败信号。
+## [br]
+## @api private
+## [br]
 func _fail_task(task: GFBackgroundWorkTask, error_message: String = "", result: Variant = null) -> void:
 	if task == null or task.is_finished():
 		return
@@ -957,6 +1116,10 @@ func _fail_task(task: GFBackgroundWorkTask, error_message: String = "", result: 
 	work_failed.emit(task)
 
 
+## 依次取 error、message、reason 文本；均为空时返回 fallback。
+## [br]
+## @api private
+## [br]
 func _get_result_error_text(result: Dictionary, fallback: String = "") -> String:
 	var error_text: String = GFVariantData.get_option_string(result, GFResultDictionary.KEY_ERROR)
 	if not error_text.is_empty():
@@ -970,6 +1133,10 @@ func _get_result_error_text(result: Dictionary, fallback: String = "") -> String
 	return fallback
 
 
+## 从等待及应用队列移除任务并写入取消终态、结束 tick 和历史记录。
+## [br]
+## @api private
+## [br]
 func _cancel_task(task: GFBackgroundWorkTask) -> void:
 	if task == null or task.is_finished():
 		return
@@ -983,6 +1150,10 @@ func _cancel_task(task: GFBackgroundWorkTask) -> void:
 	work_cancelled.emit(task)
 
 
+## 记录取消原因并按任务阶段处理；运行中的 Thread 保留至 worker 返回后再收尾。
+## [br]
+## @api private
+## [br]
 func _cancel_work_with_reason(
 	work_id: StringName,
 	reason: GFBackgroundWorkContext.CancellationReason
@@ -1009,6 +1180,10 @@ func _cancel_work_with_reason(
 	return true
 
 
+## 遍历当前任务值快照，对每个未结束任务调用带指定原因的取消流程。
+## [br]
+## @api private
+## [br]
 func _cancel_all_with_reason(
 	reason: GFBackgroundWorkContext.CancellationReason
 ) -> void:
@@ -1019,6 +1194,10 @@ func _cancel_all_with_reason(
 			var _cancelled: bool = _cancel_work_with_reason(task.work_id, reason)
 
 
+## 存在协作取消上下文时向其发布指定原因；缺少上下文时不操作。
+## [br]
+## @api private
+## [br]
 func _request_task_cancellation(
 	task: GFBackgroundWorkTask,
 	reason: GFBackgroundWorkContext.CancellationReason
@@ -1030,6 +1209,10 @@ func _request_task_cancellation(
 		var _requested: bool = context.request_cancel_for_framework(reason)
 
 
+## 同步等待所有活动 Thread，释放 worker 回调目标并处理返回值，然后清空活动表。
+## [br]
+## @api private
+## [br]
 func _wait_for_active_thread_tasks() -> void:
 	for work_id: StringName in _active_thread_tasks.keys():
 		var entry: Dictionary = _get_active_thread_entry(work_id)
@@ -1045,18 +1228,30 @@ func _wait_for_active_thread_tasks() -> void:
 	_active_thread_tasks.clear()
 
 
+## Thread join 后清除 worker 回调及其目标引用，同时保留 apply 回调。
+## [br]
+## @api private
+## [br]
 func _release_worker_callback_after_join(task: GFBackgroundWorkTask) -> void:
 	if task == null:
 		return
 	task.set_internal_callbacks(Callable(), task.get_apply_callback())
 
 
+## 任务进入终态时清除 worker 与 apply 回调及其目标引用。
+## [br]
+## @api private
+## [br]
 func _release_task_callbacks_at_terminal(task: GFBackgroundWorkTask) -> void:
 	if task == null:
 		return
 	task.set_internal_callbacks(Callable(), Callable())
 
 
+## 按 max_finished_tasks 移除最旧终态记录，并同步删除任务索引。
+## [br]
+## @api private
+## [br]
 func _trim_finished_tasks() -> void:
 	var limit: int = maxi(max_finished_tasks, 0)
 	while _finished_tasks.size() > limit:
@@ -1065,6 +1260,10 @@ func _trim_finished_tasks() -> void:
 			var _removed_task: bool = _tasks.erase(removed.work_id)
 
 
+## 仅在预算为正且本帧已执行至少一个回调后比较经过秒数。
+## [br]
+## @api private
+## [br]
 func _is_apply_time_budget_exhausted(started_usec: int, applied_count: int) -> bool:
 	if max_apply_seconds_per_tick <= 0.0 or applied_count <= 0:
 		return false
@@ -1072,6 +1271,11 @@ func _is_apply_time_budget_exhausted(started_usec: int, applied_count: int) -> b
 	return elapsed_seconds >= max_apply_seconds_per_tick
 
 
+## 限深递归允许纯值、数学值、NodePath、packed 数组、Array 与 Dictionary。
+## 其他 Variant 类型或超过最大深度的容器返回 false。
+## [br]
+## @api private
+## [br]
 func _is_thread_payload_safe(value: Variant, depth: int = 0) -> bool:
 	if depth > _MAX_PAYLOAD_DEPTH:
 		return false
@@ -1110,6 +1314,11 @@ func _is_thread_payload_safe(value: Variant, depth: int = 0) -> bool:
 	return false
 
 
+## 记录此任务已释放，再无有效消费者时向路径对应 Lease 请求取消。
+## 重复调用同一任务不会再次执行取消请求。
+## [br]
+## @api private
+## [br]
 func _release_resource_operation_for_task(task: GFBackgroundWorkTask, reason: StringName) -> void:
 	if task == null or task.resource_path.is_empty():
 		return
@@ -1130,6 +1339,10 @@ func _release_resource_operation_for_task(task: GFBackgroundWorkTask, reason: St
 		operation.cancel(reason)
 
 
+## 移除已取消的路径请求，取消其未结束任务并释放旧 Lease。
+## [br]
+## @api private
+## [br]
 func _retire_cancelled_resource_request(
 	path: String,
 	request: Dictionary,
@@ -1143,6 +1356,10 @@ func _retire_cancelled_resource_request(
 	operation.release()
 
 
+## 只要有非空、未请求取消且未结束的消费者任务就返回 true。
+## [br]
+## @api private
+## [br]
 func _resource_request_has_live_consumers(request: Dictionary) -> bool:
 	var tasks: Array = _get_resource_request_tasks(request)
 	for task_variant: Variant in tasks:
@@ -1152,11 +1369,19 @@ func _resource_request_has_live_consumers(request: Dictionary) -> bool:
 	return false
 
 
+## 已配置 Broker 时调用 pump 推进其后台操作收敛。
+## [br]
+## @api private
+## [br]
 func _drain_cancelled_threaded_operations() -> void:
 	if _resource_broker != null:
 		_resource_broker.pump()
 
 
+## 构造未配置 Broker 时使用的 failed 状态、零进度和 ERR_UNCONFIGURED 结果。
+## [br]
+## @api private
+## [br]
 func _make_missing_resource_broker_result() -> Dictionary:
 	return {
 		"status": _RESOURCE_LEASE_SCRIPT.STATUS_FAILED,
@@ -1168,6 +1393,11 @@ func _make_missing_resource_broker_result() -> Dictionary:
 	}
 
 
+## 返回 Broker 调试快照并补充 configured、error 和 request_error 字段。
+## 未配置时返回明确的 ERR_UNCONFIGURED 状态字典。
+## [br]
+## @api private
+## [br]
 func _get_resource_broker_debug_snapshot() -> Dictionary:
 	if _resource_broker == null:
 		return {
@@ -1182,30 +1412,58 @@ func _get_resource_broker_debug_snapshot() -> Dictionary:
 	return snapshot
 
 
+## 任一类型提示为空或两者相同时视为兼容。
+## [br]
+## @api private
+## [br]
 func _type_hints_are_compatible(left: String, right: String) -> bool:
 	return left.is_empty() or right.is_empty() or left == right
 
 
+## 从活动线程表中读取指定 ID 对应的字典条目。
+## [br]
+## @api private
+## [br]
 func _get_active_thread_entry(work_id: StringName) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_active_thread_tasks, work_id))
 
 
+## 从线程条目的 task 字段取值并收窄为任务类型。
+## [br]
+## @api private
+## [br]
 func _get_thread_entry_task(entry: Dictionary) -> GFBackgroundWorkTask:
 	return _as_task(GFVariantData.get_option_value(entry, "task"))
 
 
+## 从线程条目的 thread 字段取值并收窄为 Thread 类型。
+## [br]
+## @api private
+## [br]
 func _get_thread_entry_thread(entry: Dictionary) -> Thread:
 	return _variant_to_thread(GFVariantData.get_option_value(entry, "thread"))
 
 
+## 从资源请求表中读取指定路径对应的字典记录。
+## [br]
+## @api private
+## [br]
 func _get_resource_request(path: String) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_resource_requests, path))
 
 
+## 从资源请求记录中读取消费者任务数组，缺失时使用空数组。
+## [br]
+## @api private
+## [br]
 func _get_resource_request_tasks(request: Dictionary) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(request, "tasks", []))
 
 
+## 将请求记录的 operation 字段收窄为 Resource Lease；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_resource_request_operation(request: Dictionary) -> _RESOURCE_LEASE_SCRIPT:
 	var value: Variant = GFVariantData.get_option_value(request, "operation")
 	if value is _RESOURCE_LEASE_SCRIPT:
@@ -1214,14 +1472,26 @@ func _get_resource_request_operation(request: Dictionary) -> _RESOURCE_LEASE_SCR
 	return null
 
 
+## 读取标准结果中的 result 字段，缺失时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_result_payload(result: Dictionary) -> Variant:
 	return GFVariantData.get_option_value(result, "result")
 
 
+## 优先读取失败结果的 result 字段，缺失时返回整个结果字典。
+## [br]
+## @api private
+## [br]
 func _get_failure_result_payload(result: Dictionary) -> Variant:
 	return GFVariantData.get_option_value(result, "result", result)
 
 
+## 按输入顺序收集数组中有效任务的工作 ID。
+## [br]
+## @api private
+## [br]
 func _task_ids(tasks: Array) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for task_variant: Variant in tasks:
@@ -1231,6 +1501,10 @@ func _task_ids(tasks: Array) -> PackedStringArray:
 	return result
 
 
+## 将活动线程表的键规范为非空 StringName 后收集其字符串形式。
+## [br]
+## @api private
+## [br]
 func _active_thread_task_ids() -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for work_id: Variant in _active_thread_tasks.keys():
@@ -1240,6 +1514,10 @@ func _active_thread_task_ids() -> PackedStringArray:
 	return result
 
 
+## 仅当 Variant 是 GFBackgroundWorkTask 时返回其强类型引用。
+## [br]
+## @api private
+## [br]
 static func _as_task(value: Variant) -> GFBackgroundWorkTask:
 	if value is GFBackgroundWorkTask:
 		var task: GFBackgroundWorkTask = value
@@ -1247,6 +1525,10 @@ static func _as_task(value: Variant) -> GFBackgroundWorkTask:
 	return null
 
 
+## 仅当 Variant 是 Thread 时返回其强类型引用。
+## [br]
+## @api private
+## [br]
 static func _variant_to_thread(value: Variant) -> Thread:
 	if value is Thread:
 		var thread: Thread = value
@@ -1254,6 +1536,10 @@ static func _variant_to_thread(value: Variant) -> Thread:
 	return null
 
 
+## 仅当加载结果的 resource 字段为 Resource 时返回该值。
+## [br]
+## @api private
+## [br]
 static func _get_load_result_resource(load_result: Dictionary) -> Resource:
 	var value: Variant = GFVariantData.get_option_value(load_result, "resource")
 	if value is Resource:
@@ -1262,5 +1548,9 @@ static func _get_load_result_resource(load_result: Dictionary) -> Resource:
 	return null
 
 
+## 将字符串追加到调试快照使用的 PackedStringArray。
+## [br]
+## @api private
+## [br]
 static func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var _added: bool = target.append(value)

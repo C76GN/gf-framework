@@ -52,8 +52,19 @@ signal level_result_updated(level_id: StringName, result: Dictionary)
 
 # --- 私有变量 ---
 
+## 记录已经解锁的关卡 ID。
+## [br]
+## @api private
 var _unlocked_levels: Dictionary = {}
+
+## 记录已经完成的关卡 ID。
+## [br]
+## @api private
 var _completed_levels: Dictionary = {}
+
+## 按关卡 ID 保存项目自定义结果字典。
+## [br]
+## @api private
 var _level_results: Dictionary = {}
 
 
@@ -205,6 +216,9 @@ func from_dict(data: Dictionary) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 将字典键转成文本，并深拷贝对应值以供序列化。
+## [br]
+## @api private
 func _stringify_key_dictionary(data: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for key: Variant in data.keys():
@@ -212,6 +226,9 @@ func _stringify_key_dictionary(data: Dictionary) -> Dictionary:
 	return result
 
 
+## 将字典键转换为 StringName，并深拷贝对应值；非字典输入返回空字典。
+## [br]
+## @api private
 func _string_name_key_dictionary(data_variant: Variant) -> Dictionary:
 	var result: Dictionary = {}
 	if not data_variant is Dictionary:

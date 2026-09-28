@@ -240,6 +240,10 @@ func duplicate_behavior() -> Resource:
 
 # --- 私有/辅助方法 ---
 
+## 仅将 Script Variant 转换为 Script，其它类型返回 null。
+## [br]
+## @api private
+## [br]
 func _get_script_value(value: Variant) -> Script:
 	if value is Script:
 		var script: Script = value
@@ -247,6 +251,10 @@ func _get_script_value(value: Variant) -> Script:
 	return null
 
 
+## 优先按 String 键读取行为上下文，未找到时再读取 StringName 键。
+## [br]
+## @api private
+## [br]
 func _get_context_value(context: Dictionary, key: StringName, fallback: Variant = null) -> Variant:
 	var string_key: String = String(key)
 	if context.has(string_key):
@@ -254,6 +262,10 @@ func _get_context_value(context: Dictionary, key: StringName, fallback: Variant 
 	return GFVariantData.get_option_value(context, key, fallback)
 
 
+## 读取上下文向量，接受 Vector3 或提升为 z 为零的 Vector2。
+## [br]
+## @api private
+## [br]
 func _get_vector3(context: Dictionary, key: StringName, fallback: Vector3) -> Vector3:
 	var value: Variant = _get_context_value(context, key, fallback)
 	if value is Vector3:
@@ -264,6 +276,10 @@ func _get_vector3(context: Dictionary, key: StringName, fallback: Vector3) -> Ve
 	return fallback
 
 
+## 读取并验证指定上下文值为 GFSteeringAgent。
+## [br]
+## @api private
+## [br]
 func _get_agent(context: Dictionary, key: StringName) -> GFSteeringAgent:
 	var value: Variant = _get_context_value(context, key)
 	if value is GFSteeringAgent:
@@ -272,6 +288,10 @@ func _get_agent(context: Dictionary, key: StringName) -> GFSteeringAgent:
 	return null
 
 
+## 从上下文数组筛出所有 GFSteeringAgent 项并保留其相对顺序。
+## [br]
+## @api private
+## [br]
 func _get_agents(context: Dictionary, key: StringName) -> Array[GFSteeringAgent]:
 	var result: Array[GFSteeringAgent] = []
 	var value: Variant = _get_context_value(context, key, [])
@@ -285,6 +305,10 @@ func _get_agents(context: Dictionary, key: StringName) -> Array[GFSteeringAgent]
 	return result
 
 
+## 从 path 数组提取 Vector3 点，并将 Vector2 点提升为 z 为零的 Vector3。
+## [br]
+## @api private
+## [br]
 func _get_path(context: Dictionary) -> Array[Vector3]:
 	var result: Array[Vector3] = []
 	var value: Variant = GFVariantData.get_option_value(context, "path", [])

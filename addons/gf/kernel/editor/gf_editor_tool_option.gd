@@ -48,6 +48,9 @@ enum ValueType {
 
 # --- 常量 ---
 
+## 将任意 Variant 转为选项声明所需基础类型的工具脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -253,6 +256,9 @@ func describe() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 深复制 Dictionary 和 Array 默认值；其余 Variant（包括对象值）原样返回。
+## [br]
+## @api private
 func _duplicate_variant(value: Variant) -> Variant:
 	if value is Dictionary:
 		var dictionary: Dictionary = value

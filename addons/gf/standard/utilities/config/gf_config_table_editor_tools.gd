@@ -272,6 +272,10 @@ static func build_reference_choice_records_for_database(
 
 # --- 私有/辅助方法 ---
 
+## 根据 schema 与列定义构造字段编辑器描述。
+## [br]
+## @api private
+## [br]
 static func _build_column_descriptor(
 	schema: GFConfigTableSchema,
 	column: GFConfigTableColumn,
@@ -296,6 +300,10 @@ static func _build_column_descriptor(
 	}
 
 
+## 将字段编辑器描述应用到 Inspector 属性列表。
+## [br]
+## @api private
+## [br]
 static func _apply_field_editor_descriptor(
 	descriptor: Dictionary,
 	schema: GFConfigTableSchema,
@@ -338,6 +346,10 @@ static func _apply_field_editor_descriptor(
 	descriptor["references"] = references
 
 
+## 从字段 metadata 解析编辑器显示标签。
+## [br]
+## @api private
+## [br]
 static func _resolve_column_label(field_name: StringName, metadata: Dictionary) -> String:
 	var editor_label: String = GFVariantData.to_text(_get_metadata_value(metadata, METADATA_EDITOR_LABEL_KEY, ""))
 	if not editor_label.is_empty():
@@ -348,6 +360,10 @@ static func _resolve_column_label(field_name: StringName, metadata: Dictionary) 
 	return String(field_name)
 
 
+## 收集字段引用定义指向的目标表标识。
+## [br]
+## @api private
+## [br]
 static func _collect_field_reference_ids(
 	schema: GFConfigTableSchema,
 	field_name: StringName
@@ -363,6 +379,10 @@ static func _collect_field_reference_ids(
 	return result
 
 
+## 解析字段编辑器可用的选择项。
+## [br]
+## @api private
+## [br]
 static func _resolve_field_choices(column: GFConfigTableColumn, descriptor: Dictionary) -> Array:
 	var metadata_choices: Array = GFVariantData.get_option_array(descriptor, "choices")
 	if not metadata_choices.is_empty():
@@ -378,6 +398,10 @@ static func _resolve_field_choices(column: GFConfigTableColumn, descriptor: Dict
 	return []
 
 
+## 从列定义和 metadata 构造字段约束字典。
+## [br]
+## @api private
+## [br]
 static func _build_field_constraints(column: GFConfigTableColumn, metadata: Dictionary) -> Dictionary:
 	var constraints: Dictionary = {}
 	for rule: GFConfigValidationRule in column.validation_rules:
@@ -388,6 +412,10 @@ static func _build_field_constraints(column: GFConfigTableColumn, metadata: Dict
 	return constraints
 
 
+## 将单条验证规则转换并合并到编辑器约束字典。
+## [br]
+## @api private
+## [br]
 static func _apply_rule_constraints(constraints: Dictionary, rule: GFConfigValidationRule) -> void:
 	if rule is GFConfigRangeValidationRule:
 		var range_rule: GFConfigRangeValidationRule = rule
@@ -451,6 +479,10 @@ static func _apply_rule_constraints(constraints: Dictionary, rule: GFConfigValid
 		}
 
 
+## 将 metadata 中的编辑约束合并到字段约束字典。
+## [br]
+## @api private
+## [br]
 static func _apply_metadata_constraints(constraints: Dictionary, metadata: Dictionary) -> void:
 	var resource_type: String = GFVariantData.to_text(_get_metadata_value(metadata, METADATA_RESOURCE_TYPE_KEY, ""))
 	var resource_extensions: PackedStringArray = _to_packed_string_array(_get_metadata_value(metadata, METADATA_RESOURCE_EXTENSIONS_KEY, []))
@@ -465,6 +497,10 @@ static func _apply_metadata_constraints(constraints: Dictionary, metadata: Dicti
 	constraints["resource_path"] = resource_constraint
 
 
+## 为字段的引用目标表构造 Inspector 选择项描述。
+## [br]
+## @api private
+## [br]
 static func _build_field_reference_descriptors(
 	schema: GFConfigTableSchema,
 	field_name: StringName,
@@ -491,6 +527,10 @@ static func _build_field_reference_descriptors(
 	return descriptors
 
 
+## 按引用定义取得目标表 schema。
+## [br]
+## @api private
+## [br]
 static func _get_reference_target_schema(
 	database: GFConfigDatabaseResource,
 	reference_definition: GFConfigTableReference
@@ -503,6 +543,10 @@ static func _get_reference_target_schema(
 	return table_resource.schema
 
 
+## 根据列类型、metadata 和选项解析字段编辑器类型。
+## [br]
+## @api private
+## [br]
 static func _resolve_editor_kind(
 	column: GFConfigTableColumn,
 	metadata: Dictionary,
@@ -547,12 +591,20 @@ static func _resolve_editor_kind(
 			return &"variant"
 
 
+## 解析 Inspector 属性类型；metadata 未指定时按列值类型转换。
+## [br]
+## @api private
+## [br]
 static func _resolve_property_type(column: GFConfigTableColumn, metadata: Dictionary) -> int:
 	if _metadata_has_key(metadata, METADATA_PROPERTY_TYPE_KEY):
 		return GFVariantData.to_int(_get_metadata_value(metadata, METADATA_PROPERTY_TYPE_KEY, TYPE_NIL), TYPE_NIL)
 	return _value_type_to_property_type(column.value_type)
 
 
+## 根据 metadata、选择项和约束解析 Inspector 属性提示类型。
+## [br]
+## @api private
+## [br]
 static func _resolve_property_hint(
 	metadata: Dictionary,
 	choices: Array,
@@ -571,6 +623,10 @@ static func _resolve_property_hint(
 	return PROPERTY_HINT_NONE
 
 
+## 构造 Inspector 属性提示使用的字符串内容。
+## [br]
+## @api private
+## [br]
 static func _resolve_property_hint_string(
 	metadata: Dictionary,
 	choices: Array,
@@ -587,6 +643,10 @@ static func _resolve_property_hint_string(
 	return _make_range_hint_string(constraints, value_type)
 
 
+## 构造 Inspector 属性列表使用的属性描述字典。
+## [br]
+## @api private
+## [br]
 static func _make_property_info(
 	field_name: StringName,
 	property_type: int,
@@ -602,6 +662,10 @@ static func _make_property_info(
 	}
 
 
+## 将配置列值类型映射为 Godot Variant 属性类型。
+## [br]
+## @api private
+## [br]
 static func _value_type_to_property_type(value_type: GFConfigTableColumn.ValueType) -> int:
 	match value_type:
 		GFConfigTableColumn.ValueType.BOOL:
@@ -628,6 +692,10 @@ static func _value_type_to_property_type(value_type: GFConfigTableColumn.ValueTy
 			return TYPE_NIL
 
 
+## 将配置列值类型转换为稳定的类型名称。
+## [br]
+## @api private
+## [br]
 static func _value_type_to_name(value_type: GFConfigTableColumn.ValueType) -> String:
 	match value_type:
 		GFConfigTableColumn.ValueType.BOOL:
@@ -654,6 +722,10 @@ static func _value_type_to_name(value_type: GFConfigTableColumn.ValueType) -> St
 			return "Variant"
 
 
+## 将选择项格式化为 Inspector enum hint 字符串。
+## [br]
+## @api private
+## [br]
 static func _make_choice_hint_string(choices: Array) -> String:
 	var labels: PackedStringArray = PackedStringArray()
 	for choice: Variant in choices:
@@ -664,6 +736,10 @@ static func _make_choice_hint_string(choices: Array) -> String:
 	return ",".join(labels)
 
 
+## 从选择项解析供 Inspector 显示的标签。
+## [br]
+## @api private
+## [br]
 static func _choice_to_label(choice: Variant) -> String:
 	if choice is Dictionary:
 		var choice_dictionary: Dictionary = choice
@@ -674,6 +750,10 @@ static func _choice_to_label(choice: Variant) -> String:
 	return GFVariantData.to_text(choice)
 
 
+## 根据资源路径约束构造文件选择器提示字符串。
+## [br]
+## @api private
+## [br]
 static func _make_resource_path_hint_string(constraints: Dictionary) -> String:
 	var resource_constraint: Dictionary = GFVariantData.get_option_dictionary(constraints, "resource_path")
 	var extensions: PackedStringArray = _to_packed_string_array(GFVariantData.get_option_value(resource_constraint, "allowed_extensions", []))
@@ -689,6 +769,10 @@ static func _make_resource_path_hint_string(constraints: Dictionary) -> String:
 	return ",".join(filters)
 
 
+## 根据数值范围约束构造 Inspector 范围提示字符串。
+## [br]
+## @api private
+## [br]
 static func _make_range_hint_string(
 	constraints: Dictionary,
 	value_type: GFConfigTableColumn.ValueType
@@ -707,10 +791,18 @@ static func _make_range_hint_string(
 	return "%s,%s,%s" % [str(minimum), str(maximum), str(step)]
 
 
+## 将列中的校验规则转为字段描述字典。
+## [br]
+## @api private
+## [br]
 static func _describe_validation_rules(column: GFConfigTableColumn) -> Array[Dictionary]:
 	return _describe_rule_list(column.validation_rules)
 
 
+## 将非空校验规则列表转为描述字典数组。
+## [br]
+## @api private
+## [br]
 static func _describe_rule_list(rules: Array[GFConfigValidationRule]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for rule: GFConfigValidationRule in rules:
@@ -719,6 +811,10 @@ static func _describe_rule_list(rules: Array[GFConfigValidationRule]) -> Array[D
 	return result
 
 
+## 根据引用定义和选项解析目标记录显示标签所用字段。
+## [br]
+## @api private
+## [br]
 static func _resolve_label_fields(
 	reference_definition: GFConfigTableReference,
 	target_schema: GFConfigTableSchema,
@@ -739,6 +835,10 @@ static func _resolve_label_fields(
 	return PackedStringArray()
 
 
+## 将目标表规范化为记录字典数组。
+## [br]
+## @api private
+## [br]
 static func _normalize_records(target_table: Variant) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	if target_table is GFConfigTableResource:
@@ -757,6 +857,10 @@ static func _normalize_records(target_table: Variant) -> Array[Dictionary]:
 	return records
 
 
+## 将字典表项按稳定键顺序规范化为记录数组。
+## [br]
+## @api private
+## [br]
 static func _normalize_dictionary_records(table_dictionary: Dictionary) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	var key_lookup: Dictionary = {}
@@ -776,6 +880,10 @@ static func _normalize_dictionary_records(table_dictionary: Dictionary) -> Array
 	return records
 
 
+## 从目标字段构造选择项的值。
+## [br]
+## @api private
+## [br]
 static func _make_choice_value(record: Dictionary, target_fields: PackedStringArray) -> Variant:
 	if target_fields.size() == 1:
 		return _get_record_field(record, StringName(target_fields[0]), null)
@@ -787,6 +895,10 @@ static func _make_choice_value(record: Dictionary, target_fields: PackedStringAr
 	return value_dictionary
 
 
+## 按标签字段构造记录显示文本，并在需要时使用目标字段。
+## [br]
+## @api private
+## [br]
 static func _make_choice_label(
 	record: Dictionary,
 	label_fields: PackedStringArray,
@@ -813,6 +925,10 @@ static func _make_choice_label(
 	return fallback_key
 
 
+## 根据目标字段从记录中读取引用标识。
+## [br]
+## @api private
+## [br]
 static func _get_record_id(
 	record: Dictionary,
 	target_schema: GFConfigTableSchema,
@@ -826,15 +942,27 @@ static func _get_record_id(
 	return fallback_key
 
 
+## 从 metadata 读取布尔值，并在类型不符时回退默认值。
+## [br]
+## @api private
+## [br]
 static func _get_metadata_bool(metadata: Dictionary, key: StringName, default_value: bool) -> bool:
 	return GFVariantData.to_bool(_get_metadata_value(metadata, key, default_value), default_value)
 
 
+## 从 metadata 读取数组，并将 Variant 规范化为 Array。
+## [br]
+## @api private
+## [br]
 static func _get_metadata_array(metadata: Dictionary, key: StringName) -> Array:
 	var raw_array: Variant = _get_metadata_value(metadata, key, [])
 	return GFVariantData.to_array(raw_array, [])
 
 
+## 按 StringName 或其文本形式从 metadata 读取字段值。
+## [br]
+## @api private
+## [br]
 static func _get_metadata_value(metadata: Dictionary, key: StringName, default_value: Variant) -> Variant:
 	if metadata.has(key):
 		return metadata[key]
@@ -844,10 +972,18 @@ static func _get_metadata_value(metadata: Dictionary, key: StringName, default_v
 	return default_value
 
 
+## 检查 metadata 是否含 StringName 键或等价文本键。
+## [br]
+## @api private
+## [br]
 static func _metadata_has_key(metadata: Dictionary, key: StringName) -> bool:
 	return metadata.has(key) or metadata.has(String(key))
 
 
+## 检查字典是否包含指定键或其 StringName/文本等价形式。
+## [br]
+## @api private
+## [br]
 static func _dictionary_has_key(dictionary: Dictionary, key: Variant) -> bool:
 	if dictionary.has(key):
 		return true
@@ -860,6 +996,10 @@ static func _dictionary_has_key(dictionary: Dictionary, key: Variant) -> bool:
 	return false
 
 
+## 将 Variant 值规范化为 PackedStringArray。
+## [br]
+## @api private
+## [br]
 static func _to_packed_string_array(source: Variant) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	if source is PackedStringArray:
@@ -879,10 +1019,18 @@ static func _to_packed_string_array(source: Variant) -> PackedStringArray:
 	return result
 
 
+## 检查记录是否含 StringName 字段或等价文本字段。
+## [br]
+## @api private
+## [br]
 static func _record_has_field(record: Dictionary, field_name: StringName) -> bool:
 	return record.has(field_name) or record.has(String(field_name))
 
 
+## 按 StringName 或文本形式读取记录字段值。
+## [br]
+## @api private
+## [br]
 static func _get_record_field(record: Dictionary, field_name: StringName, default_value: Variant) -> Variant:
 	if record.has(field_name):
 		return record[field_name]

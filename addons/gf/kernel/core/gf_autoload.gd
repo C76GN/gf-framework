@@ -20,11 +20,17 @@ extends RefCounted
 ## @api framework_internal
 const AUTOLOAD_NAME: StringName = &"Gf"
 
+## 用于收窄 AutoLoad 动态方法返回值的 Variant 工具脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
 # --- 私有变量 ---
 
+## Gf 同步退出作用域的嵌套深度；结束时限制为不小于 0。
+## [br]
+## @api private
 static var _tree_exit_scope_depth: int = 0
 
 
@@ -59,6 +65,7 @@ static func reset_tree_exit_state() -> void:
 ## @return Gf AutoLoad 正在执行退出释放时返回 true。
 static func is_tree_exit_in_progress() -> bool:
 	return _tree_exit_scope_depth > 0
+
 
 ## 获取 Gf AutoLoad 节点；未注册或场景树不可用时返回 null。
 ## [br]

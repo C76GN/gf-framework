@@ -204,12 +204,20 @@ func apply_dictionary(data: Dictionary) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 把 NaN 和无穷时间归零，并将有限时间限制为非负值。
+## [br]
+## @api private
+## [br]
 static func _normalize_time_seconds(value: float) -> float:
 	if is_nan(value) or is_inf(value):
 		return 0.0
 	return maxf(value, 0.0)
 
 
+## 按条目实例 ID 记录其当前数组索引供同时间排序使用。
+## [br]
+## @api private
+## [br]
 func _make_entry_sequence_lookup() -> Dictionary:
 	var result: Dictionary = {}
 	for index: int in range(entries.size()):
@@ -219,5 +227,9 @@ func _make_entry_sequence_lookup() -> Dictionary:
 	return result
 
 
+## 按条目实例 ID 读取稳定排序序号；找不到时使用 0。
+## [br]
+## @api private
+## [br]
 func _get_entry_sequence(entry: GFTimedTextEntry, sequence_by_instance_id: Dictionary) -> int:
 	return GFVariantData.get_option_int(sequence_by_instance_id, entry.get_instance_id(), 0)

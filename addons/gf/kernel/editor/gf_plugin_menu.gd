@@ -6,11 +6,17 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 菜单记录字段的类型化读取辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
 # --- 私有变量 ---
 
+## 当前创建并交给 EditorPlugin 注册的 GF PopupMenu。
+## [br]
+## @api private
 var _menu: PopupMenu
 
 
@@ -56,6 +62,10 @@ func cleanup(plugin: EditorPlugin) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 跳过非字典、空标签和负 ID 项；按 section 变化插入分隔线后添加有效菜单项。
+## 空 section 使用“工具”作为分组标题。
+## [br]
+## @api private
 func _populate_menu(menu_entries: Array) -> void:
 	var current_section: String = ""
 	for entry_variant: Variant in menu_entries:

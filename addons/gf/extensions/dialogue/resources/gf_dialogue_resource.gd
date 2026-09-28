@@ -14,7 +14,14 @@ extends Resource
 
 # --- 常量 ---
 
+## 负责把结构校验结果整理为统一验证报告。
+## [br]
+## @api private
 const _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT = preload("res://addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd")
+
+## 对话资源快照复制器，统一处理共享预算和嵌套值复制。
+## [br]
+## @api private
 const _SNAPSHOT_COPY = preload("res://addons/gf/extensions/dialogue/resources/gf_dialogue_snapshot_copy.gd")
 
 
@@ -270,6 +277,9 @@ func build_identity_report(options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 以 subject 和 path 字段为同一标识追加一条资源级错误。
+## [br]
+## @api private
 func _append_issue(
 	report: Dictionary,
 	kind: StringName,
@@ -282,6 +292,9 @@ func _append_issue(
 	})
 
 
+## 返回各类对话资源校验错误对应的建议操作文本。
+## [br]
+## @api private
 func _get_validation_next_actions() -> Dictionary:
 	return {
 		"empty_dialogue": "Add at least one dialogue line with a stable non-empty line_id.",
@@ -298,6 +311,9 @@ func _get_validation_next_actions() -> Dictionary:
 	}
 
 
+## 建立行 ID 到资源的索引，跳过空槽、空 ID 和后续重复 ID。
+## [br]
+## @api private
 func _build_line_index() -> Dictionary:
 	var line_index: Dictionary = {}
 	for line: GFDialogueLine in lines:
@@ -307,6 +323,9 @@ func _build_line_index() -> Dictionary:
 	return line_index
 
 
+## 从各个无条件自动行开始检查 JUMP/MUTATION 链，并复用已完成路径。
+## [br]
+## @api private
 func _validate_automatic_cycles(report: Dictionary, line_index: Dictionary) -> void:
 	var completed_line_ids: Dictionary = {}
 	for line: GFDialogueLine in lines:
@@ -317,6 +336,9 @@ func _validate_automatic_cycles(report: Dictionary, line_index: Dictionary) -> v
 		_validate_automatic_chain(line.line_id, line_index, completed_line_ids, report)
 
 
+## 沿默认后继遍历自动行；重复到当前路径 ID 时报告循环，其他终点停止。
+## [br]
+## @api private
 func _validate_automatic_chain(
 	start_id: StringName,
 	line_index: Dictionary,
@@ -347,6 +369,9 @@ func _validate_automatic_chain(
 		completed_line_ids[line_id] = true
 
 
+## 从索引取出类型正确的 GFDialogueLine；条目缺失或类型不符时返回 null。
+## [br]
+## @api private
 func _get_indexed_line(line_index: Dictionary, line_id: StringName) -> GFDialogueLine:
 	var value: Variant = line_index.get(line_id)
 	if value is GFDialogueLine:
@@ -355,6 +380,9 @@ func _get_indexed_line(line_index: Dictionary, line_id: StringName) -> GFDialogu
 	return null
 
 
+## 仅当行是 JUMP/MUTATION 且没有条件和 fallback 时判为无条件自动行。
+## [br]
+## @api private
 func _is_unconditional_automatic_line(line: GFDialogueLine) -> bool:
 	return (
 		_is_automatic_line(line)
@@ -363,6 +391,9 @@ func _is_unconditional_automatic_line(line: GFDialogueLine) -> bool:
 	)
 
 
+## 判断非空行是否属于 JUMP 或 MUTATION 类型。
+## [br]
+## @api private
 func _is_automatic_line(line: GFDialogueLine) -> bool:
 	return (
 		line != null
@@ -373,6 +404,9 @@ func _is_automatic_line(line: GFDialogueLine) -> bool:
 	)
 
 
+## 检查枚举值是否等于四种受支持的 LineKind 常量之一。
+## [br]
+## @api private
 func _is_valid_line_kind(kind: int) -> bool:
 	return kind in [
 		GFDialogueLine.LineKind.TEXT,
@@ -382,6 +416,9 @@ func _is_valid_line_kind(kind: int) -> bool:
 	]
 
 
+## 将 Variant 收窄为 GFDialogueResource；类型不符时返回 null。
+## [br]
+## @api private
 func _get_dialogue_resource_value(value: Variant) -> GFDialogueResource:
 	if value is GFDialogueResource:
 		var resource: GFDialogueResource = value

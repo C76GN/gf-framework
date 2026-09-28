@@ -6,6 +6,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## Capability Utility 脚本资源。
+## [br]
+## @api private
 const _CAPABILITY_UTILITY_SCRIPT = preload("res://addons/gf/extensions/capability/core/gf_capability_utility.gd")
 
 
@@ -110,6 +113,9 @@ static func get_architecture_or_null(architecture_ref: WeakRef) -> GFArchitectur
 
 # --- 私有/辅助方法 ---
 
+## 从当前架构获取并收窄 Capability Utility。
+## [br]
+## @api private
 static func _get_capability_utility(architecture_ref: WeakRef) -> GFCapabilityUtility:
 	var utility: Object = get_utility(architecture_ref, _CAPABILITY_UTILITY_SCRIPT)
 	if utility is GFCapabilityUtility:

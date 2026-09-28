@@ -275,6 +275,10 @@ func to_dictionary() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 仅更新字段字典中显式提供且类型可转换的响应属性。
+## [br]
+## @api private
+## [br]
 func _apply_fields(fields: Dictionary) -> void:
 	if fields.has("url"):
 		url = GFVariantData.get_option_string(fields, "url", url)
@@ -294,6 +298,10 @@ func _apply_fields(fields: Dictionary) -> void:
 		metadata = GFVariantData.to_dictionary(GFVariantData.get_option_value(fields, "metadata", metadata))
 
 
+## 仅接受 PackedStringArray 响应头值，其余类型返回空数组。
+## [br]
+## @api private
+## [br]
 func _variant_to_packed_string_array(value: Variant) -> PackedStringArray:
 	if value is PackedStringArray:
 		var packed: PackedStringArray = value
@@ -301,6 +309,10 @@ func _variant_to_packed_string_array(value: Variant) -> PackedStringArray:
 	return PackedStringArray()
 
 
+## 仅接受 PackedByteArray 响应体，其余类型返回空数组。
+## [br]
+## @api private
+## [br]
 func _variant_to_packed_byte_array(value: Variant) -> PackedByteArray:
 	if value is PackedByteArray:
 		var packed: PackedByteArray = value
@@ -308,6 +320,10 @@ func _variant_to_packed_byte_array(value: Variant) -> PackedByteArray:
 	return PackedByteArray()
 
 
+## 按首个冒号拆分 Header 行，规范化名称并裁剪值的首尾空白。
+## [br]
+## @api private
+## [br]
 func _parse_header(raw_header: String) -> Dictionary:
 	var colon_index: int = raw_header.find(":")
 	if colon_index <= 0:
@@ -323,5 +339,9 @@ func _parse_header(raw_header: String) -> Dictionary:
 	}
 
 
+## 去除 Header 名称首尾空白并转成小写。
+## [br]
+## @api private
+## [br]
 func _normalize_header_name(header_name: String) -> String:
 	return header_name.strip_edges().to_lower()

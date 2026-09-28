@@ -14,7 +14,16 @@ extends GFConfigProvider
 
 # --- 私有变量 ---
 
+## 已注册的配置表资源列表。
+## [br]
+## @api private
+## [br]
 var _tables: Array[GFConfigTableResource] = []
+
+## 按表名缓存配置表资源的查找映射。
+## [br]
+## @api private
+## [br]
 var _tables_by_name: Dictionary = {}
 
 
@@ -359,6 +368,10 @@ func get_table(table_name: StringName) -> Variant:
 
 # --- 私有/辅助方法 ---
 
+## 从缓存查找表资源；缓存不匹配或未命中时重建注册表后再查找。
+## [br]
+## @api private
+## [br]
 func _get_table_reference(table_name: StringName) -> GFConfigTableResource:
 	var cached: Variant = GFVariantData.get_option_value(_tables_by_name, table_name, null)
 	if cached is GFConfigTableResource:
@@ -375,6 +388,10 @@ func _get_table_reference(table_name: StringName) -> GFConfigTableResource:
 	return null
 
 
+## 仅当缓存项类型和表名都匹配时返回对应的配置表资源。
+## [br]
+## @api private
+## [br]
 func _get_cached_table_reference(table_name: StringName) -> GFConfigTableResource:
 	var cached: Variant = GFVariantData.get_option_value(_tables_by_name, table_name, null)
 	if cached is GFConfigTableResource:
@@ -384,6 +401,10 @@ func _get_cached_table_reference(table_name: StringName) -> GFConfigTableResourc
 	return null
 
 
+## 从注册列表和名称映射中移除指定表名对应的条目。
+## [br]
+## @api private
+## [br]
 func _remove_table_entry(table_name: StringName) -> void:
 	var retained: Array[GFConfigTableResource] = []
 	for table_resource: GFConfigTableResource in _tables:
@@ -393,6 +414,10 @@ func _remove_table_entry(table_name: StringName) -> void:
 	var _erase_result: bool = _tables_by_name.erase(table_name)
 
 
+## 合并缓存键和注册资源中的非空表名，并去除重复项。
+## [br]
+## @api private
+## [br]
 func _collect_table_names() -> Array[StringName]:
 	var names: Array[StringName] = []
 	for table_name: Variant in _tables_by_name.keys():

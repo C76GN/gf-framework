@@ -5,20 +5,82 @@
 # @layer kernel/core
 extends RefCounted
 
+
+# --- 常量 ---
+
+## 混合整数与浮点比较允许的 int64 下界，包含该值。
+## [br]
+## @api private
 const _INT64_MIN_AS_FLOAT: float = -9_223_372_036_854_775_808.0
+
+## 混合整数与浮点比较的 int64 排他上界，避免把浮点舍入后的 2^63 转成整数。
+## [br]
+## @api private
 const _INT64_MAX_EXCLUSIVE_AS_FLOAT: float = 9_223_372_036_854_775_808.0
+
+## JSON 兼容转换遇到当前递归路径循环时写入的固定文本标记。
+## [br]
+## @api private
 const _JSON_CIRCULAR_MARKER: String = "<circular_reference>"
+
+## JSON 兼容转换超过递归深度预算的失败标记。
+## [br]
+## @api private
 const _JSON_DEPTH_BUDGET_MARKER: String = "<max_depth>"
+
+## JSON 兼容转换耗尽累计节点预算的失败标记。
+## [br]
+## @api private
 const _JSON_NODE_BUDGET_MARKER: String = "<max_nodes>"
+
+## JSON 兼容转换耗尽累计集合条目预算的失败标记。
+## [br]
+## @api private
 const _JSON_COLLECTION_BUDGET_MARKER: String = "<max_collection_items>"
+
+## JSON 兼容转换无法预留输出字节时的失败标记。
+## [br]
+## @api private
 const _JSON_BYTE_BUDGET_MARKER: String = "<max_bytes>"
+
+## 字典含 String/StringName 之外键类型时使用的失败标记。
+## [br]
+## @api private
 const _JSON_INVALID_DICTIONARY_KEY_MARKER: String = "<invalid_dictionary_key>"
+
+## 字典键转换为文本后发生同名冲突时使用的失败标记。
+## [br]
+## @api private
 const _JSON_DICTIONARY_KEY_COLLISION_MARKER: String = "<dictionary_key_collision>"
+
+## JSON 转换默认累计访问节点上限，供未指定预算时使用。
+## [br]
+## @api private
 const _JSON_DEFAULT_MAX_NODES: int = 16_384
+
+## JSON 转换默认累计集合条目上限，限制宽容器遍历量。
+## [br]
+## @api private
 const _JSON_DEFAULT_MAX_COLLECTION_ITEMS: int = 65_536
+
+## JSON 转换默认输出字节预算，包含结构符号、键和值。
+## [br]
+## @api private
 const _JSON_DEFAULT_MAX_BYTES: int = 4 * 1024 * 1024
+
+## 字典合并源预检默认递归深度上限，根位于零层。
+## [br]
+## @api private
 const _MERGE_DEFAULT_MAX_DEPTH: int = 64
+
+## 字典合并源预检默认累计节点上限，字典键和值分别计数。
+## [br]
+## @api private
 const _MERGE_DEFAULT_MAX_NODES: int = 16_384
+
+## 字典合并源预检默认累计集合条目上限。
+## [br]
+## @api private
 const _MERGE_DEFAULT_MAX_COLLECTION_ITEMS: int = 65_536
 
 # --- 框架内部方法 ---
@@ -238,6 +300,7 @@ static func as_array(value: Variant, default_value: Variant = null) -> Array:
 		var fallback_array: Array = default_value
 		return fallback_array
 	return []
+
 
 # --- 框架内部方法（类型收窄） ---
 
@@ -997,8 +1060,12 @@ static func get_option_packed_string_array(
 		result = default_value.duplicate()
 	return result
 
+
 # --- 私有/辅助方法 ---
 
+## 原地合并源字典，递归时按目标与源的引用配对避免循环；已有嵌套字典继续合并，其他值按覆盖选项安全复制。
+## [br]
+## @api private
 static func _merge_dictionary(
 	target: Dictionary,
 	source: Dictionary,
@@ -1038,6 +1105,9 @@ static func _merge_dictionary(
 	return target
 
 
+## 逐一比较源与目标的引用身份配对，防止递归合并重复进入同一对字典。
+## [br]
+## @api private
 static func _has_visited_dictionary_pair(
 	visited_targets: Array,
 	visited_sources: Array,
@@ -1050,6 +1120,9 @@ static func _has_visited_dictionary_pair(
 	return false
 
 
+## 为源字典建立独立深度、节点及集合预算状态并预遍历，返回首个超限原因；不修改合并目标。
+## [br]
+## @api private
 static func _validate_merge_source_budget(source: Dictionary, budget_options: Dictionary) -> String:
 	var state: Dictionary = {
 		"max_depth": maxi(get_option_int(budget_options, "max_depth", _MERGE_DEFAULT_MAX_DEPTH), 0),
@@ -1069,6 +1142,9 @@ static func _validate_merge_source_budget(source: Dictionary, budget_options: Di
 	return _visit_merge_source_budget(source, state, 0)
 
 
+## 递归计数源字典的键值及数组元素，当前路径循环不再展开；Packed Array 以长度批量计数，返回首个预算失败原因。
+## [br]
+## @api private
 static func _visit_merge_source_budget(value: Variant, state: Dictionary, depth: int) -> String:
 	if depth > get_option_int(state, "max_depth"):
 		return "max_depth"
@@ -1120,18 +1196,27 @@ static func _visit_merge_source_budget(value: Variant, state: Dictionary, depth:
 	return failure
 
 
+## 将非负节点量累加到合并状态，并检查累计值是否不超上限。
+## [br]
+## @api private
 static func _consume_merge_nodes(state: Dictionary, amount: int) -> bool:
 	var node_count: int = get_option_int(state, "node_count") + maxi(amount, 0)
 	state["node_count"] = node_count
 	return node_count <= get_option_int(state, "max_nodes")
 
 
+## 将非负集合项数累加到合并状态，并检查累计值是否不超上限。
+## [br]
+## @api private
 static func _consume_merge_collection_items(state: Dictionary, amount: int) -> bool:
 	var item_count: int = get_option_int(state, "collection_item_count") + maxi(amount, 0)
 	state["collection_item_count"] = item_count
 	return item_count <= get_option_int(state, "max_collection_items")
 
 
+## 读取合并预算状态中的活动集合数组；值缺失或类型不符时新建并保存。
+## [br]
+## @api private
 static func _get_merge_active_collections(state: Dictionary) -> Array:
 	var active_value: Variant = state.get("active_collections", [])
 	if active_value is Array:
@@ -1142,6 +1227,9 @@ static func _get_merge_active_collections(state: Dictionary) -> Array:
 	return created_active_collections
 
 
+## 按引用映射复制字典与数组并保留共享或循环关系，Packed Array 独立复制；可选 Resource 深复制，其他对象仍保留原引用。
+## [br]
+## @api private
 static func _duplicate_variant_safe(value: Variant, duplicate_resources: bool, visited: Array) -> Variant:
 	if value is Dictionary:
 		var dictionary: Dictionary = value
@@ -1190,6 +1278,9 @@ static func _duplicate_variant_safe(value: Variant, duplicate_resources: bool, v
 	return value
 
 
+## 为支持的 Packed Array 类型返回 duplicate() 结果，其他值原样返回。
+## [br]
+## @api private
 static func _duplicate_packed_array(value: Variant) -> Variant:
 	if value is PackedByteArray:
 		var packed_bytes: PackedByteArray = value
@@ -1224,6 +1315,9 @@ static func _duplicate_packed_array(value: Variant) -> Variant:
 	return value
 
 
+## 从复制记录中按源引用身份取回已创建副本；忽略非字典记录，未命中返回 null。
+## [br]
+## @api private
 static func _get_visited_duplicate(visited: Array, source: Variant) -> Variant:
 	for record_value: Variant in visited:
 		if not record_value is Dictionary:
@@ -1234,6 +1328,9 @@ static func _get_visited_duplicate(visited: Array, source: Variant) -> Variant:
 	return null
 
 
+## 先比较浮点精确相等；有限且不等时才应用非负 numeric_epsilon。
+## [br]
+## @api private
 static func _float_values_equal(left: Variant, right: Variant, options: Dictionary) -> bool:
 	if not left is float or not right is float:
 		return false
@@ -1247,6 +1344,9 @@ static func _float_values_equal(left: Variant, right: Variant, options: Dictiona
 	return epsilon > 0.0 and absf(left_number - right_number) <= epsilon
 
 
+## 仅当浮点有限、无小数且处于 int64 可转换范围时执行双向回转比较，避免大整数被浮点舍入后误判相等。
+## [br]
+## @api private
 static func _mixed_integer_float_values_equal(left: Variant, right: Variant) -> bool:
 	var integer_value: int
 	var float_value: float
@@ -1268,10 +1368,16 @@ static func _mixed_integer_float_values_equal(left: Variant, right: Variant) -> 
 	return round_trip_integer == integer_value and float(round_trip_integer) == float_value
 
 
+## 判断 Variant 类型编号是否为 int 或 float。
+## [br]
+## @api private
 static func _is_numeric_variant_type(variant_type: int) -> bool:
 	return variant_type == TYPE_INT or variant_type == TYPE_FLOAT
 
 
+## 判断 Variant 类型编号是否为支持复制或 JSON 转换的 Packed Array。
+## [br]
+## @api private
 static func _is_packed_array_type(variant_type: int) -> bool:
 	return (
 		variant_type == TYPE_PACKED_BYTE_ARRAY
@@ -1287,10 +1393,16 @@ static func _is_packed_array_type(variant_type: int) -> bool:
 	)
 
 
+## 判断值是否为 String 或 StringName。
+## [br]
+## @api private
 static func _is_string_like_value(value: Variant) -> bool:
 	return value is String or value is StringName
 
 
+## 在共享预算内递归转换 Variant，首个失败标记会阻止后续转换；集合交由专用 helper，常用向量和颜色转为组件字典，其他类型转文本。
+## [br]
+## @api private
 static func _to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Variant:
 	var existing_failure: String = get_option_string(state, "failure_marker")
 	if not existing_failure.is_empty():
@@ -1381,6 +1493,9 @@ static func _to_json_compatible(value: Variant, state: Dictionary, depth: int) -
 	return converted
 
 
+## 检查当前路径循环、集合与字节预算并预检字符串键及碰撞，再递归转换值；失败写入共享状态，调用方据此处理部分结果。
+## [br]
+## @api private
 static func _json_dictionary_to_compatible(dictionary: Dictionary, state: Dictionary, depth: int) -> Variant:
 	var active_collections: Array = _get_json_active_collections(state)
 	if _has_active_collection(active_collections, dictionary):
@@ -1422,6 +1537,9 @@ static func _json_dictionary_to_compatible(dictionary: Dictionary, state: Dictio
 	return result
 
 
+## 用当前递归路径检测数组循环，再委托序列转换并弹出路径记录；同一数组在不同分支重用不算循环。
+## [br]
+## @api private
 static func _json_array_to_compatible(array: Array, state: Dictionary, depth: int) -> Variant:
 	var active_collections: Array = _get_json_active_collections(state)
 	if _has_active_collection(active_collections, array):
@@ -1432,6 +1550,9 @@ static func _json_array_to_compatible(array: Array, state: Dictionary, depth: in
 	return result
 
 
+## 先为 Packed Array 预留条目与结构字节，再逐项转为普通数组；共享失败状态出现后停止追加。
+## [br]
+## @api private
 static func _json_packed_array_to_compatible(value: Variant, state: Dictionary, depth: int) -> Variant:
 	var item_count: int = len(value)
 	if not _consume_json_collection_items(state, item_count):
@@ -1447,6 +1568,9 @@ static func _json_packed_array_to_compatible(value: Variant, state: Dictionary, 
 	return result
 
 
+## 先预留普通数组条目和结构字节，再在共享预算下递归转换元素；首个失败后停止，留给上层读取失败标记。
+## [br]
+## @api private
 static func _json_sequence_to_compatible(values: Array, state: Dictionary, depth: int) -> Variant:
 	if not _consume_json_collection_items(state, values.size()):
 		return get_option_string(state, "failure_marker")
@@ -1461,6 +1585,9 @@ static func _json_sequence_to_compatible(values: Array, state: Dictionary, depth
 	return result
 
 
+## 创建 JSON 转换状态，并将深度、节点、集合项及字节预算限制为非负值。
+## [br]
+## @api private
 static func _make_json_conversion_state(max_depth: int, options: Dictionary) -> Dictionary:
 	return {
 		"max_depth": maxi(max_depth, 0),
@@ -1478,6 +1605,9 @@ static func _make_json_conversion_state(max_depth: int, options: Dictionary) -> 
 	}
 
 
+## 增加 JSON 转换节点计数；超过上限时记录节点预算失败。
+## [br]
+## @api private
 static func _consume_json_node(state: Dictionary) -> bool:
 	var node_count: int = get_option_int(state, "node_count") + 1
 	state["node_count"] = node_count
@@ -1487,6 +1617,9 @@ static func _consume_json_node(state: Dictionary) -> bool:
 	return true
 
 
+## 增加 JSON 集合项计数；超过上限时记录集合预算失败。
+## [br]
+## @api private
 static func _consume_json_collection_items(state: Dictionary, item_count: int) -> bool:
 	var collection_item_count: int = get_option_int(state, "collection_item_count") + maxi(item_count, 0)
 	state["collection_item_count"] = collection_item_count
@@ -1496,11 +1629,17 @@ static func _consume_json_collection_items(state: Dictionary, item_count: int) -
 	return true
 
 
+## JSON.stringify 值并按其 UTF-8 长度预留字节预算。
+## [br]
+## @api private
 static func _reserve_json_value_bytes(state: Dictionary, value: Variant) -> bool:
 	var encoded: String = JSON.stringify(value)
 	return _reserve_json_bytes(state, encoded.to_utf8_buffer().size())
 
 
+## 累加非负字节数；超过预算时记录字节预算失败。
+## [br]
+## @api private
 static func _reserve_json_bytes(state: Dictionary, byte_count: int) -> bool:
 	var total_bytes: int = get_option_int(state, "byte_count") + maxi(byte_count, 0)
 	state["byte_count"] = total_bytes
@@ -1510,18 +1649,27 @@ static func _reserve_json_bytes(state: Dictionary, byte_count: int) -> bool:
 	return true
 
 
+## 为 marker 文本预留字节预算，超限时返回状态中的失败 marker。
+## [br]
+## @api private
 static func _json_marker_value(state: Dictionary, marker: String) -> String:
 	if not _reserve_json_value_bytes(state, marker):
 		return get_option_string(state, "failure_marker")
 	return marker
 
 
+## 仅在尚无失败原因时保存 marker，并返回当前保存的失败值。
+## [br]
+## @api private
 static func _fail_json_conversion(state: Dictionary, marker: String) -> String:
 	if get_option_string(state, "failure_marker").is_empty():
 		state["failure_marker"] = marker
 	return get_option_string(state, "failure_marker")
 
 
+## 读取 JSON 转换状态中的活动集合数组；缺失或类型错误时新建并保存。
+## [br]
+## @api private
 static func _get_json_active_collections(state: Dictionary) -> Array:
 	var active_value: Variant = state.get("active_collections", [])
 	if active_value is Array:
@@ -1532,6 +1680,9 @@ static func _get_json_active_collections(state: Dictionary) -> Array:
 	return created_active_collections
 
 
+## 通过 is_same 按引用身份检查候选值是否已在活动集合栈中。
+## [br]
+## @api private
 static func _has_active_collection(active_collections: Array, candidate: Variant) -> bool:
 	for active_value: Variant in active_collections:
 		if is_same(active_value, candidate):
@@ -1539,6 +1690,9 @@ static func _has_active_collection(active_collections: Array, candidate: Variant
 	return false
 
 
+## 将 NaN 和正负无穷转换为文本，其余浮点值原样返回。
+## [br]
+## @api private
 static func _to_json_compatible_float(value: float) -> Variant:
 	if is_nan(value):
 		return "NaN"
@@ -1547,6 +1701,9 @@ static func _to_json_compatible_float(value: float) -> Variant:
 	return value
 
 
+## 读取精确键；String 与 StringName 可互相回退匹配，否则返回默认值。
+## [br]
+## @api private
 static func _get_key_value(data: Dictionary, key: Variant, default_value: Variant = null) -> Variant:
 	if data.has(key):
 		return data[key]
@@ -1563,6 +1720,9 @@ static func _get_key_value(data: Dictionary, key: Variant, default_value: Varian
 	return default_value
 
 
+## 检查字典中是否存在精确键或 String/StringName 文本等价键。
+## [br]
+## @api private
 static func _has_equivalent_key(data: Dictionary, key: Variant) -> bool:
 	if data.has(key):
 		return true
@@ -1575,6 +1735,9 @@ static func _has_equivalent_key(data: Dictionary, key: Variant) -> bool:
 	return false
 
 
+## 返回精确或文本等价的实际键；未命中时返回输入键。
+## [br]
+## @api private
 static func _get_equivalent_key(data: Dictionary, key: Variant) -> Variant:
 	if data.has(key):
 		return key
@@ -1591,6 +1754,9 @@ static func _get_equivalent_key(data: Dictionary, key: Variant) -> Variant:
 	return key
 
 
+## 判断候选键列表中是否至少有一个键在字典中等价存在。
+## [br]
+## @api private
 static func _has_any_key(data: Dictionary, keys: Array) -> bool:
 	for key: Variant in keys:
 		if _has_equivalent_key(data, key):
@@ -1598,6 +1764,9 @@ static func _has_any_key(data: Dictionary, keys: Array) -> bool:
 	return false
 
 
+## 逐项复制 String 数组。
+## [br]
+## @api private
 static func _copy_string_array(values: Array[String]) -> Array[String]:
 	var result: Array[String] = []
 	for value: String in values:
@@ -1605,6 +1774,9 @@ static func _copy_string_array(values: Array[String]) -> Array[String]:
 	return result
 
 
+## 逐项复制 StringName 数组。
+## [br]
+## @api private
 static func _copy_string_name_array(values: Array[StringName]) -> Array[StringName]:
 	var result: Array[StringName] = []
 	for value: StringName in values:
@@ -1612,6 +1784,9 @@ static func _copy_string_name_array(values: Array[StringName]) -> Array[StringNa
 	return result
 
 
+## 逐项复制 int 数组。
+## [br]
+## @api private
 static func _copy_int_array(values: Array[int]) -> Array[int]:
 	var result: Array[int] = []
 	for value: int in values:

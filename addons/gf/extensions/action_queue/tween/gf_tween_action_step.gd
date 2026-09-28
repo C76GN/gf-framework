@@ -13,7 +13,14 @@ extends Resource
 
 # --- 常量 ---
 
+## 统一校验和规范化步骤的非负时长参数。
+## [br]
+## @api private
 const _ACTION_TIME_POLICY = preload("res://addons/gf/extensions/action_queue/core/gf_action_time_policy.gd")
+
+## 捕获、复制和构建自定义缓动曲线数据。
+## [br]
+## @api private
 const _EASING_CURVE_SCRIPT = preload("res://addons/gf/extensions/action_queue/tween/gf_tween_easing_curve.gd")
 
 
@@ -94,7 +101,14 @@ const _EASING_CURVE_SCRIPT = preload("res://addons/gf/extensions/action_queue/tw
 
 # --- 私有变量 ---
 
+## 由公开 duration 属性访问器规范化存储的持续时间。
+## [br]
+## @api private
 var _duration: float = 0.2
+
+## 由公开 delay 属性访问器规范化存储的延迟。
+## [br]
+## @api private
 var _delay: float = 0.0
 
 
@@ -327,6 +341,9 @@ static func append_property_tweener(
 
 # --- 私有/辅助方法 ---
 
+## 校验步骤与曲线、规范化缩放时长，再委托构建原生属性 Tweener。
+## [br]
+## @api private
 func _append_validated(tween: Tween, target: Object, duration_scale: float, write_target: Object, write_property: NodePath) -> Variant:
 	if tween == null:
 		return null
@@ -354,6 +371,9 @@ func _append_validated(tween: Tween, target: Object, duration_scale: float, writ
 	)
 
 
+## 将目标值与当前属性值相加以解析相对终值。
+## [br]
+## @api private
 func _resolve_relative_value(target: Object) -> Variant:
 	var current_value: Variant = target.get_indexed(property_name)
 	if current_value is float or current_value is int:
@@ -367,6 +387,9 @@ func _resolve_relative_value(target: Object) -> Variant:
 	return target_value
 
 
+## 判断当前值和目标值是否属于受支持的相对数值类型组合。
+## [br]
+## @api private
 func _can_resolve_relative_value(target: Object) -> bool:
 	var current_value: Variant = target.get_indexed(property_name)
 	return (
@@ -384,6 +407,9 @@ func _can_resolve_relative_value(target: Object) -> bool:
 	)
 
 
+## 检查数值是否可互换，或其他值的 Variant 类型是否相同。
+## [br]
+## @api private
 func _are_tween_values_compatible(current_value: Variant, next_value: Variant) -> bool:
 	if (
 		(current_value is float or current_value is int)
@@ -393,6 +419,9 @@ func _are_tween_values_compatible(current_value: Variant, next_value: Variant) -
 	return typeof(current_value) == typeof(next_value)
 
 
+## 取得属性路径冒号之前的根属性名。
+## [br]
+## @api private
 func _get_root_property_name() -> String:
 	var path_text: String = String(property_name)
 	var separator_index: int = path_text.find(":")
@@ -401,6 +430,9 @@ func _get_root_property_name() -> String:
 	return path_text
 
 
+## 在目标对象的属性列表中查找指定属性名。
+## [br]
+## @api private
 func _has_property(target: Object, property: String) -> bool:
 	for property_info: Dictionary in target.get_property_list():
 		if GFVariantData.get_option_string(property_info, "name") == property:
@@ -408,6 +440,9 @@ func _has_property(target: Object, property: String) -> bool:
 	return false
 
 
+## 将 Variant 收窄为 Vector2；其他类型返回零向量。
+## [br]
+## @api private
 func _get_vector2_value(value: Variant) -> Vector2:
 	if value is Vector2:
 		var vector: Vector2 = value
@@ -415,6 +450,9 @@ func _get_vector2_value(value: Variant) -> Vector2:
 	return Vector2.ZERO
 
 
+## 将 Variant 收窄为 Vector3；其他类型返回零向量。
+## [br]
+## @api private
 func _get_vector3_value(value: Variant) -> Vector3:
 	if value is Vector3:
 		var vector: Vector3 = value
@@ -422,6 +460,9 @@ func _get_vector3_value(value: Variant) -> Vector3:
 	return Vector3.ZERO
 
 
+## 将 Variant 收窄为 Color；其他类型返回白色。
+## [br]
+## @api private
 func _get_color_value(value: Variant) -> Color:
 	if value is Color:
 		var color: Color = value

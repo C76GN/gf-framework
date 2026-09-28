@@ -32,7 +32,14 @@ enum Operator {
 
 # --- 常量 ---
 
+## 从嵌套字典恢复表达式时允许的最大递归深度。
+## [br]
+## @api private
 const _MAX_RESTORE_DEPTH: int = 128
+
+## 递归计算匹配报告时允许的最大表达式深度。
+## [br]
+## @api private
 const _MAX_MATCH_DEPTH: int = 32
 
 
@@ -220,6 +227,9 @@ static func from_query(tag_query: GFTagQuery) -> GFTagExpression:
 
 # --- 私有/辅助方法 ---
 
+## 按字典恢复表达式；超出深度或遇到相同字典实例时返回 null，并保留无效子项位置。
+## [br]
+## @api private
 static func _from_dictionary(data: Dictionary, visited: Array, depth: int) -> GFTagExpression:
 	if depth > _MAX_RESTORE_DEPTH or _visited_contains_dictionary(visited, data):
 		return null
@@ -249,6 +259,10 @@ static func _from_dictionary(data: Dictionary, visited: Array, depth: int) -> GF
 	return expression
 
 
+## 优先读取 String 键；其值不是 Dictionary 时再尝试对应 StringName 键。
+## 两种键都没有符合类型的值时返回空字典。
+## [br]
+## @api private
 static func _get_raw_dictionary(data: Dictionary, key: String) -> Dictionary:
 	if data.has(key):
 		var value: Variant = data[key]
@@ -264,6 +278,10 @@ static func _get_raw_dictionary(data: Dictionary, key: String) -> Dictionary:
 	return {}
 
 
+## 优先读取 String 键；其值不是 Array 时再尝试对应 StringName 键。
+## 两种键都没有符合类型的值时返回空数组。
+## [br]
+## @api private
 static func _get_raw_array(data: Dictionary, key: String) -> Array:
 	if data.has(key):
 		var value: Variant = data[key]
@@ -279,6 +297,10 @@ static func _get_raw_array(data: Dictionary, key: String) -> Array:
 	return []
 
 
+## 按实例 ID 递归复制表达式；重复访问返回已登记副本以保留图中的共享引用与循环。
+## 查询复制为独立查询，子项按原顺序递归复制。
+## [br]
+## @api private
 func _duplicate_expression(visited: Dictionary) -> GFTagExpression:
 	var instance_id: int = get_instance_id()
 	if visited.has(instance_id):
@@ -296,6 +318,9 @@ func _duplicate_expression(visited: Dictionary) -> GFTagExpression:
 	return copy
 
 
+## 序列化表达式图；重复访问的节点输出 cycle_detected 标记，null 子项输出 null_expression 标记。
+## [br]
+## @api private
 func _to_dictionary(visited: Dictionary) -> Dictionary:
 	var instance_id: int = get_instance_id()
 	if visited.has(instance_id):
@@ -315,6 +340,9 @@ func _to_dictionary(visited: Dictionary) -> Dictionary:
 	}
 
 
+## 检查深度与当前访问路径的循环，再按 operator 分派叶子或子表达式报告。
+## [br]
+## @api private
 func _get_match_report(source: Variant, visited: Array[int], depth: int = 0) -> Dictionary:
 	if depth > _MAX_MATCH_DEPTH:
 		return _make_invalid_match_report("depth_limit_exceeded")
@@ -340,6 +368,9 @@ func _get_match_report(source: Variant, visited: Array[int], depth: int = 0) -> 
 	return report
 
 
+## 通过叶子 query 获取匹配报告；没有 query 时按 ok=true 处理。
+## [br]
+## @api private
 func _get_query_match_report(source: Variant) -> Dictionary:
 	var query_report: Dictionary = query.get_match_report(source) if query != null else { "ok": true }
 	var matched: bool = GFVariantData.get_option_bool(query_report, "ok", false)
@@ -357,6 +388,10 @@ func _get_query_match_report(source: Variant) -> Dictionary:
 	}
 
 
+## 完整收集各子项诊断，任一无效子项使结果无效；非空时按 require_all 组合 matched。
+## 空列表直接使用调用方的 empty_value：当前 ALL 传 false、ANY 传 true，不套用布尔空集恒等式。
+## [br]
+## @api private
 func _get_children_match_report(
 	source: Variant,
 	visited: Array[int],
@@ -402,6 +437,9 @@ func _get_children_match_report(
 	}
 
 
+## 汇总 NONE 子项报告；无子项匹配时 matched=true，但任一无效子项仍使 valid 与 ok 为 false。
+## [br]
+## @api private
 func _get_none_match_report(source: Variant, visited: Array[int], depth: int) -> Dictionary:
 	var child_reports: Array[Dictionary] = []
 	var matched_indices: Array[int] = []
@@ -435,6 +473,9 @@ func _get_none_match_report(source: Variant, visited: Array[int], depth: int) ->
 	}
 
 
+## 为 null 子表达式生成固定的无效、不匹配报告。
+## [br]
+## @api private
 func _get_null_child_report() -> Dictionary:
 	return {
 		"ok": false,
@@ -450,6 +491,9 @@ func _get_null_child_report() -> Dictionary:
 	}
 
 
+## 为循环、深度限制等结构错误生成固定的无效匹配报告。
+## [br]
+## @api private
 func _make_invalid_match_report(reason: String) -> Dictionary:
 	return {
 		"ok": false,
@@ -465,12 +509,18 @@ func _make_invalid_match_report(reason: String) -> Dictionary:
 	}
 
 
+## 清空当前子项并按传入顺序写入新的表达式引用。
+## [br]
+## @api private
 func _assign_expressions(child_expressions: Array[GFTagExpression]) -> void:
 	expressions.clear()
 	for child_expression: GFTagExpression in child_expressions:
 		expressions.append(child_expression)
 
 
+## 按索引读取 GFTagExpression 子项；越界、null 或其他 Resource 类型均返回 null。
+## [br]
+## @api private
 func _get_expression_at(index: int) -> GFTagExpression:
 	if index < 0 or index >= expressions.size():
 		return null
@@ -481,6 +531,9 @@ func _get_expression_at(index: int) -> GFTagExpression:
 	return null
 
 
+## 创建序列化用 null 子项标记字典。
+## [br]
+## @api private
 static func _make_null_dictionary() -> Dictionary:
 	return {
 		"operator": "null",
@@ -490,6 +543,9 @@ static func _make_null_dictionary() -> Dictionary:
 	}
 
 
+## 创建序列化用循环子项标记字典。
+## [br]
+## @api private
 static func _make_cycle_dictionary() -> Dictionary:
 	return {
 		"operator": "cycle",
@@ -499,6 +555,9 @@ static func _make_cycle_dictionary() -> Dictionary:
 	}
 
 
+## 将已知 Operator 转为稳定的小写名称，未知值转为 unknown。
+## [br]
+## @api private
 static func _operator_to_string(value: int) -> String:
 	match value:
 		Operator.QUERY:
@@ -513,6 +572,9 @@ static func _operator_to_string(value: int) -> String:
 			return "unknown"
 
 
+## 从有效枚举整数或大小写不敏感的 query/all/any/none 文本解析运算符；未知输入返回 -1。
+## [br]
+## @api private
 static func _operator_from_variant(value: Variant) -> int:
 	if value is int:
 		var numeric: int = GFVariantData.to_int(value, Operator.QUERY)
@@ -540,6 +602,9 @@ static func _operator_from_variant(value: Variant) -> int:
 			return -1
 
 
+## 按 Dictionary 实例身份检查当前恢复路径中是否已有相同字典。
+## [br]
+## @api private
 static func _visited_contains_dictionary(visited: Array, data: Dictionary) -> bool:
 	for entry: Variant in visited:
 		if entry is Dictionary and is_same(entry, data):
@@ -547,6 +612,9 @@ static func _visited_contains_dictionary(visited: Array, data: Dictionary) -> bo
 	return false
 
 
+## 尝试通过当前脚本创建同类表达式；实例不匹配或脚本不可用时回退到 GFTagExpression。
+## [br]
+## @api private
 func _instantiate_expression() -> GFTagExpression:
 	var script_value: Variant = get_script()
 	if script_value is Script:

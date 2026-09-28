@@ -8,25 +8,103 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 有限浮点规范化时保留的十进制有效数字上限。
+## [br]
+## @api private
+## [br]
 const _MAX_FLOAT_SIGNIFICANT_DIGITS: int = 768
+
+## 规范化指数为 308 时用于边界比较的十进制前缀。
+## [br]
+## @api private
+## [br]
 const _MAX_FLOAT_DECIMAL_PREFIX: String = "17976931348623157"
 
 
 # --- 私有变量 ---
 
+## 当前 strict JSON 文本输入。
+## [br]
+## @api private
+## [br]
 var _text: String = ""
+
+## 当前输入的 String 长度缓存。
+## [br]
+## @api private
+## [br]
 var _text_length: int = 0
+
+## 解析游标的当前位置。
+## [br]
+## @api private
+## [br]
 var _index: int = 0
+
+## 解析游标当前所在的行号，初始为 1。
+## [br]
+## @api private
+## [br]
 var _line: int = 1
+
+## 解析游标当前所在的列号，初始为 1。
+## [br]
+## @api private
+## [br]
 var _column: int = 1
+
+## 标记上一个 codepoint 是否为 CR，用于识别 CRLF 行尾。
+## [br]
+## @api private
+## [br]
 var _previous_was_cr: bool = false
+
+## 本次解析接受的最大容器深度。
+## [br]
+## @api private
+## [br]
 var _max_depth: int = 1
+
+## 本次解析接受的最大节点数量。
+## [br]
+## @api private
+## [br]
 var _max_nodes: int = 1
+
+## 单个 JSON 字符串接受的最大 UTF-8 字节数。
+## [br]
+## @api private
+## [br]
 var _max_string_bytes: int = 1
+
+## 本次解析已经预留的节点数量。
+## [br]
+## @api private
+## [br]
 var _node_count: int = 0
+
+## 本次解析已读取字符串及对象键的 UTF-8 字节数。
+## [br]
+## @api private
+## [br]
 var _string_byte_count: int = 0
+
+## JSON Pointer 到值 token 来源片段的映射。
+## [br]
+## @api private
+## [br]
 var _value_spans: Dictionary = {}
+
+## JSON Pointer 到对象 member 名称来源片段的映射。
+## [br]
+## @api private
+## [br]
 var _key_spans: Dictionary = {}
+
+## 本次解析记录的首个错误信息。
+## [br]
+## @api private
+## [br]
 var _error: Dictionary = {}
 
 
@@ -93,6 +171,9 @@ func parse_text(text: String, limits: Dictionary) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 先预留节点预算，再按当前字符解析值；只有未发生错误时才记录该 JSON Pointer 的完整值范围，null 是否有效须同时检查错误状态。
+## [br]
+## @api private
 func _parse_value(pointer: String, depth: int) -> Variant:
 	if _has_error():
 		return null
@@ -145,6 +226,9 @@ func _parse_value(pointer: String, depth: int) -> Variant:
 	return value
 
 
+## 逐成员解析并记录键范围，以转义后的 JSON Pointer 关联值；重复键报告首次和重复位置并停止，失败时返回的部分字典不能作为成功结果。
+## [br]
+## @api private
 func _parse_object(pointer: String, depth: int) -> Dictionary:
 	var result: Dictionary = {}
 	var _opening_codepoint: int = _advance()
@@ -238,6 +322,9 @@ func _parse_object(pointer: String, depth: int) -> Dictionary:
 	return result
 
 
+## 按零基下标构建元素 JSON Pointer 并逐项解析；拒绝缺少逗号和尾逗号，错误状态下可能留下包含失败空值的部分数组。
+## [br]
+## @api private
 func _parse_array(pointer: String, depth: int) -> Array:
 	var result: Array = []
 	var _opening_codepoint: int = _advance()
@@ -278,6 +365,9 @@ func _parse_array(pointer: String, depth: int) -> Array:
 	return result
 
 
+## 解码字符串并拒绝原始控制字符及未配对代理码位；闭合后按 UTF-8 字节检查单字符串预算，再累加成功字符串的字节统计。
+## [br]
+## @api private
 func _parse_string(pointer: String) -> String:
 	var start_index: int = _index
 	var start_line: int = _line
@@ -338,6 +428,9 @@ func _parse_string(pointer: String) -> String:
 	return ""
 
 
+## 把合法 JSON 转义追加到共享片段数组；Unicode 高代理必须紧随低代理并合成码点，孤立代理和非法转义立即记录错误。
+## [br]
+## @api private
 func _parse_escape(fragments: PackedStringArray, pointer: String) -> void:
 	var escape_codepoint: int = _peek()
 	if escape_codepoint < 0:
@@ -412,6 +505,10 @@ func _parse_escape(fragments: PackedStringArray, pointer: String) -> void:
 			)
 
 
+## 从当前位置读取四个十六进制数字并组合为整数；遇到非十六进制字符时设置 Unicode 错误。
+## [br]
+## @api private
+## [br]
 func _read_hex_quad(pointer: String) -> int:
 	var result: int = 0
 	for _offset: int in range(4):
@@ -430,6 +527,9 @@ func _read_hex_quad(pointer: String) -> int:
 	return result
 
 
+## 先验证 JSON 数字语法，再分别按有符号 64 位整数或有限浮点路径转换；越界、非有限及不受支持的非零下溢都返回错误空值。
+## [br]
+## @api private
 func _parse_number(pointer: String) -> Variant:
 	var start_index: int = _index
 	var start_line: int = _line
@@ -506,6 +606,10 @@ func _parse_number(pointer: String) -> Variant:
 	return GFVariantData.get_option_float(float_result, "value")
 
 
+## 判断已通过整数词法分析的 token 是否落在有符号 64 位整数范围内。
+## [br]
+## @api private
+## [br]
 func _is_supported_int64_token(token: String) -> bool:
 	var negative: bool = token.begins_with("-")
 	var digits: String = token.substr(1) if negative else token
@@ -515,6 +619,9 @@ func _is_supported_int64_token(token: String) -> bool:
 	return _compare_decimal_digits(digits, boundary) <= 0
 
 
+## 将已通过词法检查的数字归一为有界科学计数文本，截断有效位时保留非零尾部标记；拒绝超出支持指数范围、非有限或非零变零的结果。
+## [br]
+## @api private
 func _convert_finite_float_token(token: String) -> Dictionary:
 	var negative: bool = token.begins_with("-")
 	var unsigned_token: String = token.substr(1) if token.begins_with("-") else token
@@ -584,6 +691,10 @@ func _convert_finite_float_token(token: String) -> Dictionary:
 	}
 
 
+## 累加十进制指数，并在绝对值超过 saturation 后停止累加并返回带符号结果。
+## [br]
+## @api private
+## [br]
 func _read_saturating_decimal_exponent(
 	digits: String,
 	negative: bool,
@@ -599,6 +710,10 @@ func _read_saturating_decimal_exponent(
 	return -value if negative else value
 
 
+## 返回十进制字符串中首个非零数字的索引；全为零时返回 -1。
+## [br]
+## @api private
+## [br]
 func _find_first_nonzero_digit(digits: String) -> int:
 	for index: int in range(digits.length()):
 		if digits.unicode_at(index) != 48:
@@ -606,6 +721,10 @@ func _find_first_nonzero_digit(digits: String) -> int:
 	return -1
 
 
+## 检查从 start_index 开始的十进制字符串后缀是否含非零数字。
+## [br]
+## @api private
+## [br]
 func _contains_nonzero_digit(digits: String, start_index: int) -> bool:
 	for index: int in range(start_index, digits.length()):
 		if digits.unicode_at(index) != 48:
@@ -613,6 +732,10 @@ func _contains_nonzero_digit(digits: String, start_index: int) -> bool:
 	return false
 
 
+## 按十进制数字逐位并结合长度比较两个数字串，返回 -1、0 或 1。
+## [br]
+## @api private
+## [br]
 func _compare_decimal_digits(left: String, right: String) -> int:
 	for index: int in range(mini(left.length(), right.length())):
 		var left_digit: int = left.unicode_at(index)
@@ -628,6 +751,10 @@ func _compare_decimal_digits(left: String, right: String) -> int:
 	return 0
 
 
+## 匹配当前位置起的 keyword；发现不同字符时设置 invalid_json，否则返回对应 Variant 值。
+## [br]
+## @api private
+## [br]
 func _parse_keyword(keyword: String, value: Variant, pointer: String) -> Variant:
 	for offset: int in range(keyword.length()):
 		if _peek() != keyword.unicode_at(offset):
@@ -642,11 +769,19 @@ func _parse_keyword(keyword: String, value: Variant, pointer: String) -> Variant
 	return value
 
 
+## 连续消费当前位置的 ASCII 十进制数字。
+## [br]
+## @api private
+## [br]
 func _advance_digits() -> void:
 	while _is_digit(_peek()):
 		var _digit_codepoint: int = _advance()
 
 
+## 在 max_nodes 预算内递增节点数；超限时用给定位置设置 input_budget_exceeded。
+## [br]
+## @api private
+## [br]
 func _reserve_node(pointer: String, line: int, column: int) -> bool:
 	if _node_count >= _max_nodes:
 		_set_budget_error(
@@ -665,11 +800,19 @@ func _reserve_node(pointer: String, line: int, column: int) -> bool:
 	return true
 
 
+## 跳过当前 JSON 语法允许的空白字符。
+## [br]
+## @api private
+## [br]
 func _skip_whitespace() -> void:
 	while _is_json_whitespace(_peek()):
 		var _whitespace_codepoint: int = _advance()
 
 
+## 读取游标偏移处的 Unicode codepoint；目标索引越界时返回 -1。
+## [br]
+## @api private
+## [br]
 func _peek(offset: int = 0) -> int:
 	var target_index: int = _index + offset
 	if target_index < 0 or target_index >= _text_length:
@@ -677,6 +820,9 @@ func _peek(offset: int = 0) -> int:
 	return _text.unicode_at(target_index)
 
 
+## 消费一个字符串码点并更新行列；CRLF 视为一次换行，单独 CR 或 LF 也换行，到达输入末尾返回 -1。
+## [br]
+## @api private
 func _advance() -> int:
 	if _index >= _text_length:
 		return -1
@@ -697,11 +843,19 @@ func _advance() -> int:
 	return codepoint
 
 
+## 将 token 中的 ~ 与 / 按 JSON Pointer 规则转义后追加到父路径。
+## [br]
+## @api private
+## [br]
 func _append_pointer(parent: String, token: String) -> String:
 	var escaped_token: String = token.replace("~", "~0").replace("/", "~1")
 	return "%s/%s" % [parent, escaped_token]
 
 
+## 将预算失败记录为 input_budget_exceeded，并附上当前节点和字符串字节计数。
+## [br]
+## @api private
+## [br]
 func _set_budget_error(message: String, pointer: String, span: Dictionary) -> void:
 	_set_error(&"input_budget_exceeded", message, pointer, span, {
 		"node_count": _node_count,
@@ -709,6 +863,10 @@ func _set_budget_error(message: String, pointer: String, span: Dictionary) -> vo
 	})
 
 
+## 只在 _error 为空时写入首个错误，并深复制 span 与 metadata。
+## [br]
+## @api private
+## [br]
 func _set_error(
 	kind: StringName,
 	message: String,
@@ -727,6 +885,10 @@ func _set_error(
 	}
 
 
+## 组合解析失败报告，保留已收集片段映射、计数和首个错误字段。
+## [br]
+## @api private
+## [br]
 func _make_failure_result() -> Dictionary:
 	return {
 		"ok": false,
@@ -743,6 +905,9 @@ func _make_failure_result() -> Dictionary:
 	}
 
 
+## 为当前位置构造一个码点宽的诊断范围；即使位于输入末尾也保留该占位宽度。
+## [br]
+## @api private
 func _make_current_span() -> Dictionary:
 	return {
 		"line": _line,
@@ -753,6 +918,9 @@ func _make_current_span() -> Dictionary:
 	}
 
 
+## 用起止行列构造范围；单行 length 使用字符串索引差，多行 length 置零并依赖显式结束位置。
+## [br]
+## @api private
 func _make_span(
 	start_index: int,
 	start_line: int,
@@ -770,18 +938,34 @@ func _make_span(
 	}
 
 
+## 读取限制字典中的整数选项，并将缺失或小于 1 的值限制为 1。
+## [br]
+## @api private
+## [br]
 func _read_positive_limit(limits: Dictionary, key: String) -> int:
 	return maxi(GFVariantData.get_option_int(limits, key, 1), 1)
 
 
+## 判断首个错误字典是否已被设置。
+## [br]
+## @api private
+## [br]
 func _has_error() -> bool:
 	return not _error.is_empty()
 
 
+## 判断 codepoint 是否为 ASCII 数字 0–9。
+## [br]
+## @api private
+## [br]
 func _is_digit(codepoint: int) -> bool:
 	return codepoint >= 48 and codepoint <= 57
 
 
+## 将 ASCII 十六进制数字转换为 0–15；其他 codepoint 返回 -1。
+## [br]
+## @api private
+## [br]
 func _hex_digit_value(codepoint: int) -> int:
 	if codepoint >= 48 and codepoint <= 57:
 		return codepoint - 48
@@ -792,5 +976,9 @@ func _hex_digit_value(codepoint: int) -> int:
 	return -1
 
 
+## 判断 codepoint 是否为 JSON 空白 HT、LF、CR 或空格。
+## [br]
+## @api private
+## [br]
 func _is_json_whitespace(codepoint: int) -> bool:
 	return codepoint in [9, 10, 13, 32]

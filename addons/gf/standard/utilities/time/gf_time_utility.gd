@@ -86,8 +86,14 @@ var is_paused: bool = false
 
 # --- 私有变量 ---
 
-# 组级暂停状态。Key 为 StringName 组标识，Value 为 bool 暂停状态。
+## 保存按组标识索引的暂停状态；未记录的组由查询方法按未暂停处理。
+## [br]
+## @api private
 var _group_paused: Dictionary = {}
+
+## 记录已输出过非有限值诊断的键，避免同类问题重复报告。
+## [br]
+## @api private
 var _reported_non_finite_issues: Dictionary = {}
 
 
@@ -234,6 +240,9 @@ func clear_groups() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 接受有限 delta；遇到 NaN 或无穷值时报告一次并拒绝本次输入。
+## [br]
+## @api private
 func _validate_delta(delta: float) -> bool:
 	if _is_finite_scalar(delta):
 		return true
@@ -244,6 +253,9 @@ func _validate_delta(delta: float) -> bool:
 	return false
 
 
+## 应用 time_scale；乘法结果非有限时报告一次并返回安全零值。
+## [br]
+## @api private
 func _scale_delta_or_zero(delta: float) -> float:
 	var scaled_delta: float = delta * time_scale
 	if _is_finite_scalar(scaled_delta):
@@ -255,6 +267,9 @@ func _scale_delta_or_zero(delta: float) -> float:
 	return 0.0
 
 
+## 每个 issue_key 至多输出一次 push_error，记录会在 init() 时清除。
+## [br]
+## @api private
 func _report_non_finite_once(issue_key: StringName, message: String) -> void:
 	if _reported_non_finite_issues.has(issue_key):
 		return
@@ -262,10 +277,16 @@ func _report_non_finite_once(issue_key: StringName, message: String) -> void:
 	push_error(message)
 
 
+## 判断浮点值既非 NaN 也非正负无穷。
+## [br]
+## @api private
 func _is_finite_scalar(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 仅在 max_scaled_delta 为正时把 delta 对称限制到其正负范围内。
+## [br]
+## @api private
 func _clamp_scaled_delta(delta: float) -> float:
 	if max_scaled_delta <= 0.0:
 		return delta

@@ -225,6 +225,9 @@ static func from_dict(data: Dictionary) -> GFContentPackageQuery:
 
 # --- 私有/辅助方法 ---
 
+## 组装归一化查询字段，并按参数决定是否复制嵌套 metadata 字典。
+## [br]
+## @api private
 func _make_dictionary(copy_nested_values: bool) -> Dictionary:
 	return {
 		"query_id": query_id,
@@ -243,6 +246,9 @@ func _make_dictionary(copy_nested_values: bool) -> Dictionary:
 	}
 
 
+## 在包 ID、显示名、版本和 content type 中执行不区分大小写的子串匹配。
+## [br]
+## @api private
 func _matches_search_text(manifest: GFContentPackageManifest) -> bool:
 	var normalized_search: String = search_text.strip_edges().to_lower()
 	if normalized_search.is_empty():
@@ -260,6 +266,9 @@ func _matches_search_text(manifest: GFContentPackageManifest) -> bool:
 	return false
 
 
+## 检查 source 是否逐项包含 required 中的所有字符串。
+## [br]
+## @api private
 static func _contains_all(source: PackedStringArray, required: PackedStringArray) -> bool:
 	for item: String in required:
 		if not source.has(item):
@@ -267,6 +276,9 @@ static func _contains_all(source: PackedStringArray, required: PackedStringArray
 	return true
 
 
+## 去除首尾空白和空项，移除重复值后按字典序排序。
+## [br]
+## @api private
 static func _normalize_string_set(items: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for item: String in items:
@@ -278,5 +290,8 @@ static func _normalize_string_set(items: PackedStringArray) -> PackedStringArray
 	return result
 
 
+## 通过 GFVariantData 递归复制字典内容并收窄回 Dictionary。
+## [br]
+## @api private
 static func _duplicate_dictionary(value: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.duplicate_variant(value, true, false))

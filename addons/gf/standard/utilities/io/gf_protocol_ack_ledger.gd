@@ -100,10 +100,34 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 按 outgoing packet ID 保存待确认及终态账本记录。
+## [br]
+## @api private
+## [br]
 var _records: Dictionary = {}
+
+## 按注册顺序保存 outgoing ID，供查询排序和容量淘汰使用。
+## [br]
+## @api private
+## [br]
 var _order: Array = []
+
+## 入站去重窗口内按 packet ID 保存的接收记录。
+## [br]
+## @api private
+## [br]
 var _incoming_records: Dictionary = {}
+
+## 按接收顺序保存入站 ID，供窗口按 FIFO 淘汰。
+## [br]
+## @api private
+## [br]
 var _incoming_order: Array = []
+
+## 按 channel 保存最近接受的非负 sequence。
+## [br]
+## @api private
+## [br]
 var _last_sequence_by_channel: Dictionary = {}
 
 
@@ -548,6 +572,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 仅将现存 pending 记录改为终态并更新时间、复制结果和错误文本。
+## [br]
+## @api private
+## [br]
 func _mark_terminal(
 	packet_id: Variant,
 	state: StringName,
@@ -568,6 +596,10 @@ func _mark_terminal(
 	return true
 
 
+## 达到容量时淘汰最早的终态记录；若所有保留记录仍 pending 则拒绝新增。
+## [br]
+## @api private
+## [br]
 func _prune_for_capacity() -> bool:
 	if max_entries <= 0:
 		return true
@@ -581,6 +613,10 @@ func _prune_for_capacity() -> bool:
 	return _records.size() < max_entries
 
 
+## 返回顺序表中首个缺失记录或非 pending 记录的位置。
+## [br]
+## @api private
+## [br]
 func _find_first_terminal_order_index() -> int:
 	for index: int in range(_order.size()):
 		var packet_id: Variant = _order[index]
@@ -591,6 +627,10 @@ func _find_first_terminal_order_index() -> int:
 	return -1
 
 
+## 仅当记录仍 pending、未超尝试上限且重试时刻已到时返回 true。
+## [br]
+## @api private
+## [br]
 func _record_is_retry_ready(record: Dictionary, timestamp_msec: int) -> bool:
 	if _get_record_state(record) != STATE_PENDING:
 		return false
@@ -600,6 +640,10 @@ func _record_is_retry_ready(record: Dictionary, timestamp_msec: int) -> bool:
 	return next_retry_msec >= 0 and timestamp_msec >= next_retry_msec
 
 
+## 窗口启用时复制 ID 与接收信息入账，并按窗口容量裁剪最旧项。
+## [br]
+## @api private
+## [br]
 func _remember_incoming_packet(
 	packet_id: Variant,
 	sequence: int,
@@ -619,6 +663,10 @@ func _remember_incoming_packet(
 	_prune_incoming_window()
 
 
+## 关闭窗口时清空入站记录，否则按接收顺序从头淘汰超额记录。
+## [br]
+## @api private
+## [br]
 func _prune_incoming_window() -> void:
 	if incoming_window_size <= 0:
 		_incoming_records.clear()
@@ -629,6 +677,10 @@ func _prune_incoming_window() -> void:
 		var _removed: bool = _incoming_records.erase(packet_id)
 
 
+## 构造入站接收结果，并复制报告中的 packet ID。
+## [br]
+## @api private
+## [br]
 func _make_incoming_report(
 	ok: bool,
 	accepted: bool,
@@ -653,20 +705,36 @@ func _make_incoming_report(
 	}
 
 
+## 从 outgoing 顺序数组中移除所有与指定 ID 值相等的项。
+## [br]
+## @api private
+## [br]
 func _remove_from_order(packet_id: Variant) -> void:
 	for index: int in range(_order.size() - 1, -1, -1):
 		if GFVariantData.values_equal(_order[index], packet_id):
 			_order.remove_at(index)
 
 
+## 读取 outgoing 记录并收窄为 Dictionary；缺失时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_record(packet_id: Variant) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_records, packet_id, {}))
 
 
+## 读取记录状态；缺失时按 pending 处理。
+## [br]
+## @api private
+## [br]
 func _get_record_state(record: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(record, "state", STATE_PENDING)
 
 
+## 统计 outgoing 记录中状态等于指定值的数量。
+## [br]
+## @api private
+## [br]
 func _count_state(state: StringName) -> int:
 	var count: int = 0
 	for record_variant: Variant in _records.values():
@@ -676,6 +744,10 @@ func _count_state(state: StringName) -> int:
 	return count
 
 
+## 汇总 pending、acked、failed 和 expired 四种状态的记录数。
+## [br]
+## @api private
+## [br]
 func _get_state_counts() -> Dictionary:
 	var counts: Dictionary = {}
 	counts[STATE_PENDING] = _count_state(STATE_PENDING)
@@ -685,12 +757,20 @@ func _get_state_counts() -> Dictionary:
 	return counts
 
 
+## 使用非负显式时间，负值时读取 Time.get_ticks_msec()。
+## [br]
+## @api private
+## [br]
 func _normalize_time_msec(now_msec: int) -> int:
 	if now_msec >= 0:
 		return now_msec
 	return Time.get_ticks_msec()
 
 
+## 接受任意 int，或去空白后非空的 String/StringName。
+## [br]
+## @api private
+## [br]
 func _is_valid_packet_id(packet_id: Variant) -> bool:
 	if packet_id is int:
 		return true

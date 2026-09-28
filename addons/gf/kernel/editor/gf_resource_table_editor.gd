@@ -102,10 +102,30 @@ const DEFAULT_MAX_SCAN_DEPTH: int = 32
 ## [br]
 ## @api public
 const DEFAULT_MAX_RESOURCE_PATHS: int = 10000
+
+## 为显示嵌套 Variant 单元格而生成 JSON 文本的 codec。
+## [br]
+## @api private
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+
+## 表格记录字段的类型化读取辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 读取 Object 属性声明与属性值的辅助脚本。
+## [br]
+## @api private
 const _OBJECT_PROPERTY_TOOLS = preload("res://addons/gf/kernel/core/gf_object_property_tools.gd")
+
+## 检查 Resource 脚本继承关系的辅助脚本。
+## [br]
+## @api private
 const _SCRIPT_TYPE_INSPECTOR = preload("res://addons/gf/kernel/core/gf_script_type_inspector.gd")
+
+## 构造多属性草稿字段控件的脚本。
+## [br]
+## @api private
 const _MULTI_PROPERTY_FIELD_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_multi_property_field.gd")
 
 
@@ -137,25 +157,87 @@ var sort_ascending: bool = true
 
 # --- 私有变量 ---
 
+## 表格当前管理的 Resource 序列。
+## [br]
+## @api private
 var _resources: Array[Resource] = []
+
+## 表格列对应的属性声明记录。
+## [br]
+## @api private
 var _columns: Array[Dictionary] = []
+
+## 过滤后可见行到 _resources 原始索引的映射。
+## [br]
+## @api private
 var _visible_row_indices: PackedInt32Array = PackedInt32Array()
+
+## 显示资源与属性值的 Tree 控件。
+## [br]
+## @api private
 var _tree: Tree = null
+
+## 多选编辑要使用的编辑器上下文。
+## [br]
+## @api private
 var _editor_context: GFEditorToolContext = null
+
+## 选择当前多选编辑属性的 OptionButton。
+## [br]
+## @api private
 var _multi_property_picker: OptionButton = null
+
+## 收集多选属性草稿的字段控件。
+## [br]
+## @api private
 var _multi_property_field: GFEditorMultiPropertyField = null
+
+## 应用多选属性草稿的按钮。
+## [br]
+## @api private
 var _multi_apply: Button = null
+
+## 取消多选属性草稿的按钮。
+## [br]
+## @api private
 var _multi_cancel: Button = null
+
+## 对失败事务执行显式恢复的按钮。
+## [br]
+## @api private
 var _multi_recover: Button = null
+
+## 显示多选编辑结果和恢复提示的标签。
+## [br]
+## @api private
 var _multi_result: Label = null
+
+## 需要保留供显式恢复入口操作的属性批量命令。
+## [br]
+## @api private
 var _multi_recovery_command: GFEditorPropertyBatchCommand = null
+
+## 当前在多选字段中选中的属性名。
+## [br]
+## @api private
 var _selected_property: StringName = &""
+
+## 最近一次多选应用、撤销、重做或恢复的报告。
+## [br]
+## @api private
 var _last_multi_edit_report: Dictionary = {}
+
+## 正在重建表格行期间的选择同步抑制标记。
+## [br]
+## @api private
 var _refreshing: bool = false
 
 
 # --- Godot 生命周期方法 ---
 
+## 进入就绪状态时确保资源表格树已建立。
+## [br]
+## @api private
 func _ready() -> void:
 	_ensure_tree()
 
@@ -688,6 +770,10 @@ func refresh() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 按需创建 Tree、多选字段、属性选择器、结果标签与按钮，并连接各自信号。
+## 控件已存在时直接返回。
+## [br]
+## @api private
 func _ensure_tree() -> void:
 	if _tree != null:
 		return
@@ -735,6 +821,9 @@ func _ensure_tree() -> void:
 	_sync_multi_edit_selection()
 
 
+## 从列记录重建属性选择项，优先保留原选择；无原选择时选首项。
+## [br]
+## @api private
 func _rebuild_multi_property_picker() -> void:
 	_multi_property_picker.clear()
 	for column: Dictionary in _columns:
@@ -752,6 +841,9 @@ func _rebuild_multi_property_picker() -> void:
 	_selected_property = StringName(_multi_property_picker.get_item_text(selected)) if selected >= 0 else &""
 
 
+## 从 Tree 当前多选项提取有效资源目标并配置草稿字段；刷新中或字段未创建时不处理。
+## [br]
+## @api private
 func _sync_multi_edit_selection() -> void:
 	if _refreshing or _multi_property_field == null:
 		return
@@ -769,10 +861,16 @@ func _sync_multi_edit_selection() -> void:
 		_reset_multi_edit_message()
 
 
+## 仅当编辑器上下文存在且其 UndoRedo 管理器仍有效时返回 true。
+## [br]
+## @api private
 func _has_multi_edit_undo() -> bool:
 	return _editor_context != null and is_instance_valid(_editor_context.undo_manager)
 
 
+## 按草稿状态、Undo 可用性和待恢复命令更新应用、取消、恢复按钮。
+## [br]
+## @api private
 func _update_multi_edit_buttons() -> void:
 	if _multi_apply == null:
 		return
@@ -786,6 +884,9 @@ func _update_multi_edit_buttons() -> void:
 		_multi_recover.disabled = not _has_multi_edit_undo()
 
 
+## 汇总多选编辑结果并维护待恢复命令；已有其他命令等待恢复时保留其报告。仅在成功且允许清除草稿时结束编辑，再同步状态和按钮。
+## [br]
+## @api private
 func _finish_multi_edit(
 	error: Error, status: String, command: GFEditorPropertyBatchCommand = null, clear_draft: bool = true
 ) -> Dictionary:
@@ -809,6 +910,9 @@ func _finish_multi_edit(
 	return get_multi_edit_report()
 
 
+## 保留恢复中事务的报告；否则根据 Undo 管理器是否可用更新空状态提示。
+## [br]
+## @api private
 func _reset_multi_edit_message() -> void:
 	if _multi_recovery_command != null:
 		_display_multi_edit_report()
@@ -816,6 +920,9 @@ func _reset_multi_edit_message() -> void:
 		_multi_result.text = "" if _has_multi_edit_undo() else "请提供带 UndoRedo 管理器的编辑器上下文后应用。"
 
 
+## 按最近报告更新状态文本；待恢复命令存在时追加暂停提示。
+## [br]
+## @api private
 func _display_multi_edit_report() -> void:
 	if _last_multi_edit_report.get("ok") == true:
 		var status: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(_last_multi_edit_report, "status")
@@ -831,6 +938,9 @@ func _display_multi_edit_report() -> void:
 		_multi_result.text += "请先恢复编辑；新的应用已暂停。"
 
 
+## 先验证全部行、属性和值，再构建一次属性批量命令执行；预检失败不修改资源，执行失败保留恢复所需命令，成功时发送变化通知并按设置保存资源。
+## [br]
+## @api private
 func _commit_resource_cell_value_changes(changes: Array[Dictionary], use_visible_rows: bool) -> Dictionary:
 	var command_changes: Array[Dictionary] = []
 	var errors: Array[Dictionary] = []
@@ -1017,6 +1127,9 @@ func _commit_resource_cell_value_changes(changes: Array[Dictionary], use_visible
 	)
 
 
+## 将事务报告的 issues 转成表格提交错误，并从 metadata 还原行、属性和可见行信息。
+## [br]
+## @api private
 func _make_resource_transaction_errors(
 	transaction_report: Dictionary
 ) -> Array[Dictionary]:
@@ -1076,6 +1189,9 @@ func _make_resource_transaction_errors(
 	return result
 
 
+## 将事务 entries 中目标为 Resource 的项转成提交成功记录，并附上变更索引。
+## [br]
+## @api private
 func _make_resource_committed_reports(
 	transaction_report: Dictionary
 ) -> Array[Dictionary]:
@@ -1149,6 +1265,9 @@ func _make_resource_committed_reports(
 	return result
 
 
+## 从提交报告读取资源、属性和新旧值，并发出单元格提交信号。
+## [br]
+## @api private
 func _emit_resource_cell_value_committed(report: Dictionary) -> void:
 	cell_value_committed.emit(
 		_get_report_resource(report),
@@ -1158,6 +1277,9 @@ func _emit_resource_cell_value_committed(report: Dictionary) -> void:
 	)
 
 
+## 自动保存开启时按 Resource instance ID 去重，再尝试保存已变化资源。
+## [br]
+## @api private
 func _save_changed_resources_if_requested(changed_reports: Array[Dictionary]) -> void:
 	if not auto_save_committed_resources:
 		return
@@ -1174,6 +1296,9 @@ func _save_changed_resources_if_requested(changed_reports: Array[Dictionary]) ->
 		_save_resource_if_requested(resource)
 
 
+## 汇总成功、未变化和失败计数并组装批量提交报告；仅需恢复时包含命令句柄。
+## [br]
+## @api private
 func _make_resource_commit_batch_result(
 	requested_count: int,
 	committed: Array[Dictionary],
@@ -1225,6 +1350,9 @@ func _make_resource_commit_batch_result(
 	return result
 
 
+## 统计错误报告中不同 index 的数量。
+## [br]
+## @api private
 func _count_resource_commit_failed_indices(
 	errors: Array[Dictionary]
 ) -> int:
@@ -1239,6 +1367,9 @@ func _count_resource_commit_failed_indices(
 	return failed_indices.size()
 
 
+## 组装单个成功项的资源、属性、新旧值及 changed 标记。
+## [br]
+## @api private
 func _make_resource_cell_commit_success(
 	row_index: int,
 	resource: Resource,
@@ -1258,6 +1389,9 @@ func _make_resource_cell_commit_success(
 	}
 
 
+## 组装带索引、原因、信息、行号与属性的错误项，并可附带 visible_row_index。
+## [br]
+## @api private
 func _make_resource_commit_error(
 	change_index: int,
 	reason: StringName,
@@ -1277,6 +1411,9 @@ func _make_resource_commit_error(
 	return error
 
 
+## 从报告的 resource 字段读取 Resource；字段类型不符时返回 null。
+## [br]
+## @api private
 func _get_report_resource(report: Dictionary) -> Resource:
 	var resource_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(report, "resource")
 	if resource_value is Resource:
@@ -1285,6 +1422,9 @@ func _get_report_resource(report: Dictionary) -> Resource:
 	return null
 
 
+## 检查字典键是否以原类型存在，并为 String 与 StringName 互换补做一次检查。
+## [br]
+## @api private
 func _has_option_key(options: Dictionary, key: Variant) -> bool:
 	if options.has(key):
 		return true
@@ -1297,6 +1437,9 @@ func _has_option_key(options: Dictionary, key: Variant) -> bool:
 	return false
 
 
+## 按当前搜索条件重建可见行索引，索引保留其在 _resources 中的原始位置。
+## [br]
+## @api private
 func _rebuild_visible_row_indices() -> void:
 	_visible_row_indices = PackedInt32Array()
 	for row_index: int in range(_resources.size()):
@@ -1307,6 +1450,9 @@ func _rebuild_visible_row_indices() -> void:
 			var _append_result_534: Variant = _visible_row_indices.append(row_index)
 
 
+## 递归打开目录，跳过点开头子目录并收集扩展名匹配路径；每层受深度和总量预算控制。
+## [br]
+## @api private
 static func _scan_resource_paths_recursive(
 	root_path: String,
 	extensions: PackedStringArray,
@@ -1352,6 +1498,9 @@ static func _scan_resource_paths_recursive(
 	dir.list_dir_end()
 
 
+## 深度无限或当前深度尚小于上限时允许进入子目录，否则触发一次深度警告。
+## [br]
+## @api private
 static func _can_scan_deeper(path: String, current_depth: int, max_scan_depth: int, scan_state: Dictionary) -> bool:
 	if max_scan_depth <= 0 or current_depth < max_scan_depth:
 		return true
@@ -1359,10 +1508,16 @@ static func _can_scan_deeper(path: String, current_depth: int, max_scan_depth: i
 	return false
 
 
+## 路径上限非正数表示不限制；否则仅当当前数量低于上限时允许继续收集。
+## [br]
+## @api private
 static func _can_collect_more_resource_paths(result: PackedStringArray, max_resource_paths: int) -> bool:
 	return max_resource_paths <= 0 or result.size() < max_resource_paths
 
 
+## 创建用于记录路径数与深度警告是否已发出的状态字典。
+## [br]
+## @api private
 static func _make_scan_state() -> Dictionary:
 	return {
 		"count_warning_emitted": false,
@@ -1370,6 +1525,9 @@ static func _make_scan_state() -> Dictionary:
 	}
 
 
+## 从非 null Resource 读取附加脚本，仅在结果是 Script 时返回脚本。
+## [br]
+## @api private
 static func _get_resource_script_or_null(resource: Resource) -> Script:
 	if resource == null:
 		return null
@@ -1379,6 +1537,9 @@ static func _get_resource_script_or_null(resource: Resource) -> Script:
 	return null
 
 
+## 路径上限为正且本次尚未告警时，置位计数标记并发出一次上限警告。
+## [br]
+## @api private
 static func _warn_resource_path_limit(max_resource_paths: int, scan_state: Dictionary) -> void:
 	if max_resource_paths <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "count_warning_emitted"):
 		return
@@ -1386,6 +1547,9 @@ static func _warn_resource_path_limit(max_resource_paths: int, scan_state: Dicti
 	push_warning("[GFResourceTableEditor][resource_table_editor.resource_limit_reached] scan_resource_paths reached max_resource_paths=%d; subsequent resources were skipped." % max_resource_paths)
 
 
+## 深度上限为正且本次尚未告警时，置位深度标记并报告被跳过的目录。
+## [br]
+## @api private
 static func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
 	if max_scan_depth <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "depth_warning_emitted"):
 		return
@@ -1393,6 +1557,9 @@ static func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state
 	push_warning("[GFResourceTableEditor][resource_table_editor.depth_limit_reached] scan_resource_paths reached max_scan_depth=%d; deeper directories were skipped: %s." % [max_scan_depth, path])
 
 
+## 去除每个扩展名的一个前导点并转为小写；保留原顺序和重复项。
+## [br]
+## @api private
 static func _normalize_extensions(extensions: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for extension: String in extensions:
@@ -1400,10 +1567,16 @@ static func _normalize_extensions(extensions: PackedStringArray) -> PackedString
 	return result
 
 
+## 将 Resource 附加脚本交给脚本类型检查器，判断其是否继承或等于过滤脚本。
+## [br]
+## @api private
 static func _resource_matches_script_filter(resource: Resource, script_filter: Script) -> bool:
 	return _SCRIPT_TYPE_INSPECTOR.script_extends_or_equals(_get_resource_script_or_null(resource), script_filter)
 
 
+## 按修剪并转小写的查询匹配资源标签、类名、脚本路径或任一列的格式化值。
+## [br]
+## @api private
 func _resource_matches_search(resource: Resource, row_index: int, query: String) -> bool:
 	var normalized_query: String = query.strip_edges().to_lower()
 	if normalized_query.is_empty():
@@ -1429,6 +1602,9 @@ func _resource_matches_search(resource: Resource, row_index: int, query: String)
 	return false
 
 
+## 比较资源；相同或空属性按标签比较，指定属性时按属性值比较，null 排在有效资源之后。
+## [br]
+## @api private
 func _compare_resources_for_sort(left: Resource, right: Resource, property: StringName) -> int:
 	if left == right:
 		return 0
@@ -1445,6 +1621,9 @@ func _compare_resources_for_sort(left: Resource, right: Resource, property: Stri
 	return _compare_variant_values(left_value, right_value)
 
 
+## 数值按数值、bool 按 0/1 比较，其余类型按自然且不区分大小写的文本比较；null 排后。
+## [br]
+## @api private
 func _compare_variant_values(left: Variant, right: Variant) -> int:
 	if left == right:
 		return 0
@@ -1471,6 +1650,9 @@ func _compare_variant_values(left: Variant, right: Variant) -> int:
 	return left_text.naturalnocasecmp_to(right_text)
 
 
+## 返回浮点数三向比较结果：小于为 -1、相等为 0、大于为 1。
+## [br]
+## @api private
 func _compare_float_values(left: float, right: float) -> int:
 	if left < right:
 		return -1
@@ -1479,10 +1661,16 @@ func _compare_float_values(left: float, right: float) -> int:
 	return 0
 
 
+## 判断 Variant 类型编号是否为 TYPE_INT 或 TYPE_FLOAT。
+## [br]
+## @api private
 func _is_numeric_type(type_id: int) -> bool:
 	return type_id == TYPE_INT or type_id == TYPE_FLOAT
 
 
+## 自动保存开启且资源路径非空时保存资源；失败时发出 resource_save_failed。
+## [br]
+## @api private
 func _save_resource_if_requested(resource: Resource) -> void:
 	if not auto_save_committed_resources:
 		return
@@ -1496,12 +1684,18 @@ func _save_resource_if_requested(resource: Resource) -> void:
 		resource_save_failed.emit(resource, path, error)
 
 
+## 优先返回资源路径；未保存资源使用带行索引的 Resource 标签。
+## [br]
+## @api private
 func _resource_label(resource: Resource, row_index: int) -> String:
 	if not resource.resource_path.is_empty():
 		return resource.resource_path
 	return "Resource %d" % row_index
 
 
+## Dictionary/Array 用带 debug 脱敏选项的兼容 JSON 序列化，其余值使用 str()。
+## [br]
+## @api private
 func _format_cell_value(value: Variant) -> String:
 	if value is Dictionary or value is Array:
 		return _GF_REPORT_VALUE_CODEC_SCRIPT.stringify_json_compatible(
@@ -1517,6 +1711,9 @@ func _format_cell_value(value: Variant) -> String:
 
 # --- 信号处理函数 ---
 
+## 转发历史命令的保存错误，并将变化通知限制在当前资源集合；无当前资源关联且不涉及恢复时跳过界面更新，完成回报时保留草稿。
+## [br]
+## @api private
 func _on_multi_command_finished(
 	command: _MultiEditCommand, error: Error, changes: Array[Dictionary], save_errors: Array[Dictionary]
 ) -> void:
@@ -1549,6 +1746,9 @@ func _on_multi_command_finished(
 	var _report: Dictionary = _finish_multi_edit(error, status, command, false)
 
 
+## 读取 Tree 当前项目的行索引；索引有效时发出对应资源选择信号。
+## [br]
+## @api private
 func _on_tree_item_selected() -> void:
 	if _tree == null:
 		return
@@ -1563,20 +1763,32 @@ func _on_tree_item_selected() -> void:
 		resource_selected.emit(_resources[row_index])
 
 
+## 多选变化时同步草稿目标，并沿用单选处理器发出当前资源选择通知。
+## [br]
+## @api private
 func _on_tree_multi_selected(_item: TreeItem, _column: int, _selected: bool) -> void:
 	_sync_multi_edit_selection()
 	_on_tree_item_selected()
 
 
+## 将属性选择器当前文本设为草稿字段的目标属性并重新同步选择。
+## [br]
+## @api private
 func _on_multi_property_selected(index: int) -> void:
 	_selected_property = StringName(_multi_property_picker.get_item_text(index))
 	_sync_multi_edit_selection()
 
 
+## 将多选草稿交给公开应用入口执行。
+## [br]
+## @api private
 func _on_multi_apply_pressed() -> void:
 	var _report: Dictionary = apply_selected_property()
 
 
+## 取消当前草稿；存在待恢复命令时保留其报告，否则显示草稿已取消提示。
+## [br]
+## @api private
 func _on_multi_cancel_pressed() -> void:
 	_multi_property_field.cancel_edit()
 	if _multi_recovery_command != null:
@@ -1585,18 +1797,44 @@ func _on_multi_cancel_pressed() -> void:
 		_multi_result.text = "已取消草稿。"
 
 
+## 将恢复按钮操作转发给公开恢复入口。
+## [br]
+## @api private
 func _on_multi_recover_pressed() -> void:
 	var _report: Dictionary = recover_pending_edit()
 
 
 # --- 内部类 ---
 
+## 为多选属性草稿包装批量事务命令，并向仍有效的表格实例报告结果。
+## [br]
+## @api private
 class _MultiEditCommand extends GFEditorPropertyBatchCommand:
+
+	# --- 私有变量 ---
+
+	## 资源表格的弱引用；命令历史不延长编辑器控件的生命周期。
+	## [br]
+	## @api private
 	var _table_reference: WeakRef = null
+
+	## 命令持有的目标资源序列，用于执行与撤销；表格切换选择后仍指向原来的资源。
+	## [br]
+	## @api private
 	var _resources: Array[Resource] = []
+
+	## 本命令在全部目标资源上操作的属性名。
+	## [br]
+	## @api private
 	var _property: StringName = &""
+
+	## 是否在成功操作后保存具有资源路径的变化资源。
+	## [br]
+	## @api private
 	var _auto_save: bool = false
 
+
+	# --- 公共方法 ---
 
 	## 在编辑器主线程执行属性事务，并报告本次操作的实际结果。
 	## [br]
@@ -1641,6 +1879,11 @@ class _MultiEditCommand extends GFEditorPropertyBatchCommand:
 		return error
 
 
+	# --- 私有/辅助方法 ---
+
+	## 按目标资源顺序读取当前属性值；无效资源用 null 占位以保留索引对应关系。
+	## [br]
+	## @api private
 	func _read_values() -> Array:
 		var values: Array = []
 		for resource: Resource in _resources:
@@ -1648,6 +1891,9 @@ class _MultiEditCommand extends GFEditorPropertyBatchCommand:
 		return values
 
 
+	## 成功时比较操作前后的属性值并发送资源变化通知，按配置保存并收集错误；仅在弱引用仍指向存活表格时回报命令结果。
+	## [br]
+	## @api private
 	func _notify_result(before: Array, operation_error: Error) -> void:
 		var changes: Array[Dictionary] = []
 		var save_errors: Array[Dictionary] = []

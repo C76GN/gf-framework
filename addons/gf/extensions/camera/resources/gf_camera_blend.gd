@@ -51,8 +51,19 @@ extends Resource
 
 # --- 私有变量 ---
 
+## 经过有限值保护的过渡持续时间。
+## [br]
+## @api private
 var _duration_seconds: float = 0.35
+
+## 当前有效的 Tween 过渡类型。
+## [br]
+## @api private
 var _transition_type: Tween.TransitionType = Tween.TRANS_SINE
+
+## 当前有效的 Tween 缓动类型。
+## [br]
+## @api private
 var _ease_type: Tween.EaseType = Tween.EASE_IN_OUT
 
 
@@ -104,10 +115,16 @@ func duplicate_blend() -> GFCameraBlend:
 
 # --- 私有/辅助方法 ---
 
+## 检查浮点数是否不是 NaN 或无穷值。
+## [br]
+## @api private
 func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 检查整数是否为支持的 Tween 过渡类型。
+## [br]
+## @api private
 func _is_valid_transition_type(value: int) -> bool:
 	return value in [
 		Tween.TRANS_LINEAR,
@@ -125,6 +142,9 @@ func _is_valid_transition_type(value: int) -> bool:
 	]
 
 
+## 检查整数是否为支持的 Tween 缓动类型。
+## [br]
+## @api private
 func _is_valid_ease_type(value: int) -> bool:
 	return value in [
 		Tween.EASE_IN,

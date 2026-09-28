@@ -6,10 +6,29 @@ extends RefCounted
 
 # --- 常量 ---
 
+## raw 值采用的对称 signed magnitude 最大幅值。
+## [br]
+## @api private
 const _MAX_SIGNED_MAGNITUDE: int = 9_223_372_036_854_775_807
+
+## 读取 signed magnitude 失败时返回的内部哨兵。
+## [br]
+## @api private
 const _INVALID_SIGNED_MAGNITUDE: int = -9_223_372_036_854_775_807 - 1
+
+## 序列化状态接受的小数位上限。
+## [br]
+## @api private
 const _MAX_DECIMAL_PLACES: int = 18
+
+## 安全对称 raw 范围最大正值的十进制文本。
+## [br]
+## @api private
 const _MAX_INT_DIGITS: String = "9223372036854775807"
+
+## 8 字节大端 magnitude 写入循环使用的最高位权值 256^7。
+## [br]
+## @api private
 const _U64_INITIAL_DIVISOR: int = 72_057_594_037_927_936
 
 

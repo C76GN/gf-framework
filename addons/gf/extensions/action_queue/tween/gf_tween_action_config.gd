@@ -13,6 +13,9 @@ extends Resource
 
 # --- 常量 ---
 
+## 统一校验和规范化配置中的非负时间参数。
+## [br]
+## @api private
 const _ACTION_TIME_POLICY = preload("res://addons/gf/extensions/action_queue/core/gf_action_time_policy.gd")
 
 
@@ -88,6 +91,9 @@ const _ACTION_TIME_POLICY = preload("res://addons/gf/extensions/action_queue/cor
 
 # --- 私有变量 ---
 
+## 由公开 duration_scale 属性访问器规范化存储的时长倍率。
+## [br]
+## @api private
 var _duration_scale: float = 1.0
 
 

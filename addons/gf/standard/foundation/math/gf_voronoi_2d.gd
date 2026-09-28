@@ -111,6 +111,10 @@ static func build_voronoi(points: PackedVector2Array, options: Dictionary = {}) 
 
 # --- 私有/辅助方法 ---
 
+## 组装 epsilon 与最大点数组成的规范化设置。
+## [br]
+## @api private
+## [br]
 static func _get_settings(options: Dictionary) -> Dictionary:
 	return {
 		"epsilon": _get_epsilon(options),
@@ -118,6 +122,10 @@ static func _get_settings(options: Dictionary) -> Dictionary:
 	}
 
 
+## 返回有限绝对容差，并将其下限限制为默认 epsilon。
+## [br]
+## @api private
+## [br]
 static func _get_epsilon(options: Dictionary) -> float:
 	var epsilon: float = absf(GFVariantData.get_option_float(options, "epsilon", DEFAULT_EPSILON))
 	if is_nan(epsilon) or is_inf(epsilon):
@@ -125,6 +133,10 @@ static func _get_epsilon(options: Dictionary) -> float:
 	return maxf(epsilon, DEFAULT_EPSILON)
 
 
+## 拒绝非有限点，按 epsilon 量化坐标去重并按 X/Y 顺序规范化点集。
+## [br]
+## @api private
+## [br]
 static func _normalize_points(points: PackedVector2Array, epsilon: float) -> Dictionary:
 	var normalized: PackedVector2Array = PackedVector2Array()
 	var seen: Dictionary = {}
@@ -159,6 +171,10 @@ static func _normalize_points(points: PackedVector2Array, epsilon: float) -> Dic
 	}
 
 
+## 使用包含全部输入点的超级三角形逐点插入并整理输出三角形索引。
+## [br]
+## @api private
+## [br]
 static func _build_delaunay_triangles(points: PackedVector2Array, epsilon: float) -> Array[PackedInt32Array]:
 	if points.size() < 3:
 		return []
@@ -196,6 +212,10 @@ static func _build_delaunay_triangles(points: PackedVector2Array, epsilon: float
 	return result
 
 
+## 移除外接圆包含新点的三角形，并将其边界边与新点重连成三角形。
+## [br]
+## @api private
+## [br]
 static func _insert_point(
 	working_triangles: Array[Dictionary],
 	working_points: PackedVector2Array,
@@ -229,6 +249,10 @@ static func _insert_point(
 			working_triangles.append(triangle)
 
 
+## 根据输入点包围框中心和跨度生成覆盖点集的三个外接顶点。
+## [br]
+## @api private
+## [br]
 static func _make_super_triangle(points: PackedVector2Array) -> PackedVector2Array:
 	var min_point: Vector2 = points[0]
 	var max_point: Vector2 = points[0]
@@ -248,6 +272,10 @@ static func _make_super_triangle(points: PackedVector2Array) -> PackedVector2Arr
 	])
 
 
+## 计算三点的外心和外接圆平方半径，近共线或外心非有限时返回空字典。
+## [br]
+## @api private
+## [br]
 static func _make_triangle(
 	a: int,
 	b: int,
@@ -291,6 +319,10 @@ static func _make_triangle(
 	}
 
 
+## 按外心距离与半径平方加容差判断点是否位于三角形外接圆内。
+## [br]
+## @api private
+## [br]
 static func _is_point_in_circumcircle(point: Vector2, triangle: Dictionary, epsilon: float) -> bool:
 	var center_variant: Variant = triangle.get("circumcenter", Vector2.ZERO)
 	if not center_variant is Vector2:
@@ -304,6 +336,10 @@ static func _is_point_in_circumcircle(point: Vector2, triangle: Dictionary, epsi
 	return point.distance_squared_to(center) <= radius_squared + epsilon
 
 
+## 将三角形的三条无向边加入带出现次数的边表。
+## [br]
+## @api private
+## [br]
 static func _add_triangle_edges(edge_counts: Dictionary, indices: PackedInt32Array) -> void:
 	if indices.size() != 3:
 		return
@@ -313,6 +349,10 @@ static func _add_triangle_edges(edge_counts: Dictionary, indices: PackedInt32Arr
 	_add_edge(edge_counts, indices[2], indices[0])
 
 
+## 以端点排序后的键累计无向边出现次数。
+## [br]
+## @api private
+## [br]
 static func _add_edge(edge_counts: Dictionary, a: int, b: int) -> void:
 	var edge: PackedInt32Array = PackedInt32Array([mini(a, b), maxi(a, b)])
 	var key: String = _make_edge_key(edge[0], edge[1])
@@ -323,6 +363,10 @@ static func _add_edge(edge_counts: Dictionary, a: int, b: int) -> void:
 	}
 
 
+## 提取在边表中只出现一次的边，并按端点字典序排序。
+## [br]
+## @api private
+## [br]
 static func _get_boundary_edges(edge_counts: Dictionary) -> Array[PackedInt32Array]:
 	var result: Array[PackedInt32Array] = []
 	for key: Variant in edge_counts.keys():
@@ -339,6 +383,10 @@ static func _get_boundary_edges(edge_counts: Dictionary) -> Array[PackedInt32Arr
 	return result
 
 
+## 汇总全部三角形的无向边并返回去重排序后的边数组。
+## [br]
+## @api private
+## [br]
 static func _collect_edges(triangles: Array[PackedInt32Array]) -> Array[PackedInt32Array]:
 	var edge_counts: Dictionary = {}
 	for triangle: PackedInt32Array in triangles:
@@ -346,6 +394,10 @@ static func _collect_edges(triangles: Array[PackedInt32Array]) -> Array[PackedIn
 	return _get_all_edges(edge_counts)
 
 
+## 从边计数字典提取所有唯一边并按端点字典序排序。
+## [br]
+## @api private
+## [br]
 static func _get_all_edges(edge_counts: Dictionary) -> Array[PackedInt32Array]:
 	var result: Array[PackedInt32Array] = []
 	for key: Variant in edge_counts.keys():
@@ -359,6 +411,10 @@ static func _get_all_edges(edge_counts: Dictionary) -> Array[PackedInt32Array]:
 	return result
 
 
+## 为每个有效 Delaunay 三角形追加其外接圆圆心作为 Voronoi 顶点。
+## [br]
+## @api private
+## [br]
 static func _make_voronoi_vertices(
 	points: PackedVector2Array,
 	triangles: Array[PackedInt32Array],
@@ -378,6 +434,10 @@ static func _make_voronoi_vertices(
 	return vertices
 
 
+## 从只出现一次的 Delaunay 边标记凸包上的输入点索引。
+## [br]
+## @api private
+## [br]
 static func _collect_hull_point_flags(triangles: Array[PackedInt32Array]) -> Dictionary:
 	var edge_counts: Dictionary = {}
 	for triangle: PackedInt32Array in triangles:
@@ -391,6 +451,10 @@ static func _collect_hull_point_flags(triangles: Array[PackedInt32Array]) -> Dic
 	return hull_points
 
 
+## 收集每个点相邻三角形的圆心，按角度排序形成其 Voronoi 多边形。
+## [br]
+## @api private
+## [br]
 static func _make_voronoi_cells(
 	points: PackedVector2Array,
 	triangles: Array[PackedInt32Array],
@@ -432,6 +496,10 @@ static func _make_voronoi_cells(
 	return cells
 
 
+## 读取 triangle 的 PackedInt32Array indices 字段，类型不符时返回空数组。
+## [br]
+## @api private
+## [br]
 static func _get_triangle_indices(triangle: Dictionary) -> PackedInt32Array:
 	var indices_variant: Variant = triangle.get("indices", PackedInt32Array())
 	if indices_variant is PackedInt32Array:
@@ -439,6 +507,10 @@ static func _get_triangle_indices(triangle: Dictionary) -> PackedInt32Array:
 	return PackedInt32Array()
 
 
+## 从字典读取 PackedVector2Array 字段，缺失或类型不符时返回空数组。
+## [br]
+## @api private
+## [br]
 static func _get_packed_vector2_array(data: Dictionary, key: String) -> PackedVector2Array:
 	var value: Variant = data.get(key, PackedVector2Array())
 	if value is PackedVector2Array:
@@ -446,6 +518,10 @@ static func _get_packed_vector2_array(data: Dictionary, key: String) -> PackedVe
 	return PackedVector2Array()
 
 
+## 从报告数组筛选 PackedInt32Array 三角形项。
+## [br]
+## @api private
+## [br]
 static func _get_triangle_array(data: Dictionary) -> Array[PackedInt32Array]:
 	var raw_value: Variant = data.get("triangles", [])
 	var result: Array[PackedInt32Array] = []
@@ -460,6 +536,10 @@ static func _get_triangle_array(data: Dictionary) -> Array[PackedInt32Array]:
 	return result
 
 
+## 判断三角形索引数组是否包含指定输入点索引。
+## [br]
+## @api private
+## [br]
 static func _triangle_has_point(triangle: PackedInt32Array, point_index: int) -> bool:
 	for index: int in triangle:
 		if index == point_index:
@@ -467,6 +547,10 @@ static func _triangle_has_point(triangle: PackedInt32Array, point_index: int) ->
 	return false
 
 
+## 在线性扫描中判断三角形数组是否已有完全相同的索引序列。
+## [br]
+## @api private
+## [br]
 static func _has_triangle(triangles: Array[PackedInt32Array], target: PackedInt32Array) -> bool:
 	for triangle: PackedInt32Array in triangles:
 		if triangle == target:
@@ -474,14 +558,26 @@ static func _has_triangle(triangles: Array[PackedInt32Array], target: PackedInt3
 	return false
 
 
+## 判断二维点的两个坐标分量均为有限浮点值。
+## [br]
+## @api private
+## [br]
 static func _is_finite_point(point: Vector2) -> bool:
 	return not is_nan(point.x) and not is_nan(point.y) and not is_inf(point.x) and not is_inf(point.y)
 
 
+## 按端点升序生成无向边的字符串键。
+## [br]
+## @api private
+## [br]
 static func _make_edge_key(a: int, b: int) -> String:
 	return "%s:%s" % [mini(a, b), maxi(a, b)]
 
 
+## 报告生成错误并返回字段完整的空三角剖分结果。
+## [br]
+## @api private
+## [br]
 static func _make_failure_result(input_point_count: int, error: String) -> Dictionary:
 	push_error("[GFVoronoi2D][voronoi2d.generation_failed] Voronoi generation failed: %s." % error)
 	return {
@@ -496,12 +592,20 @@ static func _make_failure_result(input_point_count: int, error: String) -> Dicti
 	}
 
 
+## 按 X 值近似不等时比较 X，否则按 Y 升序比较点。
+## [br]
+## @api private
+## [br]
 static func _compare_points(left: Vector2, right: Vector2) -> bool:
 	if not is_equal_approx(left.x, right.x):
 		return left.x < right.x
 	return left.y < right.y
 
 
+## 按数组元素字典序比较，公共前缀相同时较短数组在前。
+## [br]
+## @api private
+## [br]
 static func _compare_int_arrays(left: PackedInt32Array, right: PackedInt32Array) -> bool:
 	var count: int = mini(left.size(), right.size())
 	for index: int in range(count):
@@ -510,6 +614,10 @@ static func _compare_int_arrays(left: PackedInt32Array, right: PackedInt32Array)
 	return left.size() < right.size()
 
 
+## 按角度升序比较 Voronoi 顶点记录，近似同角时按三角形索引排序。
+## [br]
+## @api private
+## [br]
 static func _compare_vertex_entries(left: Dictionary, right: Dictionary) -> bool:
 	var left_angle: float = GFVariantData.get_option_float(left, "angle", 0.0)
 	var right_angle: float = GFVariantData.get_option_float(right, "angle", 0.0)

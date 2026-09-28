@@ -35,7 +35,16 @@ var jitter_ratio: float = 0.0:
 
 # --- 私有变量 ---
 
+## 当前重连策略记录的尝试次数。
+## [br]
+## @api private
+## [br]
 var _attempt_count: int = 0
+
+## 生成可复现重连抖动偏移的确定性随机源。
+## [br]
+## @api private
+## [br]
 var _rng: GFDeterministicRandom = GFDeterministicRandom.new()
 
 
@@ -100,6 +109,10 @@ func get_attempt_count() -> int:
 
 # --- 私有/辅助方法 ---
 
+## 读取对应尝试延迟；超过表长时沿用最后一项并限制为非负数。
+## [br]
+## @api private
+## [br]
 func _get_delay_for_attempt(attempt_index: int) -> int:
 	if delays_msec.is_empty():
 		return 0
@@ -107,6 +120,10 @@ func _get_delay_for_attempt(attempt_index: int) -> int:
 	return maxi(delays_msec[index], 0)
 
 
+## 按配置比例从确定性随机区间生成偏移并将最终延迟限制为非负数。
+## [br]
+## @api private
+## [br]
 func _apply_jitter(delay_msec: int) -> int:
 	if delay_msec <= 0 or jitter_ratio <= 0.0:
 		return delay_msec

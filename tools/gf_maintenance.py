@@ -43,12 +43,15 @@ if __name__ == "__main__":
 	sys.modules.setdefault("gf_maintenance", sys.modules[__name__])
 
 from gdscript_api_parser import ApiDocs
+from gdscript_api_parser import ApiClass
 from gdscript_api_parser import ApiMember
 from gdscript_api_parser import ApiScript
 from gdscript_api_parser import collect_api_scripts
+from gdscript_api_parser import full_api_class_name
 from gdscript_api_parser import parse_gdscript_source
 from gdscript_api_parser import scan_gdscript_structure
 from gdscript_api_parser import visibility_of
+from gf_api_owners import select_api_owners
 import generated_output_transaction
 import build_gf_package
 from build_gf_release_artifacts import audit_release_artifact_manifest
@@ -119,6 +122,8 @@ from gf_workspace_snapshot import WorkspaceSnapshot
 
 
 ROOT = Path(__file__).resolve().parents[1]
+API_QUERY_SCOPES = ("public", "maintenance")
+API_QUERY_VISIBILITIES = ("public", "protected", "framework_internal", "layer_internal", "private")
 CHANGELOG_PATH = ROOT / "docs/zh/changelog.md"
 SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 GIT_OBJECT_ID_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
@@ -1652,21 +1657,21 @@ def main() -> int:
 	)
 	summary_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
-	search_parser = subparsers.add_parser("api-search", help="Search GF public API by class, member, path, or docs.")
+	search_parser = subparsers.add_parser("api-search", help="Search GF API by class, member, path, or docs (public by default).")
 	search_parser.add_argument("query", help="Search text.")
 	search_parser.add_argument("--kind", choices=["all", "class", "member"], default="all")
 	search_parser.add_argument("--limit", type=int, default=20)
 	search_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	class_parser = subparsers.add_parser("api-class", help="Print one GF API class summary.")
-	class_parser.add_argument("class_name", help="Class name, case-insensitive.")
+	class_parser.add_argument("class_name", help="Class/inner-class name, controlled AutoLoad name, or source path, case-insensitive.")
 	class_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 	class_parser.add_argument("--no-members", action="store_true", help="Only print class-level information.")
 
 	module_parser = subparsers.add_parser("api-module", help="Print a compact GF API module summary.")
 	module_parser.add_argument("module", help="Module id such as kernel, standard, extensions/domain, or domain.")
-	module_parser.add_argument("--members", action="store_true", help="Include compact public member signatures.")
-	module_parser.add_argument("--limit", type=int, default=80, help="Maximum classes to return.")
+	module_parser.add_argument("--members", action="store_true", help="Include compact member signatures in the selected scope.")
+	module_parser.add_argument("--limit", type=int, default=80, help="Maximum owners to return (classes, inner classes, AutoLoads, and maintenance scripts).")
 	module_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	workspace_parser = subparsers.add_parser("workspace-status", help="Print categorized git status and suggested maintenance checks.")
@@ -2095,6 +2100,11 @@ def main() -> int:
 
 	api_index_parser = subparsers.add_parser("api-index", help="Print compact GF API index statistics.")
 	api_index_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
+	for api_query_parser in (search_parser, class_parser, module_parser, api_index_parser):
+		api_query_parser.add_argument(
+			"--scope", choices=API_QUERY_SCOPES, default="public",
+			help="public: documented public/protected contracts; maintenance: all explicitly documented visibilities.",
+		)
 
 	api_baseline_parser = subparsers.add_parser(
 		"api-baseline-diff",
@@ -2132,15 +2142,15 @@ def main() -> int:
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_summary_text)
 		return 0
 	if args.command == "api-search":
-		data = api_search(args.query, kind=args.kind, limit=args.limit)
+		data = api_search(args.query, kind=args.kind, limit=args.limit, scope=args.scope)
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_api_search_text)
 		return 0
 	if args.command == "api-class":
-		data = api_class(args.class_name, include_members=not args.no_members)
+		data = api_class(args.class_name, include_members=not args.no_members, scope=args.scope)
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_api_class_text)
 		return 0 if data.get("found") else 1
 	if args.command == "api-module":
-		data = api_module(args.module, include_members=args.members, limit=args.limit)
+		data = api_module(args.module, include_members=args.members, limit=args.limit, scope=args.scope)
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_api_module_text)
 		return 0 if data.get("found") else 1
 	if args.command == "workspace-status":
@@ -2335,7 +2345,7 @@ def main() -> int:
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_release_status_text)
 		return 0 if data["ok"] else 1
 	if args.command == "api-index":
-		data = api_index()
+		data = api_index(scope=args.scope)
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_api_index_text)
 		return 0
 	if args.command == "api-baseline-diff":
@@ -2506,30 +2516,32 @@ def read_api_catalog_stats() -> dict[str, Any]:
 	}
 
 
-def api_index() -> dict[str, Any]:
-	scripts = load_api_scripts()
-	classes = [script for script in scripts if script.class_name]
-	modules: dict[str, dict[str, int]] = {}
-	for script in scripts:
-		module = modules.setdefault(script.module, {"files": 0, "classes": 0, "methods": 0})
-		module["files"] += 1
-		module["classes"] += 1 if script.class_name else 0
-		module["methods"] += len(script.methods)
+def api_index(scope: str = "public") -> dict[str, Any]:
+	owners = api_query_owners(scope)
+	public_owners = owners if scope == "public" else api_query_owners("public")
+	classes = [owner for owner in owners if api_query_identity(owner)["class_name"]]
 	return {
+		"scope": scope,
 		"source_root": "addons/gf",
-		"file_count": len(scripts),
+		"file_count": len({owner.path for owner in owners}),
+		"owner_count": len(owners),
 		"class_count": len(classes),
-		"public_method_count": sum(len(script.methods) for script in scripts),
-		"modules": modules,
+		"inner_class_count": sum(isinstance(owner, ApiClass) for owner in owners),
+		"method_count": sum(len(owner.methods) for owner in owners),
+		"method_counts_by_visibility": api_query_method_counts(owners),
+		# Member tags alone cannot make an internal owner's method a public contract.
+		"public_method_count": sum(len(owner.methods) for owner in public_owners),
+		"modules": api_query_module_stats(owners),
 		"classes": [
 			{
-				"class_name": script.class_name,
-				"extends": script.extends,
-				"module": script.module,
-				"path": script.path,
-				"summary": docs_summary(script.docs),
+				**api_query_identity(owner),
+				"summary": docs_summary(owner.docs),
 			}
-			for script in classes
+			for owner in classes
+		],
+		"scripts": [
+			{**api_query_identity(owner), "summary": docs_summary(owner.docs)}
+			for owner in owners if not api_query_identity(owner)["class_name"]
 		],
 	}
 
@@ -3572,13 +3584,15 @@ def api_diff_release_target_version(version: str) -> str:
 	return governed_release_target_version(version)
 
 
-def api_search(query: str, kind: str = "all", limit: int = 20) -> dict[str, Any]:
+def api_search(query: str, kind: str = "all", limit: int = 20, scope: str = "public") -> dict[str, Any]:
+	owners = api_query_owners(scope)
 	needle = query.strip().lower()
 	if not needle:
-		return {"query": query, "results": [], "count": 0}
+		return {"scope": scope, "query": query, "kind": kind, "results": [], "count": 0}
 	results: list[dict[str, Any]] = []
-	for script in load_api_scripts():
-		class_score = score_text(needle, script.class_name or "", exact=120, starts=90, contains=70)
+	for script in owners:
+		identity = api_query_identity(script)
+		class_score = score_text(needle, identity["owner_name"], exact=120, starts=90, contains=70)
 		class_score = max(class_score, score_text(needle, script.path, exact=40, starts=30, contains=20))
 		class_score = max(class_score, score_text(needle, script.module, exact=30, starts=25, contains=15))
 		class_score = max(class_score, score_text(needle, " ".join(docs_to_lines(script.docs)), exact=20, starts=15, contains=10))
@@ -3598,31 +3612,45 @@ def api_search(query: str, kind: str = "all", limit: int = 20) -> dict[str, Any]
 			continue
 		results.append({
 			"score": score,
-			"class_name": script.class_name,
-			"extends": script.extends,
-			"module": script.module,
-			"path": script.path,
+			**identity,
 			"summary": docs_summary(script.docs),
 			"member_matches": sorted(member_matches, key=lambda item: item["score"], reverse=True)[:8],
 		})
-	results.sort(key=lambda item: (-item["score"], item["class_name"] or item["path"]))
+	results.sort(key=lambda item: (-item["score"], item["owner_name"]))
 	limited = results[:max(limit, 1)]
-	return {"query": query, "kind": kind, "count": len(results), "results": limited}
+	return {"scope": scope, "query": query, "kind": kind, "count": len(results), "results": limited}
 
 
-def api_class(class_name: str, include_members: bool = True) -> dict[str, Any]:
-	query = class_name.strip().lower()
-	for script in load_api_scripts():
-		if (script.class_name or "").lower() != query:
+def api_class(class_name: str, include_members: bool = True, scope: str = "public") -> dict[str, Any]:
+	query = class_name.strip().replace("\\", "/").removeprefix("res://").lower()
+	for script in api_query_owners(scope):
+		identity = api_query_identity(script)
+		# A path names its script container, not an arbitrary inner class in that file.
+		if identity["owner_name"].lower() != query and not (
+			isinstance(script, ApiScript) and script.path.lower() == query
+		):
 			continue
+		has_reference = scope == "public"
+		if not has_reference:
+			public_owners = {
+				(owner.path, api_query_identity(owner)["owner_name"])
+				for owner in api_query_owners("public")
+			}
+			has_reference = (script.path, identity["owner_name"]) in public_owners
+		reference_page = ""
+		if has_reference:
+			if isinstance(script, ApiClass):
+				from generate_api_reference import class_reference_link
+				reference_page = f"docs/zh/reference/api/{class_reference_link(script)}"
+			else:
+				directory = "autoloads" if identity["owner_kind"] == "autoload" else "classes"
+				reference_page = f"docs/zh/reference/api/{directory}/{identity['owner_name']}.md"
 		data = {
+			"scope": scope,
 			"found": True,
-			"class_name": script.class_name,
-			"extends": script.extends,
-			"module": script.module,
-			"path": script.path,
+			**identity,
 			"summary": docs_to_lines(script.docs),
-			"reference_page": f"docs/zh/reference/api/classes/{script.class_name}.md",
+			"reference_page": reference_page,
 		}
 		if include_members:
 			data["signals"] = [member_to_dict(item) for item in script.signals]
@@ -3631,36 +3659,36 @@ def api_class(class_name: str, include_members: bool = True) -> dict[str, Any]:
 			data["variables"] = [member_to_dict(item) for item in script.properties]
 			data["methods"] = [member_to_dict(item) for item in script.methods]
 		return data
-	return {"found": False, "class_name": class_name, "message": "Class was not found under addons/gf."}
+	return {"scope": scope, "found": False, "class_name": class_name, "message": "API owner was not found in the selected scope under addons/gf."}
 
 
-def api_module(module: str, include_members: bool = False, limit: int = 80) -> dict[str, Any]:
+def api_module(module: str, include_members: bool = False, limit: int = 80, scope: str = "public") -> dict[str, Any]:
+	owners = api_query_owners(scope)
 	query = module.strip().replace("\\", "/").strip("/").lower()
 	if not query:
-		return {"found": False, "module": module, "message": "Module query is empty."}
+		return {"scope": scope, "found": False, "module": module, "message": "Module query is empty."}
 	matched = [
 		script
-		for script in load_api_scripts()
+		for script in owners
 		if module_matches(script.module, query)
 	]
 	if not matched:
-		available = sorted({script.module for script in load_api_scripts() if script.class_name})
+		available = sorted({script.module for script in owners})
 		return {
+			"scope": scope,
 			"found": False,
 			"module": module,
 			"message": "Module was not found under addons/gf.",
 			"available_modules": available,
 		}
-	matched.sort(key=lambda script: (script.module, script.class_name or script.path))
-	class_scripts = [script for script in matched if script.class_name]
-	limited = class_scripts[:max(limit, 1)]
+	matched.sort(key=lambda script: (script.module, api_query_identity(script)["owner_name"]))
+	class_scripts = [script for script in matched if api_query_identity(script)["class_name"]]
+	limited = matched[:max(limit, 1)]
 	classes: list[dict[str, Any]] = []
+	scripts: list[dict[str, Any]] = []
 	for script in limited:
 		item: dict[str, Any] = {
-			"class_name": script.class_name,
-			"extends": script.extends,
-			"module": script.module,
-			"path": script.path,
+			**api_query_identity(script),
 			"summary": docs_summary(script.docs),
 			"member_counts": {
 				"signals": len(script.signals),
@@ -3675,21 +3703,19 @@ def api_module(module: str, include_members: bool = False, limit: int = 80) -> d
 				member_to_module_dict(member)
 				for member in all_members(script)
 			]
-		classes.append(item)
-	modules: dict[str, dict[str, int]] = {}
-	for script in matched:
-		stats = modules.setdefault(script.module, {"files": 0, "classes": 0, "methods": 0})
-		stats["files"] += 1
-		stats["classes"] += 1 if script.class_name else 0
-		stats["methods"] += len(script.methods)
+		(classes if item["class_name"] else scripts).append(item)
 	return {
+		"scope": scope,
 		"found": True,
 		"query": module,
-		"matched_modules": modules,
+		"matched_modules": api_query_module_stats(matched),
+		"owner_count": len(matched),
+		"returned_owner_count": len(limited),
 		"class_count": len(class_scripts),
 		"returned_class_count": len(classes),
-		"truncated": len(class_scripts) > len(limited),
+		"truncated": len(matched) > len(limited),
 		"classes": classes,
+		"scripts": scripts,
 	}
 
 
@@ -14971,7 +14997,86 @@ def invalidate_api_cache() -> None:
 	_API_CACHE = None
 
 
-def all_members(script: ApiScript) -> list[ApiMember]:
+def api_query_owners(scope: str) -> list[ApiScript | ApiClass]:
+	"""Project query visibility before flattening inner classes or counting members."""
+	if scope not in API_QUERY_SCOPES:
+		raise ValueError(f"Unsupported API query scope: {scope!r}")
+	scripts = load_api_scripts()
+	# Maintenance expands the documentation view, never the accepted owner identities.
+	public_owners = select_api_owners(scripts)
+	if scope == "public":
+		scripts = [owner.script for owner in public_owners]
+	else:
+		scripts = [
+			filtered for script in scripts
+			if (filtered := maintenance_query_owner(script)) is not None
+		]
+	owners: list[ApiScript | ApiClass] = []
+	for script in scripts:
+		owners.append(script)
+		owners.extend(flatten_api_script_inner_classes(script))
+	return owners
+
+
+def maintenance_query_owner(owner: ApiScript | ApiClass) -> ApiScript | ApiClass | None:
+	"""Keep documented declarations; unclassified containers confer no API status."""
+	member_groups = {
+		group: [member for member in getattr(owner, group) if visibility_of(member.docs) in API_QUERY_VISIBILITIES]
+		for group in ("signals", "enums", "constants", "properties", "methods")
+	}
+	inner_classes = [
+		filtered for inner in owner.inner_classes
+		if (filtered := maintenance_query_owner(inner)) is not None
+	]
+	if visibility_of(owner.docs) not in API_QUERY_VISIBILITIES and not (
+		any(member_groups.values()) or inner_classes
+	):
+		return None
+	return replace(owner, **member_groups, inner_classes=inner_classes)
+
+
+def api_query_identity(owner: ApiScript | ApiClass) -> dict[str, str]:
+	if isinstance(owner, ApiClass):
+		class_name = full_api_class_name(owner)
+		owner_name = class_name
+		owner_kind = "inner_class"
+	else:
+		class_name = owner.class_name
+		owner_name = class_name or owner.api_owner_name or owner.path
+		owner_kind = "class" if class_name else (owner.api_owner_kind or "script")
+	visibility = visibility_of(owner.docs)
+	return {
+		"class_name": class_name,
+		"owner_name": owner_name,
+		"owner_kind": owner_kind,
+		"visibility": visibility if visibility in API_QUERY_VISIBILITIES else "unclassified",
+		"extends": owner.extends,
+		"module": owner.module,
+		"path": owner.path,
+	}
+
+
+def api_query_method_counts(owners: list[ApiScript | ApiClass]) -> dict[str, int]:
+	counts = dict.fromkeys(API_QUERY_VISIBILITIES, 0)
+	for owner in owners:
+		for member in owner.methods:
+			counts[visibility_of(member.docs)] += 1
+	return counts
+
+
+def api_query_module_stats(owners: list[ApiScript | ApiClass]) -> dict[str, dict[str, int]]:
+	modules: dict[str, dict[str, int]] = {}
+	paths: dict[str, set[str]] = {}
+	for owner in owners:
+		stats = modules.setdefault(owner.module, {"files": 0, "classes": 0, "methods": 0})
+		paths.setdefault(owner.module, set()).add(owner.path)
+		stats["files"] = len(paths[owner.module])
+		stats["classes"] += bool(api_query_identity(owner)["class_name"])
+		stats["methods"] += len(owner.methods)
+	return modules
+
+
+def all_members(script: ApiScript | ApiClass) -> list[ApiMember]:
 	return [*script.signals, *script.enums, *script.constants, *script.properties, *script.methods]
 
 
@@ -15012,6 +15117,7 @@ def member_to_compact_dict(member: ApiMember, score: int) -> dict[str, Any]:
 		"score": score,
 		"kind": member.kind,
 		"name": member.name,
+		"visibility": visibility_of(member.docs),
 		"signature": member.signature,
 		"docs": docs_summary(member.docs, max_lines=2),
 	}
@@ -15021,6 +15127,7 @@ def member_to_module_dict(member: ApiMember) -> dict[str, Any]:
 	return {
 		"kind": member.kind,
 		"name": member.name,
+		"visibility": visibility_of(member.docs),
 		"signature": member.signature,
 		"docs": docs_summary(member.docs, max_lines=2),
 	}
@@ -15030,6 +15137,7 @@ def member_to_dict(member: ApiMember) -> dict[str, Any]:
 	return {
 		"kind": member.kind,
 		"name": member.name,
+		"visibility": visibility_of(member.docs),
 		"signature": member.signature,
 		"line": member.line,
 		"decorators": member.decorators,

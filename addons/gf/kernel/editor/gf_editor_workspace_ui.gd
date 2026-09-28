@@ -8,6 +8,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 按错误数和警告数读取报告状态的类型化访问工具。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 ## 默认详情区最小高度。

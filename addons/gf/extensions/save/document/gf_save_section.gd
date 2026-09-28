@@ -14,7 +14,16 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 验证分区元数据与 payload 持久化安全性的脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_SAVE_PERSISTED_VALUE_VALIDATOR = preload("res://addons/gf/extensions/save/core/gf_save_persisted_value_validator.gd")
+
+## 允许出现在规范分区字典中的字段名。
+## [br]
+## @api private
+## [br]
 const _SECTION_FIELDS: Array = [
 	"section_id",
 	"schema_version",
@@ -25,11 +34,40 @@ const _SECTION_FIELDS: Array = [
 
 # --- 私有变量 ---
 
+## 当前分区 ID。
+## [br]
+## @api private
+## [br]
 var _section_id: StringName = &""
+
+## 当前分区 schema 版本。
+## [br]
+## @api private
+## [br]
 var _schema_version: int = 0
+
+## 已接受的项目分区载荷。
+## [br]
+## @api private
+## [br]
 var _payload: Variant = null
+
+## 已接受的分区元数据。
+## [br]
+## @api private
+## [br]
 var _metadata: Dictionary = {}
+
+## 配置时记录的 payload 持久化校验失败报告。
+## [br]
+## @api private
+## [br]
 var _payload_admission_failure: Dictionary = {}
+
+## 配置时记录的 metadata 持久化校验失败报告。
+## [br]
+## @api private
+## [br]
 var _metadata_admission_failure: Dictionary = {}
 
 
@@ -283,6 +321,10 @@ static func from_dict(data: Dictionary) -> GFSaveSection:
 
 # --- 私有/辅助方法 ---
 
+## 将持久化值校验失败追加为带分区字段路径的报告项。
+## [br]
+## @api private
+## [br]
 func _append_persisted_value_issue(
 	report: Dictionary,
 	value: Variant,
@@ -310,11 +352,19 @@ func _append_persisted_value_issue(
 	)
 
 
+## 返回持久化值验证失败报告；通过时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_persisted_admission_failure(value: Variant) -> Dictionary:
 	var validation: Dictionary = _GF_SAVE_PERSISTED_VALUE_VALIDATOR.validate(value)
 	return {} if GFVariantData.get_option_bool(validation, "ok", false) else validation
 
 
+## 返回分区校验问题对应的后续操作建议。
+## [br]
+## @api private
+## [br]
 func _get_validation_next_actions() -> Dictionary:
 	return {
 		"missing_section_id": "Assign a stable section_id owned by one project module.",

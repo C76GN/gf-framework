@@ -14,6 +14,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 六个沿单一坐标轴移动的正交方向。
+## [br]
+## @api private
 const _ORTHOGONAL_DIRECTIONS: Array[Vector3i] = [
 	Vector3i(1, 0, 0),
 	Vector3i(-1, 0, 0),
@@ -23,6 +26,9 @@ const _ORTHOGONAL_DIRECTIONS: Array[Vector3i] = [
 	Vector3i(0, 0, -1),
 ]
 
+## 表面移动默认使用的 X/Z 四个水平正交方向。
+## [br]
+## @api private
 const _SURFACE_DIRECTIONS: Array[Vector3i] = [
 	Vector3i(1, 0, 0),
 	Vector3i(-1, 0, 0),
@@ -386,6 +392,9 @@ static func find_surface_path_a_star(
 
 # --- 私有/辅助方法 ---
 
+## 计算限制在网格高度内的候选 y 闭区间；当前高度超出步高范围时返回空数组。
+## [br]
+## @api private
 static func _get_vertical_scan_span(
 	center_y: int,
 	max_step_up: int,
@@ -406,6 +415,9 @@ static func _get_vertical_scan_span(
 		maximum_candidate_y = center_y + max_step_up
 	return [minimum_candidate_y, maximum_candidate_y]
 
+## 返回六向常量，或生成所有 26 个非零单位立方邻接方向。
+## [br]
+## @api private
 static func _get_directions(allow_diagonal: bool) -> Array[Vector3i]:
 	if not allow_diagonal:
 		return _ORTHOGONAL_DIRECTIONS
@@ -422,6 +434,9 @@ static func _get_directions(allow_diagonal: bool) -> Array[Vector3i]:
 	return directions
 
 
+## 沿前驱字典从目标回溯并反向构造路径；链路缺失时返回空数组。
+## [br]
+## @api private
 static func _reconstruct_path(start: Vector3i, goal: Vector3i, came_from: Dictionary) -> Array[Vector3i]:
 	var path: Array[Vector3i] = [goal]
 	var current: Vector3i = goal
@@ -436,6 +451,9 @@ static func _reconstruct_path(start: Vector3i, goal: Vector3i, came_from: Dictio
 	return path
 
 
+## 将格子、分数和次序打包后传给带顺序参数的优先队列。
+## [br]
+## @api private
 static func _push_scored_cell(priority_queue: GFPriorityQueue, cell: Vector3i, score: float, order: int) -> void:
 	var _cell_queued: bool = priority_queue.push_with_order({
 		"cell": cell,
@@ -444,10 +462,16 @@ static func _push_scored_cell(priority_queue: GFPriorityQueue, cell: Vector3i, s
 	}, score, order)
 
 
+## 从搜索队列取出元素，并转换为 Dictionary。
+## [br]
+## @api private
 static func _pop_scored_cell(priority_queue: GFPriorityQueue) -> Dictionary:
 	return GFVariantData.as_dictionary(priority_queue.pop({}))
 
 
+## 从队列项读取 Vector3i 格子，缺失或类型不符时返回零向量。
+## [br]
+## @api private
 static func _get_scored_cell(entry: Dictionary) -> Vector3i:
 	var value: Variant = GFVariantData.get_option_value(entry, "cell", Vector3i.ZERO)
 	if value is Vector3i:
@@ -456,14 +480,23 @@ static func _get_scored_cell(entry: Dictionary) -> Vector3i:
 	return Vector3i.ZERO
 
 
+## 从队列项读取 score 浮点值，缺失或无效时返回 INF。
+## [br]
+## @api private
 static func _get_scored_entry_score(entry: Dictionary) -> float:
 	return GFVariantData.get_option_float(entry, "score", INF)
 
 
+## 读取格子的入队次序；字典没有对应整数时返回 -1。
+## [br]
+## @api private
 static func _get_cell_order(orders: Dictionary, cell: Vector3i) -> int:
 	return GFVariantData.get_option_int(orders, cell, -1)
 
 
+## 按名称计算格子距离；未知名称默认 Manhattan，allow_diagonal 与 `auto` 同用时采用 Chebyshev。
+## [br]
+## @api private
 static func _heuristic_distance(
 	from_cell: Vector3i,
 	to_cell: Vector3i,
@@ -482,14 +515,23 @@ static func _heuristic_distance(
 			return float(maxi(dx, maxi(dy, dz))) if allow_diagonal and heuristic == &"auto" else float(dx + dy + dz)
 
 
+## 调用格子谓词并将结果转换为 bool，转换失败时使用 false。
+## [br]
+## @api private
 static func _call_cell_bool(callback: Callable, cell: Vector3i) -> bool:
 	return GFVariantData.to_bool(callback.call(cell), false)
 
 
+## 从格子分数字典读取浮点值，缺失或无效时使用 INF。
+## [br]
+## @api private
 static func _get_score(scores: Dictionary, cell: Vector3i) -> float:
 	return GFVariantData.get_option_float(scores, cell, INF)
 
 
+## 使用有效代价回调并以 1.0 作为转换失败值；无回调时返回两格的欧氏距离。
+## [br]
+## @api private
 static func _get_step_cost(from_cell: Vector3i, to_cell: Vector3i, step_cost: Callable) -> float:
 	if step_cost.is_valid():
 		return GFVariantData.to_float(step_cost.call(from_cell, to_cell), 1.0)

@@ -8,23 +8,60 @@ extends EditorInspectorPlugin
 
 # --- 常量 ---
 
+## 读取展示字典字段的类型化辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 提供设置标签、说明与枚举本地化数据的目录脚本。
+## [br]
+## @api private
 const _GF_PROJECT_SETTING_PRESENTATION_CATALOG_SCRIPT = preload("res://addons/gf/kernel/editor/gf_project_setting_presentation_catalog.gd")
+
+## 没有自定义脚本时用于设置普通属性 Tooltip 的辅助脚本。
+## [br]
+## @api private
 const _GF_EDITOR_PROPERTY_PLAIN_TOOLTIP_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_property_plain_tooltip.gd")
+
+## 优先创建 GF 资源路径属性编辑器的插件脚本。
+## [br]
+## @api private
 const _GF_RESOURCE_PATH_INSPECTOR_PLUGIN_SCRIPT = preload("res://addons/gf/kernel/editor/gf_resource_path_inspector_plugin.gd")
+
+## Godot Sectioned Inspector 内部过滤对象的类名。
+## [br]
+## @api private
 const _SECTIONED_INSPECTOR_FILTER_CLASS: String = "SectionedInspectorFilter"
 
 
 # --- 私有变量 ---
 
+## 初始化时创建的展示目录实例，供本插件读取本地化信息。
+## [br]
+## @api private
 var _catalog: RefCounted = null
+
+## 将 Sectioned Inspector 过滤对象实例 ID 映射到已识别的设置分区。
+## [br]
+## @api private
 var _section_by_filter_id: Dictionary = {}
+
+## 调用 Godot 原生属性编辑器工厂期间设为 true，以跳过递归 Inspector 识别。
+## [br]
+## @api private
 var _instantiating_native_editor: bool = false
+
+## 当前配置的展示语言覆盖值；configure() 会修剪两端空白。
+## [br]
+## @api private
 var _presentation_locale: String = ""
 
 
 # --- Godot 生命周期方法 ---
 
+## 实例化展示目录后执行默认配置。
+## [br]
+## @api private
 func _init() -> void:
 	var catalog_value: Variant = _GF_PROJECT_SETTING_PRESENTATION_CATALOG_SCRIPT.new()
 	if catalog_value is RefCounted:
@@ -34,6 +71,9 @@ func _init() -> void:
 
 # --- Godot 回调方法 ---
 
+## 处理 ProjectSettings 或可识别分区的原生过滤对象；创建原生编辑器期间拒绝重入匹配，并维护过滤对象到分区的缓存。
+## [br]
+## @api private
 func _can_handle(object: Object) -> bool:
 	if _instantiating_native_editor:
 		return false
@@ -51,6 +91,9 @@ func _can_handle(object: Object) -> bool:
 	return true
 
 
+## 仅为有展示定义且能构建编辑器的设置接管属性，登记带展示标签的控件并返回 true。
+## [br]
+## @api private
 func _parse_property(
 	object: Object,
 	type: Variant.Type,
@@ -121,6 +164,9 @@ func configure(
 
 # --- 私有/辅助方法 ---
 
+## 从展示目录读取指定设置的展示字典；目录不可用或返回值非字典时返回空字典。
+## [br]
+## @api private
 func _get_presentation(setting_name: String, locale: String = "") -> Dictionary:
 	if _catalog == null or not _catalog.has_method(&"get_presentation"):
 		return {}
@@ -128,6 +174,9 @@ func _get_presentation(setting_name: String, locale: String = "") -> Dictionary:
 	return _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(presentation_value)
 
 
+## 优先创建资源路径编辑器，否则在重入保护下请求原生编辑器；随后注入纯文本提示及枚举展示，不覆盖控件已有脚本。
+## [br]
+## @api private
 func _create_editor_property(
 	object: Object,
 	type: Variant.Type,
@@ -170,6 +219,10 @@ func _create_editor_property(
 	return editor_property
 
 
+## 对 ProjectSettings 直接返回属性名；对分区过滤对象解析并拼接分区与属性名。
+## 无法解析分区时返回空字符串。
+## [br]
+## @api private
 func _resolve_setting_name(object: Object, property_name: String) -> String:
 	if object == ProjectSettings:
 		return property_name
@@ -186,6 +239,9 @@ func _resolve_setting_name(object: Object, property_name: String) -> String:
 	return "%s/%s" % [section, property_name]
 
 
+## 比较过滤对象与目录各分区的属性签名；没有匹配项或存在多个匹配项时返回空值。
+## [br]
+## @api private
 func _resolve_project_settings_section(filter_object: Object) -> String:
 	var filter_signature: Dictionary = _collect_property_signature(filter_object.get_property_list())
 	if filter_signature.is_empty():
@@ -202,6 +258,9 @@ func _resolve_project_settings_section(filter_object: Object) -> String:
 	return matching_section
 
 
+## 从目录的设置名派生唯一二级分区路径，并以字典序返回。
+## [br]
+## @api private
 func _get_catalog_sections() -> PackedStringArray:
 	var sections: PackedStringArray = PackedStringArray()
 	if _catalog == null or not _catalog.has_method(&"get_setting_names"):
@@ -222,6 +281,9 @@ func _get_catalog_sections() -> PackedStringArray:
 	return sections
 
 
+## 收集指定设置分区内的 ProjectSettings 属性，并将 name 改为相对分区路径后生成签名。
+## [br]
+## @api private
 func _collect_project_section_signature(section: String) -> Dictionary:
 	var relative_properties: Array[Dictionary] = []
 	var section_prefix: String = section + "/"
@@ -235,6 +297,10 @@ func _collect_project_section_signature(section: String) -> Dictionary:
 	return _collect_property_signature(relative_properties)
 
 
+## 按属性名建立签名字典，跳过空名、script 和 category 项。
+## 每项记录 type、hint、hint_string、usage 与 class_name。
+## [br]
+## @api private
 func _collect_property_signature(property_list: Array[Dictionary]) -> Dictionary:
 	var signature: Dictionary = {}
 	for property_info: Dictionary in property_list:
@@ -260,6 +326,9 @@ func _collect_property_signature(property_list: Array[Dictionary]) -> Dictionary
 	return signature
 
 
+## 深度遍历 Control 子节点，只为 Tooltip 为空的控件填入给定文本。
+## [br]
+## @api private
 func _apply_tooltip_to_empty_controls(root: Control, tooltip: String) -> void:
 	for child: Node in root.get_children():
 		if not child is Control:
@@ -270,6 +339,9 @@ func _apply_tooltip_to_empty_controls(root: Control, tooltip: String) -> void:
 		_apply_tooltip_to_empty_controls(control, tooltip)
 
 
+## 当存在枚举标签时遍历选项按钮，以项目 metadata 查找并覆盖标签和说明 Tooltip。
+## [br]
+## @api private
 func _apply_enum_presentation(
 	editor_property: EditorProperty,
 	presentation: Dictionary,
@@ -295,6 +367,9 @@ func _apply_enum_presentation(
 			option_button.set_item_tooltip(index, _GF_VARIANT_ACCESS_SCRIPT.to_text(enum_descriptions[value]))
 
 
+## 按子节点顺序深度优先查找并返回第一个 OptionButton，未找到时返回 null。
+## [br]
+## @api private
 func _find_option_button(root: Node) -> OptionButton:
 	for child: Node in root.get_children():
 		if child is OptionButton:

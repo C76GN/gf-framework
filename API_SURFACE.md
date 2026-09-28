@@ -2,7 +2,7 @@
 
 API Surface Contract 用来明确 GF 源码中哪些符号属于公开承诺、哪些只属于框架内部实现。GDScript 本身没有访问修饰符，因此 GF 通过命名、section、`##` 文档注释和机器可读标签共同定义 API 边界。
 
-核心原则是：公开必须显式，私有必须安静。`##` 不只是说明文字，而是 API 文档入口；私有实现细节不应使用 `##`，避免被半自动文档生成误收录。
+核心原则是：公开承诺必须显式，私有实现也可以拥有维护文档。`##` 表示绑定到声明的文档，`@api` 独立决定可见性；是否有文档不改变调用边界或兼容性承诺。公开生成物只收录 `public` / `protected`，不能把所有带 `##` 的声明都当作公开 API。
 
 ## 可见性
 
@@ -12,9 +12,13 @@ API Surface Contract 用来明确 GF 源码中哪些符号属于公开承诺、�
 | `protected` | 子类或扩展实现可重写、可调用的扩展点。 | 进入扩展点 API 文档。 | 受 SemVer 保护，但只承诺重写契约。 |
 | `framework_internal` | GF 内部跨文件协作入口。 | 可进入内部维护索引，不进入用户公开文档。 | 可调整，但必须通过维护测试保护。 |
 | `layer_internal` | 只允许指定 layer 内部使用。 | 可进入内部维护索引，不进入用户公开文档。 | 可调整，调用范围必须受测试约束。 |
-| `private` | 同文件实现细节。 | 不使用 `##`，不写 `@api`。 | 不承诺兼容。 |
+| `private` | 同文件实现细节。 | 可使用 `## @api private` 编写维护文档，不进入公开文档。 | 不承诺对外兼容。 |
 
-允许的 `@api` 标签只有 `public`、`protected`、`framework_internal` 和 `layer_internal`。`private` 不是文档标签，而是由 `_` 前缀、私有 section 和同文件使用推导出来的状态。
+允许的 `@api` 标签只有 `public`、`protected`、`framework_internal`、`layer_internal` 和 `private`。每个声明文档块只能声明一个可见性。未文档化的私有实现仍由 `_` 前缀、section 和使用范围判断；一旦使用 `##`，必须显式写明 `@api private`，不能靠省略标签推断。枚举值沿用枚举的可见性，不重复写 `@api`。
+
+`private` 不能用来隐藏原本对外公开的声明：私有方法、变量、常量、信号、枚举和内部类仍须遵守 `_` 前缀及对应 section。注册全局类型的 `class_name` 不使用 `private`，内部全局类型使用 `framework_internal` / `layer_internal`。跨文件协作入口使用内部协作可见性，供子类重写的契约使用 `protected`；新增私有文档不扩大调用权限。
+
+已有下划线命名的跨文件协作入口可以保留名称，显式声明 `framework_internal` / `layer_internal` 并放入相应内部方法 section；不能仅根据 `_` 前缀把它重新判为 `private`。它们继续执行完整参数、返回值、schema 和 layer 校验。私有导出字段位于“导出变量”section，私有性不改变其导出声明的布局要求。
 
 ## 类型分类
 
@@ -53,7 +57,7 @@ API Surface Contract 用来明确 GF 源码中哪些符号属于公开承诺、�
 
 常用标签：
 
-- `@api public|protected|framework_internal|layer_internal`：声明可见性。
+- `@api public|protected|framework_internal|layer_internal|private`：声明可见性。
 - `@api_owner autoload Gf`：只为 `addons/gf/kernel/core/gf.gd` 声明受控的 classless AutoLoad owner；必须位于文件级文档块中并紧邻绑定到 `extends Node`，不能用于发现或声明其他单例。
 - `@category ...`：声明公开类型分类，主要用于类和公开内部类。
 - `@since x.y.z`：声明公开类型或公开入口首次出现的版本。
@@ -64,6 +68,29 @@ API Surface Contract 用来明确 GF 源码中哪些符号属于公开承诺、�
 - `@return: ...`：声明非 `void` 返回值。
 - `@schema name: ...`：描述公开签名中的裸 `Dictionary`、裸 `Array` 或 `Variant` 结构。说明文字优先使用中文，字段名、API key、类型名和枚举值保持代码原文。
 
+### 私有维护文档
+
+私有声明有文档时，至少包含非空的职责说明和一个 `@api private`。说明应记录维护者无法仅从名称与类型得知的事实，例如状态有效期、引用所有权、取消与释放顺序、异步写回资格、回调重入、失败值或原子性边界。涉及这些约束的私有实现应在代码审查中要求文档；简单 getter、类型收窄和纯转发不强制补注释，不设全量私有注释覆盖率门槛。
+
+```gdscript
+## 保留快照对应资源的强引用，使对话结束后仍能校验结束态快照的资源身份。
+## [br]
+## @api private
+var _snapshot_resource: GFDialogueResource = null
+```
+
+私有文档采用轻量标签规则：
+
+- 不强制 `@since`、`@category`、完整参数表、返回值说明或结构 schema；不要为了凑齐模板复制签名或推测语义。
+- `@param name: 说明` 可只记录需要额外解释的参数；已经记录的名称必须存在、不能重复、按签名相对顺序排列，说明不能为空。
+- `@return: 说明` 按需使用，只能描述有返回值的函数，不能重复或为空；失败值和回调后的状态等不明显语义应明确说明。
+- `@schema name: 说明` 按需描述内部结构，名称只能对应本声明的属性/常量、参数或非 `void` 返回值 `return`；不能重复或为空。不因出现简单 `Variant` 收窄就要求 schema。
+- 正文及标签沿用 `## [br]` 分隔。函数体局部原因仍用 `#`，不要把局部变量或连续步骤改造成声明文档，也不要重复同一约束。
+
+这些轻量规则仅适用于 `private`。公开、受保护和内部协作声明继续执行既有完整参数、返回值及结构 schema 校验。维护查询可显式选择 `maintenance` 范围读取私有文档；公开 Reference、公开 AI API 索引、API baseline 与公开语义摘要只消费公开投影。纯私有说明变化不构成公开 API 变更，但实现变化导致的公开行为变化仍需按兼容性规则判断。
+
+无 `class_name` 脚本的成员也可使用私有文档；文件顶部维护说明继续用 `#`，不能用 `## @api private` 绑定 `extends` 或创造新的公开 owner。当前解析器的维护索引不承诺覆盖 classless 内部类或任意深度嵌套类型，源码和校验器仍是这些声明的依据。批量补写与检查流程见 [私有维护文档编写指南](docs/maintainers/private-doc-comments.md)。
+
 为兼顾 Godot 编辑器悬停文档和机器可读标签，正文说明与机器标签之间、以及连续机器标签之间都应插入一行 `## [br]`。Godot 会把文档注释按 BBCode 渲染；没有显式分隔时，多行说明和 `@api` / `@param` / `@return` / `@schema` 等标签容易在悬停提示中合并为一段。`[br]` 只用于渲染换行，不改变标签语义。
 
 历史迁移期间补齐的 `@since` 不再使用占位版本 `1.0.0`。完成 API Surface 迁移后，既有公开 API 的起算版本统一使用当次 GF 发布版本；新增 API 在版本已确定时使用它首次公开发布的 GF 版本，在版本未确定时临时使用 `@since unreleased`。唯一的 `1.0.0` 历史 owner 基线是已经由版本历史证明的 `Gf` AutoLoad 文件级契约；它不能作为其他类型或成员使用 `1.0.0` 的先例。不要使用 `x.x.x`、`未发布`、空值或其他占位写法，因为这些写法难以被机器稳定识别和发布前替换。
@@ -72,7 +99,7 @@ API Surface Contract 用来明确 GF 源码中哪些符号属于公开承诺、�
 
 `##` 文档块必须绑定到一个明确声明：`class_name`、内部 `class`、`signal`、`enum`、`const`、`var` 或 `func`。唯一额外绑定形态是 `addons/gf/kernel/core/gf.gd` 的文件级 `## @api_owner autoload Gf` 文档块，它必须紧邻下一条顶层 `extends Node`。没有绑定声明的脚本说明、维护说明、模板说明必须使用普通 `#`。这条规则避免半自动文档生成器把 classless helper 的顶部说明误判成公开 API。
 
-对外公开或可重写的顶层 API 必须位于带 `class_name` 的脚本中。唯一例外是上述受控 `Gf` AutoLoad owner；仅仅继承 `Node`、由项目设置注册为单例或参与编辑器插件生命周期，都不会自动获得公开 owner。没有 `class_name` 的其他 helper、模板、数据、插件和单例脚本只能暴露 `framework_internal` / `layer_internal` 协作入口，不能承诺 `public` / `protected` API。未知 owner kind/name、错误路径、非 `Node` 基类、悬空或重复 `@api_owner` 必须失败关闭。
+对外公开或可重写的顶层 API 必须位于带 `class_name` 的脚本中。唯一例外是上述受控 `Gf` AutoLoad owner；仅仅继承 `Node`、由项目设置注册为单例或参与编辑器插件生命周期，都不会自动获得公开 owner。没有 `class_name` 的其他 helper、模板、数据、插件和单例脚本只能暴露 `framework_internal` / `layer_internal` 协作入口，或记录 `private` 成员文档，不能承诺 `public` / `protected` API。未知 owner kind/name、错误路径、非 `Node` 基类、悬空或重复 `@api_owner` 必须失败关闭。
 
 section 注释必须使用以下格式：
 
@@ -119,7 +146,7 @@ GF 不对未知语法、未知声明形态或新的 GDScript 结构做猜测式�
 ## 硬规则
 
 - `public` / `protected` / `framework_internal` / `layer_internal` 成员必须使用 `##` 并写明 `@api`。
-- 私有变量、私有方法和私有内部类不使用 `##`；确实需要解释实现原因时使用普通 `#`。
+- 私有声明允许使用带非空正文和显式 `@api private` 的 `##`；函数体局部实现原因使用普通 `#`。缺少标签、重复可见性、错误命名或分区不能因为是维护文档而豁免。
 - `##` 文档块必须绑定到紧随其后的声明；悬空 `##` 视为违规。
 - `@api_owner` 只接受精确的 `autoload Gf`，只允许出现在 `addons/gf/kernel/core/gf.gd`，并必须紧邻绑定到顶层 `extends Node`；它必须同时声明 `@api public`、`@category runtime_service`、`@since 1.0.0` 和 `@layer kernel/core`。
 - 带 `## @api` 的未知声明形态视为违规，必须先扩展 API Surface Contract 和校验器。

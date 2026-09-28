@@ -16,8 +16,19 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 用于读取和收窄快照字典字段的 Variant 工具脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 当前全局快照格式版本。
+## [br]
+## @api private
 const _SNAPSHOT_FORMAT_VERSION: int = 1
+
+## 捕获或恢复事务已占用时使用的错误文本。
+## [br]
+## @api private
 const _SNAPSHOT_BUSY_ERROR: String = (
 	"A snapshot transaction is already running; concurrent or reentrant capture/restore is not allowed."
 )
@@ -25,10 +36,29 @@ const _SNAPSHOT_BUSY_ERROR: String = (
 
 # --- 私有变量 ---
 
+## configure 提供的 Model 注册表字典引用。
+## [br]
+## @api private
 var _models: Dictionary = {}
+
+## 用于解析当前命令历史存储对象的回调。
+## [br]
+## @api private
 var _command_history_store_resolver: Callable = Callable()
+
+## configure 提供的每帧 Model 数量默认值。
+## [br]
+## @api private
 var _default_models_per_frame: int = 8
+
+## 分配给快照捕获/恢复事务的最近 generation。
+## [br]
+## @api private
 var _snapshot_transaction_generation: int = 0
+
+## 当前占用快照事务的 generation；0 表示没有活动事务。
+## [br]
+## @api private
 var _active_snapshot_transaction_generation: int = 0
 
 
@@ -78,29 +108,6 @@ func get_all_models_state() -> Dictionary:
 	return _finish_capture_transaction(snapshot_generation, capture_result)
 
 
-func _capture_all_models_state() -> Dictionary:
-	var frozen_capture: Dictionary = _freeze_model_capture()
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(frozen_capture, "ok", false):
-		return _make_capture_failure(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-				frozen_capture,
-				"error",
-				"Model snapshot capture failed."
-			)
-		)
-	var stability_result: Dictionary = _verify_frozen_model_capture_stability(
-		frozen_capture
-	)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(stability_result, "ok", false):
-		return stability_result
-	return _make_capture_success(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			frozen_capture,
-			"snapshot"
-		)
-	)
-
-
 ## 分帧收集所有已注册 Model 的状态快照。
 ## [br]
 ## @api framework_internal
@@ -125,24 +132,6 @@ func get_all_models_state_async(options: Dictionary = {}) -> Dictionary:
 		return _make_capture_busy_failure()
 	var capture_result: Dictionary = await _capture_all_models_state_async(options)
 	return _finish_capture_transaction(snapshot_generation, capture_result)
-
-
-func _capture_all_models_state_async(options: Dictionary) -> Dictionary:
-	var frozen_capture: Dictionary = _freeze_model_capture()
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(frozen_capture, "ok", false):
-		return _make_capture_failure(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-				frozen_capture,
-				"error",
-				"Model snapshot capture failed."
-			)
-		)
-	var stability_result: Dictionary = _verify_frozen_model_capture_stability(
-		frozen_capture
-	)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(stability_result, "ok", false):
-		return stability_result
-	return await _materialize_frozen_model_capture(frozen_capture, options)
 
 
 ## 从状态字典恢复所有已注册 Model 的数据。
@@ -223,57 +212,6 @@ func get_global_snapshot() -> Dictionary:
 	return _finish_capture_transaction(snapshot_generation, capture_result)
 
 
-func _capture_global_snapshot() -> Dictionary:
-	var frozen_models: Dictionary = _freeze_model_capture()
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(frozen_models, "ok", false):
-		return _make_capture_failure(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-				frozen_models,
-				"error",
-				"Model snapshot capture failed."
-			)
-		)
-
-	var frozen_history: Dictionary = {}
-	var has_history: bool = false
-	var history_util: Object = _get_command_history_store()
-	if history_util != null:
-		var history_result: Dictionary = _capture_history_state(history_util)
-		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(history_result, "ok", false):
-			return _make_capture_failure(
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-					history_result,
-					"error",
-					"Command history snapshot capture failed."
-				)
-			)
-		frozen_history = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			history_result,
-			"snapshot"
-		)
-		has_history = true
-
-	var stability_result: Dictionary = _verify_global_capture_stability(
-		frozen_models,
-		history_util,
-		frozen_history,
-		has_history
-	)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(stability_result, "ok", false):
-		return stability_result
-
-	var snapshot: Dictionary = {
-		"format_version": _SNAPSHOT_FORMAT_VERSION,
-		"models": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			frozen_models,
-			"snapshot"
-		),
-	}
-	if has_history:
-		snapshot["command_history"] = frozen_history
-	return _make_capture_success(snapshot)
-
-
 ## 分帧获取包含 Model 状态和可选命令历史的全局快照。
 ## [br]
 ## @api framework_internal
@@ -298,67 +236,6 @@ func get_global_snapshot_async(options: Dictionary = {}) -> Dictionary:
 		return _make_capture_busy_failure()
 	var capture_result: Dictionary = await _capture_global_snapshot_async(options)
 	return _finish_capture_transaction(snapshot_generation, capture_result)
-
-
-func _capture_global_snapshot_async(options: Dictionary) -> Dictionary:
-	var frozen_models: Dictionary = _freeze_model_capture()
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(frozen_models, "ok", false):
-		return _make_capture_failure(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-				frozen_models,
-				"error",
-				"Model snapshot capture failed."
-			)
-		)
-
-	var frozen_history: Dictionary = {}
-	var has_history: bool = false
-	var history_util: Object = _get_command_history_store()
-	if history_util != null:
-		var history_result: Dictionary = _capture_history_state(history_util)
-		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(history_result, "ok", false):
-			return _make_capture_failure(
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-					history_result,
-					"error",
-					"Command history snapshot capture failed."
-				)
-			)
-		frozen_history = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			history_result,
-			"snapshot"
-		)
-		has_history = true
-
-	var stability_result: Dictionary = _verify_global_capture_stability(
-		frozen_models,
-		history_util,
-		frozen_history,
-		has_history
-	)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(stability_result, "ok", false):
-		return stability_result
-
-	var models_result: Dictionary = await _materialize_frozen_model_capture(
-		frozen_models,
-		options
-	)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(models_result, "ok", false):
-		return models_result
-	if has_history and not _is_command_history_store_current(history_util):
-		return _make_capture_failure(
-			"The command history storage target changed while the global snapshot waited between frames."
-		)
-	var snapshot: Dictionary = {
-		"format_version": _SNAPSHOT_FORMAT_VERSION,
-		"models": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			models_result,
-			"snapshot"
-		),
-	}
-	if has_history:
-		snapshot["command_history"] = frozen_history
-	return _make_capture_success(snapshot)
 
 
 ## 从全局快照中恢复 Model 状态和可选命令历史。
@@ -684,6 +561,174 @@ func restore_global_snapshot_async(
 
 # --- 私有/辅助方法 ---
 
+## 冻结当前 Model 集合及 JSON 状态，反序复核身份和状态稳定后返回快照；任一目标变化均返回失败报告。
+## [br]
+## @api private
+func _capture_all_models_state() -> Dictionary:
+	var frozen_capture: Dictionary = _freeze_model_capture()
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(frozen_capture, "ok", false):
+		return _make_capture_failure(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				frozen_capture,
+				"error",
+				"Model snapshot capture failed."
+			)
+		)
+	var stability_result: Dictionary = _verify_frozen_model_capture_stability(
+		frozen_capture
+	)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(stability_result, "ok", false):
+		return stability_result
+	return _make_capture_success(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+			frozen_capture,
+			"snapshot"
+		)
+	)
+
+
+## 先同步冻结并复核 Model 状态，再按帧预算复制冻结结果；跨帧阶段验证目标身份，不重新采集变化中的业务状态。
+## [br]
+## @api private
+func _capture_all_models_state_async(options: Dictionary) -> Dictionary:
+	var frozen_capture: Dictionary = _freeze_model_capture()
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(frozen_capture, "ok", false):
+		return _make_capture_failure(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				frozen_capture,
+				"error",
+				"Model snapshot capture failed."
+			)
+		)
+	var stability_result: Dictionary = _verify_frozen_model_capture_stability(
+		frozen_capture
+	)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(stability_result, "ok", false):
+		return stability_result
+	return await _materialize_frozen_model_capture(frozen_capture, options)
+
+
+## 冻结 Model 与可选命令历史，复核历史和 Model 未在序列化回调中变化后组装带格式版本的全局快照。
+## [br]
+## @api private
+func _capture_global_snapshot() -> Dictionary:
+	var frozen_models: Dictionary = _freeze_model_capture()
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(frozen_models, "ok", false):
+		return _make_capture_failure(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				frozen_models,
+				"error",
+				"Model snapshot capture failed."
+			)
+		)
+
+	var frozen_history: Dictionary = {}
+	var has_history: bool = false
+	var history_util: Object = _get_command_history_store()
+	if history_util != null:
+		var history_result: Dictionary = _capture_history_state(history_util)
+		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(history_result, "ok", false):
+			return _make_capture_failure(
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+					history_result,
+					"error",
+					"Command history snapshot capture failed."
+				)
+			)
+		frozen_history = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+			history_result,
+			"snapshot"
+		)
+		has_history = true
+
+	var stability_result: Dictionary = _verify_global_capture_stability(
+		frozen_models,
+		history_util,
+		frozen_history,
+		has_history
+	)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(stability_result, "ok", false):
+		return stability_result
+
+	var snapshot: Dictionary = {
+		"format_version": _SNAPSHOT_FORMAT_VERSION,
+		"models": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+			frozen_models,
+			"snapshot"
+		),
+	}
+	if has_history:
+		snapshot["command_history"] = frozen_history
+	return _make_capture_success(snapshot)
+
+
+## 先冻结并复核全局状态，再分帧物化 Model 副本；结束时确认历史存储仍为原目标，输出冻结的历史内容。
+## [br]
+## @api private
+func _capture_global_snapshot_async(options: Dictionary) -> Dictionary:
+	var frozen_models: Dictionary = _freeze_model_capture()
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(frozen_models, "ok", false):
+		return _make_capture_failure(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				frozen_models,
+				"error",
+				"Model snapshot capture failed."
+			)
+		)
+
+	var frozen_history: Dictionary = {}
+	var has_history: bool = false
+	var history_util: Object = _get_command_history_store()
+	if history_util != null:
+		var history_result: Dictionary = _capture_history_state(history_util)
+		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(history_result, "ok", false):
+			return _make_capture_failure(
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+					history_result,
+					"error",
+					"Command history snapshot capture failed."
+				)
+			)
+		frozen_history = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+			history_result,
+			"snapshot"
+		)
+		has_history = true
+
+	var stability_result: Dictionary = _verify_global_capture_stability(
+		frozen_models,
+		history_util,
+		frozen_history,
+		has_history
+	)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(stability_result, "ok", false):
+		return stability_result
+
+	var models_result: Dictionary = await _materialize_frozen_model_capture(
+		frozen_models,
+		options
+	)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(models_result, "ok", false):
+		return models_result
+	if has_history and not _is_command_history_store_current(history_util):
+		return _make_capture_failure(
+			"The command history storage target changed while the global snapshot waited between frames."
+		)
+	var snapshot: Dictionary = {
+		"format_version": _SNAPSHOT_FORMAT_VERSION,
+		"models": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+			models_result,
+			"snapshot"
+		),
+	}
+	if has_history:
+		snapshot["command_history"] = frozen_history
+	return _make_capture_success(snapshot)
+
+
+## 创建包含 ok=true、snapshot 和空 error 的捕获结果字典。
+## [br]
+## @api private
 func _make_capture_success(snapshot: Dictionary) -> Dictionary:
 	return {
 		"ok": true,
@@ -692,6 +737,9 @@ func _make_capture_success(snapshot: Dictionary) -> Dictionary:
 	}
 
 
+## 创建捕获失败字典；error 为空时写入默认失败文本，可选加入 phase。
+## [br]
+## @api private
 func _make_capture_failure(
 	error: String,
 	phase: StringName = &""
@@ -708,6 +756,9 @@ func _make_capture_failure(
 	return result
 
 
+## 创建 phase 为 commit 且 rolled_back=false 的恢复成功结果。
+## [br]
+## @api private
 func _make_restore_success() -> Dictionary:
 	return {
 		"ok": true,
@@ -717,6 +768,9 @@ func _make_restore_success() -> Dictionary:
 	}
 
 
+## 创建恢复失败字典；error 为空时写入默认失败文本。
+## [br]
+## @api private
 func _make_restore_failure(
 	phase: StringName,
 	error: String,
@@ -733,14 +787,23 @@ func _make_restore_failure(
 	}
 
 
+## 创建 phase 为 busy 的恢复失败结果。
+## [br]
+## @api private
 func _make_restore_busy_failure() -> Dictionary:
 	return _make_restore_failure(&"busy", _SNAPSHOT_BUSY_ERROR)
 
 
+## 创建包含 busy phase 的捕获失败结果。
+## [br]
+## @api private
 func _make_capture_busy_failure() -> Dictionary:
 	return _make_capture_failure(_SNAPSHOT_BUSY_ERROR, &"busy")
 
 
+## 没有活动事务时递增并登记 generation；已占用时返回 0。
+## [br]
+## @api private
 func _begin_snapshot_transaction() -> int:
 	if _active_snapshot_transaction_generation != 0:
 		return 0
@@ -749,6 +812,9 @@ func _begin_snapshot_transaction() -> int:
 	return _active_snapshot_transaction_generation
 
 
+## generation 仍为当前活动事务时清空占用并返回结果，否则返回 commit 失败。
+## [br]
+## @api private
 func _finish_capture_transaction(
 	snapshot_generation: int,
 	result: Dictionary
@@ -765,6 +831,9 @@ func _finish_capture_transaction(
 	return result
 
 
+## generation 仍为当前活动事务时清空占用并返回结果，否则返回 commit 失败。
+## [br]
+## @api private
 func _finish_restore_transaction(
 	restore_generation: int,
 	result: Dictionary
@@ -781,6 +850,9 @@ func _finish_restore_transaction(
 	return result
 
 
+## 收集具有稳定键的当前 Model 并转换其字典为 JSON 兼容状态；序列化后复核整个目标集合，保留供后续稳定性检查的身份记录。
+## [br]
+## @api private
 func _freeze_model_capture() -> Dictionary:
 	var entry_report: Dictionary = _collect_model_snapshot_entries()
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry_report, "ok", false):
@@ -827,6 +899,9 @@ func _freeze_model_capture() -> Dictionary:
 	}
 
 
+## 对启用的历史存储再次采集并比较冻结状态，然后复核 Model；任一回调导致目标或内容变化都拒绝本次快照。
+## [br]
+## @api private
 func _verify_global_capture_stability(
 	frozen_models: Dictionary,
 	history_util: Object,
@@ -865,6 +940,9 @@ func _verify_global_capture_stability(
 	return _verify_frozen_model_capture_stability(frozen_models)
 
 
+## 按冻结顺序的逆序重新序列化 Model，检测后序序列化器对前序状态的写入；逐项及末尾复核身份与稳定键，不提供跨线程锁定。
+## [br]
+## @api private
 func _verify_frozen_model_capture_stability(
 	frozen_capture: Dictionary
 ) -> Dictionary:
@@ -942,6 +1020,9 @@ func _verify_frozen_model_capture_stability(
 	}
 
 
+## 按每帧预算复制已冻结的 JSON 状态，等待帧后复核全部目标身份；不重新调用 Model 序列化器，目标失效即返回失败。
+## [br]
+## @api private
 func _materialize_frozen_model_capture(
 	frozen_capture: Dictionary,
 	options: Dictionary
@@ -998,6 +1079,9 @@ func _materialize_frozen_model_capture(
 	return _make_capture_success(materialized_state)
 
 
+## Model 注册数量与冻结条目数一致且每个条目仍指向原实例和稳定键时返回 true。
+## [br]
+## @api private
 func _are_frozen_model_targets_current(entries: Array) -> bool:
 	if _models.size() != entries.size():
 		return false
@@ -1010,6 +1094,9 @@ func _are_frozen_model_targets_current(entries: Array) -> bool:
 	return true
 
 
+## 条目中的 Script、Model、注册映射和稳定快照键都仍一致时返回 true。
+## [br]
+## @api private
 func _is_frozen_model_target_current(entry: Dictionary) -> bool:
 	var model: GFModel = _get_model_from_snapshot_entry(entry)
 	if model == null:
@@ -1029,6 +1116,9 @@ func _is_frozen_model_target_current(entry: Dictionary) -> bool:
 	return _get_model_from_snapshot_entry(entry) == model
 
 
+## 验证格式版本、Model 字典及可选历史字典；含历史时要求有效命令构造器和仍为当前目标的完整历史读写服务，并返回该服务引用。
+## [br]
+## @api private
 func _validate_global_snapshot(
 	data: Dictionary,
 	command_builder: Callable
@@ -1064,6 +1154,9 @@ func _validate_global_snapshot(
 	return success_result
 
 
+## 调用当前历史存储序列化并在回调前后确认服务身份，要求字典及 JSON 兼容转换成功，成功结果持有深拷贝。
+## [br]
+## @api private
 func _capture_history_state(history_util: Object) -> Dictionary:
 	if history_util == null or not history_util.has_method("serialize_full_history"):
 		return _make_capture_failure("Could not read the command history snapshot.")
@@ -1083,6 +1176,9 @@ func _capture_history_state(history_util: Object) -> Dictionary:
 	return _make_capture_success(history_state.duplicate(true))
 
 
+## 向仍为当前目标的历史服务写入目标深拷贝，再读回比较 JSON 状态；分别报告内容一致与目标身份有效，不自行回滚失败写入。
+## [br]
+## @api private
 func _apply_and_verify_history_state(
 	history_util: Object,
 	target: Dictionary,
@@ -1132,6 +1228,9 @@ func _apply_and_verify_history_state(
 	}
 
 
+## 当前 history store 仍是同一对象且序列化结果与 expected_state JSON 等价时返回 true。
+## [br]
+## @api private
 func _history_state_matches(
 	history_util: Object,
 	expected_state: Dictionary
@@ -1153,6 +1252,9 @@ func _history_state_matches(
 	)
 
 
+## 先在历史目标仍有效时尝试恢复历史，再逆序恢复 Model，最后再次复核两类状态；任一恢复或身份检查失败都返回 false。
+## [br]
+## @api private
 func _rollback_global_restore(
 	history_util: Object,
 	history_before: Dictionary,
@@ -1192,6 +1294,9 @@ func _rollback_global_restore(
 	return history_rolled_back and models_rolled_back
 
 
+## 要求输入键与当前 Model 稳定键集合完全一致，记录各目标原状态及目标状态深拷贝；读取基线期间目标变化会令整个计划失败。
+## [br]
+## @api private
 func _build_model_restore_plan(data: Dictionary) -> Dictionary:
 	for data_key: Variant in data.keys():
 		if typeof(data_key) != TYPE_STRING:
@@ -1286,6 +1391,9 @@ func _build_model_restore_plan(data: Dictionary) -> Dictionary:
 	}
 
 
+## 逐项写入并读回验证 Model 状态，回调前后检查目标身份；失败时尝试逆序回滚已触及项，目标失效时不能承诺完整恢复。
+## [br]
+## @api private
 func _apply_model_restore_plan(entries: Array) -> Dictionary:
 	var applied_entries: Array[Dictionary] = []
 	for entry_variant: Variant in entries:
@@ -1366,6 +1474,9 @@ func _apply_model_restore_plan(entries: Array) -> Dictionary:
 	return _make_restore_success()
 
 
+## 按每帧预算执行 Model 写入与读回验证，跨帧后复核整个目标集合；失败时尝试回滚已触及项，保留回滚结果而非保证原子恢复。
+## [br]
+## @api private
 func _apply_model_restore_plan_async(
 	entries: Array,
 	options: Dictionary
@@ -1473,6 +1584,9 @@ func _apply_model_restore_plan_async(
 	return _make_restore_success()
 
 
+## Model 注册数量与恢复计划条目数相同且每个冻结目标仍有效时返回 true。
+## [br]
+## @api private
 func _are_model_restore_targets_current(entries: Array) -> bool:
 	if _models.size() != entries.size():
 		return false
@@ -1485,6 +1599,9 @@ func _are_model_restore_targets_current(entries: Array) -> bool:
 	return true
 
 
+## 所有冻结目标仍有效且其当前 JSON 状态分别等于 state_field 指定字典时返回 true。
+## [br]
+## @api private
 func _model_restore_entries_match_state(
 	entries: Array,
 	state_field: String
@@ -1519,6 +1636,9 @@ func _model_restore_entries_match_state(
 	return _are_model_restore_targets_current(entries)
 
 
+## 逆序恢复已触及 Model 的基线深拷贝并读回验证，失效目标跳过且令结果失败；末尾复核事务集合或已触及集合的整体基线。
+## [br]
+## @api private
 func _rollback_model_restore_entries(
 	applied_entries: Array[Dictionary],
 	transaction_entries: Array = []
@@ -1567,6 +1687,9 @@ func _rollback_model_restore_entries(
 	)
 
 
+## 从 options 读取每帧 Model 数量并限制为非负值，缺失时使用 configure 默认值。
+## [br]
+## @api private
 func _get_snapshot_models_per_frame(options: Dictionary) -> int:
 	return maxi(
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_models_per_frame", _default_models_per_frame),
@@ -1574,6 +1697,9 @@ func _get_snapshot_models_per_frame(options: Dictionary) -> int:
 	)
 
 
+## 达到正数帧预算且存在 SceneTree 时等待 process_frame，并返回是否实际让帧。
+## [br]
+## @api private
 func _wait_snapshot_frame_if_needed(processed_count: int, max_models_per_frame: int) -> bool:
 	if max_models_per_frame <= 0 or processed_count < max_models_per_frame:
 		return false
@@ -1584,6 +1710,9 @@ func _wait_snapshot_frame_if_needed(processed_count: int, max_models_per_frame: 
 	return true
 
 
+## 主循环为 SceneTree 时返回它；其他主循环类型返回 null。
+## [br]
+## @api private
 func _get_scene_tree_or_null() -> SceneTree:
 	var main_loop: Variant = Engine.get_main_loop()
 	if main_loop is SceneTree:
@@ -1592,6 +1721,9 @@ func _get_scene_tree_or_null() -> SceneTree:
 	return null
 
 
+## 调用有效的 history store resolver，并只接受 Object 返回值。
+## [br]
+## @api private
 func _get_command_history_store() -> Object:
 	if not _command_history_store_resolver.is_valid():
 		return null
@@ -1602,6 +1734,9 @@ func _get_command_history_store() -> Object:
 	return null
 
 
+## expected_store 仍有效且 resolver 当前返回同一对象时返回 true。
+## [br]
+## @api private
 func _is_command_history_store_current(expected_store: Object) -> bool:
 	if expected_store == null or not is_instance_valid(expected_store):
 		return false
@@ -1613,6 +1748,9 @@ func _is_command_history_store_current(expected_store: Object) -> bool:
 	)
 
 
+## 校验 Model 注册实例并收集稳定键、脚本和实例；无效目标或重复键时返回失败字典。
+## [br]
+## @api private
 func _collect_model_snapshot_entries() -> Dictionary:
 	var entries: Array[Dictionary] = []
 	var used_keys: Dictionary = {}
@@ -1665,6 +1803,9 @@ func _collect_model_snapshot_entries() -> Dictionary:
 	}
 
 
+## 条目中的 Model 和 Script 类型有效且注册表仍指向同一 Model 实例时返回该实例。
+## [br]
+## @api private
 func _get_model_from_snapshot_entry(entry: Dictionary) -> GFModel:
 	var model_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "model")
 	var script_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "script")
@@ -1680,6 +1821,9 @@ func _get_model_from_snapshot_entry(entry: Dictionary) -> GFModel:
 	return model
 
 
+## 使用 Variant 工具读取字典字段，并在值为 Object 时返回该对象。
+## [br]
+## @api private
 func _get_dictionary_object(source: Dictionary, field_name: Variant) -> Object:
 	var value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(source, field_name)
 	if value is Object:
@@ -1688,6 +1832,9 @@ func _get_dictionary_object(source: Dictionary, field_name: Variant) -> Object:
 	return null
 
 
+## 优先返回非空 get_save_key()；否则使用全局类名，没有稳定标识时报错并返回空字符串。
+## [br]
+## @api private
 func _get_model_key(script_cls: Script, model: GFModel = null) -> String:
 	if model != null:
 		var save_key: String = String(model.get_save_key())

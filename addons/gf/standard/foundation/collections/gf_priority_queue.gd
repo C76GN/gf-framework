@@ -28,9 +28,24 @@ var high_priority_first: bool = true:
 
 # --- 私有变量 ---
 
+## 按二叉堆顺序保存 value、priority、order 和插入序号。
+## [br]
+## @api private
 var _entries: Array[Dictionary] = []
+
+## 普通同优先级条目使用的下一个顺序值。
+## [br]
+## @api private
 var _next_order: int = 0
+
+## front 条目使用的递减顺序值。
+## [br]
+## @api private
 var _next_front_order: int = 0
+
+## 同优先级且同 order 时使用的入队序号。
+## [br]
+## @api private
 var _next_insertion_sequence: int = 0
 
 
@@ -390,6 +405,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 为 front 条目分配递减顺序值，否则递增普通顺序值。
+## [br]
+## @api private
 func _make_order(front: bool) -> int:
 	if front:
 		_next_front_order -= 1
@@ -399,6 +417,9 @@ func _make_order(front: bool) -> int:
 	return order
 
 
+## 追加完整堆条目、分配入队序号并向上恢复堆序。
+## [br]
+## @api private
 func _push_entry(value: Variant, priority: float, order: int) -> void:
 	_entries.append({
 		"value": value,
@@ -410,6 +431,9 @@ func _push_entry(value: Variant, priority: float, order: int) -> void:
 	_sift_up(_entries.size() - 1)
 
 
+## 队列变空时重置稳定排序使用的三个序号计数器。
+## [br]
+## @api private
 func _reset_order_if_empty() -> void:
 	if not _entries.is_empty():
 		return
@@ -418,12 +442,18 @@ func _reset_order_if_empty() -> void:
 	_next_insertion_sequence = 0
 
 
+## 从最后一个非叶节点开始向下调整，重建整个堆。
+## [br]
+## @api private
 func _heapify() -> void:
 	var start_index: int = floori(float(_entries.size()) / 2.0) - 1
 	for index: int in range(start_index, -1, -1):
 		_sift_down(index)
 
 
+## 将指定条目沿父节点方向移动，直到满足堆序。
+## [br]
+## @api private
 func _sift_up(index: int) -> void:
 	var current_index: int = index
 	while current_index > 0:
@@ -434,6 +464,9 @@ func _sift_up(index: int) -> void:
 		current_index = parent_index
 
 
+## 将指定条目沿子节点方向移动，直到满足堆序。
+## [br]
+## @api private
 func _sift_down(index: int) -> void:
 	var current_index: int = index
 	while true:
@@ -450,6 +483,9 @@ func _sift_down(index: int) -> void:
 		current_index = best_index
 
 
+## 移除指定堆索引，并对替换到该位置的条目恢复堆序。
+## [br]
+## @api private
 func _remove_entry_at(index: int) -> void:
 	if index < 0 or index >= _entries.size():
 		return
@@ -463,6 +499,9 @@ func _remove_entry_at(index: int) -> void:
 	_sift_up(index)
 
 
+## 从传入堆数组弹出根条目，并调整数组使根仍符合优先顺序。
+## [br]
+## @api private
 func _pop_entry_from(entries: Array[Dictionary]) -> Dictionary:
 	if entries.is_empty():
 		return {}
@@ -477,6 +516,9 @@ func _pop_entry_from(entries: Array[Dictionary]) -> Dictionary:
 	return entry
 
 
+## 在传入的堆数组中向下调整条目。
+## [br]
+## @api private
 func _sift_down_entries(entries: Array[Dictionary], index: int) -> void:
 	var current_index: int = index
 	while true:
@@ -495,6 +537,9 @@ func _sift_down_entries(entries: Array[Dictionary], index: int) -> void:
 		current_index = best_index
 
 
+## 依次比较 priority、order 和 insertion_sequence，确定弹出先后。
+## [br]
+## @api private
 func _entry_is_before(left: Dictionary, right: Dictionary) -> bool:
 	var left_priority: float = GFVariantData.get_option_float(left, "priority")
 	var right_priority: float = GFVariantData.get_option_float(right, "priority")
@@ -512,12 +557,18 @@ func _entry_is_before(left: Dictionary, right: Dictionary) -> bool:
 	)
 
 
+## 交换堆数组中两个索引的条目。
+## [br]
+## @api private
 func _swap_entries(left_index: int, right_index: int) -> void:
 	var temporary: Dictionary = _entries[left_index]
 	_entries[left_index] = _entries[right_index]
 	_entries[right_index] = temporary
 
 
+## 导出完整堆条目；deep 为 true 时通过 Variant 辅助函数处理 value。
+## [br]
+## @api private
 func _duplicate_entries(deep: bool) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in _entries:
@@ -531,12 +582,18 @@ func _duplicate_entries(deep: bool) -> Array[Dictionary]:
 	return result
 
 
+## 对象参与比较时使用 `==`，其余 Variant 使用共享值比较器。
+## [br]
+## @api private
 func _values_equal(left: Variant, right: Variant) -> bool:
 	if left is Object or right is Object:
 		return left == right
 	return GFVariantData.values_equal(left, right)
 
 
+## 创建优先队列实例并设置优先方向。
+## [br]
+## @api private
 static func _new_queue_instance(p_high_priority_first: bool) -> RefCounted:
 	var priority_queue: GFPriorityQueue = GFPriorityQueue.new(p_high_priority_first)
 	return priority_queue

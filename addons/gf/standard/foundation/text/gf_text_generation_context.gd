@@ -54,11 +54,40 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 保存根数据及模板循环期间逐层压入的数据字典。
+## [br]
+## @api private
+## [br]
 var _scopes: Array[Dictionary] = []
+
+## 与 scope 栈对应，记录各层的调试标签。
+## [br]
+## @api private
+## [br]
 var _scope_labels: PackedStringArray = PackedStringArray()
+
+## 按追加顺序保存生成文本片段的缓冲数组。
+## [br]
+## @api private
+## [br]
 var _output_parts: PackedStringArray = PackedStringArray()
+
+## 记录当前输出缓冲的字符总长度以执行长度限制。
+## [br]
+## @api private
+## [br]
 var _output_length: int = 0
+
+## 记录当前嵌套缩进级别。
+## [br]
+## @api private
+## [br]
 var _indent_level: int = 0
+
+## 保存文本生成过程积累的校验与来源诊断。
+## [br]
+## @api private
+## [br]
 var _report: GFValidationReport = GFValidationReport.new("Text generation")
 
 
@@ -481,6 +510,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 使用可选格式化器转换 token 值；未配置时转为文本，格式器无效时记录诊断并回退。
+## [br]
+## @api private
+## [br]
 func _format_replacement_value(
 	data_path: String,
 	replacement_value: Variant,
@@ -510,6 +543,10 @@ func _format_replacement_value(
 	return GFVariantData.to_text(formatted_value, fallback_text)
 
 
+## 从选项中取出有效 Callable 格式器。
+## [br]
+## @api private
+## [br]
 func _get_value_formatter(options: Dictionary) -> Callable:
 	var formatter_value: Variant = GFVariantData.get_option_value(options, "value_formatter")
 	if formatter_value is Callable:
@@ -518,6 +555,10 @@ func _get_value_formatter(options: Dictionary) -> Callable:
 	return Callable()
 
 
+## 读取共享替换次数状态，缺失或类型不符时返回初始计数状态。
+## [br]
+## @api private
+## [br]
 func _get_replacement_state(options: Dictionary) -> Dictionary:
 	var state_value: Variant = GFVariantData.get_option_value(options, "_replacement_state")
 	if state_value is Dictionary:
@@ -529,6 +570,10 @@ func _get_replacement_state(options: Dictionary) -> Dictionary:
 	}
 
 
+## 扫描模板 token 并处理注释、循环和空态块，递归渲染内容并累计预算或结构错误。
+## [br]
+## @api private
+## [br]
 func _render_template_text(text: String, options: Dictionary, depth: int, source_span: Variant) -> String:
 	var max_depth: int = maxi(GFVariantData.get_option_int(options, "max_template_depth", 32), 1)
 	if depth > max_depth:
@@ -635,6 +680,10 @@ func _render_template_text(text: String, options: Dictionary, depth: int, source
 	return output
 
 
+## 仅当指定数据路径的值为空时递归渲染空态块。
+## [br]
+## @api private
+## [br]
 func _render_template_empty_block(
 	empty_directive: Dictionary,
 	block_text: String,
@@ -649,6 +698,10 @@ func _render_template_empty_block(
 	return _render_template_text(block_text, options, depth + 1, source_span)
 
 
+## 读取循环集合、检查项目数上限，并为每项压入条目及可选 loop 元数据后渲染。
+## [br]
+## @api private
+## [br]
 func _render_template_loop(
 	for_directive: Dictionary,
 	block_text: String,
@@ -699,6 +752,10 @@ func _render_template_loop(
 	return output
 
 
+## 查找与循环起始指令匹配的 end，按嵌套循环深度定位块内容和结束位置。
+## [br]
+## @api private
+## [br]
 func _find_template_loop_block(
 	text: String,
 	body_start: int,
@@ -736,6 +793,10 @@ func _find_template_loop_block(
 	return {}
 
 
+## 查找与 empty 指令匹配的 end_empty，按嵌套空态块深度定位内容。
+## [br]
+## @api private
+## [br]
 func _find_template_empty_block(
 	text: String,
 	body_start: int,
@@ -773,6 +834,10 @@ func _find_template_empty_block(
 	return {}
 
 
+## 解析 for item in path 指令并校验变量标识符和非空集合路径。
+## [br]
+## @api private
+## [br]
 func _parse_for_directive(token_text: String, source_span: Variant) -> Dictionary:
 	var body: String = token_text.substr("for ".length()).strip_edges()
 	var separator: String = " in "
@@ -795,6 +860,10 @@ func _parse_for_directive(token_text: String, source_span: Variant) -> Dictionar
 	}
 
 
+## 解析 empty 数据路径指令并拒绝空路径。
+## [br]
+## @api private
+## [br]
 func _parse_empty_directive(token_text: String, source_span: Variant) -> Dictionary:
 	var data_path: String = token_text.substr("empty ".length()).strip_edges()
 	if data_path.is_empty():
@@ -805,6 +874,10 @@ func _parse_empty_directive(token_text: String, source_span: Variant) -> Diction
 	}
 
 
+## 把 Array 或受支持的 Packed 数组转换为循环数组；其他值记录不可迭代问题。
+## [br]
+## @api private
+## [br]
 func _to_template_iterable_array(value: Variant, collection_path: String, source_span: Variant) -> Array:
 	match typeof(value):
 		TYPE_ARRAY:
@@ -853,6 +926,10 @@ func _to_template_iterable_array(value: Variant, collection_path: String, source
 	return []
 
 
+## 把 Packed 数组逐项复制到普通 Array。
+## [br]
+## @api private
+## [br]
 func _packed_iterable_to_array(values: Variant) -> Array:
 	var result: Array = []
 	for item: Variant in values:
@@ -860,24 +937,44 @@ func _packed_iterable_to_array(values: Variant) -> Array:
 	return result
 
 
+## 允许空片段直接追加；非空片段须通过输出长度及预算检查。
+## [br]
+## @api private
+## [br]
 func _can_append_template_fragment(current_length: int, fragment: String, source_span: Variant) -> bool:
 	if fragment.is_empty():
 		return true
 	return _check_text_length(current_length + fragment.length(), source_span)
 
 
+## 识别 comment 指令及其带内容形式。
+## [br]
+## @api private
+## [br]
 func _is_comment_directive(token_text: String) -> bool:
 	return token_text == "comment" or token_text.begins_with("comment ")
 
 
+## 识别以 for 空格开头的模板指令。
+## [br]
+## @api private
+## [br]
 func _is_for_directive(token_text: String) -> bool:
 	return token_text.begins_with("for ")
 
 
+## 识别以 empty 空格开头的模板指令。
+## [br]
+## @api private
+## [br]
 func _is_empty_directive(token_text: String) -> bool:
 	return token_text.begins_with("empty ")
 
 
+## 按 Variant 类型判断 nil、false、空文本、空容器及空 Packed 数组是否为空。
+## [br]
+## @api private
+## [br]
 func _is_template_value_empty(value: Variant) -> bool:
 	match typeof(value):
 		TYPE_NIL:
@@ -933,6 +1030,10 @@ func _is_template_value_empty(value: Variant) -> bool:
 	return false
 
 
+## 仅接受 ASCII 字母或下划线开头、后续由字母数字下划线组成的标识符。
+## [br]
+## @api private
+## [br]
 func _is_safe_template_identifier(value: String) -> bool:
 	if value.is_empty():
 		return false
@@ -950,6 +1051,10 @@ func _is_safe_template_identifier(value: String) -> bool:
 	return true
 
 
+## 从最内层到根 scope 查找非空数据路径，并返回 found/value 结果。
+## [br]
+## @api private
+## [br]
 func _resolve_value(data_path: String) -> Dictionary:
 	if data_path.is_empty():
 		return { "found": false }
@@ -961,6 +1066,10 @@ func _resolve_value(data_path: String) -> Dictionary:
 	return { "found": false }
 
 
+## 先尝试完整路径键，再按点分段读取嵌套字典或数组数据。
+## [br]
+## @api private
+## [br]
 func _resolve_in_dictionary(scope: Dictionary, data_path: String) -> Dictionary:
 	if scope.has(data_path):
 		return { "found": true, "value": scope[data_path] }
@@ -979,6 +1088,10 @@ func _resolve_in_dictionary(scope: Dictionary, data_path: String) -> Dictionary:
 	return { "found": true, "value": current }
 
 
+## 从字典字符串键、StringName 键、普通数组索引或 Packed 数组索引读取一段路径。
+## [br]
+## @api private
+## [br]
 func _resolve_segment(value: Variant, segment: String) -> Dictionary:
 	if value is Dictionary:
 		var dictionary: Dictionary = value
@@ -998,6 +1111,10 @@ func _resolve_segment(value: Variant, segment: String) -> Dictionary:
 	return { "found": false }
 
 
+## 按 Packed 数组类型和边界读取指定索引，其他情况返回未找到。
+## [br]
+## @api private
+## [br]
 func _resolve_packed_array_segment(value: Variant, index: int) -> Dictionary:
 	match typeof(value):
 		TYPE_PACKED_BYTE_ARRAY:
@@ -1043,16 +1160,28 @@ func _resolve_packed_array_segment(value: Variant, index: int) -> Dictionary:
 	return { "found": false }
 
 
+## 检查索引是否位于零起始的有效数组范围内。
+## [br]
+## @api private
+## [br]
 func _is_index_in_bounds(index: int, size: int) -> bool:
 	return index >= 0 and index < size
 
 
+## 先消耗一次预算步骤，再检查文本长度限制和预算。
+## [br]
+## @api private
+## [br]
 func _check_output_length(next_length: int, source_span: Variant) -> bool:
 	if not _consume_step(source_span):
 		return false
 	return _check_text_length(next_length, source_span)
 
 
+## 检查上下文最大输出长度及可选执行预算的输出限额。
+## [br]
+## @api private
+## [br]
 func _check_text_length(next_length: int, source_span: Variant) -> bool:
 	if max_output_length > 0 and next_length > max_output_length:
 		_add_source_error(&"output_limit_exceeded", "Text generation output length limit exceeded.", source_span)
@@ -1063,6 +1192,10 @@ func _check_text_length(next_length: int, source_span: Variant) -> bool:
 	return true
 
 
+## 无预算时允许继续；有预算时消耗一步，失败则合并预算报告。
+## [br]
+## @api private
+## [br]
 func _consume_step(source_span: Variant) -> bool:
 	if budget == null:
 		return true
@@ -1072,6 +1205,10 @@ func _consume_step(source_span: Variant) -> bool:
 	return false
 
 
+## 生成当前预算报告并合并进文本生成诊断。
+## [br]
+## @api private
+## [br]
 func _merge_budget_report() -> void:
 	if budget == null:
 		return
@@ -1079,6 +1216,10 @@ func _merge_budget_report() -> void:
 	var _merged_report: RefCounted = _report.merge(budget_report)
 
 
+## 按来源定位类型把问题追加为来源错误或普通错误。
+## [br]
+## @api private
+## [br]
 func _add_source_error(
 	kind: StringName,
 	message: String,
@@ -1091,6 +1232,10 @@ func _add_source_error(
 		var _issue: RefCounted = _report.add_error(kind, message, null, "", issue_metadata)
 
 
+## 按当前缩进级别重复 indent_text 并拼成缩进前缀。
+## [br]
+## @api private
+## [br]
 func _make_indent() -> String:
 	if _indent_level <= 0:
 		return ""
@@ -1100,6 +1245,10 @@ func _make_indent() -> String:
 	return "".join(parts)
 
 
+## 仅当 Variant 为 GFExecutionBudget 时返回该预算实例。
+## [br]
+## @api private
+## [br]
 static func _variant_to_budget(value: Variant) -> GFExecutionBudget:
 	if value is GFExecutionBudget:
 		var typed_budget: GFExecutionBudget = value

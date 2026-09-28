@@ -7,6 +7,10 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 适配诊断路径时最多保留的路径片段数。
+## [br]
+## @api private
+## [br]
 const _MAX_PATH_SEGMENTS: int = 256
 
 
@@ -107,6 +111,10 @@ static func adapt_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 丢弃无效路径片段并将已知片段压缩为适配器使用的字段。
+## [br]
+## @api private
+## [br]
 static func _sanitize_path_segments(source: Array) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for value: Variant in source:
@@ -149,6 +157,10 @@ static func _sanitize_path_segments(source: Array) -> Array[Dictionary]:
 	return result
 
 
+## 当路径落在 sections 字典值下时，用其 entry index 查找 section ID。
+## [br]
+## @api private
+## [br]
 static func _infer_section_id(
 	path_segments: Array[Dictionary],
 	sections_entry_index: int,
@@ -183,6 +195,10 @@ static func _infer_section_id(
 	return section_ids_by_entry_index[section_entry_index]
 
 
+## 将结构路径片段格式化为 `$` 开头的索引路径。
+## [br]
+## @api private
+## [br]
 static func _format_structural_path(path_segments: Array[Dictionary]) -> String:
 	var result: String = "$"
 	for segment: Dictionary in path_segments:
@@ -202,6 +218,10 @@ static func _format_structural_path(path_segments: Array[Dictionary]) -> String:
 	return result
 
 
+## 保留适配器识别的失败类别，其余值归一为 payload_invalid。
+## [br]
+## @api private
+## [br]
 static func _normalize_failure_kind(value: StringName) -> StringName:
 	return value if value in [
 		&"unsupported_variant_type",
@@ -214,6 +234,10 @@ static func _normalize_failure_kind(value: StringName) -> StringName:
 	] else &"payload_invalid"
 
 
+## 返回已知 Storage 边界失败类别对应的诊断消息。
+## [br]
+## @api private
+## [br]
 static func _get_failure_message(failure_kind: StringName) -> String:
 	match failure_kind:
 		&"unsupported_variant_type":
@@ -234,6 +258,10 @@ static func _get_failure_message(failure_kind: StringName) -> String:
 			return "Save payload failed the Storage worker boundary validation."
 
 
+## 将有效 Variant 类型编号转成名称，范围外编号返回空串。
+## [br]
+## @api private
+## [br]
 static func _get_variant_type_name(value: int) -> String:
 	if value < TYPE_NIL or value >= TYPE_MAX:
 		return ""

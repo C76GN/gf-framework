@@ -65,6 +65,9 @@ signal maximum_reached(current_value: float)
 
 # --- 常量 ---
 
+## 为数值槽的输入、运算结果和状态配置提供有限浮点数检查。
+## [br]
+## @api private
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
 
@@ -140,8 +143,19 @@ var validation_callback: Callable = Callable()
 
 # --- 私有变量 ---
 
+## 存储通过有限性检查的下限；读取 min_value 时使用。
+## [br]
+## @api private
 var _min_value: float = 0.0
+
+## 存储通过有限性检查的上限；读取 max_value 时使用。
+## [br]
+## @api private
 var _max_value: float = 100.0
+
+## 存储通过有限性检查的当前值；读取 current_value 时使用。
+## [br]
+## @api private
 var _current_value: float = 100.0
 
 
@@ -349,6 +363,9 @@ func apply_action(action: GFCombatAction) -> GFCombatActionResult:
 
 # --- 私有/辅助方法 ---
 
+## 从原动作副本开始，按 modifiers 顺序应用每个非空修正器。
+## [br]
+## @api private
 func _apply_modifiers(action: GFCombatAction) -> GFCombatAction:
 	var result: GFCombatAction = action.duplicate_action()
 	for modifier: GFCombatActionModifier in modifiers:
@@ -358,6 +375,9 @@ func _apply_modifiers(action: GFCombatAction) -> GFCombatAction:
 	return result
 
 
+## 创建默认接受报告，发出动作副本供信号监听者校验，再将有效 callback 返回值合并到报告。
+## [br]
+## @api private
 func _validate_action(action: GFCombatAction) -> Dictionary:
 	var report: Dictionary = {
 		"ok": true,
@@ -371,6 +391,9 @@ func _validate_action(action: GFCombatAction) -> Dictionary:
 	return report
 
 
+## 将 bool 或 Dictionary 校验结果并入报告；非这两种类型时不改动报告。
+## [br]
+## @api private
 func _merge_validation_result(report: Dictionary, value: Variant) -> void:
 	if value is bool:
 		report["ok"] = GFVariantData.to_bool(value)
@@ -393,6 +416,9 @@ func _merge_validation_result(report: Dictionary, value: Variant) -> void:
 		report["metadata"] = report_metadata
 
 
+## 按动作的 ADD、SET 或默认减法操作计算未夹取的新数值。
+## [br]
+## @api private
 func _calculate_next_value(action: GFCombatAction) -> float:
 	match action.operation:
 		GFCombatAction.Operation.ADD:
@@ -403,10 +429,16 @@ func _calculate_next_value(action: GFCombatAction) -> float:
 			return current_value - action.amount
 
 
+## 从校验报告读取 metadata 字典。
+## [br]
+## @api private
 func _get_report_metadata(report: Dictionary) -> Dictionary:
 	return GFVariantData.get_option_dictionary(report, "metadata")
 
 
+## 当前值近似等于排序后的下限或上限时发出对应信号；两端相等时两种信号都可触发。
+## [br]
+## @api private
 func _emit_bound_signals() -> void:
 	var low: float = minf(min_value, max_value)
 	var high: float = maxf(min_value, max_value)

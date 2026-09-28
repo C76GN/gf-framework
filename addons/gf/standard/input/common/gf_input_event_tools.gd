@@ -6,10 +6,28 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 结构化输入事件记录中存放事件类名的字段。
+## [br]
+## @api private
+## [br]
 const _EVENT_CLASS_FIELD: String = "event_class"
+
+## 结构化输入事件记录中存放可写属性字典的字段。
+## [br]
+## @api private
+## [br]
 const _EVENT_PROPERTIES_FIELD: String = "properties"
+
+## 兼容旧格式时读取序列化事件文本的字段。
+## [br]
+## @api private
+## [br]
 const _LEGACY_EVENT_FIELD: String = "event"
 
+## 允许从结构化记录实例化并恢复的 InputEvent 子类白名单。
+## [br]
+## @api private
+## [br]
 const _ALLOWED_INPUT_EVENT_CLASSES: Dictionary = {
 	"InputEventAction": true,
 	"InputEventJoypadButton": true,
@@ -24,6 +42,10 @@ const _ALLOWED_INPUT_EVENT_CLASSES: Dictionary = {
 	"InputEventScreenTouch": true,
 }
 
+## 事件属性存取时跳过的 Resource 路径、名称和脚本等属性集合。
+## [br]
+## @api private
+## [br]
 const _SKIPPED_EVENT_PROPERTIES: Dictionary = {
 	"resource_local_to_scene": true,
 	"resource_name": true,
@@ -321,6 +343,10 @@ static func get_screen_drag_event(value: Variant) -> InputEventScreenDrag:
 
 # --- 私有/辅助方法 ---
 
+## 校验事件类白名单并实例化事件，只恢复记录中属于可写存储属性的值。
+## [br]
+## @api private
+## [br]
 static func _event_from_structured_record(event_class: String, record: Dictionary) -> InputEvent:
 	if not _ALLOWED_INPUT_EVENT_CLASSES.has(event_class):
 		return null
@@ -341,6 +367,10 @@ static func _event_from_structured_record(event_class: String, record: Dictionar
 	return event
 
 
+## 枚举事件的存储属性，跳过禁用项并仅编码支持的值到记录字典。
+## [br]
+## @api private
+## [br]
 static func _event_properties_to_record(event: InputEvent) -> Dictionary:
 	var result: Dictionary = {}
 	for property_info: Dictionary in event.get_property_list():
@@ -356,6 +386,10 @@ static func _event_properties_to_record(event: InputEvent) -> Dictionary:
 	return result
 
 
+## 枚举事件可写且可存储的属性名，排除空名及跳过属性。
+## [br]
+## @api private
+## [br]
 static func _get_event_writable_properties(event: InputEvent) -> Dictionary:
 	var result: Dictionary = {}
 	for property_info: Dictionary in event.get_property_list():
@@ -367,11 +401,19 @@ static func _get_event_writable_properties(event: InputEvent) -> Dictionary:
 	return result
 
 
+## 检查属性 usage 是否包含 PROPERTY_USAGE_STORAGE 标志。
+## [br]
+## @api private
+## [br]
 static func _is_stored_event_property(property_info: Dictionary) -> bool:
 	var usage: int = GFVariantData.get_option_int(property_info, "usage")
 	return (usage & PROPERTY_USAGE_STORAGE) != 0
 
 
+## 只允许 nil、基本标量、文本、NodePath 和 Vector2/Vector2i 值进入事件记录。
+## [br]
+## @api private
+## [br]
 static func _can_store_event_property(value: Variant) -> bool:
 	var value_type: int = typeof(value)
 	return (

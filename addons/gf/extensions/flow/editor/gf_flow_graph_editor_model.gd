@@ -14,8 +14,19 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 编辑器流程图工具使用的GF流程图布局工具脚本常量。
+## [br]
+## @api private
 const _GF_GRAPH_LAYOUT_UTILITY_SCRIPT: Script = preload("res://addons/gf/standard/foundation/math/gf_graph_layout_utility.gd")
+
+## 编辑器流程图工具使用的GF流程图数学脚本常量。
+## [br]
+## @api private
 const _GF_GRAPH_MATH_SCRIPT: Script = preload("res://addons/gf/standard/foundation/math/gf_graph_math.gd")
+
+## 编辑器流程图工具使用的GF校验报告字典脚本常量。
+## [br]
+## @api private
 const _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT: Script = preload("res://addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd")
 
 
@@ -602,6 +613,9 @@ func build_layout_positions(graph: GFFlowGraph, options: Dictionary = {}) -> Dic
 
 # --- 私有/辅助方法 ---
 
+## 将文本值规范化为非空 StringName。
+## [br]
+## @api private
 func _get_string_name_value(value: Variant, default_value: StringName = &"") -> StringName:
 	if value is StringName:
 		var string_name_value: StringName = value
@@ -613,64 +627,103 @@ func _get_string_name_value(value: Variant, default_value: StringName = &"") -> 
 	return default_value
 
 
+## 读取颜色值。
+## [br]
+## @api private
 func _get_color_value(value: Variant, default_value: Color = Color.TRANSPARENT) -> Color:
 	if value is Color:
 		return value
 	return default_value
 
 
+## 读取资源值。
+## [br]
+## @api private
 func _get_resource_value(value: Variant) -> Resource:
 	if value is Resource:
 		return value
 	return null
 
 
+## 读取Flow节点值。
+## [br]
+## @api private
 func _get_flow_node_value(value: Variant) -> GFFlowNode:
 	if value is GFFlowNode:
 		return value
 	return null
 
 
+## 追加字典数组field。
+## [br]
+## @api private
 func _append_dictionary_array_field(target: Dictionary, field_name: Variant, value: Variant) -> void:
 	var values: Array = GFVariantData.as_array(GFVariantData.get_option_value(target, field_name, []))
 	values.append(value)
 	target[field_name] = values
 
 
+## 读取字典ref。
+## [br]
+## @api private
 func _get_dictionary_ref(source: Dictionary, key: Variant) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(source, key, {}))
 
 
+## 读取连接源节点ID。
+## [br]
+## @api private
 func _get_connection_from_node_id(connection: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(connection, "from_node_id", &"")
 
 
+## 读取连接源端口ID。
+## [br]
+## @api private
 func _get_connection_from_port_id(connection: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(connection, "from_port_id", &"")
 
 
+## 读取连接目标节点ID。
+## [br]
+## @api private
 func _get_connection_to_node_id(connection: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(connection, "to_node_id", &"")
 
 
+## 读取连接目标端口ID。
+## [br]
+## @api private
 func _get_connection_to_port_id(connection: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(connection, "to_port_id", &"")
 
 
+## 向 PackedStringArray 追加文本。
+## [br]
+## @api private
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 处理finalize校验报告内部数据。
+## [br]
+## @api private
 func _finalize_validation_report(report: Dictionary, subject: String, options: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(_GF_VALIDATION_REPORT_DICTIONARY_SCRIPT.call("finalize_report", report, subject, options))
 
 
+## 构造分层布局。
+## [br]
+## @api private
 func _make_layered_layout(node_ids: PackedStringArray, connections: Array[Dictionary], options: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(_GF_GRAPH_LAYOUT_UTILITY_SCRIPT.call("make_layered_layout", node_ids, connections, options))
 
 
+## 构建布局连接。
+## [br]
+## @api private
 func _build_layout_connections(graph: GFFlowGraph) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var connection_keys: Dictionary = {}
@@ -690,6 +743,9 @@ func _build_layout_connections(graph: GFFlowGraph) -> Array[Dictionary]:
 	return result
 
 
+## 追加布局连接。
+## [br]
+## @api private
 func _append_layout_connection(
 	result: Array[Dictionary],
 	connection_keys: Dictionary,
@@ -714,6 +770,9 @@ func _append_layout_connection(
 	})
 
 
+## 查找可达节点。
+## [br]
+## @api private
 func _find_reachable_nodes(start_node_id: StringName, graph: Resource, node_ids: Dictionary, node_lookup: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(_GF_GRAPH_MATH_SCRIPT.call(
 		"find_reachable",
@@ -724,6 +783,9 @@ func _find_reachable_nodes(start_node_id: StringName, graph: Resource, node_ids:
 	))
 
 
+## 构建节点条目。
+## [br]
+## @api private
 func _build_node_entries(graph: Resource) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for node: Resource in _get_resource_array_property(graph, &"nodes"):
@@ -752,6 +814,9 @@ func _build_node_entries(graph: Resource) -> Array[Dictionary]:
 	return result
 
 
+## 构建节点查找表。
+## [br]
+## @api private
 func _build_node_lookup(node_entries: Array[Dictionary]) -> Dictionary:
 	var result: Dictionary = {}
 	for node_entry: Dictionary in node_entries:
@@ -759,6 +824,9 @@ func _build_node_lookup(node_entries: Array[Dictionary]) -> Dictionary:
 	return result
 
 
+## 构建端口条目。
+## [br]
+## @api private
 func _build_port_entries(ports: Array) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for port_index: int in range(ports.size()):
@@ -774,6 +842,9 @@ func _build_port_entries(ports: Array) -> Array[Dictionary]:
 	return result
 
 
+## 构建端口索引。
+## [br]
+## @api private
 func _build_port_index(port_entries: Array[Dictionary]) -> Dictionary:
 	var result: Dictionary = {}
 	for port_entry: Dictionary in port_entries:
@@ -781,6 +852,9 @@ func _build_port_index(port_entries: Array[Dictionary]) -> Dictionary:
 	return result
 
 
+## 构建连接条目。
+## [br]
+## @api private
 func _build_connection_entries(graph: Resource, node_lookup: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var connection_keys: Dictionary = {}
@@ -808,6 +882,9 @@ func _build_connection_entries(graph: Resource, node_lookup: Dictionary) -> Arra
 	return result
 
 
+## 构建连接条目。
+## [br]
+## @api private
 func _build_connection_entry(connection: Dictionary, node_lookup: Dictionary) -> Dictionary:
 	var from_node_id: StringName = _get_connection_from_node_id(connection)
 	var from_port_id: StringName = _get_connection_from_port_id(connection)
@@ -832,6 +909,9 @@ func _build_connection_entry(connection: Dictionary, node_lookup: Dictionary) ->
 	}
 
 
+## 检查连接端点、重复项、端口连接数限制和端口兼容性。
+## [br]
+## @api private
 func _get_connection_invalid_reasons_for_view(
 	entry: Dictionary,
 	node_lookup: Dictionary,
@@ -901,6 +981,9 @@ func _get_connection_invalid_reasons_for_view(
 	return reasons
 
 
+## 读取视图端口条目。
+## [br]
+## @api private
 func _get_view_port_entry(
 	node_entry: Dictionary,
 	ports_key: String,
@@ -915,6 +998,9 @@ func _get_view_port_entry(
 	return {}
 
 
+## 统计视图连接端口。
+## [br]
+## @api private
 func _count_view_connection_port(
 	counts: Dictionary,
 	node_id: StringName,
@@ -940,6 +1026,9 @@ func _count_view_connection_port(
 	)
 
 
+## 检查端口方向、值类型和对象类提示是否兼容。
+## [br]
+## @api private
 func _view_ports_are_compatible(output_port: Dictionary, input_port: Dictionary) -> bool:
 	if (
 		GFVariantData.get_option_int(
@@ -981,6 +1070,9 @@ func _view_ports_are_compatible(output_port: Dictionary, input_port: Dictionary)
 	return output_class == &"" or input_class == &"" or output_class == input_class
 
 
+## 读取端口索引。
+## [br]
+## @api private
 func _get_port_index(node_entry: Dictionary, index_key: String, port_id: StringName) -> int:
 	if port_id == &"":
 		return 0
@@ -993,6 +1085,9 @@ func _get_port_index(node_entry: Dictionary, index_key: String, port_id: StringN
 	return GFVariantData.get_option_int(indices, port_id, -1)
 
 
+## 转换为流程图槽位索引。
+## [br]
+## @api private
 func _to_graph_slot_index(port_id: StringName, port_index: int) -> int:
 	if port_id == &"":
 		return 0
@@ -1001,6 +1096,9 @@ func _to_graph_slot_index(port_id: StringName, port_index: int) -> int:
 	return port_index + 1
 
 
+## 整理端口for编辑器的编辑器显示数据。
+## [br]
+## @api private
 func _describe_port_for_editor(port: Resource) -> Dictionary:
 	var port_id: StringName = _get_port_id_for_editor(port)
 	return {
@@ -1017,10 +1115,16 @@ func _describe_port_for_editor(port: Resource) -> Dictionary:
 	}
 
 
+## 读取节点IDfor编辑器。
+## [br]
+## @api private
 func _get_node_id_for_editor(node: Resource) -> StringName:
 	return _get_string_name_property(node, &"node_id")
 
 
+## 读取节点显示名称for编辑器。
+## [br]
+## @api private
 func _get_node_display_name_for_editor(node: Resource) -> String:
 	var display_name: String = _get_string_property(node, &"display_name")
 	if not display_name.is_empty():
@@ -1032,6 +1136,9 @@ func _get_node_display_name_for_editor(node: Resource) -> String:
 	return "Flow Node"
 
 
+## 读取端口IDfor编辑器。
+## [br]
+## @api private
 func _get_port_id_for_editor(port: Resource) -> StringName:
 	var port_id: StringName = _get_string_name_property(port, &"port_id")
 	if port_id != &"":
@@ -1039,6 +1146,9 @@ func _get_port_id_for_editor(port: Resource) -> StringName:
 	return &""
 
 
+## 读取端口显示名称for编辑器。
+## [br]
+## @api private
 func _get_port_display_name_for_editor(port: Resource, port_id: StringName) -> String:
 	var display_name: String = _get_string_property(port, &"display_name")
 	if not display_name.is_empty():
@@ -1050,12 +1160,18 @@ func _get_port_display_name_for_editor(port: Resource, port_id: StringName) -> S
 	return "Flow Port"
 
 
+## 校验节点端口for编辑器并记录发现的问题。
+## [br]
+## @api private
 func _validate_node_ports_for_editor(node: Resource, report: Dictionary) -> void:
 	var node_id: StringName = _get_node_id_for_editor(node)
 	_validate_ports_for_editor(node_id, "input", _get_resource_array_property(node, &"input_ports"), report)
 	_validate_ports_for_editor(node_id, "output", _get_resource_array_property(node, &"output_ports"), report)
 
 
+## 校验端口for编辑器并记录发现的问题。
+## [br]
+## @api private
 func _validate_ports_for_editor(node_id: StringName, label: String, ports: Array, report: Dictionary) -> void:
 	var port_ids: Dictionary = {}
 	for port_variant: Variant in ports:
@@ -1073,6 +1189,9 @@ func _validate_ports_for_editor(node_id: StringName, label: String, ports: Array
 		port_ids[port_id] = true
 
 
+## 检查连接端点、重复项、端口存在性、数量限制和类型兼容性。
+## [br]
+## @api private
 func _validate_connections_for_editor(
 	graph: Resource,
 	report: Dictionary,
@@ -1119,6 +1238,9 @@ func _validate_connections_for_editor(
 				_append_validation_issue(report, "error", "incompatible_connection_ports", String(from_node_id), GFVariantData.get_option_string(compatibility, "message", ""))
 
 
+## 校验连接端口for编辑器并记录发现的问题。
+## [br]
+## @api private
 func _validate_connection_port_for_editor(
 	node: Resource,
 	port_id: StringName,
@@ -1137,6 +1259,9 @@ func _validate_connection_port_for_editor(
 	return port
 
 
+## 查找端口for编辑器。
+## [br]
+## @api private
 func _find_port_for_editor(ports: Array, port_id: StringName) -> Resource:
 	for port_variant: Variant in ports:
 		var port: Resource = _get_resource_value(port_variant)
@@ -1145,6 +1270,9 @@ func _find_port_for_editor(ports: Array, port_id: StringName) -> Resource:
 	return null
 
 
+## 统计连接端口for编辑器。
+## [br]
+## @api private
 func _count_connection_port_for_editor(
 	counts: Dictionary,
 	node_id: StringName,
@@ -1165,6 +1293,9 @@ func _count_connection_port_for_editor(
 	_append_validation_issue(report, "error", kind, String(node_id), "Flow port allows only one connection: %s" % String(port_id))
 
 
+## 读取兼容性报告for编辑器。
+## [br]
+## @api private
 func _get_compatibility_report_for_editor(source_port: Resource, target_port: Resource) -> Dictionary:
 	if target_port == null:
 		return _make_compatibility_report_for_editor(false, "missing_target_port", "Target port is null.")
@@ -1184,12 +1315,18 @@ func _get_compatibility_report_for_editor(source_port: Resource, target_port: Re
 	return _make_compatibility_report_for_editor(true, "", "")
 
 
+## 处理值typesarecompatiblefor编辑器内部数据。
+## [br]
+## @api private
 func _value_types_are_compatible_for_editor(source_type: int, target_type: int) -> bool:
 	if source_type == GFFlowPort.ValueType.ANY or target_type == GFFlowPort.ValueType.ANY:
 		return true
 	return source_type == target_type
 
 
+## 处理类hintsarecompatiblefor编辑器内部数据。
+## [br]
+## @api private
 func _class_hints_are_compatible_for_editor(source_port: Resource, target_port: Resource) -> bool:
 	var source_type: int = _get_int_property(source_port, &"value_type", GFFlowPort.ValueType.ANY)
 	var target_type: int = _get_int_property(target_port, &"value_type", GFFlowPort.ValueType.ANY)
@@ -1203,6 +1340,9 @@ func _class_hints_are_compatible_for_editor(source_port: Resource, target_port: 
 	return source_class == target_class
 
 
+## 构造兼容性报告for编辑器。
+## [br]
+## @api private
 func _make_compatibility_report_for_editor(ok: bool, reason: String, message: String) -> Dictionary:
 	return {
 		"ok": ok,
@@ -1211,6 +1351,9 @@ func _make_compatibility_report_for_editor(ok: bool, reason: String, message: St
 	}
 
 
+## 校验拓扑诊断for编辑器并记录发现的问题。
+## [br]
+## @api private
 func _validate_topology_diagnostics_for_editor(
 	graph: Resource,
 	report: Dictionary,
@@ -1227,6 +1370,9 @@ func _validate_topology_diagnostics_for_editor(
 		_validate_terminal_nodes_for_editor(graph, report, node_ids, node_lookup)
 
 
+## 校验不可达节点for编辑器并记录发现的问题。
+## [br]
+## @api private
 func _validate_unreachable_nodes_for_editor(
 	graph: Resource,
 	report: Dictionary,
@@ -1243,6 +1389,9 @@ func _validate_unreachable_nodes_for_editor(
 			_append_validation_issue(report, "warning", "unreachable_node", String(node_id), "Node is not reachable from start_node_id: %s" % String(node_id))
 
 
+## 校验循环for编辑器并记录发现的问题。
+## [br]
+## @api private
 func _validate_cycles_for_editor(
 	graph: Resource,
 	report: Dictionary,
@@ -1256,6 +1405,9 @@ func _validate_cycles_for_editor(
 			_visit_node_for_cycles_for_editor_iterative(graph, node_id, node_ids, node_lookup, states, reported_cycles, report)
 
 
+## 以迭代深度优先遍历后继节点并去重记录循环。
+## [br]
+## @api private
 func _visit_node_for_cycles_for_editor_iterative(
 	graph: Resource,
 	start_node_id: StringName,
@@ -1298,6 +1450,9 @@ func _visit_node_for_cycles_for_editor_iterative(
 			index_stack.append(0)
 
 
+## 校验终端节点for编辑器并记录发现的问题。
+## [br]
+## @api private
 func _validate_terminal_nodes_for_editor(
 	graph: Resource,
 	report: Dictionary,
@@ -1309,6 +1464,9 @@ func _validate_terminal_nodes_for_editor(
 			_append_validation_issue(report, "warning", "terminal_node", String(node_id), "Node has no outgoing successor: %s" % String(node_id))
 
 
+## 读取后继节点IDfor编辑器。
+## [br]
+## @api private
 func _get_successor_node_ids_for_editor(
 	graph: Resource,
 	node_id: StringName,
@@ -1330,12 +1488,18 @@ func _get_successor_node_ids_for_editor(
 	return result
 
 
+## 追加后继IDfor编辑器。
+## [br]
+## @api private
 func _append_successor_id_for_editor(result: Array[StringName], node_id: StringName, node_ids: Dictionary) -> void:
 	if node_id == &"" or not node_ids.has(node_id) or result.has(node_id):
 		return
 	result.append(node_id)
 
 
+## 读取sorted节点ID。
+## [br]
+## @api private
 func _get_sorted_node_ids(node_ids: Dictionary) -> Array[StringName]:
 	var values: PackedStringArray = PackedStringArray()
 	for node_id_variant: Variant in node_ids.keys():
@@ -1348,6 +1512,9 @@ func _get_sorted_node_ids(node_ids: Dictionary) -> Array[StringName]:
 	return result
 
 
+## 构造循环键。
+## [br]
+## @api private
 func _make_cycle_key(first_repeated_node_id: StringName, stack: Array[StringName]) -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	var include: bool = false
@@ -1360,6 +1527,9 @@ func _make_cycle_key(first_repeated_node_id: StringName, stack: Array[StringName
 	return " -> ".join(parts)
 
 
+## 按规则检查必需键、空值、对象有效性、类型、类提示和允许值。
+## [br]
+## @api private
 func _validate_metadata_against_schema(
 	report: Dictionary,
 	target_metadata: Dictionary,
@@ -1405,16 +1575,25 @@ func _validate_metadata_against_schema(
 			_append_validation_issue(report, "error", "metadata_value_not_allowed", String(key), "%s metadata value is not allowed: %s" % [label, String(key)])
 
 
+## 处理元数据has键内部数据。
+## [br]
+## @api private
 func _metadata_has_key(target_metadata: Dictionary, key: StringName) -> bool:
 	return target_metadata.has(key) or target_metadata.has(String(key))
 
 
+## 处理元数据get值内部数据。
+## [br]
+## @api private
 func _metadata_get_value(target_metadata: Dictionary, key: StringName) -> Variant:
 	if target_metadata.has(key):
 		return target_metadata[key]
 	return GFVariantData.get_option_value(target_metadata, String(key), null)
 
 
+## 检查有效对象是否匹配原生类或脚本继承链中的命名类。
+## [br]
+## @api private
 func _object_matches_class(value: Object, expected_class: String) -> bool:
 	if value == null or not is_instance_valid(value):
 		return false
@@ -1429,6 +1608,9 @@ func _object_matches_class(value: Object, expected_class: String) -> bool:
 	return false
 
 
+## 读取有效对象值。
+## [br]
+## @api private
 func _get_valid_object_value(value: Variant) -> Object:
 	if typeof(value) != TYPE_OBJECT or not is_instance_valid(value):
 		return null
@@ -1438,12 +1620,18 @@ func _get_valid_object_value(value: Variant) -> Object:
 	return null
 
 
+## 追加校验问题。
+## [br]
+## @api private
 func _append_validation_issue(report: Dictionary, severity: String, kind: String, key: String, message: String) -> void:
 	var issue: Dictionary = GFVariantData.as_dictionary(_GF_VALIDATION_REPORT_DICTIONARY_SCRIPT.call("append_issue", report, severity, StringName(kind), message, { "key": key }))
 	if not issue.is_empty():
 		return
 
 
+## 读取校验后续操作。
+## [br]
+## @api private
 func _get_validation_next_actions() -> Dictionary:
 	return {
 		"null_node": "Remove the null entry or replace it with a valid GFFlowNode resource.",
@@ -1474,6 +1662,9 @@ func _get_validation_next_actions() -> Dictionary:
 	}
 
 
+## 读取元数据校验后续操作。
+## [br]
+## @api private
 func _get_metadata_validation_next_actions() -> Dictionary:
 	return {
 		"metadata_missing_required": "Add the required metadata key or relax the metadata schema.",
@@ -1486,6 +1677,9 @@ func _get_metadata_validation_next_actions() -> Dictionary:
 	}
 
 
+## 读取连接键。
+## [br]
+## @api private
 func _get_connection_key(
 	from_node_id: StringName,
 	from_port_id: StringName,
@@ -1500,10 +1694,16 @@ func _get_connection_key(
 	]))
 
 
+## 读取节点端口键。
+## [br]
+## @api private
 func _get_node_port_key(node_id: StringName, port_id: StringName) -> String:
 	return _get_identity_key(PackedStringArray([String(node_id), String(port_id)]))
 
 
+## 用长度前缀编码各部分，构造无歧义的复合键。
+## [br]
+## @api private
 func _get_identity_key(parts: PackedStringArray) -> String:
 	var result: String = ""
 	for part: String in parts:
@@ -1511,10 +1711,16 @@ func _get_identity_key(parts: PackedStringArray) -> String:
 	return result
 
 
+## 判断是否存在混用连接端口。
+## [br]
+## @api private
 func _has_mixed_connection_ports(from_port_id: StringName, to_port_id: StringName) -> bool:
 	return (from_port_id == &"" and to_port_id != &"") or (from_port_id != &"" and to_port_id == &"")
 
 
+## 构造空校验报告。
+## [br]
+## @api private
 func _make_null_validation_report() -> Dictionary:
 	var report: Dictionary = {
 		"ok": false,
@@ -1535,6 +1741,9 @@ func _make_null_validation_report() -> Dictionary:
 	})
 
 
+## 构造空目录。
+## [br]
+## @api private
 func _make_empty_catalog() -> Dictionary:
 	return {
 		"node_count": 0,
@@ -1543,6 +1752,9 @@ func _make_empty_catalog() -> Dictionary:
 	}
 
 
+## 读取资源数组属性。
+## [br]
+## @api private
 func _get_resource_array_property(object: Object, property_name: StringName) -> Array[Resource]:
 	var result: Array[Resource] = []
 	if object == null:
@@ -1554,6 +1766,9 @@ func _get_resource_array_property(object: Object, property_name: StringName) -> 
 	return result
 
 
+## 处理字典数组属性内部数据。
+## [br]
+## @api private
 func _dictionary_array_property(object: Object, property_name: StringName) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if object == null:
@@ -1565,6 +1780,9 @@ func _dictionary_array_property(object: Object, property_name: StringName) -> Ar
 	return result
 
 
+## 读取字典属性。
+## [br]
+## @api private
 func _get_dictionary_property(object: Object, property_name: StringName) -> Dictionary:
 	if object == null:
 		return {}
@@ -1572,6 +1790,9 @@ func _get_dictionary_property(object: Object, property_name: StringName) -> Dict
 	return GFVariantData.as_dictionary(value).duplicate(true)
 
 
+## 读取Packed文本数组属性。
+## [br]
+## @api private
 func _get_packed_string_array_property(object: Object, property_name: StringName) -> PackedStringArray:
 	if object == null:
 		return PackedStringArray()
@@ -1587,6 +1808,9 @@ func _get_packed_string_array_property(object: Object, property_name: StringName
 	return PackedStringArray()
 
 
+## 读取文本名称属性。
+## [br]
+## @api private
 func _get_string_name_property(object: Object, property_name: StringName, default_value: StringName = &"") -> StringName:
 	if object == null:
 		return default_value
@@ -1594,6 +1818,9 @@ func _get_string_name_property(object: Object, property_name: StringName, defaul
 	return _get_string_name_value(value, default_value)
 
 
+## 读取文本属性。
+## [br]
+## @api private
 func _get_string_property(object: Object, property_name: StringName, default_value: String = "") -> String:
 	if object == null:
 		return default_value
@@ -1601,6 +1828,9 @@ func _get_string_property(object: Object, property_name: StringName, default_val
 	return GFVariantData.to_text(value, default_value)
 
 
+## 读取布尔值属性。
+## [br]
+## @api private
 func _get_bool_property(object: Object, property_name: StringName, default_value: bool = false) -> bool:
 	if object == null:
 		return default_value
@@ -1608,6 +1838,9 @@ func _get_bool_property(object: Object, property_name: StringName, default_value
 	return GFVariantData.to_bool(value, default_value)
 
 
+## 读取整数属性。
+## [br]
+## @api private
 func _get_int_property(object: Object, property_name: StringName, default_value: int = 0) -> int:
 	if object == null:
 		return default_value
@@ -1615,6 +1848,9 @@ func _get_int_property(object: Object, property_name: StringName, default_value:
 	return GFVariantData.to_int(value, default_value)
 
 
+## 读取Vector2属性。
+## [br]
+## @api private
 func _get_vector2_property(object: Object, property_name: StringName, default_value: Vector2 = Vector2.ZERO) -> Vector2:
 	if object == null:
 		return default_value
@@ -1622,6 +1858,9 @@ func _get_vector2_property(object: Object, property_name: StringName, default_va
 	return GFVariantData.to_vector2(value, default_value)
 
 
+## 读取颜色属性。
+## [br]
+## @api private
 func _get_color_property(object: Object, property_name: StringName, default_value: Color = Color.TRANSPARENT) -> Color:
 	if object == null:
 		return default_value
@@ -1629,6 +1868,9 @@ func _get_color_property(object: Object, property_name: StringName, default_valu
 	return _get_color_value(value, default_value)
 
 
+## 构造选中查找表。
+## [br]
+## @api private
 func _make_selected_lookup(node_ids: PackedStringArray) -> Dictionary:
 	var result: Dictionary = {}
 	for node_id_text: String in node_ids:
@@ -1636,6 +1878,9 @@ func _make_selected_lookup(node_ids: PackedStringArray) -> Dictionary:
 	return result
 
 
+## 处理连接is内部内部数据。
+## [br]
+## @api private
 func _connection_is_internal(connection: Dictionary, selected_lookup: Dictionary) -> bool:
 	return (
 		selected_lookup.has(_get_connection_from_node_id(connection))
@@ -1643,6 +1888,9 @@ func _connection_is_internal(connection: Dictionary, selected_lookup: Dictionary
 	)
 
 
+## 从首选 ID 生成未占用节点 ID，冲突时递增后缀。
+## [br]
+## @api private
 func _make_unique_node_id(
 	preferred_id: StringName,
 	occupied_ids: Dictionary,
@@ -1664,6 +1912,9 @@ func _make_unique_node_id(
 	return StringName(base)
 
 
+## 处理重映射节点ID内部数据。
+## [br]
+## @api private
 func _remap_node_ids(node_ids: PackedStringArray, id_map: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for node_id_text: String in node_ids:
@@ -1672,6 +1923,9 @@ func _remap_node_ids(node_ids: PackedStringArray, id_map: Dictionary) -> PackedS
 	return result
 
 
+## 复制连接记录并重映射源、目标节点 ID。
+## [br]
+## @api private
 func _remap_connection(connection: Dictionary, id_map: Dictionary) -> Dictionary:
 	var result: Dictionary = connection.duplicate(true)
 	var from_node_id: StringName = _get_connection_from_node_id(connection)
@@ -1681,6 +1935,9 @@ func _remap_connection(connection: Dictionary, id_map: Dictionary) -> Dictionary
 	return result
 
 
+## 构造编辑报告。
+## [br]
+## @api private
 func _make_edit_report(ok: bool, error: String) -> Dictionary:
 	return {
 		"ok": ok,

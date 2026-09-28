@@ -70,7 +70,16 @@ var metadata: Dictionary:
 
 # --- 私有变量 ---
 
+## Provider 身份登记后是否已冻结。
+## [br]
+## @api private
+## [br]
 var _definition_locked: bool = false
+
+## 保存经重复处理的 Provider 目录元数据。
+## [br]
+## @api private
+## [br]
 var _metadata: Dictionary = {}
 
 
@@ -197,5 +206,9 @@ func lock_definition_for_framework() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 经 GFVariantData.duplicate_variant 处理输入后，将结果归一为 Dictionary。
+## [br]
+## @api private
+## [br]
 static func _duplicate_dictionary(value: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.duplicate_variant(value))

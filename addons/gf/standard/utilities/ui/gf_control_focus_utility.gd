@@ -276,6 +276,9 @@ static func is_focusable_control_for_framework(control: Control, options: Dictio
 
 # --- 私有/辅助方法 ---
 
+## 按原始顺序过滤无效、重复或不符合焦点资格的控件。
+## [br]
+## @api private
 static func _normalize_controls(controls: Array[Control], options: Dictionary) -> Array[Control]:
 	var result: Array[Control] = []
 	for control: Control in controls:
@@ -289,12 +292,18 @@ static func _normalize_controls(controls: Array[Control], options: Dictionary) -
 	return result
 
 
+## 在树内使用全局可见性，在树外使用控件自身的 visible 属性。
+## [br]
+## @api private
 static func _is_visible_for_focus(control: Control) -> bool:
 	if control.is_inside_tree():
 		return control.is_visible_in_tree()
 	return control.visible
 
 
+## 仅将 BaseButton.disabled 视为禁用状态，其他 Control 不作禁用过滤。
+## [br]
+## @api private
 static func _is_disabled_for_focus(control: Control) -> bool:
 	if control is BaseButton:
 		var button: BaseButton = control
@@ -302,6 +311,9 @@ static func _is_disabled_for_focus(control: Control) -> bool:
 	return false
 
 
+## 保留四种受支持方向轴；未知值回退为双向焦点邻居。
+## [br]
+## @api private
 static func _normalize_axis(axis: StringName) -> StringName:
 	match axis:
 		AXIS_NONE, AXIS_HORIZONTAL, AXIS_VERTICAL, AXIS_BOTH:
@@ -309,6 +321,9 @@ static func _normalize_axis(axis: StringName) -> StringName:
 	return AXIS_BOTH
 
 
+## 根据数组位置与循环选项取得前一项或后一项；单控件序列没有邻居。
+## [br]
+## @api private
 static func _get_order_neighbor(
 	controls: Array[Control],
 	index: int,
@@ -326,6 +341,9 @@ static func _get_order_neighbor(
 	return controls[neighbor_index]
 
 
+## 将任意索引折回有效范围；空范围返回 0。
+## [br]
+## @api private
 static func _wrap_index(index: int, size: int) -> int:
 	if size <= 0:
 		return 0
@@ -335,6 +353,9 @@ static func _wrap_index(index: int, size: int) -> int:
 	return wrapped_index
 
 
+## 生成源控件到目标控件的相对路径；无目标时返回空路径，共同祖先缺失时记录 issue。
+## [br]
+## @api private
 static func _get_relative_focus_path(
 	source: Control,
 	target: Control,
@@ -355,6 +376,9 @@ static func _get_relative_focus_path(
 	return source.get_path_to(target)
 
 
+## 按 axis 写入方向邻居；未选方向会清空，除非要求保留原值。
+## [br]
+## @api private
 static func _apply_directional_focus_paths(
 	control: Control,
 	previous_path: NodePath,
@@ -376,6 +400,9 @@ static func _apply_directional_focus_paths(
 		control.focus_neighbor_right = NodePath("")
 
 
+## 检查两个节点的父链是否存在同一个祖先节点。
+## [br]
+## @api private
 static func _has_common_ancestor(a: Node, b: Node) -> bool:
 	var a_current: Node = a
 	while a_current != null:
@@ -388,6 +415,9 @@ static func _has_common_ancestor(a: Node, b: Node) -> bool:
 	return false
 
 
+## 返回节点路径文本；树外根节点使用自身名称，失效节点返回空字符串。
+## [br]
+## @api private
 static func _get_node_path_text(node: Node) -> String:
 	if node == null or not is_instance_valid(node):
 		return ""
@@ -396,6 +426,9 @@ static func _get_node_path_text(node: Node) -> String:
 	return String(node.get_path()) if node.get_parent() != null else String(node.name)
 
 
+## 统一构造包含代码、消息、控件索引和可选方向槽位的问题记录。
+## [br]
+## @api private
 static func _make_issue(
 	code: StringName,
 	message: String,

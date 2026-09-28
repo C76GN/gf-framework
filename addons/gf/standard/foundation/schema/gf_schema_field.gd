@@ -424,6 +424,21 @@ static func value_type_to_name(type_id: ValueType) -> String:
 # --- 框架内部方法 ---
 
 # 将字段校验结果写入传入报告。仅供 GF schema 组合内部调用。
+## 将字段值检查追加到报告；空值、非有限数值和类型错误各自提前结束，合法值继续执行嵌套 schema 与字段规则。此入口不负责类型转换。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/foundation/schema
+## [br]
+## @param value: 按当前字段定义检查的值。
+## [br]
+## @param report: 接收字段及嵌套问题的报告。
+## [br]
+## @param context: 字段路径、问题键、来源及递归检测上下文。
+## [br]
+## @schema value: 由 value_type 指定的值类型；null 是否允许由 allow_null 决定。
+## [br]
+## @schema context: 可含 path、key、subject、schema_id、source_path/source、line、column 及嵌套校验传递的内部活动状态。
 func _validate_value_into(value: Variant, report: GFValidationReport, context: Dictionary) -> void:
 	if value == null:
 		if allow_null:
@@ -464,6 +479,17 @@ func _validate_value_into(value: Variant, report: GFValidationReport, context: D
 	_validate_rules_into(value, report, context)
 
 
+## 按共享身份映射复制字段图；先登记副本再递归复制字典和数组子定义，避免循环并保留共享身份。默认值走 Variant 复制入口，元数据深复制，规则逐项调用 duplicate_rule。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/foundation/schema
+## [br]
+## @param state: 本次图复制共享并原地更新的身份映射。
+## [br]
+## @return: 字段副本；已有映射时复用同一副本。
+## [br]
+## @schema state: 包含 fields 和 schemas 字典，以源字段/schema 实例 ID 索引对应副本。
 func _duplicate_field_with_context(state: Dictionary) -> GFSchemaField:
 	var field_key: int = get_instance_id()
 	var visited_fields: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(state, "fields", {}))
@@ -494,6 +520,9 @@ func _duplicate_field_with_context(state: Dictionary) -> GFSchemaField:
 
 # --- 私有/辅助方法 ---
 
+## 按 value_type 检查浮点数、向量或颜色中是否含 NaN/INF 分量。
+## [br]
+## @api private
 func _is_non_finite_numeric_value(value: Variant) -> bool:
 	match value_type:
 		ValueType.FLOAT:
@@ -507,6 +536,9 @@ func _is_non_finite_numeric_value(value: Variant) -> bool:
 	return false
 
 
+## 仅对 float Variant 检查 is_finite；其他类型返回 false。
+## [br]
+## @api private
 func _float_is_finite(value: Variant) -> bool:
 	if not value is float:
 		return false
@@ -514,6 +546,9 @@ func _float_is_finite(value: Variant) -> bool:
 	return is_finite(float_value)
 
 
+## 确认值为 Vector2 后检查两个分量均有限。
+## [br]
+## @api private
 func _vector2_is_finite(value: Variant) -> bool:
 	if not value is Vector2:
 		return false
@@ -521,6 +556,9 @@ func _vector2_is_finite(value: Variant) -> bool:
 	return is_finite(vector.x) and is_finite(vector.y)
 
 
+## 确认值为 Vector3 后检查三个分量均有限。
+## [br]
+## @api private
 func _vector3_is_finite(value: Variant) -> bool:
 	if not value is Vector3:
 		return false
@@ -528,6 +566,9 @@ func _vector3_is_finite(value: Variant) -> bool:
 	return is_finite(vector.x) and is_finite(vector.y) and is_finite(vector.z)
 
 
+## 确认值为 Color 后检查 RGBA 四个分量均有限。
+## [br]
+## @api private
 func _color_is_finite(value: Variant) -> bool:
 	if not value is Color:
 		return false
@@ -535,12 +576,18 @@ func _color_is_finite(value: Variant) -> bool:
 	return is_finite(color.r) and is_finite(color.g) and is_finite(color.b) and is_finite(color.a)
 
 
+## 为数组中的每项生成索引上下文，并委托 array_item_schema 校验。
+## [br]
+## @api private
 func _validate_array_items(values: Array, report: GFValidationReport, context: Dictionary) -> void:
 	for index: int in range(values.size()):
 		var item_context: Dictionary = _make_array_item_context(context, index)
 		array_item_schema._validate_value_into(values[index], report, item_context)
 
 
+## 逐个执行非空校验规则并把规则报告合并到字段报告。
+## [br]
+## @api private
 func _validate_rules_into(value: Variant, report: GFValidationReport, context: Dictionary) -> void:
 	for rule: GFValidationRule in validation_rules:
 		if rule == null:
@@ -550,6 +597,9 @@ func _validate_rules_into(value: Variant, report: GFValidationReport, context: D
 		_merge_rule_report(report, rule_report, rule_context)
 
 
+## 深拷贝上下文，并在缺失时填入 subject、字段 path 和 key。
+## [br]
+## @api private
 func _make_rule_context(context: Dictionary) -> Dictionary:
 	var rule_context: Dictionary = context.duplicate(true)
 	if not rule_context.has("subject"):
@@ -561,6 +611,9 @@ func _make_rule_context(context: Dictionary) -> Dictionary:
 	return rule_context
 
 
+## 忽略空报告和非 GFValidationIssue 项；为缺少 path、key、subject 的规则问题补齐上下文后合并。
+## [br]
+## @api private
 func _merge_rule_report(report: GFValidationReport, rule_report: GFValidationReport, context: Dictionary) -> void:
 	if rule_report == null:
 		return
@@ -579,6 +632,9 @@ func _merge_rule_report(report: GFValidationReport, rule_report: GFValidationRep
 		var _rule_issue: RefCounted = report.add_issue(issue)
 
 
+## 按 subject、schema_id、field_name 的顺序选择主题，均缺失时使用 GFSchemaField。
+## [br]
+## @api private
 func _make_subject(context: Dictionary) -> String:
 	var subject: String = GFVariantData.get_option_string(context, "subject")
 	if not subject.is_empty():
@@ -591,12 +647,18 @@ func _make_subject(context: Dictionary) -> String:
 	return "GFSchemaField"
 
 
+## 深拷贝嵌套上下文，并将 subject 设为当前字段的解析主题。
+## [br]
+## @api private
 func _make_nested_context(context: Dictionary) -> Dictionary:
 	var nested_context: Dictionary = context.duplicate(true)
 	nested_context["subject"] = _make_subject(context)
 	return nested_context
 
 
+## 深拷贝数组项上下文，设置索引路径和 key；空根路径时使用 [index]。
+## [br]
+## @api private
 func _make_array_item_context(context: Dictionary, index: int) -> Dictionary:
 	var item_context: Dictionary = context.duplicate(true)
 	var path: String = GFVariantData.get_option_string(context, "path")
@@ -605,6 +667,9 @@ func _make_array_item_context(context: Dictionary, index: int) -> Dictionary:
 	return item_context
 
 
+## 构造包含字段元数据和上下文位置的错误，并把 source、行列及主题信息应用到 issue。
+## [br]
+## @api private
 func _add_error(
 	report: GFValidationReport,
 	kind: StringName,
@@ -626,6 +691,10 @@ func _add_error(
 	_apply_context_to_issue(issue, context)
 
 
+## 对 GFValidationIssue 应用来源路径、行、列和主题；source_path 为空时可用 source 补入。
+## 非 GFValidationIssue 输入不作修改。
+## [br]
+## @api private
 func _apply_context_to_issue(issue: RefCounted, context: Dictionary) -> void:
 	if not (issue is GFValidationIssue):
 		return
@@ -638,6 +707,9 @@ func _apply_context_to_issue(issue: RefCounted, context: Dictionary) -> void:
 	validation_issue.subject = GFVariantData.get_option_string(context, "subject", validation_issue.subject)
 
 
+## 统一返回转换成功标记、转换值和诊断消息。
+## [br]
+## @api private
 func _make_coerce_result(ok: bool, coerced_value: Variant, message: String = "") -> Dictionary:
 	return {
 		"ok": ok,
@@ -646,6 +718,9 @@ func _make_coerce_result(ok: bool, coerced_value: Variant, message: String = "")
 	}
 
 
+## 只接收 Array 输入，并从中筛选 GFValidationRule 项。
+## [br]
+## @api private
 func _read_validation_rules(value: Variant) -> Array[GFValidationRule]:
 	var result: Array[GFValidationRule] = []
 	if not (value is Array):
@@ -658,6 +733,9 @@ func _read_validation_rules(value: Variant) -> Array[GFValidationRule]:
 	return result
 
 
+## 为每条规则生成 describe() 字典；null 规则保留为 valid=false 项。
+## [br]
+## @api private
 func _describe_validation_rules() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for rule: GFValidationRule in validation_rules:
@@ -670,6 +748,9 @@ func _describe_validation_rules() -> Array[Dictionary]:
 	return result
 
 
+## 将 bool、数值或 true/false、1/0、yes/no、on/off 文本转换为 bool。
+## [br]
+## @api private
 func _try_coerce_bool(value: Variant) -> Dictionary:
 	if value is bool:
 		var bool_value: bool = value
@@ -685,6 +766,9 @@ func _try_coerce_bool(value: Variant) -> Dictionary:
 	return _make_coerce_result(false, false, "Value cannot be coerced to bool.")
 
 
+## 将 int、bool、有限 float 或有效整数文本转换为 int；其他输入返回失败结果。
+## [br]
+## @api private
 func _try_coerce_int(value: Variant) -> Dictionary:
 	if value is int or value is bool:
 		return _make_coerce_result(true, GFVariantData.to_int(value, 0))
@@ -700,6 +784,9 @@ func _try_coerce_int(value: Variant) -> Dictionary:
 	return _make_coerce_result(false, 0, "Value cannot be coerced to int.")
 
 
+## 将 int、bool、有限 float 或有效浮点文本转换为有限 float。
+## [br]
+## @api private
 func _try_coerce_float(value: Variant) -> Dictionary:
 	if value is float or value is int or value is bool:
 		var float_value: float = GFVariantData.to_float(value, 0.0)
@@ -713,6 +800,9 @@ func _try_coerce_float(value: Variant) -> Dictionary:
 	return _make_coerce_result(false, 0.0, "Value cannot be coerced to float.")
 
 
+## 保留 Vector2，或把 Vector2i/数字集合转换为 Vector2。
+## [br]
+## @api private
 func _try_coerce_vector2(value: Variant) -> Dictionary:
 	if value is Vector2:
 		return _make_coerce_result(true, value)
@@ -722,6 +812,9 @@ func _try_coerce_vector2(value: Variant) -> Dictionary:
 	return _coerce_vector_from_collection(value, 2, false)
 
 
+## 保留 Vector2i；把 Vector2 或由字典/数组转换出的 Vector2 分量四舍五入为 Vector2i。
+## [br]
+## @api private
 func _try_coerce_vector2i(value: Variant) -> Dictionary:
 	if value is Vector2i:
 		return _make_coerce_result(true, value)
@@ -735,6 +828,9 @@ func _try_coerce_vector2i(value: Variant) -> Dictionary:
 	return result
 
 
+## 保留 Vector3，或把 Vector3i/数字集合转换为 Vector3。
+## [br]
+## @api private
 func _try_coerce_vector3(value: Variant) -> Dictionary:
 	if value is Vector3:
 		return _make_coerce_result(true, value)
@@ -744,6 +840,9 @@ func _try_coerce_vector3(value: Variant) -> Dictionary:
 	return _coerce_vector_from_collection(value, 3, false)
 
 
+## 保留 Vector3i；把 Vector3 或由字典/数组转换出的 Vector3 分量四舍五入为 Vector3i。
+## [br]
+## @api private
 func _try_coerce_vector3i(value: Variant) -> Dictionary:
 	if value is Vector3i:
 		return _make_coerce_result(true, value)
@@ -757,6 +856,10 @@ func _try_coerce_vector3i(value: Variant) -> Dictionary:
 	return result
 
 
+## 保留 Color，解析有效 HTML 颜色文本，或从 r/g/b/a 字典与数组读取数值通道。
+## 集合缺少 alpha 时默认值为 1.0。
+## [br]
+## @api private
 func _try_coerce_color(value: Variant) -> Dictionary:
 	if value is Color:
 		return _make_coerce_result(true, value)
@@ -781,6 +884,10 @@ func _try_coerce_color(value: Variant) -> Dictionary:
 	)
 
 
+## 从字典或数组读取所需的 x/y[/z] 数值并构造 Vector2/Vector3；失败时返回对应零向量。
+## 当前实现不使用 _integer 参数，整数向量由调用方随后取整。
+## [br]
+## @api private
 func _coerce_vector_from_collection(value: Variant, size: int, _integer: bool) -> Dictionary:
 	var all_fields: Array[String] = ["x", "y", "z"]
 	var fields: Array[String] = []
@@ -812,6 +919,10 @@ func _coerce_vector_from_collection(value: Variant, size: int, _integer: bool) -
 	)
 
 
+## 从字典字段或数组元素逐项转换有限数值；长度不足或任一项转换失败时返回 ok=false。
+## 字典可对 required_size 之后的字段使用 default_last；数组缺少的尾项也使用该默认值。
+## [br]
+## @api private
 func _read_numeric_fields(value: Variant, field_names: Array, required_size: int, default_last: float) -> Dictionary:
 	var values: Array[float] = []
 	if value is Dictionary:
@@ -842,6 +953,9 @@ func _read_numeric_fields(value: Variant, field_names: Array, required_size: int
 	return { "ok": false, "values": [] }
 
 
+## 返回 Vector2 输入本身，否则返回给定回退向量。
+## [br]
+## @api private
 func _variant_to_vector2(value: Variant, fallback: Vector2 = Vector2.ZERO) -> Vector2:
 	if value is Vector2:
 		var vector_value: Vector2 = value
@@ -849,6 +963,9 @@ func _variant_to_vector2(value: Variant, fallback: Vector2 = Vector2.ZERO) -> Ve
 	return fallback
 
 
+## 返回 Vector3 输入本身，否则返回给定回退向量。
+## [br]
+## @api private
 func _variant_to_vector3(value: Variant, fallback: Vector3 = Vector3.ZERO) -> Vector3:
 	if value is Vector3:
 		var vector_value: Vector3 = value

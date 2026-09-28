@@ -28,17 +28,76 @@ const STAGE_ID: String = "gf.config.target.godot_resource"
 ## @since 9.0.0
 const IMPLEMENTATION_VERSION: int = 3
 
+## JSON 数据库导出的格式标识。
+## [br]
+## @api private
+## [br]
 const _JSON_EXPORT_FORMAT: String = "gf.config.database"
+
+## JSON 数据库导出的格式版本。
+## [br]
+## @api private
+## [br]
 const _JSON_EXPORT_VERSION: int = 1
+
+## JSON 数据库导出的产物所有者标识。
+## [br]
+## @api private
+## [br]
 const _ARTIFACT_OWNER: String = "gf.tool.config_pipeline"
+
+## JSON 中标记 Godot Variant 类型的对象键名。
+## [br]
+## @api private
+## [br]
 const _JSON_VARIANT_TYPE_KEY: String = "__gf_variant_type"
+
+## JSON 中携带 Variant 转换值的对象键名。
+## [br]
+## @api private
+## [br]
 const _JSON_VARIANT_VALUE_KEY: String = "value"
+
+## JSON.stringify 默认使用的缩进字符串。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_JSON_INDENT: String = "\t"
+
+## JSON 结构默认最大嵌套深度。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_JSON_DEPTH: int = 256
+
+## JSON 结构允许配置的绝对最大嵌套深度。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_JSON_DEPTH: int = 256
+
+## JSON 结构默认节点预算。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_JSON_NODES: int = 100000
+
+## JSON 结构允许配置的绝对最大节点预算。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_JSON_NODES: int = 1000000
+
+## JSON 导出默认估算输出字节预算。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_JSON_OUTPUT_BYTES: int = 64 * 1024 * 1024
+
+## JSON 导出允许配置的绝对估算输出字节预算。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_JSON_OUTPUT_BYTES: int = 256 * 1024 * 1024
 
 
@@ -302,6 +361,9 @@ func get_stage_descriptor() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按表名关联编译来源映射，在原问题字典上补齐缺失的位置字段；保留问题已有的 source、line、column 和 column_index。
+## [br]
+## @api private
 func _enrich_issue_source_locations(report: Dictionary, compilation_ir: GFConfigPipelineIR) -> void:
 	var source_maps: Dictionary = {}
 	for table_ir: GFConfigPipelineTableIR in compilation_ir.get_tables():
@@ -324,6 +386,9 @@ func _enrich_issue_source_locations(report: Dictionary, compilation_ir: GFConfig
 	report["issues"] = issues
 
 
+## 先取表级位置，再按整数 row_index 的零基索引覆盖行位置，最后以字段位置覆盖；索引无效时保留表级回退。
+## [br]
+## @api private
 func _make_issue_source_location(issue: Dictionary, source_map: Dictionary) -> Dictionary:
 	var location: Dictionary = {}
 	_copy_source_location(location, source_map)
@@ -343,6 +408,10 @@ func _make_issue_source_location(issue: Dictionary, source_map: Dictionary) -> D
 	return location
 
 
+## 从来源字典复制非空 source，并仅复制满足最小值的行、列和列索引字段。
+## [br]
+## @api private
+## [br]
 func _copy_source_location(target: Dictionary, source: Dictionary) -> void:
 	var source_value: Variant = GFVariantData.get_option_value(source, "source")
 	if source_value is String:
@@ -358,6 +427,10 @@ func _copy_source_location(target: Dictionary, source: Dictionary) -> void:
 				target[key] = position
 
 
+## 生成单表 JSON 对象；schema 默认包含，两个索引字段仅在 include_indexes 为真时加入。
+## [br]
+## @api private
+## [br]
 func _make_table_export(
 	table_resource: GFConfigTableResource,
 	state: Dictionary,
@@ -378,6 +451,10 @@ func _make_table_export(
 	return result
 
 
+## 组装单表物化失败结果，阶段固定为 target 且 table 与 ir 为空。
+## [br]
+## @api private
+## [br]
 func _make_table_failure(error_kind: String, message: String) -> Dictionary:
 	return {
 		"success": false,
@@ -389,6 +466,10 @@ func _make_table_failure(error_kind: String, message: String) -> Dictionary:
 	}
 
 
+## 组装数据库物化失败结果及验证报告，并保留可选 IR 和已创建数据库。
+## [br]
+## @api private
+## [br]
 func _make_database_failure(
 	error_kind: String,
 	message: String,
@@ -406,6 +487,10 @@ func _make_database_failure(
 	}
 
 
+## 组装 JSON 数据导出失败结果，data 返回空字典。
+## [br]
+## @api private
+## [br]
 func _make_export_failure(message: String) -> Dictionary:
 	return {
 		"success": false,
@@ -414,6 +499,10 @@ func _make_export_failure(message: String) -> Dictionary:
 	}
 
 
+## 初始化 JSON 转换状态及按绝对上限裁剪后的深度、节点和输出字节预算。
+## [br]
+## @api private
+## [br]
 func _make_json_state(options: Dictionary) -> Dictionary:
 	return {
 		"success": true,
@@ -442,6 +531,9 @@ func _make_json_state(options: Dictionary) -> Dictionary:
 	}
 
 
+## 在共享深度、节点和文本预算内投影受支持 Variant；向量与颜色使用带类型标记的有限分量，容器递归复制，失败通过共享状态与空值共同表达。
+## [br]
+## @api private
 func _to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Variant:
 	if not GFVariantData.get_option_bool(state, "success", true):
 		return null
@@ -525,6 +617,9 @@ func _to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Varia
 	return _fail_json_export(state, "配置数据库 JSON 导出不支持 Variant 类型：%s。" % type_string(typeof(value)))
 
 
+## 进入活动容器栈后以加一深度复制数组元素；子项失败时丢弃候选数组，并在所有已进入的退出路径弹出当前容器。
+## [br]
+## @api private
 func _array_to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Array:
 	var source: Array = GFVariantData.as_array(value)
 	if not _enter_json_container(source, state):
@@ -539,6 +634,9 @@ func _array_to_json_compatible(value: Variant, state: Dictionary, depth: int) ->
 	return result
 
 
+## 将允许的键转成 JSON 文本并递归复制值，文本键碰撞立即失败；成功或子项失败都恢复活动容器栈。
+## [br]
+## @api private
 func _dictionary_to_json_compatible(value: Variant, state: Dictionary, depth: int) -> Dictionary:
 	var source: Dictionary = GFVariantData.as_dictionary(value)
 	if not _enter_json_container(source, state):
@@ -561,6 +659,10 @@ func _dictionary_to_json_compatible(value: Variant, state: Dictionary, depth: in
 	return result
 
 
+## 将 String、StringName 或 int 字典键转成 JSON 文本键，并为字符串字节数记入预算。
+## [br]
+## @api private
+## [br]
 func _json_key_to_text(key: Variant, state: Dictionary) -> String:
 	match typeof(key):
 		TYPE_STRING:
@@ -581,6 +683,10 @@ func _json_key_to_text(key: Variant, state: Dictionary) -> String:
 	return ""
 
 
+## 将 PackedStringArray 转成 Array，并分别预留节点数及每个字符串的 UTF-8 字节数。
+## [br]
+## @api private
+## [br]
 func _packed_string_array_to_json(values: PackedStringArray, state: Dictionary) -> Array:
 	var result: Array = []
 	if not _reserve_json_nodes(state, values.size()):
@@ -592,6 +698,10 @@ func _packed_string_array_to_json(values: PackedStringArray, state: Dictionary) 
 	return result
 
 
+## 预留与元素数相同的 JSON 节点预算后，将 PackedInt32Array 展开为 Array。
+## [br]
+## @api private
+## [br]
 func _packed_int32_array_to_json(values: PackedInt32Array, state: Dictionary) -> Array:
 	var result: Array = []
 	if not _reserve_json_nodes(state, values.size()):
@@ -601,6 +711,10 @@ func _packed_int32_array_to_json(values: PackedInt32Array, state: Dictionary) ->
 	return result
 
 
+## 预留与元素数相同的 JSON 节点预算后，将 PackedInt64Array 展开为 Array。
+## [br]
+## @api private
+## [br]
 func _packed_int64_array_to_json(values: PackedInt64Array, state: Dictionary) -> Array:
 	var result: Array = []
 	if not _reserve_json_nodes(state, values.size()):
@@ -610,6 +724,10 @@ func _packed_int64_array_to_json(values: PackedInt64Array, state: Dictionary) ->
 	return result
 
 
+## 预留与元素数相同的节点预算并展开 PackedFloat32Array；遇到 NaN 或 Inf 时失败。
+## [br]
+## @api private
+## [br]
 func _packed_float32_array_to_json(values: PackedFloat32Array, state: Dictionary) -> Array:
 	var result: Array = []
 	if not _reserve_json_nodes(state, values.size()):
@@ -622,6 +740,10 @@ func _packed_float32_array_to_json(values: PackedFloat32Array, state: Dictionary
 	return result
 
 
+## 预留与元素数相同的节点预算并展开 PackedFloat64Array；遇到 NaN 或 Inf 时失败。
+## [br]
+## @api private
+## [br]
 func _packed_float64_array_to_json(values: PackedFloat64Array, state: Dictionary) -> Array:
 	var result: Array = []
 	if not _reserve_json_nodes(state, values.size()):
@@ -634,6 +756,10 @@ func _packed_float64_array_to_json(values: PackedFloat64Array, state: Dictionary
 	return result
 
 
+## 使用内部类型键和值键包装一个 Variant 导出值。
+## [br]
+## @api private
+## [br]
 func _make_json_variant(type_name: String, variant_value: Variant) -> Dictionary:
 	return {
 		_JSON_VARIANT_TYPE_KEY: type_name,
@@ -641,6 +767,10 @@ func _make_json_variant(type_name: String, variant_value: Variant) -> Dictionary
 	}
 
 
+## 仅检查数组中的 float 项；任何 NaN 或 Inf 都会使结果为 false。
+## [br]
+## @api private
+## [br]
 func _are_finite_floats(values: Array) -> bool:
 	for value: Variant in values:
 		if not (value is float):
@@ -651,6 +781,10 @@ func _are_finite_floats(values: Array) -> bool:
 	return true
 
 
+## 读取整型 JSON 预算选项，并将其限制在 1 到绝对上限之间。
+## [br]
+## @api private
+## [br]
 func _resolve_json_limit(
 	options: Dictionary,
 	key: String,
@@ -665,6 +799,10 @@ func _resolve_json_limit(
 	return clampi(requested, 1, absolute_maximum)
 
 
+## 为 JSON 状态预留节点数；负数或超出剩余预算时记录失败，否则递增 node_count。
+## [br]
+## @api private
+## [br]
 func _reserve_json_nodes(state: Dictionary, count: int) -> bool:
 	if count < 0:
 		var _invalid_count_failure: Variant = _fail_json_export(
@@ -688,6 +826,10 @@ func _reserve_json_nodes(state: Dictionary, count: int) -> bool:
 	return true
 
 
+## 为 JSON 状态预留估算字节数；负数或超出剩余预算时记录失败，否则递增 estimated_bytes。
+## [br]
+## @api private
+## [br]
 func _reserve_json_bytes(state: Dictionary, count: int) -> bool:
 	var estimated_bytes: int = GFVariantData.get_option_int(
 		state,
@@ -708,6 +850,9 @@ func _reserve_json_bytes(state: Dictionary, count: int) -> bool:
 	return true
 
 
+## 把容器引用压入调用方准备的活动栈，用身份比较拒绝递归环但允许其他分支共享引用；栈类型错误写入导出失败。
+## [br]
+## @api private
 func _enter_json_container(container: Variant, state: Dictionary) -> bool:
 	var active_value: Variant = state.get("active_containers", [])
 	if not active_value is Array:
@@ -728,6 +873,9 @@ func _enter_json_container(container: Variant, state: Dictionary) -> bool:
 	return true
 
 
+## 弹出活动栈末项，与一次成功进入严格按 LIFO 配对；不按对象身份搜索，空栈或类型异常时不操作。
+## [br]
+## @api private
 func _leave_json_container(state: Dictionary) -> void:
 	var active_value: Variant = state.get("active_containers", [])
 	if not active_value is Array:
@@ -737,6 +885,10 @@ func _leave_json_container(state: Dictionary) -> void:
 		var _removed_container: Variant = active_containers.pop_back()
 
 
+## 仅在状态此前成功时写入首个失败标记和错误消息，并返回 null。
+## [br]
+## @api private
+## [br]
 func _fail_json_export(state: Dictionary, message: String) -> Variant:
 	if GFVariantData.get_option_bool(state, "success", true):
 		state["success"] = false

@@ -16,33 +16,152 @@ extends Resource
 
 # --- 常量 ---
 
+## validate_properties() 未提供 max_depth 时使用的默认值。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_DEPTH: int = 16
+
+## validate_properties() 未提供 max_property_count 时使用的默认值。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_PROPERTY_COUNT: int = 128
+
+## validate_properties() 未提供 max_string_length 时使用的默认值。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_STRING_LENGTH: int = 4096
+
+## validate_properties() 未提供 max_collection_items 时使用的默认值。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_COLLECTION_ITEMS: int = 256
+
+## validate_properties() 未提供 max_total_nodes 时使用的默认值。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_TOTAL_NODES: int = 8192
+
+## validate_properties() 未提供 max_total_bytes 时使用的默认值。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_TOTAL_BYTES: int = 256 * 1024
+
+## 属性遍历 max_depth 选项允许设置的硬上限。
+## [br]
+## @api private
+## [br]
 const _HARD_MAX_DEPTH: int = 64
+
+## 属性遍历 max_property_count 选项允许设置的硬上限。
+## [br]
+## @api private
+## [br]
 const _HARD_MAX_PROPERTY_COUNT: int = 4096
+
+## 属性字符串 max_string_length 选项允许设置的硬上限。
+## [br]
+## @api private
+## [br]
 const _HARD_MAX_STRING_LENGTH: int = 65_536
+
+## 属性集合 max_collection_items 选项允许设置的硬上限。
+## [br]
+## @api private
+## [br]
 const _HARD_MAX_COLLECTION_ITEMS: int = 4096
+
+## 属性遍历 max_total_nodes 选项允许设置的硬上限。
+## [br]
+## @api private
+## [br]
 const _HARD_MAX_TOTAL_NODES: int = 1_000_000
+
+## 属性遍历 max_total_bytes 选项允许设置的硬上限。
+## [br]
+## @api private
+## [br]
 const _HARD_MAX_TOTAL_BYTES: int = 16 * 1024 * 1024
+
+## 事件名和 schema 文本字段共同使用的字符长度上限。
+## [br]
+## @api private
+## [br]
 const _MAX_EVENT_NAME_LENGTH: int = 4096
+
+## schema_version 可接受的最大 int32 正整数值。
+## [br]
+## @api private
+## [br]
 const _MAX_SCHEMA_VERSION: int = 2_147_483_647
+
+## Schema/字段图遍历允许的最大嵌套深度。
+## [br]
+## @api private
+## [br]
 const _MAX_SCHEMA_GRAPH_DEPTH: int = 64
+
+## Schema/字段图遍历允许排入的节点总数上限。
+## [br]
+## @api private
+## [br]
 const _MAX_SCHEMA_GRAPH_NODES: int = 4096
+
+## 单个 schema 容器允许的字段、元素或规则数量上限。
+## [br]
+## @api private
+## [br]
 const _MAX_SCHEMA_CONTAINER_ITEMS: int = 4096
+
+## 单个字段允许声明的 validation rule 数量上限。
+## [br]
+## @api private
+## [br]
 const _MAX_SCHEMA_RULES_PER_FIELD: int = 64
+
+## Schema metadata/default 辅助值递归允许的最大深度。
+## [br]
+## @api private
+## [br]
 const _MAX_SCHEMA_AUXILIARY_DEPTH: int = 32
+
+## Schema metadata/default 辅助值遍历的节点总数上限。
+## [br]
+## @api private
+## [br]
 const _MAX_SCHEMA_AUXILIARY_NODES: int = 8192
+
+## Schema 名称、说明和其他辅助文本累计允许的 UTF-8 字节数。
+## [br]
+## @api private
+## [br]
 const _MAX_SCHEMA_TOTAL_TEXT_BYTES: int = 4 * 1024 * 1024
+
+## Analytics 允许使用的内置 GFValidationConstraintRule 脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_VALIDATION_CONSTRAINT_RULE_SCRIPT = preload(
 	"res://addons/gf/standard/foundation/validation/gf_validation_constraint_rule.gd"
 )
+
+## Analytics 允许使用的内置 GFDictionarySchema 脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_DICTIONARY_SCHEMA_SCRIPT = preload(
 	"res://addons/gf/standard/foundation/schema/gf_dictionary_schema.gd"
 )
+
+## Analytics 允许使用的内置 GFSchemaField 脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_SCHEMA_FIELD_SCRIPT = preload(
 	"res://addons/gf/standard/foundation/schema/gf_schema_field.gd"
 )
@@ -76,6 +195,10 @@ const _GF_SCHEMA_FIELD_SCRIPT = preload(
 
 # --- 私有变量 ---
 
+## 最近一次成功完成 schema 图遍历时的节点与文本预算统计。
+## [br]
+## @api private
+## [br]
 var _last_definition_footprint: Dictionary = {}
 
 
@@ -301,6 +424,10 @@ func get_validated_definition_footprint_for_framework() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 用显式栈检查内建 schema/field 与声明式规则，预留图节点和辅助数据预算；当前路径重复身份跳过，避免循环展开。
+## 完整遍历后才更新定义占用快照；布尔值表示遍历完成，语义问题仍可能已写入 report。
+## [br]
+## @api private
 func _validate_schema_graph_into(report: GFValidationReport, options: Dictionary) -> bool:
 	var stack: Array[Dictionary] = [{
 		"kind": "schema",
@@ -473,6 +600,10 @@ func _validate_schema_graph_into(report: GFValidationReport, options: Dictionary
 	return true
 
 
+## 检查字典 schema 禁止额外字段与 coercion，并计入 schema_id 和 metadata 预算。
+## [br]
+## @api private
+## [br]
 func _validate_dictionary_schema_contract(
 	dictionary_schema: GFDictionarySchema,
 	schema_path: String,
@@ -524,6 +655,10 @@ func _validate_dictionary_schema_contract(
 	return true
 
 
+## 校验字段类型、名称、嵌套 schema 配置、辅助值预算和声明式规则配置。
+## [br]
+## @api private
+## [br]
 func _validate_field_contract(
 	field: GFSchemaField,
 	field_path: String,
@@ -731,6 +866,10 @@ func _validate_field_contract(
 	return true
 
 
+## 检查规则是否启用、报告错误、适用于任意目标，并满足对应字段类型的约束配置。
+## [br]
+## @api private
+## [br]
 func _validate_constraint_rule_definition(
 	rule: GFValidationConstraintRule,
 	field: GFSchemaField,
@@ -848,6 +987,10 @@ func _validate_constraint_rule_definition(
 	return true
 
 
+## 为无效的约束规则配置添加错误项，并返回 false 供校验流程提前结束。
+## [br]
+## @api private
+## [br]
 func _reject_constraint_configuration(
 	rule: GFValidationConstraintRule,
 	field_path: String,
@@ -868,6 +1011,10 @@ func _reject_constraint_configuration(
 	return false
 
 
+## 遍历元数据和默认值并共享辅助节点、文本预算，拒绝当前路径循环及对象、Callable 等运行时引用。
+## 显式入栈与退出记录允许无环共享集合；遇到首个不可继续检查的问题时记录诊断并返回 false。
+## [br]
+## @api private
 func _validate_schema_auxiliary_value(
 	value: Variant,
 	value_path: String,
@@ -1128,6 +1275,10 @@ func _validate_schema_auxiliary_value(
 	return true
 
 
+## 将文本 UTF-8 字节数累计到共享定义预算，超限时添加错误并返回 false。
+## [br]
+## @api private
+## [br]
 func _reserve_schema_text(
 	text_value: String,
 	value_path: String,
@@ -1155,6 +1306,10 @@ func _reserve_schema_text(
 	return true
 
 
+## 统一添加 schema 图预算错误，并附上预算名、节点硬上限和实际值。
+## [br]
+## @api private
+## [br]
 func _add_schema_budget_error(
 	report: GFValidationReport,
 	value_path: String,
@@ -1176,6 +1331,10 @@ func _add_schema_budget_error(
 	)
 
 
+## 在正式属性规则前以显式栈检查深度、宽度、节点及估算工作字节预算，包含字典键和打包数组元素。
+## 当前路径循环或首个预算越界立即写入报告并停止；此处工作字节额度不等同于最终上报 JSON 长度。
+## [br]
+## @api private
 func _validate_properties_budget_into(
 	properties: Dictionary,
 	report: GFValidationReport,
@@ -1538,6 +1697,10 @@ func _validate_properties_budget_into(
 				scheduled_work_bytes += packed_work_bytes
 
 
+## 创建带事件名和版本 metadata 的报告；subject 未给出时使用事件名与版本组合。
+## [br]
+## @api private
+## [br]
 func _make_report(options: Dictionary) -> GFValidationReport:
 	var subject: String = _read_context_text(options, "subject")
 	if subject.is_empty():
@@ -1548,6 +1711,10 @@ func _make_report(options: Dictionary) -> GFValidationReport:
 	})
 
 
+## 整理 properties Schema 校验所需的 subject、path、source 和可选行列上下文。
+## [br]
+## @api private
+## [br]
 func _make_properties_context(options: Dictionary) -> Dictionary:
 	var context: Dictionary = {}
 	context["subject"] = _read_context_text(
@@ -1569,10 +1736,18 @@ func _make_properties_context(options: Dictionary) -> Dictionary:
 	return context
 
 
+## 读取校验上下文 path；未提供时使用 properties 作为根路径。
+## [br]
+## @api private
+## [br]
 func _get_properties_path(options: Dictionary) -> String:
 	return _read_context_text(options, "path", "properties")
 
 
+## 读取文本上下文选项，并将长度截断到辅助文本硬上限。
+## [br]
+## @api private
+## [br]
 func _read_context_text(
 	options: Dictionary,
 	key: String,
@@ -1584,6 +1759,10 @@ func _read_context_text(
 	return value.left(_HARD_MAX_STRING_LENGTH)
 
 
+## 读取整数预算选项并限制在 1 到指定硬上限之间。
+## [br]
+## @api private
+## [br]
 func _read_bounded_option(
 	options: Dictionary,
 	key: String,
@@ -1593,6 +1772,10 @@ func _read_bounded_option(
 	return clampi(GFVariantData.get_option_int(options, key, default_value), 1, hard_maximum)
 
 
+## 为对象图节点生成 kind 与 instance ID 组合的键；非 Object 值使用 kind:null。
+## [br]
+## @api private
+## [br]
 func _make_graph_identity(record_kind: String, value: Variant) -> String:
 	if value is Object:
 		var object_value: Object = value
@@ -1600,6 +1783,10 @@ func _make_graph_identity(record_kind: String, value: Variant) -> String:
 	return "%s:null" % record_kind
 
 
+## 使用 is_same() 检查遍历栈中是否已有与 value 相同的集合引用。
+## [br]
+## @api private
+## [br]
 func _contains_same_reference(active_collections: Array, value: Variant) -> bool:
 	for active_value: Variant in active_collections:
 		if is_same(active_value, value):
@@ -1607,6 +1794,10 @@ func _contains_same_reference(active_collections: Array, value: Variant) -> bool
 	return false
 
 
+## 返回支持的 Packed 数组长度；其他 Variant 类型返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_packed_array_size(value: Variant) -> int:
 	match typeof(value):
 		TYPE_PACKED_BYTE_ARRAY:
@@ -1642,6 +1833,10 @@ func _get_packed_array_size(value: Variant) -> int:
 	return -1
 
 
+## 按值类型返回属性遍历使用的预估字节数，供入栈前预算检查。
+## [br]
+## @api private
+## [br]
 func _estimate_property_scheduled_bytes(value: Variant) -> int:
 	if value is String or value is StringName or value is NodePath:
 		return 2
@@ -1661,6 +1856,10 @@ func _estimate_property_scheduled_bytes(value: Variant) -> int:
 			return 256
 
 
+## 将集合元素超限转换为统一的 property_collection_too_large 错误项。
+## [br]
+## @api private
+## [br]
 func _add_collection_budget_error(
 	report: GFValidationReport,
 	value_path: String,
@@ -1680,6 +1879,10 @@ func _add_collection_budget_error(
 	)
 
 
+## 检查文本中是否包含 C0 控制码点或 DEL。
+## [br]
+## @api private
+## [br]
 func _contains_control_character(value: String) -> bool:
 	for index: int in range(value.length()):
 		var codepoint: int = value.unicode_at(index)
@@ -1688,6 +1891,10 @@ func _contains_control_character(value: String) -> bool:
 	return false
 
 
+## 将预算名、上限与实际值写入 metadata，并委托通用错误构造方法。
+## [br]
+## @api private
+## [br]
 func _add_budget_error(
 	report: GFValidationReport,
 	kind: StringName,
@@ -1705,6 +1912,10 @@ func _add_budget_error(
 	})
 
 
+## 复制并补充事件名/版本 metadata，追加错误并填写报告 issue 的来源与 subject。
+## [br]
+## @api private
+## [br]
 func _add_error(
 	report: GFValidationReport,
 	kind: StringName,
@@ -1725,6 +1936,10 @@ func _add_error(
 		validation_issue.subject = report.subject
 
 
+## 拼接路径片段；任一片段为空时直接返回另一片段。
+## [br]
+## @api private
+## [br]
 func _join_path(base_path: String, child_path: String) -> String:
 	if base_path.is_empty():
 		return child_path

@@ -13,6 +13,10 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 按 serializer_id 索引的序列化器实例。
+## [br]
+## @api private
+## [br]
 var _serializers: Dictionary = {}
 
 
@@ -173,6 +177,10 @@ func apply_node(node: Node, serializer_payloads: Array, context: Dictionary = {}
 
 # --- 私有/辅助方法 ---
 
+## 将 Variant 转换为 GFNodeSerializer，类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_node_serializer_value(value: Variant) -> GFNodeSerializer:
 	if value is GFNodeSerializer:
 		var serializer: GFNodeSerializer = value

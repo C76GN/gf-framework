@@ -96,7 +96,14 @@ var compatibility_checker: Callable = Callable()
 
 # --- 私有变量 ---
 
+## 单个物品堆叠上限的存储值，由导出属性访问器限制为至少 1。
+## [br]
+## @api private
 var _max_stack_amount: int = 99
+
+## 物品堆叠数量上限的存储值，由导出属性访问器限制为非负数。
+## [br]
+## @api private
 var _max_stack_count: int = 0
 
 
@@ -278,6 +285,9 @@ static func from_dict(data: Dictionary) -> GFInventoryItemDefinition:
 
 # --- 私有/辅助方法 ---
 
+## 深拷贝默认实例数据，再用传入数据中的键覆盖默认值。
+## [br]
+## @api private
 func _with_defaults(instance_data: Dictionary) -> Dictionary:
 	var result: Dictionary = default_instance_data.duplicate(true)
 	for key: Variant in instance_data.keys():

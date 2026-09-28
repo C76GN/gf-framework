@@ -41,9 +41,23 @@ signal gesture_ended(snapshot: Dictionary)
 
 # --- 常量 ---
 
+## 用于提取鼠标、触摸和系统手势事件。
+## [br]
+## @api private
+## [br]
 const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_input_event_tools.gd")
+
 # 鼠标使用独立于非负触点 index 和 -1 inactive sentinel 的内部身份。
+## 鼠标拖拽在活动指针字典中使用的内部 ID。
+## [br]
+## @api private
+## [br]
 const _MOUSE_POINTER_ID: int = -2
+
+## 双指缩放安全距离和外部缩放因子的最小值。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MINIMUM_PINCH_DISTANCE: float = 0.001
 
 
@@ -101,7 +115,16 @@ var minimum_pinch_distance: float = _DEFAULT_MINIMUM_PINCH_DISTANCE
 
 # --- 私有变量 ---
 
+## 活动指针 ID 到当前位置的映射。
+## [br]
+## @api private
+## [br]
 var _active_pointers: Dictionary = {}
+
+## 最近一次发送或初始化的手势摘要。
+## [br]
+## @api private
+## [br]
 var _last_snapshot: Dictionary = _make_empty_snapshot(&"none")
 
 
@@ -256,6 +279,10 @@ static func calculate_gesture(
 
 # --- 私有/辅助方法 ---
 
+## 将鼠标滚轮按钮交给缩放处理；否则只处理配置的鼠标按钮并开始或释放鼠标指针。
+## [br]
+## @api private
+## [br]
 func _handle_mouse_button(event: InputEventMouseButton) -> bool:
 	if track_mouse_wheel and _is_mouse_wheel_button(event.button_index):
 		return _handle_mouse_wheel(event)
@@ -268,6 +295,10 @@ func _handle_mouse_button(event: InputEventMouseButton) -> bool:
 	return true
 
 
+## 仅在内部鼠标指针已活动时更新其位置。
+## [br]
+## @api private
+## [br]
 func _handle_mouse_motion(event: InputEventMouseMotion) -> bool:
 	if not _active_pointers.has(_MOUSE_POINTER_ID):
 		return false
@@ -275,6 +306,10 @@ func _handle_mouse_motion(event: InputEventMouseMotion) -> bool:
 	return true
 
 
+## 按触摸事件状态开始或释放对应触点，并生成新的手势摘要。
+## [br]
+## @api private
+## [br]
 func _handle_screen_touch(event: InputEventScreenTouch) -> bool:
 	if event.pressed:
 		_start_pointer(event.index, event.position, event, &"touch_press")
@@ -283,6 +318,10 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> bool:
 	return true
 
 
+## 仅更新已登记的触点位置；未知触点的拖动返回 false。
+## [br]
+## @api private
+## [br]
 func _handle_screen_drag(event: InputEventScreenDrag) -> bool:
 	if not _active_pointers.has(event.index):
 		return false
@@ -290,6 +329,10 @@ func _handle_screen_drag(event: InputEventScreenDrag) -> bool:
 	return true
 
 
+## 只接受按下的鼠标滚轮事件；向上使用安全缩放因子，向下使用其倒数。
+## [br]
+## @api private
+## [br]
 func _handle_mouse_wheel(event: InputEventMouseButton) -> bool:
 	if not event.pressed:
 		return false
@@ -302,6 +345,10 @@ func _handle_mouse_wheel(event: InputEventMouseButton) -> bool:
 	return true
 
 
+## 将 magnify 手势因子下限钳到默认最小值后生成并发出外部手势摘要。
+## [br]
+## @api private
+## [br]
 func _handle_magnify_gesture(event: InputEventMagnifyGesture) -> bool:
 	var safe_factor: float = maxf(event.factor, _DEFAULT_MINIMUM_PINCH_DISTANCE)
 	var snapshot: Dictionary = _make_external_gesture_snapshot(&"magnify_gesture", event.position, Vector2.ZERO, safe_factor)
@@ -309,24 +356,40 @@ func _handle_magnify_gesture(event: InputEventMagnifyGesture) -> bool:
 	return true
 
 
+## 将 pan 手势的位置和位移生成外部手势摘要并发出。
+## [br]
+## @api private
+## [br]
 func _handle_pan_gesture(event: InputEventPanGesture) -> bool:
 	var snapshot: Dictionary = _make_external_gesture_snapshot(&"pan_gesture", event.position, event.delta, 1.0)
 	_store_and_emit_snapshot(snapshot, event)
 	return true
 
 
+## 复制当前指针位置集合，更新指定指针位置，再计算并发布摘要。
+## [br]
+## @api private
+## [br]
 func _start_pointer(pointer_id: int, position: Vector2, event: InputEvent, source: StringName) -> void:
 	var previous_points: Dictionary = _copy_points(_active_pointers)
 	_active_pointers[pointer_id] = position
 	_update_pointer_snapshot(previous_points, event, source)
 
 
+## 复制更新前的指针位置，写入新位置并计算、发布摘要。
+## [br]
+## @api private
+## [br]
 func _move_pointer(pointer_id: int, position: Vector2, event: InputEvent, source: StringName) -> void:
 	var previous_points: Dictionary = _copy_points(_active_pointers)
 	_active_pointers[pointer_id] = position
 	_update_pointer_snapshot(previous_points, event, source)
 
 
+## 只处理已登记指针；记录释放位置后删除它，最后一个指针释放时发 inactive 摘要，否则重算剩余手势。
+## [br]
+## @api private
+## [br]
 func _release_pointer(pointer_id: int, position: Vector2, event: InputEvent, source: StringName) -> void:
 	if not _active_pointers.has(pointer_id):
 		return
@@ -340,16 +403,28 @@ func _release_pointer(pointer_id: int, position: Vector2, event: InputEvent, sou
 	_update_pointer_snapshot(previous_points, event, source)
 
 
+## 用当前活动指针和上一位置集合计算手势摘要，再保存并发出。
+## [br]
+## @api private
+## [br]
 func _update_pointer_snapshot(previous_points: Dictionary, event: InputEvent, source: StringName) -> void:
 	var snapshot: Dictionary = calculate_gesture(previous_points, _active_pointers, source, minimum_pinch_distance)
 	_store_and_emit_snapshot(snapshot, event)
 
 
+## 保存摘要副本，并发出另一份摘要副本及原始输入事件。
+## [br]
+## @api private
+## [br]
 func _store_and_emit_snapshot(snapshot: Dictionary, event: InputEvent) -> void:
 	_last_snapshot = snapshot.duplicate(true)
 	gesture_updated.emit(_last_snapshot.duplicate(true), event)
 
 
+## 为鼠标滚轮、magnify 或 pan 等非指针集合手势构造摘要字典。
+## [br]
+## @api private
+## [br]
 func _make_external_gesture_snapshot(
 	source: StringName,
 	center: Vector2,
@@ -372,10 +447,18 @@ func _make_external_gesture_snapshot(
 	}
 
 
+## 创建指定来源、中心位于零点的 inactive 摘要。
+## [br]
+## @api private
+## [br]
 static func _make_empty_snapshot(source: StringName) -> Dictionary:
 	return _make_inactive_snapshot(source, Vector2.ZERO)
 
 
+## 创建包含完整字段、inactive 标记和给定最后中心位置的摘要。
+## [br]
+## @api private
+## [br]
 static func _make_inactive_snapshot(source: StringName, center: Vector2) -> Dictionary:
 	return {
 		"active": false,
@@ -393,6 +476,10 @@ static func _make_inactive_snapshot(source: StringName, center: Vector2) -> Dict
 	}
 
 
+## 复制字典中的整数指针键及其 Vector2 位置，忽略其他键类型。
+## [br]
+## @api private
+## [br]
 static func _copy_points(points: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for pointer_key: Variant in points.keys():
@@ -403,6 +490,10 @@ static func _copy_points(points: Dictionary) -> Dictionary:
 	return result
 
 
+## 为当前指针 ID 对齐上一位置；上一字典缺少该 ID 时使用当前位置。
+## [br]
+## @api private
+## [br]
 static func _align_previous_points(
 	previous_points: Dictionary,
 	current_points: Dictionary,
@@ -414,6 +505,10 @@ static func _align_previous_points(
 	return result
 
 
+## 提取整数指针 ID 并按升序返回。
+## [br]
+## @api private
+## [br]
 static func _get_sorted_pointer_ids(points: Dictionary) -> Array[int]:
 	var pointer_ids: Array[int] = []
 	for pointer_key: Variant in points.keys():
@@ -424,6 +519,10 @@ static func _get_sorted_pointer_ids(points: Dictionary) -> Array[int]:
 	return pointer_ids
 
 
+## 计算指定指针位置的平均值；空 ID 列表返回零向量。
+## [br]
+## @api private
+## [br]
 static func _average_points(points: Dictionary, pointer_ids: Array[int]) -> Vector2:
 	if pointer_ids.is_empty():
 		return Vector2.ZERO
@@ -433,6 +532,10 @@ static func _average_points(points: Dictionary, pointer_ids: Array[int]) -> Vect
 	return total / float(pointer_ids.size())
 
 
+## 读取指定指针的 Vector2 位置；键缺失或值类型不符时返回默认位置。
+## [br]
+## @api private
+## [br]
 static func _read_point(points: Dictionary, pointer_id: int, default_value: Vector2 = Vector2.ZERO) -> Vector2:
 	if not points.has(pointer_id):
 		return default_value
@@ -443,5 +546,9 @@ static func _read_point(points: Dictionary, pointer_id: int, default_value: Vect
 	return default_value
 
 
+## 判断按钮索引是否为鼠标滚轮向上或向下。
+## [br]
+## @api private
+## [br]
 static func _is_mouse_wheel_button(button_index: MouseButton) -> bool:
 	return button_index == MOUSE_BUTTON_WHEEL_UP or button_index == MOUSE_BUTTON_WHEEL_DOWN

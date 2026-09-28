@@ -215,14 +215,58 @@ const REASON_BACKEND_CHANGED: StringName = &"backend_changed"
 
 # --- 私有变量 ---
 
+## 当前 start request 的结果状态。
+## [br]
+## @api private
+## [br]
 var _status: Status = Status.REJECTED
+
+## 与结果对应的 Utility request ID。
+## [br]
+## @api private
+## [br]
 var _request_id: int = 0
+
+## 用于区分结果原因的稳定标识。
+## [br]
+## @api private
+## [br]
 var _reason: StringName = &""
+
+## 与状态及原因对应的 Godot Error 值。
+## [br]
+## @api private
+## [br]
 var _error_code: Error = ERR_UNCONFIGURED
+
+## BGM 成功发布时使用的冻结播放历史键。
+## [br]
+## @api private
+## [br]
 var _history_key: String = ""
+
+## 成功会话的本地或 backend owner 种类。
+## [br]
+## @api private
+## [br]
 var _owner_kind: GFBgmSessionHandle.OwnerKind = GFBgmSessionHandle.OwnerKind.NONE
+
+## 记录 backend 对此次请求的处理阶段。
+## [br]
+## @api private
+## [br]
 var _backend_disposition: BackendDisposition = BackendDisposition.NOT_ATTEMPTED
+
+## 成功结果所关联的 BGM 会话句柄。
+## [br]
+## @api private
+## [br]
 var _session_handle: GFBgmSessionHandle = null
+
+## 标记结果字段是否通过框架配置完成。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
 
 
@@ -489,6 +533,10 @@ func is_configured_for_framework() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 检查结果状态、原因标识与 Godot Error 是否属于允许组合。
+## [br]
+## @api private
+## [br]
 static func _status_reason_error_is_valid(
 	status: Status,
 	reason: StringName,
@@ -541,6 +589,10 @@ static func _status_reason_error_is_valid(
 	return false
 
 
+## 检查状态和原因与 backend disposition 的组合约束。
+## [br]
+## @api private
+## [br]
 static func _reason_disposition_is_valid(
 	status: Status,
 	reason: StringName,
@@ -593,6 +645,10 @@ static func _reason_disposition_is_valid(
 	]
 
 
+## 校验成功结果必须含匹配会话句柄，非成功结果必须没有会话 owner。
+## [br]
+## @api private
+## [br]
 static func _session_union_is_valid(
 	status: Status,
 	request_id: int,

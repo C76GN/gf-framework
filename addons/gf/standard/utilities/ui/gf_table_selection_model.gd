@@ -68,8 +68,19 @@ var anchor_row_id: Variant = null
 
 # --- 私有变量 ---
 
+## 当前选择模式，供公共 selection_mode 属性访问器使用。
+## [br]
+## @api private
 var _selection_mode: SelectionMode = SelectionMode.MULTIPLE
+
+## 以行 ID 为键的已选集合查找表。
+## [br]
+## @api private
 var _selected_lookup: Dictionary = {}
+
+## 按选择顺序保存的行 ID 列表。
+## [br]
+## @api private
 var _selected_ids: Array = []
 
 
@@ -350,6 +361,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按模式筛选新 ID、归一化锚点，并仅在选择或锚点变化时发出信号。
+## [br]
+## @api private
 func _replace_selection_internal(
 	row_ids: Array,
 	selection_anchor: Variant,
@@ -378,6 +392,9 @@ func _replace_selection_internal(
 	selection_changed.emit(get_selected_ids())
 	return true
 
+## 更新选择模式；NONE 清空选择，SINGLE 在多选时只保留当前首项。
+## [br]
+## @api private
 func _set_selection_mode(value: SelectionMode) -> void:
 	if _selection_mode == value:
 		return
@@ -392,6 +409,9 @@ func _set_selection_mode(value: SelectionMode) -> void:
 		selection_changed.emit(get_selected_ids())
 
 
+## 按当前模式选中一个 ID；允许调用方控制是否发出变化信号。
+## [br]
+## @api private
 func _select_row_id(row_id: Variant, emit_changed: bool) -> bool:
 	if _selection_mode == SelectionMode.NONE:
 		return false
@@ -408,6 +428,9 @@ func _select_row_id(row_id: Variant, emit_changed: bool) -> bool:
 	return true
 
 
+## 若 ID 已选中则移除它，并在需要时发出变化信号。
+## [br]
+## @api private
 func _deselect_row_id(row_id: Variant, emit_changed: bool) -> bool:
 	if not _selected_lookup.has(row_id):
 		return false
@@ -422,6 +445,9 @@ func _deselect_row_id(row_id: Variant, emit_changed: bool) -> bool:
 	return true
 
 
+## 将非空且尚未选中的 ID 加入查找表与有序列表。
+## [br]
+## @api private
 func _select_row_id_internal(row_id: Variant) -> void:
 	if not _is_valid_row_id(row_id) or _selected_lookup.has(row_id):
 		return
@@ -429,16 +455,25 @@ func _select_row_id_internal(row_id: Variant) -> void:
 	_selected_ids.append(row_id)
 
 
+## 清空选择查找表、顺序列表和范围锚点，不发出信号。
+## [br]
+## @api private
 func _clear_selection_internal() -> void:
 	_selected_lookup.clear()
 	_selected_ids.clear()
 	anchor_row_id = null
 
 
+## null 不是有效的稳定行 ID。
+## [br]
+## @api private
 func _is_valid_row_id(row_id: Variant) -> bool:
 	return row_id != null
 
 
+## 比较两个数组的长度与逐位置元素值。
+## [br]
+## @api private
 func _arrays_equal(left_values: Array, right_values: Array) -> bool:
 	if left_values.size() != right_values.size():
 		return false

@@ -6,15 +6,54 @@ extends RefCounted
 
 # --- 常量 ---
 
+## change 输入允许的字段名集合。
+## [br]
+## @api private
+## [br]
 const _CHANGE_FIELDS: PackedStringArray = ["kind", "source_path", "target_path"]
+
+## change.kind 允许的操作值集合。
+## [br]
+## @api private
+## [br]
 const _CHANGE_KINDS: PackedStringArray = ["delete", "move", "rename"]
+
+## change 字典允许的最大字段数。
+## [br]
+## @api private
+## [br]
 const _MAX_CHANGE_FIELDS: int = 3
+
+## change 字段名允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_CHANGE_KEY_LENGTH: int = 32
+
+## change.kind 字段允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_CHANGE_KIND_LENGTH: int = 16
+
+## change 路径字段允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_CHANGE_PATH_LENGTH: int = 16_379
+
+## Project Layout analysis 闭合契约实现脚本。
+## [br]
+## @api private
+## [br]
 const _ANALYSIS_CONTRACT_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd"
 )
+
+## change 分析接受的 validation 字段名集合。
+## [br]
+## @api private
+## [br]
 const _VALIDATION_FIELDS: PackedStringArray = [
 	"valid",
 	"errors",
@@ -22,6 +61,11 @@ const _VALIDATION_FIELDS: PackedStringArray = [
 	"complete",
 	"index",
 ]
+
+## change 分析接受的查询 index 字段名集合。
+## [br]
+## @api private
+## [br]
 const _INDEX_FIELDS: PackedStringArray = [
 	"node_by_id",
 	"node_id_by_path",
@@ -159,6 +203,10 @@ func analyze_validated_change(
 
 # --- 私有/辅助方法 ---
 
+## 初始化 impact 报告的字段、unknown 状态和只读 effects 标记。
+## [br]
+## @api private
+## [br]
 func _make_result(source_analysis_digest: String) -> Dictionary:
 	return {
 		"schema_version": 1,
@@ -175,6 +223,10 @@ func _make_result(source_analysis_digest: String) -> Dictionary:
 	}
 
 
+## 构造 change 输入超出资源边界时返回的 impact 报告。
+## [br]
+## @api private
+## [br]
 func _make_resource_limited_result() -> Dictionary:
 	var result: Dictionary = _make_result("")
 	_add_issue(
@@ -185,6 +237,10 @@ func _make_resource_limited_result() -> Dictionary:
 	return result
 
 
+## 要求 validation 和其 index 均具备精确字段集合且 valid 为 true。
+## [br]
+## @api private
+## [br]
 func _validation_is_usable(validation: Dictionary) -> bool:
 	if not _has_exact_fields(validation, _VALIDATION_FIELDS):
 		return false
@@ -194,6 +250,10 @@ func _validation_is_usable(validation: Dictionary) -> bool:
 	return _has_exact_fields(analysis_index, _INDEX_FIELDS)
 
 
+## 无效回调允许继续；有效回调须接收一个参数、工作量为正并返回 true。
+## [br]
+## @api private
+## [br]
 func _checkpoint_allows(checkpoint: Callable, work_units: int = 1) -> bool:
 	if not checkpoint.is_valid():
 		return true
@@ -206,6 +266,9 @@ func _checkpoint_allows(checkpoint: Callable, work_units: int = 1) -> bool:
 	return false
 
 
+## 把影响结果置为不完整且 unknown，清空受影响节点、阻断项和证据，至多追加一次协作检查中止问题。
+## [br]
+## @api private
 func _stop_for_checkpoint(result: Dictionary) -> void:
 	result["complete"] = false
 	result["status"] = "unknown"
@@ -220,6 +283,9 @@ func _stop_for_checkpoint(result: Dictionary) -> void:
 		)
 
 
+## 在深入解析前限制变更字段数量、文本键闭集及各值长度；只检验有界形状，不判定操作种类或路径语义。
+## [br]
+## @api private
 func _change_is_intrinsically_admissible(change: Dictionary) -> bool:
 	if change.size() > _MAX_CHANGE_FIELDS:
 		return false
@@ -244,6 +310,9 @@ func _change_is_intrinsically_admissible(change: Dictionary) -> bool:
 	return true
 
 
+## 校验 delete、move、rename 及规范相对路径，移动和改名必须有非根目标；问题写入共享结果，仍返回固定形状供调用方判断。
+## [br]
+## @api private
 func _normalize_change(change: Dictionary, result: Dictionary) -> Dictionary:
 	for key_value: Variant in change.keys():
 		if not key_value is String:
@@ -270,6 +339,9 @@ func _normalize_change(change: Dictionary, result: Dictionary) -> Dictionary:
 	}
 
 
+## 接受项目根标记点或不含空段、点段、父段、反斜杠及协议冒号的相对路径；只检验文本，不读取文件系统。
+## [br]
+## @api private
 func _canonical_relative_path(path: String) -> String:
 	if path == ".":
 		return path
@@ -284,6 +356,9 @@ func _canonical_relative_path(path: String) -> String:
 	return path
 
 
+## 通过已构建的路径索引读取节点 ID，索引缺失或值不是文本时返回空串。
+## [br]
+## @api private
 func _find_node_id(analysis_index: Dictionary, relative_path: String) -> String:
 	var node_id_by_path: Dictionary = _get_dictionary(
 		analysis_index,
@@ -293,6 +368,9 @@ func _find_node_id(analysis_index: Dictionary, relative_path: String) -> String:
 	return node_id_value if node_id_value is String else ""
 
 
+## 从源节点广度收集去重子孙并排序，包含源自身；遍历和排序都计入协作检查，停止时撤销影响结果并返回空集合。
+## [br]
+## @api private
 func _collect_descendants(
 	impact: Dictionary,
 	analysis_index: Dictionary,
@@ -336,6 +414,9 @@ func _collect_descendants(
 	return collected_ids
 
 
+## 从受影响节点收集去重证据 ID 并排序；只引用现有节点证据，任一协作检查失败都撤销结果并返回空集合。
+## [br]
+## @api private
 func _collect_evidence_ids(
 	impact: Dictionary,
 	analysis_index: Dictionary,
@@ -374,6 +455,9 @@ func _collect_evidence_ids(
 	return collected_ids
 
 
+## 区分明确阻断为 unsafe、仅依赖覆盖不足为 unknown，并确保存在依赖覆盖限制；complete 只反映库存输入和图完整性，不宣称变更安全。
+## [br]
+## @api private
 func _finalize_result(
 	result: Dictionary,
 	analysis: Dictionary,
@@ -412,6 +496,10 @@ func _finalize_result(
 	return result
 
 
+## 按元素数和逐次折半层数估算排序工作单位数。
+## [br]
+## @api private
+## [br]
 func _sort_work_units(item_count: int) -> int:
 	if item_count <= 1:
 		return item_count
@@ -423,6 +511,10 @@ func _sort_work_units(item_count: int) -> int:
 	return item_count * levels
 
 
+## 检查 result.issues 是否包含指定 kind 的字典项。
+## [br]
+## @api private
+## [br]
 func _has_issue_kind(result: Dictionary, expected_kind: String) -> bool:
 	for issue_value: Variant in _get_array(result, "issues"):
 		if issue_value is Dictionary:
@@ -432,6 +524,10 @@ func _has_issue_kind(result: Dictionary, expected_kind: String) -> bool:
 	return false
 
 
+## 向 impact result.blockers 追加 kind、path 和 message 三字段记录。
+## [br]
+## @api private
+## [br]
 func _add_blocker(
 	result: Dictionary,
 	blocker_kind: String,
@@ -446,6 +542,10 @@ func _add_blocker(
 	})
 
 
+## 向 impact result.issues 追加一条 error 级诊断。
+## [br]
+## @api private
+## [br]
 func _add_issue(result: Dictionary, issue_kind: String, message: String) -> void:
 	var issues: Array = _get_array(result, "issues")
 	issues.append({
@@ -455,6 +555,10 @@ func _add_issue(result: Dictionary, issue_kind: String, message: String) -> void
 	})
 
 
+## 判断字典键是否全部为字符串且与给定字段集合完全相同。
+## [br]
+## @api private
+## [br]
 func _has_exact_fields(source: Dictionary, fields: PackedStringArray) -> bool:
 	if source.size() != fields.size():
 		return false
@@ -467,26 +571,46 @@ func _has_exact_fields(source: Dictionary, fields: PackedStringArray) -> bool:
 	return true
 
 
+## 读取字典中的 String 字段；类型不匹配时返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_string(source: Dictionary, key: String, default_value: String = "") -> String:
 	var value: Variant = source.get(key, default_value)
 	return value if value is String else default_value
 
 
+## 读取字典中的 int 字段；类型不匹配时返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_int(source: Dictionary, key: String, default_value: int = 0) -> int:
 	var value: Variant = source.get(key, default_value)
 	return value if value is int else default_value
 
 
+## 读取字典中的 bool 字段；类型不匹配时返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_bool(source: Dictionary, key: String, default_value: bool = false) -> bool:
 	var value: Variant = source.get(key, default_value)
 	return value if value is bool else default_value
 
 
+## 返回指定字段中的 Array；类型不匹配时返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_array(source: Dictionary, key: String) -> Array:
 	var value: Variant = source.get(key, [])
 	return value if value is Array else []
 
 
+## 返回指定字段中的 Dictionary；类型不匹配时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_dictionary(source: Dictionary, key: String) -> Dictionary:
 	var value: Variant = source.get(key, {})
 	return value if value is Dictionary else {}

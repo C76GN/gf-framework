@@ -36,10 +36,34 @@ enum CommandTier {
 ## @api public
 const DANGER_CONFIRMATION_ARGUMENT: String = "--confirm"
 
+## 内置 help 命令的用法文本。
+## [br]
+## @api private
+## [br]
 const _HELP_USAGE: String = "help"
+
+## 内置 clear 命令的用法文本。
+## [br]
+## @api private
+## [br]
 const _CLEAR_USAGE: String = "clear"
+
+## 内置 scene.tree 命令的用法文本。
+## [br]
+## @api private
+## [br]
 const _SCENE_TREE_USAGE: String = "scene.tree [max_depth=3] [max_nodes=80] [root_path=.]"
+
+## 内置 scene.node 命令的用法文本。
+## [br]
+## @api private
+## [br]
 const _SCENE_NODE_USAGE: String = "scene.node [path=.]"
+
+## 内置场景命令限制参数可解析的最大有符号整数文本。
+## [br]
+## @api private
+## [br]
 const _MAX_LIMIT_DIGITS: String = "9223372036854775807"
 
 
@@ -135,18 +159,38 @@ var require_danger_confirmation: bool = true
 # --- 私有变量 ---
 
 # 已注册命令表。
+## 以规范化命令名为键保存命令回调及其所有者记录。
+## [br]
+## @api private
+## [br]
 var _commands: Dictionary = {}
 
 # 下一次命令注册使用的内部所有权标识。
+## 分配给下一次命令登记的生命周期 ID。
+## [br]
+## @api private
+## [br]
 var _next_registration_id: int = 1
 
 # 内置命令注册句柄。
+## 保留内置命令的生命周期订阅，以便 utility 释放时撤销登记。
+## [br]
+## @api private
+## [br]
 var _builtin_command_subscriptions: Array[GFLifetimeSubscription] = []
 
 # 控制台 GUI 实例。
+## 当前创建的开发者控制台 GUI。
+## [br]
+## @api private
+## [br]
 var _console_gui: _GFConsoleGUI
 
 # 当前已连接的日志工具。
+## 当前已连接日志信号的 GFLogUtility 实例。
+## [br]
+## @api private
+## [br]
 var _connected_log_util: GFLogUtility = null
 
 
@@ -599,6 +643,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 保存已验证的命令定义及所有者弱引用；metadata 在登记时深复制。
+## [br]
+## @api private
+## [br]
 func _register_command_entry(
 	owner: Object,
 	cmd_name: String,
@@ -623,10 +671,18 @@ func _register_command_entry(
 		"registration_id": registration_id,
 	}
 
+## 读取命令登记表中的原始条目，缺失或非字典值时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_command_entry(cmd_name: String) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_commands, cmd_name, {}))
 
 
+## 取得所有者仍存活的命令条目；所有者失效时撤销其登记并返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_live_command_entry(cmd_name: String) -> Dictionary:
 	var entry: Dictionary = _get_command_entry(cmd_name)
 	if entry.is_empty():
@@ -637,6 +693,10 @@ func _get_live_command_entry(cmd_name: String) -> Dictionary:
 	return {}
 
 
+## 验证登记参数，并允许空闲命令名或同一所有者重新登记。
+## [br]
+## @api private
+## [br]
 func _can_register_command_name(owner: Object, cmd_name: String, callback: Callable) -> bool:
 	if owner == null:
 		return false
@@ -654,6 +714,10 @@ func _can_register_command_name(owner: Object, cmd_name: String, callback: Calla
 	)
 
 
+## 核对条目的所有者弱引用、实例有效性及记录的实例 ID。
+## [br]
+## @api private
+## [br]
 func _command_entry_owner_is_live(entry: Dictionary) -> bool:
 	var owner_ref_value: Variant = GFVariantData.get_option_value(entry, "owner_ref")
 	if not (owner_ref_value is WeakRef):
@@ -669,6 +733,10 @@ func _command_entry_owner_is_live(entry: Dictionary) -> bool:
 	)
 
 
+## 移除登记表中属于指定 registration_id 的全部命令名。
+## [br]
+## @api private
+## [br]
 func _cancel_registration(registration_id: int) -> void:
 	if registration_id <= 0:
 		return
@@ -681,6 +749,10 @@ func _cancel_registration(registration_id: int) -> void:
 		_erase_dictionary_key(_commands, cmd_name)
 
 
+## 收集所有者已失效的登记 ID，并逐个清除其命令条目。
+## [br]
+## @api private
+## [br]
 func _prune_released_commands() -> void:
 	var stale_registration_ids: PackedInt64Array = PackedInt64Array()
 	for cmd_name: String in _commands.keys():
@@ -694,11 +766,19 @@ func _prune_released_commands() -> void:
 		_cancel_registration(registration_id)
 
 
+## 仅保留当前活动的内置命令生命周期订阅。
+## [br]
+## @api private
+## [br]
 func _remember_builtin_command(subscription: GFLifetimeSubscription) -> void:
 	if subscription != null and subscription.is_active():
 		_builtin_command_subscriptions.append(subscription)
 
 
+## 从 Engine 主循环取得 SceneTree；主循环不是场景树时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_main_scene_tree() -> SceneTree:
 	var main_loop: MainLoop = Engine.get_main_loop()
 	if main_loop is SceneTree:
@@ -707,6 +787,10 @@ func _get_main_scene_tree() -> SceneTree:
 	return null
 
 
+## 获取已注册的 GFLogUtility；类型不符或不存在时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_log_utility() -> GFLogUtility:
 	var utility: Variant = get_utility(GFLogUtility)
 	if utility is GFLogUtility:
@@ -715,32 +799,56 @@ func _get_log_utility() -> GFLogUtility:
 	return null
 
 
+## 将文本追加到 PackedStringArray；数组 API 的返回值不向调用方传播。
+## [br]
+## @api private
+## [br]
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 从字典移除指定键；字典 API 的返回值不向调用方传播。
+## [br]
+## @api private
+## [br]
 func _erase_dictionary_key(source: Dictionary, key: Variant) -> void:
 	var erased: bool = source.erase(key)
 	if erased:
 		return
 
 
+## 连接信号回调；连接 API 的错误码不向调用方传播。
+## [br]
+## @api private
+## [br]
 func _connect_signal(source_signal: Signal, callback: Callable) -> void:
 	var connected: int = source_signal.connect(callback)
 	if connected == OK:
 		return
 
 
+## 检查文本是否已包含空格或 Tab 参数分隔符。
+## [br]
+## @api private
+## [br]
 func _has_argument_boundary(text: String) -> bool:
 	return text.find(" ") >= 0 or text.find("\t") >= 0
 
 
+## 检查文本是否以空格或 Tab 参数分隔符结尾。
+## [br]
+## @api private
+## [br]
 func _ends_with_argument_separator(text: String) -> bool:
 	return text.ends_with(" ") or text.ends_with("\t")
 
 
+## 从条目 metadata 或命令定义取得补全器，使用复制的 context 调用并归一化结果。
+## [br]
+## @api private
+## [br]
 func _call_argument_suggester(entry: Dictionary, context: Dictionary) -> PackedStringArray:
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(entry, "metadata")
 	var suggester: Callable = _get_callable_value(GFVariantData.get_option_value(metadata, "argument_suggester", Callable()))
@@ -756,6 +864,10 @@ func _call_argument_suggester(entry: Dictionary, context: Dictionary) -> PackedS
 	return _string_suggestions_from_variant(raw_suggestions)
 
 
+## 将 PackedStringArray 或 Array 建议转换为唯一、排序后的字符串数组。
+## [br]
+## @api private
+## [br]
 func _string_suggestions_from_variant(value: Variant) -> PackedStringArray:
 	var suggestions: PackedStringArray = PackedStringArray()
 	if value is PackedStringArray:
@@ -770,6 +882,10 @@ func _string_suggestions_from_variant(value: Variant) -> PackedStringArray:
 	return suggestions
 
 
+## 保留以给定前缀开头的建议；空前缀时直接返回原数组。
+## [br]
+## @api private
+## [br]
 func _filter_suggestions_by_prefix(suggestions: PackedStringArray, prefix: String) -> PackedStringArray:
 	if prefix.is_empty():
 		return suggestions
@@ -781,12 +897,20 @@ func _filter_suggestions_by_prefix(suggestions: PackedStringArray, prefix: Strin
 	return filtered
 
 
+## 仅在目标数组尚无相同文本时追加建议。
+## [br]
+## @api private
+## [br]
 func _append_unique_suggestion(target: PackedStringArray, value: String) -> void:
 	if target.has(value):
 		return
 	_append_packed_string(target, value)
 
 
+## 按空格和 Tab 切分命令输入，支持单双引号分组及反斜线转义。
+## [br]
+## @api private
+## [br]
 func _parse_command_line(raw_input: String) -> PackedStringArray:
 	var parts: PackedStringArray = PackedStringArray()
 	var current: String = ""
@@ -835,6 +959,11 @@ func _parse_command_line(raw_input: String) -> PackedStringArray:
 	return parts
 
 
+## 检查命令风险等级；等级越限或缺少危险确认参数时阻止执行。
+## 危险确认参数通过校验后会从 args 中移除。
+## [br]
+## @api private
+## [br]
 func _prepare_command_execution(cmd_name: String, entry: Dictionary, args: PackedStringArray) -> bool:
 	var tier: CommandTier = _get_command_tier(entry)
 	if tier > max_command_tier:
@@ -853,12 +982,20 @@ func _prepare_command_execution(cmd_name: String, entry: Dictionary, args: Packe
 	return true
 
 
+## 从命令 metadata 读取风险等级，缺失或无法转成整数时按 OBSERVE 处理。
+## [br]
+## @api private
+## [br]
 func _get_command_tier(entry: Dictionary) -> CommandTier:
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(entry, "metadata")
 	var tier_value: Variant = GFVariantData.get_option_value(metadata, "tier", CommandTier.OBSERVE)
 	return _to_command_tier(GFVariantData.to_int(tier_value, CommandTier.OBSERVE))
 
 
+## 接受缺省风险等级，或验证已提供的等级为 OBSERVE 到 DANGER 之间的整数。
+## [br]
+## @api private
+## [br]
 func _command_metadata_has_valid_tier(metadata: Dictionary, cmd_name: String) -> bool:
 	if not metadata.has("tier") and not metadata.has(&"tier"):
 		return true
@@ -876,12 +1013,20 @@ func _command_metadata_has_valid_tier(metadata: Dictionary, cmd_name: String) ->
 	return false
 
 
+## 返回当前登记 ID 并递增计数器。
+## [br]
+## @api private
+## [br]
 func _take_registration_id() -> int:
 	var registration_id: int = _next_registration_id
 	_next_registration_id += 1
 	return registration_id
 
 
+## 将 metadata 转为目录可编码值，并排除定义对象和补全 Callable 字段。
+## [br]
+## @api private
+## [br]
 func _make_command_catalog_metadata(metadata: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for key: Variant in metadata.keys():
@@ -892,6 +1037,10 @@ func _make_command_catalog_metadata(metadata: Dictionary) -> Dictionary:
 	return result
 
 
+## 仅当 Variant 实际为 Callable 时返回其值，否则返回空 Callable。
+## [br]
+## @api private
+## [br]
 func _get_callable_value(value: Variant) -> Callable:
 	if value is Callable:
 		var callback: Callable = value
@@ -899,6 +1048,10 @@ func _get_callable_value(value: Variant) -> Callable:
 	return Callable()
 
 
+## 将已知枚举整数还原为命令等级，未知值按 DANGER 处理。
+## [br]
+## @api private
+## [br]
 func _to_command_tier(value: int) -> CommandTier:
 	match value:
 		CommandTier.OBSERVE:
@@ -913,6 +1066,10 @@ func _to_command_tier(value: int) -> CommandTier:
 			return CommandTier.DANGER
 
 
+## 为需保护的命令参数加双引号，并转义反斜线和双引号。
+## [br]
+## @api private
+## [br]
 static func _encode_command_argument(value: String) -> String:
 	var requires_quotes: bool = value.is_empty()
 	for index: int in range(value.length()):
@@ -931,6 +1088,10 @@ static func _encode_command_argument(value: String) -> String:
 	return "\"%s\"" % value.replace("\\", "\\\\").replace("\"", "\\\"")
 
 
+## 扫描引号和转义状态，返回当前末尾参数的起始索引；无活动参数时返回文本长度。
+## [br]
+## @api private
+## [br]
 static func _find_active_argument_start(text: String) -> int:
 	var in_quotes: bool = false
 	var quote_character: String = ""
@@ -967,10 +1128,18 @@ static func _find_active_argument_start(text: String) -> int:
 	return token_start
 
 
+## 将 Variant 转为文本后执行 BBCode 方括号转义。
+## [br]
+## @api private
+## [br]
 func _escape_bbcode_text(value: Variant) -> String:
 	return _escape_bbcode_string(GFVariantData.to_text(value))
 
 
+## 转义原文中的右方括号，再将左方括号替换为 BBCode 安全标签。
+## [br]
+## @api private
+## [br]
 static func _escape_bbcode_string(text: String) -> String:
 	# 先处理原文片段，再插入左括号标签，避免重新转义生成的标签。
 	var segments: PackedStringArray = text.split("[")
@@ -979,6 +1148,10 @@ static func _escape_bbcode_string(text: String) -> String:
 	return "[lb]".join(segments)
 
 
+## 参数数量未超过上限时通过，否则输出用法错误并返回 false。
+## [br]
+## @api private
+## [br]
 func _validate_builtin_argument_count(args: PackedStringArray, maximum: int, usage: String) -> bool:
 	if args.size() <= maximum:
 		return true
@@ -986,11 +1159,19 @@ func _validate_builtin_argument_count(args: PackedStringArray, maximum: int, usa
 	return false
 
 
+## 以控制台错误颜色追加错误说明和内置命令用法。
+## [br]
+## @api private
+## [br]
 func _append_builtin_usage_error(usage: String, message: String) -> void:
 	_console_gui.append_text("[color=red]%s[/color]" % _escape_bbcode_text(message))
 	_console_gui.append_text("用法：%s" % _escape_bbcode_text(usage))
 
 
+## 解析非负十进制限制值并检查 64 位上限和给定最小值；非法输入返回 -1。
+## [br]
+## @api private
+## [br]
 func _parse_builtin_limit(value: String, minimum: int) -> int:
 	var negative: bool = value.begins_with("-")
 	var digits: String = value.substr(1) if negative or value.begins_with("+") else value
@@ -1014,6 +1195,10 @@ func _parse_builtin_limit(value: String, minimum: int) -> int:
 	return parsed if parsed >= minimum else -1
 
 
+## 输出可用命令及描述；无 GUI 或多余参数时不继续处理。
+## [br]
+## @api private
+## [br]
 func _cmd_help(args: PackedStringArray) -> void:
 	if not is_instance_valid(_console_gui):
 		return
@@ -1031,6 +1216,10 @@ func _cmd_help(args: PackedStringArray) -> void:
 	_console_gui.append_text("[color=cyan]----------------[/color]")
 
 
+## 校验 clear 参数后清空控制台输出。
+## [br]
+## @api private
+## [br]
 func _cmd_clear(args: PackedStringArray) -> void:
 	if not is_instance_valid(_console_gui):
 		return
@@ -1039,6 +1228,10 @@ func _cmd_clear(args: PackedStringArray) -> void:
 	_console_gui.clear_output()
 
 
+## 按可选深度、节点数和根路径生成场景树文本；无效限制或节点路径时输出用法错误。
+## [br]
+## @api private
+## [br]
 func _cmd_scene_tree(args: PackedStringArray) -> void:
 	if not is_instance_valid(_console_gui):
 		return
@@ -1074,6 +1267,10 @@ func _cmd_scene_tree(args: PackedStringArray) -> void:
 	_console_gui.append_lines(_escape_plain_lines(lines))
 
 
+## 输出指定节点的路径、类型、子节点数、脚本及成员计数等摘要。
+## [br]
+## @api private
+## [br]
 func _cmd_scene_node(args: PackedStringArray) -> void:
 	if not is_instance_valid(_console_gui):
 		return
@@ -1107,6 +1304,10 @@ func _cmd_scene_node(args: PackedStringArray) -> void:
 	_console_gui.append_lines(_escape_plain_lines(lines))
 
 
+## 按空路径、绝对路径或当前场景优先的相对路径解析节点。
+## [br]
+## @api private
+## [br]
 func _resolve_console_node(path: String) -> Node:
 	var tree: SceneTree = _get_main_scene_tree()
 	if tree == null:
@@ -1125,6 +1326,10 @@ func _resolve_console_node(path: String) -> Node:
 	return tree.root.get_node_or_null(node_path)
 
 
+## 递归追加节点及其子项，达到节点数或深度限制时标记结果已截断。
+## [br]
+## @api private
+## [br]
 func _append_scene_tree_lines(
 	node: Node,
 	depth: int,
@@ -1154,6 +1359,10 @@ func _append_scene_tree_lines(
 			return
 
 
+## 将每一行纯文本转成 BBCode 安全文本。
+## [br]
+## @api private
+## [br]
 func _escape_plain_lines(lines: PackedStringArray) -> PackedStringArray:
 	var escaped: PackedStringArray = PackedStringArray()
 	for line: String in lines:
@@ -1161,6 +1370,10 @@ func _escape_plain_lines(lines: PackedStringArray) -> PackedStringArray:
 	return escaped
 
 
+## 按深度生成每层两个空格的节点缩进。
+## [br]
+## @api private
+## [br]
 func _make_tree_indent(depth: int) -> String:
 	var indent: String = ""
 	for _index: int in range(depth):
@@ -1168,10 +1381,25 @@ func _make_tree_indent(depth: int) -> String:
 	return indent
 
 
+## 节点位于场景树中时返回完整路径，否则返回节点名。
+## [br]
+## @api private
+## [br]
 func _get_console_node_path(node: Node) -> String:
 	return str(node.get_path()) if node.is_inside_tree() else String(node.name)
 
 
+
+
+
+
+
+
+# --- 信号处理函数 ---
+
+## 先在有效 GUI 中回显转义后的原始输入，再执行命令；命令执行仍可在 GUI 不存在时进行。
+## [br]
+## @api private
 func _on_command_submitted(raw_input: String) -> void:
 	if is_instance_valid(_console_gui):
 		_console_gui.append_text("[color=gray]> %s[/color]" % _escape_bbcode_text(raw_input))
@@ -1181,6 +1409,11 @@ func _on_command_submitted(raw_input: String) -> void:
 		return
 
 
+
+
+## 跳过无 GUI 或被过滤标签的日志，按等级着色并转义标签和正文，避免日志文本被当作 BBCode。
+## [br]
+## @api private
 func _on_log_emitted(level: int, tag: String, message: String) -> void:
 	if not is_instance_valid(_console_gui):
 		return
@@ -1211,6 +1444,10 @@ func _on_log_emitted(level: int, tag: String, message: String) -> void:
 
 # --- 内部类 ---
 
+## 封装控制台画布层、输入控件和命令补全交互的私有 GUI 实现。
+## [br]
+## @api private
+## [br]
 class _GFConsoleGUI extends CanvasLayer:
 	# --- 信号 ---
 
@@ -1224,9 +1461,28 @@ class _GFConsoleGUI extends CanvasLayer:
 
 	# --- 常量 ---
 
+	## 普通模式下控制台使用的 CanvasLayer 层级。
+	## [br]
+	## @api private
+	## [br]
 	const _DEFAULT_LAYER: int = 1
+
+	## keep_topmost 启用时控制台使用的 CanvasLayer 层级。
+	## [br]
+	## @api private
+	## [br]
 	const _TOPMOST_LAYER: int = 150
+
+	## 窗口模式面板与视口边缘之间的留白。
+	## [br]
+	## @api private
+	## [br]
 	const _WINDOW_MARGIN: float = 16.0
+
+	## 可拖拽窗口右下角缩放手柄的边长。
+	## [br]
+	## @api private
+	## [br]
 	const _RESIZE_HANDLE_SIZE: float = 18.0
 
 
@@ -1312,36 +1568,123 @@ class _GFConsoleGUI extends CanvasLayer:
 
 	# --- 私有变量 ---
 
+	## 控制台主面板控件。
+	## [br]
+	## @api private
+	## [br]
 	var _panel: PanelContainer
+
+	## 控制台面板背景样式对象。
+	## [br]
+	## @api private
+	## [br]
 	var _panel_style: StyleBoxFlat
+
+	## 显示控制台输出的富文本控件。
+	## [br]
+	## @api private
+	## [br]
 	var _output: RichTextLabel
+
+	## 输入命令的文本框。
+	## [br]
+	## @api private
+	## [br]
 	var _input_field: LineEdit
+
+	## 输入需要忽略的日志标签的文本框。
+	## [br]
+	## @api private
+	## [br]
 	var _filter_input: LineEdit
+
+	## 窗口模式下用于缩放面板的控件。
+	## [br]
+	## @api private
+	## [br]
 	var _resize_handle: Panel
+
+	## 当前不显示的日志标签集合。
+	## [br]
+	## @api private
+	## [br]
 	var _ignored_tags: PackedStringArray = PackedStringArray()
+
+	## 已提交到输出控件的 BBCode 文本行。
+	## [br]
+	## @api private
+	## [br]
 	var _output_lines: PackedStringArray = PackedStringArray()
+
+	## 等待延迟刷新追加的文本行。
+	## [br]
+	## @api private
+	## [br]
 	var _pending_lines: PackedStringArray = PackedStringArray()
+
+	## 是否已经排入一次待追加输出的延迟刷新。
+	## [br]
+	## @api private
+	## [br]
 	var _flush_queued: bool = false
+
+	## 已提交的命令历史。
+	## [br]
+	## @api private
+	## [br]
 	var _command_history: PackedStringArray = PackedStringArray()
+
+	## 当前历史浏览索引；-1 表示输入框不在历史项上。
+	## [br]
+	## @api private
+	## [br]
 	var _history_index: int = -1
+
+	## 是否已计算窗口模式的初始位置和尺寸。
+	## [br]
+	## @api private
+	## [br]
 	var _window_layout_initialized: bool = false
+
+	## 是否正在拖动控制台窗口。
+	## [br]
+	## @api private
+	## [br]
 	var _dragging: bool = false
+
+	## 是否正在缩放控制台窗口。
+	## [br]
+	## @api private
+	## [br]
 	var _resizing: bool = false
+
+	## 拖动开始时鼠标相对面板左上角的偏移。
+	## [br]
+	## @api private
+	## [br]
 	var _drag_offset: Vector2 = Vector2.ZERO
+
+	## 缩放开始时记录的鼠标位置。
+	## [br]
+	## @api private
+	## [br]
 	var _resize_origin_mouse: Vector2 = Vector2.ZERO
+
+	## 缩放开始时记录的面板尺寸。
+	## [br]
+	## @api private
+	## [br]
 	var _resize_origin_size: Vector2 = Vector2.ZERO
 
-	func _append_packed_string(target: PackedStringArray, value: String) -> void:
-		var appended: bool = target.append(value)
-		if appended:
-			return
 
 
-	func _connect_signal(source_signal: Signal, callback: Callable) -> void:
-		var connected: int = source_signal.connect(callback)
-		if connected == OK:
-			return
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 创建独立控制台控件树及其输入连接，初始隐藏并使用 ALWAYS 模式；最后按当前设置布局。
+	## [br]
+	## @api private
 	func _init() -> void:
 		_apply_layer()
 		visible = false
@@ -1414,12 +1757,18 @@ class _GFConsoleGUI extends CanvasLayer:
 		_layout_console()
 
 
+	## 入树后重新应用层级、透明度与布局，使构造后的配置变更在首次显示前生效。
+	## [br]
+	## @api private
 	func _ready() -> void:
 		_apply_layer()
 		_apply_background_alpha()
 		_layout_console()
 
 
+	## 拖动或缩放时优先消费输入；否则处理非重复按键的开关、历史浏览和补全，避免这些操作继续传给游戏。
+	## [br]
+	## @api private
 	func _input(event: InputEvent) -> void:
 		if visible and (_dragging or _resizing):
 			_update_window_interaction(event)
@@ -1526,6 +1875,10 @@ class _GFConsoleGUI extends CanvasLayer:
 
 	# --- 私有/辅助方法 ---
 
+	## 更新控制台可见状态；关闭时取消拖动/缩放，打开时布局并延迟聚焦输入框。
+	## [br]
+	## @api private
+	## [br]
 	func _set_console_visible(console_visible: bool) -> void:
 		visible = console_visible
 		if not visible:
@@ -1537,6 +1890,10 @@ class _GFConsoleGUI extends CanvasLayer:
 		call_deferred("_grab_input_focus_if_visible")
 
 
+	## 控件仍有效、在树中且控制台可见时将焦点交给命令输入框。
+	## [br]
+	## @api private
+	## [br]
 	func _grab_input_focus_if_visible() -> void:
 		if is_queued_for_deletion() or not visible or not is_inside_tree():
 			return
@@ -1546,10 +1903,18 @@ class _GFConsoleGUI extends CanvasLayer:
 		_input_field.grab_focus()
 
 
+	## 根据 keep_topmost 选择控制台 CanvasLayer 层级。
+	## [br]
+	## @api private
+	## [br]
 	func _apply_layer() -> void:
 		layer = _TOPMOST_LAYER if keep_topmost else _DEFAULT_LAYER
 
 
+	## 将 background_alpha 写入面板样式当前背景色的 alpha 通道。
+	## [br]
+	## @api private
+	## [br]
 	func _apply_background_alpha() -> void:
 		if _panel_style == null:
 			return
@@ -1559,6 +1924,10 @@ class _GFConsoleGUI extends CanvasLayer:
 		_panel_style.bg_color = color
 
 
+	## 在铺满视口和可拖拽窗口两种模式间布局面板并同步缩放手柄。
+	## [br]
+	## @api private
+	## [br]
 	func _layout_console() -> void:
 		if not is_instance_valid(_panel):
 			return
@@ -1588,6 +1957,10 @@ class _GFConsoleGUI extends CanvasLayer:
 		_sync_resize_handle()
 
 
+	## 返回视口可见矩形尺寸；视口不可用时返回零向量。
+	## [br]
+	## @api private
+	## [br]
 	func _get_viewport_size() -> Vector2:
 		var viewport: Viewport = get_viewport()
 		if viewport == null:
@@ -1597,6 +1970,10 @@ class _GFConsoleGUI extends CanvasLayer:
 		return Vector2(viewport_rect.size.x, viewport_rect.size.y)
 
 
+	## 将请求窗口尺寸限制在最小尺寸与视口留白后最大尺寸之间。
+	## [br]
+	## @api private
+	## [br]
 	func _get_clamped_window_size(requested_size: Vector2) -> Vector2:
 		var viewport_size: Vector2 = _get_viewport_size()
 		if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
@@ -1616,6 +1993,10 @@ class _GFConsoleGUI extends CanvasLayer:
 		)
 
 
+	## 将面板尺寸及左上角位置限制在视口内，并保留窗口边缘留白。
+	## [br]
+	## @api private
+	## [br]
 	func _clamp_panel_rect() -> void:
 		if not is_instance_valid(_panel):
 			return
@@ -1633,6 +2014,10 @@ class _GFConsoleGUI extends CanvasLayer:
 		)
 
 
+	## 将缩放手柄可见性、位置和尺寸同步到当前窗口布局。
+	## [br]
+	## @api private
+	## [br]
 	func _sync_resize_handle() -> void:
 		if not is_instance_valid(_resize_handle) or not is_instance_valid(_panel):
 			return
@@ -1642,6 +2027,10 @@ class _GFConsoleGUI extends CanvasLayer:
 		_resize_handle.size = Vector2(_RESIZE_HANDLE_SIZE, _RESIZE_HANDLE_SIZE)
 
 
+	## 处理鼠标释放以终止拖动/缩放，并按当前模式更新面板位置或尺寸。
+	## [br]
+	## @api private
+	## [br]
 	func _update_window_interaction(event: InputEvent) -> void:
 		if event is InputEventMouseButton:
 			var button_event: InputEventMouseButton = event
@@ -1664,6 +2053,10 @@ class _GFConsoleGUI extends CanvasLayer:
 			_sync_resize_handle()
 
 
+	## 仅排入一次延迟输出刷新。
+	## [br]
+	## @api private
+	## [br]
 	func _queue_flush() -> void:
 		if _flush_queued:
 			return
@@ -1672,6 +2065,10 @@ class _GFConsoleGUI extends CanvasLayer:
 		call_deferred("_flush_pending_lines")
 
 
+	## 将待处理行移入输出缓冲，修剪行数并重绘文本控件。
+	## [br]
+	## @api private
+	## [br]
 	func _flush_pending_lines() -> void:
 		_flush_queued = false
 		if _pending_lines.is_empty():
@@ -1684,12 +2081,20 @@ class _GFConsoleGUI extends CanvasLayer:
 		_render_output()
 
 
+	## 移除最旧输出行，直至不超过至少为 1 的 max_output_lines。
+	## [br]
+	## @api private
+	## [br]
 	func _trim_output_lines() -> void:
 		var max_lines: int = maxi(max_output_lines, 1)
 		while _output_lines.size() > max_lines:
 			_output_lines.remove_at(0)
 
 
+	## 清空富文本控件并按换行符重绘当前输出缓冲。
+	## [br]
+	## @api private
+	## [br]
 	func _render_output() -> void:
 		_output.clear()
 		if _output_lines.is_empty():
@@ -1698,6 +2103,10 @@ class _GFConsoleGUI extends CanvasLayer:
 		_output.append_text("\n".join(_output_lines) + "\n")
 
 
+	## 将历史浏览位置移向较早的一条命令并填入输入框。
+	## [br]
+	## @api private
+	## [br]
 	func _show_previous_history() -> void:
 		if _command_history.is_empty():
 			return
@@ -1708,6 +2117,10 @@ class _GFConsoleGUI extends CanvasLayer:
 		_set_input_text(_command_history[_history_index])
 
 
+	## 将历史浏览位置移向较新的命令；越过末尾时清空输入框并退出历史浏览。
+	## [br]
+	## @api private
+	## [br]
 	func _show_next_history() -> void:
 		if _command_history.is_empty() or _history_index < 0:
 			return
@@ -1719,6 +2132,10 @@ class _GFConsoleGUI extends CanvasLayer:
 		_set_input_text(_command_history[_history_index])
 
 
+	## 先尝试参数补全；否则按当前命令前缀补全命令名或列出多个匹配项。
+	## [br]
+	## @api private
+	## [br]
 	func _apply_command_completion() -> void:
 		var text: String = _input_field.text
 		if _try_apply_argument_completion(text):
@@ -1746,6 +2163,10 @@ class _GFConsoleGUI extends CanvasLayer:
 			append_text("[color=cyan]%s[/color]" % GFConsoleUtility._escape_bbcode_string(", ".join(matches)))
 
 
+	## 有参数边界且参数补全器有效时调用它，并应用唯一结果或显示多个结果。
+	## [br]
+	## @api private
+	## [br]
 	func _try_apply_argument_completion(text: String) -> bool:
 		if not command_argument_provider.is_valid() or not _input_has_argument_boundary(text):
 			return false
@@ -1768,11 +2189,19 @@ class _GFConsoleGUI extends CanvasLayer:
 		return false
 
 
+	## 检查去除左侧空白后的输入是否包含空格或 Tab。
+	## [br]
+	## @api private
+	## [br]
 	func _input_has_argument_boundary(text: String) -> bool:
 		var stripped_left: String = text.strip_edges(true, false)
 		return stripped_left.find(" ") >= 0 or stripped_left.find("\t") >= 0
 
 
+	## 编码补全文本并替换当前活动参数，再在其后追加空格。
+	## [br]
+	## @api private
+	## [br]
 	func _replace_active_argument(text: String, completion: String) -> String:
 		var argument_start: int = GFConsoleUtility._find_active_argument_start(text)
 		var encoded_completion: String = GFConsoleUtility._encode_command_argument(
@@ -1781,6 +2210,10 @@ class _GFConsoleGUI extends CanvasLayer:
 		return text.substr(0, argument_start) + encoded_completion + " "
 
 
+	## 修剪超出至少保留一项的历史上限，并在索引越界时退出历史浏览。
+	## [br]
+	## @api private
+	## [br]
 	func _trim_command_history() -> void:
 		var max_size: int = maxi(max_history_size, 1)
 		while _command_history.size() > max_size:
@@ -1789,13 +2222,43 @@ class _GFConsoleGUI extends CanvasLayer:
 			_history_index = -1
 
 
+	## 设置命令输入文本并将插入光标移至末尾。
+	## [br]
+	## @api private
+	## [br]
 	func _set_input_text(text: String) -> void:
 		_input_field.text = text
 		_input_field.caret_column = text.length()
 
 
+
+
+	## 原地追加输出或历史字符串并显式消费 append 返回值；调用者负责数量限制。
+	## [br]
+	## @api private
+	func _append_packed_string(target: PackedStringArray, value: String) -> void:
+		var appended: bool = target.append(value)
+		if appended:
+			return
+
+
+
+
+	## 构造控件时连接内部回调并消费错误码；此包装不重试，也不主动断开既有连接。
+	## [br]
+	## @api private
+	func _connect_signal(source_signal: Signal, callback: Callable) -> void:
+		var connected: int = source_signal.connect(callback)
+		if connected == OK:
+			return
+
+
 	# --- 信号处理函数 ---
 
+	## 记录非空提交命令、复位历史浏览状态、发出提交信号并清空输入框。
+	## [br]
+	## @api private
+	## [br]
 	func _on_input_submitted(text: String) -> void:
 		if text.strip_edges().is_empty():
 			return
@@ -1807,6 +2270,10 @@ class _GFConsoleGUI extends CanvasLayer:
 		_input_field.clear()
 
 
+	## 将空过滤文本转换为空集合，否则移除空格并按逗号拆分忽略标签。
+	## [br]
+	## @api private
+	## [br]
 	func _on_filter_changed(text: String) -> void:
 		if text.is_empty():
 			_ignored_tags.clear()
@@ -1814,6 +2281,10 @@ class _GFConsoleGUI extends CanvasLayer:
 			_ignored_tags = text.replace(" ", "").split(",", false)
 
 
+	## 在窗口模式中响应标题栏鼠标输入，记录拖动偏移并转发拖动过程。
+	## [br]
+	## @api private
+	## [br]
 	func _on_header_gui_input(event: InputEvent) -> void:
 		if not windowed or not is_instance_valid(_panel):
 			return
@@ -1832,6 +2303,10 @@ class _GFConsoleGUI extends CanvasLayer:
 			get_viewport().set_input_as_handled()
 
 
+	## 在窗口模式中响应缩放手柄输入，并记录缩放起始鼠标位置和面板尺寸。
+	## [br]
+	## @api private
+	## [br]
 	func _on_resize_handle_gui_input(event: InputEvent) -> void:
 		if not windowed or not is_instance_valid(_panel):
 			return

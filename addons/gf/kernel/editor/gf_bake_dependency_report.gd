@@ -53,7 +53,14 @@ const STATUS_FAILED: StringName = &"failed"
 ## @since 7.0.0
 const STATUS_UNKNOWN: StringName = &"unknown"
 
+## 引用 Variant 安全读取工具，供记录字段的类型化提取。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 引用生成产物报告工具，供汇总已添加的产物报告。
+## [br]
+## @api private
 const _GF_GENERATED_ARTIFACT_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_generated_artifact_report.gd")
 
 
@@ -85,10 +92,29 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 保存 add_input 创建的输入路径记录，供缺失输入判断、摘要计数和可选明细输出。
+## [br]
+## @api private
 var _inputs: Array[Dictionary] = []
+
+## 保存 add_output 创建的输出路径记录，供缺失输出判断、摘要计数和可选明细输出。
+## [br]
+## @api private
 var _outputs: Array[Dictionary] = []
+
+## 保存 add_dependency 创建的逻辑依赖记录，供状态筛选和摘要统计。
+## [br]
+## @api private
 var _dependencies: Array[Dictionary] = []
+
+## 保存 mark_stale 记录的失效事件；非空时摘要状态会被判为 stale。
+## [br]
+## @api private
 var _invalidations: Array[Dictionary] = []
+
+## 保存递归复制后的生成产物报告，供产物状态汇总和可选明细输出。
+## [br]
+## @api private
 var _artifact_reports: Array[Dictionary] = []
 
 
@@ -370,6 +396,9 @@ func summarize(options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按 options 生成路径记录，包含存在性、必需状态、归一化状态、摘要字段及递归复制的元数据。
+## [br]
+## @api private
 func _make_path_entry(path: String, options: Dictionary, default_required: bool) -> Dictionary:
 	var exists: bool = _read_exists(path, options)
 	var status: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
@@ -389,6 +418,9 @@ func _make_path_entry(path: String, options: Dictionary, default_required: bool)
 	}
 
 
+## 先采用显式 exists 选项；否则仅在路径非空且启用 check_filesystem 时查询文件系统。
+## [br]
+## @api private
 func _read_exists(path: String, options: Dictionary) -> bool:
 	if options.has("exists"):
 		return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "exists", false)
@@ -397,6 +429,9 @@ func _read_exists(path: String, options: Dictionary) -> bool:
 	return FileAccess.file_exists(path)
 
 
+## 按失败依赖或产物失败、缺失输入、缺失输出/过期依赖/失效事件的优先级归纳状态；无记录时返回 unknown。
+## [br]
+## @api private
 func _derive_status(
 	missing_inputs: Array[String],
 	missing_outputs: Array[String],
@@ -415,6 +450,9 @@ func _derive_status(
 	return STATUS_CURRENT
 
 
+## 只收集 required 为 true 且状态为 missing 或 exists 为 false 的路径。
+## [br]
+## @api private
 func _collect_missing_paths(entries: Array[Dictionary]) -> Array[String]:
 	var result: Array[String] = []
 	for entry: Dictionary in entries:
@@ -427,6 +465,9 @@ func _collect_missing_paths(entries: Array[Dictionary]) -> Array[String]:
 	return result
 
 
+## 筛选指定状态的逻辑依赖，并按记录顺序返回其 dependency_id。
+## [br]
+## @api private
 func _collect_dependencies_by_status(status: StringName) -> Array[StringName]:
 	var result: Array[StringName] = []
 	for dependency: Dictionary in _dependencies:
@@ -435,6 +476,9 @@ func _collect_dependencies_by_status(status: StringName) -> Array[StringName]:
 	return result
 
 
+## 对 Dictionary 数组中的每个元素执行递归 duplicate(true)，保持数组顺序。
+## [br]
+## @api private
 func _duplicate_dictionary_array(values: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for value: Dictionary in values:
@@ -442,6 +486,9 @@ func _duplicate_dictionary_array(values: Array[Dictionary]) -> Array[Dictionary]
 	return result
 
 
+## 按原顺序把 StringName 数组转换为普通 Array。
+## [br]
+## @api private
 func _string_name_array_to_array(values: Array[StringName]) -> Array:
 	var result: Array = []
 	for value: StringName in values:
@@ -449,6 +496,9 @@ func _string_name_array_to_array(values: Array[StringName]) -> Array:
 	return result
 
 
+## 保留 current、stale、missing 和 failed；其他状态统一归为 unknown。
+## [br]
+## @api private
 func _normalize_status(status: StringName) -> StringName:
 	match status:
 		STATUS_CURRENT, STATUS_STALE, STATUS_MISSING, STATUS_FAILED:

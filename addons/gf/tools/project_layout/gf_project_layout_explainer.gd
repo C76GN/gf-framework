@@ -6,9 +6,18 @@ extends RefCounted
 
 # --- 常量 ---
 
+## Project Layout analysis 闭合契约实现脚本。
+## [br]
+## @api private
+## [br]
 const _ANALYSIS_CONTRACT_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd"
 )
+
+## explanation 接口接受的 validation 字段名集合。
+## [br]
+## @api private
+## [br]
 const _VALIDATION_FIELDS: PackedStringArray = [
 	"valid",
 	"errors",
@@ -16,6 +25,11 @@ const _VALIDATION_FIELDS: PackedStringArray = [
 	"complete",
 	"index",
 ]
+
+## explanation 接口接受的查询 index 字段名集合。
+## [br]
+## @api private
+## [br]
 const _INDEX_FIELDS: PackedStringArray = [
 	"node_by_id",
 	"node_id_by_path",
@@ -23,6 +37,11 @@ const _INDEX_FIELDS: PackedStringArray = [
 	"evidence_by_id",
 	"finding_by_id",
 ]
+
+## finding_id 输入允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_FINDING_ID_LENGTH: int = 256
 
 
@@ -124,6 +143,10 @@ func explain_validated_analysis(
 
 # --- 私有/辅助方法 ---
 
+## 初始化 explanation 的完整输出字段和只读 effects 标记。
+## [br]
+## @api private
+## [br]
 func _make_result(finding_id: String) -> Dictionary:
 	return {
 		"schema_version": 1,
@@ -141,6 +164,10 @@ func _make_result(finding_id: String) -> Dictionary:
 	}
 
 
+## 构造输入超出 explanation 资源边界时返回的结果。
+## [br]
+## @api private
+## [br]
 func _make_resource_limited_result() -> Dictionary:
 	var result: Dictionary = _make_result("")
 	_add_issue(
@@ -151,6 +178,10 @@ func _make_resource_limited_result() -> Dictionary:
 	return result
 
 
+## 要求 validation 和其 index 均具备精确字段集合且 valid 为 true。
+## [br]
+## @api private
+## [br]
 func _validation_is_usable(validation: Dictionary) -> bool:
 	if not _has_exact_fields(validation, _VALIDATION_FIELDS):
 		return false
@@ -160,6 +191,10 @@ func _validation_is_usable(validation: Dictionary) -> bool:
 	return _has_exact_fields(analysis_index, _INDEX_FIELDS)
 
 
+## 无效回调允许继续；有效回调须接收一个参数、工作量为正并返回 true。
+## [br]
+## @api private
+## [br]
 func _checkpoint_allows(checkpoint: Callable, work_units: int = 1) -> bool:
 	if not checkpoint.is_valid():
 		return true
@@ -172,6 +207,9 @@ func _checkpoint_allows(checkpoint: Callable, work_units: int = 1) -> bool:
 	return false
 
 
+## 丢弃当前解释已收集的证据并追加协作检查中止问题，使不完整证据不会作为完整解释发布。
+## [br]
+## @api private
 func _stop_for_checkpoint(result: Dictionary) -> void:
 	result["evidence"] = []
 	_add_issue(
@@ -181,6 +219,9 @@ func _stop_for_checkpoint(result: Dictionary) -> void:
 	)
 
 
+## 用 finding 种类和非空路径组成标题；无路径时仅显示种类，缺少种类使用通用 finding 标识。
+## [br]
+## @api private
 func _make_headline(finding: Dictionary, path: String) -> String:
 	var kind: String = _get_string(finding, "kind", "project_layout_finding")
 	if path.is_empty():
@@ -188,6 +229,9 @@ func _make_headline(finding: Dictionary, path: String) -> String:
 	return "%s · %s" % [kind, path]
 
 
+## 优先说明输入不完整的证明限制，再按严重级别解释阻断或人工复核含义，不把观察结果转成自动修改许可。
+## [br]
+## @api private
 func _make_implication(severity: String, input_complete: bool) -> String:
 	if not input_complete:
 		return "项目输入未完整捕获；当前结论不能用于证明变更安全。"
@@ -198,6 +242,9 @@ func _make_implication(severity: String, input_complete: bool) -> String:
 	return "这是用于理解项目结构的观察信息，不会触发自动修复。"
 
 
+## 始终建议核对证据与 profile 范围，按路径补充消费者检查，并按严重程度区分先做只读计划或记录例外。
+## [br]
+## @api private
 func _make_next_steps(severity: String, path: String) -> Array[String]:
 	var result: Array[String] = ["核对观察证据与所选 profile 是否属于同一项目范围。"]
 	if not path.is_empty():
@@ -209,6 +256,9 @@ func _make_next_steps(severity: String, path: String) -> Array[String]:
 	return result
 
 
+## 先收集 finding 再收集路径节点的证据 ID，按首次出现去重并复制证据字典；任一检查点停止都清空解释证据，全部完成才发布候选集合。
+## [br]
+## @api private
 func _collect_evidence(
 	explanation: Dictionary,
 	analysis_index: Dictionary,
@@ -263,6 +313,10 @@ func _collect_evidence(
 	return true
 
 
+## 向 explanation result.issues 追加一条 error 级诊断。
+## [br]
+## @api private
+## [br]
 func _add_issue(result: Dictionary, issue_kind: String, message: String) -> void:
 	var issues: Array = _get_array(result, "issues")
 	issues.append({
@@ -272,6 +326,10 @@ func _add_issue(result: Dictionary, issue_kind: String, message: String) -> void
 	})
 
 
+## 判断字典键是否全部为字符串且与给定字段集合完全相同。
+## [br]
+## @api private
+## [br]
 func _has_exact_fields(source: Dictionary, fields: PackedStringArray) -> bool:
 	if source.size() != fields.size():
 		return false
@@ -284,21 +342,37 @@ func _has_exact_fields(source: Dictionary, fields: PackedStringArray) -> bool:
 	return true
 
 
+## 读取字典中的 String 字段；缺失或类型不匹配时返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_string(source: Dictionary, key: String, default_value: String = "") -> String:
 	var value: Variant = source.get(key, default_value)
 	return value if value is String else default_value
 
 
+## 读取字典中的 bool 字段；缺失或类型不匹配时返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_bool(source: Dictionary, key: String, default_value: bool = false) -> bool:
 	var value: Variant = source.get(key, default_value)
 	return value if value is bool else default_value
 
 
+## 返回指定字段中的 Array；类型不匹配时返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_array(source: Dictionary, key: String) -> Array:
 	var value: Variant = source.get(key, [])
 	return value if value is Array else []
 
 
+## 返回指定字段中的 Dictionary；类型不匹配时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_dictionary(source: Dictionary, key: String) -> Dictionary:
 	var value: Variant = source.get(key, {})
 	return value if value is Dictionary else {}

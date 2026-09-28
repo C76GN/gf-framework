@@ -53,15 +53,64 @@ const STATE_STALE: StringName = &"stale"
 
 # --- 私有变量 ---
 
+## 标记框架配置是否已成功写入该 Lease。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
+
+## 此恢复 Lease 的标识。
+## [br]
+## @api private
+## [br]
 var _lease_id: int = 0
+
+## 创建该 Lease 的事务标识。
+## [br]
+## @api private
+## [br]
 var _transaction_id: int = 0
+
+## 需要恢复读取结果的源 Profile ID。
+## [br]
+## @api private
+## [br]
 var _source_profile_id: StringName = &""
+
+## 恢复 Lease 关联的目标 Profile ID。
+## [br]
+## @api private
+## [br]
 var _profile_id: StringName = &""
+
+## 创建恢复 Lease 的 missing 或 corrupt 原因。
+## [br]
+## @api private
+## [br]
 var _reason: StringName = &""
+
+## 创建 Lease 时记录的 Storage domain ID。
+## [br]
+## @api private
+## [br]
 var _domain_id: int = 0
+
+## 创建 Lease 时记录的 domain generation。
+## [br]
+## @api private
+## [br]
 var _domain_generation: int = 0
+
+## 创建 Lease 时记录的操作 epoch。
+## [br]
+## @api private
+## [br]
 var _epoch: int = 0
+
+## 当前恢复 Lease 状态。
+## [br]
+## @api private
+## [br]
 var _state: StringName = STATE_STALE
 
 

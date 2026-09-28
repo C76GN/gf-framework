@@ -14,6 +14,10 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 已注册且按优先级排序的资产来源。
+## [br]
+## @api private
+## [br]
 var _providers: Array[GFAssetCatalogSourceProvider] = []
 
 
@@ -206,22 +210,38 @@ func build_catalog_report(options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 仅当来源 ID 不同时更新 Provider 的公开字段。
+## [br]
+## @api private
+## [br]
 func _set_source_id_if_needed(provider: GFAssetCatalogSourceProvider, source_id: StringName) -> void:
 	if provider.get_source_id() == source_id:
 		return
 	provider.source_id = source_id
 
 
+## 按 Provider 比较器对注册来源排序。
+## [br]
+## @api private
+## [br]
 func _sort_providers() -> void:
 	_providers.sort_custom(_compare_providers)
 
 
+## 按优先级降序、来源 ID 字符串升序比较 Provider。
+## [br]
+## @api private
+## [br]
 static func _compare_providers(left: GFAssetCatalogSourceProvider, right: GFAssetCatalogSourceProvider) -> bool:
 	if left.get_priority() == right.get_priority():
 		return String(left.get_source_id()) < String(right.get_source_id())
 	return left.get_priority() > right.get_priority()
 
 
+## 未指定来源筛选时包含全部 Provider，否则按来源 ID 过滤。
+## [br]
+## @api private
+## [br]
 func _should_include_provider(
 	provider: GFAssetCatalogSourceProvider,
 	selected_source_ids: PackedStringArray
@@ -231,6 +251,10 @@ func _should_include_provider(
 	return selected_source_ids.has(String(provider.get_source_id()))
 
 
+## 检查问题列表中是否没有 error 级别条目。
+## [br]
+## @api private
+## [br]
 func _has_no_errors(issues: Array[Dictionary]) -> bool:
 	for issue: Dictionary in issues:
 		if GFVariantData.get_option_string(issue, "severity") == "error":

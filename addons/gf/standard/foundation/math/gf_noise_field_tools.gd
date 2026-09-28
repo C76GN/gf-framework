@@ -29,6 +29,10 @@ const DEFAULT_MAX_GRID_SAMPLES: int = 1048576
 ## @since 8.0.0
 const DEFAULT_NOISE_FREQUENCY: float = 0.01
 
+## 用于将噪声场报告转换为 JSON 兼容值的报告编码脚本。
+## [br]
+## @api private
+## [br]
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 
 
@@ -279,6 +283,10 @@ static func to_json_compatible_report(report: Dictionary, options: Dictionary = 
 
 # --- 私有/辅助方法 ---
 
+## 按顺序检查网格正尺寸、有限原点与步长、正采样预算及总样本上限。
+## [br]
+## @api private
+## [br]
 static func _get_grid_input_error(
 	grid_size: Vector2i,
 	origin: Vector2,
@@ -300,6 +308,10 @@ static func _get_grid_input_error(
 	return ""
 
 
+## 按 sampler、显式 FastNoiseLite、再新建噪声的优先级解析采样源与选项。
+## [br]
+## @api private
+## [br]
 static func _resolve_source(options: Dictionary) -> Dictionary:
 	if _has_option(options, "sampler"):
 		var sampler_value: Variant = GFVariantData.get_option_value(options, "sampler", Callable())
@@ -338,6 +350,10 @@ static func _resolve_source(options: Dictionary) -> Dictionary:
 	return { "ok": true, "source": "fast_noise_lite", "error": "", "noise": noise }
 
 
+## 从解析结果调用 sampler 或 FastNoiseLite 采样，并把不支持的值变为 NAN。
+## [br]
+## @api private
+## [br]
 static func _sample_source(
 	source: Dictionary,
 	position: Vector2,
@@ -359,6 +375,10 @@ static func _sample_source(
 	return NAN
 
 
+## 验证样本均有限并计算数量、最小值、最大值与平均值。
+## [br]
+## @api private
+## [br]
 static func _get_sample_stats(samples: PackedFloat32Array) -> Dictionary:
 	var min_value: float = 0.0
 	var max_value: float = 0.0
@@ -385,6 +405,10 @@ static func _get_sample_stats(samples: PackedFloat32Array) -> Dictionary:
 	}
 
 
+## 创建带固定字段的网格采样报告初值，供成功路径填充或错误路径直接返回。
+## [br]
+## @api private
+## [br]
 static func _make_grid_result(
 	ok: bool,
 	error: String,
@@ -410,6 +434,10 @@ static func _make_grid_result(
 	}
 
 
+## 创建归一化报告的固定字段初值。
+## [br]
+## @api private
+## [br]
 static func _make_normalize_result(ok: bool, error: String, sample_count: int) -> Dictionary:
 	return {
 		"ok": ok,
@@ -423,6 +451,10 @@ static func _make_normalize_result(ok: bool, error: String, sample_count: int) -
 	}
 
 
+## 仅将整数或浮点 Variant 转为样本值，其它类型返回 NAN。
+## [br]
+## @api private
+## [br]
 static func _variant_to_float_sample(value: Variant) -> float:
 	if value is float:
 		var float_value: float = value
@@ -433,10 +465,18 @@ static func _variant_to_float_sample(value: Variant) -> float:
 	return NAN
 
 
+## 同时识别 String 和对应 StringName 形式的选项键。
+## [br]
+## @api private
+## [br]
 static func _has_option(options: Dictionary, key_text: String) -> bool:
 	return options.has(key_text) or options.has(StringName(key_text))
 
 
+## 判断整数是否为当前支持的 FastNoiseLite 噪声类型之一。
+## [br]
+## @api private
+## [br]
 static func _is_valid_noise_type(value: int) -> bool:
 	match value:
 		FastNoiseLite.TYPE_SIMPLEX:
@@ -455,6 +495,10 @@ static func _is_valid_noise_type(value: int) -> bool:
 			return false
 
 
+## 将支持的整数转换为 FastNoiseLite 噪声枚举，未识别值保留给定 fallback。
+## [br]
+## @api private
+## [br]
 static func _to_noise_type(value: int, fallback: FastNoiseLite.NoiseType) -> FastNoiseLite.NoiseType:
 	match value:
 		FastNoiseLite.TYPE_SIMPLEX:
@@ -473,9 +517,17 @@ static func _to_noise_type(value: int, fallback: FastNoiseLite.NoiseType) -> Fas
 			return fallback
 
 
+## 判断浮点值既不是 NaN 也不是正负无穷。
+## [br]
+## @api private
+## [br]
 static func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 判断二维向量的两个分量是否均为有限浮点值。
+## [br]
+## @api private
+## [br]
 static func _is_finite_vector2(value: Vector2) -> bool:
 	return _is_finite_float(value.x) and _is_finite_float(value.y)

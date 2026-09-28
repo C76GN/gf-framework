@@ -13,6 +13,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 提供断开信号连接时校验弱引用 Control 实例的内部帮助脚本。
+## [br]
+## @api private
 const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
 
 
@@ -220,6 +223,9 @@ static func disconnect_value_changed_handles(connections: Array) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 仅在控件、信号和 Callable 有效且连接成功后，追加可断开的连接记录。
+## [br]
+## @api private
 static func _connect_control_signal(
 	control: Control,
 	signal_name: StringName,
@@ -240,6 +246,9 @@ static func _connect_control_signal(
 	})
 
 
+## 先清空 ItemList 旧选择，再按整数、数组或 PackedInt32Array 输入选择项目。
+## [br]
+## @api private
 static func _set_item_list_selection(item_list: ItemList, value: Variant) -> void:
 	item_list.deselect_all()
 	if value is PackedInt32Array:
@@ -253,6 +262,9 @@ static func _set_item_list_selection(item_list: ItemList, value: Variant) -> voi
 	item_list.select(GFVariantData.to_int(value), false)
 
 
+## 将 WeakRef Variant 收窄为 WeakRef；其他类型返回 null。
+## [br]
+## @api private
 static func _variant_to_weak_ref(value: Variant) -> WeakRef:
 	if value is WeakRef:
 		var control_ref: WeakRef = value
@@ -260,6 +272,9 @@ static func _variant_to_weak_ref(value: Variant) -> WeakRef:
 	return null
 
 
+## 将 Callable Variant 收窄为 Callable；其他类型返回无效 Callable。
+## [br]
+## @api private
 static func _variant_to_callable(value: Variant) -> Callable:
 	if value is Callable:
 		var callable: Callable = value

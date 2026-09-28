@@ -29,6 +29,9 @@ const DEFAULT_FIELDS: Array[Dictionary] = [
 	{ "key": "path", "weight": 1.0 },
 ]
 
+## 规范化查询文本时替换为空格的分隔字符集合。
+## [br]
+## @api private
 const _SEPARATORS: Array[String] = [
 	" ",
 	"\t",
@@ -50,14 +53,49 @@ const _SEPARATORS: Array[String] = [
 	"}",
 ]
 
+## 查询短语完全匹配时使用的分数。
+## [br]
+## @api private
 const _EXACT_QUERY_SCORE: float = 1000.0
+
+## 查询短语前缀匹配时使用的分数。
+## [br]
+## @api private
 const _PREFIX_QUERY_SCORE: float = 700.0
+
+## 查询短语出现在候选文本中时使用的基础分数。
+## [br]
+## @api private
 const _CONTAINS_QUERY_SCORE: float = 500.0
+
+## 单词完全匹配时使用的分数。
+## [br]
+## @api private
 const _EXACT_WORD_SCORE: float = 300.0
+
+## 单词前缀匹配时使用的分数。
+## [br]
+## @api private
 const _PREFIX_WORD_SCORE: float = 220.0
+
+## 单词包含 token 时使用的分数。
+## [br]
+## @api private
 const _CONTAINS_WORD_SCORE: float = 120.0
+
+## 未命中单词但字符构成子序列时使用的分数。
+## [br]
+## @api private
 const _SUBSEQUENCE_SCORE: float = 40.0
+
+## 候选值遍历栈中的普通值帧标记。
+## [br]
+## @api private
 const _TRAVERSAL_VALUE: int = 0
+
+## 候选值遍历栈中的数组退出帧标记。
+## [br]
+## @api private
 const _TRAVERSAL_EXIT_ARRAY: int = 1
 
 
@@ -178,6 +216,9 @@ static func rank_candidates(query: String, candidates: Array[Dictionary], option
 
 # --- 私有/辅助方法 ---
 
+## 合并查询选项、规范化文本并预先准备候选字段配置。
+## [br]
+## @api private
 static func _make_query_context(query: String, options: Dictionary) -> Dictionary:
 	var case_sensitive: bool = GFVariantData.get_option_bool(options, "case_sensitive", false)
 	return {
@@ -190,6 +231,9 @@ static func _make_query_context(query: String, options: Dictionary) -> Dictionar
 	}
 
 
+## 按字段权重累加候选分数，并构建匹配 token 与结果候选项。
+## [br]
+## @api private
 static func _score_candidate_with_context(candidate: Dictionary, context: Dictionary) -> Dictionary:
 	var case_sensitive: bool = GFVariantData.get_option_bool(context, "case_sensitive", false)
 	var tokens: PackedStringArray = GFVariantData.get_option_packed_string_array(context, "tokens")
@@ -246,6 +290,9 @@ static func _score_candidate_with_context(candidate: Dictionary, context: Dictio
 	}
 
 
+## 评分已规范化的短语与 token，并按 require_all_tokens 决定失败策略。
+## [br]
+## @api private
 static func _score_normalized_text(
 	normalized_query: String,
 	tokens: PackedStringArray,
@@ -274,6 +321,9 @@ static func _score_normalized_text(
 	return _make_text_score_report(matched, score if matched else 0.0, matched_tokens)
 
 
+## 按完全匹配、前缀或包含关系计算查询短语分数。
+## [br]
+## @api private
 static func _score_query_phrase(normalized_query: String, normalized_text: String) -> float:
 	if normalized_text == normalized_query:
 		return _EXACT_QUERY_SCORE
@@ -286,6 +336,9 @@ static func _score_query_phrase(normalized_query: String, normalized_text: Strin
 	return 0.0
 
 
+## 对所有文本单词取最佳 token 匹配分；无此类匹配时检查字符子序列。
+## [br]
+## @api private
 static func _score_token(token: String, normalized_text: String) -> float:
 	var best_score: float = 0.0
 	for word: String in normalized_text.split(" ", false):
@@ -301,6 +354,9 @@ static func _score_token(token: String, normalized_text: String) -> float:
 	return best_score
 
 
+## 从 options.fields 读取并规范字段配置；空配置时回退到默认字段。
+## [br]
+## @api private
 static func _get_fields(options: Dictionary) -> Array[Dictionary]:
 	var fields_value: Variant = GFVariantData.get_option_value(options, "fields", DEFAULT_FIELDS)
 	var fields: Array[Dictionary] = []
@@ -320,6 +376,9 @@ static func _get_fields(options: Dictionary) -> Array[Dictionary]:
 	return fields
 
 
+## 从查询上下文取回规范字段配置；缺失或无有效项时使用默认字段。
+## [br]
+## @api private
 static func _get_context_fields(context: Dictionary) -> Array[Dictionary]:
 	var fields_value: Variant = GFVariantData.get_option_value(context, "fields", DEFAULT_FIELDS)
 	var fields: Array[Dictionary] = []
@@ -333,6 +392,9 @@ static func _get_context_fields(context: Dictionary) -> Array[Dictionary]:
 	return fields
 
 
+## 将字段字典、StringName 或 String 转为 key/weight 字典。
+## [br]
+## @api private
 static func _normalize_field_entry(field_variant: Variant) -> Dictionary:
 	if field_variant is Dictionary:
 		var field_dictionary: Dictionary = field_variant
@@ -358,6 +420,9 @@ static func _normalize_field_entry(field_variant: Variant) -> Dictionary:
 	return {}
 
 
+## 优先按 StringName 键取值，再尝试对应的 String 键。
+## [br]
+## @api private
 static func _get_candidate_value(candidate: Dictionary, field_key: StringName) -> Variant:
 	if candidate.has(field_key):
 		return candidate[field_key]
@@ -367,6 +432,10 @@ static func _get_candidate_value(candidate: Dictionary, field_key: StringName) -
 	return null
 
 
+## 按原顺序展开嵌套 Array，以空格连接非空文本；null 跳过，PackedStringArray 直接拼接。
+## 仅跳过当前访问路径上的数组循环，同一数组在不同分支仍可贡献文本；其他值交给 to_text。
+## [br]
+## @api private
 static func _value_to_search_text(value: Variant) -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	var active_arrays: Array = []
@@ -410,6 +479,9 @@ static func _value_to_search_text(value: Variant) -> String:
 	return " ".join(parts)
 
 
+## 检查数组引用是否已在当前遍历路径的活动数组列表中。
+## [br]
+## @api private
 static func _contains_active_array(active_arrays: Array, value: Array) -> bool:
 	for active_value: Variant in active_arrays:
 		if is_same(active_value, value):
@@ -417,6 +489,10 @@ static func _contains_active_array(active_arrays: Array, value: Array) -> bool:
 	return false
 
 
+## 迭代复制候选的 Dictionary/Array 图，保留容器类型约束、共享引用和循环关系。
+## 非容器值按 Variant helper 的非 Resource 复制模式处理，Object/Resource 身份不因此隔离。
+## [br]
+## @api private
 static func _duplicate_candidate(candidate: Dictionary) -> Dictionary:
 	var candidate_copy: Dictionary = candidate.duplicate(false)
 	candidate_copy.clear()
@@ -451,6 +527,9 @@ static func _duplicate_candidate(candidate: Dictionary) -> Dictionary:
 	return candidate_copy
 
 
+## 按容器身份复用已登记副本；新容器先登记空壳再排队填充，令循环引用能指回同一副本。
+## [br]
+## @api private
 static func _get_or_create_candidate_copy(
 	value: Variant,
 	visited: Array[Dictionary],
@@ -488,6 +567,9 @@ static func _get_or_create_candidate_copy(
 	return array_copy
 
 
+## 去除首尾空白、按需转小写，并将分隔字符合并为空格。
+## [br]
+## @api private
 static func _normalize_search_text(text: String, case_sensitive: bool = false) -> String:
 	var normalized: String = text.strip_edges()
 	if not case_sensitive:
@@ -507,6 +589,9 @@ static func _normalize_search_text(text: String, case_sensitive: bool = false) -
 	return result.strip_edges()
 
 
+## 判断 needle 中的字符能否按顺序在 haystack 中找到。
+## [br]
+## @api private
 static func _is_subsequence(needle: String, haystack: String) -> bool:
 	if needle.is_empty():
 		return true
@@ -522,6 +607,9 @@ static func _is_subsequence(needle: String, haystack: String) -> bool:
 	return false
 
 
+## 创建包含 matched、score 与 matched_tokens 的文本评分报告。
+## [br]
+## @api private
 static func _make_text_score_report(matched: bool, score: float, matched_tokens: PackedStringArray) -> Dictionary:
 	return {
 		"matched": matched,
@@ -530,6 +618,9 @@ static func _make_text_score_report(matched: bool, score: float, matched_tokens:
 	}
 
 
+## 从评分报告读取匹配 token，并兼容 PackedStringArray 与普通 Array。
+## [br]
+## @api private
 static func _get_report_tokens(report: Dictionary) -> PackedStringArray:
 	var tokens_value: Variant = GFVariantData.get_option_value(report, "matched_tokens", PackedStringArray())
 	if tokens_value is PackedStringArray:
@@ -545,6 +636,9 @@ static func _get_report_tokens(report: Dictionary) -> PackedStringArray:
 	return PackedStringArray()
 
 
+## 按查询 token 的原始次序筛选候选中已匹配的 token。
+## [br]
+## @api private
 static func _collect_tokens_in_query_order(tokens: PackedStringArray, matched_lookup: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for token: String in tokens:
@@ -553,6 +647,9 @@ static func _collect_tokens_in_query_order(tokens: PackedStringArray, matched_lo
 	return result
 
 
+## 依次按分数降序、标题升序和原始候选索引升序排列报告。
+## [br]
+## @api private
 static func _sort_reports_descending(left: Dictionary, right: Dictionary) -> bool:
 	var left_score: float = GFVariantData.get_option_float(left, "score", 0.0)
 	var right_score: float = GFVariantData.get_option_float(right, "score", 0.0)
@@ -567,6 +664,9 @@ static func _sort_reports_descending(left: Dictionary, right: Dictionary) -> boo
 	return GFVariantData.get_option_int(left, "index", 0) < GFVariantData.get_option_int(right, "index", 0)
 
 
+## 从 title 或备用 name 字段构造小写排序文本。
+## [br]
+## @api private
 static func _get_report_sort_title(report: Dictionary) -> String:
 	var candidate: Dictionary = GFVariantData.get_option_dictionary(report, "candidate", {})
 	var title: String = _value_to_search_text(_get_candidate_value(candidate, &"title"))

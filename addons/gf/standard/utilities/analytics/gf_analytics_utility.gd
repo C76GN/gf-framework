@@ -61,10 +61,34 @@ signal flush_failed(result: Dictionary)
 
 # --- 常量 ---
 
+## 用于生成客户端 ID、session ID 和版本化事件 ID 的 UUID 工具。
+## [br]
+## @api private
+## [br]
 const _GF_UUID = preload("res://addons/gf/standard/foundation/identity/gf_uuid.gd")
+
+## 客户端 ID 允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_CLIENT_ID_LENGTH: int = 4096
+
+## 版本化事件 Schema 接受的最大 schema_version。
+## [br]
+## @api private
+## [br]
 const _MAX_SCHEMA_VERSION: int = 2_147_483_647
+
+## 单次批次规划允许评估的最大候选前缀数。
+## [br]
+## @api private
+## [br]
 const _MAX_PLANNER_EVALUATIONS: int = 64
+
+## 用于从 max_payload_bytes 计算规划累计工作预算的倍数。
+## [br]
+## @api private
+## [br]
 const _PLANNER_WORK_MULTIPLIER: int = 8
 
 
@@ -122,30 +146,154 @@ var response_parser: Callable = Callable()
 
 # --- 私有变量 ---
 
+## 等待上报的事件字典队列。
+## [br]
+## @api private
+## [br]
 var _queue: Array[Dictionary] = []
+
+## 当前用于事件数据的客户端标识。
+## [br]
+## @api private
+## [br]
 var _client_id: String = ""
+
+## 当前 Analytics 实例的会话标识。
+## [br]
+## @api private
+## [br]
 var _session_id: String = ""
+
+## 自上次定时 flush 触发后累计的运行时间，单位为秒。
+## [br]
+## @api private
+## [br]
 var _elapsed_since_flush: float = 0.0
+
+## 标记是否有一批事件正在传输或等待传输结果。
+## [br]
+## @api private
+## [br]
 var _is_flushing: bool = false
+
+## 当前用于 HTTP 上报的请求节点引用。
+## [br]
+## @api private
+## [br]
 var _http_request: HTTPRequest = null
+
+## 当前 flush 正在处理的事件批次。
+## [br]
+## @api private
+## [br]
 var _pending_batch: Array = []
+
+## 当前 flush 已规划的请求信封字典。
+## [br]
+## @api private
+## [br]
 var _pending_payload: Dictionary = {}
+
+## 当前 flush 已规划并序列化的 JSON 请求文本。
+## [br]
+## @api private
+## [br]
 var _pending_payload_text: String = ""
+
+## 标记 Utility 已停止接收事件或执行普通 flush。
+## [br]
+## @api private
+## [br]
 var _shutdown: bool = false
+
+## 标记 shutdown 是否正在等待队列处理完毕。
+## [br]
+## @api private
+## [br]
 var _is_draining: bool = false
+
+## 防止 shutdown 队列 drain 循环嵌套启动。
+## [br]
+## @api private
+## [br]
 var _drain_loop_active: bool = false
+
+## 当前初始化周期内因队列或载荷限制被丢弃的事件数。
+## [br]
+## @api private
+## [br]
 var _dropped_event_count: int = 0
+
+## 标记当前客户端 ID 是否由 identify() 显式设置或在重初始化时保留。
+## [br]
+## @api private
+## [br]
 var _explicit_client_id: bool = false
+
+## 负责在主窗口关闭时调用 shutdown() 的节点实例。
+## [br]
+## @api private
+## [br]
 var _shutdown_watcher: _GFAnalyticsShutdownWatcher = null
+
+## 延迟挂接 shutdown watcher 的序号，用于识别过期的挂接请求。
+## [br]
+## @api private
+## [br]
 var _shutdown_watcher_attach_serial: int = 0
+
+## 当前生效的 Analytics 配置对象。
+## [br]
+## @api private
+## [br]
 var _config: GFAnalyticsConfig = GFAnalyticsConfig.new()
+
+## 当前生效的事件 Schema 注册表。
+## [br]
+## @api private
+## [br]
 var _schema_registry: GFAnalyticsSchemaRegistry = GFAnalyticsSchemaRegistry.new()
+
+## 标记实例是否已完成 init() 初始化。
+## [br]
+## @api private
+## [br]
 var _is_initialized: bool = false
+
+## 标记当前配置的无效客户端 ID 存储路径是否已发出警告。
+## [br]
+## @api private
+## [br]
 var _reported_invalid_storage_path: bool = false
+
+## flush 流程代数，用于识别过期的传输完成回调。
+## [br]
+## @api private
+## [br]
 var _flush_generation: int = 0
+
+## 当前 HTTP 请求绑定的 flush 代数；没有活动请求时为 -1。
+## [br]
+## @api private
+## [br]
 var _active_http_generation: int = -1
+
+## 标记是否正在同步发出 flush 结果信号。
+## [br]
+## @api private
+## [br]
 var _is_notifying_flush: bool = false
+
+## 标记是否正在运行批次规划，避免嵌套启动 flush。
+## [br]
+## @api private
+## [br]
 var _is_planning: bool = false
+
+## 队列变更代数，用于规划回调返回后检查队列是否已变化。
+## [br]
+## @api private
+## [br]
 var _queue_generation: int = 0
 
 
@@ -494,6 +642,10 @@ func capture_context() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 验证事件名和属性上限后编码事件，最终单事件超出载荷上限时拒绝入队；队列满时先丢最旧事件。
+## 先入队并递增代次再发 tracked 通知，回调后按当前队列大小决定是否启动发送。
+## [br]
+## @api private
 func _track_event(
 	event_name: StringName,
 	properties: Dictionary,
@@ -558,6 +710,10 @@ func _track_event(
 	return { "ok": true, "reason": &"tracked" }
 
 
+## 以规划、通知和发送门禁阻止重入；构建回调后核对队列与发送代次。
+## 可发送批次先出队并登记 pending 状态，再通知 flush_started；过大单事件移除后可继续规划下一批。
+## [br]
+## @api private
 func _flush_next(allow_shutdown: bool) -> void:
 	if (
 		(_shutdown and not allow_shutdown)
@@ -616,6 +772,9 @@ func _flush_next(allow_shutdown: bool) -> void:
 		_is_draining = false
 
 
+## 先按默认信封估计候选前缀，再从较长前缀递减试算构建结果；次数或工作预算耗尽时保留事件。
+## [br]
+## @api private
 func _make_next_batch_plan() -> Dictionary:
 	var starting_queue_generation: int = _queue_generation
 	var starting_flush_generation: int = _flush_generation
@@ -688,6 +847,9 @@ func _make_next_batch_plan() -> Dictionary:
 	}
 
 
+## 复制队首前缀并调用载荷构建器，以最终 JSON UTF-8 长度判定可发送性；只有单事件失败才允许丢弃。
+## [br]
+## @api private
 func _evaluate_batch_prefix(count: int) -> Dictionary:
 	var candidate: Array = []
 	for index: int in range(mini(count, _queue.size())):
@@ -721,6 +883,9 @@ func _evaluate_batch_prefix(count: int) -> Dictionary:
 	}
 
 
+## 在通知门禁内发送失败与完成报告，明确事件仍保留；结束 drain，避免同一预算失败形成循环。
+## [br]
+## @api private
 func _emit_planner_failure(plan: Dictionary) -> void:
 	var result: Dictionary = GFReportValueCodec.to_report_dictionary({
 		"success": false,
@@ -742,6 +907,9 @@ func _emit_planner_failure(plan: Dictionary) -> void:
 		_is_draining = false
 
 
+## 为已移出队列的单事件增加丢弃计数，依次通知开始、失败和完成；门禁解除后按需继续排空。
+## [br]
+## @api private
 func _emit_oversized_event_drop(event: Dictionary, plan: Dictionary) -> void:
 	_dropped_event_count += 1
 	var batch: Array = [event.duplicate(true)]
@@ -766,6 +934,9 @@ func _emit_oversized_event_drop(event: Dictionary, plan: Dictionary) -> void:
 		_drain_remaining()
 
 
+## 用循环门禁驱动关闭期间连续发送；无发送启动且队列大小与发送代次均无进展时停止，避免同步死循环。
+## [br]
+## @api private
 func _drain_remaining() -> void:
 	if not _is_draining or _drain_loop_active or _is_notifying_flush:
 		return
@@ -786,6 +957,10 @@ func _drain_remaining() -> void:
 	_drain_loop_active = false
 
 
+## 优先使用规划时冻结的载荷，再走同步自定义传输、无端点 dry-run 或 HTTP。
+## 自定义回调后核对发送代次，HTTP 记录代次供晚到响应过滤。
+## [br]
+## @api private
 func _send_batch(batch: Array) -> void:
 	if not _is_flushing:
 		return
@@ -850,14 +1025,25 @@ func _send_batch(batch: Array) -> void:
 		}, batch)
 
 
+## 返回至少为 1 的配置批次大小。
+## [br]
+## @api private
+## [br]
 func _get_batch_size() -> int:
 	return maxi(config.batch_size, 1)
 
 
+## 返回至少为 1 的配置队列容量。
+## [br]
+## @api private
+## [br]
 func _get_max_queue_size() -> int:
 	return maxi(config.max_queue_size, 1)
 
 
+## 复用有效 HTTPRequest；否则在 SceneTree 根下创建并连接完成信号，无 SceneTree 时返回 null。
+## [br]
+## @api private
 func _ensure_http_request() -> HTTPRequest:
 	if is_instance_valid(_http_request):
 		return _http_request
@@ -873,6 +1059,445 @@ func _ensure_http_request() -> HTTPRequest:
 	return _http_request
 
 
+
+
+## 失败重排整批，部分成功只重排未接受尾部；回队保持原顺序并受容量限制。
+## 先清空 pending 状态再在通知门禁内发结果，成功 drain 才继续下一批。
+## [br]
+## @api private
+func _finish_flush(result: Dictionary, batch: Array) -> void:
+	if not _is_flushing:
+		return
+	var success: bool = GFVariantData.get_option_bool(result, "success")
+	var accepted_count: int = 0
+	if success:
+		accepted_count = clampi(
+			GFVariantData.get_option_int(result, "accepted", batch.size()),
+			0,
+			batch.size()
+		)
+		if not batch.is_empty() and accepted_count == 0:
+			success = false
+	var safe_result: Dictionary = GFReportValueCodec.to_report_dictionary(result, _make_report_options())
+	safe_result["success"] = success
+	if success:
+		safe_result["accepted"] = accepted_count
+	elif (
+		GFVariantData.get_option_bool(result, "success")
+		and not batch.is_empty()
+		and accepted_count == 0
+	):
+		safe_result["error"] = "analytics transport accepted zero events"
+	if not success:
+		for index: int in range(batch.size() - 1, -1, -1):
+			_queue.push_front(GFVariantData.as_dictionary(batch[index]).duplicate(true))
+		if not batch.is_empty():
+			_queue_generation += 1
+		_trim_queue_to_max_size()
+	else:
+		if accepted_count < batch.size():
+			for index: int in range(batch.size() - 1, accepted_count - 1, -1):
+				_queue.push_front(GFVariantData.as_dictionary(batch[index]).duplicate(true))
+			_queue_generation += 1
+			_trim_queue_to_max_size()
+
+	_pending_batch.clear()
+	_pending_payload.clear()
+	_pending_payload_text = ""
+	_is_flushing = false
+	_active_http_generation = -1
+	if _is_draining:
+		if not success:
+			_is_draining = false
+
+	_is_notifying_flush = true
+	if not success:
+		flush_failed.emit(safe_result.duplicate(true))
+	flush_completed.emit(safe_result.duplicate(true))
+	_is_notifying_flush = false
+	if _is_draining and _is_initialized:
+		_drain_remaining()
+
+
+## 从队列尾部移除超出配置容量的事件并累计丢弃数；发生裁剪时递增队列代数。
+## [br]
+## @api private
+## [br]
+func _trim_queue_to_max_size() -> void:
+	var max_queue_size: int = _get_max_queue_size()
+	var trimmed: bool = false
+	while _queue.size() > max_queue_size:
+		var _dropped_event: Variant = _queue.pop_back()
+		_dropped_event_count += 1
+		trimmed = true
+	if trimmed:
+		_queue_generation += 1
+
+
+## 清空 payload_builder、transport_callback 和 response_parser 三个注入回调。
+## [br]
+## @api private
+## [br]
+func _release_injected_callbacks() -> void:
+	payload_builder = Callable()
+	transport_callback = Callable()
+	response_parser = Callable()
+
+
+## 检查报告中是否包含属性宽度、深度、集合、节点、字符串或字节预算错误。
+## [br]
+## @api private
+## [br]
+func _validation_has_budget_issue(report: GFValidationReport) -> bool:
+	if report == null:
+		return false
+	var budget_kinds: Dictionary = {
+		&"properties_too_wide": true,
+		&"property_depth_exceeded": true,
+		&"property_collection_too_large": true,
+		&"property_node_budget_exceeded": true,
+		&"property_string_too_long": true,
+		&"property_byte_budget_exceeded": true,
+	}
+	for issue_ref: RefCounted in report.issues:
+		if not (issue_ref is GFValidationIssue):
+			continue
+		var issue: GFValidationIssue = issue_ref
+		if budget_kinds.has(issue.kind):
+			return true
+	return false
+
+
+## 生成一个 UUID v4 文本标识。
+## [br]
+## @api private
+## [br]
+func _generate_id() -> String:
+	return _GF_UUID.generate_v4()
+
+
+## 向自定义构建器传递批次副本，仅采用其非 events 字段；events 始终重新写入当前批次。
+## [br]
+## @api private
+func _build_payload(batch: Array) -> Dictionary:
+	if payload_builder.is_valid():
+		var payload: Variant = payload_builder.call(_duplicate_batch(batch))
+		if payload is Dictionary:
+			var payload_dictionary: Dictionary = payload
+			var payload_without_events: Dictionary = payload_dictionary.duplicate(false)
+			var _events_removed: bool = payload_without_events.erase("events")
+			var safe_payload: Dictionary = _json_safe_dictionary(payload_without_events)
+			safe_payload["events"] = _duplicate_batch(batch)
+			return safe_payload
+	return { "events": _duplicate_batch(batch) }
+
+
+## 将 JSON 文本编码为 UTF-8 字节并使用 gzip 压缩。
+## [br]
+## @api private
+## [br]
+func _compress_payload_text(payload_text: String) -> PackedByteArray:
+	return payload_text.to_utf8_buffer().compress(FileAccess.COMPRESSION_GZIP)
+
+
+## 按持久化配置读取有效客户端 ID；未找到时生成新 ID，并在启用持久化时保存。
+## [br]
+## @api private
+## [br]
+func _load_or_create_client_id() -> String:
+	if not _should_persist_client_id():
+		return _generate_id()
+
+	var loaded_id: String = _load_client_id()
+	if not loaded_id.is_empty():
+		return loaded_id
+
+	var generated_id: String = _generate_id()
+	_save_client_id(generated_id)
+	return generated_id
+
+
+## 仅在持久化启用、配置启用且存在 endpoint 或自定义 transport 时返回 true。
+## [br]
+## @api private
+## [br]
+func _should_persist_client_id() -> bool:
+	return config.persist_client_id and config.enabled and (not config.endpoint_url.is_empty() or transport_callback.is_valid())
+
+
+## 使用当前隐私配置选项将字典转换为报告编码器输出。
+## [br]
+## @api private
+## [br]
+func _json_safe_dictionary(value: Dictionary) -> Dictionary:
+	return GFReportValueCodec.to_report_dictionary(value, _make_report_options())
+
+
+## 使用报告编码器处理事件属性，并允许顶层集合预算至少覆盖属性数量。
+## [br]
+## @api private
+## [br]
+func _encode_event_properties(properties: Dictionary) -> Dictionary:
+	var options: Dictionary = _make_report_options()
+	options["max_collection_items"] = maxi(config.max_collection_items, properties.size())
+	return GFReportValueCodec.to_report_dictionary(properties, options)
+
+
+## 遍历嵌套字典和数组，查找任一报告预算 marker。
+## [br]
+## @api private
+## [br]
+func _contains_report_budget_marker(value: Variant) -> bool:
+	var pending: Array = [value]
+	while not pending.is_empty():
+		var candidate: Variant = pending.pop_back()
+		if candidate is Dictionary:
+			var dictionary: Dictionary = candidate
+			if _is_report_budget_marker(dictionary):
+				return true
+			for key: Variant in dictionary.keys():
+				pending.append(dictionary[key])
+		elif candidate is Array:
+			var array: Array = candidate
+			for item: Variant in array:
+				pending.append(item)
+	return false
+
+
+## 判断字典中的报告 marker 类型是否表示字节、节点、深度或集合预算错误。
+## [br]
+## @api private
+## [br]
+func _is_report_budget_marker(value: Dictionary) -> bool:
+	var marker: Dictionary = GFVariantData.get_option_dictionary(value, "__gf_report_value__")
+	var marker_type: String = GFVariantData.get_option_string(marker, "type")
+	return marker_type in [
+		"ByteBudget",
+		"NodeBudget",
+		"MaxDepth",
+		"CollectionBudget",
+	]
+
+
+## 构造隐私 profile 的报告编码选项，并应用配置中的深度、集合、节点和字节限制。
+## [br]
+## @api private
+## [br]
+func _make_report_options() -> Dictionary:
+	return GFReportValueCodec.make_redaction_options(
+		GFReportValueCodec.REDACTION_PROFILE_PRIVACY,
+		{
+			"max_depth": 16,
+			"max_string_length": config.max_string_length,
+			"max_collection_items": config.max_collection_items,
+			"max_packed_length": config.max_collection_items,
+			"max_total_nodes": config.max_total_nodes,
+			"max_total_bytes": config.max_payload_bytes,
+			"encode_dictionary_keys": false,
+		}
+	)
+
+
+## 将批次中每个 Dictionary 深复制到新数组，并忽略非 Dictionary 项。
+## [br]
+## @api private
+## [br]
+func _duplicate_batch(batch: Array) -> Array:
+	var result: Array = []
+	for item: Variant in batch:
+		if item is Dictionary:
+			var item_dictionary: Dictionary = item
+			result.append(item_dictionary.duplicate(true))
+	return result
+
+
+## 从有效存储路径的 ConfigFile 读取客户端 ID；缺失、无效或加载失败时返回空字符串。
+## [br]
+## @api private
+## [br]
+func _load_client_id() -> String:
+	if not _is_valid_client_id_storage_path(config.client_id_storage_path):
+		_report_invalid_client_id_storage_path()
+		return ""
+	var config_file: ConfigFile = ConfigFile.new()
+	var load_error: Error = config_file.load(config.client_id_storage_path)
+	if load_error == ERR_FILE_NOT_FOUND:
+		return ""
+	if load_error != OK:
+		push_warning("[GFAnalyticsUtility][analytics_utility.client_id_load_failed] Failed to load client ID: %s." % error_string(load_error))
+		return ""
+	var loaded_id: String = GFVariantData.to_text(
+		config_file.get_value("analytics", "client_id", "")
+	)
+	if not _is_valid_client_id(loaded_id):
+		return ""
+	return loaded_id
+
+
+## 验证客户端 ID 与存储路径后写入 ConfigFile，并在保存前创建所需目录。
+## [br]
+## @api private
+## [br]
+func _save_client_id(client_id: String) -> void:
+	if not _is_valid_client_id(client_id):
+		return
+	if not _is_valid_client_id_storage_path(config.client_id_storage_path):
+		_report_invalid_client_id_storage_path()
+		return
+
+	var config_file: ConfigFile = ConfigFile.new()
+	var load_error: Error = config_file.load(config.client_id_storage_path)
+	if load_error != OK and load_error != ERR_FILE_NOT_FOUND:
+		push_warning("[GFAnalyticsUtility][analytics_utility.client_id_load_before_save_failed] Failed to load client ID before saving: %s." % error_string(load_error))
+		return
+	config_file.set_value("analytics", "client_id", client_id)
+	var storage_dir: String = ProjectSettings.globalize_path(config.client_id_storage_path.get_base_dir())
+	if not DirAccess.dir_exists_absolute(storage_dir):
+		var directory_error: Error = DirAccess.make_dir_recursive_absolute(storage_dir)
+		if directory_error != OK:
+			push_warning("[GFAnalyticsUtility][analytics_utility.client_id_directory_failed] Failed to create the client ID directory: %s." % error_string(directory_error))
+			return
+	var save_error: Error = config_file.save(config.client_id_storage_path)
+	if save_error != OK:
+		push_warning("[GFAnalyticsUtility][analytics_utility.client_id_save_failed] Failed to save client ID: %s." % error_string(save_error))
+
+
+## 检查规范化路径位于 user:// 下、相对部分非空且不含 `..` 路径段。
+## [br]
+## @api private
+## [br]
+func _is_valid_client_id_storage_path(path: String) -> bool:
+	var normalized: String = path.replace("\\", "/").strip_edges()
+	if not normalized.begins_with("user://"):
+		return false
+	for segment: String in normalized.trim_prefix("user://").split("/", false):
+		if segment == "..":
+			return false
+	return not normalized.trim_prefix("user://").is_empty()
+
+
+## 检查客户端 ID 非空、不超过最大长度且不含 C0/DEL 控制字符。
+## [br]
+## @api private
+## [br]
+func _is_valid_client_id(client_id: String) -> bool:
+	return (
+		not client_id.is_empty()
+		and client_id.length() <= _MAX_CLIENT_ID_LENGTH
+		and not _contains_control_character(client_id)
+	)
+
+
+## 检查文本是否包含 C0 控制码点或 DEL。
+## [br]
+## @api private
+## [br]
+func _contains_control_character(value: String) -> bool:
+	for index: int in range(value.length()):
+		var codepoint: int = value.unicode_at(index)
+		if codepoint < 0x20 or codepoint == 0x7f:
+			return true
+	return false
+
+
+## 对无效客户端 ID 存储路径最多发出一次警告，直到配置更新重置标志。
+## [br]
+## @api private
+## [br]
+func _report_invalid_client_id_storage_path() -> void:
+	if _reported_invalid_storage_path:
+		return
+	_reported_invalid_storage_path = true
+	push_warning("[GFAnalyticsUtility][analytics_utility.client_id_path_invalid] client_id_storage_path must stay under user:// without parent traversal.")
+
+
+## 创建常驻关闭监听节点并登记挂载序号，延迟挂到根节点以避开当前树结构变更。
+## [br]
+## @api private
+func _ensure_shutdown_watcher() -> void:
+	if is_instance_valid(_shutdown_watcher):
+		return
+
+	var tree: SceneTree = _variant_to_scene_tree(Engine.get_main_loop())
+	if tree == null:
+		return
+
+	_shutdown_watcher = _GFAnalyticsShutdownWatcher.new()
+	_shutdown_watcher.name = "GFAnalyticsShutdownWatcher"
+	_shutdown_watcher._shutdown_callback = Callable(self, "shutdown")
+	_shutdown_watcher_attach_serial += 1
+	call_deferred("_attach_shutdown_watcher_to_root", _shutdown_watcher, _shutdown_watcher_attach_serial)
+
+
+## 延迟挂载时核对序号和当前实例；释放过时节点，当前节点仅在有效且未入树时挂载。
+## [br]
+## @api private
+func _attach_shutdown_watcher_to_root(watcher_variant: Variant, attach_serial: int) -> void:
+	var watcher: Node = _variant_to_node(watcher_variant)
+	if attach_serial != _shutdown_watcher_attach_serial or watcher != _shutdown_watcher:
+		_free_shutdown_watcher(watcher)
+		return
+
+	if (not is_instance_valid(watcher)
+		or watcher.is_queued_for_deletion()
+		or watcher.is_inside_tree()
+	):
+		return
+
+	var tree: SceneTree = _variant_to_scene_tree(Engine.get_main_loop())
+	if tree == null:
+		_shutdown_watcher = null
+		_free_shutdown_watcher(watcher)
+		return
+
+	tree.root.add_child(watcher)
+
+
+## 退出树进行中只排队释放；平时先脱离父节点再立即释放，避免树退出栈中的同步结构修改。
+## [br]
+## @api private
+func _free_shutdown_watcher(watcher: Node) -> void:
+	if not is_instance_valid(watcher) or watcher.is_queued_for_deletion():
+		return
+	if GFAutoload.is_tree_exit_in_progress():
+		watcher.queue_free()
+		return
+	if watcher.is_inside_tree() and watcher.get_parent() != null:
+		watcher.get_parent().remove_child(watcher)
+	watcher.free()
+
+
+## 仅当 Variant 是有效 Object 且为 Node 时返回节点，否则返回 null。
+## [br]
+## @api private
+## [br]
+func _variant_to_node(value: Variant) -> Node:
+	if typeof(value) != TYPE_OBJECT or not is_instance_valid(value):
+		return null
+	if value is Node:
+		var node: Node = value
+		return node
+	return null
+
+
+## 仅当 Variant 为 SceneTree 时返回场景树，否则返回 null。
+## [br]
+## @api private
+## [br]
+func _variant_to_scene_tree(value: Variant) -> SceneTree:
+	if value is SceneTree:
+		var tree: SceneTree = value
+		return tree
+	return null
+
+
+
+
+# --- 信号处理函数 ---
+
+## 只处理当前 HTTP 代次；捕获批次副本后解释传输及状态码，用户解析器返回后再次核对代次才结算。
+## [br]
+## @api private
 func _on_request_completed(
 	result: int,
 	response_code: int,
@@ -929,340 +1554,22 @@ func _on_request_completed(
 	_finish_flush({ "success": true, "accepted": accepted }, completion_batch)
 
 
-func _finish_flush(result: Dictionary, batch: Array) -> void:
-	if not _is_flushing:
-		return
-	var success: bool = GFVariantData.get_option_bool(result, "success")
-	var accepted_count: int = 0
-	if success:
-		accepted_count = clampi(
-			GFVariantData.get_option_int(result, "accepted", batch.size()),
-			0,
-			batch.size()
-		)
-		if not batch.is_empty() and accepted_count == 0:
-			success = false
-	var safe_result: Dictionary = GFReportValueCodec.to_report_dictionary(result, _make_report_options())
-	safe_result["success"] = success
-	if success:
-		safe_result["accepted"] = accepted_count
-	elif (
-		GFVariantData.get_option_bool(result, "success")
-		and not batch.is_empty()
-		and accepted_count == 0
-	):
-		safe_result["error"] = "analytics transport accepted zero events"
-	if not success:
-		for index: int in range(batch.size() - 1, -1, -1):
-			_queue.push_front(GFVariantData.as_dictionary(batch[index]).duplicate(true))
-		if not batch.is_empty():
-			_queue_generation += 1
-		_trim_queue_to_max_size()
-	else:
-		if accepted_count < batch.size():
-			for index: int in range(batch.size() - 1, accepted_count - 1, -1):
-				_queue.push_front(GFVariantData.as_dictionary(batch[index]).duplicate(true))
-			_queue_generation += 1
-			_trim_queue_to_max_size()
-
-	_pending_batch.clear()
-	_pending_payload.clear()
-	_pending_payload_text = ""
-	_is_flushing = false
-	_active_http_generation = -1
-	if _is_draining:
-		if not success:
-			_is_draining = false
-
-	_is_notifying_flush = true
-	if not success:
-		flush_failed.emit(safe_result.duplicate(true))
-	flush_completed.emit(safe_result.duplicate(true))
-	_is_notifying_flush = false
-	if _is_draining and _is_initialized:
-		_drain_remaining()
-
-
-func _trim_queue_to_max_size() -> void:
-	var max_queue_size: int = _get_max_queue_size()
-	var trimmed: bool = false
-	while _queue.size() > max_queue_size:
-		var _dropped_event: Variant = _queue.pop_back()
-		_dropped_event_count += 1
-		trimmed = true
-	if trimmed:
-		_queue_generation += 1
-
-
-func _release_injected_callbacks() -> void:
-	payload_builder = Callable()
-	transport_callback = Callable()
-	response_parser = Callable()
-
-
-func _validation_has_budget_issue(report: GFValidationReport) -> bool:
-	if report == null:
-		return false
-	var budget_kinds: Dictionary = {
-		&"properties_too_wide": true,
-		&"property_depth_exceeded": true,
-		&"property_collection_too_large": true,
-		&"property_node_budget_exceeded": true,
-		&"property_string_too_long": true,
-		&"property_byte_budget_exceeded": true,
-	}
-	for issue_ref: RefCounted in report.issues:
-		if not (issue_ref is GFValidationIssue):
-			continue
-		var issue: GFValidationIssue = issue_ref
-		if budget_kinds.has(issue.kind):
-			return true
-	return false
-
-
-func _generate_id() -> String:
-	return _GF_UUID.generate_v4()
-
-
-func _build_payload(batch: Array) -> Dictionary:
-	if payload_builder.is_valid():
-		var payload: Variant = payload_builder.call(_duplicate_batch(batch))
-		if payload is Dictionary:
-			var payload_dictionary: Dictionary = payload
-			var payload_without_events: Dictionary = payload_dictionary.duplicate(false)
-			var _events_removed: bool = payload_without_events.erase("events")
-			var safe_payload: Dictionary = _json_safe_dictionary(payload_without_events)
-			safe_payload["events"] = _duplicate_batch(batch)
-			return safe_payload
-	return { "events": _duplicate_batch(batch) }
-
-
-func _compress_payload_text(payload_text: String) -> PackedByteArray:
-	return payload_text.to_utf8_buffer().compress(FileAccess.COMPRESSION_GZIP)
-
-
-func _load_or_create_client_id() -> String:
-	if not _should_persist_client_id():
-		return _generate_id()
-
-	var loaded_id: String = _load_client_id()
-	if not loaded_id.is_empty():
-		return loaded_id
-
-	var generated_id: String = _generate_id()
-	_save_client_id(generated_id)
-	return generated_id
-
-
-func _should_persist_client_id() -> bool:
-	return config.persist_client_id and config.enabled and (not config.endpoint_url.is_empty() or transport_callback.is_valid())
-
-
-func _json_safe_dictionary(value: Dictionary) -> Dictionary:
-	return GFReportValueCodec.to_report_dictionary(value, _make_report_options())
-
-
-func _encode_event_properties(properties: Dictionary) -> Dictionary:
-	var options: Dictionary = _make_report_options()
-	options["max_collection_items"] = maxi(config.max_collection_items, properties.size())
-	return GFReportValueCodec.to_report_dictionary(properties, options)
-
-
-func _contains_report_budget_marker(value: Variant) -> bool:
-	var pending: Array = [value]
-	while not pending.is_empty():
-		var candidate: Variant = pending.pop_back()
-		if candidate is Dictionary:
-			var dictionary: Dictionary = candidate
-			if _is_report_budget_marker(dictionary):
-				return true
-			for key: Variant in dictionary.keys():
-				pending.append(dictionary[key])
-		elif candidate is Array:
-			var array: Array = candidate
-			for item: Variant in array:
-				pending.append(item)
-	return false
-
-
-func _is_report_budget_marker(value: Dictionary) -> bool:
-	var marker: Dictionary = GFVariantData.get_option_dictionary(value, "__gf_report_value__")
-	var marker_type: String = GFVariantData.get_option_string(marker, "type")
-	return marker_type in [
-		"ByteBudget",
-		"NodeBudget",
-		"MaxDepth",
-		"CollectionBudget",
-	]
-
-
-func _make_report_options() -> Dictionary:
-	return GFReportValueCodec.make_redaction_options(
-		GFReportValueCodec.REDACTION_PROFILE_PRIVACY,
-		{
-			"max_depth": 16,
-			"max_string_length": config.max_string_length,
-			"max_collection_items": config.max_collection_items,
-			"max_packed_length": config.max_collection_items,
-			"max_total_nodes": config.max_total_nodes,
-			"max_total_bytes": config.max_payload_bytes,
-			"encode_dictionary_keys": false,
-		}
-	)
-
-
-func _duplicate_batch(batch: Array) -> Array:
-	var result: Array = []
-	for item: Variant in batch:
-		if item is Dictionary:
-			var item_dictionary: Dictionary = item
-			result.append(item_dictionary.duplicate(true))
-	return result
-
-
-func _load_client_id() -> String:
-	if not _is_valid_client_id_storage_path(config.client_id_storage_path):
-		_report_invalid_client_id_storage_path()
-		return ""
-	var config_file: ConfigFile = ConfigFile.new()
-	var load_error: Error = config_file.load(config.client_id_storage_path)
-	if load_error == ERR_FILE_NOT_FOUND:
-		return ""
-	if load_error != OK:
-		push_warning("[GFAnalyticsUtility][analytics_utility.client_id_load_failed] Failed to load client ID: %s." % error_string(load_error))
-		return ""
-	var loaded_id: String = GFVariantData.to_text(
-		config_file.get_value("analytics", "client_id", "")
-	)
-	if not _is_valid_client_id(loaded_id):
-		return ""
-	return loaded_id
-
-
-func _save_client_id(client_id: String) -> void:
-	if not _is_valid_client_id(client_id):
-		return
-	if not _is_valid_client_id_storage_path(config.client_id_storage_path):
-		_report_invalid_client_id_storage_path()
-		return
-
-	var config_file: ConfigFile = ConfigFile.new()
-	var load_error: Error = config_file.load(config.client_id_storage_path)
-	if load_error != OK and load_error != ERR_FILE_NOT_FOUND:
-		push_warning("[GFAnalyticsUtility][analytics_utility.client_id_load_before_save_failed] Failed to load client ID before saving: %s." % error_string(load_error))
-		return
-	config_file.set_value("analytics", "client_id", client_id)
-	var storage_dir: String = ProjectSettings.globalize_path(config.client_id_storage_path.get_base_dir())
-	if not DirAccess.dir_exists_absolute(storage_dir):
-		var directory_error: Error = DirAccess.make_dir_recursive_absolute(storage_dir)
-		if directory_error != OK:
-			push_warning("[GFAnalyticsUtility][analytics_utility.client_id_directory_failed] Failed to create the client ID directory: %s." % error_string(directory_error))
-			return
-	var save_error: Error = config_file.save(config.client_id_storage_path)
-	if save_error != OK:
-		push_warning("[GFAnalyticsUtility][analytics_utility.client_id_save_failed] Failed to save client ID: %s." % error_string(save_error))
-
-
-func _is_valid_client_id_storage_path(path: String) -> bool:
-	var normalized: String = path.replace("\\", "/").strip_edges()
-	if not normalized.begins_with("user://"):
-		return false
-	for segment: String in normalized.trim_prefix("user://").split("/", false):
-		if segment == "..":
-			return false
-	return not normalized.trim_prefix("user://").is_empty()
-
-
-func _is_valid_client_id(client_id: String) -> bool:
-	return (
-		not client_id.is_empty()
-		and client_id.length() <= _MAX_CLIENT_ID_LENGTH
-		and not _contains_control_character(client_id)
-	)
-
-
-func _contains_control_character(value: String) -> bool:
-	for index: int in range(value.length()):
-		var codepoint: int = value.unicode_at(index)
-		if codepoint < 0x20 or codepoint == 0x7f:
-			return true
-	return false
-
-
-func _report_invalid_client_id_storage_path() -> void:
-	if _reported_invalid_storage_path:
-		return
-	_reported_invalid_storage_path = true
-	push_warning("[GFAnalyticsUtility][analytics_utility.client_id_path_invalid] client_id_storage_path must stay under user:// without parent traversal.")
-
-
-func _ensure_shutdown_watcher() -> void:
-	if is_instance_valid(_shutdown_watcher):
-		return
-
-	var tree: SceneTree = _variant_to_scene_tree(Engine.get_main_loop())
-	if tree == null:
-		return
-
-	_shutdown_watcher = _GFAnalyticsShutdownWatcher.new()
-	_shutdown_watcher.name = "GFAnalyticsShutdownWatcher"
-	_shutdown_watcher._shutdown_callback = Callable(self, "shutdown")
-	_shutdown_watcher_attach_serial += 1
-	call_deferred("_attach_shutdown_watcher_to_root", _shutdown_watcher, _shutdown_watcher_attach_serial)
-
-
-func _attach_shutdown_watcher_to_root(watcher_variant: Variant, attach_serial: int) -> void:
-	var watcher: Node = _variant_to_node(watcher_variant)
-	if attach_serial != _shutdown_watcher_attach_serial or watcher != _shutdown_watcher:
-		_free_shutdown_watcher(watcher)
-		return
-
-	if (not is_instance_valid(watcher)
-		or watcher.is_queued_for_deletion()
-		or watcher.is_inside_tree()
-	):
-		return
-
-	var tree: SceneTree = _variant_to_scene_tree(Engine.get_main_loop())
-	if tree == null:
-		_shutdown_watcher = null
-		_free_shutdown_watcher(watcher)
-		return
-
-	tree.root.add_child(watcher)
-
-
-func _free_shutdown_watcher(watcher: Node) -> void:
-	if not is_instance_valid(watcher) or watcher.is_queued_for_deletion():
-		return
-	if GFAutoload.is_tree_exit_in_progress():
-		watcher.queue_free()
-		return
-	if watcher.is_inside_tree() and watcher.get_parent() != null:
-		watcher.get_parent().remove_child(watcher)
-	watcher.free()
-
-
-func _variant_to_node(value: Variant) -> Node:
-	if typeof(value) != TYPE_OBJECT or not is_instance_valid(value):
-		return null
-	if value is Node:
-		var node: Node = value
-		return node
-	return null
-
-
-func _variant_to_scene_tree(value: Variant) -> SceneTree:
-	if value is SceneTree:
-		var tree: SceneTree = value
-		return tree
-	return null
-
-
 # --- 内部类 ---
 
+## 监听窗口关闭并调用工具 shutdown 的内部节点；ALWAYS 模式使其暂停时仍处理关闭。
+## [br]
+## @api private
 class _GFAnalyticsShutdownWatcher extends Node:
+
+	# --- 私有变量 ---
+
+	## 绑定工具 shutdown 的回调；窗口关闭时以 true 请求排空队列，节点本身不保存事件。
+	## [br]
+	## @api private
 	var _shutdown_callback: Callable = Callable()
+
+
+	# --- Godot 生命周期方法 ---
 
 	func _init() -> void:
 		process_mode = Node.PROCESS_MODE_ALWAYS as Node.ProcessMode

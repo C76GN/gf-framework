@@ -13,8 +13,22 @@ extends Resource
 
 # --- 常量 ---
 
+## 单个 Session Trace 通道允许设置的最大事件数。
+## [br]
+## @api private
+## [br]
 const _MAX_CHANNEL_EVENTS: int = 1_000_000
+
+## 非零单事件字节预算允许的最小值。
+## [br]
+## @api private
+## [br]
 const _MIN_CHANNEL_EVENT_BYTES: int = 512
+
+## 单个 Session Trace 通道允许设置的最大单事件字节预算。
+## [br]
+## @api private
+## [br]
 const _MAX_CHANNEL_EVENT_BYTES: int = 16_777_216
 
 
@@ -202,5 +216,9 @@ func to_report_dictionary_for_framework() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 经 GFVariantData.duplicate_variant 处理输入后，将结果归一为 Dictionary。
+## [br]
+## @api private
+## [br]
 static func _duplicate_dictionary(value: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.duplicate_variant(value))

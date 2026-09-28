@@ -16,6 +16,10 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 解析框架生成产物路径策略的脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_PROJECT_ARTIFACT_PATHS_SCRIPT = preload("res://addons/gf/kernel/core/gf_project_artifact_paths.gd")
 
 ## 默认生成脚本输出目录。
@@ -24,10 +28,35 @@ const _GF_PROJECT_ARTIFACT_PATHS_SCRIPT = preload("res://addons/gf/kernel/core/g
 ## [br]
 ## @since 9.0.0
 const DEFAULT_OUTPUT_DIR: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.NETWORK_OUTPUT_ROOT
+
+## 生成统一验证报告字典的脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_VALIDATION_REPORT_DICTIONARY = preload("res://addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd")
+
+## 构造和解释生成产物保存报告的脚本资源。
+## [br]
+## @api private
+## [br]
 const _GENERATED_ARTIFACT_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_generated_artifact_report.gd")
+
+## 规范化和检查文件系统路径的脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_PATH_TOOLS_SCRIPT = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+## 在生成源码字面量前检查 Variant 的传输安全性。
+## [br]
+## @api private
+## [br]
 const _NETWORK_TRANSPORT_VALUE_VALIDATOR_SCRIPT = preload("res://addons/gf/extensions/network/runtime/gf_network_transport_value_validator.gd")
+
+## 生成标识符时需要避开的 GDScript 保留名称集合。
+## [br]
+## @api private
+## [br]
 const _GDSCRIPT_RESERVED_IDENTIFIERS: Dictionary = {
 	"and": true,
 	"as": true,
@@ -68,18 +97,83 @@ const _GDSCRIPT_RESERVED_IDENTIFIERS: Dictionary = {
 	"when": true,
 	"while": true,
 }
+
+## 默认批量生成契约数量上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_CONTRACTS: int = 256
+
+## 批量生成契约数量允许的绝对上限。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_CONTRACTS: int = 4096
+
+## 默认单份契约的消息数量上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_MESSAGES_PER_CONTRACT: int = 256
+
+## 单份契约消息数量允许的绝对上限。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_MESSAGES_PER_CONTRACT: int = 2048
+
+## 默认单条消息的字段数量上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_FIELDS_PER_MESSAGE: int = 512
+
+## 单条消息字段数量允许的绝对上限。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_FIELDS_PER_MESSAGE: int = 4096
+
+## 默认生成标识符的字符长度上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_IDENTIFIER_LENGTH: int = 256
+
+## 生成标识符长度允许的绝对上限。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_IDENTIFIER_LENGTH: int = 1024
+
+## 默认单个生成源码文件的字节数上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_SOURCE_BYTES: int = 4 * 1024 * 1024
+
+## 单个生成源码文件字节数允许的绝对上限。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_SOURCE_BYTES: int = 64 * 1024 * 1024
+
+## 默认批量生成源码的总字节数上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_TOTAL_SOURCE_BYTES: int = 32 * 1024 * 1024
+
+## 批量生成源码总字节数允许的绝对上限。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_TOTAL_SOURCE_BYTES: int = 256 * 1024 * 1024
+
+## 契约资源路径允许的最大字符长度。
+## [br]
+## @api private
+## [br]
 const _MAX_CONTRACT_PATH_LENGTH: int = 4096
 
 
@@ -331,12 +425,20 @@ func save_source_with_report(output_path: String, source: String, options: Dicti
 
 # --- 私有/辅助方法 ---
 
+## 写入成功时返回 OK，否则从生成产物报告提取 Godot 错误码。
+## [br]
+## @api private
+## [br]
 func _get_legacy_error_code(report: Dictionary) -> Error:
 	if GFVariantData.get_option_bool(report, "written", false):
 		return OK
 	return _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(report)
 
 
+## 按契约路径和生成预算加载、校验契约并组装批量源码产物计划及问题。
+## [br]
+## @api private
+## [br]
 func _build_many_plan(
 	contract_paths: PackedStringArray,
 	output_dir: String,
@@ -464,6 +566,10 @@ func _build_many_plan(
 	return _make_many_plan_result(entries, issues, normalized_output_dir)
 
 
+## 汇总批量计划状态、输出目录、条目、问题和计划指纹。
+## [br]
+## @api private
+## [br]
 func _make_many_plan_result(
 	entries: Array[Dictionary],
 	issues: Array[Dictionary],
@@ -478,6 +584,10 @@ func _make_many_plan_result(
 	}
 
 
+## 读取批量生成限制，拒绝非法预算并将有效值截断到绝对上限。
+## [br]
+## @api private
+## [br]
 func _resolve_generation_budgets(options: Dictionary) -> Dictionary:
 	var specifications: Array[Dictionary] = [
 		{
@@ -533,6 +643,10 @@ func _resolve_generation_budgets(options: Dictionary) -> Dictionary:
 	return budgets
 
 
+## 检查单份契约的类名、消息和字段数量及标识符长度是否超出生成预算。
+## [br]
+## @api private
+## [br]
 func _get_contract_generation_budget_issue(
 	contract: GFNetworkContract,
 	contract_path: String,
@@ -601,6 +715,10 @@ func _get_contract_generation_budget_issue(
 	return {}
 
 
+## 构造含预算名、期望上限、实际值及可选路径的超限问题。
+## [br]
+## @api private
+## [br]
 func _make_generation_budget_issue(
 	budget_name: String,
 	expected_value: int,
@@ -618,6 +736,10 @@ func _make_generation_budget_issue(
 	}
 
 
+## 对契约路径、输出路径和源码摘要组成的计划记录计算 SHA-256。
+## [br]
+## @api private
+## [br]
 func _make_plan_fingerprint(entries: Array[Dictionary]) -> String:
 	var records: Array[Dictionary] = []
 	for entry: Dictionary in entries:
@@ -629,6 +751,10 @@ func _make_plan_fingerprint(entries: Array[Dictionary]) -> String:
 	return JSON.stringify(records).sha256_text()
 
 
+## 合并保存选项并在未指定时将输出目录设为允许写入根目录。
+## [br]
+## @api private
+## [br]
 func _make_batch_save_options(
 	options: Dictionary,
 	overwrite_existing: bool,
@@ -639,12 +765,20 @@ func _make_batch_save_options(
 		save_options["allowed_roots"] = PackedStringArray([output_dir])
 	return save_options
 
+## 深复制生成选项并写入 overwrite_existing 标志。
+## [br]
+## @api private
+## [br]
 func _merge_generation_save_options(options: Dictionary, overwrite_existing: bool) -> Dictionary:
 	var save_options: Dictionary = options.duplicate(true)
 	save_options["overwrite_existing"] = overwrite_existing
 	return save_options
 
 
+## 补齐生成器标识及契约来源标识的产物报告选项。
+## [br]
+## @api private
+## [br]
 func _make_artifact_report_options(options: Dictionary, contract: GFNetworkContract = null) -> Dictionary:
 	var report_options: Dictionary = options.duplicate(true)
 	if not report_options.has("generator_id"):
@@ -657,6 +791,10 @@ func _make_artifact_report_options(options: Dictionary, contract: GFNetworkContr
 	return report_options
 
 
+## 构造尚未写盘时的产物报告选项并清零写入和摘要字段。
+## [br]
+## @api private
+## [br]
 func _make_pre_save_failure_report_options(
 	options: Dictionary,
 	contract: GFNetworkContract = null
@@ -671,6 +809,10 @@ func _make_pre_save_failure_report_options(
 	return report_options
 
 
+## 优先读取报告中的错误文本，否则由报告错误码生成说明。
+## [br]
+## @api private
+## [br]
 func _get_artifact_error_message(report: Dictionary) -> String:
 	var message: String = GFVariantData.get_option_string(report, "error")
 	if not message.is_empty():
@@ -679,6 +821,10 @@ func _get_artifact_error_message(report: Dictionary) -> String:
 	return error_string(error_code)
 
 
+## 采用显式类名，或将契约 ID 转换成带默认前缀的类名。
+## [br]
+## @api private
+## [br]
 func _resolve_class_name(contract: GFNetworkContract, options: Dictionary) -> String:
 	var configured: String = GFVariantData.get_option_string(options, "class_name").strip_edges()
 	if not configured.is_empty():
@@ -692,6 +838,10 @@ func _resolve_class_name(contract: GFNetworkContract, options: Dictionary) -> St
 	return _to_pascal_identifier("%s_network_messages" % base_name, "GFGeneratedNetworkContract")
 
 
+## 为契约消息分配唯一常量、方法和字段访问器名称并生成记录。
+## [br]
+## @api private
+## [br]
 func _build_message_records(contract: GFNetworkContract) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	if contract == null:
@@ -741,6 +891,10 @@ func _build_message_records(contract: GFNetworkContract) -> Array[Dictionary]:
 	return records
 
 
+## 为有名称的字段分配唯一常量、参数名及访问器后缀。
+## [br]
+## @api private
+## [br]
 func _build_field_records(
 	message_contract: GFNetworkContractMessage,
 	used_constants: Dictionary
@@ -776,6 +930,10 @@ func _build_field_records(
 	return records
 
 
+## 保持各自顺序并将必填字段排在可选字段之前。
+## [br]
+## @api private
+## [br]
 func _ordered_fields(fields: Array[GFNetworkContractField]) -> Array[GFNetworkContractField]:
 	var required_fields: Array[GFNetworkContractField] = []
 	var optional_fields: Array[GFNetworkContractField] = []
@@ -790,6 +948,10 @@ func _ordered_fields(fields: Array[GFNetworkContractField]) -> Array[GFNetworkCo
 	return required_fields
 
 
+## 向生成器写入契约版本信息及消息、频道和字段常量。
+## [br]
+## @api private
+## [br]
 func _append_constants(
 	builder: GFSourceBuilder,
 	contract: GFNetworkContract,
@@ -839,6 +1001,10 @@ func _append_constants(
 	builder.blank()
 
 
+## 写入读取契约版本及校验对端契约版本的静态方法。
+## [br]
+## @api private
+## [br]
 func _append_version_methods(builder: GFSourceBuilder) -> void:
 	builder.doc("获取生成脚本携带的契约版本信息。")
 	builder.line("static func get_contract_version() -> Dictionary:")
@@ -869,6 +1035,10 @@ func _append_version_methods(builder: GFSourceBuilder) -> void:
 	builder.blank(2)
 
 
+## 为一条契约消息写入构造、发送、识别、读取 payload 和字段访问方法。
+## [br]
+## @api private
+## [br]
 func _append_message_methods(builder: GFSourceBuilder, record: Dictionary) -> void:
 	var message_contract: GFNetworkContractMessage = _get_record_message(record)
 	if message_contract == null:
@@ -924,6 +1094,10 @@ func _append_message_methods(builder: GFSourceBuilder, record: Dictionary) -> vo
 		_append_field_getter(builder, field_record)
 
 
+## 写入 payload 字段赋值，并按选项处理默认值为空的可选字段。
+## [br]
+## @api private
+## [br]
 func _append_payload_builder(builder: GFSourceBuilder, field_records: Array) -> void:
 	builder.line("var payload: Dictionary = {}")
 	for field_record: Dictionary in field_records:
@@ -945,6 +1119,10 @@ func _append_payload_builder(builder: GFSourceBuilder, field_records: Array) -> 
 		])
 
 
+## 为单个契约字段写入使用声明类型和默认值的访问器。
+## [br]
+## @api private
+## [br]
 func _append_field_getter(builder: GFSourceBuilder, field_record: Dictionary) -> void:
 	var field: GFNetworkContractField = _get_record_field(field_record)
 	if field == null:
@@ -1003,6 +1181,10 @@ func _append_field_getter(builder: GFSourceBuilder, field_record: Dictionary) ->
 	builder.blank(2)
 
 
+## 写入生成类使用的 payload、类型转换和消息发送辅助方法。
+## [br]
+## @api private
+## [br]
 func _append_private_helpers(builder: GFSourceBuilder) -> void:
 	builder.section("私有/辅助方法")
 	builder.line("static func _get_payload_value(message: GFNetworkMessage, field_name: StringName, default_value: Variant = null) -> Variant:")
@@ -1091,6 +1273,10 @@ func _append_private_helpers(builder: GFSourceBuilder) -> void:
 	builder.dedent()
 
 
+## 生成字段参数声明，并按需追加 options 参数。
+## [br]
+## @api private
+## [br]
 func _build_function_parameters(field_records: Array, include_options: bool) -> PackedStringArray:
 	var params: PackedStringArray = PackedStringArray()
 	for field_record: Dictionary in field_records:
@@ -1109,6 +1295,10 @@ func _build_function_parameters(field_records: Array, include_options: bool) -> 
 	return params
 
 
+## 按字段顺序拼接参数名并在末尾附加 options。
+## [br]
+## @api private
+## [br]
 func _build_make_call_arguments(field_records: Array) -> String:
 	var args: PackedStringArray = PackedStringArray()
 	for field_record: Dictionary in field_records:
@@ -1117,22 +1307,42 @@ func _build_make_call_arguments(field_records: Array) -> String:
 	return ", ".join(args)
 
 
+## 从生成记录读取并类型检查 GFNetworkContractMessage。
+## [br]
+## @api private
+## [br]
 func _get_record_message(record: Dictionary) -> GFNetworkContractMessage:
 	return _variant_to_message(GFVariantData.get_option_value(record, "message"))
 
 
+## 从生成记录读取并类型检查 GFNetworkContractField。
+## [br]
+## @api private
+## [br]
 func _get_record_field(record: Dictionary) -> GFNetworkContractField:
 	return _variant_to_field(GFVariantData.get_option_value(record, "field"))
 
 
+## 按键读取生成记录中的 Array 值。
+## [br]
+## @api private
+## [br]
 func _get_record_array(record: Dictionary, field_name: String) -> Array:
 	return GFVariantData.get_option_array(record, field_name)
 
 
+## 按键读取生成记录中的 String，并支持默认值。
+## [br]
+## @api private
+## [br]
 func _get_record_string(record: Dictionary, field_name: String, default_value: String = "") -> String:
 	return GFVariantData.get_option_string(record, field_name, default_value)
 
 
+## 仅当 Variant 为 GFNetworkContract 时返回该资源。
+## [br]
+## @api private
+## [br]
 func _variant_to_contract(value: Variant) -> GFNetworkContract:
 	if value is GFNetworkContract:
 		var contract: GFNetworkContract = value
@@ -1140,6 +1350,10 @@ func _variant_to_contract(value: Variant) -> GFNetworkContract:
 	return null
 
 
+## 仅当 Variant 为 GFNetworkContractMessage 时返回该资源。
+## [br]
+## @api private
+## [br]
 func _variant_to_message(value: Variant) -> GFNetworkContractMessage:
 	if value is GFNetworkContractMessage:
 		var message_contract: GFNetworkContractMessage = value
@@ -1147,6 +1361,10 @@ func _variant_to_message(value: Variant) -> GFNetworkContractMessage:
 	return null
 
 
+## 仅当 Variant 为 GFNetworkContractField 时返回该资源。
+## [br]
+## @api private
+## [br]
 func _variant_to_field(value: Variant) -> GFNetworkContractField:
 	if value is GFNetworkContractField:
 		var field: GFNetworkContractField = value
@@ -1154,6 +1372,10 @@ func _variant_to_field(value: Variant) -> GFNetworkContractField:
 	return null
 
 
+## 将整数、浮点数、布尔值或有效整数字符串转换为 int。
+## [br]
+## @api private
+## [br]
 func _coerce_literal_int(value: Variant, default_value: int = 0) -> int:
 	if value == null:
 		return default_value
@@ -1170,6 +1392,10 @@ func _coerce_literal_int(value: Variant, default_value: int = 0) -> int:
 	return text.to_int() if text.is_valid_int() else default_value
 
 
+## 将浮点数、整数、布尔值或有效数字字符串转换为 float。
+## [br]
+## @api private
+## [br]
 func _coerce_literal_float(value: Variant, default_value: float = 0.0) -> float:
 	if value == null:
 		return default_value
@@ -1186,6 +1412,10 @@ func _coerce_literal_float(value: Variant, default_value: float = 0.0) -> float:
 	return text.to_float() if text.is_valid_float() else default_value
 
 
+## 仅当 Variant 为 Vector2 时返回，否则使用 Vector2.ZERO。
+## [br]
+## @api private
+## [br]
 func _variant_to_vector2(value: Variant) -> Vector2:
 	if value is Vector2:
 		var vector: Vector2 = value
@@ -1193,6 +1423,10 @@ func _variant_to_vector2(value: Variant) -> Vector2:
 	return Vector2.ZERO
 
 
+## 仅当 Variant 为 Vector3 时返回，否则使用 Vector3.ZERO。
+## [br]
+## @api private
+## [br]
 func _variant_to_vector3(value: Variant) -> Vector3:
 	if value is Vector3:
 		var vector: Vector3 = value
@@ -1200,6 +1434,10 @@ func _variant_to_vector3(value: Variant) -> Vector3:
 	return Vector3.ZERO
 
 
+## 仅当 Variant 为 Vector2i 时返回，否则使用 Vector2i.ZERO。
+## [br]
+## @api private
+## [br]
 func _variant_to_vector2i(value: Variant) -> Vector2i:
 	if value is Vector2i:
 		var vector: Vector2i = value
@@ -1207,6 +1445,10 @@ func _variant_to_vector2i(value: Variant) -> Vector2i:
 	return Vector2i.ZERO
 
 
+## 仅当 Variant 为 Vector3i 时返回，否则使用 Vector3i.ZERO。
+## [br]
+## @api private
+## [br]
 func _variant_to_vector3i(value: Variant) -> Vector3i:
 	if value is Vector3i:
 		var vector: Vector3i = value
@@ -1214,6 +1456,10 @@ func _variant_to_vector3i(value: Variant) -> Vector3i:
 	return Vector3i.ZERO
 
 
+## 仅当 Variant 为 Color 时返回，否则使用 Color.WHITE。
+## [br]
+## @api private
+## [br]
 func _variant_to_color(value: Variant) -> Color:
 	if value is Color:
 		var color: Color = value
@@ -1221,10 +1467,18 @@ func _variant_to_color(value: Variant) -> Color:
 	return Color.WHITE
 
 
+## 向 PackedStringArray 追加一个字符串。
+## [br]
+## @api private
+## [br]
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var _added: bool = target.append(value)
 
 
+## 将契约字段 ValueType 映射为对应的 GDScript 类型名。
+## [br]
+## @api private
+## [br]
 func _get_gdscript_type(field: GFNetworkContractField) -> String:
 	match field.value_type:
 		GFNetworkContractField.ValueType.BOOL:
@@ -1259,26 +1513,46 @@ func _get_gdscript_type(field: GFNetworkContractField) -> String:
 			return "Variant"
 
 
+## 为字段参数选择 Variant 或其声明的 GDScript 类型。
+## [br]
+## @api private
+## [br]
 func _get_parameter_type(field: GFNetworkContractField) -> String:
 	if field.allow_null or _should_omit_null_optional_parameter(field):
 		return "Variant"
 	return _get_gdscript_type(field)
 
 
+## 可空字段使用 Variant 返回类型，其余使用声明类型。
+## [br]
+## @api private
+## [br]
 func _get_accessor_return_type(field: GFNetworkContractField) -> String:
 	return "Variant" if field.allow_null else _get_gdscript_type(field)
 
 
+## 为参数生成默认值字面量，可省略的空可选字段使用 null。
+## [br]
+## @api private
+## [br]
 func _get_parameter_default_literal(field: GFNetworkContractField) -> String:
 	if _should_omit_null_optional_parameter(field):
 		return "null"
 	return _get_default_literal(field)
 
 
+## 判断字段是否为默认值为空的可选字段。
+## [br]
+## @api private
+## [br]
 func _should_omit_null_optional_parameter(field: GFNetworkContractField) -> bool:
 	return field != null and not field.required and field.default_value == null
 
 
+## 将字段默认值序列化为字面量，失败时返回该类型的内建默认值。
+## [br]
+## @api private
+## [br]
 func _get_default_literal(field: GFNetworkContractField) -> String:
 	if field.default_value != null:
 		var literal: String = _variant_literal(field.default_value)
@@ -1318,6 +1592,10 @@ func _get_default_literal(field: GFNetworkContractField) -> String:
 			return "null"
 
 
+## 仅对传输验证通过的 Variant 生成 GDScript 字面量。
+## [br]
+## @api private
+## [br]
 func _variant_literal(value: Variant) -> String:
 	var transport_report: Dictionary = _NETWORK_TRANSPORT_VALUE_VALIDATOR_SCRIPT.validate(value)
 	if not GFVariantData.get_option_bool(transport_report, "ok"):
@@ -1325,6 +1603,10 @@ func _variant_literal(value: Variant) -> String:
 	return _variant_literal_unchecked(value)
 
 
+## 按 Variant 类型生成对应的 GDScript 字面量文本。
+## [br]
+## @api private
+## [br]
 func _variant_literal_unchecked(value: Variant) -> String:
 	if value == null:
 		return "null"
@@ -1370,6 +1652,10 @@ func _variant_literal_unchecked(value: Variant) -> String:
 			return var_to_str(value)
 
 
+## 排序字典字面量键值后生成源码文本，无法序列化时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _dictionary_literal(value: Dictionary) -> String:
 	var entries: Array[Dictionary] = []
 	for key: Variant in value:
@@ -1393,6 +1679,10 @@ func _dictionary_literal(value: Dictionary) -> String:
 	return "{%s}" % ", ".join(parts)
 
 
+## 按顺序生成数组字面量，无法序列化任一元素时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _array_literal(value: Array) -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	for item: Variant in value:
@@ -1403,11 +1693,19 @@ func _array_literal(value: Array) -> String:
 	return "[%s]" % ", ".join(parts)
 
 
+## 生成浮点数字面量，并为整数外观的文本补上 .0。
+## [br]
+## @api private
+## [br]
 func _float_literal(value: float) -> String:
 	var text: String = str(value)
 	return text if text.contains(".") or text.contains("e") else text + ".0"
 
 
+## 将输入规范化为 PascalCase 标识符，并在结果为空时使用回退名。
+## [br]
+## @api private
+## [br]
 func _to_pascal_identifier(value: String, fallback: String) -> String:
 	var base: String = _to_snake_identifier(value, fallback).to_pascal_case()
 	if base.is_empty():
@@ -1417,6 +1715,10 @@ func _to_pascal_identifier(value: String, fallback: String) -> String:
 	return base
 
 
+## 将输入规范化为小写 snake_case，替换非法分隔符并处理空名或数字开头。
+## [br]
+## @api private
+## [br]
 func _to_snake_identifier(value: String, fallback: String) -> String:
 	var snake: String = value.to_snake_case().to_lower()
 	var result: String = ""
@@ -1443,11 +1745,19 @@ func _to_snake_identifier(value: String, fallback: String) -> String:
 	return result
 
 
+## 将规范化 snake_case 标识符转换为大写常量名。
+## [br]
+## @api private
+## [br]
 func _to_constant_name(value: String, fallback: String) -> String:
 	var constant_name: String = _to_snake_identifier(value, fallback).to_upper()
 	return constant_name if not constant_name.is_empty() else fallback
 
 
+## 为重复名称追加递增数字后缀并登记最终名称。
+## [br]
+## @api private
+## [br]
 func _make_unique_name(base_name: String, used_names: Dictionary) -> String:
 	var candidate: String = base_name
 	var index: int = 2
@@ -1458,6 +1768,10 @@ func _make_unique_name(base_name: String, used_names: Dictionary) -> String:
 	return candidate
 
 
+## 生成合法 snake_case 标识符，按需避开保留名并确保唯一。
+## [br]
+## @api private
+## [br]
 func _allocate_identifier(
 	value: String,
 	fallback: String,
@@ -1470,6 +1784,10 @@ func _allocate_identifier(
 	return _make_unique_name(base_name, used_names)
 
 
+## 按网络契约生成错误类型提供修复建议文本。
+## [br]
+## @api private
+## [br]
 func _get_generation_next_actions() -> Dictionary:
 	return {
 		"invalid_contract_resource": "Check that the configured path points to a GFNetworkContract resource.",
@@ -1482,5 +1800,9 @@ func _get_generation_next_actions() -> Dictionary:
 	}
 
 
+## 检查非空字符串是否以 ASCII 数字开头。
+## [br]
+## @api private
+## [br]
 func _starts_with_digit(value: String) -> bool:
 	return not value.is_empty() and value.unicode_at(0) >= 48 and value.unicode_at(0) <= 57

@@ -135,6 +135,9 @@ func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 逐项复制评分对象并省略 null 项。
+## [br]
+## @api private
 func _copy_scores(source_scores: Array[GFDecisionScore]) -> Array[GFDecisionScore]:
 	var result: Array[GFDecisionScore] = []
 	for candidate_score: GFDecisionScore in source_scores:
@@ -144,6 +147,9 @@ func _copy_scores(source_scores: Array[GFDecisionScore]) -> Array[GFDecisionScor
 	return result
 
 
+## 优先复用复制列表中 ID 与顺序均匹配的结果，否则复制传入最佳分数。
+## [br]
+## @api private
 func _copy_best_score(source_score: GFDecisionScore, copied_scores: Array[GFDecisionScore]) -> GFDecisionScore:
 	if source_score == null:
 		return GFDecisionScore.new(null, 0.0, [], false)
@@ -157,6 +163,9 @@ func _copy_best_score(source_score: GFDecisionScore, copied_scores: Array[GFDeci
 	return _copy_score(source_score)
 
 
+## 复制评分标量字段、考虑项明细与 metadata；null 输入返回 null。
+## [br]
+## @api private
 func _copy_score(source_score: GFDecisionScore) -> GFDecisionScore:
 	if source_score == null:
 		return null
@@ -170,6 +179,9 @@ func _copy_score(source_score: GFDecisionScore) -> GFDecisionScore:
 	return copied_score
 
 
+## 逐项复制考虑项评分明细字典。
+## [br]
+## @api private
 func _copy_consideration_scores(source: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for detail: Dictionary in source:
@@ -177,6 +189,9 @@ func _copy_consideration_scores(source: Array[Dictionary]) -> Array[Dictionary]:
 	return result
 
 
+## 复制字典并确认返回值仍是 Dictionary，否则返回空字典。
+## [br]
+## @api private
 func _copy_dictionary(source: Dictionary) -> Dictionary:
 	var copied: Variant = GFVariantData.duplicate_variant(source)
 	if copied is Dictionary:

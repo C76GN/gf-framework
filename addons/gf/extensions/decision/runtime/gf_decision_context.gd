@@ -30,9 +30,16 @@ const DEFAULT_MAX_SNAPSHOT_ENTRIES: int = 1024
 ## @since 8.0.0
 const DEFAULT_MAX_REFLECTION_PROPERTIES: int = 256
 
+## 将上下文快照投影为 JSON-safe 报告值。
+## [br]
+## @api private
 const _REPORT_SCHEMA_PROJECTION = preload(
 	"res://addons/gf/kernel/core/gf_report_schema_projection.gd"
 )
+
+## 捕获预算允许的条目数量上限。
+## [br]
+## @api private
 const _HARD_MAX_CAPTURE_ENTRIES: int = 65536
 
 
@@ -102,9 +109,24 @@ var capture_options: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 当前 subject 的 WeakRef 句柄，由 subject 赋值路径重设。
+## [br]
+## @api private
 var _subject_ref: WeakRef = null
+
+## 当前 target 的 WeakRef 句柄，由 target 赋值路径重设。
+## [br]
+## @api private
 var _target_ref: WeakRef = null
+
+## 按 subject/target 捕获槽保存最近一次捕获来源、数量、预算和截断状态。
+## [br]
+## @api private
 var _capture_diagnostics: Dictionary = {}
+
+## 按捕获槽记录已进入快照或已尝试懒读取的键，供预算及重复读取判断。
+## [br]
+## @api private
 var _capture_entries: Dictionary = {}
 
 
@@ -339,12 +361,18 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 黑板为空时创建默认实例，并返回当前黑板。
+## [br]
+## @api private
 func _ensure_blackboard() -> GFDecisionBlackboard:
 	if blackboard == null:
 		blackboard = GFDecisionBlackboard.new()
 	return blackboard
 
 
+## 重置 subject 捕获槽、更新 WeakRef，并在账本未被回调替换时保存新快照。
+## [br]
+## @api private
 func _set_subject(value: Object) -> void:
 	_reset_capture_slot(&"subject")
 	_subject_ref = weakref(value) if value != null else null
@@ -356,6 +384,9 @@ func _set_subject(value: Object) -> void:
 	_seed_capture_entries(&"subject", subject_values)
 
 
+## 重置 target 捕获槽、更新 WeakRef，并在账本未被回调替换时保存新快照。
+## [br]
+## @api private
 func _set_target(value: Object) -> void:
 	_reset_capture_slot(&"target")
 	_target_ref = weakref(value) if value != null else null
@@ -367,6 +398,11 @@ func _set_target(value: Object) -> void:
 	_seed_capture_entries(&"target", target_values)
 
 
+## 优先调用 get_decision_snapshot，其次 get_decision_values，否则捕获反射属性。
+## [br]
+## 捕获过程中若 provider 改变该槽账本，则丢弃当次快照；结果还会应用逐键覆盖。
+## [br]
+## @api private
 func _snapshot_decision_object(object_ref: Object, capture_slot: StringName) -> Dictionary:
 	var entries: Dictionary = _get_capture_entries(capture_slot)
 	_capture_diagnostics[capture_slot] = {
@@ -407,6 +443,11 @@ func _snapshot_decision_object(object_ref: Object, capture_slot: StringName) -> 
 	return snapshot
 
 
+## 仅保留可归一化为 StringName 的键，并按 max_snapshot_entries 限制复制数量。
+## [br]
+## 同时写入捕获来源、条目数、截断标志和预算诊断。
+## [br]
+## @api private
 func _copy_snapshot_dictionary(
 	source: Dictionary,
 	capture_slot: StringName,
@@ -427,6 +468,11 @@ func _copy_snapshot_dictionary(
 	return snapshot
 
 
+## 从对象属性表捕获 storage 或 script variable 属性，跳过 script 并受属性预算限制。
+## [br]
+## 读取属性期间槽账本被替换时返回空字典。
+## [br]
+## @api private
 func _snapshot_object_properties(object_ref: Object, capture_slot: StringName) -> Dictionary:
 	var entries: Dictionary = _get_capture_entries(capture_slot)
 	var snapshot: Dictionary = {}
@@ -450,6 +496,9 @@ func _snapshot_object_properties(object_ref: Object, capture_slot: StringName) -
 	return snapshot
 
 
+## 对快照中已有的每个键调用 get_decision_value；非 sentinel 结果覆盖对应值。
+## [br]
+## @api private
 func _apply_decision_value_overrides(object_ref: Object, snapshot: Dictionary) -> void:
 	if not _can_invoke_provider_method(object_ref, &"get_decision_value", 2):
 		return
@@ -467,6 +516,9 @@ func _apply_decision_value_overrides(object_ref: Object, snapshot: Dictionary) -
 		snapshot[key] = GFVariantData.duplicate_variant(value)
 
 
+## 先按 StringName 再按 String 键读取快照，并经 Variant 复制器返回值。
+## [br]
+## @api private
 func _read_snapshot_value(snapshot: Dictionary, key: StringName, fallback: Variant = null) -> Variant:
 	if snapshot.has(key):
 		return GFVariantData.duplicate_variant(snapshot[key])
@@ -476,6 +528,10 @@ func _read_snapshot_value(snapshot: Dictionary, key: StringName, fallback: Varia
 	return fallback
 
 
+## 优先读取快照；缺失键只有未记入账本且未超预算时才调用 provider。
+## 调用前预留键，sentinel 结果保留为负缓存；回调替换账本时返回 fallback。
+## [br]
+## @api private
 func _read_object_snapshot_value(
 	snapshot: Dictionary,
 	object_ref: Object,
@@ -544,12 +600,18 @@ func _read_object_snapshot_value(
 	return GFVariantData.duplicate_variant(value)
 
 
+## 按 StringName 或其 String 形式检查快照键是否存在。
+## [br]
+## @api private
 func _snapshot_has_key(snapshot: Dictionary, key: StringName) -> bool:
 	if snapshot.has(key):
 		return true
 	return snapshot.has(String(key))
 
 
+## 返回槽位的可变捕获账本；当前值不是 Dictionary 时新建并存入账本。
+## [br]
+## @api private
 func _get_capture_entries(capture_slot: StringName) -> Dictionary:
 	var value: Variant = _capture_entries.get(capture_slot)
 	if value is Dictionary:
@@ -560,6 +622,9 @@ func _get_capture_entries(capture_slot: StringName) -> Dictionary:
 	return created
 
 
+## 将已有快照中可转成 StringName 的键标记为已捕获。
+## [br]
+## @api private
 func _seed_capture_entries(capture_slot: StringName, snapshot: Dictionary) -> void:
 	var entries: Dictionary = _get_capture_entries(capture_slot)
 	for key_variant: Variant in snapshot.keys():
@@ -568,11 +633,17 @@ func _seed_capture_entries(capture_slot: StringName, snapshot: Dictionary) -> vo
 			entries[normalized_key] = true
 
 
+## 用新字典替换槽位账本，并删除该槽位之前的捕获诊断。
+## [br]
+## @api private
 func _reset_capture_slot(capture_slot: StringName) -> void:
 	_capture_entries[capture_slot] = {}
 	var _diagnostics_erased: bool = _capture_diagnostics.erase(capture_slot)
 
 
+## 保留 StringName，将 String 转成 StringName，其余键保持原 Variant。
+## [br]
+## @api private
 func _normalize_snapshot_key(key: Variant) -> Variant:
 	if key is StringName:
 		return key
@@ -582,6 +653,9 @@ func _normalize_snapshot_key(key: Variant) -> Variant:
 	return key
 
 
+## 读取指定预算并限制在 0 到 _HARD_MAX_CAPTURE_ENTRIES 之间。
+## [br]
+## @api private
 func _get_capture_limit(option_name: String, default_value: int) -> int:
 	return clampi(
 		GFVariantData.get_option_int(capture_options, option_name, default_value),
@@ -590,6 +664,9 @@ func _get_capture_limit(option_name: String, default_value: int) -> int:
 	)
 
 
+## 检查对象实例和方法存在性，并按必需参数、默认参数及 vararg 标记验证调用数。
+## [br]
+## @api private
 func _can_invoke_provider_method(
 	object_ref: Object,
 	method_name: StringName,
@@ -614,6 +691,9 @@ func _can_invoke_provider_method(
 	return false
 
 
+## 通过 Variant 复制器处理字典并检查返回类型；其他结果转为空字典。
+## [br]
+## @api private
 func _copy_dictionary(source: Dictionary) -> Dictionary:
 	var copied: Variant = GFVariantData.duplicate_variant(source)
 	if copied is Dictionary:
@@ -622,6 +702,9 @@ func _copy_dictionary(source: Dictionary) -> Dictionary:
 	return {}
 
 
+## 更新指定槽位的捕获计数、来源与预算，并保留先前已置位的 truncated。
+## [br]
+## @api private
 func _set_capture_diagnostics(
 	capture_slot: StringName,
 	capture_source: StringName,

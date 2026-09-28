@@ -29,8 +29,22 @@ const STAGE_ID: String = "gf.config.commit.filesystem"
 ## @since 9.0.0
 const IMPLEMENTATION_VERSION: int = 3
 
+## artifact write transaction 报告的格式标识。
+## [br]
+## @api private
+## [br]
 const _TRANSACTION_FORMAT: String = "gf.artifact_write.transaction"
+
+## artifact write transaction 当前报告版本。
+## [br]
+## @api private
+## [br]
 const _TRANSACTION_VERSION: int = 1
+
+## 执行多文件产物事务写入的内部脚本。
+## [br]
+## @api private
+## [br]
 const _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT = preload(
 	"res://addons/gf/kernel/editor/gf_artifact_write_transaction.gd"
 )

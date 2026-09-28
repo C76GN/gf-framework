@@ -92,6 +92,9 @@ func get_equipped_item(slot_id: StringName) -> StringName:
 
 # --- 私有/辅助方法 ---
 
+## 将任意值收窄为 GFEquipmentSlot 实例，否则返回 null。
+## [br]
+## @api private
 func _get_equipment_slot_value(value: Variant) -> GFEquipmentSlot:
 	if value is GFEquipmentSlot:
 		var slot: GFEquipmentSlot = value

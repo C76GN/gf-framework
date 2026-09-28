@@ -6,6 +6,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 引用 core 有界 JSON 对象读取器，供编辑器兼容层委托实际读取与解析。
+## [br]
+## @api private
 const _GF_BOUNDED_JSON_OBJECT_READER_SCRIPT = preload(
 	"res://addons/gf/kernel/core/gf_bounded_json_object_reader.gd"
 )
@@ -65,6 +68,9 @@ static func parse_object(text: String, max_bytes: int, max_depth: int) -> Dictio
 
 # --- 私有/辅助方法 ---
 
+## 将底层报告的四个字段按预期类型重新构造，并递归复制 data。
+## [br]
+## @api private
 static func _to_legacy_report(report: Dictionary) -> Dictionary:
 	var ok_value: Variant = report.get("ok")
 	var data_value: Variant = report.get("data")

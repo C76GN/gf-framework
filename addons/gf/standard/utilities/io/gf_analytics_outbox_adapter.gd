@@ -37,15 +37,64 @@ const PROTOCOL_VERSION: int = 1
 ## @since 10.0.0
 const DEFAULT_ENDPOINT_URL: String = "gf://analytics/events"
 
+## 提供批次 ID 生成及 UUID 格式校验。
+## [br]
+## @api private
+## [br]
 const _GF_UUID = preload("res://addons/gf/standard/foundation/identity/gf_uuid.gd")
+
+## 允许配置的最小请求载荷字节数。
+## [br]
+## @api private
+## [br]
 const _MIN_PAYLOAD_BYTES: int = 1024
+
+## 允许配置的最大请求载荷字节数。
+## [br]
+## @api private
+## [br]
 const _MAX_PAYLOAD_BYTES: int = 16 * 1024 * 1024
+
+## 单批事件数可配置的硬上限。
+## [br]
+## @api private
+## [br]
 const _MAX_EVENTS_HARD_LIMIT: int = 500
+
+## 请求重放次数可配置的硬上限。
+## [br]
+## @api private
+## [br]
 const _MAX_ATTEMPTS_HARD_LIMIT: int = 64
+
+## 协议版本整数允许的最大值。
+## [br]
+## @api private
+## [br]
 const _MAX_SCHEMA_VERSION: int = 2_147_483_647
+
+## 嵌套深度可配置的硬上限。
+## [br]
+## @api private
+## [br]
 const _MAX_DEPTH_HARD_LIMIT: int = 32
+
+## 单个集合元素数可配置的硬上限。
+## [br]
+## @api private
+## [br]
 const _MAX_COLLECTION_ITEMS_HARD_LIMIT: int = 4096
+
+## 单个字符串长度可配置的硬上限。
+## [br]
+## @api private
+## [br]
 const _MAX_STRING_LENGTH_HARD_LIMIT: int = 65_536
+
+## 载荷递归遍历节点数可配置的硬上限。
+## [br]
+## @api private
+## [br]
 const _MAX_TOTAL_NODES_HARD_LIMIT: int = 1_000_000
 
 
@@ -138,6 +187,10 @@ var max_total_nodes: int = 8192:
 
 # --- 私有变量 ---
 
+## 最近一次结果报告写入的 reason；初始化时表示尚未配置。
+## [br]
+## @api private
+## [br]
 var _last_reason: StringName = &"not_configured"
 
 
@@ -512,6 +565,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 校验唯一的 events 载荷、事件字段、版本化 ID 与递归 JSON 数据预算。
+## [br]
+## @api private
+## [br]
 func _validate_payload(payload: Dictionary) -> Dictionary:
 	if not _has_exact_keys(payload, PackedStringArray(["events"])):
 		return { "ok": false, "reason": &"unsupported_payload_fields" }
@@ -614,6 +671,10 @@ func _validate_payload(payload: Dictionary) -> Dictionary:
 	}
 
 
+## 递归检查 JSON 值、循环集合、键和各项深度/节点/字符串/字节上限。
+## [br]
+## @api private
+## [br]
 func _validate_json_value(value: Variant, depth: int, state: Dictionary) -> Dictionary:
 	if depth > max_depth:
 		return { "ok": false, "reason": &"payload_depth_exceeded" }
@@ -697,6 +758,10 @@ func _validate_json_value(value: Variant, depth: int, state: Dictionary) -> Dict
 	return { "ok": false, "reason": &"unsupported_payload_value" }
 
 
+## 有序 event_id 全部存在时对协议版本与 ID 列表求 SHA-256，否则生成 UUID v7。
+## [br]
+## @api private
+## [br]
 func _make_batch_identity(events: Array) -> Dictionary:
 	var event_ids: Array[String] = []
 	for event_value: Variant in events:
@@ -722,6 +787,10 @@ func _make_batch_identity(events: Array) -> Dictionary:
 	}
 
 
+## 校验持久化信封的结构、协议字段、端点、载荷、计数、字节数及批次身份。
+## [br]
+## @api private
+## [br]
 func _validate_envelope(envelope: GFRequestEnvelope) -> bool:
 	if envelope == null or not envelope.is_valid():
 		return false
@@ -811,6 +880,10 @@ func _validate_envelope(envelope: GFRequestEnvelope) -> bool:
 	return _GF_UUID.is_valid(batch_id, 7)
 
 
+## 统计待处理与失败队列中匹配幂等键的数量，并分别保留首个信封。
+## [br]
+## @api private
+## [br]
 func _find_existing_requests(idempotency_key: String) -> Dictionary:
 	var result: Dictionary = {
 		"pending": null,
@@ -839,6 +912,10 @@ func _find_existing_requests(idempotency_key: String) -> Dictionary:
 	return result
 
 
+## 从报告字段读取 GFRequestEnvelope，类型不符或缺失时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_existing_envelope(report: Dictionary, key: String) -> GFRequestEnvelope:
 	var value: Variant = GFVariantData.get_option_value(report, key, null)
 	if value is GFRequestEnvelope:
@@ -847,6 +924,10 @@ func _get_existing_envelope(report: Dictionary, key: String) -> GFRequestEnvelop
 	return null
 
 
+## 比较两个信封选定身份字段的规范 JSON 文本。
+## [br]
+## @api private
+## [br]
 func _envelopes_match(left: GFRequestEnvelope, right: GFRequestEnvelope) -> bool:
 	if left == null or right == null:
 		return false
@@ -855,6 +936,10 @@ func _envelopes_match(left: GFRequestEnvelope, right: GFRequestEnvelope) -> bool
 	return _get_canonical_json_text(left_identity) == _get_canonical_json_text(right_identity)
 
 
+## 提取参与信封相等判断的请求、正文、Header、幂等键、重试上限和元数据字段。
+## [br]
+## @api private
+## [br]
 func _make_envelope_identity(envelope: GFRequestEnvelope) -> Dictionary:
 	var header_values: Array[String] = []
 	for header: String in envelope.headers:
@@ -871,6 +956,10 @@ func _make_envelope_identity(envelope: GFRequestEnvelope) -> Dictionary:
 	}
 
 
+## 检查字典大小和键集合是否与预期键列表完全一致。
+## [br]
+## @api private
+## [br]
 func _has_exact_keys(value: Dictionary, expected_keys: PackedStringArray) -> bool:
 	if value.size() != expected_keys.size():
 		return false
@@ -880,6 +969,10 @@ func _has_exact_keys(value: Dictionary, expected_keys: PackedStringArray) -> boo
 	return true
 
 
+## 仅在当前递归活动集合栈中按实例身份查找同一集合。
+## [br]
+## @api private
+## [br]
 func _is_active_collection(value: Variant, state: Dictionary) -> bool:
 	var active_value: Variant = GFVariantData.get_option_value(state, "active", [])
 	if not (active_value is Array):
@@ -891,12 +984,20 @@ func _is_active_collection(value: Variant, state: Dictionary) -> bool:
 	return false
 
 
+## 将当前集合压入递归校验使用的活动集合栈。
+## [br]
+## @api private
+## [br]
 func _push_active_collection(value: Variant, state: Dictionary) -> void:
 	var active: Array = _get_active_array(state)
 	active.append(value)
 	state["active"] = active
 
 
+## 从活动集合栈移除末尾项，并将更新后的数组写回状态字典。
+## [br]
+## @api private
+## [br]
 func _pop_active_collection(state: Dictionary) -> void:
 	var active: Array = _get_active_array(state)
 	if not active.is_empty():
@@ -904,6 +1005,10 @@ func _pop_active_collection(state: Dictionary) -> void:
 	state["active"] = active
 
 
+## 读取活动集合数组；状态值类型不符时创建并登记空数组。
+## [br]
+## @api private
+## [br]
 func _get_active_array(state: Dictionary) -> Array:
 	var active_value: Variant = GFVariantData.get_option_value(state, "active", [])
 	if active_value is Array:
@@ -914,6 +1019,10 @@ func _get_active_array(state: Dictionary) -> Array:
 	return fallback
 
 
+## 从结果报告读取 GFRequestEnvelope，类型不符或缺失时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_report_envelope(report: Dictionary) -> GFRequestEnvelope:
 	var value: Variant = GFVariantData.get_option_value(report, "envelope", null)
 	if value is GFRequestEnvelope:
@@ -922,11 +1031,19 @@ func _get_report_envelope(report: Dictionary) -> GFRequestEnvelope:
 	return null
 
 
+## 将值转为 JSON 文本并返回 UTF-8 字节数；无法编码时返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_json_bytes(value: Variant) -> int:
 	var text: String = _get_json_text(value)
 	return -1 if text.is_empty() else text.to_utf8_buffer().size()
 
 
+## 计算带最大长度占位 batch_id 的空批次正文 JSON 字节数。
+## [br]
+## @api private
+## [br]
 func _get_empty_batch_body_bytes() -> int:
 	return _get_json_bytes({
 		"schema_id": String(SCHEMA_ID),
@@ -936,6 +1053,10 @@ func _get_empty_batch_body_bytes() -> int:
 	})
 
 
+## 计算标量 JSON 字节数并尝试计入预算，返回编码或超限原因。
+## [br]
+## @api private
+## [br]
 func _reserve_payload_scalar_bytes(value: Variant, state: Dictionary) -> Dictionary:
 	var scalar_bytes: int = _get_json_bytes(value)
 	if scalar_bytes < 0:
@@ -947,6 +1068,10 @@ func _reserve_payload_scalar_bytes(value: Variant, state: Dictionary) -> Diction
 	}
 
 
+## 仅在新增字节数非负且总量不超过配置上限时更新已用预算。
+## [br]
+## @api private
+## [br]
 func _reserve_payload_bytes(state: Dictionary, byte_count: int) -> bool:
 	if byte_count < 0:
 		return false
@@ -957,11 +1082,19 @@ func _reserve_payload_bytes(state: Dictionary, byte_count: int) -> bool:
 	return true
 
 
+## 经 GFVariantJsonCodec 转换后生成 JSON 文本。
+## [br]
+## @api private
+## [br]
 func _get_json_text(value: Variant) -> String:
 	var json_value: Variant = GFVariantJsonCodec.variant_to_json_compatible(value)
 	return JSON.stringify(json_value, "", true)
 
 
+## 将 JSON 文本重新解析并以键排序方式序列化，解析失败时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _get_canonical_json_text(value: Variant) -> String:
 	var encoded_text: String = _get_json_text(value)
 	if encoded_text.is_empty():
@@ -972,6 +1105,10 @@ func _get_canonical_json_text(value: Variant) -> String:
 	return JSON.stringify(json.data, "", true)
 
 
+## 拒绝空值、超长、首尾空白、userinfo 标记、query、fragment 与空白/控制字符。
+## [br]
+## @api private
+## [br]
 func _is_valid_endpoint_url(value: String) -> bool:
 	if (
 		value.is_empty()
@@ -989,6 +1126,10 @@ func _is_valid_endpoint_url(value: String) -> bool:
 	return true
 
 
+## 判断 Unicode 空白及控制码点是否属于 endpoint 禁止字符集合。
+## [br]
+## @api private
+## [br]
 func _is_endpoint_whitespace_or_control(codepoint: int) -> bool:
 	return (
 		codepoint <= 0x20
@@ -1004,6 +1145,10 @@ func _is_endpoint_whitespace_or_control(codepoint: int) -> bool:
 	)
 
 
+## 检查字符串是否含 C0 控制码点或 DEL（0x7f）。
+## [br]
+## @api private
+## [br]
 func _contains_control_character(value: String) -> bool:
 	for index: int in range(value.length()):
 		var codepoint: int = value.unicode_at(index)
@@ -1012,10 +1157,18 @@ func _contains_control_character(value: String) -> bool:
 	return false
 
 
+## 判断 Variant 是否为 String 或 StringName。
+## [br]
+## @api private
+## [br]
 func _is_text_value(value: Variant) -> bool:
 	return value is String or value is StringName
 
 
+## 接受有界 32 位 int，或有限且整数值落在同一区间的 float。
+## [br]
+## @api private
+## [br]
 func _is_integral_number(value: Variant) -> bool:
 	if value is int:
 		var int_value: int = value
@@ -1031,6 +1184,10 @@ func _is_integral_number(value: Variant) -> bool:
 	)
 
 
+## 更新最近原因并构造统一结果；失败时 accepted 归零且 queued 为 false。
+## [br]
+## @api private
+## [br]
 func _make_result(
 	success: bool,
 	accepted: int,

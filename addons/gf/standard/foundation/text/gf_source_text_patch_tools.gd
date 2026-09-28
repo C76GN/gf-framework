@@ -224,6 +224,10 @@ static func apply_text_edits(source_text: String, edits: Array, options: Diction
 
 # --- 私有/辅助方法 ---
 
+## 校验并规范化 edit 字典，解析位置、计算字符偏移，并收集范围及重叠问题。
+## [br]
+## @api private
+## [br]
 static func _normalize_text_edits(source_text: String, edits: Array, _options: Dictionary) -> Dictionary:
 	var issues: Array[Dictionary] = []
 	var normalized_edits: Array[Dictionary] = []
@@ -304,6 +308,10 @@ static func _normalize_text_edits(source_text: String, edits: Array, _options: D
 	}
 
 
+## 将 CRLF、CR 或 LF 文本切分为每行起止字符偏移记录。
+## [br]
+## @api private
+## [br]
 static func _build_line_map(source_text: String) -> Array[Dictionary]:
 	var lines: Array[Dictionary] = []
 	var line_start: int = 0
@@ -328,6 +336,10 @@ static func _build_line_map(source_text: String) -> Array[Dictionary]:
 	return lines
 
 
+## 把零起始行和字符位置校验并转换为源文本字符偏移。
+## [br]
+## @api private
+## [br]
 static func _position_to_offset(line_map: Array[Dictionary], position: Dictionary) -> Dictionary:
 	var line: int = GFVariantData.get_option_int(position, "line", -1)
 	var character: int = GFVariantData.get_option_int(position, "character", -1)
@@ -362,6 +374,10 @@ static func _position_to_offset(line_map: Array[Dictionary], position: Dictionar
 	}
 
 
+## 检查 edit 是否提供嵌套 range、start/end 或行列缩写范围字段。
+## [br]
+## @api private
+## [br]
 static func _edit_has_range(edit: Dictionary) -> bool:
 	if edit.has("range") or edit.has(&"range"):
 		return true
@@ -373,6 +389,10 @@ static func _edit_has_range(edit: Dictionary) -> bool:
 	)
 
 
+## 检查 edit 是否提供受支持的替换文本字段。
+## [br]
+## @api private
+## [br]
 static func _edit_has_text(edit: Dictionary) -> bool:
 	return (
 		edit.has("text")
@@ -386,6 +406,10 @@ static func _edit_has_text(edit: Dictionary) -> bool:
 	)
 
 
+## 按 text、newText、new_text、replacement 的优先级读取替换文本。
+## [br]
+## @api private
+## [br]
 static func _read_edit_text(edit: Dictionary) -> String:
 	if edit.has("text") or edit.has(&"text"):
 		return GFVariantData.get_option_string(edit, "text")
@@ -396,6 +420,10 @@ static func _read_edit_text(edit: Dictionary) -> String:
 	return GFVariantData.get_option_string(edit, "replacement")
 
 
+## 按嵌套 range、平面 start/end 或行列缩写读取指定端点位置。
+## [br]
+## @api private
+## [br]
 static func _read_position(edit: Dictionary, is_start: bool) -> Dictionary:
 	var key: String = "start" if is_start else "end"
 	var edit_range: Dictionary = GFVariantData.get_option_dictionary(edit, "range")
@@ -416,6 +444,10 @@ static func _read_position(edit: Dictionary, is_start: bool) -> Dictionary:
 	}
 
 
+## 把 Vector2i 或带有行列别名的字典规范化为 line/character；无效输入使用 -1。
+## [br]
+## @api private
+## [br]
 static func _normalize_position(value: Variant) -> Dictionary:
 	if value is Vector2i:
 		var vector: Vector2i = value
@@ -435,6 +467,10 @@ static func _normalize_position(value: Variant) -> Dictionary:
 	}
 
 
+## 按起始偏移和原始索引检查编辑区间重叠，并将重叠问题追加到报告。
+## [br]
+## @api private
+## [br]
 static func _append_overlap_issues(edits: Array[Dictionary], issues: Array[Dictionary]) -> void:
 	var sorted_edits: Array[Dictionary] = edits.duplicate(true)
 	sorted_edits.sort_custom(Callable(GFSourceTextPatchTools, "_compare_edits_ascending"))
@@ -467,6 +503,10 @@ static func _append_overlap_issues(edits: Array[Dictionary], issues: Array[Dicti
 			previous = edit
 
 
+## 构造应用报告，包含文本变更、哈希、诊断、元数据和可选规范化编辑。
+## [br]
+## @api private
+## [br]
 static func _make_apply_report(
 	source_text: String,
 	result_text: String,
@@ -496,6 +536,10 @@ static func _make_apply_report(
 	return result
 
 
+## 把位置越界结果转成含端点和范围信息的编辑问题。
+## [br]
+## @api private
+## [br]
 static func _make_range_issue(
 	index: int,
 	field: String,
@@ -516,6 +560,10 @@ static func _make_range_issue(
 	)
 
 
+## 创建基础问题字典，并深拷贝附加字段中的 Variant 值。
+## [br]
+## @api private
+## [br]
 static func _make_issue(kind: StringName, index: int, message: String, fields: Dictionary = {}) -> Dictionary:
 	var issue: Dictionary = {
 		"kind": kind,
@@ -527,6 +575,10 @@ static func _make_issue(kind: StringName, index: int, message: String, fields: D
 	return issue
 
 
+## 从报告中筛出问题字典，并逐项返回深拷贝。
+## [br]
+## @api private
+## [br]
 static func _get_issue_array(report: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var raw_issues: Array = GFVariantData.get_option_array(report, "issues")
@@ -537,6 +589,10 @@ static func _get_issue_array(report: Dictionary) -> Array[Dictionary]:
 	return result
 
 
+## 从规范化报告中筛出 edit 字典，并逐项返回深拷贝。
+## [br]
+## @api private
+## [br]
 static func _get_edit_array(report: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var raw_edits: Array = GFVariantData.get_option_array(report, "edits")
@@ -547,12 +603,20 @@ static func _get_edit_array(report: Dictionary) -> Array[Dictionary]:
 	return result
 
 
+## 读取首个问题的 kind；没有问题时返回空 StringName。
+## [br]
+## @api private
+## [br]
 static func _first_issue_kind(issues: Array[Dictionary]) -> StringName:
 	if issues.is_empty():
 		return &""
 	return GFVariantData.get_option_string_name(issues[0], "kind")
 
 
+## 检查字典是否包含候选字符串键或对应 StringName 键。
+## [br]
+## @api private
+## [br]
 static func _has_any_key(data: Dictionary, keys: PackedStringArray) -> bool:
 	for key: String in keys:
 		if data.has(key) or data.has(StringName(key)):
@@ -560,6 +624,10 @@ static func _has_any_key(data: Dictionary, keys: PackedStringArray) -> bool:
 	return false
 
 
+## 按给定键优先级读取首个存在的整数值，均缺失时返回默认值。
+## [br]
+## @api private
+## [br]
 static func _read_first_int(data: Dictionary, keys: PackedStringArray, default_value: int = 0) -> int:
 	for key: String in keys:
 		if data.has(key) or data.has(StringName(key)):
@@ -567,6 +635,10 @@ static func _read_first_int(data: Dictionary, keys: PackedStringArray, default_v
 	return default_value
 
 
+## 按起始文本偏移升序比较 edit，同起点时按输入索引排序。
+## [br]
+## @api private
+## [br]
 static func _compare_edits_ascending(left: Dictionary, right: Dictionary) -> bool:
 	var left_start: int = GFVariantData.get_option_int(left, "start_offset")
 	var right_start: int = GFVariantData.get_option_int(right, "start_offset")

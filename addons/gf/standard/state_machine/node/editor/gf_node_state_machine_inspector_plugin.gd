@@ -6,9 +6,28 @@ extends EditorInspectorPlugin
 
 # --- 常量 ---
 
+## 用于识别状态机状态子节点并取得编辑器显示名称的基类脚本。
+## [br]
+## @api private
+## [br]
 const _GF_NODE_STATE_BASE = preload("res://addons/gf/standard/state_machine/node/gf_node_state.gd")
+
+## 用于判断 Inspector 目标是否为节点状态机的基类脚本。
+## [br]
+## @api private
+## [br]
 const _GF_NODE_STATE_MACHINE_BASE = preload("res://addons/gf/standard/state_machine/node/gf_node_state_machine.gd")
+
+## 用于生成 Inspector 中状态机结构校验报告的脚本。
+## [br]
+## @api private
+## [br]
 const _GF_NODE_STATE_MACHINE_VALIDATOR = preload("res://addons/gf/standard/state_machine/node/gf_node_state_machine_validator.gd")
+
+## 用于把校验报告转换为 Inspector tooltip 诊断项的适配器脚本。
+## [br]
+## @api private
+## [br]
 const _GF_VALIDATION_DIAGNOSTIC_ADAPTER = preload("res://addons/gf/standard/foundation/validation/gf_validation_diagnostic_adapter.gd")
 
 
@@ -112,6 +131,10 @@ static func format_report_tooltip(report: RefCounted) -> String:
 
 # --- 私有/辅助方法 ---
 
+## 填充直接子状态选项；当前初始状态不在列表时额外显示“未找到”项。
+## [br]
+## @api private
+## [br]
 func _populate_initial_state_options(option: OptionButton, target: Node) -> void:
 	option.clear()
 
@@ -135,6 +158,10 @@ func _populate_initial_state_options(option: OptionButton, target: Node) -> void
 		option.select(index)
 
 
+## 优先读取状态的 state_name 属性；转换结果为空时回退到节点名称。
+## [br]
+## @api private
+## [br]
 static func _get_editor_state_name(state: Node) -> StringName:
 	var state_name_value: Variant = _read_property(state, &"state_name")
 	var state_name: StringName = GFVariantData.to_string_name(state_name_value)
@@ -144,6 +171,10 @@ static func _get_editor_state_name(state: Node) -> StringName:
 	return StringName(state.name)
 
 
+## 优先读取配置资源的 initial_state 属性；配置不可用时读取目标节点属性。
+## [br]
+## @api private
+## [br]
 func _get_initial_state(target: Node) -> StringName:
 	var config: Resource = _variant_to_resource(_read_property(target, &"config"))
 	if config != null and "initial_state" in config:
@@ -151,6 +182,10 @@ func _get_initial_state(target: Node) -> StringName:
 	return GFVariantData.to_string_name(_read_property(target, &"initial_state"))
 
 
+## 通过编辑器撤销管理器写入初始状态，并把原值加入对应撤销操作。
+## [br]
+## @api private
+## [br]
 func _set_initial_state(target: Node, state_name: StringName) -> void:
 	var property_owner: Object = target
 	var property_name: StringName = &"initial_state"
@@ -169,6 +204,10 @@ func _set_initial_state(target: Node, state_name: StringName) -> void:
 	undo_redo.commit_action()
 
 
+## 校验有效的状态机目标，并更新摘要、tooltip 与按错误/警告级别选择的颜色。
+## [br]
+## @api private
+## [br]
 func _update_validation_report(label: Label, target: Node) -> void:
 	if label == null or not is_instance_valid(target):
 		return
@@ -187,6 +226,10 @@ func _update_validation_report(label: Label, target: Node) -> void:
 		label.modulate = Color(0.45, 0.9, 0.55)
 
 
+## 仅当 Variant 持有 Resource 时返回该资源引用，否则返回 null。
+## [br]
+## @api private
+## [br]
 static func _variant_to_resource(value: Variant) -> Resource:
 	if value is Resource:
 		var resource: Resource = value
@@ -194,18 +237,30 @@ static func _variant_to_resource(value: Variant) -> Resource:
 	return null
 
 
+## 尝试将字符串追加到目标 PackedStringArray；追加未成功时不执行额外处理。
+## [br]
+## @api private
+## [br]
 static func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 通过 GFObjectPropertyTools 按 NodePath 读取对象属性并传递回退值。
+## [br]
+## @api private
+## [br]
 static func _read_property(object: Object, property_name: StringName, fallback: Variant = null) -> Variant:
 	return GFObjectPropertyTools.read_property(object, NodePath(property_name), fallback)
 
 
 # --- 信号处理函数 ---
 
+
+## 确认目标仍有效后，从选项元数据读取稳定状态名并交给初始状态写入流程。
+## [br]
+## @api private
 func _on_initial_state_selected(index: int, option: OptionButton, target: Node) -> void:
 	if not is_instance_valid(target):
 		return
@@ -214,5 +269,8 @@ func _on_initial_state_selected(index: int, option: OptionButton, target: Node) 
 	_set_initial_state(target, state_name)
 
 
+## 使用当前目标重建校验报告并刷新绑定的提示 Label。
+## [br]
+## @api private
 func _on_validate_pressed(label: Label, target: Node) -> void:
 	_update_validation_report(label, target)

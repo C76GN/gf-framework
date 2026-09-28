@@ -277,6 +277,10 @@ static func from_dict(data: Dictionary) -> GFNetworkLobbyOperationRequest:
 
 # --- 私有/辅助方法 ---
 
+## 从请求选项读取 GFNetworkLobbyQuery，并返回其副本。
+## [br]
+## @api private
+## [br]
 func _get_query(options: Dictionary) -> GFNetworkLobbyQuery:
 	var value: Variant = GFVariantData.get_option_value(options, "query")
 	if value is GFNetworkLobbyQuery:

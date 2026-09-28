@@ -253,18 +253,34 @@ func describe() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 读取转换报告中的 ok 标记。
+## [br]
+## @api private
+## [br]
 func _coerce_report_ok(report: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(report, "ok", false)
 
 
+## 读取转换报告中的 value。
+## [br]
+## @api private
+## [br]
 func _coerce_report_value(report: Dictionary) -> Variant:
 	return GFVariantData.get_option_value(report, "value")
 
 
+## 将转换报告中的 value 按浮点数读取。
+## [br]
+## @api private
+## [br]
 func _coerce_report_float(report: Dictionary) -> float:
 	return GFVariantData.get_option_float(report, "value", 0.0)
 
 
+## 将列中的校验规则转为字段描述字典。
+## [br]
+## @api private
+## [br]
 func _describe_validation_rules(rules: Array[GFConfigValidationRule]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for rule: GFConfigValidationRule in rules:
@@ -273,6 +289,10 @@ func _describe_validation_rules(rules: Array[GFConfigValidationRule]) -> Array[D
 	return result
 
 
+## 构造包含成功标记、转换值和消息的结果字典。
+## [br]
+## @api private
+## [br]
 func _make_coerce_result(ok: bool, coerced_value: Variant, message: String = "") -> Dictionary:
 	return {
 		"ok": ok,
@@ -281,6 +301,10 @@ func _make_coerce_result(ok: bool, coerced_value: Variant, message: String = "")
 	}
 
 
+## 尝试将支持的 Variant 值转换为 bool 结果。
+## [br]
+## @api private
+## [br]
 func _try_coerce_bool(value: Variant) -> Dictionary:
 	if value is bool:
 		return _make_coerce_result(true, GFVariantData.to_bool(value))
@@ -296,6 +320,10 @@ func _try_coerce_bool(value: Variant) -> Dictionary:
 	return _make_coerce_result(false, GFVariantData.to_bool(value), "值无法转换为 bool。")
 
 
+## 尝试将支持的 Variant 值转换为 int 结果。
+## [br]
+## @api private
+## [br]
 func _try_coerce_int(value: Variant) -> Dictionary:
 	if value is int or value is bool:
 		return _make_coerce_result(true, GFVariantData.to_int(value))
@@ -312,6 +340,10 @@ func _try_coerce_int(value: Variant) -> Dictionary:
 	return _make_coerce_result(false, GFVariantData.to_int(value), "值无法转换为 int。")
 
 
+## 尝试将支持的 Variant 值转换为有限 float 结果。
+## [br]
+## @api private
+## [br]
 func _try_coerce_float(value: Variant) -> Dictionary:
 	if value is float or value is int or value is bool:
 		var float_value: float = GFVariantData.to_float(value)
@@ -326,6 +358,10 @@ func _try_coerce_float(value: Variant) -> Dictionary:
 	return _make_coerce_result(false, GFVariantData.to_float(value), "值无法转换为 float。")
 
 
+## 尝试将支持的 Variant 表示转换为 Vector2 结果。
+## [br]
+## @api private
+## [br]
 func _try_coerce_vector2(value: Variant) -> Dictionary:
 	if value is Vector2 or value is Vector2i:
 		return _make_coerce_result(true, _coerce_vector2(value))
@@ -346,6 +382,10 @@ func _try_coerce_vector2(value: Variant) -> Dictionary:
 	return _make_coerce_result(false, Vector2.ZERO, "值无法转换为 Vector2。")
 
 
+## 尝试将支持的 Variant 表示转换为 Vector2i 结果。
+## [br]
+## @api private
+## [br]
 func _try_coerce_vector2i(value: Variant) -> Dictionary:
 	if value is Vector2i or value is Vector2:
 		return _make_coerce_result(true, _coerce_vector2i(value))
@@ -366,6 +406,10 @@ func _try_coerce_vector2i(value: Variant) -> Dictionary:
 	return _make_coerce_result(false, Vector2i.ZERO, "值无法转换为 Vector2i。")
 
 
+## 尝试将支持的 Variant 表示转换为 Color 结果。
+## [br]
+## @api private
+## [br]
 func _try_coerce_color(value: Variant) -> Dictionary:
 	if value is Color:
 		return _make_coerce_result(true, value)
@@ -414,6 +458,10 @@ func _try_coerce_color(value: Variant) -> Dictionary:
 	return _make_coerce_result(false, Color.WHITE, "值无法转换为 Color。")
 
 
+## 将已识别的 Variant 向量表示转换为 Vector2。
+## [br]
+## @api private
+## [br]
 func _coerce_vector2(value: Variant) -> Vector2:
 	if value is Vector2:
 		var vector: Vector2 = value
@@ -434,6 +482,10 @@ func _coerce_vector2(value: Variant) -> Vector2:
 	return Vector2.ZERO
 
 
+## 将已识别的 Variant 向量表示转换为 Vector2i。
+## [br]
+## @api private
+## [br]
 func _coerce_vector2i(value: Variant) -> Vector2i:
 	if value is Vector2i:
 		var vector2i: Vector2i = value
@@ -454,6 +506,10 @@ func _coerce_vector2i(value: Variant) -> Vector2i:
 	return Vector2i.ZERO
 
 
+## 将已识别的 Variant 颜色表示转换为 Color。
+## [br]
+## @api private
+## [br]
 func _coerce_color(value: Variant) -> Color:
 	if value is Color:
 		var color: Color = value
@@ -482,6 +538,10 @@ func _coerce_color(value: Variant) -> Color:
 	return Color.WHITE
 
 
+## 检查文本是否为 Godot 接受的 HTML 颜色格式。
+## [br]
+## @api private
+## [br]
 func _is_valid_color_text(value: String) -> bool:
 	if value.is_empty():
 		return false

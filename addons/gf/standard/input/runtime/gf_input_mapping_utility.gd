@@ -127,54 +127,277 @@ signal player_action_completed(player_index: int, action_id: StringName, value: 
 
 # --- 常量 ---
 
+## 提供复合输入键各部分的稳定编码。
+## [br]
+## @api private
+## [br]
 const _GF_VARIANT_KEY_CODEC_SCRIPT = preload("res://addons/gf/standard/foundation/variant/gf_variant_key_codec.gd")
+
+## 输入映射复合键当前使用的格式版本前缀。
+## [br]
+## @api private
+## [br]
 const _INPUT_KEY_SCHEMA_PREFIX: String = "gf_input_key_v1"
 
 
 # --- 私有变量 ---
 
+## 已启用上下文到优先级和激活时间戳的映射。
+## [br]
+## @api private
+## [br]
 var _active_contexts: Dictionary = {}
+
+## 按有效上下文顺序构建的运行时映射条目。
+## [br]
+## @api private
+## [br]
 var _effective_entries: Array[Dictionary] = []
+
+## 全局绑定键到当前 Vector3 输入贡献的映射。
+## [br]
+## @api private
+## [br]
 var _binding_values: Dictionary = {}
+
+## 全局绑定键到动作标识的映射。
+## [br]
+## @api private
+## [br]
 var _binding_to_action: Dictionary = {}
+
+## 有玩家归属的全局绑定键到玩家索引的映射。
+## [br]
+## @api private
+## [br]
 var _binding_player_indices: Dictionary = {}
+
+## 玩家作用域绑定键到输入贡献的映射。
+## [br]
+## @api private
+## [br]
 var _player_binding_values: Dictionary = {}
+
+## 玩家作用域绑定键到动作标识的映射。
+## [br]
+## @api private
+## [br]
 var _player_binding_to_action: Dictionary = {}
+
+## 玩家绑定键关联的玩家索引和全局绑定键。
+## [br]
+## @api private
+## [br]
 var _player_binding_metadata: Dictionary = {}
+
+## 当前有效动作标识到动作资源的映射。
+## [br]
+## @api private
+## [br]
 var _actions: Dictionary = {}
+
+## 当前有效动作的修饰器列表。
+## [br]
+## @api private
+## [br]
 var _action_modifiers: Dictionary = {}
+
+## 当前有效动作的触发器列表。
+## [br]
+## @api private
+## [br]
 var _action_triggers: Dictionary = {}
+
+## 全局动作触发器各自的运行时状态列表。
+## [br]
+## @api private
+## [br]
 var _action_trigger_states: Dictionary = {}
+
+## 当前全局动作值。
+## [br]
+## @api private
+## [br]
 var _action_values: Dictionary = {}
+
+## 经触发器评估后的全局动作活跃状态。
+## [br]
+## @api private
+## [br]
 var _action_active: Dictionary = {}
+
+## 触发器评估前按阈值计算的全局原始活跃状态。
+## [br]
+## @api private
+## [br]
 var _raw_action_active: Dictionary = {}
+
+## 当前帧内全局动作刚开始的标记。
+## [br]
+## @api private
+## [br]
 var _just_started: Dictionary = {}
+
+## 当前帧内全局动作刚完成的标记。
+## [br]
+## @api private
+## [br]
 var _just_completed: Dictionary = {}
+
+## 全局动作 started/completed 边沿的最近修订号。
+## [br]
+## @api private
+## [br]
 var _action_edge_revisions: Dictionary = {}
+
+## 玩家动作 started/completed 边沿的最近修订号。
+## [br]
+## @api private
+## [br]
 var _player_action_edge_revisions: Dictionary = {}
+
+## 为全局和玩家动作边沿分配的递增修订号。
+## [br]
+## @api private
+## [br]
 var _next_action_edge_revision: int = 0
+
+## 全局动作当前连续活跃时长。
+## [br]
+## @api private
+## [br]
 var _action_active_elapsed: Dictionary = {}
+
+## 全局动作最近一次完成时保存的活跃时长。
+## [br]
+## @api private
+## [br]
 var _last_completed_duration: Dictionary = {}
+
+## 当前玩家作用域动作值。
+## [br]
+## @api private
+## [br]
 var _player_action_values: Dictionary = {}
+
+## 经触发器评估后的玩家动作活跃状态。
+## [br]
+## @api private
+## [br]
 var _player_action_active: Dictionary = {}
+
+## 触发器评估前按阈值计算的玩家原始活跃状态。
+## [br]
+## @api private
+## [br]
 var _player_raw_action_active: Dictionary = {}
+
+## 玩家动作键关联的玩家索引和动作标识。
+## [br]
+## @api private
+## [br]
 var _player_action_metadata: Dictionary = {}
+
+## 玩家动作各触发器的运行时状态列表。
+## [br]
+## @api private
+## [br]
 var _player_trigger_states: Dictionary = {}
+
+## 当前帧内玩家动作刚开始的标记。
+## [br]
+## @api private
+## [br]
 var _player_just_started: Dictionary = {}
+
+## 当前帧内玩家动作刚完成的标记。
+## [br]
+## @api private
+## [br]
 var _player_just_completed: Dictionary = {}
+
+## 玩家动作当前连续活跃时长。
+## [br]
+## @api private
+## [br]
 var _player_action_active_elapsed: Dictionary = {}
+
+## 玩家动作最近一次完成时保存的活跃时长。
+## [br]
+## @api private
+## [br]
 var _player_last_completed_duration: Dictionary = {}
+
+## 当前采用的可选动作重映射配置。
+## [br]
+## @api private
+## [br]
 var _remap_config: GFInputRemapConfig
+
+## 为启用上下文记录激活先后顺序的时间戳计数器。
+## [br]
+## @api private
+## [br]
 var _timestamp: int = 0
+
+## 接收输入和窗口焦点通知的内部路由节点。
+## [br]
+## @api private
+## [br]
 var _router: _GFInputRouter
+
+## 用于拒绝过期的延迟路由节点挂载请求的序号。
+## [br]
+## @api private
+## [br]
 var _router_attach_serial: int = 0
+
+## 当前订阅的输入设备分配工具。
+## [br]
+## @api private
+## [br]
 var _input_devices: GFInputDeviceUtility = null
+
+## 是否已排队清除本帧瞬态 started/completed 标记。
+## [br]
+## @api private
+## [br]
 var _clear_transient_input_state_queued: bool = false
+
+## 排队清除瞬态状态时记录的引擎帧号。
+## [br]
+## @api private
+## [br]
 var _transient_input_state_mark_frame: int = -1
+
+## 输入分发代际；重入回调导致状态重建时使旧分发停止。
+## [br]
+## @api private
+## [br]
 var _dispatch_epoch: int = 0
+
+## 虚拟脉冲绑定键到租约记录的映射。
+## [br]
+## @api private
+## [br]
 var _virtual_pulse_leases: Dictionary = {}
+
+## 正在修改虚拟脉冲绑定键的重入保护标记。
+## [br]
+## @api private
+## [br]
 var _virtual_pulse_mutation_keys: Dictionary = {}
+
+## 批量虚拟脉冲修改的嵌套深度。
+## [br]
+## @api private
+## [br]
 var _virtual_pulse_bulk_mutation_depth: int = 0
+
+## 下一个虚拟脉冲租约 ID，从 1 起分配。
+## [br]
+## @api private
+## [br]
 var _next_virtual_pulse_lease_id: int = 1
 
 
@@ -1194,16 +1417,29 @@ func finish_virtual_pulse_lease_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 从字典移除指定键。
+## [br]
+## @api private
+## [br]
 func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 	var erased: bool = target.erase(key)
 	if erased:
 		return
 
 
+## 将一个值追加到目标数组。
+## [br]
+## @api private
+## [br]
 func _append_array_value(target: Array, value: Variant) -> void:
 	target.append(value)
 
 
+## 验证并规范化虚拟动作值后写入全局及可选玩家绑定贡献，再刷新对应动作状态。
+## 全局刷新触发新的分发代际时会跳过后续玩家刷新。
+## [br]
+## @api private
+## [br]
 func _set_virtual_action_value_raw(
 	action_id: StringName,
 	value: Variant,
@@ -1241,6 +1477,11 @@ func _set_virtual_action_value_raw(
 	return true
 
 
+## 删除指定虚拟来源、动作和玩家作用域的贡献及索引，并刷新仍注册的动作状态。
+## 返回是否存在过待清除贡献。
+## [br]
+## @api private
+## [br]
 func _clear_virtual_action_raw(
 	action_id: StringName,
 	source_id: StringName,
@@ -1269,6 +1510,10 @@ func _clear_virtual_action_raw(
 	return changed
 
 
+## 为虚拟脉冲操作生成租约记录，保存弱引用、实例 ID、代际、来源、玩家和动作标识。
+## [br]
+## @api private
+## [br]
 func _make_virtual_pulse_lease_record(operation: GFVirtualInputPulseOperation) -> Dictionary:
 	return {
 		"lease_id": _take_next_virtual_pulse_lease_id(),
@@ -1281,6 +1526,10 @@ func _make_virtual_pulse_lease_record(operation: GFVirtualInputPulseOperation) -
 	}
 
 
+## 读取虚拟脉冲租约；对应值不是 Dictionary 时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_virtual_pulse_lease(binding_key: String) -> Dictionary:
 	var record_value: Variant = GFVariantData.get_option_value(_virtual_pulse_leases, binding_key)
 	if record_value is Dictionary:
@@ -1289,6 +1538,10 @@ func _get_virtual_pulse_lease(binding_key: String) -> Dictionary:
 	return {}
 
 
+## 解析租约中的弱引用，并核对操作类型、实例 ID 和代际；引用或身份不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_virtual_pulse_operation(lease_record: Dictionary) -> GFVirtualInputPulseOperation:
 	var operation_ref_value: Variant = GFVariantData.get_option_value(lease_record, "operation_ref")
 	if not (operation_ref_value is WeakRef):
@@ -1306,6 +1559,10 @@ func _get_virtual_pulse_operation(lease_record: Dictionary) -> GFVirtualInputPul
 	return operation
 
 
+## 判断指定绑定键当前租约是否解析为给定操作。
+## [br]
+## @api private
+## [br]
 func _virtual_pulse_lease_matches_operation(
 	binding_key: String,
 	operation: GFVirtualInputPulseOperation
@@ -1316,6 +1573,10 @@ func _virtual_pulse_lease_matches_operation(
 	)
 
 
+## 判断租约记录非空且其有效操作与给定操作相同。
+## [br]
+## @api private
+## [br]
 func _virtual_pulse_lease_record_matches_operation(
 	lease_record: Dictionary,
 	operation: GFVirtualInputPulseOperation
@@ -1327,6 +1588,10 @@ func _virtual_pulse_lease_record_matches_operation(
 	)
 
 
+## 仅当当前记录与传入记录具有相同正租约 ID 和弱引用目标时，才删除绑定键并返回 true。
+## [br]
+## @api private
+## [br]
 func _erase_virtual_pulse_lease_if_current(binding_key: String, lease_record: Dictionary) -> bool:
 	var current_record: Dictionary = _get_virtual_pulse_lease(binding_key)
 	var current_ref: Variant = GFVariantData.get_option_value(current_record, "operation_ref")
@@ -1347,6 +1612,10 @@ func _erase_virtual_pulse_lease_if_current(binding_key: String, lease_record: Di
 	return true
 
 
+## 取得当前租约 ID 后递增计数；溢出为非正数时将下一个 ID 重置为 1。
+## [br]
+## @api private
+## [br]
 func _take_next_virtual_pulse_lease_id() -> int:
 	var lease_id: int = _next_virtual_pulse_lease_id
 	_next_virtual_pulse_lease_id += 1
@@ -1355,10 +1624,18 @@ func _take_next_virtual_pulse_lease_id() -> int:
 	return lease_id
 
 
+## 按绑定键和记录身份条件移除虚拟脉冲租约。
+## [br]
+## @api private
+## [br]
 func _remove_virtual_pulse_lease_record(binding_key: String, lease_record: Dictionary) -> bool:
 	return _erase_virtual_pulse_lease_if_current(binding_key, lease_record)
 
 
+## 移除仍匹配的租约后，按记录中的来源、动作和玩家清除对应虚拟输入贡献。
+## [br]
+## @api private
+## [br]
 func _release_virtual_pulse_lease_record(binding_key: String, lease_record: Dictionary) -> bool:
 	if not _remove_virtual_pulse_lease_record(binding_key, lease_record):
 		return false
@@ -1368,6 +1645,11 @@ func _release_virtual_pulse_lease_record(binding_key: String, lease_record: Dict
 	return _clear_virtual_action_raw(action_id, source_id, player_index)
 
 
+## 处理租约准入失败：尝试释放本记录，并在操作仍待处理时以 FAILED 和给定原因结束操作。
+## 返回贡献释放结果。
+## [br]
+## @api private
+## [br]
 func _abort_virtual_pulse_lease_admission(
 	binding_key: String,
 	lease_record: Dictionary,
@@ -1384,6 +1666,10 @@ func _abort_virtual_pulse_lease_admission(
 	return released
 
 
+## 按绑定键读取并终止租约；找到记录时先尝试释放，再结束仍待处理的操作。
+## [br]
+## @api private
+## [br]
 func _terminate_virtual_pulse_lease_by_key(
 	binding_key: String,
 	status: GFVirtualInputPulseOperation.Status,
@@ -1399,6 +1685,10 @@ func _terminate_virtual_pulse_lease_by_key(
 	return released
 
 
+## 遍历当前租约键快照，取消 source_id 匹配的租约。
+## [br]
+## @api private
+## [br]
 func _terminate_virtual_pulse_leases_for_source(source_id: StringName, reason: StringName) -> void:
 	var binding_keys: Array = _virtual_pulse_leases.keys()
 	for binding_key_value: Variant in binding_keys:
@@ -1413,6 +1703,10 @@ func _terminate_virtual_pulse_leases_for_source(source_id: StringName, reason: S
 		)
 
 
+## 遍历当前租约键快照，取消 player_index 匹配的租约。
+## [br]
+## @api private
+## [br]
 func _terminate_virtual_pulse_leases_for_player(player_index: int, reason: StringName) -> void:
 	var binding_keys: Array = _virtual_pulse_leases.keys()
 	for binding_key_value: Variant in binding_keys:
@@ -1427,6 +1721,10 @@ func _terminate_virtual_pulse_leases_for_player(player_index: int, reason: Strin
 		)
 
 
+## 遍历当前租约键快照并尝试取消每条租约，随后清空租约字典。
+## [br]
+## @api private
+## [br]
 func _terminate_all_virtual_pulse_leases(reason: StringName) -> void:
 	var binding_keys: Array = _virtual_pulse_leases.keys()
 	for binding_key_value: Variant in binding_keys:
@@ -1439,6 +1737,10 @@ func _terminate_all_virtual_pulse_leases(reason: StringName) -> void:
 	_virtual_pulse_leases.clear()
 
 
+## 检查每条租约对应的操作；操作引用失效或已完成时释放记录，其余操作轮询生命周期。
+## [br]
+## @api private
+## [br]
 func _prune_virtual_pulse_leases() -> void:
 	var binding_keys: Array = _virtual_pulse_leases.keys()
 	for binding_key_value: Variant in binding_keys:
@@ -1453,134 +1755,250 @@ func _prune_virtual_pulse_leases() -> void:
 		var _still_pending: bool = operation.poll_lifecycle_for_framework()
 
 
+## 将 Variant 收窄为 Node；不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_node_value(value: Variant) -> Node:
 	if value is Node:
 		return value
 	return null
 
 
+## 将 Variant 收窄为 SceneTree；不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_scene_tree_value(value: Variant) -> SceneTree:
 	if value is SceneTree:
 		return value
 	return null
 
 
+## 将 Variant 收窄为 GFInputAction；不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_input_action_value(value: Variant) -> GFInputAction:
 	if value is GFInputAction:
 		return value
 	return null
 
 
+## 将 Variant 收窄为 GFInputBinding；不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_input_binding_value(value: Variant) -> GFInputBinding:
 	if value is GFInputBinding:
 		return value
 	return null
 
 
+## 将 Variant 收窄为 GFInputContext；不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_input_context_value(value: Variant) -> GFInputContext:
 	if value is GFInputContext:
 		return value
 	return null
 
 
+## 将 Variant 收窄为 InputEvent；不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_input_event_value(value: Variant) -> InputEvent:
 	if value is InputEvent:
 		return value
 	return null
 
 
+## 将 Variant 收窄为 GFInputTrigger；不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_input_trigger_value(value: Variant) -> GFInputTrigger:
 	if value is GFInputTrigger:
 		return value
 	return null
 
 
+## 将 Variant 收窄为 GFInputDeviceUtility；不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_input_device_utility_value(value: Variant) -> GFInputDeviceUtility:
 	if value is GFInputDeviceUtility:
 		return value
 	return null
 
 
+## 按动作标识读取注册动作并收窄类型；不存在或类型不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_registered_action(action_id: StringName) -> GFInputAction:
 	return _get_input_action_value(GFVariantData.get_option_value(_actions, action_id))
 
 
+## 从有效映射条目读取 action 并收窄类型。
+## [br]
+## @api private
+## [br]
 func _get_entry_action(entry: Dictionary) -> GFInputAction:
 	return _get_input_action_value(GFVariantData.get_option_value(entry, "action"))
 
 
+## 读取有效映射条目的动作标识。
+## [br]
+## @api private
+## [br]
 func _get_entry_action_id(entry: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(entry, "action_id")
 
 
+## 读取有效映射条目的玩家索引；字段缺失时返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_entry_player_index(entry: Dictionary) -> int:
 	return GFVariantData.get_option_int(entry, "player_index", -1)
 
 
+## 读取有效映射条目的绑定信息数组。
+## [br]
+## @api private
+## [br]
 func _get_entry_bindings(entry: Dictionary) -> Array:
 	return GFVariantData.get_option_array(entry, "bindings")
 
 
+## 从绑定信息读取 binding 并收窄类型。
+## [br]
+## @api private
+## [br]
 func _get_binding_info_binding(binding_info: Dictionary) -> GFInputBinding:
 	return _get_input_binding_value(GFVariantData.get_option_value(binding_info, "binding"))
 
 
+## 读取绑定信息中的复合键字符串。
+## [br]
+## @api private
+## [br]
 func _get_binding_info_key(binding_info: Dictionary) -> String:
 	return GFVariantData.get_option_string(binding_info, "key")
 
 
+## 读取上下文在 _active_contexts 中保存的元数据。
+## [br]
+## @api private
+## [br]
 func _get_context_meta(context: GFInputContext) -> Dictionary:
 	return GFVariantData.get_option_dictionary(_active_contexts, context)
 
 
+## 读取上下文元数据中的优先级。
+## [br]
+## @api private
+## [br]
 func _get_context_priority(context_meta: Dictionary) -> int:
 	return GFVariantData.get_option_int(context_meta, "priority")
 
 
+## 读取上下文元数据中的激活时间戳。
+## [br]
+## @api private
+## [br]
 func _get_context_timestamp(context_meta: Dictionary) -> int:
 	return GFVariantData.get_option_int(context_meta, "timestamp")
 
 
+## 读取绑定贡献向量；键缺失时返回零向量。
+## [br]
+## @api private
+## [br]
 func _get_binding_vector_value(binding_key: String) -> Vector3:
 	return GFVariantData.get_option_vector3(_binding_values, binding_key, Vector3.ZERO)
 
 
+## 读取绑定对应的动作标识。
+## [br]
+## @api private
+## [br]
 func _get_binding_action_id(binding_key: String) -> StringName:
 	return GFVariantData.get_option_string_name(_binding_to_action, binding_key)
 
 
+## 读取绑定对应的玩家索引；没有玩家映射时返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_binding_player_index(binding_key: String) -> int:
 	return GFVariantData.get_option_int(_binding_player_indices, binding_key, -1)
 
 
+## 读取玩家作用域绑定对应的动作标识。
+## [br]
+## @api private
+## [br]
 func _get_player_binding_action_id(binding_key: String) -> StringName:
 	return GFVariantData.get_option_string_name(_player_binding_to_action, binding_key)
 
 
+## 读取全局动作是否活跃。
+## [br]
+## @api private
+## [br]
 func _get_action_active(action_id: StringName) -> bool:
 	return GFVariantData.get_option_bool(_action_active, action_id)
 
 
+## 读取全局动作当前活跃时长。
+## [br]
+## @api private
+## [br]
 func _get_action_active_elapsed(action_id: StringName) -> float:
 	return GFVariantData.get_option_float(_action_active_elapsed, action_id)
 
 
+## 读取全局动作值；缺失时按值类型生成默认值。
+## [br]
+## @api private
+## [br]
 func _get_action_value_or_default(action_id: StringName, value_type: GFInputAction.ValueType) -> Variant:
 	return GFVariantData.get_option_value(_action_values, action_id, _default_value_for_type(value_type))
 
 
+## 读取全局动作阈值判定得到的原始活跃状态。
+## [br]
+## @api private
+## [br]
 func _get_raw_action_active(action_id: StringName) -> bool:
 	return GFVariantData.get_option_bool(_raw_action_active, action_id)
 
 
+## 读取全局动作触发器数组。
+## [br]
+## @api private
+## [br]
 func _get_action_triggers(action_id: StringName) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(_action_triggers, action_id, []))
 
 
+## 读取全局动作修饰器数组。
+## [br]
+## @api private
+## [br]
 func _get_action_modifiers(action_id: StringName) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(_action_modifiers, action_id, []))
 
 
+## 按玩家索引和动作标识读取玩家动作活跃状态。
+## [br]
+## @api private
+## [br]
 func _get_player_action_active(player_index: int, action_id: StringName) -> bool:
 	return GFVariantData.get_option_bool(
 		_player_action_active,
@@ -1588,14 +2006,26 @@ func _get_player_action_active(player_index: int, action_id: StringName) -> bool
 	)
 
 
+## 按复合玩家动作键读取活跃状态。
+## [br]
+## @api private
+## [br]
 func _get_player_action_active_by_key(player_action_key: String) -> bool:
 	return GFVariantData.get_option_bool(_player_action_active, player_action_key)
 
 
+## 按复合玩家动作键读取当前活跃时长。
+## [br]
+## @api private
+## [br]
 func _get_player_action_active_elapsed(player_action_key: String) -> float:
 	return GFVariantData.get_option_float(_player_action_active_elapsed, player_action_key)
 
 
+## 读取玩家动作值；缺失时按值类型生成默认值。
+## [br]
+## @api private
+## [br]
 func _get_player_action_value_or_default(player_action_key: String, value_type: GFInputAction.ValueType) -> Variant:
 	return GFVariantData.get_option_value(
 		_player_action_values,
@@ -1604,10 +2034,18 @@ func _get_player_action_value_or_default(player_action_key: String, value_type: 
 	)
 
 
+## 读取玩家动作阈值判定得到的原始活跃状态。
+## [br]
+## @api private
+## [br]
 func _get_player_raw_action_active(player_action_key: String) -> bool:
 	return GFVariantData.get_option_bool(_player_raw_action_active, player_action_key)
 
 
+## 若主循环可用则创建内部路由节点，设置输入和失焦回调，并以延迟调用请求挂载。
+## [br]
+## @api private
+## [br]
 func _ensure_router() -> void:
 	if is_instance_valid(_router):
 		return
@@ -1624,6 +2062,11 @@ func _ensure_router() -> void:
 	call_deferred("_attach_router_to_root", _router, _router_attach_serial)
 
 
+## 校验延迟挂载请求的序号、目标路由及节点状态后，将路由节点加入 SceneTree 根节点。
+## 若主循环已不可用则释放节点并清空当前路由引用。
+## [br]
+## @api private
+## [br]
 func _attach_router_to_root(router_variant: Variant, attach_serial: int) -> void:
 	if not is_instance_valid(router_variant):
 		return
@@ -1651,6 +2094,11 @@ func _attach_router_to_root(router_variant: Variant, attach_serial: int) -> void
 	tree.root.add_child(router)
 
 
+## 按启用上下文重建有效映射、动作资源、修饰器和触发器；过滤无效数据并应用重映射覆盖。
+## 清理旧运行时状态后会发出 contexts_changed，再在代际未变化时发出 mappings_changed。
+## [br]
+## @api private
+## [br]
 func _rebuild_effective_entries() -> void:
 	_dispatch_epoch += 1
 	var rebuild_epoch: int = _dispatch_epoch
@@ -1718,6 +2166,10 @@ func _rebuild_effective_entries() -> void:
 	mappings_changed.emit()
 
 
+## 按优先级降序、同优先级按最近激活时间戳降序返回有效上下文。
+## [br]
+## @api private
+## [br]
 func _get_sorted_contexts() -> Array[GFInputContext]:
 	var contexts: Array[GFInputContext] = []
 	for context_variant: Variant in _active_contexts.keys():
@@ -1737,6 +2189,11 @@ func _get_sorted_contexts() -> Array[GFInputContext]:
 	return contexts
 
 
+## 将匹配映射条目的绑定贡献写入全局及可选玩家状态，并刷新对应动作值。
+## 至少一个绑定匹配时返回 true。
+## [br]
+## @api private
+## [br]
 func _apply_entry_event(entry: Dictionary, event: InputEvent, player_index: int) -> bool:
 	var matched: bool = false
 	var action: GFInputAction = _get_entry_action(entry)
@@ -1775,6 +2232,11 @@ func _apply_entry_event(entry: Dictionary, event: InputEvent, player_index: int)
 	return matched
 
 
+## 重新计算全局动作值、原始活跃度和触发器结果，并按值变化或活跃边沿发出对应信号。
+## 值变化信号回调改变分发代际时会停止旧刷新。
+## [br]
+## @api private
+## [br]
 func _refresh_action_state(action_id: StringName, action: GFInputAction) -> void:
 	var dispatch_epoch: int = _dispatch_epoch
 	var previous_value: Variant = GFVariantData.get_option_value(
@@ -1811,6 +2273,10 @@ func _refresh_action_state(action_id: StringName, action: GFInputAction) -> void
 		action_completed.emit(action_id, next_value)
 
 
+## 汇总动作的全局绑定贡献，长度超过 1 时归一化，再应用动作修饰器。
+## [br]
+## @api private
+## [br]
 func _calculate_action_vector3(action_id: StringName) -> Vector3:
 	var total: Vector3 = Vector3.ZERO
 	for key: String in _binding_values.keys():
@@ -1821,6 +2287,10 @@ func _calculate_action_vector3(action_id: StringName) -> Vector3:
 	return _apply_mapping_modifiers(action_id, total)
 
 
+## 汇总指定玩家和动作的绑定贡献，长度超过 1 时归一化，再应用动作修饰器。
+## [br]
+## @api private
+## [br]
 func _calculate_player_action_vector3(player_index: int, action_id: StringName) -> Vector3:
 	var total: Vector3 = Vector3.ZERO
 	for key: String in _player_binding_values.keys():
@@ -1833,11 +2303,19 @@ func _calculate_player_action_vector3(player_index: int, action_id: StringName) 
 	return _apply_mapping_modifiers(action_id, total)
 
 
+## 计算全局动作向量并按动作值类型转换为公开动作值。
+## [br]
+## @api private
+## [br]
 func _calculate_action_value(action_id: StringName, value_type: GFInputAction.ValueType) -> Variant:
 	var vector: Vector3 = _calculate_action_vector3(action_id)
 	return _calculate_value_from_vector(vector, value_type)
 
 
+## 计算指定玩家的动作向量并按动作值类型转换为动作值。
+## [br]
+## @api private
+## [br]
 func _calculate_player_action_value(
 	player_index: int,
 	action_id: StringName,
@@ -1847,6 +2325,10 @@ func _calculate_player_action_value(
 	return _calculate_value_from_vector(vector, value_type)
 
 
+## 将 Vector3 按值类型转换为 bool、限幅 float、Vector2、Vector3 或不支持时的 null。
+## [br]
+## @api private
+## [br]
 func _calculate_value_from_vector(vector: Vector3, value_type: GFInputAction.ValueType) -> Variant:
 	match value_type:
 		GFInputAction.ValueType.BOOL:
@@ -1861,6 +2343,10 @@ func _calculate_value_from_vector(vector: Vector3, value_type: GFInputAction.Val
 			return null
 
 
+## 返回指定动作值类型的零值；未知类型返回 null。
+## [br]
+## @api private
+## [br]
 func _default_value_for_type(value_type: GFInputAction.ValueType) -> Variant:
 	match value_type:
 		GFInputAction.ValueType.BOOL:
@@ -1875,6 +2361,10 @@ func _default_value_for_type(value_type: GFInputAction.ValueType) -> Variant:
 			return null
 
 
+## 判断动作值是否活跃；轴类型根据此前原始活跃状态选择释放或激活阈值。
+## [br]
+## @api private
+## [br]
 func _is_value_active(value: Variant, action: GFInputAction, was_raw_active: bool) -> bool:
 	if action.value_type == GFInputAction.ValueType.BOOL:
 		return GFVariantData.to_bool(value)
@@ -1896,6 +2386,10 @@ func _is_value_active(value: Variant, action: GFInputAction, was_raw_active: boo
 	return magnitude > 0.0 and magnitude >= threshold
 
 
+## 布尔动作阈值不参与校验；轴动作要求阈值有限且满足 0 ≤ release ≤ activation ≤ 1。
+## [br]
+## @api private
+## [br]
 func _action_thresholds_are_valid(action: GFInputAction) -> bool:
 	if action.value_type == GFInputAction.ValueType.BOOL:
 		return true
@@ -1913,6 +2407,10 @@ func _action_thresholds_are_valid(action: GFInputAction) -> bool:
 	)
 
 
+## 浮点数及同类型向量使用近似比较，其他 Variant 使用等值比较。
+## [br]
+## @api private
+## [br]
 func _values_equal(left: Variant, right: Variant) -> bool:
 	if left is float or right is float:
 		return is_equal_approx(GFVariantData.to_float(left), GFVariantData.to_float(right))
@@ -1927,18 +2425,30 @@ func _values_equal(left: Variant, right: Variant) -> bool:
 	return left == right
 
 
+## 标记全局动作在当前瞬态窗口内刚开始，记录边沿修订号并排队下一帧清除。
+## [br]
+## @api private
+## [br]
 func _mark_action_just_started(action_id: StringName) -> void:
 	_just_started[action_id] = true
 	_record_action_edge_revision(_action_edge_revisions, action_id, false)
 	_queue_clear_transient_input_state()
 
 
+## 标记全局动作在当前瞬态窗口内刚完成，记录边沿修订号并排队下一帧清除。
+## [br]
+## @api private
+## [br]
 func _mark_action_just_completed(action_id: StringName) -> void:
 	_just_completed[action_id] = true
 	_record_action_edge_revision(_action_edge_revisions, action_id, true)
 	_queue_clear_transient_input_state()
 
 
+## 标记玩家动作刚开始，登记玩家动作元数据、边沿修订号并排队清除瞬态标记。
+## [br]
+## @api private
+## [br]
 func _mark_player_action_just_started(player_index: int, action_id: StringName) -> void:
 	var key: String = _make_player_action_key(player_index, action_id)
 	_register_player_action_metadata(key, player_index, action_id)
@@ -1947,6 +2457,10 @@ func _mark_player_action_just_started(player_index: int, action_id: StringName) 
 	_queue_clear_transient_input_state()
 
 
+## 标记玩家动作刚完成，登记玩家动作元数据、边沿修订号并排队清除瞬态标记。
+## [br]
+## @api private
+## [br]
 func _mark_player_action_just_completed(player_index: int, action_id: StringName) -> void:
 	var key: String = _make_player_action_key(player_index, action_id)
 	_register_player_action_metadata(key, player_index, action_id)
@@ -1955,6 +2469,10 @@ func _mark_player_action_just_completed(player_index: int, action_id: StringName
 	_queue_clear_transient_input_state()
 
 
+## 分配新的动作边沿修订号，并写入 key 对应的 started 或 completed 修订号。
+## [br]
+## @api private
+## [br]
 func _record_action_edge_revision(records: Dictionary, key: Variant, completed: bool) -> void:
 	_next_action_edge_revision += 1
 	var revisions: Dictionary = GFVariantData.get_option_dictionary(records, key)
@@ -1962,11 +2480,19 @@ func _record_action_edge_revision(records: Dictionary, key: Variant, completed: 
 	records[key] = revisions
 
 
+## 标记瞬态动作边沿待清除，并记录当前引擎帧号。
+## [br]
+## @api private
+## [br]
 func _queue_clear_transient_input_state() -> void:
 	_clear_transient_input_state_queued = true
 	_transient_input_state_mark_frame = Engine.get_process_frames()
 
 
+## 仅在进入记录帧之后清除全局和玩家 started/completed 标记，并重置排队信息。
+## [br]
+## @api private
+## [br]
 func _clear_transient_input_state_if_queued() -> void:
 	if not _clear_transient_input_state_queued:
 		return
@@ -1981,6 +2507,11 @@ func _clear_transient_input_state_if_queued() -> void:
 	_transient_input_state_mark_frame = -1
 
 
+## 终止所有虚拟脉冲并清空全局和玩家绑定、动作、计时及触发器状态。
+## emit_completed 为 true 时先收集活跃动作，清理后仅对仍未被新分发或边沿修订取代的完成事件发信号。
+## [br]
+## @api private
+## [br]
 func _clear_runtime_state(
 	emit_completed: bool = false,
 	pulse_reason: StringName = &"input_state_cleared"
@@ -2055,6 +2586,11 @@ func _clear_runtime_state(
 		)
 
 
+## 终止指定玩家的虚拟脉冲，移除玩家绑定及动作状态，并刷新受影响的全局动作。
+## 可选记录原活跃玩家动作，清理后通过代际和边沿修订检查再发完成信号。
+## [br]
+## @api private
+## [br]
 func _clear_player_runtime_state(player_index: int, emit_completed: bool = false) -> void:
 	var clear_epoch: int = _dispatch_epoch
 	_virtual_pulse_bulk_mutation_depth += 1
@@ -2114,6 +2650,10 @@ func _clear_player_runtime_state(player_index: int, emit_completed: bool = false
 		player_action_completed.emit(player_index, action_id, completed_actions[action_id])
 
 
+## 仅当清理期间分发代际未变且该动作开始与完成边沿修订均未超过清理快照时允许发完成信号。
+## [br]
+## @api private
+## [br]
 func _can_emit_cleared_action_completion(
 	action_id: StringName,
 	player_index: int,
@@ -2128,6 +2668,10 @@ func _can_emit_cleared_action_completion(
 	)
 
 
+## 若重映射配置存在该绑定记录则返回覆盖事件（可为空），否则返回基础绑定事件。
+## [br]
+## @api private
+## [br]
 func _get_effective_event(
 	context_id: StringName,
 	action_id: StringName,
@@ -2139,14 +2683,26 @@ func _get_effective_event(
 	return binding.input_event
 
 
+## 将上下文、动作和绑定索引编码为绑定复合键。
+## [br]
+## @api private
+## [br]
 func _make_binding_key(context_id: StringName, action_id: StringName, binding_index: int) -> String:
 	return _make_compound_key(["binding", context_id, action_id, binding_index])
 
 
+## 将玩家索引和基础绑定键编码为玩家绑定复合键。
+## [br]
+## @api private
+## [br]
 func _make_player_binding_key(player_index: int, binding_key: String) -> String:
 	return _make_compound_key(["player_binding", player_index, binding_key])
 
 
+## 保存玩家绑定键对应的玩家索引和基础绑定键。
+## [br]
+## @api private
+## [br]
 func _register_player_binding_metadata(key: String, player_index: int, binding_key: String) -> void:
 	_player_binding_metadata[key] = {
 		"player_index": player_index,
@@ -2154,18 +2710,34 @@ func _register_player_binding_metadata(key: String, player_index: int, binding_k
 	}
 
 
+## 将虚拟来源、玩家索引和动作标识编码为虚拟绑定复合键。
+## [br]
+## @api private
+## [br]
 func _make_virtual_binding_key(source_id: StringName, action_id: StringName, player_index: int = -1) -> String:
 	return _make_compound_key(["virtual", source_id, player_index, action_id])
 
 
+## 将基础绑定键和事件来源身份编码为一次物理输入来源键。
+## [br]
+## @api private
+## [br]
 func _make_source_binding_key(binding_key: String, event: InputEvent) -> String:
 	return _make_compound_key(["source_binding", binding_key, _make_event_source_key(event)])
 
 
+## 将玩家索引和动作标识编码为玩家动作复合键。
+## [br]
+## @api private
+## [br]
 func _make_player_action_key(player_index: int, action_id: StringName) -> String:
 	return _make_compound_key(["player_action", player_index, action_id])
 
 
+## 保存玩家动作复合键对应的玩家索引和动作标识。
+## [br]
+## @api private
+## [br]
 func _register_player_action_metadata(key: String, player_index: int, action_id: StringName) -> void:
 	_player_action_metadata[key] = {
 		"player_index": player_index,
@@ -2173,30 +2745,58 @@ func _register_player_action_metadata(key: String, player_index: int, action_id:
 	}
 
 
+## 从玩家绑定元数据中读取基础绑定键。
+## [br]
+## @api private
+## [br]
 func _get_player_source_binding_key(player_binding_key: String) -> String:
 	return GFVariantData.get_option_string(_get_player_binding_metadata(player_binding_key), "binding_key")
 
 
+## 从玩家绑定元数据读取玩家索引；缺失时返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_player_index_from_binding_key(player_binding_key: String) -> int:
 	return GFVariantData.get_option_int(_get_player_binding_metadata(player_binding_key), "player_index", -1)
 
 
+## 从玩家动作元数据读取玩家索引；缺失时返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_player_index_from_action_key(player_action_key: String) -> int:
 	return GFVariantData.get_option_int(_get_player_action_metadata(player_action_key), "player_index", -1)
 
 
+## 从玩家动作元数据读取动作标识。
+## [br]
+## @api private
+## [br]
 func _get_player_action_id_from_key(player_action_key: String) -> StringName:
 	return GFVariantData.get_option_string_name(_get_player_action_metadata(player_action_key), "action_id")
 
 
+## 读取玩家绑定键对应的元数据字典。
+## [br]
+## @api private
+## [br]
 func _get_player_binding_metadata(player_binding_key: String) -> Dictionary:
 	return GFVariantData.get_option_dictionary(_player_binding_metadata, player_binding_key)
 
 
+## 读取玩家动作键对应的元数据字典。
+## [br]
+## @api private
+## [br]
 func _get_player_action_metadata(player_action_key: String) -> Dictionary:
 	return GFVariantData.get_option_dictionary(_player_action_metadata, player_action_key)
 
 
+## 解码绑定键并核对其组成类型为 virtual 且来源部分等于 source_id。
+## [br]
+## @api private
+## [br]
 func _is_virtual_binding_key_for_source(binding_key: String, source_id: StringName) -> bool:
 	var parts: PackedStringArray = _decode_compound_key(binding_key)
 	return (
@@ -2206,6 +2806,11 @@ func _is_virtual_binding_key_for_source(binding_key: String, source_id: StringNa
 	)
 
 
+## 将各键部分编码为带长度前缀的 token，并用版本前缀和分隔符组成复合键。
+## 任一部分无法生成 token 时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _make_compound_key(parts: Array) -> String:
 	var segments: PackedStringArray = PackedStringArray()
 	var _prefix_appended: bool = segments.append(_INPUT_KEY_SCHEMA_PREFIX)
@@ -2217,6 +2822,10 @@ func _make_compound_key(parts: Array) -> String:
 	return "|".join(segments)
 
 
+## 校验复合键版本前缀和每段长度后解码 token；格式不合法时返回空数组。
+## [br]
+## @api private
+## [br]
 func _decode_compound_key(key: String) -> PackedStringArray:
 	var prefix: String = "%s|" % _INPUT_KEY_SCHEMA_PREFIX
 	if not key.begins_with(prefix):
@@ -2246,6 +2855,10 @@ func _decode_compound_key(key: String) -> PackedStringArray:
 	return parts
 
 
+## 检查索引有效且对应 token 与 value 生成的键部分相同。
+## [br]
+## @api private
+## [br]
 func _compound_key_part_equals(parts: PackedStringArray, index: int, value: Variant) -> bool:
 	if index < 0 or index >= parts.size():
 		return false
@@ -2253,10 +2866,18 @@ func _compound_key_part_equals(parts: PackedStringArray, index: int, value: Vari
 	return not token.is_empty() and parts[index] == token
 
 
+## 委托键编码器生成单个复合键部分的 token。
+## [br]
+## @api private
+## [br]
 func _make_key_part_token(value: Variant) -> String:
 	return _GF_VARIANT_KEY_CODEC_SCRIPT.make_key_token(value)
 
 
+## 按动作值类型把虚拟值转换为 Vector3；标量轴分量被限制到 [-1, 1]，不匹配类型按分支规则转零或提取分量。
+## [br]
+## @api private
+## [br]
 func _coerce_virtual_value_to_vector(value: Variant, value_type: GFInputAction.ValueType) -> Vector3:
 	if value == null:
 		return Vector3.ZERO
@@ -2296,6 +2917,10 @@ func _coerce_virtual_value_to_vector(value: Variant, value_type: GFInputAction.V
 	return Vector3.ZERO
 
 
+## 检查 float、Vector2 和 Vector3 分量是否有限；其他 Variant 类型不在此处拒绝。
+## [br]
+## @api private
+## [br]
 func _is_virtual_value_finite(value: Variant) -> bool:
 	if value is float:
 		var float_value: float = value
@@ -2314,6 +2939,10 @@ func _is_virtual_value_finite(value: Variant) -> bool:
 	return true
 
 
+## 检查 Vector3 的三个分量均不是 NaN 或无穷值。
+## [br]
+## @api private
+## [br]
 func _is_finite_vector3(value: Vector3) -> bool:
 	return (
 		not is_nan(value.x)
@@ -2325,6 +2954,10 @@ func _is_finite_vector3(value: Vector3) -> bool:
 	)
 
 
+## 将有限向量限制到单位长度以内；分量较大时先按最大分量缩放以避免直接计算长度溢出。
+## [br]
+## @api private
+## [br]
 func _limit_finite_vector_to_unit_length(value: Vector3) -> Vector3:
 	var max_component: float = maxf(absf(value.x), maxf(absf(value.y), absf(value.z)))
 	if max_component <= 1.0:
@@ -2336,6 +2969,10 @@ func _limit_finite_vector_to_unit_length(value: Vector3) -> Vector3:
 	return scaled / scaled_length
 
 
+## 用非负 delta 累加当前活跃的全局和玩家动作时长。
+## [br]
+## @api private
+## [br]
 func _advance_active_durations(delta: float) -> void:
 	var safe_delta: float = maxf(delta, 0.0)
 	if safe_delta <= 0.0:
@@ -2352,6 +2989,10 @@ func _advance_active_durations(delta: float) -> void:
 			)
 
 
+## 仅忽略键盘 echo 事件。
+## [br]
+## @api private
+## [br]
 func _should_ignore_event(event: InputEvent) -> bool:
 	if event is InputEventKey:
 		var key_event: InputEventKey = event
@@ -2359,6 +3000,10 @@ func _should_ignore_event(event: InputEvent) -> bool:
 	return false
 
 
+## 按手柄设备、触摸设备与索引或默认键鼠来源生成事件来源键。
+## [br]
+## @api private
+## [br]
 func _make_event_source_key(event: InputEvent) -> String:
 	if event is InputEventJoypadButton or event is InputEventJoypadMotion:
 		return "joypad:%d" % event.device
@@ -2371,6 +3016,11 @@ func _make_event_source_key(event: InputEvent) -> String:
 	return "keyboard_mouse"
 
 
+## 重新计算玩家动作值、阈值活跃度和触发器结果，保存状态并按变化或边沿发信号。
+## 值变化信号回调使分发代际改变时停止旧刷新。
+## [br]
+## @api private
+## [br]
 func _refresh_player_action_state(
 	player_index: int,
 	action_id: StringName,
@@ -2409,6 +3059,10 @@ func _refresh_player_action_state(
 		player_action_completed.emit(player_index, action_id, next_value)
 
 
+## 通过当前输入设备工具处理事件并解析玩家索引；工具不可用时返回 -1。
+## [br]
+## @api private
+## [br]
 func _resolve_player_index(event: InputEvent) -> int:
 	var devices: GFInputDeviceUtility = _get_input_device_utility()
 	if devices == null:
@@ -2416,6 +3070,10 @@ func _resolve_player_index(event: InputEvent) -> int:
 	return devices.handle_input_event(event)
 
 
+## 设备工具存在且事件为键盘、鼠标、触摸或手柄事件时要求设备分配。
+## [br]
+## @api private
+## [br]
 func _input_event_requires_device_assignment(event: InputEvent) -> bool:
 	if _get_input_device_utility() == null:
 		return false
@@ -2429,6 +3087,10 @@ func _input_event_requires_device_assignment(event: InputEvent) -> bool:
 	)
 
 
+## 读取玩家设备死区；玩家索引无效或设备工具不可用时返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_player_deadzone(player_index: int) -> float:
 	if player_index < 0:
 		return -1.0
@@ -2439,6 +3101,10 @@ func _get_player_deadzone(player_index: int) -> float:
 	return devices.get_player_deadzone(player_index, -1.0)
 
 
+## 用本帧 delta 重评所有已配置全局及玩家触发器的动作活跃状态。
+## [br]
+## @api private
+## [br]
 func _refresh_triggered_action_states(delta: float) -> void:
 	if _action_triggers.is_empty():
 		return
@@ -2469,6 +3135,10 @@ func _refresh_triggered_action_states(delta: float) -> void:
 		_set_player_action_active_from_triggers(player_index, action_id, action, value, raw_active, delta)
 
 
+## 更新全局触发器评估后的活跃状态，并在开始或完成边沿记录瞬态标记、时长和对应信号。
+## [br]
+## @api private
+## [br]
 func _set_action_active_from_triggers(
 	action_id: StringName,
 	action: GFInputAction,
@@ -2490,6 +3160,10 @@ func _set_action_active_from_triggers(
 		action_completed.emit(action_id, _default_value_for_type(action.value_type))
 
 
+## 更新玩家触发器评估后的活跃状态，并在开始或完成边沿记录玩家标记、时长和对应信号。
+## [br]
+## @api private
+## [br]
 func _set_player_action_active_from_triggers(
 	player_index: int,
 	action_id: StringName,
@@ -2514,6 +3188,10 @@ func _set_player_action_active_from_triggers(
 		player_action_completed.emit(player_index, action_id, _default_value_for_type(action.value_type))
 
 
+## 使用全局动作的触发器配置和运行时状态评估 raw_active。
+## [br]
+## @api private
+## [br]
 func _evaluate_action_triggers(
 	action_id: StringName,
 	raw_active: bool,
@@ -2531,6 +3209,10 @@ func _evaluate_action_triggers(
 	)
 
 
+## 登记玩家动作元数据后，使用玩家作用域触发器状态评估 raw_active。
+## [br]
+## @api private
+## [br]
 func _evaluate_player_action_triggers(
 	player_index: int,
 	action_id: StringName,
@@ -2551,6 +3233,10 @@ func _evaluate_player_action_triggers(
 	)
 
 
+## 按顺序更新触发器状态；任一触发器返回 INACTIVE 时为 false，存在 ONGOING 时最终为 false，否则为 true。
+## [br]
+## @api private
+## [br]
 func _evaluate_triggers(
 	action_id: StringName,
 	player_index: int,
@@ -2581,6 +3267,10 @@ func _evaluate_triggers(
 	return not any_ongoing
 
 
+## 懒创建并返回指定全局动作的触发器状态数组。
+## [br]
+## @api private
+## [br]
 func _get_action_trigger_states(action_id: StringName) -> Array:
 	if not _action_trigger_states.has(action_id):
 		var states: Array = []
@@ -2588,6 +3278,10 @@ func _get_action_trigger_states(action_id: StringName) -> Array:
 	return GFVariantData.as_array(_action_trigger_states[action_id])
 
 
+## 懒创建并返回指定玩家动作的触发器状态数组。
+## [br]
+## @api private
+## [br]
 func _get_player_trigger_states(player_action_key: String) -> Array:
 	if not _player_trigger_states.has(player_action_key):
 		var states: Array = []
@@ -2595,11 +3289,19 @@ func _get_player_trigger_states(player_action_key: String) -> Array:
 	return GFVariantData.as_array(_player_trigger_states[player_action_key])
 
 
+## 清空全局和玩家动作的触发器运行时状态。
+## [br]
+## @api private
+## [br]
 func _reset_all_trigger_states() -> void:
 	_action_trigger_states.clear()
 	_player_trigger_states.clear()
 
 
+## 依次应用动作修饰器；三维动作调用 modify_3d，其他动作处理 xy 并保留原 z 分量。
+## [br]
+## @api private
+## [br]
 func _apply_mapping_modifiers(action_id: StringName, value: Vector3) -> Vector3:
 	var modifiers: Array = _get_action_modifiers(action_id)
 	var action: GFInputAction = _get_registered_action(action_id)
@@ -2614,6 +3316,10 @@ func _apply_mapping_modifiers(action_id: StringName, value: Vector3) -> Vector3:
 	return result
 
 
+## 忽略空修饰器并调用各修饰器的 duplicate_modifier，收集非空结果。
+## [br]
+## @api private
+## [br]
 func _duplicate_modifiers(modifiers: Array[GFInputModifier]) -> Array[GFInputModifier]:
 	var result: Array[GFInputModifier] = []
 	for modifier: GFInputModifier in modifiers:
@@ -2625,6 +3331,10 @@ func _duplicate_modifiers(modifiers: Array[GFInputModifier]) -> Array[GFInputMod
 	return result
 
 
+## 过滤空触发器并按原顺序加入结果数组。
+## [br]
+## @api private
+## [br]
 func _duplicate_triggers(triggers: Array[GFInputTrigger]) -> Array[GFInputTrigger]:
 	var result: Array[GFInputTrigger] = []
 	for trigger: GFInputTrigger in triggers:
@@ -2634,6 +3344,10 @@ func _duplicate_triggers(triggers: Array[GFInputTrigger]) -> Array[GFInputTrigge
 	return result
 
 
+## 发现架构中的设备工具发生变化时切换引用，并订阅其设备分配诊断信号。
+## [br]
+## @api private
+## [br]
 func _bind_input_device_utility() -> void:
 	var devices: GFInputDeviceUtility = _get_input_device_utility()
 	if devices == _input_devices:
@@ -2647,6 +3361,10 @@ func _bind_input_device_utility() -> void:
 		var _connect_result: int = _input_devices.assignment_event_recorded.connect(_on_input_assignment_event_recorded)
 
 
+## 断开当前设备工具的诊断事件订阅并清空工具引用。
+## [br]
+## @api private
+## [br]
 func _unbind_input_device_utility() -> void:
 	if _input_devices == null:
 		return
@@ -2655,6 +3373,47 @@ func _unbind_input_device_utility() -> void:
 	_input_devices = null
 
 
+## 从设备分配记录读取有效玩家索引，并清除该玩家运行时输入状态。
+## [br]
+## @api private
+## [br]
+func _clear_player_state_from_assignment_record(record: Dictionary) -> void:
+	if record.is_empty():
+		return
+	var player_index: int = GFVariantData.get_option_int(record, "player_index", -1)
+	if player_index < 0:
+		return
+	_clear_player_runtime_state(player_index, true)
+
+
+## 读取 displaced_player_indices 并清理其中每个非负玩家索引的运行时输入状态。
+## [br]
+## @api private
+## [br]
+func _clear_displaced_player_states(metadata: Dictionary) -> void:
+	var displaced_players: Array = GFVariantData.get_option_array(metadata, "displaced_player_indices")
+	for player_value: Variant in displaced_players:
+		var player_index: int = GFVariantData.to_int(player_value, -1)
+		if player_index >= 0:
+			_clear_player_runtime_state(player_index, true)
+
+
+## 从架构读取 GFInputDeviceUtility；架构不存在或工具类型不匹配时返回 null。
+## [br]
+## @api private
+## [br]
+func _get_input_device_utility() -> GFInputDeviceUtility:
+	var arch: GFArchitecture = _get_architecture_or_null()
+	if arch == null:
+		return null
+	return _get_input_device_utility_value(arch.get_utility(GFInputDeviceUtility))
+
+
+# --- 信号处理函数 ---
+
+## 分配变更先推进 dispatch epoch，使在途派发失效；再清除受影响玩家状态或全部输入状态。
+## [br]
+## @api private
 func _on_input_assignment_event_recorded(event_record: Dictionary) -> void:
 	var event_type: StringName = GFVariantData.get_option_string_name(event_record, "event_type")
 	if event_type in [
@@ -2681,35 +3440,26 @@ func _on_input_assignment_event_recorded(event_record: Dictionary) -> void:
 			clear_input_state()
 
 
-func _clear_player_state_from_assignment_record(record: Dictionary) -> void:
-	if record.is_empty():
-		return
-	var player_index: int = GFVariantData.get_option_int(record, "player_index", -1)
-	if player_index < 0:
-		return
-	_clear_player_runtime_state(player_index, true)
-
-
-func _clear_displaced_player_states(metadata: Dictionary) -> void:
-	var displaced_players: Array = GFVariantData.get_option_array(metadata, "displaced_player_indices")
-	for player_value: Variant in displaced_players:
-		var player_index: int = GFVariantData.to_int(player_value, -1)
-		if player_index >= 0:
-			_clear_player_runtime_state(player_index, true)
-
-
-func _get_input_device_utility() -> GFInputDeviceUtility:
-	var arch: GFArchitecture = _get_architecture_or_null()
-	if arch == null:
-		return null
-	return _get_input_device_utility_value(arch.get_utility(GFInputDeviceUtility))
-
-
 # --- 内部类 ---
 
+## 随主循环接收输入并在应用失焦时转发回调的内部路由节点。
+## [br]
+## @api private
+## [br]
 class _GFInputRouter extends Node:
+	# --- 私有变量 ---
+
+	## 同文件 Utility 安装的输入转发委托，收到 Godot _input 后同步调用。
+	## [br]
+	## @api private
 	var _input_callback: Callable
+
+	## 应用失焦时清理 Utility 输入状态的委托；失效时忽略通知。
+	## [br]
+	## @api private
 	var _focus_lost_callback: Callable
+
+	# --- Godot 生命周期方法 ---
 
 	func _init() -> void:
 		process_mode = Node.PROCESS_MODE_ALWAYS as Node.ProcessMode

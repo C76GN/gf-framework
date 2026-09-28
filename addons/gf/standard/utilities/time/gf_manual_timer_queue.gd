@@ -26,16 +26,59 @@ var max_callbacks_per_advance: int = 1024:
 
 # --- 私有变量 ---
 
+## 当前手动 tick；推进时会暂时更新为正在执行的任务 tick。
+## [br]
+## @api private
 var _current_tick: int = 0
+
+## 按目标 tick 和排序序号排列的待执行计时器条目。
+## [br]
+## @api private
 var _timers: Array[Dictionary] = []
+
+## 下一个正数计时器句柄；clear() 后从 1 重新开始。
+## [br]
+## @api private
 var _next_timer_id: int = 1
+
+## 普通计时器使用的递增同 tick 排序序号。
+## [br]
+## @api private
 var _next_order: int = 0
+
+## front 计时器使用的递减排序序号，使后加入的 front 项排在先加入项之前。
+## [br]
+## @api private
 var _next_front_order: int = 0
+
+## 自队列清空以来成功执行的回调数。
+## [br]
+## @api private
 var _executed_count: int = 0
+
+## 自队列清空以来通过句柄或 owner 取消的计时器数。
+## [br]
+## @api private
 var _cancelled_count: int = 0
+
+## 自队列清空以来因 owner 已释放而跳过的计时器数。
+## [br]
+## @api private
 var _skipped_owner_count: int = 0
+
+## 自队列清空以来无效或返回失败结果的回调数。
+## [br]
+## @api private
 var _failed_count: int = 0
+
+## 阻止回调在当前 advance 尚未结束时嵌套推进同一队列。
+## [br]
+## @api private
 var _advance_in_progress: bool = false
+
+## 在 clear() 时递增，用于检测回调是否清空了正在推进的队列。
+## [br]
+## @api private
 var _lifecycle_generation: int = 0
 
 
@@ -334,6 +377,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 生成计时器条目、分配句柄与顺序号，并插入已排序队列。
+## [br]
+## @api private
 func _queue_timer(target_tick: int, callback: Callable, owner: Object, options: Dictionary) -> int:
 	var handle: int = _next_timer_id
 	_next_timer_id += 1
@@ -351,6 +397,9 @@ func _queue_timer(target_tick: int, callback: Callable, owner: Object, options: 
 	return handle
 
 
+## 为普通计时器分配递增序号，为 front 计时器分配递减序号。
+## [br]
+## @api private
 func _make_order(front: bool) -> int:
 	if front:
 		_next_front_order -= 1
@@ -360,12 +409,18 @@ func _make_order(front: bool) -> int:
 	return order
 
 
+## 检查按 tick 排序后的队首是否不晚于目标 tick。
+## [br]
+## @api private
 func _has_due_timer(target_tick: int) -> bool:
 	if _timers.is_empty():
 		return false
 	return _get_timer_target_tick(_timers[0]) <= target_tick
 
 
+## 仅在队首计时器已到期时将其从队列移除并返回。
+## [br]
+## @api private
 func _pop_next_due_timer(target_tick: int) -> Dictionary:
 	if _timers.is_empty():
 		return {}
@@ -374,6 +429,9 @@ func _pop_next_due_timer(target_tick: int) -> Dictionary:
 	return _timers.pop_front()
 
 
+## 用二分查找按 `_timer_is_before()` 的顺序插入新计时器。
+## [br]
+## @api private
 func _insert_timer_sorted(timer_data: Dictionary) -> void:
 	var low: int = 0
 	var high: int = _timers.size()
@@ -386,6 +444,9 @@ func _insert_timer_sorted(timer_data: Dictionary) -> void:
 	var _insert_result: Variant = _timers.insert(low, timer_data)
 
 
+## 先按目标 tick 排序，再按序号确定同 tick 的先后顺序。
+## [br]
+## @api private
 func _timer_is_before(left: Dictionary, right: Dictionary) -> bool:
 	var left_tick: int = _get_timer_target_tick(left)
 	var right_tick: int = _get_timer_target_tick(right)
@@ -394,11 +455,17 @@ func _timer_is_before(left: Dictionary, right: Dictionary) -> bool:
 	return GFVariantData.get_option_int(left, "order") < GFVariantData.get_option_int(right, "order")
 
 
+## 判断条目记录的弱引用 owner 是否已失效；无 owner 的条目不会被跳过。
+## [br]
+## @api private
 func _timer_owner_is_released(timer_data: Dictionary) -> bool:
 	var owner_ref: WeakRef = _get_timer_owner_ref(timer_data)
 	return owner_ref != null and owner_ref.get_ref() == null
 
 
+## 将 false 或 `ok` 为 false 的 Dictionary 识别为回调失败，其余结果视为成功。
+## [br]
+## @api private
 func _callback_result_is_failure(result: Variant) -> bool:
 	if result is bool:
 		var bool_result: bool = result
@@ -409,6 +476,9 @@ func _callback_result_is_failure(result: Variant) -> bool:
 	return false
 
 
+## 统一组装推进结果，并从当前队列读取 current_tick 与待执行数量。
+## [br]
+## @api private
 func _make_advance_report(
 	ok: bool,
 	status: StringName,
@@ -433,18 +503,30 @@ func _make_advance_report(
 	}
 
 
+## 从计时器条目读取句柄编号。
+## [br]
+## @api private
 func _get_timer_id(timer_data: Dictionary) -> int:
 	return GFVariantData.get_option_int(timer_data, "id")
 
 
+## 从计时器条目读取绝对目标 tick。
+## [br]
+## @api private
 func _get_timer_target_tick(timer_data: Dictionary) -> int:
 	return GFVariantData.get_option_int(timer_data, "target_tick")
 
 
+## 从计时器条目读取 owner 的实例编号。
+## [br]
+## @api private
 func _get_timer_owner_id(timer_data: Dictionary) -> int:
 	return GFVariantData.get_option_int(timer_data, "owner_id")
 
 
+## 读取回调字段并确认其为 Callable，否则返回无效 Callable。
+## [br]
+## @api private
 func _get_timer_callback(timer_data: Dictionary) -> Callable:
 	var value: Variant = GFVariantData.get_option_value(timer_data, "callback", Callable())
 	if value is Callable:
@@ -453,6 +535,9 @@ func _get_timer_callback(timer_data: Dictionary) -> Callable:
 	return Callable()
 
 
+## 读取 owner 弱引用字段并确认其为 WeakRef，否则返回 null。
+## [br]
+## @api private
 func _get_timer_owner_ref(timer_data: Dictionary) -> WeakRef:
 	var value: Variant = GFVariantData.get_option_value(timer_data, "owner_ref")
 	if value is WeakRef:
@@ -461,6 +546,9 @@ func _get_timer_owner_ref(timer_data: Dictionary) -> WeakRef:
 	return null
 
 
+## 将对象 Variant 收窄为 Object；其他值返回 null。
+## [br]
+## @api private
 func _variant_to_object(value: Variant) -> Object:
 	if value is Object:
 		var object_value: Object = value

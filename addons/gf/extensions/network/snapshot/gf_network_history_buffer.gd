@@ -21,7 +21,16 @@ var capacity: int = 120
 
 # --- 私有变量 ---
 
+## 按 tick 保存快照值。
+## [br]
+## @api private
+## [br]
 var _snapshots: Dictionary = {}
+
+## 按升序保存当前历史中的 tick。
+## [br]
+## @api private
+## [br]
 var _tick_order: Array[int] = []
 
 
@@ -285,6 +294,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 超出正容量时移除最早的快照；非正容量不执行裁剪。
+## [br]
+## @api private
+## [br]
 func _prune_to_capacity() -> void:
 	if capacity <= 0:
 		return
@@ -302,6 +315,10 @@ func _prune_to_capacity() -> void:
 	_tick_order = kept_order
 
 
+## 将 Variant 转为快照类型；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_snapshot(value: Variant) -> GFNetworkSnapshot:
 	if value is GFNetworkSnapshot:
 		var snapshot: GFNetworkSnapshot = value
@@ -309,6 +326,10 @@ func _variant_to_snapshot(value: Variant) -> GFNetworkSnapshot:
 	return null
 
 
+## 将整数附加到 PackedInt64Array；目标不接受时不再处理。
+## [br]
+## @api private
+## [br]
 func _append_packed_int64(target: PackedInt64Array, value: int) -> void:
 	var appended: bool = target.append(value)
 	if appended:

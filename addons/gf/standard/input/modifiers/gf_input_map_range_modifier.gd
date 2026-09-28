@@ -74,6 +74,10 @@ func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction
 
 # --- 私有/辅助方法 ---
 
+## 把输入值在线性输入/输出范围间映射；输入范围近零时返回 output_min，且可选钳制输出。
+## [br]
+## @api private
+## [br]
 func _map_value(value: float) -> float:
 	var input_range: float = input_max - input_min
 	if is_zero_approx(input_range):

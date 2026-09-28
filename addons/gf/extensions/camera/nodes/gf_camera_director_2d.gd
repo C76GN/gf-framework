@@ -12,12 +12,6 @@ class_name GFCameraDirector2D
 extends Node
 
 
-const _GF_CAMERA_FINITE_MATH = preload("res://addons/gf/extensions/camera/core/gf_camera_finite_math.gd")
-const _SELECTION_AUTO: int = 0
-const _SELECTION_MANUAL_EMPTY: int = 1
-const _SELECTION_MANUAL_RIG: int = 2
-
-
 # --- 信号 ---
 
 ## 当前 Rig 变化后发出。
@@ -50,6 +44,29 @@ enum UpdateMode {
 	## 只在 process_camera() 被显式调用时更新。
 	MANUAL,
 }
+
+
+# --- 常量 ---
+
+## 集中处理相机姿态中的有限数值检查与安全数学运算。
+## [br]
+## @api private
+const _GF_CAMERA_FINITE_MATH = preload("res://addons/gf/extensions/camera/core/gf_camera_finite_math.gd")
+
+## 从候选 Rig 中自动选择的内部模式标识。
+## [br]
+## @api private
+const _SELECTION_AUTO: int = 0
+
+## 显式保持无 Rig 的手动选择模式，不回退到自动候选。
+## [br]
+## @api private
+const _SELECTION_MANUAL_EMPTY: int = 1
+
+## 显式选择某个 Rig 的手动模式标识。
+## [br]
+## @api private
+const _SELECTION_MANUAL_RIG: int = 2
 
 
 # --- 导出变量 ---
@@ -112,12 +129,39 @@ enum UpdateMode {
 
 # --- 私有变量 ---
 
+## 当前激活的相机 Rig。
+## [br]
+## @api private
 var _active_rig: GFCameraRig2D = null
+
+## 当前过渡使用的 Blend 资源。
+## [br]
+## @api private
 var _blend: GFCameraBlend = null
+
+## 当前过渡已经过的秒数。
+## [br]
+## @api private
 var _blend_elapsed_seconds: float = 0.0
+
+## 当前过渡的起始相机姿态。
+## [br]
+## @api private
 var _blend_from_pose: Dictionary = {}
+
+## 是否正在执行相机姿态过渡。
+## [br]
+## @api private
 var _is_blending: bool = false
+
+## 当前 Rig 选择模式状态。
+## [br]
+## @api private
 var _selection_mode: int = _SELECTION_AUTO
+
+## 最近一次相机处理结果快照。
+## [br]
+## @api private
 var _last_process_report: Dictionary = {}
 
 
@@ -313,6 +357,9 @@ func process_camera(delta: float) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 根据当前相机和 Rig 准备过渡起点、资源与计时状态。
+## [br]
+## @api private
 func _prepare_blend(force_snap: bool) -> void:
 	var camera: Camera2D = get_camera()
 	_blend = _active_rig.blend if _active_rig != null and is_instance_valid(_active_rig) and _active_rig.blend != null else default_blend
@@ -329,6 +376,9 @@ func _prepare_blend(force_snap: bool) -> void:
 	)
 
 
+## 更新当前 Rig 及选择模式，并发出 Rig 变化信号。
+## [br]
+## @api private
 func _set_active_rig_internal(rig: GFCameraRig2D, force_snap: bool, manual_override: bool) -> bool:
 	if rig != null and (not is_instance_valid(rig) or not rig.is_available()):
 		return false
@@ -347,6 +397,9 @@ func _set_active_rig_internal(rig: GFCameraRig2D, force_snap: bool, manual_overr
 	return true
 
 
+## 从相机读取当前位置、旋转和缩放作为姿态字典。
+## [br]
+## @api private
 func _get_camera_pose(camera: Camera2D) -> Dictionary:
 	if camera == null:
 		return {
@@ -361,6 +414,9 @@ func _get_camera_pose(camera: Camera2D) -> Dictionary:
 	}
 
 
+## 在两个有效姿态间插值位置、旋转和缩放。
+## [br]
+## @api private
 func _interpolate_pose(from_pose: Dictionary, to_pose: Dictionary, weight: float) -> Dictionary:
 	if not _is_valid_camera_pose(from_pose):
 		return to_pose.duplicate(true)
@@ -381,6 +437,9 @@ func _interpolate_pose(from_pose: Dictionary, to_pose: Dictionary, weight: float
 	}
 
 
+## 将姿态字段应用到相机，并按配置设为当前相机。
+## [br]
+## @api private
 func _apply_pose(camera: Camera2D, pose: Dictionary) -> void:
 	camera.global_position = GFVariantData.get_option_vector2(pose, "position", camera.global_position)
 	camera.global_rotation = GFVariantData.get_option_float(pose, "rotation", camera.global_rotation)
@@ -389,6 +448,9 @@ func _apply_pose(camera: Camera2D, pose: Dictionary) -> void:
 		_make_camera_current(camera)
 
 
+## 检查姿态的位置、旋转和非零缩放是否为有限值。
+## [br]
+## @api private
 func _is_valid_camera_pose(pose: Dictionary) -> bool:
 	var position: Vector2 = GFVariantData.get_option_vector2(pose, "position", Vector2(INF, INF))
 	var rotation: float = GFVariantData.get_option_float(pose, "rotation", INF)
@@ -402,6 +464,9 @@ func _is_valid_camera_pose(pose: Dictionary) -> bool:
 	)
 
 
+## 清除当前过渡资源、计时和起始姿态状态。
+## [br]
+## @api private
 func _cancel_blend() -> void:
 	_blend = null
 	_blend_elapsed_seconds = 0.0
@@ -409,6 +474,9 @@ func _cancel_blend() -> void:
 	_is_blending = false
 
 
+## 通过 Camera2D 方法或 enabled 属性设为当前相机。
+## [br]
+## @api private
 func _make_camera_current(camera: Camera2D) -> void:
 	if camera == null:
 		return
@@ -418,12 +486,18 @@ func _make_camera_current(camera: Camera2D) -> void:
 	camera.enabled = true
 
 
+## 解析分组 Rig 搜索作用域节点。
+## [br]
+## @api private
 func _get_camera_scope_node() -> Node:
 	if not camera_scope_path.is_empty():
 		return get_node_or_null(camera_scope_path)
 	return get_parent()
 
 
+## 将尚未收录的 Rig 追加到候选列表。
+## [br]
+## @api private
 func _append_unique_rig(result: Array[GFCameraRig2D], seen: Dictionary, rig: GFCameraRig2D) -> void:
 	if rig == null:
 		return
@@ -434,6 +508,9 @@ func _append_unique_rig(result: Array[GFCameraRig2D], seen: Dictionary, rig: GFC
 	result.append(rig)
 
 
+## 检查分组 Rig 的频道与作用域是否匹配。
+## [br]
+## @api private
 func _is_group_rig_in_scope(rig: GFCameraRig2D) -> bool:
 	if rig == null:
 		return false
@@ -444,12 +521,18 @@ func _is_group_rig_in_scope(rig: GFCameraRig2D) -> bool:
 	return director_scope != null and rig_scope == director_scope
 
 
+## 按优先级及实例 ID 为候选 Rig 建立稳定顺序。
+## [br]
+## @api private
 func _sort_rigs(left: GFCameraRig2D, right: GFCameraRig2D) -> bool:
 	if left.priority != right.priority:
 		return left.priority > right.priority
 	return left.get_instance_id() < right.get_instance_id()
 
 
+## 将节点值收窄为 Camera2D，其他类型返回 null。
+## [br]
+## @api private
 func _get_camera_value(value: Variant) -> Camera2D:
 	if value is Camera2D:
 		var camera: Camera2D = value
@@ -457,6 +540,9 @@ func _get_camera_value(value: Variant) -> Camera2D:
 	return null
 
 
+## 将节点值收窄为 GFCameraRig2D，其他类型返回 null。
+## [br]
+## @api private
 func _get_rig_value(value: Variant) -> GFCameraRig2D:
 	if value is GFCameraRig2D:
 		var rig: GFCameraRig2D = value
@@ -464,6 +550,9 @@ func _get_rig_value(value: Variant) -> GFCameraRig2D:
 	return null
 
 
+## 汇总本次相机处理结果及当前选择状态。
+## [br]
+## @api private
 func _make_process_report(applied: bool, reason: String, camera: Camera2D, rig: GFCameraRig2D) -> Dictionary:
 	return {
 		"applied": applied,
@@ -478,6 +567,9 @@ func _make_process_report(applied: bool, reason: String, camera: Camera2D, rig: 
 	}
 
 
+## 返回当前 Rig 选择模式的报告名称。
+## [br]
+## @api private
 func _get_selection_mode_name() -> String:
 	match _selection_mode:
 		_SELECTION_MANUAL_EMPTY:
@@ -488,12 +580,18 @@ func _get_selection_mode_name() -> String:
 			return "auto"
 
 
+## 返回节点在场景树中的调试路径。
+## [br]
+## @api private
 func _get_node_debug_path(node: Node) -> String:
 	if node != null and is_instance_valid(node) and node.is_inside_tree():
 		return String(node.get_path())
 	return ""
 
 
+## 返回节点名称作为调试标识。
+## [br]
+## @api private
 func _get_node_debug_name(node: Node) -> String:
 	if node != null and is_instance_valid(node):
 		return String(node.name)

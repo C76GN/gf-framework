@@ -169,6 +169,10 @@ static func from_dict(data: Dictionary) -> Resource:
 
 # --- 私有/辅助方法 ---
 
+## 优先通过当前脚本创建同派生类型的条目，实例化结果不可用时回退到基类。
+## [br]
+## @api private
+## [br]
 func _make_entry_instance() -> Resource:
 	var script_value: Variant = get_script()
 	if script_value is Script:

@@ -21,32 +21,55 @@ const GFExtensionSettingsBase = preload("res://addons/gf/kernel/extension/gf_ext
 ## [br]
 ## @layer kernel/editor
 const GFExtensionUsageAuditBase = preload("res://addons/gf/kernel/extension/gf_extension_usage_audit.gd")
+
+## 读取扩展导出审计报告字段的 Variant 访问辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
 # --- 私有变量 ---
 
+## 当前导出中用于跳过文件的禁用扩展根路径，不含末尾斜线。
+## [br]
+## @api private
 var _disabled_extension_roots: Array[String] = []
+
+## 当前导出中供过滤与引用审计使用的禁用扩展清单。
+## [br]
+## @api private
 var _disabled_manifests: Array[GFExtensionManifest] = []
 
 
-# --- Godot 生命周期方法 ---
+# --- Godot 回调方法 ---
 
+## 返回扩展导出插件的稳定名称，供编辑器识别插件。
+## [br]
+## @api private
 func _get_name() -> String:
 	return "GFExtensionExportPlugin"
 
 
+## 开始导出时重新收集禁用扩展根目录，并报告项目中仍指向这些扩展的引用。
+## [br]
+## @api private
 func _export_begin(_features: PackedStringArray, _is_debug: bool, _path: String, _flags: int) -> void:
 	_refresh_disabled_extension_roots()
 	_warn_disabled_extension_references()
 
 
+## 导出过程中跳过归属于禁用扩展根目录的文件。
+## [br]
+## @api private
 func _export_file(path: String, _type: String, _features: PackedStringArray) -> void:
 	if _should_skip_export_path(path, _disabled_extension_roots):
 		skip()
 		return
 
 
+## 导出结束后清空本轮禁用扩展根目录和清单缓存。
+## [br]
+## @api private
 func _export_end() -> void:
 	_disabled_extension_roots.clear()
 	_disabled_manifests.clear()
@@ -54,6 +77,9 @@ func _export_end() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 从扩展设置刷新禁用根路径和清单，并在清单图无效时报告错误。
+## [br]
+## @api private
 func _refresh_disabled_extension_roots() -> void:
 	var graph_report: Dictionary = _collect_disabled_export_state(
 		_disabled_extension_roots,
@@ -63,11 +89,17 @@ func _refresh_disabled_extension_roots() -> void:
 		push_error("[GFExtensionExportPlugin][extension_export_plugin.manifest_graph_invalid] The extension manifest graph is invalid; export extension filtering stopped.\n%s" % _format_manifest_graph_report(graph_report))
 
 
+## 判断路径是否等于去除末尾斜线的根路径，或位于该根路径的子目录中。
+## [br]
+## @api private
 static func _path_is_under(path: String, root_path: String) -> bool:
 	var normalized_root: String = root_path.trim_suffix("/")
 	return path == normalized_root or path.begins_with(normalized_root + "/")
 
 
+## 当路径位于任一禁用扩展根目录内时返回 true。
+## [br]
+## @api private
 static func _should_skip_export_path(path: String, disabled_roots: Array[String]) -> bool:
 	for root_path: String in disabled_roots:
 		if _path_is_under(path, root_path):
@@ -75,10 +107,16 @@ static func _should_skip_export_path(path: String, disabled_roots: Array[String]
 	return false
 
 
+## 读取 manifest 图报告的 ok 布尔值；缺省值为 true。
+## [br]
+## @api private
 static func _manifest_graph_allows_export(report: Dictionary) -> bool:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok", true)
 
 
+## 清空输出数组后按导出设置填入有效禁用清单及其非空根路径，并返回 manifest 图报告。
+## [br]
+## @api private
 static func _collect_disabled_export_state(
 	disabled_roots: Array[String],
 	disabled_manifests: Array[GFExtensionManifest]
@@ -100,6 +138,9 @@ static func _collect_disabled_export_state(
 	return graph_report
 
 
+## 将无效清单、缺失依赖、重复 ID 和依赖环整理为逐行错误文本。
+## [br]
+## @api private
 static func _format_manifest_graph_report(report: Dictionary) -> String:
 	var lines: PackedStringArray = PackedStringArray()
 	for invalid_manifest_variant: Variant in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "invalid_manifests"):
@@ -127,6 +168,9 @@ static func _format_manifest_graph_report(report: Dictionary) -> String:
 	return "\n".join(lines)
 
 
+## 优先组合问题项中的扩展 ID 与来源路径；两者缺失时返回可用字段或问号。
+## [br]
+## @api private
 static func _describe_manifest_issue(issue: Dictionary) -> String:
 	var extension_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "extension_id")
 	var source_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "source_path")
@@ -139,6 +183,9 @@ static func _describe_manifest_issue(issue: Dictionary) -> String:
 	return "?"
 
 
+## 审计禁用扩展的项目引用，并按导出设置发出错误或警告。
+## [br]
+## @api private
 func _warn_disabled_extension_references() -> void:
 	if _disabled_manifests.is_empty():
 		return
@@ -158,6 +205,9 @@ func _warn_disabled_extension_references() -> void:
 	push_warning("[GFExtensionExportPlugin][extension_export_plugin.disabled_extension_referenced_warning] Project files still reference disabled extensions; export exclusion may leave missing files.\n%s" % formatted_report)
 
 
+## 将引用审计报告按扩展列出，并格式化每条引用的路径和行号。
+## [br]
+## @api private
 func _format_reference_report(report: Dictionary) -> String:
 	var lines: PackedStringArray = PackedStringArray()
 	var extensions: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(

@@ -51,8 +51,19 @@ extends Resource
 
 # --- 私有变量 ---
 
+## 按正式标签名索引的规范化定义缓存。
+## [br]
+## @api private
 var _definition_lookup_cache: Dictionary = {}
+
+## 按重定向源标签索引的规范化定义缓存。
+## [br]
+## @api private
 var _redirect_lookup_cache: Dictionary = {}
+
+## 当前两个查找缓存对应的标签定义签名。
+## [br]
+## @api private
 var _catalog_signature: String = ""
 
 
@@ -452,6 +463,9 @@ static func from_dictionary(data: Dictionary) -> GFTagCatalog:
 
 # --- 私有/辅助方法 ---
 
+## 签名变化时重建正式标签和重定向查找缓存，并记录新签名。
+## [br]
+## @api private
 func _ensure_cache() -> void:
 	var signature: String = _make_catalog_signature()
 	if signature == _catalog_signature:
@@ -472,12 +486,18 @@ func _ensure_cache() -> void:
 	_catalog_signature = signature
 
 
+## 重置目录签名并清空正式标签与重定向缓存。
+## [br]
+## @api private
 func _invalidate_cache() -> void:
 	_catalog_signature = ""
 	_definition_lookup_cache.clear()
 	_redirect_lookup_cache.clear()
 
 
+## 将各定义的标签、重定向、说明和元数据编码后排序并连接为目录签名。
+## [br]
+## @api private
 func _make_catalog_signature() -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	for definition: Dictionary in tag_definitions:
@@ -499,6 +519,9 @@ func _make_catalog_signature() -> String:
 	return "|".join(parts)
 
 
+## 将定义规整为 tag、redirect_to、description 和 metadata 四个字段。
+## [br]
+## @api private
 func _normalize_definition(definition: Dictionary) -> Dictionary:
 	return {
 		"tag": _definition_tag(definition),
@@ -508,10 +531,16 @@ func _normalize_definition(definition: Dictionary) -> Dictionary:
 	}
 
 
+## 从定义中读取 tag 并转换为 StringName。
+## [br]
+## @api private
 func _definition_tag(definition: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(definition, "tag")
 
 
+## 优先读取 redirect_to；仅当该键不存在时才回退读取 redirect。
+## [br]
+## @api private
 func _definition_redirect(definition: Dictionary) -> StringName:
 	if definition.has("redirect_to"):
 		return GFVariantData.get_option_string_name(definition, "redirect_to")

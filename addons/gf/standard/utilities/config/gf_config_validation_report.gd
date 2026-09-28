@@ -204,40 +204,76 @@ func finalize_report(report: Dictionary) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 将经过清理的诊断上下文合并到问题字典。
+## [br]
+## @api private
+## [br]
 func _apply_issue_context(issue: Dictionary, context: Dictionary) -> void:
 	for field_name: String in CONTEXT_FIELDS:
 		if context.has(field_name):
 			issue[field_name] = _sanitize_context_value(context[field_name])
 
 
+## 从诊断上下文读取 row_key。
+## [br]
+## @api private
+## [br]
 func _get_context_row_key(context: Dictionary) -> Variant:
 	return GFVariantData.get_option_value(context, "row_key")
 
 
+## 从诊断上下文读取字段名。
+## [br]
+## @api private
+## [br]
 func _get_context_field(context: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(context, "field")
 
 
+## 从报告读取问题数组。
+## [br]
+## @api private
+## [br]
 func _get_issues(report: Dictionary) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(report, "issues", []))
 
 
+## 从报告读取行数。
+## [br]
+## @api private
+## [br]
 func _get_row_count(report: Dictionary) -> int:
 	return GFVariantData.get_option_int(report, "row_count")
 
 
+## 从报告读取错误数。
+## [br]
+## @api private
+## [br]
 func _get_error_count(report: Dictionary) -> int:
 	return GFVariantData.get_option_int(report, "error_count")
 
 
+## 从报告读取警告数。
+## [br]
+## @api private
+## [br]
 func _get_warning_count(report: Dictionary) -> int:
 	return GFVariantData.get_option_int(report, "warning_count")
 
 
+## 从报告读取 ok 标记；标记缺失时按成功处理。
+## [br]
+## @api private
+## [br]
 func _is_report_ok(report: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(report, "ok", true)
 
 
+## 将诊断上下文值转换为可安全保存的 Variant 表示。
+## [br]
+## @api private
+## [br]
 func _sanitize_context_value(value: Variant) -> Variant:
 	match typeof(value):
 		TYPE_NIL, TYPE_BOOL, TYPE_STRING, TYPE_INT:

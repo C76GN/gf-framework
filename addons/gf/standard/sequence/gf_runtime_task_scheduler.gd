@@ -95,10 +95,34 @@ var auto_schedule_default_tasks: bool = true
 
 # --- 私有变量 ---
 
+## 当前由调度器直接运行的任务列表。
+## [br]
+## @api private
+## [br]
 var _active_tasks: Array[GFRuntimeTask] = []
+
+## 按 requirement 实例 ID 索引任务所有者及 requirement 弱引用的缓存。
+## [br]
+## @api private
+## [br]
 var _requirement_owners: Dictionary = {}
+
+## 按 requirement ID 登记的默认任务及 requirement 弱引用。
+## [br]
+## @api private
+## [br]
 var _default_tasks: Dictionary = {}
+
+## 当前是否正在解析一个包含多成员的调度请求。
+## [br]
+## @api private
+## [br]
 var _schedule_resolution_active: bool = false
+
+## 当前是否正在执行调度器释放流程。
+## [br]
+## @api private
+## [br]
 var _dispose_active: bool = false
 
 
@@ -492,6 +516,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 解除所有任务成员的调度解析锁，并结束当前解析阶段。
+## [br]
+## @api private
+## [br]
 func _abort_schedule_resolution(schedule_members: Array[GFRuntimeTask]) -> void:
 	for member: GFRuntimeTask in schedule_members:
 		if member != null:
@@ -499,6 +527,10 @@ func _abort_schedule_resolution(schedule_members: Array[GFRuntimeTask]) -> void:
 	_schedule_resolution_active = false
 
 
+## 在非仲裁/释放阶段重建所有者索引，按代快照推进任务并结束已完成项，最后排程空闲默认任务。
+## [br]
+## @api private
+## [br]
 func _run_tasks(delta: float, use_physics: bool) -> void:
 	if _schedule_resolution_active or _dispose_active:
 		return
@@ -535,6 +567,10 @@ func _run_tasks(delta: float, use_physics: bool) -> void:
 		_schedule_available_defaults()
 
 
+## 初始化尚未初始化的任务，并在初始化回调后确认任务仍属于原调度代。
+## [br]
+## @api private
+## [br]
 func _ensure_initialized(task: GFRuntimeTask, generation: int) -> bool:
 	if task == null:
 		return false
@@ -547,6 +583,10 @@ func _ensure_initialized(task: GFRuntimeTask, generation: int) -> bool:
 	return _is_task_execution_current(task, generation)
 
 
+## 验证任务仍活动且可选代数匹配后先脱离调度器，再调用任务 end 并发完成/取消信号。
+## [br]
+## @api private
+## [br]
 func _finish_task(
 	task: GFRuntimeTask,
 	interrupted: bool,
@@ -565,6 +605,10 @@ func _finish_task(
 	return true
 
 
+## 检查任务仍在活动列表并属于指定调度代。
+## [br]
+## @api private
+## [br]
 func _is_task_execution_current(task: GFRuntimeTask, generation: int) -> bool:
 	return (
 		task != null
@@ -573,6 +617,10 @@ func _is_task_execution_current(task: GFRuntimeTask, generation: int) -> bool:
 	)
 
 
+## 先为其余活动任务构建有效索引；成功后解除目标任务排程并原子替换列表和索引。
+## [br]
+## @api private
+## [br]
 func _detach_task(task: GFRuntimeTask) -> bool:
 	if task == null or not _active_tasks.has(task):
 		return false
@@ -589,6 +637,10 @@ func _detach_task(task: GFRuntimeTask) -> bool:
 	return true
 
 
+## 调用已脱离任务的 end(interrupted)，并发出对应的取消或完成信号。
+## [br]
+## @api private
+## [br]
 func _end_detached_task(task: GFRuntimeTask, interrupted: bool) -> void:
 	if task == null:
 		return
@@ -599,6 +651,10 @@ func _end_detached_task(task: GFRuntimeTask, interrupted: bool) -> void:
 		task_completed.emit(task)
 
 
+## 从候选任务列表建立 requirement 所有者索引；拒绝无效/未调度任务及跨任务重复 requirement。
+## [br]
+## @api private
+## [br]
 func _build_requirement_owner_index(
 	tasks: Array[GFRuntimeTask],
 	pending_task: GFRuntimeTask = null
@@ -643,6 +699,10 @@ func _build_requirement_owner_index(
 	}
 
 
+## 成功构建当前活动任务的索引后替换缓存。
+## [br]
+## @api private
+## [br]
 func _rebuild_requirement_owner_index() -> bool:
 	var build_result: Dictionary = _build_requirement_owner_index(_active_tasks)
 	if not GFVariantData.get_option_bool(build_result, "ok", false):
@@ -651,6 +711,10 @@ func _rebuild_requirement_owner_index() -> bool:
 	return true
 
 
+## 验证 requirement 实例，并通过弱引用和活动状态确认索引记录仍对应当前占用任务。
+## [br]
+## @api private
+## [br]
 func _get_task_for_requirement_from_index(
 	requirement: Object,
 	owner_index: Dictionary
@@ -669,6 +733,10 @@ func _get_task_for_requirement_from_index(
 	return task
 
 
+## 从 requirement 记录中窄化并返回 RuntimeTask。
+## [br]
+## @api private
+## [br]
 func _get_requirement_record_task(record: Dictionary) -> GFRuntimeTask:
 	var value: Variant = GFVariantData.get_option_value(record, "task")
 	if value is GFRuntimeTask:
@@ -677,6 +745,10 @@ func _get_requirement_record_task(record: Dictionary) -> GFRuntimeTask:
 	return null
 
 
+## 通过记录中的弱引用返回仍有效的 requirement 对象。
+## [br]
+## @api private
+## [br]
 func _get_requirement_record_requirement(record: Dictionary) -> Object:
 	var value: Variant = GFVariantData.get_option_value(record, "requirement_ref")
 	if not value is WeakRef:
@@ -690,6 +762,10 @@ func _get_requirement_record_requirement(record: Dictionary) -> Object:
 	return null
 
 
+## 按 requirement 所有者索引返回冲突任务去重列表。
+## [br]
+## @api private
+## [br]
 func _get_conflicting_tasks(
 	requirements: Array[Object],
 	owner_index: Dictionary
@@ -705,6 +781,10 @@ func _get_conflicting_tasks(
 	return conflicts
 
 
+## 清理失效默认项并按 requirement 空闲状态启动可用默认任务。
+## [br]
+## @api private
+## [br]
 func _schedule_available_defaults() -> void:
 	_prune_invalid_default_tasks()
 	if not _rebuild_requirement_owner_index():
@@ -728,6 +808,10 @@ func _schedule_available_defaults() -> void:
 		var _schedule_result: bool = schedule(task)
 
 
+## 检查任务的任一 requirement 是否已由当前活动任务索引占用。
+## [br]
+## @api private
+## [br]
 func _has_busy_requirement(task: GFRuntimeTask) -> bool:
 	for requirement: Object in task.get_requirements():
 		if _get_task_for_requirement_from_index(requirement, _requirement_owners) != null:
@@ -735,6 +819,10 @@ func _has_busy_requirement(task: GFRuntimeTask) -> bool:
 	return false
 
 
+## 从默认任务表移除 requirement 或任务引用已失效的条目。
+## [br]
+## @api private
+## [br]
 func _prune_invalid_default_tasks() -> void:
 	for key: Variant in _default_tasks.keys():
 		var record: Dictionary = _default_record_from_value(_default_tasks.get(key, null))
@@ -742,6 +830,10 @@ func _prune_invalid_default_tasks() -> void:
 			var _removed_invalid_default: bool = _default_tasks.erase(key)
 
 
+## 将 Dictionary 记录原样取出，或把单个 RuntimeTask 包装成 task 字段记录。
+## [br]
+## @api private
+## [br]
 func _default_record_from_value(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		var record: Dictionary = value
@@ -752,6 +844,10 @@ func _default_record_from_value(value: Variant) -> Dictionary:
 	return {}
 
 
+## 从默认任务记录的 task 字段窄化并返回 RuntimeTask。
+## [br]
+## @api private
+## [br]
 func _default_record_task(record: Dictionary) -> GFRuntimeTask:
 	var value: Variant = GFVariantData.get_option_value(record, "task")
 	if value is GFRuntimeTask:
@@ -760,6 +856,10 @@ func _default_record_task(record: Dictionary) -> GFRuntimeTask:
 	return null
 
 
+## 从默认任务记录的 requirement_ref 弱引用返回仍有效的 Object。
+## [br]
+## @api private
+## [br]
 func _default_record_requirement(record: Dictionary) -> Object:
 	var value: Variant = GFVariantData.get_option_value(record, "requirement_ref")
 	if value is WeakRef:

@@ -73,15 +73,64 @@ const STATUS_STORAGE_FAILED: StringName = &"storage_failed"
 
 # --- 私有变量 ---
 
+## 标记该结果是否已经成功完成框架配置。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
+
+## 加载或恢复操作是否成功。
+## [br]
+## @api private
+## [br]
 var _ok: bool = false
+
+## 冻结的稳定加载状态。
+## [br]
+## @api private
+## [br]
 var _status: StringName = &""
+
+## 本次操作使用的设置文件名。
+## [br]
+## @api private
+## [br]
 var _file_name: String = ""
+
+## 是否已将持久化载荷或默认值应用到设置状态。
+## [br]
+## @api private
+## [br]
 var _applied: bool = false
+
+## 是否执行了显式恢复动作。
+## [br]
+## @api private
+## [br]
 var _recovered: bool = false
+
+## 实际执行的恢复策略动作标识。
+## [br]
+## @api private
+## [br]
 var _recovery_action: StringName = &""
+
+## 与终态匹配的 Godot Error 码。
+## [br]
+## @api private
+## [br]
 var _error_code: Error = FAILED
+
+## 稳定的加载失败描述；成功终态为空。
+## [br]
+## @api private
+## [br]
 var _error: String = ""
+
+## 配置结果时复制保存的底层读取证据。
+## [br]
+## @api private
+## [br]
 var _storage_result: GFStorageReadResult = null
 
 
@@ -301,6 +350,10 @@ func configure_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 校验状态、应用与恢复标记和底层读取证据构成允许的结果组合。
+## [br]
+## @api private
+## [br]
 func _is_valid_configuration(
 	p_ok: bool,
 	p_status: StringName,
@@ -348,6 +401,10 @@ func _is_valid_configuration(
 	)
 
 
+## 判断状态标识是否属于 GFSettingsLoadResult 的闭合集。
+## [br]
+## @api private
+## [br]
 func _is_known_status(status: StringName) -> bool:
 	return status in [
 		STATUS_LOADED,
@@ -361,6 +418,10 @@ func _is_known_status(status: StringName) -> bool:
 	]
 
 
+## 检查底层读取是否因缺失、损坏或未接受完整性而允许显式恢复。
+## [br]
+## @api private
+## [br]
 func _is_recoverable_storage_result(storage_result: GFStorageReadResult) -> bool:
 	if storage_result.ok:
 		return not storage_result.is_integrity_accepted()
@@ -370,6 +431,10 @@ func _is_recoverable_storage_result(storage_result: GFStorageReadResult) -> bool
 	]
 
 
+## 按加载终态状态核对底层存储失败分类是否一致。
+## [br]
+## @api private
+## [br]
 func _storage_result_matches_failure_status(
 	status: StringName,
 	storage_result: GFStorageReadResult
@@ -419,6 +484,10 @@ func _storage_result_matches_failure_status(
 			return false
 
 
+## 返回底层存储结果字典，但移除其中的设置 payload。
+## [br]
+## @api private
+## [br]
 func _get_storage_result_summary() -> Dictionary:
 	if _storage_result == null:
 		return {}
