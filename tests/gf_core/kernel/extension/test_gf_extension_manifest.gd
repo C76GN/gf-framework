@@ -2174,7 +2174,7 @@ func test_extension_tool_contribution_schema_normalizes_valid_paths() -> void:
 
 
 func test_extension_tool_contribution_schema_rejects_legacy_version() -> void:
-	var legacy_schema_version: int = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.SCHEMA_VERSION - 1
+	var legacy_schema_version: int = 1
 	var report: Dictionary = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary({
 		"schema_version": legacy_schema_version,
 		"extension_id": "author.feature",

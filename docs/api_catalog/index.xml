@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="14df3f12127a765230ffc036660883fe85b81d60e5fd7a50ca7484d7472b65fc" classCount="891" methodCount="7964" autoloadCount="1" autoloadMethodCount="65">
-	<module id="kernel" label="Kernel" classCount="78" methodCount="827" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="531b9ef4299532a8ecd9a9fd43a56c3af41228bc04935cac4e7be9f8aab6f579" classCount="891" methodCount="7968" autoloadCount="1" autoloadMethodCount="65">
+	<module id="kernel" label="Kernel" classCount="78" methodCount="831" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
 		<class name="GFArchitectureShutdownResult" path="classes/GFArchitectureShutdownResult.xml" sourcePath="addons/gf/kernel/core/gf_architecture_shutdown_result.gd" extends="RefCounted" />

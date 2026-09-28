@@ -32,6 +32,16 @@ const GFExtensionSettingsBase = preload("res://addons/gf/kernel/extension/gf_ext
 ## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
+## 工作区个人偏好存取。
+## [br]
+## @api private
+const _PREFERENCES_SCRIPT = preload("res://addons/gf/kernel/editor/state/gf_editor_preferences.gd")
+
+## 工作区任务与资源动作宿主。
+## [br]
+## @api private
+const _TASK_HOST_SCRIPT = preload("res://addons/gf/kernel/editor/workspace/gf_workspace_task_host.gd")
+
 
 # --- 私有变量 ---
 
@@ -60,6 +70,16 @@ var _workspace_window: GFEditorWorkspaceWindowBase = null
 ## @api private
 var _editor_context: GFEditorToolContext = null
 
+## 本次插件加载是否已处理启动策略，刷新贡献不会重新弹窗。
+## [br]
+## @api private
+var _startup_handled: bool = false
+
+## 当前贡献代次的任务宿主。
+## [br]
+## @api private
+var _task_host: _TASK_HOST_SCRIPT = _TASK_HOST_SCRIPT.new()
+
 
 # --- 公共方法 ---
 
@@ -74,16 +94,40 @@ var _editor_context: GFEditorToolContext = null
 ## @param standard_dock_records: 组合入口传入的标准库页面记录。
 ## [br]
 ## @schema standard_dock_records: Array of Dictionary dock page records.
-func setup(plugin: EditorPlugin, standard_dock_records: Array[Dictionary] = []) -> void:
+func setup(
+	plugin: EditorPlugin, standard_dock_records: Array[Dictionary] = [],
+	task_records: Array[Dictionary] = [], resource_action_records: Array[Dictionary] = []
+) -> void:
 	if plugin == null:
 		return
 
 	_editor_base_control = EditorInterface.get_base_control()
+	if _editor_context != null:
+		_editor_context.bind_workspace_host(null)
 	_editor_context = GFEditorToolContext.from_plugin(plugin)
 	set_standard_dock_records(standard_dock_records)
 	_dock_records = _collect_dock_records()
+	var tasks: Array[Dictionary] = _copy_records(task_records)
+	var actions: Array[Dictionary] = _copy_records(resource_action_records)
+	var extension_records: Dictionary = _TASK_HOST_SCRIPT.collect_extension_records(GFExtensionSettingsBase.get_all_manifests())
+	for record: Dictionary in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(extension_records, "task_records"):
+		tasks.append(record)
+	for record: Dictionary in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(extension_records, "resource_action_records"):
+		actions.append(record)
+	_append_page_tasks(tasks)
+	_task_host.configure(tasks, actions, _dock_records, self)
+	_editor_context.bind_workspace_host(_task_host)
 	if is_instance_valid(_workspace_window):
 		_workspace_window.setup(_dock_records, _editor_context)
+	if not _startup_handled:
+		_startup_handled = true
+		var mode_value: Variant = _PREFERENCES_SCRIPT.get_value("startup_mode", "first_use")
+		var opened_value: Variant = _PREFERENCES_SCRIPT.get_value("has_opened", false)
+		var has_opened: bool = opened_value == true
+		if Engine.is_editor_hint() and _PREFERENCES_SCRIPT.should_auto_open(
+			str(mode_value), has_opened
+		):
+			show_workspace()
 
 
 ## 移除 GF 编辑器工作区窗口入口。
@@ -94,6 +138,9 @@ func setup(plugin: EditorPlugin, standard_dock_records: Array[Dictionary] = []) 
 ## [br]
 ## @param _plugin: 当前 EditorPlugin 实例。
 func cleanup(_plugin: EditorPlugin) -> void:
+	_task_host.clear()
+	if _editor_context != null:
+		_editor_context.bind_workspace_host(null)
 	if is_instance_valid(_workspace_window):
 		_workspace_window.set_editor_context(null)
 		_workspace_window.queue_free()
@@ -124,6 +171,7 @@ func set_standard_dock_records(standard_dock_records: Array[Dictionary]) -> void
 func show_workspace() -> void:
 	if _ensure_workspace_window() and _workspace_window.has_method("popup_workspace"):
 		_workspace_window.call("popup_workspace")
+		_PREFERENCES_SCRIPT.set_value("has_opened", true)
 
 
 ## 获取当前工作区窗口。
@@ -137,6 +185,27 @@ func get_workspace_window() -> Window:
 	return _workspace_window
 
 
+## 按已登记路径打开页面；工具间的交接只经过此宿主入口。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+func open_workspace_page(page_path: String) -> Control:
+	for record: Dictionary in _dock_records:
+		if str(record.get("path", "")) != page_path:
+			continue
+		show_workspace()
+		if not is_instance_valid(_workspace_window):
+			return null
+		var workspace: Control = _workspace_window.get_workspace()
+		var page_id: String = str(record.get("source_id", page_path))
+		var value: Variant = workspace.call("open_page", page_id)
+		if value is Control:
+			var page: Control = value
+			return page
+	return null
+
+
 # --- 私有/辅助方法 ---
 
 ## 深复制标准记录并追加内置 GF Extensions 管理页。
@@ -144,8 +213,14 @@ func get_workspace_window() -> Window:
 ## @api private
 func _collect_core_dock_records() -> Array[Dictionary]:
 	var records: Array[Dictionary] = _copy_records(_standard_dock_records)
+	records.append({
+		"source_id": "gf.kernel.home",
+		"path": "res://addons/gf/kernel/editor/workspace/gf_workspace_home.gd",
+		"label": "GF Home", "short_label": "首页", "order": -100,
+	})
 	records.append(
 		{
+			"source_id": "gf.kernel.extensions",
 			"path": EXTENSION_MANAGER_DOCK_SCRIPT_PATH,
 			"label": "GF Extensions",
 			"short_label": "扩展",
@@ -153,6 +228,26 @@ func _collect_core_dock_records() -> Array[Dictionary]:
 		}
 	)
 	return records
+
+
+## 没有专用任务声明的旧页面继续提供通用打开入口。
+## [br]
+## @api private
+func _append_page_tasks(tasks: Array[Dictionary]) -> void:
+	var described_paths: Dictionary = {}
+	for task: Dictionary in tasks:
+		described_paths[str(task.get("page_path", ""))] = true
+	for page: Dictionary in _dock_records:
+		var path: String = str(page.get("path", ""))
+		var source_id: String = str(page.get("source_id", path))
+		if described_paths.has(path) or source_id == "gf.kernel.home":
+			continue
+		tasks.append({
+			"source_id": "%s:open" % source_id,
+			"title": str(page.get("label", "")), "group": "工具页面",
+			"description": "打开此页面，查看状态或执行对应工具操作。",
+			"keywords": [], "page_path": path, "action_id": "",
+		})
 
 
 ## 合并核心页与启用扩展页，按规范化路径去重并按稳定比较器排序。
@@ -227,6 +322,7 @@ func _collect_enabled_extension_dock_records() -> Array[Dictionary]:
 		)
 		used_paths[normalized_path] = true
 		records.append({
+			"source_id": "%s:%s" % [extension_id, normalized_path],
 			"path": normalized_path,
 			"label": _get_extension_dock_label(
 				contribution_record,

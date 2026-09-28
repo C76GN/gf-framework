@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "3bf53c42da930fc706424fed4d6acaae5007b2333d7526cd6ab95a6b0e56ad8e",
+  "source_digest": "c1dc2ed8acabf9acaeb87377ed0a55d20c40f5ae8fbc19c7dab3edbb468aab66",
   "class_count": 867,
   "autoload_count": 1,
   "package_count": 59,
@@ -30779,6 +30779,34 @@
         },
         {
           "kind": "func",
+          "name": "get_workspace_tasks",
+          "signature": "func get_workspace_tasks() -> Array[Dictionary]",
+          "summary": "获取当前任务入口的纯数据快照；不会创建工具页面。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "request_workspace_task",
+          "signature": "func request_workspace_task(source_id: String) -> Dictionary",
+          "summary": "请求打开一项任务；不可用的扩展入口转到扩展选择页面。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_resource_actions",
+          "signature": "func get_resource_actions(paths: PackedStringArray) -> Array[Dictionary]",
+          "summary": "查询当前资源选择可交给哪些工具；不会加载资源或创建页面。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "request_resource_action",
+          "signature": "func request_resource_action(action_id: String, paths: PackedStringArray) -> Dictionary",
+          "summary": "将资源交给声明的接收工具；实际修改仍由接收工具显式提交。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "to_dictionary",
           "signature": "func to_dictionary() -> Dictionary",
           "summary": "获取上下文字典。",
@@ -32869,7 +32897,7 @@
         {
           "kind": "const",
           "name": "SCHEMA_VERSION",
-          "signature": "const SCHEMA_VERSION: int = 2",
+          "signature": "const SCHEMA_VERSION: int = 3",
           "summary": "当前支持的贡献文件 schema 版本。",
           "visibility": "public"
         },
@@ -32883,7 +32911,7 @@
         {
           "kind": "const",
           "name": "ALLOWED_FIELDS",
-          "signature": "const ALLOWED_FIELDS: Array[String] = [\n\t\"schema_version\",\n\t\"extension_id\",\n\t\"access_generator_extension_paths\",\n\t\"debugger_plugin_paths\",\n\t\"editor_action_paths\",\n\t\"editor_dock_paths\",\n\t\"editor_inspector_paths\",\n\t\"export_plugin_paths\",\n\t\"gltf_document_extension_paths\",\n\t\"import_plugin_paths\",\n]",
+          "signature": "const ALLOWED_FIELDS: Array[String] = [\n\t\"task_records\",\n\t\"resource_action_records\",\n\t\"schema_version\",\n\t\"extension_id\",\n\t\"access_generator_extension_paths\",\n\t\"debugger_plugin_paths\",\n\t\"editor_action_paths\",\n\t\"editor_dock_paths\",\n\t\"editor_inspector_paths\",\n\t\"export_plugin_paths\",\n\t\"gltf_document_extension_paths\",\n\t\"import_plugin_paths\",\n]",
           "summary": "工具贡献文件允许的全部顶层字段。",
           "visibility": "public"
         },

@@ -56,6 +56,14 @@ var selected_nodes: Array[Node] = []
 var metadata: Dictionary = {}
 
 
+# --- 私有变量 ---
+
+## 当前工作区宿主弱引用，撤销后所有路由立即失效。
+## [br]
+## @api private
+var _workspace_host: WeakRef = null
+
+
 # --- 公共方法 ---
 
 ## 从 EditorPlugin 构建上下文。
@@ -109,6 +117,66 @@ func get_selected_nodes() -> Array[Node]:
 	return selected_nodes.duplicate()
 
 
+## 获取当前任务入口的纯数据快照；不会创建工具页面。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 任务记录副本。
+## [br]
+## @schema return: Array of Dictionary with source_id, title, description, group, keywords, available, and reason.
+func get_workspace_tasks() -> Array[Dictionary]:
+	return _record_array(_call_workspace("get_workspace_tasks", []))
+
+
+## 请求打开一项任务；不可用的扩展入口转到扩展选择页面。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param source_id: 任务的稳定来源标识。
+## [br]
+## @return 路由结果。
+## [br]
+## @schema return: Dictionary containing ok and message, with optional error_code and status.
+func request_workspace_task(source_id: String) -> Dictionary:
+	return _route_report(_call_workspace("request_workspace_task", [source_id]))
+
+
+## 查询当前资源选择可交给哪些工具；不会加载资源或创建页面。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param paths: 当前资源路径快照。
+## [br]
+## @return 资源动作记录副本。
+## [br]
+## @schema return: Array of Dictionary with action_id, title, available, and reason.
+func get_resource_actions(paths: PackedStringArray) -> Array[Dictionary]:
+	return _record_array(_call_workspace("get_resource_actions", [paths.duplicate()]))
+
+
+## 将资源交给声明的接收工具；实际修改仍由接收工具显式提交。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param action_id: 查询返回的稳定动作标识。
+## [br]
+## @param paths: 当前资源路径快照。
+## [br]
+## @return 路由结果。
+## [br]
+## @schema return: Dictionary containing ok and message, with optional error_code and status.
+func request_resource_action(action_id: String, paths: PackedStringArray) -> Dictionary:
+	return _route_report(_call_workspace("request_resource_action", [action_id, paths.duplicate()]))
+
+
 ## 获取上下文字典。
 ## [br]
 ## @api public
@@ -124,3 +192,53 @@ func to_dictionary() -> Dictionary:
 		"selected_nodes": selected_nodes.duplicate(),
 		"metadata": metadata.duplicate(true),
 	}
+
+
+# --- 框架内部方法 ---
+
+## 绑定或撤销工作区宿主。普通工具通过明确的请求方法使用宿主。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+func bind_workspace_host(host: Object) -> void:
+	_workspace_host = weakref(host) if host != null else null
+
+
+# --- 私有/辅助方法 ---
+
+## 仅向仍有效的宿主转发固定接口调用。
+## [br]
+## @api private
+func _call_workspace(method: StringName, arguments: Array) -> Variant:
+	var host_value: Variant = _workspace_host.get_ref() if _workspace_host != null else null
+	if not host_value is Object or not is_instance_valid(host_value):
+		return null
+	var host: Object = host_value
+	if not host.has_method(method):
+		return null
+	return host.callv(method, arguments)
+
+
+## 复制宿主返回的记录，隔离页面对注册状态的修改。
+## [br]
+## @api private
+func _record_array(value: Variant) -> Array[Dictionary]:
+	var records: Array[Dictionary] = []
+	if value is Array:
+		var values: Array = value
+		for item: Variant in values:
+			if item is Dictionary:
+				var record: Dictionary = item
+				records.append(record.duplicate(true))
+	return records
+
+
+## 将失效或非法响应转换为明确的不可用结果。
+## [br]
+## @api private
+func _route_report(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		var report: Dictionary = value
+		return report.duplicate(true)
+	return {"ok": false, "message": "工作区上下文已撤销或尚未连接。", "error_code": ERR_UNAVAILABLE}

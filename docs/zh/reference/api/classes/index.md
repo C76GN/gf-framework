@@ -6,7 +6,7 @@
 
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
-| Kernel | 78 | 1139 | [Kernel](#module-kernel) |
+| Kernel | 78 | 1143 | [Kernel](#module-kernel) |
 | Standard | 487 | 7649 | [Standard](#module-standard) |
 | Action Queue | 17 | 227 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
@@ -98,7 +98,7 @@
 | [`GFEditorPropertyBatchCommand`](GFEditorPropertyBatchCommand.md#gfeditorpropertybatchcommand) | 编辑器 API (`editor_api`) | `GFEditorCommand` | 19 | `addons/gf/kernel/editor/gf_editor_property_batch_command.gd` |
 | [`GFEditorSceneMetadataPatch`](GFEditorSceneMetadataPatch.md#gfeditorscenemetadatapatch) | 编辑器 API (`editor_api`) | `GFEditorCommand` | 10 | `addons/gf/kernel/editor/gf_editor_scene_metadata_patch.gd` |
 | [`GFEditorTool`](GFEditorTool.md#gfeditortool) | 编辑器 API (`editor_api`) | `RefCounted` | 28 | `addons/gf/kernel/editor/gf_editor_tool.gd` |
-| [`GFEditorToolContext`](GFEditorToolContext.md#gfeditortoolcontext) | 编辑器 API (`editor_api`) | `RefCounted` | 9 | `addons/gf/kernel/editor/gf_editor_tool_context.gd` |
+| [`GFEditorToolContext`](GFEditorToolContext.md#gfeditortoolcontext) | 编辑器 API (`editor_api`) | `RefCounted` | 13 | `addons/gf/kernel/editor/gf_editor_tool_context.gd` |
 | [`GFEditorToolOption`](GFEditorToolOption.md#gfeditortooloption) | 编辑器 API (`editor_api`) | `Resource` | 17 | `addons/gf/kernel/editor/gf_editor_tool_option.gd` |
 | [`GFEditorToolOptionSchema`](GFEditorToolOptionSchema.md#gfeditortooloptionschema) | 编辑器 API (`editor_api`) | `Resource` | 13 | `addons/gf/kernel/editor/gf_editor_tool_option_schema.gd` |
 | [`GFEditorTypeIndex`](GFEditorTypeIndex.md#gfeditortypeindex) | 编辑器 API (`editor_api`) | `RefCounted` | 10 | `addons/gf/kernel/editor/gf_editor_type_index.gd` |

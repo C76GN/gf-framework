@@ -7012,7 +7012,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 	)
 	legacy_tool_contribution_record = dict(valid_tool_contribution_record)
 	legacy_tool_contribution_record["data"] = {
-		"schema_version": GF_TOOL_CONTRIBUTION_SCHEMA_VERSION - 1,
+		"schema_version": 1,
 		"extension_id": "gf.fixture",
 	}
 	record_result(
@@ -7022,6 +7022,22 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"unsupported_tool_contribution_schema_version",
 		),
 		"Legacy tool contribution schema versions must fail closed instead of entering a compatibility path.",
+	)
+	compatible_tool_contribution_record = dict(valid_tool_contribution_record)
+	compatible_tool_contribution_record["data"] = {
+		"schema_version": 2,
+		"extension_id": "gf.fixture",
+	}
+	record_result(
+		"dependency_boundary_preserves_tool_contribution_v2",
+		not audit_bundled_tool_contributions([compatible_tool_contribution_record]),
+		"Schema 2 remains supported when workspace fields are absent.",
+	)
+	compatible_tool_contribution_record["data"]["task_records"] = []
+	record_result(
+		"dependency_boundary_keeps_tool_contribution_v2_closed",
+		issue_exists(audit_bundled_tool_contributions([compatible_tool_contribution_record]), "unsupported_tool_contribution_field"),
+		"Workspace fields require schema 3 even when empty.",
 	)
 	float_tool_contribution_record = dict(valid_tool_contribution_record)
 	float_tool_contribution_record["data"] = {

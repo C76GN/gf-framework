@@ -303,7 +303,11 @@ func _setup_dock_tools() -> void:
 
 	var dock_records: Array[Dictionary] = []
 	dock_records.assign(_get_record_array(_editor_contribution_records, "dock_records"))
-	_dock_tools.setup(self, dock_records)
+	_dock_tools.setup(
+		self, dock_records,
+		_get_record_array(_editor_contribution_records, "task_records"),
+		_get_record_array(_editor_contribution_records, "resource_action_records")
+	)
 
 
 ## 重建动作来源与菜单入口，复用动作对象并确保信号已连接；已有菜单先解除登记再安装新条目。

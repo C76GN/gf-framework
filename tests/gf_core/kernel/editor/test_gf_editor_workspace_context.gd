@@ -10,6 +10,7 @@ const _WORKSPACE_DOCK_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_
 const _WORKSPACE_WINDOW_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_workspace_window.gd")
 const _CONTEXT_PAGE_SCRIPT = preload("res://tests/gf_core/kernel/editor/fixtures/gf_workspace_context_page.gd")
 const _PASSIVE_PAGE_SCRIPT = preload("res://tests/gf_core/kernel/editor/fixtures/gf_workspace_passive_page.gd")
+const _PREFERENCES_SCRIPT = preload("res://addons/gf/kernel/editor/state/gf_editor_preferences.gd")
 
 
 # --- 私有变量 ---
@@ -32,6 +33,35 @@ func after_each() -> void:
 
 # --- 测试用例 ---
 
+func test_startup_policy_is_explicit_and_first_use_is_consumed_once() -> void:
+	assert_true(_PREFERENCES_SCRIPT.should_auto_open("first_use", false))
+	assert_false(_PREFERENCES_SCRIPT.should_auto_open("first_use", true))
+	assert_true(_PREFERENCES_SCRIPT.should_auto_open("always", true))
+	assert_false(_PREFERENCES_SCRIPT.should_auto_open("manual", false))
+	assert_false(_PREFERENCES_SCRIPT.should_auto_open("unknown", false))
+
+
+func test_stable_page_selection_survives_reordering_and_renaming() -> void:
+	var dock: _WORKSPACE_DOCK_SCRIPT = _new_dock()
+	var first: Dictionary = _context_record("First")
+	first["source_id"] = "fixture:first"
+	var second: Dictionary = _context_record("Second")
+	second["source_id"] = "fixture:second"
+	var records: Array[Dictionary] = [first, second]
+	dock.setup(records)
+	assert_true(dock.select_page_id("fixture:second"))
+	second["label"] = "Renamed"
+	records = [second, first]
+	dock.setup(records)
+	assert_eq(dock.get_selected_page_id(), "fixture:second")
+	assert_not_null(_get_context_page(dock, "Renamed"))
+	assert_null(dock.find_child("First Content", true, false))
+	assert_false(dock.select_page_id("missing"))
+	records = [first]
+	dock.setup(records)
+	assert_eq(dock.get_selected_page_id(), "fixture:first")
+
+
 func test_dock_injects_context_before_workspace_enters_tree() -> void:
 	var dock: _WORKSPACE_DOCK_SCRIPT = _new_dock()
 	var context: GFEditorToolContext = GFEditorToolContext.new()
@@ -46,6 +76,35 @@ func test_dock_injects_context_before_workspace_enters_tree() -> void:
 	add_child(dock)
 	assert_eq(page.enter_count, 1, "挂载工作区后页面应正常进入场景树。")
 	assert_same(page.context_at_first_enter, context, "页面的 _enter_tree 应能使用已注入的上下文。")
+
+
+func test_open_page_rejects_reentrant_navigation_to_another_page() -> void:
+	var dock: _WORKSPACE_DOCK_SCRIPT = _new_dock()
+	var records: Array[Dictionary] = []
+	for identity: String in ["first", "requested", "other"]:
+		var record: Dictionary = _context_record(identity)
+		record["source_id"] = identity
+		records.append(record)
+	dock.setup(records, GFEditorToolContext.new())
+	add_child(dock)
+	_CONTEXT_PAGE_SCRIPT.next_context_callback = func(_page: Control) -> void:
+		var _selected: bool = dock.select_page_id("other")
+	assert_null(dock.open_page("requested"), "重入切页不能把另一页当作请求的动作接收方。")
+	assert_eq(dock.get_selected_page_id(), "other")
+	assert_not_null(dock.open_page("requested"), "后续明确请求仍可打开原页面。")
+
+
+func test_open_page_rejects_reentrant_context_replacement() -> void:
+	var dock: _WORKSPACE_DOCK_SCRIPT = _new_dock()
+	var first: Dictionary = _context_record("First")
+	first["source_id"] = "first"
+	var requested: Dictionary = _context_record("Requested")
+	requested["source_id"] = "requested"
+	dock.setup([first, requested], GFEditorToolContext.new())
+	add_child(dock)
+	_CONTEXT_PAGE_SCRIPT.next_context_callback = func(_page: Control) -> void:
+		dock.set_editor_context(GFEditorToolContext.new())
+	assert_null(dock.open_page("requested"), "导航期间上下文换代后，旧请求不能取得新代页面。")
 
 
 func test_dock_injects_context_before_page_enters_running_workspace() -> void:

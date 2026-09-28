@@ -360,7 +360,7 @@ GF_MANIFEST_ALLOWED_FIELDS = {
 	"tags",
 	"version",
 }
-GF_TOOL_CONTRIBUTION_SCHEMA_VERSION = 2
+GF_TOOL_CONTRIBUTION_SCHEMA_VERSION = 3
 GF_TOOL_CONTRIBUTION_PATH_FIELDS = {
 	"access_generator_extension_paths",
 	"debugger_plugin_paths",
@@ -374,6 +374,8 @@ GF_TOOL_CONTRIBUTION_PATH_FIELDS = {
 GF_TOOL_CONTRIBUTION_ALLOWED_FIELDS = {
 	"schema_version",
 	"extension_id",
+	"task_records",
+	"resource_action_records",
 	*GF_TOOL_CONTRIBUTION_PATH_FIELDS,
 }
 GF_MANIFEST_FORBIDDEN_RELATION_FIELDS = {
@@ -11427,7 +11429,12 @@ def audit_bundled_tool_contributions(records: list[dict[str, Any]]) -> list[dict
 			))
 			continue
 
-		for field_name in sorted(set(data) - GF_TOOL_CONTRIBUTION_ALLOWED_FIELDS):
+		raw_schema_version = data.get("schema_version")
+		schema_version = exact_integral_number(raw_schema_version)
+		allowed_fields = GF_TOOL_CONTRIBUTION_ALLOWED_FIELDS
+		if schema_version != 3:
+			allowed_fields = allowed_fields - {"task_records", "resource_action_records"}
+		for field_name in sorted(set(data) - allowed_fields):
 			issues.append(make_boundary_issue(
 				"unsupported_tool_contribution_field",
 				path,
@@ -11435,13 +11442,11 @@ def audit_bundled_tool_contributions(records: list[dict[str, Any]]) -> list[dict
 				field=field_name,
 				extension_id=record["extension_id"],
 			))
-		raw_schema_version = data.get("schema_version")
-		schema_version = exact_integral_number(raw_schema_version)
-		if schema_version != GF_TOOL_CONTRIBUTION_SCHEMA_VERSION:
+		if schema_version not in {2, GF_TOOL_CONTRIBUTION_SCHEMA_VERSION}:
 			issues.append(make_boundary_issue(
 				"unsupported_tool_contribution_schema_version",
 				path,
-				f"Tool contribution schema_version must be {GF_TOOL_CONTRIBUTION_SCHEMA_VERSION}.",
+				"Tool contribution schema_version must be 2 or 3.",
 				field="schema_version",
 				expected_value=GF_TOOL_CONTRIBUTION_SCHEMA_VERSION,
 				actual_value=data.get("schema_version"),
@@ -11486,6 +11491,55 @@ def audit_bundled_tool_contributions(records: list[dict[str, Any]]) -> list[dict
 					field_name,
 					raw_path,
 				))
+		if schema_version == 3:
+			issues.extend(audit_workspace_contribution_records(record))
+	return issues
+
+
+def audit_workspace_contribution_records(record: dict[str, Any]) -> list[dict[str, Any]]:
+	"""Validate the closed data-only workspace protocol without loading tool scripts."""
+	issues: list[dict[str, Any]] = []
+	data = record["data"]
+	page_values = data.get("editor_dock_paths", [])
+	pages = set(value.strip() for value in page_values if isinstance(value, str)) if isinstance(page_values, list) else set()
+	identities: set[str] = set()
+	common = {"owner_package_id", "source_id", "title", "description", "keywords", "group", "page_path", "action_id"}
+	resource_types = {"Resource", "PackedScene", "Texture2D", "AudioStream", "Font", "Material", "Mesh", "Script"}
+	for family in ("task_records", "resource_action_records"):
+		values = data.get(family, [])
+		errors: list[str] = []
+		if not isinstance(values, list) or len(values) > 1024:
+			errors.append("Workspace records must be an array of at most 1024 objects.")
+			values = []
+		allowed = common | ({"resource_types", "max_selection"} if family == "resource_action_records" else set())
+		for value in values:
+			if not isinstance(value, dict) or set(value) - allowed:
+				errors.append("Workspace record contains unsupported fields or is not an object.")
+				continue
+			text_fields = common - {"keywords"}
+			if any(key in value and (not isinstance(value[key], str) or len(value[key]) > 4096) for key in text_fields):
+				errors.append("Workspace text fields must be bounded strings.")
+				continue
+			identity = value.get("source_id", "")
+			if not identity.strip() or identity != identity.strip() or len(identity) > 128 or ":" in identity or identity in identities:
+				errors.append("Workspace source_id must be unique and local to its owner.")
+			identities.add(identity)
+			if value.get("owner_package_id", record["extension_id"]) != record["extension_id"] or value.get("page_path") not in pages:
+				errors.append("Workspace target must be a page contributed by the same owner.")
+			if not value.get("title", "").strip():
+				errors.append("Workspace record requires a title.")
+			keywords = value.get("keywords", [])
+			if not isinstance(keywords, list) or len(keywords) > 32 or any(not isinstance(item, str) or not item.strip() or len(item) > 128 for item in keywords):
+				errors.append("Workspace keywords must be a bounded string array.")
+			if family == "resource_action_records":
+				types = value.get("resource_types", [])
+				if not isinstance(types, list) or not 1 <= len(types) <= 8 or any(not isinstance(item, str) or item not in resource_types for item in types):
+					errors.append("Resource action requires supported native resource types.")
+				count = exact_integral_number(value.get("max_selection", 1))
+				if not value.get("action_id", "").strip() or count is None or not 1 <= count <= 100:
+					errors.append("Resource action requires an action_id and a selection limit from 1 to 100.")
+		for message in errors:
+			issues.append(make_boundary_issue("invalid_workspace_contribution_record", record["path"], message, field=family, extension_id=record["extension_id"]))
 	return issues
 
 
