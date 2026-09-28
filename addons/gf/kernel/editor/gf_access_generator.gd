@@ -39,6 +39,9 @@ enum TargetKind {
 
 # --- 常量 ---
 
+## 集中引用 GF 产物路径工具脚本，供本类读取访问器与项目产物的输出位置。
+## [br]
+## @api private
 const _GF_PROJECT_ARTIFACT_PATHS_SCRIPT = preload("res://addons/gf/kernel/core/gf_project_artifact_paths.gd")
 
 ## 默认强类型访问器输出路径。
@@ -75,14 +78,50 @@ const ACCESS_SCOPE_LOCAL: StringName = &"local"
 ## [br]
 ## @since 11.0.0
 const ACCESS_POLICIES_SETTING: String = "gf/codegen/access_policies"
+
+## 列出访问策略允许的字段键；策略字段归一化时据此识别可接受字段。
+## [br]
+## @api private
 const _ACCESS_POLICY_KEYS: Array[String] = ["scope", "required", "require_ready"]
+
+## GF Model 基类脚本资源，用于识别可生成访问器的 Model 类型。
+## [br]
+## @api private
 const _BASE_MODEL_SCRIPT = preload("res://addons/gf/kernel/base/gf_model.gd")
+
+## GF System 基类脚本资源，用于识别可生成访问器的 System 类型。
+## [br]
+## @api private
 const _BASE_SYSTEM_SCRIPT = preload("res://addons/gf/kernel/base/gf_system.gd")
+
+## GF Utility 基类脚本资源，用于识别可生成访问器的 Utility 类型。
+## [br]
+## @api private
 const _BASE_UTILITY_SCRIPT = preload("res://addons/gf/kernel/base/gf_utility.gd")
+
+## GF Command 基类脚本资源，用于识别可生成访问器的 Command 类型。
+## [br]
+## @api private
 const _BASE_COMMAND_SCRIPT = preload("res://addons/gf/kernel/base/gf_command.gd")
+
+## GF Query 基类脚本资源，用于识别可生成访问器的 Query 类型。
+## [br]
+## @api private
 const _BASE_QUERY_SCRIPT = preload("res://addons/gf/kernel/base/gf_query.gd")
+
+## 引用 Variant 安全读取工具，供本类从动态值与字典记录中提取字段。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 引用生成产物报告工具，供本类读取统一报告中的错误码等字段。
+## [br]
+## @api private
 const _GENERATED_ARTIFACT_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_generated_artifact_report.gd")
+
+## 记录各组 Godot 图层设置的最大索引，供项目图层记录扫描使用。
+## [br]
+## @api private
 const _LAYER_TYPES: Dictionary = {
 	"2d_render": 20,
 	"2d_physics": 32,
@@ -92,6 +131,10 @@ const _LAYER_TYPES: Dictionary = {
 	"3d_navigation": 32,
 	"avoidance": 32,
 }
+
+## 列出访问器生成器需要保留的 GF 项目设置键，并与运行时 gf/ 设置合并。
+## [br]
+## @api private
 const _KNOWN_GF_PROJECT_SETTINGS: Array[String] = [
 	"gf/codegen/access_output_path",
 	"gf/codegen/access_policies",
@@ -459,12 +502,18 @@ func save_source_with_report(output_path: String, source: String, options: Dicti
 
 # --- 私有/辅助方法 ---
 
+## report 标记 written 为 true 时返回 OK，否则取生成产物报告中的错误码。
+## [br]
+## @api private
 func _get_legacy_error_code(report: Dictionary) -> Error:
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "written", false):
 		return OK
 	return _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(report)
 
 
+## 校验配置后收集全局脚本中的可生成目标及扩展记录，应用访问策略并排序；任一策略验证失败时直接返回失败结果。
+## [br]
+## @api private
 func _collect_records_with_validation() -> Dictionary:
 	var configured_result: Dictionary = _get_configured_access_policies()
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(configured_result, "valid"):
@@ -508,6 +557,9 @@ func _collect_records_with_validation() -> Dictionary:
 	}
 
 
+## 为访问策略校验失败构建未写入、未变更的产物报告，保留请求的归属、来源和深复制元数据。
+## [br]
+## @api private
 func _make_access_policy_generation_failure(
 	output_path: String,
 	message: String,
@@ -542,6 +594,9 @@ func _make_access_policy_generation_failure(
 	)
 
 
+## 只保留 Dictionary 项，并对每个字典执行递归 duplicate(true)，返回独立的记录数组。
+## [br]
+## @api private
 func _duplicate_record_dictionaries(records: Array) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for record_value: Variant in records:
@@ -551,6 +606,9 @@ func _duplicate_record_dictionaries(records: Array) -> Array[Dictionary]:
 	return result
 
 
+## 将 Variant 中的 Array 转成经过字典筛选和递归复制的记录数组；输入不是 Array 时返回空数组。
+## [br]
+## @api private
 func _get_record_dictionary_array(value: Variant) -> Array[Dictionary]:
 	if value is Array:
 		var records: Array = value
@@ -558,6 +616,9 @@ func _get_record_dictionary_array(value: Variant) -> Array[Dictionary]:
 	return []
 
 
+## 逐项深复制生成记录并规范模块访问策略；遇到非字典记录或无效策略时拒绝整批生成并返回空记录集。
+## [br]
+## @api private
 func _prepare_records_for_source(records: Array) -> Dictionary:
 	var prepared_records: Array[Dictionary] = []
 	for record_value: Variant in records:
@@ -596,6 +657,9 @@ func _prepare_records_for_source(records: Array) -> Dictionary:
 	}
 
 
+## 按图层组扫描 ProjectSettings 中非空的 layer_names 设置，返回 group、name 与 index 记录。
+## [br]
+## @api private
 func _collect_layer_records() -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	for layer_group: String in _LAYER_TYPES.keys():
@@ -613,6 +677,9 @@ func _collect_layer_records() -> Array[Dictionary]:
 	return records
 
 
+## 从 ProjectSettings 收集符合项目筛选规则的 input/ 动作名，并按文本顺序排序后转为 StringName。
+## [br]
+## @api private
 func _collect_input_actions() -> Array[StringName]:
 	var action_names: Dictionary = {}
 	for property: Dictionary in ProjectSettings.get_property_list():
@@ -633,6 +700,9 @@ func _collect_input_actions() -> Array[StringName]:
 	return action_ids
 
 
+## 合并已知 GF 设置键与所有 gf/ 前缀的运行时设置名，并按字典序返回。
+## [br]
+## @api private
 func _collect_gf_project_settings() -> Array[String]:
 	var settings_by_name: Dictionary = {}
 	for setting_name: String in _KNOWN_GF_PROJECT_SETTINGS:
@@ -650,6 +720,9 @@ func _collect_gf_project_settings() -> Array[String]:
 	return settings
 
 
+## 排除空动作名、ui_ 动作以及 spatial_editor/ 和 editor/ 前缀，其余项目输入动作可参与常量生成。
+## [br]
+## @api private
 func _should_include_project_input_action(action_name: String) -> bool:
 	if action_name.is_empty():
 		return false
@@ -660,6 +733,9 @@ func _should_include_project_input_action(action_name: String) -> bool:
 	return true
 
 
+## 向源码构建器写入 Layers 类；每条图层记录生成索引常量与位掩码常量，空记录时写入 pass。
+## [br]
+## @api private
 func _append_project_layer_constants(builder: GFSourceBuilder, layer_records: Array) -> void:
 	builder.doc("项目命名层常量。")
 	builder.line("class Layers:")
@@ -685,6 +761,9 @@ func _append_project_layer_constants(builder: GFSourceBuilder, layer_records: Ar
 	builder.blank(2)
 
 
+## 向源码构建器写入 InputActions 类，把输入动作名生成为 StringName 常量；空列表时写入 pass。
+## [br]
+## @api private
 func _append_project_input_constants(builder: GFSourceBuilder, input_actions: Array) -> void:
 	builder.doc("项目 InputMap 动作常量。")
 	builder.line("class InputActions:")
@@ -705,6 +784,9 @@ func _append_project_input_constants(builder: GFSourceBuilder, input_actions: Ar
 	builder.blank(2)
 
 
+## 向源码构建器写入 Settings 类，把项目设置名生成为 String 常量；空列表时写入 pass。
+## [br]
+## @api private
 func _append_project_setting_constants(builder: GFSourceBuilder, settings: Array) -> void:
 	builder.doc("GF ProjectSettings 键名常量。")
 	builder.line("class Settings:")
@@ -725,6 +807,9 @@ func _append_project_setting_constants(builder: GFSourceBuilder, settings: Array
 	builder.blank()
 
 
+## 根据脚本是否继承 GF Model、System、Utility、Command 或 Query 基类返回目标种类；基类本身和不匹配脚本返回 -1。
+## [br]
+## @api private
 func _resolve_kind(script: Script) -> int:
 	if script == _BASE_MODEL_SCRIPT or script == _BASE_SYSTEM_SCRIPT or script == _BASE_UTILITY_SCRIPT:
 		return -1
@@ -745,6 +830,9 @@ func _resolve_kind(script: Script) -> int:
 	return -1
 
 
+## 检查记录数组中是否至少有一条记录的 kind 等于指定种类。
+## [br]
+## @api private
 func _records_include_kind(records: Array, kind: int) -> bool:
 	for record_variant: Variant in records:
 		var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(record_variant)
@@ -753,6 +841,9 @@ func _records_include_kind(records: Array, kind: int) -> bool:
 	return false
 
 
+## 返回首条 Capability 记录中非空的 utility_path；找不到时返回空字符串。
+## [br]
+## @api private
 func _get_capability_utility_script_path(records: Array) -> String:
 	for record_variant: Variant in records:
 		var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(record_variant)
@@ -764,6 +855,9 @@ func _get_capability_utility_script_path(records: Array) -> String:
 	return ""
 
 
+## 读取并验证项目访问策略；无效配置直接返回失败结果，有效配置交给配置版策略应用流程处理。
+## [br]
+## @api private
 func _apply_access_policies(records: Array[Dictionary]) -> Dictionary:
 	var configured_result: Dictionary = _get_configured_access_policies()
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(configured_result, "valid"):
@@ -775,6 +869,9 @@ func _apply_access_policies(records: Array[Dictionary]) -> Dictionary:
 	return _apply_access_policies_with_config(records, configured_policies)
 
 
+## 复制记录并校验配置覆盖项，将模块默认策略与路径对应覆盖项合并后再次规范化；失败时终止整批，成功时返回独立记录集。
+## [br]
+## @api private
 func _apply_access_policies_with_config(
 	records: Array[Dictionary],
 	configured_policies: Dictionary
@@ -826,6 +923,9 @@ func _apply_access_policies_with_config(
 	}
 
 
+## 从 ProjectSettings 读取访问策略；配置必须是 Dictionary，成功时返回其递归副本。
+## [br]
+## @api private
 func _get_configured_access_policies() -> Dictionary:
 	var value: Variant = ProjectSettings.get_setting(ACCESS_POLICIES_SETTING, {})
 	if not (value is Dictionary):
@@ -840,6 +940,9 @@ func _get_configured_access_policies() -> Dictionary:
 	}
 
 
+## 仅接受可生成模块的 res:// 路径配置，拒绝重复等价路径、非字典策略、未知或重复等价字段及无效值；返回规范化策略字典。
+## [br]
+## @api private
 func _validate_configured_access_policies(
 	records: Array[Dictionary],
 	configured_policies: Dictionary
@@ -918,6 +1021,9 @@ func _validate_configured_access_policies(
 	}
 
 
+## 记录访问策略校验错误，并返回 valid=false、错误文本及空 records 的失败结果。
+## [br]
+## @api private
 func _fail_access_policy_validation(message: String) -> Dictionary:
 	push_error("[GFAccessGenerator][access_generator.policy_invalid] Access policy validation failed.\n%s" % message)
 	return {
@@ -927,6 +1033,9 @@ func _fail_access_policy_validation(message: String) -> Dictionary:
 	}
 
 
+## 将访问策略收窄为继承或本地查找范围及两个布尔选项；拒绝显式无效标记、非法范围或非布尔开关，缺省时要求模块存在但不要求就绪。
+## [br]
+## @api private
 func _normalize_access_policy(record: Dictionary) -> Dictionary:
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(record, "access_policy_valid", true) == false:
 		return { "valid": false }
@@ -963,6 +1072,9 @@ func _normalize_access_policy(record: Dictionary) -> Dictionary:
 	}
 
 
+## 将 String 与 StringName 策略键统一为文本并拒绝等价重复；是否忽略其他字段由调用参数决定，不在此步骤校验策略值。
+## [br]
+## @api private
 func _normalize_access_policy_fields(
 	source: Dictionary,
 	allow_other_fields: bool
@@ -1000,6 +1112,9 @@ func _normalize_access_policy_fields(
 	}
 
 
+## 移除记录中旧的等价策略键，再以固定键写入有效标记、查找范围与两个规范布尔选项。
+## [br]
+## @api private
 func _write_normalized_access_policy(record: Dictionary, policy: Dictionary) -> void:
 	var policy_keys_to_erase: Array = []
 	for raw_key: Variant in record:
@@ -1027,10 +1142,16 @@ func _write_normalized_access_policy(record: Dictionary, policy: Dictionary) -> 
 	)
 
 
+## 判断目标种类是否为 Model、System 或 Utility 模块。
+## [br]
+## @api private
 func _is_module_target_kind(kind: int) -> bool:
 	return kind in [TargetKind.MODEL, TargetKind.SYSTEM, TargetKind.UTILITY]
 
 
+## 依次实例化已启用的访问器扩展，并让可用实例向原记录数组追加内容。
+## [br]
+## @api private
 func _append_access_generator_extension_records(records: Array[Dictionary]) -> void:
 	for extension_path: String in GFExtensionSettings.get_enabled_access_generator_extension_paths():
 		var extension: Object = _load_access_generator_extension(extension_path)
@@ -1039,6 +1160,9 @@ func _append_access_generator_extension_records(records: Array[Dictionary]) -> v
 		_append_access_generator_extension_records_from_instance(records, extension, extension_path)
 
 
+## 仅当扩展实例提供 append_access_records 时把原数组交给该方法修改；扩展路径参数保留但不参与处理。
+## [br]
+## @api private
 func _append_access_generator_extension_records_from_instance(
 	records: Array[Dictionary],
 	extension: Object,
@@ -1051,11 +1175,17 @@ func _append_access_generator_extension_records_from_instance(
 	extension.call("append_access_records", records)
 
 
+## 按已启用的扩展路径调用路径级扩展处理器，将扩展内容加入源码构建流程。
+## [br]
+## @api private
 func _append_access_generator_extensions(builder: GFSourceBuilder, records: Array) -> void:
 	for extension_path: String in GFExtensionSettings.get_enabled_access_generator_extension_paths():
 		_append_access_generator_extension_path(builder, records, extension_path)
 
 
+## 清理扩展路径两端空白，加载可实例化扩展后将源码追加工作交给扩展分派入口。
+## [br]
+## @api private
 func _append_access_generator_extension_path(
 	builder: GFSourceBuilder,
 	records: Array,
@@ -1072,6 +1202,9 @@ func _append_access_generator_extension_path(
 	_append_access_generator_extension(builder, records, extension, normalized_path)
 
 
+## 优先调用扩展的源码追加方法，否则读取源码片段数组；仅提供记录追加接口的扩展无需输出片段，缺少接口或返回类型错误时报告诊断。
+## [br]
+## @api private
 func _append_access_generator_extension(
 	builder: GFSourceBuilder,
 	records: Array,
@@ -1100,6 +1233,9 @@ func _append_access_generator_extension(
 	push_warning("[GFAccessGenerator][access_generator.extension_method_missing] The accessor extension has no source or record extension method: %s." % extension_path)
 
 
+## 从非空规范路径加载并实例化 GDScript；加载、可实例化检查或对象收窄失败时报告错误并返回 null。
+## [br]
+## @api private
 func _load_access_generator_extension(extension_path: String) -> Object:
 	var normalized_path: String = extension_path.strip_edges()
 	if normalized_path.is_empty():
@@ -1117,11 +1253,17 @@ func _load_access_generator_extension(extension_path: String) -> Object:
 	return extension
 
 
+## 统一 CRLF、CR 与 LF 换行后，逐行追加源码片段到构建器。
+## [br]
+## @api private
 func _append_source_section(builder: GFSourceBuilder, source: String) -> void:
 	for line_text: String in source.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
 		builder.line(line_text)
 
 
+## 按目标种类生成模块访问器、命令或查询构造器及能力辅助方法；已使用的入口名称被跳过并发出警告。
+## [br]
+## @api private
 func _append_record_function(builder: GFSourceBuilder, record: Dictionary, used_names: Dictionary) -> void:
 	var class_name_value: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "class_name")
 	var kind: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(record, "kind")
@@ -1241,6 +1383,9 @@ func _append_record_function(builder: GFSourceBuilder, record: Dictionary, used_
 			builder.blank(2)
 
 
+## 把规范化的模块查找范围、必需性和就绪要求写入访问器函数体；生成代码先解析架构，再按目标类型收窄模块结果。
+## [br]
+## @api private
 func _append_module_access_body(
 	builder: GFSourceBuilder,
 	record: Dictionary,
@@ -1283,6 +1428,9 @@ func _append_module_access_body(
 	builder.line("return null")
 
 
+## 按目标种类拼接生成访问器函数名；未知种类回退为转换后的类名。
+## [br]
+## @api private
 func _get_function_name(class_name_value: String, kind: int) -> String:
 	var base_name: String = _to_accessor_base_name(class_name_value)
 	match kind:
@@ -1302,18 +1450,27 @@ func _get_function_name(class_name_value: String, kind: int) -> String:
 			return base_name
 
 
+## 将 GF 类名的 GF 前缀转成 gf_ 前缀并转为 snake_case；其他类名直接转为 snake_case。
+## [br]
+## @api private
 func _to_accessor_base_name(class_name_value: String) -> String:
 	if class_name_value.begins_with("GF") and class_name_value.length() > 2:
 		return "gf_%s" % class_name_value.substr(2).to_snake_case()
 	return class_name_value.to_snake_case()
 
 
+## 仅当文本以给定后缀结尾时移除该后缀，否则原样返回。
+## [br]
+## @api private
 func _trim_suffix(value: String, suffix: String) -> String:
 	if value.ends_with(suffix):
 		return value.substr(0, value.length() - suffix.length())
 	return value
 
 
+## 将六种内建图层组映射到固定常量前缀；未知组名回退到常量名转换。
+## [br]
+## @api private
 func _layer_group_constant_prefix(layer_group: String) -> String:
 	match layer_group:
 		"2d_render":
@@ -1332,6 +1489,10 @@ func _layer_group_constant_prefix(layer_group: String) -> String:
 			return _to_constant_name(layer_group, "LAYER_GROUP")
 
 
+## 将文本转换为大写 snake_case 常量名，压缩非法字符分隔符并去除首尾下划线。
+## 空结果使用 fallback；首字符为数字时在名称前加 fallback 前缀。
+## [br]
+## @api private
 func _to_constant_name(value: String, fallback: String) -> String:
 	var snake: String = value.to_snake_case().to_upper()
 	var result: String = ""
@@ -1358,6 +1519,9 @@ func _to_constant_name(value: String, fallback: String) -> String:
 	return result
 
 
+## 为重名常量追加从 _2 开始的数字后缀，并把选定名称写入 used_names。
+## [br]
+## @api private
 func _make_unique_constant_name(base_name: String, used_names: Dictionary) -> String:
 	var candidate: String = base_name
 	var index: int = 2
@@ -1368,6 +1532,9 @@ func _make_unique_constant_name(base_name: String, used_names: Dictionary) -> St
 	return candidate
 
 
+## 先按 kind 升序，再按 class_name 字典序原地排序记录数组。
+## [br]
+## @api private
 func _sort_records(records: Array[Dictionary]) -> void:
 	records.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
 		var left_kind: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(left, "kind")
@@ -1378,22 +1545,34 @@ func _sort_records(records: Array[Dictionary]) -> void:
 	)
 
 
+## 调用 FileAccess.store_string 写入文本；当前实现不处理其返回布尔值。
+## [br]
+## @api private
 func _store_file_string(file: FileAccess, value: String) -> void:
 	var _stored: bool = file.store_string(value)
 
 
+## 仅当 Variant 是 GDScript 时返回该脚本对象，否则返回 null。
+## [br]
+## @api private
 func _variant_to_gdscript(value: Variant) -> GDScript:
 	if value is GDScript:
 		return value
 	return null
 
 
+## 仅当 Variant 是 Object 时返回该对象，否则返回 null。
+## [br]
+## @api private
 func _variant_to_object(value: Variant) -> Object:
 	if value is Object:
 		return value
 	return null
 
 
+## 仅当 Variant 是 Script 时返回该脚本，否则返回 null。
+## [br]
+## @api private
 func _variant_to_script(value: Variant) -> Script:
 	if value is Script:
 		return value

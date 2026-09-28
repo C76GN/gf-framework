@@ -13,6 +13,10 @@ extends GFNodeSerializer
 
 # --- 常量 ---
 
+## gather/apply 共用的 Range 数值字段与 Variant 类型清单。
+## [br]
+## @api private
+## [br]
 const _PROPERTY_SPECS: Array[Dictionary] = [
 	{ "key": "min_value", "kind": &"float" },
 	{ "key": "max_value", "kind": &"float" },
@@ -96,6 +100,10 @@ func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictio
 
 # --- 私有/辅助方法 ---
 
+## 将 Range 类型节点返回为强类型引用。
+## [br]
+## @api private
+## [br]
 func _get_range(node: Node) -> Range:
 	if node is Range:
 		var range_node: Range = node

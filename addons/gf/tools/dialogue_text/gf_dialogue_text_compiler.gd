@@ -30,22 +30,106 @@ const SOURCE_FORMAT: String = "gf.dialogue"
 ## @since 9.0.0
 const SOURCE_SCHEMA_VERSION: int = 1
 
+## 负责校验 strict JSON 词法并保留来源片段的解析器脚本。
+## [br]
+## @api private
+## [br]
 const _JSON_SOURCE_PARSER_SCRIPT = preload("res://addons/gf/tools/dialogue_text/gf_dialogue_json_source_parser.gd")
+
+## 将诊断报告投影为受约束 JSON-safe 值的内部 codec 脚本。
+## [br]
+## @api private
+## [br]
 const _REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+
+## JSON 文本默认允许的最大 UTF-8 字节数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_TEXT_BYTES: int = 4 * 1024 * 1024
+
+## JSON 容器默认最大嵌套深度。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_DEPTH: int = 64
+
+## JSON 解析默认允许的节点数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_NODES: int = 65_536
+
+## 单个 JSON 字符串默认允许的 UTF-8 字节数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_STRING_BYTES: int = 1024 * 1024
+
+## 文档默认允许的对话行数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_LINES: int = 4096
+
+## 文档默认允许的回复总数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_RESPONSES: int = 16_384
+
+## 编译诊断默认允许的最大数量。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_DIAGNOSTICS: int = 256
+
+## JSON 文本允许配置的绝对 UTF-8 字节上限。
+## [br]
+## @api private
+## [br]
 const _HARD_MAX_TEXT_BYTES: int = 16 * 1024 * 1024
+
+## JSON 容器允许配置的绝对最大深度。
+## [br]
+## @api private
+## [br]
 const _HARD_MAX_DEPTH: int = 64
+
+## JSON 解析允许配置的绝对节点上限。
+## [br]
+## @api private
+## [br]
 const _HARD_MAX_NODES: int = 262_144
+
+## 单个 JSON 字符串允许配置的绝对 UTF-8 字节上限。
+## [br]
+## @api private
+## [br]
 const _HARD_MAX_STRING_BYTES: int = 4 * 1024 * 1024
+
+## 文档允许配置的绝对对话行数上限。
+## [br]
+## @api private
+## [br]
 const _HARD_MAX_LINES: int = 16_384
+
+## 文档允许配置的绝对回复总数上限。
+## [br]
+## @api private
+## [br]
 const _HARD_MAX_RESPONSES: int = 65_536
+
+## 编译诊断允许配置的绝对数量上限。
+## [br]
+## @api private
+## [br]
 const _HARD_MAX_DIAGNOSTICS: int = 1024
+
+## 对话文档根对象允许出现的结构字段。
+## [br]
+## @api private
+## [br]
 const _TOP_LEVEL_FIELDS: PackedStringArray = [
 	"format",
 	"schema_version",
@@ -53,6 +137,11 @@ const _TOP_LEVEL_FIELDS: PackedStringArray = [
 	"lines",
 	"metadata",
 ]
+
+## 单条对话行对象允许出现的结构字段。
+## [br]
+## @api private
+## [br]
 const _LINE_FIELDS: PackedStringArray = [
 	"line_id",
 	"kind",
@@ -69,6 +158,11 @@ const _LINE_FIELDS: PackedStringArray = [
 	"tags",
 	"metadata",
 ]
+
+## 单条回复对象允许出现的结构字段。
+## [br]
+## @api private
+## [br]
 const _RESPONSE_FIELDS: PackedStringArray = [
 	"response_id",
 	"text",
@@ -230,6 +324,9 @@ func compile_source(
 
 # --- 私有/辅助方法 ---
 
+## 验证顶层字段并构建候选对话资源，跳过非字典行且合并资源级校验诊断；可能返回带错误的部分资源，最终结果负责隐藏失败候选。
+## [br]
+## @api private
 func _compile_dictionary(
 	source: Dictionary,
 	report: GFValidationReport,
@@ -266,6 +363,10 @@ func _compile_dictionary(
 	return resource
 
 
+## 校验文档 format 与 schema_version 是否分别匹配当前支持值。
+## [br]
+## @api private
+## [br]
 func _validate_header(
 	source: Dictionary,
 	report: GFValidationReport,
@@ -302,6 +403,9 @@ func _validate_header(
 		)
 
 
+## 读取行字段并记录源码来源，以实际追加索引关联资源；非法响应项被跳过，字段错误不阻止返回部分构造的行。
+## [br]
+## @api private
 func _compile_line(
 	data: Dictionary,
 	path: String,
@@ -359,6 +463,9 @@ func _compile_line(
 	return line
 
 
+## 读取并验证响应字段，再按实际资源索引登记 ID 和跳转来源；诊断留在共享报告中，返回值仍可能是失败候选的一部分。
+## [br]
+## @api private
 func _compile_response(
 	data: Dictionary,
 	path: String,
@@ -383,6 +490,10 @@ func _compile_response(
 	return response
 
 
+## 读取行 kind；缺失或无效时返回 TEXT，无效值同时写入诊断。
+## [br]
+## @api private
+## [br]
 func _read_line_kind(
 	data: Dictionary,
 	path: String,
@@ -416,6 +527,10 @@ func _read_line_kind(
 	return GFDialogueLine.LineKind.TEXT
 
 
+## 将 String 或 StringName 字段转换为 StringName，并按 required 参数报告缺失或类型错误。
+## [br]
+## @api private
+## [br]
 func _read_string_name(
 	data: Dictionary,
 	field: String,
@@ -456,6 +571,10 @@ func _read_string_name(
 	return &""
 
 
+## 将 String 或 StringName 字段读取为 String；缺失返回空串，其他类型写入诊断。
+## [br]
+## @api private
+## [br]
 func _read_string(
 	data: Dictionary,
 	field: String,
@@ -485,6 +604,10 @@ func _read_string(
 	return ""
 
 
+## 读取字典字段并返回深拷贝；缺失或类型不符时返回空字典，类型错误会写入诊断。
+## [br]
+## @api private
+## [br]
 func _read_dictionary(
 	data: Dictionary,
 	field: String,
@@ -511,12 +634,20 @@ func _read_dictionary(
 	return {}
 
 
+## 读取 payload 字段并通过 GFVariantData.duplicate_variant() 复制其值；缺失时返回 null。
+## [br]
+## @api private
+## [br]
 func _read_payload(data: Dictionary, field: String) -> Variant:
 	if not data.has(field):
 		return null
 	return GFVariantData.duplicate_variant(data[field])
 
 
+## 将 PackedStringArray 或 String/StringName 数组读取为 PackedStringArray，并为无效类型写入诊断。
+## [br]
+## @api private
+## [br]
 func _read_tags(
 	data: Dictionary,
 	field: String,
@@ -565,6 +696,10 @@ func _read_tags(
 	return result
 
 
+## 检查对象键名类型及允许字段集合，对非字符串键和未知字段分别写入诊断。
+## [br]
+## @api private
+## [br]
 func _validate_allowed_fields(
 	data: Dictionary,
 	allowed_fields: PackedStringArray,
@@ -593,6 +728,9 @@ func _validate_allowed_fields(
 		)
 
 
+## 先申请诊断名额，再按字段路径定位源码范围；转交显式范围入口时关闭二次名额申请。
+## [br]
+## @api private
 func _add_error(
 	report: GFValidationReport,
 	kind: StringName,
@@ -623,6 +761,10 @@ func _add_error(
 	)
 
 
+## 解析七项预算；未提供时采用默认值，无效或超硬上限的值写入诊断并回退到默认值。
+## [br]
+## @api private
+## [br]
 func _resolve_limits(
 	options: Dictionary,
 	report: GFValidationReport,
@@ -673,6 +815,9 @@ func _resolve_limits(
 	return result
 
 
+## 借用解析结果中的值和键范围映射，并为编译阶段新建各类出现位置索引和诊断预算状态。
+## [br]
+## @api private
 func _make_provenance(parse_result: Dictionary, limits: Dictionary) -> Dictionary:
 	return {
 		"value_spans": GFVariantData.get_option_dictionary(parse_result, "value_spans"),
@@ -691,6 +836,10 @@ func _make_provenance(parse_result: Dictionary, limits: Dictionary) -> Dictionar
 	}
 
 
+## 在构造 Resource 前检查 lines 数量和 responses 累计数量是否超过相应预算。
+## [br]
+## @api private
+## [br]
 func _validate_document_budgets(
 	source: Dictionary,
 	report: GFValidationReport,
@@ -751,6 +900,9 @@ func _validate_document_budgets(
 	return true
 
 
+## 把实际资源行索引关联到源 line_id 字段，并登记行 ID、显式跳转及自动跳转的来源，供资源级诊断回指源码。
+## [br]
+## @api private
 func _record_line_provenance(
 	line: GFDialogueLine,
 	path: String,
@@ -800,6 +952,9 @@ func _record_line_provenance(
 		)
 
 
+## 登记实际响应索引和有效响应 ID 的源字段，并将所属行到目标行的跳转关联到 next_line_id 位置。
+## [br]
+## @api private
 func _record_response_provenance(
 	response: GFDialogueResponse,
 	line_id: StringName,
@@ -831,6 +986,10 @@ func _record_response_provenance(
 	)
 
 
+## 仅在起点和目标 ID 都非空时，将转换来源位置登记到 provenance。
+## [br]
+## @api private
+## [br]
 func _record_transition_provenance(
 	line_id: StringName,
 	target_id: StringName,
@@ -847,6 +1006,10 @@ func _record_transition_provenance(
 	)
 
 
+## 将 JSON Pointer 追加到 provenance 指定映射下的 identity 列表并写回映射。
+## [br]
+## @api private
+## [br]
 func _record_occurrence(
 	provenance: Dictionary,
 	map_key: String,
@@ -863,6 +1026,9 @@ func _record_occurrence(
 	provenance[map_key] = mapping
 
 
+## 在剩余诊断预算内复制资源级问题并转换为源码路径和范围；重复定义补充相关位置，出现位置游标使同类问题依次对应具体来源。
+## [br]
+## @api private
 func _merge_resource_report(
 	report: GFValidationReport,
 	resource_report: Dictionary,
@@ -909,6 +1075,9 @@ func _merge_resource_report(
 		var _added_issue: RefCounted = report.add_issue(issue)
 
 
+## 仅对重复 ID 和缺失跳转目标推进每类主题的来源游标；重复 ID 从第二次出现开始，超过候选数量时停留在最后位置。
+## [br]
+## @api private
 func _consume_primary_pointer_index(
 	kind: StringName,
 	subject: String,
@@ -929,6 +1098,9 @@ func _consume_primary_pointer_index(
 	return selected_index
 
 
+## 外层尚无问题且资源报告有问题时，暂存资源报告的下一步建议，供最终结果构建时消费。
+## [br]
+## @api private
 func _capture_owned_next_action(
 	report: GFValidationReport,
 	owned_report: Dictionary
@@ -945,6 +1117,9 @@ func _capture_owned_next_action(
 	)
 
 
+## 按资源问题种类选择顶层字段、重复 ID、跳转或自动环来源；未专门映射的问题回退到资源主题或行 ID 的出现位置。
+## [br]
+## @api private
 func _resolve_resource_issue_pointers(
 	kind: StringName,
 	subject: String,
@@ -977,6 +1152,10 @@ func _resolve_resource_issue_pointers(
 	return _get_occurrences(provenance, "line_occurrences", subject)
 
 
+## 从 provenance 的指定映射中取回 identity 对应的 pointer 数组。
+## [br]
+## @api private
+## [br]
 func _get_occurrences(
 	provenance: Dictionary,
 	map_key: String,
@@ -986,6 +1165,10 @@ func _get_occurrences(
 	return GFVariantData.get_option_array(mapping, identity)
 
 
+## 将 pointer 列表逐项解析为来源片段，并附加给定 source_path。
+## [br]
+## @api private
+## [br]
 func _make_related_source_spans(
 	pointers: Array,
 	provenance: Dictionary,
@@ -1001,6 +1184,10 @@ func _make_related_source_spans(
 	return spans
 
 
+## 添加没有 JSON token 定位的来源错误，并把 field_path 写入诊断元数据。
+## [br]
+## @api private
+## [br]
 func _add_unlocated_error(
 	report: GFValidationReport,
 	kind: StringName,
@@ -1022,6 +1209,9 @@ func _add_unlocated_error(
 	)
 
 
+## 按需申请诊断名额，复制元数据并补齐字段 URI 与相关范围的源文件路径，再写入带显式位置的错误。
+## [br]
+## @api private
 func _add_error_at_explicit_span(
 	report: GFValidationReport,
 	kind: StringName,
@@ -1058,6 +1248,9 @@ func _add_error_at_explicit_span(
 	)
 
 
+## 为诊断保留最后一个预算位置；普通名额耗尽时只写一次预算超限问题，之后拒绝继续追加。
+## [br]
+## @api private
 func _reserve_diagnostic_slot(
 	report: GFValidationReport,
 	source_path: String,
@@ -1083,6 +1276,9 @@ func _reserve_diagnostic_slot(
 	return false
 
 
+## 按键优先选项查找精确字段范围，缺失时向上寻找最近值范围并最终回退根范围；返回来源映射中的范围引用。
+## [br]
+## @api private
 func _find_source_span(
 	provenance: Dictionary,
 	pointer: String,
@@ -1107,16 +1303,28 @@ func _find_source_span(
 	return GFVariantData.get_option_dictionary(value_spans, "")
 
 
+## 深拷贝来源片段字典并设置 source_path 字段。
+## [br]
+## @api private
+## [br]
 func _span_with_source_path(span_data: Dictionary, source_path: String) -> Dictionary:
 	var result: Dictionary = span_data.duplicate(true)
 	result["source_path"] = source_path
 	return result
 
 
+## 将按 JSON Pointer 转义的 token 追加到父路径。
+## [br]
+## @api private
+## [br]
 func _append_pointer(parent: String, token: String) -> String:
 	return "%s/%s" % [parent, token.replace("~", "~0").replace("/", "~1")]
 
 
+## 将 JSON Pointer 编码为 URI fragment；仅保留斜线和 unreserved UTF-8 字节。
+## [br]
+## @api private
+## [br]
 func _pointer_to_uri_fragment(pointer: String) -> String:
 	var result: String = "#"
 	for byte_value: int in pointer.to_utf8_buffer():
@@ -1127,6 +1335,10 @@ func _pointer_to_uri_fragment(pointer: String) -> String:
 	return result
 
 
+## 判断字节是否为 ASCII 字母、数字或 - . _ ~ 之一。
+## [br]
+## @api private
+## [br]
 func _is_uri_unreserved_byte(byte_value: int) -> bool:
 	return (
 		(byte_value >= 48 and byte_value <= 57)
@@ -1136,6 +1348,10 @@ func _is_uri_unreserved_byte(byte_value: int) -> bool:
 	)
 
 
+## 返回编译器已知诊断种类到建议修复动作的映射。
+## [br]
+## @api private
+## [br]
 func _get_compiler_next_actions() -> Dictionary:
 	return {
 		"invalid_json": "Fix the strict JSON syntax at the reported source token.",
@@ -1164,6 +1380,10 @@ func _get_compiler_next_actions() -> Dictionary:
 	}
 
 
+## 仅将 Dictionary 元数据交给受约束的报告 codec 转换；其他输入返回空字典。
+## [br]
+## @api private
+## [br]
 func _sanitize_report_metadata(value: Variant) -> Dictionary:
 	if not (value is Dictionary):
 		return {}
@@ -1173,6 +1393,10 @@ func _sanitize_report_metadata(value: Variant) -> Dictionary:
 	)
 
 
+## 配置 support redaction profile 的报告投影选项和各类集合、字符串及总量上限。
+## [br]
+## @api private
+## [br]
 func _make_report_codec_options() -> Dictionary:
 	return _REPORT_VALUE_CODEC_SCRIPT.make_redaction_options(
 		_REPORT_VALUE_CODEC_SCRIPT.REDACTION_PROFILE_SUPPORT,
@@ -1192,6 +1416,9 @@ func _make_report_codec_options() -> Dictionary:
 	)
 
 
+## 消费报告中暂存的下一步建议并生成安全报告字典；只有资源存在且报告成功时才暴露资源和行数，失败候选不会进入结果。
+## [br]
+## @api private
 func _make_result(
 	resource: GFDialogueResource,
 	report: GFValidationReport,

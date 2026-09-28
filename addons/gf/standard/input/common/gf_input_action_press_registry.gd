@@ -7,7 +7,16 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 按动作 ID 保存当前 owner 键及其按压强度。
+## [br]
+## @api private
+## [br]
 static var _action_owners: Dictionary = {}
+
+## 按 owner 键保存生命周期订阅，用于 owner 释放或退出时撤销动作。
+## [br]
+## @api private
+## [br]
 static var _owner_lifetimes: Dictionary = {}
 
 
@@ -138,6 +147,10 @@ static func prune_released_owners() -> int:
 
 # --- 私有/辅助方法 ---
 
+## 移除某个 owner 对指定动作的持有，并按剩余 owner 强度更新或释放动作。
+## [br]
+## @api private
+## [br]
 static func _release_action_owner_key(action_id: StringName, owner_key: String) -> bool:
 
 	var owners: Dictionary = _get_action_owners(action_id)
@@ -157,6 +170,10 @@ static func _release_action_owner_key(action_id: StringName, owner_key: String) 
 	return true
 
 
+## 撤销一个 owner 键持有的所有动作，并移除其生命周期记录。
+## [br]
+## @api private
+## [br]
 static func _release_owner_key(owner_key: String) -> void:
 	var action_ids: Array[StringName] = []
 	for action_key: Variant in _action_owners.keys():
@@ -168,6 +185,10 @@ static func _release_owner_key(owner_key: String) -> void:
 		_remove_action_owner_key(action_id, owner_key)
 
 
+## 从动作的 owner 集合中移除 owner，并更新聚合强度或释放动作。
+## [br]
+## @api private
+## [br]
 static func _remove_action_owner_key(action_id: StringName, owner_key: String) -> void:
 	var owners: Dictionary = _get_action_owners(action_id)
 	if owners.is_empty() or not owners.erase(owner_key):
@@ -179,6 +200,10 @@ static func _remove_action_owner_key(action_id: StringName, owner_key: String) -
 		Input.action_press(action_id, _get_max_strength(owners))
 
 
+## 确保 owner 键关联活动的 GFLifetimeSubscription，回调会释放该 owner 的全部动作。
+## [br]
+## @api private
+## [br]
 static func _ensure_owner_lifetime(owner: Object, owner_key: String) -> bool:
 	var current: GFLifetimeSubscription = _get_owner_lifetime(owner_key)
 	if current != null and current.is_active():
@@ -195,6 +220,10 @@ static func _ensure_owner_lifetime(owner: Object, owner_key: String) -> bool:
 	return true
 
 
+## 移除并取消 owner 生命周期；订阅不存在或已失效时直接清理 owner 动作。
+## [br]
+## @api private
+## [br]
 static func _cancel_owner_lifetime(owner_key: String) -> void:
 	var lifetime: GFLifetimeSubscription = _get_owner_lifetime(owner_key)
 	var _removed_lifetime: bool = _owner_lifetimes.erase(owner_key)
@@ -204,6 +233,10 @@ static func _cancel_owner_lifetime(owner_key: String) -> void:
 		_release_owner_key(owner_key)
 
 
+## 检查任一动作的持有者字典是否仍包含指定 owner 键。
+## [br]
+## @api private
+## [br]
 static func _owner_key_has_actions(owner_key: String) -> bool:
 	for owners_value: Variant in _action_owners.values():
 		if owners_value is Dictionary:
@@ -213,6 +246,10 @@ static func _owner_key_has_actions(owner_key: String) -> bool:
 	return false
 
 
+## 把有效对象实例 ID 与通道文本编码为无歧义 owner 键；无效对象返回空文本。
+## [br]
+## @api private
+## [br]
 static func _make_owner_key(owner: Object, channel_id: StringName) -> String:
 	if not is_instance_valid(owner):
 		return ""
@@ -220,16 +257,28 @@ static func _make_owner_key(owner: Object, channel_id: StringName) -> String:
 	return "%d:%d:%s" % [owner.get_instance_id(), channel_text.length(), channel_text]
 
 
+## 从生命周期字典读取并收窄指定 owner 的订阅。
+## [br]
+## @api private
+## [br]
 static func _get_owner_lifetime(owner_key: String) -> GFLifetimeSubscription:
 	return _variant_to_lifetime(GFVariantData.get_option_value(_owner_lifetimes, owner_key))
 
 
+## 将 Variant 收窄为 GFLifetimeSubscription，类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 static func _variant_to_lifetime(value: Variant) -> GFLifetimeSubscription:
 	if value is GFLifetimeSubscription:
 		var lifetime: GFLifetimeSubscription = value
 		return lifetime
 	return null
 
+## 读取动作 owner 字典；字典不存在时创建并登记空字典。
+## [br]
+## @api private
+## [br]
 static func _get_or_create_action_owners(action_id: StringName) -> Dictionary:
 	var owners: Dictionary = _get_action_owners(action_id)
 	if owners.is_empty() and not _action_owners.has(action_id):
@@ -238,6 +287,10 @@ static func _get_or_create_action_owners(action_id: StringName) -> Dictionary:
 	return owners
 
 
+## 读取指定动作的 owner 字典，值类型不符时返回空字典。
+## [br]
+## @api private
+## [br]
 static func _get_action_owners(action_id: StringName) -> Dictionary:
 	var value: Variant = _action_owners.get(action_id)
 	if value is Dictionary:
@@ -246,6 +299,10 @@ static func _get_action_owners(action_id: StringName) -> Dictionary:
 	return {}
 
 
+## 从 owner 强度中取经归一化后的最大值，忽略非数值项。
+## [br]
+## @api private
+## [br]
 static func _get_max_strength(owners: Dictionary) -> float:
 	var result: float = 0.0
 	for strength_value: Variant in owners.values():
@@ -261,12 +318,20 @@ static func _get_max_strength(owners: Dictionary) -> float:
 	return result
 
 
+## 将非有限强度归零，并把有限值钳制到 0..1。
+## [br]
+## @api private
+## [br]
 static func _normalize_strength(strength: float) -> float:
 	if is_nan(strength) or is_inf(strength):
 		return 0.0
 	return clampf(strength, 0.0, 1.0)
 
 
+## 将 StringName 或 String 收窄为动作 ID，其余类型返回空 StringName。
+## [br]
+## @api private
+## [br]
 static func _variant_to_action_id(value: Variant) -> StringName:
 	if value is StringName:
 		var action_id: StringName = value

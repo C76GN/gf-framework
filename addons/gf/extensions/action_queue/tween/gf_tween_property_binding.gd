@@ -31,9 +31,24 @@ var value: Variant:
 
 # --- 私有变量 ---
 
+## 动作所有者的弱引用，避免绑定反向持有动作。
+## [br]
+## @api private
 var _owner_ref: WeakRef
+
+## 由该绑定代理读写的目标属性路径。
+## [br]
+## @api private
 var _property_name: NodePath
+
+## 创建该绑定时对应的动作执行世代。
+## [br]
+## @api private
 var _generation: int
+
+## 最近一次通过代理属性保存的值。
+## [br]
+## @api private
 var _last_value: Variant
 
 
@@ -48,6 +63,9 @@ func _init(owner: GFConfiguredTweenAction, property_name: NodePath, generation: 
 
 # --- 私有/辅助方法 ---
 
+## 解析仍有效的弱引用所有者；失效或类型不符时返回 null。
+## [br]
+## @api private
 func _get_owner() -> GFConfiguredTweenAction:
 	var owner: Variant = _owner_ref.get_ref()
 	if owner is GFConfiguredTweenAction:

@@ -14,6 +14,9 @@ extends Resource
 
 # --- 常量 ---
 
+## 对话资源快照复制器，用于生成响应字典副本。
+## [br]
+## @api private
 const _SNAPSHOT_COPY = preload("res://addons/gf/extensions/dialogue/resources/gf_dialogue_snapshot_copy.gd")
 
 
@@ -138,6 +141,9 @@ func create_serialization_source() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 将 Variant 收窄为 GFDialogueResponse；类型不符时返回 null。
+## [br]
+## @api private
 func _get_dialogue_response_value(value: Variant) -> GFDialogueResponse:
 	if value is GFDialogueResponse:
 		var response: GFDialogueResponse = value

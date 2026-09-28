@@ -105,6 +105,9 @@ signal orbit_changed(yaw_degrees_value: float, pitch_degrees_value: float, dista
 
 # --- 私有变量 ---
 
+## 批量更新环绕参数期间是否暂缓发送变化信号。
+## [br]
+## @api private
 var _suspend_orbit_signal: bool = false
 
 
@@ -257,12 +260,18 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按当前环绕参数发出变化信号，暂缓期间不发出。
+## [br]
+## @api private
 func _emit_orbit_changed() -> void:
 	if _suspend_orbit_signal:
 		return
 	orbit_changed.emit(yaw_degrees, pitch_degrees, distance)
 
 
+## 返回归一化且非零的环绕上方向。
+## [br]
+## @api private
 func _get_safe_orbit_up_axis() -> Vector3:
 	var safe_axis: Vector3 = _sanitize_vector3(orbit_up_axis, Vector3.UP)
 	if safe_axis.length_squared() <= 0.000001:
@@ -270,6 +279,9 @@ func _get_safe_orbit_up_axis() -> Vector3:
 	return safe_axis.normalized()
 
 
+## 调整与方向近乎平行的上方向以供 look_at 使用。
+## [br]
+## @api private
 func _get_safe_orbit_up_axis_for_direction(direction: Vector3) -> Vector3:
 	var safe_up: Vector3 = _get_safe_orbit_up_axis()
 	if direction.length_squared() <= 0.000001:
@@ -282,5 +294,8 @@ func _get_safe_orbit_up_axis_for_direction(direction: Vector3) -> Vector3:
 	return Vector3.RIGHT
 
 
+## 使用相机有限数值工具清理二维向量。
+## [br]
+## @api private
 func _sanitize_vector2(value: Vector2, fallback: Vector2) -> Vector2:
 	return _GF_CAMERA_FINITE_MATH.sanitize_vector2(value, fallback)

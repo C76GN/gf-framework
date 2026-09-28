@@ -16,41 +16,155 @@ extends Control
 
 # --- 常量 ---
 
+## 编辑器流程图工具使用的默认布局选项常量。
+## [br]
+## @api private
 const _DEFAULT_LAYOUT_OPTIONS: Dictionary = {
 	"x_spacing": 280.0,
 	"y_spacing": 160.0,
 }
+
+## 编辑器流程图工具使用的默认节点颜色常量。
+## [br]
+## @api private
 const _DEFAULT_NODE_COLOR: Color = Color(0.52, 0.68, 0.92)
+
+## 编辑器流程图工具使用的执行端口颜色常量。
+## [br]
+## @api private
 const _EXECUTION_PORT_COLOR: Color = Color(0.95, 0.78, 0.38)
+
+## 编辑器流程图工具使用的侧栏面板最小宽度常量。
+## [br]
+## @api private
 const _SIDE_PANEL_MIN_WIDTH: float = 320.0
+
+## 编辑器流程图工具使用的详情最小高度常量。
+## [br]
+## @api private
 const _DETAIL_MIN_HEIGHT: float = 112.0
+
+## 编辑器流程图工具使用的GF编辑器工作区UI脚本常量。
+## [br]
+## @api private
 const _GF_EDITOR_WORKSPACE_UI_SCRIPT: Script = preload("res://addons/gf/kernel/editor/gf_editor_workspace_ui.gd")
 
 
 # --- 私有变量 ---
 
+## 保存流程图编辑器内部的流程图。
+## [br]
+## @api private
 var _graph: GFFlowGraph = null
+
+## 保存流程图编辑器内部的流程图路径。
+## [br]
+## @api private
 var _graph_path: String = ""
+
+## 保存流程图编辑器内部的最近视图模型。
+## [br]
+## @api private
 var _last_view_model: Dictionary = {}
+
+## 保存流程图编辑器内部的节点控件byID。
+## [br]
+## @api private
 var _node_controls_by_id: Dictionary = {}
+
+## 保存流程图编辑器内部的节点IDby控件名称。
+## [br]
+## @api private
 var _node_ids_by_control_name: Dictionary = {}
+
+## 保存流程图编辑器内部的选中节点ID。
+## [br]
+## @api private
 var _selected_node_id: StringName = &""
+
+## 保存流程图编辑器内部的路径编辑。
+## [br]
+## @api private
 var _path_edit: LineEdit = null
+
+## 保存流程图编辑器内部的摘要标签。
+## [br]
+## @api private
 var _summary_label: Label = null
+
+## 保存流程图编辑器内部的空标签。
+## [br]
+## @api private
 var _empty_label: Label = null
+
+## 保存流程图编辑器内部的内容分割容器。
+## [br]
+## @api private
 var _content_split: HSplitContainer = null
+
+## 保存流程图编辑器内部的流程图编辑。
+## [br]
+## @api private
 var _graph_edit: GraphEdit = null
+
+## 保存流程图编辑器内部的树。
+## [br]
+## @api private
 var _tree: Tree = null
+
+## 保存流程图编辑器内部的详情文本框。
+## [br]
+## @api private
 var _details: TextEdit = null
+
+## 保存流程图编辑器内部的文件对话框。
+## [br]
+## @api private
 var _file_dialog: FileDialog = null
+
+## 保存流程图编辑器内部的编辑器上下文。
+## [br]
+## @api private
 var _editor_context: GFEditorToolContext = null
+
+## 保存流程图编辑器内部的命令会话。
+## [br]
+## @api private
 var _command_session: GFEditorCommandSession = GFEditorCommandSession.new()
+
+## 保存流程图编辑器内部的自动布局按钮。
+## [br]
+## @api private
 var _auto_layout_button: Button = null
+
+## 保存流程图编辑器内部的保存按钮。
+## [br]
+## @api private
 var _save_button: Button = null
+
+## 保存流程图编辑器内部的刷新待处理。
+## [br]
+## @api private
 var _refresh_pending: bool = false
+
+## 保存流程图编辑器内部的移动流程图。
+## [br]
+## @api private
 var _move_graph: GFFlowGraph = null
+
+## 保存流程图编辑器内部的恢复命令。
+## [br]
+## @api private
 var _recovery_command: GFFlowGraphEditCommand = null
+
+## 保存流程图编辑器内部的恢复按钮。
+## [br]
+## @api private
 var _recovery_button: Button = null
+
+## 保存流程图编辑器内部的最近编辑报告。
+## [br]
+## @api private
 var _last_edit_report: Dictionary = {}
 
 
@@ -187,10 +301,16 @@ func accept_flow_edit_result(command: GFFlowGraphEditCommand) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 检查当前流程图和撤销上下文是否有效，且没有待恢复命令。
+## [br]
+## @api private
 func _can_edit() -> bool:
 	return _graph != null and is_inside_tree() and _editor_context != null and is_instance_valid(_editor_context.undo_manager) and _recovery_command == null
 
 
+## 根据编辑上下文更新按钮状态和节点可拖动状态。
+## [br]
+## @api private
 func _update_edit_availability() -> void:
 	var editable: bool = _can_edit()
 	if _auto_layout_button != null:
@@ -206,16 +326,25 @@ func _update_edit_availability() -> void:
 			node.draggable = editable
 
 
+## 连接当前流程图资源的 changed 信号。
+## [br]
+## @api private
 func _connect_graph_changes() -> void:
 	if _graph != null and is_inside_tree() and not _graph.changed.is_connected(_on_graph_changed):
 		var _error: Error = _graph.changed.connect(_on_graph_changed) as Error
 
 
+## 断开当前流程图资源的 changed 信号。
+## [br]
+## @api private
 func _disconnect_graph_changes() -> void:
 	if _graph != null and _graph.changed.is_connected(_on_graph_changed):
 		_graph.changed.disconnect(_on_graph_changed)
 
 
+## 刷新图变更后的视图，并重新显示最近编辑报告。
+## [br]
+## @api private
 func _refresh_after_graph_change() -> void:
 	_refresh_pending = false
 	if is_inside_tree():
@@ -225,6 +354,9 @@ func _refresh_after_graph_change() -> void:
 			_show_details(_last_edit_report)
 
 
+## 预检并提交编辑命令，再刷新视图和事务报告。
+## [br]
+## @api private
 func _commit_edit(command: GFFlowGraphEditCommand) -> void:
 	if not _can_edit() or command == null:
 		refresh()
@@ -248,6 +380,9 @@ func _commit_edit(command: GFFlowGraphEditCommand) -> void:
 		_show_details(_last_edit_report)
 
 
+## 收集画布中各节点的位置偏移。
+## [br]
+## @api private
 func _get_canvas_positions() -> Dictionary:
 	var positions: Dictionary = {}
 	for key: Variant in _node_controls_by_id:
@@ -256,6 +391,9 @@ func _get_canvas_positions() -> Dictionary:
 			positions[key] = node.position_offset
 	return positions
 
+## 将文本值规范化为非空 StringName。
+## [br]
+## @api private
 func _get_string_name_value(value: Variant, default_value: StringName = &"") -> StringName:
 	if value is StringName:
 		var string_name_value: StringName = value
@@ -267,117 +405,183 @@ func _get_string_name_value(value: Variant, default_value: StringName = &"") -> 
 	return default_value
 
 
+## 读取颜色值。
+## [br]
+## @api private
 func _get_color_value(value: Variant, default_value: Color = Color.TRANSPARENT) -> Color:
 	if value is Color:
 		return value
 	return default_value
 
 
+## 读取连接源节点ID。
+## [br]
+## @api private
 func _get_connection_from_node_id(connection: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(connection, "from_node_id", &"")
 
 
+## 读取连接源端口ID。
+## [br]
+## @api private
 func _get_connection_from_port_id(connection: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(connection, "from_port_id", &"")
 
 
+## 读取连接目标节点ID。
+## [br]
+## @api private
 func _get_connection_to_node_id(connection: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(connection, "to_node_id", &"")
 
 
+## 读取连接目标端口ID。
+## [br]
+## @api private
 func _get_connection_to_port_id(connection: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(connection, "to_port_id", &"")
 
 
+## 读取资源值。
+## [br]
+## @api private
 func _get_resource_value(value: Variant) -> Resource:
 	if value is Resource:
 		return value
 	return null
 
 
+## 读取Flow流程图值。
+## [br]
+## @api private
 func _get_flow_graph_value(value: Variant) -> GFFlowGraph:
 	if value is GFFlowGraph:
 		return value
 	return null
 
 
+## 读取流程图节点值。
+## [br]
+## @api private
 func _get_graph_node_value(value: Variant) -> GraphNode:
 	if value is GraphNode:
 		return value
 	return null
 
 
+## 读取按钮值。
+## [br]
+## @api private
 func _get_button_value(value: Variant) -> Button:
 	if value is Button:
 		return value
 	return null
 
 
+## 读取标签值。
+## [br]
+## @api private
 func _get_label_value(value: Variant) -> Label:
 	if value is Label:
 		return value
 	return null
 
 
+## 读取水平容器容器值。
+## [br]
+## @api private
 func _get_hbox_container_value(value: Variant) -> HBoxContainer:
 	if value is HBoxContainer:
 		return value
 	return null
 
 
+## 读取文本编辑值。
+## [br]
+## @api private
 func _get_text_edit_value(value: Variant) -> TextEdit:
 	if value is TextEdit:
 		return value
 	return null
 
 
+## 向 PackedStringArray 追加文本。
+## [br]
+## @api private
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 通过工作区 UI 工具设置页面根控件。
+## [br]
+## @api private
 func _apply_page_root(page: Control) -> void:
 	var result: Variant = _GF_EDITOR_WORKSPACE_UI_SCRIPT.call("apply_page_root", page)
 	if result != null:
 		return
 
 
+## 构造toolbar。
+## [br]
+## @api private
 func _make_toolbar() -> HBoxContainer:
 	var toolbar: HBoxContainer = _get_hbox_container_value(_GF_EDITOR_WORKSPACE_UI_SCRIPT.call("make_toolbar"))
 	return toolbar if toolbar != null else HBoxContainer.new()
 
 
+## 构造工作区按钮。
+## [br]
+## @api private
 func _make_workspace_button(text: String, tooltip: String, handler: Callable) -> Button:
 	var button: Button = _get_button_value(_GF_EDITOR_WORKSPACE_UI_SCRIPT.call("make_button", text, tooltip, handler))
 	return button if button != null else Button.new()
 
 
+## 构造摘要标签。
+## [br]
+## @api private
 func _make_summary_label() -> Label:
 	var label: Label = _get_label_value(_GF_EDITOR_WORKSPACE_UI_SCRIPT.call("make_summary_label"))
 	return label if label != null else Label.new()
 
 
+## 构造空标签。
+## [br]
+## @api private
 func _make_empty_label() -> Label:
 	var label: Label = _get_label_value(_GF_EDITOR_WORKSPACE_UI_SCRIPT.call("make_empty_label"))
 	return label if label != null else Label.new()
 
 
+## 构造详情文本框输出。
+## [br]
+## @api private
 func _make_details_output(min_height: float) -> TextEdit:
 	var output: TextEdit = _get_text_edit_value(_GF_EDITOR_WORKSPACE_UI_SCRIPT.call("make_details_output", min_height))
 	return output if output != null else TextEdit.new()
 
 
+## 处理setstatus内部数据。
+## [br]
+## @api private
 func _set_status(label: Label, text: String) -> void:
 	var result: Variant = _GF_EDITOR_WORKSPACE_UI_SCRIPT.call("set_status", label, text)
 	if result != null:
 		return
 
 
+## 读取报告颜色。
+## [br]
+## @api private
 func _get_report_color(report: Dictionary) -> Color:
 	return _get_color_value(_GF_EDITOR_WORKSPACE_UI_SCRIPT.call("get_report_color", report), Color.WHITE)
 
 
+## 创建页面控件并连接 UI 信号。
+## [br]
+## @api private
 func _build_ui() -> void:
 	if _graph_edit != null:
 		return
@@ -467,6 +671,9 @@ func _build_ui() -> void:
 	add_child(_file_dialog)
 
 
+## 连接流程图编辑signal。
+## [br]
+## @api private
 func _connect_graph_edit_signal(signal_name: StringName, handler: Callable) -> void:
 	if _graph_edit != null and _graph_edit.has_signal(signal_name):
 		var error: int = _graph_edit.connect(signal_name, handler)
@@ -474,6 +681,9 @@ func _connect_graph_edit_signal(signal_name: StringName, handler: Callable) -> v
 			return
 
 
+## 从当前路径加载流程图资源并更新页面视图。
+## [br]
+## @api private
 func _load_graph_from_path() -> void:
 	if not _is_project_resource_path(_graph_path):
 		_graph_path = ""
@@ -491,11 +701,17 @@ func _load_graph_from_path() -> void:
 		_graph.resource_path = _graph_path
 
 
+## 判断路径是否属于项目内可用的资源路径。
+## [br]
+## @api private
 func _is_project_resource_path(path: String) -> bool:
 	var normalized_path: String = path.strip_edges()
 	return normalized_path.begins_with("res://") and normalized_path.length() > "res://".length()
 
 
+## 根据当前视图模型重绘画布与条目清单。
+## [br]
+## @api private
 func _render_graph() -> void:
 	if _tree == null:
 		return
@@ -528,6 +744,9 @@ func _render_graph() -> void:
 	_render_entries(_last_view_model)
 
 
+## 根据视图模型创建节点控件及图连接。
+## [br]
+## @api private
 func _render_graph_canvas(view_model: Dictionary) -> void:
 	var nodes: Array = GFVariantData.get_option_array(view_model, "nodes")
 
@@ -548,6 +767,9 @@ func _render_graph_canvas(view_model: Dictionary) -> void:
 			_connect_graph_edit_nodes(connection)
 
 
+## 根据节点条目创建并配置 GraphNode 控件。
+## [br]
+## @api private
 func _make_graph_node(node_entry: Dictionary, index: int) -> GraphNode:
 	var graph_node: GraphNode = GraphNode.new()
 	var node_id: StringName = GFVariantData.get_option_string_name(node_entry, "node_id", &"")
@@ -565,6 +787,9 @@ func _make_graph_node(node_entry: Dictionary, index: int) -> GraphNode:
 	return graph_node
 
 
+## 为 GraphNode 添加执行输入和输出槽位。
+## [br]
+## @api private
 func _add_execution_slot(graph_node: GraphNode) -> void:
 	var row: HBoxContainer = HBoxContainer.new()
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -574,6 +799,9 @@ func _add_execution_slot(graph_node: GraphNode) -> void:
 	graph_node.set_slot(0, true, 0, _EXECUTION_PORT_COLOR, true, 0, _EXECUTION_PORT_COLOR)
 
 
+## 根据端口条目添加 GraphNode 数据槽位。
+## [br]
+## @api private
 func _add_data_port_slots(graph_node: GraphNode, node_entry: Dictionary) -> void:
 	var input_ports: Array = GFVariantData.get_option_array(node_entry, "input_ports")
 	var output_ports: Array = GFVariantData.get_option_array(node_entry, "output_ports")
@@ -598,6 +826,9 @@ func _add_data_port_slots(graph_node: GraphNode, node_entry: Dictionary) -> void
 		)
 
 
+## 构造槽位标签。
+## [br]
+## @api private
 func _make_slot_label(text: String, alignment: HorizontalAlignment) -> Label:
 	var label: Label = Label.new()
 	label.text = text
@@ -607,6 +838,9 @@ func _make_slot_label(text: String, alignment: HorizontalAlignment) -> Label:
 	return label
 
 
+## 读取端口标签。
+## [br]
+## @api private
 func _get_port_label(port_entry: Dictionary) -> String:
 	if port_entry == null or port_entry.is_empty():
 		return ""
@@ -616,6 +850,9 @@ func _get_port_label(port_entry: Dictionary) -> String:
 	return GFVariantData.get_option_string(port_entry, "port_id", "")
 
 
+## 读取端口颜色。
+## [br]
+## @api private
 func _get_port_color(port_entry: Dictionary) -> Color:
 	if port_entry == null or port_entry.is_empty():
 		return _DEFAULT_NODE_COLOR
@@ -625,6 +862,9 @@ func _get_port_color(port_entry: Dictionary) -> Color:
 	return _DEFAULT_NODE_COLOR
 
 
+## 将连接条目的端点与槽位索引连到 GraphEdit。
+## [br]
+## @api private
 func _connect_graph_edit_nodes(connection: Dictionary) -> void:
 	var from_node_id: StringName = _get_connection_from_node_id(connection)
 	var to_node_id: StringName = _get_connection_to_node_id(connection)
@@ -640,6 +880,9 @@ func _connect_graph_edit_nodes(connection: Dictionary) -> void:
 	_graph_edit.call("connect_node", from_node.name, from_slot, to_node.name, to_slot)
 
 
+## 清除画布中的节点与连接，并重置控件映射。
+## [br]
+## @api private
 func _clear_graph_canvas() -> void:
 	_node_controls_by_id.clear()
 	_node_ids_by_control_name.clear()
@@ -655,6 +898,9 @@ func _clear_graph_canvas() -> void:
 			child.queue_free()
 
 
+## 根据视图模型重建节点和连接条目清单。
+## [br]
+## @api private
 func _render_entries(view_model: Dictionary) -> void:
 	var root_item: TreeItem = _tree.create_item()
 	var visible_count: int = 0
@@ -700,6 +946,9 @@ func _render_entries(view_model: Dictionary) -> void:
 	_empty_label.text = "当前 FlowGraph 没有节点、连接或校验问题。" if visible_count == 0 else ""
 
 
+## 将当前流程图保存到编辑路径或资源路径。
+## [br]
+## @api private
 func _save_graph() -> Error:
 	if not _can_edit():
 		return ERR_UNCONFIGURED
@@ -718,10 +967,16 @@ func _save_graph() -> Error:
 	return error
 
 
+## 读取节点IDfor控件。
+## [br]
+## @api private
 func _get_node_id_for_control(control_name: StringName) -> StringName:
 	return _get_string_name_value(GFVariantData.get_option_value(_node_ids_by_control_name, control_name, &""))
 
 
+## 按节点和图形槽位索引反查端口 ID。
+## [br]
+## @api private
 func _get_port_lookup_for_slot(node_id: StringName, ports_key: String, slot_index: int) -> Dictionary:
 	if slot_index <= 0:
 		return {
@@ -742,6 +997,9 @@ func _get_port_lookup_for_slot(node_id: StringName, ports_key: String, slot_inde
 	return _make_port_lookup(false)
 
 
+## 构造端口查找表。
+## [br]
+## @api private
 func _make_port_lookup(ok: bool) -> Dictionary:
 	return {
 		"ok": ok,
@@ -749,6 +1007,9 @@ func _make_port_lookup(ok: bool) -> Dictionary:
 	}
 
 
+## 读取节点条目。
+## [br]
+## @api private
 func _get_node_entry(node_id: StringName) -> Dictionary:
 	var lookup: Dictionary = GFVariantData.get_option_dictionary(_last_view_model, "node_lookup")
 	if lookup.has(node_id):
@@ -756,10 +1017,16 @@ func _get_node_entry(node_id: StringName) -> Dictionary:
 	return {}
 
 
+## 处理show详情文本框内部数据。
+## [br]
+## @api private
 func _show_details(value: Variant) -> void:
 	_details.text = _safe_json(value)
 
 
+## 以 JSON 兼容格式序列化值并隐藏完整路径。
+## [br]
+## @api private
 func _safe_json(value: Variant) -> String:
 	return GFReportValueCodec.stringify_json_compatible(value, "\t", false, {
 		"path_redaction": "basename",
@@ -768,16 +1035,27 @@ func _safe_json(value: Variant) -> String:
 
 # --- 信号处理函数 ---
 
+# --- 信号处理函数 ---
+
+## 处理流程图资源变更并刷新视图。
+## [br]
+## @api private
 func _on_graph_changed() -> void:
 	if not _refresh_pending:
 		_refresh_pending = true
 		_refresh_after_graph_change.call_deferred()
 
 
+## 处理节点拖动开始并记录拖动前位置。
+## [br]
+## @api private
 func _on_begin_node_move() -> void:
 	_move_graph = _graph if _can_edit() else null
 
 
+## 处理恢复按钮并重试待恢复编辑命令。
+## [br]
+## @api private
 func _on_recover_pressed() -> void:
 	if _recovery_command == null or _editor_context == null or not is_instance_valid(_editor_context.undo_manager):
 		return
@@ -790,19 +1068,31 @@ func _on_recover_pressed() -> void:
 	_show_details(command.get_transaction_report())
 
 
+## 处理路径提交并加载指定流程图资源。
+## [br]
+## @api private
 func _on_path_submitted(path: String) -> void:
 	set_graph_path(path)
 
 
+## 处理浏览按钮并打开资源选择对话框。
+## [br]
+## @api private
 func _on_browse_pressed() -> void:
 	if is_instance_valid(_file_dialog):
 		_file_dialog.popup_centered_ratio(0.6)
 
 
+## 处理资源选择结果并加载选中文件。
+## [br]
+## @api private
 func _on_file_selected(path: String) -> void:
 	set_graph_path(path)
 
 
+## 处理刷新按钮并更新编辑器视图。
+## [br]
+## @api private
 func _on_refresh_pressed() -> void:
 	if _recovery_command != null:
 		_show_details(_last_edit_report)
@@ -815,6 +1105,9 @@ func _on_refresh_pressed() -> void:
 	refresh()
 
 
+## 处理自动布局按钮并提交节点位置变更。
+## [br]
+## @api private
 func _on_auto_layout_pressed() -> void:
 	if not _can_edit():
 		return
@@ -824,11 +1117,17 @@ func _on_auto_layout_pressed() -> void:
 	_commit_edit(GFFlowGraphEditCommand.create_layout_edit(_graph, positions, "自动布局 Flow 节点"))
 
 
+## 处理保存按钮并显示保存结果。
+## [br]
+## @api private
 func _on_save_pressed() -> void:
 	var error: Error = _save_graph()
 	_details.text = "保存结果：%s" % error_string(error)
 
 
+## 处理 GraphEdit 连线请求并创建连接编辑命令。
+## [br]
+## @api private
 func _on_connection_request(
 	from_control_name: StringName,
 	from_port_index: int,
@@ -861,6 +1160,9 @@ func _on_connection_request(
 	_commit_edit(command)
 
 
+## 处理 GraphEdit 断线请求并创建连接移除命令。
+## [br]
+## @api private
 func _on_disconnection_request(
 	from_control_name: StringName,
 	from_port_index: int,
@@ -885,6 +1187,9 @@ func _on_disconnection_request(
 		))
 
 
+## 处理 GraphEdit 节点删除请求并创建图编辑命令。
+## [br]
+## @api private
 func _on_delete_nodes_request(control_names: Array) -> void:
 	if not _can_edit():
 		return
@@ -900,6 +1205,9 @@ func _on_delete_nodes_request(control_names: Array) -> void:
 	_commit_edit(GFFlowGraphEditCommand.create_node_removal(_graph, node_ids))
 
 
+## 处理 GraphEdit 节点选择事件并显示详情。
+## [br]
+## @api private
 func _on_node_selected(node: Node) -> void:
 	if node == null:
 		return
@@ -910,6 +1218,9 @@ func _on_node_selected(node: Node) -> void:
 		_show_details(node_entry)
 
 
+## 处理节点拖动结束并提交位置变更。
+## [br]
+## @api private
 func _on_end_node_move() -> void:
 	if _move_graph == null or _move_graph != _graph or not _can_edit():
 		_move_graph = null
@@ -919,6 +1230,9 @@ func _on_end_node_move() -> void:
 	_commit_edit(GFFlowGraphEditCommand.create_layout_edit(_graph, _get_canvas_positions(), "移动 Flow 节点"))
 
 
+## 处理条目树选择事件并显示所选详情。
+## [br]
+## @api private
 func _on_item_selected() -> void:
 	var item: TreeItem = _tree.get_selected()
 	if item == null:

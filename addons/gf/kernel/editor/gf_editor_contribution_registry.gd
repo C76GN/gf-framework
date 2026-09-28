@@ -25,16 +25,51 @@ extends RefCounted
 ## @layer kernel/editor
 const SCHEMA_VERSION: int = 4
 
+## 单个 manifest JSON 允许读取的最大字节数。
+## [br]
+## @api private
 const _MAX_MANIFEST_BYTES: int = 1_048_576
+
+## manifest JSON 解析允许的最大嵌套深度。
+## [br]
+## @api private
 const _MAX_JSON_DEPTH: int = 64
+
+## 单份 manifest 中所有记录族合计的记录上限。
+## [br]
+## @api private
 const _MAX_RECORD_COUNT: int = 1024
+
+## 单个模板文本允许读取的最大字节数。
+## [br]
+## @api private
 const _MAX_TEMPLATE_BYTES: int = 1_048_576
+
+## 单份 manifest 中全部模板文本共用的最大字节预算。
+## [br]
+## @api private
 const _MAX_TEMPLATE_TOTAL_BYTES: int = 4_194_304
+
+## 有界 JSON object reader 脚本，用于限制 manifest 的读取大小和深度。
+## [br]
+## @api private
 const _GF_BOUNDED_JSON_READER_SCRIPT = preload(
 	"res://addons/gf/kernel/editor/gf_bounded_json_reader.gd"
 )
+
+## 资源路径规范化工具脚本。
+## [br]
+## @api private
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+## 从不可信 Variant 输入中读取类型化选项的工具脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## manifest 根对象允许出现的字段名。
+## [br]
+## @api private
 const _MANIFEST_ALLOWED_KEYS: Array[String] = [
 	"schema_version",
 	"package_id",
@@ -46,12 +81,20 @@ const _MANIFEST_ALLOWED_KEYS: Array[String] = [
 	"project_setting_records",
 	"project_setting_section_records",
 ]
+
+## inspector、export 和 debugger 脚本记录可复制的字段名。
+## [br]
+## @api private
 const _SCRIPT_RECORD_ALLOWED_KEYS: Array[String] = [
 	"owner_package_id",
 	"source_id",
 	"path",
 	"label",
 ]
+
+## Dock 记录可复制的字段名。
+## [br]
+## @api private
 const _DOCK_RECORD_ALLOWED_KEYS: Array[String] = [
 	"owner_package_id",
 	"source_id",
@@ -60,6 +103,10 @@ const _DOCK_RECORD_ALLOWED_KEYS: Array[String] = [
 	"short_label",
 	"order",
 ]
+
+## 模板记录可复制的字段名。
+## [br]
+## @api private
 const _TEMPLATE_RECORD_ALLOWED_KEYS: Array[String] = [
 	"owner_package_id",
 	"source_id",
@@ -69,6 +116,10 @@ const _TEMPLATE_RECORD_ALLOWED_KEYS: Array[String] = [
 	"base_class",
 	"template_path",
 ]
+
+## ProjectSettings 记录可复制的字段名。
+## [br]
+## @api private
 const _PROJECT_SETTING_RECORD_ALLOWED_KEYS: Array[String] = [
 	"owner_package_id",
 	"source_id",
@@ -88,6 +139,10 @@ const _PROJECT_SETTING_RECORD_ALLOWED_KEYS: Array[String] = [
 	"editor_enum_labels",
 	"editor_enum_descriptions",
 ]
+
+## ProjectSettings section 记录可复制的字段名。
+## [br]
+## @api private
 const _PROJECT_SETTING_SECTION_RECORD_ALLOWED_KEYS: Array[String] = [
 	"owner_package_id",
 	"source_id",
@@ -264,6 +319,10 @@ static func load_manifest_report(manifest_path: String) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 用有界 reader 解码 manifest object，并将读取失败追加为 manifest issue。
+## 超大 payload 和过深嵌套分别改用专用 issue 种类。
+## [br]
+## @api private
 static func _read_json_object(path: String, issues: Array[Dictionary]) -> Dictionary:
 	var read_result: Dictionary = _GF_BOUNDED_JSON_READER_SCRIPT.read_object(
 		path,
@@ -293,6 +352,10 @@ static func _read_json_object(path: String, issues: Array[Dictionary]) -> Dictio
 	return {}
 
 
+## 校验并规范化脚本贡献或 Dock 记录，确认资源脚本存在后加入返回数组。
+## 缺失脚本记入 skipped_records；字段或必需值无效时记入 issues 并跳过该记录。
+## [br]
+## @api private
 static func _collect_script_records(
 	data: Dictionary,
 	record_key: String,
@@ -354,6 +417,10 @@ static func _collect_script_records(
 	return records
 
 
+## 校验模板记录并在单文件与累计字节预算内读取模板文本。
+## 缺失模板记入 skipped_records，超出累计预算时停止后续模板读取。
+## [br]
+## @api private
 static func _collect_template_records(
 	data: Dictionary,
 	record_key: String,
@@ -451,6 +518,10 @@ static func _collect_template_records(
 	return records
 
 
+## 校验 ProjectSettings 记录名称、类型和本地化展示字段，再生成规范化记录。
+## 校验过程新增任一 issue 时，该记录不会加入结果。
+## [br]
+## @api private
 static func _collect_project_setting_records(
 	data: Dictionary,
 	record_key: String,
@@ -491,6 +562,10 @@ static func _collect_project_setting_records(
 	return records
 
 
+## 校验可选的 ProjectSettings 本地化展示字段及枚举展示映射。
+## 一旦提供展示信息，就要求同时提供 editor_labels 与 editor_descriptions。
+## [br]
+## @api private
 static func _validate_project_setting_presentation(
 	record: Dictionary,
 	record_key: String,
@@ -529,6 +604,10 @@ static func _validate_project_setting_presentation(
 			_validate_localized_enum_map(record[field], field, record_key, source_id, issues)
 
 
+## 校验相对 section 路径和必需的本地化标题、描述后生成 section 记录。
+## 路径不得为空、以斜线开头或包含双斜线。
+## [br]
+## @api private
 static func _collect_project_setting_section_records(
 	data: Dictionary,
 	record_key: String,
@@ -607,6 +686,10 @@ static func _collect_project_setting_section_records(
 	return records
 
 
+## 要求本地化文本为非空字典，包含非空 `en` fallback，且每个语言和值均为非空字符串。
+## 不符合条件的键值分别追加到 issues。
+## [br]
+## @api private
 static func _validate_locale_text_map(
 	value: Variant,
 	field: String,
@@ -664,6 +747,9 @@ static func _validate_locale_text_map(
 			))
 
 
+## 校验枚举展示映射为字典，且每个枚举键为非空字符串并关联有效本地化文本表。
+## [br]
+## @api private
 static func _validate_localized_enum_map(
 	value: Variant,
 	field: String,
@@ -714,6 +800,10 @@ static func _validate_localized_enum_map(
 		)
 
 
+## 读取指定记录族数组并收集其中的字典项；列表类型或单项类型错误会追加 issue。
+## 非字典项被跳过，返回数组中的字典仍引用输入项。
+## [br]
+## @api private
 static func _get_record_dictionaries(
 	data: Dictionary,
 	record_key: String,
@@ -742,6 +832,10 @@ static func _get_record_dictionaries(
 	return records
 
 
+## 累加所有已知记录族的数组长度，超过预算时立即返回当前累计值。
+## 非数组字段不计入数量。
+## [br]
+## @api private
 static func _count_manifest_records(data: Dictionary) -> int:
 	var count: int = 0
 	for record_key: String in empty_records().keys():
@@ -754,6 +848,10 @@ static func _count_manifest_records(data: Dictionary) -> int:
 	return count
 
 
+## 在单模板和剩余累计字节预算内读取模板文本，并返回文本、实际字节数及累计超限标记。
+## 文件打开、读取、空白内容或大小检查失败时追加 issue，文本保持为空。
+## [br]
+## @api private
 static func _read_template_text(
 	template_path: String,
 	record_key: String,
@@ -863,6 +961,9 @@ static func _read_template_text(
 	return result
 
 
+## 拒绝记录中首个不在对应字段白名单内的键，并把该键记入 issue。
+## [br]
+## @api private
 static func _record_uses_allowed_keys(
 	record: Dictionary,
 	record_key: String,
@@ -882,6 +983,9 @@ static func _record_uses_allowed_keys(
 	return true
 
 
+## 拒绝 manifest 根对象中首个不在根字段白名单内的键。
+## [br]
+## @api private
 static func _manifest_uses_allowed_keys(
 	data: Dictionary,
 	manifest_path: String,
@@ -900,6 +1004,9 @@ static func _manifest_uses_allowed_keys(
 	return true
 
 
+## 仅将允许字段复制到新字典；字段值本身不在此处递归复制。
+## [br]
+## @api private
 static func _copy_allowed_record(record: Dictionary, allowed_keys: Array[String]) -> Dictionary:
 	var result: Dictionary = {}
 	for key: String in allowed_keys:
@@ -908,6 +1015,10 @@ static func _copy_allowed_record(record: Dictionary, allowed_keys: Array[String]
 	return result
 
 
+## 读取并清理记录本地 source_id，拒绝缺失值和含冒号的非本地标识，再加上 owner 前缀。
+## 无效时追加 issue 并返回空字符串。
+## [br]
+## @api private
 static func _make_source_id(
 	owner_package_id: String,
 	record: Dictionary,
@@ -930,6 +1041,9 @@ static func _make_source_id(
 	return "%s:%s" % [owner_package_id, source_id]
 
 
+## 读取并去除 owner_package_id 首尾空白；缺失时追加 issue 并返回空字符串。
+## [br]
+## @api private
 static func _get_owner_package_id(
 	record: Dictionary,
 	record_key: String,
@@ -949,6 +1063,10 @@ static func _get_owner_package_id(
 	return owner_package_id
 
 
+## 跨所有记录族检查 source_id 与 payload 身份的唯一性，并重写各族为保留项数组。
+## 重复项会报告并从重写后的记录族中剔除，首次出现的记录优先保留。
+## [br]
+## @api private
 static func _validate_record_identities(records: Dictionary, issues: Array[Dictionary]) -> void:
 	var source_ids: Dictionary = {}
 	var payload_ids: Dictionary = {}
@@ -996,6 +1114,10 @@ static func _validate_record_identities(records: Dictionary, issues: Array[Dicti
 		records[record_key] = validated_records
 
 
+## 按 path、template_path、name 顺序取首个非空文本，并以字段名作为身份前缀。
+## 没有可用值时返回空字符串。
+## [br]
+## @api private
 static func _get_record_payload_id(record: Dictionary) -> String:
 	for field: String in ["path", "template_path", "name"]:
 		var value: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, field).strip_edges()
@@ -1004,6 +1126,10 @@ static func _get_record_payload_id(record: Dictionary) -> String:
 	return ""
 
 
+## 优先把 type_name 映射为 Variant 类型；未提供时读取整数 type 字段。
+## 缺少两者或遇到未知 type_name 时追加 issue，并回退到 default_value 的实际类型。
+## [br]
+## @api private
 static func _record_variant_type(
 	record: Dictionary,
 	default_value: Variant,
@@ -1038,6 +1164,9 @@ static func _record_variant_type(
 			return typeof(default_value)
 
 
+## 接受 GDScript 标识符语法且不是此处列出的语言关键字。
+## [br]
+## @api private
 static func _is_valid_gdscript_identifier(value: String) -> bool:
 	if not value.is_valid_identifier():
 		return false
@@ -1048,6 +1177,10 @@ static func _is_valid_gdscript_identifier(value: String) -> bool:
 			return true
 
 
+## 组装 manifest 报告并深复制记录、issue 与跳过记录集合。
+## 未指定状态时按 ok 和 skipped_records 推导 invalid、degraded 或 valid。
+## [br]
+## @api private
 static func _make_report(
 	ok: bool,
 	source_path: String,
@@ -1078,6 +1211,9 @@ static func _make_report(
 	}
 
 
+## 组装 manifest issue 字典；空的 field、actual_value 和 source_id 不加入结果。
+## [br]
+## @api private
 static func _make_issue(
 	kind: String,
 	path: String,

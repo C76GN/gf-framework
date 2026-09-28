@@ -16,16 +16,42 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 构造及重建扩展 preset 的脚本。
+## [br]
+## @api private
 const _GF_EXTENSION_PRESET_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_preset.gd")
+
+## 规范化 preset JSON 资源路径的辅助脚本。
+## [br]
+## @api private
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+## 读取快照、签名和报告字典字段的 Variant 访问辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 创建共享 JSON 预算并计算 preset 文件签名的辅助脚本。
+## [br]
+## @api private
 const _GF_EXTENSION_JSON_FILE_READER_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_json_file_reader.gd")
 
 
 # --- 私有变量 ---
 
+## 最近一次写入的 preset 发现快照。
+## [br]
+## @api private
 static var _snapshot_cache: Dictionary = {}
+
+## 标记当前是否有可读取的发现快照。
+## [br]
+## @api private
 static var _has_snapshot_cache: bool = false
+
+## 每次写入快照时递增的缓存修订号。
+## [br]
+## @api private
 static var _cache_revision: int = 0
 
 
@@ -148,6 +174,9 @@ static func make_discovery_signature(
 
 # --- 私有/辅助方法 ---
 
+## 先纳入内置预设，再在共享 JSON 预算内按配置顺序读取项目预设；非法内容记为 invalid，重复路径或 ID 记为 skipped，保留可用项及完整问题报告。
+## [br]
+## @api private
 static func _make_snapshot(
 	manifests: Array[GFExtensionManifest],
 	configured_paths: Array[String],
@@ -241,6 +270,9 @@ static func _make_snapshot(
 	}
 
 
+## 以递增缓存版本存储预设快照副本，并在整体替换完成后标记缓存有效。
+## [br]
+## @api private
 static func _store_snapshot(snapshot: Dictionary) -> void:
 	_cache_revision += 1
 	var stored_snapshot: Dictionary = _duplicate_snapshot(snapshot)
@@ -249,12 +281,18 @@ static func _store_snapshot(snapshot: Dictionary) -> void:
 	_has_snapshot_cache = true
 
 
+## 仅当当前 hash 非空且与缓存中的 signature_hash 相同时返回 true。
+## [br]
+## @api private
 static func _snapshot_matches_signature(signature: Dictionary) -> bool:
 	var current_hash: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(signature, "hash")
 	var cached_hash: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(_snapshot_cache, "signature_hash")
 	return not current_hash.is_empty() and current_hash == cached_hash
 
 
+## 复制快照容器并重建预设资源副本及规范类型字段，填补计数默认值；report 与 signature 通过共享字典访问器取回，不额外保证深层隔离。
+## [br]
+## @api private
 static func _duplicate_snapshot(snapshot: Dictionary) -> Dictionary:
 	var result: Dictionary = snapshot.duplicate(true)
 	result["presets"] = _duplicate_preset_array(_get_preset_array_from_value(
@@ -272,6 +310,9 @@ static func _duplicate_snapshot(snapshot: Dictionary) -> Dictionary:
 	return result
 
 
+## 构造默认选择、全部关闭和全部扩展三个内置 preset。
+## [br]
+## @api private
 static func _get_builtin_extension_presets(
 	manifests: Array[GFExtensionManifest]
 ) -> Array[GFExtensionPreset]:
@@ -300,10 +341,16 @@ static func _get_builtin_extension_presets(
 	return presets
 
 
+## 将字典交给 GFExtensionPreset.from_dictionary() 创建实例。
+## [br]
+## @api private
 static func _make_extension_preset(data: Dictionary) -> GFExtensionPreset:
 	return _GF_EXTENSION_PRESET_SCRIPT.from_dictionary(data)
 
 
+## 跳过 null 项，并逐项调用 preset 重建辅助方法。
+## [br]
+## @api private
 static func _duplicate_preset_array(presets: Array[GFExtensionPreset]) -> Array[GFExtensionPreset]:
 	var result: Array[GFExtensionPreset] = []
 	for preset: GFExtensionPreset in presets:
@@ -313,10 +360,16 @@ static func _duplicate_preset_array(presets: Array[GFExtensionPreset]) -> Array[
 	return result
 
 
+## 通过 preset 字典表示和来源路径重新构造一个 preset 实例。
+## [br]
+## @api private
 static func _duplicate_preset(preset: GFExtensionPreset) -> GFExtensionPreset:
 	return _GF_EXTENSION_PRESET_SCRIPT.from_dictionary(preset.to_dictionary(), preset.source_path)
 
 
+## 跳过 null 项，并为其余 manifest 调用 duplicate_manifest() 后返回新数组。
+## [br]
+## @api private
 static func _duplicate_manifest_array(manifests: Array[GFExtensionManifest]) -> Array[GFExtensionManifest]:
 	var result: Array[GFExtensionManifest] = []
 	for manifest: GFExtensionManifest in manifests:
@@ -326,6 +379,9 @@ static func _duplicate_manifest_array(manifests: Array[GFExtensionManifest]) -> 
 	return result
 
 
+## 仅当 Variant 是 Array 时筛选并返回其中的 GFExtensionPreset 项。
+## [br]
+## @api private
 static func _get_preset_array_from_value(value: Variant) -> Array[GFExtensionPreset]:
 	var result: Array[GFExtensionPreset] = []
 	if not (value is Array):
@@ -339,6 +395,9 @@ static func _get_preset_array_from_value(value: Variant) -> Array[GFExtensionPre
 	return result
 
 
+## 收集 enabled_by_default 为 true 的 manifest ID 并返回排序去重结果。
+## [br]
+## @api private
 static func _get_default_enabled_extension_ids_from_manifests(
 	manifests: Array[GFExtensionManifest]
 ) -> Array[String]:
@@ -349,6 +408,9 @@ static func _get_default_enabled_extension_ids_from_manifests(
 	return _sorted_unique(ids)
 
 
+## 收集非空 manifest ID 并返回排序去重结果。
+## [br]
+## @api private
 static func _get_all_extension_ids_from_manifests(manifests: Array[GFExtensionManifest]) -> Array[String]:
 	var ids: Array[String] = []
 	for manifest: GFExtensionManifest in manifests:
@@ -358,6 +420,9 @@ static func _get_all_extension_ids_from_manifests(manifests: Array[GFExtensionMa
 	return _sorted_unique(ids)
 
 
+## 将未识别的启用扩展 ID 转成校验错误追加到 errors。
+## [br]
+## @api private
 static func _append_unknown_preset_extension_id_errors(
 	errors: Array[String],
 	extension_ids: Array[String],
@@ -367,6 +432,9 @@ static func _append_unknown_preset_extension_id_errors(
 		errors.append("extension_ids contains unknown extension id: %s" % extension_id)
 
 
+## 去空格后排除内置 ID 与 manifest 映射已知 ID，排序返回其余唯一 ID。
+## [br]
+## @api private
 static func _get_unknown_enabled_ids(extension_ids: Array[String], manifest_by_id: Dictionary) -> Array[String]:
 	var result: Array[String] = []
 	for extension_id: String in extension_ids:
@@ -379,6 +447,9 @@ static func _get_unknown_enabled_ids(extension_ids: Array[String], manifest_by_i
 	return result
 
 
+## 按 manifest ID 建立映射；跳过 null、空 ID 和已加入的重复 ID。
+## [br]
+## @api private
 static func _build_manifest_map(manifests: Array[GFExtensionManifest]) -> Dictionary:
 	var result: Dictionary = {}
 	for manifest: GFExtensionManifest in manifests:
@@ -388,6 +459,9 @@ static func _build_manifest_map(manifests: Array[GFExtensionManifest]) -> Dictio
 	return result
 
 
+## 将非 null 且 ID 非空的 preset ID 收集为键值为 true 的字典。
+## [br]
+## @api private
 static func _build_preset_id_lookup(presets: Array[GFExtensionPreset]) -> Dictionary:
 	var result: Dictionary = {}
 	for preset: GFExtensionPreset in presets:
@@ -396,6 +470,9 @@ static func _build_preset_id_lookup(presets: Array[GFExtensionPreset]) -> Dictio
 	return result
 
 
+## 将 preset 的标识、显示名、来源、扩展 ID 和标签组装为报告项。
+## [br]
+## @api private
 static func _preset_to_report_record(preset: GFExtensionPreset, source_kind: String) -> Dictionary:
 	if preset == null:
 		return {}
@@ -409,6 +486,9 @@ static func _preset_to_report_record(preset: GFExtensionPreset, source_kind: Str
 	}
 
 
+## 组装包含 preset ID、来源路径和错误数组副本的问题记录。
+## [br]
+## @api private
 static func _make_preset_issue_record(
 	source_path: String,
 	preset_id: StringName,
@@ -421,6 +501,9 @@ static func _make_preset_issue_record(
 	}
 
 
+## 组装包含 preset ID、来源路径和跳过原因的记录。
+## [br]
+## @api private
 static func _make_preset_skip_record(
 	source_path: String,
 	preset_id: StringName,
@@ -433,6 +516,9 @@ static func _make_preset_skip_record(
 	}
 
 
+## 规范化 preset 路径，并保留首次出现的非空、支持格式路径。
+## [br]
+## @api private
 static func _normalize_extension_preset_paths(preset_paths: Array[String]) -> Array[String]:
 	var result: Array[String] = []
 	for preset_path: String in preset_paths:
@@ -447,10 +533,16 @@ static func _normalize_extension_preset_paths(preset_paths: Array[String]) -> Ar
 	return result
 
 
+## 判断路径以 res:// 开头且扩展名不区分大小写为 json。
+## [br]
+## @api private
 static func _extension_preset_path_is_supported(path: String) -> bool:
 	return path.begins_with("res://") and path.get_extension().to_lower() == "json"
 
 
+## 深复制 JSON 读取选项，再以 preset 专用错误文案覆盖对应读取器选项。
+## [br]
+## @api private
 static func _make_preset_json_reader_options(options: Dictionary = {}) -> Dictionary:
 	var reader_options: Dictionary = options.duplicate(true)
 	reader_options.merge({
@@ -463,6 +555,9 @@ static func _make_preset_json_reader_options(options: Dictionary = {}) -> Dictio
 	return reader_options
 
 
+## 为非 null manifest 生成 ID、默认启用值和来源路径 token，并排序结果。
+## [br]
+## @api private
 static func _make_manifest_tokens(manifests: Array[GFExtensionManifest]) -> Array[String]:
 	var tokens: Array[String] = []
 	for manifest: GFExtensionManifest in manifests:
@@ -477,6 +572,9 @@ static func _make_manifest_tokens(manifests: Array[GFExtensionManifest]) -> Arra
 	return tokens
 
 
+## 去除字符串首尾空白、空项和重复项，再对结果排序。
+## [br]
+## @api private
 static func _sorted_unique(values: Array[String]) -> Array[String]:
 	var result: Array[String] = []
 	for value: String in values:
@@ -488,5 +586,8 @@ static func _sorted_unique(values: Array[String]) -> Array[String]:
 	return result
 
 
+## 判断 ID 是否等于 GF 内置的 gf.kernel 或 gf.standard。
+## [br]
+## @api private
 static func _is_builtin_extension_id(extension_id: String) -> bool:
 	return extension_id == "gf.kernel" or extension_id == "gf.standard"

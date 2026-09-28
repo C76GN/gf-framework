@@ -333,6 +333,10 @@ static func from_dict(data: Dictionary, json_compatible: bool = false) -> GFRequ
 
 # --- 私有/辅助方法 ---
 
+## 优先用当前脚本动态创建同类请求描述；失败或类型不符时回退到基类实例。
+## [br]
+## @api private
+## [br]
 func _new_envelope_instance() -> GFRequestEnvelope:
 	var envelope_script: Script = _variant_to_script(get_script())
 	if envelope_script != null:
@@ -342,6 +346,10 @@ func _new_envelope_instance() -> GFRequestEnvelope:
 	return GFRequestEnvelope.new()
 
 
+## 仅当 Variant 实际为 Script 时返回其强类型引用。
+## [br]
+## @api private
+## [br]
 func _variant_to_script(value: Variant) -> Script:
 	if value is Script:
 		var script: Script = value
@@ -349,6 +357,10 @@ func _variant_to_script(value: Variant) -> Script:
 	return null
 
 
+## 仅当 Variant 实际为 GFRequestEnvelope 时返回其强类型引用。
+## [br]
+## @api private
+## [br]
 func _variant_to_envelope(value: Variant) -> GFRequestEnvelope:
 	if value is GFRequestEnvelope:
 		var envelope: GFRequestEnvelope = value
@@ -356,6 +368,10 @@ func _variant_to_envelope(value: Variant) -> GFRequestEnvelope:
 	return null
 
 
+## 将 PackedStringArray 中的请求头按原顺序复制到普通字符串数组。
+## [br]
+## @api private
+## [br]
 func _headers_to_array() -> Array[String]:
 	var result: Array[String] = []
 	for header: String in headers:
@@ -363,6 +379,10 @@ func _headers_to_array() -> Array[String]:
 	return result
 
 
+## 从 PackedStringArray 复制请求头，或将普通数组元素转为文本后收集。
+## [br]
+## @api private
+## [br]
 func _headers_from_variant(value: Variant) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	if value is PackedStringArray:
@@ -375,5 +395,9 @@ func _headers_from_variant(value: Variant) -> PackedStringArray:
 	return result
 
 
+## 返回系统 Unix 时间的毫秒整数值。
+## [br]
+## @api private
+## [br]
 func _get_unix_time_msec() -> int:
 	return int(Time.get_unix_time_from_system() * 1000.0)

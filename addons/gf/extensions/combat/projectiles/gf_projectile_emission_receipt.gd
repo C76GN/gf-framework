@@ -24,16 +24,59 @@ enum State {
 
 # --- 私有变量 ---
 
+## 保存 deferred receipt 的当前单向状态。
+## [br]
+## @api private
 var _state: State = State.COMMITTED_UNPUBLISHED
+
+## 保存负责发布或补偿本次 deferred commit 的策略。
+## [br]
+## @api private
 var _policy: GFProjectileEmissionPolicy = null
+
+## 以弱引用保存发起提交的 emitter；使用前重新解析节点有效性。
+## [br]
+## @api private
 var _emitter_ref: WeakRef = null
+
+## 保存初始化时复制的准备报告，供后续策略发布使用。
+## [br]
+## @api private
 var _prepare_report: Dictionary = {}
+
+## 保存 receipt 对应的实际激活数量。
+## [br]
+## @api private
 var _emitted_count: int = 0
+
+## 保存同一策略实例提交前捕获的状态快照，供尚未激活时补偿。
+## [br]
+## @api private
 var _policy_snapshot: Dictionary = {}
+
+## 保存策略 deferred commit 后的状态代际，用于发布和补偿校验。
+## [br]
+## @api private
 var _committed_generation: int = -1
+
+## 标记 receipt 是否已完成一次有效初始化。
+## [br]
+## @api private
 var _initialized: bool = false
+
+## 标记当前是否正在执行发布或补偿结算。
+## [br]
+## @api private
 var _settlement_in_progress: bool = false
+
+## 记录发布路径是否已经尝试，避免再次发布。
+## [br]
+## @api private
 var _publish_attempted: bool = false
+
+## 记录补偿路径是否已经尝试，避免重复恢复策略状态。
+## [br]
+## @api private
 var _compensation_attempted: bool = false
 
 
@@ -194,6 +237,9 @@ func initialize_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 从弱引用取回仍存活且未排队删除的节点。
+## [br]
+## @api private
 func _node_from_ref(weak_reference: WeakRef) -> Node:
 	if weak_reference == null:
 		return null

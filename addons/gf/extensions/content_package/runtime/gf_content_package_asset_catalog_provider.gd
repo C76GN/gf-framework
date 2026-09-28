@@ -14,12 +14,22 @@ extends GFAssetCatalogSourceProvider
 
 # --- 常量 ---
 
+## 提供资产预览路径的归一化与包根目录边界检查。
+## [br]
+## @api private
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 
 
 # --- 私有变量 ---
 
+## Provider 持有的内容包目录快照；配置时从输入目录复制。
+## [br]
+## @api private
 var _content_catalog: GFContentPackageCatalog = GFContentPackageCatalog.new()
+
+## Provider 持有的查询副本；未传查询时使用空查询。
+## [br]
+## @api private
 var _query: GFContentPackageQuery = GFContentPackageQuery.new()
 
 
@@ -100,6 +110,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 将一个 manifest 资源记录转换为资产目录项，并附加内容包来源元数据。
+## [br]
+## @api private
 func _make_asset_entry(
 	manifest: GFContentPackageManifest,
 	resource_record: Dictionary,
@@ -140,6 +153,9 @@ func _make_asset_entry(
 	)
 
 
+## 返回调用方配置的字段名列表；未配置时使用该字段的默认候选名。
+## [br]
+## @api private
 static func _get_field_names(options: Dictionary, key: String, defaults: Array[String]) -> PackedStringArray:
 	var result: PackedStringArray = GFVariantData.get_option_packed_string_array(options, key)
 	if not result.is_empty():
@@ -149,6 +165,9 @@ static func _get_field_names(options: Dictionary, key: String, defaults: Array[S
 	return result
 
 
+## 按候选顺序返回首个非空文本 metadata 值，并裁去首尾空白。
+## [br]
+## @api private
 static func _get_first_text(metadata: Dictionary, field_names: PackedStringArray) -> String:
 	for field_name: String in field_names:
 		if not metadata.has(field_name):
@@ -161,6 +180,9 @@ static func _get_first_text(metadata: Dictionary, field_names: PackedStringArray
 	return ""
 
 
+## 从指定 metadata 字段收集文本标签，去重后按字典序返回。
+## [br]
+## @api private
 static func _get_tags(metadata: Dictionary, field_names: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for field_name: String in field_names:
@@ -179,11 +201,17 @@ static func _get_tags(metadata: Dictionary, field_names: PackedStringArray) -> P
 	return result
 
 
+## 将 PackedStringArray 中的标签逐项交给统一归一化逻辑。
+## [br]
+## @api private
 static func _append_tags(result: PackedStringArray, tags: PackedStringArray) -> void:
 	for tag: String in tags:
 		_append_tag(result, tag)
 
 
+## 去除标签首尾空白，仅追加非空且尚未出现的值。
+## [br]
+## @api private
 static func _append_tag(result: PackedStringArray, tag: String) -> void:
 	var normalized_tag: String = tag.strip_edges()
 	if normalized_tag.is_empty() or result.has(normalized_tag):
@@ -191,6 +219,9 @@ static func _append_tag(result: PackedStringArray, tag: String) -> void:
 	var _tag_appended: bool = result.append(normalized_tag)
 
 
+## 将 StringName 转为 String、保留 String，其余值映射为空串。
+## [br]
+## @api private
 static func _text_from_variant(value: Variant) -> String:
 	if value is String:
 		var text_value: String = value
@@ -201,6 +232,9 @@ static func _text_from_variant(value: Variant) -> String:
 	return ""
 
 
+## 归一化可选预览路径；相对路径拼到包根目录，越界或无有效根目录时返回空串。
+## [br]
+## @api private
 static func _normalize_package_optional_path(path: String, root_path: String) -> String:
 	var normalized_path: String = _GF_PATH_TOOLS.normalize_resource_path(path)
 	if normalized_path.is_empty() or root_path.is_empty():

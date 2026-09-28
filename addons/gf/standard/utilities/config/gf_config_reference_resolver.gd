@@ -148,6 +148,10 @@ static func resolve_record_references(
 
 # --- 私有/辅助方法 ---
 
+## 按 schema 检查表记录中的引用关系并累积验证报告。
+## [br]
+## @api private
+## [br]
 static func _validate_schema_references(
 	schema: GFConfigTableSchema,
 	tables_by_name: Dictionary,
@@ -225,6 +229,10 @@ static func _validate_schema_references(
 				)
 
 
+## 校验数组行中一个字段引用定义的目标记录。
+## [br]
+## @api private
+## [br]
 static func _validate_array_reference(
 	reference_definition: GFConfigTableReference,
 	table_name: StringName,
@@ -271,6 +279,10 @@ static func _validate_array_reference(
 			)
 
 
+## 检查字段值是否可作为引用元素，按参数决定是否允许 null。
+## [br]
+## @api private
+## [br]
 static func _is_reference_element(value: Variant, allow_null_values: bool) -> bool:
 	if value == null:
 		return allow_null_values
@@ -280,6 +292,10 @@ static func _is_reference_element(value: Variant, allow_null_values: bool) -> bo
 	return value is bool or value is int or value is String or value is StringName
 
 
+## 按 table key 建立非空 schema 的查找字典。
+## [br]
+## @api private
+## [br]
 static func _build_schema_lookup(schemas: Array[GFConfigTableSchema]) -> Dictionary:
 	var result: Dictionary = {}
 	for schema: GFConfigTableSchema in schemas:
@@ -288,6 +304,10 @@ static func _build_schema_lookup(schemas: Array[GFConfigTableSchema]) -> Diction
 	return result
 
 
+## 获取目标表指定字段组合对应的引用索引。
+## [br]
+## @api private
+## [br]
 static func _get_reference_index(
 	target_table: Variant,
 	table_name: StringName,
@@ -306,6 +326,10 @@ static func _get_reference_index(
 	return index
 
 
+## 为引用字段名数组构造可区分的索引键。
+## [br]
+## @api private
+## [br]
 static func _make_reference_index_field_key(field_names: PackedStringArray) -> String:
 	var encoded_fields: PackedStringArray = PackedStringArray()
 	var _field_count_appended: bool = encoded_fields.append("%d:" % field_names.size())
@@ -316,10 +340,18 @@ static func _make_reference_index_field_key(field_names: PackedStringArray) -> S
 	return "".join(encoded_fields)
 
 
+## 按表名读取并类型校验 schema 查找结果。
+## [br]
+## @api private
+## [br]
 static func _get_schema_by_name(schemas_by_name: Dictionary, table_name: StringName) -> GFConfigTableSchema:
 	return _variant_to_table_schema(GFVariantData.get_option_value(schemas_by_name, table_name))
 
 
+## 按表名读取数据表；缺失时返回提供的默认值。
+## [br]
+## @api private
+## [br]
 static func _get_table_by_name(
 	tables_by_name: Dictionary,
 	table_name: StringName,
@@ -328,18 +360,34 @@ static func _get_table_by_name(
 	return GFVariantData.get_option_value(tables_by_name, table_name, default_value)
 
 
+## 从索引中读取对应键的记录条目数组。
+## [br]
+## @api private
+## [br]
 static func _get_index_records(index: Dictionary, key: String) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(index, key, []))
 
 
+## 从标准化行条目读取 record 字典。
+## [br]
+## @api private
+## [br]
 static func _get_row_record(row_entry: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(row_entry, "record", {}))
 
 
+## 从标准化行条目读取稳定 row_key。
+## [br]
+## @api private
+## [br]
 static func _get_row_key(row_entry: Dictionary) -> Variant:
 	return GFVariantData.get_option_value(row_entry, "row_key")
 
 
+## 将数组表或字典表规范化为统一的行条目数组。
+## [br]
+## @api private
+## [br]
 static func _normalize_rows(table_data: Variant, id_field: StringName = &"id") -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	if table_data is Array:
@@ -369,6 +417,10 @@ static func _normalize_rows(table_data: Variant, id_field: StringName = &"id") -
 	return rows
 
 
+## 将指定字段值组合成引用索引使用的键。
+## [br]
+## @api private
+## [br]
 static func _make_key(record: Dictionary, field_names: PackedStringArray, allow_null_values: bool) -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	for field_name: String in field_names:
@@ -382,10 +434,18 @@ static func _make_key(record: Dictionary, field_names: PackedStringArray, allow_
 	return "|".join(parts)
 
 
+## 创建空的配置验证报告字典。
+## [br]
+## @api private
+## [br]
 static func _make_report() -> Dictionary:
 	return GFConfigValidationReport.new().make_report()
 
 
+## 将单条问题追加到验证报告。
+## [br]
+## @api private
+## [br]
 static func _add_issue(
 	report: Dictionary,
 	severity: String,
@@ -399,20 +459,36 @@ static func _add_issue(
 	GFConfigValidationReport.new().add_issue(report, severity, kind, table_name, row_key, field_name, message, context)
 
 
+## 通过 GFConfigValidationReport 合并来源报告。
+## [br]
+## @api private
+## [br]
 static func _merge_report(target: Dictionary, source: Dictionary) -> void:
 	GFConfigValidationReport.new().merge_report(target, source, true)
 
 
+## 完成验证报告的计数与汇总字段。
+## [br]
+## @api private
+## [br]
 static func _finalize_report(report: Dictionary) -> void:
 	GFConfigValidationReport.new().finalize_report(report)
 
 
+## 读取字段名数组首项；数组为空时返回空 StringName。
+## [br]
+## @api private
+## [br]
 static func _first_field(fields: PackedStringArray) -> StringName:
 	if fields.is_empty():
 		return &""
 	return StringName(fields[0])
 
 
+## 仅当 Variant 值为 GFConfigTableSchema 时返回该 schema。
+## [br]
+## @api private
+## [br]
 static func _variant_to_table_schema(value: Variant) -> GFConfigTableSchema:
 	if value is GFConfigTableSchema:
 		var schema: GFConfigTableSchema = value

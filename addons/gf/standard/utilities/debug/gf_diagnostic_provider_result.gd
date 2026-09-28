@@ -15,16 +15,49 @@ extends RefCounted
 
 # --- 常量 ---
 
+## Provider 错误码允许保留的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_ERROR_CODE_LENGTH: int = 128
+
+## Provider 错误说明允许保留的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_ERROR_MESSAGE_LENGTH: int = 1024
 
 
 # --- 私有变量 ---
 
+## 标记此结果是否由 succeeded 创建为成功结果。
+## [br]
+## @api private
+## [br]
 var _successful: bool = false
+
+## 保存成功结果携带的 Provider 临时值。
+## [br]
+## @api private
+## [br]
 var _value: Variant = null
+
+## 保存失败结果归一化后的错误码。
+## [br]
+## @api private
+## [br]
 var _error_code: StringName = &""
+
+## 保存失败结果中截断后的错误说明。
+## [br]
+## @api private
+## [br]
 var _error_message: String = ""
+
+## 保存创建结果时提供的元数据字典。
+## [br]
+## @api private
+## [br]
 var _metadata: Dictionary = {}
 
 
@@ -151,5 +184,9 @@ func get_metadata() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 经 GFVariantData.duplicate_variant 处理输入后，将结果归一为 Dictionary。
+## [br]
+## @api private
+## [br]
 static func _duplicate_dictionary(value: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.duplicate_variant(value))

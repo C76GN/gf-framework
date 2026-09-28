@@ -165,6 +165,9 @@ func to_dict() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按成功状态、已有原因及接受数量确定标准操作原因。
+## [br]
+## @api private
 static func _normalize_reason(
 	is_ok: bool,
 	accepted: int,

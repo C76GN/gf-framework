@@ -14,6 +14,10 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 验证输入帧 payload 传输安全性的脚本资源。
+## [br]
+## @api private
+## [br]
 const _TRANSPORT_VALUE_VALIDATOR = preload("res://addons/gf/extensions/network/runtime/gf_network_transport_value_validator.gd")
 
 
@@ -152,6 +156,10 @@ func validate_frame(options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 封装成功标志、错误、路径和 payload 字节数的校验报告。
+## [br]
+## @api private
+## [br]
 func _make_validation_report(
 	ok: bool,
 	error: String,

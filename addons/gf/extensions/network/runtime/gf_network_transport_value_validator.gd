@@ -4,7 +4,16 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 传输值递归校验的默认深度上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_DEPTH: int = 16
+
+## 传输值递归校验的默认节点数上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_NODES: int = 1024
 
 
@@ -47,6 +56,9 @@ static func validate(value: Variant, options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 递归验证可传输类型、有限数值、键类型及深度、节点和字节预算，返回首个带路径的问题；当前链上的容器重复视为环，成功返回空字典。
+## [br]
+## @api private
 static func _validate_value(
 	value: Variant,
 	state: Dictionary,
@@ -126,6 +138,10 @@ static func _validate_value(
 	return {}
 
 
+## 检测带 Object、Callable、Signal 或 RID 内建类型的容器。
+## [br]
+## @api private
+## [br]
 static func _has_unsafe_container_type(value: Variant) -> bool:
 	var unsafe_types: Array[int] = [TYPE_OBJECT, TYPE_CALLABLE, TYPE_SIGNAL, TYPE_RID]
 	if value is Array:
@@ -140,6 +156,10 @@ static func _has_unsafe_container_type(value: Variant) -> bool:
 	return false
 
 
+## 将值的保守字节估算计入状态，并检查可选字节预算。
+## [br]
+## @api private
+## [br]
 static func _consume_bytes(value: Variant, state: Dictionary) -> bool:
 	var max_bytes: int = GFVariantData.get_option_int(state, "max_bytes")
 	if max_bytes <= 0:
@@ -164,6 +184,10 @@ static func _consume_bytes(value: Variant, state: Dictionary) -> bool:
 	return true
 
 
+## 检查 NodePath 名称和子名称总数是否未超过预算。
+## [br]
+## @api private
+## [br]
 static func _node_path_fits_budget(path: NodePath, budget: int) -> bool:
 	var name_count: int = path.get_name_count()
 	var subname_count: int = path.get_subname_count()
@@ -182,15 +206,27 @@ static func _node_path_fits_budget(path: NodePath, budget: int) -> bool:
 	return used <= budget
 
 
+## 仅允许 String、StringName 或 int 作为传输字典键。
+## [br]
+## @api private
+## [br]
 static func _is_transport_dictionary_key(value: Variant) -> bool:
 	return value is String or value is StringName or typeof(value) == TYPE_INT
 
 
+## 检查数值转换结果不是 NaN 或无穷大。
+## [br]
+## @api private
+## [br]
 static func _is_finite_number(value: Variant) -> bool:
 	var number: float = GFVariantData.to_float(value)
 	return not is_nan(number) and not is_inf(number)
 
 
+## 检查向量和颜色等复合数值的各分量均为有限数。
+## [br]
+## @api private
+## [br]
 static func _is_finite_composite(value: Variant) -> bool:
 	match typeof(value):
 		TYPE_VECTOR2:
@@ -260,6 +296,10 @@ static func _is_finite_composite(value: Variant) -> bool:
 	return true
 
 
+## 检查值是否属于校验器支持的 Packed 数组类型。
+## [br]
+## @api private
+## [br]
 static func _is_packed_array(value: Variant) -> bool:
 	return typeof(value) in [
 		TYPE_PACKED_BYTE_ARRAY,
@@ -275,6 +315,10 @@ static func _is_packed_array(value: Variant) -> bool:
 	]
 
 
+## 按 Packed 数组具体类型读取元素数。
+## [br]
+## @api private
+## [br]
 static func _get_packed_array_size(value: Variant) -> int:
 	match typeof(value):
 		TYPE_PACKED_BYTE_ARRAY:
@@ -310,6 +354,10 @@ static func _get_packed_array_size(value: Variant) -> int:
 	return 0
 
 
+## 按 Packed 数组具体类型读取指定索引的元素。
+## [br]
+## @api private
+## [br]
 static func _get_packed_array_value(value: Variant, index: int) -> Variant:
 	match typeof(value):
 		TYPE_PACKED_BYTE_ARRAY:
@@ -345,6 +393,10 @@ static func _get_packed_array_value(value: Variant, index: int) -> Variant:
 	return null
 
 
+## 按引用身份检查容器是否已在当前遍历路径中。
+## [br]
+## @api private
+## [br]
 static func _visited_contains(state: Dictionary, value: Variant) -> bool:
 	for existing: Variant in _get_visited(state):
 		if is_same(existing, value):
@@ -352,10 +404,18 @@ static func _visited_contains(state: Dictionary, value: Variant) -> bool:
 	return false
 
 
+## 读取递归状态中用于循环检测的容器路径数组。
+## [br]
+## @api private
+## [br]
 static func _get_visited(state: Dictionary) -> Array:
 	return GFVariantData.get_option_array(state, "visited")
 
 
+## 构造包含错误标识和出错路径的校验结果。
+## [br]
+## @api private
+## [br]
 static func _make_issue(error: String, path: String) -> Dictionary:
 	return {
 		"error": error,

@@ -14,7 +14,16 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 将冲突条目中的输入事件序列化为记录。
+## [br]
+## @api private
+## [br]
 const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_input_event_tools.gd")
+
+## 将输入事件转换为用于冲突比较的稳定身份键。
+## [br]
+## @api private
+## [br]
 const _INPUT_EVENT_IDENTITY = preload("res://addons/gf/standard/input/common/gf_input_event_identity.gd")
 
 
@@ -183,6 +192,11 @@ static func are_events_equivalent(
 
 # --- 私有/辅助方法 ---
 
+## 遍历上下文中的映射和绑定，应用可用的重映射，并把有效事件条目追加到结果数组。
+## 不包含空映射、空绑定、空事件或无法生成事件键的绑定；也可按动作和绑定的 remappable 标记过滤。
+## [br]
+## @api private
+## [br]
 static func _collect_context_binding_items(
 	context: GFInputContext,
 	remap_config: GFInputRemapConfig,
@@ -229,6 +243,10 @@ static func _collect_context_binding_items(
 			})
 
 
+## 按事件和可选上下文分桶，再对每个桶内的条目两两检查并生成冲突记录。
+## [br]
+## @api private
+## [br]
 static func _analyze_items(items: Array[Dictionary], include_cross_context: bool) -> Array[Dictionary]:
 	var conflicts: Array[Dictionary] = []
 	var buckets: Dictionary = {}
@@ -257,6 +275,10 @@ static func _analyze_items(items: Array[Dictionary], include_cross_context: bool
 	return conflicts
 
 
+## 统计列表中非空的输入上下文。
+## [br]
+## @api private
+## [br]
 static func _count_contexts(contexts: Array[GFInputContext]) -> int:
 	var count: int = 0
 	for context: GFInputContext in contexts:
@@ -265,6 +287,11 @@ static func _count_contexts(contexts: Array[GFInputContext]) -> int:
 	return count
 
 
+## 判断两个条目的事件身份及设备范围是否重叠。
+## 事件键比较会处理摇杆轴方向通配符；任一设备范围为通配符时也视为冲突。
+## [br]
+## @api private
+## [br]
 static func _items_conflict(left: Dictionary, right: Dictionary) -> bool:
 	if not _event_keys_conflict(_get_item_event_key(left), _get_item_event_key(right)):
 		return false
@@ -274,6 +301,10 @@ static func _items_conflict(left: Dictionary, right: Dictionary) -> bool:
 	return left_device == "*" or right_device == "*" or left_device == right_device
 
 
+## 从左右条目提取冲突双方的标识、事件文本与签名，组装为公开报告使用的字典。
+## [br]
+## @api private
+## [br]
 static func _make_conflict(left: Dictionary, right: Dictionary) -> Dictionary:
 	return {
 		"context_id": String(_get_item_context_id(left)),
@@ -288,39 +319,75 @@ static func _make_conflict(left: Dictionary, right: Dictionary) -> Dictionary:
 	}
 
 
+## 读取条目的 context_id，并收窄为 StringName。
+## [br]
+## @api private
+## [br]
 static func _get_item_context_id(item: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(item, "context_id")
 
 
+## 读取条目的 action_id，并收窄为 StringName。
+## [br]
+## @api private
+## [br]
 static func _get_item_action_id(item: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(item, "action_id")
 
 
+## 读取条目的 binding_index，并收窄为 int。
+## [br]
+## @api private
+## [br]
 static func _get_item_binding_index(item: Dictionary) -> int:
 	return GFVariantData.get_option_int(item, "binding_index")
 
 
+## 读取条目的 event_key；缺少该字段时返回空字符串。
+## [br]
+## @api private
+## [br]
 static func _get_item_event_key(item: Dictionary) -> String:
 	return GFVariantData.get_option_string(item, "event_key")
 
 
+## 读取条目的 device_scope；缺少该字段时按通配范围 "*" 处理。
+## [br]
+## @api private
+## [br]
 static func _get_item_device_scope(item: Dictionary) -> String:
 	return GFVariantData.get_option_string(item, "device_scope", "*")
 
 
+## 读取条目的 event_text；缺少该字段时返回空字符串。
+## [br]
+## @api private
+## [br]
 static func _get_item_event_text(item: Dictionary) -> String:
 	return GFVariantData.get_option_string(item, "event_text")
 
 
+## 读取条目的 signature；缺少该字段时返回空字符串。
+## [br]
+## @api private
+## [br]
 static func _get_item_signature(item: Dictionary) -> String:
 	return GFVariantData.get_option_string(item, "signature")
 
 
+## 从事件身份工具取得输入事件的冲突键。
+## [br]
+## @api private
+## [br]
 static func _get_event_key(input_event: InputEvent) -> String:
 	var identity: GFInputEventIdentity = _INPUT_EVENT_IDENTITY.from_event(input_event)
 	return identity.conflict_key
 
 
+## 取得绑定对应的事件冲突键；摇杆轴事件会根据绑定的 value_target 附加正负方向。
+## [br]
+## @api private
+## [br]
 static func _get_binding_event_key(input_event: InputEvent, binding: GFInputBinding) -> String:
 	if input_event is InputEventJoypadMotion:
 		var identity: GFInputEventIdentity = _INPUT_EVENT_IDENTITY.from_event(input_event, {
@@ -330,6 +397,10 @@ static func _get_binding_event_key(input_event: InputEvent, binding: GFInputBind
 	return _get_event_key(input_event)
 
 
+## 把绑定的摇杆轴方向转换为身份工具使用的符号值：正向为 1、负向为 -1、未限定为 0。
+## [br]
+## @api private
+## [br]
 static func _get_joy_axis_sign_for_binding(binding: GFInputBinding) -> int:
 	var direction: String = _get_joy_axis_direction_for_binding(binding)
 	if direction == "+":
@@ -339,6 +410,10 @@ static func _get_joy_axis_sign_for_binding(binding: GFInputBinding) -> int:
 	return 0
 
 
+## 从绑定的 value_target 推导摇杆轴方向；空绑定或非正负轴目标返回通配符 "*"。
+## [br]
+## @api private
+## [br]
 static func _get_joy_axis_direction_for_binding(binding: GFInputBinding) -> String:
 	if binding == null:
 		return "*"
@@ -364,6 +439,10 @@ static func _get_joy_axis_direction_for_binding(binding: GFInputBinding) -> Stri
 	return "*"
 
 
+## 判断两个事件键是否冲突；一般键必须完全相同，摇杆轴键还允许方向通配符匹配同一轴。
+## [br]
+## @api private
+## [br]
 static func _event_keys_conflict(left_key: String, right_key: String) -> bool:
 	if left_key == right_key:
 		return true
@@ -378,6 +457,10 @@ static func _event_keys_conflict(left_key: String, right_key: String) -> bool:
 	return left_parts[2] == "*" or right_parts[2] == "*"
 
 
+## 为条目生成分桶键；事件键为空时返回空键，跨上下文关闭时会将 context_id 加入键前缀。
+## [br]
+## @api private
+## [br]
 static func _make_item_bucket_key(item: Dictionary, include_cross_context: bool) -> String:
 	var event_key: String = _get_item_event_key(item)
 	if event_key.is_empty():
@@ -388,6 +471,10 @@ static func _make_item_bucket_key(item: Dictionary, include_cross_context: bool)
 	return bucket_key
 
 
+## 生成事件分桶键；摇杆轴键按轴编号归桶，使不同方向及方向通配键进入同一比较桶。
+## [br]
+## @api private
+## [br]
 static func _make_event_bucket_key(event_key: String) -> String:
 	if not event_key.begins_with("joy_axis:"):
 		return event_key
@@ -397,6 +484,10 @@ static func _make_event_bucket_key(event_key: String) -> String:
 	return "joy_axis:%s" % parts[1]
 
 
+## 返回事件的设备范围；未要求精确匹配或事件为空时使用通配符 "*"，否则使用事件的 device 值。
+## [br]
+## @api private
+## [br]
 static func _get_device_scope(input_event: InputEvent, match_device: bool) -> String:
 	if input_event == null or not match_device:
 		return "*"

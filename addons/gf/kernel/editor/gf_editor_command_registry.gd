@@ -74,6 +74,10 @@ const STATUS_FAILED: StringName = &"failed"
 ## [br]
 ## @layer kernel/editor
 const GFEditorActionDefinitionBase = preload("res://addons/gf/kernel/editor/gf_editor_action_definition.gd")
+
+## 引用 Variant 安全读取工具，供注册记录和动态值字段的类型化读取。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -91,6 +95,9 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 以 action_id 为键保存已注册动作的内部记录；register、unregister 和 clear 负责更新或清空。
+## [br]
+## @api private
 var _records: Dictionary = {}
 
 
@@ -384,6 +391,9 @@ func get_debug_snapshot(context: Dictionary = {}, options: Dictionary = {}) -> D
 
 # --- 私有/辅助方法 ---
 
+## 把动作及 options 中的 group、source_id、sort_order 和 metadata 整理成注册记录，缺省项取自动作声明。
+## [br]
+## @api private
 func _make_record(action: GFEditorActionDefinitionBase, options: Dictionary) -> Dictionary:
 	var group: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(options, "group", action.group)
 	var source_id: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(options, "source_id", action.source_id)
@@ -398,6 +408,9 @@ func _make_record(action: GFEditorActionDefinitionBase, options: Dictionary) -> 
 	}
 
 
+## 构造统一动作结果字典，包含状态、动作 ID、替换标志、错误信息和来源 metadata。
+## [br]
+## @api private
 func _make_result(
 	ok: bool,
 	status: StringName,
@@ -418,6 +431,9 @@ func _make_result(
 	}
 
 
+## 筛出符合过滤条件的注册记录，递归复制后按动作排序键排列。
+## [br]
+## @api private
 func _get_sorted_records(filters: Dictionary) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	for record_value: Variant in _records.values():
@@ -430,6 +446,9 @@ func _get_sorted_records(filters: Dictionary) -> Array[Dictionary]:
 	return records
 
 
+## 仅在过滤器提供非空 group 或 source_id 时比较对应记录字段。
+## [br]
+## @api private
 func _record_matches_filters(record: Dictionary, filters: Dictionary) -> bool:
 	var expected_group: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(filters, "group")
 	if expected_group != &"" and _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(record, "group") != expected_group:
@@ -441,6 +460,9 @@ func _record_matches_filters(record: Dictionary, filters: Dictionary) -> bool:
 	return true
 
 
+## 动作无效时返回 valid=false；否则加入注册字段，并按选项附加可用性与调用报告。
+## [br]
+## @api private
 func _make_action_snapshot(record: Dictionary, context: Dictionary, options: Dictionary) -> Dictionary:
 	var action: GFEditorActionDefinitionBase = _record_action(record)
 	if action == null:
@@ -462,6 +484,9 @@ func _make_action_snapshot(record: Dictionary, context: Dictionary, options: Dic
 	return snapshot
 
 
+## 从记录中读取 action，仅接受 GFEditorActionDefinitionBase 实例，其他返回 null。
+## [br]
+## @api private
 func _record_action(record: Dictionary) -> GFEditorActionDefinitionBase:
 	var action_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(record, "action")
 	if action_value is GFEditorActionDefinitionBase:
@@ -470,6 +495,9 @@ func _record_action(record: Dictionary) -> GFEditorActionDefinitionBase:
 	return null
 
 
+## 依次按 group、sort_order、动作 label 和 action_id 的升序比较两条记录。
+## [br]
+## @api private
 func _sort_action_records_asc(left_value: Variant, right_value: Variant) -> bool:
 	var left: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(left_value)
 	var right: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(right_value)

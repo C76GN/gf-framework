@@ -32,7 +32,14 @@ signal value_changed(old_value: Variant, new_value: Variant)
 
 # --- 常量 ---
 
+## 用于从弱引用中解析仍有效的 Node。
+## [br]
+## @api private
 const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
+
+## 用于安全读取绑定元数据并复制或比较 Variant 值。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -54,9 +61,24 @@ var value: Variant:
 
 # --- 私有变量 ---
 
+## 当前存储的属性值。
+## [br]
+## @api private
 var _value: Variant
+
+## bind_to() 创建的节点绑定记录，保存节点弱引用及关联回调。
+## [br]
+## @api private
 var _node_bindings: Array[Dictionary] = []
+
+## 由节点绑定创建并由本属性负责断开的 value_changed 回调。
+## [br]
+## @api private
 var _owned_value_connections: Array[Callable] = []
+
+## 订阅回调、信号 Callable 与取消句柄之间的关联记录。
+## [br]
+## @api private
 var _subscription_bindings: Array[Dictionary] = []
 
 
@@ -473,25 +495,34 @@ func bind_to(node: Node, callable: Callable) -> void:
 # --- 私有/辅助方法 ---
 
 
+## 清理失效绑定后，以隔离的旧值和新值发出变化信号。
+## [br]
+## @api private
 func _emit_value_changed(old_value: Variant, new_value: Variant) -> void:
 	_prune_inactive_subscription_bindings()
 	_prune_invalid_node_bindings()
 	value_changed.emit(_copy_signal_payload(old_value), _copy_signal_payload(new_value))
 
 
+## 深复制集合类信号载荷；具体复制规则由 GFVariantAccess 提供。
+## [br]
+## @api private
 func _copy_signal_payload(source_value: Variant) -> Variant:
 	return _GF_VARIANT_ACCESS_SCRIPT.duplicate_collection(source_value, true)
 
 
-func _on_node_exited(node: Node, callable: Callable) -> void:
-	_disconnect_node_binding(node, callable)
-	_release_value_connection_if_unbound(callable)
 
 
+## 使用 GFVariantAccess 的值比较规则判断两个 Variant 是否相等。
+## [br]
+## @api private
 static func _are_values_equal(left: Variant, right: Variant) -> bool:
 	return _GF_VARIANT_ACCESS_SCRIPT.values_equal(left, right)
 
 
+## 将订阅句柄包装为无参取消 Callable；空或非活动句柄返回空 Callable。
+## [br]
+## @api private
 func _make_unsubscribe_callable(subscription_token: GFSubscriptionToken) -> Callable:
 	if subscription_token == null or not subscription_token.is_active():
 		return Callable()
@@ -499,6 +530,9 @@ func _make_unsubscribe_callable(subscription_token: GFSubscriptionToken) -> Call
 		var _cancelled: bool = subscription_token.cancel()
 
 
+## 注册普通 Callable 订阅并返回取消句柄，可选地立即用当前值调用回调。
+## [br]
+## @api private
 func _subscribe_callable_token(callback: Callable, emit_current: bool) -> GFSubscriptionToken:
 	_prune_inactive_subscription_bindings()
 	var signal_callback: Callable = func(old_value: Variant, new_value: Variant) -> void:
@@ -515,6 +549,9 @@ func _subscribe_callable_token(callback: Callable, emit_current: bool) -> GFSubs
 	return subscription_token
 
 
+## 为 owner 生命周期注册 Callable 订阅，并可选地立即用当前值调用回调。
+## [br]
+## @api private
 func _subscribe_owned_callable_token(owner: Object, callback: Callable, emit_current: bool) -> GFLifetimeSubscription:
 	_prune_inactive_subscription_bindings()
 	var owner_id: int = owner.get_instance_id()
@@ -535,6 +572,9 @@ func _subscribe_owned_callable_token(owner: Object, callback: Callable, emit_cur
 	return subscription_token
 
 
+## 以 owner 的弱引用和方法名注册生命周期订阅，可选地立即调用该方法。
+## [br]
+## @api private
 func _subscribe_owner_method_token(owner: Object, method_name: StringName, emit_current: bool) -> GFLifetimeSubscription:
 	_prune_inactive_subscription_bindings()
 	var owner_id: int = owner.get_instance_id()
@@ -552,6 +592,9 @@ func _subscribe_owner_method_token(owner: Object, method_name: StringName, emit_
 	return subscription_token
 
 
+## 建立取消回调、连接变化信号，并记录订阅元数据。
+## [br]
+## @api private
 func _register_subscription(
 	binding: Dictionary,
 	signal_callback: Callable,
@@ -578,6 +621,9 @@ func _register_subscription(
 	return subscription_token
 
 
+## 注册 owner 生命周期订阅，并返回对应的生命周期句柄。
+## [br]
+## @api private
 func _register_lifetime_subscription(
 	owner: Object,
 	binding: Dictionary,
@@ -591,12 +637,18 @@ func _register_lifetime_subscription(
 	return GFLifetimeSubscription.new()
 
 
+## 断开指定订阅回调并移除其关联记录。
+## [br]
+## @api private
 func _cancel_subscription(signal_callback: Callable) -> void:
 	if signal_callback.is_valid() and value_changed.is_connected(signal_callback):
 		value_changed.disconnect(signal_callback)
 	_remove_subscription_binding_by_signal_callable(signal_callback)
 
 
+## 遍历订阅记录并取消已失效句柄对应的信号回调。
+## [br]
+## @api private
 func _prune_inactive_subscription_bindings() -> void:
 	for binding: Dictionary in _subscription_bindings.duplicate():
 		var subscription_token: GFSubscriptionToken = _get_binding_subscription_token(binding)
@@ -606,10 +658,16 @@ func _prune_inactive_subscription_bindings() -> void:
 		_cancel_subscription(_get_binding_callable(binding, "signal_callable"))
 
 
+## 复制变化载荷后调用普通订阅回调。
+## [br]
+## @api private
 func _call_subscription_callable(callback: Callable, old_value: Variant, new_value: Variant) -> void:
 	callback.call(_copy_signal_payload(old_value), _copy_signal_payload(new_value))
 
 
+## owner 仍有效且含有指定方法时，复制载荷并调用该方法。
+## [br]
+## @api private
 func _call_owner_method(owner_ref: WeakRef, method_name: StringName, old_value: Variant, new_value: Variant) -> void:
 	var owner: Object = _get_live_owner_from_ref(owner_ref)
 	if owner == null or not owner.has_method(method_name):
@@ -620,6 +678,9 @@ func _call_owner_method(owner_ref: WeakRef, method_name: StringName, old_value: 
 	])
 
 
+## 从弱引用中取得仍有效的 Object；引用无效时返回 null。
+## [br]
+## @api private
 func _get_live_owner_from_ref(owner_ref: WeakRef) -> Object:
 	if owner_ref == null:
 		return null
@@ -631,6 +692,9 @@ func _get_live_owner_from_ref(owner_ref: WeakRef) -> Object:
 	return null
 
 
+## 按信号回调 Callable 移除对应订阅记录。
+## [br]
+## @api private
 func _remove_subscription_binding_by_signal_callable(signal_callable: Callable) -> void:
 	for i: int in range(_subscription_bindings.size() - 1, -1, -1):
 		if _get_binding_callable(_subscription_bindings[i], "signal_callable") == signal_callable:
@@ -638,6 +702,9 @@ func _remove_subscription_binding_by_signal_callable(signal_callable: Callable) 
 			return
 
 
+## 清理失效节点记录后，查找节点与回调均匹配的绑定索引。
+## [br]
+## @api private
 func _find_node_binding_index(node: Node, callable: Callable) -> int:
 	_prune_invalid_node_bindings()
 	for i: int in range(_node_bindings.size()):
@@ -650,6 +717,9 @@ func _find_node_binding_index(node: Node, callable: Callable) -> int:
 	return -1
 
 
+## 断开节点退出回调并移除匹配的节点绑定记录。
+## [br]
+## @api private
 func _disconnect_node_binding(node: Node, callable: Callable) -> void:
 	var binding_index: int = _find_node_binding_index(node, callable)
 	if binding_index == -1:
@@ -662,6 +732,9 @@ func _disconnect_node_binding(node: Node, callable: Callable) -> void:
 	_node_bindings.remove_at(binding_index)
 
 
+## 检查回调是否仍有节点绑定，可选择先清理失效节点记录。
+## [br]
+## @api private
 func _has_node_binding_for_callable(callable: Callable, prune_invalid: bool = true) -> bool:
 	if prune_invalid:
 		_prune_invalid_node_bindings()
@@ -673,6 +746,9 @@ func _has_node_binding_for_callable(callable: Callable, prune_invalid: bool = tr
 	return false
 
 
+## 移除已失效节点的绑定，并释放不再关联任何节点的自有回调连接。
+## [br]
+## @api private
 func _prune_invalid_node_bindings() -> void:
 	var pruned_callables: Array[Callable] = []
 	for i: int in range(_node_bindings.size() - 1, -1, -1):
@@ -689,11 +765,17 @@ func _prune_invalid_node_bindings() -> void:
 		_release_value_connection_if_unbound(pruned_callable, false)
 
 
+## 将有效且尚未登记的信号回调加入自有连接列表。
+## [br]
+## @api private
 func _track_owned_value_connection(callable: Callable) -> void:
 	if callable.is_valid() and not _owned_value_connections.has(callable):
 		_owned_value_connections.append(callable)
 
 
+## 从绑定字典读取指定字段，并返回 WeakRef 或 null。
+## [br]
+## @api private
 func _get_binding_weak_ref(binding: Dictionary, key: String) -> WeakRef:
 	var raw_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(binding, key)
 	if raw_value is WeakRef:
@@ -702,6 +784,9 @@ func _get_binding_weak_ref(binding: Dictionary, key: String) -> WeakRef:
 	return null
 
 
+## 从绑定字典读取指定字段，并返回 Callable 或空 Callable。
+## [br]
+## @api private
 func _get_binding_callable(binding: Dictionary, key: String) -> Callable:
 	var raw_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(binding, key, Callable())
 	if raw_value is Callable:
@@ -710,6 +795,9 @@ func _get_binding_callable(binding: Dictionary, key: String) -> Callable:
 	return Callable()
 
 
+## 从绑定字典读取订阅句柄；字段不存在或类型不符时返回 null。
+## [br]
+## @api private
 func _get_binding_subscription_token(binding: Dictionary) -> GFSubscriptionToken:
 	var raw_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(binding, "token")
 	if raw_value is GFSubscriptionToken:
@@ -718,6 +806,9 @@ func _get_binding_subscription_token(binding: Dictionary) -> GFSubscriptionToken
 	return null
 
 
+## 若回调已无节点绑定且由本属性创建，则断开并移除该信号连接。
+## [br]
+## @api private
 func _release_value_connection_if_unbound(callable: Callable, prune_invalid: bool = true) -> void:
 	if not callable.is_valid():
 		return
@@ -729,3 +820,13 @@ func _release_value_connection_if_unbound(callable: Callable, prune_invalid: boo
 	_owned_value_connections.erase(callable)
 	if value_changed.is_connected(callable):
 		value_changed.disconnect(callable)
+
+
+# --- 信号处理函数 ---
+
+## 节点离树时移除其与回调的绑定；仅当该回调已无其他节点绑定时释放本属性创建的变化信号连接。
+## [br]
+## @api private
+func _on_node_exited(node: Node, callable: Callable) -> void:
+	_disconnect_node_binding(node, callable)
+	_release_value_connection_if_unbound(callable)

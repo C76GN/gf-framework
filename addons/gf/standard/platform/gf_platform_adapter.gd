@@ -76,17 +76,76 @@ enum State {
 
 # --- 私有变量 ---
 
+## 配置时规范化并冻结的平台 adapter 标识。
+## [br]
+## @api private
+## [br]
 var _adapter_id: StringName = &""
+
+## 配置时规范化并冻结的平台标识。
+## [br]
+## @api private
+## [br]
 var _platform_id: StringName = &""
+
+## Adapter 声明支持的排序去重契约 ID。
+## [br]
+## @api private
+## [br]
 var _contract_ids: PackedStringArray = PackedStringArray()
+
+## 当前 Adapter 生命周期状态。
+## [br]
+## @api private
+## [br]
 var _state: State = State.CREATED
+
+## 注册后是否已禁止再次修改身份和契约配置。
+## [br]
+## @api private
+## [br]
 var _configuration_sealed: bool = false
+
+## 当前平台运行时上下文；对外读取和信号发布使用副本。
+## [br]
+## @api private
+## [br]
 var _context: GFPlatformRuntimeContext = GFPlatformRuntimeContext.new()
+
+## 当前初始化过程的共享完成句柄；初始化结束后清空。
+## [br]
+## @api private
+## [br]
 var _initialization: GFAsyncCompletion = null
+
+## 本 Adapter 已发布生命周期事件的单调序号。
+## [br]
+## @api private
+## [br]
 var _lifecycle_sequence: int = 0
+
+## 由 Platform Runtime 注入并供请求与生命周期时间戳使用的单调时钟。
+## [br]
+## @api private
+## [br]
 var _clock: GFClock = GFClock.new()
+
+## 以契约 ID 为键保存经验证并复制的契约描述符。
+## [br]
+## @api private
+## [br]
 var _contract_descriptors: Dictionary = {}
+
+## 以 request_id 为键保存当前由此 Adapter 持有的请求句柄。
+## [br]
+## @api private
+## [br]
 var _active_handles: Dictionary = {}
+
+## 按契约方法复合键统计当前活跃请求数，用于执行并发上限。
+## [br]
+## @api private
+## [br]
 var _active_method_counts: Dictionary = {}
 
 
@@ -816,6 +875,10 @@ func set_runtime_clock(clock: GFClock) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 构造不暴露自由 metadata 值的上下文摘要，并对 storage root 标识排序。
+## [br]
+## @api private
+## [br]
 func _make_context_debug_summary() -> Dictionary:
 	var storage_root_ids: PackedStringArray = PackedStringArray()
 	for key: Variant in _context.storage_roots.keys():
@@ -834,6 +897,10 @@ func _make_context_debug_summary() -> Dictionary:
 	}
 
 
+## 构造契约调试摘要，列出方法 schema、能力、限制和取消支持并按 method_id 排序。
+## [br]
+## @api private
+## [br]
 func _make_contract_debug_summary(
 	descriptor: GFPlatformContractDescriptor
 ) -> Dictionary:
@@ -865,6 +932,10 @@ func _make_contract_debug_summary(
 		"methods": method_entries,
 	}
 
+## 复制上下文并补齐缺失身份；要求上下文和能力对象的身份均与 Adapter 配置一致后再替换当前值。
+## [br]
+## @api private
+## [br]
 func _apply_context(context: GFPlatformRuntimeContext) -> bool:
 	if context == null:
 		return false
@@ -890,10 +961,18 @@ func _apply_context(context: GFPlatformRuntimeContext) -> bool:
 	return true
 
 
+## 检查 Adapter、平台和支持契约集合是否均已配置。
+## [br]
+## @api private
+## [br]
 func _is_configured() -> bool:
 	return _adapter_id != &"" and _platform_id != &"" and not _contract_ids.is_empty()
 
 
+## 清空身份、契约描述符、请求跟踪和上下文，以撤销失败的初始配置。
+## [br]
+## @api private
+## [br]
 func _reset_configuration() -> void:
 	_adapter_id = &""
 	_platform_id = &""
@@ -904,6 +983,10 @@ func _reset_configuration() -> void:
 	_context = GFPlatformRuntimeContext.new()
 
 
+## 忽略重复状态；变更时保存新状态并发出旧状态和新状态。
+## [br]
+## @api private
+## [br]
 func _set_state(next_state: State) -> void:
 	if _state == next_state:
 		return
@@ -912,13 +995,10 @@ func _set_state(next_state: State) -> void:
 	state_changed.emit(previous_state, _state)
 
 
-func _on_handle_cancel_requested(reason: StringName, handle: GFPlatformRequestHandle) -> void:
-	var request: GFPlatformBridgeRequest = handle.get_request()
-	var method: GFPlatformContractMethodDescriptor = _get_method_descriptor(request)
-	if method == null or method.supports_cancellation:
-		_cancel_request(handle, reason)
-
-
+## 清空旧描述符并验证输入集合：每项必须有效、属于声明契约且不重复，最后要求一一对应。
+## [br]
+## @api private
+## [br]
 func _apply_contract_descriptors(
 	descriptors: Array[GFPlatformContractDescriptor]
 ) -> bool:
@@ -934,6 +1014,10 @@ func _apply_contract_descriptors(
 	return _contract_descriptors.size() == _contract_ids.size()
 
 
+## 通过规范化契约 ID 从描述符表取出类型匹配的描述符。
+## [br]
+## @api private
+## [br]
 func _get_contract_descriptor_internal(
 	contract_id: StringName
 ) -> GFPlatformContractDescriptor:
@@ -948,6 +1032,10 @@ func _get_contract_descriptor_internal(
 	return null
 
 
+## 根据请求中的契约和方法标识查找方法描述符；请求为空或契约不存在时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_method_descriptor(
 	request: GFPlatformBridgeRequest
 ) -> GFPlatformContractMethodDescriptor:
@@ -959,6 +1047,10 @@ func _get_method_descriptor(
 	return descriptor.get_method(request.method_id) if descriptor != null else null
 
 
+## 登记请求句柄，并在方法描述符存在时增加对应契约方法的活跃请求计数。
+## [br]
+## @api private
+## [br]
 func _track_handle(
 	request: GFPlatformBridgeRequest,
 	handle: GFPlatformRequestHandle
@@ -972,6 +1064,10 @@ func _track_handle(
 		)
 
 
+## 按去除首尾空白的 request_id 读取活跃句柄并验证其类型。
+## [br]
+## @api private
+## [br]
 func _get_active_handle(request_id: StringName) -> GFPlatformRequestHandle:
 	var value: Variant = GFVariantData.get_option_value(
 		_active_handles,
@@ -983,6 +1079,10 @@ func _get_active_handle(request_id: StringName) -> GFPlatformRequestHandle:
 	return null
 
 
+## 用长度前缀组合契约与方法 ID，避免拼接分隔符造成复合键碰撞。
+## [br]
+## @api private
+## [br]
 static func _make_method_key(contract_id: StringName, method_id: StringName) -> String:
 	var contract_text: String = String(contract_id)
 	var method_text: String = String(method_id)
@@ -994,6 +1094,10 @@ static func _make_method_key(contract_id: StringName, method_id: StringName) -> 
 	]
 
 
+## 去除首尾空白、过滤空项、去重并排序字符串集合。
+## [br]
+## @api private
+## [br]
 static func _normalize_string_set(values: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for value: String in values:
@@ -1002,3 +1106,15 @@ static func _normalize_string_set(values: PackedStringArray) -> PackedStringArra
 			var _appended: bool = result.append(normalized)
 	result.sort()
 	return result
+
+
+# --- 信号处理函数 ---
+
+## 仅在方法描述缺失或声明支持取消时调用取消钩子；不支持取消的请求保留底层执行。
+## [br]
+## @api private
+func _on_handle_cancel_requested(reason: StringName, handle: GFPlatformRequestHandle) -> void:
+	var request: GFPlatformBridgeRequest = handle.get_request()
+	var method: GFPlatformContractMethodDescriptor = _get_method_descriptor(request)
+	if method == null or method.supports_cancellation:
+		_cancel_request(handle, reason)

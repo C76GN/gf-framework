@@ -45,10 +45,34 @@ const STATUS_FAILED: StringName = &"failed"
 
 # --- 私有变量 ---
 
+## 按表名登记的配置数据源及其加载选项。
+## [br]
+## @api private
+## [br]
 var _sources: Dictionary = {}
+
+## 缓存已成功加载的配置表数据。
+## [br]
+## @api private
+## [br]
 var _loaded_tables: Dictionary = {}
+
+## 保存各表最近一次加载结果的报告。
+## [br]
+## @api private
+## [br]
 var _load_reports: Dictionary = {}
+
+## 记录当前递归加载的表名路径，用于识别依赖循环。
+## [br]
+## @api private
+## [br]
 var _loading_table_stack: Array[StringName] = []
+
+## 记录一次加载期间因依赖循环而失效的表名。
+## [br]
+## @api private
+## [br]
 var _active_load_failures: Dictionary = {}
 
 
@@ -297,6 +321,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 加载或复用指定配置表，并更新其缓存和加载报告。
+## [br]
+## @api private
+## [br]
 func _load_table(table_name: StringName) -> Variant:
 	if not _sources.has(table_name):
 		_load_reports[table_name] = _make_report(table_name, STATUS_MISSING, false, "表源未注册。")
@@ -334,6 +362,10 @@ func _load_table(table_name: StringName) -> Variant:
 	return loaded
 
 
+## 解析表源值；可调用源会被执行，结果再按来源记录规则处理。
+## [br]
+## @api private
+## [br]
 func _resolve_source_value(table_name: StringName, source_record: Dictionary, source: Variant) -> Variant:
 	if source is Callable:
 		var loader: Callable = source
@@ -353,6 +385,10 @@ func _resolve_source_value(table_name: StringName, source_record: Dictionary, so
 	return source
 
 
+## 定位加载栈中的循环区间并标记其中的表加载失败。
+## [br]
+## @api private
+## [br]
 func _mark_load_cycle_failed(table_name: StringName) -> void:
 	var cycle_start: int = _loading_table_stack.find(table_name)
 	if cycle_start < 0:
@@ -369,12 +405,20 @@ func _mark_load_cycle_failed(table_name: StringName) -> void:
 		_load_reports[active_table] = _make_report(active_table, STATUS_FAILED, false, error)
 
 
+## 检查表值是否仍是有效对象；非对象值视为有效。
+## [br]
+## @api private
+## [br]
 func _is_live_table_value(table_data: Variant) -> bool:
 	if typeof(table_data) == TYPE_OBJECT:
 		return is_instance_valid(table_data)
 	return true
 
 
+## 按记录 ID 从字典表或数组表中查找记录。
+## [br]
+## @api private
+## [br]
 func _read_record_from_table(table_data: Variant, record_id: Variant, source_record: Dictionary) -> Variant:
 	if table_data is Dictionary:
 		var table_dictionary: Dictionary = table_data
@@ -395,6 +439,10 @@ func _read_record_from_table(table_data: Variant, record_id: Variant, source_rec
 	return null
 
 
+## 按键或记录 ID 字段从字典表中查找记录。
+## [br]
+## @api private
+## [br]
 func _read_record_from_dictionary(table_dictionary: Dictionary, record_id: Variant) -> Variant:
 	if table_dictionary.has(record_id):
 		return table_dictionary[record_id]
@@ -404,6 +452,10 @@ func _read_record_from_dictionary(table_dictionary: Dictionary, record_id: Varia
 	return null
 
 
+## 按记录 ID 字段从数组表中查找记录。
+## [br]
+## @api private
+## [br]
 func _read_record_from_array(table_array: Array, record_id: Variant, id_field: StringName) -> Variant:
 	for item: Variant in table_array:
 		if not item is Dictionary:
@@ -415,10 +467,18 @@ func _read_record_from_array(table_array: Array, record_id: Variant, id_field: S
 	return null
 
 
+## 按 GFVariantData 的值相等规则比较两个记录 ID。
+## [br]
+## @api private
+## [br]
 func _ids_match(left: Variant, right: Variant) -> bool:
 	return GFVariantData.values_equal(left, right, { "match_string_names": true })
 
 
+## 按源配置的 duplicate_values 选项决定复制读出的记录值。
+## [br]
+## @api private
+## [br]
 func _copy_value_if_needed(value: Variant, source_record: Dictionary) -> Variant:
 	if value == null:
 		return null
@@ -427,14 +487,26 @@ func _copy_value_if_needed(value: Variant, source_record: Dictionary) -> Variant
 	return GFVariantData.duplicate_variant(value, true, false)
 
 
+## 读取指定表名对应的数据源登记记录。
+## [br]
+## @api private
+## [br]
 func _get_source_record(table_name: StringName) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_sources, table_name))
 
 
+## 读取指定表的加载报告；缺少报告时创建“尚未加载”报告。
+## [br]
+## @api private
+## [br]
 func _get_load_report(table_name: StringName) -> Dictionary:
 	return GFVariantData.get_option_dictionary(_load_reports, table_name, _make_report(table_name, STATUS_MISSING, false, "尚未加载。"))
 
 
+## 构造包含表名、状态、成功标记及说明的加载报告。
+## [br]
+## @api private
+## [br]
 func _make_report(
 	table_name: StringName,
 	status: StringName,
@@ -454,6 +526,10 @@ func _make_report(
 	}
 
 
+## 估算字典表或数组表中的记录数量。
+## [br]
+## @api private
+## [br]
 func _estimate_record_count(table_data: Variant) -> int:
 	if table_data is Dictionary:
 		var table_dictionary: Dictionary = table_data
@@ -470,6 +546,10 @@ func _estimate_record_count(table_data: Variant) -> int:
 	return 0
 
 
+## 复制所有已登记加载报告，避免返回内部报告字典。
+## [br]
+## @api private
+## [br]
 func _copy_reports() -> Dictionary:
 	var result: Dictionary = {}
 	for table_name: Variant in _load_reports.keys():
@@ -477,6 +557,10 @@ func _copy_reports() -> Dictionary:
 	return result
 
 
+## 检查数据源是否为有效 Callable 或受支持的表数据值。
+## [br]
+## @api private
+## [br]
 func _is_supported_source(source: Variant) -> bool:
 	if source is Callable:
 		var callable: Callable = source
@@ -486,6 +570,10 @@ func _is_supported_source(source: Variant) -> bool:
 	return source is Array or source is Dictionary
 
 
+## 仅当 Variant 值为 GFConfigTableSchema 时返回该 schema。
+## [br]
+## @api private
+## [br]
 func _variant_to_schema(value: Variant) -> GFConfigTableSchema:
 	if value is GFConfigTableSchema:
 		var schema: GFConfigTableSchema = value
@@ -493,6 +581,10 @@ func _variant_to_schema(value: Variant) -> GFConfigTableSchema:
 	return null
 
 
+## 校验 schema 的表名并返回与来源表名一致的 schema。
+## [br]
+## @api private
+## [br]
 func _normalize_source_schema(table_name: StringName, schema: GFConfigTableSchema) -> GFConfigTableSchema:
 	if schema == null:
 		return null

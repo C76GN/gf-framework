@@ -50,8 +50,19 @@ const DEFAULT_COLLISION_LAYER: int = 1
 ## @since 5.0.0
 const DEFAULT_COLLISION_MASK: int = 0xffffffff
 
+## 自动算法选择时，body 数不超过此值会使用暴力枚举。
+## [br]
+## @api private
 const _DEFAULT_BRUTE_FORCE_THRESHOLD: int = 24
+
+## 报告 JSON 兼容转换所用的值编码脚本。
+## [br]
+## @api private
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+
+## 提供有限性检查和 AABB 归一化的空间边界脚本。
+## [br]
+## @api private
 const _SPATIAL_BOUNDS_MATH = preload("res://addons/gf/standard/foundation/math/gf_spatial_bounds_math.gd")
 
 
@@ -255,6 +266,9 @@ static func to_json_compatible_report(report: Dictionary, options: Dictionary = 
 
 # --- 私有/辅助方法 ---
 
+## 过滤并规范化输入 body；默认排除 `enabled` 为 false 的记录。
+## [br]
+## @api private
 static func _normalize_bodies(bodies: Array, options: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var enabled_only: bool = GFVariantData.get_option_bool(options, "enabled_only", true)
@@ -268,6 +282,9 @@ static func _normalize_bodies(bodies: Array, options: Dictionary) -> Array[Dicti
 	return result
 
 
+## 校验单条 body 字典并补齐默认字段、规范化 bounds 与输入索引。
+## [br]
+## @api private
 static func _normalize_body(value: Variant, index: int) -> Dictionary:
 	if not (value is Dictionary):
 		return {}
@@ -294,6 +311,9 @@ static func _normalize_body(value: Variant, index: int) -> Dictionary:
 	}
 
 
+## 对满足掩码和 AABB 重叠条件的 body 追加去重 pair；达到正数上限时返回 true。
+## [br]
+## @api private
 static func _append_pair_if_overlapping(
 	left_body: Dictionary,
 	right_body: Dictionary,
@@ -318,6 +338,9 @@ static func _append_pair_if_overlapping(
 	return max_pairs > 0 and pairs.size() >= max_pairs
 
 
+## 按双向 layer-mask 位交集判断 body 是否可配对；关闭掩码选项时一律允许。
+## [br]
+## @api private
 static func _bodies_can_pair(left_body: Dictionary, right_body: Dictionary, options: Dictionary) -> bool:
 	if not GFVariantData.get_option_bool(options, "use_collision_masks", true):
 		return true
@@ -329,6 +352,9 @@ static func _bodies_can_pair(left_body: Dictionary, right_body: Dictionary, opti
 	return (left_layer & right_mask) != 0 and (right_layer & left_mask) != 0
 
 
+## 按输入索引排序两条 body，并生成包含实体、索引与边界的 pair 字典。
+## [br]
+## @api private
 static func _make_pair(left_body: Dictionary, right_body: Dictionary) -> Dictionary:
 	var ordered: Array[Dictionary] = _ordered_pair(left_body, right_body)
 	var first: Dictionary = ordered[0]
@@ -343,6 +369,9 @@ static func _make_pair(left_body: Dictionary, right_body: Dictionary) -> Diction
 	}
 
 
+## 将两个输入索引升序排列后编码为 seen 表使用的 pair 键。
+## [br]
+## @api private
 static func _make_pair_key(left_body: Dictionary, right_body: Dictionary) -> String:
 	var first_index: int = GFVariantData.get_option_int(left_body, "index")
 	var second_index: int = GFVariantData.get_option_int(right_body, "index")
@@ -353,12 +382,18 @@ static func _make_pair_key(left_body: Dictionary, right_body: Dictionary) -> Str
 	return "%d:%d" % [first_index, second_index]
 
 
+## 按 body 的输入索引升序返回两条记录。
+## [br]
+## @api private
 static func _ordered_pair(left_body: Dictionary, right_body: Dictionary) -> Array[Dictionary]:
 	if GFVariantData.get_option_int(left_body, "index") <= GFVariantData.get_option_int(right_body, "index"):
 		return [left_body, right_body]
 	return [right_body, left_body]
 
 
+## 接受有效的显式算法，否则按规范化 body 数量和暴力枚举阈值选择算法。
+## [br]
+## @api private
 static func _choose_algorithm(bodies: Array, options: Dictionary) -> StringName:
 	var requested: StringName = GFVariantData.get_option_string_name(options, "algorithm", ALGORITHM_AUTO)
 	if requested == ALGORITHM_BRUTE_FORCE or requested == ALGORITHM_SAP:
@@ -370,6 +405,9 @@ static func _choose_algorithm(bodies: Array, options: Dictionary) -> StringName:
 	return ALGORITHM_SAP
 
 
+## 依次按 bounds 左边界、右边界及原输入索引升序排序 body 数组。
+## [br]
+## @api private
 static func _sort_bodies_by_x(bodies: Array[Dictionary]) -> void:
 	bodies.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
 		var left_bounds: AABB = _get_body_bounds(left)
@@ -382,10 +420,16 @@ static func _sort_bodies_by_x(bodies: Array[Dictionary]) -> void:
 	)
 
 
+## 委托空间边界工具处理 AABB 归一化。
+## [br]
+## @api private
 static func _normalize_aabb(bounds: AABB) -> AABB:
 	return _SPATIAL_BOUNDS_MATH.normalize_aabb(bounds)
 
 
+## 判断两个归一化包围盒是否相交；include_touching 决定边缘接触是否算重叠。
+## [br]
+## @api private
 static func _aabbs_overlap(left: AABB, right: AABB, include_touching: bool) -> bool:
 	if include_touching:
 		return (
@@ -407,10 +451,16 @@ static func _aabbs_overlap(left: AABB, right: AABB, include_touching: bool) -> b
 	)
 
 
+## 按边缘接触选项判断 SAP 扫描能否在当前右侧 body 处提前结束。
+## [br]
+## @api private
 static func _sap_can_break(left_max_x: float, right_min_x: float, include_touching: bool) -> bool:
 	return right_min_x > left_max_x if include_touching else right_min_x >= left_max_x
 
 
+## 读取 body 的 AABB bounds；字段缺失或类型不符时返回空包围盒。
+## [br]
+## @api private
 static func _get_body_bounds(body: Dictionary) -> AABB:
 	var bounds_value: Variant = GFVariantData.get_option_value(body, "bounds", AABB())
 	if bounds_value is AABB:
@@ -419,17 +469,29 @@ static func _get_body_bounds(body: Dictionary) -> AABB:
 	return AABB()
 
 
+## 计算包围盒的最大 x 坐标。
+## [br]
+## @api private
 static func _aabb_max_x(bounds: AABB) -> float:
 	return bounds.position.x + bounds.size.x
 
 
+## 计算包围盒的最大 y 坐标。
+## [br]
+## @api private
 static func _aabb_max_y(bounds: AABB) -> float:
 	return bounds.position.y + bounds.size.y
 
 
+## 计算包围盒的最大 z 坐标。
+## [br]
+## @api private
 static func _aabb_max_z(bounds: AABB) -> float:
 	return bounds.position.z + bounds.size.z
 
 
+## 读取并限制 max_pairs 为非负数；0 表示不限制 pair 数量。
+## [br]
+## @api private
 static func _get_max_pairs(options: Dictionary) -> int:
 	return maxi(GFVariantData.get_option_int(options, "max_pairs", 0), 0)

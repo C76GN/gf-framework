@@ -94,13 +94,36 @@ signal pointer_interaction_sent(context: GFInteractionContext, receiver: Object,
 
 # --- 常量 ---
 
+## 碰撞候选接收器解析与派发工具脚本。
+## [br]
+## @api private
 const _MESSAGE_DISPATCH_SUPPORT = preload("res://addons/gf/standard/common/gf_message_dispatch_support.gd")
+
+## 将交互报告投影为安全诊断字典的工具脚本。
+## [br]
+## @api private
 const _REPORT_SCHEMA_PROJECTION = preload(
 	"res://addons/gf/kernel/core/gf_report_schema_projection.gd"
 )
+
+## 交互运行时使用的可拾取所有者数量元数据常量。
+## [br]
+## @api private
 const _PICKABLE_OWNER_COUNT_META: StringName = &"_gf_pointer_interaction_3d_pickable_owner_count"
+
+## 记录共享所有者首次接管前的输入射线可拾取值。
+## [br]
+## @api private
 const _PICKABLE_ORIGINAL_META: StringName = &"_gf_pointer_interaction_3d_pickable_original"
+
+## 限制同时跟踪的鼠标按键数量。
+## [br]
+## @api private
 const _MAX_ACTIVE_PRESSED_BUTTONS: int = 64
+
+## 保留由指针事件生成的 payload 字段名。
+## [br]
+## @api private
 const _RESERVED_POINTER_PAYLOAD_KEYS: Array[String] = [
 	"pointer_event",
 	"pointer_tags",
@@ -245,18 +268,64 @@ const _RESERVED_POINTER_PAYLOAD_KEYS: Array[String] = [
 
 # --- 私有变量 ---
 
+## 使指针状态重置前开始的输入事件失效。
+## [br]
+## @api private
 var _pointer_generation: int = 0
 
+## 弱引用当前绑定的碰撞对象。
+## [br]
+## @api private
 var _collision_object_ref: WeakRef = null
+
+## 记录指针当前是否悬停于碰撞对象上。
+## [br]
+## @api private
 var _is_hovered: bool = false
+
+## 按窗口、输入设备和按键索引保存按下状态。
+## [br]
+## @api private
 var _pressed_buttons: Dictionary = {}
+
+## 兼容旧接口的当前按下按钮索引。
+## [br]
+## @api private
 var _pressed_button: int = 0
+
+## 兼容旧接口的当前按下形状索引。
+## [br]
+## @api private
 var _pressed_shape_idx: int = -1
+
+## 保存共享绑定首次接管前的可拾取状态。
+## [br]
+## @api private
 var _bound_input_ray_pickable_original: bool = false
+
+## 标记当前绑定是否修改了可拾取状态。
+## [br]
+## @api private
 var _bound_input_ray_pickable_changed: bool = false
+
+## 标记是否已在悬停期间设置光标形状。
+## [br]
+## @api private
 var _has_previous_cursor_shape: bool = false
+
+## 所有实例共享的光标 owner 栈，保存弱引用与所需形状；移除或失效 owner 后由栈顶决定当前光标。
+## [br]
+## @api private
 static var _cursor_owner_stack: Array[Dictionary] = []
+
+## 首次接管光标时保存的原始形状，用于 owner 栈清空后恢复。
+## [br]
+## @api private
 static var _cursor_base_shape: Input.CursorShape = Input.CURSOR_ARROW
+
+## 是否已为当前非空 owner 栈捕获基础光标形状。
+## [br]
+## @api private
 static var _has_cursor_base_shape: bool = false
 
 
@@ -421,6 +490,9 @@ func send_pointer_interaction(
 
 # --- 私有/辅助方法 ---
 
+## 构造包含结果状态、交互标识、接收器及元数据的原始报告。
+## [br]
+## @api private
 func _make_raw_report(
 	ok: bool,
 	effective_interaction_id: StringName,
@@ -438,6 +510,9 @@ func _make_raw_report(
 	}
 
 
+## 补齐默认接收器并转换为安全诊断报告。
+## [br]
+## @api private
 func _normalize_report(report: Dictionary, default_receiver: Object) -> Dictionary:
 	if report.is_empty():
 		return {}
@@ -450,12 +525,18 @@ func _normalize_report(report: Dictionary, default_receiver: Object) -> Dictiona
 	})
 
 
+## 按路径解析碰撞对象；路径为空时尝试父节点。
+## [br]
+## @api private
 func _resolve_collision_object() -> CollisionObject3D:
 	if collision_object_path != NodePath(""):
 		return _get_collision_object_value(get_node_or_null(collision_object_path))
 	return _get_collision_object_value(get_parent())
 
 
+## 重置指针状态、断开碰撞信号并恢复共享可拾取状态。
+## [br]
+## @api private
 func _disconnect_collision_object() -> void:
 	var collision_object: CollisionObject3D = get_collision_object()
 	if collision_object == null:
@@ -475,6 +556,9 @@ func _disconnect_collision_object() -> void:
 	_collision_object_ref = null
 
 
+## 按配置更新碰撞对象的输入射线可拾取绑定。
+## [br]
+## @api private
 func _refresh_current_collision_object_binding(collision_object: CollisionObject3D) -> void:
 	_reset_pointer_state(true)
 	if collision_object == null:
@@ -492,6 +576,9 @@ func _refresh_current_collision_object_binding(collision_object: CollisionObject
 	collision_object.input_ray_pickable = true
 
 
+## 优先按路径解析接收器，否则从碰撞对象解析接收方法。
+## [br]
+## @api private
 func _resolve_receiver() -> Object:
 	if receiver_path != NodePath(""):
 		var receiver: Node = get_node_or_null(receiver_path)
@@ -500,6 +587,9 @@ func _resolve_receiver() -> Object:
 	return _MESSAGE_DISPATCH_SUPPORT._resolve_receiver(get_collision_object(), &"receive_interaction")
 
 
+## 按 sender_path 解析发送者；未配置时使用当前指针桥接器。
+## [br]
+## @api private
 func _resolve_sender() -> Object:
 	if sender_path != NodePath(""):
 		var sender: Node = get_node_or_null(sender_path)
@@ -508,6 +598,9 @@ func _resolve_sender() -> Object:
 	return self
 
 
+## 构造包含事件、命中位置、相机、输入设备和碰撞路径的指针数据。
+## [br]
+## @api private
 func _make_pointer_data(
 	event_name: StringName,
 	camera: Camera3D = null,
@@ -534,6 +627,9 @@ func _make_pointer_data(
 	return data
 
 
+## 在通用指针数据中加入鼠标按钮索引、按下状态和滚轮系数。
+## [br]
+## @api private
 func _make_mouse_button_data(
 	event_name: StringName,
 	camera: Camera3D,
@@ -549,6 +645,9 @@ func _make_mouse_button_data(
 	return data
 
 
+## 创建进入或离开上下文、发出信号，并按配置发送交互。
+## [br]
+## @api private
 func _emit_or_send_hover(event_name: StringName) -> void:
 	var data: Dictionary = _make_pointer_data(event_name)
 	var context: GFInteractionContext = build_context(event_name, data)
@@ -560,6 +659,9 @@ func _emit_or_send_hover(event_name: StringName) -> void:
 		var _send_pointer_interaction_result_379: Variant = send_pointer_interaction(event_name, data)
 
 
+## 发出对应按钮事件，并按配置发送交互。
+## [br]
+## @api private
 func _emit_or_send_button_event(
 	event_name: StringName,
 	camera: Camera3D,
@@ -585,10 +687,16 @@ func _emit_or_send_button_event(
 	return context
 
 
+## 判断鼠标按钮是否为任一滚轮方向。
+## [br]
+## @api private
 func _is_wheel_button(button_index: int) -> bool:
 	return button_index == MOUSE_BUTTON_WHEEL_UP or button_index == MOUSE_BUTTON_WHEEL_DOWN or button_index == MOUSE_BUTTON_WHEEL_LEFT or button_index == MOUSE_BUTTON_WHEEL_RIGHT
 
 
+## 维护悬停所有者栈并设置、恢复全局光标形状。
+## [br]
+## @api private
 func _set_hover_cursor(active: bool) -> void:
 	if active and not change_cursor_on_hover:
 		return
@@ -615,6 +723,9 @@ func _set_hover_cursor(active: bool) -> void:
 		_cursor_base_shape = Input.CURSOR_ARROW
 
 
+## 递增输入代次、清空悬停与按键状态，并按需恢复光标。
+## [br]
+## @api private
 func _reset_pointer_state(reset_cursor: bool) -> void:
 	_pointer_generation += 1
 	var should_reset_cursor: bool = reset_cursor and (_is_hovered or _has_previous_cursor_shape)
@@ -626,6 +737,9 @@ func _reset_pointer_state(reset_cursor: bool) -> void:
 		_set_hover_cursor(false)
 
 
+## 从活动按键表同步旧接口的按钮和形状索引。
+## [br]
+## @api private
 func _sync_legacy_pressed_state() -> void:
 	if _pressed_buttons.is_empty():
 		_pressed_button = 0
@@ -639,21 +753,33 @@ func _sync_legacy_pressed_state() -> void:
 	_pressed_shape_idx = GFVariantData.get_option_int(state, "shape_idx", -1)
 
 
+## 用窗口 ID、设备 ID 和按钮索引组成按键状态键。
+## [br]
+## @api private
 func _pressed_button_key(event: InputEventMouseButton) -> Vector3i:
 	return Vector3i(event.window_id, event.device, event.button_index)
 
 
+## 释放当前共享输入射线可拾取所有权。
+## [br]
+## @api private
 func _restore_input_ray_pickable(collision_object: CollisionObject3D) -> void:
 	if collision_object == null or not _bound_input_ray_pickable_changed:
 		return
 	_release_input_ray_pickable(collision_object)
 
 
+## 清除本对象记录的碰撞绑定状态。
+## [br]
+## @api private
 func _clear_collision_binding_state() -> void:
 	_bound_input_ray_pickable_original = false
 	_bound_input_ray_pickable_changed = false
 
 
+## 注册共享所有权并确保碰撞对象可由输入射线拾取。
+## [br]
+## @api private
 func _retain_input_ray_pickable(collision_object: CollisionObject3D) -> void:
 	if collision_object == null or not ensure_input_ray_pickable:
 		_bound_input_ray_pickable_original = collision_object.input_ray_pickable if collision_object != null else false
@@ -668,6 +794,9 @@ func _retain_input_ray_pickable(collision_object: CollisionObject3D) -> void:
 	collision_object.input_ray_pickable = true
 
 
+## 减少共享所有权；最后一个所有者退出时恢复原始值并清理元数据。
+## [br]
+## @api private
 func _release_input_ray_pickable(collision_object: CollisionObject3D) -> void:
 	var owner_count: int = _get_pickable_owner_count(collision_object)
 	if owner_count <= 1:
@@ -680,22 +809,34 @@ func _release_input_ray_pickable(collision_object: CollisionObject3D) -> void:
 	collision_object.set_meta(_PICKABLE_OWNER_COUNT_META, owner_count - 1)
 
 
+## 读取碰撞对象记录的共享可拾取所有者数。
+## [br]
+## @api private
 func _get_pickable_owner_count(collision_object: CollisionObject3D) -> int:
 	if collision_object == null or not collision_object.has_meta(_PICKABLE_OWNER_COUNT_META):
 		return 0
 	return GFVariantData.to_int(collision_object.get_meta(_PICKABLE_OWNER_COUNT_META), 0)
 
 
+## 读取首次绑定前的可拾取值，缺失时使用后备值。
+## [br]
+## @api private
 func _get_pickable_original(collision_object: CollisionObject3D, fallback: bool) -> bool:
 	if collision_object == null or not collision_object.has_meta(_PICKABLE_ORIGINAL_META):
 		return fallback
 	return GFVariantData.to_bool(collision_object.get_meta(_PICKABLE_ORIGINAL_META), fallback)
 
 
+## 判断字段名是否由指针桥接器保留。
+## [br]
+## @api private
 func _is_reserved_pointer_payload_key(key: Variant) -> bool:
 	return _RESERVED_POINTER_PAYLOAD_KEYS.has(GFVariantData.to_text(key))
 
 
+## 检查光标所有者栈是否包含指定实例。
+## [br]
+## @api private
 func _cursor_stack_has_owner(owner_id: int) -> bool:
 	for entry: Dictionary in _cursor_owner_stack:
 		if GFVariantData.get_option_int(entry, "owner_id", 0) == owner_id:
@@ -703,6 +844,9 @@ func _cursor_stack_has_owner(owner_id: int) -> bool:
 	return false
 
 
+## 从光标所有者栈中移除指定实例并返回其记录。
+## [br]
+## @api private
 func _remove_cursor_stack_owner(owner_id: int) -> Dictionary:
 	for index: int in range(_cursor_owner_stack.size() - 1, -1, -1):
 		var entry: Dictionary = _cursor_owner_stack[index]
@@ -713,6 +857,9 @@ func _remove_cursor_stack_owner(owner_id: int) -> Dictionary:
 	return {}
 
 
+## 从光标所有者记录读取光标形状。
+## [br]
+## @api private
 func _get_cursor_shape_from_entry(
 	entry: Dictionary,
 	fallback: Input.CursorShape
@@ -721,6 +868,9 @@ func _get_cursor_shape_from_entry(
 	return shape as Input.CursorShape
 
 
+## 将 Variant 转换为 CollisionObject3D，类型不符时返回 null。
+## [br]
+## @api private
 func _get_collision_object_value(value: Variant) -> CollisionObject3D:
 	if value is CollisionObject3D:
 		var collision_object: CollisionObject3D = value
@@ -728,6 +878,9 @@ func _get_collision_object_value(value: Variant) -> CollisionObject3D:
 	return null
 
 
+## 将 Variant 转换为 InputEventMouseButton，类型不符时返回 null。
+## [br]
+## @api private
 func _get_mouse_button_event(value: Variant) -> InputEventMouseButton:
 	if value is InputEventMouseButton:
 		var event: InputEventMouseButton = value
@@ -737,6 +890,9 @@ func _get_mouse_button_event(value: Variant) -> InputEventMouseButton:
 
 # --- 信号处理函数 ---
 
+## 处理碰撞对象 mouse_entered 信号并派发进入事件。
+## [br]
+## @api private
 func _on_collision_mouse_entered() -> void:
 	if not enabled:
 		return
@@ -745,6 +901,9 @@ func _on_collision_mouse_entered() -> void:
 	_emit_or_send_hover(&"entered")
 
 
+## 处理碰撞对象 mouse_exited 信号，清除按键状态并派发离开事件。
+## [br]
+## @api private
 func _on_collision_mouse_exited() -> void:
 	if not enabled:
 		return
@@ -756,6 +915,9 @@ func _on_collision_mouse_exited() -> void:
 	_emit_or_send_hover(&"exited")
 
 
+## 处理鼠标按钮和滚轮输入，派发按下、释放、点击或滚轮事件。
+## [br]
+## @api private
 func _on_collision_input_event(
 	camera: Camera3D,
 	event: InputEvent,

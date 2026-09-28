@@ -90,6 +90,10 @@ func get_event_rich_text(input_event: InputEvent, options: Dictionary = {}) -> S
 
 # --- 私有/辅助方法 ---
 
+## 把方括号分别替换为 RichTextLabel 的 [lb] 与 [rb] 转义标记。
+## [br]
+## @api private
+## [br]
 func _escape_bbcode(text: String) -> String:
 	var result: String = ""
 	for character: String in text:

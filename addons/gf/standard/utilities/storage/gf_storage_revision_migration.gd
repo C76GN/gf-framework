@@ -16,21 +16,79 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 单条离线升级 JSON 记录允许的最大字节数。
+## [br]
+## @api private
+## [br]
 const _MAX_RECORD_BYTES: int = 4096
+
+## 持久化升级 intent 的文件名。
+## [br]
+## @api private
+## [br]
 const _INTENT_LEAF: String = "upgrade.intent.json"
+
+## 持久化当前迁移位置的 cursor 文件名。
+## [br]
+## @api private
+## [br]
 const _CURSOR_LEAF: String = "upgrade.cursor.json"
+
+## cursor 原子安装前的 pending 文件名。
+## [br]
+## @api private
+## [br]
 const _CURSOR_PENDING_LEAF: String = "upgrade.cursor.pending.json"
+
+## 新版 layout manifest 暂存文件名。
+## [br]
+## @api private
+## [br]
 const _LAYOUT_STAGE_LEAF: String = "upgrade.layout.json"
 
 
 # --- 私有变量 ---
 
+## 防止同一迁移器实例重入 upgrade。
+## [br]
+## @api private
+## [br]
 var _running: bool = false
+
+## 当前离线迁移绑定的 canonical Storage root。
+## [br]
+## @api private
+## [br]
 var _storage_root_path: String = ""
+
+## 当前 root 下 v1 私有布局目录。
+## [br]
+## @api private
+## [br]
 var _version_root: String = ""
+
+## 用于枚举 family、验证布局及绑定迁移 intent 的协作者。
+## [br]
+## @api private
+## [br]
 var _family_store: GFStorageFamilyStore = null
+
+## 已验证或从磁盘读取的迁移 intent。
+## [br]
+## @api private
+## [br]
 var _intent: Dictionary = {}
+
+## 本轮捕获并用于迁移遍历的 family descriptor 列表。
+## [br]
+## @api private
+## [br]
 var _descriptors: Array[Dictionary] = []
+
+## 标记 descriptor 列表已冻结，防止恢复过程中枚举集发生变化。
+## [br]
+## @api private
+## [br]
 var _descriptors_captured: bool = false
 
 
@@ -66,6 +124,10 @@ func upgrade(save_dir_name: String) -> Error:
 
 # 只写入本次迁移拥有的有界记录，失败时保留其他恢复证据。
 # 测试子类在此注入 I/O 故障；这不是提供给项目重写的扩展点。
+## 将有界 JSON 记录写入非链接普通文件并 flush，返回实际 I/O 错误。
+## [br]
+## @api private
+## [br]
 func _write_upgrade_record(path: String, record: Dictionary) -> Error:
 	var bytes: PackedByteArray = JSON.stringify(record, "\t").to_utf8_buffer()
 	if bytes.is_empty() or bytes.size() > _MAX_RECORD_BYTES:
@@ -83,6 +145,10 @@ func _write_upgrade_record(path: String, record: Dictionary) -> Error:
 
 
 # 只删除本次迁移拥有的精确文件；链接或目录必须保留并报错。
+## 只移除非链接且非目录的指定文件；目标缺失时返回 OK。
+## [br]
+## @api private
+## [br]
 func _remove_upgrade_file(path: String) -> Error:
 	if _is_link(path) or DirAccess.dir_exists_absolute(path):
 		return ERR_FILE_CORRUPT
@@ -90,6 +156,10 @@ func _remove_upgrade_file(path: String) -> Error:
 
 
 # 安装已完整回读的 staging 文件，不得覆盖已经存在的目标。
+## 将存在的非链接源文件改名到尚不存在的目标，不覆盖已有目标。
+## [br]
+## @api private
+## [br]
 func _rename_upgrade_file(source_path: String, target_path: String) -> Error:
 	if _is_link(source_path) or not FileAccess.file_exists(source_path):
 		return ERR_FILE_CORRUPT
@@ -98,6 +168,10 @@ func _rename_upgrade_file(source_path: String, target_path: String) -> Error:
 	return DirAccess.rename_absolute(source_path, target_path)
 
 
+## 执行 intent 建立/恢复、family state 发布、全量验证、layout 发布和迁移记录清理流程。
+## [br]
+## @api private
+## [br]
 func _upgrade(save_dir_name: String) -> Error:
 	_storage_root_path = GFStorageFamilyStore.make_storage_root_path_for_framework(save_dir_name)
 	if _storage_root_path.is_empty():
@@ -165,6 +239,10 @@ func _upgrade(save_dir_name: String) -> Error:
 	return OK
 
 
+## 检查既有 layout，通过临时 StorageUtility 准备升级并重新收集 family descriptors。
+## [br]
+## @api private
+## [br]
 func _prepare_initial_upgrade(save_dir_name: String) -> Error:
 	var inspection: Dictionary = _family_store.inspect_layout_for_reset_for_framework()
 	var inspection_error: Error = GFVariantData.get_option_int(inspection, "error", ERR_FILE_CORRUPT) as Error
@@ -179,6 +257,10 @@ func _prepare_initial_upgrade(save_dir_name: String) -> Error:
 	return _collect_descriptors()
 
 
+## 列举 family descriptors，拒绝活动事务 sidecar，并校验重复收集结果不变。
+## [br]
+## @api private
+## [br]
 func _collect_descriptors() -> Error:
 	var listing: Dictionary = _family_store.list_claimed_family_descriptors_for_framework()
 	var listing_error: Error = GFVariantData.get_option_int(listing, "error", ERR_FILE_CORRUPT) as Error
@@ -203,6 +285,10 @@ func _collect_descriptors() -> Error:
 	return OK
 
 
+## 按 cursor 检查 family revision 状态，必要时写入/恢复 cursor 后发布该 family state。
+## [br]
+## @api private
+## [br]
 func _upgrade_family(descriptor: Dictionary) -> Error:
 	var context: Dictionary = _make_context(descriptor)
 	var state_path: String = GFVariantData.get_option_string(context, "state_path")
@@ -262,6 +348,10 @@ func _upgrade_family(descriptor: Dictionary) -> Error:
 	)
 
 
+## 校验 cursor 与 pending 记录，并按已提交 state 情况清理重复项或安装下一 cursor。
+## [br]
+## @api private
+## [br]
 func _recover_cursor() -> Error:
 	var cursor_path: String = _version_root.path_join(_CURSOR_LEAF)
 	var pending_path: String = _version_root.path_join(_CURSOR_PENDING_LEAF)
@@ -317,6 +407,10 @@ func _recover_cursor() -> Error:
 	) else ERR_FILE_CORRUPT
 
 
+## 仅当旧 layout 哈希仍匹配、没有 layout 暂存，且游标前后的 revision 状态一致时允许丢弃游标暂存。
+## 此检查不发布 state；pending 尚未成为正式 cursor，不能授权推进迁移。
+## [br]
+## @api private
 func _can_discard_cursor_staging(cursor: Dictionary) -> bool:
 	# pending 尚未成为 cursor，不能授权发布 state；旧 schema 1 layout 必须仍在。
 	if (
@@ -355,6 +449,10 @@ func _can_discard_cursor_staging(cursor: Dictionary) -> bool:
 	return true
 
 
+## 读取 cursor 记录并校验固定 schema、当前 incarnation、family 存在性及 UUID commit ID。
+## [br]
+## @api private
+## [br]
 func _read_cursor(path: String) -> Dictionary:
 	if not _leaf_exists(path):
 		return {"error": int(OK), "data": {}}
@@ -380,6 +478,10 @@ func _read_cursor(path: String) -> Dictionary:
 	return result
 
 
+## 重新捕获 family 列表并验证每个 payload 或已存在 revision state。
+## [br]
+## @api private
+## [br]
 func _validate_all_states(incarnation: String) -> Error:
 	var collect_error: Error = _collect_descriptors()
 	if collect_error != OK:
@@ -397,6 +499,10 @@ func _validate_all_states(incarnation: String) -> Error:
 	return OK
 
 
+## 写入并回读新版 layout staging，检查 state 后替换旧 layout 并验证安装结果。
+## [br]
+## @api private
+## [br]
 func _publish_layout(incarnation: String) -> Error:
 	var target: Dictionary = GFStorageFamilyStore.make_revision_upgrade_layout_for_framework(incarnation)
 	var layout_path: String = _version_root.path_join("layout.json")
@@ -431,6 +537,10 @@ func _publish_layout(incarnation: String) -> Error:
 	) else ERR_FILE_CORRUPT
 
 
+## 识别非链接普通 staging 文件中的空内容或无法解析的 JSON 记录。
+## [br]
+## @api private
+## [br]
 static func _is_incomplete_staging_record(path: String) -> bool:
 	if _is_link(path) or DirAccess.dir_exists_absolute(path):
 		return false
@@ -450,12 +560,20 @@ static func _is_incomplete_staging_record(path: String) -> bool:
 	return length == 0 or parser.parse(bytes.get_string_from_utf8()) != OK
 
 
+## 使用当前 intent incarnation 与 descriptor 派生 revision store context。
+## [br]
+## @api private
+## [br]
 func _make_context(descriptor: Dictionary) -> Dictionary:
 	return GFStorageRevisionStore.make_context_for_framework(
 		descriptor, GFVariantData.get_option_string(_intent, "storage_incarnation")
 	)
 
 
+## 按 logical_path 查找捕获的 family descriptor；未找到时返回空字典。
+## [br]
+## @api private
+## [br]
 func _find_descriptor(logical_path: String) -> Dictionary:
 	for descriptor: Dictionary in _descriptors:
 		if GFVariantData.get_option_string(descriptor, "logical_path") == logical_path:
@@ -463,6 +581,10 @@ func _find_descriptor(logical_path: String) -> Dictionary:
 	return {}
 
 
+## 检查 root 到私有 v1 目录的每个现有祖先均为目录且不是链接。
+## [br]
+## @api private
+## [br]
 func _validate_ancestry() -> Error:
 	var current_path: String = "user://"
 	var relative_path: String = _storage_root_path.trim_prefix("user://") + "/.gf-storage/v1"
@@ -476,6 +598,10 @@ func _validate_ancestry() -> Error:
 	return OK
 
 
+## 读取不超过记录上限的 JSON 字典，拒绝链接、目录、空文件和非字典 JSON。
+## [br]
+## @api private
+## [br]
 static func _read_record(path: String) -> Dictionary:
 	if _is_link(path) or DirAccess.dir_exists_absolute(path):
 		return {"error": int(ERR_FILE_CORRUPT), "data": {}}
@@ -498,6 +624,10 @@ static func _read_record(path: String) -> Dictionary:
 	return {"error": int(OK), "data": record}
 
 
+## 要求记录字段数量与 expected 相同；schema_version 精确比整数，其余字段须为相同字符串。
+## [br]
+## @api private
+## [br]
 static func _records_equal(record: Dictionary, expected: Dictionary) -> bool:
 	if record.size() != expected.size():
 		return false
@@ -513,10 +643,18 @@ static func _records_equal(record: Dictionary, expected: Dictionary) -> bool:
 	return true
 
 
+## 通过父目录 DirAccess 判断目标 leaf 是否为链接。
+## [br]
+## @api private
+## [br]
 static func _is_link(path: String) -> bool:
 	var directory: DirAccess = DirAccess.open(path.get_base_dir())
 	return directory != null and directory.is_link(path.get_file())
 
 
+## 判断目标 leaf 是否为链接、文件或目录。
+## [br]
+## @api private
+## [br]
 static func _leaf_exists(path: String) -> bool:
 	return _is_link(path) or FileAccess.file_exists(path) or DirAccess.dir_exists_absolute(path)

@@ -33,21 +33,68 @@ const PROJECT_SETTINGS_INSPECTOR_PLUGIN_SCRIPT_PATH: String = "res://addons/gf/k
 ## [br]
 ## @layer kernel/editor
 const GFExtensionSettingsBase = preload("res://addons/gf/kernel/extension/gf_extension_settings.gd")
+
+## Inspector 配置读取与动态值转换所用的访问脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## ProjectSettings 分组展示器脚本，用于创建本工具管理的 presenter。
+## [br]
+## @api private
 const _GF_PROJECT_SETTINGS_SECTION_PRESENTER_SCRIPT = preload("res://addons/gf/kernel/editor/gf_project_settings_section_presenter.gd")
 
 
 # --- 私有变量 ---
 
+## 保存已注册的 Inspector 插件实例，供 cleanup(plugin) 移除。
+## [br]
+## @api private
 var _inspector_plugins: Array[EditorInspectorPlugin] = []
+
+## 保存标准导出插件实例，供 cleanup(plugin) 移除。
+## [br]
+## @api private
 var _standard_export_plugins: Array[EditorExportPlugin] = []
+
+## 保存内置扩展导出过滤插件，供 cleanup(plugin) 单独移除。
+## [br]
+## @api private
 var _extension_export_plugin: EditorExportPlugin
+
+## 保存当前启用的扩展导出插件实例，供 cleanup(plugin) 移除。
+## [br]
+## @api private
 var _extension_export_plugins: Array[EditorExportPlugin] = []
+
+## setup() 从 editor_records 复制出的标准 Inspector 记录。
+## [br]
+## @api private
 var _standard_inspector_records: Array[Dictionary] = []
+
+## setup() 从 editor_records 复制出的标准导出插件记录。
+## [br]
+## @api private
 var _standard_export_records: Array[Dictionary] = []
+
+## setup() 从 editor_records 复制出的 ProjectSettings 记录。
+## [br]
+## @api private
 var _project_setting_records: Array[Dictionary] = []
+
+## setup() 从 editor_records 复制出的 ProjectSettings 分组记录。
+## [br]
+## @api private
 var _project_setting_section_records: Array[Dictionary] = []
+
+## 当前创建并配置的 ProjectSettings 分组展示器；清理后置空。
+## [br]
+## @api private
 var _project_settings_section_presenter: RefCounted = null
+
+## 传给 Inspector 配置的展示语言覆盖值；setup() 会去除首尾空白。
+## [br]
+## @api private
 var _presentation_locale: String = ""
 
 
@@ -117,6 +164,9 @@ func cleanup(plugin: EditorPlugin) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 注册内置、标准与启用扩展提供的 Inspector/导出插件，并配置设置分组展示器。
+## [br]
+## @api private
 func _setup_inspector_tools(plugin: EditorPlugin) -> void:
 	_add_inspector_plugin(
 		plugin,
@@ -139,6 +189,9 @@ func _setup_inspector_tools(plugin: EditorPlugin) -> void:
 	_setup_project_settings_section_presenter()
 
 
+## 加载 ProjectSettings Inspector 并配置记录；缺少 configure() 时报告错误且不注册。
+## [br]
+## @api private
 func _add_project_settings_inspector_plugin(plugin: EditorPlugin) -> void:
 	var inspector_plugin: EditorInspectorPlugin = _load_inspector_plugin(
 		PROJECT_SETTINGS_INSPECTOR_PLUGIN_SCRIPT_PATH,
@@ -160,6 +213,9 @@ func _add_project_settings_inspector_plugin(plugin: EditorPlugin) -> void:
 	_inspector_plugins.append(inspector_plugin)
 
 
+## 创建分组展示器并以当前设置记录和语言调用其 setup()；实例类型不符时报告错误。
+## [br]
+## @api private
 func _setup_project_settings_section_presenter() -> void:
 	var presenter_value: Variant = _GF_PROJECT_SETTINGS_SECTION_PRESENTER_SCRIPT.new()
 	if not presenter_value is RefCounted:
@@ -174,12 +230,18 @@ func _setup_project_settings_section_presenter() -> void:
 	)
 
 
+## 若展示器仍存在则调用 cleanup()，随后清空保存的实例引用。
+## [br]
+## @api private
 func _cleanup_project_settings_section_presenter() -> void:
 	if _project_settings_section_presenter != null:
 		var _cleanup_result: Variant = _project_settings_section_presenter.call(&"cleanup")
 	_project_settings_section_presenter = null
 
 
+## 逐条加载标准导出插件记录，并注册及保存成功创建的实例。
+## [br]
+## @api private
 func _setup_standard_export_plugins(plugin: EditorPlugin) -> void:
 	for record: Dictionary in _standard_export_records:
 		var export_plugin: EditorExportPlugin = _load_export_plugin(
@@ -192,6 +254,9 @@ func _setup_standard_export_plugins(plugin: EditorPlugin) -> void:
 		_standard_export_plugins.append(export_plugin)
 
 
+## 加载内置扩展导出过滤插件，成功实例会保存并注册到 EditorPlugin。
+## [br]
+## @api private
 func _setup_extension_export_plugin(plugin: EditorPlugin) -> void:
 	var export_script: Script = _load_script(EXTENSION_EXPORT_PLUGIN_SCRIPT_PATH)
 	if export_script == null or not export_script.can_instantiate():
@@ -206,6 +271,9 @@ func _setup_extension_export_plugin(plugin: EditorPlugin) -> void:
 	plugin.add_export_plugin(_extension_export_plugin)
 
 
+## 读取启用扩展的导出插件路径，逐个加载并注册成功实例。
+## [br]
+## @api private
 func _setup_enabled_extension_export_plugins(plugin: EditorPlugin) -> void:
 	for export_plugin_path: String in GFExtensionSettingsBase.get_enabled_export_plugin_paths():
 		var export_plugin: EditorExportPlugin = _load_export_plugin(export_plugin_path, export_plugin_path)
@@ -215,6 +283,9 @@ func _setup_enabled_extension_export_plugins(plugin: EditorPlugin) -> void:
 		_extension_export_plugins.append(export_plugin)
 
 
+## 从脚本路径加载并创建 Inspector 插件；任一步失败时记录带标签的错误并返回 null。
+## [br]
+## @api private
 func _load_inspector_plugin(script_path: String, label: String) -> EditorInspectorPlugin:
 	var inspector_script: Script = _load_script(script_path)
 	if inspector_script == null or not inspector_script.can_instantiate():
@@ -229,6 +300,9 @@ func _load_inspector_plugin(script_path: String, label: String) -> EditorInspect
 	return inspector_plugin
 
 
+## 从脚本路径加载并创建导出插件；任一步失败时记录带标签的错误并返回 null。
+## [br]
+## @api private
 func _load_export_plugin(script_path: String, label: String) -> EditorExportPlugin:
 	var export_script: Script = _load_script(script_path)
 	if export_script == null or not export_script.can_instantiate():
@@ -243,6 +317,9 @@ func _load_export_plugin(script_path: String, label: String) -> EditorExportPlug
 	return export_plugin
 
 
+## 创建 Inspector 插件后注册到 EditorPlugin，并保存实例供后续移除。
+## [br]
+## @api private
 func _add_inspector_plugin(plugin: EditorPlugin, script_path: String, label: String) -> void:
 	var inspector_plugin: EditorInspectorPlugin = _load_inspector_plugin(script_path, label)
 	if inspector_plugin == null:
@@ -252,6 +329,9 @@ func _add_inspector_plugin(plugin: EditorPlugin, script_path: String, label: Str
 	_inspector_plugins.append(inspector_plugin)
 
 
+## 汇总启用扩展的 Inspector 路径；跳过空路径和重复路径，并为每条记录生成标签。
+## [br]
+## @api private
 func _collect_enabled_extension_inspector_records() -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	var used_paths: Dictionary = {}
@@ -275,6 +355,9 @@ func _collect_enabled_extension_inspector_records() -> Array[Dictionary]:
 	return records
 
 
+## 以 display_name 为扩展名，缺失时回退到 extension_id，并追加脚本文件名标签。
+## [br]
+## @api private
 func _get_extension_inspector_label(
 	contribution_record: Dictionary,
 	inspector_path: String
@@ -292,6 +375,9 @@ func _get_extension_inspector_label(
 	return "%s %s" % [extension_name, script_name]
 
 
+## 仅接受 Array 中的 Dictionary 项，并对每项执行深复制；其他输入返回空数组。
+## [br]
+## @api private
 func _to_record_array(value: Variant) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	if not value is Array:
@@ -303,10 +389,16 @@ func _to_record_array(value: Variant) -> Array[Dictionary]:
 	return records
 
 
+## 从记录中读取指定字符串字段，字段缺失或类型不符时使用空字符串。
+## [br]
+## @api private
 func _get_record_string(record: Dictionary, key: String) -> String:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, key, "")
 
 
+## 加载路径对应的资源，仅在结果是 Script 时返回脚本。
+## [br]
+## @api private
 func _load_script(script_path: String) -> Script:
 	var resource: Resource = load(script_path)
 	if resource is Script:
@@ -315,6 +407,9 @@ func _load_script(script_path: String) -> Script:
 	return null
 
 
+## 调用脚本的 new()，并仅返回 EditorInspectorPlugin 类型的实例。
+## [br]
+## @api private
 func _instantiate_inspector_plugin(script: Script) -> EditorInspectorPlugin:
 	var instance: Variant = script.call("new")
 	if instance is EditorInspectorPlugin:
@@ -323,6 +418,9 @@ func _instantiate_inspector_plugin(script: Script) -> EditorInspectorPlugin:
 	return null
 
 
+## 调用脚本的 new()，并仅返回 EditorExportPlugin 类型的实例。
+## [br]
+## @api private
 func _instantiate_export_plugin(script: Script) -> EditorExportPlugin:
 	var instance: Variant = script.call("new")
 	if instance is EditorExportPlugin:
@@ -331,6 +429,9 @@ func _instantiate_export_plugin(script: Script) -> EditorExportPlugin:
 	return null
 
 
+## 移除所有非 null 的 Inspector 插件实例，并清空本地列表。
+## [br]
+## @api private
 func _cleanup_inspector_tools(plugin: EditorPlugin) -> void:
 	for inspector_plugin: EditorInspectorPlugin in _inspector_plugins:
 		if inspector_plugin != null:
@@ -338,6 +439,9 @@ func _cleanup_inspector_tools(plugin: EditorPlugin) -> void:
 	_inspector_plugins.clear()
 
 
+## 移除所有非 null 的标准导出插件实例，并清空本地列表。
+## [br]
+## @api private
 func _cleanup_standard_export_plugins(plugin: EditorPlugin) -> void:
 	for export_plugin: EditorExportPlugin in _standard_export_plugins:
 		if export_plugin != null:
@@ -345,12 +449,18 @@ func _cleanup_standard_export_plugins(plugin: EditorPlugin) -> void:
 	_standard_export_plugins.clear()
 
 
+## 移除已保存的内置扩展导出过滤插件，并将实例引用置空。
+## [br]
+## @api private
 func _cleanup_extension_export_plugin(plugin: EditorPlugin) -> void:
 	if _extension_export_plugin != null:
 		plugin.remove_export_plugin(_extension_export_plugin)
 		_extension_export_plugin = null
 
 
+## 移除所有非 null 的启用扩展导出插件实例，并清空本地列表。
+## [br]
+## @api private
 func _cleanup_enabled_extension_export_plugins(plugin: EditorPlugin) -> void:
 	for export_plugin: EditorExportPlugin in _extension_export_plugins:
 		if export_plugin != null:

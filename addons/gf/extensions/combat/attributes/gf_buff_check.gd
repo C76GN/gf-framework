@@ -71,6 +71,9 @@ func _can_apply(_context: Dictionary) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 深拷贝钩子报告，补齐 ok、reason 和 check_id，并合并检查资源自身的 metadata。
+## [br]
+## @api private
 func _normalize_report(report: Dictionary) -> Dictionary:
 	var result: Dictionary = report.duplicate(true)
 	result["ok"] = GFVariantData.get_option_bool(result, "ok", true)

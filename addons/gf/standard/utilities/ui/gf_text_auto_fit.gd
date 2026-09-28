@@ -83,7 +83,14 @@ extends Node
 
 # --- 私有变量 ---
 
+## 当前解析并绑定的文本目标控件。
+## [br]
+## @api private
 var _target: Control = null
+
+## 是否已有一次 deferred 刷新排队。
+## [br]
+## @api private
 var _refresh_queued: bool = false
 
 
@@ -170,6 +177,9 @@ func get_target() -> Control:
 
 # --- 私有/辅助方法 ---
 
+## 解析目标并在目标改变时替换绑定，按配置连接 resized 刷新回调。
+## [br]
+## @api private
 func _bind_target() -> void:
 	var resolved: Control = _resolve_target()
 	if resolved == _target:
@@ -181,6 +191,9 @@ func _bind_target() -> void:
 		var _connect_result_181: Variant = _target.resized.connect(_on_target_resized)
 
 
+## 断开当前目标的 resized 回调并清空目标引用。
+## [br]
+## @api private
 func _disconnect_target() -> void:
 	if _target != null and is_instance_valid(_target):
 		if _target.resized.is_connected(_on_target_resized):
@@ -188,12 +201,18 @@ func _disconnect_target() -> void:
 	_target = null
 
 
+## 优先解析 target_path；路径为空时解析父节点。
+## [br]
+## @api private
 func _resolve_target() -> Control:
 	if not target_path.is_empty():
 		return _get_control(get_node_or_null(target_path))
 	return _get_control(get_parent())
 
 
+## 将 Variant 收窄为 Control；其他类型返回 null。
+## [br]
+## @api private
 func _get_control(value: Variant) -> Control:
 	if value is Control:
 		var control: Control = value
@@ -201,11 +220,17 @@ func _get_control(value: Variant) -> Control:
 	return null
 
 
+## 执行已排队的刷新，并由 refresh() 清除排队标记。
+## [br]
+## @api private
 func _flush_refresh() -> void:
 	var _refresh_result_205: Variant = refresh()
 
 
 # --- 信号处理函数 ---
 
+## 目标尺寸变化时请求一次配置的文本适配刷新。
+## [br]
+## @api private
 func _on_target_resized() -> void:
 	request_refresh()

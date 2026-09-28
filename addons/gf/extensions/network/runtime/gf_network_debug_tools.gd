@@ -28,20 +28,6 @@ static func sanitize_debug_dictionary(source: Dictionary) -> Dictionary:
 	return _sanitize_debug_dictionary(source, [])
 
 
-static func _sanitize_debug_dictionary(source: Dictionary, visited: Array) -> Dictionary:
-	if _visited_contains_reference(visited, source):
-		return GFReportValueCodec.to_report_dictionary({
-			"circular_reference": true,
-		})
-	visited.append(source)
-	var result: Dictionary = {}
-	for key_variant: Variant in source.keys():
-		var key_text: String = GFVariantData.to_text(key_variant)
-		result[key_variant] = _sanitize_debug_value(key_text, source[key_variant], visited)
-	var _removed_reference: Variant = visited.pop_back()
-	return result
-
-
 ## 脱敏调试数组。
 ## [br]
 ## @api framework_internal
@@ -55,19 +41,6 @@ static func _sanitize_debug_dictionary(source: Dictionary, visited: Array) -> Di
 ## @schema return: Array with sensitive values redacted.
 static func sanitize_debug_array(source: Array) -> Array:
 	return _sanitize_debug_array(source, [])
-
-
-static func _sanitize_debug_array(source: Array, visited: Array) -> Array:
-	if _visited_contains_reference(visited, source):
-		return [GFReportValueCodec.to_json_compatible({
-			"circular_reference": true,
-		})]
-	visited.append(source)
-	var result: Array = []
-	for value: Variant in source:
-		result.append(_sanitize_debug_value("", value, visited))
-	var _removed_reference: Variant = visited.pop_back()
-	return result
 
 
 ## 脱敏单个调试值。
@@ -85,25 +58,6 @@ static func _sanitize_debug_array(source: Array, visited: Array) -> Array:
 ## @schema return: Redacted or duplicated debug value.
 static func sanitize_debug_value(key_text: String, value: Variant) -> Variant:
 	return _sanitize_debug_value(key_text, value, [])
-
-
-static func _sanitize_debug_value(key_text: String, value: Variant, visited: Array) -> Variant:
-	if is_sensitive_debug_key(key_text):
-		return "[redacted]"
-	if value is Dictionary:
-		var dictionary_value: Dictionary = value
-		return _sanitize_debug_dictionary(dictionary_value, visited)
-	if value is Array:
-		var array_value: Array = value
-		return _sanitize_debug_array(array_value, visited)
-	if value is PackedStringArray:
-		var string_array: PackedStringArray = value
-		return string_array.duplicate()
-	if key_text.to_lower() == "endpoint":
-		return sanitize_endpoint(GFVariantData.to_text(value))
-	return GFReportValueCodec.to_json_compatible(value, {
-		"path_redaction": "basename",
-	})
 
 
 ## 判断字段名是否应视为敏感信息。
@@ -190,6 +144,66 @@ static func sanitize_endpoint(endpoint: String) -> String:
 	return sanitized
 
 
+# --- 私有/辅助方法 ---
+
+## 遍历字典值并按键名脱敏；用当前递归链的身份栈识别循环容器，以标记字典替代循环边。
+## [br]
+## @api private
+static func _sanitize_debug_dictionary(source: Dictionary, visited: Array) -> Dictionary:
+	if _visited_contains_reference(visited, source):
+		return GFReportValueCodec.to_report_dictionary({
+			"circular_reference": true,
+		})
+	visited.append(source)
+	var result: Dictionary = {}
+	for key_variant: Variant in source.keys():
+		var key_text: String = GFVariantData.to_text(key_variant)
+		result[key_variant] = _sanitize_debug_value(key_text, source[key_variant], visited)
+	var _removed_reference: Variant = visited.pop_back()
+	return result
+
+
+## 逐项净化数组；遇到当前递归链上的同一数组时返回循环标记数组，离开容器后弹出引用。
+## [br]
+## @api private
+static func _sanitize_debug_array(source: Array, visited: Array) -> Array:
+	if _visited_contains_reference(visited, source):
+		return [GFReportValueCodec.to_json_compatible({
+			"circular_reference": true,
+		})]
+	visited.append(source)
+	var result: Array = []
+	for value: Variant in source:
+		result.append(_sanitize_debug_value("", value, visited))
+	var _removed_reference: Variant = visited.pop_back()
+	return result
+
+
+## 优先遮蔽敏感键值，递归处理容器；endpoint 字符串单独净化，其余值交给报告编码器并将路径缩为文件名。
+## [br]
+## @api private
+static func _sanitize_debug_value(key_text: String, value: Variant, visited: Array) -> Variant:
+	if is_sensitive_debug_key(key_text):
+		return "[redacted]"
+	if value is Dictionary:
+		var dictionary_value: Dictionary = value
+		return _sanitize_debug_dictionary(dictionary_value, visited)
+	if value is Array:
+		var array_value: Array = value
+		return _sanitize_debug_array(array_value, visited)
+	if value is PackedStringArray:
+		var string_array: PackedStringArray = value
+		return string_array.duplicate()
+	if key_text.to_lower() == "endpoint":
+		return sanitize_endpoint(GFVariantData.to_text(value))
+	return GFReportValueCodec.to_json_compatible(value, {
+		"path_redaction": "basename",
+	})
+
+
+## 以 is_same 检查递归链中是否已存在同一容器引用，不使用内容相等判断。
+## [br]
+## @api private
 static func _visited_contains_reference(visited: Array, value: Variant) -> bool:
 	for item: Variant in visited:
 		if is_same(item, value):

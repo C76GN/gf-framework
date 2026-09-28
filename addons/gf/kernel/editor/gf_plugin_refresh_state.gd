@@ -40,11 +40,34 @@ const ACTION_DONE: StringName = &"done"
 
 # --- 私有变量 ---
 
+## 每次 request() 递增的最新请求编号。
+## [br]
+## @api private
 var _requested_generation: int = 0
+
+## 当前扫描所绑定的请求编号；启动扫描时取最新请求编号。
+## [br]
+## @api private
 var _scan_generation: int = 0
+
+## 最近一次由调用方确认已完成应用的请求编号。
+## [br]
+## @api private
 var _applied_generation: int = 0
+
+## 是否存在尚未结束的刷新批次。
+## [br]
+## @api private
 var _pending: bool = false
+
+## 是否正在等待进入本批次前已经启动的文件系统扫描变为空闲。
+## [br]
+## @api private
 var _waiting_for_existing_scan: bool = false
+
+## 当前批次的超时截止单调时钟值，单位为毫秒。
+## [br]
+## @api private
 var _deadline_msec: int = 0
 
 
@@ -194,12 +217,19 @@ func get_applied_generation() -> int:
 
 # --- 私有/辅助方法 ---
 
+## 将扫描 generation 更新为最新请求值，清除等待标记，并生成 scan 动作。
+## [br]
+## @api private
 func _make_scan_action() -> Dictionary:
 	_scan_generation = _requested_generation
 	_waiting_for_existing_scan = false
 	return _make_action(ACTION_SCAN, _scan_generation)
 
 
+## 生成含 kind 与 generation 两个字段的动作字典。
+## 未传 generation 时使用 0。
+## [br]
+## @api private
 func _make_action(kind: StringName, generation: int = 0) -> Dictionary:
 	return {
 		"kind": kind,

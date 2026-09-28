@@ -84,10 +84,18 @@ static func export_reports(reports: Array, options: Dictionary = {}) -> String:
 
 # --- 私有/辅助方法 ---
 
+## 为没有问题的报告生成一个健康状态 JUnit testcase 元素。
+## [br]
+## @api private
+## [br]
 static func _make_passing_case(report: GFValidationReport) -> String:
 	return '\t<testcase classname="%s" name="healthy" />' % _escape_attribute(_get_report_subject(report))
 
 
+## 将问题转换为 testcase；错误及按选项视为失败的警告附带 failure 元素。
+## [br]
+## @api private
+## [br]
 static func _make_issue_case(report: GFValidationReport, issue: GFValidationIssue, is_failure: bool) -> String:
 	var class_label: String = _escape_attribute(_get_report_subject(report))
 	var kind: String = _escape_attribute(issue.get_kind_key())
@@ -108,20 +116,36 @@ static func _make_issue_case(report: GFValidationReport, issue: GFValidationIssu
 	]
 
 
+## 读取报告主题；报告为空或主题为空时返回 GFValidationReport。
+## [br]
+## @api private
+## [br]
 static func _get_report_subject(report: GFValidationReport) -> String:
 	if report == null or report.subject.is_empty():
 		return "GFValidationReport"
 	return report.subject
 
 
+## 转义 XML 文本并额外转义双引号和单引号属性字符。
+## [br]
+## @api private
+## [br]
 static func _escape_attribute(value: String) -> String:
 	return _escape_text(value).replace("\"", "&quot;").replace("'", "&apos;")
 
 
+## 转义 XML 文本节点中的与号和尖括号。
+## [br]
+## @api private
+## [br]
 static func _escape_text(value: String) -> String:
 	return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+## 仅当 Variant 为 GFValidationReport 时返回该报告实例。
+## [br]
+## @api private
+## [br]
 static func _as_validation_report(value: Variant) -> GFValidationReport:
 	if value is GFValidationReport:
 		var report: GFValidationReport = value
@@ -129,6 +153,10 @@ static func _as_validation_report(value: Variant) -> GFValidationReport:
 	return null
 
 
+## 仅当 Variant 为 GFValidationIssue 时返回该问题实例。
+## [br]
+## @api private
+## [br]
 static func _as_validation_issue(value: Variant) -> GFValidationIssue:
 	if value is GFValidationIssue:
 		var issue: GFValidationIssue = value
@@ -136,6 +164,10 @@ static func _as_validation_issue(value: Variant) -> GFValidationIssue:
 	return null
 
 
+## 向 PackedStringArray 追加一段文本。
+## [br]
+## @api private
+## [br]
 static func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:

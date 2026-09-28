@@ -57,6 +57,9 @@ signal budgets_cleared(budget_ids: PackedStringArray)
 
 # --- 私有变量 ---
 
+## 以预算标识为键保存容量与当前可用量。
+## [br]
+## @api private
 var _budgets: Dictionary = {}
 
 
@@ -266,6 +269,9 @@ func get_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 获取已有预算条目，或创建容量与可用量均为 0 的条目。
+## [br]
+## @api private
 func _get_or_make_entry(budget_id: StringName) -> Dictionary:
 	if _budgets.has(budget_id):
 		return _get_entry_copy(budget_id)
@@ -275,18 +281,30 @@ func _get_or_make_entry(budget_id: StringName) -> Dictionary:
 	}
 
 
+## 获取指定预算条目并转换为 Dictionary；不存在时返回空字典。
+## [br]
+## @api private
 func _get_entry_copy(budget_id: StringName) -> Dictionary:
 	return GFVariantData.to_dictionary(_budgets[budget_id]) if _budgets.has(budget_id) else {}
 
 
+## 读取条目的 capacity 数值；字段缺失或无法转换时默认为 0。
+## [br]
+## @api private
 func _get_entry_capacity(entry: Dictionary) -> float:
 	return GFVariantData.get_option_float(entry, "capacity", 0.0)
 
 
+## 读取条目的 available 数值；字段缺失或无法转换时默认为 0。
+## [br]
+## @api private
 func _get_entry_available(entry: Dictionary) -> float:
 	return GFVariantData.get_option_float(entry, "available", 0.0)
 
 
+## 创建消费结果，并读取构造时账本中的可用量与容量。
+## [br]
+## @api private
 func _make_result(
 	ok: bool,
 	budget_id: StringName,
@@ -305,11 +323,17 @@ func _make_result(
 	}
 
 
+## 将非有限数量归零，并把有限数量限制为非负值。
+## [br]
+## @api private
 func _normalize_non_negative_amount(value: float) -> float:
 	if not _is_finite_amount(value):
 		return 0.0
 	return maxf(0.0, value)
 
 
+## 判断数量是否既不是 NaN 也不是正负无穷。
+## [br]
+## @api private
 func _is_finite_amount(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)

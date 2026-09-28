@@ -53,7 +53,14 @@ const STATUS_SKIPPED: StringName = &"skipped"
 ## @since 7.0.0
 const STATUS_FAILED: StringName = &"failed"
 
+## 从不可信 Variant 选项中读取类型化值并合并字典的工具脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 汇总生成产物报告的脚本。
+## [br]
+## @api private
 const _GF_GENERATED_ARTIFACT_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_generated_artifact_report.gd")
 
 
@@ -92,7 +99,14 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 按添加顺序保存操作步骤记录。
+## [br]
+## @api private
 var _steps: Array[Dictionary] = []
+
+## 深复制后添加的生成产物报告记录。
+## [br]
+## @api private
 var _artifact_reports: Array[Dictionary] = []
 
 
@@ -303,6 +317,9 @@ func summarize(options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 深复制字典数组，避免调用方通过返回值修改计划中保存的记录。
+## [br]
+## @api private
 func _duplicate_dictionary_array(values: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for value: Dictionary in values:
@@ -310,6 +327,9 @@ func _duplicate_dictionary_array(values: Array[Dictionary]) -> Array[Dictionary]
 	return result
 
 
+## 将键转为文本并排序，再按该顺序构建新字典；每个值也会递归复制。
+## [br]
+## @api private
 func _sort_dictionary_by_key(data: Dictionary) -> Dictionary:
 	var keys: PackedStringArray = PackedStringArray()
 	for raw_key: Variant in data.keys():

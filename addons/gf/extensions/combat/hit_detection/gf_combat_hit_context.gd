@@ -14,6 +14,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 为强度、位置和法线 setter 提供有限数值检查。
+## [br]
+## @api private
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
 
@@ -134,13 +137,44 @@ var metadata: Dictionary:
 
 # --- 私有变量 ---
 
+## 保存 payload 的内部值；公开 getter/setter 通过 duplicate_variant 复制访问。
+## [br]
+## @api private
 var _payload: Variant = null
+
+## 保存最近一次有限 magnitude 赋值；非有限值不会覆盖当前值。
+## [br]
+## @api private
 var _magnitude: float = 0.0
+
+## tags 的内部数组；公开 getter 与 setter 都复制数组容器。
+## [br]
+## @api private
 var _tags: Array[StringName] = []
+
+## 保存最近一次有限 position_2d 赋值；非有限向量不会覆盖当前值。
+## [br]
+## @api private
 var _position_2d: Vector2 = Vector2.ZERO
+
+## 保存最近一次有限 normal_2d 赋值；非有限向量不会覆盖当前值。
+## [br]
+## @api private
 var _normal_2d: Vector2 = Vector2.ZERO
+
+## 保存最近一次有限 position_3d 赋值；非有限向量不会覆盖当前值。
+## [br]
+## @api private
 var _position_3d: Vector3 = Vector3.ZERO
+
+## 保存最近一次有限 normal_3d 赋值；非有限向量不会覆盖当前值。
+## [br]
+## @api private
 var _normal_3d: Vector3 = Vector3.ZERO
+
+## 保存 metadata 的内部字典；公开 getter 与 setter 都深复制该字典。
+## [br]
+## @api private
 var _metadata: Dictionary = {}
 
 

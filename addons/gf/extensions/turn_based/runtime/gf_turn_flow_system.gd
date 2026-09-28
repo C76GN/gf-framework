@@ -52,16 +52,28 @@ signal action_enqueued(action: GFTurnAction)
 signal action_resolved(action: GFTurnAction)
 
 
-# --- 常量 ---
+# --- 枚举 ---
 
-const _GF_ASYNC_WAIT_SUPPORT = preload("res://addons/gf/standard/common/gf_async_wait_support.gd")
-
+## 流程启动、运行与停止的内部状态，控制回调期间是否允许重放启动请求。
+## [br]
+## @api private
 enum _LifecycleState {
 	STOPPED,
 	STARTING,
 	RUNNING,
 	STOPPING,
 }
+
+
+# --- 常量 ---
+
+## Signal 安全等待实现，用于阶段和行动回调的有限/受控等待。
+## [br]
+## @api private
+## [br]
+const _GF_ASYNC_WAIT_SUPPORT = preload("res://addons/gf/standard/common/gf_async_wait_support.gd")
+
+
 
 
 # --- 公共变量 ---
@@ -124,23 +136,112 @@ var signal_timeout_respects_time_scale: bool = true
 
 # --- 私有变量 ---
 
+## 当前 Flow generation 序号。
+## [br]
+## @api private
+## [br]
 var _flow_serial: int = 0
+
+## 阶段推进协程是否正在进行。
+## [br]
+## @api private
+## [br]
 var _is_advancing_phase: bool = false
+
+## 行动解析协程是否正在进行。
+## [br]
+## @api private
+## [br]
 var _is_resolving_actions: bool = false
+
+## 当前使用的上下文对象。
+## [br]
+## @api private
+## [br]
 var _context: GFTurnContext = GFTurnContext.new()
+
+## Flow 使用的阶段序列。
+## [br]
+## @api private
+## [br]
 var _phases: Array[GFTurnPhase] = []
+
+## 当前阶段索引；尚未进入阶段时为 -1。
+## [br]
+## @api private
+## [br]
 var _current_phase_index: int = -1
+
+## 对外运行状态属性的后备值。
+## [br]
+## @api private
+## [br]
 var _is_running: bool = false
+
+## 等待解析或消费的行动队列。
+## [br]
+## @api private
+## [br]
 var _actions: Array[GFTurnAction] = []
+
+## 分配给新入队行动的顺序号。
+## [br]
+## @api private
+## [br]
 var _next_action_order: int = 0
+
+## 以行动实例 ID 记录入队顺序，供默认比较器稳定排序。
+## [br]
+## @api private
+## [br]
 var _action_order_by_instance_id: Dictionary = {}
+
+## 取消正在解析的行动时，是否保留尚未处理的有效行动。
+## [br]
+## @api private
+## [br]
 var _restore_pending_actions_on_cancel: bool = false
+
+## _LifecycleState 当前取值。
+## [br]
+## @api private
+## [br]
 var _lifecycle_state: int = _LifecycleState.STOPPED
+
+## 请求停止后等待活动 operation 收尾的标志。
+## [br]
+## @api private
+## [br]
 var _active_operation_stop_requested: bool = false
+
+## 此 Flow System 当前持有、尚待释放的 Context 操作租约。
+## [br]
+## @api private
+## [br]
 var _active_context_operation_leases: Array[GFTurnContext.FlowOperationLease] = []
+
+## flow_started 信号通知期间的重入保护标志。
+## [br]
+## @api private
+## [br]
 var _is_notifying_flow_started: bool = false
+
+## 是否有等待生命周期安全点重放的 start 请求。
+## [br]
+## @api private
+## [br]
 var _has_pending_start_request: bool = false
+
+## 待重放 start 请求是否重置索引。
+## [br]
+## @api private
+## [br]
 var _pending_start_reset_indices: bool = true
+
+## 系统是否已经 dispose。
+## [br]
+## @api private
+## [br]
 var _is_disposed: bool = false
 
 
@@ -583,6 +684,10 @@ func resolve_actions(order_resolver: Callable = Callable()) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 按优先级、规范化次排序值及首次入队顺序作降序比较。
+## [br]
+## @api private
+## [br]
 func _sort_action_desc(a: GFTurnAction, b: GFTurnAction) -> bool:
 	if a.priority != b.priority:
 		return a.priority > b.priority
@@ -593,6 +698,10 @@ func _sort_action_desc(a: GFTurnAction, b: GFTurnAction) -> bool:
 	return _get_action_order(a) < _get_action_order(b)
 
 
+## 只在 operation lease 有效前后调用自定义比较器，并停用失效的比较状态。
+## [br]
+## @api private
+## [br]
 func _sort_action_with_operation_guard(
 	a: GFTurnAction,
 	b: GFTurnAction,
@@ -615,6 +724,10 @@ func _sort_action_with_operation_guard(
 	return result is bool and result
 
 
+## 从当前索引向前环绕查找下一项非 null 阶段，并返回索引与是否已环绕。
+## [br]
+## @api private
+## [br]
 func _next_valid_phase() -> Dictionary:
 	var next_index: int = _current_phase_index
 	var wrapped: bool = false
@@ -633,6 +746,10 @@ func _next_valid_phase() -> Dictionary:
 	return {}
 
 
+## 为尚无缓存顺序的行动分配下一个入队顺序号。
+## [br]
+## @api private
+## [br]
 func _ensure_action_order(action: GFTurnAction) -> void:
 	if action == null:
 		return
@@ -643,23 +760,39 @@ func _ensure_action_order(action: GFTurnAction) -> void:
 	_next_action_order += 1
 
 
+## 查询行动缓存的入队顺序；空行动或未登记时返回 0。
+## [br]
+## @api private
+## [br]
 func _get_action_order(action: GFTurnAction) -> int:
 	if action == null:
 		return 0
 	return GFVariantData.get_option_int(_action_order_by_instance_id, action.get_instance_id(), 0)
 
 
+## 从入队顺序缓存移除行动实例。
+## [br]
+## @api private
+## [br]
 func _forget_action_order(action: GFTurnAction) -> void:
 	if action == null:
 		return
 	var _erased_order: bool = _action_order_by_instance_id.erase(action.get_instance_id())
 
 
+## 清空所有行动顺序记录并重置下一个顺序号。
+## [br]
+## @api private
+## [br]
 func _clear_action_order_cache() -> void:
 	_action_order_by_instance_id.clear()
 	_next_action_order = 0
 
 
+## 封存队列中的行动，清空队列和顺序缓存。
+## [br]
+## @api private
+## [br]
 func _clear_actions_internal() -> void:
 	for action: GFTurnAction in _actions:
 		_consume_action(action)
@@ -667,12 +800,20 @@ func _clear_actions_internal() -> void:
 	_clear_action_order_cache()
 
 
+## 移除行动的顺序缓存项，并在行动非空时将其封存。
+## [br]
+## @api private
+## [br]
 func _consume_action(action: GFTurnAction) -> void:
 	_forget_action_order(action)
 	if action != null:
 		action.seal_after_queue()
 
 
+## 按取消恢复开关处理 pending_actions 从 start_index 起的未解析后缀。
+## [br]
+## @api private
+## [br]
 func _restore_unresolved_actions(pending_actions: Array[GFTurnAction], start_index: int) -> void:
 	if not _restore_pending_actions_on_cancel:
 		for index: int in range(start_index, pending_actions.size()):
@@ -691,6 +832,10 @@ func _restore_unresolved_actions(pending_actions: Array[GFTurnAction], start_ind
 		_actions.push_front(restored[index])
 
 
+## 行动为空或其 actor 是已释放对象时返回 true；非 Object actor 不视为失效。
+## [br]
+## @api private
+## [br]
 func _action_has_invalid_actor(action: GFTurnAction) -> bool:
 	if action == null:
 		return true
@@ -700,6 +845,10 @@ func _action_has_invalid_actor(action: GFTurnAction) -> bool:
 	return not is_instance_valid(actor_value)
 
 
+## 仅将当前仍有效的 Object Variant 转为 Object，其余输入返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_valid_object(value: Variant) -> Object:
 	if typeof(value) != TYPE_OBJECT or not is_instance_valid(value):
 		return null
@@ -707,6 +856,10 @@ func _variant_to_valid_object(value: Variant) -> Object:
 	return object_value
 
 
+## 从系统取得架构，并在架构可用时向行动注入依赖。
+## [br]
+## @api private
+## [br]
 func _inject_action(action: GFTurnAction) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture == null:
@@ -714,6 +867,10 @@ func _inject_action(action: GFTurnAction) -> void:
 	action.inject_dependencies_from_flow(architecture)
 
 
+## 空行动或非有限 sort_value 统一映射为 -INF。
+## [br]
+## @api private
+## [br]
 func _normalized_action_sort_value(action: GFTurnAction) -> float:
 	if action == null:
 		return -INF
@@ -723,6 +880,10 @@ func _normalized_action_sort_value(action: GFTurnAction) -> float:
 	return value
 
 
+## 使用配置的 TimeUtility 和超时参数委托给安全 Signal 等待器。
+## [br]
+## @api private
+## [br]
 func _await_signal_safely(result_signal: Signal, should_continue: Callable, timeout_warning: String) -> bool:
 	return await _GF_ASYNC_WAIT_SUPPORT.await_signal_safely(
 		result_signal,
@@ -734,6 +895,10 @@ func _await_signal_safely(result_signal: Signal, should_continue: Callable, time
 	)
 
 
+## 从系统取得 GFTimeUtility；依赖缺失或类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_time_utility() -> GFTimeUtility:
 	var utility_value: Variant = get_utility(GFTimeUtility)
 	if utility_value is GFTimeUtility:
@@ -742,6 +907,10 @@ func _get_time_utility() -> GFTimeUtility:
 	return null
 
 
+## 结束阶段运行态，更新推进/停止标志并释放阶段操作租约。
+## [br]
+## @api private
+## [br]
 func _end_phase_advance(
 	phase: GFTurnPhase,
 	active_context: GFTurnContext,
@@ -756,6 +925,10 @@ func _end_phase_advance(
 	_release_context_operation_lease(active_context, phase_lease)
 
 
+## 清除当前 actor，重置行动解析状态并释放行动操作租约。
+## [br]
+## @api private
+## [br]
 func _finish_action_resolution(
 	active_context: GFTurnContext,
 	action_lease: GFTurnContext.FlowOperationLease
@@ -769,6 +942,10 @@ func _finish_action_resolution(
 	_release_context_operation_lease(active_context, action_lease)
 
 
+## 向 Context 申请操作租约，并在成功后登记到本系统的活动租约列表。
+## [br]
+## @api private
+## [br]
 func _acquire_context_operation_lease(
 	active_context: GFTurnContext,
 	flow_serial: int
@@ -783,6 +960,10 @@ func _acquire_context_operation_lease(
 	return lease
 
 
+## 逐一请求 Context 撤销当前登记租约的正常写入权限。
+## [br]
+## @api private
+## [br]
 func _cancel_active_context_operation_leases() -> void:
 	for lease: GFTurnContext.FlowOperationLease in _active_context_operation_leases.duplicate():
 		if lease == null:
@@ -790,6 +971,10 @@ func _cancel_active_context_operation_leases() -> void:
 		var _cancelled: bool = _context.cancel_flow_operation_lease(lease, self)
 
 
+## 向 Context 释放租约、移除本地登记，并尝试重放等待中的 start 请求。
+## [br]
+## @api private
+## [br]
 func _release_context_operation_lease(
 	active_context: GFTurnContext,
 	lease: GFTurnContext.FlowOperationLease
@@ -802,11 +987,18 @@ func _release_context_operation_lease(
 	_try_replay_pending_start_request()
 
 
+## 清除待重放 start 请求，并恢复 reset_indices 的默认值。
+## [br]
+## @api private
+## [br]
 func _clear_pending_start_request() -> void:
 	_has_pending_start_request = false
 	_pending_start_reset_indices = true
 
 
+## 仅在流程完全停止、没有回调推进或未结算操作租约时重放待启动请求；调用 start 前先清除请求。
+## [br]
+## @api private
 func _try_replay_pending_start_request() -> void:
 	if (
 		not _has_pending_start_request
@@ -823,6 +1015,10 @@ func _try_replay_pending_start_request() -> void:
 	start(reset_indices)
 
 
+## 校验 generation、Context 身份及 Context 对该租约的活动状态。
+## [br]
+## @api private
+## [br]
 func _is_context_operation_lease_current(
 	lease: GFTurnContext.FlowOperationLease,
 	serial: int,
@@ -836,6 +1032,10 @@ func _is_context_operation_lease_current(
 	)
 
 
+## 仅在系统未 dispose、仍运行且租约仍当前时返回 true。
+## [br]
+## @api private
+## [br]
 func _is_active_context_operation_lease(
 	lease: GFTurnContext.FlowOperationLease,
 	serial: int,

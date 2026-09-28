@@ -12,14 +12,51 @@
 class_name GFAssetAttributionTools
 extends RefCounted
 
+# --- 常量 ---
+
+## 未指定 attribution_key 时，从元数据读取归因载荷的默认键。
+## [br]
+## @api private
 const _ATTRIBUTION_KEY: String = "attribution"
+
+## 格式化时许可证标识为空所使用的显示文字。
+## [br]
+## @api private
 const _UNSPECIFIED_LICENSE_LABEL: String = "Unspecified license"
+
+## 按优先顺序查找资源路径的输入字段别名。
+## [br]
+## @api private
 const _PATH_FIELDS: PackedStringArray = ["path", "resource_path", "source_path", "asset_path"]
+
+## 按优先顺序查找许可证标识的输入字段别名。
+## [br]
+## @api private
 const _LICENSE_FIELDS: PackedStringArray = ["license_id", "spdx_id", "license", "license_type"]
+
+## 按优先顺序查找资产标题的输入字段别名。
+## [br]
+## @api private
 const _TITLE_FIELDS: PackedStringArray = ["title", "name", "asset_name", "display_name"]
+
+## 按优先顺序查找创作者署名的输入字段别名。
+## [br]
+## @api private
 const _CREATOR_FIELDS: PackedStringArray = ["creator", "author", "authors", "copyright_holder"]
+
+## 按优先顺序查找来源链接的输入字段别名。
+## [br]
+## @api private
 const _SOURCE_URL_FIELDS: PackedStringArray = ["source_url", "origin_url", "url", "source"]
+
+## 按优先顺序查找署名通知文本的输入字段别名。
+## [br]
+## @api private
 const _NOTICE_FIELDS: PackedStringArray = ["notice", "attribution_notice"]
+
+## 按优先顺序查找版权声明的输入字段别名。
+## [br]
+## @api private
 const _COPYRIGHT_FIELDS: PackedStringArray = ["copyright", "copyright_notice"]
 
 
@@ -212,6 +249,9 @@ static func format_notice_text(report: Dictionary, options: Dictionary = {}) -> 
 
 # --- 私有/辅助方法 ---
 
+## 将支持的记录、字典或其他输入收窄为归因数据字典。
+## [br]
+## @api private
 static func _entry_to_data(entry: Variant) -> Dictionary:
 	if entry is GFAssetMetadataRecord:
 		var record: GFAssetMetadataRecord = entry
@@ -222,6 +262,9 @@ static func _entry_to_data(entry: Variant) -> Dictionary:
 	return {}
 
 
+## 将输入条目逐项转换并归一化为字典数组。
+## [br]
+## @api private
 static func _normalize_entries(entries: Array, options: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry: Variant in entries:
@@ -229,6 +272,9 @@ static func _normalize_entries(entries: Array, options: Dictionary) -> Array[Dic
 	return result
 
 
+## 从顶层、metadata 或指定 attribution 子字典中选择归因字段来源。
+## [br]
+## @api private
 static func _select_attribution_payload(data: Dictionary, options: Dictionary) -> Dictionary:
 	var payload: Dictionary = {}
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(data, "metadata")
@@ -257,6 +303,9 @@ static func _select_attribution_payload(data: Dictionary, options: Dictionary) -
 	return payload
 
 
+## 检查所有归因字段别名是否声明互相冲突的规范化值。
+## [br]
+## @api private
 static func _add_attribution_conflict_issues(
 	data: Dictionary,
 	index: int,
@@ -272,6 +321,9 @@ static func _add_attribution_conflict_issues(
 	_add_attribution_field_conflict(data, index, options, "copyright", _COPYRIGHT_FIELDS, false, report)
 
 
+## 收集单一字段的别名候选值，并在不同非空值并存时添加错误。
+## [br]
+## @api private
 static func _add_attribution_field_conflict(
 	data: Dictionary,
 	index: int,
@@ -311,6 +363,9 @@ static func _add_attribution_field_conflict(
 	)
 
 
+## 从顶层、metadata 和 attribution 子字典收集指定别名候选。
+## [br]
+## @api private
 static func _collect_attribution_field_candidates(
 	data: Dictionary,
 	options: Dictionary,
@@ -349,6 +404,9 @@ static func _collect_attribution_field_candidates(
 	return result
 
 
+## 将载荷中的非空别名值格式化后追加到候选列表。
+## [br]
+## @api private
 static func _append_attribution_field_candidates(
 	result: Array[Dictionary],
 	payload: Dictionary,
@@ -370,6 +428,9 @@ static func _append_attribution_field_candidates(
 		})
 
 
+## 校验条目的路径、重复路径以及按选项要求的许可证标识。
+## [br]
+## @api private
 static func _validate_entry(
 	entry: Dictionary,
 	index: int,
@@ -415,6 +476,9 @@ static func _validate_entry(
 		)
 
 
+## 解析每个资源路径并构建已覆盖、未覆盖列表及缺失覆盖错误。
+## [br]
+## @api private
 static func _build_coverage(
 	normalized_resource_paths: PackedStringArray,
 	entries: Array[Dictionary],
@@ -448,6 +512,9 @@ static func _build_coverage(
 	}
 
 
+## 规范化资源路径输入、去重并报告无效值数量。
+## [br]
+## @api private
 static func _normalize_resource_path_inputs(
 	resource_paths: PackedStringArray,
 	report: GFValidationReport
@@ -485,6 +552,9 @@ static func _normalize_resource_path_inputs(
 	}
 
 
+## 在归一化条目中选择精确项或最长匹配父路径归因。
+## [br]
+## @api private
 static func _resolve_normalized_attribution(
 	path: String,
 	entries: Array[Dictionary],
@@ -534,6 +604,9 @@ static func _resolve_normalized_attribution(
 	}
 
 
+## 创建表示未找到归因条目的标准结果字典。
+## [br]
+## @api private
 static func _make_empty_resolution(path: String) -> Dictionary:
 	return {
 		"found": false,
@@ -545,6 +618,9 @@ static func _make_empty_resolution(path: String) -> Dictionary:
 	}
 
 
+## 通过资源身份工具获取规范化路径，不要求目标文件存在。
+## [br]
+## @api private
 static func _normalize_path(path: String) -> String:
 	var identity: GFResourceIdentity = GFResourceIdentity.from_path(path, &"", "", {
 		"check_exists": false,
@@ -552,6 +628,9 @@ static func _normalize_path(path: String) -> String:
 	return identity.canonical_path
 
 
+## 按别名顺序返回第一个非空文本值。
+## [br]
+## @api private
 static func _first_text(data: Dictionary, keys: PackedStringArray) -> String:
 	for key: String in keys:
 		var value: Variant = GFVariantData.get_option_value(data, key)
@@ -561,6 +640,9 @@ static func _first_text(data: Dictionary, keys: PackedStringArray) -> String:
 	return ""
 
 
+## 将常见字符串容器或标量值转换为去空白文本。
+## [br]
+## @api private
 static func _field_text(value: Variant) -> String:
 	if value == null:
 		return ""
@@ -576,18 +658,27 @@ static func _field_text(value: Variant) -> String:
 	return GFVariantData.to_text(value).strip_edges()
 
 
+## 将非空且已去首尾空白的可选文本字段写入目标字典。
+## [br]
+## @api private
 static func _copy_optional_text(target: Dictionary, source: Dictionary, key: String) -> void:
 	var text: String = GFVariantData.get_option_string(source, key).strip_edges()
 	if not text.is_empty():
 		target[key] = text
 
 
+## 仅在目标字典缺少字段且来源包含字段时复制其值。
+## [br]
+## @api private
 static func _copy_missing_field(target: Dictionary, source: Dictionary, key: String) -> void:
 	if target.has(key) or not source.has(key):
 		return
 	target[key] = GFVariantData.duplicate_variant(source[key])
 
 
+## 生成包含条目索引、路径和字段名的校验问题元数据。
+## [br]
+## @api private
 static func _make_entry_issue_metadata(entry: Dictionary, index: int, field_name: String) -> Dictionary:
 	return {
 		"index": index,
@@ -596,6 +687,9 @@ static func _make_entry_issue_metadata(entry: Dictionary, index: int, field_name
 	}
 
 
+## 创建保留资源路径字段的公开报告编码与脱敏选项。
+## [br]
+## @api private
 static func _get_report_encoding_options() -> Dictionary:
 	return GFReportValueCodec.make_redaction_options(
 		GFReportValueCodec.REDACTION_PROFILE_PUBLIC,
@@ -606,6 +700,9 @@ static func _get_report_encoding_options() -> Dictionary:
 	)
 
 
+## 将 PackedStringArray 逐项复制到 Array[String]。
+## [br]
+## @api private
 static func _packed_strings_to_array(values: PackedStringArray) -> Array[String]:
 	var result: Array[String] = []
 	for value: String in values:
@@ -613,6 +710,9 @@ static func _packed_strings_to_array(values: PackedStringArray) -> Array[String]
 	return result
 
 
+## 检查字典是否包含任一种已知归因字段别名。
+## [br]
+## @api private
 static func _has_any_known_field(data: Dictionary) -> bool:
 	return (
 		_has_any_field(data, _PATH_FIELDS)
@@ -625,6 +725,9 @@ static func _has_any_known_field(data: Dictionary) -> bool:
 	)
 
 
+## 检查字典是否包含给定别名的 String 或 StringName 键。
+## [br]
+## @api private
 static func _has_any_field(data: Dictionary, keys: PackedStringArray) -> bool:
 	for key: String in keys:
 		if data.has(key) or data.has(StringName(key)):
@@ -632,6 +735,9 @@ static func _has_any_field(data: Dictionary, keys: PackedStringArray) -> bool:
 	return false
 
 
+## 从字典条目提取唯一许可证标签并排序。
+## [br]
+## @api private
 static func _collect_license_ids(entries: Array) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for entry_value: Variant in entries:
@@ -643,6 +749,9 @@ static func _collect_license_ids(entries: Array) -> PackedStringArray:
 	return result
 
 
+## 从报告 entries 字段筛选字典并转换为标准字典副本。
+## [br]
+## @api private
 static func _get_report_entries(report: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry_value: Variant in GFVariantData.get_option_array(report, "entries"):
@@ -653,6 +762,9 @@ static func _get_report_entries(report: Dictionary) -> Array[Dictionary]:
 	return result
 
 
+## 获取单行许可证标签；清理后为空时返回未指定标签。
+## [br]
+## @api private
 static func _get_notice_license_id(entry: Dictionary) -> String:
 	var license_id: String = _sanitize_single_line_text(
 		GFVariantData.get_option_string(entry, "license_id")
@@ -660,6 +772,9 @@ static func _get_notice_license_id(entry: Dictionary) -> String:
 	return license_id if not license_id.is_empty() else _UNSPECIFIED_LICENSE_LABEL
 
 
+## 按标题和选项追加资产行及可用的署名、来源、版权和通知字段。
+## [br]
+## @api private
 static func _append_notice_entry(lines: PackedStringArray, entry: Dictionary, include_paths: bool) -> void:
 	var title: String = _sanitize_single_line_text(GFVariantData.get_option_string(entry, "title"))
 	var path: String = _sanitize_single_line_text(GFVariantData.get_option_string(entry, "path"))
@@ -676,12 +791,18 @@ static func _append_notice_entry(lines: PackedStringArray, entry: Dictionary, in
 	_append_multiline_notice_field(lines, "Notice", GFVariantData.get_option_string(entry, "notice"))
 
 
+## 清理后仅在值非空时追加单行通知字段。
+## [br]
+## @api private
 static func _append_optional_notice_field(lines: PackedStringArray, label: String, value: String) -> void:
 	var text: String = _sanitize_single_line_text(value)
 	if not text.is_empty():
 		_append_line(lines, "  %s: %s" % [label, text])
 
 
+## 追加已拆分和清理的通知文本，并缩进后续行。
+## [br]
+## @api private
 static func _append_multiline_notice_field(
 	lines: PackedStringArray,
 	label: String,
@@ -695,6 +816,9 @@ static func _append_multiline_notice_field(
 		_append_line(lines, "    %s" % notice_lines[line_index])
 
 
+## 统一换行符、去除首尾空白并清理各条通知文本行。
+## [br]
+## @api private
 static func _split_sanitized_notice_lines(value: String) -> PackedStringArray:
 	var normalized: String = value.replace("\r\n", "\n").replace("\r", "\n")
 	normalized = normalized.replace(String.chr(0x85), "\n")
@@ -709,6 +833,9 @@ static func _split_sanitized_notice_lines(value: String) -> PackedStringArray:
 	return result
 
 
+## 将控制字符或行分隔符折叠为空格并去除首尾空白。
+## [br]
+## @api private
 static func _sanitize_single_line_text(value: String) -> String:
 	var result: String = ""
 	var separator_pending: bool = false
@@ -725,6 +852,9 @@ static func _sanitize_single_line_text(value: String) -> String:
 	return result.strip_edges()
 
 
+## 判断码点是否为控制字符或受支持的 Unicode 行分隔符。
+## [br]
+## @api private
 static func _is_text_control_or_line_separator(codepoint: int) -> bool:
 	return (
 		codepoint <= 0x1f
@@ -735,10 +865,16 @@ static func _is_text_control_or_line_separator(codepoint: int) -> bool:
 	)
 
 
+## 将一行文本追加到通知行数组。
+## [br]
+## @api private
 static func _append_line(lines: PackedStringArray, text: String) -> void:
 	var _line_appended: bool = lines.append(text)
 
 
+## 去除首尾空白后，仅将非空且未出现的文本追加到数组。
+## [br]
+## @api private
 static func _append_unique_text(values: PackedStringArray, value: String) -> void:
 	var text: String = value.strip_edges()
 	if text.is_empty() or values.has(text):
@@ -746,6 +882,9 @@ static func _append_unique_text(values: PackedStringArray, value: String) -> voi
 	var _text_appended: bool = values.append(text)
 
 
+## 返回归因校验报告使用的下一步建议和兜底说明。
+## [br]
+## @api private
 static func _report_options() -> Dictionary:
 	return {
 		"next_actions": {

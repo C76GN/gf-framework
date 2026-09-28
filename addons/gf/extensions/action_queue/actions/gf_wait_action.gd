@@ -21,6 +21,9 @@ signal wait_completed
 
 # --- 常量 ---
 
+## 脱离当前调用栈运行异步等待循环的调用器。
+## [br]
+## @api private
 const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
 
 
@@ -60,9 +63,24 @@ var ignore_time_scale: bool = false
 
 # --- 私有变量 ---
 
+## 每次启动、取消或完成等待递增，用于拒绝旧计时循环。
+## [br]
+## @api private
 var _execution_serial: int = 0
+
+## 经时间策略归一化后的总等待时长，单位为秒。
+## [br]
+## @api private
 var _seconds: float = 0.0
+
+## 当前等待尚未消耗的秒数。
+## [br]
+## @api private
 var _remaining_seconds: float = 0.0
+
+## 标记等待倒计时是否被动作显式暂停。
+## [br]
+## @api private
 var _paused: bool = false
 
 
@@ -148,6 +166,10 @@ func get_wait_guard_node() -> Node:
 
 # --- 私有/辅助方法 ---
 
+## 按帧累计耗时并递减剩余时间；每帧确认序号与宿主有效，结束时发出完成信号。
+## 倒计时遵守 pause、process_always、物理帧选择及 ignore_time_scale 配置。
+## [br]
+## @api private
 func _complete_after_delay_async(tree: SceneTree, serial: int) -> void:
 	var last_msec: int = Time.get_ticks_msec()
 	while serial == _execution_serial and _remaining_seconds > 0.0:
@@ -184,6 +206,9 @@ func _complete_after_delay_async(tree: SceneTree, serial: int) -> void:
 	wait_completed.emit()
 
 
+## 显式宿主存在时仅使用其有效场景树；无宿主时从主循环解析 SceneTree。
+## [br]
+## @api private
 func _get_scene_tree() -> SceneTree:
 	if host_node != null:
 		if is_instance_valid(host_node) and host_node.is_inside_tree():
@@ -192,6 +217,9 @@ func _get_scene_tree() -> SceneTree:
 	return _get_scene_tree_value(Engine.get_main_loop())
 
 
+## 将 Variant 收窄为 SceneTree；类型不符时返回 null。
+## [br]
+## @api private
 func _get_scene_tree_value(value: Variant) -> SceneTree:
 	if value is SceneTree:
 		var tree: SceneTree = value
@@ -199,6 +227,9 @@ func _get_scene_tree_value(value: Variant) -> SceneTree:
 	return null
 
 
+## 有效宿主存在时连接一次性 tree_exiting 回调，避免宿主退出后继续计时。
+## [br]
+## @api private
 func _connect_host_guard() -> void:
 	if host_node == null or not is_instance_valid(host_node):
 		return
@@ -211,12 +242,18 @@ func _connect_host_guard() -> void:
 	) as Error
 
 
+## 没有显式宿主时返回 true；否则要求宿主仍有效且处于场景树中。
+## [br]
+## @api private
 func _is_host_guard_alive() -> bool:
 	if host_node == null:
 		return true
 	return is_instance_valid(host_node) and host_node.is_inside_tree()
 
 
+## 按配置等待物理帧或普通 process_frame。
+## [br]
+## @api private
 func _await_frame(tree: SceneTree) -> void:
 	if process_in_physics:
 		await tree.physics_frame
@@ -224,6 +261,9 @@ func _await_frame(tree: SceneTree) -> void:
 	await tree.process_frame
 
 
+## 显式暂停始终停止倒计时；否则仅在非 process_always 且场景树暂停时停止。
+## [br]
+## @api private
 func _should_pause_countdown(tree: SceneTree) -> bool:
 	if _paused:
 		return true
@@ -234,5 +274,8 @@ func _should_pause_countdown(tree: SceneTree) -> bool:
 
 # --- 信号处理函数 ---
 
+## 宿主退出场景树前取消等待并递增序号，使计时协程失效。
+## [br]
+## @api private
 func _on_host_node_tree_exiting() -> void:
 	cancel()

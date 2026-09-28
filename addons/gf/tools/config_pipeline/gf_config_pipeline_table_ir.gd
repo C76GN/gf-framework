@@ -31,12 +31,46 @@ const FORMAT_VERSION: int = 1
 
 # --- 私有变量 ---
 
+## create() 写入的稳定表名。
+## [br]
+## @api private
+## [br]
 var _table_name: StringName = &""
+
+## create() 写入的原始来源路径，内存来源可为空。
+## [br]
+## @api private
+## [br]
 var _source_path: String = ""
+
+## create() 写入的已解析来源格式。
+## [br]
+## @api private
+## [br]
 var _source_format: StringName = &""
+
+## create() 经 _duplicate_records() 处理后保存的规范记录。
+## [br]
+## @api private
+## [br]
 var _records: Array[Dictionary] = []
+
+## create() 保存的可选表结构副本；未提供 schema 时为 null。
+## [br]
+## @api private
+## [br]
 var _schema: GFConfigTableSchema = null
+
+## create() 保存的来源定位字典副本。
+## [br]
+## @api private
+## [br]
 var _source_map: Dictionary = {}
+
+## create() 保存的表元数据字典副本。
+## [br]
+## @api private
+## [br]
 var _metadata: Dictionary = {}
 
 
@@ -240,6 +274,10 @@ func describe() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按输入顺序为每条记录调用 Dictionary.duplicate(true)，并返回新数组。
+## [br]
+## @api private
+## [br]
 static func _duplicate_records(records: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for record: Dictionary in records:
@@ -247,6 +285,10 @@ static func _duplicate_records(records: Array[Dictionary]) -> Array[Dictionary]:
 	return result
 
 
+## 构造 Table IR 契约校验失败结果，错误码固定为 ERR_INVALID_DATA。
+## [br]
+## @api private
+## [br]
 func _make_contract_failure(error_kind: String, message: String) -> Dictionary:
 	return {
 		"success": false,

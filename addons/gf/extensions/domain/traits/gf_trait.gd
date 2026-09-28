@@ -107,5 +107,8 @@ func apply_number(current_value: float) -> float:
 
 # --- 私有/辅助方法 ---
 
+## 判断浮点数既不是 NAN 也不是无穷大。
+## [br]
+## @api private
 func _is_finite_number(number: float) -> bool:
 	return not is_nan(number) and not is_inf(number)

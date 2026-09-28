@@ -14,8 +14,19 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 承担 Signal 连接、payload 捕获和等待状态轮询的内部辅助脚本。
+## [br]
+## @api private
 const _GF_ASYNC_WAIT_SUPPORT = preload("res://addons/gf/standard/common/gf_async_wait_support.gd")
+
+## 创建统一等待结果字典的内部辅助脚本。
+## [br]
+## @api private
 const _GF_ASYNC_RESULT_SUPPORT = preload("res://addons/gf/standard/common/gf_async_result_support.gd")
+
+## 解析保护节点并通过实例 ID 查找仍有效节点的内部工具脚本。
+## [br]
+## @api private
 const _GF_INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
 
 ## 等待正常由目标 Signal 完成。
@@ -305,6 +316,9 @@ static func wait_until_value_changed(getter: Callable, options: Dictionary = {})
 
 # --- 私有/辅助方法 ---
 
+## 等待指定类型的一帧，并在等待前后检查共同取消、树、保护节点和超时状态。
+## [br]
+## @api private
 static func _wait_single_frame(use_physics_frame: bool, options: Dictionary) -> Dictionary:
 	var frame_options: Dictionary = options.duplicate(true)
 	frame_options["process_in_physics"] = use_physics_frame
@@ -322,6 +336,9 @@ static func _wait_single_frame(use_physics_frame: bool, options: Dictionary) -> 
 	return _make_result(STATUS_COMPLETED)
 
 
+## 每帧重查 predicate，直到其布尔结果等于目标值或等待状态结束。
+## [br]
+## @api private
 static func _wait_predicate(predicate: Callable, desired_value: bool, options: Dictionary) -> Dictionary:
 	var state: Dictionary = _make_wait_state(options)
 	while true:
@@ -337,6 +354,9 @@ static func _wait_predicate(predicate: Callable, desired_value: bool, options: D
 	return _make_result(STATUS_INVALID)
 
 
+## 将等待选项整理为树、令牌、保护节点 ID、时间策略和超时累计状态。
+## [br]
+## @api private
 static func _make_wait_state(options: Dictionary) -> Dictionary:
 	var timeout_seconds: float = GFVariantData.get_option_float(options, "timeout_seconds", 0.0)
 	var guard_value: Variant = GFVariantData.get_option_value(options, "guard_node")
@@ -358,6 +378,9 @@ static func _make_wait_state(options: Dictionary) -> Dictionary:
 	}
 
 
+## 按树有效性、取消令牌、保护节点和累计超时顺序返回终止状态。
+## [br]
+## @api private
 static func _get_common_wait_status(state: Dictionary) -> StringName:
 	var tree: SceneTree = _state_to_scene_tree(state)
 	if tree == null:
@@ -393,6 +416,9 @@ static func _get_common_wait_status(state: Dictionary) -> StringName:
 	return &""
 
 
+## 生成状态结果；取消状态优先读取令牌原因和元数据。
+## [br]
+## @api private
 static func _make_status_result(status: StringName, state: Dictionary, extra: Dictionary = {}) -> Dictionary:
 	var cancel_token: GFCancellationToken = _state_to_cancel_token(state)
 	if status == STATUS_CANCELLED and cancel_token != null:
@@ -400,6 +426,9 @@ static func _make_status_result(status: StringName, state: Dictionary, extra: Di
 	return _make_result(status, [], GFVariantData.get_option_string_name(state, "reason"), {}, extra)
 
 
+## 设置 payload 捕获选项并委托给共享等待脚本，再映射为标准等待结果。
+## [br]
+## @api private
 static func _await_signal_state(result_signal: Signal, options: Dictionary, capture_payload: bool) -> Dictionary:
 	var signal_options: Dictionary = options.duplicate(true)
 	signal_options["capture_payload"] = capture_payload
@@ -413,6 +442,9 @@ static func _await_signal_state(result_signal: Signal, options: Dictionary, capt
 	)
 
 
+## 将等待终态与参数、原因、元数据和扩展字段交给共享结果辅助脚本组装。
+## [br]
+## @api private
 static func _make_result(
 	status: StringName,
 	args: Array = [],
@@ -433,6 +465,9 @@ static func _make_result(
 	)
 
 
+## 从 options 中读取 GFCancellationToken 类型的 cancel_token。
+## [br]
+## @api private
 static func _get_cancel_token(options: Dictionary) -> GFCancellationToken:
 	var value: Variant = GFVariantData.get_option_value(options, "cancel_token")
 	if value is GFCancellationToken:
@@ -441,6 +476,9 @@ static func _get_cancel_token(options: Dictionary) -> GFCancellationToken:
 	return null
 
 
+## 从 options 中读取 GFTimeUtility 类型的 time_utility。
+## [br]
+## @api private
 static func _get_time_utility(options: Dictionary) -> GFTimeUtility:
 	var value: Variant = GFVariantData.get_option_value(options, "time_utility")
 	if value is GFTimeUtility:
@@ -449,6 +487,9 @@ static func _get_time_utility(options: Dictionary) -> GFTimeUtility:
 	return null
 
 
+## 优先返回 options 中的 SceneTree，否则回退到主循环的 SceneTree。
+## [br]
+## @api private
 static func _get_scene_tree(options: Dictionary) -> SceneTree:
 	var value: Variant = GFVariantData.get_option_value(options, "tree")
 	if value is SceneTree:
@@ -457,6 +498,9 @@ static func _get_scene_tree(options: Dictionary) -> SceneTree:
 	return _get_main_scene_tree()
 
 
+## 尝试将 Engine 主循环收窄为 SceneTree，不匹配时返回 null。
+## [br]
+## @api private
 static func _get_main_scene_tree() -> SceneTree:
 	var main_loop: MainLoop = Engine.get_main_loop()
 	if main_loop is SceneTree:
@@ -465,6 +509,9 @@ static func _get_main_scene_tree() -> SceneTree:
 	return null
 
 
+## 从等待状态读取 SceneTree，否则返回 null。
+## [br]
+## @api private
 static func _state_to_scene_tree(state: Dictionary) -> SceneTree:
 	var value: Variant = GFVariantData.get_option_value(state, "tree")
 	if value is SceneTree:
@@ -473,6 +520,9 @@ static func _state_to_scene_tree(state: Dictionary) -> SceneTree:
 	return null
 
 
+## 从等待状态读取 GFCancellationToken，否则返回 null。
+## [br]
+## @api private
 static func _state_to_cancel_token(state: Dictionary) -> GFCancellationToken:
 	var value: Variant = GFVariantData.get_option_value(state, "cancel_token")
 	if value is GFCancellationToken:
@@ -481,6 +531,9 @@ static func _state_to_cancel_token(state: Dictionary) -> GFCancellationToken:
 	return null
 
 
+## 用等待状态记录的正实例 ID 解析仍有效的保护节点。
+## [br]
+## @api private
 static func _state_to_guard_node(state: Dictionary) -> Node:
 	var instance_id: int = GFVariantData.get_option_int(state, "guard_instance_id")
 	if instance_id <= 0:
@@ -488,6 +541,9 @@ static func _state_to_guard_node(state: Dictionary) -> Node:
 	return _GF_INSTANCE_GUARD._get_live_node_from_id(instance_id)
 
 
+## 从等待状态读取 GFTimeUtility，否则返回 null。
+## [br]
+## @api private
 static func _state_to_time_utility(state: Dictionary) -> GFTimeUtility:
 	var value: Variant = GFVariantData.get_option_value(state, "time_utility")
 	if value is GFTimeUtility:
@@ -496,6 +552,9 @@ static func _state_to_time_utility(state: Dictionary) -> GFTimeUtility:
 	return null
 
 
+## 等待指定 SceneTree 的 physics_frame 或 process_frame。
+## [br]
+## @api private
 static func _await_frame(tree: SceneTree, use_physics_frame: bool) -> void:
 	if use_physics_frame:
 		await tree.physics_frame
@@ -503,6 +562,9 @@ static func _await_frame(tree: SceneTree, use_physics_frame: bool) -> void:
 	await tree.process_frame
 
 
+## 先要求 Variant 类型一致；float、Vector2、Vector3 和 Color 使用近似相等比较。
+## [br]
+## @api private
 static func _values_equal(left: Variant, right: Variant) -> bool:
 	if left == null and right == null:
 		return true

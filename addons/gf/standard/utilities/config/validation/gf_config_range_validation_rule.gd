@@ -107,14 +107,26 @@ func _validate_value(value: Variant, context: Dictionary, report: Dictionary) ->
 
 # --- 私有/辅助方法 ---
 
+## 按 minimum 与 inclusive_minimum 判断数值是否通过下界。
+## [br]
+## @api private
+## [br]
 func _passes_minimum(value: float) -> bool:
 	return value >= minimum if inclusive_minimum else value > minimum
 
 
+## 按 maximum 与 inclusive_maximum 判断数值是否通过上界。
+## [br]
+## @api private
+## [br]
 func _passes_maximum(value: float) -> bool:
 	return value <= maximum if inclusive_maximum else value < maximum
 
 
+## 复制诊断上下文并附加实际值和期望范围。
+## [br]
+## @api private
+## [br]
 func _make_issue_context(context: Dictionary, value: Variant, expected_value: Variant) -> Dictionary:
 	var issue_context: Dictionary = context.duplicate(true)
 	issue_context["value"] = GFVariantData.duplicate_variant(value)
@@ -123,6 +135,10 @@ func _make_issue_context(context: Dictionary, value: Variant, expected_value: Va
 	return issue_context
 
 
+## 将已配置的上下界及其包含关系格式化为范围描述。
+## [br]
+## @api private
+## [br]
 func _describe_range() -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	if has_minimum:

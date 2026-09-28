@@ -17,21 +17,50 @@ extends RefCounted
 
 # --- 常量 ---
 
+## Analyzer 实现脚本。
+## [br]
+## @api private
+## [br]
 const _ANALYZER_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/gf_project_layout_analyzer.gd"
 )
+
+## analysis 与库存共享契约实现脚本。
+## [br]
+## @api private
+## [br]
 const _ANALYSIS_CONTRACT_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd"
 )
+
+## finding explanation 实现脚本。
+## [br]
+## @api private
+## [br]
 const _EXPLAINER_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/gf_project_layout_explainer.gd"
 )
+
+## change impact 分析实现脚本。
+## [br]
+## @api private
+## [br]
 const _IMPACT_ANALYZER_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/gf_project_layout_impact_analyzer.gd"
 )
+
+## Project Layout Planner 实现脚本。
+## [br]
+## @api private
+## [br]
 const _PLANNER_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/gf_project_layout_planner.gd"
 )
+
+## worker analysis 请求的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _REQUEST_FIELDS: PackedStringArray = [
 	"generation",
 	"snapshot",
@@ -39,22 +68,47 @@ const _REQUEST_FIELDS: PackedStringArray = [
 	"profile_compilation",
 	"plan_options",
 ]
+
+## worker 后台查询请求的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _QUERY_REQUEST_FIELDS: PackedStringArray = [
 	"generation",
 	"analysis_digest",
 	"query_kind",
 	"query",
 ]
+
+## worker 接受的 query_kind 值集合。
+## [br]
+## @api private
+## [br]
 const _QUERY_KINDS: PackedStringArray = [
 	"explain_finding",
 	"analyze_change_impact",
 ]
+
+## explanation 查询 payload 的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _EXPLANATION_QUERY_FIELDS: PackedStringArray = ["finding_id"]
+
+## impact 查询 payload 的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _IMPACT_QUERY_FIELDS: PackedStringArray = [
 	"kind",
 	"source_path",
 	"target_path",
 ]
+
+## explanation 查询结果的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _EXPLANATION_RESULT_FIELDS: PackedStringArray = [
 	"schema_version",
 	"kind",
@@ -69,6 +123,11 @@ const _EXPLANATION_RESULT_FIELDS: PackedStringArray = [
 	"issues",
 	"effects",
 ]
+
+## impact 查询结果的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _IMPACT_RESULT_FIELDS: PackedStringArray = [
 	"schema_version",
 	"kind",
@@ -82,9 +141,29 @@ const _IMPACT_RESULT_FIELDS: PackedStringArray = [
 	"issues",
 	"effects",
 ]
+
+## effects 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _EFFECT_FIELDS: PackedStringArray = ["writes_project"]
+
+## issue 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _ISSUE_FIELDS: PackedStringArray = ["severity", "kind", "message"]
+
+## blocker 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _BLOCKER_FIELDS: PackedStringArray = ["kind", "path", "message"]
+
+## inventory evidence 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _INVENTORY_EVIDENCE_FIELDS: PackedStringArray = [
 	"evidence_id",
 	"kind",
@@ -94,6 +173,11 @@ const _INVENTORY_EVIDENCE_FIELDS: PackedStringArray = [
 	"authority",
 	"observed",
 ]
+
+## inventory boundary evidence 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _BOUNDARY_EVIDENCE_FIELDS: PackedStringArray = [
 	"evidence_id",
 	"kind",
@@ -107,6 +191,11 @@ const _BOUNDARY_EVIDENCE_FIELDS: PackedStringArray = [
 	"directory_count",
 	"input_digest",
 ]
+
+## snapshot scope 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _SCOPE_FIELDS: PackedStringArray = [
 	"kind",
 	"root_path",
@@ -116,36 +205,155 @@ const _SCOPE_FIELDS: PackedStringArray = [
 	"max_scanned_directories",
 	"max_scan_depth",
 ]
+
+## finding_id 查询值允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_FINDING_ID_LENGTH: int = 256
+
+## change.kind 查询值允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_CHANGE_KIND_LENGTH: int = 16
+
+## change 路径查询值允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_CHANGE_PATH_LENGTH: int = 16_379
+
+## analysis 请求允许的最大工作单位数。
+## [br]
+## @api private
+## [br]
 const _ANALYSIS_MAX_WORK_UNITS: int = 2_000_000
+
+## analysis 请求允许的最大 finding 数。
+## [br]
+## @api private
+## [br]
 const _ANALYSIS_MAX_FINDINGS: int = 1_024
+
+## Planner 请求允许的工作量上限。
+## [br]
+## @api private
+## [br]
 const _PLANNER_MAX_WORK_UNITS: int = _PLANNER_SCRIPT.MAX_WORK_UNITS
+
+## query 请求允许的最大工作单位数。
+## [br]
+## @api private
+## [br]
 const _QUERY_MAX_WORK_UNITS: int = 16_000_000
+
+## query data-only 遍历间允许累计的节点数。
+## [br]
+## @api private
+## [br]
 const _QUERY_CANCEL_POLL_INTERVAL: int = 64
+
+## data-only 输入允许遍历的最大结构节点数。
+## [br]
+## @api private
+## [br]
 const _MAX_DATA_ONLY_NODE_COUNT: int = 500_000
+
+## data-only 输入允许的最大嵌套深度。
+## [br]
+## @api private
+## [br]
 const _MAX_DATA_ONLY_DEPTH: int = 65
+
+## data-only 输入单个容器允许的最大元素数。
+## [br]
+## @api private
+## [br]
 const _MAX_DATA_ONLY_COLLECTION_ITEMS: int = \
 	_ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_NODES
+
+## data-only 字符串允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_DATA_ONLY_STRING_LENGTH: int = \
 	_ANALYSIS_CONTRACT_SCRIPT.MAX_DATA_STRING_LENGTH
+
+## data-only 字符串总 UTF-8 字节数允许的最大值。
+## [br]
+## @api private
+## [br]
 const _MAX_DATA_ONLY_STRING_BYTES: int = \
 	_ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_STRING_BYTES
 
 
 # --- 私有变量 ---
 
+## 保护跨线程取消标志的互斥锁。
+## [br]
+## @api private
+## [br]
 var _cancel_mutex: Mutex = Mutex.new()
+
+## worker 当前是否收到取消请求。
+## [br]
+## @api private
+## [br]
 var _cancel_requested: bool = false
+
+## data-only 检查后自上次取消轮询以来累计的节点数。
+## [br]
+## @api private
+## [br]
 var _data_only_nodes_since_cancel_check: int = 0
+
+## 当前请求已检查的 data-only 结构节点数。
+## [br]
+## @api private
+## [br]
 var _data_only_node_count: int = 0
+
+## 当前请求已检查的 data-only 字符串字节数。
+## [br]
+## @api private
+## [br]
 var _data_only_string_bytes: int = 0
+
+## 当前 worker 查询会话冻结的 analysis。
+## [br]
+## @api private
+## [br]
 var _query_analysis: Dictionary = {}
+
+## 当前查询会话绑定的 generation。
+## [br]
+## @api private
+## [br]
 var _query_generation: int = -1
+
+## 当前查询会话绑定的 analysis digest。
+## [br]
+## @api private
+## [br]
 var _query_analysis_digest: String = ""
+
+## 当前查询操作累计消费的工作单位数。
+## [br]
+## @api private
+## [br]
 var _query_work_units: int = 0
+
+## 自上次查询取消轮询以来累计的工作单位数。
+## [br]
+## @api private
+## [br]
 var _query_units_since_cancel_check: int = 0
+
+## 当前查询是否耗尽工作量预算。
+## [br]
+## @api private
+## [br]
 var _query_work_budget_exhausted: bool = false
 
 
@@ -433,6 +641,9 @@ func cancel() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 在取消互斥锁内读取标志，供后台检查点查询；不消费请求，也不检查查询会话身份。
+## [br]
+## @api private
 func _is_cancel_requested() -> bool:
 	_cancel_mutex.lock()
 	var result: bool = _cancel_requested
@@ -440,12 +651,18 @@ func _is_cancel_requested() -> bool:
 	return result
 
 
+## 清零下一次数据边界校验的节点、文本及取消轮询计数，不改变当前请求或结果。
+## [br]
+## @api private
 func _reset_data_only_envelope() -> void:
 	_data_only_nodes_since_cancel_check = 0
 	_data_only_node_count = 0
 	_data_only_string_bytes = 0
 
 
+## 按请求身份创建默认失败的闭合查询信封，解释、影响及问题容器各自新建。
+## [br]
+## @api private
 func _make_query_result(
 	generation: int,
 	analysis_digest: String,
@@ -464,6 +681,9 @@ func _make_query_result(
 	}
 
 
+## 检查查询信封和对应查询体的精确字段、类型及文本上限；摘要必须为小写 SHA-256，实际会话匹配另行检查。
+## [br]
+## @api private
 func _query_request_is_well_formed(request: Dictionary) -> bool:
 	if not _has_exact_fields(request, _QUERY_REQUEST_FIELDS):
 		return false
@@ -502,6 +722,9 @@ func _query_request_is_well_formed(request: Dictionary) -> bool:
 	return true
 
 
+## 要求代次、摘要与已保存会话同时匹配，且冻结 analysis 非空并带有相同输入摘要。
+## [br]
+## @api private
 func _query_session_matches(generation: int, analysis_digest: String) -> bool:
 	return (
 		generation == _query_generation
@@ -511,6 +734,9 @@ func _query_session_matches(generation: int, analysis_digest: String) -> bool:
 	)
 
 
+## 先扣除不可关闭的总工作预算，再按累计间隔轮询取消；非法工作量或超限标记预算耗尽。
+## [br]
+## @api private
 func _query_checkpoint_allows(work_units: int) -> bool:
 	if (
 		work_units <= 0
@@ -527,6 +753,9 @@ func _query_checkpoint_allows(work_units: int) -> bool:
 	return true
 
 
+## 以查询工作量检查点验证冻结 analysis 并构建索引，将契约验证结果原样交给查询入口。
+## [br]
+## @api private
 func _validate_query_analysis() -> Dictionary:
 	var contract: _ANALYSIS_CONTRACT_SCRIPT = _ANALYSIS_CONTRACT_SCRIPT.new()
 	var checkpoint: Callable = Callable(self, "_query_checkpoint_allows")
@@ -536,6 +765,9 @@ func _validate_query_analysis() -> Dictionary:
 	)
 
 
+## 取消优先于预算耗尽；命中任一终止条件就清空查询载荷与旧问题，预算失败另写单个错误并返回已终止。
+## [br]
+## @api private
 func _apply_query_terminal(result: Dictionary) -> bool:
 	if _is_cancel_requested():
 		result["status"] = "cancelled"
@@ -557,6 +789,9 @@ func _apply_query_terminal(result: Dictionary) -> bool:
 	return true
 
 
+## 重置数据预算后验证查询报告的只读 effects、闭合字段及嵌套列表；影响报告还必须回指请求的 analysis 摘要。
+## [br]
+## @api private
 func _query_report_is_valid(
 	report: Dictionary,
 	query_kind: String,
@@ -607,6 +842,9 @@ func _query_report_is_valid(
 	)
 
 
+## 在工作量检查点下递归验证有限标量和有界容器，累计节点及 UTF-8 字节；活动容器栈拒绝循环但允许非循环共享引用。
+## [br]
+## @api private
 func _query_value_is_data_only(
 	value: Variant,
 	depth: int,
@@ -701,6 +939,9 @@ func _query_value_is_data_only(
 	return false
 
 
+## 先为活动栈比较扣除工作量，再按引用身份拒绝循环；不自行压栈，由递归调用者配对维护。
+## [br]
+## @api private
 func _query_container_can_enter(
 	container: Variant,
 	active_containers: Array,
@@ -717,6 +958,9 @@ func _query_container_can_enter(
 	return true
 
 
+## 仅调用有效且恰有一个参数的检查点，严格要求布尔返回；其他返回类型一律视为拒绝。
+## [br]
+## @api private
 func _call_query_checkpoint(
 	checkpoint: Callable,
 	work_units: int = 1
@@ -730,6 +974,9 @@ func _call_query_checkpoint(
 	return false
 
 
+## 逐项执行工作量检查点并要求精确 String 类型，遇拒绝或其他类型立即失败。
+## [br]
+## @api private
 func _string_array_is_valid(values: Array, checkpoint: Callable) -> bool:
 	for value: Variant in values:
 		if not _call_query_checkpoint(checkpoint) or not value is String:
@@ -737,6 +984,9 @@ func _string_array_is_valid(values: Array, checkpoint: Callable) -> bool:
 	return true
 
 
+## 逐项扣除工作量并要求问题仅含 severity、kind、message 三个文本字段；不在此限定严重性取值。
+## [br]
+## @api private
 func _issue_array_is_valid(values: Array, checkpoint: Callable) -> bool:
 	for value: Variant in values:
 		if not _call_query_checkpoint(checkpoint) or not value is Dictionary:
@@ -752,6 +1002,9 @@ func _issue_array_is_valid(values: Array, checkpoint: Callable) -> bool:
 	return true
 
 
+## 逐项扣除工作量，要求阻碍项具有闭合的 kind、path、message 文本字段。
+## [br]
+## @api private
 func _blocker_array_is_valid(values: Array, checkpoint: Callable) -> bool:
 	for value: Variant in values:
 		if not _call_query_checkpoint(checkpoint) or not value is Dictionary:
@@ -767,6 +1020,9 @@ func _blocker_array_is_valid(values: Array, checkpoint: Callable) -> bool:
 	return true
 
 
+## 检查变更只有 kind、source_path、target_path 三个文本字段；路径语义由其他契约层负责。
+## [br]
+## @api private
 func _change_is_closed(change: Dictionary) -> bool:
 	return (
 		_has_exact_fields(change, _IMPACT_QUERY_FIELDS)
@@ -776,6 +1032,9 @@ func _change_is_closed(change: Dictionary) -> bool:
 	)
 
 
+## 逐项检查工作量，只接受文件清单或清单边界两种证据并委派相应闭合字段检查。
+## [br]
+## @api private
 func _evidence_array_is_valid(values: Array, checkpoint: Callable) -> bool:
 	for value: Variant in values:
 		if not _call_query_checkpoint(checkpoint) or not value is Dictionary:
@@ -793,6 +1052,9 @@ func _evidence_array_is_valid(values: Array, checkpoint: Callable) -> bool:
 	return true
 
 
+## 检查单路径清单证据的精确字段和类型；不据此重新访问文件系统或验证证据权威性。
+## [br]
+## @api private
 func _inventory_evidence_is_closed(evidence: Dictionary) -> bool:
 	return (
 		_has_exact_fields(evidence, _INVENTORY_EVIDENCE_FIELDS)
@@ -806,6 +1068,9 @@ func _inventory_evidence_is_closed(evidence: Dictionary) -> bool:
 	)
 
 
+## 验证清单边界证据字段后继续校验嵌套 capture_scope；完整性及数量只检查类型。
+## [br]
+## @api private
 func _boundary_evidence_is_closed(
 	evidence: Dictionary,
 	checkpoint: Callable
@@ -829,6 +1094,9 @@ func _boundary_evidence_is_closed(
 	return _scope_is_closed(scope, checkpoint)
 
 
+## 按 scope 字段数扣除工作量，校验闭合扫描范围及排除路径文本数组；预算数值的有效范围由分析契约负责。
+## [br]
+## @api private
 func _scope_is_closed(scope: Dictionary, checkpoint: Callable) -> bool:
 	return (
 		_call_query_checkpoint(checkpoint, 1 + scope.size())
@@ -844,6 +1112,9 @@ func _scope_is_closed(scope: Dictionary, checkpoint: Callable) -> bool:
 	)
 
 
+## 只接受仅含布尔 writes_project 且值为 false 的副作用声明。
+## [br]
+## @api private
 func _effects_are_read_only(effects: Dictionary) -> bool:
 	return (
 		_has_exact_fields(effects, _EFFECT_FIELDS)
@@ -852,6 +1123,10 @@ func _effects_are_read_only(effects: Dictionary) -> bool:
 	)
 
 
+## 判断字典键是否全部为字符串且与给定字段集合完全相同。
+## [br]
+## @api private
+## [br]
 func _has_exact_fields(source: Dictionary, fields: PackedStringArray) -> bool:
 	if source.size() != fields.size():
 		return false
@@ -864,6 +1139,10 @@ func _has_exact_fields(source: Dictionary, fields: PackedStringArray) -> bool:
 	return true
 
 
+## 检查字符串是否为 64 个小写十六进制字符。
+## [br]
+## @api private
+## [br]
 func _is_lower_sha256(value: String) -> bool:
 	if value.length() != 64:
 		return false
@@ -877,6 +1156,9 @@ func _is_lower_sha256(value: String) -> bool:
 	return true
 
 
+## 检查后台分析请求的精确字段及类型；未提供 profile compilation 时要求编译结果和规划选项同时为空。
+## [br]
+## @api private
 func _request_is_well_formed(request: Dictionary) -> bool:
 	if request.size() != _REQUEST_FIELDS.size():
 		return false
@@ -902,6 +1184,9 @@ func _request_is_well_formed(request: Dictionary) -> bool:
 	)
 
 
+## 递归限制节点、深度、集合和 UTF-8 文本总量，并每 64 个节点轮询取消；只接受有限标量及文本键容器，循环最终由深度或节点预算拒绝。
+## [br]
+## @api private
 func _is_data_only(value: Variant, depth: int) -> bool:
 	_data_only_nodes_since_cancel_check += 1
 	_data_only_node_count += 1
@@ -961,6 +1246,9 @@ func _is_data_only(value: Variant, depth: int) -> bool:
 	return false
 
 
+## 向结果已有的 issues 数组追加仅含严重性、种类及消息的错误；调用者须准备该数组。
+## [br]
+## @api private
 func _add_issue(result: Dictionary, kind: String, message: String) -> void:
 	var issues: Array = _get_array(result, "issues")
 	issues.append({
@@ -970,6 +1258,9 @@ func _add_issue(result: Dictionary, kind: String, message: String) -> void:
 	})
 
 
+## 只转发报告中的首个 error 字典，缺失种类或消息使用回退值；无可转发错误时写入通用失败。
+## [br]
+## @api private
 func _forward_first_error_issue(
 	result: Dictionary,
 	report: Dictionary,
@@ -991,6 +1282,9 @@ func _forward_first_error_issue(
 	_add_issue(result, fallback_kind, fallback_message)
 
 
+## 在报告问题数组中查找 severity 为 error 的字典，跳过非字典项。
+## [br]
+## @api private
 func _report_has_error_issue(report: Dictionary) -> bool:
 	for issue_value: Variant in _get_array(report, "issues"):
 		if not issue_value is Dictionary:
@@ -1001,26 +1295,46 @@ func _report_has_error_issue(report: Dictionary) -> bool:
 	return false
 
 
+## 读取字典中的 int 字段；类型不匹配时返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_int(source: Dictionary, key: String, default_value: int = 0) -> int:
 	var value: Variant = source.get(key, default_value)
 	return value if value is int else default_value
 
 
+## 读取字典中的 bool 字段；类型不匹配时返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_bool(source: Dictionary, key: String, default_value: bool = false) -> bool:
 	var value: Variant = source.get(key, default_value)
 	return value if value is bool else default_value
 
 
+## 读取字典中的 String 字段；类型不匹配时返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_string(source: Dictionary, key: String, default_value: String = "") -> String:
 	var value: Variant = source.get(key, default_value)
 	return value if value is String else default_value
 
 
+## 返回指定字段中的 Array；类型不匹配时返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_array(source: Dictionary, key: String) -> Array:
 	var value: Variant = source.get(key, [])
 	return value if value is Array else []
 
 
+## 返回指定字段中的 Dictionary；类型不匹配时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_dictionary(source: Dictionary, key: String) -> Dictionary:
 	var value: Variant = source.get(key, {})
 	return value if value is Dictionary else {}

@@ -35,6 +35,10 @@ const OPERATION_CONVERT: StringName = &"convert"
 ## @since 6.0.0
 const OPERATION_SKIP: StringName = &"skip"
 
+## 导入计划校验报告使用的 subject 文本。
+## [br]
+## @api private
+## [br]
 const _REPORT_SUBJECT: String = "Import plan"
 
 
@@ -295,6 +299,10 @@ static func from_dict(data: Dictionary) -> GFImportPlan:
 
 # --- 私有/辅助方法 ---
 
+## 构造路径已去除首尾空白并附带选项字段的导入条目。
+## [br]
+## @api private
+## [br]
 static func _make_entry(
 	source_path: String,
 	target_path: String,
@@ -316,6 +324,10 @@ static func _make_entry(
 	return entry
 
 
+## 校验单条来源、目标、操作、文件存在性和目标根目录约束。
+## [br]
+## @api private
+## [br]
 func _validate_entry(entry: Dictionary, index: int, options: Dictionary, report: Dictionary) -> void:
 	var source_path: String = GFVariantData.get_option_string(entry, "source_path")
 	var target_path: String = GFVariantData.get_option_string(entry, "target_path")
@@ -345,6 +357,10 @@ func _validate_entry(entry: Dictionary, index: int, options: Dictionary, report:
 		})
 
 
+## 查找重复目标路径并为涉及的每一条目追加错误。
+## [br]
+## @api private
+## [br]
 func _validate_duplicate_targets(options: Dictionary, report: Dictionary) -> void:
 	var include_skip_targets: bool = GFVariantData.get_option_bool(options, "include_skip_targets", false)
 	var target_entries: Dictionary = {}
@@ -370,6 +386,10 @@ func _validate_duplicate_targets(options: Dictionary, report: Dictionary) -> voi
 			})
 
 
+## 合并条目行号、字段路径和上下文后追加 error 级别校验问题。
+## [br]
+## @api private
+## [br]
 func _append_entry_issue(
 	report: Dictionary,
 	index: int,
@@ -393,18 +413,34 @@ func _append_entry_issue(
 	)
 
 
+## 检查操作是否为 copy、convert 或 skip。
+## [br]
+## @api private
+## [br]
 static func _is_supported_operation(operation: StringName) -> bool:
 	return operation == OPERATION_COPY or operation == OPERATION_CONVERT or operation == OPERATION_SKIP
 
 
+## 将指定汇总键的整数计数加一。
+## [br]
+## @api private
+## [br]
 static func _increment_count(counts: Dictionary, key: String) -> void:
 	counts[key] = GFVariantData.get_option_int(counts, key, 0) + 1
 
 
+## 将空汇总值规整为 unknown。
+## [br]
+## @api private
+## [br]
 static func _summary_key(value: String) -> String:
 	return value if not value.is_empty() else "unknown"
 
 
+## 将条目索引追加到目标路径对应的索引列表。
+## [br]
+## @api private
+## [br]
 static func _add_target_entry_index(target_entries: Dictionary, target_path: String, entry_index: int) -> void:
 	if not target_entries.has(target_path):
 		target_entries[target_path] = []
@@ -413,6 +449,10 @@ static func _add_target_entry_index(target_entries: Dictionary, target_path: Str
 	target_entries[target_path] = indexes
 
 
+## 收集出现至少两次的目标路径及其条目数量和索引。
+## [br]
+## @api private
+## [br]
 static func _collect_duplicate_targets(target_entries: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for target_path_variant: Variant in target_entries.keys():
@@ -428,6 +468,10 @@ static func _collect_duplicate_targets(target_entries: Dictionary) -> Array[Dict
 	return result
 
 
+## 深复制导入条目字典数组。
+## [br]
+## @api private
+## [br]
 static func _copy_entries(source_entries: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in source_entries:
@@ -435,6 +479,10 @@ static func _copy_entries(source_entries: Array[Dictionary]) -> Array[Dictionary
 	return result
 
 
+## 从输入字典筛出 entries 中的字典并深复制。
+## [br]
+## @api private
+## [br]
 static func _get_entry_array(data: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for value: Variant in GFVariantData.get_option_array(data, "entries"):

@@ -36,10 +36,34 @@ enum CancellationReason {
 
 # --- 私有变量 ---
 
+## 保护此上下文中工作标识与取消状态读写的互斥锁。
+## [br]
+## @api private
+## [br]
 var _mutex: Mutex = Mutex.new()
+
+## 首次绑定的工作 ID；未绑定时为空名称。
+## [br]
+## @api private
+## [br]
 var _work_id: StringName = &""
+
+## 是否已由框架发布首次取消请求。
+## [br]
+## @api private
+## [br]
 var _cancel_requested: bool = false
+
+## 首次取消请求写入的稳定原因。
+## [br]
+## @api private
+## [br]
 var _cancel_reason: CancellationReason = CancellationReason.NONE
+
+## 首次取消请求记录的毫秒 tick；未取消时为 0。
+## [br]
+## @api private
+## [br]
 var _cancel_requested_msec: int = 0
 
 

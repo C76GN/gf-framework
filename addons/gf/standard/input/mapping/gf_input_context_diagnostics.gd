@@ -167,6 +167,10 @@ static func get_next_actions() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 检查上下文是否为空、context_id 是否为空，并逐项收集映射结构问题。
+## [br]
+## @api private
+## [br]
 static func _collect_context_structure_issues(
 	context: GFInputContext,
 	context_index: int,
@@ -189,6 +193,10 @@ static func _collect_context_structure_issues(
 		_collect_mapping_issues(mapping, mapping_path, action_paths_by_id, issues, options)
 
 
+## 检查映射动作、动作 ID、阈值、空绑定及映射/绑定修饰器和触发器槽位。
+## [br]
+## @api private
+## [br]
 static func _collect_mapping_issues(
 	mapping: GFInputMapping,
 	mapping_path: String,
@@ -215,6 +223,10 @@ static func _collect_mapping_issues(
 		_collect_binding_issues(binding, binding_path, issues, options)
 
 
+## 发现重复 action_id 时记录本路径及首次出现路径，否则登记首次路径。
+## [br]
+## @api private
+## [br]
 static func _collect_action_id_issue(
 	mapping: GFInputMapping,
 	mapping_path: String,
@@ -237,6 +249,10 @@ static func _collect_action_id_issue(
 		action_paths_by_id[action_id] = mapping_path
 
 
+## 跳过布尔动作，校验激活/释放阈值范围及释放阈值不高于激活阈值。
+## [br]
+## @api private
+## [br]
 static func _collect_action_threshold_issue(
 	mapping: GFInputMapping,
 	mapping_path: String,
@@ -282,10 +298,18 @@ static func _collect_action_threshold_issue(
 		))
 
 
+## 检查浮点阈值有限且位于闭区间 0..1。
+## [br]
+## @api private
+## [br]
 static func _is_unit_threshold(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value) and value >= 0.0 and value <= 1.0
 
 
+## 检查绑定空值、输入事件、deadzone 范围和空修饰器槽位。
+## [br]
+## @api private
+## [br]
 static func _collect_binding_issues(
 	binding: GFInputBinding,
 	binding_path: String,
@@ -315,6 +339,10 @@ static func _collect_binding_issues(
 	_collect_null_slots(binding.modifiers, "%s/modifiers" % binding_path, "null_binding_modifier", "绑定修饰器为空。", issues)
 
 
+## 按选项决定是否检查 InputEventAction；报告空 action 名或项目 InputMap 中不存在的 action。
+## [br]
+## @api private
+## [br]
 static func _collect_input_event_action_issue(
 	input_event: InputEvent,
 	binding_path: String,
@@ -340,6 +368,10 @@ static func _collect_input_event_action_issue(
 		))
 
 
+## 为数组中每个 null 槽位按路径生成指定类别的问题。
+## [br]
+## @api private
+## [br]
 static func _collect_null_slots(
 	values: Array,
 	path: String,
@@ -352,6 +384,10 @@ static func _collect_null_slots(
 			issues.append(_make_issue("warning", kind, "%s/%d" % [path, index], message))
 
 
+## 把冲突字典转换为 binding_conflict 警告，并将冲突内容递归转成报告安全值。
+## [br]
+## @api private
+## [br]
 static func _make_conflict_issue(conflict: Dictionary) -> Dictionary:
 	return _make_issue(
 		"warning",
@@ -365,6 +401,10 @@ static func _make_conflict_issue(conflict: Dictionary) -> Dictionary:
 	)
 
 
+## 累计非空上下文中的映射数与非空映射的绑定数。
+## [br]
+## @api private
+## [br]
 static func _count_context_resources(contexts: Array[GFInputContext]) -> Dictionary:
 	var mapping_count: int = 0
 	var binding_count: int = 0
@@ -381,6 +421,10 @@ static func _count_context_resources(contexts: Array[GFInputContext]) -> Diction
 	}
 
 
+## 为每个上下文生成摘要；空项记为无效，非空项包含 ID、名称、路径和数量。
+## [br]
+## @api private
+## [br]
 static func _collect_context_summaries(contexts: Array[GFInputContext]) -> Array[Dictionary]:
 	var summaries: Array[Dictionary] = []
 	for context_index: int in range(contexts.size()):
@@ -403,6 +447,10 @@ static func _collect_context_summaries(contexts: Array[GFInputContext]) -> Array
 	return summaries
 
 
+## 累计单个上下文所有非空映射的绑定数。
+## [br]
+## @api private
+## [br]
 static func _count_context_bindings(context: GFInputContext) -> int:
 	var count: int = 0
 	for mapping: GFInputMapping in context.mappings:
@@ -411,10 +459,18 @@ static func _count_context_bindings(context: GFInputContext) -> int:
 	return count
 
 
+## 格式化上下文索引和映射索引对应的诊断路径。
+## [br]
+## @api private
+## [br]
 static func _make_mapping_path(context_index: int, mapping_index: int) -> String:
 	return "contexts/%d/mappings/%d" % [context_index, mapping_index]
 
 
+## 构造严重度、类别、路径和消息字段，并在 metadata 非空时深复制附加信息。
+## [br]
+## @api private
+## [br]
 static func _make_issue(
 	severity: String,
 	kind: String,
@@ -433,6 +489,10 @@ static func _make_issue(
 	return issue
 
 
+## 递归复制字典和数组；InputEvent 转显示文本，其他 Object 转字符串，其余值原样保留。
+## [br]
+## @api private
+## [br]
 static func _sanitize_for_report(value: Variant) -> Variant:
 	if value is Dictionary:
 		var dictionary: Dictionary = GFVariantData.as_dictionary(value)

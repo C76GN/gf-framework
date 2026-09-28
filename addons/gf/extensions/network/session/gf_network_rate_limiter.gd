@@ -31,6 +31,10 @@ var refill_per_second: float = 10.0:
 
 # --- 私有变量 ---
 
+## 当前允许通过的剩余令牌数。
+## [br]
+## @api private
+## [br]
 var _tokens: float = capacity
 
 
@@ -90,6 +94,10 @@ func reset() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 将负数或非有限数归一为 0。
+## [br]
+## @api private
+## [br]
 func _normalize_non_negative_finite(value: float) -> float:
 	if value < 0.0 or is_nan(value) or is_inf(value):
 		return 0.0

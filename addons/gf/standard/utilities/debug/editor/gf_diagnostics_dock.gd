@@ -15,7 +15,16 @@ extends Control
 
 # --- 常量 ---
 
+## 复用 GF 编辑器工作区控件工厂和布局常量的脚本资源。
+## [br]
+## @api private
+## [br]
 const _EDITOR_WORKSPACE_UI = preload("res://addons/gf/kernel/editor/gf_editor_workspace_ui.gd")
+
+## 提供诊断字典到 Tree 的展示辅助脚本资源。
+## [br]
+## @api private
+## [br]
 const _DIAGNOSTIC_TREE_PRESENTER = preload(
 	"res://addons/gf/standard/utilities/debug/editor/gf_diagnostic_tree_presenter.gd"
 )
@@ -23,14 +32,58 @@ const _DIAGNOSTIC_TREE_PRESENTER = preload(
 
 # --- 私有变量 ---
 
+## 负责采集运行时诊断数据的工具实例。
+## [br]
+## @api private
+## [br]
 var _diagnostics: GFDiagnosticsUtility = null
+
+## 最近一次采集的诊断快照。
+## [br]
+## @api private
+## [br]
 var _last_snapshot: Dictionary = {}
+
+## 选择诊断监控预设的选项控件。
+## [br]
+## @api private
+## [br]
 var _preset_option: OptionButton = null
+
+## 控制快照是否包含场景树的复选框。
+## [br]
+## @api private
+## [br]
 var _include_scene_tree_check: CheckBox = null
+
+## 控制快照是否包含最近日志的复选框。
+## [br]
+## @api private
+## [br]
 var _include_logs_check: CheckBox = null
+
+## 显示诊断快照摘要和状态的标签。
+## [br]
+## @api private
+## [br]
 var _summary_label: Label = null
+
+## 无可显示树内容时显示提示的标签。
+## [br]
+## @api private
+## [br]
 var _empty_label: Label = null
+
+## 展示诊断分区和值的树控件。
+## [br]
+## @api private
+## [br]
 var _tree: Tree = null
+
+## 显示当前选中诊断值 JSON 的文本控件。
+## [br]
+## @api private
+## [br]
 var _details: TextEdit = null
 
 
@@ -107,6 +160,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 在树控件尚未创建时构建一次工具栏、过滤选项、摘要、诊断树和详情区域。
+## [br]
+## @api private
+## [br]
 func _build_ui() -> void:
 	if _tree != null:
 		return
@@ -180,12 +237,20 @@ func _build_ui() -> void:
 	split.add_child(_details)
 
 
+## 将带有 preset ID 元数据的监控预设加入选项控件。
+## [br]
+## @api private
+## [br]
 func _add_monitor_preset_option(preset_id: StringName, label: String) -> void:
 	var index: int = _preset_option.item_count
 	_preset_option.add_item(label, index)
 	_preset_option.set_item_metadata(index, preset_id)
 
 
+## 清空并显示最近快照，更新摘要、详情文本和诊断树。
+## [br]
+## @api private
+## [br]
 func _render_snapshot() -> void:
 	if _tree == null:
 		return
@@ -200,6 +265,10 @@ func _render_snapshot() -> void:
 	_DIAGNOSTIC_TREE_PRESENTER.populate_dictionary(_tree, _last_snapshot)
 
 
+## 隐藏并清空诊断内容，显示空状态提示及警告状态。
+## [br]
+## @api private
+## [br]
 func _render_empty(message: String) -> void:
 	if _tree != null:
 		_tree.clear()
@@ -212,6 +281,10 @@ func _render_empty(message: String) -> void:
 	_EDITOR_WORKSPACE_UI.set_status(_summary_label, message, _EDITOR_WORKSPACE_UI.WARNING_TEXT_COLOR)
 
 
+## 汇总性能、架构模块和监控数量，生成人类可读摘要。
+## [br]
+## @api private
+## [br]
 func _make_snapshot_summary(snapshot: Dictionary) -> String:
 	var performance: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(snapshot, "performance", {}))
 	var architecture: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(snapshot, "architecture", {}))
@@ -230,11 +303,19 @@ func _make_snapshot_summary(snapshot: Dictionary) -> String:
 	]
 
 
+## 读取快照的指定字典分区并返回其键数。
+## [br]
+## @api private
+## [br]
 func _count_dictionary_section(source: Dictionary, key: String) -> int:
 	var section: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(source, key, {}))
 	return section.size()
 
 
+## 读取当前选项的元数据并转换为预设 ID；控件未初始化时返回空 ID。
+## [br]
+## @api private
+## [br]
 func _get_selected_preset_id() -> StringName:
 	if _preset_option == null:
 		return &""
@@ -242,20 +323,36 @@ func _get_selected_preset_id() -> StringName:
 	return GFVariantData.to_string_name(metadata)
 
 
+## 使用诊断树展示器的 debug 脱敏规则序列化诊断值。
+## [br]
+## @api private
+## [br]
 func _safe_json(value: Variant) -> String:
 	return _DIAGNOSTIC_TREE_PRESENTER.safe_json(value)
 
 
 # --- 信号处理函数 ---
 
+## 监控预设变化后重新采集诊断快照。
+## [br]
+## @api private
+## [br]
 func _on_option_selected(_index: int) -> void:
 	collect_snapshot()
 
 
+## 场景树或日志选项变化后重新采集诊断快照。
+## [br]
+## @api private
+## [br]
 func _on_option_toggled(_pressed: bool) -> void:
 	collect_snapshot()
 
 
+## 读取选中树项的元数据并在详情控件显示其脱敏 JSON。
+## [br]
+## @api private
+## [br]
 func _on_tree_item_selected() -> void:
 	var item: TreeItem = _tree.get_selected()
 	if item == null:
@@ -263,6 +360,10 @@ func _on_tree_item_selected() -> void:
 	_details.text = _safe_json(item.get_metadata(0))
 
 
+## 快照非空时将其脱敏 JSON 复制到剪贴板并更新状态提示。
+## [br]
+## @api private
+## [br]
 func _on_copy_pressed() -> void:
 	if _last_snapshot.is_empty():
 		return

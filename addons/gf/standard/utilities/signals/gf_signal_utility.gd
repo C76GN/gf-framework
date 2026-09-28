@@ -14,6 +14,10 @@ extends GFUtility
 
 # --- 私有变量 ---
 
+## 此 Utility 创建并负责清理的信号连接句柄。
+## [br]
+## @api private
+## [br]
 var _connections: Array[GFSignalConnection] = []
 
 
@@ -214,8 +218,25 @@ func get_connection_count() -> int:
 	return _connections.size()
 
 
+
+
+# --- 框架内部方法 ---
+
+## 从工具跟踪列表移除已自行注销的连接；不在此再次断开信号，避免注销回调递归。
+## [br]
+## @api framework_internal
+## [br]
+## @param connection: 通过弱引用回调本工具请求注销的连接。
+func _untrack_connection(connection: GFSignalConnection) -> void:
+	_connections.erase(connection)
+
+
 # --- 私有/辅助方法 ---
 
+## 复用匹配连接，或创建、启动并追踪一个新连接。
+## [br]
+## @api private
+## [br]
 func _connect_signal(
 	source_signal: Signal,
 	callback: Callable,
@@ -245,6 +266,10 @@ func _connect_signal(
 	return connection
 
 
+## 清理失效句柄后，查找配置完全匹配的活动连接。
+## [br]
+## @api private
+## [br]
 func _find_connection(
 	source_signal: Signal,
 	callback: Callable,
@@ -260,6 +285,10 @@ func _find_connection(
 	return null
 
 
+## 检查连接句柄是否匹配信号、回调和可选 owner。
+## [br]
+## @api private
+## [br]
 func _connection_matches(
 	connection: GFSignalConnection,
 	source_signal: Signal,
@@ -271,6 +300,10 @@ func _connection_matches(
 	return connection.matches(source_signal, callback, owner)
 
 
+## 将 Variant 收窄为 Signal；类型不符时返回空 Signal。
+## [br]
+## @api private
+## [br]
 func _variant_to_signal(value: Variant) -> Signal:
 	if value is Signal:
 		var source_signal: Signal = value
@@ -278,12 +311,12 @@ func _variant_to_signal(value: Variant) -> Signal:
 	return Signal()
 
 
+## 将 Variant 收窄为 GFSignalConnection；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_connection(value: Variant) -> GFSignalConnection:
 	if value is GFSignalConnection:
 		var connection: GFSignalConnection = value
 		return connection
 	return null
-
-
-func _untrack_connection(connection: GFSignalConnection) -> void:
-	_connections.erase(connection)

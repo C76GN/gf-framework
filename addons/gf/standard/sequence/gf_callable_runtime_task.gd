@@ -81,7 +81,16 @@ var finish_after_initialize: bool = true
 
 # --- 私有变量 ---
 
+## 当前调度器的弱引用，避免任务生命周期延长调度器所有权。
+## [br]
+## @api private
+## [br]
 var _scheduler_ref: WeakRef = null
+
+## 最近一次因 finished_callable 返回非 bool 而告警的调度代。
+## [br]
+## @api private
+## [br]
 var _invalid_finished_result_generation: int = -1
 
 
@@ -231,6 +240,10 @@ func end(interrupted: bool) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 从弱引用中返回仍有效且类型匹配的任务调度器。
+## [br]
+## @api private
+## [br]
 func _get_scheduler_or_null() -> GFRuntimeTaskScheduler:
 	if _scheduler_ref == null:
 		return null

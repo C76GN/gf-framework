@@ -18,8 +18,19 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 创建 GF 与项目访问器生成器实例的脚本。
+## [br]
+## @api private
 const _GF_ACCESS_GENERATOR_SCRIPT = preload("res://addons/gf/kernel/editor/gf_access_generator.gd")
+
+## 查询已启用扩展贡献设置的 provider 脚本。
+## [br]
+## @api private
 const _GF_EXTENSION_SETTINGS_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_settings.gd")
+
+## 提供 GF 与项目访问器输出路径的 provider 脚本。
+## [br]
+## @api private
 const _GF_PLUGIN_PROJECT_SETTINGS_SCRIPT = preload("res://addons/gf/kernel/editor/gf_plugin_project_settings.gd")
 
 

@@ -36,6 +36,10 @@ const STATE_CLAIMED: StringName = &"claimed"
 ## @since 11.0.0
 const STATE_DISCARDED: StringName = &"discarded"
 
+## 检查候选载荷与元数据能否跨持久化边界的脚本资源。
+## [br]
+## @api private
+## [br]
 const _PERSISTED_VALUE_VALIDATOR_SCRIPT = preload(
 	"res://addons/gf/extensions/save/core/gf_save_persisted_value_validator.gd"
 )
@@ -43,10 +47,34 @@ const _PERSISTED_VALUE_VALIDATOR_SCRIPT = preload(
 
 # --- 私有变量 ---
 
+## Mutation 携带的 section ID。
+## [br]
+## @api private
+## [br]
 var _section_id: StringName = &""
+
+## 候选 section 的 schema 版本。
+## [br]
+## @api private
+## [br]
 var _schema_version: int = 0
+
+## Mutation 当前持有的完整候选 section 载荷。
+## [br]
+## @api private
+## [br]
 var _payload: Variant = null
+
+## 候选 section 的持久化元数据。
+## [br]
+## @api private
+## [br]
 var _metadata: Dictionary = {}
+
+## Mutation 当前可用或已丢弃的状态标识。
+## [br]
+## @api private
+## [br]
 var _state: StringName = STATE_DISCARDED
 
 

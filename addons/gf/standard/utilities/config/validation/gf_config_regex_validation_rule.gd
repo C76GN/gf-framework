@@ -31,9 +31,28 @@ extends GFConfigValidationRule
 
 # --- 私有变量 ---
 
+## 记录已编译正则对应的 pattern 文本。
+## [br]
+## @api private
+## [br]
 var _compiled_pattern: String = ""
+
+## 缓存最近一次编译得到的 RegEx。
+## [br]
+## @api private
+## [br]
 var _compiled_regex: RegEx = null
+
+## 缓存最近一次正则编译错误码。
+## [br]
+## @api private
+## [br]
 var _compile_error: Error = OK
+
+## 标记是否已有可复用的 pattern 编译结果。
+## [br]
+## @api private
+## [br]
 var _has_compiled_pattern: bool = false
 
 
@@ -107,6 +126,10 @@ func _validate_value(value: Variant, context: Dictionary, report: Dictionary) ->
 
 # --- 私有/辅助方法 ---
 
+## 按当前 pattern 复用或重新编译 RegEx。
+## [br]
+## @api private
+## [br]
 func _get_compiled_regex() -> RegEx:
 	if _has_compiled_pattern and _compiled_pattern == pattern:
 		return _compiled_regex
@@ -120,6 +143,10 @@ func _get_compiled_regex() -> RegEx:
 	return _compiled_regex
 
 
+## 复制诊断上下文并附加实际值和期望 pattern。
+## [br]
+## @api private
+## [br]
 func _make_issue_context(context: Dictionary, value: Variant, expected_value: Variant) -> Dictionary:
 	var issue_context: Dictionary = context.duplicate(true)
 	issue_context["value"] = GFVariantData.duplicate_variant(value)

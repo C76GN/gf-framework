@@ -15,22 +15,72 @@ extends VBoxContainer
 
 # --- 常量 ---
 
+## GFStorageCodec 的 JSON 格式编号。
+## [br]
+## @api private
 const _SAVE_VIEWER_FORMAT_JSON: int = 0
+
+## GFStorageCodec 的二进制格式编号。
+## [br]
+## @api private
 const _SAVE_VIEWER_FORMAT_BINARY: int = 1
+
+## 标签行中固定显示宽度的最小值。
+## [br]
+## @api private
 const _SAVE_VIEWER_LABEL_WIDTH: float = 72.0
+
+## 提供存档查看面板所用编辑器布局控件的帮助脚本。
+## [br]
+## @api private
 const _GFEditorWorkspaceUI = preload("res://addons/gf/kernel/editor/gf_editor_workspace_ui.gd")
 
 
 # --- 私有变量 ---
 
+## 输入待读取存档文件路径的文本框。
+## [br]
+## @api private
 var _path_edit: LineEdit
+
+## 选择要交给 GFStorageCodec 解码的存档格式。
+## [br]
+## @api private
 var _format_option: OptionButton
+
+## 提供存档 XOR 混淆密钥的数值控件。
+## [br]
+## @api private
 var _obfuscation_key_spin: SpinBox
+
+## 指示解码时是否启用压缩处理。
+## [br]
+## @api private
 var _compression_check: CheckBox
+
+## 指示解码时是否校验完整性 checksum。
+## [br]
+## @api private
 var _checksum_check: CheckBox
+
+## 指示 checksum 不匹配时是否按严格完整性模式拒绝结果。
+## [br]
+## @api private
 var _strict_check: CheckBox
+
+## 显示当前加载或复制操作的状态消息。
+## [br]
+## @api private
 var _status_label: Label
+
+## 显示解码后格式化的 JSON 文本。
+## [br]
+## @api private
 var _output: TextEdit
+
+## 让用户从本机文件系统选择存档文件。
+## [br]
+## @api private
 var _file_dialog: FileDialog
 
 
@@ -44,6 +94,9 @@ func _init() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 创建面板控件，并把按钮和文件选择信号连接到本类的处理函数。
+## [br]
+## @api private
 func _build_ui() -> void:
 	var path_row: HBoxContainer = _GFEditorWorkspaceUI.make_toolbar()
 	add_child(path_row)
@@ -101,6 +154,9 @@ func _build_ui() -> void:
 	add_child(_file_dialog)
 
 
+## 创建包含固定最小宽度标签和可扩展控件的水平行。
+## [br]
+## @api private
 func _make_labeled_row(label_text: String, control: Control) -> HBoxContainer:
 	var row: HBoxContainer = HBoxContainer.new()
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -115,14 +171,23 @@ func _make_labeled_row(label_text: String, control: Control) -> HBoxContainer:
 	return row
 
 
+## 创建用于本次存档查看的 GFStorageCodec。
+## [br]
+## @api private
 func _create_codec() -> GFStorageCodec:
 	return GFStorageCodec.new()
 
 
+## 返回格式选项当前选中的项目 ID。
+## [br]
+## @api private
 func _get_selected_format() -> int:
 	return _format_option.get_selected_id()
 
 
+## 更新有效状态标签的文本与颜色；错误状态还会通过 push_warning 输出诊断消息。
+## [br]
+## @api private
 func _set_status(message: String, is_error: bool, diagnostic_message: String = "") -> void:
 	if is_instance_valid(_status_label):
 		_status_label.text = message
@@ -131,6 +196,9 @@ func _set_status(message: String, is_error: bool, diagnostic_message: String = "
 		push_warning(diagnostic_message)
 
 
+## 将载荷转成按制表符缩进、键排序的 JSON-compatible 文本，并把不支持的值编码为字符串。
+## [br]
+## @api private
 func _format_decoded_data_for_display(data: Dictionary) -> String:
 	return GFVariantJsonCodec.stringify_json_compatible(data, "\t", true, {
 		"unsupported": "string",
@@ -139,16 +207,25 @@ func _format_decoded_data_for_display(data: Dictionary) -> String:
 
 # --- 信号处理函数 ---
 
+## 在文件对话框仍有效时弹出本机存档选择窗口。
+## [br]
+## @api private
 func _on_browse_pressed() -> void:
 	if is_instance_valid(_file_dialog):
 		_file_dialog.popup_centered_ratio(0.6)
 
 
+## 将文件对话框选出的路径写入有效的路径输入框。
+## [br]
+## @api private
 func _on_file_selected(path: String) -> void:
 	if is_instance_valid(_path_edit):
 		_path_edit.text = path
 
 
+## 读取输入文件并按界面选项解码；失败时清空旧输出并显示错误，成功时显示格式化载荷和完整性摘要。
+## [br]
+## @api private
 func _on_load_pressed() -> void:
 	var path: String = _path_edit.text.strip_edges()
 	if path.is_empty():
@@ -205,6 +282,9 @@ func _on_load_pressed() -> void:
 	)
 
 
+## 输出框有效且非空时复制其 JSON 文本到剪贴板并更新状态。
+## [br]
+## @api private
 func _on_copy_pressed() -> void:
 	if _output == null or _output.text.is_empty():
 		return

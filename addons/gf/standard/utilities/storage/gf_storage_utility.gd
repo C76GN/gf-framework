@@ -76,47 +76,204 @@ enum AsyncExecutionMode {
 	COOPERATIVE = 2,
 }
 
+## 表示异步任务在内部队列和执行器中的状态。
+## [br]
+## @api private
+## [br]
 enum _AsyncTaskState {
+	## 等待执行器选择。
 	QUEUED,
+	## 已被执行器接受。
 	ACCEPTED,
+	## 工作回调正在运行。
 	RUNNING,
+	## 工作已结束，正在处理终态。
 	SETTLING,
 }
 
 
 # --- 常量 ---
 
+## 预加载存储逻辑文件族帮助器脚本。
+## [br]
+## @api private
+## [br]
 const _GF_STORAGE_FAMILY_STORE_SCRIPT = preload(
 	"res://addons/gf/standard/utilities/storage/gf_storage_family_store.gd"
 )
+
+## 单文件事务准备记录使用的 schema 标识。
+## [br]
+## @api private
+## [br]
 const _TRANSACTION_PREPARE_SCHEMA: String = "gf.storage.transaction-prepare"
+
+## 多文件事务提交记录使用的 schema 标识。
+## [br]
+## @api private
+## [br]
 const _TRANSACTION_COMMIT_SCHEMA: String = "gf.storage.transaction-commit"
+
+## 事务标记记录当前支持的 schema 版本。
+## [br]
+## @api private
+## [br]
 const _TRANSACTION_MARKER_SCHEMA_VERSION: int = 2
+
+## 单个事务允许包含的文件成员上限。
+## [br]
+## @api private
+## [br]
 const _MAX_TRANSACTION_FILES: int = 64
+
+## 异步存档载荷验证允许遍历的最大嵌套深度。
+## [br]
+## @api private
+## [br]
 const _PAYLOAD_VALIDATION_MAX_DEPTH: int = 128
+
+## 异步存档载荷验证允许访问的最大值数量。
+## [br]
+## @api private
+## [br]
 const _PAYLOAD_VALIDATION_MAX_VALUES: int = 1_000_000
+
+## 异步存档载荷验证允许计量的最大字节数。
+## [br]
+## @api private
+## [br]
 const _PAYLOAD_VALIDATION_MAX_BYTES: int = 64 * 1024 * 1024
+
+## 保留的异步迟到结算记录容量上限。
+## [br]
+## @api private
+## [br]
 const _ASYNC_LATE_SETTLEMENT_CAPACITY: int = 64
+
+## 删除事务中备份文件成员的标识。
+## [br]
+## @api private
+## [br]
 const _DELETE_MEMBER_BACKUP: StringName = &"backup"
+
+## 删除事务中准备记录暂存成员的标识。
+## [br]
+## @api private
+## [br]
 const _DELETE_MEMBER_TRANSACTION_PREPARE_PENDING: StringName = &"transaction_prepare_pending"
+
+## 删除事务中准备记录成员的标识。
+## [br]
+## @api private
+## [br]
 const _DELETE_MEMBER_TRANSACTION_PREPARE: StringName = &"transaction_prepare"
+
+## 删除事务中提交记录暂存成员的标识。
+## [br]
+## @api private
+## [br]
 const _DELETE_MEMBER_TRANSACTION_COMMIT_PENDING: StringName = &"transaction_commit_pending"
+
+## 删除事务中提交记录成员的标识。
+## [br]
+## @api private
+## [br]
 const _DELETE_MEMBER_TRANSACTION_COMMIT: StringName = &"transaction_commit"
+
+## 删除事务中候选文件成员的标识。
+## [br]
+## @api private
+## [br]
 const _DELETE_MEMBER_CANDIDATE: StringName = &"candidate"
+
+## 删除事务中资源阶段文件成员的标识。
+## [br]
+## @api private
+## [br]
 const _DELETE_MEMBER_RESOURCE_STAGE: StringName = &"resource_stage"
+
+## 删除事务中最终文件成员的标识。
+## [br]
+## @api private
+## [br]
 const _DELETE_MEMBER_FINAL: StringName = &"final"
+
+## 重置事务中逻辑目录成员的标识。
+## [br]
+## @api private
+## [br]
 const _RESET_MEMBER_CATALOG: StringName = &"catalog"
+
+## 重置事务中文件族容器成员的标识。
+## [br]
+## @api private
+## [br]
 const _RESET_MEMBER_FAMILY_CONTAINER: StringName = &"family_container"
+
+## 重置事务中意图记录成员的标识。
+## [br]
+## @api private
+## [br]
 const _RESET_MEMBER_INTENT: StringName = &"reset_intent"
+
+## 文件族重置意图记录使用的 schema 标识。
+## [br]
+## @api private
+## [br]
 const _RESET_INTENT_SCHEMA: String = "gf.storage.family-reset-intent"
+
+## 文件族重置意图记录当前支持的 schema 版本。
+## [br]
+## @api private
+## [br]
 const _RESET_INTENT_SCHEMA_VERSION: int = 1
+
+## 构造重置暂存目录名时使用的分隔后缀。
+## [br]
+## @api private
+## [br]
 const _RESET_STAGING_SEPARATOR: String = ".reset-"
+
+## 重置意图文件名使用的后缀。
+## [br]
+## @api private
+## [br]
 const _RESET_INTENT_SUFFIX: String = ".intent.json"
+
+## 重置意图记录允许读取的最大字节数。
+## [br]
+## @api private
+## [br]
 const _RESET_MAX_INTENT_BYTES: int = 16 * 1024
+
+## 重置目录树遍历允许的最大深度。
+## [br]
+## @api private
+## [br]
 const _RESET_MAX_TREE_DEPTH: int = 16
+
+## 单棵重置目录树允许遍历的最大条目数。
+## [br]
+## @api private
+## [br]
 const _RESET_MAX_TREE_ENTRIES: int = 1024
+
+## 重置反向扫描允许访问的最大目录条目数。
+## [br]
+## @api private
+## [br]
 const _RESET_MAX_REVERSE_SCAN_ENTRIES: int = 16 * 1024
+
+## 单个重置恢复分片允许检查的最大条目数。
+## [br]
+## @api private
+## [br]
 const _RESET_MAX_SHARD_ENTRIES: int = 256
+
+## 允许检查的待恢复重置意图数量上限。
+## [br]
+## @api private
+## [br]
 const _RESET_MAX_PENDING_INTENTS: int = 1024
 
 ## 递归枚举文件时默认允许进入的最大目录深度。
@@ -288,43 +445,211 @@ var last_load_result: GFStorageReadResult
 
 # --- 私有变量 ---
 
+## 当前已接受或正在结算的异步任务记录。
+## [br]
+## @api private
+## [br]
 var _async_tasks: Array[Dictionary] = []
+
+## 等待调度启动的异步任务队列。
+## [br]
+## @api private
+## [br]
 var _async_queue: Array[Dictionary] = []
+
+## 按逻辑文件键登记的异步任务所有权锁。
+## [br]
+## @api private
+## [br]
 var _async_file_locks: Dictionary = {}
+
+## 正在完成物理结算的异步记录索引。
+## [br]
+## @api private
+## [br]
 var _async_settling_records: Dictionary = {}
+
+## 按请求编号登记的异步调用方观察者。
+## [br]
+## @api private
+## [br]
 var _async_observers: Dictionary = {}
+
+## 容量受限的迟到异步结算记录。
+## [br]
+## @api private
+## [br]
 var _async_late_settlements: Array[Dictionary] = []
+
+## 异步请求与结果时间戳使用的时钟。
+## [br]
+## @api private
+## [br]
 var _clock: GFClock = GFClock.new()
+
+## 下一个异步请求编号。
+## [br]
+## @api private
+## [br]
 var _next_async_request_id: int = 1
+
+## 下一个异步请求消费者编号。
+## [br]
+## @api private
+## [br]
 var _next_async_consumer_id: int = 1
+
+## 下一个异步任务记录编号。
+## [br]
+## @api private
+## [br]
 var _next_async_record_id: int = 1
+
+## 下一个异步事务编号。
+## [br]
+## @api private
+## [br]
 var _next_async_transaction_id: int = 1
+
+## 下一个文件族重置授权编号。
+## [br]
+## @api private
+## [br]
 var _next_family_reset_authorization_id: int = 1
+
+## 异步调度循环当前是否正在运行。
+## [br]
+## @api private
+## [br]
 var _async_scheduler_running: bool = false
+
+## 是否已请求异步调度循环再次运行。
+## [br]
+## @api private
+## [br]
 var _async_scheduler_requested: bool = false
+
+## 仅启动可运行任务的调度过程当前是否正在运行。
+## [br]
+## @api private
+## [br]
 var _async_start_only_running: bool = false
+
+## 是否已请求仅启动任务的调度过程再次运行。
+## [br]
+## @api private
+## [br]
 var _async_start_only_requested: bool = false
+
+## 当前异步完成回调的重入深度。
+## [br]
+## @api private
+## [br]
 var _async_completion_depth: int = 0
+
+## 当前异步任务执行过程的重入深度。
+## [br]
+## @api private
+## [br]
 var _async_execution_depth: int = 0
+
+## 是否因执行或完成回调重入而延后 dispose。
+## [br]
+## @api private
+## [br]
 var _async_deferred_dispose_requested: bool = false
+
+## 异步执行模式是否已在首次请求时冻结。
+## [br]
+## @api private
+## [br]
 var _async_execution_mode_frozen: bool = false
+
+## 首次异步请求确定的有效执行模式。
+## [br]
+## @api private
+## [br]
 var _effective_async_execution_mode: AsyncExecutionMode = AsyncExecutionMode.AUTOMATIC
+
+## 当前是否正在等待并释放异步任务。
+## [br]
+## @api private
+## [br]
 var _is_disposing: bool = false
+
+## 同步及异步存储 I/O 是否接受新请求。
+## [br]
+## @api private
+## [br]
 var _io_admission_open: bool = true
+
+## 当前待完成的静默等待结果；非 null 时表示已请求 quiesce。
+## [br]
+## @api private
+## [br]
 var _quiesce_completion: GFAsyncCompletion = null
+
+## 按版本迁移键登记的迁移回调。
+## [br]
+## @api private
+## [br]
 var _migration_steps: Dictionary = {}
+
+## 验证和转换存储路径的策略对象。
+## [br]
+## @api private
+## [br]
 var _path_policy: _StoragePathPolicy
+
+## 执行受路径策略约束的文件操作帮助器。
+## [br]
+## @api private
+## [br]
 var _file_ops: _StorageFileOps
+
+## 管理逻辑文件族与存储目录的帮助器。
+## [br]
+## @api private
+## [br]
 var _family_store: GFStorageFamilyStore
+
+## 管理多文件事务及其恢复的帮助器。
+## [br]
+## @api private
+## [br]
 var _transaction_manager: _StorageTransactionManager
+
+## 用于标识由此工具创建的读取结果的来源令牌。
+## [br]
+## @api private
+## [br]
 var _read_result_origin_token: String = ""
+
+## 存储根路径是否已冻结。
+## [br]
+## @api private
+## [br]
 var _storage_root_frozen: bool = false
+
+## 当前存储目录是否已完成事务恢复与协调。
+## [br]
+## @api private
+## [br]
 var _storage_reconciled: bool = false
+
+## 下一次版本读取使用的内部保护状态。
+## [br]
+## @api private
+## [br]
 var _next_revision_read_guard: int = -1
 
 
 # --- Godot 生命周期方法 ---
 
+## 生成读取结果来源令牌并初始化存储帮助器。
+## [br]
+## @api private
+## [br]
 func _init() -> void:
 	_read_result_origin_token = GFUuid.generate_v4()
 	_ensure_storage_helpers()
@@ -1945,6 +2270,10 @@ func claim_reset_family_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 验证目录查询参数、完成恢复后读取逻辑目录清单。
+## [br]
+## @api private
+## [br]
 func _query_catalog(
 	directory_name: String,
 	extension_filter: String,
@@ -2017,6 +2346,10 @@ func _query_catalog(
 	return _catalog_failure(ERR_BUG, GFStorageCatalogResult.FailureKind.CATALOG_FAILED)
 
 
+## 校验目录查询选项是否仅含已支持的非负整数限制。
+## [br]
+## @api private
+## [br]
 func _are_catalog_options_valid(options: Dictionary) -> bool:
 	for key: Variant in options:
 		if not key is String:
@@ -2033,6 +2366,10 @@ func _are_catalog_options_valid(options: Dictionary) -> bool:
 	return true
 
 
+## 构造包含指定错误码与失败类别的目录查询结果。
+## [br]
+## @api private
+## [br]
 func _catalog_failure(
 	error_code: Error,
 	failure_kind: GFStorageCatalogResult.FailureKind
@@ -2042,6 +2379,10 @@ func _catalog_failure(
 	return result
 
 
+## 创建并配置异步请求操作、消费者及完成观察者。
+## [br]
+## @api private
+## [br]
 func _make_async_operation(
 	operation_kind: StringName,
 	options: GFStorageAsyncRequestOptions = null
@@ -2091,6 +2432,10 @@ func _make_async_operation(
 	return operation
 
 
+## 按操作类型为无效异步请求生成对应失败结果并完成操作。
+## [br]
+## @api private
+## [br]
 func _complete_invalid_async_consumer(operation: GFStorageAsyncOperation) -> void:
 	match operation.get_operation():
 		GFStorageAsyncOperation.OPERATION_SAVE:
@@ -2137,6 +2482,10 @@ func _complete_invalid_async_consumer(operation: GFStorageAsyncOperation) -> voi
 			)
 
 
+## 冻结执行模式、分配记录编号并将任务加入异步队列。
+## [br]
+## @api private
+## [br]
 func _queue_async_task(task: Dictionary) -> void:
 	_freeze_async_execution_mode()
 	var record_id: int = _next_async_record_id
@@ -2154,6 +2503,10 @@ func _queue_async_task(task: Dictionary) -> void:
 	_async_queue.append(task)
 
 
+## 首次需要时解析并冻结异步任务执行模式。
+## [br]
+## @api private
+## [br]
 func _freeze_async_execution_mode() -> void:
 	if _async_execution_mode_frozen:
 		return
@@ -2161,12 +2514,20 @@ func _freeze_async_execution_mode() -> void:
 	_async_execution_mode_frozen = true
 
 
+## 返回已冻结的执行模式或当前解析出的有效模式。
+## [br]
+## @api private
+## [br]
 func _get_effective_async_execution_mode() -> AsyncExecutionMode:
 	if _async_execution_mode_frozen:
 		return _effective_async_execution_mode
 	return _resolve_async_execution_mode()
 
 
+## 根据配置及线程能力选择线程或 cooperative 执行模式。
+## [br]
+## @api private
+## [br]
 func _resolve_async_execution_mode() -> AsyncExecutionMode:
 	match async_execution_mode:
 		AsyncExecutionMode.THREADED:
@@ -2181,6 +2542,10 @@ func _resolve_async_execution_mode() -> AsyncExecutionMode:
 			)
 
 
+## 入队前轮询调用方生命周期并检查操作是否已完成。
+## [br]
+## @api private
+## [br]
 func _cancel_async_operation_before_queue_if_needed(
 	operation: GFStorageAsyncOperation
 ) -> bool:
@@ -2190,6 +2555,10 @@ func _cancel_async_operation_before_queue_if_needed(
 	return operation.is_completed()
 
 
+## 为规范文件名生成异步任务使用的存储族目标描述。
+## [br]
+## @api private
+## [br]
 func _make_async_target_family(canonical_file_name: String) -> Dictionary:
 	var storage_root_path: String = _get_save_base_path()
 	var descriptor: Dictionary = GFStorageFamilyStore.make_family_descriptor_for_framework(
@@ -2213,6 +2582,10 @@ func _make_async_target_family(canonical_file_name: String) -> Dictionary:
 	}
 
 
+## 冻结并返回异步任务的目标文件族与路径快照。
+## [br]
+## @api private
+## [br]
 func _freeze_async_target_family(canonical_file_name: String) -> Dictionary:
 	var target_family: Dictionary = _make_async_target_family(canonical_file_name)
 	for required_key: String in [
@@ -2236,6 +2609,10 @@ func _freeze_async_target_family(canonical_file_name: String) -> Dictionary:
 	return target_family
 
 
+## 生成并递增异步存储事务编号。
+## [br]
+## @api private
+## [br]
 func _make_async_transaction_id() -> String:
 	if not _family_store.get_revision_incarnation_for_framework().is_empty():
 		return GFUuid.generate_v4()
@@ -2250,6 +2627,10 @@ func _make_async_transaction_id() -> String:
 	return transaction_id
 
 
+## 校验保存请求并将规范化目标及载荷加入异步任务队列。
+## [br]
+## @api private
+## [br]
 func _enqueue_async_save(
 	file_name: String,
 	data: Dictionary,
@@ -2319,6 +2700,10 @@ func _enqueue_async_save(
 	return OK
 
 
+## 校验并登记带载荷转移对象的异步保存任务。
+## [br]
+## @api private
+## [br]
 func _enqueue_async_payload_save(
 	file_name: String,
 	transfer: GFStoragePayloadTransfer,
@@ -2436,6 +2821,10 @@ func _enqueue_async_payload_save(
 	return OK
 
 
+## 校验读取请求、冻结文件族目标并加入异步任务队列。
+## [br]
+## @api private
+## [br]
 func _enqueue_async_load(
 	file_name: String,
 	operation: GFStorageAsyncOperation,
@@ -2507,6 +2896,10 @@ func _enqueue_async_load(
 	return OK
 
 
+## 校验删除请求和文件族目标后登记异步删除任务。
+## [br]
+## @api private
+## [br]
 func _enqueue_async_delete(
 	file_name: String,
 	operation: GFStorageAsyncOperation,
@@ -2643,6 +3036,10 @@ func _enqueue_async_delete(
 	return OK
 
 
+## 校验重置授权及文件族目标后登记异步重置任务。
+## [br]
+## @api private
+## [br]
 func _enqueue_async_reset(
 	file_name: String,
 	authorization: GFStorageFamilyResetAuthorization,
@@ -2760,6 +3157,10 @@ func _enqueue_async_reset(
 	return OK
 
 
+## 按请求类型构造领域结果并提交异步操作终态。
+## [br]
+## @api private
+## [br]
 func _complete_async_operation(
 	operation: GFStorageAsyncOperation,
 	error_code: Error,
@@ -2846,6 +3247,10 @@ func _complete_async_operation(
 	_finalize_async_observer_after_physical_settlement(operation)
 
 
+## 保存操作迟到结算诊断并移除其观察者记录。
+## [br]
+## @api private
+## [br]
 func _finalize_async_observer_after_physical_settlement(
 	operation: GFStorageAsyncOperation
 ) -> void:
@@ -2859,23 +3264,12 @@ func _finalize_async_observer_after_physical_settlement(
 	var _removed: bool = _async_observers.erase(operation.get_request_id())
 
 
-func _on_async_operation_completed_for_observer(request_id: int) -> void:
-	var observer_value: Variant = _async_observers.get(request_id)
-	if not observer_value is Dictionary:
-		return
-	var observer: Dictionary = observer_value
-	var operation: GFStorageAsyncOperation = _get_observer_operation(observer)
-	if operation == null or operation.get_request_id() != request_id:
-		return
-	var record_id: int = GFVariantData.get_option_int(observer, "record_id", 0)
-	var file_key: String = GFVariantData.get_option_string(observer, "file_key")
-	_finalize_async_observer_after_physical_settlement(operation)
-	_release_async_file_lock_for_record(
-		record_id,
-		file_key
-	)
 
 
+## 为异步操作构造配置失败时使用的终态结果。
+## [br]
+## @api private
+## [br]
 func _make_async_operation_fallback_result(
 	operation: GFStorageAsyncOperation
 ) -> GFStorageAsyncResult:
@@ -2939,6 +3333,10 @@ func _make_async_operation_fallback_result(
 	return result if configured else null
 
 
+## 从任务字典中读取异步操作对象。
+## [br]
+## @api private
+## [br]
 func _get_task_operation(task: Dictionary) -> GFStorageAsyncOperation:
 	var value: Variant = GFVariantData.get_option_value(task, "operation")
 	if value is GFStorageAsyncOperation:
@@ -2947,6 +3345,10 @@ func _get_task_operation(task: Dictionary) -> GFStorageAsyncOperation:
 	return null
 
 
+## 优先从任务操作中取得请求状态，否则读取任务字段。
+## [br]
+## @api private
+## [br]
 func _get_task_request_state(task: Dictionary) -> GFStorageAsyncRequestState:
 	var operation: GFStorageAsyncOperation = _get_task_operation(task)
 	if operation != null:
@@ -2958,16 +3360,28 @@ func _get_task_request_state(task: Dictionary) -> GFStorageAsyncRequestState:
 	return null
 
 
+## 从观察者记录中解析异步请求状态。
+## [br]
+## @api private
+## [br]
 func _get_observer_request_state(observer: Dictionary) -> GFStorageAsyncRequestState:
 	return _get_task_request_state(observer)
 
 
+## 按请求编号取得异步状态观察者记录。
+## [br]
+## @api private
+## [br]
 func _get_async_state_observer(request_state: GFStorageAsyncRequestState) -> Dictionary:
 	if request_state == null:
 		return {}
 	return GFVariantData.as_dictionary(_async_observers.get(request_state.get_request_id()))
 
 
+## 从观察者的弱引用中取得仍然存活的读取票据。
+## [br]
+## @api private
+## [br]
 func _get_owned_ticket(observer: Dictionary) -> GFStorageOwnedRead:
 	var reference_value: Variant = observer.get("owned_ticket")
 	if not reference_value is WeakRef:
@@ -2980,6 +3394,10 @@ func _get_owned_ticket(observer: Dictionary) -> GFStorageOwnedRead:
 	return null
 
 
+## 提交调用方终态，并在没有操作对象时完成票据通知。
+## [br]
+## @api private
+## [br]
 func _complete_request_caller(
 	request_state: GFStorageAsyncRequestState,
 	status: GFStorageAsyncCallerResult.Status,
@@ -3005,6 +3423,10 @@ func _complete_request_caller(
 	return true
 
 
+## 根据请求状态和读取结果构造轻量读取回执。
+## [br]
+## @api private
+## [br]
 func _make_owned_read_receipt(
 	request_state: GFStorageAsyncRequestState,
 	result: GFStorageReadResult,
@@ -3042,6 +3464,10 @@ func _make_owned_read_receipt(
 	return receipt if configured else null
 
 
+## 验证读取终态、安装回执或载荷并结束专属读取请求。
+## [br]
+## @api private
+## [br]
 func _complete_owned_read(
 	request_state: GFStorageAsyncRequestState,
 	result: GFStorageReadResult,
@@ -3124,6 +3550,10 @@ func _complete_owned_read(
 	request_state.finish_caller_notification_for_framework()
 
 
+## 创建专属读取结果配置失败时使用的读取失败结果。
+## [br]
+## @api private
+## [br]
 func _make_owned_read_fallback() -> GFStorageReadResult:
 	return _make_load_failure(
 		"Storage owned read result configuration failed.",
@@ -3132,6 +3562,10 @@ func _make_owned_read_fallback() -> GFStorageReadResult:
 	)
 
 
+## 保存迟到结算诊断、移除观察者并释放文件锁。
+## [br]
+## @api private
+## [br]
 func _finalize_owned_observer(
 	request_state: GFStorageAsyncRequestState,
 	observer: Dictionary
@@ -3148,6 +3582,10 @@ func _finalize_owned_observer(
 	)
 
 
+## 将异步读取结果交付给专属请求或普通读取调用方。
+## [br]
+## @api private
+## [br]
 func _deliver_async_load_result(
 	file_name: String,
 	operation: GFStorageAsyncOperation,
@@ -3162,10 +3600,18 @@ func _deliver_async_load_result(
 	load_completed.emit(file_name, result.duplicate_result())
 
 
+## 读取任务记录编号。
+## [br]
+## @api private
+## [br]
 func _get_task_record_id(task: Dictionary) -> int:
 	return GFVariantData.get_option_int(task, "record_id", 0)
 
 
+## 按操作请求编号取得异步观察者记录。
+## [br]
+## @api private
+## [br]
 func _get_async_observer(operation: GFStorageAsyncOperation) -> Dictionary:
 	if operation == null:
 		return {}
@@ -3176,6 +3622,10 @@ func _get_async_observer(operation: GFStorageAsyncOperation) -> Dictionary:
 	return {}
 
 
+## 从观察者记录中取得异步操作对象。
+## [br]
+## @api private
+## [br]
 func _get_observer_operation(observer: Dictionary) -> GFStorageAsyncOperation:
 	var operation_value: Variant = GFVariantData.get_option_value(observer, "operation")
 	if operation_value is GFStorageAsyncOperation:
@@ -3184,6 +3634,10 @@ func _get_observer_operation(observer: Dictionary) -> GFStorageAsyncOperation:
 	return null
 
 
+## 等待指定逻辑文件的异步任务完成并检查是否仍有待处理任务。
+## [br]
+## @api private
+## [br]
 func _wait_for_async_tasks_for_file(file_name: String) -> bool:
 	if not _has_pending_async_task_for_file(file_name):
 		return true
@@ -3191,6 +3645,10 @@ func _wait_for_async_tasks_for_file(file_name: String) -> bool:
 	return not _has_pending_async_task_for_file(file_name)
 
 
+## 检查指定逻辑文件是否持有异步锁或仍在队列中。
+## [br]
+## @api private
+## [br]
 func _has_pending_async_task_for_file(file_name: String) -> bool:
 	var file_key: String = _get_async_file_key(file_name)
 	if _async_file_locks.has(file_key):
@@ -3202,6 +3660,10 @@ func _has_pending_async_task_for_file(file_name: String) -> bool:
 	return false
 
 
+## 检查当前是否仍允许同步 I/O 且未进入释放过程。
+## [br]
+## @api private
+## [br]
 func _is_sync_io_admission_current() -> bool:
 	return (
 		_io_admission_open
@@ -3210,6 +3672,10 @@ func _is_sync_io_admission_current() -> bool:
 	)
 
 
+## 检查队列、任务、锁、结算或执行回调中是否仍有异步工作。
+## [br]
+## @api private
+## [br]
 func _has_async_executor_work() -> bool:
 	return (
 		not _async_queue.is_empty()
@@ -3221,6 +3687,10 @@ func _has_async_executor_work() -> bool:
 	)
 
 
+## 按需创建路径策略、文件操作、文件族和事务帮助器。
+## [br]
+## @api private
+## [br]
 func _ensure_storage_helpers() -> void:
 	if _path_policy == null:
 		_path_policy = _StoragePathPolicy.new(self)
@@ -3242,6 +3712,10 @@ func _ensure_storage_helpers() -> void:
 		)
 
 
+## 验证存储根路径并确保逻辑文件族目录布局已就绪。
+## [br]
+## @api private
+## [br]
 func _ensure_storage_layout_ready() -> Error:
 	_ensure_storage_helpers()
 	var storage_root_path: String = _get_save_base_path()
@@ -3262,6 +3736,10 @@ func _ensure_storage_layout_ready() -> Error:
 	return OK
 
 
+## 确保存储布局可用，并在空闲时恢复待处理重置和目录事务。
+## [br]
+## @api private
+## [br]
 func _ensure_storage_ready() -> Error:
 	var layout_error: Error = _ensure_storage_layout_ready()
 	if layout_error != OK:
@@ -3281,6 +3759,10 @@ func _ensure_storage_ready() -> Error:
 	return OK
 
 
+## 发现并逐项恢复存储根目录下的待处理文件族重置。
+## [br]
+## @api private
+## [br]
 func _recover_all_pending_family_resets() -> Error:
 	var storage_root_path: String = _get_save_base_path()
 	if storage_root_path.is_empty():
@@ -3325,6 +3807,10 @@ func _recover_all_pending_family_resets() -> Error:
 	return OK
 
 
+## 扫描文件族分片并收集含待恢复重置意图的逻辑路径。
+## [br]
+## @api private
+## [br]
 func _discover_pending_reset_logical_names(families_root: String) -> Dictionary:
 	var logical_names: Dictionary = {}
 	var pending_intent_count: Array[int] = [0]
@@ -3381,6 +3867,10 @@ func _discover_pending_reset_logical_names(families_root: String) -> Dictionary:
 	}
 
 
+## 列出并排序单个重置恢复目录的受限条目。
+## [br]
+## @api private
+## [br]
 func _list_reset_recovery_shards(
 	path: String,
 	entry_budget: Array[int] = []
@@ -3419,6 +3909,10 @@ func _list_reset_recovery_shards(
 	return {"error": int(OK), "entries": entries}
 
 
+## 检查文件族父目录中的重置意图并收集待恢复逻辑路径。
+## [br]
+## @api private
+## [br]
 func _discover_reset_intents_in_family_parent(
 	family_parent: String,
 	logical_names: Dictionary,
@@ -3491,6 +3985,10 @@ func _discover_reset_intents_in_family_parent(
 	return OK
 
 
+## 判断名称是否符合存储文件族分片目录的格式。
+## [br]
+## @api private
+## [br]
 static func _is_reset_shard_name(value: String) -> bool:
 	if value.length() != 2:
 		return false
@@ -3501,6 +3999,10 @@ static func _is_reset_shard_name(value: String) -> bool:
 	return true
 
 
+## 判断名称是否符合待发布重置意图文件的暂存形态。
+## [br]
+## @api private
+## [br]
 static func _is_reset_intent_pending_leaf_shape(leaf_name: String) -> bool:
 	var pending_marker: String = _RESET_INTENT_SUFFIX + ".pending-"
 	var pending_index: int = leaf_name.find(pending_marker)
@@ -3523,6 +4025,10 @@ static func _is_reset_intent_pending_leaf_shape(leaf_name: String) -> bool:
 	return GFUuid.is_valid(family_id, 8) and GFUuid.is_valid(reset_id, 4)
 
 
+## 释放各存储帮助器并清空其实例引用。
+## [br]
+## @api private
+## [br]
 func _release_storage_helpers() -> void:
 	if _transaction_manager != null:
 		_transaction_manager._dispose()
@@ -3537,6 +4043,10 @@ func _release_storage_helpers() -> void:
 	_storage_reconciled = false
 
 
+## 确保给定绝对目录存在，并返回目录创建错误码。
+## [br]
+## @api private
+## [br]
 func _ensure_directory_absolute(path: String) -> Error:
 	if path.is_empty():
 		return ERR_INVALID_PARAMETER
@@ -3545,6 +4055,10 @@ func _ensure_directory_absolute(path: String) -> Error:
 	return DirAccess.make_dir_recursive_absolute(path)
 
 
+## 将底层错误码映射为读取失败类别。
+## [br]
+## @api private
+## [br]
 func _classify_load_failure(error: Error) -> GFStorageReadResult.FailureKind:
 	match error:
 		OK:
@@ -3561,6 +4075,10 @@ func _classify_load_failure(error: Error) -> GFStorageReadResult.FailureKind:
 			return GFStorageReadResult.FailureKind.IO_FAILED
 
 
+## 将存储准备阶段错误码映射为读取失败类别。
+## [br]
+## @api private
+## [br]
 func _classify_readiness_load_failure(
 	error: Error
 ) -> GFStorageReadResult.FailureKind:
@@ -3573,6 +4091,10 @@ func _classify_readiness_load_failure(
 			return GFStorageReadResult.FailureKind.IO_FAILED
 
 
+## 为指定读取目标构造存储准备阶段的失败结果。
+## [br]
+## @api private
+## [br]
 func _make_readiness_load_failure_for_target(
 	canonical_file_name: String,
 	readiness_error: Error
@@ -3617,6 +4139,10 @@ func _make_readiness_load_failure_for_target(
 	)
 
 
+## 将存储准备阶段错误码映射为异步写入失败类别。
+## [br]
+## @api private
+## [br]
 func _classify_readiness_write_failure(
 	error: Error
 ) -> GFStorageAsyncResult.WriteFailureKind:
@@ -3629,22 +4155,38 @@ func _classify_readiness_write_failure(
 			return GFStorageAsyncResult.WriteFailureKind.IO_FAILED
 
 
+## 启动目录枚举并返回 Godot 错误码。
+## [br]
+## @api private
+## [br]
 func _begin_dir_listing(dir: DirAccess) -> Error:
 	return dir.list_dir_begin()
 
 
+## 从目标字典中移除指定键。
+## [br]
+## @api private
+## [br]
 func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 	var erased: bool = target.erase(key)
 	if erased:
 		return
 
 
+## 将字符串追加到 PackedStringArray。
+## [br]
+## @api private
+## [br]
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 将缺失字段的默认值合并到读取数据字典中。
+## [br]
+## @api private
+## [br]
 func _merge_default_values(
 	target: Dictionary,
 	defaults: Dictionary,
@@ -3669,6 +4211,10 @@ func _merge_default_values(
 	return merged
 
 
+## 递归构造补齐默认字段后的专属读取候选字典。
+## [br]
+## @api private
+## [br]
 func _merge_owned_default_candidate(
 	target: Dictionary,
 	defaults: Dictionary,
@@ -3721,6 +4267,10 @@ func _merge_owned_default_candidate(
 	return merged
 
 
+## 判断值能否安全赋给指定的内置 Variant 类型。
+## [br]
+## @api private
+## [br]
 func _is_owned_default_type_compatible(value: Variant, target_type: int) -> bool:
 	var value_type: int = typeof(value)
 	if not _is_thread_payload_value_type_supported(value_type as Variant.Type):
@@ -3784,6 +4334,10 @@ func _is_owned_default_type_compatible(value: Variant, target_type: int) -> bool
 	return false
 
 
+## 在字符串与 StringName 键等价时选择目标字典中已有的键形式。
+## [br]
+## @api private
+## [br]
 func _get_owned_default_target_key(target: Dictionary, key: Variant) -> Variant:
 	if target.has(key):
 		return key
@@ -3802,12 +4356,20 @@ func _get_owned_default_target_key(target: Dictionary, key: Variant) -> Variant:
 	return key
 
 
+## 将 Variant 读取为 Thread；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_thread_value(value: Variant) -> Thread:
 	if value is Thread:
 		return value
 	return null
 
 
+## 将 Variant 读取为 Callable；类型不符时返回空 Callable。
+## [br]
+## @api private
+## [br]
 func _get_callable_value(value: Variant) -> Callable:
 	if value is Callable:
 		var callback: Callable = value
@@ -3815,10 +4377,18 @@ func _get_callable_value(value: Variant) -> Callable:
 	return Callable()
 
 
+## 从异步任务记录取得工作线程。
+## [br]
+## @api private
+## [br]
 func _get_task_thread(task: Dictionary) -> Thread:
 	return _get_thread_value(GFVariantData.get_option_value(task, "thread"))
 
 
+## 从任务记录读取其执行模式。
+## [br]
+## @api private
+## [br]
 func _get_task_execution_mode(task: Dictionary) -> AsyncExecutionMode:
 	var raw_mode: int = GFVariantData.get_option_int(
 		task,
@@ -3830,6 +4400,10 @@ func _get_task_execution_mode(task: Dictionary) -> AsyncExecutionMode:
 	return AsyncExecutionMode.THREADED
 
 
+## 从任务记录读取内部调度状态。
+## [br]
+## @api private
+## [br]
 func _get_task_state(task: Dictionary) -> _AsyncTaskState:
 	var raw_state: int = GFVariantData.get_option_int(task, "state", _AsyncTaskState.QUEUED)
 	if _AsyncTaskState.values().has(raw_state):
@@ -3837,78 +4411,154 @@ func _get_task_state(task: Dictionary) -> _AsyncTaskState:
 	return _AsyncTaskState.QUEUED
 
 
+## 读取任务对外使用的原始文件名。
+## [br]
+## @api private
+## [br]
 func _get_task_file_name(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "file_name")
 
 
+## 读取任务使用的规范存储文件名。
+## [br]
+## @api private
+## [br]
 func _get_task_storage_file_name(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "storage_file_name", _get_task_file_name(task))
 
 
+## 读取任务冻结的存储根路径。
+## [br]
+## @api private
+## [br]
 func _get_task_storage_root_path(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "storage_root_path")
 
 
+## 读取任务目标文件族编号。
+## [br]
+## @api private
+## [br]
 func _get_task_family_id(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "family_id")
 
 
+## 读取任务目标逻辑文件键。
+## [br]
+## @api private
+## [br]
 func _get_task_file_key(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "file_key")
 
 
+## 读取任务目标文件族目录清单路径。
+## [br]
+## @api private
+## [br]
 func _get_task_catalog_path(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "catalog_path")
 
 
+## 读取任务目标文件族所有权记录路径。
+## [br]
+## @api private
+## [br]
 func _get_task_owner_path(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "owner_path")
 
 
+## 读取任务目标载荷的最终路径。
+## [br]
+## @api private
+## [br]
 func _get_task_final_path(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "final_path")
 
 
+## 读取任务目标候选暂存路径。
+## [br]
+## @api private
+## [br]
 func _get_task_temp_path(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "temp_path")
 
 
+## 读取任务目标备份路径。
+## [br]
+## @api private
+## [br]
 func _get_task_backup_path(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "backup_path")
 
 
+## 读取任务目标事务记录路径。
+## [br]
+## @api private
+## [br]
 func _get_task_transaction_path(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "transaction_path")
 
 
+## 读取任务目标事务准备记录暂存路径。
+## [br]
+## @api private
+## [br]
 func _get_task_transaction_pending_path(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "transaction_pending_path")
 
 
+## 读取任务目标事务提交记录路径。
+## [br]
+## @api private
+## [br]
 func _get_task_transaction_commit_path(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "transaction_commit_path")
 
 
+## 读取任务目标事务提交记录暂存路径。
+## [br]
+## @api private
+## [br]
 func _get_task_transaction_commit_pending_path(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "transaction_commit_pending_path")
 
 
+## 读取任务目标资源阶段文件路径。
+## [br]
+## @api private
+## [br]
 func _get_task_resource_stage_path(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "resource_stage_path")
 
 
+## 读取任务的事务编号。
+## [br]
+## @api private
+## [br]
 func _get_task_transaction_id(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "transaction_id")
 
 
+## 读取任务类型标识。
+## [br]
+## @api private
+## [br]
 func _get_task_type(task: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(task, "type")
 
 
+## 从任务记录读取指定字典字段的副本。
+## [br]
+## @api private
+## [br]
 func _get_task_dictionary(task: Dictionary, key: String) -> Dictionary:
 	return GFVariantData.get_option_dictionary(task, key)
 
 
+## 从任务记录读取指定字典字段引用。
+## [br]
+## @api private
+## [br]
 func _get_task_dictionary_reference(task: Dictionary, key: String) -> Dictionary:
 	var value: Variant = task.get(key)
 	if value is Dictionary:
@@ -3917,14 +4567,26 @@ func _get_task_dictionary_reference(task: Dictionary, key: String) -> Dictionary
 	return {}
 
 
+## 从工作结果中读取错误码，字段缺失时使用指定默认值。
+## [br]
+## @api private
+## [br]
 func _get_result_error(result: Dictionary, default_value: Error = ERR_BUG) -> Error:
 	return GFVariantData.get_option_int(result, "error", default_value) as Error
 
 
+## 驱动异步任务结算与调度，并在 cooperative 模式推进任务。
+## [br]
+## @api private
+## [br]
 func _poll_async_tasks() -> void:
 	_request_async_scheduler_run()
 
 
+## 请求异步调度循环运行或在当前循环退出后再次运行。
+## [br]
+## @api private
+## [br]
 func _request_async_scheduler_run() -> void:
 	_async_scheduler_requested = true
 	if _async_scheduler_running:
@@ -3952,6 +4614,10 @@ func _request_async_scheduler_run() -> void:
 	_async_scheduler_running = false
 
 
+## 请求启动可运行的异步任务而不等待其完成。
+## [br]
+## @api private
+## [br]
 func _request_async_start_only() -> void:
 	if _get_effective_async_execution_mode() == AsyncExecutionMode.COOPERATIVE:
 		return
@@ -3965,6 +4631,10 @@ func _request_async_start_only() -> void:
 	_async_start_only_running = false
 
 
+## 收集已结束的线程任务并完成其结算处理。
+## [br]
+## @api private
+## [br]
 func _harvest_finished_async_tasks() -> void:
 	var active_tasks: Array[Dictionary] = _async_tasks.duplicate()
 	for task: Dictionary in active_tasks:
@@ -3974,6 +4644,10 @@ func _harvest_finished_async_tasks() -> void:
 		_join_async_task(task)
 
 
+## 在 cooperative 模式中运行指定候选集合中的下一个可执行任务。
+## [br]
+## @api private
+## [br]
 func _run_next_cooperative_async_task(eligible_record_ids: Array[int]) -> bool:
 	var active_tasks: Array[Dictionary] = _async_tasks.duplicate()
 	for task: Dictionary in active_tasks:
@@ -3988,6 +4662,10 @@ func _run_next_cooperative_async_task(eligible_record_ids: Array[int]) -> bool:
 	return false
 
 
+## 轮询异步请求的调用方生命周期并处理终止请求。
+## [br]
+## @api private
+## [br]
 func _poll_async_operation_lifecycles() -> void:
 	var observer_values: Array = _async_observers.values().duplicate()
 	for observer_value: Variant in observer_values:
@@ -3998,6 +4676,10 @@ func _poll_async_operation_lifecycles() -> void:
 		var _terminal_linearized: bool = request_state.poll_caller_lifecycle_for_framework()
 
 
+## 当异步执行器无待处理工作时完成静默请求。
+## [br]
+## @api private
+## [br]
 func _try_complete_quiesce() -> void:
 	if (
 		_quiesce_completion == null
@@ -4010,6 +4692,10 @@ func _try_complete_quiesce() -> void:
 	var _succeeded: bool = _quiesce_completion.succeed()
 
 
+## 等待并收集所有异步任务的结算结果。
+## [br]
+## @api private
+## [br]
 func _wait_for_async_tasks() -> void:
 	_harvest_finished_async_tasks()
 	_poll_async_operation_lifecycles()
@@ -4024,6 +4710,10 @@ func _wait_for_async_tasks() -> void:
 		_join_async_task(task)
 
 
+## 按执行模式和并发限制启动队列中的可运行任务。
+## [br]
+## @api private
+## [br]
 func _start_queued_async_tasks(allow_during_dispose: bool = false) -> void:
 	if (
 		(_is_disposing or _async_deferred_dispose_requested)
@@ -4079,6 +4769,10 @@ func _start_queued_async_tasks(allow_during_dispose: bool = false) -> void:
 			_start_async_task(task)
 
 
+## 查找当前可启动的队列任务索引。
+## [br]
+## @api private
+## [br]
 func _find_startable_async_task_index() -> int:
 	for i: int in range(_async_queue.size()):
 		var task: Dictionary = GFVariantData.as_dictionary(_async_queue[i])
@@ -4088,6 +4782,10 @@ func _find_startable_async_task_index() -> int:
 	return -1
 
 
+## 验证并启动单个任务的线程或 cooperative 执行过程。
+## [br]
+## @api private
+## [br]
 func _start_async_task(task: Dictionary) -> void:
 	var storage_file_name: String = _get_task_storage_file_name(task)
 	var task_type: StringName = _get_task_type(task)
@@ -4204,6 +4902,10 @@ func _start_async_task(task: Dictionary) -> void:
 	_settle_async_task_start_failure(task, start_error, ownership_valid)
 
 
+## 在 cooperative 执行模式下调用任务工作回调并记录结果。
+## [br]
+## @api private
+## [br]
 func _run_cooperative_async_task(task: Dictionary, callback: Callable) -> void:
 	task["state"] = _AsyncTaskState.RUNNING
 	_async_execution_depth += 1
@@ -4223,6 +4925,10 @@ func _run_cooperative_async_task(task: Dictionary, callback: Callable) -> void:
 	_end_async_task_settlement(task)
 
 
+## 将任务启动失败转换为对应操作的终态结果。
+## [br]
+## @api private
+## [br]
 func _settle_async_task_start_failure(
 	task: Dictionary,
 	error: Error,
@@ -4238,6 +4944,10 @@ func _settle_async_task_start_failure(
 	_end_async_task_settlement(task)
 
 
+## 等待线程任务结束并保存其工作结果。
+## [br]
+## @api private
+## [br]
 func _join_async_task(task: Dictionary) -> void:
 	var active_index: int = _find_active_async_task_index(_get_task_record_id(task))
 	if active_index < 0:
@@ -4257,6 +4967,10 @@ func _join_async_task(task: Dictionary) -> void:
 	_end_async_task_settlement(task)
 
 
+## 登记任务进入结算阶段并检查其当前所有权。
+## [br]
+## @api private
+## [br]
 func _begin_async_task_settlement(task: Dictionary) -> bool:
 	var record_id: int = _get_task_record_id(task)
 	var file_key: String = _get_task_file_key(task)
@@ -4281,6 +4995,10 @@ func _begin_async_task_settlement(task: Dictionary) -> bool:
 	return true
 
 
+## 登记不再持有活动所有权的任务结算记录。
+## [br]
+## @api private
+## [br]
 func _begin_unowned_async_task_settlement(task: Dictionary) -> void:
 	var active_index: int = _find_active_async_task_index(_get_task_record_id(task))
 	if active_index >= 0:
@@ -4290,6 +5008,10 @@ func _begin_unowned_async_task_settlement(task: Dictionary) -> void:
 	_async_completion_depth += 1
 
 
+## 结束指定任务的结算登记。
+## [br]
+## @api private
+## [br]
 func _end_async_task_settlement(task: Dictionary) -> void:
 	_release_async_file_lock_for_record(
 		_get_task_record_id(task),
@@ -4301,6 +5023,10 @@ func _end_async_task_settlement(task: Dictionary) -> void:
 	_run_deferred_async_dispose_if_ready()
 
 
+## 按记录编号和文件键释放对应的异步文件锁。
+## [br]
+## @api private
+## [br]
 func _release_async_file_lock_for_record(record_id: int, file_key: String) -> void:
 	if record_id <= 0:
 		return
@@ -4319,6 +5045,10 @@ func _release_async_file_lock_for_record(record_id: int, file_key: String) -> vo
 	_try_complete_quiesce()
 
 
+## 依据任务记录释放其异步文件锁。
+## [br]
+## @api private
+## [br]
 func _release_async_file_lock_for_task(task: Dictionary) -> void:
 	_release_async_file_lock_for_record(
 		_get_task_record_id(task),
@@ -4326,6 +5056,10 @@ func _release_async_file_lock_for_task(task: Dictionary) -> void:
 	)
 
 
+## 检查任务是否仍拥有对应文件键和活动记录。
+## [br]
+## @api private
+## [br]
 func _has_exact_active_task_ownership(task: Dictionary) -> bool:
 	var record_id: int = _get_task_record_id(task)
 	if record_id <= 0 or _find_active_async_task_index(record_id) < 0:
@@ -4337,6 +5071,10 @@ func _has_exact_active_task_ownership(task: Dictionary) -> bool:
 	)
 
 
+## 在所有权匹配时恢复任务的活动登记。
+## [br]
+## @api private
+## [br]
 func _restore_exact_active_task_ownership(task: Dictionary) -> bool:
 	var record_id: int = _get_task_record_id(task)
 	if record_id <= 0 or _async_settling_records.has(record_id):
@@ -4352,6 +5090,10 @@ func _restore_exact_active_task_ownership(task: Dictionary) -> bool:
 	return true
 
 
+## 在执行及完成回调退出后处理延后的 dispose 请求。
+## [br]
+## @api private
+## [br]
 func _run_deferred_async_dispose_if_ready() -> void:
 	if (
 		not _async_deferred_dispose_requested
@@ -4364,6 +5106,10 @@ func _run_deferred_async_dispose_if_ready() -> void:
 	dispose()
 
 
+## 查找活动任务列表中指定记录编号的索引。
+## [br]
+## @api private
+## [br]
 func _find_active_async_task_index(record_id: int) -> int:
 	if record_id <= 0:
 		return -1
@@ -4374,6 +5120,10 @@ func _find_active_async_task_index(record_id: int) -> int:
 	return -1
 
 
+## 查找待运行队列中指定记录编号的索引。
+## [br]
+## @api private
+## [br]
 func _find_queued_async_task_index(record_id: int) -> int:
 	if record_id <= 0:
 		return -1
@@ -4384,6 +5134,10 @@ func _find_queued_async_task_index(record_id: int) -> int:
 	return -1
 
 
+## 逐个处理 dispose 时队列中的待运行任务。
+## [br]
+## @api private
+## [br]
 func _cancel_all_queued_async_tasks_for_dispose() -> void:
 	var queued_tasks: Array[Dictionary] = _async_queue.duplicate()
 	for task: Dictionary in queued_tasks:
@@ -4403,6 +5157,10 @@ func _cancel_all_queued_async_tasks_for_dispose() -> void:
 		_complete_legacy_queued_dispose(task)
 
 
+## 完成旧式队列任务在 dispose 时的失败结果。
+## [br]
+## @api private
+## [br]
 func _complete_legacy_queued_dispose(task: Dictionary) -> void:
 	var file_name: String = _get_task_file_name(task)
 	match _get_task_type(task):
@@ -4418,6 +5176,10 @@ func _complete_legacy_queued_dispose(task: Dictionary) -> void:
 			load_completed.emit(file_name, failed_result.duplicate_result())
 
 
+## 取消待运行任务并按请求类型交付取消终态。
+## [br]
+## @api private
+## [br]
 func _cancel_queued_async_task(
 	task: Dictionary,
 	end_kind: GFStorageAsyncCallerResult.EndKind,
@@ -4436,6 +5198,10 @@ func _cancel_queued_async_task(
 	)
 
 
+## 为尚未接受执行的请求提交调用方取消终态。
+## [br]
+## @api private
+## [br]
 func _complete_cancelled_before_acceptance(
 	request_state: GFStorageAsyncRequestState,
 	task: Dictionary,
@@ -4480,6 +5246,10 @@ func _complete_cancelled_before_acceptance(
 	return true
 
 
+## 为未使用请求状态对象的旧式请求交付取消结果。
+## [br]
+## @api private
+## [br]
 func _complete_legacy_cancelled_before_acceptance(
 	operation: GFStorageAsyncOperation,
 	task: Dictionary,
@@ -4532,6 +5302,10 @@ func _complete_legacy_cancelled_before_acceptance(
 	return true
 
 
+## 检查任务冻结的目标路径描述是否仍有效。
+## [br]
+## @api private
+## [br]
 func _validate_frozen_async_target(task: Dictionary) -> Error:
 	var storage_file_name: String = _get_task_storage_file_name(task)
 	var storage_root_path: String = _get_task_storage_root_path(task)
@@ -4563,6 +5337,10 @@ func _validate_frozen_async_target(task: Dictionary) -> Error:
 	return OK
 
 
+## 按任务冻结的文件族目标执行该文件的事务恢复。
+## [br]
+## @api private
+## [br]
 func _recover_frozen_async_transaction(task: Dictionary) -> Dictionary:
 	var storage_file_name: String = _get_task_storage_file_name(task)
 	var storage_root_path: String = _get_task_storage_root_path(task)
@@ -4630,6 +5408,10 @@ func _recover_frozen_async_transaction(task: Dictionary) -> Dictionary:
 	}
 
 
+## 生成启动失败诊断并按任务类型完成异步请求。
+## [br]
+## @api private
+## [br]
 func _emit_async_start_failed(
 	task: Dictionary,
 	error: Error,
@@ -4734,6 +5516,10 @@ func _emit_async_start_failed(
 		_release_async_file_lock_for_task(task)
 
 
+## 将工作回调结果转换为保存、读取、删除或重置终态。
+## [br]
+## @api private
+## [br]
 func _complete_finished_async_task(task: Dictionary, result_variant: Variant) -> void:
 	var file_name: String = _get_task_file_name(task)
 	var task_type: StringName = _get_task_type(task)
@@ -4797,18 +5583,30 @@ func _complete_finished_async_task(task: Dictionary, result_variant: Variant) ->
 		_release_async_file_lock_for_task(task)
 
 
+## 结束异步保存操作的载荷尝试状态。
+## [br]
+## @api private
+## [br]
 func _finish_payload_attempt(operation: GFStorageAsyncOperation) -> void:
 	if operation == null:
 		return
 	var _finished: bool = operation.finish_payload_attempt_for_framework()
 
 
+## 将整数限制到异步写入失败类别范围并映射枚举值。
+## [br]
+## @api private
+## [br]
 func _to_write_failure_kind(value: int) -> GFStorageAsyncResult.WriteFailureKind:
 	if GFStorageAsyncResult.WriteFailureKind.values().has(value):
 		return value as GFStorageAsyncResult.WriteFailureKind
 	return GFStorageAsyncResult.WriteFailureKind.IO_FAILED
 
 
+## 配置删除结果对象，失败时回退到标准 I/O 失败结果。
+## [br]
+## @api private
+## [br]
 func _make_delete_result(
 	error_code: Error,
 	failure_kind: GFStorageDeleteResult.FailureKind,
@@ -4829,6 +5627,10 @@ func _make_delete_result(
 	return result if configured else _make_delete_result_fallback()
 
 
+## 构造标准删除 I/O 失败回退结果。
+## [br]
+## @api private
+## [br]
 func _make_delete_result_fallback() -> GFStorageDeleteResult:
 	var result: GFStorageDeleteResult = GFStorageDeleteResult.new()
 	var configured: bool = result.configure_for_framework(
@@ -4844,6 +5646,10 @@ func _make_delete_result_fallback() -> GFStorageDeleteResult:
 	return result
 
 
+## 验证 worker 字典字段和枚举范围并转换为删除结果。
+## [br]
+## @api private
+## [br]
 func _make_delete_result_from_worker(result_variant: Variant) -> GFStorageDeleteResult:
 	if not result_variant is Dictionary:
 		return _make_delete_result_fallback()
@@ -4903,6 +5709,10 @@ func _make_delete_result_from_worker(result_variant: Variant) -> GFStorageDelete
 	return result if configured else _make_delete_result_fallback()
 
 
+## 配置文件族重置结果对象，失败时使用标准回退结果。
+## [br]
+## @api private
+## [br]
 func _make_reset_result(
 	error_code: Error,
 	failure_kind: GFStorageFamilyResetResult.FailureKind,
@@ -4927,6 +5737,10 @@ func _make_reset_result(
 	return result if configured else _make_reset_result_fallback()
 
 
+## 构造标准文件族重置 I/O 失败回退结果。
+## [br]
+## @api private
+## [br]
 func _make_reset_result_fallback() -> GFStorageFamilyResetResult:
 	var result: GFStorageFamilyResetResult = GFStorageFamilyResetResult.new()
 	var configured: bool = result.configure_for_framework(
@@ -4944,6 +5758,10 @@ func _make_reset_result_fallback() -> GFStorageFamilyResetResult:
 	return result
 
 
+## 构造无效重置请求结果。
+## [br]
+## @api private
+## [br]
 func _make_reset_invalid_result() -> GFStorageFamilyResetResult:
 	return _make_reset_result(
 		ERR_INVALID_PARAMETER,
@@ -4957,6 +5775,10 @@ func _make_reset_invalid_result() -> GFStorageFamilyResetResult:
 	)
 
 
+## 构造未授权重置请求结果。
+## [br]
+## @api private
+## [br]
 func _make_reset_unauthorized_result() -> GFStorageFamilyResetResult:
 	return _make_reset_result(
 		ERR_UNAUTHORIZED,
@@ -4970,6 +5792,10 @@ func _make_reset_unauthorized_result() -> GFStorageFamilyResetResult:
 	)
 
 
+## 验证 worker 字典字段和枚举范围并转换为文件族重置结果。
+## [br]
+## @api private
+## [br]
 func _make_reset_result_from_worker(result_variant: Variant) -> GFStorageFamilyResetResult:
 	if not result_variant is Dictionary:
 		return _make_reset_result_fallback()
@@ -5022,6 +5848,10 @@ func _make_reset_result_from_worker(result_variant: Variant) -> GFStorageFamilyR
 	)
 
 
+## 将文件族 claim 状态名称映射为重置失败成员枚举。
+## [br]
+## @api private
+## [br]
 static func _reset_failed_member_from_claim_state(
 	failed_member: StringName
 ) -> GFStorageFamilyResetResult.FamilyMember:
@@ -5036,6 +5866,10 @@ static func _reset_failed_member_from_claim_state(
 			return GFStorageFamilyResetResult.FamilyMember.OWNER
 
 
+## 使用工具实例、规范文件名、文件键和观测令牌领取重置授权。
+## [br]
+## @api private
+## [br]
 func _claim_family_reset_authorization(
 	authorization: GFStorageFamilyResetAuthorization,
 	canonical_file_name: String,
@@ -5052,6 +5886,10 @@ func _claim_family_reset_authorization(
 	)
 
 
+## 为损坏读取结果绑定工具来源、文件族键和当前观测令牌。
+## [br]
+## @api private
+## [br]
 func _bind_read_result_origin(
 	result: GFStorageReadResult,
 	canonical_file_name: String
@@ -5080,6 +5918,10 @@ func _bind_read_result_origin(
 	)
 
 
+## 根据文件族路径及各事务成员当前状态生成观测令牌。
+## [br]
+## @api private
+## [br]
 func _make_family_observation_token(
 	canonical_file_name: String,
 	storage_root_path: String = ""
@@ -5131,6 +5973,10 @@ func _make_family_observation_token(
 	return JSON.stringify(records).sha256_text()
 
 
+## 应用迁移并交付异步读取结果，同时发出迁移或完整性信号。
+## [br]
+## @api private
+## [br]
 func _complete_async_load(
 	task: Dictionary,
 	result_variant: Variant,
@@ -5205,6 +6051,10 @@ func _complete_async_load(
 	load_completed.emit(file_name, result.duplicate_result())
 
 
+## 判断读取失败是否应发出完整性失败信号。
+## [br]
+## @api private
+## [br]
 func _should_emit_load_integrity_failed(result: GFStorageReadResult) -> bool:
 	if result == null:
 		return false
@@ -5217,6 +6067,10 @@ func _should_emit_load_integrity_failed(result: GFStorageReadResult) -> bool:
 	return true
 
 
+## 按排序后的逻辑文件名构造准备或提交事务标记。
+## [br]
+## @api private
+## [br]
 static func _make_transaction_marker(
 	file_names: Array[String],
 	file_key: String,
@@ -5249,6 +6103,10 @@ static func _make_transaction_marker(
 	}
 
 
+## 校验事务标记 schema、所有者及唯一文件成员字段。
+## [br]
+## @api private
+## [br]
 static func _is_valid_single_file_transaction_marker(
 	marker: Dictionary,
 	file_name: String
@@ -5308,6 +6166,10 @@ static func _is_valid_single_file_transaction_marker(
 	)
 
 
+## 检查并删除逻辑文件族成员，返回带成员计数的 worker 结果。
+## [br]
+## @api private
+## [br]
 func _delete_file_thread(storage_root_path: String, logical_name: String) -> Dictionary:
 	var descriptor: Dictionary = GFStorageFamilyStore.make_family_descriptor_for_framework(
 		storage_root_path,
@@ -5458,6 +6320,10 @@ func _delete_file_thread(storage_root_path: String, logical_name: String) -> Dic
 	)
 
 
+## 按删除顺序生成文件族成员描述并拒绝空路径或重复路径。
+## [br]
+## @api private
+## [br]
 func _make_delete_family_members(descriptor: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = [
 		{
@@ -5513,6 +6379,10 @@ func _make_delete_family_members(descriptor: Dictionary) -> Array[Dictionary]:
 	return result
 
 
+## 统计成员列表中当前存在的文件数。
+## [br]
+## @api private
+## [br]
 func _count_existing_delete_members(members: Array[Dictionary]) -> int:
 	var result: int = 0
 	for member: Dictionary in members:
@@ -5521,6 +6391,10 @@ func _count_existing_delete_members(members: Array[Dictionary]) -> int:
 	return result
 
 
+## 将元数据错误转换为删除 worker 失败结果。
+## [br]
+## @api private
+## [br]
 func _make_delete_metadata_worker_failure(
 	error_code: Error,
 	existing_member_count: int
@@ -5540,6 +6414,10 @@ func _make_delete_metadata_worker_failure(
 	)
 
 
+## 验证文件族目录内准备和提交事务记录的一致性。
+## [br]
+## @api private
+## [br]
 func _validate_delete_transaction_evidence(
 	logical_name: String,
 	descriptor: Dictionary
@@ -5639,6 +6517,10 @@ func _validate_delete_transaction_evidence(
 	return OK
 
 
+## 检查单文件事务准备与提交记录是否描述同一事务快照。
+## [br]
+## @api private
+## [br]
 func _single_transaction_snapshots_match(
 	prepare_record: Dictionary,
 	commit_record: Dictionary,
@@ -5658,6 +6540,10 @@ func _single_transaction_snapshots_match(
 	)
 
 
+## 创建由异步删除 worker 返回的字段化结果字典。
+## [br]
+## @api private
+## [br]
 func _make_delete_worker_result(
 	error_code: Error,
 	failure_kind: GFStorageDeleteResult.FailureKind,
@@ -5676,6 +6562,10 @@ func _make_delete_worker_result(
 	}
 
 
+## 恢复指定逻辑文件待处理的重置并返回错误码。
+## [br]
+## @api private
+## [br]
 func _resume_pending_reset_for_file(
 	storage_root_path: String,
 	logical_name: String
@@ -5687,6 +6577,10 @@ func _resume_pending_reset_for_file(
 	return GFVariantData.get_option_int(result, "error", ERR_BUG) as Error
 
 
+## 检查文件族布局与重置意图，并在需要时运行重置 worker。
+## [br]
+## @api private
+## [br]
 func _resume_pending_reset_for_file_result(
 	storage_root_path: String,
 	logical_name: String
@@ -5753,6 +6647,10 @@ func _resume_pending_reset_for_file_result(
 	}
 
 
+## 执行文件族重置 worker 并返回结构化阶段结果。
+## [br]
+## @api private
+## [br]
 func _reset_file_family_thread(
 	storage_root_path: String,
 	logical_name: String,
@@ -6329,6 +7227,10 @@ func _reset_file_family_thread(
 	)
 
 
+## 创建重置 worker 结果字典并限制计数字段范围。
+## [br]
+## @api private
+## [br]
 func _make_reset_worker_result(
 	error_code: Error,
 	failure_kind: GFStorageFamilyResetResult.FailureKind,
@@ -6351,6 +7253,10 @@ func _make_reset_worker_result(
 	}
 
 
+## 生成包含逻辑文件族标识和初始退役数量的重置意图。
+## [br]
+## @api private
+## [br]
 func _make_reset_intent(
 	descriptor: Dictionary,
 	reset_id: String,
@@ -6369,6 +7275,10 @@ func _make_reset_intent(
 	}
 
 
+## 根据文件族描述和有效 UUID 生成重置意图路径。
+## [br]
+## @api private
+## [br]
 func _make_reset_intent_path(descriptor: Dictionary, reset_id: String) -> String:
 	if not GFUuid.is_valid(reset_id, 4):
 		return ""
@@ -6380,6 +7290,10 @@ func _make_reset_intent_path(descriptor: Dictionary, reset_id: String) -> String
 	)
 
 
+## 生成指定重置编号对应的目录清单和文件族退役路径。
+## [br]
+## @api private
+## [br]
 func _make_reset_retired_paths(descriptor: Dictionary, reset_id: String) -> Dictionary:
 	if not GFUuid.is_valid(reset_id, 4):
 		return {}
@@ -6390,6 +7304,10 @@ func _make_reset_retired_paths(descriptor: Dictionary, reset_id: String) -> Dict
 	}
 
 
+## 从完整或暂存意图文件名提取并校验重置 UUID。
+## [br]
+## @api private
+## [br]
 static func _reset_id_from_intent_leaf(leaf_name: String, prefix: String) -> String:
 	if prefix.is_empty() or not leaf_name.begins_with(prefix):
 		return ""
@@ -6411,6 +7329,10 @@ static func _reset_id_from_intent_leaf(leaf_name: String, prefix: String) -> Str
 	return reset_id if GFUuid.is_valid(reset_id, 4) else ""
 
 
+## 通过暂存文件写入、回读校验和重命名发布重置意图。
+## [br]
+## @api private
+## [br]
 func _publish_reset_intent(path: String, intent: Dictionary) -> Error:
 	if path.is_empty() or not _is_valid_reset_intent(intent):
 		return ERR_INVALID_PARAMETER
@@ -6449,6 +7371,10 @@ func _publish_reset_intent(path: String, intent: Dictionary) -> Error:
 	return publish_error
 
 
+## 扫描目标文件族意图文件，验证并规范化待发布记录。
+## [br]
+## @api private
+## [br]
 func _find_reset_intent(descriptor: Dictionary) -> Dictionary:
 	var family_path: String = GFVariantData.get_option_string(descriptor, "family_path")
 	var family_parent: String = family_path.get_base_dir()
@@ -6608,6 +7534,10 @@ func _find_reset_intent(descriptor: Dictionary) -> Dictionary:
 	}
 
 
+## 限制文件大小并读取、解析和验证 JSON 重置意图。
+## [br]
+## @api private
+## [br]
 func _read_reset_intent(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {}
@@ -6630,6 +7560,10 @@ func _read_reset_intent(path: String) -> Dictionary:
 	return intent if _is_valid_reset_intent(intent) else {}
 
 
+## 校验重置意图的字段数量、schema、UUID 和枚举取值。
+## [br]
+## @api private
+## [br]
 static func _is_valid_reset_intent(intent: Dictionary) -> bool:
 	if intent.size() != 8:
 		return false
@@ -6656,6 +7590,10 @@ static func _is_valid_reset_intent(intent: Dictionary) -> bool:
 	)
 
 
+## 检查重置意图是否匹配指定 UUID 和文件族描述。
+## [br]
+## @api private
+## [br]
 func _reset_intent_matches_descriptor(
 	intent: Dictionary,
 	descriptor: Dictionary,
@@ -6673,6 +7611,10 @@ func _reset_intent_matches_descriptor(
 	)
 
 
+## 逐字段比较两份有效重置意图记录。
+## [br]
+## @api private
+## [br]
 static func _reset_intents_match(left: Dictionary, right: Dictionary) -> bool:
 	return (
 		_is_valid_reset_intent(left)
@@ -6696,6 +7638,10 @@ static func _reset_intents_match(left: Dictionary, right: Dictionary) -> bool:
 	)
 
 
+## 统计当前存在的退役目录清单和文件族根路径。
+## [br]
+## @api private
+## [br]
 func _count_existing_reset_retired_roots(retired_paths: Dictionary) -> int:
 	var count: int = 0
 	var catalog_path: String = GFVariantData.get_option_string(retired_paths, "catalog_path")
@@ -6707,6 +7653,10 @@ func _count_existing_reset_retired_roots(retired_paths: Dictionary) -> int:
 	return count
 
 
+## 统计指定文件族中可见的重置相关证据成员。
+## [br]
+## @api private
+## [br]
 func _count_reset_evidence(
 	descriptor: Dictionary,
 	intent_lookup: Dictionary,
@@ -6729,6 +7679,10 @@ func _count_reset_evidence(
 	return clampi(count, 0, 5)
 
 
+## 统计目标文件族关联的重置意图文件数量。
+## [br]
+## @api private
+## [br]
 func _count_reset_intent_artifacts(descriptor: Dictionary) -> int:
 	var family_path: String = GFVariantData.get_option_string(descriptor, "family_path")
 	var family_parent: String = family_path.get_base_dir()
@@ -6756,6 +7710,10 @@ func _count_reset_intent_artifacts(descriptor: Dictionary) -> int:
 	return count
 
 
+## 检查多成员重置相关的文件族和事务证据。
+## [br]
+## @api private
+## [br]
 func _inspect_multi_member_reset_evidence(
 	logical_name: String,
 	descriptor: Dictionary
@@ -6801,10 +7759,18 @@ func _inspect_multi_member_reset_evidence(
 	return {"error": int(OK), "is_valid_multi": false}
 
 
+## 返回反向扫描可使用的目录条目预算。
+## [br]
+## @api private
+## [br]
 func _get_reset_reverse_scan_entry_limit() -> int:
 	return _RESET_MAX_REVERSE_SCAN_ENTRIES
 
 
+## 反向检查其他文件族记录是否包含指向目标文件的事务成员。
+## [br]
+## @api private
+## [br]
 func _inspect_reverse_multi_member_reset_evidence(
 	storage_root_path: String,
 	logical_name: String,
@@ -6955,6 +7921,10 @@ func _inspect_reverse_multi_member_reset_evidence(
 	return {"error": int(OK), "is_valid_multi": false}
 
 
+## 检查目标文件族及保留成员中与重置目标相关的标记。
+## [br]
+## @api private
+## [br]
 func _inspect_surviving_family_for_reset_target(
 	family_path: String,
 	owner_family_id: String,
@@ -7061,6 +8031,10 @@ func _inspect_surviving_family_for_reset_target(
 	return {"error": int(OK), "is_valid_multi": false}
 
 
+## 验证包含目标逻辑路径的多成员重置事务标记。
+## [br]
+## @api private
+## [br]
 static func _is_valid_multi_member_reset_marker(
 	marker: Dictionary,
 	logical_name: String,
@@ -7077,6 +8051,10 @@ static func _is_valid_multi_member_reset_marker(
 	return false
 
 
+## 验证多成员事务标记的公共字段和成员清单形态。
+## [br]
+## @api private
+## [br]
 static func _is_valid_multi_member_transaction_marker(
 	marker: Dictionary,
 	expected_committed: bool
@@ -7131,6 +8109,10 @@ static func _is_valid_multi_member_transaction_marker(
 	)
 
 
+## 递减共享扫描预算，并报告是否仍可继续扫描。
+## [br]
+## @api private
+## [br]
 static func _consume_reset_scan_budget(
 	entry_budget: Array[int],
 	amount: int = 1
@@ -7141,6 +8123,10 @@ static func _consume_reset_scan_budget(
 	return true
 
 
+## 按深度和条目预算递归删除重置退役目录树。
+## [br]
+## @api private
+## [br]
 func _remove_reset_tree(path: String, depth: int, entry_budget: Array[int]) -> Error:
 	if path.is_empty() or entry_budget.is_empty() or depth > _RESET_MAX_TREE_DEPTH:
 		return ERR_INVALID_PARAMETER
@@ -7186,6 +8172,10 @@ func _remove_reset_tree(path: String, depth: int, entry_budget: Array[int]) -> E
 	return DirAccess.remove_absolute(path)
 
 
+## 判断绝对路径本身或其路径组件是否为链接。
+## [br]
+## @api private
+## [br]
 static func _absolute_storage_path_is_link(path: String) -> bool:
 	var parent_path: String = path.get_base_dir()
 	var leaf_name: String = path.get_file()
@@ -7195,6 +8185,10 @@ static func _absolute_storage_path_is_link(path: String) -> bool:
 	return parent != null and parent.is_link(leaf_name)
 
 
+## 检查绝对路径叶节点是否作为文件、目录或链接存在。
+## [br]
+## @api private
+## [br]
 static func _absolute_storage_leaf_exists(path: String) -> bool:
 	return (
 		FileAccess.file_exists(path)
@@ -7203,6 +8197,10 @@ static func _absolute_storage_leaf_exists(path: String) -> bool:
 	)
 
 
+## 在重置变更前检查存储根路径和祖先组件状态。
+## [br]
+## @api private
+## [br]
 static func _validate_reset_mutation_ancestry(
 	storage_root_path: String,
 	descriptor: Dictionary
@@ -7265,6 +8263,10 @@ static func _validate_reset_mutation_ancestry(
 	return OK
 
 
+## 验证重置路径中的单个目录组件是否可安全访问。
+## [br]
+## @api private
+## [br]
 static func _validate_reset_directory_component(
 	path: String,
 	visited: Dictionary
@@ -7277,6 +8279,10 @@ static func _validate_reset_directory_component(
 	return OK
 
 
+## 验证并编码载荷，执行单文件事务写入并发布提交版本。
+## [br]
+## @api private
+## [br]
 func _save_data_thread(
 	file_name: String,
 	final_path: String,
@@ -7454,6 +8460,10 @@ func _save_data_thread(
 	)
 
 
+## 构造异步保存 worker 返回的错误、失败类别和校验报告。
+## [br]
+## @api private
+## [br]
 func _make_thread_save_result(
 	error_code: Error,
 	write_failure_kind: GFStorageAsyncResult.WriteFailureKind,
@@ -7466,6 +8476,10 @@ func _make_thread_save_result(
 	}
 
 
+## 递归校验载荷类型、循环引用、有限数值及访问和字节预算。
+## [br]
+## @api private
+## [br]
 func _validate_thread_payload(
 	payload: Dictionary,
 	max_values: int = _PAYLOAD_VALIDATION_MAX_VALUES,
@@ -7493,6 +8507,10 @@ func _validate_thread_payload(
 	}
 
 
+## 递归检查单个载荷值并更新预算、失败位置和类型信息。
+## [br]
+## @api private
+## [br]
 func _validate_thread_payload_value(
 	value: Variant,
 	path: String,
@@ -7661,6 +8679,10 @@ func _validate_thread_payload_value(
 	state._active_collections = active_collections
 
 
+## 判断 Variant 类型是否属于线程载荷允许处理的内置类型。
+## [br]
+## @api private
+## [br]
 func _is_thread_payload_value_type_supported(value_type: Variant.Type) -> bool:
 	return value_type in [
 		TYPE_NIL,
@@ -7701,6 +8723,10 @@ func _is_thread_payload_value_type_supported(value_type: Variant.Type) -> bool:
 	]
 
 
+## 检查数组或字典的类型化元素及脚本类型是否受支持。
+## [br]
+## @api private
+## [br]
 func _is_thread_payload_container_type_safe(
 	value: Variant,
 	value_type: Variant.Type
@@ -7736,6 +8762,10 @@ func _is_thread_payload_container_type_safe(
 	return true
 
 
+## 按剩余字节预算计量一个载荷值并记录超限错误。
+## [br]
+## @api private
+## [br]
 func _charge_thread_payload_bytes(
 	value: Variant,
 	value_type: Variant.Type,
@@ -7765,6 +8795,10 @@ func _charge_thread_payload_bytes(
 	return true
 
 
+## 按 Variant 类型估算载荷值的存储字节数并受限提前返回。
+## [br]
+## @api private
+## [br]
 func _measure_thread_payload_bytes(
 	value: Variant,
 	value_type: Variant.Type,
@@ -7854,6 +8888,10 @@ func _measure_thread_payload_bytes(
 	return limit + 1
 
 
+## 在给定上限内计算元素数量与元素宽度的乘积。
+## [br]
+## @api private
+## [br]
 func _bounded_byte_product(element_count: int, element_width: int, limit: int) -> int:
 	if element_count < 0 or element_width <= 0:
 		return limit + 1
@@ -7863,6 +8901,10 @@ func _bounded_byte_product(element_count: int, element_width: int, limit: int) -
 	return element_count * element_width
 
 
+## 逐码点计算 UTF-8 字节数并在超出上限时停止。
+## [br]
+## @api private
+## [br]
 func _measure_utf8_bytes_bounded(text: String, limit: int) -> int:
 	var byte_count: int = 0
 	for index: int in range(text.length()):
@@ -7880,6 +8922,10 @@ func _measure_utf8_bytes_bounded(text: String, limit: int) -> int:
 	return byte_count
 
 
+## 返回支持的 PackedArray 中元素数量。
+## [br]
+## @api private
+## [br]
 func _get_packed_array_element_count(
 	value: Variant,
 	value_type: Variant.Type
@@ -7918,6 +8964,10 @@ func _get_packed_array_element_count(
 	return 0
 
 
+## 检查浮点、几何类型和对应 PackedArray 中的数值是否有限。
+## [br]
+## @api private
+## [br]
 func _is_thread_payload_value_finite(value: Variant, value_type: Variant.Type) -> bool:
 	match value_type:
 		TYPE_FLOAT:
@@ -8039,6 +9089,10 @@ func _is_thread_payload_value_finite(value: Variant, value_type: Variant.Type) -
 	return true
 
 
+## 检查数组内所有浮点数是否有限。
+## [br]
+## @api private
+## [br]
 func _are_finite_floats(values: Array[float]) -> bool:
 	for value: float in values:
 		if not _is_finite_float(value):
@@ -8046,10 +9100,18 @@ func _are_finite_floats(values: Array[float]) -> bool:
 	return true
 
 
+## 判断浮点值既非 NaN 也非无穷大。
+## [br]
+## @api private
+## [br]
 func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 写入首个载荷校验错误类型、路径和 Variant 类型信息。
+## [br]
+## @api private
+## [br]
 func _set_payload_validation_failure(
 	state: _ThreadPayloadValidationState,
 	failure_kind: StringName,
@@ -8064,6 +9126,10 @@ func _set_payload_validation_failure(
 	state._variant_type_name = type_string(value_type)
 
 
+## 从绝对路径读取载荷、解码并返回结构化读取结果。
+## [br]
+## @api private
+## [br]
 func _load_data_thread(_file_name: String, path: String, codec_options: Dictionary) -> Dictionary:
 	if path.is_empty():
 		return _make_thread_load_failure(
@@ -8121,6 +9187,10 @@ func _load_data_thread(_file_name: String, path: String, codec_options: Dictiona
 	return result
 
 
+## 构造异步读取 worker 使用的失败结果字典。
+## [br]
+## @api private
+## [br]
 func _make_thread_load_failure(
 	error_message: String,
 	error_code: Error,
@@ -8136,16 +9206,28 @@ func _make_thread_load_failure(
 	).to_dict()
 
 
+## 委托文件操作帮助器确保绝对路径的父目录存在。
+## [br]
+## @api private
+## [br]
 func _ensure_absolute_parent_directory(path: String) -> Error:
 	_ensure_storage_helpers()
 	return _file_ops._ensure_absolute_parent_directory(path)
 
 
+## 委托文件操作帮助器写入绝对路径的字节缓冲区。
+## [br]
+## @api private
+## [br]
 func _write_buffer_absolute(path: String, bytes: PackedByteArray) -> Error:
 	_ensure_storage_helpers()
 	return _file_ops._write_buffer_absolute(path, bytes)
 
 
+## 读取源文件全部字节并写入目标绝对路径。
+## [br]
+## @api private
+## [br]
 func _copy_file_bytes(source_path: String, target_path: String) -> Error:
 	if source_path.is_empty() or target_path.is_empty():
 		return ERR_INVALID_PARAMETER
@@ -8161,16 +9243,28 @@ func _copy_file_bytes(source_path: String, target_path: String) -> Error:
 	return _write_buffer_absolute(target_path, bytes)
 
 
+## 委托文件操作帮助器写入绝对路径的明文 JSON 字典。
+## [br]
+## @api private
+## [br]
 func _write_plain_json_absolute(path: String, data: Dictionary) -> Error:
 	_ensure_storage_helpers()
 	return _file_ops._write_plain_json_absolute(path, data)
 
 
+## 委托文件操作帮助器移除存在的绝对文件。
+## [br]
+## @api private
+## [br]
 func _remove_absolute_file_if_exists(path: String) -> void:
 	_ensure_storage_helpers()
 	_file_ops._remove_absolute_file_if_exists(path)
 
 
+## 移除绝对路径文件；空路径报参数错误，不存在时视为成功。
+## [br]
+## @api private
+## [br]
 func _remove_absolute_file(path: String) -> Error:
 	if path.is_empty():
 		return ERR_INVALID_PARAMETER
@@ -8179,6 +9273,10 @@ func _remove_absolute_file(path: String) -> Error:
 	return DirAccess.remove_absolute(path)
 
 
+## 校验事务记录后通过暂存文件写入并原子重命名发布。
+## [br]
+## @api private
+## [br]
 func _publish_single_transaction_record_absolute(
 	path: String,
 	pending_path: String,
@@ -8224,6 +9322,10 @@ func _publish_single_transaction_record_absolute(
 	return OK
 
 
+## 读取事务记录并与预期单文件记录逐字段比较。
+## [br]
+## @api private
+## [br]
 func _match_single_transaction_record_at_path(
 	expected: Dictionary,
 	path: String,
@@ -8248,6 +9350,10 @@ func _match_single_transaction_record_at_path(
 	)
 
 
+## 限制记录大小并读取、解析绝对路径上的 JSON 事务记录。
+## [br]
+## @api private
+## [br]
 static func _read_transaction_record_result_absolute(path: String) -> Dictionary:
 	if path.is_empty():
 		return {"error": int(ERR_INVALID_PARAMETER), "record": {}}
@@ -8287,6 +9393,10 @@ static func _read_transaction_record_result_absolute(path: String) -> Dictionary
 	return {"error": int(OK), "record": GFVariantData.as_dictionary(parsed)}
 
 
+## 返回绝对路径事务记录读取结果中的记录字典。
+## [br]
+## @api private
+## [br]
 func _read_transaction_record_absolute(path: String) -> Dictionary:
 	return GFVariantData.get_option_dictionary(
 		_read_transaction_record_result_absolute(path),
@@ -8294,6 +9404,10 @@ func _read_transaction_record_absolute(path: String) -> Dictionary:
 	)
 
 
+## 验证两份单文件事务记录并比较事务编号、状态和成员快照。
+## [br]
+## @api private
+## [br]
 func _single_transaction_records_match(
 	expected: Dictionary,
 	actual: Dictionary,
@@ -8313,6 +9427,10 @@ func _single_transaction_records_match(
 	)
 
 
+## 清理尚未进入备份或提交阶段的单文件事务暂存文件。
+## [br]
+## @api private
+## [br]
 func _abort_single_absolute_transaction(
 	temp_path: String,
 	backup_path: String,
@@ -8335,6 +9453,10 @@ func _abort_single_absolute_transaction(
 	return OK
 
 
+## 按原文件是否存在恢复单文件事务并清理事务证据。
+## [br]
+## @api private
+## [br]
 func _rollback_single_absolute_transaction(
 	final_path: String,
 	temp_path: String,
@@ -8378,6 +9500,10 @@ func _rollback_single_absolute_transaction(
 	return OK
 
 
+## 移除已完成单文件事务留下的备份和标记文件。
+## [br]
+## @api private
+## [br]
 func _finalize_single_absolute_transaction(
 	_final_path: String,
 	_temp_path: String,
@@ -8400,6 +9526,10 @@ func _finalize_single_absolute_transaction(
 	return OK
 
 
+## 检查最终文件存在且候选临时文件已移除。
+## [br]
+## @api private
+## [br]
 func _validate_single_committed_absolute_transaction(
 	final_path: String,
 	temp_path: String
@@ -8409,11 +9539,19 @@ func _validate_single_committed_absolute_transaction(
 	) else ERR_FILE_CORRUPT
 
 
+## 通过路径策略取得当前 Storage 根绝对路径。
+## [br]
+## @api private
+## [br]
 func _get_save_base_path() -> String:
 	_ensure_storage_helpers()
 	return _path_policy._get_save_base_path()
 
 
+## 根据当前 Storage 根路径生成逻辑文件族描述。
+## [br]
+## @api private
+## [br]
 func _make_family_descriptor(file_name: String) -> Dictionary:
 	_ensure_storage_helpers()
 	return GFStorageFamilyStore.make_family_descriptor_for_framework(
@@ -8422,6 +9560,10 @@ func _make_family_descriptor(file_name: String) -> Dictionary:
 	)
 
 
+## 为文件族生成包含当前版本 incarnation 的 revision 上下文。
+## [br]
+## @api private
+## [br]
 func _make_revision_context(file_name: String) -> Dictionary:
 	return GFStorageRevisionStore.make_context_for_framework(
 		_make_family_descriptor(file_name),
@@ -8429,6 +9571,10 @@ func _make_revision_context(file_name: String) -> Dictionary:
 	)
 
 
+## 从任务复制 codec 选项并补入冻结目标的 revision 上下文。
+## [br]
+## @api private
+## [br]
 func _make_worker_codec_options(task: Dictionary) -> Dictionary:
 	var options: Dictionary = _get_task_dictionary(task, "codec_options")
 	var frozen_store: GFStorageFamilyStore = _GF_STORAGE_FAMILY_STORE_SCRIPT.new()
@@ -8444,6 +9590,10 @@ func _make_worker_codec_options(task: Dictionary) -> Dictionary:
 	return options
 
 
+## 确保存储就绪、恢复待处理重置并领取文件族后恢复事务。
+## [br]
+## @api private
+## [br]
 func _prepare_family_for_write(file_name: String) -> Error:
 	var readiness_error: Error = _ensure_storage_ready()
 	if readiness_error != OK:
@@ -8464,6 +9614,10 @@ func _prepare_family_for_write(file_name: String) -> Error:
 	return recovery_error
 
 
+## 确保存储就绪后准备指定文件族供读取。
+## [br]
+## @api private
+## [br]
 func _prepare_family_for_read(file_name: String) -> Error:
 	var readiness_error: Error = _ensure_storage_ready()
 	if readiness_error != OK:
@@ -8471,11 +9625,19 @@ func _prepare_family_for_read(file_name: String) -> Error:
 	return _prepare_family_for_read_after_readiness(file_name)
 
 
+## 读取准备结果字典中的错误码。
+## [br]
+## @api private
+## [br]
 func _prepare_family_for_read_after_readiness(file_name: String) -> Error:
 	var result: Dictionary = _prepare_family_for_read_after_readiness_result(file_name)
 	return GFVariantData.get_option_int(result, "error", ERR_BUG) as Error
 
 
+## 在存储已就绪时恢复重置和文件事务并返回准备结果。
+## [br]
+## @api private
+## [br]
 func _prepare_family_for_read_after_readiness_result(file_name: String) -> Dictionary:
 	var reset_recovery_result: Dictionary = _resume_pending_reset_for_file_result(
 		_get_save_base_path(),
@@ -8516,6 +9678,10 @@ func _prepare_family_for_read_after_readiness_result(file_name: String) -> Dicti
 	}
 
 
+## 解析框架私有相对路径或逻辑文件名对应的绝对存储路径。
+## [br]
+## @api private
+## [br]
 func _resolve_internal_storage_path(file_name: String) -> String:
 	var storage_root_path: String = _get_save_base_path()
 	if storage_root_path.is_empty():
@@ -8533,11 +9699,19 @@ func _resolve_internal_storage_path(file_name: String) -> String:
 	return GFVariantData.get_option_string(descriptor, "payload_path")
 
 
+## 委托路径策略解析公开逻辑文件名的完整路径。
+## [br]
+## @api private
+## [br]
 func _get_full_path(file_name: String) -> String:
 	_ensure_storage_helpers()
 	return _path_policy._get_full_path(file_name)
 
 
+## 从文件族描述取得资源写入阶段的相对路径。
+## [br]
+## @api private
+## [br]
 func _get_resource_temp_filename(file_name: String) -> String:
 	return GFVariantData.get_option_string(
 		_make_family_descriptor(file_name),
@@ -8545,6 +9719,10 @@ func _get_resource_temp_filename(file_name: String) -> String:
 	)
 
 
+## 检查路径扩展名是否位于有效的 Resource 读取允许列表。
+## [br]
+## @api private
+## [br]
 func _is_resource_load_extension_allowed(path: String) -> bool:
 	var extension: String = path.get_extension()
 	if extension.is_empty():
@@ -8558,6 +9736,10 @@ func _is_resource_load_extension_allowed(path: String) -> bool:
 	return false
 
 
+## 检查非空类型提示是否精确出现在允许列表中。
+## [br]
+## @api private
+## [br]
 func _is_resource_load_type_hint_allowed(type_hint: String) -> bool:
 	if allowed_resource_load_type_hints.is_empty():
 		return false
@@ -8567,6 +9749,10 @@ func _is_resource_load_type_hint_allowed(type_hint: String) -> bool:
 	return false
 
 
+## 按 Godot 类名、脚本全局名或脚本路径匹配资源类型提示。
+## [br]
+## @api private
+## [br]
 func _is_loaded_resource_compatible(resource: Resource, type_hint: String) -> bool:
 	if resource == null or type_hint.is_empty():
 		return false
@@ -8581,22 +9767,38 @@ func _is_loaded_resource_compatible(resource: Resource, type_hint: String) -> bo
 	return false
 
 
+## 将 Variant 读取为 Script；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_script_value(value: Variant) -> Script:
 	if value is Script:
 		return value
 	return null
 
 
+## 委托路径策略解析规范化目录名对应的完整路径。
+## [br]
+## @api private
+## [br]
 func _get_full_directory_path_from_normalized(directory_name: String) -> String:
 	_ensure_storage_helpers()
 	return _path_policy._get_full_directory_path_from_normalized(directory_name)
 
 
+## 委托路径策略规范化存储目录名。
+## [br]
+## @api private
+## [br]
 func _normalize_storage_directory_name(directory_name: String) -> String:
 	_ensure_storage_helpers()
 	return _path_policy._normalize_storage_directory_name(directory_name)
 
 
+## 递归扫描目录并按扩展名和条目限制追加相对文件名。
+## [br]
+## @api private
+## [br]
 func _append_listed_files(
 	directory_path: String,
 	relative_prefix: String,
@@ -8655,6 +9857,10 @@ func _append_listed_files(
 	dir.list_dir_end()
 
 
+## 根据最大扫描深度判断是否继续递归，并在受限时记录警告。
+## [br]
+## @api private
+## [br]
 func _can_scan_list_deeper(path: String, current_depth: int, max_scan_depth: int, scan_state: Dictionary) -> bool:
 	if max_scan_depth <= 0 or current_depth < max_scan_depth:
 		return true
@@ -8662,10 +9868,18 @@ func _can_scan_list_deeper(path: String, current_depth: int, max_scan_depth: int
 	return false
 
 
+## 检查文件清单是否仍可追加条目。
+## [br]
+## @api private
+## [br]
 func _can_append_listed_file(result: PackedStringArray, max_file_count: int) -> bool:
 	return max_file_count <= 0 or result.size() < max_file_count
 
 
+## 创建目录扫描过程使用的警告状态字典。
+## [br]
+## @api private
+## [br]
 func _make_list_scan_state() -> Dictionary:
 	return {
 		"count_warning_emitted": false,
@@ -8673,6 +9887,10 @@ func _make_list_scan_state() -> Dictionary:
 	}
 
 
+## 首次达到文件数量上限时记录对应警告。
+## [br]
+## @api private
+## [br]
 func _warn_list_file_limit(max_file_count: int, scan_state: Dictionary) -> void:
 	if max_file_count <= 0 or GFVariantData.get_option_bool(scan_state, "count_warning_emitted", false):
 		return
@@ -8680,6 +9898,10 @@ func _warn_list_file_limit(max_file_count: int, scan_state: Dictionary) -> void:
 	push_warning("[GFStorageUtility][storage_utility.file_count_limit] list_files reached max_file_count=%d; remaining files were skipped." % max_file_count)
 
 
+## 首次达到目录深度上限时记录对应警告。
+## [br]
+## @api private
+## [br]
 func _warn_list_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
 	if max_scan_depth <= 0 or GFVariantData.get_option_bool(scan_state, "depth_warning_emitted", false):
 		return
@@ -8687,32 +9909,56 @@ func _warn_list_depth_limit(path: String, max_scan_depth: int, scan_state: Dicti
 	push_warning("[GFStorageUtility][storage_utility.scan_depth_limit] list_files reached max_scan_depth=%d; deeper directory skipped: %s." % [max_scan_depth, path])
 
 
+## 组合规范化目录名和文件名作为存储相对路径。
+## [br]
+## @api private
+## [br]
 func _get_storage_relative_file_path(directory_name: String, file_name: String) -> String:
 	if directory_name.is_empty():
 		return file_name
 	return directory_name.path_join(file_name)
 
 
+## 委托路径策略规范化目录枚举使用的扩展名过滤器。
+## [br]
+## @api private
+## [br]
 func _normalize_extension_filter(extension_filter: String) -> String:
 	_ensure_storage_helpers()
 	return _path_policy._normalize_extension_filter(extension_filter)
 
 
+## 检查文件名是否匹配给定扩展名过滤器。
+## [br]
+## @api private
+## [br]
 func _file_matches_extension(file_name: String, extension_filter: String) -> bool:
 	_ensure_storage_helpers()
 	return _path_policy._file_matches_extension(file_name, extension_filter)
 
 
+## 委托路径策略清理并验证 Storage 相对路径。
+## [br]
+## @api private
+## [br]
 func _sanitize_storage_relative_path(path: String, label: String) -> String:
 	_ensure_storage_helpers()
 	return _path_policy._sanitize_storage_relative_path(path, label)
 
 
+## 委托路径策略规范化逻辑文件名。
+## [br]
+## @api private
+## [br]
 func _canonicalize_storage_file_name(path: String, label: String = "file_name") -> String:
 	_ensure_storage_helpers()
 	return _path_policy._canonicalize_file_name(path, label)
 
 
+## 验证公开文件操作使用的逻辑文件名。
+## [br]
+## @api private
+## [br]
 func _validate_public_file_name(file_name: String, operation: String) -> bool:
 	if file_name.is_empty():
 		push_error("[GFStorageUtility][storage_utility.filename_empty] %s failed: file_name is empty." % operation)
@@ -8723,6 +9969,10 @@ func _validate_public_file_name(file_name: String, operation: String) -> bool:
 	return not _get_save_base_path().is_empty()
 
 
+## 验证公开 Resource 操作使用的文件名。
+## [br]
+## @api private
+## [br]
 func _validate_public_resource_file_name(file_name: String, operation: String) -> bool:
 	if not _validate_public_file_name(file_name, operation):
 		return false
@@ -8739,6 +9989,10 @@ func _validate_public_resource_file_name(file_name: String, operation: String) -
 	return true
 
 
+## 验证公开目录枚举操作使用的目录名。
+## [br]
+## @api private
+## [br]
 func _validate_public_directory_name(directory_name: String, operation: String) -> bool:
 	if not GFStorageFamilyStore.is_valid_logical_directory_path_for_framework(directory_name):
 		push_error("[GFStorageUtility][storage_utility.directory_name_invalid] %s failed: directory_name is invalid." % operation)
@@ -8746,130 +10000,234 @@ func _validate_public_directory_name(directory_name: String, operation: String) 
 	return not _get_save_base_path().is_empty()
 
 
+## 判断路径是否表示父目录路径或包含父目录跳转。
+## [br]
+## @api private
+## [br]
 func _is_parent_directory_path(path: String) -> bool:
 	_ensure_storage_helpers()
 	return _path_policy._is_parent_directory_path(path)
 
 
+## 检查路径是否符合当前 Storage 路径策略。
+## [br]
+## @api private
+## [br]
 func _is_safe_storage_path(path: String, label: String) -> bool:
 	_ensure_storage_helpers()
 	return _path_policy._is_safe_storage_path(path, label)
 
 
+## 从文件族描述取得用于异步锁的逻辑文件键。
+## [br]
+## @api private
+## [br]
 func _get_async_file_key(file_name: String) -> String:
 	return GFVariantData.get_option_string(_make_family_descriptor(file_name), "file_key")
 
 
+## 委托文件操作帮助器移除根目录内存在的相对文件。
+## [br]
+## @api private
+## [br]
 func _remove_file_if_exists(path: String) -> void:
 	_ensure_storage_helpers()
 	_file_ops._remove_file_if_exists(path)
 
 
+## 取得事务管理器生成的候选临时文件名。
+## [br]
+## @api private
+## [br]
 func _get_temp_filename(file_name: String) -> String:
 	_ensure_storage_helpers()
 	return _transaction_manager._get_temp_filename(file_name)
 
 
+## 取得事务管理器生成的备份文件名。
+## [br]
+## @api private
+## [br]
 func _get_backup_filename(file_name: String) -> String:
 	_ensure_storage_helpers()
 	return _transaction_manager._get_backup_filename(file_name)
 
 
+## 取得事务准备记录文件名。
+## [br]
+## @api private
+## [br]
 func _get_transaction_filename(file_name: String) -> String:
 	_ensure_storage_helpers()
 	return _transaction_manager._get_transaction_filename(file_name)
 
 
+## 取得事务准备记录暂存文件名。
+## [br]
+## @api private
+## [br]
 func _get_transaction_pending_filename(file_name: String) -> String:
 	_ensure_storage_helpers()
 	return _transaction_manager._get_transaction_pending_filename(file_name)
 
 
+## 取得事务提交记录文件名。
+## [br]
+## @api private
+## [br]
 func _get_transaction_commit_filename(file_name: String) -> String:
 	_ensure_storage_helpers()
 	return _transaction_manager._get_transaction_commit_filename(file_name)
 
 
+## 取得事务提交记录暂存文件名。
+## [br]
+## @api private
+## [br]
 func _get_transaction_commit_pending_filename(file_name: String) -> String:
 	_ensure_storage_helpers()
 	return _transaction_manager._get_transaction_commit_pending_filename(file_name)
 
 
+## 委托事务管理器清理指定文件组的事务文件。
+## [br]
+## @api private
+## [br]
 func _cleanup_transaction_files(file_names: Array[String]) -> Error:
 	_ensure_storage_helpers()
 	return _transaction_manager._cleanup_transaction_files(file_names)
 
 
+## 委托事务管理器恢复指定逻辑文件的事务。
+## [br]
+## @api private
+## [br]
 func _recover_transaction_files(file_names: Array[String]) -> Error:
 	_ensure_storage_helpers()
 	return _transaction_manager._recover_transaction_files(file_names)
 
 
+## 委托事务管理器恢复指定逻辑文件组的事务。
+## [br]
+## @api private
+## [br]
 func _recover_transaction_group(file_names: Array[String]) -> Error:
 	_ensure_storage_helpers()
 	return _transaction_manager._recover_transaction_group(file_names)
 
 
+## 委托事务管理器恢复指定逻辑文件的事务状态。
+## [br]
+## @api private
+## [br]
 func _recover_transaction_file(file_name: String) -> Error:
 	_ensure_storage_helpers()
 	return _transaction_manager._recover_transaction_file(file_name)
 
 
+## 委托事务管理器提交指定逻辑文件组。
+## [br]
+## @api private
+## [br]
 func _commit_transaction(file_names: Array[String], markers_prepared: bool = false) -> Error:
 	_ensure_storage_helpers()
 	return _transaction_manager._commit_transaction(file_names, markers_prepared)
 
 
+## 委托事务管理器按事务状态回滚指定逻辑文件组。
+## [br]
+## @api private
+## [br]
 func _rollback_transaction(file_names: Array[String], transaction_state: Dictionary) -> Error:
 	_ensure_storage_helpers()
 	return _transaction_manager._rollback_transaction(file_names, transaction_state)
 
 
+## 委托事务管理器写入指定事务阶段的记录标记。
+## [br]
+## @api private
+## [br]
 func _write_transaction_markers(file_names: Array[String], committed: bool) -> Error:
 	_ensure_storage_helpers()
 	return _transaction_manager._write_transaction_markers(file_names, committed)
 
 
+## 委托事务管理器读取指定逻辑文件的事务标记。
+## [br]
+## @api private
+## [br]
 func _read_transaction_marker(file_name: String) -> Dictionary:
 	_ensure_storage_helpers()
 	return _transaction_manager._read_transaction_marker(file_name)
 
 
+## 从事务标记读取成员路径并使用回退文件名补足。
+## [br]
+## @api private
+## [br]
 func _get_transaction_marker_files(marker: Dictionary, fallback_file_name: String) -> Array[String]:
 	_ensure_storage_helpers()
 	return _transaction_manager._get_transaction_marker_files(marker, fallback_file_name)
 
 
+## 委托事务管理器检查文件组是否处于已提交状态。
+## [br]
+## @api private
+## [br]
 func _is_transaction_group_committed(file_names: Array[String]) -> bool:
 	_ensure_storage_helpers()
 	return _transaction_manager._is_transaction_group_committed(file_names)
 
 
+## 委托事务管理器去重并规范指定文件名列表。
+## [br]
+## @api private
+## [br]
 func _unique_file_names(file_names: Array[String]) -> Array[String]:
 	_ensure_storage_helpers()
 	return _transaction_manager._unique_file_names(file_names)
 
 
+## 委托文件操作帮助器移动两个根目录内的文件路径。
+## [br]
+## @api private
+## [br]
 func _move_file(from_path: String, to_path: String) -> Error:
 	_ensure_storage_helpers()
 	return _file_ops._move_file(from_path, to_path)
 
 
+## 委托文件操作帮助器写入编码后的 JSON 存档。
+## [br]
+## @api private
+## [br]
 func _write_json(file_name: String, data: Dictionary) -> Error:
 	_ensure_storage_helpers()
 	return _file_ops._write_json(file_name, data)
 
 
+## 委托文件操作帮助器写入未经过存档 codec 的 JSON 字典。
+## [br]
+## @api private
+## [br]
 func _write_plain_json(file_name: String, data: Dictionary) -> Error:
 	_ensure_storage_helpers()
 	return _file_ops._write_plain_json(file_name, data)
 
 
+## 委托文件操作帮助器确保逻辑文件的父目录存在。
+## [br]
+## @api private
+## [br]
 func _ensure_parent_directory(path: String) -> Error:
 	_ensure_storage_helpers()
 	return _file_ops._ensure_parent_directory(path)
 
 
+## 读取存档字节、revision 和 codec 数据，并应用 schema 迁移。
+## [br]
+## @api private
+## [br]
 func _read_json(file_name: String) -> GFStorageReadResult:
 	var path: String = _get_full_path(file_name)
 	if not FileAccess.file_exists(path):
@@ -8956,12 +10314,20 @@ func _read_json(file_name: String) -> GFStorageReadResult:
 	return result
 
 
+## 返回当前 codec；codec 字段为空时创建默认实例。
+## [br]
+## @api private
+## [br]
 func _get_codec() -> GFStorageCodec:
 	if codec == null:
 		codec = GFStorageCodec.new()
 	return codec
 
 
+## 从当前公开设置构建 codec 编解码选项字典。
+## [br]
+## @api private
+## [br]
 func _get_codec_options() -> Dictionary:
 	return {
 		"format": file_format,
@@ -8976,6 +10342,10 @@ func _get_codec_options() -> Dictionary:
 	}
 
 
+## 处理未来版本、迁移链和默认字段合并并更新读取结果。
+## [br]
+## @api private
+## [br]
 func _apply_schema_migrations(
 	file_name: String,
 	result: GFStorageReadResult,
@@ -9039,6 +10409,10 @@ func _apply_schema_migrations(
 	return result
 
 
+## 检查 Storage 子类脚本是否覆盖 migrate_data。
+## [br]
+## @api private
+## [br]
 func _has_migrate_data_override() -> bool:
 	var script: Script = _get_script_value(get_script())
 	var framework_method_count: int = _count_script_methods(
@@ -9052,6 +10426,10 @@ func _has_migrate_data_override() -> bool:
 	return false
 
 
+## 统计脚本方法列表中名称与指定值相同的条目。
+## [br]
+## @api private
+## [br]
 func _count_script_methods(script: Script, method_name: StringName) -> int:
 	if script == null:
 		return 0
@@ -9062,6 +10440,10 @@ func _count_script_methods(script: Script, method_name: StringName) -> int:
 	return count
 
 
+## 按解析出的迁移链逐步调用已登记迁移回调。
+## [br]
+## @api private
+## [br]
 func _execute_registered_migrations(
 	data: Dictionary,
 	from_version: int,
@@ -9106,6 +10488,10 @@ func _execute_registered_migrations(
 	return {"ok": true, "payload": migrated}
 
 
+## 用异步载荷限制验证迁移输出并更新交付支持标志。
+## [br]
+## @api private
+## [br]
 func _validate_owned_migration_output(payload: Dictionary, delivery_validation: Dictionary) -> bool:
 	var validation: Dictionary = _validate_thread_payload(
 		payload,
@@ -9119,6 +10505,10 @@ func _validate_owned_migration_output(payload: Dictionary, delivery_validation: 
 	return supported
 
 
+## 使用已登记迁移步骤搜索版本区间内的最短可达链。
+## [br]
+## @api private
+## [br]
 func _resolve_migration_chain(from_version: int, to_version: int) -> Array[int]:
 	if from_version >= to_version:
 		return []
@@ -9150,6 +10540,10 @@ func _resolve_migration_chain(from_version: int, to_version: int) -> Array[int]:
 	return []
 
 
+## 将缺少完整迁移链的读取转换为迁移失败结果。
+## [br]
+## @api private
+## [br]
 func _fail_schema_migration(
 	result: GFStorageReadResult,
 	from_version: int,
@@ -9163,6 +10557,10 @@ func _fail_schema_migration(
 	)
 
 
+## 将高于当前目标版本的读取转换为未来版本失败结果。
+## [br]
+## @api private
+## [br]
 func _fail_future_storage_version(
 	result: GFStorageReadResult,
 	from_version: int,
@@ -9176,6 +10574,10 @@ func _fail_future_storage_version(
 	)
 
 
+## 返回当前版本可达且不超过目标版本的已登记迁移目标。
+## [br]
+## @api private
+## [br]
 func _get_migration_targets(from_version: int, to_version: int) -> Array[int]:
 	var result: Array[int] = []
 	for entry: Dictionary in _migration_steps.values():
@@ -9191,6 +10593,10 @@ func _get_migration_targets(from_version: int, to_version: int) -> Array[int]:
 	return result
 
 
+## 将数组元素逐项转换为整数数组。
+## [br]
+## @api private
+## [br]
 func _to_int_array(values: Array) -> Array[int]:
 	var result: Array[int] = []
 	for value: Variant in values:
@@ -9198,10 +10604,18 @@ func _to_int_array(values: Array) -> Array[int]:
 	return result
 
 
+## 按起止版本生成登记迁移步骤使用的键。
+## [br]
+## @api private
+## [br]
 func _make_migration_key(from_version: int, to_version: int) -> String:
 	return "%d>%d" % [from_version, to_version]
 
 
+## 构造包含错误信息、错误码和失败类别的读取失败结果。
+## [br]
+## @api private
+## [br]
 func _make_load_failure(
 	error_message: String,
 	error_code: Error,
@@ -9217,6 +10631,10 @@ func _make_load_failure(
 	)
 
 
+## 保留读取元数据和完整性状态并生成迁移失败结果。
+## [br]
+## @api private
+## [br]
 func _make_migration_failure(
 	result: GFStorageReadResult,
 	error_message: String,
@@ -9234,36 +10652,138 @@ func _make_migration_failure(
 	)
 
 
+
+
+# --- 信号处理函数 ---
+
+## 核对观察记录中的操作身份后完成物理结算观察，再按原记录标识释放文件锁，避免晚到完成通知解锁新任务。
+## [br]
+## @api private
+func _on_async_operation_completed_for_observer(request_id: int) -> void:
+	var observer_value: Variant = _async_observers.get(request_id)
+	if not observer_value is Dictionary:
+		return
+	var observer: Dictionary = observer_value
+	var operation: GFStorageAsyncOperation = _get_observer_operation(observer)
+	if operation == null or operation.get_request_id() != request_id:
+		return
+	var record_id: int = GFVariantData.get_option_int(observer, "record_id", 0)
+	var file_key: String = GFVariantData.get_option_string(observer, "file_key")
+	_finalize_async_observer_after_physical_settlement(operation)
+	_release_async_file_lock_for_record(
+		record_id,
+		file_key
+	)
+
+
 # --- 内部类 ---
 
+## 承载异步载荷递归校验过程中的计量与失败信息。
+## [br]
+## @api private
+## [br]
 class _ThreadPayloadValidationState:
+
+	# --- 私有变量 ---
+
+	## 已访问值的累计数，包含额外计入的键或打包项；失败报告保留超限时计数。
+	## [br]
+	## @api private
 	var _visited_values: int = 0
+
+	## 估算工作字节累计量；越界时可写为上限加一，不是实际编码长度。
+	## [br]
+	## @api private
 	var _visited_bytes: int = 0
+
+	## 入口规范化后的值数量预算，限制递归扫描规模。
+	## [br]
+	## @api private
 	var _max_values: int = 0
+
+	## 入口规范化后的估算字节预算，阻止超大文本或集合继续展开。
+	## [br]
+	## @api private
 	var _max_bytes: int = 0
+
+	## 最大递归深度，各子值访问时核对。
+	## [br]
+	## @api private
 	var _max_depth: int = 0
+
+	## 当前递归路径上的容器引用，用于发现环；离开时移除，允许跨分支共享。
+	## [br]
+	## @api private
 	var _active_collections: Array = []
+
+	## 首个失败类型；非空后后续递归立即停止。
+	## [br]
+	## @api private
 	var _failure_kind: String = ""
+
+	## 首个失败位置的可读路径，供报告展示。
+	## [br]
+	## @api private
 	var _failure_path: String = ""
+
+	## 失败位置的结构化路径副本，保留键或下标供机器定位。
+	## [br]
+	## @api private
 	var _failure_path_segments: Array[Dictionary] = []
+
+	## 失败值的 Variant 类型枚举；无失败时保持 TYPE_NIL。
+	## [br]
+	## @api private
 	var _variant_type: int = TYPE_NIL
+
+	## 失败值的可读类型名，与类型枚举同时记录。
+	## [br]
+	## @api private
 	var _variant_type_name: String = ""
 
 
+## 为 Storage 根目录和逻辑相对路径提供规范化与校验。
+## [br]
+## @api private
+## [br]
 class _StoragePathPolicy:
+
+	# --- 私有变量 ---
+
+	## 提供当前设置与路径解析的工具引用；dispose 清空以解除相互持有。
+	## [br]
+	## @api private
 	var _owner: Object
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 绑定工具对象，后续解析读取其当前配置。
+	## [br]
+	## @api private
 	func _init(p_owner: Object) -> void:
 		_owner = p_owner
 
+
+	# --- 私有/辅助方法 ---
+
+	## 清空工具引用；随后不应再请求依赖 owner 的解析。
+	## [br]
+	## @api private
 	func _dispose() -> void:
 		_owner = null
 
+	## 通过 NodePath 读取工具属性；owner 已解除时返回 null。
+	## [br]
+	## @api private
 	func _get_owner_property(property_name: String) -> Variant:
 		if _owner == null:
 			return null
 		return _owner.get_indexed(NodePath(property_name))
 
+	## 把属性转换为文本，null 使用回退值；显式支持 StringName 与 NodePath。
+	## [br]
+	## @api private
 	func _get_string_property(property_name: String, fallback: String = "") -> String:
 		var value: Variant = _get_owner_property(property_name)
 		if value is String:
@@ -9278,6 +10798,9 @@ class _StoragePathPolicy:
 			return fallback
 		return str(value)
 
+	## 以当前 save_dir_name 构造 user:// 下的可移植存储根；配置无效时报错并返回空串。
+	## [br]
+	## @api private
 	func _get_save_base_path() -> String:
 		var save_dir_name: String = _get_string_property("save_dir_name")
 		var storage_root_path: String = GFStorageFamilyStore.make_storage_root_path_for_framework(
@@ -9287,9 +10810,15 @@ class _StoragePathPolicy:
 			push_error("[GFStorageUtility][storage_utility.root_profile_invalid] save_dir_name must satisfy the portable logical directory profile.")
 		return storage_root_path
 
+	## 统一为正斜杠后按 Godot 规则判断绝对路径。
+	## [br]
+	## @api private
 	func _is_absolute_storage_path(path: String) -> bool:
 		return path.replace("\\", "/").is_absolute_path()
 
+	## 检测控制字符、DEL 和跨平台禁用字符；不在此解析路径段。
+	## [br]
+	## @api private
 	func _has_invalid_storage_root_character(path: String) -> bool:
 		const FORBIDDEN_CHARACTERS: String = "<>:\"|?*"
 		for index: int in range(path.length()):
@@ -9300,6 +10829,9 @@ class _StoragePathPolicy:
 				return true
 		return false
 
+	## 仅接受 user:// 或其下符合逻辑目录规则的根，不接纳任意绝对目录。
+	## [br]
+	## @api private
 	func _is_valid_frozen_storage_root_path(storage_root_path: String) -> bool:
 		if storage_root_path == "user://":
 			return true
@@ -9308,6 +10840,9 @@ class _StoragePathPolicy:
 		var relative_root: String = storage_root_path.trim_prefix("user://")
 		return GFStorageFamilyStore.is_valid_logical_directory_path_for_framework(relative_root)
 
+	## 只接纳合法内部相对路径或逻辑文件名，再委托 owner 解析当前 family 路径。
+	## [br]
+	## @api private
 	func _get_full_path(file_name: String) -> String:
 		if (
 			not GFStorageFamilyStore.is_valid_private_relative_path_for_framework(file_name)
@@ -9317,6 +10852,9 @@ class _StoragePathPolicy:
 		var resolved: Variant = _owner.call("_resolve_internal_storage_path", file_name)
 		return GFVariantData.to_text(resolved)
 
+	## 验证目录名后拼接当前根；空目录返回根，user:// 用显式连接保留协议。
+	## [br]
+	## @api private
 	func _get_full_directory_path_from_normalized(directory_name: String) -> String:
 		if not GFStorageFamilyStore.is_valid_logical_directory_path_for_framework(directory_name):
 			return ""
@@ -9327,6 +10865,9 @@ class _StoragePathPolicy:
 			return "user://" + directory_name
 		return storage_root_path.path_join(directory_name)
 
+	## 合法目录原样保留；非法输入返回固定哨兵供后续拒绝，不尝试修复。
+	## [br]
+	## @api private
 	func _normalize_storage_directory_name(directory_name: String) -> String:
 		if directory_name.is_empty():
 			return ""
@@ -9334,32 +10875,53 @@ class _StoragePathPolicy:
 			directory_name
 		) else "_invalid_storage_directory"
 
+	## 合法筛选原样保留；非法值转换为哨兵，避免变成空筛选而放行。
+	## [br]
+	## @api private
 	func _normalize_extension_filter(extension_filter: String) -> String:
 		return extension_filter if GFStorageFamilyStore.is_valid_extension_filter_for_framework(
 			extension_filter
 		) else "_invalid_extension_filter"
 
+	## 空筛选匹配全部，否则对扩展名做区分大小写的精确比较。
+	## [br]
+	## @api private
 	func _file_matches_extension(file_name: String, extension_filter: String) -> bool:
 		return extension_filter.is_empty() or file_name.get_extension() == extension_filter
 
+	## 严格验证可移植逻辑文件路径；失败记录参数标签并返回空串，不做修复。
+	## [br]
+	## @api private
 	func _sanitize_storage_relative_path(path: String, label: String) -> String:
 		if not GFStorageFamilyStore.is_valid_logical_file_path_for_framework(path):
 			push_error("[GFStorageUtility][storage_utility.path_profile_invalid] %s does not satisfy the portable logical path profile." % label)
 			return ""
 		return path
 
+	## 检测正斜杠路径开头或中间的父目录形式；完整分段检查另由 _contains_parent_segment 提供。
+	## [br]
+	## @api private
 	func _is_parent_directory_path(path: String) -> bool:
 		return path == ".." or path.begins_with("../") or path.contains("/../")
 
+	## 统一分隔符后逐段拒绝精确的 ..，覆盖末尾父目录段。
+	## [br]
+	## @api private
 	func _contains_parent_segment(path: String) -> bool:
 		for segment: String in path.replace("\\", "/").split("/", true):
 			if segment == "..":
 				return true
 		return false
 
+	## 沿用严格路径验证，合法名称保持原值，不修正非法输入。
+	## [br]
+	## @api private
 	func _canonicalize_file_name(path: String, label: String) -> String:
 		return _sanitize_storage_relative_path(path, label)
 
+	## 按逻辑文件路径规则判定，非法时记录带上下文标签的错误。
+	## [br]
+	## @api private
 	func _is_safe_storage_path(path: String, label: String) -> bool:
 		if GFStorageFamilyStore.is_valid_logical_file_path_for_framework(path):
 			return true
@@ -9367,15 +10929,40 @@ class _StoragePathPolicy:
 		return false
 
 
+## 使用任务创建时冻结的 Storage 根路径解析目标文件。
+## [br]
+## @api private
+## [br]
 class _FrozenStoragePathPolicy extends _StoragePathPolicy:
+
+	# --- 私有变量 ---
+
+	## 任务创建时冻结的存储根；后续工具配置变化不改变任务归属。
+	## [br]
+	## @api private
 	var _storage_root_path: String
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 保存调用方冻结的根路径，不重新读取工具配置。
+	## [br]
+	## @api private
 	func _init(storage_root_path: String) -> void:
 		_storage_root_path = storage_root_path
 
+
+	# --- 私有/辅助方法 ---
+
+	## 返回任务固定根，覆盖基类对当前配置的读取。
+	## [br]
+	## @api private
 	func _get_save_base_path() -> String:
 		return _storage_root_path
 
+	## 内部路径拼接冻结根，逻辑文件通过 family descriptor 取得 payload 路径，避免根漂移。
+	## [br]
+	## @api private
 	func _get_full_path(file_name: String) -> String:
 		if GFStorageFamilyStore.is_valid_private_relative_path_for_framework(file_name):
 			return (
@@ -9389,27 +10976,62 @@ class _FrozenStoragePathPolicy extends _StoragePathPolicy:
 		)
 		return GFVariantData.get_option_string(descriptor, "payload_path")
 
+	## 按逻辑路径规则严格验证名称，冻结根不放宽相对路径约束。
+	## [br]
+	## @api private
 	func _canonicalize_file_name(path: String, label: String) -> String:
 		return _sanitize_storage_relative_path(path, label)
 
 
+## 集中执行经过路径策略约束的文件读写和移动操作。
+## [br]
+## @api private
+## [br]
 class _StorageFileOps:
+
+	# --- 私有变量 ---
+
+	## 提供编码器和配置的工具引用，dispose 时清空。
+	## [br]
+	## @api private
 	var _owner: Object
+
+	## 共享路径策略，决定文件映射到当前根还是任务冻结根。
+	## [br]
+	## @api private
 	var _path_policy: _StoragePathPolicy
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 保存工具和路径策略引用，实际写入时再读取编码设置。
+	## [br]
+	## @api private
 	func _init(p_owner: Object, p_path_policy: _StoragePathPolicy) -> void:
 		_owner = p_owner
 		_path_policy = p_path_policy
 
+
+	# --- 私有/辅助方法 ---
+
+	## 清空工具和策略引用，释放后不再接受文件操作。
+	## [br]
+	## @api private
 	func _dispose() -> void:
 		_owner = null
 		_path_policy = null
 
+	## 通过 NodePath 读取工具属性；owner 已解除时返回 null。
+	## [br]
+	## @api private
 	func _get_owner_property(property_name: String) -> Variant:
 		if _owner == null:
 			return null
 		return _owner.get_indexed(NodePath(property_name))
 
+	## 布尔原样读取，整数按非零、浮点按非近零转换，其余使用回退值。
+	## [br]
+	## @api private
 	func _get_bool_property(property_name: String, fallback: bool = false) -> bool:
 		var value: Variant = _get_owner_property(property_name)
 		if value is bool:
@@ -9422,38 +11044,59 @@ class _StorageFileOps:
 			return not is_zero_approx(float_value)
 		return fallback
 
+	## 从工具取得编码器；类型不符时使用默认 GFStorageCodec。
+	## [br]
+	## @api private
 	func _get_codec() -> GFStorageCodec:
 		var codec_value: Variant = _owner.call("_get_codec")
 		if codec_value is GFStorageCodec:
 			return codec_value
 		return GFStorageCodec.new()
 
+	## 读取编码选项，类型不符时返回空字典；不复制有效字典。
+	## [br]
+	## @api private
 	func _get_codec_options() -> Dictionary:
 		var options_value: Variant = _owner.call("_get_codec_options")
 		if options_value is Dictionary:
 			return options_value
 		return {}
 
+	## 调用 store_buffer 并消费其可变返回值；写入错误由调用方读取 get_error。
+	## [br]
+	## @api private
 	func _store_buffer_checked(file: FileAccess, bytes: PackedByteArray) -> void:
 		var store_result: Variant = file.store_buffer(bytes)
 		if store_result != null:
 			return
 
+	## 调用 store_string 并消费其可变返回值，不以返回值判断写入成功。
+	## [br]
+	## @api private
 	func _store_string_checked(file: FileAccess, value: String) -> void:
 		var store_result: Variant = file.store_string(value)
 		if store_result != null:
 			return
 
+	## 尽力删除文件，失败仅警告；需传播错误的事务步骤使用返回 Error 的版本。
+	## [br]
+	## @api private
 	func _remove_absolute_if_exists(path: String) -> void:
 		var remove_error: Error = _remove_absolute(path)
 		if remove_error != OK:
 			push_warning("[GFStorageUtility][storage_utility.file_remove_failed] Cannot remove file, error code: %s." % remove_error)
 
+	## 文件不存在视为成功，否则透传绝对路径删除结果；不递归删除目录。
+	## [br]
+	## @api private
 	func _remove_absolute(path: String) -> Error:
 		if not FileAccess.file_exists(path):
 			return OK
 		return DirAccess.remove_absolute(path)
 
+	## 确保父目录存在，空路径拒绝，user:// 根无需创建；只返回错误不记录日志。
+	## [br]
+	## @api private
 	func _ensure_absolute_parent_directory(path: String) -> Error:
 		if path.is_empty():
 			return ERR_INVALID_PARAMETER
@@ -9464,6 +11107,9 @@ class _StorageFileOps:
 			return OK
 		return DirAccess.make_dir_recursive_absolute(base_dir)
 
+	## 确保写入父目录存在；创建失败记录路径与错误码并向上传递。
+	## [br]
+	## @api private
 	func _ensure_parent_directory(path: String) -> Error:
 		if path.is_empty():
 			return ERR_INVALID_PARAMETER
@@ -9478,6 +11124,9 @@ class _StorageFileOps:
 			push_error("[GFStorageUtility][storage_utility.directory_create_failed] Cannot create directory: %s, error code: %s." % [base_dir, error])
 		return error
 
+	## 直接覆写绝对目标，写后读取错误并关闭文件；不创建目录或执行路径策略。
+	## [br]
+	## @api private
 	func _write_buffer_absolute(path: String, bytes: PackedByteArray) -> Error:
 		if path.is_empty():
 			return ERR_INVALID_PARAMETER
@@ -9489,6 +11138,9 @@ class _StorageFileOps:
 		file.close()
 		return error
 
+	## 写制表符缩进的明文 JSON；不经过存储编码器，也不创建父目录。
+	## [br]
+	## @api private
 	func _write_plain_json_absolute(path: String, data: Dictionary) -> Error:
 		if path.is_empty():
 			return ERR_INVALID_PARAMETER
@@ -9500,12 +11152,21 @@ class _StorageFileOps:
 		file.close()
 		return error
 
+	## 沿用忽略不存在、失败仅警告的绝对文件删除路径。
+	## [br]
+	## @api private
 	func _remove_absolute_file_if_exists(path: String) -> void:
 		_remove_absolute_if_exists(path)
 
+	## 对已解析路径尽力删除，不再次当作逻辑文件名解析。
+	## [br]
+	## @api private
 	func _remove_file_if_exists(path: String) -> void:
 		_remove_absolute_if_exists(path)
 
+	## 拒绝空路径和缺失源文件后执行重命名；目录准备与冲突处理由调用方负责。
+	## [br]
+	## @api private
 	func _move_file(from_path: String, to_path: String) -> Error:
 		if from_path.is_empty() or to_path.is_empty():
 			return ERR_INVALID_PARAMETER
@@ -9513,6 +11174,9 @@ class _StorageFileOps:
 			return ERR_FILE_NOT_FOUND
 		return DirAccess.rename_absolute(from_path, to_path)
 
+	## 按策略定位，经当前编码器产生非空字节并创建父目录后覆写；编码失败不打开目标。
+	## [br]
+	## @api private
 	func _write_json(file_name: String, data: Dictionary) -> Error:
 		var path: String = _path_policy._get_full_path(file_name)
 		if path.is_empty():
@@ -9537,6 +11201,9 @@ class _StorageFileOps:
 			push_error("[GFStorageUtility][storage_utility.file_write_failed] Cannot write file: %s, error code: %s." % [path, write_error])
 		return write_error
 
+	## 按策略定位并创建父目录后写明文 JSON，供事务证据避开业务编码器。
+	## [br]
+	## @api private
 	func _write_plain_json(file_name: String, data: Dictionary) -> Error:
 		var path: String = _path_policy._get_full_path(file_name)
 		if path.is_empty():
@@ -9557,13 +11224,45 @@ class _StorageFileOps:
 		return write_error
 
 
+## 为逻辑文件族执行事务标记、提交、回滚和恢复。
+## [br]
+## @api private
+## [br]
 class _StorageTransactionManager:
+
+	# --- 私有变量 ---
+
+	## 提供 revision 写入回调的工具引用；dispose 清空以解除协作关系。
+	## [br]
+	## @api private
 	var _owner: Object
+
+	## 事务成员路径的共享解析策略，可绑定当前根或冻结根。
+	## [br]
+	## @api private
 	var _path_policy: _StoragePathPolicy
+
+	## 执行文件移动、写入和删除的协作者；本类负责决定事务顺序。
+	## [br]
+	## @api private
 	var _file_ops: _StorageFileOps
+
+	## 验证 family 所有权及读取 revision incarnation 的协作者。
+	## [br]
+	## @api private
 	var _family_store: GFStorageFamilyStore
+
+	## 本管理器的递增事务序号；旧布局与时钟组合生成标识，revision 布局使用 UUID。
+	## [br]
+	## @api private
 	var _next_transaction_id: int = 1
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 绑定事务所需工具、路径、文件操作和 family store，不复制这些协作者。
+	## [br]
+	## @api private
 	func _init(
 		p_owner: Object,
 		p_path_policy: _StoragePathPolicy,
@@ -9575,12 +11274,21 @@ class _StorageTransactionManager:
 		_file_ops = p_file_ops
 		_family_store = p_family_store
 
+
+	# --- 私有/辅助方法 ---
+
+	## 清空全部协作者引用；不会在此自动提交、回滚或删除事务证据。
+	## [br]
+	## @api private
 	func _dispose() -> void:
 		_owner = null
 		_path_policy = null
 		_file_ops = null
 		_family_store = null
 
+	## 从同根 family descriptor 取得候选载荷相对路径，供写入提交前的新内容。
+	## [br]
+	## @api private
 	func _get_temp_filename(file_name: String) -> String:
 		return GFVariantData.get_option_string(
 			GFStorageFamilyStore.make_family_descriptor_for_framework(
@@ -9590,6 +11298,9 @@ class _StorageTransactionManager:
 			"candidate_relative_path"
 		)
 
+	## 从 family descriptor 取得旧载荷备份相对路径，供提交失败恢复。
+	## [br]
+	## @api private
 	func _get_backup_filename(file_name: String) -> String:
 		return GFVariantData.get_option_string(
 			GFStorageFamilyStore.make_family_descriptor_for_framework(
@@ -9599,6 +11310,9 @@ class _StorageTransactionManager:
 			"backup_relative_path"
 		)
 
+	## 取得正式 prepare 记录相对路径，表示一组文件原状态已被登记。
+	## [br]
+	## @api private
 	func _get_transaction_filename(file_name: String) -> String:
 		return GFVariantData.get_option_string(
 			GFStorageFamilyStore.make_family_descriptor_for_framework(
@@ -9608,6 +11322,9 @@ class _StorageTransactionManager:
 			"transaction_relative_path"
 		)
 
+	## 取得 prepare 记录的暂存相对路径，写入验证后才提升为正式记录。
+	## [br]
+	## @api private
 	func _get_transaction_pending_filename(file_name: String) -> String:
 		return GFVariantData.get_option_string(
 			GFStorageFamilyStore.make_family_descriptor_for_framework(
@@ -9617,6 +11334,9 @@ class _StorageTransactionManager:
 			"transaction_pending_relative_path"
 		)
 
+	## 取得正式 commit 证据相对路径，供全组提交判定与恢复使用。
+	## [br]
+	## @api private
 	func _get_transaction_commit_filename(file_name: String) -> String:
 		return GFVariantData.get_option_string(
 			GFStorageFamilyStore.make_family_descriptor_for_framework(
@@ -9626,6 +11346,9 @@ class _StorageTransactionManager:
 			"transaction_commit_relative_path"
 		)
 
+	## 取得 commit 证据暂存相对路径，避免半写入的 JSON 被当作正式提交。
+	## [br]
+	## @api private
 	func _get_transaction_commit_pending_filename(file_name: String) -> String:
 		return GFVariantData.get_option_string(
 			GFStorageFamilyStore.make_family_descriptor_for_framework(
@@ -9635,6 +11358,9 @@ class _StorageTransactionManager:
 			"transaction_commit_pending_relative_path"
 		)
 
+	## 仅在无备份和正式 commit 证据时清理候选与资源暂存，然后清理 prepare；疑似已推进提交的状态返回损坏而不盲删。
+	## [br]
+	## @api private
 	func _cleanup_transaction_files(file_names: Array[String]) -> Error:
 		file_names = _unique_file_names(file_names)
 		for file_name: String in file_names:
@@ -9658,6 +11384,9 @@ class _StorageTransactionManager:
 					return cleanup_error
 		return _cleanup_prepare_records(file_names)
 
+	## 枚举已认领 family 并逐个触发目标恢复，遇到首个目录或事务错误即停止，不绕过损坏项。
+	## [br]
+	## @api private
 	func _recover_all_catalog_transactions() -> Error:
 		var descriptors_result: Dictionary = (
 			_family_store.list_claimed_family_descriptors_for_framework()
@@ -9683,6 +11412,9 @@ class _StorageTransactionManager:
 				return recovery_error
 		return OK
 
+	## 对指定成员先协调 pending 并验证记录，再发现完整事务组恢复；未被组覆盖的成员随后单独恢复。
+	## [br]
+	## @api private
 	func _recover_transaction_files(file_names: Array[String]) -> Error:
 		file_names = _unique_file_names(file_names)
 		var recovered_files: Dictionary = {}
@@ -9744,6 +11476,9 @@ class _StorageTransactionManager:
 					return recovery_error
 		return OK
 
+	## 逐项证明传入的冻结载荷、候选、备份及两类标记路径与当前策略一致，再恢复该文件所属事务。
+	## [br]
+	## @api private
 	func _recover_frozen_file_family(
 		file_name: String,
 		final_path: String,
@@ -9762,6 +11497,9 @@ class _StorageTransactionManager:
 			return ERR_INVALID_PARAMETER
 		return _recover_transaction_file(file_name)
 
+	## 验证显式路径与策略解析一致后，仅按单成员事务组恢复；不把任意绝对路径当作恢复授权。
+	## [br]
+	## @api private
 	func _recover_single_file_family(
 		file_name: String,
 		final_path: String,
@@ -9778,6 +11516,10 @@ class _StorageTransactionManager:
 			return ERR_INVALID_PARAMETER
 		return _recover_transaction_group([file_name])
 
+	## 按排序去重的成员集验证 family、pending 与证据一致性，再根据完整 commit、prepare 或已完成清理状态选择收尾或回滚。
+	## 证据不全且不能证明终态时返回损坏，保留文件供后续诊断。
+	## [br]
+	## @api private
 	func _recover_transaction_group(file_names: Array[String]) -> Error:
 		file_names = _unique_file_names(file_names)
 		file_names.sort()
@@ -9880,6 +11622,9 @@ class _StorageTransactionManager:
 			return _cleanup_prepare_records(file_names)
 		return ERR_FILE_CORRUPT
 
+	## 先协调该成员的 pending 与正式记录；有证据则发现整组恢复，无证据则验证稳定单文件状态。
+	## [br]
+	## @api private
 	func _recover_transaction_file(file_name: String) -> Error:
 		var pending_error: Error = _reconcile_pending_records_for_file(file_name)
 		if pending_error != OK:
@@ -9915,6 +11660,10 @@ class _StorageTransactionManager:
 		)
 		return _recover_transaction_group(transaction_files)
 
+	## 验证 prepare/commit 暂存记录后提升或删除同内容旧暂存；与正式记录冲突则保留并报错。
+	## commit 暂存没有 prepare 依据时拒绝提升，重命名失败后只接纳内容一致的正式记录。
+	## [br]
+	## @api private
 	func _reconcile_pending_records_for_file(file_name: String) -> Error:
 		for committed: bool in [false, true]:
 			var final_path: String = _path_policy._get_full_path(
@@ -9989,6 +11738,9 @@ class _StorageTransactionManager:
 					return remove_raced_pending
 		return OK
 
+	## 检查存在的正式记录是否属于该成员及对应 prepare/commit 类型；不存在不算错误，组完整性另查。
+	## [br]
+	## @api private
 	func _validate_final_transaction_records_for_file(file_name: String) -> Error:
 		for committed: bool in [false, true]:
 			var record_path: String = _path_policy._get_full_path(
@@ -10014,6 +11766,9 @@ class _StorageTransactionManager:
 				return ERR_FILE_CORRUPT
 		return OK
 
+	## 按成员顺序优先读取 prepare、再读 commit；只有不存在才继续搜索，遇到损坏立即返回该错误。
+	## [br]
+	## @api private
 	func _find_transaction_reference(file_names: Array[String]) -> Dictionary:
 		for file_name: String in file_names:
 			var prepare_read: Dictionary = _read_transaction_marker_result(file_name)
@@ -10036,6 +11791,9 @@ class _StorageTransactionManager:
 				return commit_read
 		return {"error": int(ERR_FILE_NOT_FOUND), "record": {}}
 
+	## 无事务证据时拒绝残留候选或备份，清理资源暂存并检查 revision 状态；不凭无标记就假定载荷可用。
+	## [br]
+	## @api private
 	func _validate_stable_group_without_evidence(file_names: Array[String]) -> Error:
 		for file_name: String in file_names:
 			for sidecar_path: String in [
@@ -10065,6 +11823,9 @@ class _StorageTransactionManager:
 				return revision.get_error_code()
 		return OK
 
+	## 证明各成员正式载荷存在、候选及备份已消失，且 revision 与事务标识一致，用于识别提交清理的中断点。
+	## [br]
+	## @api private
 	func _group_matches_committed_cleanup(
 		file_names: Array[String],
 		transaction_reference: Dictionary
@@ -10084,6 +11845,9 @@ class _StorageTransactionManager:
 				return false
 		return true
 
+	## 核对正式文件存在性与原 had_final 一致，并要求无候选或备份；只证明文件布局，不比较旧内容哈希。
+	## [br]
+	## @api private
 	func _group_matches_rolled_back_state(
 		file_names: Array[String],
 		transaction_reference: Dictionary
@@ -10101,6 +11865,9 @@ class _StorageTransactionManager:
 				return false
 		return true
 
+	## 先验证已提交载荷布局，再发布 revision，最后清理证据；前一步失败时保留后续证据不清理。
+	## [br]
+	## @api private
 	func _finalize_committed_group(file_names: Array[String]) -> Error:
 		var terminal_error: Error = _validate_committed_group_state(file_names)
 		if terminal_error != OK:
@@ -10110,6 +11877,9 @@ class _StorageTransactionManager:
 			return revision_error
 		return _cleanup_committed_group_evidence(file_names)
 
+	## 以当前策略根和 family store 的 incarnation 构造该逻辑文件的 revision 路径上下文。
+	## [br]
+	## @api private
 	func _revision_context(file_name: String) -> Dictionary:
 		return GFStorageRevisionStore.make_context_for_framework(
 			GFStorageFamilyStore.make_family_descriptor_for_framework(
@@ -10118,6 +11888,9 @@ class _StorageTransactionManager:
 			_family_store.get_revision_incarnation_for_framework()
 		)
 
+	## 旧布局没有 incarnation 时跳过；否则从事务证据读取同一个 commit id，逐成员发布 revision，失败即保留证据返回。
+	## [br]
+	## @api private
 	func _publish_committed_revisions(file_names: Array[String]) -> Error:
 		if _family_store.get_revision_incarnation_for_framework().is_empty():
 			return OK
@@ -10135,6 +11908,9 @@ class _StorageTransactionManager:
 				return publish_error
 		return OK
 
+	## 要求每个正式载荷已存在且候选已移走；备份允许残留，后续清理阶段负责删除。
+	## [br]
+	## @api private
 	func _validate_committed_group_state(file_names: Array[String]) -> Error:
 		for file_name: String in file_names:
 			if not FileAccess.file_exists(_path_policy._get_full_path(file_name)):
@@ -10143,6 +11919,9 @@ class _StorageTransactionManager:
 				return ERR_FILE_CORRUPT
 		return OK
 
+	## 先删备份和资源暂存，再删 prepare，最后删 commit，使中断清理仍保留可识别证据。
+	## [br]
+	## @api private
 	func _cleanup_committed_group_evidence(file_names: Array[String]) -> Error:
 		for file_name: String in file_names:
 			for cleanup_path: String in [
@@ -10163,6 +11942,9 @@ class _StorageTransactionManager:
 			return prepare_cleanup_error
 		return _cleanup_commit_records(file_names)
 
+	## 按 had_final 恢复备份或删除本次新增文件，同时清候选和资源暂存；验证回滚布局后先删 commit 再删 prepare。
+	## [br]
+	## @api private
 	func _rollback_group_from_record(
 		file_names: Array[String],
 		transaction_reference: Dictionary
@@ -10207,6 +11989,9 @@ class _StorageTransactionManager:
 			return commit_cleanup_error
 		return _cleanup_prepare_records(file_names)
 
+	## 逐成员删除 prepare 暂存与正式记录，遇到首个错误停止；缺失记录按文件操作规则视为成功。
+	## [br]
+	## @api private
 	func _cleanup_prepare_records(file_names: Array[String]) -> Error:
 		for file_name: String in file_names:
 			for path: String in [
@@ -10218,6 +12003,9 @@ class _StorageTransactionManager:
 					return cleanup_error
 		return OK
 
+	## 逐成员删除 commit 暂存与正式证据，遇到首个错误停止，供回滚或成功收尾调用。
+	## [br]
+	## @api private
 	func _cleanup_commit_records(file_names: Array[String]) -> Error:
 		for file_name: String in file_names:
 			for path: String in [
@@ -10229,6 +12017,10 @@ class _StorageTransactionManager:
 					return cleanup_error
 		return OK
 
+	## 准备全组证据后先备份旧载荷、再提升候选、发布 commit 和 revision；中途文件错误尝试恢复并优先报告恢复失败。
+	## revision 发布失败保留证据供重试；最终清理失败仅警告，载荷提交仍返回 OK。
+	## [br]
+	## @api private
 	func _commit_transaction(file_names: Array[String], markers_prepared: bool = false) -> Error:
 		file_names = _unique_file_names(file_names)
 		file_names.sort()
@@ -10279,6 +12071,9 @@ class _StorageTransactionManager:
 			)
 		return OK
 
+	## 以磁盘现存事务记录为回滚依据，忽略传入的旧状态字典；找不到证据视为损坏而不推断原布局。
+	## [br]
+	## @api private
 	func _rollback_transaction(
 		file_names: Array[String],
 		_transaction_state: Dictionary
@@ -10303,6 +12098,10 @@ class _StorageTransactionManager:
 		)
 		return _rollback_group_from_record(file_names, transaction_reference)
 
+	## prepare 捕获全组 had_final 并创建事务标识；commit 必须复用一致的 prepare 快照。
+	## 逐成员通过暂存发布证据，prepare 发布失败时尝试撤销部分准备，返回原发布错误。
+	## [br]
+	## @api private
 	func _write_transaction_markers(file_names: Array[String], committed: bool) -> Error:
 		file_names = _unique_file_names(file_names)
 		file_names.sort()
@@ -10386,28 +12185,43 @@ class _StorageTransactionManager:
 				return error
 		return OK
 
+	## 读取 prepare 内容的便利包装，丢弃错误码；失败返回空记录，需区分错误的调用方使用 result 版本。
+	## [br]
+	## @api private
 	func _read_transaction_marker(file_name: String) -> Dictionary:
 		return GFVariantData.get_option_dictionary(
 			_read_transaction_marker_result(file_name),
 			"record"
 		)
 
+	## 读取 commit 内容的便利包装；缺失或失败以空记录表示，不携带错误原因。
+	## [br]
+	## @api private
 	func _read_transaction_commit_marker(file_name: String) -> Dictionary:
 		return GFVariantData.get_option_dictionary(
 			_read_transaction_commit_marker_result(file_name),
 			"record"
 		)
 
+	## 经路径策略定位 prepare 并返回保留读取错误码的结果。
+	## [br]
+	## @api private
 	func _read_transaction_marker_result(file_name: String) -> Dictionary:
 		var path: String = _path_policy._get_full_path(_get_transaction_filename(file_name))
 		return _read_transaction_marker_result_absolute(path)
 
+	## 经路径策略定位 commit 证据并返回保留读取错误码的结果。
+	## [br]
+	## @api private
 	func _read_transaction_commit_marker_result(file_name: String) -> Dictionary:
 		var path: String = _path_policy._get_full_path(
 			_get_transaction_commit_filename(file_name)
 		)
 		return _read_transaction_marker_result_absolute(path)
 
+	## 优先读取 prepare；只有确实不存在时才回退 commit，不以 commit 掩盖损坏的 prepare。
+	## [br]
+	## @api private
 	func _read_first_transaction_marker_result(file_name: String) -> Dictionary:
 		var prepare_read: Dictionary = _read_transaction_marker_result(file_name)
 		var prepare_error: Error = GFVariantData.get_option_int(
@@ -10419,6 +12233,10 @@ class _StorageTransactionManager:
 			return prepare_read
 		return _read_transaction_commit_marker_result(file_name)
 
+	## 先验证记录归属，再写并回读暂存，最后重命名发布；已存在正式记录只有内容一致才可复用。
+	## 发布重命名失败但正式内容一致时视为成功，残留暂存删除失败不覆盖成功结果。
+	## [br]
+	## @api private
 	func _publish_transaction_record(
 		path: String,
 		pending_path: String,
@@ -10464,6 +12282,9 @@ class _StorageTransactionManager:
 		var _pending_cleanup_error: Error = _file_ops._remove_absolute(pending_path)
 		return OK
 
+	## 仅在无候选、备份或 commit 时撤销部分 prepare；已有正式 prepare 必须属于目标事务，避免删去其他事务证据。
+	## [br]
+	## @api private
 	func _abort_partial_prepare(file_names: Array[String], transaction_id: String) -> Error:
 		for file_name: String in file_names:
 			if (
@@ -10503,6 +12324,9 @@ class _StorageTransactionManager:
 				return remove_pending_error
 		return OK
 
+	## 两份记录均须对期望 owner 有效，再比较事务标识、提交状态、owner 与完整成员快照。
+	## [br]
+	## @api private
 	func _transaction_records_match(expected: Dictionary, actual: Dictionary) -> bool:
 		var expected_owner: Dictionary = GFVariantData.get_option_dictionary(
 			expected,
@@ -10527,6 +12351,9 @@ class _StorageTransactionManager:
 			== GFVariantData.get_option_array(actual, "members")
 		)
 
+	## 验证候选记录归属及期望提交状态，再比较事务标识与成员快照；不同成员的 owner 可以不同。
+	## [br]
+	## @api private
 	func _markers_share_snapshot(
 		transaction_reference: Dictionary,
 		candidate: Dictionary,
@@ -10542,6 +12369,9 @@ class _StorageTransactionManager:
 			== GFVariantData.get_option_array(candidate, "members")
 		)
 
+	## 从成员快照读取指定逻辑文件原先是否存在；缺少成员时返回 false，调用方需先验证组完整性。
+	## [br]
+	## @api private
 	func _get_marker_had_final(marker: Dictionary, file_name: String) -> bool:
 		for member_value: Variant in GFVariantData.get_option_array(marker, "members"):
 			var member: Dictionary = GFVariantData.as_dictionary(member_value)
@@ -10549,6 +12379,9 @@ class _StorageTransactionManager:
 				return GFVariantData.get_option_bool(member, "had_final")
 		return false
 
+	## 读取磁盘记录并与期望快照比较；传播读取错误，内容不一致返回损坏。
+	## [br]
+	## @api private
 	func _match_transaction_record_at_path(expected: Dictionary, path: String) -> Error:
 		var read_result: Dictionary = _read_transaction_marker_result_absolute(path)
 		var read_error: Error = GFVariantData.get_option_int(
@@ -10567,15 +12400,24 @@ class _StorageTransactionManager:
 			else ERR_FILE_CORRUPT
 		)
 
+	## 统一委托外层的受限事务记录读取器，保留错误码和记录结构。
+	## [br]
+	## @api private
 	func _read_transaction_marker_result_absolute(path: String) -> Dictionary:
 		return GFStorageUtility._read_transaction_record_result_absolute(path)
 
+	## 绝对路径读取的内容包装；丢弃错误码，失败以空记录表示。
+	## [br]
+	## @api private
 	func _read_transaction_marker_absolute(path: String) -> Dictionary:
 		return GFVariantData.get_option_dictionary(
 			_read_transaction_marker_result_absolute(path),
 			"record"
 		)
 
+	## 验证记录属于指定成员后取出声明的排序成员；若提供非空允许集，则要求集合完全一致。
+	## [br]
+	## @api private
 	func _get_transaction_marker_files(
 		marker: Dictionary,
 		fallback_file_name: String,
@@ -10597,6 +12439,9 @@ class _StorageTransactionManager:
 			return []
 		return result
 
+	## 取得声明成员后逐项验证 family 所有权；缺失或损坏成员转换为事务损坏，不恢复记录之外的路径。
+	## [br]
+	## @api private
 	func _discover_transaction_marker_files(
 		marker: Dictionary,
 		fallback_file_name: String
@@ -10624,9 +12469,15 @@ class _StorageTransactionManager:
 				}
 		return {"error": int(OK), "files": declared_files}
 
+	## 检查每个成员都有一致的 commit 快照；不在此发布 revision 或清理旁路文件。
+	## [br]
+	## @api private
 	func _is_transaction_group_committed(file_names: Array[String]) -> bool:
 		return _is_transaction_group_in_state(file_names, true)
 
+	## 规范化成员集后逐项核对状态、完整成员快照和事务标识；检查 prepare 状态时还拒绝现存 commit。
+	## [br]
+	## @api private
 	func _is_transaction_group_in_state(file_names: Array[String], committed: bool) -> bool:
 		file_names = _unique_file_names(file_names)
 		file_names.sort()
@@ -10656,6 +12507,9 @@ class _StorageTransactionManager:
 				return false
 		return true
 
+	## 验证各 family 及完整一致的未提交 prepare 快照，供调用方声明已准备时使用；不执行恢复或写文件。
+	## [br]
+	## @api private
 	func _validate_transaction_group(file_names: Array[String]) -> Error:
 		file_names = _unique_file_names(file_names)
 		file_names.sort()
@@ -10698,6 +12552,10 @@ class _StorageTransactionManager:
 				return ERR_FILE_CORRUPT
 		return OK
 
+	## 严格验证六字段事务记录、schema/版本、owner 和排序唯一的成员列表，要求 owner 在组内且数量受限。
+	## 事务标识这里只要求非空文本，不把所有历史记录都限定为 UUID。
+	## [br]
+	## @api private
 	func _is_valid_marker_for_member(marker: Dictionary, file_name: String) -> bool:
 		if marker.size() != 6:
 			return false
@@ -10760,6 +12618,9 @@ class _StorageTransactionManager:
 			has_owner = has_owner or member_file_name == file_name
 		return member_count > 0 and member_count <= GFStorageUtility._MAX_TRANSACTION_FILES and has_owner
 
+	## 通过路径策略严格验证并去重，保留首次出现顺序；非法名称丢弃，调用方按需另行排序。
+	## [br]
+	## @api private
 	func _unique_file_names(file_names: Array[String]) -> Array[String]:
 		var result: Array[String] = []
 		for raw_file_name: String in file_names:
@@ -10768,6 +12629,9 @@ class _StorageTransactionManager:
 				result.append(file_name)
 		return result
 
+	## 只保留合法的可移植逻辑文件路径，非法输入返回空串且不输出额外日志。
+	## [br]
+	## @api private
 	func _canonicalize_marker_file_name(file_name: String) -> String:
 		return file_name if GFStorageFamilyStore.is_valid_logical_file_path_for_framework(
 			file_name

@@ -16,6 +16,9 @@ const GFExtensionSettingsBase = preload("res://addons/gf/kernel/extension/gf_ext
 
 # --- 私有变量 ---
 
+## 保留 setup() 成功注册的扩展实例，供 cleanup() 逐个注销。
+## [br]
+## @api private
 var _document_extensions: Array[GLTFDocumentExtension] = []
 
 
@@ -46,6 +49,10 @@ func cleanup() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 加载并实例化指定路径的 GLTFDocumentExtension；失败时记录错误并跳过注册。
+## 成功实例会注册到 GLTFDocument，并保存到本工具的实例列表中。
+## [br]
+## @api private
 func _register_document_extension(script_path: String) -> void:
 	var extension_script: Script = _load_script(script_path)
 	if extension_script == null or not extension_script.can_instantiate():
@@ -61,6 +68,9 @@ func _register_document_extension(script_path: String) -> void:
 	_document_extensions.append(document_extension)
 
 
+## 加载路径对应的资源，仅在结果是 Script 时返回脚本。
+## [br]
+## @api private
 func _load_script(script_path: String) -> Script:
 	var resource: Resource = load(script_path)
 	if resource is Script:
@@ -69,6 +79,9 @@ func _load_script(script_path: String) -> Script:
 	return null
 
 
+## 调用脚本的 new()，并仅返回 GLTFDocumentExtension 类型的实例。
+## [br]
+## @api private
 func _instantiate_document_extension(script: Script) -> GLTFDocumentExtension:
 	var instance: Variant = script.call("new")
 	if instance is GLTFDocumentExtension:

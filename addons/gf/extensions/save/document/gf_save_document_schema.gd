@@ -14,6 +14,10 @@ extends Resource
 
 # --- 常量 ---
 
+## 允许出现在规范 schema 字典中的字段名。
+## [br]
+## @api private
+## [br]
 const _SCHEMA_FIELDS: Array = [
 	"schema_id",
 	"schema_version",
@@ -405,6 +409,10 @@ static func from_dict(data: Dictionary) -> GFSaveDocumentSchema:
 
 # --- 私有/辅助方法 ---
 
+## 追加文档或分区版本不匹配的问题，并标记迁移需求。
+## [br]
+## @api private
+## [br]
 func _append_version_issue(
 	report: Dictionary,
 	field_path: String,
@@ -445,6 +453,10 @@ func _append_version_issue(
 	)
 
 
+## 将嵌套校验报告的问题复制到父报告并加上路径前缀。
+## [br]
+## @api private
+## [br]
 func _append_nested_issues(report: Dictionary, nested_report: Dictionary, path_prefix: String) -> void:
 	for issue_value: Variant in GFVariantData.get_option_array(nested_report, "issues"):
 		var issue: Dictionary = GFVariantData.as_dictionary(issue_value)
@@ -460,6 +472,10 @@ func _append_nested_issues(report: Dictionary, nested_report: Dictionary, path_p
 		)
 
 
+## 完成兼容性报告并根据 ok 字段设置 compatible。
+## [br]
+## @api private
+## [br]
 func _finalize_document_report(report: Dictionary) -> Dictionary:
 	var finalized: Dictionary = GFValidationReportDictionary.finalize_report(report, "Save document compatibility", {
 		"include_issue_count": true,
@@ -471,6 +487,10 @@ func _finalize_document_report(report: Dictionary) -> Dictionary:
 	return finalized
 
 
+## 清理分区 ID 键并读取其版本值。
+## [br]
+## @api private
+## [br]
 static func _normalize_section_versions(source: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for key: Variant in source.keys():
@@ -481,6 +501,10 @@ static func _normalize_section_versions(source: Dictionary) -> Dictionary:
 	return result
 
 
+## 去除分区 ID 首尾空白、删除空值与重复值并排序。
+## [br]
+## @api private
+## [br]
 static func _normalize_section_ids(source: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for section_id_text: String in source:
@@ -491,6 +515,10 @@ static func _normalize_section_ids(source: PackedStringArray) -> PackedStringArr
 	return result
 
 
+## 提取非空且文本唯一的字典键，并按文本排序。
+## [br]
+## @api private
+## [br]
 static func _sorted_dictionary_keys(source: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for key: Variant in source.keys():
@@ -501,6 +529,10 @@ static func _sorted_dictionary_keys(source: Dictionary) -> PackedStringArray:
 	return result
 
 
+## 返回 schema 校验与文档兼容性问题的后续操作建议。
+## [br]
+## @api private
+## [br]
 func _get_validation_next_actions() -> Dictionary:
 	return {
 		"missing_schema_id": "Assign a stable schema_id owned by the project.",

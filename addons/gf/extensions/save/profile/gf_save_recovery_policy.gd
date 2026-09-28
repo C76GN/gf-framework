@@ -173,6 +173,10 @@ func get_retry_delay_msec(failed_attempt_count: int) -> int:
 
 # --- 私有/辅助方法 ---
 
+## 对不在允许集合中的恢复动作追加路径诊断。
+## [br]
+## @api private
+## [br]
 func _append_action_issue(report: Dictionary, path: String, action: StringName) -> void:
 	if action in [ACTION_FAIL, ACTION_USE_CURRENT_STATE]:
 		return

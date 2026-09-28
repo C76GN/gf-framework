@@ -14,7 +14,14 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 3D 折线和姿态运算用于识别近零长度的阈值。
+## [br]
+## @api private
 const _EPSILON: float = 0.00001
+
+## 与 `_EPSILON` 对应的平方长度阈值，用于比较 length_squared() 结果。
+## [br]
+## @api private
 const _EPSILON_SQUARED: float = _EPSILON * _EPSILON
 
 
@@ -318,6 +325,9 @@ static func sample_curve_pose(
 
 # --- 私有/辅助方法 ---
 
+## 复制折线点列；闭合且至少三个点时，必要时追加首点形成闭合线段。
+## [br]
+## @api private
 static func _get_polyline_points(points: PackedVector3Array, closed: bool) -> PackedVector3Array:
 	var result: PackedVector3Array = points.duplicate()
 	if closed and result.size() > 2 and result[0] != result[result.size() - 1]:
@@ -325,6 +335,9 @@ static func _get_polyline_points(points: PackedVector3Array, closed: bool) -> Pa
 	return result
 
 
+## 判断任一锚点位置是否与首锚点相距超过平方容差。
+## [br]
+## @api private
 static func _has_nonzero_curve_anchor_span(curve: Curve3D) -> bool:
 	var point_count: int = curve.get_point_count()
 	var first_point: Vector3 = curve.get_point_position(0)
@@ -334,6 +347,9 @@ static func _has_nonzero_curve_anchor_span(curve: Curve3D) -> bool:
 	return false
 
 
+## 创建失败态折线姿态报告，并初始化段索引、位置和姿态向量字段。
+## [br]
+## @api private
 static func _make_polyline_pose_report(ratio: float, total_length: float, closed: bool) -> Dictionary:
 	return {
 		"ok": false,
@@ -352,6 +368,9 @@ static func _make_polyline_pose_report(ratio: float, total_length: float, closed
 	}
 
 
+## 沿累计弧长定位线段并生成姿态报告；忽略近零线段。
+## [br]
+## @api private
 static func _sample_polyline_pose_at_distance(
 	path_points: PackedVector3Array,
 	target_distance: float,
@@ -401,6 +420,9 @@ static func _sample_polyline_pose_at_distance(
 	)
 
 
+## 组装成功姿态报告，并从线段方向和 up_hint 构建稳定法线与副法线。
+## [br]
+## @api private
 static func _make_polyline_pose_success_report(
 	point: Vector3,
 	offset: float,
@@ -433,6 +455,9 @@ static func _make_polyline_pose_success_report(
 	}
 
 
+## 创建投影搜索的初始失败报告，并写入目标点和无限初始距离。
+## [br]
+## @api private
 static func _make_polyline_projection_report(target: Vector3, closed: bool) -> Dictionary:
 	var report: Dictionary = _make_polyline_pose_report(0.0, 0.0, closed)
 	report["target"] = target
@@ -441,6 +466,9 @@ static func _make_polyline_projection_report(target: Vector3, closed: bool) -> D
 	return report
 
 
+## 在姿态成功报告上补入投影目标、距离和平方距离。
+## [br]
+## @api private
 static func _make_polyline_projection_success_report(
 	target: Vector3,
 	point: Vector3,
@@ -472,6 +500,9 @@ static func _make_polyline_projection_success_report(
 	return report
 
 
+## 创建失败态曲线姿态报告，并初始化点、偏移和帧向量字段。
+## [br]
+## @api private
 static func _make_curve_pose_report(ratio: float, total_length: float) -> Dictionary:
 	return {
 		"ok": false,
@@ -485,6 +516,9 @@ static func _make_curve_pose_report(ratio: float, total_length: float) -> Dictio
 	}
 
 
+## 组装成功曲线姿态报告，并规范化切线后构建稳定法线帧。
+## [br]
+## @api private
 static func _make_curve_pose_success_report(
 	point: Vector3,
 	offset: float,
@@ -508,6 +542,9 @@ static func _make_curve_pose_success_report(
 	}
 
 
+## 在采样位置两侧取 baked 点差估算切线，并将采样距离限制到路径范围。
+## [br]
+## @api private
 static func _sample_curve_tangent(
 	curve: Curve3D,
 	offset: float,
@@ -534,6 +571,9 @@ static func _sample_curve_tangent(
 	return tangent.normalized()
 
 
+## 从相邻控制点位置中返回首个非零段的单位方向，找不到时返回零向量。
+## [br]
+## @api private
 static func _fallback_curve_tangent_from_points(curve: Curve3D) -> Vector3:
 	var point_count: int = curve.get_point_count()
 	for index: int in range(1, point_count):
@@ -543,6 +583,9 @@ static func _fallback_curve_tangent_from_points(curve: Curve3D) -> Vector3:
 	return Vector3.ZERO
 
 
+## 将 up_hint 投影到切线的垂直平面；投影退化时采用备用垂直方向。
+## [br]
+## @api private
 static func _make_stable_normal(tangent: Vector3, up_hint: Vector3) -> Vector3:
 	if tangent.length_squared() <= _EPSILON_SQUARED:
 		return Vector3.ZERO
@@ -553,6 +596,9 @@ static func _make_stable_normal(tangent: Vector3, up_hint: Vector3) -> Vector3:
 	return _make_perpendicular_unit(tangent)
 
 
+## 以切线与法线叉积生成副法线，退化时回退到切线的备用垂直方向。
+## [br]
+## @api private
 static func _make_stable_binormal(tangent: Vector3, normal: Vector3) -> Vector3:
 	if tangent.length_squared() <= _EPSILON_SQUARED or normal.length_squared() <= _EPSILON_SQUARED:
 		return Vector3.ZERO
@@ -563,6 +609,9 @@ static func _make_stable_binormal(tangent: Vector3, normal: Vector3) -> Vector3:
 	return binormal.normalized()
 
 
+## 按方向与固定坐标轴的夹角选择叉积轴，生成稳定单位垂直向量。
+## [br]
+## @api private
 static func _make_perpendicular_unit(direction: Vector3) -> Vector3:
 	var axis: Vector3 = Vector3.RIGHT
 	if absf(direction.normalized().dot(axis)) > 0.9:

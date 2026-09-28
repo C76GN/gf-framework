@@ -14,6 +14,10 @@ extends Resource
 
 # --- 常量 ---
 
+## 生成统一验证报告字典的脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_VALIDATION_REPORT_DICTIONARY = preload("res://addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd")
 
 
@@ -244,16 +248,28 @@ func describe() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 检查 payload 是否以 StringName 或 String 形式包含字段键。
+## [br]
+## @api private
+## [br]
 func _has_payload_key(payload: Dictionary, field_name: StringName) -> bool:
 	return payload.has(field_name) or payload.has(String(field_name))
 
 
+## 按 StringName 或 String 字段键读取 payload，并在缺失时返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_payload_value(payload: Dictionary, field_name: StringName, default_value: Variant) -> Variant:
 	if payload.has(field_name):
 		return payload[field_name]
 	return GFVariantData.get_option_value(payload, String(field_name), default_value)
 
 
+## 复制有效的问题字典并为每项补入当前 message_type。
+## [br]
+## @api private
+## [br]
 func _with_message_context(issues: Array) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for issue_variant: Variant in issues:
@@ -266,6 +282,10 @@ func _with_message_context(issues: Array) -> Array[Dictionary]:
 	return result
 
 
+## 构造带消息类型及可选字段路径的验证问题字典。
+## [br]
+## @api private
+## [br]
 func _make_issue(severity: String, kind: String, message: String, field_name: String = "") -> Dictionary:
 	var issue: Dictionary = {
 		"severity": severity,
@@ -281,6 +301,10 @@ func _make_issue(severity: String, kind: String, message: String, field_name: St
 	return issue
 
 
+## 补齐消息字段修复建议并统一封装验证报告。
+## [br]
+## @api private
+## [br]
 func _finalize_report(issues: Array[Dictionary]) -> Dictionary:
 	var report: Dictionary = {
 		"subject": "Network contract message",
@@ -293,6 +317,10 @@ func _finalize_report(issues: Array[Dictionary]) -> Dictionary:
 	})
 
 
+## 按消息契约和字段错误类型提供修复建议文本。
+## [br]
+## @api private
+## [br]
 func _get_validation_next_actions() -> Dictionary:
 	return {
 		"empty_message_type": "Assign every network contract message a stable message_type.",

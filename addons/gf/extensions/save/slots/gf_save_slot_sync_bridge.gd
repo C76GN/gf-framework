@@ -179,12 +179,20 @@ func sync_slots(
 
 # --- 私有/辅助方法 ---
 
+## 返回已设置的同步工具；尚无实例时延迟创建默认工具。
+## [br]
+## @api private
+## [br]
 func _get_sync_utility() -> GFStorageSyncUtility:
 	if sync_utility == null:
 		sync_utility = GFStorageSyncUtility.new()
 	return sync_utility
 
 
+## 校验槽位索引、适配器和后端后委托适配器构建文件计划。
+## [br]
+## @api private
+## [br]
 func _validate_sync_inputs(
 	slot_index: int,
 	adapter: GFSaveSlotStorageAdapter,
@@ -200,6 +208,10 @@ func _validate_sync_inputs(
 	return adapter.build_slot_file_plan(slot_index)
 
 
+## 按两个 options 开关选择数据文件和元数据文件名。
+## [br]
+## @api private
+## [br]
 func _get_slot_file_names(
 	file_plan: Dictionary,
 	options: Dictionary
@@ -216,6 +228,10 @@ func _get_slot_file_names(
 	return file_names
 
 
+## 构造标准槽位同步结果，并复制底层同步结果字典。
+## [br]
+## @api private
+## [br]
 func _make_slot_result(
 	ok: bool,
 	slot_index: int,

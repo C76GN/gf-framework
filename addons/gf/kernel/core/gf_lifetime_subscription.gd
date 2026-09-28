@@ -16,8 +16,19 @@ extends GFSubscriptionToken
 
 # --- 私有变量 ---
 
+## 生命周期 owner 的弱引用；未设置或已释放时无法解析。
+## [br]
+## @api private
 var _owner_ref: WeakRef = null
+
+## owner 的实例 ID；未设置时为零。
+## [br]
+## @api private
 var _owner_id: int = 0
+
+## owner 为 Node 时连接到 tree_exited 的一次性回调。
+## [br]
+## @api private
 var _owner_exit_callable: Callable = Callable()
 
 
@@ -106,7 +117,11 @@ func owner_is_released() -> bool:
 
 # --- 框架内部方法 ---
 
-# 由订阅源在订阅自动结束时解除 owner 监听并使句柄失效。
+## 由订阅源结束订阅时解除 owner 监听，然后使句柄失效；不再调用取消回调。
+## [br]
+## @api framework_internal
+## [br]
+## @return: 原先活动的句柄返回 true；已失效时返回 false。
 func _deactivate_from_source() -> bool:
 	_disconnect_owner_signal()
 	return super._deactivate_from_source()
@@ -114,6 +129,9 @@ func _deactivate_from_source() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 保存 owner 弱引用与实例 ID；Node owner 另连接一次性 tree_exited 取消回调。
+## [br]
+## @api private
 func _set_owner(owner: Object) -> void:
 	if owner == null:
 		_owner_ref = null
@@ -134,6 +152,9 @@ func _set_owner(owner: Object) -> void:
 			)
 
 
+## 断开仍有效 Node owner 上的 tree_exited 回调并清空 Callable。
+## [br]
+## @api private
 func _disconnect_owner_signal() -> void:
 	if not _owner_exit_callable.is_valid():
 		return
@@ -145,5 +166,10 @@ func _disconnect_owner_signal() -> void:
 	_owner_exit_callable = Callable()
 
 
+# --- 信号处理函数 ---
+
+## owner 离树时经正常取消流程解除订阅，只接受首次取消的状态变化。
+## [br]
+## @api private
 func _on_owner_tree_exited() -> void:
 	var _cancelled: bool = cancel()

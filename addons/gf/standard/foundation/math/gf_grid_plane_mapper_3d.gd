@@ -222,6 +222,9 @@ static func sample_neighbor_values(
 
 # --- 私有/辅助方法 ---
 
+## 组装带有效标记及 normal/u/v 轴向量的基底字典。
+## [br]
+## @api private
 static func _make_basis(valid: bool, normal: Vector3i, u: Vector3i, v: Vector3i) -> Dictionary:
 	return {
 		"valid": valid,
@@ -231,10 +234,16 @@ static func _make_basis(valid: bool, normal: Vector3i, u: Vector3i, v: Vector3i)
 	}
 
 
+## 从基底字典读取 valid 标记，缺失或无效时按 false 处理。
+## [br]
+## @api private
 static func _basis_is_valid(basis: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(basis, "valid", false)
 
 
+## 从基底字典读取 Vector3i 向量，缺失或类型不符时返回零向量。
+## [br]
+## @api private
 static func _get_basis_vector(basis: Dictionary, key: String) -> Vector3i:
 	var value: Variant = GFVariantData.get_option_value(basis, key, Vector3i.ZERO)
 	if value is Vector3i:
@@ -243,9 +252,15 @@ static func _get_basis_vector(basis: Dictionary, key: String) -> Vector3i:
 	return Vector3i.ZERO
 
 
+## 计算两个 Vector3i 的点积。
+## [br]
+## @api private
 static func _dot(a: Vector3i, b: Vector3i) -> int:
 	return a.x * b.x + a.y * b.y + a.z * b.z
 
 
+## 将 Vector3i 的三个分量分别乘以整数系数。
+## [br]
+## @api private
 static func _scale(value: Vector3i, amount: int) -> Vector3i:
 	return Vector3i(value.x * amount, value.y * amount, value.z * amount)

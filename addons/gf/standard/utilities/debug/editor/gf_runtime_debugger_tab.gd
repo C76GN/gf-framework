@@ -16,7 +16,16 @@ extends Control
 
 # --- 常量 ---
 
+## 复用 GF 编辑器工作区控件工厂和状态颜色的脚本资源。
+## [br]
+## @api private
+## [br]
 const _EDITOR_WORKSPACE_UI = preload("res://addons/gf/kernel/editor/gf_editor_workspace_ui.gd")
+
+## 提供诊断字典展示和脱敏 JSON 序列化的脚本资源。
+## [br]
+## @api private
+## [br]
 const _DIAGNOSTIC_TREE_PRESENTER = preload(
 	"res://addons/gf/standard/utilities/debug/editor/gf_diagnostic_tree_presenter.gd"
 )
@@ -24,18 +33,82 @@ const _DIAGNOSTIC_TREE_PRESENTER = preload(
 
 # --- 私有变量 ---
 
+## 当前绑定的 EditorDebuggerSession。
+## [br]
+## @api private
+## [br]
 var _session: EditorDebuggerSession = null
+
+## 当前调试会话的 Godot session ID。
+## [br]
+## @api private
+## [br]
 var _session_id: int = -1
+
+## 最近接收并深复制的运行时诊断快照。
+## [br]
+## @api private
+## [br]
 var _last_snapshot: Dictionary = {}
+
+## 最近接收并深复制的运行时命令与监控目录。
+## [br]
+## @api private
+## [br]
 var _last_catalog: Dictionary = {}
+
+## 最近接收的诊断命令名及其深复制结果。
+## [br]
+## @api private
+## [br]
 var _last_command_result: Dictionary = {}
+
+## 选择运行时监控预设的选项控件。
+## [br]
+## @api private
+## [br]
 var _preset_option: OptionButton = null
+
+## 控制快照请求是否包含场景树的复选框。
+## [br]
+## @api private
+## [br]
 var _include_scene_tree_check: CheckBox = null
+
+## 控制快照请求是否包含最近日志的复选框。
+## [br]
+## @api private
+## [br]
 var _include_logs_check: CheckBox = null
+
+## 输入诊断命令名称的单行编辑控件。
+## [br]
+## @api private
+## [br]
 var _command_edit: LineEdit = null
+
+## 显示会话、请求和结果状态摘要的标签。
+## [br]
+## @api private
+## [br]
 var _summary_label: Label = null
+
+## 尚无运行时数据时显示的引导提示标签。
+## [br]
+## @api private
+## [br]
 var _empty_label: Label = null
+
+## 按字段、类型和摘要展示诊断结果的树控件。
+## [br]
+## @api private
+## [br]
 var _tree: Tree = null
+
+## 显示当前诊断结果 JSON 的文本控件。
+## [br]
+## @api private
+## [br]
 var _details: TextEdit = null
 
 
@@ -179,6 +252,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 在树控件尚未创建时构建请求工具栏、结果树和详情区域。
+## [br]
+## @api private
+## [br]
 func _build_ui() -> void:
 	if _tree != null:
 		return
@@ -257,12 +334,20 @@ func _build_ui() -> void:
 	split.add_child(_details)
 
 
+## 将带 preset ID 元数据的监控预设加入选项控件。
+## [br]
+## @api private
+## [br]
 func _add_monitor_preset_option(preset_id: StringName, label: String) -> void:
 	var index: int = _preset_option.item_count
 	_preset_option.add_item(label, index)
 	_preset_option.set_item_metadata(index, preset_id)
 
 
+## 从当前选项控件状态组装场景树、日志和可选监控预设请求参数。
+## [br]
+## @api private
+## [br]
 func _make_snapshot_options() -> Dictionary:
 	var preset_id: StringName = _get_selected_preset_id()
 	var options: Dictionary = {
@@ -274,6 +359,10 @@ func _make_snapshot_options() -> Dictionary:
 	return options
 
 
+## 读取当前选项的元数据并转换为预设 ID；控件未初始化时返回空 ID。
+## [br]
+## @api private
+## [br]
 func _get_selected_preset_id() -> StringName:
 	if _preset_option == null:
 		return &""
@@ -281,6 +370,10 @@ func _get_selected_preset_id() -> StringName:
 	return GFVariantData.to_string_name(metadata)
 
 
+## 仅在调试会话可用时发送消息，并更新失败或发送状态提示。
+## [br]
+## @api private
+## [br]
 func _send_debugger_message(message: String, data: Array) -> bool:
 	if _session == null or not _session.is_debuggable():
 		_set_status("没有可用的运行时调试会话。", _EDITOR_WORKSPACE_UI.WARNING_TEXT_COLOR)
@@ -290,6 +383,10 @@ func _send_debugger_message(message: String, data: Array) -> bool:
 	return true
 
 
+## 更新详情 JSON、摘要状态和诊断树以显示收到的字典数据。
+## [br]
+## @api private
+## [br]
 func _render_dictionary(kind: String, payload: Dictionary) -> void:
 	_build_ui()
 	_tree.clear()
@@ -301,6 +398,10 @@ func _render_dictionary(kind: String, payload: Dictionary) -> void:
 	_DIAGNOSTIC_TREE_PRESENTER.populate_dictionary(_tree, payload)
 
 
+## 根据快照、目录或命令结果的类型生成相应摘要文本。
+## [br]
+## @api private
+## [br]
 func _make_summary(kind: String, payload: Dictionary) -> String:
 	if kind == "snapshot":
 		var architecture: Dictionary = GFVariantData.get_option_dictionary(payload, "architecture")
@@ -325,16 +426,28 @@ func _make_summary(kind: String, payload: Dictionary) -> String:
 	return "%s  %d fields" % [kind.capitalize(), payload.size()]
 
 
+## 通过工作区 UI 辅助设置摘要标签的文本和颜色。
+## [br]
+## @api private
+## [br]
 func _set_status(text: String, color: Color) -> void:
 	_EDITOR_WORKSPACE_UI.set_status(_summary_label, text, color)
 
 
+## 使用诊断树展示器的 debug 脱敏规则序列化数据。
+## [br]
+## @api private
+## [br]
 func _safe_json(value: Variant) -> String:
 	return _DIAGNOSTIC_TREE_PRESENTER.safe_json(value)
 
 
 # --- 信号处理函数 ---
 
+## 读取并修剪命令输入框文本，发起诊断命令请求。
+## [br]
+## @api private
+## [br]
 func _on_execute_pressed() -> void:
 	if _command_edit == null:
 		return
@@ -342,6 +455,10 @@ func _on_execute_pressed() -> void:
 	var _sent: bool = execute_command(command_name)
 
 
+## 详情文本非空时将其复制到剪贴板并更新状态提示。
+## [br]
+## @api private
+## [br]
 func _on_copy_pressed() -> void:
 	if _details == null or _details.text.is_empty():
 		return
@@ -349,6 +466,10 @@ func _on_copy_pressed() -> void:
 	_set_status("已复制当前详情。", _EDITOR_WORKSPACE_UI.OK_TEXT_COLOR)
 
 
+## 将选中树项的元数据编码为安全 JSON 并显示在详情控件。
+## [br]
+## @api private
+## [br]
 func _on_tree_item_selected() -> void:
 	var item: TreeItem = _tree.get_selected()
 	if item == null:

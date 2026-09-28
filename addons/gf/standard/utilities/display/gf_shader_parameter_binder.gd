@@ -94,9 +94,28 @@ signal profile_applied(applied_count: int)
 
 # --- 私有变量 ---
 
+## 负责按 Profile 验证并写入 ShaderMaterial uniform 的参数工具实例。
+## [br]
+## @api private
+## [br]
 var _shader_parameters: GFShaderParameterUtility = GFShaderParameterUtility.new()
+
+## 记录本 Binder 已复制并写回材质的目标对象实例 ID。
+## [br]
+## @api private
+## [br]
 var _owned_material_target_id: int = 0
+
+## 记录上述自有材质写回目标所用的属性路径。
+## [br]
+## @api private
+## [br]
 var _owned_material_property: NodePath = NodePath("")
+
+## 记录上述自有材质实例 ID，用于避免重复复制并验证写回后的引用。
+## [br]
+## @api private
+## [br]
 var _owned_material_id: int = 0
 
 
@@ -166,6 +185,10 @@ func resolve_target() -> Object:
 
 # --- 私有/辅助方法 ---
 
+## 把材质属性、复制、声明检查、告警和集合复制设置组装为参数工具选项。
+## [br]
+## @api private
+## [br]
 func _build_apply_options(duplicate_material: bool) -> Dictionary:
 	return {
 		"material_property": material_property,
@@ -177,6 +200,10 @@ func _build_apply_options(duplicate_material: bool) -> Dictionary:
 	}
 
 
+## 按复制开关及目标、属性路径和已拥有材质身份判断本次是否新建材质副本。
+## [br]
+## @api private
+## [br]
 func _should_duplicate_target_material(target: Object, material: ShaderMaterial) -> bool:
 	if not duplicate_material_on_apply:
 		_clear_owned_material_identity()
@@ -191,6 +218,10 @@ func _should_duplicate_target_material(target: Object, material: ShaderMaterial)
 	)
 
 
+## 应用后验证目标材质确为本 Binder 新复制或继续持有的实例，并更新其目标、路径和实例标识。
+## [br]
+## @api private
+## [br]
 func _update_owned_material_identity(
 	target: Object,
 	material_before: ShaderMaterial,
@@ -212,6 +243,10 @@ func _update_owned_material_identity(
 	_owned_material_id = material_after.get_instance_id()
 
 
+## 在目标有效且属性路径存在时读取 ShaderMaterial；类型或路径不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_target_shader_material(target: Object) -> ShaderMaterial:
 	if not is_instance_valid(target) or target is ShaderMaterial or material_property.is_empty():
 		return null
@@ -224,12 +259,20 @@ func _get_target_shader_material(target: Object) -> ShaderMaterial:
 	return null
 
 
+## 清除目标、属性路径和材质实例的自有身份记录。
+## [br]
+## @api private
+## [br]
 func _clear_owned_material_identity() -> void:
 	_owned_material_target_id = 0
 	_owned_material_property = NodePath("")
 	_owned_material_id = 0
 
 
+## Profile 存在且尚未连接时连接其 changed 信号。
+## [br]
+## @api private
+## [br]
 func _connect_profile_changed() -> void:
 	if profile == null:
 		return
@@ -237,6 +280,10 @@ func _connect_profile_changed() -> void:
 		var _changed_connected: Error = profile.changed.connect(_on_profile_changed) as Error
 
 
+## Profile 存在且 changed 信号已连接时断开该回调。
+## [br]
+## @api private
+## [br]
 func _disconnect_profile_changed() -> void:
 	if profile == null:
 		return
@@ -244,6 +291,10 @@ func _disconnect_profile_changed() -> void:
 		profile.changed.disconnect(_on_profile_changed)
 
 
+## 仅在告警开关开启时输出带有绑定无效上下文的警告。
+## [br]
+## @api private
+## [br]
 func _warn_invalid_target(message: String) -> void:
 	if warn_on_invalid_target:
 		push_warning("[GFShaderParameterBinder][shader_parameter_binder.binding_invalid] Shader parameter binding is invalid: %s." % message)
@@ -251,6 +302,10 @@ func _warn_invalid_target(message: String) -> void:
 
 # --- 信号处理函数 ---
 
+## Profile 变化后仅在自动应用开启且节点位于场景树时重新应用。
+## [br]
+## @api private
+## [br]
 func _on_profile_changed() -> void:
 	if not auto_apply_on_profile_changed or not is_inside_tree():
 		return

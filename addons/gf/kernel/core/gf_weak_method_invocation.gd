@@ -49,8 +49,19 @@ const STATUS_FAILED: StringName = &"failed"
 
 # --- 私有变量 ---
 
+## 不强持有调用目标的弱引用。
+## [br]
+## @api private
 var _owner_ref: WeakRef = null
+
+## 创建记录时捕获的稳定目标 ID；调用前与弱引用当前对象核对，结果报告仍保留此初始身份。
+## [br]
+## @api private
 var _initial_owner_instance_id: int = 0
+
+## invoke() 要解析并调用的方法名。
+## [br]
+## @api private
 var _method_name: StringName = &""
 
 
@@ -115,6 +126,9 @@ func invoke(arguments: Array = []) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 检查目标引用、初始实例 ID 和方法名是否已完成初始化。
+## [br]
+## @api private
 func _has_valid_definition() -> bool:
 	return (
 		_owner_ref != null
@@ -123,6 +137,9 @@ func _has_valid_definition() -> bool:
 	)
 
 
+## 按统一字段构造调用状态结果字典。
+## [br]
+## @api private
 func _make_result(status: StringName, value: Variant, error_code: Error) -> Dictionary:
 	return {
 		"status": status,
@@ -134,6 +151,11 @@ func _make_result(status: StringName, value: Variant, error_code: Error) -> Dict
 	}
 
 
+## 在同名反射记录中寻找接受该参数数量的签名；默认参数降低下限，VARARG 取消上限。
+## [br]
+## @api private
+## [br]
+## @return: 匹配为 OK；有可读签名但数量不符为 ERR_INVALID_PARAMETER，无可读签名为 ERR_INVALID_DATA。
 func _validate_argument_count(owner: Object, argument_count: int) -> Error:
 	var found_valid_signature: bool = false
 	for method_record: Dictionary in owner.get_method_list():

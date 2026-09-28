@@ -63,8 +63,22 @@ enum Direction2D {
 
 # --- 常量 ---
 
+## 八方向吸附时判定分量进入对角区域的绝对值阈值。
+## [br]
+## @api private
+## [br]
 const _DIAGONAL_THRESHOLD: float = 0.38268343
+
+## 方向幅度和分量比较使用的近零容差。
+## [br]
+## @api private
+## [br]
 const _EPSILON: float = 0.000001
+
+## 把 Direction2D 枚举映射到稳定方向名称的查找表。
+## [br]
+## @api private
+## [br]
 const _DIRECTION_NAMES: Dictionary = {
 	Direction2D.NONE: &"",
 	Direction2D.UP: &"up",
@@ -76,6 +90,11 @@ const _DIRECTION_NAMES: Dictionary = {
 	Direction2D.DOWN_RIGHT: &"down_right",
 	Direction2D.DOWN_LEFT: &"down_left",
 }
+
+## 把 Direction2D 枚举映射到二维离散方向向量的查找表。
+## [br]
+## @api private
+## [br]
 const _DIRECTION_VECTORS: Dictionary = {
 	Direction2D.NONE: Vector2.ZERO,
 	Direction2D.UP: Vector2.UP,
@@ -87,6 +106,11 @@ const _DIRECTION_VECTORS: Dictionary = {
 	Direction2D.DOWN_RIGHT: Vector2(1.0, 1.0),
 	Direction2D.DOWN_LEFT: Vector2(-1.0, 1.0),
 }
+
+## 把每个 Direction2D 映射到其反向枚举的查找表。
+## [br]
+## @api private
+## [br]
 const _OPPOSITE_DIRECTIONS: Dictionary = {
 	Direction2D.NONE: Direction2D.NONE,
 	Direction2D.UP: Direction2D.DOWN,
@@ -318,12 +342,20 @@ static func get_opposite_vector(direction_vector: Vector2) -> Vector2:
 
 # --- 私有/辅助方法 ---
 
+## 按较大的分量选择水平或垂直方向，并把结果分量离散为 -1、0 或 1。
+## [br]
+## @api private
+## [br]
 static func _snap_cardinal(direction: Vector2) -> Vector2:
 	if absf(direction.x) >= absf(direction.y):
 		return Vector2(signf(direction.x), 0.0)
 	return Vector2(0.0, signf(direction.y))
 
 
+## 按对角阈值分别离散两个分量；两者都未达阈值时回退到四方向吸附。
+## [br]
+## @api private
+## [br]
 static func _snap_eight_way(direction: Vector2) -> Vector2:
 	var result: Vector2 = Vector2.ZERO
 	if direction.x > _DIAGONAL_THRESHOLD:
@@ -339,6 +371,10 @@ static func _snap_eight_way(direction: Vector2) -> Vector2:
 	return result
 
 
+## 判断方向枚举是否为四种对角方向之一。
+## [br]
+## @api private
+## [br]
 static func _is_diagonal_direction(direction: Direction2D) -> bool:
 	return (
 		direction == Direction2D.UP_RIGHT
@@ -348,6 +384,10 @@ static func _is_diagonal_direction(direction: Direction2D) -> bool:
 	)
 
 
+## 仅接受有效的方向整数枚举值；类型或值无效时返回指定默认方向。
+## [br]
+## @api private
+## [br]
 static func _to_direction(value: Variant, default_direction: Direction2D = Direction2D.NONE) -> Direction2D:
 	if not value is int:
 		return default_direction

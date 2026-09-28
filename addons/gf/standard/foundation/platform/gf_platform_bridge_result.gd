@@ -262,6 +262,9 @@ static func from_dict(data: Dictionary) -> GFPlatformBridgeResult:
 
 # --- 私有/辅助方法 ---
 
+## 将请求 ID、契约 ID 和方法 ID 复制到结果；请求为空时只清空这三个字段。
+## [br]
+## @api private
 func _apply_request(request: GFPlatformBridgeRequest) -> void:
 	if request == null:
 		request_id = &""

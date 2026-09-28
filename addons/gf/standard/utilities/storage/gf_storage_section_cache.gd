@@ -16,6 +16,10 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 按序列化 scope key 保存各作用域的 sections 与 dirty_sections 记录。
+## [br]
+## @api private
+## [br]
 var _scopes: Dictionary = {}
 
 
@@ -371,6 +375,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 返回作用域记录；不存在时创建并保存原 scope_id 副本及空分区/脏标记字典。
+## [br]
+## @api private
+## [br]
 func _get_or_create_scope_record(scope_id: Variant) -> Dictionary:
 	var key: String = _make_scope_key(scope_id)
 	if not _scopes.has(key):
@@ -382,26 +390,46 @@ func _get_or_create_scope_record(scope_id: Variant) -> Dictionary:
 	return GFVariantData.as_dictionary(_scopes[key])
 
 
+## 按 scope key 读取记录；作用域不存在时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_scope_record(scope_id: Variant) -> Dictionary:
 	return GFVariantData.as_dictionary(_scopes.get(_make_scope_key(scope_id), {}))
 
 
+## 确保记录含有 Dictionary sections 字段并返回该分区映射。
+## [br]
+## @api private
+## [br]
 func _get_record_sections(record: Dictionary) -> Dictionary:
 	if not record.has("sections") or not (record["sections"] is Dictionary):
 		record["sections"] = {}
 	return GFVariantData.as_dictionary(record["sections"])
 
 
+## 确保记录含有 Dictionary dirty_sections 字段并返回脏分区映射。
+## [br]
+## @api private
+## [br]
 func _get_record_dirty_sections(record: Dictionary) -> Dictionary:
 	if not record.has("dirty_sections") or not (record["dirty_sections"] is Dictionary):
 		record["dirty_sections"] = {}
 	return GFVariantData.as_dictionary(record["dirty_sections"])
 
 
+## 以 Godot var_to_str 序列化值作为内部作用域字典键。
+## [br]
+## @api private
+## [br]
 func _make_scope_key(scope_id: Variant) -> String:
 	return var_to_str(scope_id)
 
 
+## 将字典键转换为文本并排序后返回 PackedStringArray。
+## [br]
+## @api private
+## [br]
 func _dictionary_keys_to_sorted_strings(dictionary: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for key: Variant in dictionary.keys():
@@ -410,6 +438,10 @@ func _dictionary_keys_to_sorted_strings(dictionary: Dictionary) -> PackedStringA
 	return result
 
 
+## 从 base 深拷贝后递归合并双方同键的嵌套字典，其余 patch 值经 Variant helper 复制。
+## [br]
+## @api private
+## [br]
 func _deep_merge_dictionaries(base: Dictionary, patch: Dictionary) -> Dictionary:
 	var result: Dictionary = base.duplicate(true)
 	for key: Variant in patch.keys():

@@ -29,9 +29,28 @@ signal grace_window_expired(window_id: StringName, player_index: int)
 
 # --- 私有变量 ---
 
+## 按作用域键保存动作缓冲剩余秒数。
+## [br]
+## @api private
+## [br]
 var _action_buffers: Dictionary = {}
+
+## 按作用域键保存宽容窗口剩余秒数。
+## [br]
+## @api private
+## [br]
 var _grace_windows: Dictionary = {}
+
+## 与宽容窗口键对应的原始窗口标识，用于到期信号。
+## [br]
+## @api private
+## [br]
 var _grace_window_ids: Dictionary = {}
+
+## 与宽容窗口键对应的玩家索引，用于到期信号。
+## [br]
+## @api private
+## [br]
 var _grace_window_player_indices: Dictionary = {}
 
 
@@ -215,6 +234,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 递减通用计时字典；非有限值和倒计时归零的键会在遍历后删除。
+## [br]
+## @api private
+## [br]
 func _tick_timers(timers: Dictionary, delta: float) -> void:
 	if timers.is_empty() or delta <= 0.0:
 		return
@@ -234,6 +257,10 @@ func _tick_timers(timers: Dictionary, delta: float) -> void:
 		var _erase_result_201: Variant = timers.erase(key)
 
 
+## 递减宽容窗口计时；无效或到期窗口归零后进入到期处理队列。
+## [br]
+## @api private
+## [br]
 func _tick_grace_windows(delta: float) -> void:
 	if _grace_windows.is_empty() or delta <= 0.0:
 		return
@@ -254,6 +281,10 @@ func _tick_grace_windows(delta: float) -> void:
 		_emit_grace_window_expired(key)
 
 
+## 若窗口仍存在且已到期，先读取其标识和玩家索引并清除关联状态，再发出到期信号。
+## [br]
+## @api private
+## [br]
 func _emit_grace_window_expired(key: String) -> void:
 	if not _grace_windows.has(key) or GFVariantData.to_float(_grace_windows[key]) > 0.0:
 		return
@@ -264,22 +295,38 @@ func _emit_grace_window_expired(key: String) -> void:
 	grace_window_expired.emit(window_id, player_index)
 
 
+## 从剩余时间、窗口标识和玩家索引三个字典中移除同一作用域键。
+## [br]
+## @api private
+## [br]
 func _erase_grace_window_key(key: String) -> void:
 	var _erase_result: Variant = _grace_windows.erase(key)
 	var _id_erase_result: Variant = _grace_window_ids.erase(key)
 	var _player_erase_result: Variant = _grace_window_player_indices.erase(key)
 
 
+## 将作用域前缀和 ID 组合为缓冲或窗口字典使用的键。
+## [br]
+## @api private
+## [br]
 func _make_scoped_key(id: StringName, player_index: int) -> String:
 	return "%s/%s" % [_make_scope_prefix(player_index), String(id)]
 
 
+## 为非负玩家索引生成玩家前缀；负索引统一使用全局前缀。
+## [br]
+## @api private
+## [br]
 func _make_scope_prefix(player_index: int) -> String:
 	if player_index >= 0:
 		return "player:%d" % player_index
 	return "global"
 
 
+## 删除所有以给定前缀和分隔符开头的计时字典键。
+## [br]
+## @api private
+## [br]
 func _clear_keys_with_prefix(timers: Dictionary, prefix: String) -> void:
 	var keys_to_remove: Array[String] = []
 	for key: String in timers.keys():
@@ -290,6 +337,10 @@ func _clear_keys_with_prefix(timers: Dictionary, prefix: String) -> void:
 		var _erase_result_221: Variant = timers.erase(key)
 
 
+## 创建计时器快照字典，并把每个值转换为 float。
+## [br]
+## @api private
+## [br]
 func _duplicate_timer_snapshot(timers: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for key: String in timers.keys():

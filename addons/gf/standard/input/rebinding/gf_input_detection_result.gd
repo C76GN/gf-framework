@@ -180,6 +180,10 @@ static func reason_to_string(finish_reason: FinishReason) -> StringName:
 
 # --- 私有/辅助方法 ---
 
+## 将经过秒数规范为有限非负值；NaN、无穷值和负数均转换为 0。
+## [br]
+## @api private
+## [br]
 static func _normalize_elapsed_seconds(value: float) -> float:
 	if not is_finite(value):
 		return 0.0

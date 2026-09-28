@@ -47,12 +47,46 @@ signal transition_cancelled(effect: GFScreenTransitionEffect)
 
 # --- 私有变量 ---
 
+## 由工具管理的 CanvasLayer 覆盖层。
+## [br]
+## @api private
+## [br]
 var _overlay_layer: CanvasLayer
+
+## 覆盖层内显示转场颜色与 ShaderMaterial 的 ColorRect。
+## [br]
+## @api private
+## [br]
 var _overlay_rect: ColorRect
+
+## 当前转场使用的效果配置副本。
+## [br]
+## @api private
+## [br]
 var _active_effect: GFScreenTransitionEffect
+
+## 当前转场正常完成时调用的可选回调。
+## [br]
+## @api private
+## [br]
 var _finished_callback: Callable
+
+## 当前转场已经推进的秒数。
+## [br]
+## @api private
+## [br]
 var _elapsed_seconds: float = 0.0
+
+## 标记当前是否有转场处于活动状态。
+## [br]
+## @api private
+## [br]
 var _transition_active: bool = false
+
+## 用于使过期的 deferred 覆盖层挂载回调失效的代次。
+## [br]
+## @api private
+## [br]
 var _overlay_generation: int = 0
 
 
@@ -282,6 +316,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 创建完整窗口覆盖层，并在 SceneTree 可用时 deferred 挂载。
+## [br]
+## @api private
+## [br]
 func _ensure_overlay() -> void:
 	if is_instance_valid(_overlay_layer) and is_instance_valid(_overlay_rect):
 		return
@@ -305,6 +343,10 @@ func _ensure_overlay() -> void:
 		call_deferred("_add_overlay_if_current", _overlay_layer, _overlay_generation)
 
 
+## 仅在代次仍匹配且节点尚未挂载时，将覆盖层加入 SceneTree 根节点。
+## [br]
+## @api private
+## [br]
 func _add_overlay_if_current(layer: CanvasLayer, generation: int) -> void:
 	if generation != _overlay_generation or not is_instance_valid(layer):
 		return
@@ -315,6 +357,10 @@ func _add_overlay_if_current(layer: CanvasLayer, generation: int) -> void:
 		tree.root.add_child(layer)
 
 
+## 按效果配置应用颜色、透明度、层级、输入过滤和 Shader 进度参数。
+## [br]
+## @api private
+## [br]
 func _apply_effect_visuals(progress: float) -> void:
 	if _active_effect == null or not is_instance_valid(_overlay_rect):
 		return
@@ -338,6 +384,10 @@ func _apply_effect_visuals(progress: float) -> void:
 		_overlay_rect.material = null
 
 
+## 冻结并清除活动转场状态，发送完成信号后调用可选回调。
+## [br]
+## @api private
+## [br]
 func _finish_transition() -> void:
 	var finished_effect: GFScreenTransitionEffect = _active_effect
 	var callback: Callable = _finished_callback
@@ -353,6 +403,10 @@ func _finish_transition() -> void:
 		callback.call()
 
 
+## 从 Godot 主循环读取 SceneTree；主循环不是场景树时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_scene_tree() -> SceneTree:
 	var main_loop: MainLoop = Engine.get_main_loop()
 	if not (main_loop is SceneTree):

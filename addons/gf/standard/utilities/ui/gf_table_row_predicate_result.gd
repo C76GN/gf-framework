@@ -14,16 +14,42 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 允许的最大错误码 UTF-8 字节数。
+## [br]
+## @api private
 const _MAX_ERROR_CODE_UTF8_BYTES: int = 128
+
+## 失败说明允许保留的最大 UTF-8 字节数。
+## [br]
+## @api private
 const _MAX_ERROR_MESSAGE_UTF8_BYTES: int = 1_024
 
 
 # --- 私有变量 ---
 
+## 是否已由 included()、excluded() 或 failed() 工厂完成初始化。
+## [br]
+## @api private
 var _configured: bool = false
+
+## 当前结果是否表示成功求值。
+## [br]
+## @api private
 var _successful: bool = false
+
+## 成功结果是否要求包含当前行。
+## [br]
+## @api private
 var _should_include: bool = false
+
+## 失败结果的归一化错误码。
+## [br]
+## @api private
 var _error_code: StringName = &""
+
+## 失败结果中经字节数限制的说明文本。
+## [br]
+## @api private
 var _error_message: String = ""
 
 
@@ -165,6 +191,9 @@ func is_configured_for_framework() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 将空白、超长或首尾带空格的错误码归一为 predicate_failed。
+## [br]
+## @api private
 static func _normalize_error_code(error_code: StringName) -> StringName:
 	var error_text: String = String(error_code)
 	if (
@@ -177,6 +206,9 @@ static func _normalize_error_code(error_code: StringName) -> StringName:
 	return error_code
 
 
+## 按 UTF-8 字节上限截取文本，避免在多字节字符中间截断。
+## [br]
+## @api private
 static func _truncate_utf8(text_value: String, max_bytes: int) -> String:
 	var bounded_text: String = text_value.left(max_bytes)
 	if text_value.length() <= max_bytes and bounded_text.to_utf8_buffer().size() <= max_bytes:

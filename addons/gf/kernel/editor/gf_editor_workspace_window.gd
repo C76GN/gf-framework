@@ -35,17 +35,31 @@ const WINDOW_TITLE: String = "GF Workspace"
 ## [br]
 ## @layer kernel/editor
 const GFEditorWorkspaceDockBase = preload("res://addons/gf/kernel/editor/gf_editor_workspace_dock.gd")
+
+## 将代理工作区方法返回的 Variant 转为整数的类型化访问工具。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
 # --- 私有变量 ---
 
+## 独立窗口内承载页面和操作的工作区 Dock。
+## [br]
+## @api private
 var _workspace: Control = null
+
+## 已深复制并传给工作区 Dock 的页面贡献记录。
+## [br]
+## @api private
 var _dock_records: Array[Dictionary] = []
 
 
 # --- Godot 生命周期方法 ---
 
+## 建立默认隐藏、非独占的独立工作区窗口，绑定关闭请求并构建内容。
+## [br]
+## @api private
 func _init() -> void:
 	title = WINDOW_TITLE
 	size = DEFAULT_WINDOW_SIZE
@@ -58,7 +72,7 @@ func _init() -> void:
 	_build_ui()
 
 
-# --- 公共方法 ---
+# --- 框架内部方法 ---
 
 ## 设置工作区页面记录。
 ## [br]
@@ -184,6 +198,9 @@ func is_always_on_top_enabled() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 懒创建统一工作区 Dock 并让其填充整个 Window。
+## [br]
+## @api private
 func _build_ui() -> void:
 	if _workspace != null:
 		return
@@ -198,6 +215,9 @@ func _build_ui() -> void:
 	_sync_workspace_window_controls()
 
 
+## 深复制每条 Dock 记录，隔离窗口保存的记录与调用方输入。
+## [br]
+## @api private
 func _copy_records(source: Array[Dictionary]) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	for record: Dictionary in source:
@@ -205,11 +225,17 @@ func _copy_records(source: Array[Dictionary]) -> Array[Dictionary]:
 	return records
 
 
+## 工作区实现该内部刷新方法时，请求其同步窗口置顶控件。
+## [br]
+## @api private
 func _sync_workspace_window_controls() -> void:
 	if _workspace != null and _workspace.has_method("_sync_window_controls"):
 		_workspace.call("_sync_window_controls")
 
 
+## 关闭 Window 的 transient 与 exclusive 标志，为独立置顶行为准备窗口状态。
+## [br]
+## @api private
 func _prepare_always_on_top_window() -> void:
 	transient = false
 	exclusive = false
@@ -217,5 +243,8 @@ func _prepare_always_on_top_window() -> void:
 
 # --- 信号处理函数 ---
 
+## 处理 Window 关闭请求时隐藏窗口，保留工作区实例以供后续重新显示。
+## [br]
+## @api private
 func _on_close_requested() -> void:
 	hide_workspace()

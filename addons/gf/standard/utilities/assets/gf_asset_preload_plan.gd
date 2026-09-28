@@ -426,6 +426,10 @@ static func from_dictionary(data: Dictionary) -> GFAssetPreloadPlan:
 
 # --- 私有/辅助方法 ---
 
+## 规范化并复制预加载条目数组。
+## [br]
+## @api private
+## [br]
 static func _copy_entries(source_entries: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in source_entries:
@@ -433,6 +437,10 @@ static func _copy_entries(source_entries: Array[Dictionary]) -> Array[Dictionary
 	return result
 
 
+## 构造包含条目索引、问题类型、说明和字段名的问题字典。
+## [br]
+## @api private
+## [br]
 static func _make_issue(index: int, issue_kind: StringName, message: String, field_name: StringName) -> Dictionary:
 	return {
 		"index": index,
@@ -442,6 +450,10 @@ static func _make_issue(index: int, issue_kind: StringName, message: String, fie
 	}
 
 
+## 将条目索引追加到对应资源路径的索引列表。
+## [br]
+## @api private
+## [br]
 static func _add_path_index(path_indexes: Dictionary, path: String, index: int) -> void:
 	if not path_indexes.has(path):
 		path_indexes[path] = []
@@ -450,6 +462,10 @@ static func _add_path_index(path_indexes: Dictionary, path: String, index: int) 
 	path_indexes[path] = indexes
 
 
+## 从路径索引表收集出现至少两次的路径及其条目索引。
+## [br]
+## @api private
+## [br]
 static func _collect_duplicate_paths(path_indexes: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for path_variant: Variant in path_indexes.keys():

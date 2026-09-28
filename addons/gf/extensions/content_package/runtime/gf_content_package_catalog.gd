@@ -14,23 +14,72 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 提供依赖优先拓扑排序和循环依赖诊断。
+## [br]
+## @api private
 const _GF_DEPENDENCY_GRAPH_TOOLS = preload("res://addons/gf/kernel/core/gf_dependency_graph_tools.gd")
 
+## 内容包目录校验报告的默认主题。
+## [br]
+## @api private
 const _REPORT_SUBJECT: String = "Content package catalog"
+
+## 同一 package_id 重复注册时使用的问题类型。
+## [br]
+## @api private
 const _KIND_DUPLICATE_PACKAGE_ID: String = "duplicate_package_id"
+
+## 缺少有效 manifest 输入时使用的问题类型。
+## [br]
+## @api private
 const _KIND_INVALID_MANIFEST: String = "invalid_manifest"
+
+## manifest 引用了目录中不存在的依赖包时使用的问题类型。
+## [br]
+## @api private
 const _KIND_MISSING_DEPENDENCY: String = "missing_dependency"
+
+## 依赖图报告包含循环时使用的问题类型。
+## [br]
+## @api private
 const _KIND_DEPENDENCY_CYCLE: String = "dependency_cycle"
+
+## 将资源注册事务失败时使用的问题类型。
+## [br]
+## @api private
 const _KIND_RESOURCE_REGISTRATION_FAILED: String = "resource_registration_failed"
+
+## 未提供资源解析器时使用的问题类型。
+## [br]
+## @api private
 const _KIND_MISSING_RESOURCE_RESOLVER: String = "missing_resource_resolver"
+
+## 该目录在资源解析器中替换路径集合时使用的稳定 owner ID。
+## [br]
+## @api private
 const _RESOLVER_OWNER_ID: StringName = &"gf.content_package.catalog"
 
 
 # --- 私有变量 ---
 
+## 按 package_id 保存目录持有的 manifest 副本。
+## [br]
+## @api private
 var _manifests: Dictionary = {}
+
+## 保存首次接受的 package_id 顺序，用于稳定遍历和依赖图排序输入。
+## [br]
+## @api private
 var _manifest_order: Array[StringName] = []
+
+## 记录输入过程中遇到的重复 package_id，供目录报告诊断。
+## [br]
+## @api private
 var _duplicate_package_ids: PackedStringArray = PackedStringArray()
+
+## 暂存 null 或缺少 package_id 的输入及其索引、来源和可用 manifest 副本。
+## [br]
+## @api private
 var _rejected_manifest_inputs: Array[Dictionary] = []
 
 
@@ -392,6 +441,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 从目录字典取出并类型检查 manifest；不存在或值类型不符时返回 null。
+## [br]
+## @api private
 func _get_manifest_ref(package_id: StringName) -> GFContentPackageManifest:
 	var manifest_value: Variant = _manifests.get(package_id)
 	if manifest_value is GFContentPackageManifest:
@@ -400,6 +452,9 @@ func _get_manifest_ref(package_id: StringName) -> GFContentPackageManifest:
 	return null
 
 
+## 拒绝 null、空 ID 和重复输入；成功时把 manifest 副本按输入顺序存入目录。
+## [br]
+## @api private
 func _add_manifest_input(manifest: GFContentPackageManifest, input_index: int) -> bool:
 	if manifest == null:
 		_rejected_manifest_inputs.append({
@@ -425,6 +480,9 @@ func _add_manifest_input(manifest: GFContentPackageManifest, input_index: int) -
 	return true
 
 
+## 生成被拒输入的轻量摘要，不包含其中可能保存的 manifest 对象。
+## [br]
+## @api private
 func _get_rejected_manifest_summaries() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for record: Dictionary in _rejected_manifest_inputs:
@@ -436,6 +494,9 @@ func _get_rejected_manifest_summaries() -> Array[Dictionary]:
 	return result
 
 
+## 从直接命中 ID 遍历现存依赖，再按已排序 ID 顺序输出闭包成员。
+## [br]
+## @api private
 func _expand_dependency_closure(
 	direct_package_ids: PackedStringArray,
 	ordered_package_ids: PackedStringArray
@@ -461,6 +522,9 @@ func _expand_dependency_closure(
 	return result
 
 
+## 构造失败状态的查询结果，报告指定问题并提供空 ID 和 manifest 列表。
+## [br]
+## @api private
 func _make_query_failure(
 	status: StringName,
 	query_id: StringName,
@@ -489,12 +553,18 @@ func _make_query_failure(
 		report
 	)
 
+## 将重复 package_id 以字符串形式加入诊断列表，列表中只保留一项。
+## [br]
+## @api private
 func _add_duplicate_package_id(package_id: StringName) -> void:
 	var package_id_text: String = String(package_id)
 	if not _duplicate_package_ids.has(package_id_text):
 		var _append_result: bool = _duplicate_package_ids.append(package_id_text)
 
 
+## 从重复 ID 诊断列表中移除指定 package_id 的所有匹配项。
+## [br]
+## @api private
 func _remove_duplicate_package_id(package_id: StringName) -> void:
 	var package_id_text: String = String(package_id)
 	var index: int = _duplicate_package_ids.find(package_id_text)
@@ -503,6 +573,9 @@ func _remove_duplicate_package_id(package_id: StringName) -> void:
 		index = _duplicate_package_ids.find(package_id_text)
 
 
+## 为重复 package_id 列表中的每个 ID 追加目录级错误。
+## [br]
+## @api private
 func _add_duplicate_issues(report: Dictionary) -> void:
 	for package_id_text: String in _duplicate_package_ids:
 		var _issue: Dictionary = GFValidationReportDictionary.append_issue(
@@ -520,6 +593,9 @@ func _add_duplicate_issues(report: Dictionary) -> void:
 		)
 
 
+## 按注册顺序校验目录中接纳的 manifest 并合并其问题。
+## [br]
+## @api private
 func _add_manifest_issues(
 	report: Dictionary,
 	options: Dictionary
@@ -531,6 +607,9 @@ func _add_manifest_issues(
 		_append_manifest_validation_issues(report, manifest, package_id, options)
 
 
+## 汇总被拒输入；有 manifest 快照时复用其校验结果，否则报告缺失 manifest。
+## [br]
+## @api private
 func _add_rejected_manifest_issues(report: Dictionary, options: Dictionary) -> void:
 	for record: Dictionary in _rejected_manifest_inputs:
 		var input_index: int = GFVariantData.get_option_int(record, "input_index", -1)
@@ -554,6 +633,9 @@ func _add_rejected_manifest_issues(report: Dictionary, options: Dictionary) -> v
 		)
 
 
+## 将单份 manifest 的问题合并到目录报告，并补充包 ID 和有效行索引。
+## [br]
+## @api private
 func _append_manifest_validation_issues(
 	report: Dictionary,
 	manifest: GFContentPackageManifest,
@@ -587,6 +669,9 @@ func _append_manifest_validation_issues(
 		)
 
 
+## 追加缺失依赖问题以及依赖排序报告中的循环依赖问题。
+## [br]
+## @api private
 func _add_dependency_issues(report: Dictionary, dependency_sort_report: Dictionary) -> void:
 	for package_id: StringName in _manifest_order:
 		var manifest: GFContentPackageManifest = _get_manifest_ref(package_id)
@@ -626,6 +711,9 @@ func _add_dependency_issues(report: Dictionary, dependency_sort_report: Dictiona
 			}
 		)
 
+## 按注册顺序建立只包含目录内依赖项的字符串 ID 邻接表。
+## [br]
+## @api private
 func _build_dependency_map() -> Dictionary:
 	var result: Dictionary = {}
 	for package_id: StringName in _manifest_order:
@@ -642,6 +730,9 @@ func _build_dependency_map() -> Dictionary:
 	return result
 
 
+## 把注册顺序和依赖邻接表交给图工具生成排序与循环诊断。
+## [br]
+## @api private
 func _get_dependency_sort_report() -> Dictionary:
 	return _GF_DEPENDENCY_GRAPH_TOOLS.sort_dependency_first(
 		_get_manifest_order_as_strings(),
@@ -649,6 +740,9 @@ func _get_dependency_sort_report() -> Dictionary:
 	)
 
 
+## 将注册顺序中的 StringName ID 转为 PackedStringArray。
+## [br]
+## @api private
 func _get_manifest_order_as_strings() -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for package_id: StringName in _manifest_order:
@@ -656,6 +750,9 @@ func _get_manifest_order_as_strings() -> PackedStringArray:
 	return result
 
 
+## 创建指定主题且 issues 初始为空的目录报告。
+## [br]
+## @api private
 func _make_report(subject: String = _REPORT_SUBJECT) -> Dictionary:
 	return {
 		"subject": subject,
@@ -663,6 +760,9 @@ func _make_report(subject: String = _REPORT_SUBJECT) -> Dictionary:
 	}
 
 
+## 使用目录专属的无问题与需复核行动文本完成报告。
+## [br]
+## @api private
 func _finalize_report(report: Dictionary, subject: String = _REPORT_SUBJECT) -> Dictionary:
 	return GFValidationReportDictionary.finalize_report(report, subject, {
 		"fallback_action": "Review the first content package catalog issue.",

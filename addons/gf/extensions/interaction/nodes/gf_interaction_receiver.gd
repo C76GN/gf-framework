@@ -56,6 +56,9 @@ signal interaction_rejected(context: GFInteractionContext, report: Dictionary)
 
 # --- 常量 ---
 
+## 用于交互接收、校验、委托及报告处理的共享工具脚本。
+## [br]
+## @api private
 const _MESSAGE_RECEIVER_SUPPORT = preload("res://addons/gf/standard/common/gf_message_receiver_support.gd")
 
 
@@ -113,7 +116,14 @@ var validation_callback: Callable = Callable()
 
 # --- 私有变量 ---
 
+## 生成接收端原始报告派发序号。
+## [br]
+## @api private
 var _framework_raw_dispatch_serial: int = 0
+
+## 暂存框架原始派发的上下文、交互 ID 和序号令牌。
+## [br]
+## @api private
 var _framework_raw_dispatch_tokens: Array[Dictionary] = []
 
 
@@ -204,6 +214,9 @@ func receive_interaction_raw_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 仅当栈顶令牌的上下文和交互 ID 匹配时将其消费。
+## [br]
+## @api private
 func _consume_framework_raw_dispatch_token(
 	context: GFInteractionContext,
 	interaction_id: StringName
@@ -220,6 +233,9 @@ func _consume_framework_raw_dispatch_token(
 	return true
 
 
+## 按派发序号从令牌栈中移除尚未消费的令牌。
+## [br]
+## @api private
 func _discard_framework_raw_dispatch_token(dispatch_serial: int) -> void:
 	for index: int in range(_framework_raw_dispatch_tokens.size() - 1, -1, -1):
 		var token: Dictionary = _framework_raw_dispatch_tokens[index]
@@ -229,6 +245,9 @@ func _discard_framework_raw_dispatch_token(dispatch_serial: int) -> void:
 		return
 
 
+## 调用共享接收流程执行校验和委托，并按参数选择是否规范化报告。
+## [br]
+## @api private
 func _receive_interaction_for_framework(
 	context: GFInteractionContext,
 	interaction_id: StringName,
@@ -283,6 +302,9 @@ func _receive_interaction_for_framework(
 	return report
 
 
+## 为失效的校验回调生成拒绝报告。
+## [br]
+## @api private
 func _reject_invalid_validator(
 	_context: GFInteractionContext,
 	_report: Dictionary
@@ -294,6 +316,9 @@ func _reject_invalid_validator(
 	}
 
 
+## 为签名不兼容的接收委托生成拒绝报告。
+## [br]
+## @api private
 func _reject_invalid_delegate(
 	_context: GFInteractionContext,
 	_report: Dictionary
@@ -305,6 +330,9 @@ func _reject_invalid_delegate(
 	}
 
 
+## 优先按路径解析接收器，否则从碰撞对象解析接收方法。
+## [br]
+## @api private
 func _resolve_receiver() -> Object:
 	if receiver_path == NodePath(""):
 		return null
@@ -314,13 +342,22 @@ func _resolve_receiver() -> Object:
 	return receiver
 
 
+## 发出交互校验信号。
+## [br]
+## @api private
 func _emit_interaction_validating(context: GFInteractionContext, report: Dictionary) -> void:
 	interaction_validating.emit(context, report)
 
 
+## 发出交互接收成功信号。
+## [br]
+## @api private
 func _emit_interaction_received(context: GFInteractionContext, report: Dictionary) -> void:
 	interaction_received.emit(context, report)
 
 
+## 发出交互拒绝信号。
+## [br]
+## @api private
 func _emit_interaction_rejected(context: GFInteractionContext, report: Dictionary) -> void:
 	interaction_rejected.emit(context, report)

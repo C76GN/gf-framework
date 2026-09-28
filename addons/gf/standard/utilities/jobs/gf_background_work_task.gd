@@ -141,11 +141,40 @@ var finished_msec: int = 0
 
 # --- 私有变量 ---
 
+## 提供给后台执行阶段的 worker Callable。
+## [br]
+## @api private
+## [br]
 var _worker_callback: Callable = Callable()
+
+## 提供给主线程应用阶段的 Callable。
+## [br]
+## @api private
+## [br]
 var _apply_callback: Callable = Callable()
+
+## worker Callable 所属 RefCounted 对象的显式引用；非此类型或回调无效时为 null。
+## [br]
+## @api private
+## [br]
 var _worker_callback_target: RefCounted = null
+
+## apply Callable 所属 RefCounted 对象的显式引用；非此类型或回调无效时为 null。
+## [br]
+## @api private
+## [br]
 var _apply_callback_target: RefCounted = null
+
+## 框架提供给 CPU/IO worker 协作取消的上下文。
+## [br]
+## @api private
+## [br]
 var _cancellation_context: GFBackgroundWorkContext = null
+
+## worker 调用时是否附带取消上下文作为第二个参数。
+## [br]
+## @api private
+## [br]
 var _worker_receives_cancellation_context: bool = false
 
 
@@ -305,6 +334,11 @@ func worker_receives_cancellation_context_for_framework() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 提取有效 Callable 的 RefCounted 对象引用；其他目标返回 null。
+## 用该显式引用保持 Callable 目标的生命周期。
+## [br]
+## @api private
+## [br]
 func _get_ref_counted_callback_target(callback: Callable) -> RefCounted:
 	if not callback.is_valid():
 		return null

@@ -123,6 +123,10 @@ static func parse_lrc(
 
 # --- 私有/辅助方法 ---
 
+## 解析 start --> end 时间行；格式无效、负时间或结束早于开始时返回空字典。
+## [br]
+## @api private
+## [br]
 static func _parse_time_range(line: String) -> Dictionary:
 	var parts: PackedStringArray = line.split("-->", false)
 	if parts.size() < 2:
@@ -140,6 +144,10 @@ static func _parse_time_range(line: String) -> Dictionary:
 	}
 
 
+## 解析分和秒或时、分、秒格式，并接受逗号作为小数点。
+## [br]
+## @api private
+## [br]
 static func _parse_timestamp(text: String) -> float:
 	var normalized: String = text.replace(",", ".").strip_edges()
 	var parts: PackedStringArray = normalized.split(":", false)
@@ -159,6 +167,10 @@ static func _parse_timestamp(text: String) -> float:
 	return -1.0
 
 
+## 校验时间数字分量；仅允许指定的小数分量包含一个小数点。
+## [br]
+## @api private
+## [br]
 static func _parse_timestamp_component(text: String, allow_decimal: bool) -> float:
 	var component: String = text.strip_edges()
 	if component.is_empty():
@@ -180,6 +192,10 @@ static func _parse_timestamp_component(text: String, allow_decimal: bool) -> flo
 	return component.to_float()
 
 
+## 读取行首连续的 LRC 时间标签，并为每个标签生成同一行歌词条目。
+## [br]
+## @api private
+## [br]
 static func _parse_lrc_line(line: String) -> Array[Dictionary]:
 	var starts: Array[float] = []
 	var cursor: int = 0
@@ -209,12 +225,20 @@ static func _parse_lrc_line(line: String) -> Array[Dictionary]:
 	return result
 
 
+## 向 PackedStringArray 追加一段文本。
+## [br]
+## @api private
+## [br]
 static func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 构造包含成功标志、时间文本轨道和错误代码的解析结果。
+## [br]
+## @api private
+## [br]
 static func _make_result(success: bool, track: GFTimedTextTrack, error: String) -> Dictionary:
 	return {
 		"success": success,

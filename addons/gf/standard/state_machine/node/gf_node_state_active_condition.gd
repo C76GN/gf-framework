@@ -111,6 +111,10 @@ func _evaluate(
 
 # --- 私有/辅助方法 ---
 
+## 根据路径中的斜杠选择查询状态机或当前状态组，并检查指定状态名是否激活。
+## [br]
+## @api private
+## [br]
 func _is_state_active(state: GFNodeState, state_path: String) -> bool:
 	var normalized_path: String = state_path.strip_edges()
 	if normalized_path.is_empty():

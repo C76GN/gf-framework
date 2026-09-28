@@ -59,6 +59,10 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 关联 Control 的弱引用，用于把 UI 区域几何命中绑定到控件生命周期。
+## [br]
+## @api private
+## [br]
 var _control_ref: WeakRef = null
 
 
@@ -261,12 +265,20 @@ static func from_control(
 
 # --- 私有/辅助方法 ---
 
+## accepted_types 为空时接受所有类型，否则要求列表包含拖拽类型文本。
+## [br]
+## @api private
+## [br]
 func _accepts_type(drag_type: StringName) -> bool:
 	if accepted_types.is_empty():
 		return true
 	return accepted_types.has(String(drag_type))
 
 
+## 读取指定选项并收窄为 Callable；类型不符时返回无效 Callable。
+## [br]
+## @api private
+## [br]
 static func _get_option_callable(options: Dictionary, key: Variant) -> Callable:
 	var value: Variant = GFVariantData.get_option_value(options, key, Callable())
 	if value is Callable:
@@ -275,6 +287,10 @@ static func _get_option_callable(options: Dictionary, key: Variant) -> Callable:
 	return Callable()
 
 
+## 复制 options 中的字典 metadata；缺失、类型不符或复制结果异常时返回空字典。
+## [br]
+## @api private
+## [br]
 static func _duplicate_option_metadata(options: Dictionary) -> Dictionary:
 	var raw_metadata: Variant = GFVariantData.get_option_value(options, "metadata", {})
 	if not raw_metadata is Dictionary:
@@ -283,6 +299,10 @@ static func _duplicate_option_metadata(options: Dictionary) -> Dictionary:
 	return copied_metadata if copied_metadata is Dictionary else {}
 
 
+## 从 WeakRef 读取仍有效的 Control；引用失效或对象类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 static func _get_live_control_from_ref(control_ref: WeakRef) -> Control:
 	if control_ref == null:
 		return null
@@ -295,6 +315,10 @@ static func _get_live_control_from_ref(control_ref: WeakRef) -> Control:
 	return control
 
 
+## 拒绝忽略鼠标输入的控件及禁用的 BaseButton，其余控件允许参与指针命中。
+## [br]
+## @api private
+## [br]
 static func _control_accepts_pointer(control: Control) -> bool:
 	if control.mouse_filter == Control.MOUSE_FILTER_IGNORE:
 		return false

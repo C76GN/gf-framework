@@ -69,7 +69,14 @@ signal flow_cancelled(report: Dictionary)
 
 # --- 常量 ---
 
+## 异步信号等待与状态查询工具脚本。
+## [br]
+## @api private
 const _GF_ASYNC_WAIT_SUPPORT = preload("res://addons/gf/standard/common/gf_async_wait_support.gd")
+
+## 默认 Signal 等待超时时长。
+## [br]
+## @api private
 const _DEFAULT_SIGNAL_TIMEOUT_SECONDS: float = 30.0
 
 ## 流程正常完成。
@@ -160,15 +167,54 @@ var max_report_trace_entries: int = 128:
 
 # --- 私有变量 ---
 
+## 标记当前运行是否已请求取消。
+## [br]
+## @api private
 var _cancel_requested: bool = false
+
+## 保存导致当前流程中止的原因码。
+## [br]
+## @api private
 var _abort_reason: StringName = &""
+
+## 标记流程运行状态。
+## [br]
+## @api private
 var _is_running: bool = false
+
+## 弱引用运行此反馈流程的架构。
+## [br]
+## @api private
 var _architecture_ref: WeakRef = null
+
+## 生成运行报告使用的递增序号。
+## [br]
+## @api private
 var _run_serial: int = 0
+
+## 正在构建的流程运行报告。
+## [br]
+## @api private
 var _active_report: Dictionary = {}
+
+## 当前保留的节点执行轨迹。
+## [br]
+## @api private
 var _active_trace: Array[Dictionary] = []
+
+## 累计记录的轨迹条目总数。
+## [br]
+## @api private
 var _trace_entry_count: int = 0
+
+## 因轨迹容量上限而丢弃的条目数。
+## [br]
+## @api private
 var _dropped_trace_entry_count: int = 0
+
+## 最近一次完成或拒绝的流程运行报告。
+## [br]
+## @api private
 var _last_run_report: Dictionary = {}
 
 
@@ -274,6 +320,9 @@ func get_last_run_report() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按队列顺序执行流程图节点，处理取消、限制、异步等待、运行时状态隔离并记录轨迹。
+## [br]
+## @api private
 func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 	var pending: PackedStringArray = PackedStringArray([String(graph.start_node_id)])
 	var pending_index: int = 0
@@ -439,6 +488,9 @@ func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 	_active_report["pending_node_count"] = maxi(pending.size() - pending_index, 0)
 
 
+## 使用共享等待工具等待节点 Signal，并应用取消、时间工具和超时配置。
+## [br]
+## @api private
 func _await_signal_safely(result_signal: Signal) -> Dictionary:
 	return await _GF_ASYNC_WAIT_SUPPORT.await_signal_state(result_signal, {
 		"should_continue": _should_continue_waiting,
@@ -449,6 +501,9 @@ func _await_signal_safely(result_signal: Signal) -> Dictionary:
 	})
 
 
+## 在隔离模式下交换节点与上下文运行态，执行节点后恢复节点原状态。
+## [br]
+## @api private
 func _execute_node_with_runtime_state(
 	node: GFFlowNode,
 	context: GFFlowContext,
@@ -480,15 +535,24 @@ func _execute_node_with_runtime_state(
 	return result
 
 
+## 将上下文中指定节点的运行态复制到节点实例。
+## [br]
+## @api private
 func _apply_context_runtime_state_to_node(node: GFFlowNode, context: GFFlowContext) -> void:
 	node.clear_runtime_state()
 	node.deserialize_runtime_state(_get_context_node_runtime_state(context, node.node_id))
 
 
+## 读取上下文中指定节点运行态的快照。
+## [br]
+## @api private
 func _get_context_node_runtime_state(context: GFFlowContext, node_id: StringName) -> Dictionary:
 	return context.get_node_runtime_state_snapshot(node_id)
 
 
+## 优先使用上下文后继覆盖，否则合并节点默认后继与节点级图连接。
+## [br]
+## @api private
 func _get_runtime_successor_node_ids(
 	graph: GFFlowGraph,
 	node: GFFlowNode,
@@ -511,6 +575,9 @@ func _get_runtime_successor_node_ids(
 	return result
 
 
+## 为非等待 Signal 连接一次性租约释放回调；连接失败时立即释放并中止。
+## [br]
+## @api private
 func _release_runtime_state_lease_when_signal_emits(
 	node: GFFlowNode,
 	result_signal: Signal,
@@ -538,6 +605,9 @@ func _release_runtime_state_lease_when_signal_emits(
 	return false
 
 
+## 从架构获取有效 GFTimeUtility。
+## [br]
+## @api private
 func _get_time_utility() -> GFTimeUtility:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture == null:
@@ -549,10 +619,16 @@ func _get_time_utility() -> GFTimeUtility:
 	return null
 
 
+## 等待期间仅在尚未请求取消时继续。
+## [br]
+## @api private
 func _should_continue_waiting() -> bool:
 	return not _cancel_requested
 
 
+## 优先从弱引用读取架构，失效时回退到 GFAutoload。
+## [br]
+## @api private
 func _get_architecture_or_null() -> GFArchitecture:
 	if _architecture_ref != null:
 		var architecture_value: Object = _architecture_ref.get_ref()
@@ -562,6 +638,9 @@ func _get_architecture_or_null() -> GFArchitecture:
 	return GFAutoload.get_architecture_or_null()
 
 
+## 清空旧轨迹并初始化本次运行的报告计数与起始时间。
+## [br]
+## @api private
 func _begin_run_report() -> void:
 	_active_trace.clear()
 	_trace_entry_count = 0
@@ -590,6 +669,9 @@ func _begin_run_report() -> void:
 	}
 
 
+## 补齐结束状态和轨迹计数、保存报告快照并清理活动报告。
+## [br]
+## @api private
 func _finish_run_report(outcome: StringName, reason: StringName) -> Dictionary:
 	var finished_at_usec: int = Time.get_ticks_usec()
 	var started_at_usec: int = GFVariantData.get_option_int(
@@ -614,12 +696,18 @@ func _finish_run_report(outcome: StringName, reason: StringName) -> Dictionary:
 	return report
 
 
+## 构造并保存一次被拒绝运行的报告。
+## [br]
+## @api private
 func _store_rejected_report(reason: StringName) -> Dictionary:
 	var report: Dictionary = _make_rejected_report(reason)
 	_last_run_report = report.duplicate(true)
 	return report
 
 
+## 构造零执行计数的拒绝报告。
+## [br]
+## @api private
 func _make_rejected_report(reason: StringName) -> Dictionary:
 	var now_usec: int = Time.get_ticks_usec()
 	return {
@@ -646,6 +734,9 @@ func _make_rejected_report(reason: StringName) -> Dictionary:
 	}
 
 
+## 构造包含节点状态、等待结果和耗时的轨迹条目。
+## [br]
+## @api private
 func _make_trace_entry(
 	node_id: StringName,
 	status: StringName,
@@ -666,12 +757,18 @@ func _make_trace_entry(
 	}
 
 
+## 累计并追加轨迹条目，然后裁剪超出上限的旧项。
+## [br]
+## @api private
 func _append_trace_entry(entry: Dictionary) -> void:
 	_trace_entry_count += 1
 	_active_trace.append(entry)
 	_trim_active_trace()
 
 
+## 将活动轨迹长度限制在配置容量内并统计丢弃项。
+## [br]
+## @api private
 func _trim_active_trace() -> void:
 	var limit: int = maxi(max_report_trace_entries, 0)
 	while _active_trace.size() > limit:
@@ -679,10 +776,16 @@ func _trim_active_trace() -> void:
 		_dropped_trace_entry_count += 1
 
 
+## 将活动报告中指定计数加一。
+## [br]
+## @api private
 func _increment_active_report_count(key: String) -> void:
 	_active_report[key] = GFVariantData.get_option_int(_active_report, key) + 1
 
 
+## 按 Signal 等待状态累计超时、取消或无效计数。
+## [br]
+## @api private
 func _record_signal_wait_status(wait_status: StringName) -> void:
 	match wait_status:
 		_GF_ASYNC_WAIT_SUPPORT.STATUS_TIMEOUT:
@@ -693,11 +796,17 @@ func _record_signal_wait_status(wait_status: StringName) -> void:
 			_increment_active_report_count("invalid_signal_wait_count")
 
 
+## 递增并返回下一运行 ID。
+## [br]
+## @api private
 func _next_run_id() -> int:
 	_run_serial += 1
 	return _run_serial
 
 
+## 跳过空值和重复项后追加字符串。
+## [br]
+## @api private
 func _append_unique_packed_string(target: PackedStringArray, value: String) -> void:
 	if value.is_empty() or target.has(value):
 		return
@@ -706,6 +815,9 @@ func _append_unique_packed_string(target: PackedStringArray, value: String) -> v
 		return
 
 
+## 跳过空值后追加字符串。
+## [br]
+## @api private
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	if value.is_empty():
 		return

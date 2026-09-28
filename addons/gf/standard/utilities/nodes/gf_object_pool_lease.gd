@@ -43,11 +43,40 @@ enum State {
 
 # --- 私有变量 ---
 
+## 本次借用当前所处的状态。
+## [br]
+## @api private
+## [br]
 var _state: State = State.SETTLED
+
+## 本次借用的当前或最终原因标识。
+## [br]
+## @api private
+## [br]
 var _reason: StringName = &"unconfigured"
+
+## 所属对象池的弱引用，用于转交归还请求。
+## [br]
+## @api private
+## [br]
 var _pool_ref: WeakRef = null
+
+## 本次借用节点的弱引用；使用权撤销后清空。
+## [br]
+## @api private
+## [br]
 var _node_ref: WeakRef = null
+
+## 配置借用时记录的节点实例 ID，用于让对象池核对归还对象。
+## [br]
+## @api private
+## [br]
 var _node_id: int = 0
+
+## 标记此 Lease 是否已由对象池初始化。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
 
 

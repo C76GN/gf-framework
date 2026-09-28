@@ -4,6 +4,9 @@ extends GFInstaller
 
 # --- 常量 ---
 
+## Action Queue 扩展注册到架构中的运行时系统脚本。
+## [br]
+## @api private
 const _GF_ACTION_QUEUE_SYSTEM = preload("res://addons/gf/extensions/action_queue/core/gf_action_queue_system.gd")
 
 

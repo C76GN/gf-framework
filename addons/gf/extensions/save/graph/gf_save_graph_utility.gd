@@ -45,7 +45,16 @@ const DOCUMENT_SCHEMA_VERSION: int = 1
 ## @since 9.0.0
 const DOCUMENT_SECTION_ID: StringName = &"save_graph"
 
+## 构造 SaveGraph 验证诊断报告的脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT = preload("res://addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd")
+
+## 检查 SaveGraph 载荷值能否跨持久化边界的脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_SAVE_PERSISTED_VALUE_VALIDATOR = preload("res://addons/gf/extensions/save/core/gf_save_persisted_value_validator.gd")
 
 
@@ -64,9 +73,28 @@ var pipeline_steps: Array[GFSavePipelineStep] = []
 
 # --- 私有变量 ---
 
+## 按类型键登记供恢复流程使用的实体工厂。
+## [br]
+## @api private
+## [br]
 var _entity_factories: Dictionary = {}
+
+## 可注入到 Save pipeline context 的时钟。
+## [br]
+## @api private
+## [br]
 var _clock: GFClock = null
+
+## 记录时钟是否由构造调用显式提供。
+## [br]
+## @api private
+## [br]
 var _clock_explicit: bool = false
+
+## 标记 scope apply 操作正在执行，以拒绝同步重入。
+## [br]
+## @api private
+## [br]
 var _apply_in_progress: bool = false
 
 
@@ -77,7 +105,7 @@ func _init(clock: GFClock = null) -> void:
 	_clock_explicit = clock != null
 
 
-# --- GF 生命周期方法 ---
+# --- 公共方法 ---
 
 ## 在架构中自动采用已注册 GFTimeProvider 的底层时钟。
 ##
@@ -97,8 +125,6 @@ func ready() -> void:
 		var provider: GFTimeProvider = provider_value
 		_clock = provider.get_clock()
 
-
-# --- 公共方法 ---
 
 ## 设置存档流水线诊断使用的单调时钟。
 ## [br]
@@ -126,6 +152,7 @@ func set_clock(clock: GFClock) -> bool:
 ## @return 当前时钟。
 func get_clock() -> GFClock:
 	return _clock
+
 
 ## 注册实体工厂。
 ## [br]
@@ -806,6 +833,9 @@ func load_scope(
 
 # --- 私有/辅助方法 ---
 
+## 在共享操作状态中预检并按稳定顺序应用当前 scope 的 source 与子 scope，累计缺项和错误；事务根成功时运行参与者 prepare/commit，再由根统一派发完成回调或执行回滚。
+## [br]
+## @api private
 func _apply_scope_recursive(
 	scope: GFSaveScope,
 	payload: Dictionary,
@@ -1022,6 +1052,10 @@ func _apply_scope_recursive(
 	)
 
 
+## 将旧式浮点格式版本规范为当前整数版本，其余载荷原样返回。
+## [br]
+## @api private
+## [br]
 func _normalize_persisted_graph_payload(payload: Dictionary) -> Dictionary:
 	var version_value: Variant = GFVariantData.get_option_value(payload, "format_version")
 	if typeof(version_value) != TYPE_FLOAT or version_value != float(FORMAT_VERSION):
@@ -1030,6 +1064,11 @@ func _normalize_persisted_graph_payload(payload: Dictionary) -> Dictionary:
 	normalized["format_version"] = FORMAT_VERSION
 	return normalized
 
+
+## 将非空 String 或 StringName 转为 StringName；空值或其他类型回退。
+## [br]
+## @api private
+## [br]
 func _get_non_empty_string_name(value: Variant, fallback: StringName = &"") -> StringName:
 	if value is StringName:
 		var string_name_value: StringName = value
@@ -1041,6 +1080,10 @@ func _get_non_empty_string_name(value: Variant, fallback: StringName = &"") -> S
 	return fallback
 
 
+## 将 NodePath、String 或 StringName 转为 NodePath。
+## [br]
+## @api private
+## [br]
 func _get_node_path_value(value: Variant) -> NodePath:
 	if value is NodePath:
 		return value
@@ -1049,6 +1092,10 @@ func _get_node_path_value(value: Variant) -> NodePath:
 	return NodePath("")
 
 
+## 将有效 Node Variant 转为 Node；类型不符或对象已失效时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_node_value(value: Variant) -> Node:
 	if not is_instance_valid(value):
 		return null
@@ -1057,48 +1104,80 @@ func _get_node_value(value: Variant) -> Node:
 	return null
 
 
+## 将 Resource Variant 转为 Resource；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_resource_value(value: Variant) -> Resource:
 	if value is Resource:
 		return value
 	return null
 
 
+## 将 Script Variant 转为 Script；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_script_value(value: Variant) -> Script:
 	if value is Script:
 		return value
 	return null
 
 
+## 将 GFSaveSource Variant 转为 GFSaveSource；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_save_source_value(value: Variant) -> GFSaveSource:
 	if value is GFSaveSource:
 		return value
 	return null
 
 
+## 将 GFSaveScope Variant 转为 GFSaveScope；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_save_scope_value(value: Variant) -> GFSaveScope:
 	if value is GFSaveScope:
 		return value
 	return null
 
 
+## 将 GFSaveIdentity Variant 转为 GFSaveIdentity；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_save_identity_value(value: Variant) -> GFSaveIdentity:
 	if value is GFSaveIdentity:
 		return value
 	return null
 
 
+## 将 GFSaveEntityFactory Variant 转为工厂类型；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_entity_factory_value(value: Variant) -> GFSaveEntityFactory:
 	if value is GFSaveEntityFactory:
 		return value
 	return null
 
 
+## 将 GFSavePipelineContext Variant 转为上下文类型；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_pipeline_context_value(value: Variant) -> GFSavePipelineContext:
 	if value is GFSavePipelineContext:
 		return value
 	return null
 
 
+## 暂存 reference root 原值并将当前 Scope 写入上下文。
+## [br]
+## @api private
+## [br]
 func _push_reference_root_context(context: Dictionary, scope: GFSaveScope) -> Dictionary:
 	var had_key: bool = context.has(GFVariantReferenceCodec.OPTION_ROOT_NODE)
 	var previous_value: Variant = GFVariantData.get_option_value(context, GFVariantReferenceCodec.OPTION_ROOT_NODE)
@@ -1109,6 +1188,10 @@ func _push_reference_root_context(context: Dictionary, scope: GFSaveScope) -> Di
 	}
 
 
+## 按暂存记录恢复 reference root 原值，或删除本次临时键。
+## [br]
+## @api private
+## [br]
 func _pop_reference_root_context(context: Dictionary, state: Dictionary) -> void:
 	if GFVariantData.get_option_bool(state, "had_key", false):
 		context[GFVariantReferenceCodec.OPTION_ROOT_NODE] = GFVariantData.get_option_value(state, "value")
@@ -1116,42 +1199,74 @@ func _pop_reference_root_context(context: Dictionary, state: Dictionary) -> void
 		var _erased_reference_root: bool = context.erase(GFVariantReferenceCodec.OPTION_ROOT_NODE)
 
 
+## 将 GFStorageUtility Variant 转为存储工具类型；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_storage_utility_value(value: Variant) -> GFStorageUtility:
 	if value is GFStorageUtility:
 		return value
 	return null
 
 
+## 从字典读取指定字段并收窄为 Dictionary，否则使用回退字典。
+## [br]
+## @api private
+## [br]
 func _get_dictionary_field(source: Dictionary, key: Variant, fallback: Dictionary = {}) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(source, key, fallback))
 
 
+## 通过 GFObjectPropertyTools 读取对象属性并提供回退值。
+## [br]
+## @api private
+## [br]
 func _read_object_property(object: Object, property_name: StringName, fallback: Variant = null) -> Variant:
 	return GFObjectPropertyTools.read_property(object, NodePath(String(property_name)), fallback)
 
 
+## 将字符串追加到 PackedStringArray；追加未发生时结束处理。
+## [br]
+## @api private
+## [br]
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 读取指定数组字段、追加值并将数组写回字典。
+## [br]
+## @api private
+## [br]
 func _append_dictionary_array_field(target: Dictionary, field_name: String, value: Variant) -> void:
 	var values: Array = GFVariantData.as_array(GFVariantData.get_option_value(target, field_name, []))
 	values.append(value)
 	target[field_name] = values
 
 
+## 从字典中删除指定键。
+## [br]
+## @api private
+## [br]
 func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 	var erased: bool = target.erase(key)
 	if erased:
 		return
 
 
+## 从 pipeline step 列表删除给定步骤。
+## [br]
+## @api private
+## [br]
 func _erase_pipeline_step(step: GFSavePipelineStep) -> void:
 	pipeline_steps.erase(step)
 
 
+## 将阶段、Scope、Source 和载荷事件交给 pipeline context 记录。
+## [br]
+## @api private
+## [br]
 func _record_pipeline_event(
 	pipeline_context: GFSavePipelineContext,
 	stage: StringName,
@@ -1168,6 +1283,10 @@ func _record_pipeline_event(
 		return
 
 
+## 使用 SaveGraph 诊断建议完成校验报告。
+## [br]
+## @api private
+## [br]
 func _finalize_diagnostic_report(report: Dictionary, subject: String) -> Dictionary:
 	return _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT.finalize_report(report, subject, {
 		"next_actions": _get_diagnostic_next_actions(),
@@ -1175,6 +1294,10 @@ func _finalize_diagnostic_report(report: Dictionary, subject: String) -> Diction
 	})
 
 
+## 返回 SaveGraph 格式、标识和缺失成员问题的建议操作映射。
+## [br]
+## @api private
+## [br]
 func _get_diagnostic_next_actions() -> Dictionary:
 	return {
 		"null_scope": "Select or pass a valid GFSaveScope before running save graph diagnostics.",
@@ -1200,6 +1323,10 @@ func _get_diagnostic_next_actions() -> Dictionary:
 	}
 
 
+## 提取报告中的 error 问题消息；没有 error 时使用报告摘要。
+## [br]
+## @api private
+## [br]
 func _get_validation_error_messages(report: Dictionary) -> Array[String]:
 	var result: Array[String] = []
 	for issue_variant: Variant in GFVariantData.get_option_array(report, "issues"):
@@ -1214,6 +1341,10 @@ func _get_validation_error_messages(report: Dictionary) -> Array[String]:
 	return result
 
 
+## 收集当前 Scope 的 Source，并按 phase 和 source key 排序。
+## [br]
+## @api private
+## [br]
 func _get_sources_for_scope(scope: GFSaveScope) -> Array[GFSaveSource]:
 	var result: Array[GFSaveSource] = []
 	_collect_sources(scope, result)
@@ -1225,6 +1356,10 @@ func _get_sources_for_scope(scope: GFSaveScope) -> Array[GFSaveSource]:
 	return result
 
 
+## 收集任意 Node Scope 下的 Source，并按读取到的 phase 与 key 排序。
+## [br]
+## @api private
+## [br]
 func _get_sources_for_scope_for_inspection(scope: Node) -> Array[GFSaveSource]:
 	var result: Array[GFSaveSource] = []
 	_collect_sources_for_inspection(scope, result)
@@ -1238,6 +1373,10 @@ func _get_sources_for_scope_for_inspection(scope: Node) -> Array[GFSaveSource]:
 	return result
 
 
+## 递归统计 Scope 与 Source，并追加重复键及配置问题诊断。
+## [br]
+## @api private
+## [br]
 func _inspect_scope_recursive(
 	scope: GFSaveScope,
 	context: Dictionary,
@@ -1318,6 +1457,10 @@ func _inspect_scope_recursive(
 		_inspect_scope_recursive(child_scope, context, report, "%s/%s" % [scope_path, String(_get_scope_key_for_inspection(child_scope))])
 
 
+## 递归检查载荷中的 Source、子 Scope 结构及当前场景匹配情况。
+## [br]
+## @api private
+## [br]
 func _validate_payload_scope_recursive(
 	scope: GFSaveScope,
 	payload: Dictionary,
@@ -1375,6 +1518,10 @@ func _validate_payload_scope_recursive(
 		_validate_payload_scope_recursive(child_scope, child_payload, strict, report, "%s/%s" % [scope_path, child_key])
 
 
+## 收集当前节点下的 Source，遇到子 Scope 时停止向其内部递归。
+## [br]
+## @api private
+## [br]
 func _collect_sources(current: Node, result: Array[GFSaveSource]) -> void:
 	for child: Node in current.get_children():
 		if child is GFSaveScope:
@@ -1386,6 +1533,10 @@ func _collect_sources(current: Node, result: Array[GFSaveSource]) -> void:
 		_collect_sources(child, result)
 
 
+## 检查模式下收集节点子树中的 Source，遇到子 Scope 时停止递归。
+## [br]
+## @api private
+## [br]
 func _collect_sources_for_inspection(current: Node, result: Array[GFSaveSource]) -> void:
 	if current == null:
 		return
@@ -1400,6 +1551,10 @@ func _collect_sources_for_inspection(current: Node, result: Array[GFSaveSource])
 		_collect_sources_for_inspection(child, result)
 
 
+## 返回直接子节点中的 Scope，并按遍历顺序排序。
+## [br]
+## @api private
+## [br]
 func _get_child_scopes(scope: GFSaveScope) -> Array[GFSaveScope]:
 	var result: Array[GFSaveScope] = []
 	for child: Node in scope.get_children():
@@ -1411,6 +1566,10 @@ func _get_child_scopes(scope: GFSaveScope) -> Array[GFSaveScope]:
 	return result
 
 
+## 检查模式下返回节点的直接子 Scope；输入为空时返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_child_scopes_for_inspection(scope: Node) -> Array[GFSaveScope]:
 	var result: Array[GFSaveScope] = []
 	if scope == null:
@@ -1425,6 +1584,10 @@ func _get_child_scopes_for_inspection(scope: Node) -> Array[GFSaveScope]:
 	return result
 
 
+## 建立 scoped Source key 到 Source 节点的索引。
+## [br]
+## @api private
+## [br]
 func _index_sources_by_key_for_inspection(scope: Node) -> Dictionary:
 	var result: Dictionary = {}
 	for source: GFSaveSource in _get_sources_for_scope_for_inspection(scope):
@@ -1432,6 +1595,10 @@ func _index_sources_by_key_for_inspection(scope: Node) -> Dictionary:
 	return result
 
 
+## 建立直接子 Scope key 到 Scope 节点的索引。
+## [br]
+## @api private
+## [br]
 func _index_child_scopes_for_inspection(scope: Node) -> Dictionary:
 	var result: Dictionary = {}
 	for child_scope: GFSaveScope in _get_child_scopes_for_inspection(scope):
@@ -1439,6 +1606,10 @@ func _index_child_scopes_for_inspection(scope: Node) -> Dictionary:
 	return result
 
 
+## 统计当前 Scope 的 Source 与子 Scope 键并追加重复项诊断。
+## [br]
+## @api private
+## [br]
 func _append_duplicate_key_diagnostics(scope: Node, report: Dictionary, _scope_path: String) -> void:
 	var source_key_counts: Dictionary = _count_source_keys_for_inspection(scope)
 	for source_key_variant: Variant in source_key_counts.keys():
@@ -1453,6 +1624,10 @@ func _append_duplicate_key_diagnostics(scope: Node, report: Dictionary, _scope_p
 			_append_diagnostic_issue(report, "error", "duplicate_scope_key", child_key, _get_node_debug_path(scope), "Duplicate child scope key in the same scope.")
 
 
+## 比较载荷中的 Scope key 与 namespace，并追加不匹配诊断。
+## [br]
+## @api private
+## [br]
 func _append_payload_scope_descriptor_diagnostics(
 	scope: GFSaveScope,
 	payload: Dictionary,
@@ -1473,6 +1648,10 @@ func _append_payload_scope_descriptor_diagnostics(
 		_append_diagnostic_issue(report, "error", "scope_namespace_mismatch", scope_path, _get_node_debug_path(scope), "Payload key namespace does not match the target scope.")
 
 
+## 统计当前 Scope 中各 scoped Source key 的出现次数。
+## [br]
+## @api private
+## [br]
 func _count_source_keys_for_inspection(scope: Node) -> Dictionary:
 	var result: Dictionary = {}
 	for source: GFSaveSource in _get_sources_for_scope_for_inspection(scope):
@@ -1481,6 +1660,10 @@ func _count_source_keys_for_inspection(scope: Node) -> Dictionary:
 	return result
 
 
+## 统计当前 Scope 下各直接子 Scope key 的出现次数。
+## [br]
+## @api private
+## [br]
 func _count_child_scope_keys_for_inspection(scope: Node) -> Dictionary:
 	var result: Dictionary = {}
 	for child_scope: GFSaveScope in _get_child_scopes_for_inspection(scope):
@@ -1489,6 +1672,10 @@ func _count_child_scope_keys_for_inspection(scope: Node) -> Dictionary:
 	return result
 
 
+## 检查载荷格式标识和精确整数格式版本并追加错误。
+## [br]
+## @api private
+## [br]
 func _append_apply_format_errors(
 	payload: Dictionary,
 	errors: Array[String],
@@ -1515,6 +1702,10 @@ func _append_apply_format_errors(
 		pipeline_context.add_error(version_error, { "kind": version_kind })
 
 
+## 检查载荷 Scope descriptor 与目标 Scope 的 key 和 namespace。
+## [br]
+## @api private
+## [br]
 func _append_apply_scope_descriptor_errors(
 	scope: GFSaveScope,
 	payload: Dictionary,
@@ -1548,6 +1739,10 @@ func _append_apply_scope_descriptor_errors(
 		})
 
 
+## 递归预检 Source/子 Scope 载荷、重复键及缺失子 Scope。
+## [br]
+## @api private
+## [br]
 func _append_apply_preflight_errors(
 	scope: GFSaveScope,
 	source_payloads: Dictionary,
@@ -1643,6 +1838,10 @@ func _append_apply_preflight_errors(
 		)
 
 
+## 返回计数大于一的键，并按文本排序。
+## [br]
+## @api private
+## [br]
 func _duplicate_keys_from_counts(counts: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for key_variant: Variant in counts.keys():
@@ -1653,6 +1852,10 @@ func _duplicate_keys_from_counts(counts: Dictionary) -> PackedStringArray:
 	return result
 
 
+## 返回按字符串表示排序的字典键。
+## [br]
+## @api private
+## [br]
 func _sorted_dictionary_keys(data: Dictionary) -> Array:
 	var result: Array = data.keys()
 	result.sort_custom(func(left: Variant, right: Variant) -> bool:
@@ -1661,6 +1864,10 @@ func _sorted_dictionary_keys(data: Dictionary) -> Array:
 	return result
 
 
+## 将 Scope key namespace 与 Source key 组合成稳定来源键。
+## [br]
+## @api private
+## [br]
 func _make_scoped_source_key(scope: GFSaveScope, source: GFSaveSource) -> String:
 	var prefix: String = scope.get_key_prefix()
 	var key: String = String(source.get_source_key())
@@ -1669,6 +1876,10 @@ func _make_scoped_source_key(scope: GFSaveScope, source: GFSaveSource) -> String
 	return "%s/%s" % [prefix, key]
 
 
+## 检查模式下读取 namespace 与 Source key 并组合来源键。
+## [br]
+## @api private
+## [br]
 func _make_scoped_source_key_for_inspection(scope: Node, source: Node) -> String:
 	var prefix: String = String(_get_string_name_property(scope, &"key_namespace", &""))
 	var key: String = String(_get_source_key_for_inspection(source))
@@ -1677,18 +1888,30 @@ func _make_scoped_source_key_for_inspection(scope: Node, source: Node) -> String
 	return "%s/%s" % [prefix, key]
 
 
+## 检查模式下读取 Scope key；空值回退到节点名。
+## [br]
+## @api private
+## [br]
 func _get_scope_key_for_inspection(scope: Node) -> StringName:
 	if scope == null:
 		return &""
 	return _get_string_name_property(scope, &"scope_key", StringName(scope.name))
 
 
+## 检查模式下读取 Source key；空值回退到节点名。
+## [br]
+## @api private
+## [br]
 func _get_source_key_for_inspection(source: Node) -> StringName:
 	if source == null:
 		return &""
 	return _get_string_name_property(source, &"source_key", StringName(source.name))
 
 
+## 检查模式下按 enabled 与 save_enabled 判断 Scope 是否可保存。
+## [br]
+## @api private
+## [br]
 func _can_save_scope_for_inspection(scope: Node, _context: Dictionary = {}) -> bool:
 	return (
 		_get_bool_property(scope, &"enabled", true)
@@ -1696,6 +1919,10 @@ func _can_save_scope_for_inspection(scope: Node, _context: Dictionary = {}) -> b
 	)
 
 
+## 检查模式下按 enabled 与 load_enabled 判断 Scope 是否可加载。
+## [br]
+## @api private
+## [br]
 func _can_load_scope_for_inspection(scope: Node, _context: Dictionary = {}) -> bool:
 	return (
 		_get_bool_property(scope, &"enabled", true)
@@ -1703,6 +1930,10 @@ func _can_load_scope_for_inspection(scope: Node, _context: Dictionary = {}) -> b
 	)
 
 
+## 检查模式下按 enabled 与 save_enabled 判断 Source 是否可保存。
+## [br]
+## @api private
+## [br]
 func _can_save_source_for_inspection(source: Node, _context: Dictionary = {}) -> bool:
 	return (
 		_get_bool_property(source, &"enabled", true)
@@ -1710,6 +1941,10 @@ func _can_save_source_for_inspection(source: Node, _context: Dictionary = {}) ->
 	)
 
 
+## 检查模式下按 enabled 与 load_enabled 判断 Source 是否可加载。
+## [br]
+## @api private
+## [br]
 func _can_load_source_for_inspection(source: Node, _context: Dictionary = {}) -> bool:
 	return (
 		_get_bool_property(source, &"enabled", true)
@@ -1717,6 +1952,10 @@ func _can_load_source_for_inspection(source: Node, _context: Dictionary = {}) ->
 	)
 
 
+## 检查模式下按 target_node_path 读取目标节点，路径为空时使用父节点。
+## [br]
+## @api private
+## [br]
 func _get_source_target_node_for_inspection(source: Node) -> Node:
 	if source == null:
 		return null
@@ -1727,6 +1966,10 @@ func _get_source_target_node_for_inspection(source: Node) -> Node:
 	return source.get_parent()
 
 
+## 检查模式下列出支持目标节点的局部或注册表序列化器 ID。
+## [br]
+## @api private
+## [br]
 func _get_source_serializer_ids_for_inspection(source: Node, target: Node) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	if source == null or target == null:
@@ -1747,6 +1990,10 @@ func _get_source_serializer_ids_for_inspection(source: Node, target: Node) -> Pa
 	return result
 
 
+## 检查模式下依次从 serializer_id、资源路径和脚本路径读取 ID。
+## [br]
+## @api private
+## [br]
 func _get_serializer_id_for_inspection(serializer: Resource) -> StringName:
 	if serializer == null:
 		return &""
@@ -1763,6 +2010,10 @@ func _get_serializer_id_for_inspection(serializer: Resource) -> StringName:
 	return &""
 
 
+## 读取对象属性并按非空 StringName 规则收窄。
+## [br]
+## @api private
+## [br]
 func _get_string_name_property(object: Object, property_name: StringName, fallback: StringName = &"") -> StringName:
 	if object == null:
 		return fallback
@@ -1771,6 +2022,10 @@ func _get_string_name_property(object: Object, property_name: StringName, fallba
 	return _get_non_empty_string_name(value, fallback)
 
 
+## 读取对象属性并转换为 bool；对象为空时使用回退值。
+## [br]
+## @api private
+## [br]
 func _get_bool_property(object: Object, property_name: StringName, fallback: bool = false) -> bool:
 	if object == null:
 		return fallback
@@ -1779,6 +2034,10 @@ func _get_bool_property(object: Object, property_name: StringName, fallback: boo
 	return GFVariantData.to_bool(value, fallback)
 
 
+## 读取对象属性并转换为 int；对象为空时使用回退值。
+## [br]
+## @api private
+## [br]
 func _get_int_property(object: Object, property_name: StringName, fallback: int = 0) -> int:
 	if object == null:
 		return fallback
@@ -1787,6 +2046,10 @@ func _get_int_property(object: Object, property_name: StringName, fallback: int 
 	return GFVariantData.to_int(value, fallback)
 
 
+## 读取对象属性并转换为 NodePath；对象为空时返回空路径。
+## [br]
+## @api private
+## [br]
 func _get_node_path_property(object: Object, property_name: StringName) -> NodePath:
 	if object == null:
 		return NodePath("")
@@ -1795,6 +2058,10 @@ func _get_node_path_property(object: Object, property_name: StringName) -> NodeP
 	return _get_node_path_value(value)
 
 
+## 读取对象数组属性并筛选出 Resource 项。
+## [br]
+## @api private
+## [br]
 func _get_resource_array_property(object: Object, property_name: StringName) -> Array[Resource]:
 	var result: Array[Resource] = []
 	if object == null:
@@ -1811,6 +2078,10 @@ func _get_resource_array_property(object: Object, property_name: StringName) -> 
 	return result
 
 
+## 将 Source 或其目标节点的身份描述字段合并到 Source descriptor。
+## [br]
+## @api private
+## [br]
 func _merge_identity_descriptor(source: GFSaveSource, descriptor: Dictionary) -> void:
 	var identity: GFSaveIdentity = _find_identity(source)
 	if identity == null:
@@ -1821,6 +2092,10 @@ func _merge_identity_descriptor(source: GFSaveSource, descriptor: Dictionary) ->
 		descriptor[key] = identity_descriptor[key]
 
 
+## 优先查找 Source 子节点，再查找目标节点子节点中的 GFSaveIdentity。
+## [br]
+## @api private
+## [br]
 func _find_identity(source: GFSaveSource) -> GFSaveIdentity:
 	for child: Node in source.get_children():
 		if child is GFSaveIdentity:
@@ -1835,6 +2110,9 @@ func _find_identity(source: GFSaveSource) -> GFSaveIdentity:
 	return null
 
 
+## 仅在允许工厂恢复时创建并挂接实体，记录回滚所有权；工厂通知后复核实例和期望 source key，无法匹配的实体立即移除并释放。
+## [br]
+## @api private
 func _try_create_source_from_payload(
 	scope: GFSaveScope,
 	source_payload: Dictionary,
@@ -1884,6 +2162,10 @@ func _try_create_source_from_payload(
 	return source
 
 
+## 从完整来源键移除 Scope namespace 后写入 Source.source_key。
+## [br]
+## @api private
+## [br]
 func _align_factory_source_key(scope: GFSaveScope, source: GFSaveSource, expected_source_key: String) -> void:
 	if scope == null or source == null or expected_source_key.is_empty():
 		return
@@ -1898,6 +2180,10 @@ func _align_factory_source_key(scope: GFSaveScope, source: GFSaveSource, expecte
 	source.source_key = StringName(local_key)
 
 
+## 深度优先返回实体节点子树中遇到的第一个 GFSaveSource。
+## [br]
+## @api private
+## [br]
 func _find_first_source(root: Node) -> GFSaveSource:
 	for child: Node in root.get_children():
 		if child is GFSaveSource:
@@ -1908,6 +2194,10 @@ func _find_first_source(root: Node) -> GFSaveSource:
 	return null
 
 
+## 从 Source payload descriptor 读取 phase；格式不符时回退到普通阶段。
+## [br]
+## @api private
+## [br]
 func _source_payload_phase(source_payload_variant: Variant) -> int:
 	if not (source_payload_variant is Dictionary):
 		return 0
@@ -1917,6 +2207,10 @@ func _source_payload_phase(source_payload_variant: Variant) -> int:
 	return GFVariantData.get_option_int(descriptor, "phase", GFSaveScope.Phase.NORMAL)
 
 
+## 从 Scope payload descriptor 读取 phase；格式不符时回退到普通阶段。
+## [br]
+## @api private
+## [br]
 func _scope_payload_phase(scope_payload_variant: Variant) -> int:
 	if not (scope_payload_variant is Dictionary):
 		return GFSaveScope.Phase.NORMAL
@@ -1926,6 +2220,10 @@ func _scope_payload_phase(scope_payload_variant: Variant) -> int:
 	return GFVariantData.get_option_int(descriptor, "phase", GFSaveScope.Phase.NORMAL)
 
 
+## 按 Source payload phase、再按键文本比较排序顺序。
+## [br]
+## @api private
+## [br]
 func _compare_source_payload_keys(left: Variant, right: Variant, source_payloads: Dictionary) -> bool:
 	var left_phase: int = _source_payload_phase(GFVariantData.get_option_value(source_payloads, left))
 	var right_phase: int = _source_payload_phase(GFVariantData.get_option_value(source_payloads, right))
@@ -1934,6 +2232,10 @@ func _compare_source_payload_keys(left: Variant, right: Variant, source_payloads
 	return str(left) < str(right)
 
 
+## 按子 Scope payload phase、再按键文本比较排序顺序。
+## [br]
+## @api private
+## [br]
 func _compare_scope_payload_keys(left: Variant, right: Variant, child_payloads: Dictionary) -> bool:
 	var left_phase: int = _scope_payload_phase(GFVariantData.get_option_value(child_payloads, left))
 	var right_phase: int = _scope_payload_phase(GFVariantData.get_option_value(child_payloads, right))
@@ -1942,6 +2244,10 @@ func _compare_scope_payload_keys(left: Variant, right: Variant, child_payloads: 
 	return str(left) < str(right)
 
 
+## 按读取到的 phase、再按 Scope key 比较遍历顺序。
+## [br]
+## @api private
+## [br]
 func _compare_scopes_for_traversal(left: GFSaveScope, right: GFSaveScope) -> bool:
 	var left_phase: int = _get_int_property(left, &"phase", GFSaveScope.Phase.NORMAL)
 	var right_phase: int = _get_int_property(right, &"phase", GFSaveScope.Phase.NORMAL)
@@ -1950,6 +2256,10 @@ func _compare_scopes_for_traversal(left: GFSaveScope, right: GFSaveScope) -> boo
 	return String(_get_scope_key_for_inspection(left)) < String(_get_scope_key_for_inspection(right))
 
 
+## 构造 Apply 结果并初始化回滚失败和原子恢复状态字段。
+## [br]
+## @api private
+## [br]
 func _make_apply_result(ok: bool, applied: int, errors: Array[String], missing: Array[String]) -> Dictionary:
 	return {
 		"ok": ok,
@@ -1961,6 +2271,10 @@ func _make_apply_result(ok: bool, applied: int, errors: Array[String], missing: 
 	}
 
 
+## 读取 Dictionary 载荷字段；类型不符时追加错误并返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_payload_dictionary_field(
 	payload: Dictionary,
 	field_name: String,
@@ -1978,6 +2292,10 @@ func _get_payload_dictionary_field(
 	return {}
 
 
+## 执行 after-apply steps、记录完成事件并结束本函数创建的 pipeline context。
+## [br]
+## @api private
+## [br]
 func _finish_apply_scope(
 	scope: GFSaveScope,
 	payload: Dictionary,
@@ -1999,6 +2317,9 @@ func _finish_apply_scope(
 	return final_result
 
 
+## 仅由事务根按结果执行回滚或派发已排队的 after-load 回调；失败回滚顺序为参与者、既有 source、新建实体，回滚失败单独附在最终报告中。
+## [br]
+## @api private
 func _finalize_apply_scope(
 	scope: GFSaveScope,
 	payload: Dictionary,
@@ -2038,6 +2359,10 @@ func _finalize_apply_scope(
 	return final_result
 
 
+## 将已加载 Source 与当前 Scope 的 after-load 调用数据加入事务状态。
+## [br]
+## @api private
+## [br]
 func _queue_after_load_callbacks(
 	state: ApplyOperationState,
 	loaded_sources: Array[Dictionary],
@@ -2065,6 +2390,9 @@ func _queue_after_load_callbacks(
 		})
 
 
+## 先复制并清空待通知队列，再按记录种类调用仍有效的 source/scope，避免同一队列在回调重入时重复消费。
+## [br]
+## @api private
 func _dispatch_after_load_callbacks(state: ApplyOperationState, context: Dictionary) -> void:
 	var callbacks: Array[Dictionary] = state.after_load_callbacks.duplicate()
 	state.after_load_callbacks.clear()
@@ -2087,10 +2415,17 @@ func _dispatch_after_load_callbacks(state: ApplyOperationState, context: Diction
 					callback_scope._after_load(GFVariantData.as_dictionary(data), context)
 
 
+## 清空事务状态中的 after-load 回调队列。
+## [br]
+## @api private
+## [br]
 func _clear_after_load_callbacks(state: ApplyOperationState) -> void:
 	state.after_load_callbacks.clear()
 
 
+## 按参与者列表运行指定事务阶段；成功记事件，失败逐项追加带参与者和阶段信息的错误，不在首个失败处中止遍历。
+## [br]
+## @api private
 func _append_transaction_participant_errors(
 	pipeline_context: GFSavePipelineContext,
 	context: Dictionary,
@@ -2127,6 +2462,9 @@ func _append_transaction_participant_errors(
 			})
 
 
+## 按登记逆序调用参与者 rollback，继续收集所有失败到操作状态和 pipeline；成功与失败均不在此清除参与者列表。
+## [br]
+## @api private
 func _rollback_transaction_participants(
 	pipeline_context: GFSavePipelineContext,
 	context: Dictionary,
@@ -2166,6 +2504,10 @@ func _rollback_transaction_participants(
 			})
 
 
+## 按阶段名称调用事务参与者的 prepare 或 commit 方法。
+## [br]
+## @api private
+## [br]
 func _run_transaction_participant_stage(
 	participant: GFSaveTransactionParticipant,
 	context: Dictionary,
@@ -2180,6 +2522,10 @@ func _run_transaction_participant_stage(
 			return participant.make_result(false, ["Unknown transaction participant stage: %s" % String(stage)])
 
 
+## 将 prepare 或 commit 阶段映射为对应的 pipeline 事件名。
+## [br]
+## @api private
+## [br]
 func _transaction_stage_to_event(stage: StringName) -> StringName:
 	match stage:
 		&"prepare":
@@ -2190,6 +2536,10 @@ func _transaction_stage_to_event(stage: StringName) -> StringName:
 			return &"transaction_participant_stage_finished"
 
 
+## 根据事务参与者 ID 构造错误标签。
+## [br]
+## @api private
+## [br]
 func _get_transaction_participant_label(participant: GFSaveTransactionParticipant) -> String:
 	if participant == null:
 		return "Save transaction participant"
@@ -2198,6 +2548,9 @@ func _get_transaction_participant_label(participant: GFSaveTransactionParticipan
 	return "Save transaction participant"
 
 
+## 仅为启用事务且尚未记录的既有 source 捕获回滚数据和引用根；本轮新建实体及其子节点由实体回滚负责。
+## [br]
+## @api private
 func _track_source_snapshot(
 	context: Dictionary,
 	source: GFSaveSource,
@@ -2221,6 +2574,10 @@ func _track_source_snapshot(
 	})
 
 
+## 检查事务状态是否已包含指定 Source 对象的快照。
+## [br]
+## @api private
+## [br]
 func _source_snapshot_exists(state: ApplyOperationState, source: GFSaveSource) -> bool:
 	for snapshot: Dictionary in state.source_snapshots:
 		var snapshot_source: GFSaveSource = _get_save_source_value(GFVariantData.get_option_value(snapshot, "source"))
@@ -2229,6 +2586,9 @@ func _source_snapshot_exists(state: ApplyOperationState, source: GFSaveSource) -
 	return false
 
 
+## 逆序恢复捕获的 source 数据，并在浅复制上下文中恢复各自引用根；无效 source 或应用失败均计入 rollback_failures，最后清空快照列表。
+## [br]
+## @api private
 func _rollback_source_snapshots(
 	context: Dictionary,
 	pipeline_context: GFSavePipelineContext,
@@ -2265,11 +2625,18 @@ func _rollback_source_snapshots(
 	state.source_snapshots.clear()
 
 
+## 将尚未登记的恢复实体加入事务创建列表。
+## [br]
+## @api private
+## [br]
 func _track_created_entity(state: ApplyOperationState, entity: Node) -> void:
 	if not state.created_entities.has(entity):
 		state.created_entities.append(entity)
 
 
+## 逆序释放本次创建且仍有效的实体，完成后清空创建记录。
+## [br]
+## @api private
 func _rollback_created_entities(state: ApplyOperationState) -> void:
 	for index: int in range(state.created_entities.size() - 1, -1, -1):
 		var entity: Node = state.created_entities[index]
@@ -2279,6 +2646,10 @@ func _rollback_created_entities(state: ApplyOperationState) -> void:
 	state.created_entities.clear()
 
 
+## 检查节点是否为事务创建实体或其后代节点。
+## [br]
+## @api private
+## [br]
 func _is_created_entity_or_descendant(state: ApplyOperationState, node: Node) -> bool:
 	if node == null:
 		return false
@@ -2290,6 +2661,9 @@ func _is_created_entity_or_descendant(state: ApplyOperationState, node: Node) ->
 	return false
 
 
+## 将仍有效的实体从父节点移除后立即 free；仅用于本轮拥有的创建实体。
+## [br]
+## @api private
 func _free_created_entity(entity: Node) -> void:
 	if not is_instance_valid(entity):
 		return
@@ -2300,6 +2674,10 @@ func _free_created_entity(entity: Node) -> void:
 	entity.free()
 
 
+## 若上下文没有 PipelineContext，则复制上下文并创建一个新的流程上下文。
+## [br]
+## @api private
+## [br]
 func _ensure_pipeline_context(
 	context: Dictionary,
 	operation: StringName,
@@ -2314,14 +2692,26 @@ func _ensure_pipeline_context(
 	return result
 
 
+## 检查调用上下文是否含有 GFSavePipelineContext。
+## [br]
+## @api private
+## [br]
 func _has_pipeline_context(context: Dictionary) -> bool:
 	return GFVariantData.get_option_value(context, "pipeline_context") is GFSavePipelineContext
 
 
+## 从调用上下文读取 GFSavePipelineContext。
+## [br]
+## @api private
+## [br]
 func _get_pipeline_context(context: Dictionary) -> GFSavePipelineContext:
 	return _get_pipeline_context_value(GFVariantData.get_option_value(context, "pipeline_context"))
 
 
+## 按 pipeline_steps 顺序执行启用步骤的 before-gather 钩子。
+## [br]
+## @api private
+## [br]
 func _run_before_gather_steps(scope: GFSaveScope, context: Dictionary) -> void:
 	for step: GFSavePipelineStep in pipeline_steps:
 		if step != null and step.enabled:
@@ -2329,6 +2719,10 @@ func _run_before_gather_steps(scope: GFSaveScope, context: Dictionary) -> void:
 			step._before_gather_scope(scope, context)
 
 
+## 按 pipeline_steps 顺序执行 after-gather 钩子并传递 Dictionary 结果。
+## [br]
+## @api private
+## [br]
 func _run_after_gather_steps(
 	scope: GFSaveScope,
 	payload: Dictionary,
@@ -2345,6 +2739,10 @@ func _run_after_gather_steps(
 	return result
 
 
+## 按 pipeline_steps 顺序执行 before-apply 钩子并传递 Dictionary 结果。
+## [br]
+## @api private
+## [br]
 func _run_before_apply_steps(
 	scope: GFSaveScope,
 	payload: Dictionary,
@@ -2361,6 +2759,10 @@ func _run_before_apply_steps(
 	return result
 
 
+## 按 pipeline_steps 顺序执行 after-apply 钩子并传递 Dictionary 结果。
+## [br]
+## @api private
+## [br]
 func _run_after_apply_steps(
 	scope: GFSaveScope,
 	payload: Dictionary,
@@ -2378,6 +2780,10 @@ func _run_after_apply_steps(
 	return final_result
 
 
+## 读取 pipeline step 脚本路径并记录该步骤阶段事件。
+## [br]
+## @api private
+## [br]
 func _record_pipeline_step_event(
 	context: Dictionary,
 	stage: StringName,
@@ -2394,10 +2800,18 @@ func _record_pipeline_step_event(
 	})
 
 
+## 获取本地架构中的 GFStorageUtility。
+## [br]
+## @api private
+## [br]
 func _get_storage_utility() -> GFStorageUtility:
 	return _get_storage_utility_value(get_utility(GFStorageUtility))
 
 
+## 将不可持久化值的路径和错误内容写入 Godot 错误日志。
+## [br]
+## @api private
+## [br]
 func _push_persisted_validation_error(label: String, report: Dictionary) -> void:
 	push_error(
 		"[GFSaveGraphUtility][save_graph_utility.unpersistable_value] save_scope failed: %s at %s cannot be persisted: %s." % [
@@ -2408,6 +2822,10 @@ func _push_persisted_validation_error(label: String, report: Dictionary) -> void
 	)
 
 
+## 获取支持目标节点的局部序列化器 ID，或启用时获取注册表 ID。
+## [br]
+## @api private
+## [br]
 func _get_source_serializer_ids(source: GFSaveSource, target: Node) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	if target == null:
@@ -2426,6 +2844,10 @@ func _get_source_serializer_ids(source: GFSaveSource, target: Node) -> PackedStr
 	return result
 
 
+## 使用验证报告脚本追加带 key 与 path 的诊断问题。
+## [br]
+## @api private
+## [br]
 func _append_diagnostic_issue(
 	report: Dictionary,
 	severity: String,
@@ -2442,6 +2864,10 @@ func _append_diagnostic_issue(
 		return
 
 
+## 检查报告中是否没有 severity 为 error 的问题。
+## [br]
+## @api private
+## [br]
 func _report_has_no_error_issues(report: Dictionary) -> bool:
 	for issue_variant: Variant in GFVariantData.get_option_array(report, "issues"):
 		var issue: Dictionary = GFVariantData.as_dictionary(issue_variant)
@@ -2450,6 +2876,10 @@ func _report_has_no_error_issues(report: Dictionary) -> bool:
 	return true
 
 
+## 获取节点在 SceneTree 中的路径；不在树中时使用节点名。
+## [br]
+## @api private
+## [br]
 func _get_node_debug_path(node: Node) -> String:
 	if node == null:
 		return ""
@@ -2470,18 +2900,21 @@ class ApplyOperationState extends RefCounted:
 	## [br]
 	## @schema created_entities: Array[Node] containing entities created by the active apply transaction.
 	var created_entities: Array[Node] = []
+
 	## 应用前捕获的 Source 状态快照。
 	## [br]
 	## @api framework_internal
 	## [br]
 	## @schema source_snapshots: Array[Dictionary] with source and snapshot entries used for rollback.
 	var source_snapshots: Array[Dictionary] = []
+
 	## 成功提交后执行的 after-load 回调记录。
 	## [br]
 	## @api framework_internal
 	## [br]
 	## @schema after_load_callbacks: Array[Dictionary] with callback owner and invocation data.
 	var after_load_callbacks: Array[Dictionary] = []
+
 	## 回滚阶段产生的结构化失败记录。
 	## [br]
 	## @api framework_internal

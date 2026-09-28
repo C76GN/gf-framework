@@ -13,11 +13,34 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 捕获、重建和采样步骤使用的缓动曲线数据。
+## [br]
+## @api private
 const _EASING_CURVE_SCRIPT = preload("res://addons/gf/extensions/action_queue/tween/gf_tween_easing_curve.gd")
+
+## 一份播放计划允许的最大来源步骤数。
+## [br]
+## @api private
 const _MAX_STEPS: int = 256
+
+## 一份播放计划允许的最大有限循环数。
+## [br]
+## @api private
 const _MAX_LOOPS: int = 256
+
+## 步骤数乘循环数允许的最大展开步骤数。
+## [br]
+## @api private
 const _MAX_EXPANDED_STEPS: int = 4096
+
+## 一份播放计划允许累计的最大曲线烘焙采样数。
+## [br]
+## @api private
 const _MAX_CURVE_SAMPLES: int = 65536
+
+## 一份播放计划允许累计的最大曲线控制点数。
+## [br]
+## @api private
 const _MAX_CURVE_POINTS: int = 4096
 
 
@@ -57,10 +80,29 @@ var markers: Array[Dictionary] = []
 
 # --- 私有变量 ---
 
+## 捕获的根属性基线值，用于编译相对步骤和创建初值快照。
+## [br]
+## @api private
 var _baseline: Dictionary = {}
+
+## 已编译的时间区段，供采样函数按时刻求值。
+## [br]
+## @api private
 var _spans: Array[_Span] = []
+
+## 单个正向循环的时间轴长度。
+## [br]
+## @api private
 var _cycle_seconds: float = 0.0
+
+## 含有限循环次数及可选往返周期的总时长。
+## [br]
+## @api private
 var _total_seconds: float = 0.0
+
+## 记录计划是否按去程和回程采样。
+## [br]
+## @api private
 var _ping_pong: bool = false
 
 
@@ -195,6 +237,9 @@ func sample(time_seconds: float) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 标记计划被拒绝并清除其公开结果和可采样数据。
+## [br]
+## @api private
 static func _reject(plan: GFTweenPlaybackPlan, message: String) -> GFTweenPlaybackPlan:
 	plan.error = message
 	plan.duration_seconds = 0.0
@@ -206,6 +251,9 @@ static func _reject(plan: GFTweenPlaybackPlan, message: String) -> GFTweenPlayba
 	return plan
 
 
+## 校验并捕获单个来源步骤的属性、目标值、时间和曲线数据。
+## [br]
+## @api private
 static func _capture_step(step: GFTweenActionStep, target: Object, scale: float, index: int) -> _SourceStep:
 	var source: _SourceStep = _SourceStep.new()
 	var parts: PackedStringArray = String(step.property_name).split(":")
@@ -263,6 +311,9 @@ static func _capture_step(step: GFTweenActionStep, target: Object, scale: float,
 	return source
 
 
+## 根据当前根属性状态将来源步骤编译为绝对时间区段。
+## [br]
+## @api private
 static func _compile_span(source: _SourceStep, state: Dictionary, loop_start: float) -> _Span:
 	var span: _Span = _Span.new()
 	span._root_name = source._root_name
@@ -279,6 +330,9 @@ static func _compile_span(source: _SourceStep, state: Dictionary, loop_start: fl
 	return span
 
 
+## 在给定时刻采样区段的初值、终值或 Tween 插值结果。
+## [br]
+## @api private
 static func _sample_span(span: _Span, time_seconds: float) -> Variant:
 	var elapsed: float = time_seconds - span._group_start - span._delay
 	if elapsed < 0.0:
@@ -291,6 +345,9 @@ static func _sample_span(span: _Span, time_seconds: float) -> Variant:
 	return Tween.interpolate_value(span._initial_value, span._delta_value, elapsed, span._duration, span._transition, span._easing_mode)
 
 
+## 按时间排序标记，并以来源步骤索引稳定同一时刻的顺序。
+## [br]
+## @api private
 static func _marker_precedes(left: Dictionary, right: Dictionary) -> bool:
 	var left_time: float = GFVariantData.get_option_float(left, "time_seconds")
 	var right_time: float = GFVariantData.get_option_float(right, "time_seconds")
@@ -299,6 +356,9 @@ static func _marker_precedes(left: Dictionary, right: Dictionary) -> bool:
 	return left_time < right_time
 
 
+## 检查属性集合中是否包含已知的位置、缩放或旋转别名冲突。
+## [br]
+## @api private
 static func _has_alias_conflict(values: Dictionary) -> bool:
 	if values.has("position") and values.has("global_position"):
 		return true
@@ -312,12 +372,18 @@ static func _has_alias_conflict(values: Dictionary) -> bool:
 	return rotation_count > 1
 
 
+## 允许整数与浮点数互配，其他值要求 Variant 类型相同。
+## [br]
+## @api private
 static func _compatible(left: Variant, right: Variant) -> bool:
 	if (left is int or left is float) and (right is int or right is float):
 		return true
 	return typeof(left) == typeof(right)
 
 
+## 将整数或浮点 Variant 转换为 float；其他类型返回 NAN。
+## [br]
+## @api private
 static func _number(value: Variant) -> float:
 	if value is float:
 		var floating: float = value
@@ -328,6 +394,9 @@ static func _number(value: Variant) -> float:
 	return NAN
 
 
+## 检查受支持的数值、Vector2、Vector3 或 Color 是否各分量有限。
+## [br]
+## @api private
 static func _is_finite_value(value: Variant) -> bool:
 	if value is float or value is int:
 		return is_finite(_number(value))
@@ -343,6 +412,9 @@ static func _is_finite_value(value: Variant) -> bool:
 	return false
 
 
+## 读取空路径根值或向量、颜色的指定单层分量。
+## [br]
+## @api private
 static func _component_value(value: Variant, component: StringName) -> Variant:
 	if component == &"":
 		return value
@@ -358,6 +430,9 @@ static func _component_value(value: Variant, component: StringName) -> Variant:
 	return null
 
 
+## 返回根属性的新值，或将候选数值写入向量、颜色的指定分量。
+## [br]
+## @api private
 static func _with_component(value: Variant, component: StringName, next: Variant) -> Variant:
 	if component == &"":
 		if value is int:
@@ -385,6 +460,9 @@ static func _with_component(value: Variant, component: StringName, next: Variant
 	return null
 
 
+## 对兼容数值、向量或颜色求和；整数溢出及不兼容类型返回 null。
+## [br]
+## @api private
 static func _add_values(left: Variant, right: Variant) -> Variant:
 	if left is int and right is int:
 		var left_integer: int = left
@@ -410,6 +488,9 @@ static func _add_values(left: Variant, right: Variant) -> Variant:
 	return null
 
 
+## 对兼容数值、向量或颜色求差；整数溢出及不兼容类型返回 null。
+## [br]
+## @api private
 static func _subtract_values(left: Variant, right: Variant) -> Variant:
 	if left is int and right is int:
 		var left_integer: int = left
@@ -437,34 +518,150 @@ static func _subtract_values(left: Variant, right: Variant) -> Variant:
 
 # --- 内部类 ---
 
+## 保存从单个配置步骤校验并捕获的编译输入。
+## [br]
+## @api private
 class _SourceStep extends RefCounted:
+	# --- 私有变量 ---
+
+	## 编译输入校验失败的原因；空串表示尚未发现错误。
+	## [br]
+	## @api private
 	var _error: String = ""
+
+	## 此步骤操作的根属性名，用作编译状态字典的键。
+	## [br]
+	## @api private
 	var _root_name: String = ""
+
+	## 根值中的单层分量；空名表示操作整个根值。
+	## [br]
+	## @api private
 	var _component: StringName = &""
+
+	## 从目标捕获的根属性初值，供首次建立编译状态使用。
+	## [br]
+	## @api private
 	var _root_initial: Variant
+
+	## 校验后的步骤目标值；相对步骤将其作为增量。
+	## [br]
+	## @api private
 	var _target_value: Variant
+
+	## 是否在当前分量值上叠加目标值。
+	## [br]
+	## @api private
 	var _relative: bool = false
+
+	## 本步骤所属并行组相对循环起点的开始秒数。
+	## [br]
+	## @api private
 	var _group_start: float = 0.0
+
+	## 从组开始到插值开始的延迟秒数。
+	## [br]
+	## @api private
 	var _delay: float = 0.0
+
+	## 插值持续秒数；零时长在延迟结束时直接到达终值。
+	## [br]
+	## @api private
 	var _duration: float = 0.0
+
+	## 未提供自定义曲线时使用的 Tween 过渡类型。
+	## [br]
+	## @api private
 	var _transition: Tween.TransitionType = Tween.TRANS_LINEAR
+
+	## 未提供自定义曲线时使用的 Tween 缓动方向。
+	## [br]
+	## @api private
 	var _easing_mode: Tween.EaseType = Tween.EASE_IN
+
+	## 为本步骤捕获的自定义缓动曲线；null 表示使用内置过渡。
+	## [br]
+	## @api private
 	var _curve: Curve = null
+
+	## 捕获曲线所占的烘焙采样数，用于累计编译预算。
+	## [br]
+	## @api private
 	var _curve_samples: int = 0
+
+	## 捕获曲线的控制点数，用于累计编译预算。
+	## [br]
+	## @api private
 	var _curve_points: int = 0
+
+	## 步骤附带的标记名；空名表示不生成标记。
+	## [br]
+	## @api private
 	var _marker_id: StringName = &""
+
+	## 步骤在来源配置中的索引，用于同一时刻标记的稳定排序。
+	## [br]
+	## @api private
 	var _index: int = 0
 
 
+## 保存供时间轴采样的单个冻结属性步骤区段。
+## [br]
+## @api private
 class _Span extends RefCounted:
+	# --- 私有变量 ---
+
+	## 此区段写回的根属性名。
+	## [br]
+	## @api private
 	var _root_name: String = ""
+
+	## 采样值对应的根属性分量；空名表示整个根值。
+	## [br]
+	## @api private
 	var _component: StringName = &""
+
+	## 区段编译时从当前状态读取的分量初值。
+	## [br]
+	## @api private
 	var _initial_value: Variant
+
+	## 已将相对增量折算后的绝对终值。
+	## [br]
+	## @api private
 	var _final_value: Variant
+
+	## 终值减初值的差量，传给 Tween.interpolate_value。
+	## [br]
+	## @api private
 	var _delta_value: Variant
+
+	## 包含循环偏移的组开始秒数。
+	## [br]
+	## @api private
 	var _group_start: float = 0.0
+
+	## 相对组开始的插值延迟秒数。
+	## [br]
+	## @api private
 	var _delay: float = 0.0
+
+	## 插值持续秒数；零时长直接采样终值。
+	## [br]
+	## @api private
 	var _duration: float = 0.0
+
+	## 无自定义曲线时传给 Tween 的过渡类型。
+	## [br]
+	## @api private
 	var _transition: Tween.TransitionType = Tween.TRANS_LINEAR
+
+	## 无自定义曲线时传给 Tween 的缓动方向。
+	## [br]
+	## @api private
 	var _easing_mode: Tween.EaseType = Tween.EASE_IN
+
+	## 自定义曲线存在时先采样进度，再以线性插值计算值。
+	## [br]
+	## @api private
 	var _curve: Curve = null

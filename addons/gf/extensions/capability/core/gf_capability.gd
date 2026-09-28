@@ -14,6 +14,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## Capability Utility 的预加载脚本资源。
+## [br]
+## @api private
 const _CAPABILITY_UTILITY_SCRIPT = preload("res://addons/gf/extensions/capability/core/gf_capability_utility.gd")
 
 
@@ -46,7 +49,14 @@ var active: bool = true
 
 # --- 私有变量 ---
 
+## 当前架构的弱引用。
+## [br]
+## @api private
 var _architecture_ref: WeakRef = null
+
+## 当前所属对象的弱引用。
+## [br]
+## @api private
 var _receiver_ref: WeakRef = null
 
 
@@ -172,6 +182,9 @@ func get_capability(capability_type: Script) -> Object:
 
 # --- 私有/辅助方法 ---
 
+## 返回有效的注入架构，未注入或失效时回退到 Autoload。
+## [br]
+## @api private
 func _get_architecture_or_null() -> GFArchitecture:
 	if _architecture_ref != null:
 		var architecture_value: Object = _architecture_ref.get_ref()
@@ -181,6 +194,9 @@ func _get_architecture_or_null() -> GFArchitecture:
 	return GFAutoload.get_architecture_or_null()
 
 
+## 返回有效的 receiver 对象，弱引用失效时返回 null。
+## [br]
+## @api private
 func _get_receiver_or_null() -> Object:
 	if _receiver_ref == null:
 		return null
@@ -191,6 +207,9 @@ func _get_receiver_or_null() -> Object:
 	return null
 
 
+## 从当前架构获取并收窄 Capability Utility。
+## [br]
+## @api private
 func _get_capability_utility() -> GFCapabilityUtility:
 	var utility: Object = get_utility(_CAPABILITY_UTILITY_SCRIPT)
 	if utility is GFCapabilityUtility:

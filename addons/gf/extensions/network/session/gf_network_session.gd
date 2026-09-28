@@ -199,6 +199,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 将 Session 模式枚举转换为调试文本。
+## [br]
+## @api private
+## [br]
 func _get_mode_name(query_mode: Mode) -> String:
 	match query_mode:
 		Mode.HOST:
@@ -209,6 +213,10 @@ func _get_mode_name(query_mode: Mode) -> String:
 			return "none"
 
 
+## 从选项读取 Dictionary metadata 的深复制，不匹配时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_metadata_copy(options: Dictionary) -> Dictionary:
 	var metadata_variant: Variant = GFVariantData.get_option_value(options, "metadata")
 	if metadata_variant == null:

@@ -56,9 +56,24 @@ const MAX_YEAR: int = 9999
 
 # --- 私有变量 ---
 
+## 标记日期是否已由时间工具层配置成功。
+## [br]
+## @api private
 var _configured: bool = false
+
+## 已配置公民日期的年份；未配置实例保留为 0。
+## [br]
+## @api private
 var _year: int = 0
+
+## 已配置公民日期的月份；未配置实例保留为 0。
+## [br]
+## @api private
 var _month: int = 0
+
+## 已配置公民日期的月内日；未配置实例保留为 0。
+## [br]
+## @api private
 var _day: int = 0
 
 
@@ -538,12 +553,18 @@ func configure_from_time_layer(year: int, month: int, day: int) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 创建日期结果并通过时间工具层入口写入给定失败状态与说明。
+## [br]
+## @api private
 static func _make_failure(status: StringName, error: String) -> GFCivilDateResult:
 	var result: GFCivilDateResult = GFCivilDateResult.new()
 	var _configured_result: bool = result.configure_from_time_layer(status, null, error)
 	return result
 
 
+## 检查指定文本区间是否全部由 ASCII 数字字符组成。
+## [br]
+## @api private
 static func _is_ascii_digits(text: String, start: int, length: int) -> bool:
 	for index: int in range(start, start + length):
 		var codepoint: int = text.unicode_at(index)
@@ -552,10 +573,16 @@ static func _is_ascii_digits(text: String, start: int, length: int) -> bool:
 	return true
 
 
+## 返回支持范围末日 9999-12-31 的零起点日序号。
+## [br]
+## @api private
 static func _maximum_ordinal() -> int:
 	return _date_to_ordinal(MAX_YEAR, 12, 31)
 
 
+## 按前推格里高利历把日期转换为从 0001-01-01 起算的零起点日序号。
+## [br]
+## @api private
 static func _date_to_ordinal(year: int, month: int, day: int) -> int:
 	var previous_year: int = year - 1
 	var ordinal: int = (
@@ -569,6 +596,9 @@ static func _date_to_ordinal(year: int, month: int, day: int) -> int:
 	return ordinal + day - 1
 
 
+## 按闰年规则返回指定月份的天数；调用方须先保证年份和月份有效。
+## [br]
+## @api private
 static func _days_in_month_unchecked(year: int, month: int) -> int:
 	match month:
 		2:
@@ -579,5 +609,8 @@ static func _days_in_month_unchecked(year: int, month: int) -> int:
 			return 31
 
 
+## 按 4 年、100 年与 400 年规则判断年份，不在此处检查支持范围。
+## [br]
+## @api private
 static func _is_leap_year_unchecked(year: int) -> bool:
 	return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)

@@ -28,16 +28,59 @@ signal released(lease: GFAsyncGateLease, reason: StringName)
 
 # --- 私有变量 ---
 
+## 由 owning gate 配置的租约 ID。
+## [br]
+## @api private
 var _lease_id: int = 0
+
+## 由 owning gate 配置的请求 ID。
+## [br]
+## @api private
 var _request_id: int = 0
+
+## 由 owning gate 配置并由 get_key() 返回的租约键。
+## [br]
+## @api private
 var _key: Variant = null
+
+## 由 owning gate 配置并由 get_metadata() 返回的上下文。
+## [br]
+## @api private
 var _metadata: Dictionary = {}
+
+## 配置租约时记录的获取时间戳，单位为毫秒 tick。
+## [br]
+## @api private
 var _acquired_msec: int = 0
+
+## 租约释放时记录的时间戳，单位为毫秒 tick；尚未释放时为 0。
+## [br]
+## @api private
 var _released_msec: int = 0
+
+## 租约首次释放时记录的原因。
+## [br]
+## @api private
 var _release_reason: StringName = &""
+
+## 租约当前是否仍处于活动状态。
+## [br]
+## @api private
 var _active: bool = false
+
+## owning gate 正在完成释放通知期间暂存的释放请求标记。
+## [br]
+## @api private
 var _release_pending: bool = false
+
+## 是否已发出本租约的 released 信号。
+## [br]
+## @api private
 var _release_signal_emitted: bool = false
+
+## 将租约释放请求交由 owning gate 处理的回调。
+## [br]
+## @api private
 var _release_callback: Callable = Callable()
 
 
@@ -222,6 +265,11 @@ func configure_from_gate(
 	return self
 
 
+## Gate 接纳延迟释放时置位；此时租约仍 active，重复接纳返回 false。
+## [br]
+## @api framework_internal
+## [br]
+## @return 首次为活动租约设置待释放标记时返回 true。
 func _mark_release_pending_from_gate() -> bool:
 	if not _active or _release_pending:
 		return false
@@ -229,7 +277,15 @@ func _mark_release_pending_from_gate() -> bool:
 	return true
 
 
-# 由拥有者 gate 标记租约已释放。
+## 提交释放终态、清除回调和待释放标记；Gate 可先提交所有权变化，再单独发送通知。
+## [br]
+## @api framework_internal
+## [br]
+## @param reason: 本次释放原因；空值归一化为 manual。
+## [br]
+## @param emit_release_signal: 是否在提交后立即发送 released；false 时由 Gate 稍后发送。
+## [br]
+## @return 首次从 active 提交释放时返回 true。
 func _mark_released_from_gate(
 	reason: StringName = &"manual",
 	emit_release_signal: bool = true
@@ -246,6 +302,9 @@ func _mark_released_from_gate(
 	return true
 
 
+## 仅对已提交释放且尚未通知的租约发送 released；发信号前置位，阻止回调重入重复通知。
+## [br]
+## @api framework_internal
 func _emit_released_from_gate() -> void:
 	if _active or _release_signal_emitted:
 		return

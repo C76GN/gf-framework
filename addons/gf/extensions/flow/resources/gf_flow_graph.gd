@@ -13,7 +13,14 @@ extends Resource
 
 # --- 常量 ---
 
+## 校验报告整理工具脚本。
+## [br]
+## @api private
 const _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT: Script = preload("res://addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd")
+
+## 图论计算工具脚本。
+## [br]
+## @api private
 const _GF_GRAPH_MATH_SCRIPT: Script = preload("res://addons/gf/standard/foundation/math/gf_graph_math.gd")
 
 
@@ -773,6 +780,9 @@ func build_editor_report() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 将文本值规范化为非空 StringName。
+## [br]
+## @api private
 func _get_string_name_value(value: Variant, default_value: StringName = &"") -> StringName:
 	if value is StringName:
 		var string_name_value: StringName = value
@@ -784,6 +794,9 @@ func _get_string_name_value(value: Variant, default_value: StringName = &"") -> 
 	return default_value
 
 
+## 将 Variant 转换为仍有效的 Object。
+## [br]
+## @api private
 func _get_object_value(value: Variant) -> Object:
 	if typeof(value) != TYPE_OBJECT or not is_instance_valid(value):
 		return null
@@ -793,50 +806,80 @@ func _get_object_value(value: Variant) -> Object:
 	return null
 
 
+## 将 Variant 转换为 GFFlowGraph，类型不符时返回 null。
+## [br]
+## @api private
 func _get_flow_graph_value(value: Variant) -> GFFlowGraph:
 	if value is GFFlowGraph:
 		return value
 	return null
 
 
+## 将 Variant 转换为 GFFlowPort，类型不符时返回 null。
+## [br]
+## @api private
 func _get_flow_port_value(value: Variant) -> GFFlowPort:
 	if value is GFFlowPort:
 		return value
 	return null
 
 
+## 向字典中的数组字段追加值。
+## [br]
+## @api private
 func _append_dictionary_array_field(target: Dictionary, field_name: Variant, value: Variant) -> void:
 	var values: Array = GFVariantData.as_array(GFVariantData.get_option_value(target, field_name, []))
 	values.append(value)
 	target[field_name] = values
 
 
+## 读取连接记录的源节点 ID。
+## [br]
+## @api private
 func _get_connection_from_node_id(connection: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(connection, "from_node_id", &"")
 
 
+## 读取连接记录的源端口 ID。
+## [br]
+## @api private
 func _get_connection_from_port_id(connection: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(connection, "from_port_id", &"")
 
 
+## 读取连接记录的目标节点 ID。
+## [br]
+## @api private
 func _get_connection_to_node_id(connection: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(connection, "to_node_id", &"")
 
 
+## 读取连接记录的目标端口 ID。
+## [br]
+## @api private
 func _get_connection_to_port_id(connection: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(connection, "to_port_id", &"")
 
 
+## 向 PackedStringArray 追加文本。
+## [br]
+## @api private
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 使用报告工具整理校验结果并补充主题和选项。
+## [br]
+## @api private
 func _finalize_validation_report(report: Dictionary, subject: String, options: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(_GF_VALIDATION_REPORT_DICTIONARY_SCRIPT.call("finalize_report", report, subject, options))
 
 
+## 从根节点沿默认后继关系查找可达节点。
+## [br]
+## @api private
 func _find_reachable_nodes(root_node_id: StringName, node_ids: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(_GF_GRAPH_MATH_SCRIPT.call(
 		"find_reachable",
@@ -847,6 +890,9 @@ func _find_reachable_nodes(root_node_id: StringName, node_ids: Dictionary) -> Di
 	))
 
 
+## 按节点 ID 查找流程图中的节点资源。
+## [br]
+## @api private
 func _find_node_by_id(node_id: StringName) -> GFFlowNode:
 	for node: GFFlowNode in nodes:
 		if node != null and node.node_id == node_id:
@@ -854,6 +900,9 @@ func _find_node_by_id(node_id: StringName) -> GFFlowNode:
 	return null
 
 
+## 读取节点显示名，缺省时回退到 ID 或通用名称。
+## [br]
+## @api private
 func _get_node_display_name(node: GFFlowNode) -> String:
 	if node == null:
 		return "Flow Node"
@@ -864,6 +913,9 @@ func _get_node_display_name(node: GFFlowNode) -> String:
 	return "Flow Node"
 
 
+## 构造节点的校验与目录描述。
+## [br]
+## @api private
 func _describe_node(node: GFFlowNode) -> Dictionary:
 	return {
 		"node_id": node.node_id,
@@ -877,6 +929,9 @@ func _describe_node(node: GFFlowNode) -> Dictionary:
 	}
 
 
+## 构造节点输入和输出端口的描述。
+## [br]
+## @api private
 func _describe_node_ports(node: GFFlowNode) -> Dictionary:
 	return {
 		"inputs": _describe_ports(node.input_ports),
@@ -884,6 +939,9 @@ func _describe_node_ports(node: GFFlowNode) -> Dictionary:
 	}
 
 
+## 提取节点编辑器位置、尺寸、折叠状态和分组信息。
+## [br]
+## @api private
 func _describe_node_editor(node: GFFlowNode) -> Dictionary:
 	return {
 		"display_name": _get_node_display_name(node),
@@ -894,6 +952,9 @@ func _describe_node_editor(node: GFFlowNode) -> Dictionary:
 	}
 
 
+## 将非空端口资源转换为描述字典数组。
+## [br]
+## @api private
 func _describe_ports(ports: Array) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for port_variant: Variant in ports:
@@ -903,6 +964,9 @@ func _describe_ports(ports: Array) -> Array[Dictionary]:
 	return result
 
 
+## 提取端口属性并构造描述字典。
+## [br]
+## @api private
 func _describe_port(port: GFFlowPort) -> Dictionary:
 	var port_id: StringName = _get_port_id(port)
 	return {
@@ -919,6 +983,9 @@ func _describe_port(port: GFFlowPort) -> Dictionary:
 	}
 
 
+## 读取端口稳定 ID。
+## [br]
+## @api private
 func _get_port_id(port: GFFlowPort) -> StringName:
 	if port == null:
 		return &""
@@ -927,6 +994,9 @@ func _get_port_id(port: GFFlowPort) -> StringName:
 	return &""
 
 
+## 读取端口显示名，缺省时回退到端口 ID、资源名或通用名称。
+## [br]
+## @api private
 func _get_port_display_name(port: GFFlowPort, port_id: StringName) -> String:
 	if port == null:
 		return "Flow Port"
@@ -939,14 +1009,23 @@ func _get_port_display_name(port: GFFlowPort, port_id: StringName) -> String:
 	return "Flow Port"
 
 
+## 按 ID 在节点输入端口中查找端口。
+## [br]
+## @api private
 func _find_input_port(node: GFFlowNode, port_id: StringName) -> GFFlowPort:
 	return _find_port(node.input_ports, port_id) if node != null else null
 
 
+## 按 ID 在节点输出端口中查找端口。
+## [br]
+## @api private
 func _find_output_port(node: GFFlowNode, port_id: StringName) -> GFFlowPort:
 	return _find_port(node.output_ports, port_id) if node != null else null
 
 
+## 按端口 ID 在指定端口数组中查找端口。
+## [br]
+## @api private
 func _find_port(ports: Array, port_id: StringName) -> GFFlowPort:
 	for port_variant: Variant in ports:
 		var port: GFFlowPort = _get_flow_port_value(port_variant)
@@ -955,6 +1034,9 @@ func _find_port(ports: Array, port_id: StringName) -> GFFlowPort:
 	return null
 
 
+## 检查源和目标端口兼容性并返回报告。
+## [br]
+## @api private
 func _get_port_compatibility_report(source_port: GFFlowPort, target_port: GFFlowPort) -> Dictionary:
 	if target_port == null:
 		return _make_port_compatibility_report(source_port, null, false, "missing_target_port", "Target port is null.")
@@ -971,12 +1053,18 @@ func _get_port_compatibility_report(source_port: GFFlowPort, target_port: GFFlow
 	return _make_port_compatibility_report(output_port, input_port, true, "", "")
 
 
+## 值类型相同或至少一方为 ANY 时视为兼容。
+## [br]
+## @api private
 func _value_types_are_compatible(source_type: GFFlowPort.ValueType, target_type: GFFlowPort.ValueType) -> bool:
 	if source_type == GFFlowPort.ValueType.ANY or target_type == GFFlowPort.ValueType.ANY:
 		return true
 	return source_type == target_type
 
 
+## 对象端口的类提示缺省或相同时视为兼容。
+## [br]
+## @api private
 func _class_hints_are_compatible(source_port: GFFlowPort, target_port: GFFlowPort) -> bool:
 	if source_port.value_type != GFFlowPort.ValueType.OBJECT or target_port.value_type != GFFlowPort.ValueType.OBJECT:
 		return true
@@ -985,6 +1073,9 @@ func _class_hints_are_compatible(source_port: GFFlowPort, target_port: GFFlowPor
 	return source_port.class_name_hint == target_port.class_name_hint
 
 
+## 构造包含成功状态、原因码和说明的端口兼容性报告。
+## [br]
+## @api private
 func _make_port_compatibility_report(
 	source_port: GFFlowPort,
 	target_port: GFFlowPort,
@@ -1002,6 +1093,9 @@ func _make_port_compatibility_report(
 		"target_value_type": target_port.value_type if target_port != null else GFFlowPort.ValueType.ANY,
 	}
 
+## 返回流程图校验问题对应的修复建议。
+## [br]
+## @api private
 func _get_validation_next_actions() -> Dictionary:
 	return {
 		"null_node": "Remove the null entry or replace it with a valid GFFlowNode resource.",
@@ -1032,6 +1126,9 @@ func _get_validation_next_actions() -> Dictionary:
 	}
 
 
+## 返回元数据校验问题对应的修复建议。
+## [br]
+## @api private
 func _get_metadata_validation_next_actions() -> Dictionary:
 	return {
 		"metadata_missing_required": "Add the required metadata key or relax the metadata schema.",
@@ -1044,11 +1141,17 @@ func _get_metadata_validation_next_actions() -> Dictionary:
 	}
 
 
+## 分别校验节点输入端口和输出端口。
+## [br]
+## @api private
 func _validate_node_ports(node: GFFlowNode, report: Dictionary) -> void:
 	_validate_ports(node.node_id, "input", node.input_ports, report)
 	_validate_ports(node.node_id, "output", node.output_ports, report)
 
 
+## 检查空端口、空端口 ID 和重复端口 ID。
+## [br]
+## @api private
 func _validate_ports(node_id: StringName, label: String, ports: Array, report: Dictionary) -> void:
 	var port_ids: Dictionary = {}
 	for port_variant: Variant in ports:
@@ -1066,6 +1169,9 @@ func _validate_ports(node_id: StringName, label: String, ports: Array, report: D
 		port_ids[port_id] = true
 
 
+## 检查连接端点、重复项、端口存在性、数量限制及兼容性。
+## [br]
+## @api private
 func _validate_connections(report: Dictionary, node_ids: Dictionary) -> void:
 	var connection_keys: Dictionary = {}
 	var input_counts: Dictionary = {}
@@ -1105,6 +1211,9 @@ func _validate_connections(report: Dictionary, node_ids: Dictionary) -> void:
 				_append_validation_issue(report, "error", "incompatible_connection_ports", String(from_node_id), GFVariantData.get_option_string(compatibility, "message", ""))
 
 
+## 按图配置执行不可达节点、循环和终端节点诊断。
+## [br]
+## @api private
 func _validate_topology_diagnostics(report: Dictionary, node_ids: Dictionary) -> void:
 	if node_ids.is_empty():
 		return
@@ -1116,6 +1225,9 @@ func _validate_topology_diagnostics(report: Dictionary, node_ids: Dictionary) ->
 		_validate_terminal_nodes(report, node_ids)
 
 
+## 从有效起始节点查找不可达节点并追加警告。
+## [br]
+## @api private
 func _validate_unreachable_nodes(report: Dictionary, node_ids: Dictionary) -> void:
 	if start_node_id == &"" or not node_ids.has(start_node_id):
 		return
@@ -1126,6 +1238,9 @@ func _validate_unreachable_nodes(report: Dictionary, node_ids: Dictionary) -> vo
 			_append_validation_issue(report, "warning", "unreachable_node", String(node_id), "Node is not reachable from start_node_id: %s" % String(node_id))
 
 
+## 遍历图的后继关系并为循环追加警告。
+## [br]
+## @api private
 func _validate_cycles(report: Dictionary, node_ids: Dictionary) -> void:
 	var states: Dictionary = {}
 	var reported_cycles: Dictionary = {}
@@ -1134,6 +1249,9 @@ func _validate_cycles(report: Dictionary, node_ids: Dictionary) -> void:
 			_visit_node_for_cycles_iterative(node_id, node_ids, states, reported_cycles, report)
 
 
+## 以迭代深度优先遍历后继并去重记录循环。
+## [br]
+## @api private
 func _visit_node_for_cycles_iterative(
 	p_start_node_id: StringName,
 	node_ids: Dictionary,
@@ -1174,12 +1292,18 @@ func _visit_node_for_cycles_iterative(
 			index_stack.append(0)
 
 
+## 查找没有有效后继的节点并追加警告。
+## [br]
+## @api private
 func _validate_terminal_nodes(report: Dictionary, node_ids: Dictionary) -> void:
 	for node_id: StringName in _get_sorted_node_ids(node_ids):
 		if _get_successor_node_ids(node_id, node_ids).is_empty():
 			_append_validation_issue(report, "warning", "terminal_node", String(node_id), "Node has no outgoing successor: %s" % String(node_id))
 
 
+## 按规则校验元数据必需键、空值、对象有效性、类型、类提示和允许值。
+## [br]
+## @api private
 func _validate_metadata_against_schema(
 	report: Dictionary,
 	target_metadata: Dictionary,
@@ -1229,16 +1353,25 @@ func _validate_metadata_against_schema(
 			_append_validation_issue(report, "error", "metadata_value_not_allowed", String(key), "%s metadata value is not allowed: %s" % [label, String(key)])
 
 
+## 检查元数据是否含 StringName 键或对应的 String 键。
+## [br]
+## @api private
 func _metadata_has_key(target_metadata: Dictionary, key: StringName) -> bool:
 	return target_metadata.has(key) or target_metadata.has(String(key))
 
 
+## 优先按 StringName 键读取元数据，再回退到 String 键。
+## [br]
+## @api private
 func _metadata_get_value(target_metadata: Dictionary, key: StringName) -> Variant:
 	if target_metadata.has(key):
 		return target_metadata[key]
 	return GFVariantData.get_option_value(target_metadata, String(key), null)
 
 
+## 返回节点默认后继和有效节点级连接构成的后继 ID 列表。
+## [br]
+## @api private
 func _get_successor_node_ids(node_id: StringName, node_ids: Dictionary) -> Array[StringName]:
 	var result: Array[StringName] = []
 	var node: GFFlowNode = _find_node_by_id(node_id)
@@ -1255,12 +1388,18 @@ func _get_successor_node_ids(node_id: StringName, node_ids: Dictionary) -> Array
 	return result
 
 
+## 仅追加非空、存在且未重复的后继节点 ID。
+## [br]
+## @api private
 func _append_successor_id(result: Array[StringName], node_id: StringName, node_ids: Dictionary) -> void:
 	if node_id == &"" or not node_ids.has(node_id) or result.has(node_id):
 		return
 	result.append(node_id)
 
 
+## 检查对象是否匹配原生类或脚本继承链中的命名类。
+## [br]
+## @api private
 func _object_matches_class(value: Object, expected_class: String) -> bool:
 	if value == null or not is_instance_valid(value):
 		return false
@@ -1275,6 +1414,9 @@ func _object_matches_class(value: Object, expected_class: String) -> bool:
 	return false
 
 
+## 按文本排序节点 ID 并转换成 StringName 数组。
+## [br]
+## @api private
 func _get_sorted_node_ids(node_ids: Dictionary) -> Array[StringName]:
 	var values: PackedStringArray = PackedStringArray()
 	for node_id_variant: Variant in node_ids.keys():
@@ -1287,6 +1429,9 @@ func _get_sorted_node_ids(node_ids: Dictionary) -> Array[StringName]:
 	return result
 
 
+## 根据遍历栈构造闭合循环路径键。
+## [br]
+## @api private
 func _make_cycle_key(first_repeated_node_id: StringName, stack: Array[StringName]) -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	var include: bool = false
@@ -1299,6 +1444,9 @@ func _make_cycle_key(first_repeated_node_id: StringName, stack: Array[StringName
 	return " -> ".join(parts)
 
 
+## 查找连接的指定方向端口，不存在时追加校验错误。
+## [br]
+## @api private
 func _validate_connection_port(
 	node: GFFlowNode,
 	port_id: StringName,
@@ -1316,6 +1464,9 @@ func _validate_connection_port(
 	return port
 
 
+## 累计端口连接数并报告超出单连接限制的情况。
+## [br]
+## @api private
 func _count_connection_port(
 	counts: Dictionary,
 	node_id: StringName,
@@ -1336,6 +1487,9 @@ func _count_connection_port(
 	_append_validation_issue(report, "error", kind, String(node_id), "Flow port allows only one connection: %s" % String(port_id))
 
 
+## 检查连接端点、端口、数量限制及兼容性是否允许新增连接。
+## [br]
+## @api private
 func _can_append_connection(
 	from_node_id: StringName,
 	from_port_id: StringName,
@@ -1364,6 +1518,9 @@ func _can_append_connection(
 	return true
 
 
+## 构造连接字典并复制元数据。
+## [br]
+## @api private
 func _make_connection(
 	from_node_id: StringName,
 	from_port_id: StringName,
@@ -1380,6 +1537,9 @@ func _make_connection(
 	}
 
 
+## 从各节点的默认后继列表中移除指定节点 ID。
+## [br]
+## @api private
 func _remove_node_id_from_next_node_ids(node_id: StringName) -> void:
 	if node_id == &"":
 		return
@@ -1394,10 +1554,16 @@ func _remove_node_id_from_next_node_ids(node_id: StringName) -> void:
 		node.next_node_ids = next_node_ids
 
 
+## 判断连接是否只为一端指定端口 ID。
+## [br]
+## @api private
 func _has_mixed_connection_ports(from_port_id: StringName, to_port_id: StringName) -> bool:
 	return (from_port_id == &"" and to_port_id != &"") or (from_port_id != &"" and to_port_id == &"")
 
 
+## 逐项比较连接端点，判断是否匹配指定连接。
+## [br]
+## @api private
 func _connection_matches(
 	connection: Dictionary,
 	from_node_id: StringName,
@@ -1413,6 +1579,9 @@ func _connection_matches(
 	)
 
 
+## 将连接四个端点组成稳定的复合键。
+## [br]
+## @api private
 func _get_connection_key(
 	from_node_id: StringName,
 	from_port_id: StringName,
@@ -1427,10 +1596,16 @@ func _get_connection_key(
 	]))
 
 
+## 将节点 ID 与端口 ID 组成复合键。
+## [br]
+## @api private
 func _get_node_port_key(node_id: StringName, port_id: StringName) -> String:
 	return _get_identity_key(PackedStringArray([String(node_id), String(port_id)]))
 
 
+## 用长度前缀编码各部分，构造无歧义的复合键。
+## [br]
+## @api private
 func _get_identity_key(parts: PackedStringArray) -> String:
 	var result: String = ""
 	for part: String in parts:
@@ -1438,6 +1613,9 @@ func _get_identity_key(parts: PackedStringArray) -> String:
 	return result
 
 
+## 查找当前持有运行时状态租约的节点 ID。
+## [br]
+## @api private
 func _get_leased_runtime_state_node_id() -> StringName:
 	for node: GFFlowNode in nodes:
 		if node != null and node.is_runtime_state_leased():
@@ -1445,12 +1623,18 @@ func _get_leased_runtime_state_node_id() -> StringName:
 	return &""
 
 
+## 清除图中各节点的运行时状态。
+## [br]
+## @api private
 func _clear_runtime_state_unchecked() -> void:
 	for node: GFFlowNode in nodes:
 		if node != null:
 			node.clear_runtime_state()
 
 
+## 复制连接列表用于报告或目录描述。
+## [br]
+## @api private
 func _describe_connections() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for connection: Dictionary in connections:
@@ -1458,12 +1642,18 @@ func _describe_connections() -> Array[Dictionary]:
 	return result
 
 
+## 通过校验报告工具追加带键上下文的问题。
+## [br]
+## @api private
 func _append_validation_issue(report: Dictionary, severity: String, kind: String, key: String, message: String) -> void:
 	var issue: Dictionary = GFVariantData.as_dictionary(_GF_VALIDATION_REPORT_DICTIONARY_SCRIPT.call("append_issue", report, severity, StringName(kind), message, { "key": key }))
 	if not issue.is_empty():
 		return
 
 
+## 构造连接兼容性结果字典。
+## [br]
+## @api private
 func _make_connection_compatibility_report(ok: bool, reason: String, message: String) -> Dictionary:
 	return {
 		"ok": ok,

@@ -32,8 +32,22 @@ var duplicate_values: bool = true
 
 # --- 私有变量 ---
 
+## 以区域键映射到该区域的格子和值。
+## [br]
+## @api private
+## [br]
 var _regions: Dictionary = {}
+
+## 记录自上次清理后发生变化的区域键。
+## [br]
+## @api private
+## [br]
 var _dirty_regions: Dictionary = {}
+
+## 内部使用且每轴至少为一的区域尺寸。
+## [br]
+## @api private
+## [br]
 var _region_size: Vector2i = Vector2i(32, 32)
 
 
@@ -215,6 +229,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 归一化新尺寸；变化时保留旧区域并按新尺寸重新分区。
+## [br]
+## @api private
+## [br]
 func _set_region_size(value: Vector2i) -> void:
 	var normalized_size: Vector2i = _normalize_region_size(value)
 	if _region_size == normalized_size:
@@ -225,12 +243,20 @@ func _set_region_size(value: Vector2i) -> void:
 		_reindex_regions(previous_regions)
 
 
+## 创建缺失的区域字典并返回其内部数据。
+## [br]
+## @api private
+## [br]
 func _get_or_create_region(region_key: Vector2i) -> Dictionary:
 	if not _regions.has(region_key):
 		_regions[region_key] = {}
 	return _get_region(region_key)
 
 
+## 安全读取区域值并仅在其为 Dictionary 时返回数据字典。
+## [br]
+## @api private
+## [br]
 func _get_region(region_key: Vector2i) -> Dictionary:
 	var region_variant: Variant = GFVariantData.get_option_value(_regions, region_key)
 	if region_variant is Dictionary:
@@ -238,24 +264,44 @@ func _get_region(region_key: Vector2i) -> Dictionary:
 	return {}
 
 
+## 将区域键加入脏区域集合。
+## [br]
+## @api private
+## [br]
 func _mark_dirty(region_key: Vector2i) -> void:
 	_dirty_regions[region_key] = true
 
 
+## 按 duplicate_values 选择原值或递归复制集合值。
+## [br]
+## @api private
+## [br]
 func _copy_value(value: Variant) -> Variant:
 	if not duplicate_values:
 		return value
 	return GFVariantData.duplicate_collection(value, true)
 
 
+## 返回每轴至少为一的规范化区域尺寸。
+## [br]
+## @api private
+## [br]
 func _get_safe_region_size() -> Vector2i:
 	return _normalize_region_size(_region_size)
 
 
+## 将二维区域尺寸的每个分量限制到至少为一。
+## [br]
+## @api private
+## [br]
 func _normalize_region_size(value: Vector2i) -> Vector2i:
 	return Vector2i(maxi(value.x, 1), maxi(value.y, 1))
 
 
+## 按当前区域尺寸重建分区，迁移全部合法格子并标脏旧、新受影响区域。
+## [br]
+## @api private
+## [br]
 func _reindex_regions(previous_regions: Dictionary) -> void:
 	var previous_dirty_region_keys: Array = _dirty_regions.keys()
 	_regions = {}

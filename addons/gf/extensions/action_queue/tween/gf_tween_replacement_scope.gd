@@ -16,8 +16,19 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 保存当前尚未清理的目标属性租约登记。
+## [br]
+## @api private
 var _entries: Array[_Registration] = []
+
+## 保存下一个租约编号分配前的计数值。
+## [br]
+## @api private
 var _next_lease: int = 0
+
+## 指示作用域是否已永久关闭。
+## [br]
+## @api private
 var _disposed: bool = false
 
 
@@ -179,6 +190,9 @@ func release(action: Object, lease: int) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 分两阶段停止旧动作并通知其替换终态。
+## [br]
+## @api private
 func _retire_entries(retired: Array[_Registration]) -> void:
 	for entry: _Registration in retired:
 		var action: Object = _get_object(entry._action_ref)
@@ -193,6 +207,9 @@ func _retire_entries(retired: Array[_Registration]) -> void:
 			var _notified: Variant = action.call(&"notify_replaced", entry._stopped_generation)
 
 
+## 移除动作或目标弱引用失效、或节点正等待删除的登记。
+## [br]
+## @api private
 func _prune_invalid_entries() -> void:
 	for index: int in range(_entries.size() - 1, -1, -1):
 		var entry: _Registration = _entries[index]
@@ -200,6 +217,9 @@ func _prune_invalid_entries() -> void:
 			_entries.remove_at(index)
 
 
+## 从属性路径提取去重根名，并规范化 Node 旋转属性别名。
+## [br]
+## @api private
 func _get_property_roots(target: Object, property_names: Array[NodePath]) -> Array[StringName]:
 	var roots: Array[StringName] = []
 	for property_name: NodePath in property_names:
@@ -213,6 +233,9 @@ func _get_property_roots(target: Object, property_names: Array[NodePath]) -> Arr
 	return roots
 
 
+## 判断两组根属性名是否包含相同项。
+## [br]
+## @api private
 func _roots_overlap(first: Array[StringName], second: Array[StringName]) -> bool:
 	for root: StringName in first:
 		if second.has(root):
@@ -220,6 +243,9 @@ func _roots_overlap(first: Array[StringName], second: Array[StringName]) -> bool
 	return false
 
 
+## 检查动作方法签名是否可接收协议需要的整数参数。
+## [br]
+## @api private
 func _accepts_integer_argument(action: Object, method_name: StringName) -> bool:
 	if not action.has_method(method_name):
 		return false
@@ -240,6 +266,9 @@ func _accepts_integer_argument(action: Object, method_name: StringName) -> bool:
 	return false
 
 
+## 检查对象实例有效，且 Node 尚未排队删除。
+## [br]
+## @api private
 func _is_available(value: Object) -> bool:
 	if not is_instance_valid(value):
 		return false
@@ -249,6 +278,9 @@ func _is_available(value: Object) -> bool:
 	return true
 
 
+## 从弱引用读取对象；无引用或目标不是 Object 时返回 null。
+## [br]
+## @api private
 func _get_object(object_reference: WeakRef) -> Object:
 	if object_reference == null:
 		return null
@@ -260,9 +292,33 @@ func _get_object(object_reference: WeakRef) -> Object:
 
 # --- 内部类 ---
 
+## 保存一个动作及其目标、属性根集合和替换租约状态。
+## [br]
+## @api private
 class _Registration extends RefCounted:
+	# --- 私有变量 ---
+
+	## 此次登记的递增租约；旧租约不能释放新的登记。
+	## [br]
+	## @api private
 	var _lease: int = 0
+
+	## 动作的弱引用，作用域不以此延长动作寿命。
+	## [br]
+	## @api private
 	var _action_ref: WeakRef = null
+
+	## 属性目标的弱引用，失效或排队删除时移除登记。
+	## [br]
+	## @api private
 	var _target_ref: WeakRef = null
+
+	## 已规范化和去重的属性根名，供替换冲突判断。
+	## [br]
+	## @api private
 	var _roots: Array[StringName] = []
+
+	## 停止阶段返回的动作世代；仅正值进入后续替换通知。
+	## [br]
+	## @api private
 	var _stopped_generation: int = 0

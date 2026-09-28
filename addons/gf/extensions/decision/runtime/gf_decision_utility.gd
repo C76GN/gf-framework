@@ -33,6 +33,9 @@ signal decision_set_unregistered(decision_set_id: StringName)
 
 # --- 私有变量 ---
 
+## 按注册时的 authoritative ID 保存决策集合资源。
+## [br]
+## @api private
 var _decision_sets: Dictionary = {}
 
 
@@ -272,6 +275,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按 Resource 实例身份查找其已有注册键，避免同一实例占用多个 ID。
+## [br]
+## @api private
 func _find_registered_id_for_instance(candidate: GFDecisionSet) -> StringName:
 	for registered_id_value: Variant in _decision_sets.keys():
 		var registered_value: Variant = _decision_sets.get(registered_id_value)
@@ -280,6 +286,9 @@ func _find_registered_id_for_instance(candidate: GFDecisionSet) -> StringName:
 	return &""
 
 
+## 在访问边界将集合资源的 decision_set_id 恢复为其注册键。
+## [br]
+## @api private
 func _restore_registered_identity(
 	decision_set_id: StringName,
 	decision_set: GFDecisionSet

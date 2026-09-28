@@ -11,11 +11,43 @@
 class_name GFVariantData
 extends RefCounted
 
+# --- 常量 ---
+
+
+## 预载变体访问辅助脚本，供本类复用统一的访问实现。
+## [br]
+## @api private
+## [br]
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## JavaScript JSON 可精确表示的最大安全整数边界。
+## [br]
+## @api private
+## [br]
 const _MAX_SAFE_JSON_INTEGER: float = 9_007_199_254_740_991.0
+
+## 差异诊断条目的默认数量上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_DIFF_DIAGNOSTICS: int = 1024
+
+## 差异递归比较的默认最大深度。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_DIFF_DEPTH: int = 64
+
+## 差异递归访问节点数的默认上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_DIFF_NODES: int = 16_384
+
+## 差异遍历集合元素总数的默认上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_DIFF_COLLECTION_ITEMS: int = 65_536
 
 
@@ -835,6 +867,10 @@ static func get_option_packed_string_array(
 
 # --- 私有/辅助方法 ---
 
+## 根据选项建立差异计算状态，保存结果、诊断、遍历预算、值复制策略及活动对象对。
+## [br]
+## @api private
+## [br]
 static func _make_diff_state(options: Dictionary) -> Dictionary:
 	var max_changes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_changes", 1024)
 	var max_diagnostics: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
@@ -883,6 +919,10 @@ static func _make_diff_state(options: Dictionary) -> Dictionary:
 	}
 
 
+## 按深度与节点预算比较两个值，处理类型变化、循环容器及值相等判断。
+## [br]
+## @api private
+## [br]
 static func _diff_variant_recursive(
 	before: Variant,
 	after: Variant,
@@ -939,6 +979,10 @@ static func _diff_variant_recursive(
 		_append_diff_change("changed", path_segments, before, after, state)
 
 
+## 按精确键和同文本 String/StringName 键配对比较字典，并记录新增、移除及变更项。
+## [br]
+## @api private
+## [br]
 static func _diff_dictionary(
 	before: Dictionary,
 	after: Dictionary,
@@ -987,6 +1031,10 @@ static func _diff_dictionary(
 		var _removed_added_path_segment: Variant = path_segments.pop_back()
 
 
+## 按共同索引递归比较数组元素，并为两侧多出的尾部元素记录新增或移除。
+## [br]
+## @api private
+## [br]
 static func _diff_array(
 	before: Array,
 	after: Array,
@@ -1020,6 +1068,10 @@ static func _diff_array(
 		var _removed_new_path_segment: Variant = path_segments.pop_back()
 
 
+## 先找未使用的精确键；文本键未匹配时再找同文本的 String/StringName 键。
+## [br]
+## @api private
+## [br]
 static func _find_matching_dictionary_key(
 	dictionary: Dictionary,
 	key: Variant,
@@ -1052,6 +1104,10 @@ static func _find_matching_dictionary_key(
 	return { "found": false }
 
 
+## 为字典中的 String 与 StringName 键按文本建立索引。
+## [br]
+## @api private
+## [br]
 static func _make_string_like_key_index(dictionary: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for key: Variant in dictionary.keys():
@@ -1064,6 +1120,10 @@ static func _make_string_like_key_index(dictionary: Dictionary) -> Dictionary:
 	return result
 
 
+## 在变更数未超限时追加变更项，记录路径、类型以及可选复制的前后值。
+## [br]
+## @api private
+## [br]
 static func _append_diff_change(
 	kind: String,
 	path_segments: Array,
@@ -1088,6 +1148,10 @@ static func _append_diff_change(
 	})
 
 
+## 在诊断数未超限时追加带路径和附加字段的诊断，并标记诊断截断。
+## [br]
+## @api private
+## [br]
 static func _append_diff_diagnostic(
 	kind: String,
 	path_segments: Array,
@@ -1110,6 +1174,10 @@ static func _append_diff_diagnostic(
 	diagnostics.append(diagnostic)
 
 
+## 仅在状态要求复制时复制差异值，否则返回原值。
+## [br]
+## @api private
+## [br]
 static func _copy_diff_value(value: Variant, state: Dictionary) -> Variant:
 	var copy_values: bool = state["copy_values"]
 	if not copy_values:
@@ -1117,10 +1185,18 @@ static func _copy_diff_value(value: Variant, state: Dictionary) -> Variant:
 	return duplicate_variant(value, true, false)
 
 
+## 把值相等判断委派给公开的 values_equal 实现。
+## [br]
+## @api private
+## [br]
 static func _variant_values_equal(left: Variant, right: Variant) -> bool:
 	return values_equal(left, right)
 
 
+## 判断两值是否同一对象，或是否均为 NaN。
+## [br]
+## @api private
+## [br]
 static func _diff_values_are_identical(before: Variant, after: Variant) -> bool:
 	if is_same(before, after):
 		return true
@@ -1131,14 +1207,26 @@ static func _diff_values_are_identical(before: Variant, after: Variant) -> bool:
 	return false
 
 
+## 读取差异结果是否因变更或诊断数量上限而截断。
+## [br]
+## @api private
+## [br]
 static func _is_diff_truncated(state: Dictionary) -> bool:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(state, "truncated")
 
 
+## 读取递归遍历是否因深度、节点或集合预算而截断。
+## [br]
+## @api private
+## [br]
 static func _is_diff_traversal_truncated(state: Dictionary) -> bool:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(state, "traversal_truncated")
 
 
+## 检查并消耗一个递归节点预算；超限时标记遍历截断并返回 false。
+## [br]
+## @api private
+## [br]
 static func _consume_diff_node(depth: int, path_segments: Array, state: Dictionary) -> bool:
 	var max_depth: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(state, "max_depth")
 	if max_depth > 0 and depth > max_depth:
@@ -1156,6 +1244,10 @@ static func _consume_diff_node(depth: int, path_segments: Array, state: Dictiona
 	return true
 
 
+## 累计集合元素预算，超限时标记遍历截断并返回 false。
+## [br]
+## @api private
+## [br]
 static func _consume_diff_collection_items(
 	item_count: int,
 	path_segments: Array,
@@ -1180,6 +1272,10 @@ static func _consume_diff_collection_items(
 	return true
 
 
+## 首次标记遍历截断原因，并写入对应诊断。
+## [br]
+## @api private
+## [br]
 static func _mark_diff_traversal_truncated(
 	reason: String,
 	path_segments: Array,
@@ -1197,6 +1293,10 @@ static func _mark_diff_traversal_truncated(
 	)
 
 
+## 检查当前 before/after 容器对象对是否已在递归栈中。
+## [br]
+## @api private
+## [br]
 static func _is_diff_pair_active(before: Variant, after: Variant, state: Dictionary) -> bool:
 	var visited_pairs: Array = _get_diff_pair_stack(state)
 	for pair_value: Variant in visited_pairs:
@@ -1211,6 +1311,10 @@ static func _is_diff_pair_active(before: Variant, after: Variant, state: Diction
 	return false
 
 
+## 把当前 before/after 容器对象对压入递归栈。
+## [br]
+## @api private
+## [br]
 static func _push_diff_pair(before: Variant, after: Variant, state: Dictionary) -> void:
 	var visited_pairs: Array = _get_diff_pair_stack(state)
 	visited_pairs.append({
@@ -1220,6 +1324,10 @@ static func _push_diff_pair(before: Variant, after: Variant, state: Dictionary) 
 	state["visited_pairs"] = visited_pairs
 
 
+## 移除递归栈顶的 before/after 容器对象对。
+## [br]
+## @api private
+## [br]
 static func _pop_diff_pair(state: Dictionary) -> void:
 	var visited_pairs: Array = _get_diff_pair_stack(state)
 	if not visited_pairs.is_empty():
@@ -1227,6 +1335,10 @@ static func _pop_diff_pair(state: Dictionary) -> void:
 	state["visited_pairs"] = visited_pairs
 
 
+## 从状态读取活动对象对栈，不存在或类型不符时返回空数组。
+## [br]
+## @api private
+## [br]
 static func _get_diff_pair_stack(state: Dictionary) -> Array:
 	var value: Variant = state.get("visited_pairs", [])
 	if value is Array:
@@ -1237,10 +1349,18 @@ static func _get_diff_pair_stack(state: Dictionary) -> Array:
 	return empty_pairs
 
 
+## 判断字典键是否为 String 或 StringName。
+## [br]
+## @api private
+## [br]
 static func _is_string_like_key(key: Variant) -> bool:
 	return key is String or key is StringName
 
 
+## 将路径段格式化为差异路径，数组索引用方括号，简单键用点号。
+## [br]
+## @api private
+## [br]
 static func _format_diff_path(path_segments: Array) -> String:
 	var path_text: String = ""
 	for segment: Variant in path_segments:
@@ -1262,6 +1382,10 @@ static func _format_diff_path(path_segments: Array) -> String:
 	return path_text
 
 
+## 判断键文本是否只包含可用点号表示的 ASCII 标识符字符。
+## [br]
+## @api private
+## [br]
 static func _is_simple_path_key(text: String) -> bool:
 	if text.is_empty():
 		return false
@@ -1278,13 +1402,25 @@ static func _is_simple_path_key(text: String) -> bool:
 	return true
 
 
+## 判断字符码是否为 ASCII 字母或下划线。
+## [br]
+## @api private
+## [br]
 static func _is_ascii_letter_or_underscore(code: int) -> bool:
 	return code == 95 or (code >= 65 and code <= 90) or (code >= 97 and code <= 122)
 
 
+## 判断字符码是否为 ASCII 数字。
+## [br]
+## @api private
+## [br]
 static func _is_ascii_digit(code: int) -> bool:
 	return code >= 48 and code <= 57
 
 
+## 转义反斜杠和双引号，供带引号的差异路径键使用。
+## [br]
+## @api private
+## [br]
 static func _escape_diff_path_key(key_text: String) -> String:
 	return key_text.replace("\\", "\\\\").replace("\"", "\\\"")

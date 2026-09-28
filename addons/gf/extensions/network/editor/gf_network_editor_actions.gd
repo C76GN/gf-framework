@@ -6,21 +6,79 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 编辑器菜单中生成网络契约访问器的动作标识。
+## [br]
+## @api private
+## [br]
 const _MENU_ACTION_GENERATE_CONTRACTS: StringName = &"generate_network_contracts"
+
+## 编辑器菜单中审计网络契约的动作标识。
+## [br]
+## @api private
+## [br]
 const _MENU_ACTION_AUDIT_CONTRACTS: StringName = &"audit_network_contracts"
+
+## 保存网络契约资源路径列表的项目设置键。
+## [br]
+## @api private
+## [br]
 const _SETTING_CONTRACT_PATHS: String = "gf/network/contract_paths"
+
+## 保存网络契约生成输出目录的项目设置键。
+## [br]
+## @api private
+## [br]
 const _SETTING_CONTRACT_OUTPUT_DIR: String = "gf/network/contract_output_dir"
+
+## 解析框架生成产物路径规则的脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_PROJECT_ARTIFACT_PATHS_SCRIPT = preload("res://addons/gf/kernel/core/gf_project_artifact_paths.gd")
+
+## 网络契约访问器生成的默认输出目录。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_OUTPUT_DIR: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.NETWORK_OUTPUT_ROOT
+
+## 诊断对话框使用的最小和弹出尺寸。
+## [br]
+## @api private
+## [br]
 const _DIAGNOSTIC_DIALOG_MIN_SIZE: Vector2 = Vector2(720.0, 460.0)
+
+## 生成资源路径设置提示的脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_RESOURCE_PATH_HINT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_resource_path_hint.gd")
+
+## 生成网络契约访问器的生成器脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_NETWORK_CONTRACT_GENERATOR_SCRIPT = preload("res://addons/gf/extensions/network/editor/gf_network_contract_generator.gd")
+
+## 执行网络契约审计的审计器脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_NETWORK_CONTRACT_AUDIT_SCRIPT = preload("res://addons/gf/extensions/network/editor/gf_network_contract_audit.gd")
 
 
 # --- 私有变量 ---
 
+## 当前复用的编辑器诊断对话框。
+## [br]
+## @api private
+## [br]
 var _diagnostic_dialog: AcceptDialog = null
+
+## 显示诊断结果的只读文本控件。
+## [br]
+## @api private
+## [br]
 var _diagnostic_output: TextEdit = null
 
 
@@ -142,6 +200,10 @@ func cleanup() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 读取项目契约路径和输出目录，生成访问器并汇总产物与问题到诊断窗口。
+## [br]
+## @api private
+## [br]
 func _generate_contract_accessors() -> void:
 	var contract_paths: PackedStringArray = _read_contract_paths()
 	if contract_paths.is_empty():
@@ -186,6 +248,10 @@ func _generate_contract_accessors() -> void:
 	_show_diagnostic_dialog("GF Network Contracts", "\n".join(lines))
 
 
+## 审计项目设置的契约路径并将审计结果显示在诊断窗口。
+## [br]
+## @api private
+## [br]
 func _audit_contracts() -> void:
 	var contract_paths: PackedStringArray = _read_contract_paths()
 	if contract_paths.is_empty():
@@ -219,6 +285,10 @@ func _audit_contracts() -> void:
 	_show_diagnostic_dialog("GF Network Contract Audit", "\n".join(lines))
 
 
+## 读取项目设置并将数组、PackedStringArray 或逗号分隔字符串规范为唯一路径列表。
+## [br]
+## @api private
+## [br]
 func _read_contract_paths() -> PackedStringArray:
 	var value: Variant = ProjectSettings.get_setting(_SETTING_CONTRACT_PATHS, PackedStringArray())
 	var result: PackedStringArray = PackedStringArray()
@@ -234,6 +304,10 @@ func _read_contract_paths() -> PackedStringArray:
 	return result
 
 
+## 去除路径首尾空白并将非空且不重复的路径加入列表。
+## [br]
+## @api private
+## [br]
 func _append_contract_path(result: PackedStringArray, path: String) -> void:
 	var normalized_path: String = path.strip_edges()
 	if normalized_path.is_empty() or result.has(normalized_path):
@@ -241,6 +315,10 @@ func _append_contract_path(result: PackedStringArray, path: String) -> void:
 	var _append_result_131: Variant = result.append(normalized_path)
 
 
+## 创建或复用只读诊断对话框，更新标题和文本后居中弹出。
+## [br]
+## @api private
+## [br]
 func _show_diagnostic_dialog(title: String, text: String) -> void:
 	if not is_instance_valid(_diagnostic_dialog):
 		_diagnostic_dialog = AcceptDialog.new()
@@ -265,6 +343,10 @@ func _show_diagnostic_dialog(title: String, text: String) -> void:
 	))
 
 
+## 释放诊断对话框并清空对话框与文本控件引用。
+## [br]
+## @api private
+## [br]
 func _cleanup_diagnostic_dialog() -> void:
 	if is_instance_valid(_diagnostic_dialog):
 		_diagnostic_dialog.queue_free()

@@ -14,7 +14,16 @@ extends Resource
 
 # --- 常量 ---
 
+## 检查文件槽元数据与载荷能否持久化的校验脚本。
+## [br]
+## @api private
+## [br]
 const _GF_SAVE_PERSISTED_VALUE_VALIDATOR = preload("res://addons/gf/extensions/save/core/gf_save_persisted_value_validator.gd")
+
+## 验证槽位文件名是否为合法逻辑存储路径的脚本。
+## [br]
+## @api private
+## [br]
 const _GF_STORAGE_FAMILY_STORE_SCRIPT = preload("res://addons/gf/standard/utilities/storage/gf_storage_family_store.gd")
 
 ## 默认槽位数据文件模板。
@@ -51,7 +60,16 @@ const DEFAULT_METADATA_FILE_TEMPLATE: String = "slot_{index}_meta.sav"
 
 # --- 私有变量 ---
 
+## 执行槽位文件读写的底层 Storage Utility。
+## [br]
+## @api private
+## [br]
 var _storage: GFStorageUtility = null
+
+## 为缺失元数据更新时间提供默认 Unix 时间戳的时钟。
+## [br]
+## @api private
+## [br]
 var _clock: GFClock = GFClock.new()
 
 
@@ -433,6 +451,10 @@ func list_slots() -> Array[Dictionary]:
 
 # --- 私有/辅助方法 ---
 
+## 检查 Storage、槽位索引和文件模板是否允许本次操作。
+## [br]
+## @api private
+## [br]
 func _can_access_slot(slot_index: int, operation: String) -> bool:
 	if _storage == null:
 		push_error("[GFSaveSlotStorageAdapter][save_slot_storage_adapter.missing_storage] %s failed: storage is null." % operation)
@@ -445,6 +467,10 @@ func _can_access_slot(slot_index: int, operation: String) -> bool:
 	return true
 
 
+## 构建槽位文件计划；失败时按 operation 记录模板错误。
+## [br]
+## @api private
+## [br]
 func _validate_file_templates(slot_index: int, operation: String) -> bool:
 	var plan: Dictionary = build_slot_file_plan(slot_index)
 	if GFVariantData.get_option_bool(plan, "ok", false):
@@ -458,6 +484,10 @@ func _validate_file_templates(slot_index: int, operation: String) -> bool:
 	return false
 
 
+## 使用 Save 持久化值校验器检查数据并报告失败路径与原因。
+## [br]
+## @api private
+## [br]
 func _validate_persisted_value(value: Variant, label: String, operation: String) -> bool:
 	var report: Dictionary = _GF_SAVE_PERSISTED_VALUE_VALIDATOR.validate(value)
 	if GFVariantData.get_option_bool(report, "ok", false):
@@ -473,10 +503,18 @@ func _validate_persisted_value(value: Variant, label: String, operation: String)
 	return false
 
 
+## 将文件模板中的 `{index}` 替换为十进制槽位索引。
+## [br]
+## @api private
+## [br]
 func _format_slot_file_name(template: String, slot_index: int) -> String:
 	return template.replace("{index}", str(slot_index))
 
 
+## 复制元数据并补入槽位标识、缺省更新时间和文档 schema 信息。
+## [br]
+## @api private
+## [br]
 func _make_metadata_payload(
 	slot_index: int,
 	metadata: Dictionary,
@@ -494,6 +532,10 @@ func _make_metadata_payload(
 	return payload
 
 
+## metadata 未声明 schema ID 时接受，否则同时比较文档 schema ID 与版本。
+## [br]
+## @api private
+## [br]
 func _metadata_matches_document(
 	metadata: Dictionary,
 	document: GFSaveDocument
@@ -507,6 +549,10 @@ func _metadata_matches_document(
 	)
 
 
+## 构造成功读取结果；迁移结果表明已迁移时使用 migrated 状态。
+## [br]
+## @api private
+## [br]
 func _make_document_read_success(
 	document: GFSaveDocument,
 	storage_result: GFStorageReadResult,
@@ -529,6 +575,10 @@ func _make_document_read_success(
 	return result
 
 
+## 构造 failed 状态读取结果并附上 Storage、校验与迁移信息。
+## [br]
+## @api private
+## [br]
 func _make_document_read_failure(
 	error_code: Error,
 	error: String,
@@ -549,6 +599,10 @@ func _make_document_read_failure(
 	return result
 
 
+## 返回报告第一条 issue 的消息；无 issue 时使用 fallback。
+## [br]
+## @api private
+## [br]
 func _get_first_validation_message(report: Dictionary, fallback: String) -> String:
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 	if issues.is_empty():
@@ -557,6 +611,10 @@ func _get_first_validation_message(report: Dictionary, fallback: String) -> Stri
 	return GFVariantData.get_option_string(first_issue, "message", fallback)
 
 
+## 按模板首个 `{index}` 两侧的前后缀提取整数文本。
+## [br]
+## @api private
+## [br]
 func _parse_slot_index_from_file_name(file_name: String, template: String) -> int:
 	var marker: String = "{index}"
 	var marker_index: int = template.find(marker)

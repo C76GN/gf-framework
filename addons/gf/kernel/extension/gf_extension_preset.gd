@@ -16,10 +16,29 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 读取 preset 字典字段与 JSON 报告的 Variant 访问辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 规范化 preset 来源资源路径的辅助脚本。
+## [br]
+## @api private
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+## 校验扩展 ID 的 manifest 服务脚本。
+## [br]
+## @api private
 const _GF_EXTENSION_MANIFEST_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_manifest.gd")
+
+## 读取 preset JSON object 文件报告的辅助脚本。
+## [br]
+## @api private
 const _GF_EXTENSION_JSON_FILE_READER_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_json_file_reader.gd")
+
+## preset 当前支持的字段名称。
+## [br]
+## @api private
 const _SUPPORTED_FIELDS: Array[String] = [
 	"description",
 	"display_name",
@@ -27,6 +46,10 @@ const _SUPPORTED_FIELDS: Array[String] = [
 	"id",
 	"tags",
 ]
+
+## preset 中禁止声明的扩展关系字段名称。
+## [br]
+## @api private
 const _FORBIDDEN_RELATION_FIELDS: Array[String] = [
 	"after",
 	"before",
@@ -47,6 +70,10 @@ const _FORBIDDEN_RELATION_FIELDS: Array[String] = [
 	"soft_dependencies",
 	"suggests",
 ]
+
+## preset 中禁止声明的安装包和工具贡献字段名称。
+## [br]
+## @api private
 const _FORBIDDEN_PACKAGE_FIELDS: Array[String] = [
 	"archive",
 	"checksum",
@@ -71,11 +98,19 @@ const _FORBIDDEN_PACKAGE_FIELDS: Array[String] = [
 	"repository",
 	"sha256",
 ]
+
+## 按字符串类型检查的 preset 字段名称。
+## [br]
+## @api private
 const _STRING_FIELDS: Array[String] = [
 	"description",
 	"display_name",
 	"id",
 ]
+
+## 按字符串数组类型检查的 preset 字段名称。
+## [br]
+## @api private
 const _STRING_ARRAY_FIELDS: Array[String] = [
 	"extension_ids",
 	"tags",
@@ -129,7 +164,14 @@ var source_path: String = ""
 
 # --- 私有变量 ---
 
+## 从源字典键名规范化得到、供后续检查未知字段使用的列表。
+## [br]
+## @api private
 var _source_field_names: Array[String] = []
+
+## 从源字典值类型检查收集的 schema 错误。
+## [br]
+## @api private
 var _source_schema_errors: Array[String] = []
 
 
@@ -269,6 +311,9 @@ func get_validation_errors() -> Array[String]:
 
 # --- 私有/辅助方法 ---
 
+## 读取 JSON object 报告，构造 preset 并将字段校验错误合并到读取报告中。
+## [br]
+## @api private
 static func _from_json_file_object_report(path: String) -> Dictionary:
 	var json_report: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.read_object_report(path, {
 		"empty_path_error": "preset path is empty",
@@ -288,10 +333,16 @@ static func _from_json_file_object_report(path: String) -> Dictionary:
 	return _make_json_file_report(errors.is_empty(), normalized_path, preset, errors)
 
 
+## 去除 preset 文本首尾空白。
+## [br]
+## @api private
 static func _normalize_text(value: String) -> String:
 	return value.strip_edges()
 
 
+## 按字段清单检查源字典的字符串和字符串数组类型。
+## [br]
+## @api private
 static func _get_source_schema_errors(data: Dictionary) -> Array[String]:
 	var errors: Array[String] = []
 	for field_name: String in _STRING_FIELDS:
@@ -316,10 +367,16 @@ static func _get_source_schema_errors(data: Dictionary) -> Array[String]:
 	return errors
 
 
+## 检查字典中是否存在给定 String 或其 StringName 形式的键。
+## [br]
+## @api private
 static func _has_dictionary_key(data: Dictionary, key: String) -> bool:
 	return data.has(key) or data.has(StringName(key))
 
 
+## 将源字典键转成去首尾空格的字符串，并按首次出现顺序去重。
+## [br]
+## @api private
 static func _normalize_field_name_list(values: Array) -> Array[String]:
 	var result: Array[String] = []
 	for value: Variant in values:
@@ -330,6 +387,9 @@ static func _normalize_field_name_list(values: Array) -> Array[String]:
 	return result
 
 
+## 去除标识符首尾空白、空项和重复项，同时保留首次出现顺序。
+## [br]
+## @api private
 static func _normalize_identifier_list(values: Array[String]) -> Array[String]:
 	var result: Array[String] = []
 	for value: String in values:
@@ -340,6 +400,9 @@ static func _normalize_identifier_list(values: Array[String]) -> Array[String]:
 	return result
 
 
+## 按字段列表区分禁止的关系字段、禁止的 package 字段和其他未知字段。
+## [br]
+## @api private
 func _append_unsupported_field_errors(errors: Array[String]) -> void:
 	for field_name: String in _source_field_names:
 		if _FORBIDDEN_RELATION_FIELDS.has(field_name):
@@ -350,6 +413,9 @@ func _append_unsupported_field_errors(errors: Array[String]) -> void:
 			errors.append("unsupported preset field: %s" % field_name)
 
 
+## 组装 JSON 文件报告，并复制传入的 errors 数组。
+## [br]
+## @api private
 static func _make_json_file_report(
 	ok: bool,
 	report_source_path: String,
@@ -364,6 +430,9 @@ static func _make_json_file_report(
 	}
 
 
+## 校验每个扩展 ID 并将非空错误消息追加到 errors。
+## [br]
+## @api private
 func _append_identifier_errors(
 	errors: Array[String],
 	property_name: String,

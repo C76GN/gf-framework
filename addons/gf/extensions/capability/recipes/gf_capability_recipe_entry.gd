@@ -82,6 +82,9 @@ func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按全局类名、资源路径或实例 ID 生成脚本键。
+## [br]
+## @api private
 func _get_script_key(script: Script) -> String:
 	if script == null:
 		return ""

@@ -6,7 +6,16 @@ extends EditorInspectorPlugin
 
 # --- 常量 ---
 
+## 用于识别可由自定义网格属性编辑器处理的 Pattern2D 类型。
+## [br]
+## @api private
+## [br]
 const _GF_PATTERN_2D_BASE = preload("res://addons/gf/standard/foundation/math/gf_pattern_2d.gd")
+
+## 提供 GFPattern2D.cells 网格编辑界面的 InspectorProperty 类型。
+## [br]
+## @api private
+## [br]
 const _GF_PATTERN_2D_EDITOR_PROPERTY = preload("res://addons/gf/standard/foundation/math/editor/gf_pattern_2d_editor_property.gd")
 
 

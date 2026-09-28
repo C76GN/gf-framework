@@ -52,6 +52,10 @@ const SQRT_3: float = 1.7320508075688772
 ## @api public
 const DEFAULT_HEX_SIZE: float = 32.0
 
+## 按环绕顺序保存六个 cube 坐标邻接方向，供邻居与环遍历复用。
+## [br]
+## @api private
+## [br]
 const _CUBE_DIRECTIONS: Array[Vector3i] = [
 	Vector3i(1, -1, 0),
 	Vector3i(1, 0, -1),
@@ -795,46 +799,82 @@ static func find_reachable(
 
 # --- 私有/辅助方法 ---
 
+## 将正负整数都映射到 0 或 1 的奇偶余数。
+## [br]
+## @api private
+## [br]
 static func _parity(value: int) -> int:
 	return int(posmod(value, 2))
 
 
+## 对偶数值右移一位，供 offset 与 cube 坐标换算计算半行偏移。
+## [br]
+## @api private
+## [br]
 static func _half_even(value: int) -> int:
 	return value >> 1
 
 
+## 将二维点追加到打包数组，并显式接收 Godot 返回的追加状态。
+## [br]
+## @api private
+## [br]
 static func _append_vector2(target: PackedVector2Array, value: Vector2) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 从字典移除指定键，并显式接收 Godot 返回的删除状态。
+## [br]
+## @api private
+## [br]
 static func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 	var erased: bool = target.erase(key)
 	if erased:
 		return
 
 
+## 调用格子回调并将结果按 GFVariantData 规则转换为布尔值，默认 false。
+## [br]
+## @api private
+## [br]
 static func _call_cell_bool(callback: Callable, cell: Vector2i) -> bool:
 	return GFVariantData.to_bool(callback.call(cell), false)
 
 
+## 读取格子的浮点评分；评分字典没有该格时以 INF 排在末尾。
+## [br]
+## @api private
+## [br]
 static func _get_score(scores: Dictionary, cell: Vector2i) -> float:
 	return GFVariantData.get_option_float(scores, cell, INF)
 
 
+## 在两个 cube 坐标间插值，并用 cube_round 纠正为合法整数六边形坐标。
+## [br]
+## @api private
+## [br]
 static func _cube_lerp_round(from_cube: Vector3i, to_cube: Vector3i, t: float) -> Vector3i:
 	var from_float: Vector3 = Vector3(from_cube.x, from_cube.y, from_cube.z)
 	var to_float: Vector3 = Vector3(to_cube.x, to_cube.y, to_cube.z)
 	return cube_round(from_float.lerp(to_float, t))
 
 
+## 调用有效的移动代价回调并将结果转为浮点数；无效回调或转换失败时使用 1.0。
+## [br]
+## @api private
+## [br]
 static func _get_step_cost(from_cell: Vector2i, to_cell: Vector2i, step_cost: Callable) -> float:
 	if step_cost.is_valid():
 		return GFVariantData.to_float(step_cost.call(from_cell, to_cell), 1.0)
 	return 1.0
 
 
+## 仅接受 Vector2i 路径节点；其它 Variant 返回 (-1, -1) 哨兵坐标。
+## [br]
+## @api private
+## [br]
 static func _variant_to_vector2i(value: Variant) -> Vector2i:
 	if value is Vector2i:
 		var cell: Vector2i = value
@@ -842,6 +882,10 @@ static func _variant_to_vector2i(value: Variant) -> Vector2i:
 	return Vector2i(-1, -1)
 
 
+## 委托 GFGraphPathSearchState 创建带起终点与原因的无效搜索结果。
+## [br]
+## @api private
+## [br]
 static func _make_invalid_path_search(
 	start: Variant,
 	goal: Variant,
@@ -850,6 +894,10 @@ static func _make_invalid_path_search(
 	return GFGraphPathSearchState.make_invalid(start, goal, reason)
 
 
+## 从候选列表移除并返回评分最低的格子；同分时保留原列表中的先后顺序。
+## [br]
+## @api private
+## [br]
 static func _take_lowest_score_cell(cells: Array[Vector2i], scores: Dictionary) -> Vector2i:
 	var best_index: int = 0
 	var best_score: float = _get_score(scores, cells[0])
@@ -864,6 +912,10 @@ static func _take_lowest_score_cell(cells: Array[Vector2i], scores: Dictionary) 
 	return cell
 
 
+## 沿 came_from 从终点回溯到起点并前插路径；链条缺失时返回空数组。
+## [br]
+## @api private
+## [br]
 static func _reconstruct_path(start: Vector2i, goal: Vector2i, came_from: Dictionary) -> Array[Vector2i]:
 	var path: Array[Vector2i] = [goal]
 	var current: Vector2i = goal

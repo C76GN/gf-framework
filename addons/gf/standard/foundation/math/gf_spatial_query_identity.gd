@@ -84,7 +84,16 @@ var string_value: String = ""
 
 # --- 私有变量 ---
 
+## 保存非 Object 身份的原始标量值。
+## [br]
+## @api private
+## [br]
 var _value: Variant = null
+
+## 弱引用 Object，避免身份值对象延长实体生命周期。
+## [br]
+## @api private
+## [br]
 var _object_ref: WeakRef = null
 
 
@@ -258,6 +267,10 @@ func to_dictionary(include_value: bool = false) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按支持的实体类型设置身份字段、稳定 key 和必要的弱引用。
+## [br]
+## @api private
+## [br]
 func _assign(entity: Variant) -> void:
 	if entity == null:
 		return
@@ -296,6 +309,10 @@ func _assign(entity: Variant) -> void:
 		_value = int_value
 
 
+## 仅将 Object 类型 Variant 转换为 Object，其它类型返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_object(value: Variant) -> Object:
 	if value is Object:
 		var object: Object = value

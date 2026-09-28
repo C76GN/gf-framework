@@ -78,6 +78,9 @@ const REMOVAL_REASON_ENTITY_UNREGISTERED: StringName = &"entity_unregistered"
 ## @since 6.0.0
 const REMOVAL_REASON_DISPOSED: StringName = &"disposed"
 
+## 提供 update 对时间状态进行失败关闭前共用的有限数值检查。
+## [br]
+## @api private
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
 
@@ -181,7 +184,14 @@ var removal_reason: StringName = &""
 
 # --- 私有变量 ---
 
+## 累积周期 Tick 的剩余间隔；随状态快照保存，并在单次 Tick 预算耗尽时限制积压量。
+## [br]
+## @api private
 var _tick_accumulator: float = 0.0
+
+## 记录 Buff 是否处于内置 tag/modifier 应用态，供重复应用、移除、层数刷新和快照恢复决定清理或补挂。
+## [br]
+## @api private
 var _effects_applied: bool = false
 
 
@@ -472,6 +482,9 @@ func restore_state_snapshot(snapshot: Dictionary, owner_override: Object = null)
 
 # --- 私有/辅助方法 ---
 
+## 建立默认成功的应用检查报告，并将 context.metadata 合并到 Buff 元数据副本。
+## [br]
+## @api private
 func _make_apply_report(context: Dictionary) -> Dictionary:
 	var report_metadata: Dictionary = metadata.duplicate(true)
 	var context_metadata: Dictionary = GFVariantData.get_option_dictionary(context, "metadata")
@@ -486,6 +499,9 @@ func _make_apply_report(context: Dictionary) -> Dictionary:
 	}
 
 
+## 汇总生命周期事件所需的 Buff、owner、时长、层数和元数据，再合并事件专属字段。
+## [br]
+## @api private
 func _make_lifecycle_context(event_name: StringName, extra: Dictionary = {}) -> Dictionary:
 	var context: Dictionary = {
 		"buff": self,
@@ -501,6 +517,9 @@ func _make_lifecycle_context(event_name: StringName, extra: Dictionary = {}) -> 
 	return context
 
 
+## 按列表顺序应用非空效果；遇到首个失败报告时逆序移除此前成功的效果并停止。
+## [br]
+## @api private
 func _run_apply_effects() -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
 	var context: Dictionary = _make_lifecycle_context(&"apply")
@@ -519,6 +538,9 @@ func _run_apply_effects() -> Array[Dictionary]:
 	return reports
 
 
+## 按事件名调用每个非空效果对应的生命周期方法；未知事件记录为默认成功报告。
+## [br]
+## @api private
 func _run_effects(event_name: StringName, extra: Dictionary = {}) -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
 	var context: Dictionary = _make_lifecycle_context(event_name, extra)
@@ -541,6 +563,9 @@ func _run_effects(event_name: StringName, extra: Dictionary = {}) -> Array[Dicti
 	return reports
 
 
+## 用失败原因和 apply 回滚标记，按成功应用列表的逆序调用 remove；清理报告不参与返回值。
+## [br]
+## @api private
 func _rollback_applied_effects(applied_effects: Array[GFBuffEffect], failed_report: Dictionary) -> void:
 	if applied_effects.is_empty():
 		return
@@ -556,6 +581,9 @@ func _rollback_applied_effects(applied_effects: Array[GFBuffEffect], failed_repo
 		var _rollback_report: Dictionary = effect.remove(rollback_context)
 
 
+## 汇总生命周期事件和效果报告；首个失败项决定结果原因与 failed_effect_id。
+## [br]
+## @api private
 func _make_lifecycle_report(
 	event_name: StringName,
 	effect_reports: Array[Dictionary],
@@ -581,6 +609,9 @@ func _make_lifecycle_report(
 	return result
 
 
+## 比较刷新前后的总时长、剩余时长和层数，判断运行状态是否变化。
+## [br]
+## @api private
 func _refresh_changed(previous_duration: float, previous_time_left: float, previous_stacks: int) -> bool:
 	if duration != previous_duration:
 		return true
@@ -589,6 +620,9 @@ func _refresh_changed(previous_duration: float, previous_time_left: float, previ
 	return stacks != previous_stacks
 
 
+## 将非空 modifier 按原列表顺序转换为字典，跳过空项。
+## [br]
+## @api private
 func _modifiers_to_dictionaries() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for modifier: GFModifier in modifiers:
@@ -598,6 +632,9 @@ func _modifiers_to_dictionaries() -> Array[Dictionary]:
 	return result
 
 
+## 将数组中的字典项通过 GFModifier.from_dictionary 恢复为 modifier，跳过其他值。
+## [br]
+## @api private
 func _dictionaries_to_modifiers(entries: Array) -> Array[GFModifier]:
 	var result: Array[GFModifier] = []
 	for entry_value: Variant in entries:
@@ -608,6 +645,9 @@ func _dictionaries_to_modifiers(entries: Array) -> Array[GFModifier]:
 	return result
 
 
+## 为每个非空效果记录其列表索引、effect_id 和状态快照。
+## [br]
+## @api private
 func _get_effect_state_snapshots() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for effect_index: int in range(effects.size()):
@@ -622,6 +662,9 @@ func _get_effect_state_snapshots() -> Array[Dictionary]:
 	return result
 
 
+## 按快照索引恢复当前 effects 列表中的对象；忽略非字典、越界索引和空效果，不按 effect_id 匹配。
+## [br]
+## @api private
 func _restore_effect_state_snapshots(effect_states: Array) -> void:
 	for state_value: Variant in effect_states:
 		if not state_value is Dictionary:
@@ -636,6 +679,9 @@ func _restore_effect_state_snapshots(effect_states: Array) -> void:
 		effect.restore_state_snapshot(GFVariantData.get_option_dictionary(state_entry, "state"))
 
 
+## 将快照整数限制到 StackMode 范围，并把未显式映射的值归为 ADD_STACK。
+## [br]
+## @api private
 func _int_to_stack_mode(value: int) -> StackMode:
 	match clampi(value, StackMode.REFRESH_ONLY, StackMode.IGNORE):
 		StackMode.REFRESH_ONLY:
@@ -646,6 +692,9 @@ func _int_to_stack_mode(value: int) -> StackMode:
 			return StackMode.ADD_STACK
 
 
+## 将快照整数限制到持续时间策略范围，并把未显式映射的值归为 RESET_TO_NEW_DURATION。
+## [br]
+## @api private
 func _int_to_duration_refresh_policy(value: int) -> DurationRefreshPolicy:
 	match clampi(value, DurationRefreshPolicy.KEEP_CURRENT, DurationRefreshPolicy.KEEP_LONGER_REMAINING):
 		DurationRefreshPolicy.KEEP_CURRENT:
@@ -657,6 +706,9 @@ func _int_to_duration_refresh_policy(value: int) -> DurationRefreshPolicy:
 		_:
 			return DurationRefreshPolicy.RESET_TO_NEW_DURATION
 
+## 根据刷新策略保持当前时间、追加新时长、取较长时长，或将总时长和剩余时长重置为新值。
+## [br]
+## @api private
 func _apply_refresh_duration(p_new_duration: float) -> void:
 	match duration_refresh_policy:
 		DurationRefreshPolicy.KEEP_CURRENT:
@@ -670,6 +722,9 @@ func _apply_refresh_duration(p_new_duration: float) -> void:
 			time_left = p_new_duration
 
 
+## 更新总时长并追加非负的新时长；当前剩余时长或新时长为 -1 时将两者设为永久。
+## [br]
+## @api private
 func _extend_duration(p_new_duration: float) -> void:
 	duration = p_new_duration
 	if time_left == -1.0 or p_new_duration == -1.0:
@@ -680,6 +735,9 @@ func _extend_duration(p_new_duration: float) -> void:
 	time_left += maxf(0.0, p_new_duration)
 
 
+## 保留总时长和剩余时长各自较大值；当前剩余时长或新时长为 -1 时设为永久。
+## [br]
+## @api private
 func _keep_longer_duration(p_new_duration: float) -> void:
 	if time_left == -1.0 or p_new_duration == -1.0:
 		duration = -1.0
@@ -690,6 +748,9 @@ func _keep_longer_duration(p_new_duration: float) -> void:
 	time_left = maxf(time_left, p_new_duration)
 
 
+## 累积帧时长并按间隔触发周期 Tick；超出单次预算时最多保留一个间隔的积压。
+## [br]
+## @api private
 func _update_periodic_tick(p_delta: float) -> void:
 	if tick_interval_seconds <= 0.0:
 		on_tick(p_delta)
@@ -707,6 +768,9 @@ func _update_periodic_tick(p_delta: float) -> void:
 
 
 # 应用 Buff 携带的所有效果。
+## 将标签和属性 modifier 按指定数量挂到有效 owner；默认数量取至少一层的当前 stacks。
+## [br]
+## @api private
 func _apply_effects(count: int = -1) -> void:
 	var effect_count: int = _get_effect_stack_count(count)
 	var valid_owner: Object = _get_valid_owner()
@@ -731,6 +795,9 @@ func _apply_effects(count: int = -1) -> void:
 
 
 # 移除 Buff 携带的所有效果。
+## 从有效 owner 移除指定层数对应的标签和属性 modifier；默认数量取至少一层的当前 stacks。
+## [br]
+## @api private
 func _remove_effects(count: int = -1) -> void:
 	var effect_count: int = _get_effect_stack_count(count)
 	var valid_owner: Object = _get_valid_owner()
@@ -754,18 +821,27 @@ func _remove_effects(count: int = -1) -> void:
 					attribute.remove_modifier(mod)
 
 
+## 使用正数显式数量；否则返回当前 stacks 与 1 中的较大值。
+## [br]
+## @api private
 func _get_effect_stack_count(count: int) -> int:
 	if count > 0:
 		return count
 	return maxi(1, stacks)
 
 
+## 将空引用或已释放的 owner 归一为 null，其余情况返回原对象。
+## [br]
+## @api private
 func _get_valid_owner() -> Object:
 	if owner == null or not is_instance_valid(owner):
 		return null
 	return owner
 
 
+## 将动态 owner 方法结果收窄为 GFTagComponent，类型不符时返回 null。
+## [br]
+## @api private
 func _get_tag_component_value(value: Variant) -> GFTagComponent:
 	if value is GFTagComponent:
 		var tag_component: GFTagComponent = value
@@ -773,6 +849,9 @@ func _get_tag_component_value(value: Variant) -> GFTagComponent:
 	return null
 
 
+## 将动态 owner 方法结果收窄为 GFModifiedAttribute，类型不符时返回 null。
+## [br]
+## @api private
 func _get_modified_attribute_value(value: Variant) -> GFModifiedAttribute:
 	if value is GFModifiedAttribute:
 		var attribute: GFModifiedAttribute = value

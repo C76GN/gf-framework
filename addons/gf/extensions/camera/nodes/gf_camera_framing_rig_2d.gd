@@ -17,8 +17,19 @@ extends GFCameraRig2D
 
 # --- 常量 ---
 
+## 可接受的目标路径数量上限。
+## [br]
+## @api private
 const _MAX_TARGET_PATHS: int = 256
+
+## 数值配置项允许的最大值。
+## [br]
+## @api private
 const _MAX_OPTION_VALUE: float = 1000000.0
+
+## 相机缩放允许的最小值。
+## [br]
+## @api private
 const _MIN_ZOOM: float = 0.0001
 
 
@@ -207,6 +218,9 @@ func is_available() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 返回首个不符合约束的 Rig 配置错误码。
+## [br]
+## @api private
 func _get_configuration_error() -> StringName:
 	if target_paths.size() > _MAX_TARGET_PATHS:
 		return &"target_limit"
@@ -232,6 +246,9 @@ func _get_configuration_error() -> StringName:
 	return &""
 
 
+## 解析目标路径并收集有效且去重的 Node2D 锚点。
+## [br]
+## @api private
 func _collect_targets() -> Array[Node2D]:
 	var result: Array[Node2D] = []
 	if not is_inside_tree() or target_paths.size() > _MAX_TARGET_PATHS:
@@ -252,6 +269,9 @@ func _collect_targets() -> Array[Node2D]:
 	return result
 
 
+## 检查相机自身变换及相关父画布变换是否有限且可逆。
+## [br]
+## @api private
 func _is_valid_camera_transform(camera: Camera2D) -> bool:
 	var camera_transform: Transform2D = camera.transform
 	var camera_determinant: float = camera_transform.determinant()
@@ -279,6 +299,9 @@ func _is_valid_camera_transform(camera: Camera2D) -> bool:
 	)
 
 
+## 创建包含默认失败状态与姿态字段的报告。
+## [br]
+## @api private
 func _make_report() -> Dictionary:
 	return {
 		"ok": false,
@@ -296,10 +319,16 @@ func _make_report() -> Dictionary:
 	}
 
 
+## 设置失败原因并返回原报告。
+## [br]
+## @api private
 func _fail_report(report: Dictionary, reason: StringName) -> Dictionary:
 	report["reason"] = reason
 	return report
 
 
+## 检查二维向量的两个分量是否有限。
+## [br]
+## @api private
 func _is_finite_vector(value: Vector2) -> bool:
 	return is_finite(value.x) and is_finite(value.y)

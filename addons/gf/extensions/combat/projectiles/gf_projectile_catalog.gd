@@ -137,6 +137,9 @@ func prune_invalid_entries() -> int:
 
 # --- 私有/辅助方法 ---
 
+## 查找第一个 ID 匹配且条目有效的目录项；空 ID 不参与查找。
+## [br]
+## @api private
 func _get_entry(projectile_id: StringName) -> GFProjectileCatalogEntry:
 	if projectile_id == &"":
 		return null
@@ -150,6 +153,9 @@ func _get_entry(projectile_id: StringName) -> GFProjectileCatalogEntry:
 	return null
 
 
+## 移除指定 ID 除保留索引外的所有条目。
+## [br]
+## @api private
 func _remove_duplicates(projectile_id: StringName, keep_index: int) -> void:
 	for index: int in range(entries.size() - 1, -1, -1):
 		if index == keep_index:

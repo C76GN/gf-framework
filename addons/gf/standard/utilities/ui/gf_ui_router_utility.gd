@@ -81,6 +81,9 @@ enum Operation {
 
 # --- 常量 ---
 
+## 为历史面板弱引用提供存活节点解析。
+## [br]
+## @api private
 const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
 
 ## 不执行路由预加载，直接提交异步面板请求。
@@ -115,11 +118,34 @@ var max_history: int = 64
 
 # --- 私有变量 ---
 
+## 以规范化 route_id 为键保存已注册路由资源。
+## [br]
+## @api private
 var _routes: Dictionary = {}
+
+## 以弱引用保存可选的 UI 栈工具；失效时从架构重新查找。
+## [br]
+## @api private
 var _ui_utility_ref: WeakRef = null
+
+## 按打开顺序保存路由历史；面板通过弱引用关联。
+## [br]
+## @api private
 var _history: Array[Dictionary] = []
+
+## 以路径、层级和操作键索引尚未完成的异步路由请求。
+## [br]
+## @api private
 var _pending_async_routes: Dictionary = {}
+
+## 为当前实例内的新异步路由句柄分配单调递增的请求 ID。
+## [br]
+## @api private
 var _next_async_request_id: int = 1
+
+## 标记路由工具是否已进入释放状态。
+## [br]
+## @api private
 var _disposed: bool = false
 
 
@@ -539,6 +565,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 校验并同步打开路由，成功后更新替换操作对应的历史并发出打开结果。
+## [br]
+## @api private
 func _open_route(
 	route_id: StringName,
 	operation: Operation,
@@ -602,6 +631,10 @@ func _open_route(
 	return panel
 
 
+## 建立或复用异步路由请求，绑定生命周期与预加载策略后推进到面板提交阶段。
+## 相同身份的请求共用句柄；同键但请求参数不一致时以冲突结果结束。
+## [br]
+## @api private
 func _open_route_async(
 	route_id: StringName,
 	operation: Operation,
@@ -809,6 +842,9 @@ func _open_route_async(
 	return operation_handle
 
 
+## 按规范化 ID 查找路由，并在缺失或无效时发出失败信号。
+## [br]
+## @api private
 func _resolve_route_or_fail(route_id: StringName) -> GFUIRoute:
 	var route: GFUIRoute = get_route(route_id)
 	if route == null:
@@ -820,11 +856,17 @@ func _resolve_route_or_fail(route_id: StringName) -> GFUIRoute:
 	return route
 
 
+## 发出路由打开失败信号，保留调用方提供的原因文本。
+## [br]
+## @api private
 func _fail_route(route_id: StringName, reason: String) -> void:
 	route_open_failed.emit(route_id, reason)
 	push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: %s (%s)." % [String(route_id), reason])
 
 
+## 分配请求 ID 并创建供框架完成的异步路由操作句柄。
+## [br]
+## @api private
 func _create_route_operation(
 	route_id: StringName,
 	operation: Operation,
@@ -845,6 +887,9 @@ func _create_route_operation(
 	return operation_handle
 
 
+## 构造 pending 路由表使用的请求状态字典及其输入快照。
+## [br]
+## @api private
 func _make_route_operation_entry(
 	operation_handle: GFUIRouteOperation,
 	operation: Operation,
@@ -877,6 +922,9 @@ func _make_route_operation_entry(
 	}
 
 
+## 从异步选项读取预加载策略；未知值回退为默认策略。
+## [br]
+## @api private
 func _get_preload_policy(async_options: Dictionary) -> StringName:
 	if not async_options.has("preload_policy"):
 		return PRELOAD_NONE
@@ -888,10 +936,16 @@ func _get_preload_policy(async_options: Dictionary) -> StringName:
 	return StringName(String(raw_policy).strip_edges().to_lower())
 
 
+## 判断预加载策略是否属于三个受支持的策略常量。
+## [br]
+## @api private
 func _is_valid_preload_policy(preload_policy: StringName) -> bool:
 	return preload_policy in [PRELOAD_NONE, PRELOAD_BEST_EFFORT, PRELOAD_REQUIRED]
 
 
+## 比较 pending 请求保存的路由、面板选项、回调和生命周期身份。
+## [br]
+## @api private
 func _pending_route_matches_request(
 	entry: Dictionary,
 	route_snapshot: GFUIRoute,
@@ -919,6 +973,9 @@ func _pending_route_matches_request(
 	)
 
 
+## 校验 owner 与 scope 选项，并返回其弱引用、实例 ID 和失效信息。
+## [br]
+## @api private
 func _parse_route_lifecycle_options(async_options: Dictionary) -> Dictionary:
 	var owner: Object = null
 	if async_options.has("owner"):
@@ -960,6 +1017,9 @@ func _parse_route_lifecycle_options(async_options: Dictionary) -> Dictionary:
 	}
 
 
+## 将已解析的 owner、scope 和取消原因写入 pending 请求条目。
+## [br]
+## @api private
 func _apply_route_lifecycle_to_entry(entry: Dictionary, lifecycle: Dictionary) -> void:
 	var owner: Object = _get_object_value(lifecycle.get("owner"))
 	var scope: GFAsyncScope = _get_async_scope_value(lifecycle.get("scope"))
@@ -969,6 +1029,9 @@ func _apply_route_lifecycle_to_entry(entry: Dictionary, lifecycle: Dictionary) -
 	entry["scope_id"] = scope.get_instance_id() if scope != null else 0
 
 
+## 为请求订阅 owner 生命周期与 scope 取消信号，并保存可断开的订阅句柄。
+## [br]
+## @api private
 func _bind_pending_route_lifecycle(
 	pending_key: String,
 	request_id: int,
@@ -1051,27 +1114,11 @@ func _bind_pending_route_lifecycle(
 		)
 
 
-func _on_pending_route_lifecycle_cancelled(
-	pending_key: String,
-	request_id: int,
-	reason: StringName
-) -> void:
-	var entry: Dictionary = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
-	var operation_handle: GFUIRouteOperation = _get_route_operation_value(entry.get("operation_handle"))
-	if operation_handle == null or operation_handle.get_request_id() != request_id:
-		return
-	if GFVariantData.get_option_bool(entry, "panel_submitted"):
-		return
-	var final_reason: StringName = reason if reason != &"" else &"lifecycle_cancelled"
-	var _cancelled: bool = _finish_pending_route_before_submit(
-		pending_key,
-		request_id,
-		GFUIRouteResult.STATUS_CANCELLED,
-		final_reason,
-		false
-	)
 
 
+## 扫描尚未提交面板的请求，终结 owner 或 scope 已失效的条目。
+## [br]
+## @api private
 func _prune_pending_route_lifecycles() -> void:
 	if _pending_async_routes.is_empty():
 		return
@@ -1095,6 +1142,9 @@ func _prune_pending_route_lifecycles() -> void:
 			)
 
 
+## 根据 owner 弱引用与 scope 状态返回首个生命周期失效原因。
+## [br]
+## @api private
 func _get_route_lifecycle_expired_reason(entry: Dictionary) -> StringName:
 	var owner_id: int = GFVariantData.get_option_int(entry, "owner_id")
 	if owner_id != 0:
@@ -1116,6 +1166,9 @@ func _get_route_lifecycle_expired_reason(entry: Dictionary) -> StringName:
 	return &""
 
 
+## 从 pending 表移除提交前失败的请求，断开回调并回滚未完成预加载。
+## [br]
+## @api private
 func _finish_pending_route_before_submit(
 	pending_key: String,
 	request_id: int,
@@ -1138,6 +1191,9 @@ func _finish_pending_route_before_submit(
 	return true
 
 
+## 获取 scope 的取消原因；scope 未提供原因时返回通用取消标识。
+## [br]
+## @api private
 func _get_scope_cancel_reason(scope: GFAsyncScope) -> StringName:
 	if scope == null:
 		return &"scope_cancelled"
@@ -1145,6 +1201,9 @@ func _get_scope_cancel_reason(scope: GFAsyncScope) -> StringName:
 	return reason if reason != &"" else &"scope_cancelled"
 
 
+## 若请求生命周期已失效则按记录的原因取消；返回是否已终结请求。
+## [br]
+## @api private
 func _cancel_pending_route_if_lifecycle_expired(pending_key: String, request_id: int) -> bool:
 	if not _pending_route_has_request_id(pending_key, request_id):
 		return false
@@ -1163,11 +1222,18 @@ func _cancel_pending_route_if_lifecycle_expired(pending_key: String, request_id:
 	)
 
 
+## 检查键对应的 pending 条目仍属于指定请求 ID。
+## [br]
+## @api private
 func _pending_route_has_request_id(pending_key: String, request_id: int) -> bool:
 	var entry: Dictionary = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
 	return GFVariantData.get_option_int(entry, "request_id") == request_id
 
 
+## 为请求规划并启动预加载；required 失败时结束请求，best-effort 失败时降级继续。
+## 在提交前反复校验请求身份和生命周期，避免迟到会话附着到新条目。
+## [br]
+## @api private
 func _start_pending_route_preload(pending_key: String, request_id: int) -> void:
 	if not _pending_route_has_request_id(pending_key, request_id):
 		return
@@ -1364,48 +1430,11 @@ func _start_pending_route_preload(pending_key: String, request_id: int) -> void:
 		_pending_async_routes[pending_key] = entry
 
 
-func _on_pending_route_preload_completed(
-	preload_result: GFAssetLoadSessionResult,
-	pending_key: String,
-	request_id: int
-) -> void:
-	if not _pending_route_has_request_id(pending_key, request_id):
-		return
-	if _cancel_pending_route_if_lifecycle_expired(pending_key, request_id):
-		return
-	var entry: Dictionary = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
-	if entry.is_empty():
-		return
-	var _erased_callback: bool = entry.erase("preload_callback")
-	entry["preload_result"] = preload_result
-	entry["preload_successful"] = preload_result != null and preload_result.is_successful()
-	_pending_async_routes[pending_key] = entry
-	if preload_result != null and preload_result.is_successful():
-		_submit_pending_panel_open(pending_key, request_id)
-		return
-	var preload_policy: StringName = GFVariantData.get_option_string_name(
-		entry,
-		"preload_policy",
-		PRELOAD_NONE
-	)
-	if preload_policy == PRELOAD_REQUIRED:
-		_complete_pending_route(
-			pending_key,
-			request_id,
-			GFUIRouteResult.STATUS_PRELOAD_FAILED,
-			&"preload_failed",
-			null,
-			true
-		)
-		return
-	_set_pending_preload_degradation(
-		pending_key,
-		request_id,
-		&"preload_failed_continued"
-	)
-	_submit_pending_panel_open(pending_key, request_id)
 
 
+## 将预加载降级标记和原因写入匹配的 pending 请求条目。
+## [br]
+## @api private
 func _set_pending_preload_degradation(
 	pending_key: String,
 	request_id: int,
@@ -1420,6 +1449,10 @@ func _set_pending_preload_degradation(
 	_pending_async_routes[pending_key] = entry
 
 
+## 将 pending 路由交给 UI 工具执行异步 push 或 replace，并绑定终态回调。
+## 提交前校验生命周期和 UI 同键请求；提交后的结果由面板句柄回调收敛。
+## [br]
+## @api private
 func _submit_pending_panel_open(pending_key: String, request_id: int) -> void:
 	if not _pending_route_has_request_id(pending_key, request_id):
 		return
@@ -1567,6 +1600,9 @@ func _submit_pending_panel_open(pending_key: String, request_id: int) -> void:
 		_on_ui_panel_async_operation_completed(ui_operation, pending_key, request_id)
 
 
+## 查询 UI 工具是否已有相同路径与操作的未完成面板请求。
+## [br]
+## @api private
 func _ui_has_matching_pending_request(
 	ui_utility: GFUIUtility,
 	path: String,
@@ -1583,6 +1619,9 @@ func _ui_has_matching_pending_request(
 	return false
 
 
+## 终结失败或取消的请求；仅移除仍匹配 request_id 的 pending 条目。
+## [br]
+## @api private
 func _complete_pending_route(
 	pending_key: String,
 	request_id: int,
@@ -1600,6 +1639,9 @@ func _complete_pending_route(
 	_finish_route_entry(entry, status, reason, panel, emit_legacy_failure)
 
 
+## 终结成功请求，按 replace 语义清理历史，再记录新打开的面板。
+## [br]
+## @api private
 func _complete_pending_route_opened(
 	pending_key: String,
 	request_id: int,
@@ -1633,6 +1675,9 @@ func _complete_pending_route_opened(
 	)
 
 
+## 生成并发出异步路由终态结果，释放本请求拥有的成功预加载组。
+## [br]
+## @api private
 func _finish_route_entry(
 	entry: Dictionary,
 	status: StringName,
@@ -1690,6 +1735,10 @@ func _finish_route_entry(
 		_fail_route(operation_handle.get_route_id(), String(final_reason))
 
 
+## 释放时快照并清空 pending 表，回滚未提交会话并终结全部请求。
+## 已提交面板的最终结果无法确认时记录 outcome_unknown。
+## [br]
+## @api private
 func _finish_pending_routes_for_dispose() -> void:
 	var pending_entries: Array[Dictionary] = []
 	for pending_key: Variant in _pending_async_routes.keys():
@@ -1713,6 +1762,9 @@ func _finish_pending_routes_for_dispose() -> void:
 		)
 
 
+## 断开条目中仍连接到预加载会话 completed 信号的回调。
+## [br]
+## @api private
 func _disconnect_entry_preload_callback(entry: Dictionary) -> void:
 	var session: GFAssetLoadSession = _get_asset_load_session_value(entry.get("preload_session"))
 	var callback: Callable = _get_callable_value(entry.get("preload_callback"))
@@ -1720,6 +1772,9 @@ func _disconnect_entry_preload_callback(entry: Dictionary) -> void:
 		session.completed.disconnect(callback)
 
 
+## 取消 owner 生命周期订阅并断开 scope 取消信号，随后清空条目引用。
+## [br]
+## @api private
 func _disconnect_entry_lifecycle(entry: Dictionary) -> void:
 	var owner_lifetime: GFLifetimeSubscription = _get_lifetime_subscription_value(
 		entry.get("owner_lifetime")
@@ -1735,6 +1790,9 @@ func _disconnect_entry_lifecycle(entry: Dictionary) -> void:
 	entry["scope_callback"] = Callable()
 
 
+## 断开 UI 面板操作的完成回调，并清空条目内保存的句柄与 Callable。
+## [br]
+## @api private
 func _disconnect_entry_ui_completion_callback(entry: Dictionary) -> void:
 	var ui_operation: GFUIPanelAsyncOperation = _get_ui_panel_async_operation_value(
 		entry.get("ui_operation")
@@ -1752,6 +1810,9 @@ func _disconnect_entry_ui_completion_callback(entry: Dictionary) -> void:
 	entry["ui_completion_callback"] = Callable()
 
 
+## 仅当本路由拥有且结果成功时卸载其预加载组。
+## [br]
+## @api private
 func _release_owned_preload_group(
 	entry: Dictionary,
 	preload_result: GFAssetLoadSessionResult
@@ -1767,6 +1828,9 @@ func _release_owned_preload_group(
 		asset_utility.unload_group(preload_result.get_group_id(), false)
 
 
+## 优先读取条目缓存的结果，否则从已完成的预加载会话取结果。
+## [br]
+## @api private
 func _get_entry_preload_result(entry: Dictionary) -> GFAssetLoadSessionResult:
 	var result: GFAssetLoadSessionResult = _get_asset_load_session_result_value(
 		entry.get("preload_result")
@@ -1777,6 +1841,9 @@ func _get_entry_preload_result(entry: Dictionary) -> GFAssetLoadSessionResult:
 	return session.get_result() if session != null and session.is_completed() else null
 
 
+## 移除报告中的资源对象，加入计划描述并编码为报告字典。
+## [br]
+## @api private
 func _make_json_safe_preload_plan_report(
 	raw_report: Dictionary,
 	asset_plan: GFAssetPreloadPlan
@@ -1788,6 +1855,9 @@ func _make_json_safe_preload_plan_report(
 	return GFReportValueCodec.to_report_dictionary(report)
 
 
+## 按请求 ID 排序生成 pending 句柄的调试快照及生命周期标记。
+## [br]
+## @api private
 func _get_pending_route_snapshots() -> Array[Dictionary]:
 	var snapshots: Array[Dictionary] = []
 	for pending_key: Variant in _pending_async_routes.keys():
@@ -1811,15 +1881,24 @@ func _get_pending_route_snapshots() -> Array[Dictionary]:
 	return snapshots
 
 
+## 以层级、操作和场景路径组合 pending 路由索引键。
+## [br]
+## @api private
 func _make_pending_async_route_key(path: String, layer: int, operation: Operation) -> String:
 	return "%d:%d:%s" % [layer, int(operation), path]
 
 
+## 按面板路径、层级和操作查找对应的 pending 路由条目。
+## [br]
+## @api private
 func _find_pending_async_route(path: String, layer: int, operation: Operation) -> Dictionary:
 	var key: String = _make_pending_async_route_key(path, layer, operation)
 	return GFVariantData.get_option_dictionary(_pending_async_routes, key)
 
 
+## 将路由操作映射为 UI 面板操作标识。
+## [br]
+## @api private
 func _operation_to_name(operation: Operation) -> StringName:
 	return (
 		GFUIRouteOperation.OPERATION_REPLACE
@@ -1828,12 +1907,18 @@ func _operation_to_name(operation: Operation) -> StringName:
 	)
 
 
+## 从请求条目读取操作值；未知值按 PUSH 处理。
+## [br]
+## @api private
 func _get_route_operation(entry: Dictionary) -> Operation:
 	if GFVariantData.get_option_int(entry, "operation", int(Operation.PUSH)) == int(Operation.REPLACE):
 		return Operation.REPLACE
 	return Operation.PUSH
 
 
+## 创建先写入路由参数与元数据、再调用用户配置函数的面板回调。
+## [br]
+## @api private
 func _make_route_config_callback(
 	route: GFUIRoute,
 	params: Dictionary,
@@ -1845,6 +1930,9 @@ func _make_route_config_callback(
 			config_callback.call(panel)
 
 
+## 复制路由可变容器字段，生成请求期间使用的路由快照。
+## [br]
+## @api private
 func _make_route_request_snapshot(route_id: StringName, route: GFUIRoute) -> GFUIRoute:
 	var snapshot: GFUIRoute = GFUIRoute.new()
 	snapshot.route_id = route_id
@@ -1856,6 +1944,9 @@ func _make_route_request_snapshot(route_id: StringName, route: GFUIRoute) -> GFU
 	return snapshot
 
 
+## 按预加载目录上限取得注册路由快照，并用请求路由替换同 ID 项。
+## [br]
+## @api private
 func _make_preload_route_snapshots(
 	source_route: GFUIRoute,
 	options: Dictionary
@@ -1892,6 +1983,9 @@ func _make_preload_route_snapshots(
 	return snapshots
 
 
+## 面板支持相应方法时，传入路由参数与路由元数据的深复制。
+## [br]
+## @api private
 func _apply_route_params(panel: Node, route: GFUIRoute, params: Dictionary) -> void:
 	if not is_instance_valid(panel):
 		return
@@ -1901,6 +1995,9 @@ func _apply_route_params(panel: Node, route: GFUIRoute, params: Dictionary) -> v
 		panel.call("set_route_metadata", route.metadata.duplicate(true))
 
 
+## 依最大历史数记录路由、层级、弱面板引用及参数，并发出打开信号。
+## [br]
+## @api private
 func _record_route_open(
 	route: GFUIRoute,
 	panel: Node,
@@ -1924,6 +2021,9 @@ func _record_route_open(
 	route_opened.emit(route.get_route_id(), panel, operation)
 
 
+## 移除已释放或已不在对应 UI 层栈中的历史面板。
+## [br]
+## @api private
 func _prune_history() -> void:
 	var ui_utility: GFUIUtility = _get_ui_utility()
 	for index: int in range(_history.size() - 1, -1, -1):
@@ -1934,6 +2034,9 @@ func _prune_history() -> void:
 			_history.remove_at(index)
 
 
+## 从最新项向前查找历史；负层级表示不限定层级。
+## [br]
+## @api private
 func _find_top_history_index(layer: int = -1) -> int:
 	for index: int in range(_history.size() - 1, -1, -1):
 		if layer < 0 or GFVariantData.get_option_int(_history[index], "layer", -1) == layer:
@@ -1941,12 +2044,18 @@ func _find_top_history_index(layer: int = -1) -> int:
 	return -1
 
 
+## 从历史中移除指定层级的所有记录。
+## [br]
+## @api private
 func _remove_history_for_layer(layer: int) -> void:
 	for index: int in range(_history.size() - 1, -1, -1):
 		if GFVariantData.get_option_int(_history[index], "layer", -1) == layer:
 			_history.remove_at(index)
 
 
+## 解析历史条目的弱面板引用；失效时返回 null。
+## [br]
+## @api private
 func _get_history_panel(entry: Dictionary) -> Node:
 	var panel_ref: WeakRef = _get_weak_ref_value(GFVariantData.get_option_value(entry, "panel_ref"))
 	if panel_ref == null:
@@ -1954,6 +2063,9 @@ func _get_history_panel(entry: Dictionary) -> Node:
 	return _INSTANCE_GUARD._get_live_node_from_ref(panel_ref)
 
 
+## 将内部历史项转换为包含 route_id、层级、面板、参数和元数据的字典。
+## [br]
+## @api private
 func _make_public_history_entry(entry: Dictionary) -> Dictionary:
 	return {
 		"route_id": GFVariantData.get_option_string_name(entry, "route_id", &""),
@@ -1964,6 +2076,9 @@ func _make_public_history_entry(entry: Dictionary) -> Dictionary:
 	}
 
 
+## 先解析缓存弱引用；不可用时从当前架构获取 GFUIUtility。
+## [br]
+## @api private
 func _get_ui_utility() -> GFUIUtility:
 	if _ui_utility_ref != null:
 		var ui_utility: GFUIUtility = _get_ui_utility_value(_ui_utility_ref.get_ref())
@@ -1976,6 +2091,9 @@ func _get_ui_utility() -> GFUIUtility:
 	return _get_ui_utility_value(architecture.get_utility(GFUIUtility))
 
 
+## 从当前架构读取 GFAssetUtility；缺失或类型不符时返回 null。
+## [br]
+## @api private
 func _get_asset_utility() -> GFAssetUtility:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture == null:
@@ -1987,6 +2105,9 @@ func _get_asset_utility() -> GFAssetUtility:
 	return null
 
 
+## 将 Variant 收窄为 GFUIRoute；类型不符时返回 null。
+## [br]
+## @api private
 func _get_route_value(value: Variant) -> GFUIRoute:
 	if value is GFUIRoute:
 		var route: GFUIRoute = value
@@ -1994,6 +2115,9 @@ func _get_route_value(value: Variant) -> GFUIRoute:
 	return null
 
 
+## 从数组筛出 GFUIRoute 项并返回类型化数组。
+## [br]
+## @api private
 func _get_route_array(value: Variant) -> Array[GFUIRoute]:
 	var routes: Array[GFUIRoute] = []
 	if not value is Array:
@@ -2006,10 +2130,16 @@ func _get_route_array(value: Variant) -> Array[GFUIRoute]:
 	return routes
 
 
+## 去除路由标识两端空白并返回 StringName。
+## [br]
+## @api private
 func _normalize_route_id(route_id: StringName) -> StringName:
 	return StringName(String(route_id).strip_edges())
 
 
+## 按字典遍历顺序检查至多 limit 项，筛出类型正确的注册路由。
+## [br]
+## @api private
 func _get_registered_routes(limit: int) -> Array[GFUIRoute]:
 	var result: Array[GFUIRoute] = []
 	var inspected_count: int = 0
@@ -2023,6 +2153,9 @@ func _get_registered_routes(limit: int) -> Array[GFUIRoute]:
 	return result
 
 
+## 将 Variant 收窄为 GFUIUtility；类型不符时返回 null。
+## [br]
+## @api private
 func _get_ui_utility_value(value: Variant) -> GFUIUtility:
 	if value is GFUIUtility:
 		var ui_utility: GFUIUtility = value
@@ -2030,6 +2163,9 @@ func _get_ui_utility_value(value: Variant) -> GFUIUtility:
 	return null
 
 
+## 将 Variant 收窄为 GFUIRouteOperation；类型不符时返回 null。
+## [br]
+## @api private
 func _get_route_operation_value(value: Variant) -> GFUIRouteOperation:
 	if value is GFUIRouteOperation:
 		var operation_handle: GFUIRouteOperation = value
@@ -2037,6 +2173,9 @@ func _get_route_operation_value(value: Variant) -> GFUIRouteOperation:
 	return null
 
 
+## 将 Variant 收窄为 GFUIPanelAsyncOperation；类型不符时返回 null。
+## [br]
+## @api private
 func _get_ui_panel_async_operation_value(value: Variant) -> GFUIPanelAsyncOperation:
 	if value is GFUIPanelAsyncOperation:
 		var operation_handle: GFUIPanelAsyncOperation = value
@@ -2044,6 +2183,9 @@ func _get_ui_panel_async_operation_value(value: Variant) -> GFUIPanelAsyncOperat
 	return null
 
 
+## 将 Variant 收窄为 GFAssetPreloadPlan；类型不符时返回 null。
+## [br]
+## @api private
 func _get_asset_preload_plan_value(value: Variant) -> GFAssetPreloadPlan:
 	if value is GFAssetPreloadPlan:
 		var asset_plan: GFAssetPreloadPlan = value
@@ -2051,6 +2193,9 @@ func _get_asset_preload_plan_value(value: Variant) -> GFAssetPreloadPlan:
 	return null
 
 
+## 将 Variant 收窄为 GFAssetLoadSession；类型不符时返回 null。
+## [br]
+## @api private
 func _get_asset_load_session_value(value: Variant) -> GFAssetLoadSession:
 	if value is GFAssetLoadSession:
 		var session: GFAssetLoadSession = value
@@ -2058,6 +2203,9 @@ func _get_asset_load_session_value(value: Variant) -> GFAssetLoadSession:
 	return null
 
 
+## 将 Variant 收窄为 GFAssetLoadSessionResult；类型不符时返回 null。
+## [br]
+## @api private
 func _get_asset_load_session_result_value(value: Variant) -> GFAssetLoadSessionResult:
 	if value is GFAssetLoadSessionResult:
 		var result: GFAssetLoadSessionResult = value
@@ -2065,6 +2213,9 @@ func _get_asset_load_session_result_value(value: Variant) -> GFAssetLoadSessionR
 	return null
 
 
+## 将 Variant 收窄为 Callable；类型不符时返回无效 Callable。
+## [br]
+## @api private
 func _get_callable_value(value: Variant) -> Callable:
 	if value is Callable:
 		var callback: Callable = value
@@ -2072,6 +2223,9 @@ func _get_callable_value(value: Variant) -> Callable:
 	return Callable()
 
 
+## 返回仍有效的 Object；非对象或已释放对象均返回 null。
+## [br]
+## @api private
 func _get_object_value(value: Variant) -> Object:
 	if value is Object:
 		var object_value: Object = value
@@ -2080,12 +2234,18 @@ func _get_object_value(value: Variant) -> Object:
 	return null
 
 
+## 从弱引用取得仍有效的对象；空引用或对象失效时返回 null。
+## [br]
+## @api private
 func _get_live_object_from_ref(object_ref: WeakRef) -> Object:
 	if object_ref == null:
 		return null
 	return _get_object_value(object_ref.get_ref())
 
 
+## 将 Variant 收窄为 GFAsyncScope；类型不符时返回 null。
+## [br]
+## @api private
 func _get_async_scope_value(value: Variant) -> GFAsyncScope:
 	if value is GFAsyncScope:
 		var scope: GFAsyncScope = value
@@ -2093,6 +2253,9 @@ func _get_async_scope_value(value: Variant) -> GFAsyncScope:
 	return null
 
 
+## 将 Variant 收窄为 GFLifetimeSubscription；类型不符时返回 null。
+## [br]
+## @api private
 func _get_lifetime_subscription_value(value: Variant) -> GFLifetimeSubscription:
 	if value is GFLifetimeSubscription:
 		var subscription: GFLifetimeSubscription = value
@@ -2100,6 +2263,9 @@ func _get_lifetime_subscription_value(value: Variant) -> GFLifetimeSubscription:
 	return null
 
 
+## 将 Variant 收窄为 WeakRef；类型不符时返回 null。
+## [br]
+## @api private
 func _get_weak_ref_value(value: Variant) -> WeakRef:
 	if value is WeakRef:
 		var object_ref: WeakRef = value
@@ -2107,6 +2273,9 @@ func _get_weak_ref_value(value: Variant) -> WeakRef:
 	return null
 
 
+## 转换层级值，并在结果为负数时返回调用方指定的 fallback。
+## [br]
+## @api private
 func _get_ui_layer(value: Variant, fallback: int = GFUIUtility.DEFAULT_LAYER_ID) -> int:
 	var layer_value: int = GFVariantData.to_int(value, fallback)
 	return layer_value if layer_value >= 0 else fallback
@@ -2114,6 +2283,9 @@ func _get_ui_layer(value: Variant, fallback: int = GFUIUtility.DEFAULT_LAYER_ID)
 
 # --- 信号处理函数 ---
 
+## 校验面板异步操作与 pending 路由身份，并映射其状态到路由终态。
+## [br]
+## @api private
 func _on_ui_panel_async_operation_completed(
 	ui_operation: GFUIPanelAsyncOperation,
 	pending_key: String,
@@ -2183,3 +2355,75 @@ func _on_ui_panel_async_operation_completed(
 		null,
 		true
 	)
+
+
+## 只取消标识仍匹配且尚未提交面板的路由；提交后的面板生命周期由后续流程处理，空原因规范化为 lifecycle_cancelled。
+## [br]
+## @api private
+func _on_pending_route_lifecycle_cancelled(
+	pending_key: String,
+	request_id: int,
+	reason: StringName
+) -> void:
+	var entry: Dictionary = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
+	var operation_handle: GFUIRouteOperation = _get_route_operation_value(entry.get("operation_handle"))
+	if operation_handle == null or operation_handle.get_request_id() != request_id:
+		return
+	if GFVariantData.get_option_bool(entry, "panel_submitted"):
+		return
+	var final_reason: StringName = reason if reason != &"" else &"lifecycle_cancelled"
+	var _cancelled: bool = _finish_pending_route_before_submit(
+		pending_key,
+		request_id,
+		GFUIRouteResult.STATUS_CANCELLED,
+		final_reason,
+		false
+	)
+
+
+
+
+## 先验证请求身份与生命周期，再存下预载结果并移除回调记录。
+## 预载必需策略失败时终结路由；可选策略失败登记降级原因后仍继续提交面板。
+## [br]
+## @api private
+func _on_pending_route_preload_completed(
+	preload_result: GFAssetLoadSessionResult,
+	pending_key: String,
+	request_id: int
+) -> void:
+	if not _pending_route_has_request_id(pending_key, request_id):
+		return
+	if _cancel_pending_route_if_lifecycle_expired(pending_key, request_id):
+		return
+	var entry: Dictionary = GFVariantData.get_option_dictionary(_pending_async_routes, pending_key)
+	if entry.is_empty():
+		return
+	var _erased_callback: bool = entry.erase("preload_callback")
+	entry["preload_result"] = preload_result
+	entry["preload_successful"] = preload_result != null and preload_result.is_successful()
+	_pending_async_routes[pending_key] = entry
+	if preload_result != null and preload_result.is_successful():
+		_submit_pending_panel_open(pending_key, request_id)
+		return
+	var preload_policy: StringName = GFVariantData.get_option_string_name(
+		entry,
+		"preload_policy",
+		PRELOAD_NONE
+	)
+	if preload_policy == PRELOAD_REQUIRED:
+		_complete_pending_route(
+			pending_key,
+			request_id,
+			GFUIRouteResult.STATUS_PRELOAD_FAILED,
+			&"preload_failed",
+			null,
+			true
+		)
+		return
+	_set_pending_preload_degradation(
+		pending_key,
+		request_id,
+		&"preload_failed_continued"
+	)
+	_submit_pending_panel_open(pending_key, request_id)

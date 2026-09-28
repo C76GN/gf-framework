@@ -63,7 +63,14 @@ signal request_invoked(request_type: StringName, result: Variant, metadata: Dict
 
 # --- 常量 ---
 
+## 合并请求调用结果扩展字段的共享辅助脚本。
+## [br]
+## @api private
 const _GF_ASYNC_RESULT_SUPPORT = preload("res://addons/gf/standard/common/gf_async_result_support.gd")
+
+## 将功能调用结果转换为诊断可用表示的辅助脚本。
+## [br]
+## @api private
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 
 ## handler 已注册。
@@ -145,15 +152,54 @@ var max_recent_events: int = DEFAULT_MAX_RECENT_EVENTS:
 
 # --- 私有变量 ---
 
+## 按 request_type 保存当前 handler 及注册、调用统计。
+## [br]
+## @api private
 var _handlers: Dictionary = {}
+
+## 最近注册、注销和调用事件记录。
+## [br]
+## @api private
 var _events: Array[Dictionary] = []
+
+## 下一个分配的注册或调用序号。
+## [br]
+## @api private
 var _next_sequence: int = 1
+
+## 自上次 clear() 后新注册 handler 的数量。
+## [br]
+## @api private
 var _registered_count: int = 0
+
+## 自上次 clear() 后替换 handler 的数量。
+## [br]
+## @api private
 var _replaced_count: int = 0
+
+## 自上次 clear() 后注销 handler 的数量。
+## [br]
+## @api private
 var _unregistered_count: int = 0
+
+## 自上次 clear() 后拒绝重复注册的数量。
+## [br]
+## @api private
 var _duplicate_count: int = 0
+
+## 自上次 clear() 后未找到 handler 的调用数量。
+## [br]
+## @api private
 var _missing_count: int = 0
+
+## 自上次 clear() 后进入 handler 调用路径的请求数。
+## [br]
+## @api private
 var _invoked_count: int = 0
+
+## 自上次 clear() 后无效请求类型或 handler 的数量。
+## [br]
+## @api private
 var _invalid_count: int = 0
 
 
@@ -553,6 +599,10 @@ func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 捕获当前注册回调并同步执行；回调重入替换或注销注册时，不把旧调用统计写回新注册项。
+## 请求载荷与 context 经复制后交给 handler；本次返回值仍按已捕获回调的结果报告。
+## [br]
+## @api private
 func _invoke_handler(
 	request_type: StringName,
 	payload: Variant,
@@ -624,6 +674,9 @@ func _invoke_handler(
 	})
 
 
+## 提取 handler 注册、调用计数、最近调用序号与可调用状态。
+## [br]
+## @api private
 func _entry_to_snapshot(entry: Dictionary) -> Dictionary:
 	var handler: Callable = _variant_to_callable(GFVariantData.get_option_value(entry, "handler"))
 	return {
@@ -639,6 +692,9 @@ func _entry_to_snapshot(entry: Dictionary) -> Dictionary:
 	}
 
 
+## 创建基础调用结果并将 extra 字段交给共享结果辅助脚本合并。
+## [br]
+## @api private
 func _make_result(
 	ok: bool,
 	status: StringName,
@@ -656,6 +712,9 @@ func _make_result(
 	return result
 
 
+## 在事件容量启用时写入带递增序号和时间戳的注册表事件。
+## [br]
+## @api private
 func _record_event(
 	event_type: StringName,
 	request_type: StringName,
@@ -676,17 +735,26 @@ func _record_event(
 	_trim_events()
 
 
+## 从最旧一端移除事件，直到数量不超过 max_recent_events。
+## [br]
+## @api private
 func _trim_events() -> void:
 	while _events.size() > max_recent_events:
 		_events.pop_front()
 
 
+## 返回当前 sequence 并递增下一个序号。
+## [br]
+## @api private
 func _take_sequence() -> int:
 	var result: int = _next_sequence
 	_next_sequence += 1
 	return result
 
 
+## 仅当 Variant 值是 Callable 时返回该回调，否则返回空 Callable。
+## [br]
+## @api private
 func _variant_to_callable(value: Variant) -> Callable:
 	if value is Callable:
 		var callable: Callable = value

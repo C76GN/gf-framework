@@ -63,14 +63,58 @@ const JSON_SAFE_INTEGER_MAX: int = 9_007_199_254_740_991
 ## @api framework_internal
 const JSON_SAFE_INTEGER_MIN: int = -9_007_199_254_740_991
 
+## 非有限浮点数类型标记使用的类型名。
+## [br]
+## @api private
+## [br]
 const _FLOAT_TYPE_NAME: String = "Float"
+
+## NaN 浮点值的标记文本。
+## [br]
+## @api private
+## [br]
 const _FLOAT_NAN_TEXT: String = "NaN"
+
+## 正无穷浮点值的标记文本。
+## [br]
+## @api private
+## [br]
 const _FLOAT_POSITIVE_INF_TEXT: String = "INF"
+
+## 负无穷浮点值的标记文本。
+## [br]
+## @api private
+## [br]
 const _FLOAT_NEGATIVE_INF_TEXT: String = "-INF"
+
+## 遍历预算耗尽时使用的类型标记名。
+## [br]
+## @api private
+## [br]
 const _TRAVERSAL_LIMIT_TYPE_NAME: String = "TraversalLimit"
+
+## JSON 转换默认允许的最大递归深度。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_DEPTH: int = 64
+
+## JSON 转换默认允许访问的最大节点数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_NODES: int = 16_384
+
+## JSON 转换默认允许遍历的集合元素总数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_COLLECTION_ITEMS: int = 65_536
+
+## Float32 可表示的最大有限值，用于完整载荷校验。
+## [br]
+## @api private
+## [br]
 const _FLOAT32_MAX: float = 3.4028234663852886e38
 
 
@@ -412,6 +456,10 @@ static func array_to_color(value: Variant, fallback: Color = Color.WHITE) -> Col
 
 # --- 私有/辅助方法 ---
 
+## 递归把 JSON 兼容值还原为 Variant；按选项解码类型标记并检测循环和遍历限制。
+## [br]
+## @api private
+## [br]
 static func _json_compatible_to_variant(
 	value: Variant,
 	options: Dictionary,
@@ -490,6 +538,10 @@ static func _json_compatible_to_variant(
 	return value
 
 
+## 把数值、布尔值或 Float 标记转换为浮点数；不匹配时返回备用值。
+## [br]
+## @api private
+## [br]
 static func _number_to_float(value: Variant, fallback: float = 0.0) -> float:
 	if value is float:
 		var float_value: float = value
@@ -506,6 +558,10 @@ static func _number_to_float(value: Variant, fallback: float = 0.0) -> float:
 	return fallback
 
 
+## 把整数、浮点数、布尔值或文本转换为整数；不匹配时返回备用值。
+## [br]
+## @api private
+## [br]
 static func _number_to_int(value: Variant, fallback: int = 0) -> int:
 	if value is int:
 		var int_value: int = value
@@ -521,6 +577,10 @@ static func _number_to_int(value: Variant, fallback: int = 0) -> int:
 	return fallback
 
 
+## 将 Variant 转换为 Vector2；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_vector2(value: Variant) -> Vector2:
 	if value is Vector2:
 		var result: Vector2 = value
@@ -528,6 +588,10 @@ static func _variant_to_vector2(value: Variant) -> Vector2:
 	return Vector2.ZERO
 
 
+## 将 Variant 转换为 Vector2i；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_vector2i(value: Variant) -> Vector2i:
 	if value is Vector2i:
 		var result: Vector2i = value
@@ -535,6 +599,10 @@ static func _variant_to_vector2i(value: Variant) -> Vector2i:
 	return Vector2i.ZERO
 
 
+## 将 Variant 转换为 Vector3；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_vector3(value: Variant) -> Vector3:
 	if value is Vector3:
 		var result: Vector3 = value
@@ -542,6 +610,10 @@ static func _variant_to_vector3(value: Variant) -> Vector3:
 	return Vector3.ZERO
 
 
+## 将 Variant 转换为 Vector3i；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_vector3i(value: Variant) -> Vector3i:
 	if value is Vector3i:
 		var result: Vector3i = value
@@ -549,6 +621,10 @@ static func _variant_to_vector3i(value: Variant) -> Vector3i:
 	return Vector3i.ZERO
 
 
+## 将 Variant 转换为 Vector4；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_vector4(value: Variant) -> Vector4:
 	if value is Vector4:
 		var result: Vector4 = value
@@ -556,6 +632,10 @@ static func _variant_to_vector4(value: Variant) -> Vector4:
 	return Vector4.ZERO
 
 
+## 将 Variant 转换为 Vector4i；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_vector4i(value: Variant) -> Vector4i:
 	if value is Vector4i:
 		var result: Vector4i = value
@@ -563,6 +643,10 @@ static func _variant_to_vector4i(value: Variant) -> Vector4i:
 	return Vector4i.ZERO
 
 
+## 将 Variant 转换为 Rect2；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_rect2(value: Variant) -> Rect2:
 	if value is Rect2:
 		var result: Rect2 = value
@@ -570,6 +654,10 @@ static func _variant_to_rect2(value: Variant) -> Rect2:
 	return Rect2()
 
 
+## 将 Variant 转换为 Rect2i；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_rect2i(value: Variant) -> Rect2i:
 	if value is Rect2i:
 		var result: Rect2i = value
@@ -577,6 +665,10 @@ static func _variant_to_rect2i(value: Variant) -> Rect2i:
 	return Rect2i()
 
 
+## 将 Variant 转换为 Color；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_color(value: Variant) -> Color:
 	if value is Color:
 		var result: Color = value
@@ -584,6 +676,10 @@ static func _variant_to_color(value: Variant) -> Color:
 	return Color.TRANSPARENT
 
 
+## 将 Variant 转换为 Plane；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_plane(value: Variant) -> Plane:
 	if value is Plane:
 		var result: Plane = value
@@ -591,6 +687,10 @@ static func _variant_to_plane(value: Variant) -> Plane:
 	return Plane()
 
 
+## 将 Variant 转换为 Quaternion；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_quaternion(value: Variant) -> Quaternion:
 	if value is Quaternion:
 		var result: Quaternion = value
@@ -598,6 +698,10 @@ static func _variant_to_quaternion(value: Variant) -> Quaternion:
 	return Quaternion.IDENTITY
 
 
+## 将 Variant 转换为 AABB；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_aabb(value: Variant) -> AABB:
 	if value is AABB:
 		var result: AABB = value
@@ -605,6 +709,10 @@ static func _variant_to_aabb(value: Variant) -> AABB:
 	return AABB()
 
 
+## 将 Variant 转换为 Basis；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_basis(value: Variant) -> Basis:
 	if value is Basis:
 		var result: Basis = value
@@ -612,6 +720,10 @@ static func _variant_to_basis(value: Variant) -> Basis:
 	return Basis()
 
 
+## 将 Variant 转换为 Transform2D；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_transform_2d(value: Variant) -> Transform2D:
 	if value is Transform2D:
 		var result: Transform2D = value
@@ -619,6 +731,10 @@ static func _variant_to_transform_2d(value: Variant) -> Transform2D:
 	return Transform2D()
 
 
+## 将 Variant 转换为 Transform3D；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_transform_3d(value: Variant) -> Transform3D:
 	if value is Transform3D:
 		var result: Transform3D = value
@@ -626,6 +742,10 @@ static func _variant_to_transform_3d(value: Variant) -> Transform3D:
 	return Transform3D()
 
 
+## 将 Variant 转换为 PackedByteArray；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_packed_byte_array(value: Variant) -> PackedByteArray:
 	if value is PackedByteArray:
 		var result: PackedByteArray = value
@@ -633,6 +753,10 @@ static func _variant_to_packed_byte_array(value: Variant) -> PackedByteArray:
 	return PackedByteArray()
 
 
+## 将 Variant 转换为 PackedInt32Array；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_packed_int32_array(value: Variant) -> PackedInt32Array:
 	if value is PackedInt32Array:
 		var result: PackedInt32Array = value
@@ -640,6 +764,10 @@ static func _variant_to_packed_int32_array(value: Variant) -> PackedInt32Array:
 	return PackedInt32Array()
 
 
+## 将 Variant 转换为 PackedInt64Array；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_packed_int64_array(value: Variant) -> PackedInt64Array:
 	if value is PackedInt64Array:
 		var result: PackedInt64Array = value
@@ -647,6 +775,10 @@ static func _variant_to_packed_int64_array(value: Variant) -> PackedInt64Array:
 	return PackedInt64Array()
 
 
+## 将 Variant 转换为 PackedFloat32Array；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_packed_float32_array(value: Variant) -> PackedFloat32Array:
 	if value is PackedFloat32Array:
 		var result: PackedFloat32Array = value
@@ -654,6 +786,10 @@ static func _variant_to_packed_float32_array(value: Variant) -> PackedFloat32Arr
 	return PackedFloat32Array()
 
 
+## 将 Variant 转换为 PackedFloat64Array；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_packed_float64_array(value: Variant) -> PackedFloat64Array:
 	if value is PackedFloat64Array:
 		var result: PackedFloat64Array = value
@@ -661,6 +797,10 @@ static func _variant_to_packed_float64_array(value: Variant) -> PackedFloat64Arr
 	return PackedFloat64Array()
 
 
+## 将 Variant 转换为 PackedStringArray；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_packed_string_array(value: Variant) -> PackedStringArray:
 	if value is PackedStringArray:
 		var result: PackedStringArray = value
@@ -668,6 +808,10 @@ static func _variant_to_packed_string_array(value: Variant) -> PackedStringArray
 	return PackedStringArray()
 
 
+## 将 Variant 转换为 PackedVector2Array；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_packed_vector2_array(value: Variant) -> PackedVector2Array:
 	if value is PackedVector2Array:
 		var result: PackedVector2Array = value
@@ -675,6 +819,10 @@ static func _variant_to_packed_vector2_array(value: Variant) -> PackedVector2Arr
 	return PackedVector2Array()
 
 
+## 将 Variant 转换为 PackedVector3Array；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_packed_vector3_array(value: Variant) -> PackedVector3Array:
 	if value is PackedVector3Array:
 		var result: PackedVector3Array = value
@@ -682,6 +830,10 @@ static func _variant_to_packed_vector3_array(value: Variant) -> PackedVector3Arr
 	return PackedVector3Array()
 
 
+## 将 Variant 转换为 PackedColorArray；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_packed_color_array(value: Variant) -> PackedColorArray:
 	if value is PackedColorArray:
 		var result: PackedColorArray = value
@@ -689,6 +841,10 @@ static func _variant_to_packed_color_array(value: Variant) -> PackedColorArray:
 	return PackedColorArray()
 
 
+## 将 Variant 转换为 PackedVector4Array；输入已是目标类型时保留，否则返回该类型的默认值。
+## [br]
+## @api private
+## [br]
 static func _variant_to_packed_vector4_array(value: Variant) -> PackedVector4Array:
 	if value is PackedVector4Array:
 		var result: PackedVector4Array = value
@@ -696,6 +852,10 @@ static func _variant_to_packed_vector4_array(value: Variant) -> PackedVector4Arr
 	return PackedVector4Array()
 
 
+## 递归把 Variant 转成 JSON 兼容值，处理类型标记、循环引用、不支持值和遍历预算。
+## [br]
+## @api private
+## [br]
 static func _variant_to_json_compatible(
 	value: Variant,
 	options: Dictionary,
@@ -830,6 +990,10 @@ static func _variant_to_json_compatible(
 	return null
 
 
+## 按本 codec 的版本与身份包装类型名和值，生成 JSON 类型标记。
+## [br]
+## @api private
+## [br]
 static func _make_json_typed_value(type_name: String, typed_value: Variant) -> Dictionary:
 	return {
 		JSON_MARKER_KEY: {
@@ -841,6 +1005,10 @@ static func _make_json_typed_value(type_name: String, typed_value: Variant) -> D
 	}
 
 
+## 检查字典是否具有本 codec 身份及有效类型和值字段。
+## [br]
+## @api private
+## [br]
 static func _is_json_typed_value(value: Dictionary) -> bool:
 	if value.size() != 1 or not value.has(JSON_MARKER_KEY):
 		return false
@@ -853,6 +1021,10 @@ static func _is_json_typed_value(value: Dictionary) -> bool:
 	)
 
 
+## 按选项把字典编码为文本键映射或键值条目列表，并规避标记形状冲突。
+## [br]
+## @api private
+## [br]
 static func _dictionary_to_json_compatible(
 	value: Dictionary,
 	options: Dictionary,
@@ -895,6 +1067,10 @@ static func _dictionary_to_json_compatible(
 	return result
 
 
+## 将字典各键值编码成带 key 与 value 字段的条目数组。
+## [br]
+## @api private
+## [br]
 static func _dictionary_entries_to_json_compatible(
 	value: Dictionary,
 	options: Dictionary,
@@ -925,6 +1101,10 @@ static func _dictionary_entries_to_json_compatible(
 	return entries
 
 
+## 将整数键编码为 Int64 类型标记，其余键走普通 JSON 兼容转换。
+## [br]
+## @api private
+## [br]
 static func _dictionary_key_to_json_compatible(
 	key: Variant,
 	options: Dictionary,
@@ -939,6 +1119,10 @@ static func _dictionary_key_to_json_compatible(
 	return _variant_to_json_compatible(key, options, visited, depth, traversal_state)
 
 
+## 按选项为循环引用生成 CircularReference 标记或配置的回退值。
+## [br]
+## @api private
+## [br]
 static func _make_circular_reference_value(options: Dictionary) -> Variant:
 	return _make_json_typed_value(
 		"CircularReference",
@@ -946,6 +1130,10 @@ static func _make_circular_reference_value(options: Dictionary) -> Variant:
 	)
 
 
+## 检查字典是否呈现类型标记的保留形状，以免普通数据被误解码。
+## [br]
+## @api private
+## [br]
 static func _has_reserved_marker_shape(value: Dictionary) -> bool:
 	if value.size() != 1 or not value.has(JSON_MARKER_KEY):
 		return false
@@ -953,6 +1141,10 @@ static func _has_reserved_marker_shape(value: Dictionary) -> bool:
 	return marker.has(JSON_TYPE_KEY) and marker.has(JSON_VALUE_KEY)
 
 
+## 按对象身份检查 visited 列表是否已包含给定容器。
+## [br]
+## @api private
+## [br]
 static func _visited_contains_reference(visited: Array, value: Variant) -> bool:
 	for item: Variant in visited:
 		if is_same(item, value):
@@ -960,6 +1152,10 @@ static func _visited_contains_reference(visited: Array, value: Variant) -> bool:
 	return false
 
 
+## 根据选项建立深度、节点数和集合项数预算状态。
+## [br]
+## @api private
+## [br]
 static func _make_traversal_state(options: Dictionary) -> Dictionary:
 	return {
 		"max_depth": maxi(GFVariantData.get_option_int(options, "max_depth", _DEFAULT_MAX_DEPTH), 0),
@@ -979,6 +1175,10 @@ static func _make_traversal_state(options: Dictionary) -> Dictionary:
 	}
 
 
+## 检查遍历是否已耗尽及深度、节点上限，并在允许时消耗一个节点。
+## [br]
+## @api private
+## [br]
 static func _consume_traversal_node(depth: int, traversal_state: Dictionary) -> bool:
 	if _is_traversal_exhausted(traversal_state):
 		return false
@@ -995,6 +1195,10 @@ static func _consume_traversal_node(depth: int, traversal_state: Dictionary) -> 
 	return true
 
 
+## 累计并检查集合元素预算是否超限。
+## [br]
+## @api private
+## [br]
 static func _consume_collection_items(item_count: int, traversal_state: Dictionary) -> bool:
 	if _is_traversal_exhausted(traversal_state):
 		return false
@@ -1013,6 +1217,10 @@ static func _consume_collection_items(item_count: int, traversal_state: Dictiona
 	return true
 
 
+## 首次将遍历状态标记为耗尽，并记录耗尽原因。
+## [br]
+## @api private
+## [br]
 static func _exhaust_traversal(traversal_state: Dictionary, reason: String) -> void:
 	if _is_traversal_exhausted(traversal_state):
 		return
@@ -1020,15 +1228,27 @@ static func _exhaust_traversal(traversal_state: Dictionary, reason: String) -> v
 	traversal_state["reason"] = reason
 
 
+## 读取遍历状态的耗尽标志。
+## [br]
+## @api private
+## [br]
 static func _is_traversal_exhausted(traversal_state: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(traversal_state, "exhausted")
 
 
+## 在要求完整结果时将不完整值记为遍历失败。
+## [br]
+## @api private
+## [br]
 static func _reject_incomplete_value(traversal_state: Dictionary, reason: String) -> void:
 	if GFVariantData.get_option_bool(traversal_state, "require_complete"):
 		_exhaust_traversal(traversal_state, reason)
 
 
+## 从遍历状态生成完整性结果；成功时带 value，失败时带 error。
+## [br]
+## @api private
+## [br]
 static func _make_complete_result(value: Variant, traversal_state: Dictionary) -> Dictionary:
 	var complete: bool = not _is_traversal_exhausted(traversal_state)
 	return {
@@ -1038,6 +1258,10 @@ static func _make_complete_result(value: Variant, traversal_state: Dictionary) -
 	}
 
 
+## 将耗尽原因、已用计数和上限编码为 TraversalLimit 类型标记。
+## [br]
+## @api private
+## [br]
 static func _make_traversal_limit_marker(traversal_state: Dictionary) -> Dictionary:
 	return _make_json_typed_value(_TRAVERSAL_LIMIT_TYPE_NAME, {
 		"reason": GFVariantData.get_option_string(traversal_state, "reason", "traversal_limit"),
@@ -1055,12 +1279,20 @@ static func _make_traversal_limit_marker(traversal_state: Dictionary) -> Diction
 	})
 
 
+## 返回选项中的 traversal_limit 回退值副本，未配置时返回说明文本。
+## [br]
+## @api private
+## [br]
 static func _make_traversal_limit_fallback(options: Dictionary) -> Variant:
 	return GFVariantData.duplicate_variant(
 		GFVariantData.get_option_value(options, "traversal_limit", "<traversal_limit>")
 	)
 
 
+## 返回支持的数组、字典或 Packed 数组长度，非集合输入返回 -1。
+## [br]
+## @api private
+## [br]
 static func _get_collection_size(value: Variant) -> int:
 	match typeof(value):
 		TYPE_ARRAY:
@@ -1102,6 +1334,10 @@ static func _get_collection_size(value: Variant) -> int:
 	return -1
 
 
+## 按类型名解码类型标记载荷，并在 require_complete 模式验证封套与载荷。
+## [br]
+## @api private
+## [br]
 static func _json_typed_value_to_variant(
 	value: Dictionary,
 	options: Dictionary,
@@ -1217,6 +1453,10 @@ static func _json_typed_value_to_variant(
 	return raw_value
 
 
+## 检查字典标记是否包含本 codec 的身份字段。
+## [br]
+## @api private
+## [br]
 static func _has_codec_marker_identity(value: Dictionary) -> bool:
 	if value.size() != 1:
 		return false
@@ -1225,6 +1465,10 @@ static func _has_codec_marker_identity(value: Dictionary) -> bool:
 	return codec is String and codec == JSON_CODEC_ID
 
 
+## 验证完整类型标记的精确字段集合、版本、codec、类型名和值字段。
+## [br]
+## @api private
+## [br]
 static func _is_complete_marker_envelope(marker: Dictionary) -> bool:
 	return (
 		marker.size() == 4
@@ -1236,6 +1480,10 @@ static func _is_complete_marker_envelope(marker: Dictionary) -> bool:
 	)
 
 
+## 按类型名分派检查标记载荷是否完整且结构有效。
+## [br]
+## @api private
+## [br]
 static func _is_complete_typed_payload(type_name: String, value: Variant) -> bool:
 	match type_name:
 		"Int64":
@@ -1284,6 +1532,10 @@ static func _is_complete_typed_payload(type_name: String, value: Variant) -> boo
 	return false
 
 
+## 逐项检查 Packed 类型标记载荷中的元素是否满足完整格式。
+## [br]
+## @api private
+## [br]
 static func _is_complete_packed_payload(type_name: String, value: Variant) -> bool:
 	if not value is Array:
 		return false
@@ -1311,6 +1563,10 @@ static func _is_complete_packed_payload(type_name: String, value: Variant) -> bo
 	return true
 
 
+## 验证数值分量数组的长度、数值类型及实数精度范围。
+## [br]
+## @api private
+## [br]
 static func _is_numeric_components(
 	value: Variant,
 	size: int = -1,
@@ -1334,6 +1590,10 @@ static func _is_numeric_components(
 	return true
 
 
+## 接受普通数值，或载荷有效的 Float 标记作为完整数值分量。
+## [br]
+## @api private
+## [br]
 static func _is_complete_numeric_component(value: Variant) -> bool:
 	if value is int or value is float:
 		return true
@@ -1353,6 +1613,10 @@ static func _is_complete_numeric_component(value: Variant) -> bool:
 	)
 
 
+## 验证整数分量数组的长度以及每项的目标整数范围。
+## [br]
+## @api private
+## [br]
 static func _is_integer_components(
 	value: Variant,
 	size: int = -1,
@@ -1370,6 +1634,10 @@ static func _is_integer_components(
 	return true
 
 
+## 检查整数或有限整数值是否落在给定最小值与最大值之间。
+## [br]
+## @api private
+## [br]
 static func _is_integer_component(value: Variant, minimum: int, maximum: int) -> bool:
 	if value is int:
 		var integer: int = value
@@ -1380,6 +1648,10 @@ static func _is_integer_component(value: Variant, minimum: int, maximum: int) ->
 	return false
 
 
+## 验证文本是否为规范的有符号 64 位整数十进制表示。
+## [br]
+## @api private
+## [br]
 static func _is_int64_text(value: Variant) -> bool:
 	if not value is String:
 		return false
@@ -1398,16 +1670,28 @@ static func _is_int64_text(value: Variant) -> bool:
 	return str(number.to_int()) == number
 
 
+## 将 StringName 键转为文本，其他键使用 str 转换。
+## [br]
+## @api private
+## [br]
 static func _json_key_to_string(key: Variant) -> String:
 	if key is StringName:
 		return GFVariantData.to_text(key)
 	return str(key)
 
 
+## 判断整数是否超出 JSON/JavaScript 安全整数范围。
+## [br]
+## @api private
+## [br]
 static func _is_unsafe_json_integer(value: int) -> bool:
 	return value < JSON_SAFE_INTEGER_MIN or value > JSON_SAFE_INTEGER_MAX
 
 
+## 有限浮点数保留为数值；NaN 与正负无穷编码为 Float 标记。
+## [br]
+## @api private
+## [br]
 static func _float_to_json_compatible(value: float) -> Variant:
 	if is_nan(value):
 		return _make_json_typed_value(_FLOAT_TYPE_NAME, _FLOAT_NAN_TEXT)
@@ -1416,6 +1700,10 @@ static func _float_to_json_compatible(value: float) -> Variant:
 	return value
 
 
+## 逐项调用浮点 JSON 转换，得到可保留非有限值的普通数组。
+## [br]
+## @api private
+## [br]
 static func _float_array_to_json_compatible(values: Array[float]) -> Array:
 	var result: Array = []
 	for value: float in values:
@@ -1423,6 +1711,10 @@ static func _float_array_to_json_compatible(values: Array[float]) -> Array:
 	return result
 
 
+## 仅从 Float 类型标记读取浮点值，无法解码时返回备用值。
+## [br]
+## @api private
+## [br]
 static func _json_float_marker_to_float(value: Dictionary, fallback: float = 0.0) -> float:
 	if not _is_json_typed_value(value):
 		return fallback
@@ -1432,6 +1724,10 @@ static func _json_float_marker_to_float(value: Dictionary, fallback: float = 0.0
 	return _json_float_value_to_float(GFVariantData.get_option_value(marker, JSON_VALUE_KEY), fallback)
 
 
+## 把数字或 NaN/INF 文本转换为浮点数；无效文本返回备用值。
+## [br]
+## @api private
+## [br]
 static func _json_float_value_to_float(value: Variant, fallback: float = 0.0) -> float:
 	if value is float:
 		var float_value: float = value
@@ -1451,18 +1747,30 @@ static func _json_float_value_to_float(value: Variant, fallback: float = 0.0) ->
 	return fallback
 
 
+## 读取数组指定位置并转换为浮点数；索引无效时返回备用值。
+## [br]
+## @api private
+## [br]
 static func _float_at(array: Array, index: int, fallback: float = 0.0) -> float:
 	if index < 0 or index >= array.size():
 		return fallback
 	return _number_to_float(array[index], fallback)
 
 
+## 读取数组指定位置并转换为整数；索引无效时返回备用值。
+## [br]
+## @api private
+## [br]
 static func _int_at(array: Array, index: int, fallback: int = 0) -> int:
 	if index < 0 or index >= array.size():
 		return fallback
 	return _number_to_int(array[index], fallback)
 
 
+## 按 Basis 的三个轴展开为九个浮点分量。
+## [br]
+## @api private
+## [br]
 static func _basis_to_array(value: Basis) -> Array:
 	return _float_array_to_json_compatible([
 		value.x.x,
@@ -1477,6 +1785,10 @@ static func _basis_to_array(value: Basis) -> Array:
 	])
 
 
+## 用数组分量重建 Basis，缺少的分量使用默认轴值。
+## [br]
+## @api private
+## [br]
 static func _array_to_basis(value: Array) -> Basis:
 	return Basis(
 		Vector3(_float_at(value, 0, 1.0), _float_at(value, 1), _float_at(value, 2)),
@@ -1485,6 +1797,10 @@ static func _array_to_basis(value: Array) -> Basis:
 	)
 
 
+## 按二维变换的轴和原点展开为六个浮点分量。
+## [br]
+## @api private
+## [br]
 static func _transform_2d_to_array(value: Transform2D) -> Array:
 	return _float_array_to_json_compatible([
 		value.x.x,
@@ -1496,6 +1812,10 @@ static func _transform_2d_to_array(value: Transform2D) -> Array:
 	])
 
 
+## 用数组分量重建 Transform2D，缺少分量采用单位变换默认值。
+## [br]
+## @api private
+## [br]
 static func _array_to_transform_2d(value: Array) -> Transform2D:
 	return Transform2D(
 		Vector2(_float_at(value, 0, 1.0), _float_at(value, 1)),
@@ -1504,6 +1824,10 @@ static func _array_to_transform_2d(value: Array) -> Transform2D:
 	)
 
 
+## 从字典读取 basis 与 origin 并构建 Transform3D，输入不是字典时返回默认变换。
+## [br]
+## @api private
+## [br]
 static func _dictionary_to_transform_3d(value: Variant) -> Transform3D:
 	if not (value is Dictionary):
 		return Transform3D()
@@ -1515,6 +1839,10 @@ static func _dictionary_to_transform_3d(value: Variant) -> Transform3D:
 	)
 
 
+## 解码键值条目数组；完整模式校验条目形状、重复键及解码过程。
+## [br]
+## @api private
+## [br]
 static func _entries_to_dictionary(
 	entries: Array,
 	options: Dictionary,
@@ -1559,6 +1887,10 @@ static func _entries_to_dictionary(
 	return result
 
 
+## 把 PackedByteArray 展开为普通数组，以整数形式供 JSON 编码。
+## [br]
+## @api private
+## [br]
 static func _packed_byte_array_to_array(value: PackedByteArray) -> Array[int]:
 	var result: Array[int] = []
 	for item: int in value:
@@ -1566,6 +1898,10 @@ static func _packed_byte_array_to_array(value: PackedByteArray) -> Array[int]:
 	return result
 
 
+## 把普通数组逐项转换并构造 PackedByteArray，无效或缺失分量按对应转换规则取默认值。
+## [br]
+## @api private
+## [br]
 static func _array_to_packed_byte_array(value: Array) -> PackedByteArray:
 	var result: PackedByteArray = PackedByteArray()
 	for item: Variant in value:
@@ -1573,6 +1909,10 @@ static func _array_to_packed_byte_array(value: Array) -> PackedByteArray:
 	return result
 
 
+## 把 PackedInt32Array 展开为普通数组，以整数形式供 JSON 编码。
+## [br]
+## @api private
+## [br]
 static func _packed_int32_array_to_array(value: PackedInt32Array) -> Array[int]:
 	var result: Array[int] = []
 	for item: int in value:
@@ -1580,6 +1920,10 @@ static func _packed_int32_array_to_array(value: PackedInt32Array) -> Array[int]:
 	return result
 
 
+## 把普通数组逐项转换并构造 PackedInt32Array，无效或缺失分量按对应转换规则取默认值。
+## [br]
+## @api private
+## [br]
 static func _array_to_packed_int32_array(value: Array) -> PackedInt32Array:
 	var result: PackedInt32Array = PackedInt32Array()
 	for item: Variant in value:
@@ -1587,6 +1931,10 @@ static func _array_to_packed_int32_array(value: Array) -> PackedInt32Array:
 	return result
 
 
+## 把 PackedInt64Array 展开为普通数组，以十进制文本形式供 JSON 编码。
+## [br]
+## @api private
+## [br]
 static func _packed_int64_array_to_array(value: PackedInt64Array) -> Array[String]:
 	var result: Array[String] = []
 	for item: int in value:
@@ -1594,6 +1942,10 @@ static func _packed_int64_array_to_array(value: PackedInt64Array) -> Array[Strin
 	return result
 
 
+## 把普通数组逐项转换并构造 PackedInt64Array，无效或缺失分量按对应转换规则取默认值。
+## [br]
+## @api private
+## [br]
 static func _array_to_packed_int64_array(value: Array) -> PackedInt64Array:
 	var result: PackedInt64Array = PackedInt64Array()
 	for item: Variant in value:
@@ -1601,6 +1953,10 @@ static func _array_to_packed_int64_array(value: Array) -> PackedInt64Array:
 	return result
 
 
+## 把 PackedFloat32Array 展开为普通数组，以数值形式供 JSON 编码。
+## [br]
+## @api private
+## [br]
 static func _packed_float32_array_to_array(value: PackedFloat32Array) -> Array:
 	var result: Array = []
 	for item: float in value:
@@ -1608,6 +1964,10 @@ static func _packed_float32_array_to_array(value: PackedFloat32Array) -> Array:
 	return result
 
 
+## 把普通数组逐项转换并构造 PackedFloat32Array，无效或缺失分量按对应转换规则取默认值。
+## [br]
+## @api private
+## [br]
 static func _array_to_packed_float32_array(value: Array) -> PackedFloat32Array:
 	var result: PackedFloat32Array = PackedFloat32Array()
 	for item: Variant in value:
@@ -1615,6 +1975,10 @@ static func _array_to_packed_float32_array(value: Array) -> PackedFloat32Array:
 	return result
 
 
+## 把 PackedFloat64Array 展开为普通数组，以数值形式供 JSON 编码。
+## [br]
+## @api private
+## [br]
 static func _packed_float64_array_to_array(value: PackedFloat64Array) -> Array:
 	var result: Array = []
 	for item: float in value:
@@ -1622,6 +1986,10 @@ static func _packed_float64_array_to_array(value: PackedFloat64Array) -> Array:
 	return result
 
 
+## 把普通数组逐项转换并构造 PackedFloat64Array，无效或缺失分量按对应转换规则取默认值。
+## [br]
+## @api private
+## [br]
 static func _array_to_packed_float64_array(value: Array) -> PackedFloat64Array:
 	var result: PackedFloat64Array = PackedFloat64Array()
 	for item: Variant in value:
@@ -1629,6 +1997,10 @@ static func _array_to_packed_float64_array(value: Array) -> PackedFloat64Array:
 	return result
 
 
+## 把 PackedStringArray 展开为普通数组，以文本形式供 JSON 编码。
+## [br]
+## @api private
+## [br]
 static func _packed_string_array_to_array(value: PackedStringArray) -> Array[String]:
 	var result: Array[String] = []
 	for item: String in value:
@@ -1636,6 +2008,10 @@ static func _packed_string_array_to_array(value: PackedStringArray) -> Array[Str
 	return result
 
 
+## 把普通数组逐项转换并构造 PackedStringArray，无效或缺失分量按对应转换规则取默认值。
+## [br]
+## @api private
+## [br]
 static func _array_to_packed_string_array(value: Array) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for item: Variant in value:
@@ -1643,6 +2019,10 @@ static func _array_to_packed_string_array(value: Array) -> PackedStringArray:
 	return result
 
 
+## 把 PackedVector2Array 展开为普通数组，以二维向量分量形式供 JSON 编码。
+## [br]
+## @api private
+## [br]
 static func _packed_vector2_array_to_array(value: PackedVector2Array) -> Array:
 	var result: Array = []
 	for item: Vector2 in value:
@@ -1650,6 +2030,10 @@ static func _packed_vector2_array_to_array(value: PackedVector2Array) -> Array:
 	return result
 
 
+## 把普通数组逐项转换并构造 PackedVector2Array，无效或缺失分量按对应转换规则取默认值。
+## [br]
+## @api private
+## [br]
 static func _array_to_packed_vector2_array(value: Array) -> PackedVector2Array:
 	var result: PackedVector2Array = PackedVector2Array()
 	for item: Variant in value:
@@ -1658,6 +2042,10 @@ static func _array_to_packed_vector2_array(value: Array) -> PackedVector2Array:
 	return result
 
 
+## 把 PackedVector3Array 展开为普通数组，以三维向量分量形式供 JSON 编码。
+## [br]
+## @api private
+## [br]
 static func _packed_vector3_array_to_array(value: PackedVector3Array) -> Array:
 	var result: Array = []
 	for item: Vector3 in value:
@@ -1665,6 +2053,10 @@ static func _packed_vector3_array_to_array(value: PackedVector3Array) -> Array:
 	return result
 
 
+## 把普通数组逐项转换并构造 PackedVector3Array，无效或缺失分量按对应转换规则取默认值。
+## [br]
+## @api private
+## [br]
 static func _array_to_packed_vector3_array(value: Array) -> PackedVector3Array:
 	var result: PackedVector3Array = PackedVector3Array()
 	for item: Variant in value:
@@ -1673,6 +2065,10 @@ static func _array_to_packed_vector3_array(value: Array) -> PackedVector3Array:
 	return result
 
 
+## 把 PackedColorArray 展开为普通数组，以颜色分量形式供 JSON 编码。
+## [br]
+## @api private
+## [br]
 static func _packed_color_array_to_array(value: PackedColorArray) -> Array:
 	var result: Array = []
 	for item: Color in value:
@@ -1680,6 +2076,10 @@ static func _packed_color_array_to_array(value: PackedColorArray) -> Array:
 	return result
 
 
+## 把普通数组逐项转换并构造 PackedColorArray，无效或缺失分量按对应转换规则取默认值。
+## [br]
+## @api private
+## [br]
 static func _array_to_packed_color_array(value: Array) -> PackedColorArray:
 	var result: PackedColorArray = PackedColorArray()
 	for item: Variant in value:
@@ -1688,6 +2088,10 @@ static func _array_to_packed_color_array(value: Array) -> PackedColorArray:
 	return result
 
 
+## 把 PackedVector4Array 展开为普通数组，以四维向量分量形式供 JSON 编码。
+## [br]
+## @api private
+## [br]
 static func _packed_vector4_array_to_array(value: PackedVector4Array) -> Array:
 	var result: Array = []
 	for item: Vector4 in value:
@@ -1695,6 +2099,10 @@ static func _packed_vector4_array_to_array(value: PackedVector4Array) -> Array:
 	return result
 
 
+## 把普通数组逐项转换并构造 PackedVector4Array，无效或缺失分量按对应转换规则取默认值。
+## [br]
+## @api private
+## [br]
 static func _array_to_packed_vector4_array(value: Array) -> PackedVector4Array:
 	var result: PackedVector4Array = PackedVector4Array()
 	for item: Variant in value:

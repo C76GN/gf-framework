@@ -46,16 +46,70 @@ signal released(previous_resource: Resource, generation: int)
 
 # --- 私有变量 ---
 
+## 配置时固定的资源身份副本；释放后仍可读取。
+## [br]
+## @api private
+## [br]
 var _resource_identity: GFResourceIdentity = null
+
+## 当前由槽位强引用的资源实例。
+## [br]
+## @api private
+## [br]
 var _resource: Resource = null
+
+## 配置时确定并用于后续资源检查的类型提示。
+## [br]
+## @api private
+## [br]
 var _effective_type_hint: String = ""
+
+## 本槽位配置、替换和释放推进的 generation。
+## [br]
+## @api private
+## [br]
 var _generation: int = 0
+
+## 标记槽位是否已成功配置。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
+
+## 标记槽位是否已经进入释放终态。
+## [br]
+## @api private
+## [br]
 var _released: bool = false
+
+## 标记当前是否正在同步发出槽位通知信号。
+## [br]
+## @api private
+## [br]
 var _is_notifying: bool = false
+
+## 记录通知期间观察到的 owner 释放，待通知结束后处理。
+## [br]
+## @api private
+## [br]
 var _owner_release_pending: bool = false
+
+## 对可选生命周期 owner 的弱引用。
+## [br]
+## @api private
+## [br]
 var _owner_ref: WeakRef = null
+
+## 配置时捕获的 owner 实例 ID；无 owner 时为 0。
+## [br]
+## @api private
+## [br]
 var _owner_id: int = 0
+
+## Node owner 的 tree_exited 信号回调。
+## [br]
+## @api private
+## [br]
 var _owner_exit_callable: Callable = Callable()
 
 
@@ -302,6 +356,10 @@ func release() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 检查资源是否匹配原生类名或当前及基类脚本的名称/路径提示。
+## [br]
+## @api private
+## [br]
 static func _resource_matches_type_hint(
 	candidate_resource: Resource,
 	type_hint: String
@@ -322,12 +380,20 @@ static func _resource_matches_type_hint(
 	return false
 
 
+## 将 Variant 收窄为 Script；其他值返回 null。
+## [br]
+## @api private
+## [br]
 static func _get_script_value(value: Variant) -> Script:
 	if value is Script:
 		return value
 	return null
 
 
+## 准备 owner 弱引用与 Node 退出树回调，并返回绑定配置报告。
+## [br]
+## @api private
+## [br]
 func _prepare_owner_binding(owner: Object) -> Dictionary:
 	if owner == null:
 		return {
@@ -359,6 +425,10 @@ func _prepare_owner_binding(owner: Object) -> Dictionary:
 	}
 
 
+## 检查配置及 owner 生命周期；通知期间发现 owner 已失效时延后释放。
+## [br]
+## @api private
+## [br]
 func _ensure_owner_alive() -> bool:
 	if not _configured or _released:
 		return false
@@ -375,6 +445,10 @@ func _ensure_owner_alive() -> bool:
 	return false
 
 
+## 通过弱引用解析 owner，并核对实例 ID；失效或不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_owner() -> Object:
 	if _owner_ref == null:
 		return null
@@ -389,15 +463,10 @@ func _get_owner() -> Object:
 	return null
 
 
-func _on_owner_tree_exited() -> void:
-	if not _configured or _released:
-		return
-	if _is_notifying:
-		_owner_release_pending = true
-		return
-	_commit_release()
-
-
+## 通知结束后处理已登记且仍适用的 owner 释放。
+## [br]
+## @api private
+## [br]
 func _drain_pending_owner_release() -> void:
 	if not _owner_release_pending:
 		return
@@ -406,6 +475,10 @@ func _drain_pending_owner_release() -> void:
 		_commit_release()
 
 
+## 清空资源、推进 generation、解除 owner 绑定并发出 released 信号。
+## [br]
+## @api private
+## [br]
 func _commit_release() -> void:
 	var previous_resource: Resource = _resource
 	_resource = null
@@ -417,6 +490,10 @@ func _commit_release() -> void:
 	_is_notifying = false
 
 
+## 断开仍存活 Node owner 上的退出回调并清除 owner 绑定字段。
+## [br]
+## @api private
+## [br]
 func _disconnect_owner_binding() -> void:
 	var owner: Object = _get_owner()
 	if (
@@ -431,6 +508,10 @@ func _disconnect_owner_binding() -> void:
 	_owner_exit_callable = Callable()
 
 
+## 从字典读取 WeakRef 值；缺失或类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_weak_ref(data: Dictionary, key: String) -> WeakRef:
 	var value: Variant = GFVariantData.get_option_value(data, key)
 	if value is WeakRef:
@@ -438,8 +519,26 @@ func _get_weak_ref(data: Dictionary, key: String) -> WeakRef:
 	return null
 
 
+## 从字典读取 Callable 值；缺失或类型不符时返回空 Callable。
+## [br]
+## @api private
+## [br]
 func _get_callable(data: Dictionary, key: String) -> Callable:
 	var value: Variant = GFVariantData.get_option_value(data, key)
 	if value is Callable:
 		return value
 	return Callable()
+
+
+# --- 信号处理函数 ---
+
+## 所有者退出后释放已配置槽；若正在通知使用者，仅登记待释放标志，由通知收尾统一提交。
+## [br]
+## @api private
+func _on_owner_tree_exited() -> void:
+	if not _configured or _released:
+		return
+	if _is_notifying:
+		_owner_release_pending = true
+		return
+	_commit_release()

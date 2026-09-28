@@ -176,6 +176,10 @@ func duplicate_serializer() -> GFNetworkFieldSerializer:
 
 # --- 私有/辅助方法 ---
 
+## 将非有限数值归零，并按配置的最小值和最大值裁剪。
+## [br]
+## @api private
+## [br]
 func _apply_number_policy(value: float) -> float:
 	if is_nan(value) or is_inf(value):
 		return 0.0
@@ -188,6 +192,10 @@ func _apply_number_policy(value: float) -> float:
 	return result
 
 
+## 将 Vector2 转为应用数值策略后的分量数组，类型不符时从零向量开始。
+## [br]
+## @api private
+## [br]
 func _serialize_vector2(value: Variant) -> Array:
 	var vector: Vector2 = Vector2.ZERO
 	if value is Vector2:
@@ -198,6 +206,10 @@ func _serialize_vector2(value: Variant) -> Array:
 	]
 
 
+## 将 Vector3 转为应用数值策略后的分量数组，类型不符时从零向量开始。
+## [br]
+## @api private
+## [br]
 func _serialize_vector3(value: Variant) -> Array:
 	var vector: Vector3 = Vector3.ZERO
 	if value is Vector3:
@@ -209,6 +221,10 @@ func _serialize_vector3(value: Variant) -> Array:
 	]
 
 
+## 将 Vector2i 转为整数分量数组，类型不符时使用零向量。
+## [br]
+## @api private
+## [br]
 func _serialize_vector2i(value: Variant) -> Array:
 	var vector: Vector2i = Vector2i.ZERO
 	if value is Vector2i:
@@ -219,6 +235,10 @@ func _serialize_vector2i(value: Variant) -> Array:
 	]
 
 
+## 将 Vector3i 转为整数分量数组，类型不符时使用零向量。
+## [br]
+## @api private
+## [br]
 func _serialize_vector3i(value: Variant) -> Array:
 	var vector: Vector3i = Vector3i.ZERO
 	if value is Vector3i:
@@ -230,6 +250,10 @@ func _serialize_vector3i(value: Variant) -> Array:
 	]
 
 
+## 将 Color 转为经过数值策略处理的 RGBA 数组，类型不符时使用白色。
+## [br]
+## @api private
+## [br]
 func _serialize_color(value: Variant) -> Array:
 	var color: Color = Color.WHITE
 	if value is Color:
@@ -242,6 +266,10 @@ func _serialize_color(value: Variant) -> Array:
 	]
 
 
+## 将四元数归一化后序列化为按数值策略处理的分量数组。
+## [br]
+## @api private
+## [br]
 func _serialize_quaternion(value: Variant) -> Array:
 	var quaternion: Quaternion = Quaternion.IDENTITY
 	if value is Quaternion:
@@ -262,6 +290,10 @@ func _serialize_quaternion(value: Variant) -> Array:
 	]
 
 
+## 从数组值读取两个数值分量并构造 Vector2。
+## [br]
+## @api private
+## [br]
 func _deserialize_vector2(value: Variant) -> Vector2:
 	var values: Array = _read_array(value)
 	return Vector2(
@@ -270,6 +302,10 @@ func _deserialize_vector2(value: Variant) -> Vector2:
 	)
 
 
+## 从数组值读取三个数值分量并构造 Vector3。
+## [br]
+## @api private
+## [br]
 func _deserialize_vector3(value: Variant) -> Vector3:
 	var values: Array = _read_array(value)
 	return Vector3(
@@ -279,6 +315,10 @@ func _deserialize_vector3(value: Variant) -> Vector3:
 	)
 
 
+## 从数组值读取两个整数分量并构造 Vector2i。
+## [br]
+## @api private
+## [br]
 func _deserialize_vector2i(value: Variant) -> Vector2i:
 	var values: Array = _read_array(value)
 	return Vector2i(
@@ -287,6 +327,10 @@ func _deserialize_vector2i(value: Variant) -> Vector2i:
 	)
 
 
+## 从数组值读取三个整数分量并构造 Vector3i。
+## [br]
+## @api private
+## [br]
 func _deserialize_vector3i(value: Variant) -> Vector3i:
 	var values: Array = _read_array(value)
 	return Vector3i(
@@ -296,6 +340,10 @@ func _deserialize_vector3i(value: Variant) -> Vector3i:
 	)
 
 
+## 从数组值读取 RGBA 分量构造 Color，缺失分量使用白色默认值。
+## [br]
+## @api private
+## [br]
 func _deserialize_color(value: Variant) -> Color:
 	var values: Array = _read_array(value)
 	return Color(
@@ -306,6 +354,10 @@ func _deserialize_color(value: Variant) -> Color:
 	)
 
 
+## 从 Quaternion 或数组读取分量并返回归一化四元数。
+## [br]
+## @api private
+## [br]
 func _deserialize_quaternion(value: Variant) -> Quaternion:
 	if value is Quaternion:
 		var quaternion_value: Quaternion = value
@@ -319,6 +371,10 @@ func _deserialize_quaternion(value: Variant) -> Quaternion:
 	)
 
 
+## 将 Array 或支持的 Packed 数组转换为普通 Array，不支持时返回空数组。
+## [br]
+## @api private
+## [br]
 func _read_array(value: Variant) -> Array:
 	if value is Array:
 		var array_value: Array = value
@@ -338,18 +394,30 @@ func _read_array(value: Variant) -> Array:
 	return []
 
 
+## 读取指定数组索引并转换为 float，越界或无效值使用默认值。
+## [br]
+## @api private
+## [br]
 func _get_array_float(values: Array, index: int, default_value: float = 0.0) -> float:
 	if index < 0 or index >= values.size():
 		return default_value
 	return _coerce_float(values[index], default_value)
 
 
+## 读取指定数组索引并转换为 int，越界或无效值使用默认值。
+## [br]
+## @api private
+## [br]
 func _get_array_int(values: Array, index: int, default_value: int = 0) -> int:
 	if index < 0 or index >= values.size():
 		return default_value
 	return _coerce_int(values[index], default_value)
 
 
+## 将 bool、数值或受支持的文本值转换为 bool，无法识别时返回默认值。
+## [br]
+## @api private
+## [br]
 func _coerce_bool(value: Variant, default_value: bool = false) -> bool:
 	if value is bool:
 		var bool_value: bool = value
@@ -369,6 +437,10 @@ func _coerce_bool(value: Variant, default_value: bool = false) -> bool:
 	return default_value
 
 
+## 将数值或有效数字文本转换为 int，无法识别时返回默认值。
+## [br]
+## @api private
+## [br]
 func _coerce_int(value: Variant, default_value: int = 0) -> int:
 	if value is int:
 		var int_value: int = value
@@ -388,6 +460,10 @@ func _coerce_int(value: Variant, default_value: int = 0) -> int:
 	return default_value
 
 
+## 将数值或有效数字文本转换为 float，无法识别时返回默认值。
+## [br]
+## @api private
+## [br]
 func _coerce_float(value: Variant, default_value: float = 0.0) -> float:
 	if value is float:
 		var float_value: float = value
@@ -405,6 +481,10 @@ func _coerce_float(value: Variant, default_value: float = 0.0) -> float:
 	return default_value
 
 
+## 将 StringName、NodePath 或其他非空值转为文本，null 使用默认值。
+## [br]
+## @api private
+## [br]
 func _coerce_text(value: Variant, default_value: String = "") -> String:
 	if value is String:
 		var text_value: String = value
@@ -420,10 +500,18 @@ func _coerce_text(value: Variant, default_value: String = "") -> String:
 	return str(value)
 
 
+## 将四元数分量交由安全归一化逻辑处理。
+## [br]
+## @api private
+## [br]
 func _normalize_quaternion_or_identity(value: Quaternion) -> Quaternion:
 	return _normalize_quaternion_components_or_identity(value.x, value.y, value.z, value.w)
 
 
+## 对有限且非零的四元数分量做缩放归一化，否则返回单位四元数。
+## [br]
+## @api private
+## [br]
 func _normalize_quaternion_components_or_identity(
 	x: float,
 	y: float,

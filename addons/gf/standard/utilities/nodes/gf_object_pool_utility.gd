@@ -16,11 +16,19 @@ extends GFUtility
 
 # --- 信号 ---
 
+## 对象池完成销毁清理及已接纳工作的终态通知时发出。
+## [br]
+## @api private
+## [br]
 signal _dispose_completed
 
 
 # --- 枚举 ---
 
+## 对象池内单个节点条目的生命周期阶段。
+## [br]
+## @api private
+## [br]
 enum _Phase {
 	IDLE,
 	ACQUIRING,
@@ -30,6 +38,10 @@ enum _Phase {
 }
 
 
+## 安全点队列中待处理请求的种类。
+## [br]
+## @api private
+## [br]
 enum _Kind {
 	ACQUIRE,
 	RELEASE,
@@ -40,6 +52,10 @@ enum _Kind {
 
 # --- 常量 ---
 
+## 单次 drain 最多处理的请求数，超出部分留待后续安全点。
+## [br]
+## @api private
+## [br]
 const _MAX_REQUESTS_PER_DRAIN: int = 64
 
 
@@ -55,13 +71,52 @@ var max_available_per_scene: int = 0
 
 # --- 私有变量 ---
 
+## 按节点实例 ID 索引的池条目。
+## [br]
+## @api private
+## [br]
 var _entries: Dictionary[int, _Entry] = {}
+
+## 按来源场景保存的可复用离树条目列表。
+## [br]
+## @api private
+## [br]
 var _available: Dictionary[PackedScene, Array] = {}
+
+## 等待安全点处理的池请求队列。
+## [br]
+## @api private
+## [br]
 var _queue: Array[_Request] = []
+
+## 标记是否已有 drain 被排程。
+## [br]
+## @api private
+## [br]
 var _scheduled: bool = false
+
+## 标记当前是否正在处理请求队列。
+## [br]
+## @api private
+## [br]
 var _draining: bool = false
+
+## 标记当前是否正在发送 Lease 与请求完成通知。
+## [br]
+## @api private
+## [br]
 var _notifying: bool = false
+
+## 标记对象池是否已停止接纳新工作并开始销毁。
+## [br]
+## @api private
+## [br]
 var _disposing: bool = false
+
+## 标记对象池销毁流程是否已经完成。
+## [br]
+## @api private
+## [br]
 var _disposed: bool = false
 
 
@@ -335,6 +390,10 @@ func release_lease_for_framework(lease: GFObjectPoolLease, node_id: int) -> bool
 
 # --- 私有/辅助方法 ---
 
+## 校验并构造一次异步批量借用请求，保存生命周期弱引用及独立 context 副本。
+## [br]
+## @api private
+## [br]
 func _make_acquire_request(
 	scene: PackedScene,
 	parent: Node,
@@ -374,11 +433,19 @@ func _make_acquire_request(
 	return request
 
 
+## 将请求追加到队尾并安排安全点处理。
+## [br]
+## @api private
+## [br]
 func _enqueue(request: _Request) -> void:
 	_queue.append(request)
 	_schedule()
 
 
+## 合并重复的 drain 排程，并在回调通知期间延后到下一帧。
+## [br]
+## @api private
+## [br]
 func _schedule() -> void:
 	if _scheduled:
 		return
@@ -390,10 +457,18 @@ func _schedule() -> void:
 		call_deferred(&"_drain")
 
 
+## 在 process_frame 回调中再次 deferred 排程 drain。
+## [br]
+## @api private
+## [br]
 func _defer_drain() -> void:
 	call_deferred(&"_drain")
 
 
+## 有界处理请求，先结算 Lease，再通知请求完成并安排剩余队列。
+## [br]
+## @api private
+## [br]
 func _drain() -> void:
 	_scheduled = false
 	_draining = true
@@ -460,6 +535,10 @@ func _drain() -> void:
 		_draining = false
 
 
+## 为一批请求分配候选、执行 prepare 与挂载；失败时淘汰未交付候选。
+## [br]
+## @api private
+## [br]
 func _acquire_batch(request: _Request) -> void:
 	var reason: StringName = _request_failure_reason(request)
 	if reason != &"":
@@ -533,6 +612,10 @@ func _acquire_batch(request: _Request) -> void:
 		request._results.append(result)
 
 
+## 优先取出场景对应的有效空闲条目，否则实例化并登记新节点。
+## [br]
+## @api private
+## [br]
 func _take_entry(scene: PackedScene) -> _Entry:
 	var available: Array = _available.get(scene, [])
 	while not available.is_empty():
@@ -555,6 +638,10 @@ func _take_entry(scene: PackedScene) -> _Entry:
 	return fresh_entry
 
 
+## 完成条目归还：按池状态与容量缓存或淘汰节点，并延后结算 Lease。
+## [br]
+## @api private
+## [br]
 func _release_entry(entry: _Entry, settlements: Array[Callable]) -> void:
 	if entry == null or entry._phase == _Phase.RETIRED:
 		return
@@ -583,10 +670,18 @@ func _release_entry(entry: _Entry, settlements: Array[Callable]) -> void:
 		entry._lease = null
 
 
+## 转交 Lease 的框架终态结算。
+## [br]
+## @api private
+## [br]
 static func _settle_lease(lease: GFObjectPoolLease, reason: StringName) -> void:
 	lease.settle_for_framework(reason)
 
 
+## 标记条目退休、从池索引移除并安排节点脱树及释放。
+## [br]
+## @api private
+## [br]
 func _retire_entry(entry: _Entry) -> void:
 	entry._phase = _Phase.RETIRED
 	_disconnect_exit(entry)
@@ -599,18 +694,30 @@ func _retire_entry(entry: _Entry) -> void:
 			entry._node.queue_free()
 
 
+## 将空闲条目追加到其来源场景的可用列表。
+## [br]
+## @api private
+## [br]
 func _cache_entry(entry: _Entry) -> void:
 	if not _available.has(entry._scene):
 		_available[entry._scene] = []
 	_available[entry._scene].append(entry)
 
 
+## 断开条目节点的退出树回调并清除保存的 Callable。
+## [br]
+## @api private
+## [br]
 func _disconnect_exit(entry: _Entry) -> void:
 	if is_instance_valid(entry._node) and entry._exit_callback.is_valid() and entry._node.tree_exiting.is_connected(entry._exit_callback):
 		entry._node.tree_exiting.disconnect(entry._exit_callback)
 	entry._exit_callback = Callable()
 
 
+## 按批次创建并缓存离树实例，响应取消、容量和实例化失败。
+## [br]
+## @api private
+## [br]
 func _prewarm_batch(request: _Request) -> void:
 	if _disposing:
 		_finish_prewarm(request, GFObjectPoolPrewarmResult.Status.CANCELLED, &"pool_disposed")
@@ -653,17 +760,29 @@ func _prewarm_batch(request: _Request) -> void:
 		_queue.append(request)
 
 
+## 创建并冻结预热请求的结果对象。
+## [br]
+## @api private
+## [br]
 func _finish_prewarm(request: _Request, status: GFObjectPoolPrewarmResult.Status, reason: StringName) -> void:
 	request._prewarm_result = GFObjectPoolPrewarmResult.new()
 	request._prewarm_result.configure_for_framework(status, reason, request._count, request._created)
 
 
+## 创建包含状态、阶段和原因的失败借用结果。
+## [br]
+## @api private
+## [br]
 func _failure(status: GFObjectPoolAcquireResult.Status, stage: StringName, reason: StringName) -> GFObjectPoolAcquireResult:
 	var result: GFObjectPoolAcquireResult = GFObjectPoolAcquireResult.new()
 	result.configure_for_framework(status, stage, reason)
 	return result
 
 
+## 返回对象池、父节点或生命周期锚点当前造成的请求失败原因。
+## [br]
+## @api private
+## [br]
 func _request_failure_reason(request: _Request) -> StringName:
 	if _disposing:
 		return &"pool_disposed"
@@ -682,6 +801,10 @@ func _request_failure_reason(request: _Request) -> StringName:
 	return &""
 
 
+## 断开请求等待期间连接的父节点与生命周期锚点退出回调。
+## [br]
+## @api private
+## [br]
 func _disconnect_request_lifetime(request: _Request) -> void:
 	_disconnect_request_exit(request._parent_ref, request._parent_exit_callback)
 	_disconnect_request_exit(request._owner_ref, request._owner_exit_callback)
@@ -689,6 +812,10 @@ func _disconnect_request_lifetime(request: _Request) -> void:
 	request._owner_exit_callback = Callable()
 
 
+## 通过弱引用找到仍存活的节点并断开指定退出回调。
+## [br]
+## @api private
+## [br]
 func _disconnect_request_exit(node_ref: WeakRef, callback: Callable) -> void:
 	if node_ref == null or not callback.is_valid():
 		return
@@ -699,6 +826,10 @@ func _disconnect_request_exit(node_ref: WeakRef, callback: Callable) -> void:
 			node.tree_exiting.disconnect(callback)
 
 
+## 从请求的父节点弱引用取得仍在运行场景树中的节点。
+## [br]
+## @api private
+## [br]
 func _request_parent(request: _Request) -> Node:
 	var value: Variant = request._parent_ref.get_ref()
 	if value is Node:
@@ -708,10 +839,18 @@ func _request_parent(request: _Request) -> Node:
 	return null
 
 
+## 判断节点实例有效、位于场景树且未排队删除。
+## [br]
+## @api private
+## [br]
 func _valid_parent(node: Node) -> bool:
 	return is_instance_valid(node) and node.is_inside_tree() and not node.is_queued_for_deletion()
 
 
+## 验证生命周期锚点；Node 锚点还必须在运行中的场景树内。
+## [br]
+## @api private
+## [br]
 func _valid_lifetime_owner(value: Object) -> bool:
 	if not is_instance_valid(value):
 		return false
@@ -721,14 +860,26 @@ func _valid_lifetime_owner(value: Object) -> bool:
 	return true
 
 
+## 检查条目处于空闲阶段、节点存活且已脱离父节点。
+## [br]
+## @api private
+## [br]
 func _is_available_entry(entry: _Entry) -> bool:
 	return entry._phase == _Phase.IDLE and _live_node(entry) != null and entry._node.get_parent() == null
 
 
+## 返回未释放且未排队删除的条目节点。
+## [br]
+## @api private
+## [br]
 func _live_node(entry: _Entry) -> Node:
 	return entry._node if is_instance_valid(entry._node) and not entry._node.is_queued_for_deletion() else null
 
 
+## 在主循环是 SceneTree 时返回该场景树。
+## [br]
+## @api private
+## [br]
 func _tree() -> SceneTree:
 	var loop: MainLoop = Engine.get_main_loop()
 	return loop if loop is SceneTree else null
@@ -736,6 +887,10 @@ func _tree() -> SceneTree:
 
 # --- 信号处理函数 ---
 
+## 根节点退出场景树时将条目标记为丢失并接纳当前借用的归还。
+## [br]
+## @api private
+## [br]
 func _on_root_exiting(entry_id: int) -> void:
 	var entry: _Entry = _entries.get(entry_id)
 	if entry == null or entry._phase not in [_Phase.LEASED, _Phase.RELEASING]:
@@ -747,35 +902,147 @@ func _on_root_exiting(entry_id: int) -> void:
 
 # --- 内部类 ---
 
+## 保存对象池单个节点的来源、阶段、借用与退出树回调。
+## [br]
+## @api private
+## [br]
 class _Entry extends RefCounted:
+
+	# --- 私有变量 ---
+
+	## 池管理的节点引用；Node 不因本引用自动释放，退役流程负责 queue_free。
+	## [br]
+	## @api private
 	var _node: Node = null
+
+	## 节点实例标识，作为条目索引及归还时的身份核对值。
+	## [br]
+	## @api private
 	var _id: int = 0
+
+	## 节点来源 PackedScene，用于按场景归入可用池。
+	## [br]
+	## @api private
 	var _scene: PackedScene = null
+
+	## 当前阶段，阻止借出、归还与退役重复处理。
+	## [br]
+	## @api private
 	var _phase: _Phase = _Phase.IDLE
+
+	## 当前借用句柄，归还时据此裁决该次借用终态。
+	## [br]
+	## @api private
 	var _lease: GFObjectPoolLease = null
+
+	## 本轮归还或退役原因；根离树时可改为 node_lost。
+	## [br]
+	## @api private
 	var _reason: StringName = &"released"
+
+	## 捕获条目标识的根退出回调，离开借用阶段时精确断开。
+	## [br]
+	## @api private
 	var _exit_callback: Callable = Callable()
 
 
+## 封装排队请求及其参数、生命周期监听和完成结果。
+## [br]
+## @api private
+## [br]
 class _Request extends RefCounted:
+
+	# --- 信号 ---
+
+	## 请求处理结束时唤醒等待者的内部信号；预热尚有后续批次时继续等待。
+	## [br]
+	## @api private
 	signal _completed
+
+	# --- 私有变量 ---
+
+	## 决定队列执行借用还是预热的请求类型。
+	## [br]
+	## @api private
 	var _kind: _Kind = _Kind.ACQUIRE
+
+	## 本次借用或预热的场景引用。
+	## [br]
+	## @api private
 	var _scene: PackedScene = null
+
+	## 目标父节点弱引用，排队期间不为父节点保活。
+	## [br]
+	## @api private
 	var _parent_ref: WeakRef = null
+
+	## 可选生命周期锚点弱引用，失效后阻止交付借用。
+	## [br]
+	## @api private
 	var _owner_ref: WeakRef = null
+
+	## 监视等待期间父节点退出的回调，请求结束时断开。
+	## [br]
+	## @api private
 	var _parent_exit_callback: Callable = Callable()
+
+	## Node 锚点的退出回调；非 Node 锚点只通过弱引用检查。
+	## [br]
+	## @api private
 	var _owner_exit_callback: Callable = Callable()
+
+	## 首次观察到的生命周期失效原因，后续非空原因不覆盖它。
+	## [br]
+	## @api private
 	var _failure_reason: StringName = &""
+
+	## 请求目标数量，预热跨批次仍沿用同一总量。
+	## [br]
+	## @api private
 	var _count: int = 0
+
+	## 传给借用钩子的上下文，快照复制由请求入口完成。
+	## [br]
+	## @api private
 	var _context: Dictionary = {}
+
+	## 预热每批最多创建数，限制单次队列处理的工作量。
+	## [br]
+	## @api private
 	var _batch_size: int = 32
+
+	## 预热已成功加入可用池的累计数，不含实例化后被拒绝的节点。
+	## [br]
+	## @api private
 	var _created: int = 0
+
+	## 预热取消令牌，每个实例化步骤前后检查；不会撤销已缓存的节点。
+	## [br]
+	## @api private
 	var _token: GFCancellationToken = null
+
+	## 请求关联的条目，供归还请求分派时处理。
+	## [br]
+	## @api private
 	var _entry: _Entry = null
+
+	## 本次已产生的借用结果，保持处理顺序。
+	## [br]
+	## @api private
 	var _results: Array[GFObjectPoolAcquireResult] = []
+
+	## 预热终态结果；未写入时仍可能重新入队处理下一批。
+	## [br]
+	## @api private
 	var _prewarm_result: GFObjectPoolPrewarmResult = null
 
 
+
+	# --- 私有/辅助方法 ---
+
+	## 只记录首次失效原因，避免后续退出通知覆盖最先观察到的原因。
+	## [br]
+	## @api private
 	func _invalidate(reason: StringName) -> void:
 		if _failure_reason == &"":
 			_failure_reason = reason

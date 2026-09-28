@@ -34,7 +34,16 @@ enum ConstraintKind {
 
 # --- 常量 ---
 
+## 整数与浮点边界比较时使用的最小 64 位有符号整数浮点界。
+## [br]
+## @api private
+## [br]
 const _INT64_MIN_AS_FLOAT: float = -9_223_372_036_854_775_808.0
+
+## 整数与浮点边界比较时使用的 64 位有符号整数排他上界。
+## [br]
+## @api private
+## [br]
 const _INT64_EXCLUSIVE_MAX_AS_FLOAT: float = 9_223_372_036_854_775_808.0
 
 
@@ -157,8 +166,22 @@ const _INT64_EXCLUSIVE_MAX_AS_FLOAT: float = 9_223_372_036_854_775_808.0
 
 # --- 私有变量 ---
 
+## 缓存当前已编译正则所对应的模式文本。
+## [br]
+## @api private
+## [br]
 var _compiled_pattern: String = ""
+
+## 缓存当前模式对应的已编译 RegEx 实例。
+## [br]
+## @api private
+## [br]
 var _compiled_regex: RegEx = null
+
+## 缓存当前模式编译得到的 RegEx 错误码。
+## [br]
+## @api private
+## [br]
 var _compiled_regex_error: Error = OK
 
 
@@ -409,6 +432,10 @@ func _validate(_target: Variant, _report: GFValidationReport, _context: Dictiona
 
 # --- 私有/辅助方法 ---
 
+## 校验数值范围配置及目标类型，并检查有限数值是否满足开闭边界。
+## [br]
+## @api private
+## [br]
 func _validate_range(target: Variant, report: GFValidationReport, context: Dictionary) -> void:
 	if _has_invalid_range_configuration():
 		_add_constraint_issue(
@@ -471,6 +498,10 @@ func _validate_range(target: Variant, report: GFValidationReport, context: Dicti
 		)
 
 
+## 检查允许集合配置，并按 case_sensitive 规则查找匹配值。
+## [br]
+## @api private
+## [br]
 func _validate_set(target: Variant, report: GFValidationReport, context: Dictionary) -> void:
 	if allowed_values.is_empty():
 		_add_constraint_issue(
@@ -497,6 +528,10 @@ func _validate_set(target: Variant, report: GFValidationReport, context: Diction
 	)
 
 
+## 校验文本类型、可选空值和正则编译结果，再执行部分或完整匹配检查。
+## [br]
+## @api private
+## [br]
 func _validate_regex(target: Variant, report: GFValidationReport, context: Dictionary) -> void:
 	if not _is_text_like(target):
 		_add_constraint_issue(
@@ -548,6 +583,10 @@ func _validate_regex(target: Variant, report: GFValidationReport, context: Dicti
 		)
 
 
+## 校验大小范围配置，读取受支持值类型的长度或元素数并检查边界。
+## [br]
+## @api private
+## [br]
 func _validate_size(target: Variant, report: GFValidationReport, context: Dictionary) -> void:
 	if _has_invalid_size_configuration():
 		_add_constraint_issue(
@@ -584,6 +623,10 @@ func _validate_size(target: Variant, report: GFValidationReport, context: Dictio
 		)
 
 
+## 复制规则元数据及期望、实际值，结合上下文位置创建并追加校验问题。
+## [br]
+## @api private
+## [br]
 func _add_constraint_issue(
 	report: GFValidationReport,
 	fallback_kind: StringName,
@@ -618,22 +661,42 @@ func _add_constraint_issue(
 	var _added_issue: RefCounted = report.add_issue(issue)
 
 
+## 优先使用非空 rule_id 作为问题 kind，否则使用给定备用类别。
+## [br]
+## @api private
+## [br]
 func _get_constraint_issue_kind(fallback_kind: StringName) -> StringName:
 	return rule_id if rule_id != &"" else fallback_kind
 
 
+## 检查 Variant 是否为 int 或 float。
+## [br]
+## @api private
+## [br]
 func _is_numeric(value: Variant) -> bool:
 	return value is int or value is float
 
 
+## 检查浮点值既不是 NaN 也不是无穷大。
+## [br]
+## @api private
+## [br]
 func _is_finite_number(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 检查 Variant 是否为 String 或 StringName。
+## [br]
+## @api private
+## [br]
 func _is_text_like(value: Variant) -> bool:
 	return value is String or value is StringName
 
 
+## 按 case_sensitive 选择直接相等或文本小写后比较。
+## [br]
+## @api private
+## [br]
 func _values_match(left: Variant, right: Variant) -> bool:
 	if case_sensitive:
 		return left == right
@@ -642,6 +705,10 @@ func _values_match(left: Variant, right: Variant) -> bool:
 	return left == right
 
 
+## 按上下界是否启用及其包含标志检查浮点值范围。
+## [br]
+## @api private
+## [br]
 func _is_in_range(value: float) -> bool:
 	if has_minimum:
 		if inclusive_minimum:
@@ -658,6 +725,10 @@ func _is_in_range(value: float) -> bool:
 	return true
 
 
+## 通过整数与浮点边界的精确比较检查 int 的开闭范围。
+## [br]
+## @api private
+## [br]
 func _is_int_in_range(value: int) -> bool:
 	if has_minimum:
 		var minimum_comparison: int = _compare_int_to_float(value, minimum)
@@ -676,6 +747,10 @@ func _is_int_in_range(value: int) -> bool:
 	return true
 
 
+## 处理 64 位整数边界后比较整数与浮点值，避免先转整数造成小数边界误判。
+## [br]
+## @api private
+## [br]
 func _compare_int_to_float(integer_value: int, float_value: float) -> int:
 	if float_value >= _INT64_EXCLUSIVE_MAX_AS_FLOAT:
 		return -1
@@ -696,6 +771,10 @@ func _compare_int_to_float(integer_value: int, float_value: float) -> int:
 	return 0
 
 
+## 检查范围边界是否有限、顺序是否有效以及相等边界是否同时包含。
+## [br]
+## @api private
+## [br]
 func _has_invalid_range_configuration() -> bool:
 	if has_minimum and not _is_finite_number(minimum):
 		return true
@@ -709,6 +788,10 @@ func _has_invalid_range_configuration() -> bool:
 	return false
 
 
+## 返回当前数值范围配置的字段字典。
+## [br]
+## @api private
+## [br]
 func _describe_range() -> Dictionary:
 	return {
 		"has_minimum": has_minimum,
@@ -720,6 +803,10 @@ func _describe_range() -> Dictionary:
 	}
 
 
+## 按 pattern 缓存编译正则及错误码；模式变化时重新编译。
+## [br]
+## @api private
+## [br]
 func _get_regex() -> RegEx:
 	if pattern.is_empty():
 		_compiled_pattern = pattern
@@ -736,12 +823,20 @@ func _get_regex() -> RegEx:
 	return _compiled_regex
 
 
+## 清空已编译模式、RegEx 实例和错误码缓存。
+## [br]
+## @api private
+## [br]
 func _clear_regex_cache() -> void:
 	_compiled_pattern = ""
 	_compiled_regex = null
 	_compiled_regex_error = OK
 
 
+## 返回受支持文本、容器或 Packed 数组的长度；不支持的类型返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_value_size(value: Variant) -> int:
 	if value is String or value is StringName:
 		return GFVariantData.to_text(value).length()
@@ -784,6 +879,10 @@ func _get_value_size(value: Variant) -> int:
 	return -1
 
 
+## 按启用的最小值和最大值检查容器大小。
+## [br]
+## @api private
+## [br]
 func _is_size_in_range(size: int) -> bool:
 	if has_minimum_size and size < minimum_size:
 		return false
@@ -792,10 +891,18 @@ func _is_size_in_range(size: int) -> bool:
 	return true
 
 
+## 检查同时启用的最小大小是否大于最大大小。
+## [br]
+## @api private
+## [br]
 func _has_invalid_size_configuration() -> bool:
 	return has_minimum_size and has_maximum_size and minimum_size > maximum_size
 
 
+## 返回当前大小范围配置的字段字典。
+## [br]
+## @api private
+## [br]
 func _describe_size_range() -> Dictionary:
 	return {
 		"has_minimum_size": has_minimum_size,
@@ -805,5 +912,9 @@ func _describe_size_range() -> Dictionary:
 	}
 
 
+## 返回 Variant 类型对应的类型名称。
+## [br]
+## @api private
+## [br]
 func _typeof_name(value: Variant) -> String:
 	return type_string(typeof(value))

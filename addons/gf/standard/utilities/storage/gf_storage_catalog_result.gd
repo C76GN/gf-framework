@@ -40,10 +40,34 @@ enum FailureKind {
 
 # --- 私有变量 ---
 
+## 标记框架是否已写入合法查询终态。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
+
+## 查询终态对应的 Godot Error 码。
+## [br]
+## @api private
+## [br]
 var _error_code: Error = FAILED
+
+## 查询成功或失败阶段分类。
+## [br]
+## @api private
+## [br]
 var _failure_kind: FailureKind = FailureKind.PREPARATION_FAILED
+
+## selector 范围内的结果是否未被数量上限截断。
+## [br]
+## @api private
+## [br]
 var _complete: bool = false
+
+## 按 logical identity 排序保存的文件名数组。
+## [br]
+## @api private
+## [br]
 var _files: PackedStringArray = PackedStringArray()
 
 

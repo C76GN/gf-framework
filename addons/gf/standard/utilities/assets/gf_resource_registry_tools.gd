@@ -31,6 +31,10 @@ enum EntryIdMode {
 
 # --- 常量 ---
 
+## 资源扫描及依赖处理共用的路径规范化工具脚本。
+## [br]
+## @api private
+## [br]
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 
 ## 默认资源扩展名白名单，不包含点号。
@@ -121,6 +125,10 @@ const FIELD_TAGS: StringName = &"tags"
 ## @api public
 const FIELD_CATEGORY: StringName = &"category"
 
+## 按资源扩展名推导类型提示时使用的内置映射。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_TYPE_HINTS_BY_EXTENSION: Dictionary = {
 	"tscn": "PackedScene",
 	"scn": "PackedScene",
@@ -595,6 +603,10 @@ static func make_entry_fields(path: String, options: Dictionary = {}) -> Diction
 
 # --- 私有/辅助方法 ---
 
+## 按给定路径、资源键和类型提示构造不检查文件存在性的身份对象。
+## [br]
+## @api private
+## [br]
 static func _make_resource_identity(
 	path: String,
 	type_hint: String,
@@ -603,6 +615,10 @@ static func _make_resource_identity(
 	return GFResourceIdentity.from_path(path, resource_key, type_hint, { "check_exists": false })
 
 
+## 从身份对象取规范路径；身份不可用时回退原始路径或空字符串。
+## [br]
+## @api private
+## [br]
 static func _get_identity_load_path(identity: GFResourceIdentity) -> String:
 	if identity == null:
 		return ""
@@ -611,6 +627,10 @@ static func _get_identity_load_path(identity: GFResourceIdentity) -> String:
 	return identity.raw_path
 
 
+## 递归读取资源依赖并收集通过扩展名、排除路径和数量限制的路径。
+## [br]
+## @api private
+## [br]
 static func _collect_dependency_paths_recursive(
 	resource_path: String,
 	recursive: bool,
@@ -665,6 +685,10 @@ static func _collect_dependency_paths_recursive(
 			)
 
 
+## 递归填充依赖报告，记录缺失、排除、循环及已纳入资源的关系。
+## [br]
+## @api private
+## [br]
 static func _collect_dependency_report_recursive(
 	resource_path: String,
 	parent_path: String,
@@ -744,6 +768,10 @@ static func _collect_dependency_report_recursive(
 	var _active_path_erased: bool = active_paths.erase(resource_path)
 
 
+## 判断扫描到的文件项是否为允许的资源扩展名且符合路径模式。
+## [br]
+## @api private
+## [br]
 static func _can_include_file_entry(
 	entry: String,
 	path: String,
@@ -760,6 +788,10 @@ static func _can_include_file_entry(
 	return _matches_scan_patterns(path, pattern_base_path, include_patterns, exclude_patterns)
 
 
+## 检查当前依赖深度是否仍可展开；到达上限时经状态对象发出一次警告。
+## [br]
+## @api private
+## [br]
 static func _can_scan_dependency_deeper(
 	path: String,
 	current_depth: int,
@@ -772,10 +804,18 @@ static func _can_scan_dependency_deeper(
 	return false
 
 
+## 判断路径列表是否尚未达到正数上限；非正上限表示不限制数量。
+## [br]
+## @api private
+## [br]
 static func _can_collect_more_resource_paths(result: PackedStringArray, max_resource_paths: int) -> bool:
 	return max_resource_paths <= 0 or result.size() < max_resource_paths
 
 
+## 创建记录资源扫描限额警告是否已发出的临时状态。
+## [br]
+## @api private
+## [br]
 static func _make_scan_state() -> Dictionary:
 	return {
 		"count_warning_emitted": false,
@@ -784,6 +824,10 @@ static func _make_scan_state() -> Dictionary:
 	}
 
 
+## 创建依赖报告的空结果结构，并初始化计数、健康状态和建议字段。
+## [br]
+## @api private
+## [br]
 static func _make_dependency_report(root_path: String) -> Dictionary:
 	return {
 		"ok": true,
@@ -809,6 +853,10 @@ static func _make_dependency_report(root_path: String) -> Dictionary:
 	}
 
 
+## 创建依赖报告遍历中用于去重和限制警告的一次性状态。
+## [br]
+## @api private
+## [br]
 static func _make_dependency_report_state() -> Dictionary:
 	return {
 		"missing_paths": {},
@@ -819,6 +867,10 @@ static func _make_dependency_report_state() -> Dictionary:
 	}
 
 
+## 资源路径数触顶时最多发出一次带限制值的扫描警告。
+## [br]
+## @api private
+## [br]
 static func _warn_resource_path_limit(max_resource_paths: int, scan_state: Dictionary) -> void:
 	if max_resource_paths <= 0 or GFVariantData.get_option_bool(scan_state, "count_warning_emitted"):
 		return
@@ -826,6 +878,10 @@ static func _warn_resource_path_limit(max_resource_paths: int, scan_state: Dicti
 	push_warning("[GFResourceRegistryTools][resource_registry_tools.resource_path_limit] scan_resource_paths reached max_resource_paths=%d; remaining resources were skipped." % max_resource_paths)
 
 
+## 已扫描目录项数触顶时最多发出一次带限制值的警告。
+## [br]
+## @api private
+## [br]
 static func _warn_scanned_entry_limit(max_scanned_entries: int, scan_state: Dictionary) -> void:
 	if max_scanned_entries <= 0 or GFVariantData.get_option_bool(scan_state, "entry_warning_emitted"):
 		return
@@ -833,6 +889,10 @@ static func _warn_scanned_entry_limit(max_scanned_entries: int, scan_state: Dict
 	push_warning("[GFResourceRegistryTools][resource_registry_tools.scanned_entry_limit] scan_resource_paths reached max_scanned_entries=%d; remaining directory entries were skipped." % max_scanned_entries)
 
 
+## 目录扫描达到深度上限时记录一次被跳过的目录路径。
+## [br]
+## @api private
+## [br]
 static func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
 	if max_scan_depth <= 0 or GFVariantData.get_option_bool(scan_state, "depth_warning_emitted"):
 		return
@@ -840,6 +900,10 @@ static func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state
 	push_warning("[GFResourceRegistryTools][resource_registry_tools.resource_scan_depth_limit] scan_resource_paths reached max_scan_depth=%d; deeper directory skipped: %s." % [max_scan_depth, path])
 
 
+## 依赖路径数触顶时最多发出一次依赖收集警告。
+## [br]
+## @api private
+## [br]
 static func _warn_dependency_path_limit(max_dependency_paths: int, scan_state: Dictionary) -> void:
 	if max_dependency_paths <= 0 or GFVariantData.get_option_bool(scan_state, "count_warning_emitted"):
 		return
@@ -847,6 +911,10 @@ static func _warn_dependency_path_limit(max_dependency_paths: int, scan_state: D
 	push_warning("[GFResourceRegistryTools][resource_registry_tools.dependency_path_limit] collect_dependency_paths reached max_dependency_paths=%d; remaining dependencies were skipped." % max_dependency_paths)
 
 
+## 依赖遍历达到深度上限时记录一次被跳过的资源路径。
+## [br]
+## @api private
+## [br]
 static func _warn_dependency_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
 	if max_scan_depth <= 0 or GFVariantData.get_option_bool(scan_state, "depth_warning_emitted"):
 		return
@@ -854,12 +922,20 @@ static func _warn_dependency_depth_limit(path: String, max_scan_depth: int, scan
 	push_warning("[GFResourceRegistryTools][resource_registry_tools.dependency_scan_depth_limit] collect_dependency_paths reached max_scan_depth=%d; deeper dependency skipped: %s." % [max_scan_depth, path])
 
 
+## 从选项读取扩展名列表，并交由统一规范化逻辑清理。
+## [br]
+## @api private
+## [br]
 static func _get_extensions(options: Dictionary) -> PackedStringArray:
 	return _normalize_extensions(
 		GFVariantData.get_option_packed_string_array(options, "extensions", RESOURCE_EXTENSIONS)
 	)
 
 
+## 解析排除路径；启用 addons 扫描时不排除任何已配置目录。
+## [br]
+## @api private
+## [br]
 static func _get_excluded_paths(options: Dictionary) -> PackedStringArray:
 	if GFVariantData.get_option_bool(options, "include_addons", false):
 		return PackedStringArray()
@@ -867,6 +943,10 @@ static func _get_excluded_paths(options: Dictionary) -> PackedStringArray:
 	return _GF_PATH_TOOLS.normalize_root_paths(paths, false)
 
 
+## 读取 glob 模式的基准目录；空配置回退扫描根目录，其余先规范化。
+## [br]
+## @api private
+## [br]
 static func _get_pattern_base_path(options: Dictionary, normalized_root: String) -> String:
 	var configured_base: String = GFVariantData.get_option_string(options, "pattern_base_path", normalized_root)
 	if configured_base.strip_edges().is_empty():
@@ -874,6 +954,10 @@ static func _get_pattern_base_path(options: Dictionary, normalized_root: String)
 	return _normalize_dir_path(configured_base)
 
 
+## 将可用 glob 模式编译为正则表达式，忽略空值及编译失败的模式。
+## [br]
+## @api private
+## [br]
 static func _compile_glob_patterns(patterns: PackedStringArray) -> Array[RegEx]:
 	var result: Array[RegEx] = []
 	for pattern: String in patterns:
@@ -888,6 +972,10 @@ static func _compile_glob_patterns(patterns: PackedStringArray) -> Array[RegEx]:
 	return result
 
 
+## 统一 glob 路径分隔符并移除前导 `./` 与根斜线。
+## [br]
+## @api private
+## [br]
 static func _normalize_glob_pattern(pattern: String) -> String:
 	var result: String = pattern.replace("\\", "/").strip_edges()
 	while result.begins_with("./"):
@@ -895,6 +983,10 @@ static func _normalize_glob_pattern(pattern: String) -> String:
 	return result.trim_prefix("/")
 
 
+## 将 `*`、`**` 和 `?` 展开为不跨目录或跨目录匹配的正则表达式。
+## [br]
+## @api private
+## [br]
 static func _glob_to_regex(pattern: String) -> String:
 	var result: String = "^"
 	var index: int = 0
@@ -921,12 +1013,20 @@ static func _glob_to_regex(pattern: String) -> String:
 	return result
 
 
+## 为 glob 中具有正则含义的普通字符添加转义符。
+## [br]
+## @api private
+## [br]
 static func _escape_regex_character(character: String) -> String:
 	if ".+()[]{}^$|\\".contains(character):
 		return "\\" + character
 	return character
 
 
+## 对照包含与排除模式检查规范路径、相对路径及文件名。
+## [br]
+## @api private
+## [br]
 static func _matches_scan_patterns(
 	path: String,
 	pattern_base_path: String,
@@ -943,6 +1043,10 @@ static func _matches_scan_patterns(
 	return true
 
 
+## 检查任一正则是否匹配完整路径、相对路径或 basename。
+## [br]
+## @api private
+## [br]
 static func _matches_any_pattern(
 	patterns: Array[RegEx],
 	normalized_path: String,
@@ -959,6 +1063,10 @@ static func _matches_any_pattern(
 	return false
 
 
+## 去除扩展名空白与前导点、统一小写并保留唯一的非空值。
+## [br]
+## @api private
+## [br]
 static func _normalize_extensions(extensions: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for extension: String in extensions:
@@ -970,6 +1078,10 @@ static func _normalize_extensions(extensions: PackedStringArray) -> PackedString
 	return result
 
 
+## 将整数或文本选项映射为条目 ID 模式，未知文本回退为 basename 模式。
+## [br]
+## @api private
+## [br]
 static func _resolve_id_mode(value: Variant) -> EntryIdMode:
 	if value is int:
 		var mode_value: int = value
@@ -984,6 +1096,10 @@ static func _resolve_id_mode(value: Variant) -> EntryIdMode:
 			return EntryIdMode.BASENAME
 
 
+## 委托路径工具生成相对路径；结果为空时保留规范化的完整资源路径。
+## [br]
+## @api private
+## [br]
 static func _make_relative_path(path: String, base_path: String) -> String:
 	var relative_path: String = _GF_PATH_TOOLS.make_relative_path(path, base_path)
 	if relative_path.is_empty():
@@ -991,6 +1107,10 @@ static func _make_relative_path(path: String, base_path: String) -> String:
 	return relative_path
 
 
+## 返回相对路径的目录部分，根层文件对应空字符串。
+## [br]
+## @api private
+## [br]
 static func _get_relative_directory(relative_path: String) -> String:
 	var directory: String = relative_path.get_base_dir()
 	if directory == ".":
@@ -998,6 +1118,10 @@ static func _get_relative_directory(relative_path: String) -> String:
 	return directory
 
 
+## 将相对目录的各级非空路径段按原顺序转换为唯一标签。
+## [br]
+## @api private
+## [br]
 static func _make_path_tags(relative_path: String) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var directory: String = _get_relative_directory(relative_path)
@@ -1011,6 +1135,10 @@ static func _make_path_tags(relative_path: String) -> PackedStringArray:
 	return result
 
 
+## 以路径标签的首项作为分类；根层路径没有分类。
+## [br]
+## @api private
+## [br]
 static func _make_path_category(relative_path: String) -> String:
 	var tags: PackedStringArray = _make_path_tags(relative_path)
 	if tags.is_empty():
@@ -1018,6 +1146,10 @@ static func _make_path_category(relative_path: String) -> String:
 	return tags[0]
 
 
+## 按规范身份路径优先、原始路径回退读取字段覆盖项。
+## [br]
+## @api private
+## [br]
 static func _get_path_override_fields(path: String, options: Dictionary) -> Dictionary:
 	var fields_by_path: Dictionary = GFVariantData.get_option_dictionary(options, "fields_by_path", {})
 	var identity: GFResourceIdentity = _make_resource_identity(path, "", &"")
@@ -1030,6 +1162,10 @@ static func _get_path_override_fields(path: String, options: Dictionary) -> Dict
 	return GFVariantData.to_dictionary(value)
 
 
+## 在路径未达上限、通过筛选且尚未收录时追加依赖路径。
+## [br]
+## @api private
+## [br]
 static func _append_dependency_path(
 	result: PackedStringArray,
 	path: String,
@@ -1049,6 +1185,10 @@ static func _append_dependency_path(
 	return true
 
 
+## 排除空值和排除目录；允许 uid 路径，其余须匹配资源扩展名。
+## [br]
+## @api private
+## [br]
 static func _can_include_dependency_path(
 	path: String,
 	extensions: PackedStringArray,
@@ -1063,6 +1203,10 @@ static func _can_include_dependency_path(
 	return is_resource_path(path, extensions)
 
 
+## 从 Godot 依赖描述的 `::` 分段中解析资源路径，必要时回退 uid。
+## [br]
+## @api private
+## [br]
 static func _get_dependency_resource_path(dependency: String) -> String:
 	var fallback_uid: String = ""
 	var parts: PackedStringArray = dependency.split("::", false)
@@ -1075,10 +1219,18 @@ static func _get_dependency_resource_path(dependency: String) -> String:
 	return fallback_uid
 
 
+## 通过资源身份工厂规范输入路径并返回实际加载路径。
+## [br]
+## @api private
+## [br]
 static func _normalize_resource_path(path: String) -> String:
 	return _get_identity_load_path(_make_resource_identity(path, "", &""))
 
 
+## 按条目 ID 及其文本形式读取对应字段覆盖项。
+## [br]
+## @api private
+## [br]
 static func _get_id_override_fields(entry_id: StringName, options: Dictionary) -> Dictionary:
 	var fields_by_id: Dictionary = GFVariantData.get_option_dictionary(options, "fields_by_id", {})
 	var value: Variant = GFVariantData.get_option_value(
@@ -1089,6 +1241,10 @@ static func _get_id_override_fields(entry_id: StringName, options: Dictionary) -
 	return GFVariantData.to_dictionary(value)
 
 
+## 将整数夹限在已定义 ID 模式范围内并返回对应枚举。
+## [br]
+## @api private
+## [br]
 static func _int_to_entry_id_mode(value: int) -> EntryIdMode:
 	match clampi(value, EntryIdMode.BASENAME, EntryIdMode.FULL_PATH):
 		EntryIdMode.RELATIVE_PATH:
@@ -1099,14 +1255,26 @@ static func _int_to_entry_id_mode(value: int) -> EntryIdMode:
 			return EntryIdMode.BASENAME
 
 
+## 将输入目录按路径工具的根目录规则规范化。
+## [br]
+## @api private
+## [br]
 static func _normalize_dir_path(path: String) -> String:
 	return _GF_PATH_TOOLS.normalize_root_path(path, "", false)
 
 
+## 委托统一路径工具判断路径是否落在排除目录中。
+## [br]
+## @api private
+## [br]
 static func _is_excluded_path(path: String, excluded_paths: PackedStringArray) -> bool:
 	return _GF_PATH_TOOLS.is_path_excluded(path, excluded_paths)
 
 
+## 去重后向报告加入资源记录；达到数量限制时记录限额并返回 -1。
+## [br]
+## @api private
+## [br]
 static func _append_dependency_report_resource(
 	report: Dictionary,
 	path: String,
@@ -1138,6 +1306,10 @@ static func _append_dependency_report_resource(
 	return resources.size() - 1
 
 
+## 标记资源子项已扫描并更新直接依赖数，可选择保存依赖路径副本。
+## [br]
+## @api private
+## [br]
 static func _update_dependency_report_resource_dependencies(
 	report: Dictionary,
 	resource_index: int,
@@ -1161,6 +1333,10 @@ static func _update_dependency_report_resource_dependencies(
 	report["resources"] = resources
 
 
+## 按路径去重记录缺失依赖，并追加缺失资源或缺失依赖错误。
+## [br]
+## @api private
+## [br]
 static func _append_dependency_report_missing(
 	report: Dictionary,
 	path: String,
@@ -1191,6 +1367,10 @@ static func _append_dependency_report_missing(
 	)
 
 
+## 按路径与父路径组合键去重记录被筛除的依赖及原因。
+## [br]
+## @api private
+## [br]
 static func _append_dependency_report_excluded(
 	report: Dictionary,
 	path: String,
@@ -1215,6 +1395,10 @@ static func _append_dependency_report_excluded(
 	report["excluded"] = excluded
 
 
+## 按路径与父路径去重记录依赖循环，并追加循环警告。
+## [br]
+## @api private
+## [br]
 static func _append_dependency_report_cycle(
 	report: Dictionary,
 	path: String,
@@ -1246,6 +1430,10 @@ static func _append_dependency_report_cycle(
 	)
 
 
+## 按统一字段结构向依赖报告追加一条诊断项。
+## [br]
+## @api private
+## [br]
 static func _append_dependency_report_issue(
 	report: Dictionary,
 	severity: String,
@@ -1268,6 +1456,10 @@ static func _append_dependency_report_issue(
 	report["issues"] = issues
 
 
+## 首次触及依赖数量上限时设置标记并追加限额警告。
+## [br]
+## @api private
+## [br]
 static func _mark_dependency_report_limit(
 	report: Dictionary,
 	path: String,
@@ -1289,6 +1481,10 @@ static func _mark_dependency_report_limit(
 	)
 
 
+## 判断报告遍历是否仍可深入；触顶时只记录一条深度警告。
+## [br]
+## @api private
+## [br]
 static func _can_scan_dependency_report_deeper(
 	path: String,
 	current_depth: int,
@@ -1314,6 +1510,10 @@ static func _can_scan_dependency_report_deeper(
 	return false
 
 
+## 排序报告路径、汇总计数与健康状态，并生成摘要和下一步建议。
+## [br]
+## @api private
+## [br]
 static func _finalize_dependency_report(report: Dictionary) -> Dictionary:
 	var paths: Array = GFVariantData.as_array(GFVariantData.get_option_value(report, "paths", []))
 	paths.sort()
@@ -1347,6 +1547,10 @@ static func _finalize_dependency_report(report: Dictionary) -> Dictionary:
 	return report
 
 
+## 按缺失项、数量上限、深度上限或其他问题设置报告摘要与建议。
+## [br]
+## @api private
+## [br]
 static func _update_dependency_report_summary(report: Dictionary) -> void:
 	var resource_count: int = GFVariantData.get_option_int(report, "resource_count")
 	var missing_count: int = GFVariantData.get_option_int(report, "missing_count")
@@ -1369,6 +1573,10 @@ static func _update_dependency_report_summary(report: Dictionary) -> void:
 		report["next_action"] = ""
 
 
+## 读取直接依赖并转换成唯一的规范资源路径列表。
+## [br]
+## @api private
+## [br]
 static func _get_dependency_resource_paths(resource_path: String) -> Array:
 	var result: Array = []
 	var dependencies: PackedStringArray = ResourceLoader.get_dependencies(resource_path)
@@ -1379,6 +1587,10 @@ static func _get_dependency_resource_paths(resource_path: String) -> Array:
 	return result
 
 
+## 查询资源加载器或文件系统是否存在该路径；未解析的 uid 视为不存在。
+## [br]
+## @api private
+## [br]
 static func _resource_path_exists(path: String) -> bool:
 	if path.is_empty():
 		return false
@@ -1389,6 +1601,10 @@ static func _resource_path_exists(path: String) -> bool:
 	return FileAccess.file_exists(path)
 
 
+## 返回依赖未纳入报告的具体筛选原因。
+## [br]
+## @api private
+## [br]
 static func _get_dependency_filter_reason(
 	path: String,
 	extensions: PackedStringArray,
@@ -1401,5 +1617,9 @@ static func _get_dependency_filter_reason(
 	return "filtered"
 
 
+## 组合资源路径和父路径，供报告遍历按关系去重。
+## [br]
+## @api private
+## [br]
 static func _make_dependency_report_key(path: String, parent_path: String) -> String:
 	return "%s <- %s" % [path, parent_path]

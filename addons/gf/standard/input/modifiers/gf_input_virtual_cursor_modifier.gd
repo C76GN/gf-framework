@@ -74,7 +74,16 @@ var position: Vector2 = Vector2(0.5, 0.5)
 
 # --- 私有变量 ---
 
+## 标记 position 是否已按 initial_position 初始化和归一化。
+## [br]
+## @api private
+## [br]
 var _initialized: bool = false
+
+## 记录系统时钟上次采样毫秒值，用于计算帧间 delta。
+## [br]
+## @api private
+## [br]
 var _last_ticks_msec: int = 0
 
 
@@ -278,6 +287,10 @@ func duplicate_modifier() -> GFInputModifier:
 
 # --- 私有/辅助方法 ---
 
+## 首次处理输入时归一化初始位置、设置初始化标志并同步时间戳。
+## [br]
+## @api private
+## [br]
 func _ensure_initialized() -> void:
 	if _initialized:
 		return
@@ -286,6 +299,10 @@ func _ensure_initialized() -> void:
 	_update_ticks()
 
 
+## 按配置返回 1、手动非负 delta 或系统时钟差值，并维护下一步计时状态。
+## [br]
+## @api private
+## [br]
 func _get_step_delta() -> float:
 	if not apply_delta_time:
 		_update_ticks()
@@ -302,6 +319,10 @@ func _get_step_delta() -> float:
 	return maxf(delta, 0.0)
 
 
+## 手动计时模式清零系统时间戳，否则记录当前毫秒时钟。
+## [br]
+## @api private
+## [br]
 func _update_ticks() -> void:
 	if use_manual_delta_time:
 		_last_ticks_msec = 0
@@ -309,6 +330,10 @@ func _update_ticks() -> void:
 	_last_ticks_msec = Time.get_ticks_msec()
 
 
+## 将位置分量钳制到 clamp_rect.abs() 的左右上下边界。
+## [br]
+## @api private
+## [br]
 func _clamp_position(value: Vector2) -> Vector2:
 	var rect: Rect2 = clamp_rect.abs()
 	return Vector2(
@@ -317,6 +342,10 @@ func _clamp_position(value: Vector2) -> Vector2:
 	)
 
 
+## 非有限位置回退到有限初始位置或零，并在启用且矩形有效时限制坐标。
+## [br]
+## @api private
+## [br]
 func _normalize_position(value: Vector2) -> Vector2:
 	var fallback: Vector2 = initial_position if _is_finite_vector2(initial_position) else Vector2.ZERO
 	var result: Vector2 = value if _is_finite_vector2(value) else fallback
@@ -325,6 +354,10 @@ func _normalize_position(value: Vector2) -> Vector2:
 	return result
 
 
+## 检查矩形位置、尺寸及位置加尺寸后的坐标均为有限 Vector2。
+## [br]
+## @api private
+## [br]
 func _is_finite_rect(rect: Rect2) -> bool:
 	return (
 		_is_finite_vector2(rect.position)
@@ -333,16 +366,28 @@ func _is_finite_rect(rect: Rect2) -> bool:
 	)
 
 
+## 检查 Vector2 的 x 与 y 均非 NaN 且非无穷。
+## [br]
+## @api private
+## [br]
 func _is_finite_vector2(value: Vector2) -> bool:
 	return not is_nan(value.x) and not is_inf(value.x) and not is_nan(value.y) and not is_inf(value.y)
 
 
+## 将非有限标量归零，并把有限值钳制为不小于零。
+## [br]
+## @api private
+## [br]
 func _normalize_non_negative_scalar(value: float) -> float:
 	if is_nan(value) or is_inf(value):
 		return 0.0
 	return maxf(value, 0.0)
 
 
+## 深复制当前资源并收窄为 GFInputVirtualCursorModifier，类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _duplicate_virtual_cursor_modifier() -> GFInputVirtualCursorModifier:
 	var modifier: Resource = duplicate(true)
 	if modifier is GFInputVirtualCursorModifier:

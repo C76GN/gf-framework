@@ -6,7 +6,16 @@ extends EditorInspectorPlugin
 
 # --- 常量 ---
 
+## GFPersistPropertiesSource 基类脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_PERSIST_PROPERTIES_SOURCE_BASE = preload("res://addons/gf/extensions/save/core/gf_persist_properties_source.gd")
+
+## 在 Inspector 中编辑属性白名单的 EditorProperty 脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_PERSIST_PROPERTIES_EDITOR_PROPERTY = preload("res://addons/gf/extensions/save/editor/gf_persist_properties_editor_property.gd")
 
 

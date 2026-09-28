@@ -82,6 +82,10 @@ var finished_at_msec: int = 0
 
 # --- 私有变量 ---
 
+## 为流程记录开始、事件与结束时间的时钟依赖。
+## [br]
+## @api private
+## [br]
 var _clock: GFClock = null
 
 

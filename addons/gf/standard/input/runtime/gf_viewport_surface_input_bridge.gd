@@ -62,19 +62,88 @@ enum PointerType {
 
 # --- 常量 ---
 
+## 默认允许同时活动的指针捕获数量。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_ACTIVE_POINTERS: int = 32
+
+## 活动指针捕获数的配置上限。
+## [br]
+## @api private
+## [br]
 const _MAX_ACTIVE_POINTERS_LIMIT: int = 256
+
+## 默认保留的点击历史数量。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_CLICK_HISTORY: int = 64
+
+## 点击历史数量的配置上限。
+## [br]
+## @api private
+## [br]
 const _MAX_CLICK_HISTORY_LIMIT: int = 512
+
+## 默认保留的指针时间高水位数量。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_POINTER_TIMESTAMPS: int = 256
+
+## 指针时间高水位数量的配置上限。
+## [br]
+## @api private
+## [br]
 const _MAX_POINTER_TIMESTAMPS_LIMIT: int = 4096
+
+## 默认双击时间间隔上限，单位毫秒。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_DOUBLE_CLICK_INTERVAL_MSEC: int = 500
+
+## 双击时间间隔配置上限，单位毫秒。
+## [br]
+## @api private
+## [br]
 const _MAX_DOUBLE_CLICK_INTERVAL_MSEC: int = 60_000
+
+## 默认双击距离上限，单位像素。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_DOUBLE_CLICK_DISTANCE_PIXELS: float = 8.0
+
+## 双击距离配置上限，单位像素。
+## [br]
+## @api private
+## [br]
 const _MAX_DOUBLE_CLICK_DISTANCE_PIXELS: float = 4096.0
+
+## 输入源标识允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_SOURCE_ID_LENGTH: int = 128
+
+## 设备和指针标识允许的最大非负值。
+## [br]
+## @api private
+## [br]
 const _MAX_INPUT_ID: int = 2_147_483_647
+
+## 指针分发 epoch 的最大值，达到上限后从 1 重新开始。
+## [br]
+## @api private
+## [br]
 const _MAX_POINTER_EPOCH: int = 2_147_483_647
+
+## 当前支持按位跟踪的非滚轮鼠标按钮。
+## [br]
+## @api private
+## [br]
 const _MOUSE_BUTTONS: Array[MouseButton] = [
 	MOUSE_BUTTON_LEFT,
 	MOUSE_BUTTON_RIGHT,
@@ -86,18 +155,82 @@ const _MOUSE_BUTTONS: Array[MouseButton] = [
 
 # --- 私有变量 ---
 
+## 同时允许存在的捕获记录数量上限。
+## [br]
+## @api private
+## [br]
 var _max_active_pointers: int = _DEFAULT_MAX_ACTIVE_POINTERS
+
+## 点击历史记录数量上限；0 表示不保留双击历史。
+## [br]
+## @api private
+## [br]
 var _max_click_history: int = _DEFAULT_MAX_CLICK_HISTORY
+
+## 跨捕获代际保留的指针时间高水位数量上限。
+## [br]
+## @api private
+## [br]
 var _max_pointer_timestamps: int = _DEFAULT_MAX_POINTER_TIMESTAMPS
+
+## 双击时间窗口，单位毫秒。
+## [br]
+## @api private
+## [br]
 var _double_click_interval_msec: int = _DEFAULT_DOUBLE_CLICK_INTERVAL_MSEC
+
+## 双击两次位置允许的最大距离，单位像素。
+## [br]
+## @api private
+## [br]
 var _double_click_distance_pixels: float = _DEFAULT_DOUBLE_CLICK_DISTANCE_PIXELS
+
+## 指针复合键到活动捕获记录的映射。
+## [br]
+## @api private
+## [br]
 var _captures: Dictionary = {}
+
+## 来源、设备、指针和按钮组合到最近点击记录的映射。
+## [br]
+## @api private
+## [br]
 var _click_history: Dictionary = {}
+
+## 指针复合键到最近已接受单调时间戳的有界映射。
+## [br]
+## @api private
+## [br]
 var _pointer_timestamp_high_water: Dictionary = {}
+
+## 指针复合键到当前分发 epoch 的映射。
+## [br]
+## @api private
+## [br]
 var _pointer_epochs: Dictionary = {}
+
+## 正在同步分发的指针复合键到嵌套深度的映射。
+## [br]
+## @api private
+## [br]
 var _pointer_dispatch_depths: Dictionary = {}
+
+## 下一个捕获回执使用的代际编号，从 1 起分配。
+## [br]
+## @api private
+## [br]
 var _next_capture_generation: int = 1
+
+## 是否已经接受过输入；开始后不再允许修改限额。
+## [br]
+## @api private
+## [br]
 var _started: bool = false
+
+## 是否已进入终态并禁止常规输入处理。
+## [br]
+## @api private
+## [br]
 var _disposed: bool = false
 
 
@@ -718,10 +851,18 @@ func dispose(timestamp_msec: int = 0) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 仅在线程为主线程且尚未 dispose 时允许处理输入。
+## [br]
+## @api private
+## [br]
 func _can_accept_input() -> bool:
 	return not _disposed and Thread.is_main_thread()
 
 
+## 校验来源标识、设备和指针范围、目标代际、时间戳、存活目标及标准化坐标。
+## [br]
+## @api private
+## [br]
 func _surface_sample_is_valid(
 	source_id: StringName,
 	device_id: int,
@@ -746,6 +887,10 @@ func _surface_sample_is_valid(
 	)
 
 
+## 按回执取得当前捕获，并确认目标实例、目标代际、坐标和目标尺寸仍有效。
+## [br]
+## @api private
+## [br]
 func _get_live_surface_record(
 	capture: GFViewportSurfaceInputCapture,
 	target: Viewport,
@@ -767,6 +912,10 @@ func _get_live_surface_record(
 	return record
 
 
+## 验证回执有效且属于本桥后，按其身份构造键并匹配当前记录；可选检查非回退时间戳。
+## [br]
+## @api private
+## [br]
 func _get_record_for_receipt(
 	capture: GFViewportSurfaceInputCapture,
 	timestamp_msec: int,
@@ -789,6 +938,10 @@ func _get_record_for_receipt(
 	return record
 
 
+## 比较当前记录保存的回执对象及捕获代际、目标代际、来源、设备、指针和类型。
+## [br]
+## @api private
+## [br]
 func _record_matches_receipt(
 	record: CaptureRecord,
 	receipt: GFViewportSurfaceInputCapture
@@ -807,6 +960,11 @@ func _record_matches_receipt(
 	)
 
 
+## 释放触摸捕获或指定鼠标按钮；更新高水位与点击记录后推送释放事件，并按回执状态决定是否完成。
+## 目标失效时丢弃记录；鼠标按钮已释放时只更新时间并返回 true。
+## [br]
+## @api private
+## [br]
 func _release_record(
 	record: CaptureRecord,
 	receipt: GFViewportSurfaceInputCapture,
@@ -860,6 +1018,10 @@ func _release_record(
 	return completed
 
 
+## 移除捕获和点击历史并记录终止时间；目标有效时发送触摸取消或逐个发送当前按下按钮的取消释放。
+## [br]
+## @api private
+## [br]
 func _cancel_record(
 	record: CaptureRecord,
 	timestamp_msec: int,
@@ -911,6 +1073,10 @@ func _cancel_record(
 	return delivered_any
 
 
+## 仅当记录仍是当前捕获时删除捕获和点击历史，保留其时间高水位并推进 epoch。
+## [br]
+## @api private
+## [br]
 func _drop_record(record: CaptureRecord) -> void:
 	if record == null or _get_capture_record(record.key) != record:
 		return
@@ -921,6 +1087,11 @@ func _drop_record(record: CaptureRecord) -> void:
 	_prune_pointer_epoch(record.key)
 
 
+## 遍历捕获表快照并清理无效值、目标仍存活但回执失效的捕获，或目标已失效的记录。
+## 仅在表中记录仍等于快照值时处理，返回本次移除的记录数。
+## [br]
+## @api private
+## [br]
 func _prune_dead_records(timestamp_msec: int) -> int:
 	var removed: int = 0
 	var capture_snapshot: Dictionary = _captures.duplicate()
@@ -949,6 +1120,10 @@ func _prune_dead_records(timestamp_msec: int) -> int:
 	return removed
 
 
+## 从捕获字典值中收集 CaptureRecord 类型的记录。
+## [br]
+## @api private
+## [br]
 func _get_capture_snapshot() -> Array[CaptureRecord]:
 	var snapshot: Array[CaptureRecord] = []
 	for value: Variant in _captures.values():
@@ -957,6 +1132,10 @@ func _get_capture_snapshot() -> Array[CaptureRecord]:
 	return snapshot
 
 
+## 按记录类型创建鼠标按钮或触摸按下事件；不支持的指针类型返回 null。
+## [br]
+## @api private
+## [br]
 func _make_press_event(
 	record: CaptureRecord,
 	target: Viewport,
@@ -970,6 +1149,10 @@ func _make_press_event(
 	return null
 
 
+## 按记录类型创建鼠标移动或触摸拖动事件，并设置位置、相对位移及按钮状态。
+## [br]
+## @api private
+## [br]
 func _make_motion_event(
 	record: CaptureRecord,
 	position: Vector2,
@@ -993,6 +1176,10 @@ func _make_motion_event(
 	return null
 
 
+## 根据捕获记录和最近表面坐标创建鼠标按钮事件，填入按钮掩码、按下、双击及取消标志。
+## [br]
+## @api private
+## [br]
 func _make_mouse_button_event(
 	record: CaptureRecord,
 	target: Viewport,
@@ -1014,6 +1201,10 @@ func _make_mouse_button_event(
 	return event
 
 
+## 根据捕获记录和最近表面坐标创建屏幕触摸事件，填入触摸索引及按下、双击、取消标志。
+## [br]
+## @api private
+## [br]
 func _make_touch_event(
 	record: CaptureRecord,
 	target: Viewport,
@@ -1031,6 +1222,10 @@ func _make_touch_event(
 	return event
 
 
+## 将捕获记录中的来源、设备、指针和代际信息传给通用分发，并要求记录状态仍符合预期。
+## [br]
+## @api private
+## [br]
 func _dispatch_record_event(
 	record: CaptureRecord,
 	target: Viewport,
@@ -1052,6 +1247,10 @@ func _dispatch_record_event(
 	)
 
 
+## 在主线程向存活 Viewport 推送事件，并在推送和 input_forwarded 信号回调后重新检查指针 epoch 与捕获状态。
+## [br]
+## @api private
+## [br]
 func _dispatch_event(
 	source_id: StringName,
 	device_id: int,
@@ -1099,6 +1298,10 @@ func _dispatch_event(
 	return completed
 
 
+## 检查 dispose、目标存活和指针 epoch；若有预期记录，还核对其仍活动或已被移除。
+## [br]
+## @api private
+## [br]
 func _dispatch_expectation_holds(
 	expected_record: CaptureRecord,
 	expect_active_record: bool,
@@ -1124,6 +1327,10 @@ func _dispatch_expectation_holds(
 	return current_record == null
 
 
+## 增加指定指针的同步分发深度，必要时初始化 epoch，并返回当前 epoch。
+## [br]
+## @api private
+## [br]
 func _begin_pointer_dispatch(pointer_key: String) -> int:
 	var depth_value: Variant = _pointer_dispatch_depths.get(pointer_key, 0)
 	var depth: int = depth_value if depth_value is int else 0
@@ -1133,6 +1340,10 @@ func _begin_pointer_dispatch(pointer_key: String) -> int:
 	return _get_pointer_epoch(pointer_key)
 
 
+## 减少或移除指针分发深度，然后尝试清理不再被状态引用的 epoch。
+## [br]
+## @api private
+## [br]
 func _end_pointer_dispatch(pointer_key: String) -> void:
 	var depth_value: Variant = _pointer_dispatch_depths.get(pointer_key, 0)
 	var depth: int = depth_value if depth_value is int else 0
@@ -1143,20 +1354,36 @@ func _end_pointer_dispatch(pointer_key: String) -> void:
 	_prune_pointer_epoch(pointer_key)
 
 
+## 按 epoch 递增规则推进指定指针的分发代际。
+## [br]
+## @api private
+## [br]
 func _advance_pointer_epoch(pointer_key: String) -> void:
 	var current: int = _get_pointer_epoch(pointer_key)
 	_pointer_epochs[pointer_key] = _next_pointer_epoch_value(current)
 
 
+## 计算下一个 epoch；达到配置上限时回到 1。
+## [br]
+## @api private
+## [br]
 static func _next_pointer_epoch_value(current: int) -> int:
 	return 1 if current >= _MAX_POINTER_EPOCH else current + 1
 
 
+## 读取指针 epoch；缺失或存储值类型不符时返回 0。
+## [br]
+## @api private
+## [br]
 func _get_pointer_epoch(pointer_key: String) -> int:
 	var value: Variant = _pointer_epochs.get(pointer_key, 0)
 	return value if value is int else 0
 
 
+## 仅当指针没有活动分发、捕获或点击历史时从 epoch 字典移除其状态。
+## [br]
+## @api private
+## [br]
 func _prune_pointer_epoch(pointer_key: String) -> void:
 	if (
 		_pointer_dispatch_depths.has(pointer_key)
@@ -1167,6 +1394,10 @@ func _prune_pointer_epoch(pointer_key: String) -> void:
 	var _erased_epoch: bool = _pointer_epochs.erase(pointer_key)
 
 
+## 检查点击历史是否包含以该指针复合键加分隔符为前缀的记录。
+## [br]
+## @api private
+## [br]
 func _pointer_has_click_history(pointer_key: String) -> bool:
 	var click_prefix: String = pointer_key + ":"
 	for click_key_variant: Variant in _click_history.keys():
@@ -1177,6 +1408,10 @@ func _pointer_has_click_history(pointer_key: String) -> bool:
 	return false
 
 
+## 时间高水位存在时只接受不早于它的毫秒值；未记录过该指针时接受。
+## [br]
+## @api private
+## [br]
 func _pointer_timestamp_is_current(pointer_key: String, timestamp_msec: int) -> bool:
 	var value: Variant = _pointer_timestamp_high_water.get(pointer_key)
 	if value is int:
@@ -1185,6 +1420,10 @@ func _pointer_timestamp_is_current(pointer_key: String, timestamp_msec: int) -> 
 	return true
 
 
+## 只接受不早于现有高水位的时间戳，并将键重新插入末端；超出预算时从字典首端淘汰。
+## [br]
+## @api private
+## [br]
 func _remember_pointer_timestamp(pointer_key: String, timestamp_msec: int) -> void:
 	var value: Variant = _pointer_timestamp_high_water.get(pointer_key)
 	if value is int:
@@ -1200,6 +1439,11 @@ func _remember_pointer_timestamp(pointer_key: String, timestamp_msec: int) -> vo
 		var _erased_oldest: bool = _pointer_timestamp_high_water.erase(keys[0])
 
 
+## 在点击历史启用且目标存活时保存来源、目标代际、位置和时间，并按预算淘汰最早插入项。
+## 触点使用按钮键 0；记录变更会推进相应指针 epoch。
+## [br]
+## @api private
+## [br]
 func _remember_click(record: CaptureRecord, mouse_button: int, timestamp_msec: int) -> void:
 	if _max_click_history == 0:
 		return
@@ -1244,6 +1488,10 @@ func _remember_click(record: CaptureRecord, mouse_button: int, timestamp_msec: i
 			_prune_pointer_epoch(oldest_pointer_key)
 
 
+## 检查同来源设备、指针和按钮是否有同一目标代际内的前次点击，且间隔和当前像素距离均在配置范围内。
+## [br]
+## @api private
+## [br]
 func _is_double_click(
 	record: CaptureRecord,
 	mouse_button: int,
@@ -1278,6 +1526,10 @@ func _is_double_click(
 	)
 
 
+## 删除与来源、设备和指针标识完全匹配的全部点击历史记录。
+## [br]
+## @api private
+## [br]
 func _remove_click_history_for_pointer(
 	source_id: StringName,
 	device_id: int,
@@ -1297,6 +1549,11 @@ func _remove_click_history_for_pointer(
 			var _erased_click: bool = _click_history.erase(key)
 
 
+## 移除指定来源和可选设备中已结束指针的点击历史与时间高水位，并推进及清理受影响 epoch。
+## 活动捕获对应的生命周期状态会保留。
+## [br]
+## @api private
+## [br]
 func _remove_completed_source_lifecycle_state(source_id: StringName, device_id: int) -> void:
 	var affected_pointer_keys: Dictionary = {}
 	for click_key_variant: Variant in _click_history.keys():
@@ -1337,6 +1594,11 @@ func _remove_completed_source_lifecycle_state(source_id: StringName, device_id: 
 			_prune_pointer_epoch(pointer_key)
 
 
+## 解析指针键中的长度前缀来源和设备字段，判断其是否匹配给定来源及可选设备。
+## device_id 小于 0 时只要求来源匹配。
+## [br]
+## @api private
+## [br]
 static func _pointer_key_matches_source(
 	pointer_key: String,
 	source_id: StringName,
@@ -1356,6 +1618,10 @@ static func _pointer_key_matches_source(
 	return device_text.is_valid_int() and int(device_text) == device_id
 
 
+## 从捕获表读取指定键并收窄为 CaptureRecord；其他类型返回 null。
+## [br]
+## @api private
+## [br]
 func _get_capture_record(key: String) -> CaptureRecord:
 	var value: Variant = _captures.get(key)
 	if value is CaptureRecord:
@@ -1364,6 +1630,10 @@ func _get_capture_record(key: String) -> CaptureRecord:
 	return null
 
 
+## 从点击历史读取指定键并收窄为 ClickRecord；其他类型返回 null。
+## [br]
+## @api private
+## [br]
 func _get_click_record(key: String) -> ClickRecord:
 	var value: Variant = _click_history.get(key)
 	if value is ClickRecord:
@@ -1372,6 +1642,10 @@ func _get_click_record(key: String) -> ClickRecord:
 	return null
 
 
+## 通过捕获记录保存的弱引用取得回执；记录、引用或对象类型无效时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_receipt(record: CaptureRecord) -> GFViewportSurfaceInputCapture:
 	if record == null or record.receipt_ref == null:
 		return null
@@ -1382,6 +1656,10 @@ func _get_receipt(record: CaptureRecord) -> GFViewportSurfaceInputCapture:
 	return null
 
 
+## 通过捕获记录的目标弱引用取得 Viewport，并仅返回仍处于可用状态的目标。
+## [br]
+## @api private
+## [br]
 func _get_live_target(record: CaptureRecord) -> Viewport:
 	if record == null or record.target_ref == null:
 		return null
@@ -1392,6 +1670,10 @@ func _get_live_target(record: CaptureRecord) -> Viewport:
 	return null
 
 
+## 通过点击记录的目标弱引用取得仍可用的 Viewport。
+## [br]
+## @api private
+## [br]
 func _get_click_target(click: ClickRecord) -> Viewport:
 	if click == null or click.target_ref == null:
 		return null
@@ -1402,6 +1684,10 @@ func _get_click_target(click: ClickRecord) -> Viewport:
 	return null
 
 
+## 取得当前捕获代际后递增计数；计数变为非正数时下一个值重置为 1。
+## [br]
+## @api private
+## [br]
 func _take_capture_generation() -> int:
 	var generation: int = _next_capture_generation
 	_next_capture_generation += 1
@@ -1410,11 +1696,19 @@ func _take_capture_generation() -> int:
 	return generation
 
 
+## 使用来源字符串长度、来源、设备和指针组成无歧义的内部复合键。
+## [br]
+## @api private
+## [br]
 static func _make_pointer_key(source_id: StringName, device_id: int, pointer_id: int) -> String:
 	var source: String = String(source_id)
 	return "%d:%s:%d:%d" % [source.length(), source, device_id, pointer_id]
 
 
+## 在指针复合键后追加鼠标按钮编号，生成点击历史键。
+## [br]
+## @api private
+## [br]
 static func _make_click_key(
 	source_id: StringName,
 	device_id: int,
@@ -1424,10 +1718,18 @@ static func _make_click_key(
 	return "%s:%d" % [_make_pointer_key(source_id, device_id, pointer_id), mouse_button]
 
 
+## 判断 Viewport 非空、实例有效且已进入 SceneTree。
+## [br]
+## @api private
+## [br]
 static func _target_is_live(target: Viewport) -> bool:
 	return target != null and is_instance_valid(target) and target.is_inside_tree()
 
 
+## 读取有效目标尺寸；SubViewport 使用其 size，其他 Viewport 使用可见矩形尺寸，无效或非正尺寸返回零。
+## [br]
+## @api private
+## [br]
 static func _get_target_size(target: Viewport) -> Vector2:
 	if not _target_is_live(target):
 		return Vector2.ZERO
@@ -1440,6 +1742,10 @@ static func _get_target_size(target: Viewport) -> Vector2:
 	return size
 
 
+## 检查标准化坐标有限且两个分量都位于闭区间 [0, 1]。
+## [br]
+## @api private
+## [br]
 static func _normalized_position_is_valid(position: Vector2) -> bool:
 	return (
 		_vector_is_finite(position)
@@ -1450,6 +1756,10 @@ static func _normalized_position_is_valid(position: Vector2) -> bool:
 	)
 
 
+## 将标准化坐标映射到目标像素坐标，最大坐标为各维尺寸减 1 的非负值。
+## [br]
+## @api private
+## [br]
 static func _uv_to_position(normalized_position: Vector2, size: Vector2) -> Vector2:
 	var last_position: Vector2 = Vector2(
 		maxf(size.x - 1.0, 0.0),
@@ -1458,20 +1768,36 @@ static func _uv_to_position(normalized_position: Vector2, size: Vector2) -> Vect
 	return normalized_position * last_position
 
 
+## 判断按钮是否位于内部支持的五种非滚轮鼠标按钮列表中。
+## [br]
+## @api private
+## [br]
 static func _mouse_button_is_supported(mouse_button: MouseButton) -> bool:
 	return mouse_button in _MOUSE_BUTTONS
 
 
+## 返回受支持鼠标按钮对应的掩码位；不支持时返回 0。
+## [br]
+## @api private
+## [br]
 static func _mouse_button_bit(mouse_button: MouseButton) -> int:
 	if not _mouse_button_is_supported(mouse_button):
 		return 0
 	return 1 << (int(mouse_button) - 1)
 
 
+## 检查标量既不是 NaN 也不是无穷值。
+## [br]
+## @api private
+## [br]
 static func _is_finite_scalar(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 检查 Vector2 两个分量均为有限值。
+## [br]
+## @api private
+## [br]
 static func _vector_is_finite(value: Vector2) -> bool:
 	return _is_finite_scalar(value.x) and _is_finite_scalar(value.y)
 
@@ -1492,72 +1818,84 @@ class CaptureRecord extends RefCounted:
 	## [br]
 	## @since 11.0.0
 	var key: String = ""
+
 	## 输入来源标识。
 	## [br]
 	## @api framework_internal
 	## [br]
 	## @since 11.0.0
 	var source_id: StringName = &""
+
 	## 输入设备标识。
 	## [br]
 	## @api framework_internal
 	## [br]
 	## @since 11.0.0
 	var device_id: int = -1
+
 	## 来源内的指针标识。
 	## [br]
 	## @api framework_internal
 	## [br]
 	## @since 11.0.0
 	var pointer_id: int = -1
+
 	## 指针类型。
 	## [br]
 	## @api framework_internal
 	## [br]
 	## @since 11.0.0
 	var pointer_type: int = -1
+
 	## 当前捕获代次。
 	## [br]
 	## @api framework_internal
 	## [br]
 	## @since 11.0.0
 	var capture_generation: int = 0
+
 	## 当前目标身份代次。
 	## [br]
 	## @api framework_internal
 	## [br]
 	## @since 11.0.0
 	var target_generation: int = 0
+
 	## 捕获目标的实例标识。
 	## [br]
 	## @api framework_internal
 	## [br]
 	## @since 11.0.0
 	var target_instance_id: int = 0
+
 	## 捕获目标的弱引用。
 	## [br]
 	## @api framework_internal
 	## [br]
 	## @since 11.0.0
 	var target_ref: WeakRef = null
+
 	## 返回给调用方的回执弱引用。
 	## [br]
 	## @api framework_internal
 	## [br]
 	## @since 11.0.0
 	var receipt_ref: WeakRef = null
+
 	## 最近一次合法的归一化坐标。
 	## [br]
 	## @api framework_internal
 	## [br]
 	## @since 11.0.0
 	var last_uv: Vector2 = Vector2.ZERO
+
 	## 最近一次接受的单调时间戳。
 	## [br]
 	## @api framework_internal
 	## [br]
 	## @since 11.0.0
 	var last_timestamp_msec: int = 0
+
 	## 当前按下的鼠标按钮位掩码。
 	## [br]
 	## @api framework_internal
@@ -1580,48 +1918,56 @@ class ClickRecord extends RefCounted:
 	## [br]
 	## @since 11.0.0
 	var source_id: StringName = &""
+
 	## 输入设备标识。
 	## [br]
 	## @api framework_internal
 	## [br]
 	## @since 11.0.0
 	var device_id: int = -1
+
 	## 来源内的指针标识。
 	## [br]
 	## @api framework_internal
 	## [br]
 	## @since 11.0.0
 	var pointer_id: int = -1
+
 	## 参与点击序列的鼠标按钮。
 	## [br]
 	## @api framework_internal
 	## [br]
 	## @since 11.0.0
 	var mouse_button: int = 0
+
 	## 点击时目标的身份代次。
 	## [br]
 	## @api framework_internal
 	## [br]
 	## @since 11.0.0
 	var target_generation: int = 0
+
 	## 点击目标的实例标识。
 	## [br]
 	## @api framework_internal
 	## [br]
 	## @since 11.0.0
 	var target_instance_id: int = 0
+
 	## 点击目标的弱引用。
 	## [br]
 	## @api framework_internal
 	## [br]
 	## @since 11.0.0
 	var target_ref: WeakRef = null
+
 	## 最近点击的归一化坐标。
 	## [br]
 	## @api framework_internal
 	## [br]
 	## @since 11.0.0
 	var normalized_position: Vector2 = Vector2.ZERO
+
 	## 最近一次点击的单调时间戳。
 	## [br]
 	## @api framework_internal

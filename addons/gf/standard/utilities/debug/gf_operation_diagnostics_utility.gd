@@ -70,7 +70,16 @@ const DEFAULT_MAX_METADATA_KEYS: int = 64
 ## @since 7.0.0
 const DEFAULT_SLOW_OPERATION_THRESHOLD_MS: float = 1200.0
 
+## 用于拒绝超大时长输入的毫秒上限。
+## [br]
+## @api private
+## [br]
 const _MAX_DURATION_MS: float = 9_000_000_000_000_000.0
+
+## 元数据中过量业务键的丢弃计数保留键。
+## [br]
+## @api private
+## [br]
 const _DROPPED_METADATA_KEY: StringName = &"__gf_dropped_key_count"
 
 ## 信息级事件。
@@ -238,12 +247,46 @@ var slow_operation_threshold_ms: float = DEFAULT_SLOW_OPERATION_THRESHOLD_MS:
 
 # --- 私有变量 ---
 
+## 按登记顺序保存运行中和终结的操作记录。
+## [br]
+## @api private
+## [br]
 var _operations: Array[Dictionary] = []
+
+## 保存按诊断字段归并的事件记录。
+## [br]
+## @api private
+## [br]
 var _incidents: Array[Dictionary] = []
+
+## 按 sample_id 累积的采样统计记录。
+## [br]
+## @api private
+## [br]
 var _sample_stats: Dictionary = {}
+
+## 下一次生成的操作 ID 序号。
+## [br]
+## @api private
+## [br]
 var _next_operation_index: int = 1
+
+## 下一次生成的事件 ID 序号。
+## [br]
+## @api private
+## [br]
 var _next_incident_index: int = 1
+
+## 下一个操作、事件或采样统计项使用的递增顺序号。
+## [br]
+## @api private
+## [br]
 var _next_sequence: int = 1
+
+## 因活动操作数达到上限而拒绝开始的累计次数。
+## [br]
+## @api private
+## [br]
 var _rejected_active_operation_count: int = 0
 
 
@@ -1193,6 +1236,10 @@ func build_copy_text(snapshot: Dictionary = {}) -> String:
 
 # --- 私有/辅助方法 ---
 
+## 根据操作类型和递增序号生成尚未占用的操作 ID。
+## [br]
+## @api private
+## [br]
 func _make_operation_id(operation_type: StringName) -> StringName:
 	var operation_id: StringName = StringName("%s:%d" % [String(operation_type), _next_operation_index])
 	_next_operation_index += 1
@@ -1202,18 +1249,31 @@ func _make_operation_id(operation_type: StringName) -> StringName:
 	return operation_id
 
 
+## 根据事件代码和递增序号生成事件 ID。
+## [br]
+## @api private
+## [br]
 func _make_incident_id(code: StringName) -> StringName:
 	var incident_id: StringName = StringName("%s:%d" % [String(code), _next_incident_index])
 	_next_incident_index += 1
 	return incident_id
 
 
+## 返回当前顺序号并递增计数器。
+## [br]
+## @api private
+## [br]
 func _take_sequence() -> int:
 	var result: int = _next_sequence
 	_next_sequence += 1
 	return result
 
 
+## 创建并登记一条 running 操作记录，初始化时间、状态、采样序号及受限元数据。
+## 重复或空 operation_id 会替换为生成的新 ID。
+## [br]
+## @api private
+## [br]
 func _begin_operation_unchecked(operation_type: StringName, options: Dictionary) -> StringName:
 	var operation_id: StringName = GFVariantData.get_option_string_name(options, "operation_id")
 	if operation_id == &"" or has_operation(operation_id):
@@ -1256,6 +1316,11 @@ func _begin_operation_unchecked(operation_type: StringName, options: Dictionary)
 	return operation_id
 
 
+## 校验并记录已完成操作：先创建运行记录，再写入结束时长和终态字段。
+## 操作类型或时长无效、内部登记失败时返回空字典。
+## [br]
+## @api private
+## [br]
 func _record_completed_operation_with_terminal_state(
 	operation_type: StringName,
 	duration_ms: float,
@@ -1285,6 +1350,11 @@ func _record_completed_operation_with_terminal_state(
 	return _finish_operation_with_terminal_state(operation_id, success, finish_options, terminal_state, terminal_state_status)
 
 
+## 将现存非终结操作写入完成时刻、终态、元数据与异常码并修剪记录。
+## 已终结的记录返回其副本；无效 ID 或时长返回空字典。
+## [br]
+## @api private
+## [br]
 func _finish_operation_with_terminal_state(
 	operation_id: StringName,
 	success: bool,
@@ -1332,6 +1402,10 @@ func _finish_operation_with_terminal_state(
 	return operation.duplicate(true)
 
 
+## 查找操作 ID 在操作数组中的索引，未找到时返回 -1。
+## [br]
+## @api private
+## [br]
 func _find_operation_index(operation_id: StringName) -> int:
 	for index: int in range(_operations.size()):
 		if GFVariantData.get_option_string_name(_operations[index], "operation_id") == operation_id:
@@ -1339,6 +1413,10 @@ func _find_operation_index(operation_id: StringName) -> int:
 	return -1
 
 
+## 查找尚未终结的操作索引；不存在或已经终结时返回 -1。
+## [br]
+## @api private
+## [br]
 func _find_active_operation_index(operation_id: StringName) -> int:
 	var index: int = _find_operation_index(operation_id)
 	if index < 0 or _operation_is_terminal(_operations[index]):
@@ -1346,6 +1424,10 @@ func _find_active_operation_index(operation_id: StringName) -> int:
 	return index
 
 
+## 按严重度、类别、代码、组件、阶段和消息查找完全匹配的事件。
+## [br]
+## @api private
+## [br]
 func _find_incident_index(
 	severity: StringName,
 	category: StringName,
@@ -1368,6 +1450,10 @@ func _find_incident_index(
 	return -1
 
 
+## 返回已有 sample_id 统计项，或以给定序号和时间初始化空统计字段。
+## [br]
+## @api private
+## [br]
 func _get_or_create_sample_stat(sample_id: StringName, sequence: int, now_unix: float) -> Dictionary:
 	if _sample_stats.has(sample_id):
 		return GFVariantData.as_dictionary(_sample_stats[sample_id])
@@ -1395,6 +1481,10 @@ func _get_or_create_sample_stat(sample_id: StringName, sequence: int, now_unix: 
 	}
 
 
+## 更新匹配事件的出现次数、最近时间和顺序号，并合并可恢复状态、建议动作和元数据。
+## [br]
+## @api private
+## [br]
 func _update_incident(index: int, options: Dictionary) -> Dictionary:
 	var incident: Dictionary = _incidents[index]
 	var now_unix: float = Time.get_unix_time_from_system()
@@ -1415,6 +1505,11 @@ func _update_incident(index: int, options: Dictionary) -> Dictionary:
 	return incident.duplicate(true)
 
 
+## 合并并复制元数据，排除保留键并按 max_metadata_keys 截断业务键数量。
+## 超出项数累计写入保留的丢弃计数字段。
+## [br]
+## @api private
+## [br]
 func _merge_metadata(base: Dictionary, extra: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	var dropped_count: int = _get_dropped_metadata_key_count(base)
@@ -1441,6 +1536,10 @@ func _merge_metadata(base: Dictionary, extra: Dictionary) -> Dictionary:
 	return result
 
 
+## 从元数据保留键读取已记录的丢弃项数；不存在时返回零。
+## [br]
+## @api private
+## [br]
 func _get_dropped_metadata_key_count(metadata: Dictionary) -> int:
 	for key: Variant in metadata.keys():
 		if _metadata_key_is_reserved(key):
@@ -1448,19 +1547,35 @@ func _get_dropped_metadata_key_count(metadata: Dictionary) -> int:
 	return 0
 
 
+## 判断键转换为 StringName 后是否等于框架丢弃计数保留键。
+## [br]
+## @api private
+## [br]
 func _metadata_key_is_reserved(key: Variant) -> bool:
 	return StringName(GFVariantData.to_text(key)) == _DROPPED_METADATA_KEY
 
 
+## 接受有限且不超过最大毫秒上限的时长值。
+## [br]
+## @api private
+## [br]
 func _duration_is_valid(duration_ms: float) -> bool:
 	return is_finite(duration_ms) and duration_ms <= _MAX_DURATION_MS
 
 
+## 深复制编码选项并将输入字典转换为 JSON 兼容字典。
+## [br]
+## @api private
+## [br]
 func _to_json_compatible_dictionary(value: Dictionary, options: Dictionary) -> Dictionary:
 	var codec_options: Dictionary = options.duplicate(true)
 	return GFVariantData.as_dictionary(GFReportValueCodec.to_json_compatible(value, codec_options))
 
 
+## 保留 base 次序并追加其中尚未存在的 extra 字符串。
+## [br]
+## @api private
+## [br]
 func _merge_string_arrays(base: PackedStringArray, extra: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = base.duplicate()
 	for value: String in extra:
@@ -1469,6 +1584,10 @@ func _merge_string_arrays(base: PackedStringArray, extra: PackedStringArray) -> 
 	return result
 
 
+## 从字典字段筛出 Dictionary 项，并为每项创建深复制后返回。
+## [br]
+## @api private
+## [br]
 func _get_dictionary_array(source: Dictionary, key: String) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var value: Variant = GFVariantData.get_option_value(source, key, [])
@@ -1481,6 +1600,10 @@ func _get_dictionary_array(source: Dictionary, key: String) -> Array[Dictionary]
 	return result
 
 
+## 按操作类型、组件、状态和可选 success 值匹配查询条件。
+## [br]
+## @api private
+## [br]
 func _operation_matches_filters(operation: Dictionary, filters: Dictionary) -> bool:
 	if not _matches_string_name_filter(operation, filters, "operation_type"):
 		return false
@@ -1493,6 +1616,10 @@ func _operation_matches_filters(operation: Dictionary, filters: Dictionary) -> b
 	return true
 
 
+## 按严重度、类别、组件、阶段和代码匹配事件查询条件。
+## [br]
+## @api private
+## [br]
 func _incident_matches_filters(incident: Dictionary, filters: Dictionary) -> bool:
 	if not _matches_string_name_filter(incident, filters, "severity"):
 		return false
@@ -1507,6 +1634,10 @@ func _incident_matches_filters(incident: Dictionary, filters: Dictionary) -> boo
 	return true
 
 
+## 按 sample_id 和组件匹配采样统计查询条件。
+## [br]
+## @api private
+## [br]
 func _sample_stat_matches_filters(sample_stat: Dictionary, filters: Dictionary) -> bool:
 	if not _matches_string_name_filter(sample_stat, filters, "sample_id"):
 		return false
@@ -1515,6 +1646,10 @@ func _sample_stat_matches_filters(sample_stat: Dictionary, filters: Dictionary) 
 	return true
 
 
+## 先匹配 entry_type，再按记录类型委托到操作或事件过滤器。
+## [br]
+## @api private
+## [br]
 func _record_matches_filters(record: Dictionary, filters: Dictionary) -> bool:
 	if not _matches_string_name_filter(record, filters, "entry_type"):
 		return false
@@ -1526,6 +1661,10 @@ func _record_matches_filters(record: Dictionary, filters: Dictionary) -> bool:
 	return false
 
 
+## 根据终结布尔标志或状态名判断异步快照是否已结束。
+## [br]
+## @api private
+## [br]
 func _async_snapshot_is_terminal(snapshot: Dictionary) -> bool:
 	if GFVariantData.get_option_bool(snapshot, "completed"):
 		return true
@@ -1539,6 +1678,10 @@ func _async_snapshot_is_terminal(snapshot: Dictionary) -> bool:
 	return status_name == &"succeeded" or status_name == &"completed" or status_name == &"failed" or status_name == &"cancelled" or status_name == &"timeout"
 
 
+## 显式失败标志或失败状态优先；其余按 success/successful 标志和成功状态判定。
+## [br]
+## @api private
+## [br]
 func _async_snapshot_is_successful(snapshot: Dictionary) -> bool:
 	var status_name: StringName = _get_async_snapshot_status(snapshot)
 	if status_name == &"failed" or status_name == &"cancelled" or status_name == &"timeout":
@@ -1556,6 +1699,10 @@ func _async_snapshot_is_successful(snapshot: Dictionary) -> bool:
 	return status_name == &"succeeded" or status_name == &"completed"
 
 
+## 将异步快照的 pending、waiting 和 retrying 映射到操作状态，其余映射为 running。
+## [br]
+## @api private
+## [br]
 func _get_async_operation_state_status(snapshot: Dictionary) -> StringName:
 	var status_name: StringName = _get_async_snapshot_status(snapshot)
 	match status_name:
@@ -1569,6 +1716,10 @@ func _get_async_operation_state_status(snapshot: Dictionary) -> StringName:
 			return STATE_RUNNING
 
 
+## 将成功结果映射为 completed、取消映射为 cancelled，其余失败映射为 failed。
+## [br]
+## @api private
+## [br]
 func _get_async_terminal_operation_state(snapshot: Dictionary, success: bool) -> StringName:
 	if success:
 		return &"completed"
@@ -1578,6 +1729,10 @@ func _get_async_terminal_operation_state(snapshot: Dictionary, success: bool) ->
 	return &"failed"
 
 
+## 将成功结果映射到 STATE_SUCCEEDED、取消映射到 STATE_CANCELLED，其余映射到 STATE_FAILED。
+## [br]
+## @api private
+## [br]
 func _get_async_terminal_state_status(snapshot: Dictionary, success: bool) -> StringName:
 	if success:
 		return STATE_SUCCEEDED
@@ -1587,6 +1742,10 @@ func _get_async_terminal_state_status(snapshot: Dictionary, success: bool) -> St
 	return STATE_FAILED
 
 
+## 优先规范化 status_name/status 字段，再由终结布尔标志推导状态，缺省为 pending。
+## [br]
+## @api private
+## [br]
 func _get_async_snapshot_status(snapshot: Dictionary) -> StringName:
 	var status_name: StringName = GFVariantData.get_option_string_name(snapshot, "status_name")
 	if status_name != &"":
@@ -1605,6 +1764,10 @@ func _get_async_snapshot_status(snapshot: Dictionary) -> StringName:
 	return &"pending"
 
 
+## 按 options.duration_ms、快照 duration_ms、duration_msec 的顺序取时长，均缺失时返回零。
+## [br]
+## @api private
+## [br]
 func _get_async_snapshot_duration_ms(snapshot: Dictionary, options: Dictionary) -> float:
 	var configured_duration_ms: float = GFVariantData.get_option_float(options, "duration_ms", -1.0)
 	if configured_duration_ms >= 0.0:
@@ -1618,6 +1781,10 @@ func _get_async_snapshot_duration_ms(snapshot: Dictionary, options: Dictionary) 
 	return 0.0
 
 
+## 按 timeout、cancelled、failed 顺序收集快照异常代码。
+## [br]
+## @api private
+## [br]
 func _get_async_snapshot_anomaly_codes(snapshot: Dictionary) -> PackedStringArray:
 	var codes: PackedStringArray = PackedStringArray()
 	if GFVariantData.get_option_bool(snapshot, "timed_out") or _get_async_snapshot_status(snapshot) == &"timeout":
@@ -1629,6 +1796,10 @@ func _get_async_snapshot_anomaly_codes(snapshot: Dictionary) -> PackedStringArra
 	return codes
 
 
+## 有异步异常码时记录事件；取消使用 warning，其余使用 error，并复制快照到元数据。
+## [br]
+## @api private
+## [br]
 func _record_async_snapshot_incident(snapshot: Dictionary, options: Dictionary) -> void:
 	var codes: PackedStringArray = _get_async_snapshot_anomaly_codes(snapshot)
 	if codes.is_empty():
@@ -1655,6 +1826,10 @@ func _record_async_snapshot_incident(snapshot: Dictionary, options: Dictionary) 
 	var _incident: Dictionary = record_incident(severity, code, message, incident_options)
 
 
+## 缺少过滤键或空 StringName 条件时放行，否则比较记录中的同名字段。
+## [br]
+## @api private
+## [br]
 func _matches_string_name_filter(record: Dictionary, filters: Dictionary, key: String) -> bool:
 	if not filters.has(key):
 		return true
@@ -1664,12 +1839,20 @@ func _matches_string_name_filter(record: Dictionary, filters: Dictionary, key: S
 	return GFVariantData.get_option_string_name(record, key) == expected
 
 
+## 按 last_sequence 降序比较两条记录。
+## [br]
+## @api private
+## [br]
 func _sort_records_desc(a: Variant, b: Variant) -> bool:
 	var left: Dictionary = GFVariantData.as_dictionary(a)
 	var right: Dictionary = GFVariantData.as_dictionary(b)
 	return GFVariantData.get_option_int(left, "last_sequence") > GFVariantData.get_option_int(right, "last_sequence")
 
 
+## 正数上限截取数组前段；非正上限或记录数未超限时返回原数组。
+## [br]
+## @api private
+## [br]
 func _limit_records(records: Array[Dictionary], limit: int) -> Array[Dictionary]:
 	if limit <= 0 or records.size() <= limit:
 		return records
@@ -1679,6 +1862,11 @@ func _limit_records(records: Array[Dictionary], limit: int) -> Array[Dictionary]
 	return result
 
 
+## 终结操作数超过配置上限时，反复移除 last_sequence 最早的终结操作。
+## 活动操作不会由此修剪。
+## [br]
+## @api private
+## [br]
 func _trim_operations() -> void:
 	while _get_completed_operation_count() > max_completed_operations:
 		var terminal_index: int = _find_oldest_terminal_operation_index()
@@ -1687,6 +1875,10 @@ func _trim_operations() -> void:
 		_operations.remove_at(terminal_index)
 
 
+## 返回终结操作中 last_sequence 最小项的索引；不存在时返回 -1。
+## [br]
+## @api private
+## [br]
 func _find_oldest_terminal_operation_index() -> int:
 	var oldest_index: int = -1
 	var oldest_sequence: int = 0
@@ -1701,6 +1893,10 @@ func _find_oldest_terminal_operation_index() -> int:
 	return oldest_index
 
 
+## 统计所有尚未达到终结状态的操作记录。
+## [br]
+## @api private
+## [br]
 func _get_active_operation_count() -> int:
 	var count: int = 0
 	for operation: Dictionary in _operations:
@@ -1709,6 +1905,10 @@ func _get_active_operation_count() -> int:
 	return count
 
 
+## 统计已达到终结状态的操作记录。
+## [br]
+## @api private
+## [br]
 func _get_completed_operation_count() -> int:
 	var count: int = 0
 	for operation: Dictionary in _operations:
@@ -1717,6 +1917,10 @@ func _get_completed_operation_count() -> int:
 	return count
 
 
+## 结束微秒字段大于零或 state 为 completed/failed/cancelled 时视为终结。
+## [br]
+## @api private
+## [br]
 func _operation_is_terminal(operation: Dictionary) -> bool:
 	if GFVariantData.get_option_int(operation, "ended_ticks_usec", 0) > 0:
 		return true
@@ -1724,6 +1928,10 @@ func _operation_is_terminal(operation: Dictionary) -> bool:
 	return state == &"completed" or state == &"failed" or state == &"cancelled"
 
 
+## 事件数超过 max_incidents 时，移除 last_sequence 最早的条目直至符合上限。
+## [br]
+## @api private
+## [br]
 func _trim_incidents() -> void:
 	while _incidents.size() > max_incidents:
 		var oldest_index: int = _find_oldest_incident_index()
@@ -1732,6 +1940,10 @@ func _trim_incidents() -> void:
 		_incidents.remove_at(oldest_index)
 
 
+## 返回 last_sequence 最小事件的索引；事件数组为空时返回 -1。
+## [br]
+## @api private
+## [br]
 func _find_oldest_incident_index() -> int:
 	var oldest_index: int = -1
 	var oldest_sequence: int = 0
@@ -1746,6 +1958,10 @@ func _find_oldest_incident_index() -> int:
 	return oldest_index
 
 
+## 样本上限不大于零时清空统计表，否则按 last_sequence 移除最旧统计项。
+## [br]
+## @api private
+## [br]
 func _trim_sample_stats() -> void:
 	if max_sample_stats <= 0:
 		_sample_stats.clear()
@@ -1757,6 +1973,10 @@ func _trim_sample_stats() -> void:
 		var _sample_erased: bool = _sample_stats.erase(oldest_sample_id)
 
 
+## 返回 last_sequence 最小且 ID 非空的采样统计 ID；没有可选项时返回空值。
+## [br]
+## @api private
+## [br]
 func _find_oldest_sample_stat_id() -> StringName:
 	var has_oldest: bool = false
 	var oldest_sample_id: StringName = &""
@@ -1774,6 +1994,10 @@ func _find_oldest_sample_stat_id() -> StringName:
 	return oldest_sample_id
 
 
+## 按状态轨迹上限修剪每个操作的 state_trace 并写回记录。
+## [br]
+## @api private
+## [br]
 func _trim_operation_state_traces() -> void:
 	for index: int in range(_operations.size()):
 		var operation: Dictionary = _operations[index]
@@ -1783,6 +2007,10 @@ func _trim_operation_state_traces() -> void:
 		_operations[index] = operation
 
 
+## 修剪每条操作的 phases，并将移除数累加到 dropped_phase_count。
+## [br]
+## @api private
+## [br]
 func _trim_operation_phases() -> void:
 	for index: int in range(_operations.size()):
 		var operation: Dictionary = _operations[index]
@@ -1798,6 +2026,10 @@ func _trim_operation_phases() -> void:
 		_operations[index] = operation
 
 
+## 将阶段数组修剪到配置上限并返回被移除的条目数；非正上限会清空。
+## [br]
+## @api private
+## [br]
 func _trim_phase_history(phases: Array[Dictionary]) -> int:
 	var original_size: int = phases.size()
 	if max_phases_per_operation <= 0:
@@ -1808,6 +2040,10 @@ func _trim_phase_history(phases: Array[Dictionary]) -> int:
 	return original_size - phases.size()
 
 
+## 重新按键数预算归并所有操作、阶段、状态轨迹、事件和样本的 metadata。
+## [br]
+## @api private
+## [br]
 func _trim_all_metadata() -> void:
 	for operation_index: int in range(_operations.size()):
 		var operation: Dictionary = _operations[operation_index]
@@ -1835,6 +2071,10 @@ func _trim_all_metadata() -> void:
 		_sample_stats[sample_id] = stat
 
 
+## 将状态轨迹修剪到配置上限；非正上限会清空全部条目。
+## [br]
+## @api private
+## [br]
 func _trim_state_trace(state_trace: Array[Dictionary]) -> void:
 	if max_state_trace_entries <= 0:
 		state_trace.clear()
@@ -1843,6 +2083,10 @@ func _trim_state_trace(state_trace: Array[Dictionary]) -> void:
 		state_trace.pop_front()
 
 
+## 保留 warning/error/critical 严重度，其他输入归一为 info。
+## [br]
+## @api private
+## [br]
 func _normalize_severity(severity: StringName) -> StringName:
 	match severity:
 		SEVERITY_WARNING, SEVERITY_ERROR, SEVERITY_CRITICAL:
@@ -1851,6 +2095,10 @@ func _normalize_severity(severity: StringName) -> StringName:
 			return SEVERITY_INFO
 
 
+## 保留已知非终结和终结状态；未知值归一为 running。
+## [br]
+## @api private
+## [br]
 func _normalize_state_status(status: StringName) -> StringName:
 	match status:
 		STATE_PENDING, STATE_RUNNING, STATE_WAITING_FOR_USER, STATE_RETRYING, STATE_SUCCEEDED, STATE_FAILED, STATE_CANCELLED:
@@ -1859,14 +2107,26 @@ func _normalize_state_status(status: StringName) -> StringName:
 			return STATE_RUNNING
 
 
+## 成功时返回 completed，失败时返回 failed。
+## [br]
+## @api private
+## [br]
 func _get_default_terminal_operation_state(success: bool) -> StringName:
 	return &"completed" if success else &"failed"
 
 
+## 成功时返回 STATE_SUCCEEDED，失败时返回 STATE_FAILED。
+## [br]
+## @api private
+## [br]
 func _get_default_terminal_state_status(success: bool) -> StringName:
 	return STATE_SUCCEEDED if success else STATE_FAILED
 
 
+## 接受 completed/failed/cancelled 终态，未知值按 success 选择默认终态。
+## [br]
+## @api private
+## [br]
 func _normalize_terminal_operation_state(terminal_state: StringName, success: bool) -> StringName:
 	match terminal_state:
 		&"completed", &"failed", &"cancelled":
@@ -1875,6 +2135,10 @@ func _normalize_terminal_operation_state(terminal_state: StringName, success: bo
 			return _get_default_terminal_operation_state(success)
 
 
+## 接受 succeeded/failed/cancelled 状态，未知值按 success 选择默认状态。
+## [br]
+## @api private
+## [br]
 func _normalize_terminal_state_status(terminal_state_status: StringName, success: bool) -> StringName:
 	match terminal_state_status:
 		STATE_SUCCEEDED, STATE_FAILED, STATE_CANCELLED:
@@ -1883,6 +2147,10 @@ func _normalize_terminal_state_status(terminal_state_status: StringName, success
 			return _get_default_terminal_state_status(success)
 
 
+## 将严重度映射到 critical/error/warning 或默认 ok 状态文本。
+## [br]
+## @api private
+## [br]
 func _severity_to_status(severity: StringName) -> StringName:
 	match severity:
 		SEVERITY_CRITICAL:
@@ -1895,12 +2163,20 @@ func _severity_to_status(severity: StringName) -> StringName:
 			return &"ok"
 
 
+## 按内部等级取两个状态中优先级较高者；等级相同则保留 left。
+## [br]
+## @api private
+## [br]
 func _max_status(left: StringName, right: StringName) -> StringName:
 	if _status_rank(right) > _status_rank(left):
 		return right
 	return left
 
 
+## 返回 critical、error、warning 的优先级 3、2、1，其他状态返回 0。
+## [br]
+## @api private
+## [br]
 func _status_rank(status: StringName) -> int:
 	match status:
 		&"critical":
@@ -1913,13 +2189,25 @@ func _status_rank(status: StringName) -> int:
 			return 0
 
 
+## 仅在阈值非负且时长达到阈值时将操作判为慢操作。
+## [br]
+## @api private
+## [br]
 func _is_slow_operation_duration(duration_ms: float) -> bool:
 	return slow_operation_threshold_ms >= 0.0 and duration_ms >= slow_operation_threshold_ms
 
 
+## 将 Unix 秒时间戳转换为带时区偏移的日期时间文本。
+## [br]
+## @api private
+## [br]
 func _datetime_from_unix(timestamp_unix: float) -> String:
 	return Time.get_datetime_string_from_unix_time(int(timestamp_unix), true)
 
 
+## 将一行文本追加到打包字符串数组。
+## [br]
+## @api private
+## [br]
 func _append_line(lines: PackedStringArray, value: String) -> void:
 	var _appended: bool = lines.append(value)

@@ -67,9 +67,28 @@ var audio_utility: GFAudioUtility = null
 
 # --- 私有变量 ---
 
+## 标记最近一次挂载是否成功且尚未卸载。
+## [br]
+## @api private
+## [br]
 var _mounted: bool = false
+
+## 与 utility 挂载记录配对、供卸载时验证的 token。
+## [br]
+## @api private
+## [br]
 var _mount_token: int = 0
+
+## 最近成功挂载的 bank ID，独立于可变导出属性保存。
+## [br]
+## @api private
+## [br]
 var _mounted_bank_id: StringName = &""
+
+## 最近成功挂载该 bank 的 utility 弱引用。
+## [br]
+## @api private
+## [br]
 var _mounted_utility_ref: WeakRef = null
 
 
@@ -163,12 +182,20 @@ func is_mounted() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 通过已保存弱引用解析当前挂载所用的音频工具。
+## [br]
+## @api private
+## [br]
 func _get_mounted_audio_utility() -> GFAudioUtility:
 	if _mounted_utility_ref == null:
 		return null
 	return _variant_to_audio_utility(_mounted_utility_ref.get_ref())
 
 
+## 优先返回显式指定的 utility，否则从全局架构查找音频 utility。
+## [br]
+## @api private
+## [br]
 func _get_audio_utility() -> GFAudioUtility:
 	if audio_utility != null:
 		return audio_utility
@@ -178,6 +205,10 @@ func _get_audio_utility() -> GFAudioUtility:
 	return _variant_to_audio_utility(architecture.get_utility(GFAudioUtility))
 
 
+## 将 Variant 收窄为 GFAudioUtility，不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_audio_utility(value: Variant) -> GFAudioUtility:
 	if value is GFAudioUtility:
 		var utility: GFAudioUtility = value

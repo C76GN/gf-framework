@@ -15,16 +15,30 @@ extends RefCounted
 ## [br]
 ## @api framework_internal
 const GFBindBuilderBase = preload("res://addons/gf/kernel/core/gf_bind_builder.gd")
+
+## required binding plan 的脚本依赖。
+## [br]
+## @api private
 const _GF_BINDING_PLAN_SCRIPT = preload("res://addons/gf/kernel/core/gf_binding_plan.gd")
 
 
 # --- 私有变量 ---
 
+## 此 Binder 为其创建构建器与 binding plan 所使用的 Architecture。
+## [br]
+## @api private
 var _architecture: GFArchitecture = null
 
 
 # --- Godot 生命周期方法 ---
 
+## 保存创建 Binder 的架构，后续 builder 与计划沿用此目标；不自行初始化架构。
+## [br]
+## @api framework_internal
+## [br]
+## @param architecture: 通过架构装配入口传入的目标架构。
+## [br]
+## @return 无返回值。
 func _init(architecture: GFArchitecture) -> void:
 	_architecture = architecture
 

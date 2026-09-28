@@ -3,9 +3,20 @@ class_name ProjectLobbyBackend
 extends GFNetworkLobbyBackend
 
 
+# --- 私有变量 ---
+
+## 借用项目注入的 SDK 对象，派发前验证实例仍有效；close 在停止外部回调后清空引用。
+## [br]
+## @api private
 var _provider: Object = null
+
+## 保存 provider 调用 ID 到操作句柄的关联，派发前写入，终态确认时消费以拒绝重复通知。
+## [br]
+## @api private
 var _calls: Dictionary = {}
 
+
+# --- 公共方法 ---
 
 func configure_provider(provider: Object) -> bool:
 	if not is_instance_valid(provider):
@@ -13,34 +24,6 @@ func configure_provider(provider: Object) -> bool:
 	_provider = provider
 	backend_id = &"project.sample_lobby"
 	return true
-
-
-func _dispatch_operation(
-	request: GFNetworkLobbyOperationRequest,
-	handle: GFNetworkLobbyOperationHandle
-) -> bool:
-	if not is_instance_valid(_provider):
-		return false
-	var provider_call_id: String = String(request.request_id)
-	_calls[provider_call_id] = handle
-	match request.operation:
-		GFNetworkLobbyOperationRequest.OP_CREATE_LOBBY:
-			# Invoke provider create with request.provider_options.
-			return true
-		GFNetworkLobbyOperationRequest.OP_QUERY_LOBBIES:
-			# Translate request.query without changing project matchmaking policy.
-			return true
-		GFNetworkLobbyOperationRequest.OP_JOIN_LOBBY:
-			# Invoke provider join with request.lobby_id.
-			return true
-		GFNetworkLobbyOperationRequest.OP_LEAVE_LOBBY:
-			return true
-		GFNetworkLobbyOperationRequest.OP_SET_LOBBY_METADATA:
-			return true
-		GFNetworkLobbyOperationRequest.OP_SET_MEMBER_METADATA:
-			return true
-	var _erased: bool = _calls.erase(provider_call_id)
-	return false
 
 
 func on_provider_lobby_succeeded(
@@ -76,6 +59,42 @@ func on_provider_failed(
 		)
 
 
+func on_provider_cancelled(provider_call_id: String) -> void:
+	var handle: GFNetworkLobbyOperationHandle = _take_handle(provider_call_id)
+	if handle != null:
+		var _released: bool = _release_operation(handle)
+
+
+# --- 可重写钩子 / 虚方法 ---
+
+func _dispatch_operation(
+	request: GFNetworkLobbyOperationRequest,
+	handle: GFNetworkLobbyOperationHandle
+) -> bool:
+	if not is_instance_valid(_provider):
+		return false
+	var provider_call_id: String = String(request.request_id)
+	_calls[provider_call_id] = handle
+	match request.operation:
+		GFNetworkLobbyOperationRequest.OP_CREATE_LOBBY:
+			# Invoke provider create with request.provider_options.
+			return true
+		GFNetworkLobbyOperationRequest.OP_QUERY_LOBBIES:
+			# Translate request.query without changing project matchmaking policy.
+			return true
+		GFNetworkLobbyOperationRequest.OP_JOIN_LOBBY:
+			# Invoke provider join with request.lobby_id.
+			return true
+		GFNetworkLobbyOperationRequest.OP_LEAVE_LOBBY:
+			return true
+		GFNetworkLobbyOperationRequest.OP_SET_LOBBY_METADATA:
+			return true
+		GFNetworkLobbyOperationRequest.OP_SET_MEMBER_METADATA:
+			return true
+	var _erased: bool = _calls.erase(provider_call_id)
+	return false
+
+
 func _cancel_operation(
 	handle: GFNetworkLobbyOperationHandle,
 	_reason: StringName
@@ -85,12 +104,6 @@ func _cancel_operation(
 	# Request provider cancellation, but keep the request lease until confirmation.
 
 
-func on_provider_cancelled(provider_call_id: String) -> void:
-	var handle: GFNetworkLobbyOperationHandle = _take_handle(provider_call_id)
-	if handle != null:
-		var _released: bool = _release_operation(handle)
-
-
 func _close() -> void:
 	# Before clearing state: stop callback ingress, request cancellation once,
 	# detach callbacks, and join Backend-owned workers within a bounded timeout.
@@ -98,6 +111,11 @@ func _close() -> void:
 	_provider = null
 
 
+# --- 私有/辅助方法 ---
+
+## 消费调用 ID 的映射并返回有效类型的操作句柄；未知或已消费 ID 返回 null。
+## [br]
+## @api private
 func _take_handle(provider_call_id: String) -> GFNetworkLobbyOperationHandle:
 	var value: Variant = GFVariantData.get_option_value(_calls, provider_call_id)
 	var _erased: bool = _calls.erase(provider_call_id)

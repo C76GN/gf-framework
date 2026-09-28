@@ -263,6 +263,9 @@ func describe() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 创建初始校验报告并清零问题计数。
+## [br]
+## @api private
 func _make_report() -> Dictionary:
 	return {
 		"ok": true,
@@ -278,6 +281,9 @@ func _make_report() -> Dictionary:
 	}
 
 
+## 转换输入副本中的已声明字段，并按配置把失败记为错误或警告。
+## [br]
+## @api private
 func _coerce_values_for_validation(values: Dictionary, report: Dictionary) -> Dictionary:
 	var result: Dictionary = _normalize_keys(values)
 	for entry: GFBlackboardEntry in entries:
@@ -306,6 +312,9 @@ func _coerce_values_for_validation(values: Dictionary, report: Dictionary) -> Di
 	return result
 
 
+## 转换字段值；转换失败时返回输入值的 Variant 副本。
+## [br]
+## @api private
 func _coerce_value_or_original(entry: GFBlackboardEntry, source_value: Variant) -> Variant:
 	var coerce_result: Dictionary = entry.try_coerce_value(source_value)
 	if GFVariantData.get_option_bool(coerce_result, "ok", false):
@@ -313,6 +322,9 @@ func _coerce_value_or_original(entry: GFBlackboardEntry, source_value: Variant) 
 	return GFVariantData.duplicate_variant(source_value)
 
 
+## 将输入字典键规范为 StringName，并复制各字段值。
+## [br]
+## @api private
 func _normalize_keys(values: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for key_variant: Variant in values.keys():
@@ -320,6 +332,9 @@ func _normalize_keys(values: Dictionary) -> Dictionary:
 	return result
 
 
+## 将 schema 标识和字段键写入共享校验报告的问题列表。
+## [br]
+## @api private
 func _append_issue(report: Dictionary, severity: String, kind: String, entry_key: StringName, message: String) -> void:
 	var _issue: Dictionary = GFValidationReportDictionary.append_issue(report, severity, StringName(kind), message, {
 		"key": String(entry_key),
@@ -327,6 +342,9 @@ func _append_issue(report: Dictionary, severity: String, kind: String, entry_key
 	})
 
 
+## 返回各类 schema 校验问题对应的建议操作文本。
+## [br]
+## @api private
 func _get_validation_next_actions() -> Dictionary:
 	return {
 		"null_entry": "Remove the null entry or replace it with a valid GFBlackboardEntry resource.",
@@ -340,6 +358,9 @@ func _get_validation_next_actions() -> Dictionary:
 	}
 
 
+## 尝试追加字符串；追加成功后结束辅助方法。
+## [br]
+## @api private
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:

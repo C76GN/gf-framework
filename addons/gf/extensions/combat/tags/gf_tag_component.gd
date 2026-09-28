@@ -26,6 +26,9 @@ signal tag_changed(tag_name: StringName, count: int)
 
 # --- 私有变量 ---
 
+## 按标签名保存当前层数；层数降至零时会移除对应项。
+## [br]
+## @api private
 var _tags: Dictionary = {}
 
 

@@ -258,6 +258,10 @@ static func from_dictionary(data: Dictionary) -> GFResourceIdentity:
 
 # --- 私有/辅助方法 ---
 
+## 规范化路径，并在 uid:// 可解析时返回其资源路径。
+## [br]
+## @api private
+## [br]
 static func _resolve_canonical_path(path: String) -> String:
 	var normalized_path: String = GFPathTools.normalize_resource_path(path)
 	if normalized_path.begins_with("uid://"):
@@ -267,6 +271,10 @@ static func _resolve_canonical_path(path: String) -> String:
 	return normalized_path
 
 
+## 保留输入 UID 路径，或从 canonical resource path 查询 UID。
+## [br]
+## @api private
+## [br]
 static func _resolve_uid_path(raw_resource_path: String, canonical_resource_path: String) -> String:
 	var normalized_raw_path: String = GFPathTools.normalize_resource_path(raw_resource_path)
 	if normalized_raw_path.begins_with("uid://"):
@@ -281,6 +289,10 @@ static func _resolve_uid_path(raw_resource_path: String, canonical_resource_path
 	return ResourceUID.id_to_text(uid)
 
 
+## 将有效 UID 文本解析为其登记的资源路径。
+## [br]
+## @api private
+## [br]
 static func _get_resource_path_from_uid(uid_text: String) -> String:
 	if uid_text.is_empty():
 		return ""
@@ -290,6 +302,10 @@ static func _get_resource_path_from_uid(uid_text: String) -> String:
 	return ResourceUID.get_id_path(uid)
 
 
+## 读取 `://` 前的 scheme 并转换为小写 StringName。
+## [br]
+## @api private
+## [br]
 static func _get_scheme(path: String) -> StringName:
 	var separator_index: int = path.find("://")
 	if separator_index <= 0:
@@ -298,12 +314,20 @@ static func _get_scheme(path: String) -> StringName:
 	return StringName(scheme_text)
 
 
+## 返回小写扩展名；空路径和 uid:// 路径返回空字符串。
+## [br]
+## @api private
+## [br]
 static func _get_extension(path: String) -> String:
 	if path.is_empty() or path.begins_with("uid://"):
 		return ""
 	return path.get_extension().to_lower()
 
 
+## 依次以 UID、规范化路径或资源键生成缓存键。
+## [br]
+## @api private
+## [br]
 func _make_cache_key() -> String:
 	if not uid_path.is_empty():
 		return uid_path
@@ -314,6 +338,10 @@ func _make_cache_key() -> String:
 	return ""
 
 
+## 启用存在性检查时查询 ResourceLoader 或文件系统中的路径。
+## [br]
+## @api private
+## [br]
 static func _resource_exists(canonical_resource_path: String, identity_uid_path: String, check_exists: bool) -> bool:
 	if not check_exists:
 		return false

@@ -88,15 +88,64 @@ const KEY_RESOURCE_PATH: String = "resource_path"
 ## @since 6.0.0
 const KEY_PROPERTIES: String = "properties"
 
+## 编码节点中直接 Variant 值的 kind 标记。
+## [br]
+## @api private
+## [br]
 const _KIND_VALUE: StringName = &"value"
+
+## 编码节点中数组的 kind 标记。
+## [br]
+## @api private
+## [br]
 const _KIND_ARRAY: StringName = &"array"
+
+## 编码节点中字典的 kind 标记。
+## [br]
+## @api private
+## [br]
 const _KIND_DICTIONARY: StringName = &"dictionary"
+
+## 编码节点中对象属性图的 kind 标记。
+## [br]
+## @api private
+## [br]
 const _KIND_OBJECT: StringName = &"object"
+
+## 编码节点中对已记录对象的引用标记。
+## [br]
+## @api private
+## [br]
 const _KIND_OBJECT_REFERENCE: StringName = &"object_reference"
+
+## 编码节点中外部 Resource 路径的 kind 标记。
+## [br]
+## @api private
+## [br]
 const _KIND_EXTERNAL_RESOURCE: StringName = &"external_resource"
+
+## 无效对象编号哨兵，用于对象编号缺失时的回退值。
+## [br]
+## @api private
+## [br]
 const _INVALID_OBJECT_ID: int = -1
+
+## 编码数组的类型元数据字段名。
+## [br]
+## @api private
+## [br]
 const _KEY_ARRAY_TYPE: String = "array_type"
+
+## 编码字典键类型元数据字段名。
+## [br]
+## @api private
+## [br]
 const _KEY_DICTIONARY_KEY_TYPE: String = "dictionary_key_type"
+
+## 编码字典值类型元数据字段名。
+## [br]
+## @api private
+## [br]
 const _KEY_DICTIONARY_VALUE_TYPE: String = "dictionary_value_type"
 
 
@@ -184,6 +233,10 @@ static func make_resource_policy() -> GFSafeResourceCodecPolicy:
 
 # --- 私有/辅助方法 ---
 
+## 按节点类型递归编码 Variant 图，并共享深度、数量、对象编号和问题状态。
+## [br]
+## @api private
+## [br]
 static func _encode_recursive(
 	value: Variant,
 	policy: GFSafeResourceCodecPolicy,
@@ -273,6 +326,10 @@ static func _encode_recursive(
 	return _make_failure(_get_first_issue(state))
 
 
+## 检查对象类与脚本策略，按外部资源、重复引用或对象属性图形式编码对象。
+## [br]
+## @api private
+## [br]
 static func _encode_object(
 	object_value: Object,
 	policy: GFSafeResourceCodecPolicy,
@@ -348,6 +405,10 @@ static func _encode_object(
 	})
 
 
+## 根据 kind 分派解码值、容器、对象、对象引用或外部资源节点。
+## [br]
+## @api private
+## [br]
 static func _decode_recursive(
 	data: Dictionary,
 	policy: GFSafeResourceCodecPolicy,
@@ -389,6 +450,10 @@ static func _decode_recursive(
 	return _make_decoded_failure(_get_first_issue(state))
 
 
+## 编码 typed 容器的 Variant 类型、类名和脚本路径，并校验脚本及类 allowlist。
+## [br]
+## @api private
+## [br]
 static func _encode_container_type(
 	typed_builtin: int,
 	typed_class_name: StringName,
@@ -429,6 +494,10 @@ static func _encode_container_type(
 	})
 
 
+## 校验数组节点形状与预算，递归解码元素并按元数据恢复 typed Array。
+## [br]
+## @api private
+## [br]
 static func _decode_array(
 	data: Dictionary,
 	policy: GFSafeResourceCodecPolicy,
@@ -477,6 +546,10 @@ static func _decode_array(
 	return { "ok": true, "value": typed_array, "error": "" }
 
 
+## 校验字典条目和键值类型元数据，拒绝重复键后递归解码并恢复 typed Dictionary。
+## [br]
+## @api private
+## [br]
 static func _decode_dictionary(
 	data: Dictionary,
 	policy: GFSafeResourceCodecPolicy,
@@ -565,6 +638,10 @@ static func _decode_dictionary(
 	return { "ok": true, "value": typed_dictionary, "error": "" }
 
 
+## 读取并验证 typed 容器元数据；未声明元数据时返回未类型化描述。
+## [br]
+## @api private
+## [br]
 static func _decode_container_type(
 	data: Dictionary,
 	metadata_key: String,
@@ -636,6 +713,10 @@ static func _decode_container_type(
 	}
 
 
+## 按已解码的容器类型描述校验单个元素或键值，未类型化时允许通过。
+## [br]
+## @api private
+## [br]
 static func _value_matches_container_type(value: Variant, type_result: Dictionary) -> bool:
 	if not GFVariantData.get_option_bool(type_result, "typed"):
 		return true
@@ -657,6 +738,10 @@ static func _value_matches_container_type(value: Variant, type_result: Dictionar
 	return class_id.is_empty() or object_value.is_class(class_id)
 
 
+## 空类名视为不额外限制；否则要求匹配脚本全局类名或实例基类名。
+## [br]
+## @api private
+## [br]
 static func _container_class_matches_script(class_id: String, script_value: Script) -> bool:
 	if class_id.is_empty():
 		return true
@@ -665,6 +750,10 @@ static func _container_class_matches_script(class_id: String, script_value: Scri
 	return class_id == global_name or class_id == base_type
 
 
+## 在类、资源路径和加载选项均获允许且依赖预检通过后加载外部 Resource。
+## [br]
+## @api private
+## [br]
 static func _decode_external_resource(
 	data: Dictionary,
 	policy: GFSafeResourceCodecPolicy,
@@ -705,6 +794,10 @@ static func _decode_external_resource(
 	return { "ok": true, "value": loaded_resource, "error": "" }
 
 
+## 按选项预检外部资源依赖中的脚本路径；默认开启，遇到未允许脚本时登记问题并返回 false。
+## [br]
+## @api private
+## [br]
 static func _preflight_external_resource_dependencies(
 	resource_path: String,
 	policy: GFSafeResourceCodecPolicy,
@@ -729,6 +822,10 @@ static func _preflight_external_resource_dependencies(
 	return true
 
 
+## 从依赖条目中提取首个 res:// 或 user:// 路径；未找到时返回规范化条目。
+## [br]
+## @api private
+## [br]
 static func _extract_dependency_resource_path(dependency_entry: String) -> String:
 	var normalized_entry: String = dependency_entry.strip_edges()
 	if normalized_entry.is_empty():
@@ -741,11 +838,19 @@ static func _extract_dependency_resource_path(dependency_entry: String) -> Strin
 	return normalized_entry
 
 
+## 判断路径扩展名是否为 gd、gdc 或 cs 脚本资源。
+## [br]
+## @api private
+## [br]
 static func _is_script_resource_path(path: String) -> bool:
 	var extension: String = path.get_extension().to_lower()
 	return extension == "gd" or extension == "gdc" or extension == "cs"
 
 
+## 校验对象描述并实例化允许的类，登记对象引用，再按存储属性规则恢复属性值。
+## [br]
+## @api private
+## [br]
 static func _decode_object(
 	data: Dictionary,
 	policy: GFSafeResourceCodecPolicy,
@@ -896,6 +1001,10 @@ static func _decode_object(
 	return { "ok": true, "value": object_instance, "error": "" }
 
 
+## 校验直接值字段及其声明类型与实际 Variant 类型一致后返回该值。
+## [br]
+## @api private
+## [br]
 static func _decode_direct_value(data: Dictionary, state: Dictionary) -> Dictionary:
 	if not data.has(KEY_VALUE):
 		_add_issue(state, &"encoded_shape_invalid", "Encoded direct value must declare a value field.")
@@ -929,6 +1038,10 @@ static func _decode_direct_value(data: Dictionary, state: Dictionary) -> Diction
 	}
 
 
+## 判断 Variant 类型编号是否属于编码器允许直接保存的标量、数学值或 Packed 数组。
+## [br]
+## @api private
+## [br]
 static func _is_direct_value_type(value_type: int) -> bool:
 	return [
 		TYPE_NIL,
@@ -967,6 +1080,10 @@ static func _is_direct_value_type(value_type: int) -> bool:
 	].has(value_type)
 
 
+## 仅选择具有 STORAGE usage 的属性，并排除空名、script 与 resource_path。
+## [br]
+## @api private
+## [br]
 static func _should_encode_property(property_info: Dictionary) -> bool:
 	var property_id: String = GFVariantData.get_option_string(property_info, "name")
 	if property_id.is_empty() or property_id == "script" or property_id == "resource_path":
@@ -975,6 +1092,10 @@ static func _should_encode_property(property_info: Dictionary) -> bool:
 	return (usage & PROPERTY_USAGE_STORAGE) != 0
 
 
+## 按编码时相同的属性筛选规则建立属性名到属性元数据的映射。
+## [br]
+## @api private
+## [br]
 static func _get_decodable_property_names(object_instance: Object) -> Dictionary:
 	var result: Dictionary = {}
 	for property_info_value: Variant in object_instance.get_property_list():
@@ -988,6 +1109,10 @@ static func _get_decodable_property_names(object_instance: Object) -> Dictionary
 	return result
 
 
+## 校验值与属性 Variant 类型、容器类型约束及对象类/脚本声明相符。
+## [br]
+## @api private
+## [br]
 static func _value_matches_decodable_property(
 	value: Variant,
 	property_info: Dictionary,
@@ -1017,6 +1142,10 @@ static func _value_matches_decodable_property(
 	return declared_type.is_empty() or _object_matches_declared_type(object_value, declared_type)
 
 
+## 优先读取 Resource 类型提示；没有非空提示时回退到属性 class_name。
+## [br]
+## @api private
+## [br]
 static func _get_decodable_object_property_type(property_info: Dictionary) -> String:
 	var hint: int = GFVariantData.get_option_int(property_info, "hint", PROPERTY_HINT_NONE)
 	if hint == PROPERTY_HINT_RESOURCE_TYPE:
@@ -1026,6 +1155,10 @@ static func _get_decodable_object_property_type(property_info: Dictionary) -> St
 	return GFVariantData.get_option_string(property_info, "class_name").strip_edges()
 
 
+## 将逗号分隔的声明类型逐项检查，任一候选匹配即可通过。
+## [br]
+## @api private
+## [br]
 static func _object_matches_declared_type(object_value: Object, declared_type: String) -> bool:
 	for candidate_value: String in declared_type.split(",", false):
 		var candidate: String = candidate_value.strip_edges()
@@ -1036,6 +1169,10 @@ static func _object_matches_declared_type(object_value: Object, declared_type: S
 	return false
 
 
+## 检查对象是否属于指定 ClassDB 类，或其脚本继承链是否包含指定名称或资源路径。
+## [br]
+## @api private
+## [br]
 static func _object_matches_single_declared_type(object_value: Object, declared_type: String) -> bool:
 	if ClassDB.class_exists(declared_type) and object_value.is_class(declared_type):
 		return true
@@ -1048,6 +1185,10 @@ static func _object_matches_single_declared_type(object_value: Object, declared_
 	return false
 
 
+## 返回对象脚本资源路径；没有 Resource 脚本时返回空字符串。
+## [br]
+## @api private
+## [br]
 static func _get_object_script_path(object_value: Object) -> String:
 	var script_value: Variant = object_value.get_script()
 	if script_value is Resource:
@@ -1056,12 +1197,20 @@ static func _get_object_script_path(object_value: Object) -> String:
 	return ""
 
 
+## 原样返回非空策略；空值时创建默认策略。
+## [br]
+## @api private
+## [br]
 static func _get_policy(policy: GFSafeResourceCodecPolicy) -> GFSafeResourceCodecPolicy:
 	if policy != null:
 		return policy
 	return GFSafeResourceCodecPolicy.new()
 
 
+## 按相反顺序尝试回写已记录旧属性值，释放仍有效的非 RefCounted 新对象并清空解码跟踪表。
+## [br]
+## @api private
+## [br]
 static func _cleanup_failed_decode(state: Dictionary) -> void:
 	var property_writes: Array = GFVariantData.get_option_array(state, "decoded_property_writes")
 	for index: int in range(property_writes.size() - 1, -1, -1):
@@ -1106,6 +1255,10 @@ static func _cleanup_failed_decode(state: Dictionary) -> void:
 	state["objects"] = {}
 
 
+## 创建一次编解码使用的状态字典，并从选项或策略读取深度与数量上限。
+## [br]
+## @api private
+## [br]
 static func _make_state(policy: GFSafeResourceCodecPolicy, options: Dictionary) -> Dictionary:
 	return {
 		"issues": [],
@@ -1119,6 +1272,10 @@ static func _make_state(policy: GFSafeResourceCodecPolicy, options: Dictionary) 
 	}
 
 
+## 检查递归深度并累计访问节点数，超出对应上限时写入 issue 并返回 false。
+## [br]
+## @api private
+## [br]
 static func _consume_item(state: Dictionary, depth: int, phase: String) -> bool:
 	var max_depth: int = GFVariantData.get_option_int(state, "max_depth", 32)
 	if depth > max_depth:
@@ -1132,6 +1289,10 @@ static func _consume_item(state: Dictionary, depth: int, phase: String) -> bool:
 	return true
 
 
+## 在递归解码容器子项前，确认其预计节点数不超过剩余 max_items 预算。
+## [br]
+## @api private
+## [br]
 static func _preflight_decode_container_cardinality(
 	state: Dictionary,
 	container_size: int,
@@ -1152,6 +1313,10 @@ static func _preflight_decode_container_cardinality(
 	return true
 
 
+## 向编解码状态的 issues 数组追加 kind 与 message 记录。
+## [br]
+## @api private
+## [br]
 static func _add_issue(state: Dictionary, kind: StringName, message: String) -> void:
 	var issues: Array = GFVariantData.get_option_array(state, "issues")
 	issues.append({
@@ -1161,6 +1326,10 @@ static func _add_issue(state: Dictionary, kind: StringName, message: String) -> 
 	state["issues"] = issues
 
 
+## 返回 issues 中首条非空消息；没有可用消息时返回空字符串。
+## [br]
+## @api private
+## [br]
 static func _get_first_issue(state: Dictionary) -> String:
 	for issue_value: Variant in GFVariantData.get_option_array(state, "issues"):
 		var issue: Dictionary = GFVariantData.as_dictionary(issue_value)
@@ -1170,6 +1339,10 @@ static func _get_first_issue(state: Dictionary) -> String:
 	return ""
 
 
+## 将状态中的 issue 逐项深拷贝为 Array[Dictionary]。
+## [br]
+## @api private
+## [br]
 static func _get_state_issues(state: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for issue_value: Variant in GFVariantData.get_option_array(state, "issues"):
@@ -1178,6 +1351,10 @@ static func _get_state_issues(state: Dictionary) -> Array[Dictionary]:
 	return result
 
 
+## 构造编码报告，并复制 data 与 issues；仅当输入成功且没有 issue 时标记 ok。
+## [br]
+## @api private
+## [br]
 static func _make_report(ok: bool, data: Dictionary, error: String, state: Dictionary) -> Dictionary:
 	var issues: Array[Dictionary] = _get_state_issues(state)
 	return {
@@ -1189,6 +1366,10 @@ static func _make_report(ok: bool, data: Dictionary, error: String, state: Dicti
 	}
 
 
+## 构造包含成功标记、data 和空 error 的递归编码结果。
+## [br]
+## @api private
+## [br]
 static func _make_success(data: Dictionary) -> Dictionary:
 	return {
 		"ok": true,
@@ -1197,6 +1378,10 @@ static func _make_success(data: Dictionary) -> Dictionary:
 	}
 
 
+## 构造失败的递归编码结果，data 使用空字典。
+## [br]
+## @api private
+## [br]
 static func _make_failure(error: String) -> Dictionary:
 	return {
 		"ok": false,
@@ -1205,6 +1390,10 @@ static func _make_failure(error: String) -> Dictionary:
 	}
 
 
+## 构造失败的递归解码结果，value 为 null。
+## [br]
+## @api private
+## [br]
 static func _make_decoded_failure(error: String) -> Dictionary:
 	return {
 		"ok": false,

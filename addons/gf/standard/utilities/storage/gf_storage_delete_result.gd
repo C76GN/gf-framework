@@ -61,12 +61,46 @@ enum FamilyMember {
 
 # --- 私有变量 ---
 
+## 标记框架是否已配置合法删除终态。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
+
+## 删除终态对应的 Godot Error 码。
+## [br]
+## @api private
+## [br]
 var _error_code: Error = FAILED
+
+## 删除成功或失败阶段分类。
+## [br]
+## @api private
+## [br]
 var _failure_kind: FailureKind = FailureKind.IO_FAILED
+
+## 删除开始时存在的可变 family 成员数量。
+## [br]
+## @api private
+## [br]
 var _existing_member_count: int = 0
+
+## 本次请求已删除的 family 成员数量。
+## [br]
+## @api private
+## [br]
 var _removed_member_count: int = 0
+
+## 本次请求终态仍存在的 family 成员数量。
+## [br]
+## @api private
+## [br]
 var _remaining_member_count: int = 0
+
+## 阻止删除继续执行的有界成员分类。
+## [br]
+## @api private
+## [br]
 var _failed_member: FamilyMember = FamilyMember.NONE
 
 
@@ -255,6 +289,10 @@ func is_configured_for_framework() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 校验枚举、成员计数闭合关系及各 FailureKind 对应的 Error/成员状态组合。
+## [br]
+## @api private
+## [br]
 static func _is_valid_configuration(
 	error_code: Error,
 	failure_kind: FailureKind,
@@ -341,6 +379,10 @@ static func _is_valid_configuration(
 	return false
 
 
+## 判断成员计数全为零且失败成员为 NONE 的未执行状态。
+## [br]
+## @api private
+## [br]
 static func _has_no_physical_work(
 	existing_member_count: int,
 	removed_member_count: int,

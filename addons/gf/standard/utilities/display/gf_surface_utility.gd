@@ -34,9 +34,28 @@ enum CacheMode {
 ## @api public
 const DEFAULT_AUTO_CACHE_SIZE: int = 8
 
+## 表示传入 face index 小于零的报告原因。
+## [br]
+## @api private
+## [br]
 const _REASON_INVALID_FACE_INDEX: String = "invalid_face_index"
+
+## 表示无法从来源对象解析 MeshInstance3D 的报告原因。
+## [br]
+## @api private
+## [br]
 const _REASON_MESH_INSTANCE_NOT_FOUND: String = "mesh_instance_not_found"
+
+## 表示来源对象没有可用 Mesh 的报告原因。
+## [br]
+## @api private
+## [br]
 const _REASON_MESH_NOT_FOUND: String = "mesh_not_found"
+
+## 表示 face index 未落入任何 surface 的报告原因。
+## [br]
+## @api private
+## [br]
 const _REASON_SURFACE_NOT_FOUND: String = "surface_not_found"
 
 
@@ -55,8 +74,22 @@ var auto_cache_size: int = DEFAULT_AUTO_CACHE_SIZE
 
 # --- 私有变量 ---
 
+## 按 Mesh RID 缓存各 surface 的面数数组。
+## [br]
+## @api private
+## [br]
 var _surface_face_counts_by_mesh: Dictionary = {}
+
+## 按 Mesh RID 缓存用于检测 surface 几何变化的签名数组。
+## [br]
+## @api private
+## [br]
 var _surface_face_count_signatures_by_mesh: Dictionary = {}
+
+## 记录缓存最近使用顺序，供自动缓存淘汰最早条目。
+## [br]
+## @api private
+## [br]
 var _mesh_cache_order: Array[int] = []
 
 
@@ -301,6 +334,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 从 MeshInstance3D 或节点本身、父级、子级及兄弟节点解析带 Mesh 的实例。
+## [br]
+## @api private
+## [br]
 func _resolve_mesh_instance(source: Object) -> MeshInstance3D:
 	if source is MeshInstance3D:
 		var direct_mesh_instance: MeshInstance3D = source
@@ -329,6 +366,10 @@ func _resolve_mesh_instance(source: Object) -> MeshInstance3D:
 	return null
 
 
+## 直接接受 Mesh，或从来源对象解析其 MeshInstance3D 的 Mesh。
+## [br]
+## @api private
+## [br]
 func _resolve_mesh(source: Object) -> Mesh:
 	if source is Mesh:
 		var mesh: Mesh = source
@@ -340,6 +381,10 @@ func _resolve_mesh(source: Object) -> Mesh:
 	return null
 
 
+## 按 Mesh 各 surface 的面数将全局 face index 映射到 surface 索引。
+## [br]
+## @api private
+## [br]
 func _get_surface_index_for_mesh(mesh: Mesh, face_index: int) -> int:
 	if face_index < 0 or mesh == null:
 		return -1
@@ -348,6 +393,10 @@ func _get_surface_index_for_mesh(mesh: Mesh, face_index: int) -> int:
 	return _get_surface_index_from_face_counts(face_counts, face_index)
 
 
+## 根据各 surface 的面数顺序查找 face index 所属的 surface。
+## [br]
+## @api private
+## [br]
 func _get_surface_index_from_face_counts(face_counts: Array[int], face_index: int) -> int:
 	var remaining_face_index: int = face_index
 	for surface_index: int in range(face_counts.size()):
@@ -358,6 +407,10 @@ func _get_surface_index_from_face_counts(face_counts: Array[int], face_index: in
 	return -1
 
 
+## 复用签名仍匹配的缓存，否则重算面数并按自动模式更新缓存。
+## [br]
+## @api private
+## [br]
 func _get_surface_face_counts(mesh: Mesh) -> Array[int]:
 	var cache_key: int = _get_mesh_cache_key(mesh)
 	var signature: Array[int] = _compute_surface_face_count_signature(mesh)
@@ -371,14 +424,26 @@ func _get_surface_face_counts(mesh: Mesh) -> Array[int]:
 	return face_counts
 
 
+## 从 surface 面数数据中提取每个 surface 的 face count。
+## [br]
+## @api private
+## [br]
 func _compute_surface_face_counts(mesh: Mesh) -> Array[int]:
 	return GFVariantData.get_option_int_array(_compute_surface_face_count_data(mesh), "face_counts")
 
 
+## 从 surface 面数数据中提取用于缓存校验的签名。
+## [br]
+## @api private
+## [br]
 func _compute_surface_face_count_signature(mesh: Mesh) -> Array[int]:
 	return GFVariantData.get_option_int_array(_compute_surface_face_count_data(mesh), "signature")
 
 
+## 汇总各 surface 的图元类型、索引数、顶点数、面数及缓存签名。
+## [br]
+## @api private
+## [br]
 func _compute_surface_face_count_data(mesh: Mesh) -> Dictionary:
 	var face_counts: Array[int] = []
 	var signature: Array[int] = [mesh.get_surface_count()]
@@ -397,6 +462,10 @@ func _compute_surface_face_count_data(mesh: Mesh) -> Dictionary:
 	}
 
 
+## 在缓存策略允许时复制并保存面数与签名，更新使用顺序并裁剪自动缓存。
+## [br]
+## @api private
+## [br]
 func _store_surface_face_counts(
 	cache_key: int,
 	face_counts: Array[int],
@@ -417,11 +486,19 @@ func _store_surface_face_counts(
 		_trim_auto_cache()
 
 
+## 将缓存键移动到最近使用顺序的末尾。
+## [br]
+## @api private
+## [br]
 func _touch_mesh_cache_key(cache_key: int) -> void:
 	_mesh_cache_order.erase(cache_key)
 	_mesh_cache_order.append(cache_key)
 
 
+## 保持容量至少为一，并在自动模式下从最早使用项开始淘汰缓存。
+## [br]
+## @api private
+## [br]
 func _trim_auto_cache() -> void:
 	auto_cache_size = maxi(auto_cache_size, 1)
 	while cache_mode == CacheMode.AUTOMATIC and _mesh_cache_order.size() > auto_cache_size:
@@ -430,6 +507,10 @@ func _trim_auto_cache() -> void:
 		var _signature_erased: bool = _surface_face_count_signatures_by_mesh.erase(oldest_key)
 
 
+## 比较缓存的几何签名与当前 Mesh 签名。
+## [br]
+## @api private
+## [br]
 func _cached_surface_signature_matches(cache_key: int, signature: Array[int]) -> bool:
 	var cached_signature: Array[int] = GFVariantData.get_option_int_array(
 		_surface_face_count_signatures_by_mesh,
@@ -438,6 +519,10 @@ func _cached_surface_signature_matches(cache_key: int, signature: Array[int]) ->
 	return cached_signature == signature
 
 
+## 按三角形或三角带规则计算面数，其它图元类型交由 MeshDataTool。
+## [br]
+## @api private
+## [br]
 func _get_surface_face_count(
 	mesh: Mesh,
 	surface_index: int,
@@ -455,6 +540,10 @@ func _get_surface_face_count(
 	return _get_surface_face_count_with_mesh_data_tool(mesh, surface_index)
 
 
+## 读取 ArrayMesh surface 图元类型，其他 Mesh 按三角形处理。
+## [br]
+## @api private
+## [br]
 func _get_surface_primitive_type(mesh: Mesh, surface_index: int) -> int:
 	if mesh is ArrayMesh:
 		var array_mesh: ArrayMesh = mesh
@@ -462,6 +551,10 @@ func _get_surface_primitive_type(mesh: Mesh, surface_index: int) -> int:
 	return Mesh.PRIMITIVE_TRIANGLES
 
 
+## 从 surface 数组中读取 PackedInt32Array 索引数。
+## [br]
+## @api private
+## [br]
 func _get_surface_index_count(arrays: Array) -> int:
 	if arrays.size() <= Mesh.ARRAY_INDEX:
 		return 0
@@ -472,6 +565,10 @@ func _get_surface_index_count(arrays: Array) -> int:
 	return 0
 
 
+## 从 surface 数组中读取 PackedVector3Array 顶点数。
+## [br]
+## @api private
+## [br]
 func _get_surface_vertex_count(arrays: Array) -> int:
 	if arrays.size() <= Mesh.ARRAY_VERTEX:
 		return 0
@@ -482,6 +579,10 @@ func _get_surface_vertex_count(arrays: Array) -> int:
 	return 0
 
 
+## 对 ArrayMesh 使用 MeshDataTool 取得该 surface 的面数。
+## [br]
+## @api private
+## [br]
 func _get_surface_face_count_with_mesh_data_tool(mesh: Mesh, surface_index: int) -> int:
 	if not mesh is ArrayMesh:
 		return 0
@@ -494,6 +595,10 @@ func _get_surface_face_count_with_mesh_data_tool(mesh: Mesh, surface_index: int)
 	return mesh_data_tool.get_face_count()
 
 
+## 生成包含图元、顶点/索引/面数及材质摘要的单 surface 报告。
+## [br]
+## @api private
+## [br]
 func _describe_mesh_surface(mesh: Mesh, surface_index: int) -> Dictionary:
 	var arrays: Array = mesh.surface_get_arrays(surface_index)
 	var primitive_type: int = _get_surface_primitive_type(mesh, surface_index)
@@ -516,6 +621,10 @@ func _describe_mesh_surface(mesh: Mesh, surface_index: int) -> Dictionary:
 	}
 
 
+## 生成 Mesh 结构化报告，并在提供 Mesh 时附加 AABB 信息。
+## [br]
+## @api private
+## [br]
 func _make_mesh_report(
 	ok: bool,
 	reason: String,
@@ -546,6 +655,10 @@ func _make_mesh_report(
 	}
 
 
+## 将 Godot Mesh 图元常量映射为稳定的名称。
+## [br]
+## @api private
+## [br]
 func _get_primitive_name(primitive_type: int) -> StringName:
 	match primitive_type:
 		Mesh.PRIMITIVE_POINTS:
@@ -562,6 +675,10 @@ func _get_primitive_name(primitive_type: int) -> StringName:
 			return &"unknown"
 
 
+## 生成命中 surface 报告及基础、覆盖、active 材质摘要字段。
+## [br]
+## @api private
+## [br]
 func _make_surface_hit_report(
 	ok: bool,
 	reason: String,
@@ -594,6 +711,10 @@ func _make_surface_hit_report(
 	}
 
 
+## 生成不含 Resource 引用的 JSON-safe 资源摘要，空资源使用空字段。
+## [br]
+## @api private
+## [br]
 func _make_resource_summary(resource: Resource) -> Dictionary:
 	if resource == null:
 		return {
@@ -612,24 +733,40 @@ func _make_resource_summary(resource: Resource) -> Dictionary:
 	}
 
 
+## 返回资源名称；资源为空时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _get_resource_name(resource: Resource) -> String:
 	if resource == null:
 		return ""
 	return String(resource.resource_name)
 
 
+## 返回资源路径；资源为空时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _get_resource_path(resource: Resource) -> String:
 	if resource == null:
 		return ""
 	return resource.resource_path
 
 
+## 返回资源的 Godot 类名；资源为空时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _get_resource_type(resource: Resource) -> String:
 	if resource == null:
 		return ""
 	return resource.get_class()
 
 
+## 将 Node Variant 转换为 Node，其余值返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_node(value: Variant) -> Node:
 	if value is Node:
 		var node: Node = value
@@ -637,6 +774,10 @@ func _variant_to_node(value: Variant) -> Node:
 	return null
 
 
+## 仅接受已设置 Mesh 的 MeshInstance3D Variant。
+## [br]
+## @api private
+## [br]
 func _variant_to_mesh_instance_with_mesh(value: Variant) -> MeshInstance3D:
 	if value is MeshInstance3D:
 		var mesh_instance: MeshInstance3D = value
@@ -645,6 +786,10 @@ func _variant_to_mesh_instance_with_mesh(value: Variant) -> MeshInstance3D:
 	return null
 
 
+## 使用 Mesh RID 标识缓存项；空 Mesh 返回零键。
+## [br]
+## @api private
+## [br]
 func _get_mesh_cache_key(mesh: Mesh) -> int:
 	if mesh == null:
 		return 0

@@ -78,6 +78,10 @@ const DEFAULT_BEATS_PER_MEASURE: int = 4
 ## @api public
 const DEFAULT_MAX_EMITTED_STEPS_PER_UPDATE: int = 64
 
+## 有限 BPM 经清理后的最小允许值。
+## [br]
+## @api private
+## [br]
 const _MIN_BPM: float = 0.001
 
 
@@ -123,9 +127,28 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 标记是否已保存可供查询的节拍位置快照。
+## [br]
+## @api private
+## [br]
 var _has_last_position: bool = false
+
+## 最近快照中记录的位置秒数。
+## [br]
+## @api private
+## [br]
 var _last_position_seconds: float = 0.0
+
+## 最近快照对应的节拍索引；尚未更新时为 -1。
+## [br]
+## @api private
+## [br]
 var _last_beat_index: int = -1
+
+## 深拷贝保存的最近一次节拍快照。
+## [br]
+## @api private
+## [br]
 var _last_snapshot: Dictionary = {}
 
 
@@ -430,6 +453,10 @@ func has_last_position() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 深拷贝快照并同步最近位置、节拍索引和可用标志。
+## [br]
+## @api private
+## [br]
 func _store_snapshot(snapshot: Dictionary) -> void:
 	_last_snapshot = snapshot.duplicate(true)
 	_last_position_seconds = GFVariantData.get_option_float(snapshot, "position_seconds")
@@ -437,6 +464,10 @@ func _store_snapshot(snapshot: Dictionary) -> void:
 	_has_last_position = true
 
 
+## 按 beat 索引递增发出跨越的节拍和小节事件，并服从单次更新发出上限。
+## [br]
+## @api private
+## [br]
 func _emit_crossed_boundaries(
 	first_beat_index: int,
 	last_beat_index: int,
@@ -469,6 +500,10 @@ func _emit_crossed_boundaries(
 		emitted_count += 1
 
 
+## 将非负 beat 索引转换为扣除 offset 且不低于零的时间位置。
+## [br]
+## @api private
+## [br]
 func _beat_to_position_seconds_for_timing(
 	beat_index: int,
 	seconds_per_beat: float,
@@ -477,15 +512,27 @@ func _beat_to_position_seconds_for_timing(
 	return maxf(float(maxi(beat_index, 0)) * maxf(seconds_per_beat, 0.0) - snapshot_offset_seconds, 0.0)
 
 
+## 判断 Variant 是否为整数或浮点数，不接受布尔值和数值文本。
+## [br]
+## @api private
+## [br]
 func _is_number(value: Variant) -> bool:
 	return value is int or value is float
 
 
+## 将非有限 BPM 回退到默认值，并把有限值夹在最小 BPM 以上。
+## [br]
+## @api private
+## [br]
 func _sanitize_bpm(value: float) -> float:
 	if is_nan(value) or is_inf(value):
 		return DEFAULT_BPM
 	return maxf(value, _MIN_BPM)
 
 
+## 将 NaN 或无穷值回退到指定默认值，其余数值原样返回。
+## [br]
+## @api private
+## [br]
 func _sanitize_finite(value: float, default_value: float) -> float:
 	return default_value if is_nan(value) or is_inf(value) else value

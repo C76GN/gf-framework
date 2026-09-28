@@ -576,6 +576,9 @@ static func remove_node(target: Node) -> GFCallableAction:
 
 # --- 私有/辅助方法 ---
 
+## 将选项字典中的时间、循环、播放控制和单步属性写入 Tween 配置。
+## [br]
+## @api private
 static func _apply_tween_options(
 	config: GFTweenActionConfig,
 	step: GFTweenActionStep,
@@ -620,6 +623,9 @@ static func _apply_tween_options(
 		)
 
 
+## 将 Variant 收窄为 Node；类型不符时返回 null。
+## [br]
+## @api private
 static func _get_node_value(value: Variant) -> Node:
 	if value is Node:
 		var node: Node = value
@@ -627,6 +633,9 @@ static func _get_node_value(value: Variant) -> Node:
 	return null
 
 
+## 保留 NodePath 值；其他值转为文本路径，空文本时返回默认路径。
+## [br]
+## @api private
 static func _to_node_path(value: Variant, default_value: NodePath) -> NodePath:
 	if value is NodePath:
 		var path: NodePath = value
@@ -637,6 +646,9 @@ static func _to_node_path(value: Variant, default_value: NodePath) -> NodePath:
 	return NodePath(text)
 
 
+## 将 Variant 收窄为 GFConfiguredTweenAction；类型不符时返回 null。
+## [br]
+## @api private
 static func _get_configured_tween_action_value(value: Variant) -> GFConfiguredTweenAction:
 	if value is GFConfiguredTweenAction:
 		var action: GFConfiguredTweenAction = value
@@ -644,6 +656,9 @@ static func _get_configured_tween_action_value(value: Variant) -> GFConfiguredTw
 	return null
 
 
+## 仅接受 idle 或 physics 处理模式，其余值回退到给定默认值。
+## [br]
+## @api private
 static func _to_tween_process_mode(
 	value: Variant,
 	default_value: Tween.TweenProcessMode
@@ -657,6 +672,9 @@ static func _to_tween_process_mode(
 			return default_value
 
 
+## 仅接受 bound、stop 或 process 暂停模式，其余值回退到给定默认值。
+## [br]
+## @api private
 static func _to_tween_pause_mode(
 	value: Variant,
 	default_value: Tween.TweenPauseMode
@@ -672,6 +690,9 @@ static func _to_tween_pause_mode(
 			return default_value
 
 
+## 仅接受 Tween 支持的过渡类型常量，其余值回退到给定默认值。
+## [br]
+## @api private
 static func _to_tween_transition_type(
 	value: Variant,
 	default_value: Tween.TransitionType
@@ -705,6 +726,9 @@ static func _to_tween_transition_type(
 			return default_value
 
 
+## 仅接受四种 Tween 缓动类型常量，其余值回退到给定默认值。
+## [br]
+## @api private
 static func _to_tween_ease_type(
 	value: Variant,
 	default_value: Tween.EaseType

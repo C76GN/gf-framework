@@ -53,19 +53,88 @@ const STATUS_CANCELLED: StringName = &"cancelled"
 
 # --- 私有变量 ---
 
+## 对创建当前 Lease 的 Broker 的弱引用。
+## [br]
+## @api private
+## [br]
 var _broker_ref: WeakRef = null
+
+## Broker 用于复用底层请求的身份键。
+## [br]
+## @api private
+## [br]
 var _request_key: String = ""
+
+## Broker 使用的资源加载路径。
+## [br]
+## @api private
+## [br]
 var _path: String = ""
+
+## 当前请求使用的资源类型提示。
+## [br]
+## @api private
+## [br]
 var _type_hint: String = ""
+
+## 调用方提供的消费者诊断标识。
+## [br]
+## @api private
+## [br]
 var _consumer_id: StringName = &""
+
+## 当前消费者 Lease 的状态。
+## [br]
+## @api private
+## [br]
 var _status: StringName = STATUS_QUEUED
+
+## 当前记录的加载进度。
+## [br]
+## @api private
+## [br]
 var _progress: float = 0.0
+
+## 已向当前消费者交付且尚未释放的资源。
+## [br]
+## @api private
+## [br]
 var _resource: Resource = null
+
+## 失败或取消时记录的说明文本。
+## [br]
+## @api private
+## [br]
 var _error_message: String = ""
+
+## admission 或底层资源请求失败时记录的 Godot 错误码。
+## [br]
+## @api private
+## [br]
 var _request_error: Error = OK
+
+## 当前消费者的取消原因。
+## [br]
+## @api private
+## [br]
 var _cancel_reason: StringName = &""
+
+## 标记 Lease 的消费者引用是否已释放。
+## [br]
+## @api private
+## [br]
 var _released: bool = false
+
+## 标记此 Lease 是否请求独占 admission。
+## [br]
+## @api private
+## [br]
 var _exclusive: bool = false
+
+## 标记此 Lease 是否要求 Broker 处于 idle 才能 admission。
+## [br]
+## @api private
+## [br]
 var _require_idle: bool = false
 
 
@@ -391,6 +460,10 @@ func broker_get_request_key() -> String:
 
 # --- 私有/辅助方法 ---
 
+## 从弱引用解析仍有效的 Broker 对象。
+## [br]
+## @api private
+## [br]
 func _get_broker() -> Object:
 	if _broker_ref == null:
 		return null
@@ -401,6 +474,10 @@ func _get_broker() -> Object:
 	return null
 
 
+## 清除本地资源和 Broker 引用，并标记 Lease 已释放。
+## [br]
+## @api private
+## [br]
 func _release_local_reference() -> void:
 	_resource = null
 	_broker_ref = null

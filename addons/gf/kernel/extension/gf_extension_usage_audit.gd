@@ -13,8 +13,19 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 读取引用扫描状态和报告字段的 Variant 访问辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 规范化扫描根目录和目标路径的辅助脚本。
+## [br]
+## @api private
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+## 扫描项目文件直接引用的底层服务脚本。
+## [br]
+## @api private
 const _GF_PROJECT_REFERENCE_SCANNER_SCRIPT = preload("res://addons/gf/kernel/core/gf_project_reference_scanner.gd")
 
 ## Godot 依赖图确认的资源引用。
@@ -303,6 +314,9 @@ static func find_references_to_root_report(
 
 # --- 私有/辅助方法 ---
 
+## 将引用列表、扫描完整性计数和 class_name 子报告组装为审计报告。
+## [br]
+## @api private
 static func _make_audit_report(
 	ok: bool,
 	extension_reports: Dictionary,
@@ -336,6 +350,9 @@ static func _make_audit_report(
 	}
 
 
+## 深复制扫描选项，设置 warning 前缀、缺省引用/字节上限并合并额外忽略根。
+## [br]
+## @api private
 static func _make_scanner_options(options: Dictionary, additional_ignored_roots: PackedStringArray) -> Dictionary:
 	var scan_options: Dictionary = options.duplicate(true)
 	scan_options["warning_prefix"] = "[GFExtensionUsageAudit]"
@@ -367,6 +384,9 @@ static func _make_scanner_options(options: Dictionary, additional_ignored_roots:
 	return scan_options
 
 
+## 读取 PackedStringArray 时返回副本，否则尝试将选项值转换为字符串数组。
+## [br]
+## @api private
 static func _read_option_packed_string_array(options: Dictionary, key: String) -> PackedStringArray:
 	var value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(options, key, PackedStringArray())
 	if value is PackedStringArray:
@@ -375,6 +395,9 @@ static func _read_option_packed_string_array(options: Dictionary, key: String) -
 	return PackedStringArray(_GF_VARIANT_ACCESS_SCRIPT.to_string_array(value))
 
 
+## 仅将输入数组中的 Dictionary 项追加到目标引用列表。
+## [br]
+## @api private
 static func _append_typed_references(result: Array[Dictionary], values: Array) -> void:
 	for value: Variant in values:
 		if value is Dictionary:
@@ -382,10 +405,16 @@ static func _append_typed_references(result: Array[Dictionary], values: Array) -
 			result.append(reference_record)
 
 
+## 检查选项字典是否含给定 String 或其 StringName 形式的键。
+## [br]
+## @api private
 static func _has_option_key(options: Dictionary, key: String) -> bool:
 	return options.has(key) or options.has(StringName(key))
 
 
+## 先预扫描扩展 class_name 充实目标，再用扣除预扫描消耗后的预算扫描项目引用；最后合并两个阶段的计数和不完整标志。
+## [br]
+## @api private
 static func _scan_targets_with_class_names(
 	targets: Array[Dictionary],
 	options: Dictionary,
@@ -424,6 +453,9 @@ static func _scan_targets_with_class_names(
 	return _merge_scan_phase_reports(project_report, class_name_report)
 
 
+## 从共享文件及字节额度中扣除 class_name 阶段消耗，原地更新项目扫描选项；额度已耗尽时记录阶段问题并阻止项目扫描。
+## [br]
+## @api private
 static func _apply_remaining_scan_budgets(
 	scanner_options: Dictionary,
 	class_name_report: Dictionary
@@ -477,6 +509,9 @@ static func _apply_remaining_scan_budgets(
 	return can_scan_project
 
 
+## 按目标根共享预扫描结果，用正则读取每个脚本首个 class_name 并去重排序；这是受预算约束的文本发现，不执行脚本或完整解析语法。
+## [br]
+## @api private
 static func _collect_class_name_scan_report(
 	targets: Array[Dictionary],
 	options: Dictionary
@@ -557,6 +592,9 @@ static func _collect_class_name_scan_report(
 	return scan_state
 
 
+## 按目录和文件名排序递归收集 gd 候选，隐藏项跳过；累计文件预算跨目标共享，深度或读取问题标记部分扫描。
+## [br]
+## @api private
 static func _collect_class_source_files(
 	root_path: String,
 	result: Array[String],
@@ -623,6 +661,9 @@ static func _collect_class_source_files(
 		scan_state["candidate_file_count"] = candidate_file_count + 1
 
 
+## 在单文件与累计字节额度内读取候选脚本文本，所有打开后的分支关闭句柄；成功才增加读取计数，总预算不足可终止后续扫描。
+## [br]
+## @api private
 static func _read_class_name_source(
 	path: String,
 	options: Dictionary,
@@ -705,6 +746,9 @@ static func _read_class_name_source(
 	return result
 
 
+## 创建 class_name 预扫描状态及计数、截断、跳过项、警告和问题集合的初始值。
+## [br]
+## @api private
 static func _make_class_name_scan_state() -> Dictionary:
 	return {
 		"class_names_by_target": {},
@@ -724,10 +768,16 @@ static func _make_class_name_scan_state() -> Dictionary:
 	}
 
 
+## 将 class_name 预扫描状态标记为 partial_scan。
+## [br]
+## @api private
 static func _mark_class_scan_partial(scan_state: Dictionary) -> void:
 	scan_state["partial_scan"] = true
 
 
+## 首次触及正数文件上限时设置截断/停止/partial 标记并记录问题和警告。
+## [br]
+## @api private
 static func _mark_class_file_count_limit(
 	max_scanned_files: int,
 	scan_state: Dictionary
@@ -755,6 +805,9 @@ static func _mark_class_file_count_limit(
 	)
 
 
+## 首次触及正数目录深度上限时设置截断/partial 标记并记录问题和警告。
+## [br]
+## @api private
 static func _mark_class_depth_limit(
 	path: String,
 	max_scan_depth: int,
@@ -782,6 +835,9 @@ static func _mark_class_depth_limit(
 	)
 
 
+## 设置字节预算超限与截断/partial 标记，可选停止扫描，并记录跳过项、问题和至多一条警告。
+## [br]
+## @api private
 static func _mark_class_byte_budget(
 	path: String,
 	reason: String,
@@ -813,6 +869,9 @@ static func _mark_class_byte_budget(
 	)
 
 
+## 将 class_name 阶段标记为超预算、截断、停止和 partial，并追加问题及警告。
+## [br]
+## @api private
 static func _mark_class_phase_exhausted(
 	class_name_report: Dictionary,
 	code: String,
@@ -826,6 +885,9 @@ static func _mark_class_phase_exhausted(
 	_emit_class_scan_warning(message, class_name_report)
 
 
+## 将文件路径、跳过原因、大小、预算字段和 class_name 阶段加入 skipped_files。
+## [br]
+## @api private
 static func _append_class_skipped_file(
 	path: String,
 	reason: String,
@@ -849,6 +911,9 @@ static func _append_class_skipped_file(
 	scan_state["skipped_files"] = skipped_files
 
 
+## 按 code、path 和 target_id 去重后向 class_name 扫描状态追加问题记录。
+## [br]
+## @api private
 static func _append_class_scan_issue(
 	code: String,
 	path: String,
@@ -877,6 +942,9 @@ static func _append_class_scan_issue(
 	scan_state["issues"] = issues
 
 
+## 添加 GFExtensionUsageAudit 前缀并去重发出 class_name 扫描警告。
+## [br]
+## @api private
 static func _emit_class_scan_warning(message: String, scan_state: Dictionary) -> void:
 	var warning_message: String = "[GFExtensionUsageAudit]%s" % message
 	var scan_warnings: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
@@ -889,6 +957,9 @@ static func _emit_class_scan_warning(message: String, scan_state: Dictionary) ->
 		push_warning(warning_message)
 
 
+## 创建项目引用扫描阶段的空报告，并将输入目标数设为 targets.size()。
+## [br]
+## @api private
 static func _make_empty_project_scan_report(targets: Array[Dictionary]) -> Dictionary:
 	return {
 		"ok": true,
@@ -913,6 +984,9 @@ static func _make_empty_project_scan_report(targets: Array[Dictionary]) -> Dicti
 	}
 
 
+## 合并预扫描与项目扫描的消耗、问题和截断标志；仅项目强引用数为零且两个阶段均完整时报告成功，并附预扫描分项详情。
+## [br]
+## @api private
 static func _merge_scan_phase_reports(
 	project_report: Dictionary,
 	class_name_report: Dictionary
@@ -988,6 +1062,9 @@ static func _merge_scan_phase_reports(
 	return result
 
 
+## 深复制第一个报告的指定数组，再追加第二个报告的数组项。
+## [br]
+## @api private
 static func _merge_report_arrays(
 	first_report: Dictionary,
 	second_report: Dictionary,
@@ -998,6 +1075,9 @@ static func _merge_report_arrays(
 	return result
 
 
+## 为无效扫描根目录构造 partial_scan 报告及一条 invalid_target_root 问题。
+## [br]
+## @api private
 static func _make_invalid_root_scan_report(root_path: String) -> Dictionary:
 	var issue: Dictionary = {
 		"code": "invalid_target_root",

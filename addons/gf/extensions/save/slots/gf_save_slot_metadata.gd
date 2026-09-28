@@ -251,6 +251,10 @@ static func from_values(
 
 # --- 私有/辅助方法 ---
 
+## 将 null、空字符串/集合和数值零识别为可省略的元数据空值。
+## [br]
+## @api private
+## [br]
 func _is_empty_metadata_value(value: Variant) -> bool:
 	if value == null:
 		return true
@@ -269,6 +273,10 @@ func _is_empty_metadata_value(value: Variant) -> bool:
 	return false
 
 
+## 返回元数据校验中已知 issue kind 对应的修正建议。
+## [br]
+## @api private
+## [br]
 func _get_validation_next_actions() -> Dictionary:
 	return {
 		"empty_slot_id": "Set a stable slot_id before showing or saving this slot.",

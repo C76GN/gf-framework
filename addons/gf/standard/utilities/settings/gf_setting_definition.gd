@@ -180,6 +180,10 @@ func duplicate_definition() -> GFSettingDefinition:
 
 # --- 私有/辅助方法 ---
 
+## 将 Variant、Vector2i 或带 x/y 字段的字典转换为 Vector2。
+## [br]
+## @api private
+## [br]
 func _coerce_vector2(value: Variant) -> Vector2:
 	if value is Vector2:
 		var vector2: Vector2 = value
@@ -196,6 +200,10 @@ func _coerce_vector2(value: Variant) -> Vector2:
 	return Vector2.ZERO
 
 
+## 将 Variant、Vector2 或带 x/y 字段的字典转换为 Vector2i。
+## [br]
+## @api private
+## [br]
 func _coerce_vector2i(value: Variant) -> Vector2i:
 	if value is Vector2i:
 		var vector2i: Vector2i = value
@@ -212,6 +220,10 @@ func _coerce_vector2i(value: Variant) -> Vector2i:
 	return Vector2i.ZERO
 
 
+## 将 Variant、带 r/g/b/a 字段的字典或颜色文本转换为 Color。
+## [br]
+## @api private
+## [br]
 func _coerce_color(value: Variant) -> Color:
 	if value is Color:
 		var color: Color = value

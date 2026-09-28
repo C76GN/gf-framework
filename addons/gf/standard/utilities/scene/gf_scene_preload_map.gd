@@ -270,14 +270,26 @@ func validate_map(options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 返回调用参数或 default_radius 经过非负规范化后的搜索半径。
+## [br]
+## @api private
+## [br]
 func _get_effective_radius(radius: int) -> int:
 	return maxi(default_radius if radius < 0 else radius, 0)
 
 
+## 判断临时相邻场景列表是否达到正数数量上限。
+## [br]
+## @api private
+## [br]
 func _is_schedule_limit_reached(paths: PackedStringArray) -> bool:
 	return max_scheduled_scenes > 0 and paths.size() >= max_scheduled_scenes
 
 
+## 根据存在性选项为路径追加空路径错误或资源缺失警告。
+## [br]
+## @api private
+## [br]
 func _validate_scene_path(
 	report: GFValidationReport,
 	scene_path: String,
@@ -293,6 +305,10 @@ func _validate_scene_path(
 		var _add_warning_result_276: Variant = report.add_warning(&"missing_scene_resource", "Scene resource does not exist.", key, scene_path)
 
 
+## 返回场景预加载图谱各问题类型对应的建议处理文本。
+## [br]
+## @api private
+## [br]
 func _get_next_actions() -> Dictionary:
 	return {
 		"null_entry": "Remove the null entry or assign a GFScenePreloadEntry resource.",
@@ -304,6 +320,10 @@ func _get_next_actions() -> Dictionary:
 	}
 
 
+## 规范化路径后仅在新资源身份键有效且未出现时追加路径。
+## [br]
+## @api private
+## [br]
 static func _append_unique_path(paths: PackedStringArray, raw_path: String) -> void:
 	var identity: GFResourceIdentity = _make_scene_identity(raw_path)
 	var path: String = _get_identity_scene_path(identity)
@@ -312,15 +332,27 @@ static func _append_unique_path(paths: PackedStringArray, raw_path: String) -> v
 	var _appended: bool = paths.append(path)
 
 
+## 以资源身份的规范路径或原始路径规范化场景路径。
+## [br]
+## @api private
+## [br]
 static func _normalize_scene_path(raw_path: String) -> String:
 	var identity: GFResourceIdentity = _make_scene_identity(raw_path)
 	return _get_identity_scene_path(identity)
 
 
+## 创建不检查文件存在性的 PackedScene 资源身份。
+## [br]
+## @api private
+## [br]
 static func _make_scene_identity(raw_path: String) -> GFResourceIdentity:
 	return GFResourceIdentity.from_path(raw_path, &"", "PackedScene", { "check_exists": false })
 
 
+## 优先返回身份规范路径；不存在时回退为身份原始路径。
+## [br]
+## @api private
+## [br]
 static func _get_identity_scene_path(identity: GFResourceIdentity) -> String:
 	if identity == null:
 		return ""
@@ -329,10 +361,18 @@ static func _get_identity_scene_path(identity: GFResourceIdentity) -> String:
 	return identity.raw_path
 
 
+## 根据场景路径返回资源身份缓存键。
+## [br]
+## @api private
+## [br]
 static func _get_scene_cache_key(raw_path: String) -> String:
 	return _make_scene_identity(raw_path).cache_key
 
 
+## 检查路径集合中是否已有指定的非空资源身份缓存键。
+## [br]
+## @api private
+## [br]
 static func _paths_have_cache_key(paths: PackedStringArray, cache_key: String) -> bool:
 	if cache_key.is_empty():
 		return false
@@ -342,6 +382,10 @@ static func _paths_have_cache_key(paths: PackedStringArray, cache_key: String) -
 	return false
 
 
+## 按输入路径顺序生成去重后的非空缓存键列表。
+## [br]
+## @api private
+## [br]
 static func _make_cache_key_list(paths: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for path: String in paths:
@@ -352,6 +396,10 @@ static func _make_cache_key_list(paths: PackedStringArray) -> PackedStringArray:
 	return result
 
 
+## 按缓存键建立路径列表对应的资源身份字典快照。
+## [br]
+## @api private
+## [br]
 static func _make_resource_identity_snapshot(paths: PackedStringArray) -> Dictionary:
 	var result: Dictionary = {}
 	for path: String in paths:

@@ -42,6 +42,9 @@ signal closed(reason: StringName, metadata: Dictionary)
 
 # --- 常量 ---
 
+## 生成等待结果字典时使用的共享结果结构辅助脚本。
+## [br]
+## @api private
 const _GF_ASYNC_RESULT_SUPPORT = preload("res://addons/gf/standard/common/gf_async_result_support.gd")
 
 ## 读取已完成。
@@ -152,18 +155,69 @@ const OVERFLOW_DROP_NEWEST: StringName = &"drop_newest"
 
 # --- 私有变量 ---
 
+## 保存环形缓冲区的物理槽位。
+## [br]
+## @api private
 var _items: Array = []
+
+## 环形缓冲区中当前队首槽位的索引。
+## [br]
+## @api private
 var _item_head: int = 0
+
+## 环形缓冲区当前保存的数据项数量。
+## [br]
+## @api private
 var _item_count: int = 0
+
+## 通道是否已关闭；关闭后写入会被拒绝，已有项仍可读取。
+## [br]
+## @api private
 var _closed: bool = false
+
+## close() 记录的关闭原因，空值会规范化为 STATUS_CLOSED。
+## [br]
+## @api private
 var _close_reason: StringName = &""
+
+## close() 记录的关闭上下文，供关闭结果返回。
+## [br]
+## @api private
 var _close_metadata: Dictionary = {}
+
+## 被通道接受并追加到缓冲区的写入总数。
+## [br]
+## @api private
 var _written_count: int = 0
+
+## 从缓冲区读出或 drain() 取出的数据项总数。
+## [br]
+## @api private
 var _read_count: int = 0
+
+## 当前允许缓冲的最大数据项数，由默认配置或 configure_ingress() 设置。
+## [br]
+## @api private
 var _max_buffered_items: int = DEFAULT_MAX_BUFFERED_ITEMS
+
+## 缓冲区达到上限时应用的写入策略。
+## [br]
+## @api private
 var _overflow_policy: StringName = OVERFLOW_REJECT
+
+## 通道运行以来观察到的最大缓冲数量。
+## [br]
+## @api private
 var _high_watermark: int = 0
+
+## 因 OVERFLOW_REJECT 容量策略而拒绝的写入总数。
+## [br]
+## @api private
 var _rejected_count: int = 0
+
+## 因满载策略而丢弃的数据项总数。
+## [br]
+## @api private
 var _dropped_count: int = 0
 
 
@@ -580,6 +634,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按新容量分配槽位，并从当前队首开始依序搬移缓冲项。
+## [br]
+## @api private
 func _resize_item_storage(new_capacity: int) -> void:
 	var resized_items: Array = []
 	var _resize_result: int = resized_items.resize(new_capacity)
@@ -592,12 +649,18 @@ func _resize_item_storage(new_capacity: int) -> void:
 	_item_head = 0
 
 
+## 在追加前确保槽位数组大小与当前最大缓冲容量一致。
+## [br]
+## @api private
 func _ensure_item_storage() -> void:
 	if _items.size() == _max_buffered_items:
 		return
 	_resize_item_storage(_max_buffered_items)
 
 
+## 将一项写入环形缓冲区尾部并增加缓冲数量。
+## [br]
+## @api private
 func _append_buffered_item(item: Variant) -> void:
 	_ensure_item_storage()
 	var tail_index: int = (
@@ -607,6 +670,9 @@ func _append_buffered_item(item: Variant) -> void:
 	_item_count += 1
 
 
+## 从环形缓冲区队首取出一项并推进队首；缓冲为空时返回 null。
+## [br]
+## @api private
 func _take_buffered_item() -> Variant:
 	if _item_count <= 0 or _items.is_empty():
 		return null
@@ -620,6 +686,9 @@ func _take_buffered_item() -> Variant:
 	return item
 
 
+## 组装写入操作结果及当前容量状态字段。
+## [br]
+## @api private
 func _make_write_result(
 	status: StringName,
 	accepted: bool,
@@ -640,6 +709,9 @@ func _make_write_result(
 	}
 
 
+## 组装读取结果，并加入 item、closed 和可选扩展字段。
+## [br]
+## @api private
 func _make_read_result(
 	status: StringName,
 	ok: bool,
@@ -656,6 +728,9 @@ func _make_read_result(
 	return result
 
 
+## 组装等待可读结果，并把 operation result 的 ok 字段替换为 readable。
+## [br]
+## @api private
 func _make_ready_result(
 	status: StringName,
 	readable: bool,
@@ -672,6 +747,9 @@ func _make_ready_result(
 	return result
 
 
+## 构造非主线程调用 wait_to_read_async() 时返回的终态结果。
+## [br]
+## @api private
 func _make_wrong_thread_ready_result() -> Dictionary:
 	var result: Dictionary = _GF_ASYNC_RESULT_SUPPORT.make_operation_result(
 		STATUS_WRONG_THREAD,
@@ -685,10 +763,16 @@ func _make_wrong_thread_ready_result() -> Dictionary:
 	return result
 
 
+## 将额外结果字段合并到目标字典，具体合并规则由共享辅助脚本提供。
+## [br]
+## @api private
 func _merge_extra(result: Dictionary, extra: Dictionary) -> void:
 	_GF_ASYNC_RESULT_SUPPORT.merge_extra(result, extra)
 
 
+## 判断策略是否为通道支持的三种容量满处理方式之一。
+## [br]
+## @api private
 func _is_supported_overflow_policy(policy: StringName) -> bool:
 	return (
 		policy == OVERFLOW_REJECT

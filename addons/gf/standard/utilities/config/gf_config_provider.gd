@@ -14,11 +14,19 @@ extends GFUtility
 
 # --- 常量 ---
 
+## 生成配置校验报告的类脚本引用。
+## [br]
+## @api private
+## [br]
 const _CONFIG_VALIDATION_REPORT = preload("res://addons/gf/standard/utilities/config/gf_config_validation_report.gd")
 
 
 # --- 私有变量 ---
 
+## 按表名登记的配置表 schema。
+## [br]
+## @api private
+## [br]
 var _schemas: Dictionary = {}
 
 
@@ -200,14 +208,26 @@ func coerce_record(table_name: StringName, record: Dictionary) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 为未注册 schema 的表名构造错误报告。
+## [br]
+## @api private
+## [br]
 func _make_missing_schema_report(table_name: StringName) -> Dictionary:
 	return _CONFIG_VALIDATION_REPORT.new().make_error_report(table_name, "missing_schema", "未注册导表结构声明：%s。" % String(table_name))
 
 
+## 按表名读取并类型校验已登记的 schema。
+## [br]
+## @api private
+## [br]
 func _get_schema_reference(table_name: StringName) -> GFConfigTableSchema:
 	return _variant_to_schema(GFVariantData.get_option_value(_schemas, table_name))
 
 
+## 仅当 Variant 值为 GFConfigTableSchema 时返回该 schema。
+## [br]
+## @api private
+## [br]
 func _variant_to_schema(value: Variant) -> GFConfigTableSchema:
 	if value is GFConfigTableSchema:
 		var schema: GFConfigTableSchema = value

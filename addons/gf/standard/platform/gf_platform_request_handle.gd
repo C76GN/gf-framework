@@ -35,16 +35,49 @@ signal cancel_requested(reason: StringName)
 
 # --- 常量 ---
 
+## 截止时间加法可表示的最大有符号 64 位整数。
+## [br]
+## @api private
+## [br]
 const _INT64_MAX: int = 9_223_372_036_854_775_807
 
 
 # --- 私有变量 ---
 
+## 初始化时冻结的桥接请求副本。
+## [br]
+## @api private
+## [br]
 var _request: GFPlatformBridgeRequest = null
+
+## 请求的唯一终态结果；null 表示仍在等待。
+## [br]
+## @api private
+## [br]
 var _result: GFPlatformBridgeResult = null
+
+## 请求初始化时使用的单调时钟。
+## [br]
+## @api private
+## [br]
 var _clock: GFClock = null
+
+## 句柄初始化时捕获的单调起始毫秒。
+## [br]
+## @api private
+## [br]
 var _started_at_msec: int = -1
+
+## 根据起始时间与请求 timeout 计算的饱和单调截止毫秒；无 timeout 时为 -1。
+## [br]
+## @api private
+## [br]
 var _deadline_msec: int = -1
+
+## 句柄是否已由 Platform 层初始化，包括立即拒绝的终态句柄。
+## [br]
+## @api private
+## [br]
 var _initialized: bool = false
 
 
@@ -332,6 +365,10 @@ func timeout_from_platform_layer() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 只允许 pending 句柄首次生成失败结果；可选先发出取消/超时通知，再发出完成副本。
+## [br]
+## @api private
+## [br]
 func _finish_failure(
 	status: StringName,
 	error: String,
@@ -355,6 +392,10 @@ func _finish_failure(
 	return true
 
 
+## 检查句柄仍等待且有限截止时间已到。
+## [br]
+## @api private
+## [br]
 func _has_expired() -> bool:
 	return (
 		is_pending()
@@ -363,6 +404,10 @@ func _has_expired() -> bool:
 	)
 
 
+## 生成仅包含请求标识、契约方法和 timeout 的调试摘要。
+## [br]
+## @api private
+## [br]
 func _make_request_debug_summary() -> Dictionary:
 	if _request == null:
 		return {}
@@ -374,6 +419,10 @@ func _make_request_debug_summary() -> Dictionary:
 	}
 
 
+## 生成脱敏结果摘要，不包含原始 value、error 或 metadata。
+## [br]
+## @api private
+## [br]
 func _make_result_debug_summary() -> Dictionary:
 	if _result == null:
 		return {}
@@ -388,6 +437,10 @@ func _make_result_debug_summary() -> Dictionary:
 	}
 
 
+## 对正 timeout 计算饱和的单调截止值；无 timeout 返回 -1。
+## [br]
+## @api private
+## [br]
 static func _make_deadline_msec(started_at_msec: int, timeout_msec: int) -> int:
 	if timeout_msec <= 0:
 		return -1
@@ -397,6 +450,10 @@ static func _make_deadline_msec(started_at_msec: int, timeout_msec: int) -> int:
 	return safe_started_at_msec + timeout_msec
 
 
+## 检查结果的 request、contract 和 method ID 是否均匹配冻结请求。
+## [br]
+## @api private
+## [br]
 func _matches_request(result: GFPlatformBridgeResult) -> bool:
 	return (
 		result.request_id == _request.request_id
@@ -405,6 +462,10 @@ func _matches_request(result: GFPlatformBridgeResult) -> bool:
 	)
 
 
+## 校验终态结果身份、起止时间、未来时间约束及成功/失败字段组合。
+## [br]
+## @api private
+## [br]
 func _is_valid_terminal_result(result: GFPlatformBridgeResult) -> bool:
 	if result == null or not _matches_request(result) or result.status == &"":
 		return false

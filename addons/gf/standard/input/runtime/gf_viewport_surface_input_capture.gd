@@ -14,13 +14,52 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 是否已经通过层内配置写入完整回执身份。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
+
+## 创建该回执的输入桥实例 ID。
+## [br]
+## @api private
+## [br]
 var _bridge_instance_id: int = 0
+
+## 按下时的稳定输入源标识。
+## [br]
+## @api private
+## [br]
 var _source_id: StringName = &""
+
+## 按下时的设备标识。
+## [br]
+## @api private
+## [br]
 var _device_id: int = -1
+
+## 按下时的输入源内指针标识。
+## [br]
+## @api private
+## [br]
 var _pointer_id: int = -1
+
+## 按下时的桥接指针类型值。
+## [br]
+## @api private
+## [br]
 var _pointer_type: int = -1
+
+## 桥分配给本次捕获的代际编号。
+## [br]
+## @api private
+## [br]
 var _capture_generation: int = 0
+
+## Resolver 在按下时提供的目标代际。
+## [br]
+## @api private
+## [br]
 var _target_generation: int = 0
 
 

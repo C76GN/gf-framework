@@ -30,21 +30,90 @@ const FORMAT: String = "gf.config_pipeline.artifact_manifest"
 ## @since 8.0.0
 const FORMAT_VERSION: int = 2
 
+## GF Config Pipeline 产物所有者标识。
+## [br]
+## @api private
+## [br]
 const _ARTIFACT_OWNER: String = "gf.tool.config_pipeline"
+
+## JSON 产物所有权字段名。
+## [br]
+## @api private
+## [br]
 const _ARTIFACT_OWNER_FIELD: String = "artifact_owner"
+
+## manifest JSON 默认使用的缩进文本。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_JSON_INDENT: String = "\t"
+
+## 默认允许读取的 manifest 文件最大字节数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_MANIFEST_BYTES: int = 4 * 1024 * 1024
+
+## 单个 freshness 文件默认允许的最大字节数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_FRESHNESS_FILE_BYTES: int = 64 * 1024 * 1024
+
+## freshness 扫描默认累计允许的最大文件字节数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_FRESHNESS_TOTAL_BYTES: int = 256 * 1024 * 1024
+
+## freshness 扫描默认允许登记的最大文件数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_FRESHNESS_ENTRIES: int = 4096
+
+## 文件摘要分块处理时单个缓冲块的字节数。
+## [br]
+## @api private
+## [br]
 const _DIGEST_CHUNK_BYTES: int = 64 * 1024
+
+## 编译器指纹契约当前版本。
+## [br]
+## @api private
+## [br]
 const _COMPILER_CONTRACT_VERSION: int = 3
+
+## source receipt 格式标识。
+## [br]
+## @api private
+## [br]
 const _SOURCE_RECEIPT_FORMAT: String = "gf.config_pipeline.source_receipt"
+
+## source receipt 当前格式版本。
+## [br]
+## @api private
+## [br]
 const _SOURCE_RECEIPT_FORMAT_VERSION: int = 1
+
+## 读取框架版本使用的插件配置路径。
+## [br]
+## @api private
+## [br]
 const _PLUGIN_CONFIG_PATH: String = "res://addons/gf/plugin.cfg"
+
+## 验证 manifest 输出路径的策略脚本。
+## [br]
+## @api private
+## [br]
 const _OUTPUT_PATH_POLICY_SCRIPT = preload(
 	"res://addons/gf/tools/config_pipeline/gf_config_pipeline_output_path_policy.gd"
 )
+
+## 构成 compiler fingerprint 的阶段定义表。
+## [br]
+## @api private
+## [br]
 const _COMPILER_STAGE_DEFINITIONS: Array[Dictionary] = [
 	{
 		"id": "framework_metadata",
@@ -187,6 +256,11 @@ const _COMPILER_STAGE_DEFINITIONS: Array[Dictionary] = [
 		"path": "res://addons/gf/standard/foundation/variant/gf_variant_data.gd",
 	},
 ]
+
+## 构成 access generator fingerprint 的阶段定义表。
+## [br]
+## @api private
+## [br]
 const _ACCESS_COMPILER_STAGE_DEFINITIONS: Array[Dictionary] = [
 	{
 		"id": "config_access_generator",
@@ -204,6 +278,11 @@ const _ACCESS_COMPILER_STAGE_DEFINITIONS: Array[Dictionary] = [
 		"path": "res://addons/gf/kernel/core/gf_variant_access.gd",
 	},
 ]
+
+## pipeline 与 access stage 定义允许登记的 stage ID 集合。
+## [br]
+## @api private
+## [br]
 const _PIPELINE_STAGE_IDS: PackedStringArray = [
 	GFConfigPipelineReaderStage.STAGE_ID,
 	GFConfigPipelineLayoutStage.STAGE_ID,
@@ -211,11 +290,20 @@ const _PIPELINE_STAGE_IDS: PackedStringArray = [
 	GFConfigPipelineTargetStage.STAGE_ID,
 	GFConfigPipelineCommitStage.STAGE_ID,
 ]
+
+## 生成产物保存与报告服务。
+## [br]
+## @api private
+## [br]
 const _GENERATED_ARTIFACT_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_generated_artifact_report.gd")
 
 
 # --- 私有变量 ---
 
+## 本实例登记的 compiler 阶段描述符。
+## [br]
+## @api private
+## [br]
 var _compiler_stage_descriptors: Array[Dictionary] = []
 
 
@@ -650,6 +738,9 @@ func make_source_receipt_validation_report(
 
 # --- 私有/辅助方法 ---
 
+## 为缺失 Profile 构造版本化失败 manifest，保留选项、编译器指纹和运行摘要并计算投影摘要；空输入、输出摘要不表示一次有效扫描。
+## [br]
+## @api private
 func _make_empty_manifest(profile_path: String, options: Dictionary, run_result: Dictionary) -> Dictionary:
 	var budget_state: Dictionary = _make_digest_budget_state(options)
 	var compiler_fingerprint: Dictionary = _make_compiler_fingerprint(null, options, budget_state)
@@ -682,6 +773,9 @@ func _make_empty_manifest(profile_path: String, options: Dictionary, run_result:
 	return manifest
 
 
+## 从 Profile 路径广度遍历资源依赖，各层依赖排序并按路径去重；每文件计入共享摘要预算，依赖不可用或预算失败时停止并保留已有条目。
+## [br]
+## @api private
 func _make_profile_resource_entries(profile_path: String, budget_state: Dictionary) -> Array[Dictionary]:
 	var entries: Array[Dictionary] = []
 	if profile_path.strip_edges().is_empty() or not FileAccess.file_exists(profile_path):
@@ -727,6 +821,9 @@ func _make_profile_resource_entries(profile_path: String, budget_state: Dictiona
 	return entries
 
 
+## 汇集契约、框架和 Godot 版本及阶段文件摘要；自定义阶段数量须匹配流水线，生成访问器时另纳入访问器阶段，失败仍返回可诊断的部分指纹。
+## [br]
+## @api private
 func _make_compiler_fingerprint(
 	profile: GFConfigPipelineProfile,
 	options: Dictionary,
@@ -814,6 +911,9 @@ func _make_compiler_fingerprint(
 	}
 
 
+## 只准入规范化后的 res:// 或 user:// 实现依赖，排除阶段自身并排序去重；在共享预算内读取摘要，首个无效或不可用依赖终止收集。
+## [br]
+## @api private
 func _make_compiler_dependency_entries(
 	definition: Dictionary,
 	stage_path: String,
@@ -880,6 +980,9 @@ func _make_compiler_dependency_entries(
 	return entries
 
 
+## 按 Profile 来源顺序消费已有编译收据，要求结果数量和各收据身份匹配并计入预算；此处不重读文件，缺少 table_results 才报告收据不可用。
+## [br]
+## @api private
 func _make_compilation_source_entries(
 	profile: GFConfigPipelineProfile,
 	run_result: Dictionary,
@@ -947,6 +1050,9 @@ func _make_compilation_source_entries(
 	return { "available": true, "entries": entries }
 
 
+## 依次核对收据格式、版本、表名、规范路径、来源格式、非负精确整数字节数和 SHA-256 文本，返回首项错误而不验证当前磁盘内容。
+## [br]
+## @api private
 func _get_compilation_source_receipt_error(
 	source: GFConfigPipelineTableSource,
 	receipt: Dictionary
@@ -995,6 +1101,9 @@ func _get_compilation_source_receipt_error(
 	return ""
 
 
+## 以收据声明的大小检查单文件和剩余总字节预算；成功才增加累计字节，失败保留已消费额度并记录首错。
+## [br]
+## @api private
 func _reserve_receipt_bytes(
 	budget_state: Dictionary,
 	source_path: String,
@@ -1039,6 +1148,9 @@ func _reserve_receipt_bytes(
 	return true
 
 
+## 按 Profile 来源顺序重新读取文件摘要，每项先占条目预算；空来源登记无效项并继续，预算失败停止，文件错误留在条目中。
+## [br]
+## @api private
 func _make_source_entries(profile: GFConfigPipelineProfile, budget_state: Dictionary) -> Array[Dictionary]:
 	var entries: Array[Dictionary] = []
 	for source: GFConfigPipelineTableSource in profile.sources:
@@ -1069,6 +1181,9 @@ func _make_source_entries(profile: GFConfigPipelineProfile, budget_state: Dictio
 	return entries
 
 
+## 按数据库、访问器顺序收集非空输出路径摘要；共享预算失败后不再收集后续访问器输出。
+## [br]
+## @api private
 func _make_output_entries(
 	profile: GFConfigPipelineProfile,
 	options: Dictionary,
@@ -1089,6 +1204,9 @@ func _make_output_entries(
 	return entries
 
 
+## 将文件摘要投影为输出种类、路径、存在性、长度和哈希；读取错误不单列于输出项，预算错误仍保留在共享扫描状态。
+## [br]
+## @api private
 func _make_output_entry(kind: String, output_path: String, budget_state: Dictionary) -> Dictionary:
 	var file_report: Dictionary = _make_file_digest_report(output_path, budget_state)
 	return {
@@ -1100,6 +1218,9 @@ func _make_output_entry(kind: String, output_path: String, budget_state: Diction
 	}
 
 
+## 先去除非内容选项，再用 Profile 解析实际输出路径、访问器配置和各阶段选项，形成 freshness 的选项摘要输入。
+## [br]
+## @api private
 func _make_tracked_options(profile: GFConfigPipelineProfile, options: Dictionary) -> Dictionary:
 	var semantic_options: Dictionary = _make_semantic_options(options)
 	return {
@@ -1113,6 +1234,9 @@ func _make_tracked_options(profile: GFConfigPipelineProfile, options: Dictionary
 	}
 
 
+## 复制选项并删除明确列出的缓存、展示、运行开关和 manifest 管理字段；其余未知键也保留在语义投影中。
+## [br]
+## @api private
 func _make_semantic_options(options: Dictionary) -> Dictionary:
 	var result: Dictionary = options.duplicate(true)
 	var ignored_keys: PackedStringArray = PackedStringArray([
@@ -1134,6 +1258,10 @@ func _make_semantic_options(options: Dictionary) -> Dictionary:
 	return result
 
 
+## 从运行结果投影 success、operation、profile、路径、错误及子报告摘要。
+## [br]
+## @api private
+## [br]
 func _make_run_summary(run_result: Dictionary) -> Dictionary:
 	if run_result.is_empty():
 		return {}
@@ -1149,6 +1277,10 @@ func _make_run_summary(run_result: Dictionary) -> Dictionary:
 	}
 
 
+## 将验证报告投影为 ok、错误/警告/issue 数量；空报告返回空字典。
+## [br]
+## @api private
+## [br]
 func _make_report_summary(report: Dictionary) -> Dictionary:
 	if report.is_empty():
 		return {}
@@ -1160,6 +1292,10 @@ func _make_report_summary(report: Dictionary) -> Dictionary:
 	}
 
 
+## 将产物结果投影为路径、状态、写入/变更/dry-run 和 artifact 状态字段。
+## [br]
+## @api private
+## [br]
 func _make_artifact_result_summary(result: Dictionary) -> Dictionary:
 	if result.is_empty():
 		return {}
@@ -1175,6 +1311,9 @@ func _make_artifact_result_summary(result: Dictionary) -> Dictionary:
 	}
 
 
+## 保留文件路径及读取报告的存在性、长度、哈希和错误文本，不把空摘要补写成成功摘要。
+## [br]
+## @api private
 func _make_digest_file_entry(path: String, file_report: Dictionary) -> Dictionary:
 	return {
 		"path": path,
@@ -1185,11 +1324,19 @@ func _make_digest_file_entry(path: String, file_report: Dictionary) -> Dictionar
 	}
 
 
+## 仅对 tres、res、tscn 和 scn 扩展名的资源路径扫描资源依赖。
+## [br]
+## @api private
+## [br]
 func _should_scan_resource_dependencies(resource_path: String) -> bool:
 	var extension: String = resource_path.get_extension().to_lower()
 	return extension == "tres" or extension == "res" or extension == "tscn" or extension == "scn"
 
 
+## 从 :: 分段中返回首个经清理后以 res:// 或 user:// 开头的路径。
+## [br]
+## @api private
+## [br]
 func _extract_dependency_resource_path(dependency_entry: String) -> String:
 	for raw_part: String in dependency_entry.split("::", false):
 		var candidate: String = raw_part.strip_edges().replace("\\", "/")
@@ -1198,6 +1345,10 @@ func _extract_dependency_resource_path(dependency_entry: String) -> String:
 	return ""
 
 
+## 从插件配置读取框架版本；无法读取或解析时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _read_framework_version() -> String:
 	var config: ConfigFile = ConfigFile.new()
 	var load_result: Error = config.load(_PLUGIN_CONFIG_PATH)
@@ -1206,6 +1357,9 @@ func _read_framework_version() -> String:
 	return GFVariantData.to_text(config.get_value("plugin", "version", "")).strip_edges()
 
 
+## 初始化一次共享扫描的条目与字节计数，读取限额覆盖值并把负数收紧为零。
+## [br]
+## @api private
 func _make_digest_budget_state(options: Dictionary) -> Dictionary:
 	return {
 		"success": true,
@@ -1240,6 +1394,9 @@ func _make_digest_budget_state(options: Dictionary) -> Dictionary:
 	}
 
 
+## 仅在扫描仍成功且条目未到上限时递增计数；首次超限锁定失败，后续申请直接拒绝。
+## [br]
+## @api private
 func _reserve_digest_entry(budget_state: Dictionary) -> bool:
 	if not GFVariantData.get_option_bool(budget_state, "success", true):
 		return false
@@ -1256,6 +1413,9 @@ func _reserve_digest_entry(budget_state: Dictionary) -> bool:
 	return true
 
 
+## 锁定扫描的首个错误码和说明；已失败状态不再被后续错误覆盖。
+## [br]
+## @api private
 func _set_digest_budget_failure(budget_state: Dictionary, error_code: String, message: String) -> void:
 	if not GFVariantData.get_option_bool(budget_state, "success", true):
 		return
@@ -1264,6 +1424,9 @@ func _set_digest_budget_failure(budget_state: Dictionary, error_code: String, me
 	budget_state["error"] = message
 
 
+## 把共享预算状态投影为独立报告，保留首错、已预留条目和字节以及三类上限。
+## [br]
+## @api private
 func _make_digest_scan_report(budget_state: Dictionary) -> Dictionary:
 	return {
 		"success": GFVariantData.get_option_bool(budget_state, "success", true),
@@ -1277,6 +1440,9 @@ func _make_digest_scan_report(budget_state: Dictionary) -> Dictionary:
 	}
 
 
+## 打开文件并按当前长度预留字节预算后分块计算 SHA-256，所有打开后的退出路径关闭句柄；后续读取或哈希失败不退还已预留字节。
+## [br]
+## @api private
 func _make_file_digest_report(path: String, budget_state: Dictionary) -> Dictionary:
 	if path.strip_edges().is_empty():
 		return {
@@ -1372,6 +1538,10 @@ func _make_file_digest_report(path: String, budget_state: Dictionary) -> Diction
 	}
 
 
+## 比较 Profile 与 input/output/options/compiler digest 字段并返回不同字段名。
+## [br]
+## @api private
+## [br]
 func _compare_manifest_fields(stored_manifest: Dictionary, current_manifest: Dictionary) -> PackedStringArray:
 	var changed_fields: PackedStringArray = PackedStringArray()
 	var fields: PackedStringArray = PackedStringArray([
@@ -1389,6 +1559,10 @@ func _compare_manifest_fields(stored_manifest: Dictionary, current_manifest: Dic
 	return changed_fields
 
 
+## 返回 output_entries 中 path 非空且当前不存在的文件路径。
+## [br]
+## @api private
+## [br]
 func _find_missing_outputs(manifest: Dictionary) -> PackedStringArray:
 	var missing_outputs: PackedStringArray = PackedStringArray()
 	var output_entries: Array = GFVariantData.get_option_array(manifest, "output_entries")
@@ -1404,6 +1578,10 @@ func _find_missing_outputs(manifest: Dictionary) -> PackedStringArray:
 	return missing_outputs
 
 
+## 构造 manifest 加载结果，并复制 manifest 字典。
+## [br]
+## @api private
+## [br]
 func _make_load_result(
 	success: bool,
 	manifest_path: String,
@@ -1420,6 +1598,10 @@ func _make_load_result(
 	}
 
 
+## 构造 manifest 保存结果，并投影产物报告状态和写入标志。
+## [br]
+## @api private
+## [br]
 func _make_save_result(
 	success: bool,
 	manifest_path: String,
@@ -1440,6 +1622,10 @@ func _make_save_result(
 	}
 
 
+## 构造 freshness 比较结果，并复制当前/存储清单及原因和差异数组。
+## [br]
+## @api private
+## [br]
 func _make_freshness_result(
 	fresh: bool,
 	manifest_path: String,
@@ -1464,6 +1650,10 @@ func _make_freshness_result(
 	}
 
 
+## 构造不稳定的 source receipt 校验失败结果，并复制可选 scan_report。
+## [br]
+## @api private
+## [br]
 func _make_source_receipt_validation_failure(
 	error_code: String,
 	message: String,
@@ -1480,6 +1670,9 @@ func _make_source_receipt_validation_failure(
 	}
 
 
+## 按固定字段投影 manifest 的内容身份与校验摘要，排除展示元数据；只有原始字段存在时才纳入 Profile 依赖和编译器扩展字段。
+## [br]
+## @api private
 func _make_digest_projection(manifest: Dictionary) -> Dictionary:
 	var projection: Dictionary = {
 		"format": GFVariantData.get_option_string(manifest, "format"),
@@ -1507,6 +1700,10 @@ func _make_digest_projection(manifest: Dictionary) -> Dictionary:
 	return projection
 
 
+## 从 run_summary 和其 report 投影 success、ok、错误、警告和 issue 数。
+## [br]
+## @api private
+## [br]
 func _make_validation_summary(run_summary: Dictionary) -> Dictionary:
 	var report: Dictionary = GFVariantData.get_option_dictionary(run_summary, "report")
 	return {
@@ -1518,6 +1715,9 @@ func _make_validation_summary(run_summary: Dictionary) -> Dictionary:
 	}
 
 
+## 保留来源条目顺序并固定摘要字段；显式无效项只保留 valid、exists 和 error，其余项按有效来源形状投影。
+## [br]
+## @api private
 func _normalize_digest_source_entries(entries: Array) -> Array[Dictionary]:
 	var normalized: Array[Dictionary] = []
 	for entry_value: Variant in entries:
@@ -1542,6 +1742,9 @@ func _normalize_digest_source_entries(entries: Array) -> Array[Dictionary]:
 	return normalized
 
 
+## 按原顺序将输出项投影为固定种类、路径、存在性、长度和哈希字段，缺失或错误类型使用读取帮助方法的默认值。
+## [br]
+## @api private
 func _normalize_digest_output_entries(entries: Array) -> Array[Dictionary]:
 	var normalized: Array[Dictionary] = []
 	for entry_value: Variant in entries:
@@ -1556,6 +1759,9 @@ func _normalize_digest_output_entries(entries: Array) -> Array[Dictionary]:
 	return normalized
 
 
+## 按原顺序投影文件摘要字段并保留 error，使依赖不可用的信息进入摘要输入。
+## [br]
+## @api private
 func _normalize_digest_file_entries(entries: Array) -> Array[Dictionary]:
 	var normalized: Array[Dictionary] = []
 	for entry_value: Variant in entries:
@@ -1570,6 +1776,9 @@ func _normalize_digest_file_entries(entries: Array) -> Array[Dictionary]:
 	return normalized
 
 
+## 固定版本和阶段摘要字段并保留阶段及依赖顺序；仅当原阶段显式带依赖字段时才输出该字段，区分旧格式缺省与空依赖列表。
+## [br]
+## @api private
 func _normalize_compiler_fingerprint(fingerprint: Dictionary) -> Dictionary:
 	var engine_version: Dictionary = GFVariantData.get_option_dictionary(fingerprint, "godot_version")
 	var stage_entries: Array[Dictionary] = []
@@ -1618,6 +1827,9 @@ func _normalize_compiler_fingerprint(fingerprint: Dictionary) -> Dictionary:
 	}
 
 
+## 用当前报告编码配置生成紧凑、排序键的 JSON 兼容文本，再对 UTF-8 字节计算 SHA-256；摘要对象是编码投影而非原始 Variant。
+## [br]
+## @api private
 func _sha256_variant(value: Variant) -> String:
 	var text: String = GFReportValueCodec.stringify_json_compatible(
 		value,
@@ -1628,6 +1840,10 @@ func _sha256_variant(value: Variant) -> String:
 	return _sha256_bytes(text.to_utf8_buffer())
 
 
+## 计算 PackedByteArray 的 SHA-256 小写十六进制值；HashingContext 失败时返回空串。
+## [br]
+## @api private
+## [br]
 func _sha256_bytes(bytes: PackedByteArray) -> String:
 	var context: HashingContext = HashingContext.new()
 	var start_error: Error = context.start(HashingContext.HASH_SHA256)
@@ -1639,6 +1855,10 @@ func _sha256_bytes(bytes: PackedByteArray) -> String:
 	return context.finish().hex_encode()
 
 
+## 将 Array 中的 Dictionary 项收集为强类型数组；非 Array 输入返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_dictionary_array_value(value: Variant) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if not value is Array:
@@ -1651,6 +1871,10 @@ func _get_dictionary_array_value(value: Variant) -> Array[Dictionary]:
 	return result
 
 
+## 验证字符串长度精确匹配且内容只含小写十六进制字符。
+## [br]
+## @api private
+## [br]
 func _is_lower_hex(value: String, expected_length: int) -> bool:
 	if value.length() != expected_length:
 		return false
@@ -1664,6 +1888,9 @@ func _is_lower_hex(value: String, expected_length: int) -> bool:
 	return true
 
 
+## 为 manifest 序列化和摘要共享 DEBUG 编码配置，限制深度、集合、总节点及总字节，取消单字符串长度截断并保留字典键。
+## [br]
+## @api private
 func _make_report_codec_options() -> Dictionary:
 	return GFReportValueCodec.make_redaction_options(
 		GFReportValueCodec.REDACTION_PROFILE_DEBUG,
@@ -1679,6 +1906,9 @@ func _make_report_codec_options() -> Dictionary:
 	)
 
 
+## 已有文件需要覆盖且未显式允许非受管覆盖时，要求 manifest 可成功加载并带 GF owner；关闭覆盖时交由保存阶段决定跳过。
+## [br]
+## @api private
 func _validate_existing_manifest_ownership(manifest_path: String, options: Dictionary) -> String:
 	if not FileAccess.file_exists(manifest_path):
 		return ""
@@ -1698,6 +1928,10 @@ func _validate_existing_manifest_ownership(manifest_path: String, options: Dicti
 	return "拒绝覆盖不属于 GF Config Pipeline 的已有 manifest：%s。若已人工确认所有权，请显式传入 allow_unowned_overwrite。" % manifest_path
 
 
+## 使用失败状态和给定错误构造生成产物报告。
+## [br]
+## @api private
+## [br]
 func _make_failure_artifact_report(
 	manifest_path: String,
 	error_code: Error,
@@ -1718,6 +1952,9 @@ func _make_failure_artifact_report(
 	)
 
 
+## 统一分隔符及边缘空白，按协议分离后小写协议并简化路径；只生成比较用文本，不确认路径权限或文件存在。
+## [br]
+## @api private
 func _normalize_output_path(path: String) -> String:
 	var normalized: String = path.replace("\\", "/").strip_edges()
 	if normalized.contains("://"):
@@ -1728,6 +1965,10 @@ func _normalize_output_path(path: String) -> String:
 
 
 
+## 将 PackedStringArray 的元素按原顺序复制到普通 Array。
+## [br]
+## @api private
+## [br]
 func _packed_to_array(values: PackedStringArray) -> Array:
 	var result: Array = []
 	for value: String in values:

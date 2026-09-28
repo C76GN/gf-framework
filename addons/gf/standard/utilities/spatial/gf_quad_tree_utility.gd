@@ -34,6 +34,10 @@ const DEFAULT_MAX_DEPTH: int = 8
 ## @api public
 const DEFAULT_MAX_ENTITIES: int = 8
 
+## 为调试报告提供 JSON 兼容值转换的内部编解码器。
+## [br]
+## @api private
+## [br]
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 
 
@@ -68,15 +72,31 @@ var max_entities_per_node: int = DEFAULT_MAX_ENTITIES
 
 # --- 私有变量 ---
 
+## 规范化后的固定世界边界。
+## [br]
+## @api private
+## [br]
 var _bounds: Rect2 = Rect2()
 
 # 根节点。
+## 当前空间索引的四叉树根节点。
+## [br]
+## @api private
+## [br]
 var _root: _QTNode
 
 # 全局实体索引。Key 为 entity_id (int)，Value 为 Rect2。
+## 全局实体 ID 到规范化包围矩形的索引。
+## [br]
+## @api private
+## [br]
 var _entity_rects: Dictionary = {}
 
 # 实体点命中测试。Key 为 entity_id (int)，Value 为 Callable。
+## 实体 ID 到可选精确点命中回调的映射。
+## [br]
+## @api private
+## [br]
 var _entity_hit_tests: Dictionary = {}
 
 
@@ -410,6 +430,10 @@ func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 规范化树限制，并在根节点缺失或限制变化时重建树。
+## [br]
+## @api private
+## [br]
 func _ensure_root() -> void:
 	var limits_changed: bool = _normalize_tree_limits()
 	if _root == null:
@@ -418,12 +442,20 @@ func _ensure_root() -> void:
 		_rebuild_root_from_current_entities()
 
 
+## 规范化边界和限制后创建新的空根节点。
+## [br]
+## @api private
+## [br]
 func _rebuild_root() -> void:
 	var _limits_changed: bool = _normalize_tree_limits()
 	_bounds = _normalize_rect(_bounds)
 	_root = _QTNode.new(_bounds, 0, max_depth, max_entities_per_node)
 
 
+## 将最大深度限制为非负数、节点容量限制为至少 1，并返回是否改变。
+## [br]
+## @api private
+## [br]
 func _normalize_tree_limits() -> bool:
 	var normalized_depth: int = maxi(max_depth, 0)
 	var normalized_capacity: int = maxi(max_entities_per_node, 1)
@@ -433,6 +465,10 @@ func _normalize_tree_limits() -> bool:
 	return changed
 
 
+## 重建根节点后重新插入仍位于世界边界内的实体及其命中回调。
+## [br]
+## @api private
+## [br]
 func _rebuild_root_from_current_entities() -> void:
 	var rects: Dictionary = _entity_rects.duplicate()
 	var hit_tests: Dictionary = _entity_hit_tests.duplicate()
@@ -445,6 +481,10 @@ func _rebuild_root_from_current_entities() -> void:
 			_entity_hit_tests[entity_id] = _variant_to_callable(hit_tests[entity_id])
 
 
+## 拒绝不可索引矩形；否则同时更新全局索引和四叉树节点。
+## [br]
+## @api private
+## [br]
 func _insert_normalized_rect(entity_id: int, normalized_rect: Rect2) -> bool:
 	if not _is_indexable_rect(normalized_rect):
 		return false
@@ -453,6 +493,10 @@ func _insert_normalized_rect(entity_id: int, normalized_rect: Rect2) -> bool:
 	return true
 
 
+## 从四叉树和全局矩形索引移除实体，并按选项清除精确命中回调。
+## [br]
+## @api private
+## [br]
 func _remove_entity(entity_id: int, erase_hit_test: bool) -> void:
 	if not _entity_rects.has(entity_id):
 		return
@@ -464,6 +508,10 @@ func _remove_entity(entity_id: int, erase_hit_test: bool) -> void:
 		var _hit_test_removed: bool = _entity_hit_tests.erase(entity_id)
 
 
+## 对已索引实体执行自定义点命中回调；无回调时使用矩形包含测试。
+## [br]
+## @api private
+## [br]
 func _passes_point_hit_test(entity_id: int, point: Vector2) -> bool:
 	if not _entity_rects.has(entity_id):
 		return false
@@ -475,6 +523,10 @@ func _passes_point_hit_test(entity_id: int, point: Vector2) -> bool:
 	return _rect_contains_point(rect, point)
 
 
+## 将负宽或负高转换为正尺寸，并移动原点以保留矩形覆盖范围。
+## [br]
+## @api private
+## [br]
 func _normalize_rect(rect: Rect2) -> Rect2:
 	var position: Vector2 = rect.position
 	var size: Vector2 = rect.size
@@ -487,10 +539,18 @@ func _normalize_rect(rect: Rect2) -> Rect2:
 	return Rect2(position, size)
 
 
+## 检查矩形坐标有限且整个矩形位于固定世界边界内。
+## [br]
+## @api private
+## [br]
 func _is_indexable_rect(rect: Rect2) -> bool:
 	return _is_finite_rect(rect) and _rect_contains_rect(_bounds, rect)
 
 
+## 检查矩形的位置、尺寸及终点坐标均为有限数值。
+## [br]
+## @api private
+## [br]
 func _is_finite_rect(rect: Rect2) -> bool:
 	var end: Vector2 = rect.position + rect.size
 	return (
@@ -503,10 +563,18 @@ func _is_finite_rect(rect: Rect2) -> bool:
 	)
 
 
+## 拒绝 NaN 和正负无穷浮点值。
+## [br]
+## @api private
+## [br]
 func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 判断有限容器矩形是否包含目标矩形的两个对角端点。
+## [br]
+## @api private
+## [br]
 func _rect_contains_rect(container: Rect2, rect: Rect2) -> bool:
 	return (
 		_is_finite_rect(container)
@@ -515,6 +583,10 @@ func _rect_contains_rect(container: Rect2, rect: Rect2) -> bool:
 	)
 
 
+## 使用包含边界的比较判断矩形是否覆盖指定点。
+## [br]
+## @api private
+## [br]
 func _rect_contains_point(rect: Rect2, point: Vector2) -> bool:
 	return (
 		point.x >= rect.position.x
@@ -524,6 +596,10 @@ func _rect_contains_point(rect: Rect2, point: Vector2) -> bool:
 	)
 
 
+## 将 Variant 收窄为 Callable；类型不符时返回无效 Callable。
+## [br]
+## @api private
+## [br]
 static func _variant_to_callable(value: Variant) -> Callable:
 	if value is Callable:
 		var callback: Callable = value
@@ -531,6 +607,10 @@ static func _variant_to_callable(value: Variant) -> Callable:
 	return Callable()
 
 
+## 将 Variant 收窄为 Rect2；类型不符时返回空 Rect2。
+## [br]
+## @api private
+## [br]
 static func _variant_to_rect2(value: Variant) -> Rect2:
 	if value is Rect2:
 		var rect: Rect2 = value
@@ -540,16 +620,50 @@ static func _variant_to_rect2(value: Variant) -> Rect2:
 
 # --- 内部类 ---
 
-# 四叉树节点内部实现。
+## 管理局部实体集合及其子节点的四叉树节点。
+## [br]
+## @api private
+## [br]
 class _QTNode:
 	# --- 私有变量 ---
+	## 本节点覆盖的固定矩形，子节点由其四等分产生。
+	## [br]
+	## @api private
 	var _node_bounds: Rect2
+
+	## 根为零的层级，用于限制继续分裂。
+	## [br]
+	## @api private
 	var _depth: int
+
+	## 创建时继承的最大深度；外层设置变化由重建整棵树生效。
+	## [br]
+	## @api private
 	var _max_depth_limit: int
+
+	## 未分裂叶节点的容量阈值，超过且深度允许时触发分裂。
+	## [br]
+	## @api private
 	var _max_entities_limit: int
+
+	## 仍保留在本节点的实体标识；已下放的实体可同时出现在多个子节点。
+	## [br]
+	## @api private
 	var _entities: Array[int] = []
+
+	## 本节点实体矩形索引，和本地标识数组一起维护。
+	## [br]
+	## @api private
 	var _entity_rects: Dictionary = {}
+
+	## 分裂后按四象限顺序保存的子节点；查询跨节点以 visited 去重。
+	## [br]
+	## @api private
 	var _children: Array = []
+
+	## 是否已创建四个子节点；删除不会合并节点，压缩由外层重建实现。
+	## [br]
+	## @api private
 	var _is_split: bool = false
 
 
@@ -569,6 +683,9 @@ class _QTNode:
 
 	# --- 私有/辅助方法 ---
 
+	## 已分裂时尝试放入所有相交子节点；没有子节点接纳才留在本地。叶节点超过容量且未达深度上限时分裂。
+	## [br]
+	## @api private
 	func _insert(entity_id: int, rect: Rect2) -> void:
 		if _is_split:
 			if _insert_into_children(entity_id, rect):
@@ -582,6 +699,9 @@ class _QTNode:
 			_split()
 
 
+	## 移除本地标识与矩形，并递归清理所有与旧矩形相交的子树；保留已有分裂结构。
+	## [br]
+	## @api private
 	func _remove(entity_id: int, rect: Rect2) -> void:
 		_entities.erase(entity_id)
 		var _removed: bool = _entity_rects.erase(entity_id)
@@ -592,6 +712,9 @@ class _QTNode:
 					child._remove(entity_id, rect)
 
 
+	## 不相交子树直接剪枝；先查本地再递归子树，共享 visited 防止跨象限实体重复返回。
+	## [br]
+	## @api private
 	func _query_rect(query: Rect2, result: Array[int], visited: Dictionary) -> void:
 		if not _node_bounds.intersects(query):
 			return
@@ -602,6 +725,9 @@ class _QTNode:
 				child._query_rect(query, result, visited)
 
 
+	## 使用包含边界的点测试剪枝，先查本地再查子树；共享 visited 对分界线上的重复候选去重。
+	## [br]
+	## @api private
 	func _query_point(point: Vector2, result: Array[int], visited: Dictionary) -> void:
 		if not _contains_point(_node_bounds, point):
 			return
@@ -612,6 +738,9 @@ class _QTNode:
 				child._query_point(point, result, visited)
 
 
+	## 统计自身及所有已分裂后代，用于结构调试；空节点仍计入。
+	## [br]
+	## @api private
 	func _get_node_count() -> int:
 		var count: int = 1
 		if _is_split:
@@ -620,6 +749,9 @@ class _QTNode:
 		return count
 
 
+	## 创建四个半尺寸子节点后清空本地索引，再按原实体快照重新插入；跨象限矩形可被多份索引。
+	## [br]
+	## @api private
 	func _split() -> void:
 		var half_size: Vector2 = _node_bounds.size * 0.5
 		var pos: Vector2 = _node_bounds.position
@@ -643,6 +775,9 @@ class _QTNode:
 				_insert(entity_id, GFQuadTreeUtility._variant_to_rect2(old_rects[entity_id]))
 
 
+	## 向每个相交子节点插入同一实体；返回是否至少有一处接纳，不要求矩形完整落入单个子节点。
+	## [br]
+	## @api private
 	func _insert_into_children(entity_id: int, rect: Rect2) -> bool:
 		var inserted: bool = false
 		for child: _QTNode in _children:
@@ -652,6 +787,9 @@ class _QTNode:
 		return inserted
 
 
+	## 只把本地矩形与查询相交且尚未返回的实体加入结果，并同步登记 visited。
+	## [br]
+	## @api private
 	func _query_local_rect(query: Rect2, result: Array[int], visited: Dictionary) -> void:
 		for entity_id: int in _entities:
 			if visited.has(entity_id) or not _entity_rects.has(entity_id):
@@ -663,6 +801,9 @@ class _QTNode:
 				result.append(entity_id)
 
 
+	## 按包含边界的矩形测试加入本地候选，并登记 visited；精确形状命中由外层随后处理。
+	## [br]
+	## @api private
 	func _query_local_point(point: Vector2, result: Array[int], visited: Dictionary) -> void:
 		for entity_id: int in _entities:
 			if visited.has(entity_id) or not _entity_rects.has(entity_id):
@@ -674,6 +815,9 @@ class _QTNode:
 				result.append(entity_id)
 
 
+	## 使用含四条边界的比较，使位于树边缘或分割线上的点仍可作为候选。
+	## [br]
+	## @api private
 	func _contains_point(rect: Rect2, point: Vector2) -> bool:
 		return (
 			point.x >= rect.position.x

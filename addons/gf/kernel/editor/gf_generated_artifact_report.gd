@@ -74,21 +74,67 @@ const OWNER_USER: StringName = &"user"
 ## @since 6.0.0
 const OWNER_EXTERNAL: StringName = &"external"
 
+## 规范化生成产物路径并读取其物理路径边界的工具脚本。
+## [br]
+## @api private
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+## 将 metadata 编码为受控报告值的工具脚本。
+## [br]
+## @api private
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+
+## 从选项、报告和文件状态字典读取类型化字段的工具脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 文件快照记录中用于表示普通文件的 entry_kind 值。
+## [br]
+## @api private
 const _FILE_ENTRY_REGULAR: StringName = &"regular"
+
+## 文件快照记录中用于表示直接链接的 entry_kind 值。
+## [br]
+## @api private
 const _FILE_ENTRY_DIRECT_LINK: StringName = &"direct_link"
 
 
 # --- 私有变量 ---
 
+## 供保存前替换边界测试的一次性回调槽。
+## [br]
+## @api private
 static var _test_before_final_replace: Callable = Callable()
+
+## 供最终替换后状态检查测试的一次性回调槽。
+## [br]
+## @api private
 static var _test_after_final_replace: Callable = Callable()
+
+## 供文件快照读取边界测试的一次性回调槽。
+## [br]
+## @api private
 static var _test_after_file_snapshot_read: Callable = Callable()
+
+## 供文件系统扫描调用边界测试使用的观察回调槽。
+## [br]
+## @api private
 static var _test_scan_filesystem_observer: Callable = Callable()
+
+## 测试写入故障注入使用的错误码。
+## [br]
+## @api private
 static var _test_temp_write_error: Error = OK
+
+## 测试写入故障注入仍需触发的次数。
+## [br]
+## @api private
 static var _test_temp_write_failures_remaining: int = 0
+
+## 测试替换默认暂存路径的一次性路径值。
+## [br]
+## @api private
 static var _test_temp_path_override: String = ""
 
 
@@ -813,6 +859,9 @@ static func get_error_code(report: Dictionary) -> Error:
 
 # --- 私有/辅助方法 ---
 
+## 将报告投影到固定字段集合，补齐空状态/owner 默认值并收束 metadata。
+## [br]
+## @api private
 static func _to_artifact_report_boundary(report: Dictionary) -> Dictionary:
 	var status_text: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "status")
 	if status_text.is_empty():
@@ -845,6 +894,9 @@ static func _to_artifact_report_boundary(report: Dictionary) -> Dictionary:
 	}
 
 
+## 将报告数组中的每项转换到统一产物报告边界结构。
+## [br]
+## @api private
 static func _to_artifact_report_array(reports: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for report: Dictionary in reports:
@@ -852,10 +904,16 @@ static func _to_artifact_report_array(reports: Array[Dictionary]) -> Array[Dicti
 	return result
 
 
+## 按当前报告 codec 选项将任意字典值收束为 JSON-safe Dictionary。
+## [br]
+## @api private
 static func _to_report_dictionary(value: Dictionary) -> Dictionary:
 	return _GF_REPORT_VALUE_CODEC_SCRIPT.to_report_dictionary(value, _make_report_codec_options())
 
 
+## 构造使用 SUPPORT 脱敏 profile 并将路径收束到 basename 的 codec 选项。
+## [br]
+## @api private
 static func _make_report_codec_options() -> Dictionary:
 	return _GF_REPORT_VALUE_CODEC_SCRIPT.make_redaction_options(
 		_GF_REPORT_VALUE_CODEC_SCRIPT.REDACTION_PROFILE_SUPPORT,
@@ -863,6 +921,9 @@ static func _make_report_codec_options() -> Dictionary:
 	)
 
 
+## 按目标是否存在及文本是否相同返回 new、unchanged 或 changed。
+## [br]
+## @api private
 static func _resolve_text_status(exists: bool, existing_text: String, text: String) -> StringName:
 	if not exists:
 		return STATUS_NEW
@@ -871,6 +932,9 @@ static func _resolve_text_status(exists: bool, existing_text: String, text: Stri
 	return STATUS_CHANGED
 
 
+## 读取已有文本文件并返回 ok/text/error_code/error 结构；打开或读取失败时文本为空。
+## [br]
+## @api private
 static func _read_text_if_exists(output_path: String) -> Dictionary:
 	var file: FileAccess = FileAccess.open(output_path, FileAccess.READ)
 	if file == null:
@@ -899,6 +963,9 @@ static func _read_text_if_exists(output_path: String) -> Dictionary:
 	}
 
 
+## 要求输出使用 res:// 或 user://；显式提供允许根目录时校验其有效性、路径归属及链接组件，并返回后续操作是否必须执行物理归属检查。
+## [br]
+## @api private
 static func _validate_output_path(output_path: String, options: Dictionary) -> Dictionary:
 	if not (output_path.begins_with("res://") or output_path.begins_with("user://")):
 		return {
@@ -966,6 +1033,9 @@ static func _validate_output_path(output_path: String, options: Dictionary) -> D
 	}
 
 
+## 区分未提供允许根目录与显式空值；接受文本或文本集合，规范化资源根路径并去重，拒绝无效类型、空集合和非资源路径。
+## [br]
+## @api private
 static func _read_allowed_roots(options: Dictionary) -> Dictionary:
 	var roots: PackedStringArray = PackedStringArray()
 	var supplied: bool = options.has("allowed_roots") or options.has(&"allowed_roots")
@@ -1041,6 +1111,9 @@ static func _read_allowed_roots(options: Dictionary) -> Dictionary:
 	}
 
 
+## 打开文件读取长度，无法打开时返回 -1。
+## [br]
+## @api private
 static func _file_size(path: String) -> int:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
@@ -1050,6 +1123,9 @@ static func _file_size(path: String) -> int:
 	return size
 
 
+## 重读前后按配置检查物理归属，并核对目标是否仍具有预期存在状态与文本哈希；存在性或内容变化标为冲突，读取和归属失败保留独立错误。
+## [br]
+## @api private
 static func _check_target_baseline(
 	output_path: String,
 	expected_exists: bool,
@@ -1135,6 +1211,9 @@ static func _check_target_baseline(
 	}
 
 
+## 检查目标物理归属后递归创建父目录，成功后再次验证父目录和目标路径；任一步失败即返回错误。
+## [br]
+## @api private
 static func _ensure_output_directory(
 	output_path: String,
 	enforce_physical_ownership: bool
@@ -1159,6 +1238,9 @@ static func _ensure_output_directory(
 	)
 
 
+## 消费一次性的测试路径覆盖值，否则在输出同目录构造含微秒计数后缀的暂存路径；路径是否已被占用由后续步骤检查。
+## [br]
+## @api private
 static func _make_temp_output_path(output_path: String) -> String:
 	if not _test_temp_path_override.is_empty():
 		var overridden_path: String = _test_temp_path_override
@@ -1170,6 +1252,9 @@ static func _make_temp_output_path(output_path: String) -> String:
 	return base_dir.path_join("%s%s" % [file_name, suffix])
 
 
+## 规范化暂存与输出路径，要求暂存位于输出同一目录且不等于输出自身；不在此步骤创建文件或判断占用。
+## [br]
+## @api private
 static func _validate_staging_path(candidate_path: String, output_path: String) -> Dictionary:
 	var normalized_candidate: String = _GF_PATH_TOOLS.normalize_resource_path(
 		candidate_path
@@ -1204,6 +1289,10 @@ static func _validate_staging_path(candidate_path: String, output_path: String) 
 	}
 
 
+## 反复校验目标基线、暂存内容及原文件快照，再通过备份与重命名完成替换；提交前失败尝试清理和回滚，提交后校验失败仍保留已提交标记，避免把清理错误误报成未写入。
+## 恢复仅使用经过快照验证的文件，冲突或归属异常时保留无法安全处理的现场。
+## [br]
+## @api private
 static func _replace_output_with_temp(
 	output_path: String,
 	temp_path: String,
@@ -1730,6 +1819,9 @@ static func _replace_output_with_temp(
 	)
 
 
+## 组装替换阶段结果，并将 committed 计入 filesystem_changed。
+## [br]
+## @api private
 static func _make_replace_result(
 	error_code: Error,
 	committed: bool,
@@ -1744,6 +1836,9 @@ static func _make_replace_result(
 	}
 
 
+## 组装回滚阶段的 error_code 与 conflict 结果。
+## [br]
+## @api private
 static func _make_rollback_result(error_code: Error, conflict: bool = false) -> Dictionary:
 	return {
 		"error_code": error_code,
@@ -1751,6 +1846,9 @@ static func _make_rollback_result(error_code: Error, conflict: bool = false) -> 
 	}
 
 
+## 仅在目标仍不存在且备份与原文件快照相符时把备份改名回目标；随后复核恢复内容与备份消失状态，不覆盖新出现的目标。
+## [br]
+## @api private
 static func _rollback_backup(
 	backup_path: String,
 	output_path: String,
@@ -1807,6 +1905,9 @@ static func _rollback_backup(
 	)
 
 
+## 仅删除大小和哈希仍匹配预期的普通文件；拒绝链接、目录和未知实体，缺失路径视为已清理，删除后再次检查归属与路径消失状态。
+## [br]
+## @api private
 static func _remove_file_if_exists(
 	path: String,
 	enforce_physical_ownership: bool,
@@ -1854,6 +1955,9 @@ static func _remove_file_if_exists(
 	return OK if not _path_entry_exists(path) else ERR_FILE_CANT_WRITE
 
 
+## 读取普通暂存文件的字节快照，禁止直接链接，并启用一次性读取后测试钩子。
+## [br]
+## @api private
 static func _capture_file_snapshot(
 	path: String,
 	enforce_physical_ownership: bool
@@ -1866,6 +1970,9 @@ static func _capture_file_snapshot(
 	)
 
 
+## 捕获原文件的字节快照；兼容未启用物理归属约束时的直接链接，不触发读取后测试钩子。
+## [br]
+## @api private
 static func _capture_original_file_snapshot(
 	path: String,
 	enforce_physical_ownership: bool
@@ -1878,6 +1985,9 @@ static func _capture_original_file_snapshot(
 	)
 
 
+## 读取文件字节长度、哈希与入口种类，读取前后检查归属及入口类型；是否允许直接链接和触发一次性测试钩子由调用方指定，失败返回带错误的快照。
+## [br]
+## @api private
 static func _capture_file_entry_snapshot(
 	path: String,
 	enforce_physical_ownership: bool,
@@ -1936,6 +2046,9 @@ static func _capture_file_entry_snapshot(
 	}
 
 
+## 创建失败快照的固定字段结构，大小为 -1、hash 与 entry_kind 为空。
+## [br]
+## @api private
 static func _make_failed_file_entry_snapshot(error_code: Error) -> Dictionary:
 	return {
 		"ok": false,
@@ -1946,6 +2059,10 @@ static func _make_failed_file_entry_snapshot(error_code: Error) -> Dictionary:
 	}
 
 
+## 读取当前普通文件快照，并核对预期大小和小写 SHA-256。
+## 快照读取失败时返回其错误码，大小或摘要不匹配时返回 ERR_FILE_CORRUPT。
+## [br]
+## @api private
 static func _validate_file_snapshot(
 	path: String,
 	expected_size: int,
@@ -1979,6 +2096,9 @@ static func _validate_file_snapshot(
 	return OK
 
 
+## 重新捕获文件入口，核对原快照的入口种类、字节长度与哈希；严格归属模式拒绝原快照中的直接链接。
+## [br]
+## @api private
 static func _validate_original_file_snapshot(
 	path: String,
 	expected_snapshot: Dictionary,
@@ -2037,6 +2157,9 @@ static func _validate_original_file_snapshot(
 	return OK
 
 
+## 验证原文件快照后移除对应入口，再检查物理归属和路径是否消失；快照校验失败时保持现场。
+## [br]
+## @api private
 static func _remove_original_file_if_exists(
 	path: String,
 	expected_snapshot: Dictionary,
@@ -2062,6 +2185,9 @@ static func _remove_original_file_if_exists(
 	return OK if not _path_entry_exists(path) else ERR_FILE_CANT_WRITE
 
 
+## 联合文件、目录、链接及父目录枚举判断路径占用；父目录枚举启动失败时保守视为已占用。
+## [br]
+## @api private
 static func _path_entry_exists(path: String) -> bool:
 	if path.is_empty():
 		return false
@@ -2092,6 +2218,9 @@ static func _path_entry_exists(path: String) -> bool:
 	return false
 
 
+## 启用物理归属约束时拒绝空路径或含链接组件的路径；未启用时直接返回 OK。
+## [br]
+## @api private
 static func _get_paths_physical_error(
 	paths: PackedStringArray,
 	enforce_physical_ownership: bool
@@ -2104,6 +2233,9 @@ static func _get_paths_physical_error(
 	return OK
 
 
+## 从绝对路径向父级逐段检查链接组件，直到根目录或无法继续上溯。
+## [br]
+## @api private
 static func _path_has_link_component(path: String) -> bool:
 	var current: String = _trim_trailing_separators(
 		ProjectSettings.globalize_path(path).replace("\\", "/")
@@ -2120,6 +2252,9 @@ static func _path_has_link_component(path: String) -> bool:
 	return false
 
 
+## 通过父目录查询当前路径组件是否为链接；父目录存在但无法打开时保守视为不可信组件。
+## [br]
+## @api private
 static func _path_component_is_link(path: String) -> bool:
 	var normalized: String = _trim_trailing_separators(path.replace("\\", "/"))
 	var parent: String = normalized.get_base_dir()
@@ -2132,6 +2267,9 @@ static func _path_component_is_link(path: String) -> bool:
 	return directory.is_link(component_name)
 
 
+## 移除路径末尾斜线，但保留单字符根路径。
+## [br]
+## @api private
 static func _trim_trailing_separators(path: String) -> String:
 	var result: String = path
 	while result.length() > 1 and result.ends_with("/"):
@@ -2139,22 +2277,37 @@ static func _trim_trailing_separators(path: String) -> String:
 	return result
 
 
+## 设置下一次保存流程在最终替换前消费的测试回调。
+## [br]
+## @api private
 static func _configure_test_before_final_replace(callback: Callable) -> void:
 	_test_before_final_replace = callback
 
 
+## 设置下一次保存流程在最终替换后消费的测试回调。
+## [br]
+## @api private
 static func _configure_test_after_final_replace(callback: Callable) -> void:
 	_test_after_final_replace = callback
 
 
+## 设置下一次允许通知的文件快照读取后消费的测试回调。
+## [br]
+## @api private
 static func _configure_test_after_file_snapshot_read(callback: Callable) -> void:
 	_test_after_file_snapshot_read = callback
 
 
+## 设置下一次 save_text 流程扫描文件系统前消费的观察回调。
+## [br]
+## @api private
 static func _configure_test_scan_filesystem_observer(callback: Callable) -> void:
 	_test_scan_filesystem_observer = callback
 
 
+## 设置暂存写入故障注入错误码，并将剩余失败次数限制为非负数。
+## [br]
+## @api private
 static func _configure_test_temp_write_failure(
 	error_code: Error = FAILED,
 	failure_count: int = 1
@@ -2163,10 +2316,16 @@ static func _configure_test_temp_write_failure(
 	_test_temp_write_failures_remaining = maxi(failure_count, 0)
 
 
+## 设置下一次生成暂存路径时消费的测试路径覆盖值。
+## [br]
+## @api private
 static func _configure_test_temp_path_override(temp_path: String) -> void:
 	_test_temp_path_override = temp_path
 
 
+## 将文件写入边界回调、故障计数与暂存路径覆盖复位到默认测试状态。
+## [br]
+## @api private
 static func _reset_test_state() -> void:
 	_test_before_final_replace = Callable()
 	_test_after_final_replace = Callable()
@@ -2177,6 +2336,9 @@ static func _reset_test_state() -> void:
 	_test_temp_path_override = ""
 
 
+## 仅在请求扫描时先通知有效 observer，再于 Editor hint 环境调用 EditorFileSystem.scan。
+## [br]
+## @api private
 static func _scan_filesystem_if_needed(
 	scan_filesystem: bool,
 	observer: Callable = Callable()
@@ -2192,6 +2354,9 @@ static func _scan_filesystem_if_needed(
 		filesystem.scan()
 
 
+## 读取 artifact_owner；字段缺失或空 StringName 时回退到 OWNER_GENERATED。
+## [br]
+## @api private
 static func _read_artifact_owner(options: Dictionary) -> StringName:
 	var raw_owner: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(options, "artifact_owner", OWNER_GENERATED)
 	if raw_owner == &"":
@@ -2199,10 +2364,16 @@ static func _read_artifact_owner(options: Dictionary) -> StringName:
 	return raw_owner
 
 
+## 将文本编码为 UTF-8 字节后计算 SHA-256。
+## [br]
+## @api private
 static func _sha256_text(text: String) -> String:
 	return _sha256_bytes(text.to_utf8_buffer())
 
 
+## 用 HashingContext 计算 SHA-256 十六进制摘要；start 或 update 失败时返回空字符串。
+## [br]
+## @api private
 static func _sha256_bytes(bytes: PackedByteArray) -> String:
 	var context: HashingContext = HashingContext.new()
 	var start_error: Error = context.start(HashingContext.HASH_SHA256)
@@ -2214,6 +2385,9 @@ static func _sha256_bytes(bytes: PackedByteArray) -> String:
 	return context.finish().hex_encode()
 
 
+## 将键转为文本并排序，再按该顺序组装字典并深复制各值。
+## [br]
+## @api private
 static func _sort_dictionary_by_key(data: Dictionary) -> Dictionary:
 	var keys: PackedStringArray = PackedStringArray()
 	for raw_key: Variant in data.keys():
@@ -2225,6 +2399,9 @@ static func _sort_dictionary_by_key(data: Dictionary) -> Dictionary:
 	return result
 
 
+## 将 PackedStringArray 按原顺序复制到普通 Array。
+## [br]
+## @api private
 static func _packed_to_array(values: PackedStringArray) -> Array:
 	var result: Array = []
 	for value: String in values:

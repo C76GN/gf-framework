@@ -13,12 +13,46 @@ extends Resource
 
 # --- 常量 ---
 
+## 创建配置 schema 校验报告的类脚本引用。
+## [br]
+## @api private
+## [br]
 const _CONFIG_VALIDATION_REPORT = preload("res://addons/gf/standard/utilities/config/gf_config_validation_report.gd")
+
+## 执行资源路径元素校验的规则类脚本引用。
+## [br]
+## @api private
+## [br]
 const _RESOURCE_PATH_VALIDATION_RULE = preload("res://addons/gf/standard/utilities/config/validation/gf_config_resource_path_validation_rule.gd")
+
+## 资源路径校验共享会话在选项字典中的键。
+## [br]
+## @api private
+## [br]
 const _RESOURCE_PATH_VALIDATION_SESSION_KEY: StringName = &"__gf_config_resource_path_validation_session"
+
+## 元素规则校验共享预算会话在选项字典中的键。
+## [br]
+## @api private
+## [br]
 const _ELEMENT_VALIDATION_SESSION_KEY: StringName = &"__gf_config_element_validation_session"
+
+## 一次 schema 验证可检查的元素数量上限。
+## [br]
+## @api private
+## [br]
 const _MAX_ELEMENTS_PER_VALIDATION: int = 65536
+
+## 一次 schema 验证可执行的元素规则检查总数上限。
+## [br]
+## @api private
+## [br]
 const _MAX_ELEMENT_RULE_CHECKS_PER_VALIDATION: int = 262144
+
+## 单列可配置的元素验证规则数量上限。
+## [br]
+## @api private
+## [br]
 const _MAX_ELEMENT_RULES_PER_COLUMN: int = 64
 
 
@@ -486,20 +520,36 @@ func describe() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 从记录的 ID 字段读取行键；无 ID 字段时返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_record_row_key(record: Dictionary, default_value: Variant) -> Variant:
 	if id_field == &"":
 		return default_value
 	return GFVariantData.get_option_value(record, id_field, default_value)
 
 
+## 从行条目读取 record 字典。
+## [br]
+## @api private
+## [br]
 func _get_row_entry_record(row_entry: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(row_entry, "record", {}))
 
 
+## 从行条目读取 row_key。
+## [br]
+## @api private
+## [br]
 func _get_row_entry_key(row_entry: Dictionary) -> Variant:
 	return GFVariantData.get_option_value(row_entry, "row_key")
 
 
+## 逐行验证数组表，并汇总有效行、重复 ID 和校验问题。
+## [br]
+## @api private
+## [br]
 func _validate_array_table(rows: Array, report: Dictionary, options: Dictionary) -> void:
 	report["row_count"] = rows.size()
 	var seen_ids: Dictionary = {}
@@ -533,6 +583,10 @@ func _validate_array_table(rows: Array, report: Dictionary, options: Dictionary)
 	_validate_table_rules(valid_rows, report, options)
 
 
+## 验证字典表中的行记录及其键与 ID 关系。
+## [br]
+## @api private
+## [br]
 func _validate_dictionary_table(table: Dictionary, report: Dictionary, options: Dictionary) -> void:
 	report["row_count"] = table.size()
 	var seen_ids: Dictionary = {}
@@ -564,10 +618,18 @@ func _validate_dictionary_table(table: Dictionary, report: Dictionary, options: 
 	_validate_table_rules(valid_rows, report, options)
 
 
+## 创建包含表名和输入行数的验证报告。
+## [br]
+## @api private
+## [br]
 func _make_report(row_count: int) -> Dictionary:
 	return _CONFIG_VALIDATION_REPORT.new().make_report(table_name, row_count)
 
 
+## 校验列定义并检查字段标识、重复项和关联规则。
+## [br]
+## @api private
+## [br]
 func _validate_column_definitions(report: Dictionary, options: Dictionary) -> void:
 	var seen_fields: Dictionary = {}
 	for index: int in range(columns.size()):
@@ -596,6 +658,10 @@ func _validate_column_definitions(report: Dictionary, options: Dictionary) -> vo
 		_validate_column_rule_definitions(column, report, context)
 
 
+## 校验列上配置的验证规则及其适用条件。
+## [br]
+## @api private
+## [br]
 func _validate_column_rule_definitions(
 	column: GFConfigTableColumn,
 	report: Dictionary,
@@ -615,6 +681,10 @@ func _validate_column_rule_definitions(
 			)
 
 
+## 校验索引定义、索引 ID 和字段引用。
+## [br]
+## @api private
+## [br]
 func _validate_index_definitions(report: Dictionary, options: Dictionary) -> void:
 	var seen_index_ids: Dictionary = {}
 	for index: GFConfigTableIndexDefinition in indexes:
@@ -650,6 +720,10 @@ func _validate_index_definitions(report: Dictionary, options: Dictionary) -> voi
 				)
 
 
+## 校验表引用定义及其字段配置。
+## [br]
+## @api private
+## [br]
 func _validate_reference_definitions(report: Dictionary, options: Dictionary) -> void:
 	var seen_reference_ids: Dictionary = {}
 	for reference_definition: GFConfigTableReference in references:
@@ -685,6 +759,10 @@ func _validate_reference_definitions(report: Dictionary, options: Dictionary) ->
 				)
 
 
+## 校验记录级与表级验证规则定义。
+## [br]
+## @api private
+## [br]
 func _validate_rule_definitions(report: Dictionary, options: Dictionary) -> void:
 	for rule: GFConfigValidationRule in record_validation_rules:
 		if rule == null:
@@ -694,6 +772,10 @@ func _validate_rule_definitions(report: Dictionary, options: Dictionary) -> void
 			_add_issue(report, "error", "null_table_validation_rule", null, &"", "表校验规则为空。", _make_record_context(null, options))
 
 
+## 为单条记录准备可校验副本、列集合和元素批次。
+## [br]
+## @api private
+## [br]
 func _prepare_record_for_validation(record: Dictionary, row_key: Variant, report: Dictionary, options: Dictionary) -> _PreparedValidationRecord:
 	var prepared: _PreparedValidationRecord = _PreparedValidationRecord.new()
 	if not _validate_element_limits(report, options) or not _validate_element_definitions(report, options):
@@ -729,6 +811,10 @@ func _prepare_record_for_validation(record: Dictionary, row_key: Variant, report
 	return prepared
 
 
+## 校验转换后的元素是否符合声明的元素形状。
+## [br]
+## @api private
+## [br]
 func _validate_coerced_element_shapes(batch: _ElementValidationBatch, row_key: Variant, field_key: StringName, report: Dictionary, context: Dictionary) -> void:
 	# 只访问已获预算的外层快照，不递归复制被拒绝的元素。
 	for element_index: int in range(batch._elements.size()):
@@ -743,6 +829,10 @@ func _validate_coerced_element_shapes(batch: _ElementValidationBatch, row_key: V
 		_add_issue(report, "error", "invalid_element_validation_value", row_key, field_key, "元素必须为单层值，不接受集合、对象或可执行引用。", issue_context)
 
 
+## 对准备后的记录执行字段转换、字段规则和元素规则验证。
+## [br]
+## @api private
+## [br]
 func _validate_prepared_record(record: Dictionary, row_key: Variant, report: Dictionary, options: Dictionary, prepared: _PreparedValidationRecord) -> void:
 	var working_record: Dictionary = prepared._record
 	var declared_fields: Dictionary = {}
@@ -814,6 +904,10 @@ func _validate_prepared_record(record: Dictionary, row_key: Variant, report: Dic
 	_validate_record_rules(working_record, row_key, report, options)
 
 
+## 按验证列将记录字段转换为声明的值类型并报告转换问题。
+## [br]
+## @api private
+## [br]
 func _coerce_record_for_validation(record: Dictionary, row_key: Variant, report: Dictionary, options: Dictionary, validation_columns: Array[GFConfigTableColumn]) -> Dictionary:
 	var result: Dictionary = GFVariantData.as_dictionary(GFVariantData.duplicate_variant(record))
 	for column: GFConfigTableColumn in validation_columns:
@@ -841,6 +935,10 @@ func _coerce_record_for_validation(record: Dictionary, row_key: Variant, report:
 	return result
 
 
+## 检查记录 ID 是否重复，并在有效时登记供后续行查重。
+## [br]
+## @api private
+## [br]
 func _validate_unique_id(
 	record: Dictionary,
 	row_key: Variant,
@@ -872,6 +970,10 @@ func _validate_unique_id(
 	seen_ids[id_key] = row_key
 
 
+## 按索引定义检查记录集合的唯一性等约束。
+## [br]
+## @api private
+## [br]
 func _validate_index_constraints(rows: Array[Dictionary], report: Dictionary) -> void:
 	for index: GFConfigTableIndexDefinition in indexes:
 		if index == null:
@@ -905,10 +1007,18 @@ func _validate_index_constraints(rows: Array[Dictionary], report: Dictionary) ->
 			seen_keys[key] = _get_row_entry_key(row_entry)
 
 
+## 将 Variant 的类型和值文本组合成稳定比较键。
+## [br]
+## @api private
+## [br]
 func _make_variant_key(value: Variant) -> String:
 	return "%d:%s" % [typeof(value), str(value)]
 
 
+## 使用指定列的规则验证单个字段值。
+## [br]
+## @api private
+## [br]
 func _validate_column_rules(
 	column: GFConfigTableColumn,
 	value: Variant,
@@ -936,6 +1046,10 @@ func _validate_column_rules(
 		_validate_element_batch(batch, report, context)
 
 
+## 检查本次验证的元素数及规则检查预算是否在上限内。
+## [br]
+## @api private
+## [br]
 func _validate_element_limits(report: Dictionary, options: Dictionary) -> bool:
 	if (
 		max_elements_per_validation >= 1
@@ -948,6 +1062,10 @@ func _validate_element_limits(report: Dictionary, options: Dictionary) -> bool:
 	return false
 
 
+## 校验列上声明的元素规则及其适用类型。
+## [br]
+## @api private
+## [br]
 func _validate_element_definitions(report: Dictionary, options: Dictionary) -> bool:
 	var valid: bool = true
 	for column: GFConfigTableColumn in columns:
@@ -958,6 +1076,10 @@ func _validate_element_definitions(report: Dictionary, options: Dictionary) -> b
 	return valid
 
 
+## 检查单列元素规则仅配置在允许的数组列上。
+## [br]
+## @api private
+## [br]
 func _validate_column_element_definition(column: GFConfigTableColumn, report: Dictionary, context: Dictionary) -> bool:
 	if column.element_validation_rules.is_empty():
 		return true
@@ -974,6 +1096,10 @@ func _validate_column_element_definition(column: GFConfigTableColumn, report: Di
 	return true
 
 
+## 复制选项并复用或创建共享元素规则预算会话。
+## [br]
+## @api private
+## [br]
 func _with_element_validation_session(options: Dictionary) -> Dictionary:
 	var result: Dictionary = options.duplicate(false)
 	if not GFVariantData.get_option_value(result, _ELEMENT_VALIDATION_SESSION_KEY) is _ElementValidationSession:
@@ -983,6 +1109,10 @@ func _with_element_validation_session(options: Dictionary) -> Dictionary:
 	return result
 
 
+## 为数组字段整理待验证元素和适用规则，并预留预算。
+## [br]
+## @api private
+## [br]
 func _prepare_element_batch(
 	column: GFConfigTableColumn,
 	value: Variant,
@@ -1016,6 +1146,10 @@ func _prepare_element_batch(
 	return batch
 
 
+## 按元素批次运行规则并累积字段级诊断。
+## [br]
+## @api private
+## [br]
 func _validate_element_batch(batch: _ElementValidationBatch, report: Dictionary, context: Dictionary) -> void:
 	for element_index: int in range(batch._elements.size()):
 		var value: Variant = batch._elements[element_index]
@@ -1031,6 +1165,10 @@ func _validate_element_batch(batch: _ElementValidationBatch, report: Dictionary,
 			_merge_report(report, rule.validate_value(value, GFVariantData.as_dictionary(GFVariantData.duplicate_variant(element_context))))
 
 
+## 判断 Variant 值是否属于允许传入元素规则验证的普通值。
+## [br]
+## @api private
+## [br]
 func _is_element_validation_value(value: Variant) -> bool:
 	var value_type: int = typeof(value)
 	return (
@@ -1040,6 +1178,10 @@ func _is_element_validation_value(value: Variant) -> bool:
 	)
 
 
+## 运行全部记录级规则并将结果写入报告。
+## [br]
+## @api private
+## [br]
 func _validate_record_rules(record: Dictionary, row_key: Variant, report: Dictionary, options: Dictionary) -> void:
 	for rule: GFConfigValidationRule in record_validation_rules:
 		if rule == null:
@@ -1048,6 +1190,10 @@ func _validate_record_rules(record: Dictionary, row_key: Variant, report: Dictio
 		_merge_report(report, rule.validate_record(record, _make_record_context(row_key, options)))
 
 
+## 运行全部表级规则并将结果写入报告。
+## [br]
+## @api private
+## [br]
 func _validate_table_rules(rows: Array[Dictionary], report: Dictionary, options: Dictionary) -> void:
 	for rule: GFConfigValidationRule in table_validation_rules:
 		if rule == null:
@@ -1056,6 +1202,10 @@ func _validate_table_rules(rows: Array[Dictionary], report: Dictionary, options:
 		_merge_report(report, rule.validate_table(rows, _make_record_context(null, options)))
 
 
+## 将非空验证规则转换为描述字典数组。
+## [br]
+## @api private
+## [br]
 func _describe_validation_rules(rules: Array[GFConfigValidationRule]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for rule: GFConfigValidationRule in rules:
@@ -1064,6 +1214,10 @@ func _describe_validation_rules(rules: Array[GFConfigValidationRule]) -> Array[D
 	return result
 
 
+## 向报告追加带上下文的验证问题。
+## [br]
+## @api private
+## [br]
 func _add_issue(
 	report: Dictionary,
 	severity: String,
@@ -1076,26 +1230,46 @@ func _add_issue(
 	_CONFIG_VALIDATION_REPORT.new().add_issue(report, severity, kind, table_name, row_key, field_name, message, context)
 
 
+## 合并来源验证报告及其问题。
+## [br]
+## @api private
+## [br]
 func _merge_report(target: Dictionary, source: Dictionary) -> void:
 	_CONFIG_VALIDATION_REPORT.new().merge_report(target, source)
 
 
+## 完成报告计数和汇总字段。
+## [br]
+## @api private
+## [br]
 func _finalize_report(report: Dictionary) -> void:
 	_CONFIG_VALIDATION_REPORT.new().finalize_report(report)
 
 
+## 复制选项并设置当前行索引。
+## [br]
+## @api private
+## [br]
 func _make_row_options(options: Dictionary, row_index: int) -> Dictionary:
 	var result: Dictionary = options.duplicate(true)
 	result["row_index"] = row_index
 	return result
 
 
+## 为列定义校验构造带列索引的诊断上下文。
+## [br]
+## @api private
+## [br]
 func _make_definition_context(options: Dictionary, column_index: int) -> Dictionary:
 	var context: Dictionary = _make_record_context(null, options)
 	context["column_index"] = column_index
 	return context
 
 
+## 构造包含表名、行键和来源位置的记录上下文。
+## [br]
+## @api private
+## [br]
 func _make_record_context(row_key: Variant, options: Dictionary) -> Dictionary:
 	var context: Dictionary = {
 		"table_name": table_name,
@@ -1106,6 +1280,10 @@ func _make_record_context(row_key: Variant, options: Dictionary) -> Dictionary:
 	return context
 
 
+## 构造包含表名、行键和字段名的诊断上下文。
+## [br]
+## @api private
+## [br]
 func _make_field_context(row_key: Variant, field_name: StringName, options: Dictionary) -> Dictionary:
 	var context: Dictionary = {
 		"table_name": table_name,
@@ -1119,6 +1297,10 @@ func _make_field_context(row_key: Variant, field_name: StringName, options: Dict
 	return context
 
 
+## 复制选项并复用或创建资源路径校验共享会话。
+## [br]
+## @api private
+## [br]
 func _with_resource_path_validation_session(options: Dictionary) -> Dictionary:
 	var result: Dictionary = options.duplicate(false)
 	var session_value: Variant = GFVariantData.get_option_value(result, _RESOURCE_PATH_VALIDATION_SESSION_KEY)
@@ -1129,6 +1311,10 @@ func _with_resource_path_validation_session(options: Dictionary) -> Dictionary:
 	return result
 
 
+## 构造用于字段值校验的完整诊断上下文。
+## [br]
+## @api private
+## [br]
 func _make_value_context(
 	row_key: Variant,
 	field_name: StringName,
@@ -1144,6 +1330,10 @@ func _make_value_context(
 	return context
 
 
+## 将受支持的位置字段从来源上下文复制到目标上下文。
+## [br]
+## @api private
+## [br]
 func _copy_context_fields(target: Dictionary, source: Dictionary) -> void:
 	for field_name: String in [
 		"source",
@@ -1163,6 +1353,10 @@ func _copy_context_fields(target: Dictionary, source: Dictionary) -> void:
 			target[field_name] = GFVariantData.duplicate_variant(source[field_name])
 
 
+## 将解析结果中的行号与源位置补入诊断上下文。
+## [br]
+## @api private
+## [br]
 func _apply_row_location(context: Dictionary, field_name: StringName, options: Dictionary) -> void:
 	var row_index: int = GFVariantData.get_option_int(options, "row_index", -1)
 	var row_locations: Variant = GFVariantData.get_option_value(options, "row_locations", [])
@@ -1183,22 +1377,38 @@ func _apply_row_location(context: Dictionary, field_name: StringName, options: D
 		_copy_context_fields(context, GFVariantData.as_dictionary(field_location))
 
 
+## 把字段值追加到 field_name 对应的收集数组。
+## [br]
+## @api private
+## [br]
 static func _append_field_value(field_values: Dictionary, field_name: StringName, value: Variant) -> void:
 	var values: Array = _get_field_values(field_values, field_name)
 	values.append(value)
 	field_values[field_name] = values
 
 
+## 读取字段对应的已收集值数组。
+## [br]
+## @api private
+## [br]
 static func _get_field_values(field_values: Dictionary, field_name: StringName) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(field_values, field_name, []))
 
 
+## 向 PackedStringArray 追加一个字符串。
+## [br]
+## @api private
+## [br]
 static func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 将数组表或字典表规范化为列类型推断用的记录行。
+## [br]
+## @api private
+## [br]
 static func _normalize_inference_rows(table_data: Variant) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	if table_data is Array:
@@ -1214,6 +1424,10 @@ static func _normalize_inference_rows(table_data: Variant) -> Array[Dictionary]:
 	return rows
 
 
+## 根据一组非空值推断配置列值类型。
+## [br]
+## @api private
+## [br]
 static func _infer_column_value_type(values: Array) -> GFConfigTableColumn.ValueType:
 	var inferred_type: GFConfigTableColumn.ValueType = GFConfigTableColumn.ValueType.ANY
 	for value: Variant in values:
@@ -1232,6 +1446,10 @@ static func _infer_column_value_type(values: Array) -> GFConfigTableColumn.Value
 	return inferred_type
 
 
+## 将单个 Variant 类型映射为配置列值类型。
+## [br]
+## @api private
+## [br]
 static func _value_to_column_type(value: Variant) -> GFConfigTableColumn.ValueType:
 	match typeof(value):
 		TYPE_BOOL:
@@ -1258,6 +1476,10 @@ static func _value_to_column_type(value: Variant) -> GFConfigTableColumn.ValueTy
 	return GFConfigTableColumn.ValueType.ANY
 
 
+## 将配置列值类型转换为显示用名称。
+## [br]
+## @api private
+## [br]
 static func _value_type_to_name(value_type: GFConfigTableColumn.ValueType) -> String:
 	match value_type:
 		GFConfigTableColumn.ValueType.BOOL:
@@ -1284,6 +1506,10 @@ static func _value_type_to_name(value_type: GFConfigTableColumn.ValueType) -> St
 			return "any"
 
 
+## 检查值集合中是否含有 null。
+## [br]
+## @api private
+## [br]
 static func _values_allow_null(values: Array) -> bool:
 	for value: Variant in values:
 		if value == null:
@@ -1293,17 +1519,41 @@ static func _values_allow_null(values: Array) -> bool:
 
 # --- 内部类 ---
 
+## 共享元素数量和规则检查次数预算的内部状态对象。
+## [br]
+## @api private
+## [br]
 class _ElementValidationSession:
 	extends RefCounted
 
+	# --- 私有变量 ---
+
+	## 本次校验尚可接纳的外层元素数；成功预留后扣减，不按规则数重复计算。
+	## [br]
+	## @api private
 	var _remaining_elements: int
+
+	## 尚可执行的元素与规则组合数；与元素额度共同决定一个批次是否被接纳。
+	## [br]
+	## @api private
 	var _remaining_checks: int
 
+	# --- Godot 生命周期方法 ---
+
+	## 接收调用方已规范化的两项限额，建立一次验证共享的剩余额度。
+	## [br]
+	## @api private
 	func _init(element_limit: int, check_limit: int) -> void:
 		_remaining_elements = element_limit
 		_remaining_checks = check_limit
 
 
+	# --- 私有/辅助方法 ---
+
+	## 一次性预留元素数及元素数乘规则数；任一额度不足时两项都保持不变。
+	## 调用方已把元素数和规则数限制在安全范围，本方法不重复归一化。
+	## [br]
+	## @api private
 	func _reserve(element_count: int, rule_count: int) -> bool:
 		if element_count > _remaining_elements:
 			return false
@@ -1316,18 +1566,56 @@ class _ElementValidationSession:
 		return true
 
 
+## 保存一个字段待校验元素与对应规则的内部批次对象。
+## [br]
+## @api private
+## [br]
 class _ElementValidationBatch:
 	extends RefCounted
 
+	# --- 私有变量 ---
+
+	## 获准校验的外层元素快照；拒绝的嵌套集合不会为此递归复制。
+	## [br]
+	## @api private
 	var _elements: Array = []
+
+	## 本批次筛选后的元素规则引用，按存储顺序对每个元素执行。
+	## [br]
+	## @api private
 	var _rules: Array[GFConfigValidationRule] = []
 
 
+## 保存单条记录验证过程中的副本、列和预处理状态。
+## [br]
+## @api private
+## [br]
 class _PreparedValidationRecord:
 	extends RefCounted
 
+	# --- 私有变量 ---
+
+	## 预处理完成后才置为 true；为 false 时调用方跳过后续记录与表规则。
+	## [br]
+	## @api private
 	var _admitted: bool = false
+
+	## 本次是否启用转换；决定是否读取预先准备的元素批次。
+	## [br]
+	## @api private
 	var _coerced: bool = false
+
+	## 后续规则使用的记录；未转换时保留原记录引用，转换时使用转换结果副本。
+	## [br]
+	## @api private
 	var _record: Dictionary = {}
+
+	## 预处理时取得的列列表，用相同下标与元素批次对应。
+	## [br]
+	## @api private
 	var _columns: Array[GFConfigTableColumn] = []
+
+	## 转换模式下按列索引保存获预算的元素批次；无元素规则的列可为 null。
+	## [br]
+	## @api private
 	var _element_batches: Array[_ElementValidationBatch] = []

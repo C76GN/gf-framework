@@ -18,6 +18,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 读取补丁选项和产物报告字段的类型化辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -161,6 +164,9 @@ static func patch_script_path_annotation(
 
 # --- 私有/辅助方法 ---
 
+## 将 CRLF 与 CR 统一为 LF 后按行拆分；空源码返回空 PackedStringArray。
+## [br]
+## @api private
 static func _split_source_lines(source_code: String) -> PackedStringArray:
 	var lines: PackedStringArray = source_code.replace("\r\n", "\n").replace("\r", "\n").split("\n", true)
 	if source_code.is_empty():
@@ -170,6 +176,9 @@ static func _split_source_lines(source_code: String) -> PackedStringArray:
 	return lines
 
 
+## 跳过前导空行和可选的 @tool，并按选项越过连续的其他头部注解。
+## [br]
+## @api private
 static func _get_annotation_insert_index(lines: PackedStringArray, options: Dictionary) -> int:
 	var insert_index: int = 0
 	while insert_index < lines.size() and lines[insert_index].strip_edges().is_empty():
@@ -190,6 +199,9 @@ static func _get_annotation_insert_index(lines: PackedStringArray, options: Dict
 	return insert_index
 
 
+## 返回首个 class_name 或 extends 行索引；两者都没有时返回行数。
+## [br]
+## @api private
 static func _get_header_scan_end(lines: PackedStringArray) -> int:
 	for index: int in range(lines.size()):
 		var text: String = lines[index].strip_edges()
@@ -198,6 +210,9 @@ static func _get_header_scan_end(lines: PackedStringArray) -> int:
 	return lines.size()
 
 
+## 仅在重复不允许时移除注解；优先匹配非空 replacement_prefix，否则匹配完整行。
+## [br]
+## @api private
 static func _should_remove_annotation_line(
 	line: String,
 	annotation_line: String,
@@ -214,6 +229,9 @@ static func _should_remove_annotation_line(
 	return text == annotation_line
 
 
+## 在 class_name/extends 之前按修剪后的完整行查找指定注解。
+## [br]
+## @api private
 static func _header_has_annotation(lines: PackedStringArray, annotation_line: String) -> bool:
 	var header_scan_end: int = _get_header_scan_end(lines)
 	for index: int in range(header_scan_end):
@@ -222,6 +240,9 @@ static func _header_has_annotation(lines: PackedStringArray, annotation_line: St
 	return false
 
 
+## 取注解行在首个空格或左括号之前的前缀。
+## [br]
+## @api private
 static func _get_annotation_prefix(annotation_line: String) -> String:
 	var stop_index: int = annotation_line.length()
 	var parenthesis_index: int = annotation_line.find("(")
@@ -233,6 +254,9 @@ static func _get_annotation_prefix(annotation_line: String) -> String:
 	return annotation_line.substr(0, stop_index)
 
 
+## 修剪路径并限制为 res:// 或 user://，读取文本后返回打开/读取状态及错误说明。
+## [br]
+## @api private
 static func _read_text(path: String) -> Dictionary:
 	var normalized_path: String = path.strip_edges()
 	if normalized_path.is_empty():
@@ -265,6 +289,9 @@ static func _read_text(path: String) -> Dictionary:
 	}
 
 
+## 组装源码注解补丁的状态、文本、插入位置、移除数量和错误字段。
+## [br]
+## @api private
 static func _make_patch_result(
 	ok: bool,
 	changed: bool,
@@ -285,6 +312,9 @@ static func _make_patch_result(
 	}
 
 
+## 组装文件级结果，并分别深复制补丁与产物报告字典。
+## [br]
+## @api private
 static func _make_file_patch_result(
 	ok: bool,
 	changed: bool,
@@ -301,6 +331,9 @@ static func _make_file_patch_result(
 	}
 
 
+## 以 ERR_INVALID_PARAMETER、用户所有权和 GFScriptPatchUtility ID 生成失败报告。
+## [br]
+## @api private
 static func _make_failed_artifact_report(path: String, error: String) -> Dictionary:
 	return GFGeneratedArtifactReport.make_report(
 		path,

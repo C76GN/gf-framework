@@ -29,6 +29,7 @@
 | 方法 | [`_apply_properties_from_payload`](#member-gfnodeserializer-methods-_apply_properties_from_payload) | `func _apply_properties_from_payload(node: Object, payload: Dictionary, property_names: PackedStringArray) -> void:` |
 | 方法 | [`_gather_property_specs`](#member-gfnodeserializer-methods-_gather_property_specs) | `func _gather_property_specs(node: Object, specs: Array[Dictionary]) -> Dictionary:` |
 | 方法 | [`_apply_property_specs`](#member-gfnodeserializer-methods-_apply_property_specs) | `func _apply_property_specs(node: Object, payload: Dictionary, specs: Array[Dictionary]) -> Array[String]:` |
+| 方法 | [`_validate_property_specs_payload`](#member-gfnodeserializer-methods-_validate_property_specs_payload) | `func _validate_property_specs_payload(payload: Dictionary, specs: Array[Dictionary]) -> Array[String]:` |
 | 方法 | [`_has_property`](#member-gfnodeserializer-methods-_has_property) | `func _has_property(object: Object, property_name: String) -> bool:` |
 
 ## 属性
@@ -346,6 +347,33 @@ func _apply_property_specs(node: Object, payload: Dictionary, specs: Array[Dicti
 
 - `payload`: Dictionary，键为规格 key，值为要写回的属性值。
 - `specs`: Array[Dictionary]，每项可包含 key: String、property: String 与 kind: StringName。
+
+<a id="member-gfnodeserializer-methods-_validate_property_specs_payload"></a>
+
+### `_validate_property_specs_payload`
+
+- API：`protected`
+- 首次版本：`8.0.0`
+
+```gdscript
+func _validate_property_specs_payload(payload: Dictionary, specs: Array[Dictionary]) -> Array[String]:
+```
+
+供节点序列化子类在写回前按属性规格校验载荷，不修改节点或载荷。仅检查具有有效 key 且载荷中存在的规格；缺失键不会报错，额外键不参与校验。按规格顺序收集类型或非有限数值错误，未知 kind 不增加限制。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `payload` | 待校验的节点状态载荷。 |
+| `specs` | 决定载荷键名与值类型的有序属性规格。 |
+
+返回：按规格顺序收集的错误说明；空数组表示本入口没有发现错误，不代表必需字段完整。
+
+结构：
+
+- `payload`: 以规格 key 为键的属性值字典；本入口不要求键必须存在，也不校验额外键。
+- `specs`: Array[Dictionary]；key 缺省时取 property，kind 可为 vector2/vector3/color（长度为 2/3/4 的有限数值 Array）、float（有限 int 或 float）、int、bool、string、string_name（StringName 或 String）；其他 kind 接受任意值。
 
 <a id="member-gfnodeserializer-methods-_has_property"></a>
 

@@ -16,11 +16,34 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 音频库路径规范化共用的路径工具脚本。
+## [br]
+## @api private
+## [br]
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+## 音频库文本筛选使用的共享搜索评分器。
+## [br]
+## @api private
+## [br]
 const _GF_TEXT_SEARCH_SCORER = preload("res://addons/gf/standard/foundation/collections/gf_text_search_scorer.gd")
 
+## 文件复制循环每次读取的字节缓冲区大小。
+## [br]
+## @api private
+## [br]
 const _COPY_BUFFER_SIZE: int = 1_048_576
+
+## 事务复制临时目标文件使用的后缀。
+## [br]
+## @api private
+## [br]
 const _COPY_TEMP_SUFFIX: String = ".gf-copy.tmp"
+
+## 事务替换期间保存旧目标的备份后缀。
+## [br]
+## @api private
+## [br]
 const _COPY_BACKUP_SUFFIX: String = ".gf-copy.backup"
 
 ## 默认搜索字段。
@@ -302,6 +325,10 @@ static func get_plan_target_paths(plan: Array[Dictionary], only_copyable: bool =
 
 # --- 私有/辅助方法 ---
 
+## 从路径派生规范路径、相对目录、文件名、扩展名和 clip ID。
+## [br]
+## @api private
+## [br]
 static func _make_entry(path: String, library_root: String, options: Dictionary) -> Dictionary:
 	var source_path: String = _normalize_resource_path(path)
 	var relative_path: String = _make_safe_relative_path(source_path, library_root)
@@ -319,6 +346,10 @@ static func _make_entry(path: String, library_root: String, options: Dictionary)
 	}
 
 
+## 为 clip ID 选项补上相对路径模式和默认 library_root 基准目录。
+## [br]
+## @api private
+## [br]
 static func _make_clip_id_options(options: Dictionary, library_root: String) -> Dictionary:
 	var id_options: Dictionary = GFVariantData.to_dictionary(options)
 	if GFVariantData.get_option_value(id_options, "id_mode", null) == null:
@@ -328,6 +359,10 @@ static func _make_clip_id_options(options: Dictionary, library_root: String) -> 
 	return id_options
 
 
+## 计算导入目标路径、两端存在状态以及计划项的可复制标志和原因。
+## [br]
+## @api private
+## [br]
 static func _make_plan_entry(entry: Dictionary, target_root: String, options: Dictionary) -> Dictionary:
 	var source_path: String = GFVariantData.get_option_string(entry, "source_path")
 	var relative_path: String = _get_entry_relative_path(entry)
@@ -357,6 +392,10 @@ static func _make_plan_entry(entry: Dictionary, target_root: String, options: Di
 	}
 
 
+## 按路径、扩展名、源存在性和覆盖选项返回计划项的跳过原因。
+## [br]
+## @api private
+## [br]
 static func _get_plan_skip_reason(
 	source_path: String,
 	target_root: String,
@@ -382,6 +421,10 @@ static func _get_plan_skip_reason(
 	return ""
 
 
+## 校验单条计划路径后执行事务复制，并把恢复、清理及结果写入报告。
+## [br]
+## @api private
+## [br]
 static func _copy_plan_entry(
 	plan_entry: Dictionary,
 	overwrite: bool,
@@ -499,6 +542,10 @@ static func _copy_plan_entry(
 	return copy_error
 
 
+## 统计按当前覆盖选项将参与复制预算的计划项。
+## [br]
+## @api private
+## [br]
 static func _get_planned_copy_count(plan: Array[Dictionary], overwrite: bool) -> int:
 	var count: int = 0
 	for plan_entry: Dictionary in plan:
@@ -507,6 +554,10 @@ static func _get_planned_copy_count(plan: Array[Dictionary], overwrite: bool) ->
 	return count
 
 
+## 预读候选源文件大小，累计计划字节并为不可测量的来源记录错误。
+## [br]
+## @api private
+## [br]
 static func _build_copy_preflight(
 	plan: Array[Dictionary],
 	overwrite: bool,
@@ -546,12 +597,20 @@ static func _build_copy_preflight(
 	}
 
 
+## 判断计划项是否可复制，或在允许覆盖时是否因目标已存在仍计入预算。
+## [br]
+## @api private
+## [br]
 static func _is_copy_budget_candidate(plan_entry: Dictionary, overwrite: bool) -> bool:
 	if GFVariantData.get_option_bool(plan_entry, "will_copy"):
 		return true
 	return overwrite and GFVariantData.get_option_string(plan_entry, "reason") == "target_exists"
 
 
+## 打开文件读取长度；路径、打开或读取状态不可用时返回 -1。
+## [br]
+## @api private
+## [br]
 static func _get_file_size(path: String) -> int:
 	if path.is_empty() or not FileAccess.file_exists(path):
 		return -1
@@ -567,6 +626,10 @@ static func _get_file_size(path: String) -> int:
 	return length
 
 
+## 将计划文件数、计划字节数及对应预算写入报告元数据。
+## [br]
+## @api private
+## [br]
 static func _apply_copy_budget_metadata(
 	report: GFValidationReport,
 	planned_copy_count: int,
@@ -580,6 +643,10 @@ static func _apply_copy_budget_metadata(
 	report.metadata["max_copy_bytes"] = max_copy_bytes
 
 
+## 分别比较文件数与总字节预算，并为每项超限写入错误。
+## [br]
+## @api private
+## [br]
 static func _validate_copy_budget(
 	report: GFValidationReport,
 	planned_copy_count: int,
@@ -617,6 +684,10 @@ static func _validate_copy_budget(
 	return ok
 
 
+## 将复制、跳过、错误计数、已复制路径和字节用量写入报告。
+## [br]
+## @api private
+## [br]
 static func _finalize_copy_report_metadata(
 	report: GFValidationReport,
 	copied_count: int,
@@ -639,6 +710,10 @@ static func _finalize_copy_report_metadata(
 	)
 
 
+## 先恢复遗留事务，再写临时文件并提交备份替换结果。
+## [br]
+## @api private
+## [br]
 static func _copy_file(
 	source_path: String,
 	target_path: String,
@@ -709,6 +784,10 @@ static func _copy_file(
 	return replace_result
 
 
+## 分块复制到临时路径，检查预算及源文件大小变化并累计消耗字节。
+## [br]
+## @api private
+## [br]
 static func _copy_file_to_path(
 	source_path: String,
 	target_path: String,
@@ -841,6 +920,10 @@ static func _copy_file_to_path(
 	}
 
 
+## 将旧目标移到备份后提交临时文件；提交失败时尝试恢复旧目标。
+## [br]
+## @api private
+## [br]
 static func _replace_file_with_backup(
 	temp_path: String,
 	target_path: String,
@@ -893,6 +976,10 @@ static func _replace_file_with_backup(
 	}
 
 
+## 检查遗留备份与临时文件，清理已提交备份或恢复旧目标。
+## [br]
+## @api private
+## [br]
 static func _recover_copy_transaction(
 	target_path: String,
 	temp_path: String,
@@ -951,6 +1038,10 @@ static func _recover_copy_transaction(
 	}
 
 
+## 将 res:// 与 user:// 路径转换为绝对路径后执行文件改名。
+## [br]
+## @api private
+## [br]
 static func _rename_file_for_copy(source_path: String, target_path: String) -> Error:
 	return DirAccess.rename_absolute(
 		_to_absolute_path(source_path),
@@ -958,12 +1049,20 @@ static func _rename_file_for_copy(source_path: String, target_path: String) -> E
 	)
 
 
+## 文件不存在时视为清理成功，否则移除对应绝对路径。
+## [br]
+## @api private
+## [br]
 static func _remove_file_for_copy(path: String) -> Error:
 	if not _file_exists(path):
 		return OK
 	return DirAccess.remove_absolute(_to_absolute_path(path))
 
 
+## 按 preserve_structure 选择安全相对路径；不保留目录时只返回文件名。
+## [br]
+## @api private
+## [br]
 static func _make_target_relative_path(entry: Dictionary, options: Dictionary) -> String:
 	var file_name: String = GFVariantData.get_option_string(entry, "file_name").get_file()
 	if file_name.is_empty() or not _is_safe_relative_path(file_name):
@@ -977,6 +1076,10 @@ static func _make_target_relative_path(entry: Dictionary, options: Dictionary) -
 	return file_name
 
 
+## 读取条目的相对路径并统一分隔符；未提供时回退到源文件名。
+## [br]
+## @api private
+## [br]
 static func _get_entry_relative_path(entry: Dictionary) -> String:
 	var relative_path: String = GFVariantData.get_option_string(entry, "relative_path")
 	if not relative_path.is_empty():
@@ -984,6 +1087,10 @@ static func _get_entry_relative_path(entry: Dictionary) -> String:
 	return GFVariantData.get_option_string(entry, "source_path").get_file()
 
 
+## 生成相对路径；结果不安全时回退为 basename。
+## [br]
+## @api private
+## [br]
 static func _make_safe_relative_path(path: String, root_path: String) -> String:
 	var relative_path: String = _GF_PATH_TOOLS.make_relative_path(path, root_path)
 	if _is_safe_relative_path(relative_path):
@@ -991,6 +1098,10 @@ static func _make_safe_relative_path(path: String, root_path: String) -> String:
 	return path.get_file()
 
 
+## 拒绝空路径、绝对路径、资源 URI 以及包含点或父目录段的路径。
+## [br]
+## @api private
+## [br]
 static func _is_safe_relative_path(path: String) -> bool:
 	var normalized_path: String = path.replace("\\", "/").strip_edges()
 	if normalized_path.is_empty():
@@ -1005,6 +1116,10 @@ static func _is_safe_relative_path(path: String) -> bool:
 	return true
 
 
+## 按统一分隔符检查路径是否包含 .. 段。
+## [br]
+## @api private
+## [br]
 static func _has_parent_path_segment(path: String) -> bool:
 	for path_part: String in path.replace("\\", "/").strip_edges().split("/", false):
 		if path_part == "..":
@@ -1012,6 +1127,10 @@ static func _has_parent_path_segment(path: String) -> bool:
 	return false
 
 
+## 返回相对路径目录部分，根层文件对应空字符串。
+## [br]
+## @api private
+## [br]
 static func _get_relative_directory(relative_path: String) -> String:
 	var directory: String = relative_path.get_base_dir()
 	if directory == ".":
@@ -1019,6 +1138,10 @@ static func _get_relative_directory(relative_path: String) -> String:
 	return directory
 
 
+## 将音频库筛选选项映射为文本评分器需要的字段和匹配规则。
+## [br]
+## @api private
+## [br]
 static func _make_text_search_options(options: Dictionary) -> Dictionary:
 	var fields: PackedStringArray = GFVariantData.get_option_packed_string_array(
 		options,
@@ -1033,6 +1156,10 @@ static func _make_text_search_options(options: Dictionary) -> Dictionary:
 	}
 
 
+## 返回条目数组的逐项深拷贝。
+## [br]
+## @api private
+## [br]
 static func _duplicate_entries(entries: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in entries:
@@ -1040,12 +1167,20 @@ static func _duplicate_entries(entries: Array[Dictionary]) -> Array[Dictionary]:
 	return result
 
 
+## 从选项读取扩展名并交由统一规范化函数处理。
+## [br]
+## @api private
+## [br]
 static func _get_extensions(options: Dictionary) -> PackedStringArray:
 	return _normalize_extensions(
 		GFVariantData.get_option_packed_string_array(options, "extensions", GFAudioBankTools.AUDIO_EXTENSIONS)
 	)
 
 
+## 清理扩展名空白、前导点和大小写，并保留唯一非空值。
+## [br]
+## @api private
+## [br]
 static func _normalize_extensions(extensions: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for extension: String in extensions:
@@ -1057,14 +1192,26 @@ static func _normalize_extensions(extensions: PackedStringArray) -> PackedString
 	return result
 
 
+## 通过路径工具规范化资源路径。
+## [br]
+## @api private
+## [br]
 static func _normalize_resource_path(path: String) -> String:
 	return _GF_PATH_TOOLS.normalize_resource_path(path, "", false)
 
 
+## 通过路径工具规范化扫描根目录。
+## [br]
+## @api private
+## [br]
 static func _normalize_dir_path(path: String) -> String:
 	return _GF_PATH_TOOLS.normalize_root_path(path, "", false)
 
 
+## 只拼接安全相对路径，并在结果离开规范化根目录时返回空字符串。
+## [br]
+## @api private
+## [br]
 static func _join_path(root_path: String, relative_path: String) -> String:
 	if root_path.is_empty() or relative_path.is_empty():
 		return ""
@@ -1079,6 +1226,10 @@ static func _join_path(root_path: String, relative_path: String) -> String:
 	return target_path
 
 
+## 以规范化路径和带分隔符的根前缀检查路径是否处于根目录内。
+## [br]
+## @api private
+## [br]
 static func _is_path_under_root(path: String, root_path: String) -> bool:
 	var normalized_path: String = path.replace("\\", "/").strip_edges().simplify_path()
 	var normalized_root: String = root_path.replace("\\", "/").strip_edges().simplify_path()
@@ -1090,10 +1241,18 @@ static func _is_path_under_root(path: String, root_path: String) -> bool:
 	return normalized_path.begins_with(root_prefix)
 
 
+## 检查非空路径是否对应文件系统文件。
+## [br]
+## @api private
+## [br]
 static func _file_exists(path: String) -> bool:
 	return not path.is_empty() and FileAccess.file_exists(path)
 
 
+## 递归创建目标文件的父目录；当前路径无父目录时返回 OK。
+## [br]
+## @api private
+## [br]
 static func _ensure_parent_dir(path: String) -> Error:
 	var parent_dir: String = path.get_base_dir()
 	if parent_dir.is_empty() or parent_dir == ".":
@@ -1101,16 +1260,28 @@ static func _ensure_parent_dir(path: String) -> Error:
 	return DirAccess.make_dir_recursive_absolute(_to_absolute_path(parent_dir))
 
 
+## 将 res:// 与 user:// 路径全局化，其余路径原样返回。
+## [br]
+## @api private
+## [br]
 static func _to_absolute_path(path: String) -> String:
 	if path.begins_with("res://") or path.begins_with("user://"):
 		return ProjectSettings.globalize_path(path)
 	return path
 
 
+## 判断复制错误是否代表可跳过而非复制失败。
+## [br]
+## @api private
+## [br]
 static func _is_copy_skip(error: Error) -> bool:
 	return error == ERR_SKIP or error == ERR_ALREADY_EXISTS
 
 
+## 将带键、路径和元数据的警告转交给校验报告。
+## [br]
+## @api private
+## [br]
 static func _add_report_warning(
 	report: GFValidationReport,
 	kind: StringName,
@@ -1122,6 +1293,10 @@ static func _add_report_warning(
 	var _issue: RefCounted = report.add_warning(kind, message, key, path, metadata)
 
 
+## 将带键、路径和元数据的错误转交给校验报告。
+## [br]
+## @api private
+## [br]
 static func _add_report_error(
 	report: GFValidationReport,
 	kind: StringName,
@@ -1133,6 +1308,10 @@ static func _add_report_error(
 	var _issue: RefCounted = report.add_error(kind, message, key, path, metadata)
 
 
+## 忽略空值与已存在值后向 PackedStringArray 追加文本。
+## [br]
+## @api private
+## [br]
 static func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	if value.is_empty() or target.has(value):
 		return

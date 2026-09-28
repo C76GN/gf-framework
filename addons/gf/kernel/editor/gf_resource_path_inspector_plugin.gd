@@ -6,16 +6,29 @@ extends EditorInspectorPlugin
 
 # --- 常量 ---
 
+## 创建单路径 EditorProperty 并提供资源状态辅助方法的脚本。
+## [br]
+## @api private
 const _GF_RESOURCE_PATH_EDITOR_PROPERTY = preload("res://addons/gf/kernel/editor/gf_resource_path_editor_property.gd")
+
+## 创建资源路径数组 EditorProperty 的脚本。
+## [br]
+## @api private
 const _GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY = preload("res://addons/gf/kernel/editor/gf_resource_path_array_editor_property.gd")
 
 
 # --- Godot 回调方法 ---
 
+## 允许检查任意非空对象，具体属性是否接管由解析回调决定。
+## [br]
+## @api private
 func _can_handle(object: Object) -> bool:
 	return object != null
 
 
+## 仅处理可在编辑器显示且能创建路径控件的属性，成功添加控件时返回 true。
+## [br]
+## @api private
 func _parse_property(
 	_object: Object,
 	type: Variant.Type,

@@ -165,83 +165,451 @@ const SNAPSHOT_MESSAGE_TYPE: StringName = &"gf.sync.snapshot.v1"
 ## @since 10.0.0
 const DEFAULT_CHANNEL_ID: StringName = &"gf.sync"
 
+## 用于验证同步消息与 Adapter 状态值的传输安全性。
+## [br]
+## @api private
+## [br]
 const _TRANSPORT_VALUE_VALIDATOR = preload("res://addons/gf/extensions/network/runtime/gf_network_transport_value_validator.gd")
+
+## 权威历史与预测历史的默认容量。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_HISTORY_CAPACITY: int = 120
+
+## 同步历史容量允许的上限。
+## [br]
+## @api private
+## [br]
 const _MAX_HISTORY_CAPACITY: int = 512
+
+## 默认允许登记的 Replica 数量上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_REPLICA_PEERS: int = 16
+
+## 允许登记的 Replica 数量上限。
+## [br]
+## @api private
+## [br]
 const _MAX_REPLICA_PEERS: int = 64
+
+## 待处理输入总数的默认上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_PENDING_INPUTS: int = 256
+
+## 待处理输入总数允许的上限。
+## [br]
+## @api private
+## [br]
 const _MAX_PENDING_INPUTS: int = 2048
+
+## 待处理输入 payload 总字节数的默认上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_PENDING_INPUT_BYTES: int = 1024 * 1024
+
+## 待处理输入 payload 总字节数允许的上限。
+## [br]
+## @api private
+## [br]
 const _MAX_PENDING_INPUT_BYTES: int = 4 * 1024 * 1024
+
+## 单个 tick 可排队输入数的默认上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_INPUTS_PER_TICK: int = 64
+
+## 单个 tick 可排队输入数允许的上限。
+## [br]
+## @api private
+## [br]
 const _MAX_INPUTS_PER_TICK: int = 256
+
+## 远端输入可提前到达 tick 数的默认上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_FUTURE_TICKS: int = 8
+
+## 远端输入可提前到达 tick 数允许的上限。
+## [br]
+## @api private
+## [br]
 const _MAX_FUTURE_TICKS: int = 120
+
+## 权威快照应用后预测重放 tick 数的默认上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_REPLAY_TICKS: int = 32
+
+## 权威快照应用后预测重放 tick 数允许的上限。
+## [br]
+## @api private
+## [br]
 const _MAX_REPLAY_TICKS: int = 240
+
+## 同步序号允许跳跃距离的默认上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_SEQUENCE_JUMP: int = 1024
+
+## 同步序号允许跳跃距离的上限。
+## [br]
+## @api private
+## [br]
 const _MAX_SEQUENCE_JUMP: int = 65_536
+
+## 传输值嵌套深度的默认上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_VALUE_DEPTH: int = 16
+
+## 传输值嵌套深度允许的上限。
+## [br]
+## @api private
+## [br]
 const _MAX_VALUE_DEPTH: int = 32
+
+## 传输值节点数的默认上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_VALUE_NODES: int = 2048
+
+## 传输值节点数允许的上限。
+## [br]
+## @api private
+## [br]
 const _MAX_VALUE_NODES: int = 8192
+
+## 业务 payload 序列化字节数的默认上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_PAYLOAD_BYTES: int = 64 * 1024
+
+## 业务 payload 序列化字节数允许的上限。
+## [br]
+## @api private
+## [br]
 const _MAX_PAYLOAD_BYTES: int = 1024 * 1024
+
+## epoch 与 channel 标识符允许的最大长度。
+## [br]
+## @api private
+## [br]
 const _MAX_IDENTIFIER_LENGTH: int = 128
+
+## 记录已使用 epoch 标识符的最大历史数量。
+## [br]
+## @api private
+## [br]
 const _MAX_EPOCH_HISTORY: int = 1024
+
+## 消息信封预算额外允许的节点数量。
+## [br]
+## @api private
+## [br]
 const _MESSAGE_ENVELOPE_NODE_OVERHEAD: int = 16
+
+## 消息信封预算额外允许的序列化字节数。
+## [br]
+## @api private
+## [br]
 const _MESSAGE_ENVELOPE_BYTE_OVERHEAD: int = 2048
+
+## 消息指纹序列化允许的最大输出字节数。
+## [br]
+## @api private
+## [br]
 const _MAX_FINGERPRINT_OUTPUT_BYTES: int = 16 * 1024 * 1024
+
+## 可精确表示的消息序号与 tick 最大值。
+## [br]
+## @api private
+## [br]
 const _MAX_SAFE_SEQUENCE: int = 9_007_199_254_740_991
 
 
 # --- 私有变量 ---
 
+## 本地同步角色。
+## [br]
+## @api private
+## [br]
 var _role: Role = Role.NONE
+
+## 同步流当前阶段。
+## [br]
+## @api private
+## [br]
 var _phase: Phase = Phase.IDLE
+
+## 执行项目状态捕获、恢复与模拟的 Adapter。
+## [br]
+## @api private
+## [br]
 var _adapter: GFNetworkSimulationAdapter = null
+
+## 本地传输 peer ID。
+## [br]
+## @api private
+## [br]
 var _local_peer_id: int = -1
+
+## 权威端传输 peer ID。
+## [br]
+## @api private
+## [br]
 var _authority_peer_id: int = -1
+
+## 当前同步流 epoch 标识符。
+## [br]
+## @api private
+## [br]
 var _epoch_id: String = ""
+
+## 当前同步消息 channel。
+## [br]
+## @api private
+## [br]
 var _channel_id: StringName = DEFAULT_CHANNEL_ID
+
+## 当前已模拟或已应用的 tick。
+## [br]
+## @api private
+## [br]
 var _current_tick: int = 0
+
+## Replica 是否执行本地输入预测。
+## [br]
+## @api private
+## [br]
 var _prediction_enabled: bool = true
+
+## 权威历史和预测历史各自的容量。
+## [br]
+## @api private
+## [br]
 var _history_capacity: int = _DEFAULT_HISTORY_CAPACITY
+
+## 允许登记的最大 Replica 数量。
+## [br]
+## @api private
+## [br]
 var _max_replica_peers: int = _DEFAULT_MAX_REPLICA_PEERS
+
+## 待处理及待完成裁决输入的数量上限。
+## [br]
+## @api private
+## [br]
 var _max_pending_inputs: int = _DEFAULT_MAX_PENDING_INPUTS
+
+## 待处理输入 payload 总字节数上限。
+## [br]
+## @api private
+## [br]
 var _max_pending_input_bytes: int = _DEFAULT_MAX_PENDING_INPUT_BYTES
+
+## 单个 tick 的输入数量上限。
+## [br]
+## @api private
+## [br]
 var _max_inputs_per_tick: int = _DEFAULT_MAX_INPUTS_PER_TICK
+
+## 远端输入相对当前 tick 的最大提前量。
+## [br]
+## @api private
+## [br]
 var _max_future_ticks: int = _DEFAULT_MAX_FUTURE_TICKS
+
+## 应用快照时允许的最大预测重放长度。
+## [br]
+## @api private
+## [br]
 var _max_replay_ticks: int = _DEFAULT_MAX_REPLAY_TICKS
+
+## 快照序号允许跨越的最大距离。
+## [br]
+## @api private
+## [br]
 var _max_sequence_jump: int = _DEFAULT_MAX_SEQUENCE_JUMP
+
+## 传输值嵌套深度上限。
+## [br]
+## @api private
+## [br]
 var _max_value_depth: int = _DEFAULT_MAX_VALUE_DEPTH
+
+## 传输值节点数上限。
+## [br]
+## @api private
+## [br]
 var _max_value_nodes: int = _DEFAULT_MAX_VALUE_NODES
+
+## 业务状态或输入 payload 的序列化字节数上限。
+## [br]
+## @api private
+## [br]
 var _max_payload_bytes: int = _DEFAULT_MAX_PAYLOAD_BYTES
+
+## 标记同步操作正在执行，以阻止重入。
+## [br]
+## @api private
+## [br]
 var _operation_active: bool = false
+
+## 标记同步信号通知正在执行，以阻止通知期间重入。
+## [br]
+## @api private
+## [br]
 var _notification_active: bool = false
+
+## 记录本实例已使用过的 epoch 标识符。
+## [br]
+## @api private
+## [br]
 var _used_epoch_ids: Dictionary = {}
+
+## 记录已登记并允许提交输入的 Replica。
+## [br]
+## @api private
+## [br]
 var _allowed_replica_peers: Dictionary = {}
+
+## 记录已退役的 Replica peer。
+## [br]
+## @api private
+## [br]
 var _retired_replica_peers: Dictionary = {}
+
+## 按目标 tick 分组的待处理输入帧。
+## [br]
+## @api private
+## [br]
 var _pending_inputs_by_tick: Dictionary = {}
+
+## 当前待处理输入帧总数。
+## [br]
+## @api private
+## [br]
 var _pending_input_count: int = 0
+
+## 当前待处理输入 payload 的序列化字节总数。
+## [br]
+## @api private
+## [br]
 var _pending_input_bytes: int = 0
+
+## 尚未推进至连续最终裁决序号的输入数。
+## [br]
+## @api private
+## [br]
 var _pending_finalization_count: int = 0
+
+## 各 Replica 最近接收的输入序号。
+## [br]
+## @api private
+## [br]
 var _last_received_input_sequence: Dictionary = {}
+
+## 各 Replica 最近接收输入对应的 tick。
+## [br]
+## @api private
+## [br]
 var _last_received_input_tick: Dictionary = {}
+
+## 各 Replica 最近接收输入消息的指纹。
+## [br]
+## @api private
+## [br]
 var _last_received_input_fingerprint: Dictionary = {}
+
+## 各 Replica 已连续完成裁决的最高输入序号。
+## [br]
+## @api private
+## [br]
 var _last_finalized_input_sequence: Dictionary = {}
+
+## 已完成裁决但仍等待连续序号推进的输入序号集合。
+## [br]
+## @api private
+## [br]
 var _finalized_input_sequences: Dictionary = {}
+
+## 下一个待发送权威快照的序号。
+## [br]
+## @api private
+## [br]
 var _next_snapshot_sequence: int = 1
+
+## 各 Replica 最近确认的本地输入序号。
+## [br]
+## @api private
+## [br]
 var _latest_snapshot_ack_by_peer: Dictionary = {}
+
+## 最近应用的权威快照序号。
+## [br]
+## @api private
+## [br]
 var _last_snapshot_sequence: int = 0
+
+## 最近应用的权威快照 tick。
+## [br]
+## @api private
+## [br]
 var _last_snapshot_tick: int = -1
+
+## 最近应用权威快照消息的指纹。
+## [br]
+## @api private
+## [br]
 var _last_snapshot_fingerprint: String = ""
+
+## 最近快照确认的本地输入序号。
+## [br]
+## @api private
+## [br]
 var _last_ack_input_sequence: int = 0
+
+## 下一个本地输入序号。
+## [br]
+## @api private
+## [br]
 var _next_local_input_sequence: int = 1
+
+## 当前未确认本地输入 payload 的序列化字节总数。
+## [br]
+## @api private
+## [br]
 var _local_input_bytes: int = 0
+
+## 等待权威快照确认的本地输入帧。
+## [br]
+## @api private
+## [br]
 var _local_inputs: Array[GFNetworkInputFrame] = []
+
+## 已应用的权威状态历史。
+## [br]
+## @api private
+## [br]
 var _authoritative_history: GFNetworkHistoryBuffer = GFNetworkHistoryBuffer.new(_DEFAULT_HISTORY_CAPACITY)
+
+## 本地预测状态历史。
+## [br]
+## @api private
+## [br]
 var _prediction_history: GFNetworkHistoryBuffer = GFNetworkHistoryBuffer.new(_DEFAULT_HISTORY_CAPACITY)
 
 
@@ -949,6 +1317,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 权威端校验来源、epoch、连续序号、tick 窗口和待处理预算后调用 adapter；精确重传返回 duplicate，adapter 拒绝也消耗已接收序号并通知终态。
+## [br]
+## @api private
 func _handle_input_message(actual_peer_id: int, message: GFNetworkMessage) -> Dictionary:
 	if _role != Role.AUTHORITY or _phase != Phase.ACTIVE:
 		return _reject(actual_peer_id, &"authority_not_active", message)
@@ -1061,6 +1432,9 @@ func _handle_input_message(actual_peer_id: int, message: GFNetworkMessage) -> Di
 	})
 
 
+## 副本端校验权威快照和确认序号，捕获回滚状态后应用快照并按预算重放预测；应用或重放失败时尝试恢复，恢复失败进入 FAULTED，全部成功才提交账本并通知。
+## [br]
+## @api private
 func _handle_snapshot_message(actual_peer_id: int, message: GFNetworkMessage) -> Dictionary:
 	if _role != Role.REPLICA or _phase not in [Phase.AWAITING_BASELINE, Phase.ACTIVE]:
 		return _reject(actual_peer_id, &"replica_not_receiving", message)
@@ -1268,6 +1642,10 @@ func _handle_snapshot_message(actual_peer_id: int, message: GFNetworkMessage) ->
 	})
 
 
+## 提交已应用权威快照的游标、输入确认状态和历史缓冲区。
+## [br]
+## @api private
+## [br]
 func _commit_snapshot_application(
 	snapshot: GFNetworkSnapshot,
 	sequence: int,
@@ -1292,6 +1670,10 @@ func _commit_snapshot_application(
 			var _replay_added: bool = _prediction_history.add_snapshot(replay_snapshot)
 
 
+## 验证消息发送 peer、类型、channel、游标范围及 payload 安全性。
+## [br]
+## @api private
+## [br]
 func _validate_envelope(
 	actual_peer_id: int,
 	message: GFNetworkMessage,
@@ -1316,11 +1698,19 @@ func _validate_envelope(
 	return &""
 
 
+## 检查 payload 中的协议版本是否等于当前版本。
+## [br]
+## @api private
+## [br]
 func _protocol_matches(payload: Dictionary) -> bool:
 	var version_value: Variant = GFVariantData.get_option_value(payload, "protocol_version")
 	return _is_integer_value(version_value) and GFVariantData.to_int(version_value) == PROTOCOL_VERSION
 
 
+## 构造发送至权威端的本地输入消息；payload 超出预算时返回 null。
+## [br]
+## @api private
+## [br]
 func _build_input_message(frame: GFNetworkInputFrame) -> GFNetworkMessage:
 	var payload: Dictionary = {
 		"protocol_version": PROTOCOL_VERSION,
@@ -1340,6 +1730,10 @@ func _build_input_message(frame: GFNetworkInputFrame) -> GFNetworkMessage:
 	)
 
 
+## 调用 Adapter 捕获状态，并验证其返回值和传输预算。
+## [br]
+## @api private
+## [br]
 func _capture_adapter_state(tick: int, operation: StringName) -> Dictionary:
 	var report: Dictionary = _adapter._capture_state(
 		tick,
@@ -1360,6 +1754,10 @@ func _capture_adapter_state(tick: int, operation: StringName) -> Dictionary:
 	}
 
 
+## 将深拷贝状态交给 Adapter 恢复，并返回其报告中的成功标志。
+## [br]
+## @api private
+## [br]
 func _restore_adapter_state(
 	state: Dictionary,
 	tick: int,
@@ -1373,6 +1771,10 @@ func _restore_adapter_state(
 	return GFVariantData.get_option_bool(report, "ok")
 
 
+## 构造传给 Adapter 的角色、阶段、peer、epoch 与操作上下文。
+## [br]
+## @api private
+## [br]
 func _make_adapter_context(operation: StringName) -> Dictionary:
 	return {
 		"role": _role,
@@ -1384,6 +1786,10 @@ func _make_adapter_context(operation: StringName) -> Dictionary:
 	}
 
 
+## 按配置限制验证状态或输入值，并检查其序列化字节数。
+## [br]
+## @api private
+## [br]
 func _validate_transport_value(value: Variant) -> Dictionary:
 	var report: Dictionary = _TRANSPORT_VALUE_VALIDATOR.validate(
 		value,
@@ -1403,6 +1809,10 @@ func _validate_transport_value(value: Variant) -> Dictionary:
 	return report
 
 
+## 按消息信封预算验证 payload 结构和序列化字节数。
+## [br]
+## @api private
+## [br]
 func _validate_message_payload(value: Variant) -> Dictionary:
 	var report: Dictionary = _TRANSPORT_VALUE_VALIDATOR.validate(
 		value,
@@ -1425,6 +1835,10 @@ func _validate_message_payload(value: Variant) -> Dictionary:
 	return report
 
 
+## 返回当前传输值的深度、节点数和字节数限制。
+## [br]
+## @api private
+## [br]
 func _value_budget_options() -> Dictionary:
 	return {
 		"max_depth": _max_value_depth,
@@ -1433,6 +1847,10 @@ func _value_budget_options() -> Dictionary:
 	}
 
 
+## 检查字典是否恰好包含预期的字符串或 StringName 键。
+## [br]
+## @api private
+## [br]
 func _has_exact_keys(data: Dictionary, expected_keys: Array[String]) -> bool:
 	if data.size() != expected_keys.size():
 		return false
@@ -1447,6 +1865,10 @@ func _has_exact_keys(data: Dictionary, expected_keys: Array[String]) -> bool:
 	return observed.size() == expected_keys.size()
 
 
+## 判断 Variant 是否为安全范围内的整数值或整数浮点值。
+## [br]
+## @api private
+## [br]
 func _is_integer_value(value: Variant) -> bool:
 	if typeof(value) == TYPE_INT:
 		return true
@@ -1461,6 +1883,10 @@ func _is_integer_value(value: Variant) -> bool:
 	)
 
 
+## 检查标识符非空、长度受限且不含首尾空白。
+## [br]
+## @api private
+## [br]
 func _is_valid_identifier(value: String) -> bool:
 	return (
 		not value.is_empty()
@@ -1469,6 +1895,10 @@ func _is_valid_identifier(value: String) -> bool:
 	)
 
 
+## 读取配置的同步资源限制，并拒绝非正数或超过常量上限的值。
+## [br]
+## @api private
+## [br]
 func _read_limits(options: Dictionary) -> Dictionary:
 	var values: Dictionary = {
 		"history_capacity": GFVariantData.get_option_int(
@@ -1548,6 +1978,10 @@ func _read_limits(options: Dictionary) -> Dictionary:
 	return values
 
 
+## 将已验证的资源限制写入协调器运行时字段。
+## [br]
+## @api private
+## [br]
 func _apply_limits(limits: Dictionary) -> void:
 	_history_capacity = GFVariantData.get_option_int(limits, "history_capacity")
 	_max_replica_peers = GFVariantData.get_option_int(limits, "max_replica_peers")
@@ -1565,6 +1999,10 @@ func _apply_limits(limits: Dictionary) -> void:
 	_max_payload_bytes = GFVariantData.get_option_int(limits, "max_payload_bytes")
 
 
+## 清除同步流游标、排队输入和历史，并按当前 peer 重置裁决游标。
+## [br]
+## @api private
+## [br]
 func _clear_stream_state() -> void:
 	_pending_inputs_by_tick.clear()
 	_pending_input_count = 0
@@ -1595,6 +2033,10 @@ func _clear_stream_state() -> void:
 	_prediction_history = GFNetworkHistoryBuffer.new(_history_capacity)
 
 
+## 返回指定 tick 的待处理输入帧副本。
+## [br]
+## @api private
+## [br]
 func _get_pending_inputs_for_tick(tick: int) -> Array[GFNetworkInputFrame]:
 	var result: Array[GFNetworkInputFrame] = []
 	var value: Variant = GFVariantData.get_option_value(_pending_inputs_by_tick, tick, [])
@@ -1606,6 +2048,10 @@ func _get_pending_inputs_for_tick(tick: int) -> Array[GFNetworkInputFrame]:
 	return result
 
 
+## 返回指定 tick 且序号高于给定游标的未确认本地输入。
+## [br]
+## @api private
+## [br]
 func _get_local_inputs_for_tick(
 	tick: int,
 	minimum_sequence_exclusive: int
@@ -1616,6 +2062,10 @@ func _get_local_inputs_for_tick(
 	)
 
 
+## 返回序号高于确认游标的本地输入帧副本。
+## [br]
+## @api private
+## [br]
 func _get_unacknowledged_local_inputs(
 	ack_sequence: int
 ) -> Array[GFNetworkInputFrame]:
@@ -1626,6 +2076,10 @@ func _get_unacknowledged_local_inputs(
 	return result
 
 
+## 按序号查找本地输入，并返回其副本；未找到时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_local_input_by_sequence(sequence: int) -> GFNetworkInputFrame:
 	for frame: GFNetworkInputFrame in _local_inputs:
 		if frame.sequence == sequence:
@@ -1633,6 +2087,10 @@ func _get_local_input_by_sequence(sequence: int) -> GFNetworkInputFrame:
 	return null
 
 
+## 从给定帧列表筛选指定 tick 的输入副本。
+## [br]
+## @api private
+## [br]
 func _get_frames_for_tick(
 	source: Array[GFNetworkInputFrame],
 	tick: int
@@ -1644,6 +2102,10 @@ func _get_frames_for_tick(
 	return result
 
 
+## 复制非 null 的输入帧列表。
+## [br]
+## @api private
+## [br]
 func _duplicate_frames(
 	source: Array[GFNetworkInputFrame]
 ) -> Array[GFNetworkInputFrame]:
@@ -1654,12 +2116,20 @@ func _duplicate_frames(
 	return result
 
 
+## 按 peer ID、再按输入序号比较两帧的排序顺序。
+## [br]
+## @api private
+## [br]
 func _input_frame_less_than(a: GFNetworkInputFrame, b: GFNetworkInputFrame) -> bool:
 	if a.peer_id != b.peer_id:
 		return a.peer_id < b.peer_id
 	return a.sequence < b.sequence
 
 
+## 移除已消费 tick 的排队输入，更新预算并标记输入完成裁决。
+## [br]
+## @api private
+## [br]
 func _commit_consumed_inputs(
 	tick: int,
 	frames: Array[GFNetworkInputFrame]
@@ -1674,6 +2144,10 @@ func _commit_consumed_inputs(
 		_mark_input_finalized(frame.peer_id, frame.sequence)
 
 
+## 记录已裁决序号，并推进每个 peer 的连续完成裁决游标。
+## [br]
+## @api private
+## [br]
 func _mark_input_finalized(peer_id: int, sequence: int) -> void:
 	var set_value: Variant = GFVariantData.get_option_value(
 		_finalized_input_sequences,
@@ -1700,6 +2174,10 @@ func _mark_input_finalized(peer_id: int, sequence: int) -> void:
 	_finalized_input_sequences[peer_id] = finalized_set
 
 
+## 移除指定 peer 的所有排队输入并回收对应数量和字节预算。
+## [br]
+## @api private
+## [br]
 func _remove_pending_inputs_for_peer(peer_id: int) -> void:
 	for tick_value: Variant in _pending_inputs_by_tick.keys():
 		var tick: int = GFVariantData.to_int(tick_value)
@@ -1719,6 +2197,10 @@ func _remove_pending_inputs_for_peer(peer_id: int) -> void:
 			_pending_inputs_by_tick[tick] = kept
 
 
+## 计算输入帧 payload 序列化字节数之和。
+## [br]
+## @api private
+## [br]
 func _calculate_frame_bytes(frames: Array[GFNetworkInputFrame]) -> int:
 	var result: int = 0
 	for frame: GFNetworkInputFrame in frames:
@@ -1726,6 +2208,10 @@ func _calculate_frame_bytes(frames: Array[GFNetworkInputFrame]) -> int:
 	return result
 
 
+## 复制历史缓冲区中的快照到使用当前容量的新缓冲区。
+## [br]
+## @api private
+## [br]
 func _duplicate_history(source: GFNetworkHistoryBuffer) -> GFNetworkHistoryBuffer:
 	var result: GFNetworkHistoryBuffer = GFNetworkHistoryBuffer.new(_history_capacity)
 	for tick: int in source.get_ticks():
@@ -1735,6 +2221,10 @@ func _duplicate_history(source: GFNetworkHistoryBuffer) -> GFNetworkHistoryBuffe
 	return result
 
 
+## 使用确定性序列化器计算同步消息的 SHA-256 指纹。
+## [br]
+## @api private
+## [br]
 func _message_fingerprint(message: GFNetworkMessage) -> String:
 	return GFDeterministicVariantSerializer.sha256({
 		"type": message.message_type,
@@ -1752,6 +2242,10 @@ func _message_fingerprint(message: GFNetworkMessage) -> String:
 	})
 
 
+## 构造包含 ok、status、reason 和附加字段的报告字典。
+## [br]
+## @api private
+## [br]
 func _make_report(
 	ok: bool,
 	status: StringName,
@@ -1765,10 +2259,18 @@ func _make_report(
 	return report
 
 
+## 判断同步操作或信号通知是否正在执行。
+## [br]
+## @api private
+## [br]
 func _is_busy() -> bool:
 	return _operation_active or _notification_active
 
 
+## 发出同步拒绝信号并返回带协议详情的拒绝报告。
+## [br]
+## @api private
+## [br]
 func _reject(
 	peer_id: int,
 	reason: StringName,
@@ -1782,6 +2284,10 @@ func _reject(
 	return _make_report(false, &"rejected", reason, details)
 
 
+## 切换至等待重同步阶段，发出拒绝及重同步信号并返回报告。
+## [br]
+## @api private
+## [br]
 func _require_resync(
 	peer_id: int,
 	reason: StringName,
@@ -1797,6 +2303,10 @@ func _require_resync(
 	return _make_report(false, &"resync_required", reason, details)
 
 
+## 生成仅含协议游标和稳定字段的消息详情。
+## [br]
+## @api private
+## [br]
 func _make_protocol_details(
 	message: GFNetworkMessage,
 	extra: Dictionary = {}
@@ -1821,6 +2331,10 @@ func _make_protocol_details(
 	return details
 
 
+## 更新同步阶段，并在阶段变化时发出 phase_changed。
+## [br]
+## @api private
+## [br]
 func _set_phase(next_phase: Phase) -> void:
 	if _phase == next_phase:
 		return

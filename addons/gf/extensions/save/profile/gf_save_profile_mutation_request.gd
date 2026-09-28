@@ -15,20 +15,63 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 校验 MutationRequest 持久化字段的脚本资源。
+## [br]
+## @api private
+## [br]
 const _PERSISTED_VALUE_VALIDATOR_SCRIPT = preload(
 	"res://addons/gf/extensions/save/core/gf_save_persisted_value_validator.gd"
 )
+
+## 临时 context 与 result metadata 支持检查的最大嵌套深度。
+## [br]
+## @api private
+## [br]
 const _MAX_EPHEMERAL_DEPTH: int = 64
+
+## 临时 context 与 result metadata 支持检查的最大值数量。
+## [br]
+## @api private
+## [br]
 const _MAX_EPHEMERAL_ITEMS: int = 100_000
 
 
 # --- 私有变量 ---
 
+## 标记输入校验和所有权接收是否已完成。
+## [br]
+## @api private
+## [br]
 var _ready: bool = false
+
+## 标记该请求是否已被框架领取。
+## [br]
+## @api private
+## [br]
 var _claimed: bool = false
+
+## 保存传入请求的 section mutation 记录。
+## [br]
+## @api private
+## [br]
 var _mutation_records: Array[Dictionary] = []
+
+## 本次 mutation 写入文档的元数据。
+## [br]
+## @api private
+## [br]
 var _document_metadata: Dictionary = {}
+
+## Provider mutation 使用的临时上下文。
+## [br]
+## @api private
+## [br]
 var _context: Dictionary = {}
+
+## mutation 终态结果携带的调用方元数据。
+## [br]
+## @api private
+## [br]
 var _result_metadata: Dictionary = {}
 
 
@@ -205,6 +248,10 @@ func claim_for_framework() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 从内部 mutation 记录提取 section ID 与 schema version 描述。
+## [br]
+## @api private
+## [br]
 func _get_mutation_descriptors() -> Array[Dictionary]:
 	var descriptors: Array[Dictionary] = []
 	for record: Dictionary in _mutation_records:
@@ -214,6 +261,10 @@ func _get_mutation_descriptors() -> Array[Dictionary]:
 		})
 	return descriptors
 
+## 以新的计数与访问路径状态检查临时字典中的值。
+## [br]
+## @api private
+## [br]
 static func _is_ephemeral_dictionary_supported(value: Dictionary) -> bool:
 	var state: Dictionary = {
 		"items": 0,
@@ -222,6 +273,10 @@ static func _is_ephemeral_dictionary_supported(value: Dictionary) -> bool:
 	return _is_ephemeral_value_supported(value, 0, state)
 
 
+## 限深和限量遍历临时值；拒绝对象类值及当前递归路径中的循环容器。
+## [br]
+## @api private
+## [br]
 static func _is_ephemeral_value_supported(
 	value: Variant,
 	depth: int,
@@ -265,10 +320,18 @@ static func _is_ephemeral_value_supported(
 	return true
 
 
+## 从检查状态中读取当前递归路径容器数组。
+## [br]
+## @api private
+## [br]
 static func _get_visited(state: Dictionary) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(state, "visited"))
 
 
+## 按对象身份检查候选 Array 或 Dictionary 是否已在当前递归路径中。
+## [br]
+## @api private
+## [br]
 static func _contains_collection_identity(collections: Array, candidate: Variant) -> bool:
 	for collection: Variant in collections:
 		if is_same(collection, candidate):

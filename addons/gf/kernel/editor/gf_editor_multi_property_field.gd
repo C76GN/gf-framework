@@ -29,13 +29,32 @@ signal draft_changed()
 
 # --- 常量 ---
 
+## 读取属性声明、值和可写状态的工具脚本。
+## [br]
+## @api private
 const _PROPERTY_TOOLS_SCRIPT = preload("res://addons/gf/kernel/core/gf_object_property_tools.gd")
+
+## 用于渲染每个暂存分量输入控件的脚本。
+## [br]
+## @api private
 const _VALUE_FIELD_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_value_field.gd")
+
+## 多分量向量按顺序读取和构造的属性名称。
+## [br]
+## @api private
 const _VECTOR_COMPONENTS: Array[String] = ["x", "y", "z", "w"]
+
+## 当前控件支持编辑的标量和向量 Variant 类型。
+## [br]
+## @api private
 const _SUPPORTED_TYPES: Array[int] = [
 	TYPE_BOOL, TYPE_INT, TYPE_FLOAT, TYPE_STRING, TYPE_STRING_NAME, TYPE_NODE_PATH,
 	TYPE_VECTOR2, TYPE_VECTOR2I, TYPE_VECTOR3, TYPE_VECTOR3I, TYPE_VECTOR4, TYPE_VECTOR4I,
 ]
+
+## 需要按 x/y/z/w 分解显示的整数和浮点向量类型。
+## [br]
+## @api private
 const _VECTOR_TYPES: Array[int] = [
 	TYPE_VECTOR2, TYPE_VECTOR2I, TYPE_VECTOR3, TYPE_VECTOR3I, TYPE_VECTOR4, TYPE_VECTOR4I,
 ]
@@ -43,25 +62,70 @@ const _VECTOR_TYPES: Array[int] = [
 
 # --- 私有变量 ---
 
+## 选择目标的弱引用；null 项表示 configure 收到的无效目标。
+## [br]
+## @api private
 var _targets: Array[WeakRef] = []
+
+## 当前共同编辑的直接属性名。
+## [br]
+## @api private
 var _property: StringName = &""
+
+## 配置时读取的属性声明，用于提交前比较属性 schema 是否变化。
+## [br]
+## @api private
 var _property_info: Dictionary = {}
+
+## 当前选择可编辑性与值一致性的显示状态。
+## [br]
+## @api private
 var _status: String = "empty"
+
+## 每个值或向量分量的初始值及混合标记。
+## [br]
+## @api private
 var _components: Dictionary = {}
+
+## 用户已勾选并修改的分量草稿；未出现的分量不会提交。
+## [br]
+## @api private
 var _draft: Dictionary = {}
+
+## 当前状态说明标签，控件重建时替换。
+## [br]
+## @api private
 var _status_label: Label = null
+
+## 重建或重置输入期间为 true，用于忽略控件同步发出的信号。
+## [br]
+## @api private
 var _updating: bool = false
+
+## 每次重建控件递增，连接闭包用它过滤旧控件迟到的输入信号。
+## [br]
+## @api private
 var _ui_generation: int = 0
+
+## 控件离树后关闭输入处理，重新进入场景树时再开启。
+## [br]
+## @api private
 var _accepting_input: bool = true
 
 
 # --- Godot 生命周期方法 ---
 
+## 进入树时清除组件输入状态并开放编辑输入。
+## [br]
+## @api private
 func _enter_tree() -> void:
 	_reset_component_inputs()
 	_accepting_input = true
 
 
+## 退出树时关闭输入、清空草稿并重置组件状态，然后通知草稿变化。
+## [br]
+## @api private
 func _exit_tree() -> void:
 	_accepting_input = false
 	_draft.clear()
@@ -191,6 +255,10 @@ func prepare_changes() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 重新读取全部弱引用目标的属性声明和值，判定缺失、只读、不兼容、混合或可编辑状态。
+## 只接受声明类型与当前值类型一致的目标，并对向量属性拒绝带索引路径的属性名。
+## [br]
+## @api private
 func _inspect_selection() -> Dictionary:
 	var result: Dictionary = {"status": "empty", "property_info": {}, "values": []}
 	if _targets.is_empty() or _property == &"":
@@ -233,6 +301,9 @@ func _inspect_selection() -> Dictionary:
 	return {"status": state, "property_info": first_info, "values": values}
 
 
+## 仅当两份非空属性声明的 type、hint 和 hint_string 全部相同时视为同一编辑 schema。
+## [br]
+## @api private
 func _same_schema(first: Dictionary, second: Dictionary) -> bool:
 	for key: String in ["type", "hint", "hint_string"]:
 		if first.get(key) != second.get(key):
@@ -240,6 +311,10 @@ func _same_schema(first: Dictionary, second: Dictionary) -> bool:
 	return not first.is_empty() and not second.is_empty()
 
 
+## 递增 UI 代次并重建状态标签与分量输入行，将每个控件信号绑定到本代次。
+## 重建期间 `_updating` 保持开启，避免初始化值触发草稿更新。
+## [br]
+## @api private
 func _rebuild_controls() -> void:
 	_updating = true
 	_ui_generation += 1
@@ -281,6 +356,9 @@ func _rebuild_controls() -> void:
 	_updating = false
 
 
+## 将现有分量输入恢复为读取值，并无信号地清除对应编辑勾选框。
+## [br]
+## @api private
 func _reset_component_inputs() -> void:
 	_updating = true
 	for component: String in _components:
@@ -296,6 +374,10 @@ func _reset_component_inputs() -> void:
 	_updating = false
 
 
+## 将内部选择状态映射为控件显示的中文状态提示。
+## 未显式列出的状态使用一致值提示。
+## [br]
+## @api private
 func _status_text() -> String:
 	match _status:
 		"empty": return "请选择资源和属性。"
@@ -308,6 +390,9 @@ func _status_text() -> String:
 		_: return "一致值 · 仅应用勾选的值或分量。"
 
 
+## 将支持的 Vector2/3/4 整数或浮点向量展开为分量数组，其余值包装为单元素数组。
+## [br]
+## @api private
 func _split_value(value: Variant) -> Array:
 	if value is Vector2:
 		var vector: Vector2 = value
@@ -330,6 +415,9 @@ func _split_value(value: Variant) -> Array:
 	return [value]
 
 
+## 从字典取出字典值并原样返回引用；键不存在或类型不符时返回新空字典。
+## [br]
+## @api private
 func _dictionary_field(source: Dictionary, key: Variant) -> Dictionary:
 	var value: Variant = source.get(key)
 	if value is Dictionary:
@@ -338,6 +426,9 @@ func _dictionary_field(source: Dictionary, key: Variant) -> Dictionary:
 	return {}
 
 
+## 从字典取出数组值并原样返回引用；键不存在或类型不符时返回新空数组。
+## [br]
+## @api private
 func _array_field(source: Dictionary, key: String) -> Array:
 	var value: Variant = source.get(key)
 	if value is Array:
@@ -346,6 +437,9 @@ func _array_field(source: Dictionary, key: String) -> Array:
 	return []
 
 
+## 仅当字段值为 String 时返回该值，其余情况返回空字符串。
+## [br]
+## @api private
 func _string_field(source: Dictionary, key: String) -> String:
 	var value: Variant = source.get(key)
 	if value is String:
@@ -354,6 +448,9 @@ func _string_field(source: Dictionary, key: String) -> String:
 	return ""
 
 
+## 仅当字段值为 int 时返回该值，其余情况返回 -1。
+## [br]
+## @api private
 func _int_field(source: Dictionary, key: String) -> int:
 	var value: Variant = source.get(key)
 	if value is int:
@@ -364,6 +461,10 @@ func _int_field(source: Dictionary, key: String) -> int:
 
 # --- 信号处理函数 ---
 
+## 接受当前控件代次的值变化，将分量加入草稿并自动勾选其编辑框。
+## 重建、离树或过期控件发出的信号会被忽略。
+## [br]
+## @api private
 func _on_component_value_changed(
 	value: Variant, component: String, enabled: CheckBox, generation: int
 ) -> void:
@@ -374,6 +475,10 @@ func _on_component_value_changed(
 	draft_changed.emit()
 
 
+## 接受当前控件代次的勾选变化；勾选时读取控件当前值，取消时移除对应草稿。
+## 重建、离树或过期控件发出的信号会被忽略。
+## [br]
+## @api private
 func _on_component_toggled(
 	enabled: bool, component: String, field: GFEditorValueField, generation: int
 ) -> void:

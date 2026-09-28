@@ -13,6 +13,9 @@ extends GFModel
 
 # --- 私有变量 ---
 
+## 按物品 ID 保存数量与元数据的堆叠记录。
+## [br]
+## @api private
 var _stacks: Dictionary = {}
 
 
@@ -187,10 +190,16 @@ func from_dict(data: Dictionary) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 从堆叠表中读取记录并规范为 Dictionary。
+## [br]
+## @api private
 func _get_stack_record(item_id: StringName) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_stacks, item_id, {}))
 
 
+## 移除指定物品记录；找不到记录时不执行其他操作。
+## [br]
+## @api private
 func _erase_stack(item_id: StringName) -> void:
 	var erased: bool = _stacks.erase(item_id)
 	if erased:

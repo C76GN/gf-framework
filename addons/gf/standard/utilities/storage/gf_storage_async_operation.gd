@@ -70,14 +70,58 @@ const OPERATION_RESET: StringName = &"reset"
 
 # --- 私有变量 ---
 
+## 保存物理请求与 caller 生命周期状态的内部记录。
+## [br]
+## @api private
+## [br]
 var _state: GFStorageAsyncRequestState = GFStorageAsyncRequestState.new()
+
+## 物理请求终态结果；首次完成后写入并供结果查询与 completed 信号使用。
+## [br]
+## @api private
+## [br]
 var _result: GFStorageAsyncResult = null
+
+## 当前 consumer 的 caller 终态结果。
+## [br]
+## @api private
+## [br]
 var _caller_result: GFStorageAsyncCallerResult = null
+
+## caller 先结束观察时，物理请求晚到后的诊断快照。
+## [br]
+## @api private
+## [br]
 var _late_settlement_diagnostic: Dictionary = {}
+
+## 标记 late settlement 诊断是否已被一次性取走。
+## [br]
+## @api private
+## [br]
 var _late_settlement_diagnostic_taken: bool = false
+
+## 与当前 save 请求关联的 opaque payload transfer。
+## [br]
+## @api private
+## [br]
 var _payload_transfer: GFStoragePayloadTransfer = null
+
+## 当前请求持有的 transfer attempt ID。
+## [br]
+## @api private
+## [br]
 var _payload_attempt_id: int = 0
+
+## 标记该 transfer attempt lease 是否已成功结束。
+## [br]
+## @api private
+## [br]
 var _payload_attempt_finished: bool = false
+
+## 标记失败 payload 是否已通过 reclaim 接口取回。
+## [br]
+## @api private
+## [br]
 var _failed_payload_reclaimed: bool = false
 
 
@@ -563,6 +607,10 @@ func take_late_settlement_diagnostic_for_framework() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 使用当前请求身份配置 caller 终态对象；字段组合未通过配置校验时返回 null。
+## [br]
+## @api private
+## [br]
 func _make_caller_result(
 	status: GFStorageAsyncCallerResult.Status,
 	end_kind: GFStorageAsyncCallerResult.EndKind,
@@ -587,6 +635,10 @@ func _make_caller_result(
 	return caller_result_value if configured else null
 
 
+## 合并请求状态诊断与按操作类型读取的物理领域失败详情。
+## [br]
+## @api private
+## [br]
 func _make_late_settlement_diagnostic() -> Dictionary:
 	var read_failure_kind: int = -1
 	var write_failure_kind: int = -1

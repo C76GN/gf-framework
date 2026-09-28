@@ -31,6 +31,9 @@ enum InputSource {
 
 # --- 常量 ---
 
+## 对考虑项分数和权重执行有限值及范围归一化。
+## [br]
+## @api private
 const _GF_DECISION_NUMERIC_POLICY = preload("res://addons/gf/extensions/decision/runtime/gf_decision_numeric_policy.gd")
 
 
@@ -210,6 +213,9 @@ func _score(context: GFDecisionContext) -> float:
 
 # --- 私有/辅助方法 ---
 
+## 按 input_source 从上下文选择值；键为空或上下文为空时返回 default_input。
+## [br]
+## @api private
 func _resolve_input(context: GFDecisionContext) -> Variant:
 	if input_key == &"":
 		return default_input
@@ -227,6 +233,9 @@ func _resolve_input(context: GFDecisionContext) -> Variant:
 			return context.get_value(input_key, default_input)
 
 
+## 用有限边界归一化输入；边界相等时按输入是否达到该边界返回 0 或 1。
+## [br]
+## @api private
 func _normalize_input(value: float) -> float:
 	var safe_min: float = _finite_or_default(input_min, 0.0)
 	var safe_max: float = _finite_or_default(input_max, 1.0)
@@ -236,15 +245,24 @@ func _normalize_input(value: float) -> float:
 	return clampf(inverse_lerp(safe_min, safe_max, safe_value), 0.0, 1.0)
 
 
+## 只接受 Variant 类型为 int 或 float 的评分输入。
+## [br]
+## @api private
 func _is_numeric(value: Variant) -> bool:
 	var value_type: int = typeof(value)
 	return value_type == TYPE_INT or value_type == TYPE_FLOAT
 
 
+## 非 NaN 且非无穷值原样返回，其余情况使用调用方默认值。
+## [br]
+## @api private
 func _finite_or_default(value: float, default_value: float) -> float:
 	return value if not is_nan(value) and not is_inf(value) else default_value
 
 
+## 以 consideration_id 和字段路径为上下文追加一条 authoring 错误。
+## [br]
+## @api private
 func _append_validation_issue(
 	report: Dictionary,
 	kind: StringName,

@@ -19,9 +19,24 @@ extends RefCounted
 ## @api public
 const CIRCLE_BEZIER_KAPPA: float = 0.5522847498307936
 
+## 折线与路径辅助用于跳过近零长度的阈值。
+## [br]
+## @api private
 const _DASH_EPSILON: float = 0.00001
+
+## 折线细分未指定 max_points 时使用的默认输出点上限。
+## [br]
+## @api private
 const _DEFAULT_MAX_SUBDIVIDED_POLYLINE_POINTS: int = 8192
+
+## 蜿蜒折线未指定 max_points 时使用的默认输出点上限。
+## [br]
+## @api private
 const _DEFAULT_MAX_MEANDERED_POLYLINE_POINTS: int = 8192
+
+## 用于预检整数点数计算的有符号 64 位最大值。
+## [br]
+## @api private
 const _MAX_INT64: int = 9223372036854775807
 
 
@@ -784,6 +799,9 @@ static func set_ellipse_curve(
 
 # --- 私有/辅助方法 ---
 
+## 按旋转与偏移写入矩形四角，并重复首点闭合曲线。
+## [br]
+## @api private
 static func _add_corner_points(curve: Curve2D, half_size: Vector2, offset: Vector2, rotation: float) -> void:
 	var top_left: Vector2 = Vector2(-half_size.x, -half_size.y)
 	var top_right: Vector2 = Vector2(half_size.x, -half_size.y)
@@ -796,6 +814,9 @@ static func _add_corner_points(curve: Curve2D, half_size: Vector2, offset: Vecto
 	curve.add_point(_transform_point(top_left, offset, rotation))
 
 
+## 用圆弧近似控制柄写入圆角矩形各段，最后重复首点闭合曲线。
+## [br]
+## @api private
 static func _add_rounded_rect_points(
 	curve: Curve2D,
 	half_size: Vector2,
@@ -823,6 +844,9 @@ static func _add_rounded_rect_points(
 	_add_transformed_point(curve, Vector2(right - rx, top), Vector2.ZERO, Vector2(ox, 0.0), offset, rotation)
 
 
+## 以四段三次贝塞尔圆弧近似椭圆，并重复首点闭合曲线。
+## [br]
+## @api private
 static func _add_ellipse_points(
 	curve: Curve2D,
 	radius: Vector2,
@@ -838,6 +862,9 @@ static func _add_ellipse_points(
 	_add_transformed_point(curve, Vector2(radius.x, 0.0), Vector2(0.0, -oy), Vector2.ZERO, offset, rotation)
 
 
+## 将点位置与相对控制柄按旋转、偏移变换后追加到 Curve2D。
+## [br]
+## @api private
 static func _add_transformed_point(
 	curve: Curve2D,
 	position: Vector2,
@@ -853,10 +880,16 @@ static func _add_transformed_point(
 	)
 
 
+## 先旋转点，再加上位置偏移。
+## [br]
+## @api private
 static func _transform_point(point: Vector2, offset: Vector2, rotation: float) -> Vector2:
 	return point.rotated(rotation) + offset
 
 
+## 复制顶点数组，并在末点重复首点时移除该闭合副本。
+## [br]
+## @api private
 static func _get_unclosed_polygon_points(points: PackedVector2Array) -> PackedVector2Array:
 	var result: PackedVector2Array = points.duplicate()
 	if result.size() > 1 and result[0] == result[result.size() - 1]:
@@ -864,6 +897,9 @@ static func _get_unclosed_polygon_points(points: PackedVector2Array) -> PackedVe
 	return result
 
 
+## 复制折线点列；闭合且至少三个点时，必要时追加首点形成闭合线段。
+## [br]
+## @api private
 static func _get_polyline_points(points: PackedVector2Array, closed: bool) -> PackedVector2Array:
 	var result: PackedVector2Array = points.duplicate()
 	if closed and result.size() > 2 and result[0] != result[result.size() - 1]:
@@ -871,6 +907,9 @@ static func _get_polyline_points(points: PackedVector2Array, closed: bool) -> Pa
 	return result
 
 
+## 复制平滑曲线输入，并在闭合模式下移除重复的末尾首点。
+## [br]
+## @api private
 static func _get_smooth_curve_source_points(points: PackedVector2Array, closed: bool) -> PackedVector2Array:
 	var result: PackedVector2Array = points.duplicate()
 	if closed and result.size() > 1 and result[0] == result[result.size() - 1]:
@@ -878,6 +917,9 @@ static func _get_smooth_curve_source_points(points: PackedVector2Array, closed: 
 	return result
 
 
+## 复制细分输入，并在闭合模式下移除重复的末尾首点。
+## [br]
+## @api private
 static func _get_subdivision_source_points(points: PackedVector2Array, closed: bool) -> PackedVector2Array:
 	var result: PackedVector2Array = points.duplicate()
 	if closed and result.size() > 1 and result[0] == result[result.size() - 1]:
@@ -885,6 +927,9 @@ static func _get_subdivision_source_points(points: PackedVector2Array, closed: b
 	return result
 
 
+## 按开放端点或闭合邻点差计算节点的相对平滑控制柄。
+## [br]
+## @api private
 static func _get_smooth_curve_tangent(
 	points: PackedVector2Array,
 	index: int,
@@ -905,6 +950,9 @@ static func _get_smooth_curve_tangent(
 	return (next_point - previous_point) * (handle_strength / 6.0)
 
 
+## 将源折线的非零相邻线段追加到结果，并按条件加入闭合边。
+## [br]
+## @api private
 static func _append_source_polyline_segments(
 	target: Array[PackedVector2Array],
 	points: PackedVector2Array,
@@ -916,6 +964,9 @@ static func _append_source_polyline_segments(
 		_append_visible_polyline_segment(target, points[points.size() - 1], points[0])
 
 
+## 跳过近零线段，否则追加仅含起点和终点的折线段。
+## [br]
+## @api private
 static func _append_visible_polyline_segment(
 	target: Array[PackedVector2Array],
 	from_point: Vector2,
@@ -926,6 +977,9 @@ static func _append_visible_polyline_segment(
 	target.append(PackedVector2Array([from_point, to_point]))
 
 
+## 沿单段等距插入侧向摆动点，并可将偏移限制为段长的一半。
+## [br]
+## @api private
 static func _append_meandered_segment_points(
 	target: PackedVector2Array,
 	from_point: Vector2,
@@ -957,6 +1011,9 @@ static func _append_meandered_segment_points(
 		var _point_appended: bool = target.append(point)
 
 
+## 按细分插入数在单段内部追加等距线性插值点。
+## [br]
+## @api private
 static func _append_subdivided_segment_points(
 	target: PackedVector2Array,
 	from_point: Vector2,
@@ -972,6 +1029,9 @@ static func _append_subdivided_segment_points(
 		var _point_appended: bool = target.append(from_point.lerp(to_point, ratio))
 
 
+## 预估开放或闭合细分路径的输出点总数，包含各段待插入点。
+## [br]
+## @api private
 static func _estimate_subdivided_polyline_point_count(
 	points: PackedVector2Array,
 	max_segment_length: float,
@@ -985,6 +1045,9 @@ static func _estimate_subdivided_polyline_point_count(
 	return count
 
 
+## 返回超过长度上限的线段需要插入的内部点数。
+## [br]
+## @api private
 static func _get_subdivision_insert_count(
 	from_point: Vector2,
 	to_point: Vector2,
@@ -998,6 +1061,9 @@ static func _get_subdivision_insert_count(
 	return maxi(piece_count - 1, 0)
 
 
+## 按相邻边长限制圆角锚点，并在两锚点之间追加三次贝塞尔采样点。
+## [br]
+## @api private
 static func _append_rounded_polygon_corner(
 	target: PackedVector2Array,
 	point: Vector2,
@@ -1042,6 +1108,9 @@ static func _append_rounded_polygon_corner(
 	var _next_appended: bool = target.append(anchor_next)
 
 
+## 创建失败态姿态报告，并初始化点、段、切线及法线字段。
+## [br]
+## @api private
 static func _make_polyline_pose_report(ratio: float, total_length: float, closed: bool) -> Dictionary:
 	return {
 		"ok": false,
@@ -1059,6 +1128,9 @@ static func _make_polyline_pose_report(ratio: float, total_length: float, closed
 	}
 
 
+## 沿累计弧长定位线段并组装对应采样姿态；跳过近零线段。
+## [br]
+## @api private
 static func _sample_polyline_pose_at_distance(
 	path_points: PackedVector2Array,
 	target_distance: float,
@@ -1105,6 +1177,9 @@ static func _sample_polyline_pose_at_distance(
 	)
 
 
+## 组装成功姿态报告，并由所在段方向计算单位切线与正交法线。
+## [br]
+## @api private
 static func _make_polyline_pose_success_report(
 	point: Vector2,
 	offset: float,
@@ -1133,6 +1208,9 @@ static func _make_polyline_pose_success_report(
 	}
 
 
+## 创建投影搜索的初始失败报告，并写入目标点和无限初始距离。
+## [br]
+## @api private
 static func _make_polyline_projection_report(target: Vector2, closed: bool) -> Dictionary:
 	var report: Dictionary = _make_polyline_pose_report(0.0, 0.0, closed)
 	report["target"] = target
@@ -1141,6 +1219,9 @@ static func _make_polyline_projection_report(target: Vector2, closed: bool) -> D
 	return report
 
 
+## 在姿态成功报告上补入投影目标及距离和平方距离。
+## [br]
+## @api private
 static func _make_polyline_projection_success_report(
 	target: Vector2,
 	point: Vector2,
@@ -1170,21 +1251,33 @@ static func _make_polyline_projection_success_report(
 	return report
 
 
+## 将负侧向归一为 -1，其余输入归一为 1。
+## [br]
+## @api private
 static func _normalize_meander_side(side: int) -> int:
 	return -1 if side < 0 else 1
 
 
+## 在交替模式下按步数奇偶翻转侧向符号。
+## [br]
+## @api private
 static func _get_meander_sign(step_index: int, side: int, alternate: bool) -> int:
 	if alternate and posmod(step_index, 2) == 1:
 		return -side
 	return side
 
 
+## 执行整数除法，供生成点数上限的溢出预检使用。
+## [br]
+## @api private
 static func _divide_truncated(numerator: int, denominator: int) -> int:
 	@warning_ignore("integer_division")
 	return numerator / denominator
 
 
+## 当 Vector2 任一分量为 NaN 或无穷大时返回 false。
+## [br]
+## @api private
 static func _is_finite_vector2(point: Vector2) -> bool:
 	return not (
 		is_nan(point.x)
@@ -1194,6 +1287,9 @@ static func _is_finite_vector2(point: Vector2) -> bool:
 	)
 
 
+## 组装蜿蜒折线结果与其输入、输出数量和生成选项字段。
+## [br]
+## @api private
 static func _make_meandered_polyline_report(
 	ok: bool,
 	error: String,
@@ -1228,6 +1324,9 @@ static func _make_meandered_polyline_report(
 	}
 
 
+## 组装折线细分结果与其输入、输出数量和限制字段。
+## [br]
+## @api private
 static func _make_subdivided_polyline_report(
 	ok: bool,
 	error: String,

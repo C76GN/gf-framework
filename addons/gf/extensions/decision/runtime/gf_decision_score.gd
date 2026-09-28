@@ -13,6 +13,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 为最终分数和考虑项明细提供统一数值归一化。
+## [br]
+## @api private
 const _GF_DECISION_NUMERIC_POLICY = preload("res://addons/gf/extensions/decision/runtime/gf_decision_numeric_policy.gd")
 
 
@@ -129,6 +132,9 @@ func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 仅输出四个评分字段，并分别归一化分数、权重和加权分数。
+## [br]
+## @api private
 func _normalize_consideration_scores(details: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for detail: Dictionary in details:
@@ -147,6 +153,9 @@ func _normalize_consideration_scores(details: Array[Dictionary]) -> Array[Dictio
 	return result
 
 
+## 复制字典后确认其类型；结果不是 Dictionary 时返回空字典。
+## [br]
+## @api private
 func _copy_dictionary(source: Dictionary) -> Dictionary:
 	var copied: Variant = GFVariantData.duplicate_variant(source)
 	if copied is Dictionary:

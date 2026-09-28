@@ -16,9 +16,24 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 单次读取的默认字节数上限。
+## [br]
+## @api private
 const _DEFAULT_MAX_READ_BYTE_COUNT: int = 16 * 1024 * 1024
+
+## 单次写入的默认字节数上限。
+## [br]
+## @api private
 const _DEFAULT_MAX_WRITE_BYTE_COUNT: int = 16 * 1024 * 1024
+
+## Godot int 可表示的最大非负值，用作 varuint 上界。
+## [br]
+## @api private
 const _MAX_VAR_UINT_VALUE: int = 9223372036854775807
+
+## JSON-safe 报告转换使用的共享值编码器脚本。
+## [br]
+## @api private
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 
 
@@ -50,8 +65,19 @@ var max_write_byte_count: int = _DEFAULT_MAX_WRITE_BYTE_COUNT
 
 # --- 私有变量 ---
 
+## 游标当前持有的字节缓冲区。
+## [br]
+## @api private
 var _bytes: PackedByteArray = PackedByteArray()
+
+## 下一次读取或写入使用的字节偏移。
+## [br]
+## @api private
 var _position: int = 0
+
+## 最近一次操作记录的错误码。
+## [br]
+## @api private
 var _last_error: Error = OK
 
 
@@ -791,6 +817,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 检查读取长度及游标剩余空间，并在失败时设置对应错误码。
+## [br]
+## @api private
 func _require(byte_count: int) -> bool:
 	if byte_count < 0 or not _within_read_limit(byte_count):
 		_last_error = ERR_INVALID_PARAMETER
@@ -801,6 +830,9 @@ func _require(byte_count: int) -> bool:
 	return false
 
 
+## 按当前字节序读取指定宽度的无符号整数并推进位置。
+## [br]
+## @api private
 func _read_uint(byte_count: int) -> int:
 	if not _require(byte_count):
 		return 0
@@ -813,6 +845,9 @@ func _read_uint(byte_count: int) -> int:
 	return result
 
 
+## 尝试读取定宽无符号整数；失败时恢复起始位置并返回报告。
+## [br]
+## @api private
 func _try_read_uint(byte_count: int) -> Dictionary:
 	var start_position: int = _position
 	var value: int = _read_uint(byte_count)
@@ -822,6 +857,9 @@ func _try_read_uint(byte_count: int) -> Dictionary:
 	return _make_read_report(true, value, OK, start_position, _position)
 
 
+## 创建标准读取报告并同步最近错误码。
+## [br]
+## @api private
 func _make_read_report(ok: bool, value: Variant, error: Error, start_position: int, next_position: int) -> Dictionary:
 	_last_error = error
 	return {
@@ -833,11 +871,17 @@ func _make_read_report(ok: bool, value: Variant, error: Error, start_position: i
 	}
 
 
+## 检查读取报告中的 ok 字段是否为 true 布尔值。
+## [br]
+## @api private
 func _read_report_is_ok(report: Dictionary) -> bool:
 	var raw_ok: Variant = report.get("ok", false)
 	return raw_ok is bool and raw_ok
 
 
+## 计算非负整数使用的最短 7-bit varuint 编码长度。
+## [br]
+## @api private
 static func _get_var_uint_encoded_length(value: int) -> int:
 	var length: int = 1
 	var remaining_value: int = value
@@ -847,6 +891,9 @@ static func _get_var_uint_encoded_length(value: int) -> int:
 	return length
 
 
+## 按当前字节序写入指定宽度的无符号整数并推进位置。
+## [br]
+## @api private
 func _write_uint(value: int, byte_count: int) -> void:
 	if not _within_write_limit(byte_count):
 		_last_error = ERR_INVALID_PARAMETER
@@ -861,6 +908,9 @@ func _write_uint(value: int, byte_count: int) -> void:
 	_last_error = OK
 
 
+## 验证无符号整数的宽度范围后写入缓冲区。
+## [br]
+## @api private
 func _write_checked_uint(value: int, byte_count: int) -> void:
 	if value < 0 or value > _max_unsigned_value(byte_count):
 		_last_error = ERR_INVALID_PARAMETER
@@ -868,6 +918,9 @@ func _write_checked_uint(value: int, byte_count: int) -> void:
 	_write_uint(value, byte_count)
 
 
+## 验证有符号整数的宽度范围，转换为补码后写入缓冲区。
+## [br]
+## @api private
 func _write_checked_int(value: int, byte_count: int) -> void:
 	var bits: int = byte_count * 8
 	var minimum: int = -(1 << (bits - 1))
@@ -879,6 +932,9 @@ func _write_checked_int(value: int, byte_count: int) -> void:
 	_write_uint(unsigned_value, byte_count)
 
 
+## 缓冲区不足时扩展到指定长度，并返回扩容结果。
+## [br]
+## @api private
 func _ensure_size(size_bytes: int) -> bool:
 	if size_bytes <= _bytes.size():
 		return true
@@ -889,10 +945,16 @@ func _ensure_size(size_bytes: int) -> bool:
 	return true
 
 
+## 判断单次读取字节数是否超过配置上限。
+## [br]
+## @api private
 func _within_read_limit(byte_count: int) -> bool:
 	return max_read_byte_count <= 0 or byte_count <= max_read_byte_count
 
 
+## 判断从操作起点开始的累计读取量是否仍在上限内。
+## [br]
+## @api private
 func _within_read_operation_limit(start_position: int, additional_byte_count: int) -> bool:
 	if start_position < 0 or _position < start_position or additional_byte_count < 0:
 		return false
@@ -905,10 +967,16 @@ func _within_read_operation_limit(start_position: int, additional_byte_count: in
 	)
 
 
+## 判断单次写入字节数是否超过配置上限。
+## [br]
+## @api private
 func _within_write_limit(byte_count: int) -> bool:
 	return max_write_byte_count <= 0 or byte_count <= max_write_byte_count
 
 
+## 将非负整数编码为 7-bit continuation varuint 字节序列。
+## [br]
+## @api private
 static func _encode_var_uint(value: int) -> PackedByteArray:
 	var result: PackedByteArray = PackedByteArray()
 	var remaining_value: int = value
@@ -919,10 +987,16 @@ static func _encode_var_uint(value: int) -> PackedByteArray:
 	return result
 
 
+## 返回指定字节宽度可表示的最大无符号整数。
+## [br]
+## @api private
 static func _max_unsigned_value(byte_count: int) -> int:
 	return (1 << (byte_count * 8)) - 1
 
 
+## 校验字节序列是否符合 UTF-8 编码的字节结构。
+## [br]
+## @api private
 static func _is_valid_utf8(bytes: PackedByteArray) -> bool:
 	var index: int = 0
 	while index < bytes.size():
@@ -966,6 +1040,9 @@ static func _is_valid_utf8(bytes: PackedByteArray) -> bool:
 	return true
 
 
+## 检查给定起点之后是否存在指定数量的 continuation 字节。
+## [br]
+## @api private
 static func _has_continuation_bytes(bytes: PackedByteArray, start_index: int, count: int) -> bool:
 	if start_index + count >= bytes.size():
 		return false
@@ -975,5 +1052,8 @@ static func _has_continuation_bytes(bytes: PackedByteArray, start_index: int, co
 	return true
 
 
+## 判断字节是否属于 UTF-8 continuation-byte 范围。
+## [br]
+## @api private
 static func _is_continuation_byte(value: int) -> bool:
 	return value >= 0x80 and value <= 0xbf

@@ -31,6 +31,9 @@ enum LineKind {
 
 # --- 常量 ---
 
+## 对话序列化快照复制器，统一处理嵌套资源的数据副本。
+## [br]
+## @api private
 const _SNAPSHOT_COPY = preload("res://addons/gf/extensions/dialogue/resources/gf_dialogue_snapshot_copy.gd")
 
 
@@ -244,6 +247,9 @@ func create_serialization_source() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 将 Variant 收窄为 GFDialogueLine；类型不符时返回 null。
+## [br]
+## @api private
 func _get_dialogue_line_value(value: Variant) -> GFDialogueLine:
 	if value is GFDialogueLine:
 		var line: GFDialogueLine = value

@@ -27,6 +27,10 @@ enum IssueSeverity {
 
 # --- 常量 ---
 
+## 生成配置验证报告的类脚本引用。
+## [br]
+## @api private
+## [br]
 const _CONFIG_VALIDATION_REPORT = preload("res://addons/gf/standard/utilities/config/gf_config_validation_report.gd")
 
 
@@ -300,20 +304,36 @@ func _make_variant_key(value: Variant) -> String:
 
 # --- 私有/辅助方法 ---
 
+## 根据上下文中的 table_name 创建带规则来源信息的报告。
+## [br]
+## @api private
+## [br]
 func _make_report(context: Dictionary) -> Dictionary:
 	return _CONFIG_VALIDATION_REPORT.new().make_report(
 		GFVariantData.get_option_string_name(context, "table_name", &"")
 	)
 
 
+## 完成报告计数和汇总字段。
+## [br]
+## @api private
+## [br]
 func _finalize_report(report: Dictionary) -> void:
 	_CONFIG_VALIDATION_REPORT.new().finalize_report(report)
 
 
+## 将 WARNING 级别映射为 warning，其余级别映射为 error。
+## [br]
+## @api private
+## [br]
 func _severity_to_string() -> String:
 	return "warning" if severity == IssueSeverity.WARNING else "error"
 
 
+## 仅当 Variant 值为 GFConfigValidationRule 时返回该规则。
+## [br]
+## @api private
+## [br]
 func _variant_to_validation_rule(value: Variant) -> GFConfigValidationRule:
 	if value is GFConfigValidationRule:
 		var rule: GFConfigValidationRule = value

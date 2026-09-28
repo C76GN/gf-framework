@@ -43,22 +43,89 @@ enum ParallelPolicy {
 
 # --- 常量 ---
 
+## 秒数转换为毫秒时可表示的最大整数值。
+## [br]
+## @api private
 const _MAX_DURATION_MSEC: int = 9_223_372_036_854_775_807
+
+## 超过该秒数时毫秒转换饱和到最大整数值。
+## [br]
+## @api private
 const _MAX_DURATION_SECONDS: float = 9_223_372_036_854_775.0
+
+## 调试快照各预算选项的默认节点数量上限。
+## [br]
+## @api private
 const _DEFAULT_DEBUG_MAX_NODES: int = 256
+
+## 调试快照各预算选项的默认递归深度上限。
+## [br]
+## @api private
 const _DEFAULT_DEBUG_MAX_DEPTH: int = 16
+
+## 调试快照各预算选项的默认子节点数量上限。
+## [br]
+## @api private
 const _DEFAULT_DEBUG_MAX_CHILDREN: int = 64
+
+## 调试快照各预算选项的默认序列化字节上限。
+## [br]
+## @api private
 const _DEFAULT_DEBUG_MAX_TOTAL_BYTES: int = 256 * 1024
+
+## 调试快照各预算选项的默认文本长度上限。
+## [br]
+## @api private
 const _DEFAULT_DEBUG_MAX_TEXT_LENGTH: int = 512
+
+## Runner 调试快照的默认黑板键样本数量上限。
+## [br]
+## @api private
 const _DEFAULT_DEBUG_MAX_BLACKBOARD_KEYS: int = 128
+
+## 调试快照允许配置的节点数量硬上限。
+## [br]
+## @api private
 const _HARD_DEBUG_MAX_NODES: int = 4096
+
+## 调试快照允许配置的递归深度硬上限。
+## [br]
+## @api private
 const _HARD_DEBUG_MAX_DEPTH: int = 64
+
+## 调试快照允许配置的子节点数量硬上限。
+## [br]
+## @api private
 const _HARD_DEBUG_MAX_CHILDREN: int = 256
+
+## 调试快照允许配置的序列化字节硬上限。
+## [br]
+## @api private
 const _HARD_DEBUG_MAX_TOTAL_BYTES: int = 1024 * 1024
+
+## 调试快照允许配置的文本长度硬上限。
+## [br]
+## @api private
 const _HARD_DEBUG_MAX_TEXT_LENGTH: int = 4096
+
+## Runner 调试快照允许配置的黑板键样本硬上限。
+## [br]
+## @api private
 const _HARD_DEBUG_MAX_BLACKBOARD_KEYS: int = 1024
+
+## 调试报告编码器允许遍历的最大集合项数。
+## [br]
+## @api private
 const _DEBUG_CODEC_MAX_COLLECTION_ITEMS: int = 1024
+
+## 调试报告编码器集合节点预算的乘数。
+## [br]
+## @api private
 const _DEBUG_CODEC_NODE_MULTIPLIER: int = 32
+
+## 调试报告编码器集合节点预算的固定余量。
+## [br]
+## @api private
 const _DEBUG_CODEC_NODE_OVERHEAD: int = 512
 
 
@@ -135,6 +202,9 @@ static func build_debug_snapshot(node: Variant, options: Dictionary = {}) -> Dic
 
 # --- 私有/辅助方法 ---
 
+## 调用通用对象的 get_debug_snapshot() 并将结果收窄为字典。
+## [br]
+## @api private
 static func _call_debug_snapshot(snapshot_owner: Object) -> Dictionary:
 	if snapshot_owner == null or not snapshot_owner.has_method("get_debug_snapshot"):
 		return {}
@@ -143,6 +213,9 @@ static func _call_debug_snapshot(snapshot_owner: Object) -> Dictionary:
 	return GFVariantData.as_dictionary(snapshot_value)
 
 
+## 按默认值和硬上限建立调试快照预算及截断状态。
+## [br]
+## @api private
 static func _make_debug_snapshot_budget(options: Dictionary) -> Dictionary:
 	return {
 		"max_nodes": _get_bounded_debug_option(options, "max_nodes", _DEFAULT_DEBUG_MAX_NODES, _HARD_DEBUG_MAX_NODES),
@@ -157,6 +230,9 @@ static func _make_debug_snapshot_budget(options: Dictionary) -> Dictionary:
 	}
 
 
+## 读取整数预算选项并限制在零至指定硬上限之间。
+## [br]
+## @api private
 static func _get_bounded_debug_option(
 	options: Dictionary,
 	key: String,
@@ -170,6 +246,9 @@ static func _get_bounded_debug_option(
 	return clampi(int_value, 0, hard_maximum)
 
 
+## 标记快照已截断，并将原因加入预算字典。
+## [br]
+## @api private
 static func _mark_debug_snapshot_truncated(budget: Dictionary, reason: StringName) -> void:
 	budget["truncated"] = true
 	var reasons_value: Variant = budget.get("truncation_reasons", {})
@@ -180,6 +259,9 @@ static func _mark_debug_snapshot_truncated(budget: Dictionary, reason: StringNam
 	budget["truncation_reasons"] = reasons
 
 
+## 判断已计数节点是否仍低于快照预算上限。
+## [br]
+## @api private
 static func _has_debug_node_capacity(budget: Dictionary) -> bool:
 	return (
 		_read_debug_budget_int(budget, "node_count")
@@ -187,6 +269,9 @@ static func _has_debug_node_capacity(budget: Dictionary) -> bool:
 	)
 
 
+## 消耗一个节点预算；无容量时记录 max_nodes 截断原因。
+## [br]
+## @api private
 static func _consume_debug_node(budget: Dictionary) -> bool:
 	if not _has_debug_node_capacity(budget):
 		_mark_debug_snapshot_truncated(budget, &"max_nodes")
@@ -195,6 +280,9 @@ static func _consume_debug_node(budget: Dictionary) -> bool:
 	return true
 
 
+## 复制预算报告并将截断原因转换为排序后的文本数组。
+## [br]
+## @api private
 static func _make_debug_budget_report(budget: Dictionary) -> Dictionary:
 	var reasons: Array[String] = []
 	var reasons_value: Variant = budget.get("truncation_reasons", {})
@@ -208,6 +296,9 @@ static func _make_debug_budget_report(budget: Dictionary) -> Dictionary:
 	return report
 
 
+## 预留预算字段字节后编码快照，超限时退回仅含预算报告的结果。
+## [br]
+## @api private
 static func _finalize_debug_snapshot(snapshot: Dictionary, budget: Dictionary) -> Dictionary:
 	var debug_budget_report: Dictionary = _make_debug_budget_report(budget)
 	var debug_budget_field: Dictionary = {
@@ -241,6 +332,9 @@ static func _finalize_debug_snapshot(snapshot: Dictionary, budget: Dictionary) -
 	return _encode_debug_snapshot_with_budget(debug_budget_field, budget)
 
 
+## 读取整数预算字段；缺失或类型不符时返回回退值。
+## [br]
+## @api private
 static func _read_debug_budget_int(
 	budget: Dictionary,
 	key: String,
@@ -253,6 +347,9 @@ static func _read_debug_budget_int(
 	return fallback
 
 
+## 将有效的整数 tick 状态保留，否则返回指定回退状态。
+## [br]
+## @api private
 static func _variant_to_status(value: Variant, fallback_status: int = Status.FAILURE) -> int:
 	if value is int:
 		var status: int = value
@@ -261,6 +358,9 @@ static func _variant_to_status(value: Variant, fallback_status: int = Status.FAI
 	return fallback_status
 
 
+## 判断状态是否属于 SUCCESS、FAILURE、RUNNING 或 ABORTED。
+## [br]
+## @api private
 static func _is_valid_tick_status(status: int) -> bool:
 	return (
 		status == Status.SUCCESS
@@ -270,22 +370,37 @@ static func _is_valid_tick_status(status: int) -> bool:
 	)
 
 
+## 判断状态是否为 SUCCESS。
+## [br]
+## @api private
 static func _is_success(status: int) -> bool:
 	return status == Status.SUCCESS
 
 
+## 判断状态是否为 FAILURE。
+## [br]
+## @api private
 static func _is_failure(status: int) -> bool:
 	return status == Status.FAILURE
 
 
+## 判断状态是否为 RUNNING。
+## [br]
+## @api private
 static func _is_running(status: int) -> bool:
 	return status == Status.RUNNING
 
 
+## 判断状态是否为 ABORTED。
+## [br]
+## @api private
 static func _is_aborted(status: int) -> bool:
 	return status == Status.ABORTED
 
 
+## 由原始返回值和规范化状态确定无效或中止原因。
+## [br]
+## @api private
 static func _status_reason_from_value(value: Variant, normalized_status: int) -> StringName:
 	if not value is int:
 		return &"invalid_status"
@@ -298,18 +413,27 @@ static func _status_reason_from_value(value: Variant, normalized_status: int) ->
 	return &""
 
 
+## 将条件结果收窄为 bool；其他类型按 false 处理。
+## [br]
+## @api private
 static func _condition_result_to_bool(value: Variant) -> bool:
 	if value is bool:
 		return value
 	return false
 
 
+## 为非布尔条件结果返回 invalid_condition_result 原因。
+## [br]
+## @api private
 static func _condition_reason_from_value(value: Variant) -> StringName:
 	if value is bool:
 		return &""
 	return &"invalid_condition_result"
 
 
+## 判断原因是否属于状态、条件或运行时副本协议错误。
+## [br]
+## @api private
 static func _is_error_reason(reason: StringName) -> bool:
 	return (
 		reason == &"invalid_status"
@@ -320,10 +444,16 @@ static func _is_error_reason(reason: StringName) -> bool:
 	)
 
 
+## 判断子节点原因是否为中止或需向上传播的错误。
+## [br]
+## @api private
 static func _should_propagate_child_reason(reason: StringName) -> bool:
 	return reason == &"aborted" or _is_error_reason(reason)
 
 
+## 优先返回显式随机源，否则读取黑板中的 rng 对象。
+## [br]
+## @api private
 static func _resolve_rng_from_blackboard(
 	blackboard: Dictionary,
 	fallback_rng: RandomNumberGenerator = null
@@ -337,6 +467,9 @@ static func _resolve_rng_from_blackboard(
 	return null
 
 
+## 创建并复制随机源的 seed 与 state。
+## [br]
+## @api private
 static func _duplicate_rng(source: RandomNumberGenerator) -> RandomNumberGenerator:
 	if source == null:
 		return null
@@ -347,6 +480,9 @@ static func _duplicate_rng(source: RandomNumberGenerator) -> RandomNumberGenerat
 	return copy
 
 
+## 复制子节点顺序并使用选定随机源打乱副本。
+## [br]
+## @api private
 static func _make_random_node_order(
 	children: Array[BTNode],
 	blackboard: Dictionary,
@@ -365,6 +501,9 @@ static func _make_random_node_order(
 	return result
 
 
+## 使用指定随机源执行节点数组的 Fisher-Yates 洗牌。
+## [br]
+## @api private
 static func _shuffle_nodes_with_rng(
 	nodes: Array[BTNode],
 	random_source: RandomNumberGenerator
@@ -376,6 +515,9 @@ static func _shuffle_nodes_with_rng(
 		nodes[swap_index] = temp
 
 
+## 通过 Variant 工具复制字典；结果类型不符时返回空字典。
+## [br]
+## @api private
 static func _duplicate_dictionary(value: Dictionary) -> Dictionary:
 	var duplicated_value: Variant = GFVariantData.duplicate_variant(value)
 	if duplicated_value is Dictionary:
@@ -384,6 +526,9 @@ static func _duplicate_dictionary(value: Dictionary) -> Dictionary:
 	return {}
 
 
+## 创建节点运行时副本并检查独立身份和动态类型。
+## [br]
+## @api private
 static func _duplicate_runtime_node(source: BTNode) -> BTNode:
 	if source == null:
 		return null
@@ -405,6 +550,9 @@ static func _duplicate_runtime_node(source: BTNode) -> BTNode:
 	return failure
 
 
+## 比较脚本化节点的脚本身份，或原生节点的类名。
+## [br]
+## @api private
 static func _runtime_node_types_match(source: BTNode, copy: BTNode) -> bool:
 	var source_script: Variant = source.get_script()
 	var copy_script: Variant = copy.get_script()
@@ -413,23 +561,35 @@ static func _runtime_node_types_match(source: BTNode, copy: BTNode) -> bool:
 	return source.get_class() == copy.get_class()
 
 
+## 读取副本记录的运行时复制错误原因。
+## [br]
+## @api private
 static func _runtime_duplicate_error_reason(node: BTNode) -> StringName:
 	if node == null:
 		return &""
 	return node._runtime_duplicate_error
 
 
+## 返回有限非负值；输入非法时使用安全回退值或零。
+## [br]
+## @api private
 static func _sanitize_non_negative_seconds(value: float, fallback: float) -> float:
 	var safe_fallback: float = fallback if is_finite(fallback) and fallback >= 0.0 else 0.0
 	return value if is_finite(value) and value >= 0.0 else safe_fallback
 
 
+## 将秒数转换为毫秒整数，并在上界处饱和。
+## [br]
+## @api private
 static func _seconds_to_msec(seconds: float) -> int:
 	if seconds >= _MAX_DURATION_SECONDS:
 		return _MAX_DURATION_MSEC
 	return roundi(seconds * 1000.0)
 
 
+## 读取系统或注入时钟，并保证结果不早于上一观测值。
+## [br]
+## @api private
 static func _resolve_monotonic_time_msec(clock_msec: Callable, previous_msec: int) -> int:
 	var current_msec: int = Time.get_ticks_msec()
 	if clock_msec.is_valid():
@@ -441,6 +601,9 @@ static func _resolve_monotonic_time_msec(clock_msec: Callable, previous_msec: in
 	return maxi(current_msec, previous_msec)
 
 
+## 以调试脱敏规则和预算边界编码快照字典。
+## [br]
+## @api private
 static func _encode_debug_snapshot_with_budget(
 	snapshot: Dictionary,
 	budget: Dictionary
@@ -530,8 +693,20 @@ class BTNode extends RefCounted:
 	## @schema metadata: 项目自定义元数据 Dictionary；键和值由调用方维护。
 	var metadata: Dictionary = {}
 
+	# --- 私有变量 ---
+
+	## 运行态复制失败节点携带的失败原因；缺失 tick 实现时优先报告该原因。
+	## [br]
+	## @api private
 	var _runtime_duplicate_error: StringName = &""
+
+	## reset 时递增的运行代次，用于识别 tick 回调期间发生的重置。
+	## [br]
+	## @api private
 	var _runtime_generation: int = 0
+
+
+	# --- 公共方法 ---
 
 	## 执行该节点的逻辑。子类应重写此方法。
 	## [br]
@@ -625,6 +800,24 @@ class BTNode extends RefCounted:
 		return GFBehaviorTree.build_debug_snapshot(self)
 
 
+	# --- 可重写钩子 / 虚方法 ---
+
+	## 供调试遍历取得直接子节点的扩展点；默认返回空数组。重写应自行限制构造成本，调用方仅在返回后应用遍历预算。
+	## [br]
+	## @api protected
+	## [br]
+	## @since 3.17.0
+	## [br]
+	## @return: 直接子节点列表；返回节点引用，调试遍历会识别环和共享身份。
+	func _get_debug_children() -> Array[BTNode]:
+		return []
+
+
+	# --- 私有/辅助方法 ---
+
+	## 清空当前节点的调试计数与状态；递归模式使用实例标识集合避免重复处理或环形遍历。
+	## [br]
+	## @api private
 	func _clear_debug_state_internal(recursive: bool, visited: Dictionary) -> void:
 		var instance_id: int = get_instance_id()
 		if visited.has(instance_id):
@@ -641,6 +834,9 @@ class BTNode extends RefCounted:
 					child._clear_debug_state_internal(true, visited)
 
 
+	## 在共享节点数、深度和子项预算内构建原始调试树；分别标记递归回边与非回边的共享引用，metadata 此处仍引用原字典，后续统一投影。
+	## [br]
+	## @api private
 	func _get_debug_snapshot_internal(
 		active_path: Dictionary,
 		seen: Dictionary,
@@ -749,17 +945,26 @@ class BTNode extends RefCounted:
 		return snapshot
 
 
+	## 按正的起始微秒时间计算耗时并交给 record_status 归一化记录；未给起点时耗时按零计。
+	## [br]
+	## @api private
 	func _record_tick(status: int, reason: StringName = &"", started_usec: int = 0) -> int:
 		var elapsed: int = Time.get_ticks_usec() - started_usec if started_usec > 0 else 0
 		return record_status(status, reason, elapsed)
 
 
+	## 复制名称、节点标识并通过统一字典复制助手复制 metadata；不复制运行计数或当前执行状态。
+	## [br]
+	## @api private
 	func _copy_base_fields_to(copy: BTNode) -> void:
 		copy.name = name
 		copy.node_id = node_id
 		copy.metadata = GFBehaviorTree._duplicate_dictionary(metadata)
 
 
+	## 逐项调用运行态复制入口；复制有效性与失败节点处理由该入口负责。
+	## [br]
+	## @api private
 	func _duplicate_child_nodes(children: Array[BTNode]) -> Array[BTNode]:
 		var result: Array[BTNode] = []
 		for child: BTNode in children:
@@ -767,6 +972,9 @@ class BTNode extends RefCounted:
 		return result
 
 
+	## 建立新的子节点数组并保留原节点引用，不复制节点运行态。
+	## [br]
+	## @api private
 	func _copy_child_nodes(children: Array[BTNode]) -> Array[BTNode]:
 		var result: Array[BTNode] = []
 		for child: BTNode in children:
@@ -774,12 +982,18 @@ class BTNode extends RefCounted:
 		return result
 
 
+	## 检查候选子树是否包含当前节点；空候选不会形成环。
+	## [br]
+	## @api private
 	func _would_create_cycle(candidate: BTNode) -> bool:
 		if candidate == null:
 			return false
 		return _node_contains_descendant(candidate, self, {})
 
 
+	## 按实例身份递归搜索目标节点，使用 visited 跳过已检查节点。
+	## [br]
+	## @api private
 	func _node_contains_descendant(candidate: BTNode, target: BTNode, visited: Dictionary) -> bool:
 		if candidate == null:
 			return false
@@ -795,6 +1009,9 @@ class BTNode extends RefCounted:
 		return false
 
 
+	## 优先使用返回值归一化产生的原因，否则按允许传播规则读取子节点原因。
+	## [br]
+	## @api private
 	func _get_child_status_reason(child: BTNode, value: Variant, normalized_status: int) -> StringName:
 		var reason: StringName = GFBehaviorTree._status_reason_from_value(value, normalized_status)
 		if reason != &"":
@@ -804,6 +1021,9 @@ class BTNode extends RefCounted:
 		return &""
 
 
+	## 优先返回运行态复制失败原因，再读取兼容 metadata 标记；均无原因时报告缺失 tick 重写。
+	## [br]
+	## @api private
 	func _get_missing_tick_reason() -> StringName:
 		if _runtime_duplicate_error != &"":
 			return _runtime_duplicate_error
@@ -814,10 +1034,6 @@ class BTNode extends RefCounted:
 			var duplicate_error_text: String = duplicate_error
 			return StringName(duplicate_error_text)
 		return &"missing_tick_override"
-
-
-	func _get_debug_children() -> Array[BTNode]:
-		return []
 
 
 ## 行为树黑板作用域。
@@ -853,12 +1069,25 @@ class BlackboardScope extends RefCounted:
 		set(value):
 			var _set_parent_result: bool = set_parent(value)
 
+	# --- 私有变量 ---
+
+	## 父作用域引用；本地缺失的键沿该链查找，设置时拒绝形成环。
+	## [br]
+	## @api private
 	var _parent: BlackboardScope = null
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 通过统一字典复制助手初始化本地值，并经 set_parent 校验父作用域。
+	## [br]
+	## @api private
 	func _init(initial_values: Dictionary = {}, parent_scope: BlackboardScope = null) -> void:
 		values = GFBehaviorTree._duplicate_dictionary(initial_values)
 		var _set_parent_result: bool = set_parent(parent_scope)
 
+
+	# --- 公共方法 ---
 
 	## 设置作用域值。
 	## [br]
@@ -907,6 +1136,37 @@ class BlackboardScope extends RefCounted:
 		return _get_value_internal(key, default_value, {})
 
 
+	## 检查作用域值是否存在。
+	## [br]
+	## @api public
+	## [br]
+	## @since 3.17.0
+	## [br]
+	## @param key: 值标识。
+	## [br]
+	## @return: 存在返回 true。
+	func has_value(key: StringName) -> bool:
+		return _has_value_internal(key, {})
+
+
+	## 转换为合并后的字典。
+	## [br]
+	## @api public
+	## [br]
+	## @since 3.17.0
+	## [br]
+	## @return: 黑板字典。
+	## [br]
+	## @schema return: 父级与当前作用域合并后的 Dictionary；当前作用域同名键覆盖父级键。
+	func to_dictionary() -> Dictionary:
+		return _to_dictionary_internal({})
+
+
+	# --- 私有/辅助方法 ---
+
+	## 沿父链查找最近的键并复制返回值；重复作用域或整条链缺键时复制默认值。
+	## [br]
+	## @api private
 	func _get_value_internal(key: StringName, default_value: Variant, visited: Dictionary) -> Variant:
 		var instance_id: int = get_instance_id()
 		if visited.has(instance_id):
@@ -920,17 +1180,9 @@ class BlackboardScope extends RefCounted:
 		return GFVariantData.duplicate_variant(default_value)
 
 
-	## 检查作用域值是否存在。
+	## 检查本地或父链是否存在键；再次遇到相同实例时返回 false。
 	## [br]
-	## @api public
-	## [br]
-	## @param key: 值标识。
-	## [br]
-	## @return: 存在返回 true。
-	func has_value(key: StringName) -> bool:
-		return _has_value_internal(key, {})
-
-
+	## @api private
 	func _has_value_internal(key: StringName, visited: Dictionary) -> bool:
 		var instance_id: int = get_instance_id()
 		if visited.has(instance_id):
@@ -939,17 +1191,9 @@ class BlackboardScope extends RefCounted:
 		return values.has(key) or (_parent != null and _parent._has_value_internal(key, visited))
 
 
-	## 转换为合并后的字典。
+	## 先展开父作用域，再复制本地值覆盖同名键；重复作用域返回空字典以终止循环。
 	## [br]
-	## @api public
-	## [br]
-	## @return: 黑板字典。
-	## [br]
-	## @schema return: 父级与当前作用域合并后的 Dictionary；当前作用域同名键覆盖父级键。
-	func to_dictionary() -> Dictionary:
-		return _to_dictionary_internal({})
-
-
+	## @api private
 	func _to_dictionary_internal(visited: Dictionary) -> Dictionary:
 		var instance_id: int = get_instance_id()
 		if visited.has(instance_id):
@@ -962,6 +1206,9 @@ class BlackboardScope extends RefCounted:
 		return result
 
 
+	## 拒绝自身作为父作用域，以及父链中已经包含自身的候选。
+	## [br]
+	## @api private
 	func _would_create_parent_cycle(parent_scope: BlackboardScope) -> bool:
 		if parent_scope == null:
 			return false
@@ -970,6 +1217,9 @@ class BlackboardScope extends RefCounted:
 		return _parent_chain_contains(parent_scope, self, {})
 
 
+	## 以实例身份搜索父链，visited 防止既有环使遍历不终止。
+	## [br]
+	## @api private
 	func _parent_chain_contains(candidate: BlackboardScope, target: BlackboardScope, visited: Dictionary) -> bool:
 		if candidate == null:
 			return false
@@ -992,13 +1242,30 @@ class BlackboardScope extends RefCounted:
 ## [br]
 ## @since 3.17.0
 class Sequence extends BTNode:
+	# --- 私有变量 ---
+
+	## 顺序执行的子节点引用列表；构造时复制数组，节点引用仍共享。
+	## [br]
+	## @api private
 	var _children: Array[BTNode]
+
+	## 本次执行尚未完成的子节点索引，reset 后回到零。
+	## [br]
+	## @api private
 	var _current_child_idx: int = 0
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 设置序列名称并复制子节点引用数组，保留各节点实例。
+	## [br]
+	## @api private
 	func _init(children_nodes: Array[BTNode]) -> void:
 		name = "Sequence"
 		_children = _copy_child_nodes(children_nodes)
 
+
+	# --- 公共方法 ---
 
 	## 推进运行时逻辑。
 	## [br]
@@ -1055,6 +1322,15 @@ class Sequence extends BTNode:
 		return copy
 
 
+	# --- 可重写钩子 / 虚方法 ---
+
+	## 为调试遍历返回本序列的子节点引用数组。
+	## [br]
+	## @api protected
+	## [br]
+	## @since 3.17.0
+	## [br]
+	## @return: 当前子节点引用列表，不在此复制节点。
 	func _get_debug_children() -> Array[BTNode]:
 		return _children
 
@@ -1069,13 +1345,30 @@ class Sequence extends BTNode:
 ## [br]
 ## @since 3.17.0
 class Selector extends BTNode:
+	# --- 私有变量 ---
+
+	## 按顺序尝试的候选子节点引用列表。
+	## [br]
+	## @api private
 	var _children: Array[BTNode]
+
+	## 本次选择正在尝试的子节点位置，reset 后回到零。
+	## [br]
+	## @api private
 	var _current_child_idx: int = 0
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 设置选择器名称并复制候选引用数组。
+	## [br]
+	## @api private
 	func _init(children_nodes: Array[BTNode]) -> void:
 		name = "Selector"
 		_children = _copy_child_nodes(children_nodes)
 
+
+	# --- 公共方法 ---
 
 	## 推进运行时逻辑。
 	## [br]
@@ -1135,6 +1428,15 @@ class Selector extends BTNode:
 		return copy
 
 
+	# --- 可重写钩子 / 虚方法 ---
+
+	## 为调试遍历返回选择器的候选子节点引用数组。
+	## [br]
+	## @api protected
+	## [br]
+	## @since 3.17.0
+	## [br]
+	## @return: 当前候选节点引用列表。
 	func _get_debug_children() -> Array[BTNode]:
 		return _children
 
@@ -1149,7 +1451,16 @@ class Selector extends BTNode:
 ## [br]
 ## @since 3.17.0
 class Parallel extends BTNode:
+	# --- 私有变量 ---
+
+	## 并行策略管理的子节点引用列表。
+	## [br]
+	## @api private
 	var _children: Array[BTNode]
+
+	## 与子节点一一对应的缓存状态；长度变化时全部重新置为 RUNNING。
+	## [br]
+	## @api private
 	var _child_statuses: Array[int] = []
 
 	## 并行节点完成策略。
@@ -1157,6 +1468,12 @@ class Parallel extends BTNode:
 	## @api public
 	var policy: ParallelPolicy = ParallelPolicy.REQUIRE_ALL
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 复制子节点引用数组并保存完成策略。
+	## [br]
+	## @api private
 	func _init(
 		children_nodes: Array[BTNode],
 		completion_policy: ParallelPolicy = ParallelPolicy.REQUIRE_ALL
@@ -1165,6 +1482,8 @@ class Parallel extends BTNode:
 		_children = _copy_child_nodes(children_nodes)
 		policy = completion_policy
 
+
+	# --- 公共方法 ---
 
 	## 推进运行时逻辑。
 	## [br]
@@ -1264,16 +1583,30 @@ class Parallel extends BTNode:
 		return copy
 
 
+	# --- 可重写钩子 / 虚方法 ---
+
+	## 为调试遍历返回并行节点管理的子节点引用数组。
+	## [br]
+	## @api protected
+	## [br]
+	## @since 3.17.0
+	## [br]
+	## @return: 当前子节点引用列表。
+	func _get_debug_children() -> Array[BTNode]:
+		return _children
+
+
+	# --- 私有/辅助方法 ---
+
+	## 仅在缓存长度与子节点数不符时重建状态数组，每项初始化为 RUNNING。
+	## [br]
+	## @api private
 	func _ensure_child_statuses() -> void:
 		if _child_statuses.size() == _children.size():
 			return
 		_child_statuses.clear()
 		for _index: int in range(_children.size()):
 			_child_statuses.append(Status.RUNNING)
-
-
-	func _get_debug_children() -> Array[BTNode]:
-		return _children
 
 
 ## 随机选择节点。
@@ -1291,15 +1624,36 @@ class RandomSelector extends BTNode:
 	## @api public
 	var rng: RandomNumberGenerator = null
 
+	# --- 私有变量 ---
+
+	## 随机选择器的原始候选引用列表，重置时也按此列表重置子节点。
+	## [br]
+	## @api private
 	var _children: Array[BTNode]
+
+	## 当前一次执行使用的随机排列，运行中沿用该顺序。
+	## [br]
+	## @api private
 	var _active_order: Array[BTNode] = []
+
+	## 当前随机排列中尚在尝试的位置。
+	## [br]
+	## @api private
 	var _current_child_idx: int = 0
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 复制候选引用数组并保存显式随机源；空随机源由黑板等后续解析。
+	## [br]
+	## @api private
 	func _init(children_nodes: Array[BTNode], random_source: RandomNumberGenerator = null) -> void:
 		name = "RandomSelector"
 		_children = _copy_child_nodes(children_nodes)
 		rng = random_source
 
+
+	# --- 公共方法 ---
 
 	## 推进运行时逻辑。
 	## [br]
@@ -1363,12 +1717,26 @@ class RandomSelector extends BTNode:
 		return copy
 
 
-	func _make_random_order(blackboard: Dictionary) -> Array[BTNode]:
-		return GFBehaviorTree._make_random_node_order(_children, blackboard, rng)
+	# --- 可重写钩子 / 虚方法 ---
 
-
+	## 返回原始候选引用列表供调试查看，顺序不使用当前随机执行排列。
+	## [br]
+	## @api protected
+	## [br]
+	## @since 3.17.0
+	## [br]
+	## @return: 原始候选子节点引用列表。
 	func _get_debug_children() -> Array[BTNode]:
 		return _children
+
+
+	# --- 私有/辅助方法 ---
+
+	## 将候选引用交给统一随机排列助手，并传递黑板和显式随机源。
+	## [br]
+	## @api private
+	func _make_random_order(blackboard: Dictionary) -> Array[BTNode]:
+		return GFBehaviorTree._make_random_node_order(_children, blackboard, rng)
 
 
 ## 随机顺序节点。
@@ -1386,15 +1754,36 @@ class RandomSequence extends BTNode:
 	## @api public
 	var rng: RandomNumberGenerator = null
 
+	# --- 私有变量 ---
+
+	## 随机序列的原始子节点引用列表。
+	## [br]
+	## @api private
 	var _children: Array[BTNode]
+
+	## 当前执行使用的随机排列，reset 后清空。
+	## [br]
+	## @api private
 	var _active_order: Array[BTNode] = []
+
+	## 当前随机排列中的执行位置。
+	## [br]
+	## @api private
 	var _current_child_idx: int = 0
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 复制子节点引用数组并保存显式随机源。
+	## [br]
+	## @api private
 	func _init(children_nodes: Array[BTNode], random_source: RandomNumberGenerator = null) -> void:
 		name = "RandomSequence"
 		_children = _copy_child_nodes(children_nodes)
 		rng = random_source
 
+
+	# --- 公共方法 ---
 
 	## 推进运行时逻辑。
 	## [br]
@@ -1455,12 +1844,26 @@ class RandomSequence extends BTNode:
 		return copy
 
 
-	func _make_random_order(blackboard: Dictionary) -> Array[BTNode]:
-		return GFBehaviorTree._make_random_node_order(_children, blackboard, rng)
+	# --- 可重写钩子 / 虚方法 ---
 
-
+	## 返回原始子节点引用列表供调试查看。
+	## [br]
+	## @api protected
+	## [br]
+	## @since 3.17.0
+	## [br]
+	## @return: 原始子节点列表，不使用当前随机执行排列。
 	func _get_debug_children() -> Array[BTNode]:
 		return _children
+
+
+	# --- 私有/辅助方法 ---
+
+	## 传递黑板与显式随机源，建立本次执行的子节点排列。
+	## [br]
+	## @api private
+	func _make_random_order(blackboard: Dictionary) -> Array[BTNode]:
+		return GFBehaviorTree._make_random_node_order(_children, blackboard, rng)
 
 
 ## 动作节点 (叶子节点)。
@@ -1473,12 +1876,25 @@ class RandomSequence extends BTNode:
 ## [br]
 ## @since 3.17.0
 class Action extends BTNode:
+	# --- 私有变量 ---
+
+	## tick 时调用的动作回调，其返回值会归一为节点状态。
+	## [br]
+	## @api private
 	var _action_func: Callable
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 保存动作回调并设置默认节点名称。
+	## [br]
+	## @api private
 	func _init(action_func: Callable) -> void:
 		name = "Action"
 		_action_func = action_func
 
+
+	# --- 公共方法 ---
 
 	## 推进运行时逻辑。
 	## [br]
@@ -1521,12 +1937,25 @@ class Action extends BTNode:
 ## [br]
 ## @since 3.17.0
 class Condition extends BTNode:
+	# --- 私有变量 ---
+
+	## tick 时执行的条件回调，供条件节点判定结果。
+	## [br]
+	## @api private
 	var _condition_func: Callable
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 保存条件回调并设置默认节点名称。
+	## [br]
+	## @api private
 	func _init(condition_func: Callable) -> void:
 		name = "Condition"
 		_condition_func = condition_func
 
+
+	# --- 公共方法 ---
 
 	## 推进运行时逻辑。
 	## [br]
@@ -1570,13 +1999,26 @@ class Condition extends BTNode:
 ## [br]
 ## @since 3.17.0
 class Decorator extends BTNode:
+	# --- 私有变量 ---
+
+	## 装饰器持有的可空子节点引用，通过 set_child 检查环。
+	## [br]
+	## @api private
 	var _child: BTNode
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 先清空子节点，再通过 set_child 接受非空候选，沿用该方法的环检查。
+	## [br]
+	## @api private
 	func _init(child_node: BTNode = null) -> void:
 		_child = null
 		if child_node != null:
 			var _set_child_result: Decorator = set_child(child_node)
 
+
+	# --- 公共方法 ---
 
 	## 设置被装饰的子节点。
 	##
@@ -1623,6 +2065,15 @@ class Decorator extends BTNode:
 		return copy
 
 
+	# --- 可重写钩子 / 虚方法 ---
+
+	## 将当前子节点包装成调试遍历列表；没有子节点时返回空数组。
+	## [br]
+	## @api protected
+	## [br]
+	## @since 3.17.0
+	## [br]
+	## @return: 最多含一个节点引用的新数组。
 	func _get_debug_children() -> Array[BTNode]:
 		var result: Array[BTNode] = []
 		if _child != null:
@@ -1630,6 +2081,11 @@ class Decorator extends BTNode:
 		return result
 
 
+	# --- 私有/辅助方法 ---
+
+	## 将当前子节点交给统一运行态复制入口，沿用其空值和复制失败约定。
+	## [br]
+	## @api private
 	func _duplicate_child() -> BTNode:
 		return GFBehaviorTree._duplicate_runtime_node(_child)
 
@@ -1644,10 +2100,19 @@ class Decorator extends BTNode:
 ## [br]
 ## @since 3.17.0
 class Inverter extends Decorator:
+
+
+	# --- Godot 生命周期方法 ---
+
+	## 通过装饰器基类绑定子节点，并设置反转器名称。
+	## [br]
+	## @api private
 	func _init(child_node: BTNode) -> void:
 		super(child_node)
 		name = "Inverter"
 
+
+	# --- 公共方法 ---
 
 	## 推进运行时逻辑。
 	## [br]
@@ -1701,10 +2166,19 @@ class Inverter extends Decorator:
 ## [br]
 ## @since 3.17.0
 class AlwaysSucceed extends Decorator:
+
+
+	# --- Godot 生命周期方法 ---
+
+	## 通过装饰器基类绑定子节点，并设置成功装饰器名称。
+	## [br]
+	## @api private
 	func _init(child_node: BTNode) -> void:
 		super(child_node)
 		name = "AlwaysSucceed"
 
+
+	# --- 公共方法 ---
 
 	## 推进运行时逻辑。
 	## [br]
@@ -1755,10 +2229,19 @@ class AlwaysSucceed extends Decorator:
 ## [br]
 ## @since 3.17.0
 class AlwaysFail extends Decorator:
+
+
+	# --- Godot 生命周期方法 ---
+
+	## 通过装饰器基类绑定子节点，并设置失败装饰器名称。
+	## [br]
+	## @api private
 	func _init(child_node: BTNode) -> void:
 		super(child_node)
 		name = "AlwaysFail"
 
+
+	# --- 公共方法 ---
 
 	## 推进运行时逻辑。
 	## [br]
@@ -1818,15 +2301,33 @@ class Probability extends Decorator:
 	## [br]
 	## @api public
 	var rng: RandomNumberGenerator = null
+
+	# --- 私有变量 ---
+
+	## 当前执行是否已经抽取概率决定，避免 RUNNING 期间重复抽样。
+	## [br]
+	## @api private
 	var _decision_made: bool = false
+
+	## 当前一次执行缓存的概率许可结果。
+	## [br]
+	## @api private
 	var _allowed_this_run: bool = false
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 绑定子节点，将概率限制在 0 到 1，并保存可选随机源。
+	## [br]
+	## @api private
 	func _init(child_node: BTNode, chance: float = 1.0, random_source: RandomNumberGenerator = null) -> void:
 		super(child_node)
 		name = "Probability"
 		probability = clampf(chance, 0.0, 1.0)
 		rng = random_source
 
+
+	# --- 公共方法 ---
 
 	## 推进运行时逻辑。
 	## [br]
@@ -1881,6 +2382,11 @@ class Probability extends Decorator:
 		return copy
 
 
+	# --- 私有/辅助方法 ---
+
+	## 通过统一规则从显式随机源和黑板解析本次使用的随机数生成器。
+	## [br]
+	## @api private
 	func _resolve_rng(blackboard: Dictionary) -> RandomNumberGenerator:
 		return GFBehaviorTree._resolve_rng_from_blackboard(blackboard, rng)
 
@@ -1913,16 +2419,37 @@ class Cooldown extends Decorator:
 	## @since 8.0.0
 	var clock_msec: Callable = Callable()
 
+	# --- 私有变量 ---
+
+	## 冷却属性的内部秒数存储，由属性 setter 进行归一化。
+	## [br]
+	## @api private
 	var _cooldown_seconds: float = 0.0
+
+	## 上次子节点结束的毫秒时间，负值表示尚未记录结束。
+	## [br]
+	## @api private
 	var _last_finish_msec: int = -1
+
+	## 上次观测的时钟毫秒值，用于钳制时钟倒退。
+	## [br]
+	## @api private
 	var _last_observed_msec: int = -1
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 绑定子节点，通过属性 setter 设置冷却秒数，并保存可选时钟回调。
+	## [br]
+	## @api private
 	func _init(child_node: BTNode, seconds: float = 0.0, p_clock_msec: Callable = Callable()) -> void:
 		super(child_node)
 		name = "Cooldown"
 		cooldown_seconds = seconds
 		clock_msec = p_clock_msec
 
+
+	# --- 公共方法 ---
 
 	## 推进运行时逻辑。
 	## [br]
@@ -1983,6 +2510,11 @@ class Cooldown extends Decorator:
 		return copy
 
 
+	# --- 私有/辅助方法 ---
+
+	## 通过统一时钟解析器取得不小于此前观测值的毫秒时间，并更新观测值。
+	## [br]
+	## @api private
 	func _resolve_time_msec() -> int:
 		_last_observed_msec = GFBehaviorTree._resolve_monotonic_time_msec(
 			clock_msec,
@@ -2020,16 +2552,37 @@ class TimeLimit extends Decorator:
 	## @since 8.0.0
 	var clock_msec: Callable = Callable()
 
+	# --- 私有变量 ---
+
+	## 时间限制属性的内部秒数存储。
+	## [br]
+	## @api private
 	var _limit_seconds: float = 1.0
+
+	## 本轮执行开始的毫秒时间；负值表示尚未开始。
+	## [br]
+	## @api private
 	var _started_msec: int = -1
+
+	## 最近一次时钟观测，用于防止时钟回退延长当前执行。
+	## [br]
+	## @api private
 	var _last_observed_msec: int = -1
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 绑定子节点，通过属性 setter 设置时间限制，并保存可选时钟回调。
+	## [br]
+	## @api private
 	func _init(child_node: BTNode, seconds: float = 1.0, p_clock_msec: Callable = Callable()) -> void:
 		super(child_node)
 		name = "TimeLimit"
 		limit_seconds = seconds
 		clock_msec = p_clock_msec
 
+
+	# --- 公共方法 ---
 
 	## 推进运行时逻辑。
 	## [br]
@@ -2082,6 +2635,11 @@ class TimeLimit extends Decorator:
 		return copy
 
 
+	# --- 私有/辅助方法 ---
+
+	## 读取并缓存经单调钳制的毫秒时间。
+	## [br]
+	## @api private
 	func _resolve_time_msec() -> int:
 		_last_observed_msec = GFBehaviorTree._resolve_monotonic_time_msec(
 			clock_msec,
@@ -2104,13 +2662,27 @@ class Limit extends Decorator:
 	## [br]
 	## @api public
 	var max_ticks: int = 1
+
+	# --- 私有变量 ---
+
+	## 本轮已准入的子节点 tick 次数，reset 时清零。
+	## [br]
+	## @api private
 	var _tick_count: int = 0
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 绑定子节点，并将最大 tick 次数限制为非负值。
+	## [br]
+	## @api private
 	func _init(child_node: BTNode, tick_limit: int = 1) -> void:
 		super(child_node)
 		name = "Limit"
 		max_ticks = maxi(tick_limit, 0)
 
+
+	# --- 公共方法 ---
 
 	## 推进运行时逻辑。
 	## [br]
@@ -2172,13 +2744,27 @@ class Repeat extends Decorator:
 	## [br]
 	## @api public
 	var repeat_count: int = 1
+
+	# --- 私有变量 ---
+
+	## 本轮子节点已成功完成的次数，reset 时清零。
+	## [br]
+	## @api private
 	var _success_count: int = 0
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 绑定子节点并将重复次数限制为非负值；零次数的执行含义由 tick 决定。
+	## [br]
+	## @api private
 	func _init(child_node: BTNode, count: int = 1) -> void:
 		super(child_node)
 		name = "Repeat"
 		repeat_count = maxi(count, 0)
 
+
+	# --- 公共方法 ---
 
 	## 推进运行时逻辑。
 	## [br]
@@ -2246,10 +2832,19 @@ class Repeat extends Decorator:
 ## [br]
 ## @since 3.17.0
 class UntilSuccess extends Decorator:
+
+
+	# --- Godot 生命周期方法 ---
+
+	## 通过装饰器基类绑定子节点并设置节点名称。
+	## [br]
+	## @api private
 	func _init(child_node: BTNode) -> void:
 		super(child_node)
 		name = "UntilSuccess"
 
+
+	# --- 公共方法 ---
 
 	## 推进运行时逻辑。
 	## [br]
@@ -2302,10 +2897,19 @@ class UntilSuccess extends Decorator:
 ## [br]
 ## @since 3.17.0
 class UntilFail extends Decorator:
+
+
+	# --- Godot 生命周期方法 ---
+
+	## 通过装饰器基类绑定子节点并设置节点名称。
+	## [br]
+	## @api private
 	func _init(child_node: BTNode) -> void:
 		super(child_node)
 		name = "UntilFail"
 
+
+	# --- 公共方法 ---
 
 	## 推进运行时逻辑。
 	## [br]
@@ -2371,14 +2975,35 @@ class Runner extends RefCounted:
 	## @api public
 	var duplicates_runtime_tree: bool = true
 
+	# --- 私有变量 ---
+
+	## Runner 实际推进的根节点，依据构造选项为运行态副本或传入原实例。
+	## [br]
+	## @api private
 	var _root_node: BTNode
+
+	## 当前是否正处于 tick 调用，用于拒绝重入推进。
+	## [br]
+	## @api private
 	var _is_ticking: bool = false
+
+	## Runner 重置代次，用于识别执行回调期间的 reset。
+	## [br]
+	## @api private
 	var _reset_serial: int = 0
 
+
+	# --- Godot 生命周期方法 ---
+
+	## 按 duplicate_runtime_tree 选择复制运行树或直接持有原根节点，并保存该选择。
+	## [br]
+	## @api private
 	func _init(root: BTNode, duplicate_runtime_tree: bool = true) -> void:
 		self.duplicates_runtime_tree = duplicate_runtime_tree
 		_root_node = GFBehaviorTree._duplicate_runtime_node(root) if duplicate_runtime_tree else root
 
+
+	# --- 公共方法 ---
 
 	## 驱动行为树运行逻辑。
 	## 通常在 GFSystem 的 tick 中被调用。
@@ -2435,6 +3060,11 @@ class Runner extends RefCounted:
 		return GFBehaviorTree.build_debug_snapshot(self)
 
 
+	# --- 私有/辅助方法 ---
+
+	## 构建含根调试树和有界黑板键列表的原始快照；键被截断时同时更新共享预算诊断。
+	## [br]
+	## @api private
 	func _get_debug_snapshot_raw(budget: Dictionary) -> Dictionary:
 		var blackboard_keys: Array[String] = _get_blackboard_keys(budget)
 		var blackboard_key_count: int = blackboard.size()
@@ -2454,6 +3084,9 @@ class Runner extends RefCounted:
 		}
 
 
+	## 按预算从当前黑板迭代顺序截取键并转成字符串，再对已截取部分排序；不保证取到全体键中字典序最小的子集。
+	## [br]
+	## @api private
 	func _get_blackboard_keys(budget: Dictionary) -> Array[String]:
 		var result: Array[String] = []
 		var max_blackboard_keys: int = GFBehaviorTree._read_debug_budget_int(

@@ -69,14 +69,58 @@ enum EndKind {
 
 # --- 私有变量 ---
 
+## Utility 分配的唯一 BGM 会话 ID。
+## [br]
+## @api private
+## [br]
 var _session_id: int = 0
+
+## 创建此会话的 BGM start request ID。
+## [br]
+## @api private
+## [br]
 var _request_id: int = 0
+
+## 会话发布时冻结的播放历史键。
+## [br]
+## @api private
+## [br]
 var _history_key: String = ""
+
+## 当前 BGM 会话由本地播放器或 backend 持有的种类。
+## [br]
+## @api private
+## [br]
 var _owner_kind: OwnerKind = OwnerKind.NONE
+
+## 已冻结的唯一会话终态；NONE 表示尚未结束。
+## [br]
+## @api private
+## [br]
 var _end_kind: EndKind = EndKind.NONE
+
+## 在 owner 不再被强引用后仍可安全调用的停止委托。
+## [br]
+## @api private
+## [br]
 var _stop_delegate: GFWeakMethodInvocation = null
+
+## 标记框架是否已经完整配置会话身份和委托。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
+
+## 标记 stop 请求是否已提交。
+## [br]
+## @api private
+## [br]
 var _stop_requested: bool = false
+
+## 防止 ended 信号重复发出的标记。
+## [br]
+## @api private
+## [br]
 var _ended_signal_emitted: bool = false
 
 
@@ -309,6 +353,10 @@ func is_configured_for_framework() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 将有效的零绑定参数对象方法 Callable 转成弱方法调用描述。
+## [br]
+## @api private
+## [br]
 static func _make_weak_invocation(method_delegate: Callable) -> GFWeakMethodInvocation:
 	if (
 		not method_delegate.is_valid()
@@ -326,6 +374,10 @@ static func _make_weak_invocation(method_delegate: Callable) -> GFWeakMethodInvo
 	return GFWeakMethodInvocation.new(delegate_owner, delegate_method)
 
 
+## 仅当调用结果明确标记 invoked 与 bool 返回值都为 true 时返回 true。
+## [br]
+## @api private
+## [br]
 static func _invocation_returned_true(invocation_result: Dictionary) -> bool:
 	var invoked_value: Variant = invocation_result.get("invoked", false)
 	var return_value: Variant = invocation_result.get("value", false)

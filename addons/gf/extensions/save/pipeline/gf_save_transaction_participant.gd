@@ -153,6 +153,10 @@ func _rollback_transaction(_context: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 合并结果中的 errors 与单个 error，并以错误是否为空推导缺省 ok。
+## [br]
+## @api private
+## [br]
 func _normalize_result(result: Dictionary) -> Dictionary:
 	var errors: Array[String] = GFVariantData.to_string_array(GFVariantData.get_option_value(result, "errors", []))
 	var error_message: String = GFVariantData.get_option_string(result, "error")

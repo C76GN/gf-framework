@@ -56,10 +56,29 @@ const STATE_FAILED: StringName = &"failed"
 ## @since 8.0.0
 const KIND_ASYNC_CALLBACK_UNSUPPORTED: StringName = &"async_callback_unsupported"
 
+## 未指定有效主题时使用的事务报告主题。
+## [br]
+## @api private
 const _DEFAULT_SUBJECT: String = "Activation transaction"
+
+## 当前没有执行事务转换时的内部标记。
+## [br]
+## @api private
 const _TRANSITION_IDLE: StringName = &"idle"
+
+## prepare 步骤正在执行时的内部转换标记。
+## [br]
+## @api private
 const _TRANSITION_PREPARING: StringName = &"preparing"
+
+## commit 步骤正在执行时的内部转换标记。
+## [br]
+## @api private
 const _TRANSITION_COMMITTING: StringName = &"committing"
+
+## rollback 步骤正在执行时的内部转换标记。
+## [br]
+## @api private
 const _TRANSITION_ROLLING_BACK: StringName = &"rolling_back"
 
 
@@ -98,8 +117,19 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 按添加顺序保存事务步骤及其回调、状态和最近结果。
+## [br]
+## @api private
 var _steps: Array[Dictionary] = []
+
+## 当前事务操作累积的规范化问题，用于生成报告。
+## [br]
+## @api private
 var _issues: Array[Dictionary] = []
+
+## 阻止事务回调重入操作的内部转换阶段标记。
+## [br]
+## @api private
 var _transition_state: StringName = _TRANSITION_IDLE
 
 
@@ -350,6 +380,10 @@ func is_step_applied(step_id: StringName) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 执行每个有效校验回调；首个失败会记录失败步骤并终止准备，其余步骤不再校验。
+## 所有校验通过或没有校验回调时将事务置为 prepared。
+## [br]
+## @api private
 func _prepare_steps(context: Dictionary) -> bool:
 	_issues.clear()
 	for index: int in range(_steps.size()):
@@ -367,6 +401,9 @@ func _prepare_steps(context: Dictionary) -> bool:
 	return true
 
 
+## 收集事务当前状态、步骤摘要、问题和元数据作为报告输入。
+## [br]
+## @api private
 func _make_report_data() -> Dictionary:
 	return {
 		"subject": subject,
@@ -380,6 +417,9 @@ func _make_report_data() -> Dictionary:
 	}
 
 
+## 用事务主题和报告选项将输入数据交给 GFValidationReportDictionary 完成报告。
+## [br]
+## @api private
 func _finalize_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
 	return GFValidationReportDictionary.finalize_report(report, subject, {
 		"fallback_action": GFVariantData.get_option_string(options, "fallback_action", "Review the first activation transaction issue."),
@@ -388,6 +428,9 @@ func _finalize_report(report: Dictionary, options: Dictionary = {}) -> Dictionar
 	})
 
 
+## 基于当前事务报告附加拒绝原因与阶段元数据，再生成最终报告。
+## [br]
+## @api private
 func _make_operation_rejected_report(error: StringName, message: String) -> Dictionary:
 	var report: Dictionary = _make_report_data()
 	report["error"] = error
@@ -404,6 +447,11 @@ func _make_operation_rejected_report(error: StringName, message: String) -> Dict
 	)
 	return _finalize_report(report)
 
+
+## 按步骤逆序回滚所有已应用且尚未回滚的步骤。
+## 回滚失败或缺少必需回调时记录失败并继续处理更早步骤。
+## [br]
+## @api private
 func _rollback_applied_steps(context: Dictionary) -> void:
 	for index: int in range(_steps.size() - 1, -1, -1):
 		var step: Dictionary = _steps[index]
@@ -431,6 +479,10 @@ func _rollback_applied_steps(context: Dictionary) -> void:
 		_steps[index] = step
 
 
+## 用深拷贝上下文同步调用步骤回调，将结果规范化并合并其中的问题。
+## 无效回调会生成失败结果。
+## [br]
+## @api private
 func _call_step(callback: Callable, context: Dictionary, step: Dictionary, phase: StringName) -> Dictionary:
 	if not callback.is_valid():
 		var invalid_result: Dictionary = _make_step_result(false, &"invalid_callback", "activation transaction callback is invalid", step, phase)
@@ -442,6 +494,10 @@ func _call_step(callback: Callable, context: Dictionary, step: Dictionary, phase
 	return result
 
 
+## 将回调返回值转换为统一步骤结果；先拒绝异步值，再处理 null、bool、Error、Dictionary 或其他值。
+## 字典结果缺少字段时补入成功标志、阶段和步骤 ID。
+## [br]
+## @api private
 func _normalize_callback_result(value: Variant, step: Dictionary, phase: StringName) -> Dictionary:
 	if _is_async_callback_result(value):
 		return _make_step_result(
@@ -488,6 +544,9 @@ func _normalize_callback_result(value: Variant, step: Dictionary, phase: StringN
 	})
 
 
+## 识别 Signal、GDScriptFunctionState，以及同时具有 resume 方法和 completed 信号的对象。
+## [br]
+## @api private
 static func _is_async_callback_result(value: Variant) -> bool:
 	if typeof(value) == TYPE_SIGNAL:
 		return true
@@ -501,6 +560,9 @@ static func _is_async_callback_result(value: Variant) -> bool:
 	return object_value.has_method("resume") and object_value.has_signal("completed")
 
 
+## 生成异步回调诊断数据，并在值是有效对象时附加对象类名。
+## [br]
+## @api private
 static func _make_async_callback_data(value: Variant) -> Dictionary:
 	var data: Dictionary = {
 		"value_type": type_string(typeof(value)),
@@ -512,6 +574,9 @@ static func _make_async_callback_data(value: Variant) -> Dictionary:
 	return data
 
 
+## 构造步骤结果字典；失败结果会同时附加步骤 ID 和阶段对应的问题。
+## [br]
+## @api private
 func _make_step_result(
 	ok: bool,
 	kind: StringName,
@@ -541,6 +606,9 @@ func _make_step_result(
 	return result
 
 
+## 将结果中的问题转换为标准字典，并只追加非空条目。
+## [br]
+## @api private
 func _merge_result_issues(result: Dictionary) -> void:
 	for issue_value: Variant in GFVariantData.get_option_array(result, "issues"):
 		var issue: Dictionary = GFValidationReportDictionary.issue_to_dict(issue_value)
@@ -549,6 +617,9 @@ func _merge_result_issues(result: Dictionary) -> void:
 		_issues.append(issue)
 
 
+## 深拷贝步骤字典并更新状态及最近一次结果。
+## [br]
+## @api private
 func _set_step_result(step: Dictionary, next_state: StringName, result: Dictionary) -> Dictionary:
 	var updated: Dictionary = step.duplicate(true)
 	updated["state"] = next_state
@@ -556,6 +627,9 @@ func _set_step_result(step: Dictionary, next_state: StringName, result: Dictiona
 	return updated
 
 
+## 为报告生成只包含受支持步骤字段的摘要数组。
+## [br]
+## @api private
 func _copy_step_summaries() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for step: Dictionary in _steps:
@@ -572,6 +646,9 @@ func _copy_step_summaries() -> Array[Dictionary]:
 	return result
 
 
+## 深拷贝当前累积的问题列表供报告使用。
+## [br]
+## @api private
 func _copy_issues() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for issue: Dictionary in _issues:
@@ -579,6 +656,9 @@ func _copy_issues() -> Array[Dictionary]:
 	return result
 
 
+## 当每个已应用步骤都已回滚时返回 true；未应用步骤不影响结果。
+## [br]
+## @api private
 func _all_applied_steps_rolled_back() -> bool:
 	for step: Dictionary in _steps:
 		if GFVariantData.get_option_bool(step, "applied") and not GFVariantData.get_option_bool(step, "rolled_back"):
@@ -586,6 +666,9 @@ func _all_applied_steps_rolled_back() -> bool:
 	return true
 
 
+## 从选项字典读取 Callable；字段不是 Callable 时返回无效 Callable。
+## [br]
+## @api private
 static func _get_callable_option(options: Dictionary, key: String) -> Callable:
 	var value: Variant = GFVariantData.get_option_value(options, key, Callable())
 	if value is Callable:
@@ -594,6 +677,9 @@ static func _get_callable_option(options: Dictionary, key: String) -> Callable:
 	return Callable()
 
 
+## 从步骤字典读取 Callable；字段不是 Callable 时返回无效 Callable。
+## [br]
+## @api private
 static func _get_step_callable(step: Dictionary, key: String) -> Callable:
 	var value: Variant = GFVariantData.get_option_value(step, key, Callable())
 	if value is Callable:

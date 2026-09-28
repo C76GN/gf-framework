@@ -156,8 +156,19 @@ var max_inactive_lane_age_msec: int = 0:
 
 # --- 私有变量 ---
 
+## 按 lane_id 索引的最新 lane 运行状态。
+## [br]
+## @api private
 var _lanes: Dictionary = {}
+
+## 按记录顺序保存的最近 lane 事件。
+## [br]
+## @api private
 var _events: Array[Dictionary] = []
+
+## 下一个分配给 lane 更新或事件的序号。
+## [br]
+## @api private
 var _next_sequence: int = 1
 
 
@@ -445,6 +456,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 返回已保存 lane，或创建包含计数、状态、序号和元数据默认值的新记录。
+## [br]
+## @api private
 func _get_or_create_lane(lane_id: StringName) -> Dictionary:
 	if _lanes.has(lane_id):
 		return GFVariantData.as_dictionary(_lanes[lane_id])
@@ -468,6 +482,9 @@ func _get_or_create_lane(lane_id: StringName) -> Dictionary:
 	}
 
 
+## 从 lane 内部字典提取标准诊断快照字段。
+## [br]
+## @api private
 func _lane_to_snapshot(lane: Dictionary) -> Dictionary:
 	return {
 		"lane_id": GFVariantData.get_option_string_name(lane, "lane_id"),
@@ -489,6 +506,9 @@ func _lane_to_snapshot(lane: Dictionary) -> Dictionary:
 	}
 
 
+## 用当前 queued_count 和 active_count 更新对应峰值字段。
+## [br]
+## @api private
 func _update_lane_peaks(lane: Dictionary) -> void:
 	lane["max_queued_count"] = maxi(
 		GFVariantData.get_option_int(lane, "max_queued_count"),
@@ -500,6 +520,9 @@ func _update_lane_peaks(lane: Dictionary) -> void:
 	)
 
 
+## 按失败/超时、取消/积压、正常的顺序从 lane 计数推导状态。
+## [br]
+## @api private
 func _derive_lane_status(lane: Dictionary) -> StringName:
 	if GFVariantData.get_option_int(lane, "failed_count") > 0 or GFVariantData.get_option_int(lane, "timeout_count") > 0:
 		return STATUS_ERROR
@@ -508,6 +531,9 @@ func _derive_lane_status(lane: Dictionary) -> StringName:
 	return STATUS_OK
 
 
+## 仅保留 warning 和 error 状态，其他输入归一化为 ok。
+## [br]
+## @api private
 func _normalize_status(status: StringName) -> StringName:
 	match status:
 		STATUS_WARNING, STATUS_ERROR:
@@ -516,12 +542,18 @@ func _normalize_status(status: StringName) -> StringName:
 			return STATUS_OK
 
 
+## 根据 _status_rank() 返回优先级较高的状态。
+## [br]
+## @api private
 func _max_status(left: StringName, right: StringName) -> StringName:
 	if _status_rank(right) > _status_rank(left):
 		return right
 	return left
 
 
+## 将 error、warning 和其他状态映射为 2、1 和 0。
+## [br]
+## @api private
 func _status_rank(status: StringName) -> int:
 	match status:
 		STATUS_ERROR:
@@ -532,6 +564,9 @@ func _status_rank(status: StringName) -> int:
 			return 0
 
 
+## 返回 queued 事件的默认队列变化：queued 为 +1、started 为 -1，其余为 0。
+## [br]
+## @api private
 func _default_queued_delta(event_type: StringName) -> int:
 	match event_type:
 		EVENT_QUEUED:
@@ -542,6 +577,9 @@ func _default_queued_delta(event_type: StringName) -> int:
 			return 0
 
 
+## 返回 started 的默认活动变化 +1、终态/释放事件的 -1，其余为 0。
+## [br]
+## @api private
 func _default_active_delta(event_type: StringName) -> int:
 	match event_type:
 		EVENT_STARTED:
@@ -552,17 +590,26 @@ func _default_active_delta(event_type: StringName) -> int:
 			return 0
 
 
+## 返回当前序号并递增下一个序号。
+## [br]
+## @api private
 func _take_sequence() -> int:
 	var result: int = _next_sequence
 	_next_sequence += 1
 	return result
 
 
+## 从事件数组头部移除记录，直到数量不超过 max_recent_events。
+## [br]
+## @api private
 func _trim_events() -> void:
 	while _events.size() > max_recent_events:
 		_events.pop_front()
 
 
+## 按年龄阈值或 lane 数量上限启动 inactive lane 清理。
+## [br]
+## @api private
 func _compact_lanes_if_needed() -> void:
 	if max_inactive_lane_age_msec > 0:
 		var _removed_by_age: int = _compact_lanes(max_inactive_lane_age_msec)
@@ -570,6 +617,9 @@ func _compact_lanes_if_needed() -> void:
 		var _removed_by_count: int = _compact_lanes(-1)
 
 
+## 按时间或数量限制移除 inactive lane，并返回移除数量。
+## [br]
+## @api private
 func _compact_lanes(max_age_msec: int) -> int:
 	var removed_count: int = 0
 	if max_age_msec >= 0:
@@ -594,6 +644,9 @@ func _compact_lanes(max_age_msec: int) -> int:
 	return removed_count
 
 
+## 按 last_sequence 升序返回可供清理遍历的 lane_id 列表。
+## [br]
+## @api private
 func _sorted_lane_ids_for_removal() -> Array[StringName]:
 	var lane_ids: Array[StringName] = []
 	for raw_lane_id: Variant in _lanes.keys():
@@ -608,6 +661,9 @@ func _sorted_lane_ids_for_removal() -> Array[StringName]:
 	return lane_ids
 
 
+## queued_count 或 active_count 为正时判定 lane 正在活动。
+## [br]
+## @api private
 func _lane_is_active(lane: Dictionary) -> bool:
 	return (
 		GFVariantData.get_option_int(lane, "queued_count") > 0
@@ -615,6 +671,9 @@ func _lane_is_active(lane: Dictionary) -> bool:
 	)
 
 
+## 按 last_sequence 降序比较两个快照。
+## [br]
+## @api private
 func _sort_snapshots_desc(left: Variant, right: Variant) -> bool:
 	var left_snapshot: Dictionary = GFVariantData.as_dictionary(left)
 	var right_snapshot: Dictionary = GFVariantData.as_dictionary(right)

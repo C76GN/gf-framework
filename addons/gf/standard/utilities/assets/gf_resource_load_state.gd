@@ -140,7 +140,16 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 弱引用模式下保存的资源引用。
+## [br]
+## @api private
+## [br]
 var _resource_ref: WeakRef
+
+## 强引用模式下由状态对象持有的资源。
+## [br]
+## @api private
+## [br]
 var _resource_value: Resource
 
 
@@ -515,10 +524,18 @@ static func from_dictionary(data: Dictionary) -> GFResourceLoadState:
 
 # --- 私有/辅助方法 ---
 
+## 将额外字段递归合并到当前 metadata，并允许新值覆盖旧值。
+## [br]
+## @api private
+## [br]
 func _merge_metadata(extra_metadata: Dictionary) -> void:
 	var _merged_metadata: Dictionary = GFVariantData.merge_dictionary(metadata, extra_metadata, true, true)
 
 
+## 仅接受已定义状态；未知值归一化为 unrequested。
+## [br]
+## @api private
+## [br]
 func _normalize_status(value: StringName) -> StringName:
 	match value:
 		STATUS_REQUESTED, STATUS_LOADING, STATUS_LOADED, STATUS_FAILED, STATUS_RELEASED, STATUS_STALE:
@@ -527,6 +544,10 @@ func _normalize_status(value: StringName) -> StringName:
 			return STATUS_UNREQUESTED
 
 
+## 仅保留 strong；其他输入归一化为 weak。
+## [br]
+## @api private
+## [br]
 func _normalize_reference_mode(value: StringName) -> StringName:
 	if value == REFERENCE_STRONG:
 		return REFERENCE_STRONG

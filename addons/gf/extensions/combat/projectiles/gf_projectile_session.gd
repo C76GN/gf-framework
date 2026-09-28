@@ -96,25 +96,87 @@ enum EndReason {
 
 # --- 常量 ---
 
+## 提供累计时长和距离的有限值检查。
+## [br]
+## @api private
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
 
 # --- 私有变量 ---
 
+## 保存 session 当前生命周期状态。
+## [br]
+## @api private
 var _status: Status = Status.UNCONFIGURED
+
+## 保存激活时确定的空间维度。
+## [br]
+## @api private
 var _dimension: Dimension = Dimension.TWO_D
+
+## 保存 runtime 为本次 launch 分配的 generation。
+## [br]
+## @api private
 var _generation: int = 0
+
+## 以弱引用保存完整实例 root。
+## [br]
+## @api private
 var _root_ref: WeakRef = null
+
+## 以弱引用保存本次 session 的 runtime。
+## [br]
+## @api private
 var _runtime_ref: WeakRef = null
+
+## 保存本次 session 使用的维度专用 body adapter。
+## [br]
+## @api private
 var _body_adapter: Resource = null
+
+## 累计有效帧时长，以秒为单位。
+## [br]
+## @api private
 var _elapsed_seconds: float = 0.0
+
+## 累计 adapter 报告的实际世界位移长度，而非净位移。
+## [br]
+## @api private
 var _travelled_distance: float = 0.0
+
+## 保存当前 generation 在 ACTIVE 状态接受的 impact 数。
+## [br]
+## @api private
 var _accepted_impact_count: int = 0
+
+## 保存首次结束 session 时冻结的原因。
+## [br]
+## @api private
 var _end_reason: EndReason = EndReason.NONE
+
+## 保存激活时复制的项目 metadata。
+## [br]
+## @api private
 var _metadata: Dictionary = {}
+
+## 记录尚未释放的 terminal notification 屏障层数。
+## [br]
+## @api private
 var _notification_barrier_depth: int = 0
+
+## 标记 FINISHED 信号是否因屏障而等待发布。
+## [br]
+## @api private
 var _finished_notification_pending: bool = false
+
+## 防止同一 FINISHED session 重复累计 terminal body 观测。
+## [br]
+## @api private
 var _terminal_body_observation_recorded: bool = false
+
+## 保存 root.tree_exiting observer 的 Callable，以便结束时移除连接。
+## [br]
+## @api private
 var _root_tree_exiting_callback: Callable = Callable()
 
 
@@ -456,6 +518,9 @@ func release_notification_barrier_for_framework() -> Error:
 
 # --- 私有/辅助方法 ---
 
+## 清除保存的 root 退出回调，并在 root 仍有效且已连接时断开信号。
+## [br]
+## @api private
 func _disconnect_root_tree_exiting_observer() -> void:
 	var callback: Callable = _root_tree_exiting_callback
 	_root_tree_exiting_callback = Callable()
@@ -471,6 +536,9 @@ func _disconnect_root_tree_exiting_observer() -> void:
 		root.tree_exiting.disconnect(callback)
 
 
+## 按 session 维度对有效 root 和 adapter 尽力调用 stop。
+## [br]
+## @api private
 func _stop_body_once() -> void:
 	var root: Node = get_instance_root()
 	if root == null or _body_adapter == null or not is_instance_valid(_body_adapter):
@@ -483,6 +551,9 @@ func _stop_body_once() -> void:
 		var _stop_result_3d: Variant = adapter_3d.stop(root)
 
 
+## 从弱引用取回仍存活且未排队删除的节点。
+## [br]
+## @api private
 func _node_from_ref(weak_reference: WeakRef) -> Node:
 	if weak_reference == null:
 		return null
@@ -497,6 +568,9 @@ func _node_from_ref(weak_reference: WeakRef) -> Node:
 
 # --- 信号处理函数 ---
 
+## root 开始退出树时清空回调句柄，并以 ROOT_LOST 尝试结束 session。
+## [br]
+## @api private
 func _on_instance_root_tree_exiting() -> void:
 	# one-shot signal 正在发射时只清本地 receipt，避免回调栈内反向 disconnect。
 	_root_tree_exiting_callback = Callable()

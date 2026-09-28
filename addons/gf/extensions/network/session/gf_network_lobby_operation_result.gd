@@ -105,6 +105,10 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 记录从 Backend 返回的 Lobby payload 是否通过类型结构检查。
+## [br]
+## @api private
+## [br]
 var _payload_valid: bool = true
 
 
@@ -381,12 +385,20 @@ static func from_dict(data: Dictionary) -> GFNetworkLobbyOperationResult:
 
 # --- 私有/辅助方法 ---
 
+## 从请求复制 request_id、operation 和 lobby_id。
+## [br]
+## @api private
+## [br]
 func _apply_request(request: GFNetworkLobbyOperationRequest) -> void:
 	request_id = request.request_id if request != null else &""
 	operation = request.operation if request != null else &""
 	lobby_id = request.lobby_id if request != null else ""
 
 
+## 读取指定结果字段中的 Lobby 并返回其副本。
+## [br]
+## @api private
+## [br]
 func _get_lobby(options: Dictionary, key: String) -> GFNetworkLobbyDescriptor:
 	var value: Variant = GFVariantData.get_option_value(options, key)
 	if value is GFNetworkLobbyDescriptor:
@@ -395,6 +407,10 @@ func _get_lobby(options: Dictionary, key: String) -> GFNetworkLobbyDescriptor:
 	return null
 
 
+## 读取 lobbies 数组并复制有效 Lobby；结构或元素类型不符时标记 payload 无效。
+## [br]
+## @api private
+## [br]
 func _get_lobbies(options: Dictionary) -> Array[GFNetworkLobbyDescriptor]:
 	var result: Array[GFNetworkLobbyDescriptor] = []
 	if not options.has("lobbies"):
@@ -413,6 +429,10 @@ func _get_lobbies(options: Dictionary) -> Array[GFNetworkLobbyDescriptor]:
 	return result
 
 
+## 将结果字典中的 lobbies 项解析为 Lobby；结构错误时标记 payload 无效。
+## [br]
+## @api private
+## [br]
 func _get_lobbies_from_dict(data: Dictionary) -> Array[GFNetworkLobbyDescriptor]:
 	var result: Array[GFNetworkLobbyDescriptor] = []
 	if not data.has("lobbies"):

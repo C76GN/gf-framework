@@ -114,6 +114,10 @@ var drop_excess_time_on_budget_hit: bool = true
 
 # --- 私有变量 ---
 
+## 标记固定 tick 推进过程正在执行，以阻止推进重入。
+## [br]
+## @api private
+## [br]
 var _operation_active: bool = false
 
 
@@ -310,6 +314,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按步数派发循环开始、逐 tick 开始与完成以及循环完成信号。
+## [br]
+## @api private
+## [br]
 func _advance_steps(step_count: int, tick_seconds: float) -> void:
 	if step_count <= 0:
 		return
@@ -325,6 +333,10 @@ func _advance_steps(step_count: int, tick_seconds: float) -> void:
 	tick_loop_finished.emit(previous_tick, current_tick, step_count)
 
 
+## 接受有限正数，否则使用有限正回退值或 30.0。
+## [br]
+## @api private
+## [br]
 func _normalize_positive_finite(value: float, fallback: float) -> float:
 	if value > 0.0 and not is_nan(value) and not is_inf(value):
 		return value
@@ -333,6 +345,10 @@ func _normalize_positive_finite(value: float, fallback: float) -> float:
 	return 30.0
 
 
+## 接受有限非负数，否则使用有限非负回退值或 0.0。
+## [br]
+## @api private
+## [br]
 func _normalize_non_negative_finite(value: float, fallback: float) -> float:
 	if value >= 0.0 and not is_nan(value) and not is_inf(value):
 		return value

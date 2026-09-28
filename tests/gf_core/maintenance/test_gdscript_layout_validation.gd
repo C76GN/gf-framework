@@ -53,15 +53,18 @@ const GODOT_CALLBACK_NAMES: Dictionary = {
 	"_export_file": true,
 	"_exit_tree": true,
 	"_forward_3d_gui_input": true,
+	"_generate": true,
 	"_get": true,
 	"_get_configuration_warnings": true,
 	"_get_name": true,
 	"_get_plugin_name": true,
 	"_get_property_list": true,
 	"_gui_input": true,
+	"_handles": true,
 	"_has_capture": true,
 	"_init": true,
 	"_input": true,
+	"_make_custom_tooltip": true,
 	"_notification": true,
 	"_parse_begin": true,
 	"_parse_category": true,
@@ -120,6 +123,14 @@ func test_top_level_private_variables_use_private_sections() -> void:
 		issues.append_array(_collect_private_variable_section_issues(path))
 
 	assert_eq(issues, [], "私有变量应放在私有变量 section 中：\n%s" % _join_lines(issues))
+
+
+func test_private_exports_keep_export_sections() -> void:
+	for declaration: String in ["@export var _source: Resource", "@export_storage var _configured: bool = false"]:
+		assert_true(_private_variable_section_is_valid(declaration, "导出变量"), "私有性不改变导出声明的分区。")
+		assert_false(_private_variable_section_is_valid(declaration, "私有变量"), "导出声明不能混入普通私有变量。")
+	assert_true(_private_variable_section_is_valid("static var _cache: Dictionary = {}", "私有变量"))
+	assert_false(_private_variable_section_is_valid("var _cache: Dictionary = {}", "导出变量"))
 
 
 func test_public_methods_do_not_use_private_sections() -> void:
@@ -184,7 +195,7 @@ func test_framework_internal_type_section_is_not_treated_as_inner_class() -> voi
 
 
 func test_editor_plugin_native_callbacks_use_callback_sections() -> void:
-	for method_name: String in ["_forward_3d_gui_input", "_get_plugin_name"]:
+	for method_name: String in ["_forward_3d_gui_input", "_get_plugin_name", "_make_custom_tooltip", "_handles", "_generate"]:
 		assert_true(
 			_underscore_method_section_is_valid(method_name, "Godot 回调方法"),
 			"EditorPlugin 原生虚回调应保留 Godot 回调 section：" + method_name,
@@ -298,7 +309,7 @@ func _collect_underscore_method_section_issues(path: String) -> Array[String]:
 func _collect_private_variable_section_issues(path: String) -> Array[String]:
 	var issues: Array[String] = []
 	_scan_top_level_source(path, func(line: String, line_number: int, section_name: String) -> void:
-		if _line_starts_private_variable(line) and not _section_is_private_variable_section(section_name):
+		if _line_starts_private_variable(line) and not _private_variable_section_is_valid(line, section_name):
 			issues.append("%s:%d 私有变量位于不匹配的 section：%s" % [
 				path,
 				line_number,
@@ -536,6 +547,12 @@ func _line_starts_private_variable(line: String) -> bool:
 	if line.begins_with("var _") or line.begins_with("static var _"):
 		return true
 	return line.begins_with("@export") and line.contains(" var _")
+
+
+func _private_variable_section_is_valid(line: String, section_name: String) -> bool:
+	if line.begins_with("@export"):
+		return section_name.begins_with("导出变量")
+	return _section_is_private_variable_section(section_name)
 
 
 func _declares_reserved_local_name(trimmed_line: String) -> bool:

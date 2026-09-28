@@ -97,37 +97,134 @@ const GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT = preload("res://addons/gf/kernel/e
 ## [br]
 ## @layer plugin
 const STANDARD_EDITOR_CONTRIBUTIONS_MANIFEST_PATH: String = "res://addons/gf/standard/editor/gf_editor_contributions.json"
+
+## 用于读取 data-only report 字段的 Variant 辅助脚本。
+## [br]
+## @api private
+## [br]
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 编辑器贡献清单合并目录实现脚本。
+## [br]
+## @api private
+## [br]
 const _GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT = preload(
 	"res://addons/gf/kernel/editor/gf_editor_contribution_catalog.gd"
 )
+
+## 编辑器贡献刷新状态机实现脚本。
+## [br]
+## @api private
+## [br]
 const _GF_PLUGIN_REFRESH_STATE_SCRIPT = preload("res://addons/gf/kernel/editor/gf_plugin_refresh_state.gd")
+
+## 内置工具编辑器贡献目录清单路径。
+## [br]
+## @api private
+## [br]
 const _BUILTIN_TOOL_CONTRIBUTIONS_CATALOG_PATH: String = (
 	"res://addons/gf/gf_builtin_tool_contributions.json"
 )
+
+## 编辑器贡献刷新等待允许的最大毫秒数。
+## [br]
+## @api private
+## [br]
 const _EDITOR_CONTRIBUTION_REFRESH_TIMEOUT_MSEC: int = 120_000
+
+## 报告中保留的不同诊断 kind 上限。
+## [br]
+## @api private
+## [br]
 const _EDITOR_CONTRIBUTION_DIAGNOSTIC_KIND_LIMIT: int = 16
 
 
 # --- 私有变量 ---
 
+## Inspector 工具集合。
+## [br]
+## @api private
+## [br]
 var _inspector_tools: GFPluginInspectorTools
+
+## 插件动作集合。
+## [br]
+## @api private
+## [br]
 var _actions: GFPluginActions
+
+## 插件菜单集合。
+## [br]
+## @api private
+## [br]
 var _menu: GFPluginMenu
+
+## Dock 工具集合。
+## [br]
+## @api private
+## [br]
 var _dock_tools: GFPluginDockTools
+
+## Debugger 工具集合。
+## [br]
+## @api private
+## [br]
 var _debugger_tools: GFPluginDebuggerTools
+
+## Import 工具集合。
+## [br]
+## @api private
+## [br]
 var _import_tools: GFPluginImportTools
+
+## Preview 工具集合。
+## [br]
+## @api private
+## [br]
 var _preview_tools: GFPluginPreviewTools
+
+## GLTF document 工具集合。
+## [br]
+## @api private
+## [br]
 var _gltf_document_tools: GFPluginGltfDocumentTools
+
+## 当前插件是否已进入活动状态。
+## [br]
+## @api private
+## [br]
 var _plugin_active: bool = false
+
+## 当前加载的编辑器贡献记录集合。
+## [br]
+## @api private
+## [br]
 var _editor_contribution_records: Dictionary = {}
+
+## 标准库编辑器贡献刷新报告。
+## [br]
+## @api private
+## [br]
 var _standard_editor_contribution_report: Dictionary = {}
+
+## 内置工具编辑器贡献刷新报告。
+## [br]
+## @api private
+## [br]
 var _builtin_tool_editor_contribution_report: Dictionary = {}
+
+## 当前编辑器贡献刷新状态机。
+## [br]
+## @api private
+## [br]
 var _refresh_state: _GF_PLUGIN_REFRESH_STATE_SCRIPT = _GF_PLUGIN_REFRESH_STATE_SCRIPT.new()
 
 
 # --- Godot 生命周期方法 ---
 
+## 启用插件并建立自动加载、贡献报告、设置、菜单与各编辑器工具；Dock 初始化延迟执行，以等待编辑器界面完成入树。
+## [br]
+## @api private
 func _enter_tree() -> void:
 	_plugin_active = true
 	GFPluginAutoload.ensure(self)
@@ -158,6 +255,9 @@ func _enter_tree() -> void:
 	call_deferred("_setup_dock_tools")
 
 
+## 先停用插件并取消刷新轮询，再按已创建实例逐项清理编辑器工具及自动加载登记，最后清空贡献报告与记录。
+## [br]
+## @api private
 func _exit_tree() -> void:
 	_plugin_active = false
 	_cancel_editor_contribution_refresh()
@@ -194,6 +294,9 @@ func _exit_tree() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 延迟创建工作区停靠面板，只在插件仍启用且工具对象存在时使用当前贡献记录，避免卸载后的延迟调用重建界面。
+## [br]
+## @api private
 func _setup_dock_tools() -> void:
 	if not _plugin_active or _dock_tools == null:
 		return
@@ -203,6 +306,9 @@ func _setup_dock_tools() -> void:
 	_dock_tools.setup(self, dock_records)
 
 
+## 重建动作来源与菜单入口，复用动作对象并确保信号已连接；已有菜单先解除登记再安装新条目。
+## [br]
+## @api private
 func _setup_actions_and_menu() -> void:
 	if _actions == null:
 		_actions = GFPluginActions.new()
@@ -216,6 +322,9 @@ func _setup_actions_and_menu() -> void:
 	_menu.setup(self, Callable(_actions, "handle_menu_id"), _actions.get_menu_entries())
 
 
+## 为动作对象的工作区与刷新请求安装去重信号连接，重复初始化不会追加相同 Callable。
+## [br]
+## @api private
 func _connect_action_signals() -> void:
 	if _actions == null:
 		return
@@ -231,6 +340,9 @@ func _connect_action_signals() -> void:
 		var _refresh_requested_connected: int = refresh_signal.connect(refresh_callable)
 
 
+## 向刷新状态机登记当前请求与超时时限，仅在状态机要求启动时延迟进入刷新流程，合并处理中到来的新请求。
+## [br]
+## @api private
 func _refresh_editor_contributions() -> void:
 	if not _plugin_active:
 		return
@@ -241,6 +353,9 @@ func _refresh_editor_contributions() -> void:
 		call_deferred("_begin_editor_contribution_refresh")
 
 
+## 仅在插件启用且请求仍待处理时，根据编辑器文件扫描状态推进刷新状态机。
+## [br]
+## @api private
 func _begin_editor_contribution_refresh() -> void:
 	if not _plugin_active or not _refresh_state.is_pending():
 		return
@@ -249,6 +364,9 @@ func _begin_editor_contribution_refresh() -> void:
 	)
 
 
+## 以去重的一次性 process_frame 连接安排下一次轮询；无场景树或连接失败时记录问题并取消本轮刷新。
+## [br]
+## @api private
 func _schedule_editor_contribution_refresh_poll() -> void:
 	if not _plugin_active or not _refresh_state.is_pending():
 		return
@@ -268,6 +386,9 @@ func _schedule_editor_contribution_refresh_poll() -> void:
 		_fail_editor_contribution_refresh("poll_connect_failed")
 
 
+## 每帧检查刷新超时及文件系统忙闲，忙时继续调度，空闲时执行状态机的下一步动作；失效请求不再推进。
+## [br]
+## @api private
 func _poll_editor_contribution_refresh() -> void:
 	if not _plugin_active or not _refresh_state.is_pending():
 		return
@@ -280,6 +401,9 @@ func _poll_editor_contribution_refresh() -> void:
 	_execute_editor_contribution_refresh_action(_refresh_state.after_scan_idle())
 
 
+## 解释等待、扫描、应用和结束动作；应用后按代次通知状态机并继续推进，插件被回调卸载或动作非法时取消刷新。
+## [br]
+## @api private
 func _execute_editor_contribution_refresh_action(action: Dictionary) -> void:
 	var kind: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(action, "kind")
 	if kind == _GF_PLUGIN_REFRESH_STATE_SCRIPT.ACTION_WAIT:
@@ -306,6 +430,9 @@ func _execute_editor_contribution_refresh_action(action: Dictionary) -> void:
 	_fail_editor_contribution_refresh("invalid_state_action")
 
 
+## 清空扩展发现缓存并重载贡献报告，依次重建相关设置与编辑器工具；这是当前记录的重新安装流程，不提供失败后的原子回滚。
+## [br]
+## @api private
 func _apply_editor_contributions_refresh(generation: int) -> void:
 	if not _plugin_active:
 		return
@@ -346,6 +473,9 @@ func _apply_editor_contributions_refresh(generation: int) -> void:
 	print("[GF Framework] 已刷新 GF 编辑器贡献记录（generation=%d）。" % generation)
 
 
+## 仅在编辑器环境且资源文件系统可用时发起扫描；返回值表示已发起，不表示扫描完成。
+## [br]
+## @api private
 func _scan_editor_filesystem() -> bool:
 	if not Engine.is_editor_hint():
 		return false
@@ -356,6 +486,9 @@ func _scan_editor_filesystem() -> bool:
 	return true
 
 
+## 查询编辑器资源文件系统是否正扫描，非编辑器或服务缺失时返回 false。
+## [br]
+## @api private
 func _is_editor_filesystem_scanning() -> bool:
 	if not Engine.is_editor_hint():
 		return false
@@ -363,10 +496,17 @@ func _is_editor_filesystem_scanning() -> bool:
 	return filesystem != null and filesystem.is_scanning()
 
 
+## 返回当前单调时钟毫秒值。
+## [br]
+## @api private
+## [br]
 func _refresh_now_msec() -> int:
 	return Time.get_ticks_msec()
 
 
+## 为当前请求代次报告失败种类，然后断开轮询并取消状态机，避免继续应用未准备好的记录。
+## [br]
+## @api private
 func _fail_editor_contribution_refresh(kind: String) -> void:
 	_report_editor_contribution_refresh_issue(
 		kind,
@@ -375,6 +515,9 @@ func _fail_editor_contribution_refresh(kind: String) -> void:
 	_cancel_editor_contribution_refresh()
 
 
+## 以稳定诊断码输出未应用刷新请求的种类与代次，供编辑器日志定位；不修改刷新状态。
+## [br]
+## @api private
 func _report_editor_contribution_refresh_issue(kind: String, generation: int) -> void:
 	push_warning(
 		"[GFPlugin][plugin.contribution_refresh_not_applied] Editor contribution refresh was not applied: kind=%s generation=%d."
@@ -382,6 +525,9 @@ func _report_editor_contribution_refresh_issue(kind: String, generation: int) ->
 	)
 
 
+## 断开仍挂起的一次性帧轮询并取消刷新状态机；不尝试中断编辑器已经启动的文件扫描。
+## [br]
+## @api private
 func _cancel_editor_contribution_refresh() -> void:
 	var scene_tree: SceneTree = get_tree()
 	var poll_callable: Callable = Callable(self, "_poll_editor_contribution_refresh")
@@ -390,6 +536,9 @@ func _cancel_editor_contribution_refresh() -> void:
 	_refresh_state.cancel()
 
 
+## 先加载 standard 记录，再以其为基础合并内置工具目录，保存有效记录并发布两个来源的有界诊断。
+## [br]
+## @api private
 func _reload_editor_contribution_reports() -> void:
 	_standard_editor_contribution_report = _collect_standard_editor_contribution_report()
 	var standard_records: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
@@ -411,12 +560,18 @@ func _reload_editor_contribution_reports() -> void:
 	)
 
 
+## 委托注册表读取 standard 编辑器贡献清单，保留加载状态及可用记录供后续合并与诊断。
+## [br]
+## @api private
 func _collect_standard_editor_contribution_report(
 	manifest_path: String = STANDARD_EDITOR_CONTRIBUTIONS_MANIFEST_PATH
 ) -> Dictionary:
 	return GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT.load_manifest_report(manifest_path)
 
 
+## 以已有 standard 记录为基础读取工具贡献目录，返回目录加载报告及合并后的有效记录。
+## [br]
+## @api private
 func _collect_builtin_tool_editor_contribution_report(
 	base_records: Dictionary,
 	catalog_path: String = _BUILTIN_TOOL_CONTRIBUTIONS_CATALOG_PATH
@@ -427,6 +582,9 @@ func _collect_builtin_tool_editor_contribution_report(
 	)
 
 
+## 对既非缺省也非有效的 standard 报告输出去重排序后的问题类别，按固定数量上限截断，不输出整个清单。
+## [br]
+## @api private
 func _publish_standard_editor_contribution_diagnostic(report: Dictionary) -> void:
 	var state: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "state")
 	if state == "absent" or state == "valid":
@@ -465,6 +623,9 @@ func _publish_standard_editor_contribution_diagnostic(report: Dictionary) -> voi
 	)
 
 
+## 汇总目录及各清单的问题类别并限制日志长度；目录缺失也作为问题报告，只有完全有效状态静默。
+## [br]
+## @api private
 func _publish_builtin_tool_editor_contribution_diagnostic(report: Dictionary) -> void:
 	var state: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "state")
 	if state == "valid":
@@ -519,6 +680,10 @@ func _publish_builtin_tool_editor_contribution_diagnostic(report: Dictionary) ->
 	)
 
 
+## 将诊断数组中非空且尚未存在的 kind 追加到目标数组。
+## [br]
+## @api private
+## [br]
 func _append_report_issue_kinds(target: Array[String], values: Array) -> void:
 	for value: Variant in values:
 		if not value is Dictionary:
@@ -529,6 +694,9 @@ func _append_report_issue_kinds(target: Array[String], values: Array) -> void:
 			target.append(kind)
 
 
+## 复制当前贡献记录并追加动作提供的设置及设置分区，分别按名称与路径去重，供 Inspector 与项目设置安装使用。
+## [br]
+## @api private
 func _make_active_editor_records() -> Dictionary:
 	var records: Dictionary = _editor_contribution_records.duplicate(true)
 	if _actions == null:
@@ -548,6 +716,10 @@ func _make_active_editor_records() -> Dictionary:
 	return records
 
 
+## 按去空白后的 identity_key 字段合并记录，保留已有项并复制新的唯一项。
+## [br]
+## @api private
+## [br]
 func _append_unique_records(
 	records: Dictionary,
 	record_key: String,
@@ -569,6 +741,10 @@ func _append_unique_records(
 	records[record_key] = merged_records
 
 
+## 复制字典字段中的 Dictionary 项；缺失或其他类型返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_record_array(records: Dictionary, key: String) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var value: Variant = records.get(key, [])
@@ -583,10 +759,16 @@ func _get_record_array(records: Dictionary, key: String) -> Array[Dictionary]:
 
 # --- 信号处理函数 ---
 
+## 响应动作菜单请求，存在 Dock 工具时显示 GF 工作区。
+## [br]
+## @api private
 func _on_workspace_requested() -> void:
 	if _dock_tools != null:
 		_dock_tools.show_workspace()
 
 
+## 将动作菜单的刷新信号交给统一刷新请求入口，沿用状态机的合并及超时处理。
+## [br]
+## @api private
 func _on_editor_contributions_refresh_requested() -> void:
 	_refresh_editor_contributions()

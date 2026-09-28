@@ -14,25 +14,87 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 允许的最大错误码 UTF-8 字节数。
+## [br]
+## @api private
 const _MAX_ERROR_CODE_UTF8_BYTES: int = 128
+
+## 失败说明允许保留的最大 UTF-8 字节数。
+## [br]
+## @api private
 const _MAX_ERROR_MESSAGE_UTF8_BYTES: int = 1_024
+
+## 允许的最大诊断 ID UTF-8 字节数。
+## [br]
+## @api private
 const _MAX_DIAGNOSTIC_ID_UTF8_BYTES: int = 128
+
+## 失败行 ID 文本形式允许的最大 UTF-8 字节数。
+## [br]
+## @api private
 const _MAX_DIAGNOSTIC_ROW_ID_UTF8_BYTES: int = 256
 
 
 # --- 私有变量 ---
 
+## 是否已由成功或失败配置入口初始化。
+## [br]
+## @api private
 var _configured: bool = false
+
+## 结果是否表示成功重建。
+## [br]
+## @api private
 var _successful: bool = false
+
+## 成功结果是否提交了新的 revision。
+## [br]
+## @api private
 var _committed: bool = false
+
+## 结果对应的已提交 revision。
+## [br]
+## @api private
 var _view_revision: int = 0
+
+## 结果对应的可见行数量。
+## [br]
+## @api private
 var _visible_count: int = 0
+
+## 候选投影扫描的源行数量。
+## [br]
+## @api private
 var _scanned_row_count: int = 0
+
+## 候选投影执行的行谓词次数。
+## [br]
+## @api private
 var _predicate_evaluation_count: int = 0
+
+## 归一化后的失败码；成功结果为空。
+## [br]
+## @api private
 var _error_code: StringName = &""
+
+## 按 UTF-8 字节数截断后的失败说明。
+## [br]
+## @api private
 var _error_message: String = ""
+
+## 归一化后的失败谓词 ID。
+## [br]
+## @api private
 var _failed_predicate_id: StringName = &""
+
+## 失败对应的源行索引；非行级失败为 -1。
+## [br]
+## @api private
 var _failed_source_row_index: int = -1
+
+## 通过稳定键校验并复制的失败行 ID。
+## [br]
+## @api private
 var _failed_row_id: Variant = null
 
 
@@ -295,6 +357,9 @@ func configure_failure_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 将空白、超长或首尾带空格的错误码归一为 view_rebuild_failed。
+## [br]
+## @api private
 static func _normalize_error_code(error_code: StringName) -> StringName:
 	var error_text: String = String(error_code)
 	if (
@@ -307,6 +372,9 @@ static func _normalize_error_code(error_code: StringName) -> StringName:
 	return error_code
 
 
+## 将空白、超长或首尾带空格的诊断 ID 归一为空字符串。
+## [br]
+## @api private
 static func _normalize_diagnostic_id(diagnostic_id: StringName) -> StringName:
 	var id_text: String = String(diagnostic_id)
 	if (
@@ -319,6 +387,9 @@ static func _normalize_diagnostic_id(diagnostic_id: StringName) -> StringName:
 	return diagnostic_id
 
 
+## 仅复制稳定键；字符串类键超出字节限制或其他值不稳定时返回 null。
+## [br]
+## @api private
 static func _copy_bounded_diagnostic_row_id(row_id: Variant) -> Variant:
 	if not GFVariantKeyCodec.is_stable_key(row_id):
 		return null
@@ -332,6 +403,9 @@ static func _copy_bounded_diagnostic_row_id(row_id: Variant) -> Variant:
 	return GFVariantData.duplicate_variant(row_id, true, true)
 
 
+## 按 UTF-8 字节上限截取文本，避免截断多字节字符。
+## [br]
+## @api private
 static func _truncate_utf8(text_value: String, max_bytes: int) -> String:
 	var bounded_text: String = text_value.left(max_bytes)
 	if text_value.length() <= max_bytes and bounded_text.to_utf8_buffer().size() <= max_bytes:

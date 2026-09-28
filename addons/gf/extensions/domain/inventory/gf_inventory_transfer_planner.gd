@@ -14,9 +14,24 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 单次转移规划允许复制的最大槽位数。
+## [br]
+## @api private
 const _MAX_SLOTS: int = 4096
+
+## 单次转移规划允许遍历或复制的最大值项数。
+## [br]
+## @api private
 const _MAX_VALUE_ITEMS: int = 32768
+
+## 值复制允许的最大递归深度。
+## [br]
+## @api private
 const _MAX_VALUE_DEPTH: int = 32
+
+## 单次转移规划允许复制的最大估算字节数。
+## [br]
+## @api private
 const _MAX_VALUE_BYTES: int = 1048576
 
 
@@ -487,6 +502,9 @@ static func plan_same_model(
 
 # --- 私有/辅助方法 ---
 
+## 创建包含失败状态、物品 ID 和请求数量的来源计划结果。
+## [br]
+## @api private
 static func _source_failure(
 	status: StringName,
 	item_id: StringName,
@@ -498,6 +516,10 @@ static func _source_failure(
 		"requested_amount": requested_amount,
 	}
 
+## 在共享预算内复制模型槽位及其内容快照。
+## 任一实例数据无法安全复制时返回失败结果。
+## [br]
+## @api private
 static func _copy_slots(
 	model: GFSlotInventoryModel,
 	owner: Object,
@@ -534,6 +556,9 @@ static func _copy_slots(
 	return { "ok": true, "slots": copied_slots, "snapshots": snapshots }
 
 
+## 比较提交前快照和候选槽位，生成变更字典、顺序及提交后快照。
+## [br]
+## @api private
 static func _build_slot_changes(
 	before_snapshots: Array,
 	after_slots: Array,
@@ -572,6 +597,9 @@ static func _build_slot_changes(
 	}
 
 
+## 按指定槽位规则尝试合并或创建堆叠，并返回未处理数量。
+## [br]
+## @api private
 static func _add_to_slot(
 	model: GFSlotInventoryModel,
 	candidate_slots: Array,
@@ -600,6 +628,9 @@ static func _add_to_slot(
 	)
 
 
+## 验证现有堆叠兼容性并在容量内增加数量，记录加入事件。
+## [br]
+## @api private
 static func _add_to_existing(
 	model: GFSlotInventoryModel,
 	candidate_slots: Array,
@@ -627,6 +658,9 @@ static func _add_to_existing(
 	return remaining - accepted
 
 
+## 在有效空槽中创建受单堆叠容量限制的新堆叠。
+## [br]
+## @api private
 static func _add_to_empty(
 	model: GFSlotInventoryModel,
 	candidate_slots: Array,
@@ -660,6 +694,9 @@ static func _add_to_empty(
 	return remaining - accepted
 
 
+## 按候选槽位顺序查找第一个接受该物品的空槽。
+## [br]
+## @api private
 static func _find_empty_slot(
 	model: GFSlotInventoryModel,
 	candidate_slots: Array,
@@ -675,6 +712,9 @@ static func _find_empty_slot(
 	return -1
 
 
+## 按槽位定义检查物品；规则回调接收只读候选视图。
+## [br]
+## @api private
 static func _slot_accepts(
 	model: GFSlotInventoryModel,
 	candidate_slots: Array,
@@ -714,6 +754,9 @@ static func _slot_accepts(
 	return accepted
 
 
+## 根据注册表堆叠数上限检查候选中能否再创建同物品堆叠。
+## [br]
+## @api private
 static func _can_create_stack(
 	model: GFSlotInventoryModel,
 	candidate_slots: Array,
@@ -730,6 +773,9 @@ static func _can_create_stack(
 	return stack_count < max_stack_count
 
 
+## 按物品 ID、注册表默认值及实例兼容规则检查堆叠能否合并。
+## [br]
+## @api private
 static func _stack_can_merge(
 	model: GFSlotInventoryModel,
 	stack: GFInventoryStack,
@@ -771,6 +817,9 @@ static func _stack_can_merge(
 	return true
 
 
+## 有界复制实例数据，并按注册表默认值移除等价于默认值的内容。
+## [br]
+## @api private
 static func _normalize_instance_data(
 	model: GFSlotInventoryModel,
 	item_id: StringName,
@@ -803,6 +852,9 @@ static func _normalize_instance_data(
 	return { "ok": true, "value": input_copy }
 
 
+## 有界复制默认值与覆盖值，再用覆盖字典逐键替换默认值。
+## [br]
+## @api private
 static func _merge_defaults(
 	defaults: Dictionary,
 	overrides: Dictionary,
@@ -822,6 +874,9 @@ static func _merge_defaults(
 	return { "ok": true, "value": merged }
 
 
+## 收集注册表、物品定义和槽位规则的可验证配置，并计算摘要。
+## [br]
+## @api private
 static func _build_config_evidence(
 	model: GFSlotInventoryModel,
 	item_id: StringName,
@@ -894,20 +949,32 @@ static func _build_config_evidence(
 	return { "ok": true, "sha": _sha(GFVariantData.get_option_value(copy_result, "value")) }
 
 
+## 使用库存注册表判断物品是否可接收；无注册表时只拒绝空 ID。
+## [br]
+## @api private
 static func _accepts_item(model: GFSlotInventoryModel, item_id: StringName) -> bool:
 	if model.registry == null:
 		return item_id != &""
 	return model.registry.accepts_item(item_id)
 
 
+## 读取物品单堆叠容量；无注册表时回退到 99。
+## [br]
+## @api private
 static func _max_stack_amount(model: GFSlotInventoryModel, item_id: StringName) -> int:
 	return 99 if model.registry == null else model.registry.get_max_stack_amount(item_id)
 
 
+## 读取物品堆叠数量上限；无注册表时回退到 0（不限制）。
+## [br]
+## @api private
 static func _max_stack_count(model: GFSlotInventoryModel, item_id: StringName) -> int:
 	return 0 if model.registry == null else model.registry.get_max_stack_count(item_id)
 
 
+## 将任意值收窄为 GFInventoryStack 实例，否则返回 null。
+## [br]
+## @api private
 static func _get_stack_value(value: Variant) -> GFInventoryStack:
 	if value is GFInventoryStack:
 		var stack: GFInventoryStack = value
@@ -915,6 +982,9 @@ static func _get_stack_value(value: Variant) -> GFInventoryStack:
 	return null
 
 
+## 为配置摘要记录回调对象、方法及有界复制的绑定参数。
+## [br]
+## @api private
 static func _build_callable_evidence(callback: Callable, budget: Dictionary) -> Dictionary:
 	if not callback.is_valid():
 		return { "ok": true, "value": null }
@@ -936,6 +1006,9 @@ static func _build_callable_evidence(callback: Callable, budget: Dictionary) -> 
 	}
 
 
+## 有界复制字典，并确认复制结果仍为 Dictionary。
+## [br]
+## @api private
 static func _copy_dictionary(value: Dictionary, budget: Dictionary) -> Dictionary:
 	var result: Dictionary = _copy_variant_root(value, budget)
 	if (
@@ -946,6 +1019,9 @@ static func _copy_dictionary(value: Dictionary, budget: Dictionary) -> Dictionar
 	return result
 
 
+## 从根值启动受限递归复制并包装 ok 与 value 结果。
+## [br]
+## @api private
 static func _copy_variant_root(value: Variant, budget: Dictionary) -> Dictionary:
 	var output: Array = []
 	if not _copy_variant(value, 0, budget, output):
@@ -953,6 +1029,9 @@ static func _copy_variant_root(value: Variant, budget: Dictionary) -> Dictionary
 	return { "ok": true, "value": output[0] }
 
 
+## 递归复制允许的 Variant，并执行类型、有限数值、循环和预算检查。
+## [br]
+## @api private
 static func _copy_variant(
 	value: Variant,
 	depth: int,
@@ -1062,6 +1141,9 @@ static func _copy_variant(
 			return true
 
 
+## 允许未定型数组或不含对象类及脚本类型的受支持定型数组。
+## [br]
+## @api private
 static func _is_supported_typed_array(value: Array) -> bool:
 	if not value.is_typed():
 		return true
@@ -1072,6 +1154,9 @@ static func _is_supported_typed_array(value: Array) -> bool:
 	)
 
 
+## 创建保留内建类型约束的空数组副本；未定型数组返回普通空数组。
+## [br]
+## @api private
 static func _create_typed_array_copy(value: Array) -> Array:
 	if not value.is_typed():
 		return []
@@ -1083,6 +1168,9 @@ static func _create_typed_array_copy(value: Array) -> Array:
 	)
 
 
+## 检查定型字典的键和值类型是否受支持且未绑定脚本类。
+## [br]
+## @api private
 static func _is_supported_typed_dictionary(value: Dictionary) -> bool:
 	if not value.is_typed():
 		return true
@@ -1096,6 +1184,9 @@ static func _is_supported_typed_dictionary(value: Dictionary) -> bool:
 	)
 
 
+## 排除 Object、Callable、Signal 和 RID 内建类型。
+## [br]
+## @api private
 static func _is_supported_container_builtin(builtin_type: int) -> bool:
 	return (
 		builtin_type != TYPE_OBJECT
@@ -1105,6 +1196,9 @@ static func _is_supported_container_builtin(builtin_type: int) -> bool:
 	)
 
 
+## 创建保留键和值内建类型约束的空字典副本。
+## [br]
+## @api private
 static func _create_typed_dictionary_copy(value: Dictionary) -> Dictionary:
 	if not value.is_typed():
 		return {}
@@ -1119,6 +1213,10 @@ static func _create_typed_dictionary_copy(value: Dictionary) -> Dictionary:
 	)
 
 
+## 估算支持的 PackedArray 字节数并拒绝非有限数值或字符串超限值。
+## 无法处理或超限时返回 -1。
+## [br]
+## @api private
 static func _estimate_packed_bytes(value: Variant, remaining_bytes: int) -> int:
 	match typeof(value):
 		TYPE_PACKED_BYTE_ARRAY:
@@ -1177,6 +1275,9 @@ static func _estimate_packed_bytes(value: Variant, remaining_bytes: int) -> int:
 	return -1
 
 
+## 检查受支持数学 Variant 的浮点分量是否均为有限数值。
+## [br]
+## @api private
 static func _has_only_finite_float_components(value: Variant) -> bool:
 	match typeof(value):
 		TYPE_VECTOR2:
@@ -1235,14 +1336,23 @@ static func _has_only_finite_float_components(value: Variant) -> bool:
 	return true
 
 
+## 判断浮点数既不是 NAN 也不是无穷大。
+## [br]
+## @api private
 static func _is_finite_number(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 检查 Vector2 的两个分量是否均为有限数值。
+## [br]
+## @api private
 static func _is_finite_vector2(value: Vector2) -> bool:
 	return _is_finite_number(value.x) and _is_finite_number(value.y)
 
 
+## 检查 Vector3 的三个分量是否均为有限数值。
+## [br]
+## @api private
 static func _is_finite_vector3(value: Vector3) -> bool:
 	return (
 		_is_finite_number(value.x)
@@ -1251,6 +1361,9 @@ static func _is_finite_vector3(value: Vector3) -> bool:
 	)
 
 
+## 检查 Vector4 的四个分量是否均为有限数值。
+## [br]
+## @api private
 static func _is_finite_vector4(value: Vector4) -> bool:
 	return (
 		_is_finite_number(value.x)
@@ -1260,6 +1373,9 @@ static func _is_finite_vector4(value: Vector4) -> bool:
 	)
 
 
+## 检查 Basis 的三个基向量分量是否均为有限数值。
+## [br]
+## @api private
 static func _is_finite_basis(value: Basis) -> bool:
 	return (
 		_is_finite_vector3(value.x)
@@ -1268,6 +1384,9 @@ static func _is_finite_basis(value: Basis) -> bool:
 	)
 
 
+## 检查 Color 的 RGBA 分量是否均为有限数值。
+## [br]
+## @api private
 static func _is_finite_color(value: Color) -> bool:
 	return (
 		_is_finite_number(value.r)
@@ -1277,6 +1396,9 @@ static func _is_finite_color(value: Color) -> bool:
 	)
 
 
+## 深复制支持的 PackedArray；其他 Variant 返回 null。
+## [br]
+## @api private
 static func _duplicate_packed_value(value: Variant) -> Variant:
 	match typeof(value):
 		TYPE_PACKED_BYTE_ARRAY:
@@ -1312,6 +1434,9 @@ static func _duplicate_packed_value(value: Variant) -> Variant:
 	return null
 
 
+## 将容器加入当前递归路径，拒绝无效活动列表或循环引用。
+## [br]
+## @api private
 static func _enter_container(value: Variant, budget: Dictionary) -> bool:
 	var active_value: Variant = budget.get("active")
 	if not (active_value is Array):
@@ -1326,6 +1451,9 @@ static func _enter_container(value: Variant, budget: Dictionary) -> bool:
 	return true
 
 
+## 从当前递归路径移除最近加入的容器。
+## [br]
+## @api private
 static func _leave_container(budget: Dictionary) -> void:
 	var active_value: Variant = budget.get("active")
 	if not (active_value is Array):
@@ -1336,6 +1464,9 @@ static func _leave_container(budget: Dictionary) -> void:
 		var _removed: Variant = active.pop_back()
 
 
+## 累计预留槽位数，超出上限时标记共享预算失败。
+## [br]
+## @api private
 static func _reserve_slots(count: int, budget: Dictionary) -> bool:
 	var used: int = GFVariantData.get_option_int(budget, "slots")
 	if count < 0 or count > _MAX_SLOTS - used:
@@ -1345,6 +1476,9 @@ static func _reserve_slots(count: int, budget: Dictionary) -> bool:
 	return true
 
 
+## 累计预留值项数，超出上限时标记共享预算失败。
+## [br]
+## @api private
 static func _reserve_items(count: int, budget: Dictionary) -> bool:
 	var used: int = GFVariantData.get_option_int(budget, "items")
 	if count < 0 or count > _MAX_VALUE_ITEMS - used:
@@ -1354,6 +1488,9 @@ static func _reserve_items(count: int, budget: Dictionary) -> bool:
 	return true
 
 
+## 检查值项预算是否有余量，但不增加已使用数量。
+## [br]
+## @api private
 static func _can_reserve_items(count: int, budget: Dictionary) -> bool:
 	var used: int = GFVariantData.get_option_int(budget, "items")
 	if count < 0 or count > _MAX_VALUE_ITEMS - used:
@@ -1362,6 +1499,9 @@ static func _can_reserve_items(count: int, budget: Dictionary) -> bool:
 	return true
 
 
+## 累计预留字节数，超出上限时标记共享预算失败。
+## [br]
+## @api private
 static func _reserve_bytes(count: int, budget: Dictionary) -> bool:
 	var used: int = GFVariantData.get_option_int(budget, "bytes")
 	if count < 0 or count > _MAX_VALUE_BYTES - used:
@@ -1371,9 +1511,15 @@ static func _reserve_bytes(count: int, budget: Dictionary) -> bool:
 	return true
 
 
+## 将共享预算状态标记为失败。
+## [br]
+## @api private
 static func _fail_budget(budget: Dictionary) -> void:
 	budget["failed"] = true
 
 
+## 对 Variant 的 var_to_str 表示计算 SHA-256 摘要。
+## [br]
+## @api private
 static func _sha(value: Variant) -> String:
 	return var_to_str(value).sha256_text()

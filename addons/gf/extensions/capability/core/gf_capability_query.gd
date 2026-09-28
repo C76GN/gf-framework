@@ -148,6 +148,9 @@ func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 复制脚本类型列表到新的类型化数组。
+## [br]
+## @api private
 func _duplicate_script_array(source: Array[Script]) -> Array[Script]:
 	var result: Array[Script] = []
 	for script_type: Script in source:

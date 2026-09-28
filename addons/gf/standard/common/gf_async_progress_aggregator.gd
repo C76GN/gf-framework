@@ -33,7 +33,14 @@ signal progressed(value: float, message: String, metadata: Dictionary)
 
 # --- 常量 ---
 
+## 将任务 key 转为调试快照可展示值的辅助脚本。
+## [br]
+## @api private
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+
+## 将稳定任务 key 编码为索引 token 的辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_KEY_CODEC_SCRIPT = preload("res://addons/gf/standard/foundation/variant/gf_variant_key_codec.gd")
 
 
@@ -82,8 +89,19 @@ var emit_on_message_change: bool:
 
 # --- 私有变量 ---
 
+## 负责聚合值节流、当前消息和进度信号的底层句柄。
+## [br]
+## @api private
 var _progress: GFAsyncProgress = GFAsyncProgress.new(1.0)
+
+## 按添加顺序保存子任务状态字典。
+## [br]
+## @api private
 var _tasks: Array[Dictionary] = []
+
+## 将带 key 的任务 token 映射到其任务索引。
+## [br]
+## @api private
 var _task_indexes_by_key: Dictionary = {}
 
 
@@ -496,6 +514,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 读取指定任务当前字段并发布 task_progressed 更新。
+## [br]
+## @api private
 func _publish_task_progress(task_index: int, message: String) -> bool:
 	var task: Dictionary = _tasks[task_index]
 	return _publish_progress(message, {
@@ -508,11 +529,17 @@ func _publish_task_progress(task_index: int, message: String) -> bool:
 	})
 
 
+## 合并聚合状态元数据后，将加权总进度传给底层进度句柄。
+## [br]
+## @api private
 func _publish_progress(message: String, metadata: Dictionary) -> bool:
 	var progress_metadata: Dictionary = _make_progress_metadata(metadata)
 	return _progress.update(get_total_progress(), message, progress_metadata)
 
 
+## 复制输入元数据并写入 total_progress、task_count 和 total_weight。
+## [br]
+## @api private
 func _make_progress_metadata(metadata: Dictionary) -> Dictionary:
 	var result: Dictionary = metadata.duplicate(true)
 	result["total_progress"] = get_total_progress()
@@ -521,6 +548,9 @@ func _make_progress_metadata(metadata: Dictionary) -> Dictionary:
 	return result
 
 
+## 累加所有子任务的非负权重。
+## [br]
+## @api private
 func _get_total_weight() -> float:
 	var total_weight: float = 0.0
 	for task: Dictionary in _tasks:
@@ -528,25 +558,45 @@ func _get_total_weight() -> float:
 	return total_weight
 
 
+## 返回任务字典中的非负 weight 值。
+## [br]
+## @api private
 func _get_task_weight(task: Dictionary) -> float:
 	return maxf(GFVariantData.get_option_float(task, "weight"), 0.0)
 
 
+## 返回任务字典中夹在 0 到 1 范围内的 progress 值。
+## [br]
+## @api private
 func _get_task_progress(task: Dictionary) -> float:
 	return clampf(GFVariantData.get_option_float(task, "progress"), 0.0, 1.0)
 
 
+## 判断任务索引是否位于当前 _tasks 数组范围内。
+## [br]
+## @api private
 func _is_valid_task_index(task_index: int) -> bool:
 	return task_index >= 0 and task_index < _tasks.size()
 
 
+## 判断任务 key 是否为非 null Variant。
+## [br]
+## @api private
 func _has_task_key(task_key: Variant) -> bool:
 	return typeof(task_key) != TYPE_NIL
 
 
+## 通过 key codec 将任务 key 编码为索引 token。
+## [br]
+## @api private
 func _make_task_key_token(task_key: Variant) -> String:
 	return _GF_VARIANT_KEY_CODEC_SCRIPT.make_key_token(task_key)
 
 
+# --- 信号处理函数 ---
+
+## 转发聚合器内部 progress 源的通知；复制 metadata 容器，避免监听器直接改写源报告。
+## [br]
+## @api private
 func _on_progressed(value: float, message: String, metadata: Dictionary) -> void:
 	progressed.emit(value, message, metadata.duplicate(true))

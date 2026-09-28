@@ -43,12 +43,39 @@ const OPERATION_REPLACE: StringName = &"replace"
 
 # --- 私有变量 ---
 
+## UI Router 分配的唯一请求 ID；0 表示尚未配置。
+## [br]
+## @api private
 var _request_id: int = 0
+
+## 请求创建时保存的规范化路由 ID。
+## [br]
+## @api private
 var _route_id: StringName = &""
+
+## 请求使用的 push 或 replace 操作。
+## [br]
+## @api private
 var _operation: StringName = &""
+
+## 请求采用的预加载策略标识。
+## [br]
+## @api private
 var _preload_policy: StringName = &""
+
+## Router 创建请求时记录的单调时钟毫秒值。
+## [br]
+## @api private
 var _started_at_msec: int = 0
+
+## 已启动并关联到请求的资产预加载会话。
+## [br]
+## @api private
 var _preload_session: GFAssetLoadSession = null
+
+## 唯一终态结果；等待中为 null。
+## [br]
+## @api private
 var _result: GFUIRouteResult = null
 
 

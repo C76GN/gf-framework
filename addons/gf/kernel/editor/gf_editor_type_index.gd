@@ -27,15 +27,38 @@ const DEFAULT_MAX_SCAN_DEPTH: int = 32
 ## [br]
 ## @api public
 const DEFAULT_MAX_SCANNED_SCENES: int = 10000
+
+## 判定脚本继承关系的反射工具。
+## [br]
+## @api private
 const _SCRIPT_TYPE_INSPECTOR = preload("res://addons/gf/kernel/core/gf_script_type_inspector.gd")
+
+## 读取文件系统扫描状态、脚本缓存和选项字典的类型化工具。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
 # --- 私有变量 ---
 
+## 按脚本路径缓存的脚本值及文件修改时间条目。
+## [br]
+## @api private
 var _script_cache: Dictionary = {}
+
+## 按场景路径缓存的根节点脚本及文件修改时间条目。
+## [br]
+## @api private
 var _scene_root_script_cache: Dictionary = {}
+
+## 当前 live 失效模式持有的 EditorFileSystem 信号订阅 token。
+## [br]
+## @api private
 var _live_invalidation_tokens: Array[GFLifetimeSubscription] = []
+
+## live 失效模式 owner 的弱引用；不会由类型索引延长其生命周期。
+## [br]
+## @api private
 var _live_invalidation_owner_ref: WeakRef = null
 
 
@@ -297,6 +320,10 @@ func dispose() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 先按路径和修改时间检查脚本缓存，失效时重新 load 并保存新的缓存条目。
+## 当前 null 缓存也会被复用，直到文件修改时间变化。
+## [br]
+## @api private
 func _load_script(path: String) -> Script:
 	var cached_script: Script = _get_cached_script(path, _script_cache)
 	if cached_script != null or _cache_has_current_null(path, _script_cache):
@@ -307,6 +334,9 @@ func _load_script(path: String) -> Script:
 	return script
 
 
+## 读取指定缓存的有效 Script；修改时间过期时删除条目，旧格式值会删除后返回转换结果。
+## [br]
+## @api private
 func _get_cached_script(path: String, cache: Dictionary) -> Script:
 	if not cache.has(path):
 		return null
@@ -322,6 +352,9 @@ func _get_cached_script(path: String, cache: Dictionary) -> Script:
 	return legacy_script
 
 
+## 判断缓存是否仍对应当前修改时间且未保存 Script；失效条目会当场删除。
+## [br]
+## @api private
 func _cache_has_current_null(path: String, cache: Dictionary) -> bool:
 	if not cache.has(path):
 		return false
@@ -336,6 +369,9 @@ func _cache_has_current_null(path: String, cache: Dictionary) -> bool:
 	return not (script_value is Script)
 
 
+## 创建带路径当前修改时间及脚本值的缓存条目。
+## [br]
+## @api private
 func _make_cache_entry(path: String, script: Script) -> Dictionary:
 	return {
 		"modified_time": _get_resource_modified_time(path),
@@ -343,6 +379,9 @@ func _make_cache_entry(path: String, script: Script) -> Dictionary:
 	}
 
 
+## 对 res:// 和 user:// 路径先转成本地路径，再读取文件修改时间。
+## [br]
+## @api private
 func _get_resource_modified_time(path: String) -> int:
 	var resolved_path: String = path
 	if path.begins_with("res://") or path.begins_with("user://"):
@@ -350,12 +389,18 @@ func _get_resource_modified_time(path: String) -> int:
 	return int(FileAccess.get_modified_time(resolved_path))
 
 
+## 合并资源目录和文件名；目录已有尾斜线时不再追加分隔符。
+## [br]
+## @api private
 func _join_resource_path(dir_path: String, file_name: String) -> String:
 	if dir_path.ends_with("/"):
 		return dir_path + file_name
 	return "%s/%s" % [dir_path, file_name]
 
 
+## 仅在 EditorFileSystem 存在目标信号时创建 owner 绑定订阅，并保存活动 token。
+## [br]
+## @api private
 func _connect_editor_filesystem_signal(
 	filesystem: EditorFileSystem,
 	owner: Object,
@@ -376,6 +421,10 @@ func _connect_editor_filesystem_signal(
 		_live_invalidation_tokens.append(subscription_token)
 
 
+## 从后向前移除失效订阅，并取消仍持有但已不活动的 token。
+## token 集合清空时同时释放 owner 弱引用。
+## [br]
+## @api private
 func _prune_inactive_live_invalidation_tokens() -> void:
 	for i: int in range(_live_invalidation_tokens.size() - 1, -1, -1):
 		var subscription_token: GFLifetimeSubscription = _live_invalidation_tokens[i]
@@ -388,6 +437,9 @@ func _prune_inactive_live_invalidation_tokens() -> void:
 		_live_invalidation_owner_ref = null
 
 
+## 解析 live owner 弱引用；引用失效、对象已释放或不存在时返回 null。
+## [br]
+## @api private
 func _get_live_invalidation_owner() -> Object:
 	if _live_invalidation_owner_ref == null:
 		return null
@@ -399,6 +451,9 @@ func _get_live_invalidation_owner() -> Object:
 	return null
 
 
+## root_paths 为空时接受所有路径，否则匹配根路径本身或其目录边界内的路径。
+## [br]
+## @api private
 func _path_matches_roots(path: String, root_paths: PackedStringArray) -> bool:
 	if root_paths.is_empty():
 		return true
@@ -412,6 +467,9 @@ func _path_matches_roots(path: String, root_paths: PackedStringArray) -> bool:
 	return false
 
 
+## 深度上限不大于零时允许继续扫描，否则超限时发出一次告警并拒绝深入。
+## [br]
+## @api private
 func _can_scan_deeper(path: String, current_depth: int, max_scan_depth: int, scan_state: Dictionary) -> bool:
 	if max_scan_depth <= 0 or current_depth < max_scan_depth:
 		return true
@@ -419,10 +477,16 @@ func _can_scan_deeper(path: String, current_depth: int, max_scan_depth: int, sca
 	return false
 
 
+## 上限不大于零时不限场景数，否则仅在已扫描数小于上限时继续。
+## [br]
+## @api private
 func _can_scan_more_scene_files(scan_state: Dictionary, max_scanned_scenes: int) -> bool:
 	return max_scanned_scenes <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_int(scan_state, "scanned_scene_count", 0) < max_scanned_scenes
 
 
+## 创建场景扫描计数及深度、数量告警去重标记。
+## [br]
+## @api private
 func _make_scene_scan_state() -> Dictionary:
 	return {
 		"scanned_scene_count": 0,
@@ -431,6 +495,9 @@ func _make_scene_scan_state() -> Dictionary:
 	}
 
 
+## 达到正数场景数上限时至多输出一次告警，并在状态字典记下已输出。
+## [br]
+## @api private
 func _warn_scene_file_limit(max_scanned_scenes: int, scan_state: Dictionary) -> void:
 	if max_scanned_scenes <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "count_warning_emitted", false):
 		return
@@ -438,6 +505,9 @@ func _warn_scene_file_limit(max_scanned_scenes: int, scan_state: Dictionary) -> 
 	push_warning("[GFEditorTypeIndex][editor_type_index.scene_limit_reached] collect_scene_roots_extending reached max_scanned_scenes=%d; subsequent scenes were skipped." % max_scanned_scenes)
 
 
+## 达到正数深度上限时至多输出一次告警，并附上首次触发的目录路径。
+## [br]
+## @api private
 func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
 	if max_scan_depth <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "depth_warning_emitted", false):
 		return
@@ -445,6 +515,9 @@ func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state: Dicti
 	push_warning("[GFEditorTypeIndex][editor_type_index.depth_limit_reached] collect_scene_roots_extending reached max_scan_depth=%d; deeper directories were skipped: %s." % [max_scan_depth, path])
 
 
+## 仅当 Variant 为 Script 时返回强类型脚本值，否则返回 null。
+## [br]
+## @api private
 func _variant_to_script(value: Variant) -> Script:
 	if value is Script:
 		var script: Script = value
@@ -452,6 +525,9 @@ func _variant_to_script(value: Variant) -> Script:
 	return null
 
 
+## 仅当 Variant 为 PackedScene 时返回强类型场景值，否则返回 null。
+## [br]
+## @api private
 func _variant_to_packed_scene(value: Variant) -> PackedScene:
 	if value is PackedScene:
 		var packed_scene: PackedScene = value
@@ -459,6 +535,9 @@ func _variant_to_packed_scene(value: Variant) -> PackedScene:
 	return null
 
 
+## 仅当 Variant 为 EditorFileSystemDirectory 时返回强类型目录，否则返回 null。
+## [br]
+## @api private
 func _variant_to_editor_directory(value: Variant) -> EditorFileSystemDirectory:
 	if value is EditorFileSystemDirectory:
 		var directory: EditorFileSystemDirectory = value
@@ -468,9 +547,16 @@ func _variant_to_editor_directory(value: Variant) -> EditorFileSystemDirectory:
 
 # --- 信号处理函数 ---
 
+## EditorFileSystem 结构或 class_name 列表改变时清空两类脚本缓存。
+## [br]
+## @api private
 func _on_editor_filesystem_changed() -> void:
 	clear_cache()
 
 
+## EditorFileSystem 资源重新导入或重载时清空两类脚本缓存。
+## 此处理器不读取传入资源列表，按事件整体失效缓存。
+## [br]
+## @api private
 func _on_editor_filesystem_resources_changed(_resources: PackedStringArray = PackedStringArray()) -> void:
 	clear_cache()

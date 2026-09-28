@@ -270,6 +270,21 @@ func _apply_property_specs(node: Object, payload: Dictionary, specs: Array[Dicti
 	return []
 
 
+## 供节点序列化子类在写回前按属性规格校验载荷，不修改节点或载荷。仅检查具有有效 key 且载荷中存在的规格；缺失键不会报错，额外键不参与校验。按规格顺序收集类型或非有限数值错误，未知 kind 不增加限制。
+## [br]
+## @api protected
+## [br]
+## @since 8.0.0
+## [br]
+## @param payload: 待校验的节点状态载荷。
+## [br]
+## @param specs: 决定载荷键名与值类型的有序属性规格。
+## [br]
+## @return: 按规格顺序收集的错误说明；空数组表示本入口没有发现错误，不代表必需字段完整。
+## [br]
+## @schema payload: 以规格 key 为键的属性值字典；本入口不要求键必须存在，也不校验额外键。
+## [br]
+## @schema specs: Array[Dictionary]；key 缺省时取 property，kind 可为 vector2/vector3/color（长度为 2/3/4 的有限数值 Array）、float（有限 int 或 float）、int、bool、string、string_name（StringName 或 String）；其他 kind 接受任意值。
 func _validate_property_specs_payload(payload: Dictionary, specs: Array[Dictionary]) -> Array[String]:
 	var errors: Array[String] = []
 	for spec: Dictionary in specs:
@@ -299,6 +314,10 @@ func _has_property(object: Object, property_name: String) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 按 Godot 类名及节点脚本的全局名、资源路径和基类脚本匹配类型过滤。
+## [br]
+## @api private
+## [br]
 func _matches_supported_class_name(node: Node, type_name: String) -> bool:
 	if type_name.is_empty():
 		return true
@@ -313,30 +332,58 @@ func _matches_supported_class_name(node: Node, type_name: String) -> bool:
 	return false
 
 
+## 将 Vector2 编码为固定长度浮点数组。
+## [br]
+## @api private
+## [br]
 func _vector2_to_array(value: Vector2) -> Array[float]:
 	return GFVariantJsonCodec.vector2_to_array(value)
 
 
+## 使用 fallback 将 Variant 解码为 Vector2。
+## [br]
+## @api private
+## [br]
 func _array_to_vector2(value: Variant, fallback: Vector2) -> Vector2:
 	return GFVariantJsonCodec.array_to_vector2(value, fallback)
 
 
+## 将 Vector3 编码为固定长度浮点数组。
+## [br]
+## @api private
+## [br]
 func _vector3_to_array(value: Vector3) -> Array[float]:
 	return GFVariantJsonCodec.vector3_to_array(value)
 
 
+## 使用 fallback 将 Variant 解码为 Vector3。
+## [br]
+## @api private
+## [br]
 func _array_to_vector3(value: Variant, fallback: Vector3) -> Vector3:
 	return GFVariantJsonCodec.array_to_vector3(value, fallback)
 
 
+## 将 Color 编码为固定长度浮点数组。
+## [br]
+## @api private
+## [br]
 func _color_to_array(value: Color) -> Array[float]:
 	return GFVariantJsonCodec.color_to_array(value)
 
 
+## 使用 fallback 将 Variant 解码为 Color。
+## [br]
+## @api private
+## [br]
 func _array_to_color(value: Variant, fallback: Color) -> Color:
 	return GFVariantJsonCodec.array_to_color(value, fallback)
 
 
+## 按 kind 将 Vector2、Vector3、Color 编码为数组，其余值原样返回。
+## [br]
+## @api private
+## [br]
 func _encode_property_value(value: Variant, kind: StringName) -> Variant:
 	match kind:
 		&"vector2":
@@ -349,6 +396,10 @@ func _encode_property_value(value: Variant, kind: StringName) -> Variant:
 			return value
 
 
+## 按 kind 解码向量、颜色及标量；未识别 kind 时返回输入值。
+## [br]
+## @api private
+## [br]
 func _decode_property_value(value: Variant, fallback: Variant, kind: StringName) -> Variant:
 	match kind:
 		&"vector2":
@@ -367,6 +418,10 @@ func _decode_property_value(value: Variant, fallback: Variant, kind: StringName)
 			return value
 
 
+## 按字段 kind 检查载荷类型；向量/颜色要求数值数组，float 必须有限。
+## [br]
+## @api private
+## [br]
 func _is_payload_value_valid_for_kind(value: Variant, kind: StringName) -> bool:
 	match kind:
 		&"vector2":
@@ -389,6 +444,10 @@ func _is_payload_value_valid_for_kind(value: Variant, kind: StringName) -> bool:
 			return true
 
 
+## 验证数值数组长度，并要求每项为有限整数或浮点数。
+## [br]
+## @api private
+## [br]
 func _is_numeric_array(value: Variant, expected_size: int) -> bool:
 	if not (value is Array):
 		return false
@@ -401,6 +460,10 @@ func _is_numeric_array(value: Variant, expected_size: int) -> bool:
 	return true
 
 
+## 仅接受有限的 int 或 float Variant。
+## [br]
+## @api private
+## [br]
 func _is_finite_number(value: Variant) -> bool:
 	if typeof(value) != TYPE_INT and typeof(value) != TYPE_FLOAT:
 		return false
@@ -408,10 +471,18 @@ func _is_finite_number(value: Variant) -> bool:
 	return not is_nan(number) and not is_inf(number)
 
 
+## 通过 GFObjectPropertyTools 读取指定属性。
+## [br]
+## @api private
+## [br]
 func _read_property(object: Object, property_name: String) -> Variant:
 	return GFObjectPropertyTools.read_property(object, NodePath(property_name))
 
 
+## 将 Variant 转为 Script，类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_script_value(value: Variant) -> Script:
 	if value is Script:
 		var script: Script = value
@@ -419,6 +490,10 @@ func _get_script_value(value: Variant) -> Script:
 	return null
 
 
+## 返回输入 Color；类型不符时返回指定颜色 fallback。
+## [br]
+## @api private
+## [br]
 func _get_color_value(value: Variant, fallback: Color = Color.WHITE) -> Color:
 	if value is Color:
 		var color_value: Color = value

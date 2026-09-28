@@ -83,12 +83,46 @@ var max_cancelled_jobs: int = 64
 
 # --- 私有变量 ---
 
+## 为缺少独立 ID 的新任务递增的序号。
+## [br]
+## @api private
+## [br]
 var _job_serial: int = 0
+
+## 以队列名为键保存各队列的等待任务。
+## [br]
+## @api private
+## [br]
 var _queues: Dictionary = {}
+
+## 以 job_id 为键保存可查询任务记录。
+## [br]
+## @api private
+## [br]
 var _jobs: Dictionary = {}
+
+## 按配置保留的已完成任务历史。
+## [br]
+## @api private
+## [br]
 var _completed_jobs: Array[GFJob] = []
+
+## 按配置保留的失败任务历史。
+## [br]
+## @api private
+## [br]
 var _failed_jobs: Array[GFJob] = []
+
+## 按配置保留的取消任务历史。
+## [br]
+## @api private
+## [br]
 var _cancelled_jobs: Array[GFJob] = []
+
+## 以队列名为键记录暂停状态。
+## [br]
+## @api private
+## [br]
 var _paused_queues: Dictionary = {}
 
 
@@ -422,26 +456,46 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 将空队列名映射为 default，其余名称原样返回。
+## [br]
+## @api private
+## [br]
 func _normalize_queue_name(queue_name: StringName) -> StringName:
 	return queue_name if queue_name != &"" else &"default"
 
 
+## 不存在时创建空等待队列，并返回指定名称对应的数组。
+## [br]
+## @api private
+## [br]
 func _ensure_queue(queue_name: StringName) -> Array:
 	if not _queues.has(queue_name):
 		_queues[queue_name] = []
 	return _get_queue(queue_name)
 
 
+## 读取指定队列数组；字典中缺少该队列时提供空数组默认值。
+## [br]
+## @api private
+## [br]
 func _get_queue(queue_name: StringName) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(_queues, queue_name, []))
 
 
+## 从所有等待队列中删除与给定任务相等的条目。
+## [br]
+## @api private
+## [br]
 func _remove_waiting_job_from_queue(job: GFJob) -> void:
 	for queue_value: Variant in _queues.values():
 		var queue: Array = GFVariantData.as_array(queue_value)
 		queue.erase(job)
 
 
+## 从历史数组队首移除超出 limit 的旧任务，并同步删除其 ID 索引。
+## [br]
+## @api private
+## [br]
 func _trim_finished_jobs(jobs: Array[GFJob], limit: int) -> void:
 	while jobs.size() > limit:
 		var removed: GFJob = jobs.pop_front()
@@ -449,6 +503,10 @@ func _trim_finished_jobs(jobs: Array[GFJob], limit: int) -> void:
 			var _removed: bool = _jobs.erase(removed.job_id)
 
 
+## 按输入顺序收集非空任务的字符串 ID。
+## [br]
+## @api private
+## [br]
 func _job_ids(jobs: Array[GFJob]) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for job: GFJob in jobs:
@@ -457,6 +515,10 @@ func _job_ids(jobs: Array[GFJob]) -> PackedStringArray:
 	return result
 
 
+## 从 Variant 数组筛选 GFJob 实例并组成类型化数组。
+## [br]
+## @api private
+## [br]
 func _job_array_from_values(values: Array) -> Array[GFJob]:
 	var jobs: Array[GFJob] = []
 	for value: Variant in values:
@@ -466,6 +528,10 @@ func _job_array_from_values(values: Array) -> Array[GFJob]:
 	return jobs
 
 
+## 仅当 Variant 为 GFJob 时返回强类型任务引用。
+## [br]
+## @api private
+## [br]
 func _variant_to_job(value: Variant) -> GFJob:
 	if value is GFJob:
 		var job: GFJob = value

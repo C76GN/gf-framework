@@ -28,6 +28,10 @@ const DEFAULT_MAX_ATTEMPT_MULTIPLIER: int = 12
 ## @since 7.0.0
 const DEFAULT_MAX_RANDOM_ATTEMPTS: int = 65536
 
+## 判定法线长度和 basis 轴退化时使用的容差。
+## [br]
+## @api private
+## [br]
 const _EPSILON: float = 0.000001
 
 
@@ -297,6 +301,10 @@ static func to_json_compatible_report(report: Dictionary, options: Dictionary = 
 
 # --- 私有/辅助方法 ---
 
+## 校验目标数非负、回调有效、区域有限且宽高为正。
+## [br]
+## @api private
+## [br]
 static func _get_random_input_error(area: Rect2, count: int, height_provider: Callable) -> String:
 	if count < 0:
 		return "count must be greater than or equal to 0."
@@ -309,6 +317,10 @@ static func _get_random_input_error(area: Rect2, count: int, height_provider: Ca
 	return ""
 
 
+## 解析采样配置，规范化高度、坡度、朝向、缩放范围和尝试预算。
+## [br]
+## @api private
+## [br]
 static func _make_settings(options: Dictionary) -> Dictionary:
 	var height_min: float = _get_height_limit(options, "height_min", -INF)
 	var height_max: float = _get_height_limit(options, "height_max", INF)
@@ -373,6 +385,10 @@ static func _make_settings(options: Dictionary) -> Dictionary:
 	}
 
 
+## 以目标数量乘尝试倍率计算预算，并限制在最大随机尝试次数内。
+## [br]
+## @api private
+## [br]
 static func _get_random_max_attempts(target_count: int, settings: Dictionary) -> int:
 	if target_count <= 0:
 		return 0
@@ -394,11 +410,19 @@ static func _get_random_max_attempts(target_count: int, settings: Dictionary) ->
 	return target_count * attempt_multiplier
 
 
+## 执行整数除法并截去小数部分。
+## [br]
+## @api private
+## [br]
 static func _divide_truncated(numerator: int, denominator: int) -> int:
 	@warning_ignore("integer_division")
 	return numerator / denominator
 
 
+## 查询候选高度和法线，筛选配置范围并生成朝向、缩放及变换报告。
+## [br]
+## @api private
+## [br]
 static func _evaluate_candidate(
 	candidate_point: Vector2,
 	height_provider: Callable,
@@ -455,6 +479,10 @@ static func _evaluate_candidate(
 	}
 
 
+## 调用高度回调并仅接受有限 int 或 float 结果。
+## [br]
+## @api private
+## [br]
 static func _call_height_provider(height_provider: Callable, world_x: float, world_z: float) -> Dictionary:
 	var value: Variant = height_provider.call(world_x, world_z)
 	if value is int or value is float:
@@ -464,6 +492,10 @@ static func _call_height_provider(height_provider: Callable, world_x: float, wor
 	return { "ok": false, "height": NAN }
 
 
+## 调用有效法线回调并归一化有限向量；缺失或无效结果回退到 UP。
+## [br]
+## @api private
+## [br]
 static func _call_normal_provider(
 	normal_provider: Callable,
 	world_x: float,
@@ -481,10 +513,18 @@ static func _call_normal_provider(
 	return Vector3.UP
 
 
+## 委托 GFHeightfield3D 将表面法线转换为归一化坡度。
+## [br]
+## @api private
+## [br]
 static func _normal_to_slope(normal: Vector3) -> float:
 	return GFHeightfield3D.normal_to_slope(normal)
 
 
+## 用可选表面法线作为 up 轴，并按 yaw 构造稳定的正交表面基。
+## [br]
+## @api private
+## [br]
 static func _make_surface_basis(normal: Vector3, yaw: float, align_to_normal: bool) -> Basis:
 	var up: Vector3 = normal.normalized() if align_to_normal and normal.length_squared() > _EPSILON else Vector3.UP
 	var yaw_forward: Vector3 = Vector3.FORWARD.rotated(Vector3.UP, yaw).normalized()
@@ -498,6 +538,10 @@ static func _make_surface_basis(normal: Vector3, yaw: float, align_to_normal: bo
 	return Basis(right, up, -forward)
 
 
+## 组装成功采样报告并汇总接受数量、尝试耗尽状态及各类拒绝数量。
+## [br]
+## @api private
+## [br]
 static func _make_success_result(
 	area: Rect2,
 	target_count: int,
@@ -530,6 +574,10 @@ static func _make_success_result(
 	}
 
 
+## 组装空结果失败报告，并规范化目标数量及保留随机种子。
+## [br]
+## @api private
+## [br]
 static func _make_failure_result(area: Rect2, target_count: int, options: Dictionary, error: String) -> Dictionary:
 	return {
 		"ok": false,
@@ -550,6 +598,10 @@ static func _make_failure_result(area: Rect2, target_count: int, options: Dictio
 	}
 
 
+## 创建带拒绝原因及默认姿态字段的未接受候选报告。
+## [br]
+## @api private
+## [br]
 static func _make_candidate_rejection(reason: String) -> Dictionary:
 	return {
 		"accepted": false,
@@ -560,10 +612,18 @@ static func _make_candidate_rejection(reason: String) -> Dictionary:
 	}
 
 
+## 从候选报告读取 accepted 标志。
+## [br]
+## @api private
+## [br]
 static func _candidate_is_accepted(candidate_result: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(candidate_result, "accepted", false)
 
 
+## 读取候选 Transform3D；字段类型不符时返回单位变换。
+## [br]
+## @api private
+## [br]
 static func _get_candidate_transform(candidate_result: Dictionary) -> Transform3D:
 	var value: Variant = GFVariantData.get_option_value(candidate_result, "transform", Transform3D.IDENTITY)
 	if value is Transform3D:
@@ -572,6 +632,10 @@ static func _get_candidate_transform(candidate_result: Dictionary) -> Transform3
 	return Transform3D.IDENTITY
 
 
+## 读取候选 Vector3 位置；字段类型不符时返回零向量。
+## [br]
+## @api private
+## [br]
 static func _get_candidate_position(candidate_result: Dictionary) -> Vector3:
 	var value: Variant = GFVariantData.get_option_value(candidate_result, "position", Vector3.ZERO)
 	if value is Vector3:
@@ -580,6 +644,10 @@ static func _get_candidate_position(candidate_result: Dictionary) -> Vector3:
 	return Vector3.ZERO
 
 
+## 读取候选 Vector3 法线；字段类型不符时返回 UP。
+## [br]
+## @api private
+## [br]
 static func _get_candidate_normal(candidate_result: Dictionary) -> Vector3:
 	var value: Variant = GFVariantData.get_option_value(candidate_result, "normal", Vector3.UP)
 	if value is Vector3:
@@ -588,6 +656,10 @@ static func _get_candidate_normal(candidate_result: Dictionary) -> Vector3:
 	return Vector3.UP
 
 
+## 用全部有限二维点计算最小轴对齐包围矩形，没有有效点时返回空矩形。
+## [br]
+## @api private
+## [br]
 static func _make_points_area(points: PackedVector2Array) -> Rect2:
 	var found_finite_point: bool = false
 	var min_point: Vector2 = Vector2.ZERO
@@ -611,6 +683,10 @@ static func _make_points_area(points: PackedVector2Array) -> Rect2:
 	return Rect2(min_point, max_point - min_point)
 
 
+## 读取高度边界；仅 NaN 会回退默认值，允许无穷作为开区间端点。
+## [br]
+## @api private
+## [br]
 static func _get_height_limit(options: Dictionary, key: String, default_value: float) -> float:
 	var value: float = GFVariantData.get_option_float(options, key, default_value)
 	if is_nan(value):
@@ -618,6 +694,10 @@ static func _get_height_limit(options: Dictionary, key: String, default_value: f
 	return value
 
 
+## 读取有限 Vector3 或有限标量缩放，标量扩展为三轴相同值。
+## [br]
+## @api private
+## [br]
 static func _get_scale_option(options: Dictionary, key: String, default_value: Vector3) -> Vector3:
 	var value: Variant = GFVariantData.get_option_value(options, key, default_value)
 	if value is Vector3:
@@ -631,6 +711,10 @@ static func _get_scale_option(options: Dictionary, key: String, default_value: V
 	return default_value
 
 
+## 将缩放向量的每个分量下限夹到零。
+## [br]
+## @api private
+## [br]
 static func _get_non_negative_scale(value: Vector3) -> Vector3:
 	return Vector3(
 		maxf(value.x, 0.0),
@@ -639,6 +723,10 @@ static func _get_non_negative_scale(value: Vector3) -> Vector3:
 	)
 
 
+## 将整数或文本缩放轴模式解析为枚举，未知输入回退到 UNIFORM。
+## [br]
+## @api private
+## [br]
 static func _get_scale_axis_mode(options: Dictionary) -> GFTransform3DMath.ScaleAxisMode:
 	var value: Variant = GFVariantData.get_option_value(
 		options,
@@ -667,6 +755,10 @@ static func _get_scale_axis_mode(options: Dictionary) -> GFTransform3DMath.Scale
 	return GFTransform3DMath.ScaleAxisMode.UNIFORM
 
 
+## 解析 free、lock_xy/xy、lock_xz/xz 和 lock_yz/yz 文本别名。
+## [br]
+## @api private
+## [br]
 static func _scale_axis_mode_from_text(value: String) -> GFTransform3DMath.ScaleAxisMode:
 	match value.strip_edges().to_lower():
 		"free":
@@ -681,6 +773,10 @@ static func _scale_axis_mode_from_text(value: String) -> GFTransform3DMath.Scale
 			return GFTransform3DMath.ScaleAxisMode.UNIFORM
 
 
+## 读取有限 Vector3 缩放设置；缺失或类型无效时使用默认向量。
+## [br]
+## @api private
+## [br]
 static func _get_scale_setting(settings: Dictionary, key: String, default_value: Vector3) -> Vector3:
 	var value: Variant = GFVariantData.get_option_value(settings, key, default_value)
 	if value is Vector3:
@@ -690,10 +786,18 @@ static func _get_scale_setting(settings: Dictionary, key: String, default_value:
 	return default_value
 
 
+## 从规范化设置字典读取缩放轴模式。
+## [br]
+## @api private
+## [br]
 static func _get_scale_axis_mode_setting(settings: Dictionary) -> GFTransform3DMath.ScaleAxisMode:
 	return _get_scale_axis_mode(settings)
 
 
+## 生成模式相关权重，并在设置的最小与最大缩放间插值。
+## [br]
+## @api private
+## [br]
 static func _get_random_scale(settings: Dictionary, rng: GFDeterministicRandom) -> Vector3:
 	var mode: GFTransform3DMath.ScaleAxisMode = _get_scale_axis_mode_setting(settings)
 	var weight: Vector3 = _get_random_scale_weight(mode, rng)
@@ -705,6 +809,10 @@ static func _get_random_scale(settings: Dictionary, rng: GFDeterministicRandom) 
 	)
 
 
+## 只为独立缩放轴消耗随机数；锁定轴的占位分量由 interpolate_scale 再复制。
+## LOCK_YZ 使用 y 权重同时驱动 Y/Z，因此此处 z=0 不表示最终 Z 缩放为零。
+## [br]
+## @api private
 static func _get_random_scale_weight(
 	mode: GFTransform3DMath.ScaleAxisMode,
 	rng: GFDeterministicRandom
@@ -722,6 +830,10 @@ static func _get_random_scale_weight(
 			return Vector3.ONE * rng.next_float_unit()
 
 
+## 读取浮点选项，并在结果非有限时回退到默认值。
+## [br]
+## @api private
+## [br]
 static func _get_finite_option_float(options: Dictionary, key: String, default_value: float) -> float:
 	var value: float = GFVariantData.get_option_float(options, key, default_value)
 	if not _is_finite_float(value):
@@ -729,13 +841,25 @@ static func _get_finite_option_float(options: Dictionary, key: String, default_v
 	return value
 
 
+## 判断浮点值既不是 NaN 也不是正负无穷。
+## [br]
+## @api private
+## [br]
 static func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 判断二维向量的两个分量是否均为有限浮点值。
+## [br]
+## @api private
+## [br]
 static func _is_finite_vector2(value: Vector2) -> bool:
 	return _is_finite_float(value.x) and _is_finite_float(value.y)
 
 
+## 判断三维向量的三个分量是否均为有限浮点值。
+## [br]
+## @api private
+## [br]
 static func _is_finite_vector3(value: Vector3) -> bool:
 	return _is_finite_float(value.x) and _is_finite_float(value.y) and _is_finite_float(value.z)

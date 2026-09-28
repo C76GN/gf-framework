@@ -74,6 +74,9 @@ func execute() -> Variant:
 
 # --- 私有/辅助方法 ---
 
+## 将 Variant 收窄为 GFAudioUtility；类型不符时返回 null。
+## [br]
+## @api private
 func _get_audio_utility_value(value: Variant) -> GFAudioUtility:
 	if value is GFAudioUtility:
 		var audio: GFAudioUtility = value

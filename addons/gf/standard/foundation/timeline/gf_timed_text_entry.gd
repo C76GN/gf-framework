@@ -119,6 +119,10 @@ func apply_dictionary(data: Dictionary) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 把 NaN 和无穷时间归零，并将有限时间限制为非负值。
+## [br]
+## @api private
+## [br]
 static func _normalize_time_seconds(value: float) -> float:
 	if is_nan(value) or is_inf(value):
 		return 0.0

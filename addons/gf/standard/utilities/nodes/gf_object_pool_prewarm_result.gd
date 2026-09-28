@@ -34,10 +34,34 @@ enum Status {
 
 # --- 私有变量 ---
 
+## 本次预分配请求的最终状态。
+## [br]
+## @api private
+## [br]
 var _status: Status = Status.INVALID
+
+## 本次预分配请求的稳定原因标识。
+## [br]
+## @api private
+## [br]
 var _reason: StringName = &"unconfigured"
+
+## 规范化后的请求实例数量。
+## [br]
+## @api private
+## [br]
 var _requested_count: int = 0
+
+## 本次请求实际成功创建并缓存的实例数量。
+## [br]
+## @api private
+## [br]
 var _created_count: int = 0
+
+## 标记结果是否已由框架配置；配置后不会再次修改。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
 
 

@@ -89,9 +89,28 @@ signal drop_zone_unregistered(zone_id: StringName)
 
 # --- 私有变量 ---
 
+## 生成拖拽会话 ID 的递增序号。
+## [br]
+## @api private
+## [br]
 var _session_serial: int = 0
+
+## 按会话 ID 保存当前活动的 GFDragSession。
+## [br]
+## @api private
+## [br]
 var _sessions: Dictionary = {}
+
+## 按会话 ID 暂存正在执行终结落点解析的会话，供重入保护使用。
+## [br]
+## @api private
+## [br]
 var _resolving_sessions: Dictionary = {}
+
+## 按落点 ID 保存已注册的 GFDropZone。
+## [br]
+## @api private
+## [br]
 var _zones: Dictionary = {}
 
 
@@ -530,12 +549,20 @@ func get_debug_snapshot(json_compatible: bool = true) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按 priority 降序排列落点；优先级相同时按 zone_id 文本升序排列。
+## [br]
+## @api private
+## [br]
 func _sort_zones(left: GFDropZone, right: GFDropZone) -> bool:
 	if left.priority != right.priority:
 		return left.priority > right.priority
 	return String(left.zone_id) < String(right.zone_id)
 
 
+## 复制并补齐字典结果的 ok/session/zone 字段；非字典结果转为统一结果并保留原值。
+## [br]
+## @api private
+## [br]
 func _normalize_drop_result(raw_result: Variant, session_id: int, zone_id: StringName) -> Dictionary:
 	if raw_result is Dictionary:
 		var copied_result: Variant = GFVariantData.duplicate_variant(raw_result)
@@ -560,6 +587,10 @@ func _normalize_drop_result(raw_result: Variant, session_id: int, zone_id: Strin
 	return normalized_result
 
 
+## 构造包含 ok、session_id、zone_id 和 reason 的统一结果字典。
+## [br]
+## @api private
+## [br]
 func _make_result(ok: bool, session_id: int, zone_id: StringName, reason: StringName) -> Dictionary:
 	return {
 		"ok": ok,
@@ -569,6 +600,10 @@ func _make_result(ok: bool, session_id: int, zone_id: StringName, reason: String
 	}
 
 
+## 收集失效落点并仅注销仍与原对象匹配的注册项，返回注销数量。
+## [br]
+## @api private
+## [br]
 func _prune_stale_zones() -> int:
 	var stale_zones: Dictionary = {}
 	for zone_id_variant: Variant in _zones.keys():
@@ -590,29 +625,49 @@ func _prune_stale_zones() -> int:
 	return removed_count
 
 
+## 确认会话非空，且 sessions 中该 ID 当前仍映射到同一对象。
+## [br]
+## @api private
+## [br]
 func _is_current_session(session_id: int, session: GFDragSession) -> bool:
 	if session == null or not _sessions.has(session_id):
 		return false
 	return is_same(GFVariantData.get_option_value(_sessions, session_id), session)
 
 
+## 仅当给定会话仍是当前对象时从活动字典中移除它。
+## [br]
+## @api private
+## [br]
 func _erase_current_session(session_id: int, session: GFDragSession) -> bool:
 	if not _is_current_session(session_id, session):
 		return false
 	return _sessions.erase(session_id)
 
 
+## 确认 resolving_sessions 中该 ID 当前映射到同一会话对象。
+## [br]
+## @api private
+## [br]
 func _is_session_resolving(session_id: int, session: GFDragSession) -> bool:
 	if not _resolving_sessions.has(session_id):
 		return false
 	return is_same(GFVariantData.get_option_value(_resolving_sessions, session_id), session)
 
 
+## 仅当解析登记仍匹配给定会话时移除 resolving 状态。
+## [br]
+## @api private
+## [br]
 func _release_resolving_session(session_id: int, session: GFDragSession) -> void:
 	if _is_session_resolving(session_id, session):
 		var _removed: bool = _resolving_sessions.erase(session_id)
 
 
+## 按对象身份查找落点的当前注册 ID，未找到时返回空 StringName。
+## [br]
+## @api private
+## [br]
 func _find_registered_zone_id(zone: GFDropZone) -> StringName:
 	if zone == null:
 		return &""
@@ -623,12 +678,20 @@ func _find_registered_zone_id(zone: GFDropZone) -> StringName:
 	return &""
 
 
+## 确认 zone_id 当前注册的对象与给定落点为同一实例。
+## [br]
+## @api private
+## [br]
 func _is_registered_zone(zone_id: StringName, zone: GFDropZone) -> bool:
 	if zone == null or not _zones.has(zone_id):
 		return false
 	return is_same(GFVariantData.get_option_value(_zones, zone_id), zone)
 
 
+## 将 Variant 收窄为 GFDragSession，类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_drag_session(value: Variant) -> GFDragSession:
 	if value is GFDragSession:
 		var session: GFDragSession = value
@@ -636,6 +699,10 @@ func _variant_to_drag_session(value: Variant) -> GFDragSession:
 	return null
 
 
+## 将 Variant 收窄为 GFDropZone，类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_drop_zone(value: Variant) -> GFDropZone:
 	if value is GFDropZone:
 		var zone: GFDropZone = value

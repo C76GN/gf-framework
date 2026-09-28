@@ -66,16 +66,70 @@ const STATUS_DISPOSED: StringName = &"disposed"
 
 # --- 私有变量 ---
 
+## 对所属 Runtime 的弱引用。
+## [br]
+## @api private
+## [br]
 var _runtime_ref: WeakRef = null
+
+## 当前句柄对应的 Runtime 内部 mount token。
+## [br]
+## @api private
+## [br]
 var _token: int = 0
+
+## 创建此 Mount 请求的 owner ID。
+## [br]
+## @api private
+## [br]
 var _owner_id: StringName = &""
+
+## owner 范围内的稳定 mount ID。
+## [br]
+## @api private
+## [br]
 var _mount_id: StringName = &""
+
+## 构建此 Mount 的来源 ID。
+## [br]
+## @api private
+## [br]
 var _source_id: StringName = &""
+
+## 此 Mount 参与合并时使用的优先级。
+## [br]
+## @api private
+## [br]
 var _priority: int = 0
+
+## Runtime 最近一次提交此 Mount 时的 revision。
+## [br]
+## @api private
+## [br]
 var _revision: int = 0
+
+## 句柄当前记录的稳定状态。
+## [br]
+## @api private
+## [br]
 var _status: StringName = STATUS_INVALID_REQUEST
+
+## 标记此句柄是否仍处于活动状态。
+## [br]
+## @api private
+## [br]
 var _active: bool = false
+
+## 此 Mount 持有的资产目录快照。
+## [br]
+## @api private
+## [br]
 var _catalog: GFAssetCatalog = GFAssetCatalog.new()
+
+## 最近一次请求或提交的诊断报告。
+## [br]
+## @api private
+## [br]
 var _report: Dictionary = {}
 
 

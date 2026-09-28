@@ -30,10 +30,29 @@ const KIND_STANDARD: String = "standard"
 ## @api public
 const KIND_EXTENSION: String = "extension"
 
+## 读取 manifest 字典中 Variant 字段的辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 规范化资源路径并判断扩展根目录边界的辅助脚本。
+## [br]
+## @api private
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+## 校验扩展 ID 的辅助脚本。
+## [br]
+## @api private
 const _GF_EXTENSION_ID_VALIDATOR_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_id_validator.gd")
+
+## 读取 JSON object 文件报告的辅助脚本。
+## [br]
+## @api private
 const _GF_EXTENSION_JSON_FILE_READER_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_json_file_reader.gd")
+
+## manifest 当前支持的字段名称。
+## [br]
+## @api private
 const _SUPPORTED_FIELDS: Array[String] = [
 	"dependencies",
 	"description",
@@ -48,6 +67,10 @@ const _SUPPORTED_FIELDS: Array[String] = [
 	"tags",
 	"version",
 ]
+
+## 已迁移到 editor/gf_tool_contribution.json 的旧 manifest 字段名称。
+## [br]
+## @api private
 const _MOVED_TO_TOOL_CONTRIBUTION_FIELDS: Array[String] = [
 	"access_generator_extension_paths",
 	"editor_action_paths",
@@ -57,6 +80,10 @@ const _MOVED_TO_TOOL_CONTRIBUTION_FIELDS: Array[String] = [
 	"gltf_document_extension_paths",
 	"import_plugin_paths",
 ]
+
+## manifest 中禁止声明的扩展关系字段名称。
+## [br]
+## @api private
 const _FORBIDDEN_RELATION_FIELDS: Array[String] = [
 	"after",
 	"before",
@@ -77,6 +104,10 @@ const _FORBIDDEN_RELATION_FIELDS: Array[String] = [
 	"soft_dependencies",
 	"suggests",
 ]
+
+## 按字符串类型检查的 manifest 字段名称。
+## [br]
+## @api private
 const _STRING_FIELDS: Array[String] = [
 	"description",
 	"display_name",
@@ -86,6 +117,10 @@ const _STRING_FIELDS: Array[String] = [
 	"kind",
 	"version",
 ]
+
+## 按字符串数组类型检查的 manifest 字段名称。
+## [br]
+## @api private
 const _STRING_ARRAY_FIELDS: Array[String] = [
 	"dependencies",
 	"installer_paths",
@@ -170,7 +205,14 @@ var source_path: String = ""
 
 # --- 私有变量 ---
 
+## 从源字典键名规范化得到、供后续检查未知字段使用的列表。
+## [br]
+## @api private
 var _source_field_names: Array[String] = []
+
+## 从源字典值类型检查收集的 schema 错误。
+## [br]
+## @api private
 var _source_schema_errors: Array[String] = []
 
 
@@ -392,6 +434,9 @@ func get_validation_errors() -> Array[String]:
 
 # --- 私有/辅助方法 ---
 
+## 读取 JSON object 报告，构造 manifest 并将字段校验错误合并到读取报告中。
+## [br]
+## @api private
 static func _from_json_file_object_report(path: String) -> Dictionary:
 	var json_report: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.read_object_report(path, {
 		"empty_path_error": "manifest path is empty",
@@ -411,10 +456,16 @@ static func _from_json_file_object_report(path: String) -> Dictionary:
 	return _make_json_file_report(errors.is_empty(), normalized_path, manifest, errors)
 
 
+## 去除 manifest 文本首尾空白。
+## [br]
+## @api private
 static func _normalize_manifest_text(value: String) -> String:
 	return value.strip_edges()
 
 
+## 按字段清单检查源字典的字符串、字符串数组、整数和布尔值类型。
+## [br]
+## @api private
 static func _get_source_schema_errors(data: Dictionary) -> Array[String]:
 	var errors: Array[String] = []
 	for field_name: String in _STRING_FIELDS:
@@ -447,10 +498,16 @@ static func _get_source_schema_errors(data: Dictionary) -> Array[String]:
 	return errors
 
 
+## 检查字典中是否存在给定 String 或其 StringName 形式的键。
+## [br]
+## @api private
 static func _has_dictionary_key(data: Dictionary, key: String) -> bool:
 	return data.has(key) or data.has(StringName(key))
 
 
+## 接受 int，或有限且等于其 floor 值的 float。
+## [br]
+## @api private
 static func _is_integer_value(value: Variant) -> bool:
 	if value is int:
 		return true
@@ -460,6 +517,9 @@ static func _is_integer_value(value: Variant) -> bool:
 	return false
 
 
+## 将源字典键转成去首尾空格的字符串，并按首次出现顺序去重。
+## [br]
+## @api private
 static func _normalize_field_name_list(values: Array) -> Array[String]:
 	var result: Array[String] = []
 	for value: Variant in values:
@@ -470,6 +530,9 @@ static func _normalize_field_name_list(values: Array) -> Array[String]:
 	return result
 
 
+## 去除标识符首尾空白、空项和重复项，同时保留首次出现顺序。
+## [br]
+## @api private
 static func _normalize_identifier_list(values: Array[String]) -> Array[String]:
 	var result: Array[String] = []
 	for value: String in values:
@@ -480,6 +543,9 @@ static func _normalize_identifier_list(values: Array[String]) -> Array[String]:
 	return result
 
 
+## 逐项规范化资源路径，并保留数组顺序与重复项。
+## [br]
+## @api private
 static func _normalize_resource_path_list(values: Array[String]) -> Array[String]:
 	var result: Array[String] = []
 	for value: String in values:
@@ -487,6 +553,9 @@ static func _normalize_resource_path_list(values: Array[String]) -> Array[String
 	return result
 
 
+## 按字段列表将已迁移、禁止关系和其他未知字段分别追加为错误。
+## [br]
+## @api private
 func _append_unsupported_field_errors(errors: Array[String]) -> void:
 	for field_name: String in _source_field_names:
 		if _MOVED_TO_TOOL_CONTRIBUTION_FIELDS.has(field_name):
@@ -499,6 +568,9 @@ func _append_unsupported_field_errors(errors: Array[String]) -> void:
 			errors.append("unsupported manifest field: %s" % field_name)
 
 
+## 组装 JSON 文件报告，并复制传入的 errors 数组。
+## [br]
+## @api private
 static func _make_json_file_report(
 	ok: bool,
 	report_source_path: String,
@@ -513,6 +585,9 @@ static func _make_json_file_report(
 	}
 
 
+## 检查资源路径的非空、res:// 前缀、扩展根边界、gd 后缀及来源文件下的脚本存在性。
+## [br]
+## @api private
 func _append_script_resource_path_errors(
 	errors: Array[String],
 	property_name: String,
@@ -536,6 +611,9 @@ func _append_script_resource_path_errors(
 			errors.append("%s path must point to an existing script resource: %s" % [property_name, normalized_path])
 
 
+## 校验每个标识符并将非空错误消息追加到 errors。
+## [br]
+## @api private
 func _append_identifier_errors(
 	errors: Array[String],
 	property_name: String,
@@ -547,5 +625,8 @@ func _append_identifier_errors(
 			errors.append(id_error)
 
 
+## 使用允许根目录相等且空根匹配的路径工具判断 path 是否位于 manifest 根目录。
+## [br]
+## @api private
 func _path_is_under_root(path: String) -> bool:
 	return _GF_PATH_TOOLS.is_path_under_root(path, root_path, true, true)

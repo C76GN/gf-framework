@@ -244,6 +244,10 @@ func get_display_name() -> String:
 
 # --- 私有/辅助方法 ---
 
+## 设备 ID 相同时匹配；两端均指定非零且不同设备时拒绝，其余仅允许键盘/鼠标事件跨设备匹配。
+## [br]
+## @api private
+## [br]
 func _devices_match(event: InputEvent, template: InputEvent) -> bool:
 	if event.device == template.device:
 		return true
@@ -252,10 +256,18 @@ func _devices_match(event: InputEvent, template: InputEvent) -> bool:
 	return _is_keyboard_mouse_event(event) and _is_keyboard_mouse_event(template)
 
 
+## 判断事件是否为 InputEventKey 或任一 InputEventMouse 派生事件。
+## [br]
+## @api private
+## [br]
 func _is_keyboard_mouse_event(event: InputEvent) -> bool:
 	return event is InputEventKey or event is InputEventMouse
 
 
+## 比较优先物理键码；事件未按下时只比键码，按下时还要求四种修饰键状态一致。
+## [br]
+## @api private
+## [br]
 func _matches_key(event: InputEventKey, template: InputEventKey) -> bool:
 	var template_key: Key = template.physical_keycode
 	if template_key == KEY_NONE:
@@ -277,6 +289,10 @@ func _matches_key(event: InputEventKey, template: InputEventKey) -> bool:
 	)
 
 
+## 从支持的 action、按键、鼠标键、手柄按钮、轴或触摸事件读取原始强度，未按下或不支持返回 0。
+## [br]
+## @api private
+## [br]
 func _read_event_value(event: InputEvent, effective_deadzone: float) -> float:
 	if event is InputEventAction:
 		var action_event: InputEventAction = event
@@ -305,6 +321,10 @@ func _read_event_value(event: InputEvent, effective_deadzone: float) -> float:
 	return 0.0
 
 
+## 手柄轴按目标正负方向取非负分量；其他目标及非轴事件返回原始值绝对值。
+## [br]
+## @api private
+## [br]
 func _get_target_strength(event: InputEvent, raw_value: float, target: ValueTarget) -> float:
 	if event is InputEventJoypadMotion:
 		match target:
@@ -317,6 +337,10 @@ func _get_target_strength(event: InputEvent, raw_value: float, target: ValueTarg
 	return absf(raw_value)
 
 
+## 按动作值类型生成自动绑定贡献，并应用绑定 scale 与修饰器。
+## [br]
+## @api private
+## [br]
 func _get_auto_contribution(
 	raw_value: float,
 	event: InputEvent,
@@ -335,6 +359,10 @@ func _get_auto_contribution(
 			return Vector3.ZERO
 
 
+## 依动作维度对值应用非空修饰器；3D 使用 modify_3d，其余通过二维结果更新 XY。
+## [br]
+## @api private
+## [br]
 func _apply_modifiers(
 	value: Vector3,
 	event: InputEvent,
@@ -351,6 +379,10 @@ func _apply_modifiers(
 	return result
 
 
+## 逐项复制非空绑定修饰器，仅保留成功返回的副本。
+## [br]
+## @api private
+## [br]
 func _duplicate_modifiers() -> Array[GFInputModifier]:
 	var result: Array[GFInputModifier] = []
 	for modifier: GFInputModifier in modifiers:
@@ -362,6 +394,10 @@ func _duplicate_modifiers() -> Array[GFInputModifier]:
 	return result
 
 
+## 优先通过当前脚本的 new 创建同脚本绑定子类，失败时创建 GFInputBinding。
+## [br]
+## @api private
+## [br]
 func _instantiate_binding() -> GFInputBinding:
 	var script_value: Variant = get_script()
 	if script_value is Script:
@@ -373,6 +409,10 @@ func _instantiate_binding() -> GFInputBinding:
 	return GFInputBinding.new()
 
 
+## 把 Variant 收窄为 InputEvent，类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_input_event(value: Variant) -> InputEvent:
 	if value is InputEvent:
 		var event: InputEvent = value

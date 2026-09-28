@@ -292,6 +292,9 @@ func to_dict() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 从选项字典读取 GFDictionarySchema，并在类型匹配时返回其副本。
+## [br]
+## @api private
 func _get_dictionary_schema(options: Dictionary, key: String) -> GFDictionarySchema:
 	var value: Variant = GFVariantData.get_option_value(options, key)
 	if value is GFDictionarySchema:
@@ -300,10 +303,16 @@ func _get_dictionary_schema(options: Dictionary, key: String) -> GFDictionarySch
 	return null
 
 
+## 将值编码为 JSON-compatible 文本并返回其 UTF-8 字节数。
+## [br]
+## @api private
 func _estimate_size_bytes(value: Variant) -> int:
 	return GFVariantJsonCodec.stringify_json_compatible(value, "", true).to_utf8_buffer().size()
 
 
+## 去除字符串首尾空白、空项和重复项，并按字符串顺序排序。
+## [br]
+## @api private
 static func _normalize_string_set(values: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for value: String in values:

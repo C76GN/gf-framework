@@ -125,6 +125,10 @@ static func poll(path: String, previous_progress: float = 0.0) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 组合线程加载轮询状态、夹限进度、资源存在标记与错误文本。
+## [br]
+## @api private
+## [br]
 static func _make_poll_result(
 	status: StringName,
 	thread_status: ResourceLoader.ThreadLoadStatus,
@@ -142,6 +146,10 @@ static func _make_poll_result(
 	}
 
 
+## 从线程加载器进度数组取值；已加载时固定返回 1，否则沿用上次进度。
+## [br]
+## @api private
+## [br]
 static func _get_progress(
 	progress_values: Array,
 	previous_progress: float,
@@ -154,6 +162,10 @@ static func _get_progress(
 	return previous_progress
 
 
+## 将 Variant 收窄为 Resource，不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 static func _variant_to_resource(value: Variant) -> Resource:
 	if value is Resource:
 		var resource: Resource = value
@@ -161,6 +173,10 @@ static func _variant_to_resource(value: Variant) -> Resource:
 	return null
 
 
+## 将整数状态映射到已知线程加载枚举，其余值归为无效资源状态。
+## [br]
+## @api private
+## [br]
 static func _to_thread_load_status(value: Variant) -> ResourceLoader.ThreadLoadStatus:
 	var status_value: int = GFVariantData.to_int(value, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE)
 	match status_value:

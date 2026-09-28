@@ -13,6 +13,10 @@ extends GFInputTextProvider
 
 # --- 常量 ---
 
+## 把 JoyButton 枚举映射到通用方位或按钮英文标签的默认表。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_BUTTON_LABELS: Dictionary = {
 	JOY_BUTTON_A: "Button South",
 	JOY_BUTTON_B: "Button East",
@@ -37,6 +41,10 @@ const _DEFAULT_BUTTON_LABELS: Dictionary = {
 	JOY_BUTTON_TOUCHPAD: "Touchpad",
 }
 
+## 把 JoyAxis 枚举映射到通用摇杆或扳机英文标签的默认表。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_AXIS_LABELS: Dictionary = {
 	JOY_AXIS_LEFT_X: "Left Stick X",
 	JOY_AXIS_LEFT_Y: "Left Stick Y",
@@ -46,6 +54,10 @@ const _DEFAULT_AXIS_LABELS: Dictionary = {
 	JOY_AXIS_TRIGGER_RIGHT: "Right Trigger",
 }
 
+## 预载输入事件工具脚本，用于将 Variant 收窄为 Joypad 事件类型。
+## [br]
+## @api private
+## [br]
 const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_input_event_tools.gd")
 
 
@@ -151,6 +163,10 @@ func get_event_text(input_event: InputEvent, options: Dictionary = {}) -> String
 
 # --- 私有/辅助方法 ---
 
+## 优先读取 options 覆盖标签或 provider 标签表，未命中时返回带编号的按钮文本。
+## [br]
+## @api private
+## [br]
 func _button_as_text(button: JoyButton, options: Dictionary) -> String:
 	var labels: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(options, "joypad_button_labels", button_labels))
 	if labels != null and labels.has(int(button)):
@@ -158,6 +174,10 @@ func _button_as_text(button: JoyButton, options: Dictionary) -> String:
 	return "Joy Button %d" % int(button)
 
 
+## 读取轴标签并按配置死区抑制方向后缀，死区外追加正向或负向后缀。
+## [br]
+## @api private
+## [br]
 func _axis_as_text(axis: JoyAxis, axis_value: float, options: Dictionary) -> String:
 	var labels: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(options, "joypad_axis_labels", axis_labels))
 	var base_text: String = ""

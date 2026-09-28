@@ -4,6 +4,9 @@ extends GFInstaller
 
 # --- 常量 ---
 
+## Decision 运行时工具脚本，用于按需创建并注册服务实例。
+## [br]
+## @api private
 const _GF_DECISION_UTILITY_SCRIPT = preload("res://addons/gf/extensions/decision/runtime/gf_decision_utility.gd")
 
 

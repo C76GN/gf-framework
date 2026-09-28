@@ -192,6 +192,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按配置顺序执行默认填充与步骤，并按 collect_report 选择返回轻量结果或统计报告。
+## [br]
+## @api private
 func _apply_to_grid_internal(
 	grid: Dictionary,
 	candidates: Array[Vector2i],
@@ -256,6 +259,9 @@ func _apply_to_grid_internal(
 	}
 
 
+## 按填充选项向候选格写入默认值，并可选择覆盖网格已有键。
+## [br]
+## @api private
 func _fill_default_values(
 	grid: Dictionary,
 	candidates: Array[Vector2i],
@@ -273,6 +279,9 @@ func _fill_default_values(
 	return filled_count
 
 
+## 组装已执行步骤的计数、网格大小、耗时和深复制元数据。
+## [br]
+## @api private
 func _make_applied_step_report(
 	step: GFGridGenerationStep2D,
 	step_index: int,
@@ -294,6 +303,9 @@ func _make_applied_step_report(
 	}
 
 
+## 组装跳过步骤的报告；前后网格大小相同且变更数与耗时为零。
+## [br]
+## @api private
 func _make_skipped_step_report(step_index: int, reason: StringName, grid_size: int) -> Dictionary:
 	return {
 		"index": step_index,

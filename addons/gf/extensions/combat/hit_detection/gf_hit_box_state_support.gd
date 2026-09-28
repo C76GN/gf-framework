@@ -4,6 +4,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 限制一次状态节点后代遍历检查的节点数；达到上限时停止扫描。
+## [br]
+## @api private
 const _MAX_SCANNED_NODES: int = 65536
 
 

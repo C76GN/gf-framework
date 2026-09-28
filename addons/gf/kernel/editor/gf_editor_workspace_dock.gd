@@ -8,6 +8,9 @@ extends Control
 
 # --- 常量 ---
 
+## 读取 dock 记录和 HTTP 响应中的类型化字段。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 ## 关于弹窗尺寸。
@@ -118,31 +121,117 @@ const WORKSPACE_TITLE: String = "GF Workspace"
 
 # --- 私有变量 ---
 
+## 关于按钮节点。
+## [br]
+## @api private
 var _about_button: Button = null
+
+## 首次显示时创建并复用的介绍弹窗。
+## [br]
+## @api private
 var _about_dialog: AcceptDialog = null
+
+## 控制独立工作区窗口置顶状态的按钮。
+## [br]
+## @api private
 var _always_on_top_button: Button = null
+
+## 复用的 GitHub 最新 Release HTTP 请求节点。
+## [br]
+## @api private
 var _latest_version_request: HTTPRequest = null
+
+## 与 TabContainer 页索引一一对应的页面切换按钮。
+## [br]
+## @api private
 var _page_buttons: Array[Button] = []
+
+## 顶部响应式页面按钮容器。
+## [br]
+## @api private
 var _page_selector: HFlowContainer = null
+
+## 持有工作区页面和当前选中页索引的容器。
+## [br]
+## @api private
 var _tabs: TabContainer = null
+
+## 工作区页面数量和当前标题状态提示。
+## [br]
+## @api private
 var _status_label: Label = null
+
+## 关于弹窗中的版本检测按钮。
+## [br]
+## @api private
 var _version_check_button: Button = null
+
+## 关于弹窗中的版本检测状态标签。
+## [br]
+## @api private
 var _version_status_label: Label = null
+
+## 仅在检测到较新 release 时显示的更新页面按钮。
+## [br]
+## @api private
 var _update_release_button: Button = null
+
+## 已通过 release URL 规范化的更新链接。
+## [br]
+## @api private
 var _latest_release_url: String = RELEASES_URL
+
+## setup 提供并深复制的页面贡献记录。
+## [br]
+## @api private
 var _dock_records: Array[Dictionary] = []
+
+## 当前工作区页面使用的编辑器上下文。
+## [br]
+## @api private
 var _editor_context: GFEditorToolContext = null
+
+## 当前已实例化且收到上下文通知的贡献页面控件。
+## [br]
+## @api private
 var _page_controls: Array[Control] = []
+
+## 与占位 Tab 一一对应的待实例化页面记录。
+## [br]
+## @api private
 var _page_records: Array[Dictionary] = []
+
+## 本轮重建中各页面是否已尝试实例化的标记。
+## [br]
+## @api private
 var _page_load_attempted: Array[bool] = []
+
+## 当前是否正在销毁并重建页面占位布局。
+## [br]
+## @api private
 var _rebuilding_pages: bool = false
+
+## setup 或上下文回调要求在当前页面操作结束后重新应用最新配置。
+## [br]
+## @api private
 var _rebuild_pending: bool = false
+
+## 保护页面构造、上下文转发和选页操作期间的重建嵌套。
+## [br]
+## @api private
 var _page_operation_depth: int = 0
+
+## 每次上下文更换递增，用于中止已过期的页面上下文转发循环。
+## [br]
+## @api private
 var _context_generation: int = 0
 
 
 # --- Godot 生命周期方法 ---
 
+## 设置工作区面板的尺寸与裁剪策略并建立内部界面。
+## [br]
+## @api private
 func _init() -> void:
 	name = "GF"
 	clip_contents = true
@@ -152,11 +241,14 @@ func _init() -> void:
 	_build_ui()
 
 
+## 退出树时清除编辑器上下文，让上下文设置路径负责断开关联。
+## [br]
+## @api private
 func _exit_tree() -> void:
 	set_editor_context(null)
 
 
-# --- 公共方法 ---
+# --- 框架内部方法 ---
 
 ## 设置工作区页面记录。显式命名的页面首次选中时创建并缓存；未命名的旧页面提前创建以保留构造器标题。
 ## [br]
@@ -287,6 +379,9 @@ func show_about_dialog() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 只在尚未创建时搭建工作区基础布局并连接顶部控件信号。
+## [br]
+## @api private
 func _build_ui() -> void:
 	if _tabs != null:
 		return
@@ -347,6 +442,10 @@ func _build_ui() -> void:
 	layout.add_child(_tabs)
 
 
+## 在没有活动页面操作时应用待处理配置，先清空旧页面上下文再重建占位 Tab。
+## 未提供 label 的旧记录和当前选中页会实例化；重入请求由 `_rebuild_pending` 在本轮结束后续跑。
+## [br]
+## @api private
 func _rebuild_pages() -> void:
 	if _tabs == null or _page_operation_depth > 0:
 		return
@@ -395,6 +494,9 @@ func _rebuild_pages() -> void:
 		_page_operation_depth -= 1
 
 
+## 为贡献记录创建尚未加载内容的占位 Control，并确定长标题与短标题 metadata。
+## [br]
+## @api private
 func _make_page(record: Dictionary, script_path: String) -> Control:
 	var label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "label", "")
 	if label.is_empty():
@@ -408,6 +510,9 @@ func _make_page(record: Dictionary, script_path: String) -> Control:
 	return page
 
 
+## 仅在页面可加载、未加载且不处于重建中时实例化指定页，然后处理排队重建。
+## [br]
+## @api private
 func _ensure_page(index: int) -> void:
 	if _rebuilding_pages or _rebuild_pending or _tabs == null:
 		return
@@ -419,6 +524,10 @@ func _ensure_page(index: int) -> void:
 	_rebuild_pages()
 
 
+## 先标记页面已尝试，再构造并注入上下文；配置重入时移除刚创建页面。
+## 加载失败时在占位页显示错误，成功时同步标题、内容控件和对应按钮。
+## [br]
+## @api private
 func _create_page(index: int) -> void:
 	# 在用户页面构造前标记，避免入树或上下文回调重入时重复实例化。
 	_page_load_attempted[index] = true
@@ -458,6 +567,10 @@ func _create_page(index: int) -> void:
 		_page_buttons[index].tooltip_text = "切换到 %s" % page.name
 
 
+## 加载贡献脚本并确认其可实例化且继承 Control，再调用 new 创建页面。
+## 任一路径、脚本、基类或实例类型检查失败时返回 null。
+## [br]
+## @api private
 func _instantiate_page(record: Dictionary) -> Control:
 	var script_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "path", "").strip_edges()
 	if script_path.is_empty():
@@ -481,11 +594,17 @@ func _instantiate_page(record: Dictionary) -> Control:
 	return dock
 
 
+## 仅对仍有效且实现 set_editor_context 的页面控件转发当前上下文。
+## [br]
+## @api private
 func _forward_page_context(page_control: Control, editor_context: GFEditorToolContext) -> void:
 	if is_instance_valid(page_control) and page_control.has_method("set_editor_context"):
 		var _context_result: Variant = page_control.call("set_editor_context", editor_context)
 
 
+## 创建仅含 EMPTY_MESSAGE 的概览页，用于没有有效页面记录的工作区。
+## [br]
+## @api private
 func _make_empty_page() -> Control:
 	var page: CenterContainer = CenterContainer.new()
 	page.name = "概览"
@@ -500,6 +619,9 @@ func _make_empty_page() -> Control:
 	return page
 
 
+## 优先使用非空 fallback_label，其次使用 dock.name，最后返回 `Panel`。
+## [br]
+## @api private
 func _resolve_page_label(dock: Control, fallback_label: String) -> String:
 	if not fallback_label.is_empty():
 		return fallback_label
@@ -508,6 +630,10 @@ func _resolve_page_label(dock: Control, fallback_label: String) -> String:
 	return "Panel"
 
 
+## 优先采用记录中的 short_label，否则移除 `GF ` 前缀并映射已知长标题。
+## 未命中映射时返回处理后的完整标题。
+## [br]
+## @api private
 func _resolve_short_page_label(record: Dictionary, label: String) -> String:
 	var explicit_label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "short_label", "").strip_edges()
 	if not explicit_label.is_empty():
@@ -542,6 +668,9 @@ func _resolve_short_page_label(record: Dictionary, label: String) -> String:
 	return result
 
 
+## 对每条 dock 记录执行深复制，隔离 setup 输入数组中的字典与嵌套数据。
+## [br]
+## @api private
 func _copy_records(source: Array[Dictionary]) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	for record: Dictionary in source:
@@ -549,15 +678,24 @@ func _copy_records(source: Array[Dictionary]) -> Array[Dictionary]:
 	return records
 
 
+## 仅在状态标签节点仍有效时更新其文字。
+## [br]
+## @api private
 func _set_status(message: String) -> void:
 	if is_instance_valid(_status_label):
 		_status_label.text = message
 
 
+## 将窗口置顶状态同步到对应按钮。
+## [br]
+## @api private
 func _sync_window_controls() -> void:
 	_sync_always_on_top_button()
 
 
+## 按工作区是否处于独立 Window 更新置顶按钮可用性、选中态和提示。
+## [br]
+## @api private
 func _sync_always_on_top_button() -> void:
 	if not is_instance_valid(_always_on_top_button):
 		return
@@ -572,6 +710,9 @@ func _sync_always_on_top_button() -> void:
 		_always_on_top_button.tooltip_text = "当前工作区没有运行在独立窗口中，无法置顶。"
 
 
+## 沿祖先链查找标题等于 WORKSPACE_TITLE 的 Window；未找到时返回 null。
+## [br]
+## @api private
 func _get_workspace_window() -> Window:
 	var current: Node = self
 	while current != null:
@@ -583,6 +724,9 @@ func _get_workspace_window() -> Window:
 	return null
 
 
+## 销毁旧页面按钮并按当前 Tab 顺序重建按钮、短标题、提示和索引绑定。
+## [br]
+## @api private
 func _rebuild_page_buttons() -> void:
 	if _page_selector == null or _tabs == null:
 		return
@@ -607,6 +751,9 @@ func _rebuild_page_buttons() -> void:
 	_sync_page_buttons()
 
 
+## 依据 TabContainer.current_tab 无信号地同步全部页面按钮选中态。
+## [br]
+## @api private
 func _sync_page_buttons() -> void:
 	if _tabs == null:
 		return
@@ -615,6 +762,9 @@ func _sync_page_buttons() -> void:
 		_page_buttons[index].set_pressed_no_signal(index == _tabs.current_tab)
 
 
+## 显示空工作区提示，或显示页面总数和当前页标题。
+## [br]
+## @api private
 func _update_status() -> void:
 	if _tabs == null or _tabs.get_child_count() <= 0:
 		_set_status(EMPTY_MESSAGE)
@@ -624,6 +774,9 @@ func _update_status() -> void:
 	_set_status("%d 个页面 · 当前：%s" % [_tabs.get_child_count(), current_title])
 
 
+## 懒创建并复用固定尺寸的关于弹窗，隐藏默认确认按钮并填入自定义内容。
+## [br]
+## @api private
 func _ensure_about_dialog() -> void:
 	if is_instance_valid(_about_dialog):
 		return
@@ -639,6 +792,9 @@ func _ensure_about_dialog() -> void:
 	_about_dialog.get_ok_button().visible = false
 
 
+## 生成包含当前框架版本、项目链接与联系方式的纯文本介绍。
+## [br]
+## @api private
 func _make_about_text() -> String:
 	return "\n".join([
 		"GF Framework",
@@ -659,6 +815,9 @@ func _make_about_text() -> String:
 	])
 
 
+## 构建关于弹窗的滚动介绍、项目链接、版本检测/更新按钮和自定义确认按钮。
+## [br]
+## @api private
 func _make_about_content() -> Control:
 	var margin: MarginContainer = MarginContainer.new()
 	margin.name = "AboutContent"
@@ -755,6 +914,9 @@ func _make_about_content() -> Control:
 	return margin
 
 
+## 生成带项目、文档、Issues、Releases 和邮箱链接的居中 BBCode 介绍文本。
+## [br]
+## @api private
 func _make_about_bbcode() -> String:
 	return "\n".join([
 		"[center][b]GF Framework[/b] · 版本：%s" % _get_framework_version(),
@@ -770,6 +932,9 @@ func _make_about_bbcode() -> String:
 	])
 
 
+## 从 res://addons/gf/plugin.cfg 读取 plugin.version；配置读取失败时返回 `unknown`。
+## [br]
+## @api private
 func _get_framework_version() -> String:
 	var config: ConfigFile = ConfigFile.new()
 	var error: Error = config.load("res://addons/gf/plugin.cfg")
@@ -778,6 +943,9 @@ func _get_framework_version() -> String:
 	return _GF_VARIANT_ACCESS_SCRIPT.to_text(config.get_value("plugin", "version", "unknown"), "unknown").strip_edges()
 
 
+## 标签节点仍有效时同步版本状态文字和颜色。
+## [br]
+## @api private
 func _set_version_status(message: String, color: Color = Color(0.72, 0.72, 0.72)) -> void:
 	if not is_instance_valid(_version_status_label):
 		return
@@ -785,6 +953,10 @@ func _set_version_status(message: String, color: Color = Color(0.72, 0.72, 0.72)
 	_version_status_label.modulate = color
 
 
+## 确保请求节点存在后发起 GitHub latest-release GET；请求繁忙时只更新等待提示。
+## 请求无法创建或启动失败时恢复按钮并隐藏更新入口。
+## [br]
+## @api private
 func _request_latest_version() -> void:
 	_ensure_latest_version_request()
 	if not is_instance_valid(_latest_version_request):
@@ -818,6 +990,9 @@ func _request_latest_version() -> void:
 		_set_update_release_button(false)
 
 
+## 懒创建十秒超时、启用线程请求的 HTTPRequest，并连接完成信号。
+## [br]
+## @api private
 func _ensure_latest_version_request() -> void:
 	if is_instance_valid(_latest_version_request):
 		return
@@ -830,6 +1005,10 @@ func _ensure_latest_version_request() -> void:
 	add_child(_latest_version_request)
 
 
+## 规范化最新与当前版本后生成提示、颜色、是否有更新和受限 release URL。
+## 版本比较仅使用前三个数字分量；空最新版本和未知当前版本有独立提示。
+## [br]
+## @api private
 func _make_latest_version_status(latest_version: String, current_version: String, release_url: String = RELEASES_URL) -> Dictionary:
 	var latest: String = _normalize_version_tag(latest_version)
 	var current: String = _normalize_version_tag(current_version)
@@ -871,6 +1050,9 @@ func _make_latest_version_status(latest_version: String, current_version: String
 	}
 
 
+## 逐项比较规范化后的前三个整数版本分量，返回 1、-1 或 0。
+## [br]
+## @api private
 func _compare_version_strings(left: String, right: String) -> int:
 	var left_parts: PackedInt32Array = _parse_version_numbers(left)
 	var right_parts: PackedInt32Array = _parse_version_numbers(right)
@@ -882,6 +1064,9 @@ func _compare_version_strings(left: String, right: String) -> int:
 	return 0
 
 
+## 去除版本标签首尾空白、refs/tags/ 和数字前的 v，并丢弃 build/prerelease 后缀。
+## [br]
+## @api private
 func _normalize_version_tag(value: String) -> String:
 	var text: String = value.strip_edges()
 	if text.begins_with("refs/tags/"):
@@ -895,6 +1080,9 @@ func _normalize_version_tag(value: String) -> String:
 	return text.strip_edges()
 
 
+## 只保留官方 Releases 根 URL 或其子路径；空值及其他地址回退到根 URL。
+## [br]
+## @api private
 func _normalize_release_url(value: String) -> String:
 	var text: String = value.strip_edges()
 	if text.is_empty():
@@ -904,6 +1092,9 @@ func _normalize_release_url(value: String) -> String:
 	return RELEASES_URL
 
 
+## 解析规范化版本的前三个整数分量；缺失或非整数分量保留为零。
+## [br]
+## @api private
 func _parse_version_numbers(value: String) -> PackedInt32Array:
 	var result: PackedInt32Array = PackedInt32Array([0, 0, 0])
 	var parts: PackedStringArray = _normalize_version_tag(value).split(".")
@@ -914,6 +1105,9 @@ func _parse_version_numbers(value: String) -> PackedInt32Array:
 	return result
 
 
+## 加载资源并仅在其为 Script 时返回，否则返回 null。
+## [br]
+## @api private
 func _load_script(path: String) -> Script:
 	var resource: Resource = load(path)
 	if resource is Script:
@@ -922,6 +1116,9 @@ func _load_script(path: String) -> Script:
 	return null
 
 
+## 仅当 Variant 为 Control 时返回强类型控件值，否则返回 null。
+## [br]
+## @api private
 func _variant_to_control(value: Variant) -> Control:
 	if value is Control:
 		var control: Control = value
@@ -929,6 +1126,9 @@ func _variant_to_control(value: Variant) -> Control:
 	return null
 
 
+## 从字典读取指定值，仅在值为 Color 时返回，否则使用 fallback。
+## [br]
+## @api private
 func _get_dictionary_color(dictionary: Dictionary, key: Variant, fallback: Color) -> Color:
 	var value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(dictionary, key, fallback)
 	if value is Color:
@@ -937,6 +1137,10 @@ func _get_dictionary_color(dictionary: Dictionary, key: Variant, fallback: Color
 	return fallback
 
 
+## 将版本状态字典中的 message、color、update_available 和 release_url 应用到界面。
+## release_url 仍经过官方路径限制。
+## [br]
+## @api private
 func _apply_latest_version_status(status: Dictionary) -> void:
 	var status_color: Color = _get_dictionary_color(status, "color", Color(0.72, 0.72, 0.72))
 	_set_version_status(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(status, "message", ""), status_color)
@@ -946,6 +1150,9 @@ func _apply_latest_version_status(status: Dictionary) -> void:
 	)
 
 
+## 先规范化并保存 release URL，再在按钮有效时同步显示和禁用状态。
+## [br]
+## @api private
 func _set_update_release_button(should_show: bool, release_url: String = "") -> void:
 	_latest_release_url = _normalize_release_url(release_url)
 	if not is_instance_valid(_update_release_button):
@@ -956,10 +1163,16 @@ func _set_update_release_button(should_show: bool, release_url: String = "") -> 
 
 # --- 信号处理函数 ---
 
+## 响应关于按钮并显示介绍弹窗。
+## [br]
+## @api private
 func _on_about_button_pressed() -> void:
 	show_about_dialog()
 
 
+## 切换当前工作区窗口置顶状态；优先调用窗口自定义方法，否则直接更新 Window 属性。
+## [br]
+## @api private
 func _on_always_on_top_toggled(enabled: bool) -> void:
 	var window: Window = _get_workspace_window()
 	if window == null:
@@ -976,6 +1189,10 @@ func _on_always_on_top_toggled(enabled: bool) -> void:
 	_sync_always_on_top_button()
 
 
+## 校验页面索引后选中 Tab、按需实例化页面，并刷新按钮和状态标签。
+## 页面操作期间提高嵌套深度，返回后再处理排队重建。
+## [br]
+## @api private
 func _on_page_button_pressed(index: int) -> void:
 	if _tabs == null or index < 0 or index >= _tabs.get_child_count():
 		return
@@ -989,6 +1206,9 @@ func _on_page_button_pressed(index: int) -> void:
 	_update_status()
 
 
+## 非页面重建期间，按需实例化新选中页并同步按钮与状态标签。
+## [br]
+## @api private
 func _on_tabs_tab_changed(tab: int) -> void:
 	if _rebuilding_pages:
 		return
@@ -997,26 +1217,42 @@ func _on_tabs_tab_changed(tab: int) -> void:
 	_update_status()
 
 
+## 将 BBCode meta 转为文本，仅对非空链接请求系统打开。
+## [br]
+## @api private
 func _on_about_link_clicked(meta: Variant) -> void:
 	var link: String = str(meta)
 	if not link.is_empty():
 		var _open_error: Error = OS.shell_open(link)
 
 
+## 非空链接按钮参数交由系统打开。
+## [br]
+## @api private
 func _on_about_link_button_pressed(url: String) -> void:
 	if not url.is_empty():
 		var _open_error: Error = OS.shell_open(url)
 
 
+## 规范化最近保存的更新 URL 后请求系统打开。
+## [br]
+## @api private
 func _on_update_release_pressed() -> void:
 	var release_url: String = _normalize_release_url(_latest_release_url)
 	var _open_error: Error = OS.shell_open(release_url)
 
 
+## 响应版本检测按钮并发起 latest-release 请求。
+## [br]
+## @api private
 func _on_version_check_pressed() -> void:
 	_request_latest_version()
 
 
+## 恢复检测按钮状态，校验网络结果、HTTP 状态与 JSON 对象后应用版本报告。
+## 任一响应校验失败都会显示错误并隐藏更新按钮。
+## [br]
+## @api private
 func _on_latest_version_request_completed(
 	result: int,
 	response_code: int,
@@ -1048,6 +1284,9 @@ func _on_latest_version_request_completed(
 	_apply_latest_version_status(status)
 
 
+## 关于弹窗仍有效时隐藏弹窗。
+## [br]
+## @api private
 func _on_about_confirm_pressed() -> void:
 	if is_instance_valid(_about_dialog):
 		_about_dialog.hide()

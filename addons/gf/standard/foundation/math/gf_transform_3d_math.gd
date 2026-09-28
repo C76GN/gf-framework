@@ -35,6 +35,10 @@ enum ScaleAxisMode {
 
 # --- 常量 ---
 
+## 几何输入有效性与退化向量判定使用的容差。
+## [br]
+## @api private
+## [br]
 const _EPSILON: float = 0.000001
 
 
@@ -391,20 +395,36 @@ static func move_local_point_to_world(
 
 # --- 私有/辅助方法 ---
 
+## 返回有限且长度超过阈值的归一化向量，其它输入返回零向量。
+## [br]
+## @api private
+## [br]
 static func _get_safe_normal(plane_normal: Vector3) -> Vector3:
 	if not _is_finite_vector3(plane_normal) or plane_normal.length_squared() <= _EPSILON:
 		return Vector3.ZERO
 	return plane_normal.normalized()
 
 
+## 判断浮点值既不是 NaN 也不是正负无穷。
+## [br]
+## @api private
+## [br]
 static func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 判断三维向量的三个分量是否均为有限浮点值。
+## [br]
+## @api private
+## [br]
 static func _is_finite_vector3(value: Vector3) -> bool:
 	return _is_finite_float(value.x) and _is_finite_float(value.y) and _is_finite_float(value.z)
 
 
+## 判断 Basis 的三个轴向量是否均为有限值。
+## [br]
+## @api private
+## [br]
 static func _is_finite_basis(value: Basis) -> bool:
 	return (
 		_is_finite_vector3(value.x)
@@ -413,10 +433,18 @@ static func _is_finite_basis(value: Basis) -> bool:
 	)
 
 
+## 判断 Transform3D 的基与原点是否均为有限值。
+## [br]
+## @api private
+## [br]
 static func _is_finite_transform3d(value: Transform3D) -> bool:
 	return _is_finite_basis(value.basis) and _is_finite_vector3(value.origin)
 
 
+## 从 BACK、RIGHT、UP 中选择一个与 up 不近似平行的备用 Z 轴。
+## [br]
+## @api private
+## [br]
 static func _get_fallback_z_axis(up: Vector3) -> Vector3:
 	if absf(up.dot(Vector3.BACK)) < 0.999:
 		return Vector3.BACK
@@ -425,6 +453,10 @@ static func _get_fallback_z_axis(up: Vector3) -> Vector3:
 	return Vector3.UP
 
 
+## 组装射线与平面求交结果的固定字段报告。
+## [br]
+## @api private
+## [br]
 static func _make_ray_plane_report(
 	ok: bool,
 	reason: StringName,
@@ -445,6 +477,10 @@ static func _make_ray_plane_report(
 	}
 
 
+## 组装平面网格吸附结果及其坐标轴、步长和距离诊断字段。
+## [br]
+## @api private
+## [br]
 static func _make_snap_report(
 	ok: bool,
 	reason: StringName,

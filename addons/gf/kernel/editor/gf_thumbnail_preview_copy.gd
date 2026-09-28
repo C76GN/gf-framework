@@ -8,6 +8,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 允许按原生类复制的视觉节点类型。
+## [br]
+## @api private
 const _VISUAL_CLASSES: Array[StringName] = [
 	&"Node", &"Node2D", &"Node3D", &"CanvasGroup",
 	&"Sprite2D", &"AnimatedSprite2D", &"Polygon2D", &"Line2D",
@@ -23,6 +26,10 @@ const _VISUAL_CLASSES: Array[StringName] = [
 	&"ScrollContainer", &"SplitContainer", &"HSplitContainer", &"VSplitContainer",
 	&"FoldableContainer",
 ]
+
+## 缩略图树中只保留基础 Node/Node2D/Node3D 类型的行为节点。
+## [br]
+## @api private
 const _BEHAVIOR_CLASSES: Array[StringName] = [
 	&"Timer", &"AnimationPlayer", &"AnimationTree", &"AudioStreamPlayer",
 	&"AudioStreamPlayer2D", &"AudioStreamPlayer3D",
@@ -35,19 +42,46 @@ const _BEHAVIOR_CLASSES: Array[StringName] = [
 	&"Camera2D", &"Camera3D", &"NavigationAgent2D", &"NavigationAgent3D",
 	&"NavigationRegion2D", &"NavigationRegion3D",
 ]
+
+## 原生属性复制时跳过的行为或脚本归属属性名。
+## [br]
+## @api private
 const _SKIPPED_PROPERTIES: Array[StringName] = [
 	&"script", &"owner", &"unique_name_in_owner", &"process_mode", &"process_thread_group",
 	&"autoplay", &"playing", &"editor_description", &"button_group", &"foldable_group",
 ]
+
+## 单次副本构建允许的节点数量上限。
+## [br]
+## @api private
 const _MAX_NODES: int = 4096
+
+## 单次副本构建允许的层级深度上限。
+## [br]
+## @api private
 const _MAX_DEPTH: int = 128
+
+## 单次副本构建允许的表面材质槽总数上限。
+## [br]
+## @api private
 const _MAX_SURFACE_MATERIAL_SLOTS: int = 4096
 
 
 # --- 私有变量 ---
 
+## 最近一次副本构建的错误说明；create_static_copy() 开始时清空。
+## [br]
+## @api private
 var _error: String = ""
+
+## 当前构建已经处理的节点数量。
+## [br]
+## @api private
 var _node_count: int = 0
+
+## 当前构建已经处理的 MeshInstance3D 表面材质槽数量。
+## [br]
+## @api private
 var _surface_material_slot_count: int = 0
 
 
@@ -85,6 +119,10 @@ func get_error() -> String:
 
 # --- 私有/辅助方法 ---
 
+## 创建允许的原生节点类型，复制可用名称、原生属性和子节点，并关闭复制节点的处理。
+## 节点数或深度超限、类型不支持、属性复制失败或子节点失败时返回 null 并保留错误文本。
+## [br]
+## @api private
 func _copy_node(source: Node, depth: int = 0) -> Node:
 	_node_count += 1
 	if _node_count > _MAX_NODES or depth > _MAX_DEPTH:
@@ -122,6 +160,10 @@ func _copy_node(source: Node, depth: int = 0) -> Node:
 	return copy
 
 
+## 仅接受 ClassDB API_CORE 类型；视觉白名单保留类名，行为白名单降为 Node/Node2D/Node3D。
+## 不支持的类返回空名称。
+## [br]
+## @api private
 func _get_copy_class(source: Node, native_class: StringName) -> StringName:
 	if ClassDB.class_get_api_type(native_class) != ClassDB.API_CORE:
 		return &""
@@ -136,6 +178,10 @@ func _get_copy_class(source: Node, native_class: StringName) -> StringName:
 	return &""
 
 
+## 仅复制目标类可访问的原生 storage 属性，跳过行为字段与不支持类型。
+## 资源值需通过原生资源检查；随后补拷贝索引视觉属性及 Mesh 表面材质。
+## [br]
+## @api private
 func _copy_native_properties(source: Node, copy: Node, copy_class: StringName) -> bool:
 	# 不能使用 source.get_property_list/get/duplicate：源脚本的导出 getter 和
 	# _get_property_list 会执行；ClassDB 的索引 getter 也会经过脚本分派。
@@ -182,6 +228,9 @@ func _copy_native_properties(source: Node, copy: Node, copy_class: StringName) -
 	return true
 
 
+## 通过固定原生 getter/setter 补拷贝 NinePatch、进度条、3D 精灵、Label3D 和 Light3D 的索引属性。
+## [br]
+## @api private
 func _copy_indexed_visual_properties(source: Node, copy: Node) -> void:
 	# 固定原生类型的方法调用绑定到 native MethodBind，不使用源节点 call/get。
 	if source is NinePatchRect and copy is NinePatchRect:
@@ -214,6 +263,10 @@ func _copy_indexed_visual_properties(source: Node, copy: Node) -> void:
 			light_copy.set_param(param, light_source.get_param(param))
 
 
+## 在材质槽总量不超限时，把非 null 的原生表面材质写入副本对应槽位。
+## 材质在本方法中按引用读取并设置，不在此处创建深副本。
+## [br]
+## @api private
 func _copy_surface_materials(source: MeshInstance3D, copy: MeshInstance3D) -> bool:
 	# 每表面覆盖是 MeshInstance3D 的原生动态属性，不能枚举来源的 property list。
 	var surface_count: int = source.get_surface_override_material_count()
@@ -232,6 +285,10 @@ func _copy_surface_materials(source: MeshInstance3D, copy: MeshInstance3D) -> bo
 	return true
 
 
+## 仅接受没有附加脚本且 ClassDB API 类型为 CORE 的 Resource。
+## 不满足条件时设置包含来源节点与属性名的错误并返回 false。
+## [br]
+## @api private
 func _validate_native_resource(resource: Resource, source: Node, property_name: StringName) -> bool:
 	if resource.get_script() != null or ClassDB.class_get_api_type(resource.get_class()) != ClassDB.API_CORE:
 		_error = "Static thumbnail requires a native resource at '%s.%s'." % [source.get_name(), property_name]

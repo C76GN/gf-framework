@@ -120,6 +120,9 @@ static func compute_fov(
 
 # --- 私有/辅助方法 ---
 
+## 使用有理斜率边界迭代扫描一个象限，并按墙面转换拆分后续行。
+## [br]
+## @api private
 static func _scan_quadrant(scan: _ScanState, quadrant: int) -> void:
 	var rows: Array[_Row] = [_Row.new(1, Vector2i(-1, 1), Vector2i(1, 1))]
 	while not rows.is_empty():
@@ -153,6 +156,9 @@ static func _scan_quadrant(scan: _ScanState, quadrant: int) -> void:
 			rows.append(_Row.new(row._depth + 1, row._low, row._high))
 
 
+## 将象限偏移映射到网格格子，按圆半径和扫描对称条件更新可见集。
+## [br]
+## @api private
 static func _visit_cell(scan: _ScanState, row: _Row, column: int, offset: Vector2i) -> int:
 	var cell_x: int = int(scan._origin.x) + int(offset.x)
 	var cell_y: int = int(scan._origin.y) + int(offset.y)
@@ -174,6 +180,9 @@ static func _visit_cell(scan: _ScanState, row: _Row, column: int, offset: Vector
 	return status
 
 
+## 通过每次查询缓存读取阻挡状态，并记录无效回调或非 bool 结果错误。
+## [br]
+## @api private
 static func _query_blocking(scan: _ScanState, cell: Vector2i) -> int:
 	var cached: Variant = scan._blocking.get(cell)
 	if cached is bool:
@@ -194,6 +203,9 @@ static func _query_blocking(scan: _ScanState, cell: Vector2i) -> int:
 	return 1 if blocked else 0
 
 
+## 按象限编号将行深度与列坐标转换为相对原点的偏移。
+## [br]
+## @api private
 static func _quadrant_offset(quadrant: int, depth: int, column: int) -> Vector2i:
 	match quadrant:
 		0:
@@ -206,6 +218,9 @@ static func _quadrant_offset(quadrant: int, depth: int, column: int) -> Vector2i
 			return Vector2i(-depth, column)
 
 
+## 组装失败报告；不返回部分可见格，并保留扫描状态中的计数和错误格。
+## [br]
+## @api private
 static func _failure(error: StringName, scan: _ScanState = null) -> Dictionary:
 	var visible_cells: Array[Vector2i] = []
 	return {
@@ -219,10 +234,28 @@ static func _failure(error: StringName, scan: _ScanState = null) -> Dictionary:
 
 # --- 内部类 ---
 
+## 保存一个象限扫描行的深度及其有理斜率边界。
+## [br]
+## @api private
 class _Row extends RefCounted:
+	# --- 私有变量 ---
+
+	## 当前象限内距离原点的扫描行深度。
+	## [br]
+	## @api private
 	var _depth: int
+
+	## 可见扇区低边界斜率，x/y 分别保存分子与分母。
+	## [br]
+	## @api private
 	var _low: Vector2i
+
+	## 可见扇区高边界斜率，供行内格子对称边界检查。
+	## [br]
+	## @api private
 	var _high: Vector2i
+
+	# --- Godot 生命周期方法 ---
 
 	func _init(depth: int, low: Vector2i, high: Vector2i) -> void:
 		_depth = depth
@@ -230,17 +263,63 @@ class _Row extends RefCounted:
 		_high = high
 
 
+## 保存一次视野查询的输入、阻挡缓存、可见集和错误统计。
+## [br]
+## @api private
 class _ScanState extends RefCounted:
+	# --- 私有变量 ---
+
+	## 本轮合法格坐标的尺寸边界。
+	## [br]
+	## @api private
 	var _grid_size: Vector2i
+
+	## 相对扫描偏移映射到格坐标时使用的原点。
+	## [br]
+	## @api private
 	var _origin: Vector2i
+
+	## 本轮圆形距离限制及最大扫描深度。
+	## [br]
+	## @api private
 	var _radius: int
+
+	## 对未缓存格子同步查询阻挡状态的回调，必须返回 bool。
+	## [br]
+	## @api private
 	var _predicate: Callable
+
+	## 是否把首次可见的阻挡格自身加入结果。
+	## [br]
+	## @api private
 	var _include_walls: bool
+
+	## 按格缓存本轮 predicate 结果，避免跨象限重复查询。
+	## [br]
+	## @api private
 	var _blocking: Dictionary[Vector2i, bool] = {}
+
+	## 本轮累计可见格集合，结果输出时据此去重。
+	## [br]
+	## @api private
 	var _visible: Dictionary[Vector2i, bool] = {}
+
+	## predicate 无效或返回类型不符时记录的失败原因。
+	## [br]
+	## @api private
 	var _error: StringName = &""
+
+	## 失败发生的格坐标；未记录时为 (-1, -1)。
+	## [br]
+	## @api private
 	var _error_cell: Vector2i = Vector2i(-1, -1)
+
+	## 实际调用 predicate 的次数，缓存命中不计数。
+	## [br]
+	## @api private
 	var _queried_cell_count: int = 0
+
+	# --- Godot 生命周期方法 ---
 
 	func _init(grid_size: Vector2i, origin: Vector2i, radius: int, predicate: Callable, include_walls: bool) -> void:
 		_grid_size = grid_size

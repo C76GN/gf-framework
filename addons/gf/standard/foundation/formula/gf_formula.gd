@@ -103,6 +103,9 @@ func calculate_bool(parameter: GFFormulaParameter = null, fallback: bool = false
 
 # --- 私有/辅助方法 ---
 
+## 浮点结果为 NaN 或 Inf 时返回 fallback，否则保留原值。
+## [br]
+## @api private
 static func _finite_or_fallback(value: float, fallback: float) -> float:
 	if is_nan(value) or is_inf(value):
 		return fallback

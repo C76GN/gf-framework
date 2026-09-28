@@ -52,13 +52,44 @@ const COLUMN_COUNT: int = 7
 
 # --- 私有变量 ---
 
+## 限制配置只能成功写入一次。
+## [br]
+## @api private
 var _configured: bool = false
+
+## 当前网格构建结果的状态码。
+## [br]
+## @api private
 var _status: StringName = STATUS_INVALID_REQUEST
+
+## 已配置网格的目标年份；失败结果保留为 0。
+## [br]
+## @api private
 var _year: int = 0
+
+## 已配置网格的目标月份；失败结果保留为 0。
+## [br]
+## @api private
 var _month: int = 0
+
+## 网格每行的首日星期编号；失败结果保留为 0。
+## [br]
+## @api private
 var _week_start: int = 0
+
+## 成功网格的周数；失败结果保留为 0。
+## [br]
+## @api private
 var _row_count: int = 0
+
+## 按行主序保存网格的连续日期单元。
+## [br]
+## @api private
 var _cells: Array[GFCivilDate] = []
+
+## 失败结果的说明；构建成功时为空字符串。
+## [br]
+## @api private
 var _error: String = ""
 
 
@@ -249,6 +280,9 @@ func configure_from_time_layer(
 
 # --- 私有/辅助方法 ---
 
+## 验证日期单元是否组成从周起点到月末的连续完整周网格。
+## [br]
+## @api private
 func _is_valid_built_grid(
 	year: int,
 	month: int,

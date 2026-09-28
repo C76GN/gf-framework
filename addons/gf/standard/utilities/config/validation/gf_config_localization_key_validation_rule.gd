@@ -14,6 +14,10 @@ extends GFConfigValidationRule
 
 # --- 常量 ---
 
+## 验证报告可直接包含的受支持本地化 key 数量上限。
+## [br]
+## @api private
+## [br]
 const _SUPPORTED_VALUES_INLINE_LIMIT: int = 32
 
 
@@ -124,10 +128,18 @@ func _validate_value(value: Variant, context: Dictionary, report: Dictionary) ->
 
 # --- 私有/辅助方法 ---
 
+## 检查是否配置了 known_keys 或 text_map 作为显式 key 来源。
+## [br]
+## @api private
+## [br]
 func _has_explicit_key_source() -> bool:
 	return not known_keys.is_empty() or not text_map.is_empty()
 
 
+## 检查 key 是否存在于 known_keys 或 text_map。
+## [br]
+## @api private
+## [br]
 func _explicit_key_exists(key: String) -> bool:
 	if known_keys.has(key):
 		return true
@@ -136,6 +148,10 @@ func _explicit_key_exists(key: String) -> bool:
 	return text_map.has(StringName(key))
 
 
+## 构造问题上下文，并按数量限制内联展示受支持 key。
+## [br]
+## @api private
+## [br]
 func _make_issue_context(context: Dictionary, value: Variant, expected_value: Variant) -> Dictionary:
 	var issue_context: Dictionary = context.duplicate(true)
 	issue_context["value"] = GFVariantData.duplicate_variant(value)
@@ -160,6 +176,10 @@ func _make_issue_context(context: Dictionary, value: Variant, expected_value: Va
 	return issue_context
 
 
+## 合并、去重并排序 known_keys 与 text_map 中的 key。
+## [br]
+## @api private
+## [br]
 func _get_supported_keys() -> PackedStringArray:
 	var result: PackedStringArray = known_keys.duplicate()
 	for key: Variant in text_map.keys():

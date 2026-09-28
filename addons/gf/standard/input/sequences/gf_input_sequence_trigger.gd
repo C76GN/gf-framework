@@ -13,7 +13,16 @@ extends GFInputTrigger
 
 # --- 常量 ---
 
+## 提供输入运行时实例的有效性检查。
+## [br]
+## @api private
+## [br]
 const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
+
+## 分支配置签名在触发器运行时状态字典中的键名。
+## [br]
+## @api private
+## [br]
 const _BRANCH_CONFIGURATION_SIGNATURE_KEY: String = "branch_configuration_signature"
 
 
@@ -50,7 +59,16 @@ const _BRANCH_CONFIGURATION_SIGNATURE_KEY: String = "branch_configuration_signat
 
 # --- 私有变量 ---
 
+## 从兼容字段 required_action_ids 构建的单分支缓存。
+## [br]
+## @api private
+## [br]
 var _required_branch_cache: Array[GFInputSequenceBranch] = []
+
+## 缓存对应的动作 ID 与间隔配置签名。
+## [br]
+## @api private
+## [br]
 var _required_branch_cache_signature: String = ""
 
 
@@ -128,6 +146,10 @@ func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) 
 
 # --- 私有/辅助方法 ---
 
+## 过滤出有效的显式分支；没有有效显式分支时，将兼容字段 required_action_ids 转为单分支。
+## [br]
+## @api private
+## [br]
 func _get_effective_branches() -> Array[GFInputSequenceBranch]:
 	var result: Array[GFInputSequenceBranch] = []
 	for branch: GFInputSequenceBranch in branches:
@@ -140,6 +162,10 @@ func _get_effective_branches() -> Array[GFInputSequenceBranch]:
 	return _get_required_action_branches()
 
 
+## 验证运行时查询能力和玩家协议后，为每个有效分支取得状态并推进其序列。
+## [br]
+## @api private
+## [br]
 func _advance_branches(
 	state: Dictionary,
 	delta: float,
@@ -160,6 +186,10 @@ func _advance_branches(
 		_advance_branch(branch_states[branch_index], branch, input_runtime, delta, player_index)
 
 
+## 按动作列表和默认间隔签名缓存兼容分支；配置变化或缓存为空时重新构建。
+## [br]
+## @api private
+## [br]
 func _get_required_action_branches() -> Array[GFInputSequenceBranch]:
 	var signature: String = _make_required_action_signature()
 	if _required_branch_cache_signature != signature or _required_branch_cache.is_empty():
@@ -172,6 +202,10 @@ func _get_required_action_branches() -> Array[GFInputSequenceBranch]:
 	return result
 
 
+## 将默认间隔和 required_action_ids 依次编码为兼容分支缓存签名。
+## [br]
+## @api private
+## [br]
 func _make_required_action_signature() -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	_append_signature_part(parts, str(max_gap_seconds))
@@ -180,10 +214,18 @@ func _make_required_action_signature() -> String:
 	return "|".join(parts)
 
 
+## 将字符串长度和值追加为一个带长度前缀的签名片段。
+## [br]
+## @api private
+## [br]
 func _append_signature_part(parts: PackedStringArray, value: String) -> void:
 	var _append_result: bool = parts.append("%d:%s" % [value.length(), value])
 
 
+## 编码全局间隔、玩家作用域、分支顺序及有效步骤配置，用于检测运行时配置变化。
+## [br]
+## @api private
+## [br]
 func _make_branch_configuration_signature(effective_branches: Array[GFInputSequenceBranch]) -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	_append_signature_part(parts, str(max_gap_seconds))
@@ -201,6 +243,10 @@ func _make_branch_configuration_signature(effective_branches: Array[GFInputSeque
 	return "|".join(parts)
 
 
+## 分支配置签名变化时重置顶层进度和分支状态，并保存新签名。
+## [br]
+## @api private
+## [br]
 func _ensure_branch_configuration_state(
 	state: Dictionary,
 	effective_branches: Array[GFInputSequenceBranch]
@@ -215,6 +261,10 @@ func _ensure_branch_configuration_state(
 	state[_BRANCH_CONFIGURATION_SIGNATURE_KEY] = signature
 
 
+## 推进单个分支；处理已完成分支的超时间隔、当前步骤的超时间隔及步骤完成后的游标状态。
+## [br]
+## @api private
+## [br]
 func _advance_branch(
 	branch_state: Dictionary,
 	branch: GFInputSequenceBranch,
@@ -249,10 +299,19 @@ func _advance_branch(
 			branch_state["completed"] = true
 
 
+## 从触发器状态读取 input_runtime 并通过实例守卫取得仍有效的对象。
+## [br]
+## @api private
+## [br]
 func _get_input_runtime(state: Dictionary) -> Object:
 	return _INSTANCE_GUARD._get_live_object(GFVariantData.get_option_value(state, "input_runtime"))
 
 
+## 按步骤的开始/释放条件和最短保持时长消费动作边沿并更新步骤计时状态。
+## 释放步骤检查完成边沿与最近完成时长；未达保持时长或保持中的步骤过早释放时重置当前分支。
+## [br]
+## @api private
+## [br]
 func _advance_step(
 	branch_state: Dictionary,
 	step: GFInputSequenceStep,
@@ -314,6 +373,10 @@ func _advance_step(
 	return false
 
 
+## 读取动作边沿修订号，并仅在其高于分支状态已消费修订时保存并返回 true。
+## [br]
+## @api private
+## [br]
 func _consume_action_edge(
 	branch_state: Dictionary,
 	input_runtime: Object,
@@ -336,6 +399,10 @@ func _consume_action_edge(
 	return true
 
 
+## 仅对尚未开始的后续步骤累计 gap；超出解析后的间隔时返回 true。
+## [br]
+## @api private
+## [br]
 func _should_reset_for_gap(
 	branch_state: Dictionary,
 	step: GFInputSequenceStep,
@@ -356,6 +423,10 @@ func _should_reset_for_gap(
 	return gap_elapsed > gap_seconds
 
 
+## 按步骤、分支、触发器的顺序选择第一个非负最大间隔。
+## [br]
+## @api private
+## [br]
 func _resolve_gap_seconds(step: GFInputSequenceStep, branch: GFInputSequenceBranch) -> float:
 	if step != null and step.max_gap_seconds >= 0.0:
 		return step.max_gap_seconds
@@ -364,6 +435,10 @@ func _resolve_gap_seconds(step: GFInputSequenceStep, branch: GFInputSequenceBran
 	return max_gap_seconds
 
 
+## 为已完成分支继续累计允许间隔，超过间隔时重置分支进度。
+## [br]
+## @api private
+## [br]
 func _advance_completed_branch_gap(
 	branch_state: Dictionary,
 	branch: GFInputSequenceBranch,
@@ -378,12 +453,20 @@ func _advance_completed_branch_gap(
 		_reset_branch_progress(branch_state)
 
 
+## 已完成分支优先使用其非负间隔，否则使用触发器默认间隔。
+## [br]
+## @api private
+## [br]
 func _resolve_completed_gap_seconds(branch: GFInputSequenceBranch) -> float:
 	if branch != null and branch.max_gap_seconds >= 0.0:
 		return branch.max_gap_seconds
 	return max_gap_seconds
 
 
+## 返回分支中非空且 action_id 非空的步骤。
+## [br]
+## @api private
+## [br]
 func _get_valid_steps(branch: GFInputSequenceBranch) -> Array[GFInputSequenceStep]:
 	var result: Array[GFInputSequenceStep] = []
 	if branch == null:
@@ -394,6 +477,10 @@ func _get_valid_steps(branch: GFInputSequenceBranch) -> Array[GFInputSequenceSte
 	return result
 
 
+## 将 branch_states 数量调整到分支数，填补或替换无效项并返回类型化字典数组。
+## [br]
+## @api private
+## [br]
 func _get_branch_states(state: Dictionary, branch_count: int) -> Array[Dictionary]:
 	var branch_states: Array = GFVariantData.get_option_array(state, "branch_states")
 	while branch_states.size() < branch_count:
@@ -413,6 +500,10 @@ func _get_branch_states(state: Dictionary, branch_count: int) -> Array[Dictionar
 	return typed_states
 
 
+## 创建包含步骤索引、间隔、完成标记和当前步骤计时字段的初始状态。
+## [br]
+## @api private
+## [br]
 func _make_branch_state() -> Dictionary:
 	return {
 		"sequence_index": 0,
@@ -424,6 +515,10 @@ func _make_branch_state() -> Dictionary:
 	}
 
 
+## 检查 branch_states 中是否至少有一个分支已完成。
+## [br]
+## @api private
+## [br]
 func _has_completed_branch(state: Dictionary) -> bool:
 	var branch_states: Array = GFVariantData.get_option_array(state, "branch_states")
 	for branch_state_value: Variant in branch_states:
@@ -433,6 +528,10 @@ func _has_completed_branch(state: Dictionary) -> bool:
 	return false
 
 
+## 玩家作用域有效时调用玩家活跃查询；否则调用全局查询，缺少所需方法时返回 false。
+## [br]
+## @api private
+## [br]
 func _is_action_active(input_runtime: Object, action_id: StringName, player_index: int) -> bool:
 	if player_scoped and player_index >= 0:
 		if not input_runtime.has_method("is_action_active_for_player"):
@@ -443,6 +542,10 @@ func _is_action_active(input_runtime: Object, action_id: StringName, player_inde
 	return false
 
 
+## 按当前作用域读取动作 just-started 标记；查询方法缺失时返回 false。
+## [br]
+## @api private
+## [br]
 func _was_action_just_started(input_runtime: Object, action_id: StringName, player_index: int) -> bool:
 	if player_scoped and player_index >= 0:
 		if not input_runtime.has_method("was_action_just_started_for_player"):
@@ -453,6 +556,10 @@ func _was_action_just_started(input_runtime: Object, action_id: StringName, play
 	return false
 
 
+## 按当前作用域读取动作 just-completed 标记；查询方法缺失时返回 false。
+## [br]
+## @api private
+## [br]
 func _was_action_just_completed(input_runtime: Object, action_id: StringName, player_index: int) -> bool:
 	if player_scoped and player_index >= 0:
 		if not input_runtime.has_method("was_action_just_completed_for_player"):
@@ -463,6 +570,10 @@ func _was_action_just_completed(input_runtime: Object, action_id: StringName, pl
 	return false
 
 
+## 按当前作用域读取动作最近完成时长；查询方法缺失时返回 0。
+## [br]
+## @api private
+## [br]
 func _get_last_completed_duration(input_runtime: Object, action_id: StringName, player_index: int) -> float:
 	if player_scoped and player_index >= 0:
 		if not input_runtime.has_method("get_last_completed_duration_for_player"):
@@ -473,6 +584,10 @@ func _get_last_completed_duration(input_runtime: Object, action_id: StringName, 
 	return 0.0
 
 
+## 检查运行时是否提供玩家活跃、开始边沿、完成边沿和最近完成时长四种查询。
+## [br]
+## @api private
+## [br]
 func _has_complete_player_query_protocol(input_runtime: Object) -> bool:
 	return (
 		input_runtime.has_method("is_action_active_for_player")
@@ -482,6 +597,10 @@ func _has_complete_player_query_protocol(input_runtime: Object) -> bool:
 	)
 
 
+## 重置顶层序列进度，并重置数组中每个字典分支的步骤与计时字段。
+## [br]
+## @api private
+## [br]
 func _reset_all_branch_progress(state: Dictionary) -> void:
 	state["sequence_index"] = 0
 	state["gap_elapsed"] = 0.0
@@ -493,6 +612,11 @@ func _reset_all_branch_progress(state: Dictionary) -> void:
 			_reset_branch_progress(GFVariantData.as_dictionary(branch_state_value))
 
 
+## 将分支步骤索引、间隔、完成和当前步骤计时标记恢复初值。
+## 其他状态键（包括已消费边沿修订记录）保持不变。
+## [br]
+## @api private
+## [br]
 func _reset_branch_progress(branch_state: Dictionary) -> void:
 	branch_state["sequence_index"] = 0
 	branch_state["gap_elapsed"] = 0.0
@@ -502,29 +626,57 @@ func _reset_branch_progress(branch_state: Dictionary) -> void:
 	branch_state["step_was_active"] = false
 
 
+## 读取运行时状态中的玩家索引；缺失时返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_runtime_player_index(state: Dictionary) -> int:
 	return GFVariantData.get_option_int(state, "player_index", -1)
 
 
+## 读取分支状态的 completed 标记。
+## [br]
+## @api private
+## [br]
 func _is_branch_completed(branch_state: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(branch_state, "completed")
 
 
+## 读取分支当前步骤索引。
+## [br]
+## @api private
+## [br]
 func _get_branch_sequence_index(branch_state: Dictionary) -> int:
 	return GFVariantData.get_option_int(branch_state, "sequence_index")
 
 
+## 读取当前步骤上一更新中的动作活跃标记。
+## [br]
+## @api private
+## [br]
 func _was_step_active(branch_state: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(branch_state, "step_was_active")
 
 
+## 读取当前步骤是否已观察到有效开始边沿。
+## [br]
+## @api private
+## [br]
 func _has_step_started(branch_state: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(branch_state, "step_started")
 
 
+## 读取当前步骤已累计的保持时长。
+## [br]
+## @api private
+## [br]
 func _get_step_elapsed(branch_state: Dictionary) -> float:
 	return GFVariantData.get_option_float(branch_state, "step_elapsed")
 
 
+## 读取当前分支步骤间隔累计时长。
+## [br]
+## @api private
+## [br]
 func _get_gap_elapsed(branch_state: Dictionary) -> float:
 	return GFVariantData.get_option_float(branch_state, "gap_elapsed")

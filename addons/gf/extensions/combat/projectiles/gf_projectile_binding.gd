@@ -72,16 +72,59 @@ enum FailureReason {
 
 # --- 私有变量 ---
 
+## 记录 binding 当前冻结的首个失败原因；未失败时为 `NONE`。
+## [br]
+## @api private
 var _failure_reason: FailureReason = FailureReason.INTERNAL_FAILURE
+
+## 保留创建此 binding 的 typed definition，以便检查其声明是否仍一致。
+## [br]
+## @api private
 var _definition: GFProjectileDefinition = null
+
+## 以弱引用保存实例根节点，避免快照延长场景实例寿命。
+## [br]
+## @api private
 var _root_ref: WeakRef = null
+
+## 以弱引用保存 definition 对应的唯一 runtime。
+## [br]
+## @api private
 var _runtime_ref: WeakRef = null
+
+## 按 definition 声明顺序保存 impact source 的弱引用。
+## [br]
+## @api private
 var _impact_source_refs: Array[WeakRef] = []
+
+## 保存绑定时选定的维度专用 body adapter。
+## [br]
+## @api private
 var _body_adapter: Resource = null
+
+## 保存绑定时的场景资源身份，用于识别 definition 声明变更。
+## [br]
+## @api private
 var _scene_snapshot: PackedScene = null
+
+## 保存绑定时的 runtime 路径声明。
+## [br]
+## @api private
 var _runtime_path_snapshot: NodePath = NodePath("")
+
+## 保存绑定时按顺序复制的 impact source 路径声明。
+## [br]
+## @api private
 var _impact_source_paths_snapshot: Array[NodePath] = []
+
+## 保存绑定时的 motion resource 身份。
+## [br]
+## @api private
 var _motion_snapshot: GFProjectileMotion = null
+
+## 保存绑定时的 lifetime policy 身份；definition 可不配置该策略。
+## [br]
+## @api private
 var _lifetime_snapshot: GFProjectileLifetimePolicy = null
 
 
@@ -284,6 +327,9 @@ func initialize_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 从弱引用取回仍可用且未排队删除的节点。
+## [br]
+## @api private
 func _node_from_ref(weak_reference: WeakRef) -> Node:
 	if weak_reference == null:
 		return null
@@ -296,6 +342,9 @@ func _node_from_ref(weak_reference: WeakRef) -> Node:
 	return null
 
 
+## 清空旧声明快照，并在成功 binding 上复制当前 definition 声明。
+## [br]
+## @api private
 func _capture_declaration_snapshot() -> void:
 	_scene_snapshot = null
 	_runtime_path_snapshot = NodePath("")
@@ -315,6 +364,9 @@ func _capture_declaration_snapshot() -> void:
 	_lifetime_snapshot = _definition.lifetime_policy
 
 
+## 比较 definition 的场景、路径与资源身份是否仍等于绑定时快照。
+## [br]
+## @api private
 func _declaration_is_current() -> bool:
 	if (
 		_definition == null

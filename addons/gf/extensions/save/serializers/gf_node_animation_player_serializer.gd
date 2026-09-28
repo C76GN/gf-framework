@@ -117,6 +117,10 @@ func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictio
 
 # --- 私有/辅助方法 ---
 
+## 将 AnimationPlayer 类型节点返回为强类型引用。
+## [br]
+## @api private
+## [br]
 func _get_animation_player(node: Node) -> AnimationPlayer:
 	if node is AnimationPlayer:
 		var player: AnimationPlayer = node

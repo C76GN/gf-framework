@@ -152,6 +152,10 @@ func apply_to_3d(player: AudioStreamPlayer3D) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 将枚举索引夹限到已知范围并转换为 AudioServer 播放类型。
+## [br]
+## @api private
+## [br]
 func _to_playback_type(value: int) -> AudioServer.PlaybackType:
 	match clampi(value, 0, 2):
 		AudioServer.PLAYBACK_TYPE_STREAM:
@@ -162,6 +166,10 @@ func _to_playback_type(value: int) -> AudioServer.PlaybackType:
 			return AudioServer.PLAYBACK_TYPE_DEFAULT
 
 
+## 将枚举索引夹限到已知范围并转换为 3D 衰减模型。
+## [br]
+## @api private
+## [br]
 func _to_attenuation_model(value: int) -> AudioStreamPlayer3D.AttenuationModel:
 	match clampi(value, 0, 3):
 		AudioStreamPlayer3D.ATTENUATION_INVERSE_SQUARE_DISTANCE:
@@ -174,6 +182,10 @@ func _to_attenuation_model(value: int) -> AudioStreamPlayer3D.AttenuationModel:
 			return AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
 
 
+## 将枚举索引夹限到已知范围并转换为 3D Doppler 跟踪模式。
+## [br]
+## @api private
+## [br]
 func _to_doppler_tracking(value: int) -> AudioStreamPlayer3D.DopplerTracking:
 	match clampi(value, 0, 2):
 		AudioStreamPlayer3D.DOPPLER_TRACKING_IDLE_STEP:

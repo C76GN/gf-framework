@@ -115,9 +115,28 @@ const COMPRESSION_KEY: String = "compression"
 ## @since 9.0.0
 const DOCUMENT_SCHEMA_VERSION: int = 2
 
+## 存储文档压缩使用的 Deflate 模式。
+## [br]
+## @api private
+## [br]
 const _COMPRESSION_MODE: int = FileAccess.COMPRESSION_DEFLATE
+
+## 完整性摘要采用的算法标识。
+## [br]
+## @api private
+## [br]
 const _INTEGRITY_ALGORITHM: String = "sha256"
+
+## JSON codec 用于标记遍历上限错误的类型名。
+## [br]
+## @api private
+## [br]
 const _TRAVERSAL_LIMIT_TYPE_NAME: String = "TraversalLimit"
+
+## 存储文档 metadata 允许出现的字段名集合。
+## [br]
+## @api private
+## [br]
 const _METADATA_FIELDS: Array = [
 	VERSION_KEY,
 	TIMESTAMP_KEY,
@@ -400,6 +419,10 @@ func calculate_checksum(data: Dictionary, p_format: Format = Format.JSON) -> Str
 
 # --- 私有/辅助方法 ---
 
+## 组合 schema 描述、元数据、payload 和可选完整性摘要形成存储文档。
+## [br]
+## @api private
+## [br]
 func _make_storage_document(
 	payload: Dictionary,
 	active_format: Format,
@@ -435,6 +458,10 @@ func _make_storage_document(
 	return document
 
 
+## 验证文档外层、descriptor、schema、metadata 与 integrity 字段形状；有效时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _validate_storage_document(document: Dictionary) -> String:
 	if document.size() != 2 or not document.has(DOCUMENT_KEY) or not document.has(PAYLOAD_KEY):
 		return "Storage document envelope missing or malformed"
@@ -502,6 +529,10 @@ func _validate_storage_document(document: Dictionary) -> String:
 	return ""
 
 
+## 从 descriptor 读取精确整数 schema_version；结构不符或类型错误时返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_declared_document_schema_version(document: Dictionary) -> int:
 	var descriptor_value: Variant = GFVariantData.get_option_value(document, DOCUMENT_KEY)
 	if not descriptor_value is Dictionary:
@@ -516,6 +547,10 @@ func _get_declared_document_schema_version(document: Dictionary) -> int:
 	return GFVariantData.to_exact_int(schema_version_value, -1)
 
 
+## 移除摘要字段后按指定格式重算 checksum，并与文档中的摘要比较。
+## [br]
+## @api private
+## [br]
 func _verify_document_integrity(document: Dictionary, active_format: Format) -> bool:
 	var descriptor: Dictionary = GFVariantData.get_option_dictionary(document, DOCUMENT_KEY)
 	var integrity: Dictionary = GFVariantData.get_option_dictionary(descriptor, INTEGRITY_KEY)
@@ -532,6 +567,10 @@ func _verify_document_integrity(document: Dictionary, active_format: Format) -> 
 	return calculate_checksum(checksum_document, active_format) == expected
 
 
+## 按目标格式序列化字典；JSON 路径先稳定排序并转换 Godot 值标记。
+## [br]
+## @api private
+## [br]
 func _serialize_dictionary(data: Dictionary, p_format: Format) -> PackedByteArray:
 	match p_format:
 		Format.BINARY:
@@ -544,6 +583,10 @@ func _serialize_dictionary(data: Dictionary, p_format: Format) -> PackedByteArra
 			return JSON.stringify(json_value, "", true).to_utf8_buffer()
 
 
+## 检查值是否为 GFVariantJsonCodec 的完整 TraversalLimit 标记，以阻止输出该错误值。
+## [br]
+## @api private
+## [br]
 func _is_json_traversal_limit_marker(value: Variant) -> bool:
 	if not (value is Dictionary):
 		return false
@@ -568,11 +611,19 @@ func _is_json_traversal_limit_marker(value: Variant) -> bool:
 	)
 
 
+## 经通用反序列化器读取字典；失败结果被转换为空字典。
+## [br]
+## @api private
+## [br]
 func _deserialize_dictionary(bytes: PackedByteArray, p_format: Format) -> Dictionary:
 	var result: Dictionary = _try_deserialize_dictionary(bytes, p_format, normalize_json_numbers)
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(result, "data", {}))
 
 
+## 按格式解析 bytes 并尝试恢复 JSON 标记；成功时返回 data，失败时返回空 data。
+## [br]
+## @api private
+## [br]
 func _try_deserialize_dictionary(
 	bytes: PackedByteArray,
 	p_format: Format,
@@ -596,6 +647,10 @@ func _try_deserialize_dictionary(
 			return { "ok": false, "data": {} }
 
 
+## 递归重建字典与数组，并按稳定键标记排序每层字典键。
+## [br]
+## @api private
+## [br]
 func _sort_value_recursive(value: Variant) -> Variant:
 	if value is Dictionary:
 		var result: Dictionary = {}
@@ -615,6 +670,10 @@ func _sort_value_recursive(value: Variant) -> Variant:
 	return value
 
 
+## 优先使用 GFVariantKeyCodec 标记；无标记时以 JSON 兼容表示和类型名构造排序键。
+## [br]
+## @api private
+## [br]
 func _make_dictionary_sort_key(key: Variant) -> String:
 	var stable_token: String = GFVariantKeyCodec.make_key_token(key)
 	if not stable_token.is_empty():
@@ -627,6 +686,10 @@ func _make_dictionary_sort_key(key: Variant) -> String:
 	return "gfv1:%s:%s" % [type_string(typeof(key)), JSON.stringify(encoded, "", true)]
 
 
+## Binary checksum 输入保持原字典；JSON 输入先归一数字，再经 JSON 序列化往返归一。
+## [br]
+## @api private
+## [br]
 func _normalize_checksum_data(data: Dictionary, p_format: Format) -> Dictionary:
 	if p_format != Format.JSON:
 		return data
@@ -642,6 +705,10 @@ func _normalize_checksum_data(data: Dictionary, p_format: Format) -> Dictionary:
 	return normalized
 
 
+## 递归处理字典值与数组，把近似整数的 float 转成 int；其他值保持原样。
+## [br]
+## @api private
+## [br]
 func _normalize_numbers(value: Variant) -> Variant:
 	if value is Dictionary:
 		var result: Dictionary = {}
@@ -661,10 +728,18 @@ func _normalize_numbers(value: Variant) -> Variant:
 	return value
 
 
+## 返回递归数字归一化后的 Dictionary。
+## [br]
+## @api private
+## [br]
 func _normalize_dictionary_numbers(data: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(_normalize_numbers(data))
 
 
+## key 为零时原样返回 bytes；否则校验 Base64 文本、解码后执行 XOR 还原。
+## [br]
+## @api private
+## [br]
 func _decode_obfuscation(
 	bytes: PackedByteArray,
 	key: int
@@ -680,6 +755,10 @@ func _decode_obfuscation(
 	return _obfuscate_bytes(raw, key)
 
 
+## 检查 Base64 文本长度为 4 的倍数、字符集合法且末尾填充不超过两个等号。
+## [br]
+## @api private
+## [br]
 func _looks_like_base64_text(text: String) -> bool:
 	if text.is_empty() or text.length() % 4 != 0:
 		return false
@@ -701,6 +780,10 @@ func _looks_like_base64_text(text: String) -> bool:
 	return true
 
 
+## 判断码点是否为 Base64 字母、数字、加号或斜杠字符。
+## [br]
+## @api private
+## [br]
 func _is_base64_code(code: int) -> bool:
 	return (
 		(code >= 65 and code <= 90)
@@ -711,6 +794,10 @@ func _is_base64_code(code: int) -> bool:
 	)
 
 
+## 复制输入字节并逐字节异或 key 的低 8 位。
+## [br]
+## @api private
+## [br]
 func _obfuscate_bytes(bytes: PackedByteArray, key: int) -> PackedByteArray:
 	var result: PackedByteArray = PackedByteArray(bytes)
 	var key_byte: int = key & 0xff
@@ -719,6 +806,10 @@ func _obfuscate_bytes(bytes: PackedByteArray, key: int) -> PackedByteArray:
 	return result
 
 
+## 将读取失败字段交由 GFStorageReadResult.configure_failure 构造类型化结果。
+## [br]
+## @api private
+## [br]
 func _make_failure(
 	error_message: String,
 	error_code: Error,
@@ -737,10 +828,18 @@ func _make_failure(
 	)
 
 
+## 读取 options.format，并以资源当前格式作为无效值的回退。
+## [br]
+## @api private
+## [br]
 func _get_format(options: Dictionary) -> Format:
 	return _variant_to_format(GFVariantData.get_option_value(options, "format", format), format)
 
 
+## 将任意值转成合法 Format；不属于枚举的值返回 fallback。
+## [br]
+## @api private
+## [br]
 static func _variant_to_format(value: Variant, fallback: Format) -> Format:
 	var format_value: int = GFVariantData.to_int(value, int(fallback))
 	if not Format.values().has(format_value):
@@ -748,6 +847,10 @@ static func _variant_to_format(value: Variant, fallback: Format) -> Format:
 	return _to_format(format_value, fallback)
 
 
+## 将已检查的整数格式值映射为枚举成员，未知值使用 fallback。
+## [br]
+## @api private
+## [br]
 static func _to_format(value: int, fallback: Format) -> Format:
 	match value:
 		Format.BINARY:
@@ -758,6 +861,10 @@ static func _to_format(value: int, fallback: Format) -> Format:
 			return fallback
 
 
+## 将 BINARY 映射为 binary，其余当前格式映射为 json。
+## [br]
+## @api private
+## [br]
 func _format_to_string(p_format: Format) -> String:
 	match p_format:
 		Format.BINARY:

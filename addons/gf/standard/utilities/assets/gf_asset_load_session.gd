@@ -71,15 +71,64 @@ enum State {
 
 # --- 私有变量 ---
 
+## GFAssetUtility 分配给本会话的稳定 ID。
+## [br]
+## @api private
+## [br]
 var _session_id: StringName = &""
+
+## 本会话暂存预加载资源时使用的分组 ID。
+## [br]
+## @api private
+## [br]
 var _staging_group_id: StringName = &""
+
+## 本会话配置的预加载计划。
+## [br]
+## @api private
+## [br]
 var _plan: GFAssetPreloadPlan = null
+
+## 对创建本会话的 GFAssetUtility 的弱引用。
+## [br]
+## @api private
+## [br]
 var _utility_ref: WeakRef = null
+
+## 会话当前所处的状态枚举值。
+## [br]
+## @api private
+## [br]
 var _state: State = State.CREATED
+
+## 会话完成后构建的终态结果。
+## [br]
+## @api private
+## [br]
 var _result: GFAssetLoadSessionResult = null
+
+## 最近一次收到的底层预加载报告。
+## [br]
+## @api private
+## [br]
 var _load_report: Dictionary = {}
+
+## 控制会话进入 READY 后是否自动尝试提交。
+## [br]
+## @api private
+## [br]
 var _auto_commit: bool = true
+
+## 回滚或中止时记录的原因标识。
+## [br]
+## @api private
+## [br]
 var _rollback_reason: StringName = &""
+
+## 传递到会话终态结果中的调用方元数据。
+## [br]
+## @api private
+## [br]
 var _metadata: Dictionary = {}
 
 
@@ -202,9 +251,24 @@ func rollback(reason: StringName = &"caller_requested") -> bool:
 	return true
 
 
-# --- 私有/辅助方法 ---
+# --- 框架内部方法 ---
 
 # 由 GFAssetUtility 配置会话所有权。
+## 仅首次配置会话标识、工具弱引用和计划副本；失败时不覆盖已有配置。
+## [br]
+## @api framework_internal
+## [br]
+## @param utility: 负责实际预载与分组提交的资源工具，不由会话保持强引用。
+## [br]
+## @param session_id: 非空且由工具分配的会话标识。
+## [br]
+## @param plan: 要复制的预载计划；允许为空，启动时会报告无效计划。
+## [br]
+## @param options: 本次会话的自动提交与元数据选项。
+## [br]
+## @return 是否成功完成首次配置。
+## [br]
+## @schema options: Dictionary，读取 auto_commit（默认 true）和 metadata 字典。
 func _gf_setup(
 	utility: GFAssetUtility,
 	session_id: StringName,
@@ -223,6 +287,9 @@ func _gf_setup(
 
 
 # 由 GFAssetUtility 启动会话。
+## 仅在 CREATED 状态启动一次预载；计划验证通过后先切换 LOADING，再交给工具加载临时组。
+## [br]
+## @api framework_internal
 func _gf_start() -> void:
 	if _state != State.CREATED:
 		return
@@ -249,38 +316,34 @@ func _gf_start() -> void:
 
 
 # 由 GFAssetUtility 在释放时中止会话。
+## 对未完成会话清理临时组并提交失败结果；已有结果的会话不再改写。
+## [br]
+## @api framework_internal
+## [br]
+## @param reason: 中止原因；空值规范化为 aborted。
 func _gf_abort(reason: StringName) -> void:
 	if is_completed():
 		return
 	_rollback_reason = reason if reason != &"" else &"aborted"
 	_cleanup_staging_group()
 	_finish_failure("Asset load session was aborted.", _rollback_reason)
-func _on_preload_completed(report: Dictionary) -> void:
-	_load_report = report.duplicate(true)
-	if is_completed():
-		_cleanup_staging_group()
-		return
-	if _state == State.ROLLBACK_PENDING:
-		_cleanup_staging_group()
-		_set_state(State.ROLLED_BACK)
-		_finish_result(GFAssetLoadSessionResult.STATUS_ROLLED_BACK, "", _rollback_reason, true)
-		return
-	if not GFVariantData.get_option_bool(report, "ok"):
-		_cleanup_staging_group()
-		_finish_failure("One or more assets failed to preload.", &"load_failed")
-		return
-	_set_state(State.READY)
-	ready_to_commit.emit(self)
-	if _auto_commit and _state == State.READY:
-		var _committed: bool = commit()
 
 
+
+# --- 私有/辅助方法 ---
+
+## 清理临时组后发出 FAILED 状态变更，再尝试产生一次失败结果；状态回调可能同步重入。
+## [br]
+## @api private
 func _finish_failure(error: String, reason: StringName) -> void:
 	_cleanup_staging_group()
 	_set_state(State.FAILED)
 	_finish_result(GFAssetLoadSessionResult.STATUS_FAILED, error, reason, true)
 
 
+## 只在尚无结果时构造并存储终态结果，再发送结果副本；先保存结果使完成回调重入不能重复完成。
+## [br]
+## @api private
 func _finish_result(
 	status: StringName,
 	error: String,
@@ -305,12 +368,20 @@ func _finish_result(
 	completed.emit(_result.duplicate_result())
 
 
+## 工具仍可访问且 staging ID 非空时卸载暂存分组。
+## [br]
+## @api private
+## [br]
 func _cleanup_staging_group() -> void:
 	var utility: GFAssetUtility = _get_utility()
 	if utility != null and _staging_group_id != &"":
 		utility.unload_group(_staging_group_id, false)
 
 
+## 解析弱引用中的 GFAssetUtility；引用失效或类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_utility() -> GFAssetUtility:
 	if _utility_ref == null:
 		return null
@@ -321,9 +392,38 @@ func _get_utility() -> GFAssetUtility:
 	return null
 
 
+## 状态实际变化时先写入新值再同步发信号；回调可以继续推动状态，本方法不锁定后续转换。
+## [br]
+## @api private
 func _set_state(next_state: State) -> void:
 	if _state == next_state:
 		return
 	var previous_state: State = _state
 	_state = next_state
 	state_changed.emit(previous_state, _state)
+
+
+# --- 信号处理函数 ---
+
+## 保存预载报告副本；已完成或等待回滚时只清理临时组并完成相应终态。
+## 加载成功先通知 READY，通知返回后仍处于 READY 才允许自动提交，尊重回调中的提交或回滚。
+## [br]
+## @api private
+func _on_preload_completed(report: Dictionary) -> void:
+	_load_report = report.duplicate(true)
+	if is_completed():
+		_cleanup_staging_group()
+		return
+	if _state == State.ROLLBACK_PENDING:
+		_cleanup_staging_group()
+		_set_state(State.ROLLED_BACK)
+		_finish_result(GFAssetLoadSessionResult.STATUS_ROLLED_BACK, "", _rollback_reason, true)
+		return
+	if not GFVariantData.get_option_bool(report, "ok"):
+		_cleanup_staging_group()
+		_finish_failure("One or more assets failed to preload.", &"load_failed")
+		return
+	_set_state(State.READY)
+	ready_to_commit.emit(self)
+	if _auto_commit and _state == State.READY:
+		var _committed: bool = commit()

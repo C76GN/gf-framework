@@ -175,9 +175,11 @@ python tools\check_docs_quality.py --strict
 
 AI 维护任务需要快速索引源码时，仍可使用 `tools/generate_ai_api.py` 生成 `ai_analysis/generated_api`。该目录只服务 AI 阅读，不作为正式文档中间源。
 
+私有声明可以通过 `## @api private` 记录生命周期、所有权与实现约束，采用独立于公开 API 的轻量文档要求。示范、分批补写边界和验证流程见 [私有维护文档编写指南](private-doc-comments.md)。
+
 ## AI MCP 维护入口
 
-GF 提供一个可选的本地 MCP server，作为 AI 维护工具入口。它只读取仓库状态、公开 API 索引和维护文档，并可按白名单运行既有检查命令；它不是 GF 运行时功能，也不进入 `addons/gf`。
+GF 提供一个可选的本地 MCP server，作为 AI 维护工具入口。它读取仓库状态、API 索引和维护文档，并可按白名单运行既有检查命令；它不是 GF 运行时功能，也不进入 `addons/gf`。API 查询默认使用 `public` 范围，显式选择 `maintenance` 可查看内部协作和私有声明；MCP API 资源保持公开范围。
 
 ```powershell
 python tools\gf_mcp_server.py

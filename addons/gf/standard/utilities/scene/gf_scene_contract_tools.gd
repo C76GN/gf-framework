@@ -382,6 +382,10 @@ static func make_validation_rule(contract: Dictionary = {}, options: Dictionary 
 
 # --- 私有/辅助方法 ---
 
+## 适配校验规则目标、上下文并将场景契约问题写入验证报告。
+## [br]
+## @api private
+## [br]
 static func _validate_rule_target(
 	target: Variant,
 	validation_report: GFValidationReport,
@@ -427,6 +431,10 @@ static func _validate_rule_target(
 	return null
 
 
+## 创建单个场景根节点检查所需的报告字典。
+## [br]
+## @api private
+## [br]
 static func _make_report(subject: String, scene_path: String) -> Dictionary:
 	return {
 		"ok": true,
@@ -441,6 +449,10 @@ static func _make_report(subject: String, scene_path: String) -> Dictionary:
 	}
 
 
+## 创建批量场景检查使用的聚合报告字典。
+## [br]
+## @api private
+## [br]
 static func _make_collection_report(subject: String) -> Dictionary:
 	return {
 		"ok": true,
@@ -455,6 +467,10 @@ static func _make_collection_report(subject: String) -> Dictionary:
 	}
 
 
+## 按契约中的 base_class 检查根节点的原生类继承关系。
+## [br]
+## @api private
+## [br]
 static func _check_base_class(report: Dictionary, root: Node, contract: Dictionary) -> void:
 	if not _has_option(contract, KEY_BASE_CLASS):
 		return
@@ -474,6 +490,10 @@ static func _check_base_class(report: Dictionary, root: Node, contract: Dictiona
 	)
 
 
+## 按契约中的 base_script 检查根节点脚本是否等于或继承目标脚本。
+## [br]
+## @api private
+## [br]
 static func _check_base_script(report: Dictionary, root: Node, contract: Dictionary) -> void:
 	var expected_value: Variant = GFVariantData.get_option_value(contract, KEY_BASE_SCRIPT)
 	if not (expected_value is Script):
@@ -507,6 +527,10 @@ static func _check_base_script(report: Dictionary, root: Node, contract: Diction
 	)
 
 
+## 为每个缺失的必需分组追加一条错误问题。
+## [br]
+## @api private
+## [br]
 static func _check_required_groups(report: Dictionary, root: Node, contract: Dictionary) -> void:
 	for group_name: String in _get_contract_string_list(contract, KEY_REQUIRED_GROUPS):
 		if root.is_in_group(group_name):
@@ -522,6 +546,10 @@ static func _check_required_groups(report: Dictionary, root: Node, contract: Dic
 		)
 
 
+## 为根节点所属的每个禁止分组追加一条错误问题。
+## [br]
+## @api private
+## [br]
 static func _check_forbidden_groups(report: Dictionary, root: Node, contract: Dictionary) -> void:
 	for group_name: String in _get_contract_string_list(contract, KEY_FORBIDDEN_GROUPS):
 		if not root.is_in_group(group_name):
@@ -537,6 +565,10 @@ static func _check_forbidden_groups(report: Dictionary, root: Node, contract: Di
 		)
 
 
+## 检查根节点名称是否符合契约声明的前缀与后缀。
+## [br]
+## @api private
+## [br]
 static func _check_name_constraints(report: Dictionary, root: Node, contract: Dictionary) -> void:
 	var root_name: String = String(root.name)
 	var name_prefix: String = GFVariantData.get_option_string(contract, KEY_NAME_PREFIX).strip_edges()
@@ -564,6 +596,10 @@ static func _check_name_constraints(report: Dictionary, root: Node, contract: Di
 		)
 
 
+## 检查场景路径是否符合契约声明的前缀与后缀。
+## [br]
+## @api private
+## [br]
 static func _check_path_constraints(report: Dictionary, contract: Dictionary, scene_path: String) -> void:
 	var path_prefix: String = GFVariantData.get_option_string(contract, KEY_PATH_PREFIX).strip_edges()
 	if not path_prefix.is_empty() and scene_path.is_empty():
@@ -610,6 +646,10 @@ static func _check_path_constraints(report: Dictionary, contract: Dictionary, sc
 		)
 
 
+## 将根脚本交给 GFScriptStructureTools 检查并转录其问题。
+## [br]
+## @api private
+## [br]
 static func _check_script_structure(report: Dictionary, root: Node, contract: Dictionary, options: Dictionary) -> void:
 	var structure: Dictionary = GFVariantData.get_option_dictionary(contract, KEY_SCRIPT_STRUCTURE)
 	if structure.is_empty():
@@ -650,6 +690,10 @@ static func _check_script_structure(report: Dictionary, root: Node, contract: Di
 		)
 
 
+## 将子报告的问题深复制后合并到聚合报告。
+## [br]
+## @api private
+## [br]
 static func _merge_entry_issues(report: Dictionary, entry: Dictionary) -> void:
 	var issues: Array = GFVariantData.as_array(report["issues"])
 	for issue_value: Variant in GFVariantData.get_option_array(entry, "issues"):
@@ -657,6 +701,10 @@ static func _merge_entry_issues(report: Dictionary, entry: Dictionary) -> void:
 		issues.append(issue.duplicate(true))
 
 
+## 构造并追加包含场景上下文及可选 expected/actual 值的问题字典。
+## [br]
+## @api private
+## [br]
 static func _append_issue(
 	report: Dictionary,
 	severity: String,
@@ -685,6 +733,10 @@ static func _append_issue(
 	issues.append(issue)
 
 
+## 统计问题严重级别、更新 ok 与摘要并返回最终报告。
+## [br]
+## @api private
+## [br]
 static func _finalize_report(report: Dictionary) -> Dictionary:
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 	var error_count: int = 0
@@ -719,6 +771,10 @@ static func _finalize_report(report: Dictionary) -> Dictionary:
 	return report
 
 
+## 将字符串、StringName、PackedStringArray 或 Array 规范化为字符串列表。
+## [br]
+## @api private
+## [br]
 static func _get_contract_string_list(contract: Dictionary, key: StringName) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var value: Variant = GFVariantData.get_option_value(contract, key)
@@ -739,10 +795,18 @@ static func _get_contract_string_list(contract: Dictionary, key: StringName) -> 
 	return result
 
 
+## 检查字典是否包含 StringName 键或对应的 String 键。
+## [br]
+## @api private
+## [br]
 static func _has_option(options: Dictionary, key: StringName) -> bool:
 	return options.has(key) or options.has(String(key))
 
 
+## 沿候选脚本的基脚本链检查其是否等于目标脚本。
+## [br]
+## @api private
+## [br]
 static func _script_extends_or_equals(candidate: Script, expected: Script) -> bool:
 	if candidate == null or expected == null:
 		return false
@@ -754,6 +818,10 @@ static func _script_extends_or_equals(candidate: Script, expected: Script) -> bo
 	return false
 
 
+## 取得场景根节点脚本资源路径；没有 Script 时返回空字符串。
+## [br]
+## @api private
+## [br]
 static func _get_root_script_path(root: Node) -> String:
 	if root == null:
 		return ""
@@ -764,6 +832,10 @@ static func _get_root_script_path(root: Node) -> String:
 	return ""
 
 
+## 按资源路径、全局类名或实例基类生成脚本标签。
+## [br]
+## @api private
+## [br]
 static func _get_script_label(script: Script) -> String:
 	if script == null:
 		return ""

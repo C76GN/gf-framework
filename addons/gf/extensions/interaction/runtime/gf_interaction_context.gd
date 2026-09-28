@@ -96,7 +96,14 @@ var group_name: StringName = &""
 
 # --- 私有变量 ---
 
+## 指向当前 sender 的弱引用。
+## [br]
+## @api private
 var _sender_ref: WeakRef = null
+
+## 指向当前 target 的弱引用。
+## [br]
+## @api private
 var _target_ref: WeakRef = null
 
 
@@ -210,6 +217,9 @@ func get_target_or_null() -> Object:
 
 # --- 私有/辅助方法 ---
 
+## 更新 sender 弱引用及实例 ID、节点路径和类名快照。
+## [br]
+## @api private
 func _set_sender(value: Object) -> void:
 	if value == null or not is_instance_valid(value):
 		_sender_ref = null
@@ -223,6 +233,9 @@ func _set_sender(value: Object) -> void:
 	sender_class = value.get_class()
 
 
+## 更新 target 弱引用及实例 ID、节点路径和类名快照。
+## [br]
+## @api private
 func _set_target(value: Object) -> void:
 	if value == null or not is_instance_valid(value):
 		_target_ref = null
@@ -236,6 +249,9 @@ func _set_target(value: Object) -> void:
 	target_class = value.get_class()
 
 
+## 对象是树内节点时返回其当前 NodePath，否则返回空路径。
+## [br]
+## @api private
 func _get_node_path_snapshot(value: Object) -> NodePath:
 	if value != null and is_instance_valid(value) and value is Node:
 		var node_value: Node = value

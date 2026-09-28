@@ -94,13 +94,44 @@ const ABSOLUTE_MAX_POOLED_ITEMS: int = 1024
 ## @since 11.0.0
 const ABSOLUTE_MAX_IDENTITY_TOKEN_LENGTH: int = 1024
 
+## 尚未建立 owner-bound 列表绑定时使用的内部状态值。
+## [br]
+## @api private
 const _STATE_UNBOUND: StringName = &"unbound"
+
+## 已绑定且当前没有等待同步时使用的内部状态值。
+## [br]
+## @api private
 const _STATE_IDLE: StringName = &"idle"
+
+## 已排定后续同步时使用的内部状态值。
+## [br]
+## @api private
 const _STATE_PENDING: StringName = &"pending"
+
+## 正在执行一次同步事务时使用的内部状态值。
+## [br]
+## @api private
 const _STATE_SYNCING: StringName = &"syncing"
+
+## 正在解除绑定时使用的内部状态值。
+## [br]
+## @api private
 const _STATE_UNBINDING: StringName = &"unbinding"
+
+## 正在释放并进入终态时使用的内部状态值。
+## [br]
+## @api private
 const _STATE_DISPOSING: StringName = &"disposing"
+
+## dispose 完成后禁止再次绑定时使用的内部状态值。
+## [br]
+## @api private
 const _STATE_DISPOSED: StringName = &"disposed"
+
+## 分类复用 key 的最大字符数及 UTF-8 字节数。
+## [br]
+## @api private
 const _MAX_REUSE_KEY_LENGTH: int = 1024
 
 
@@ -166,79 +197,345 @@ var fill_cross_axis: bool = true
 
 # --- 私有变量 ---
 
+## 当前绑定状态机状态。
+## [br]
+## @api private
 var _state: StringName = _STATE_UNBOUND
+
+## bind、unbind 或 dispose 推进的代次，用于拒绝旧事务回调。
+## [br]
+## @api private
 var _lifecycle_generation: int = 0
+
+## 项目条目数据变化的本地修订号。
+## [br]
+## @api private
 var _data_revision: int = 0
+
+## 最近一次完整提交所采用的数据修订号。
+## [br]
+## @api private
 var _last_committed_data_revision: int = -1
+
+## 最近一次完整提交所采用的布局模型修订号。
+## [br]
+## @api private
 var _last_committed_layout_revision: int = -1
+
+## 是否已有下一轮同步请求等待处理。
+## [br]
+## @api private
 var _pending_sync: bool = false
+
+## 是否已排入 deferred 同步调用。
+## [br]
+## @api private
 var _deferred_sync_scheduled: bool = false
+
+## 是否有待本轮或后续轮次消费的测量请求。
+## [br]
+## @api private
 var _measurement_requested: bool = false
+
+## 每次排队测量递增，用于保留回调中新增的请求。
+## [br]
+## @api private
 var _measurement_request_revision: int = 0
+
+## 是否在当前事务结束后执行 unbind 清理。
+## [br]
+## @api private
 var _unbind_requested: bool = false
+
+## 是否在当前事务结束后执行 dispose 清理。
+## [br]
+## @api private
 var _dispose_requested: bool = false
+
+## 标记滚动偏移由 Binder 写入，忽略由此触发的滚动值信号。
+## [br]
+## @api private
 var _applying_scroll_adjustment: bool = false
+
+## 是否正在执行同步事务。
+## [br]
+## @api private
 var _sync_in_progress: bool = false
+
+## 是否正在执行 teardown，防止重复进入清理。
+## [br]
+## @api private
 var _teardown_in_progress: bool = false
+
+## 设置绑定时初始化焦点条目数期间，忽略焦点模型变更回调。
+## [br]
+## @api private
 var _binding_focus_initialization: bool = false
+
+## 当前同步轮冻结的主轴；-1 表示未冻结。
+## [br]
+## @api private
 var _sync_layout_axis: int = -1
+
+## 当前同步轮冻结的交叉轴填充策略。
+## [br]
+## @api private
 var _sync_fill_cross_axis: bool = false
+
+## 当前同步轮冻结的活动物化数量上限。
+## [br]
+## @api private
 var _sync_max_materialized_items: int = DEFAULT_MAX_MATERIALIZED_ITEMS
+
+## 当前同步轮冻结的自动测量开关。
+## [br]
+## @api private
 var _sync_auto_measure: bool = true
+
+## 当前同步轮入口时已观察到的测量请求标记。
+## [br]
+## @api private
 var _sync_measurement_requested: bool = false
+
+## 当前同步轮入口时已观察到的测量请求修订号。
+## [br]
+## @api private
 var _sync_measurement_request_revision: int = 0
+
+## 当前同步轮是否因物化上限而截断目标条目范围。
+## [br]
+## @api private
 var _sync_truncated: bool = false
+
+## 当前同步轮冻结的布局模型引用。
+## [br]
+## @api private
 var _sync_layout_model: GFVirtualListModel = null
+
+## 当前同步轮预期的布局模型修订号。
+## [br]
+## @api private
 var _sync_expected_layout_revision: int = -1
+
+## 当前同步轮冻结的内容总长度。
+## [br]
+## @api private
 var _sync_content_extent: float = 0.0
+
+## 当前同步轮目标活动条目的偏移与长度快照。
+## [br]
+## @api private
 var _sync_item_geometries: Dictionary = {}
+
+## 当前同步几何快照是否已建立并可供事务使用。
+## [br]
+## @api private
 var _sync_context_ready: bool = false
+
+## 同步期间是否请求在事务收尾后裁剪对象池。
+## [br]
+## @api private
 var _pool_trim_requested: bool = false
 
+## 以弱引用保存绑定生命周期 owner。
+## [br]
+## @api private
 var _owner_ref: WeakRef = null
+
+## 以弱引用保存绑定的滚动容器。
+## [br]
+## @api private
 var _scroll_ref: WeakRef = null
+
+## 以弱引用保存承载活动行的内容根节点。
+## [br]
+## @api private
 var _content_ref: WeakRef = null
+
+## 以弱引用保存绑定时所在的 Viewport。
+## [br]
+## @api private
 var _viewport_ref: WeakRef = null
+
+## 当前由 Binder 接管的内容主轴；-1 表示尚未接管。
+## [br]
+## @api private
 var _owned_layout_axis: int = -1
+
+## 接管主轴最小尺寸前保存的原始值，解除绑定时恢复。
+## [br]
+## @api private
 var _owned_layout_axis_baseline: float = 0.0
+
+## 当前绑定的虚拟列表布局模型。
+## [br]
+## @api private
 var _layout_model: GFVirtualListModel = null
+
+## 可选的虚拟焦点模型。
+## [br]
+## @api private
 var _focus_model: GFVirtualListFocusModel = null
 
+## 创建行 Control 的项目回调。
+## [br]
+## @api private
 var _item_factory: Callable = Callable()
+
+## 将行 Control 绑定到条目数据的项目回调。
+## [br]
+## @api private
 var _bind_callback: Callable = Callable()
+
+## 解除行 Control 与条目数据绑定的项目回调。
+## [br]
+## @api private
 var _unbind_callback: Callable = Callable()
+
+## 根据条目索引取得稳定身份值的项目回调。
+## [br]
+## @api private
 var _identity_callback: Callable = Callable()
+
+## 根据条目身份取得 Control 复用类别的可选回调。
+## [br]
+## @api private
 var _reuse_key_callback: Callable = Callable()
+
+## 标记本绑定是否使用分类复用回调。
+## [br]
+## @api private
 var _uses_reuse_keys: bool = false
+
+## 返回活动行测量长度的可选项目回调。
+## [br]
+## @api private
 var _measure_callback: Callable = Callable()
+
+## 为虚拟焦点条目选择实际焦点控件的可选项目回调。
+## [br]
+## @api private
 var _focus_target_callback: Callable = Callable()
 
+## 以稳定身份 token 索引已绑定活动行记录。
+## [br]
+## @api private
 var _active_by_token: Dictionary = {}
+
+## 将当前物化条目索引映射到其身份 token。
+## [br]
+## @api private
 var _token_by_index: Dictionary = {}
+
+## 存放已解除条目绑定、等待复用的 parentless Control。
+## [br]
+## @api private
 var _pool: Array[Control] = []
+
 # Control instance ID -> immutable reuse key; the legacy binding uses the empty key.
+## 以实例 ID 记录 Binder 已接管 Control 的固定复用类别。
+## [br]
+## @api private
 var _known_control_ids: Dictionary = {}
 
+## 待同步后交接给虚拟焦点模型条目的索引。
+## [br]
+## @api private
 var _pending_focus_index: int = GFVirtualListFocusModel.NO_FOCUS
+
+## 是否存在待执行的物理焦点交接。
+## [br]
+## @api private
 var _pending_focus_handoff: bool = false
+
+## 排队交接时 Viewport 是否已有物理焦点 owner。
+## [br]
+## @api private
 var _pending_focus_started_with_owner: bool = false
+
+## 待滚入视口的虚拟焦点条目索引。
+## [br]
+## @api private
 var _pending_focus_reveal_index: int = GFVirtualListFocusModel.NO_FOCUS
+
+## 是否需在本轮物化后重新协调项目代码改写的物理焦点。
+## [br]
+## @api private
 var _pending_physical_focus_reconciliation: bool = false
+
+## 焦点意图每次变化递增，用于识别同步期间的新焦点请求。
+## [br]
+## @api private
 var _focus_intent_revision: int = 0
+
+## 标记 Binder 正在执行一次焦点交接。
+## [br]
+## @api private
 var _focus_handoff_in_progress: bool = false
+
+## 当前焦点交接所针对的条目索引。
+## [br]
+## @api private
 var _focus_handoff_index: int = GFVirtualListFocusModel.NO_FOCUS
+
+## 交接期间是否观察到目标行收到 Viewport 焦点通知。
+## [br]
+## @api private
 var _focus_handoff_observed_target: bool = false
 
+## 三个绑定边界节点共用的 tree_exited 回调。
+## [br]
+## @api private
 var _binding_tree_exited_callable: Callable = Callable()
+
+## 保存成功连接 tree_exited 的边界节点弱引用，便于解除连接。
+## [br]
+## @api private
 var _binding_tree_exit_refs: Array[WeakRef] = []
+
+## ScrollContainer 尺寸变化回调。
+## [br]
+## @api private
 var _scroll_resized_callable: Callable = Callable()
+
+## 内容根节点尺寸变化回调。
+## [br]
+## @api private
 var _content_resized_callable: Callable = Callable()
+
+## 垂直滚动条值变化回调。
+## [br]
+## @api private
 var _vertical_scroll_callable: Callable = Callable()
+
+## 水平滚动条值变化回调。
+## [br]
+## @api private
 var _horizontal_scroll_callable: Callable = Callable()
+
+## 布局模型修订变化回调。
+## [br]
+## @api private
 var _layout_changed_callable: Callable = Callable()
+
+## 虚拟焦点模型焦点索引变化回调。
+## [br]
+## @api private
 var _focus_changed_callable: Callable = Callable()
+
+## Viewport 物理焦点 owner 变化回调。
+## [br]
+## @api private
 var _viewport_focus_changed_callable: Callable = Callable()
+
+## 最近一次保存并返回的同步结果。
+## [br]
+## @api private
 var _last_sync_result: GFVirtualListSyncResult = null
+
+## 标记正在发出 sync_completed，防止信号回调重入当前同步轮。
+## [br]
+## @api private
 var _emitting_sync_completed: bool = false
 
 
@@ -640,6 +937,9 @@ func dispose() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 校验未绑定状态、边界节点和必需回调，再缓存引用、连接信号并请求首轮同步。
+## [br]
+## @api private
 func _bind_internal(
 	owner: Node,
 	scroll_container: ScrollContainer,
@@ -701,6 +1001,10 @@ func _bind_internal(
 	return request_sync()
 
 
+## 按入口快照计算可见范围、身份和物化计划，提交行绑定、布局、测量与焦点变更。
+## 生命周期或数据修订在回调期间变化时中止或回滚本轮，并返回 deferred 或终态结果。
+## [br]
+## @api private
 func _synchronize(generation: int) -> GFVirtualListSyncResult:
 	if generation != _lifecycle_generation:
 		return _make_terminal_result(_get_interrupted_status())
@@ -1105,6 +1409,10 @@ func _synchronize(generation: int) -> GFVirtualListSyncResult:
 	)
 
 
+## 对目标索引调用身份及复用分类回调，预检非法或重复 key 并建立描述符列表。
+## 回调期间生命周期结束时返回终态；数据修订变化时返回 deferred。
+## [br]
+## @api private
 func _build_identity_plan(
 	target_indices: PackedInt32Array,
 	generation: int,
@@ -1189,6 +1497,10 @@ func _build_identity_plan(
 	}
 
 
+## 将支持的 Variant 身份编码为受字符数和 UTF-8 字节数限制的稳定 token。
+## 返回字典同时区分无法编码与超过上限两类失败。
+## [br]
+## @api private
 func _make_bounded_identity_token(item_id: Variant) -> Dictionary:
 	if typeof(item_id) in [TYPE_STRING, TYPE_STRING_NAME, TYPE_NODE_PATH]:
 		var source_text: String = str(item_id)
@@ -1221,6 +1533,9 @@ func _make_bounded_identity_token(item_id: Variant) -> Dictionary:
 	}
 
 
+## 要求复用 key 非空，且字符数与 UTF-8 字节数均不超过内部上限。
+## [br]
+## @api private
 func _is_valid_reuse_key(reuse_key: StringName) -> bool:
 	var key_text: String = String(reuse_key)
 	if key_text.is_empty() or key_text.length() > _MAX_REUSE_KEY_LENGTH:
@@ -1228,6 +1543,9 @@ func _is_valid_reuse_key(reuse_key: StringName) -> bool:
 	return key_text.to_utf8_buffer().size() <= _MAX_REUSE_KEY_LENGTH
 
 
+## 按已接管 Control 的实例 ID 读取复用类别；无效或未记录时返回空 key。
+## [br]
+## @api private
 func _get_control_reuse_key(control: Control) -> StringName:
 	if control == null or not is_instance_valid(control):
 		return &""
@@ -1238,6 +1556,10 @@ func _get_control_reuse_key(control: Control) -> StringName:
 	return &""
 
 
+## 为目标描述符预选活动行、可回收活动行或对象池 Control，并暂存新建记录。
+## factory 失败返回错误索引；数据修订变化时保留暂存记录供调用方回滚。
+## [br]
+## @api private
 func _stage_materialization_plan(
 	descriptors: Array[Dictionary],
 	generation: int,
@@ -1347,6 +1669,9 @@ func _stage_materialization_plan(
 	}
 
 
+## 将活动记录转换为本轮计划记录，保留 Control、绑定状态和原身份位置。
+## [br]
+## @api private
 func _make_plan_record_from_active(active_record: Dictionary) -> Dictionary:
 	return {
 		"control": _get_record_control(active_record),
@@ -1359,6 +1684,10 @@ func _make_plan_record_from_active(active_record: Dictionary) -> Dictionary:
 	}
 
 
+## 按计划解除离场行、重绑目标行并建立新的双向索引，检查回调后的所有权边界。
+## 数据修订漂移时回滚并返回 deferred 指标；绑定回调拒绝的行不会进入活动索引。
+## [br]
+## @api private
 func _commit_materialization_plan(
 	plan: Dictionary,
 	generation: int,
@@ -1616,6 +1945,9 @@ func _commit_materialization_plan(
 	}
 
 
+## 中止提交时撤销本轮已调用的绑定，并将新取出的非活动 Control 放回对象池。
+## [br]
+## @api private
 func _abort_materialization_commit(planned_records: Array[Dictionary]) -> void:
 	var content_root: Control = _get_content_root()
 	for record: Dictionary in planned_records:
@@ -1639,6 +1971,10 @@ func _abort_materialization_commit(planned_records: Array[Dictionary]) -> void:
 		record["attached_to_content"] = false
 
 
+## 数据在提交回调期间变化后解除现有活动行，将其归还对象池并清空活动索引。
+## generation 变化或绑定已结束时停止后续清理。
+## [br]
+## @api private
 func _rollback_materialization_after_data_drift(
 	planned_records: Array[Dictionary],
 	generation: int
@@ -1698,6 +2034,9 @@ func _rollback_materialization_after_data_drift(
 	return released_count
 
 
+## 将计划内与指定 Control 相同的记录标记为已脱离内容根节点。
+## [br]
+## @api private
 func _mark_planned_control_parentless(
 	planned_records: Array[Dictionary],
 	control: Control
@@ -1709,6 +2048,10 @@ func _mark_planned_control_parentless(
 			planned_record["attached_to_content"] = false
 
 
+## 逐行取得本轮活动 Control 尺寸并更新布局模型，随后重排内容与行位置。
+## 对滚动位置之前已完全经过的行累计尺寸变化并补偿滚动偏移，回调导致数据漂移时延后。
+## [br]
+## @api private
 func _measure_active_controls(
 	scroll_offset: float,
 	generation: int,
@@ -1895,6 +2238,10 @@ func _measure_active_controls(
 	}
 
 
+## 按本轮几何快照或布局模型位置尺寸写入活动行 Control。
+## 每次属性写入前后通过代次、数据修订和所有权边界检查。
+## [br]
+## @api private
 func _layout_active_controls(generation: int, sync_data_revision: int) -> bool:
 	var content_root: Control = _get_content_root()
 	var scroll_container: ScrollContainer = _get_scroll_container()
@@ -1949,6 +2296,9 @@ func _layout_active_controls(generation: int, sync_data_revision: int) -> bool:
 	return true
 
 
+## 确认同步代次、活动 Control 所有权和数据修订仍匹配。
+## [br]
+## @api private
 func _layout_write_barrier_is_current(
 	generation: int,
 	sync_data_revision: int
@@ -1961,6 +2311,9 @@ func _layout_write_barrier_is_current(
 	return _sync_data_revision_is_current(sync_data_revision)
 
 
+## 将布局模型当前或同步轮冻结的内容长度写入内容根节点主轴最小尺寸。
+## [br]
+## @api private
 func _update_content_extent() -> void:
 	var content_root: Control = _get_content_root()
 	if content_root == null or _layout_model == null:
@@ -1974,6 +2327,9 @@ func _update_content_extent() -> void:
 	_apply_content_extent_snapshot(content_root, next_owned_axis, content_extent)
 
 
+## 接管指定主轴的 custom_minimum_size；主轴改变时先恢复先前保存的基线值。
+## [br]
+## @api private
 func _apply_content_extent_snapshot(
 	content_root: Control,
 	next_owned_axis: int,
@@ -2000,6 +2356,10 @@ func _apply_content_extent_snapshot(
 	content_root.custom_minimum_size = minimum_size
 
 
+## 在活动数量预算内优先保留视口索引，再交替向请求范围两侧扩展并排序。
+## 返回目标索引和是否截断的标记。
+## [br]
+## @api private
 func _select_target_indices(viewport_range: Vector2i, requested_range: Vector2i) -> Dictionary:
 	var limit: int = maxi(_sync_max_materialized_items, 1)
 	var requested_count: int = maxi(requested_range.y - requested_range.x, 0)
@@ -2030,6 +2390,10 @@ func _select_target_indices(viewport_range: Vector2i, requested_range: Vector2i)
 	}
 
 
+## 优先从匹配复用 key 的对象池取 Control，否则调用 factory 并登记新实例所有权。
+## 验证回调未结束绑定代次、未破坏现有所有权边界，且结果为未挂载的新 Control。
+## [br]
+## @api private
 func _acquire_control(
 	generation: int,
 	staged_records: Array[Dictionary],
@@ -2093,6 +2457,9 @@ func _acquire_control(
 	}
 
 
+## 将计划暂存记录中的 Control 逐项归还对象池；失效引用触发 dispose。
+## [br]
+## @api private
 func _rollback_staged_records(records: Array[Dictionary]) -> void:
 	for record: Dictionary in records:
 		var control: Control = _get_record_control(record)
@@ -2102,6 +2469,10 @@ func _rollback_staged_records(records: Array[Dictionary]) -> void:
 		var _released: bool = _release_control_to_pool(control, null)
 
 
+## 校验预期父节点后移除 Control，并按 Binder 状态放入池或排队释放。
+## 所有权边界不符时触发 dispose 并返回 false。
+## [br]
+## @api private
 func _release_control_to_pool(control: Control, expected_parent: Node) -> bool:
 	if control == null or not is_instance_valid(control) or control.is_queued_for_deletion():
 		dispose()
@@ -2124,6 +2495,9 @@ func _release_control_to_pool(control: Control, expected_parent: Node) -> bool:
 	return true
 
 
+## 校验对象池后，按当前上限从池尾移除并释放多余 Control。
+## [br]
+## @api private
 func _trim_pool_to_limit() -> void:
 	_pool_trim_requested = false
 	if not _pool_controls_are_live():
@@ -2137,6 +2511,9 @@ func _trim_pool_to_limit() -> void:
 			_queue_free_owned_control(control)
 
 
+## 删除 Control 的已知所有权记录，从父节点摘除后调用 queue_free。
+## [br]
+## @api private
 func _queue_free_owned_control(control: Control) -> void:
 	if control == null or not is_instance_valid(control):
 		return
@@ -2149,6 +2526,9 @@ func _queue_free_owned_control(control: Control) -> void:
 		control.queue_free()
 
 
+## 检查 Control 的原始父节点符合活动行或对象池来源，再挂入内容根节点。
+## [br]
+## @api private
 func _ensure_control_parent(control: Control, from_active: bool) -> bool:
 	var content_root: Control = _get_content_root()
 	if (
@@ -2172,6 +2552,9 @@ func _ensure_control_parent(control: Control, from_active: bool) -> bool:
 	return true
 
 
+## 调用项目 bind_callback；只有返回 bool 且值为 true 才接受绑定。
+## [br]
+## @api private
 func _invoke_bind(record: Dictionary) -> bool:
 	var control: Control = _get_record_control(record)
 	if control == null:
@@ -2187,6 +2570,9 @@ func _invoke_bind(record: Dictionary) -> bool:
 	return false
 
 
+## 对有效记录调用项目 unbind_callback，参数为 Control、索引和身份值。
+## [br]
+## @api private
 func _invoke_unbind(record: Dictionary) -> void:
 	var control: Control = _get_record_control(record)
 	if control == null or not _unbind_callback.is_valid():
@@ -2198,6 +2584,9 @@ func _invoke_unbind(record: Dictionary) -> void:
 	)
 
 
+## 优先使用测量回调的数值结果；否则读取 Control 主轴最小尺寸，非正时回退到实际尺寸。
+## [br]
+## @api private
 func _measure_control(record: Dictionary) -> float:
 	var control: Control = _get_record_control(record)
 	if control == null:
@@ -2226,6 +2615,10 @@ func _measure_control(record: Dictionary) -> float:
 	return extent
 
 
+## 冻结绑定、布局、视口及主轴快照，计算并写入目标滚动偏移。
+## 写入前后快照失效或实际偏移未达到量化目标时请求重新同步并返回 false。
+## [br]
+## @api private
 func _scroll_to_item_internal(item_index: int, alignment: ScrollAlignment) -> bool:
 	if _sync_in_progress and _sync_context_ready:
 		return false
@@ -2301,6 +2694,10 @@ func _scroll_to_item_internal(item_index: int, alignment: ScrollAlignment) -> bo
 	return operation_is_current
 
 
+## 比较滚动操作的代次、数据与布局修订、视口、主轴和绑定节点身份。
+## 同时验证所有已接管 Control 的父节点边界。
+## [br]
+## @api private
 func _scroll_operation_is_current(
 	generation: int,
 	data_revision: int,
@@ -2334,11 +2731,17 @@ func _scroll_operation_is_current(
 	return true
 
 
+## 仍处于活动绑定时请求下一轮同步以收敛滚动快照漂移。
+## [br]
+## @api private
 func _request_sync_after_scroll_drift() -> void:
 	if is_bound() and _state not in [_STATE_UNBINDING, _STATE_DISPOSING]:
 		var _requested: bool = request_sync()
 
 
+## 读取布局模型中的条目位置和长度，并转交几何版本计算滚动偏移。
+## [br]
+## @api private
 func _calculate_scroll_offset_for_item(
 	layout_model: GFVirtualListModel,
 	item_index: int,
@@ -2359,6 +2762,9 @@ func _calculate_scroll_offset_for_item(
 	)
 
 
+## 根据 START、CENTER、END 或 NEAREST 对齐方式计算偏移，并夹到可滚动范围。
+## [br]
+## @api private
 func _calculate_scroll_offset_for_geometry(
 	item_start: float,
 	item_extent: float,
@@ -2385,6 +2791,10 @@ func _calculate_scroll_offset_for_geometry(
 	return clampf(next_offset, 0.0, max_offset)
 
 
+## 同步期间若物理焦点落在与虚拟焦点不同的活动行内，则释放该行焦点。
+## 每次焦点操作后检查生命周期、所有权和数据修订是否仍有效。
+## [br]
+## @api private
 func _reconcile_pending_physical_focus(
 	generation: int,
 	sync_data_revision: int
@@ -2429,6 +2839,10 @@ func _reconcile_pending_physical_focus(
 	return true
 
 
+## 为当前虚拟焦点条目解析项目指定目标控件并尝试 grab_focus。
+## 焦点目标、代次或数据快照失效时保留或清除交接状态，不继续使用过期行。
+## [br]
+## @api private
 func _apply_pending_focus_handoff(
 	generation: int,
 	sync_data_revision: int
@@ -2514,6 +2928,9 @@ func _apply_pending_focus_handoff(
 	return true
 
 
+## 检查待交接焦点索引、焦点模型和绑定代次仍与目标一致。
+## [br]
+## @api private
 func _focus_handoff_is_current(generation: int, handoff_index: int) -> bool:
 	return (
 		generation == _lifecycle_generation
@@ -2524,6 +2941,9 @@ func _focus_handoff_is_current(generation: int, handoff_index: int) -> bool:
 	)
 
 
+## 记录待交接索引，并记下请求时 Viewport 是否已有物理焦点 owner。
+## [br]
+## @api private
 func _arm_pending_focus_handoff(item_index: int) -> void:
 	_pending_focus_index = item_index
 	_pending_focus_handoff = item_index != GFVirtualListFocusModel.NO_FOCUS
@@ -2536,12 +2956,18 @@ func _arm_pending_focus_handoff(item_index: int) -> void:
 	)
 
 
+## 清除待交接标记、索引和请求时的物理焦点状态。
+## [br]
+## @api private
 func _clear_pending_focus_handoff() -> void:
 	_pending_focus_handoff = false
 	_pending_focus_index = GFVirtualListFocusModel.NO_FOCUS
 	_pending_focus_started_with_owner = false
 
 
+## 自动 reveal 已启用且索引有效时保存待滚入视口的焦点索引。
+## [br]
+## @api private
 func _arm_pending_focus_reveal(item_index: int) -> void:
 	if not auto_reveal_focus or item_index == GFVirtualListFocusModel.NO_FOCUS:
 		_clear_pending_focus_reveal()
@@ -2549,10 +2975,16 @@ func _arm_pending_focus_reveal(item_index: int) -> void:
 	_pending_focus_reveal_index = item_index
 
 
+## 清除待滚动 reveal 的焦点索引。
+## [br]
+## @api private
 func _clear_pending_focus_reveal() -> void:
 	_pending_focus_reveal_index = GFVirtualListFocusModel.NO_FOCUS
 
 
+## 清除旧焦点意图，并按当前焦点模型安排视口 reveal 和必要的物理焦点交接。
+## [br]
+## @api private
 func _adopt_bound_virtual_focus() -> void:
 	_clear_pending_focus_handoff()
 	_clear_pending_focus_reveal()
@@ -2569,6 +3001,10 @@ func _adopt_bound_virtual_focus() -> void:
 		_arm_pending_focus_handoff(focused_index)
 
 
+## 仅当 Viewport 当前焦点 owner 位于记录的行内时释放焦点。
+## 若焦点仍存在返回 true；焦点已清空且对应虚拟焦点有效时排队交接并返回 false。
+## [br]
+## @api private
 func _release_control_focus_if_owned(record: Dictionary) -> bool:
 	var control: Control = _get_record_control(record)
 	var viewport: Viewport = _get_viewport()
@@ -2590,6 +3026,10 @@ func _release_control_focus_if_owned(record: Dictionary) -> bool:
 	return false
 
 
+## 建立生命周期、尺寸、滚动、布局、虚拟焦点和 Viewport 焦点信号连接。
+## 边界节点去重后以弱引用记录成功连接的 tree_exited 节点。
+## [br]
+## @api private
 func _connect_binding_signals(
 	owner: Node,
 	scroll_container: ScrollContainer,
@@ -2631,6 +3071,9 @@ func _connect_binding_signals(
 		var _viewport_connected: Error = viewport.gui_focus_changed.connect(_viewport_focus_changed_callable) as Error
 
 
+## 断开仍有效边界节点及绑定模型、滚动容器和 Viewport 上已连接的信号。
+## [br]
+## @api private
 func _disconnect_binding_signals() -> void:
 	for node_ref: WeakRef in _binding_tree_exit_refs:
 		var value: Variant = node_ref.get_ref()
@@ -2666,6 +3109,10 @@ func _disconnect_binding_signals() -> void:
 		viewport.gui_focus_changed.disconnect(_viewport_focus_changed_callable)
 
 
+## 执行解绑 teardown，断开信号、释放行、恢复主轴基线并清空绑定引用。
+## 若清理期间升级为 dispose，则以 DISPOSED 而非 UNBOUND 作为终态。
+## [br]
+## @api private
 func _finish_unbind() -> void:
 	if _teardown_in_progress:
 		return
@@ -2688,6 +3135,9 @@ func _finish_unbind() -> void:
 	_teardown_in_progress = false
 
 
+## 执行终态 teardown，释放绑定资源并保存 DISPOSED 同步结果。
+## [br]
+## @api private
 func _finish_dispose() -> void:
 	if _teardown_in_progress:
 		return
@@ -2706,6 +3156,9 @@ func _finish_dispose() -> void:
 	_teardown_in_progress = false
 
 
+## 解除所有活动行绑定并释放活动及池内 Control，清空身份和所有权索引。
+## [br]
+## @api private
 func _release_all_controls() -> void:
 	for item_index: int in _get_active_indices():
 		var record: Dictionary = _get_record_for_index(item_index)
@@ -2726,6 +3179,9 @@ func _release_all_controls() -> void:
 	_known_control_ids.clear()
 
 
+## 恢复 Binder 接管前保存的内容主轴最小尺寸，并清除接管状态。
+## [br]
+## @api private
 func _restore_content_minimum_size() -> void:
 	var content_root: Control = _get_content_root()
 	if content_root != null:
@@ -2739,6 +3195,9 @@ func _restore_content_minimum_size() -> void:
 	_owned_layout_axis_baseline = 0.0
 
 
+## 清除同步、焦点、对象引用、模型及所有项目回调，供解绑或释放后的实例复用。
+## [br]
+## @api private
 func _clear_binding_references() -> void:
 	_pending_sync = false
 	_deferred_sync_scheduled = false
@@ -2770,6 +3229,9 @@ func _clear_binding_references() -> void:
 	_focus_target_callback = Callable()
 
 
+## 若尚未排入且当前不在同步中，则按当前生命周期代次安排 deferred 同步。
+## [br]
+## @api private
 func _schedule_deferred_sync() -> void:
 	if _deferred_sync_scheduled or _state == _STATE_SYNCING:
 		return
@@ -2777,6 +3239,9 @@ func _schedule_deferred_sync() -> void:
 	var _deferred_result: Variant = call_deferred("_run_deferred_sync", _lifecycle_generation)
 
 
+## 仅当代次匹配、同步仍待执行且绑定有效时调用 sync_now。
+## [br]
+## @api private
 func _run_deferred_sync(generation: int) -> void:
 	_deferred_sync_scheduled = false
 	if generation != _lifecycle_generation or not _pending_sync or not is_bound():
@@ -2784,6 +3249,10 @@ func _run_deferred_sync(generation: int) -> void:
 	var _result: GFVirtualListSyncResult = sync_now()
 
 
+## 将当前活动索引、范围、修订号与指标编码为类型化同步结果。
+## 未提供有效修订号时读取当前布局模型和数据修订。
+## [br]
+## @api private
 func _make_sync_result(
 	status: StringName,
 	viewport_range: Vector2i,
@@ -2817,10 +3286,16 @@ func _make_sync_result(
 	return result
 
 
+## 以空范围创建指定状态的终态同步结果。
+## [br]
+## @api private
 func _make_terminal_result(status: StringName) -> GFVirtualListSyncResult:
 	return _make_sync_result(status, Vector2i.ZERO, Vector2i.ZERO)
 
 
+## 活动绑定未进入 teardown 时排队下一轮，并生成保留当前截断标记的 deferred 结果。
+## [br]
+## @api private
 func _make_deferred_sync_result(
 	viewport_range: Vector2i,
 	requested_range: Vector2i,
@@ -2842,6 +3317,9 @@ func _make_deferred_sync_result(
 	)
 
 
+## 复制已有结果字典并替换池数量；源结果为空时创建当前中断状态结果。
+## [br]
+## @api private
 func _copy_result_with_current_pool_count(
 	source: GFVirtualListSyncResult
 ) -> GFVirtualListSyncResult:
@@ -2854,17 +3332,26 @@ func _copy_result_with_current_pool_count(
 	return result
 
 
+## 将中断状态映射为 UNBOUND 或 DISPOSED。
+## [br]
+## @api private
 func _get_interrupted_status() -> StringName:
 	if _state in [_STATE_UNBOUND, _STATE_UNBINDING]:
 		return GFVirtualListSyncResult.STATUS_UNBOUND
 	return GFVirtualListSyncResult.STATUS_DISPOSED
 
 
+## 保存结果的隔离副本，并返回传入结果供当前调用方使用。
+## [br]
+## @api private
 func _store_result(result: GFVirtualListSyncResult) -> GFVirtualListSyncResult:
 	_last_sync_result = result.duplicate_result()
 	return result
 
 
+## 判断本轮没有创建、释放、测量或锚点调整，且数据与布局修订均未变化。
+## [br]
+## @api private
 func _sync_metrics_are_unchanged(
 	metrics: Dictionary,
 	data_revision_changed: bool,
@@ -2880,6 +3367,9 @@ func _sync_metrics_are_unchanged(
 	)
 
 
+## 从索引到 token 映射筛出整数索引并按升序返回。
+## [br]
+## @api private
 func _get_active_indices() -> Array[int]:
 	var indices: Array[int] = []
 	for index_value: Variant in _token_by_index.keys():
@@ -2890,6 +3380,9 @@ func _get_active_indices() -> Array[int]:
 	return indices
 
 
+## 按身份 token 读取活动记录；缺失或值类型不符时返回空字典。
+## [br]
+## @api private
 func _get_active_record(token: String) -> Dictionary:
 	var value: Variant = _active_by_token.get(token)
 	if value is Dictionary:
@@ -2898,6 +3391,9 @@ func _get_active_record(token: String) -> Dictionary:
 	return {}
 
 
+## 通过索引到 token 映射取得对应活动记录；映射缺失时返回空字典。
+## [br]
+## @api private
 func _get_record_for_index(item_index: int) -> Dictionary:
 	var token_value: Variant = _token_by_index.get(item_index)
 	if token_value is String:
@@ -2906,15 +3402,24 @@ func _get_record_for_index(item_index: int) -> Dictionary:
 	return {}
 
 
+## 从行记录中读取并验证 Control 引用。
+## [br]
+## @api private
 func _get_record_control(record: Dictionary) -> Control:
 	return _get_control_value(record, "control")
 
 
+## 读取字典字段并收窄为仍有效且未排队删除的 Control。
+## [br]
+## @api private
 func _get_control_value(data: Dictionary, key: String) -> Control:
 	var value: Variant = GFVariantData.get_option_value(data, key)
 	return _get_live_control(value)
 
 
+## 将 Variant 收窄为仍有效且未排队删除的 Control。
+## [br]
+## @api private
 func _get_live_control(value: Variant) -> Control:
 	if typeof(value) != TYPE_OBJECT or not is_instance_valid(value):
 		return null
@@ -2925,6 +3430,9 @@ func _get_live_control(value: Variant) -> Control:
 	return null
 
 
+## 从字典数组字段筛出 Dictionary 项并返回类型化数组。
+## [br]
+## @api private
 func _get_descriptor_array(data: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for value: Variant in GFVariantData.get_option_array(data, "descriptors"):
@@ -2934,6 +3442,9 @@ func _get_descriptor_array(data: Dictionary) -> Array[Dictionary]:
 	return result
 
 
+## 从指定字典字段筛出 Dictionary 项并返回类型化数组。
+## [br]
+## @api private
 func _get_record_array(data: Dictionary, key: String) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for value: Variant in GFVariantData.get_option_array(data, key):
@@ -2943,6 +3454,9 @@ func _get_record_array(data: Dictionary, key: String) -> Array[Dictionary]:
 	return result
 
 
+## 读取指定字段的 PackedInt32Array；值类型不符时返回空数组。
+## [br]
+## @api private
 func _get_packed_indices(data: Dictionary, key: String) -> PackedInt32Array:
 	var value: Variant = GFVariantData.get_option_value(data, key, PackedInt32Array())
 	if value is PackedInt32Array:
@@ -2951,18 +3465,27 @@ func _get_packed_indices(data: Dictionary, key: String) -> PackedInt32Array:
 	return PackedInt32Array()
 
 
+## 同步中返回入口冻结主轴，其余时间返回当前公开配置。
+## [br]
+## @api private
 func _get_effective_layout_axis() -> int:
 	if _sync_in_progress and _sync_layout_axis in [LayoutAxis.VERTICAL, LayoutAxis.HORIZONTAL]:
 		return _sync_layout_axis
 	return int(layout_axis)
 
 
+## 同步中返回入口冻结交叉轴策略，其余时间返回当前公开配置。
+## [br]
+## @api private
 func _get_effective_fill_cross_axis() -> bool:
 	if _sync_in_progress:
 		return _sync_fill_cross_axis
 	return fill_cross_axis
 
 
+## 检查同步上下文存在，且布局模型引用和修订仍匹配快照。
+## [br]
+## @api private
 func _sync_layout_model_is_current() -> bool:
 	return (
 		_sync_context_ready
@@ -2972,10 +3495,16 @@ func _sync_layout_model_is_current() -> bool:
 	)
 
 
+## 检查仍在同步中且当前数据修订等于本轮入口快照。
+## [br]
+## @api private
 func _sync_data_revision_is_current(sync_data_revision: int) -> bool:
 	return _sync_in_progress and _data_revision == sync_data_revision
 
 
+## 读取快照中条目的几何字典副本；缺失时返回空字典。
+## [br]
+## @api private
 func _get_sync_item_geometry(item_index: int) -> Dictionary:
 	var value: Variant = _sync_item_geometries.get(item_index)
 	if value is Dictionary:
@@ -2984,6 +3513,9 @@ func _get_sync_item_geometry(item_index: int) -> Dictionary:
 	return {}
 
 
+## 清空并保存目标索引对应的布局偏移和长度快照。
+## [br]
+## @api private
 func _snapshot_sync_item_geometries(
 	layout_model: GFVirtualListModel,
 	target_indices: PackedInt32Array
@@ -2996,6 +3528,9 @@ func _snapshot_sync_item_geometries(
 		}
 
 
+## 将测量结果写入本轮几何快照，并平移后续条目偏移及内容总长度。
+## [br]
+## @api private
 func _apply_sync_measurement_report(item_index: int, report: Dictionary) -> void:
 	var geometry: Dictionary = _get_sync_item_geometry(item_index)
 	var previous_extent: float = GFVariantData.get_option_float(geometry, "extent")
@@ -3019,6 +3554,9 @@ func _apply_sync_measurement_report(item_index: int, report: Dictionary) -> void
 		_sync_content_extent = maxf(_sync_content_extent + delta, 0.0)
 
 
+## 重置同步轮冻结配置、模型版本、几何快照和上下文就绪标记。
+## [br]
+## @api private
 func _clear_sync_context() -> void:
 	_sync_layout_axis = -1
 	_sync_fill_cross_axis = false
@@ -3034,20 +3572,32 @@ func _clear_sync_context() -> void:
 	_sync_context_ready = false
 
 
+## 按当前有效主轴读取滚动偏移。
+## [br]
+## @api private
 func _get_scroll_offset(scroll_container: ScrollContainer) -> float:
 	return _get_scroll_offset_for_axis(scroll_container, _get_effective_layout_axis())
 
 
+## 读取指定主轴上的水平或垂直滚动偏移。
+## [br]
+## @api private
 func _get_scroll_offset_for_axis(scroll_container: ScrollContainer, axis: int) -> float:
 	if axis == LayoutAxis.HORIZONTAL:
 		return float(scroll_container.scroll_horizontal)
 	return float(scroll_container.scroll_vertical)
 
 
+## 按当前有效主轴写入经过量化的滚动偏移。
+## [br]
+## @api private
 func _set_scroll_offset(scroll_container: ScrollContainer, value: float) -> void:
 	_set_scroll_offset_for_axis(scroll_container, value, _get_effective_layout_axis())
 
 
+## 将非负四舍五入后的偏移写入指定水平或垂直滚动属性。
+## [br]
+## @api private
 func _set_scroll_offset_for_axis(
 	scroll_container: ScrollContainer,
 	value: float,
@@ -3060,14 +3610,23 @@ func _set_scroll_offset_for_axis(
 		scroll_container.scroll_vertical = safe_value
 
 
+## 将滚动偏移四舍五入为非负整数并以 float 返回。
+## [br]
+## @api private
 func _quantize_scroll_offset(value: float) -> float:
 	return float(maxi(roundi(value), 0))
 
 
+## 按当前有效主轴取得滚动视口长度。
+## [br]
+## @api private
 func _get_viewport_extent(scroll_container: ScrollContainer) -> float:
 	return _get_viewport_extent_for_axis(scroll_container, _get_effective_layout_axis())
 
 
+## 使用有效 scrollbar.page 限制容器长度；无效 page 时回退到非负容器尺寸。
+## [br]
+## @api private
 func _get_viewport_extent_for_axis(scroll_container: ScrollContainer, axis: int) -> float:
 	var container_extent: float = (
 		scroll_container.size.x
@@ -3084,6 +3643,9 @@ func _get_viewport_extent_for_axis(scroll_container: ScrollContainer, axis: int)
 	return maxf(container_extent, 0.0)
 
 
+## 要求 owner 与 ScrollContainer 在树内，content_root 是其直接子节点且非 Container，并有模型。
+## [br]
+## @api private
 func _is_valid_binding_boundary(
 	owner: Node,
 	scroll_container: ScrollContainer,
@@ -3105,6 +3667,9 @@ func _is_valid_binding_boundary(
 	)
 
 
+## 检查弱引用边界节点仍在树内且内容根节点仍直接隶属滚动容器。
+## [br]
+## @api private
 func _binding_objects_are_live() -> bool:
 	var owner: Node = _get_owner_node()
 	var scroll_container: ScrollContainer = _get_scroll_container()
@@ -3120,6 +3685,10 @@ func _binding_objects_are_live() -> bool:
 	)
 
 
+## 校验活动双向索引、对象池和额外暂存记录的 Control 唯一性及预期父节点。
+## 同时要求已知实例 ID 与当前全部 Binder 所有权记录一一对应。
+## [br]
+## @api private
 func _owned_controls_are_live(additional_parentless_records: Array[Dictionary] = []) -> bool:
 	var content_root: Control = _get_content_root()
 	if content_root == null:
@@ -3176,6 +3745,10 @@ func _owned_controls_are_live(additional_parentless_records: Array[Dictionary] =
 	return true
 
 
+## 同步事务期间校验活动记录、计划记录和池内 Control 的唯一性及预期挂载父节点。
+## 检查集合还必须与已知所有权 ID 完整对应。
+## [br]
+## @api private
 func _transaction_owned_controls_are_live(planned_records: Array[Dictionary]) -> bool:
 	var content_root: Control = _get_content_root()
 	if content_root == null or _token_by_index.size() != _active_by_token.size():
@@ -3266,6 +3839,9 @@ func _transaction_owned_controls_are_live(planned_records: Array[Dictionary]) ->
 	return true
 
 
+## 将已知且有效的 Control 按实例 ID 加入事务集合；重复 ID 只接受同一对象。
+## [br]
+## @api private
 func _register_transaction_control(control: Control, controls_by_id: Dictionary) -> bool:
 	if control == null or not is_instance_valid(control) or control.is_queued_for_deletion():
 		return false
@@ -3278,6 +3854,9 @@ func _register_transaction_control(control: Control, controls_by_id: Dictionary)
 	return true
 
 
+## 检查池中每个 Control 均有效、无父节点且未与其他所有权记录重复。
+## [br]
+## @api private
 func _pool_controls_are_live() -> bool:
 	var observed_control_ids: Dictionary = {}
 	for control_value: Variant in _pool:
@@ -3287,6 +3866,9 @@ func _pool_controls_are_live() -> bool:
 	return true
 
 
+## 校验 Control 的预期父节点和已登记所有权，并加入本次观察集合。
+## [br]
+## @api private
 func _register_owned_control(
 	control: Control,
 	expected_parent: Node,
@@ -3301,6 +3883,9 @@ func _register_owned_control(
 	return true
 
 
+## 要求 Control 有效、未排队删除且当前父节点与预期对象相同。
+## [br]
+## @api private
 func _control_has_expected_parent(control: Control, expected_parent: Node) -> bool:
 	return (
 		control != null
@@ -3310,10 +3895,16 @@ func _control_has_expected_parent(control: Control, expected_parent: Node) -> bo
 	)
 
 
+## 从 owner 弱引用取得有效节点。
+## [br]
+## @api private
 func _get_owner_node() -> Node:
 	return _get_live_node(_owner_ref)
 
 
+## 从滚动容器弱引用取得存活 ScrollContainer；类型不符时返回 null。
+## [br]
+## @api private
 func _get_scroll_container() -> ScrollContainer:
 	var node: Node = _get_live_node(_scroll_ref)
 	if node is ScrollContainer:
@@ -3322,6 +3913,9 @@ func _get_scroll_container() -> ScrollContainer:
 	return null
 
 
+## 从内容根节点弱引用取得存活 Control；类型不符时返回 null。
+## [br]
+## @api private
 func _get_content_root() -> Control:
 	var node: Node = _get_live_node(_content_ref)
 	if node is Control:
@@ -3330,6 +3924,9 @@ func _get_content_root() -> Control:
 	return null
 
 
+## 从 Viewport 弱引用取得有效实例；空引用或已释放时返回 null。
+## [br]
+## @api private
 func _get_viewport() -> Viewport:
 	if _viewport_ref == null:
 		return null
@@ -3341,6 +3938,9 @@ func _get_viewport() -> Viewport:
 	return null
 
 
+## 从弱引用解析仍有效且未排队删除的 Node。
+## [br]
+## @api private
 func _get_live_node(node_ref: WeakRef) -> Node:
 	if node_ref == null:
 		return null
@@ -3352,6 +3952,9 @@ func _get_live_node(node_ref: WeakRef) -> Node:
 	return null
 
 
+## 沿父节点链检查 node 是否为 ancestor 本身或其后代。
+## [br]
+## @api private
 func _node_is_descendant_of(node: Node, ancestor: Node) -> bool:
 	var current: Node = node
 	while current != null:
@@ -3361,10 +3964,16 @@ func _node_is_descendant_of(node: Node, ancestor: Node) -> bool:
 	return false
 
 
+## 返回同步事务当前是否处于执行中。
+## [br]
+## @api private
 func _is_sync_in_progress() -> bool:
 	return _sync_in_progress
 
 
+## 标记待测量并递增请求修订号，以便区分同步轮入口前后的请求。
+## [br]
+## @api private
 func _queue_measurement_request() -> void:
 	_measurement_requested = true
 	_measurement_request_revision += 1
@@ -3372,29 +3981,48 @@ func _queue_measurement_request() -> void:
 
 # --- 信号处理函数 ---
 
+## owner、滚动容器或内容根节点退出场景树时释放 Binder。
+## [br]
+## @api private
 func _on_binding_tree_exited() -> void:
 	dispose()
 
 
+## 滚动容器尺寸改变时请求重新计算物化范围与行布局。
+## [br]
+## @api private
 func _on_scroll_resized() -> void:
 	var _requested: bool = request_sync()
 
 
+## 仅在行需要填满交叉轴时，因内容根节点尺寸变化请求同步。
+## [br]
+## @api private
 func _on_content_resized() -> void:
 	if _get_effective_fill_cross_axis():
 		var _requested: bool = request_sync()
 
 
+## 忽略 Binder 自己写入偏移产生的通知，其他滚动变化请求同步。
+## [br]
+## @api private
 func _on_scroll_value_changed(_value: float) -> void:
 	if _applying_scroll_adjustment:
 		return
 	var _requested: bool = request_sync()
 
 
+## 布局模型发出变化通知时请求同步。
+## [br]
+## @api private
 func _on_layout_changed(_revision: int) -> void:
 	var _requested: bool = request_sync()
 
 
+## 虚拟焦点变化时更新交接与 reveal 意图，并按同步状态排队下一轮。
+## 若仍有物理焦点，则先处理原活动行焦点释放并校验模型和绑定身份。
+## [br]
+## @api private
 func _on_focus_changed(previous_index: int, focused_index: int) -> void:
 	if _binding_focus_initialization:
 		return
@@ -3449,6 +4077,9 @@ func _on_focus_changed(previous_index: int, focused_index: int) -> void:
 	var _requested: bool = request_sync()
 
 
+## 记录焦点交接期间观察到的目标行，并在外部焦点移开或清空时取消待交接。
+## [br]
+## @api private
 func _on_viewport_focus_changed(control: Control) -> void:
 	if _focus_handoff_in_progress:
 		if control == null:

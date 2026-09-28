@@ -12,29 +12,127 @@ extends RefCounted
 
 # --- 常量 ---
 
+## caller 原因文本规范化时保留的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_REASON_CHARACTERS: int = 128
+
+## deadline 饱和计算使用的有符号 64 位最大值。
+## [br]
+## @api private
+## [br]
 const _MAX_INT64: int = 9_223_372_036_854_775_807
 
 
 # --- 私有变量 ---
 
+## 物理 Storage 请求的唯一 ID；0 表示尚未配置。
+## [br]
+## @api private
+## [br]
 var _request_id: int = 0
+
+## 当前观察该物理请求的 consumer ID。
+## [br]
+## @api private
+## [br]
 var _consumer_id: int = 0
+
+## 请求的 save、load、delete 或 reset 操作名。
+## [br]
+## @api private
+## [br]
 var _operation: StringName = &""
+
+## 当前请求的规范逻辑文件身份；准入前可为空。
+## [br]
+## @api private
+## [br]
 var _file_name: String = ""
+
+## 用于计算 deadline 和终态时间的单调时钟。
+## [br]
+## @api private
+## [br]
 var _clock: GFClock = null
+
+## caller 等待期间持有的生命周期选项，通知结束后会清除。
+## [br]
+## @api private
+## [br]
 var _request_options: GFStorageAsyncRequestOptions = null
+
+## 通过弱方法调用封装的 Utility caller 终止委托。
+## [br]
+## @api private
+## [br]
 var _cancel_delegate: GFWeakMethodInvocation = null
+
+## caller 终止委托接收对象的弱引用。
+## [br]
+## @api private
+## [br]
 var _cancel_subject_ref: WeakRef = null
+
+## caller 配置时绑定的取消令牌。
+## [br]
+## @api private
+## [br]
 var _cancel_token: GFCancellationToken = null
+
+## 连接到令牌取消信号的一次性闭包。
+## [br]
+## @api private
+## [br]
 var _cancel_token_callback: Callable = Callable()
+
+## caller 截止时刻的单调毫秒值；0 表示未设置 deadline。
+## [br]
+## @api private
+## [br]
 var _deadline_msec: int = 0
+
+## 标记 caller 生命周期、委托和截止时刻是否已完整配置。
+## [br]
+## @api private
+## [br]
 var _consumer_configured: bool = false
+
+## 标记物理 worker 是否已接纳该请求。
+## [br]
+## @api private
+## [br]
 var _worker_accepted: bool = false
+
+## 标记是否已请求在 worker 接纳前取消物理工作。
+## [br]
+## @api private
+## [br]
 var _physical_cancel_requested: bool = false
+
+## 首次物理结算后冻结的无载荷终态字段。
+## [br]
+## @api private
+## [br]
 var _physical_snapshot: Dictionary = {}
+
+## 首次 caller 结算后冻结的无载荷终态字段。
+## [br]
+## @api private
+## [br]
 var _caller_snapshot: Dictionary = {}
+
+## caller-first 后物理工作晚到时建立的无载荷诊断字段。
+## [br]
+## @api private
+## [br]
 var _late_settlement_diagnostic: Dictionary = {}
+
+## 标记晚到诊断是否已被一次性取走。
+## [br]
+## @api private
+## [br]
 var _late_settlement_diagnostic_taken: bool = false
 
 
@@ -464,6 +562,10 @@ func get_monotonic_msec_for_framework() -> int:
 
 # --- 私有/辅助方法 ---
 
+## 组合 caller 与物理快照、worker 状态及读取失败分类，未适用的领域项填 -1。
+## [br]
+## @api private
+## [br]
 func _make_late_settlement_diagnostic(read_failure_kind: int) -> Dictionary:
 	var caller_time: int = GFVariantData.get_option_int(_caller_snapshot, "completed_at_msec")
 	var physical_time: int = GFVariantData.get_option_int(_physical_snapshot, "completed_at_msec")
@@ -491,6 +593,10 @@ func _make_late_settlement_diagnostic(read_failure_kind: int) -> Dictionary:
 	}
 
 
+## 冻结 caller 状态、来源、规范化原因、错误码和时间戳。
+## [br]
+## @api private
+## [br]
 func _store_caller(
 	status: GFStorageAsyncCallerResult.Status,
 	end_kind: GFStorageAsyncCallerResult.EndKind,
@@ -505,6 +611,10 @@ func _store_caller(
 	}
 
 
+## 通过弱委托请求 Utility 线性化 caller 终态，并返回委托报告的布尔结果。
+## [br]
+## @api private
+## [br]
 func _request_caller_terminal(end_kind: GFStorageAsyncCallerResult.EndKind, reason: StringName) -> bool:
 	if not is_caller_pending() or _cancel_delegate == null or _cancel_subject_ref == null:
 		return false
@@ -525,6 +635,10 @@ func _request_caller_terminal(end_kind: GFStorageAsyncCallerResult.EndKind, reas
 	return result_value if result_value is bool else false
 
 
+## 断开令牌取消信号并清除 caller 等待期间的选项、委托、subject 与 deadline 引用。
+## [br]
+## @api private
+## [br]
 func _disconnect_consumer_lifecycle() -> void:
 	if _cancel_token != null and _cancel_token_callback.is_valid() and _cancel_token.cancel_requested.is_connected(_cancel_token_callback):
 		_cancel_token.cancel_requested.disconnect(_cancel_token_callback)
@@ -535,6 +649,10 @@ func _disconnect_consumer_lifecycle() -> void:
 	_deadline_msec = 0
 
 
+## 无 timeout 时返回 0，否则以非负当前时间计算 deadline 并在 int64 上限饱和。
+## [br]
+## @api private
+## [br]
 func _calculate_deadline_msec(now_msec: int, timeout_msec: int) -> int:
 	if timeout_msec <= 0:
 		return 0
@@ -542,11 +660,19 @@ func _calculate_deadline_msec(now_msec: int, timeout_msec: int) -> int:
 	return _MAX_INT64 if normalized_now >= _MAX_INT64 - timeout_msec else normalized_now + timeout_msec
 
 
+## 以 fallback 替代空原因，将文本截至上限后转成 StringName。
+## [br]
+## @api private
+## [br]
 func _normalize_reason(reason: StringName, fallback: StringName) -> StringName:
 	var reason_text: String = String(reason if reason != &"" else fallback)
 	return StringName(reason_text.left(_MAX_REASON_CHARACTERS))
 
 
+## 将每种 caller 终态来源映射到稳定原因标识，未知值使用通用 caller_completed。
+## [br]
+## @api private
+## [br]
 func _default_reason(end_kind: GFStorageAsyncCallerResult.EndKind) -> StringName:
 	match end_kind:
 		GFStorageAsyncCallerResult.EndKind.PHYSICAL_SETTLEMENT:
@@ -566,6 +692,9 @@ func _default_reason(end_kind: GFStorageAsyncCallerResult.EndKind) -> StringName
 
 # --- 信号处理函数 ---
 
+## 仅在调用者结果仍待定时请求 TOKEN_CANCELLED 终态；此通知裁决调用者结果，不承诺正在进行的存储提交被撤销。
+## [br]
+## @api private
 func _on_cancel_token_requested(reason: StringName) -> void:
 	if is_caller_pending():
 		var _terminal_linearized: bool = _request_caller_terminal(

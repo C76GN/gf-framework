@@ -72,7 +72,14 @@ const STATUS_WRONG_THREAD: StringName = &"wrong_thread"
 ## @since 10.0.0
 const STATUS_BUSY: StringName = &"busy"
 
+## 延迟记录使用直接 Callable 执行体时写入的记录种类。
+## [br]
+## @api private
 const _RECORD_KIND_CALLABLE: StringName = &"callable"
+
+## 延迟记录使用弱 owner 方法调用时写入的记录种类。
+## [br]
+## @api private
 const _RECORD_KIND_WEAK_METHOD: StringName = &"weak_method"
 
 
@@ -117,26 +124,109 @@ var max_seconds_per_playback: float = 0.0:
 
 # --- 私有变量 ---
 
+## 保护记录、取消、统计和 playback 暂存状态的互斥锁。
+## [br]
+## @api private
 var _mutex: Mutex = Mutex.new()
+
+## 当前可供下一次 playback 取出的排序记录。
+## [br]
+## @api private
 var _queue: Array[Dictionary] = []
+
+## 本次 playback 开始时移出的记录集合。
+## [br]
+## @api private
 var _playback_snapshot: Array[Dictionary] = []
+
+## playback 期间新登记、留待本次快照完成后合并的记录。
+## [br]
+## @api private
 var _playback_new_records: Array[Dictionary] = []
+
+## 当前快照内匹配 phase 的记录在 _playback_snapshot 中的索引。
+## [br]
+## @api private
 var _playback_matching_indexes: Array[int] = []
+
+## 下一个待检查的匹配快照索引位置。
+## [br]
+## @api private
 var _playback_matching_cursor: int = 0
+
+## 当前快照中尚未取出的 phase 匹配记录数。
+## [br]
+## @api private
 var _playback_snapshot_matching_count: int = 0
+
+## 本次 playback 用来筛选快照记录的 phase；空值表示不筛选。
+## [br]
+## @api private
 var _playback_phase_filter: StringName = &""
+
+## 是否正在维护 playback 快照及新记录分区。
+## [br]
+## @api private
 var _playback_snapshot_active: bool = false
+
+## 队列与 playback 暂存区中的待应用记录总数。
+## [br]
+## @api private
 var _pending_count: int = 0
+
+## 下一个分配的变更句柄；clear() 不重置此值。
+## [br]
+## @api private
 var _next_handle: int = 1
+
+## 下一个隐式 sort order；显式 order 不推进此值。
+## [br]
+## @api private
 var _next_order: int = 1
+
+## playback() 当前是否正在执行同步调用。
+## [br]
+## @api private
 var _playback_in_progress: bool = false
+
+## 已成功登记的变更记录总数。
+## [br]
+## @api private
 var _recorded_count: int = 0
+
+## 已成功执行的变更记录总数。
+## [br]
+## @api private
 var _applied_count: int = 0
+
+## 已取消记录总数。
+## [br]
+## @api private
 var _cancelled_count: int = 0
+
+## playback 执行失败的记录总数。
+## [br]
+## @api private
 var _failed_count: int = 0
+
+## 因弱 owner 已释放而跳过的记录总数。
+## [br]
+## @api private
 var _skipped_owner_count: int = 0
+
+## 观测到的待处理记录数量峰值。
+## [br]
+## @api private
 var _high_watermark: int = 0
+
+## 因待处理容量已满而拒绝登记的记录总数。
+## [br]
+## @api private
 var _rejected_count: int = 0
+
+## 调试快照中的 dropped_count 字段；此脚本中初始化后只写入快照。
+## [br]
+## @api private
 var _dropped_count: int = 0
 
 
@@ -565,6 +655,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 将强 Callable 执行体包装为 callable 类型记录并交给统一入队逻辑。
+## [br]
+## @api private
 func _enqueue(mutation: Callable, options: Dictionary) -> int:
 	return _enqueue_record({
 		"record_kind": _RECORD_KIND_CALLABLE,
@@ -572,6 +665,9 @@ func _enqueue(mutation: Callable, options: Dictionary) -> int:
 	}, 0, options, true)
 
 
+## 将弱方法调用对象包装为 weak_method 类型记录并交给统一入队逻辑。
+## [br]
+## @api private
 func _enqueue_method(
 	invocation: GFWeakMethodInvocation,
 	owner_id: int,
@@ -583,6 +679,9 @@ func _enqueue_method(
 	}, owner_id, options, false)
 
 
+## 在锁内检查容量、分配 handle/order、组装记录并插入当前记录分区。
+## [br]
+## @api private
 func _enqueue_record(
 	execution_record: Dictionary,
 	owner_id: int,
@@ -628,6 +727,9 @@ func _enqueue_record(
 	return handle
 
 
+## 在锁内将待处理队列移入快照，并建立匹配 phase 的索引列表。
+## [br]
+## @api private
 func _begin_playback_snapshot(phase_filter: StringName) -> void:
 	_mutex.lock()
 	_playback_snapshot = _queue
@@ -649,6 +751,9 @@ func _begin_playback_snapshot(phase_filter: StringName) -> void:
 	_mutex.unlock()
 
 
+## 从快照匹配索引游标取出下一条记录并更新待处理计数；没有记录时返回空字典。
+## [br]
+## @api private
 func _pop_next_playback_record() -> Dictionary:
 	_mutex.lock()
 	while (
@@ -673,6 +778,9 @@ func _pop_next_playback_record() -> Dictionary:
 	return {}
 
 
+## 在锁内检查快照中是否仍有待取出的匹配记录。
+## [br]
+## @api private
 func _has_playback_snapshot_records() -> bool:
 	_mutex.lock()
 	var has_records: bool = _playback_snapshot_matching_count > 0
@@ -680,6 +788,9 @@ func _has_playback_snapshot_records() -> bool:
 	return has_records
 
 
+## 保留未取出的快照记录并与 playback 期间新记录合并，然后清空快照状态。
+## [br]
+## @api private
 func _finish_playback_snapshot() -> void:
 	_mutex.lock()
 	var remaining_snapshot: Array[Dictionary] = []
@@ -702,6 +813,9 @@ func _finish_playback_snapshot() -> void:
 	_mutex.unlock()
 
 
+## 在调用方持锁时从队列、快照或新记录分区移除指定 handle。
+## [br]
+## @api private
 func _cancel_handle_locked(handle: int) -> bool:
 	if not _playback_snapshot_active:
 		for index: int in range(_queue.size()):
@@ -736,6 +850,9 @@ func _cancel_handle_locked(handle: int) -> bool:
 	return false
 
 
+## 在调用方持锁时移除指定 owner_id 的队列、快照和新记录，并返回数量。
+## [br]
+## @api private
 func _cancel_owner_locked(owner_id: int) -> int:
 	var removed_count: int = 0
 	if not _playback_snapshot_active:
@@ -775,6 +892,9 @@ func _cancel_owner_locked(owner_id: int) -> int:
 	return removed_count
 
 
+## 在调用方持锁时收集队列或两类 playback 暂存区中的未处理记录。
+## [br]
+## @api private
 func _collect_pending_records_locked() -> Array[Dictionary]:
 	var pending_records: Array[Dictionary] = []
 	if not _playback_snapshot_active:
@@ -795,6 +915,9 @@ func _collect_pending_records_locked() -> Array[Dictionary]:
 	)
 
 
+## 将两组已排序记录按 _sort_records_ascending() 的比较结果合并。
+## [br]
+## @api private
 func _merge_sorted_records(
 	left_records: Array[Dictionary],
 	right_records: Array[Dictionary]
@@ -824,6 +947,9 @@ func _merge_sorted_records(
 	return merged_records
 
 
+## 使用二分查找定位插入点，并将记录插入已排序数组。
+## [br]
+## @api private
 func _insert_record_sorted_into(
 	target_records: Array[Dictionary],
 	mutation_record: Dictionary
@@ -845,10 +971,16 @@ func _insert_record_sorted_into(
 	)
 
 
+## phase_filter 为空时匹配所有记录，否则只匹配同 phase 的记录。
+## [br]
+## @api private
 func _matches_phase(mutation_record: Dictionary, phase_filter: StringName) -> bool:
 	return phase_filter == &"" or _get_record_phase(mutation_record) == phase_filter
 
 
+## 时间预算启用且至少处理一条记录后，检查已耗秒数是否达到上限。
+## [br]
+## @api private
 func _is_playback_budget_exhausted(started_usec: int, max_seconds: float, processed_count: int) -> bool:
 	if max_seconds <= 0.0 or processed_count <= 0:
 		return false
@@ -856,6 +988,9 @@ func _is_playback_budget_exhausted(started_usec: int, max_seconds: float, proces
 	return elapsed_seconds >= max_seconds
 
 
+## bool 结果按自身真假判定；Dictionary 读取 ok，其他 Variant 视为成功。
+## [br]
+## @api private
 func _mutation_result_is_failure(result: Variant) -> bool:
 	if result is bool:
 		var bool_result: bool = result
@@ -866,6 +1001,9 @@ func _mutation_result_is_failure(result: Variant) -> bool:
 	return false
 
 
+## 判断记录的 record_kind 是否为 weak_method。
+## [br]
+## @api private
 func _record_uses_weak_method(mutation_record: Dictionary) -> bool:
 	return (
 		GFVariantData.get_option_string_name(mutation_record, "record_kind")
@@ -873,6 +1011,9 @@ func _record_uses_weak_method(mutation_record: Dictionary) -> bool:
 	)
 
 
+## 提取记录的 handle、phase、排序字段、owner、label、metadata 和时间戳。
+## [br]
+## @api private
 func _record_to_snapshot(mutation_record: Dictionary) -> Dictionary:
 	return {
 		"handle": _get_record_handle(mutation_record),
@@ -886,6 +1027,9 @@ func _record_to_snapshot(mutation_record: Dictionary) -> Dictionary:
 	}
 
 
+## 依 phase 文本、sort_key、order 和 handle 的升序逐级比较两条记录。
+## [br]
+## @api private
 func _sort_records_ascending(left: Variant, right: Variant) -> bool:
 	var left_record: Dictionary = GFVariantData.as_dictionary(left)
 	var right_record: Dictionary = GFVariantData.as_dictionary(right)
@@ -907,6 +1051,9 @@ func _sort_records_ascending(left: Variant, right: Variant) -> bool:
 	return _get_record_handle(left_record) < _get_record_handle(right_record)
 
 
+## 将字典键转为文本后排序，并按排序键重建结果字典。
+## [br]
+## @api private
 func _sort_dictionary_by_key(data: Dictionary) -> Dictionary:
 	var keys: PackedStringArray = PackedStringArray()
 	for raw_key: Variant in data.keys():
@@ -918,18 +1065,30 @@ func _sort_dictionary_by_key(data: Dictionary) -> Dictionary:
 	return result
 
 
+## 从记录中读取 handle 字段。
+## [br]
+## @api private
 func _get_record_handle(mutation_record: Dictionary) -> int:
 	return GFVariantData.get_option_int(mutation_record, "handle")
 
 
+## 从记录中读取 owner_id 字段。
+## [br]
+## @api private
 func _get_record_owner_id(mutation_record: Dictionary) -> int:
 	return GFVariantData.get_option_int(mutation_record, "owner_id")
 
 
+## 从记录中读取 phase；字段不存在时使用 DEFAULT_PHASE。
+## [br]
+## @api private
 func _get_record_phase(mutation_record: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(mutation_record, "phase", DEFAULT_PHASE)
 
 
+## 从记录中读取 mutation Callable；类型不匹配时返回空 Callable。
+## [br]
+## @api private
 func _get_record_mutation(mutation_record: Dictionary) -> Callable:
 	var value: Variant = GFVariantData.get_option_value(mutation_record, "mutation", Callable())
 	if value is Callable:
@@ -938,6 +1097,9 @@ func _get_record_mutation(mutation_record: Dictionary) -> Callable:
 	return Callable()
 
 
+## 从记录中读取 GFWeakMethodInvocation；类型不匹配时返回 null。
+## [br]
+## @api private
 func _get_record_weak_method_invocation(
 	mutation_record: Dictionary
 ) -> GFWeakMethodInvocation:

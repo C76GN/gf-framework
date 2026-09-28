@@ -22,8 +22,20 @@ extends RefCounted
 ## [br]
 ## @layer kernel/extension
 const GFExtensionManifestBase = preload("res://addons/gf/kernel/extension/gf_extension_manifest.gd")
+
+## 规范化扩展根路径与资源路径的辅助脚本。
+## [br]
+## @api private
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+## 读取报告字典字段的 Variant 访问辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 读取和预算检查扩展 JSON 文件的辅助脚本。
+## [br]
+## @api private
 const _GF_EXTENSION_JSON_FILE_READER_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_json_file_reader.gd")
 
 ## GF 内置可选扩展根目录。
@@ -34,6 +46,9 @@ const EXTENSIONS_PATH: String = "res://addons/gf/extensions"
 
 # --- 私有变量 ---
 
+## 最近一次 manifest 扫描收集到的读取或解析错误。
+## [br]
+## @api private
 static var _last_manifest_load_errors: Array[Dictionary] = []
 
 
@@ -156,10 +171,16 @@ static func get_manifest_paths(root_path: String) -> Array[String]:
 
 # --- 私有/辅助方法 ---
 
+## 清空前一次 manifest 扫描的错误列表。
+## [br]
+## @api private
 static func _clear_last_manifest_load_errors() -> void:
 	_last_manifest_load_errors.clear()
 
 
+## 读取根目录直接子目录中的 manifest，并跳过读取失败的条目。
+## [br]
+## @api private
 static func _load_manifests_in(
 	root_path: String,
 	options: Dictionary,
@@ -177,6 +198,9 @@ static func _load_manifests_in(
 	return manifests
 
 
+## 读取并解析 manifest；失败时记录各项错误并返回 null。
+## [br]
+## @api private
 static func _read_manifest_with_diagnostics(
 	path: String,
 	options: Dictionary,
@@ -204,6 +228,9 @@ static func _read_manifest_with_diagnostics(
 	return GFExtensionManifestBase.from_dictionary(parsed_dictionary, path.get_base_dir(), path)
 
 
+## 以规范化资源路径和单条错误消息追加 manifest 读取诊断。
+## [br]
+## @api private
 static func _record_manifest_load_error(path: String, message: String) -> void:
 	_last_manifest_load_errors.append({
 		"source_path": _GF_PATH_TOOLS.normalize_resource_path(path),
@@ -211,6 +238,9 @@ static func _record_manifest_load_error(path: String, message: String) -> void:
 	})
 
 
+## 若 options 中的 json_budget_state 是 Dictionary 则返回它，否则创建新预算状态。
+## [br]
+## @api private
 static func _get_or_make_budget_state(options: Dictionary) -> Dictionary:
 	var raw_budget_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
 		options,
@@ -222,6 +252,9 @@ static func _get_or_make_budget_state(options: Dictionary) -> Dictionary:
 	return _GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_budget_state(options)
 
 
+## 深复制读取选项，并以 manifest 专用错误文本覆盖对应读取器选项。
+## [br]
+## @api private
 static func _make_manifest_json_reader_options(options: Dictionary) -> Dictionary:
 	var reader_options: Dictionary = options.duplicate(true)
 	reader_options.merge({
@@ -234,6 +267,9 @@ static func _make_manifest_json_reader_options(options: Dictionary) -> Dictionar
 	return reader_options
 
 
+## 规范化根目录列表并移除与 GF 内置扩展根目录相同的项。
+## [br]
+## @api private
 static func _normalize_root_paths(root_paths: Array[String]) -> Array[String]:
 	var result: Array[String] = []
 	var normalized_paths: PackedStringArray = _GF_PATH_TOOLS.normalize_root_paths(PackedStringArray(root_paths))

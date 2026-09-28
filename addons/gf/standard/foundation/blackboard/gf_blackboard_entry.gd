@@ -290,6 +290,9 @@ static func value_type_to_name(type_id: ValueType) -> String:
 
 # --- 私有/辅助方法 ---
 
+## 创建包含转换状态、结果值和说明文本的标准报告。
+## [br]
+## @api private
 func _make_coerce_result(ok: bool, coerced_value: Variant, message: String = "") -> Dictionary:
 	return {
 		"ok": ok,
@@ -298,6 +301,9 @@ func _make_coerce_result(ok: bool, coerced_value: Variant, message: String = "")
 	}
 
 
+## 将布尔值、有限数值或 true/false 等文本转换为 bool。
+## [br]
+## @api private
 func _try_coerce_bool(value: Variant) -> Dictionary:
 	if value is bool:
 		var bool_value: bool = value
@@ -316,6 +322,9 @@ func _try_coerce_bool(value: Variant) -> Dictionary:
 	return _make_coerce_result(false, false, "值无法转换为 bool。")
 
 
+## 将整数、有限浮点数或有效整数字符串转换为 int。
+## [br]
+## @api private
 func _try_coerce_int(value: Variant) -> Dictionary:
 	if value is int or value is bool:
 		return _make_coerce_result(true, GFVariantData.to_int(value, 0))
@@ -331,6 +340,9 @@ func _try_coerce_int(value: Variant) -> Dictionary:
 	return _make_coerce_result(false, 0, "值无法转换为 int。")
 
 
+## 将有限数值或有效浮点数字符串转换为 float。
+## [br]
+## @api private
 func _try_coerce_float(value: Variant) -> Dictionary:
 	if value is float or value is int or value is bool:
 		var float_value: float = GFVariantData.to_float(value, 0.0)
@@ -344,6 +356,9 @@ func _try_coerce_float(value: Variant) -> Dictionary:
 	return _make_coerce_result(false, 0.0, "值无法转换为 float。")
 
 
+## 保留 Vector2，或把 Vector2i、数组和字典内容转换为 Vector2。
+## [br]
+## @api private
 func _try_coerce_vector2(value: Variant) -> Dictionary:
 	if value is Vector2:
 		return _make_coerce_result(true, value)
@@ -353,6 +368,9 @@ func _try_coerce_vector2(value: Variant) -> Dictionary:
 	return _coerce_vector_from_collection(value, 2, false)
 
 
+## 将 Vector2、Vector2i、数组或字典转换为 Vector2i；浮点分量四舍五入。
+## [br]
+## @api private
 func _try_coerce_vector2i(value: Variant) -> Dictionary:
 	if value is Vector2i:
 		return _make_coerce_result(true, value)
@@ -367,6 +385,9 @@ func _try_coerce_vector2i(value: Variant) -> Dictionary:
 	return result
 
 
+## 保留 Vector3，或把 Vector3i、数组和字典内容转换为 Vector3。
+## [br]
+## @api private
 func _try_coerce_vector3(value: Variant) -> Dictionary:
 	if value is Vector3:
 		return _make_coerce_result(true, value)
@@ -376,6 +397,9 @@ func _try_coerce_vector3(value: Variant) -> Dictionary:
 	return _coerce_vector_from_collection(value, 3, false)
 
 
+## 将 Vector3、Vector3i、数组或字典转换为 Vector3i；浮点分量四舍五入。
+## [br]
+## @api private
 func _try_coerce_vector3i(value: Variant) -> Dictionary:
 	if value is Vector3i:
 		return _make_coerce_result(true, value)
@@ -390,6 +414,9 @@ func _try_coerce_vector3i(value: Variant) -> Dictionary:
 	return result
 
 
+## 保留 Color、解析 HTML 颜色文本，或读取颜色分量字段。
+## [br]
+## @api private
 func _try_coerce_color(value: Variant) -> Dictionary:
 	if value is Color:
 		return _make_coerce_result(true, value)
@@ -416,6 +443,10 @@ func _try_coerce_color(value: Variant) -> Dictionary:
 	)
 
 
+## 从字典或数组读取向量分量并创建 Vector2 或 Vector3 转换报告。
+## 整数向量调用方会在成功后单独执行分量取整。
+## [br]
+## @api private
 func _coerce_vector_from_collection(value: Variant, size: int, _integer: bool) -> Dictionary:
 	var names: Array[String] = ["x", "y", "z"]
 	var fields: Array[String] = names.slice(0, size)
@@ -445,6 +476,9 @@ func _coerce_vector_from_collection(value: Variant, size: int, _integer: bool) -
 	)
 
 
+## 从字典字段或数组位置读取并逐项转换数值，返回 ok 与 values。
+## [br]
+## @api private
 func _read_numeric_fields(value: Variant, field_names: Array, required_size: int, default_last: float) -> Dictionary:
 	var values: Array[float] = []
 	if value is Dictionary:
@@ -478,14 +512,23 @@ func _read_numeric_fields(value: Variant, field_names: Array, required_size: int
 	return { "ok": false, "values": [] }
 
 
+## 从字典读取指定值，并在结果不是 Vector2 时返回 fallback。
+## [br]
+## @api private
 func _get_dictionary_vector2(source: Dictionary, dictionary_key: Variant, fallback: Vector2) -> Vector2:
 	return _variant_to_vector2(GFVariantData.get_option_value(source, dictionary_key, fallback), fallback)
 
 
+## 从字典读取指定值，并在结果不是 Vector3 时返回 fallback。
+## [br]
+## @api private
 func _get_dictionary_vector3(source: Dictionary, dictionary_key: Variant, fallback: Vector3) -> Vector3:
 	return _variant_to_vector3(GFVariantData.get_option_value(source, dictionary_key, fallback), fallback)
 
 
+## 返回 Vector2 类型的输入值；其他类型返回给定 fallback。
+## [br]
+## @api private
 func _variant_to_vector2(value: Variant, fallback: Vector2 = Vector2.ZERO) -> Vector2:
 	if value is Vector2:
 		var vector_value: Vector2 = value
@@ -493,6 +536,9 @@ func _variant_to_vector2(value: Variant, fallback: Vector2 = Vector2.ZERO) -> Ve
 	return fallback
 
 
+## 返回 Vector3 类型的输入值；其他类型返回给定 fallback。
+## [br]
+## @api private
 func _variant_to_vector3(value: Variant, fallback: Vector3 = Vector3.ZERO) -> Vector3:
 	if value is Vector3:
 		var vector_value: Vector3 = value

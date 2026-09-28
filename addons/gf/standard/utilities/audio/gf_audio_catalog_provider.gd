@@ -126,6 +126,10 @@ func describe_catalog() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 根据目录 ID 返回对应事件、参数、状态或开关目录。
+## [br]
+## @api private
+## [br]
 func _get_catalog(catalog_id: StringName) -> Dictionary:
 	match catalog_id:
 		&"events":
@@ -140,5 +144,9 @@ func _get_catalog(catalog_id: StringName) -> Dictionary:
 			return {}
 
 
+## 判断目录 ID 是否属于 provider 支持的四类目录。
+## [br]
+## @api private
+## [br]
 func _is_known_catalog_id(catalog_id: StringName) -> bool:
 	return catalog_id == &"events" or catalog_id == &"parameters" or catalog_id == &"states" or catalog_id == &"switches"

@@ -28,23 +28,94 @@ signal completed(result: GFInventoryTransferResult)
 
 # --- 私有变量 ---
 
+## 来源库存模型的弱引用。
+## [br]
+## @api private
 var _source_ref: WeakRef = null
+
+## 目标库存模型的弱引用。
+## [br]
+## @api private
 var _target_ref: WeakRef = null
+
+## prepare 时记录的来源模型实例 ID。
+## [br]
+## @api private
 var _source_instance_id: int = 0
+
+## prepare 时记录的目标模型实例 ID。
+## [br]
+## @api private
 var _target_instance_id: int = 0
+
+## prepare 时记录的来源库存 revision。
+## [br]
+## @api private
 var _source_revision: int = -1
+
+## prepare 时记录的目标库存 revision。
+## [br]
+## @api private
 var _target_revision: int = -1
+
+## 转移来源槽位索引。
+## [br]
+## @api private
 var _source_slot: int = -1
+
+## 目标槽位索引；-1 表示自动选择。
+## [br]
+## @api private
 var _target_slot: int = -1
+
+## prepare 收到的原始数量参数。
+## [br]
+## @api private
 var _requested_amount_input: int = 0
+
+## 是否允许来源或目标容量不足时部分转移。
+## [br]
+## @api private
 var _allow_partial: bool = false
+
+## 标记来源和目标是否为同一库存模型。
+## [br]
+## @api private
 var _same_model: bool = false
+
+## prepare 阶段来源库存快照摘要。
+## [br]
+## @api private
 var _prepared_source_sha: String = ""
+
+## prepare 阶段完整转移计划摘要。
+## [br]
+## @api private
 var _prepared_plan_sha: String = ""
+
+## prepare 阶段接受的转移数量。
+## [br]
+## @api private
 var _prepared_amount: int = 0
+
+## 标记 commit 是否正在执行。
+## [br]
+## @api private
 var _commit_in_progress: bool = false
+
+## prepare 阶段的隔离结果。
+## [br]
+## @api private
 var _prepare_result: GFInventoryTransferResult = null
+
+## commit 完成后的唯一终态结果。
+## [br]
+## @api private
 var _result: GFInventoryTransferResult = null
+
+## 标记 completed 信号是否已经发出。
+## [br]
+## @api private
 var _completion_emitted: bool = false
 
 
@@ -198,6 +269,9 @@ func commit() -> GFInventoryTransferResult:
 
 # --- 私有/辅助方法 ---
 
+## 保存请求状态，取得模型锁并构建初始同模型或跨模型计划。
+## [br]
+## @api private
 func _prepare(
 	source: GFSlotInventoryModel,
 	target: GFSlotInventoryModel,
@@ -279,6 +353,9 @@ func _prepare(
 	)
 
 
+## 重新锁定并验证两侧模型及计划，再原子替换两侧候选和派发通知。
+## [br]
+## @api private
 func _commit_cross_model(
 	source: GFSlotInventoryModel,
 	target: GFSlotInventoryModel
@@ -347,6 +424,9 @@ func _commit_cross_model(
 	return _result.duplicate_result()
 
 
+## 重新锁定并验证同一模型的计划，再替换候选、派发通知并返回终态。
+## [br]
+## @api private
 func _commit_same_model(model: GFSlotInventoryModel) -> GFInventoryTransferResult:
 	if not _lock_models(model, model):
 		_complete(_make_result(
@@ -409,6 +489,9 @@ func _commit_same_model(model: GFSlotInventoryModel) -> GFInventoryTransferResul
 	return _result.duplicate_result()
 
 
+## 组合来源和目标候选，并复核接受数量及最终计划摘要。
+## [br]
+## @api private
 func _build_cross_plan(
 	source: GFSlotInventoryModel,
 	target: GFSlotInventoryModel
@@ -517,6 +600,9 @@ func _build_cross_plan(
 	}
 
 
+## 使用同模型规划器创建候选并计算来源与计划摘要。
+## [br]
+## @api private
 func _build_same_plan(model: GFSlotInventoryModel) -> Dictionary:
 	var plan: Dictionary = GFInventoryTransferPlanner.plan_same_model(
 		model,
@@ -550,6 +636,9 @@ func _build_same_plan(model: GFSlotInventoryModel) -> Dictionary:
 	}
 
 
+## 将失败计划规范为状态、物品 ID、请求数量和零接受量的结果。
+## [br]
+## @api private
 func _failure_bundle(plan: Dictionary, status: StringName) -> Dictionary:
 	return {
 		"status": status,
@@ -563,6 +652,9 @@ func _failure_bundle(plan: Dictionary, status: StringName) -> Dictionary:
 	}
 
 
+## 将 commit 重入尝试封闭为 BUSY 终态并发出一次完成信号。
+## [br]
+## @api private
 func _complete_reentrant_commit() -> GFInventoryTransferResult:
 	var source: GFSlotInventoryModel = _get_source()
 	var target: GFSlotInventoryModel = _get_target()
@@ -583,6 +675,9 @@ func _complete_reentrant_commit() -> GFInventoryTransferResult:
 	return _result.duplicate_result()
 
 
+## 按实例 ID 顺序取得一个或两个模型锁；第二把锁失败时回滚第一把。
+## [br]
+## @api private
 func _lock_models(
 	source: GFSlotInventoryModel,
 	target: GFSlotInventoryModel
@@ -602,6 +697,9 @@ func _lock_models(
 	return true
 
 
+## 按加锁时相反的顺序释放一个或两个模型锁。
+## [br]
+## @api private
 func _unlock_models(
 	source: GFSlotInventoryModel,
 	target: GFSlotInventoryModel
@@ -618,6 +716,9 @@ func _unlock_models(
 	first.unlock_inventory_transfer_for_framework(self)
 
 
+## 从弱引用取得来源库存，并检查其脚本类型。
+## [br]
+## @api private
 func _get_source() -> GFSlotInventoryModel:
 	if _source_ref == null:
 		return null
@@ -628,6 +729,9 @@ func _get_source() -> GFSlotInventoryModel:
 	return null
 
 
+## 从弱引用取得目标库存，并检查其脚本类型。
+## [br]
+## @api private
 func _get_target() -> GFSlotInventoryModel:
 	if _target_ref == null:
 		return null
@@ -638,6 +742,9 @@ func _get_target() -> GFSlotInventoryModel:
 	return null
 
 
+## 构造闭合的类型化结果，先规范数量再调用一次性配置接口。
+## [br]
+## @api private
 func _make_result(
 	status: StringName,
 	item_id: StringName,
@@ -661,11 +768,17 @@ func _make_result(
 	return result
 
 
+## 保存终态结果的隔离副本；重复完成会触发断言。
+## [br]
+## @api private
 func _complete(result: GFInventoryTransferResult) -> void:
 	assert(_result == null)
 	_result = result.duplicate_result()
 
 
+## 仅在已有终态且尚未发出时派发 completed 信号。
+## [br]
+## @api private
 func _emit_completed() -> void:
 	if _result == null or _completion_emitted:
 		return
@@ -673,6 +786,9 @@ func _emit_completed() -> void:
 	completed.emit(_result.duplicate_result())
 
 
+## 创建包含槽位、值项、字节、递归路径及失败标记的规划预算。
+## [br]
+## @api private
 func _make_budget() -> Dictionary:
 	return {
 		"slots": 0,
@@ -683,5 +799,8 @@ func _make_budget() -> Dictionary:
 	}
 
 
+## 对计划摘要组成项的序列化文本计算 SHA-256。
+## [br]
+## @api private
 func _plan_sha(parts: Array) -> String:
 	return var_to_str(parts).sha256_text()

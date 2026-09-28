@@ -80,6 +80,10 @@ func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction
 
 # --- 私有/辅助方法 ---
 
+## 无曲线时返回原值；否则按符号策略对绝对输入限幅采样，并按需恢复符号。
+## [br]
+## @api private
+## [br]
 func _apply_curve(value: float) -> float:
 	if curve == null:
 		return value

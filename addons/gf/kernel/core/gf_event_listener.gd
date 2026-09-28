@@ -15,10 +15,29 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 事件系统执行的监听回调。
+## [br]
+## @api private
 var _callback: Callable = Callable()
+
+## 事件派发时由事件系统传入的参数数量。
+## [br]
+## @api private
 var _dispatch_argument_count: int = -1
+
+## 可选诊断标签；为空时由 Callable 方法名生成。
+## [br]
+## @api private
 var _debug_label: String = ""
+
+## owner 的弱引用；未设置 owner 时为空。
+## [br]
+## @api private
 var _owner_ref: WeakRef = null
+
+## owner 的实例 ID；未设置时为零。
+## [br]
+## @api private
 var _owner_id: int = 0
 
 
@@ -228,6 +247,9 @@ func validate_for_dispatch(
 
 # --- 私有/辅助方法 ---
 
+## 保存 owner 的弱引用与实例 ID；传入 null 时清空两者。
+## [br]
+## @api private
 func _set_owner(owner: Object) -> void:
 	if owner == null:
 		_owner_ref = null
@@ -237,10 +259,18 @@ func _set_owner(owner: Object) -> void:
 	_owner_id = owner.get_instance_id()
 
 
+## owner 曾设置且其弱引用当前无法解析时返回 true。
+## [br]
+## @api private
 func _owner_is_released() -> bool:
 	return _owner_id != 0 and get_owner() == null
 
 
+## 按反射参数表检查分发参数与已绑定参数之和；可变参数只放宽最大数量，不跳过分发参数槽检查。
+## [br]
+## @api private
+## [br]
+## @return: 数量检查通过为 true；失败记录对应诊断，不检查实际参数值的类型。
 func _validate_method_arguments(
 	method: Dictionary,
 	dispatch_argument_count: int,
@@ -281,6 +311,9 @@ func _validate_method_arguments(
 	return true
 
 
+## 从方法描述字典读取 Array 字段；缺失或类型不符时返回空数组。
+## [br]
+## @api private
 func _get_dictionary_array(source: Dictionary, key: String) -> Array:
 	var value: Variant = source.get(key, [])
 	if value is Array:
@@ -289,6 +322,9 @@ func _get_dictionary_array(source: Dictionary, key: String) -> Array:
 	return []
 
 
+## 从方法描述字典读取整数；缺失或类型不符时返回给定默认值。
+## [br]
+## @api private
 func _get_dictionary_int(source: Dictionary, key: String, default_value: int) -> int:
 	var value: Variant = source.get(key, default_value)
 	if value is int:

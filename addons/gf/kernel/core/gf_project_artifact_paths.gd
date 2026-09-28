@@ -198,6 +198,9 @@ static func validate_policy_file(policy_path: String = POLICY_FILE_PATH) -> Pack
 
 # --- 私有/辅助方法 ---
 
+## 接受与当前 schema 版本相等的整数，或近似相等的浮点值。
+## [br]
+## @api private
 static func _is_supported_schema_version(value: Variant) -> bool:
 	if value is int:
 		var integer_value: int = value

@@ -6,33 +6,127 @@ extends EditorInspectorPlugin
 
 # --- 常量 ---
 
+## 标记 Capability 容器节点的元数据键。
+## [br]
+## @api private
 const _META_CAPABILITY_CONTAINER: StringName = &"_gf_capability_container"
+
+## 保存能力启用状态的元数据键。
+## [br]
+## @api private
 const _META_CAPABILITY_ACTIVE: StringName = &"_gf_capability_active"
+
+## 保存节点停用前 process_mode 的元数据键。
+## [br]
+## @api private
 const _META_ORIGINAL_PROCESS_MODE: StringName = &"_gf_capability_original_process_mode"
+
+## Capability 扩展设置使用的扩展 ID。
+## [br]
+## @api private
 const _CAPABILITY_EXTENSION_ID: String = "gf.capability"
+
+## Capability 容器脚本资源路径。
+## [br]
+## @api private
 const _GF_CAPABILITY_CONTAINER_SCRIPT_PATH: String = "res://addons/gf/extensions/capability/nodes/gf_capability_container.gd"
+
+## Node Capability 基类脚本路径。
+## [br]
+## @api private
 const _GF_NODE_CAPABILITY_SCRIPT_PATH: String = "res://addons/gf/extensions/capability/nodes/gf_node_capability.gd"
+
+## Node2D Capability 基类脚本路径。
+## [br]
+## @api private
 const _GF_NODE_2D_CAPABILITY_SCRIPT_PATH: String = "res://addons/gf/extensions/capability/nodes/gf_node_2d_capability.gd"
+
+## Node3D Capability 基类脚本路径。
+## [br]
+## @api private
 const _GF_NODE_3D_CAPABILITY_SCRIPT_PATH: String = "res://addons/gf/extensions/capability/nodes/gf_node_3d_capability.gd"
+
+## Control Capability 基类脚本路径。
+## [br]
+## @api private
 const _GF_CONTROL_CAPABILITY_SCRIPT_PATH: String = "res://addons/gf/extensions/capability/nodes/gf_control_capability.gd"
+
+## Capability Recipe 基类脚本路径。
+## [br]
+## @api private
 const _GF_CAPABILITY_RECIPE_SCRIPT_PATH: String = "res://addons/gf/extensions/capability/recipes/gf_capability_recipe.gd"
+
+## Recipe 资源扫描允许的最大目录深度。
+## [br]
+## @api private
 const _DEFAULT_MAX_RECIPE_SCAN_DEPTH: int = 32
+
+## Recipe 候选列表允许的最大条目数。
+## [br]
+## @api private
 const _DEFAULT_MAX_RECIPE_CANDIDATES: int = 10000
+
+## Recipe 扫描允许检查的最大资源文件数。
+## [br]
+## @api private
 const _DEFAULT_MAX_RECIPE_FILES_SCANNED: int = 10000
+
+## 编辑器 Capability 节点树操作的最大节点数。
+## [br]
+## @api private
 const _MAX_EDITOR_NODE_TREE_NODES: int = 65536
+
+## 扩展设置脚本资源。
+## [br]
+## @api private
 const _GF_EXTENSION_SETTINGS_SCRIPT: Script = preload("res://addons/gf/kernel/extension/gf_extension_settings.gd")
+
+## 编辑器类型索引脚本资源。
+## [br]
+## @api private
 const _GF_EDITOR_TYPE_INDEX_SCRIPT: Script = preload("res://addons/gf/kernel/editor/gf_editor_type_index.gd")
+
+## 校验报告脚本资源。
+## [br]
+## @api private
 const _GF_VALIDATION_REPORT_SCRIPT: Script = preload("res://addons/gf/standard/foundation/validation/gf_validation_report.gd")
+
+## 脚本继承关系检查器脚本资源。
+## [br]
+## @api private
 const _SCRIPT_TYPE_INSPECTOR: Script = preload("res://addons/gf/kernel/core/gf_script_type_inspector.gd")
 
 
 # --- 私有变量 ---
 
+## 延迟创建的编辑器类型索引。
+## [br]
+## @api private
 var _editor_type_index: GFEditorTypeIndex = null
+
+## 文件系统发现信号的生命周期订阅。
+## [br]
+## @api private
 var _discovery_subscriptions: Array[GFLifetimeSubscription] = []
+
+## 已发现的节点能力候选缓存。
+## [br]
+## @api private
 var _node_candidate_cache: Array[Dictionary] = []
+
+## 已发现的 Recipe 候选缓存。
+## [br]
+## @api private
 var _recipe_candidate_cache: Array[Dictionary] = []
+
+## 节点能力候选缓存是否已生成。
+## [br]
+## @api private
 var _has_node_candidate_cache: bool = false
+
+## Recipe 候选缓存是否已生成。
+## [br]
+## @api private
 var _has_recipe_candidate_cache: bool = false
 
 
@@ -162,42 +256,63 @@ static func collect_required_capability_types(
 
 # --- 私有/辅助方法 ---
 
+## 将 Variant 收窄为 Script，其他类型返回 null。
+## [br]
+## @api private
 static func _get_script_value(value: Variant) -> Script:
 	if value is Script:
 		return value
 	return null
 
 
+## 将 Variant 收窄为 Node，其他类型返回 null。
+## [br]
+## @api private
 static func _get_node_value(value: Variant) -> Node:
 	if value is Node:
 		return value
 	return null
 
 
+## 将 Variant 收窄为 Resource，其他类型返回 null。
+## [br]
+## @api private
 static func _get_resource_value(value: Variant) -> Resource:
 	if value is Resource:
 		return value
 	return null
 
 
+## 将 Variant 收窄为 PackedScene，其他类型返回 null。
+## [br]
+## @api private
 static func _get_packed_scene_value(value: Variant) -> PackedScene:
 	if value is PackedScene:
 		return value
 	return null
 
 
+## 将 Variant 收窄为 GFEditorTypeIndex，其他类型返回 null。
+## [br]
+## @api private
 static func _get_editor_type_index_value(value: Variant) -> GFEditorTypeIndex:
 	if value is GFEditorTypeIndex:
 		return value
 	return null
 
 
+## 将 Variant 收窄为 GFValidationReport，其他类型返回 null。
+## [br]
+## @api private
 static func _get_validation_report_value(value: Variant) -> GFValidationReport:
 	if value is GFValidationReport:
 		return value
 	return null
 
 
+## 将 Variant 中的整数转换为节点处理模式，类型不符时使用回退值。
+## [br]
+## @api private
 static func _get_process_mode_value(
 	value: Variant,
 	fallback: Node.ProcessMode = Node.PROCESS_MODE_INHERIT
@@ -208,6 +323,9 @@ static func _get_process_mode_value(
 	return fallback
 
 
+## 将整数映射为有效节点处理模式，未识别时返回回退值。
+## [br]
+## @api private
 static func _to_process_mode(value: int, fallback: Node.ProcessMode = Node.PROCESS_MODE_INHERIT) -> Node.ProcessMode:
 	match value:
 		Node.PROCESS_MODE_INHERIT:
@@ -224,23 +342,38 @@ static func _to_process_mode(value: int, fallback: Node.ProcessMode = Node.PROCE
 			return fallback
 
 
+## 创建空的 Script 类型化数组。
+## [br]
+## @api private
 static func _empty_script_array() -> Array[Script]:
 	var result: Array[Script] = []
 	return result
 
 
+## 通过属性工具按名称读取对象属性并提供默认值。
+## [br]
+## @api private
 static func _read_property(object: Object, property_name: String, default_value: Variant = null) -> Variant:
 	return GFObjectPropertyTools.read_property(object, NodePath(property_name), default_value)
 
 
+## 创建并收窄校验报告实例。
+## [br]
+## @api private
 static func _make_validation_report(subject: String) -> GFValidationReport:
 	return _get_validation_report_value(_GF_VALIDATION_REPORT_SCRIPT.call("new", subject))
 
 
+## 创建并收窄编辑器类型索引实例。
+## [br]
+## @api private
 static func _make_editor_type_index() -> GFEditorTypeIndex:
 	return _get_editor_type_index_value(_GF_EDITOR_TYPE_INDEX_SCRIPT.call("new"))
 
 
+## 延迟创建类型索引并启用编辑器发现变更失效通知。
+## [br]
+## @api private
 func _get_editor_type_index() -> GFEditorTypeIndex:
 	if _editor_type_index != null:
 		return _editor_type_index
@@ -252,6 +385,9 @@ func _get_editor_type_index() -> GFEditorTypeIndex:
 	return _editor_type_index
 
 
+## 在编辑器中订阅文件系统和脚本类变更信号。
+## [br]
+## @api private
 func _ensure_discovery_invalidation_subscriptions() -> void:
 	if not _discovery_subscriptions.is_empty() or not Engine.is_editor_hint():
 		return
@@ -277,15 +413,9 @@ func _ensure_discovery_invalidation_subscriptions() -> void:
 			_discovery_subscriptions.append(subscription)
 
 
-func _on_discovery_sources_changed(
-	_resources: PackedStringArray = PackedStringArray()
-) -> void:
-	_node_candidate_cache.clear()
-	_recipe_candidate_cache.clear()
-	_has_node_candidate_cache = false
-	_has_recipe_candidate_cache = false
-
-
+## 将 Variant 收窄为 EditorFileSystemDirectory，其他类型返回 null。
+## [br]
+## @api private
 static func _get_editor_directory_value(value: Variant) -> EditorFileSystemDirectory:
 	if value is EditorFileSystemDirectory:
 		var directory: EditorFileSystemDirectory = value
@@ -293,6 +423,9 @@ static func _get_editor_directory_value(value: Variant) -> EditorFileSystemDirec
 	return null
 
 
+## 从全局类列表收集 GFCapabilityRecipe 及其派生类名。
+## [br]
+## @api private
 func _get_recipe_resource_type_names() -> Dictionary:
 	var accepted: Dictionary = {
 		"GFCapabilityRecipe": true,
@@ -314,6 +447,9 @@ func _get_recipe_resource_type_names() -> Dictionary:
 	return accepted
 
 
+## 根据文件资源类型或脚本类名判断是否可能是 Recipe。
+## [br]
+## @api private
 func _editor_file_may_be_recipe(
 	directory: EditorFileSystemDirectory,
 	file_index: int,
@@ -330,6 +466,9 @@ func _editor_file_may_be_recipe(
 	return false
 
 
+## 校验连接条件后连接信号，连接失败时记录警告。
+## [br]
+## @api private
 static func _connect_signal_checked(source_signal: Signal, callback: Callable, flags: int = 0) -> void:
 	if source_signal.is_null() or not callback.is_valid():
 		return
@@ -341,12 +480,18 @@ static func _connect_signal_checked(source_signal: Signal, callback: Callable, f
 		push_warning("[GFCapabilityInspector][capability_inspector.signal_connection_failed] Signal connection failed: %s." % error_string(error))
 
 
+## 将字符串追加到 PackedStringArray。
+## [br]
+## @api private
 static func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 将警告及其上下文添加到校验报告。
+## [br]
+## @api private
 static func _report_add_warning(
 	report: GFValidationReport,
 	kind: StringName,
@@ -362,6 +507,9 @@ static func _report_add_warning(
 		return
 
 
+## 将错误及其上下文添加到校验报告。
+## [br]
+## @api private
 static func _report_add_error(
 	report: GFValidationReport,
 	kind: StringName,
@@ -377,6 +525,9 @@ static func _report_add_error(
 		return
 
 
+## 将校验报告转换为字典；报告缺失时复制附加字段。
+## [br]
+## @api private
 static func _report_to_dict(
 	report: GFValidationReport,
 	additional_fields: Dictionary = {},
@@ -387,20 +538,32 @@ static func _report_to_dict(
 	return report.to_dict(additional_fields, options)
 
 
+## 通过脚本类型检查器判断类型相同或继承关系。
+## [br]
+## @api private
 static func _script_extends_or_equals(script: Script, base_script: Script) -> bool:
 	return GFVariantData.to_bool(_SCRIPT_TYPE_INSPECTOR.call("script_extends_or_equals", script, base_script))
 
 
+## 检查 Script 是否存在且可实例化。
+## [br]
+## @api private
 static func _script_can_instantiate(script: Script) -> bool:
 	return script != null and GFVariantData.to_bool(script.call("can_instantiate"))
 
 
+## 实例化可创建的脚本并将结果收窄为 Node。
+## [br]
+## @api private
 static func _instantiate_script_node(script: Script) -> Node:
 	if not _script_can_instantiate(script):
 		return null
 	return _get_node_value(script.call("new"))
 
 
+## 将整数 Variant 类型值映射为已支持的 Variant.Type。
+## [br]
+## @api private
 static func _get_property_type_value(value: Variant) -> Variant.Type:
 	match GFVariantData.to_int(value, TYPE_NIL):
 		TYPE_BOOL:
@@ -483,6 +646,9 @@ static func _get_property_type_value(value: Variant) -> Variant.Type:
 			return TYPE_NIL
 
 
+## 将整数属性提示值映射为已支持的 PropertyHint。
+## [br]
+## @api private
 static func _get_property_hint_value(value: Variant) -> PropertyHint:
 	match GFVariantData.to_int(value, PROPERTY_HINT_NONE):
 		PROPERTY_HINT_RANGE:
@@ -569,6 +735,9 @@ static func _get_property_hint_value(value: Variant) -> PropertyHint:
 			return PROPERTY_HINT_NONE
 
 
+## 填充节点能力菜单并连接候选项选择信号。
+## [br]
+## @api private
 func _populate_add_menu(popup: PopupMenu, target: Node) -> void:
 	popup.clear()
 	if popup.id_pressed.is_connected(_on_add_menu_id_pressed):
@@ -588,6 +757,9 @@ func _populate_add_menu(popup: PopupMenu, target: Node) -> void:
 	_connect_signal_checked(popup.id_pressed, _on_add_menu_id_pressed.bind(popup, target), CONNECT_DEFERRED)
 
 
+## 填充 Recipe 菜单并连接候选项选择信号。
+## [br]
+## @api private
 func _populate_recipe_menu(popup: PopupMenu, target: Node) -> void:
 	popup.clear()
 	if popup.id_pressed.is_connected(_on_recipe_menu_id_pressed):
@@ -607,6 +779,9 @@ func _populate_recipe_menu(popup: PopupMenu, target: Node) -> void:
 	_connect_signal_checked(popup.id_pressed, _on_recipe_menu_id_pressed.bind(popup, target), CONNECT_DEFERRED)
 
 
+## 从编辑器类型索引收集并缓存脚本及场景根节点候选。
+## [br]
+## @api private
 func _collect_node_capability_candidates() -> Array[Dictionary]:
 	var candidates: Array[Dictionary] = []
 	if not _is_capability_extension_enabled():
@@ -655,6 +830,9 @@ func _collect_node_capability_candidates() -> Array[Dictionary]:
 	return candidates.duplicate(true)
 
 
+## 在编辑器文件系统中限量扫描并缓存 Recipe 资源候选。
+## [br]
+## @api private
 func _collect_recipe_candidates() -> Array[Dictionary]:
 	var candidates: Array[Dictionary] = []
 	if not Engine.is_editor_hint() or not _is_capability_extension_enabled():
@@ -739,6 +917,9 @@ func _collect_recipe_candidates() -> Array[Dictionary]:
 	return candidates.duplicate(true)
 
 
+## 检查 Recipe 扫描深度并至多发出一次深度限制警告。
+## [br]
+## @api private
 func _can_scan_recipe_deeper(path: String, current_depth: int, scan_state: Dictionary) -> bool:
 	if current_depth < _DEFAULT_MAX_RECIPE_SCAN_DEPTH:
 		return true
@@ -752,10 +933,16 @@ func _can_scan_recipe_deeper(path: String, current_depth: int, scan_state: Dicti
 	return false
 
 
+## 检查候选列表是否仍低于数量上限。
+## [br]
+## @api private
 func _can_collect_more_recipe_candidates(candidates: Array[Dictionary], _scan_state: Dictionary) -> bool:
 	return candidates.size() < _DEFAULT_MAX_RECIPE_CANDIDATES
 
 
+## 创建 Recipe 扫描计数及限制警告状态字典。
+## [br]
+## @api private
 func _make_recipe_scan_state() -> Dictionary:
 	return {
 		"count_warning_emitted": false,
@@ -765,6 +952,9 @@ func _make_recipe_scan_state() -> Dictionary:
 	}
 
 
+## 检查已扫描文件数是否低于上限。
+## [br]
+## @api private
 func _can_scan_more_recipe_files(scan_state: Dictionary) -> bool:
 	return (
 		GFVariantData.get_option_int(scan_state, "scanned_file_count", 0)
@@ -772,6 +962,9 @@ func _can_scan_more_recipe_files(scan_state: Dictionary) -> bool:
 	)
 
 
+## 在文件扫描上限首次触发时记录警告。
+## [br]
+## @api private
 func _warn_recipe_file_limit(scan_state: Dictionary) -> void:
 	if GFVariantData.get_option_bool(scan_state, "file_warning_emitted", false):
 		return
@@ -782,6 +975,9 @@ func _warn_recipe_file_limit(scan_state: Dictionary) -> void:
 	)
 
 
+## 在候选数量上限首次触发时记录警告。
+## [br]
+## @api private
 func _warn_recipe_candidate_limit(scan_state: Dictionary) -> void:
 	if GFVariantData.get_option_bool(scan_state, "count_warning_emitted", false):
 		return
@@ -789,6 +985,9 @@ func _warn_recipe_candidate_limit(scan_state: Dictionary) -> void:
 	push_warning("[GFCapabilityInspector][capability_inspector.recipe_candidate_limit] Recipe candidates reached the maximum count %d; remaining resources were skipped." % _DEFAULT_MAX_RECIPE_CANDIDATES)
 
 
+## 加载并返回 Node、Node2D、Node3D 和 Control 能力基类。
+## [br]
+## @api private
 static func _get_node_capability_base_scripts() -> Array[Script]:
 	var result: Array[Script] = []
 	for path: String in [
@@ -803,24 +1002,39 @@ static func _get_node_capability_base_scripts() -> Array[Script]:
 	return result
 
 
+## 按配置路径加载能力容器脚本。
+## [br]
+## @api private
 static func _get_capability_container_script() -> Script:
 	return _load_script_or_null(_GF_CAPABILITY_CONTAINER_SCRIPT_PATH)
 
 
+## 按配置路径加载 Capability Recipe 脚本。
+## [br]
+## @api private
 func _get_capability_recipe_script() -> Script:
 	return _load_script_or_null(_GF_CAPABILITY_RECIPE_SCRIPT_PATH)
 
 
+## 路径存在时加载资源并收窄为 Script。
+## [br]
+## @api private
 static func _load_script_or_null(path: String) -> Script:
 	if path.is_empty() or not ResourceLoader.exists(path):
 		return null
 	return _get_script_value(load(path))
 
 
+## 查询 Capability 扩展是否已启用。
+## [br]
+## @api private
 func _is_capability_extension_enabled() -> bool:
 	return GFVariantData.to_bool(_GF_EXTENSION_SETTINGS_SCRIPT.call("is_extension_enabled", _CAPABILITY_EXTENSION_ID))
 
 
+## 检查资源脚本是否等于指定基类或继承该基类。
+## [br]
+## @api private
 func _resource_extends_script(resource: Resource, base_script: Script) -> bool:
 	if resource == null or base_script == null:
 		return false
@@ -828,17 +1042,26 @@ func _resource_extends_script(resource: Resource, base_script: Script) -> bool:
 	return script != null and _script_extends_or_equals(script, base_script)
 
 
+## 判断文件扩展名是否为 tres 或 res。
+## [br]
+## @api private
 func _is_recipe_resource_file(file_name: String) -> bool:
 	var extension: String = file_name.get_extension().to_lower()
 	return extension == "tres" or extension == "res"
 
 
+## 将目录资源路径和文件名拼接为完整路径。
+## [br]
+## @api private
 func _join_resource_path(dir_path: String, file_name: String) -> String:
 	if dir_path.ends_with("/"):
 		return dir_path + file_name
 	return "%s/%s" % [dir_path, file_name]
 
 
+## 按显示名、Recipe ID 或文件名生成 Recipe 候选标签。
+## [br]
+## @api private
 func _get_recipe_display_label(recipe: Resource, path: String) -> String:
 	var display_name: String = GFVariantData.to_text(_read_property(recipe, "display_name")).strip_edges() if recipe != null else ""
 	if display_name.is_empty() and recipe != null:
@@ -850,6 +1073,9 @@ func _get_recipe_display_label(recipe: Resource, path: String) -> String:
 	return "%s (%s)" % [display_name, path]
 
 
+## 检查 Recipe 条目是否指定能力脚本或场景。
+## [br]
+## @api private
 func _is_recipe_entry_valid(entry: Resource) -> bool:
 	if entry == null:
 		return false
@@ -858,6 +1084,9 @@ func _is_recipe_entry_valid(entry: Resource) -> bool:
 	return capability_type != null or scene != null
 
 
+## 检查脚本是否继承任一节点能力基类。
+## [br]
+## @api private
 static func _script_is_node_capability(script: Script) -> bool:
 	if script == null:
 		return false
@@ -867,6 +1096,9 @@ static func _script_is_node_capability(script: Script) -> bool:
 	return false
 
 
+## 从 PackedScene 根节点属性中读取 Script 资源。
+## [br]
+## @api private
 func _get_packed_scene_root_script(scene: PackedScene) -> Script:
 	if scene == null:
 		return null
@@ -885,6 +1117,9 @@ func _get_packed_scene_root_script(scene: PackedScene) -> Script:
 	return null
 
 
+## 创建包含启停、编辑、移除按钮及属性编辑器的能力行。
+## [br]
+## @api private
 func _create_capability_row(target: Node, capability: Node) -> Control:
 	var wrapper: VBoxContainer = VBoxContainer.new()
 	wrapper.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -924,6 +1159,9 @@ func _create_capability_row(target: Node, capability: Node) -> Control:
 	return wrapper
 
 
+## 为能力的可编辑脚本属性创建 Inspector 属性控件。
+## [br]
+## @api private
 func _create_capability_properties(capability: Node) -> Control:
 	var properties: VBoxContainer = VBoxContainer.new()
 	properties.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -959,6 +1197,9 @@ func _create_capability_properties(capability: Node) -> Control:
 	return properties
 
 
+## 仅接受编辑器脚本变量，并排除 script 与 active 属性。
+## [br]
+## @api private
 func _is_editable_capability_property(property_info: Dictionary) -> bool:
 	var usage: int = GFVariantData.get_option_int(property_info, "usage", 0)
 	if (usage & PROPERTY_USAGE_EDITOR) == 0:
@@ -974,12 +1215,18 @@ func _is_editable_capability_property(property_info: Dictionary) -> bool:
 	)
 
 
+## 将属性名称首字母格式化为显示文本。
+## [br]
+## @api private
 func _get_property_display_name(property_name: String) -> String:
 	if property_name.is_empty():
 		return ""
 	return property_name.capitalize()
 
 
+## 优先返回脚本全局类名，否则返回节点名称。
+## [br]
+## @api private
 func _get_capability_display_name(capability: Node) -> String:
 	var script: Script = _get_script_value(capability.get_script())
 	if script != null:
@@ -989,6 +1236,9 @@ func _get_capability_display_name(capability: Node) -> String:
 	return capability.name
 
 
+## 收集 target 的直接子级能力容器。
+## [br]
+## @api private
 static func _get_capability_containers(target: Node) -> Array[Node]:
 	var result: Array[Node] = []
 	for child: Node in target.get_children(true):
@@ -997,6 +1247,9 @@ static func _get_capability_containers(target: Node) -> Array[Node]:
 	return result
 
 
+## 查找适配容器；未找到时创建并登记场景 owner。
+## [br]
+## @api private
 func _get_or_create_capability_container(target: Node, capability: Node) -> Node:
 	var existing: Node = _find_capability_container(target, capability)
 	if existing != null:
@@ -1008,6 +1261,9 @@ func _get_or_create_capability_container(target: Node, capability: Node) -> Node
 	return container
 
 
+## 查找首个与能力节点类型匹配的直接容器。
+## [br]
+## @api private
 static func _find_capability_container(target: Node, capability: Node) -> Node:
 	for existing: Node in _get_capability_containers(target):
 		if _container_matches_capability(existing, capability):
@@ -1015,6 +1271,9 @@ static func _find_capability_container(target: Node, capability: Node) -> Node:
 	return null
 
 
+## 创建容器节点并设置标记元数据及可用脚本。
+## [br]
+## @api private
 static func _make_capability_container(target: Node, capability: Node) -> Node:
 	var container: Node = _create_capability_container_node(target, capability)
 	container.set_meta(_META_CAPABILITY_CONTAINER, true)
@@ -1022,6 +1281,9 @@ static func _make_capability_container(target: Node, capability: Node) -> Node:
 	return container
 
 
+## 按 target 与能力节点类型创建容器节点。
+## [br]
+## @api private
 static func _create_capability_container_node(target: Node, capability: Node) -> Node:
 	var container: Node = null
 	if target is Node3D and capability is Node3D:
@@ -1041,6 +1303,9 @@ static func _create_capability_container_node(target: Node, capability: Node) ->
 	return container
 
 
+## 验证容器脚本可实例化且基类兼容后附加脚本。
+## [br]
+## @api private
 static func _try_attach_capability_container_script(container: Node) -> void:
 	var container_script: Script = _get_capability_container_script()
 	if container_script == null or not container_script.can_instantiate():
@@ -1055,6 +1320,9 @@ static func _try_attach_capability_container_script(container: Node) -> void:
 	container.set_script(container_script)
 
 
+## 将 Control 容器配置为忽略鼠标并铺满锚点区域。
+## [br]
+## @api private
 static func _configure_control_container(container: Control) -> void:
 	container.mouse_filter = Control.MOUSE_FILTER_IGNORE as Control.MouseFilter
 	container.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1064,6 +1332,9 @@ static func _configure_control_container(container: Control) -> void:
 	container.offset_bottom = 0.0
 
 
+## 检查容器节点类型是否与能力节点类型匹配。
+## [br]
+## @api private
 static func _container_matches_capability(container: Node, capability: Node) -> bool:
 	if capability is Node3D:
 		return container is Node3D
@@ -1074,6 +1345,9 @@ static func _container_matches_capability(container: Node, capability: Node) -> 
 	return not (container is Node2D) and not (container is Node3D) and not (container is Control)
 
 
+## 通过标记元数据或容器脚本识别能力容器。
+## [br]
+## @api private
 static func _is_capability_container(node: Node) -> bool:
 	if GFVariantData.to_bool(node.get_meta(_META_CAPABILITY_CONTAINER, false)):
 		return true
@@ -1087,6 +1361,9 @@ static func _is_capability_container(node: Node) -> bool:
 	)
 
 
+## 收集 target 能力容器中带脚本的直接子节点。
+## [br]
+## @api private
 static func _get_capability_nodes(target: Node) -> Array[Node]:
 	var result: Array[Node] = []
 	for container: Node in _get_capability_containers(target):
@@ -1096,6 +1373,9 @@ static func _get_capability_nodes(target: Node) -> Array[Node]:
 	return result
 
 
+## 按候选记录实例化脚本节点或 PackedScene 根节点。
+## [br]
+## @api private
 func _create_capability_node(candidate: Dictionary) -> Node:
 	var path: String = GFVariantData.get_option_string(candidate, "path", "")
 	match GFVariantData.get_option_string(candidate, "kind", ""):
@@ -1117,6 +1397,9 @@ func _create_capability_node(candidate: Dictionary) -> Node:
 	return null
 
 
+## 创建候选能力节点并提交编辑器添加计划。
+## [br]
+## @api private
 func _add_capability_node(target: Node, candidate: Dictionary) -> void:
 	if not is_instance_valid(target):
 		return
@@ -1131,6 +1414,9 @@ func _add_capability_node(target: Node, candidate: Dictionary) -> void:
 	_commit_capability_add_plans("添加 GF 节点能力", target, plans, node)
 
 
+## 为新增能力确定容器、唯一名称及计划中的插入位置。
+## [br]
+## @api private
 static func _make_capability_add_plan(
 	target: Node,
 	node: Node,
@@ -1157,6 +1443,9 @@ static func _make_capability_add_plan(
 	}
 
 
+## 在待执行计划中查找与能力节点类型匹配的容器。
+## [br]
+## @api private
 static func _find_planned_capability_container(planned_additions: Array[Dictionary], capability: Node) -> Node:
 	for plan: Dictionary in planned_additions:
 		var container: Node = _get_node_value(plan.get("container", null))
@@ -1165,6 +1454,9 @@ static func _find_planned_capability_container(planned_additions: Array[Dictiona
 	return null
 
 
+## 汇总容器现有子节点和待添加节点名称。
+## [br]
+## @api private
 static func _get_planned_child_names(container: Node, planned_additions: Array[Dictionary]) -> Dictionary:
 	var used_names: Dictionary = {}
 	if container != null:
@@ -1181,6 +1473,9 @@ static func _get_planned_child_names(container: Node, planned_additions: Array[D
 	return used_names
 
 
+## 计算新容器在 target 子节点中的计划插入索引。
+## [br]
+## @api private
 static func _get_planned_container_index(target: Node, planned_additions: Array[Dictionary]) -> int:
 	var index: int = target.get_child_count() if is_instance_valid(target) else 0
 	for plan: Dictionary in planned_additions:
@@ -1192,6 +1487,9 @@ static func _get_planned_container_index(target: Node, planned_additions: Array[
 	return index
 
 
+## 计算能力节点在容器子节点中的计划插入索引。
+## [br]
+## @api private
 static func _get_planned_node_index(container: Node, planned_additions: Array[Dictionary]) -> int:
 	var index: int = container.get_child_count() if is_instance_valid(container) else 0
 	for plan: Dictionary in planned_additions:
@@ -1201,6 +1499,9 @@ static func _get_planned_node_index(container: Node, planned_additions: Array[Di
 	return index
 
 
+## 在场景现有和计划名称中寻找唯一子节点名称。
+## [br]
+## @api private
 static func _make_unique_child_name_with_used(parent: Node, base_name: String, used_names: Dictionary) -> String:
 	var clean_name: String = base_name if not base_name.is_empty() else "Capability"
 	if not parent.has_node(NodePath(clean_name)) and not used_names.has(clean_name):
@@ -1212,6 +1513,9 @@ static func _make_unique_child_name_with_used(parent: Node, base_name: String, u
 	return "%s%d" % [clean_name, index]
 
 
+## 通过 UndoRedo 提交多条添加计划，无管理器时直接执行。
+## [br]
+## @api private
 func _commit_capability_add_plans(
 	action_name: String,
 	target: Node,
@@ -1237,6 +1541,9 @@ func _commit_capability_add_plans(
 	undo_redo.commit_action()
 
 
+## 将一条容器与能力节点添加计划写入 UndoRedo。
+## [br]
+## @api private
 func _add_capability_plan_to_undo(undo_redo: EditorUndoRedoManager, plan: Dictionary) -> void:
 	var target: Node = _get_node_value(plan.get("target", null))
 	var container: Node = _get_node_value(plan.get("container", null))
@@ -1282,6 +1589,9 @@ func _add_capability_plan_to_undo(undo_redo: EditorUndoRedoManager, plan: Dictio
 	undo_redo.add_undo_reference(node)
 
 
+## 立即执行一条能力节点添加计划并设置场景 owner。
+## [br]
+## @api private
 func _execute_capability_add_plan(plan: Dictionary) -> void:
 	var target: Node = _get_node_value(plan.get("target", null))
 	var container: Node = _get_node_value(plan.get("container", null))
@@ -1299,6 +1609,9 @@ func _execute_capability_add_plan(plan: Dictionary) -> void:
 		_set_editor_capability_active(node, GFVariantData.get_option_bool(plan, "active", true))
 
 
+## 校验 Recipe 条目、构造添加计划并返回应用与依赖报告。
+## [br]
+## @api private
 func _apply_recipe_to_target(target: Node, recipe: Resource) -> Dictionary:
 	var report: GFValidationReport = _make_validation_report("Capability recipe editor apply")
 	var added: Array[Dictionary] = []
@@ -1373,6 +1686,9 @@ func _apply_recipe_to_target(target: Node, recipe: Resource) -> Dictionary:
 	return result
 
 
+## 从 Recipe 条目的场景或脚本创建有效节点能力实例。
+## [br]
+## @api private
 static func _create_capability_node_from_recipe_entry(
 	entry: Resource,
 	report: GFValidationReport,
@@ -1419,6 +1735,9 @@ static func _create_capability_node_from_recipe_entry(
 	return node
 
 
+## 将 Recipe 应用状态与 added、skipped 明细组合为报告字典。
+## [br]
+## @api private
 func _recipe_apply_report_to_dict(
 	report: GFValidationReport,
 	recipe: Resource,
@@ -1446,6 +1765,9 @@ func _recipe_apply_report_to_dict(
 	)
 
 
+## 按脚本全局名、节点名或条目序号生成节点名称。
+## [br]
+## @api private
 func _get_recipe_entry_node_name(entry: Resource, node: Node, index: int) -> String:
 	var capability_type: Script = _get_script_value(node.get_script()) if node != null else null
 	if capability_type == null and entry != null:
@@ -1459,6 +1781,9 @@ func _get_recipe_entry_node_name(entry: Resource, node: Node, index: int) -> Str
 	return "Capability%d" % (index + 1)
 
 
+## 检查 target 的能力脚本、依赖缺失或歧义并生成校验报告。
+## [br]
+## @api private
 static func _build_editor_capability_report(target: Node) -> Dictionary:
 	var report: GFValidationReport = _make_validation_report("Capability inspector")
 	if not is_instance_valid(target):
@@ -1545,14 +1870,23 @@ static func _build_editor_capability_report(target: Node) -> Dictionary:
 	)
 
 
+## 判断 target 当前能力列表中是否唯一匹配指定脚本类型。
+## [br]
+## @api private
 static func _target_has_capability_script(target: Node, expected_script: Script) -> bool:
 	return _capability_list_has_script(_get_capability_nodes(target), expected_script)
 
 
+## 判断能力节点列表是否唯一匹配指定脚本类型。
+## [br]
+## @api private
 static func _capability_list_has_script(capabilities: Array[Node], expected_script: Script) -> bool:
 	return _get_matching_capability_scripts(capabilities, expected_script).size() == 1
 
 
+## 收集目标脚本的精确匹配或继承它的不同子类脚本。
+## [br]
+## @api private
 static func _get_matching_capability_scripts(
 	capabilities: Array[Node],
 	expected_script: Script
@@ -1573,6 +1907,9 @@ static func _get_matching_capability_scripts(
 	return subtype_matches
 
 
+## 将脚本数组转换为排序后的脚本键集合。
+## [br]
+## @api private
 static func _script_array_to_keys(scripts: Array[Script]) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for script: Script in scripts:
@@ -1581,6 +1918,9 @@ static func _script_array_to_keys(scripts: Array[Script]) -> PackedStringArray:
 	return result
 
 
+## 按全局类名、资源路径或实例 ID 生成脚本键。
+## [br]
+## @api private
 static func _get_script_key(script: Script) -> String:
 	if script == null:
 		return "<null>"
@@ -1593,6 +1933,9 @@ static func _get_script_key(script: Script) -> String:
 	return str(script.get_instance_id())
 
 
+## 创建非模态对话框显示格式化后的编辑器报告。
+## [br]
+## @api private
 func _show_editor_report(title: String, report: Dictionary) -> void:
 	var dialog: AcceptDialog = AcceptDialog.new()
 	dialog.title = title
@@ -1614,6 +1957,9 @@ func _show_editor_report(title: String, report: Dictionary) -> void:
 		dialog.popup_centered(Vector2i(760, 460))
 
 
+## 将报告摘要、计数、问题和后续动作格式化为文本。
+## [br]
+## @api private
 func _format_editor_report(report: Dictionary) -> String:
 	var lines: PackedStringArray = PackedStringArray()
 	_append_packed_string(lines, GFVariantData.get_option_string(report, "summary", "Capability report"))
@@ -1652,6 +1998,9 @@ func _format_editor_report(report: Dictionary) -> String:
 	return "\n".join(lines)
 
 
+## 返回 Capability Inspector 问题类型到建议动作的映射。
+## [br]
+## @api private
 static func _get_editor_capability_next_actions() -> Dictionary:
 	return {
 		"invalid_target": "Select a valid Node before using the capability inspector.",
@@ -1672,6 +2021,9 @@ static func _get_editor_capability_next_actions() -> Dictionary:
 	}
 
 
+## 通过 UndoRedo 移除能力节点，并在容器变空时一并处理容器。
+## [br]
+## @api private
 func _remove_capability_node(target: Node, capability: Node) -> void:
 	if not is_instance_valid(capability):
 		return
@@ -1715,6 +2067,9 @@ func _remove_capability_node(target: Node, capability: Node) -> void:
 	undo_redo.commit_action()
 
 
+## 在父节点现有子节点名称中生成唯一名称。
+## [br]
+## @api private
 func _make_unique_child_name(parent: Node, base_name: String) -> String:
 	var clean_name: String = base_name if not base_name.is_empty() else "Capability"
 	if not parent.has_node(NodePath(clean_name)):
@@ -1726,6 +2081,9 @@ func _make_unique_child_name(parent: Node, base_name: String) -> String:
 	return "%s%d" % [clean_name, index]
 
 
+## 在编辑器选择中仅保留指定节点。
+## [br]
+## @api private
 func _select_editor_node(node: Node) -> void:
 	if not is_instance_valid(node):
 		return
@@ -1738,6 +2096,9 @@ func _select_editor_node(node: Node) -> void:
 	selection.add_node(node)
 
 
+## 选择指定节点并在 Inspector 中显示它。
+## [br]
+## @api private
 func _select_and_inspect_node(node: Node) -> void:
 	if not is_instance_valid(node):
 		return
@@ -1745,6 +2106,9 @@ func _select_and_inspect_node(node: Node) -> void:
 	EditorInterface.inspect_object(node)
 
 
+## 将节点子树中收集到的节点设置为指定场景 owner。
+## [br]
+## @api private
 func _set_owner_recursive(node: Node, owner: Node) -> void:
 	if owner == null:
 		return
@@ -1752,6 +2116,9 @@ func _set_owner_recursive(node: Node, owner: Node) -> void:
 		tree_node.owner = owner
 
 
+## 确保节点归属指定父节点并移动到限制后的索引。
+## [br]
+## @api private
 func _add_child_at(parent: Node, child: Node, index: int, force_readable_name: bool = true) -> void:
 	if not is_instance_valid(parent) or not is_instance_valid(child):
 		return
@@ -1766,6 +2133,9 @@ func _add_child_at(parent: Node, child: Node, index: int, force_readable_name: b
 	parent.move_child(child, clampi(index, 0, max_index))
 
 
+## 仅当指定节点仍由该父节点拥有时移除子节点。
+## [br]
+## @api private
 func _remove_child_if_parent(parent: Node, child: Node) -> void:
 	if not is_instance_valid(parent) or not is_instance_valid(child):
 		return
@@ -1773,6 +2143,9 @@ func _remove_child_if_parent(parent: Node, child: Node) -> void:
 		parent.remove_child(child)
 
 
+## 优先读取 active 属性，其次读取能力元数据，缺省为启用。
+## [br]
+## @api private
 static func _read_editor_capability_active(capability: Node) -> bool:
 	if "active" in capability:
 		return GFVariantData.to_bool(_read_property(capability, "active", true), true)
@@ -1781,6 +2154,9 @@ static func _read_editor_capability_active(capability: Node) -> bool:
 	return true
 
 
+## 将能力及其节点子树切换到指定启用状态。
+## [br]
+## @api private
 func _set_editor_capability_active(capability: Node, active: bool) -> void:
 	var _applied: bool = _apply_editor_capability_active_state(
 		capability,
@@ -1789,6 +2165,9 @@ func _set_editor_capability_active(capability: Node, active: bool) -> void:
 	)
 
 
+## 更新能力属性和元数据，并切换预算内节点子树的处理模式。
+## [br]
+## @api private
 static func _apply_editor_capability_active_state(
 	capability: Node,
 	active: bool,
@@ -1812,6 +2191,9 @@ static func _apply_editor_capability_active_state(
 	return true
 
 
+## 按 Inspector 节点数上限收集完整节点子树。
+## [br]
+## @api private
 static func _collect_editor_node_tree(
 	root: Node,
 	include_internal: bool,
@@ -1825,6 +2207,9 @@ static func _collect_editor_node_tree(
 	)
 
 
+## 使用指定节点数上限收集子树，超限时报告错误并返回空数组。
+## [br]
+## @api private
 static func _collect_editor_node_tree_with_limit(
 	root: Node,
 	include_internal: bool,
@@ -1849,6 +2234,9 @@ static func _collect_editor_node_tree_with_limit(
 	return []
 
 
+## 停用时暂存并禁用节点处理模式，启用时恢复暂存值。
+## [br]
+## @api private
 static func _set_node_active_state(node: Node, active: bool) -> void:
 	if active:
 		if node.has_meta(_META_ORIGINAL_PROCESS_MODE):
@@ -1868,6 +2256,21 @@ static func _set_node_active_state(node: Node, active: bool) -> void:
 
 # --- 信号处理函数 ---
 
+## 发现源变化后清空节点和 recipe 候选缓存，并撤销两类缓存的有效标记。
+## [br]
+## @api private
+func _on_discovery_sources_changed(
+	_resources: PackedStringArray = PackedStringArray()
+) -> void:
+	_node_candidate_cache.clear()
+	_recipe_candidate_cache.clear()
+	_has_node_candidate_cache = false
+	_has_recipe_candidate_cache = false
+
+
+## 读取添加菜单项元数据并执行能力节点添加。
+## [br]
+## @api private
 func _on_add_menu_id_pressed(id: int, popup: PopupMenu, target: Node) -> void:
 	var index: int = popup.get_item_index(id)
 	if index < 0:
@@ -1879,6 +2282,9 @@ func _on_add_menu_id_pressed(id: int, popup: PopupMenu, target: Node) -> void:
 	_add_capability_node(target, candidate)
 
 
+## 读取 Recipe 菜单项、应用资源并显示结果报告。
+## [br]
+## @api private
 func _on_recipe_menu_id_pressed(id: int, popup: PopupMenu, target: Node) -> void:
 	var index: int = popup.get_item_index(id)
 	if index < 0:
@@ -1893,10 +2299,16 @@ func _on_recipe_menu_id_pressed(id: int, popup: PopupMenu, target: Node) -> void
 	_show_editor_report("GF Capability Recipe", report)
 
 
+## 构建并显示目标节点的能力依赖校验报告。
+## [br]
+## @api private
 func _on_validate_capabilities_pressed(target: Node) -> void:
 	_show_editor_report("GF Capability Validation", _build_editor_capability_report(target))
 
 
+## 通过 UndoRedo 应用能力启用状态变化。
+## [br]
+## @api private
 func _on_capability_active_toggled(active: bool, capability: Node) -> void:
 	if not is_instance_valid(capability):
 		return
@@ -1918,10 +2330,16 @@ func _on_capability_active_toggled(active: bool, capability: Node) -> void:
 	undo_redo.commit_action()
 
 
+## 在编辑器 Inspector 中检查指定能力节点。
+## [br]
+## @api private
 func _on_capability_edit_pressed(capability: Node) -> void:
 	if is_instance_valid(capability):
 		EditorInterface.inspect_object(capability)
 
 
+## 处理移除按钮并执行能力节点移除。
+## [br]
+## @api private
 func _on_capability_remove_pressed(target: Node, capability: Node) -> void:
 	_remove_capability_node(target, capability)

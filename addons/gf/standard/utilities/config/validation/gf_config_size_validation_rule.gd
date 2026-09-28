@@ -112,6 +112,10 @@ func _validate_table(rows: Array[Dictionary], context: Dictionary, report: Dicti
 
 # --- 私有/辅助方法 ---
 
+## 按当前最小与最大尺寸约束验证给定数量并记录问题。
+## [br]
+## @api private
+## [br]
 func _validate_size(
 	size: int,
 	context: Dictionary,
@@ -125,6 +129,10 @@ func _validate_size(
 		_add_issue(report, _make_issue_context(context, value, _describe_size_range(), size), kind, "数量大于允许范围。")
 
 
+## 读取支持值的长度或元素数量；不支持的类型返回负值。
+## [br]
+## @api private
+## [br]
 func _get_value_size(value: Variant) -> int:
 	if value is String or value is StringName:
 		return GFVariantData.to_text(value).length()
@@ -167,6 +175,10 @@ func _get_value_size(value: Variant) -> int:
 	return -1
 
 
+## 复制诊断上下文并附加实际尺寸及期望范围。
+## [br]
+## @api private
+## [br]
 func _make_issue_context(
 	context: Dictionary,
 	value: Variant,
@@ -180,6 +192,10 @@ func _make_issue_context(
 	return issue_context
 
 
+## 将已配置的最小和最大尺寸格式化为范围描述。
+## [br]
+## @api private
+## [br]
 func _describe_size_range() -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	if has_minimum_size:

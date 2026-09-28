@@ -27,6 +27,7 @@ signal projectile_emitted(
 	session: GFProjectileSession,
 	launch_input: GFProjectileLaunchInput3D
 )
+
 ## 本次发射在返回任何 root 前失败时发出。
 ## [br]
 ## @api public
@@ -43,6 +44,9 @@ signal projectile_emit_failed(reason: StringName, details: Dictionary)
 
 # --- 常量 ---
 
+## 提供发射变换的有限值校验。
+## [br]
+## @api private
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
 
@@ -118,14 +122,49 @@ var object_pool_utility: GFObjectPoolUtility = null
 
 # --- 私有变量 ---
 
+## 记录 emitter 当前持有的通知屏障层数。
+## [br]
+## @api private
 var _notification_barrier_depth: int = 0
+
+## 跟踪由本 emitter 创建并等待归还的退役记录。
+## [br]
+## @api private
 var _active_retirements: Array[_RetirementRecord] = []
+
+## 标记 emitter 是否已进入释放流程。
+## [br]
+## @api private
 var _is_releasing: bool = false
+
+## 每次开始释放时递增，用于使在途请求的代际检查失效。
+## [br]
+## @api private
 var _release_generation: int = 0
+
+## 阻止同一 emitter 同时执行多个发射事务。
+## [br]
+## @api private
 var _emission_in_progress: bool = false
+
+## 未配置共享池时使用的 emitter 私有池。
+## [br]
+## @api private
 var _private_pool: GFObjectPoolUtility = null
+
+## 保存当前发射事务的诊断阶段。
+## [br]
+## @api private
 var _emission_stage: StringName = &"validation"
+
+## 保存当前发射事务最后记录的失败原因。
+## [br]
+## @api private
 var _emission_failure: StringName = &""
+
+## 保存当前请求经 spawn pattern 解析后的数量。
+## [br]
+## @api private
 var _requested_count: int = 0
 
 
@@ -233,6 +272,9 @@ func resolve_spawn_parent() -> Node:
 
 # --- 私有/辅助方法 ---
 
+## 依次执行请求校验、批量获取、绑定、预留、deferred commit、激活与发布。
+## [br]
+## @api private
 func _emit_projectiles_transaction(
 	launch_input: GFProjectileLaunchInput3D,
 	projectile_id: StringName,
@@ -706,6 +748,9 @@ func _emit_projectiles_transaction(
 	return sessions
 
 
+## 以默认输入为基础，将可选调用输入的目标和 metadata 合并到本次快照。
+## [br]
+## @api private
 func _merge_launch_input(
 	call_input: GFProjectileLaunchInput3D,
 	request_release_generation: int,
@@ -742,6 +787,9 @@ func _merge_launch_input(
 	return result
 
 
+## 校验外部输入的目标类型与代际边界，并读取为新的 typed 输入对象。
+## [br]
+## @api private
 func _snapshot_external_launch_input(
 	source: GFProjectileLaunchInput3D,
 	request_release_generation: int,
@@ -811,12 +859,18 @@ func _snapshot_external_launch_input(
 	return result
 
 
+## 委托 spawn pattern 解析数量；未配置 pattern 时正数照用，其余默认为 1。
+## [br]
+## @api private
 func _resolve_requested_count(emit_count: int) -> int:
 	if spawn_pattern != null:
 		return spawn_pattern.resolve_spawn_count(emit_count)
 	return emit_count if emit_count > 0 else 1
 
 
+## 委托 spawn pattern 生成变换；未配置时重复使用 emitter 的当前全局变换。
+## [br]
+## @api private
 func _get_spawn_transforms(
 	launch_input: GFProjectileLaunchInput3D,
 	emit_count: int
@@ -829,6 +883,9 @@ func _get_spawn_transforms(
 	return result
 
 
+## 只保留有限的 3D 变换。
+## [br]
+## @api private
 func _filter_finite_transforms(values: Array[Transform3D]) -> Array[Transform3D]:
 	var result: Array[Transform3D] = []
 	for value: Transform3D in values:
@@ -837,6 +894,9 @@ func _filter_finite_transforms(values: Array[Transform3D]) -> Array[Transform3D]
 	return result
 
 
+## 检查弱引用当前是否指向有效的 GFProjectileEmitter3D 实例。
+## [br]
+## @api private
 static func _lifetime_ref_is_live(emitter_lifetime_ref: WeakRef) -> bool:
 	if emitter_lifetime_ref == null:
 		return false
@@ -848,6 +908,9 @@ static func _lifetime_ref_is_live(emitter_lifetime_ref: WeakRef) -> bool:
 	)
 
 
+## 为已获取的 lease 建立退役记录，将记录挂到 SceneTree 根并纳入本 emitter 跟踪。
+## [br]
+## @api private
 func _bind_acquired_candidate(
 	lease: GFObjectPoolLease,
 	pool: GFObjectPoolUtility
@@ -861,6 +924,9 @@ func _bind_acquired_candidate(
 	return record
 
 
+## 创建并配置带阶段、原因及已解析请求数的失败终态。
+## [br]
+## @api private
 static func _failure_result(
 	stage: StringName,
 	reason: StringName,
@@ -873,6 +939,9 @@ static func _failure_result(
 	return result
 
 
+## 检查退役记录的 root 仍有效，并且仍是其 lease 当前管理的节点。
+## [br]
+## @api private
 func _record_root_is_live(record: _RetirementRecord) -> bool:
 	return (
 		record != null
@@ -883,6 +952,9 @@ func _record_root_is_live(record: _RetirementRecord) -> bool:
 	)
 
 
+## 捕获 definition 的场景、路径及策略身份快照，仅返回仍与原声明一致的快照。
+## [br]
+## @api private
 func _capture_definition_snapshot(
 	definition: GFProjectileDefinition3D
 ) -> _DefinitionSnapshot:
@@ -912,6 +984,9 @@ func _capture_definition_snapshot(
 	return snapshot if snapshot._is_current() else null
 
 
+## 检查请求代际、definition 快照和 spawn parent，并返回首个失效原因。
+## [br]
+## @api private
 func _precommit_fence_failure_reason(
 	start_generation: int,
 	definition_snapshot: _DefinitionSnapshot,
@@ -931,6 +1006,9 @@ func _precommit_fence_failure_reason(
 	return &""
 
 
+## 检查每个已激活 session 与对应退役记录中的 root/runtime 是否仍有效。
+## [br]
+## @api private
 func _sessions_are_current(
 	sessions: Array[GFProjectileSession],
 	records: Array[_RetirementRecord]
@@ -953,6 +1031,9 @@ func _sessions_are_current(
 	return true
 
 
+## 要求 session 数与退役记录数相同，并逐项检查发布资格。
+## [br]
+## @api private
 func _publication_sessions_are_current(
 	sessions: Array[GFProjectileSession],
 	records: Array[_RetirementRecord]
@@ -965,6 +1046,9 @@ func _publication_sessions_are_current(
 	return true
 
 
+## 检查一个 session 与退役记录身份一致，并由 runtime 校验发布拓扑。
+## [br]
+## @api private
 func _publication_candidate_is_current(
 	session: GFProjectileSession,
 	record: _RetirementRecord
@@ -986,12 +1070,18 @@ func _publication_candidate_is_current(
 	return runtime.publication_is_current_for_framework(session, record._root)
 
 
+## 对 Node3D root 设置指定全局变换；其他节点类型不执行写入。
+## [br]
+## @api private
 func _apply_spawn_transform(root: Node, spawn_transform: Transform3D) -> void:
 	if root is Node3D:
 		var root_3d: Node3D = root
 		root_3d.global_transform = spawn_transform
 
 
+## 终止尚未提交的事务：中止 reservations、退役 records、回滚 task 并发出失败信号。
+## [br]
+## @api private
 func _abort_precommit(
 	reservations: Array[GFProjectileLaunchReservation],
 	records: Array[_RetirementRecord],
@@ -1007,6 +1097,9 @@ func _abort_precommit(
 	_emit_failure(reason, details)
 
 
+## 在 session 激活前中止已 deferred commit 的事务，并请求 receipt 补偿。
+## [br]
+## @api private
 func _abort_committed_pre_activation(
 	receipt: GFProjectileEmissionReceipt,
 	reservations: Array[GFProjectileLaunchReservation],
@@ -1021,6 +1114,9 @@ func _abort_committed_pre_activation(
 	_emit_failure(reason, {})
 
 
+## 清理激活阶段失败；没有已激活 session 时同时请求 receipt 补偿。
+## [br]
+## @api private
 func _handle_activation_failure(
 	receipt: GFProjectileEmissionReceipt,
 	reservations: Array[GFProjectileLaunchReservation],
@@ -1037,6 +1133,9 @@ func _handle_activation_failure(
 	_handle_active_failure(sessions, records)
 
 
+## 以 INTERNAL_FAILURE 结束仍 active 的 session，并退役对应记录。
+## [br]
+## @api private
 func _handle_active_failure(
 	sessions: Array[GFProjectileSession],
 	records: Array[_RetirementRecord]
@@ -1048,25 +1147,41 @@ func _handle_active_failure(
 		_retire(record)
 
 
+## 仅当记录仍有效时调用其退役方法；null 或已释放实例会被忽略。
+## [br]
+## @api private
+## [br]
 func _retire(record: _RetirementRecord) -> void:
 	if record != null and is_instance_valid(record):
 		record._retire()
 
 
+## 将记录转交统一的退役入口。
+## [br]
+## @api private
 func _retire_now(record: _RetirementRecord) -> void:
 	_retire(record)
 
 
+## 减少 emitter 通知屏障深度，并将结果限制为非负数。
+## [br]
+## @api private
 func _release_notification_barrier() -> void:
 	_notification_barrier_depth = maxi(_notification_barrier_depth - 1, 0)
 
 
+## 为数组中的有效 session 释放通知屏障。
+## [br]
+## @api private
 func _release_session_barriers(sessions: Array[GFProjectileSession]) -> void:
 	for session: GFProjectileSession in sessions:
 		if session != null and is_instance_valid(session):
 			var _released: Error = session.release_notification_barrier_for_framework()
 
 
+## 只启动一次释放代际，处置私有池并结束或退役尚在跟踪的记录。
+## [br]
+## @api private
 func _begin_emitter_release() -> void:
 	if _is_releasing:
 		return
@@ -1091,6 +1206,9 @@ func _begin_emitter_release() -> void:
 			record._retire()
 
 
+## 在对象删除通知中结算全部退役记录、释放 session 屏障并清空跟踪列表。
+## [br]
+## @api private
 func _settle_predelete_retirements() -> void:
 	var records: Array[_RetirementRecord] = _active_retirements.duplicate()
 	for record: _RetirementRecord in records:
@@ -1109,22 +1227,27 @@ func _settle_predelete_retirements() -> void:
 	_active_retirements.clear()
 
 
-func _on_retirement_record_settled(record: _RetirementRecord) -> void:
-	_active_retirements.erase(record)
-
-
+## 观察发布期间的删除状态；必要时先启动释放，再比较释放代际。
+## [br]
+## @api private
 func _observe_publication_release(start_generation: int) -> bool:
 	if is_queued_for_deletion() and not _is_releasing:
 		_begin_emitter_release()
 	return _release_generation != start_generation
 
 
+## 确认 emitter 未释放且请求开始代际仍匹配。
+## [br]
+## @api private
 func _request_is_current(start_generation: int) -> bool:
 	if is_queued_for_deletion() and not _is_releasing:
 		_begin_emitter_release()
 	return not _is_releasing and _release_generation == start_generation
 
 
+## 保存失败原因并发出限制长度与内容的失败信号。
+## [br]
+## @api private
 func _emit_failure(reason: StringName, details: Dictionary) -> void:
 	_emission_failure = reason
 	projectile_emit_failed.emit(
@@ -1133,6 +1256,9 @@ func _emit_failure(reason: StringName, details: Dictionary) -> void:
 	)
 
 
+## 生成有界诊断字典：限制项目数、键集合、值类型和字符串长度。
+## [br]
+## @api private
 func _bounded_failure_details(details: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for key_value: Variant in details.keys():
@@ -1182,6 +1308,9 @@ func _bounded_failure_details(details: Dictionary) -> Dictionary:
 	return result
 
 
+## 判断失败详情键是否属于对外允许的固定白名单。
+## [br]
+## @api private
 func _failure_detail_key_is_allowed(key: StringName) -> bool:
 	return key in [
 		&"ok",
@@ -1210,21 +1339,76 @@ func _failure_detail_key_is_allowed(key: StringName) -> bool:
 	]
 
 
+# --- 信号处理函数 ---
+
+## 结算回调只从当前 emitter 的退役集合移除该记录。
+## [br]
+## @api private
+func _on_retirement_record_settled(record: _RetirementRecord) -> void:
+	_active_retirements.erase(record)
+
+
 # --- 内部类 ---
 
+## 关联一次池 lease、root、reservation 或 session，并负责一次性退役与结算。
+## [br]
+## @api private
 class _RetirementRecord:
 	extends Node
 
+	# --- 私有变量 ---
+
+	## 租约对应的实例根节点；结算时清空，退出树可触发退役。
+	## [br]
+	## @api private
 	var _root: Node = null
+
+	## 持有到结算完成的对象池租约，退役时请求 release。
+	## [br]
+	## @api private
 	var _lease: GFObjectPoolLease = null
+
+	## 配置时保留的池引用，随结算一同清空。
+	## [br]
+	## @api private
 	var _pool: GFObjectPoolUtility = null
+
+	## 已绑定的发射 session；与未消费 reservation 互斥。
+	## [br]
+	## @api private
 	var _session: GFProjectileSession = null
+
+	## 尚未转为 session 的发射预留；失去退役 owner 时使其失效。
+	## [br]
+	## @api private
 	var _reservation: GFProjectileLaunchReservation = null
+
+	## 使未消费预留失效时必须匹配的退役 owner 标识。
+	## [br]
+	## @api private
 	var _retirement_owner_id: int = 0
+
+	## 结算是否已经开始；在释放引用和通知前置位，防止重复结算。
+	## [br]
+	## @api private
 	var _retired: bool = false
+
+	## 是否已经请求退役；在释放租约前置位，阻止重复 release 和新绑定。
+	## [br]
+	## @api private
 	var _retirement_claimed: bool = false
+
+	## 结算时通知 emitter 移除记录的回调；调用后清空。
+	## [br]
+	## @api private
 	var _settled_callback: Callable = Callable()
 
+
+	# --- 私有/辅助方法 ---
+
+	## 捕获租约、池和 owner 身份，并单次订阅租约结算与根节点退出树通知。
+	## [br]
+	## @api private
 	func _configure(
 		lease: GFObjectPoolLease,
 		pool: GFObjectPoolUtility,
@@ -1242,6 +1426,10 @@ class _RetirementRecord:
 				_on_root_tree_exiting, CONNECT_ONE_SHOT
 			)
 
+
+	## 在尚未退役且未绑定 session 时接管给定 session，清除预留引用并单次订阅其完成信号。
+	## [br]
+	## @api private
 	func _bind_session(active_session: GFProjectileSession) -> Error:
 		if _retirement_claimed or active_session == null or _session != null:
 			return ERR_INVALID_PARAMETER
@@ -1249,12 +1437,20 @@ class _RetirementRecord:
 		_reservation = null
 		return _session.finished.connect(_on_session_finished, CONNECT_ONE_SHOT) as Error
 
+
+	## 仅在尚未退役且没有 session 或预留时接管 reservation，否则返回 ERR_INVALID_PARAMETER。
+	## [br]
+	## @api private
 	func _bind_reservation(reservation: GFProjectileLaunchReservation) -> Error:
 		if _retirement_claimed or reservation == null or _reservation != null or _session != null:
 			return ERR_INVALID_PARAMETER
 		_reservation = reservation
 		return OK
 
+
+	## 先取得一次性退役资格并断开根退出回调，再使未消费预留失效和释放租约；租约已结算时立即结算记录。
+	## [br]
+	## @api private
 	func _retire() -> void:
 		if _retirement_claimed:
 			return
@@ -1266,6 +1462,10 @@ class _RetirementRecord:
 		if _lease.is_settled():
 			_settle_now()
 
+
+	## 先标记已结算，再释放预留与 session 的终态退役占用，清空持有引用并通知 emitter，最后排队删除记录。
+	## [br]
+	## @api private
 	func _settle_now() -> void:
 		if _retired:
 			return
@@ -1286,6 +1486,10 @@ class _RetirementRecord:
 		_settled_callback = Callable()
 		queue_free()
 
+
+	## 按精确 owner 标识使尚未消费的 reservation 失效，并清除本记录引用。
+	## [br]
+	## @api private
 	func _release_unconsumed_reservation() -> void:
 		if _reservation != null:
 			var _invalidated: bool = _reservation.invalidate_lost_owner_for_framework(
@@ -1293,32 +1497,84 @@ class _RetirementRecord:
 			)
 			_reservation = null
 
+
+	# --- 信号处理函数 ---
+
+	## 租约结算时，以 ROOT_LOST 结束仍活跃的 session，随后幂等结算记录。
+	## [br]
+	## @api private
 	func _on_lease_settled(_reason: StringName) -> void:
 		if _session != null and _session.is_active():
 			var _finished: bool = _session.finish(GFProjectileSession.EndReason.ROOT_LOST)
 		_settle_now()
 
+
+	## 根节点退出时结束仍活跃的 session；没有活跃 session 时直接发起退役。
+	## [br]
+	## @api private
 	func _on_root_tree_exiting() -> void:
 		if _session != null and _session.is_active():
 			var _finished: bool = _session.finish(GFProjectileSession.EndReason.ROOT_LOST)
 		else:
 			_retire()
 
+
+	## session 终结后发起一次性退役，不依赖具体结束原因。
+	## [br]
+	## @api private
 	func _on_session_finished(_finished_session: GFProjectileSession, _reason: int) -> void:
 		_retire()
 
 
+## 保存 3D definition 的关键资源与路径身份，供发射提交前重复校验。
+## [br]
+## @api private
 class _DefinitionSnapshot:
 	extends RefCounted
 
+	# --- 私有变量 ---
+
+	## 发射预检捕获的定义资源引用，供提交前核对配置。
+	## [br]
+	## @api private
 	var _definition: GFProjectileDefinition3D = null
+
+	## 捕获的场景资源身份；校验时要求定义仍指向同一资源。
+	## [br]
+	## @api private
 	var _scene: PackedScene = null
+
+	## 捕获的 runtime 路径值，供提交前比较。
+	## [br]
+	## @api private
 	var _runtime_path: NodePath = NodePath("")
+
+	## 捕获的命中来源路径序列，供提交前按数组值比较。
+	## [br]
+	## @api private
 	var _impact_source_paths: Array[NodePath] = []
+
+	## 捕获的运动策略资源身份，不复制策略内容。
+	## [br]
+	## @api private
 	var _motion: GFProjectileMotion = null
+
+	## 捕获的可空生命周期策略资源身份。
+	## [br]
+	## @api private
 	var _lifetime: GFProjectileLifetimePolicy = null
+
+	## 捕获的 body adapter 资源身份，校验时还要求实例有效。
+	## [br]
+	## @api private
 	var _body_adapter: GFProjectileBodyAdapter3D = null
 
+
+	# --- 私有/辅助方法 ---
+
+	## 复核定义及必要资源仍有效，且场景、路径与策略引用仍匹配捕获值；不检查资源内部属性是否变化。
+	## [br]
+	## @api private
 	func _is_current() -> bool:
 		return (
 			_definition != null

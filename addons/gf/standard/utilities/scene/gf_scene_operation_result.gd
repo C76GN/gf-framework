@@ -163,19 +163,67 @@ const REASON_BROKER_CANCELLED: StringName = &"broker_cancelled"
 ## @since 11.0.0
 const REASON_UTILITY_DISPOSED: StringName = &"utility_disposed"
 
+## LOAD 请求在结果闭合联合中的整数种类值。
+## [br]
+## @api private
+## [br]
 const _KIND_LOAD: int = 0
+
+## PRELOAD 请求在结果闭合联合中的整数种类值。
+## [br]
+## @api private
+## [br]
 const _KIND_PRELOAD: int = 1
 
 
 # --- 私有变量 ---
 
+## 冻结的 caller 终态。
+## [br]
+## @api private
+## [br]
 var _status: Status = Status.REJECTED
+
+## Scene Utility 分配的请求 ID。
+## [br]
+## @api private
+## [br]
 var _request_id: int = 0
+
+## 与 GFSceneOperation.Kind 对应的整数请求种类。
+## [br]
+## @api private
+## [br]
 var _kind: int = _KIND_LOAD
+
+## 请求配置时复制并冻结的资源身份。
+## [br]
+## @api private
+## [br]
 var _scene_identity: GFResourceIdentity = null
+
+## 成功终态携带的 PackedScene 共享引用。
+## [br]
+## @api private
+## [br]
 var _scene: PackedScene = null
+
+## 与终态状态匹配的闭合原因标识。
+## [br]
+## @api private
+## [br]
 var _reason: StringName = &""
+
+## 与终态状态及原因匹配的 Godot Error 码。
+## [br]
+## @api private
+## [br]
 var _error_code: Error = ERR_UNCONFIGURED
+
+## 标记结果闭合联合是否已由框架配置。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
 
 
@@ -391,6 +439,10 @@ func is_configured_for_framework() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 验证 status、kind、scene、reason 与 error_code 构成允许的终态组合。
+## [br]
+## @api private
+## [br]
 static func _terminal_union_is_valid(
 	status: Status,
 	kind: int,

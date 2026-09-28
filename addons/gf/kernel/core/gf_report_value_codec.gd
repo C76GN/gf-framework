@@ -13,29 +13,105 @@ class_name GFReportValueCodec
 extends RefCounted
 
 
+
+# --- 常量 ---
+
+## 复用 Variant 字典访问与安全复制入口，统一报告选项的类型转换规则。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
+## 报告脱敏或截断值使用的保留包装键，源字典含该键时改用条目编码避免混淆。
+## [br]
+## @api private
 const _REPORT_MARKER_KEY: String = "__gf_report_value__"
+
+## 报告脱敏 marker 的结构版本，写入每个报告包装值。
+## [br]
+## @api private
 const _REPORT_SCHEMA_VERSION: int = 1
+
+## Godot 特有类型的 JSON 包装键，编码时避免普通源字典冒充该结构。
+## [br]
+## @api private
 const _VARIANT_MARKER_KEY: String = "__gf_variant__"
+
+## Godot Variant 类型包装格式的版本，随类型和值一同输出。
+## [br]
+## @api private
 const _VARIANT_SCHEMA_VERSION: int = 1
+
+## JSON 双精度数字能精确表示的最大连续整数，超过时编码为 Int64 文本。
+## [br]
+## @api private
 const _JSON_SAFE_INTEGER_MAX: int = 9_007_199_254_740_991
+
+## JSON 双精度数字能精确表示的最小连续整数，低于时编码为 Int64 文本。
+## [br]
+## @api private
 const _JSON_SAFE_INTEGER_MIN: int = -9_007_199_254_740_991
+
+## 非有限浮点在 Variant marker 中使用的类型名。
+## [br]
+## @api private
 const _FLOAT_TYPE_NAME: String = "Float"
+
+## 非数浮点的稳定文本表示，避免直接传给 JSON 数字编码。
+## [br]
+## @api private
 const _FLOAT_NAN_TEXT: String = "NaN"
+
+## 正无穷浮点的稳定文本表示，配合 Float marker 输出。
+## [br]
+## @api private
 const _FLOAT_POSITIVE_INF_TEXT: String = "INF"
+
+## 负无穷浮点的稳定文本表示，配合 Float marker 输出。
+## [br]
+## @api private
 const _FLOAT_NEGATIVE_INF_TEXT: String = "-INF"
+
+## 未提供选项时允许的报告递归深度，根位于零层。
+## [br]
+## @api private
 const _DEFAULT_MAX_DEPTH: int = 32
+
+## 报告字符串默认保留的字符数上限，截断后另附省略号。
+## [br]
+## @api private
 const _DEFAULT_MAX_STRING_LENGTH: int = 8192
+
+## 集合摘要默认抽取的前部样本数，与完整集合内容摘要无等价保证。
+## [br]
+## @api private
 const _DEFAULT_SUMMARY_SAMPLE_COUNT: int = 16
+
+## 单个普通集合默认允许遍历的条目数，超出部分用截断 marker 表达。
+## [br]
+## @api private
 const _DEFAULT_MAX_COLLECTION_ITEMS: int = 1024
+
+## Packed Array 的默认长度限制，同时受普通集合项数限制约束。
+## [br]
+## @api private
 const _DEFAULT_MAX_PACKED_LENGTH: int = 4096
+
+## 一次报告清洗默认允许访问的节点总数，耗尽后停止继续遍历。
+## [br]
+## @api private
 const _DEFAULT_MAX_TOTAL_NODES: int = 16384
+
+## 报告清洗工作量及最终紧凑编码的默认字节预算。
+## [br]
+## @api private
 const _DEFAULT_MAX_TOTAL_BYTES: int = 1024 * 1024
+
+## 完整字节预算 marker 放不下时使用的短文本占位，仍须通过最终字节检查。
+## [br]
+## @api private
 const _COMPACT_TRUNCATION_MARKER: String = "<gf_truncated>"
 
 
-# --- 常量 ---
 
 ## 本地调试报告配置，保留对象 id、Node 名称和路径，路径不脱敏。
 ## [br]
@@ -241,6 +317,9 @@ static func make_collection_summary(value: Variant, options: Dictionary = {}) ->
 
 # --- 私有/辅助方法 ---
 
+## 先消耗深度、节点和工作字节预算，再递归清洗值；对象句柄脱敏、循环及截断使用 marker，字典键冲突风险转为条目列表。
+## [br]
+## @api private
 static func _sanitize_report_value(
 	value: Variant,
 	options: Dictionary,
@@ -377,6 +456,9 @@ static func _sanitize_report_value(
 			return value
 
 
+## 读取集合项数上限；负值表示不限制，非负值不超过集合长度。
+## [br]
+## @api private
 static func _get_collection_limit(collection_size: int, options: Dictionary) -> int:
 	var max_collection_items: int = _option_int(
 		options,
@@ -388,6 +470,9 @@ static func _get_collection_limit(collection_size: int, options: Dictionary) -> 
 	return mini(collection_size, max_collection_items)
 
 
+## 合并普通集合项数与 Packed Array 长度上限。
+## [br]
+## @api private
 static func _get_packed_limit(collection_size: int, options: Dictionary) -> int:
 	var collection_limit: int = _get_collection_limit(collection_size, options)
 	var max_packed_length: int = _option_int(options, "max_packed_length", _DEFAULT_MAX_PACKED_LENGTH)
@@ -396,14 +481,23 @@ static func _get_packed_limit(collection_size: int, options: Dictionary) -> int:
 	return mini(collection_limit, max_packed_length)
 
 
+## 将 budget_state 中的截断计数增加一。
+## [br]
+## @api private
 static func _mark_budget_truncated(budget_state: Dictionary) -> void:
 	budget_state["truncated_count"] = _option_int(budget_state, "truncated_count", 0) + 1
 
 
+## 从状态字典读取 exhausted 标志，缺失或非真值时返回 false。
+## [br]
+## @api private
 static func _is_budget_exhausted(budget_state: Dictionary) -> bool:
 	return _option_bool(budget_state, "exhausted", false)
 
 
+## 首次耗尽时保存原因并增加截断计数；已有耗尽状态保持不变。
+## [br]
+## @api private
 static func _exhaust_budget(budget_state: Dictionary, reason: String) -> void:
 	if _is_budget_exhausted(budget_state):
 		return
@@ -412,6 +506,9 @@ static func _exhaust_budget(budget_state: Dictionary, reason: String) -> void:
 	_mark_budget_truncated(budget_state)
 
 
+## 按保存的耗尽原因生成 marker，并附带节点或字节限制信息。
+## [br]
+## @api private
 static func _make_budget_exhaustion_marker(budget_state: Dictionary, options: Dictionary) -> Dictionary:
 	var reason: String = _option_string(budget_state, "reason", "Budget")
 	var payload: Dictionary = {
@@ -426,6 +523,9 @@ static func _make_budget_exhaustion_marker(budget_state: Dictionary, options: Di
 	return _make_marker(reason, payload)
 
 
+## 先用最小开销快速拒绝，再对文本计入实际 UTF-8 字节与引号开销；其他类型采用估算工作量，最终输出大小由后续独立检查限制。
+## [br]
+## @api private
 static func _consume_value_work_budget(
 	value: Variant,
 	options: Dictionary,
@@ -455,6 +555,9 @@ static func _consume_value_work_budget(
 	return true
 
 
+## 给遍历前的预算预检提供类型成本：文本字符数加引号、集合括号或固定类型开销；该估算不是完整 JSON 输出长度。
+## [br]
+## @api private
 static func _estimate_minimum_work_bytes(value: Variant) -> int:
 	match typeof(value):
 		TYPE_STRING:
@@ -472,6 +575,9 @@ static func _estimate_minimum_work_bytes(value: Variant) -> int:
 			return 32
 
 
+## 判断 Variant 类型是否属于此 codec 支持的 Packed Array。
+## [br]
+## @api private
 static func _is_packed_array_type(value_type: int) -> bool:
 	return value_type in [
 		TYPE_PACKED_BYTE_ARRAY,
@@ -487,6 +593,9 @@ static func _is_packed_array_type(value_type: int) -> bool:
 	]
 
 
+## 按 Packed 与集合预算较小值清洗样本；完整样本包装为 PackedArray，局部样本为 CollectionBudget，总预算耗尽则返回耗尽 marker。
+## [br]
+## @api private
 static func _sanitize_packed_array(
 	value: Variant,
 	options: Dictionary,
@@ -518,6 +627,9 @@ static func _sanitize_packed_array(
 	})
 
 
+## 非 String 键或清理后发生变化的键需要改用键值 entry 表示。
+## [br]
+## @api private
 static func _report_key_requires_entry_encoding(source_key: Variant, sanitized_key: Variant) -> bool:
 	if not (source_key is String) or not (sanitized_key is String):
 		return true
@@ -526,6 +638,9 @@ static func _report_key_requires_entry_encoding(source_key: Variant, sanitized_k
 	return source_text != sanitized_text
 
 
+## 将存活对象缩减为类型与选项允许的 ID、节点名或脱敏路径；无效对象只保留 valid=false，不把对象引用带入报告。
+## [br]
+## @api private
 static func _object_to_marker(value: Variant, options: Dictionary) -> Dictionary:
 	if value == null:
 		return _make_marker("Object", {
@@ -557,6 +672,9 @@ static func _object_to_marker(value: Variant, options: Dictionary) -> Dictionary
 	return _make_marker("Object", payload)
 
 
+## 将已清洗值编码为 JSON 基础值及带类型 marker，递归容器时检测当前引用路径的循环；预算裁剪应在前一清洗阶段完成。
+## [br]
+## @api private
 static func _variant_to_json_compatible(value: Variant, options: Dictionary, visited: Array) -> Variant:
 	match typeof(value):
 		TYPE_NIL, TYPE_BOOL, TYPE_STRING:
@@ -679,6 +797,9 @@ static func _variant_to_json_compatible(value: Variant, options: Dictionary, vis
 			})
 
 
+## 通常将字典键转为文本；键碰撞、保留类型 marker 外形或显式键编码要求会改用类型化条目列表，避免丢失原键身份。
+## [br]
+## @api private
 static func _dictionary_to_json_compatible(value: Dictionary, options: Dictionary, visited: Array) -> Variant:
 	if _option_bool(options, "encode_dictionary_keys", false):
 		return _make_json_typed_value("Dictionary", _dictionary_entries_to_json_compatible(value, options, visited))
@@ -696,6 +817,9 @@ static func _dictionary_to_json_compatible(value: Dictionary, options: Dictionar
 	return result
 
 
+## 按源键顺序递归编码键值对为 entries 数组，保留无法用 JSON 对象键表达的键类型。
+## [br]
+## @api private
 static func _dictionary_entries_to_json_compatible(value: Dictionary, options: Dictionary, visited: Array) -> Array[Dictionary]:
 	var entries: Array[Dictionary] = []
 	for key: Variant in value.keys():
@@ -706,12 +830,18 @@ static func _dictionary_entries_to_json_compatible(value: Dictionary, options: D
 	return entries
 
 
+## 整数键一律以 Int64 文本 marker 编码，其余键沿用 Variant 编码，避免键在 JSON 数字处理时失真。
+## [br]
+## @api private
 static func _dictionary_key_to_json_compatible(key: Variant, options: Dictionary, visited: Array) -> Variant:
 	if typeof(key) == TYPE_INT:
 		return _make_json_typed_value("Int64", str(_number_to_int(key)))
 	return _variant_to_json_compatible(key, options, visited)
 
 
+## 创建带版本、类型和 redacted 标志的报告 marker，并复制载荷到内部字典；同名载荷键会覆盖初始元数据。
+## [br]
+## @api private
 static func _make_marker(marker_type: String, payload: Dictionary) -> Dictionary:
 	var marker: Dictionary = {
 		"version": _REPORT_SCHEMA_VERSION,
@@ -725,6 +855,9 @@ static func _make_marker(marker_type: String, payload: Dictionary) -> Dictionary
 	}
 
 
+## 将类型名和值包装为带 schema 版本的 Variant marker。
+## [br]
+## @api private
 static func _make_json_typed_value(type_name: String, typed_value: Variant) -> Dictionary:
 	return {
 		_VARIANT_MARKER_KEY: {
@@ -735,6 +868,9 @@ static func _make_json_typed_value(type_name: String, typed_value: Variant) -> D
 	}
 
 
+## 为 Variant 编码阶段保留字典键选项并强制编码不安全整数。
+## [br]
+## @api private
 static func _make_variant_json_options(options: Dictionary) -> Dictionary:
 	return {
 		"encode_dictionary_keys": _option_bool(options, "encode_dictionary_keys", false),
@@ -742,6 +878,9 @@ static func _make_variant_json_options(options: Dictionary) -> Dictionary:
 	}
 
 
+## 检查编码结果的 UTF-8 字节数，超限时改用最终预算 marker。
+## [br]
+## @api private
 static func _apply_final_byte_budget(value: Variant, options: Dictionary) -> Variant:
 	var max_total_bytes: int = _option_int(options, "max_total_bytes", _DEFAULT_MAX_TOTAL_BYTES)
 	if max_total_bytes < 0:
@@ -752,6 +891,9 @@ static func _apply_final_byte_budget(value: Variant, options: Dictionary) -> Var
 	return _make_final_byte_budget_value(max_total_bytes)
 
 
+## 依次尝试预算 marker、紧凑截断文本、空字符串；预算不足两字节时返回 null。
+## [br]
+## @api private
 static func _make_final_byte_budget_value(max_total_bytes: int) -> Variant:
 	var marker: Dictionary = _make_marker("ByteBudget", {
 		"max_total_bytes": max_total_bytes,
@@ -765,10 +907,16 @@ static func _make_final_byte_budget_value(max_total_bytes: int) -> Variant:
 	return null
 
 
+## 创建循环引用的报告 marker。
+## [br]
+## @api private
 static func _make_circular_reference_value() -> Variant:
 	return _make_marker("CircularReference", {})
 
 
+## 按长度上限截断普通字符串，再应用路径脱敏选项。
+## [br]
+## @api private
 static func _sanitize_string_value(value: String, options: Dictionary) -> String:
 	var max_length: int = _option_int(options, "max_string_length", _DEFAULT_MAX_STRING_LENGTH)
 	var bounded_value: String = value
@@ -777,6 +925,9 @@ static func _sanitize_string_value(value: String, options: Dictionary) -> String
 	return _redact_path(bounded_value, options)
 
 
+## 按长度上限截断已知路径，再强制按路径规则处理。
+## [br]
+## @api private
 static func _sanitize_known_path_value(value: String, options: Dictionary) -> String:
 	var max_length: int = _option_int(options, "max_string_length", _DEFAULT_MAX_STRING_LENGTH)
 	var bounded_value: String = value
@@ -785,6 +936,9 @@ static func _sanitize_known_path_value(value: String, options: Dictionary) -> St
 	return _redact_path(bounded_value, options, true)
 
 
+## 依据选项保留、取文件名、哈希或隐藏路径；普通文本仅在启发式识别为路径时处理，已知路径可强制进入脱敏。
+## [br]
+## @api private
 static func _redact_path(value: String, options: Dictionary, known_path: bool = false) -> String:
 	var path_redaction: String = _option_string(options, "path_redaction", "redact")
 	if path_redaction == "none" or (not known_path and not _looks_like_path(value)):
@@ -796,6 +950,9 @@ static func _redact_path(value: String, options: Dictionary, known_path: bool = 
 	return "<redacted_path>"
 
 
+## 用资源 URI、绝对路径及路径分隔符特征识别可能的路径文本。
+## [br]
+## @api private
 static func _looks_like_path(value: String) -> bool:
 	var normalized: String = value.strip_edges()
 	return (
@@ -811,6 +968,9 @@ static func _looks_like_path(value: String) -> bool:
 	)
 
 
+## 返回受支持集合的元素数；其他 Variant 类型返回 -1。
+## [br]
+## @api private
 static func _get_collection_size(value: Variant) -> int:
 	match typeof(value):
 		TYPE_ARRAY:
@@ -824,6 +984,9 @@ static func _get_collection_size(value: Variant) -> int:
 	return -1
 
 
+## 按原遍历顺序取前部样本，字典转换为键值条目；样本本身未脱敏且数组索引额度须由调用方按集合长度限制。
+## [br]
+## @api private
 static func _make_collection_sample(value: Variant, limit: int) -> Array:
 	var result: Array = []
 	if limit <= 0:
@@ -843,6 +1006,9 @@ static func _make_collection_sample(value: Variant, limit: int) -> Array:
 	return result
 
 
+## 把支持的集合转为普通数组，Array 深复制、字典输出键值条目、Packed Array 按元素复制；不支持的类型返回空数组。
+## [br]
+## @api private
 static func _collection_to_array(value: Variant) -> Array:
 	match typeof(value):
 		TYPE_ARRAY:
@@ -891,6 +1057,9 @@ static func _collection_to_array(value: Variant) -> Array:
 			return []
 
 
+## 判断 Array、Dictionary 或受支持 Packed Array 是否为空。
+## [br]
+## @api private
 static func _is_empty_collection(value: Variant) -> bool:
 	match typeof(value):
 		TYPE_ARRAY:
@@ -905,6 +1074,9 @@ static func _is_empty_collection(value: Variant) -> bool:
 			return false
 
 
+## 检查字典是否仅含保留 Variant marker 键且其值含 type/value。
+## [br]
+## @api private
 static func _has_reserved_variant_marker_shape(value: Dictionary) -> bool:
 	if value.size() != 1 or not value.has(_VARIANT_MARKER_KEY):
 		return false
@@ -912,6 +1084,9 @@ static func _has_reserved_variant_marker_shape(value: Dictionary) -> bool:
 	return marker.has("type") and marker.has("value")
 
 
+## 按引用身份查找当前递归路径中的集合，不把内容相等但独立的集合误判为循环。
+## [br]
+## @api private
 static func _visited_contains_reference(visited: Array, value: Variant) -> bool:
 	for item: Variant in visited:
 		if is_same(item, value):
@@ -919,6 +1094,9 @@ static func _visited_contains_reference(visited: Array, value: Variant) -> bool:
 	return false
 
 
+## 将 StringName 转为 String，其他字典键使用 str()。
+## [br]
+## @api private
 static func _json_key_to_string(key: Variant) -> String:
 	if key is StringName:
 		var string_name_key: StringName = key
@@ -926,10 +1104,16 @@ static func _json_key_to_string(key: Variant) -> String:
 	return str(key)
 
 
+## 判断整数是否超出可由 JSON 数字精确保留的范围。
+## [br]
+## @api private
 static func _is_unsafe_json_integer(value: int) -> bool:
 	return value < _JSON_SAFE_INTEGER_MIN or value > _JSON_SAFE_INTEGER_MAX
 
 
+## 将有限浮点原样返回，并把 NaN 与正负无穷转成类型 marker。
+## [br]
+## @api private
 static func _float_to_json_compatible(value: float) -> Variant:
 	if is_nan(value):
 		return _make_json_typed_value(_FLOAT_TYPE_NAME, _FLOAT_NAN_TEXT)
@@ -938,6 +1122,9 @@ static func _float_to_json_compatible(value: float) -> Variant:
 	return value
 
 
+## 将数组中的 float/int 转为 JSON 浮点值，其他项写为 0.0。
+## [br]
+## @api private
 static func _float_array_to_json_compatible(values: Array) -> Array:
 	var result: Array = []
 	for value: Variant in values:
@@ -952,6 +1139,9 @@ static func _float_array_to_json_compatible(values: Array) -> Array:
 	return result
 
 
+## 将数组项转为整数，并为超出 JSON 安全范围的值生成 Int64 marker。
+## [br]
+## @api private
 static func _int_array_to_json_compatible(values: Array) -> Array:
 	var result: Array = []
 	for value: Variant in values:
@@ -963,6 +1153,9 @@ static func _int_array_to_json_compatible(values: Array) -> Array:
 	return result
 
 
+## 按 x、y、z 基向量顺序将 Basis 转成三行浮点数组。
+## [br]
+## @api private
 static func _basis_to_array(value: Basis) -> Array:
 	return [
 		_float_array_to_json_compatible([value.x.x, value.x.y, value.x.z]),
@@ -971,6 +1164,9 @@ static func _basis_to_array(value: Basis) -> Array:
 	]
 
 
+## 按 x、y、origin 顺序将 Transform2D 转成三行浮点数组。
+## [br]
+## @api private
 static func _transform_2d_to_array(value: Transform2D) -> Array:
 	return [
 		_float_array_to_json_compatible([value.x.x, value.x.y]),
@@ -979,6 +1175,9 @@ static func _transform_2d_to_array(value: Transform2D) -> Array:
 	]
 
 
+## 将 PackedByteArray 的每个字节依序复制到普通 Array。
+## [br]
+## @api private
 static func _packed_byte_array_to_array(value: PackedByteArray) -> Array:
 	var result: Array = []
 	for item: int in value:
@@ -986,6 +1185,9 @@ static func _packed_byte_array_to_array(value: PackedByteArray) -> Array:
 	return result
 
 
+## 将 PackedVector2Array 转为每项含 x、y 的浮点数组。
+## [br]
+## @api private
 static func _vector_2_array_to_array(value: PackedVector2Array) -> Array:
 	var result: Array = []
 	for item: Vector2 in value:
@@ -993,6 +1195,9 @@ static func _vector_2_array_to_array(value: PackedVector2Array) -> Array:
 	return result
 
 
+## 将 PackedVector3Array 转为每项含 x、y、z 的浮点数组。
+## [br]
+## @api private
 static func _vector_3_array_to_array(value: PackedVector3Array) -> Array:
 	var result: Array = []
 	for item: Vector3 in value:
@@ -1000,6 +1205,9 @@ static func _vector_3_array_to_array(value: PackedVector3Array) -> Array:
 	return result
 
 
+## 将 PackedVector4Array 转为每项含 x、y、z、w 的浮点数组。
+## [br]
+## @api private
 static func _vector_4_array_to_array(value: PackedVector4Array) -> Array:
 	var result: Array = []
 	for item: Vector4 in value:
@@ -1007,6 +1215,9 @@ static func _vector_4_array_to_array(value: PackedVector4Array) -> Array:
 	return result
 
 
+## 将 PackedColorArray 转为每项含 r、g、b、a 的浮点数组。
+## [br]
+## @api private
 static func _color_array_to_array(value: PackedColorArray) -> Array:
 	var result: Array = []
 	for item: Color in value:
@@ -1014,6 +1225,9 @@ static func _color_array_to_array(value: PackedColorArray) -> Array:
 	return result
 
 
+## 保留整数或将浮点截为整数，其他类型归零；调用点负责确保浮点范围适合转换。
+## [br]
+## @api private
 static func _number_to_int(value: Variant) -> int:
 	if value is int:
 		var int_value: int = value
@@ -1024,30 +1238,51 @@ static func _number_to_int(value: Variant) -> int:
 	return 0
 
 
+## 将 Variant 复制请求转发给共享访问辅助脚本。
+## [br]
+## @api private
 static func _duplicate_variant(value: Variant) -> Variant:
 	return _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(value)
 
 
+## 将 Variant 按共享辅助脚本的规则收窄为 Dictionary。
+## [br]
+## @api private
 static func _as_dictionary(value: Variant, default_value: Variant = null) -> Dictionary:
 	return _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(value, default_value)
 
 
+## 读取任意类型的选项值并传入默认值。
+## [br]
+## @api private
 static func _option_value(options: Dictionary, key: Variant, default_value: Variant = null) -> Variant:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_value(options, key, default_value)
 
 
+## 读取布尔选项并传入默认值。
+## [br]
+## @api private
 static func _option_bool(options: Dictionary, key: Variant, default_value: bool = false) -> bool:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, key, default_value)
 
 
+## 读取整数选项并传入默认值。
+## [br]
+## @api private
 static func _option_int(options: Dictionary, key: Variant, default_value: int = 0) -> int:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, key, default_value)
 
 
+## 读取字符串选项并传入默认值。
+## [br]
+## @api private
 static func _option_string(options: Dictionary, key: Variant, default_value: String = "") -> String:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, key, default_value)
 
 
+## 合并有效 profile 的默认值与传入选项；未知 profile 直接采用 privacy 默认值。
+## [br]
+## @api private
 static func _normalize_options(options: Dictionary) -> Dictionary:
 	var profile: String = _option_string(options, "redaction_profile", REDACTION_PROFILE_SUPPORT)
 	if not _is_supported_redaction_profile(profile):
@@ -1058,6 +1293,9 @@ static func _normalize_options(options: Dictionary) -> Dictionary:
 	return result
 
 
+## 返回指定内置脱敏 profile 的路径、Node、Object 与 Resource 默认选项。
+## [br]
+## @api private
 static func _get_profile_defaults(profile: String) -> Dictionary:
 	match profile:
 		REDACTION_PROFILE_DEBUG:
@@ -1107,6 +1345,9 @@ static func _get_profile_defaults(profile: String) -> Dictionary:
 			}
 
 
+## 检查 profile 是否属于四个内置脱敏配置。
+## [br]
+## @api private
 static func _is_supported_redaction_profile(profile: String) -> bool:
 	return profile in [
 		REDACTION_PROFILE_DEBUG,

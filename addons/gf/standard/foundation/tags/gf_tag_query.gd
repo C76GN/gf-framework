@@ -13,6 +13,10 @@ extends Resource
 
 # --- 常量 ---
 
+## 用于检查标签源成员关系的内部适配器脚本。
+## [br]
+## @api private
+## [br]
 const _GF_TAG_SOURCE_ADAPTER_SCRIPT = preload("res://addons/gf/standard/foundation/tags/gf_tag_source_adapter.gd")
 
 

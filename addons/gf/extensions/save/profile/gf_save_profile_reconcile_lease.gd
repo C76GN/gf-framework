@@ -66,27 +66,115 @@ const STATE_RESOLVED: StringName = &"resolved"
 ## @since 11.0.0
 const STATE_DISPOSED_UNRESOLVED: StringName = &"disposed_unresolved"
 
+## settlement 与 resolution evidence 的最大递归深度。
+## [br]
+## @api private
+## [br]
 const _MAX_EVIDENCE_DEPTH: int = 16
+
+## evidence 支持性检查允许的最大值数量。
+## [br]
+## @api private
+## [br]
 const _MAX_EVIDENCE_ITEMS: int = 2048
+
+## evidence 中 String 与 StringName 的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_EVIDENCE_STRING_LENGTH: int = 2048
 
 
 # --- 私有变量 ---
 
+## 标记框架配置是否已经写入该 Lease。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
+
+## 本次对账 Lease 的标识。
+## [br]
+## @api private
+## [br]
 var _lease_id: int = 0
+
+## 创建该 Lease 的事务标识。
+## [br]
+## @api private
+## [br]
 var _transaction_id: int = 0
+
+## 产生不确定结果的原操作标识。
+## [br]
+## @api private
+## [br]
 var _operation: StringName = &""
+
+## 执行对账的 Profile ID。
+## [br]
+## @api private
+## [br]
 var _reconcile_profile_id: StringName = &""
+
+## 不确定结果涉及的源 Profile ID。
+## [br]
+## @api private
+## [br]
 var _source_profile_id: StringName = &""
+
+## 不确定结果涉及的目标 Profile ID。
+## [br]
+## @api private
+## [br]
 var _target_profile_id: StringName = &""
+
+## 创建 Lease 时记录的 Storage domain ID。
+## [br]
+## @api private
+## [br]
 var _domain_id: int = 0
+
+## 创建 Lease 时记录的 domain generation。
+## [br]
+## @api private
+## [br]
 var _domain_generation: int = 0
+
+## 创建 Lease 时记录的操作 epoch。
+## [br]
+## @api private
+## [br]
 var _epoch: int = 0
+
+## 与不确定 Storage 操作关联的请求 ID 列表。
+## [br]
+## @api private
+## [br]
 var _storage_request_ids: PackedInt64Array = PackedInt64Array()
+
+## 当前对账 Lease 状态。
+## [br]
+## @api private
+## [br]
 var _state: StringName = STATE_DISPOSED_UNRESOLVED
+
+## late settlement 阶段提交的证据字典。
+## [br]
+## @api private
+## [br]
 var _settlement_evidence: Dictionary = {}
+
+## 对账完成时提交的 resolution 证据字典。
+## [br]
+## @api private
+## [br]
 var _resolution_evidence: Dictionary = {}
+
+## 标记 settled 信号是否已发出。
+## [br]
+## @api private
+## [br]
 var _settled_signal_emitted: bool = false
 
 
@@ -477,6 +565,10 @@ func mark_disposed_unresolved_for_framework() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 检查请求 ID 数组中的每个值是否都大于零。
+## [br]
+## @api private
+## [br]
 static func _has_only_positive_request_ids(request_ids: PackedInt64Array) -> bool:
 	for request_id: int in request_ids:
 		if request_id <= 0:
@@ -484,6 +576,10 @@ static func _has_only_positive_request_ids(request_ids: PackedInt64Array) -> boo
 	return true
 
 
+## 使用新计数状态检查 evidence 是否符合受限的可持久化值集合。
+## [br]
+## @api private
+## [br]
 static func _is_evidence_supported(evidence: Dictionary) -> bool:
 	var state: Dictionary = {
 		"items": 0,
@@ -492,6 +588,10 @@ static func _is_evidence_supported(evidence: Dictionary) -> bool:
 	return _is_evidence_value_supported(evidence, 0, state)
 
 
+## 按深度、值数量和字符串长度限制递归检查 evidence 值及其容器。
+## [br]
+## @api private
+## [br]
 static func _is_evidence_value_supported(
 	value: Variant,
 	depth: int,
@@ -583,16 +683,28 @@ static func _is_evidence_value_supported(
 			return false
 
 
+## 将 packed 容器元素数计入预算并报告是否仍未超出上限。
+## [br]
+## @api private
+## [br]
 static func _consume_packed_items(item_count: int, state: Dictionary) -> bool:
 	var next_count: int = GFVariantData.get_option_int(state, "items") + item_count
 	state["items"] = next_count
 	return next_count <= _MAX_EVIDENCE_ITEMS
 
 
+## 从 evidence 检查状态中读取当前递归路径容器数组。
+## [br]
+## @api private
+## [br]
 static func _get_visited(state: Dictionary) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(state, "visited"))
 
 
+## 按对象身份检查候选容器是否已在当前递归路径中。
+## [br]
+## @api private
+## [br]
 static func _contains_collection_identity(collections: Array, candidate: Variant) -> bool:
 	for collection: Variant in collections:
 		if is_same(collection, candidate):
@@ -600,6 +712,10 @@ static func _contains_collection_identity(collections: Array, candidate: Variant
 	return false
 
 
+## 首次调用时发出当前 Lease 状态的 settled 信号。
+## [br]
+## @api private
+## [br]
 func _emit_settled_for_framework() -> void:
 	if _settled_signal_emitted:
 		return

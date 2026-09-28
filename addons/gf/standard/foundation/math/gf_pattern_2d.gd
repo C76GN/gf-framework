@@ -158,6 +158,10 @@ func duplicate_pattern() -> GFPattern2D:
 
 # --- 私有/辅助方法 ---
 
+## 按 y 升序、再按 x 升序比较格子，用于稳定化 pattern 单元顺序。
+## [br]
+## @api private
+## [br]
 func _sort_cells(left: Vector2i, right: Vector2i) -> bool:
 	if left.y == right.y:
 		return left.x < right.x

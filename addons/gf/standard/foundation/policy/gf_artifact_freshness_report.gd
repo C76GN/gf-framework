@@ -14,6 +14,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 未指定有效报告主题时使用的默认主题。
+## [br]
+## @api private
 const _DEFAULT_SUBJECT: String = "Artifact freshness report"
 
 
@@ -197,6 +200,10 @@ static func from_artifacts(entries: Array[Dictionary], options: Dictionary = {})
 
 # --- 私有/辅助方法 ---
 
+## 检查单个 artifact 的路径、可读性和元数据，并将发现的问题写入报告。
+## 输出哈希或修改时间受 options 控制；声明了预期哈希或最低时间时仍会读取相应值用于校验。
+## [br]
+## @api private
 func _inspect_artifact(
 	entry: Dictionary,
 	entry_index: int,
@@ -269,6 +276,9 @@ func _inspect_artifact(
 	return artifact
 
 
+## 使用 expected_size_bytes、size_bytes 或 size 中首个存在且非负的值校验文件大小。
+## [br]
+## @api private
 func _validate_size(entry: Dictionary, entry_index: int, artifact: Dictionary, report: Dictionary) -> void:
 	var expected_size: int = _first_int(entry, PackedStringArray(["expected_size_bytes", "size_bytes", "size"]), -1)
 	if expected_size < 0:
@@ -284,6 +294,10 @@ func _validate_size(entry: Dictionary, entry_index: int, artifact: Dictionary, r
 	})
 
 
+## 校验预期 SHA-256；元数据格式无效或摘要不匹配时将 artifact 标记为 stale 并记录错误。
+## include_actual_value 只控制错误字段是否包含实际摘要。
+## [br]
+## @api private
 func _validate_sha256(
 	entry: Dictionary,
 	entry_index: int,
@@ -328,6 +342,10 @@ func _validate_sha256(
 	)
 
 
+## 按条目中的最低修改时间别名检查实际时间，过旧时标记 stale 并记录 warning。
+## include_actual_value 只控制 warning 是否包含实际时间。
+## [br]
+## @api private
 func _validate_modified_time(
 	entry: Dictionary,
 	entry_index: int,
@@ -362,6 +380,9 @@ func _validate_modified_time(
 	)
 
 
+## 比较条目提供的 recorded 与 current source digest；两者都非空且不同时报告过期错误。
+## [br]
+## @api private
 func _validate_source_digest(entry: Dictionary, entry_index: int, artifact: Dictionary, report: Dictionary) -> void:
 	var recorded_digest: String = _first_string(entry, PackedStringArray([
 		"recorded_source_digest",
@@ -382,6 +403,9 @@ func _validate_source_digest(entry: Dictionary, entry_index: int, artifact: Dict
 	})
 
 
+## 合并 artifact 身份字段与调用方 issue 字段，并追加标准化问题。
+## [br]
+## @api private
 func _append_issue(
 	report: Dictionary,
 	severity: String,
@@ -405,6 +429,9 @@ func _append_issue(
 	)
 
 
+## 以只读方式打开文件并读取长度；打开失败返回 -1。
+## [br]
+## @api private
 static func _get_file_size(path: String) -> int:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
@@ -414,6 +441,9 @@ static func _get_file_size(path: String) -> int:
 	return size_bytes
 
 
+## 依次读取 artifact_id、id；两者均为空时用条目索引生成 artifact:<index>。
+## [br]
+## @api private
 static func _get_artifact_id(entry: Dictionary, entry_index: int) -> StringName:
 	var artifact_id: StringName = GFVariantData.get_option_string_name(
 		entry,
@@ -425,6 +455,9 @@ static func _get_artifact_id(entry: Dictionary, entry_index: int) -> StringName:
 	return StringName("artifact:%d" % entry_index)
 
 
+## 按键顺序读取第一个存在的 String 或 StringName 字段，转换并修剪文本；都不存在时返回默认值。
+## [br]
+## @api private
 static func _first_string(entry: Dictionary, keys: PackedStringArray, default_value: String = "") -> String:
 	for key: String in keys:
 		if entry.has(key):
@@ -435,6 +468,9 @@ static func _first_string(entry: Dictionary, keys: PackedStringArray, default_va
 	return default_value
 
 
+## 按键顺序读取第一个存在的 String 或 StringName 字段并转换为 int；都不存在时返回默认值。
+## [br]
+## @api private
 static func _first_int(entry: Dictionary, keys: PackedStringArray, default_value: int = 0) -> int:
 	for key: String in keys:
 		if entry.has(key):
@@ -445,6 +481,9 @@ static func _first_int(entry: Dictionary, keys: PackedStringArray, default_value
 	return default_value
 
 
+## 修剪并转为小写后验证 64 位十六进制 SHA-256 文本；无效输入返回空字符串。
+## [br]
+## @api private
 static func _normalize_sha256(value: String) -> String:
 	var normalized: String = value.strip_edges().to_lower()
 	if normalized.length() != 64:

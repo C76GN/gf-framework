@@ -21,7 +21,9 @@ extends RefCounted
 
 # --- 信号 ---
 
-# 内置可等待视觉动作的完成信号。
+## 内置动作进入完成态后供调用方等待的信号。
+## [br]
+## @api private
 signal _action_completed
 
 
@@ -42,7 +44,14 @@ enum CompletionMode {
 
 # --- 常量 ---
 
+## 安全等待动作返回 Signal 的共享实现。
+## [br]
+## @api private
 const _GF_ASYNC_WAIT_SUPPORT = preload("res://addons/gf/standard/common/gf_async_wait_support.gd")
+
+## 归一化动作时间配置的策略工具。
+## [br]
+## @api private
 const _ACTION_TIME_POLICY = preload("res://addons/gf/extensions/action_queue/core/gf_action_time_policy.gd")
 
 
@@ -75,8 +84,19 @@ var signal_timeout_respects_time_scale: bool = true
 
 # --- 私有变量 ---
 
+## 由动作系统注入的架构弱引用。
+## [br]
+## @api private
 var _architecture_ref: WeakRef = null
+
+## 标记内置完成信号在当前执行中是否已发出。
+## [br]
+## @api private
 var _completion_emitted: bool = false
+
+## 等待 Signal 的归一化超时时间，单位为秒。
+## [br]
+## @api private
 var _signal_timeout_seconds: float = 30.0
 
 
@@ -237,10 +257,16 @@ func await_result_safely(result: Variant, should_continue: Callable = Callable()
 
 # --- 私有/辅助方法 ---
 
+## 开始新执行前清除完成信号的已发出标记。
+## [br]
+## @api private
 func _reset_completion_state() -> void:
 	_completion_emitted = false
 
 
+## 若当前执行尚未发出完成信号，则标记并发出一次。
+## [br]
+## @api private
 func _emit_completed_once() -> void:
 	if _completion_emitted:
 		return
@@ -248,6 +274,9 @@ func _emit_completed_once() -> void:
 	_action_completed.emit()
 
 
+## 从当前架构读取 GFTimeUtility；架构或工具缺失时返回 null。
+## [br]
+## @api private
 func _get_time_utility() -> GFTimeUtility:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture == null:
@@ -255,6 +284,9 @@ func _get_time_utility() -> GFTimeUtility:
 	return _get_time_utility_value(architecture.get_utility(GFTimeUtility))
 
 
+## 优先解析注入的架构弱引用，失效时回退到自动加载器的当前架构。
+## [br]
+## @api private
 func _get_architecture_or_null() -> GFArchitecture:
 	if _architecture_ref != null:
 		var architecture: GFArchitecture = _get_architecture_value(_architecture_ref.get_ref())
@@ -263,6 +295,9 @@ func _get_architecture_or_null() -> GFArchitecture:
 	return GFAutoload.get_architecture_or_null()
 
 
+## 将 Variant 收窄为 GFTimeUtility；类型不符时返回 null。
+## [br]
+## @api private
 func _get_time_utility_value(value: Variant) -> GFTimeUtility:
 	if value is GFTimeUtility:
 		var utility: GFTimeUtility = value
@@ -270,6 +305,9 @@ func _get_time_utility_value(value: Variant) -> GFTimeUtility:
 	return null
 
 
+## 将 Variant 收窄为 GFArchitecture；类型不符时返回 null。
+## [br]
+## @api private
 func _get_architecture_value(value: Variant) -> GFArchitecture:
 	if value is GFArchitecture:
 		var architecture: GFArchitecture = value

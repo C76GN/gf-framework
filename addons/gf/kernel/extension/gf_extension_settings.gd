@@ -15,9 +15,24 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 读取项目设置和发现报告中 Variant 值的辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 规范化扩展根目录、preset 路径并检查资源路径边界的辅助脚本。
+## [br]
+## @api private
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+## 创建和检查 ProjectSettings 项的辅助脚本。
+## [br]
+## @api private
 const _GF_PROJECT_SETTINGS_TOOLS = preload("res://addons/gf/kernel/core/gf_project_settings_tools.gd")
+
+## 读取并校验扩展 preset 文件的脚本。
+## [br]
+## @api private
 const _GF_EXTENSION_PRESET_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_preset.gd")
 
 ## 扩展 manifest 无状态读取器脚本。
@@ -1024,12 +1039,18 @@ static func get_enabled_editor_contribution_records(property_name: String) -> Ar
 
 # --- 私有/辅助方法 ---
 
+## 通过项目设置工具确保默认值存在，并关闭该调用中的属性信息注册。
+## [br]
+## @api private
 static func _ensure_default(setting_name: String, default_value: Variant) -> bool:
 	return _GF_PROJECT_SETTINGS_TOOLS.ensure_setting(setting_name, default_value, {
 		"register_property_info": false,
 	})
 
 
+## 规范化已有选择模式，或根据已有显式 ID 推断初始模式；仅需要修正时写入。
+## [br]
+## @api private
 static func _ensure_extension_selection_mode_setting() -> bool:
 	var next_mode: String = EXTENSION_SELECTION_MODE_DEFAULT
 	var should_write: bool = false
@@ -1053,6 +1074,9 @@ static func _ensure_extension_selection_mode_setting() -> bool:
 	return should_write
 
 
+## 未保存显式扩展列表或列表为空时返回 default，否则返回 explicit。
+## [br]
+## @api private
 static func _infer_initial_extension_selection_mode() -> String:
 	if not ProjectSettings.has_setting(ENABLED_EXTENSIONS_SETTING):
 		return SELECTION_MODE_DEFAULT
@@ -1061,6 +1085,9 @@ static func _infer_initial_extension_selection_mode() -> String:
 	return SELECTION_MODE_EXPLICIT
 
 
+## 去首尾空格并转小写，只接受 default 或 explicit，其余返回空字符串。
+## [br]
+## @api private
 static func _normalize_extension_selection_mode(selection_mode: String) -> String:
 	var normalized_mode: String = selection_mode.strip_edges().to_lower()
 	if normalized_mode == SELECTION_MODE_DEFAULT:
@@ -1070,11 +1097,17 @@ static func _normalize_extension_selection_mode(selection_mode: String) -> Strin
 	return ""
 
 
+## 写入选择模式并清空扩展选择发现缓存。
+## [br]
+## @api private
 static func _set_extension_selection_mode_unchecked(selection_mode: String) -> void:
 	ProjectSettings.set_setting(EXTENSION_SELECTION_MODE_SETTING, selection_mode)
 	GFExtensionSelectionDiscoveryBase.clear_cache()
 
 
+## 读取显式启用设置，将其转换为字符串并排序去重。
+## [br]
+## @api private
 static func _get_explicit_enabled_extension_ids() -> Array[String]:
 	var raw_value: Variant = ProjectSettings.get_setting(
 		ENABLED_EXTENSIONS_SETTING,
@@ -1083,12 +1116,18 @@ static func _get_explicit_enabled_extension_ids() -> Array[String]:
 	return _sorted_unique(_GF_VARIANT_ACCESS_SCRIPT.to_string_array(raw_value))
 
 
+## 默认模式返回 manifest 默认启用 ID；其他模式返回显式启用 ID。
+## [br]
+## @api private
 static func _get_effective_enabled_extension_ids(manifests: Array[GFExtensionManifest]) -> Array[String]:
 	if get_extension_selection_mode() == SELECTION_MODE_DEFAULT:
 		return _get_default_enabled_extension_ids_from_manifests(manifests)
 	return _get_explicit_enabled_extension_ids()
 
 
+## 去除字符串首尾空白、空项和重复项，再对结果排序。
+## [br]
+## @api private
 static func _sorted_unique(values: Array[String]) -> Array[String]:
 	var result: Array[String] = []
 	for value: String in values:
@@ -1100,6 +1139,9 @@ static func _sorted_unique(values: Array[String]) -> Array[String]:
 	return result
 
 
+## 规范化根目录，并仅保留 res:// 路径中不等于 GF 内置扩展根目录的项。
+## [br]
+## @api private
 static func _normalize_external_extension_roots(root_paths: Array[String]) -> Array[String]:
 	var result: Array[String] = []
 	var normalized_paths: PackedStringArray = _GF_PATH_TOOLS.normalize_root_paths(PackedStringArray(root_paths))
@@ -1113,6 +1155,9 @@ static func _normalize_external_extension_roots(root_paths: Array[String]) -> Ar
 	return result
 
 
+## 规范化 preset 路径，仅保留非空 res:// JSON 路径并按首次出现顺序去重。
+## [br]
+## @api private
 static func _normalize_extension_preset_paths(preset_paths: Array[String]) -> Array[String]:
 	var result: Array[String] = []
 	for preset_path: String in preset_paths:
@@ -1128,6 +1173,9 @@ static func _normalize_extension_preset_paths(preset_paths: Array[String]) -> Ar
 	return result
 
 
+## 读取 preset 路径 ProjectSettings 值并转换为字符串数组。
+## [br]
+## @api private
 static func _get_configured_extension_preset_path_values() -> Array[String]:
 	return _GF_VARIANT_ACCESS_SCRIPT.to_string_array(ProjectSettings.get_setting(
 		EXTENSION_PRESET_PATHS_SETTING,
@@ -1135,11 +1183,17 @@ static func _get_configured_extension_preset_path_values() -> Array[String]:
 	))
 
 
+## 从路径解析 GFExtensionPreset，并返回实例非空且通过 is_valid() 的结果。
+## [br]
+## @api private
 static func _is_valid_extension_preset_file(preset_path: String) -> bool:
 	var preset: GFExtensionPreset = _GF_EXTENSION_PRESET_SCRIPT.from_json_file(preset_path)
 	return preset != null and preset.is_valid()
 
 
+## 收集 enabled_by_default 为 true 的 manifest ID 并返回排序去重结果。
+## [br]
+## @api private
 static func _get_default_enabled_extension_ids_from_manifests(
 	manifests: Array[GFExtensionManifest]
 ) -> Array[String]:
@@ -1150,6 +1204,9 @@ static func _get_default_enabled_extension_ids_from_manifests(
 	return _sorted_unique(ids)
 
 
+## 从候选 ID 中保留能匹配 manifest 映射的非空 ID，再排序去重。
+## [br]
+## @api private
 static func _filter_known_extension_ids(
 	extension_ids: Array[String],
 	manifests: Array[GFExtensionManifest]
@@ -1164,6 +1221,9 @@ static func _filter_known_extension_ids(
 	return _sorted_unique(result)
 
 
+## 仅当 Variant 是 Array 时筛选并返回其中的 GFExtensionPreset 项。
+## [br]
+## @api private
 static func _get_preset_array_from_value(value: Variant) -> Array[GFExtensionPreset]:
 	var result: Array[GFExtensionPreset] = []
 	if not (value is Array):
@@ -1177,6 +1237,9 @@ static func _get_preset_array_from_value(value: Variant) -> Array[GFExtensionPre
 	return result
 
 
+## 跳过 null 项，并为其余 manifest 调用 duplicate_manifest() 后返回新数组。
+## [br]
+## @api private
 static func _duplicate_manifest_array(manifests: Array[GFExtensionManifest]) -> Array[GFExtensionManifest]:
 	var result: Array[GFExtensionManifest] = []
 	for manifest: GFExtensionManifest in manifests:
@@ -1186,6 +1249,9 @@ static func _duplicate_manifest_array(manifests: Array[GFExtensionManifest]) -> 
 	return result
 
 
+## 仅当 Variant 是 Array 时筛选并返回其中的 GFExtensionManifest 项。
+## [br]
+## @api private
 static func _get_manifest_array_from_value(value: Variant) -> Array[GFExtensionManifest]:
 	var result: Array[GFExtensionManifest] = []
 	if not (value is Array):
@@ -1199,6 +1265,9 @@ static func _get_manifest_array_from_value(value: Variant) -> Array[GFExtensionM
 	return result
 
 
+## 按非空 manifest ID 建立映射；相同 ID 只保留首次遇到的实例。
+## [br]
+## @api private
 static func _build_manifest_map(manifests: Array[GFExtensionManifest]) -> Dictionary:
 	var result: Dictionary = {}
 	for manifest: GFExtensionManifest in manifests:
@@ -1208,6 +1277,9 @@ static func _build_manifest_map(manifests: Array[GFExtensionManifest]) -> Dictio
 	return result
 
 
+## 从映射读取值，仅当值为 GFExtensionManifest 时返回该实例。
+## [br]
+## @api private
 static func _get_manifest_from_map_or_null(
 	manifest_by_id: Dictionary,
 	extension_id: String
@@ -1218,14 +1290,23 @@ static func _get_manifest_from_map_or_null(
 	return null
 
 
+## 将属性名交给启用快照读取器，取得该 manifest 路径字段。
+## [br]
+## @api private
 static func _collect_enabled_manifest_paths(property_name: String) -> Array[String]:
 	return _get_selection_manifest_paths(property_name)
 
 
+## 将属性名交给启用快照读取器，取得该工具贡献路径字段。
+## [br]
+## @api private
 static func _collect_enabled_editor_contribution_paths(property_name: String) -> Array[String]:
 	return _get_selection_contribution_paths(property_name)
 
 
+## 必要时读取全部 manifest，再以有效启用 ID 和选择选项生成发现快照。
+## [br]
+## @api private
 static func _get_selection_snapshot(manifests: Array[GFExtensionManifest] = []) -> Dictionary:
 	var source_manifests: Array[GFExtensionManifest] = manifests
 	if source_manifests.is_empty():
@@ -1237,6 +1318,9 @@ static func _get_selection_snapshot(manifests: Array[GFExtensionManifest] = []) 
 	)
 
 
+## 构造选择发现选项，包含内置扩展 ID 和 manifest 缓存中的读取错误。
+## [br]
+## @api private
 static func _make_selection_options() -> Dictionary:
 	return {
 		"builtin_extension_ids": BUILT_IN_EXTENSION_IDS,
@@ -1244,6 +1328,9 @@ static func _make_selection_options() -> Dictionary:
 	}
 
 
+## 按快照 paths_allowed（缺省为 graph_ok）判断路径是否可用；阻止时发出摘要警告。
+## [br]
+## @api private
 static func _selection_snapshot_allows_runtime_paths(snapshot: Dictionary, context: String) -> bool:
 	var graph_ok: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(snapshot, "graph_ok", true)
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(snapshot, "paths_allowed", graph_ok):
@@ -1253,6 +1340,9 @@ static func _selection_snapshot_allows_runtime_paths(snapshot: Dictionary, conte
 	return false
 
 
+## 获取选择快照中的指定 manifest 路径数组；快照不允许路径时返回空数组。
+## [br]
+## @api private
 static func _get_selection_manifest_paths(property_name: String) -> Array[String]:
 	var snapshot: Dictionary = _get_selection_snapshot()
 	if not _selection_snapshot_allows_runtime_paths(snapshot, "get_enabled_manifests"):
@@ -1261,6 +1351,9 @@ static func _get_selection_manifest_paths(property_name: String) -> Array[String
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(manifest_paths, property_name)
 
 
+## 获取选择快照中的指定工具贡献路径数组；快照不允许路径时返回空数组。
+## [br]
+## @api private
 static func _get_selection_contribution_paths(property_name: String) -> Array[String]:
 	var snapshot: Dictionary = _get_selection_snapshot()
 	if not _selection_snapshot_allows_runtime_paths(snapshot, "get_enabled_manifests"):
@@ -1272,6 +1365,9 @@ static func _get_selection_contribution_paths(property_name: String) -> Array[St
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(paths, property_name)
 
 
+## 汇总第一条无效 manifest、缺失依赖、重复 ID 和循环依赖；无细节时返回通用文本。
+## [br]
+## @api private
 static func _summarize_manifest_graph_report(report: Dictionary) -> String:
 	var parts: Array[String] = []
 	var invalid_manifests: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "invalid_manifests")
@@ -1300,6 +1396,9 @@ static func _summarize_manifest_graph_report(report: Dictionary) -> String:
 	return "; ".join(parts)
 
 
+## 优先组合问题项中的扩展 ID 与来源路径；两者缺失时返回可用字段或问号。
+## [br]
+## @api private
 static func _describe_manifest_issue(issue: Dictionary) -> String:
 	var extension_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "extension_id")
 	var source_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "source_path")

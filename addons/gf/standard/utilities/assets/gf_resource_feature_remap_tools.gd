@@ -194,6 +194,10 @@ static func build_remap_plan(
 
 # --- 私有/辅助方法 ---
 
+## 创建包含归一化结果、来源、问题和计数字段的初始报告。
+## [br]
+## @api private
+## [br]
 static func _make_normalize_report() -> Dictionary:
 	return {
 		"ok": true,
@@ -209,6 +213,10 @@ static func _make_normalize_report() -> Dictionary:
 	}
 
 
+## 创建默认未命中报告，并复制归一化报告中的问题列表。
+## [br]
+## @api private
+## [br]
 static func _make_selection_report(path: String, normalized: Dictionary) -> Dictionary:
 	return {
 		"ok": GFVariantData.get_option_bool(normalized, "ok", true),
@@ -227,6 +235,10 @@ static func _make_selection_report(path: String, normalized: Dictionary) -> Dict
 	}
 
 
+## 创建重映射计划的初始结构和归一化 feature 列表。
+## [br]
+## @api private
+## [br]
 static func _make_plan_report(active_features: PackedStringArray, normalized: Dictionary) -> Dictionary:
 	return {
 		"ok": GFVariantData.get_option_bool(normalized, "ok", true),
@@ -250,11 +262,19 @@ static func _make_plan_report(active_features: PackedStringArray, normalized: Di
 	}
 
 
+## 按字典键逐个归一化 source 到 entries 的映射。
+## [br]
+## @api private
+## [br]
 static func _normalize_dictionary_remaps(remaps: Dictionary, options: Dictionary, report: Dictionary) -> void:
 	for source_key: Variant in remaps.keys():
 		_normalize_source_entries(GFVariantData.to_text(source_key), remaps[source_key], options, report)
 
 
+## 校验 remap 数组记录并归一化其 source entries。
+## [br]
+## @api private
+## [br]
 static func _normalize_array_remaps(remaps: Array, options: Dictionary, report: Dictionary) -> void:
 	for index: int in range(remaps.size()):
 		var record: Dictionary = GFVariantData.as_dictionary(remaps[index])
@@ -276,6 +296,10 @@ static func _normalize_array_remaps(remaps: Array, options: Dictionary, report: 
 			_normalize_source_entries(source_path, [record], options, report)
 
 
+## 归一化一个来源路径及其 entry payload，并追加相关问题。
+## [br]
+## @api private
+## [br]
 static func _normalize_source_entries(
 	source_path_value: String,
 	entries_payload: Variant,
@@ -314,6 +338,10 @@ static func _normalize_source_entries(
 		_normalize_entry(source_path, entries[entry_index], entry_index, options, report)
 
 
+## 解析单条 remap 格式、feature、目标和元数据后写入归一化报告。
+## [br]
+## @api private
+## [br]
 static func _normalize_entry(
 	source_path: String,
 	entry_payload: Variant,
@@ -404,6 +432,10 @@ static func _normalize_entry(
 		})
 
 
+## 将支持的 entries 输入形式展开为逐项 payload 数组。
+## [br]
+## @api private
+## [br]
 static func _extract_entry_payloads(entries_payload: Variant) -> Array:
 	if entries_payload is Array:
 		var entries: Array = GFVariantData.as_array(entries_payload)
@@ -420,12 +452,20 @@ static func _extract_entry_payloads(entries_payload: Variant) -> Array:
 	return []
 
 
+## 检查数组前两项是否为字符串形式的 feature 与 target path。
+## [br]
+## @api private
+## [br]
 static func _looks_like_single_array_entry(values: Array) -> bool:
 	if values.size() < 2:
 		return false
 	return (values[0] is String or values[0] is StringName) and (values[1] is String or values[1] is StringName)
 
 
+## 将 PackedStringArray 转为 Array；其他值按 Array 读取。
+## [br]
+## @api private
+## [br]
 static func _packed_or_array_to_array(value: Variant) -> Array:
 	if value is PackedStringArray:
 		var packed_values: PackedStringArray = value
@@ -436,6 +476,10 @@ static func _packed_or_array_to_array(value: Variant) -> Array:
 	return GFVariantData.as_array(value)
 
 
+## 依次读取 source_path、path 或 from 并规范化路径。
+## [br]
+## @api private
+## [br]
 static func _extract_source_path(record: Dictionary) -> String:
 	var path: String = GFVariantData.get_option_string(record, "source_path")
 	if path.is_empty():
@@ -445,6 +489,10 @@ static func _extract_source_path(record: Dictionary) -> String:
 	return _normalize_path(path)
 
 
+## 依次读取 target_path、path、remap_path 或 to 并规范化路径。
+## [br]
+## @api private
+## [br]
 static func _extract_target_path(entry: Dictionary) -> String:
 	var path: String = GFVariantData.get_option_string(entry, "target_path")
 	if path.is_empty():
@@ -456,6 +504,10 @@ static func _extract_target_path(entry: Dictionary) -> String:
 	return _normalize_path(path)
 
 
+## 优先归一化 features 数组；否则读取单个 feature 字段。
+## [br]
+## @api private
+## [br]
 static func _extract_entry_features(entry: Dictionary) -> PackedStringArray:
 	if entry.has("features"):
 		return _normalize_feature_list(GFVariantData.get_option_packed_string_array(entry, "features"))
@@ -465,6 +517,10 @@ static func _extract_entry_features(entry: Dictionary) -> PackedStringArray:
 	return PackedStringArray([feature])
 
 
+## 构造保留无效 payload 类型信息的占位条目。
+## [br]
+## @api private
+## [br]
 static func _make_invalid_entry(source_path: String, entry_index: int, payload: Variant) -> Dictionary:
 	return {
 		"source_path": source_path,
@@ -478,6 +534,10 @@ static func _make_invalid_entry(source_path: String, entry_index: int, payload: 
 	}
 
 
+## 确保来源在 remaps 字典和排序后的 sources 列表中存在。
+## [br]
+## @api private
+## [br]
 static func _ensure_source(report: Dictionary, source_path: String) -> void:
 	var remaps: Dictionary = GFVariantData.get_option_dictionary(report, "remaps")
 	if remaps.has(source_path):
@@ -490,6 +550,10 @@ static func _ensure_source(report: Dictionary, source_path: String) -> void:
 	report["sources"] = sources
 
 
+## 将归一化 entry 追加到指定 source path 的列表。
+## [br]
+## @api private
+## [br]
 static func _append_normalized_entry(report: Dictionary, source_path: String, entry: Dictionary) -> void:
 	var remaps: Dictionary = GFVariantData.get_option_dictionary(report, "remaps")
 	var entries: Array = GFVariantData.get_option_array(remaps, source_path)
@@ -498,6 +562,10 @@ static func _append_normalized_entry(report: Dictionary, source_path: String, en
 	report["remaps"] = remaps
 
 
+## 检查指定来源当前是否已有相同 feature 的归一化 entry。
+## [br]
+## @api private
+## [br]
 static func _source_has_feature(report: Dictionary, source_path: String, feature: String) -> bool:
 	var remaps: Dictionary = GFVariantData.get_option_dictionary(report, "remaps")
 	for entry_value: Variant in GFVariantData.get_option_array(remaps, source_path):
@@ -507,6 +575,10 @@ static func _source_has_feature(report: Dictionary, source_path: String, feature
 	return false
 
 
+## 按 entry 顺序返回首个命中 active feature 的条目。
+## [br]
+## @api private
+## [br]
 static func _select_entry(entries: Array, active_set: Dictionary) -> Dictionary:
 	for entry_value: Variant in entries:
 		var entry: Dictionary = GFVariantData.as_dictionary(entry_value)
@@ -516,6 +588,10 @@ static func _select_entry(entries: Array, active_set: Dictionary) -> Dictionary:
 	return {}
 
 
+## 构造已选中重映射记录并标记来源与目标是否为资源文件。
+## [br]
+## @api private
+## [br]
 static func _make_resolved_record(source_path: String, entry: Dictionary, extensions: PackedStringArray) -> Dictionary:
 	var target_path: String = GFVariantData.get_option_string(entry, "target_path")
 	return {
@@ -531,6 +607,10 @@ static func _make_resolved_record(source_path: String, entry: Dictionary, extens
 	}
 
 
+## 构造无活动 feature 命中的来源记录。
+## [br]
+## @api private
+## [br]
 static func _make_unmatched_record(source_path: String, entries: Array, extensions: PackedStringArray) -> Dictionary:
 	return {
 		"source_path": source_path,
@@ -541,6 +621,10 @@ static func _make_unmatched_record(source_path: String, entries: Array, extensio
 	}
 
 
+## 按导出、保护、来源和已选目标集合筛出可跳过的目标路径。
+## [br]
+## @api private
+## [br]
 static func _make_skip_paths(
 	all_target_set: Dictionary,
 	source_path_set: Dictionary,
@@ -570,6 +654,10 @@ static func _make_skip_paths(
 	return result
 
 
+## 汇总归一化报告的来源数、条目数、问题计数和摘要。
+## [br]
+## @api private
+## [br]
 static func _finalize_normalize_report(report: Dictionary) -> Dictionary:
 	var remaps: Dictionary = GFVariantData.get_option_dictionary(report, "remaps")
 	var entry_count: int = 0
@@ -586,6 +674,10 @@ static func _finalize_normalize_report(report: Dictionary) -> Dictionary:
 	return report
 
 
+## 计算选择报告的问题计数并生成摘要文本。
+## [br]
+## @api private
+## [br]
 static func _finalize_selection_report(report: Dictionary) -> Dictionary:
 	_finalize_issue_counts(report)
 	report["summary"] = "selected=%s resolved_path=%s issues=%d" % [
@@ -596,6 +688,10 @@ static func _finalize_selection_report(report: Dictionary) -> Dictionary:
 	return report
 
 
+## 计算计划选择、未命中、跳过和资源/原始文件计数及摘要。
+## [br]
+## @api private
+## [br]
 static func _finalize_plan_report(plan: Dictionary) -> Dictionary:
 	var resolved: Array = GFVariantData.get_option_array(plan, "resolved")
 	var unmatched: Array = GFVariantData.get_option_array(plan, "unmatched")
@@ -621,6 +717,10 @@ static func _finalize_plan_report(plan: Dictionary) -> Dictionary:
 	return plan
 
 
+## 将标准字段组成的问题字典追加到报告。
+## [br]
+## @api private
+## [br]
 static func _append_issue(
 	report: Dictionary,
 	severity: String,
@@ -642,6 +742,10 @@ static func _append_issue(
 	report["issues"] = issues
 
 
+## 统计 error/warning 数量并据此更新报告的 ok 字段。
+## [br]
+## @api private
+## [br]
 static func _finalize_issue_counts(report: Dictionary) -> void:
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 	var error_count: int = 0
@@ -659,14 +763,26 @@ static func _finalize_issue_counts(report: Dictionary) -> void:
 	report["ok"] = error_count == 0
 
 
+## 将反斜杠改为斜杠并去除路径首尾空白。
+## [br]
+## @api private
+## [br]
 static func _normalize_path(path: String) -> String:
 	return path.replace("\\", "/").strip_edges()
 
 
+## 去除 feature 字符串首尾空白。
+## [br]
+## @api private
+## [br]
 static func _normalize_feature(feature: String) -> String:
 	return feature.strip_edges()
 
 
+## 去除空 feature 和重复项，同时保留首次出现顺序。
+## [br]
+## @api private
+## [br]
 static func _normalize_feature_list(features: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for feature: String in features:
@@ -676,6 +792,10 @@ static func _normalize_feature_list(features: PackedStringArray) -> PackedString
 	return result
 
 
+## 检查 feature 列表中是否每一项去空白后都为空。
+## [br]
+## @api private
+## [br]
 static func _all_features_empty(features: PackedStringArray) -> bool:
 	for feature: String in features:
 		if not _normalize_feature(feature).is_empty():
@@ -683,6 +803,10 @@ static func _all_features_empty(features: PackedStringArray) -> bool:
 	return true
 
 
+## 将规范化后的非空 feature 转为字典查找集合。
+## [br]
+## @api private
+## [br]
 static func _make_feature_set(features: PackedStringArray) -> Dictionary:
 	var result: Dictionary = {}
 	for feature: String in _normalize_feature_list(features):
@@ -690,6 +814,10 @@ static func _make_feature_set(features: PackedStringArray) -> Dictionary:
 	return result
 
 
+## 将规范化后的非空路径转为字典查找集合。
+## [br]
+## @api private
+## [br]
 static func _make_string_set(values: PackedStringArray) -> Dictionary:
 	var result: Dictionary = {}
 	for value: String in values:
@@ -699,6 +827,10 @@ static func _make_string_set(values: PackedStringArray) -> Dictionary:
 	return result
 
 
+## 将字典键转换为规范化路径并排序返回。
+## [br]
+## @api private
+## [br]
 static func _get_sorted_keys(dictionary: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for key: Variant in dictionary.keys():

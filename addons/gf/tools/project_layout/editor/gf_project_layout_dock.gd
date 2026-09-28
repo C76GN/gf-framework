@@ -65,39 +65,118 @@ const STATE_CANCELLED: String = "cancelled"
 ## @since 11.0.0
 const STATE_FAILED: String = "failed"
 
+## Analyzer 实现脚本。
+## [br]
+## @api private
+## [br]
 const _ANALYZER_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/gf_project_layout_analyzer.gd"
 )
+
+## analysis 与库存共享契约实现脚本。
+## [br]
+## @api private
+## [br]
 const _ANALYSIS_CONTRACT_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd"
 )
+
+## Editor 后台请求任务实现脚本。
+## [br]
+## @api private
+## [br]
 const _BACKGROUND_TASK_SCRIPT = preload(
 	"res://addons/gf/kernel/editor/gf_editor_background_request_task.gd"
 )
+
+## 有界 JSON 对象读取器脚本。
+## [br]
+## @api private
+## [br]
 const _BOUNDED_JSON_OBJECT_READER_SCRIPT = preload(
 	"res://addons/gf/kernel/core/gf_bounded_json_object_reader.gd"
 )
+
+## Editor snapshot builder 实现脚本。
+## [br]
+## @api private
+## [br]
 const _SNAPSHOT_BUILDER_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/editor/gf_project_layout_editor_snapshot_builder.gd"
 )
+
+## Project Layout 后台扫描 worker 实现脚本。
+## [br]
+## @api private
+## [br]
 const _WORKER_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/editor/gf_project_layout_scan_worker.gd"
 )
+
+## Editor workspace UI 辅助脚本。
+## [br]
+## @api private
+## [br]
 const _WORKSPACE_UI = preload(
 	"res://addons/gf/kernel/editor/gf_editor_workspace_ui.gd"
 )
+
+## Dock profile selector 提供的示例 profile 路径。
+## [br]
+## @api private
+## [br]
 const _EXAMPLE_PROFILE_PATH: String = \
 	"res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"
+
+## 每帧 snapshot 捕获处理的库存条目数。
+## [br]
+## @api private
+## [br]
 const _CAPTURE_ENTRIES_PER_FRAME: int = 256
+
+## finding 详情文本允许显示的最大字符数。
+## [br]
+## @api private
+## [br]
 const _DETAIL_TEXT_LIMIT: int = 131072
+
+## 复制到剪贴板的报告文本允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _CLIPBOARD_TEXT_LIMIT: int = 1048576
+
+## finding 列表允许添加的最大条目数。
+## [br]
+## @api private
+## [br]
 const _FINDING_LIST_ITEM_LIMIT: int = 256
+
+## 每批渲染的 finding 数量。
+## [br]
+## @api private
+## [br]
 const _FINDING_RENDER_BATCH_SIZE: int = 64
+
+## finding 列表标签允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _FINDING_LABEL_CHARACTER_LIMIT: int = 256
+
+## 后台查询允许的 query_kind 值集合。
+## [br]
+## @api private
+## [br]
 const _QUERY_KINDS: PackedStringArray = [
 	"explain_finding",
 	"analyze_change_impact",
 ]
+
+## 后台查询结果字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _QUERY_RESULT_FIELDS: PackedStringArray = [
 	"schema_version",
 	"kind",
@@ -109,6 +188,11 @@ const _QUERY_RESULT_FIELDS: PackedStringArray = [
 	"impact",
 	"issues",
 ]
+
+## explanation 查询结果的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _EXPLANATION_RESULT_FIELDS: PackedStringArray = [
 	"schema_version",
 	"kind",
@@ -123,6 +207,11 @@ const _EXPLANATION_RESULT_FIELDS: PackedStringArray = [
 	"issues",
 	"effects",
 ]
+
+## impact 查询结果的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _IMPACT_RESULT_FIELDS: PackedStringArray = [
 	"schema_version",
 	"kind",
@@ -136,10 +225,35 @@ const _IMPACT_RESULT_FIELDS: PackedStringArray = [
 	"issues",
 	"effects",
 ]
+
+## effects 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _EFFECT_FIELDS: PackedStringArray = ["writes_project"]
+
+## issue 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _ISSUE_FIELDS: PackedStringArray = ["severity", "kind", "message"]
+
+## blocker 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _BLOCKER_FIELDS: PackedStringArray = ["kind", "path", "message"]
+
+## change 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _CHANGE_FIELDS: PackedStringArray = ["kind", "source_path", "target_path"]
+
+## inventory evidence 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _INVENTORY_EVIDENCE_FIELDS: PackedStringArray = [
 	"evidence_id",
 	"kind",
@@ -149,6 +263,11 @@ const _INVENTORY_EVIDENCE_FIELDS: PackedStringArray = [
 	"authority",
 	"observed",
 ]
+
+## inventory boundary evidence 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _BOUNDARY_EVIDENCE_FIELDS: PackedStringArray = [
 	"evidence_id",
 	"kind",
@@ -162,6 +281,11 @@ const _BOUNDARY_EVIDENCE_FIELDS: PackedStringArray = [
 	"directory_count",
 	"input_digest",
 ]
+
+## snapshot scope 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _SCOPE_FIELDS: PackedStringArray = [
 	"kind",
 	"root_path",
@@ -171,51 +295,232 @@ const _SCOPE_FIELDS: PackedStringArray = [
 	"max_scanned_directories",
 	"max_scan_depth",
 ]
+
+## 后台查询 data-only 结构允许访问的最大值数。
+## [br]
+## @api private
+## [br]
 const _MAX_QUERY_DATA_NODES: int = 500_000
+
+## 后台查询 data-only 结构允许的最大嵌套深度。
+## [br]
+## @api private
+## [br]
 const _MAX_QUERY_DATA_DEPTH: int = 65
+
+## 后台查询单个容器允许的最大元素数。
+## [br]
+## @api private
+## [br]
 const _MAX_QUERY_COLLECTION_ITEMS: int = _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_NODES
+
+## 后台查询 data-only 字符串允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_QUERY_STRING_LENGTH: int = _ANALYSIS_CONTRACT_SCRIPT.MAX_DATA_STRING_LENGTH
+
+## 后台查询 data-only 字符串总字节数允许的最大值。
+## [br]
+## @api private
+## [br]
 const _MAX_QUERY_STRING_BYTES: int = _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_STRING_BYTES
 
 
 # --- 私有变量 ---
 
+## Dock 当前请求状态。
+## [br]
+## @api private
+## [br]
 var _state: String = STATE_IDLE
+
+## 用户操作生成的最新请求代数。
+## [br]
+## @api private
+## [br]
 var _generation: int = 0
+
+## 当前活动扫描请求的代数。
+## [br]
+## @api private
+## [br]
 var _active_generation: int = 0
+
+## 当前项目库存捕获器。
+## [br]
+## @api private
+## [br]
 var _snapshot_builder: GFProjectLayoutEditorSnapshotBuilder = null
+
+## 当前后台分析任务。
+## [br]
+## @api private
+## [br]
 var _background_task: GFEditorBackgroundRequestTask = null
+
+## 当前后台 explanation 或 impact 查询任务。
+## [br]
+## @api private
+## [br]
 var _query_task: GFEditorBackgroundRequestTask = null
+
+## 等待开始的后台查询请求。
+## [br]
+## @api private
+## [br]
 var _pending_query_request: Dictionary = {}
+
+## 当前活动查询的代数。
+## [br]
+## @api private
+## [br]
 var _active_query_generation: int = 0
+
+## 当前活动查询绑定的 analysis digest。
+## [br]
+## @api private
+## [br]
 var _active_query_analysis_digest: String = ""
+
+## 当前活动查询的 kind。
+## [br]
+## @api private
+## [br]
 var _active_query_kind: String = ""
+
+## 当前 profile compilation 是否可用。
+## [br]
+## @api private
+## [br]
 var _active_profile_present: bool = false
+
+## 当前冻结的 profile compilation。
+## [br]
+## @api private
+## [br]
 var _active_profile_compilation: Dictionary = {}
+
+## Dock 当前显示的最近一次 analysis。
+## [br]
+## @api private
+## [br]
 var _last_analysis: Dictionary = {}
+
+## Dock 当前显示的最近一次 plan。
+## [br]
+## @api private
+## [br]
 var _last_plan: Dictionary = {}
+
+## Dock 当前显示的最近一次 impact 结果。
+## [br]
+## @api private
+## [br]
 var _last_impact: Dictionary = {}
+
+## 等待分批渲染的 finding 源数组。
+## [br]
+## @api private
+## [br]
 var _finding_render_source: Array = []
+
+## 下一批 finding 的起始索引。
+## [br]
+## @api private
+## [br]
 var _finding_render_cursor: int = 0
+
+## finding 列表是否已添加超限摘要。
+## [br]
+## @api private
+## [br]
 var _finding_summary_added: bool = false
 
+## profile 下拉控件。
+## [br]
+## @api private
+## [br]
 var _profile_selector: OptionButton = null
+
+## 启动扫描按钮。
+## [br]
+## @api private
+## [br]
 var _scan_button: Button = null
+
+## 取消按钮。
+## [br]
+## @api private
+## [br]
 var _cancel_button: Button = null
+
+## 复制报告按钮。
+## [br]
+## @api private
+## [br]
 var _copy_button: Button = null
+
+## 状态文本控件。
+## [br]
+## @api private
+## [br]
 var _status_label: Label = null
+
+## analysis 概览输出控件。
+## [br]
+## @api private
+## [br]
 var _overview_output: TextEdit = null
+
+## finding 列表控件。
+## [br]
+## @api private
+## [br]
 var _finding_list: ItemList = null
+
+## finding 详情输出控件。
+## [br]
+## @api private
+## [br]
 var _finding_details: TextEdit = null
+
+## impact 操作类型选择控件。
+## [br]
+## @api private
+## [br]
 var _impact_kind_selector: OptionButton = null
+
+## impact 源路径输入控件。
+## [br]
+## @api private
+## [br]
 var _impact_source_edit: LineEdit = null
+
+## impact 目标路径输入控件。
+## [br]
+## @api private
+## [br]
 var _impact_target_edit: LineEdit = null
+
+## impact 报告输出控件。
+## [br]
+## @api private
+## [br]
 var _impact_output: TextEdit = null
+
+## plan 输出控件。
+## [br]
+## @api private
+## [br]
 var _plan_output: TextEdit = null
 
 
 # --- Godot 生命周期方法 ---
 
+## 构造只读布局页面及初始提示，关闭帧处理；页面创建本身不触发扫描。
+## [br]
+## @api private
 func _init() -> void:
 	name = "GF Project Layout"
 	_WORKSPACE_UI.apply_page_root(self)
@@ -224,6 +529,9 @@ func _init() -> void:
 	set_process(false)
 
 
+## 先处理查询结果，再优先回收已取消分析；其余按捕获、后台分析或待渲染列表推进一帧工作。
+## [br]
+## @api private
 func _process(_delta: float) -> void:
 	_process_query_result()
 	if _background_task != null and _background_task.is_cancel_requested():
@@ -237,6 +545,9 @@ func _process(_delta: float) -> void:
 		_render_finding_batch()
 
 
+## 推进代次并丢弃待查询请求，取消捕获及后台任务；等待两个工作线程结束后释放任务引用并关闭处理。
+## [br]
+## @api private
 func _exit_tree() -> void:
 	_generation += 1
 	_pending_query_request = {}
@@ -320,6 +631,9 @@ func get_last_result() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 创建 profile 和扫描工具栏，连接用户操作，再建立总览、问题、影响模拟及计划页面。
+## [br]
+## @api private
 func _build_ui() -> void:
 	var toolbar: HBoxContainer = _WORKSPACE_UI.make_toolbar()
 	add_child(toolbar)
@@ -364,6 +678,9 @@ func _build_ui() -> void:
 	_build_plan_tab(tabs)
 
 
+## 建立只读总览页及详情输出控件，所有新控件作为页面子节点交给场景树管理。
+## [br]
+## @api private
 func _build_overview_tab(tabs: TabContainer) -> void:
 	var page: VBoxContainer = VBoxContainer.new()
 	page.name = "总览"
@@ -379,6 +696,9 @@ func _build_overview_tab(tabs: TabContainer) -> void:
 	page.add_child(_overview_output)
 
 
+## 建立问题列表和解释区域，将选中信号连接到按 finding ID 发起后台查询的回调。
+## [br]
+## @api private
 func _build_findings_tab(tabs: TabContainer) -> void:
 	var page: VBoxContainer = VBoxContainer.new()
 	page.name = "问题与解释"
@@ -396,6 +716,9 @@ func _build_findings_tab(tabs: TabContainer) -> void:
 	page.add_child(_finding_details)
 
 
+## 建立 move、rename、delete 模拟输入和输出区域，按钮只发起影响查询。
+## [br]
+## @api private
 func _build_impact_tab(tabs: TabContainer) -> void:
 	var page: VBoxContainer = VBoxContainer.new()
 	page.name = "影响模拟"
@@ -435,6 +758,9 @@ func _build_impact_tab(tabs: TabContainer) -> void:
 	page.add_child(_impact_output)
 
 
+## 建立只读计划文本页，显示候选路径、前置条件和阻碍项。
+## [br]
+## @api private
 func _build_plan_tab(tabs: TabContainer) -> void:
 	var page: VBoxContainer = VBoxContainer.new()
 	page.name = "只读计划"
@@ -450,6 +776,9 @@ func _build_plan_tab(tabs: TabContainer) -> void:
 	page.add_child(_plan_output)
 
 
+## 按每帧条目预算推进库存捕获；取消和失败在前台收尾，其余已结束捕获转交后台分析，包括部分清单。
+## [br]
+## @api private
 func _process_capture() -> void:
 	if _snapshot_builder == null:
 		_set_state(STATE_FAILED, "库存捕获器不可用。")
@@ -477,6 +806,9 @@ func _process_capture() -> void:
 	_start_background_analysis(_snapshot_builder.make_snapshot())
 
 
+## 消费捕获器及已编译 profile 引用，携带活动代次启动后台任务；启动失败释放任务并更新页面失败状态。
+## [br]
+## @api private
 func _start_background_analysis(snapshot: Dictionary) -> void:
 	_snapshot_builder = null
 	var worker: GFProjectLayoutScanWorker = _WORKER_SCRIPT.new()
@@ -502,6 +834,9 @@ func _start_background_analysis(snapshot: Dictionary) -> void:
 	set_process(true)
 
 
+## 固定本次 profile 选择，并有界读取、编译示例策略；读取或编译失败直接呈现诊断，不启动扫描。
+## [br]
+## @api private
 func _freeze_active_profile_request() -> bool:
 	_active_profile_compilation = {}
 	_active_profile_present = _profile_selector.selected == 1
@@ -530,6 +865,9 @@ func _freeze_active_profile_request() -> bool:
 	return true
 
 
+## 仅回收已结束任务，拒绝类型错误、过期代次或失败结果；成功时直接接管结果容器，避免主线程再次复制大型图。
+## [br]
+## @api private
 func _process_background_result() -> void:
 	if _background_task == null or _background_task.is_running():
 		return
@@ -579,6 +917,9 @@ func _process_background_result() -> void:
 	_refresh_process_state()
 
 
+## 等待已取消任务自行结束后回收并丢弃返回值，清空页面结果，再恢复可扫描状态。
+## [br]
+## @api private
 func _process_cancelled_background_task() -> void:
 	if _background_task == null or _background_task.is_running():
 		return
@@ -590,6 +931,9 @@ func _process_cancelled_background_task() -> void:
 	_refresh_process_state()
 
 
+## 更新总览和计划提示，清空旧查询显示，并借用当前 findings 数组启动分批列表渲染。
+## [br]
+## @api private
 func _render_results() -> void:
 	_overview_output.text = _format_json(_make_overview(), _DETAIL_TEXT_LIMIT)
 	_plan_output.text = (
@@ -610,6 +954,9 @@ func _render_results() -> void:
 	_render_finding_batch()
 
 
+## 按单帧条目数和列表总上限追加问题，截短显示标签并保存原 finding ID；超限时只添加一次不可选摘要。
+## [br]
+## @api private
 func _render_finding_batch() -> void:
 	var render_limit: int = mini(_finding_render_source.size(), _FINDING_LIST_ITEM_LIMIT)
 	var batch_end: int = mini(
@@ -645,6 +992,10 @@ func _render_finding_batch() -> void:
 		_refresh_process_state()
 
 
+## 检查限制范围内是否仍有 finding 待渲染，或是否需要添加超限摘要。
+## [br]
+## @api private
+## [br]
 func _has_pending_finding_render() -> bool:
 	var render_limit: int = mini(_finding_render_source.size(), _FINDING_LIST_ITEM_LIMIT)
 	if _finding_render_cursor < render_limit:
@@ -652,10 +1003,16 @@ func _has_pending_finding_render() -> bool:
 	return _finding_render_source.size() > render_limit and not _finding_summary_added
 
 
+## 将失败库存快照格式化到总览区域，遵守详情显示字符上限。
+## [br]
+## @api private
 func _render_capture_failure(snapshot: Dictionary) -> void:
 	_overview_output.text = _format_json(snapshot, _DETAIL_TEXT_LIMIT)
 
 
+## 投影当前分析的数量、完成标记、摘要和页面状态，并声明只读及列表显示上限。
+## [br]
+## @api private
 func _make_overview() -> Dictionary:
 	return {
 		"state": _state,
@@ -673,6 +1030,9 @@ func _make_overview() -> Dictionary:
 	}
 
 
+## 从已接管分析中读取文件、目录和问题数量，构成完成状态提示。
+## [br]
+## @api private
 func _make_completion_summary() -> String:
 	return "分析完成：%d 个文件，%d 个目录，%d 个错误，%d 个警告。" % [
 		_get_int(_last_analysis, "file_count"),
@@ -682,6 +1042,9 @@ func _make_completion_summary() -> String:
 	]
 
 
+## 按分析终止原因说明输入、取消或预算边界，未覆盖的原因提示查看结构化状态。
+## [br]
+## @api private
 func _make_partial_summary() -> String:
 	var evaluation_status: String = _get_string(_last_analysis, "evaluation_status")
 	match evaluation_status:
@@ -697,6 +1060,9 @@ func _make_partial_summary() -> String:
 			return "分析部分完成；请查看 evaluation_status 和结构化结果。"
 
 
+## 为最新查询生成新代次并绑定当前分析摘要，以新请求替换待办；先取消旧任务，待其回收后再启动新查询。
+## [br]
+## @api private
 func _request_background_query(query_kind: String, query: Dictionary) -> void:
 	if _last_analysis.is_empty():
 		return
@@ -722,6 +1088,9 @@ func _request_background_query(query_kind: String, query: Dictionary) -> void:
 	set_process(true)
 
 
+## 消费唯一待办查询，复核代次、摘要及种类仍有效后配置工作会话；已有任务时等待，启动失败仅呈现查询错误。
+## [br]
+## @api private
 func _start_pending_query() -> void:
 	if _query_task != null or _pending_query_request.is_empty():
 		return
@@ -766,6 +1135,9 @@ func _start_pending_query() -> void:
 	)
 
 
+## 回收已结束查询并检查闭合结果；只有身份仍匹配当前分析的完成或失败结果可更新显示，随后启动最新待办。
+## [br]
+## @api private
 func _process_query_result() -> void:
 	if _query_task == null:
 		_start_pending_query()
@@ -813,6 +1185,9 @@ func _process_query_result() -> void:
 	_refresh_process_state()
 
 
+## 接收已通过身份及结构检查的非空查询载荷，呈现解释或接管影响报告，再恢复分析完成状态提示。
+## [br]
+## @api private
 func _adopt_query_result(result: Dictionary, query_kind: String) -> void:
 	if query_kind == "explain_finding":
 		var explanation: Dictionary = _get_dictionary(result, "explanation")
@@ -834,6 +1209,9 @@ func _adopt_query_result(result: Dictionary, query_kind: String) -> void:
 	)
 
 
+## 把影响查询消息写入模拟区域，其余查询消息写入 finding 解释区域。
+## [br]
+## @api private
 func _render_query_message(query_kind: String, message: String) -> void:
 	if query_kind == "analyze_change_impact":
 		_impact_output.text = message
@@ -841,6 +1219,9 @@ func _render_query_message(query_kind: String, message: String) -> void:
 		_finding_details.text = message
 
 
+## 先验证有界纯数据和闭合信封，再按状态要求唯一成功载荷或空失败载荷；取消必须无问题，失败必须带问题。
+## [br]
+## @api private
 func _query_result_is_well_formed(result: Dictionary) -> bool:
 	var data_state: Dictionary = { "nodes": 0, "string_bytes": 0 }
 	if (
@@ -891,6 +1272,9 @@ func _query_result_is_well_formed(result: Dictionary) -> bool:
 	)
 
 
+## 要求解释报告具有固定版本、闭合字段、合法文本列表和证据结构，并明确声明不写项目。
+## [br]
+## @api private
 func _explanation_is_closed(explanation: Dictionary) -> bool:
 	return (
 		_has_exact_fields(explanation, _EXPLANATION_RESULT_FIELDS)
@@ -912,6 +1296,9 @@ func _explanation_is_closed(explanation: Dictionary) -> bool:
 	)
 
 
+## 验证影响报告闭合结构、只读声明和允许状态，同时要求其来源摘要等于查询绑定的分析摘要。
+## [br]
+## @api private
 func _impact_is_closed(impact: Dictionary, analysis_digest: String) -> bool:
 	return (
 		_has_exact_fields(impact, _IMPACT_RESULT_FIELDS)
@@ -935,6 +1322,9 @@ func _impact_is_closed(impact: Dictionary, analysis_digest: String) -> bool:
 	)
 
 
+## 要求变更只有 kind、source_path、target_path 三个文本字段，不在显示层重新解释路径。
+## [br]
+## @api private
 func _change_is_closed(change: Dictionary) -> bool:
 	return (
 		_has_exact_fields(change, _CHANGE_FIELDS)
@@ -944,6 +1334,9 @@ func _change_is_closed(change: Dictionary) -> bool:
 	)
 
 
+## 只接受仅含布尔 writes_project 且为 false 的副作用声明。
+## [br]
+## @api private
 func _effects_are_read_only(effects: Dictionary) -> bool:
 	return (
 		_has_exact_fields(effects, _EFFECT_FIELDS)
@@ -952,6 +1345,10 @@ func _effects_are_read_only(effects: Dictionary) -> bool:
 	)
 
 
+## 检查数组的所有元素是否都是 String。
+## [br]
+## @api private
+## [br]
 func _string_array_is_closed(values: Array) -> bool:
 	for value: Variant in values:
 		if not value is String:
@@ -959,6 +1356,9 @@ func _string_array_is_closed(values: Array) -> bool:
 	return true
 
 
+## 逐项要求问题是仅含 severity、kind、message 文本字段的字典。
+## [br]
+## @api private
 func _issue_array_is_closed(values: Array) -> bool:
 	for value: Variant in values:
 		if not value is Dictionary:
@@ -974,6 +1374,9 @@ func _issue_array_is_closed(values: Array) -> bool:
 	return true
 
 
+## 逐项要求阻碍项是仅含 kind、path、message 文本字段的字典。
+## [br]
+## @api private
 func _blocker_array_is_closed(values: Array) -> bool:
 	for value: Variant in values:
 		if not value is Dictionary:
@@ -989,6 +1392,9 @@ func _blocker_array_is_closed(values: Array) -> bool:
 	return true
 
 
+## 仅允许文件清单和清单边界证据，按种类检查闭合字段，未知证据种类拒绝显示。
+## [br]
+## @api private
 func _evidence_array_is_closed(values: Array) -> bool:
 	for value: Variant in values:
 		if not value is Dictionary:
@@ -1006,6 +1412,9 @@ func _evidence_array_is_closed(values: Array) -> bool:
 	return true
 
 
+## 检查单路径清单证据的字段及类型，不发起文件系统访问，也不提升证据确定性。
+## [br]
+## @api private
 func _inventory_evidence_is_closed(evidence: Dictionary) -> bool:
 	return (
 		_has_exact_fields(evidence, _INVENTORY_EVIDENCE_FIELDS)
@@ -1019,6 +1428,9 @@ func _inventory_evidence_is_closed(evidence: Dictionary) -> bool:
 	)
 
 
+## 检查清单边界证据及其 capture_scope，完整标记和数量只验证类型。
+## [br]
+## @api private
 func _boundary_evidence_is_closed(evidence: Dictionary) -> bool:
 	return (
 		_has_exact_fields(evidence, _BOUNDARY_EVIDENCE_FIELDS)
@@ -1037,6 +1449,9 @@ func _boundary_evidence_is_closed(evidence: Dictionary) -> bool:
 	)
 
 
+## 检查扫描范围固定字段和排除项文本数组；数值预算的语义校验由后台契约负责。
+## [br]
+## @api private
 func _scope_is_closed(scope: Dictionary) -> bool:
 	return (
 		_has_exact_fields(scope, _SCOPE_FIELDS)
@@ -1051,6 +1466,9 @@ func _scope_is_closed(scope: Dictionary) -> bool:
 	)
 
 
+## 以共享计数累计节点和文本字节，递归拒绝非有限值、非文本键及超限容器；活动栈拒绝循环并允许非循环共享引用。
+## [br]
+## @api private
 func _query_value_is_strict_data_only(
 	value: Variant,
 	depth: int,
@@ -1141,6 +1559,10 @@ func _query_value_is_strict_data_only(
 	return false
 
 
+## 检查候选容器是否已出现在当前递归路径的活动容器列表中。
+## [br]
+## @api private
+## [br]
 func _active_container_exists(active_containers: Array, candidate: Variant) -> bool:
 	for active_container: Variant in active_containers:
 		if is_same(active_container, candidate):
@@ -1148,6 +1570,10 @@ func _active_container_exists(active_containers: Array, candidate: Variant) -> b
 	return false
 
 
+## 检查字符串是否为 64 个小写十六进制字符。
+## [br]
+## @api private
+## [br]
 func _is_lower_sha256(value: String) -> bool:
 	if value.length() != 64:
 		return false
@@ -1161,17 +1587,9 @@ func _is_lower_sha256(value: String) -> bool:
 	return true
 
 
-func _on_finding_selected(index: int) -> void:
-	var metadata: Variant = _finding_list.get_item_metadata(index)
-	if not metadata is String:
-		return
-	var finding_id: String = metadata
-	_request_background_query(
-		"explain_finding",
-		{ "finding_id": finding_id }
-	)
-
-
+## 读取模拟控件的变更种类和原始路径文本并发起查询；没有分析时只显示扫描提示。
+## [br]
+## @api private
 func _simulate_impact() -> void:
 	if _last_analysis.is_empty():
 		_impact_output.text = "请先扫描项目。"
@@ -1188,6 +1606,9 @@ func _simulate_impact() -> void:
 	)
 
 
+## 直接序列化页面持有的结果并写入剪贴板；超过字节上限则改用合法摘要 JSON，不复制整张分析图。
+## [br]
+## @api private
 func _copy_report() -> void:
 	# JSON.stringify() 只读消费当前结果；这里不调用公开 getter 的深复制，避免在用户
 	# 主动复制大型报告时先在主线程制造第二份完整分析图。
@@ -1216,6 +1637,9 @@ func _copy_report() -> void:
 	)
 
 
+## 推进分析代次并取消查询和捕获，后台任务保留到异步回收；按选项清空显示并标记取消。
+## [br]
+## @api private
 func _cancel_active_request(update_state: bool) -> void:
 	_generation += 1
 	_active_generation = _generation
@@ -1237,6 +1661,9 @@ func _cancel_active_request(update_state: bool) -> void:
 		_refresh_process_state()
 
 
+## 按选项清空待查询身份，再向现有任务请求取消；保留任务引用供帧循环回收。
+## [br]
+## @api private
 func _cancel_active_query(clear_pending: bool) -> void:
 	if clear_pending:
 		_pending_query_request = {}
@@ -1248,6 +1675,9 @@ func _cancel_active_query(clear_pending: bool) -> void:
 		set_process(true)
 
 
+## 根据捕获、分析、任务回收、待查询和待渲染工作决定是否继续帧处理。
+## [br]
+## @api private
 func _refresh_process_state() -> void:
 	set_process(
 		_state == STATE_CAPTURING
@@ -1259,6 +1689,9 @@ func _refresh_process_state() -> void:
 	)
 
 
+## 释放页面持有的分析、计划、影响及渲染引用，并清空全部结果控件；不取消后台任务。
+## [br]
+## @api private
 func _clear_results() -> void:
 	_last_analysis = {}
 	_last_plan = {}
@@ -1273,6 +1706,9 @@ func _clear_results() -> void:
 	_plan_output.text = ""
 
 
+## 保存页面状态，并结合后台清理是否完成更新按钮及 profile 可用性，最后刷新状态提示。
+## [br]
+## @api private
 func _set_state(state: String, message: String) -> void:
 	_state = state
 	var background_cleanup_pending: bool = _background_task != null
@@ -1286,6 +1722,9 @@ func _set_state(state: String, message: String) -> void:
 	_set_status_text(message)
 
 
+## 按当前完成、部分完成或失败状态选择统一主题颜色并更新提示标签。
+## [br]
+## @api private
 func _set_status_text(message: String) -> void:
 	var color: Color = _WORKSPACE_UI.INFO_TEXT_COLOR
 	if _state == STATE_COMPLETE:
@@ -1297,6 +1736,9 @@ func _set_status_text(message: String) -> void:
 	_WORKSPACE_UI.set_status(_status_label, message, color)
 
 
+## 先序列化完整值，再按字符上限截取显示文本并附总字符数；截断结果仅用于界面，不保证仍为 JSON。
+## [br]
+## @api private
 func _format_json(value: Variant, max_characters: int) -> String:
 	var text: String = JSON.stringify(value, "  ", false)
 	if text.length() <= max_characters:
@@ -1307,31 +1749,55 @@ func _format_json(value: Variant, max_characters: int) -> String:
 	]
 
 
+## 读取字典中的 String 字段；类型不匹配时返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_string(source: Dictionary, key: String, default_value: String = "") -> String:
 	var value: Variant = source.get(key, default_value)
 	return value if value is String else default_value
 
 
+## 读取字典中的 bool 字段；类型不匹配时返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_bool(source: Dictionary, key: String, default_value: bool = false) -> bool:
 	var value: Variant = source.get(key, default_value)
 	return value if value is bool else default_value
 
 
+## 读取字典中的 int 字段；类型不匹配时返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_int(source: Dictionary, key: String, default_value: int = 0) -> int:
 	var value: Variant = source.get(key, default_value)
 	return value if value is int else default_value
 
 
+## 返回指定字段中的 Array；类型不匹配时返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_array(source: Dictionary, key: String) -> Array:
 	var value: Variant = source.get(key, [])
 	return value if value is Array else []
 
 
+## 返回指定字段中的 Dictionary；类型不匹配时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_dictionary(source: Dictionary, key: String) -> Dictionary:
 	var value: Variant = source.get(key, {})
 	return value if value is Dictionary else {}
 
 
+## 判断字典键是否全部为字符串且与给定字段集合完全相同。
+## [br]
+## @api private
+## [br]
 func _has_exact_fields(source: Dictionary, fields: PackedStringArray) -> bool:
 	if source.size() != fields.size():
 		return false
@@ -1342,3 +1808,19 @@ func _has_exact_fields(source: Dictionary, fields: PackedStringArray) -> bool:
 		if not fields.has(key):
 			return false
 	return true
+
+
+# --- 信号处理函数 ---
+
+## 读取列表项保存的文本 finding ID，发起绑定当前分析的后台解释查询。
+## [br]
+## @api private
+func _on_finding_selected(index: int) -> void:
+	var metadata: Variant = _finding_list.get_item_metadata(index)
+	if not metadata is String:
+		return
+	var finding_id: String = metadata
+	_request_background_query(
+		"explain_finding",
+		{ "finding_id": finding_id }
+	)

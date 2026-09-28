@@ -11,10 +11,30 @@ extends RefCounted
 ## [br]
 ## @api framework_internal
 const GFBindingLifetimesBase = preload("res://addons/gf/kernel/core/gf_binding_lifetimes.gd")
+
+## 用于检查绑定实例脚本继承关系的辅助脚本。
+## [br]
+## @api private
 const _SCRIPT_TYPE_INSPECTOR = preload("res://addons/gf/kernel/core/gf_script_type_inspector.gd")
+
+## 解析上下文中绑定记录所使用的键名。
+## [br]
+## @api private
 const _RESOLUTION_CONTEXT_BINDING_KEY: String = "binding"
+
+## 解析上下文中新建 Singleton 列表所使用的键名。
+## [br]
+## @api private
 const _RESOLUTION_CONTEXT_CREATED_SINGLETONS_KEY: String = "created_singletons"
+
+## 解析上下文失败标志所使用的键名。
+## [br]
+## @api private
 const _RESOLUTION_CONTEXT_FAILED_KEY: String = "failed"
+
+## 解析上下文中实例记录所使用的键名。
+## [br]
+## @api private
 const _RESOLUTION_CONTEXT_INSTANCE_KEY: String = "instance"
 
 
@@ -42,16 +62,60 @@ var lifetime: int = GFBindingLifetimesBase.Lifetime.TRANSIENT
 
 # --- 私有变量 ---
 
+## 创建此绑定的 Architecture。
+## [br]
+## @api private
 var _owner_architecture: GFArchitecture = null
+
+## Singleton 生命周期当前缓存的实例。
+## [br]
+## @api private
 var _cached_instance: Object = null
+
+## 标记 Singleton 缓存是否已设置实例。
+## [br]
+## @api private
 var _has_cached_instance: bool = false
+
+## 控制解析实例时是否调用依赖注入入口。
+## [br]
+## @api private
 var _should_auto_inject: bool = true
+
+## 控制清理缓存或拒绝工厂实例时是否调用 dispose()；拒绝的无父节点 Node 也受此开关控制是否释放。
+## [br]
+## @api private
 var _should_dispose_cached_instance: bool = true
+
+## 标记当前是否正在解析 Singleton 工厂。
+## [br]
+## @api private
 var _is_resolving_singleton: bool = false
 
 
 # --- Godot 生命周期方法 ---
 
+## 捕获架构登记的工厂来源及生命周期策略，实例创建与注入延后到解析阶段。
+## [br]
+## @api framework_internal
+## [br]
+## @param p_key: 绑定匹配键。
+## [br]
+## @param p_provider: Callable 工厂或现成对象来源。
+## [br]
+## @param p_owner_architecture: 拥有该绑定的架构。
+## [br]
+## @param p_lifetime: GFBindingLifetimesBase.Lifetime 策略值。
+## [br]
+## @param p_should_auto_inject: 解析实例时是否注入依赖。
+## [br]
+## @param p_should_dispose_cached_instance: 清理缓存或拒绝实例时是否由绑定承担销毁。
+## [br]
+## @return 无返回值。
+## [br]
+## @schema p_key: Variant，架构通常使用 Script 作为绑定键。
+## [br]
+## @schema p_provider: Variant，支持 Callable 工厂或 Object 实例；在解析阶段校验实际结果。
 func _init(
 	p_key: Variant,
 	p_provider: Variant,
@@ -89,6 +153,7 @@ func retains_instance_for_framework(instance: Object) -> bool:
 		and is_instance_valid(_cached_instance)
 		and is_same(_cached_instance, instance)
 	)
+
 
 ## 按当前生命周期解析实例。
 ## [br]
@@ -214,6 +279,9 @@ func dispose_cached_instance() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 在所属与请求架构的准入代次内调用提供者，校验实例、键及注入后的生命周期；失败会标记解析上下文，并按所有权与是否已注入清理被拒实例。
+## [br]
+## @api private
 func _provide(
 	injection_architecture: GFArchitecture,
 	requesting_architecture: GFArchitecture,
@@ -312,6 +380,9 @@ func _provide(
 	return instance
 
 
+## 仅在架构接受运行时工作时返回其生命周期 generation，否则返回 -1。
+## [br]
+## @api private
 func _get_admitted_lifecycle_generation(
 	architecture: GFArchitecture
 ) -> int:
@@ -323,6 +394,9 @@ func _get_admitted_lifecycle_generation(
 	return architecture.get_lifecycle_generation()
 
 
+## 检查绑定所属架构与请求架构是否仍处于捕获的生命周期 generation。
+## [br]
+## @api private
 func _is_admission_guard_current(
 	requesting_architecture: GFArchitecture,
 	owner_lifecycle_generation: int,
@@ -340,6 +414,9 @@ func _is_admission_guard_current(
 	)
 
 
+## 检查架构仍接受运行时工作且其 generation 与捕获值一致。
+## [br]
+## @api private
 func _is_architecture_admission_current(
 	architecture: GFArchitecture,
 	lifecycle_generation: int
@@ -352,6 +429,9 @@ func _is_architecture_admission_current(
 	)
 
 
+## 检查实例有效、解析上下文未失败且架构准入状态仍匹配。
+## [br]
+## @api private
 func _is_resolution_step_current(
 	instance: Object,
 	requesting_architecture: GFArchitecture,
@@ -370,6 +450,9 @@ func _is_resolution_step_current(
 	)
 
 
+## 按顺序调用实例实现的依赖作用域和注入入口，并在每次调用后复核解析状态。
+## [br]
+## @api private
 func _inject_if_needed(
 	instance: Object,
 	architecture: GFArchitecture,
@@ -414,6 +497,9 @@ func _inject_if_needed(
 	return true
 
 
+## 检查 Object 仍有效，且 Node 尚未排队删除。
+## [br]
+## @api private
 func _instance_is_live(instance: Object) -> bool:
 	if not is_instance_valid(instance):
 		return false
@@ -423,6 +509,9 @@ func _instance_is_live(instance: Object) -> bool:
 	return true
 
 
+## 依次调用仍存活实例的依赖释放与框架作用域解绑入口；每次用户回调后重新检查对象，避免对已释放实例继续调用。
+## [br]
+## @api private
 func _release_instance_scope(instance: Object) -> void:
 	if instance == null or not is_instance_valid(instance):
 		return
@@ -437,6 +526,9 @@ func _release_instance_scope(instance: Object) -> void:
 		instance.call("_release_dependency_scope")
 
 
+## 按绑定所有权处置被拒工厂实例，可先注销事件并释放已注入作用域；仅对需要销毁且无父节点的未排队 Node 直接 free，外部所有权实例不强制销毁。
+## [br]
+## @api private
 func _release_rejected_factory_instance(
 	instance: Object,
 	release_injected_scope: bool = true,
@@ -466,12 +558,18 @@ func _release_rejected_factory_instance(
 			rejected_node.free()
 
 
+## 在非空解析上下文中设置失败标志。
+## [br]
+## @api private
 func _mark_resolution_context_failed(resolution_context: Dictionary) -> void:
 	if resolution_context.is_empty():
 		return
 	resolution_context[_RESOLUTION_CONTEXT_FAILED_KEY] = true
 
 
+## 读取解析上下文失败标志；空上下文视为未失败。
+## [br]
+## @api private
 func _resolution_context_has_failed(resolution_context: Dictionary) -> bool:
 	if resolution_context.is_empty():
 		return false
@@ -479,6 +577,9 @@ func _resolution_context_has_failed(resolution_context: Dictionary) -> bool:
 	return failed_value == true
 
 
+## 将当前 Binding 与新建实例作为一项记录附加到解析上下文的 Singleton 数组。
+## [br]
+## @api private
 func _register_created_singleton_in_resolution_context(resolution_context: Dictionary, instance: Object) -> void:
 	if resolution_context.is_empty() or instance == null:
 		return
@@ -494,6 +595,9 @@ func _register_created_singleton_in_resolution_context(resolution_context: Dicti
 	resolution_context[_RESOLUTION_CONTEXT_CREATED_SINGLETONS_KEY] = created_singletons
 
 
+## 检查缓存实例有效，且若为 Node 则未排队删除。
+## [br]
+## @api private
 func _cached_instance_is_valid() -> bool:
 	if not is_instance_valid(_cached_instance):
 		return false
@@ -504,6 +608,9 @@ func _cached_instance_is_valid() -> bool:
 	return true
 
 
+## 当绑定键为 Script 时，检查实例脚本与该类型相同或继承自该类型。
+## [br]
+## @api private
 func _instance_matches_key(instance: Object) -> bool:
 	if not key is Script:
 		return true
@@ -516,6 +623,9 @@ func _instance_matches_key(instance: Object) -> bool:
 	return _SCRIPT_TYPE_INSPECTOR.script_extends_or_equals(instance_script, key_script)
 
 
+## 读取实例的 Script；实例为空或脚本类型不符时返回 null。
+## [br]
+## @api private
 func _get_instance_script(instance: Object) -> Script:
 	if instance == null:
 		return null

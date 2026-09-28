@@ -58,9 +58,24 @@ signal cleared
 
 # --- 常量 ---
 
+## 待处理操作队列使用的双端队列脚本。
+## [br]
+## @api private
 const _GF_DEQUE_SCRIPT = preload("res://addons/gf/standard/foundation/collections/gf_deque.gd")
+
+## 未执行提交或回滚时的状态值。
+## [br]
+## @api private
 const _TRANSITION_IDLE: StringName = &"idle"
+
+## 正在提交操作时的状态值。
+## [br]
+## @api private
 const _TRANSITION_COMMITTING: StringName = &"committing"
+
+## 正在回滚操作时的状态值。
+## [br]
+## @api private
 const _TRANSITION_ROLLING_BACK: StringName = &"rolling_back"
 
 
@@ -79,9 +94,24 @@ var auto_clear_committed_on_success: bool = false
 
 # --- 私有变量 ---
 
+## 按加入顺序保存、尚未处理的操作。
+## [br]
+## @api private
 var _pending_operations: GFDeque = _GF_DEQUE_SCRIPT.new()
+
+## 提交成功且尚未回滚或清除的操作。
+## [br]
+## @api private
 var _committed_operations: Array[Dictionary] = []
+
+## 下一个新操作使用的标识。
+## [br]
+## @api private
 var _next_operation_id: int = 1
+
+## 当前提交/回滚过程的重入保护状态。
+## [br]
+## @api private
 var _transition_state: StringName = _TRANSITION_IDLE
 
 
@@ -279,6 +309,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 将回调返回值归一为操作结果，并合入操作标识与元数据。
+## 字典返回值含 ok 时保留其 value/data 与 error 字段。
+## [br]
+## @api private
 func _normalize_operation_result(raw_result: Variant, entry: Dictionary) -> Dictionary:
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(entry, "metadata")
 	if raw_result is Dictionary:
@@ -301,6 +335,9 @@ func _normalize_operation_result(raw_result: Variant, entry: Dictionary) -> Dict
 	}
 
 
+## 创建提交摘要并附上处理完成时的待处理及已存储数量。
+## [br]
+## @api private
 func _make_commit_summary(committed_count: int, failed_count: int, errors: Array[Dictionary]) -> Dictionary:
 	return {
 		"ok": failed_count == 0,
@@ -312,6 +349,9 @@ func _make_commit_summary(committed_count: int, failed_count: int, errors: Array
 	}
 
 
+## 创建表示提交因其他迁移正在执行而未开始的失败摘要。
+## [br]
+## @api private
 func _make_transition_commit_failure() -> Dictionary:
 	return {
 		"ok": false,
@@ -325,6 +365,9 @@ func _make_transition_commit_failure() -> Dictionary:
 	}
 
 
+## 创建表示回滚因其他迁移正在执行而未开始的失败摘要。
+## [br]
+## @api private
 func _make_transition_rollback_failure() -> Dictionary:
 	return {
 		"ok": false,
@@ -339,6 +382,9 @@ func _make_transition_rollback_failure() -> Dictionary:
 	}
 
 
+## 创建回调不可调用时使用的失败结果。
+## [br]
+## @api private
 func _make_invalid_callable_result(entry: Dictionary) -> Dictionary:
 	return {
 		"ok": false,
@@ -349,6 +395,9 @@ func _make_invalid_callable_result(entry: Dictionary) -> Dictionary:
 	}
 
 
+## 读取待处理队列队首；内容不是 Dictionary 时返回空字典。
+## [br]
+## @api private
 func _get_pending_operation() -> Dictionary:
 	var raw_entry: Variant = _pending_operations.peek_front({})
 	if raw_entry is Dictionary:
@@ -357,11 +406,17 @@ func _get_pending_operation() -> Dictionary:
 	return {}
 
 
+## 将暂存的失败回滚条目逆序追加回 committed 栈。
+## [br]
+## @api private
 func _restore_failed_rollback_entries(failed_entries: Array[Dictionary]) -> void:
 	for index: int in range(failed_entries.size() - 1, -1, -1):
 		_committed_operations.append(failed_entries[index])
 
 
+## 从 Variant 中提取 Callable；类型不符时返回空 Callable。
+## [br]
+## @api private
 func _variant_to_callable(value: Variant) -> Callable:
 	if value is Callable:
 		var callback: Callable = value

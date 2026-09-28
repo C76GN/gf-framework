@@ -16,22 +16,85 @@ extends Control
 
 # --- 常量 ---
 
+## 状态机结构校验器脚本，用于生成当前选择的校验报告。
+## [br]
+## @api private
+## [br]
 const _GF_NODE_STATE_MACHINE_VALIDATOR = preload("res://addons/gf/standard/state_machine/node/gf_node_state_machine_validator.gd")
+
+## 用于从弱引用中取得仍有效节点的实例检查工具。
+## [br]
+## @api private
+## [br]
 const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
+
+## 用于创建工作区页面控件并呈现状态与报告颜色的 UI 工具。
+## [br]
+## @api private
+## [br]
 const _GF_EDITOR_WORKSPACE_UI = preload("res://addons/gf/kernel/editor/gf_editor_workspace_ui.gd")
 
 
 # --- 私有变量 ---
 
+## 当前扫描根节点的弱引用；刷新时会根据显式根节点或根节点解析结果更新。
+## [br]
+## @api private
+## [br]
 var _root_ref: WeakRef = null
+
+## 最近一次刷新收集到的状态机节点列表。
+## [br]
+## @api private
+## [br]
 var _machines: Array[GFNodeStateMachine] = []
+
+## 最近一次结构校验报告的字典；无可用选择时清空。
+## [br]
+## @api private
+## [br]
 var _last_report: Dictionary = {}
+
+## 用于选择已扫描状态机的下拉框。
+## [br]
+## @api private
+## [br]
 var _machine_option: OptionButton = null
+
+## 控制是否要求状态机配置初始状态的复选框。
+## [br]
+## @api private
+## [br]
 var _require_initial_check: CheckBox = null
+
+## 用于将当前状态机选入编辑器场景树的按钮。
+## [br]
+## @api private
+## [br]
 var _select_button: Button = null
+
+## 显示当前状态机校验摘要和下一步提示的标签。
+## [br]
+## @api private
+## [br]
 var _summary_label: Label = null
+
+## 显示无状态机或无问题等空状态提示的标签。
+## [br]
+## @api private
+## [br]
 var _empty_label: Label = null
+
+## 显示当前报告问题列表的树控件。
+## [br]
+## @api private
+## [br]
 var _tree: Tree = null
+
+## 显示选中问题详细内容的文本控件。
+## [br]
+## @api private
+## [br]
 var _details: TextEdit = null
 
 
@@ -94,6 +157,10 @@ func get_machine_count() -> int:
 
 # --- 私有/辅助方法 ---
 
+## 首次创建工具栏、报告控件并连接其本地交互信号。
+## [br]
+## @api private
+## [br]
 func _build_ui() -> void:
 	if _tree != null:
 		return
@@ -152,6 +219,10 @@ func _build_ui() -> void:
 	root_box.add_child(_details)
 
 
+## 依次从保存的弱引用、编辑器当前场景和运行时 SceneTree 解析扫描根节点。
+## [br]
+## @api private
+## [br]
 func _resolve_root() -> Node:
 	if _root_ref != null:
 		var root: Node = _INSTANCE_GUARD._get_live_node_from_ref(_root_ref)
@@ -172,6 +243,10 @@ func _resolve_root() -> Node:
 	return tree.current_scene if tree.current_scene != null else tree.root
 
 
+## 深度遍历节点及其子节点，将其中的 GFNodeStateMachine 追加到结果数组。
+## [br]
+## @api private
+## [br]
 func _collect_state_machines(node: Node, result: Array[GFNodeStateMachine]) -> void:
 	if node is GFNodeStateMachine:
 		var machine: GFNodeStateMachine = node
@@ -181,6 +256,10 @@ func _collect_state_machines(node: Node, result: Array[GFNodeStateMachine]) -> v
 		_collect_state_machines(child, result)
 
 
+## 按扫描顺序重建状态机选项，并在列表非空时将旧选择限制在有效索引内。
+## [br]
+## @api private
+## [br]
 func _populate_machine_options() -> void:
 	if _machine_option == null:
 		return
@@ -202,6 +281,10 @@ func _populate_machine_options() -> void:
 		_machine_option.select(clampi(previous_index, 0, _machines.size() - 1))
 
 
+## 清理旧显示状态，校验当前选择并更新报告摘要与问题列表。
+## [br]
+## @api private
+## [br]
 func _render_selected_machine() -> void:
 	if _tree == null:
 		return
@@ -238,6 +321,10 @@ func _render_selected_machine() -> void:
 	_render_issues(GFVariantData.get_option_array(_last_report, "issues"))
 
 
+## 将字典问题逐项填入树控件，并按是否有可显示问题更新空状态控件。
+## [br]
+## @api private
+## [br]
 func _render_issues(issues: Array) -> void:
 	var root_item: TreeItem = _tree.create_item()
 	var visible_count: int = 0
@@ -260,6 +347,10 @@ func _render_issues(issues: Array) -> void:
 	_details.visible = visible_count > 0
 
 
+## 返回当前下拉框索引对应的有效状态机；控件、列表或索引无效时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_selected_machine() -> GFNodeStateMachine:
 	if _machine_option == null or _machines.is_empty():
 		return null
@@ -271,6 +362,10 @@ func _get_selected_machine() -> GFNodeStateMachine:
 	return machine if is_instance_valid(machine) else null
 
 
+## 根据初始状态复选框构造校验选项；未勾选时不写入该选项键。
+## [br]
+## @api private
+## [br]
 func _get_validator_options() -> Dictionary:
 	var options: Dictionary = {}
 	if _require_initial_check != null and _require_initial_check.button_pressed:
@@ -278,6 +373,10 @@ func _get_validator_options() -> Dictionary:
 	return options
 
 
+## 节点在场景树中时返回节点路径，否则返回节点名称；空引用返回空字符串。
+## [br]
+## @api private
+## [br]
 func _get_node_path_text(node: Node) -> String:
 	if node == null:
 		return ""
@@ -286,6 +385,10 @@ func _get_node_path_text(node: Node) -> String:
 	return String(node.name)
 
 
+## 将值编码为 JSON 兼容文本，使用 Tab 缩进和 debug 脱敏选项。
+## [br]
+## @api private
+## [br]
 func _safe_json(value: Variant) -> String:
 	return GFReportValueCodec.stringify_json_compatible(
 		value,
@@ -297,14 +400,24 @@ func _safe_json(value: Variant) -> String:
 
 # --- 信号处理函数 ---
 
+
+## 选择变化后从当前控件状态重新渲染状态机报告，不依赖信号携带的旧索引。
+## [br]
+## @api private
 func _on_machine_selected(_index: int) -> void:
 	_render_selected_machine()
 
 
+## 报告选项切换后重新读取选项并渲染，信号中的单个布尔值不是完整配置。
+## [br]
+## @api private
 func _on_option_toggled(_pressed: bool) -> void:
 	_render_selected_machine()
 
 
+## 仅在编辑器且状态机与选区可用时，将编辑器选区替换为当前状态机节点。
+## [br]
+## @api private
 func _on_select_pressed() -> void:
 	if not Engine.is_editor_hint():
 		return
@@ -320,6 +433,9 @@ func _on_select_pressed() -> void:
 	selection.add_node(machine)
 
 
+## 仅把字典类型的问题元数据展示为安全 JSON，空选中项保持当前详情。
+## [br]
+## @api private
 func _on_issue_selected() -> void:
 	var item: TreeItem = _tree.get_selected()
 	if item == null:

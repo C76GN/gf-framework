@@ -99,6 +99,10 @@ signal drop_zone_unregistered(zone_id: StringName)
 
 # --- 常量 ---
 
+## 无捕获指针时使用的哨兵 ID。
+## [br]
+## @api private
+## [br]
 const _NO_POINTER_ID: int = -1
 
 
@@ -121,21 +125,100 @@ const _NO_POINTER_ID: int = -1
 
 # --- 私有变量 ---
 
+## 控制器持有的 GFDragDropUtility，提供拖拽会话与落点操作。
+## [br]
+## @api private
+## [br]
 var _utility: GFDragDropUtility = GFDragDropUtility.new()
+
+## 当前控制器捕获的 pointer ID；无捕获时为哨兵值。
+## [br]
+## @api private
+## [br]
 var _active_pointer_id: int = _NO_POINTER_ID
+
+## 记录当前拖拽是否由控制器取得指针捕获。
+## [br]
+## @api private
+## [br]
 var _captures_pointer: bool = false
+
+## 当前由控制器管理的拖拽会话 ID；无会话时为 -1。
+## [br]
+## @api private
+## [br]
 var _active_session_id: int = -1
+
+## 当前拖拽来源节点的弱引用，避免控制器延长其生命周期。
+## [br]
+## @api private
+## [br]
 var _source_ref: WeakRef = null
+
+## 拖拽开始前来源节点父节点的弱引用。
+## [br]
+## @api private
+## [br]
 var _original_parent_ref: WeakRef = null
+
+## 来源节点拖拽前在原父节点中的子项索引。
+## [br]
+## @api private
+## [br]
 var _original_index: int = -1
+
+## 当前会话取消结束时是否把来源节点还原到原父节点。
+## [br]
+## @api private
+## [br]
 var _restore_source_parent_on_cancel: bool = true
+
+## 当前会话被拒绝结束时是否还原来源节点父节点。
+## [br]
+## @api private
+## [br]
 var _restore_source_parent_on_rejected_drop: bool = true
+
+## 当前会话成功结束时是否还原来源节点父节点。
+## [br]
+## @api private
+## [br]
 var _restore_source_parent_on_success: bool = false
+
+## 重挂来源节点时是否保持其全局变换。
+## [br]
+## @api private
+## [br]
 var _reparent_keep_global_transform: bool = true
+
+## 控制器发起取消时暂存并传给终态信号的原因。
+## [br]
+## @api private
+## [br]
 var _pending_cancel_reason: StringName = &""
+
+## 当前来源节点 tree_exited 信号的一次性回调句柄。
+## [br]
+## @api private
+## [br]
 var _source_tree_exited_callable: Callable = Callable()
+
+## 标记控制器是否正同步启动 utility 会话，用于抑制启动期间的重入转发。
+## [br]
+## @api private
+## [br]
 var _start_in_progress: bool = false
+
+## 启动期间由 utility 发出的会话 ID，供启动事务完成后识别。
+## [br]
+## @api private
+## [br]
 var _starting_session_id: int = -1
+
+## 防止同一活动会话被重复或重入收尾。
+## [br]
+## @api private
+## [br]
 var _finish_in_progress: bool = false
 
 
@@ -522,6 +605,10 @@ func get_debug_snapshot(json_compatible: bool = true) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 将 utility 的拖拽与落点注册信号连接到控制器转发处理函数。
+## [br]
+## @api private
+## [br]
 func _connect_utility_signals() -> void:
 	var _started_connected: int = _utility.drag_started.connect(_on_utility_drag_started)
 	var _moved_connected: int = _utility.drag_moved.connect(_on_utility_drag_moved)
@@ -532,68 +619,10 @@ func _connect_utility_signals() -> void:
 	var _zone_unregistered_connected: int = _utility.drop_zone_unregistered.connect(_on_utility_drop_zone_unregistered)
 
 
-func _on_utility_drag_started(session_id: int, drag_type: StringName) -> void:
-	if _start_in_progress:
-		_starting_session_id = session_id
-		return
-	drag_started.emit(session_id, drag_type)
-
-
-func _on_utility_drag_moved(session_id: int, position: Vector2, delta: Vector2) -> void:
-	var zone: GFDropZone = _utility.get_best_drop_zone(session_id, position)
-	if not _utility.has_active_session(session_id):
-		return
-	var zone_id: StringName = zone.zone_id if zone != null else &""
-	drag_moved.emit(session_id, position, delta, zone_id)
-
-
-func _on_utility_drag_dropped(session_id: int, zone_id: StringName, result: Dictionary) -> void:
-	var managed_session: bool = session_id == _active_session_id
-	var restore_source_parent: bool = _restore_source_parent_on_success
-	if managed_session:
-		_finish_controller_session(session_id, &"dropped", restore_source_parent)
-	drag_dropped.emit(session_id, zone_id, result)
-
-
-func _on_utility_drag_drop_rejected(session_id: int, reason: StringName) -> void:
-	var terminal_reject: bool = not _utility.has_active_session(session_id)
-	var managed_session: bool = session_id == _active_session_id
-	var restore_source_parent: bool = _restore_source_parent_on_rejected_drop
-	if terminal_reject and managed_session:
-		_finish_controller_session(session_id, reason, restore_source_parent)
-	drag_drop_rejected.emit(session_id, reason)
-
-
-func _on_utility_drag_cancelled(session_id: int) -> void:
-	if _start_in_progress and session_id == _starting_session_id:
-		return
-	var managed_session: bool = session_id == _active_session_id
-	var reason: StringName = (
-		_pending_cancel_reason
-		if managed_session and _pending_cancel_reason != &""
-		else &"utility_cancelled"
-	)
-	var restore_source_parent: bool = _restore_source_parent_on_cancel
-	if managed_session:
-		_pending_cancel_reason = &""
-		_finish_controller_session(session_id, reason, restore_source_parent)
-	drag_cancelled.emit(session_id, reason)
-
-
-func _on_utility_drop_zone_registered(zone_id: StringName) -> void:
-	drop_zone_registered.emit(zone_id)
-
-
-func _on_utility_drop_zone_unregistered(zone_id: StringName) -> void:
-	drop_zone_unregistered.emit(zone_id)
-
-
-func _on_active_source_tree_exited(session_id: int) -> void:
-	if session_id != _active_session_id or not cancel_when_source_exits_tree:
-		return
-	var _cancelled_drag: bool = cancel_drag(&"source_exited_tree")
-
-
+## 按配置检测弱引用来源是否已释放或 Node 已离树，并取消对应活动拖拽。
+## [br]
+## @api private
+## [br]
 func _cancel_active_drag_if_source_invalid() -> bool:
 	if not has_active_drag():
 		return false
@@ -611,6 +640,10 @@ func _cancel_active_drag_if_source_invalid() -> bool:
 	return false
 
 
+## 对匹配的活动会话执行一次性收尾：断开离树监听、按策略还原父节点、释放捕获并清空状态。
+## [br]
+## @api private
+## [br]
 func _finish_controller_session(session_id: int, _reason: StringName, restore_source_parent: bool) -> void:
 	if session_id != _active_session_id or _finish_in_progress:
 		return
@@ -626,12 +659,20 @@ func _finish_controller_session(session_id: int, _reason: StringName, restore_so
 	_finish_in_progress = false
 
 
+## 以弱引用记录来源节点当前父节点及其子项索引。
+## [br]
+## @api private
+## [br]
 func _capture_original_parent(source_node: Node) -> void:
 	var parent: Node = source_node.get_parent()
 	_original_parent_ref = weakref(parent) if is_instance_valid(parent) else null
 	_original_index = source_node.get_index() if parent != null else -1
 
 
+## 必要时按全局变换策略重挂来源节点，并验证来源与目标父节点仍有效且层级关系已提交。
+## [br]
+## @api private
+## [br]
 func _commit_drag_visual_transaction(source_node: Node, drag_parent: Node) -> bool:
 	if drag_parent == null or drag_parent == source_node.get_parent():
 		return true
@@ -645,6 +686,10 @@ func _commit_drag_visual_transaction(source_node: Node, drag_parent: Node) -> bo
 	)
 
 
+## 验证可选 drag_parent 是否为有效且可安全重挂的 Node，并检查层级、删除状态及场景树兼容性。
+## [br]
+## @api private
+## [br]
 func _validate_drag_visual_transaction(source_node: Node, options: Dictionary) -> bool:
 	if not options.has("drag_parent"):
 		return true
@@ -667,10 +712,18 @@ func _validate_drag_visual_transaction(source_node: Node, options: Dictionary) -
 	return true
 
 
+## 从 options 读取 drag_parent 并收窄为 Node。
+## [br]
+## @api private
+## [br]
 func _get_requested_drag_parent(options: Dictionary) -> Node:
 	return _node_from_variant(GFVariantData.get_option_value(options, "drag_parent"))
 
 
+## 将来源节点还原到原父节点，并在可能时恢复原子项索引；无效引用或不兼容树时失败。
+## [br]
+## @api private
+## [br]
 func _restore_active_source_parent() -> bool:
 	var source_node: Node = _get_source_node()
 	var original_parent: Node = _get_original_parent()
@@ -698,6 +751,10 @@ func _restore_active_source_parent() -> bool:
 	return source_node.get_parent() == original_parent
 
 
+## 按配置把当前来源节点的 tree_exited 信号连接为带会话 ID 的一次性取消回调。
+## [br]
+## @api private
+## [br]
 func _connect_active_source_tree_exit(source_node: Node, session_id: int) -> void:
 	if source_node == null or not cancel_when_source_exits_tree:
 		return
@@ -709,6 +766,10 @@ func _connect_active_source_tree_exit(source_node: Node, session_id: int) -> voi
 	) as Error
 
 
+## 若来源节点仍有效且回调已连接则断开，并清空回调句柄。
+## [br]
+## @api private
+## [br]
 func _disconnect_active_source_tree_exit() -> void:
 	var source_node: Node = _get_source_node()
 	if (
@@ -720,6 +781,10 @@ func _disconnect_active_source_tree_exit() -> void:
 	_source_tree_exited_callable = Callable()
 
 
+## 清空来源、原父节点和索引，并恢复本次重挂及父节点还原选项的默认值。
+## [br]
+## @api private
+## [br]
 func _clear_active_source_state() -> void:
 	_source_tree_exited_callable = Callable()
 	_source_ref = null
@@ -731,17 +796,29 @@ func _clear_active_source_state() -> void:
 	_reparent_keep_global_transform = true
 
 
+## 清除活动 pointer ID 与捕获标志。
+## [br]
+## @api private
+## [br]
 func _release_pointer_capture() -> void:
 	_active_pointer_id = _NO_POINTER_ID
 	_captures_pointer = false
 
 
+## 启动事务失败时尝试还原来源父节点，并释放指针捕获和来源状态。
+## [br]
+## @api private
+## [br]
 func _rollback_start_transaction() -> void:
 	var _restored_source: bool = _restore_active_source_parent()
 	_release_pointer_capture()
 	_clear_active_source_state()
 
 
+## 生成含活动 pointer ID 及有效捕获标志的状态字典。
+## [br]
+## @api private
+## [br]
 func _get_pointer_capture_dictionary() -> Dictionary:
 	return {
 		"active_pointer_id": _active_pointer_id,
@@ -749,6 +826,10 @@ func _get_pointer_capture_dictionary() -> Dictionary:
 	}
 
 
+## 通过来源弱引用读取对象并收窄为有效 Node。
+## [br]
+## @api private
+## [br]
 func _get_source_node() -> Node:
 	if _source_ref == null:
 		return null
@@ -756,6 +837,10 @@ func _get_source_node() -> Node:
 	return _node_from_object(source)
 
 
+## 通过原父节点弱引用读取对象并收窄为有效 Node。
+## [br]
+## @api private
+## [br]
 func _get_original_parent() -> Node:
 	if _original_parent_ref == null:
 		return null
@@ -763,6 +848,10 @@ func _get_original_parent() -> Node:
 	return _node_from_object(parent)
 
 
+## 仅当 Variant 是 Node 时返回该节点。
+## [br]
+## @api private
+## [br]
 func _node_from_variant(value: Variant) -> Node:
 	if value is Node:
 		var node: Node = value
@@ -770,6 +859,10 @@ func _node_from_variant(value: Variant) -> Node:
 	return null
 
 
+## 仅当对象是仍有效的 Node 时返回该节点。
+## [br]
+## @api private
+## [br]
 func _node_from_object(value: Object) -> Node:
 	if value is Node and is_instance_valid(value):
 		var node: Node = value
@@ -777,6 +870,10 @@ func _node_from_object(value: Object) -> Node:
 	return null
 
 
+## 从 WeakRef 读取仍有效的 Object；空引用、非对象或已释放对象返回 null。
+## [br]
+## @api private
+## [br]
 func _object_from_ref(ref: WeakRef) -> Object:
 	if ref == null:
 		return null
@@ -787,6 +884,10 @@ func _object_from_ref(ref: WeakRef) -> Object:
 	return null
 
 
+## 构造包含 ok、session_id、zone_id 和 reason 的统一结果字典。
+## [br]
+## @api private
+## [br]
 func _make_result(ok: bool, session_id: int, zone_id: StringName, reason: StringName) -> Dictionary:
 	return {
 		"ok": ok,
@@ -794,3 +895,91 @@ func _make_result(ok: bool, session_id: int, zone_id: StringName, reason: String
 		"zone_id": zone_id,
 		"reason": reason,
 	}
+
+
+# --- 信号处理函数 ---
+
+## 启动中的同步通知只记录会话 ID，由启动流程处理；其他通知直接转发 drag_started。
+## [br]
+## @api private
+func _on_utility_drag_started(session_id: int, drag_type: StringName) -> void:
+	if _start_in_progress:
+		_starting_session_id = session_id
+		return
+	drag_started.emit(session_id, drag_type)
+
+
+## 查询当前位置的最佳投放区后再次确认会话仍活动，避免查询回调结束拖拽后发送过期移动通知。
+## [br]
+## @api private
+func _on_utility_drag_moved(session_id: int, position: Vector2, delta: Vector2) -> void:
+	var zone: GFDropZone = _utility.get_best_drop_zone(session_id, position)
+	if not _utility.has_active_session(session_id):
+		return
+	var zone_id: StringName = zone.zone_id if zone != null else &""
+	drag_moved.emit(session_id, position, delta, zone_id)
+
+
+## 当前受管会话先按成功策略恢复源节点父级并结束控制器状态，再转发投放结果。
+## [br]
+## @api private
+func _on_utility_drag_dropped(session_id: int, zone_id: StringName, result: Dictionary) -> void:
+	var managed_session: bool = session_id == _active_session_id
+	var restore_source_parent: bool = _restore_source_parent_on_success
+	if managed_session:
+		_finish_controller_session(session_id, &"dropped", restore_source_parent)
+	drag_dropped.emit(session_id, zone_id, result)
+
+
+## 仅终结当前受管且已不活动的会话；非终态拒绝保留拖拽，随后转发拒绝原因。
+## [br]
+## @api private
+func _on_utility_drag_drop_rejected(session_id: int, reason: StringName) -> void:
+	var terminal_reject: bool = not _utility.has_active_session(session_id)
+	var managed_session: bool = session_id == _active_session_id
+	var restore_source_parent: bool = _restore_source_parent_on_rejected_drop
+	if terminal_reject and managed_session:
+		_finish_controller_session(session_id, reason, restore_source_parent)
+	drag_drop_rejected.emit(session_id, reason)
+
+
+## 忽略启动中已记录会话的取消；受管会话先消费待用原因并完成清理，再发送控制器取消通知。
+## [br]
+## @api private
+func _on_utility_drag_cancelled(session_id: int) -> void:
+	if _start_in_progress and session_id == _starting_session_id:
+		return
+	var managed_session: bool = session_id == _active_session_id
+	var reason: StringName = (
+		_pending_cancel_reason
+		if managed_session and _pending_cancel_reason != &""
+		else &"utility_cancelled"
+	)
+	var restore_source_parent: bool = _restore_source_parent_on_cancel
+	if managed_session:
+		_pending_cancel_reason = &""
+		_finish_controller_session(session_id, reason, restore_source_parent)
+	drag_cancelled.emit(session_id, reason)
+
+
+## 转发已注册投放区的 ID，供控制器监听者更新可投放目标。
+## [br]
+## @api private
+func _on_utility_drop_zone_registered(zone_id: StringName) -> void:
+	drop_zone_registered.emit(zone_id)
+
+
+## 转发已注销投放区的 ID，不在此回调中改变活动拖拽会话。
+## [br]
+## @api private
+func _on_utility_drop_zone_unregistered(zone_id: StringName) -> void:
+	drop_zone_unregistered.emit(zone_id)
+
+
+## 仅当退出节点仍属于当前会话且配置要求取消时，以 source_exited_tree 取消拖拽。
+## [br]
+## @api private
+func _on_active_source_tree_exited(session_id: int) -> void:
+	if session_id != _active_session_id or not cancel_when_source_exits_tree:
+		return
+	var _cancelled_drag: bool = cancel_drag(&"source_exited_tree")

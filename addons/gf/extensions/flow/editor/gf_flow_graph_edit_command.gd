@@ -11,7 +11,14 @@ extends GFEditorPropertyBatchCommand
 
 # --- 私有变量 ---
 
+## 保存流程图编辑器内部的流程图。
+## [br]
+## @api private
 var _graph: GFFlowGraph = null
+
+## 保存流程图编辑器内部的观察者。
+## [br]
+## @api private
 var _observer: WeakRef = null
 
 
@@ -185,6 +192,9 @@ static func create_layout_edit(graph: GFFlowGraph, positions: Dictionary, action
 
 # --- 私有/辅助方法 ---
 
+## 处理func内部数据。
+## [br]
+## @api private
 static func _find_node(graph: GFFlowGraph, node_id: StringName) -> GFFlowNode:
 	for node: GFFlowNode in graph.nodes:
 		if node != null and node.node_id == node_id:
@@ -192,6 +202,9 @@ static func _find_node(graph: GFFlowGraph, node_id: StringName) -> GFFlowNode:
 	return null
 
 
+## 通过有效弱引用通知页面接收编辑结果。
+## [br]
+## @api private
 func _notify_observer() -> void:
 	if _observer == null:
 		return
@@ -202,6 +215,9 @@ func _notify_observer() -> void:
 			var _result: Variant = page.call("accept_flow_edit_result", self)
 
 
+## 处理func内部数据。
+## [br]
+## @api private
 static func _create(graph: GFFlowGraph, changes: Array[Dictionary], action_name: String) -> GFFlowGraphEditCommand:
 	var command: GFFlowGraphEditCommand = GFFlowGraphEditCommand.new()
 	command._graph = graph

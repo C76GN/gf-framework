@@ -6,6 +6,10 @@ extends RefCounted
 
 # --- 常量 ---
 
+## validate_and_index 接受的顶层 analysis 字段名。
+## [br]
+## @api private
+## [br]
 const _ANALYSIS_FIELDS: PackedStringArray = [
 	"schema_version",
 	"kind",
@@ -28,6 +32,11 @@ const _ANALYSIS_FIELDS: PackedStringArray = [
 	"capabilities",
 	"effects",
 ]
+
+## graph 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _GRAPH_FIELDS: PackedStringArray = [
 	"schema_version",
 	"kind",
@@ -39,6 +48,11 @@ const _GRAPH_FIELDS: PackedStringArray = [
 	"edges",
 	"evidence",
 ]
+
+## Project Layout scope 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _SCOPE_FIELDS: PackedStringArray = [
 	"kind",
 	"root_path",
@@ -48,6 +62,11 @@ const _SCOPE_FIELDS: PackedStringArray = [
 	"max_scanned_directories",
 	"max_scan_depth",
 ]
+
+## 本类接收的 inventory 字典字段名集合。
+## [br]
+## @api private
+## [br]
 const _INVENTORY_FIELDS: PackedStringArray = [
 	"scope",
 	"capture_status",
@@ -56,6 +75,11 @@ const _INVENTORY_FIELDS: PackedStringArray = [
 	"directories",
 	"files",
 ]
+
+## graph 节点字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _NODE_FIELDS: PackedStringArray = [
 	"node_id",
 	"node_kind",
@@ -65,6 +89,11 @@ const _NODE_FIELDS: PackedStringArray = [
 	"completeness",
 	"evidence_ids",
 ]
+
+## graph 边字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _EDGE_FIELDS: PackedStringArray = [
 	"edge_id",
 	"edge_kind",
@@ -73,6 +102,11 @@ const _EDGE_FIELDS: PackedStringArray = [
 	"scope",
 	"evidence_ids",
 ]
+
+## 文件系统库存证据字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _INVENTORY_EVIDENCE_FIELDS: PackedStringArray = [
 	"evidence_id",
 	"kind",
@@ -82,6 +116,11 @@ const _INVENTORY_EVIDENCE_FIELDS: PackedStringArray = [
 	"authority",
 	"observed",
 ]
+
+## 库存边界证据字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _BOUNDARY_EVIDENCE_FIELDS: PackedStringArray = [
 	"evidence_id",
 	"kind",
@@ -95,6 +134,11 @@ const _BOUNDARY_EVIDENCE_FIELDS: PackedStringArray = [
 	"directory_count",
 	"input_digest",
 ]
+
+## 不带 reason_code 的 finding 字典字段名集合。
+## [br]
+## @api private
+## [br]
 const _FINDING_FIELDS: PackedStringArray = [
 	"finding_id",
 	"severity",
@@ -105,6 +149,11 @@ const _FINDING_FIELDS: PackedStringArray = [
 	"confidence",
 	"evidence_ids",
 ]
+
+## 带 reason_code 的 finding 字典字段名集合。
+## [br]
+## @api private
+## [br]
 const _FINDING_FIELDS_WITH_REASON: PackedStringArray = [
 	"finding_id",
 	"severity",
@@ -116,6 +165,11 @@ const _FINDING_FIELDS_WITH_REASON: PackedStringArray = [
 	"evidence_ids",
 	"reason_code",
 ]
+
+## rule result 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _RULE_RESULT_FIELDS: PackedStringArray = [
 	"id",
 	"kind",
@@ -124,6 +178,11 @@ const _RULE_RESULT_FIELDS: PackedStringArray = [
 	"issue_count",
 	"success",
 ]
+
+## capability 字典的闭合字段名集合。
+## [br]
+## @api private
+## [br]
 const _CAPABILITY_FIELDS: PackedStringArray = [
 	"executor_id",
 	"operation",
@@ -131,11 +190,21 @@ const _CAPABILITY_FIELDS: PackedStringArray = [
 	"rule_fields",
 	"zone_fields",
 ]
+
+## 验证器接受的库存捕获状态值。
+## [br]
+## @api private
+## [br]
 const _CAPTURE_STATUSES: PackedStringArray = [
 	"complete",
 	"partial",
 	"not_started",
 ]
+
+## 验证器接受的分析评估状态值。
+## [br]
+## @api private
+## [br]
 const _EVALUATION_STATUSES: PackedStringArray = [
 	"complete",
 	"input_incomplete",
@@ -144,22 +213,83 @@ const _EVALUATION_STATUSES: PackedStringArray = [
 	"evaluation_finding_budget_exhausted",
 	"evaluation_runtime_invalid",
 ]
+
+## 项目源码库存默认排除的根相对目录前缀。
+## [br]
+## @api private
+## [br]
 const _PROJECT_SOURCE_EXCLUDED_PREFIXES: PackedStringArray = [
 	".git",
 	".godot",
 	".import",
 ]
+
+## analysis 结构遍历允许的最大嵌套深度。
+## [br]
+## @api private
+## [br]
 const _MAX_ANALYSIS_DEPTH: int = 64
+
+## analysis 结构遍历允许检查的最大值数。
+## [br]
+## @api private
+## [br]
 const _MAX_ANALYSIS_STRUCTURE_VALUES: int = 4_000_000
+
+## 单个 analysis 容器允许的最大元素数。
+## [br]
+## @api private
+## [br]
 const _MAX_ANALYSIS_COLLECTION_ITEMS: int = 65_536
+
+## analysis 中任一字符串允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_ANALYSIS_STRING_LENGTH: int = 16_384
+
+## graph 节点数组允许的最大元素数。
+## [br]
+## @api private
+## [br]
 const _MAX_ANALYSIS_NODES: int = 50_001
+
+## graph 边数组允许的最大元素数。
+## [br]
+## @api private
+## [br]
 const _MAX_ANALYSIS_EDGES: int = 50_000
+
+## graph evidence 数组允许的最大元素数。
+## [br]
+## @api private
+## [br]
 const _MAX_ANALYSIS_EVIDENCE: int = 50_002
+
+## 单个 issues 或 findings 数组允许的最大元素数。
+## [br]
+## @api private
+## [br]
 const _MAX_ANALYSIS_FINDINGS: int = 2_048
+
+## rule_results 数组允许的最大元素数。
+## [br]
+## @api private
+## [br]
 const _MAX_ANALYSIS_RULE_RESULTS: int = 8_192
+
+## scope 中 excluded_prefixes 数组允许的最大元素数。
+## [br]
+## @api private
+## [br]
 const _MAX_SCOPE_EXCLUDED_PREFIXES: int = 64
+
+## 预留的最大验证错误数边界。
+## [br]
+## @api private
+## [br]
 const _MAX_VALIDATION_ERRORS: int = 128
+
 ## 完整 closed analysis 校验的不可关闭加权工作量上限。
 ##
 ## 该边界覆盖结构遍历、字符串字节、排序和索引构建的真实计费；消费方需要执行一次
@@ -169,48 +299,124 @@ const _MAX_VALIDATION_ERRORS: int = 128
 ## [br]
 ## @since 11.0.0
 const MAX_VALIDATION_WORK_UNITS: int = 12_000_000
+
 ## Project Layout inventory 在捕获、传输、生产和消费各层共享的不可关闭 envelope。
 ## [br]
 ## @api framework_internal
 const MAX_INVENTORY_FILES: int = 20_000
+
 ## [br]
 ## @api framework_internal
 const MAX_INVENTORY_DIRECTORIES: int = 20_000
+
 ## 根节点 + 20k 目录 + 20k 文件。
 ## [br]
 ## @api framework_internal
 const MAX_INVENTORY_NODES: int = 40_001
+
 ## 与 Editor worker 的 data-only UTF-8 envelope 一致。
 ## [br]
 ## @api framework_internal
 const MAX_INVENTORY_STRING_BYTES: int = 16_777_216
+
 ## [br]
 ## @api framework_internal
 const MAX_DATA_STRING_LENGTH: int = 16_384
+
 ## `path:` 前缀仍需让生成的 node_id 落在 MAX_DATA_STRING_LENGTH 内。
 ## [br]
 ## @api framework_internal
 const MAX_RELATIVE_PATH_LENGTH: int = MAX_DATA_STRING_LENGTH - 5
+
 ## [br]
 ## @api framework_internal
 const MAX_SCAN_DEPTH: int = 32
+
+## 库存生产阶段结构预检允许检查的最大值数。
+## [br]
+## @api private
+## [br]
 const _MAX_PRODUCER_STRUCTURE_VALUES: int = 200_000
+
+## 库存生产阶段单个容器允许的最大元素数。
+## [br]
+## @api private
+## [br]
 const _MAX_PRODUCER_COLLECTION_ITEMS: int = 65_536
+
+## 库存生产阶段结构预检允许的最大嵌套深度。
+## [br]
+## @api private
+## [br]
 const _MAX_PRODUCER_DEPTH: int = 64
+
+## 单次库存生产操作允许消费的最大工作量。
+## [br]
+## @api private
+## [br]
 const _MAX_PRODUCER_WORK_UNITS: int = 2_000_000
+
+## 稳定 ID 输入结构预检允许检查的最大值数。
+## [br]
+## @api private
+## [br]
 const _MAX_STABLE_ID_STRUCTURE_VALUES: int = 4_096
+
+## 稳定 ID 输入结构预检单个容器允许的最大元素数。
+## [br]
+## @api private
+## [br]
 const _MAX_STABLE_ID_COLLECTION_ITEMS: int = 1_024
+
+## 稳定 ID 输入结构预检允许的最大嵌套深度。
+## [br]
+## @api private
+## [br]
 const _MAX_STABLE_ID_DEPTH: int = 11
+
+## finding stable ID occurrence 参数允许的最大值。
+## [br]
+## @api private
+## [br]
 const _MAX_STABLE_ID_OCCURRENCE: int = 1_000_000
 
 
 # --- 私有变量 ---
 
+## 当前 validate_and_index 操作使用的协作式检查回调。
+## [br]
+## @api private
+## [br]
 var _active_checkpoint: Callable = Callable()
+
+## 当前分析验证操作累计消费的工作单位数。
+## [br]
+## @api private
+## [br]
 var _validation_work_units: int = 0
+
+## 当前分析验证操作是否已因终止条件停止。
+## [br]
+## @api private
+## [br]
 var _validation_terminal: bool = false
+
+## 最近一次成功结构预检访问的结构值数量。
+## [br]
+## @api private
+## [br]
 var _validation_structure_values: int = 0
+
+## 当前库存生产操作累计消费的工作单位数。
+## [br]
+## @api private
+## [br]
 var _producer_work_units: int = 0
+
+## 当前库存生产操作是否已超过资源边界。
+## [br]
+## @api private
+## [br]
 var _producer_terminal: bool = false
 
 
@@ -476,132 +682,6 @@ func inventory_digest(
 	)
 
 
-func _inventory_digest_admitted(
-	root_path: String,
-	scope: Dictionary,
-	capture_status: String,
-	complete: bool,
-	root_observed: bool,
-	directories: PackedStringArray,
-	files: PackedStringArray,
-	checkpoint: Callable = Callable(),
-	validation_result: Dictionary = {}
-) -> String:
-	if not _consume_inventory_digest_work(
-		checkpoint,
-		validation_result,
-		_sort_work_units(directories.size())
-	):
-		return ""
-	var sorted_directories: PackedStringArray = directories.duplicate()
-	if not _consume_inventory_digest_work(
-		checkpoint,
-		validation_result,
-		_sort_work_units(files.size())
-	):
-		return ""
-	var sorted_files: PackedStringArray = files.duplicate()
-	var excluded_prefixes: PackedStringArray = _string_list(scope, "excluded_prefixes")
-	if not _consume_inventory_digest_work(
-		checkpoint,
-		validation_result,
-		_sort_work_units(excluded_prefixes.size())
-	):
-		return ""
-	sorted_directories.sort()
-	sorted_files.sort()
-	excluded_prefixes.sort()
-	var records: PackedStringArray = PackedStringArray([
-		"root=%s" % root_path,
-		"root_observed=%s" % str(root_observed),
-		"capture_status=%s" % capture_status,
-		"complete=%s" % str(complete),
-		"scope.kind=%s" % _string(scope, "kind"),
-		"scope.root_path=%s" % _string(scope, "root_path"),
-		"scope.include_hidden=%s" % str(_bool(scope, "include_hidden")),
-	])
-	for excluded_prefix: String in excluded_prefixes:
-		if not _consume_inventory_digest_work(checkpoint, validation_result):
-			return ""
-		var _append_excluded: bool = records.append(
-			"scope.excluded_prefix=%s" % excluded_prefix
-		)
-	for budget_field: String in [
-		"max_scanned_files",
-		"max_scanned_directories",
-		"max_scan_depth",
-	]:
-		if not _consume_inventory_digest_work(checkpoint, validation_result):
-			return ""
-		var _append_budget: bool = records.append(
-			"scope.%s=%d" % [budget_field, _integer(scope, budget_field)]
-		)
-	for relative_path: String in sorted_directories:
-		if not _consume_inventory_digest_work(checkpoint, validation_result):
-			return ""
-		var _append_directory: bool = records.append("directory=%s" % relative_path)
-	for relative_path: String in sorted_files:
-		if not _consume_inventory_digest_work(checkpoint, validation_result):
-			return ""
-		var _append_file: bool = records.append("file=%s" % relative_path)
-	if not _consume_inventory_digest_work(
-		checkpoint,
-		validation_result,
-		ceili(float(_inventory_text_bytes(root_path, scope, directories, files)) / 256.0)
-	):
-		return ""
-	return "\n".join(records).sha256_text()
-
-
-func _consume_inventory_digest_work(
-	checkpoint: Callable,
-	validation_result: Dictionary,
-	work_units: int = 1
-) -> bool:
-	if work_units == 0:
-		return true
-	if not _consume_producer_work(work_units):
-		return false
-	if not validation_result.is_empty():
-		return _consume_validation_work(validation_result, work_units)
-	return _operation_checkpoint_allows(checkpoint)
-
-
-func _inventory_digest_for_validation(
-	root_path: String,
-	scope: Dictionary,
-	capture_status: String,
-	complete: bool,
-	root_observed: bool,
-	directories: PackedStringArray,
-	files: PackedStringArray,
-	result: Dictionary
-) -> String:
-	_begin_producer_operation()
-	if not _inventory_values_are_admissible(
-		root_path,
-		scope,
-		capture_status,
-		complete,
-		root_observed,
-		directories,
-		files,
-		result
-	):
-		return ""
-	return _inventory_digest_admitted(
-		root_path,
-		scope,
-		capture_status,
-		complete,
-		root_observed,
-		directories,
-		files,
-		Callable(),
-		result
-	)
-
-
 ## 生成与 finding 语义和同身份 occurrence 绑定的稳定 ID。
 ## [br]
 ## @api framework_internal
@@ -729,6 +809,143 @@ func validate_and_index(
 
 # --- 私有/辅助方法 ---
 
+## 为已准入库存排序目录、文件和排除前缀，以根、捕获状态、scope 与预算组成摘要文本；复制、排序、遍历和哈希都计入工作预算，中止返回空串。
+## [br]
+## @api private
+func _inventory_digest_admitted(
+	root_path: String,
+	scope: Dictionary,
+	capture_status: String,
+	complete: bool,
+	root_observed: bool,
+	directories: PackedStringArray,
+	files: PackedStringArray,
+	checkpoint: Callable = Callable(),
+	validation_result: Dictionary = {}
+) -> String:
+	if not _consume_inventory_digest_work(
+		checkpoint,
+		validation_result,
+		_sort_work_units(directories.size())
+	):
+		return ""
+	var sorted_directories: PackedStringArray = directories.duplicate()
+	if not _consume_inventory_digest_work(
+		checkpoint,
+		validation_result,
+		_sort_work_units(files.size())
+	):
+		return ""
+	var sorted_files: PackedStringArray = files.duplicate()
+	var excluded_prefixes: PackedStringArray = _string_list(scope, "excluded_prefixes")
+	if not _consume_inventory_digest_work(
+		checkpoint,
+		validation_result,
+		_sort_work_units(excluded_prefixes.size())
+	):
+		return ""
+	sorted_directories.sort()
+	sorted_files.sort()
+	excluded_prefixes.sort()
+	var records: PackedStringArray = PackedStringArray([
+		"root=%s" % root_path,
+		"root_observed=%s" % str(root_observed),
+		"capture_status=%s" % capture_status,
+		"complete=%s" % str(complete),
+		"scope.kind=%s" % _string(scope, "kind"),
+		"scope.root_path=%s" % _string(scope, "root_path"),
+		"scope.include_hidden=%s" % str(_bool(scope, "include_hidden")),
+	])
+	for excluded_prefix: String in excluded_prefixes:
+		if not _consume_inventory_digest_work(checkpoint, validation_result):
+			return ""
+		var _append_excluded: bool = records.append(
+			"scope.excluded_prefix=%s" % excluded_prefix
+		)
+	for budget_field: String in [
+		"max_scanned_files",
+		"max_scanned_directories",
+		"max_scan_depth",
+	]:
+		if not _consume_inventory_digest_work(checkpoint, validation_result):
+			return ""
+		var _append_budget: bool = records.append(
+			"scope.%s=%d" % [budget_field, _integer(scope, budget_field)]
+		)
+	for relative_path: String in sorted_directories:
+		if not _consume_inventory_digest_work(checkpoint, validation_result):
+			return ""
+		var _append_directory: bool = records.append("directory=%s" % relative_path)
+	for relative_path: String in sorted_files:
+		if not _consume_inventory_digest_work(checkpoint, validation_result):
+			return ""
+		var _append_file: bool = records.append("file=%s" % relative_path)
+	if not _consume_inventory_digest_work(
+		checkpoint,
+		validation_result,
+		ceili(float(_inventory_text_bytes(root_path, scope, directories, files)) / 256.0)
+	):
+		return ""
+	return "\n".join(records).sha256_text()
+
+
+## 先消费 producer 额度，有校验结果时再消费 validation 额度，否则调用操作检查点；零工作直接通过，先消费的额度不会因后续拒绝回滚。
+## [br]
+## @api private
+func _consume_inventory_digest_work(
+	checkpoint: Callable,
+	validation_result: Dictionary,
+	work_units: int = 1
+) -> bool:
+	if work_units == 0:
+		return true
+	if not _consume_producer_work(work_units):
+		return false
+	if not validation_result.is_empty():
+		return _consume_validation_work(validation_result, work_units)
+	return _operation_checkpoint_allows(checkpoint)
+
+
+## 重置 producer 工作状态，在校验预算下重新准入库存值后计算绑定摘要；任一阶段拒绝返回空串供上层判失败。
+## [br]
+## @api private
+func _inventory_digest_for_validation(
+	root_path: String,
+	scope: Dictionary,
+	capture_status: String,
+	complete: bool,
+	root_observed: bool,
+	directories: PackedStringArray,
+	files: PackedStringArray,
+	result: Dictionary
+) -> String:
+	_begin_producer_operation()
+	if not _inventory_values_are_admissible(
+		root_path,
+		scope,
+		capture_status,
+		complete,
+		root_observed,
+		directories,
+		files,
+		result
+	):
+		return ""
+	return _inventory_digest_admitted(
+		root_path,
+		scope,
+		capture_status,
+		complete,
+		root_observed,
+		directories,
+		files,
+		Callable(),
+		result
+	)
+
+## 先检查领域集合上限，再以显式栈验证有界纯数据结构和有限标量；活动容器身份检测拒绝递归环，成功后记录结构值数供后续预算使用。
+## [br]
+## @api private
 func _analysis_structure_is_admissible(analysis: Dictionary, result: Dictionary) -> bool:
 	if not _analysis_domain_collections_are_admissible(analysis, result):
 		return false
@@ -823,6 +1040,9 @@ func _analysis_structure_is_admissible(analysis: Dictionary, result: Dictionary)
 	return true
 
 
+## 提前限制图节点、边、证据、finding 和规则集合及路径长度，避免通用结构遍历前已接收过大领域数据；字段类型由后续契约校验。
+## [br]
+## @api private
 func _analysis_domain_collections_are_admissible(
 	analysis: Dictionary,
 	result: Dictionary
@@ -896,6 +1116,10 @@ func _analysis_domain_collections_are_admissible(
 	return true
 
 
+## 检查容器是否已出现在当前递归路径的活动容器列表中。
+## [br]
+## @api private
+## [br]
 func _active_analysis_container_exists(active_containers: Array, value: Variant) -> bool:
 	for active_value: Variant in active_containers:
 		if is_same(active_value, value):
@@ -903,6 +1127,9 @@ func _active_analysis_container_exists(active_containers: Array, value: Variant)
 	return false
 
 
+## 在不可关闭总工作上限内计费，并向活动检查点传递本次工作量；超限、非 bool 返回或主动停止都进入终态，后续消费直接拒绝。
+## [br]
+## @api private
 func _consume_validation_work(result: Dictionary, work_units: int = 1) -> bool:
 	if _validation_terminal:
 		return false
@@ -933,6 +1160,9 @@ func _consume_validation_work(result: Dictionary, work_units: int = 1) -> bool:
 	return false
 
 
+## 首次协作检查失败时锁定校验终态，用单个中止错误替换已有错误，并撤销有效性、捕获状态及索引。
+## [br]
+## @api private
 func _fail_analysis_contract_checkpoint(
 	result: Dictionary,
 	kind: String,
@@ -954,6 +1184,9 @@ func _fail_analysis_contract_checkpoint(
 	result["index"] = _empty_index()
 
 
+## 首次资源边界失败时锁定终态，用统一超限错误替换既有错误并清空可消费索引，防止部分校验结果被误用。
+## [br]
+## @api private
 func _fail_analysis_contract_limit(result: Dictionary) -> void:
 	if _validation_terminal:
 		return
@@ -971,11 +1204,18 @@ func _fail_analysis_contract_limit(result: Dictionary) -> void:
 	result["index"] = _empty_index()
 
 
+## 为新的库存生产操作清零累计工作量并清除终止标记。
+## [br]
+## @api private
+## [br]
 func _begin_producer_operation() -> void:
 	_producer_work_units = 0
 	_producer_terminal = false
 
 
+## 按本次 producer 操作累计工作量，负数或超限即锁定失败；不调用外部检查点，也不自行生成错误报告。
+## [br]
+## @api private
 func _consume_producer_work(work_units: int = 1) -> bool:
 	if _producer_terminal:
 		return false
@@ -986,6 +1226,9 @@ func _consume_producer_work(work_units: int = 1) -> bool:
 	return true
 
 
+## 要求库存字典具有精确字段及基础类型，再把目录、文件和捕获状态交给统一库存值准入。
+## [br]
+## @api private
 func _inventory_dictionary_is_admissible(
 	root_path: String,
 	inventory: Dictionary
@@ -1012,6 +1255,9 @@ func _inventory_dictionary_is_admissible(
 	)
 
 
+## 验证根与 scope、捕获状态和预算一致性，再检查有界纯数据、路径唯一性、排除范围和父目录闭合；校验调用还会同时计入 validation 额度。
+## [br]
+## @api private
 func _inventory_values_are_admissible(
 	root_path: String,
 	scope: Dictionary,
@@ -1168,6 +1414,9 @@ func _inventory_values_are_admissible(
 	return true
 
 
+## 以显式栈遍历 producer 数据，限制节点、深度、容器和累计 UTF-8 文本字节，拒绝循环、非文本键及非有限或对象值；失败只返回 false。
+## [br]
+## @api private
 func _producer_structure_is_admissible(
 	root_value: Variant,
 	max_structure_values: int,
@@ -1270,6 +1519,9 @@ func _producer_structure_is_admissible(
 	return true
 
 
+## 先扣 producer 工作额度，存在校验结果时再扣 validation 额度并触发其检查点；任一步拒绝都停止结构处理。
+## [br]
+## @api private
 func _consume_producer_structure_work(
 	validation_result: Dictionary,
 	work_units: int = 1
@@ -1282,6 +1534,10 @@ func _consume_producer_structure_work(
 	)
 
 
+## 返回 Array 或 PackedStringArray 的元素数；其他类型返回 -1。
+## [br]
+## @api private
+## [br]
 func _string_collection_size(value: Variant) -> int:
 	if value is Array:
 		var array_value: Array = value
@@ -1292,11 +1548,19 @@ func _string_collection_size(value: Variant) -> int:
 	return -1
 
 
+## 将 Array 或 PackedStringArray 值按字符串列表读取，其他输入返回空列表。
+## [br]
+## @api private
+## [br]
 func _string_list_from_value(value: Variant) -> PackedStringArray:
 	var wrapper: Dictionary = { "value": value }
 	return _string_list(wrapper, "value")
 
 
+## 汇总 root、排除前缀及库存路径字符串的 UTF-8 字节数。
+## [br]
+## @api private
+## [br]
 func _inventory_text_bytes(
 	root_path: String,
 	scope: Dictionary,
@@ -1313,6 +1577,10 @@ func _inventory_text_bytes(
 	return total
 
 
+## 按元素数和逐次折半层数估算排序工作单位数。
+## [br]
+## @api private
+## [br]
 func _sort_work_units(item_count: int) -> int:
 	if item_count <= 1:
 		return item_count
@@ -1324,6 +1592,9 @@ func _sort_work_units(item_count: int) -> int:
 	return item_count * levels
 
 
+## 检查四个边身份文本的非空和长度预算，计费后以种类、两端 ID 和 scope 的 SHA-256 前缀构造稳定边 ID。
+## [br]
+## @api private
 func _stable_edge_id_admitted(
 	edge_kind: String,
 	from_node_id: String,
@@ -1346,6 +1617,9 @@ func _stable_edge_id_admitted(
 	).sha256_text().substr(0, 16)
 
 
+## 向共享集合追加一个已准入路径的库存节点及其证据；非根路径再追加由规范父目录指向该节点的 contains 边。
+## [br]
+## @api private
 func _append_inventory_entry(
 	nodes: Array,
 	edges: Array,
@@ -1395,6 +1669,9 @@ func _append_inventory_entry(
 	})
 
 
+## 依次校验图身份、scope、节点、证据、边、引用和库存边界，发现阶段错误即停止后续阶段；返回的局部索引仅在整个契约成功后可使用。
+## [br]
+## @api private
 func _validate_graph(
 	graph: Dictionary,
 	root_path: String,
@@ -1459,6 +1736,9 @@ func _validate_graph(
 	return graph_state
 
 
+## 要求闭合 project_source 范围、规范唯一排除前缀及合法扫描预算；声明完整时还必须匹配权威的隐藏项和排除范围设置。
+## [br]
+## @api private
 func _validate_scope(
 	scope: Dictionary,
 	root_path: String,
@@ -1530,6 +1810,9 @@ func _validate_scope(
 			_add_validation_error(result, "complete_scope_not_authoritative", "graph.scope", "完整 graph 必须使用权威 project_source scope。")
 
 
+## 验证库存节点身份与路径唯一性并建立索引，统计非根目录和文件；再核对根状态、scope 预算及每个非根节点的规范父目录。
+## [br]
+## @api private
 func _validate_nodes(
 	graph: Dictionary,
 	_root_path: String,
@@ -1628,6 +1911,9 @@ func _validate_nodes(
 			_add_validation_error(result, "node_parent_not_directory", relative_path, "graph node 的规范父节点不是目录。")
 
 
+## 按库存证据或库存边界的闭合联合形状校验唯一 ID、根和 authority；库存证据须关联已观察节点，边界证据须绑定同一 capture scope。
+## [br]
+## @api private
 func _validate_evidence(
 	graph: Dictionary,
 	root_path: String,
@@ -1695,6 +1981,9 @@ func _validate_evidence(
 		evidence_by_id[evidence_id] = evidence
 
 
+## 只接收稳定 ID 的 contains 边，核对端点和规范父目录并构建子节点索引；要求 E=V-1、根无入边且每个非根节点恰有一条父边。
+## [br]
+## @api private
 func _validate_edges(
 	graph: Dictionary,
 	index: Dictionary,
@@ -1803,6 +2092,9 @@ func _validate_edges(
 	graph_state["root_observed"] = node_id_by_path.has(".")
 
 
+## 要求每个节点仅引用自身唯一库存证据，每条 contains 边仅引用子节点证据，并检查引用存在及路径、根一致。
+## [br]
+## @api private
 func _validate_graph_evidence_refs(
 	graph: Dictionary,
 	root_path: String,
@@ -1864,6 +2156,9 @@ func _validate_graph_evidence_refs(
 			_add_validation_error(result, "edge_evidence_invalid", _string(edge, "edge_id"), "contains edge 必须精确引用子节点库存 evidence。")
 
 
+## 从已验证节点重算库存摘要，核对边界证据精确绑定根、scope、状态和计数；已观察图恰有一条边界，未开始图不允许任何证据。
+## [br]
+## @api private
 func _validate_graph_boundary(
 	graph: Dictionary,
 	root_path: String,
@@ -1950,6 +2245,9 @@ func _validate_graph_boundary(
 		_add_validation_error(result, "not_started_graph_not_empty", "graph.evidence", "not_started graph 不能包含 evidence。")
 
 
+## 要求 findings 与 issues 内容和类型一致，按语义身份及出现序号重算唯一 ID；同时核对证据引用闭合和顶层严重级别计数。
+## [br]
+## @api private
 func _validate_findings(
 	analysis: Dictionary,
 	index: Dictionary,
@@ -2044,6 +2342,9 @@ func _validate_findings(
 			_add_validation_error(result, "finding_count_mismatch", "%s_count" % severity, "finding severity count 与顶层计数不一致。")
 
 
+## 逐条检查闭合规则结果、唯一 ID、非负精确整数计数和严重级别，并要求 success 与 issue_count 为零严格一致。
+## [br]
+## @api private
 func _validate_rule_results(analysis: Dictionary, result: Dictionary) -> void:
 	var values: Variant = analysis.get("rule_results")
 	if not values is Array:
@@ -2081,6 +2382,9 @@ func _validate_rule_results(analysis: Dictionary, result: Dictionary) -> void:
 		ids[rule_id] = true
 
 
+## 允许空能力字典；非空时要求闭合字段、非空执行器 ID、analyze 操作及规则和区域描述的基础容器类型。
+## [br]
+## @api private
 func _validate_capabilities(analysis: Dictionary, result: Dictionary) -> void:
 	var capabilities_value: Variant = analysis.get("capabilities")
 	if not capabilities_value is Dictionary:
@@ -2102,6 +2406,9 @@ func _validate_capabilities(analysis: Dictionary, result: Dictionary) -> void:
 		_add_validation_error(result, "capabilities_value_invalid", "capabilities", "analysis capabilities 值无效。")
 
 
+## 核对求值与捕获完整性、图计数和摘要，并要求 success 仅由 error_count 决定；effects 必须精确声明不写项目。
+## [br]
+## @api private
 func _validate_analysis_cross_fields(
 	analysis: Dictionary,
 	graph: Dictionary,
@@ -2162,6 +2469,9 @@ func _validate_analysis_cross_fields(
 			_add_validation_error(result, "analysis_effects_invalid", "effects", "analysis effects 必须精确声明 writes_project=false。")
 
 
+## 以严重级别、种类、路径、原因码和规范 context 编码组成语义身份；展示 message 和证据引用不进入该种子。
+## [br]
+## @api private
 func _finding_identity_seed(finding: Dictionary) -> String:
 	return "\n".join(PackedStringArray([
 		"severity=%s" % _string(finding, "severity"),
@@ -2172,6 +2482,9 @@ func _finding_identity_seed(finding: Dictionary) -> String:
 	]))
 
 
+## 重置 producer 预算并验证 finding 的有界纯数据形状，预留排序工作后生成身份种子；拒绝时返回空串。
+## [br]
+## @api private
 func _admitted_finding_identity_seed(finding: Dictionary) -> String:
 	_begin_producer_operation()
 	if not _producer_structure_is_admissible(
@@ -2189,6 +2502,9 @@ func _admitted_finding_identity_seed(finding: Dictionary) -> String:
 	return _finding_identity_seed(finding)
 
 
+## 在 producer 与 validation 双重预算下准入 finding，并逐步编码 context 和身份文本；任何终态或额度拒绝都返回空串。
+## [br]
+## @api private
 func _admitted_finding_identity_seed_for_validation(
 	finding: Dictionary,
 	result: Dictionary
@@ -2225,6 +2541,9 @@ func _admitted_finding_identity_seed_for_validation(
 	return identity
 
 
+## 对已准入值生成带类型标记的规范文本，数组保序、字典键排序；遍历和排序均计费，深度或类型不支持时使校验终止。
+## [br]
+## @api private
 func _canonical_value_for_validation(
 	value: Variant,
 	depth: int,
@@ -2305,6 +2624,9 @@ func _canonical_value_for_validation(
 	return ""
 
 
+## 为已准入值生成类型化稳定文本，保留数组顺序并排序字典键；防御性深度和不支持类型返回标记，正式入口先完成有界结构准入。
+## [br]
+## @api private
 func _canonical_value(value: Variant, depth: int) -> String:
 	if depth >= 12:
 		return "depth_limit"
@@ -2343,6 +2665,10 @@ func _canonical_value(value: Variant, depth: int) -> String:
 	return "unsupported:%d" % typeof(value)
 
 
+## 构造 validate_and_index 结果使用的五个空索引字典。
+## [br]
+## @api private
+## [br]
 func _empty_index() -> Dictionary:
 	return {
 		"node_by_id": {},
@@ -2353,10 +2679,17 @@ func _empty_index() -> Dictionary:
 	}
 
 
+## 为一次校验循环步骤消费一个工作单位；item_index 仅保留调用形状，不用于降低检查频率。
+## [br]
+## @api private
 func _checkpoint_allows(_item_index: int, result: Dictionary) -> bool:
 	return _consume_validation_work(result)
 
 
+## 无效回调视为允许继续；有效回调须无参数并返回 true 才允许继续。
+## [br]
+## @api private
+## [br]
 func _operation_checkpoint_allows(checkpoint: Callable) -> bool:
 	if not checkpoint.is_valid():
 		return true
@@ -2364,16 +2697,26 @@ func _operation_checkpoint_allows(checkpoint: Callable) -> bool:
 	return checkpoint_value is bool and checkpoint_value
 
 
+## 给已验证的相对路径加 path 前缀，保留路径文本作为库存节点身份。
+## [br]
+## @api private
 func _node_id(relative_path: String) -> String:
 	return "path:%s" % relative_path
 
 
+## 用节点种类和相对路径的 SHA-256 前 16 位生成库存证据 ID，区分同路径的文件和目录身份。
+## [br]
+## @api private
 func _inventory_evidence_id(node_kind: String, relative_path: String) -> String:
 	return "evidence:%s" % (
 		"%s\n%s" % [node_kind, relative_path]
 	).sha256_text().substr(0, 16)
 
 
+## 返回最后一个斜杠之前的路径；无斜杠时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _parent_path(relative_path: String) -> String:
 	var slash_index: int = relative_path.rfind("/")
 	if slash_index < 0:
@@ -2381,6 +2724,9 @@ func _parent_path(relative_path: String) -> String:
 	return relative_path.substr(0, slash_index)
 
 
+## 只接受无边缘空白和反斜杠的 res:// 根或规范子路径，不进行磁盘存在性检查。
+## [br]
+## @api private
 func _is_canonical_root(root_path: String) -> bool:
 	if (
 		root_path.is_empty()
@@ -2393,6 +2739,9 @@ func _is_canonical_root(root_path: String) -> bool:
 	return relative_path.is_empty() or _is_canonical_relative_path(relative_path, false)
 
 
+## 按 allow_root 决定是否接受点根，其他路径不得为空、绝对路径或包含空段、点段、父段、冒号及反斜杠。
+## [br]
+## @api private
 func _is_canonical_relative_path(relative_path: String, allow_root: bool) -> bool:
 	if allow_root and relative_path == ".":
 		return true
@@ -2411,6 +2760,9 @@ func _is_canonical_relative_path(relative_path: String, allow_root: bool) -> boo
 	return true
 
 
+## 按完整路径段匹配排除前缀本身及其后代；项目根点始终不被排除。
+## [br]
+## @api private
 func _is_under_excluded_prefix(
 	relative_path: String,
 	excluded_prefixes: PackedStringArray
@@ -2423,6 +2775,10 @@ func _is_under_excluded_prefix(
 	return false
 
 
+## 判断字典键是否全部为字符串且与给定字段集合完全相同。
+## [br]
+## @api private
+## [br]
 func _has_exact_fields(value: Dictionary, fields: PackedStringArray) -> bool:
 	if value.size() != fields.size():
 		return false
@@ -2435,6 +2791,9 @@ func _has_exact_fields(value: Dictionary, fields: PackedStringArray) -> bool:
 	return true
 
 
+## 先为字典字段检查预留工作量，再验证精确字段集合；预算拒绝与字段不匹配均返回 false，由终态区分原因。
+## [br]
+## @api private
 func _validation_has_exact_fields(
 	value: Dictionary,
 	fields: PackedStringArray,
@@ -2445,6 +2804,9 @@ func _validation_has_exact_fields(
 	return _has_exact_fields(value, fields)
 
 
+## 在校验预算内迭代比较已准入值，要求类型完全相同、字典文本键集合一致且数组顺序一致；不以数值宽松相等代替结构相等。
+## [br]
+## @api private
 func _validation_values_are_equal(
 	left_value: Variant,
 	right_value: Variant,
@@ -2496,6 +2858,9 @@ func _validation_values_are_equal(
 	return true
 
 
+## 校验尚未终止时追加结构错误；错误数量接近上限时切换为统一资源终态并替换此前错误，防止继续积累。
+## [br]
+## @api private
 func _add_validation_error(
 	result: Dictionary,
 	kind: String,
@@ -2515,15 +2880,27 @@ func _add_validation_error(
 	})
 
 
+## 读取 result.errors 数组；字段不是数组时返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_result_errors(result: Dictionary) -> Array:
 	var errors_value: Variant = result.get("errors")
 	return errors_value if errors_value is Array else []
 
 
+## 以默认值回退方式读取字典中的 String 或 StringName 字段。
+## [br]
+## @api private
+## [br]
 func _string(source: Dictionary, key: String, default_value: String = "") -> String:
 	return _string_value(source.get(key, default_value), default_value)
 
 
+## 将 StringName 转为 String；String 原样返回，其他类型返回默认值。
+## [br]
+## @api private
+## [br]
 func _string_value(value: Variant, default_value: String = "") -> String:
 	if value is String:
 		return value
@@ -2533,30 +2910,54 @@ func _string_value(value: Variant, default_value: String = "") -> String:
 	return default_value
 
 
+## 读取字典中的 bool 字段；字段类型不匹配时返回默认值。
+## [br]
+## @api private
+## [br]
 func _bool(source: Dictionary, key: String, default_value: bool = false) -> bool:
 	var value: Variant = source.get(key, default_value)
 	return value if value is bool else default_value
 
 
+## 读取字典中的 int 字段；字段类型不匹配时返回默认值。
+## [br]
+## @api private
+## [br]
 func _integer(source: Dictionary, key: String, default_value: int = 0) -> int:
 	var value: Variant = source.get(key, default_value)
 	return _integer_value(value, default_value)
 
 
+## 返回 int 输入；其他类型返回默认值。
+## [br]
+## @api private
+## [br]
 func _integer_value(value: Variant, default_value: int = 0) -> int:
 	return value if value is int else default_value
 
 
+## 返回指定字段中的 Array；字段类型不匹配时返回空数组。
+## [br]
+## @api private
+## [br]
 func _array(source: Dictionary, key: String) -> Array:
 	var value: Variant = source.get(key)
 	return value if value is Array else []
 
 
+## 返回指定字段中的 Dictionary；字段类型不匹配时返回空字典。
+## [br]
+## @api private
+## [br]
 func _dictionary(source: Dictionary, key: String) -> Dictionary:
 	var value: Variant = source.get(key)
 	return value if value is Dictionary else {}
 
 
+## 从字典字段构造字符串列表；遇到非字符串数组元素时返回空列表。
+## [br]
+## @api private
+## [br]
 func _string_list(source: Dictionary, key: String) -> PackedStringArray:
 	var value: Variant = source.get(key)
 	var result: PackedStringArray = PackedStringArray()

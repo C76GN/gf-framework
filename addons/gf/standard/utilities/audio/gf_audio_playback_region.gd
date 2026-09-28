@@ -245,6 +245,10 @@ func to_dictionary() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按 WAV、压缩流和 Playlist 的能力限制返回不支持结果，支持时返回 null。
+## [br]
+## @api private
+## [br]
 func _check_stream_support(
 	stream: AudioStream,
 	known_length_seconds: float,
@@ -356,6 +360,10 @@ func _check_stream_support(
 	)
 
 
+## 读取可用的正有限时长；尚无 OGG/MP3 数据或时长未知时返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_known_stream_length(stream: AudioStream) -> float:
 	if stream is AudioStreamOggVorbis:
 		var ogg_stream: AudioStreamOggVorbis = stream
@@ -371,10 +379,18 @@ func _get_known_stream_length(stream: AudioStream) -> float:
 	return reported_length_seconds
 
 
+## 复制音频流，供区间准备过程修改副本而不直接改动输入对象。
+## [br]
+## @api private
+## [br]
 func _duplicate_stream(stream: AudioStream) -> Resource:
 	return stream.duplicate()
 
 
+## 将有效时间量化到 WAV 采样帧，并设置 WAV 循环模式与帧边界。
+## [br]
+## @api private
+## [br]
 func _apply_wav(stream: AudioStreamWAV, applied: GFAudioPlaybackRegionResult) -> void:
 	if loop_mode == LoopMode.DISABLED:
 		stream.loop_mode = AudioStreamWAV.LOOP_DISABLED
@@ -409,10 +425,18 @@ func _apply_wav(stream: AudioStreamWAV, applied: GFAudioPlaybackRegionResult) ->
 			stream.loop_mode = AudioStreamWAV.LOOP_PINGPONG
 
 
+## 判断导出 end_seconds 是否使用 -1 表示自然流结束。
+## [br]
+## @api private
+## [br]
 func _uses_natural_end() -> bool:
 	return end_seconds == -1.0
 
 
+## 检查结果是否表示从零开始且延续到自然结尾的非循环播放。
+## [br]
+## @api private
+## [br]
 func _is_full_stream_region(validation: GFAudioPlaybackRegionResult) -> bool:
 	return (
 		loop_mode == LoopMode.DISABLED
@@ -421,6 +445,10 @@ func _is_full_stream_region(validation: GFAudioPlaybackRegionResult) -> bool:
 	)
 
 
+## 判断整数是否对应已定义的四种循环模式之一。
+## [br]
+## @api private
+## [br]
 func _is_valid_loop_mode(value: int) -> bool:
 	return (
 		value == LoopMode.DISABLED
@@ -430,10 +458,18 @@ func _is_valid_loop_mode(value: int) -> bool:
 	)
 
 
+## 创建带 INVALID 状态和指定原因、消息的区间结果。
+## [br]
+## @api private
+## [br]
 func _invalid(reason_id: StringName, result_message: String) -> GFAudioPlaybackRegionResult:
 	return _make_result(GFAudioPlaybackRegionResult.Status.INVALID, reason_id, result_message)
 
 
+## 创建 UNSUPPORTED 结果，并复制来源结果中已生效的区间字段。
+## [br]
+## @api private
+## [br]
 func _unsupported(
 	reason_id: StringName,
 	result_message: String,
@@ -448,6 +484,10 @@ func _unsupported(
 	return result
 
 
+## 创建结果对象并填入状态、原因、消息及当前导出的区间值。
+## [br]
+## @api private
+## [br]
 func _make_result(
 	result_status: GFAudioPlaybackRegionResult.Status,
 	reason_id: StringName,
@@ -464,6 +504,10 @@ func _make_result(
 	return result
 
 
+## 在两个结果对象间复制已验证的起止时间、循环起点和循环模式。
+## [br]
+## @api private
+## [br]
 func _copy_effective_fields(
 	source: GFAudioPlaybackRegionResult,
 	target: GFAudioPlaybackRegionResult

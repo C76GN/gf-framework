@@ -64,16 +64,59 @@ var ignore_time_scale: bool = false
 
 # --- 私有变量 ---
 
+## 当前超时控制器持有的取消源。
+## [br]
+## @api private
 var _source: GFCancellationSource = null
+
+## 当前取消源的取消信号回调。
+## [br]
+## @api private
 var _source_callback: Callable = Callable()
+
+## 用于统计超时耗时的单调时钟。
+## [br]
+## @api private
 var _clock: GFClock = null
+
+## 当前超时计划是否仍处于活动状态。
+## [br]
+## @api private
 var _active: bool = false
+
+## 最近一次取消是否被判定为超时。
+## [br]
+## @api private
 var _timed_out: bool = false
+
+## 当前取消源的实例标识，用于忽略旧 token 的回调。
+## [br]
+## @api private
 var _source_identity: int = 0
+
+## 控制器主动调用取消期间对应的 source 实例标识。
+## [br]
+## @api private
 var _manual_cancel_source_identity: int = 0
+
+## 当前超时计划的秒数。
+## [br]
+## @api private
 var _timeout_seconds: float = 0.0
+
+## 当前计划开始时的单调时钟毫秒值；未启动时为 -1。
+## [br]
+## @api private
 var _started_msec: int = -1
+
+## 当前超时计划使用的取消原因。
+## [br]
+## @api private
 var _last_reason: StringName = &""
+
+## 当前超时计划保存的取消上下文副本。
+## [br]
+## @api private
 var _last_metadata: Dictionary = {}
 
 
@@ -310,6 +353,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 先断开本控制器对旧 token 的监听再 dispose 旧 source，随后创建并绑定带实例身份的新取消源。
+## [br]
+## @api private
 func _replace_source() -> void:
 	var previous_source: GFCancellationSource = _source
 	_disconnect_source()
@@ -327,6 +373,9 @@ func _replace_source() -> void:
 		push_warning("[GFTimeoutController][timeout_controller.cancellation_connect_failed] Cannot connect the cancellation token; timeout state will not update automatically.")
 
 
+## 断开当前 token 的取消回调并清空回调句柄。
+## [br]
+## @api private
 func _disconnect_source() -> void:
 	if _source == null or not _source_callback.is_valid():
 		return
@@ -336,6 +385,9 @@ func _disconnect_source() -> void:
 	_source_callback = Callable()
 
 
+## 清除活动状态、计时数据和最近一次取消信息。
+## [br]
+## @api private
 func _clear_timeout_state() -> void:
 	_active = false
 	_timed_out = false
@@ -346,6 +398,12 @@ func _clear_timeout_state() -> void:
 	_last_metadata.clear()
 
 
+# --- 信号处理函数 ---
+
+## 忽略旧 source 的回调；仅活动状态、非手动取消且原因等于本轮超时原因时判为 timeout。
+## 接受当前 source 的取消后先清除 active，再按上述判定发送 timed_out。
+## [br]
+## @api private
 func _on_token_cancelled(reason: StringName, cancelled_source_identity: int) -> void:
 	if cancelled_source_identity != _source_identity:
 		return

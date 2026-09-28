@@ -342,6 +342,10 @@ func duplicate_table() -> GFConfigTableResource:
 
 # --- 私有/辅助方法 ---
 
+## 根据表 ID 字段为当前记录构建查找索引。
+## [br]
+## @api private
+## [br]
 func _build_index_from_records() -> Dictionary:
 	var id_field: StringName = get_id_field()
 	if id_field == &"":
@@ -356,6 +360,10 @@ func _build_index_from_records() -> Dictionary:
 	return result
 
 
+## 按 schema 中的索引定义构建所有有效索引。
+## [br]
+## @api private
+## [br]
 func _build_indexes_from_records() -> Dictionary:
 	var result: Dictionary = {}
 	if schema == null:
@@ -368,6 +376,10 @@ func _build_indexes_from_records() -> Dictionary:
 	return result
 
 
+## 按指定索引定义为表记录生成复合键查找索引。
+## [br]
+## @api private
+## [br]
 func _build_index_from_definition(index: GFConfigTableIndexDefinition) -> Dictionary:
 	var result: Dictionary = {}
 	for record: Dictionary in records:
@@ -380,6 +392,10 @@ func _build_index_from_definition(index: GFConfigTableIndexDefinition) -> Dictio
 	return result
 
 
+## 按配置表 ID 字段检查记录是否匹配给定 ID。
+## [br]
+## @api private
+## [br]
 func _record_matches_id(record: Dictionary, record_id: Variant) -> bool:
 	var id_field: StringName = get_id_field()
 	if id_field == &"" or not _record_has_id_field(record, id_field):
@@ -387,14 +403,26 @@ func _record_matches_id(record: Dictionary, record_id: Variant) -> bool:
 	return GFVariantData.get_option_value(record, id_field) == record_id
 
 
+## 检查记录是否包含指定 StringName 或文本形式的 ID 字段。
+## [br]
+## @api private
+## [br]
 func _record_has_id_field(record: Dictionary, id_field: StringName) -> bool:
 	return record.has(id_field) or record.has(String(id_field))
 
 
+## 深复制单条记录字典。
+## [br]
+## @api private
+## [br]
 func _duplicate_record(record: Dictionary) -> Dictionary:
 	return record.duplicate(true)
 
 
+## 复制 ID 索引，并按参数决定是否复制索引中的记录。
+## [br]
+## @api private
+## [br]
 func _duplicate_record_index(source_index: Dictionary, duplicate_records: bool) -> Dictionary:
 	var result: Dictionary = {}
 	for record_id: Variant in source_index.keys():
@@ -407,6 +435,10 @@ func _duplicate_record_index(source_index: Dictionary, duplicate_records: bool) 
 	return result
 
 
+## 复制复合索引，并按参数决定是否复制索引中的记录。
+## [br]
+## @api private
+## [br]
 func _duplicate_records_by_index(source_index: Dictionary, duplicate_records: bool) -> Dictionary:
 	var result: Dictionary = {}
 	for index_id: Variant in source_index.keys():
@@ -427,6 +459,10 @@ func _duplicate_records_by_index(source_index: Dictionary, duplicate_records: bo
 	return result
 
 
+## 复制记录数组中的字典项。
+## [br]
+## @api private
+## [br]
 func _duplicate_record_array(source_records: Array, duplicate_records: bool) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for value: Variant in source_records:
@@ -436,12 +472,20 @@ func _duplicate_record_array(source_records: Array, duplicate_records: bool) -> 
 	return result
 
 
+## 从当前 schema 读取指定索引定义。
+## [br]
+## @api private
+## [br]
 func _get_index_definition(index_id: StringName) -> GFConfigTableIndexDefinition:
 	if schema == null:
 		return null
 	return schema.get_index(index_id)
 
 
+## 读取或按定义构建指定索引的数据。
+## [br]
+## @api private
+## [br]
 func _get_index_data(index_id: StringName) -> Dictionary:
 	var index: GFConfigTableIndexDefinition = _get_index_definition(index_id)
 	if index != null and index.is_valid_definition():
@@ -454,6 +498,10 @@ func _get_index_data(index_id: StringName) -> Dictionary:
 	return {}
 
 
+## 将非空且未重复的索引 ID 追加到数组。
+## [br]
+## @api private
+## [br]
 func _append_index_id(target: PackedStringArray, index_id: StringName) -> void:
 	if index_id == &"" or target.has(String(index_id)):
 		return

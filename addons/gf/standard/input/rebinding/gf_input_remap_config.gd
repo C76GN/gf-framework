@@ -14,6 +14,10 @@ extends Resource
 
 # --- 常量 ---
 
+## 提供输入事件记录转换、事件恢复、类型提取和复制操作。
+## [br]
+## @api private
+## [br]
 const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_input_event_tools.gd")
 
 
@@ -338,6 +342,10 @@ func duplicate_config() -> GFInputRemapConfig:
 
 # --- 私有/辅助方法 ---
 
+## 将一条路径、错误码和消息追加到 apply_dict 的问题列表。
+## [br]
+## @api private
+## [br]
 static func _append_apply_issue(
 	issues: Array[Dictionary],
 	path: String,
@@ -351,12 +359,20 @@ static func _append_apply_issue(
 	})
 
 
+## 根据提交结果和问题列表填写 committed 与 ok 字段，并返回报告。
+## [br]
+## @api private
+## [br]
 static func _finish_apply_report(report: Dictionary, committed: bool) -> Dictionary:
 	report["committed"] = committed
 	report["ok"] = committed and GFVariantData.get_option_array(report, "issues").is_empty()
 	return report
 
 
+## 将非负整数或表示非负整数的 String/StringName 解析为索引，其他值返回 ok=false、value=-1。
+## [br]
+## @api private
+## [br]
 static func _parse_binding_index(value: Variant) -> Dictionary:
 	if value is int:
 		var int_value: int = value
@@ -368,6 +384,11 @@ static func _parse_binding_index(value: Variant) -> Dictionary:
 			return { "ok": parsed >= 0, "value": parsed }
 	return { "ok": false, "value": -1 }
 
+## 确保 remapped_events 中存在指定上下文和动作的字典映射；遇到非字典映射时以空字典替换。
+## 返回对应动作字典，供绑定写入路径使用。
+## [br]
+## @api private
+## [br]
 func _ensure_action_map(context_id: StringName, action_id: StringName) -> Dictionary:
 	var context_key: Variant = _find_dictionary_key(remapped_events, context_id)
 	var context_map: Dictionary = {}
@@ -395,23 +416,43 @@ func _ensure_action_map(context_id: StringName, action_id: StringName) -> Dictio
 	return new_action_map
 
 
+## 从 remapped_events 读取指定上下文映射，并收窄为 Dictionary。
+## [br]
+## @api private
+## [br]
 func _get_context_map(context_id: StringName) -> Dictionary:
 	return _get_dictionary_reference(remapped_events, context_id)
 
 
+## 从上下文映射读取指定动作映射，并收窄为 Dictionary。
+## [br]
+## @api private
+## [br]
 func _get_action_map(context_map: Dictionary, action_id: StringName) -> Dictionary:
 	return _get_dictionary_reference(context_map, action_id)
 
 
+## 通过 GFVariantData 读取字典值并将其转换为 Dictionary。
+## [br]
+## @api private
+## [br]
 func _get_dictionary_reference(source: Dictionary, key: Variant) -> Dictionary:
 	var value: Variant = GFVariantData.get_option_value(source, key)
 	return GFVariantData.as_dictionary(value)
 
 
+## 读取绑定索引对应的原始 Variant 值。
+## [br]
+## @api private
+## [br]
 func _get_binding_value(action_map: Dictionary, binding_key: Variant) -> Variant:
 	return GFVariantData.get_option_value(action_map, binding_key)
 
 
+## 查找字典中与给定键相同或 String/StringName 等价的已有键；未找到时返回 null。
+## [br]
+## @api private
+## [br]
 func _find_dictionary_key(source: Dictionary, key: Variant) -> Variant:
 	if source.has(key):
 		return key
@@ -426,22 +467,42 @@ func _find_dictionary_key(source: Dictionary, key: Variant) -> Variant:
 	return null
 
 
+## 将输入事件委托给工具类序列化为记录字典。
+## [br]
+## @api private
+## [br]
 func _event_to_record(input_event: InputEvent) -> Dictionary:
 	return _INPUT_EVENT_TOOLS.input_event_to_record(input_event)
 
 
+## 将事件记录委托给工具类恢复为 InputEvent。
+## [br]
+## @api private
+## [br]
 func _event_from_record(record: Dictionary) -> InputEvent:
 	return _INPUT_EVENT_TOOLS.input_event_from_record(record)
 
 
+## 将输入事件委托给工具类复制。
+## [br]
+## @api private
+## [br]
 func _duplicate_input_event(input_event: InputEvent) -> InputEvent:
 	return _INPUT_EVENT_TOOLS.duplicate_input_event(input_event)
 
 
+## 从 Variant 中提取 InputEvent；转换规则由事件工具类处理。
+## [br]
+## @api private
+## [br]
 func _variant_to_input_event(value: Variant) -> InputEvent:
 	return _INPUT_EVENT_TOOLS.get_input_event(value)
 
 
+## 从目标字典中删除指定键；键不存在时不执行其他操作。
+## [br]
+## @api private
+## [br]
 func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 	var erased: bool = target.erase(key)
 	if erased:

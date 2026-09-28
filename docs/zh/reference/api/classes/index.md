@@ -10,7 +10,7 @@
 | Standard | 487 | 7649 | [Standard](#module-standard) |
 | Action Queue | 17 | 227 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
-| Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
+| Behavior Tree | 22 | 96 | [Behavior Tree](#module-extensions-behavior_tree) |
 | Camera | 8 | 138 | [Camera](#module-extensions-camera) |
 | Capability | 11 | 148 | [Capability](#module-extensions-capability) |
 | Combat | 71 | 684 | [Combat](#module-extensions-combat) |
@@ -24,7 +24,7 @@
 | Extensions / Layered Sprite | 4 | 46 | [Extensions / Layered Sprite](#module-extensions-layered_sprite) |
 | Network | 41 | 636 | [Network](#module-extensions-network) |
 | Physics | 4 | 50 | [Physics](#module-extensions-physics) |
-| Save | 52 | 658 | [Save](#module-extensions-save) |
+| Save | 52 | 659 | [Save](#module-extensions-save) |
 | Turn Based | 5 | 50 | [Turn Based](#module-extensions-turn_based) |
 | Tools | 25 | 202 | [Tools](#module-tools) |
 
@@ -651,8 +651,8 @@
 | 类 | 类别 | 继承 | 成员 | 源文件 |
 |---|---|---|---:|---|
 | [`GFBehaviorTree`](GFBehaviorTree.md#gfbehaviortree) | 协议与扩展点 (`protocol`) | `Object` | 4 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
-| [`GFBehaviorTree.BTNode`](GFBehaviorTree.md#gfbehaviortreebtnode) | 协议与扩展点 (`protocol`) | `RefCounted` | 13 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
-| [`GFBehaviorTree.Decorator`](GFBehaviorTree.md#gfbehaviortreedecorator) | 协议与扩展点 (`protocol`) | `BTNode` | 3 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
+| [`GFBehaviorTree.BTNode`](GFBehaviorTree.md#gfbehaviortreebtnode) | 协议与扩展点 (`protocol`) | `RefCounted` | 14 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
+| [`GFBehaviorTree.Decorator`](GFBehaviorTree.md#gfbehaviortreedecorator) | 协议与扩展点 (`protocol`) | `BTNode` | 4 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
 | [`GFBehaviorTree.Runner`](GFBehaviorTree.md#gfbehaviortreerunner) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 6 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
 | [`GFBehaviorTree.Action`](GFBehaviorTree.md#gfbehaviortreeaction) | 领域模型 (`domain_model`) | `BTNode` | 2 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
 | [`GFBehaviorTree.AlwaysFail`](GFBehaviorTree.md#gfbehaviortreealwaysfail) | 领域模型 (`domain_model`) | `Decorator` | 2 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
@@ -662,13 +662,13 @@
 | [`GFBehaviorTree.Cooldown`](GFBehaviorTree.md#gfbehaviortreecooldown) | 领域模型 (`domain_model`) | `Decorator` | 6 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
 | [`GFBehaviorTree.Inverter`](GFBehaviorTree.md#gfbehaviortreeinverter) | 领域模型 (`domain_model`) | `Decorator` | 2 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
 | [`GFBehaviorTree.Limit`](GFBehaviorTree.md#gfbehaviortreelimit) | 领域模型 (`domain_model`) | `Decorator` | 4 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
-| [`GFBehaviorTree.Parallel`](GFBehaviorTree.md#gfbehaviortreeparallel) | 领域模型 (`domain_model`) | `BTNode` | 4 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
+| [`GFBehaviorTree.Parallel`](GFBehaviorTree.md#gfbehaviortreeparallel) | 领域模型 (`domain_model`) | `BTNode` | 5 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
 | [`GFBehaviorTree.Probability`](GFBehaviorTree.md#gfbehaviortreeprobability) | 领域模型 (`domain_model`) | `Decorator` | 5 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
-| [`GFBehaviorTree.RandomSelector`](GFBehaviorTree.md#gfbehaviortreerandomselector) | 领域模型 (`domain_model`) | `BTNode` | 4 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
-| [`GFBehaviorTree.RandomSequence`](GFBehaviorTree.md#gfbehaviortreerandomsequence) | 领域模型 (`domain_model`) | `BTNode` | 4 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
+| [`GFBehaviorTree.RandomSelector`](GFBehaviorTree.md#gfbehaviortreerandomselector) | 领域模型 (`domain_model`) | `BTNode` | 5 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
+| [`GFBehaviorTree.RandomSequence`](GFBehaviorTree.md#gfbehaviortreerandomsequence) | 领域模型 (`domain_model`) | `BTNode` | 5 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
 | [`GFBehaviorTree.Repeat`](GFBehaviorTree.md#gfbehaviortreerepeat) | 领域模型 (`domain_model`) | `Decorator` | 4 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
-| [`GFBehaviorTree.Selector`](GFBehaviorTree.md#gfbehaviortreeselector) | 领域模型 (`domain_model`) | `BTNode` | 3 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
-| [`GFBehaviorTree.Sequence`](GFBehaviorTree.md#gfbehaviortreesequence) | 领域模型 (`domain_model`) | `BTNode` | 3 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
+| [`GFBehaviorTree.Selector`](GFBehaviorTree.md#gfbehaviortreeselector) | 领域模型 (`domain_model`) | `BTNode` | 4 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
+| [`GFBehaviorTree.Sequence`](GFBehaviorTree.md#gfbehaviortreesequence) | 领域模型 (`domain_model`) | `BTNode` | 4 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
 | [`GFBehaviorTree.TimeLimit`](GFBehaviorTree.md#gfbehaviortreetimelimit) | 领域模型 (`domain_model`) | `Decorator` | 5 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
 | [`GFBehaviorTree.UntilFail`](GFBehaviorTree.md#gfbehaviortreeuntilfail) | 领域模型 (`domain_model`) | `Decorator` | 2 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
 | [`GFBehaviorTree.UntilSuccess`](GFBehaviorTree.md#gfbehaviortreeuntilsuccess) | 领域模型 (`domain_model`) | `Decorator` | 2 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
@@ -978,7 +978,7 @@
 | [`GFSaveProfileUtility`](GFSaveProfileUtility.md#gfsaveprofileutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 26 | `addons/gf/extensions/save/profile/gf_save_profile_utility.gd` |
 | [`GFSaveSlotStorageAdapter`](GFSaveSlotStorageAdapter.md#gfsaveslotstorageadapter) | 运行时服务 (`runtime_service`) | `Resource` | 17 | `addons/gf/extensions/save/slots/gf_save_slot_storage_adapter.gd` |
 | [`GFSaveSlotSyncBridge`](GFSaveSlotSyncBridge.md#gfsaveslotsyncbridge) | 运行时服务 (`runtime_service`) | `RefCounted` | 6 | `addons/gf/extensions/save/slots/gf_save_slot_sync_bridge.gd` |
-| [`GFNodeSerializer`](GFNodeSerializer.md#gfnodeserializer) | 协议与扩展点 (`protocol`) | `Resource` | 15 | `addons/gf/extensions/save/serializers/gf_node_serializer.gd` |
+| [`GFNodeSerializer`](GFNodeSerializer.md#gfnodeserializer) | 协议与扩展点 (`protocol`) | `Resource` | 16 | `addons/gf/extensions/save/serializers/gf_node_serializer.gd` |
 | [`GFPersistPropertiesSource`](GFPersistPropertiesSource.md#gfpersistpropertiessource) | 协议与扩展点 (`protocol`) | `GFSaveSource` | 6 | `addons/gf/extensions/save/core/gf_persist_properties_source.gd` |
 | [`GFSaveDataSource`](GFSaveDataSource.md#gfsavedatasource) | 协议与扩展点 (`protocol`) | `GFSaveSource` | 10 | `addons/gf/extensions/save/core/gf_save_data_source.gd` |
 | [`GFSaveEntityFactory`](GFSaveEntityFactory.md#gfsaveentityfactory) | 协议与扩展点 (`protocol`) | `Resource` | 5 | `addons/gf/extensions/save/core/gf_save_entity_factory.gd` |

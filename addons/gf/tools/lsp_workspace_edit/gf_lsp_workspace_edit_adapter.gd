@@ -31,27 +31,116 @@ const POSITION_ENCODING_UTF8: String = "utf-8"
 ## @since 11.0.0
 const POSITION_ENCODING_UTF16: String = "utf-16"
 
+## 预检计划载荷的格式标识。
+## [br]
+## @api private
+## [br]
 const _FORMAT: String = "gf.lsp_workspace_edit.plan"
+
+## 预检计划载荷的格式版本。
+## [br]
+## @api private
+## [br]
 const _FORMAT_VERSION: int = 1
+
+## 默认允许纳入计划的文档数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_FILE_COUNT: int = 64
+
+## 默认允许单个文档包含的编辑数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_EDITS_PER_FILE: int = 1024
+
+## 默认允许单个源文件或结果文件的字节数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_FILE_BYTES: int = 4 * 1024 * 1024
+
+## 默认允许工作区源文件或结果文件的累计字节数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_TOTAL_BYTES: int = 32 * 1024 * 1024
+
+## 默认允许的 WorkspaceEdit 序列化或替换文本字节数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_WORKSPACE_EDIT_BYTES: int = 8 * 1024 * 1024
+
+## 允许配置的绝对最大文档数。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_FILE_COUNT: int = 256
+
+## 允许配置的单文档绝对最大编辑数。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_EDITS_PER_FILE: int = 4096
+
+## 允许配置的单文件绝对最大字节数。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_FILE_BYTES: int = 64 * 1024 * 1024
+
+## 允许配置的累计源文件/结果文件绝对最大字节数。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_TOTAL_BYTES: int = 256 * 1024 * 1024
+
+## 允许配置的 WorkspaceEdit 绝对最大字节数。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_WORKSPACE_EDIT_BYTES: int = 32 * 1024 * 1024
+
+## file URI 输入允许的最大 UTF-8 字节数。
+## [br]
+## @api private
+## [br]
 const _MAX_URI_BYTES: int = 16 * 1024
+
+## LSP 行号、字符位置和版本号允许的最大整数。
+## [br]
+## @api private
+## [br]
 const _MAX_LSP_INTEGER: int = 2_147_483_647
+
+## 目标路径逐目录核对拼写时允许扫描的目录项总数。
+## [br]
+## @api private
+## [br]
 const _MAX_PATH_SPELLING_ENTRIES: int = 65_536
+
+## 保存适配器计划状态与载荷的内部值对象脚本。
+## [br]
+## @api private
+## [br]
 const _PLAN_SCRIPT = preload(
 	"res://addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_plan.gd"
 )
+
+## 提供文本产物预检与一次性写事务的内部脚本。
+## [br]
+## @api private
+## [br]
 const _ARTIFACT_TRANSACTION_SCRIPT = preload(
 	"res://addons/gf/kernel/editor/gf_artifact_write_transaction.gd"
 )
+
+## 提供带范围和重叠检查的源码文本编辑应用工具。
+## [br]
+## @api private
+## [br]
 const _SOURCE_TEXT_PATCH_TOOLS_SCRIPT = preload(
 	"res://addons/gf/standard/foundation/text/gf_source_text_patch_tools.gd"
 )
@@ -59,10 +148,34 @@ const _SOURCE_TEXT_PATCH_TOOLS_SCRIPT = preload(
 
 # --- 私有变量 ---
 
+## 测试用的提交前一次性回调。
+## [br]
+## @api private
+## [br]
 static var _test_before_artifact_commit: Callable = Callable()
+
+## 控制测试是否记录每行位置边界表的计算次数。
+## [br]
+## @api private
+## [br]
 static var _test_track_position_line_scans: bool = false
+
+## 按行号记录测试期间的位置边界表计算次数。
+## [br]
+## @api private
+## [br]
 static var _test_position_line_scan_counts: Dictionary = {}
+
+## 控制测试是否记录严格来源读取的字节数。
+## [br]
+## @api private
+## [br]
 static var _test_source_read_tracking: bool = false
+
+## 测试期间严格来源读取的文件字节数列表。
+## [br]
+## @api private
+## [br]
 static var _test_source_read_sizes: Array[int] = []
 
 
@@ -376,6 +489,10 @@ static func commit_plan(
 
 # --- 私有/辅助方法 ---
 
+## 校验闭合选项、位置编码和五项正整数预算，并返回规范选项及诊断。
+## [br]
+## @api private
+## [br]
 static func _normalize_options(options: Dictionary) -> Dictionary:
 	var issues: Array[Dictionary] = []
 	_require_closed_dictionary(
@@ -454,6 +571,9 @@ static func _normalize_options(options: Dictionary) -> Dictionary:
 	return result
 
 
+## 准入闭合快照字段并要求 URI 精确对应当前项目根；只接受已保存、有版本和摘要的文档，以可移植路径身份拒绝重复目标，返回独立规范文档及索引。
+## [br]
+## @api private
 static func _normalize_workspace_snapshot(
 	snapshot: Dictionary,
 	budgets: Dictionary
@@ -678,6 +798,9 @@ static func _normalize_workspace_snapshot(
 	}
 
 
+## 只接受 documentChanges 中的文本编辑，逐目标匹配快照 URI、版本和磁盘摘要后计算候选文本；累计替换、源和结果预算，并要求目标集合与快照一致，不写入文件。
+## [br]
+## @api private
 static func _normalize_workspace_edit(
 	workspace_edit: Dictionary,
 	snapshot: Dictionary,
@@ -1044,6 +1167,9 @@ static func _normalize_workspace_edit(
 	}
 
 
+## 按输入顺序校验闭合编辑形状并把 UTF 编码位置转为 Godot 字符位置，拒绝 NUL 替换文本并累计字节；区间顺序与重叠检查留给文本补丁工具。
+## [br]
+## @api private
 static func _convert_text_edits(
 	source_text: String,
 	edits: Array,
@@ -1206,6 +1332,10 @@ static func _convert_text_edits(
 	}
 
 
+## 检查 LSP position 仅包含 line/character，且二者为非负受限整数。
+## [br]
+## @api private
+## [br]
 static func _validate_position_shape(
 	position: Dictionary,
 	field: String,
@@ -1234,6 +1364,10 @@ static func _validate_position_shape(
 		)
 
 
+## 将源文本按 CRLF、CR 或 LF 拆成行文本，并保留末尾换行后的空行。
+## [br]
+## @api private
+## [br]
 static func _build_line_map(source_text: String) -> Array[Dictionary]:
 	var lines: Array[Dictionary] = []
 	var line_start: int = 0
@@ -1267,6 +1401,9 @@ static func _build_line_map(source_text: String) -> Array[Dictionary]:
 	return lines
 
 
+## 在行边界表中二分匹配 UTF-8 字节或 UTF-16 单元偏移，返回 Godot 字符索引；行内非边界偏移拒绝为切分码点，越界另报错误。
+## [br]
+## @api private
 static func _lsp_position_to_godot_character(
 	lines: Array[Dictionary],
 	line: int,
@@ -1314,6 +1451,9 @@ static func _lsp_position_to_godot_character(
 	}
 
 
+## 按每个码点累加 UTF-8 字节或 UTF-16 单元，在本次行映射中缓存编码和边界数组；补充平面码点占两个 UTF-16 单元，分配失败返回空表。
+## [br]
+## @api private
 static func _get_line_position_boundaries(
 	lines: Array[Dictionary],
 	line: int,
@@ -1351,6 +1491,10 @@ static func _get_line_position_boundaries(
 	return boundaries
 
 
+## 返回 Unicode codepoint 的 UTF-8 编码长度，范围为 1 到 4 字节。
+## [br]
+## @api private
+## [br]
 static func _get_utf8_codepoint_size(codepoint: int) -> int:
 	if codepoint <= 0x7f:
 		return 1
@@ -1361,6 +1505,9 @@ static func _get_utf8_codepoint_size(codepoint: int) -> int:
 	return 4
 
 
+## 要求无 BOM 且可按 UTF-8 字节往返的源码，再次有界读取并比较全部字节；只对两次读取一致的内容返回文本、长度与摘要。
+## [br]
+## @api private
 static func _read_strict_utf8_source(path: String, max_file_bytes: int) -> Dictionary:
 	var source: Dictionary = _read_bounded_source_bytes(path, max_file_bytes)
 	if not GFVariantData.get_option_bool(source, "ok"):
@@ -1392,6 +1539,9 @@ static func _read_strict_utf8_source(path: String, max_file_bytes: int) -> Dicti
 	}
 
 
+## 按读取前长度检查单文件预算并完整读取，关闭后核对读取错误、字节数及读取后长度；这次长度校验不能单独发现等长内容替换。
+## [br]
+## @api private
 static func _read_bounded_source_bytes(path: String, max_file_bytes: int) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return _make_source_failure(
@@ -1430,6 +1580,9 @@ static func _read_bounded_source_bytes(path: String, max_file_bytes: int) -> Dic
 	return { "ok": true, "bytes": bytes }
 
 
+## 把本地 URI 限定为当前项目根内规范、现存的 .gd 文件，复核链接组件和实际目录项拼写后返回资源及绝对路径。
+## [br]
+## @api private
 static func _resolve_target_uri(uri: String, workspace_root: String) -> Dictionary:
 	var uri_report: Dictionary = _decode_file_uri(uri)
 	if not GFVariantData.get_option_bool(uri_report, "ok"):
@@ -1495,6 +1648,9 @@ static func _resolve_target_uri(uri: String, workspace_root: String) -> Dictiona
 	}
 
 
+## 沿目标相对路径逐级枚举目录项，精确匹配拼写；所有级别共用一次条目预算，未命中前耗尽或目录不可读即拒绝。
+## [br]
+## @api private
 static func _has_exact_target_spelling(workspace_root: String, relative_path: String) -> bool:
 	var parent_path: String = workspace_root
 	var remaining_entries: int = _MAX_PATH_SPELLING_ENTRIES
@@ -1522,6 +1678,9 @@ static func _has_exact_target_spelling(workspace_root: String, relative_path: St
 	return true
 
 
+## 仅接收小写 file:// 的无 authority 绝对本地 URI，拒绝查询、片段、编码分隔符和点段；解码后去除 Windows 盘符前的 URI 斜线并规范路径。
+## [br]
+## @api private
 static func _decode_file_uri(uri: String) -> Dictionary:
 	if uri.to_utf8_buffer().size() > _MAX_URI_BYTES:
 		return _make_uri_failure("file URI exceeds the URI byte budget.")
@@ -1556,6 +1715,9 @@ static func _decode_file_uri(uri: String) -> Dictionary:
 	}
 
 
+## 提交前重验计划闭合形状、版本、编码、预算、目标去重及结果文本摘要，并确认项目根身份；当前磁盘内容与快照匹配由 freshness 阶段另行核对。
+## [br]
+## @api private
 static func _validate_plan_payload(payload: Dictionary) -> Dictionary:
 	var issues: Array[Dictionary] = []
 	_require_closed_dictionary(
@@ -1767,6 +1929,9 @@ static func _validate_plan_payload(payload: Dictionary) -> Dictionary:
 	return { "ok": issues.is_empty(), "issues": issues }
 
 
+## 逐项比较审阅计划与当前快照的工作区、文档集合、URI、版本和源摘要，再重读磁盘长度与摘要并核对 changed 标志；不消费计划或写入文件。
+## [br]
+## @api private
 static func _validate_fresh_state(
 	payload: Dictionary,
 	snapshot: Dictionary
@@ -1884,6 +2049,10 @@ static func _validate_fresh_state(
 	return issues
 
 
+## 生成 rejected 报告，并初始化无效且无载荷的适配器计划。
+## [br]
+## @api private
+## [br]
 static func _make_invalid_plan(
 	issues: Array[Dictionary],
 	snapshot: Dictionary = {},
@@ -1907,6 +2076,10 @@ static func _make_invalid_plan(
 	return plan
 
 
+## 组装计划公开摘要，深复制 issues 与 document 报告列表。
+## [br]
+## @api private
+## [br]
 static func _make_plan_report(
 	ok: bool,
 	status: String,
@@ -1947,6 +2120,10 @@ static func _make_plan_report(
 	}
 
 
+## 从内部文档载荷投影出不含 result_text 的公开文档摘要。
+## [br]
+## @api private
+## [br]
 static func _make_public_document_report(document: Dictionary) -> Dictionary:
 	return {
 		"path": GFVariantData.get_option_string(document, "path"),
@@ -1967,6 +2144,10 @@ static func _make_public_document_report(document: Dictionary) -> Dictionary:
 	}
 
 
+## 将单条提交失败消息包装为 issue，再生成标准提交报告。
+## [br]
+## @api private
+## [br]
 static func _make_commit_failure(
 	status: String,
 	message: String,
@@ -1977,6 +2158,10 @@ static func _make_commit_failure(
 	return _make_commit_report(false, status, plan_sha256, issues)
 
 
+## 组装提交结果，并从 artifact_report 投影计数、恢复信息和事务报告。
+## [br]
+## @api private
+## [br]
 static func _make_commit_report(
 	ok: bool,
 	status: String,
@@ -2013,6 +2198,10 @@ static func _make_commit_report(
 	}
 
 
+## 返回编辑规范化失败结果及空文档、零计数和字节数。
+## [br]
+## @api private
+## [br]
 static func _make_edit_normalization_failure(
 	issues: Array[Dictionary]
 ) -> Dictionary:
@@ -2027,6 +2216,10 @@ static func _make_edit_normalization_failure(
 	}
 
 
+## 构造来源读取失败结果，并将文本、大小和 SHA-256 设为空值。
+## [br]
+## @api private
+## [br]
 static func _make_source_failure(kind: StringName, message: String) -> Dictionary:
 	return {
 		"ok": false,
@@ -2038,6 +2231,10 @@ static func _make_source_failure(kind: StringName, message: String) -> Dictionar
 	}
 
 
+## 构造 URI 解码失败结果，absolute_path 为空。
+## [br]
+## @api private
+## [br]
 static func _make_uri_failure(message: String) -> Dictionary:
 	return {
 		"ok": false,
@@ -2046,6 +2243,10 @@ static func _make_uri_failure(message: String) -> Dictionary:
 	}
 
 
+## 生成仅允许 res://、覆盖已存在目标、关闭文件系统扫描的事务选项及预算。
+## [br]
+## @api private
+## [br]
 static func _make_transaction_options(budgets: Dictionary) -> Dictionary:
 	return {
 		"allowed_roots": PackedStringArray(["res://"]),
@@ -2070,6 +2271,10 @@ static func _make_transaction_options(budgets: Dictionary) -> Dictionary:
 	}
 
 
+## 从规范选项中投影位置编码和五项资源预算。
+## [br]
+## @api private
+## [br]
 static func _extract_budgets(options: Dictionary) -> Dictionary:
 	return {
 		"position_encoding": GFVariantData.get_option_string(
@@ -2099,6 +2304,10 @@ static func _extract_budgets(options: Dictionary) -> Dictionary:
 	}
 
 
+## 读取单项预算；缺失时用默认值，类型无效或超界时写入 issue 并回退默认值。
+## [br]
+## @api private
+## [br]
 static func _read_budget(
 	options: Dictionary,
 	key: String,
@@ -2128,6 +2337,10 @@ static func _read_budget(
 	return value
 
 
+## 为非 String 键或不在允许列表中的键追加 unsupported_field issue。
+## [br]
+## @api private
+## [br]
 static func _require_closed_dictionary(
 	data: Dictionary,
 	allowed_keys: PackedStringArray,
@@ -2152,18 +2365,34 @@ static func _require_closed_dictionary(
 			)
 
 
+## 判断键是否存在且其值的 Variant 类型恰为 String。
+## [br]
+## @api private
+## [br]
 static func _has_exact_string(data: Dictionary, key: String) -> bool:
 	return data.has(key) and typeof(data[key]) == TYPE_STRING
 
 
+## 判断键是否存在且其值的 Variant 类型恰为 bool。
+## [br]
+## @api private
+## [br]
 static func _has_exact_bool(data: Dictionary, key: String) -> bool:
 	return data.has(key) and typeof(data[key]) == TYPE_BOOL
 
 
+## 判断键是否存在且其值的 Variant 类型恰为 int。
+## [br]
+## @api private
+## [br]
 static func _has_exact_int(data: Dictionary, key: String) -> bool:
 	return data.has(key) and typeof(data[key]) == TYPE_INT
 
 
+## 判断键是否为 0 到 _MAX_LSP_INTEGER 范围内的 int。
+## [br]
+## @api private
+## [br]
 static func _has_nonnegative_int(data: Dictionary, key: String) -> bool:
 	if not _has_exact_int(data, key):
 		return false
@@ -2171,10 +2400,18 @@ static func _has_nonnegative_int(data: Dictionary, key: String) -> bool:
 	return value >= 0 and value <= _MAX_LSP_INTEGER
 
 
+## 从 report.issues 取回经过字典筛选和深复制的 issue 数组。
+## [br]
+## @api private
+## [br]
 static func _get_issue_array(report: Dictionary) -> Array[Dictionary]:
 	return _get_dictionary_array(report, "issues")
 
 
+## 从指定数组筛出 Dictionary 项，并逐项深复制后返回。
+## [br]
+## @api private
+## [br]
 static func _get_dictionary_array(
 	report: Dictionary,
 	key: String
@@ -2187,6 +2424,10 @@ static func _get_dictionary_array(
 	return result
 
 
+## 创建含 kind/message 的 issue，复制附加字段后追加到目标数组。
+## [br]
+## @api private
+## [br]
 static func _append_issue(
 	issues: Array[Dictionary],
 	kind: StringName,
@@ -2202,10 +2443,18 @@ static func _append_issue(
 	issues.append(issue)
 
 
+## 使用排序键的紧凑 JSON.stringify 文本计算 SHA-256。
+## [br]
+## @api private
+## [br]
 static func _hash_canonical(value: Variant) -> String:
 	return JSON.stringify(value, "", true).sha256_text()
 
 
+## 计算字节数组的 SHA-256 小写十六进制摘要；上下文启动或更新失败时返回空串。
+## [br]
+## @api private
+## [br]
 static func _sha256_bytes(bytes: PackedByteArray) -> String:
 	var context: HashingContext = HashingContext.new()
 	var start_error: Error = context.start(HashingContext.HASH_SHA256)
@@ -2217,6 +2466,10 @@ static func _sha256_bytes(bytes: PackedByteArray) -> String:
 	return context.finish().hex_encode()
 
 
+## 判断字符串是否恰含 64 个小写十六进制字符。
+## [br]
+## @api private
+## [br]
 static func _is_sha256(value: String) -> bool:
 	if value.length() != 64:
 		return false
@@ -2226,6 +2479,10 @@ static func _is_sha256(value: String) -> bool:
 	return true
 
 
+## 检查每个百分号后是否恰有两个十六进制字符。
+## [br]
+## @api private
+## [br]
 static func _has_valid_percent_encoding(value: String) -> bool:
 	var index: int = 0
 	while index < value.length():
@@ -2242,6 +2499,10 @@ static func _has_valid_percent_encoding(value: String) -> bool:
 	return true
 
 
+## 判断字符串是否包含 NUL codepoint。
+## [br]
+## @api private
+## [br]
 static func _string_contains_nul(value: String) -> bool:
 	for index: int in range(value.length()):
 		if value.unicode_at(index) == 0:
@@ -2249,6 +2510,10 @@ static func _string_contains_nul(value: String) -> bool:
 	return false
 
 
+## 将反斜杠换为斜杠、简化路径并去除末尾多余斜杠。
+## [br]
+## @api private
+## [br]
 static func _normalize_absolute_path(path: String) -> String:
 	var normalized: String = path.replace("\\", "/").simplify_path()
 	while normalized.length() > 1 and normalized.ends_with("/"):
@@ -2256,16 +2521,27 @@ static func _normalize_absolute_path(path: String) -> String:
 	return normalized
 
 
+## 返回规范化后转小写的路径身份字符串。
+## [br]
+## @api private
+## [br]
 static func _portable_path_identity(path: String) -> String:
 	return _normalize_absolute_path(path).to_lower()
 
 
+## 接受 Godot 判断为绝对路径的形式或形如 X:/ 的驱动器路径。
+## [br]
+## @api private
+## [br]
 static func _is_absolute_filesystem_path(path: String) -> bool:
 	if path.is_absolute_path():
 		return true
 	return path.length() >= 3 and path.substr(1, 2) == ":/"
 
 
+## 从规范绝对路径向根检查引擎可识别的链接组件；逐段查询不锁定文件系统，提交仍依赖后续来源及事务校验。
+## [br]
+## @api private
 static func _path_has_link_component(path: String) -> bool:
 	var current: String = _normalize_absolute_path(path)
 	while not current.is_empty():
@@ -2278,6 +2554,9 @@ static func _path_has_link_component(path: String) -> bool:
 	return false
 
 
+## 通过父目录查询目标段的链接标志；父目录存在却无法打开时按不安全返回 true，没有可查询的路径段时返回 false。
+## [br]
+## @api private
 static func _path_component_is_link(path: String) -> bool:
 	var normalized: String = _normalize_absolute_path(path)
 	var parent: String = normalized.get_base_dir()
@@ -2290,25 +2569,45 @@ static func _path_component_is_link(path: String) -> bool:
 	return directory.is_link(component_name)
 
 
+## 按两个文档 path 的 portable identity 进行字典序比较。
+## [br]
+## @api private
+## [br]
 static func _compare_documents(left: Dictionary, right: Dictionary) -> bool:
 	return _portable_path_identity(
 		GFVariantData.get_option_string(left, "path")
 	) < _portable_path_identity(GFVariantData.get_option_string(right, "path"))
 
 
+## 设置适配器在调用产物事务前消费的一次性测试回调。
+## [br]
+## @api private
+## [br]
 static func _configure_test_before_artifact_commit(callback: Callable) -> void:
 	_test_before_artifact_commit = callback
 
 
+## 切换行位置扫描计数，并清除此前记录。
+## [br]
+## @api private
+## [br]
 static func _configure_test_position_line_scan_tracking(enabled: bool) -> void:
 	_test_track_position_line_scans = enabled
 	_test_position_line_scan_counts.clear()
 
 
+## 返回指定行的位置边界表计算次数；尚无记录时返回 0。
+## [br]
+## @api private
+## [br]
 static func _get_test_position_line_scan_count(line: int) -> int:
 	return GFVariantData.get_option_int(_test_position_line_scan_counts, line, 0)
 
 
+## 仅在测试跟踪开启时递增指定行的位置边界表计算次数。
+## [br]
+## @api private
+## [br]
 static func _record_test_position_line_scan(line: int) -> void:
 	if not _test_track_position_line_scans:
 		return
@@ -2318,6 +2617,10 @@ static func _record_test_position_line_scan(line: int) -> void:
 	)
 
 
+## 重置提交回调、两个跟踪开关及其计数和读取大小列表。
+## [br]
+## @api private
+## [br]
 static func _reset_test_state() -> void:
 	_test_before_artifact_commit = Callable()
 	_test_track_position_line_scans = false
@@ -2326,10 +2629,18 @@ static func _reset_test_state() -> void:
 	_test_source_read_sizes.clear()
 
 
+## 开启测试来源读取字节记录并清除此前列表。
+## [br]
+## @api private
+## [br]
 static func _configure_test_source_read_tracking() -> void:
 	_test_source_read_tracking = true
 	_test_source_read_sizes.clear()
 
 
+## 返回测试记录的来源读取字节数数组副本。
+## [br]
+## @api private
+## [br]
 static func _get_test_source_read_sizes() -> Array[int]:
 	return _test_source_read_sizes.duplicate()

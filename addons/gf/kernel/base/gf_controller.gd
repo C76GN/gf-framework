@@ -18,9 +18,25 @@ extends Node
 ## [br]
 ## @api framework_internal
 const GFNodeContextBase = preload("res://addons/gf/kernel/core/gf_node_context.gd")
+
+## 类型事件绑定记录使用的 kind 值。
+## [br]
+## @api private
 const _EVENT_BINDING_KIND_TYPE: StringName = &"type"
+
+## 可赋值类型事件绑定记录使用的 kind 值。
+## [br]
+## @api private
 const _EVENT_BINDING_KIND_ASSIGNABLE: StringName = &"assignable"
+
+## StringName 轻量事件绑定记录使用的 kind 值。
+## [br]
+## @api private
 const _EVENT_BINDING_KIND_SIMPLE: StringName = &"simple"
+
+## 安全读取事件绑定字典中的 Variant 字段。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -46,29 +62,69 @@ var host: Node:
 
 # --- 私有变量 ---
 
+## 保存曾向其注册本 Controller 所有者事件的架构，以便离树时逐个注销。
+## [br]
+## @api private
 var _event_architectures: Array[GFArchitecture] = []
+
+## 保存事件注册请求，供架构上下文切换后重新应用。
+## [br]
+## @api private
 var _event_bindings: Array[Dictionary] = []
+
+## 最近一次同步事件绑定时使用的架构。
+## [br]
+## @api private
 var _active_event_architecture: GFArchitecture = null
+
+## 每当本地事件绑定集合实际变化时递增。
+## [br]
+## @api private
 var _event_binding_revision: int = 0
+
+## 最近一次应用到架构的绑定版本；-1 表示需要重新同步。
+## [br]
+## @api private
 var _applied_event_binding_revision: int = -1
+
+## 当前连接 architecture_identity_changed 的全局单例节点。
+## [br]
+## @api private
 var _observed_global_singleton: Node = null
+
+## 当前连接 context_ready/context_failed 信号的最近 GFNodeContext。
+## [br]
+## @api private
 var _observed_event_context: GFNodeContextBase = null
+
+## 当前连接初始化结束/失败信号的候选架构。
+## [br]
+## @api private
 var _observed_event_architecture: GFArchitecture = null
 
 
 # --- Godot 生命周期方法 ---
 
+## 入树时接通架构身份与上下文观察，并立即同步声明式事件绑定。
+## [br]
+## @api private
 func _enter_tree() -> void:
 	_connect_event_architecture_observers()
 	_request_event_binding_sync()
 
 
+## 离树时断开观察，记住当前可解析架构并注销所有曾跟踪架构上的 owner 事件，防止旧绑定残留。
+## [br]
+## @api private
 func _exit_tree() -> void:
 	_disconnect_event_architecture_observers()
 	_remember_event_architecture(_get_architecture_or_null())
 	_unregister_all_tracked_owner_events()
 
 
+## 仅处理树内的父节点变更通知，重新定位架构观察目标并同步事件绑定。
+## [br]
+## @api private
 func _notification(what: int) -> void:
 	if (
 		what != NOTIFICATION_PARENTED
@@ -428,6 +484,9 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 解析最近 GFNodeContext 的架构；局部上下文失效时不回退全局架构。
+## [br]
+## @api private
 func _get_architecture_or_null() -> GFArchitecture:
 	var context: GFNodeContextBase = _find_nearest_context()
 	if context != null:
@@ -447,6 +506,9 @@ func _get_architecture_or_null() -> GFArchitecture:
 	return GFAutoload.get_architecture_or_null()
 
 
+## 仅记录有效且尚未跟踪的架构引用，供所有者事件注销时遍历。
+## [br]
+## @api private
 func _remember_event_architecture(architecture: GFArchitecture) -> void:
 	if architecture == null or not is_instance_valid(architecture):
 		return
@@ -454,6 +516,9 @@ func _remember_event_architecture(architecture: GFArchitecture) -> void:
 		_event_architectures.append(architecture)
 
 
+## 仅在树内同步事件绑定；不可用架构会清除旧 owner 注册，架构或绑定版本变化才重建。
+## [br]
+## @api private
 func _request_event_binding_sync() -> void:
 	if not is_inside_tree():
 		return
@@ -479,6 +544,9 @@ func _request_event_binding_sync() -> void:
 		_replace_active_event_architecture(architecture)
 
 
+## 先撤销所有旧架构的 owner 注册，再逐条注册当前绑定；本方法不回滚单条注册失败。
+## [br]
+## @api private
 func _replace_active_event_architecture(architecture: GFArchitecture) -> void:
 	_unregister_all_tracked_owner_events()
 	for binding: Dictionary in _event_bindings:
@@ -488,6 +556,9 @@ func _replace_active_event_architecture(architecture: GFArchitecture) -> void:
 	_applied_event_binding_revision = _event_binding_revision
 
 
+## 按 kind、event_key 和监听器回调去重；新增记录时递增本地绑定版本。
+## [br]
+## @api private
 func _remember_event_binding(kind: StringName, event_key: Variant, listener: GFEventListener, priority: int) -> void:
 	for binding: Dictionary in _event_bindings:
 		if (
@@ -506,6 +577,9 @@ func _remember_event_binding(kind: StringName, event_key: Variant, listener: GFE
 	_event_binding_revision += 1
 
 
+## 移除匹配 kind、event_key 和监听器回调的记录；有删除时只递增一次版本。
+## [br]
+## @api private
 func _forget_event_binding(kind: StringName, event_key: Variant, listener: GFEventListener) -> void:
 	var removed_binding: bool = false
 	for i: int in range(_event_bindings.size() - 1, -1, -1):
@@ -521,6 +595,9 @@ func _forget_event_binding(kind: StringName, event_key: Variant, listener: GFEve
 		_event_binding_revision += 1
 
 
+## 读取一条绑定记录并按 kind 调用对应的架构所有者注册入口；无效值跳过。
+## [br]
+## @api private
 func _register_event_binding(architecture: GFArchitecture, binding: Dictionary) -> void:
 	if architecture == null or not is_instance_valid(architecture):
 		return
@@ -544,6 +621,9 @@ func _register_event_binding(architecture: GFArchitecture, binding: Dictionary) 
 			architecture.register_simple_event_owned(self, event_id, listener)
 
 
+## 跳过失效架构并撤销仍存活架构中的 owner 监听，随后清空跟踪并使已应用版本失效。
+## [br]
+## @api private
 func _unregister_all_tracked_owner_events() -> void:
 	for architecture: GFArchitecture in _event_architectures:
 		if architecture != null and is_instance_valid(architecture):
@@ -553,6 +633,9 @@ func _unregister_all_tracked_owner_events() -> void:
 	_applied_event_binding_revision = -1
 
 
+## 连接当前全局单例和最近上下文的身份、就绪及失败信号。
+## [br]
+## @api private
 func _connect_event_architecture_observers() -> void:
 	var global_singleton: Node = GFAutoload.get_singleton_or_null()
 	var global_callback: Callable = Callable(self, &"_on_global_architecture_identity_changed")
@@ -592,12 +675,18 @@ func _connect_event_architecture_observers() -> void:
 		) as Error
 
 
+## 断开全局单例、上下文与候选架构上的全部观察信号。
+## [br]
+## @api private
 func _disconnect_event_architecture_observers() -> void:
 	_disconnect_observed_global_singleton()
 	_disconnect_observed_event_context()
 	_disconnect_observed_event_architecture()
 
 
+## 若仍连接着回调，则从所跟踪的全局单例断开后清空引用。
+## [br]
+## @api private
 func _disconnect_observed_global_singleton() -> void:
 	var global_callback: Callable = Callable(self, &"_on_global_architecture_identity_changed")
 	if (
@@ -616,6 +705,9 @@ func _disconnect_observed_global_singleton() -> void:
 	_observed_global_singleton = null
 
 
+## 断开所跟踪上下文的 ready/failed 信号；无效节点也会清空引用。
+## [br]
+## @api private
 func _disconnect_observed_event_context() -> void:
 	if _observed_event_context == null or not is_instance_valid(_observed_event_context):
 		_observed_event_context = null
@@ -629,6 +721,9 @@ func _disconnect_observed_event_context() -> void:
 	_observed_event_context = null
 
 
+## 切换初始化状态观察目标，并连接该架构的初始化结束/失败信号。
+## [br]
+## @api private
 func _observe_event_architecture(architecture: GFArchitecture) -> void:
 	if _observed_event_architecture == architecture:
 		return
@@ -665,6 +760,9 @@ func _observe_event_architecture(architecture: GFArchitecture) -> void:
 		) as Error
 
 
+## 断开所跟踪架构的初始化结束/失败信号并清空引用。
+## [br]
+## @api private
 func _disconnect_observed_event_architecture() -> void:
 	if (
 		_observed_event_architecture == null
@@ -695,6 +793,9 @@ func _disconnect_observed_event_architecture() -> void:
 	_observed_event_architecture = null
 
 
+## 返回最近上下文的架构；没有上下文时返回可用的全局架构。
+## [br]
+## @api private
 func _get_event_architecture_candidate_or_null() -> GFArchitecture:
 	var context: GFNodeContextBase = _find_nearest_context()
 	if context != null:
@@ -704,31 +805,9 @@ func _get_event_architecture_candidate_or_null() -> GFArchitecture:
 	return GFAutoload.get_architecture_or_null()
 
 
-func _on_global_architecture_identity_changed(
-	_previous_architecture: GFArchitecture,
-	_current_architecture: GFArchitecture
-) -> void:
-	_request_event_binding_sync()
-
-
-func _on_observed_context_ready(_architecture: GFArchitecture) -> void:
-	_request_event_binding_sync()
-
-
-func _on_observed_context_failed(_reason: String) -> void:
-	_request_event_binding_sync()
-
-
-func _on_observed_architecture_initialization_finished() -> void:
-	_applied_event_binding_revision = -1
-	_request_event_binding_sync()
-
-
-func _on_observed_architecture_initialization_failed(_reason: String) -> void:
-	_applied_event_binding_revision = -1
-	_request_event_binding_sync()
-
-
+## 读取记录字段并在其不是 GFEventListener 时返回 null。
+## [br]
+## @api private
 func _read_binding_listener(binding: Dictionary, key: String) -> GFEventListener:
 	var raw_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(binding, key)
 	if raw_value is GFEventListener:
@@ -737,6 +816,9 @@ func _read_binding_listener(binding: Dictionary, key: String) -> GFEventListener
 	return null
 
 
+## 两个监听器相同，或其 get_callback() 返回同一回调时视为匹配。
+## [br]
+## @api private
 func _listeners_match(left_listener: GFEventListener, right_listener: GFEventListener) -> bool:
 	if left_listener == right_listener:
 		return true
@@ -745,6 +827,9 @@ func _listeners_match(left_listener: GFEventListener, right_listener: GFEventLis
 	return left_listener.get_callback() == right_listener.get_callback()
 
 
+## 从自身开始沿父节点向上查找并返回最近的 GFNodeContext。
+## [br]
+## @api private
 func _find_nearest_context() -> GFNodeContextBase:
 	var current_node: Node = self
 	while current_node != null:
@@ -754,3 +839,45 @@ func _find_nearest_context() -> GFNodeContextBase:
 		current_node = current_node.get_parent()
 
 	return null
+
+
+# --- 信号处理函数 ---
+
+## 全局架构身份变化后重新解析当前上下文，事件绑定不直接采用信号参数中的架构。
+## [br]
+## @api private
+func _on_global_architecture_identity_changed(
+	_previous_architecture: GFArchitecture,
+	_current_architecture: GFArchitecture
+) -> void:
+	_request_event_binding_sync()
+
+
+## 上下文就绪后重新解析可用架构并同步绑定。
+## [br]
+## @api private
+func _on_observed_context_ready(_architecture: GFArchitecture) -> void:
+	_request_event_binding_sync()
+
+
+## 上下文失败后通过同步流程撤销不可用架构上的监听。
+## [br]
+## @api private
+func _on_observed_context_failed(_reason: String) -> void:
+	_request_event_binding_sync()
+
+
+## 初始化完成时使绑定版本失效，保证同一架构实例也会重新注册监听。
+## [br]
+## @api private
+func _on_observed_architecture_initialization_finished() -> void:
+	_applied_event_binding_revision = -1
+	_request_event_binding_sync()
+
+
+## 初始化失败时使绑定版本失效，并让同步流程清理已失效的 owner 监听。
+## [br]
+## @api private
+func _on_observed_architecture_initialization_failed(_reason: String) -> void:
+	_applied_event_binding_revision = -1
+	_request_event_binding_sync()

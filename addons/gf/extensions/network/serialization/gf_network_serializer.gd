@@ -26,6 +26,10 @@ enum Format {
 
 # --- 常量 ---
 
+## 在网络消息载荷序列化或解码前检查传输安全性的脚本资源。
+## [br]
+## @api private
+## [br]
 const _TRANSPORT_VALUE_VALIDATOR = preload("res://addons/gf/extensions/network/runtime/gf_network_transport_value_validator.gd")
 
 
@@ -152,6 +156,10 @@ func deserialize_dictionary_result(bytes: PackedByteArray) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 构造包含成功标志、数据和空错误文本的序列化结果。
+## [br]
+## @api private
+## [br]
 func _make_success(data: Variant) -> Dictionary:
 	return {
 		"ok": true,
@@ -160,6 +168,10 @@ func _make_success(data: Variant) -> Dictionary:
 	}
 
 
+## 构造包含失败标志、空数据和错误标识的序列化结果。
+## [br]
+## @api private
+## [br]
 func _make_failure(error: String) -> Dictionary:
 	return {
 		"ok": false,
@@ -168,6 +180,10 @@ func _make_failure(error: String) -> Dictionary:
 	}
 
 
+## 检查消息类型、载荷、元信息字段及载荷传输安全性并返回首个错误。
+## [br]
+## @api private
+## [br]
 func _get_message_schema_error(data: Dictionary) -> String:
 	var type_value: Variant = GFVariantData.get_option_value(data, "type")
 	if not (type_value is String) and not (type_value is StringName):
@@ -192,6 +208,10 @@ func _get_message_schema_error(data: Dictionary) -> String:
 	return ""
 
 
+## 接受 int 或有限且为整数值的 float。
+## [br]
+## @api private
+## [br]
 func _is_integer_value(value: Variant) -> bool:
 	if typeof(value) == TYPE_INT:
 		return true
@@ -201,6 +221,10 @@ func _is_integer_value(value: Variant) -> bool:
 	return not is_nan(number) and not is_inf(number) and number == floor(number)
 
 
+## 仅当 Variant 是 GFNetworkMessage 时返回该消息。
+## [br]
+## @api private
+## [br]
 func _get_network_message_value(value: Variant) -> GFNetworkMessage:
 	if value is GFNetworkMessage:
 		var message: GFNetworkMessage = value

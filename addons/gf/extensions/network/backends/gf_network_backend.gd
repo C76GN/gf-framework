@@ -61,11 +61,40 @@ const MAX_TRANSPORT_METRICS_ENRICHMENT_MSEC: int = 10
 
 # --- 私有变量 ---
 
+## 当前连接累计发送的字节数。
+## [br]
+## @api private
+## [br]
 var _transport_bytes_sent: int = 0
+
+## 当前连接累计接收并派发的字节数。
+## [br]
+## @api private
+## [br]
 var _transport_bytes_received: int = 0
+
+## 当前连接累计成功发送的 packet 数。
+## [br]
+## @api private
+## [br]
 var _transport_packets_sent: int = 0
+
+## 当前连接累计派发的接收 packet 数。
+## [br]
+## @api private
+## [br]
 var _transport_packets_received: int = 0
+
+## 标记传输连接是否已进入 connected 状态。
+## [br]
+## @api private
+## [br]
 var _transport_connected: bool = false
+
+## 当前连接进入 connected 状态时的毫秒时间戳。
+## [br]
+## @api private
+## [br]
 var _transport_connected_at_msec: int = 0
 
 
@@ -304,6 +333,10 @@ func _reset_transport_connection() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 更新连接状态并在首次建立时初始化连接指标。
+## [br]
+## @api private
+## [br]
 func _emit_connected() -> void:
 	if not _transport_connected:
 		_reset_transport_metrics()
@@ -312,19 +345,35 @@ func _emit_connected() -> void:
 	connected.emit()
 
 
+## 清除连接状态后发出断开信号。
+## [br]
+## @api private
+## [br]
 func _emit_disconnected(reason: String) -> void:
 	_reset_transport_connection()
 	disconnected.emit(reason)
 
 
+## 发出远端 peer 已连接信号。
+## [br]
+## @api private
+## [br]
 func _emit_peer_connected(peer_id: int) -> void:
 	peer_connected.emit(peer_id)
 
 
+## 发出远端 peer 已断开信号。
+## [br]
+## @api private
+## [br]
 func _emit_peer_disconnected(peer_id: int) -> void:
 	peer_disconnected.emit(peer_id)
 
 
+## 累加接收指标并派发原始消息信号。
+## [br]
+## @api private
+## [br]
 func _emit_message_received(peer_id: int, bytes: PackedByteArray) -> void:
 	_transport_bytes_received += bytes.size()
 	_transport_packets_received += 1

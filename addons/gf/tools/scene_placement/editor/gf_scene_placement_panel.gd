@@ -41,21 +41,78 @@ signal close_requested
 
 # --- 私有变量 ---
 
+## 当前显式选择的源场景资源。
+## [br]
+## @api private
+## [br]
 var _source: PackedScene = null
+
+## 已选父节点的弱引用。
+## [br]
+## @api private
+## [br]
 var _parent_ref: WeakRef = null
+
+## 显示源场景路径的只读输入控件。
+## [br]
+## @api private
+## [br]
 var _source_path: LineEdit = null
+
+## 显示父节点路径的只读输入控件。
+## [br]
+## @api private
+## [br]
 var _parent_path: LineEdit = null
+
+## 平面或表面摆放模式选择控件。
+## [br]
+## @api private
+## [br]
 var _mode: OptionButton = null
+
+## 法线对齐选项控件。
+## [br]
+## @api private
+## [br]
 var _align: CheckBox = null
+
+## 按参数名索引的 SpinBox 控件表。
+## [br]
+## @api private
+## [br]
 var _numbers: Dictionary[StringName, SpinBox] = {}
+
+## 按参数名索引的三轴 SpinBox 控件表。
+## [br]
+## @api private
+## [br]
 var _vectors: Dictionary[StringName, Array] = {}
+
+## 状态提示标签。
+## [br]
+## @api private
+## [br]
 var _status: Label = null
+
+## 源场景选择对话框。
+## [br]
+## @api private
+## [br]
 var _file_dialog: FileDialog = null
+
+## 摆放参数表单容器。
+## [br]
+## @api private
+## [br]
 var _fields: VBoxContainer = null
 
 
 # --- Godot 生命周期方法 ---
 
+## 设置侧栏标识与最小宽度，并立即构建参数表单和场景选择对话框。
+## [br]
+## @api private
 func _init() -> void:
 	name = "GFScenePlacementPanel"
 	custom_minimum_size.x = 270.0
@@ -229,6 +286,9 @@ func show_placement_failure(report: Dictionary) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 建立纯参数控件、操作按钮与项目场景文件选择器；参数变化统一发出使预览失效的信号。
+## [br]
+## @api private
 func _build_ui() -> void:
 	var title: Label = Label.new()
 	title.text = "3D 场景摆放"
@@ -286,6 +346,10 @@ func _build_ui() -> void:
 	var _file_connected: int = _file_dialog.file_selected.connect(_on_scene_file_selected)
 
 
+## 在参数容器中添加标签和只读路径输入框。
+## [br]
+## @api private
+## [br]
 func _add_path(node_name: String, label_text: String) -> LineEdit:
 	var label_node: Label = Label.new()
 	label_node.text = label_text
@@ -297,6 +361,10 @@ func _add_path(node_name: String, label_text: String) -> LineEdit:
 	return field
 
 
+## 创建指定名称和文本的按钮，并连接 pressed 回调。
+## [br]
+## @api private
+## [br]
 func _add_button(node_name: String, text: String, callback: Callable) -> void:
 	var button: Button = Button.new()
 	button.name = node_name
@@ -305,6 +373,10 @@ func _add_button(node_name: String, text: String, callback: Callable) -> void:
 	var _connected: int = button.pressed.connect(callback)
 
 
+## 添加数值标签及 SpinBox，并按 key 保存控件引用。
+## [br]
+## @api private
+## [br]
 func _add_number(
 	key: StringName, label_text: String, value: float,
 	minimum: float, maximum: float, step: float = 0.1
@@ -317,6 +389,10 @@ func _add_number(
 	_fields.add_child(field)
 
 
+## 添加三轴 SpinBox 行，并按 key 保存控件数组。
+## [br]
+## @api private
+## [br]
 func _add_vector(key: StringName, label_text: String, value: Vector3, minimum: float = -1000000.0) -> void:
 	var label_node: Label = Label.new()
 	label_node.text = label_text
@@ -333,6 +409,10 @@ func _add_vector(key: StringName, label_text: String, value: Vector3, minimum: f
 	_vectors[key] = fields
 
 
+## 构造配置范围、初值和步长并连接变化信号的 SpinBox。
+## [br]
+## @api private
+## [br]
 func _new_number(key: StringName, value: float, minimum: float, maximum: float, step: float) -> SpinBox:
 	var field: SpinBox = SpinBox.new()
 	field.name = key
@@ -344,6 +424,10 @@ func _new_number(key: StringName, value: float, minimum: float, maximum: float, 
 	return field
 
 
+## 从指定三轴 SpinBox 控件读取 Vector3 值。
+## [br]
+## @api private
+## [br]
 func _get_vector(key: StringName) -> Vector3:
 	var fields: Array = _vectors[key]
 	var result: Vector3 = Vector3.ZERO
@@ -357,10 +441,16 @@ func _get_vector(key: StringName) -> Vector3:
 
 # --- 信号处理函数 ---
 
+## 打开已有场景选择对话框，不加载或实例化当前选择。
+## [br]
+## @api private
 func _on_choose_scene() -> void:
 	_file_dialog.popup_centered_ratio(0.7)
 
 
+## 只接收项目内可加载的 PackedScene；失败显示提示，成功更新源场景并触发配置变化。
+## [br]
+## @api private
 func _on_scene_file_selected(path: String) -> void:
 	if not path.begins_with("res://") or not ResourceLoader.exists(path, "PackedScene"):
 		show_status("请选择项目内的 PackedScene。")
@@ -373,5 +463,8 @@ func _on_scene_file_selected(path: String) -> void:
 		show_status("所选资源不是 PackedScene。")
 
 
+## 把参数控件变化转发为统一配置变化信号，由插件取消已有预览。
+## [br]
+## @api private
 func _on_configuration_changed() -> void:
 	configuration_changed.emit()

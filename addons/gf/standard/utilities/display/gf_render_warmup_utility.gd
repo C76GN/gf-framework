@@ -117,12 +117,46 @@ var instantiate_packed_scenes: bool = false
 
 # --- 私有变量 ---
 
+## 按入队顺序保存待处理清单及其位置、预算和累计结果。
+## [br]
+## @api private
+## [br]
 var _queue: Array[Dictionary] = []
+
+## 按资源路径或实例键持有资源及其缓存分组和缓存时间。
+## [br]
+## @api private
+## [br]
 var _cached_resources: Dictionary = {}
+
+## 按最近写入顺序维护缓存键；容量超限时从最早键开始释放。
+## [br]
+## @api private
+## [br]
 var _cached_resource_order: Array[String] = []
+
+## 下一个新预热队列使用的递增标识。
+## [br]
+## @api private
+## [br]
 var _next_queue_id: int = 1
+
+## 成功加载资源并完成触碰流程的条目数。
+## [br]
+## @api private
+## [br]
 var _processed_entry_count: int = 0
+
+## 因资源未能加载而失败的条目数。
+## [br]
+## @api private
+## [br]
 var _failed_entry_count: int = 0
+
+## 由离屏渲染触碰创建并等待队列释放的临时节点。
+## [br]
+## @api private
+## [br]
 var _temporary_render_nodes: Array[Node] = []
 
 
@@ -442,6 +476,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按条目数量和各队列时间预算推进 FIFO 队列；可限制单次只处理调用开始时的队首队列。
+## [br]
+## @api private
+## [br]
 func _process_queue_budget(max_entries: int, head_only: bool) -> int:
 	if max_entries <= 0:
 		return 0
@@ -485,6 +523,10 @@ func _process_queue_budget(max_entries: int, head_only: bool) -> int:
 	return processed_now
 
 
+## 规范化条目、取得或加载资源并触碰；资源缺失时累计失败，成功加载后累计处理并按选项缓存。
+## [br]
+## @api private
+## [br]
 func _process_entry(entry: Dictionary, options: Dictionary) -> Dictionary:
 	var normalized: Dictionary = GFRenderWarmupManifest.normalize_entry(entry)
 	var resource: Resource = _variant_to_resource(GFVariantData.get_option_value(normalized, "resource"))
@@ -516,12 +558,20 @@ func _process_entry(entry: Dictionary, options: Dictionary) -> Dictionary:
 	return result
 
 
+## 资源路径和类型可加载时以 CACHE_MODE_REUSE 读取，否则返回 null。
+## [br]
+## @api private
+## [br]
 func _load_resource(resource_path: String, type_hint: String) -> Resource:
 	if not ResourceLoader.exists(resource_path, type_hint):
 		return null
 	return ResourceLoader.load(resource_path, type_hint, ResourceLoader.CACHE_MODE_REUSE)
 
 
+## 按资源类型触碰 RID 或表面材质，并按配置渲染材质、Mesh 或实例化 PackedScene。
+## [br]
+## @api private
+## [br]
 func _touch_resource(resource: Resource, entry: Dictionary, options: Dictionary) -> int:
 	if resource == null:
 		return 0
@@ -552,6 +602,10 @@ func _touch_resource(resource: Resource, entry: Dictionary, options: Dictionary)
 	return touched_count
 
 
+## 触碰 Mesh 的 RID 及所有非空表面材质 RID，并返回触碰数量。
+## [br]
+## @api private
+## [br]
 func _touch_mesh(mesh: Mesh) -> int:
 	if mesh == null:
 		return 0
@@ -566,6 +620,10 @@ func _touch_mesh(mesh: Mesh) -> int:
 	return touched_count
 
 
+## 实例化场景、扫描其资源清单并逐项预热，累计触碰数后释放临时场景根节点。
+## [br]
+## @api private
+## [br]
 func _touch_packed_scene(scene: PackedScene, options: Dictionary) -> int:
 	var root: Node = scene.instantiate()
 	if root == null:
@@ -579,6 +637,10 @@ func _touch_packed_scene(scene: PackedScene, options: Dictionary) -> int:
 	return touched_count
 
 
+## 在可用父节点下创建离屏视口，用粒子或临时 Mesh 节点渲染材质并登记待释放视口。
+## [br]
+## @api private
+## [br]
 func _touch_material_with_temporary_node(material: Material, kind: StringName, options: Dictionary) -> int:
 	var parent: Node = _resolve_temporary_parent(options)
 	if parent == null:
@@ -594,6 +656,10 @@ func _touch_material_with_temporary_node(material: Material, kind: StringName, o
 	return 1
 
 
+## 在可用父节点下创建离屏视口渲染指定 Mesh，并登记待释放视口。
+## [br]
+## @api private
+## [br]
 func _touch_mesh_with_temporary_node(mesh: Mesh, options: Dictionary) -> int:
 	var parent: Node = _resolve_temporary_parent(options)
 	if parent == null:
@@ -606,6 +672,10 @@ func _touch_mesh_with_temporary_node(mesh: Mesh, options: Dictionary) -> int:
 	return 1
 
 
+## 创建透明、仅更新一次且带相机的离屏视口；视口边长至少为 1。
+## [br]
+## @api private
+## [br]
 func _make_temporary_viewport(options: Dictionary) -> SubViewport:
 	var viewport: SubViewport = SubViewport.new()
 	var viewport_size: int = maxi(GFVariantData.get_option_int(options, "temporary_viewport_size", 16), 1)
@@ -619,6 +689,10 @@ func _make_temporary_viewport(options: Dictionary) -> SubViewport:
 	return viewport
 
 
+## 向视口添加关闭阴影投射的 MeshInstance，并可选设置材质覆盖。
+## [br]
+## @api private
+## [br]
 func _add_mesh_warmup_node(viewport: SubViewport, mesh: Mesh, material: Material) -> void:
 	var mesh_instance: MeshInstance3D = MeshInstance3D.new()
 	mesh_instance.mesh = mesh
@@ -628,6 +702,10 @@ func _add_mesh_warmup_node(viewport: SubViewport, mesh: Mesh, material: Material
 	viewport.add_child(mesh_instance)
 
 
+## 向视口添加使用指定材质、少量粒子和临时绘制 Mesh 的 GPU 粒子节点。
+## [br]
+## @api private
+## [br]
 func _add_particle_warmup_node(viewport: SubViewport, material: Material) -> void:
 	var particles: GPUParticles3D = GPUParticles3D.new()
 	particles.amount = 8
@@ -639,6 +717,10 @@ func _add_particle_warmup_node(viewport: SubViewport, material: Material) -> voi
 	viewport.add_child(particles)
 
 
+## 创建一个由三个顶点组成的三角形 ArrayMesh，供临时渲染节点使用。
+## [br]
+## @api private
+## [br]
 func _make_dummy_mesh() -> ArrayMesh:
 	var mesh: ArrayMesh = ArrayMesh.new()
 	var arrays: Array = []
@@ -652,6 +734,10 @@ func _make_dummy_mesh() -> ArrayMesh:
 	return mesh
 
 
+## 优先使用有效的 temporary_parent；否则返回当前场景或 SceneTree 根节点。
+## [br]
+## @api private
+## [br]
 func _resolve_temporary_parent(options: Dictionary) -> Node:
 	var option_parent: Node = _variant_to_node(GFVariantData.get_option_value(options, "temporary_parent"))
 	if option_parent != null:
@@ -665,6 +751,10 @@ func _resolve_temporary_parent(options: Dictionary) -> Node:
 	return tree.root
 
 
+## 按资源路径或实例 ID 保存资源，更新缓存顺序和分组后按容量裁剪最早缓存项。
+## [br]
+## @api private
+## [br]
 func _cache_resource(resource: Resource, resource_path: String, options: Dictionary) -> void:
 	var key: String = resource_path
 	if key.is_empty():
@@ -681,6 +771,10 @@ func _cache_resource(resource: Resource, resource_path: String, options: Diction
 	_trim_cached_resources(GFVariantData.get_option_int(options, "max_cached_resources", max_cached_resources))
 
 
+## 根据队列累计结果构造完成摘要并发出 warmup_completed 信号。
+## [br]
+## @api private
+## [br]
 func _finish_queue_item(item: Dictionary, stopped_by_budget: bool) -> void:
 	var entries: Array = GFVariantData.get_option_array(item, "entries")
 	var summary: Dictionary = _make_summary(
@@ -696,6 +790,10 @@ func _finish_queue_item(item: Dictionary, stopped_by_budget: bool) -> void:
 	warmup_completed.emit(GFVariantData.get_option_int(item, "queue_id", -1), summary)
 
 
+## 构造清单预热摘要，并深复制同步预热结果数组。
+## [br]
+## @api private
+## [br]
 func _make_summary(
 	queue_id: int,
 	manifest_id: StringName,
@@ -720,6 +818,10 @@ func _make_summary(
 	}
 
 
+## 递归检查节点及子节点，并按 include 选项收集 CanvasItem 材质和受支持节点资源。
+## [br]
+## @api private
+## [br]
 func _collect_node_resources(
 	node: Node,
 	manifest: GFRenderWarmupManifest,
@@ -756,6 +858,10 @@ func _collect_node_resources(
 		_collect_node_resources(child, manifest, seen, options)
 
 
+## 按选项收集 Mesh、实例材质覆盖及各表面的默认和覆盖材质。
+## [br]
+## @api private
+## [br]
 func _collect_mesh_instance_resources(
 	mesh_instance: MeshInstance3D,
 	manifest: GFRenderWarmupManifest,
@@ -776,6 +882,10 @@ func _collect_mesh_instance_resources(
 				_add_resource_once(manifest, mesh_instance.get_surface_override_material(surface_index), &"material", seen)
 
 
+## 收集 MultiMesh 的 Mesh（若启用）及实例材质覆盖。
+## [br]
+## @api private
+## [br]
 func _collect_multimesh_instance_resources(
 	multimesh_instance: MultiMeshInstance3D,
 	manifest: GFRenderWarmupManifest,
@@ -792,6 +902,10 @@ func _collect_multimesh_instance_resources(
 		_add_resource_once(manifest, multimesh_instance.material_override, &"material", seen)
 
 
+## 按选项收集粒子处理材质和每个绘制通道的 Mesh。
+## [br]
+## @api private
+## [br]
 func _collect_gpu_particles_resources(
 	particles: GPUParticles3D,
 	manifest: GFRenderWarmupManifest,
@@ -808,6 +922,10 @@ func _collect_gpu_particles_resources(
 			_add_resource_once(manifest, particles.get_draw_pass_mesh(pass_index), &"mesh", seen)
 
 
+## 以资源路径或实例 ID 去重后，将非空资源添加到预热清单。
+## [br]
+## @api private
+## [br]
 func _add_resource_once(
 	manifest: GFRenderWarmupManifest,
 	resource: Resource,
@@ -827,10 +945,18 @@ func _add_resource_once(
 	var _entry_index: int = manifest.add_resource(resource, kind)
 
 
+## 判断选项或默认值是否选择临时渲染节点触碰模式。
+## [br]
+## @api private
+## [br]
 func _uses_temporary_render_nodes(options: Dictionary) -> bool:
 	return GFVariantData.get_option_int(options, "touch_mode", default_touch_mode) == TouchMode.TEMPORARY_RENDER_NODES
 
 
+## 仅当场景实例化许可和 PackedScene 实例化开关都开启时返回 true。
+## [br]
+## @api private
+## [br]
 func _can_instantiate_packed_scene(options: Dictionary) -> bool:
 	return (
 		GFVariantData.get_option_bool(options, "allow_scene_instantiation", false)
@@ -838,11 +964,19 @@ func _can_instantiate_packed_scene(options: Dictionary) -> bool:
 	)
 
 
+## 读取缓存分组；空值时使用默认分组。
+## [br]
+## @api private
+## [br]
 func _get_cache_group(options: Dictionary) -> StringName:
 	var cache_group: StringName = GFVariantData.get_option_string_name(options, "cache_group", default_cache_group)
 	return default_cache_group if cache_group == &"" else cache_group
 
 
+## 容量至少按 1 计算，并从顺序队列头部删除最早缓存引用。
+## [br]
+## @api private
+## [br]
 func _trim_cached_resources(limit: int = -1) -> void:
 	var safe_limit: int = maxi(max_cached_resources if limit < 0 else limit, 1)
 	while _cached_resource_order.size() > safe_limit:
@@ -850,20 +984,36 @@ func _trim_cached_resources(limit: int = -1) -> void:
 		var _erased: bool = _cached_resources.erase(oldest_key)
 
 
+## 根据队列条目的开始时刻和选项判断其时间预算是否耗尽。
+## [br]
+## @api private
+## [br]
 func _is_queue_item_budget_exhausted(item: Dictionary) -> bool:
 	var options: Dictionary = GFVariantData.get_option_dictionary(item, "options")
 	return _is_budget_exhausted(GFVariantData.get_option_int(item, "started_at_msec", Time.get_ticks_msec()), options)
 
 
+## 仅在 max_seconds 为正数时比较已用秒数与时间上限。
+## [br]
+## @api private
+## [br]
 func _is_budget_exhausted(started_at_msec: int, options: Dictionary) -> bool:
 	var max_seconds: float = GFVariantData.get_option_float(options, "max_seconds", default_max_seconds)
 	return max_seconds > 0.0 and _get_elapsed_seconds(started_at_msec) >= max_seconds
 
 
+## 将单调时钟毫秒差换算为非负秒数。
+## [br]
+## @api private
+## [br]
 func _get_elapsed_seconds(started_at_msec: int) -> float:
 	return maxf(float(Time.get_ticks_msec() - started_at_msec) / 1000.0, 0.0)
 
 
+## 将 Variant 窄化为 Resource；其他类型返回 null。
+## [br]
+## @api private
+## [br]
 static func _variant_to_resource(value: Variant) -> Resource:
 	if value is Resource:
 		var resource: Resource = value
@@ -871,6 +1021,10 @@ static func _variant_to_resource(value: Variant) -> Resource:
 	return null
 
 
+## 将 Variant 窄化为 Node；其他类型返回 null。
+## [br]
+## @api private
+## [br]
 static func _variant_to_node(value: Variant) -> Node:
 	if value is Node:
 		var node: Node = value
@@ -878,6 +1032,10 @@ static func _variant_to_node(value: Variant) -> Node:
 	return null
 
 
+## 将 Variant 窄化为 SceneTree；其他类型返回 null。
+## [br]
+## @api private
+## [br]
 static func _variant_to_scene_tree(value: Variant) -> SceneTree:
 	if value is SceneTree:
 		var tree: SceneTree = value

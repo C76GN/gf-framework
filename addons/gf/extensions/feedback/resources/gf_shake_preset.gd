@@ -295,12 +295,18 @@ static func combine_samples(samples: Array[Dictionary]) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按衰减曲线采样包络；未配置曲线时使用线性衰减。
+## [br]
+## @api private
 func _sample_envelope(progress: float) -> float:
 	if decay_curve != null:
 		return _finite_nonnegative(decay_curve.sample_baked(progress))
 	return _finite_nonnegative(1.0 - progress)
 
 
+## 采样当前参与的轨道，并依照各轨道混合模式合并结果。
+## [br]
+## @api private
 func _sample_tracks(
 	progress: float,
 	elapsed_seconds: float,
@@ -323,6 +329,9 @@ func _sample_tracks(
 	return _sanitize_sample(result)
 
 
+## 根据配置波形、时间、进度和相位计算三轴波形值。
+## [br]
+## @api private
 func _sample_wave_vector(elapsed_seconds: float, progress: float, phase_offset: float) -> Vector3:
 	match waveform:
 		Waveform.SINE:
@@ -353,6 +362,9 @@ func _sample_wave_vector(elapsed_seconds: float, progress: float, phase_offset: 
 			return _sample_noise_vector(elapsed_seconds)
 
 
+## 对相邻确定性噪声样本作平滑插值，生成三轴噪声值。
+## [br]
+## @api private
 func _sample_noise_vector(elapsed_seconds: float) -> Vector3:
 	var cursor: float = _safe_sample_cursor(elapsed_seconds, maxf(_finite_nonnegative(frequency), 1.0))
 	var step: int = floori(cursor)
@@ -364,6 +376,9 @@ func _sample_noise_vector(elapsed_seconds: float) -> Vector3:
 	)
 
 
+## 从采样步数、盐值和预设种子计算确定性噪声值。
+## [br]
+## @api private
 func _hash_noise(step: int, salt: int) -> float:
 	var value: int = int(step * 1103515245 + salt * 12345 + sample_seed * 2654435761)
 	value = value ^ (value >> 13)
@@ -373,6 +388,9 @@ func _hash_noise(step: int, salt: int) -> float:
 	return normalized * 2.0 - 1.0
 
 
+## 从采样字典读取向量字段，并将缺失或非有限值归一化。
+## [br]
+## @api private
 static func _read_sample_vector3(sample_data: Dictionary, key: Variant) -> Vector3:
 	var value: Variant = GFVariantData.get_option_value(sample_data, key, Vector3.ZERO)
 	if value is Vector3:
@@ -381,6 +399,9 @@ static func _read_sample_vector3(sample_data: Dictionary, key: Variant) -> Vecto
 	return Vector3.ZERO
 
 
+## 判断轨道是否启用且当前进度位于其有效范围内。
+## [br]
+## @api private
 static func _track_participates_at_progress(track: GFShakeTrack, progress: float) -> bool:
 	if track == null or not track.enabled:
 		return false
@@ -389,6 +410,9 @@ static func _track_participates_at_progress(track: GFShakeTrack, progress: float
 	return progress >= range_start and progress <= range_end
 
 
+## 规范化采样字典中的向量、强度与进度字段。
+## [br]
+## @api private
 static func _sanitize_sample(sample_data: Dictionary) -> Dictionary:
 	return {
 		"position": _read_sample_vector3(sample_data, "position"),
@@ -399,19 +423,31 @@ static func _sanitize_sample(sample_data: Dictionary) -> Dictionary:
 	}
 
 
+## 计算带频率下限和整数转换安全边界的采样游标。
+## [br]
+## @api private
 static func _safe_sample_cursor(elapsed_seconds: float, sample_frequency: float) -> float:
 	var cursor: float = _finite_float(elapsed_seconds) * maxf(_finite_nonnegative(sample_frequency), 1.0)
 	return clampf(_finite_float(cursor), -2147483647.0, 2147483647.0)
 
 
+## 将非有限输入替换为后备值，并限制结果不小于零。
+## [br]
+## @api private
 static func _finite_nonnegative(value: float, fallback: float = 0.0) -> float:
 	return maxf(_finite_float(value, fallback), 0.0)
 
 
+## 将非有限浮点输入替换为指定后备值。
+## [br]
+## @api private
 static func _finite_float(value: float, fallback: float = 0.0) -> float:
 	return value if is_finite(value) else fallback
 
 
+## 向量任一分量非有限时返回后备向量。
+## [br]
+## @api private
 static func _finite_vector3(value: Vector3, fallback: Vector3 = Vector3.ZERO) -> Vector3:
 	if not is_finite(value.x) or not is_finite(value.y) or not is_finite(value.z):
 		return fallback

@@ -15,13 +15,52 @@ extends Resource
 
 # --- 常量 ---
 
+## 配方允许设置的最大事件数。
+## [br]
+## @api private
+## [br]
 const _MAX_EVENTS: int = 1_000_000
+
+## 非零全局事件缓冲预算的最小字节数。
+## [br]
+## @api private
+## [br]
 const _MIN_EVENT_BUFFER_BYTES: int = 512
+
+## 全局事件缓冲预算的最大字节数。
+## [br]
+## @api private
+## [br]
 const _MAX_EVENT_BUFFER_BYTES: int = 1_073_741_824
+
+## 单事件预算允许的最小字节数。
+## [br]
+## @api private
+## [br]
 const _MIN_EVENT_BYTES: int = 512
+
+## 单事件预算允许的最大字节数。
+## [br]
+## @api private
+## [br]
 const _MAX_EVENT_BYTES: int = 16_777_216
+
+## 配方允许设置的最大快照事件数限制。
+## [br]
+## @api private
+## [br]
 const _MAX_SNAPSHOT_LIMIT: int = 1_000_000
+
+## 配方允许声明的最大通道数。
+## [br]
+## @api private
+## [br]
 const _MAX_CHANNEL_DEFINITIONS: int = 256
+
+## 配方允许声明的最大检查点数。
+## [br]
+## @api private
+## [br]
 const _MAX_CHECKPOINT_DEFINITIONS: int = 256
 
 
@@ -384,6 +423,10 @@ func get_fingerprint_for_framework() -> String:
 
 # --- 私有/辅助方法 ---
 
+## 通过 GFValidationReportDictionary 向配方报告追加错误级别问题。
+## [br]
+## @api private
+## [br]
 func _append_issue(
 	report: Dictionary,
 	code: StringName,
@@ -399,6 +442,10 @@ func _append_issue(
 	)
 
 
+## 仅接受 privacy、public、support 和 debug 四种报告脱敏 profile。
+## [br]
+## @api private
+## [br]
 func _is_valid_redaction_profile(profile: String) -> bool:
 	return (
 		profile == GFReportValueCodec.REDACTION_PROFILE_PRIVACY
@@ -408,5 +455,9 @@ func _is_valid_redaction_profile(profile: String) -> bool:
 	)
 
 
+## 经 GFVariantData.duplicate_variant 处理输入后，将结果归一为 Dictionary。
+## [br]
+## @api private
+## [br]
 static func _duplicate_dictionary(value: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.duplicate_variant(value))

@@ -21,9 +21,28 @@ extends RefCounted
 ## @since 5.0.0
 const DEFAULT_MAX_RECTS: int = 4096
 
+## 未提供有效 placement 分数时使用的最大有符号 64 位整数哨兵。
+## [br]
+## @api private
+## [br]
 const _MAX_INT64: int = 9223372036854775807
+
+## Rect2i / Vector2i 单个尺寸分量的最大可表示值。
+## [br]
+## @api private
+## [br]
 const _MAX_VECTOR2I_COMPONENT: int = 2147483647
+
+## 正方形容器支持的最大 2 的幂边长。
+## [br]
+## @api private
+## [br]
 const _MAX_POWER_OF_TWO_SIDE: int = 1073741824
+
+## 自动求解时用于检测面积累加溢出的平方容器面积上限。
+## [br]
+## @api private
+## [br]
 const _MAX_SQUARE_AREA: int = 4611686014132420609
 
 
@@ -233,10 +252,18 @@ static func normalize_placements(
 
 # --- 私有/辅助方法 ---
 
+## 读取矩形数量上限，并将负值限制为零。
+## [br]
+## @api private
+## [br]
 static func _get_max_rects(options: Dictionary) -> int:
 	return maxi(GFVariantData.get_option_int(options, "max_rects", DEFAULT_MAX_RECTS), 0)
 
 
+## 将放置与旋转输出数组调整到输入数量，并初始化为空矩形和未旋转。
+## [br]
+## @api private
+## [br]
 static func _initialize_output_arrays(
 	count: int,
 	placements: Array[Rect2i],
@@ -249,6 +276,10 @@ static func _initialize_output_arrays(
 		rotated[index] = false
 
 
+## 为每个输入矩形创建保留原索引、尺寸、填充外框尺寸和有效性的记录。
+## [br]
+## @api private
+## [br]
 static func _make_items(rect_sizes: Array[Vector2i], padding: int) -> Array[Dictionary]:
 	var items: Array[Dictionary] = []
 	for index: int in range(rect_sizes.size()):
@@ -263,11 +294,19 @@ static func _make_items(rect_sizes: Array[Vector2i], padding: int) -> Array[Dict
 	return items
 
 
+## 在矩形的宽和高中各加入两侧填充像素。
+## [br]
+## @api private
+## [br]
 static func _get_padded_size(size: Vector2i, padding: int) -> Vector2i:
 	var margin: int = maxi(padding, 0) * 2
 	return Vector2i(size.x + margin, size.y + margin)
 
 
+## 检查有效矩形加上双侧 padding 后是否超过 Vector2i 可表示尺寸。
+## [br]
+## @api private
+## [br]
 static func _get_padding_error(rect_sizes: Array[Vector2i], padding: int) -> String:
 	for size: Vector2i in rect_sizes:
 		if size.x <= 0 or size.y <= 0:
@@ -280,6 +319,10 @@ static func _get_padding_error(rect_sizes: Array[Vector2i], padding: int) -> Str
 	return ""
 
 
+## 按外框面积、最大边长降序排列；两者相同时保留输入索引顺序。
+## [br]
+## @api private
+## [br]
 static func _sort_item_before(left: Dictionary, right: Dictionary) -> bool:
 	var left_size: Vector2i = _get_vector2i_value(GFVariantData.get_option_value(left, "footprint_size"))
 	var right_size: Vector2i = _get_vector2i_value(GFVariantData.get_option_value(right, "footprint_size"))
@@ -296,6 +339,10 @@ static func _sort_item_before(left: Dictionary, right: Dictionary) -> bool:
 	return GFVariantData.get_option_int(left, "index", 0) < GFVariantData.get_option_int(right, "index", 0)
 
 
+## 遍历可用方向和空闲矩形，以评分元组选择最佳可行外框放置。
+## [br]
+## @api private
+## [br]
 static func _find_best_placement(
 	free_rects: Array[Rect2i],
 	item: Dictionary,
@@ -327,12 +374,20 @@ static func _find_best_placement(
 	return best
 
 
+## 仅在允许旋转且矩形非正方形时返回原向与交换宽高两种方向。
+## [br]
+## @api private
+## [br]
 static func _get_rotation_options(size: Vector2i, allow_rotate: bool) -> Array[bool]:
 	if allow_rotate and size.x != size.y:
 		return [false, true]
 	return [false]
 
 
+## 生成短边余量、长边余量和面积余量组成的 placement 评分元组。
+## [br]
+## @api private
+## [br]
 static func _score_placement(free_rect: Rect2i, footprint_size: Vector2i) -> Array[int]:
 	var leftover_width: int = free_rect.size.x - footprint_size.x
 	var leftover_height: int = free_rect.size.y - footprint_size.y
@@ -343,6 +398,10 @@ static func _score_placement(free_rect: Rect2i, footprint_size: Vector2i) -> Arr
 	]
 
 
+## 按评分元组的三个位置依次比较，小者优先。
+## [br]
+## @api private
+## [br]
 static func _score_is_better(left: Array[int], right: Array[int]) -> bool:
 	if left[0] != right[0]:
 		return left[0] < right[0]
@@ -351,6 +410,10 @@ static func _score_is_better(left: Array[int], right: Array[int]) -> bool:
 	return left[2] < right[2]
 
 
+## 从每个与放置外框相交的空闲矩形中切出上下左右候选条带。
+## [br]
+## @api private
+## [br]
 static func _split_free_rects(
 	free_rects: Array[Rect2i],
 	placed: Rect2i
@@ -401,11 +464,19 @@ static func _split_free_rects(
 	return result
 
 
+## 仅将宽高均为正的矩形追加到空闲矩形列表。
+## [br]
+## @api private
+## [br]
 static func _append_non_empty_rect(target: Array[Rect2i], rect: Rect2i) -> void:
 	if rect.size.x > 0 and rect.size.y > 0:
 		target.append(rect)
 
 
+## 原地移除被其它空闲矩形完全包含的条目。
+## [br]
+## @api private
+## [br]
 static func _prune_free_rects(free_rects: Array[Rect2i]) -> void:
 	var index: int = 0
 	while index < free_rects.size():
@@ -424,6 +495,10 @@ static func _prune_free_rects(free_rects: Array[Rect2i]) -> void:
 			index += 1
 
 
+## 使用严格边界比较判断两个正面积矩形是否相交，边缘相接不算相交。
+## [br]
+## @api private
+## [br]
 static func _rect_intersects(left: Rect2i, right: Rect2i) -> bool:
 	return (
 		left.position.x < right.position.x + right.size.x
@@ -433,6 +508,10 @@ static func _rect_intersects(left: Rect2i, right: Rect2i) -> bool:
 	)
 
 
+## 判断 inner 的四条边是否都落在 container 的闭合边界内。
+## [br]
+## @api private
+## [br]
 static func _rect_encloses(container: Rect2i, inner: Rect2i) -> bool:
 	return (
 		inner.position.x >= container.position.x
@@ -442,6 +521,10 @@ static func _rect_encloses(container: Rect2i, inner: Rect2i) -> bool:
 	)
 
 
+## 以填充面积平方根和最大外框边长估计正方形下界，并检测面积溢出。
+## [br]
+## @api private
+## [br]
 static func _get_square_lower_bound(rect_sizes: Array[Vector2i], padding: int) -> int:
 	var total_area: int = 0
 	var max_side: int = 0
@@ -459,6 +542,10 @@ static func _get_square_lower_bound(rect_sizes: Array[Vector2i], padding: int) -
 	return maxi(ceili(sqrt(float(total_area))), max_side)
 
 
+## 返回不小于值的最小二次幂；越界输入返回零。
+## [br]
+## @api private
+## [br]
 static func _next_power_of_two(value: int) -> int:
 	if value <= 0 or value > _MAX_POWER_OF_TWO_SIDE:
 		return 0
@@ -468,6 +555,10 @@ static func _next_power_of_two(value: int) -> int:
 	return result
 
 
+## 返回不大于正值的最大二次幂；非正输入返回零。
+## [br]
+## @api private
+## [br]
 static func _previous_power_of_two(value: int) -> int:
 	if value <= 0:
 		return 0
@@ -477,11 +568,19 @@ static func _previous_power_of_two(value: int) -> int:
 	return result
 
 
+## 执行整数除法并截去小数部分。
+## [br]
+## @api private
+## [br]
 static func _divide_truncated(numerator: int, denominator: int) -> int:
 	@warning_ignore("integer_division")
 	return numerator / denominator
 
 
+## 由放置数组汇总成功状态、数量、占用面积、未放置项和容器占用率。
+## [br]
+## @api private
+## [br]
 static func _make_result(
 	container_size: Vector2i,
 	placements: Array[Rect2i],
@@ -511,6 +610,10 @@ static func _make_result(
 	}
 
 
+## 初始化全部矩形为未放置并生成带指定错误的结果报告。
+## [br]
+## @api private
+## [br]
 static func _make_unplaced_result(rect_count: int, container_size: Vector2i, error: String) -> Dictionary:
 	var placements: Array[Rect2i] = []
 	var rotated: Array[bool] = []
@@ -521,6 +624,10 @@ static func _make_unplaced_result(rect_count: int, container_size: Vector2i, err
 	return _make_result(container_size, placements, rotated, unplaced_indices, error)
 
 
+## 接受 Vector2i 或逐分量四舍五入的 Vector2，其它类型返回零向量。
+## [br]
+## @api private
+## [br]
 static func _get_vector2i_value(value: Variant) -> Vector2i:
 	if value is Vector2i:
 		var vector: Vector2i = value
@@ -531,6 +638,10 @@ static func _get_vector2i_value(value: Variant) -> Vector2i:
 	return Vector2i.ZERO
 
 
+## 读取恰含三个整数的评分数组；其它输入以最大整数哨兵评分代替。
+## [br]
+## @api private
+## [br]
 static func _get_score_value(value: Variant) -> Array[int]:
 	var result: Array[int] = [_MAX_INT64, _MAX_INT64, _MAX_INT64]
 	if not (value is Array):
@@ -544,6 +655,10 @@ static func _get_score_value(value: Variant) -> Array[int]:
 	return result
 
 
+## 仅接受 Rect2i 作为放置矩形值，其它类型返回空矩形。
+## [br]
+## @api private
+## [br]
 static func _get_rect2i_value(value: Variant) -> Rect2i:
 	if value is Rect2i:
 		var rect: Rect2i = value

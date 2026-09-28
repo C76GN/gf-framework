@@ -143,15 +143,64 @@ var migrated: bool = false
 
 # --- 私有变量 ---
 
+## 标记结果是否绑定了不可序列化的 Storage 来源。
+## [br]
+## @api private
+## [br]
 var _origin_bound: bool = false
+
+## 签发结果的 Utility 实例 ID。
+## [br]
+## @api private
+## [br]
 var _origin_utility_id: int = 0
+
+## 来源绑定的 canonical logical identity。
+## [br]
+## @api private
+## [br]
 var _origin_logical_path: String = ""
+
+## 来源绑定的 Storage root/family 内部身份键。
+## [br]
+## @api private
+## [br]
 var _origin_file_key: String = ""
+
+## Utility 生命周期内不可序列化的结果来源 token。
+## [br]
+## @api private
+## [br]
 var _origin_token: String = ""
+
+## 读取终态绑定的 opaque family 观察快照。
+## [br]
+## @api private
+## [br]
 var _origin_observation_token: String = ""
+
+## 来源绑定时冻结的成功标记，用于检测授权字段被改写。
+## [br]
+## @api private
+## [br]
 var _origin_ok: bool = false
+
+## 来源绑定时冻结的 Error 码。
+## [br]
+## @api private
+## [br]
 var _origin_error_code: Error = FAILED
+
+## 来源绑定时冻结的失败分类。
+## [br]
+## @api private
+## [br]
 var _origin_failure_kind: FailureKind = FailureKind.NONE
+
+## 与实际物理读取配对的不可变 committed revision。
+## [br]
+## @api private
+## [br]
 var _captured_revision: GFStorageRevisionResult
 
 
@@ -500,6 +549,10 @@ func get_origin_observation_token_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 组装 to_dict/from_dict 使用的字段集合，不包含 opaque 来源和 captured revision。
+## [br]
+## @api private
+## [br]
 func _make_field_dictionary() -> Dictionary:
 	# 仅在当前调用内传递字段；from_dict 负责规范化与隔离，公开导出另行复制容器。
 	return {
@@ -517,6 +570,10 @@ func _make_field_dictionary() -> Dictionary:
 	}
 
 
+## 清除全部不可序列化来源身份及签发时冻结的授权字段。
+## [br]
+## @api private
+## [br]
 func _clear_origin_binding() -> void:
 	_origin_bound = false
 	_origin_utility_id = 0
@@ -529,6 +586,10 @@ func _clear_origin_binding() -> void:
 	_origin_failure_kind = FailureKind.NONE
 
 
+## 检查来源绑定存在且当前 ok、error_code 与 failure_kind 仍等于签发快照。
+## [br]
+## @api private
+## [br]
 func _origin_binding_is_current() -> bool:
 	return (
 		_origin_bound
@@ -538,6 +599,10 @@ func _origin_binding_is_current() -> bool:
 	)
 
 
+## 将整数映射为已知完整性状态，未知值回退到 NOT_CHECKED。
+## [br]
+## @api private
+## [br]
 static func _to_integrity_status(value: int) -> IntegrityStatus:
 	match value:
 		IntegrityStatus.VALID:
@@ -550,6 +615,10 @@ static func _to_integrity_status(value: int) -> IntegrityStatus:
 			return IntegrityStatus.NOT_CHECKED
 
 
+## 将整数映射为已知读取失败分类，未知值回退到 IO_FAILED。
+## [br]
+## @api private
+## [br]
 static func _to_failure_kind(value: int) -> FailureKind:
 	if FailureKind.values().has(value):
 		return value as FailureKind

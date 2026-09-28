@@ -61,14 +61,32 @@ const META_INDEX: StringName = &"gf_repeater_index"
 ## @since 7.0.0
 const META_ITEM: StringName = &"gf_repeater_item"
 
+## 用于状态存储类型检查、路径规整和订阅的脚本预载。
+## [br]
+## @api private
 const _GF_REACTIVE_STATE_STORE_SCRIPT = preload("res://addons/gf/standard/utilities/state/gf_reactive_state_store.gd")
+
+## 用于解析弱引用目标的实例检查脚本预载。
+## [br]
+## @api private
 const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
+
+## 执行重复节点同步、克隆清理和忙碌状态查询的脚本预载。
+## [br]
+## @api private
 const _SYNC_SCRIPT = preload("res://addons/gf/standard/utilities/ui/gf_repeater_sync.gd")
 
 
 # --- 私有变量 ---
 
+## 本实例创建的 store 到容器重复渲染绑定。
+## [br]
+## @api private
 var _bindings: Array[Dictionary] = []
+
+## 下一个新绑定使用的递增 id。
+## [br]
+## @api private
 var _next_binding_id: int = 1
 
 
@@ -386,6 +404,9 @@ static func clear_clones(container: Node, options: Dictionary = {}) -> int:
 
 # --- 私有/辅助方法 ---
 
+## 应用 store 变更；目标无效时解绑，目标正同步时排队稍后刷新，失败时发出信号。
+## [br]
+## @api private
 func _apply_store_change_to_container(binding: Dictionary, change: Dictionary) -> void:
 	if not _binding_is_active(binding):
 		return
@@ -411,6 +432,9 @@ func _apply_store_change_to_container(binding: Dictionary, change: Dictionary) -
 		synchronization_failed.emit(container, _get_group_key(options), GFVariantData.get_option_string_name(report, "error"))
 
 
+## 按 binding_id 从本实例移除绑定并断开其关联；未找到时返回 false。
+## [br]
+## @api private
 func _remove_binding(binding: Dictionary) -> bool:
 	var binding_id: int = GFVariantData.get_option_int(binding, "binding_id", -1)
 	if binding_id == -1:
@@ -424,6 +448,9 @@ func _remove_binding(binding: Dictionary) -> bool:
 	return false
 
 
+## 先清空传入的绑定数组，再逐项断开此前保存的绑定。
+## [br]
+## @api private
 static func _disconnect_all_bindings(bindings: Array[Dictionary]) -> void:
 	var previous_bindings: Array[Dictionary] = bindings.duplicate()
 	bindings.clear()
@@ -431,6 +458,9 @@ static func _disconnect_all_bindings(bindings: Array[Dictionary]) -> void:
 		_disconnect_binding(binding)
 
 
+## 停用绑定、取消排队刷新、中断对应同步并解除 store 与容器信号连接。
+## [br]
+## @api private
 static func _disconnect_binding(binding: Dictionary) -> void:
 	binding["active"] = false
 	binding["refresh_pending"] = false
@@ -450,6 +480,9 @@ static func _disconnect_binding(binding: Dictionary) -> void:
 		container.tree_exited.disconnect(tree_exited_callable)
 
 
+## 通过绑定中的 store 弱引用取得仍存活且类型匹配的状态存储。
+## [br]
+## @api private
 static func _get_binding_store(binding: Dictionary) -> _GF_REACTIVE_STATE_STORE_SCRIPT:
 	var store_ref: WeakRef = _get_binding_weak_ref(binding, "store_ref")
 	var raw_store: Object = _INSTANCE_GUARD._get_live_object_from_ref(store_ref)
@@ -459,6 +492,9 @@ static func _get_binding_store(binding: Dictionary) -> _GF_REACTIVE_STATE_STORE_
 	return null
 
 
+## 将 RefCounted 输入收窄为状态存储实例；类型不符时返回 null。
+## [br]
+## @api private
 static func _as_state_store(store: RefCounted) -> _GF_REACTIVE_STATE_STORE_SCRIPT:
 	if store is _GF_REACTIVE_STATE_STORE_SCRIPT:
 		var state_store: _GF_REACTIVE_STATE_STORE_SCRIPT = store
@@ -466,6 +502,9 @@ static func _as_state_store(store: RefCounted) -> _GF_REACTIVE_STATE_STORE_SCRIP
 	return null
 
 
+## 通过绑定中的弱引用取得仍有效且未排队删除的容器节点。
+## [br]
+## @api private
 static func _get_binding_container(binding: Dictionary) -> Node:
 	var container_ref: WeakRef = _get_binding_weak_ref(binding, "container_ref")
 	var raw_container: Object = _INSTANCE_GUARD._get_live_object_from_ref(container_ref)
@@ -475,6 +514,9 @@ static func _get_binding_container(binding: Dictionary) -> Node:
 	return null
 
 
+## 通过绑定中的弱引用取得仍有效且未排队删除的模板节点。
+## [br]
+## @api private
 static func _get_binding_template(binding: Dictionary) -> Node:
 	var template_ref: WeakRef = _get_binding_weak_ref(binding, "template_ref")
 	var raw_template: Object = _INSTANCE_GUARD._get_live_object_from_ref(template_ref)
@@ -484,6 +526,9 @@ static func _get_binding_template(binding: Dictionary) -> Node:
 	return null
 
 
+## 从绑定字典读取指定键，并仅在值为 WeakRef 时返回该引用。
+## [br]
+## @api private
 static func _get_binding_weak_ref(binding: Dictionary, key: String) -> WeakRef:
 	var value: Variant = GFVariantData.get_option_value(binding, key)
 	if value is WeakRef:
@@ -492,6 +537,9 @@ static func _get_binding_weak_ref(binding: Dictionary, key: String) -> WeakRef:
 	return null
 
 
+## 从绑定字典读取指定键，并仅在值为 Callable 时返回该回调。
+## [br]
+## @api private
 static func _get_binding_callable(binding: Dictionary, key: String) -> Callable:
 	var value: Variant = GFVariantData.get_option_value(binding, key, Callable())
 	if value is Callable:
@@ -500,23 +548,27 @@ static func _get_binding_callable(binding: Dictionary, key: String) -> Callable:
 	return Callable()
 
 
+## 从绑定保存的 options 中取得分组键，缺省值由 _get_group_key() 提供。
+## [br]
+## @api private
 static func _binding_group_key(binding: Dictionary) -> StringName:
 	return _get_group_key(GFVariantData.get_option_dictionary(binding, "options"))
 
 
+## 移除 store、容器或模板弱引用目标已失效的绑定。
+## [br]
+## @api private
 func _prune_invalid_bindings() -> void:
 	for binding: Dictionary in _bindings.duplicate():
 		if _get_binding_store(binding) == null or _get_binding_container(binding) == null or _get_binding_template(binding) == null:
 			var _removed_invalid: bool = _remove_binding(binding)
 
 
-func _on_container_tree_exited(binding_id: int) -> void:
-	for index: int in range(_bindings.size() - 1, -1, -1):
-		if GFVariantData.get_option_int(_bindings[index], "binding_id", -1) == binding_id:
-			var _removed_exited_binding: bool = _remove_binding(_bindings[index])
-			return
 
 
+## 仅当输入值为 Array 时返回其内容；其他类型返回空数组。
+## [br]
+## @api private
 static func _value_to_items(value: Variant) -> Array:
 	if value is Array:
 		var items: Array = value
@@ -524,6 +576,9 @@ static func _value_to_items(value: Variant) -> Array:
 	return []
 
 
+## 检查绑定的 active 标记及 store、容器、模板目标是否都仍有效。
+## [br]
+## @api private
 func _binding_is_active(binding: Dictionary) -> bool:
 	return (
 		GFVariantData.get_option_bool(binding, "active")
@@ -533,6 +588,9 @@ func _binding_is_active(binding: Dictionary) -> bool:
 	)
 
 
+## 按 binding_id 将 store 变更路由到对应绑定。
+## [br]
+## @api private
 func _apply_store_change_by_id(binding_id: int, change: Dictionary) -> void:
 	for binding: Dictionary in _bindings:
 		if GFVariantData.get_option_int(binding, "binding_id") == binding_id:
@@ -540,6 +598,9 @@ func _apply_store_change_by_id(binding_id: int, change: Dictionary) -> void:
 			return
 
 
+## 清除该绑定的待刷新标记，并读取 store 当前值重新同步其容器。
+## [br]
+## @api private
 func _flush_binding(binding_id: int) -> void:
 	for binding: Dictionary in _bindings:
 		if GFVariantData.get_option_int(binding, "binding_id") != binding_id:
@@ -561,6 +622,9 @@ func _flush_binding(binding_id: int) -> void:
 		return
 
 
+## 忙碌同步期间最多为该绑定排队一次 process_frame 刷新。
+## [br]
+## @api private
 func _queue_binding_refresh(binding: Dictionary) -> void:
 	if GFVariantData.get_option_bool(binding, "refresh_pending"):
 		return
@@ -580,6 +644,9 @@ func _queue_binding_refresh(binding: Dictionary) -> void:
 	var _connected: int = scene_tree.process_frame.connect(callback, CONNECT_ONE_SHOT as Object.ConnectFlags)
 
 
+## 若保存的 SceneTree 和回调仍有效且已连接，则断开排队刷新并清空对应引用。
+## [br]
+## @api private
 static func _disconnect_pending_refresh(binding: Dictionary) -> void:
 	var tree_ref: WeakRef = _get_binding_weak_ref(binding, "refresh_tree_ref")
 	var tree_object: Object = _INSTANCE_GUARD._get_live_object_from_ref(tree_ref)
@@ -592,6 +659,9 @@ static func _disconnect_pending_refresh(binding: Dictionary) -> void:
 	binding["refresh_callable"] = Callable()
 
 
+## 从绑定字典读取 sync_owner，并仅在值为 RefCounted 时返回。
+## [br]
+## @api private
 static func _get_sync_owner(binding: Dictionary) -> RefCounted:
 	var value: Variant = binding.get("sync_owner")
 	if value is RefCounted:
@@ -600,6 +670,9 @@ static func _get_sync_owner(binding: Dictionary) -> RefCounted:
 	return null
 
 
+## 将 binder 弱引用解析为 GFRepeaterBinder；目标类型不符或已失效时返回 null。
+## [br]
+## @api private
 static func _binder_from_ref(binder_ref: WeakRef) -> GFRepeaterBinder:
 	var candidate: Variant = binder_ref.get_ref()
 	if candidate is GFRepeaterBinder:
@@ -608,10 +681,16 @@ static func _binder_from_ref(binder_ref: WeakRef) -> GFRepeaterBinder:
 	return null
 
 
+## 检查 Node 实例有效且未排队删除。
+## [br]
+## @api private
 static func _is_live_node(node: Node) -> bool:
 	return is_instance_valid(node) and not node.is_queued_for_deletion()
 
 
+## 从同步报告的 nodes 数组中筛出仍有效且未排队删除的 Node。
+## [br]
+## @api private
 static func _report_nodes(report: Dictionary) -> Array[Node]:
 	var nodes: Array[Node] = []
 	var value: Variant = report.get("nodes")
@@ -625,5 +704,20 @@ static func _report_nodes(report: Dictionary) -> Array[Node]:
 	return nodes
 
 
+## 从 options 读取 group_key，未设置时使用 default。
+## [br]
+## @api private
 static func _get_group_key(options: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(options, "group_key", &"default")
+
+
+# --- 信号处理函数 ---
+
+## 容器离树时按绑定标识移除对应记录，通过统一清理路径释放订阅与同步状态。
+## [br]
+## @api private
+func _on_container_tree_exited(binding_id: int) -> void:
+	for index: int in range(_bindings.size() - 1, -1, -1):
+		if GFVariantData.get_option_int(_bindings[index], "binding_id", -1) == binding_id:
+			var _removed_exited_binding: bool = _remove_binding(_bindings[index])
+			return

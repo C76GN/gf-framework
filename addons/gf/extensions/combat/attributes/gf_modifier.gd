@@ -30,6 +30,9 @@ enum Type {
 
 # --- 常量 ---
 
+## 为修饰器数值 setter 和数值状态检查提供有限浮点数判断。
+## [br]
+## @api private
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
 
@@ -66,7 +69,14 @@ var source_id: StringName = &""
 
 # --- 私有变量 ---
 
+## 保存最近一次有限 value 赋值；非有限赋值不会覆盖此值。
+## [br]
+## @api private
 var _value: float = 0.0
+
+## 记录最近一次 value 赋值是否有限；duplicate_modifier 会保留此有效性状态。
+## [br]
+## @api private
 var _value_is_valid: bool = true
 
 
@@ -220,6 +230,9 @@ static func from_dictionary(data: Dictionary) -> GFModifier:
 
 # --- 私有/辅助方法 ---
 
+## 将整数类型索引交给范围归一化；其他值按忽略大小写和首尾空白的名称别名解析。
+## [br]
+## @api private
 static func _normalize_type(raw_value: Variant) -> Type:
 	if raw_value is int:
 		var type_value: int = raw_value
@@ -233,6 +246,9 @@ static func _normalize_type(raw_value: Variant) -> Type:
 			return Type.BASE_ADD
 
 
+## 将整数限制到 Type 范围，并把未显式映射的值归为 BASE_ADD。
+## [br]
+## @api private
 static func _int_to_type(type_index: int) -> Type:
 	match clampi(type_index, Type.BASE_ADD, Type.FINAL_ADD):
 		Type.PERCENT_ADD:

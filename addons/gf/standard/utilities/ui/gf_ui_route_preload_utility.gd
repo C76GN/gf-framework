@@ -257,6 +257,9 @@ static func build_plan(
 
 # --- 私有/辅助方法 ---
 
+## 扫描有界路由目录，以首个规范化 ID 为准并记录重复 ID。
+## [br]
+## @api private
 static func _build_catalog(routes: Array[GFUIRoute], max_catalog_routes: int) -> Dictionary:
 	var route_catalog: Dictionary = {}
 	var duplicate_route_ids: PackedStringArray = PackedStringArray()
@@ -284,6 +287,9 @@ static func _build_catalog(routes: Array[GFUIRoute], max_catalog_routes: int) ->
 	}
 
 
+## 按相邻关系声明顺序进行有界广度优先遍历，并统计缺失路由、深度和预算状态。
+## [br]
+## @api private
 static func _collect_reachable_routes(
 	route_catalog: Dictionary,
 	source_route_id: StringName,
@@ -369,6 +375,9 @@ static func _collect_reachable_routes(
 	}
 
 
+## 依据选项创建 GFAssetPreloadPlan，并归一化 group_id 与 plan_id。
+## [br]
+## @api private
 static func _make_asset_plan(
 	options: Dictionary,
 	source_route_id: StringName,
@@ -402,6 +411,9 @@ static func _make_asset_plan(
 	return plan
 
 
+## 先追加固定路由，再追加可达路由，并汇总路径诊断和去重结果。
+## [br]
+## @api private
 static func _append_route_paths(
 	plan: GFAssetPreloadPlan,
 	route_catalog: Dictionary,
@@ -462,6 +474,9 @@ static func _append_route_paths(
 	}
 
 
+## 解析单条路由场景路径、可选检查资源类型并加入计划；按 Resource identity cache key 去重。
+## [br]
+## @api private
 static func _append_route_path(
 	plan: GFAssetPreloadPlan,
 	route_catalog: Dictionary,
@@ -523,6 +538,9 @@ static func _append_route_path(
 		_append_unique_string(temporary_route_ids, String(route_id))
 
 
+## 构造源路由缺失或目录预算耗尽的失败报告。
+## [br]
+## @api private
 static func _make_missing_source_result(
 	source_route_id: StringName,
 	max_depth: int,
@@ -569,6 +587,9 @@ static func _make_missing_source_result(
 	}
 
 
+## 规范化固定路由 ID、去重，并在达到路由上限时截断。
+## [br]
+## @api private
 static func _select_fixed_route_ids(
 	route_ids: PackedStringArray,
 	max_routes: int
@@ -589,10 +610,16 @@ static func _select_fixed_route_ids(
 	}
 
 
+## 移除路由 ID 首尾空白并转换为 StringName。
+## [br]
+## @api private
 static func _normalize_route_id(route_id: StringName) -> StringName:
 	return StringName(String(route_id).strip_edges())
 
 
+## 从路由目录读取 GFUIRoute；值类型不匹配时返回 null。
+## [br]
+## @api private
 static func _get_route(route_catalog: Dictionary, route_id: StringName) -> GFUIRoute:
 	var value: Variant = route_catalog.get(route_id)
 	if value is GFUIRoute:
@@ -601,6 +628,9 @@ static func _get_route(route_catalog: Dictionary, route_id: StringName) -> GFUIR
 	return null
 
 
+## 仅当值非空且尚未出现时，将字符串追加到 PackedStringArray。
+## [br]
+## @api private
 static func _append_unique_string(values: PackedStringArray, value: String) -> void:
 	if value.is_empty() or values.has(value):
 		return

@@ -88,6 +88,10 @@ const REFERENCE_KIND_NODE: String = "Node"
 ## @api public
 const REFERENCE_KIND_UNSUPPORTED_OBJECT: String = "UnsupportedObject"
 
+## 资源与节点引用标记使用的版本号。
+## [br]
+## @api private
+## [br]
 const _REFERENCE_MARKER_VERSION: int = 1
 
 
@@ -256,6 +260,10 @@ static func decode_reference(value: Variant, options: Dictionary = {}) -> Dictio
 
 # --- 私有/辅助方法 ---
 
+## 复制引用数据，写入版本和类型，并包装为引用标记根字典。
+## [br]
+## @api private
+## [br]
 static func _make_reference_marker(marker_kind: String, data: Dictionary = {}) -> Dictionary:
 	var marker: Dictionary = data.duplicate(true)
 	marker[REFERENCE_VERSION_KEY] = _REFERENCE_MARKER_VERSION
@@ -265,12 +273,20 @@ static func _make_reference_marker(marker_kind: String, data: Dictionary = {}) -
 	}
 
 
+## 创建 unsupported-object 类型标记并记录对象类名。
+## [br]
+## @api private
+## [br]
 static func _make_unsupported_marker(class_name_text: String) -> Dictionary:
 	return _make_reference_marker(REFERENCE_KIND_UNSUPPORTED_OBJECT, {
 		REFERENCE_UNSUPPORTED_CLASS_KEY: class_name_text,
 	})
 
 
+## 按显式资源根目录或匹配模式策略解析候选路径，优先 UID 路径并生成解码结果。
+## [br]
+## @api private
+## [br]
 static func _decode_resource_marker(marker: Dictionary, options: Dictionary) -> Dictionary:
 	if not _has_resource_path_policy(options):
 		return _make_decode_result(false, null, "Resource decode requires allowed_resource_roots or allowed_resource_patterns.", REFERENCE_KIND_RESOURCE)
@@ -293,6 +309,10 @@ static func _decode_resource_marker(marker: Dictionary, options: Dictionary) -> 
 	return _make_decode_result(false, null, "Resource could not be loaded: %s" % ", ".join(resource_paths), REFERENCE_KIND_RESOURCE)
 
 
+## 要求提供根节点及相对 NodePath，拒绝父级段并确认目标属于该根节点。
+## [br]
+## @api private
+## [br]
 static func _decode_node_marker(marker: Dictionary, root_node: Node) -> Dictionary:
 	if root_node == null:
 		return _make_decode_result(false, null, "Node reference root is null.", REFERENCE_KIND_NODE)
@@ -314,6 +334,10 @@ static func _decode_node_marker(marker: Dictionary, root_node: Node) -> Dictiona
 	return _make_decode_result(true, node, "", REFERENCE_KIND_NODE)
 
 
+## 从资源路径读取 UID 文本；路径为空或 UID 无效时返回空文本。
+## [br]
+## @api private
+## [br]
 static func _get_resource_uid_text(resource_path: String) -> String:
 	if resource_path.is_empty():
 		return ""
@@ -323,6 +347,10 @@ static func _get_resource_uid_text(resource_path: String) -> String:
 	return ResourceUID.id_to_text(uid)
 
 
+## 解析 UID 文本并仅在 UID 有效且资源存在时返回资源路径。
+## [br]
+## @api private
+## [br]
 static func _get_resource_path_from_uid(uid_text: String) -> String:
 	if uid_text.is_empty():
 		return ""
@@ -332,6 +360,10 @@ static func _get_resource_path_from_uid(uid_text: String) -> String:
 	return ResourceUID.get_id_path(uid)
 
 
+## 按 UID 路径优先、序列化路径其次生成去重且非空的候选列表。
+## [br]
+## @api private
+## [br]
 static func _get_resource_candidate_paths(marker: Dictionary) -> Array[String]:
 	var result: Array[String] = []
 	var uid_path: String = _get_resource_path_from_uid(GFVariantData.get_option_string(marker, REFERENCE_UID_KEY))
@@ -343,6 +375,10 @@ static func _get_resource_candidate_paths(marker: Dictionary) -> Array[String]:
 	return result
 
 
+## 检查 NodePath 任一名称段是否为父级标记 ..。
+## [br]
+## @api private
+## [br]
 static func _node_path_has_parent_segment(node_path: NodePath) -> bool:
 	for index: int in range(node_path.get_name_count()):
 		if String(node_path.get_name(index)) == "..":
@@ -350,6 +386,10 @@ static func _node_path_has_parent_segment(node_path: NodePath) -> bool:
 	return false
 
 
+## 要求配置资源路径策略，并检查规范化路径是否位于允许根目录或匹配允许模式。
+## [br]
+## @api private
+## [br]
 static func _resource_path_allowed(resource_path: String, options: Dictionary) -> bool:
 	if not _has_resource_path_policy(options):
 		return false
@@ -372,6 +412,10 @@ static func _resource_path_allowed(resource_path: String, options: Dictionary) -
 	return false
 
 
+## 检查选项是否至少配置一个资源根目录或路径模式。
+## [br]
+## @api private
+## [br]
 static func _has_resource_path_policy(options: Dictionary) -> bool:
 	return (
 		not GFVariantData.get_option_packed_string_array(options, OPTION_ALLOWED_RESOURCE_ROOTS).is_empty()
@@ -379,6 +423,10 @@ static func _has_resource_path_policy(options: Dictionary) -> bool:
 	)
 
 
+## 读取类型为 Node 的 root_node 选项；否则返回 null。
+## [br]
+## @api private
+## [br]
 static func _get_root_node_option(options: Dictionary) -> Node:
 	var root_value: Variant = GFVariantData.get_option_value(options, OPTION_ROOT_NODE)
 	if root_value is Node:
@@ -387,6 +435,10 @@ static func _get_root_node_option(options: Dictionary) -> Node:
 	return null
 
 
+## 构造含 ok、value、error 和 kind 字段的解码结果字典。
+## [br]
+## @api private
+## [br]
 static func _make_decode_result(
 	ok: bool,
 	value: Variant = null,

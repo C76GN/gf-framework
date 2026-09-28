@@ -96,40 +96,193 @@ const MAX_PAGE_SIZE: int = 100
 ## @since 11.0.0
 const MAX_RESULT_COUNT: int = 10_000
 
+## 过滤资产 ID 数组可接受的最大项数。
+## [br]
+## @api private
+## [br]
 const _MAX_FILTER_ASSET_IDS: int = 10_000
+
+## 单个资产 ID 的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_ASSET_ID_LENGTH: int = 512
+
+## 目录及元数据验证允许计入的最大值节点数。
+## [br]
+## @api private
+## [br]
 const _MAX_CATALOG_VALUE_NODES: int = 1_000_000
+
+## 目录元数据递归验证的最大嵌套深度。
+## [br]
+## @api private
+## [br]
 const _MAX_CATALOG_METADATA_DEPTH: int = 16
+
+## 目录集合值允许的最大元素数。
+## [br]
+## @api private
+## [br]
 const _MAX_CATALOG_COLLECTION_ITEMS: int = 4096
+
+## 目录文本值允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_CATALOG_TEXT_LENGTH: int = 8192
+
+## 验证期间目录文本累计允许的最大 UTF-8 字节数。
+## [br]
+## @api private
+## [br]
 const _MAX_CATALOG_TEXT_BYTES: int = 16 * 1024 * 1024
+
+## 单页摘要序列化允许的最大字节数。
+## [br]
+## @api private
+## [br]
 const _MAX_SUMMARY_BYTES: int = 32 * 1024
+
+## 单页摘要序列化允许的最大节点数。
+## [br]
+## @api private
+## [br]
 const _MAX_SUMMARY_NODES: int = 512
+
+## 单页摘要集合允许的最大项数。
+## [br]
+## @api private
+## [br]
 const _MAX_SUMMARY_COLLECTION_ITEMS: int = 128
+
+## 单页摘要字符串允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_SUMMARY_STRING_LENGTH: int = 4096
+
+## 冻结预览计划要求的顶层键数。
+## [br]
+## @api private
+## [br]
 const _PREVIEW_PLAN_KEY_COUNT: int = 4
+
+## 冻结预览计划中每项变更要求的键数。
+## [br]
+## @api private
+## [br]
 const _PREVIEW_PLAN_CHANGE_KEY_COUNT: int = 3
+
+## 目录变化通知的内部事件名。
+## [br]
+## @api private
+## [br]
 const _NOTIFICATION_CATALOG_CHANGED: StringName = &"catalog_changed"
+
+## 查询变化通知的内部事件名。
+## [br]
+## @api private
+## [br]
 const _NOTIFICATION_QUERY_CHANGED: StringName = &"query_changed"
+
+## 选择变化通知的内部事件名。
+## [br]
+## @api private
+## [br]
 const _NOTIFICATION_SELECTION_CHANGED: StringName = &"selection_changed"
+
+## 预览终态通知的内部事件名。
+## [br]
+## @api private
+## [br]
 const _NOTIFICATION_PREVIEW_RESOLVED: StringName = &"preview_resolved"
 
 
 # --- 私有变量 ---
 
+## 当前模型持有的目录快照。
+## [br]
+## @api private
+## [br]
 var _catalog: GFAssetCatalog = GFAssetCatalog.new()
+
+## 成功替换目录后递增的目录版本。
+## [br]
+## @api private
+## [br]
 var _catalog_revision: int = 0
+
+## 目录或查询条件变化后递增的查询代际。
+## [br]
+## @api private
+## [br]
 var _query_generation: int = 0
+
+## 当前文本查询条件。
+## [br]
+## @api private
+## [br]
 var _query_text: String = ""
+
+## 当前去重并排序的资产 ID 过滤闭集。
+## [br]
+## @api private
+## [br]
 var _query_asset_ids: PackedStringArray = PackedStringArray()
+
+## 当前选中的稳定资产 ID；空值表示无选择。
+## [br]
+## @api private
+## [br]
 var _selected_asset_id: StringName = &""
+
+## 当前预览请求代际。
+## [br]
+## @api private
+## [br]
 var _preview_generation: int = 0
+
+## 当前登记的缩略图渲染任务。
+## [br]
+## @api private
+## [br]
 var _active_preview_task: GFThumbnailRenderTask = null
+
+## 当前预览任务对应的稳定资产 ID。
+## [br]
+## @api private
+## [br]
 var _active_preview_asset_id: StringName = &""
+
+## 当前预览任务提交时的目录版本。
+## [br]
+## @api private
+## [br]
 var _active_preview_catalog_revision: int = 0
+
+## 当前预览任务提交时的查询代际。
+## [br]
+## @api private
+## [br]
 var _active_preview_query_generation: int = 0
+
+## 模型是否已 dispose；终态后写入入口会拒绝请求。
+## [br]
+## @api private
+## [br]
 var _disposed: bool = false
+
+## 等待按顺序发布的只读通知记录。
+## [br]
+## @api private
+## [br]
 var _pending_notifications: Array[Dictionary] = []
+
+## 当前是否正在排空通知队列。
+## [br]
+## @api private
+## [br]
 var _notification_dispatch_in_progress: bool = false
 
 
@@ -500,6 +653,9 @@ func get_page(page: int = 1, page_size: int = 50) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 直接在传入 payload 上写入通知类型并将该字典设为只读；不复制 payload，也不递归冻结其中的对象。
+## [br]
+## @api private
 static func _make_notification(
 	notification_type: StringName,
 	payload: Dictionary
@@ -510,11 +666,18 @@ static func _make_notification(
 	return event_record
 
 
+## 将单条通知包装为数组并转交批量发布路径。
+## [br]
+## @api private
+## [br]
 func _publish_notification(event_record: Dictionary) -> void:
 	var notifications: Array[Dictionary] = [event_record]
 	_publish_notifications(notifications)
 
 
+## 将通知加入同一 FIFO；派发回调中的新增通知由当前循环继续消费，避免嵌套派发，dispose 后停止并清空队列。
+## [br]
+## @api private
 func _publish_notifications(notifications: Array[Dictionary]) -> void:
 	if _disposed or notifications.is_empty():
 		return
@@ -531,6 +694,10 @@ func _publish_notifications(notifications: Array[Dictionary]) -> void:
 	_notification_dispatch_in_progress = false
 
 
+## 按内部事件类型发出对应的公开模型信号。
+## [br]
+## @api private
+## [br]
 func _dispatch_notification(event_record: Dictionary) -> void:
 	var type_value: Variant = event_record.get("type", &"")
 	if not type_value is StringName:
@@ -555,6 +722,9 @@ func _dispatch_notification(event_record: Dictionary) -> void:
 				var report: Dictionary = report_value
 				preview_resolved.emit(report)
 
+## 先用共享数量与文本预算验证全部条目，再复制其数据构建并重建独立目录索引；任一条目失败都不发布候选目录。
+## [br]
+## @api private
 static func _make_isolated_catalog_snapshot(catalog: GFAssetCatalog) -> Dictionary:
 	if catalog.entries.size() > MAX_CATALOG_ENTRIES:
 		return {
@@ -592,6 +762,10 @@ static func _make_isolated_catalog_snapshot(catalog: GFAssetCatalog) -> Dictiona
 	}
 
 
+## 校验一个目录项的 ID、文本、集合和元数据，并更新共享预算状态。
+## [br]
+## @api private
+## [br]
 static func _validate_catalog_entry(
 	entry: GFAssetCatalogEntry,
 	state: Dictionary,
@@ -640,6 +814,10 @@ static func _validate_catalog_entry(
 	return _validate_catalog_metadata_value(entry.metadata, state, [], 0)
 
 
+## 检查文本数组项数上限，并逐项累加文本长度与字节预算。
+## [br]
+## @api private
+## [br]
 static func _validate_catalog_text_array(
 	values: PackedStringArray,
 	state: Dictionary
@@ -657,6 +835,9 @@ static func _validate_catalog_text_array(
 	return ""
 
 
+## 以活动容器栈拒绝真实循环，累计节点、文本和集合预算；允许非循环共享容器，拒绝 Object、Callable、Signal 和 RID。
+## [br]
+## @api private
 static func _validate_catalog_metadata_value(
 	value: Variant,
 	state: Dictionary,
@@ -743,6 +924,10 @@ static func _validate_catalog_metadata_value(
 	return ""
 
 
+## 可选计入一个节点后，验证字符串字符数和共享 UTF-8 字节预算。
+## [br]
+## @api private
+## [br]
 static func _reserve_catalog_text(
 	value: String,
 	state: Dictionary,
@@ -763,10 +948,18 @@ static func _reserve_catalog_text(
 	return ""
 
 
+## 请求为一个值节点记账，并以 prefix 生成超限错误键。
+## [br]
+## @api private
+## [br]
 static func _consume_catalog_value_node(state: Dictionary, prefix: String) -> String:
 	return _consume_catalog_value_nodes(state, 1, prefix)
 
 
+## 在累计节点预算未超限时增加 count；否则返回带 prefix 的错误键。
+## [br]
+## @api private
+## [br]
 static func _consume_catalog_value_nodes(
 	state: Dictionary,
 	count: int,
@@ -779,6 +972,10 @@ static func _consume_catalog_value_nodes(
 	return ""
 
 
+## 在当前递归引用栈中用 is_same 查找 value，未找到时返回 -1。
+## [br]
+## @api private
+## [br]
 static func _find_catalog_active_reference(references: Array, value: Variant) -> int:
 	for index: int in range(references.size()):
 		if is_same(references[index], value):
@@ -786,6 +983,9 @@ static func _find_catalog_active_reference(references: Array, value: Variant) ->
 	return -1
 
 
+## 为已验证条目创建新的基础条目，复制数组容器并深复制 metadata，不保留原条目资源身份。
+## [br]
+## @api private
 static func _copy_catalog_entry(source: GFAssetCatalogEntry) -> GFAssetCatalogEntry:
 	var copy: GFAssetCatalogEntry = GFAssetCatalogEntry.new()
 	copy.asset_id = source.asset_id
@@ -801,6 +1001,10 @@ static func _copy_catalog_entry(source: GFAssetCatalogEntry) -> GFAssetCatalogEn
 	copy.metadata = source.metadata.duplicate(true)
 	return copy
 
+## 仅当字典值是 int 时读取，否则返回 fallback。
+## [br]
+## @api private
+## [br]
 static func _read_int(data: Dictionary, key: String, fallback: int = 0) -> int:
 	var value: Variant = data.get(key, fallback)
 	if value is int:
@@ -809,6 +1013,10 @@ static func _read_int(data: Dictionary, key: String, fallback: int = 0) -> int:
 	return fallback
 
 
+## 仅当字典值是 bool 时读取，否则返回 fallback。
+## [br]
+## @api private
+## [br]
 static func _read_bool(data: Dictionary, key: String, fallback: bool = false) -> bool:
 	var value: Variant = data.get(key, fallback)
 	if value is bool:
@@ -817,6 +1025,10 @@ static func _read_bool(data: Dictionary, key: String, fallback: bool = false) ->
 	return fallback
 
 
+## 读取 Array 并返回递归 duplicate(true) 结果；键缺失或类型不符时返回空数组。
+## [br]
+## @api private
+## [br]
 static func _read_array(data: Dictionary, key: String) -> Array:
 	var value: Variant = data.get(key, [])
 	if value is Array:
@@ -825,6 +1037,10 @@ static func _read_array(data: Dictionary, key: String) -> Array:
 	return []
 
 
+## 读取 PackedStringArray 的 duplicate；键缺失或类型不符时返回空 packed 数组。
+## [br]
+## @api private
+## [br]
 static func _read_packed_string_array(data: Dictionary, key: String) -> PackedStringArray:
 	var value: Variant = data.get(key, PackedStringArray())
 	if value is PackedStringArray:
@@ -833,6 +1049,10 @@ static func _read_packed_string_array(data: Dictionary, key: String) -> PackedSt
 	return PackedStringArray()
 
 
+## 去除 ID 首尾空白、空项和重复项，再按字典序排序。
+## [br]
+## @api private
+## [br]
 static func _normalize_asset_ids(asset_ids: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var seen_ids: Dictionary = {}
@@ -846,6 +1066,10 @@ static func _normalize_asset_ids(asset_ids: PackedStringArray) -> PackedStringAr
 	return result
 
 
+## 每个 ID 均需非空、无首尾空白且不超过内部字符上限。
+## [br]
+## @api private
+## [br]
 static func _are_asset_ids_valid(asset_ids: PackedStringArray) -> bool:
 	for asset_id_text: String in asset_ids:
 		var normalized: String = asset_id_text.strip_edges()
@@ -858,6 +1082,9 @@ static func _are_asset_ids_valid(asset_ids: PackedStringArray) -> bool:
 	return true
 
 
+## 仅投影字典项，按每项的诊断脱敏与容量预算生成列表摘要；保留路径文本而限制嵌套内容。
+## [br]
+## @api private
 static func _make_page_items(raw_items: Array) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var encode_options: Dictionary = GFReportValueCodec.make_redaction_options(
@@ -879,6 +1106,9 @@ static func _make_page_items(raw_items: Array) -> Array[Dictionary]:
 	return result
 
 
+## 存在活动预览时先推进预览代次，再撤销任务，使晚到完成通知失去写回资格。
+## [br]
+## @api private
 func _invalidate_active_preview(reason: StringName) -> void:
 	if _active_preview_task == null:
 		return
@@ -886,6 +1116,9 @@ func _invalidate_active_preview(reason: StringName) -> void:
 	_cancel_active_preview(reason)
 
 
+## 在调用任务 cancel 前清空活动任务及其目录、查询身份，避免同步取消回调再次解析同一任务。
+## [br]
+## @api private
 func _cancel_active_preview(reason: StringName) -> void:
 	var task: GFThumbnailRenderTask = _active_preview_task
 	_active_preview_task = null
@@ -896,6 +1129,10 @@ func _cancel_active_preview(reason: StringName) -> void:
 		var _cancelled: bool = task.cancel(reason)
 
 
+## 请求三项代际均与当前模型一致且模型尚未 dispose 时返回 true。
+## [br]
+## @api private
+## [br]
 func _is_preview_request_current(preview_generation: int, catalog_revision: int, query_generation: int) -> bool:
 	return (
 		not _disposed
@@ -905,6 +1142,9 @@ func _is_preview_request_current(preview_generation: int, catalog_revision: int,
 	)
 
 
+## 同时匹配任务引用、资产 ID、预览代次以及捕获和当前目录、查询版本，决定异步完成是否仍可发布。
+## [br]
+## @api private
 func _is_current_preview_task(
 	task: GFThumbnailRenderTask,
 	asset_id: StringName,
@@ -924,6 +1164,9 @@ func _is_current_preview_task(
 	)
 
 
+## 只接收仍匹配全部身份的任务；先清除活动引用，再验证完成值并通过通知队列发布只读报告。
+## [br]
+## @api private
 func _resolve_preview_task(
 	task: GFThumbnailRenderTask,
 	asset_id: StringName,
@@ -976,6 +1219,9 @@ func _resolve_preview_task(
 	}))
 
 
+## 按 allow_null 接受空结果；Image 与 ImageTexture 保留对象引用，字典结果交由计划校验器复制容器，其他类型拒绝。
+## [br]
+## @api private
 static func _make_frozen_preview_result(
 	value: Variant,
 	allow_null: bool
@@ -1002,6 +1248,9 @@ static func _make_frozen_preview_result(
 	return _make_frozen_preview_plan(plan)
 
 
+## 验证闭合计划及有界变更列表，重新构建并冻结字典和数组容器；纹理对象保留引用，不声称资源内容不可变。
+## [br]
+## @api private
 static func _make_frozen_preview_plan(plan: Dictionary) -> Dictionary:
 	if (
 		plan.size() != _PREVIEW_PLAN_KEY_COUNT
@@ -1070,6 +1319,10 @@ static func _make_frozen_preview_plan(plan: Dictionary) -> Dictionary:
 	}
 
 
+## 构造失败预览结果，保留错误文本并将 result 设为 null。
+## [br]
+## @api private
+## [br]
 static func _make_invalid_preview_result(error_text: String) -> Dictionary:
 	return {
 		"ok": false,
@@ -1080,6 +1333,9 @@ static func _make_invalid_preview_result(error_text: String) -> Dictionary:
 
 # --- 信号处理函数 ---
 
+## 携带请求时绑定的资产及各代次转交完成处理，旧任务由统一身份校验丢弃。
+## [br]
+## @api private
 func _on_preview_task_completed(
 	task: GFThumbnailRenderTask,
 	asset_id: StringName,

@@ -71,6 +71,10 @@ const GROUP_SOURCE_CACHE_KEY: StringName = &"cache_key"
 ## @since 8.0.0
 const GROUP_SOURCE_RESOURCE_ENTRY_ID: StringName = &"resource_entry_id"
 
+## 文本搜索默认字段及其相关性权重。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_SEARCH_FIELDS: Array[Dictionary] = [
 	{ "key": "title", "weight": 4.0 },
 	{ "key": "asset_id", "weight": 3.0 },
@@ -97,8 +101,22 @@ const _DEFAULT_SEARCH_FIELDS: Array[Dictionary] = [
 
 # --- 私有变量 ---
 
+## 按资产 ID 查找目录条目的运行时缓存。
+## [br]
+## @api private
+## [br]
 var _entry_lookup: Dictionary = {}
+
+## 用于字段查询的运行时值索引。
+## [br]
+## @api private
+## [br]
 var _index: GFValueIndex = GFValueIndex.new()
+
+## 标记运行时查找表和字段索引是否需要重建。
+## [br]
+## @api private
+## [br]
 var _index_dirty: bool = true
 
 
@@ -712,6 +730,10 @@ static func from_dict(data: Dictionary) -> GFAssetCatalog:
 
 # --- 私有/辅助方法 ---
 
+## 去除空值与重复值并排序请求的资产 ID。
+## [br]
+## @api private
+## [br]
 static func _normalize_requested_asset_ids(asset_ids: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for asset_id_text: String in asset_ids:
@@ -722,15 +744,27 @@ static func _normalize_requested_asset_ids(asset_ids: PackedStringArray) -> Pack
 	return result
 
 
+## 在索引失效时重建资产查找表与字段索引。
+## [br]
+## @api private
+## [br]
 func _ensure_index() -> void:
 	if _index_dirty:
 		rebuild_index()
 
 
+## 检查目录条目是否存在且通过条目自身的有效性校验。
+## [br]
+## @api private
+## [br]
 func _is_valid_entry(entry: GFAssetCatalogEntry) -> bool:
 	return entry != null and entry.is_valid_entry()
 
 
+## 将 Variant 值收窄为资产目录条目；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_entry_value(value: Variant) -> GFAssetCatalogEntry:
 	if value is GFAssetCatalogEntry:
 		var entry: GFAssetCatalogEntry = value
@@ -738,6 +772,10 @@ func _get_entry_value(value: Variant) -> GFAssetCatalogEntry:
 	return null
 
 
+## 从目录条目生成值索引使用的字段字典。
+## [br]
+## @api private
+## [br]
 func _make_index_fields(entry: GFAssetCatalogEntry) -> Dictionary:
 	var fields: Dictionary = {
 		GROUP_SOURCE_ID: String(entry.asset_id),
@@ -754,6 +792,10 @@ func _make_index_fields(entry: GFAssetCatalogEntry) -> Dictionary:
 	return fields
 
 
+## 从目录条目构造通用文本评分器使用的候选字典。
+## [br]
+## @api private
+## [br]
 func _make_search_candidate(entry: GFAssetCatalogEntry) -> Dictionary:
 	var primary_identity: GFResourceIdentity = entry.get_primary_identity()
 	var preview_identity: GFResourceIdentity = entry.get_preview_identity()
@@ -776,6 +818,10 @@ func _make_search_candidate(entry: GFAssetCatalogEntry) -> Dictionary:
 	}
 
 
+## 递归提取元数据中的文本关键词并去重排序。
+## [br]
+## @api private
+## [br]
 func _make_metadata_keywords(value: Variant) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var lookup: Dictionary = {}
@@ -784,6 +830,10 @@ func _make_metadata_keywords(value: Variant) -> PackedStringArray:
 	return result
 
 
+## 将支持的元数据值递归展开并追加到关键词集合。
+## [br]
+## @api private
+## [br]
 func _append_metadata_keywords(result: PackedStringArray, lookup: Dictionary, value: Variant) -> void:
 	if value == null:
 		return
@@ -811,6 +861,10 @@ func _append_metadata_keywords(result: PackedStringArray, lookup: Dictionary, va
 		_append_metadata_keyword(result, lookup, GFVariantData.to_text(value))
 
 
+## 去除关键词首尾空白，并仅将非空新值加入结果。
+## [br]
+## @api private
+## [br]
 func _append_metadata_keyword(result: PackedStringArray, lookup: Dictionary, value: String) -> void:
 	var keyword: String = value.strip_edges()
 	if keyword.is_empty() or lookup.has(keyword):
@@ -819,6 +873,10 @@ func _append_metadata_keyword(result: PackedStringArray, lookup: Dictionary, val
 	var _appended: bool = result.append(keyword)
 
 
+## 根据查询文本和选项选择列表报告或评分搜索报告。
+## [br]
+## @api private
+## [br]
 func _get_search_page_reports(query_text: String, options: Dictionary) -> Array[Dictionary]:
 	if (
 		query_text.strip_edges().is_empty()
@@ -833,6 +891,10 @@ func _get_search_page_reports(query_text: String, options: Dictionary) -> Array[
 	return search(query_text, options)
 
 
+## 将候选条目转换为未评分的列表报告，并应用数量上限。
+## [br]
+## @api private
+## [br]
 func _make_listing_search_reports(candidates: Array[Dictionary], options: Dictionary) -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
 	var duplicate_candidate: bool = GFVariantData.get_option_bool(options, "duplicate_candidate", true)
@@ -854,6 +916,10 @@ func _make_listing_search_reports(candidates: Array[Dictionary], options: Dictio
 	return reports
 
 
+## 从搜索报告候选读取 asset_id，缺省时回退到 id。
+## [br]
+## @api private
+## [br]
 func _get_search_report_asset_id(report: Dictionary) -> String:
 	var candidate: Dictionary = GFVariantData.get_option_dictionary(report, "candidate", {})
 	var asset_id_text: String = GFVariantData.get_option_string(candidate, "asset_id")
@@ -862,6 +928,10 @@ func _get_search_report_asset_id(report: Dictionary) -> String:
 	return asset_id_text
 
 
+## 根据指定来源提取条目的分组键并排序。
+## [br]
+## @api private
+## [br]
 func _get_entry_group_keys(
 	entry: GFAssetCatalogEntry,
 	group_source: StringName,
@@ -891,6 +961,10 @@ func _get_entry_group_keys(
 	return result
 
 
+## 将字符串数组、数组或标量递归展开为分组键。
+## [br]
+## @api private
+## [br]
 func _append_group_value(
 	result: PackedStringArray,
 	lookup: Dictionary,
@@ -912,6 +986,10 @@ func _append_group_value(
 		_append_group_key(result, lookup, GFVariantData.to_text(value), include_empty, empty_key)
 
 
+## 处理单个分组键的空值策略与去重。
+## [br]
+## @api private
+## [br]
 func _append_group_key(
 	result: PackedStringArray,
 	lookup: Dictionary,
@@ -930,6 +1008,10 @@ func _append_group_key(
 	var _appended: bool = result.append(group_key)
 
 
+## 按键和资产 ID 排序分组字典中的各个列表。
+## [br]
+## @api private
+## [br]
 func _sort_id_groups(groups: Dictionary) -> Dictionary:
 	var keys: PackedStringArray = PackedStringArray()
 	for key_value: Variant in groups.keys():

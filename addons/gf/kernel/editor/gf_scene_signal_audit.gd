@@ -63,6 +63,10 @@ const DEFAULT_MAX_SIGNAL_GRAPH_DEPTH: int = 64
 ## [br]
 ## @api public
 const DEFAULT_MAX_SIGNAL_GRAPH_NODES: int = 10000
+
+## 场景和运行时信号图记录的类型化读取辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -427,6 +431,9 @@ static func index_signal_graph(graph: Dictionary) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按节点深度和节点数量上限收集运行时节点；达到正数上限时发出一次警告。
+## [br]
+## @api private
 static func _collect_signal_graph_nodes(
 	root: Node,
 	result: Array[Node],
@@ -454,6 +461,10 @@ static func _collect_signal_graph_nodes(
 		_collect_signal_graph_nodes(child, result, include_internal, depth + 1, max_node_depth, max_nodes, scan_state)
 
 
+## 递归扫描目录中的 .tscn 文件，并在路径数量上限处停止后续收集。
+## 目录是否进入由隐藏项、.gdignore 与深度选项共同决定。
+## [br]
+## @api private
 static func _collect_scene_paths_recursive(
 	root_path: String,
 	result: PackedStringArray,
@@ -511,6 +522,9 @@ static func _collect_scene_paths_recursive(
 	dir.list_dir_end()
 
 
+## 按隐藏目录、.gdignore 文件和正数扫描深度上限决定是否进入目录。
+## [br]
+## @api private
 static func _should_scan_directory(
 	path: String,
 	dir_name: String,
@@ -530,14 +544,23 @@ static func _should_scan_directory(
 	return true
 
 
+## 路径上限非正数表示不限制；否则仅当结果数量低于上限时允许继续。
+## [br]
+## @api private
 static func _can_collect_more_scene_paths(result: PackedStringArray, max_scene_paths: int) -> bool:
 	return max_scene_paths <= 0 or result.size() < max_scene_paths
 
 
+## 节点上限非正数表示不限制；否则仅当结果数量低于上限时允许继续。
+## [br]
+## @api private
 static func _can_collect_more_signal_graph_nodes(result: Array[Node], max_nodes: int) -> bool:
 	return max_nodes <= 0 or result.size() < max_nodes
 
 
+## 创建场景路径扫描共用的单次数量和深度警告标记。
+## [br]
+## @api private
 static func _make_scan_state() -> Dictionary:
 	return {
 		"count_warning_emitted": false,
@@ -545,6 +568,9 @@ static func _make_scan_state() -> Dictionary:
 	}
 
 
+## 创建信号图扫描的截断状态及数量、深度警告标记。
+## [br]
+## @api private
 static func _make_signal_graph_scan_state() -> Dictionary:
 	return {
 		"truncated": false,
@@ -553,6 +579,9 @@ static func _make_signal_graph_scan_state() -> Dictionary:
 	}
 
 
+## 路径上限为正且本次尚未告警时置位标记并发出一次场景数量警告。
+## [br]
+## @api private
 static func _warn_scene_path_limit(max_scene_paths: int, scan_state: Dictionary) -> void:
 	if max_scene_paths <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "count_warning_emitted", false):
 		return
@@ -560,6 +589,9 @@ static func _warn_scene_path_limit(max_scene_paths: int, scan_state: Dictionary)
 	push_warning("[GFSceneSignalAudit][scene_signal_audit.scene_limit_reached] collect_scene_paths reached max_scene_paths=%d; subsequent scenes were skipped." % max_scene_paths)
 
 
+## 深度上限为正且本次尚未告警时置位标记并报告被跳过的目录。
+## [br]
+## @api private
 static func _warn_scene_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
 	if max_scan_depth <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "depth_warning_emitted", false):
 		return
@@ -567,6 +599,9 @@ static func _warn_scene_depth_limit(path: String, max_scan_depth: int, scan_stat
 	push_warning("[GFSceneSignalAudit][scene_signal_audit.scan_depth_limit_reached] collect_scene_paths reached max_scan_depth=%d; deeper directories were skipped: %s." % [max_scan_depth, path])
 
 
+## 节点上限为正且未告警时置位警告和 truncated 标记，并报告后续节点被跳过。
+## [br]
+## @api private
 static func _warn_signal_graph_node_limit(max_nodes: int, scan_state: Dictionary) -> void:
 	if max_nodes <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "count_warning_emitted", false):
 		return
@@ -575,6 +610,9 @@ static func _warn_signal_graph_node_limit(max_nodes: int, scan_state: Dictionary
 	push_warning("[GFSceneSignalAudit][scene_signal_audit.node_limit_reached] build_signal_graph reached max_nodes=%d; subsequent nodes were skipped." % max_nodes)
 
 
+## 节点深度上限为正且未告警时置位警告和 truncated 标记，并报告当前节点路径。
+## [br]
+## @api private
 static func _warn_signal_graph_depth_limit(node: Node, max_node_depth: int, scan_state: Dictionary) -> void:
 	if max_node_depth <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "depth_warning_emitted", false):
 		return
@@ -586,12 +624,18 @@ static func _warn_signal_graph_depth_limit(node: Node, max_node_depth: int, scan
 	])
 
 
+## 空路径或“.”指向 root，其余路径通过 root.get_node_or_null 查找。
+## [br]
+## @api private
 static func _get_node_or_root(root: Node, path: NodePath) -> Node:
 	if path.is_empty() or String(path) == ".":
 		return root
 	return root.get_node_or_null(path)
 
 
+## 将信号源、Callable 目标路径/方法名及连接 flags 组装成运行时连接记录。
+## [br]
+## @api private
 static func _make_runtime_connection_entry(
 	root: Node,
 	source_node: Node,
@@ -617,6 +661,9 @@ static func _make_runtime_connection_entry(
 	}
 
 
+## 无效 Callable 视为非外部；非 Node 目标视为外部，Node 目标按 root 子树关系判断。
+## [br]
+## @api private
 static func _is_external_connection(root: Node, connection_info: Dictionary) -> bool:
 	var callback: Callable = _get_dictionary_callable(connection_info, "callable")
 	if not callback.is_valid():
@@ -630,6 +677,9 @@ static func _is_external_connection(root: Node, connection_info: Dictionary) -> 
 	return target_node != root and not root.is_ancestor_of(target_node)
 
 
+## 组装节点相对路径、名称、类型、脚本路径、子节点数和信号数记录。
+## [br]
+## @api private
 static func _make_runtime_node_entry(root: Node, node: Node) -> Dictionary:
 	var script: Script = _variant_to_script(node.get_script())
 	return {
@@ -642,6 +692,9 @@ static func _make_runtime_node_entry(root: Node, node: Node) -> Dictionary:
 	}
 
 
+## root 本身映射为“.”，子孙节点用相对路径，外部节点使用自身场景树路径。
+## [br]
+## @api private
 static func _relative_node_path(root: Node, node: Node) -> String:
 	if root == node:
 		return "."
@@ -650,6 +703,9 @@ static func _relative_node_path(root: Node, node: Node) -> String:
 	return String(node.get_path())
 
 
+## 结合信号参数数、解绑数、绑定参数和方法默认参数/可变参数计算合法区间；信息不可得或参数数量匹配时返回空字典，否则附带各项计数诊断。
+## [br]
+## @api private
 static func _build_parameter_count_issue(
 	scene_path: String,
 	connection_index: int,
@@ -699,6 +755,9 @@ static func _build_parameter_count_issue(
 	return issue
 
 
+## 从信号列表查找指定名称并返回参数数组长度；未找到时返回 -1。
+## [br]
+## @api private
 static func _get_signal_argument_count(source_node: Node, signal_name: StringName) -> int:
 	for signal_info: Dictionary in source_node.get_signal_list():
 		if _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(signal_info, "name") == signal_name:
@@ -707,6 +766,9 @@ static func _get_signal_argument_count(source_node: Node, signal_name: StringNam
 	return -1
 
 
+## 从目标节点方法列表返回首个同名方法声明；未找到时返回空字典。
+## [br]
+## @api private
 static func _get_method_info(target_node: Node, method_name: StringName) -> Dictionary:
 	for method_info: Dictionary in target_node.get_method_list():
 		if _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(method_info, "name") == method_name:
@@ -714,11 +776,17 @@ static func _get_method_info(target_node: Node, method_name: StringName) -> Dict
 	return {}
 
 
+## 确保分组字典中存在 Array，并向该数组追加连接记录的深复制。
+## [br]
+## @api private
 static func _append_signal_graph_index_entry(index: Dictionary, node_path: String, connection: Dictionary) -> void:
 	var entries: Array = _ensure_dictionary_array(index, node_path)
 	entries.append(connection.duplicate(true))
 
 
+## 读取指定字典值并返回 Array；其他类型时创建并写入一个新空数组。
+## [br]
+## @api private
 static func _ensure_dictionary_array(source: Dictionary, key: Variant) -> Array:
 	var value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(source, key, [])
 	if value is Array:
@@ -729,38 +797,59 @@ static func _ensure_dictionary_array(source: Dictionary, key: Variant) -> Array:
 	return entries
 
 
+## 从字典读取 Callable 字段，并通过类型收窄辅助方法处理无效类型。
+## [br]
+## @api private
 static func _get_dictionary_callable(source: Dictionary, key: Variant) -> Callable:
 	return _variant_to_callable(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(source, key, Callable()))
 
 
+## 向 PackedStringArray 追加字符串并丢弃 append 返回值。
+## [br]
+## @api private
 static func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var _append_success: bool = target.append(value)
 
 
+## 仅在 Variant 为 Callable 时返回该值，否则返回无效 Callable。
+## [br]
+## @api private
 static func _variant_to_callable(value: Variant) -> Callable:
 	if value is Callable:
 		return value
 	return Callable()
 
 
+## 仅在 Variant 为 Node 时返回该值，否则返回 null。
+## [br]
+## @api private
 static func _variant_to_node(value: Variant) -> Node:
 	if value is Node:
 		return value
 	return null
 
 
+## 仅在 Variant 为 PackedScene 时返回该值，否则返回 null。
+## [br]
+## @api private
 static func _variant_to_packed_scene(value: Variant) -> PackedScene:
 	if value is PackedScene:
 		return value
 	return null
 
 
+## 仅在 Variant 为 Script 时返回该值，否则返回 null。
+## [br]
+## @api private
 static func _variant_to_script(value: Variant) -> Script:
 	if value is Script:
 		return value
 	return null
 
 
+## 组装场景级问题记录，并把 connection_index 设为 -1。
+## [br]
+## @api private
 static func _make_scene_issue(issue_type: IssueType, scene_path: String, message: String) -> Dictionary:
 	return {
 		"type": issue_type,
@@ -771,6 +860,9 @@ static func _make_scene_issue(issue_type: IssueType, scene_path: String, message
 	}
 
 
+## 组装连接级问题记录并序列化节点路径、信号名和方法名。
+## [br]
+## @api private
 static func _make_connection_issue(
 	issue_type: IssueType,
 	scene_path: String,
@@ -794,6 +886,9 @@ static func _make_connection_issue(
 	}
 
 
+## 将 IssueType 枚举值映射为稳定的小写报告名称，未知值返回 unknown。
+## [br]
+## @api private
 static func _issue_type_name(issue_type: IssueType) -> String:
 	match issue_type:
 		IssueType.SCENE_LOAD_FAILED:

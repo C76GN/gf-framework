@@ -53,7 +53,16 @@ extends Resource
 
 # --- 私有变量 ---
 
+## 按整数槽位索引配置的逻辑 slot ID 覆盖值。
+## [br]
+## @api private
+## [br]
 var _slot_id_overrides: Dictionary = {}
+
+## 生成元数据创建和更新时间戳的时钟。
+## [br]
+## @api private
+## [br]
 var _clock: GFClock = GFClock.new()
 
 
@@ -320,6 +329,10 @@ func build_cards_from_slot_store(slot_store: GFSaveSlotStorageAdapter, indices: 
 
 # --- 私有/辅助方法 ---
 
+## 实例化有效的 metadata 子类；脚本无效或返回类型不符时用基类兜底。
+## [br]
+## @api private
+## [br]
 func _new_metadata() -> GFSaveSlotMetadata:
 	if not _is_instantiable_subclass(metadata_script, GFSaveSlotMetadata):
 		push_error("[GFSaveSlotWorkflow][save_slot_workflow.invalid_metadata_script] metadata_script must inherit GFSaveSlotMetadata and be instantiable.")
@@ -331,6 +344,10 @@ func _new_metadata() -> GFSaveSlotMetadata:
 	return GFSaveSlotMetadata.new()
 
 
+## 实例化有效的 card 子类；脚本无效或返回类型不符时用基类兜底。
+## [br]
+## @api private
+## [br]
 func _new_card() -> GFSaveSlotCard:
 	if not _is_instantiable_subclass(card_script, GFSaveSlotCard):
 		push_error("[GFSaveSlotWorkflow][save_slot_workflow.invalid_card_script] card_script must inherit GFSaveSlotCard and be instantiable.")
@@ -342,6 +359,10 @@ func _new_card() -> GFSaveSlotCard:
 	return GFSaveSlotCard.new()
 
 
+## 验证脚本可实例化且沿基类链能到达指定脚本。
+## [br]
+## @api private
+## [br]
 func _is_instantiable_subclass(candidate: Script, expected_base: Script) -> bool:
 	if candidate == null or expected_base == null or not candidate.can_instantiate():
 		return false
@@ -355,6 +376,10 @@ func _is_instantiable_subclass(candidate: Script, expected_base: Script) -> bool
 	return false
 
 
+## 忽略非字典摘要，并按可解析槽位索引建立索引字典。
+## [br]
+## @api private
+## [br]
 func _index_summaries(summaries: Array) -> Dictionary:
 	var result: Dictionary = {}
 	for summary_variant: Variant in summaries:
@@ -367,6 +392,10 @@ func _index_summaries(summaries: Array) -> Dictionary:
 	return result
 
 
+## 从摘要的显式索引或 slot_id 中解析整数槽位索引。
+## [br]
+## @api private
+## [br]
 func _get_summary_slot_index(summary: Dictionary) -> int:
 	if summary.has("slot_index"):
 		return GFVariantData.get_option_int(summary, "slot_index", -1)
@@ -383,6 +412,10 @@ func _get_summary_slot_index(summary: Dictionary) -> int:
 	return _parse_slot_index_from_id(slot_id_text)
 
 
+## 按 slot ID 模板前后缀提取索引，失败时尝试提取尾部数字。
+## [br]
+## @api private
+## [br]
 func _parse_slot_index_from_id(slot_id: String) -> int:
 	var marker: String = "{index}"
 	var marker_index: int = slot_id_template.find(marker)

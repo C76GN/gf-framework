@@ -258,6 +258,10 @@ func _after_load(_data: Variant, _context: Dictionary = {}) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 按局部配置或启用的注册表采集目标节点序列化器载荷。
+## [br]
+## @api private
+## [br]
 func _gather_serializer_payloads(
 	target: Node,
 	context: Dictionary,
@@ -282,6 +286,10 @@ func _gather_serializer_payloads(
 	return []
 
 
+## 按局部序列化器 ID 匹配载荷并应用，汇总成功数和错误。
+## [br]
+## @api private
+## [br]
 func _apply_local_serializers(target: Node, serializer_payloads: Array, context: Dictionary) -> Dictionary:
 	var by_id: Dictionary = {}
 	for serializer: GFNodeSerializer in serializers:
@@ -325,6 +333,10 @@ func _apply_local_serializers(target: Node, serializer_payloads: Array, context:
 	}
 
 
+## 将 Variant 转为 GFNodeSerializer；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_node_serializer(value: Variant) -> GFNodeSerializer:
 	if value is GFNodeSerializer:
 		var serializer: GFNodeSerializer = value

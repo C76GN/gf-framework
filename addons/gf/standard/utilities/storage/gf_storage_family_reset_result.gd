@@ -99,21 +99,79 @@ enum FamilyMember {
 
 # --- 常量 ---
 
+## retired identity root 数量的上限。
+## [br]
+## @api private
+## [br]
 const _MAX_RETIRED_MEMBER_COUNT: int = 2
+
+## 重新发布 claim 成员数量的上限。
+## [br]
+## @api private
+## [br]
 const _MAX_RECREATED_MEMBER_COUNT: int = 3
+
+## 终态剩余 evidence 数量的上限。
+## [br]
+## @api private
+## [br]
 const _MAX_REMAINING_EVIDENCE_COUNT: int = 5
 
 
 # --- 私有变量 ---
 
+## 标记框架是否已写入合法 reset 终态。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
+
+## reset 终态对应的 Godot Error 码。
+## [br]
+## @api private
+## [br]
 var _error_code: Error = FAILED
+
+## reset/recreate 成功或失败分类。
+## [br]
+## @api private
+## [br]
 var _failure_kind: FailureKind = FailureKind.IO_FAILED
+
+## reset 前目标 family 的观察分类。
+## [br]
+## @api private
+## [br]
 var _source_kind: SourceKind = SourceKind.UNKNOWN
+
+## 失败发生的 reset 阶段；成功终态为 NONE。
+## [br]
+## @api private
+## [br]
 var _failed_phase: Phase = Phase.PREFLIGHT
+
+## 已移入 retirement staging 的 identity root 数量。
+## [br]
+## @api private
+## [br]
 var _retired_member_count: int = 0
+
+## 已重新发布的 claim 成员数量。
+## [br]
+## @api private
+## [br]
 var _recreated_member_count: int = 0
+
+## 终态仍未清除的旧 family、retirement 或 reset intent evidence 数量。
+## [br]
+## @api private
+## [br]
 var _remaining_evidence_count: int = 0
+
+## 阻止 reset 继续执行的有界成员分类。
+## [br]
+## @api private
+## [br]
 var _failed_member: FamilyMember = FamilyMember.NONE
 
 
@@ -341,6 +399,10 @@ func is_configured_for_framework() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 校验枚举与计数范围，并确保成功终态满足 recreated/retired/evidence 闭合条件。
+## [br]
+## @api private
+## [br]
 static func _is_valid_configuration(
 	error_code: Error,
 	failure_kind: FailureKind,

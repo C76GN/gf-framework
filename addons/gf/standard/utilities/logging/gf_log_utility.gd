@@ -66,11 +66,40 @@ enum LogLevel {
 
 # --- 常量 ---
 
+## 本地日志文件和运行中标记所在的目录。
+## [br]
+## @api private
+## [br]
 const _LOG_DIR: String = "user://logs/"
+
+## 用于判断上次运行是否干净关闭的标记文件路径。
+## [br]
+## @api private
+## [br]
 const _CRASH_MARKER_PATH: String = _LOG_DIR + "gf_log_running.marker"
+
+## 日志内容脱敏时允许的最大递归深度。
+## [br]
+## @api private
+## [br]
 const _MAX_SANITIZE_DEPTH: int = 8
+
+## 日志内容脱敏时允许的最大字符串长度。
+## [br]
+## @api private
+## [br]
 const _MAX_SANITIZE_STRING_LENGTH: int = 2048
+
+## 日志内容脱敏时单个集合允许的最大项数及 packed 长度。
+## [br]
+## @api private
+## [br]
 const _MAX_SANITIZE_COLLECTION_ITEMS: int = 256
+
+## 日志内容脱敏时允许累计的最大节点数。
+## [br]
+## @api private
+## [br]
 const _MAX_SANITIZE_TOTAL_NODES: int = 4096
 
 
@@ -125,9 +154,28 @@ var trace_id: String = ""
 
 # --- 私有变量 ---
 
+## 所有实例当前打开日志文件的弱引用，供清理流程排除活动文件。
+## [br]
+## @api private
+## [br]
 static var _active_files: Array[WeakRef] = []
+
+## max_log_files 公共属性的存储值，setter 至少保留一个文件。
+## [br]
+## @api private
+## [br]
 var _max_log_files: int = 10
+
+## max_memory_entries 公共属性的当前容量。
+## [br]
+## @api private
+## [br]
 var _max_memory_entries: int = 500
+
+## LogLevel 数值到显示名称的顺序表。
+## [br]
+## @api private
+## [br]
 static var _LEVEL_NAMES: PackedStringArray = PackedStringArray([
 	"DEBUG",
 	"INFO",
@@ -135,22 +183,107 @@ static var _LEVEL_NAMES: PackedStringArray = PackedStringArray([
 	"ERROR",
 	"FATAL",
 ])
+
+## 当前本地日志文件句柄。
+## [br]
+## @api private
+## [br]
 var _file: FileAccess
+
+## 本次初始化创建的本地日志文件路径。
+## [br]
+## @api private
+## [br]
 var _log_file_path: String
+
+## 以日志标签为键记录的静音状态。
+## [br]
+## @api private
+## [br]
 var _muted_tags: Dictionary = {}
+
+## 最近一次文件 flush 的单调毫秒 tick。
+## [br]
+## @api private
+## [br]
 var _last_file_flush_msec: int = 0
+
+## 由 tick 累加的文件 flush 毫秒数。
+## [br]
+## @api private
+## [br]
 var _file_flush_elapsed_msec: float = 0.0
+
+## 日志文件是否有尚未 flush 的写入。
+## [br]
+## @api private
+## [br]
 var _file_has_unflushed_data: bool = false
+
+## 按环形布局保存的近期日志条目副本。
+## [br]
+## @api private
+## [br]
 var _memory_entries: Array[Dictionary] = []
+
+## 下一条覆盖写入位置，也是环形缓存的逻辑起点。
+## [br]
+## @api private
+## [br]
 var _memory_head: int = 0
+
+## 因内存容量限制被丢弃的日志累计数。
+## [br]
+## @api private
+## [br]
 var _memory_dropped_count: int = 0
+
+## 已进入内存日志序列的条目累计数，不因清空缓存而重置。
+## [br]
+## @api private
+## [br]
 var _memory_appended_total: int = 0
+
+## 按注册顺序写入日志的 sink 列表。
+## [br]
+## @api private
+## [br]
 var _sinks: Array[GFLogSink] = []
+
+## 日志文件、标记和 sink 初始化是否已完成。
+## [br]
+## @api private
+## [br]
 var _is_initialized: bool = false
+
+## 每条日志默认合并的全局上下文。
+## [br]
+## @api private
+## [br]
 var _global_context: Dictionary = {}
+
+## 每条日志调用一次以提供动态全局上下文的回调。
+## [br]
+## @api private
+## [br]
 var _global_context_provider: Callable = Callable()
+
+## 上次初始化时是否未发现运行中标记。
+## [br]
+## @api private
+## [br]
 var _last_shutdown_was_clean: bool = true
+
+## 从上次运行标记读取并脱敏的诊断数据。
+## [br]
+## @api private
+## [br]
 var _previous_crash_marker: Dictionary = {}
+
+## 防止 sink 写日志时递归进入 sink 分发循环。
+## [br]
+## @api private
+## [br]
 var _is_dispatching_sinks: bool = false
 
 
@@ -733,6 +866,10 @@ static func sanitize_log_value(value: Variant) -> Variant:
 
 # --- 私有/辅助方法 ---
 
+## 过滤后合并上下文、构造脱敏条目，写入缓存与文件，再分发给 sink 和信号。
+## [br]
+## @api private
+## [br]
 func _log(level: int, tag: String, msg: String, context: Dictionary = {}) -> void:
 	if not _should_log(level, tag):
 		return
@@ -779,6 +916,10 @@ func _log(level: int, tag: String, msg: String, context: Dictionary = {}) -> voi
 	log_entry_emitted.emit(entry.duplicate(true))
 
 
+## 过滤通过后才调用消息与上下文构造器，并将结果交给普通日志流程。
+## [br]
+## @api private
+## [br]
 func _log_lazy(
 	level: int,
 	tag: String,
@@ -801,6 +942,10 @@ func _log_lazy(
 	_log(level, tag, message, context)
 
 
+## 拒绝低于 DEBUG、低于 min_level 或标签已静音的日志。
+## [br]
+## @api private
+## [br]
 func _should_log(level: int, tag: String) -> bool:
 	if level < LogLevel.DEBUG:
 		return false
@@ -811,6 +956,10 @@ func _should_log(level: int, tag: String) -> bool:
 	return true
 
 
+## 按文件名排序清理超出上限的 gf_log_*.log，并跳过仍打开的活动文件。
+## [br]
+## @api private
+## [br]
 func _cleanup_old_logs() -> void:
 	var dir: DirAccess = DirAccess.open(_LOG_DIR)
 	if dir == null:
@@ -851,6 +1000,10 @@ func _cleanup_old_logs() -> void:
 		to_remove -= 1
 
 
+## 立即刷新、间隔关闭、ERROR/FATAL 或刷新间隔到期时刷新日志文件。
+## [br]
+## @api private
+## [br]
 func _flush_file_if_needed(level: int) -> void:
 	if _file == null:
 		return
@@ -865,6 +1018,10 @@ func _flush_file_if_needed(level: int) -> void:
 		_flush_file(now)
 
 
+## 刷新当前文件，并更新最近刷新 tick、清零时间累计和未刷新标记。
+## [br]
+## @api private
+## [br]
 func _flush_file(now_msec: int = -1) -> void:
 	if _file == null:
 		return
@@ -874,6 +1031,10 @@ func _flush_file(now_msec: int = -1) -> void:
 	_file_has_unflushed_data = false
 
 
+## 按指定脱敏 profile 清洗标签、消息和上下文，并构造带时间及 trace 信息的条目。
+## [br]
+## @api private
+## [br]
 func _make_entry(
 	timestamp: String,
 	level: int,
@@ -908,6 +1069,10 @@ func _make_entry(
 	}
 
 
+## 重入时跳过嵌套 sink 分发；否则对快照中的每个 sink 按其 profile 构造条目。
+## [br]
+## @api private
+## [br]
 func _write_sinks(entry: Dictionary, raw_context: Dictionary) -> void:
 	if _is_dispatching_sinks:
 		return
@@ -923,6 +1088,10 @@ func _write_sinks(entry: Dictionary, raw_context: Dictionary) -> void:
 	_is_dispatching_sinks = false
 
 
+## 为 debug sink 返回条目深副本；其他 profile 重清洗敏感字段并重建 text。
+## [br]
+## @api private
+## [br]
 func _make_entry_for_profile(
 	entry: Dictionary,
 	raw_context: Dictionary,
@@ -958,6 +1127,10 @@ func _make_entry_for_profile(
 	return result
 
 
+## 按时间、级别、标签和消息格式化文本，非空 context 作为 JSON 后缀追加。
+## [br]
+## @api private
+## [br]
 func _format_log_entry_text(
 	timestamp: String,
 	level_name: String,
@@ -971,6 +1144,10 @@ func _format_log_entry_text(
 	return text
 
 
+## 按注册顺序返回当前非空 sink 列表快照。
+## [br]
+## @api private
+## [br]
 func _get_sink_snapshot() -> Array[GFLogSink]:
 	var snapshot: Array[GFLogSink] = []
 	for sink: GFLogSink in _sinks:
@@ -979,6 +1156,11 @@ func _get_sink_snapshot() -> Array[GFLogSink]:
 	return snapshot
 
 
+## 增加序列计数并存入条目深副本；容量满时覆盖 head 指向的旧条目。
+## 容量为 0 时不保存条目并增加 dropped_count。
+## [br]
+## @api private
+## [br]
 func _append_memory_entry(entry: Dictionary) -> void:
 	_memory_appended_total += 1
 	if _max_memory_entries <= 0:
@@ -995,6 +1177,11 @@ func _append_memory_entry(entry: Dictionary) -> void:
 	_memory_dropped_count += 1
 
 
+## 按新容量裁剪缓存；容量为 0 时清空并将现有条目计入丢弃数。
+## 超限时仅保留最近条目并更新环形 head 与丢弃计数。
+## [br]
+## @api private
+## [br]
 func _trim_memory_entries() -> void:
 	if _max_memory_entries <= 0:
 		_memory_dropped_count += _memory_entries.size()
@@ -1016,6 +1203,10 @@ func _trim_memory_entries() -> void:
 	_memory_dropped_count += dropped_count
 
 
+## 将环形缓存按旧到新顺序重排，并重置下一次覆盖位置。
+## [br]
+## @api private
+## [br]
 func _linearize_memory_entries() -> void:
 	if _memory_entries.is_empty():
 		return
@@ -1024,6 +1215,10 @@ func _linearize_memory_entries() -> void:
 	_memory_head = 0 if _max_memory_entries <= 0 else _memory_entries.size() % _max_memory_entries
 
 
+## 将旧到新的逻辑索引映射到环形数组位置；缓存为空时返回 -1。
+## [br]
+## @api private
+## [br]
 func _memory_logical_to_physical(logical_index: int) -> int:
 	if _memory_entries.is_empty():
 		return -1
@@ -1032,6 +1227,11 @@ func _memory_logical_to_physical(logical_index: int) -> int:
 	return (_memory_head + logical_index) % _memory_entries.size()
 
 
+## 依次合并全局副本、动态 provider 字典和单条上下文，并补入缺失 trace_id。
+## 后合并的字段覆盖先前同名字段。
+## [br]
+## @api private
+## [br]
 func _merge_log_context(context: Dictionary) -> Dictionary:
 	var merged: Dictionary = _global_context.duplicate(true)
 	if _global_context_provider.is_valid():
@@ -1048,6 +1248,10 @@ func _merge_log_context(context: Dictionary) -> Dictionary:
 	return merged
 
 
+## 向已打开日志文件写一行；写入成功后标记文件存在未刷新数据。
+## [br]
+## @api private
+## [br]
 func _store_log_line(line: String) -> void:
 	if _file == null:
 		return
@@ -1059,12 +1263,20 @@ func _store_log_line(line: String) -> void:
 	_file_has_unflushed_data = true
 
 
+## 读取条目的 text 字段并转为日志字符串；字段缺失时返回空串。
+## [br]
+## @api private
+## [br]
 func _get_log_entry_text(entry: Dictionary) -> String:
 	if not entry.has("text"):
 		return ""
 	return _variant_to_log_string(entry["text"])
 
 
+## 删除绝对或 Godot 虚拟路径对应的文件/目录；不存在时不操作，可选发出失败警告。
+## [br]
+## @api private
+## [br]
 static func _remove_absolute(path: String, warn_on_failure: bool = false) -> void:
 	var remove_path: String = path.strip_edges()
 	if remove_path.is_empty():
@@ -1079,6 +1291,10 @@ static func _remove_absolute(path: String, warn_on_failure: bool = false) -> voi
 		push_warning("[GFLogUtility][log_utility.file_remove_failed] Cannot remove file: %s, error code: %s." % [remove_path, remove_result])
 
 
+## 使用指定报告脱敏 profile 和固定预算清洗字典。
+## [br]
+## @api private
+## [br]
 static func _sanitize_log_dictionary(
 	source: Dictionary,
 	redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_DEBUG
@@ -1089,6 +1305,10 @@ static func _sanitize_log_dictionary(
 	)
 
 
+## 以指定 profile 编码文本；编码结果不是 String 时序列化为 JSON 文本。
+## [br]
+## @api private
+## [br]
 static func _sanitize_log_text(value: String, redaction_profile: String) -> String:
 	var encoded: Variant = GFReportValueCodec.to_json_compatible(
 		value,
@@ -1100,6 +1320,10 @@ static func _sanitize_log_text(value: String, redaction_profile: String) -> Stri
 	return JSON.stringify(encoded)
 
 
+## 创建带固定深度、长度、集合、节点及字节预算的报告脱敏选项。
+## [br]
+## @api private
+## [br]
 static func _make_log_report_options(redaction_profile: String) -> Dictionary:
 	return GFReportValueCodec.make_redaction_options(
 		redaction_profile,
@@ -1115,10 +1339,18 @@ static func _make_log_report_options(redaction_profile: String) -> Dictionary:
 	)
 
 
+## 将 Variant 收窄为 Dictionary 后按默认 debug profile 清洗。
+## [br]
+## @api private
+## [br]
 static func _sanitize_dictionary_variant(value: Variant) -> Dictionary:
 	return _sanitize_log_dictionary(GFVariantData.as_dictionary(value))
 
 
+## 将 String、StringName 和 NodePath 保留为自然文本，其他值使用 str()。
+## [br]
+## @api private
+## [br]
 static func _variant_to_log_string(value: Variant) -> String:
 	if value is String:
 		return value
@@ -1131,6 +1363,10 @@ static func _variant_to_log_string(value: Variant) -> String:
 	return str(value)
 
 
+## 检查运行中标记；禁用或文件缺失时按干净关闭处理，否则解析并清洗字典内容。
+## [br]
+## @api private
+## [br]
 func _check_previous_crash_marker() -> void:
 	_previous_crash_marker.clear()
 	if not crash_marker_enabled:
@@ -1147,6 +1383,10 @@ func _check_previous_crash_marker() -> void:
 		_previous_crash_marker = _sanitize_dictionary_variant(parsed)
 
 
+## 启用标记时写入 trace_id、系统启动时间和单调 tick 的 JSON 文件。
+## [br]
+## @api private
+## [br]
 func _write_crash_marker() -> void:
 	if not crash_marker_enabled:
 		return
@@ -1164,11 +1404,19 @@ func _write_crash_marker() -> void:
 	file.close()
 
 
+## 若运行中标记文件存在则尝试删除，以记录本次正常关闭。
+## [br]
+## @api private
+## [br]
 func _mark_shutdown_clean() -> void:
 	if FileAccess.file_exists(_CRASH_MARKER_PATH):
 		_remove_absolute(_CRASH_MARKER_PATH)
 
 
+## 哈希 Unix 时间、单调微秒和随机整数，取前 16 个字符作为 trace id。
+## [br]
+## @api private
+## [br]
 func _generate_trace_id() -> String:
 	var source: String = "%s:%s:%s" % [
 		Time.get_unix_time_from_system(),

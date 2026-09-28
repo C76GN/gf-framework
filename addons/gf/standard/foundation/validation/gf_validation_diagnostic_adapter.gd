@@ -228,10 +228,18 @@ static func make_tooltip(diagnostic: Dictionary) -> String:
 
 # --- 私有/辅助方法 ---
 
+## 委托 GFValidationReportDictionary 将问题对象或字典规范化为问题字典。
+## [br]
+## @api private
+## [br]
 static func _issue_to_dict(issue: Variant, include_empty_fields: bool = false) -> Dictionary:
 	return GFValidationReportDictionary.issue_to_dict(issue, include_empty_fields)
 
 
+## 从校验报告、报告字典或问题数组复制问题列表；其他输入返回空数组。
+## [br]
+## @api private
+## [br]
 static func _get_source_issues(source: Variant) -> Array:
 	if source is GFValidationReport:
 		var validation_report: GFValidationReport = source
@@ -245,6 +253,10 @@ static func _get_source_issues(source: Variant) -> Array:
 	return []
 
 
+## 合并嵌套 source_span 与问题上的平面定位字段，并可按选项用 path 补 source_path。
+## [br]
+## @api private
+## [br]
 static func _make_span_data(issue_data: Dictionary, options: Dictionary) -> Dictionary:
 	var span_data: Dictionary = {}
 	var source_span_value: Variant = GFVariantData.get_option_value(issue_data, "source_span")
@@ -261,22 +273,38 @@ static func _make_span_data(issue_data: Dictionary, options: Dictionary) -> Dict
 	return span_data
 
 
+## 创建 GFSourceSpan 并从字典应用定位字段。
+## [br]
+## @api private
+## [br]
 static func _source_span_from_dict(data: Dictionary) -> GFSourceSpan:
 	var span: GFSourceSpan = GFSourceSpan.new()
 	span.apply_dict(data)
 	return span
 
 
+## 读取 kind 并转成文本；空值时使用 unknown。
+## [br]
+## @api private
+## [br]
 static func _get_issue_kind(issue_data: Dictionary) -> String:
 	var kind_value: Variant = GFVariantData.get_option_value(issue_data, "kind", "unknown")
 	var kind_text: String = GFVariantData.to_text(kind_value)
 	return kind_text if not kind_text.is_empty() else "unknown"
 
 
+## 读取指定字段并将值规范化为字典。
+## [br]
+## @api private
+## [br]
 static func _read_dictionary(data: Dictionary, field_name: String) -> Dictionary:
 	return GFVariantData.to_dictionary(GFVariantData.get_option_value(data, field_name, {}))
 
 
+## 取得目标字典中可复用的数组分组；字段不是数组时创建并保存新数组。
+## [br]
+## @api private
+## [br]
 static func _get_group_array(target: Dictionary, source_path: String) -> Array:
 	var value: Variant = GFVariantData.get_option_value(target, source_path, [])
 	if value is Array:
@@ -288,6 +316,10 @@ static func _get_group_array(target: Dictionary, source_path: String) -> Array:
 	return empty_group
 
 
+## 向 PackedStringArray 追加一段文本。
+## [br]
+## @api private
+## [br]
 static func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:

@@ -14,17 +14,47 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 隔离快照允许的最大递归深度。
+## [br]
+## @api private
 const _MAX_SNAPSHOT_DEPTH: int = 64
+
+## 隔离快照允许访问的最大 Variant 节点数。
+## [br]
+## @api private
 const _MAX_SNAPSHOT_NODE_COUNT: int = 16_384
+
+## 隔离快照允许累计处理的最大集合项数。
+## [br]
+## @api private
 const _MAX_SNAPSHOT_COLLECTION_ITEM_COUNT: int = 65_536
+
+## 隔离快照允许累计处理的最大 UTF-8 字节数。
+## [br]
+## @api private
 const _MAX_SNAPSHOT_UTF8_BYTES: int = 1_048_576
 
 
 # --- 私有变量 ---
 
+## 是否已通过 configure_for_framework() 完成首次配置。
+## [br]
+## @api private
 var _configured: bool = false
+
+## 构建该视图时的源行索引。
+## [br]
+## @api private
 var _source_row_index: int = -1
+
+## 已隔离保存的稳定行 ID。
+## [br]
+## @api private
 var _row_id: Variant = null
+
+## 以列 ID 为键保存的已隔离列值。
+## [br]
+## @api private
 var _values: Dictionary = {}
 
 
@@ -198,6 +228,9 @@ func configure_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 初始化复制预算计数及用于循环引用检测的活动引用数组。
+## [br]
+## @api private
 static func _make_snapshot_state() -> Dictionary:
 	return {
 		"node_count": 0,
@@ -207,6 +240,9 @@ static func _make_snapshot_state() -> Dictionary:
 	}
 
 
+## 在复制前递归检查类型、循环引用及节点、集合项和文本预算。
+## [br]
+## @api private
 static func _preflight_isolated_value(
 	value: Variant,
 	state: Dictionary,
@@ -300,6 +336,9 @@ static func _preflight_isolated_value(
 	return _make_copy_success(null)
 
 
+## 返回隔离复制报告中的 value；复制失败时返回 null。
+## [br]
+## @api private
 static func _get_isolated_copy(value: Variant) -> Variant:
 	var report: Dictionary = duplicate_isolated_variant_for_framework(value)
 	if not GFVariantData.get_option_bool(report, "ok"):
@@ -307,6 +346,9 @@ static func _get_isolated_copy(value: Variant) -> Variant:
 	return GFVariantData.get_option_value(report, "value")
 
 
+## 按 Variant 类型分派递归复制；不允许隔离的引用类型返回失败报告。
+## [br]
+## @api private
 static func _duplicate_isolated_value(
 	value: Variant,
 	state: Dictionary,
@@ -342,6 +384,9 @@ static func _duplicate_isolated_value(
 			return _make_copy_success(value)
 
 
+## 保留 Array 类型约束并递归复制项目；循环引用或预算不足时返回失败。
+## [br]
+## @api private
 static func _duplicate_isolated_array(
 	source_array: Array,
 	state: Dictionary,
@@ -362,6 +407,9 @@ static func _duplicate_isolated_array(
 	return _make_copy_success(copied_array)
 
 
+## 保留 Dictionary 类型约束并递归复制键和值；循环引用或预算不足时返回失败。
+## [br]
+## @api private
 static func _duplicate_isolated_dictionary(
 	source_dictionary: Dictionary,
 	state: Dictionary,
@@ -392,6 +440,9 @@ static func _duplicate_isolated_dictionary(
 	return _make_copy_success(copied_dictionary)
 
 
+## 创建具有源 Array 类型约束的空容器；未类型化时返回普通空数组。
+## [br]
+## @api private
 static func _create_isolated_array(source_array: Array) -> Array:
 	if not source_array.is_typed():
 		return []
@@ -403,6 +454,9 @@ static func _create_isolated_array(source_array: Array) -> Array:
 	)
 
 
+## 创建具有源 Dictionary 键和值类型约束的空容器；未类型化时返回普通空字典。
+## [br]
+## @api private
 static func _create_isolated_dictionary(source_dictionary: Dictionary) -> Dictionary:
 	if not source_dictionary.is_typed():
 		return {}
@@ -417,6 +471,9 @@ static func _create_isolated_dictionary(source_dictionary: Dictionary) -> Dictio
 	)
 
 
+## 拒绝脚本 Resource，深复制其他 Resource，并校验副本后才返回成功。
+## [br]
+## @api private
 static func _duplicate_isolated_resource(
 	source_resource: Resource,
 	state: Dictionary,
@@ -442,6 +499,9 @@ static func _duplicate_isolated_resource(
 	return _make_copy_success(copied_resource)
 
 
+## 对照源与副本的存储属性逐项检查复制结果。
+## [br]
+## @api private
 static func _validate_resource_copy(
 	source_resource: Resource,
 	copied_resource: Resource,
@@ -474,6 +534,9 @@ static func _validate_resource_copy(
 	return _make_copy_success(copied_resource)
 
 
+## 递归验证源值与副本的结构和值，并拒绝集合或 Resource 别名。
+## [br]
+## @api private
 static func _validate_isolated_pair(
 	source_value: Variant,
 	copied_value: Variant,
@@ -579,6 +642,9 @@ static func _validate_isolated_pair(
 	return _make_copy_success(copied_value)
 
 
+## 校验递归深度并递增节点计数，超过上限时返回对应预算错误码。
+## [br]
+## @api private
 static func _consume_snapshot_node(state: Dictionary, depth: int) -> StringName:
 	if depth > _MAX_SNAPSHOT_DEPTH:
 		return &"snapshot_depth_exceeded"
@@ -589,6 +655,9 @@ static func _consume_snapshot_node(state: Dictionary, depth: int) -> StringName:
 	return &""
 
 
+## 累加非负集合项数，并检查总量是否仍在快照上限内。
+## [br]
+## @api private
 static func _reserve_collection_items(state: Dictionary, item_count: int) -> bool:
 	var next_count: int = (
 		GFVariantData.get_option_int(state, "collection_item_count")
@@ -598,6 +667,9 @@ static func _reserve_collection_items(state: Dictionary, item_count: int) -> boo
 	return next_count <= _MAX_SNAPSHOT_COLLECTION_ITEM_COUNT
 
 
+## 先按字符长度快速检查，再将文本 UTF-8 字节数计入总预算。
+## [br]
+## @api private
 static func _reserve_utf8_bytes(state: Dictionary, text_value: String) -> bool:
 	var used_bytes: int = GFVariantData.get_option_int(state, "utf8_byte_count")
 	var remaining_bytes: int = _MAX_SNAPSHOT_UTF8_BYTES - used_bytes
@@ -606,6 +678,9 @@ static func _reserve_utf8_bytes(state: Dictionary, text_value: String) -> bool:
 	return _reserve_bytes(state, text_value.to_utf8_buffer().size())
 
 
+## 按 PackedArray 元素类型统计集合项与字节预算；PackedStringArray 逐项计入文本字节。
+## [br]
+## @api private
 static func _reserve_packed_array_bytes(state: Dictionary, value: Variant) -> bool:
 	var byte_count: int = 0
 	match typeof(value):
@@ -647,6 +722,9 @@ static func _reserve_packed_array_bytes(state: Dictionary, value: Variant) -> bo
 	return _reserve_bytes(state, byte_count)
 
 
+## 为固定宽度 PackedArray 同时预留元素数及元素字节数。
+## [br]
+## @api private
 static func _reserve_fixed_width_packed_array(
 	state: Dictionary,
 	item_count: int,
@@ -661,6 +739,9 @@ static func _reserve_fixed_width_packed_array(
 	return _reserve_bytes(state, item_count * item_width)
 
 
+## 识别支持隔离复制的内置 PackedArray Variant 类型。
+## [br]
+## @api private
 static func _is_packed_array_type(value_type: int) -> bool:
 	return value_type in [
 		TYPE_PACKED_BYTE_ARRAY,
@@ -676,6 +757,9 @@ static func _is_packed_array_type(value_type: int) -> bool:
 	]
 
 
+## 将非负字节数加入累计值，并检查 UTF-8 字节预算是否超限。
+## [br]
+## @api private
 static func _reserve_bytes(state: Dictionary, byte_count: int) -> bool:
 	var next_count: int = (
 		GFVariantData.get_option_int(state, "utf8_byte_count")
@@ -685,6 +769,9 @@ static func _reserve_bytes(state: Dictionary, byte_count: int) -> bool:
 	return next_count <= _MAX_SNAPSHOT_UTF8_BYTES
 
 
+## 若引用已处于当前递归路径则返回 false，否则将其压入路径数组。
+## [br]
+## @api private
 static func _push_active_reference(state: Dictionary, value: Variant) -> bool:
 	var active_references_value: Variant = GFVariantData.get_option_value(
 		state,
@@ -701,6 +788,9 @@ static func _push_active_reference(state: Dictionary, value: Variant) -> bool:
 	return true
 
 
+## 从活动引用路径数组移除末尾项；数组缺失或为空时不做修改。
+## [br]
+## @api private
 static func _pop_active_reference(state: Dictionary) -> void:
 	var active_references_value: Variant = GFVariantData.get_option_value(
 		state,
@@ -714,6 +804,9 @@ static func _pop_active_reference(state: Dictionary) -> void:
 	state["active_references"] = active_references
 
 
+## 构造 ok 为 true、包含 value 且错误码为空的复制报告。
+## [br]
+## @api private
 static func _make_copy_success(value: Variant) -> Dictionary:
 	return {
 		"ok": true,
@@ -722,6 +815,9 @@ static func _make_copy_success(value: Variant) -> Dictionary:
 	}
 
 
+## 构造 ok 为 false、value 为 null 且包含错误码的复制报告。
+## [br]
+## @api private
 static func _make_copy_failure(error_code: StringName) -> Dictionary:
 	return {
 		"ok": false,

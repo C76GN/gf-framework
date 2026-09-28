@@ -74,7 +74,16 @@ enum DetectionState {
 
 # --- 常量 ---
 
+## 提供输入事件类型提取和事件复制操作。
+## [br]
+## @api private
+## [br]
 const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_input_event_tools.gd")
+
+## 表示检测不限制动作值类型的内部哨兵值。
+## [br]
+## @api private
+## [br]
 const _ANY_VALUE_TYPE: int = -1
 
 
@@ -122,15 +131,64 @@ const _ANY_VALUE_TYPE: int = -1
 
 # --- 私有变量 ---
 
+## 当前检测阶段；新会话从 IDLE 进入倒计时、清除等待或输入接收阶段。
+## [br]
+## @api private
+## [br]
 var _state: DetectionState = DetectionState.IDLE
+
+## 当前检测会话从开始到结束累计的有效秒数。
+## [br]
+## @api private
+## [br]
 var _elapsed: float = 0.0
+
+## 正式接收候选输入前尚未结束的倒计时秒数。
+## [br]
+## @api private
+## [br]
 var _countdown_remaining: float = 0.0
+
+## 当前会话的动作值类型过滤器；_ANY_VALUE_TYPE 表示不限制。
+## [br]
+## @api private
+## [br]
 var _value_type: int = _ANY_VALUE_TYPE
+
+## 当前会话使用的允许设备类型列表副本。
+## [br]
+## @api private
+## [br]
 var _allowed_device_types: Array[int] = []
+
+## 已接受但正在等待释放的输入事件；无需等待释放时会在完成前清空。
+## [br]
+## @api private
+## [br]
 var _pending_detected_event: InputEvent = null
+
+## 待发出的检测结束原因，与 _pending_detected_event 一同构成待完成结果。
+## [br]
+## @api private
+## [br]
 var _pending_finish_reason: GFInputDetectionResult.FinishReason = GFInputDetectionResult.FinishReason.CANCELLED
+
+## 记录相关触点索引当前是否仍按下，供屏幕触摸输入的释放检测使用。
+## [br]
+## @api private
+## [br]
 var _pending_screen_touches: Dictionary = {}
+
+## 最近一次已发出的结构化检测结果；尚未完成会话时为 null。
+## [br]
+## @api private
+## [br]
 var _last_detection_result: GFInputDetectionResult = null
+
+## 每次开始会话递增，用于识别结束信号回调中同步创建的新会话。
+## [br]
+## @api private
+## [br]
 var _session_generation: int = 0
 
 
@@ -360,12 +418,20 @@ func get_last_detection_result() -> GFInputDetectionResult:
 
 # --- 私有/辅助方法 ---
 
+## 将当前输入标记为已处理，避免它继续传给其他视口处理者。
+## [br]
+## @api private
+## [br]
 func _mark_current_input_as_handled() -> void:
 	var viewport: Viewport = get_viewport()
 	if viewport != null:
 		viewport.set_input_as_handled()
 
 
+## 替换现有会话并初始化新的过滤器、计时和触摸状态；若旧会话的结束信号回调已创建更新会话，则保留回调创建的会话。
+## [br]
+## @api private
+## [br]
 func _begin_detection_internal(value_type: int, allowed_device_types: Array[int]) -> void:
 	if _state != DetectionState.IDLE:
 		var replaced_generation: int = _session_generation
@@ -388,6 +454,10 @@ func _begin_detection_internal(value_type: int, allowed_device_types: Array[int]
 	detection_started.emit()
 
 
+## 暂存结束结果；若成功事件仍处于按下状态且要求等待释放，则进入 POST_CLEAR，否则立即发出结果。
+## [br]
+## @api private
+## [br]
 func _finish_detection(
 	input_event: InputEvent,
 	wait_for_release: bool,
@@ -406,6 +476,10 @@ func _finish_detection(
 	_emit_detected_input()
 
 
+## 快照待完成结果和计时数据，清理当前会话状态，然后依次发出结构化结果信号与兼容信号。
+## [br]
+## @api private
+## [br]
 func _emit_detected_input() -> void:
 	var input_event: InputEvent = _pending_detected_event
 	var finish_reason: GFInputDetectionResult.FinishReason = _pending_finish_reason
@@ -431,6 +505,10 @@ func _emit_detected_input() -> void:
 	input_detected.emit(input_event)
 
 
+## 根据配置检查取消输入是否仍按下；需要等待时进入 PRE_CLEAR，否则转入输入接收阶段。
+## [br]
+## @api private
+## [br]
 func _enter_pre_clear_or_detecting() -> void:
 	if wait_for_clear_before_detection and not _are_abort_events_released():
 		_state = DetectionState.PRE_CLEAR
@@ -439,11 +517,19 @@ func _enter_pre_clear_or_detecting() -> void:
 	_start_accepting_input()
 
 
+## 将阶段切换为接收候选输入并启用逐帧处理。
+## [br]
+## @api private
+## [br]
 func _start_accepting_input() -> void:
 	_state = DetectionState.DETECTING
 	set_process(true)
 
 
+## 累加正向时间增量；无效或负的既有累计值先归零，溢出时仅在启用了有效超时的情况下钳到超时值。
+## [br]
+## @api private
+## [br]
 func _accumulate_elapsed(delta: float) -> void:
 	if not is_finite(_elapsed) or _elapsed < 0.0:
 		_elapsed = 0.0
@@ -456,6 +542,10 @@ func _accumulate_elapsed(delta: float) -> void:
 		_elapsed = timeout_seconds
 
 
+## 忽略键盘 echo；摇杆轴事件的绝对幅度低于 minimum_axis_amplitude 时也忽略。
+## [br]
+## @api private
+## [br]
 func _should_ignore_event(event: InputEvent) -> bool:
 	var key_event: InputEventKey = _INPUT_EVENT_TOOLS.get_key_event(event)
 	if key_event != null:
@@ -467,6 +557,10 @@ func _should_ignore_event(event: InputEvent) -> bool:
 	return false
 
 
+## 检查事件是否与 abort_events 中任一非空事件匹配。
+## [br]
+## @api private
+## [br]
 func _matches_abort_event(event: InputEvent) -> bool:
 	for abort_event: InputEvent in abort_events:
 		if abort_event != null and abort_event.is_match(event, true):
@@ -474,6 +568,10 @@ func _matches_abort_event(event: InputEvent) -> bool:
 	return false
 
 
+## 确认 abort_events 中没有仍处于按下状态的事件。
+## [br]
+## @api private
+## [br]
 func _are_abort_events_released() -> bool:
 	for abort_event: InputEvent in abort_events:
 		if abort_event != null and _is_event_still_pressed(abort_event):
@@ -481,6 +579,10 @@ func _are_abort_events_released() -> bool:
 	return true
 
 
+## 查询事件当前是否按下；屏幕触摸优先使用跟踪表中的最新状态，并按事件类型读取 Godot 输入状态。
+## [br]
+## @api private
+## [br]
 func _is_event_still_pressed(event: InputEvent) -> bool:
 	var key_event: InputEventKey = _INPUT_EVENT_TOOLS.get_key_event(event)
 	if key_event != null:
@@ -514,6 +616,10 @@ func _is_event_still_pressed(event: InputEvent) -> bool:
 	return false
 
 
+## 重置触摸跟踪表，并在待结束事件是屏幕触摸时记录其索引和 pressed 状态。
+## [br]
+## @api private
+## [br]
 func _track_pending_touch(event: InputEvent) -> void:
 	_pending_screen_touches.clear()
 	var screen_touch: InputEventScreenTouch = _INPUT_EVENT_TOOLS.get_screen_touch_event(event)
@@ -522,6 +628,10 @@ func _track_pending_touch(event: InputEvent) -> void:
 	_pending_screen_touches[screen_touch.index] = screen_touch.pressed
 
 
+## 重置触摸跟踪表，并记录 abort_events 中屏幕触摸事件的初始 pressed 状态。
+## [br]
+## @api private
+## [br]
 func _track_abort_touch_states() -> void:
 	_pending_screen_touches.clear()
 	for abort_event: InputEvent in abort_events:
@@ -530,6 +640,10 @@ func _track_abort_touch_states() -> void:
 			_pending_screen_touches[screen_touch.index] = screen_touch.pressed
 
 
+## 更新已跟踪屏幕触摸索引的 pressed 状态；未跟踪的触点不会加入映射。
+## [br]
+## @api private
+## [br]
 func _update_pending_touch_release(event: InputEvent) -> void:
 	var screen_touch: InputEventScreenTouch = _INPUT_EVENT_TOOLS.get_screen_touch_event(event)
 	if screen_touch == null:
@@ -539,6 +653,10 @@ func _update_pending_touch_release(event: InputEvent) -> void:
 	_pending_screen_touches[screen_touch.index] = screen_touch.pressed
 
 
+## 设备过滤列表为空时允许所有事件；否则仅允许能分类且类型包含在列表中的事件。
+## [br]
+## @api private
+## [br]
 func _matches_device_filter(event: InputEvent) -> bool:
 	if _allowed_device_types.is_empty():
 		return true
@@ -547,6 +665,10 @@ func _matches_device_filter(event: InputEvent) -> bool:
 	return device_type != -1 and _allowed_device_types.has(device_type)
 
 
+## 按当前动作值类型筛选候选事件；通用模式仅接受布尔事件，轴类型接受摇杆轴事件，未处理的类型回退为允许。
+## [br]
+## @api private
+## [br]
 func _matches_value_type_filter(event: InputEvent) -> bool:
 	if _value_type == _ANY_VALUE_TYPE:
 		return _is_default_bindable_event(event)
@@ -560,10 +682,18 @@ func _matches_value_type_filter(event: InputEvent) -> bool:
 			return true
 
 
+## 当前值类型不受限制时使用的默认候选规则，即只接受布尔输入事件。
+## [br]
+## @api private
+## [br]
 func _is_default_bindable_event(event: InputEvent) -> bool:
 	return _is_bool_event(event)
 
 
+## 判断受支持的动作、键盘键、鼠标按钮、手柄按钮或屏幕触摸事件是否处于按下状态。
+## [br]
+## @api private
+## [br]
 func _is_bool_event(event: InputEvent) -> bool:
 	var action_event: InputEventAction = _INPUT_EVENT_TOOLS.get_action_event(event)
 	if action_event != null:
@@ -587,6 +717,10 @@ func _is_bool_event(event: InputEvent) -> bool:
 	return false
 
 
+## 将键盘、鼠标、手柄和触摸事件分类为 DeviceType；不支持的事件返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_event_device_type(event: InputEvent) -> int:
 	if event is InputEventKey:
 		return DeviceType.KEYBOARD

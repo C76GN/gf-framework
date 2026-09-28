@@ -17,7 +17,16 @@ extends RefCounted
 # --- 私有变量 ---
 
 # 持有对所属状态机的弱引用，用于访问框架上下文和切换状态。
+## 当前所属状态机的弱引用，由 setup() 设置并在 dispose() 时清空。
+## [br]
+## @api private
+## [br]
 var _machine_ref: WeakRef = null
+
+## 状态机注册此状态时使用的名称；dispose() 时重置为空名称。
+## [br]
+## @api private
+## [br]
 var _state_name: StringName = &""
 
 
@@ -403,6 +412,10 @@ func get_blackboard() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 从弱引用读取所属状态机，并仅在引用目标仍为 GFStateMachine 时返回它。
+## [br]
+## @api private
+## [br]
 func _get_machine() -> GFStateMachine:
 	if _machine_ref == null:
 		return null

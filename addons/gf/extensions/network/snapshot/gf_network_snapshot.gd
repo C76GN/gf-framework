@@ -13,10 +13,34 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 快照 patch 的格式标识。
+## [br]
+## @api private
+## [br]
 const _PATCH_FORMAT: StringName = &"gf_network_snapshot_patch"
+
+## 快照 patch 的当前格式版本。
+## [br]
+## @api private
+## [br]
 const _PATCH_VERSION: int = 1
+
+## patch 路径允许的最大层级数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_PATCH_MAX_DEPTH: int = 8
+
+## 单个快照 patch 允许的最大 set 与 erase 操作总数。
+## [br]
+## @api private
+## [br]
 const _MAX_PATCH_OPERATIONS: int = 4096
+
+## 用于检查 patch 值传输安全性的验证器资源。
+## [br]
+## @api private
+## [br]
 const _TRANSPORT_VALUE_VALIDATOR = preload("res://addons/gf/extensions/network/runtime/gf_network_transport_value_validator.gd")
 
 
@@ -357,6 +381,10 @@ func make_message(message_type: StringName = &"snapshot", channel_id: StringName
 
 # --- 私有/辅助方法 ---
 
+## 检查 patch 的格式、版本、tick、操作路径和载荷结构。
+## [br]
+## @api private
+## [br]
 func _is_valid_patch(patch: Dictionary) -> bool:
 	if not (GFVariantData.get_option_value(patch, "ok") is bool):
 		return false
@@ -411,6 +439,10 @@ func _is_valid_patch(patch: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(metadata_report, "ok")
 
 
+## 检查 patch 路径非空、未超过深度限制且只含支持的键类型。
+## [br]
+## @api private
+## [br]
 func _is_valid_patch_path(path: Array) -> bool:
 	if path.is_empty() or path.size() > _DEFAULT_PATCH_MAX_DEPTH:
 		return false
@@ -420,6 +452,10 @@ func _is_valid_patch_path(path: Array) -> bool:
 	return true
 
 
+## 判断 Variant 是否为整数或有限且无小数部分的浮点数。
+## [br]
+## @api private
+## [br]
 func _is_integer_value(value: Variant) -> bool:
 	if typeof(value) == TYPE_INT:
 		return true
@@ -429,6 +465,10 @@ func _is_integer_value(value: Variant) -> bool:
 	return not is_nan(number) and not is_inf(number) and number == floor(number)
 
 
+## 遍历两个状态字典，将新增或变化的值收集为 set，将缺失键收集为 erase。
+## [br]
+## @api private
+## [br]
 func _diff_state_dictionaries(
 	source: Dictionary,
 	target: Dictionary,
@@ -475,6 +515,10 @@ func _diff_state_dictionaries(
 			)
 
 
+## 在允许深度内递归比较字典，否则将不同值记录为 set 操作。
+## [br]
+## @api private
+## [br]
 func _diff_values(
 	source_value: Variant,
 	target_value: Variant,
@@ -509,6 +553,10 @@ func _diff_values(
 		)
 
 
+## 在操作总数预算内附加 set 路径和值；预算耗尽时标记超限。
+## [br]
+## @api private
+## [br]
 func _append_set_op(
 	set_ops: Array[Dictionary],
 	erase_ops: Array[Array],
@@ -525,6 +573,10 @@ func _append_set_op(
 	})
 
 
+## 在操作总数预算内附加 erase 路径；预算耗尽时标记超限。
+## [br]
+## @api private
+## [br]
 func _append_erase_op(
 	set_ops: Array[Dictionary],
 	erase_ops: Array[Array],
@@ -537,12 +589,20 @@ func _append_erase_op(
 	erase_ops.append(_duplicate_path(path))
 
 
+## 复制现有路径并追加一个字典键。
+## [br]
+## @api private
+## [br]
 func _path_with_key(path: Array, key: Variant) -> Array:
 	var result: Array = _duplicate_path(path)
 	result.append(GFVariantData.duplicate_variant(key))
 	return result
 
 
+## 复制路径中的各个键值。
+## [br]
+## @api private
+## [br]
 func _duplicate_path(path: Array) -> Array:
 	var result: Array = []
 	for key: Variant in path:
@@ -550,6 +610,10 @@ func _duplicate_path(path: Array) -> Array:
 	return result
 
 
+## 将 PackedStringArray、Array 或单个字符串路径值转换为 Array。
+## [br]
+## @api private
+## [br]
 func _extract_patch_path(path_value: Variant) -> Array:
 	var result: Array = []
 	if path_value is PackedStringArray:
@@ -563,6 +627,10 @@ func _extract_patch_path(path_value: Variant) -> Array:
 	return result
 
 
+## 沿路径创建中间字典并设置叶值；空路径仅在值为字典时替换根字典内容。
+## [br]
+## @api private
+## [br]
 func _apply_set_path(root: Dictionary, path: Array, value: Variant) -> void:
 	if path.is_empty():
 		if value is Dictionary:
@@ -584,6 +652,10 @@ func _apply_set_path(root: Dictionary, path: Array, value: Variant) -> void:
 	cursor[leaf_key] = GFVariantData.duplicate_variant(value)
 
 
+## 沿路径查找字典叶值并删除；路径为空或中间节点缺失时不修改根字典。
+## [br]
+## @api private
+## [br]
 func _apply_erase_path(root: Dictionary, path: Array) -> void:
 	if path.is_empty():
 		return
@@ -599,10 +671,18 @@ func _apply_erase_path(root: Dictionary, path: Array) -> void:
 	var _erased: bool = cursor.erase(leaf_key)
 
 
+## 按 String 与 StringName 兼容规则检查字典是否含有键。
+## [br]
+## @api private
+## [br]
 func _dictionary_has_key(data: Dictionary, key: Variant) -> bool:
 	return data.has(_dictionary_existing_key(data, key))
 
 
+## 按 String 与 StringName 兼容规则返回字典中实际存在的键。
+## [br]
+## @api private
+## [br]
 func _dictionary_existing_key(data: Dictionary, key: Variant) -> Variant:
 	if data.has(key):
 		return key

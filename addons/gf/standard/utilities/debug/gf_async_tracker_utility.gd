@@ -98,9 +98,28 @@ var max_snapshot_entries: int = DEFAULT_MAX_SNAPSHOT_ENTRIES:
 
 # --- 私有变量 ---
 
+## 按 tracking_id 保存异步句柄及其采集元数据。
+## [br]
+## @api private
+## [br]
 var _records: Dictionary = {}
+
+## 下次登记异步句柄时使用的递增 ID。
+## [br]
+## @api private
+## [br]
 var _next_tracking_id: int = 1
+
+## 是否有记录状态变化尚待消费。
+## [br]
+## @api private
+## [br]
 var _dirty: bool = false
+
+## 正在刷新快照 Provider 的 tracking_id 集合，用于阻止同一记录重入刷新。
+## [br]
+## @api private
+## [br]
 var _refreshing_tracking_ids: Dictionary = {}
 
 
@@ -447,6 +466,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 将内部追踪记录整理为公开快照字段，并省略空的可选内容。
+## [br]
+## @api private
+## [br]
 func _record_to_snapshot(record: Dictionary, is_valid_record: bool) -> Dictionary:
 	var created_msec: int = GFVariantData.get_option_int(record, "created_msec", Time.get_ticks_msec())
 	var result: Dictionary = {
@@ -479,6 +502,10 @@ func _record_to_snapshot(record: Dictionary, is_valid_record: bool) -> Dictionar
 	return result
 
 
+## 将一次快照刷新失败写回记录，并在报告中注明旧快照是否仍可用。
+## [br]
+## @api private
+## [br]
 func _record_snapshot_refresh_failure(
 	tracking_id: int,
 	record: Dictionary,
@@ -504,6 +531,10 @@ func _record_snapshot_refresh_failure(
 	return report
 
 
+## 按 max_snapshot_entries 截取 Provider 快照；上限不大于零时返回空字典。
+## [br]
+## @api private
+## [br]
 func _make_bounded_snapshot(snapshot: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	if max_snapshot_entries <= 0:
@@ -517,6 +548,10 @@ func _make_bounded_snapshot(snapshot: Dictionary) -> Dictionary:
 	return result
 
 
+## 统计句柄仍有效且关联快照 Provider 可调用的记录数。
+## [br]
+## @api private
+## [br]
 func _count_refreshable_records() -> int:
 	var count: int = 0
 	for record_value: Variant in _records.values():
@@ -526,6 +561,10 @@ func _count_refreshable_records() -> int:
 	return count
 
 
+## 将静态 Callable 或对象方法编码为可恢复的 Provider 引用字段。
+## [br]
+## @api private
+## [br]
 func _make_snapshot_provider_ref(snapshot_provider: Callable) -> Dictionary:
 	if not snapshot_provider.is_valid():
 		return {}
@@ -543,6 +582,10 @@ func _make_snapshot_provider_ref(snapshot_provider: Callable) -> Dictionary:
 	}
 
 
+## 从记录中的 Callable 或弱引用字段恢复快照 Provider；目标失效时返回空 Callable。
+## [br]
+## @api private
+## [br]
 func _resolve_snapshot_provider(record: Dictionary) -> Callable:
 	var provider_ref: Dictionary = GFVariantData.get_option_dictionary(record, "snapshot_provider_ref")
 	if provider_ref.is_empty():
@@ -566,10 +609,18 @@ func _resolve_snapshot_provider(record: Dictionary) -> Callable:
 	return provider
 
 
+## 检查记录保存的句柄弱引用是否仍指向对象。
+## [br]
+## @api private
+## [br]
 func _record_handle_is_valid(record: Dictionary) -> bool:
 	return _weak_ref_to_object(_variant_to_weak_ref(GFVariantData.get_option_value(record, "handle_ref"))) != null
 
 
+## 统计当前记录中句柄对象已经失效的条目数。
+## [br]
+## @api private
+## [br]
 func _get_invalid_count() -> int:
 	var invalid_count: int = 0
 	for record_value: Variant in _records.values():
@@ -579,6 +630,10 @@ func _get_invalid_count() -> int:
 	return invalid_count
 
 
+## 采集当前调用栈并按 max_stack_trace_chars 截断文本。
+## [br]
+## @api private
+## [br]
 func _capture_stack_trace() -> String:
 	if max_stack_trace_chars <= 0:
 		return ""
@@ -596,6 +651,10 @@ func _capture_stack_trace() -> String:
 	return text
 
 
+## 仅当 Variant 实际为 Callable 时返回其值，否则返回空 Callable。
+## [br]
+## @api private
+## [br]
 func _variant_to_callable(value: Variant) -> Callable:
 	if value is Callable:
 		var callback: Callable = value
@@ -603,6 +662,10 @@ func _variant_to_callable(value: Variant) -> Callable:
 	return Callable()
 
 
+## 仅当 Variant 实际为 WeakRef 时返回其值，否则返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_weak_ref(value: Variant) -> WeakRef:
 	if value is WeakRef:
 		var weak_ref: WeakRef = value
@@ -610,6 +673,10 @@ func _variant_to_weak_ref(value: Variant) -> WeakRef:
 	return null
 
 
+## 解析弱引用中的对象；引用为空、已失效或目标不是 Object 时返回 null。
+## [br]
+## @api private
+## [br]
 func _weak_ref_to_object(weak_ref: WeakRef) -> Object:
 	if weak_ref == null:
 		return null

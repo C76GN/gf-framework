@@ -28,7 +28,16 @@ const FORMAT_ID: String = "gf_save_document"
 ## @since 9.0.0
 const FORMAT_VERSION: int = 1
 
+## 验证文档元数据及分区数据是否可持久化的脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_SAVE_PERSISTED_VALUE_VALIDATOR = preload("res://addons/gf/extensions/save/core/gf_save_persisted_value_validator.gd")
+
+## 允许出现在规范文档字典中的顶层字段名。
+## [br]
+## @api private
+## [br]
 const _DOCUMENT_FIELDS: Array = [
 	"format",
 	"format_version",
@@ -37,6 +46,11 @@ const _DOCUMENT_FIELDS: Array = [
 	"sections",
 	"metadata",
 ]
+
+## 允许出现在规范分区字典中的字段名。
+## [br]
+## @api private
+## [br]
 const _SECTION_FIELDS: Array = [
 	"section_id",
 	"schema_version",
@@ -47,10 +61,34 @@ const _SECTION_FIELDS: Array = [
 
 # --- 私有变量 ---
 
+## 当前文档的项目 schema 标识。
+## [br]
+## @api private
+## [br]
 var _schema_id: StringName = &""
+
+## 当前文档 schema 版本。
+## [br]
+## @api private
+## [br]
 var _schema_version: int = 0
+
+## 按 section ID 保存的分区值。
+## [br]
+## @api private
+## [br]
 var _sections: Dictionary = {}
+
+## 文档级元数据。
+## [br]
+## @api private
+## [br]
 var _metadata: Dictionary = {}
+
+## 配置时记录的元数据持久化校验失败报告。
+## [br]
+## @api private
+## [br]
 var _metadata_admission_failure: Dictionary = {}
 
 
@@ -450,6 +488,10 @@ static func from_dict(data: Dictionary) -> GFSaveDocument:
 
 # --- 私有/辅助方法 ---
 
+## 将持久化值校验失败追加为带字段路径的报告项。
+## [br]
+## @api private
+## [br]
 func _append_persisted_value_issue(
 	report: Dictionary,
 	value: Variant,
@@ -473,6 +515,10 @@ func _append_persisted_value_issue(
 	)
 
 
+## 将嵌套报告中的问题复制到父报告并加上路径前缀。
+## [br]
+## @api private
+## [br]
 func _append_nested_issues(report: Dictionary, nested_report: Dictionary, path_prefix: String) -> void:
 	for issue_value: Variant in GFVariantData.get_option_array(nested_report, "issues"):
 		var issue: Dictionary = GFVariantData.as_dictionary(issue_value)
@@ -488,10 +534,18 @@ func _append_nested_issues(report: Dictionary, nested_report: Dictionary, path_p
 		)
 
 
+## 返回文档校验报告的后续操作建议。
+## [br]
+## @api private
+## [br]
 func _get_validation_next_actions() -> Dictionary:
 	return _get_validation_next_actions_static()
 
 
+## 检查分区字典的键、section ID、版本、字段集合与分区内容。
+## [br]
+## @api private
+## [br]
 static func _append_section_dict_issues(report: Dictionary, section_data: Dictionary) -> void:
 	var seen_text_keys: Dictionary = {}
 	for section_key: Variant in _sorted_dictionary_keys(section_data):
@@ -609,6 +663,10 @@ static func _append_section_dict_issues(report: Dictionary, section_data: Dictio
 			)
 
 
+## 按键文本排序字典键，文本相同时按 Variant 类型排序。
+## [br]
+## @api private
+## [br]
 static func _sorted_dictionary_keys(source: Dictionary) -> Array:
 	var result: Array = source.keys()
 	result.sort_custom(func(left: Variant, right: Variant) -> bool:
@@ -621,11 +679,19 @@ static func _sorted_dictionary_keys(source: Dictionary) -> Array:
 	return result
 
 
+## 返回持久化值验证失败报告；通过时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_persisted_admission_failure(value: Variant) -> Dictionary:
 	var validation: Dictionary = _GF_SAVE_PERSISTED_VALUE_VALIDATOR.validate(value)
 	return {} if GFVariantData.get_option_bool(validation, "ok", false) else validation
 
 
+## 为不在允许字段列表中的键追加校验问题。
+## [br]
+## @api private
+## [br]
 static func _append_unknown_field_issues(
 	report: Dictionary,
 	source: Dictionary,
@@ -648,6 +714,10 @@ static func _append_unknown_field_issues(
 		)
 
 
+## 返回文档结构问题到建议操作的映射。
+## [br]
+## @api private
+## [br]
 static func _get_validation_next_actions_static() -> Dictionary:
 	return {
 		"document_format_mismatch": "Load only canonical GFSaveDocument payloads at the save boundary.",

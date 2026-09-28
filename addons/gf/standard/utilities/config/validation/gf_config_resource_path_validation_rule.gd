@@ -13,6 +13,10 @@ extends GFConfigValidationRule
 
 # --- 常量 ---
 
+## 共享资源路径探测会话在验证上下文中的键。
+## [br]
+## @api private
+## [br]
 const _VALIDATION_SESSION_CONTEXT_KEY: StringName = &"__gf_config_resource_path_validation_session"
 
 
@@ -119,16 +123,38 @@ func _validate_value(value: Variant, context: Dictionary, report: Dictionary) ->
 		_add_issue(report, _make_issue_context(context, value, "existing resource path"), "resource_path_missing", "资源路径不存在：%s。" % path)
 
 
-# --- 私有/辅助方法 ---
+# --- 框架内部方法 ---
 
-# 创建单次表校验共享的路径探测会话。
+## 为表校验创建共享路径缓存和预算；通过 RefCounted 隐藏会话的私有实现类型。
+## [br]
+## @api framework_internal
+## [br]
+## @param max_unique_checks: 本次会话允许的不同路径探测次数，至少为一。
+## [br]
+## @return 新建的独立会话，供表校验上下文持有。
 static func _make_validation_session(max_unique_checks: int) -> RefCounted:
 	return _ResourcePathValidationSession.new(max_unique_checks)
 
 
+## 识别可由本规则复用的会话，供表校验保留已有预算与缓存。
+## [br]
+## @api framework_internal
+## [br]
+## @param value: 校验上下文携带的候选会话。
+## [br]
+## @return 值是否为本脚本创建的路径校验会话。
+## [br]
+## @schema value: 任意 Variant；只有私有会话类型的实例被接受。
 static func _is_validation_session(value: Variant) -> bool:
 	return value is _ResourcePathValidationSession
 
+
+# --- 私有/辅助方法 ---
+
+## 按允许扩展名检查路径；uid 路径先解析为资源源路径。
+## [br]
+## @api private
+## [br]
 func _extension_allowed(path: String) -> bool:
 	if allowed_extensions.is_empty():
 		return true
@@ -145,6 +171,10 @@ func _extension_allowed(path: String) -> bool:
 	return false
 
 
+## 按启用的 ResourceLoader 和 res:// 文件访问回退检查路径存在性。
+## [br]
+## @api private
+## [br]
 func _path_exists(path: String) -> bool:
 	if use_resource_loader and ResourceLoader.exists(path):
 		return true
@@ -153,6 +183,10 @@ func _path_exists(path: String) -> bool:
 	return false
 
 
+## 通过共享会话缓存并限制预算的路径探测结果。
+## [br]
+## @api private
+## [br]
 func _resolve_path_existence(path: String, context: Dictionary) -> Dictionary:
 	var session_value: Variant = GFVariantData.get_option_value(context, _VALIDATION_SESSION_CONTEXT_KEY)
 	if session_value is _ResourcePathValidationSession:
@@ -165,10 +199,18 @@ func _resolve_path_existence(path: String, context: Dictionary) -> Dictionary:
 	}
 
 
+## 根据路径及存在性探测设置构造缓存键。
+## [br]
+## @api private
+## [br]
 func _make_existence_cache_key(path: String) -> String:
 	return "%d:%d:%s" % [int(use_resource_loader), int(use_file_access_fallback), path]
 
 
+## 路径探测预算耗尽且允许通知时，将诊断加入报告。
+## [br]
+## @api private
+## [br]
 func _add_budget_exhausted_issue(report: Dictionary, context: Dictionary, value: Variant) -> void:
 	var session_value: Variant = GFVariantData.get_option_value(context, _VALIDATION_SESSION_CONTEXT_KEY)
 	if not (session_value is _ResourcePathValidationSession):
@@ -188,12 +230,20 @@ func _add_budget_exhausted_issue(report: Dictionary, context: Dictionary, value:
 	)
 
 
+## 检查路径是否使用 res://，或允许的 uid:// 前缀。
+## [br]
+## @api private
+## [br]
 func _has_allowed_resource_prefix(path: String) -> bool:
 	if path.begins_with("res://"):
 		return true
 	return allow_uid_paths and path.begins_with("uid://")
 
 
+## 把允许的 uid:// 路径解析为资源路径供扩展名检查。
+## [br]
+## @api private
+## [br]
 func _resolve_extension_source_path(path: String) -> String:
 	if not path.begins_with("uid://"):
 		return path
@@ -206,6 +256,10 @@ func _resolve_extension_source_path(path: String) -> String:
 	return ResourceUID.get_id_path(uid)
 
 
+## 复制诊断上下文、移除内部会话并附加路径格式信息。
+## [br]
+## @api private
+## [br]
 func _make_issue_context(context: Dictionary, value: Variant, expected_value: Variant) -> Dictionary:
 	var issue_context: Dictionary = context.duplicate(true)
 	var _session_erased: bool = issue_context.erase(_VALIDATION_SESSION_CONTEXT_KEY)
@@ -216,6 +270,10 @@ func _make_issue_context(context: Dictionary, value: Variant, expected_value: Va
 	return issue_context
 
 
+## 规范化并列出允许的资源扩展名。
+## [br]
+## @api private
+## [br]
 func _describe_allowed_extensions() -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for allowed_extension: String in allowed_extensions:
@@ -225,6 +283,10 @@ func _describe_allowed_extensions() -> PackedStringArray:
 	return result
 
 
+## 合并允许的资源前缀与扩展名形成格式列表。
+## [br]
+## @api private
+## [br]
 func _describe_supported_formats() -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for prefix: String in _describe_allowed_prefixes():
@@ -234,6 +296,10 @@ func _describe_supported_formats() -> PackedStringArray:
 	return result
 
 
+## 列出当前配置接受的资源路径前缀。
+## [br]
+## @api private
+## [br]
 func _describe_allowed_prefixes() -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	if require_resource_prefix:
@@ -245,16 +311,44 @@ func _describe_allowed_prefixes() -> PackedStringArray:
 
 # --- 内部类 ---
 
+## 共享路径存在性结果缓存、检查预算与预算告警状态的内部会话。
+## [br]
+## @api private
+## [br]
 class _ResourcePathValidationSession:
 	extends RefCounted
 
+	# --- 私有变量 ---
+
+	## 只在首次探测缓存键时消耗的步骤预算；缓存命中不再收费。
+	## [br]
+	## @api private
 	var _budget: GFExecutionBudget
+
+	## 缓存键到存在性布尔值；失败探测同样缓存，生命周期与会话一致。
+	## [br]
+	## @api private
 	var _results: Dictionary = {}
+
+	## 已发出预算不足诊断的严重度集合，使每种严重度只提示一次。
+	## [br]
+	## @api private
 	var _budget_notice_severities: Dictionary = {}
 
+	# --- Godot 生命周期方法 ---
+
+	## 把会话的唯一探测次数上限钳制为至少一，缓存初始为空。
+	## [br]
+	## @api private
 	func _init(max_unique_checks: int) -> void:
 		_budget = GFExecutionBudget.new({"max_steps": maxi(max_unique_checks, 1)})
 
+	# --- 私有/辅助方法 ---
+
+	## 优先返回缓存；新键先消费预算，再同步调用探测器并缓存布尔结果。
+	## 探测器返回非布尔值按不存在处理；预算不足不调用探测器也不写缓存。
+	## [br]
+	## @api private
 	func _resolve(cache_key: String, resolver: Callable) -> Dictionary:
 		if _results.has(cache_key):
 			var cached_value: Variant = _results[cache_key]
@@ -280,14 +374,23 @@ class _ResourcePathValidationSession:
 			"cached": false,
 		}
 
+	## 在返回 true 前登记严重度，确保同一会话的同级预算诊断最多取得一次发送资格。
+	## [br]
+	## @api private
 	func _take_budget_notice(issue_severity: int) -> bool:
 		if _budget_notice_severities.has(issue_severity):
 			return false
 		_budget_notice_severities[issue_severity] = true
 		return true
 
+	## 返回已获准的新键探测次数，不包含缓存命中或被预算拒绝的调用。
+	## [br]
+	## @api private
 	func _get_check_count() -> int:
 		return _budget.get_steps()
 
+	## 返回构造时钳制后的探测上限，供预算诊断报告实际生效值。
+	## [br]
+	## @api private
 	func _get_max_check_count() -> int:
 		return _budget.max_steps

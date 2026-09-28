@@ -149,6 +149,9 @@ func get_previous_level_id(level_id: StringName) -> StringName:
 
 # --- 私有/辅助方法 ---
 
+## 返回指定关卡包中按目录排序的条目拷贝。
+## [br]
+## @api private
 func _get_exact_pack_levels(pack_id: StringName) -> Array[GFLevelEntry]:
 	var result: Array[GFLevelEntry] = []
 	for entry: GFLevelEntry in get_levels():
@@ -156,6 +159,9 @@ func _get_exact_pack_levels(pack_id: StringName) -> Array[GFLevelEntry]:
 			result.append(entry)
 	return result
 
+## 先按 sort_order 排序，再按关卡 ID 文本确定稳定顺序。
+## [br]
+## @api private
 func _sort_entries(left: GFLevelEntry, right: GFLevelEntry) -> bool:
 	if left.sort_order != right.sort_order:
 		return left.sort_order < right.sort_order

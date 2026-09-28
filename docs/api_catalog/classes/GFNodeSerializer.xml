@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeSerializer" path="addons/gf/extensions/save/serializers/gf_node_serializer.gd" module="extensions/save" extends="Resource" classDigest="a5ef8a1a7b4c1a25a5f3b1ed76ef2a6fb9bc5f86a82ee8ec524f4bf69b8fda6d">
+<class name="GFNodeSerializer" path="addons/gf/extensions/save/serializers/gf_node_serializer.gd" module="extensions/save" extends="Resource" classDigest="a8e56e8106235d560bc879a3c1af79fc10da4b80f48ddd6f81e6015e19fff34f">
 	<description>GFNodeSerializer: 节点序列化器基类。
 用于把通用节点状态拆成可组合的序列化片段。具体项目可以继承该类，
 在不修改存档图编排逻辑的前提下接入自己的节点状态。</description>
@@ -170,6 +170,19 @@
 				<tag name="schema">payload: Dictionary，键为规格 key，值为要写回的属性值。</tag>
 				<tag name="schema">specs: Array[Dictionary]，每项可包含 key: String、property: String 与 kind: StringName。</tag>
 				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_validate_property_specs_payload">
+			<signature>func _validate_property_specs_payload(payload: Dictionary, specs: Array[Dictionary]) -&gt; Array[String]:</signature>
+			<description>供节点序列化子类在写回前按属性规格校验载荷，不修改节点或载荷。仅检查具有有效 key 且载荷中存在的规格；缺失键不会报错，额外键不参与校验。按规格顺序收集类型或非有限数值错误，未知 kind 不增加限制。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">payload: 待校验的节点状态载荷。</tag>
+				<tag name="param">specs: 决定载荷键名与值类型的有序属性规格。</tag>
+				<tag name="return">按规格顺序收集的错误说明；空数组表示本入口没有发现错误，不代表必需字段完整。</tag>
+				<tag name="schema">payload: 以规格 key 为键的属性值字典；本入口不要求键必须存在，也不校验额外键。</tag>
+				<tag name="schema">specs: Array[Dictionary]；key 缺省时取 property，kind 可为 vector2/vector3/color（长度为 2/3/4 的有限数值 Array）、float（有限 int 或 float）、int、bool、string、string_name（StringName 或 String）；其他 kind 接受任意值。</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_has_property">

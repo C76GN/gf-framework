@@ -16,13 +16,52 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 生成统一验证报告字典的脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_VALIDATION_REPORT_DICTIONARY = preload("res://addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd")
+
+## 规范化和检查资源路径的脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_PATH_TOOLS_SCRIPT = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+## 默认允许审计的契约路径数量上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_CONTRACT_PATHS: int = 256
+
+## 审计契约路径数量允许的绝对上限。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_CONTRACT_PATHS: int = 4096
+
+## 默认已知频道 ID 数量上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_KNOWN_CHANNEL_IDS: int = 1024
+
+## 已知频道 ID 数量允许的绝对上限。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_KNOWN_CHANNEL_IDS: int = 4096
+
+## 默认频道 ID 字符长度上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_CHANNEL_ID_LENGTH: int = 256
+
+## 频道 ID 字符长度允许的绝对上限。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_CHANNEL_ID_LENGTH: int = 1024
 
 
@@ -143,6 +182,10 @@ func audit_paths(contract_paths: PackedStringArray, options: Dictionary = {}) ->
 
 # --- 私有/辅助方法 ---
 
+## 检查已知频道列表的数量和字符串长度预算，返回首个超限问题。
+## [br]
+## @api private
+## [br]
 func _get_contract_audit_input_budget_issue(options: Dictionary) -> Dictionary:
 	var max_known_channel_ids: int = _read_positive_bounded_option(
 		options,
@@ -190,6 +233,10 @@ func _get_contract_audit_input_budget_issue(options: Dictionary) -> Dictionary:
 	return {}
 
 
+## 读取正整数预算选项；非法值返回负数，超出绝对上限时截断到上限。
+## [br]
+## @api private
+## [br]
 func _read_positive_bounded_option(
 	options: Dictionary,
 	key: String,
@@ -205,6 +252,10 @@ func _read_positive_bounded_option(
 	return mini(option_value, absolute_value)
 
 
+## 构造包含预算名称、期望上限与实际值的超限问题。
+## [br]
+## @api private
+## [br]
 func _make_audit_budget_issue(
 	budget_name: String,
 	expected_value: int,
@@ -221,6 +272,10 @@ func _make_audit_budget_issue(
 		}
 	)
 
+## 根据契约 ID、版本、消息列表及消息数预算追加契约级审计问题。
+## [br]
+## @api private
+## [br]
 func _append_contract_policy_issues(
 	contract: GFNetworkContract,
 	options: Dictionary,
@@ -246,6 +301,10 @@ func _append_contract_policy_issues(
 		}))
 
 
+## 检查消息频道声明、已知频道、字段存在性及字段数预算。
+## [br]
+## @api private
+## [br]
 func _append_message_policy_issues(
 	contract: GFNetworkContract,
 	options: Dictionary,
@@ -295,6 +354,10 @@ func _append_message_policy_issues(
 		)
 
 
+## 按选项为 Variant 字段和未审查集合边界的字段追加警告。
+## [br]
+## @api private
+## [br]
 func _append_field_policy_issues(
 	message_contract: GFNetworkContractMessage,
 	warn_variant_fields: bool,
@@ -319,6 +382,10 @@ func _append_field_policy_issues(
 			}))
 
 
+## 复制非空问题字典并加入聚合阶段和上下文信息。
+## [br]
+## @api private
+## [br]
 func _copy_issues(
 	source_issues: Array,
 	phase: StringName,
@@ -343,6 +410,10 @@ func _copy_issues(
 	return result
 
 
+## 构造基础审计问题并合并附加字段。
+## [br]
+## @api private
+## [br]
 func _make_issue(
 	severity: String,
 	kind: String,
@@ -358,6 +429,10 @@ func _make_issue(
 	return issue
 
 
+## 将单个契约的审计问题封装为含建议操作的标准报告。
+## [br]
+## @api private
+## [br]
 func _finalize_report(contract_id: StringName, issues: Array[Dictionary]) -> Dictionary:
 	var report: Dictionary = {
 		"subject": "Network contract audit",
@@ -372,6 +447,10 @@ func _finalize_report(contract_id: StringName, issues: Array[Dictionary]) -> Dic
 	})
 
 
+## 将多路径审计的问题和契约数量封装为标准报告。
+## [br]
+## @api private
+## [br]
 func _finalize_paths_report(
 	contract_count: int,
 	issues: Array[Dictionary]
@@ -389,6 +468,10 @@ func _finalize_paths_report(
 	})
 
 
+## 按网络契约审计问题类型提供修复建议。
+## [br]
+## @api private
+## [br]
 func _get_next_actions() -> Dictionary:
 	return {
 		"contract_missing": "Assign a GFNetworkContract before running the audit.",
@@ -408,6 +491,10 @@ func _get_next_actions() -> Dictionary:
 	}
 
 
+## 去除字符串首尾空白、空值和重复项后排序返回。
+## [br]
+## @api private
+## [br]
 static func _normalize_string_set(items: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var seen: Dictionary = {}

@@ -136,6 +136,10 @@ func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) 
 
 # --- 私有/辅助方法 ---
 
+## 将经过时间拆分为周期余数；先比较余数与剩余周期，避免有限大值相加溢出。
+## [br]
+## @api private
+## [br]
 func _wrap_elapsed(elapsed: float, delta: float, interval: float) -> float:
 	var elapsed_remainder: float = fmod(elapsed, interval)
 	var delta_remainder: float = fmod(delta, interval)

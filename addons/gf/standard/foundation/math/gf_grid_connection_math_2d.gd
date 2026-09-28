@@ -14,6 +14,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 连接状态扩展所用的右、左、下、上四个方向。
+## [br]
+## @api private
 const _ORTHOGONAL_DIRECTIONS: Array[Vector2i] = [
 	Vector2i.RIGHT,
 	Vector2i.LEFT,
@@ -113,6 +116,9 @@ static func can_connect_with_max_turns(
 
 # --- 私有/辅助方法 ---
 
+## 允许目标格直接通过；其余格按网格内可通行或一圈外边界规则判定。
+## [br]
+## @api private
 static func _can_step_connector(
 	cell: Vector2i,
 	goal: Vector2i,
@@ -137,12 +143,18 @@ static func _can_step_connector(
 	)
 
 
+## 调用有效格子谓词并转换为 bool；无效回调或转换失败时使用 fallback。
+## [br]
+## @api private
 static func _call_cell_predicate(predicate: Callable, cell: Vector2i, fallback: bool = false) -> bool:
 	if not predicate.is_valid():
 		return fallback
 	return GFVariantData.to_bool(predicate.call(cell), fallback)
 
 
+## 读取字典中的 Vector2i 值；缺失或类型不符时返回 fallback。
+## [br]
+## @api private
 static func _get_dictionary_vector2i(dictionary: Dictionary, key: Variant, fallback: Vector2i) -> Vector2i:
 	var value: Variant = GFVariantData.get_option_value(dictionary, key, fallback)
 	if value is Vector2i:
@@ -151,5 +163,8 @@ static func _get_dictionary_vector2i(dictionary: Dictionary, key: Variant, fallb
 	return fallback
 
 
+## 将格子坐标和进入方向编码为 visited 表使用的 Vector3i 键。
+## [br]
+## @api private
 static func _make_connector_key(cell: Vector2i, direction_index: int) -> Vector3i:
 	return Vector3i(cell.x, cell.y, direction_index)

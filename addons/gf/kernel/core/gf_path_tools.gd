@@ -163,6 +163,9 @@ static func is_path_excluded(path: String, excluded_paths: PackedStringArray) ->
 
 # --- 私有/辅助方法 ---
 
+## 生成目录后代匹配前缀；资源 scheme 根保留 `://`，其他路径追加斜杠。
+## [br]
+## @api private
 static func _descendant_prefix(root_path: String) -> String:
 	if root_path.ends_with("://"):
 		return root_path

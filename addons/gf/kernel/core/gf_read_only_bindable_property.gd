@@ -14,7 +14,14 @@ extends GFBindableProperty
 
 # --- 常量 ---
 
+## 只读视图被调用写入接口时发出的错误文本。
+## [br]
+## @api private
 const _READ_ONLY_ERROR: String = "[GFReadOnlyBindableProperty][read_only_bindable_property.read_only] This property is a read-only view; modify its value through the owning object."
+
+## 深拷贝 Array 与 Dictionary 读取结果的 Variant 辅助脚本。
+## [br]
+## @api private
 const _READ_ONLY_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -168,7 +175,14 @@ func clear_collection() -> bool:
 	return false
 
 
-# --- 私有/辅助方法 ---
+# --- 框架内部方法 ---
 
+## 供持有该只读视图的框架对象更新底层值，沿用基类的变化通知；此入口不执行调用者身份校验。
+## [br]
+## @api framework_internal
+## [br]
+## @param new_value: 所有者计算出的新值。
+## [br]
+## @schema new_value: {"type":"Variant","description":"类型由创建该属性的框架对象约定，按基类 set_value 语义写入。"}
 func _set_value_from_owner(new_value: Variant) -> void:
 	super.set_value(new_value)

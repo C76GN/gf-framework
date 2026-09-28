@@ -112,6 +112,10 @@ var extra_fields: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 保存源码定位范围自身的元数据，与问题的普通 metadata 分开。
+## [br]
+## @api private
+## [br]
 var _source_span_metadata: Dictionary = {}
 
 
@@ -432,6 +436,10 @@ static func from_dict(data: Dictionary) -> RefCounted:
 
 # --- 私有/辅助方法 ---
 
+## 读取指定字段并转换为 StringName；字段缺失或为 null 时保留默认值。
+## [br]
+## @api private
+## [br]
 static func _read_string_name(data: Dictionary, field_name: String, default_value: StringName = &"") -> StringName:
 	if not data.has(field_name):
 		return default_value
@@ -441,6 +449,10 @@ static func _read_string_name(data: Dictionary, field_name: String, default_valu
 	return GFVariantData.to_string_name(value)
 
 
+## 从字典更新源码定位字段，并可选复制嵌套定位元数据。
+## [br]
+## @api private
+## [br]
 func _apply_source_span(data: Dictionary, include_metadata: bool = false) -> void:
 	source_path = _read_source_path(data, source_path)
 	line = _read_non_negative_int(data, "line", line)
@@ -454,6 +466,10 @@ func _apply_source_span(data: Dictionary, include_metadata: bool = false) -> voi
 		_source_span_metadata = GFVariantData.as_dictionary(metadata_value).duplicate(true)
 
 
+## 把定位字段平铺到结果字典，并附加不含元数据的 source_span 字典。
+## [br]
+## @api private
+## [br]
 func _add_source_span_fields(result: Dictionary, include_empty_fields: bool) -> void:
 	var span: GFSourceSpan = _make_source_span()
 	var span_dict: Dictionary = span.to_dict(include_empty_fields, true)
@@ -465,6 +481,10 @@ func _add_source_span_fields(result: Dictionary, include_empty_fields: bool) -> 
 		result["source_span"] = span.to_dict(include_empty_fields, false)
 
 
+## 优先读取 source_path，缺失时兼容读取 source，再缺失时返回默认路径。
+## [br]
+## @api private
+## [br]
 static func _read_source_path(data: Dictionary, default_value: String = "") -> String:
 	if data.has("source_path"):
 		return GFVariantData.get_option_string(data, "source_path")
@@ -473,6 +493,10 @@ static func _read_source_path(data: Dictionary, default_value: String = "") -> S
 	return default_value
 
 
+## 读取指定数值字段，将浮点值四舍五入并把结果限制为非负整数。
+## [br]
+## @api private
+## [br]
 static func _read_non_negative_int(data: Dictionary, field_name: String, default_value: int) -> int:
 	if not data.has(field_name):
 		return default_value
@@ -482,6 +506,10 @@ static func _read_non_negative_int(data: Dictionary, field_name: String, default
 	return maxi(GFVariantData.to_int(value, default_value), 0)
 
 
+## 按当前定位字段和私有定位元数据构造 GFSourceSpan。
+## [br]
+## @api private
+## [br]
 func _make_source_span() -> GFSourceSpan:
 	var span: GFSourceSpan = GFSourceSpan.new()
 	var _configured_span: RefCounted = span.configure(
@@ -497,6 +525,10 @@ func _make_source_span() -> GFSourceSpan:
 	return span
 
 
+## 检查字段名是否属于问题模型已占用的标准字段。
+## [br]
+## @api private
+## [br]
 static func _is_reserved_field(field_name: String) -> bool:
 	return (
 		field_name == "severity"

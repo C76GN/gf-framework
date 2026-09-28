@@ -45,22 +45,89 @@ const STATUS_INVALID: StringName = &"invalid"
 
 # --- 私有变量 ---
 
+## 本次搜索的起点节点。
+## [br]
+## @api private
 var _start: Variant
+
+## 本次搜索的目标节点。
+## [br]
+## @api private
 var _goal: Variant
+
+## 提供当前节点邻居列表的回调。
+## [br]
+## @api private
 var _get_neighbors: Callable = Callable()
+
+## 提供相邻节点移动代价的可选回调。
+## [br]
+## @api private
 var _get_step_cost: Callable = Callable()
+
+## 提供节点到目标启发值的可选回调。
+## [br]
+## @api private
 var _heuristic: Callable = Callable()
+
+## 保存待处理节点及其路径优先级的队列。
+## [br]
+## @api private
 var _open_queue: GFPriorityQueue = GFPriorityQueue.new(false)
+
+## 记录已展开邻居的节点集合。
+## [br]
+## @api private
 var _closed: Dictionary = {}
+
+## 将已发现节点映射到其前驱节点，用于回溯路径。
+## [br]
+## @api private
 var _came_from: Dictionary = {}
+
+## 记录起点到已发现节点的当前最低累计代价。
+## [br]
+## @api private
 var _g_score: Dictionary = {}
+
+## 记录节点的累计代价加启发值优先级。
+## [br]
+## @api private
 var _f_score: Dictionary = {}
+
+## 搜索成功后缓存的路径节点数组。
+## [br]
+## @api private
 var _path: Array = []
+
+## 已找到路径的累计代价；尚未找到时保持 INF。
+## [br]
+## @api private
 var _cost: float = INF
+
+## 已展开其邻居的节点数；目标节点出队即结束，不计入此值。
+## [br]
+## @api private
 var _expanded_count: int = 0
+
+## 累计接受并处理的有效队列项次数。
+## [br]
+## @api private
 var _iteration_count: int = 0
+
+## 入队序号，用于为每个队列项生成递增次序。
+## [br]
+## @api private
 var _sequence: int = 0
+
+## 当前搜索状态。
+## [br]
+## @api private
 var _status: StringName = STATUS_SEARCHING
+
+## 当前搜索结束或无效原因。
+## [br]
+## @api private
 var _reason: StringName = &""
 
 
@@ -283,6 +350,9 @@ func get_cost() -> float:
 
 # --- 私有/辅助方法 ---
 
+## 写入节点与回调、初始化起点分数，并处理无效回调或起终点相同情况。
+## [br]
+## @api private
 func _configure(
 	start: Variant,
 	goal: Variant,
@@ -310,11 +380,17 @@ func _configure(
 	_push_node_priority(start, GFVariantData.get_option_float(_f_score, start, INF))
 
 
+## 写入最终搜索状态及对应原因。
+## [br]
+## @api private
 func _finish(status: StringName, reason: StringName) -> void:
 	_status = status
 	_reason = reason
 
 
+## 调用邻居回调，仅接受 Array 结果并将其他类型规范为空数组。
+## [br]
+## @api private
 func _get_neighbors_for(node: Variant) -> Array:
 	var raw_neighbors: Variant = _get_neighbors.call(node)
 	if typeof(raw_neighbors) != TYPE_ARRAY:
@@ -323,6 +399,9 @@ func _get_neighbors_for(node: Variant) -> Array:
 	return GFVariantData.as_array(raw_neighbors)
 
 
+## 调用有效移动代价回调并转为 float；无回调时每步使用 1.0。
+## [br]
+## @api private
 func _get_step_cost_for(from_node: Variant, to_node: Variant) -> float:
 	if _get_step_cost.is_valid():
 		return GFVariantData.to_float(_get_step_cost.call(from_node, to_node), -1.0)
@@ -330,6 +409,9 @@ func _get_step_cost_for(from_node: Variant, to_node: Variant) -> float:
 	return 1.0
 
 
+## 调用有效启发回调并将结果限制为非负值；无回调时返回零。
+## [br]
+## @api private
 func _get_heuristic_for(node: Variant, goal: Variant) -> float:
 	if _heuristic.is_valid():
 		return maxf(0.0, GFVariantData.to_float(_heuristic.call(node, goal), 0.0))
@@ -337,6 +419,9 @@ func _get_heuristic_for(node: Variant, goal: Variant) -> float:
 	return 0.0
 
 
+## 为队列项分配递增序号，并将节点、优先级和序号传给队列。
+## [br]
+## @api private
 func _push_node_priority(node: Variant, priority: float) -> void:
 	var sequence: int = _sequence
 	_sequence += 1
@@ -347,10 +432,16 @@ func _push_node_priority(node: Variant, priority: float) -> void:
 	}, priority, sequence)
 
 
+## 从 frontier 队列取出元素，并转换为 Dictionary。
+## [br]
+## @api private
 func _pop_node_priority() -> Dictionary:
 	return GFVariantData.as_dictionary(_open_queue.pop({}))
 
 
+## 沿前驱字典从目标回溯并反向构造路径；链路缺失时返回空数组。
+## [br]
+## @api private
 static func _reconstruct_path(start: Variant, goal: Variant, came_from: Dictionary) -> Array:
 	var path: Array = [goal]
 	var current: Variant = goal
@@ -365,5 +456,8 @@ static func _reconstruct_path(start: Variant, goal: Variant, came_from: Dictiona
 	return path
 
 
+## 从队列项读取 priority 浮点值，缺失或无效时使用 fallback。
+## [br]
+## @api private
 static func _get_entry_priority(entry: Dictionary, fallback: float = INF) -> float:
 	return GFVariantData.get_option_float(entry, "priority", fallback)

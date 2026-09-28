@@ -60,12 +60,39 @@ var emit_on_message_change: bool = true
 
 # --- 私有变量 ---
 
+## 当前进度值。
+## [br]
+## @api private
 var _value: float = 0.0
+
+## 当前进度消息。
+## [br]
+## @api private
 var _message: String = ""
+
+## 当前进度元数据。
+## [br]
+## @api private
 var _metadata: Dictionary = {}
+
+## 最近一次发出信号时的进度值，用于比较 min_delta。
+## [br]
+## @api private
 var _last_emitted_value: float = 0.0
+
+## 最近一次发出信号时的消息，用于判断消息变化。
+## [br]
+## @api private
 var _last_emitted_message: String = ""
+
+## 最近一次发出信号时的毫秒 tick。
+## [br]
+## @api private
 var _last_emitted_msec: int = 0
+
+## 是否已至少发出过一次进度信号。
+## [br]
+## @api private
 var _has_emitted: bool = false
 
 
@@ -234,6 +261,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按强制/首次发布、最小间隔、数值变化阈值和消息变化判断是否发布。
+## [br]
+## @api private
 func _should_emit(force: bool) -> bool:
 	if force or not _has_emitted:
 		return true
@@ -248,6 +278,9 @@ func _should_emit(force: bool) -> bool:
 	return false
 
 
+## 更新最近发布状态后发出 progressed，并传递元数据副本。
+## [br]
+## @api private
 func _emit_progress() -> void:
 	_last_emitted_value = _value
 	_last_emitted_message = _message

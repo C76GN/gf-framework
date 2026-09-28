@@ -14,6 +14,10 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 用于报告 JSON 兼容编码与恢复的内部脚本引用。
+## [br]
+## @api private
+## [br]
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 
 
@@ -645,6 +649,10 @@ static func from_dict(data: Dictionary) -> RefCounted:
 
 # --- 私有/辅助方法 ---
 
+## 创建 GFValidationIssue、追加到 issues 并返回该问题。
+## [br]
+## @api private
+## [br]
 func _add_issue(
 	p_severity: Variant,
 	p_kind: StringName,
@@ -658,6 +666,10 @@ func _add_issue(
 	return issue
 
 
+## 复制 GFValidationIssue 或从字典构造问题；其他输入返回 null。
+## [br]
+## @api private
+## [br]
 func _normalize_issue(issue: Variant) -> GFValidationIssue:
 	if issue is GFValidationIssue:
 		var validation_issue: GFValidationIssue = issue
@@ -670,10 +682,18 @@ func _normalize_issue(issue: Variant) -> GFValidationIssue:
 	return null
 
 
+## 把输入委托给 add_issue，由报告入口完成校验和追加。
+## [br]
+## @api private
+## [br]
 func _add_issue_if_valid(issue: Variant) -> void:
 	var _added_issue: RefCounted = add_issue(issue)
 
 
+## 依次返回首个错误、首个警告或首个有效问题。
+## [br]
+## @api private
+## [br]
 func _get_first_issue_by_priority() -> GFValidationIssue:
 	for issue: RefCounted in issues:
 		var validation_issue: GFValidationIssue = _as_validation_issue(issue)
@@ -690,6 +710,10 @@ func _get_first_issue_by_priority() -> GFValidationIssue:
 	return null
 
 
+## 仅当 Variant 为 GFValidationIssue 时返回该问题实例。
+## [br]
+## @api private
+## [br]
 static func _as_validation_issue(value: Variant) -> GFValidationIssue:
 	if value is GFValidationIssue:
 		var validation_issue: GFValidationIssue = value
@@ -697,6 +721,10 @@ static func _as_validation_issue(value: Variant) -> GFValidationIssue:
 	return null
 
 
+## 检查字段名是否属于报告标准字段或派生统计字段。
+## [br]
+## @api private
+## [br]
 static func _is_reserved_report_field(field_name: String) -> bool:
 	return (
 		field_name == "subject"

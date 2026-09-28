@@ -33,7 +33,16 @@ var provider: Resource = null
 
 # --- 私有变量 ---
 
+## 注册表的弱引用；避免句柄延长注册表生命周期。
+## [br]
+## @api private
+## [br]
 var _registry_ref: WeakRef = null
+
+## 标记注册句柄是否仍由注册表管理。
+## [br]
+## @api private
+## [br]
 var _active: bool = false
 
 
@@ -106,6 +115,10 @@ func mark_released() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 从弱引用读取 GFInputFormatterRegistry；引用为空或类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_registry() -> GFInputFormatterRegistry:
 	if _registry_ref == null:
 		return null

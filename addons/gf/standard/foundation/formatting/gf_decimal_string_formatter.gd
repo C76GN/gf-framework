@@ -9,6 +9,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 浮点格式化允许的最大小数位数。
+## [br]
+## @api private
 const _MAX_DECIMAL_PLACES: int = 18
 
 ## 数值文本解析器的默认输入字符预算。
@@ -309,6 +312,9 @@ static func contains_only_digits(text: String) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 校验并规范化整数位的逗号分组或下划线分隔。
+## [br]
+## @api private
 static func _normalize_integer_digits(value: String) -> Dictionary:
 	if value.is_empty():
 		return _make_numeric_text_result(true, "", "")
@@ -325,6 +331,9 @@ static func _normalize_integer_digits(value: String) -> Dictionary:
 	return _normalize_underscore_digits(value, false)
 
 
+## 校验并移除数字串中的下划线分隔符。
+## [br]
+## @api private
 static func _normalize_underscore_digits(value: String, allow_empty: bool) -> Dictionary:
 	if value.is_empty():
 		return _make_numeric_text_result(allow_empty, "", "" if allow_empty else "invalid_digits")
@@ -337,6 +346,9 @@ static func _normalize_underscore_digits(value: String, allow_empty: bool) -> Di
 	return _make_numeric_text_result(true, "".join(groups), "")
 
 
+## 创建包含 ok、text 和 error 字段的解析结果。
+## [br]
+## @api private
 static func _make_numeric_text_result(ok: bool, text: String, error: String) -> Dictionary:
 	return {
 		"ok": ok,
@@ -345,6 +357,9 @@ static func _make_numeric_text_result(ok: bool, text: String, error: String) -> 
 	}
 
 
+## 从末位开始对十进制数字串加一，并向前传播进位。
+## [br]
+## @api private
 static func _increment_decimal_digits(value: String) -> String:
 	var result: String = value
 	var carry: int = 1
@@ -357,6 +372,9 @@ static func _increment_decimal_digits(value: String) -> String:
 	return "1" + result
 
 
+## 检查字符串中的每个字符是否都是 0。
+## [br]
+## @api private
 static func _digits_are_zero(value: String) -> bool:
 	for index: int in range(value.length()):
 		if value.substr(index, 1) != "0":
@@ -364,6 +382,9 @@ static func _digits_are_zero(value: String) -> bool:
 	return true
 
 
+## 将小数位数限制在 0 到 _MAX_DECIMAL_PLACES。
+## [br]
+## @api private
 static func _normalize_decimal_places(decimal_places: int) -> int:
 	if decimal_places <= 0:
 		return 0
@@ -375,9 +396,15 @@ static func _normalize_decimal_places(decimal_places: int) -> int:
 	return decimal_places
 
 
+## 判断浮点值是否为 NaN 或正负无穷。
+## [br]
+## @api private
 static func _is_non_finite(value: float) -> bool:
 	return is_nan(value) or is_inf(value)
 
 
+## 报告缩放计算超出有限浮点范围。
+## [br]
+## @api private
 static func _report_scaled_non_finite() -> void:
 	push_error("[GFDecimalStringFormatter][decimal_string_formatter.scaled_value_non_finite] The scaled decimal exceeds the finite floating-point range.")

@@ -54,9 +54,24 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 按候选实例 ID 保存弱引用及候选属性记录。
+## [br]
+## @api private
 var _records: Dictionary = {}
+
+## 按注册顺序保存候选实例 ID。
+## [br]
+## @api private
 var _order: Array[int] = []
+
+## 下一个新注册候选使用的递增顺序值。
+## [br]
+## @api private
 var _serial: int = 0
+
+## 候选数据实际变更后发出通知时递增的版本号。
+## [br]
+## @api private
 var _revision: int = 0
 
 
@@ -302,15 +317,24 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 返回已有候选的 order；记录不存在时返回 -1。
+## [br]
+## @api private
 func _get_existing_order(candidate_id: int) -> int:
 	var record: Dictionary = _get_record(candidate_id)
 	return GFVariantData.get_option_int(record, "order", -1)
 
 
+## 读取候选实例 ID 对应记录并收窄为 Dictionary。
+## [br]
+## @api private
 func _get_record(candidate_id: int) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_records, candidate_id, {}))
 
 
+## 从记录中的 WeakRef 取得仍有效的 Object，否则返回 null。
+## [br]
+## @api private
 func _get_record_object(record: Dictionary) -> Object:
 	var ref_value: Variant = GFVariantData.get_option_value(record, "ref")
 	if not (ref_value is WeakRef):
@@ -324,6 +348,9 @@ func _get_record_object(record: Dictionary) -> Object:
 	return null
 
 
+## 提取候选 ID、对象、排序属性和 stable_key，并按选项附加 metadata。
+## [br]
+## @api private
 func _make_candidate_snapshot(record: Dictionary, candidate: Object, include_metadata: bool) -> Dictionary:
 	var snapshot: Dictionary = {
 		"id": GFVariantData.get_option_int(record, "id", 0),
@@ -339,6 +366,9 @@ func _make_candidate_snapshot(record: Dictionary, candidate: Object, include_met
 	return snapshot
 
 
+## 候选数超过正容量时，按 _order 移除最早注册记录。
+## [br]
+## @api private
 func _prune_for_capacity() -> bool:
 	if max_candidates <= 0:
 		return false
@@ -350,6 +380,9 @@ func _prune_for_capacity() -> bool:
 	return changed
 
 
+## 比较当前弱引用对象及候选属性字段是否与待写记录相符。
+## [br]
+## @api private
 func _candidate_record_matches(current: Dictionary, expected: Dictionary, candidate: Object) -> bool:
 	if current.is_empty() or _get_record_object(current) != candidate:
 		return false
@@ -359,6 +392,9 @@ func _candidate_record_matches(current: Dictionary, expected: Dictionary, candid
 	return true
 
 
+## 移除候选记录，并在删除成功时清理其注册顺序项。
+## [br]
+## @api private
 func _remove_candidate_id(candidate_id: int) -> bool:
 	if not _records.has(candidate_id):
 		return false
@@ -368,17 +404,26 @@ func _remove_candidate_id(candidate_id: int) -> bool:
 	return removed
 
 
+## 从注册顺序数组中删除所有匹配的 candidate_id 项。
+## [br]
+## @api private
 func _remove_order_id(candidate_id: int) -> void:
 	for index: int in range(_order.size() - 1, -1, -1):
 		if _order[index] == candidate_id:
 			_order.remove_at(index)
 
 
+## 递增候选版本号并发出 candidates_changed。
+## [br]
+## @api private
 func _notify_candidates_changed() -> void:
 	_revision += 1
 	candidates_changed.emit(_revision)
 
 
+## priority 不同时按降序排列，相同时按 order 升序排列。
+## [br]
+## @api private
 static func _sort_candidate_snapshots(left: Dictionary, right: Dictionary) -> bool:
 	var left_priority: int = GFVariantData.get_option_int(left, "priority", 0)
 	var right_priority: int = GFVariantData.get_option_int(right, "priority", 0)
@@ -389,6 +434,9 @@ static func _sort_candidate_snapshots(left: Dictionary, right: Dictionary) -> bo
 	return left_order < right_order
 
 
+## 将有效 Object、非负整数或非空文本 owner 转换为内部 owner_id。
+## [br]
+## @api private
 static func _get_owner_id(owner: Variant) -> int:
 	if owner is Object:
 		var owner_object: Object = owner

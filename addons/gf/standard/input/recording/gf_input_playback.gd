@@ -72,6 +72,10 @@ enum LoopCatchUpPolicy {
 
 # --- 常量 ---
 
+## 跳周期报告可精确表示的最大整数值，用于限制浮点计算得到的计数。
+## [br]
+## @api private
+## [br]
 const _MAX_REPORTED_SKIPPED_CYCLES: float = 9_007_199_254_740_991.0
 
 
@@ -131,10 +135,34 @@ var elapsed_seconds: float = 0.0
 
 # --- 私有变量 ---
 
+## 下一条待应用事件在当前事件列表中的索引。
+## [br]
+## @api private
+## [br]
 var _next_event_index: int = 0
+
+## 当前回放按索引读取的录制事件列表。
+## [br]
+## @api private
+## [br]
 var _event_snapshot: Array[Dictionary] = []
+
+## 当前录制采用的有限非负时长。
+## [br]
+## @api private
+## [br]
 var _duration_seconds: float = 0.0
+
+## DEFER_EXCESS 策略延后到后续 tick 处理的回放时间。
+## [br]
+## @api private
+## [br]
 var _pending_advance_seconds: float = 0.0
+
+## 回放操作代际；同步回调启动或改变会话时用于使旧操作失效。
+## [br]
+## @api private
+## [br]
 var _playback_epoch: int = 0
 
 
@@ -350,6 +378,11 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 顺序处理已到期事件；先递增事件索引，再应用事件并发出 event_applied，且在同步回调后验证原回放代际。
+## 返回本次成功应用的事件数；回调改变状态时立即停止旧 tick。
+## [br]
+## @api private
+## [br]
 func _apply_due_events(
 	operation_epoch: int,
 	operation_recording: GFInputRecording,
@@ -389,6 +422,10 @@ func _apply_due_events(
 	return applied
 
 
+## 将单条录制事件写入目标虚拟输入源；无效目标或空动作标识不应用，按配置选择玩家专属或普通写入。
+## [br]
+## @api private
+## [br]
 func _apply_event(event: Dictionary, target_source: GFVirtualInputSource) -> bool:
 	if target_source == null:
 		return false
@@ -406,6 +443,10 @@ func _apply_event(event: Dictionary, target_source: GFVirtualInputSource) -> boo
 	return applied
 
 
+## 在当前回放状态仍有效且事件已全部处理时，使代际失效、标记停止并发出自然完成信号。
+## [br]
+## @api private
+## [br]
 func _handle_end_reached(
 	operation_epoch: int,
 	operation_recording: GFInputRecording,
@@ -423,6 +464,11 @@ func _handle_end_reached(
 	playback_finished.emit()
 
 
+## 找到首个时间晚于目标时间的事件索引；目标时间之前或相等的事件视为已到期。
+## recording 为空时返回 0。
+## [br]
+## @api private
+## [br]
 func _find_next_event_index(time_seconds: float) -> int:
 	if recording == null:
 		return 0
@@ -432,6 +478,11 @@ func _find_next_event_index(time_seconds: float) -> int:
 	return _event_snapshot.size()
 
 
+## 清空目标源并重放截至 elapsed_seconds 的事件以重建状态，同时在清源和每次写入后验证操作代际。
+## recording 或 source 为空时只更新事件游标并返回状态是否仍有效。
+## [br]
+## @api private
+## [br]
 func _rebuild_source_state_at_elapsed_time(
 	operation_epoch: int,
 	operation_recording: GFInputRecording,
@@ -478,6 +529,11 @@ func _rebuild_source_state_at_elapsed_time(
 	return true
 
 
+## 在循环模式下消费本次推进时间，跨越录制末尾时重置周期，并按预算延后剩余时间或跳过完整周期。
+## 事件与追赶限制信号发出后都会检查代际，避免旧 tick 继续修改回调启动的新回放。
+## [br]
+## @api private
+## [br]
 func _tick_looping(
 	advance_seconds: float,
 	operation_epoch: int,
@@ -584,6 +640,10 @@ func _tick_looping(
 	return applied
 
 
+## 开始一个循环周期：时间和事件索引归零，清空目标输入源，然后确认原回放仍有效。
+## [br]
+## @api private
+## [br]
 func _begin_loop_cycle(
 	operation_epoch: int,
 	operation_recording: GFInputRecording,
@@ -601,6 +661,10 @@ func _begin_loop_cycle(
 	)
 
 
+## 将 delta 和 speed 转成有限非负推进秒数；任一输入无效或乘积非有限时返回 0。
+## [br]
+## @api private
+## [br]
 func _get_advance_seconds(delta: float) -> float:
 	if is_nan(delta) or is_inf(delta) or is_nan(speed) or is_inf(speed):
 		return 0.0
@@ -608,12 +672,20 @@ func _get_advance_seconds(delta: float) -> float:
 	return result if not is_nan(result) and not is_inf(result) else 0.0
 
 
+## 将时间规范为有限非负值；NaN、无穷值转换为 0。
+## [br]
+## @api private
+## [br]
 func _normalize_non_negative_time(value: float) -> float:
 	if is_nan(value) or is_inf(value):
 		return 0.0
 	return maxf(value, 0.0)
 
 
+## 安全相加两个时间值；结果非有限时返回两者较大值，否则将结果下限钳为 0。
+## [br]
+## @api private
+## [br]
 func _safe_add_time(left: float, right: float) -> float:
 	var result: float = left + right
 	if is_nan(result) or is_inf(result):
@@ -621,6 +693,11 @@ func _safe_add_time(left: float, right: float) -> float:
 	return maxf(result, 0.0)
 
 
+## 校验操作代际、录制对象、输入源和播放状态是否仍与操作开始时一致。
+## 若代际未变但录制或输入源引用已被替换，会递增代际并停止播放；其他失配只返回 false。
+## [br]
+## @api private
+## [br]
 func _is_playback_state_current(
 	operation_epoch: int,
 	operation_recording: GFInputRecording,
@@ -644,17 +721,33 @@ func _is_playback_state_current(
 	return false
 
 
+## 读取事件的 time_seconds 字段并转换为 float。
+## [br]
+## @api private
+## [br]
 func _get_event_time_seconds(event: Dictionary) -> float:
 	return GFVariantData.get_option_float(event, "time_seconds")
 
 
+## 读取事件的 action_id 字段并转换为 StringName。
+## [br]
+## @api private
+## [br]
 func _get_event_action_id(event: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(event, "action_id")
 
 
+## 读取事件的 value 字段并保留其 Variant 值。
+## [br]
+## @api private
+## [br]
 func _get_event_value(event: Dictionary) -> Variant:
 	return GFVariantData.get_option_value(event, "value", false)
 
 
+## 读取事件的 player_index 字段；缺少字段时返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_event_player_index(event: Dictionary) -> int:
 	return GFVariantData.get_option_int(event, "player_index", -1)

@@ -19,7 +19,15 @@ const AUTOLOAD_NAME: String = "Gf"
 ## [br]
 ## @layer kernel/editor
 const AUTOLOAD_PATH: String = "res://addons/gf/kernel/core/gf.gd"
+
+## 记录 GF 插件是否拥有并可移除 Gf AutoLoad 的项目设置键。
+## [br]
+## @api private
 const _AUTOLOAD_OWNERSHIP_SETTING: String = "gf/internal/autoload_gf_owned"
+
+## 将 ProjectSettings 值转换为文本或布尔值的工具脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -60,6 +68,9 @@ static func remove(plugin: EditorPlugin) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 检查 autoload/Gf 指向路径或 ResourceUID 是否与 GF 核心脚本一致。
+## [br]
+## @api private
 static func _autoload_points_to_gf() -> bool:
 	var setting_path: String = "autoload/%s" % AUTOLOAD_NAME
 	var raw_value: Variant = ProjectSettings.get_setting(setting_path, "")
@@ -73,10 +84,16 @@ static func _autoload_points_to_gf() -> bool:
 	return autoload_value == ResourceUID.id_to_text(uid)
 
 
+## 将所有权设置值转为布尔值，缺失时按 false 处理。
+## [br]
+## @api private
 static func _has_autoload_ownership_marker() -> bool:
 	return _GF_VARIANT_ACCESS_SCRIPT.to_bool(ProjectSettings.get_setting(_AUTOLOAD_OWNERSHIP_SETTING, false))
 
 
+## 按 enabled 设置或清除所有权标记，仅在值发生变化时保存项目设置。
+## [br]
+## @api private
 static func _set_autoload_ownership_marker(enabled: bool) -> void:
 	var changed: bool = false
 	if enabled:
@@ -90,6 +107,9 @@ static func _set_autoload_ownership_marker(enabled: bool) -> void:
 		_save_project_settings()
 
 
+## 保存 ProjectSettings，并在 Godot 返回错误码时输出错误日志。
+## [br]
+## @api private
 static func _save_project_settings() -> void:
 	var save_result: Error = ProjectSettings.save()
 	if save_result != OK:

@@ -170,6 +170,9 @@ static func from_dict(data: Dictionary) -> GFAssetMetadataRecord:
 
 # --- 私有/辅助方法 ---
 
+## 将 Variant 收窄为资产元数据记录；不匹配时返回 null。
+## [br]
+## @api private
 func _get_record_value(value: Variant) -> GFAssetMetadataRecord:
 	if value is GFAssetMetadataRecord:
 		var record: GFAssetMetadataRecord = value
@@ -177,6 +180,9 @@ func _get_record_value(value: Variant) -> GFAssetMetadataRecord:
 	return null
 
 
+## 将 Variant 收窄为脚本资源；不匹配时返回 null。
+## [br]
+## @api private
 func _get_script_value(value: Variant) -> Script:
 	if value is Script:
 		var script: Script = value
@@ -184,5 +190,8 @@ func _get_script_value(value: Variant) -> Script:
 	return null
 
 
+## 使用资源路径工具规范化来源路径。
+## [br]
+## @api private
 func _normalize_source_path(path: String) -> String:
 	return GFPathTools.normalize_resource_path(path)

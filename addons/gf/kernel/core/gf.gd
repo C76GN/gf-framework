@@ -36,9 +36,24 @@ signal architecture_identity_changed(
 
 # --- 常量 ---
 
+## 安全读取项目设置等 Variant 值。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 运行受作用域管理的异步 Installer 调用。
+## [br]
+## @api private
 const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
+
+## 规范化项目 Installer 资源路径。
+## [br]
+## @api private
 const _GF_PATH_TOOLS_SCRIPT = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+## 管理 AutoLoad 场景树退出状态。
+## [br]
+## @api private
 const _GF_AUTOLOAD_SCRIPT = preload("res://addons/gf/kernel/core/gf_autoload.gd")
 
 ## 项目级启动安装器配置。值为 GDScript 资源路径数组，脚本需继承 GFInstaller。
@@ -92,38 +107,76 @@ var architecture: GFArchitecture:
 
 # --- 私有变量 ---
 
+## 当前已经提交给全局 facade 的架构实例。
+## [br]
+## @api private
 var _architecture: GFArchitecture = null
+
+## 架构赋值操作的递增序号，用于识别过期的异步继续执行。
+## [br]
+## @api private
 var _architecture_assignment_serial: int = 0
+
+## 最近一次 Installer 配置或实例化错误；读取配置或开始实例化前会清空。
+## [br]
+## @api private
 var _last_project_installer_error: String = ""
+
+## 当前待提交架构赋值的候选实例。
+## [br]
+## @api private
 var _pending_architecture_assignment: GFArchitecture = null
+
+## 与待提交架构配对、由该架构跟踪的取消作用域。
+## [br]
+## @api private
 var _pending_architecture_assignment_scope: GFAsyncScope = null
+
+## Gf 正在退出场景树时为 true，用于阻止新的架构赋值继续提交。
+## [br]
+## @api private
 var _tree_exit_in_progress: bool = false
 
 
 # --- Godot 生命周期方法 ---
 
+## 清除本节点的离树标志并重置自动加载退出状态，允许新一轮架构赋值。
+## [br]
+## @api private
 func _enter_tree() -> void:
 	_tree_exit_in_progress = false
 	_GF_AUTOLOAD_SCRIPT.reset_tree_exit_state()
 
 
+## 将自动加载节点设为始终处理，使架构帧驱动不随场景暂停而停止。
+## [br]
+## @api private
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS as Node.ProcessMode
 
 
 # 每帧驱动架构的 tick 循环，由架构分发给 System 与实现 tick() 的 Utility。
+## 每渲染帧将 delta 交给当前架构 tick，未设置架构时跳过。
+## [br]
+## @api private
 func _process(delta: float) -> void:
 	if _architecture != null:
 		_architecture.tick(delta)
 
 
 # 每物理帧驱动架构的 physics_tick 循环，由架构分发给 System 与实现 physics_tick() 的 Utility。
+## 每物理帧将 delta 交给当前架构 physics_tick，未设置架构时跳过。
+## [br]
+## @api private
 func _physics_process(delta: float) -> void:
 	if _architecture != null:
 		_architecture.physics_tick(delta)
 
 
 # 节点退出树时清理架构。
+## 进入全局离树作用域并使赋值代次失效，取消待赋值后销毁当前架构、清空身份，再结束退出作用域。
+## [br]
+## @api private
 func _exit_tree() -> void:
 	_GF_AUTOLOAD_SCRIPT.begin_tree_exit_scope()
 	_tree_exit_in_progress = true
@@ -406,6 +459,7 @@ func register_system(instance: Object) -> bool:
 		return false
 	return await current_architecture.register_system_instance(instance)
 
+
 ## 便捷注册 Model 实例。
 ## [br]
 ## @api public
@@ -421,6 +475,7 @@ func register_model(instance: Object) -> bool:
 		return false
 	return await current_architecture.register_model_instance(instance)
 
+
 ## 便捷注册 Utility 实例。
 ## [br]
 ## @api public
@@ -435,6 +490,7 @@ func register_utility(instance: Object) -> bool:
 	if current_architecture == null:
 		return false
 	return await current_architecture.register_utility_instance(instance)
+
 
 ## 便捷替换 System 实例。
 ## [br]
@@ -453,6 +509,7 @@ func replace_system(instance: Object) -> bool:
 			return await current_architecture.replace_system(script, instance)
 	return false
 
+
 ## 便捷替换 Model 实例。
 ## [br]
 ## @api public
@@ -470,6 +527,7 @@ func replace_model(instance: Object) -> bool:
 			return await current_architecture.replace_model(script, instance)
 	return false
 
+
 ## 便捷替换 Utility 实例。
 ## [br]
 ## @api public
@@ -486,6 +544,7 @@ func replace_utility(instance: Object) -> bool:
 		if current_architecture != null:
 			return await current_architecture.replace_utility(script, instance)
 	return false
+
 
 ## 注册短生命周期对象工厂。
 ## [br]
@@ -510,6 +569,7 @@ func register_factory(
 		return false
 	return current_architecture.register_factory(script_cls, factory, lifetime)
 
+
 ## 注册已有实例作为短生命周期工厂入口。
 ## [br]
 ## @api public
@@ -526,6 +586,7 @@ func register_factory_instance(script_cls: Script, instance: Object) -> bool:
 	if current_architecture == null:
 		return false
 	return current_architecture.register_factory_instance(script_cls, instance)
+
 
 ## 替换短生命周期对象工厂。
 ## [br]
@@ -550,6 +611,7 @@ func replace_factory(
 		return false
 	return current_architecture.replace_factory(script_cls, factory, lifetime)
 
+
 ## 替换已有实例工厂入口。
 ## [br]
 ## @api public
@@ -566,6 +628,7 @@ func replace_factory_instance(script_cls: Script, instance: Object) -> bool:
 	if current_architecture == null:
 		return false
 	return current_architecture.replace_factory_instance(script_cls, instance)
+
 
 ## 注销短生命周期对象工厂。
 ## [br]
@@ -653,6 +716,7 @@ func register_system_as(instance: Object, alias_cls: Script) -> bool:
 		return false
 	return await current_architecture.register_system_instance_as(instance, alias_cls)
 
+
 ## 便捷注册 Model 实例，并额外登记一个查询别名。
 ## [br]
 ## @api public
@@ -669,6 +733,7 @@ func register_model_as(instance: Object, alias_cls: Script) -> bool:
 	if current_architecture == null:
 		return false
 	return await current_architecture.register_model_instance_as(instance, alias_cls)
+
 
 ## 便捷注册 Utility 实例，并额外登记一个查询别名。
 ## [br]
@@ -687,6 +752,7 @@ func register_utility_as(instance: Object, alias_cls: Script) -> bool:
 		return false
 	return await current_architecture.register_utility_instance_as(instance, alias_cls)
 
+
 ## 为已注册 System 添加查询别名。
 ## [br]
 ## @api public
@@ -698,6 +764,7 @@ func register_system_alias(alias_cls: Script, target_cls: Script) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("register_system_alias")
 	if arch != null:
 		arch.register_system_alias(alias_cls, target_cls)
+
 
 ## 为已注册 Model 添加查询别名。
 ## [br]
@@ -711,6 +778,7 @@ func register_model_alias(alias_cls: Script, target_cls: Script) -> void:
 	if arch != null:
 		arch.register_model_alias(alias_cls, target_cls)
 
+
 ## 为已注册 Utility 添加查询别名。
 ## [br]
 ## @api public
@@ -722,6 +790,7 @@ func register_utility_alias(alias_cls: Script, target_cls: Script) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("register_utility_alias")
 	if arch != null:
 		arch.register_utility_alias(alias_cls, target_cls)
+
 
 ## 注销 System 查询别名，不影响目标实例。
 ## [br]
@@ -735,6 +804,7 @@ func unregister_system_alias(alias_cls: Script) -> void:
 	if arch != null:
 		arch.unregister_system_alias(alias_cls)
 
+
 ## 注销 Model 查询别名，不影响目标实例。
 ## [br]
 ## @api public
@@ -747,6 +817,7 @@ func unregister_model_alias(alias_cls: Script) -> void:
 	if arch != null:
 		arch.unregister_model_alias(alias_cls)
 
+
 ## 注销 Utility 查询别名，不影响目标实例。
 ## [br]
 ## @api public
@@ -758,6 +829,7 @@ func unregister_utility_alias(alias_cls: Script) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("unregister_utility_alias")
 	if arch != null:
 		arch.unregister_utility_alias(alias_cls)
+
 
 ## 获取 System 实例。
 ## [br]
@@ -774,6 +846,7 @@ func get_system(script_cls: Script, require_ready: bool = false) -> Object:
 		return null
 	return arch.get_system(script_cls, require_ready)
 
+
 ## 获取 Model 实例。
 ## [br]
 ## @api public
@@ -788,6 +861,7 @@ func get_model(script_cls: Script, require_ready: bool = false) -> Object:
 	if arch == null:
 		return null
 	return arch.get_model(script_cls, require_ready)
+
 
 ## 获取 Utility 实例。
 ## [br]
@@ -852,6 +926,7 @@ func get_local_utility(script_cls: Script, require_ready: bool = false) -> Objec
 		return null
 	return arch.get_local_utility(script_cls, require_ready)
 
+
 ## 便捷发送全局命令。
 ## [br]
 ## @api public
@@ -866,6 +941,7 @@ func send_command(command: Object) -> Variant:
 	if arch == null:
 		return null
 	return arch.send_command(command)
+
 
 ## 便捷发送查询。
 ## [br]
@@ -882,6 +958,7 @@ func send_query(query: Object) -> Variant:
 		return null
 	return arch.send_query(query)
 
+
 ## 便捷发送带载体的强类型事件。
 ## [br]
 ## @api public
@@ -891,6 +968,7 @@ func send_event(event_instance: Object) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("send_event")
 	if arch != null:
 		arch.send_event(event_instance)
+
 
 ## 便捷发送无参数的轻量级事件。
 ## [br]
@@ -905,6 +983,7 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("send_simple_event")
 	if arch != null:
 		arch.send_simple_event(event_id, payload)
+
 
 ## 配置事件系统调试与保护选项。
 ## [br]
@@ -924,6 +1003,7 @@ func configure_event_debugging(
 	if arch != null:
 		arch.configure_event_debugging(max_dispatch_depth, trace_enabled, max_trace_entries)
 
+
 ## 获取事件系统诊断统计。
 ## [br]
 ## @api public
@@ -938,6 +1018,7 @@ func get_event_debug_stats() -> Dictionary:
 	if arch == null:
 		return {}
 	return arch.get_event_debug_stats()
+
 
 ## 获取事件监听器诊断明细。
 ## [br]
@@ -958,6 +1039,7 @@ func get_event_listener_diagnostics(options: Dictionary = {}) -> Dictionary:
 		return {}
 	return arch.get_event_listener_diagnostics(options)
 
+
 ## 清理 owner 已释放的事件监听器。
 ## [br]
 ## @api public
@@ -970,6 +1052,7 @@ func compact_event_listeners() -> int:
 	if arch == null:
 		return 0
 	return arch.compact_event_listeners()
+
 
 ## 获取最近事件派发追踪条目。
 ## [br]
@@ -984,6 +1067,7 @@ func get_event_dispatch_trace() -> Array[Dictionary]:
 		return []
 	return arch.get_event_dispatch_trace()
 
+
 ## 清空事件派发追踪。
 ## [br]
 ## @api public
@@ -991,6 +1075,7 @@ func clear_event_dispatch_trace() -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("clear_event_dispatch_trace")
 	if arch != null:
 		arch.clear_event_dispatch_trace()
+
 
 ## 快捷注册类型事件监听（别名：listen）。
 ## [br]
@@ -1007,6 +1092,7 @@ func listen(event_type: Script, listener: GFEventListener, priority: int = 0) ->
 	var arch: GFArchitecture = _get_architecture_or_null("listen")
 	if arch != null:
 		arch.register_event(event_type, listener, priority)
+
 
 ## 快捷注册带拥有者的类型事件监听。
 ## [br]
@@ -1056,6 +1142,7 @@ func subscribe(
 		return GFSubscriptionToken.new()
 	return arch.subscribe_event(event_type, listener, priority, once)
 
+
 ## 快捷注册可赋值类型事件监听。
 ## [br]
 ## @api public
@@ -1071,6 +1158,7 @@ func listen_assignable(base_event_type: Script, listener: GFEventListener, prior
 	var arch: GFArchitecture = _get_architecture_or_null("listen_assignable")
 	if arch != null:
 		arch.register_assignable_event(base_event_type, listener, priority)
+
 
 ## 快捷注册带拥有者的可赋值类型事件监听。
 ## [br]
@@ -1125,6 +1213,7 @@ func subscribe_assignable(
 		return GFSubscriptionToken.new()
 	return arch.subscribe_assignable_event(base_event_type, listener, priority, once)
 
+
 ## 快捷注销类型事件监听（别名：unlisten）。
 ## [br]
 ## @api public
@@ -1138,6 +1227,7 @@ func unlisten(event_type: Script, listener: GFEventListener) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("unlisten")
 	if arch != null:
 		arch.unregister_event(event_type, listener)
+
 
 ## 快捷注销带拥有者的类型事件监听。
 ## [br]
@@ -1155,6 +1245,7 @@ func unlisten_owned(listener_owner: Object, event_type: Script, listener: GFEven
 	if arch != null:
 		arch.unregister_event_owned(listener_owner, event_type, listener)
 
+
 ## 快捷注销可赋值类型事件监听。
 ## [br]
 ## @api public
@@ -1168,6 +1259,7 @@ func unlisten_assignable(base_event_type: Script, listener: GFEventListener) -> 
 	var arch: GFArchitecture = _get_architecture_or_null("unlisten_assignable")
 	if arch != null:
 		arch.unregister_assignable_event(base_event_type, listener)
+
 
 ## 快捷注销带拥有者的可赋值类型事件监听。
 ## [br]
@@ -1185,6 +1277,7 @@ func unlisten_assignable_owned(listener_owner: Object, base_event_type: Script, 
 	if arch != null:
 		arch.unregister_assignable_event_owned(listener_owner, base_event_type, listener)
 
+
 ## 快捷注册轻量事件监听（别名：listen_simple）。
 ## [br]
 ## @api public
@@ -1198,6 +1291,7 @@ func listen_simple(event_id: StringName, listener: GFEventListener) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("listen_simple")
 	if arch != null:
 		arch.register_simple_event(event_id, listener)
+
 
 ## 快捷注册带拥有者的轻量事件监听。
 ## [br]
@@ -1242,6 +1336,7 @@ func subscribe_simple(
 		return GFSubscriptionToken.new()
 	return arch.subscribe_simple_event(event_id, listener, once)
 
+
 ## 快捷注销轻量事件监听（别名：unlisten_simple）。
 ## [br]
 ## @api public
@@ -1255,6 +1350,7 @@ func unlisten_simple(event_id: StringName, listener: GFEventListener) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("unlisten_simple")
 	if arch != null:
 		arch.unregister_simple_event(event_id, listener)
+
 
 ## 快捷注销带拥有者的轻量事件监听。
 ## [br]
@@ -1272,6 +1368,7 @@ func unlisten_simple_owned(listener_owner: Object, event_id: StringName, listene
 	if arch != null:
 		arch.unregister_simple_event_owned(listener_owner, event_id, listener)
 
+
 ## 快捷注销某个拥有者注册过的所有事件监听。
 ## [br]
 ## @api public
@@ -1281,6 +1378,7 @@ func unlisten_owner(listener_owner: Object) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null("unlisten_owner")
 	if arch != null:
 		arch.unregister_owner_events(listener_owner)
+
 
 ## 注销 System 实例。
 ## [br]
@@ -1297,6 +1395,7 @@ func unregister_system(script_cls: Script) -> bool:
 		return false
 	return await arch.unregister_system(script_cls)
 
+
 ## 注销 Model 实例。
 ## [br]
 ## @api public
@@ -1311,6 +1410,7 @@ func unregister_model(script_cls: Script) -> bool:
 	if arch == null:
 		return false
 	return await arch.unregister_model(script_cls)
+
 
 ## 注销 Utility 实例。
 ## [br]
@@ -1330,6 +1430,9 @@ func unregister_utility(script_cls: Script) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## identity 改变时先更新当前引用，再同步发出架构身份变化信号；相同实例不发信号。
+## [br]
+## @api private
 func _commit_architecture_identity(next_architecture: GFArchitecture) -> void:
 	var previous_architecture: GFArchitecture = _architecture
 	if previous_architecture == next_architecture:
@@ -1338,6 +1441,9 @@ func _commit_architecture_identity(next_architecture: GFArchitecture) -> void:
 	architecture_identity_changed.emit(previous_architecture, next_architecture)
 
 
+## 当前 facade 不可用时记录带 context 的错误并返回 null，否则返回已提交实例。
+## [br]
+## @api private
 func _get_architecture_or_null(context: String) -> GFArchitecture:
 	if not has_architecture():
 		push_error("[GF][gf.operation_architecture_unavailable] %s failed: the architecture is not initialized or is being disposed; register an available architecture first." % context)
@@ -1345,12 +1451,18 @@ func _get_architecture_or_null(context: String) -> GFArchitecture:
 	return _architecture
 
 
+## 静默返回可供 facade 使用的已提交实例；不可用时返回 null。
+## [br]
+## @api private
 func _get_available_architecture_or_null() -> GFArchitecture:
 	if not has_architecture():
 		return null
 	return _architecture
 
 
+## 开始新的架构赋值代次并取消旧等待；取消回调重入改变代次或触发离树时放弃创建作用域，同一待赋值架构不重复启动。
+## [br]
+## @api private
 func _begin_architecture_assignment(architecture_instance: GFArchitecture) -> GFAsyncScope:
 	if _pending_architecture_assignment == architecture_instance:
 		return null
@@ -1370,6 +1482,9 @@ func _begin_architecture_assignment(architecture_instance: GFArchitecture) -> GF
 	return assignment_scope
 
 
+## 先清空待赋值引用再取消作用域，允许取消回调重入；仅销毁仍不属于当前架构或新一轮待赋值的旧实例。
+## [br]
+## @api private
 func _cancel_pending_architecture_assignment(reason: String) -> void:
 	var pending_architecture: GFArchitecture = _pending_architecture_assignment
 	var pending_scope: GFAsyncScope = _pending_architecture_assignment_scope
@@ -1388,6 +1503,9 @@ func _cancel_pending_architecture_assignment(reason: String) -> void:
 		pending_architecture.dispose()
 
 
+## 仅结算仍由本轮架构、作用域与代次共同持有的赋值；先解绑跟踪，再按结果完成或取消作用域。
+## [br]
+## @api private
 func _finish_pending_architecture_assignment(
 	architecture_instance: GFArchitecture,
 	assignment_scope: GFAsyncScope,
@@ -1412,6 +1530,9 @@ func _finish_pending_architecture_assignment(
 		)
 
 
+## 拒绝仍归本轮持有的赋值并解除跟踪；已成为当前架构的实例保留，其余旧候选销毁后取消作用域。
+## [br]
+## @api private
 func _reject_pending_architecture_assignment_if_owned(
 	architecture_instance: GFArchitecture,
 	assignment_scope: GFAsyncScope,
@@ -1434,6 +1555,9 @@ func _reject_pending_architecture_assignment_if_owned(
 		var _cancelled_scope: bool = assignment_scope.cancel(reason)
 
 
+## 仅在赋值序号与当前 identity 仍匹配且该架构已 dispose 时清除 identity。
+## [br]
+## @api private
 func _clear_terminal_architecture_identity_if_current(
 	architecture_instance: GFArchitecture,
 	assignment_serial: int
@@ -1453,6 +1577,9 @@ func _clear_terminal_architecture_identity_if_current(
 	_commit_architecture_identity(null)
 
 
+## 待赋值仍当前需同时满足未退出树、作用域活动且候选/作用域/序号仍归本请求所有。
+## [br]
+## @api private
 func _is_pending_architecture_assignment_current(
 	architecture_instance: GFArchitecture,
 	assignment_scope: GFAsyncScope,
@@ -1470,6 +1597,9 @@ func _is_pending_architecture_assignment_current(
 	)
 
 
+## 以递增序号、候选实例和取消作用域三者共同校验待赋值所有权。
+## [br]
+## @api private
 func _owns_pending_architecture_assignment(
 	architecture_instance: GFArchitecture,
 	assignment_scope: GFAsyncScope,
@@ -1482,6 +1612,9 @@ func _owns_pending_architecture_assignment(
 	)
 
 
+## 实例为空或未附加 Script 时记录带 context 的错误并返回 null。
+## [br]
+## @api private
 func _get_instance_script_or_null(instance: Object, context: String) -> Script:
 	if instance == null:
 		push_error("[GF][gf.instance_null] %s failed: the instance is null." % context)
@@ -1494,6 +1627,9 @@ func _get_instance_script_or_null(instance: Object, context: String) -> Script:
 	return script
 
 
+## 协调项目安装器的唯一执行；已有执行则等待其结束，自建作用域仅由本次调用结算，外传作用域交还赋值流程处理。
+## [br]
+## @api private
 func _run_project_installers(
 	architecture_instance: GFArchitecture,
 	assignment_scope: GFAsyncScope = null
@@ -1527,6 +1663,9 @@ func _run_project_installers(
 	return installers_completed
 
 
+## 按配置顺序执行安装及可选绑定安装，每一步后检查安装状态；严格模式下无效路径或实例直接失败，非严格模式可跳过无效实例。
+## [br]
+## @api private
 func _apply_project_installers(architecture_instance: GFArchitecture, installer_scope: GFAsyncScope) -> bool:
 	var installer_paths: Array[String] = _get_project_installer_paths()
 	if not _last_project_installer_error.is_empty():
@@ -1560,6 +1699,9 @@ func _apply_project_installers(architecture_instance: GFArchitecture, installer_
 	)
 
 
+## 执行单个安装器；具备场景树且超时为正时通过分离协程与逐帧等待检测中断，否则直接等待安装函数返回。
+## [br]
+## @api private
 func _await_project_installer_install(
 	installer: GFInstaller,
 	architecture_instance: GFArchitecture,
@@ -1591,6 +1733,9 @@ func _await_project_installer_install(
 	)
 
 
+## 执行单个安装器的绑定入口并传入新 binder；仅有场景树和正超时时启用逐帧超时与取消检测。
+## [br]
+## @api private
 func _await_project_installer_bindings(
 	installer: GFInstaller,
 	architecture_instance: GFArchitecture,
@@ -1622,6 +1767,9 @@ func _await_project_installer_bindings(
 	)
 
 
+## 承接分离执行的安装协程；迟到返回时解除该步骤登记的过期写入阻断，再标记步骤完成。
+## [br]
+## @api private
 func _complete_project_installer_install(
 	installer: GFInstaller,
 	architecture_instance: GFArchitecture,
@@ -1634,6 +1782,9 @@ func _complete_project_installer_install(
 	completion_state["done"] = true
 
 
+## 承接分离执行的绑定安装协程；若等待方已阻断过期写入，返回后释放对应计数并标记完成。
+## [br]
+## @api private
 func _complete_project_installer_bindings(
 	installer: GFInstaller,
 	architecture_instance: GFArchitecture,
@@ -1646,6 +1797,9 @@ func _complete_project_installer_bindings(
 	completion_state["done"] = true
 
 
+## 逐帧等待安装步骤，取消、架构失败或超时会登记过期写入阻断后返回失败；超时同时令架构初始化失败，后台协程仍可能迟到返回。
+## [br]
+## @api private
 func _wait_for_project_installer_step(
 	completion_state: Dictionary,
 	architecture_instance: GFArchitecture,
@@ -1680,6 +1834,9 @@ func _wait_for_project_installer_step(
 	return not architecture_instance.has_initialization_failed() and not installer_scope.is_cancel_requested()
 
 
+## 为同一尚未返回的安装步骤至多登记一次过期写入阻断；计数由对应完成协程在实际返回后释放。
+## [br]
+## @api private
 func _block_stale_project_installer_write(
 	completion_state: Dictionary,
 	architecture_instance: GFArchitecture
@@ -1690,6 +1847,9 @@ func _block_stale_project_installer_write(
 	architecture_instance._begin_stale_async_write_block()
 
 
+## 仅在项目安装阶段仍运行时将中断原因写为架构初始化失败，避免重复结算已经结束的安装。
+## [br]
+## @api private
 func _settle_project_installers_failure(
 	architecture_instance: GFArchitecture,
 	installer_scope: GFAsyncScope
@@ -1701,6 +1861,9 @@ func _settle_project_installers_failure(
 	)
 
 
+## 合并项目设置与已启用扩展提供的 Installer 路径；只接纳 String/StringName 项并记录配置错误。
+## [br]
+## @api private
 func _get_project_installer_paths() -> Array[String]:
 	_last_project_installer_error = ""
 	var raw_paths: Variant = ProjectSettings.get_setting(INSTALLERS_SETTING, [])
@@ -1730,6 +1893,9 @@ func _get_project_installer_paths() -> Array[String]:
 	return installer_paths
 
 
+## 按空架构、初始化错误、初始化失败、Installer 已停止的顺序选取取消原因；其余情况返回通用取消原因。
+## [br]
+## @api private
 func _get_project_installer_cancel_reason(architecture_instance: GFArchitecture) -> String:
 	if architecture_instance == null:
 		return "[GF][gf.installer_cancelled] Project Installer was cancelled."
@@ -1742,6 +1908,9 @@ func _get_project_installer_cancel_reason(architecture_instance: GFArchitecture)
 	return "[GF][gf.installer_cancelled] Project Installer was cancelled."
 
 
+## 优先使用非空取消作用域原因，否则沿用架构当前的 Installer 取消原因。
+## [br]
+## @api private
 func _get_project_installer_failure_reason(
 	architecture_instance: GFArchitecture,
 	installer_scope: GFAsyncScope
@@ -1753,6 +1922,9 @@ func _get_project_installer_failure_reason(
 	return _get_project_installer_cancel_reason(architecture_instance)
 
 
+## 主循环是 SceneTree 时返回该场景树，否则返回 null。
+## [br]
+## @api private
 func _get_scene_tree_or_null() -> SceneTree:
 	var main_loop: MainLoop = Engine.get_main_loop()
 	if main_loop is SceneTree:
@@ -1761,6 +1933,9 @@ func _get_scene_tree_or_null() -> SceneTree:
 	return null
 
 
+## 规范化并校验 Installer 路径，解析 uid:// 映射后只追加数组中尚不存在的 .gd 路径。
+## [br]
+## @api private
 func _append_unique_installer_path(installer_paths: Array[String], path: String) -> void:
 	var normalized_path: String = _GF_PATH_TOOLS_SCRIPT.normalize_resource_path(path)
 	if normalized_path.is_empty():
@@ -1788,6 +1963,9 @@ func _append_unique_installer_path(installer_paths: Array[String], path: String)
 	installer_paths.append(normalized_path)
 
 
+## 加载并实例化指定脚本；加载失败、不可实例化或不继承 GFInstaller 时返回 null 并记录错误。
+## [br]
+## @api private
 func _create_installer(path: String) -> GFInstaller:
 	_last_project_installer_error = ""
 	if path.is_empty():
@@ -1812,6 +1990,9 @@ func _create_installer(path: String) -> GFInstaller:
 	return instance
 
 
+## 调用 Script.new() 并仅返回 GFInstaller 实例，其他对象类型返回 null。
+## [br]
+## @api private
 static func _instantiate_installer(installer_script: Script) -> GFInstaller:
 	var raw_instance: Variant = installer_script.call("new")
 	if raw_instance is GFInstaller:
@@ -1820,22 +2001,37 @@ static func _instantiate_installer(installer_script: Script) -> GFInstaller:
 	return null
 
 
+## 读取 Installer 错误策略；设置值无法转为 bool 时使用 true。
+## [br]
+## @api private
 func _should_fail_on_project_installer_error() -> bool:
 	return _GF_VARIANT_ACCESS_SCRIPT.to_bool(ProjectSettings.get_setting(FAIL_ON_INSTALLER_ERROR_SETTING, true), true)
 
 
+## 读取 Installer 超时设置并将无效值及负数收敛为 0。
+## [br]
+## @api private
 func _get_project_installer_timeout_seconds() -> float:
 	return maxf(_GF_VARIANT_ACCESS_SCRIPT.to_float(ProjectSettings.get_setting(INSTALLER_TIMEOUT_SETTING, 0.0), 0.0), 0.0)
 
 
+## 保存最近 Installer 错误并立即调用 push_error()。
+## [br]
+## @api private
 func _report_project_installer_error(message: String) -> void:
 	_last_project_installer_error = message
 	push_error(message)
 
 
+## 当前 identity 与赋值序号都匹配时返回 true。
+## [br]
+## @api private
 func _is_architecture_assignment_current(architecture_instance: GFArchitecture, assignment_serial: int) -> bool:
 	return _architecture == architecture_instance and _architecture_assignment_serial == assignment_serial
 
 
+## 仅比较赋值序号是否仍是当前序号。
+## [br]
+## @api private
 func _is_architecture_assignment_serial_current(assignment_serial: int) -> bool:
 	return _architecture_assignment_serial == assignment_serial

@@ -25,7 +25,16 @@ signal changed(change_set: GFDirectoryChangeSet)
 
 # --- 常量 ---
 
+## 提供监听根目录及排除路径的规范化工具。
+## [br]
+## @api private
+## [br]
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+## 按扫描选项枚举文件路径的内部工具。
+## [br]
+## @api private
+## [br]
 const _GF_PATH_ENUMERATION_TOOLS = preload("res://addons/gf/standard/utilities/io/gf_path_enumeration_tools.gd")
 
 ## 默认递归扫描深度上限。
@@ -78,8 +87,22 @@ var report_existing_on_first_scan: bool = false
 
 # --- 私有变量 ---
 
+## 规范化并排序后的监听根目录列表。
+## [br]
+## @api private
+## [br]
 var _watch_paths: PackedStringArray = PackedStringArray()
+
+## 最近一次 poll() 保存的路径到文件元数据快照。
+## [br]
+## @api private
+## [br]
 var _snapshot: Dictionary = {}
+
+## 区分尚未建立基线与已建立但内容为空的快照。
+## [br]
+## @api private
+## [br]
 var _has_snapshot: bool = false
 
 
@@ -228,6 +251,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 逐根枚举监听目录并汇总路径快照及累计扫描/截断状态。
+## [br]
+## @api private
+## [br]
 func _scan_watch_paths(scan_state: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for root_path: String in _watch_paths:
@@ -249,6 +276,10 @@ func _scan_watch_paths(scan_state: Dictionary) -> Dictionary:
 	return result
 
 
+## 对比新旧快照，生成排序后的 created、modified、deleted 变化集。
+## [br]
+## @api private
+## [br]
 func _make_change_set(next_snapshot: Dictionary, scan_state: Dictionary) -> GFDirectoryChangeSet:
 	var created: PackedStringArray = PackedStringArray()
 	var modified: PackedStringArray = PackedStringArray()
@@ -281,6 +312,10 @@ func _make_change_set(next_snapshot: Dictionary, scan_state: Dictionary) -> GFDi
 	)
 
 
+## 初始化一次跨监听根目录共享的扫描计数和截断标记。
+## [br]
+## @api private
+## [br]
 func _make_scan_state() -> Dictionary:
 	return {
 		"scanned_count": 0,
@@ -288,6 +323,10 @@ func _make_scan_state() -> Dictionary:
 	}
 
 
+## 组装枚举选项，并按累计扫描数计算剩余文件预算。
+## [br]
+## @api private
+## [br]
 func _make_enumeration_options(scan_state: Dictionary) -> Dictionary:
 	var remaining_file_count: int = 0
 	if max_file_count > 0:
@@ -305,6 +344,10 @@ func _make_enumeration_options(scan_state: Dictionary) -> Dictionary:
 	}
 
 
+## 读取文件修改时间、字节数及 SHA-256 组成单路径快照项。
+## [br]
+## @api private
+## [br]
 func _make_file_snapshot(path: String) -> Dictionary:
 	return {
 		"modified_time": int(FileAccess.get_modified_time(path)),
@@ -313,6 +356,10 @@ func _make_file_snapshot(path: String) -> Dictionary:
 	}
 
 
+## 仅当两项的修改时间、字节数和内容 SHA-256 全部相等时判为未变。
+## [br]
+## @api private
+## [br]
 func _snapshot_entries_equal(left: Dictionary, right: Dictionary) -> bool:
 	return (
 		GFVariantData.get_option_int(left, "modified_time", -1) == GFVariantData.get_option_int(right, "modified_time", -2)
@@ -321,6 +368,10 @@ func _snapshot_entries_equal(left: Dictionary, right: Dictionary) -> bool:
 	)
 
 
+## 打开文件读取长度；打开失败时返回 0。
+## [br]
+## @api private
+## [br]
 func _get_file_size(path: String) -> int:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
@@ -330,6 +381,10 @@ func _get_file_size(path: String) -> int:
 	return length
 
 
+## 分块计算文件 SHA-256；打开、启动或更新失败时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _compute_file_sha256(path: String) -> String:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
@@ -352,10 +407,18 @@ func _compute_file_sha256(path: String) -> String:
 	return hashing.finish().hex_encode()
 
 
+## 读取当前扫描状态的截断标记。
+## [br]
+## @api private
+## [br]
 func _is_truncated(scan_state: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(scan_state, "truncated")
 
 
+## 去空白、转小写、去前导点，并保留首次出现的非空扩展名。
+## [br]
+## @api private
+## [br]
 func _normalize_extensions(values: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for value: String in values:
@@ -367,9 +430,17 @@ func _normalize_extensions(values: PackedStringArray) -> PackedStringArray:
 	return result
 
 
+## 委托 GFPathTools 规范化排除根路径列表。
+## [br]
+## @api private
+## [br]
 func _normalize_paths(values: PackedStringArray) -> PackedStringArray:
 	return _GF_PATH_TOOLS.normalize_root_paths(values, false)
 
 
+## 委托 GFPathTools 规范化单个监听目录路径。
+## [br]
+## @api private
+## [br]
 func _normalize_dir_path(path: String) -> String:
 	return _GF_PATH_TOOLS.normalize_root_path(path, "", false)

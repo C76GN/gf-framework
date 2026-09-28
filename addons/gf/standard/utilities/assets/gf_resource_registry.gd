@@ -57,24 +57,48 @@ const GROUP_SOURCE_TYPE_HINT: StringName = &"type_hint"
 ## @since 6.0.0
 const GROUP_SOURCE_FIELD: StringName = &"field"
 
+## 生成摘要标题时依次检查的默认字段名。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_SUMMARY_TITLE_FIELDS: PackedStringArray = [
 	"display_name",
 	"name",
 	"title",
 ]
+
+## 生成摘要说明时依次检查的默认字段名。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_SUMMARY_DESCRIPTION_FIELDS: PackedStringArray = [
 	"description",
 	"summary",
 ]
+
+## 生成摘要预览路径时依次检查的默认字段名。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_SUMMARY_PREVIEW_PATH_FIELDS: PackedStringArray = [
 	"preview_path",
 	"image_path",
 	"thumbnail_path",
 	"icon_path",
 ]
+
+## 生成摘要标签时读取的默认字段名。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_SUMMARY_TAG_FIELDS: PackedStringArray = [
 	"tags",
 ]
+
+## 生成摘要分类时读取的默认字段名。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_SUMMARY_CATEGORY_FIELDS: PackedStringArray = [
 	"category",
 ]
@@ -92,8 +116,22 @@ const _DEFAULT_SUMMARY_CATEGORY_FIELDS: PackedStringArray = [
 
 # --- 私有变量 ---
 
+## 按条目 ID 查找注册表条目的运行时表。
+## [br]
+## @api private
+## [br]
 var _entry_lookup: Dictionary = {}
+
+## 用于字段查询的运行时值索引。
+## [br]
+## @api private
+## [br]
 var _index: GFValueIndex = GFValueIndex.new()
+
+## 标记条目查找表与字段索引是否需要重建。
+## [br]
+## @api private
+## [br]
 var _index_dirty: bool = true
 
 
@@ -843,62 +881,106 @@ static func from_dict(data: Dictionary) -> Resource:
 
 # --- 私有/辅助方法 ---
 
+## 在索引失效时重建条目查找表和字段索引。
+## [br]
+## @api private
+## [br]
 func _ensure_index() -> void:
 	if _index_dirty:
 		rebuild_index()
 
 
+## 优先使用非空覆盖提示，否则读取条目自身的类型提示。
+## [br]
+## @api private
+## [br]
 func _resolve_type_hint(entry_id: StringName, type_hint_override: String) -> String:
 	if not type_hint_override.is_empty():
 		return type_hint_override
 	return get_entry_type_hint(entry_id)
 
 
+## 检查条目非空且通过条目自身的有效性校验。
+## [br]
+## @api private
+## [br]
 func _is_valid_registry_entry(entry: GFResourceRegistryEntry) -> bool:
 	return entry != null and entry.is_valid_entry()
 
 
+## 复制注册表条目并将结果收窄为 GFResourceRegistryEntry。
+## [br]
+## @api private
+## [br]
 func _duplicate_registry_entry(entry: GFResourceRegistryEntry) -> GFResourceRegistryEntry:
 	if entry == null:
 		return null
 	return _get_registry_entry_value(entry.duplicate_entry())
 
 
+## 读取条目 ID；空条目返回空 StringName。
+## [br]
+## @api private
+## [br]
 func _get_entry_id(entry: GFResourceRegistryEntry) -> StringName:
 	if entry == null:
 		return &""
 	return entry.id
 
 
+## 读取条目资源路径；空条目返回空字符串。
+## [br]
+## @api private
+## [br]
 func _get_entry_path(entry: GFResourceRegistryEntry) -> String:
 	if entry == null:
 		return ""
 	return entry.path
 
 
+## 读取条目类型提示；空条目返回空字符串。
+## [br]
+## @api private
+## [br]
 func _get_entry_type_hint(entry: GFResourceRegistryEntry) -> String:
 	if entry == null:
 		return ""
 	return entry.type_hint
 
 
+## 获取条目的资源身份；空条目返回 null。
+## [br]
+## @api private
+## [br]
 func _get_entry_resource_identity(entry: GFResourceRegistryEntry) -> GFResourceIdentity:
 	if entry == null:
 		return null
 	return entry.get_resource_identity()
 
 
+## 从条目资源身份读取缓存键；身份缺失时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _get_entry_cache_key(entry: GFResourceRegistryEntry) -> String:
 	var identity: GFResourceIdentity = _get_entry_resource_identity(entry)
 	return identity.cache_key if identity != null else ""
 
 
+## 返回条目 fields 的深拷贝；空条目返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_entry_fields(entry: GFResourceRegistryEntry) -> Dictionary:
 	if entry == null:
 		return {}
 	return entry.fields.duplicate(true)
 
 
+## 复制条目字段并加入资源身份 cache_key 索引字段。
+## [br]
+## @api private
+## [br]
 func _get_entry_index_fields(entry: GFResourceRegistryEntry) -> Dictionary:
 	var fields: Dictionary = _get_entry_fields(entry)
 	var identity: GFResourceIdentity = _get_entry_resource_identity(entry)
@@ -907,6 +989,10 @@ func _get_entry_index_fields(entry: GFResourceRegistryEntry) -> Dictionary:
 	return fields
 
 
+## 将 Variant 收窄为 GFResourceRegistryEntry；其他值返回 null。
+## [br]
+## @api private
+## [br]
 func _get_registry_entry_value(value: Variant) -> GFResourceRegistryEntry:
 	if value is GFResourceRegistryEntry:
 		var entry: GFResourceRegistryEntry = value
@@ -914,6 +1000,10 @@ func _get_registry_entry_value(value: Variant) -> GFResourceRegistryEntry:
 	return null
 
 
+## 按 ID、路径、缓存键、basename、类型或字段值提取分组键。
+## [br]
+## @api private
+## [br]
 func _get_entry_group_keys(
 	entry: GFResourceRegistryEntry,
 	group_source: StringName,
@@ -947,6 +1037,10 @@ func _get_entry_group_keys(
 	return result
 
 
+## 递归展开数组值并将其标量内容交给分组键收集器。
+## [br]
+## @api private
+## [br]
 func _append_entry_group_key(
 	result: PackedStringArray,
 	lookup: Dictionary,
@@ -968,6 +1062,10 @@ func _append_entry_group_key(
 		_append_scalar_entry_group_key(result, lookup, GFVariantData.to_text(value), include_empty, empty_key)
 
 
+## 处理单个分组键的空值策略、去空白和去重。
+## [br]
+## @api private
+## [br]
 func _append_scalar_entry_group_key(
 	result: PackedStringArray,
 	lookup: Dictionary,
@@ -986,6 +1084,10 @@ func _append_scalar_entry_group_key(
 	var _append_group_key: bool = result.append(group_key)
 
 
+## 按分组键和各组中的条目 ID 排序。
+## [br]
+## @api private
+## [br]
 func _sort_entry_id_groups(groups: Dictionary) -> Dictionary:
 	var keys: PackedStringArray = PackedStringArray()
 	for key_value: Variant in groups.keys():
@@ -1000,10 +1102,18 @@ func _sort_entry_id_groups(groups: Dictionary) -> Dictionary:
 	return result
 
 
+## 读取摘要字段列表；未提供时使用对应默认列表。
+## [br]
+## @api private
+## [br]
 func _get_summary_field_ids(options: Dictionary, key: String, default_value: PackedStringArray) -> PackedStringArray:
 	return GFVariantData.get_option_packed_string_array(options, key, default_value)
 
 
+## 按字段顺序返回第一个非空文本值。
+## [br]
+## @api private
+## [br]
 func _get_first_entry_field_text(fields: Dictionary, field_ids: PackedStringArray) -> String:
 	for field_id: String in field_ids:
 		var text: String = GFVariantData.to_text(_get_entry_field_value(fields, StringName(field_id))).strip_edges()
@@ -1012,6 +1122,10 @@ func _get_first_entry_field_text(fields: Dictionary, field_ids: PackedStringArra
 	return ""
 
 
+## 收集指定字段中的标签文本并去重排序。
+## [br]
+## @api private
+## [br]
 func _get_entry_summary_tags(fields: Dictionary, field_ids: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var lookup: Dictionary = {}
@@ -1021,6 +1135,10 @@ func _get_entry_summary_tags(fields: Dictionary, field_ids: PackedStringArray) -
 	return result
 
 
+## 递归展开 PackedStringArray 或 Array，并追加其中的标签文本。
+## [br]
+## @api private
+## [br]
 func _append_entry_summary_tags(result: PackedStringArray, lookup: Dictionary, value: Variant) -> void:
 	if value == null:
 		return
@@ -1036,6 +1154,10 @@ func _append_entry_summary_tags(result: PackedStringArray, lookup: Dictionary, v
 		_append_entry_summary_tag(result, lookup, GFVariantData.to_text(value))
 
 
+## 去除标签首尾空白并跳过空值和已收录值。
+## [br]
+## @api private
+## [br]
 func _append_entry_summary_tag(result: PackedStringArray, lookup: Dictionary, value: String) -> void:
 	var tag: String = value.strip_edges()
 	if tag.is_empty() or lookup.has(tag):
@@ -1044,6 +1166,10 @@ func _append_entry_summary_tag(result: PackedStringArray, lookup: Dictionary, va
 	var _append_tag: bool = result.append(tag)
 
 
+## 按 StringName 键或对应字符串键读取条目字段。
+## [br]
+## @api private
+## [br]
 func _get_entry_field_value(fields: Dictionary, field_id: StringName) -> Variant:
 	if fields.has(field_id):
 		return fields[field_id]
@@ -1053,6 +1179,10 @@ func _get_entry_field_value(fields: Dictionary, field_id: StringName) -> Variant
 	return null
 
 
+## 空查询且允许返回全部时构造列表报告，否则执行评分搜索。
+## [br]
+## @api private
+## [br]
 func _get_search_page_reports(query_text: String, options: Dictionary) -> Array[Dictionary]:
 	if (
 		query_text.strip_edges().is_empty()
@@ -1067,6 +1197,10 @@ func _get_search_page_reports(query_text: String, options: Dictionary) -> Array[
 	return search(query_text, options)
 
 
+## 将候选项包装为未评分报告，并应用数量上限和候选复制选项。
+## [br]
+## @api private
+## [br]
 func _make_listing_search_reports(candidates: Array[Dictionary], options: Dictionary) -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
 	var duplicate_candidate: bool = GFVariantData.get_option_bool(options, "duplicate_candidate", true)
@@ -1088,6 +1222,10 @@ func _make_listing_search_reports(candidates: Array[Dictionary], options: Dictio
 	return reports
 
 
+## 从候选读取 entry_id，缺省时回退到 id。
+## [br]
+## @api private
+## [br]
 func _get_search_report_entry_id(report: Dictionary) -> String:
 	var candidate: Dictionary = GFVariantData.get_option_dictionary(report, "candidate", {})
 	var entry_id: String = GFVariantData.get_option_string(candidate, "entry_id")
@@ -1096,6 +1234,10 @@ func _get_search_report_entry_id(report: Dictionary) -> String:
 	return entry_id
 
 
+## 从条目字段、资源身份和搜索关键词构造评分候选字典。
+## [br]
+## @api private
+## [br]
 func _make_search_candidate(entry: GFResourceRegistryEntry) -> Dictionary:
 	var entry_id: String = String(_get_entry_id(entry))
 	var fields: Dictionary = _get_entry_fields(entry)
@@ -1113,6 +1255,10 @@ func _make_search_candidate(entry: GFResourceRegistryEntry) -> Dictionary:
 	}
 
 
+## 收集条目 ID、路径组成部分、类型提示和字段值关键词。
+## [br]
+## @api private
+## [br]
 func _make_entry_search_keywords(entry: GFResourceRegistryEntry, fields: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var lookup: Dictionary = {}
@@ -1126,6 +1272,10 @@ func _make_entry_search_keywords(entry: GFResourceRegistryEntry, fields: Diction
 	return result
 
 
+## 递归展开字段字典、数组、字符串数组和支持的标量为关键词。
+## [br]
+## @api private
+## [br]
 func _append_search_value_keywords(
 	keywords: PackedStringArray,
 	lookup: Dictionary,
@@ -1157,6 +1307,10 @@ func _append_search_value_keywords(
 		_append_search_keyword(keywords, lookup, GFVariantData.to_text(value))
 
 
+## 去除关键词首尾空白，并跳过空值或已收录关键词。
+## [br]
+## @api private
+## [br]
 func _append_search_keyword(
 	keywords: PackedStringArray,
 	lookup: Dictionary,

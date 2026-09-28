@@ -75,11 +75,40 @@ var sender_callback: Callable = Callable()
 
 # --- 私有变量 ---
 
+## 等待发送的脱敏日志条目队列。
+## [br]
+## @api private
+## [br]
 var _queue: Array[Dictionary] = []
+
+## 因 max_queue_size 限制被移除的最旧日志累计数。
+## [br]
+## @api private
+## [br]
 var _dropped_count: int = 0
+
+## 最近一次 flush 开始时的单调毫秒 tick。
+## [br]
+## @api private
+## [br]
 var _last_flush_msec: int = 0
+
+## 由 tick 累加的自动 flush 毫秒数。
+## [br]
+## @api private
+## [br]
 var _elapsed_since_flush_msec: float = 0.0
+
+## sender 返回无效结果或失败的累计次数。
+## [br]
+## @api private
+## [br]
 var _failed_send_count: int = 0
+
+## 最近一次发送失败记录的文本。
+## [br]
+## @api private
+## [br]
 var _last_error: String = ""
 
 
@@ -275,23 +304,39 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 移除超出队列上限的队首日志，并逐条增加 dropped_count。
+## [br]
+## @api private
+## [br]
 func _trim_queue() -> void:
 	while _queue.size() > max_queue_size:
 		_queue.pop_front()
 		_dropped_count += 1
 
 
+## 按原顺序将失败批次副本放回队首，再应用队列上限。
+## [br]
+## @api private
+## [br]
 func _requeue_front(batch: Array[Dictionary]) -> void:
 	for index: int in range(batch.size() - 1, -1, -1):
 		_queue.push_front(batch[index].duplicate(true))
 	_trim_queue()
 
 
+## 增加发送失败计数并保存最近的错误文本。
+## [br]
+## @api private
+## [br]
 func _record_send_failure(message: String) -> void:
 	_failed_send_count += 1
 	_last_error = message
 
 
+## 创建 privacy 脱敏配置，并限制深度、文本、集合、节点与字节预算。
+## [br]
+## @api private
+## [br]
 func _make_external_report_options() -> Dictionary:
 	return GFReportValueCodec.make_redaction_options(
 		GFReportValueCodec.REDACTION_PROFILE_PRIVACY,
@@ -307,6 +352,10 @@ func _make_external_report_options() -> Dictionary:
 	)
 
 
+## 组合时间、级别、标签和消息；上下文非空时追加其 JSON 文本。
+## [br]
+## @api private
+## [br]
 func _format_sanitized_text(
 	timestamp: String,
 	level_name: String,
@@ -320,6 +369,10 @@ func _format_sanitized_text(
 	return text
 
 
+## 自动间隔大于 0 且距上次 flush 的单调毫秒数达到阈值时返回 true。
+## [br]
+## @api private
+## [br]
 func _should_flush_by_interval() -> bool:
 	if flush_interval_msec <= 0:
 		return false

@@ -220,6 +220,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 合并实例默认选项，并递归合并覆盖链元数据与调用选项元数据。
+## [br]
+## @api private
+## [br]
 func _merge_default_options(options: Dictionary) -> Dictionary:
 	var merged: Dictionary = options.duplicate(true)
 	if not merged.has("duplicate_base"):

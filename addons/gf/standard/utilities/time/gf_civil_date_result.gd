@@ -44,9 +44,24 @@ const STATUS_INVALID_FORMAT: StringName = &"invalid_format"
 
 # --- 私有变量 ---
 
+## 标记日期结果是否已由时间工具层配置。
+## [br]
+## @api private
 var _configured: bool = false
+
+## 当前日期创建或运算结果状态。
+## [br]
+## @api private
 var _status: StringName = STATUS_INVALID_DATE
+
+## 成功时保存的不可变公民日期；失败结果保持为 null。
+## [br]
+## @api private
 var _date: GFCivilDate = null
+
+## 失败结果的说明；成功时为空字符串。
+## [br]
+## @api private
 var _error: String = ""
 
 
@@ -129,6 +144,9 @@ func configure_from_time_layer(
 
 # --- 私有/辅助方法 ---
 
+## 检查成功状态是否带有效日期，以及失败状态是否不带日期。
+## [br]
+## @api private
 func _is_valid_configuration(status: StringName, date: GFCivilDate) -> bool:
 	if status == STATUS_OK:
 		return date != null and date.is_valid()

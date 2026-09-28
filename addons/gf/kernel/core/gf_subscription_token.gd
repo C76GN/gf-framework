@@ -16,8 +16,19 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 首次 cancel 时调用的清理回调。
+## [br]
+## @api private
 var _cancel_callback: Callable = Callable()
+
+## 指示 token 是否仍持有可取消的活动订阅。
+## [br]
+## @api private
 var _active: bool = false
+
+## 创建时提供并由 getter 返回的诊断标签。
+## [br]
+## @api private
 var _debug_label: String = ""
 
 
@@ -84,6 +95,11 @@ func get_debug_label() -> String:
 # --- 框架内部方法 ---
 
 # 由订阅源在订阅自动结束时使句柄失效，但不再次执行取消回调。
+## 供订阅源直接结束句柄，清空取消回调而不反向请求订阅源再次取消。
+## [br]
+## @api framework_internal
+## [br]
+## @return: 本次从活动转为失效时为 true，重复调用为 false。
 func _deactivate_from_source() -> bool:
 	if not _active:
 		return false

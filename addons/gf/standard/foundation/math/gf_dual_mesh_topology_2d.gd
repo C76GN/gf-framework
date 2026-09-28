@@ -198,6 +198,9 @@ static func get_edge_triangles(topology: Dictionary, a: int, b: int) -> PackedIn
 
 # --- 私有/辅助方法 ---
 
+## 创建带错误文本和空拓扑集合的失败报告。
+## [br]
+## @api private
 static func _make_failure(error: String) -> Dictionary:
 	return {
 		"ok": false,
@@ -219,6 +222,9 @@ static func _make_failure(error: String) -> Dictionary:
 	}
 
 
+## 创建指定非负长度、每项为空 PackedInt32Array 的数组。
+## [br]
+## @api private
 static func _make_empty_packed_array_list(count: int) -> Array[PackedInt32Array]:
 	var result: Array[PackedInt32Array] = []
 	for _index: int in range(maxi(count, 0)):
@@ -226,6 +232,9 @@ static func _make_empty_packed_array_list(count: int) -> Array[PackedInt32Array]
 	return result
 
 
+## 验证三角形索引恰有三个且都落在点数组范围内。
+## [br]
+## @api private
 static func _is_valid_triangle(triangle: PackedInt32Array, point_count: int) -> bool:
 	if triangle.size() != 3:
 		return false
@@ -235,6 +244,9 @@ static func _is_valid_triangle(triangle: PackedInt32Array, point_count: int) -> 
 	return true
 
 
+## 将三角形索引追加到其三个顶点各自的关联三角形列表。
+## [br]
+## @api private
 static func _add_triangle_to_points(
 	triangles_by_point: Array[PackedInt32Array],
 	triangle: PackedInt32Array,
@@ -246,12 +258,18 @@ static func _add_triangle_to_points(
 		triangles_by_point[point_index] = triangle_indices
 
 
+## 按三角形三条边为顶点建立双向邻接关系。
+## [br]
+## @api private
 static func _add_triangle_neighbors(neighbors_by_point: Array[PackedInt32Array], triangle: PackedInt32Array) -> void:
 	_add_neighbor_pair(neighbors_by_point, triangle[0], triangle[1])
 	_add_neighbor_pair(neighbors_by_point, triangle[1], triangle[2])
 	_add_neighbor_pair(neighbors_by_point, triangle[2], triangle[0])
 
 
+## 为两个点补入互为邻居的索引，并保持各自列表升序且不重复。
+## [br]
+## @api private
 static func _add_neighbor_pair(neighbors_by_point: Array[PackedInt32Array], a: int, b: int) -> void:
 	var a_neighbors: PackedInt32Array = neighbors_by_point[a]
 	if not _packed_int_array_has(a_neighbors, b):
@@ -266,6 +284,9 @@ static func _add_neighbor_pair(neighbors_by_point: Array[PackedInt32Array], a: i
 		neighbors_by_point[b] = b_neighbors
 
 
+## 将三角形三条无向边分别加入边到三角形的映射。
+## [br]
+## @api private
 static func _add_triangle_edges(
 	triangles_by_edge: Dictionary,
 	triangle: PackedInt32Array,
@@ -276,6 +297,9 @@ static func _add_triangle_edges(
 	_add_edge_triangle(triangles_by_edge, triangle[2], triangle[0], triangle_index)
 
 
+## 按稳定边键记录关联三角形索引，并维持索引升序及唯一性。
+## [br]
+## @api private
 static func _add_edge_triangle(triangles_by_edge: Dictionary, a: int, b: int, triangle_index: int) -> void:
 	var key: String = make_edge_key(a, b)
 	var triangle_indices: PackedInt32Array = PackedInt32Array()
@@ -288,6 +312,9 @@ static func _add_edge_triangle(triangles_by_edge: Dictionary, a: int, b: int, tr
 	triangles_by_edge[key] = triangle_indices
 
 
+## 按字符串键排序生成边记录，并以仅关联一个三角形标记 hull 边。
+## [br]
+## @api private
 static func _make_edge_records(triangles_by_edge: Dictionary) -> Array[Dictionary]:
 	var keys: PackedStringArray = PackedStringArray()
 	for key: Variant in triangles_by_edge.keys():
@@ -314,6 +341,9 @@ static func _make_edge_records(triangles_by_edge: Dictionary) -> Array[Dictionar
 	return result
 
 
+## 解析包含两个有效整数的冒号分隔边键，格式无效时返回空数组。
+## [br]
+## @api private
 static func _edge_from_key(key: String) -> PackedInt32Array:
 	var parts: PackedStringArray = key.split(":", false)
 	if parts.size() != 2 or not parts[0].is_valid_int() or not parts[1].is_valid_int():
@@ -321,6 +351,9 @@ static func _edge_from_key(key: String) -> PackedInt32Array:
 	return PackedInt32Array([parts[0].to_int(), parts[1].to_int()])
 
 
+## 从边记录读取 PackedInt32Array，并返回其副本；类型不符时返回空数组。
+## [br]
+## @api private
 static func _get_edge_from_record(edge_record: Dictionary) -> PackedInt32Array:
 	var value: Variant = GFVariantData.get_option_value(edge_record, "edge", PackedInt32Array())
 	if value is PackedInt32Array:
@@ -329,6 +362,9 @@ static func _get_edge_from_record(edge_record: Dictionary) -> PackedInt32Array:
 	return PackedInt32Array()
 
 
+## 为每个有效三角形计算三个顶点的算术平均点，无效项保留为零向量。
+## [br]
+## @api private
 static func _make_triangle_centers(
 	points: PackedVector2Array,
 	triangles: Array[PackedInt32Array]
@@ -343,6 +379,9 @@ static func _make_triangle_centers(
 	return centers
 
 
+## 过滤输入中的 int 值并按升序写入 PackedInt32Array。
+## [br]
+## @api private
 static func _make_sorted_int_array(values: Array) -> PackedInt32Array:
 	var result: PackedInt32Array = PackedInt32Array()
 	for value: Variant in values:
@@ -353,6 +392,9 @@ static func _make_sorted_int_array(values: Array) -> PackedInt32Array:
 	return result
 
 
+## 在线性扫描中判断 PackedInt32Array 是否含指定整数。
+## [br]
+## @api private
 static func _packed_int_array_has(values: PackedInt32Array, target: int) -> bool:
 	for value: int in values:
 		if value == target:
@@ -360,6 +402,9 @@ static func _packed_int_array_has(values: PackedInt32Array, target: int) -> bool
 	return false
 
 
+## 读取指定字段的 PackedVector2Array；缺失或类型不符时返回空数组。
+## [br]
+## @api private
 static func _get_packed_vector2_array(data: Dictionary, key: String) -> PackedVector2Array:
 	var value: Variant = GFVariantData.get_option_value(data, key, PackedVector2Array())
 	if value is PackedVector2Array:
@@ -368,6 +413,9 @@ static func _get_packed_vector2_array(data: Dictionary, key: String) -> PackedVe
 	return PackedVector2Array()
 
 
+## 从 triangles 字段筛出 PackedInt32Array 项，忽略其他数组元素。
+## [br]
+## @api private
 static func _get_triangle_array(data: Dictionary) -> Array[PackedInt32Array]:
 	var result: Array[PackedInt32Array] = []
 	var value: Variant = GFVariantData.get_option_value(data, "triangles", [])
@@ -381,6 +429,9 @@ static func _get_triangle_array(data: Dictionary) -> Array[PackedInt32Array]:
 	return result
 
 
+## 从指定数组字段筛出 PackedInt32Array 项，字段类型不符时返回空列表。
+## [br]
+## @api private
 static func _get_packed_int_array_list(data: Dictionary, key: String) -> Array[PackedInt32Array]:
 	var result: Array[PackedInt32Array] = []
 	var value: Variant = GFVariantData.get_option_value(data, key, [])
@@ -394,6 +445,9 @@ static func _get_packed_int_array_list(data: Dictionary, key: String) -> Array[P
 	return result
 
 
+## 读取 cells 数组并返回深副本；字段缺失或类型不符时返回空数组。
+## [br]
+## @api private
 static func _get_cells(data: Dictionary) -> Array:
 	var value: Variant = GFVariantData.get_option_value(data, "cells", [])
 	if value is Array:

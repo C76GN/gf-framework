@@ -27,16 +27,59 @@ const UID_PREFIX: String = "uid://"
 ## @layer kernel/editor
 const RESOURCE_PREFIX: String = "res://"
 
+## 资源路径状态结果中的空输入值。
+## [br]
+## @api private
 const _STATUS_EMPTY: String = "empty"
+
+## 资源路径通过检查时使用的状态值。
+## [br]
+## @api private
 const _STATUS_OK: String = "ok"
+
+## UID 文本无法解析或 UID 未登记时使用的状态值。
+## [br]
+## @api private
 const _STATUS_INVALID_UID: String = "invalid_uid"
+
+## 目标缺失或资源类型不匹配时使用的状态值。
+## [br]
+## @api private
 const _STATUS_MISSING_OR_TYPE_MISMATCH: String = "missing_or_type_mismatch"
+
+## 不支持的路径 scheme 对应的状态值。
+## [br]
+## @api private
 const _STATUS_UNSUPPORTED_SCHEME: String = "unsupported_scheme"
+
+## 有效路径状态和普通信息提示使用的颜色。
+## [br]
+## @api private
 const _INFO_TEXT_COLOR: Color = Color(0.62, 0.66, 0.72, 1.0)
+
+## 无效路径状态使用的颜色。
+## [br]
+## @api private
 const _WARNING_TEXT_COLOR: Color = Color(1.0, 0.58, 0.30, 1.0)
+
+## 提供 GF 资源路径 hint 常量的脚本。
+## [br]
+## @api private
 const _GF_RESOURCE_PATH_HINT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_resource_path_hint.gd")
+
+## 提供资源路径选择器控件的脚本。
+## [br]
+## @api private
 const _GF_RESOURCE_PATH_PICKER_CONTROL_SCRIPT = preload("res://addons/gf/kernel/editor/gf_resource_path_picker_control.gd")
+
+## 提供普通属性 Tooltip 的脚本。
+## [br]
+## @api private
 const _GF_EDITOR_PROPERTY_PLAIN_TOOLTIP_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_property_plain_tooltip.gd")
+
+## 按已知文件扩展名推导的资源基类映射。
+## [br]
+## @api private
 const _RESOURCE_EXTENSIONS: Dictionary = {
 	"gd": "Script",
 	"gdshader": "Shader",
@@ -67,16 +110,42 @@ const _RESOURCE_EXTENSIONS: Dictionary = {
 
 # --- 私有变量 ---
 
+## 资源路径属性编辑器的根容器。
+## [br]
+## @api private
 var _root: VBoxContainer
+
+## 由 GF 选择器脚本创建的单路径编辑控件。
+## [br]
+## @api private
 var _picker: Control
+
+## 显示资源路径状态说明的标签。
+## [br]
+## @api private
 var _status_label: Label
+
+## ResourcePicker 接受的基础资源类型。
+## [br]
+## @api private
 var _base_type: String = DEFAULT_BASE_TYPE
+
+## 选择资源时是否优先使用 uid:// 路径。
+## [br]
+## @api private
 var _prefer_uid: bool = true
+
+## 属性值更新期间的信号抑制标记。
+## [br]
+## @api private
 var _is_updating: bool = false
 
 
 # --- Godot 生命周期方法 ---
 
+## 构建资源路径选择器和状态标签，订阅路径修改以接入属性编辑。
+## [br]
+## @api private
 func _init() -> void:
 	_root = VBoxContainer.new()
 	_root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -100,6 +169,9 @@ func _init() -> void:
 
 # --- Godot 回调方法 ---
 
+## 从当前被编辑对象读取属性并同步路径与状态；同步期间设置更新标记，避免回传同一次刷新。
+## [br]
+## @api private
 func _update_property() -> void:
 	var edited_object: Object = get_edited_object()
 	if edited_object == null:
@@ -111,6 +183,13 @@ func _update_property() -> void:
 	_picker.call(&"set_path", current_path)
 	_apply_status(get_resource_path_status(current_path, _base_type))
 	_is_updating = false
+
+
+## 通过统一的纯文本提示构造器为当前属性创建提示控件。
+## [br]
+## @api private
+func _make_custom_tooltip(_for_text: String) -> Object:
+	return _GF_EDITOR_PROPERTY_PLAIN_TOOLTIP_SCRIPT.make_tooltip(self)
 
 
 # --- 框架内部方法 ---
@@ -353,15 +432,17 @@ static func load_resource_from_path(path: String, base_type: String = DEFAULT_BA
 
 # --- 私有/辅助方法 ---
 
-func _make_custom_tooltip(_for_text: String) -> Object:
-	return _GF_EDITOR_PROPERTY_PLAIN_TOOLTIP_SCRIPT.make_tooltip(self)
-
-
+## 修剪基础类型首尾空白；结果为空时回退到默认 Resource 类型。
+## [br]
+## @api private
 static func _normalize_base_type(base_type: String) -> String:
 	var normalized_base_type: String = base_type.strip_edges()
 	return normalized_base_type if not normalized_base_type.is_empty() else DEFAULT_BASE_TYPE
 
 
+## 判断 hint 是否为 Godot 文件 hint 或 GF 单/多路径资源 hint。
+## [br]
+## @api private
 static func _is_resource_path_hint(hint_type: int) -> bool:
 	return (
 		hint_type == PROPERTY_HINT_FILE
@@ -370,14 +451,23 @@ static func _is_resource_path_hint(hint_type: int) -> bool:
 	)
 
 
+## 使用空访问集合检查类型是否为 Resource 子类或继承自该类的 global class。
+## [br]
+## @api private
 static func _is_resource_class(type_name: String) -> bool:
 	return _is_resource_class_with_seen(type_name, {})
 
 
+## 使用空访问集合解析类型对应的原生 Resource 基类名。
+## [br]
+## @api private
 static func _get_native_resource_base_type(type_name: String) -> String:
 	return _get_native_resource_base_type_with_seen(type_name, {})
 
 
+## 递归解析 global class 的 base；遇到空名、已访问类型或非 Resource 类时返回默认 Resource。
+## [br]
+## @api private
 static func _get_native_resource_base_type_with_seen(
 	type_name: String,
 	seen_types: Dictionary
@@ -396,6 +486,10 @@ static func _get_native_resource_base_type_with_seen(
 	return DEFAULT_BASE_TYPE
 
 
+## 递归检查 ClassDB 类或 global class 的继承链是否到达 Resource。
+## 已访问的 global class 名称再次出现时返回 false。
+## [br]
+## @api private
 static func _is_resource_class_with_seen(type_name: String, seen_types: Dictionary) -> bool:
 	if type_name.is_empty():
 		return false
@@ -415,6 +509,10 @@ static func _is_resource_class_with_seen(type_name: String, seen_types: Dictiona
 	return false
 
 
+## 将分号和逗号分隔的 hint 扩展名拆成小写 token，并去掉可选通配符和点前缀。
+## 不在此处去重。
+## [br]
+## @api private
 static func _extract_extensions(hint_string: String) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var normalized: String = hint_string.replace(";", ",")
@@ -429,6 +527,9 @@ static func _extract_extensions(hint_string: String) -> PackedStringArray:
 	return result
 
 
+## 将 String 或 StringName 修剪为空白后的文本；其他 Variant 转为空字符串。
+## [br]
+## @api private
 static func _to_path_string(value: Variant) -> String:
 	if value is String:
 		var text_value: String = value
@@ -439,6 +540,9 @@ static func _to_path_string(value: Variant) -> String:
 	return ""
 
 
+## 从字典读取 String 或 StringName 字段；其他类型或缺失键返回空字符串，不修剪文本。
+## [br]
+## @api private
 static func _get_string_option(options: Dictionary, key: String) -> String:
 	var value: Variant = options.get(key, "")
 	if value is String:
@@ -450,6 +554,9 @@ static func _get_string_option(options: Dictionary, key: String) -> String:
 	return ""
 
 
+## 从字典读取 bool 字段；其他类型或缺失键返回 false。
+## [br]
+## @api private
 static func _get_bool_option(options: Dictionary, key: String) -> bool:
 	var value: Variant = options.get(key, false)
 	if value is bool:
@@ -458,6 +565,9 @@ static func _get_bool_option(options: Dictionary, key: String) -> bool:
 	return false
 
 
+## 组装包含原路径、解析路径、有效标记、状态值和说明文本的状态字典。
+## [br]
+## @api private
 static func _make_resource_path_status(
 	path: String,
 	resolved_path: String,
@@ -474,6 +584,10 @@ static func _make_resource_path_status(
 	}
 
 
+## 将状态说明写入选择器和状态标签，并按 valid 值切换可见性与颜色。
+## 空说明时选择器 Tooltip 回退为路径文本。
+## [br]
+## @api private
 func _apply_status(status: Dictionary) -> void:
 	var path: String = _get_string_option(status, "path")
 	var message: String = _get_string_option(status, "message")
@@ -488,6 +602,9 @@ func _apply_status(status: Dictionary) -> void:
 
 # --- 信号处理函数 ---
 
+## 忽略程序性更新；否则修剪新路径，资源可加载时改用稳定路径，再更新控件并发出属性变更。
+## [br]
+## @api private
 func _on_path_changed(path: String) -> void:
 	if _is_updating:
 		return

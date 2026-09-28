@@ -51,6 +51,9 @@ enum SortRule {
 
 # --- 常量 ---
 
+## 校验索敌规则中的有限浮点数和 2D 向量。
+## [br]
+## @api private
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
 

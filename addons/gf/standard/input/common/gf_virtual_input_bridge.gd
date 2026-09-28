@@ -14,6 +14,10 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 预载动作按压注册表，供虚拟输入动作共享持有与生命周期清理。
+## [br]
+## @api private
+## [br]
 const _ACTION_PRESS_REGISTRY = preload("res://addons/gf/standard/input/common/gf_input_action_press_registry.gd")
 
 
@@ -138,12 +142,20 @@ static func emit_joypad_axis(device_id: int, axis: JoyAxis, value: float) -> voi
 
 # --- 私有/辅助方法 ---
 
+## 将非有限动作强度归零，并把有限值钳制到 0..1。
+## [br]
+## @api private
+## [br]
 static func _normalize_strength(strength: float) -> float:
 	if is_nan(strength) or is_inf(strength):
 		return 0.0
 	return clampf(strength, 0.0, 1.0)
 
 
+## 将非有限轴值归零，并把有限值钳制到 -1..1。
+## [br]
+## @api private
+## [br]
 static func _normalize_axis_value(value: float) -> float:
 	if is_nan(value) or is_inf(value):
 		return 0.0

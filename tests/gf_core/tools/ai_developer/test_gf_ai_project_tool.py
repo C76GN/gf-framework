@@ -52,7 +52,9 @@ from gf_ai.contract import initialize_contract, load_contract, validate_contract
 from gf_ai.paths import read_json_object, resolve_project_path  # noqa: E402
 from gf_ai.schema import validate_schema_definition, validate_schema_file  # noqa: E402
 import build_gf_ai_developer_kit  # noqa: E402
+from gdscript_api_parser import scan_gdscript_structure  # noqa: E402
 from gf_maintenance import create_directory_link_fixture  # noqa: E402
+from gf_review_hotspots import analyze_source  # noqa: E402
 
 
 class GFAIDeveloperKitTest(unittest.TestCase):
@@ -125,6 +127,22 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			return build_gf_ai_developer_kit.validate_platform_adapter_templates(
 				copied_template_root
 			)
+
+	def _top_level_gdscript_function_code(self, source: str, name: str) -> str:
+		"""Extract structural code without relying on neighboring declaration order."""
+		structural_lines, _starts_in_multiline = scan_gdscript_structure(source.splitlines())
+		report = analyze_source(source, "storage_backend.gd.txt")
+		self.assertEqual(report["status"], "complete", report["issues"])
+		matches = [
+			row for row in report["functions"]
+			if row["name"] == name
+			and structural_lines[row["start_line"] - 1] == (
+				structural_lines[row["start_line"] - 1].lstrip(" \t")
+			)
+		]
+		self.assertEqual(len(matches), 1, f"Expected one top-level function: {name}")
+		function = matches[0]
+		return "\n".join(structural_lines[function["start_line"] - 1:function["end_line"]])
 
 	def test_artifact_policy_is_shared_and_contract_defaults_to_project_state_root(self) -> None:
 		policy = json.loads(ARTIFACT_POLICY_PATH.read_text(encoding="utf-8"))
@@ -6157,6 +6175,51 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				archive.writestr("unexpected.txt", "unexpected")
 			self.assertFalse(build_gf_ai_developer_kit.audit_plugin_archive(first, version)["ok"])
 
+	def test_storage_save_function_extraction_ignores_order_and_comment_decoys(self) -> None:
+		validation_call = "ProjectStorageValueLimits.validate_payload("
+		public_save = (
+			"func save_data(storage_key, data, metadata):\n"
+			"\t# ProjectStorageValueLimits.validate_payload(data)\n"
+			'\tvar label = "ProjectStorageValueLimits.validate_payload(data)"\n'
+			"\tProjectStorageValueLimits.validate_payload(data)\n"
+			"\treturn _save_validated_data(storage_key, data, metadata)\n"
+		)
+		hook_save = (
+			"## func _save_data(): ProjectStorageValueLimits.validate_payload(data)\n"
+			"func _save_data(\n\tstorage_key, data, metadata\n):\n"
+			"\tProjectStorageValueLimits.validate_payload(data)\n"
+			"\treturn _save_validated_data(storage_key, data, metadata)\n"
+		)
+		load_data = (
+			"func _load_data(storage_key):\n"
+			"\treturn ProjectStorageValueLimits.validate_payload(storage_key)\n"
+		)
+		validated_save = (
+			"func _save_validated_data(storage_key, data, metadata):\n"
+			"\t# ProjectStorageValueLimits.validate_payload(data)\n"
+			'\tvar label = """\nfunc _save_data():\n'
+			'ProjectStorageValueLimits.validate_payload(data)\n"""\n'
+			"\treturn _provider.write_record_atomic(storage_key, data, metadata)\n"
+		)
+		nested = (
+			"class Nested:\n"
+			"\tfunc _save_data():\n"
+			"\t\tProjectStorageValueLimits.validate_payload(null)\n"
+		)
+		for functions in (
+			(public_save, hook_save, load_data, validated_save),
+			(validated_save, load_data, hook_save, public_save),
+		):
+			with self.subTest(first_function=functions[0].splitlines()[0]):
+				source = "\n\n".join((*functions, nested))
+				for name in ("save_data", "_save_data"):
+					code = self._top_level_gdscript_function_code(source, name)
+					self.assertEqual(code.count(validation_call), 1)
+					self.assertIn("return _save_validated_data(storage_key, data, metadata)", code)
+				code = self._top_level_gdscript_function_code(source, "_save_validated_data")
+				self.assertNotIn(validation_call, code)
+				self.assertIn("return _provider.write_record_atomic(storage_key, data, metadata)", code)
+
 	def test_storage_backend_templates_are_validated_and_packaged(self) -> None:
 		self.assertEqual(
 			build_gf_ai_developer_kit.validate_storage_backend_templates(),
@@ -6219,18 +6282,9 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			"\"sync\": false",
 		):
 			self.assertIn(fragment, backend_text)
-		public_save = backend_text[
-			backend_text.index("func save_data("):
-			backend_text.index("# --- 可重写钩子 / 虚方法 ---")
-		]
-		hook_save = backend_text[
-			backend_text.index("func _save_data("):
-			backend_text.index("func _save_validated_data(")
-		]
-		validated_save = backend_text[
-			backend_text.index("func _save_validated_data("):
-			backend_text.index("func _load_data(")
-		]
+		public_save = self._top_level_gdscript_function_code(backend_text, "save_data")
+		hook_save = self._top_level_gdscript_function_code(backend_text, "_save_data")
+		validated_save = self._top_level_gdscript_function_code(backend_text, "_save_validated_data")
 		self.assertEqual(public_save.count("ProjectStorageValueLimits.validate_payload("), 1)
 		self.assertEqual(hook_save.count("ProjectStorageValueLimits.validate_payload("), 1)
 		self.assertNotIn("ProjectStorageValueLimits.validate_payload(", validated_save)

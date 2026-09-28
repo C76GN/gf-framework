@@ -38,15 +38,64 @@ const STATUS_ROLLED_BACK: StringName = &"rolled_back"
 
 # --- 私有变量 ---
 
+## 会话的 committed、failed 或 rolled_back 终态。
+## [br]
+## @api private
+## [br]
 var _status: StringName = &""
+
+## 产生此结果的会话 ID。
+## [br]
+## @api private
+## [br]
 var _session_id: StringName = &""
+
+## 会话使用的预加载计划 ID。
+## [br]
+## @api private
+## [br]
 var _plan_id: StringName = &""
+
+## 计划指定的目标分组 ID。
+## [br]
+## @api private
+## [br]
 var _group_id: StringName = &""
+
+## 成功加载的资源路径。
+## [br]
+## @api private
+## [br]
 var _loaded_paths: PackedStringArray = PackedStringArray()
+
+## 加载失败的资源路径。
+## [br]
+## @api private
+## [br]
 var _failed_paths: PackedStringArray = PackedStringArray()
+
+## 加载失败时的说明文本。
+## [br]
+## @api private
+## [br]
 var _error: String = ""
+
+## 会话回滚或中止时记录的原因。
+## [br]
+## @api private
+## [br]
 var _rollback_reason: StringName = &""
+
+## 标记回滚时是否保留了已加载缓存。
+## [br]
+## @api private
+## [br]
 var _cache_retained_on_rollback: bool = false
+
+## 调用方传入并随结果保存的元数据。
+## [br]
+## @api private
+## [br]
 var _metadata: Dictionary = {}
 
 
@@ -224,9 +273,36 @@ func duplicate_result() -> GFAssetLoadSessionResult:
 	return copy
 
 
-# --- 私有/辅助方法 ---
 
-# 由资产层配置不可变终态数据。
+
+# --- 框架内部方法 ---
+
+## 由会话写入终态快照；路径归一化、错误文本去空白，元数据深复制。
+## 只有确有已加载路径时才保留回滚后缓存仍在的标志。
+## [br]
+## @api framework_internal
+## [br]
+## @param status: 会话的终态标识。
+## [br]
+## @param session_id: 产生结果的会话标识。
+## [br]
+## @param plan_id: 对应预载计划标识。
+## [br]
+## @param group_id: 计划的目标资源组标识。
+## [br]
+## @param loaded_paths: 已加载路径，写入时归一化。
+## [br]
+## @param failed_paths: 加载失败路径，写入时归一化。
+## [br]
+## @param error: 可读失败说明，存储时移除两端空白。
+## [br]
+## @param rollback_reason: 回滚或中止原因。
+## [br]
+## @param cache_retained_on_rollback: 调用方报告的缓存保留状态。
+## [br]
+## @param metadata: 随结果保存的会话元数据。
+## [br]
+## @schema metadata: Dictionary，任意会话元数据；容器通过 duplicate(true) 复制。
 func _gf_configure(
 	status: StringName,
 	session_id: StringName,
@@ -249,6 +325,15 @@ func _gf_configure(
 	_rollback_reason = rollback_reason
 	_cache_retained_on_rollback = cache_retained_on_rollback and not _loaded_paths.is_empty()
 	_metadata = metadata.duplicate(true)
+
+
+# --- 私有/辅助方法 ---
+
+# 由资产层配置不可变终态数据。
+## 去除路径首尾空白、空项和重复项，并对结果排序。
+## [br]
+## @api private
+## [br]
 static func _normalize_paths(paths: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for path: String in paths:

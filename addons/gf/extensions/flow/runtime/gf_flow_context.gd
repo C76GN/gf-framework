@@ -13,6 +13,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 将上下文快照投影为安全报告数据的 schema 工具脚本。
+## [br]
+## @api private
 const _REPORT_SCHEMA_PROJECTION = preload(
 	"res://addons/gf/kernel/core/gf_report_schema_projection.gd"
 )
@@ -46,9 +49,24 @@ var has_next_node_override: bool = false
 
 # --- 私有变量 ---
 
+## 弱引用运行此反馈流程的架构。
+## [br]
+## @api private
 var _architecture_ref: WeakRef = null
+
+## 按 condition ID 保存可调用条件处理器。
+## [br]
+## @api private
 var _condition_handlers: Dictionary = {}
+
+## 按节点 ID 保存隔离的运行时状态字典。
+## [br]
+## @api private
 var _node_runtime_states: Dictionary = {}
+
+## 记录当前同步执行中的节点实例，防止重复重入。
+## [br]
+## @api private
 var _executing_runtime_nodes: Dictionary[StringName, GFFlowNode] = {}
 
 
@@ -508,6 +526,9 @@ func end_node_runtime_execution(node_id: StringName) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 将同步执行节点当前状态复制回上下文保存的节点状态。
+## [br]
+## @api private
 func _synchronize_executing_runtime_nodes() -> void:
 	for node_id: StringName in _executing_runtime_nodes:
 		var node: GFFlowNode = _executing_runtime_nodes[node_id]
@@ -515,6 +536,9 @@ func _synchronize_executing_runtime_nodes() -> void:
 		node.deserialize_runtime_state(GFVariantData.get_option_dictionary(_node_runtime_states, node_id))
 
 
+## 验证并复制上下文快照字段，兼容旧版 nodes 状态字段。
+## [br]
+## @api private
 func _parse_runtime_snapshot(snapshot: Dictionary) -> Dictionary:
 	if (
 		not snapshot.has("values")
@@ -560,6 +584,9 @@ func _parse_runtime_snapshot(snapshot: Dictionary) -> Dictionary:
 	}
 
 
+## 校验节点状态映射并按节点 ID 归一化非空状态。
+## [br]
+## @api private
 func _parse_node_runtime_states(data: Dictionary) -> Dictionary:
 	if not data.has("nodes"):
 		return {}
@@ -581,6 +608,9 @@ func _parse_node_runtime_states(data: Dictionary) -> Dictionary:
 		"node_states": normalized,
 	}
 
+## 将条件处理器的多种返回值转换为统一结果字典。
+## [br]
+## @api private
 func _normalize_condition_result(condition_id: StringName, raw_result: Variant, default_value: Variant) -> Dictionary:
 	if raw_result is Dictionary:
 		var data: Dictionary = GFVariantData.as_dictionary(raw_result)
@@ -596,6 +626,9 @@ func _normalize_condition_result(condition_id: StringName, raw_result: Variant, 
 	return _make_condition_result(true, condition_id, raw_result, "")
 
 
+## 构造包含状态、条件 ID、值、原因和元数据的条件结果。
+## [br]
+## @api private
 func _make_condition_result(ok: bool, condition_id: StringName, value: Variant, reason: String) -> Dictionary:
 	return {
 		"ok": ok,
@@ -606,12 +639,18 @@ func _make_condition_result(ok: bool, condition_id: StringName, value: Variant, 
 	}
 
 
+## 将 Variant 转换为 Callable，类型不符时返回空回调。
+## [br]
+## @api private
 func _get_callable_value(value: Variant) -> Callable:
 	if value is Callable:
 		return value
 	return Callable()
 
 
+## 复制快照字典，或按 JSON-safe 报告规则投影。
+## [br]
+## @api private
 func _to_snapshot_dictionary(value: Dictionary, json_compatible: bool) -> Dictionary:
 	if not json_compatible:
 		return value.duplicate(true)
@@ -620,6 +659,9 @@ func _to_snapshot_dictionary(value: Dictionary, json_compatible: bool) -> Dictio
 	})
 
 
+## 复制快照值，或将值转换为 JSON 兼容形式。
+## [br]
+## @api private
 func _to_snapshot_value(value: Variant, json_compatible: bool) -> Variant:
 	if not json_compatible:
 		return GFVariantData.duplicate_variant(value)
@@ -628,6 +670,9 @@ func _to_snapshot_value(value: Variant, json_compatible: bool) -> Variant:
 	})
 
 
+## 读取并排序已注册条件处理器 ID。
+## [br]
+## @api private
 func _get_condition_handler_ids() -> PackedStringArray:
 	var ids: PackedStringArray = PackedStringArray()
 	for condition_id: Variant in _condition_handlers.keys():
@@ -639,6 +684,9 @@ func _get_condition_handler_ids() -> PackedStringArray:
 	return ids
 
 
+## 从字典移除指定键。
+## [br]
+## @api private
 func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 	var erased: bool = target.erase(key)
 	if erased:

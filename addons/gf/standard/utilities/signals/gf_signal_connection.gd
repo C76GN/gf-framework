@@ -39,21 +39,79 @@ enum OperationType {
 
 # --- 常量 ---
 
+## 执行异步信号处理链的脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
+
+## 信号参数捕获缓冲区支持的最大参数数。
+## [br]
+## @api private
+## [br]
 const _MAX_SIGNAL_ARGUMENTS: int = 16
 
 
 # --- 私有变量 ---
 
+## 由此连接包装的 Godot 信号。
+## [br]
+## @api private
+## [br]
 var _source_signal: Signal
+
+## 信号处理链最终调用的回调。
+## [br]
+## @api private
+## [br]
 var _callback: Callable
+
+## 监听归属对象的弱引用；未指定 owner 时为空。
+## [br]
+## @api private
+## [br]
 var _owner_ref: WeakRef = null
+
+## 跟踪此连接的 Signal Utility 弱引用。
+## [br]
+## @api private
+## [br]
 var _utility_ref: WeakRef = null
+
+## 调用最终回调前置于处理结果的默认参数。
+## [br]
+## @api private
+## [br]
 var _default_args: Array = []
+
+## 建立 Godot 信号连接时使用的连接标记。
+## [br]
+## @api private
+## [br]
 var _connect_flags: int = 0
+
+## 按配置顺序执行的信号参数处理步骤。
+## [br]
+## @api private
+## [br]
 var _operations: Array[Dictionary] = []
+
+## 首次成功处理后是否断开连接。
+## [br]
+## @api private
+## [br]
 var _is_once: bool = false
+
+## 此连接当前是否已连接到源信号。
+## [br]
+## @api private
+## [br]
 var _is_connected: bool = false
+
+## 断开时递增，用于使尚未完成的异步处理失效。
+## [br]
+## @api private
+## [br]
 var _lifecycle_serial: int = 0
 
 
@@ -353,8 +411,29 @@ func prune_if_invalid() -> bool:
 	return false
 
 
-# --- 私有/辅助方法 ---
 
+
+# --- 框架内部方法 ---
+
+## 供工具复用连接时比较原始配置；已断开或已增加操作链的连接一律不复用。
+## [br]
+## @api framework_internal
+## [br]
+## @param source_signal: 需要匹配的源信号。
+## [br]
+## @param callback: 需要匹配的目标回调。
+## [br]
+## @param owner: 必须与已绑定所有者精确一致的对象。
+## [br]
+## @param default_args: 按数组值相等比较的默认实参。
+## [br]
+## @param connect_flags: 必须完全一致的连接标志。
+## [br]
+## @param once_requested: 期望的一次性连接状态。
+## [br]
+## @return 当前无操作链的有效连接是否完全匹配。
+## [br]
+## @schema default_args: Array，信号参数后的默认实参序列，按值比较。
 func _matches_configuration(
 	source_signal: Signal,
 	callback: Callable,
@@ -380,55 +459,34 @@ func _matches_configuration(
 	return _is_once == once_requested
 
 
-func _on_signal_emitted(
-	arg1: Variant = null,
-	arg2: Variant = null,
-	arg3: Variant = null,
-	arg4: Variant = null,
-	arg5: Variant = null,
-	arg6: Variant = null,
-	arg7: Variant = null,
-	arg8: Variant = null,
-	arg9: Variant = null,
-	arg10: Variant = null,
-	arg11: Variant = null,
-	arg12: Variant = null,
-	arg13: Variant = null,
-	arg14: Variant = null,
-	arg15: Variant = null,
-	arg16: Variant = null
-) -> void:
-	var args: Array = _collect_args([
-		arg1,
-		arg2,
-		arg3,
-		arg4,
-		arg5,
-		arg6,
-		arg7,
-		arg8,
-		arg9,
-		arg10,
-		arg11,
-		arg12,
-		arg13,
-		arg14,
-		arg15,
-		arg16,
-	])
-	_start_process_async(args, _lifecycle_serial)
+# --- 私有/辅助方法 ---
 
 
+
+
+
+## 将参数和生命周期序号提交给异步处理脚本。
+## [br]
+## @api private
+## [br]
 func _start_process_async(args: Array, lifecycle_serial: int) -> void:
 	_GF_ASYNC_CALL_SCRIPT.run_detached(Callable(self, &"_process_async"), [args, lifecycle_serial])
 
 
+## owner 为空时要求连接未保存 owner；否则按对象身份检查 owner。
+## [br]
+## @api private
+## [br]
 func _owner_matches_exact(owner: Object) -> bool:
 	if owner == null:
 		return _owner_ref == null
 	return is_owned_by(owner)
 
 
+## 按序执行过滤、映射、计时与累积步骤，最终调用回调或因失效而退出。
+## [br]
+## @api private
+## [br]
 func _process_async(args: Array, lifecycle_serial: int) -> void:
 	var current_args: Array = args.duplicate()
 	var should_disconnect_after_callback: bool = false
@@ -503,6 +561,10 @@ func _process_async(args: Array, lifecycle_serial: int) -> void:
 	var _callback_result: Variant = _callback.callv(final_args)
 
 
+## 等待指定秒数；无 SceneTree timer 时逐帧等待，并检查生命周期序号。
+## [br]
+## @api private
+## [br]
 func _wait_seconds(seconds: float, lifecycle_serial: int) -> void:
 	if seconds <= 0.0:
 		return
@@ -523,6 +585,10 @@ func _wait_seconds(seconds: float, lifecycle_serial: int) -> void:
 		await scene_tree.process_frame
 
 
+## 按信号元数据裁剪参数；无法取得元数据时移除末尾的 null 占位参数。
+## [br]
+## @api private
+## [br]
 func _collect_args(raw_args: Array) -> Array:
 	var declared_count: int = _get_source_signal_argument_count()
 	if declared_count >= 0:
@@ -536,6 +602,10 @@ func _collect_args(raw_args: Array) -> Array:
 	return args
 
 
+## 将主动启动输入规范化为参数数组；Callable 输入先调用并规范化其返回值。
+## [br]
+## @api private
+## [br]
 func _normalize_start_args(value: Variant) -> Array:
 	if value is Callable:
 		var callable: Callable = value
@@ -552,54 +622,102 @@ func _normalize_start_args(value: Variant) -> Array:
 	return [value]
 
 
+## 从 Variant 中读取 Callable；类型不符时返回无效 Callable。
+## [br]
+## @api private
+## [br]
 func _get_callable_value(value: Variant) -> Callable:
 	if value is Callable:
 		return value
 	return Callable()
 
 
+## 读取处理步骤类型；字段缺失或无效时返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_operation_type(operation: Dictionary) -> int:
 	return GFVariantData.get_option_int(operation, "type", -1)
 
 
+## 读取处理步骤回调；字段缺失或不是 Callable 时返回无效值。
+## [br]
+## @api private
+## [br]
 func _get_operation_callable(operation: Dictionary) -> Callable:
 	return _get_callable_value(GFVariantData.get_option_value(operation, "callable", Callable()))
 
 
+## 读取处理步骤的秒数配置。
+## [br]
+## @api private
+## [br]
 func _get_operation_seconds(operation: Dictionary) -> float:
 	return GFVariantData.get_option_float(operation, "seconds")
 
 
+## 读取节流步骤上次通过时的毫秒时间戳。
+## [br]
+## @api private
+## [br]
 func _get_operation_last_msec(operation: Dictionary) -> int:
 	return GFVariantData.get_option_int(operation, "last_msec", -1)
 
 
+## 增加并返回防抖步骤序号，用于判定等待中的触发是否已过期。
+## [br]
+## @api private
+## [br]
 func _next_operation_debounce_serial(operation: Dictionary) -> int:
 	var debounce_serial: int = _get_operation_debounce_serial(operation) + 1
 	operation["debounce_serial"] = debounce_serial
 	return debounce_serial
 
 
+## 读取防抖步骤当前序号。
+## [br]
+## @api private
+## [br]
 func _get_operation_debounce_serial(operation: Dictionary) -> int:
 	return GFVariantData.get_option_int(operation, "debounce_serial")
 
 
+## 读取 skip 或 take 步骤的剩余触发次数。
+## [br]
+## @api private
+## [br]
 func _get_operation_remaining(operation: Dictionary) -> int:
 	return GFVariantData.get_option_int(operation, "remaining")
 
 
+## 读取 scan 步骤当前累积值。
+## [br]
+## @api private
+## [br]
 func _get_operation_accumulator(operation: Dictionary) -> Variant:
 	return GFVariantData.get_option_value(operation, "accumulator")
 
 
+## 从 Godot 信号元数据中读取信号名。
+## [br]
+## @api private
+## [br]
 func _get_signal_info_name(signal_info: Dictionary) -> String:
 	return GFVariantData.get_option_string(signal_info, "name")
 
 
+## 从 Godot 信号元数据中读取参数定义数组。
+## [br]
+## @api private
+## [br]
 func _get_signal_info_args(signal_info: Dictionary) -> Array:
 	return GFVariantData.get_option_array(signal_info, "args")
 
 
+## 查询源信号参数个数；信号、对象或元数据不可用时返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_source_signal_argument_count() -> int:
 	if _source_signal.is_null():
 		return -1
@@ -619,9 +737,57 @@ func _get_source_signal_argument_count() -> int:
 	return -1
 
 
+## 通过弱引用通知仍存活且支持该接口的 Utility 移除此连接。
+## [br]
+## @api private
+## [br]
 func _unregister_from_utility() -> void:
 	if _utility_ref == null:
 		return
 	var utility: Object = _utility_ref.get_ref()
 	if utility != null and utility.has_method("_untrack_connection"):
 		var _untrack_result: Variant = utility.call("_untrack_connection", self)
+
+
+# --- 信号处理函数 ---
+
+## 接收最多十六个信号实参，按实际信号签名整理后捕获当前生命周期序号启动处理，供异步步骤拒绝旧连接任务。
+## [br]
+## @api private
+func _on_signal_emitted(
+	arg1: Variant = null,
+	arg2: Variant = null,
+	arg3: Variant = null,
+	arg4: Variant = null,
+	arg5: Variant = null,
+	arg6: Variant = null,
+	arg7: Variant = null,
+	arg8: Variant = null,
+	arg9: Variant = null,
+	arg10: Variant = null,
+	arg11: Variant = null,
+	arg12: Variant = null,
+	arg13: Variant = null,
+	arg14: Variant = null,
+	arg15: Variant = null,
+	arg16: Variant = null
+) -> void:
+	var args: Array = _collect_args([
+		arg1,
+		arg2,
+		arg3,
+		arg4,
+		arg5,
+		arg6,
+		arg7,
+		arg8,
+		arg9,
+		arg10,
+		arg11,
+		arg12,
+		arg13,
+		arg14,
+		arg15,
+		arg16,
+	])
+	_start_process_async(args, _lifecycle_serial)

@@ -6,11 +6,17 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 从标准记录中读取类型化字段的工具脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
 # --- 私有变量 ---
 
+## 当前已安装到 EditorPlugin、需要在 cleanup 时移除的 Debugger 插件实例。
+## [br]
+## @api private
 var _debugger_plugins: Array[EditorDebuggerPlugin] = []
 
 
@@ -64,6 +70,10 @@ func cleanup(plugin: EditorPlugin) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 合并标准记录和扩展路径，去除空路径及重复路径，保留首次出现的顺序。
+## 标准记录缺少 label 时以路径作为标签，扩展路径始终以自身作为标签。
+## [br]
+## @api private
 func _collect_debugger_records(
 	standard_records: Dictionary,
 	extension_paths: Array[String]
@@ -108,6 +118,9 @@ func _collect_debugger_records(
 	return result
 
 
+## 加载有效 Debugger 插件脚本，安装到 EditorPlugin 后保存实例供清理。
+## [br]
+## @api private
 func _add_debugger_plugin(plugin: EditorPlugin, script_path: String, label: String) -> void:
 	var debugger_plugin: EditorDebuggerPlugin = _load_debugger_plugin(script_path, label)
 	if debugger_plugin == null:
@@ -116,6 +129,10 @@ func _add_debugger_plugin(plugin: EditorPlugin, script_path: String, label: Stri
 	_debugger_plugins.append(debugger_plugin)
 
 
+## 加载可实例化脚本，验证其继承 EditorDebuggerPlugin 并创建对应实例。
+## 加载、类型或实例检查失败时记录错误并返回 null。
+## [br]
+## @api private
 func _load_debugger_plugin(script_path: String, label: String) -> EditorDebuggerPlugin:
 	var debugger_script: Script = _load_script(script_path)
 	if debugger_script == null or not debugger_script.can_instantiate():
@@ -137,6 +154,9 @@ func _load_debugger_plugin(script_path: String, label: String) -> EditorDebugger
 	return null
 
 
+## 依据脚本 instance base type 判断其是否为 EditorDebuggerPlugin 或其子类。
+## [br]
+## @api private
 func _is_editor_debugger_plugin_script(debugger_script: Script) -> bool:
 	if debugger_script == null:
 		return false
@@ -150,6 +170,9 @@ func _is_editor_debugger_plugin_script(debugger_script: Script) -> bool:
 	)
 
 
+## 拒绝空路径，加载资源并仅在资源为 Script 时返回。
+## [br]
+## @api private
 func _load_script(script_path: String) -> Script:
 	if script_path.is_empty():
 		return null
@@ -160,6 +183,9 @@ func _load_script(script_path: String) -> Script:
 	return null
 
 
+## 仅接受 Array 中的 Dictionary 项，并深复制每项；其他输入类型返回空数组。
+## [br]
+## @api private
 func _to_record_array(value: Variant) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	if not value is Array:

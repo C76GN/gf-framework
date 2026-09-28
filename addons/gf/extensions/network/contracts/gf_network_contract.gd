@@ -14,8 +14,22 @@ extends Resource
 
 # --- 常量 ---
 
+## 生成统一验证报告字典的脚本资源。
+## [br]
+## @api private
+## [br]
 const _GF_VALIDATION_REPORT_DICTIONARY = preload("res://addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd")
+
+## 网络契约 schema descriptor 的内部格式版本号。
+## [br]
+## @api private
+## [br]
 const _SCHEMA_DESCRIPTOR_VERSION: int = 1
+
+## 网络契约版本预检器的脚本资源。
+## [br]
+## @api private
+## [br]
 const _NETWORK_CONTRACT_VERSION_VALIDATOR = preload(
 	"res://addons/gf/extensions/network/contracts/gf_network_contract_version_validator.gd"
 )
@@ -309,6 +323,10 @@ func validate_peer_contract_version(peer_version: Dictionary, options: Dictionar
 
 # --- 私有/辅助方法 ---
 
+## 构造包含契约 ID、路径和可选字段键的契约问题字典。
+## [br]
+## @api private
+## [br]
 func _make_issue(severity: String, kind: String, message: String, key: String = "") -> Dictionary:
 	var issue: Dictionary = {
 		"severity": severity,
@@ -324,6 +342,10 @@ func _make_issue(severity: String, kind: String, message: String, key: String = 
 	return issue
 
 
+## 将消息类型、频道及非空字段描述汇总为 schema 字典。
+## [br]
+## @api private
+## [br]
 func _describe_message_schema(message_contract: GFNetworkContractMessage) -> Dictionary:
 	var field_entries: Array[Dictionary] = []
 	for field: GFNetworkContractField in message_contract.fields:
@@ -337,6 +359,10 @@ func _describe_message_schema(message_contract: GFNetworkContractMessage) -> Dic
 	}
 
 
+## 提取字段名、值类型、必填性、空值规则、默认值和类名提示。
+## [br]
+## @api private
+## [br]
 func _describe_field_schema(field: GFNetworkContractField) -> Dictionary:
 	return {
 		"field_name": field.field_name,
@@ -348,6 +374,10 @@ func _describe_field_schema(field: GFNetworkContractField) -> Dictionary:
 	}
 
 
+## 补齐下一步操作并统一封装 Network contract 验证报告。
+## [br]
+## @api private
+## [br]
 func _finalize_report(issues: Array[Dictionary]) -> Dictionary:
 	var report: Dictionary = {
 		"subject": "Network contract",
@@ -360,6 +390,10 @@ func _finalize_report(issues: Array[Dictionary]) -> Dictionary:
 	})
 
 
+## 按契约和字段错误类型提供修复建议文本。
+## [br]
+## @api private
+## [br]
 func _get_validation_next_actions() -> Dictionary:
 	return {
 		"missing_message": "Pass a GFNetworkMessage before validating it.",

@@ -17,6 +17,9 @@ extends Resource
 
 # --- 常量 ---
 
+## 将不同键形式的输入选项统一转换为 StringName 的工具脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -225,6 +228,9 @@ func describe() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 组装选项值校验诊断，标明严重级别、种类、选项 ID 和说明文本。
+## [br]
+## @api private
 func _make_issue(severity: String, kind: String, option_id: StringName, message: String) -> Dictionary:
 	return {
 		"severity": severity,

@@ -41,6 +41,10 @@ enum ValueKind {
 
 # --- 常量 ---
 
+## 用于读取和写入目标对象属性的框架属性工具脚本。
+## [br]
+## @api private
+## [br]
 const _OBJECT_PROPERTY_TOOLS = preload("res://addons/gf/kernel/core/gf_object_property_tools.gd")
 
 
@@ -146,6 +150,10 @@ var validator: Callable
 
 # --- 私有变量 ---
 
+## 标记当前属性是否正处于同步写入回调中，以阻止同属性递归写入。
+## [br]
+## @api private
+## [br]
 var _write_in_progress: bool = false
 
 
@@ -352,6 +360,10 @@ func to_schema() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按 value_kind 验证并归一化输入值，失败时返回 value_type_mismatch 报告。
+## [br]
+## @api private
+## [br]
 func _try_normalize_value_by_kind(value: Variant) -> Dictionary:
 	match value_kind:
 		ValueKind.BOOL:
@@ -387,6 +399,10 @@ func _try_normalize_value_by_kind(value: Variant) -> Dictionary:
 	return _make_normalization_report(false, null, "value_type_mismatch")
 
 
+## 按 value_kind 归一化候选值，并按原顺序保留通过验证的项。
+## [br]
+## @api private
+## [br]
 func _get_normalized_options() -> Array:
 	var result: Array = []
 	for option_value: Variant in options:
@@ -396,6 +412,11 @@ func _get_normalized_options() -> Array:
 	return result
 
 
+## 接受整数、整数值浮点数或整数字符串，随后按启用的上下限截取。
+## 非法或非有限输入返回失败报告。
+## [br]
+## @api private
+## [br]
 func _try_normalize_int(value: Variant) -> Dictionary:
 	var number: int = 0
 	if value is int:
@@ -419,6 +440,10 @@ func _try_normalize_int(value: Variant) -> Dictionary:
 	return _make_normalization_report(true, number, "")
 
 
+## 接受整数、浮点数或可解析的数值文本，拒绝非有限值并应用启用的上下限。
+## [br]
+## @api private
+## [br]
 func _try_normalize_float(value: Variant) -> Dictionary:
 	var number: float = 0.0
 	if value is int:
@@ -443,6 +468,10 @@ func _try_normalize_float(value: Variant) -> Dictionary:
 	return _make_normalization_report(true, number, "")
 
 
+## 检查数值 schema 的步长、边界有限性、上下限顺序和整数可取值范围。
+## [br]
+## @api private
+## [br]
 func _get_numeric_schema_error() -> String:
 	if value_kind != ValueKind.INT and value_kind != ValueKind.FLOAT:
 		return ""
@@ -459,6 +488,10 @@ func _get_numeric_schema_error() -> String:
 	return ""
 
 
+## 组装包含 ok、value 和 error 三个字段的归一化结果。
+## [br]
+## @api private
+## [br]
 func _make_normalization_report(ok: bool, value: Variant, error: String) -> Dictionary:
 	return {
 		"ok": ok,

@@ -169,6 +169,10 @@ static func from_dict(data: Dictionary) -> GFSavePipelineEvent:
 
 # --- 私有/辅助方法 ---
 
+## 从 Scope 提取其键；当 Scope 是 Node 时也记录节点路径。
+## [br]
+## @api private
+## [br]
 func _apply_scope(scope: Object) -> void:
 	if scope == null:
 		return
@@ -179,6 +183,10 @@ func _apply_scope(scope: Object) -> void:
 		node_path = _get_node_path(scope_node)
 
 
+## 从 Source 提取其键；当 Source 是 Node 时更新事件关联的节点路径。
+## [br]
+## @api private
+## [br]
 func _apply_source(source: Object) -> void:
 	if source == null:
 		return
@@ -189,6 +197,10 @@ func _apply_source(source: Object) -> void:
 		node_path = _get_node_path(source_node)
 
 
+## 返回树内节点的完整路径，树外节点则返回其名称。
+## [br]
+## @api private
+## [br]
 func _get_node_path(node: Node) -> String:
 	if node.is_inside_tree():
 		return String(node.get_path())

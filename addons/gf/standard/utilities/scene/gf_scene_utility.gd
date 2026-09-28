@@ -167,11 +167,40 @@ enum SceneResourceState {
 
 # --- 常量 ---
 
+## Resource Broker 的脚本引用，用于脚本类型检查和调度资源请求。
+## [br]
+## @api private
+## [br]
 const _RESOURCE_BROKER_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_resource_broker.gd")
+
+## Resource Lease 的脚本类型引用，用于处理底层资源 consumer 租约。
+## [br]
+## @api private
+## [br]
 const _RESOURCE_LEASE_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_resource_lease.gd")
+
+## 表示当前没有等待处理的场景切换类型。
+## [br]
+## @api private
+## [br]
 const _SCENE_CHANGE_NONE: int = 0
+
+## 表示待处理切换用于显示 loading scene。
+## [br]
+## @api private
+## [br]
 const _SCENE_CHANGE_LOADING: int = 1
+
+## 表示待处理切换用于切换到目标场景。
+## [br]
+## @api private
+## [br]
 const _SCENE_CHANGE_TARGET: int = 2
+
+## 表示待处理切换用于恢复先前场景。
+## [br]
+## @api private
+## [br]
 const _SCENE_CHANGE_RESTORE: int = 3
 
 
@@ -283,79 +312,448 @@ var max_scene_history: int:
 
 # --- 私有变量 ---
 
+## max_preloaded_scene_resources 属性使用的临时缓存容量值。
+## [br]
+## @api private
+## [br]
 var _max_preloaded_scene_resources: int = 8
+
+## max_scene_history 属性使用的历史记录容量值。
+## [br]
+## @api private
+## [br]
 var _max_scene_history: int = 16
+
+## scene_preload_map 属性当前配置的图谱资源。
+## [br]
+## @api private
+## [br]
 var _scene_preload_map: GFScenePreloadMap = null
+
+## auto_preload_map_neighbors_on_switch 属性当前启用状态。
+## [br]
+## @api private
+## [br]
 var _auto_preload_map_neighbors_on_switch: bool = true
+
+## scene_preload_map_radius 属性当前配置的半径。
+## [br]
+## @api private
+## [br]
 var _scene_preload_map_radius: int = -1
+
+## 当前异步切换正在加载的目标场景路径。
+## [br]
+## @api private
+## [br]
 var _target_path: String = ""
+
+## 标记是否有异步场景切换处于加载流程中。
+## [br]
+## @api private
+## [br]
 var _is_loading: bool = false
+
+## 当前切换流程使用的 loading scene 路径。
+## [br]
+## @api private
+## [br]
 var _loading_scene_path: String = ""
+
+## 等待场景切换后从 Architecture 注销的瞬态脚本类型列表。
+## [br]
+## @api private
+## [br]
 var _transient_scripts: Array[Script] = []
+
+## 开始当前切换前记录的暂停状态。
+## [br]
+## @api private
+## [br]
 var _previous_pause_state: bool = false
+
+## 当前切换开始前的场景资源路径。
+## [br]
+## @api private
+## [br]
 var _previous_scene_path: String = ""
+
+## 标记当前切换是否已显示 loading scene。
+## [br]
+## @api private
+## [br]
 var _is_showing_loading_scene: bool = false
+
+## 标记当前 loading scene 是否已发送退出通知。
+## [br]
+## @api private
+## [br]
 var _loading_scene_exit_notified: bool = false
+
+## 标记当前目标加载是否复用了现有预加载请求。
+## [br]
+## @api private
+## [br]
 var _active_load_uses_preload_request: bool = false
+
+## 当前加载绑定的预加载请求代次。
+## [br]
+## @api private
+## [br]
 var _active_load_preload_request_generation: int = 0
+
+## 当前加载完成后是否按配置写入场景缓存。
+## [br]
+## @api private
+## [br]
 var _active_load_cache_loaded_scene: bool = true
+
+## 当前异步目标加载的进度比例。
+## [br]
+## @api private
+## [br]
 var _active_loading_progress: float = 0.0
+
+## 当前切换流程开始时记录的毫秒时钟值。
+## [br]
+## @api private
+## [br]
 var _active_transition_started_msec: int = 0
+
+## 当前 loading scene 需要满足的最短显示时间。
+## [br]
+## @api private
+## [br]
 var _active_transition_minimum_seconds: float = 0.0
+
+## 当前目标切换使用的参数字典副本。
+## [br]
+## @api private
+## [br]
 var _active_transition_params: Dictionary = {}
+
+## 当前场景对应的参数字典。
+## [br]
+## @api private
+## [br]
 var _current_scene_params: Dictionary = {}
+
+## 已加载完成并等待切换收尾的场景路径。
+## [br]
+## @api private
+## [br]
 var _pending_loaded_path: String = ""
+
+## 已加载完成并等待切换收尾的 PackedScene。
+## [br]
+## @api private
+## [br]
 var _pending_loaded_scene: PackedScene = null
+
+## 按时间保存的场景路径及其参数记录。
+## [br]
+## @api private
+## [br]
 var _scene_history: Array[Dictionary] = []
+
+## 按规范化路径索引的聚合预加载请求状态。
+## [br]
+## @api private
+## [br]
 var _preload_requests: Dictionary = {}
+
+## 按路径保存且不受临时缓存容量限制的 PackedScene。
+## [br]
+## @api private
+## [br]
 var _fixed_preloaded_scenes: Dictionary = {}
+
+## 按路径保存并受容量策略管理的临时 PackedScene。
+## [br]
+## @api private
+## [br]
 var _preloaded_scenes: Dictionary = {}
+
+## 临时缓存路径最近访问序号，用于选择淘汰对象。
+## [br]
+## @api private
+## [br]
 var _preloaded_scene_access_order: Dictionary = {}
+
+## 为临时缓存访问分配递增顺序值的计数器。
+## [br]
+## @api private
+## [br]
 var _preloaded_scene_access_serial: int = 0
+
+## 为每次缓存写入生成唯一代次的计数器。
+## [br]
+## @api private
+## [br]
 var _scene_cache_entry_generation_serial: int = 0
+
+## 按路径保存缓存写入代次，用于回调重入后识别原缓存条目是否仍有效。
+## [br]
+## @api private
+## [br]
 var _scene_cache_entry_generations: Dictionary = {}
+
+## 按规范化场景路径保存的后台场景参数副本。
+## [br]
+## @api private
+## [br]
 var _background_scene_params: Dictionary = {}
+
+## 使已排队场景切换回调失效的序号。
+## [br]
+## @api private
+## [br]
 var _scene_change_serial: int = 0
+
+## 当前排队切换的内部类型标记。
+## [br]
+## @api private
+## [br]
 var _pending_scene_change_kind: int = _SCENE_CHANGE_NONE
+
+## 当前排队切换的目标路径。
+## [br]
+## @api private
+## [br]
 var _pending_scene_change_path: String = ""
+
+## 当前排队切换的 PackedScene。
+## [br]
+## @api private
+## [br]
 var _pending_scene_change_scene: PackedScene = null
+
+## 排队恢复场景切换时需恢复的暂停状态。
+## [br]
+## @api private
+## [br]
 var _pending_scene_change_previous_pause_state: bool = false
+
+## 当前目标场景提交观察器的代次；失效观察器时递增。
+## [br]
+## @api private
+## [br]
 var _target_scene_commit_generation: int = 0
+
+## 目标场景提交观察器连接的 SceneTree。
+## [br]
+## @api private
+## [br]
 var _target_scene_commit_tree: SceneTree = null
+
+## 一次性 scene_changed 观察回调。
+## [br]
+## @api private
+## [br]
 var _target_scene_commit_callback: Callable = Callable()
+
+## 本次提交观察对应的目标场景路径。
+## [br]
+## @api private
+## [br]
 var _target_scene_commit_path: String = ""
+
+## 本次提交观察对应的目标 PackedScene。
+## [br]
+## @api private
+## [br]
 var _target_scene_commit_scene: PackedScene = null
+
+## 开始提交前记录的场景路径。
+## [br]
+## @api private
+## [br]
 var _target_scene_commit_previous_path: String = ""
+
+## 本次提交关联的自动相邻预加载代次。
+## [br]
+## @api private
+## [br]
 var _target_scene_commit_auto_neighbor_generation: int = 0
+
+## 本次提交关联的活动加载代次。
+## [br]
+## @api private
+## [br]
 var _target_scene_commit_load_generation: int = 0
+
+## 本次提交关联的类型化 Operation 请求 ID；旧式加载为零。
+## [br]
+## @api private
+## [br]
 var _target_scene_commit_typed_request_id: int = 0
+
+## 提交目标场景时使用的切换参数快照。
+## [br]
+## @api private
+## [br]
 var _target_scene_commit_transition_params: Dictionary = {}
+
+## 提交前当前场景参数的快照。
+## [br]
+## @api private
+## [br]
 var _target_scene_commit_previous_params: Dictionary = {}
+
+## 提交开始时待消费的历史目标路径快照。
+## [br]
+## @api private
+## [br]
 var _target_scene_commit_pending_history_path: String = ""
+
+## 提交前记录的暂停状态。
+## [br]
+## @api private
+## [br]
 var _target_scene_commit_previous_pause_state: bool = false
+
+## 提交观察启动时当前场景根节点的实例 ID。
+## [br]
+## @api private
+## [br]
 var _target_scene_commit_previous_root_instance_id: int = 0
+
+## 当前 _do_change_scene 调用栈使用的提交代次。
+## [br]
+## @api private
+## [br]
 var _target_scene_commit_call_generation: int = 0
+
+## 提交代次已在 override 调用栈内观察到的标记。
+## [br]
+## @api private
+## [br]
 var _target_scene_commit_observed_generation: int = 0
+
+## override 已声明等待异步 scene_changed 的代次。
+## [br]
+## @api private
+## [br]
 var _target_scene_commit_wait_signal_generation: int = 0
+
+## 显式确认的目标根节点弱引用，用于核对匿名路径场景根。
+## [br]
+## @api private
+## [br]
 var _target_scene_commit_proven_root_ref: WeakRef = null
+
+## 等待成功切换后消费的上一场景历史路径。
+## [br]
+## @api private
+## [br]
 var _pending_previous_history_path: String = ""
+
+## 当前旧式场景加载使用的 Resource Lease。
+## [br]
+## @api private
+## [br]
 var _active_load_operation: _RESOURCE_LEASE_SCRIPT = null
+
+## 为异步场景加载分配代次的递增计数器。
+## [br]
+## @api private
+## [br]
 var _load_generation_serial: int = 0
+
+## 当前异步场景加载的代次。
+## [br]
+## @api private
+## [br]
 var _active_load_generation: int = 0
+
+## 已终结的活动加载代次，避免重复终结。
+## [br]
+## @api private
+## [br]
 var _active_load_terminal_generation: int = 0
+
+## 为类型化场景 Operation 分配请求 ID 的递增计数器。
+## [br]
+## @api private
+## [br]
 var _scene_request_serial: int = 0
+
+## 为聚合预加载请求分配代次的递增计数器。
+## [br]
+## @api private
+## [br]
 var _preload_request_generation_serial: int = 0
+
+## 当前活动类型化加载的 Operation 与 Broker Lease 状态字典。
+## [br]
+## @api private
+## [br]
 var _active_typed_load_request: Dictionary = {}
+
+## 执行场景 PackedScene 异步资源请求的共享 Resource Broker。
+## [br]
+## @api private
+## [br]
 var _resource_broker: GFResourceBroker = null
+
+## 标记当前 Utility 是否负责释放该 Resource Broker。
+## [br]
+## @api private
+## [br]
 var _owns_resource_broker: bool = false
+
+## 标记场景 Utility 是否已释放。
+## [br]
+## @api private
+## [br]
 var _disposed: bool = false
+
+## 使过期自动相邻预加载计划失效的代次。
+## [br]
+## @api private
+## [br]
 var _auto_neighbor_generation: int = 0
+
+## 自动相邻预加载等待 scene_changed 的 SceneTree。
+## [br]
+## @api private
+## [br]
 var _auto_neighbor_scene_tree: SceneTree = null
+
+## 等待目标 scene_changed 的一次性回调。
+## [br]
+## @api private
+## [br]
 var _auto_neighbor_scene_changed_callback: Callable = Callable()
+
+## 自动相邻预加载等待 process_frame 的 SceneTree。
+## [br]
+## @api private
+## [br]
 var _auto_neighbor_process_frame_scene_tree: SceneTree = null
+
+## 等待切场景后下一帧的回调。
+## [br]
+## @api private
+## [br]
 var _auto_neighbor_process_frame_callback: Callable = Callable()
+
+## 等待渲染帧结束后继续预加载的回调。
+## [br]
+## @api private
+## [br]
 var _auto_neighbor_render_callback: Callable = Callable()
+
+## headless 环境用于切场景稳定等待的 SceneTreeTimer。
+## [br]
+## @api private
+## [br]
 var _auto_neighbor_settle_timer: SceneTreeTimer = null
+
+## headless 稳定等待计时器的 timeout 回调。
+## [br]
+## @api private
+## [br]
 var _auto_neighbor_timer_callback: Callable = Callable()
 
 
@@ -2430,12 +2828,20 @@ func _get_current_scene_path() -> String:
 
 # --- 私有/辅助方法 ---
 
+## 读取 Variant 中的 PackedScene；类型不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_packed_scene_value(value: Variant) -> PackedScene:
 	if value is PackedScene:
 		return value
 	return null
 
 
+## 规范化路径分隔符与空白；仅对 res:// 路径折叠 . 和 .. 段，越出资源根目录时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _normalize_scene_path(raw_path: String) -> String:
 	var path: String = raw_path.replace("\\", "/").strip_edges()
 	if not path.begins_with("res://"):
@@ -2455,12 +2861,20 @@ func _normalize_scene_path(raw_path: String) -> String:
 	return "res://%s" % "/".join(normalized_segments)
 
 
+## 仅当 Variant 值是 SceneTree 时返回该场景树。
+## [br]
+## @api private
+## [br]
 func _get_scene_tree_value(value: Variant) -> SceneTree:
 	if value is SceneTree:
 		return value
 	return null
 
 
+## 保留 PackedStringArray，或把普通 Array 元素转换为文本后收集。
+## [br]
+## @api private
+## [br]
 func _get_packed_string_array_value(value: Variant) -> PackedStringArray:
 	if value is PackedStringArray:
 		return value
@@ -2471,18 +2885,34 @@ func _get_packed_string_array_value(value: Variant) -> PackedStringArray:
 	return result
 
 
+## 按键从字典安全读取并转换为 Dictionary。
+## [br]
+## @api private
+## [br]
 func _get_dictionary_reference(source: Dictionary, key: Variant) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(source, key, {}))
 
 
+## 按规范化路径读取后台场景参数字典。
+## [br]
+## @api private
+## [br]
 func _get_background_scene_params_reference(path: String) -> Dictionary:
 	return _get_dictionary_reference(_background_scene_params, _normalize_scene_path(path))
 
 
+## 按规范化路径读取当前聚合预加载请求字典。
+## [br]
+## @api private
+## [br]
 func _get_preload_request(path: String) -> Dictionary:
 	return _get_dictionary_reference(_preload_requests, _normalize_scene_path(path))
 
 
+## 递增活动加载代次计数器，并在整数溢出为非正值时重置为 1。
+## [br]
+## @api private
+## [br]
 func _next_load_generation() -> int:
 	_load_generation_serial += 1
 	if _load_generation_serial <= 0:
@@ -2490,6 +2920,10 @@ func _next_load_generation() -> int:
 	return _load_generation_serial
 
 
+## 递增预加载请求代次计数器，并在非正值时重置为 1。
+## [br]
+## @api private
+## [br]
 func _next_preload_request_generation() -> int:
 	_preload_request_generation_serial += 1
 	if _preload_request_generation_serial <= 0:
@@ -2497,6 +2931,10 @@ func _next_preload_request_generation() -> int:
 	return _preload_request_generation_serial
 
 
+## 递增缓存条目代次计数器，并在非正值时重置为 1。
+## [br]
+## @api private
+## [br]
 func _next_scene_cache_entry_generation() -> int:
 	_scene_cache_entry_generation_serial += 1
 	if _scene_cache_entry_generation_serial <= 0:
@@ -2504,10 +2942,18 @@ func _next_scene_cache_entry_generation() -> int:
 	return _scene_cache_entry_generation_serial
 
 
+## 从请求字典读取 request_generation；缺失时返回零。
+## [br]
+## @api private
+## [br]
 func _get_preload_request_generation(request: Dictionary) -> int:
 	return GFVariantData.get_option_int(request, "request_generation", 0)
 
 
+## 检查路径仍指向同一正数代次的聚合预加载请求。
+## [br]
+## @api private
+## [br]
 func _preload_request_context_is_current(
 	path: String,
 	request: Dictionary
@@ -2521,6 +2967,10 @@ func _preload_request_context_is_current(
 	)
 
 
+## 仅在请求代次仍匹配时移除聚合请求，并释放其全部 Lease。
+## [br]
+## @api private
+## [br]
 func _retire_preload_request_after_reentry(
 	path: String,
 	request: Dictionary
@@ -2530,6 +2980,10 @@ func _retire_preload_request_after_reentry(
 	_forget_all_preload_request_leases(request)
 
 
+## 允许无请求或仍活动请求继续接纳；已取消或终态请求先轮询并结算旧代次。
+## [br]
+## @api private
+## [br]
 func _settle_terminal_preload_request_before_admission(path: String) -> bool:
 	var scene_path: String = _normalize_scene_path(path)
 	if not _preload_requests.has(scene_path):
@@ -2551,6 +3005,10 @@ func _settle_terminal_preload_request_before_admission(path: String) -> bool:
 	return true
 
 
+## 读取当前活动类型化加载 Operation 的请求 ID；没有 Operation 时返回零。
+## [br]
+## @api private
+## [br]
 func _get_active_typed_load_request_id() -> int:
 	var operation: GFSceneOperation = (
 		_get_scene_operation_from_entry(_active_typed_load_request)
@@ -2558,6 +3016,10 @@ func _get_active_typed_load_request_id() -> int:
 	return operation.get_request_id() if operation != null else 0
 
 
+## 核对路径、加载代次、类型化请求 ID 和预加载绑定仍指向当前 pending 加载。
+## [br]
+## @api private
+## [br]
 func _active_scene_load_context_is_current(
 	path: String,
 	load_generation: int,
@@ -2577,6 +3039,10 @@ func _active_scene_load_context_is_current(
 	return operation != null and operation.is_pending()
 
 
+## 检查 Utility 未释放且路径、加载状态和正数代次均匹配当前加载。
+## [br]
+## @api private
+## [br]
 func _active_load_generation_is_current(path: String, load_generation: int) -> bool:
 	return (
 		not _disposed
@@ -2587,6 +3053,10 @@ func _active_load_generation_is_current(path: String, load_generation: int) -> b
 	)
 
 
+## 验证活动加载所绑定的预加载请求仍存在、未取消且代次匹配；缓存已完成时视为有效。
+## [br]
+## @api private
+## [br]
 func _active_preload_load_binding_is_current(path: String) -> bool:
 	if not _active_load_uses_preload_request:
 		return true
@@ -2605,6 +3075,10 @@ func _active_preload_load_binding_is_current(path: String) -> bool:
 	)
 
 
+## 从请求字典读取并类型检查聚合 Resource Lease。
+## [br]
+## @api private
+## [br]
 func _get_preload_request_operation(request: Dictionary) -> _RESOURCE_LEASE_SCRIPT:
 	var value: Variant = GFVariantData.get_option_value(request, "operation")
 	if value is _RESOURCE_LEASE_SCRIPT:
@@ -2613,10 +3087,18 @@ func _get_preload_request_operation(request: Dictionary) -> _RESOURCE_LEASE_SCRI
 	return null
 
 
+## 读取请求中的类型化 consumer 字典。
+## [br]
+## @api private
+## [br]
 func _get_typed_preload_consumers(request: Dictionary) -> Dictionary:
 	return _get_dictionary_reference(request, "typed_consumers")
 
 
+## 从 consumer 条目读取并类型检查 GFSceneOperation。
+## [br]
+## @api private
+## [br]
 func _get_scene_operation_from_entry(entry: Dictionary) -> GFSceneOperation:
 	var value: Variant = GFVariantData.get_option_value(entry, "operation")
 	if value is GFSceneOperation:
@@ -2625,6 +3107,10 @@ func _get_scene_operation_from_entry(entry: Dictionary) -> GFSceneOperation:
 	return null
 
 
+## 从条目读取并类型检查 Resource Lease。
+## [br]
+## @api private
+## [br]
 func _get_resource_lease_from_entry(entry: Dictionary) -> _RESOURCE_LEASE_SCRIPT:
 	var value: Variant = GFVariantData.get_option_value(entry, "lease")
 	if value is _RESOURCE_LEASE_SCRIPT:
@@ -2633,6 +3119,10 @@ func _get_resource_lease_from_entry(entry: Dictionary) -> _RESOURCE_LEASE_SCRIPT
 	return null
 
 
+## 按键读取并类型检查 WeakRef。
+## [br]
+## @api private
+## [br]
 func _get_weak_ref_from_entry(entry: Dictionary, key: String) -> WeakRef:
 	var value: Variant = GFVariantData.get_option_value(entry, key)
 	if value is WeakRef:
@@ -2641,6 +3131,10 @@ func _get_weak_ref_from_entry(entry: Dictionary, key: String) -> WeakRef:
 	return null
 
 
+## 读取并类型检查 consumer 的 GFCancellationToken。
+## [br]
+## @api private
+## [br]
 func _get_cancellation_token_from_entry(entry: Dictionary) -> GFCancellationToken:
 	var value: Variant = GFVariantData.get_option_value(entry, "cancellation_token")
 	if value is GFCancellationToken:
@@ -2649,6 +3143,10 @@ func _get_cancellation_token_from_entry(entry: Dictionary) -> GFCancellationToke
 	return null
 
 
+## 读取请求的旧式 legacy Resource Lease。
+## [br]
+## @api private
+## [br]
 func _get_preload_legacy_operation(request: Dictionary) -> _RESOURCE_LEASE_SCRIPT:
 	var value: Variant = GFVariantData.get_option_value(request, "legacy_operation")
 	if value is _RESOURCE_LEASE_SCRIPT:
@@ -2657,6 +3155,10 @@ func _get_preload_legacy_operation(request: Dictionary) -> _RESOURCE_LEASE_SCRIP
 	return null
 
 
+## 读取请求由场景加载流程持有的 Resource Lease。
+## [br]
+## @api private
+## [br]
 func _get_preload_load_operation(request: Dictionary) -> _RESOURCE_LEASE_SCRIPT:
 	var value: Variant = GFVariantData.get_option_value(request, "load_operation")
 	if value is _RESOURCE_LEASE_SCRIPT:
@@ -2665,26 +3167,50 @@ func _get_preload_load_operation(request: Dictionary) -> _RESOURCE_LEASE_SCRIPT:
 	return null
 
 
+## 读取请求的旧式兴趣标记；字段缺失时按 true 处理。
+## [br]
+## @api private
+## [br]
 func _preload_request_has_legacy_interest(request: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(request, "legacy_interest", true)
 
 
+## 读取请求是否被当前场景加载流程使用。
+## [br]
+## @api private
+## [br]
 func _preload_request_has_load_interest(request: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(request, "load_interest", false)
 
 
+## 读取聚合预加载请求的 cancelled 标记。
+## [br]
+## @api private
+## [br]
 func _is_preload_request_cancelled(request: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(request, "cancelled", false)
 
 
+## 读取聚合请求是否应写入固定缓存。
+## [br]
+## @api private
+## [br]
 func _is_preload_request_fixed(request: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(request, "fixed", false)
 
 
+## 读取类型化 consumer 条目的固定缓存要求。
+## [br]
+## @api private
+## [br]
 func _scene_request_entry_is_fixed(entry: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(entry, "fixed", false)
 
 
+## 把非类型化固定缓存兴趣合并到 legacy 标记，或按自动邻居代次记录到 secondary 标记。
+## [br]
+## @api private
+## [br]
 func _record_non_typed_preload_fixed_interest(
 	request: Dictionary,
 	fixed: bool,
@@ -2713,6 +3239,10 @@ func _record_non_typed_preload_fixed_interest(
 	request["secondary_auto_neighbor_fixed"] = secondary_fixed
 
 
+## 根据仍有效的 legacy、pending 类型化 consumer 与 secondary 标记重新计算并写回 fixed。
+## [br]
+## @api private
+## [br]
 func _recompute_preload_request_fixed(request: Dictionary) -> bool:
 	var fixed: bool = (
 		_preload_request_has_legacy_interest(request)
@@ -2746,38 +3276,70 @@ func _recompute_preload_request_fixed(request: Dictionary) -> bool:
 	return fixed
 
 
+## 读取请求进度；未设置时返回零。
+## [br]
+## @api private
+## [br]
 func _get_preload_request_progress(request: Dictionary) -> float:
 	return GFVariantData.get_option_float(request, "progress", 0.0)
 
 
+## 按规范化路径从指定缓存读取并类型检查 PackedScene。
+## [br]
+## @api private
+## [br]
 func _get_cached_scene(cache: Dictionary, path: String) -> PackedScene:
 	return _get_packed_scene_value(GFVariantData.get_option_value(cache, _normalize_scene_path(path)))
 
 
+## 按键读取并转换场景预加载计划路径列表。
+## [br]
+## @api private
+## [br]
 func _get_plan_paths(plan: Dictionary, key: String) -> PackedStringArray:
 	return _get_packed_string_array_value(GFVariantData.get_option_value(plan, key, PackedStringArray()))
 
 
+## 从历史条目读取场景路径。
+## [br]
+## @api private
+## [br]
 func _get_history_entry_path(entry: Dictionary) -> String:
 	return GFVariantData.get_option_string(entry, "path", "")
 
 
+## 从历史条目读取参数字典。
+## [br]
+## @api private
+## [br]
 func _get_history_entry_params(entry: Dictionary) -> Dictionary:
 	return GFVariantData.get_option_dictionary(entry, "params", {})
 
 
+## 把字符串追加到 PackedStringArray。
+## [br]
+## @api private
+## [br]
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
 		return
 
 
+## 从字典移除指定键。
+## [br]
+## @api private
+## [br]
 func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 	var erased: bool = target.erase(key)
 	if erased:
 		return
 
 
+## 通过 Resource Broker 接纳线程化资源请求；Utility 已释放或 Broker 未配置时返回 null。
+## [br]
+## @api private
+## [br]
 func _request_threaded_operation(
 	path: String,
 	type_hint: String,
@@ -2791,6 +3353,10 @@ func _request_threaded_operation(
 	return _resource_broker.request(path, type_hint, options)
 
 
+## 分配请求 ID、构造 PackedScene 资源身份并配置带弱取消委托的 GFSceneOperation。
+## [br]
+## @api private
+## [br]
 func _create_scene_operation(
 	kind: GFSceneOperation.Kind,
 	raw_path: String,
@@ -2818,6 +3384,10 @@ func _create_scene_operation(
 	return operation if configured else null
 
 
+## 以场景 consumer 类型和请求 ID 标识，向 Broker 请求 PackedScene Lease。
+## [br]
+## @api private
+## [br]
 func _request_scene_consumer_lease(
 	path: String,
 	request_id: int,
@@ -2834,6 +3404,10 @@ func _request_scene_consumer_lease(
 	)
 
 
+## 建立类型化 consumer 条目，保存 Operation、Lease、固定标记、owner 弱引用和取消令牌。
+## [br]
+## @api private
+## [br]
 func _make_typed_scene_request_entry(
 	operation: GFSceneOperation,
 	lease: _RESOURCE_LEASE_SCRIPT,
@@ -2851,6 +3425,10 @@ func _make_typed_scene_request_entry(
 	}
 
 
+## 允许空 owner；拒绝无效对象，并要求 Node owner 未排队删除。
+## [br]
+## @api private
+## [br]
 func _is_scene_request_owner_available(request_owner: Object) -> bool:
 	if request_owner == null or not is_instance_valid(request_owner):
 		return request_owner == null
@@ -2860,6 +3438,10 @@ func _is_scene_request_owner_available(request_owner: Object) -> bool:
 	return true
 
 
+## 通过 owner 弱引用及实例 ID 判断锚点是否销毁或 Node 是否排队删除。
+## [br]
+## @api private
+## [br]
 func _scene_request_entry_owner_released(entry: Dictionary) -> bool:
 	var owner_id: int = GFVariantData.get_option_int(entry, "owner_id", 0)
 	if owner_id == 0:
@@ -2879,6 +3461,10 @@ func _scene_request_entry_owner_released(entry: Dictionary) -> bool:
 	return false
 
 
+## 检查 consumer 条目绑定的取消令牌是否请求取消。
+## [br]
+## @api private
+## [br]
 func _scene_request_entry_token_cancelled(entry: Dictionary) -> bool:
 	var cancellation_token: GFCancellationToken = (
 		_get_cancellation_token_from_entry(entry)
@@ -2889,6 +3475,10 @@ func _scene_request_entry_token_cancelled(entry: Dictionary) -> bool:
 	)
 
 
+## 为 pending Operation 构造并冻结匹配请求身份的终态结果。
+## [br]
+## @api private
+## [br]
 func _settle_scene_operation(
 	operation: GFSceneOperation,
 	status: GFSceneOperationResult.Status,
@@ -2916,6 +3506,10 @@ func _settle_scene_operation(
 	return operation.complete_for_framework(result, should_emit_signal)
 
 
+## 按当前请求 ID 在活动加载或预加载 consumer 中查找并取消对应 Operation。
+## [br]
+## @api private
+## [br]
 func _cancel_scene_operation(operation: GFSceneOperation) -> bool:
 	if operation == null or not operation.is_pending() or _disposed:
 		return false
@@ -2950,6 +3544,10 @@ func _cancel_scene_operation(operation: GFSceneOperation) -> bool:
 	return false
 
 
+## 冻结并清除活动类型化加载请求，分离预加载兴趣或取消 Broker Lease，并在仍当前时失败结束加载。
+## [br]
+## @api private
+## [br]
 func _cancel_active_typed_load_request(
 	operation: GFSceneOperation,
 	reason: StringName
@@ -2992,6 +3590,10 @@ func _cancel_active_typed_load_request(
 	return true
 
 
+## 移除指定预加载 consumer、取消其 Lease；无剩余兴趣时取消聚合请求并通知。
+## [br]
+## @api private
+## [br]
 func _cancel_typed_preload_consumer(
 	path: String,
 	request: Dictionary,
@@ -3037,6 +3639,10 @@ func _cancel_typed_preload_consumer(
 	return true
 
 
+## 轮询活动加载和预加载 consumers 的令牌与 owner，取消已失效的请求。
+## [br]
+## @api private
+## [br]
 func _poll_typed_scene_request_lifetimes() -> void:
 	if _disposed:
 		return
@@ -3095,6 +3701,10 @@ func _poll_typed_scene_request_lifetimes() -> void:
 				)
 
 
+## 把活动场景加载加入指定预加载请求；必要时向 Broker 新增 Lease，并核对调用期间请求代次。
+## [br]
+## @api private
+## [br]
 func _attach_preload_load_interest(path: String) -> Error:
 	if not _preload_requests.has(path):
 		return ERR_DOES_NOT_EXIST
@@ -3163,6 +3773,10 @@ func _attach_preload_load_interest(path: String) -> Error:
 	return OK
 
 
+## 移除活动加载对预加载请求的兴趣，取消对应 Lease；没有其它兴趣时终止聚合请求。
+## [br]
+## @api private
+## [br]
 func _detach_preload_load_interest(
 	path: String,
 	reason: StringName,
@@ -3197,6 +3811,10 @@ func _detach_preload_load_interest(
 	scene_preload_cancelled.emit(path)
 
 
+## 检查请求是否仍有 legacy、load、pending 类型化 consumer 或活动 secondary Lease。
+## [br]
+## @api private
+## [br]
 func _preload_request_has_live_interest(request: Dictionary) -> bool:
 	if _preload_request_has_legacy_interest(request):
 		return true
@@ -3224,6 +3842,10 @@ func _preload_request_has_live_interest(request: Dictionary) -> bool:
 	return false
 
 
+## 从未排除且未释放的候选 Lease 中选出活动或终态代表写入 operation。
+## [br]
+## @api private
+## [br]
 func _promote_preload_request_operation(
 	request: Dictionary,
 	excluded_lease: _RESOURCE_LEASE_SCRIPT
@@ -3276,6 +3898,10 @@ func _promote_preload_request_operation(
 		return
 
 
+## 取消请求中的聚合、legacy、load、类型化 consumer 和 secondary Lease。
+## [br]
+## @api private
+## [br]
 func _cancel_all_preload_request_leases(
 	request: Dictionary,
 	reason: StringName
@@ -3290,6 +3916,10 @@ func _cancel_all_preload_request_leases(
 	_cancel_secondary_auto_neighbor_leases(request, reason)
 
 
+## 释放请求中的各类 Lease，并释放 secondary 自动邻居 Lease。
+## [br]
+## @api private
+## [br]
 func _forget_all_preload_request_leases(request: Dictionary) -> void:
 	_forget_threaded_operation(_get_preload_request_operation(request))
 	_forget_threaded_operation(_get_preload_legacy_operation(request))
@@ -3301,6 +3931,10 @@ func _forget_all_preload_request_leases(request: Dictionary) -> void:
 	_release_secondary_auto_neighbor_leases(request)
 
 
+## 把进度更新发送给请求中仍存在的类型化 Operation。
+## [br]
+## @api private
+## [br]
 func _update_typed_preload_progress(request: Dictionary, progress: float) -> void:
 	for value: Variant in _get_typed_preload_consumers(request).values():
 		if value is Dictionary:
@@ -3310,6 +3944,10 @@ func _update_typed_preload_progress(request: Dictionary, progress: float) -> voi
 				var _updated: bool = operation.update_progress_for_framework(progress)
 
 
+## 为所有 pending 类型化 consumer 冻结相同终态，并返回成功结算的 Operation。
+## [br]
+## @api private
+## [br]
 func _freeze_typed_preload_consumers(
 	request: Dictionary,
 	status: GFSceneOperationResult.Status,
@@ -3337,6 +3975,10 @@ func _freeze_typed_preload_consumers(
 	return operations
 
 
+## 冻结活动类型化加载 Operation，并在成功后清空活动请求字典。
+## [br]
+## @api private
+## [br]
 func _freeze_active_typed_load(
 	status: GFSceneOperationResult.Status,
 	scene: PackedScene,
@@ -3361,6 +4003,10 @@ func _freeze_active_typed_load(
 	return operation
 
 
+## 将活动加载和所有 pending 预加载 consumers 冻结为 DISPOSED 终态并返回待通知列表。
+## [br]
+## @api private
+## [br]
 func _freeze_typed_scene_operations_for_dispose() -> Array[GFSceneOperation]:
 	var operations: Array[GFSceneOperation] = []
 	var active_operation: GFSceneOperation = (
@@ -3394,27 +4040,47 @@ func _freeze_typed_scene_operations_for_dispose() -> Array[GFSceneOperation]:
 	return operations
 
 
+## 委托 Resource Broker 轮询 Lease；Broker 缺失时返回未配置结果。
+## [br]
+## @api private
+## [br]
 func _poll_threaded_operation(operation: _RESOURCE_LEASE_SCRIPT) -> Dictionary:
 	if _resource_broker == null:
 		return _make_missing_resource_broker_result()
 	return _resource_broker.poll_lease(operation)
 
 
+## 存在 Lease 时向 Broker 请求取消。
+## [br]
+## @api private
+## [br]
 func _cancel_threaded_operation(operation: _RESOURCE_LEASE_SCRIPT, reason: StringName) -> void:
 	if operation != null:
 		operation.cancel(reason)
 
 
+## 存在 Lease 时释放 Utility 对该 Lease 的引用。
+## [br]
+## @api private
+## [br]
 func _forget_threaded_operation(operation: _RESOURCE_LEASE_SCRIPT) -> void:
 	if operation != null:
 		operation.release()
 
 
+## 存在 Resource Broker 时驱动其 pump 清理已取消请求。
+## [br]
+## @api private
+## [br]
 func _drain_cancelled_threaded_operations() -> void:
 	if _resource_broker != null:
 		_resource_broker.pump()
 
 
+## 构造 Broker 未配置时使用的失败状态字典。
+## [br]
+## @api private
+## [br]
 func _make_missing_resource_broker_result() -> Dictionary:
 	return {
 		"status": _RESOURCE_LEASE_SCRIPT.STATUS_FAILED,
@@ -3426,6 +4092,10 @@ func _make_missing_resource_broker_result() -> Dictionary:
 	}
 
 
+## 将 Broker 取消原因映射到 GFSceneOperationResult 的闭合原因集合。
+## [br]
+## @api private
+## [br]
 func _scene_operation_cancel_reason_from_broker(result: Dictionary) -> StringName:
 	var cancel_reason: StringName = GFVariantData.get_option_string_name(
 		result,
@@ -3448,6 +4118,10 @@ func _scene_operation_cancel_reason_from_broker(result: Dictionary) -> StringNam
 			return GFSceneOperationResult.REASON_BROKER_CANCELLED
 
 
+## 返回 Broker 调试快照；未配置时构造包含错误与 disposed 状态的快照。
+## [br]
+## @api private
+## [br]
 func _get_resource_broker_debug_snapshot() -> Dictionary:
 	if _resource_broker == null:
 		return {
@@ -3464,6 +4138,10 @@ func _get_resource_broker_debug_snapshot() -> Dictionary:
 	return snapshot
 
 
+## Architecture 存在指定方法时以 Script 参数调用该方法。
+## [br]
+## @api private
+## [br]
 func _call_architecture_method(architecture: Object, method_name: StringName, script_cls: Script) -> void:
 	if architecture == null or not architecture.has_method(method_name):
 		return
@@ -3472,6 +4150,10 @@ func _call_architecture_method(architecture: Object, method_name: StringName, sc
 		return
 
 
+## 通过 Architecture.get_utility(GFTimeUtility) 读取并类型检查时间工具。
+## [br]
+## @api private
+## [br]
 func _get_time_utility(architecture: Object) -> GFTimeUtility:
 	if architecture == null or not architecture.has_method(&"get_utility"):
 		return null
@@ -3481,10 +4163,18 @@ func _get_time_utility(architecture: Object) -> GFTimeUtility:
 	return null
 
 
+## 负数半径回退到 scene_preload_map_radius，其它值原样返回。
+## [br]
+## @api private
+## [br]
 func _resolve_scene_preload_map_radius(radius: int) -> int:
 	return scene_preload_map_radius if radius < 0 else radius
 
 
+## 取消旧计划，并为启用的图谱预加载注册一次性 scene_changed 回调。
+## [br]
+## @api private
+## [br]
 func _prepare_scene_map_after_switch(path: String) -> int:
 	_cancel_auto_neighbor_plan(&"new_target_scene")
 	if not auto_preload_map_neighbors_on_switch or scene_preload_map == null:
@@ -3511,21 +4201,12 @@ func _prepare_scene_map_after_switch(path: String) -> int:
 	return generation
 
 
-func _on_auto_neighbor_scene_changed(
-	generation: int,
-	target_path: String
-) -> void:
-	var scene_tree: SceneTree = _auto_neighbor_scene_tree
-	_disconnect_auto_neighbor_scene_changed()
-	if generation != _auto_neighbor_generation:
-		return
-	var scene_root: Node = scene_tree.current_scene if scene_tree != null else null
-	if not _scene_root_matches_target(scene_root, target_path):
-		_cancel_auto_neighbor_plan(&"unexpected_scene_changed")
-		return
-	_start_auto_neighbor_settle(generation, target_path)
 
 
+## 为当前自动邻居代次注册一次性下一帧回调。
+## [br]
+## @api private
+## [br]
 func _start_auto_neighbor_settle(
 	generation: int,
 	target_path: String
@@ -3548,73 +4229,14 @@ func _start_auto_neighbor_settle(
 	_auto_neighbor_process_frame_callback = callback
 
 
-func _on_auto_neighbor_process_frame(
-	generation: int,
-	target_path: String
-) -> void:
-	_disconnect_auto_neighbor_process_frame()
-	if generation != _auto_neighbor_generation:
-		return
-
-	if DisplayServer.get_name().to_lower() == "headless":
-		var scene_tree: SceneTree = _get_scene_tree_value(Engine.get_main_loop())
-		if scene_tree == null:
-			return
-		var timer: SceneTreeTimer = scene_tree.create_timer(0.0)
-		var timer_callback: Callable = Callable(
-			self,
-			"_on_auto_neighbor_settle_completed"
-		).bind(generation, target_path)
-		var timer_connect_error: Error = timer.timeout.connect(
-			timer_callback,
-			CONNECT_ONE_SHOT as Object.ConnectFlags
-		) as Error
-		if timer_connect_error != OK:
-			_cancel_auto_neighbor_plan(&"timer_settle_connect_failed")
-			return
-		_auto_neighbor_settle_timer = timer
-		_auto_neighbor_timer_callback = timer_callback
-	else:
-		var render_callback: Callable = Callable(
-			self,
-			"_on_auto_neighbor_settle_completed"
-		).bind(generation, target_path)
-		var render_connect_error: Error = RenderingServer.frame_post_draw.connect(
-			render_callback,
-			CONNECT_ONE_SHOT as Object.ConnectFlags
-		) as Error
-		if render_connect_error != OK:
-			_cancel_auto_neighbor_plan(&"render_settle_connect_failed")
-			return
-		_auto_neighbor_render_callback = render_callback
 
 
-func _on_auto_neighbor_settle_completed(
-	generation: int,
-	target_path: String
-) -> void:
-	_disconnect_auto_neighbor_render_settle()
-	_disconnect_auto_neighbor_timer_settle()
-	if generation != _auto_neighbor_generation:
-		return
-	if not auto_preload_map_neighbors_on_switch or scene_preload_map == null:
-		return
-
-	var result: Dictionary = _preload_scene_map_with_admission(
-		target_path,
-		scene_preload_map_radius,
-		true,
-		{
-			"exclusive": true,
-			"require_idle": true,
-			"consumer_id": &"scene_auto_neighbor",
-		},
-		generation
-	)
-	if not result.is_empty():
-		return
 
 
+## 断开所有阶段回调、递增计划代次并取消相关自动邻居请求。
+## [br]
+## @api private
+## [br]
 func _cancel_auto_neighbor_plan(reason: StringName) -> void:
 	_disconnect_auto_neighbor_scene_changed()
 	_disconnect_auto_neighbor_process_frame()
@@ -3626,6 +4248,10 @@ func _cancel_auto_neighbor_plan(reason: StringName) -> void:
 	_cancel_auto_neighbor_requests(reason)
 
 
+## 断开 scene_changed 回调并清空其 SceneTree 与 Callable 状态。
+## [br]
+## @api private
+## [br]
 func _disconnect_auto_neighbor_scene_changed() -> void:
 	if (
 		_auto_neighbor_scene_tree != null
@@ -3641,6 +4267,10 @@ func _disconnect_auto_neighbor_scene_changed() -> void:
 	_auto_neighbor_scene_changed_callback = Callable()
 
 
+## 断开 process_frame 回调并清空其 SceneTree 与 Callable 状态。
+## [br]
+## @api private
+## [br]
 func _disconnect_auto_neighbor_process_frame() -> void:
 	if (
 		_auto_neighbor_process_frame_scene_tree != null
@@ -3656,6 +4286,10 @@ func _disconnect_auto_neighbor_process_frame() -> void:
 	_auto_neighbor_process_frame_callback = Callable()
 
 
+## 断开 frame_post_draw 回调并清空 Callable。
+## [br]
+## @api private
+## [br]
 func _disconnect_auto_neighbor_render_settle() -> void:
 	if (
 		_auto_neighbor_render_callback.is_valid()
@@ -3669,6 +4303,10 @@ func _disconnect_auto_neighbor_render_settle() -> void:
 	_auto_neighbor_render_callback = Callable()
 
 
+## 断开 timeout 回调并清空 timer 与 Callable。
+## [br]
+## @api private
+## [br]
 func _disconnect_auto_neighbor_timer_settle() -> void:
 	if (
 		_auto_neighbor_settle_timer != null
@@ -3684,6 +4322,10 @@ func _disconnect_auto_neighbor_timer_settle() -> void:
 	_auto_neighbor_timer_callback = Callable()
 
 
+## 取消当前预加载请求中的自动邻居兴趣；保留仍有其它有效兴趣的请求。
+## [br]
+## @api private
+## [br]
 func _cancel_auto_neighbor_requests(reason: StringName) -> void:
 	var paths: Array = _preload_requests.keys()
 	for path: String in paths:
@@ -3715,6 +4357,10 @@ func _cancel_auto_neighbor_requests(reason: StringName) -> void:
 		scene_preload_cancelled.emit(path)
 
 
+## 清除 secondary 自动邻居兴趣，重算固定标记，并取消相应 Lease。
+## [br]
+## @api private
+## [br]
 func _cancel_secondary_auto_neighbor_leases(
 	request: Dictionary,
 	reason: StringName
@@ -3738,6 +4384,10 @@ func _cancel_secondary_auto_neighbor_leases(
 		lease.cancel(reason)
 
 
+## 释放请求中的全部 secondary 自动邻居 Lease 并清空其固定标记。
+## [br]
+## @api private
+## [br]
 func _release_secondary_auto_neighbor_leases(request: Dictionary) -> void:
 	var leases: Dictionary = GFVariantData.get_option_dictionary(
 		request,
@@ -3751,6 +4401,10 @@ func _release_secondary_auto_neighbor_leases(request: Dictionary) -> void:
 	request["secondary_auto_neighbor_fixed"] = {}
 
 
+## 比较当前场景根和目标路径的 PackedScene 资源身份缓存键。
+## [br]
+## @api private
+## [br]
 func _scene_root_matches_target(scene_root: Node, target_path: String) -> bool:
 	if scene_root == null:
 		return false
@@ -3772,6 +4426,10 @@ func _scene_root_matches_target(scene_root: Node, target_path: String) -> bool:
 	)
 
 
+## 按图谱计划依次接纳固定与临时场景预加载，并返回路径结果、错误及原计划。
+## [br]
+## @api private
+## [br]
 func _preload_scene_map_with_admission(
 	path: String,
 	radius: int,
@@ -3849,6 +4507,10 @@ func _preload_scene_map_with_admission(
 	}
 
 
+## 校验单个场景路径、复用缓存或聚合请求，必要时向 Broker 接纳预加载 Lease。
+## [br]
+## @api private
+## [br]
 func _preload_scene_with_admission(
 	path: String,
 	fixed: bool,
@@ -4014,6 +4676,10 @@ func _preload_scene_with_admission(
 	return OK
 
 
+## 先按指定接纳约束请求资源；自动邻居计划遇到相应活动约束时放宽条件后重试。
+## [br]
+## @api private
+## [br]
 func _request_preload_operation_with_admission(
 	scene_path: String,
 	admission_options: Dictionary,
@@ -4058,6 +4724,10 @@ func _request_preload_operation_with_admission(
 	return _request_threaded_operation(scene_path, join_type_hint, join_options)
 
 
+## 把 Lease 合入 legacy 或指定自动邻居兴趣，并重算 fixed；重复兴趣会取消冗余 Lease。
+## [br]
+## @api private
+## [br]
 func _adopt_preload_operation(
 	scene_path: String,
 	request: Dictionary,
@@ -4124,6 +4794,10 @@ func _adopt_preload_operation(
 	return OK
 
 
+## 向已有请求增加 legacy 或 secondary 自动邻居兴趣，并在调用回入后核对请求代次。
+## [br]
+## @api private
+## [br]
 func _merge_preload_interest(
 	scene_path: String,
 	admission_options: Dictionary,
@@ -4211,6 +4885,10 @@ func _merge_preload_interest(
 	return OK
 
 
+## 检查 Utility、计划代次及图谱策略仍允许本代次继续。
+## [br]
+## @api private
+## [br]
 func _is_auto_neighbor_generation_current(generation: int) -> bool:
 	if generation <= 0:
 		return not _disposed
@@ -4222,6 +4900,10 @@ func _is_auto_neighbor_generation_current(generation: int) -> bool:
 	)
 
 
+## 构造图谱未配置时的空计划、资源身份和错误结果。
+## [br]
+## @api private
+## [br]
 func _make_missing_scene_preload_map_result(path: String, radius: int, include_fixed: bool) -> Dictionary:
 	var source_identity: GFResourceIdentity = GFResourceIdentity.from_path(path, &"", "PackedScene", { "check_exists": false })
 	var source_path: String = source_identity.canonical_path if not source_identity.canonical_path.is_empty() else source_identity.raw_path
@@ -4252,6 +4934,10 @@ func _make_missing_scene_preload_map_result(path: String, radius: int, include_f
 	}
 
 
+## 构造一个固定或临时路径的预加载错误条目。
+## [br]
+## @api private
+## [br]
 func _make_scene_preload_map_error(path: String, error: Error, fixed: bool) -> Dictionary:
 	return {
 		"kind": "preload_failed",
@@ -4261,6 +4947,10 @@ func _make_scene_preload_map_error(path: String, error: Error, fixed: bool) -> D
 	}
 
 
+## 轮询当前活动资源加载，转发进度并处理 PackedScene 校验、缓存和加载终态。
+## [br]
+## @api private
+## [br]
 func _poll_active_scene_load() -> void:
 	if (
 		not _is_loading
@@ -4397,6 +5087,10 @@ func _poll_active_scene_load() -> void:
 				)
 
 
+## 轮询复用预加载请求的活动切换，检查请求代次、缓存状态并推进或终结切换。
+## [br]
+## @api private
+## [br]
 func _poll_active_preload_scene() -> void:
 	var loaded_path: String = _target_path
 	var load_generation: int = _active_load_generation
@@ -4478,6 +5172,10 @@ func _poll_active_preload_scene() -> void:
 	_emit_scene_load_progress(_target_path, _get_preload_request_progress(request))
 
 
+## 轮询聚合预加载 Lease，更新各 consumer 进度，并处理成功缓存、资源错误、取消与通知。
+## [br]
+## @api private
+## [br]
 func _poll_preload_requests(only_path: String = "") -> void:
 	if _preload_requests.is_empty():
 		return
@@ -4780,6 +5478,10 @@ func _poll_preload_requests(only_path: String = "") -> void:
 					)
 
 
+## 初始化一代场景切换状态、缓存策略、时间参数和当前场景快照，并暂停游戏。
+## [br]
+## @api private
+## [br]
 func _begin_loading_state(
 	path: String,
 	loading_scene_path: String,
@@ -4815,6 +5517,10 @@ func _begin_loading_state(
 	return load_generation
 
 
+## 规范化并验证可选 loading scene 路径；无效时警告并返回空路径。
+## [br]
+## @api private
+## [br]
 func _resolve_loading_scene_path(loading_scene_path: String) -> String:
 	var scene_path: String = _normalize_scene_path(loading_scene_path)
 	if scene_path.is_empty():
@@ -4830,6 +5536,10 @@ func _resolve_loading_scene_path(loading_scene_path: String) -> String:
 	return scene_path
 
 
+## 有有效 loading scene 且当前场景路径可恢复时排队显示它。
+## [br]
+## @api private
+## [br]
 func _show_loading_scene_if_needed() -> void:
 	if _loading_scene_path.is_empty():
 		return
@@ -4841,6 +5551,10 @@ func _show_loading_scene_if_needed() -> void:
 	_queue_scene_change(_SCENE_CHANGE_LOADING, _loading_scene_path)
 
 
+## 执行 loading scene 同步切换，发送显示、淡入通知并检查活动加载仍有效。
+## [br]
+## @api private
+## [br]
 func _apply_loading_scene_change(path: String) -> void:
 	if not _is_loading or _loading_scene_path != path:
 		return
@@ -4882,6 +5596,10 @@ func _apply_loading_scene_change(path: String) -> void:
 		return
 
 
+## 限制并保存进度，更新类型化 Operation，发出进度信号并调用 loading scene 方法。
+## [br]
+## @api private
+## [br]
 func _emit_scene_load_progress(path: String, progress: float) -> void:
 	var load_generation: int = _active_load_generation
 	var typed_request_id: int = _get_active_typed_load_request_id()
@@ -4927,6 +5645,10 @@ func _emit_scene_load_progress(path: String, progress: float) -> void:
 			return
 
 
+## 至多一次调用 loading scene 淡出方法并发送隐藏信号。
+## [br]
+## @api private
+## [br]
 func _notify_loading_scene_exit_if_needed() -> void:
 	if not _is_showing_loading_scene or _loading_scene_exit_notified:
 		return
@@ -4958,6 +5680,10 @@ func _notify_loading_scene_exit_if_needed() -> void:
 	loading_scene_hidden.emit(loading_scene_path)
 
 
+## 优先调用配置的进度方法；缺失时调用回退方法。
+## [br]
+## @api private
+## [br]
 func _call_loading_scene_progress_method(progress: float) -> void:
 	if not _is_showing_loading_scene:
 		return
@@ -4972,6 +5698,10 @@ func _call_loading_scene_progress_method(progress: float) -> void:
 		loading_scene.call(loading_screen_progress_fallback_method, progress)
 
 
+## loading scene 节点实现指定方法时调用它。
+## [br]
+## @api private
+## [br]
 func _call_loading_scene_optional_method(method_name: StringName) -> void:
 	if method_name == &"":
 		return
@@ -4981,6 +5711,10 @@ func _call_loading_scene_optional_method(method_name: StringName) -> void:
 		loading_scene.call(method_name)
 
 
+## loading scene 节点实现错误显示方法时传入错误文本。
+## [br]
+## @api private
+## [br]
 func _call_loading_scene_error_method(message: String) -> void:
 	if loading_screen_error_method == &"":
 		return
@@ -4990,6 +5724,10 @@ func _call_loading_scene_error_method(message: String) -> void:
 		loading_scene.call(loading_screen_error_method, message)
 
 
+## 保存已加载场景和路径，并尝试完成等待中的切换流程。
+## [br]
+## @api private
+## [br]
 func _schedule_complete_loading(path: String, scene: PackedScene) -> void:
 	_pending_loaded_path = path
 	_pending_loaded_scene = scene
@@ -4998,6 +5736,10 @@ func _schedule_complete_loading(path: String, scene: PackedScene) -> void:
 		return
 
 
+## 有等待场景、没有其它排队切换且最短显示时间已满足时开始目标切换。
+## [br]
+## @api private
+## [br]
 func _complete_pending_scene_if_ready() -> bool:
 	if _pending_loaded_scene == null:
 		return false
@@ -5014,6 +5756,10 @@ func _complete_pending_scene_if_ready() -> bool:
 	return true
 
 
+## 按单次切换最短时间和开始时钟判断等待是否结束。
+## [br]
+## @api private
+## [br]
 func _is_transition_minimum_elapsed() -> bool:
 	if _active_transition_minimum_seconds <= 0.0:
 		return true
@@ -5021,10 +5767,18 @@ func _is_transition_minimum_elapsed() -> bool:
 	return elapsed_seconds >= _active_transition_minimum_seconds
 
 
+## 排队执行到目标场景的切换。
+## [br]
+## @api private
+## [br]
 func _complete_loading(path: String, scene: PackedScene) -> void:
 	_queue_scene_change(_SCENE_CHANGE_TARGET, path, scene)
 
 
+## 准备目标提交观察、执行场景切换并在失败或上下文失效时清理观察状态。
+## [br]
+## @api private
+## [br]
 func _apply_target_scene_change(path: String, scene: PackedScene) -> void:
 	if not _is_loading or _target_path != path:
 		return
@@ -5144,6 +5898,10 @@ func _apply_target_scene_change(path: String, scene: PackedScene) -> void:
 		_fail_target_scene_change(path, auto_neighbor_generation)
 
 
+## 为目标切换安装一次性 scene_changed 观察器并快照本次提交上下文。
+## [br]
+## @api private
+## [br]
 func _begin_target_scene_commit_observation(
 	path: String,
 	scene: PackedScene,
@@ -5190,6 +5948,860 @@ func _begin_target_scene_commit_observation(
 	return generation
 
 
+
+
+## 要求根节点已替换，并按已证明的弱引用或资源路径身份核对目标根。
+## [br]
+## @api private
+## [br]
+func _scene_root_matches_target_commit(
+	scene_root: Node,
+	target_path: String,
+	_target_scene: PackedScene,
+	previous_root_instance_id: int,
+	proven_root_ref: WeakRef
+) -> bool:
+	if not _scene_root_replaced_since_target_commit(
+		scene_root,
+		previous_root_instance_id
+	):
+		return false
+	if proven_root_ref != null:
+		return _weak_ref_matches_node(proven_root_ref, scene_root)
+	return _scene_root_matches_target(scene_root, target_path)
+
+
+## 要求根节点已替换，且根路径匹配目标；无资源路径 PackedScene 可按空路径条件确认。
+## [br]
+## @api private
+## [br]
+func _scene_root_can_confirm_target_commit(
+	scene_root: Node,
+	target_path: String,
+	target_scene: PackedScene,
+	previous_root_instance_id: int
+) -> bool:
+	if not _scene_root_replaced_since_target_commit(
+		scene_root,
+		previous_root_instance_id
+	):
+		return false
+	if _scene_root_matches_target(scene_root, target_path):
+		return true
+	return (
+		scene_root != null
+		and scene_root.scene_file_path.is_empty()
+		and target_scene != null
+		and target_scene.resource_path.is_empty()
+	)
+
+
+## 检查当前根节点实例 ID 是否不同于观察开始前的根。
+## [br]
+## @api private
+## [br]
+func _target_scene_commit_root_was_replaced() -> bool:
+	var scene_tree: SceneTree = _target_scene_commit_tree
+	var scene_root: Node = scene_tree.current_scene if scene_tree != null else null
+	return _scene_root_replaced_since_target_commit(
+		scene_root,
+		_target_scene_commit_previous_root_instance_id
+	)
+
+
+## 检查根节点实例未变且其资源身份仍匹配目标路径。
+## [br]
+## @api private
+## [br]
+func _target_scene_commit_is_unchanged_matching_root() -> bool:
+	var scene_tree: SceneTree = _target_scene_commit_tree
+	var scene_root: Node = scene_tree.current_scene if scene_tree != null else null
+	return (
+		scene_root != null
+		and scene_root.get_instance_id()
+		== _target_scene_commit_previous_root_instance_id
+		and _scene_root_matches_target(
+			scene_root,
+			_target_scene_commit_path
+		)
+	)
+
+
+## 判断当前非空场景根实例 ID 是否已更换。
+## [br]
+## @api private
+## [br]
+func _scene_root_replaced_since_target_commit(
+	scene_root: Node,
+	previous_root_instance_id: int
+) -> bool:
+	return (
+		scene_root != null
+		and scene_root.get_instance_id() != previous_root_instance_id
+	)
+
+
+## 检查 WeakRef 当前引用的对象是否正是指定 Node。
+## [br]
+## @api private
+## [br]
+func _weak_ref_matches_node(root_ref: WeakRef, node: Node) -> bool:
+	if root_ref == null or node == null:
+		return false
+	var referenced_value: Variant = root_ref.get_ref()
+	return referenced_value is Node and referenced_value == node
+
+
+## 检查 Variant 是有效且未排队删除的 Node。
+## [br]
+## @api private
+## [br]
+func _uncommitted_scene_root_is_live(root_value: Variant) -> bool:
+	if typeof(root_value) != TYPE_OBJECT or not is_instance_valid(root_value):
+		return false
+	if not root_value is Node:
+		return false
+	var scene_root: Node = root_value
+	return not scene_root.is_queued_for_deletion()
+
+
+## 只释放仍在树外的有效 Node 实例。
+## [br]
+## @api private
+## [br]
+func _free_uncommitted_scene_root(root_value: Variant) -> void:
+	if typeof(root_value) != TYPE_OBJECT or not is_instance_valid(root_value):
+		return
+	if not root_value is Node:
+		return
+	var scene_root: Node = root_value
+	if scene_root.is_inside_tree():
+		return
+	scene_root.free()
+
+
+## 目标场景已变化但请求提交被取消或失效时，恢复场景参数、历史、暂停及 loading 状态。
+## [br]
+## @api private
+## [br]
+func _reconcile_suppressed_target_scene_commit(
+	path: String,
+	load_generation: int,
+	previous_path: String,
+	transition_params: Dictionary,
+	previous_params: Dictionary,
+	pending_history_path: String,
+	previous_pause_state: bool
+) -> void:
+	if _disposed:
+		return
+	# cancellation 在 loading scene 上可能已排队恢复上一场景；最终内部状态由 restore 收敛。
+	if _pending_scene_change_kind == _SCENE_CHANGE_RESTORE:
+		return
+	if pending_history_path == path:
+		_pending_previous_history_path = pending_history_path
+		_consume_pending_previous_history(path)
+	_push_scene_history(previous_path, previous_params)
+	_current_scene_params = transition_params.duplicate(true)
+	_erase_dictionary_key(_background_scene_params, path)
+	_set_paused(previous_pause_state)
+	if (
+		_is_loading
+		and _target_path == path
+		and _active_load_generation == load_generation
+	):
+		_reset_loading_state()
+
+
+## 冻结成功结果、更新历史与场景参数、恢复暂停并发布切换终态信号。
+## [br]
+## @api private
+## [br]
+func _complete_target_scene_commit(
+	path: String,
+	scene: PackedScene,
+	previous_path: String,
+	load_generation: int,
+	typed_request_id: int,
+	transition_params: Dictionary,
+	previous_params: Dictionary,
+	pending_history_path: String,
+	previous_pause_state: bool
+) -> void:
+	if _active_loading_progress < 1.0:
+		_emit_scene_load_progress(path, 1.0)
+	if _disposed:
+		return
+	if not _active_scene_load_context_is_current(
+		path,
+		load_generation,
+		typed_request_id
+	):
+		_reconcile_suppressed_target_scene_commit(
+			path,
+			load_generation,
+			previous_path,
+			transition_params,
+			previous_params,
+			pending_history_path,
+			previous_pause_state
+		)
+		return
+	var completed_operation: GFSceneOperation = null
+	if typed_request_id > 0:
+		var active_operation: GFSceneOperation = (
+			_get_scene_operation_from_entry(_active_typed_load_request)
+		)
+		if (
+			active_operation == null
+			or active_operation.get_request_id() != typed_request_id
+			or not active_operation.is_pending()
+		):
+			_reconcile_suppressed_target_scene_commit(
+				path,
+				load_generation,
+				previous_path,
+				transition_params,
+				previous_params,
+				pending_history_path,
+				previous_pause_state
+			)
+			return
+		if _scene_request_entry_token_cancelled(_active_typed_load_request):
+			var _token_cancelled: bool = _cancel_active_typed_load_request(
+				active_operation,
+				GFSceneOperationResult.REASON_TOKEN_CANCELLED
+			)
+			_reconcile_suppressed_target_scene_commit(
+				path,
+				load_generation,
+				previous_path,
+				transition_params,
+				previous_params,
+				pending_history_path,
+				previous_pause_state
+			)
+			return
+		if _scene_request_entry_owner_released(_active_typed_load_request):
+			var _owner_cancelled: bool = _cancel_active_typed_load_request(
+				active_operation,
+				GFSceneOperationResult.REASON_OWNER_RELEASED
+			)
+			_reconcile_suppressed_target_scene_commit(
+				path,
+				load_generation,
+				previous_path,
+				transition_params,
+				previous_params,
+				pending_history_path,
+				previous_pause_state
+			)
+			return
+		completed_operation = _freeze_active_typed_load(
+			GFSceneOperationResult.Status.COMPLETED,
+			scene,
+			GFSceneOperationResult.REASON_SCENE_LOADED,
+			OK
+		)
+		if completed_operation == null:
+			_reconcile_suppressed_target_scene_commit(
+				path,
+				load_generation,
+				previous_path,
+				transition_params,
+				previous_params,
+				pending_history_path,
+				previous_pause_state
+			)
+			return
+	var completed_pause_state: bool = _previous_pause_state
+	_is_showing_loading_scene = false
+	_consume_pending_previous_history(path)
+	_push_scene_history(previous_path, _current_scene_params)
+	_current_scene_params = _active_transition_params.duplicate(true)
+	_erase_dictionary_key(_background_scene_params, path)
+	_set_paused(completed_pause_state)
+	_reset_loading_state()
+	# 物理 commit 与内部状态已冻结；以下只发布旧、新 API 的不可撤销终态通知。
+	scene_load_completed.emit(path, scene)
+	scene_switch_completed.emit(path, previous_path)
+	if completed_operation != null:
+		var _completed_emitted: bool = (
+			completed_operation.emit_completed_for_framework()
+		)
+
+
+## 冻结类型化加载失败、取消对应自动邻居计划并结束场景切换。
+## [br]
+## @api private
+## [br]
+func _fail_target_scene_change(
+	path: String,
+	auto_neighbor_generation: int
+) -> void:
+	var failed_operation: GFSceneOperation = _freeze_active_typed_load(
+		GFSceneOperationResult.Status.FAILED,
+		null,
+		GFSceneOperationResult.REASON_SCENE_CHANGE_FAILED,
+		ERR_CANT_CREATE
+	)
+	if auto_neighbor_generation == _auto_neighbor_generation:
+		_cancel_auto_neighbor_plan(&"target_scene_change_failed")
+	_fail_loading(path, "")
+	if failed_operation != null:
+		var _failed_emitted: bool = failed_operation.emit_completed_for_framework()
+
+
+## 检查提交观察的 SceneTree、有效回调和目标路径均已保存。
+## [br]
+## @api private
+## [br]
+func _has_pending_target_scene_commit() -> bool:
+	return (
+		_target_scene_commit_tree != null
+		and _target_scene_commit_callback.is_valid()
+		and not _target_scene_commit_path.is_empty()
+	)
+
+
+## 断开 scene_changed 观察器，按需使代次失效并清空提交快照。
+## [br]
+## @api private
+## [br]
+func _disconnect_target_scene_commit_observation(invalidate_generation: bool) -> void:
+	if (
+		_target_scene_commit_tree != null
+		and _target_scene_commit_callback.is_valid()
+		and _target_scene_commit_tree.scene_changed.is_connected(
+			_target_scene_commit_callback
+		)
+	):
+		_target_scene_commit_tree.scene_changed.disconnect(
+			_target_scene_commit_callback
+		)
+	if invalidate_generation:
+		_target_scene_commit_generation += 1
+		if _target_scene_commit_generation <= 0:
+			_target_scene_commit_generation = 1
+	_target_scene_commit_tree = null
+	_target_scene_commit_callback = Callable()
+	_target_scene_commit_path = ""
+	_target_scene_commit_scene = null
+	_target_scene_commit_previous_path = ""
+	_target_scene_commit_auto_neighbor_generation = 0
+	_target_scene_commit_load_generation = 0
+	_target_scene_commit_typed_request_id = 0
+	_target_scene_commit_transition_params.clear()
+	_target_scene_commit_previous_params.clear()
+	_target_scene_commit_pending_history_path = ""
+	_target_scene_commit_previous_pause_state = false
+	_target_scene_commit_previous_root_instance_id = 0
+	_target_scene_commit_call_generation = 0
+	_target_scene_commit_observed_generation = 0
+	_target_scene_commit_wait_signal_generation = 0
+	_target_scene_commit_proven_root_ref = null
+
+
+## 通过 Architecture 的 GFTimeUtility 设置暂停状态。
+## [br]
+## @api private
+## [br]
+func _set_paused(p_paused: bool) -> void:
+	var arch: Object = _get_architecture_or_null()
+	if arch == null:
+		return
+
+	var time_util: GFTimeUtility = _get_time_utility(arch)
+	if time_util != null:
+		time_util.is_paused = p_paused
+
+
+## 通过 Architecture 的 GFTimeUtility 读取暂停状态；工具不可用时返回 false。
+## [br]
+## @api private
+## [br]
+func _get_paused() -> bool:
+	var arch: Object = _get_architecture_or_null()
+	if arch == null:
+		return false
+
+	var time_util: GFTimeUtility = _get_time_utility(arch)
+	return time_util.is_paused if time_util != null else false
+
+
+## 只终结当前加载代次，发送失败通知、提示 loading scene 并恢复先前场景或暂停状态。
+## [br]
+## @api private
+## [br]
+func _fail_loading(path: String, message: String) -> void:
+	var load_generation: int = _active_load_generation
+	if not _active_load_generation_is_current(path, load_generation):
+		return
+	if _active_load_terminal_generation == load_generation:
+		return
+	_active_load_terminal_generation = load_generation
+	_cancel_pending_scene_change()
+	if not message.is_empty():
+		push_error(message)
+
+	var previous_path: String = _previous_scene_path
+	scene_load_failed.emit(path)
+	if not _active_load_generation_is_current(path, load_generation):
+		return
+	scene_switch_failed.emit(path, previous_path, message)
+	if not _active_load_generation_is_current(path, load_generation):
+		return
+	_call_loading_scene_error_method(message)
+	_poll_typed_scene_request_lifetimes()
+	if not _active_load_generation_is_current(path, load_generation):
+		return
+	_notify_loading_scene_exit_if_needed()
+	if not _active_load_generation_is_current(path, load_generation):
+		return
+	if _restore_previous_scene_if_needed():
+		return
+	_set_paused(_previous_pause_state)
+	_reset_loading_state()
+
+
+## loading scene 已显示时排队恢复先前场景；缺少路径时返回 false。
+## [br]
+## @api private
+## [br]
+func _restore_previous_scene_if_needed() -> bool:
+	if not _is_showing_loading_scene:
+		return false
+
+	if _previous_scene_path.is_empty():
+		push_warning("[GFSceneUtility][scene_utility.restore_path_missing] Cannot restore the previous scene: scene_file_path is missing.")
+		return false
+
+	_queue_scene_change(_SCENE_CHANGE_RESTORE, _previous_scene_path, null, _previous_pause_state)
+	return true
+
+
+## 同步恢复先前场景，并在当前加载代次仍有效时还原暂停及 loading 状态。
+## [br]
+## @api private
+## [br]
+func _apply_restore_previous_scene(path: String, previous_pause_state: bool) -> void:
+	var target_path: String = _target_path
+	var load_generation: int = _active_load_generation
+	var error: Error = _do_change_scene_sync(path)
+	if not _active_load_generation_is_current(target_path, load_generation):
+		return
+	if error != OK:
+		push_error("[GFSceneUtility][scene_utility.restore_scene_failed] Cannot restore the previous scene: %s (error code: %d)." % [path, error])
+	_is_showing_loading_scene = false
+	_set_paused(previous_pause_state)
+	_reset_loading_state()
+
+
+## 递增排队序号、保存切换种类与参数，并 deferred 调度处理。
+## [br]
+## @api private
+## [br]
+func _queue_scene_change(
+	kind: int,
+	path: String = "",
+	scene: PackedScene = null,
+	previous_pause_state: bool = false
+) -> void:
+	_scene_change_serial += 1
+	_pending_scene_change_kind = kind
+	_pending_scene_change_path = _normalize_scene_path(path)
+	_pending_scene_change_scene = scene
+	_pending_scene_change_previous_pause_state = previous_pause_state
+	call_deferred("_process_pending_scene_change_deferred", _scene_change_serial)
+
+
+## 只处理序号仍匹配的 deferred 场景切换。
+## [br]
+## @api private
+## [br]
+func _process_pending_scene_change_deferred(serial: int) -> void:
+	if serial != _scene_change_serial:
+		return
+	_process_pending_scene_change()
+
+
+## 取出并清空当前排队项，再按类型执行 loading、target 或 restore 切换。
+## [br]
+## @api private
+## [br]
+func _process_pending_scene_change() -> void:
+	if _pending_scene_change_kind == _SCENE_CHANGE_NONE:
+		return
+
+	var kind: int = _pending_scene_change_kind
+	var path: String = _pending_scene_change_path
+	var scene: PackedScene = _pending_scene_change_scene
+	var previous_pause_state: bool = _pending_scene_change_previous_pause_state
+	_clear_pending_scene_change(true)
+
+	match kind:
+		_SCENE_CHANGE_LOADING:
+			_apply_loading_scene_change(path)
+		_SCENE_CHANGE_TARGET:
+			_apply_target_scene_change(path, scene)
+		_SCENE_CHANGE_RESTORE:
+			_apply_restore_previous_scene(path, previous_pause_state)
+
+
+## 清空当前排队切换并使其 deferred 回调失效。
+## [br]
+## @api private
+## [br]
+func _cancel_pending_scene_change() -> void:
+	_clear_pending_scene_change(true)
+
+
+## 清除待处理切换字段；需要时递增序号使旧回调失效。
+## [br]
+## @api private
+## [br]
+func _clear_pending_scene_change(update_serial: bool) -> void:
+	if update_serial and _pending_scene_change_kind != _SCENE_CHANGE_NONE:
+		_scene_change_serial += 1
+	_pending_scene_change_kind = _SCENE_CHANGE_NONE
+	_pending_scene_change_path = ""
+	_pending_scene_change_scene = null
+	_pending_scene_change_previous_pause_state = false
+
+
+## 检查规范路径非空、资源存在且扩展名或 UID 加载结果对应 PackedScene。
+## [br]
+## @api private
+## [br]
+func _validate_scene_resource_path(path: String, label: String) -> String:
+	var scene_path: String = _normalize_scene_path(path)
+	if scene_path.is_empty():
+		return "[GFSceneUtility][scene_utility.path_empty] %s failed: path is empty." % label
+	if not ResourceLoader.exists(scene_path):
+		return "[GFSceneUtility][scene_utility.resource_missing] %s failed: resource does not exist: %s." % [label, scene_path]
+
+	var extension: String = scene_path.get_extension().to_lower()
+	var scene_extensions: PackedStringArray = ResourceLoader.get_recognized_extensions_for_type("PackedScene")
+	if scene_extensions.has(extension):
+		return ""
+
+	if scene_path.begins_with("uid://"):
+		var scene: PackedScene = _get_packed_scene_value(ResourceLoader.load(scene_path, "PackedScene"))
+		if scene != null:
+			return ""
+
+	return "[GFSceneUtility][scene_utility.resource_not_scene] %s failed: resource is not a PackedScene: %s." % [label, scene_path]
+
+
+## 路径有效且容量启用时追加路径、参数副本和时间戳，并修剪历史。
+## [br]
+## @api private
+## [br]
+func _push_scene_history(path: String, params: Dictionary) -> void:
+	var scene_path: String = _normalize_scene_path(path)
+	if scene_path.is_empty() or max_scene_history <= 0:
+		return
+
+	_scene_history.append({
+		"path": scene_path,
+		"params": params.duplicate(true),
+		"timestamp_unix": Time.get_unix_time_from_system(),
+	})
+	_trim_scene_history()
+
+
+## 若目标匹配待消费路径，则清除标记并移除恰好位于历史末尾的同路径条目。
+## [br]
+## @api private
+## [br]
+func _consume_pending_previous_history(path: String) -> void:
+	var scene_path: String = _normalize_scene_path(path)
+	if _pending_previous_history_path != scene_path:
+		return
+	_pending_previous_history_path = ""
+	if _scene_history.is_empty():
+		return
+	var entry: Dictionary = GFVariantData.as_dictionary(_scene_history[_scene_history.size() - 1])
+	if _normalize_scene_path(_get_history_entry_path(entry)) == scene_path:
+		_scene_history.remove_at(_scene_history.size() - 1)
+
+
+## 从最旧端移除条目，直到历史不超过容量。
+## [br]
+## @api private
+## [br]
+func _trim_scene_history() -> void:
+	while _scene_history.size() > _max_scene_history:
+		_scene_history.remove_at(0)
+
+
+## 清空活动加载、切换参数、pending scene、Operation 与进度字段。
+## [br]
+## @api private
+## [br]
+func _reset_loading_state() -> void:
+	_is_loading = false
+	_active_load_generation = 0
+	_target_path = ""
+	_loading_scene_path = ""
+	_previous_scene_path = ""
+	_is_showing_loading_scene = false
+	_loading_scene_exit_notified = false
+	_active_load_uses_preload_request = false
+	_active_load_preload_request_generation = 0
+	_active_load_terminal_generation = 0
+	_active_load_cache_loaded_scene = true
+	_active_loading_progress = 0.0
+	_active_transition_started_msec = 0
+	_active_transition_minimum_seconds = 0.0
+	_active_transition_params.clear()
+	_pending_previous_history_path = ""
+	_pending_loaded_path = ""
+	_pending_loaded_scene = null
+	_active_load_operation = null
+	_active_typed_load_request.clear()
+
+
+## Utility dispose 时取消当前资源请求并发送当前加载失败通知。
+## [br]
+## @api private
+## [br]
+func _cancel_active_scene_load_for_dispose() -> void:
+	if not _is_loading or _target_path.is_empty():
+		return
+	var path: String = _target_path
+	var previous_path: String = _previous_scene_path
+	var load_generation: int = _active_load_generation
+	var terminal_generation: int = _active_load_terminal_generation
+	if _active_load_operation != null:
+		_cancel_threaded_operation(_active_load_operation, &"scene_active_load_disposed")
+	if (
+		not _is_loading
+		or _target_path != path
+		or _active_load_generation != load_generation
+	):
+		return
+	if terminal_generation == load_generation:
+		return
+	scene_load_failed.emit(path)
+	if (
+		not _disposed
+		or not _is_loading
+		or _target_path != path
+		or _active_load_generation != load_generation
+	):
+		return
+	scene_switch_failed.emit(path, previous_path, "[GFSceneUtility][scene_utility.load_cancelled_on_dispose] Scene loading was cancelled because the utility was disposed: %s." % path)
+
+
+## 标记所有预加载请求取消、取消全部 Lease 并发送取消信号。
+## [br]
+## @api private
+## [br]
+func _cancel_preload_requests_for_dispose() -> void:
+	for path: String in _preload_requests.keys():
+		if not _preload_requests.has(path):
+			continue
+		var request: Dictionary = _get_preload_request(path)
+		if _is_preload_request_cancelled(request):
+			continue
+		request["cancelled"] = true
+		_cancel_all_preload_request_leases(request, &"scene_preload_disposed")
+		scene_preload_cancelled.emit(path)
+
+
+## 为规范化路径分配新的访问序号。
+## [br]
+## @api private
+## [br]
+func _touch_preloaded_scene(path: String) -> void:
+	var scene_path: String = _normalize_scene_path(path)
+	if scene_path.is_empty():
+		return
+	_preloaded_scene_access_serial += 1
+	_preloaded_scene_access_order[scene_path] = _preloaded_scene_access_serial
+
+
+## 超出正数容量时按最旧访问顺序移除临时缓存条目。
+## [br]
+## @api private
+## [br]
+func _evict_preloaded_scenes() -> void:
+	var eviction_budget: int = _preloaded_scenes.size()
+	while (
+		_preloaded_scenes.size() > max_preloaded_scene_resources
+		and max_preloaded_scene_resources > 0
+		and eviction_budget > 0
+	):
+		var oldest_path: String = _get_oldest_preloaded_scene_path()
+		if oldest_path.is_empty():
+			return
+		remove_preloaded_scene(oldest_path)
+		eviction_budget -= 1
+
+
+## 返回访问序号最小的临时缓存路径。
+## [br]
+## @api private
+## [br]
+func _get_oldest_preloaded_scene_path() -> String:
+	var oldest_path: String = ""
+	var oldest_access: int = 0
+	var has_oldest: bool = false
+	for path: String in _preloaded_scenes:
+		var access: int = GFVariantData.get_option_int(_preloaded_scene_access_order, path, 0)
+		if not has_oldest or access < oldest_access:
+			oldest_path = path
+			oldest_access = access
+			has_oldest = true
+	return oldest_path
+
+
+## 将字典键文本化并排序为 PackedStringArray。
+## [br]
+## @api private
+## [br]
+func _get_sorted_string_keys(data: Dictionary) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	for key: Variant in data.keys():
+		_append_packed_string(result, GFVariantData.to_text(key))
+	result.sort()
+	return result
+
+
+## 合并固定与临时缓存路径并去重排序。
+## [br]
+## @api private
+## [br]
+func _get_all_preloaded_scene_paths() -> PackedStringArray:
+	var result: PackedStringArray = _get_sorted_string_keys(_fixed_preloaded_scenes)
+	for path: String in _get_sorted_string_keys(_preloaded_scenes):
+		if not result.has(path):
+			_append_packed_string(result, path)
+	result.sort()
+	return result
+
+
+## 读取非 UID 场景文件字节数；路径、文件或打开操作无效时返回 -1。
+## [br]
+## @api private
+## [br]
+func _get_resource_file_size(path: String) -> int:
+	var scene_path: String = _normalize_scene_path(path)
+	if scene_path.is_empty() or scene_path.begins_with("uid://") or not FileAccess.file_exists(scene_path):
+		return -1
+
+	var file: FileAccess = FileAccess.open(scene_path, FileAccess.READ)
+	if file == null:
+		return -1
+	var size: int = file.get_length()
+	file.close()
+	return size
+
+
+# --- 信号处理函数 ---
+
+## 断开本次场景变更观察后核对代次与目标根；意外切换取消计划，匹配才进入邻居预载的稳定等待阶段。
+## [br]
+## @api private
+func _on_auto_neighbor_scene_changed(
+	generation: int,
+	target_path: String
+) -> void:
+	var scene_tree: SceneTree = _auto_neighbor_scene_tree
+	_disconnect_auto_neighbor_scene_changed()
+	if generation != _auto_neighbor_generation:
+		return
+	var scene_root: Node = scene_tree.current_scene if scene_tree != null else null
+	if not _scene_root_matches_target(scene_root, target_path):
+		_cancel_auto_neighbor_plan(&"unexpected_scene_changed")
+		return
+	_start_auto_neighbor_settle(generation, target_path)
+
+
+
+
+## 在下一 process_frame 后再等待渲染结束；无头模式以零时长计时器替代渲染信号。代次过期时不继续排程。
+## [br]
+## @api private
+func _on_auto_neighbor_process_frame(
+	generation: int,
+	target_path: String
+) -> void:
+	_disconnect_auto_neighbor_process_frame()
+	if generation != _auto_neighbor_generation:
+		return
+
+	if DisplayServer.get_name().to_lower() == "headless":
+		var scene_tree: SceneTree = _get_scene_tree_value(Engine.get_main_loop())
+		if scene_tree == null:
+			return
+		var timer: SceneTreeTimer = scene_tree.create_timer(0.0)
+		var timer_callback: Callable = Callable(
+			self,
+			"_on_auto_neighbor_settle_completed"
+		).bind(generation, target_path)
+		var timer_connect_error: Error = timer.timeout.connect(
+			timer_callback,
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
+		if timer_connect_error != OK:
+			_cancel_auto_neighbor_plan(&"timer_settle_connect_failed")
+			return
+		_auto_neighbor_settle_timer = timer
+		_auto_neighbor_timer_callback = timer_callback
+	else:
+		var render_callback: Callable = Callable(
+			self,
+			"_on_auto_neighbor_settle_completed"
+		).bind(generation, target_path)
+		var render_connect_error: Error = RenderingServer.frame_post_draw.connect(
+			render_callback,
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
+		if render_connect_error != OK:
+			_cancel_auto_neighbor_plan(&"render_settle_connect_failed")
+			return
+		_auto_neighbor_render_callback = render_callback
+
+
+
+
+## 先断开两种稳定等待来源，再核对计划代次与当前设置；以独占且要求空闲的准入条件发起邻居预载。
+## [br]
+## @api private
+func _on_auto_neighbor_settle_completed(
+	generation: int,
+	target_path: String
+) -> void:
+	_disconnect_auto_neighbor_render_settle()
+	_disconnect_auto_neighbor_timer_settle()
+	if generation != _auto_neighbor_generation:
+		return
+	if not auto_preload_map_neighbors_on_switch or scene_preload_map == null:
+		return
+
+	var result: Dictionary = _preload_scene_map_with_admission(
+		target_path,
+		scene_preload_map_radius,
+		true,
+		{
+			"exclusive": true,
+			"require_idle": true,
+			"consumer_id": &"scene_auto_neighbor",
+		},
+		generation
+	)
+	if not result.is_empty():
+		return
+
+
+
+
+## 同步切场景调用尚未返回时只记观察标记；其余情况捕获提交上下文后断开观察，再证明当前根属于目标提交。
+## 失效或取消的请求只协调已发生的场景变化；仍有效的请求才提交参数、历史和完成通知。
+## [br]
+## @api private
 func _on_target_scene_changed(generation: int) -> void:
 	if (
 		generation != _target_scene_commit_generation
@@ -5310,608 +6922,3 @@ func _on_target_scene_changed(generation: int) -> void:
 		pending_history_path,
 		previous_pause_state
 	)
-
-
-func _scene_root_matches_target_commit(
-	scene_root: Node,
-	target_path: String,
-	_target_scene: PackedScene,
-	previous_root_instance_id: int,
-	proven_root_ref: WeakRef
-) -> bool:
-	if not _scene_root_replaced_since_target_commit(
-		scene_root,
-		previous_root_instance_id
-	):
-		return false
-	if proven_root_ref != null:
-		return _weak_ref_matches_node(proven_root_ref, scene_root)
-	return _scene_root_matches_target(scene_root, target_path)
-
-
-func _scene_root_can_confirm_target_commit(
-	scene_root: Node,
-	target_path: String,
-	target_scene: PackedScene,
-	previous_root_instance_id: int
-) -> bool:
-	if not _scene_root_replaced_since_target_commit(
-		scene_root,
-		previous_root_instance_id
-	):
-		return false
-	if _scene_root_matches_target(scene_root, target_path):
-		return true
-	return (
-		scene_root != null
-		and scene_root.scene_file_path.is_empty()
-		and target_scene != null
-		and target_scene.resource_path.is_empty()
-	)
-
-
-func _target_scene_commit_root_was_replaced() -> bool:
-	var scene_tree: SceneTree = _target_scene_commit_tree
-	var scene_root: Node = scene_tree.current_scene if scene_tree != null else null
-	return _scene_root_replaced_since_target_commit(
-		scene_root,
-		_target_scene_commit_previous_root_instance_id
-	)
-
-
-func _target_scene_commit_is_unchanged_matching_root() -> bool:
-	var scene_tree: SceneTree = _target_scene_commit_tree
-	var scene_root: Node = scene_tree.current_scene if scene_tree != null else null
-	return (
-		scene_root != null
-		and scene_root.get_instance_id()
-		== _target_scene_commit_previous_root_instance_id
-		and _scene_root_matches_target(
-			scene_root,
-			_target_scene_commit_path
-		)
-	)
-
-
-func _scene_root_replaced_since_target_commit(
-	scene_root: Node,
-	previous_root_instance_id: int
-) -> bool:
-	return (
-		scene_root != null
-		and scene_root.get_instance_id() != previous_root_instance_id
-	)
-
-
-func _weak_ref_matches_node(root_ref: WeakRef, node: Node) -> bool:
-	if root_ref == null or node == null:
-		return false
-	var referenced_value: Variant = root_ref.get_ref()
-	return referenced_value is Node and referenced_value == node
-
-
-func _uncommitted_scene_root_is_live(root_value: Variant) -> bool:
-	if typeof(root_value) != TYPE_OBJECT or not is_instance_valid(root_value):
-		return false
-	if not root_value is Node:
-		return false
-	var scene_root: Node = root_value
-	return not scene_root.is_queued_for_deletion()
-
-
-func _free_uncommitted_scene_root(root_value: Variant) -> void:
-	if typeof(root_value) != TYPE_OBJECT or not is_instance_valid(root_value):
-		return
-	if not root_value is Node:
-		return
-	var scene_root: Node = root_value
-	if scene_root.is_inside_tree():
-		return
-	scene_root.free()
-
-
-func _reconcile_suppressed_target_scene_commit(
-	path: String,
-	load_generation: int,
-	previous_path: String,
-	transition_params: Dictionary,
-	previous_params: Dictionary,
-	pending_history_path: String,
-	previous_pause_state: bool
-) -> void:
-	if _disposed:
-		return
-	# cancellation 在 loading scene 上可能已排队恢复上一场景；最终内部状态由 restore 收敛。
-	if _pending_scene_change_kind == _SCENE_CHANGE_RESTORE:
-		return
-	if pending_history_path == path:
-		_pending_previous_history_path = pending_history_path
-		_consume_pending_previous_history(path)
-	_push_scene_history(previous_path, previous_params)
-	_current_scene_params = transition_params.duplicate(true)
-	_erase_dictionary_key(_background_scene_params, path)
-	_set_paused(previous_pause_state)
-	if (
-		_is_loading
-		and _target_path == path
-		and _active_load_generation == load_generation
-	):
-		_reset_loading_state()
-
-
-func _complete_target_scene_commit(
-	path: String,
-	scene: PackedScene,
-	previous_path: String,
-	load_generation: int,
-	typed_request_id: int,
-	transition_params: Dictionary,
-	previous_params: Dictionary,
-	pending_history_path: String,
-	previous_pause_state: bool
-) -> void:
-	if _active_loading_progress < 1.0:
-		_emit_scene_load_progress(path, 1.0)
-	if _disposed:
-		return
-	if not _active_scene_load_context_is_current(
-		path,
-		load_generation,
-		typed_request_id
-	):
-		_reconcile_suppressed_target_scene_commit(
-			path,
-			load_generation,
-			previous_path,
-			transition_params,
-			previous_params,
-			pending_history_path,
-			previous_pause_state
-		)
-		return
-	var completed_operation: GFSceneOperation = null
-	if typed_request_id > 0:
-		var active_operation: GFSceneOperation = (
-			_get_scene_operation_from_entry(_active_typed_load_request)
-		)
-		if (
-			active_operation == null
-			or active_operation.get_request_id() != typed_request_id
-			or not active_operation.is_pending()
-		):
-			_reconcile_suppressed_target_scene_commit(
-				path,
-				load_generation,
-				previous_path,
-				transition_params,
-				previous_params,
-				pending_history_path,
-				previous_pause_state
-			)
-			return
-		if _scene_request_entry_token_cancelled(_active_typed_load_request):
-			var _token_cancelled: bool = _cancel_active_typed_load_request(
-				active_operation,
-				GFSceneOperationResult.REASON_TOKEN_CANCELLED
-			)
-			_reconcile_suppressed_target_scene_commit(
-				path,
-				load_generation,
-				previous_path,
-				transition_params,
-				previous_params,
-				pending_history_path,
-				previous_pause_state
-			)
-			return
-		if _scene_request_entry_owner_released(_active_typed_load_request):
-			var _owner_cancelled: bool = _cancel_active_typed_load_request(
-				active_operation,
-				GFSceneOperationResult.REASON_OWNER_RELEASED
-			)
-			_reconcile_suppressed_target_scene_commit(
-				path,
-				load_generation,
-				previous_path,
-				transition_params,
-				previous_params,
-				pending_history_path,
-				previous_pause_state
-			)
-			return
-		completed_operation = _freeze_active_typed_load(
-			GFSceneOperationResult.Status.COMPLETED,
-			scene,
-			GFSceneOperationResult.REASON_SCENE_LOADED,
-			OK
-		)
-		if completed_operation == null:
-			_reconcile_suppressed_target_scene_commit(
-				path,
-				load_generation,
-				previous_path,
-				transition_params,
-				previous_params,
-				pending_history_path,
-				previous_pause_state
-			)
-			return
-	var completed_pause_state: bool = _previous_pause_state
-	_is_showing_loading_scene = false
-	_consume_pending_previous_history(path)
-	_push_scene_history(previous_path, _current_scene_params)
-	_current_scene_params = _active_transition_params.duplicate(true)
-	_erase_dictionary_key(_background_scene_params, path)
-	_set_paused(completed_pause_state)
-	_reset_loading_state()
-	# 物理 commit 与内部状态已冻结；以下只发布旧、新 API 的不可撤销终态通知。
-	scene_load_completed.emit(path, scene)
-	scene_switch_completed.emit(path, previous_path)
-	if completed_operation != null:
-		var _completed_emitted: bool = (
-			completed_operation.emit_completed_for_framework()
-		)
-
-
-func _fail_target_scene_change(
-	path: String,
-	auto_neighbor_generation: int
-) -> void:
-	var failed_operation: GFSceneOperation = _freeze_active_typed_load(
-		GFSceneOperationResult.Status.FAILED,
-		null,
-		GFSceneOperationResult.REASON_SCENE_CHANGE_FAILED,
-		ERR_CANT_CREATE
-	)
-	if auto_neighbor_generation == _auto_neighbor_generation:
-		_cancel_auto_neighbor_plan(&"target_scene_change_failed")
-	_fail_loading(path, "")
-	if failed_operation != null:
-		var _failed_emitted: bool = failed_operation.emit_completed_for_framework()
-
-
-func _has_pending_target_scene_commit() -> bool:
-	return (
-		_target_scene_commit_tree != null
-		and _target_scene_commit_callback.is_valid()
-		and not _target_scene_commit_path.is_empty()
-	)
-
-
-func _disconnect_target_scene_commit_observation(invalidate_generation: bool) -> void:
-	if (
-		_target_scene_commit_tree != null
-		and _target_scene_commit_callback.is_valid()
-		and _target_scene_commit_tree.scene_changed.is_connected(
-			_target_scene_commit_callback
-		)
-	):
-		_target_scene_commit_tree.scene_changed.disconnect(
-			_target_scene_commit_callback
-		)
-	if invalidate_generation:
-		_target_scene_commit_generation += 1
-		if _target_scene_commit_generation <= 0:
-			_target_scene_commit_generation = 1
-	_target_scene_commit_tree = null
-	_target_scene_commit_callback = Callable()
-	_target_scene_commit_path = ""
-	_target_scene_commit_scene = null
-	_target_scene_commit_previous_path = ""
-	_target_scene_commit_auto_neighbor_generation = 0
-	_target_scene_commit_load_generation = 0
-	_target_scene_commit_typed_request_id = 0
-	_target_scene_commit_transition_params.clear()
-	_target_scene_commit_previous_params.clear()
-	_target_scene_commit_pending_history_path = ""
-	_target_scene_commit_previous_pause_state = false
-	_target_scene_commit_previous_root_instance_id = 0
-	_target_scene_commit_call_generation = 0
-	_target_scene_commit_observed_generation = 0
-	_target_scene_commit_wait_signal_generation = 0
-	_target_scene_commit_proven_root_ref = null
-
-
-func _set_paused(p_paused: bool) -> void:
-	var arch: Object = _get_architecture_or_null()
-	if arch == null:
-		return
-
-	var time_util: GFTimeUtility = _get_time_utility(arch)
-	if time_util != null:
-		time_util.is_paused = p_paused
-
-
-func _get_paused() -> bool:
-	var arch: Object = _get_architecture_or_null()
-	if arch == null:
-		return false
-
-	var time_util: GFTimeUtility = _get_time_utility(arch)
-	return time_util.is_paused if time_util != null else false
-
-
-func _fail_loading(path: String, message: String) -> void:
-	var load_generation: int = _active_load_generation
-	if not _active_load_generation_is_current(path, load_generation):
-		return
-	if _active_load_terminal_generation == load_generation:
-		return
-	_active_load_terminal_generation = load_generation
-	_cancel_pending_scene_change()
-	if not message.is_empty():
-		push_error(message)
-
-	var previous_path: String = _previous_scene_path
-	scene_load_failed.emit(path)
-	if not _active_load_generation_is_current(path, load_generation):
-		return
-	scene_switch_failed.emit(path, previous_path, message)
-	if not _active_load_generation_is_current(path, load_generation):
-		return
-	_call_loading_scene_error_method(message)
-	_poll_typed_scene_request_lifetimes()
-	if not _active_load_generation_is_current(path, load_generation):
-		return
-	_notify_loading_scene_exit_if_needed()
-	if not _active_load_generation_is_current(path, load_generation):
-		return
-	if _restore_previous_scene_if_needed():
-		return
-	_set_paused(_previous_pause_state)
-	_reset_loading_state()
-
-
-func _restore_previous_scene_if_needed() -> bool:
-	if not _is_showing_loading_scene:
-		return false
-
-	if _previous_scene_path.is_empty():
-		push_warning("[GFSceneUtility][scene_utility.restore_path_missing] Cannot restore the previous scene: scene_file_path is missing.")
-		return false
-
-	_queue_scene_change(_SCENE_CHANGE_RESTORE, _previous_scene_path, null, _previous_pause_state)
-	return true
-
-
-func _apply_restore_previous_scene(path: String, previous_pause_state: bool) -> void:
-	var target_path: String = _target_path
-	var load_generation: int = _active_load_generation
-	var error: Error = _do_change_scene_sync(path)
-	if not _active_load_generation_is_current(target_path, load_generation):
-		return
-	if error != OK:
-		push_error("[GFSceneUtility][scene_utility.restore_scene_failed] Cannot restore the previous scene: %s (error code: %d)." % [path, error])
-	_is_showing_loading_scene = false
-	_set_paused(previous_pause_state)
-	_reset_loading_state()
-
-
-func _queue_scene_change(
-	kind: int,
-	path: String = "",
-	scene: PackedScene = null,
-	previous_pause_state: bool = false
-) -> void:
-	_scene_change_serial += 1
-	_pending_scene_change_kind = kind
-	_pending_scene_change_path = _normalize_scene_path(path)
-	_pending_scene_change_scene = scene
-	_pending_scene_change_previous_pause_state = previous_pause_state
-	call_deferred("_process_pending_scene_change_deferred", _scene_change_serial)
-
-
-func _process_pending_scene_change_deferred(serial: int) -> void:
-	if serial != _scene_change_serial:
-		return
-	_process_pending_scene_change()
-
-
-func _process_pending_scene_change() -> void:
-	if _pending_scene_change_kind == _SCENE_CHANGE_NONE:
-		return
-
-	var kind: int = _pending_scene_change_kind
-	var path: String = _pending_scene_change_path
-	var scene: PackedScene = _pending_scene_change_scene
-	var previous_pause_state: bool = _pending_scene_change_previous_pause_state
-	_clear_pending_scene_change(true)
-
-	match kind:
-		_SCENE_CHANGE_LOADING:
-			_apply_loading_scene_change(path)
-		_SCENE_CHANGE_TARGET:
-			_apply_target_scene_change(path, scene)
-		_SCENE_CHANGE_RESTORE:
-			_apply_restore_previous_scene(path, previous_pause_state)
-
-
-func _cancel_pending_scene_change() -> void:
-	_clear_pending_scene_change(true)
-
-
-func _clear_pending_scene_change(update_serial: bool) -> void:
-	if update_serial and _pending_scene_change_kind != _SCENE_CHANGE_NONE:
-		_scene_change_serial += 1
-	_pending_scene_change_kind = _SCENE_CHANGE_NONE
-	_pending_scene_change_path = ""
-	_pending_scene_change_scene = null
-	_pending_scene_change_previous_pause_state = false
-
-
-func _validate_scene_resource_path(path: String, label: String) -> String:
-	var scene_path: String = _normalize_scene_path(path)
-	if scene_path.is_empty():
-		return "[GFSceneUtility][scene_utility.path_empty] %s failed: path is empty." % label
-	if not ResourceLoader.exists(scene_path):
-		return "[GFSceneUtility][scene_utility.resource_missing] %s failed: resource does not exist: %s." % [label, scene_path]
-
-	var extension: String = scene_path.get_extension().to_lower()
-	var scene_extensions: PackedStringArray = ResourceLoader.get_recognized_extensions_for_type("PackedScene")
-	if scene_extensions.has(extension):
-		return ""
-
-	if scene_path.begins_with("uid://"):
-		var scene: PackedScene = _get_packed_scene_value(ResourceLoader.load(scene_path, "PackedScene"))
-		if scene != null:
-			return ""
-
-	return "[GFSceneUtility][scene_utility.resource_not_scene] %s failed: resource is not a PackedScene: %s." % [label, scene_path]
-
-
-func _push_scene_history(path: String, params: Dictionary) -> void:
-	var scene_path: String = _normalize_scene_path(path)
-	if scene_path.is_empty() or max_scene_history <= 0:
-		return
-
-	_scene_history.append({
-		"path": scene_path,
-		"params": params.duplicate(true),
-		"timestamp_unix": Time.get_unix_time_from_system(),
-	})
-	_trim_scene_history()
-
-
-func _consume_pending_previous_history(path: String) -> void:
-	var scene_path: String = _normalize_scene_path(path)
-	if _pending_previous_history_path != scene_path:
-		return
-	_pending_previous_history_path = ""
-	if _scene_history.is_empty():
-		return
-	var entry: Dictionary = GFVariantData.as_dictionary(_scene_history[_scene_history.size() - 1])
-	if _normalize_scene_path(_get_history_entry_path(entry)) == scene_path:
-		_scene_history.remove_at(_scene_history.size() - 1)
-
-
-func _trim_scene_history() -> void:
-	while _scene_history.size() > _max_scene_history:
-		_scene_history.remove_at(0)
-
-
-func _reset_loading_state() -> void:
-	_is_loading = false
-	_active_load_generation = 0
-	_target_path = ""
-	_loading_scene_path = ""
-	_previous_scene_path = ""
-	_is_showing_loading_scene = false
-	_loading_scene_exit_notified = false
-	_active_load_uses_preload_request = false
-	_active_load_preload_request_generation = 0
-	_active_load_terminal_generation = 0
-	_active_load_cache_loaded_scene = true
-	_active_loading_progress = 0.0
-	_active_transition_started_msec = 0
-	_active_transition_minimum_seconds = 0.0
-	_active_transition_params.clear()
-	_pending_previous_history_path = ""
-	_pending_loaded_path = ""
-	_pending_loaded_scene = null
-	_active_load_operation = null
-	_active_typed_load_request.clear()
-
-
-func _cancel_active_scene_load_for_dispose() -> void:
-	if not _is_loading or _target_path.is_empty():
-		return
-	var path: String = _target_path
-	var previous_path: String = _previous_scene_path
-	var load_generation: int = _active_load_generation
-	var terminal_generation: int = _active_load_terminal_generation
-	if _active_load_operation != null:
-		_cancel_threaded_operation(_active_load_operation, &"scene_active_load_disposed")
-	if (
-		not _is_loading
-		or _target_path != path
-		or _active_load_generation != load_generation
-	):
-		return
-	if terminal_generation == load_generation:
-		return
-	scene_load_failed.emit(path)
-	if (
-		not _disposed
-		or not _is_loading
-		or _target_path != path
-		or _active_load_generation != load_generation
-	):
-		return
-	scene_switch_failed.emit(path, previous_path, "[GFSceneUtility][scene_utility.load_cancelled_on_dispose] Scene loading was cancelled because the utility was disposed: %s." % path)
-
-
-func _cancel_preload_requests_for_dispose() -> void:
-	for path: String in _preload_requests.keys():
-		if not _preload_requests.has(path):
-			continue
-		var request: Dictionary = _get_preload_request(path)
-		if _is_preload_request_cancelled(request):
-			continue
-		request["cancelled"] = true
-		_cancel_all_preload_request_leases(request, &"scene_preload_disposed")
-		scene_preload_cancelled.emit(path)
-
-
-func _touch_preloaded_scene(path: String) -> void:
-	var scene_path: String = _normalize_scene_path(path)
-	if scene_path.is_empty():
-		return
-	_preloaded_scene_access_serial += 1
-	_preloaded_scene_access_order[scene_path] = _preloaded_scene_access_serial
-
-
-func _evict_preloaded_scenes() -> void:
-	var eviction_budget: int = _preloaded_scenes.size()
-	while (
-		_preloaded_scenes.size() > max_preloaded_scene_resources
-		and max_preloaded_scene_resources > 0
-		and eviction_budget > 0
-	):
-		var oldest_path: String = _get_oldest_preloaded_scene_path()
-		if oldest_path.is_empty():
-			return
-		remove_preloaded_scene(oldest_path)
-		eviction_budget -= 1
-
-
-func _get_oldest_preloaded_scene_path() -> String:
-	var oldest_path: String = ""
-	var oldest_access: int = 0
-	var has_oldest: bool = false
-	for path: String in _preloaded_scenes:
-		var access: int = GFVariantData.get_option_int(_preloaded_scene_access_order, path, 0)
-		if not has_oldest or access < oldest_access:
-			oldest_path = path
-			oldest_access = access
-			has_oldest = true
-	return oldest_path
-
-
-func _get_sorted_string_keys(data: Dictionary) -> PackedStringArray:
-	var result: PackedStringArray = PackedStringArray()
-	for key: Variant in data.keys():
-		_append_packed_string(result, GFVariantData.to_text(key))
-	result.sort()
-	return result
-
-
-func _get_all_preloaded_scene_paths() -> PackedStringArray:
-	var result: PackedStringArray = _get_sorted_string_keys(_fixed_preloaded_scenes)
-	for path: String in _get_sorted_string_keys(_preloaded_scenes):
-		if not result.has(path):
-			_append_packed_string(result, path)
-	result.sort()
-	return result
-
-
-func _get_resource_file_size(path: String) -> int:
-	var scene_path: String = _normalize_scene_path(path)
-	if scene_path.is_empty() or scene_path.begins_with("uid://") or not FileAccess.file_exists(scene_path):
-		return -1
-
-	var file: FileAccess = FileAccess.open(scene_path, FileAccess.READ)
-	if file == null:
-		return -1
-	var size: int = file.get_length()
-	file.close()
-	return size

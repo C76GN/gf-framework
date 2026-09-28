@@ -102,11 +102,11 @@ def render_summary_text(data: dict[str, Any]) -> str:
 
 
 def render_api_search_text(data: dict[str, Any]) -> str:
-	lines = [f"query: {data['query']} matches={data['count']}"]
+	lines = [f"query: {data['query']} scope={data['scope']} matches={data['count']}"]
 	for item in data["results"]:
-		lines.append(f"- {item['class_name']} | {item['module']} | {item['path']}")
+		lines.append(f"- {item['owner_name']} [{item['visibility']}] | {item['module']} | {item['path']}")
 		for match in item["member_matches"][:3]:
-			lines.append(f"  - {match['kind']} {match['signature']}")
+			lines.append(f"  - [{match['visibility']}] {match['kind']} {match['signature']}")
 	return "\n".join(lines)
 
 
@@ -114,7 +114,8 @@ def render_api_class_text(data: dict[str, Any]) -> str:
 	if not data.get("found"):
 		return data["message"]
 	lines = [
-		f"{data['class_name']} extends {data['extends']}",
+		f"{data['owner_name']} extends {data['extends']}",
+		f"scope: {data['scope']} visibility={data['visibility']} kind={data['owner_kind']}",
 		f"path: {data['path']}",
 		f"module: {data['module']}",
 	]
@@ -126,7 +127,9 @@ def render_api_class_text(data: dict[str, Any]) -> str:
 			continue
 		lines.append(f"{group}:")
 		for item in items:
-			lines.append(f"- {item['signature']}")
+			lines.append(f"- [{item['visibility']}] {item['signature']}")
+			if data["scope"] == "maintenance":
+				lines.extend(f"  {line}" for line in item["docs"])
 	return "\n".join(lines)
 
 
@@ -139,21 +142,24 @@ def render_api_module_text(data: dict[str, Any]) -> str:
 			lines.extend(f"- {module}" for module in available)
 		return "\n".join(lines)
 	lines = [
-		f"query: {data['query']}",
+		f"query: {data['query']} scope={data['scope']}",
+		f"owners: {data['returned_owner_count']}/{data['owner_count']}",
 		f"classes: {data['returned_class_count']}/{data['class_count']} truncated={data['truncated']}",
 		"modules:",
 	]
 	for module, stats in sorted(data["matched_modules"].items()):
 		lines.append(f"- {module}: classes={stats['classes']} methods={stats['methods']}")
-	lines.append("classes:")
-	for item in data["classes"]:
-		lines.append(f"- {item['class_name']} extends {item['extends']} | {item['path']}")
+	lines.append("owners:")
+	for item in [*data["classes"], *data["scripts"]]:
+		lines.append(f"- {item['owner_name']} [{item['visibility']}] extends {item['extends']} | {item['path']}")
 		counts = item["member_counts"]
 		lines.append(
 			"  members: "
 			f"signals={counts['signals']} enums={counts['enums']} constants={counts['constants']} "
 			f"variables={counts['variables']} methods={counts['methods']}"
 		)
+		for member in item.get("members", []):
+			lines.append(f"  - [{member['visibility']}] {member['signature']}")
 	return "\n".join(lines)
 
 
@@ -1342,9 +1348,14 @@ def format_api_diff_item(group: str, item: dict[str, Any]) -> str:
 def render_api_index_text(data: dict[str, Any]) -> str:
 	lines = [
 		f"source: {data['source_root']}",
+		f"scope: {data['scope']}",
 		f"files: {data['file_count']}",
 		f"classes: {data['class_count']}",
 		f"public methods: {data['public_method_count']}",
+		f"selected methods: {data['method_count']}",
+		"declared method visibilities: " + ", ".join(
+			f"{visibility}={count}" for visibility, count in data["method_counts_by_visibility"].items()
+		),
 		"modules:",
 	]
 	for module, stats in sorted(data["modules"].items()):

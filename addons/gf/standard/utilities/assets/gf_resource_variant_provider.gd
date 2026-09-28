@@ -22,14 +22,37 @@ extends RefCounted
 const DEFAULT_VARIANT_KEY: StringName = &"default"
 
 
+## 变体查询没有可用记录时使用的失败原因值。
+## [br]
+## @api private
+## [br]
 const _REASON_NOT_FOUND: String = "not_found"
+
+## 注册或查询的资源键无效时使用的失败原因值。
+## [br]
+## @api private
+## [br]
 const _REASON_INVALID_KEY: String = "invalid_key"
 
 
 # --- 私有变量 ---
 
+## 按资源键保存各变体的注册记录。
+## [br]
+## @api private
+## [br]
 var _records_by_key: Dictionary = {}
+
+## 解析请求未提供变体顺序时采用的默认优先顺序。
+## [br]
+## @api private
+## [br]
 var _default_variant_order: PackedStringArray = PackedStringArray()
+
+## 为变体记录分配稳定先后次序的递增计数。
+## [br]
+## @api private
+## [br]
 var _registration_order: int = 0
 
 
@@ -240,6 +263,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 返回资源键对应的变体表；首次访问时创建并存入空表。
+## [br]
+## @api private
+## [br]
 func _get_or_create_variant_records(resource_key: StringName) -> Dictionary:
 	if _records_by_key.has(resource_key):
 		return GFVariantData.as_dictionary(_records_by_key[resource_key])
@@ -248,6 +275,10 @@ func _get_or_create_variant_records(resource_key: StringName) -> Dictionary:
 	return variants
 
 
+## 按请求选项或默认顺序整理变体键，并确保默认变体最后参与回退。
+## [br]
+## @api private
+## [br]
 func _make_request_variant_order(request: Dictionary) -> Array[StringName]:
 	var options: Dictionary = GFVariantData.get_option_dictionary(request, "options")
 	var requested: PackedStringArray = _extract_variant_order(options)
@@ -265,6 +296,10 @@ func _make_request_variant_order(request: Dictionary) -> Array[StringName]:
 	return result
 
 
+## 从 `variant_keys` 读取顺序；未提供时回退到兼容选项 `variants`。
+## [br]
+## @api private
+## [br]
 func _extract_variant_order(options: Dictionary) -> PackedStringArray:
 	var value: Variant = GFVariantData.get_option_value(
 		options,
@@ -274,6 +309,10 @@ func _extract_variant_order(options: Dictionary) -> PackedStringArray:
 	return _variant_value_to_packed_string_array(value)
 
 
+## 将数组、字符串或 PackedStringArray 规范为去重后的字符串键列表。
+## [br]
+## @api private
+## [br]
 func _variant_value_to_packed_string_array(value: Variant) -> PackedStringArray:
 	if value is PackedStringArray:
 		var packed_value: PackedStringArray = value
@@ -292,6 +331,10 @@ func _variant_value_to_packed_string_array(value: Variant) -> PackedStringArray:
 	return result
 
 
+## 清理并去重变体键，可按调用方要求补入默认变体键。
+## [br]
+## @api private
+## [br]
 func _normalize_variant_keys(variant_keys: PackedStringArray, include_default: bool) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for variant_text: String in variant_keys:
@@ -304,6 +347,10 @@ func _normalize_variant_keys(variant_keys: PackedStringArray, include_default: b
 	return result
 
 
+## 去除变体键两侧空白，并将空值归一为默认变体键。
+## [br]
+## @api private
+## [br]
 func _normalize_variant_key(variant_key: StringName) -> StringName:
 	var text: String = String(variant_key).strip_edges()
 	if text.is_empty():
@@ -311,6 +358,10 @@ func _normalize_variant_key(variant_key: StringName) -> StringName:
 	return StringName(text)
 
 
+## 比较两条记录的优先级；相同优先级时以较新的注册次序优先。
+## [br]
+## @api private
+## [br]
 func _record_is_higher_priority(left: Dictionary, right: Dictionary) -> bool:
 	var left_priority: int = GFVariantData.get_option_int(left, "priority")
 	var right_priority: int = GFVariantData.get_option_int(right, "priority")
@@ -319,6 +370,10 @@ func _record_is_higher_priority(left: Dictionary, right: Dictionary) -> bool:
 	return GFVariantData.get_option_int(left, "order") > GFVariantData.get_option_int(right, "order")
 
 
+## 将命中的变体记录整理成成功 provider 响应，并在元数据中回报变体键。
+## [br]
+## @api private
+## [br]
 func _make_success(record: Dictionary) -> Dictionary:
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(record, "metadata")
 	metadata["variant_key"] = GFVariantData.get_option_string_name(record, "variant_key")
@@ -332,6 +387,10 @@ func _make_success(record: Dictionary) -> Dictionary:
 	}
 
 
+## 按 provider 响应结构生成失败结果，并保留资源键与变体键诊断信息。
+## [br]
+## @api private
+## [br]
 func _make_failure(reason: String, resource_key: StringName, variant_key: StringName) -> Dictionary:
 	return {
 		"ok": false,

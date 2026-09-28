@@ -120,6 +120,9 @@ func _matches_cell(cell: Vector2i, context: Dictionary) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 在启用矩形范围尺寸有效时，判断格子是否位于左闭右开边界内。
+## [br]
+## @api private
 func _is_in_bounds(cell: Vector2i) -> bool:
 	return (
 		bounds_size.x > 0

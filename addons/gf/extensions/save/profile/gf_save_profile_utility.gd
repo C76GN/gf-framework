@@ -116,10 +116,34 @@ const MANAGED_ACCESS_BLOCKED: int = 0
 ## @since 11.0.0
 const MANAGED_ACCESS_SAVE_FLUSH: int = 1
 
+## 分块准备阶段中扫描 Provider 的阶段标识。
+## [br]
+## @api private
+## [br]
 const _PREPARATION_PHASE_PROVIDER_SCAN: StringName = &"provider_scan"
+
+## 分块准备阶段中调用 Provider 开始准备的阶段标识。
+## [br]
+## @api private
+## [br]
 const _PREPARATION_PHASE_PROVIDER_BEGIN: StringName = &"provider_begin"
+
+## 分块准备阶段中处理保留 section 的阶段标识。
+## [br]
+## @api private
+## [br]
 const _PREPARATION_PHASE_PRESERVED: StringName = &"preserved"
+
+## 分块准备阶段中完成文档组装的阶段标识。
+## [br]
+## @api private
+## [br]
 const _PREPARATION_PHASE_FINALIZE: StringName = &"finalize"
+
+## 将底层载荷诊断转换为 Profile 结果报告的脚本资源。
+## [br]
+## @api private
+## [br]
 const _PAYLOAD_VALIDATION_ADAPTER = preload(
 	"res://addons/gf/extensions/save/profile/gf_save_payload_validation_adapter.gd"
 )
@@ -162,23 +186,112 @@ var save_preparation_time_budget_usec: int = 2000:
 
 # --- 私有变量 ---
 
+## Profile 操作使用的 Storage Utility。
+## [br]
+## @api private
+## [br]
 var _storage: GFStorageUtility = null
+
+## Profile 保存准备阶段读取时间的单调时钟。
+## [br]
+## @api private
+## [br]
 var _clock: GFClock = null
+
+## 标记时钟是否由调用方显式注入。
+## [br]
+## @api private
+## [br]
 var _clock_explicit: bool = false
+
+## 标记 Storage 是否由调用方显式设置。
+## [br]
+## @api private
+## [br]
 var _storage_explicit: bool = false
+
+## 按 Profile ID 保存的运行状态。
+## [br]
+## @api private
+## [br]
 var _states: Dictionary = {}
+
+## 标记 Utility 是否已释放。
+## [br]
+## @api private
+## [br]
 var _disposed: bool = false
+
+## 标记是否请求在安全时机释放 Utility。
+## [br]
+## @api private
+## [br]
 var _dispose_requested: bool = false
+
+## 当前同步处理嵌套深度。
+## [br]
+## @api private
+## [br]
 var _processing_depth: int = 0
+
+## 当前不安全 Provider/状态回调的嵌套深度。
+## [br]
+## @api private
+## [br]
 var _unsafe_callback_depth: int = 0
+
+## 等待发出完成通知的操作队列。
+## [br]
+## @api private
+## [br]
 var _pending_completion_operations: Array[GFSaveProfileOperation] = []
+
+## 标记 Utility 是否正在发出完成通知。
+## [br]
+## @api private
+## [br]
 var _emitting_completions: bool = false
+
+## 待处理 Profile 调度链表的头节点。
+## [br]
+## @api private
+## [br]
 var _pending_schedule_head: ProfileState = null
+
+## 待处理 Profile 调度链表的尾节点。
+## [br]
+## @api private
+## [br]
 var _pending_schedule_tail: ProfileState = null
+
+## 活跃保存准备链表的头节点。
+## [br]
+## @api private
+## [br]
 var _active_preparation_head: ProfileState = null
+
+## 活跃保存准备链表的尾节点。
+## [br]
+## @api private
+## [br]
 var _active_preparation_tail: ProfileState = null
+
+## 标记 Utility 是否接受新的操作请求。
+## [br]
+## @api private
+## [br]
 var _admission_open: bool = true
+
+## 等待 Utility 完成 quiesce 的异步完成对象。
+## [br]
+## @api private
+## [br]
 var _quiesce_completion: GFAsyncCompletion = null
+
+## 下一个管理操作使用的递增序号。
+## [br]
+## @api private
+## [br]
 var _next_management_serial: int = 1
 
 
@@ -191,7 +304,7 @@ func _init() -> void:
 	ignore_time_scale = true
 
 
-# --- GF 生命周期方法 ---
+# --- 公共方法 ---
 
 ## 在架构 ready 阶段采用已注册的 Storage 和 Time 服务。
 ##
@@ -337,8 +450,6 @@ func dispose() -> void:
 	_drain_completion_events()
 	_try_complete_quiesce()
 
-
-# --- 公共方法 ---
 
 ## 显式注入底层存储和可选时钟。
 ## [br]
@@ -1301,6 +1412,9 @@ func rollback_profile_candidates_for_manager_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 仅在准入开放、档案空闲且没有回调、内存事务、排队工作或脱离写入时注销；托管档案必须提供精确有效 permit，注销前撤销该 permit。
+## [br]
+## @api private
 func _unregister_profile(state: ProfileState, managed_permit: RefCounted) -> bool:
 	_reap_expired_managed_permit_if_safe(state)
 	var managed_call: bool = _is_valid_managed_permit(state, managed_permit)
@@ -1327,6 +1441,9 @@ func _unregister_profile(state: ProfileState, managed_permit: RefCounted) -> boo
 	return true
 
 
+## 校验托管权限、保存能力及回调/加载互斥后，一次性领取请求数据并推进 generation；保存覆盖项须与定义匹配，准入失败返回已拒绝操作。
+## [br]
+## @api private
 func _request_save_profile(
 	profile_id: StringName,
 	request: GFSaveProfileRequest,
@@ -1460,6 +1577,9 @@ func _request_save_profile(
 	return operation
 
 
+## 核对准入、托管权限和加载能力，拒绝 Provider 回调或内存事务中的请求；记录当前 generation 作为加载屏障并排队调度。
+## [br]
+## @api private
 func _request_load_profile(
 	profile_id: StringName,
 	context: Dictionary,
@@ -1537,6 +1657,9 @@ func _request_load_profile(
 	return operation
 
 
+## 校验 flush 权限后记录当前 generation 的完成屏障；已满足屏障时立即完成，否则进入调度，不自行创建新保存 generation。
+## [br]
+## @api private
 func _request_flush_profile(
 	profile_id: StringName,
 	metadata: Dictionary,
@@ -1612,6 +1735,10 @@ func _request_flush_profile(
 	return operation
 
 
+## 将有待处理操作且当前可调度的状态追加到待调度链表。
+## [br]
+## @api private
+## [br]
 func _enqueue_schedule(state: ProfileState) -> void:
 	if (
 		_disposed
@@ -1634,6 +1761,10 @@ func _enqueue_schedule(state: ProfileState) -> void:
 	_pending_schedule_tail = state
 
 
+## 从待调度链表移除头部状态并清除其排队链接与标记。
+## [br]
+## @api private
+## [br]
 func _pop_pending_schedule() -> ProfileState:
 	var state: ProfileState = _pending_schedule_head
 	if state == null:
@@ -1646,6 +1777,10 @@ func _pop_pending_schedule() -> ProfileState:
 	return state
 
 
+## 逐个取出待调度状态，对 idle 且仍有操作的状态执行调度。
+## [br]
+## @api private
+## [br]
 func _drain_pending_schedule_queue() -> void:
 	while _pending_schedule_head != null and not _disposed and not _dispose_requested:
 		var state: ProfileState = _pop_pending_schedule()
@@ -1657,6 +1792,9 @@ func _drain_pending_schedule_queue() -> void:
 			_schedule(state)
 
 
+## 在空闲模式下按保存轮次与最早加载屏障推进请求；重入调度只设置再次调度标记，加载等待覆盖其 generation 的保存完成或失败。
+## [br]
+## @api private
 func _schedule(state: ProfileState) -> void:
 	if _disposed or _dispose_requested or state == null:
 		return
@@ -1716,6 +1854,10 @@ func _schedule(state: ProfileState) -> void:
 	state.is_scheduling = false
 
 
+## 将尚未入列的 PREPARING 状态追加到准备链表尾部。
+## [br]
+## @api private
+## [br]
 func _enqueue_active_preparation(state: ProfileState) -> void:
 	if (
 		_disposed
@@ -1734,6 +1876,10 @@ func _enqueue_active_preparation(state: ProfileState) -> void:
 	_active_preparation_tail = state
 
 
+## 从准备链表移除头部状态并清除其排队链接与标记。
+## [br]
+## @api private
+## [br]
 func _pop_active_preparation() -> ProfileState:
 	var state: ProfileState = _active_preparation_head
 	if state == null:
@@ -1746,6 +1892,9 @@ func _pop_active_preparation() -> ProfileState:
 	return state
 
 
+## 按工作量和可选微秒预算轮转准备队列，每个 slice 至少扣一个工作单位；未完成的准备重新入队，释放请求出现时停止。
+## [br]
+## @api private
 func _advance_save_preparations() -> void:
 	if _active_preparation_head == null:
 		return
@@ -1778,6 +1927,9 @@ func _advance_save_preparations() -> void:
 			return
 
 
+## 捕获最新 generation 与其请求载荷并从 latest 槽转交给 current 槽，重置本轮准备/I/O 计量，标记覆盖的保存操作运行中并进入准备队列。
+## [br]
+## @api private
 func _start_save(state: ProfileState) -> void:
 	state.current_kind = GFSaveProfileOperation.OPERATION_SAVE
 	state.current_generation = state.generation
@@ -1809,6 +1961,9 @@ func _start_save(state: ProfileState) -> void:
 	_enqueue_active_preparation(state)
 
 
+## 在工作预算内推进 Provider 快照、覆盖 section、保留 section 和最终组装阶段；领取快照所有权失败即结束保存，Provider 调用期间设置不安全回调边界。
+## [br]
+## @api private
 func _advance_save_preparation(state: ProfileState, work_budget: int) -> int:
 	if state == null or state.mode != STATE_PREPARING or work_budget <= 0:
 		return 0
@@ -1986,6 +2141,9 @@ func _advance_save_preparation(state: ProfileState, work_budget: int) -> int:
 	return consumed
 
 
+## 将 section 与元数据组装为文档并转交 Storage payload 所有权；交接成功后结束准备计时并启动写入，失败则终结本轮保存。
+## [br]
+## @api private
 func _complete_save_preparation(state: ProfileState) -> void:
 	var document_data: Dictionary = {}
 	document_data["format"] = GFSaveDocument.FORMAT_ID
@@ -2014,6 +2172,9 @@ func _complete_save_preparation(state: ProfileState) -> void:
 	_start_current_save_io(state)
 
 
+## 将选中的加载操作及其 generation、上下文和元数据设为当前任务，标记运行中并进入 LOADING；状态回调请求释放后不再启动 I/O。
+## [br]
+## @api private
 func _start_load(state: ProfileState, operation: GFSaveProfileOperation) -> void:
 	state.current_kind = GFSaveProfileOperation.OPERATION_LOAD
 	state.current_load_operation = operation
@@ -2029,6 +2190,9 @@ func _start_load(state: ProfileState, operation: GFSaveProfileOperation) -> void
 	_start_current_load_io(state)
 
 
+## 检查存储与 payload transfer 可用后增加尝试次数并启动异步保存，由观察入口统一接管同步完成和异步完成。
+## [br]
+## @api private
 func _start_current_save_io(state: ProfileState) -> void:
 	if _disposed or _dispose_requested:
 		return
@@ -2057,6 +2221,9 @@ func _start_current_save_io(state: ProfileState) -> void:
 	_observe_storage_operation(state, operation)
 
 
+## 检查存储可用后增加尝试次数并开始加载计时，将异步读取交给统一观察入口。
+## [br]
+## @api private
 func _start_current_load_io(state: ProfileState) -> void:
 	if _disposed or _dispose_requested:
 		return
@@ -2074,6 +2241,9 @@ func _start_current_load_io(state: ProfileState) -> void:
 	_observe_storage_operation(state, operation)
 
 
+## 清除重试到期时间，根据当前操作种类恢复 SAVING 或 LOADING 并重启 I/O。
+## [br]
+## @api private
 func _retry_current_io(state: ProfileState) -> void:
 	if _disposed or _dispose_requested:
 		return
@@ -2086,6 +2256,9 @@ func _retry_current_io(state: ProfileState) -> void:
 		_start_current_load_io(state)
 
 
+## 仅在策略允许该错误与尝试次数且延迟为正时，按单调毫秒时钟设置重试到期时间并进入 RETRY_WAIT。
+## [br]
+## @api private
 func _schedule_retry(state: ProfileState, error_code: Error) -> bool:
 	var policy: GFSaveRecoveryPolicy = state.recovery_policy
 	if policy == null or not policy.can_retry(error_code, state.current_attempt_count):
@@ -2098,8 +2271,9 @@ func _schedule_retry(state: ProfileState, error_code: Error) -> bool:
 	return true
 
 
-
-
+## 优先按恢复策略排队重试；不能重试时，依据该 generation 是否仍有未知写入结果区分 OUTCOME_UNKNOWN 与存储失败。
+## [br]
+## @api private
 func _handle_save_failure(state: ProfileState, error_code: Error, error: String) -> void:
 	if _schedule_retry(state, error_code):
 		if state.unknown_write_generations.has(state.current_generation):
@@ -2117,6 +2291,9 @@ func _handle_save_failure(state: ProfileState, error_code: Error, error: String)
 	)
 
 
+## 先尝试重试，再按读取失败类型选择状态；仅非严格恢复加载可依策略使用当前内存状态作为恢复成功。
+## [br]
+## @api private
 func _handle_load_failure(state: ProfileState, result: GFStorageReadResult) -> void:
 	if _schedule_retry(state, result.error_code):
 		return
@@ -2160,6 +2337,9 @@ func _handle_load_failure(state: ProfileState, result: GFStorageReadResult) -> v
 
 # 文档与 provider 事务
 
+## 进入 APPLYING 后校验托管加载权限、文档格式和 schema，按需迁移再事务应用；仅成功后更新未知 section 保留集，失败报告区分快照、应用与回滚阶段。
+## [br]
+## @api private
 func _process_loaded_document(state: ProfileState, storage_result: GFStorageReadResult) -> void:
 	_set_mode(state, STATE_APPLYING)
 	if not _is_current_managed_load_authorized(state):
@@ -2296,6 +2476,9 @@ func _process_loaded_document(state: ProfileState, storage_result: GFStorageRead
 	)
 
 
+## 先为所有参与加载的 Provider 捕获回滚快照，再逐项应用；每次回调前后复核托管权限，失败或撤权时逆序回滚所有已尝试项，包含本次失败项。
+## [br]
+## @api private
 func _apply_document_transactionally(
 	state: ProfileState,
 	document: GFSaveDocument,
@@ -2367,6 +2550,10 @@ func _apply_document_transactionally(
 	return {"ok": true}
 
 
+## 构造因 managed load permit 已失效而产生的 section 加载失败结果。
+## [br]
+## @api private
+## [br]
 func _make_revoked_load_failure(section_id: StringName) -> Dictionary:
 	return {
 		"ok": false,
@@ -2378,6 +2565,9 @@ func _make_revoked_load_failure(section_id: StringName) -> Dictionary:
 	}
 
 
+## 按尝试顺序的逆序回滚 Provider，每次回调设置不安全边界；继续收集各 section 的回滚失败，不因一次失败中断。
+## [br]
+## @api private
 func _rollback_providers(
 	attempted: Array[GFSaveSectionProvider],
 	snapshots: Dictionary,
@@ -2399,6 +2589,9 @@ func _rollback_providers(
 	return errors
 
 
+## 依据损坏恢复策略结束加载；只有非严格恢复请求可使用当前状态，其他情况报告 CORRUPT 并保留校验诊断。
+## [br]
+## @api private
 func _handle_corrupt_document(
 	state: ProfileState,
 	storage_result: GFStorageReadResult,
@@ -2431,6 +2624,9 @@ func _handle_corrupt_document(
 
 # 完成与清理
 
+## 以当前保存 generation 和本轮计量信息完成其覆盖的请求，具体筛选交给 success-through 入口。
+## [br]
+## @api private
 func _complete_save_operations_success(state: ProfileState) -> void:
 	_complete_save_operations_success_through(
 		state,
@@ -2443,6 +2639,9 @@ func _complete_save_operations_success(state: ProfileState) -> void:
 	)
 
 
+## 完成请求 generation 不大于指定 generation 的保存，并标记被合并的旧请求；保留更晚请求，只有覆盖最新代次时才清空 latest 载荷。
+## [br]
+## @api private
 func _complete_save_operations_success_through(
 	state: ProfileState,
 	generation: int,
@@ -2480,6 +2679,9 @@ func _complete_save_operations_success_through(
 		state.latest_save_section_overrides = {}
 
 
+## 记录当前 generation 的失败证据并终结其覆盖的保存请求；清理当前工作后恢复空闲、结算 flush 屏障并排队后续工作，最后通知证据变化。
+## [br]
+## @api private
 func _finish_save_failure(
 	state: ProfileState,
 	error_code: Error,
@@ -2539,6 +2741,9 @@ func _finish_save_failure(
 	_emit_generation_evidence_changed(state, failed_generation)
 
 
+## 补入当前尝试次数和存储请求标识后完成加载，清理当前工作并恢复空闲调度。
+## [br]
+## @api private
 func _finish_load_success(
 	state: ProfileState,
 	status: StringName,
@@ -2555,6 +2760,9 @@ func _finish_load_success(
 	_reap_expired_managed_permit_if_safe(state)
 
 
+## 带失败状态与当前 I/O 证据完成加载，再清理工作并恢复空闲调度；更晚排队请求仍保留。
+## [br]
+## @api private
 func _finish_load_failure(
 	state: ProfileState,
 	status: StringName,
@@ -2573,6 +2781,9 @@ func _finish_load_failure(
 	_reap_expired_managed_permit_if_safe(state)
 
 
+## 已持久化 generation 的 flush 立即成功；仍有覆盖保存则继续等待，否则仅在存在明确屏障失败时终结。
+## [br]
+## @api private
 func _complete_ready_flushes(state: ProfileState) -> void:
 	var remaining: Array[GFSaveProfileOperation] = []
 	for operation: GFSaveProfileOperation in state.flush_operations:
@@ -2611,6 +2822,9 @@ func _complete_ready_flushes(state: ProfileState) -> void:
 	state.flush_operations = remaining
 
 
+## 为尚未完成的操作组装结果并设置终态；成功设置终态后仅加入通知队列，实际信号由 drain 路径派发。
+## [br]
+## @api private
 func _complete_operation(
 	state: ProfileState,
 	operation: GFSaveProfileOperation,
@@ -2654,6 +2868,9 @@ func _complete_operation(
 		_pending_completion_operations.append(operation)
 
 
+## 结束所有排队与当前请求；仍有未知写入证据的保存和 flush 报 OUTCOME_UNKNOWN，其他报 DISPOSED，随后断开脱离写入观察并清理当前工作。
+## [br]
+## @api private
 func _complete_all_pending_as_disposed(state: ProfileState) -> void:
 	if state.current_kind == GFSaveProfileOperation.OPERATION_SAVE:
 		_finalize_save_timing_for_terminal(state)
@@ -2721,6 +2938,9 @@ func _complete_all_pending_as_disposed(state: ProfileState) -> void:
 	_clear_current(state)
 
 
+## 结束计时、断开当前 I/O 观察并取消快照准备，释放 payload transfer 和本轮载荷；清空 current 状态，不直接修改排队操作集合。
+## [br]
+## @api private
 func _clear_current(state: ProfileState) -> void:
 	_complete_current_io_timing(state)
 	_clear_current_storage_operation(state)
@@ -2757,6 +2977,10 @@ func _clear_current(state: ProfileState) -> void:
 
 # 对象与校验
 
+## 创建普通 Profile operation，并用当前单调时间和输入上下文完成配置。
+## [br]
+## @api private
+## [br]
 func _make_operation(
 	operation_kind: StringName,
 	profile_id: StringName,
@@ -2780,6 +3004,10 @@ func _make_operation(
 	return operation
 
 
+## 创建 save operation，并通过专用入口接收结果元数据。
+## [br]
+## @api private
+## [br]
 func _make_save_operation(
 	profile_id: StringName,
 	generation: int,
@@ -2795,6 +3023,10 @@ func _make_save_operation(
 	return operation
 
 
+## 创建已启动的拒绝结果 operation，并在未嵌套处理中排出完成通知。
+## [br]
+## @api private
+## [br]
 func _make_rejected_operation(
 	operation_kind: StringName,
 	profile_id: StringName,
@@ -2820,10 +3052,18 @@ func _make_rejected_operation(
 	return operation
 
 
+## 增加同步处理嵌套深度。
+## [br]
+## @api private
+## [br]
 func _begin_processing() -> void:
 	_processing_depth += 1
 
 
+## 减少处理深度；归零时处理延迟释放、完成通知和 quiesce 检查。
+## [br]
+## @api private
+## [br]
 func _end_processing() -> void:
 	_processing_depth = maxi(_processing_depth - 1, 0)
 	if _processing_depth > 0:
@@ -2834,14 +3074,25 @@ func _end_processing() -> void:
 	_try_complete_quiesce()
 
 
+## 增加正在执行的 Provider 或状态回调深度。
+## [br]
+## @api private
+## [br]
 func _enter_unsafe_callback() -> void:
 	_unsafe_callback_depth += 1
 
 
+## 减少正在执行的 Provider 或状态回调深度，下限为零。
+## [br]
+## @api private
+## [br]
 func _exit_unsafe_callback() -> void:
 	_unsafe_callback_depth = maxi(_unsafe_callback_depth - 1, 0)
 
 
+## 若 manager reset 尚未结算则保留释放请求；否则先标记 disposed，再终结各档案请求、撤销 permit、清空调度队列并断开存储。
+## [br]
+## @api private
 func _dispose_now() -> void:
 	if _disposed:
 		return
@@ -2869,6 +3120,9 @@ func _dispose_now() -> void:
 	_try_complete_quiesce()
 
 
+## 仅在处理深度为零且未在派发时批量消费完成队列；先清空本批队列，再发工具级结果和操作级完成信号，回调产生的新完成进入后续批次。
+## [br]
+## @api private
 func _drain_completion_events() -> void:
 	if _processing_depth > 0 or _emitting_completions:
 		return
@@ -2887,6 +3141,10 @@ func _drain_completion_events() -> void:
 	_emitting_completions = false
 
 
+## 检查状态是否有一个正在执行且模式非 idle 的 load。
+## [br]
+## @api private
+## [br]
 func _is_load_active(state: ProfileState) -> bool:
 	return (
 		state != null
@@ -2895,6 +3153,10 @@ func _is_load_active(state: ProfileState) -> bool:
 	)
 
 
+## 读取当前 load operation 的 strict-recovery 标记。
+## [br]
+## @api private
+## [br]
 func _current_load_requires_strict_recovery(state: ProfileState) -> bool:
 	return (
 		state != null
@@ -2903,6 +3165,10 @@ func _current_load_requires_strict_recovery(state: ProfileState) -> bool:
 	)
 
 
+## 当前 load 未携带 manager permit 时返回 true，否则校验该 permit。
+## [br]
+## @api private
+## [br]
 func _is_current_managed_load_authorized(state: ProfileState) -> bool:
 	if state == null or state.current_load_operation == null:
 		return false
@@ -2914,6 +3180,9 @@ func _is_current_managed_load_authorized(state: ProfileState) -> bool:
 	return _is_valid_managed_permit(state, permit)
 
 
+## 失效 permit 先阻断托管访问；只有没有事务、I/O、排队工作和脱离写入且档案空闲时才清除 permit。
+## [br]
+## @api private
 func _reap_expired_managed_permit_if_safe(state: ProfileState) -> void:
 	if (
 		state == null
@@ -2938,6 +3207,9 @@ func _reap_expired_managed_permit_if_safe(state: ProfileState) -> void:
 	state.managed_permit = null
 
 
+## 将所有仍持有 permit 的档案设为访问阻断，不在此撤销或释放 permit。
+## [br]
+## @api private
 func _block_all_managed_access_for_shutdown() -> void:
 	for state_value: Variant in _states.values():
 		var state: ProfileState = _get_state_value(state_value)
@@ -2945,6 +3217,9 @@ func _block_all_managed_access_for_shutdown() -> void:
 			state.managed_access = MANAGED_ACCESS_BLOCKED
 
 
+## 要求传入引用与档案当前 permit 完全相同，且该 permit 仍活跃。
+## [br]
+## @api private
 func _is_valid_managed_permit(
 	state: ProfileState,
 	permit_value: RefCounted
@@ -2954,6 +3229,10 @@ func _is_valid_managed_permit(
 	return state.managed_permit == permit_value and state.managed_permit.is_active_for_framework()
 
 
+## 检查是否有任何 ProfileState 持有 manager reset operation 对象。
+## [br]
+## @api private
+## [br]
 func _has_active_manager_reset_work() -> bool:
 	for state_value: Variant in _states.values():
 		var state: ProfileState = _get_state_value(state_value)
@@ -2962,6 +3241,9 @@ func _has_active_manager_reset_work() -> bool:
 	return false
 
 
+## 未托管档案允许直接操作；托管档案仅在有效 permit 与 SAVE_FLUSH 权限下允许直接保存或 flush，加载须经协调器。
+## [br]
+## @api private
 func _is_direct_managed_operation_allowed(
 	state: ProfileState,
 	operation_kind: StringName
@@ -2980,6 +3262,9 @@ func _is_direct_managed_operation_allowed(
 	)
 
 
+## 保存当前 I/O 身份并绑定档案与 request id；同步完成直接进入同一完成回调，否则单次订阅，空操作转换为对应保存或加载失败。
+## [br]
+## @api private
 func _observe_storage_operation(
 	state: ProfileState,
 	operation: GFStorageAsyncOperation
@@ -3025,6 +3310,9 @@ func _observe_storage_operation(
 		) as Error
 
 
+## 持有 manager reset 操作直到结算；已完成则立即清除，否则绑定档案与请求标识单次订阅，连接失败保留操作供轮询处理。
+## [br]
+## @api private
 func _observe_manager_reset_operation(
 	state: ProfileState,
 	operation: GFStorageAsyncOperation
@@ -3051,6 +3339,9 @@ func _observe_manager_reset_operation(
 		state.manager_reset_callback = Callable()
 
 
+## 断开 manager reset 的已连接回调，再清空操作和回调引用；不取消底层操作。
+## [br]
+## @api private
 func _clear_manager_reset_operation(state: ProfileState) -> void:
 	if state == null:
 		return
@@ -3068,6 +3359,9 @@ func _clear_manager_reset_operation(state: ProfileState) -> void:
 	state.manager_reset_callback = Callable()
 
 
+## 断开当前存储操作的完成观察并清空引用和截止时间，不在此取消底层 I/O。
+## [br]
+## @api private
 func _clear_current_storage_operation(state: ProfileState) -> void:
 	if state.current_storage_operation != null and state.current_storage_callback.is_valid():
 		if state.current_storage_operation.completed.is_connected(state.current_storage_callback):
@@ -3077,6 +3371,9 @@ func _clear_current_storage_operation(state: ProfileState) -> void:
 	state.current_io_deadline_msec = 0
 
 
+## 写入超时先计入脱离尾部耗时并转为持续观察，再走保存失败或重试；读取超时只断开当前观察并报告可重试的 I/O 失败。
+## [br]
+## @api private
 func _handle_current_io_timeout(state: ProfileState) -> void:
 	var operation_kind: StringName = state.current_kind
 	if operation_kind == GFSaveProfileOperation.OPERATION_SAVE:
@@ -3100,6 +3397,10 @@ func _handle_current_io_timeout(state: ProfileState) -> void:
 		)
 
 
+## 结束前一段 IO 计时后记录新起点和基于 timeout 的截止时间。
+## [br]
+## @api private
+## [br]
 func _begin_current_io_timing(state: ProfileState) -> void:
 	if state == null:
 		return
@@ -3110,6 +3411,10 @@ func _begin_current_io_timing(state: ProfileState) -> void:
 	)
 
 
+## 累加当前 IO 区间的非负毫秒耗时并清除计时起点。
+## [br]
+## @api private
+## [br]
 func _complete_current_io_timing(state: ProfileState) -> void:
 	if state == null or state.current_io_started_at_msec < 0:
 		return
@@ -3120,6 +3425,10 @@ func _complete_current_io_timing(state: ProfileState) -> void:
 	state.current_io_started_at_msec = -1
 
 
+## 累加当前准备区间的非负毫秒耗时并清除计时起点。
+## [br]
+## @api private
+## [br]
 func _complete_current_preparation_timing(state: ProfileState) -> void:
 	if state == null or state.current_preparation_started_at_msec < 0:
 		return
@@ -3130,6 +3439,10 @@ func _complete_current_preparation_timing(state: ProfileState) -> void:
 	state.current_preparation_started_at_msec = -1
 
 
+## 保存当前 section 记录；首次遇到该 ID 时同时追加到索引顺序表。
+## [br]
+## @api private
+## [br]
 func _store_current_section_record(
 	state: ProfileState,
 	section_id: StringName,
@@ -3143,6 +3456,10 @@ func _store_current_section_record(
 	state.current_section_records[section_key] = record
 
 
+## 结束准备与 IO 计时，并更新当前 generation 的 detached write 耗时。
+## [br]
+## @api private
+## [br]
 func _finalize_save_timing_for_terminal(state: ProfileState) -> void:
 	if state == null:
 		return
@@ -3151,6 +3468,9 @@ func _finalize_save_timing_for_terminal(state: ProfileState) -> void:
 	_account_detached_write_tails(state, state.current_generation)
 
 
+## 对指定 generation 的脱离写入累计自上次计量以来的非负毫秒差，并推进各记录计量起点，避免重复累计同一时间段。
+## [br]
+## @api private
 func _account_detached_write_tails(
 	state: ProfileState,
 	generation: int
@@ -3184,12 +3504,20 @@ func _account_detached_write_tails(
 		state.detached_write_operations[request_id] = record
 
 
+## 将请求 generation 不高于当前处理值且仍 pending 的 save 操作启动。
+## [br]
+## @api private
+## [br]
 func _mark_save_operations_running(state: ProfileState, generation: int) -> void:
 	for operation: GFSaveProfileOperation in state.save_operations:
 		if operation.get_requested_generation() <= generation and operation.is_pending():
 			var _started: bool = operation.start_for_framework()
 
 
+## 检查保存、读取、flush 队列或当前 load 是否仍有操作。
+## [br]
+## @api private
+## [br]
 func _has_pending_operations(state: ProfileState) -> bool:
 	return (
 		not state.save_operations.is_empty()
@@ -3199,6 +3527,9 @@ func _has_pending_operations(state: ProfileState) -> bool:
 	)
 
 
+## 把当前写入从主 I/O 槽移交到脱离记录，保留 generation、计量和完成观察并登记结果未知；不把超时解释为取消或确定失败。
+## [br]
+## @api private
 func _detach_current_write(state: ProfileState) -> void:
 	var operation: GFStorageAsyncOperation = state.current_storage_operation
 	if operation == null:
@@ -3248,8 +3579,10 @@ func _detach_current_write(state: ProfileState) -> void:
 		) as Error
 
 
-
-
+## 返回覆盖目标 generation 的未知写入结果或最高 generation 失败记录。
+## [br]
+## @api private
+## [br]
 func _get_barrier_failure(state: ProfileState, target_generation: int) -> Dictionary:
 	var unknown_ids: PackedInt64Array = _get_unknown_request_ids_covering(
 		state,
@@ -3277,6 +3610,10 @@ func _get_barrier_failure(state: ProfileState, target_generation: int) -> Dictio
 	return selected_failure
 
 
+## 检查当前或排队的未完成 save 是否覆盖目标 generation。
+## [br]
+## @api private
+## [br]
 func _has_pending_save_covering_generation(state: ProfileState, target_generation: int) -> bool:
 	if (
 		state.current_kind == GFSaveProfileOperation.OPERATION_SAVE
@@ -3290,6 +3627,10 @@ func _has_pending_save_covering_generation(state: ProfileState, target_generatio
 	return false
 
 
+## 按 generation 保存失败状态、错误、section 和复制后的请求 ID 列表。
+## [br]
+## @api private
+## [br]
 func _record_generation_failure(
 	state: ProfileState,
 	generation: int,
@@ -3308,12 +3649,20 @@ func _record_generation_failure(
 	}
 
 
+## 删除键值不大于指定 generation 的失败证据。
+## [br]
+## @api private
+## [br]
 func _clear_generation_evidence_through(state: ProfileState, generation: int) -> void:
 	for key: Variant in state.generation_failures.keys():
 		if GFVariantData.to_int(key, generation + 1) <= generation:
 			var _erased_failure: bool = state.generation_failures.erase(key)
 
 
+## 返回指定 generation 记录的未知写入请求 ID。
+## [br]
+## @api private
+## [br]
 func _get_unknown_request_ids_for_generation(
 	state: ProfileState,
 	generation: int
@@ -3321,6 +3670,10 @@ func _get_unknown_request_ids_for_generation(
 	return _get_request_id_array(state.unknown_write_generations.get(generation, PackedInt64Array()))
 
 
+## 从指定 generation 的未知写入列表移除请求 ID，空列表时删除该项。
+## [br]
+## @api private
+## [br]
 func _remove_unknown_request_id(state: ProfileState, generation: int, request_id: int) -> void:
 	var remaining: PackedInt64Array = PackedInt64Array()
 	for candidate: int in _get_unknown_request_ids_for_generation(state, generation):
@@ -3332,6 +3685,10 @@ func _remove_unknown_request_id(state: ProfileState, generation: int, request_id
 		state.unknown_write_generations[generation] = remaining
 
 
+## 收集覆盖目标 generation 的未知写入请求 ID 并排序。
+## [br]
+## @api private
+## [br]
 func _get_unknown_request_ids_covering(
 	state: ProfileState,
 	target_generation: int
@@ -3347,6 +3704,10 @@ func _get_unknown_request_ids_covering(
 	return result
 
 
+## 收集覆盖目标 generation 的未知请求，并补入仍进行中的当前写入请求。
+## [br]
+## @api private
+## [br]
 func _get_disposal_unknown_request_ids(
 	state: ProfileState,
 	target_generation: int
@@ -3367,6 +3728,10 @@ func _get_disposal_unknown_request_ids(
 	return result
 
 
+## 断开各 detached write 的完成回调并清空记录表。
+## [br]
+## @api private
+## [br]
 func _disconnect_detached_writes(state: ProfileState) -> void:
 	for record_value: Variant in state.detached_write_operations.values():
 		var record: Dictionary = GFVariantData.as_dictionary(record_value)
@@ -3381,11 +3746,19 @@ func _disconnect_detached_writes(state: ProfileState) -> void:
 	state.detached_write_operations.clear()
 
 
+## 仅将正数且尚未出现的请求 ID 追加到数组。
+## [br]
+## @api private
+## [br]
 func _append_request_id(request_ids: PackedInt64Array, request_id: int) -> void:
 	if request_id > 0 and not request_ids.has(request_id):
 		var _appended: bool = request_ids.append(request_id)
 
 
+## 复制 PackedInt64Array，或从其他数组筛出可转换的请求 ID。
+## [br]
+## @api private
+## [br]
 func _get_request_id_array(value: Variant) -> PackedInt64Array:
 	if value is PackedInt64Array:
 		var packed_value: PackedInt64Array = value
@@ -3397,6 +3770,10 @@ func _get_request_id_array(value: Variant) -> PackedInt64Array:
 	return result
 
 
+## 将字典键转换为整数 generation 数组并升序排列。
+## [br]
+## @api private
+## [br]
 func _get_sorted_generation_keys(source: Dictionary) -> PackedInt64Array:
 	var result: PackedInt64Array = PackedInt64Array()
 	for key: Variant in source.keys():
@@ -3405,6 +3782,10 @@ func _get_sorted_generation_keys(source: Dictionary) -> PackedInt64Array:
 	return result
 
 
+## 将字典键转换为整数请求 ID 数组并升序排列。
+## [br]
+## @api private
+## [br]
 func _get_sorted_request_ids(source: Dictionary) -> PackedInt64Array:
 	var result: PackedInt64Array = PackedInt64Array()
 	for key: Variant in source.keys():
@@ -3413,6 +3794,10 @@ func _get_sorted_request_ids(source: Dictionary) -> PackedInt64Array:
 	return result
 
 
+## 清除旧保留项；策略为 preserve 时复制文档中未由 Provider 管理的 section。
+## [br]
+## @api private
+## [br]
 func _update_preserved_unknown_sections(
 	state: ProfileState,
 	document: GFSaveDocument
@@ -3426,6 +3811,10 @@ func _update_preserved_unknown_sections(
 		state.preserved_unknown_sections.append(section.duplicate_section())
 
 
+## 检查 ProfileState 是否包含指定 ID 的非空 Provider。
+## [br]
+## @api private
+## [br]
 func _state_has_provider(state: ProfileState, section_id: StringName) -> bool:
 	for provider: GFSaveSectionProvider in state.providers:
 		if provider != null and provider.section_id == section_id:
@@ -3433,6 +3822,10 @@ func _state_has_provider(state: ProfileState, section_id: StringName) -> bool:
 	return false
 
 
+## 从 Variant Array 中筛选回滚失败对象，并复制每项后返回。
+## [br]
+## @api private
+## [br]
 func _get_rollback_failure_array(value: Variant) -> Array[GFSaveRollbackFailure]:
 	var result: Array[GFSaveRollbackFailure] = []
 	if not value is Array:
@@ -3445,6 +3838,10 @@ func _get_rollback_failure_array(value: Variant) -> Array[GFSaveRollbackFailure]
 	return result
 
 
+## 构造失败候选结果；传入 OK 错误码时使用 FAILED，并初始化回滚列表。
+## [br]
+## @api private
+## [br]
 func _make_candidate_failure(
 	failure_stage: StringName,
 	failed_section_id: StringName,
@@ -3461,6 +3858,9 @@ func _make_candidate_failure(
 	}
 
 
+## 解除内存事务标记、尝试回收失效 permit 并退出处理层，原样返回事务结果。
+## [br]
+## @api private
 func _finish_managed_memory_transaction(
 	state: ProfileState,
 	result: Dictionary
@@ -3472,6 +3872,9 @@ func _finish_managed_memory_transaction(
 	return result
 
 
+## 解除内存事务标记并退出处理层，保留并返回回滚错误集合。
+## [br]
+## @api private
 func _finish_managed_memory_rollback(
 	state: ProfileState,
 	errors: Array[GFSaveRollbackFailure]
@@ -3483,6 +3886,9 @@ func _finish_managed_memory_rollback(
 	return errors
 
 
+## 校验覆盖 section 唯一、存在可保存 Provider 且 schema 版本匹配，复制每个有效 section；任何一项无效即返回空字典。
+## [br]
+## @api private
 func _compile_section_overrides(
 	state: ProfileState,
 	sections: Array[GFSaveSection]
@@ -3509,6 +3915,10 @@ func _compile_section_overrides(
 	return compiled
 
 
+## 为 Provider 管理操作失败构造一个 ERR_UNAUTHORIZED 回滚记录。
+## [br]
+## @api private
+## [br]
 func _make_management_rollback_failure(
 	provider_ids: PackedStringArray
 ) -> Array[GFSaveRollbackFailure]:
@@ -3524,6 +3934,10 @@ func _make_management_rollback_failure(
 	return failures
 
 
+## 复制恢复动作、重试数组、瞬态错误码及 IO timeout 设置。
+## [br]
+## @api private
+## [br]
 func _duplicate_recovery_policy(source: GFSaveRecoveryPolicy) -> GFSaveRecoveryPolicy:
 	var copy: GFSaveRecoveryPolicy = GFSaveRecoveryPolicy.new()
 	copy.missing_file_action = source.missing_file_action
@@ -3534,6 +3948,10 @@ func _duplicate_recovery_policy(source: GFSaveRecoveryPolicy) -> GFSaveRecoveryP
 	return copy
 
 
+## 将来源报告的 issues 按原字段追加到目标报告。
+## [br]
+## @api private
+## [br]
 func _append_report_issues(target: Dictionary, source: Dictionary) -> void:
 	for issue_value: Variant in GFVariantData.get_option_array(source, "issues"):
 		var issue: Dictionary = GFVariantData.as_dictionary(issue_value)
@@ -3546,6 +3964,10 @@ func _append_report_issues(target: Dictionary, source: Dictionary) -> void:
 		)
 
 
+## 向注册报告追加指定类别、消息和路径的错误 issue。
+## [br]
+## @api private
+## [br]
 func _append_registration_issue(
 	report: Dictionary,
 	kind: StringName,
@@ -3561,6 +3983,10 @@ func _append_registration_issue(
 	)
 
 
+## 填入注册状态和 Profile 标识后生成标准化注册报告。
+## [br]
+## @api private
+## [br]
 func _finalize_registration_report(
 	report: Dictionary,
 	profile: GFSaveProfile,
@@ -3589,6 +4015,10 @@ func _finalize_registration_report(
 	})
 
 
+## 检查文档或其受管 section 是否低于对应 schema 版本。
+## [br]
+## @api private
+## [br]
 func _needs_migration(state: ProfileState, document: GFSaveDocument) -> bool:
 	if document.get_schema_version() < state.schema_version:
 		return true
@@ -3601,6 +4031,10 @@ func _needs_migration(state: ProfileState, document: GFSaveDocument) -> bool:
 	return false
 
 
+## 检查文档或其受管 section 是否高于对应 schema 版本。
+## [br]
+## @api private
+## [br]
 func _has_future_schema(state: ProfileState, document: GFSaveDocument) -> bool:
 	if document.get_schema_version() > state.schema_version:
 		return true
@@ -3613,6 +4047,10 @@ func _has_future_schema(state: ProfileState, document: GFSaveDocument) -> bool:
 	return false
 
 
+## 检查报告 issues 中是否存在指定 kind。
+## [br]
+## @api private
+## [br]
 func _report_has_issue(report: Dictionary, kind: StringName) -> bool:
 	for issue_value: Variant in GFVariantData.get_option_array(report, "issues"):
 		var issue: Dictionary = GFVariantData.as_dictionary(issue_value)
@@ -3621,6 +4059,10 @@ func _report_has_issue(report: Dictionary, kind: StringName) -> bool:
 	return false
 
 
+## 返回第一条验证 issue 的消息；没有 issue 时使用 fallback。
+## [br]
+## @api private
+## [br]
 func _get_first_validation_message(report: Dictionary, fallback: String) -> String:
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 	if issues.is_empty():
@@ -3632,10 +4074,18 @@ func _get_first_validation_message(report: Dictionary, fallback: String) -> Stri
 	)
 
 
+## 读取字典中的错误码；字段缺失时使用传入的 fallback。
+## [br]
+## @api private
+## [br]
 func _get_error_code(source: Dictionary, key: String, fallback: Error) -> Error:
 	return GFVariantData.get_option_int(source, key, int(fallback)) as Error
 
 
+## 返回已累计准备耗时，并在计时仍进行时加入当前区间的毫秒数。
+## [br]
+## @api private
+## [br]
 func _get_current_preparation_duration(state: ProfileState) -> int:
 	if state == null:
 		return 0
@@ -3650,6 +4100,10 @@ func _get_current_preparation_duration(state: ProfileState) -> int:
 	)
 
 
+## 返回已累计 Storage 耗时，并加入尚未结束的 IO 区间。
+## [br]
+## @api private
+## [br]
 func _get_current_storage_duration(state: ProfileState) -> int:
 	if state == null:
 		return 0
@@ -3681,6 +4135,9 @@ func _get_current_storage_duration(state: ProfileState) -> int:
 	return duration_msec
 
 
+## 仅在处理、通知、调度、准备、各档案事务及全部 I/O 尾部均已排空时完成静默句柄；检查中可回收安全失效的 permit。
+## [br]
+## @api private
 func _try_complete_quiesce() -> void:
 	if (
 		_quiesce_completion == null
@@ -3712,16 +4169,25 @@ func _try_complete_quiesce() -> void:
 	var _succeeded: bool = _quiesce_completion.succeed()
 
 
+## 替换持有的存储工具引用，相同实例时不操作；不在此连接信号。
+## [br]
+## @api private
 func _set_storage(storage: GFStorageUtility) -> void:
 	if _storage == storage:
 		return
 	_storage = storage
 
 
+## 清除存储工具引用，不释放由外部拥有的存储实例。
+## [br]
+## @api private
 func _disconnect_storage() -> void:
 	_storage = null
 
 
+## 状态变化时先写入新模式，再在不安全回调边界内发出前后状态通知。
+## [br]
+## @api private
 func _set_mode(state: ProfileState, mode: StringName) -> void:
 	if state.mode == mode:
 		return
@@ -3732,6 +4198,9 @@ func _set_mode(state: ProfileState, mode: StringName) -> void:
 	_exit_unsafe_callback()
 
 
+## 仅为有效档案和正 generation 发出证据变化通知，通知期间阻止不安全的 Provider 操作重入。
+## [br]
+## @api private
 func _emit_generation_evidence_changed(state: ProfileState, generation: int) -> void:
 	if state == null or generation <= 0 or _disposed:
 		return
@@ -3740,10 +4209,18 @@ func _emit_generation_evidence_changed(state: ProfileState, generation: int) -> 
 	_exit_unsafe_callback()
 
 
+## 按 Profile ID 读取 ProfileState。
+## [br]
+## @api private
+## [br]
 func _get_state(profile_id: StringName) -> ProfileState:
 	return _get_state_value(GFVariantData.get_option_value(_states, profile_id))
 
 
+## 将 Variant 转为 ProfileState，类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_state_value(value: Variant) -> ProfileState:
 	if value is ProfileState:
 		var state: ProfileState = value
@@ -3751,6 +4228,10 @@ func _get_state_value(value: Variant) -> ProfileState:
 	return null
 
 
+## 将 Variant 转为 GFSaveDocument，类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_document_value(value: Variant) -> GFSaveDocument:
 	if value is GFSaveDocument:
 		var document: GFSaveDocument = value
@@ -3758,6 +4239,10 @@ func _get_document_value(value: Variant) -> GFSaveDocument:
 	return null
 
 
+## 将 Variant 转为 GFSaveSection，类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_section_value(value: Variant) -> GFSaveSection:
 	if value is GFSaveSection:
 		var section: GFSaveSection = value
@@ -3765,6 +4250,10 @@ func _get_section_value(value: Variant) -> GFSaveSection:
 	return null
 
 
+## 将 Variant 转为 GFStorageReadResult，类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_storage_result_value(value: Variant) -> GFStorageReadResult:
 	if value is GFStorageReadResult:
 		var result: GFStorageReadResult = value
@@ -3772,6 +4261,10 @@ func _get_storage_result_value(value: Variant) -> GFStorageReadResult:
 	return null
 
 
+## 将 Variant 转为 GFStorageAsyncOperation，类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_storage_operation_value(value: Variant) -> GFStorageAsyncOperation:
 	if value is GFStorageAsyncOperation:
 		var operation: GFStorageAsyncOperation = value
@@ -3779,10 +4272,18 @@ func _get_storage_operation_value(value: Variant) -> GFStorageAsyncOperation:
 	return null
 
 
+## 返回 Variant 中的 Callable 值；类型不符时返回空 Callable。
+## [br]
+## @api private
+## [br]
 func _get_callable_value(value: Variant) -> Callable:
 	return value if value is Callable else Callable()
 
 
+## 将 Variant 转为 GFSaveMigrationResult，类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_migration_result_value(value: Variant) -> GFSaveMigrationResult:
 	if value is GFSaveMigrationResult:
 		var result: GFSaveMigrationResult = value
@@ -3794,6 +4295,9 @@ func _get_migration_result_value(value: Variant) -> GFSaveMigrationResult:
 
 # 存储终态
 
+## 核对档案当前操作及结果 request id 后消费完成；保存成功推进持久化 generation，加载在应用前再次核对托管权限，失配或旧回调不写回。
+## [br]
+## @api private
 func _on_storage_operation_completed(
 	result: GFStorageAsyncResult,
 	profile_id: StringName,
@@ -3886,6 +4390,9 @@ func _on_storage_operation_completed(
 	_end_processing()
 
 
+## 仅在档案仍持有该 request id 且结果匹配时清除 reset 观察并尝试回收 permit。
+## [br]
+## @api private
 func _on_manager_reset_operation_completed(
 	result: GFStorageAsyncResult,
 	profile_id: StringName,
@@ -3909,6 +4416,9 @@ func _on_manager_reset_operation_completed(
 	_end_processing()
 
 
+## 消费仍登记的脱离写入并移除未知证据；迟到成功可完成其覆盖请求，若同代重试仍在进行则转交其 I/O 后收尾，迟到失败仅在没有其他未知写入时记录确定失败。
+## [br]
+## @api private
 func _on_detached_write_completed(
 	result: GFStorageAsyncResult,
 	profile_id: StringName,
@@ -4413,9 +4923,25 @@ class ProfileState extends RefCounted:
 ## [br]
 ## @since 11.0.0
 class ManagedProfilePermit extends RefCounted:
+	# --- 私有变量 ---
+
+	## 托管协调者的弱引用；owner 失效后 permit 不再活跃。
+	## [br]
+	## @api private
 	var _owner: WeakRef = null
+
+	## 创建 permit 时保存的正数序号；失效时清零，有效性检查要求它仍为正值。
+	## [br]
+	## @api private
 	var _serial: int = 0
+
+	## 显式撤销标记；有效性还要求 owner 弱引用仍指向有效对象。
+	## [br]
+	## @api private
 	var _active: bool = false
+
+
+	# --- 框架内部方法 ---
 
 	## 绑定唯一 owner 与正数 serial，首次配置成功后激活 capability。
 	## [br]

@@ -27,11 +27,17 @@ signal field_changed(key: StringName, value: Variant)
 
 # --- 常量 ---
 
+## 提供通过弱引用查找仍有效 Control 的内部帮助脚本。
+## [br]
+## @api private
 const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
 
 
 # --- 私有变量 ---
 
+## 按字段键保存控件弱引用、读取回退值及两类信号连接信息。
+## [br]
+## @api private
 var _fields: Dictionary = {}
 
 
@@ -187,6 +193,9 @@ func write_values(data: Dictionary, ignore_missing_fields: bool = true) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 解析字段绑定的弱引用控件；控件已失效时清理该字段并返回 null。
+## [br]
+## @api private
 func _get_control(key: StringName) -> Control:
 	var info: Dictionary = _get_field_info(key)
 	if info.is_empty():
@@ -200,12 +209,11 @@ func _get_control(key: StringName) -> Control:
 	return control
 
 
-func _on_field_changed(key: StringName) -> void:
-	if not _fields.has(key):
-		return
-	field_changed.emit(key, get_field_value(key))
 
 
+## 按字段键读取绑定记录；缺失或值不是 Dictionary 时返回空字典。
+## [br]
+## @api private
 func _get_field_info(key: StringName) -> Dictionary:
 	var info_variant: Variant = GFVariantData.get_option_value(_fields, key, {})
 	if info_variant is Dictionary:
@@ -214,6 +222,9 @@ func _get_field_info(key: StringName) -> Dictionary:
 	return {}
 
 
+## 断开值变化连接，并在控件仍有效时断开记录的 tree_exited 回调。
+## [br]
+## @api private
 func _disconnect_field_info(info: Dictionary) -> void:
 	if info.is_empty():
 		return
@@ -232,6 +243,9 @@ func _disconnect_field_info(info: Dictionary) -> void:
 		control.tree_exited.disconnect(tree_exited_callable)
 
 
+## 将 WeakRef Variant 收窄为 WeakRef；其他类型返回 null。
+## [br]
+## @api private
 func _variant_to_weak_ref(value: Variant) -> WeakRef:
 	if value is WeakRef:
 		var control_ref: WeakRef = value
@@ -239,8 +253,22 @@ func _variant_to_weak_ref(value: Variant) -> WeakRef:
 	return null
 
 
+## 将 Callable Variant 收窄为 Callable；其他类型返回无效 Callable。
+## [br]
+## @api private
 func _variant_to_callable(value: Variant) -> Callable:
 	if value is Callable:
 		var callable: Callable = value
 		return callable
 	return Callable()
+
+
+# --- 信号处理函数 ---
+
+## 只转发仍登记字段的变更，发信号时重新读取当前字段值，避免使用连接时的旧值。
+## [br]
+## @api private
+func _on_field_changed(key: StringName) -> void:
+	if not _fields.has(key):
+		return
+	field_changed.emit(key, get_field_value(key))

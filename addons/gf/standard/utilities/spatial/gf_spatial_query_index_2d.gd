@@ -35,7 +35,16 @@ const STRATEGY_LINEAR: StringName = &"linear"
 ## @since 7.0.0
 const STRATEGY_QUADTREE: StringName = &"quadtree"
 
+## 为调试快照提供 JSON 兼容值转换的内部编解码器。
+## [br]
+## @api private
+## [br]
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+
+## 提供 Rect2 规范化和有限性检查的空间数学工具。
+## [br]
+## @api private
+## [br]
 const _SPATIAL_BOUNDS_MATH = preload("res://addons/gf/standard/foundation/math/gf_spatial_bounds_math.gd")
 
 
@@ -97,10 +106,34 @@ var quadtree_max_entities: int = GFQuadTreeUtility.DEFAULT_MAX_ENTITIES:
 
 # --- 私有变量 ---
 
+## 按空间身份键保存实体、包围矩形和元数据的记录。
+## [br]
+## @api private
+## [br]
 var _records: Dictionary = {}
+
+## 延迟构建的四叉树查询后端；线性策略下可为空。
+## [br]
+## @api private
+## [br]
 var _quad_tree: GFQuadTreeUtility
+
+## 将四叉树整数代理 ID 映射回实体身份键。
+## [br]
+## @api private
+## [br]
 var _quad_tree_key_by_id: Dictionary = {}
+
+## 记录查询后端是否需要重建。
+## [br]
+## @api private
+## [br]
 var _index_dirty: bool = true
+
+## 最近一次四叉树构建是否失败；索引变脏时会重置。
+## [br]
+## @api private
+## [br]
 var _backend_build_failed: bool = false
 
 
@@ -576,6 +609,10 @@ func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 清理失效实体后，按活动策略查询矩形候选身份键。
+## [br]
+## @api private
+## [br]
 func _query_rect_candidate_keys(area: Rect2) -> Array[String]:
 	prune_invalid_entities()
 	if _get_active_strategy() == STRATEGY_QUADTREE:
@@ -583,6 +620,10 @@ func _query_rect_candidate_keys(area: Rect2) -> Array[String]:
 	return _query_rect_linear_keys(area)
 
 
+## 清理失效实体后，按活动策略查询圆形候选身份键。
+## [br]
+## @api private
+## [br]
 func _query_radius_candidate_keys(center: Vector2, radius: float) -> Array[String]:
 	prune_invalid_entities()
 	if _get_active_strategy() == STRATEGY_QUADTREE:
@@ -590,6 +631,10 @@ func _query_radius_candidate_keys(center: Vector2, radius: float) -> Array[Strin
 	return _query_radius_linear_keys(center, radius)
 
 
+## 清理失效实体并拒绝非有限点，再按活动策略获取点查询候选键。
+## [br]
+## @api private
+## [br]
 func _query_point_candidate_keys(point: Vector2) -> Array[String]:
 	prune_invalid_entities()
 	if not _SPATIAL_BOUNDS_MATH.is_finite_vector2(point):
@@ -599,6 +644,10 @@ func _query_point_candidate_keys(point: Vector2) -> Array[String]:
 	return _query_point_linear_keys(point)
 
 
+## 扫描全部记录，返回包围矩形与查询区域相交的身份键。
+## [br]
+## @api private
+## [br]
 func _query_rect_linear_keys(area: Rect2) -> Array[String]:
 	var result: Array[String] = []
 	for entity_key: String in _records.keys():
@@ -609,6 +658,10 @@ func _query_rect_linear_keys(area: Rect2) -> Array[String]:
 	return result
 
 
+## 先按圆的包围矩形筛选，再以最近点距离精确过滤实体矩形。
+## [br]
+## @api private
+## [br]
 func _query_radius_linear_keys(center: Vector2, radius: float) -> Array[String]:
 	var area: Rect2 = Rect2(center - Vector2(radius, radius), Vector2(radius * 2.0, radius * 2.0))
 	var candidates: Array[String] = _query_rect_linear_keys(area)
@@ -626,6 +679,10 @@ func _query_radius_linear_keys(center: Vector2, radius: float) -> Array[String]:
 	return result
 
 
+## 扫描全部记录，返回包含查询点的实体身份键。
+## [br]
+## @api private
+## [br]
 func _query_point_linear_keys(point: Vector2) -> Array[String]:
 	var result: Array[String] = []
 	for entity_key: String in _records.keys():
@@ -635,6 +692,10 @@ func _query_point_linear_keys(point: Vector2) -> Array[String]:
 	return result
 
 
+## 对身份键排序并去重，将仍存在的记录快照追加到输出数组。
+## [br]
+## @api private
+## [br]
 func _append_records_for_keys(entity_keys: Array[String], out_records: Array[Dictionary]) -> void:
 	var sorted_keys: Array[String] = entity_keys.duplicate()
 	sorted_keys.sort_custom(GFSpatialQueryIdentity.sort_keys)
@@ -646,6 +707,10 @@ func _append_records_for_keys(entity_keys: Array[String], out_records: Array[Dic
 		out_records.append(_record_to_snapshot(GFVariantData.as_dictionary(_records[entity_key])))
 
 
+## 按有效边界懒构建四叉树；构建失败时清除后端并记录失败状态供线性回退。
+## [br]
+## @api private
+## [br]
 func _ensure_quad_tree() -> bool:
 	var world_bounds: Rect2 = _get_effective_bounds()
 	if not _SPATIAL_BOUNDS_MATH.is_finite_rect2(world_bounds) or not _rect_has_area(world_bounds):
@@ -675,6 +740,10 @@ func _ensure_quad_tree() -> bool:
 	return true
 
 
+## 将四叉树命中返回的整数代理 ID 转换为实体身份键。
+## [br]
+## @api private
+## [br]
 func _surrogate_ids_to_entity_keys(surrogate_ids: Array[int]) -> Array[String]:
 	var result: Array[String] = []
 	for surrogate_id: int in surrogate_ids:
@@ -684,6 +753,10 @@ func _surrogate_ids_to_entity_keys(surrogate_ids: Array[int]) -> Array[String]:
 	return result
 
 
+## 合并所有记录矩形得到数据边界；没有记录时返回空矩形。
+## [br]
+## @api private
+## [br]
 func _derive_bounds_from_records() -> Rect2:
 	var initialized: bool = false
 	var result: Rect2 = Rect2()
@@ -698,6 +771,10 @@ func _derive_bounds_from_records() -> Rect2:
 	return result
 
 
+## 将正面积配置边界与记录边界合并，或返回其中唯一的有效边界。
+## [br]
+## @api private
+## [br]
 func _get_effective_bounds() -> Rect2:
 	var record_bounds: Rect2 = _derive_bounds_from_records()
 	if _rect_has_area(bounds) and _rect_has_area(record_bounds):
@@ -707,6 +784,10 @@ func _get_effective_bounds() -> Rect2:
 	return record_bounds
 
 
+## 尝试使用首选策略；四叉树不可用时返回线性策略。
+## [br]
+## @api private
+## [br]
 func _get_active_strategy() -> StringName:
 	var preferred_strategy: StringName = _get_preferred_strategy()
 	if preferred_strategy == STRATEGY_QUADTREE and _ensure_quad_tree():
@@ -714,6 +795,10 @@ func _get_active_strategy() -> StringName:
 	return STRATEGY_LINEAR
 
 
+## 按显式策略或实体数量阈值和有效边界选择首选查询策略。
+## [br]
+## @api private
+## [br]
 func _get_preferred_strategy() -> StringName:
 	if strategy == STRATEGY_LINEAR:
 		return STRATEGY_LINEAR
@@ -724,6 +809,10 @@ func _get_preferred_strategy() -> StringName:
 	return STRATEGY_LINEAR
 
 
+## 从实体身份和矩形构造记录；对象以弱引用保存，值身份按身份定义保存。
+## [br]
+## @api private
+## [br]
 func _make_record(entity: Variant, rect: Rect2, p_metadata: Dictionary) -> Dictionary:
 	var identity: GFSpatialQueryIdentity = GFSpatialQueryIdentity.from_value(entity)
 	if identity.key.is_empty():
@@ -748,6 +837,10 @@ func _make_record(entity: Variant, rect: Rect2, p_metadata: Dictionary) -> Dicti
 	}
 
 
+## 生成记录快照并复制身份与元数据；整数身份额外投影为 entity_id。
+## [br]
+## @api private
+## [br]
 func _record_to_snapshot(entity_record: Dictionary) -> Dictionary:
 	var identity: Dictionary = GFVariantData.get_option_dictionary(entity_record, "identity").duplicate(true)
 	var snapshot: Dictionary = {
@@ -761,6 +854,10 @@ func _record_to_snapshot(entity_record: Dictionary) -> Dictionary:
 	return snapshot
 
 
+## 从对象弱引用解析实体，或返回记录中保存的值身份。
+## [br]
+## @api private
+## [br]
 func _record_to_entity(entity_record: Dictionary) -> Variant:
 	var entity_ref_variant: Variant = GFVariantData.get_option_value(entity_record, "entity_ref")
 	if entity_ref_variant is WeakRef:
@@ -769,6 +866,10 @@ func _record_to_entity(entity_record: Dictionary) -> Variant:
 	return GFVariantData.get_option_value(entity_record, "entity")
 
 
+## 拒绝空记录及其对象弱引用已失效的记录；值身份记录有效。
+## [br]
+## @api private
+## [br]
 func _record_is_valid(entity_record: Dictionary) -> bool:
 	if entity_record.is_empty():
 		return false
@@ -779,6 +880,10 @@ func _record_is_valid(entity_record: Dictionary) -> bool:
 	return true
 
 
+## 从记录读取 Rect2 bounds 字段；缺失或类型不符时返回空矩形。
+## [br]
+## @api private
+## [br]
 func _get_record_bounds(entity_record: Dictionary) -> Rect2:
 	var value: Variant = GFVariantData.get_option_value(entity_record, "bounds", Rect2())
 	if value is Rect2:
@@ -787,15 +892,27 @@ func _get_record_bounds(entity_record: Dictionary) -> Rect2:
 	return Rect2()
 
 
+## 委托空间身份工具生成实体键。
+## [br]
+## @api private
+## [br]
 func _make_entity_key(entity: Variant) -> String:
 	return GFSpatialQueryIdentity.make_key(entity)
 
 
+## 标记四叉树索引待重建，并清除上次后端构建失败标记。
+## [br]
+## @api private
+## [br]
 func _mark_index_dirty() -> void:
 	_index_dirty = true
 	_backend_build_failed = false
 
 
+## 仅接受 linear 和 quadtree；其他值规范化为 auto。
+## [br]
+## @api private
+## [br]
 func _normalize_strategy(value: StringName) -> StringName:
 	match value:
 		STRATEGY_LINEAR, STRATEGY_QUADTREE:
@@ -804,10 +921,18 @@ func _normalize_strategy(value: StringName) -> StringName:
 			return STRATEGY_AUTO
 
 
+## 检查矩形宽高是否都严格大于零。
+## [br]
+## @api private
+## [br]
 func _rect_has_area(rect: Rect2) -> bool:
 	return rect.size.x > 0.0 and rect.size.y > 0.0
 
 
+## 使用包含边界的比较判断矩形是否覆盖指定点。
+## [br]
+## @api private
+## [br]
 func _rect_contains_point(rect: Rect2, point: Vector2) -> bool:
 	return (
 		point.x >= rect.position.x
@@ -817,10 +942,18 @@ func _rect_contains_point(rect: Rect2, point: Vector2) -> bool:
 	)
 
 
+## 委托空间边界工具规范化 Rect2。
+## [br]
+## @api private
+## [br]
 func _normalize_rect(rect: Rect2) -> Rect2:
 	return _SPATIAL_BOUNDS_MATH.normalize_rect2(rect)
 
 
+## 将 Variant 收窄为 WeakRef；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_weak_ref(value: Variant) -> WeakRef:
 	if value is WeakRef:
 		var entity_ref: WeakRef = value

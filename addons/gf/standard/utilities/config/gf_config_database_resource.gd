@@ -308,6 +308,10 @@ func duplicate_database() -> GFConfigDatabaseResource:
 
 # --- 私有/辅助方法 ---
 
+## 按 table_name 在数据库资源中查找对应的表资源。
+## [br]
+## @api private
+## [br]
 func _get_table_reference(table_name: StringName) -> GFConfigTableResource:
 	for table_resource: GFConfigTableResource in tables:
 		if table_resource != null and table_resource.get_table_key() == table_name:
@@ -315,6 +319,10 @@ func _get_table_reference(table_name: StringName) -> GFConfigTableResource:
 	return null
 
 
+## 从数据库资源中移除指定表名的表条目。
+## [br]
+## @api private
+## [br]
 func _remove_table_entry(table_name: StringName) -> void:
 	var retained: Array[GFConfigTableResource] = []
 	for table_resource: GFConfigTableResource in tables:
@@ -323,12 +331,20 @@ func _remove_table_entry(table_name: StringName) -> void:
 	tables = retained
 
 
+## 将非空且未重复的表名追加到 ID 数组。
+## [br]
+## @api private
+## [br]
 func _append_table_id(target: PackedStringArray, table_name: StringName) -> void:
 	if table_name == &"" or target.has(String(table_name)):
 		return
 	var _appended: bool = target.append(String(table_name))
 
 
+## 统计数据库中所有有效表资源包含的记录数。
+## [br]
+## @api private
+## [br]
 func _count_records() -> int:
 	var count: int = 0
 	for table_resource: GFConfigTableResource in tables:
@@ -337,6 +353,10 @@ func _count_records() -> int:
 	return count
 
 
+## 检查数据库中的表条目并将校验问题合并到报告。
+## [br]
+## @api private
+## [br]
 func _validate_table_resource_entries(report: Dictionary, options: Dictionary) -> void:
 	var seen_tables: Dictionary = {}
 	var report_builder: GFConfigValidationReport = GFConfigValidationReport.new()

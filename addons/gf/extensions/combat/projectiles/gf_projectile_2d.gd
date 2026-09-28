@@ -34,33 +34,127 @@ signal projectile_finished(session: GFProjectileSession, reason: int)
 
 # --- 常量 ---
 
+## 为 body 快照、位移和运动结果提供有限数值检查。
+## [br]
+## @api private
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
 
 # --- 私有变量 ---
 
+## 当前由 runtime 驱动的 projectile session。
+## [br]
+## @api private
 var _active_session: GFProjectileSession = null
+
+## 当前 session 使用的拓扑 binding；步骤边界会验证其 identity 和 topology。
+## [br]
+## @api private
 var _binding: GFProjectileBinding2D = null
+
+## 激活时使用的独立 launch input 快照。
+## [br]
+## @api private
 var _launch_input: GFProjectileLaunchInput2D = null
+
+## 当前 session 的 motion 策略状态。
+## [br]
+## @api private
 var _motion_state: GFProjectileMotionState = null
+
+## 最近一次成功捕获或应用的 2D body 结果。
+## [br]
+## @api private
 var _current_body: GFProjectileBodyResult2D = null
+
+## 每次激活递增并绑定到影响与结束回调，用于拒绝旧 generation 的通知。
+## [br]
+## @api private
 var _generation: int = 0
+
+## 当前占用 runtime 的 launch reservation；只有相同 identity 可释放该 claim。
+## [br]
+## @api private
 var _launch_claim: GFProjectileLaunchReservation = null
+
+## allocator 管理退休过程保留的 terminal session；claim 存在时拒绝新的 launch。
+## [br]
+## @api private
 var _managed_retirement_session: GFProjectileSession = null
+
+## 标记直接 launch 正在预检，阻止预检回调期间发生重复 launch 或 reservation。
+## [br]
+## @api private
 var _direct_preparing: bool = false
+
+## 预检通过后暂存的 binding，供后续激活 identity 校验。
+## [br]
+## @api private
 var _prepared_binding: GFProjectileBinding2D = null
+
+## 预检阶段冻结的独立输入副本。
+## [br]
+## @api private
 var _prepared_input: GFProjectileLaunchInput2D = null
+
+## 预检阶段读取的 motion 策略。
+## [br]
+## @api private
 var _prepared_motion: GFProjectileMotion = null
+
+## 预检阶段读取的可选 lifetime 策略。
+## [br]
+## @api private
 var _prepared_lifetime: GFProjectileLifetimePolicy = null
+
+## 预检阶段读取并验证类型的 body adapter。
+## [br]
+## @api private
 var _prepared_adapter: GFProjectileBodyAdapter2D = null
+
+## 预检阶段由 motion 策略创建的 session state。
+## [br]
+## @api private
 var _prepared_state: GFProjectileMotionState = null
+
+## 预检阶段捕获且验证成功的初始 body 结果。
+## [br]
+## @api private
 var _prepared_body: GFProjectileBodyResult2D = null
+
+## 当前 active session 使用的 motion 策略引用。
+## [br]
+## @api private
 var _active_motion: GFProjectileMotion = null
+
+## 当前 active session 使用的可选 lifetime 策略引用。
+## [br]
+## @api private
 var _active_lifetime: GFProjectileLifetimePolicy = null
+
+## 当前 active session 使用的 body adapter 引用。
+## [br]
+## @api private
 var _active_adapter: GFProjectileBodyAdapter2D = null
+
+## 已成功连接 hit_accepted 的 HitBox/HitScan 源，和回调数组按索引配对。
+## [br]
+## @api private
 var _impact_sources: Array[Node] = []
+
+## 与 _impact_sources 按索引配对的 generation-bound hit_accepted Callables。
+## [br]
+## @api private
 var _impact_callbacks: Array[Callable] = []
+
+## 标记当前正在 adapter.apply_intent 内执行的 session，结束时据此延后字段清理。
+## [br]
+## @api private
 var _body_application_session: GFProjectileSession = null
+
+## session 在 apply_intent 回调内结束时置位，待返回结果完成处理后再清理 active 状态。
+## [br]
+## @api private
 var _terminal_cleanup_pending: bool = false
 
 
@@ -537,6 +631,9 @@ func publication_is_current_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 校验当前 session、root identity 和 binding topology；root 失效或拓扑失效时结束 session 并拒绝本步。
+## [br]
+## @api private
 func _step_topology_is_current(
 	session_value: Variant,
 	root_value: Variant,
@@ -570,6 +667,9 @@ func _step_topology_is_current(
 	return true
 
 
+## 确认结束中的 session 仍拥有待完成的 body application 与相同 binding/motion/adapter。
+## [br]
+## @api private
 func _terminal_application_is_owned(
 	session_value: Variant,
 	root_value: Variant,
@@ -597,6 +697,9 @@ func _terminal_application_is_owned(
 	)
 
 
+## 在 topology 校验后验证 motion/state 和 adapter identity；依赖丢失时以对应原因结束 session。
+## [br]
+## @api private
 func _step_dependencies_are_current(
 	session_value: Variant,
 	root_value: Variant,
@@ -625,6 +728,9 @@ func _step_dependencies_are_current(
 	return true
 
 
+## 校验所需预备对象后递增 generation、激活 session、保存运行时引用并连接结束/影响信号。
+## [br]
+## @api private
 func _activate_prepared(
 	binding: GFProjectileBinding2D,
 	launch_input: GFProjectileLaunchInput2D
@@ -680,6 +786,9 @@ func _activate_prepared(
 	return session
 
 
+## 捕获并验证初始 body、创建 motion state、复制输入；各次策略调用后重验依赖再暂存结果。
+## [br]
+## @api private
 func _prepare_launch_payload(
 	binding: GFProjectileBinding2D,
 	launch_input: GFProjectileLaunchInput2D,
@@ -779,6 +888,9 @@ func _prepare_launch_payload(
 	return true
 
 
+## 在预检回调边界确认 reservation owner、binding/root、definition、motion、lifetime 和 adapter 仍为同一对象。
+## [br]
+## @api private
 func _preparation_dependencies_are_current(
 	reservation: GFProjectileLaunchReservation,
 	binding_value: Variant,
@@ -821,6 +933,9 @@ func _preparation_dependencies_are_current(
 	)
 
 
+## reservation 为空时要求 direct prepare 独占且无 claim；否则要求同一 claim 且未进入 direct prepare。
+## [br]
+## @api private
 func _preparation_owner_is_current(
 	reservation: GFProjectileLaunchReservation
 ) -> bool:
@@ -829,6 +944,9 @@ func _preparation_owner_is_current(
 	return _launch_claim == reservation and not _direct_preparing
 
 
+## 清空预检阶段暂存的 binding、input、策略、adapter、state 和初始 body 引用。
+## [br]
+## @api private
 func _clear_prepared_payload() -> void:
 	_prepared_binding = null
 	_prepared_input = null
@@ -839,6 +957,9 @@ func _clear_prepared_payload() -> void:
 	_prepared_body = null
 
 
+## 将 target kind、节点或位置目标及 metadata 复制到新输入；读取边界失效或值类型不符时返回 null。
+## [br]
+## @api private
 func _snapshot_input(
 	launch_input: GFProjectileLaunchInput2D,
 	reservation: GFProjectileLaunchReservation
@@ -897,6 +1018,9 @@ func _snapshot_input(
 	return result
 
 
+## 仅当输入仍是有效 typed 对象、runtime 未排队删除且当前 prepare owner 未变化时通过。
+## [br]
+## @api private
 func _input_snapshot_boundary_is_current(
 	launch_input_value: Variant,
 	reservation: GFProjectileLaunchReservation
@@ -908,6 +1032,9 @@ func _input_snapshot_boundary_is_current(
 	)
 
 
+## 先断开旧源，再为 binding 中支持的 HitBox/HitScan 连接带 generation 的回调，只记录连接成功项。
+## [br]
+## @api private
 func _connect_impact_sources(binding: GFProjectileBinding2D, generation: int) -> void:
 	_disconnect_impact_sources()
 	for source_node: Node in binding.get_impact_sources():
@@ -924,6 +1051,9 @@ func _connect_impact_sources(binding: GFProjectileBinding2D, generation: int) ->
 			_impact_callbacks.append(callback)
 
 
+## 按源与 Callable 的配对索引断开仍有效的信号连接，随后清空两组记录。
+## [br]
+## @api private
 func _disconnect_impact_sources() -> void:
 	for index: int in range(mini(_impact_sources.size(), _impact_callbacks.size())):
 		var source: Node = _impact_sources[index]
@@ -942,6 +1072,9 @@ func _disconnect_impact_sources() -> void:
 	_impact_callbacks.clear()
 
 
+## 调用当前 lifetime 策略后重验 topology 与策略 identity；非法原因转为 INTERNAL_FAILURE，非 NONE 原因结束 session。
+## [br]
+## @api private
 func _evaluate_lifetime(session: GFProjectileSession) -> void:
 	if (
 		not _is_live_object_of_type(session, GFProjectileSession)
@@ -978,6 +1111,9 @@ func _evaluate_lifetime(session: GFProjectileSession) -> void:
 		var _finished: bool = session.finish(reason)
 
 
+## 仅当 session 仍有效、属于当前 runtime 且 cleanup pending 时清除 pending 并释放 active 状态。
+## [br]
+## @api private
 func _finalize_terminal_cleanup(session_value: Variant) -> void:
 	if (
 		not _is_live_object_of_type(session_value, GFProjectileSession)
@@ -990,6 +1126,9 @@ func _finalize_terminal_cleanup(session_value: Variant) -> void:
 	_clear_active_session(session)
 
 
+## 清除本 session 的运行时依赖引用；仅在 active identity 匹配时清空 _active_session。
+## [br]
+## @api private
 func _clear_active_session(finished_session: GFProjectileSession) -> void:
 	_binding = null
 	_launch_input = null
@@ -1002,6 +1141,9 @@ func _clear_active_session(finished_session: GFProjectileSession) -> void:
 		_active_session = null
 
 
+## 清理已失效 session 的信号连接、物理处理开关和所有 active/应用中状态引用。
+## [br]
+## @api private
 func _discard_invalid_active_state() -> void:
 	_disconnect_impact_sources()
 	set_physics_process(false)
@@ -1017,6 +1159,9 @@ func _discard_invalid_active_state() -> void:
 	_terminal_cleanup_pending = false
 
 
+## 仅接受有效 Node 实例且未排队删除的值。
+## [br]
+## @api private
 func _is_live_node(value: Variant) -> bool:
 	if (
 		typeof(value) != TYPE_OBJECT
@@ -1028,6 +1173,9 @@ func _is_live_node(value: Variant) -> bool:
 	return not node.is_queued_for_deletion()
 
 
+## 接受有效 Object；若对象是 Node，还要求它未排队删除。
+## [br]
+## @api private
 func _is_live_owner(value: Variant) -> bool:
 	if typeof(value) != TYPE_OBJECT or not is_instance_valid(value):
 		return false
@@ -1037,6 +1185,9 @@ func _is_live_owner(value: Variant) -> bool:
 	return true
 
 
+## 检查 Variant 是有效对象且属于指定运行时类型。
+## [br]
+## @api private
 func _is_live_object_of_type(value: Variant, expected_type: Variant) -> bool:
 	return (
 		typeof(value) == TYPE_OBJECT
@@ -1047,6 +1198,9 @@ func _is_live_object_of_type(value: Variant, expected_type: Variant) -> bool:
 
 # --- 信号处理函数 ---
 
+## 忽略非 active 或旧 generation 的影响通知；拓扑仍有效时记录影响并重算 lifetime。
+## [br]
+## @api private
 func _on_impact_accepted(
 	_context: GFCombatHitContext,
 	_receiver: Object,
@@ -1073,6 +1227,9 @@ func _on_impact_accepted(
 	_evaluate_lifetime(session)
 
 
+## 仅处理当前 session/generation 的结束事件；先断连并停物理处理，再发信号，body application 内延后清理。
+## [br]
+## @api private
 func _on_session_finished(
 	finished_session: GFProjectileSession,
 	reason: int,

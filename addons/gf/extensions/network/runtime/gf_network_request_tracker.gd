@@ -15,11 +15,40 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 检查请求响应传输安全性的验证器脚本资源。
+## [br]
+## @api private
+## [br]
 const _VALUE_VALIDATOR_SCRIPT = preload("res://addons/gf/extensions/network/runtime/gf_network_transport_value_validator.gd")
+
+## 在途请求数允许的绝对上限。
+## [br]
+## @api private
+## [br]
 const _MAX_PENDING: int = 4096
+
+## 单个请求超时毫秒数允许的绝对上限。
+## [br]
+## @api private
+## [br]
 const _MAX_TIMEOUT_MSEC: int = 86400000
+
+## 计数和截止时间运算使用的最大整数值。
+## [br]
+## @api private
+## [br]
 const _MAX_COUNTER: int = 9223372036854775807
+
+## 请求响应允许的最大估算字节数。
+## [br]
+## @api private
+## [br]
 const _MAX_RESPONSE_BYTES: int = 65536
+
+## 响应传输安全校验使用的深度、节点数和字节上限。
+## [br]
+## @api private
+## [br]
 const _RESPONSE_LIMITS: Dictionary = {
 	"max_depth": 16,
 	"max_nodes": 4096,
@@ -29,16 +58,70 @@ const _RESPONSE_LIMITS: Dictionary = {
 
 # --- 私有变量 ---
 
+## 用于请求截止时间判断的单调时钟。
+## [br]
+## @api private
+## [br]
 var _clock: GFClock
+
+## 此跟踪器会话允许的在途请求数上限。
+## [br]
+## @api private
+## [br]
 var _max_pending: int
+
+## 用于区分此跟踪器会话所生成请求 ID 的命名空间。
+## [br]
+## @api private
+## [br]
 var _namespace: String
+
+## 此跟踪器启动会话的递增序号。
+## [br]
+## @api private
+## [br]
 var _session_counter: int = 0
+
+## 当前会话已分配请求 ID 的递增序号。
+## [br]
+## @api private
+## [br]
 var _request_counter: int = 0
+
+## 标记当前请求会话是否接受新请求。
+## [br]
+## @api private
+## [br]
 var _active: bool = false
+
+## 标记会话启动回调正在执行。
+## [br]
+## @api private
+## [br]
 var _starting_session: bool = false
+
+## 标记跟踪器是否已不可逆释放。
+## [br]
+## @api private
+## [br]
 var _disposed: bool = false
+
+## 标记待处理请求批量关闭的重入深度。
+## [br]
+## @api private
+## [br]
 var _closing_depth: int = 0
+
+## 阻止请求超时轮询重入的状态标记。
+## [br]
+## @api private
+## [br]
 var _ticking: bool = false
+
+## 按请求 ID 保存尚未终结的请求句柄和截止时间。
+## [br]
+## @api private
+## [br]
 var _pending: Dictionary = {}
 
 
@@ -308,6 +391,10 @@ func cancel_from_handle(handle: GFNetworkRequestHandle) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 创建已完成并发布的拒绝结果句柄。
+## [br]
+## @api private
+## [br]
 func _reject(peer_id: int, status: StringName, send_error: Error) -> GFNetworkRequestHandle:
 	var handle: GFNetworkRequestHandle = GFNetworkRequestHandle.new()
 	handle.configure_from_network_layer("", peer_id, null)
@@ -319,6 +406,10 @@ func _reject(peer_id: int, status: StringName, send_error: Error) -> GFNetworkRe
 	return handle
 
 
+## 从在途记录中读取并类型检查请求句柄。
+## [br]
+## @api private
+## [br]
 func _get_handle(request_id: String) -> GFNetworkRequestHandle:
 	var record: Dictionary = GFVariantData.get_option_dictionary(_pending, request_id)
 	var value: Variant = GFVariantData.get_option_value(record, "handle")
@@ -327,12 +418,20 @@ func _get_handle(request_id: String) -> GFNetworkRequestHandle:
 	return null
 
 
+## 读取请求截止时间；记录缺失时返回最大计数哨兵值。
+## [br]
+## @api private
+## [br]
 func _get_deadline(request_id: String) -> int:
 	return GFVariantData.get_option_int(
 		GFVariantData.get_option_dictionary(_pending, request_id), "deadline", _MAX_COUNTER
 	)
 
 
+## 确认句柄仍是对应在途请求且已到截止时间后以超时状态完成。
+## [br]
+## @api private
+## [br]
 func _expire(handle: GFNetworkRequestHandle) -> bool:
 	if _get_handle(handle.get_request_id()) != handle:
 		return false
@@ -341,6 +440,10 @@ func _expire(handle: GFNetworkRequestHandle) -> bool:
 	return _finish(handle, GFNetworkRequestResult.STATUS_TIMED_OUT)
 
 
+## 构造请求结果并交给当前句柄提交。
+## [br]
+## @api private
+## [br]
 func _commit(
 	handle: GFNetworkRequestHandle,
 	status: StringName,
@@ -352,6 +455,10 @@ func _commit(
 	return _commit_result(handle, result)
 
 
+## 确认请求仍在途后先移除记录，再向句柄提交结果。
+## [br]
+## @api private
+## [br]
 func _commit_result(handle: GFNetworkRequestHandle, result: GFNetworkRequestResult) -> bool:
 	var request_id: String = handle.get_request_id()
 	if _get_handle(request_id) != handle:
@@ -362,6 +469,10 @@ func _commit_result(handle: GFNetworkRequestHandle, result: GFNetworkRequestResu
 	return handle.commit_from_network_layer(result)
 
 
+## 提交请求结果，并在提交成功后发布给等待方。
+## [br]
+## @api private
+## [br]
 func _finish(
 	handle: GFNetworkRequestHandle,
 	status: StringName,
@@ -374,6 +485,10 @@ func _finish(
 	return true
 
 
+## 按可选 peer ID 提交待处理请求结果，遍历结束后统一发布。
+## [br]
+## @api private
+## [br]
 func _close_pending(status: StringName, peer_id: int = -1) -> void:
 	_closing_depth += 1
 	var completed: Array[GFNetworkRequestHandle] = []

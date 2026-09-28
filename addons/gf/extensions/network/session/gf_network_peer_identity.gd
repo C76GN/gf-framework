@@ -238,6 +238,10 @@ static func from_dict(data: Dictionary) -> GFNetworkPeerIdentity:
 
 # --- 私有/辅助方法 ---
 
+## 裁剪字符串、移除空项和重复项并排序返回。
+## [br]
+## @api private
+## [br]
 static func _normalize_string_set(items: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for item: String in items:

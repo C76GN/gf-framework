@@ -6,31 +6,100 @@ extends EditorProperty
 
 # --- 常量 ---
 
+## 提供路径编辑器默认类型和资源状态查询的基础脚本。
+## [br]
+## @api private
 const _GF_RESOURCE_PATH_EDITOR_PROPERTY = preload("res://addons/gf/kernel/editor/gf_resource_path_editor_property.gd")
+
+## 提供资源路径数组属性 hint 的脚本。
+## [br]
+## @api private
 const _GF_RESOURCE_PATH_HINT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_resource_path_hint.gd")
+
+## 构造可选择单个资源路径的行控件。
+## [br]
+## @api private
 const _GF_RESOURCE_PATH_PICKER_CONTROL_SCRIPT = preload("res://addons/gf/kernel/editor/gf_resource_path_picker_control.gd")
+
+## 为编辑器属性提供普通 Tooltip 的脚本。
+## [br]
+## @api private
 const _GF_EDITOR_PROPERTY_PLAIN_TOOLTIP_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_property_plain_tooltip.gd")
+
+## 行号标签的最小宽度，单位为 Control 尺寸单位。
+## [br]
+## @api private
 const _ROW_INDEX_MIN_WIDTH: float = 34.0
+
+## 有效路径摘要和状态文本使用的颜色。
+## [br]
+## @api private
 const _INFO_TEXT_COLOR: Color = Color(0.62, 0.66, 0.72, 1.0)
+
+## 无效资源路径状态文本使用的颜色。
+## [br]
+## @api private
 const _WARNING_TEXT_COLOR: Color = Color(1.0, 0.58, 0.30, 1.0)
 
 
 # --- 私有变量 ---
 
+## 数组编辑器的根容器。
+## [br]
+## @api private
 var _root: VBoxContainer
+
+## 放置摘要标签与添加按钮的工具栏。
+## [br]
+## @api private
 var _toolbar: HBoxContainer
+
+## 显示路径总数及无效路径数的摘要标签。
+## [br]
+## @api private
 var _summary_label: Label
+
+## 向路径列表追加空项的按钮。
+## [br]
+## @api private
 var _add_button: Button
+
+## 当前动态路径行的父容器。
+## [br]
+## @api private
 var _rows_root: VBoxContainer
+
+## ResourcePicker 接受的基础资源类型。
+## [br]
+## @api private
 var _base_type: String = _GF_RESOURCE_PATH_EDITOR_PROPERTY.DEFAULT_BASE_TYPE
+
+## 写回属性时使用的 Godot Variant 类型。
+## [br]
+## @api private
 var _property_type: Variant.Type = TYPE_ARRAY
+
+## 选择资源后是否优先写入 UID 路径。
+## [br]
+## @api private
 var _prefer_uid: bool = true
+
+## 正在编辑和展示的路径序列；从属性读取时会逐项修剪空白。
+## [br]
+## @api private
 var _paths: PackedStringArray = PackedStringArray()
+
+## 属性更新或重建行期间的抑制标记，信号处理器据此跳过重入写回。
+## [br]
+## @api private
 var _is_updating: bool = false
 
 
 # --- Godot 生命周期方法 ---
 
+## 构建路径数组的工具栏、摘要、添加按钮和条目容器，并刷新初始摘要。
+## [br]
+## @api private
 func _init() -> void:
 	_root = VBoxContainer.new()
 	_root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -61,6 +130,9 @@ func _init() -> void:
 
 # --- Godot 回调方法 ---
 
+## 把当前属性收窄为资源路径数组并重建各行；更新标记覆盖整个刷新过程。
+## [br]
+## @api private
 func _update_property() -> void:
 	var edited_object: Object = get_edited_object()
 	if edited_object == null:
@@ -71,6 +143,13 @@ func _update_property() -> void:
 	_paths = to_resource_path_array(edited_object.get(property_name))
 	_rebuild_rows()
 	_is_updating = false
+
+
+## 通过统一的纯文本提示构造器为路径数组属性创建提示控件。
+## [br]
+## @api private
+func _make_custom_tooltip(_for_text: String) -> Object:
+	return _GF_EDITOR_PROPERTY_PLAIN_TOOLTIP_SCRIPT.make_tooltip(self)
 
 
 # --- 框架内部方法 ---
@@ -185,10 +264,9 @@ static func make_property_value(paths: PackedStringArray, property_type: Variant
 
 # --- 私有/辅助方法 ---
 
-func _make_custom_tooltip(_for_text: String) -> Object:
-	return _GF_EDITOR_PROPERTY_PLAIN_TOOLTIP_SCRIPT.make_tooltip(self)
-
-
+## 将 String 或 StringName 转为修剪空白后的路径；其他 Variant 转为空字符串。
+## [br]
+## @api private
 static func _to_path_string(value: Variant) -> String:
 	if value is String:
 		var text_value: String = value
@@ -199,6 +277,9 @@ static func _to_path_string(value: Variant) -> String:
 	return ""
 
 
+## 从选项字典读取 String 或 StringName；其他类型或缺失键返回空字符串，不修剪文本。
+## [br]
+## @api private
 static func _get_string_option(options: Dictionary, key: String) -> String:
 	var value: Variant = options.get(key, "")
 	if value is String:
@@ -210,6 +291,9 @@ static func _get_string_option(options: Dictionary, key: String) -> String:
 	return ""
 
 
+## 从选项字典读取 bool；键缺失或值不是 bool 时返回 false。
+## [br]
+## @api private
 static func _get_bool_option(options: Dictionary, key: String) -> bool:
 	var value: Variant = options.get(key, false)
 	if value is bool:
@@ -218,6 +302,9 @@ static func _get_bool_option(options: Dictionary, key: String) -> bool:
 	return false
 
 
+## 移除并排队释放现有路径行，再按 _paths 重建行并更新摘要。
+## [br]
+## @api private
 func _rebuild_rows() -> void:
 	for child: Node in _rows_root.get_children():
 		_rows_root.remove_child(child)
@@ -228,6 +315,9 @@ func _rebuild_rows() -> void:
 	_apply_summary()
 
 
+## 创建含序号、资源路径选择器、移动/移除按钮及可选状态提示的路径行。
+## [br]
+## @api private
 func _create_row(index: int) -> Control:
 	var wrapper: VBoxContainer = VBoxContainer.new()
 	wrapper.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -293,6 +383,9 @@ func _create_row(index: int) -> Control:
 	return wrapper
 
 
+## 统计无效路径并更新摘要文本及对应颜色。
+## [br]
+## @api private
 func _apply_summary() -> void:
 	var invalid_count: int = _count_invalid_paths()
 	if invalid_count > 0:
@@ -303,6 +396,9 @@ func _apply_summary() -> void:
 		_summary_label.modulate = _INFO_TEXT_COLOR
 
 
+## 查询 _paths 中每个路径的资源状态并返回无效项数量。
+## [br]
+## @api private
 func _count_invalid_paths() -> int:
 	var count: int = 0
 	for path: String in _paths:
@@ -312,6 +408,9 @@ func _count_invalid_paths() -> int:
 	return count
 
 
+## 暂停属性更新反馈，重建行后恢复标记，并按配置类型发出属性变更。
+## [br]
+## @api private
 func _emit_paths_changed() -> void:
 	var property_name: String = get_edited_property()
 	_is_updating = true
@@ -322,6 +421,9 @@ func _emit_paths_changed() -> void:
 
 # --- 信号处理函数 ---
 
+## 若当前不在更新过程中，则向路径序列末尾添加空项并提交变更。
+## [br]
+## @api private
 func _on_add_pressed() -> void:
 	if _is_updating:
 		return
@@ -329,6 +431,9 @@ func _on_add_pressed() -> void:
 	_emit_paths_changed()
 
 
+## 校验索引后修剪新路径；资源可加载时改用稳定资源路径，再提交变更。
+## [br]
+## @api private
 func _on_row_path_changed(path: String, index: int) -> void:
 	if _is_updating or index < 0 or index >= _paths.size():
 		return
@@ -347,6 +452,9 @@ func _on_row_path_changed(path: String, index: int) -> void:
 	_emit_paths_changed()
 
 
+## 若不在更新过程中且索引有效，则移除对应路径并提交变更。
+## [br]
+## @api private
 func _on_remove_pressed(index: int) -> void:
 	if _is_updating or index < 0 or index >= _paths.size():
 		return
@@ -355,6 +463,9 @@ func _on_remove_pressed(index: int) -> void:
 	_emit_paths_changed()
 
 
+## 校验当前位置与目标位置后交换两项，并提交变更。
+## [br]
+## @api private
 func _on_move_pressed(index: int, delta: int) -> void:
 	if _is_updating:
 		return

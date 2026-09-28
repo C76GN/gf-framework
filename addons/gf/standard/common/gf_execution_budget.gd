@@ -61,13 +61,44 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 最近一次 reset() 记录的单调时钟起点。
+## [br]
+## @api private
 var _started_msec: int = 0
+
+## 用于计算预算耗时的单调时钟。
+## [br]
+## @api private
 var _clock: GFClock = null
+
+## 已累计的执行步数。
+## [br]
+## @api private
 var _steps: int = 0
+
+## 当前嵌套深度。
+## [br]
+## @api private
 var _depth: int = 0
+
+## 是否已记录预算违规；首次违规后保持为 true，直到 reset()。
+## [br]
+## @api private
 var _violated: bool = false
+
+## 首次预算违规的稳定原因代码。
+## [br]
+## @api private
 var _violation_reason: StringName = &""
+
+## 首次预算违规时记录的说明文本。
+## [br]
+## @api private
 var _violation_message: String = ""
+
+## 首次预算违规关联的源码位置值，供 make_report() 使用。
+## [br]
+## @api private
 var _violation_span: Variant = null
 
 
@@ -394,6 +425,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 首次违规时记录原因、说明和源码位置；已有违规状态不被覆盖。
+## [br]
+## @api private
 func _mark_violation(reason: StringName, message: String, source_span: Variant) -> void:
 	if _violated:
 		return
@@ -403,6 +437,9 @@ func _mark_violation(reason: StringName, message: String, source_span: Variant) 
 	_violation_span = GFVariantData.duplicate_variant(source_span)
 
 
+## 仅当 Variant 值是 GFCancellationToken 时返回其类型化引用。
+## [br]
+## @api private
 static func _variant_to_cancel_token(value: Variant) -> GFCancellationToken:
 	if value is GFCancellationToken:
 		var token: GFCancellationToken = value
@@ -410,5 +447,8 @@ static func _variant_to_cancel_token(value: Variant) -> GFCancellationToken:
 	return null
 
 
+## 检查值是否可作为 GFSourceSpan 或兼容 Dictionary 源码位置。
+## [br]
+## @api private
 static func _is_source_span_like(value: Variant) -> bool:
 	return value is GFSourceSpan or value is Dictionary

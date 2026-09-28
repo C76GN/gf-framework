@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="b6828aa4977de4a3b6d230b699e1f08cd6516c6bf2e478373b001288b7d5aafd" classCount="891" methodCount="7956" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="14df3f12127a765230ffc036660883fe85b81d60e5fd7a50ca7484d7472b65fc" classCount="891" methodCount="7964" autoloadCount="1" autoloadMethodCount="65">
 	<module id="kernel" label="Kernel" classCount="78" methodCount="827" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -595,7 +595,7 @@
 		<class name="GFAssetMetadataRecord" path="classes/GFAssetMetadataRecord.xml" sourcePath="addons/gf/extensions/asset_metadata/resources/gf_asset_metadata_record.gd" extends="Resource" />
 		<class name="GFAssetMetadataUtility" path="classes/GFAssetMetadataUtility.xml" sourcePath="addons/gf/extensions/asset_metadata/runtime/gf_asset_metadata_utility.gd" extends="GFUtility" />
 	</module>
-	<module id="extensions/behavior_tree" label="Behavior Tree" classCount="22" methodCount="65" autoloadCount="0" autoloadMethodCount="0">
+	<module id="extensions/behavior_tree" label="Behavior Tree" classCount="22" methodCount="72" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFBehaviorTree" path="classes/GFBehaviorTree.xml" sourcePath="addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd" extends="Object" />
 		<class name="GFBehaviorTree.Action" path="classes/GFBehaviorTree.xml" sourcePath="addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd" extends="BTNode" />
 		<class name="GFBehaviorTree.AlwaysFail" path="classes/GFBehaviorTree.xml" sourcePath="addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd" extends="Decorator" />
@@ -846,7 +846,7 @@
 		<class name="GFGravityField3D" path="classes/GFGravityField3D.xml" sourcePath="addons/gf/extensions/physics/nodes/gf_gravity_field_3d.gd" extends="Node3D" />
 		<class name="GFGravityProbe3D" path="classes/GFGravityProbe3D.xml" sourcePath="addons/gf/extensions/physics/nodes/gf_gravity_probe_3d.gd" extends="Node3D" />
 	</module>
-	<module id="extensions/save" label="Save" classCount="52" methodCount="417" autoloadCount="0" autoloadMethodCount="0">
+	<module id="extensions/save" label="Save" classCount="52" methodCount="418" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFNodeAnimationPlayerSerializer" path="classes/GFNodeAnimationPlayerSerializer.xml" sourcePath="addons/gf/extensions/save/serializers/gf_node_animation_player_serializer.gd" extends="GFNodeSerializer" />
 		<class name="GFNodeAudioStreamPlayerSerializer" path="classes/GFNodeAudioStreamPlayerSerializer.xml" sourcePath="addons/gf/extensions/save/serializers/gf_node_audio_stream_player_serializer.gd" extends="GFNodeSerializer" />
 		<class name="GFNodeCanvasItemSerializer" path="classes/GFNodeCanvasItemSerializer.xml" sourcePath="addons/gf/extensions/save/serializers/gf_node_canvas_item_serializer.gd" extends="GFNodeSerializer" />

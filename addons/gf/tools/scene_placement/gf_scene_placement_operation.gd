@@ -15,6 +15,10 @@ extends GFEditorPickOperation
 
 # --- 常量 ---
 
+## 摆放操作所有选项的默认值集合。
+## [br]
+## @api private
+## [br]
 const _OPTIONS: Dictionary = {
 	"mode": "plane",
 	"plane_normal": Vector3.UP,
@@ -31,12 +35,46 @@ const _OPTIONS: Dictionary = {
 
 # --- 私有变量 ---
 
+## 本次操作显式选择的场景资源。
+## [br]
+## @api private
+## [br]
 var _source: PackedScene = null
+
+## 目标父节点的弱引用。
+## [br]
+## @api private
+## [br]
 var _parent_ref: WeakRef = null
+
+## 编辑场景根节点的弱引用。
+## [br]
+## @api private
+## [br]
 var _root_ref: WeakRef = null
+
+## 解析后的摆放选项。
+## [br]
+## @api private
+## [br]
 var _options: Dictionary = {}
+
+## 源场景根变换的基矩阵。
+## [br]
+## @api private
+## [br]
 var _source_basis: Basis = Basis.IDENTITY
+
+## 当前拾取是否产生了有效命中。
+## [br]
+## @api private
+## [br]
 var _valid_pick: bool = false
+
+## 当前操作是否正在提交实例变更。
+## [br]
+## @api private
+## [br]
 var _applying: bool = false
 
 
@@ -293,6 +331,9 @@ func _on_cancel(_tool_context: GFEditorToolContext) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 以默认值补齐闭合选项集，拒绝未知键、错误类型和退化或越界的几何参数；失败返回空字典。
+## [br]
+## @api private
 func _parse_options(options: Dictionary) -> Dictionary:
 	var parsed: Dictionary = _OPTIONS.duplicate()
 	for key: Variant in options:
@@ -332,6 +373,9 @@ func _parse_options(options: Dictionary) -> Dictionary:
 	return parsed
 
 
+## 仅检查有界的 SceneState 继承链，不实例化场景；读取最派生的根变换并要求根类型兼容 Node3D。
+## [br]
+## @api private
 func _read_source_root(scene: PackedScene) -> Dictionary:
 	var state: SceneState = scene.get_state()
 	var root_type: StringName = &""
@@ -362,6 +406,9 @@ func _read_source_root(scene: PackedScene) -> Dictionary:
 	return { "ok": true, "basis": basis }
 
 
+## 按配置选择射线平面交点或调用方提供的表面命中；表面模式仅在提供射线原点时校验最大距离，非法输入返回空字典。
+## [br]
+## @api private
 func _resolve_hit(input_data: Dictionary) -> Dictionary:
 	var origin_value: Variant = input_data.get("ray_origin")
 	var direction_value: Variant = input_data.get("ray_direction")
@@ -396,6 +443,10 @@ func _resolve_hit(input_data: Dictionary) -> Dictionary:
 	return { "ok": true, "position": position, "normal": normal }
 
 
+## 返回清除有效标记的无效 preview/result 结构。
+## [br]
+## @api private
+## [br]
 func _failed_pick(reason: StringName) -> Dictionary:
 	var preview: Dictionary = {
 		"valid": false,
@@ -408,10 +459,18 @@ func _failed_pick(reason: StringName) -> Dictionary:
 	return { "preview": preview, "result": preview, "ready": false }
 
 
+## 构造含成功标记、错误码、原因和空节点的 apply 结果。
+## [br]
+## @api private
+## [br]
 func _apply_report(error: Error, reason: StringName) -> Dictionary:
 	return { "ok": error == OK, "error_code": error, "reason": reason, "node": null }
 
 
+## 通过父节点弱引用取得仍存活的 Node3D。
+## [br]
+## @api private
+## [br]
 func _get_parent_node() -> Node3D:
 	if _parent_ref != null:
 		var value: Variant = _parent_ref.get_ref()
@@ -421,6 +480,10 @@ func _get_parent_node() -> Node3D:
 	return null
 
 
+## 通过场景根弱引用取得仍存活的 Node。
+## [br]
+## @api private
+## [br]
 func _get_root_node() -> Node:
 	if _root_ref != null:
 		var value: Variant = _root_ref.get_ref()
@@ -430,6 +493,9 @@ func _get_root_node() -> Node:
 	return null
 
 
+## 检查存活、未排队删除且仍在原场景树中的目标，以及父节点世界变换的有限性和可逆性。
+## [br]
+## @api private
 func _valid_destination(parent: Node3D, root: Node) -> bool:
 	return (
 		is_instance_valid(parent) and is_instance_valid(root)
@@ -441,10 +507,18 @@ func _valid_destination(parent: Node3D, root: Node) -> bool:
 	)
 
 
+## 检查向量有限且每个坐标绝对值不超过 1,000,000。
+## [br]
+## @api private
+## [br]
 func _valid_vector(value: Vector3) -> bool:
 	return value.is_finite() and maxf(absf(value.x), maxf(absf(value.y), absf(value.z))) <= 1000000.0
 
 
+## 读取 Vector3 字段；类型不匹配时返回 Vector3.ZERO。
+## [br]
+## @api private
+## [br]
 func _vector_field(data: Dictionary, key: String) -> Vector3:
 	var value: Variant = data.get(key)
 	if value is Vector3:
@@ -453,6 +527,10 @@ func _vector_field(data: Dictionary, key: String) -> Vector3:
 	return Vector3.ZERO
 
 
+## 读取 float 或 int 数值字段并转为 float；其他类型返回 0.0。
+## [br]
+## @api private
+## [br]
 func _number_field(data: Dictionary, key: String) -> float:
 	var value: Variant = data.get(key)
 	if value is float:
@@ -464,6 +542,10 @@ func _number_field(data: Dictionary, key: String) -> float:
 	return 0.0
 
 
+## 读取 bool 字段；类型不匹配时返回 false。
+## [br]
+## @api private
+## [br]
 func _bool_field(data: Dictionary, key: String) -> bool:
 	var value: Variant = data.get(key)
 	if value is bool:

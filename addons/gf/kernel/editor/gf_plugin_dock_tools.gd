@@ -26,15 +26,38 @@ const GFEditorWorkspaceWindowBase = preload("res://addons/gf/kernel/editor/gf_ed
 ## [br]
 ## @layer kernel/editor
 const GFExtensionSettingsBase = preload("res://addons/gf/kernel/extension/gf_extension_settings.gd")
+
+## 读取并规范化 Dock 贡献记录字段的类型化工具。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
 # --- 私有变量 ---
 
+## 由组合入口提供的标准 Dock 记录副本。
+## [br]
+## @api private
 var _standard_dock_records: Array[Dictionary] = []
+
+## 合并、去重和排序后传给工作区窗口的全部 Dock 记录。
+## [br]
+## @api private
 var _dock_records: Array[Dictionary] = []
+
+## EditorInterface 提供的窗口父级控件。
+## [br]
+## @api private
 var _editor_base_control: Control = null
+
+## 按需创建的独立 GF Workspace Window。
+## [br]
+## @api private
 var _workspace_window: GFEditorWorkspaceWindowBase = null
+
+## setup 为工作区页面生成并注入的编辑器上下文。
+## [br]
+## @api private
 var _editor_context: GFEditorToolContext = null
 
 
@@ -116,6 +139,9 @@ func get_workspace_window() -> Window:
 
 # --- 私有/辅助方法 ---
 
+## 深复制标准记录并追加内置 GF Extensions 管理页。
+## [br]
+## @api private
 func _collect_core_dock_records() -> Array[Dictionary]:
 	var records: Array[Dictionary] = _copy_records(_standard_dock_records)
 	records.append(
@@ -129,6 +155,9 @@ func _collect_core_dock_records() -> Array[Dictionary]:
 	return records
 
 
+## 合并核心页与启用扩展页，按规范化路径去重并按稳定比较器排序。
+## [br]
+## @api private
 func _collect_dock_records() -> Array[Dictionary]:
 	var records: Array[Dictionary] = _collect_core_dock_records()
 	records.append_array(_collect_enabled_extension_dock_records())
@@ -137,6 +166,9 @@ func _collect_dock_records() -> Array[Dictionary]:
 	return records
 
 
+## 深复制 Dock 字典数组中的每条记录。
+## [br]
+## @api private
 func _copy_records(source: Array[Dictionary]) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	for record: Dictionary in source:
@@ -144,6 +176,9 @@ func _copy_records(source: Array[Dictionary]) -> Array[Dictionary]:
 	return records
 
 
+## 去除空路径和重复路径，首次出现的记录保留，并将其 path 写为去空白形式。
+## [br]
+## @api private
 func _deduplicate_dock_records(source: Array[Dictionary]) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	var used_paths: Dictionary = {}
@@ -158,6 +193,10 @@ func _deduplicate_dock_records(source: Array[Dictionary]) -> Array[Dictionary]:
 	return records
 
 
+## 从启用扩展贡献读取 Dock 路径，按路径去重并生成 label、short_label 与 order 记录。
+## 同一扩展贡献多个 Dock 时，显示标签会从脚本文件名派生区分后缀。
+## [br]
+## @api private
 func _collect_enabled_extension_dock_records() -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	var used_paths: Dictionary = {}
@@ -207,6 +246,9 @@ func _collect_enabled_extension_dock_records() -> Array[Dictionary]:
 	return records
 
 
+## 已有有效窗口时复用；否则必要时重收集页面记录并创建窗口。
+## [br]
+## @api private
 func _ensure_workspace_window() -> bool:
 	if is_instance_valid(_workspace_window):
 		return true
@@ -215,6 +257,10 @@ func _ensure_workspace_window() -> bool:
 	return _add_workspace_window(_dock_records)
 
 
+## 父级控件有效时创建窗口、先注入页面与上下文，再加入编辑器控件树。
+## 父级无效时不创建并返回 false。
+## [br]
+## @api private
 func _add_workspace_window(records: Array[Dictionary]) -> bool:
 	if not is_instance_valid(_editor_base_control):
 		return false
@@ -225,6 +271,9 @@ func _add_workspace_window(records: Array[Dictionary]) -> bool:
 	return true
 
 
+## 优先用扩展 display_name，否则用 extension_id；多 Dock 时追加由路径文件名整理出的后缀。
+## [br]
+## @api private
 func _get_extension_dock_label(
 	contribution_record: Dictionary,
 	dock_path: String,
@@ -255,6 +304,9 @@ func _get_extension_dock_label(
 	return "%s %s" % [extension_name, script_label]
 
 
+## 优先返回 editor_dock_short_label，否则取扩展显示名或 ID 并移除 `GF ` 前缀。
+## [br]
+## @api private
 func _get_extension_short_label(contribution_record: Dictionary) -> String:
 	var short_label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		contribution_record,
@@ -277,6 +329,9 @@ func _get_extension_short_label(contribution_record: Dictionary) -> String:
 	return extension_name
 
 
+## 先按 order，再按 label，最后按 path 进行升序比较。
+## [br]
+## @api private
 func _sort_dock_records(left: Dictionary, right: Dictionary) -> bool:
 	var left_order: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(left, "order", 1000)
 	var right_order: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(right, "order", 1000)

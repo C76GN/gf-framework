@@ -6,17 +6,39 @@ extends EditorInspectorPlugin
 
 # --- 常量 ---
 
+## 音频库基类脚本，用于判断 Inspector 插件可处理的资源类型。
+## [br]
+## @api private
+## [br]
 const _GF_AUDIO_BANK_BASE = preload("res://addons/gf/standard/utilities/audio/gf_audio_bank.gd")
+
+## 提供音频库校验与扫描导入操作的工具脚本。
+## [br]
+## @api private
+## [br]
 const _GF_AUDIO_BANK_TOOLS = preload("res://addons/gf/standard/utilities/audio/gf_audio_bank_tools.gd")
+
+## 将验证报告适配为 Inspector tooltip 所需诊断条目的工具脚本。
+## [br]
+## @api private
+## [br]
 const _GF_VALIDATION_DIAGNOSTIC_ADAPTER = preload("res://addons/gf/standard/foundation/validation/gf_validation_diagnostic_adapter.gd")
 
 
 # --- Godot 回调方法 ---
 
+## 仅接收 GFAudioBank 资源的 Inspector 检查。
+## [br]
+## @api private
+## [br]
 func _can_handle(object: Object) -> bool:
 	return object is _GF_AUDIO_BANK_BASE
 
 
+## 为音频库 Inspector 构建验证与扫描导入控件，并连接按钮回调。
+## [br]
+## @api private
+## [br]
 func _parse_begin(object: Object) -> void:
 	if not (object is GFAudioBank):
 		return
@@ -118,6 +140,10 @@ static func format_report_tooltip(report: RefCounted) -> String:
 
 # --- 私有/辅助方法 ---
 
+## 校验音频库播放配置，并更新 Inspector 的摘要、诊断提示与状态颜色。
+## [br]
+## @api private
+## [br]
 func _update_validation_report(label: Label, bank: GFAudioBank) -> void:
 	if label == null or bank == null:
 		return
@@ -136,6 +162,10 @@ func _update_validation_report(label: Label, bank: GFAudioBank) -> void:
 		label.modulate = Color(0.45, 0.9, 0.55)
 
 
+## 按扫描控件选项导入音频资源，并更新 Inspector 的结果摘要和状态颜色。
+## [br]
+## @api private
+## [br]
 func _update_import_report(
 	label: Label,
 	bank: GFAudioBank,
@@ -175,6 +205,10 @@ func _update_import_report(
 		label.modulate = Color(0.45, 0.9, 0.55)
 
 
+## 向 PackedStringArray 追加一个字符串。
+## [br]
+## @api private
+## [br]
 static func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:
@@ -183,10 +217,18 @@ static func _append_packed_string(target: PackedStringArray, value: String) -> v
 
 # --- 信号处理函数 ---
 
+## 刷新当前音频库的播放配置验证报告。
+## [br]
+## @api private
+## [br]
 func _on_validate_pressed(label: Label, bank: GFAudioBank) -> void:
 	_update_validation_report(label, bank)
 
 
+## 按 Inspector 控件中的扫描选项导入音频资源到当前音频库。
+## [br]
+## @api private
+## [br]
 func _on_import_pressed(
 	label: Label,
 	bank: GFAudioBank,

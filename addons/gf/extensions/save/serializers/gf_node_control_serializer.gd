@@ -13,6 +13,10 @@ extends GFNodeSerializer
 
 # --- 常量 ---
 
+## gather/apply 共用的 Control 布局与交互字段类型清单。
+## [br]
+## @api private
+## [br]
 const _PROPERTY_SPECS: Array[Dictionary] = [
 	{ "key": "anchor_left", "kind": &"float" },
 	{ "key": "anchor_top", "kind": &"float" },
@@ -101,6 +105,10 @@ func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictio
 
 # --- 私有/辅助方法 ---
 
+## 将 Control 类型节点返回为强类型引用。
+## [br]
+## @api private
+## [br]
 func _get_control(node: Node) -> Control:
 	if node is Control:
 		var control: Control = node

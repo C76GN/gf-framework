@@ -38,12 +38,46 @@ const STATUS_FAILED: StringName = &"failed"
 
 # --- 私有变量 ---
 
+## 读取文档的终态状态标识。
+## [br]
+## @api private
+## [br]
 var _status: StringName = STATUS_FAILED
+
+## 成功读取并校验的文档。
+## [br]
+## @api private
+## [br]
 var _document: GFSaveDocument = null
+
+## 底层存储读取结果。
+## [br]
+## @api private
+## [br]
 var _storage_result: GFStorageReadResult = null
+
+## 本次读取关联的迁移结果。
+## [br]
+## @api private
+## [br]
 var _migration_result: GFSaveMigrationResult = null
+
+## 文档及目标 schema 的最终校验报告。
+## [br]
+## @api private
+## [br]
 var _validation_report: Dictionary = {}
+
+## 读取失败时保存的 Godot Error 码。
+## [br]
+## @api private
+## [br]
 var _error_code: Error = FAILED
+
+## 读取失败时保存的错误说明。
+## [br]
+## @api private
+## [br]
 var _error: String = ""
 
 
@@ -194,9 +228,30 @@ func duplicate_result() -> GFSaveDocumentReadResult:
 	return result
 
 
-# --- 私有/辅助方法 ---
+# --- 框架内部方法 ---
 
 # 由 Save document/slot 层配置终态数据。
+## 由存档文档与槽位协作层填充读取终态；仅 loaded 和 migrated 保留成功状态及文档，其余状态统一为 failed。文档和结果对象通过各自复制入口保存，校验字典深复制，成功状态清除错误。
+## [br]
+## @api framework_internal
+## [br]
+## @layer extensions/save
+## [br]
+## @param status: 请求的 loaded、migrated 或 failed 状态；未知值归为 failed。
+## [br]
+## @param document: 成功时保存副本的文档；失败时不暴露文档。
+## [br]
+## @param storage_result: 可空的底层读取结果，存在时复制保存。
+## [br]
+## @param migration_result: 可空的迁移结果，存在时复制保存。
+## [br]
+## @param validation_report: 需要保留的校验报告字典。
+## [br]
+## @param error_code: 失败时保存的错误码；成功时归一为 OK。
+## [br]
+## @param error: 失败时保存并去除两端空白的错误说明。
+## [br]
+## @schema validation_report: GFValidationReport.to_dict() 形式的校验报告，或无报告时的空字典；内容深复制保存。
 func _gf_configure(
 	status: StringName,
 	document: GFSaveDocument,

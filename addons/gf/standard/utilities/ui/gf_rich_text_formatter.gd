@@ -29,7 +29,14 @@ const MARKUP_PLAIN: StringName = &"plain"
 ## @api public
 const MARKUP_MARKDOWN: StringName = &"markdown"
 
+## strip_bbcode() 移除标签期间用于暂存已转义左方括号的占位文本。
+## [br]
+## @api private
 const _STRIP_LEFT_BRACKET_PLACEHOLDER: String = "__GF_ESCAPED_LEFT_BRACKET__"
+
+## strip_bbcode() 移除标签期间用于暂存已转义右方括号的占位文本。
+## [br]
+## @api private
 const _STRIP_RIGHT_BRACKET_PLACEHOLDER: String = "__GF_ESCAPED_RIGHT_BRACKET__"
 
 
@@ -238,6 +245,9 @@ static func strip_bbcode(text: String) -> String:
 
 # --- 私有/辅助方法 ---
 
+## 从 options 读取指定值；仅当值为 Callable 时返回，否则返回空回调。
+## [br]
+## @api private
 static func _get_callable_option(options: Dictionary, key: String) -> Callable:
 	var value: Variant = GFVariantData.get_option_value(options, key, Callable())
 	if value is Callable:
@@ -245,24 +255,36 @@ static func _get_callable_option(options: Dictionary, key: String) -> Callable:
 	return Callable()
 
 
+## 从 options 读取文本选项，并在缺键时返回 fallback。
+## [br]
+## @api private
 static func _get_option_text(options: Dictionary, key: String, fallback: String) -> String:
 	if not options.has(key):
 		return fallback
 	return GFVariantData.to_text(options[key], fallback)
 
 
+## 从 options 读取布尔选项，并在缺键时返回 fallback。
+## [br]
+## @api private
 static func _get_option_bool(options: Dictionary, key: String, fallback: bool) -> bool:
 	if not options.has(key):
 		return fallback
 	return GFVariantData.to_bool(options[key], fallback)
 
 
+## 从 options 读取 StringName 选项，并在缺键时返回 fallback。
+## [br]
+## @api private
 static func _get_option_string_name(options: Dictionary, key: String, fallback: StringName) -> StringName:
 	if not options.has(key):
 		return fallback
 	return GFVariantData.to_string_name(options[key], fallback)
 
 
+## 编译正则表达式并逐个构建替换片段；编译失败或 builder 无效时原样返回输入。
+## [br]
+## @api private
 static func _replace_regex_matches(text: String, pattern: String, replacement_builder: Callable) -> String:
 	var regex: RegEx = RegEx.new()
 	var error: Error = regex.compile(pattern)
@@ -285,6 +307,9 @@ static func _replace_regex_matches(text: String, pattern: String, replacement_bu
 	return result
 
 
+## 使用前后缀定位片段并调用 resolver 替换；设置无效时原样返回输入。
+## [br]
+## @api private
 static func _replace_wrapped_segments(
 	text: String,
 	prefix: String,
@@ -316,6 +341,9 @@ static func _replace_wrapped_segments(
 	return result
 
 
+## 仅当 token 非空且每个字符都由 _is_safe_token_character() 接受时返回 true。
+## [br]
+## @api private
 static func _is_safe_token(token: String) -> bool:
 	if token.is_empty():
 		return false
@@ -327,6 +355,9 @@ static func _is_safe_token(token: String) -> bool:
 	return true
 
 
+## 接受 ASCII 字母、数字、下划线、连字符和句点。
+## [br]
+## @api private
 static func _is_safe_token_character(character: String) -> bool:
 	return (
 		(character >= "a" and character <= "z")

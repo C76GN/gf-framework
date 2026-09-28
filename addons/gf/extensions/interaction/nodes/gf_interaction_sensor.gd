@@ -62,7 +62,14 @@ signal interaction_rejected(context: GFInteractionContext, receiver: Object, rep
 
 # --- 常量 ---
 
+## 碰撞候选接收器解析与派发工具脚本。
+## [br]
+## @api private
 const _MESSAGE_DISPATCH_SUPPORT = preload("res://addons/gf/standard/common/gf_message_dispatch_support.gd")
+
+## 将交互报告投影为安全诊断字典的工具脚本。
+## [br]
+## @api private
 const _REPORT_SCHEMA_PROJECTION = preload(
 	"res://addons/gf/kernel/core/gf_report_schema_projection.gd"
 )
@@ -510,6 +517,9 @@ func broadcast_to_area_3d(
 
 # --- 私有/辅助方法 ---
 
+## 去除无效及重复接收器后，按上限向碰撞候选对象派发交互。
+## [br]
+## @api private
 func _broadcast_to_collision_candidates(
 	candidates: Array,
 	max_count: int,
@@ -554,6 +564,9 @@ func _broadcast_to_collision_candidates(
 	return reports
 
 
+## 发出交互发送信号，并依据报告结果发出接受或拒绝信号。
+## [br]
+## @api private
 func _emit_send_result(context: GFInteractionContext, receiver: Object, report: Dictionary) -> void:
 	interaction_sent.emit(context, receiver, report)
 	if GFVariantData.get_option_bool(report, "ok"):
@@ -562,6 +575,9 @@ func _emit_send_result(context: GFInteractionContext, receiver: Object, report: 
 		interaction_rejected.emit(context, receiver, report)
 
 
+## 规范化碰撞派发报告、构建上下文并发布结果信号。
+## [br]
+## @api private
 func _emit_collision_dispatch_result(
 	receiver: Object,
 	payload_override: Variant,
@@ -572,6 +588,9 @@ func _emit_collision_dispatch_result(
 	_emit_send_result(build_context(receiver, payload_override), receiver, normalized_report)
 
 
+## 调用候选提供器并返回去重接收器的弱引用列表。
+## [br]
+## @api private
 func _get_candidate_provider_receiver_refs(candidate_provider: Object, options: Dictionary) -> Array:
 	var objects: Array = []
 	var query_options: Dictionary = options.duplicate(true)
@@ -604,6 +623,9 @@ func _get_candidate_provider_receiver_refs(candidate_provider: Object, options: 
 	return objects
 
 
+## 构造并规范化一次交互结果报告。
+## [br]
+## @api private
 func _make_report(ok: bool, effective_interaction_id: StringName, reason: String, message: String) -> Dictionary:
 	return _normalize_report(_make_raw_report(
 		ok,
@@ -613,6 +635,9 @@ func _make_report(ok: bool, effective_interaction_id: StringName, reason: String
 	), null)
 
 
+## 构造包含结果状态、交互标识、接收器及元数据的原始报告。
+## [br]
+## @api private
 func _make_raw_report(
 	ok: bool,
 	effective_interaction_id: StringName,
@@ -630,6 +655,9 @@ func _make_raw_report(
 	}
 
 
+## 按 sender_path 解析发送者；未配置时使用当前指针桥接器。
+## [br]
+## @api private
 func _resolve_sender() -> Object:
 	if sender_path != NodePath(""):
 		var sender: Node = get_node_or_null(sender_path)
@@ -638,6 +666,9 @@ func _resolve_sender() -> Object:
 	return self
 
 
+## 选择兼容的发送者覆盖实现，否则由当前传感器派发。
+## [br]
+## @api private
 func _resolve_collision_dispatch_host() -> Object:
 	var sender: Object = _resolve_sender()
 	if sender != self and _can_use_send_to_override(sender):
@@ -645,6 +676,9 @@ func _resolve_collision_dispatch_host() -> Object:
 	return self
 
 
+## 调用有效派发主机的 send_to，并处理无效报告及信号发布。
+## [br]
+## @api private
 func _send_to_with_dispatch_host(
 	dispatch_host: Variant,
 	receiver: Object,
@@ -695,10 +729,16 @@ func _send_to_with_dispatch_host(
 	return report
 
 
+## 将 Variant 转换为报告字典。
+## [br]
+## @api private
 func _get_report_value(value: Variant) -> Dictionary:
 	return GFVariantData.as_dictionary(value)
 
 
+## 检查对象的 send_to 方法是否兼容本传感器的调用参数。
+## [br]
+## @api private
 func _can_use_send_to_override(candidate: Object) -> bool:
 	return GFInteractions.is_method_call_compatible_for_framework(
 		candidate,
@@ -707,6 +747,9 @@ func _can_use_send_to_override(candidate: Object) -> bool:
 	)
 
 
+## 补齐默认接收器并转换为安全诊断报告。
+## [br]
+## @api private
 func _normalize_report(report: Dictionary, default_receiver: Object) -> Dictionary:
 	if report.is_empty():
 		return {}

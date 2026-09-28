@@ -93,7 +93,12 @@ var config_count: int = 0
 # --- 私有变量 ---
 
 var _configs_by_id: Dictionary = {}
+
+## 排队时保留请求 Dictionary 的引用；flush 复制队列数组后清空本队列，使重入提交留待下一批处理。
+## [br]
+## @api private
 var _pending_requests: Array[Dictionary] = []
+
 var _cache_state: CacheState = CacheState.COLD
 var _last_architecture: Object = null
 
@@ -116,6 +121,9 @@ func _exit_tree() -> void:
 
 # --- Godot 回调方法 ---
 
+## 当前示例不处理引擎通知，保留回调分区以展示私有文档的归属。
+## [br]
+## @api private
 func _notification(_what: int) -> void:
 	pass
 
@@ -403,6 +411,9 @@ func restore_layer_state(state: Dictionary) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 请求已经完成基础校验；执行前钩子可拒绝本次请求。
+## [br]
+## @api private
 func _execute_now(request: Dictionary) -> GFAPISurfaceReport:
 	if not _before_execute(request):
 		return GFAPISurfaceReport.make_rejected(_string_name_value(request["request_id"]), "blocked_by_hook")
@@ -599,12 +610,26 @@ class GFAPISurfaceHandle:
 		return true
 
 
+## 解析过程中临时保存位置，不进入公开 API 或持久化状态。
+## [br]
+## @api private
 class _ParserState:
 	extends RefCounted
 
+	# --- 私有变量 ---
+
+	## 游标按字符计数，只能在当前输入范围内推进。
+	## [br]
+	## @api private
 	var _cursor: int = 0
+
 	var _source: String = ""
 
+	# --- 私有/辅助方法 ---
+
+	## 开始新输入时必须同时复位游标，避免沿用前一次解析位置。
+	## [br]
+	## @api private
 	func _reset(source_text: String) -> void:
 		_cursor = 0
 		_source = source_text

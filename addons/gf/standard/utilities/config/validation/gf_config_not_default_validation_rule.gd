@@ -82,6 +82,10 @@ func _validate_value(value: Variant, context: Dictionary, report: Dictionary) ->
 
 # --- 私有/辅助方法 ---
 
+## 根据 Variant 类型取得对应的类型默认值。
+## [br]
+## @api private
+## [br]
 func _get_type_default(value: Variant) -> Variant:
 	match typeof(value):
 		TYPE_BOOL:
@@ -112,6 +116,10 @@ func _get_type_default(value: Variant) -> Variant:
 			return null
 
 
+## 复制诊断上下文并附加实际值和比较用默认值。
+## [br]
+## @api private
+## [br]
 func _make_issue_context(context: Dictionary, value: Variant, compared_default: Variant) -> Dictionary:
 	var issue_context: Dictionary = context.duplicate(true)
 	issue_context["value"] = GFVariantData.duplicate_variant(value)

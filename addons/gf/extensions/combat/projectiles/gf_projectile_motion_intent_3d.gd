@@ -30,9 +30,24 @@ enum Kind {
 
 # --- 私有变量 ---
 
+## 选择 NONE、MOVE、REJECTED 或 FINISH 输出分支。
+## [br]
+## @api private
 var _kind: Kind = Kind.NONE
+
+## 保存 MOVE 输出的 world-space 速度。
+## [br]
+## @api private
 var _velocity: Vector3 = Vector3.ZERO
+
+## 保存 MOVE 输出对应的非负秒数。
+## [br]
+## @api private
 var _delta_seconds: float = 0.0
+
+## 保存 REJECTED 的稳定原因；其他种类默认为空值。
+## [br]
+## @api private
 var _failure_reason: StringName = &""
 
 

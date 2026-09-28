@@ -39,7 +39,16 @@ signal worker_idle
 
 # --- 常量 ---
 
+## 提供可取消、可超时的处理器 Signal 等待逻辑。
+## [br]
+## @api private
+## [br]
 const _GF_ASYNC_WAIT_SUPPORT = preload("res://addons/gf/standard/common/gf_async_wait_support.gd")
+
+## 提供无需等待完成的 process_batch 调用入口。
+## [br]
+## @api private
+## [br]
 const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
 
 
@@ -96,9 +105,28 @@ var processor: Callable = Callable()
 
 # --- 私有变量 ---
 
+## 是否允许 Worker 消费队列任务。
+## [br]
+## @api private
+## [br]
 var _running: bool = false
+
+## 是否有 process_batch 调用正在执行。
+## [br]
+## @api private
+## [br]
 var _processing: bool = false
+
+## 是否有 process_next_job 的任务正在等待处理器结果。
+## [br]
+## @api private
+## [br]
 var _next_job_in_flight: bool = false
+
+## 当前处理器 Signal 等待使用的取消源。
+## [br]
+## @api private
+## [br]
 var _active_wait_source: GFCancellationSource = null
 
 
@@ -243,6 +271,11 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 从队列启动一个任务并调用处理器；Signal 结果会等待后再写回完成或失败状态。
+## 被取消的任务不会发出 job_processed。
+## [br]
+## @api private
+## [br]
 func _process_next_job_once() -> GFJob:
 	var utility: GFJobQueueUtility = _get_queue_utility()
 	if utility == null or not processor.is_valid():
@@ -275,6 +308,10 @@ func _process_next_job_once() -> GFJob:
 	_emit_job_processed_if_not_cancelled(job)
 	return job
 
+## 优先返回显式队列工具，否则从全局架构查找，未找到时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_queue_utility() -> GFJobQueueUtility:
 	if queue_utility != null:
 		return queue_utility
@@ -284,6 +321,11 @@ func _get_queue_utility() -> GFJobQueueUtility:
 	return _variant_to_job_queue_utility(architecture.get_utility(GFJobQueueUtility))
 
 
+## 将超时、时间缩放、节点离树和取消源传给异步等待助手并捕获 Signal 参数。
+## 等待返回后清理当前 source、释放取消源，并整理完成状态、结果、原因及元数据。
+## [br]
+## @api private
+## [br]
 func _await_processor_signal_result(result_signal: Signal, job: GFJob) -> Dictionary:
 	var guard_node: Node = self if is_inside_tree() else null
 	var wait_source: GFCancellationSource = GFCancellationSource.new()
@@ -311,12 +353,20 @@ func _await_processor_signal_result(result_signal: Signal, job: GFJob) -> Dictio
 	}
 
 
+## 存在活动取消源时以指定原因取消处理器 Signal 等待。
+## [br]
+## @api private
+## [br]
 func _cancel_active_wait(reason: StringName) -> void:
 	if _active_wait_source == null:
 		return
 	var _cancelled: bool = _active_wait_source.cancel(reason)
 
 
+## 将 Signal 等待的 timeout、invalid 和其他失败状态映射为任务错误文本。
+## [br]
+## @api private
+## [br]
 func _get_processor_wait_failure_reason(status: StringName) -> String:
 	match status:
 		_GF_ASYNC_WAIT_SUPPORT.STATUS_TIMEOUT:
@@ -327,6 +377,10 @@ func _get_processor_wait_failure_reason(status: StringName) -> String:
 			return "processor_signal_failed"
 
 
+## 仍有效的任务按 ok=false 字典或 false 布尔值标记失败，其余结果标记完成。
+## [br]
+## @api private
+## [br]
 func _apply_processor_result(utility: GFJobQueueUtility, job: GFJob, result: Variant) -> void:
 	if job == null or job.is_finished():
 		return
@@ -342,12 +396,20 @@ func _apply_processor_result(utility: GFJobQueueUtility, job: GFJob, result: Var
 		var _complete_job_result_285: Variant = utility.complete_job(job.job_id, result)
 
 
+## 任务存在且未取消时发出 job_processed。
+## [br]
+## @api private
+## [br]
 func _emit_job_processed_if_not_cancelled(job: GFJob) -> void:
 	if job == null or job.status == GFJob.Status.CANCELLED:
 		return
 	job_processed.emit(job)
 
 
+## 将 Signal 参数数组规范为 null、单值、原数组或附带 signal_args 的首字典。
+## [br]
+## @api private
+## [br]
 func _normalize_signal_result(result: Variant) -> Variant:
 	if not (result is Array):
 		return result
@@ -366,6 +428,10 @@ func _normalize_signal_result(result: Variant) -> Variant:
 	return values
 
 
+## 从全局架构获取 GFTimeUtility；架构不存在或类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_time_utility() -> GFTimeUtility:
 	var architecture: GFArchitecture = GFAutoload.get_architecture_or_null()
 	if architecture == null:
@@ -373,10 +439,18 @@ func _get_time_utility() -> GFTimeUtility:
 	return _variant_to_time_utility(architecture.get_utility(GFTimeUtility))
 
 
+## 任务存在且尚未进入终态时继续等待处理器 Signal。
+## [br]
+## @api private
+## [br]
 func _should_continue_waiting(job: GFJob) -> bool:
 	return job != null and not job.is_finished()
 
 
+## 仅当 Variant 为 Signal 时返回该信号，否则返回空 Signal。
+## [br]
+## @api private
+## [br]
 static func _variant_to_signal(value: Variant) -> Signal:
 	if value is Signal:
 		var signal_value: Signal = value
@@ -384,6 +458,10 @@ static func _variant_to_signal(value: Variant) -> Signal:
 	return Signal()
 
 
+## 仅当 Variant 为 GFJobQueueUtility 时返回强类型引用。
+## [br]
+## @api private
+## [br]
 static func _variant_to_job_queue_utility(value: Variant) -> GFJobQueueUtility:
 	if value is GFJobQueueUtility:
 		var utility: GFJobQueueUtility = value
@@ -391,6 +469,10 @@ static func _variant_to_job_queue_utility(value: Variant) -> GFJobQueueUtility:
 	return null
 
 
+## 仅当 Variant 为 GFTimeUtility 时返回强类型引用。
+## [br]
+## @api private
+## [br]
 static func _variant_to_time_utility(value: Variant) -> GFTimeUtility:
 	if value is GFTimeUtility:
 		var utility: GFTimeUtility = value

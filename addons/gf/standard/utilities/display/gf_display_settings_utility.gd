@@ -48,10 +48,34 @@ const VSYNC_MODE_KEY: StringName = &"display/vsync_mode"
 ## @api public
 const LOCALE_KEY: StringName = &"display/locale"
 
+## 项目配置的窗口宽度 override 设置路径，用于推导初始窗口尺寸。
+## [br]
+## @api private
+## [br]
 const _PROJECT_WINDOW_WIDTH_OVERRIDE: String = "display/window/size/window_width_override"
+
+## 项目配置的窗口高度 override 设置路径，用于推导初始窗口尺寸。
+## [br]
+## @api private
+## [br]
 const _PROJECT_WINDOW_HEIGHT_OVERRIDE: String = "display/window/size/window_height_override"
+
+## 项目配置的 viewport 宽度设置路径，用于推导初始窗口尺寸。
+## [br]
+## @api private
+## [br]
 const _PROJECT_VIEWPORT_WIDTH: String = "display/window/size/viewport_width"
+
+## 项目配置的 viewport 高度设置路径，用于推导初始窗口尺寸。
+## [br]
+## @api private
+## [br]
 const _PROJECT_VIEWPORT_HEIGHT: String = "display/window/size/viewport_height"
+
+## 其他尺寸来源均不可用时采用的窗口默认尺寸。
+## [br]
+## @api private
+## [br]
 const _ENGINE_DEFAULT_WINDOWED_SIZE: Vector2i = Vector2i(1152, 648)
 
 
@@ -96,8 +120,22 @@ var audio_setting_prefix: StringName = &"audio"
 
 # --- 私有变量 ---
 
+## 未连接 GFSettingsUtility 时由本工具直接维护的运行时设置值。
+## [br]
+## @api private
+## [br]
 var _runtime_values: Dictionary = {}
+
+## 当前已连接设置变更和加载完成信号的 GFSettingsUtility。
+## [br]
+## @api private
+## [br]
 var _connected_settings: GFSettingsUtility = null
+
+## 标记当前正在从设置回调内部写回设置，避免把内部写入当作外部变更再次应用。
+## [br]
+## @api private
+## [br]
 var _internal_setting_write_depth: int = 0
 
 
@@ -421,10 +459,18 @@ func apply_registered_audio_bus_volumes() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 将有限音量限制在 0 到 1；值或 fallback 非有限时使用安全 fallback。
+## [br]
+## @api private
+## [br]
 func _normalize_linear_volume(value: float, fallback: float) -> float:
 	var normalized_fallback: float = clampf(fallback, 0.0, 1.0) if is_finite(fallback) else 1.0
 	return clampf(value, 0.0, 1.0) if is_finite(value) else normalized_fallback
 
+## 仅在设置尺寸有效且允许窗口模式切换或当前已是窗口模式时应用窗口尺寸。
+## [br]
+## @api private
+## [br]
 func _apply_window_size(allow_window_mode_transition: bool) -> void:
 	var size: Vector2i = get_window_size()
 	if size.x <= 0 or size.y <= 0:
@@ -439,6 +485,10 @@ func _apply_window_size(allow_window_mode_transition: bool) -> void:
 	display_setting_applied.emit(WINDOW_SIZE_KEY, size)
 
 
+## 从窗口模式离开已窗口化桌面时保存当前有效尺寸。
+## [br]
+## @api private
+## [br]
 func _capture_current_windowed_size(target_mode: DisplayServer.WindowMode) -> void:
 	if target_mode == DisplayServer.WINDOW_MODE_WINDOWED:
 		return
@@ -449,6 +499,10 @@ func _capture_current_windowed_size(target_mode: DisplayServer.WindowMode) -> vo
 		_set_setting_value(WINDOW_SIZE_KEY, current_size)
 
 
+## 按当前窗口、显式默认值、项目 override、viewport 和引擎默认值顺序选择正尺寸。
+## [br]
+## @api private
+## [br]
 func _resolve_initial_windowed_size() -> Vector2i:
 	var current_size: Vector2i = _window_get_size()
 	if _window_get_mode() == DisplayServer.WINDOW_MODE_WINDOWED:
@@ -473,26 +527,50 @@ func _resolve_initial_windowed_size() -> Vector2i:
 	return _ENGINE_DEFAULT_WINDOWED_SIZE
 
 
+## 读取项目设置并转换为整数；缺失或不兼容时返回 0。
+## [br]
+## @api private
+## [br]
 func _project_setting_int(path: String) -> int:
 	return GFVariantData.to_int(ProjectSettings.get_setting(path, 0), 0)
 
 
+## 读取 DisplayServer 当前窗口模式。
+## [br]
+## @api private
+## [br]
 func _window_get_mode() -> DisplayServer.WindowMode:
 	return DisplayServer.window_get_mode()
 
 
+## 将窗口模式设置写入 DisplayServer。
+## [br]
+## @api private
+## [br]
 func _window_set_mode(mode: DisplayServer.WindowMode) -> void:
 	DisplayServer.window_set_mode(mode)
 
 
+## 读取 DisplayServer 当前窗口尺寸。
+## [br]
+## @api private
+## [br]
 func _window_get_size() -> Vector2i:
 	return DisplayServer.window_get_size()
 
 
+## 将窗口尺寸写入 DisplayServer。
+## [br]
+## @api private
+## [br]
 func _window_set_size(size: Vector2i) -> void:
 	DisplayServer.window_set_size(size)
 
 
+## 有 GFSettingsUtility 时按持久化选项写入并标记内部写回；否则更新运行时缓存。
+## [br]
+## @api private
+## [br]
 func _set_setting_value(key: StringName, value: Variant) -> void:
 	var settings: GFSettingsUtility = _get_settings_utility()
 	if settings != null:
@@ -503,6 +581,10 @@ func _set_setting_value(key: StringName, value: Variant) -> void:
 		_runtime_values[key] = value
 
 
+## 优先从 GFSettingsUtility 读取设置；未注册时从运行时缓存读取并使用 fallback。
+## [br]
+## @api private
+## [br]
 func _get_setting_value(key: StringName, fallback: Variant = null) -> Variant:
 	var settings: GFSettingsUtility = _get_settings_utility()
 	if settings == null:
@@ -510,6 +592,10 @@ func _get_setting_value(key: StringName, fallback: Variant = null) -> Variant:
 	return settings.get_value(key, fallback)
 
 
+## 通过当前 Architecture 查找 GFSettingsUtility；架构缺失或类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_settings_utility() -> GFSettingsUtility:
 	var arch: GFArchitecture = _get_architecture_or_null()
 	if arch == null:
@@ -521,6 +607,10 @@ func _get_settings_utility() -> GFSettingsUtility:
 	return null
 
 
+## 通过当前 Architecture 查找 GFAudioUtility；架构缺失或类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_audio_utility() -> GFAudioUtility:
 	var arch: GFArchitecture = _get_architecture_or_null()
 	if arch == null:
@@ -532,10 +622,18 @@ func _get_audio_utility() -> GFAudioUtility:
 	return null
 
 
+## 组合音频设置前缀与总线名生成 volume 设置键。
+## [br]
+## @api private
+## [br]
 func _get_audio_bus_volume_key(bus_name: String) -> StringName:
 	return StringName("%s/%s/volume" % [String(audio_setting_prefix), bus_name])
 
 
+## 切换到当前设置工具并连接变更及加载完成信号；第二个连接失败时断开已成功建立的第一个连接。
+## [br]
+## @api private
+## [br]
 func _connect_settings_signals() -> void:
 	var settings: GFSettingsUtility = _get_settings_utility()
 	if settings == null or settings == _connected_settings:
@@ -560,6 +658,10 @@ func _connect_settings_signals() -> void:
 			_connected_settings = null
 
 
+## 断开当前设置工具上已连接的两个信号并清空工具引用。
+## [br]
+## @api private
+## [br]
 func _disconnect_settings_signals() -> void:
 	if _connected_settings == null:
 		return
@@ -570,6 +672,10 @@ func _disconnect_settings_signals() -> void:
 	_connected_settings = null
 
 
+## 将整数转换为受支持窗口模式；未知值回退到窗口化模式。
+## [br]
+## @api private
+## [br]
 func _to_window_mode(value: int) -> DisplayServer.WindowMode:
 	match value:
 		DisplayServer.WINDOW_MODE_MINIMIZED:
@@ -584,6 +690,10 @@ func _to_window_mode(value: int) -> DisplayServer.WindowMode:
 			return DisplayServer.WINDOW_MODE_WINDOWED
 
 
+## 将整数转换为受支持垂直同步模式；未知值回退到启用垂直同步。
+## [br]
+## @api private
+## [br]
 func _to_vsync_mode(value: int) -> DisplayServer.VSyncMode:
 	match value:
 		DisplayServer.VSYNC_DISABLED:
@@ -598,12 +708,20 @@ func _to_vsync_mode(value: int) -> DisplayServer.VSyncMode:
 
 # --- 信号处理函数 ---
 
+## 仅当 ready 应用开关开启且加载结果确实应用了设置时重新应用全部状态。
+## [br]
+## @api private
+## [br]
 func _on_settings_load_completed(result: GFSettingsLoadResult) -> void:
 	if not apply_on_ready or not result.was_applied():
 		return
 	apply_all()
 
 
+## 忽略自动应用关闭或本工具内部写回期间的变化；其余按设置键应用窗口、同步、语言或音量。
+## [br]
+## @api private
+## [br]
 func _on_setting_changed(key: StringName, _old_value: Variant, _new_value: Variant) -> void:
 	if not auto_apply_setting_changes or _internal_setting_write_depth > 0:
 		return

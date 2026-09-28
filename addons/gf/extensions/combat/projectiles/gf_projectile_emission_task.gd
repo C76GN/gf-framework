@@ -62,14 +62,49 @@ var state: StringName = STATE_PENDING
 
 # --- 私有变量 ---
 
+## 保存传给策略的发射器节点。
+## [br]
+## @api private
 var _emitter: Node = null
+
+## 保存可选的发射策略；为空时任务使用内置通过报告。
+## [br]
+## @api private
 var _policy: GFProjectileEmissionPolicy = null
+
+## 保存本次发射请求的稳定 ID。
+## [br]
+## @api private
 var _projectile_id: StringName = &""
+
+## 保存配置时记录的发射上下文。
+## [br]
+## @api private
 var _projectile_context: Dictionary = {}
+
+## 保存非负的模式解析请求数量。
+## [br]
+## @api private
 var _requested_count: int = 0
+
+## 保存至少为 1 的分配硬上限。
+## [br]
+## @api private
 var _hard_limit: int = 1
+
+## 保存本任务统一使用的非负毫秒时间值。
+## [br]
+## @api private
 var _now_msec: int = 0
+
+## 保存 prepare 阶段取策略数量、请求数量和硬上限后的允许数量。
+## [br]
+## @api private
 var _allowed_count: int = 0
+
+## 保存策略或内置逻辑产生的准备报告。
+## [br]
+## @api private
 var _prepare_report: Dictionary = {}
 
 
@@ -339,6 +374,9 @@ func get_projectile_context() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 复制报告并补入此任务的状态、请求数量、硬上限和时间字段。
+## [br]
+## @api private
 func _decorate_report(report: Dictionary) -> Dictionary:
 	var decorated: Dictionary = report.duplicate(true)
 	decorated["state"] = state
@@ -349,6 +387,9 @@ func _decorate_report(report: Dictionary) -> Dictionary:
 	return decorated
 
 
+## 构造包含给定原因和当前任务元数据的失败报告。
+## [br]
+## @api private
 func _make_state_failure(reason: StringName) -> Dictionary:
 	return _decorate_report({
 		"ok": false,

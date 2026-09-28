@@ -22,6 +22,10 @@ extends Node3D
 ## @since 9.0.0
 const FIELD_GROUP: StringName = &"gf_buoyancy_field_3d"
 
+## 提供浸没与浮力计算的数学脚本。
+## [br]
+## @api private
+## [br]
 const _BUOYANCY_MATH_SCRIPT = preload("res://addons/gf/extensions/physics/core/gf_buoyancy_math_3d.gd")
 
 
@@ -308,6 +312,10 @@ func _get_fluid_velocity_at(world_position: Vector3) -> Vector3:
 
 # --- 私有/辅助方法 ---
 
+## 构造不可用采样的默认结果，并附上失败原因。
+## [br]
+## @api private
+## [br]
 func _make_inactive_sample(reason: StringName) -> Dictionary:
 	return {
 		"available": false,
@@ -323,13 +331,25 @@ func _make_inactive_sample(reason: StringName) -> Dictionary:
 	}
 
 
+## 返回有限输入值，否则返回给定回退值。
+## [br]
+## @api private
+## [br]
 func _finite_float_or(value: float, fallback: float) -> float:
 	return fallback if not _is_finite_float(value) else value
 
 
+## 判断浮点值不是 NaN 或无穷大。
+## [br]
+## @api private
+## [br]
 func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 检查 Vector3 的三个分量均为有限浮点值。
+## [br]
+## @api private
+## [br]
 func _is_finite_vector3(value: Vector3) -> bool:
 	return _is_finite_float(value.x) and _is_finite_float(value.y) and _is_finite_float(value.z)

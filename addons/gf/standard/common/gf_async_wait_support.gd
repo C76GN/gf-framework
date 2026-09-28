@@ -7,6 +7,9 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 解析并验证可用生命周期保护节点的内部工具脚本。
+## [br]
+## @api private
 const _GF_INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
 
 ## 单次等待最多捕获的 Signal 参数数量。
@@ -377,6 +380,9 @@ static func disconnect_signal_if_connected(target_signal: Signal, callback: Call
 
 # --- 私有/辅助方法 ---
 
+## 每帧检查 Signal、节点、取消与继续条件，并累计受暂停策略影响的超时。
+## [br]
+## @api private
 static func _wait_signal_loop(
 	result_signal: Signal,
 	target_obj: Object,
@@ -443,6 +449,11 @@ static func _wait_signal_loop(
 	return GFVariantData.get_option_string_name(completion_state, "status", STATUS_COMPLETED)
 
 
+## 创建最多捕获 MAX_CAPTURED_SIGNAL_ARGUMENTS 个发射参数的完成回调。
+## [br]
+## 超出可捕获数量的信号参数通过 unbind 从回调签名中移除。
+## [br]
+## @api private
 static func _make_signal_capture_callable(target_signal: Signal, completion_state: Dictionary) -> Callable:
 	var argument_count: int = get_signal_argument_count(target_signal)
 	var captured_argument_count: int = mini(argument_count, MAX_CAPTURED_SIGNAL_ARGUMENTS)
@@ -497,6 +508,9 @@ static func _make_signal_capture_callable(target_signal: Signal, completion_stat
 	return capture_callback
 
 
+## 仅在等待尚未完成时写入完成状态、终态、原因和发射参数。
+## [br]
+## @api private
 static func _try_complete_signal_wait(
 	completion_state: Dictionary,
 	status: StringName,
@@ -511,6 +525,9 @@ static func _try_complete_signal_wait(
 	completion_state["args"] = args
 
 
+## 按 status 生成等待结果标记，并复制 metadata 与 args 字段。
+## [br]
+## @api private
 static func _make_signal_wait_result(
 	status: StringName,
 	args: Array = [],
@@ -529,6 +546,9 @@ static func _make_signal_wait_result(
 	}
 
 
+## 从 options 指定键读取 Callable，否则返回空 Callable。
+## [br]
+## @api private
 static func _get_callable(options: Dictionary, key: String) -> Callable:
 	var value: Variant = GFVariantData.get_option_value(options, key)
 	if value is Callable:
@@ -537,6 +557,9 @@ static func _get_callable(options: Dictionary, key: String) -> Callable:
 	return Callable()
 
 
+## 从 options 中读取 GFCancellationToken 类型的 cancel_token。
+## [br]
+## @api private
 static func _get_cancel_token(options: Dictionary) -> GFCancellationToken:
 	var value: Variant = GFVariantData.get_option_value(options, "cancel_token")
 	if value is GFCancellationToken:
@@ -545,6 +568,9 @@ static func _get_cancel_token(options: Dictionary) -> GFCancellationToken:
 	return null
 
 
+## 从 options 中读取 GFTimeUtility 类型的 time_utility。
+## [br]
+## @api private
 static func _get_time_utility(options: Dictionary) -> GFTimeUtility:
 	var value: Variant = GFVariantData.get_option_value(options, "time_utility")
 	if value is GFTimeUtility:
@@ -553,6 +579,9 @@ static func _get_time_utility(options: Dictionary) -> GFTimeUtility:
 	return null
 
 
+## 优先返回 options 中的 SceneTree，否则尝试从主循环取得 SceneTree。
+## [br]
+## @api private
 static func _get_scene_tree(options: Dictionary) -> SceneTree:
 	var value: Variant = GFVariantData.get_option_value(options, "tree")
 	if value is SceneTree:
@@ -561,6 +590,9 @@ static func _get_scene_tree(options: Dictionary) -> SceneTree:
 	return _variant_to_scene_tree(Engine.get_main_loop())
 
 
+## 等待指定 SceneTree 的 physics_frame 或 process_frame。
+## [br]
+## @api private
 static func _await_frame(tree: SceneTree, use_physics_frame: bool) -> void:
 	if use_physics_frame:
 		await tree.physics_frame
@@ -568,6 +600,9 @@ static func _await_frame(tree: SceneTree, use_physics_frame: bool) -> void:
 	await tree.process_frame
 
 
+## 仅当 Variant 值是 Node 时返回其类型化引用。
+## [br]
+## @api private
 static func _variant_to_node(value: Variant) -> Node:
 	if value is Node:
 		var node: Node = value
@@ -575,6 +610,9 @@ static func _variant_to_node(value: Variant) -> Node:
 	return null
 
 
+## 仅当 Variant 值是 SceneTree 时返回其类型化引用。
+## [br]
+## @api private
 static func _variant_to_scene_tree(value: Variant) -> SceneTree:
 	if value is SceneTree:
 		var tree: SceneTree = value

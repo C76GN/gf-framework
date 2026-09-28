@@ -15,9 +15,24 @@ extends GFSubscriptionToken
 
 # --- 私有变量 ---
 
+## 待连接的 Signal；取消时重置为空 Signal。
+## [br]
+## @api private
 var _source_signal: Signal = Signal()
+
+## 用于连接和断开来源 Signal 的回调。
+## [br]
+## @api private
 var _callback: Callable = Callable()
+
+## 最近一次有效 Signal 连接尝试的来源 ID；重复连接、连接失败或取消均不清除此缓存。
+## [br]
+## @api private
 var _source_id: int = 0
+
+## 与来源 ID 一同记录的信号名称，用于描述连接尝试，不表示当前连接仍活动。
+## [br]
+## @api private
 var _signal_name: StringName = &""
 
 
@@ -126,6 +141,9 @@ func get_signal_name() -> StringName:
 
 # --- 私有/辅助方法 ---
 
+## 先记录有效来源身份，再拒绝重复连接或尝试连接；false 不代表来源缓存已清空。
+## [br]
+## @api private
 func _connect_source_signal(flags: int) -> bool:
 	if _source_signal.is_null() or not _callback.is_valid():
 		return false
@@ -139,6 +157,9 @@ func _connect_source_signal(flags: int) -> bool:
 	return connect_error == OK
 
 
+## 断开仍存在的连接并释放 Signal/Callable 引用，保留最近一次来源 ID 和名称供查询。
+## [br]
+## @api private
 func _disconnect_source_signal() -> void:
 	if not _source_signal.is_null() and _callback.is_valid() and _source_signal.is_connected(_callback):
 		_source_signal.disconnect(_callback)

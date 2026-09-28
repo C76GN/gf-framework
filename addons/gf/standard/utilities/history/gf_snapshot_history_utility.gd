@@ -77,12 +77,46 @@ var snapshot_count: int:
 
 # --- 私有变量 ---
 
+## max_history_size 公共属性的内部存储；零表示不限制历史长度。
+## [br]
+## @api private
+## [br]
 var _max_history_size: int = 64
+
+## 按时间顺序保存带 ID、时间戳、元数据和数据的快照记录。
+## [br]
+## @api private
+## [br]
 var _snapshots: Array[Dictionary] = []
+
+## 当前记录在快照数组中的索引；数组为空时为 -1。
+## [br]
+## @api private
+## [br]
 var _current_index: int = -1
+
+## 下一次 push_snapshot() 分配的 ID；clear() 不重置此计数。
+## [br]
+## @api private
+## [br]
 var _next_snapshot_id: int = 1
+
+## 可选的自定义状态捕获回调；无效时尝试从架构捕获。
+## [br]
+## @api private
+## [br]
 var _capture_callback: Callable = Callable()
+
+## 可选的自定义状态恢复回调；无效时尝试通过架构恢复。
+## [br]
+## @api private
+## [br]
 var _restore_callback: Callable = Callable()
+
+## 传给架构全局快照恢复流程的命令构造器。
+## [br]
+## @api private
+## [br]
 var _restore_command_builder: Callable = Callable()
 
 
@@ -319,6 +353,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 更新非负容量；裁剪改变当前快照身份时尝试恢复新的当前位置。
+## [br]
+## @api private
+## [br]
 func _set_max_history_size(value: int) -> void:
 	_max_history_size = maxi(value, 0)
 	var previous_snapshot_id: int = _get_current_snapshot_id()
@@ -328,6 +366,10 @@ func _set_max_history_size(value: int) -> void:
 		_emit_history_changed()
 
 
+## 优先调用有效自定义捕获回调，否则读取架构成功 Result 中的 snapshot。
+## [br]
+## @api private
+## [br]
 func _capture_data() -> Variant:
 	if _capture_callback.is_valid():
 		return _capture_callback.call()
@@ -354,6 +396,10 @@ func _capture_data() -> Variant:
 	return null
 
 
+## 读取 Callable 选项；值类型不符时返回空 Callable。
+## [br]
+## @api private
+## [br]
 func _get_callable_option(options: Dictionary, key: String) -> Callable:
 	var value: Variant = GFVariantData.get_option_value(options, key, Callable())
 	if value is Callable:
@@ -361,6 +407,10 @@ func _get_callable_option(options: Dictionary, key: String) -> Callable:
 	return Callable()
 
 
+## 优先将数据副本交给自定义恢复回调，否则调用架构并按 Result 的 ok 返回。
+## [br]
+## @api private
+## [br]
 func _restore_data(data: Variant) -> bool:
 	if _restore_callback.is_valid():
 		var result: Variant = _restore_callback.call(_duplicate_snapshot_payload(data))
@@ -389,6 +439,10 @@ func _restore_data(data: Variant) -> bool:
 	return false
 
 
+## 创建带 ID、Unix 时间戳及复制后元数据和数据的快照记录。
+## [br]
+## @api private
+## [br]
 func _make_record(snapshot_id: int, data: Variant, metadata: Dictionary) -> Dictionary:
 	return {
 		"id": snapshot_id,
@@ -398,6 +452,10 @@ func _make_record(snapshot_id: int, data: Variant, metadata: Dictionary) -> Dict
 	}
 
 
+## 通过记录字段读取器重建记录，并分别复制元数据与快照数据。
+## [br]
+## @api private
+## [br]
 func _duplicate_record(record: Dictionary) -> Dictionary:
 	return {
 		"id": _get_record_id(record),
@@ -407,10 +465,18 @@ func _duplicate_record(record: Dictionary) -> Dictionary:
 	}
 
 
+## 统一委托 GFVariantData 复制快照载荷。
+## [br]
+## @api private
+## [br]
 func _duplicate_snapshot_payload(value: Variant) -> Variant:
 	return GFVariantData.duplicate_variant(value, true, true)
 
 
+## 递归拒绝 Object、Callable、Signal、RID 及深度超过 64 的快照载荷。
+## [br]
+## @api private
+## [br]
 func _is_snapshot_payload_allowed(value: Variant, depth: int) -> bool:
 	if depth > 64:
 		return false
@@ -434,6 +500,10 @@ func _is_snapshot_payload_allowed(value: Variant, depth: int) -> bool:
 	return true
 
 
+## 超出正容量时从最早项裁剪，并校正当前位置；返回内容或索引是否变化。
+## [br]
+## @api private
+## [br]
 func _trim_history() -> bool:
 	if max_history_size <= 0:
 		return false
@@ -452,6 +522,10 @@ func _trim_history() -> bool:
 	return changed or previous_index != _current_index
 
 
+## 尝试恢复裁剪后新的当前快照；目标恢复失败时将当前位置设为 -1。
+## [br]
+## @api private
+## [br]
 func _restore_current_snapshot_after_trim() -> void:
 	if _current_index < 0 or _current_index >= _snapshots.size():
 		return
@@ -466,6 +540,10 @@ func _restore_current_snapshot_after_trim() -> void:
 	snapshot_restored.emit(_get_record_id(record), _current_index)
 
 
+## 检查自定义恢复回调或可接收 Dictionary 的架构恢复入口是否可用。
+## [br]
+## @api private
+## [br]
 func _has_restore_target(data: Variant) -> bool:
 	if _restore_callback.is_valid():
 		return true
@@ -473,6 +551,10 @@ func _has_restore_target(data: Variant) -> bool:
 	return architecture != null and architecture.has_method("restore_global_snapshot") and data is Dictionary
 
 
+## 查找指定快照 ID 的数组索引，未找到时返回 -1。
+## [br]
+## @api private
+## [br]
 func _find_snapshot_index(snapshot_id: int) -> int:
 	for index: int in range(_snapshots.size()):
 		if _get_record_id(_snapshots[index]) == snapshot_id:
@@ -480,6 +562,10 @@ func _find_snapshot_index(snapshot_id: int) -> int:
 	return -1
 
 
+## 按当前历史顺序收集每条记录的 ID。
+## [br]
+## @api private
+## [br]
 func _get_snapshot_ids() -> PackedInt32Array:
 	var ids: PackedInt32Array = PackedInt32Array()
 	for record: Dictionary in _snapshots:
@@ -487,27 +573,51 @@ func _get_snapshot_ids() -> PackedInt32Array:
 	return ids
 
 
+## 返回当前位置快照 ID；当前位置无效时返回 0。
+## [br]
+## @api private
+## [br]
 func _get_current_snapshot_id() -> int:
 	if _current_index < 0 or _current_index >= _snapshots.size():
 		return 0
 	return _get_record_id(_snapshots[_current_index])
 
 
+## 从快照记录读取 id，缺失或类型不符时回退为 0。
+## [br]
+## @api private
+## [br]
 func _get_record_id(record: Dictionary) -> int:
 	return GFVariantData.get_option_int(record, "id", 0)
 
 
+## 从快照记录读取 Unix 时间戳，缺失或类型不符时回退为 0。
+## [br]
+## @api private
+## [br]
 func _get_record_created_at_unix(record: Dictionary) -> int:
 	return GFVariantData.get_option_int(record, "created_at_unix", 0)
 
 
+## 将记录 metadata 字段收窄为 Dictionary，缺失时使用空字典。
+## [br]
+## @api private
+## [br]
 func _get_record_metadata(record: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(record, "metadata", {}))
 
 
+## 读取记录 data 字段，缺失时返回 Variant 默认值。
+## [br]
+## @api private
+## [br]
 func _get_record_data(record: Dictionary) -> Variant:
 	return GFVariantData.get_option_value(record, "data")
 
 
+## 以当前调试快照作为 history_changed 信号载荷发出变更通知。
+## [br]
+## @api private
+## [br]
 func _emit_history_changed() -> void:
 	history_changed.emit(get_debug_snapshot())

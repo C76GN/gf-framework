@@ -74,15 +74,39 @@ const DEFAULT_MAX_CELLS: int = 4096
 ## @since 8.0.0
 const DEFAULT_MAX_TILES: int = 128
 
+## 报告中标识本求解器的算法名称。
+## [br]
+## @api private
+## [br]
 const _ALGORITHM: StringName = &"wave_function_collapse_2d"
+
+## 表示没有有效网格坐标的哨兵值。
+## [br]
+## @api private
+## [br]
 const _INVALID_CELL: Vector2i = Vector2i(-2147483648, -2147483648)
+
+## 表示方向输入无法规范化的哨兵值。
+## [br]
+## @api private
+## [br]
 const _INVALID_DIRECTION: Vector2i = Vector2i(2147483647, 2147483647)
+
+## 以右、下、左、上的次序枚举四邻接方向。
+## [br]
+## @api private
+## [br]
 const _DIRECTIONS: Array[Vector2i] = [
 	Vector2i.RIGHT,
 	Vector2i.LEFT,
 	Vector2i.DOWN,
 	Vector2i.UP,
 ]
+
+## 将四个正交方向映射到对应的反向方向。
+## [br]
+## @api private
+## [br]
 const _OPPOSITE_DIRECTIONS: Dictionary = {
 	Vector2i.RIGHT: Vector2i.LEFT,
 	Vector2i.LEFT: Vector2i.RIGHT,
@@ -482,11 +506,19 @@ static func expand_transformed_adjacency_rules(
 
 # --- 私有/辅助方法 ---
 
+## 读取步数预算，并将小于一的请求限制为一。
+## [br]
+## @api private
+## [br]
 static func _get_max_steps(options: Dictionary, cell_count: int) -> int:
 	var requested: int = GFVariantData.get_option_int(options, "max_steps", cell_count)
 	return maxi(requested, 1)
 
 
+## 将枚举或文本启发式规范为 mrv、scanline 或默认 entropy。
+## [br]
+## @api private
+## [br]
 static func _normalize_heuristic(value: Variant) -> StringName:
 	if value is int:
 		var heuristic_index: int = value
@@ -508,6 +540,10 @@ static func _normalize_heuristic(value: Variant) -> StringName:
 			return &"entropy"
 
 
+## 校验并规范化瓦片 ID 与正有限权重，拒绝空集、超限和重复 ID。
+## [br]
+## @api private
+## [br]
 static func _parse_tiles(tiles: Array, max_tiles: int) -> Dictionary:
 	if tiles.is_empty():
 		return _make_failure("tiles must not be empty.")
@@ -548,6 +584,10 @@ static func _parse_tiles(tiles: Array, max_tiles: int) -> Dictionary:
 	}
 
 
+## 接受 int 或非空 String/StringName 瓦片 ID，并将文本规范为 StringName。
+## [br]
+## @api private
+## [br]
 static func _normalize_tile_id(value: Variant) -> Dictionary:
 	if value is int:
 		var int_id: int = value
@@ -579,6 +619,10 @@ static func _normalize_tile_id(value: Variant) -> Dictionary:
 	return _make_failure("tile id must be int, String, or StringName.")
 
 
+## 校验并规范化待扩展邻接规则的两端瓦片、正交方向及可选双向标志。
+## [br]
+## @api private
+## [br]
 static func _normalize_adjacency_rule_for_expansion(rule: Dictionary) -> Dictionary:
 	var from_report: Dictionary = _normalize_tile_id(GFVariantData.get_option_value(rule, "from"))
 	var to_report: Dictionary = _normalize_tile_id(GFVariantData.get_option_value(rule, "to"))
@@ -605,6 +649,10 @@ static func _normalize_adjacency_rule_for_expansion(rule: Dictionary) -> Diction
 	}
 
 
+## 规范化变换规格数组；空数组会生成不重映射的 identity 规格。
+## [br]
+## @api private
+## [br]
 static func _normalize_rule_transform_specs(transform_specs: Array[Dictionary]) -> Dictionary:
 	var normalized_specs: Array[Dictionary] = []
 	if transform_specs.is_empty():
@@ -647,6 +695,10 @@ static func _normalize_rule_transform_specs(transform_specs: Array[Dictionary]) 
 	}
 
 
+## 接受整数变换枚举或支持的旋转、镜像、对角线文本别名。
+## [br]
+## @api private
+## [br]
 static func _normalize_grid_transform(value: Variant) -> int:
 	if value is int:
 		var transform_value: int = value
@@ -674,6 +726,10 @@ static func _normalize_grid_transform(value: Variant) -> int:
 			return GFGridTransform2D.INVALID_TRANSFORM
 
 
+## 将重映射字典两侧的瓦片 ID 规范化为受支持的 ID 类型。
+## [br]
+## @api private
+## [br]
 static func _normalize_tile_remaps(tile_remaps: Dictionary) -> Dictionary:
 	var normalized_remaps: Dictionary = {}
 	for raw_source_id: Variant in tile_remaps.keys():
@@ -693,6 +749,10 @@ static func _normalize_tile_remaps(tile_remaps: Dictionary) -> Dictionary:
 	}
 
 
+## 重映射规则两端瓦片并变换方向；按设置跳过未知映射的规则。
+## [br]
+## @api private
+## [br]
 static func _transform_adjacency_rule(
 	rule: Dictionary,
 	transform_spec: Dictionary,
@@ -742,6 +802,10 @@ static func _transform_adjacency_rule(
 	}
 
 
+## 查找瓦片重映射；缺失映射按 preserve_unknown_remaps 决定保留或跳过。
+## [br]
+## @api private
+## [br]
 static func _resolve_remapped_tile_id(
 	tile_id: Variant,
 	tile_remaps: Dictionary,
@@ -769,6 +833,10 @@ static func _resolve_remapped_tile_id(
 	}
 
 
+## 序列化规则端点、方向及双向字段是否存在和值，用于去重。
+## [br]
+## @api private
+## [br]
 static func _make_adjacency_rule_key(rule: Dictionary) -> String:
 	var direction: Vector2i = _get_report_cell(rule, "direction", _INVALID_DIRECTION)
 	var has_bidirectional: bool = rule.has("bidirectional")
@@ -783,6 +851,10 @@ static func _make_adjacency_rule_key(rule: Dictionary) -> String:
 	]
 
 
+## 为整数与 StringName 瓦片 ID 加类型前缀生成键，其它值使用通用文本表示。
+## [br]
+## @api private
+## [br]
 static func _make_tile_key(tile_id: Variant) -> String:
 	if tile_id is int:
 		var int_id: int = tile_id
@@ -793,6 +865,10 @@ static func _make_tile_key(tile_id: Variant) -> String:
 	return "other:" + str(tile_id)
 
 
+## 构造每个方向的允许关系；无规则时全开放，有规则时从空关系逐项加入。
+## [br]
+## @api private
+## [br]
 static func _build_adjacency(
 	tile_ids: Array,
 	tile_set: Dictionary,
@@ -835,6 +911,10 @@ static func _build_adjacency(
 	}
 
 
+## 接受四个正交 Vector2i 方向或 east/west/north/south 文本别名。
+## [br]
+## @api private
+## [br]
 static func _normalize_direction(value: Variant) -> Vector2i:
 	if value is Vector2i:
 		var vector_direction: Vector2i = value
@@ -856,6 +936,10 @@ static func _normalize_direction(value: Variant) -> Vector2i:
 			return _INVALID_DIRECTION
 
 
+## 为每个方向及来源瓦片创建包含全部目标瓦片的允许关系。
+## [br]
+## @api private
+## [br]
 static func _make_unrestricted_allowed(tile_ids: Array) -> Dictionary:
 	var allowed_by_direction: Dictionary = {}
 	for direction: Vector2i in _DIRECTIONS:
@@ -869,6 +953,10 @@ static func _make_unrestricted_allowed(tile_ids: Array) -> Dictionary:
 	return allowed_by_direction
 
 
+## 为每个方向及来源瓦片创建空的目标集合。
+## [br]
+## @api private
+## [br]
 static func _make_empty_allowed(tile_ids: Array) -> Dictionary:
 	var allowed_by_direction: Dictionary = {}
 	for direction: Vector2i in _DIRECTIONS:
@@ -879,6 +967,10 @@ static func _make_empty_allowed(tile_ids: Array) -> Dictionary:
 	return allowed_by_direction
 
 
+## 将一个来源到目标的有向邻接加入指定方向的关系字典。
+## [br]
+## @api private
+## [br]
 static func _add_allowed_pair(
 	allowed_by_direction: Dictionary,
 	direction: Vector2i,
@@ -892,6 +984,10 @@ static func _add_allowed_pair(
 	allowed_by_direction[direction] = direction_rules
 
 
+## 加入指定方向的邻接以及反方向上端点对调后的对应关系。
+## [br]
+## @api private
+## [br]
 static func _add_allowed_edge(
 	allowed_by_direction: Dictionary,
 	direction: Vector2i,
@@ -902,6 +998,10 @@ static func _add_allowed_edge(
 	_add_allowed_pair(allowed_by_direction, _opposite_direction(direction), to_tile, from_tile)
 
 
+## 从方向映射表取得反向方向，缺少映射时返回无效哨兵。
+## [br]
+## @api private
+## [br]
 static func _opposite_direction(direction: Vector2i) -> Vector2i:
 	var value: Variant = GFVariantData.get_option_value(_OPPOSITE_DIRECTIONS, direction, _INVALID_DIRECTION)
 	if value is Vector2i:
@@ -910,6 +1010,10 @@ static func _opposite_direction(direction: Vector2i) -> Vector2i:
 	return _INVALID_DIRECTION
 
 
+## 为网格每个坐标建立包含全部瓦片 ID 的初始域。
+## [br]
+## @api private
+## [br]
 static func _make_initial_domains(grid_size: Vector2i, tile_ids: Array) -> Dictionary:
 	var domains: Dictionary = {}
 	for y: int in range(grid_size.y):
@@ -919,6 +1023,10 @@ static func _make_initial_domains(grid_size: Vector2i, tile_ids: Array) -> Dicti
 	return domains
 
 
+## 将瓦片 ID 转换为成员值均为 true 的候选域字典。
+## [br]
+## @api private
+## [br]
 static func _make_full_domain(tile_ids: Array) -> Dictionary:
 	var domain: Dictionary = {}
 	for tile_id: Variant in tile_ids:
@@ -926,6 +1034,10 @@ static func _make_full_domain(tile_ids: Array) -> Dictionary:
 	return domain
 
 
+## 校验固定格坐标和瓦片并将其域缩为单项，返回待传播队列。
+## [br]
+## @api private
+## [br]
 static func _apply_fixed_cells(
 	domains: Dictionary,
 	grid_size: Vector2i,
@@ -959,6 +1071,10 @@ static func _apply_fixed_cells(
 	}
 
 
+## 以队列执行邻接约束传播，移除邻居域中没有支持边的瓦片并检测空域。
+## [br]
+## @api private
+## [br]
 static func _propagate(
 	domains: Dictionary,
 	grid_size: Vector2i,
@@ -1004,6 +1120,10 @@ static func _propagate(
 	}
 
 
+## 合并当前来源域在指定方向上允许的全部目标瓦片。
+## [br]
+## @api private
+## [br]
 static func _make_allowed_targets(
 	domain: Dictionary,
 	direction: Vector2i,
@@ -1018,6 +1138,10 @@ static func _make_allowed_targets(
 	return result
 
 
+## 解析方向邻居；越界时按周期设置回绕，否则返回无效格哨兵。
+## [br]
+## @api private
+## [br]
 static func _resolve_neighbor(
 	cell: Vector2i,
 	direction: Vector2i,
@@ -1036,6 +1160,10 @@ static func _resolve_neighbor(
 	)
 
 
+## 按 scanline、MRV 或加权熵评分选取未决格，并随机打破近似同分。
+## [br]
+## @api private
+## [br]
 static func _select_next_cell(
 	domains: Dictionary,
 	grid_size: Vector2i,
@@ -1066,6 +1194,10 @@ static func _select_next_cell(
 	return best_cell
 
 
+## 计算候选域的加权 Shannon 熵，并在直接累加溢出时按最大权重缩放重算。
+## [br]
+## @api private
+## [br]
 static func _calculate_entropy(domain: Dictionary, weights: Dictionary) -> float:
 	var weight_sum: float = 0.0
 	var weighted_log_sum: float = 0.0
@@ -1094,6 +1226,10 @@ static func _calculate_entropy(domain: Dictionary, weights: Dictionary) -> float
 	return log(scaled_sum) - scaled_weighted_log_sum / scaled_sum
 
 
+## 在域中按 tile_ids 顺序和权重抽取瓦片，并缩放处理总权重溢出。
+## [br]
+## @api private
+## [br]
 static func _choose_weighted_tile(
 	domain: Dictionary,
 	tile_ids: Array,
@@ -1137,6 +1273,10 @@ static func _choose_weighted_tile(
 	return fallback
 
 
+## 组装求解报告、域计数、矛盾坐标以及预算范围内的网格快照。
+## [br]
+## @api private
+## [br]
 static func _make_report(
 	ok: bool,
 	status: StringName,
@@ -1183,6 +1323,10 @@ static func _make_report(
 	}
 
 
+## 仅将候选域大小为一的格子写入已坍缩网格报告。
+## [br]
+## @api private
+## [br]
 static func _make_collapsed_grid(domains: Dictionary, grid_size: Vector2i) -> Dictionary:
 	var grid: Dictionary = {}
 	for y: int in range(grid_size.y):
@@ -1194,6 +1338,10 @@ static func _make_collapsed_grid(domains: Dictionary, grid_size: Vector2i) -> Di
 	return grid
 
 
+## 按输入瓦片顺序生成每格剩余候选列表的快照。
+## [br]
+## @api private
+## [br]
 static func _make_domain_snapshot(domains: Dictionary, grid_size: Vector2i, tile_ids: Array) -> Dictionary:
 	var snapshot: Dictionary = {}
 	for y: int in range(grid_size.y):
@@ -1208,6 +1356,10 @@ static func _make_domain_snapshot(domains: Dictionary, grid_size: Vector2i, tile
 	return snapshot
 
 
+## 统计值为字典且只剩一个候选项的格子域数量。
+## [br]
+## @api private
+## [br]
 static func _count_collapsed_domains(domains: Dictionary) -> int:
 	var count: int = 0
 	for domain_value: Variant in domains.values():
@@ -1218,6 +1370,10 @@ static func _count_collapsed_domains(domains: Dictionary) -> int:
 	return count
 
 
+## 统计值为字典且仍有多个候选项的格子域数量。
+## [br]
+## @api private
+## [br]
 static func _count_undecided_domains(domains: Dictionary) -> int:
 	var count: int = 0
 	for domain_value: Variant in domains.values():
@@ -1228,12 +1384,20 @@ static func _count_undecided_domains(domains: Dictionary) -> int:
 	return count
 
 
+## 返回候选域字典中的首个键，空域返回 null。
+## [br]
+## @api private
+## [br]
 static func _first_domain_tile(domain: Dictionary) -> Variant:
 	for tile_id: Variant in domain.keys():
 		return tile_id
 	return null
 
 
+## 判断坐标是否落在从零开始的二维网格范围内。
+## [br]
+## @api private
+## [br]
 static func _is_in_bounds(cell: Vector2i, grid_size: Vector2i) -> bool:
 	return (
 		cell.x >= 0
@@ -1243,10 +1407,18 @@ static func _is_in_bounds(cell: Vector2i, grid_size: Vector2i) -> bool:
 	)
 
 
+## 读取格坐标对应的候选域字典。
+## [br]
+## @api private
+## [br]
 static func _get_domain(domains: Dictionary, cell: Vector2i) -> Dictionary:
 	return _get_dictionary_value(domains, cell)
 
 
+## 安全读取字典值，仅在值为 Dictionary 时返回该字典。
+## [br]
+## @api private
+## [br]
 static func _get_dictionary_value(dictionary: Dictionary, key: Variant) -> Dictionary:
 	var value: Variant = GFVariantData.get_option_value(dictionary, key)
 	if value is Dictionary:
@@ -1255,6 +1427,10 @@ static func _get_dictionary_value(dictionary: Dictionary, key: Variant) -> Dicti
 	return {}
 
 
+## 从报告数组筛选并返回 Vector2i 元素。
+## [br]
+## @api private
+## [br]
 static func _get_vector2i_array(report: Dictionary, key: String) -> Array[Vector2i]:
 	var values: Array = GFVariantData.get_option_array(report, key)
 	var result: Array[Vector2i] = []
@@ -1265,6 +1441,10 @@ static func _get_vector2i_array(report: Dictionary, key: String) -> Array[Vector
 	return result
 
 
+## 从报告数组筛选并返回 Dictionary 元素。
+## [br]
+## @api private
+## [br]
 static func _get_dictionary_array(report: Dictionary, key: String) -> Array[Dictionary]:
 	var values: Array = GFVariantData.get_option_array(report, key)
 	var result: Array[Dictionary] = []
@@ -1275,6 +1455,10 @@ static func _get_dictionary_array(report: Dictionary, key: String) -> Array[Dict
 	return result
 
 
+## 从报告读取 Vector2i 字段；缺失或类型不符时返回 fallback。
+## [br]
+## @api private
+## [br]
 static func _get_report_cell(report: Dictionary, key: String, fallback: Vector2i) -> Vector2i:
 	var value: Variant = GFVariantData.get_option_value(report, key, fallback)
 	if value is Vector2i:
@@ -1283,6 +1467,10 @@ static func _get_report_cell(report: Dictionary, key: String, fallback: Vector2i
 	return fallback
 
 
+## 创建包含失败标志和错误文本的基础报告。
+## [br]
+## @api private
+## [br]
 static func _make_failure(error: String) -> Dictionary:
 	return {
 		"ok": false,
@@ -1290,6 +1478,10 @@ static func _make_failure(error: String) -> Dictionary:
 	}
 
 
+## 创建带规则展开计数零值字段的失败报告。
+## [br]
+## @api private
+## [br]
 static func _make_adjacency_expansion_failure(error: String) -> Dictionary:
 	return {
 		"ok": false,
@@ -1303,6 +1495,10 @@ static func _make_adjacency_expansion_failure(error: String) -> Dictionary:
 	}
 
 
+## 创建包含矛盾格坐标和错误文本的求解失败结果。
+## [br]
+## @api private
+## [br]
 static func _make_contradiction(cell: Vector2i, error: String) -> Dictionary:
 	return {
 		"ok": false,

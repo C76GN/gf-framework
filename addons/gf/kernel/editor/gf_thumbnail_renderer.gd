@@ -40,31 +40,87 @@ const MAX_TARGET_PIXELS: int = 1_048_576
 ## @since 11.0.0
 const MAX_PENDING_TASKS: int = 256
 
+## 静态预览副本的构建器脚本。
+## [br]
+## @api private
 const _PREVIEW_COPY_SCRIPT = preload("res://addons/gf/kernel/editor/gf_thumbnail_preview_copy.gd")
 
 
 # --- 私有变量 ---
 
+## 缩略图渲染使用的内部 SubViewport。
+## [br]
+## @api private
 var _viewport: SubViewport
+
+## 内部视口中的 3D 场景根节点。
+## [br]
+## @api private
 var _world_root: Node3D
+
+## 内部 3D 场景使用的正交相机。
+## [br]
+## @api private
 var _camera: Camera3D
+
+## 内部 3D 场景的主方向光。
+## [br]
+## @api private
 var _key_light: DirectionalLight3D
+
+## 内部 3D 场景的补光。
+## [br]
+## @api private
 var _fill_light: DirectionalLight3D
+
+## 内部视口中的 CanvasItem 根节点。
+## [br]
+## @api private
 var _canvas_root: Node2D
+
+## 内部 2D 场景使用的相机。
+## [br]
+## @api private
 var _camera_2d: Camera2D
+
+## 等待渲染队列处理的请求任务。
+## [br]
+## @api private
 var _pending_tasks: Array[GFThumbnailRenderTask] = []
+
+## 当前由异步队列执行的请求任务。
+## [br]
+## @api private
 var _active_task: GFThumbnailRenderTask = null
+
+## 标记异步队列处理器已排入或正在处理任务。
+## [br]
+## @api private
 var _processing_task_queue: bool = false
+
+## 下一个提交任务使用的递增标识。
+## [br]
+## @api private
 var _next_task_id: int = 1
+
+## 最近一次渲染流程记录的错误文本。
+## [br]
+## @api private
 var _render_error: String = ""
 
 
 # --- Godot 生命周期方法 ---
 
+## 进入场景树时确保用于缩略图渲染的视口已经建立。
+## [br]
+## @api private
 func _enter_tree() -> void:
 	_ensure_viewport()
 
 
+## 以渲染器退出原因为全部任务请求取消，释放视口并清除场景、相机和灯光引用。
+## [br]
+## @api private
 func _exit_tree() -> void:
 	_cancel_all_tasks(&"renderer_exited")
 	if is_instance_valid(_viewport):
@@ -498,6 +554,9 @@ func add_mesh_library_preview_plan_to_undo_manager(
 
 # --- 私有/辅助方法 ---
 
+## 仅在队列尚未处理时登记处理状态并延迟启动异步消费，避免重复调度。
+## [br]
+## @api private
 func _schedule_task_queue() -> void:
 	if _processing_task_queue:
 		return
@@ -505,6 +564,9 @@ func _schedule_task_queue() -> void:
 	var _deferred_call_result: Variant = call_deferred("_process_task_queue_async")
 
 
+## 按入队顺序串行执行未结束任务，跳过空或已完成项；退出消费循环后清除处理状态，并为新到任务补充调度。
+## [br]
+## @api private
 func _process_task_queue_async() -> void:
 	while not _pending_tasks.is_empty():
 		var task: GFThumbnailRenderTask = _pending_tasks.pop_front()
@@ -519,6 +581,9 @@ func _process_task_queue_async() -> void:
 		_schedule_task_queue()
 
 
+## 校验任务请求并按种类调用对应异步渲染路径；普通结果统一完成任务，MeshLibrary 计划另行判定取消、失败与成功。
+## [br]
+## @api private
 func _execute_render_task_async(task: GFThumbnailRenderTask) -> void:
 	_render_error = ""
 	var request: GFThumbnailRenderRequest = task.get_request()
@@ -597,6 +662,9 @@ func _execute_render_task_async(task: GFThumbnailRenderTask) -> void:
 			var _failed_kind: bool = task.fail("Unsupported thumbnail render request.")
 
 
+## 优先按取消请求结束任务并保留结果；未取消但结果为空时回报渲染错误，否则标记成功。
+## [br]
+## @api private
 func _finish_render_task_with_result(task: GFThumbnailRenderTask, result: Variant) -> void:
 	if task.is_cancel_requested():
 		var _cancelled_result: bool = task.finish_cancelled(task.get_cancel_reason(), result)
@@ -608,6 +676,9 @@ func _finish_render_task_with_result(task: GFThumbnailRenderTask, result: Varian
 	var _succeeded_result: bool = task.succeed(result)
 
 
+## 在内部视口中放置准备后的 3D 副本，等待渲染帧并读取图像。
+## [br]
+## @api private
 func _render_node3d_direct(
 	source: Node3D,
 	size: Vector2i,
@@ -638,6 +709,9 @@ func _render_node3d_direct(
 	return image
 
 
+## 将 3D 节点图像渲染结果转换为 ImageTexture。
+## [br]
+## @api private
 func _render_node3d_texture_direct(
 	source: Node3D,
 	size: Vector2i,
@@ -650,6 +724,9 @@ func _render_node3d_texture_direct(
 	return ImageTexture.create_from_image(image)
 
 
+## 在内部视口中放置 CanvasItem 副本，按边界调整 2D 相机后读取图像。
+## [br]
+## @api private
 func _render_canvas_item_direct(
 	source: CanvasItem,
 	size: Vector2i,
@@ -687,6 +764,9 @@ func _render_canvas_item_direct(
 	return image
 
 
+## 将 CanvasItem 图像渲染结果转换为 ImageTexture。
+## [br]
+## @api private
 func _render_canvas_item_texture_direct(
 	source: CanvasItem,
 	size: Vector2i,
@@ -710,6 +790,9 @@ func _render_canvas_item_texture_direct(
 	return ImageTexture.create_from_image(image)
 
 
+## 将 Mesh 包装为临时 MeshInstance3D，并通过 3D 渲染路径生成图像。
+## [br]
+## @api private
 func _render_mesh_direct(mesh: Mesh, size: Vector2i, transparent: bool) -> Image:
 	if mesh == null:
 		return null
@@ -724,6 +807,9 @@ func _render_mesh_direct(mesh: Mesh, size: Vector2i, transparent: bool) -> Image
 	return image
 
 
+## 可信动态预览使用节点 duplicate；静态预览交给静态复制器构建，并把复制器错误保存为本次渲染错误。
+## [br]
+## @api private
 func _create_render_instance(source: Node, preview_mode: GFThumbnailRenderRequest.PreviewMode) -> Node:
 	if preview_mode == GFThumbnailRenderRequest.PreviewMode.TRUSTED_DYNAMIC:
 		return source.duplicate()
@@ -733,6 +819,9 @@ func _create_render_instance(source: Node, preview_mode: GFThumbnailRenderReques
 	return instance
 
 
+## 将 Mesh 渲染为图像，再转换为 ImageTexture。
+## [br]
+## @api private
 func _render_mesh_texture_direct(mesh: Mesh, size: Vector2i, transparent: bool) -> ImageTexture:
 	var image: Image = await _render_mesh_direct(mesh, size, transparent)
 	if image == null:
@@ -740,6 +829,9 @@ func _render_mesh_texture_direct(mesh: Mesh, size: Vector2i, transparent: bool) 
 	return ImageTexture.create_from_image(image)
 
 
+## 逐项渲染 MeshLibrary 预览，并返回包含旧、新预览的计划数据；此方法不应用计划。
+## [br]
+## @api private
 func _build_mesh_library_preview_plan_direct(
 	mesh_library: MeshLibrary,
 	size: Vector2i,
@@ -795,6 +887,9 @@ func _build_mesh_library_preview_plan_direct(
 	}
 
 
+## 为所有排队任务请求取消并清空队列；活动任务还会立即结束为取消，并从活动引用中移除。
+## [br]
+## @api private
 func _cancel_all_tasks(reason: StringName) -> void:
 	for task: GFThumbnailRenderTask in _pending_tasks:
 		var _cancelled_pending: bool = task.cancel(reason)
@@ -806,6 +901,9 @@ func _cancel_all_tasks(reason: StringName) -> void:
 		var _finished_active: bool = active_task.finish_cancelled(reason)
 
 
+## 检查请求有效性及归一化目标尺寸是否超出单边或总像素限制。
+## [br]
+## @api private
 func _get_request_validation_error(request: GFThumbnailRenderRequest) -> String:
 	if request == null or not request.is_valid():
 		return "Invalid thumbnail render request."
@@ -823,12 +921,18 @@ func _get_request_validation_error(request: GFThumbnailRenderRequest) -> String:
 	return ""
 
 
+## 取出当前任务标识并将计数器递增。
+## [br]
+## @api private
 func _take_task_id() -> int:
 	var task_id: int = _next_task_id
 	_next_task_id += 1
 	return task_id
 
 
+## 仅当 Variant 已是 Image 时返回该值，否则返回 null。
+## [br]
+## @api private
 func _variant_to_image(value: Variant) -> Image:
 	if value is Image:
 		var image: Image = value
@@ -836,6 +940,9 @@ func _variant_to_image(value: Variant) -> Image:
 	return null
 
 
+## 仅当 Variant 已是 ImageTexture 时返回该值，否则返回 null。
+## [br]
+## @api private
 func _variant_to_image_texture(value: Variant) -> ImageTexture:
 	if value is ImageTexture:
 		var texture: ImageTexture = value
@@ -843,6 +950,9 @@ func _variant_to_image_texture(value: Variant) -> ImageTexture:
 	return null
 
 
+## 从字典读取布尔值；键缺失或值类型不匹配时返回 fallback。
+## [br]
+## @api private
 func _read_bool(data: Dictionary, key: String, fallback: bool = false) -> bool:
 	var value: Variant = _read_value(data, key, fallback)
 	if value is bool:
@@ -851,6 +961,9 @@ func _read_bool(data: Dictionary, key: String, fallback: bool = false) -> bool:
 	return fallback
 
 
+## 从计划字典读取 changes 数组；值不是数组时返回空数组。
+## [br]
+## @api private
 func _read_plan_changes(plan: Dictionary) -> Array:
 	var changes_value: Variant = plan.get("changes", [])
 	if changes_value is Array:
@@ -859,6 +972,9 @@ func _read_plan_changes(plan: Dictionary) -> Array:
 	return []
 
 
+## 仅当 Variant 已是 Dictionary 时返回该值，否则返回空字典。
+## [br]
+## @api private
 func _as_dictionary(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		var data: Dictionary = value
@@ -866,12 +982,18 @@ func _as_dictionary(value: Variant) -> Dictionary:
 	return {}
 
 
+## 读取字典中的键值；键不存在时返回给定 fallback。
+## [br]
+## @api private
 func _read_value(data: Dictionary, key: String, fallback: Variant = null) -> Variant:
 	if data.has(key):
 		return data[key]
 	return fallback
 
 
+## 将字典值转换为整数；接受 int、float 和有效整数字符串，其余情况返回 fallback。
+## [br]
+## @api private
 func _read_int(data: Dictionary, key: String, fallback: int = 0) -> int:
 	var value: Variant = _read_value(data, key, fallback)
 	if value is int:
@@ -887,6 +1009,9 @@ func _read_int(data: Dictionary, key: String, fallback: int = 0) -> int:
 	return fallback
 
 
+## 仅当 Variant 已是 Texture2D 时返回该值，否则返回 null。
+## [br]
+## @api private
 func _variant_to_texture(value: Variant) -> Texture2D:
 	if value is Texture2D:
 		var texture: Texture2D = value
@@ -894,6 +1019,9 @@ func _variant_to_texture(value: Variant) -> Texture2D:
 	return null
 
 
+## 检查内部视口及视频适配器可用后读取视口纹理图像。
+## [br]
+## @api private
 func _capture_viewport_image() -> Image:
 	if not is_instance_valid(_viewport):
 		return null
@@ -905,6 +1033,9 @@ func _capture_viewport_image() -> Image:
 	return viewport_texture.get_image()
 
 
+## 在内部视口尚未实例化时创建视口、3D/2D 根节点、相机和灯光。
+## [br]
+## @api private
 func _ensure_viewport() -> void:
 	if is_instance_valid(_viewport):
 		return
@@ -956,6 +1087,9 @@ func _ensure_viewport() -> void:
 	_canvas_root.add_child(_camera_2d)
 
 
+## 移除并释放 3D 根节点中除相机和两盏灯以外的子节点。
+## [br]
+## @api private
 func _clear_world_root() -> void:
 	for child: Node in _world_root.get_children():
 		if child != _camera and child != _key_light and child != _fill_light:
@@ -963,6 +1097,9 @@ func _clear_world_root() -> void:
 			child.free()
 
 
+## 移除并释放 2D 根节点中除相机以外的子节点。
+## [br]
+## @api private
 func _clear_canvas_root() -> void:
 	for child: Node in _canvas_root.get_children():
 		if child != _camera_2d:
@@ -970,6 +1107,9 @@ func _clear_canvas_root() -> void:
 			child.free()
 
 
+## 若实例仍有效，则先从父节点移除，再释放该实例。
+## [br]
+## @api private
 func _free_render_instance(instance: Node) -> void:
 	if not is_instance_valid(instance):
 		return
@@ -979,6 +1119,9 @@ func _free_render_instance(instance: Node) -> void:
 	instance.free()
 
 
+## 重置 3D 实例变换；最大边大于 0.0001 时缩放至 2 单位，并把边界中心移到原点。
+## [br]
+## @api private
 func _prepare_instance(instance: Node3D) -> void:
 	instance.transform = Transform3D.IDENTITY
 	var bounds: AABB = _get_combined_aabb(instance)
@@ -990,6 +1133,9 @@ func _prepare_instance(instance: Node3D) -> void:
 	instance.global_position -= center
 
 
+## 将 Node2D 或 Control 根实例的位置、旋转和缩放归一化。
+## [br]
+## @api private
 func _prepare_canvas_item_instance(instance: CanvasItem) -> void:
 	if instance is Node2D:
 		var node_2d: Node2D = instance
@@ -1001,6 +1147,9 @@ func _prepare_canvas_item_instance(instance: CanvasItem) -> void:
 		control.scale = Vector2.ONE
 
 
+## 设置 3D 视口尺寸、背景和正交相机视野，并请求更新一次渲染目标。
+## [br]
+## @api private
 func _render_prepare(size: Vector2i, transparent: bool, bounds: AABB) -> void:
 	_viewport.size = size
 	_viewport.transparent_bg = transparent
@@ -1018,6 +1167,9 @@ func _render_prepare(size: Vector2i, transparent: bool, bounds: AABB) -> void:
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 
+## 按给定内容边界和留白比例设置 2D 相机缩放，并请求更新一次渲染目标。
+## [br]
+## @api private
 func _render_canvas_prepare(
 	size: Vector2i,
 	transparent: bool,
@@ -1039,10 +1191,16 @@ func _render_canvas_prepare(
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 
+## 将渲染尺寸的两个分量分别限制为至少 1 像素。
+## [br]
+## @api private
 func _normalize_render_size(size: Vector2i) -> Vector2i:
 	return Vector2i(maxi(size.x, 1), maxi(size.y, 1))
 
 
+## 遍历节点树，将 MeshInstance3D 的局部包围盒角点变换后合并为 AABB。
+## [br]
+## @api private
 func _get_combined_aabb(root: Node) -> AABB:
 	var combined: AABB = AABB()
 	var has_bounds: bool = false
@@ -1081,6 +1239,9 @@ func _get_combined_aabb(root: Node) -> AABB:
 	return combined
 
 
+## 合并可见 CanvasItem 的局部矩形，并转换到根 CanvasItem 的局部坐标。
+## [br]
+## @api private
 func _get_combined_canvas_rect(root: CanvasItem) -> Rect2:
 	var combined: Rect2 = Rect2()
 	var has_bounds: bool = false
@@ -1111,6 +1272,9 @@ func _get_combined_canvas_rect(root: CanvasItem) -> Rect2:
 	return combined
 
 
+## 按 CanvasItem 类型取得 Sprite、AnimatedSprite2D、Control、Polygon、Line 或粒子的局部矩形。
+## [br]
+## @api private
 func _get_canvas_item_local_rect(canvas_item: CanvasItem) -> Rect2:
 	if canvas_item is Sprite2D:
 		var sprite: Sprite2D = canvas_item
@@ -1135,6 +1299,9 @@ func _get_canvas_item_local_rect(canvas_item: CanvasItem) -> Rect2:
 	return Rect2()
 
 
+## 根据 AnimatedSprite2D 当前动画帧纹理、偏移和居中设置计算矩形。
+## [br]
+## @api private
 func _get_animated_sprite_rect(animated_sprite: AnimatedSprite2D) -> Rect2:
 	var sprite_frames: SpriteFrames = animated_sprite.sprite_frames
 	if sprite_frames == null or not sprite_frames.has_animation(animated_sprite.animation):
@@ -1153,6 +1320,9 @@ func _get_animated_sprite_rect(animated_sprite: AnimatedSprite2D) -> Rect2:
 	return Rect2(rect_position, texture_size)
 
 
+## 返回点集坐标的最小轴对齐矩形；点集为空时返回空矩形。
+## [br]
+## @api private
 func _get_points_rect(points: PackedVector2Array) -> Rect2:
 	if points.is_empty():
 		return Rect2()
@@ -1166,6 +1336,9 @@ func _get_points_rect(points: PackedVector2Array) -> Rect2:
 	return Rect2(minimum, maximum - minimum)
 
 
+## 变换矩形的四个角，并返回包围变换后角点的轴对齐矩形。
+## [br]
+## @api private
 func _transform_canvas_rect(rect: Rect2, transform: Transform2D) -> Rect2:
 	var corners: Array[Vector2] = [
 		transform * rect.position,
@@ -1183,6 +1356,9 @@ func _transform_canvas_rect(rect: Rect2, transform: Transform2D) -> Rect2:
 	return Rect2(minimum, maximum - minimum)
 
 
+## 判断矩形位置与尺寸均为有限值，且宽、高都大于 0.0001。
+## [br]
+## @api private
 func _is_usable_canvas_rect(rect: Rect2) -> bool:
 	return (
 		is_finite(rect.position.x)
@@ -1194,6 +1370,9 @@ func _is_usable_canvas_rect(rect: Rect2) -> bool:
 	)
 
 
+## 将 AABB 角点投影到相机右、上方向后，返回两轴跨度中的较大值。
+## [br]
+## @api private
 func _calculate_orthographic_size_for_aabb(bounds: AABB, camera: Camera3D) -> float:
 	var camera_transform: Transform3D = camera.global_transform
 	var camera_right: Vector3 = camera_transform.basis.x.normalized()

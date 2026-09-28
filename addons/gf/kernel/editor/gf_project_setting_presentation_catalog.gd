@@ -6,19 +6,40 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 读取展示记录中可选字段的类型化辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 提供 GF 内置 ProjectSettings 名称的脚本。
+## [br]
+## @api private
 const _GF_PLUGIN_PROJECT_SETTINGS_SCRIPT = preload("res://addons/gf/kernel/editor/gf_plugin_project_settings.gd")
+
+## 提供 GF 扩展 ProjectSettings 名称的脚本。
+## [br]
+## @api private
 const _GF_EXTENSION_SETTINGS_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_settings.gd")
 
 
 # --- 私有变量 ---
 
+## 按稳定设置名索引的展示记录；configure() 会先清空并重建此字典。
+## [br]
+## @api private
 var _records_by_name: Dictionary = {}
+
+## 按规范化设置分区路径索引的展示记录。
+## [br]
+## @api private
 var _section_records_by_path: Dictionary = {}
 
 
 # --- Godot 生命周期方法 ---
 
+## 构造展示目录时加载默认配置。
+## [br]
+## @api private
 func _init() -> void:
 	configure()
 
@@ -191,6 +212,9 @@ func get_section_paths() -> PackedStringArray:
 
 # --- 私有/辅助方法 ---
 
+## 规范化设置名，跳过空名、重复项和缺少标签/说明的记录，再深复制保存。
+## [br]
+## @api private
 func _register_record(record: Dictionary) -> void:
 	var setting_name: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "name").strip_edges()
 	if setting_name.is_empty() or _records_by_name.has(setting_name):
@@ -200,6 +224,9 @@ func _register_record(record: Dictionary) -> void:
 	_records_by_name[setting_name] = record.duplicate(true)
 
 
+## 修剪分区路径并去除一个末尾斜线，跳过空值、重复项和不完整展示记录后深复制保存。
+## [br]
+## @api private
 func _register_section_record(record: Dictionary) -> void:
 	var section_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		record,
@@ -212,12 +239,18 @@ func _register_section_record(record: Dictionary) -> void:
 	_section_records_by_path[section_path] = record.duplicate(true)
 
 
+## 仅当 editor_labels 与 editor_descriptions 都是非空字典时返回 true。
+## [br]
+## @api private
 func _has_complete_presentation(record: Dictionary) -> bool:
 	var labels: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(record, "editor_labels")
 	var descriptions: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(record, "editor_descriptions")
 	return not labels.is_empty() and not descriptions.is_empty()
 
 
+## 按当前语言候选顺序查找非空文本；精确匹配优先于语言变体匹配。
+## [br]
+## @api private
 func _resolve_localized_text(localized_text: Dictionary, locale: String) -> String:
 	var locale_candidates: PackedStringArray = _get_locale_candidates(locale)
 	for candidate: String in locale_candidates:
@@ -232,6 +265,10 @@ func _resolve_localized_text(localized_text: Dictionary, locale: String) -> Stri
 	return ""
 
 
+## 按排序后的字符串语言键查找规范化精确项，或在允许时查找 locale_ 前缀项。
+## 命中后将值转为文本并修剪首尾空白。
+## [br]
+## @api private
 func _find_localized_text(
 	localized_text: Dictionary,
 	locale: String,
@@ -255,6 +292,9 @@ func _find_localized_text(
 	return ""
 
 
+## 逐个处理字符串枚举键，只解析字典值中的非空本地化文本。
+## [br]
+## @api private
 func _resolve_localized_enum_text(localized_values: Dictionary, locale: String) -> Dictionary:
 	var resolved: Dictionary = {}
 	for value_key: Variant in localized_values:
@@ -270,6 +310,9 @@ func _resolve_localized_enum_text(localized_values: Dictionary, locale: String) 
 	return resolved
 
 
+## 生成规范化 locale、可用的父语言和 en 候选，并通过辅助方法去重。
+## [br]
+## @api private
 func _get_locale_candidates(locale: String) -> PackedStringArray:
 	var candidates: PackedStringArray = PackedStringArray()
 	var normalized_locale: String = _normalize_locale(locale)
@@ -281,28 +324,43 @@ func _get_locale_candidates(locale: String) -> PackedStringArray:
 	return candidates
 
 
+## 修剪语言标识两端空白，将连字符替换为下划线并转为小写。
+## [br]
+## @api private
 func _normalize_locale(locale: String) -> String:
 	return locale.strip_edges().replace("-", "_").to_lower()
 
 
+## 不追加空字符串或已存在的值，否则将值追加到候选列表。
+## [br]
+## @api private
 func _append_unique_text(values: PackedStringArray, value: String) -> void:
 	if value.is_empty() or values.has(value):
 		return
 	var _append_result: bool = values.append(value)
 
 
+## 为中文语言附加“项目设置”标识，其他语言附加英文标识。
+## [br]
+## @api private
 func _make_tooltip(description: String, setting_name: String, locale: String) -> String:
 	if _normalize_locale(locale).begins_with("zh"):
 		return "%s\n\n项目设置：%s" % [description, setting_name]
 	return "%s\n\nProject setting: %s" % [description, setting_name]
 
 
+## 为中文语言附加“项目设置分区”标识，其他语言附加英文标识。
+## [br]
+## @api private
 func _make_section_tooltip(description: String, section_path: String, locale: String) -> String:
 	if _normalize_locale(locale).begins_with("zh"):
 		return "%s\n\n项目设置分区：%s" % [description, section_path]
 	return "%s\n\nProject settings section: %s" % [description, section_path]
 
 
+## 返回 GF 内置的四个设置分区展示记录。
+## [br]
+## @api private
 func _get_builtin_section_records() -> Array[Dictionary]:
 	return [
 		{
@@ -352,6 +410,9 @@ func _get_builtin_section_records() -> Array[Dictionary]:
 	]
 
 
+## 返回 GF 内置项目设置的标签、说明及可选枚举展示记录。
+## [br]
+## @api private
 func _get_builtin_records() -> Array[Dictionary]:
 	return [
 		{

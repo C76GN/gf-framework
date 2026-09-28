@@ -15,7 +15,14 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 回调预检时允许形成的最大有效实参数量。
+## [br]
+## @api private
 const _MAX_EFFECTIVE_ARGUMENTS: int = 16
+
+## 反射检查时最多遍历的方法元数据记录数。
+## [br]
+## @api private
 const _MAX_METHOD_RECORDS: int = 2048
 
 
@@ -67,6 +74,9 @@ static func try_call_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 根据 Callable 的绑定计数构造实际传入目标方法的参数列表。
+## [br]
+## @api private
 static func _build_effective_arguments(
 	callback: Callable,
 	arguments: Array,
@@ -92,6 +102,9 @@ static func _build_effective_arguments(
 	return true
 
 
+## 在有界反射结果中查找可接受有效参数的具名方法。
+## [br]
+## @api private
 static func _target_method_accepts(
 	target: Object,
 	method_name: StringName,
@@ -116,6 +129,9 @@ static func _target_method_accepts(
 	return false
 
 
+## 检查单条方法元数据的名称、参数数量、可变参数和固定参数类型。
+## [br]
+## @api private
 static func _method_record_accepts(
 	method_info: Dictionary,
 	method_name: StringName,
@@ -151,6 +167,9 @@ static func _method_record_accepts(
 	return true
 
 
+## 按方法参数元数据检查 Variant 类型及允许的兼容转换。
+## [br]
+## @api private
 static func _argument_accepts_value(argument_info: Dictionary, value: Variant) -> bool:
 	var expected_type: int = GFVariantData.to_int(argument_info.get("type", TYPE_NIL), TYPE_NIL)
 	if expected_type == TYPE_NIL:
@@ -181,6 +200,9 @@ static func _argument_accepts_value(argument_info: Dictionary, value: Variant) -
 	return _object_matches_class_name(object_value, expected_class_name)
 
 
+## 检查对象是否匹配原生类名或其脚本继承链中的全局名和资源路径。
+## [br]
+## @api private
 static func _object_matches_class_name(
 	value: Object,
 	expected_class_name: StringName

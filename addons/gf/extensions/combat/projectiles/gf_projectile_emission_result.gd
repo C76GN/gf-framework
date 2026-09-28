@@ -30,11 +30,34 @@ enum Status {
 
 # --- 私有变量 ---
 
+## 保存已配置的请求终态；新对象默认保持失败状态。
+## [br]
+## @api private
 var _status: Status = Status.FAILED
+
+## 保存终止阶段名；配置前使用 `unconfigured`。
+## [br]
+## @api private
 var _stage: StringName = &"unconfigured"
+
+## 保存稳定终态原因；成功结果使用空值。
+## [br]
+## @api private
 var _reason: StringName = &"unconfigured"
+
+## 保存 spawn pattern 解析后的非负请求数量。
+## [br]
+## @api private
 var _requested_count: int = 0
+
+## 保存配置时提供的 Session 容器；失败终态要求该列表为空。
+## [br]
+## @api private
 var _sessions: Array[GFProjectileSession] = []
+
+## 标记结果是否已通过一次终态配置。
+## [br]
+## @api private
 var _configured: bool = false
 
 
@@ -164,6 +187,9 @@ func configure_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 检查失败终态为空 Session，或成功终态阶段、原因和 Session 集合满足联合约束。
+## [br]
+## @api private
 static func _terminal_union_is_valid(
 	status: Status,
 	stage: StringName,

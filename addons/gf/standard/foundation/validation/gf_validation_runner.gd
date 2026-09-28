@@ -150,6 +150,10 @@ func run_paths(
 
 # --- 私有/辅助方法 ---
 
+## 按选项、套件 ID 和默认主题创建结果报告，并附带套件元数据。
+## [br]
+## @api private
+## [br]
 func _make_report(suite: GFValidationSuiteBase, options: Dictionary) -> GFValidationReport:
 	var subject: String = GFVariantData.get_option_string(options, "subject")
 	if subject.is_empty() and suite != null and suite.suite_id != &"":
@@ -165,6 +169,10 @@ func _make_report(suite: GFValidationSuiteBase, options: Dictionary) -> GFValida
 	return GFValidationReport.new(subject, metadata)
 
 
+## 复制调用方上下文并注入当前套件实例及 suite_id。
+## [br]
+## @api private
+## [br]
 func _make_base_context(suite: GFValidationSuiteBase, options: Dictionary) -> Dictionary:
 	var context: Dictionary = {}
 	var custom_context: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(options, "context", {}))
@@ -175,6 +183,10 @@ func _make_base_context(suite: GFValidationSuiteBase, options: Dictionary) -> Di
 	return context
 
 
+## 优先复制显式 PackedStringArray 或 Array 路径，否则从套件收集路径。
+## [br]
+## @api private
+## [br]
 func _resolve_paths(suite: GFValidationSuiteBase, options: Dictionary) -> PackedStringArray:
 	var explicit_paths: Variant = GFVariantData.get_option_value(options, "paths")
 	if explicit_paths is PackedStringArray:
@@ -189,6 +201,10 @@ func _resolve_paths(suite: GFValidationSuiteBase, options: Dictionary) -> Packed
 	return suite.collect_paths()
 
 
+## 逐个验证目标、合并目标报告并发出 target_validated 信号。
+## [br]
+## @api private
+## [br]
 func _run_targets_into(
 	report: GFValidationReport,
 	suite: GFValidationSuiteBase,
@@ -205,6 +221,10 @@ func _run_targets_into(
 		index += 1
 
 
+## 仅对套件匹配的路径调用路径验证流程。
+## [br]
+## @api private
+## [br]
 func _run_paths_into(
 	report: GFValidationReport,
 	suite: GFValidationSuiteBase,
@@ -217,6 +237,10 @@ func _run_paths_into(
 		_validate_path_into(report, suite, path, base_context)
 
 
+## 检查资源路径、加载并验证资源；按配置再验证 PackedScene 实例。
+## [br]
+## @api private
+## [br]
 func _validate_path_into(
 	report: GFValidationReport,
 	suite: GFValidationSuiteBase,
@@ -244,6 +268,10 @@ func _validate_path_into(
 		_validate_scene_instance_into(report, suite, packed_scene, path, base_context)
 
 
+## 实例化 PackedScene 的编辑器禁用状态根节点并验证，按选项释放实例。
+## [br]
+## @api private
+## [br]
 func _validate_scene_instance_into(
 	report: GFValidationReport,
 	suite: GFValidationSuiteBase,
@@ -267,6 +295,10 @@ func _validate_scene_instance_into(
 		root.free()
 
 
+## 为目标创建报告并运行套件中每个启用的非空规则。
+## [br]
+## @api private
+## [br]
 func _validate_target(
 	target: Variant,
 	suite: GFValidationSuiteBase,
@@ -282,6 +314,10 @@ func _validate_target(
 	return target_report
 
 
+## 优先使用上下文路径，再按 Node、Resource 或通用文本生成目标标识。
+## [br]
+## @api private
+## [br]
 func _make_target_id(target: Variant, context: Dictionary) -> String:
 	var path: String = GFVariantData.get_option_string(context, "path")
 	if not path.is_empty():
@@ -295,10 +331,18 @@ func _make_target_id(target: Variant, context: Dictionary) -> String:
 	return str(target)
 
 
+## 把来源报告合并到目标报告。
+## [br]
+## @api private
+## [br]
 func _merge_report(target_report: GFValidationReport, source_report: Variant) -> void:
 	var _merged_report: RefCounted = target_report.merge(source_report)
 
 
+## 向 PackedStringArray 追加一段文本。
+## [br]
+## @api private
+## [br]
 static func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:

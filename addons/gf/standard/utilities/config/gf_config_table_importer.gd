@@ -505,30 +505,58 @@ static func export_csv_table(
 
 # --- 私有/辅助方法 ---
 
+## 从解析结果中读取 data。
+## [br]
+## @api private
+## [br]
 static func _get_parse_data(parsed: Dictionary) -> Variant:
 	return GFVariantData.get_option_value(parsed, "data")
 
 
+## 从解析结果中读取 error。
+## [br]
+## @api private
+## [br]
 static func _get_parse_error(parsed: Dictionary) -> String:
 	return GFVariantData.get_option_string(parsed, "error")
 
 
+## 从解析结果中读取 source。
+## [br]
+## @api private
+## [br]
 static func _get_parse_source(parsed: Dictionary) -> String:
 	return GFVariantData.get_option_string(parsed, "source")
 
 
+## 从解析结果中读取错误行号。
+## [br]
+## @api private
+## [br]
 static func _get_parse_error_line(parsed: Dictionary) -> int:
 	return GFVariantData.get_option_int(parsed, "error_line")
 
 
+## 从解析结果中读取错误列号。
+## [br]
+## @api private
+## [br]
 static func _get_parse_error_column(parsed: Dictionary) -> int:
 	return GFVariantData.get_option_int(parsed, "error_column")
 
 
+## 从解析结果中读取行位置记录。
+## [br]
+## @api private
+## [br]
 static func _get_parse_row_locations(parsed: Dictionary) -> Variant:
 	return GFVariantData.get_option_value(parsed, "row_locations")
 
 
+## 解析 CSV 文本为行数组，并记录每行对应的源行号。
+## [br]
+## @api private
+## [br]
 static func _parse_csv_rows(text: String, delimiter: String, trim_cells: bool) -> Dictionary:
 	var rows: Array[PackedStringArray] = []
 	var row_numbers: PackedInt32Array = PackedInt32Array()
@@ -642,14 +670,26 @@ static func _parse_csv_rows(text: String, delimiter: String, trim_cells: bool) -
 	}
 
 
+## 移除 CSV 文本开头的 UTF-8 BOM。
+## [br]
+## @api private
+## [br]
 static func _normalize_csv_text(text: String) -> String:
 	return text.trim_prefix("\ufeff")
 
 
+## 移除配置文件文本开头的 UTF-8 BOM。
+## [br]
+## @api private
+## [br]
 static func _normalize_config_file_text(text: String) -> String:
 	return text.trim_prefix("\ufeff")
 
 
+## 从解析结果读取并类型校验表格行数组。
+## [br]
+## @api private
+## [br]
 static func _get_parse_rows(parse_result: Dictionary) -> Array[PackedStringArray]:
 	var result: Array[PackedStringArray] = []
 	var rows_value: Variant = GFVariantData.get_option_value(parse_result, "rows", [])
@@ -662,6 +702,10 @@ static func _get_parse_rows(parse_result: Dictionary) -> Array[PackedStringArray
 	return result
 
 
+## 从解析结果读取行号数组并规范化类型。
+## [br]
+## @api private
+## [br]
 static func _get_parse_row_numbers(parse_result: Dictionary) -> PackedInt32Array:
 	var row_numbers_value: Variant = GFVariantData.get_option_value(
 		parse_result,
@@ -673,6 +717,10 @@ static func _get_parse_row_numbers(parse_result: Dictionary) -> PackedInt32Array
 	return PackedInt32Array()
 
 
+## 从选项读取有效的表格源行号，必要时生成默认行号。
+## [br]
+## @api private
+## [br]
 static func _get_tabular_row_numbers(row_count: int, options: Dictionary) -> PackedInt32Array:
 	var value: Variant = GFVariantData.get_option_value(options, "row_numbers")
 	if value is PackedInt32Array:
@@ -691,12 +739,20 @@ static func _get_tabular_row_numbers(row_count: int, options: Dictionary) -> Pac
 	return result
 
 
+## 按数组索引读取源行号；无对应值时使用一基行号。
+## [br]
+## @api private
+## [br]
 static func _get_tabular_row_number(row_numbers: PackedInt32Array, row_array_index: int) -> int:
 	if row_array_index >= 0 and row_array_index < row_numbers.size():
 		return row_numbers[row_array_index]
 	return row_array_index + 1
 
 
+## 从选项读取指定键的字符串前缀数组。
+## [br]
+## @api private
+## [br]
 static func _get_string_prefixes(
 	options: Dictionary,
 	key: String,
@@ -705,6 +761,10 @@ static func _get_string_prefixes(
 	return GFVariantData.get_option_packed_string_array(options, key, default_value)
 
 
+## 按 trim_cells 选项规范化表格行中的单元格。
+## [br]
+## @api private
+## [br]
 static func _prepare_tabular_row(row: PackedStringArray, trim_cells: bool) -> PackedStringArray:
 	if not trim_cells:
 		return row
@@ -715,6 +775,10 @@ static func _prepare_tabular_row(row: PackedStringArray, trim_cells: bool) -> Pa
 	return result
 
 
+## 按注释列前缀和大小写选项选择导入列索引。
+## [br]
+## @api private
+## [br]
 static func _select_tabular_column_indices(
 	header: PackedStringArray,
 	comment_column_prefixes: PackedStringArray,
@@ -728,6 +792,10 @@ static func _select_tabular_column_indices(
 	return result
 
 
+## 按列索引从一行中筛选单元格。
+## [br]
+## @api private
+## [br]
 static func _filter_tabular_row(row: PackedStringArray, column_indices: PackedInt32Array) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for column_index: int in column_indices:
@@ -735,6 +803,10 @@ static func _filter_tabular_row(row: PackedStringArray, column_indices: PackedIn
 	return result
 
 
+## 按选项校验表头中的空名称和重复名称。
+## [br]
+## @api private
+## [br]
 static func _validate_tabular_header(
 	header: PackedStringArray,
 	reject_duplicate_headers: bool,
@@ -755,6 +827,10 @@ static func _validate_tabular_header(
 	return ""
 
 
+## 构造带记录、表头、行位置和来源信息的成功解析结果。
+## [br]
+## @api private
+## [br]
 static func _make_tabular_parse_success(
 	records: Array[Dictionary],
 	header: PackedStringArray,
@@ -773,6 +849,10 @@ static func _make_tabular_parse_success(
 	}
 
 
+## 构造带错误位置和来源信息的失败解析结果。
+## [br]
+## @api private
+## [br]
 static func _make_tabular_parse_failure(
 	error: String,
 	source: String,
@@ -791,6 +871,10 @@ static func _make_tabular_parse_failure(
 	}
 
 
+## 识别单元格中的条件指令并解析其符号信息。
+## [br]
+## @api private
+## [br]
 static func _parse_condition_directive(first_cell: String, directive_prefix: String) -> Dictionary:
 	var text: String = first_cell.strip_edges()
 	if directive_prefix.is_empty() or not text.begins_with(directive_prefix):
@@ -825,6 +909,10 @@ static func _parse_condition_directive(first_cell: String, directive_prefix: Str
 	}
 
 
+## 检查所需条件符号是否全部处于启用集合中。
+## [br]
+## @api private
+## [br]
 static func _condition_symbols_match(required_symbols: PackedStringArray, active_symbols: PackedStringArray) -> bool:
 	for symbol: String in required_symbols:
 		if not active_symbols.has(symbol):
@@ -832,6 +920,10 @@ static func _condition_symbols_match(required_symbols: PackedStringArray, active
 	return true
 
 
+## 检查条件指令栈中的所有层级是否均处于活动状态。
+## [br]
+## @api private
+## [br]
 static func _condition_stack_is_active(condition_stack: Array[Dictionary]) -> bool:
 	for condition_info: Dictionary in condition_stack:
 		if not GFVariantData.get_option_bool(condition_info, "active"):
@@ -839,6 +931,10 @@ static func _condition_stack_is_active(condition_stack: Array[Dictionary]) -> bo
 	return true
 
 
+## 检查表格行是否只包含空白单元格。
+## [br]
+## @api private
+## [br]
 static func _tabular_row_is_empty(row: PackedStringArray) -> bool:
 	for cell: String in row:
 		if not cell.strip_edges().is_empty():
@@ -846,6 +942,10 @@ static func _tabular_row_is_empty(row: PackedStringArray) -> bool:
 	return true
 
 
+## 按大小写选项检查文本是否匹配任一前缀。
+## [br]
+## @api private
+## [br]
 static func _text_has_prefix(text: String, prefixes: PackedStringArray, case_sensitive: bool) -> bool:
 	if prefixes.is_empty():
 		return false
@@ -860,6 +960,10 @@ static func _text_has_prefix(text: String, prefixes: PackedStringArray, case_sen
 	return false
 
 
+## 构造表格行的源位置记录。
+## [br]
+## @api private
+## [br]
 static func _make_tabular_row_location(
 	source: String,
 	line_number: int,
@@ -893,6 +997,10 @@ static func _make_tabular_row_location(
 	return row_location
 
 
+## 复制并筛选 Variant 中的字典行数组。
+## [br]
+## @api private
+## [br]
 static func _copy_dictionary_rows(value: Variant) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if not value is Array:
@@ -904,6 +1012,10 @@ static func _copy_dictionary_rows(value: Variant) -> Array[Dictionary]:
 	return result
 
 
+## 检查 CSV 行是否只包含空白单元格。
+## [br]
+## @api private
+## [br]
 static func _csv_row_is_empty(row: PackedStringArray) -> bool:
 	for cell: String in row:
 		if not cell.strip_edges().is_empty():
@@ -911,6 +1023,10 @@ static func _csv_row_is_empty(row: PackedStringArray) -> bool:
 	return true
 
 
+## 构造配置文件行的位置记录。
+## [br]
+## @api private
+## [br]
 static func _make_config_file_row_location(
 	source: String,
 	row_index: int,
@@ -939,6 +1055,10 @@ static func _make_config_file_row_location(
 	return row_location
 
 
+## 构造配置文件字段的位置记录。
+## [br]
+## @api private
+## [br]
 static func _make_config_file_field_location(source: String, row_index: int, section: String) -> Dictionary:
 	var location: Dictionary = {
 		"row_index": row_index,
@@ -949,6 +1069,10 @@ static func _make_config_file_field_location(source: String, row_index: int, sec
 	return location
 
 
+## 创建带有问题类型和来源位置的配置导入错误报告。
+## [br]
+## @api private
+## [br]
 static func _make_error_report(
 	table_name: StringName,
 	kind: String,
@@ -958,6 +1082,10 @@ static func _make_error_report(
 	return GFConfigValidationReport.new().make_error_report(table_name, kind, message, context)
 
 
+## 复制验证选项并补充解析结果中的来源信息。
+## [br]
+## @api private
+## [br]
 static func _make_validation_options(options: Dictionary, parsed: Dictionary) -> Dictionary:
 	var result: Dictionary = options.duplicate(true)
 	if parsed.has("source") and not GFVariantData.get_option_string(parsed, "source").is_empty():
@@ -967,6 +1095,10 @@ static func _make_validation_options(options: Dictionary, parsed: Dictionary) ->
 	return result
 
 
+## 将输入表数据规范化为记录行和位置元数据。
+## [br]
+## @api private
+## [br]
 static func _normalize_table_rows(table_data: Variant) -> Dictionary:
 	var rows: Array[Dictionary] = []
 	if table_data is Array:
@@ -1003,6 +1135,10 @@ static func _normalize_table_rows(table_data: Variant) -> Dictionary:
 	}
 
 
+## 根据行、schema 与选项解析导出列集合。
+## [br]
+## @api private
+## [br]
 static func _resolve_export_columns(
 	rows: Array[Dictionary],
 	schema: GFConfigTableSchema,
@@ -1026,6 +1162,10 @@ static func _resolve_export_columns(
 	return result
 
 
+## 格式化一行 CSV 单元格并用分隔符连接。
+## [br]
+## @api private
+## [br]
 static func _join_csv_row(cells: PackedStringArray, delimiter: String) -> String:
 	var escaped: PackedStringArray = PackedStringArray()
 	for cell: String in cells:
@@ -1033,6 +1173,10 @@ static func _join_csv_row(cells: PackedStringArray, delimiter: String) -> String
 	return delimiter.join(escaped)
 
 
+## 按 CSV 转义规则格式化单个单元格。
+## [br]
+## @api private
+## [br]
 static func _format_csv_cell(value: Variant, delimiter: String) -> String:
 	var text: String = str(value)
 	var needs_quotes: bool = text.contains(delimiter) or text.contains("\n") or text.contains("\r") or text.contains("\"")

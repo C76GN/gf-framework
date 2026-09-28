@@ -28,9 +28,28 @@ const STAGE_ID: String = "gf.config.reader.builtin"
 ## @since 9.0.0
 const IMPLEMENTATION_VERSION: int = 2
 
+## 非 XLSX 来源文件的默认读取字节预算。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_SOURCE_FILE_BYTES: int = 64 * 1024 * 1024
+
+## XLSX 来源文件的默认读取字节预算。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_XLSX_FILE_BYTES: int = 64 * 1024 * 1024
+
+## 来源读取收据的稳定格式标识。
+## [br]
+## @api private
+## [br]
 const _SOURCE_RECEIPT_FORMAT: String = "gf.config_pipeline.source_receipt"
+
+## 来源读取收据的当前格式版本。
+## [br]
+## @api private
+## [br]
 const _SOURCE_RECEIPT_FORMAT_VERSION: int = 1
 
 
@@ -189,6 +208,10 @@ func get_stage_descriptor() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 判断解析后的来源格式是否属于内置 CSV、JSON、ConfigFile 或 XLSX 格式。
+## [br]
+## @api private
+## [br]
 func _is_supported_format(resolved_format: StringName) -> bool:
 	return resolved_format == GFConfigPipelineTableSource.FORMAT_CSV \
 		or resolved_format == GFConfigPipelineTableSource.FORMAT_JSON \
@@ -196,6 +219,10 @@ func _is_supported_format(resolved_format: StringName) -> bool:
 		or resolved_format == GFConfigPipelineTableSource.FORMAT_XLSX
 
 
+## 组装 Reader 成功结果，并深复制来源读取收据。
+## [br]
+## @api private
+## [br]
 func _make_success(
 	source_path: String,
 	resolved_format: StringName,
@@ -220,6 +247,10 @@ func _make_success(
 	}
 
 
+## 生成包含表名、简化路径、来源格式、字节数和小写 SHA-256 的读取收据。
+## [br]
+## @api private
+## [br]
 func _make_source_receipt(
 	table_name: StringName,
 	source_path: String,
@@ -238,6 +269,10 @@ func _make_source_receipt(
 	}
 
 
+## 计算字节数组的 SHA-256 十六进制摘要；HashingContext 初始化或更新失败时返回空串。
+## [br]
+## @api private
+## [br]
 func _sha256_bytes(bytes: PackedByteArray) -> String:
 	var context: HashingContext = HashingContext.new()
 	if context.start(HashingContext.HASH_SHA256) != OK:
@@ -247,6 +282,10 @@ func _sha256_bytes(bytes: PackedByteArray) -> String:
 	return context.finish().hex_encode()
 
 
+## 组装 Reader 失败结果，将调用方上下文深复制后补入表名和来源路径。
+## [br]
+## @api private
+## [br]
 func _make_failure(
 	table_name: StringName,
 	source_path: String,

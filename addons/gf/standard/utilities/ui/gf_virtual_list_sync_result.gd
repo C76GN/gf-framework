@@ -96,27 +96,97 @@ const STATUS_BIND_FAILED: StringName = &"bind_failed"
 
 # JSON number 可以无损表达的最大整数。
 # 所有写入诊断摘要的 revision、count 与 error_index 都必须位于对应语义范围内。
+## JSON 可安全表达整数的最大绝对值边界。
+## [br]
+## @api private
 const _MAX_JSON_SAFE_INTEGER: int = 9_007_199_254_740_991
+
+## 对外错误文本允许保留的最大字符数。
+## [br]
+## @api private
 const _MAX_ERROR_LENGTH: int = 512
 
 
 # --- 私有变量 ---
 
+## 标记结果是否已完成唯一一次框架配置。
+## [br]
+## @api private
 var _configured: bool = false
+
+## 本轮同步终态或执行状态。
+## [br]
+## @api private
 var _status: StringName = STATUS_UNBOUND
+
+## 结果使用的布局模型版本号。
+## [br]
+## @api private
 var _layout_revision: int = 0
+
+## 结果使用的 Binder 数据修订号。
+## [br]
+## @api private
 var _data_revision: int = 0
+
+## 不含 overscan 的视口命中范围。
+## [br]
+## @api private
 var _viewport_range: Vector2i = Vector2i.ZERO
+
+## 加入 overscan 并应用物化预算前的目标范围。
+## [br]
+## @api private
 var _requested_range: Vector2i = Vector2i.ZERO
+
+## 本轮实际活动并按升序记录的条目索引。
+## [br]
+## @api private
 var _materialized_indices: PackedInt32Array = PackedInt32Array()
+
+## 结果生成时对象池内的 Control 数量。
+## [br]
+## @api private
 var _pooled_count: int = 0
+
+## 本轮 factory 新建的 Control 数量。
+## [br]
+## @api private
 var _created_count: int = 0
+
+## 本轮从旧活动行或对象池复用的 Control 数量。
+## [br]
+## @api private
 var _reused_count: int = 0
+
+## 本轮离开旧绑定的条目数量。
+## [br]
+## @api private
 var _released_count: int = 0
+
+## 本轮成功更新布局尺寸的活动行数量。
+## [br]
+## @api private
 var _measured_count: int = 0
+
+## 本轮应用于滚动主轴的锚点偏移量。
+## [br]
+## @api private
 var _anchor_adjustment: float = 0.0
+
+## 标记实际物化范围是否被预算截断。
+## [br]
+## @api private
 var _truncated: bool = false
+
+## 首个错误条目的索引；没有特定条目时为 -1。
+## [br]
+## @api private
 var _error_index: int = -1
+
+## 截断到长度上限的稳定错误说明。
+## [br]
+## @api private
 var _error: String = ""
 
 
@@ -406,6 +476,9 @@ func configure_for_framework(data: Dictionary) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 检查状态是否为本结果对象支持的 STATUS_* 常量。
+## [br]
+## @api private
 func _is_known_status(status: StringName) -> bool:
 	return status in [
 		STATUS_SYNCED,
@@ -422,6 +495,9 @@ func _is_known_status(status: StringName) -> bool:
 	]
 
 
+## 接受范围内的 int 或有限整数值 float，并限制在 JSON 安全整数上界内。
+## [br]
+## @api private
 func _has_bounded_json_integer(
 	data: Dictionary,
 	key: String,
@@ -443,6 +519,9 @@ func _has_bounded_json_integer(
 	return false
 
 
+## 将字段解析为 Vector2i，或从 start/end_exclusive 字典构造；其余情况返回零向量。
+## [br]
+## @api private
 func _get_vector_2i(data: Dictionary, key: String) -> Vector2i:
 	var value: Variant = GFVariantData.get_option_value(data, key, Vector2i.ZERO)
 	if value is Vector2i:
@@ -457,6 +536,9 @@ func _get_vector_2i(data: Dictionary, key: String) -> Vector2i:
 	return Vector2i.ZERO
 
 
+## 从 PackedInt32Array 或 JSON Array 解析有界整数索引，并返回新打包数组。
+## [br]
+## @api private
 func _get_packed_int_32_array(data: Dictionary, key: String) -> PackedInt32Array:
 	var value: Variant = GFVariantData.get_option_value(data, key, PackedInt32Array())
 	if value is PackedInt32Array:
@@ -483,6 +565,9 @@ func _get_packed_int_32_array(data: Dictionary, key: String) -> PackedInt32Array
 	return PackedInt32Array()
 
 
+## 将 Vector2i 范围编码为 start 与 end_exclusive 字段。
+## [br]
+## @api private
 func _range_to_json_dictionary(range_value: Vector2i) -> Dictionary:
 	return {
 		"start": range_value.x,

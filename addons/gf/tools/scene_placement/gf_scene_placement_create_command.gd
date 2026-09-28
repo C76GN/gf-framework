@@ -15,15 +15,42 @@ extends GFEditorCommand
 
 # --- 私有变量 ---
 
+## 创建命令使用的已选 PackedScene。
+## [br]
+## @api private
+## [br]
 var _source: PackedScene = null
+
+## 实例父节点的弱引用。
+## [br]
+## @api private
+## [br]
 var _parent_ref: WeakRef = null
+
+## 编辑场景根节点的弱引用。
+## [br]
+## @api private
+## [br]
 var _root_ref: WeakRef = null
+
+## 确认时冻结的目标世界变换。
+## [br]
+## @api private
+## [br]
 var _world_transform: Transform3D = Transform3D.IDENTITY
+
+## 首次创建后供撤销/重做复用的场景实例。
+## [br]
+## @api private
+## [br]
 var _instance: Node3D = null
 
 
 # --- Godot 生命周期方法 ---
 
+## 历史对象销毁时仅释放仍脱离场景树的实例；已挂接实例继续由场景树持有。
+## [br]
+## @api private
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_PREDELETE:
 		if is_instance_valid(_instance) and _instance.get_parent() == null:
@@ -179,6 +206,9 @@ func get_instance() -> Node3D:
 
 # --- 私有/辅助方法 ---
 
+## 在入树或 owner 赋值回调后复核实例仍归属原父节点和场景根，且目标仍可使用。
+## [br]
+## @api private
 func _is_attached_destination_valid(parent: Node3D, scene_root: Node) -> bool:
 	return (
 		is_instance_valid(_instance)
@@ -189,6 +219,9 @@ func _is_attached_destination_valid(parent: Node3D, scene_root: Node) -> bool:
 	)
 
 
+## 检查两个存活且未排队删除的节点仍具有原场景祖先关系；此检查本身不要求它们在树内。
+## [br]
+## @api private
 func _belongs_to_original_root(parent: Node3D, scene_root: Node) -> bool:
 	return (
 		is_instance_valid(parent)
@@ -199,6 +232,9 @@ func _belongs_to_original_root(parent: Node3D, scene_root: Node) -> bool:
 	)
 
 
+## 创建失败的补偿只把本命令实例脱树，保留实例引用供历史释放时销毁。
+## [br]
+## @api private
 func _detach_failed_instance() -> void:
 	if is_instance_valid(_instance):
 		var parent: Node = _instance.get_parent()
@@ -206,6 +242,9 @@ func _detach_failed_instance() -> void:
 			parent.remove_child(_instance)
 
 
+## 从保存的弱引用读取仍存活的 Node3D 父节点；类型或引用失效时返回 null。
+## [br]
+## @api private
 func _get_parent_node() -> Node3D:
 	if _parent_ref == null:
 		return null
@@ -216,6 +255,9 @@ func _get_parent_node() -> Node3D:
 	return null
 
 
+## 从保存的弱引用读取仍存活的原编辑场景根；不会改用当前编辑场景。
+## [br]
+## @api private
 func _get_root_node() -> Node:
 	if _root_ref == null:
 		return null
@@ -226,6 +268,9 @@ func _get_root_node() -> Node:
 	return null
 
 
+## 要求父节点仍在原场景树内且世界变换有限、可逆，以便把确认时的世界变换换算为本地变换。
+## [br]
+## @api private
 func _is_valid_destination(parent: Node3D, scene_root: Node) -> bool:
 	return (
 		_belongs_to_original_root(parent, scene_root)

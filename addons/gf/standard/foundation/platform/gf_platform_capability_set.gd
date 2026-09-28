@@ -356,10 +356,16 @@ static func from_dict(data: Dictionary) -> GFPlatformCapabilitySet:
 
 # --- 私有/辅助方法 ---
 
+## 将能力 ID 转为 String 并移除首尾空白。
+## [br]
+## @api private
 static func _normalize_capability_id(capability_id: StringName) -> String:
 	return String(capability_id).strip_edges()
 
 
+## 去除能力 ID 的首尾空白、空项与重复项，并按字符串顺序排序。
+## [br]
+## @api private
 static func _normalize_string_set(items: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for item: String in items:
@@ -371,6 +377,9 @@ static func _normalize_string_set(items: PackedStringArray) -> PackedStringArray
 	return result
 
 
+## 规范化限制表键；丢弃空键或非 Dictionary 值，并复制有效字典。
+## [br]
+## @api private
 static func _normalize_limits(source_limits: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for key: Variant in source_limits.keys():

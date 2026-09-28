@@ -125,6 +125,10 @@ enum InputDisposition {
 	CONSUMED,
 }
 
+## 区分当前由鼠标还是原始触摸手势持有画布输入捕获。
+## [br]
+## @api private
+## [br]
 enum _InputCaptureOwner {
 	NONE,
 	MOUSE,
@@ -162,40 +166,119 @@ const ABSOLUTE_MAX_QUERY_CANDIDATES: int = 16384
 ## @since 10.0.0
 const ABSOLUTE_MAX_GRID_LINES: int = 2048
 
+## 视图缩放的默认下限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MIN_ZOOM: float = 0.05
+
+## 视图缩放的默认上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_ZOOM: float = 32.0
+
+## 允许配置的最小缩放绝对下限。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MIN_ZOOM: float = 0.0001
+
+## 允许配置的最大缩放绝对上限。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_ZOOM: float = 1024.0
+
+## 画布默认允许登记的条目数上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_ITEMS: int = 16384
+
+## 画布默认保留的选择数上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_SELECTION: int = 4096
+
+## 单次查询默认检查的候选上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_QUERY_CANDIDATES: int = 4096
+
+## 单次绘制默认生成的网格线数量上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_GRID_LINES: int = 512
+
+## 单个滚轮事件允许的最大倍增因子。
+## [br]
+## @api private
+## [br]
 const _ABSOLUTE_MAX_WHEEL_EVENT_FACTOR: float = 64.0
+
+## 冻结放置操作记录使用的 schema 版本。
+## [br]
+## @api private
+## [br]
 const _PLACEMENT_OPERATION_VERSION: int = 1
+
+## 网格配置接受的选项键白名单。
+## [br]
+## @api private
+## [br]
 const _GRID_OPTION_KEYS: Array[String] = [
 	"rotation_step_radians",
 	"visible",
 ]
+
+## 资源预算配置接受的选项键白名单。
+## [br]
+## @api private
+## [br]
 const _BUDGET_OPTION_KEYS: Array[String] = [
 	"max_items",
 	"max_selection",
 	"max_query_candidates",
 	"max_grid_lines",
 ]
+
+## 条目可选字段接受的选项键白名单。
+## [br]
+## @api private
+## [br]
 const _ITEM_OPTION_KEYS: Array[String] = [
 	"selectable",
 	"selection_priority",
 	"exact_hit",
 ]
+
+## 开始放置会话接受的选项键白名单。
+## [br]
+## @api private
+## [br]
 const _PLACEMENT_BEGIN_OPTION_KEYS: Array[String] = [
 	"initial_world_position",
 	"initial_rotation_radians",
 	"snap_to_grid",
 	"snap_rotation",
 ]
+
+## 更新放置会话接受的选项键白名单。
+## [br]
+## @api private
+## [br]
 const _PLACEMENT_UPDATE_OPTION_KEYS: Array[String] = [
 	"rotation_radians",
 ]
+
+## 创建并绘制画布辅助叠层的脚本资源。
+## [br]
+## @api private
+## [br]
 const _OVERLAY_SCRIPT = preload(
 	"res://addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_overlay.gd"
 )
@@ -203,55 +286,268 @@ const _OVERLAY_SCRIPT = preload(
 
 # --- 私有变量 ---
 
+## 画布拥有的内容 Node2D；视图更新只调整其位置和缩放。
+## [br]
+## @api private
+## [br]
 var _content_root: Node2D = null
+
+## 画布拥有的辅助绘制 Control。
+## [br]
+## @api private
+## [br]
 var _overlay: Control = null
+
+## 收集触摸指针和系统手势的手势工具。
+## [br]
+## @api private
+## [br]
 var _gesture_utility: GFPointerGestureUtility = null
+
+## 登记画布条目并提供空间候选查询的索引。
+## [br]
+## @api private
+## [br]
 var _query_index: GFSpatialQueryIndex2D = GFSpatialQueryIndex2D.new()
 
+## 当前视图中心的世界坐标。
+## [br]
+## @api private
+## [br]
 var _world_center: Vector2 = Vector2.ZERO
+
+## 每个世界单位对应的当前画布缩放。
+## [br]
+## @api private
+## [br]
 var _zoom: float = 1.0
+
+## 当前视图允许的最小缩放。
+## [br]
+## @api private
+## [br]
 var _min_zoom: float = _DEFAULT_MIN_ZOOM
+
+## 当前视图允许的最大缩放。
+## [br]
+## @api private
+## [br]
 var _max_zoom: float = _DEFAULT_MAX_ZOOM
+
+## 是否按配置的世界边界约束视图中心。
+## [br]
+## @api private
+## [br]
 var _world_bounds_enabled: bool = false
+
+## 约束视图中心时使用的规范化世界矩形。
+## [br]
+## @api private
+## [br]
 var _world_bounds: Rect2 = Rect2()
 
+## 网格坐标系的世界原点。
+## [br]
+## @api private
+## [br]
 var _grid_origin: Vector2 = Vector2.ZERO
+
+## 网格两个轴向的世界尺寸。
+## [br]
+## @api private
+## [br]
 var _grid_size: Vector2 = Vector2.ONE
+
+## 放置旋转吸附的弧度步长。
+## [br]
+## @api private
+## [br]
 var _rotation_step_radians: float = 0.0
+
+## 是否绘制网格辅助线。
+## [br]
+## @api private
+## [br]
 var _grid_visible: bool = true
 
+## 运行时允许登记的最大条目数。
+## [br]
+## @api private
+## [br]
 var _max_items: int = _DEFAULT_MAX_ITEMS
+
+## 运行时允许保留的最大选择数。
+## [br]
+## @api private
+## [br]
 var _max_selection: int = _DEFAULT_MAX_SELECTION
+
+## 单次空间查询允许保留的最大候选数。
+## [br]
+## @api private
+## [br]
 var _max_query_candidates: int = _DEFAULT_MAX_QUERY_CANDIDATES
+
+## 单次绘制允许生成的最大网格线数。
+## [br]
+## @api private
+## [br]
 var _max_grid_lines: int = _DEFAULT_MAX_GRID_LINES
 
+## 按稳定条目 ID 保存的条目记录。
+## [br]
+## @api private
+## [br]
 var _items: Dictionary = {}
+
+## 当前已选择的稳定条目 ID 集合。
+## [br]
+## @api private
+## [br]
 var _selected_ids: PackedStringArray = PackedStringArray()
+
+## 是否绘制已选条目的轮廓。
+## [br]
+## @api private
+## [br]
 var _selected_item_outlines_visible: bool = true
+
+## 最近一次查询是否因候选预算而截断。
+## [br]
+## @api private
+## [br]
 var _last_query_truncated: bool = false
+
+## 最近一次查询符合前置筛选的候选总数。
+## [br]
+## @api private
+## [br]
 var _last_query_candidate_count: int = 0
+
+## 最近一次网格绘制生成的线条数。
+## [br]
+## @api private
+## [br]
 var _last_grid_line_count: int = 0
+
+## 最近一次网格绘制是否达到线条预算。
+## [br]
+## @api private
+## [br]
 var _grid_draw_truncated: bool = false
 
+## 下一个放置会话使用的递增 ID。
+## [br]
+## @api private
+## [br]
 var _next_placement_session_id: int = 1
+
+## 当前活动放置会话及其预览状态；无活动会话时为空字典。
+## [br]
+## @api private
+## [br]
 var _placement: Dictionary = {}
+
+## 决定放置预览是否可接受的可选回调。
+## [br]
+## @api private
+## [br]
 var _placement_validator: Callable = Callable()
+
+## 接收已冻结通用放置操作记录的可选回调。
+## [br]
+## @api private
+## [br]
 var _history_hook: Callable = Callable()
+
+## 标记精确命中或放置回调执行期间，防止查询重入。
+## [br]
+## @api private
+## [br]
 var _callback_active: bool = false
 
+## 是否由画布处理输入事件。
+## [br]
+## @api private
+## [br]
 var _input_enabled: bool = true
+
+## 应用于画布的空间画布输入策略副本。
+## [br]
+## @api private
+## [br]
 var _input_policy: GFSpatialCanvasInputPolicy = GFSpatialCanvasInputPolicy.new()
+
+## 是否正在通过鼠标拖动平移视图。
+## [br]
+## @api private
+## [br]
 var _mouse_pan_active: bool = false
+
+## 当前鼠标平移捕获的按钮。
+## [br]
+## @api private
+## [br]
 var _mouse_pan_button: MouseButton = MOUSE_BUTTON_NONE
+
+## 上次鼠标平移事件的画布坐标。
+## [br]
+## @api private
+## [br]
 var _mouse_pan_last_position: Vector2 = Vector2.ZERO
+
+## 是否正在拖动选择矩形。
+## [br]
+## @api private
+## [br]
 var _selection_drag_active: bool = false
+
+## 当前选择拖动的画布起点。
+## [br]
+## @api private
+## [br]
 var _selection_drag_start: Vector2 = Vector2.ZERO
+
+## 当前选择拖动的画布终点。
+## [br]
+## @api private
+## [br]
 var _selection_drag_end: Vector2 = Vector2.ZERO
+
+## 当前拖动选择使用的集合更新模式。
+## [br]
+## @api private
+## [br]
 var _selection_drag_mode: SelectionMode = SelectionMode.REPLACE
+
+## 启动当前选择捕获的鼠标按钮；触摸捕获时为 NONE。
+## [br]
+## @api private
+## [br]
 var _selection_capture_button: MouseButton = MOUSE_BUTTON_NONE
+
+## 当前选择捕获关联的触摸指针索引；无触摸选择时为 -1。
+## [br]
+## @api private
+## [br]
 var _touch_selection_index: int = -1
+
+## 最近手势更新报告的活动状态。
+## [br]
+## @api private
+## [br]
 var _gesture_active: bool = false
+
+## 当前互斥输入捕获的设备类别。
+## [br]
+## @api private
+## [br]
 var _input_capture_owner: _InputCaptureOwner = _InputCaptureOwner.NONE
+
+## 持有当前输入捕获的设备 ID。
+## [br]
+## @api private
+## [br]
 var _input_capture_device: int = 0
 
 
@@ -1604,6 +1900,10 @@ func draw_overlay(target: Control) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 确保内容根与绘制叠层存在并已配置，然后应用当前视图。
+## [br]
+## @api private
+## [br]
 func _ensure_runtime_nodes() -> void:
 	if not is_instance_valid(_content_root):
 		_content_root = Node2D.new()
@@ -1617,6 +1917,10 @@ func _ensure_runtime_nodes() -> void:
 	_apply_view(false)
 
 
+## 延迟创建触摸手势工具、配置追踪类型并连接其更新与结束信号。
+## [br]
+## @api private
+## [br]
 func _ensure_gesture_utility() -> void:
 	if _gesture_utility != null:
 		return
@@ -1633,6 +1937,10 @@ func _ensure_gesture_utility() -> void:
 	) as Error
 
 
+## 复制输入策略字段并克隆有上限的选择修饰键绑定。
+## [br]
+## @api private
+## [br]
 func _isolate_input_policy(
 	source: GFSpatialCanvasInputPolicy
 ) -> GFSpatialCanvasInputPolicy:
@@ -1685,6 +1993,10 @@ func _isolate_input_policy(
 	return isolated
 
 
+## 按中心和缩放更新内容根变换、请求叠层重绘，并按选项发出视图快照。
+## [br]
+## @api private
+## [br]
 func _apply_view(emit_change: bool) -> void:
 	var content_position: Vector2 = size * 0.5 - _world_center * _zoom
 	var content_scale: Vector2 = Vector2.ONE * _zoom
@@ -1698,6 +2010,10 @@ func _apply_view(emit_change: bool) -> void:
 		view_changed.emit(_make_view_snapshot())
 
 
+## 构造当前世界中心、缩放和边界状态的视图字典。
+## [br]
+## @api private
+## [br]
 func _make_view_snapshot() -> Dictionary:
 	return {
 		"world_center": _world_center,
@@ -1708,6 +2024,10 @@ func _make_view_snapshot() -> Dictionary:
 	}
 
 
+## 按可见世界尺寸把视图中心限制在边界内；视口过大时将该轴置于边界中心。
+## [br]
+## @api private
+## [br]
 func _clamp_world_center(candidate: Vector2, candidate_zoom: float) -> Vector2:
 	if not _world_bounds_enabled or candidate_zoom <= 0.0:
 		return candidate
@@ -1726,6 +2046,10 @@ func _clamp_world_center(candidate: Vector2, candidate_zoom: float) -> Vector2:
 	return result
 
 
+## 检查候选中心、缩放、内容变换及可见世界矩形是否均有效。
+## [br]
+## @api private
+## [br]
 func _is_view_state_finite(candidate_center: Vector2, candidate_zoom: float) -> bool:
 	if (
 		not _is_finite_vector2(candidate_center)
@@ -1741,6 +2065,10 @@ func _is_view_state_finite(candidate_center: Vector2, candidate_zoom: float) -> 
 	return GFVariantData.get_option_bool(visible_result, "ok")
 
 
+## 计算可见世界矩形，并以 ok/value 字典报告有限性检查结果。
+## [br]
+## @api private
+## [br]
 func _try_visible_world_rect(candidate_center: Vector2, candidate_zoom: float) -> Dictionary:
 	if (
 		not _is_finite_vector2(candidate_center)
@@ -1757,6 +2085,10 @@ func _try_visible_world_rect(candidate_center: Vector2, candidate_zoom: float) -
 	return { "ok": true, "value": visible_rect }
 
 
+## 把世界坐标转换为画布坐标，非法输入或结果以 ok=false 返回。
+## [br]
+## @api private
+## [br]
 func _try_world_to_canvas(world_position: Vector2) -> Dictionary:
 	if not _is_finite_vector2(world_position):
 		return { "ok": false, "value": Vector2.ZERO }
@@ -1767,6 +2099,10 @@ func _try_world_to_canvas(world_position: Vector2) -> Dictionary:
 	return { "ok": true, "value": canvas_position }
 
 
+## 把画布坐标转换为世界坐标，非法缩放或结果以 ok=false 返回。
+## [br]
+## @api private
+## [br]
 func _try_canvas_to_world(canvas_position: Vector2) -> Dictionary:
 	if (
 		not _is_finite_vector2(canvas_position)
@@ -1786,6 +2122,10 @@ func _try_canvas_to_world(canvas_position: Vector2) -> Dictionary:
 	return { "ok": true, "value": world_position }
 
 
+## 按网格原点和尺寸吸附世界坐标，并报告有限性检查结果。
+## [br]
+## @api private
+## [br]
 func _try_snap_world_position(world_position: Vector2) -> Dictionary:
 	if not _is_finite_vector2(world_position):
 		return { "ok": false, "value": Vector2.ZERO }
@@ -1808,6 +2148,10 @@ func _try_snap_world_position(world_position: Vector2) -> Dictionary:
 	return { "ok": true, "value": snapped_position }
 
 
+## 按可选弧度步长取整并环绕到 [-PI, PI]。
+## [br]
+## @api private
+## [br]
 func _try_snap_rotation(rotation_radians: float) -> Dictionary:
 	if not _is_finite_float(rotation_radians):
 		return { "ok": false, "value": 0.0 }
@@ -1825,6 +2169,10 @@ func _try_snap_rotation(rotation_radians: float) -> Dictionary:
 	return { "ok": true, "value": wrapped_rotation }
 
 
+## 拒绝非法坐标或回调重入后，查询点候选并应用精确命中与可选选择性过滤。
+## [br]
+## @api private
+## [br]
 func _query_items_at_internal(
 	world_position: Vector2,
 	selectable_only: bool
@@ -1835,6 +2183,10 @@ func _query_items_at_internal(
 	return _filter_query_records(records, world_position, true, selectable_only)
 
 
+## 查询矩形相交候选，可选要求条目完全包含于查询区域，再执行候选过滤。
+## [br]
+## @api private
+## [br]
 func _query_items_in_rect_internal(
 	world_rect: Rect2,
 	fully_contained: bool,
@@ -1862,6 +2214,10 @@ func _query_items_in_rect_internal(
 	)
 
 
+## 按候选预算截取并排序记录，再筛除失效条目和可选精确命中失败项。
+## [br]
+## @api private
+## [br]
 func _filter_query_records(
 	records: Array[Dictionary],
 	world_position: Vector2,
@@ -1885,6 +2241,10 @@ func _filter_query_records(
 	return result
 
 
+## 用有界堆保留排序最靠前的候选，并更新候选总数和截断状态。
+## [br]
+## @api private
+## [br]
 func _take_bounded_query_records(
 	records: Array[Dictionary],
 	selectable_only: bool
@@ -1909,6 +2269,10 @@ func _take_bounded_query_records(
 	return heap
 
 
+## 将查询记录插入以最差候选为根的有界堆。
+## [br]
+## @api private
+## [br]
 func _push_query_record_heap(heap: Array[Dictionary], record: Dictionary) -> void:
 	heap.append(record)
 	var index: int = heap.size() - 1
@@ -1922,6 +2286,10 @@ func _push_query_record_heap(heap: Array[Dictionary], record: Dictionary) -> voi
 		index = parent_index
 
 
+## 从指定位置向下恢复最差候选为根的堆顺序。
+## [br]
+## @api private
+## [br]
 func _sift_query_record_heap_down(heap: Array[Dictionary], start_index: int) -> void:
 	var index: int = start_index
 	while true:
@@ -1943,10 +2311,18 @@ func _sift_query_record_heap_down(heap: Array[Dictionary], start_index: int) -> 
 		index = worse_index
 
 
+## 反转查询排序比较，判断左记录是否比右记录更差。
+## [br]
+## @api private
+## [br]
 func _query_record_is_worse(left: Dictionary, right: Dictionary) -> bool:
 	return _sort_query_records(right, left)
 
 
+## 按 selection_priority 降序、条目 ID 升序排列查询记录。
+## [br]
+## @api private
+## [br]
 func _sort_query_records(left: Dictionary, right: Dictionary) -> bool:
 	var left_id: StringName = _record_item_id(left)
 	var right_id: StringName = _record_item_id(right)
@@ -1959,10 +2335,18 @@ func _sort_query_records(left: Dictionary, right: Dictionary) -> bool:
 	return String(left_id) < String(right_id)
 
 
+## 从查询记录的 entity 字段读取并规范化条目 ID。
+## [br]
+## @api private
+## [br]
 func _record_item_id(record: Dictionary) -> StringName:
 	return _normalize_id(GFVariantData.get_option_string_name(record, "entity"))
 
 
+## 执行条目的可选精确命中回调；回调重入或返回非 bool 时不命中。
+## [br]
+## @api private
+## [br]
 func _item_exact_hit(item_record: Dictionary, world_position: Vector2) -> bool:
 	var callback: Callable = _get_callable_value(
 		GFVariantData.get_option_value(item_record, "exact_hit", Callable())
@@ -1983,6 +2367,10 @@ func _item_exact_hit(item_record: Dictionary, world_position: Vector2) -> bool:
 	return result is bool and GFVariantData.to_bool(result)
 
 
+## 去重、过滤不存在或不可选的 ID，并对结果排序。
+## [br]
+## @api private
+## [br]
 func _normalize_selectable_ids(item_ids: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var seen: Dictionary = {}
@@ -1999,6 +2387,10 @@ func _normalize_selectable_ids(item_ids: PackedStringArray) -> PackedStringArray
 	return result
 
 
+## 排序并替换选择集合；仅集合变化时发出副本信号并请求重绘。
+## [br]
+## @api private
+## [br]
 func _set_selection_internal(next_selection: PackedStringArray) -> void:
 	_sort_packed_strings(next_selection)
 	if next_selection == _selected_ids:
@@ -2008,10 +2400,18 @@ func _set_selection_internal(next_selection: PackedStringArray) -> void:
 	_request_overlay_redraw()
 
 
+## 按字典序原地排序 PackedStringArray。
+## [br]
+## @api private
+## [br]
 func _sort_packed_strings(values: PackedStringArray) -> void:
 	values.sort()
 
 
+## 从条目记录投影 ID、边界、可选状态和选择优先级。
+## [br]
+## @api private
+## [br]
 func _item_public_snapshot(item_record: Dictionary) -> Dictionary:
 	return {
 		"id": GFVariantData.get_option_string_name(item_record, "id"),
@@ -2024,6 +2424,10 @@ func _item_public_snapshot(item_record: Dictionary) -> Dictionary:
 	}
 
 
+## 校验并按会话选项吸附位置和旋转，成功后写入预览边界。
+## [br]
+## @api private
+## [br]
 func _resolve_placement_geometry(candidate_placement: Dictionary) -> bool:
 	var world_position: Vector2 = GFVariantData.get_option_vector2(
 		candidate_placement,
@@ -2061,6 +2465,10 @@ func _resolve_placement_geometry(candidate_placement: Dictionary) -> bool:
 	return true
 
 
+## 变换矩形四角并计算轴对齐边界；非法输入或派生值返回失败结果。
+## [br]
+## @api private
+## [br]
 func _try_transformed_rect_bounds(
 	rect: Rect2,
 	world_position: Vector2,
@@ -2098,6 +2506,10 @@ func _try_transformed_rect_bounds(
 	return { "ok": true, "value": result }
 
 
+## 把预览投影为带 schema 版本和通用放置字段的操作记录。
+## [br]
+## @api private
+## [br]
 func _make_placement_operation(preview: Dictionary) -> Dictionary:
 	return {
 		"schema_version": _PLACEMENT_OPERATION_VERSION,
@@ -2111,6 +2523,10 @@ func _make_placement_operation(preview: Dictionary) -> Dictionary:
 	}
 
 
+## 以防重入标志和深复制输入调用接受回调，并规范化 bool 或结构化结果。
+## [br]
+## @api private
+## [br]
 func _invoke_acceptance_callback(
 	callback: Callable,
 	value: Dictionary,
@@ -2146,6 +2562,10 @@ func _invoke_acceptance_callback(
 	return { "ok": false, "reason": default_rejection_reason }
 
 
+## 创建包含当前会话 ID、ok、reason 和空 operation 的放置报告。
+## [br]
+## @api private
+## [br]
 func _make_placement_report(ok: bool, reason: StringName) -> Dictionary:
 	return {
 		"ok": ok,
@@ -2155,6 +2575,10 @@ func _make_placement_report(ok: bool, reason: StringName) -> Dictionary:
 	}
 
 
+## 创建包含当前会话 ID、ok、reason 和空 preview 的取消报告。
+## [br]
+## @api private
+## [br]
 func _make_placement_cancel_report(ok: bool, reason: StringName) -> Dictionary:
 	return {
 		"ok": ok,
@@ -2164,6 +2588,10 @@ func _make_placement_cancel_report(ok: bool, reason: StringName) -> Dictionary:
 	}
 
 
+## 检查当前放置会话活动且 ID 与正数预期值相同。
+## [br]
+## @api private
+## [br]
 func _placement_session_matches(expected_session_id: int) -> bool:
 	return (
 		has_active_placement()
@@ -2172,6 +2600,10 @@ func _placement_session_matches(expected_session_id: int) -> bool:
 	)
 
 
+## 处理鼠标按下与释放，开始或结束平移/选择捕获并返回传播处置。
+## [br]
+## @api private
+## [br]
 func _handle_mouse_button_input(event: InputEventMouseButton) -> InputDisposition:
 	if not event.pressed:
 		if _mouse_pan_active and event.button_index == _mouse_pan_button:
@@ -2236,6 +2668,10 @@ func _handle_mouse_button_input(event: InputEventMouseButton) -> InputDispositio
 	return InputDisposition.IGNORED
 
 
+## 处理鼠标移动以平移视图、更新选择拖动或移动放置预览。
+## [br]
+## @api private
+## [br]
 func _handle_mouse_motion_input(event: InputEventMouseMotion) -> InputDisposition:
 	if not _is_finite_vector2(event.position):
 		return InputDisposition.IGNORED
@@ -2255,6 +2691,10 @@ func _handle_mouse_motion_input(event: InputEventMouseMotion) -> InputDispositio
 	return InputDisposition.IGNORED
 
 
+## 按轴向、路由修饰键和事件因子限制处理滚轮缩放。
+## [br]
+## @api private
+## [br]
 func _handle_wheel_input(event: InputEventMouseButton) -> InputDisposition:
 	if (
 		not event.pressed
@@ -2287,6 +2727,10 @@ func _handle_wheel_input(event: InputEventMouseButton) -> InputDisposition:
 	return _wheel_disposition()
 
 
+## 按触摸策略建立指针捕获、选择状态并转发事件到手势工具。
+## [br]
+## @api private
+## [br]
 func _handle_screen_touch_input(event: InputEventScreenTouch) -> InputDisposition:
 	if not _input_policy.touch_enabled:
 		return InputDisposition.IGNORED
@@ -2349,6 +2793,10 @@ func _handle_screen_touch_input(event: InputEventScreenTouch) -> InputDispositio
 	return InputDisposition.IGNORED
 
 
+## 处理已捕获设备的触摸拖动，更新选择/放置位置并转发手势事件。
+## [br]
+## @api private
+## [br]
 func _handle_screen_drag_input(event: InputEventScreenDrag) -> InputDisposition:
 	if (
 		not _input_policy.touch_enabled
@@ -2371,6 +2819,10 @@ func _handle_screen_drag_input(event: InputEventScreenDrag) -> InputDisposition:
 	return InputDisposition.IGNORED
 
 
+## 校验系统平移或放大手势数据后转发至手势工具。
+## [br]
+## @api private
+## [br]
 func _handle_system_gesture_input(event: InputEvent) -> InputDisposition:
 	var pan_gesture: InputEventPanGesture = event as InputEventPanGesture
 	if pan_gesture != null:
@@ -2392,6 +2844,10 @@ func _handle_system_gesture_input(event: InputEvent) -> InputDisposition:
 	return InputDisposition.IGNORED
 
 
+## 在放置会话中更新预览，否则初始化选择拖动并记录输入归属。
+## [br]
+## @api private
+## [br]
 func _start_selection_capture(
 	canvas_position: Vector2,
 	selection_mode: SelectionMode,
@@ -2412,6 +2868,10 @@ func _start_selection_capture(
 	return true
 
 
+## 完成放置或按拖动距离执行点/矩形选择，随后重置选择捕获。
+## [br]
+## @api private
+## [br]
 func _finish_selection_capture_at(canvas_position: Vector2) -> void:
 	if has_active_placement():
 		if _update_placement_from_canvas_position(canvas_position):
@@ -2438,6 +2898,10 @@ func _finish_selection_capture_at(canvas_position: Vector2) -> void:
 	_reset_selection_capture()
 
 
+## 只响应匹配当前设备及捕获控件的取消事件，并重置瞬时输入状态。
+## [br]
+## @api private
+## [br]
 func _handle_canceled_input_event(event: InputEvent) -> InputDisposition:
 	var mouse_button: InputEventMouseButton = event as InputEventMouseButton
 	if mouse_button != null:
@@ -2471,6 +2935,10 @@ func _handle_canceled_input_event(event: InputEvent) -> InputDisposition:
 	return _general_disposition()
 
 
+## 转换画布位置为世界坐标并更新当前放置预览。
+## [br]
+## @api private
+## [br]
 func _update_placement_from_canvas_position(canvas_position: Vector2) -> bool:
 	var world_position_result: Dictionary = _try_canvas_to_world(canvas_position)
 	if not GFVariantData.get_option_bool(world_position_result, "ok"):
@@ -2480,6 +2948,10 @@ func _update_placement_from_canvas_position(canvas_position: Vector2) -> bool:
 	)
 
 
+## 返回第一个精确修饰键绑定的选择模式，未匹配时返回默认模式。
+## [br]
+## @api private
+## [br]
 func _selection_mode_from_modifier_mask(modifier_mask: int) -> SelectionMode:
 	for binding: GFSpatialCanvasSelectionModeBinding in _input_policy.selection_modifier_bindings:
 		if binding != null and binding.modifier_mask == modifier_mask:
@@ -2487,6 +2959,10 @@ func _selection_mode_from_modifier_mask(modifier_mask: int) -> SelectionMode:
 	return _input_policy.selection_default_mode as SelectionMode
 
 
+## 优先匹配显式鼠标按钮，否则按安全的 InputMap action 匹配。
+## [br]
+## @api private
+## [br]
 func _matches_pointer_press(
 	event: InputEventMouseButton,
 	direct_button: MouseButton,
@@ -2499,6 +2975,10 @@ func _matches_pointer_press(
 	return _runtime_pointer_action_matches(event, action)
 
 
+## 按平移按钮及修饰键匹配，或回退到配置的 InputMap action。
+## [br]
+## @api private
+## [br]
 func _matches_pan_press(event: InputEventMouseButton) -> bool:
 	if _input_policy.pan_mouse_button != MOUSE_BUTTON_NONE:
 		return (
@@ -2510,6 +2990,10 @@ func _matches_pan_press(event: InputEventMouseButton) -> bool:
 	return _runtime_pointer_action_matches(event, _input_policy.pan_action)
 
 
+## 拒绝指针输入或不安全 action 后检查取消 action 是否按下。
+## [br]
+## @api private
+## [br]
 func _matches_cancel_action(event: InputEvent) -> bool:
 	if _is_pointer_action_event(event):
 		return false
@@ -2524,6 +3008,10 @@ func _matches_cancel_action(event: InputEvent) -> bool:
 	)
 
 
+## 仅在有限 action 事件列表包含非滚轮鼠标按钮时匹配按下事件。
+## [br]
+## @api private
+## [br]
 func _runtime_pointer_action_matches(
 	event: InputEventMouseButton,
 	action: StringName
@@ -2549,6 +3037,10 @@ func _runtime_pointer_action_matches(
 	return event.is_action_pressed(action, false, true)
 
 
+## 检查取消 action 存在且事件列表中没有指针事件。
+## [br]
+## @api private
+## [br]
 func _runtime_cancel_action_is_safe(action: StringName) -> bool:
 	if action == &"" or not InputMap.has_action(action):
 		return false
@@ -2561,6 +3053,10 @@ func _runtime_cancel_action_is_safe(action: StringName) -> bool:
 	return true
 
 
+## 判断输入事件是否属于鼠标、触摸或手势类别。
+## [br]
+## @api private
+## [br]
 func _is_pointer_action_event(event: InputEvent) -> bool:
 	return (
 		event is InputEventMouse
@@ -2570,6 +3066,10 @@ func _is_pointer_action_event(event: InputEvent) -> bool:
 	)
 
 
+## 从鼠标事件汇总 shift、ctrl、alt 和 meta 修饰键位。
+## [br]
+## @api private
+## [br]
 func _modifier_mask_from_mouse_event(event: InputEventMouseButton) -> int:
 	var result: int = GFSpatialCanvasInputPolicy.ModifierMask.NONE
 	if event.shift_pressed:
@@ -2583,6 +3083,10 @@ func _modifier_mask_from_mouse_event(event: InputEventMouseButton) -> int:
 	return result
 
 
+## 判断按钮是否为四个鼠标滚轮方向之一。
+## [br]
+## @api private
+## [br]
 func _is_mouse_wheel_button(button: MouseButton) -> bool:
 	return (
 		button == MOUSE_BUTTON_WHEEL_UP
@@ -2592,12 +3096,20 @@ func _is_mouse_wheel_button(button: MouseButton) -> bool:
 	)
 
 
+## 按输入策略的轴向检查滚轮按钮是否匹配。
+## [br]
+## @api private
+## [br]
 func _wheel_button_matches_axis(button: MouseButton) -> bool:
 	if _input_policy.wheel_axis == GFSpatialCanvasInputPolicy.WheelAxis.VERTICAL:
 		return button == MOUSE_BUTTON_WHEEL_UP or button == MOUSE_BUTTON_WHEEL_DOWN
 	return button == MOUSE_BUTTON_WHEEL_LEFT or button == MOUSE_BUTTON_WHEEL_RIGHT
 
 
+## 从手势快照的 pointer_ids 中查找指定触摸指针。
+## [br]
+## @api private
+## [br]
 func _gesture_tracks_pointer(pointer_index: int) -> bool:
 	var snapshot: Dictionary = _gesture_utility.get_gesture_snapshot()
 	for pointer_value: Variant in GFVariantData.get_option_array(snapshot, "pointer_ids"):
@@ -2609,6 +3121,10 @@ func _gesture_tracks_pointer(pointer_index: int) -> bool:
 	return false
 
 
+## 检查策略是否启用多点触摸平移或缩放。
+## [br]
+## @api private
+## [br]
 func _has_raw_touch_multi_behavior() -> bool:
 	return (
 		_input_policy.touch_multi_pan_enabled
@@ -2616,6 +3132,10 @@ func _has_raw_touch_multi_behavior() -> bool:
 	)
 
 
+## 空闲时记录捕获类别和设备；后续仅允许同一类别与设备继续持有。
+## [br]
+## @api private
+## [br]
 func _acquire_input_capture(capture_owner: _InputCaptureOwner, device: int) -> bool:
 	if capture_owner == _InputCaptureOwner.NONE:
 		return false
@@ -2625,12 +3145,20 @@ func _acquire_input_capture(capture_owner: _InputCaptureOwner, device: int) -> b
 	return _input_capture_owner == capture_owner and _input_capture_device == device
 
 
+## 仅在捕获类别匹配时清除捕获类别和设备 ID。
+## [br]
+## @api private
+## [br]
 func _release_input_capture(capture_owner: _InputCaptureOwner) -> void:
 	if _input_capture_owner == capture_owner:
 		_input_capture_owner = _InputCaptureOwner.NONE
 		_input_capture_device = 0
 
 
+## 按当前鼠标/原始触摸捕获设备判断互斥输入事件。
+## [br]
+## @api private
+## [br]
 func _input_capture_conflicts_with_event(event: InputEvent) -> bool:
 	if _input_capture_owner == _InputCaptureOwner.MOUSE:
 		return (
@@ -2653,6 +3181,10 @@ func _input_capture_conflicts_with_event(event: InputEvent) -> bool:
 	return false
 
 
+## 检查捕获、手势、平移、选择拖动或触摸选择是否仍活动。
+## [br]
+## @api private
+## [br]
 func _has_transient_input_state() -> bool:
 	return (
 		_input_capture_owner != _InputCaptureOwner.NONE
@@ -2664,55 +3196,36 @@ func _has_transient_input_state() -> bool:
 	)
 
 
+## 按 consume_handled_events 将已处理输入映射为 CONSUMED 或 HANDLED。
+## [br]
+## @api private
+## [br]
 func _general_disposition() -> InputDisposition:
 	if _input_policy.consume_handled_events:
 		return InputDisposition.CONSUMED
 	return InputDisposition.HANDLED
 
 
+## 按 consume_wheel_events 将滚轮输入映射为 CONSUMED 或 HANDLED。
+## [br]
+## @api private
+## [br]
 func _wheel_disposition() -> InputDisposition:
 	if _input_policy.consume_wheel_events:
 		return InputDisposition.CONSUMED
 	return InputDisposition.HANDLED
 
 
-func _on_gesture_updated(snapshot: Dictionary, _event: InputEvent) -> void:
-	var active: bool = GFVariantData.get_option_bool(snapshot, "active")
-	var pointer_count: int = GFVariantData.get_option_int(snapshot, "pointer_count")
-	_gesture_active = active and pointer_count > 0
-	var source: StringName = GFVariantData.get_option_string_name(snapshot, "source")
-	var apply_pan: bool = true
-	var apply_zoom: bool = true
-	if String(source).begins_with("touch_"):
-		if not _input_policy.touch_enabled:
-			return
-		if pointer_count >= 2:
-			apply_pan = _input_policy.touch_multi_pan_enabled
-			apply_zoom = _input_policy.touch_multi_zoom_enabled
-		else:
-			apply_pan = (
-				_input_policy.touch_primary_behavior
-				== GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.PAN
-			)
-			apply_zoom = false
-	var pan_delta: Vector2 = GFVariantData.get_option_vector2(snapshot, "pan_delta")
-	var scale_factor: float = GFVariantData.get_option_float(snapshot, "scale", 1.0)
-	var center: Vector2 = GFVariantData.get_option_vector2(snapshot, "center", size * 0.5)
-	if apply_pan and not pan_delta.is_zero_approx():
-		var _panned: bool = pan_by_canvas_delta(pan_delta)
-	if apply_zoom and not is_equal_approx(scale_factor, 1.0):
-		var _zoomed: bool = zoom_at(center, scale_factor)
 
 
-func _on_gesture_ended(_snapshot: Dictionary) -> void:
-	_gesture_active = false
-	_release_input_capture(_InputCaptureOwner.RAW_TOUCH)
 
 
-func _on_focus_exited() -> void:
-	_reset_transient_input()
 
 
+## 清除捕获、平移、选择和手势状态，并重置手势工具。
+## [br]
+## @api private
+## [br]
 func _reset_transient_input() -> void:
 	_input_capture_owner = _InputCaptureOwner.NONE
 	_input_capture_device = 0
@@ -2723,18 +3236,30 @@ func _reset_transient_input() -> void:
 		_gesture_utility.reset_gesture()
 
 
+## 清除鼠标平移状态、按钮和上次位置。
+## [br]
+## @api private
+## [br]
 func _reset_mouse_pan_capture() -> void:
 	_mouse_pan_active = false
 	_mouse_pan_button = MOUSE_BUTTON_NONE
 	_mouse_pan_last_position = Vector2.ZERO
 
 
+## 清除鼠标/触摸选择归属并重置拖动矩形。
+## [br]
+## @api private
+## [br]
 func _reset_selection_capture() -> void:
 	_selection_capture_button = MOUSE_BUTTON_NONE
 	_touch_selection_index = -1
 	_reset_selection_drag()
 
 
+## 清除拖动状态和端点，恢复默认选择模式并请求重绘。
+## [br]
+## @api private
+## [br]
 func _reset_selection_drag() -> void:
 	_selection_drag_active = false
 	_selection_drag_start = Vector2.ZERO
@@ -2743,11 +3268,19 @@ func _reset_selection_drag() -> void:
 	_request_overlay_redraw()
 
 
+## 叠层实例仍有效时请求重绘。
+## [br]
+## @api private
+## [br]
 func _request_overlay_redraw() -> void:
 	if is_instance_valid(_overlay):
 		_overlay.queue_redraw()
 
 
+## 绘制可见世界范围内的网格线，并记录线数及预算截断状态。
+## [br]
+## @api private
+## [br]
 func _draw_grid_overlay(target: Control) -> void:
 	_last_grid_line_count = 0
 	_grid_draw_truncated = false
@@ -2783,6 +3316,10 @@ func _draw_grid_overlay(target: Control) -> void:
 		_grid_draw_truncated = true
 
 
+## 按当前选择 ID 绘制仍存在条目的轮廓。
+## [br]
+## @api private
+## [br]
 func _draw_selection_overlay(target: Control) -> void:
 	if not _selected_item_outlines_visible:
 		return
@@ -2796,6 +3333,10 @@ func _draw_selection_overlay(target: Control) -> void:
 		target.draw_rect(_world_rect_to_canvas_rect(world_rect), color, false, 2.0)
 
 
+## 将活动放置 footprint 四角变换到画布并绘制预览轮廓。
+## [br]
+## @api private
+## [br]
 func _draw_placement_overlay(target: Control) -> void:
 	if not has_active_placement():
 		return
@@ -2816,6 +3357,10 @@ func _draw_placement_overlay(target: Control) -> void:
 	target.draw_polyline(points, Color(0.35, 1.0, 0.55, 0.95), 2.0)
 
 
+## 拖动选择活动时绘制规范化的选择矩形。
+## [br]
+## @api private
+## [br]
 func _draw_selection_drag_overlay(target: Control) -> void:
 	if not _selection_drag_active:
 		return
@@ -2829,12 +3374,20 @@ func _draw_selection_drag_overlay(target: Control) -> void:
 	)
 
 
+## 转换世界矩形起终点后规范化为画布矩形。
+## [br]
+## @api private
+## [br]
 func _world_rect_to_canvas_rect(world_rect: Rect2) -> Rect2:
 	var start: Vector2 = world_to_canvas(world_rect.position)
 	var finish: Vector2 = world_to_canvas(world_rect.end)
 	return _normalize_rect(Rect2(start, finish - start))
 
 
+## 用包含边界的比较判断外矩形是否完全包住内矩形。
+## [br]
+## @api private
+## [br]
 func _rect_encloses_rect(outer: Rect2, inner: Rect2) -> bool:
 	return (
 		inner.position.x >= outer.position.x
@@ -2844,6 +3397,10 @@ func _rect_encloses_rect(outer: Rect2, inner: Rect2) -> bool:
 	)
 
 
+## 检查模式是否为 REPLACE、ADD、TOGGLE 或 SUBTRACT。
+## [br]
+## @api private
+## [br]
 func _is_selection_mode_valid(mode: SelectionMode) -> bool:
 	return (
 		mode == SelectionMode.REPLACE
@@ -2853,10 +3410,18 @@ func _is_selection_mode_valid(mode: SelectionMode) -> bool:
 	)
 
 
+## 去除字符串两端空白并转换为 StringName。
+## [br]
+## @api private
+## [br]
 func _normalize_id(value: StringName) -> StringName:
 	return StringName(String(value).strip_edges())
 
 
+## 将负宽高转换为正尺寸并调整原点以保留覆盖范围。
+## [br]
+## @api private
+## [br]
 func _normalize_rect(rect: Rect2) -> Rect2:
 	var rect_position: Vector2 = rect.position
 	var rect_size: Vector2 = rect.size
@@ -2869,14 +3434,26 @@ func _normalize_rect(rect: Rect2) -> Rect2:
 	return Rect2(rect_position, rect_size)
 
 
+## 拒绝 NaN 和正负无穷浮点值。
+## [br]
+## @api private
+## [br]
 func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 检查 Vector2 的两个分量均为有限值。
+## [br]
+## @api private
+## [br]
 func _is_finite_vector2(value: Vector2) -> bool:
 	return _is_finite_float(value.x) and _is_finite_float(value.y)
 
 
+## 检查 Rect2 的位置、尺寸和终点坐标均为有限值。
+## [br]
+## @api private
+## [br]
 func _is_finite_rect2(value: Rect2) -> bool:
 	return (
 		_is_finite_vector2(value.position)
@@ -2885,10 +3462,18 @@ func _is_finite_rect2(value: Rect2) -> bool:
 	)
 
 
+## 从选项字典读取 Callable，类型不符时返回无效 Callable。
+## [br]
+## @api private
+## [br]
 func _get_callable_option(options: Dictionary, key: String) -> Callable:
 	return _get_callable_value(GFVariantData.get_option_value(options, key, Callable()))
 
 
+## 读取指定选项的 Rect2；字段缺失或类型不符时返回默认矩形。
+## [br]
+## @api private
+## [br]
 func _get_option_rect2(
 	options: Dictionary,
 	key: Variant,
@@ -2901,6 +3486,10 @@ func _get_option_rect2(
 	return default_value
 
 
+## 将 Variant 收窄为 Callable；类型不符时返回无效 Callable。
+## [br]
+## @api private
+## [br]
 func _get_callable_value(value: Variant) -> Callable:
 	if value is Callable:
 		var callback: Callable = value
@@ -2908,6 +3497,10 @@ func _get_callable_value(value: Variant) -> Callable:
 	return Callable()
 
 
+## 要求所有选项键为唯一且已知的 String 或 StringName。
+## [br]
+## @api private
+## [br]
 func _options_have_only_known_keys(
 	options: Dictionary,
 	known_keys: Array[String]
@@ -2928,26 +3521,46 @@ func _options_have_only_known_keys(
 	return true
 
 
+## 检查字符串键或对应 StringName 键是否存在。
+## [br]
+## @api private
+## [br]
 func _has_option(options: Dictionary, key: String) -> bool:
 	return options.has(key) or options.has(StringName(key))
 
 
+## 字段缺失时通过；存在时要求值为 bool。
+## [br]
+## @api private
+## [br]
 func _option_is_bool(options: Dictionary, key: String) -> bool:
 	if not _has_option(options, key):
 		return true
 	return GFVariantData.get_option_value(options, key) is bool
 
 
+## 要求字段存在且值为 bool。
+## [br]
+## @api private
+## [br]
 func _option_is_present_bool(options: Dictionary, key: String) -> bool:
 	return _has_option(options, key) and GFVariantData.get_option_value(options, key) is bool
 
 
+## 字段缺失时通过；存在时要求值为 int。
+## [br]
+## @api private
+## [br]
 func _option_is_int(options: Dictionary, key: String) -> bool:
 	if not _has_option(options, key):
 		return true
 	return GFVariantData.get_option_value(options, key) is int
 
 
+## 字段缺失时通过；存在时要求值为 int 或 float。
+## [br]
+## @api private
+## [br]
 func _option_is_numeric(options: Dictionary, key: String) -> bool:
 	if not _has_option(options, key):
 		return true
@@ -2955,24 +3568,92 @@ func _option_is_numeric(options: Dictionary, key: String) -> bool:
 	return value is int or value is float
 
 
+## 字段缺失时通过；存在时要求值为 Vector2。
+## [br]
+## @api private
+## [br]
 func _option_is_vector2(options: Dictionary, key: String) -> bool:
 	if not _has_option(options, key):
 		return true
 	return GFVariantData.get_option_value(options, key) is Vector2
 
 
+## 字段缺失时通过；存在时要求值为 Callable。
+## [br]
+## @api private
+## [br]
 func _option_is_callable(options: Dictionary, key: String) -> bool:
 	if not _has_option(options, key):
 		return true
 	return GFVariantData.get_option_value(options, key) is Callable
 
 
+## 把 Vector2 投影为含 x 和 y 的字典。
+## [br]
+## @api private
+## [br]
 func _vector_to_json(value: Vector2) -> Dictionary:
 	return { "x": value.x, "y": value.y }
 
 
+## 把 Rect2 投影为 position 与 size 字典。
+## [br]
+## @api private
+## [br]
 func _rect_to_json(value: Rect2) -> Dictionary:
 	return {
 		"position": _vector_to_json(value.position),
 		"size": _vector_to_json(value.size),
 	}
+
+
+# --- 信号处理函数 ---
+
+## 从手势快照更新活跃标志，按触摸单指或多指策略选择平移与缩放；缩放以快照中心为锚点。
+## [br]
+## @api private
+func _on_gesture_updated(snapshot: Dictionary, _event: InputEvent) -> void:
+	var active: bool = GFVariantData.get_option_bool(snapshot, "active")
+	var pointer_count: int = GFVariantData.get_option_int(snapshot, "pointer_count")
+	_gesture_active = active and pointer_count > 0
+	var source: StringName = GFVariantData.get_option_string_name(snapshot, "source")
+	var apply_pan: bool = true
+	var apply_zoom: bool = true
+	if String(source).begins_with("touch_"):
+		if not _input_policy.touch_enabled:
+			return
+		if pointer_count >= 2:
+			apply_pan = _input_policy.touch_multi_pan_enabled
+			apply_zoom = _input_policy.touch_multi_zoom_enabled
+		else:
+			apply_pan = (
+				_input_policy.touch_primary_behavior
+				== GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.PAN
+			)
+			apply_zoom = false
+	var pan_delta: Vector2 = GFVariantData.get_option_vector2(snapshot, "pan_delta")
+	var scale_factor: float = GFVariantData.get_option_float(snapshot, "scale", 1.0)
+	var center: Vector2 = GFVariantData.get_option_vector2(snapshot, "center", size * 0.5)
+	if apply_pan and not pan_delta.is_zero_approx():
+		var _panned: bool = pan_by_canvas_delta(pan_delta)
+	if apply_zoom and not is_equal_approx(scale_factor, 1.0):
+		var _zoomed: bool = zoom_at(center, scale_factor)
+
+
+
+
+## 清除手势活跃标志并释放 RAW_TOUCH 的输入占用，不释放其他输入来源的捕获。
+## [br]
+## @api private
+func _on_gesture_ended(_snapshot: Dictionary) -> void:
+	_gesture_active = false
+	_release_input_capture(_InputCaptureOwner.RAW_TOUCH)
+
+
+
+
+## 焦点离开时清除临时输入状态，防止未收到释放事件的拖动或手势延续。
+## [br]
+## @api private
+func _on_focus_exited() -> void:
+	_reset_transient_input()

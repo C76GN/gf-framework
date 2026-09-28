@@ -58,13 +58,52 @@ var player_index: int:
 
 # --- 私有变量 ---
 
+## 当前输入映射工具的弱引用。
+## [br]
+## @api private
+## [br]
 var _input_mapping_ref: WeakRef = null
+
+## 当前定时器工具的弱引用；新脉冲从此引用取用，已启动脉冲另行冻结定时器。
+## [br]
+## @api private
+## [br]
 var _timer_utility_ref: WeakRef = null
+
+## 以 generation 为键、强引用尚未通知完成的脉冲操作。
+## [br]
+## @api private
+## [br]
 var _active_pulses: Dictionary = {}
+
+## 下一个脉冲 generation；溢出回绕后从正数 1 继续。
+## [br]
+## @api private
+## [br]
 var _next_pulse_generation: int = 1
+
+## 输入源是否已释放；释放后配置器和身份 setter 不再修改状态。
+## [br]
+## @api private
+## [br]
 var _disposed: bool = false
+
+## 当前虚拟输入源标识；空值会规范化为 virtual。
+## [br]
+## @api private
+## [br]
 var _source_id: StringName = &"virtual"
+
+## 当前默认玩家索引；负值表示全局动作状态。
+## [br]
+## @api private
+## [br]
 var _player_index: int = -1
+
+## 按玩家索引记录本 handle 写入过的动作，用于重配或释放时定向清理。
+## [br]
+## @api private
+## [br]
 var _owned_actions_by_player: Dictionary = {}
 
 
@@ -518,6 +557,10 @@ func notify_pulse_operation_completed_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 从弱引用取得输入映射工具；引用为空、已释放或类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_input_mapping() -> GFInputMappingUtility:
 	if _input_mapping_ref == null:
 		return null
@@ -527,6 +570,10 @@ func _get_input_mapping() -> GFInputMappingUtility:
 	return null
 
 
+## 从弱引用取得定时器工具；引用为空、已释放或类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_timer_utility() -> GFTimerUtility:
 	if _timer_utility_ref == null:
 		return null
@@ -537,6 +584,10 @@ func _get_timer_utility() -> GFTimerUtility:
 	return null
 
 
+## 取出当前正整数 generation 并递增；整数溢出导致非正值时重置下一值为 1。
+## [br]
+## @api private
+## [br]
 func _take_next_pulse_generation() -> int:
 	var generation: int = _next_pulse_generation
 	_next_pulse_generation += 1
@@ -545,6 +596,10 @@ func _take_next_pulse_generation() -> int:
 	return generation
 
 
+## 复制当前操作列表并取消仍等待的脉冲，最后清空 Source 对操作的强引用表。
+## [br]
+## @api private
+## [br]
 func _cancel_active_pulses(reason: StringName) -> void:
 	var operations: Array = _active_pulses.values()
 	for operation_value: Variant in operations:
@@ -554,10 +609,18 @@ func _cancel_active_pulses(reason: StringName) -> void:
 	_active_pulses.clear()
 
 
+## 按 generation 从活动表读取值并转换为脉冲操作；缺失或类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_pulse_operation(generation: int) -> GFVirtualInputPulseOperation:
 	return _variant_to_pulse_operation(GFVariantData.get_option_value(_active_pulses, generation))
 
 
+## 将 Variant 窄化为 GFVirtualInputPulseOperation，其他类型返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_pulse_operation(value: Variant) -> GFVirtualInputPulseOperation:
 	if value is GFVirtualInputPulseOperation:
 		var operation: GFVirtualInputPulseOperation = value
@@ -565,6 +628,10 @@ func _variant_to_pulse_operation(value: Variant) -> GFVirtualInputPulseOperation
 	return null
 
 
+## 忽略已释放实例，将空标识规范化，并在身份变化前清理本 handle 追踪的旧贡献。
+## [br]
+## @api private
+## [br]
 func _set_source_id(value: StringName) -> void:
 	if _disposed:
 		return
@@ -575,6 +642,10 @@ func _set_source_id(value: StringName) -> void:
 	_source_id = normalized_source_id
 
 
+## 忽略已释放实例和相同值；变更玩家身份前先清理本 handle 追踪的旧贡献。
+## [br]
+## @api private
+## [br]
 func _set_player_index(value: int) -> void:
 	if _disposed or _player_index == value:
 		return
@@ -582,6 +653,10 @@ func _set_player_index(value: int) -> void:
 	_player_index = value
 
 
+## 在玩家动作表中记下本 handle 已写入的动作。
+## [br]
+## @api private
+## [br]
 func _remember_owned_action(action_id: StringName, target_player_index: int) -> void:
 	var actions: Dictionary = GFVariantData.get_option_dictionary(
 		_owned_actions_by_player,
@@ -591,6 +666,10 @@ func _remember_owned_action(action_id: StringName, target_player_index: int) -> 
 	_owned_actions_by_player[target_player_index] = actions
 
 
+## 从玩家动作表移除动作；玩家下无剩余动作时同时删除该玩家项。
+## [br]
+## @api private
+## [br]
 func _forget_owned_action(action_id: StringName, target_player_index: int) -> void:
 	if not _owned_actions_by_player.has(target_player_index):
 		return
@@ -605,6 +684,10 @@ func _forget_owned_action(action_id: StringName, target_player_index: int) -> vo
 		_owned_actions_by_player[target_player_index] = actions
 
 
+## 遍历本 handle 记录的玩家与动作，逐项清理当前 source_id 的虚拟贡献，最后清空追踪表。
+## [br]
+## @api private
+## [br]
 func _clear_owned_contributions() -> void:
 	var input_mapping: GFInputMappingUtility = _get_input_mapping()
 	if input_mapping != null:

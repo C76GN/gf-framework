@@ -13,12 +13,22 @@ extends GFBindableProperty
 
 # --- 常量 ---
 
+## 外部尝试修改只读派生值时输出的错误文本。
+## [br]
+## @api private
 const _READ_ONLY_ERROR: String = "[GFComputedProperty][computed_property.read_only] This property is derived from the compute callback; modify its source properties."
+
+## 用于复制 get_value() 返回的集合值。
+## [br]
+## @api private
 const _COMPUTED_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
 # --- 私有变量 ---
 
+## 监听来源并运行计算回调的当前 effect。
+## [br]
+## @api private
 var _effect: GFReactiveEffect = null
 
 
@@ -244,5 +254,8 @@ func is_computing() -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 由计算 effect 写入派生值，复用父类的值比较与变更信号逻辑。
+## [br]
+## @api private
 func _set_value_from_compute(new_value: Variant) -> void:
 	super.set_value(new_value)

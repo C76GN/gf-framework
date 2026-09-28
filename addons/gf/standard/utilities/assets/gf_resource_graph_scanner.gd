@@ -29,6 +29,10 @@ const DEFAULT_MAX_DEPTH: int = 32
 const DEFAULT_MAX_NODES: int = 10000
 
 
+## 默认不递归读取的 Resource 内部属性名。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_EXCLUDED_PROPERTIES: PackedStringArray = [
 	"script",
 	"resource_local_to_scene",
@@ -108,6 +112,10 @@ static func collect_paths(root: Variant, options: Dictionary = {}) -> PackedStri
 
 # --- 私有/辅助方法 ---
 
+## 按值类型、节点深度和节点上限递归扫描图节点。
+## [br]
+## @api private
+## [br]
 static func _scan_value(
 	value: Variant,
 	path: String,
@@ -146,6 +154,10 @@ static func _scan_value(
 		_append_node(state, _make_value_node(value, path, path_segments, depth))
 
 
+## 记录 Object 并扫描允许读取的属性，区分环和重复引用。
+## [br]
+## @api private
+## [br]
 static func _scan_object(
 	value: Variant,
 	path: String,
@@ -193,6 +205,10 @@ static func _scan_object(
 	state["active_objects"] = active
 
 
+## 记录数组节点并按索引递归扫描其元素。
+## [br]
+## @api private
+## [br]
 static func _scan_array(
 	value: Variant,
 	path: String,
@@ -210,6 +226,10 @@ static func _scan_array(
 		_scan_value(array[index], child_path, child_path_segments, depth + 1, options, state)
 
 
+## 记录字典节点并按键文本递归扫描其值。
+## [br]
+## @api private
+## [br]
 static func _scan_dictionary(
 	value: Variant,
 	path: String,
@@ -227,6 +247,10 @@ static func _scan_dictionary(
 		_scan_value(dictionary[key], child_path, child_path_segments, depth + 1, options, state)
 
 
+## 按属性名排除列表、include_all_properties 和 usage 标志筛选属性。
+## [br]
+## @api private
+## [br]
 static func _property_should_scan(property_info: Dictionary, options: Dictionary) -> bool:
 	var property_name: String = GFVariantData.get_option_string(property_info, "name")
 	if property_name.is_empty():
@@ -239,6 +263,10 @@ static func _property_should_scan(property_info: Dictionary, options: Dictionary
 	return (usage & PROPERTY_USAGE_STORAGE) != 0 or (usage & PROPERTY_USAGE_EDITOR) != 0
 
 
+## 读取调用方排除属性列表；缺省时使用默认列表。
+## [br]
+## @api private
+## [br]
 static func _get_excluded_properties(options: Dictionary) -> PackedStringArray:
 	return GFVariantData.get_option_packed_string_array(
 		options,
@@ -247,17 +275,29 @@ static func _get_excluded_properties(options: Dictionary) -> PackedStringArray:
 	)
 
 
+## 增加 cycle_count 并追加标记为环的对象节点。
+## [br]
+## @api private
+## [br]
 static func _append_cycle_node(object_value: Object, path: String, path_segments: Array, depth: int, state: Dictionary) -> void:
 	state["cycle_count"] = GFVariantData.get_option_int(state, "cycle_count") + 1
 	_append_node(state, _make_object_node(object_value, path, path_segments, depth, true, false))
 
 
+## 将一个节点字典追加到扫描状态的 nodes 数组。
+## [br]
+## @api private
+## [br]
 static func _append_node(state: Dictionary, node: Dictionary) -> void:
 	var nodes: Array = GFVariantData.as_array(state["nodes"])
 	nodes.append(node)
 	state["nodes"] = nodes
 
 
+## 检查当前节点数是否未达到启用中的 max_nodes 上限。
+## [br]
+## @api private
+## [br]
 static func _can_append_node(state: Dictionary, options: Dictionary) -> bool:
 	var max_nodes: int = maxi(GFVariantData.get_option_int(options, "max_nodes", DEFAULT_MAX_NODES), 0)
 	if max_nodes <= 0:
@@ -266,14 +306,26 @@ static func _can_append_node(state: Dictionary, options: Dictionary) -> bool:
 	return nodes.size() < max_nodes
 
 
+## 读取非负 max_depth；缺省时使用默认递归深度。
+## [br]
+## @api private
+## [br]
 static func _get_max_depth(options: Dictionary) -> int:
 	return maxi(GFVariantData.get_option_int(options, "max_depth", DEFAULT_MAX_DEPTH), 0)
 
 
+## 读取扫描状态的截断标志。
+## [br]
+## @api private
+## [br]
 static func _is_truncated(state: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(state, "truncated")
 
 
+## 构造对象节点并记录资源路径、类、实例和循环标志。
+## [br]
+## @api private
+## [br]
 static func _make_object_node(
 	object_value: Object,
 	path: String,
@@ -302,6 +354,10 @@ static func _make_object_node(
 	}
 
 
+## 构造非 Object 值节点的标准字段字典。
+## [br]
+## @api private
+## [br]
 static func _make_value_node(value: Variant, path: String, path_segments: Array, depth: int) -> Dictionary:
 	return {
 		"path": path,
@@ -317,6 +373,10 @@ static func _make_value_node(value: Variant, path: String, path_segments: Array,
 	}
 
 
+## 对象优先返回脚本 global class_name，否则返回类名或 Variant 类型名。
+## [br]
+## @api private
+## [br]
 static func _get_value_type_name(value: Variant) -> String:
 	if value is Object and is_instance_valid(value):
 		var object_value: Object = value
@@ -330,6 +390,10 @@ static func _get_value_type_name(value: Variant) -> String:
 	return type_string(typeof(value))
 
 
+## 将属性和索引段格式化为点路径或带引号的键路径。
+## [br]
+## @api private
+## [br]
 static func _format_path(path_segments: Array) -> String:
 	var result: String = ""
 	for segment: Variant in path_segments:
@@ -345,6 +409,10 @@ static func _format_path(path_segments: Array) -> String:
 	return result
 
 
+## 检查键是否可安全使用点路径标记。
+## [br]
+## @api private
+## [br]
 static func _is_simple_key(text: String) -> bool:
 	if text.is_empty():
 		return false
@@ -358,9 +426,17 @@ static func _is_simple_key(text: String) -> bool:
 	return true
 
 
+## 检查码点是否为 ASCII 字母或下划线。
+## [br]
+## @api private
+## [br]
 static func _is_ascii_letter_or_underscore(code: int) -> bool:
 	return code == 95 or (code >= 65 and code <= 90) or (code >= 97 and code <= 122)
 
 
+## 检查码点是否为 ASCII 数字。
+## [br]
+## @api private
+## [br]
 static func _is_ascii_digit(code: int) -> bool:
 	return code >= 48 and code <= 57

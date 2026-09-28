@@ -71,9 +71,29 @@ const MESSAGE_KIND: String = "gf.service.discovery"
 ## [br]
 ## @since 8.0.0
 const SCHEMA_VERSION: int = 1
+
+## 校验广告 metadata 是否适合网络传输的脚本资源。
+## [br]
+## @api private
+## [br]
 const _TRANSPORT_VALUE_VALIDATOR = preload("res://addons/gf/extensions/network/runtime/gf_network_transport_value_validator.gd")
+
+## 单条 Service Discovery 广告默认允许的最大 packet 字节数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_ADVERTISEMENT_BYTES: int = GFNetworkMessageValidator.DEFAULT_MAX_PACKET_SIZE
+
+## 广告 metadata 递归校验的默认深度上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_METADATA_DEPTH: int = 16
+
+## 广告 metadata 递归校验的默认节点数上限。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_MAX_METADATA_ENTRIES: int = 1024
 
 
@@ -91,8 +111,22 @@ var default_ttl_seconds: float = 5.0:
 
 # --- 私有变量 ---
 
+## Service Discovery 内部时钟累计的运行秒数。
+## [br]
+## @api private
+## [br]
 var _elapsed_seconds: float = 0.0
+
+## 按 service key 保存的已接受广告记录。
+## [br]
+## @api private
+## [br]
 var _services: Dictionary = {}
+
+## 按 service key 保存的到期秒数。
+## [br]
+## @api private
+## [br]
 var _service_expiry_deadlines: Dictionary = {}
 
 
@@ -492,6 +526,10 @@ static func make_service_key(service_id: StringName, endpoint: String) -> String
 
 # --- 私有/辅助方法 ---
 
+## 检查广告类型、schema、ID、端点、TTL、metadata 和 tags，并构造归一化记录。
+## [br]
+## @api private
+## [br]
 static func _normalize_advertisement(
 	advertisement: Dictionary,
 	issues: Array[Dictionary],
@@ -551,6 +589,10 @@ static func _normalize_advertisement(
 	}
 
 
+## 按 sequence 优先、同序号时按 time_msec 判断广告是否早于已有记录。
+## [br]
+## @api private
+## [br]
 static func _is_stale_advertisement(normalized: Dictionary, previous_record: Dictionary) -> bool:
 	if previous_record.is_empty():
 		return false
@@ -565,6 +607,10 @@ static func _is_stale_advertisement(normalized: Dictionary, previous_record: Dic
 	return incoming_time_msec < previous_time_msec
 
 
+## 从 PackedStringArray 或 Array 读取 tag，归一化、去重并排序。
+## [br]
+## @api private
+## [br]
 static func _normalize_tags(value: Variant) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	if value is PackedStringArray:
@@ -579,6 +625,10 @@ static func _normalize_tags(value: Variant) -> PackedStringArray:
 	return result
 
 
+## 裁剪非空 tag 并仅在未重复时追加。
+## [br]
+## @api private
+## [br]
 static func _append_tag(tags: PackedStringArray, tag: String) -> void:
 	var normalized: String = tag.strip_edges()
 	if normalized.is_empty() or tags.has(normalized):
@@ -586,6 +636,10 @@ static func _append_tag(tags: PackedStringArray, tag: String) -> void:
 	var _append_result: bool = tags.append(normalized)
 
 
+## 构造发现协议校验问题字典。
+## [br]
+## @api private
+## [br]
 static func _make_issue(kind: String, message: String) -> Dictionary:
 	return {
 		"kind": kind,
@@ -593,6 +647,10 @@ static func _make_issue(kind: String, message: String) -> Dictionary:
 	}
 
 
+## 构造含错误、单项 issue 和后续操作建议的失败报告。
+## [br]
+## @api private
+## [br]
 static func _make_failure(error: String, next_action: String = "") -> Dictionary:
 	return {
 		"ok": false,
@@ -605,6 +663,10 @@ static func _make_failure(error: String, next_action: String = "") -> Dictionary
 	}
 
 
+## 使用有限正数值，否则采用有效回退值或五秒默认值。
+## [br]
+## @api private
+## [br]
 static func _normalize_positive_seconds(value: float, fallback: float) -> float:
 	if value > 0.0 and not is_nan(value) and not is_inf(value):
 		return value
@@ -613,6 +675,10 @@ static func _normalize_positive_seconds(value: float, fallback: float) -> float:
 	return 5.0
 
 
+## 复制记录并构造成功的广告接收报告。
+## [br]
+## @api private
+## [br]
 func _make_accept_report(status: String, service_key: String, record: Dictionary) -> Dictionary:
 	return {
 		"ok": true,
@@ -626,12 +692,20 @@ func _make_accept_report(status: String, service_key: String, record: Dictionary
 	}
 
 
+## 接受有限非负当前时间，否则使用累计内部时钟。
+## [br]
+## @api private
+## [br]
 func _normalize_now_seconds(value: float) -> float:
 	if value >= 0.0 and not is_nan(value) and not is_inf(value):
 		return value
 	return _elapsed_seconds
 
 
+## 移除仍到期的 Service 记录并按 expired 原因派发丢失事件。
+## [br]
+## @api private
+## [br]
 func _prune_expired_services() -> void:
 	var expired_keys: PackedStringArray = PackedStringArray()
 	for key: Variant in _services.keys():
@@ -655,6 +729,10 @@ func _prune_expired_services() -> void:
 		var _removed: bool = _remove_service(service_key, "expired")
 
 
+## 按裁剪后的 service key 删除记录和截止时间并发出丢失信号。
+## [br]
+## @api private
+## [br]
 func _remove_service(service_key: String, reason: String) -> bool:
 	var normalized_key: String = service_key.strip_edges()
 	if normalized_key.is_empty() or not _services.has(normalized_key):

@@ -16,41 +16,199 @@ extends Control
 
 # --- 常量 ---
 
+## 预载编辑器工作区 UI 辅助脚本，用于构建页面控件和状态显示。
+## [br]
+## @api private
+## [br]
 const _GFEditorWorkspaceUI = preload("res://addons/gf/kernel/editor/gf_editor_workspace_ui.gd")
+
+## 预载资源路径工具，用于规范化并比较输入上下文资源路径。
+## [br]
+## @api private
+## [br]
 const _GFPathTools = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+## 预载报告值编解码脚本，提供带脱敏和预算限制的 JSON 输出。
+## [br]
+## @api private
+## [br]
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+
+## 预载输入冲突分析器，用于收集绑定并估算候选冲突预算。
+## [br]
+## @api private
+## [br]
 const _GFInputConflictAnalyzer = preload("res://addons/gf/standard/input/rebinding/gf_input_conflict_analyzer.gd")
+
+## 预载输入上下文诊断工具，生成报告并提供后续操作建议。
+## [br]
+## @api private
+## [br]
 const _GFInputContextDiagnostics = preload("res://addons/gf/standard/input/mapping/gf_input_context_diagnostics.gd")
+
+## 允许预检并载入的输入上下文主资源文件大小上限。
+## [br]
+## @api private
+## [br]
 const _MAX_RESOURCE_FILE_BYTES: int = 4 * 1024 * 1024
+
+## 单次输入上下文诊断允许处理的映射数量上限。
+## [br]
+## @api private
+## [br]
 const _MAX_MAPPING_COUNT: int = 512
+
+## 单个映射允许参与诊断的绑定数量上限。
+## [br]
+## @api private
+## [br]
 const _MAX_BINDINGS_PER_MAPPING: int = 256
+
+## 单次上下文允许累计处理的绑定总数上限。
+## [br]
+## @api private
+## [br]
 const _MAX_TOTAL_BINDINGS: int = 512
+
+## 映射、绑定、修饰器与触发器的诊断项数量上限。
+## [br]
+## @api private
+## [br]
 const _MAX_NESTED_DIAGNOSTIC_ITEMS: int = 4096
+
+## 冲突候选组合预算上限。
+## [br]
+## @api private
+## [br]
 const _MAX_CONFLICT_CANDIDATES: int = 512
+
+## 诊断报告中 items、conflicts 与 issues 集合的显示上限。
+## [br]
+## @api private
+## [br]
 const _MAX_REPORT_COLLECTION_ITEMS: int = 512
+
+## 输入映射树视图允许创建的行数上限。
+## [br]
+## @api private
+## [br]
 const _MAX_TREE_ROWS: int = 1024
+
+## 右侧详情 JSON 文本允许显示的 UTF-8 字节数上限。
+## [br]
+## @api private
+## [br]
 const _MAX_DETAIL_JSON_BYTES: int = 128 * 1024
 
 
 # --- 私有变量 ---
 
+## 当前展示和诊断的 GFInputContext。
+## [br]
+## @api private
+## [br]
 var _context: GFInputContext = null
+
+## 当前用于计算有效绑定的可选 GFInputRemapConfig。
+## [br]
+## @api private
+## [br]
 var _remap_config: GFInputRemapConfig = null
+
+## 最近一次成功提交到路径输入框的规范化资源路径。
+## [br]
+## @api private
+## [br]
 var _committed_context_path: String = ""
+
+## 最近一次为当前输入上下文生成的诊断报告。
+## [br]
+## @api private
+## [br]
 var _last_report: Dictionary = {}
+
+## 最近一次上下文载入失败的状态、提示和错误码。
+## [br]
+## @api private
+## [br]
 var _last_load_failure: Dictionary = {}
+
+## 输入 GFInputContext 资源路径的 LineEdit 控件。
+## [br]
+## @api private
+## [br]
 var _path_edit: LineEdit = null
+
+## 控制冲突诊断是否纳入不可重绑项的复选框。
+## [br]
+## @api private
+## [br]
 var _include_non_remappable_check: CheckBox = null
+
+## 显示当前诊断摘要、资源摘要和下一步建议的标签。
+## [br]
+## @api private
+## [br]
 var _summary_label: Label = null
+
+## 无上下文或报告内容时显示提示的标签。
+## [br]
+## @api private
+## [br]
 var _empty_label: Label = null
+
+## 承载诊断树和详情文本的水平分栏控件。
+## [br]
+## @api private
+## [br]
 var _content_split: HSplitContainer = null
+
+## 展示上下文、映射、绑定及问题项的树控件。
+## [br]
+## @api private
+## [br]
 var _tree: Tree = null
+
+## 显示所选树项元数据或报告 JSON 的文本控件。
+## [br]
+## @api private
+## [br]
 var _details: TextEdit = null
+
+## 选择 GFInputContext 资源文件的文件对话框。
+## [br]
+## @api private
+## [br]
 var _file_dialog: FileDialog = null
+
+## 当前诊断树已经创建的行数。
+## [br]
+## @api private
+## [br]
 var _rendered_tree_rows: int = 0
+
+## 标记树视图是否因行数预算而截断。
+## [br]
+## @api private
+## [br]
 var _tree_render_truncated: bool = false
+
+## 控制上下文与 remap 配置变化是否允许触发自动刷新。
+## [br]
+## @api private
+## [br]
 var _source_observation_enabled: bool = true
+
+## 标记是否已有一次延迟的源数据刷新待执行。
+## [br]
+## @api private
+## [br]
 var _source_refresh_queued: bool = false
+
+## 防止诊断刷新重入的状态标志。
+## [br]
+## @api private
+## [br]
 var _refresh_in_progress: bool = false
 
 
@@ -223,6 +381,10 @@ func get_last_report() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 构建 UI；无上下文时清空报告并显示空态，否则生成报告并渲染。
+## [br]
+## @api private
+## [br]
 func _refresh_current_context() -> void:
 	_build_ui()
 	if _context == null:
@@ -234,6 +396,10 @@ func _refresh_current_context() -> void:
 	_render_context()
 
 
+## 仅在控件尚未创建时构建输入工具栏、诊断树、详情面板和资源选择框。
+## [br]
+## @api private
+## [br]
 func _build_ui() -> void:
 	if _tree != null:
 		return
@@ -305,6 +471,10 @@ func _build_ui() -> void:
 	add_child(_file_dialog)
 
 
+## 先检查上下文与冲突预算；通过后构建诊断报告并限制其集合长度。
+## [br]
+## @api private
+## [br]
 func _build_report(context: GFInputContext) -> Dictionary:
 	var include_non_remappable: bool = (
 		_include_non_remappable_check == null
@@ -322,6 +492,10 @@ func _build_report(context: GFInputContext) -> Dictionary:
 	return _bound_report_collections(report)
 
 
+## 检查映射数、绑定数、嵌套诊断项及轴冲突候选预算，返回首个超限问题。
+## [br]
+## @api private
+## [br]
 func _get_context_budget_issue(context: GFInputContext, include_non_remappable: bool) -> Dictionary:
 	var mapping_count: int = context.mappings.size()
 	if mapping_count > _MAX_MAPPING_COUNT:
@@ -404,6 +578,10 @@ func _get_context_budget_issue(context: GFInputContext, include_non_remappable: 
 	return {}
 
 
+## 把预算超限信息包装为 error 级问题，并携带观测数量与上限。
+## [br]
+## @api private
+## [br]
 func _make_budget_issue(
 	kind: String,
 	path: String,
@@ -417,6 +595,10 @@ func _make_budget_issue(
 	})
 
 
+## 为预算超限构建停止深入扫描的最小报告，并补充相应的 next action。
+## [br]
+## @api private
+## [br]
 func _make_budget_report(context: GFInputContext, issue: Dictionary) -> Dictionary:
 	var report: Dictionary = {
 		"context_count": 1,
@@ -446,6 +628,10 @@ func _make_budget_report(context: GFInputContext, issue: Dictionary) -> Dictiona
 	})
 
 
+## 截断报告中的 items、conflicts 和 issues，并记录原总数与截断标记。
+## [br]
+## @api private
+## [br]
 func _bound_report_collections(report: Dictionary) -> Dictionary:
 	for collection_key: String in ["items", "conflicts", "issues"]:
 		var values: Array = GFVariantData.get_option_array(report, collection_key)
@@ -471,6 +657,10 @@ func _bound_report_collections(report: Dictionary) -> Dictionary:
 	return report
 
 
+## 普通事件键原样分桶；joy_axis 键按轴号合并正负方向以计算候选冲突量。
+## [br]
+## @api private
+## [br]
 func _get_conflict_candidate_bucket(event_key: String) -> String:
 	if not event_key.begins_with("joy_axis:"):
 		return event_key
@@ -480,6 +670,10 @@ func _get_conflict_candidate_bucket(event_key: String) -> String:
 	return "joy_axis:%s" % parts[1]
 
 
+## 清空并重绘诊断摘要、上下文及其映射、绑定和问题树项，受行数预算限制。
+## [br]
+## @api private
+## [br]
 func _render_context() -> void:
 	if _tree == null:
 		return
@@ -544,6 +738,10 @@ func _render_context() -> void:
 	_append_tree_truncation_item(root_item)
 
 
+## 为映射逐个创建绑定树行，并展示 remap 后的有效事件及绑定属性。
+## [br]
+## @api private
+## [br]
 func _add_binding_items(parent: TreeItem, mapping: GFInputMapping) -> void:
 	for binding_index: int in range(mapping.bindings.size()):
 		if _tree_render_truncated:
@@ -579,6 +777,10 @@ func _add_binding_items(parent: TreeItem, mapping: GFInputMapping) -> void:
 		))
 
 
+## 把诊断问题的严重度、类别、路径和消息写入树行及元数据。
+## [br]
+## @api private
+## [br]
 func _add_issue_item(parent: TreeItem, issue: Dictionary) -> void:
 	var item: TreeItem = _create_bounded_tree_item(parent)
 	if item == null:
@@ -590,6 +792,10 @@ func _add_issue_item(parent: TreeItem, issue: Dictionary) -> void:
 	item.set_metadata(0, issue.duplicate(true))
 
 
+## 在达到保留截断提示行的显示预算前创建一行，否则标记树截断。
+## [br]
+## @api private
+## [br]
 func _create_bounded_tree_item(parent: TreeItem) -> TreeItem:
 	if _rendered_tree_rows >= _MAX_TREE_ROWS - 1:
 		_tree_render_truncated = true
@@ -598,6 +804,10 @@ func _create_bounded_tree_item(parent: TreeItem) -> TreeItem:
 	return _tree.create_item(parent)
 
 
+## 树已截断且仍有行预算时追加预算提示行及其元数据。
+## [br]
+## @api private
+## [br]
 func _append_tree_truncation_item(parent: TreeItem) -> void:
 	if not _tree_render_truncated or _rendered_tree_rows >= _MAX_TREE_ROWS:
 		return
@@ -613,6 +823,10 @@ func _append_tree_truncation_item(parent: TreeItem) -> void:
 	})
 
 
+## 清空或隐藏诊断树与详情区，显示空态提示并设置状态颜色。
+## [br]
+## @api private
+## [br]
 func _render_empty(status: String, hint: String = "") -> void:
 	if _tree != null:
 		_tree.clear()
@@ -627,6 +841,10 @@ func _render_empty(status: String, hint: String = "") -> void:
 	_set_status(status, _GFEditorWorkspaceUI.INFO_TEXT_COLOR)
 
 
+## 恢复已提交路径并保存失败信息；有旧报告时保留并标记旧结果，否则显示空态。
+## [br]
+## @api private
+## [br]
 func _render_load_failure(status: String, hint: String, error_code: Error) -> Error:
 	_restore_committed_context_path()
 	_last_load_failure = {
@@ -647,16 +865,28 @@ func _render_load_failure(status: String, hint: String, error_code: Error) -> Er
 	return error_code
 
 
+## 规范化并提交资源路径，然后同步到路径输入框。
+## [br]
+## @api private
+## [br]
 func _commit_context_path(path: String) -> void:
 	_committed_context_path = _GFPathTools.normalize_resource_path(path)
 	_restore_committed_context_path()
 
 
+## 路径输入控件存在时恢复最近提交的路径文本。
+## [br]
+## @api private
+## [br]
 func _restore_committed_context_path() -> void:
 	if _path_edit != null:
 		_path_edit.text = _committed_context_path
 
 
+## 从当前上下文和报告中构造适合详情面板展示的摘要字典。
+## [br]
+## @api private
+## [br]
 func _make_report_overview() -> Dictionary:
 	return {
 		"context": _make_context_details(_context),
@@ -676,6 +906,10 @@ func _make_report_overview() -> Dictionary:
 	}
 
 
+## 生成上下文 ID、显示名、资源路径和映射数快照。
+## [br]
+## @api private
+## [br]
 func _make_context_details(context: GFInputContext) -> Dictionary:
 	return {
 		"context_id": context.get_context_id(),
@@ -685,6 +919,10 @@ func _make_context_details(context: GFInputContext) -> Dictionary:
 	}
 
 
+## 生成映射索引、动作信息、值类型及绑定、修饰器和触发器计数。
+## [br]
+## @api private
+## [br]
 func _make_mapping_details(mapping: GFInputMapping, mapping_index: int) -> Dictionary:
 	return {
 		"index": mapping_index,
@@ -698,6 +936,10 @@ func _make_mapping_details(mapping: GFInputMapping, mapping_index: int) -> Dicti
 	}
 
 
+## 生成绑定有效事件、目标、deadzone、scale、匹配设置和 remap 来源详情。
+## [br]
+## @api private
+## [br]
 func _make_binding_details(
 	mapping: GFInputMapping,
 	binding: GFInputBinding,
@@ -726,6 +968,10 @@ func _make_binding_details(
 	return details
 
 
+## 检查当前 remap 配置是否覆盖给定上下文、动作和绑定索引。
+## [br]
+## @api private
+## [br]
 func _is_binding_remapped(mapping: GFInputMapping, binding_index: int) -> bool:
 	return (
 		_remap_config != null
@@ -738,6 +984,10 @@ func _is_binding_remapped(mapping: GFInputMapping, binding_index: int) -> bool:
 	)
 
 
+## 绑定被 remap 时返回覆盖事件，否则返回绑定自身的输入事件。
+## [br]
+## @api private
+## [br]
 func _get_effective_binding_event(mapping: GFInputMapping, binding_index: int) -> InputEvent:
 	var binding: GFInputBinding = mapping.bindings[binding_index]
 	if _is_binding_remapped(mapping, binding_index):
@@ -749,6 +999,10 @@ func _get_effective_binding_event(mapping: GFInputMapping, binding_index: int) -
 	return binding.input_event
 
 
+## 无载入失败时复制报告；有失败时返回失败尝试与上次成功报告的组合快照。
+## [br]
+## @api private
+## [br]
 func _make_copy_payload() -> Dictionary:
 	if _last_load_failure.is_empty():
 		return _last_report.duplicate(true)
@@ -761,6 +1015,10 @@ func _make_copy_payload() -> Dictionary:
 	}
 
 
+## 构造包含严重度、类别、路径和消息的问题字典，并在非空时复制 metadata。
+## [br]
+## @api private
+## [br]
 func _make_issue(
 	severity: String,
 	kind: String,
@@ -779,10 +1037,18 @@ func _make_issue(
 	return issue
 
 
+## 把状态消息与颜色委派给工作区 UI 辅助脚本。
+## [br]
+## @api private
+## [br]
 func _set_status(message: String, color: Color) -> void:
 	_GFEditorWorkspaceUI.set_status(_summary_label, message, color)
 
 
+## 把 GFInputAction.ValueType 枚举映射为稳定文本，未知值带原整数。
+## [br]
+## @api private
+## [br]
 func _get_value_type_name(value_type: int) -> String:
 	match value_type:
 		GFInputAction.ValueType.BOOL:
@@ -797,6 +1063,10 @@ func _get_value_type_name(value_type: int) -> String:
 			return "unknown(%d)" % value_type
 
 
+## 把 GFInputBinding.ValueTarget 枚举映射为稳定文本，未知值带原整数。
+## [br]
+## @api private
+## [br]
 func _get_value_target_name(value_target: int) -> String:
 	match value_target:
 		GFInputBinding.ValueTarget.AUTO:
@@ -831,6 +1101,10 @@ func _get_value_target_name(value_target: int) -> String:
 			return "unknown(%d)" % value_target
 
 
+## 使用 debug 脱敏选项和遍历预算序列化 JSON；超出详情字节预算时返回截断摘要。
+## [br]
+## @api private
+## [br]
 func _safe_json(value: Variant) -> String:
 	var options: Dictionary = _GF_REPORT_VALUE_CODEC_SCRIPT.make_redaction_options(
 		_GF_REPORT_VALUE_CODEC_SCRIPT.REDACTION_PROFILE_DEBUG,
@@ -858,11 +1132,19 @@ func _safe_json(value: Variant) -> String:
 	}, "\t", true, options)
 
 
+## 仅当资源路径扩展名为 tres 时返回 true。
+## [br]
+## @api private
+## [br]
 func _is_supported_resource_extension(path: String) -> bool:
 	var extension: String = path.get_extension().to_lower()
 	return extension == "tres"
 
 
+## 规范化并绝对化资源路径；Windows 按大小写不敏感方式比较。
+## [br]
+## @api private
+## [br]
 func _resource_paths_share_identity(left: String, right: String) -> bool:
 	var normalized_left: String = _GFPathTools.normalize_resource_path(left)
 	var normalized_right: String = _GFPathTools.normalize_resource_path(right)
@@ -879,6 +1161,10 @@ func _resource_paths_share_identity(left: String, right: String) -> bool:
 	return absolute_left == absolute_right
 
 
+## 读取资源文件头首行，去除 BOM，并提取 script_class 或 type 声明。
+## [br]
+## @api private
+## [br]
 func _read_text_resource_declared_type(path: String) -> String:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
@@ -896,6 +1182,10 @@ func _read_text_resource_declared_type(path: String) -> String:
 	return _get_resource_header_attribute(header, "type")
 
 
+## 从资源头中读取指定 attribute 的双引号值，格式或属性缺失时返回空文本。
+## [br]
+## @api private
+## [br]
 func _get_resource_header_attribute(header: String, attribute: String) -> String:
 	var marker: String = "%s=\"" % attribute
 	var value_start: int = header.find(marker)
@@ -908,6 +1198,10 @@ func _get_resource_header_attribute(header: String, attribute: String) -> String
 	return header.substr(value_start, value_end - value_start)
 
 
+## 沿 Godot 全局类的 base 链检查声明类型是否为 GFInputContext 或其派生类。
+## [br]
+## @api private
+## [br]
 func _is_input_context_resource_type(resource_type: String) -> bool:
 	if resource_type == "GFInputContext":
 		return true
@@ -932,6 +1226,10 @@ func _is_input_context_resource_type(resource_type: String) -> bool:
 	return false
 
 
+## 上下文对象变化时断开旧信号、替换引用，并确保连接当前 changed 信号。
+## [br]
+## @api private
+## [br]
 func _set_current_context(context: GFInputContext) -> void:
 	if _context != context:
 		_disconnect_context_changed()
@@ -939,6 +1237,10 @@ func _set_current_context(context: GFInputContext) -> void:
 	_connect_context_changed()
 
 
+## remap 配置变化时断开旧信号、替换引用，并确保连接当前 changed 信号。
+## [br]
+## @api private
+## [br]
 func _set_current_remap_config(config: GFInputRemapConfig) -> void:
 	if _remap_config != config:
 		_disconnect_remap_config_changed()
@@ -946,6 +1248,10 @@ func _set_current_remap_config(config: GFInputRemapConfig) -> void:
 	_connect_remap_config_changed()
 
 
+## 仅在源观察开启且上下文存在时，幂等连接 changed 刷新回调。
+## [br]
+## @api private
+## [br]
 func _connect_context_changed() -> void:
 	if not _source_observation_enabled or _context == null:
 		return
@@ -954,6 +1260,10 @@ func _connect_context_changed() -> void:
 		var _changed_connected: Error = _context.changed.connect(callback) as Error
 
 
+## 上下文存在且 changed 回调已连接时断开。
+## [br]
+## @api private
+## [br]
 func _disconnect_context_changed() -> void:
 	if _context == null:
 		return
@@ -962,6 +1272,10 @@ func _disconnect_context_changed() -> void:
 		_context.changed.disconnect(callback)
 
 
+## 仅在源观察开启且 remap 配置存在时，幂等连接 changed 刷新回调。
+## [br]
+## @api private
+## [br]
 func _connect_remap_config_changed() -> void:
 	if not _source_observation_enabled or _remap_config == null:
 		return
@@ -970,6 +1284,10 @@ func _connect_remap_config_changed() -> void:
 		var _changed_connected: Error = _remap_config.changed.connect(callback) as Error
 
 
+## remap 配置存在且 changed 回调已连接时断开。
+## [br]
+## @api private
+## [br]
 func _disconnect_remap_config_changed() -> void:
 	if _remap_config == null:
 		return
@@ -978,6 +1296,10 @@ func _disconnect_remap_config_changed() -> void:
 		_remap_config.changed.disconnect(callback)
 
 
+## 源观察开启且尚无排队刷新时，设置标志并延迟调用刷新处理。
+## [br]
+## @api private
+## [br]
 func _queue_source_refresh() -> void:
 	if not _source_observation_enabled or _source_refresh_queued:
 		return
@@ -985,6 +1307,10 @@ func _queue_source_refresh() -> void:
 	call_deferred("_flush_source_refresh")
 
 
+## 仅在观察仍开启且刷新仍排队时清除标志并调用 refresh。
+## [br]
+## @api private
+## [br]
 func _flush_source_refresh() -> void:
 	if not _source_observation_enabled or not _source_refresh_queued:
 		return
@@ -992,6 +1318,10 @@ func _flush_source_refresh() -> void:
 	refresh()
 
 
+## 将 Variant 收窄为 GFInputContext，类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_input_context_value(value: Variant) -> GFInputContext:
 	if value is GFInputContext:
 		var context: GFInputContext = value
@@ -1001,39 +1331,71 @@ func _get_input_context_value(value: Variant) -> GFInputContext:
 
 # --- 信号处理函数 ---
 
+## 上下文 changed 信号到达时排队执行一次源数据刷新。
+## [br]
+## @api private
+## [br]
 func _on_context_changed() -> void:
 	_queue_source_refresh()
 
 
+## remap 配置 changed 信号到达时排队执行一次源数据刷新。
+## [br]
+## @api private
+## [br]
 func _on_remap_config_changed() -> void:
 	_queue_source_refresh()
 
 
+## 路径输入框提交时调用 load_context_path 载入该路径。
+## [br]
+## @api private
+## [br]
 func _on_path_submitted(path: String) -> void:
 	var _load_error: Error = load_context_path(path)
 
 
+## 文件对话框有效时居中弹出资源选择窗口。
+## [br]
+## @api private
+## [br]
 func _on_browse_pressed() -> void:
 	if is_instance_valid(_file_dialog):
 		_file_dialog.popup_centered_ratio(0.6)
 
 
+## 选择文件后更新路径输入框并尝试载入该资源。
+## [br]
+## @api private
+## [br]
 func _on_file_selected(path: String) -> void:
 	if _path_edit != null:
 		_path_edit.text = path
 	var _load_error: Error = load_context_path(path)
 
 
+## 路径输入控件存在时载入其中填写的资源路径。
+## [br]
+## @api private
+## [br]
 func _on_load_pressed() -> void:
 	if _path_edit == null:
 		return
 	var _load_error: Error = load_context_path(_path_edit.text)
 
 
+## 不可重绑选项变化后重新刷新当前诊断。
+## [br]
+## @api private
+## [br]
 func _on_option_toggled(_pressed: bool) -> void:
 	refresh()
 
 
+## 选中树项后将该项 metadata 安全序列化到详情面板。
+## [br]
+## @api private
+## [br]
 func _on_tree_item_selected() -> void:
 	var item: TreeItem = _tree.get_selected()
 	if item == null:
@@ -1041,6 +1403,10 @@ func _on_tree_item_selected() -> void:
 	_details.text = _safe_json(item.get_metadata(0))
 
 
+## 生成非空诊断/失败快照并写入剪贴板，再按载入状态显示成功或警告。
+## [br]
+## @api private
+## [br]
 func _on_copy_pressed() -> void:
 	var payload: Dictionary = _make_copy_payload()
 	if payload.is_empty():

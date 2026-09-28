@@ -6,9 +6,24 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 读取 ProjectSettings 贡献记录字段的类型化辅助脚本。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 确保项目设置值并登记属性信息的辅助脚本。
+## [br]
+## @api private
 const _GF_PROJECT_SETTINGS_TOOLS = preload("res://addons/gf/kernel/core/gf_project_settings_tools.gd")
+
+## 提供框架项目产物默认输出路径的常量脚本。
+## [br]
+## @api private
 const _GF_PROJECT_ARTIFACT_PATHS_SCRIPT = preload("res://addons/gf/kernel/core/gf_project_artifact_paths.gd")
+
+## 提供 Installer 资源路径属性提示的脚本。
+## [br]
+## @api private
 const _GF_RESOURCE_PATH_HINT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_resource_path_hint.gd")
 
 ## 项目启动 Installer 列表设置。
@@ -175,12 +190,18 @@ static func get_project_access_output_path() -> String:
 
 # --- 私有/辅助方法 ---
 
+## 调用共享设置工具确保一个默认值，并关闭该调用中的属性信息注册。
+## [br]
+## @api private
 static func _ensure_default(setting_name: String, default_value: Variant) -> bool:
 	return _GF_PROJECT_SETTINGS_TOOLS.ensure_setting(setting_name, default_value, {
 		"register_property_info": false,
 	})
 
 
+## 跳过空 name 的贡献记录，按记录生成注册选项并确保默认值；返回是否有任一设置被更新。
+## [br]
+## @api private
 static func _ensure_project_setting_records(project_setting_records: Array[Dictionary]) -> bool:
 	var should_save: bool = false
 	for record: Dictionary in project_setting_records:
@@ -195,6 +216,9 @@ static func _ensure_project_setting_records(project_setting_records: Array[Dicti
 	return should_save
 
 
+## 为本类的六个内置设置注册类型、路径/范围提示及 basic 属性。
+## [br]
+## @api private
 static func _register_property_info() -> void:
 	_GF_PROJECT_SETTINGS_TOOLS.register_property_info(INSTALLERS_SETTING, TYPE_ARRAY, {
 		"hint": _GF_RESOURCE_PATH_HINT_SCRIPT.RESOURCE_PATH_ARRAY,
@@ -224,6 +248,10 @@ static func _register_property_info() -> void:
 	})
 
 
+## 从贡献记录提取允许的类型、标记、hint、hint_string 和 usage 字段。
+## type 缺失时采用默认值的 typeof；未提供的可选字段不写入返回字典。
+## [br]
+## @api private
 static func _make_project_setting_options(record: Dictionary, default_value: Variant) -> Dictionary:
 	var options: Dictionary = {
 		"type": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(record, "type", typeof(default_value)),

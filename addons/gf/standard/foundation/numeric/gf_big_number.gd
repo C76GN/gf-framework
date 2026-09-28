@@ -14,15 +14,24 @@ extends RefCounted
 
 # --- 常量 ---
 
-# 做加减法时，指数差超过该阈值则忽略较小项。
+## 加减时指数差达到该阈值后，直接返回量级较大的操作数副本。
+## [br]
+## @api private
 const _ADDITION_DROP_THRESHOLD: int = 18
 
-# to_plain_string() 默认保留的小数位数。
+## to_plain_string() 未指定小数位数时使用的默认值。
+## [br]
+## @api private
 const _DEFAULT_PLAIN_DECIMALS: int = 6
 
-# 大数用于玩法和显示近似，不承诺 int64 全范围指数算术。
+## 归一化指数、解析结果及指数运算接受的绝对上限。
+## [br]
+## @api private
 const _MAX_EXPONENT_MAGNITUDE: int = 1_000_000
 
+## 本类使用的十进制文本正规化与格式化器脚本。
+## [br]
+## @api private
 const _DECIMAL_STRING_FORMATTER = preload("res://addons/gf/standard/foundation/formatting/gf_decimal_string_formatter.gd")
 
 
@@ -500,6 +509,10 @@ func to_scientific_string(
 
 # --- 私有/辅助方法 ---
 
+## 在 log10 空间计算幂，避免先把完整大数转换为原生浮点数。
+## 指数非有限或超出支持范围时记录错误并返回零值。
+## [br]
+## @api private
 func _pow_with_logarithm(power: float, sign_multiplier: float) -> GFBigNumber:
 	var abs_mantissa: float = absf(mantissa)
 	var power_log10: float = (log(abs_mantissa) / log(10.0) + float(exponent)) * power
@@ -517,6 +530,10 @@ func _pow_with_logarithm(power: float, sign_multiplier: float) -> GFBigNumber:
 	return GFBigNumber.new(power_mantissa, power_exponent)
 
 
+## 将尾数缩放到规范量级并把缩放量计入指数。
+## 非有限尾数或最终越界指数会重置为零值。
+## [br]
+## @api private
 func _normalize() -> void:
 	if is_nan(mantissa) or is_inf(mantissa):
 		push_error("[GFBigNumber][big_number.mantissa_non_finite] mantissa must be finite.")
@@ -559,6 +576,9 @@ func _normalize() -> void:
 		exponent = 0
 
 
+## 返回浮点数的符号：正数为 1、负数为 -1、零为 0。
+## [br]
+## @api private
 static func _get_sign(value: float) -> int:
 	if value > 0.0:
 		return 1
@@ -569,6 +589,10 @@ static func _get_sign(value: float) -> int:
 	return 0
 
 
+## 校验并解析带可选正负号的十进制指数文本。
+## 返回 `ok/value`，或以 `reason` 区分格式错误与范围错误。
+## [br]
+## @api private
 static func _try_parse_exponent_text(text: String) -> Dictionary:
 	var trimmed: String = text.strip_edges()
 	if trimmed.is_empty():
@@ -607,6 +631,10 @@ static func _try_parse_exponent_text(text: String) -> Dictionary:
 	}
 
 
+## 相加指数并验证结果是否仍在支持范围内。
+## 越界时返回带空 reason 的失败字典。
+## [br]
+## @api private
 static func _try_add_exponents(left: int, right: int) -> Dictionary:
 	var result: int = left + right
 	if not _exponent_is_supported(result):
@@ -617,10 +645,16 @@ static func _try_add_exponents(left: int, right: int) -> Dictionary:
 	}
 
 
+## 判断指数是否位于闭区间 [-_MAX_EXPONENT_MAGNITUDE, _MAX_EXPONENT_MAGNITUDE]。
+## [br]
+## @api private
 static func _exponent_is_supported(value: int) -> bool:
 	return value >= -_MAX_EXPONENT_MAGNITUDE and value <= _MAX_EXPONENT_MAGNITUDE
 
 
+## 构造统一的解析失败字典，并可选写入失败原因。
+## [br]
+## @api private
 static func _make_parse_error(reason: String = "") -> Dictionary:
 	return {
 		&"ok": false,

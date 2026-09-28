@@ -169,6 +169,10 @@ static func from_dict(data: Dictionary) -> GFStorageConflictReport:
 
 # --- 私有/辅助方法 ---
 
+## 将整数裁剪到 Resolution 有效范围，再映射为枚举值。
+## [br]
+## @api private
+## [br]
 static func _to_resolution(value: int) -> Resolution:
 	match clampi(value, Resolution.UNRESOLVED, Resolution.SKIPPED):
 		Resolution.USE_LOCAL:

@@ -122,20 +122,79 @@ const STATUS_OUTCOME_UNKNOWN: StringName = &"outcome_unknown"
 
 # --- 私有变量 ---
 
+## Router 分配的唯一请求 ID。
+## [br]
+## @api private
 var _request_id: int = 0
+
+## 请求使用的规范化路由 ID。
+## [br]
+## @api private
 var _route_id: StringName = &""
+
+## 请求使用的 push 或 replace 操作。
+## [br]
+## @api private
 var _operation: StringName = &""
+
+## 请求的最终状态码。
+## [br]
+## @api private
 var _status: StringName = &""
+
+## 请求失败或尽力预加载降级时的原因码。
+## [br]
+## @api private
 var _reason: StringName = &""
+
+## 解析路由后记录的目标逻辑层；解析前失败时保留 -1。
+## [br]
+## @api private
 var _layer: int = -1
+
+## 成功面板的弱引用，不延长面板节点生命周期。
+## [br]
+## @api private
 var _panel_ref: WeakRef = null
+
+## 请求采用的预加载策略。
+## [br]
+## @api private
 var _preload_policy: StringName = &""
+
+## 是否实际启动过资产预加载会话。
+## [br]
+## @api private
 var _preload_attempted: bool = false
+
+## 已启动的资产预加载会话是否成功提交。
+## [br]
+## @api private
 var _preload_successful: bool = false
+
+## 预加载规划报告的隔离字典。
+## [br]
+## @api private
 var _preload_plan_report: Dictionary = {}
+
+## 已完成资产预加载会话的结果。
+## [br]
+## @api private
 var _preload_result: GFAssetLoadSessionResult = null
+
+## 请求开始时的单调时钟毫秒值。
+## [br]
+## @api private
 var _started_at_msec: int = 0
+
+## 请求完成时的单调时钟毫秒值。
+## [br]
+## @api private
 var _completed_at_msec: int = 0
+
+## 调用方 metadata 的隔离字典。
+## [br]
+## @api private
 var _metadata: Dictionary = {}
 
 
@@ -486,6 +545,9 @@ func configure_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 检查状态是否属于 GFUIRouteResult 声明的终态集合。
+## [br]
+## @api private
 static func _is_valid_status(status: StringName) -> bool:
 	return status in [
 		STATUS_OPENED,

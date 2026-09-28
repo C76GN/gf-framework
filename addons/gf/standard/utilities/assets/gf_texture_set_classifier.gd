@@ -70,6 +70,10 @@ const ROLE_HEIGHT: StringName = &"height"
 ## @since 6.0.0
 const ROLE_EMISSION: StringName = &"emission"
 
+## 未提供自定义规则时用于识别常见材质纹理角色的后缀映射。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_SUFFIX_RULES: Dictionary = {
 	&"albedo": ["albedo", "basecolor", "base_color", "diffuse", "color", "col"],
 	&"normal": ["normal", "normalgl", "normaldx", "nrm", "nor"],
@@ -81,6 +85,10 @@ const _DEFAULT_SUFFIX_RULES: Dictionary = {
 	&"emission": ["emission", "emissive", "emit"],
 }
 
+## 分类器默认接受的纹理文件扩展名。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_EXTENSIONS: Array[String] = ["png", "jpg", "jpeg", "tga", "webp", "exr", "hdr"]
 
 
@@ -280,6 +288,10 @@ static func get_default_suffix_rules() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 读取自定义后缀规则的深拷贝；未配置时返回默认规则。
+## [br]
+## @api private
+## [br]
 static func _get_suffix_rules(options: Dictionary) -> Dictionary:
 	var custom_rules: Dictionary = GFVariantData.get_option_dictionary(options, "suffix_rules")
 	if custom_rules.is_empty():
@@ -287,6 +299,10 @@ static func _get_suffix_rules(options: Dictionary) -> Dictionary:
 	return custom_rules.duplicate(true)
 
 
+## 规范化扩展名选项；空列表采用默认扩展名，结果去重并统一小写。
+## [br]
+## @api private
+## [br]
 static func _get_allowed_extensions(options: Dictionary) -> Array[String]:
 	var result: Array[String] = []
 	var configured: Array = GFVariantData.get_option_array(options, "allowed_extensions")
@@ -301,6 +317,10 @@ static func _get_allowed_extensions(options: Dictionary) -> Array[String]:
 	return result
 
 
+## 读取非空必需角色，转换为 StringName、去重并排序。
+## [br]
+## @api private
+## [br]
 static func _get_required_roles(options: Dictionary) -> Array[StringName]:
 	var result: Array[StringName] = []
 	for role_value: Variant in GFVariantData.get_option_array(options, "required_roles"):
@@ -311,6 +331,10 @@ static func _get_required_roles(options: Dictionary) -> Array[StringName]:
 	return result
 
 
+## 按配置规则扫描文件名后缀并返回首个匹配的角色与集合基名。
+## [br]
+## @api private
+## [br]
 static func _match_texture_role(path: String, suffix_rules: Dictionary) -> Dictionary:
 	var stem: String = path.get_file().get_basename()
 	var normalized_stem: String = _normalize_token(stem)
@@ -331,6 +355,10 @@ static func _match_texture_role(path: String, suffix_rules: Dictionary) -> Dicti
 	return { "ok": false, "role": &"", "base_name": "" }
 
 
+## 移除由分隔符引出的角色后缀；文件名仅由后缀组成时保留原名。
+## [br]
+## @api private
+## [br]
 static func _strip_suffix(original_stem: String, normalized_stem: String, suffix: String) -> String:
 	if suffix.is_empty():
 		return ""
@@ -344,6 +372,10 @@ static func _strip_suffix(original_stem: String, normalized_stem: String, suffix
 	return ""
 
 
+## 将令牌转为小写并统一空格、连字符、点号和重复下划线。
+## [br]
+## @api private
+## [br]
 static func _normalize_token(value: String) -> String:
 	var result: String = value.strip_edges().to_lower()
 	result = result.replace(" ", "_")
@@ -354,12 +386,20 @@ static func _normalize_token(value: String) -> String:
 	return result.trim_suffix("_")
 
 
+## 将非空目录与集合基名用单个斜线连接为集合 ID。
+## [br]
+## @api private
+## [br]
 static func _make_set_id(directory: String, base_id: String) -> String:
 	if directory.is_empty():
 		return base_id
 	return "%s/%s" % [directory.trim_suffix("/"), base_id]
 
 
+## 创建保留原路径和未匹配原因的条目。
+## [br]
+## @api private
+## [br]
 static func _make_unmatched(path: String, reason: StringName) -> Dictionary:
 	return {
 		"path": path,
@@ -367,6 +407,10 @@ static func _make_unmatched(path: String, reason: StringName) -> Dictionary:
 	}
 
 
+## 按集合 ID 整理纹理映射、重复角色、缺失角色、源路径和问题列表。
+## [br]
+## @api private
+## [br]
 static func _finalize_sets(sets: Dictionary, required_roles: Array[StringName]) -> Array[Dictionary]:
 	var keys: Array = sets.keys()
 	keys.sort()
@@ -431,6 +475,10 @@ static func _finalize_sets(sets: Dictionary, required_roles: Array[StringName]) 
 	return result
 
 
+## 拼接目录与文件名；目录为空时原样返回文件名。
+## [br]
+## @api private
+## [br]
 static func _join_path(base_path: String, file_name: String) -> String:
 	var root: String = base_path.strip_edges()
 	if root.is_empty():

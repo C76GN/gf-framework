@@ -118,26 +118,92 @@ const RECOVERY_ACTION_ROLLBACK: StringName = &"rollback"
 ## @since 10.0.0
 const RECOVERY_ACTION_COMPLETE: StringName = &"complete"
 
+## 事务句柄和活动状态字典中的格式标识，供校验句柄所属协议。
+## [br]
+## @api private
 const _TRANSACTION_FORMAT: String = "gf.artifact_write.transaction"
+
+## 活动事务状态使用的格式版本号。
+## [br]
+## @api private
 const _TRANSACTION_VERSION: int = 1
+
+## 复制文件时每次读取的缓冲区字节数。
+## [br]
+## @api private
 const _COPY_BUFFER_BYTES: int = 64 * 1024
+
+## 事务条目标记尚未完成回滚目标处理的阶段。
+## [br]
+## @api private
 const _ROLLBACK_PHASE_PENDING: StringName = &"pending"
+
+## 事务条目标记回滚流程已移除目标文件的阶段。
+## [br]
+## @api private
 const _ROLLBACK_PHASE_TARGET_REMOVED: StringName = &"target_removed"
+
+## 事务条目标记恢复目标文件失败的阶段。
+## [br]
+## @api private
 const _ROLLBACK_PHASE_RESTORE_FAILED: StringName = &"restore_failed"
+
+## 事务条目标记恢复目标文件完成的阶段。
+## [br]
+## @api private
 const _ROLLBACK_PHASE_TARGET_RESTORED: StringName = &"target_restored"
+
+## 自有文件写入报告的初始状态标记。
+## [br]
+## @api private
 const _WRITE_STATE_PENDING: StringName = &"pending"
+
+## 自有文件写入报告表示写入留下部分内容的状态标记。
+## [br]
+## @api private
 const _WRITE_STATE_PARTIAL: StringName = &"partial"
+
+## 自有文件写入报告表示写入完成的状态标记。
+## [br]
+## @api private
 const _WRITE_STATE_COMPLETE: StringName = &"complete"
+
+## 引用 GF 路径工具脚本，供事务辅助方法规范化路径并执行路径边界检查。
+## [br]
+## @api private
 const _GF_PATH_TOOLS_SCRIPT = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
+## 引用报告值编解码工具，供报告元数据转换与脱敏。
+## [br]
+## @api private
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+
+## 引用 Variant 安全读取工具，供事务状态和记录字段的类型化读取。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
 # --- 私有变量 ---
 
+## 按事务 ID 保存当前活动事务状态，供事务提交、回滚与清理流程查找并更新。
+## [br]
+## @api private
 static var _active_transactions: Dictionary[String, Dictionary] = {}
+
+## 测试故障注入计数器，用于在复制操作写入后模拟失败。
+## [br]
+## @api private
 static var _test_copy_failures_after_write: int = 0
+
+## 测试故障注入计数器，用于在字节写入后模拟失败。
+## [br]
+## @api private
 static var _test_bytes_failures_after_write: int = 0
+
+## 测试故障注入计数器，用于模拟自有 sidecar 删除失败。
+## [br]
+## @api private
 static var _test_owned_remove_failures: int = 0
 
 
@@ -1122,6 +1188,9 @@ static func complete(transaction: Dictionary) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 组装待写入条目，复制字节数组并规范字符串哈希选项；保留旧哈希选项供后续验证明确拒绝，元数据沿用读取到的字典。
+## [br]
+## @api private
 static func _make_entry(
 	kind: StringName,
 	target_path: String,
@@ -1165,6 +1234,10 @@ static func _make_entry(
 	return entry
 
 
+## 预检数量、路径归属、可移植身份、载荷与恢复空间预算，核对可选内容哈希和目标预检哈希后生成规范条目。
+## 文件载荷保留已校验的来源路径而不提前读取完整字节；目标新鲜度检查是可观察的非原子检查，不能当作并发写入锁。
+## [br]
+## @api private
 static func _normalize_entries(
 	entries: Array[Dictionary],
 	options: Dictionary,
@@ -1440,6 +1513,9 @@ static func _normalize_entries(
 	)
 
 
+## 按载荷种类验证单文件预算并计算字节数与哈希；文本转为 UTF-8 后再次检查预算，文件来源只返回路径和摘要，内存载荷是否附带字节由 include_bytes 控制。
+## [br]
+## @api private
 static func _read_entry_bytes(
 	entry: Dictionary,
 	kind: StringName,
@@ -1512,6 +1588,9 @@ static func _read_entry_bytes(
 	return _make_bytes_result(true, bytes, "", include_bytes)
 
 
+## 构造字节读取结果字典；仅成功时计算 SHA-256，include_bytes 为 false 时不在结果中保留字节。
+## [br]
+## @api private
 static func _make_bytes_result(
 	ok: bool,
 	bytes: PackedByteArray,
@@ -1528,6 +1607,9 @@ static func _make_bytes_result(
 	}
 
 
+## 构造归一化记录结果，包含条目计数、字节计数、问题列表及初始回滚和恢复字段。
+## [br]
+## @api private
 static func _make_normalized_entries_result(
 	ok: bool,
 	entries: Array[Dictionary],
@@ -1555,6 +1637,9 @@ static func _make_normalized_entries_result(
 	}
 
 
+## 构造无条目的失败结果；entry_count 限制为非负值，其余计数清零并记录单条问题。
+## [br]
+## @api private
 static func _make_empty_normalized_failure(
 	entry_count: int,
 	issue: String
@@ -1571,6 +1656,9 @@ static func _make_empty_normalized_failure(
 	)
 
 
+## 校验目标为允许根目录内的资源文件路径，拒绝目录、不可移植组件和链接路径；有效时返回空错误文本。
+## [br]
+## @api private
 static func _get_target_path_error(target_path: String, options: Dictionary) -> String:
 	if target_path.is_empty():
 		return "Artifact target path is empty."
@@ -1605,6 +1693,9 @@ static func _get_target_path_error(target_path: String, options: Dictionary) -> 
 	return ""
 
 
+## 要求显式提供非空允许根目录集合，规范化 res:// 或 user:// 根路径并去重；缺失或无效时返回失败说明。
+## [br]
+## @api private
 static func _read_allowed_roots(options: Dictionary) -> Dictionary:
 	var roots: PackedStringArray = PackedStringArray()
 	var has_allowed_roots: bool = (
@@ -1668,12 +1759,18 @@ static func _read_allowed_roots(options: Dictionary) -> Dictionary:
 	}
 
 
+## 对 res:// 根目录使用前缀判断；其他路径交给 GFPathTools.is_path_under_root 并传入固定的 false、false 选项。
+## [br]
+## @api private
 static func _path_is_under_allowed_root(path: String, root_path: String) -> bool:
 	if root_path.ends_with("://"):
 		return path.begins_with(root_path)
 	return _GF_PATH_TOOLS_SCRIPT.is_path_under_root(path, root_path, false, false)
 
 
+## 从归一化结果中筛出 changed 为 true 的字典条目。
+## [br]
+## @api private
 static func _get_changed_entries(normalized: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry_value: Variant in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(normalized, "entries"):
@@ -1685,6 +1782,9 @@ static func _get_changed_entries(normalized: Dictionary) -> Array[Dictionary]:
 	return result
 
 
+## 逐项准备父目录和带事务身份的暂存文件，保存完整或部分写入状态并核对最终大小与哈希；首个失败即停止，已写入现场交由后续清理处理。
+## [br]
+## @api private
 static func _stage_entries(entries: Array[Dictionary]) -> Dictionary:
 	var issues: PackedStringArray = PackedStringArray()
 	var transaction_id: String = _make_transaction_id()
@@ -1774,6 +1874,9 @@ static func _stage_entries(entries: Array[Dictionary]) -> Dictionary:
 	}
 
 
+## 逐项核对目标基线和暂存身份，移除旧目标后登记已修改状态，再改名提交并校验内容；首个失败即停止，由外层依据登记状态安排回滚。
+## [br]
+## @api private
 static func _replace_staged_entries(
 	entries: Array[Dictionary],
 	transaction: Dictionary
@@ -1854,6 +1957,9 @@ static func _replace_staged_entries(
 	}
 
 
+## 在提交前核对目标未变成目录、存在性未变且已有内容哈希仍匹配预检值；有效时返回空文本。
+## [br]
+## @api private
 static func _get_target_state_error(entry: Dictionary) -> String:
 	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		entry,
@@ -1881,6 +1987,9 @@ static func _get_target_state_error(entry: Dictionary) -> String:
 	return ""
 
 
+## 核对暂存路径结构和文件存在性，并验证预期字节数与内容哈希；不一致时返回提交前状态错误。
+## [br]
+## @api private
 static func _get_staging_state_error(entry: Dictionary) -> String:
 	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		entry,
@@ -1915,6 +2024,9 @@ static func _get_staging_state_error(entry: Dictionary) -> String:
 	return ""
 
 
+## 提交后确认目标仍是无链接组件的普通文件，且大小和哈希与待写入内容一致。
+## [br]
+## @api private
 static func _get_committed_target_state_error(entry: Dictionary) -> String:
 	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		entry,
@@ -1948,6 +2060,9 @@ static func _get_committed_target_state_error(entry: Dictionary) -> String:
 	return ""
 
 
+## 快照前复核目标未变成目录，且存在性、大小和哈希仍符合预检状态；有效时返回空文本。
+## [br]
+## @api private
 static func _get_snapshot_source_state_error(entry: Dictionary) -> String:
 	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		entry,
@@ -1983,6 +2098,9 @@ static func _get_snapshot_source_state_error(entry: Dictionary) -> String:
 	return ""
 
 
+## 仅为仍登记的事务记录已修改路径及其最后预期状态，供选择性回滚识别应恢复的目标与冲突。
+## [br]
+## @api private
 static func _mark_transaction_path_modified(
 	transaction: Dictionary,
 	target_path: String,
@@ -2035,6 +2153,9 @@ static func _mark_transaction_path_modified(
 	_active_transactions[transaction_id] = active_state
 
 
+## 为活动事务启用路径过滤并清空已修改路径集合；后续只有显式登记的路径参与回滚。
+## [br]
+## @api private
 static func _enable_selective_rollback(transaction: Dictionary) -> void:
 	var transaction_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		transaction,
@@ -2048,6 +2169,9 @@ static func _enable_selective_rollback(transaction: Dictionary) -> void:
 	_active_transactions[transaction_id] = active_state
 
 
+## 预检事务目标数量、允许根、可移植路径身份及现有文件摘要，并按快照总量加最大单份恢复空间计算备份预算；返回准备状态和问题列表。
+## [br]
+## @api private
 static func _normalize_transaction_paths(
 	paths: PackedStringArray,
 	options: Dictionary
@@ -2182,6 +2306,9 @@ static func _normalize_transaction_paths(
 	}
 
 
+## 将归一化结果投影为预检边界字典，包含 ready/rejected 状态、计数、条目报告和脱敏元数据。
+## [br]
+## @api private
 static func _make_preflight_boundary(
 	normalized: Dictionary,
 	options: Dictionary
@@ -2202,6 +2329,9 @@ static func _make_preflight_boundary(
 	}
 
 
+## 从规范结果构建对外提交报告，保留写入计数、回滚及恢复状态；仅 committed 或 dry_run 标记成功，需要恢复时深复制恢复事务。
+## [br]
+## @api private
 static func _make_commit_boundary(
 	normalized: Dictionary,
 	options: Dictionary,
@@ -2249,6 +2379,9 @@ static func _make_commit_boundary(
 	return result
 
 
+## 把归一化条目投影为报告字段，并对每条记录的 metadata 执行支持报告配置的脱敏转换。
+## [br]
+## @api private
 static func _make_entry_reports(normalized: Dictionary) -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
 	for entry_value: Variant in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(normalized, "entries"):
@@ -2270,6 +2403,9 @@ static func _make_entry_reports(normalized: Dictionary) -> Array[Dictionary]:
 	return reports
 
 
+## 把未能清理的受管暂存文件登记到恢复事务；可复用已有恢复句柄，新建恢复时使用完成清理动作，登记失败则追加诊断。
+## [br]
+## @api private
 static func _apply_staging_sidecar_recovery(
 	normalized: Dictionary,
 	entries: Array[Dictionary],
@@ -2307,6 +2443,9 @@ static func _apply_staging_sidecar_recovery(
 	normalized["recovery_transaction"] = recovery_transaction.duplicate(true)
 
 
+## 收集完整或部分写入的暂存现场，按路径合并到有效恢复事务；没有现有事务时在容量和身份允许的条件下登记仅负责清理的事务句柄。
+## [br]
+## @api private
 static func _register_staging_sidecar_cleanup(
 	entries: Array[Dictionary],
 	options: Dictionary,
@@ -2401,6 +2540,9 @@ static func _register_staging_sidecar_cleanup(
 	return handle
 
 
+## 提取清理暂存文件必需的目标、内容摘要、所有者和部分写入身份字段，不携带原始载荷。
+## [br]
+## @api private
 static func _make_staging_cleanup_entry(entry: Dictionary) -> Dictionary:
 	return {
 		"target_path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
@@ -2455,6 +2597,9 @@ static func _make_staging_cleanup_entry(entry: Dictionary) -> Dictionary:
 	}
 
 
+## 尝试完成失败初始化的事务清理，并合并原始与清理诊断；清理仍需恢复时返回独立恢复句柄，失败主结果不保留可用事务身份。
+## [br]
+## @api private
 static func _finalize_failed_begin(
 	transaction: Dictionary,
 	issues: PackedStringArray
@@ -2512,6 +2657,9 @@ static func _finalize_failed_begin(
 	}
 
 
+## 构造事务动作结果；仅当 recovery_transaction 非空时标记需要恢复并复制该字典。
+## [br]
+## @api private
 static func _make_transaction_action_report(
 	ok: bool,
 	status: StringName,
@@ -2538,6 +2686,9 @@ static func _make_transaction_action_report(
 	}
 
 
+## 从活动状态的 entries 中保留 Dictionary 项，忽略其他类型。
+## [br]
+## @api private
 static func _get_transaction_entries(
 	active_state: Dictionary
 ) -> Array[Dictionary]:
@@ -2552,6 +2703,9 @@ static func _get_transaction_entries(
 	return entries
 
 
+## 从活动状态的 staging_cleanup_entries 中保留 Dictionary 项，忽略其他类型。
+## [br]
+## @api private
 static func _get_staging_cleanup_entries(
 	active_state: Dictionary
 ) -> Array[Dictionary]:
@@ -2566,6 +2720,9 @@ static func _get_staging_cleanup_entries(
 	return entries
 
 
+## 读取由 sidecar_kind 拼出的写入状态键；字段缺失时回退到 pending。
+## [br]
+## @api private
 static func _get_sidecar_write_state(
 	entry: Dictionary,
 	sidecar_kind: String
@@ -2577,6 +2734,9 @@ static func _get_sidecar_write_state(
 	)
 
 
+## 清空写入报告并填入 pending 状态、默认错误码及空的部分文件身份字段。
+## [br]
+## @api private
 static func _initialize_owned_write_report(write_report: Dictionary) -> void:
 	write_report.clear()
 	write_report["state"] = _WRITE_STATE_PENDING
@@ -2587,6 +2747,9 @@ static func _initialize_owned_write_report(write_report: Dictionary) -> void:
 	write_report["partial_sha256"] = ""
 
 
+## 按暂存文件种类把写入状态、写入和清理错误及部分文件身份写回条目。
+## [br]
+## @api private
 static func _apply_owned_write_report(
 	entry: Dictionary,
 	sidecar_kind: String,
@@ -2633,6 +2796,9 @@ static func _apply_owned_write_report(
 	)
 
 
+## 在清理部分写入前捕获当前普通文件摘要；文件已消失时回到待写入状态，无法确认身份时保留部分状态并返回错误。
+## [br]
+## @api private
 static func _record_owned_partial_before_cleanup(
 	path: String,
 	write_report: Dictionary
@@ -2663,6 +2829,9 @@ static func _record_owned_partial_before_cleanup(
 	return OK
 
 
+## 分别追加受管文件的写入错误和部分清理错误，使两种失败均保留在问题列表中。
+## [br]
+## @api private
 static func _append_owned_write_report_issues(
 	issues: PackedStringArray,
 	target_path: String,
@@ -2697,6 +2866,9 @@ static func _append_owned_write_report_issues(
 		)
 
 
+## 从条目的指定文件种类字段提取写入和清理错误，再用展示标签追加诊断。
+## [br]
+## @api private
 static func _append_owned_write_entry_issues(
 	issues: PackedStringArray,
 	target_path: String,
@@ -2724,6 +2896,9 @@ static func _append_owned_write_entry_issues(
 	)
 
 
+## 仅对部分写入且仍存在的受管文件核对路径结构与已记录的大小和哈希；身份未知或变化时拒绝后续清理。
+## [br]
+## @api private
 static func _get_owned_partial_sidecar_error(
 	entry: Dictionary,
 	sidecar_kind: String
@@ -2769,6 +2944,9 @@ static func _get_owned_partial_sidecar_error(
 	return OK
 
 
+## 验证部分写入文件身份后清理；已不存在或成功删除时清空路径并恢复待写入状态，失败时保留记录。
+## [br]
+## @api private
 static func _remove_owned_partial_sidecar(
 	entry: Dictionary,
 	sidecar_kind: String
@@ -2800,6 +2978,9 @@ static func _remove_owned_partial_sidecar(
 	return OK
 
 
+## 按写入状态清理受管暂存文件，完整文件必须匹配预期内容，部分文件使用已捕获身份；成功或已缺失时清除路径和写入状态。
+## [br]
+## @api private
 static func _remove_owned_staging_sidecar(entry: Dictionary) -> Error:
 	var staging_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		entry,
@@ -2842,6 +3023,9 @@ static func _remove_owned_staging_sidecar(entry: Dictionary) -> Error:
 	return OK
 
 
+## 把最新条目序列写入活动状态并回存到事务注册表。
+## [br]
+## @api private
 static func _store_transaction_entries(
 	transaction_id: String,
 	active_state: Dictionary,
@@ -2851,6 +3035,9 @@ static func _store_transaction_entries(
 	_active_transactions[transaction_id] = active_state
 
 
+## 读取条目的 rollback_phase；字段为空时返回 pending 状态标记。
+## [br]
+## @api private
 static func _get_rollback_phase(entry: Dictionary) -> StringName:
 	var rollback_phase: StringName = (
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
@@ -2863,6 +3050,9 @@ static func _get_rollback_phase(entry: Dictionary) -> StringName:
 	return rollback_phase
 
 
+## 验证事务句柄并定位目标条目，记录目标已被移除的回滚阶段；句柄或目标无效时返回 false。
+## [br]
+## @api private
 static func _record_rollback_target_removed(
 	transaction: Dictionary,
 	target_path: String
@@ -2893,6 +3083,9 @@ static func _record_rollback_target_removed(
 	return true
 
 
+## 将指定条目标记为目标已移除，并清除旧的失败现场身份，再保存事务状态。
+## [br]
+## @api private
 static func _record_rollback_target_removed_state(
 	transaction_id: String,
 	active_state: Dictionary,
@@ -2909,6 +3102,9 @@ static func _record_rollback_target_removed_state(
 	_store_transaction_entries(transaction_id, active_state, entries)
 
 
+## 验证事务并定位目标，捕获恢复失败后的现场身份；返回是否成功确认该现场状态。
+## [br]
+## @api private
 static func _record_rollback_restore_failure(
 	transaction: Dictionary,
 	target_path: String
@@ -2938,6 +3134,9 @@ static func _record_rollback_restore_failure(
 	)
 
 
+## 捕获目标当前的普通文件状态，将回滚阶段设为恢复失败并清除恢复暂存路径；无论能否确认身份都保存状态，返回身份是否已知。
+## [br]
+## @api private
 static func _record_rollback_restore_failure_state(
 	transaction_id: String,
 	active_state: Dictionary,
@@ -2986,6 +3185,9 @@ static func _record_rollback_restore_failure_state(
 	return state_known
 
 
+## 按 path 精确匹配目标路径，返回首个条目索引；没有匹配项时返回 -1。
+## [br]
+## @api private
 static func _find_transaction_entry_index(
 	entries: Array[Dictionary],
 	target_path: String
@@ -3002,6 +3204,9 @@ static func _find_transaction_entry_index(
 	return -1
 
 
+## 保留给定半开索引区间内的未完成条目并回存事务，以便恢复时从剩余工作继续。
+## [br]
+## @api private
 static func _retain_transaction_entries(
 	transaction_id: String,
 	active_state: Dictionary,
@@ -3016,6 +3221,9 @@ static func _retain_transaction_entries(
 	_active_transactions[transaction_id] = active_state
 
 
+## 依次检查事务初始化状态、格式、版本、open 状态、活动登记和句柄身份；验证通过返回空字符串，否则返回首个对应错误。
+## [br]
+## @api private
 static func _get_transaction_validation_error(transaction: Dictionary) -> String:
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(transaction, "ok"):
 		return "Artifact transaction was not initialized successfully."
@@ -3041,6 +3249,9 @@ static func _get_transaction_validation_error(transaction: Dictionary) -> String
 	return ""
 
 
+## 按回滚过滤集合和条目阶段验证目标、备份及恢复暂存文件；待回滚项保存本轮观察到的目标摘要，重试项必须仍匹配已记录的中间状态，发现漂移时返回问题而不改写文件。
+## [br]
+## @api private
 static func _get_rollback_preflight_issues(
 	entries: Array,
 	has_rollback_filter: bool,
@@ -3285,6 +3496,9 @@ static func _get_rollback_preflight_issues(
 	return issues
 
 
+## 先验证备份并清理可确认身份的部分恢复文件，再复用有效恢复文件或从备份复制；保留写入报告，并在复制完成后再次核对恢复内容。
+## [br]
+## @api private
 static func _prepare_rollback_restore(
 	entry: Dictionary,
 	transaction_id: String,
@@ -3342,6 +3556,9 @@ static func _prepare_rollback_restore(
 	return _get_rollback_restore_error(entry, false)
 
 
+## 验证恢复文件的受管路径、普通文件属性及原始内容摘要；缺失是否可接受由 allow_missing 决定。
+## [br]
+## @api private
 static func _get_rollback_restore_error(
 	entry: Dictionary,
 	allow_missing: bool
@@ -3381,6 +3598,9 @@ static func _get_rollback_restore_error(
 	return OK
 
 
+## 确认回滚目标仍处于可识别且不存在的状态；目标重新出现或身份不安全时返回损坏错误。
+## [br]
+## @api private
 static func _get_target_removed_state_error(entry: Dictionary) -> Error:
 	var target_state: Dictionary = _capture_regular_file_state(
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "path")
@@ -3396,6 +3616,9 @@ static func _get_target_removed_state_error(entry: Dictionary) -> Error:
 	return OK
 
 
+## 要求已保存恢复失败现场身份，并确认目标仍匹配该现场的存在性、大小与哈希。
+## [br]
+## @api private
 static func _get_recorded_restore_failure_error(entry: Dictionary) -> Error:
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
 		entry,
@@ -3425,6 +3648,9 @@ static func _get_recorded_restore_failure_error(entry: Dictionary) -> Error:
 	return OK
 
 
+## 拒绝空路径、链接路径和目录，返回普通文件的存在状态、大小与哈希；缺失文件返回有效的空状态。
+## [br]
+## @api private
 static func _capture_regular_file_state(path: String) -> Dictionary:
 	if (
 		path.is_empty()
@@ -3457,6 +3683,9 @@ static func _capture_regular_file_state(path: String) -> Dictionary:
 	}
 
 
+## 先要求 state.ok 和 existed 与期望相同；文件存在时还要求期望大小非负、SHA-256 格式有效且大小与哈希均匹配。
+## [br]
+## @api private
 static func _file_state_matches_expected(
 	state: Dictionary,
 	expected_existed: bool,
@@ -3490,6 +3719,9 @@ static func _file_state_matches_expected(
 	)
 
 
+## 重新捕获目标状态，与本轮回滚预检保存的观察摘要比较；目标变化时阻止后续操作。
+## [br]
+## @api private
 static func _get_observed_target_state_error(entry: Dictionary) -> Error:
 	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		entry,
@@ -3516,6 +3748,9 @@ static func _get_observed_target_state_error(entry: Dictionary) -> Error:
 	return OK
 
 
+## 空备份路径视为无需备份，否则验证受管路径和原始内容摘要；有路径但文件缺失时依 allow_missing 决定是否报错。
+## [br]
+## @api private
 static func _get_transaction_backup_error(
 	entry: Dictionary,
 	allow_missing: bool
@@ -3555,6 +3790,9 @@ static func _get_transaction_backup_error(
 	return OK
 
 
+## 验证备份身份和内容后删除文件，并确认路径不再被文件或目录占用；空路径或被允许的缺失状态直接成功。
+## [br]
+## @api private
 static func _remove_transaction_backup(
 	entry: Dictionary,
 	allow_missing: bool
@@ -3584,6 +3822,9 @@ static func _remove_transaction_backup(
 	return OK
 
 
+## 核对恢复后的目标是否与事务开始时记录的存在性、大小和哈希一致。
+## [br]
+## @api private
 static func _get_restored_target_error(entry: Dictionary) -> Error:
 	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		entry,
@@ -3608,6 +3849,9 @@ static func _get_restored_target_error(entry: Dictionary) -> Error:
 	return OK
 
 
+## 清理注册的暂存条目，把仍有暂存路径的失败项保留到活动事务，并返回对应目标路径与诊断以供重试。
+## [br]
+## @api private
 static func _complete_registered_staging_cleanup(
 	transaction_id: String,
 	active_state: Dictionary
@@ -3641,6 +3885,9 @@ static func _complete_registered_staging_cleanup(
 	}
 
 
+## 逐项清理指定路径字段，暂存文件走所有者与写入状态校验路径；成功后清空字段，失败则保留路径并收集问题。
+## [br]
+## @api private
 static func _cleanup_entry_sidecars(
 	entries: Array[Dictionary],
 	field_name: String
@@ -3680,6 +3927,9 @@ static func _cleanup_entry_sidecars(
 	return issues
 
 
+## 将 additional 中的问题逐项追加到 target 的 issues 字段，再写回 target。
+## [br]
+## @api private
 static func _merge_issues(
 	target: Dictionary,
 	additional: PackedStringArray
@@ -3690,6 +3940,9 @@ static func _merge_issues(
 	target["issues"] = issues
 
 
+## 以目标路径哈希、文件种类、事务 ID 和条目索引构造同目录受管文件名；身份格式或索引无效时返回空路径。
+## [br]
+## @api private
 static func _make_sidecar_path(
 	target_path: String,
 	kind: String,
@@ -3716,6 +3969,9 @@ static func _make_sidecar_path(
 	)
 
 
+## 根据目标与所有者身份重建期望路径，严格核对目录、文件名、字节长度及无链接条件；不在此步骤验证文件内容。
+## [br]
+## @api private
 static func _get_sidecar_path_schema_error(
 	entry: Dictionary,
 	sidecar_kind: String
@@ -3778,6 +4034,9 @@ static func _get_sidecar_path_schema_error(
 	return OK
 
 
+## 拒绝已有目标与链接路径后写入字节，并核对写入位置、最终大小和哈希；失败交给部分文件清理流程，成功把报告标为完整写入。
+## [br]
+## @api private
 static func _write_bytes(
 	path: String,
 	bytes: PackedByteArray,
@@ -3822,6 +4081,9 @@ static func _write_bytes(
 	return OK
 
 
+## 记录原始写入错误并捕获部分文件身份，确认现场未变后尝试删除；清理失败优先作为返回错误，同时在报告中保留原始写入错误与恢复身份。
+## [br]
+## @api private
 static func _resolve_owned_write_failure(
 	path: String,
 	write_error: Error,
@@ -3858,6 +4120,9 @@ static func _resolve_owned_write_failure(
 	return cleanup_error if cleanup_error != OK else effective_write_error
 
 
+## 清理前验证部分写入报告对应的路径与已捕获文件摘要；文件缺失视为已清理，身份未知或变化时拒绝删除。
+## [br]
+## @api private
 static func _get_owned_write_report_partial_error(
 	path: String,
 	write_report: Dictionary
@@ -3903,6 +4168,9 @@ static func _get_owned_write_report_partial_error(
 	return OK
 
 
+## 在目标缺失且两端路径无链接时按固定块大小复制已知长度文件，最终核对来源长度及目标大小和哈希；读取、写入或校验失败时处理受管部分文件。
+## [br]
+## @api private
 static func _copy_file(
 	source_path: String,
 	target_path: String,
@@ -3982,6 +4250,9 @@ static func _copy_file(
 	return OK
 
 
+## 空路径或缺失文件直接成功，拒绝目录及存在文件的链接路径；删除后复核路径未被文件、目录或链接重新占用。
+## [br]
+## @api private
 static func _remove_file_path(path: String) -> Error:
 	if path.is_empty():
 		return OK
@@ -4004,6 +4275,9 @@ static func _remove_file_path(path: String) -> Error:
 	return OK
 
 
+## 有待注入的删除失败时递减计数器并返回 ERR_CANT_CREATE；否则委托通用路径删除方法。
+## [br]
+## @api private
 static func _remove_owned_sidecar_path(path: String) -> Error:
 	if _test_owned_remove_failures > 0:
 		_test_owned_remove_failures -= 1
@@ -4011,6 +4285,9 @@ static func _remove_owned_sidecar_path(path: String) -> Error:
 	return _remove_file_path(path)
 
 
+## 设置复制后写入、字节写入后和自有路径删除三类测试故障次数，负值按零处理。
+## [br]
+## @api private
 static func _configure_test_owned_write_failures(
 	copy_failures_after_write: int,
 	bytes_failures_after_write: int,
@@ -4027,12 +4304,18 @@ static func _configure_test_owned_write_failures(
 	_test_owned_remove_failures = maxi(remove_failures, 0)
 
 
+## 将三类测试故障注入计数器全部重置为零。
+## [br]
+## @api private
 static func _reset_test_owned_write_failures() -> void:
 	_test_copy_failures_after_write = 0
 	_test_bytes_failures_after_write = 0
 	_test_owned_remove_failures = 0
 
 
+## 将路径转为绝对路径并逐级检查当前组件和父目录，任一级为链接即返回 true。
+## [br]
+## @api private
 static func _path_has_link_component(path: String) -> bool:
 	var current: String = _trim_trailing_separators(
 		ProjectSettings.globalize_path(path).replace("\\", "/")
@@ -4049,6 +4332,9 @@ static func _path_has_link_component(path: String) -> bool:
 	return false
 
 
+## 通过父目录判断当前组件是否为链接；父目录存在但不能打开时保守返回 true。
+## [br]
+## @api private
 static func _path_component_is_link(path: String) -> bool:
 	var normalized: String = _trim_trailing_separators(path.replace("\\", "/"))
 	var parent: String = normalized.get_base_dir()
@@ -4061,6 +4347,9 @@ static func _path_component_is_link(path: String) -> bool:
 	return directory.is_link(component_name)
 
 
+## 限制组件为无控制字符的 ASCII 名称，拒绝空值、点目录、尾随空格或点、路径保留字符及 Windows 设备名。
+## [br]
+## @api private
 static func _portable_component_is_valid(component: String) -> bool:
 	if (
 		component.is_empty()
@@ -4088,6 +4377,9 @@ static func _portable_component_is_valid(component: String) -> bool:
 	return true
 
 
+## 检查字符串中每个 Unicode 码点是否都不大于 0x7f。
+## [br]
+## @api private
 static func _string_is_ascii(value: String) -> bool:
 	for index: int in range(value.length()):
 		if value.unicode_at(index) > 0x7f:
@@ -4095,6 +4387,9 @@ static func _string_is_ascii(value: String) -> bool:
 	return true
 
 
+## 检查字符串是否含有 U+0000 至 U+001F 或 U+007F 控制字符。
+## [br]
+## @api private
 static func _string_has_control_character(value: String) -> bool:
 	for index: int in range(value.length()):
 		var codepoint: int = value.unicode_at(index)
@@ -4103,6 +4398,9 @@ static func _string_has_control_character(value: String) -> bool:
 	return false
 
 
+## 移除路径末尾的斜杠，但至少保留一个字符。
+## [br]
+## @api private
 static func _trim_trailing_separators(path: String) -> String:
 	var result: String = path
 	while result.length() > 1 and result.ends_with("/"):
@@ -4110,6 +4408,9 @@ static func _trim_trailing_separators(path: String) -> String:
 	return result
 
 
+## 读取文件长度；无法打开文件时返回 -1。
+## [br]
+## @api private
 static func _file_size(path: String) -> int:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
@@ -4119,6 +4420,9 @@ static func _file_size(path: String) -> int:
 	return size
 
 
+## 从字典字段读取 PackedByteArray；字段类型不匹配时返回空字节数组。
+## [br]
+## @api private
 static func _get_packed_byte_array(
 	source: Dictionary,
 	key: String
@@ -4130,6 +4434,9 @@ static func _get_packed_byte_array(
 	return PackedByteArray()
 
 
+## 使用 support 脱敏配置转换报告元数据，并将路径脱敏模式设为 basename。
+## [br]
+## @api private
 static func _to_report_metadata(metadata: Dictionary) -> Dictionary:
 	return _GF_REPORT_VALUE_CODEC_SCRIPT.to_report_dictionary(
 		metadata,
@@ -4140,6 +4447,9 @@ static func _to_report_metadata(metadata: Dictionary) -> Dictionary:
 	)
 
 
+## 把单条问题包装成 PackedStringArray，再交给 begin 失败报告构造器。
+## [br]
+## @api private
 static func _make_begin_failure(
 	issue: String,
 	options: Dictionary
@@ -4150,6 +4460,9 @@ static func _make_begin_failure(
 	)
 
 
+## 构建无可用事务身份的初始化失败报告，复制问题列表、规范非负计数并转换元数据；该路径不登记恢复任务。
+## [br]
+## @api private
 static func _make_begin_failure_report(
 	issues: PackedStringArray,
 	options: Dictionary,
@@ -4178,6 +4491,9 @@ static func _make_begin_failure_report(
 	}
 
 
+## 读取 String 或 StringName 键对应的整数；缺键返回 fallback，类型或范围不合法返回 -1，allow_zero 决定下界是零还是一。
+## [br]
+## @api private
 static func _bounded_limit_option(
 	options: Dictionary,
 	key: String,
@@ -4202,6 +4518,9 @@ static func _bounded_limit_option(
 	return int_value
 
 
+## 最多尝试生成八个事务 ID，返回首个非空且未在活动事务表登记的值；全部冲突时返回空字符串。
+## [br]
+## @api private
 static func _make_unique_transaction_id() -> String:
 	for _attempt: int in range(8):
 		var candidate: String = _make_transaction_id()
@@ -4210,6 +4529,9 @@ static func _make_unique_transaction_id() -> String:
 	return ""
 
 
+## 优先把 16 字节随机数编码为十六进制事务 ID；长度异常时用进程 ID 与微秒计时生成哈希回退值。
+## [br]
+## @api private
 static func _make_transaction_id() -> String:
 	var random_bytes: PackedByteArray = Crypto.new().generate_random_bytes(16)
 	if random_bytes.size() == 16:
@@ -4220,6 +4542,9 @@ static func _make_transaction_id() -> String:
 	return _sha256_bytes(fallback_bytes).substr(0, 32)
 
 
+## 计算字节数组的 SHA-256 小写十六进制文本；上下文启动或更新失败时返回空字符串。
+## [br]
+## @api private
 static func _sha256_bytes(bytes: PackedByteArray) -> String:
 	var context: HashingContext = HashingContext.new()
 	var start_error: Error = context.start(HashingContext.HASH_SHA256)
@@ -4231,10 +4556,16 @@ static func _sha256_bytes(bytes: PackedByteArray) -> String:
 	return context.finish().hex_encode()
 
 
+## 检查文本是否为 64 位小写十六进制 SHA-256 值。
+## [br]
+## @api private
 static func _is_sha256(value: String) -> bool:
 	return _is_lower_hex(value, 64)
 
 
+## 检查文本长度是否匹配且所有字符均为 0–9 或 a–f。
+## [br]
+## @api private
 static func _is_lower_hex(value: String, expected_length: int) -> bool:
 	if value.length() != expected_length:
 		return false
@@ -4244,6 +4575,9 @@ static func _is_lower_hex(value: String, expected_length: int) -> bool:
 	return true
 
 
+## 仅在请求扫描且处于编辑器时获取 EditorFileSystem 并触发 scan。
+## [br]
+## @api private
 static func _scan_filesystem_if_needed(scan_filesystem: bool) -> void:
 	if not scan_filesystem or not Engine.is_editor_hint():
 		return

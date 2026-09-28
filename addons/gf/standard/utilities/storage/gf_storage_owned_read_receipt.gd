@@ -33,28 +33,106 @@ enum FailureKind {
 
 # --- 常量 ---
 
+## receipt 配置白名单中必须为 int 的字段名。
+## [br]
+## @api private
+## [br]
 const _INTEGER_FIELDS: PackedStringArray = [
 	"request_id", "consumer_id", "status", "end_kind", "error_code",
 	"failure_kind", "read_failure_kind", "source_version", "target_version",
 ]
+
+## receipt 配置白名单中必须为 bool 的字段名。
+## [br]
+## @api private
+## [br]
 const _BOOLEAN_FIELDS: PackedStringArray = ["migrated", "integrity_checked", "integrity_ok"]
 
 
 # --- 私有变量 ---
 
+## Utility 分配的物理请求 ID。
+## [br]
+## @api private
+## [br]
 var _request_id: int = 0
+
+## 当前 owned-read consumer ID。
+## [br]
+## @api private
+## [br]
 var _consumer_id: int = 0
+
+## 已验证的规范逻辑文件名。
+## [br]
+## @api private
+## [br]
 var _file_name: String = ""
+
+## owned-read caller 的闭合终态分类。
+## [br]
+## @api private
+## [br]
 var _status: GFStorageAsyncCallerResult.Status = GFStorageAsyncCallerResult.Status.CANCELLED
+
+## caller 终态的来源分类。
+## [br]
+## @api private
+## [br]
 var _end_kind: GFStorageAsyncCallerResult.EndKind = GFStorageAsyncCallerResult.EndKind.PHYSICAL_SETTLEMENT
+
+## caller 终态对应的 Godot Error 码。
+## [br]
+## @api private
+## [br]
 var _error_code: Error = ERR_UNCONFIGURED
+
+## 独占读取或交付的稳定失败分类。
+## [br]
+## @api private
+## [br]
 var _failure_kind: FailureKind = FailureKind.READ_FAILED
+
+## 底层文件读取、解码、校验或迁移失败分类。
+## [br]
+## @api private
+## [br]
 var _read_failure_kind: GFStorageReadResult.FailureKind = GFStorageReadResult.FailureKind.UNAVAILABLE
+
+## 读取到的源数据版本。
+## [br]
+## @api private
+## [br]
 var _source_version: int = 0
+
+## 读取迁移后的目标数据版本。
+## [br]
+## @api private
+## [br]
 var _target_version: int = 0
+
+## 标记本次读取是否执行了数据迁移。
+## [br]
+## @api private
+## [br]
 var _migrated: bool = false
+
+## 标记本次读取是否取得完整性检查状态。
+## [br]
+## @api private
+## [br]
 var _integrity_checked: bool = false
+
+## 标记完整性检查是否通过。
+## [br]
+## @api private
+## [br]
 var _integrity_ok: bool = false
+
+## 与本次读取配对的不可变 committed revision；不重新查询当前磁盘状态。
+## [br]
+## @api private
+## [br]
 var _committed_revision: GFStorageRevisionResult = null
 
 
@@ -333,6 +411,10 @@ func configure_for_framework(info: Dictionary) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 要求 info 恰有白名单字段，并检查整数、布尔、文件名和可选 revision 的类型。
+## [br]
+## @api private
+## [br]
 func _has_valid_shape(info: Dictionary) -> bool:
 	if info.size() != _INTEGER_FIELDS.size() + _BOOLEAN_FIELDS.size() + 2:
 		return false

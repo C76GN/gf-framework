@@ -64,7 +64,14 @@ signal enabled_changed(enabled: bool)
 
 # --- 常量 ---
 
+## 提供接收器过滤、委托调用和结果整理的共享流程。
+## [br]
+## @api private
 const _MESSAGE_RECEIVER_SUPPORT = preload("res://addons/gf/standard/common/gf_message_receiver_support.gd")
+
+## 框架生成的首个 CollisionShape2D 子节点名称及后续编号前缀。
+## [br]
+## @api private
 const _GENERATED_COLLISION_SHAPE_NODE_NAME: StringName = &"GFGeneratedCollisionShape2D"
 
 
@@ -159,7 +166,14 @@ var validation_callback: Callable = Callable()
 
 # --- 私有变量 ---
 
+## collision_shape_config 的存储值；配置 setter 可在场景树内立即应用它。
+## [br]
+## @api private
 var _collision_shape_config: GFHitCollisionShapeConfig2D = null
+
+## collision_shape_configs 的存储数组；属性 setter 与显式 apply 方法直接保存传入数组。
+## [br]
+## @api private
 var _collision_shape_configs: Array[GFHitCollisionShapeConfig2D] = []
 
 
@@ -316,6 +330,9 @@ func receive_hit(context: GFCombatHitContext) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 空路径或路径指向自身时返回 null；其他情况下返回路径解析出的节点。
+## [br]
+## @api private
 func _resolve_receiver() -> Object:
 	if receiver_path == NodePath(""):
 		return null
@@ -325,18 +342,30 @@ func _resolve_receiver() -> Object:
 	return receiver
 
 
+## 将接收流程传入的上下文和报告直接转发给 hit_validating 信号。
+## [br]
+## @api private
 func _emit_hit_validating(context: GFCombatHitContext, report: Dictionary) -> void:
 	hit_validating.emit(context, report)
 
 
+## 将接收流程传入的上下文和报告直接转发给 hit_received 信号。
+## [br]
+## @api private
 func _emit_hit_received(context: GFCombatHitContext, report: Dictionary) -> void:
 	hit_received.emit(context, report)
 
 
+## 将接收流程传入的上下文和报告直接转发给 hit_rejected 信号。
+## [br]
+## @api private
 func _emit_hit_rejected(context: GFCombatHitContext, report: Dictionary) -> void:
 	hit_rejected.emit(context, report)
 
 
+## 将单个配置包装为列表交给批量应用，并返回结果中的首个形状或 null。
+## [br]
+## @api private
 func _apply_collision_shape_config(config: GFHitCollisionShapeConfig2D) -> CollisionShape2D:
 	var configs: Array[GFHitCollisionShapeConfig2D] = []
 	if config != null:
@@ -347,6 +376,9 @@ func _apply_collision_shape_config(config: GFHitCollisionShapeConfig2D) -> Colli
 	return generated_shapes[0]
 
 
+## 按配置顺序复用或创建生成节点；无效项跳过，失败项不占序号，完成后清理未使用的尾部节点。
+## [br]
+## @api private
 func _apply_collision_shape_configs(configs: Array[GFHitCollisionShapeConfig2D]) -> Array[CollisionShape2D]:
 	var generated_shapes: Array[CollisionShape2D] = []
 	var generated_index: int = 0
@@ -363,6 +395,9 @@ func _apply_collision_shape_configs(configs: Array[GFHitCollisionShapeConfig2D])
 	return generated_shapes
 
 
+## 返回指定生成名称下的 CollisionShape2D；不存在可用节点时创建并加入当前节点。
+## [br]
+## @api private
 func _get_or_create_collision_shape(index: int = 0) -> CollisionShape2D:
 	var collision_shape: CollisionShape2D = _get_collision_shape_2d_value(get_node_or_null(_get_generated_collision_shape_name(index)))
 	if collision_shape != null:
@@ -374,6 +409,9 @@ func _get_or_create_collision_shape(index: int = 0) -> CollisionShape2D:
 	return collision_shape
 
 
+## 从给定编号开始连续查找并排队释放生成节点，遇到首个缺失或类型不符的节点即停止。
+## [br]
+## @api private
 func _clear_generated_collision_shapes_from_index(start_index: int) -> void:
 	var index: int = start_index
 	while true:
@@ -385,12 +423,18 @@ func _clear_generated_collision_shapes_from_index(start_index: int) -> void:
 		index += 1
 
 
+## 索引 0 或更小使用基础名称；正索引映射为从 2 开始的名称后缀。
+## [br]
+## @api private
 func _get_generated_collision_shape_name(index: int) -> String:
 	if index <= 0:
 		return String(_GENERATED_COLLISION_SHAPE_NODE_NAME)
 	return "%s%d" % [String(_GENERATED_COLLISION_SHAPE_NODE_NAME), index + 1]
 
 
+## 将节点值收窄为 CollisionShape2D，类型不符时返回 null。
+## [br]
+## @api private
 func _get_collision_shape_2d_value(value: Variant) -> CollisionShape2D:
 	if value is CollisionShape2D:
 		var collision_shape: CollisionShape2D = value

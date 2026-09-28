@@ -3,6 +3,10 @@ extends Control
 
 # --- 私有变量 ---
 
+## 拥有此叠层的画布弱引用；绘制时再解析存活对象。
+## [br]
+## @api private
+## [br]
 var _canvas_ref: WeakRef = null
 
 

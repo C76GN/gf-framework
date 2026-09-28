@@ -7,41 +7,184 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 用于读取有界 JSON 对象的解析器脚本。
+## [br]
+## @api private
+## [br]
 const _BOUNDED_JSON_OBJECT_READER_SCRIPT = preload(
 	"res://addons/gf/kernel/core/gf_bounded_json_object_reader.gd"
 )
+
+## 提供 profile 编译资源边界的 analysis contract 脚本。
+## [br]
+## @api private
+## [br]
 const _ANALYSIS_CONTRACT_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd"
 )
+
+## canonical profile contract 文件的资源路径。
+## [br]
+## @api private
+## [br]
 const _CONTRACT_PATH: String = "res://addons/gf/tools/project_layout/contracts/project_profile_v1.contract.json"
 
+## canonical contract 的 schema 版本。
+## [br]
+## @api private
+## [br]
 const _CONTRACT_SCHEMA_VERSION: int = 1
+
+## canonical profile contract 的标识符。
+## [br]
+## @api private
+## [br]
 const _CONTRACT_ID: String = "gf.project_layout.profile.v1"
+
 # 该值只派生自 canonical contract 原始 bytes，不承载任何 profile 语义；
 # 文件身份漂移时 compiler 与所有 compilation consumer 都必须失败关闭。
+## 记录的 canonical contract 原始字节 SHA-256。
+## [br]
+## @api private
+## [br]
 const _CANONICAL_CONTRACT_SHA256: String = "31384c45fa02238ac6fd1715ea361011ad795fbc3ee8337c581e1e9271c3bb9e"
+
+## contract 文件不可用时使用的 bootstrap reason key。
+## [br]
+## @api private
+## [br]
 const _BOOTSTRAP_REASON_CONTRACT_UNAVAILABLE: String = "PROJECT_LAYOUT_PROFILE_CONTRACT_UNAVAILABLE"
+
+## contract 内容无效时使用的 bootstrap reason key。
+## [br]
+## @api private
+## [br]
 const _BOOTSTRAP_REASON_CONTRACT_INVALID: String = "PROJECT_LAYOUT_PROFILE_CONTRACT_INVALID"
+
+## 资源边界拒绝 profile 时使用的 reason code。
+## [br]
+## @api private
+## [br]
 const _RESOURCE_LIMIT_REASON_CODE: String = "PROJECT_LAYOUT_PROFILE_RESOURCE_LIMIT_EXCEEDED"
+
+## profile 结构遍历允许的最大嵌套深度。
+## [br]
+## @api private
+## [br]
 const _MAX_PROFILE_DEPTH: int = 64
+
+## profile 结构遍历允许检查的最大结构值数。
+## [br]
+## @api private
+## [br]
 const _MAX_PROFILE_STRUCTURE_VALUES: int = 65_536
+
+## profile 单个容器允许的最大元素数。
+## [br]
+## @api private
+## [br]
 const _MAX_PROFILE_COLLECTION_ITEMS: int = 8_192
+
+## profile 中任一字符串允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_PROFILE_STRING_LENGTH: int = _ANALYSIS_CONTRACT_SCRIPT.MAX_DATA_STRING_LENGTH
+
+## profile 字符串总字节数允许的最大值。
+## [br]
+## @api private
+## [br]
 const _MAX_PROFILE_STRING_BYTES: int = _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_STRING_BYTES
+
+## 单次 profile 编译允许的最大工作单位数。
+## [br]
+## @api private
+## [br]
 const _MAX_PROFILE_WORK_UNITS: int = 262_144
+
+## 编译诊断数组允许的最大元素数。
+## [br]
+## @api private
+## [br]
 const _MAX_PROFILE_DIAGNOSTICS: int = 256
+
+## profile contract 指定的正则表达式方言标识符。
+## [br]
+## @api private
+## [br]
 const _REGEX_DIALECT: String = "portable_safe_v1"
+
+## 正则表达式允许的最大 UTF-8 字节数。
+## [br]
+## @api private
+## [br]
 const _REGEX_MAX_UTF8_BYTES: int = 1_024
+
+## 正则表达式允许的最大分支数。
+## [br]
+## @api private
+## [br]
 const _REGEX_MAX_ALTERNATIVES: int = 32
+
+## 每个正则分支允许的最大量词数。
+## [br]
+## @api private
+## [br]
 const _REGEX_MAX_QUANTIFIERS_PER_BRANCH: int = 1
+
+## portable regex 方言允许转义的字面字符集合。
+## [br]
+## @api private
+## [br]
 const _REGEX_ALLOWED_ESCAPED_LITERALS: String = "\\.^$*+?()[]{}|/-"
+
+## operation scope 结构遍历允许的最大嵌套深度。
+## [br]
+## @api private
+## [br]
 const _MAX_OPERATION_SCOPE_DEPTH: int = 8
+
+## operation scope 遍历允许检查的最大结构值数。
+## [br]
+## @api private
+## [br]
 const _MAX_OPERATION_SCOPE_STRUCTURE_VALUES: int = 4_096
+
+## operation scope 单个容器允许的最大元素数。
+## [br]
+## @api private
+## [br]
 const _MAX_OPERATION_SCOPE_COLLECTION_ITEMS: int = 128
+
+## operation scope registry 允许的最大条目数。
+## [br]
+## @api private
+## [br]
 const _MAX_OPERATION_SCOPE_REGISTRY_ENTRIES: int = 64
+
+## operation scope 已执行字段列表允许的最大元素数。
+## [br]
+## @api private
+## [br]
 const _MAX_OPERATION_SCOPE_EXECUTED_FIELDS: int = 128
+
+## contract severity domain 接受的值集合。
+## [br]
+## @api private
+## [br]
 const _SEVERITY_DOMAIN: PackedStringArray = ["error", "warning", "info"]
+
+## naming target domain 接受的值集合。
+## [br]
+## @api private
+## [br]
 const _NAMING_TARGET_DOMAIN: PackedStringArray = ["path", "name", "stem"]
+
+## canonical contract 根字典允许的字段名集合。
+## [br]
+## @api private
+## [br]
 const _CONTRACT_FIELDS: PackedStringArray = [
 	"contract_schema_version",
 	"contract_id",
@@ -55,7 +198,17 @@ const _CONTRACT_FIELDS: PackedStringArray = [
 	"rule_kinds",
 	"reason_codes",
 ]
+
+## contract domains 字典允许的字段名集合。
+## [br]
+## @api private
+## [br]
 const _DOMAIN_FIELDS: PackedStringArray = ["severity", "naming_target"]
+
+## contract semantics 字典允许的字段名集合。
+## [br]
+## @api private
+## [br]
 const _SEMANTICS_FIELDS: PackedStringArray = [
 	"regex_match_mode",
 	"regex_dialect",
@@ -71,16 +224,31 @@ const _SEMANTICS_FIELDS: PackedStringArray = [
 	"extension",
 	"glob",
 ]
+
+## relative_path semantics 字典允许的字段名集合。
+## [br]
+## @api private
+## [br]
 const _RELATIVE_PATH_SEMANTICS_FIELDS: PackedStringArray = [
 	"allow_dot_segments",
 	"allow_empty_segments",
 	"allow_wildcards",
 ]
+
+## extension semantics 字典允许的字段名集合。
+## [br]
+## @api private
+## [br]
 const _EXTENSION_SEMANTICS_FIELDS: PackedStringArray = [
 	"trim_whitespace",
 	"lowercase",
 	"add_missing_leading_dot",
 ]
+
+## glob semantics 字典允许的字段名集合。
+## [br]
+## @api private
+## [br]
 const _GLOB_SEMANTICS_FIELDS: PackedStringArray = [
 	"match_entire_path",
 	"single_star_crosses_separator",
@@ -93,6 +261,11 @@ const _GLOB_SEMANTICS_FIELDS: PackedStringArray = [
 	"allow_character_classes",
 	"allow_triple_star",
 ]
+
+## contract 字段描述符可接受的 type 值集合。
+## [br]
+## @api private
+## [br]
 const _FIELD_TYPES: PackedStringArray = [
 	"bool",
 	"enum",
@@ -107,6 +280,11 @@ const _FIELD_TYPES: PackedStringArray = [
 	"relative_path_list",
 	"string",
 ]
+
+## contract 字段描述符允许的键名集合。
+## [br]
+## @api private
+## [br]
 const _FIELD_DESCRIPTOR_FIELDS: PackedStringArray = [
 	"type",
 	"required",
@@ -116,7 +294,17 @@ const _FIELD_DESCRIPTOR_FIELDS: PackedStringArray = [
 	"requires_capability",
 	"empty_semantics",
 ]
+
+## contract rule 描述符允许的字段名集合。
+## [br]
+## @api private
+## [br]
 const _RULE_DESCRIPTOR_FIELDS: PackedStringArray = ["default_severity", "fields"]
+
+## operation scope 字典允许的字段名集合。
+## [br]
+## @api private
+## [br]
 const _OPERATION_SCOPE_FIELDS: PackedStringArray = [
 	"executor_id",
 	"operation",
@@ -124,11 +312,26 @@ const _OPERATION_SCOPE_FIELDS: PackedStringArray = [
 	"unsupported_rule_policy",
 	"zone_executed_fields",
 ]
+
+## operation registry 条目允许的字段名集合。
+## [br]
+## @api private
+## [br]
 const _REGISTRY_ENTRY_FIELDS: PackedStringArray = ["handler", "executed_fields"]
+
+## 按 operation 保存 handler 允许的参数个数。
+## [br]
+## @api private
+## [br]
 const _OPERATION_HANDLER_ARGUMENT_COUNTS: Dictionary = {
 	"analyze": 4,
 	"plan": 3,
 }
+
+## contract 必须提供的诊断 reason key 集合。
+## [br]
+## @api private
+## [br]
 const _REQUIRED_REASON_KEYS: PackedStringArray = [
 	"contract_unavailable",
 	"contract_invalid",
@@ -153,11 +356,55 @@ const _REQUIRED_REASON_KEYS: PackedStringArray = [
 
 # --- 私有变量 ---
 
+## 当前 profile 编译操作累计消费的工作单位数。
+## [br]
+## @api private
+## [br]
 var _profile_work_units: int = 0
+
+## 当前 profile 编译操作是否已因资源边界终止。
+## [br]
+## @api private
+## [br]
 var _profile_compile_terminal: bool = false
 
 
 # --- 框架内部方法 ---
+
+## 供 Analyzer 与 Planner 共用的规范相对字面路径准入；拒绝协议、盘符、UNC、空段、点段及通配符，仅验证文本形状。
+## [br]
+## @api framework_internal
+## [br]
+## @param path: 待准入的原始文本，不在此修正或归一。
+## [br]
+## @return: 路径不符合 profile 的规范相对字面路径约束时为 true。
+static func _profile_relative_path_is_invalid(path: String) -> bool:
+	if path.is_empty() or path != path.strip_edges() or path.contains("\\") or path.ends_with("/"):
+		return true
+	if path.begins_with("/") or path.contains("://") or path.contains(":"):
+		return true
+	if path.is_absolute_path() or _is_filesystem_absolute_path(path):
+		return true
+	if path.contains("*") or path.contains("?") or path.contains("[") or path.contains("]"):
+		return true
+	return _path_has_invalid_segment(path)
+
+
+## 供 Analyzer 与编译器共用的相对 glob 准入；允许单星及双星，拒绝问号、字符类、三星及非规范路径段。
+## [br]
+## @api framework_internal
+## [br]
+## @param pattern: 待准入的原始文本，不在此修正或归一。
+## [br]
+## @return: 模式超出支持的相对 glob 语法时为 true。
+static func _profile_pattern_is_invalid(pattern: String) -> bool:
+	if pattern.is_empty() or pattern != pattern.strip_edges() or pattern.contains("\\") or pattern.ends_with("/"):
+		return true
+	if pattern.begins_with("/") or pattern.contains("://") or pattern.contains(":"):
+		return true
+	if pattern.contains("?") or pattern.contains("[") or pattern.contains("]") or pattern.contains("***"):
+		return true
+	return _path_has_invalid_segment(pattern)
 
 ## 判断摘要是否精确绑定当前规范版本的 canonical contract bytes。
 ## [br]
@@ -242,6 +489,9 @@ func compile_profile(profile: Dictionary, operation_scope: Dictionary) -> Dictio
 
 # --- 私有/辅助方法 ---
 
+## 创建一次编译的失败默认结果，初始化空 profile、诊断、能力与契约身份，成功状态由最终汇总确定。
+## [br]
+## @api private
 func _make_compile_result() -> Dictionary:
 	return {
 		"success": false,
@@ -255,6 +505,9 @@ func _make_compile_result() -> Dictionary:
 	}
 
 
+## 在编译执行器声明前限制注册表、字段集合及递归结构，累计文本字节和工作量并拒绝循环；允许 handler 所需 Callable，但不执行它们。
+## [br]
+## @api private
 func _operation_scope_structure_is_admissible(
 	operation_scope: Dictionary,
 	result: Dictionary
@@ -391,6 +644,9 @@ func _operation_scope_structure_is_admissible(
 	return true
 
 
+## 迭代准入有界 JSON 形状的 profile 或最终结果，累计节点、文本字节和工作量；拒绝循环、非文本键、对象值与非有限数并进入资源失败终态。
+## [br]
+## @api private
 func _profile_structure_is_admissible(profile: Dictionary, result: Dictionary) -> bool:
 	var stack: Array = [{
 		"value": profile,
@@ -480,6 +736,9 @@ func _profile_structure_is_admissible(profile: Dictionary, result: Dictionary) -
 	return true
 
 
+## 以容器身份检查当前递归活动路径，拒绝真正的循环引用而允许已退出分支再次引用同一容器。
+## [br]
+## @api private
 func _active_profile_container_exists(active_containers: Array, value: Variant) -> bool:
 	for active_value: Variant in active_containers:
 		if is_same(active_value, value):
@@ -487,6 +746,9 @@ func _active_profile_container_exists(active_containers: Array, value: Variant) 
 	return false
 
 
+## 在单次编译不可关闭的工作上限内累加额度；负数、超限或既有终态拒绝后续工作。
+## [br]
+## @api private
 func _consume_profile_work(result: Dictionary, work_units: int = 1) -> bool:
 	if _profile_compile_terminal:
 		return false
@@ -497,6 +759,9 @@ func _consume_profile_work(result: Dictionary, work_units: int = 1) -> bool:
 	return true
 
 
+## 首次资源失败时清除候选 profile、能力和契约身份，用单个统一错误替换诊断并重置计数；最终入口据终态计算 success。
+## [br]
+## @api private
 func _fail_profile_compile_limit(result: Dictionary, _limit_name: String) -> void:
 	if _profile_compile_terminal:
 		return
@@ -519,6 +784,9 @@ func _fail_profile_compile_limit(result: Dictionary, _limit_name: String) -> voi
 	result["warning_count"] = 0
 
 
+## 有界读取规范契约并绑定内容摘要，先核对框架认可的摘要，再验证字典结构及语义；任一失败不发布可用契约。
+## [br]
+## @api private
 func _load_contract() -> Dictionary:
 	var read_result: Dictionary = (
 		_BOUNDED_JSON_OBJECT_READER_SCRIPT.read_object_with_content_sha256(
@@ -558,6 +826,9 @@ func _load_contract() -> Dictionary:
 	}
 
 
+## 把打开、读取和载荷超限映射为契约不可用，其余解析失败映射为契约无效，并保留对应 bootstrap 原因码。
+## [br]
+## @api private
 func _contract_read_failure_result(read_result: Dictionary) -> Dictionary:
 	var error_kind: String = _get_string(read_result, "error_kind")
 	if error_kind == "open_failed" or error_kind == "read_failed" or error_kind == "payload_too_large":
@@ -579,6 +850,9 @@ func _contract_read_failure_result(read_result: Dictionary) -> Dictionary:
 	}
 
 
+## 检查契约闭合字段、版本和固定 domain，再验证字段与规则描述符、唯一原因码及实现支持的语义设置。
+## [br]
+## @api private
 func _contract_is_valid(contract: Dictionary) -> bool:
 	if not _dictionary_has_exact_fields(contract, _CONTRACT_FIELDS):
 		return false
@@ -666,6 +940,9 @@ func _contract_is_valid(contract: Dictionary) -> bool:
 	return _semantics_are_valid(contract)
 
 
+## 要求 profile、zone 和 rule 的核心字段仍具有规定类型及必填标志，防止通用描述符合法却削弱基础输入契约。
+## [br]
+## @api private
 func _contract_core_fields_are_valid(contract: Dictionary) -> bool:
 	var profile_fields: Dictionary = _get_dictionary(contract, "profile_fields")
 	var zone_fields: Dictionary = _get_dictionary(contract, "zone_fields")
@@ -682,6 +959,9 @@ func _contract_core_fields_are_valid(contract: Dictionary) -> bool:
 	)
 
 
+## 读取指定字段描述符并比较类型和 required 值；其他描述符限制由字段映射校验承担。
+## [br]
+## @api private
 func _descriptor_matches(
 	field_map: Dictionary,
 	field_name: String,
@@ -695,6 +975,9 @@ func _descriptor_matches(
 	return _get_string(descriptor, "type") == expected_type and _get_bool(descriptor, "required") == required
 
 
+## 要求描述符映射使用非空字段名且每项为合法描述符，首个无效项即拒绝整张字段表。
+## [br]
+## @api private
 func _field_map_is_valid(field_map: Dictionary, contract: Dictionary) -> bool:
 	for field_name_value: Variant in field_map.keys():
 		if not _is_non_empty_string_value(field_name_value):
@@ -708,6 +991,9 @@ func _field_map_is_valid(field_map: Dictionary, contract: Dictionary) -> bool:
 	return true
 
 
+## 检查描述符键闭集和支持类型，约束列表空值语义、enum domain 及可选布尔项，并验证默认值符合自身描述。
+## [br]
+## @api private
 func _field_descriptor_is_valid(descriptor: Dictionary, contract: Dictionary) -> bool:
 	if not _dictionary_has_only_fields(descriptor, _FIELD_DESCRIPTOR_FIELDS):
 		return false
@@ -735,6 +1021,9 @@ func _field_descriptor_is_valid(descriptor: Dictionary, contract: Dictionary) ->
 	return true
 
 
+## 逐项要求契约的正则、去重、feature 合并、路径、扩展名和 glob 设置与当前实现一致，拒绝仅形状合法的语义漂移。
+## [br]
+## @api private
 func _semantics_are_valid(contract: Dictionary) -> bool:
 	var semantics_value: Variant = contract.get("semantics")
 	if not semantics_value is Dictionary:
@@ -809,6 +1098,9 @@ func _semantics_are_valid(contract: Dictionary) -> bool:
 	)
 
 
+## 验证执行器操作、策略及注册表，要求有效 Callable 参数数匹配操作协议且声明字段属于契约；输出排序能力描述并保留注册表引用。
+## [br]
+## @api private
 func _compile_operation_scope(operation_scope: Dictionary, contract: Dictionary, result: Dictionary) -> Dictionary:
 	if not _consume_profile_work(result):
 		return {}
@@ -910,6 +1202,9 @@ func _compile_operation_scope(operation_scope: Dictionary, contract: Dictionary,
 	}
 
 
+## 编译顶层字段并校验 schema 版本，再分别编译 zones 和 rules；错误留在共享结果，仍构造候选字典供外层统一决定是否发布。
+## [br]
+## @api private
 func _compile_profile_data(profile: Dictionary, contract: Dictionary, scope: Dictionary, result: Dictionary) -> Dictionary:
 	var profile_definitions: Dictionary = _get_dictionary(contract, "profile_fields")
 	var compiled: Dictionary = _compile_fields(
@@ -961,6 +1256,9 @@ func _compile_profile_data(profile: Dictionary, contract: Dictionary, scope: Dic
 	return compiled
 
 
+## 按输入顺序编译区域字段，依据执行器能力处理未执行字段并记录重复区域 ID；资源终止时丢弃整个候选区域数组。
+## [br]
+## @api private
 func _compile_zones(zones: Array, contract: Dictionary, scope: Dictionary, result: Dictionary) -> Array:
 	var compiled_zones: Array = []
 	var seen_ids: Dictionary = {}
@@ -1002,6 +1300,9 @@ func _compile_zones(zones: Array, contract: Dictionary, scope: Dictionary, resul
 	return compiled_zones
 
 
+## 按输入顺序合并规则描述并编译字段，核对重复 ID、契约支持及执行器策略；缺省严重级别取规则契约，资源终止时返回空数组。
+## [br]
+## @api private
 func _compile_rules(rules: Array, contract: Dictionary, scope: Dictionary, result: Dictionary) -> Array:
 	var compiled_rules: Array = []
 	var seen_ids: Dictionary = {}
@@ -1078,6 +1379,9 @@ func _compile_rules(rules: Array, contract: Dictionary, scope: Dictionary, resul
 	return compiled_rules
 
 
+## 先报告未知输入键，再按排序描述符应用默认值和字段编译；需要但未被执行器声明的能力字段告警并省略，不把接受形状等同于执行。
+## [br]
+## @api private
 func _compile_fields(
 	source: Dictionary,
 	definitions: Dictionary,
@@ -1153,6 +1457,9 @@ func _compile_fields(
 	return compiled
 
 
+## 按已验证描述符检查并规范单值，复制容器，正则先校验可移植子集再交引擎编译；失败只返回失败标志并向共享结果记录诊断。
+## [br]
+## @api private
 func _compile_field_value(
 	value: Variant,
 	descriptor: Dictionary,
@@ -1223,6 +1530,9 @@ func _compile_field_value(
 	return { "success": false }
 
 
+## 逐项规范字符串集合并验证路径或 glob，保留首次出现顺序且对重复值告警；任一非法项令结果失败，即使仍携带部分规范值。
+## [br]
+## @api private
 func _compile_string_list(
 	value: Variant,
 	descriptor: Dictionary,
@@ -1286,6 +1596,10 @@ func _compile_string_list(
 	return { "success": valid, "value": normalized }
 
 
+## extension_list 统一去空白、转小写并补齐前导点；其他列表原样保留。
+## [br]
+## @api private
+## [br]
 func _canonicalize_string_list_value(value: String, field_type: String) -> String:
 	if field_type != "extension_list":
 		return value
@@ -1295,6 +1609,9 @@ func _canonicalize_string_list_value(value: String, field_type: String) -> Strin
 	return canonical_value
 
 
+## 新建规则字段映射，依次合并公共、兼容和具体规则描述，后者覆盖同名项；描述符值沿用契约引用。
+## [br]
+## @api private
 func _rule_field_definitions(contract: Dictionary, rule_kind: String) -> Dictionary:
 	var result: Dictionary = {}
 	for map_name: String in ["rule_common_fields", "rule_compatibility_fields"]:
@@ -1312,6 +1629,9 @@ func _rule_field_definitions(contract: Dictionary, rule_kind: String) -> Diction
 	return result
 
 
+## 校验契约默认值能否直接使用，包括正则子集及列表规范后唯一性；不同于用户 profile 编译，此处不会通过告警去重修正默认值。
+## [br]
+## @api private
 func _raw_value_matches_descriptor(value: Variant, descriptor: Dictionary, contract: Dictionary) -> bool:
 	var field_type: String = _get_string(descriptor, "type")
 	if field_type == "string":
@@ -1360,6 +1680,10 @@ func _raw_value_matches_descriptor(value: Variant, descriptor: Dictionary, contr
 	return false
 
 
+## 检查 contract.profile_schema_versions 是否包含指定整数版本。
+## [br]
+## @api private
+## [br]
 func _contract_supports_profile_schema(contract: Dictionary, schema_version: int) -> bool:
 	var versions_value: Variant = contract.get("profile_schema_versions")
 	if not versions_value is Array:
@@ -1371,12 +1695,20 @@ func _contract_supports_profile_schema(contract: Dictionary, schema_version: int
 	return false
 
 
+## 检查 contract 是否为指定 domain 提供 Array 或 PackedStringArray。
+## [br]
+## @api private
+## [br]
 func _contract_has_domain(contract: Dictionary, domain_name: String) -> bool:
 	var domains: Dictionary = _get_dictionary(contract, "domains")
 	var domain_value: Variant = domains.get(domain_name)
 	return domain_value is Array or domain_value is PackedStringArray
 
 
+## 检查指定 contract domain 的字符串列表是否包含给定值。
+## [br]
+## @api private
+## [br]
 func _domain_has_value(contract: Dictionary, domain_name: String, value: String) -> bool:
 	var domains: Dictionary = _get_dictionary(contract, "domains")
 	var domain_value: Variant = domains.get(domain_name)
@@ -1385,6 +1717,10 @@ func _domain_has_value(contract: Dictionary, domain_name: String, value: String)
 	return _to_string_list(domain_value).has(value)
 
 
+## 判断字典键是否都能转为非空字符串且属于允许字段集合。
+## [br]
+## @api private
+## [br]
 func _dictionary_has_only_fields(data: Dictionary, allowed_fields: PackedStringArray) -> bool:
 	for field_value: Variant in data.keys():
 		var field_name: String = _string_value(field_value)
@@ -1393,12 +1729,20 @@ func _dictionary_has_only_fields(data: Dictionary, allowed_fields: PackedStringA
 	return true
 
 
+## 判断字典的字段数与指定集合相同，且每个键都属于该集合。
+## [br]
+## @api private
+## [br]
 func _dictionary_has_exact_fields(data: Dictionary, expected_fields: PackedStringArray) -> bool:
 	if data.size() != expected_fields.size():
 		return false
 	return _dictionary_has_only_fields(data, expected_fields)
 
 
+## 验证字符串集合类型、空集合策略、非空项及可选的原值唯一性。
+## [br]
+## @api private
+## [br]
 func _string_collection_is_valid(value: Variant, allow_empty: bool, require_unique: bool) -> bool:
 	if not (value is Array or value is PackedStringArray):
 		return false
@@ -1422,6 +1766,10 @@ func _string_collection_is_valid(value: Variant, allow_empty: bool, require_uniq
 	return true
 
 
+## 取出字典键中可转成非空字符串的键名。
+## [br]
+## @api private
+## [br]
 func _dictionary_string_keys(data: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for key_value: Variant in data.keys():
@@ -1431,6 +1779,10 @@ func _dictionary_string_keys(data: Dictionary) -> PackedStringArray:
 	return result
 
 
+## 复制 PackedStringArray，或提取 Array 中的 String 与 StringName 项。
+## [br]
+## @api private
+## [br]
 func _to_string_list(value: Variant) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	if value is PackedStringArray:
@@ -1444,6 +1796,10 @@ func _to_string_list(value: Variant) -> PackedStringArray:
 	return result
 
 
+## 对 Array 或 Dictionary 做深复制，其他 Variant 原样返回。
+## [br]
+## @api private
+## [br]
 func _copy_contract_value(value: Variant) -> Variant:
 	if value is Array:
 		var array_value: Array = value
@@ -1454,11 +1810,17 @@ func _copy_contract_value(value: Variant) -> Variant:
 	return value
 
 
+## 从规范契约取稳定原因码，缺失时回退契约无效的 bootstrap 码。
+## [br]
+## @api private
 func _reason(contract: Dictionary, reason_key: String) -> String:
 	var reason_codes: Dictionary = _get_dictionary(contract, "reason_codes")
 	return _get_string(reason_codes, reason_key, _BOOTSTRAP_REASON_CONTRACT_INVALID)
 
 
+## 按 profile、zone 或 rule 范围选择既有未知字段问题种类，保持旧报告消费者的分类。
+## [br]
+## @api private
 func _unsupported_field_legacy_kind(scope_kind: String) -> String:
 	if scope_kind == "zone":
 		return "unsupported_zone_field"
@@ -1467,6 +1829,9 @@ func _unsupported_field_legacy_kind(scope_kind: String) -> String:
 	return "unsupported_profile_field"
 
 
+## 根据范围、字段名及缺失原因映射兼容问题种类，保留旧整数、布尔、列表和命名字段的分类约定。
+## [br]
+## @api private
 func _legacy_field_kind(scope_kind: String, field_name: String, reason_key: String) -> String:
 	if field_name == "schema_version" or field_name == "max_files":
 		return "invalid_integer_field"
@@ -1489,6 +1854,9 @@ func _legacy_field_kind(scope_kind: String, field_name: String, reason_key: Stri
 	return "invalid_string_field"
 
 
+## 同时写入兼容问题种类和契约原因码，以字段名及受限实际值描述定位缺失、类型或值错误。
+## [br]
+## @api private
 func _add_field_issue(
 	contract: Dictionary,
 	result: Dictionary,
@@ -1509,6 +1877,9 @@ func _add_field_issue(
 	)
 
 
+## 为非法字面路径或 glob 记录统一相对路径错误，把原路径作为诊断位置并附字段及范围身份。
+## [br]
+## @api private
 func _add_relative_path_issue(
 	contract: Dictionary,
 	result: Dictionary,
@@ -1527,6 +1898,9 @@ func _add_relative_path_issue(
 	)
 
 
+## 将引擎无法编译的正则映射为字段对应的兼容问题种类，并使用语法无效原因码。
+## [br]
+## @api private
 func _add_regex_issue(contract: Dictionary, result: Dictionary, scope_id: String, field_name: String) -> void:
 	var legacy_kind: String = "invalid_feature_id_pattern" if field_name == "feature_id_pattern" else "invalid_naming_pattern"
 	_add_issue(
@@ -1540,6 +1914,9 @@ func _add_regex_issue(contract: Dictionary, result: Dictionary, scope_id: String
 	)
 
 
+## 对超出可移植正则子集的输入保留兼容问题种类，另附稳定 unsafe 原因码与具体拒绝类别。
+## [br]
+## @api private
 func _add_regex_unsafe_issue(
 	contract: Dictionary,
 	result: Dictionary,
@@ -1563,6 +1940,9 @@ func _add_regex_unsafe_issue(
 	)
 
 
+## 记录区域或规则 ID 重复的统一错误，并在上下文保留条目种类。
+## [br]
+## @api private
 func _add_duplicate_id_issue(contract: Dictionary, result: Dictionary, item_kind: String, item_id: String) -> void:
 	_add_issue(
 		result,
@@ -1575,6 +1955,9 @@ func _add_duplicate_id_issue(contract: Dictionary, result: Dictionary, item_kind
 	)
 
 
+## 用契约中的注册表无效原因码记录执行器声明错误，具体失败说明由调用方提供。
+## [br]
+## @api private
 func _add_registry_issue(contract: Dictionary, result: Dictionary, message: String) -> void:
 	_add_issue(
 		result,
@@ -1586,6 +1969,9 @@ func _add_registry_issue(contract: Dictionary, result: Dictionary, message: Stri
 	)
 
 
+## 在诊断预算内复制上下文并追加问题，同步更新错误或警告数；接近上限时进入统一资源终态并丢弃先前诊断。
+## [br]
+## @api private
 func _add_issue(
 	result: Dictionary,
 	severity: String,
@@ -1615,11 +2001,17 @@ func _add_issue(
 		result["warning_count"] = _get_int(result, "warning_count") + 1
 
 
+## 只有未进入资源终态且 error_count 为零才把共享结果标记成功，警告本身不阻止成功。
+## [br]
+## @api private
 func _finalize_result(result: Dictionary) -> Dictionary:
 	result["success"] = not _profile_compile_terminal and _get_int(result, "error_count") == 0
 	return result
 
 
+## 生成实际值的类型摘要；标量保留值、非有限数转为文本，容器只记录数量，不递归复制其内容。
+## [br]
+## @api private
 func _describe_value(value: Variant) -> Dictionary:
 	var value_type: int = typeof(value)
 	var result: Dictionary = {
@@ -1650,6 +2042,9 @@ func _describe_value(value: Variant) -> Dictionary:
 	return result
 
 
+## 逐字符检查有界可打印 ASCII 正则子集，禁止分组和花括号量词，限制分支及每支量词且量词要求起始锚；返回具体拒绝原因，语法编译另行执行。
+## [br]
+## @api private
 func _portable_regex_error(
 	pattern: String,
 	contract: Dictionary,
@@ -1784,6 +2179,9 @@ func _portable_regex_error(
 	return ""
 
 
+## 扫描字符类及允许的转义，拒绝空类、嵌套类和集合运算；内部范围仅允许同类数字或同大小写字母的升序区间，未闭合返回 syntax。
+## [br]
+## @api private
 func _portable_regex_class_result(
 	pattern: String,
 	start_index: int,
@@ -1841,6 +2239,9 @@ func _portable_regex_class_result(
 	return { "end": index, "error": "syntax" }
 
 
+## 把 ASCII 数字、小写字母和大写字母分为三个可用范围类别，其他码点返回零以拒绝跨类别区间。
+## [br]
+## @api private
 func _portable_regex_range_category(codepoint: int) -> int:
 	if codepoint >= 0x30 and codepoint <= 0x39:
 		return 1
@@ -1851,6 +2252,9 @@ func _portable_regex_range_category(codepoint: int) -> int:
 	return 0
 
 
+## 静默交由 Godot RegEx 编译模式，失败返回 null；可移植子集准入由调用方先行完成。
+## [br]
+## @api private
 func _compile_regex(pattern: String) -> RegEx:
 	var expression: RegEx = RegEx.new()
 	var compile_result: Error = expression.compile(pattern, false)
@@ -1859,28 +2263,9 @@ func _compile_regex(pattern: String) -> RegEx:
 	return expression
 
 
-static func _profile_relative_path_is_invalid(path: String) -> bool:
-	if path.is_empty() or path != path.strip_edges() or path.contains("\\") or path.ends_with("/"):
-		return true
-	if path.begins_with("/") or path.contains("://") or path.contains(":"):
-		return true
-	if path.is_absolute_path() or _is_filesystem_absolute_path(path):
-		return true
-	if path.contains("*") or path.contains("?") or path.contains("[") or path.contains("]"):
-		return true
-	return _path_has_invalid_segment(path)
-
-
-static func _profile_pattern_is_invalid(pattern: String) -> bool:
-	if pattern.is_empty() or pattern != pattern.strip_edges() or pattern.contains("\\") or pattern.ends_with("/"):
-		return true
-	if pattern.begins_with("/") or pattern.contains("://") or pattern.contains(":"):
-		return true
-	if pattern.contains("?") or pattern.contains("[") or pattern.contains("]") or pattern.contains("***"):
-		return true
-	return _path_has_invalid_segment(pattern)
-
-
+## 逐段识别空段、当前目录和父目录段，供字面路径与 glob 共用严格段规则。
+## [br]
+## @api private
 static func _path_has_invalid_segment(path: String) -> bool:
 	var parts: PackedStringArray = path.split("/", true)
 	for part: String in parts:
@@ -1889,6 +2274,9 @@ static func _path_has_invalid_segment(path: String) -> bool:
 	return false
 
 
+## 统一分隔符并去除协议头后检查独立父目录段；不简化路径，也不判断其他形式是否可接受。
+## [br]
+## @api private
 func _path_has_parent_segment(path: String) -> bool:
 	var normalized_path: String = path.replace("\\", "/")
 	var body: String = normalized_path
@@ -1901,12 +2289,19 @@ func _path_has_parent_segment(path: String) -> bool:
 	return false
 
 
+## 补充识别盘符加斜线及双斜线开头的文件系统路径，供跨平台相对路径校验使用。
+## [br]
+## @api private
 static func _is_filesystem_absolute_path(path: String) -> bool:
 	if path.length() >= 3 and path.substr(1, 2) == ":/":
 		return true
 	return path.begins_with("//")
 
 
+## 将 StringName 转为 String；String 原样返回，其他类型返回空字符串。
+## [br]
+## @api private
+## [br]
 func _string_value(value: Variant) -> String:
 	if value is String:
 		var string_value: String = value
@@ -1917,10 +2312,18 @@ func _string_value(value: Variant) -> String:
 	return ""
 
 
+## 判断 String 或 StringName 去除首尾空白后是否非空。
+## [br]
+## @api private
+## [br]
 func _is_non_empty_string_value(value: Variant) -> bool:
 	return not _string_value(value).strip_edges().is_empty()
 
 
+## 读取字典中的 String 或 StringName 字段；缺失或类型不匹配时返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_string(source: Dictionary, key: String, default_value: String = "") -> String:
 	if not source.has(key):
 		return default_value
@@ -1930,6 +2333,10 @@ func _get_string(source: Dictionary, key: String, default_value: String = "") ->
 	return default_value
 
 
+## 读取字典中的 bool 字段；类型不匹配时返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_bool(source: Dictionary, key: String, default_value: bool = false) -> bool:
 	if not source.has(key) or not source[key] is bool:
 		return default_value
@@ -1937,12 +2344,20 @@ func _get_bool(source: Dictionary, key: String, default_value: bool = false) -> 
 	return value
 
 
+## 读取字典中的 int 或精确整数 float；其他值返回默认值。
+## [br]
+## @api private
+## [br]
 func _get_int(source: Dictionary, key: String, default_value: int = 0) -> int:
 	if not source.has(key):
 		return default_value
 	return _exact_integer_value(source[key], default_value)
 
 
+## 判断值是否为 int，或有限且等于其向下取整结果的 float。
+## [br]
+## @api private
+## [br]
 func _is_exact_integer(value: Variant) -> bool:
 	if value is int:
 		return true
@@ -1952,6 +2367,10 @@ func _is_exact_integer(value: Variant) -> bool:
 	return is_finite(float_value) and float_value == floorf(float_value)
 
 
+## 将 int 或精确整数 float 转为 int；其他值返回默认值。
+## [br]
+## @api private
+## [br]
 func _exact_integer_value(value: Variant, default_value: int = 0) -> int:
 	if value is int:
 		return value
@@ -1962,6 +2381,10 @@ func _exact_integer_value(value: Variant, default_value: int = 0) -> int:
 	return default_value
 
 
+## 返回指定字段中的 Dictionary；缺失或类型不匹配时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_dictionary(source: Dictionary, key: String) -> Dictionary:
 	if not source.has(key):
 		return {}
@@ -1972,6 +2395,10 @@ func _get_dictionary(source: Dictionary, key: String) -> Dictionary:
 	return {}
 
 
+## 返回指定字段中的 Array；缺失或类型不匹配时返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_array(source: Dictionary, key: String) -> Array:
 	if not source.has(key):
 		return []
@@ -1982,6 +2409,10 @@ func _get_array(source: Dictionary, key: String) -> Array:
 	return []
 
 
+## 将指定字段通过 _to_string_list 转换为 PackedStringArray。
+## [br]
+## @api private
+## [br]
 func _get_packed_string_array(source: Dictionary, key: String) -> PackedStringArray:
 	if not source.has(key):
 		return PackedStringArray()

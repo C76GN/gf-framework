@@ -14,6 +14,10 @@ extends Resource
 
 # --- 常量 ---
 
+## 允许从 Profile 构建选项顶层覆盖的键名清单。
+## [br]
+## @api private
+## [br]
 const _BUILD_OPTION_KEYS: PackedStringArray = [
 	"database_id",
 	"version",
@@ -309,6 +313,10 @@ func describe() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按来源列表顺序生成摘要；空引用转换为 valid=false 标记。
+## [br]
+## @api private
+## [br]
 func _describe_sources() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for source: GFConfigPipelineTableSource in sources:

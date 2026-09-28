@@ -204,6 +204,10 @@ func describe() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 将指定字段值组合为可用于引用匹配的复合键。
+## [br]
+## @api private
+## [br]
 func _make_key(record: Dictionary, fields: PackedStringArray) -> String:
 	if fields.is_empty():
 		return ""

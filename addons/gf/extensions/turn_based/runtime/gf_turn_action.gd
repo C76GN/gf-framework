@@ -100,14 +100,58 @@ var is_cancelled: bool:
 
 # --- 私有变量 ---
 
+## action_id 的后备存储。
+## [br]
+## @api private
+## [br]
 var _action_id: StringName = &""
+
+## actor 的后备存储。
+## [br]
+## @api private
+## [br]
 var _actor: Object = null
+
+## 经 _sanitize_targets() 清理后的行动目标。
+## [br]
+## @api private
+## [br]
 var _targets: Array[Object] = []
+
+## 行动载荷后备值；队列声明时会按框架的数据复制策略冻结输入。
+## [br]
+## @api private
+## [br]
 var _payload: Variant = null
+
+## priority 的后备存储。
+## [br]
+## @api private
+## [br]
 var _priority: int = 0
+
+## sort_value 的后备存储。
+## [br]
+## @api private
+## [br]
 var _sort_value: float = 0.0
+
+## 行动是否已取消。
+## [br]
+## @api private
+## [br]
 var _is_cancelled: bool = false
+
+## 行动是否已经被某个队列声明。
+## [br]
+## @api private
+## [br]
 var _is_claimed: bool = false
+
+## 行动离开队列后是否已永久封存。
+## [br]
+## @api private
+## [br]
 var _is_sealed: bool = false
 
 
@@ -226,6 +270,10 @@ func seal_after_queue() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 过滤空/失效目标，并按对象实例 ID 保留首次出现项。
+## [br]
+## @api private
+## [br]
 func _sanitize_targets(source_targets: Array[Object]) -> Array[Object]:
 	var result: Array[Object] = []
 	var seen_target_ids: Dictionary = {}
@@ -240,6 +288,10 @@ func _sanitize_targets(source_targets: Array[Object]) -> Array[Object]:
 	return result
 
 
+## 未 claim 时允许改配置；已 claim 后拒绝并报告对应属性名。
+## [br]
+## @api private
+## [br]
 func _can_change_configuration(property_name: StringName) -> bool:
 	if not _is_claimed:
 		return true

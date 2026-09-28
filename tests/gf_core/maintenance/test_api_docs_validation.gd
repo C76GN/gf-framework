@@ -18,6 +18,42 @@ func test_documented_params_match_function_signatures() -> void:
 	assert_eq(issues, [], "API @param 注释应与函数签名双向一致：\n%s" % _join_lines(issues))
 
 
+func test_private_param_docs_allow_an_ordered_subset() -> void:
+	var source: String = "## 维护约束。\n## @api private\n%s\nfunc _normalize(first: int, second: int, third: int) -> void:\n\tpass\n"
+	for docs: String in ["", "## @param second: 第二项。", "## @param first: 第一项。\n## @param third: 第三项。"]:
+		assert_eq(_collect_param_doc_issues_from_source(source % docs, "private_fixture.gd"), [], "私有文档不要求补齐未说明参数。")
+
+
+func test_private_param_docs_reject_invalid_present_tags() -> void:
+	var source: String = "## 维护约束。\n## @api private\n%s\nfunc _normalize(first: int, second: int, third: int) -> void:\n\tpass\n"
+	var cases: Array[Dictionary] = [
+		{ "docs": "## @param absent: 未知参数。", "issue": "unknown param" },
+		{ "docs": "## @param second: 第二项。\n## @param second: 重复。", "issue": "duplicate param" },
+		{ "docs": "## @param third: 第三项。\n## @param first: 第一项。", "issue": "@param order" },
+		{ "docs": "## @param second:", "issue": "non-empty description" },
+		{ "docs": "## @param second", "issue": "non-empty description" },
+		{ "docs": "## @param", "issue": "non-empty description" },
+	]
+	for test_case: Dictionary in cases:
+		var docs: String = str(test_case["docs"])
+		var expected_issue: String = str(test_case["issue"])
+		var issues: Array[String] = _collect_param_doc_issues_from_source(source % docs, "private_fixture.gd")
+		assert_true(_join_lines(issues).contains(expected_issue), "已有私有参数文档必须正确：%s" % _join_lines(issues))
+
+
+func test_partial_param_exemption_requires_exact_private_visibility() -> void:
+	var source: String = "## 维护约束。\n%s\n## @param first: 第一项。\nfunc %s(first: int, second: int) -> void:\n\tpass\n"
+	for visibility: String in ["public", "protected", "framework_internal", "layer_internal"]:
+		var function_name: String = "_normalize" if visibility == "protected" else "normalize"
+		var issues: Array[String] = _collect_param_doc_issues_from_source(source % ["## @api " + visibility, function_name], "contract_fixture.gd")
+		assert_true(_join_lines(issues).contains("missing @param for 'second'"), "非私有契约仍要求完整参数文档。")
+	for api_docs: String in ["## @api private\n## @api public", "## @api private extra", "## @api private\n## @api: public"]:
+		var issues: Array[String] = _collect_param_doc_issues_from_source(source % [api_docs, "_normalize"], "contract_fixture.gd")
+		assert_true(_join_lines(issues).contains("missing @param for 'second'"), "含糊的可见性不能进入私有轻量分支。")
+	var public_name_issues: Array[String] = _collect_param_doc_issues_from_source(source % ["## @api private", "normalize"], "contract_fixture.gd")
+	assert_true(_join_lines(public_name_issues).contains("missing @param for 'second'"), "普通公开名称不能借 private 标签降低参数校验。")
+
+
 # --- 私有/辅助方法 ---
 
 func _collect_gdscript_files(root_path: String) -> Array[String]:
@@ -50,8 +86,13 @@ func _collect_param_doc_issues(path: String) -> Array[String]:
 	if file == null:
 		return ["%s: cannot open file" % path]
 
-	var lines: PackedStringArray = file.get_as_text().split("\n")
+	var source: String = file.get_as_text()
 	file.close()
+	return _collect_param_doc_issues_from_source(source, path)
+
+
+func _collect_param_doc_issues_from_source(source: String, path: String) -> Array[String]:
+	var lines: PackedStringArray = source.split("\n")
 	var issues: Array[String] = []
 	var doc_lines: Array[String] = []
 	var line_index: int = 0
@@ -76,18 +117,49 @@ func _collect_param_doc_issues(path: String) -> Array[String]:
 			var function_name: String = _parse_function_name(signature)
 			var actual_params: PackedStringArray = _parse_signature_params(signature)
 			var documented_params: PackedStringArray = _parse_documented_params(doc_lines)
+			var allows_partial_docs: bool = function_name.begins_with("_") and _has_exact_private_visibility(doc_lines)
+			if allows_partial_docs:
+				issues.append_array(_collect_private_param_description_issues(doc_lines, path, signature_start_line, function_name))
 			if _should_validate_param_docs(function_name, actual_params, documented_params):
 				issues.append_array(_collect_function_param_doc_issues(
 					path,
 					signature_start_line,
 					function_name,
 					actual_params,
-					documented_params
+					documented_params,
+					allows_partial_docs
 				))
 
 		if not trimmed.is_empty():
 			doc_lines.clear()
 		line_index += 1
+	return issues
+
+
+func _has_exact_private_visibility(doc_lines: Array[String]) -> bool:
+	var api_values: Array[String] = []
+	for line: String in doc_lines:
+		var body: String = line.trim_prefix("##").strip_edges()
+		if body == "@api" or body.begins_with("@api ") or body.begins_with("@api:") or body.begins_with("@api\t"):
+			api_values.append(body.trim_prefix("@api").strip_edges())
+	return api_values.size() == 1 and api_values[0] == "private"
+
+
+func _collect_private_param_description_issues(
+	doc_lines: Array[String],
+	path: String,
+	line_number: int,
+	function_name: String
+) -> Array[String]:
+	var issues: Array[String] = []
+	var regex: RegEx = RegEx.new()
+	var _compile_result: Error = regex.compile("^@param\\s+[A-Za-z_]\\w*\\s*:\\s*.+$")
+	for line: String in doc_lines:
+		var body: String = line.trim_prefix("##").strip_edges()
+		if not (body == "@param" or body.begins_with("@param ") or body.begins_with("@param:") or body.begins_with("@param\t")):
+			continue
+		if regex.search(body.replace("[br]", "").strip_edges()) == null:
+			issues.append("%s:%d %s @param requires a target and non-empty description after ':'" % [path, line_number, function_name])
 	return issues
 
 
@@ -163,7 +235,8 @@ func _collect_function_param_doc_issues(
 	signature_start_line: int,
 	function_name: String,
 	actual_params: PackedStringArray,
-	documented_params: PackedStringArray
+	documented_params: PackedStringArray,
+	allow_partial: bool = false
 ) -> Array[String]:
 	var issues: Array[String] = []
 	var duplicate_params: PackedStringArray = _collect_duplicate_names(documented_params)
@@ -175,8 +248,11 @@ func _collect_function_param_doc_issues(
 			duplicate_param,
 		])
 
+	var expected_params: PackedStringArray = PackedStringArray()
 	for actual_param: String in actual_params:
-		if not documented_params.has(actual_param):
+		if documented_params.has(actual_param):
+			var _append_expected_result: bool = expected_params.append(actual_param)
+		elif not allow_partial:
 			issues.append("%s:%d %s missing @param for '%s'" % [
 				path,
 				signature_start_line,
@@ -193,12 +269,12 @@ func _collect_function_param_doc_issues(
 				documented_param,
 			])
 
-	if issues.is_empty() and not _packed_string_arrays_equal(actual_params, documented_params):
+	if issues.is_empty() and not _packed_string_arrays_equal(expected_params, documented_params):
 		issues.append("%s:%d %s @param order should be [%s] but was [%s]" % [
 			path,
 			signature_start_line,
 			function_name,
-			", ".join(actual_params),
+			", ".join(expected_params),
 			", ".join(documented_params),
 		])
 

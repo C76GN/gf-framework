@@ -87,6 +87,9 @@ func calculate(formula_id: StringName, parameter: GFFormulaParameter = null, fal
 
 # --- 私有/辅助方法 ---
 
+## 仅当 Variant 是 GFFormula 实例时返回公式，否则返回 null。
+## [br]
+## @api private
 func _variant_to_formula(value: Variant) -> GFFormula:
 	if value is GFFormula:
 		var formula: GFFormula = value

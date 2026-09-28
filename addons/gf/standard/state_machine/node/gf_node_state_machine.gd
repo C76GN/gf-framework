@@ -82,6 +82,11 @@ const INTERNAL_GROUP_NAME: StringName = &"_internal"
 ## [br]
 ## @api framework_internal
 const META_INTERNAL_GROUP: StringName = &"_gf_node_state_machine_internal_group"
+
+## 延迟执行宿主 ready 后启动逻辑的异步调用辅助脚本。
+## [br]
+## @api private
+## [br]
 const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
 
 
@@ -131,19 +136,88 @@ const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call
 
 # --- 私有变量 ---
 
+## 以注册名为键保存状态组。
+## [br]
+## @api private
+## [br]
 var _groups: Dictionary = {}
+
+## 直接子状态构成的内置状态组。
+## [br]
+## @api private
+## [br]
 var _internal_group: GFNodeStateGroup = null
+
+## 以状态组实例 ID 为键保存其注册名。
+## [br]
+## @api private
+## [br]
 var _group_keys_by_instance_id: Dictionary = {}
+
+## 以状态组注册名为键保存 current_state_changed 连接回调。
+## [br]
+## @api private
+## [br]
 var _group_state_changed_callables: Dictionary = {}
+
+## 以状态组注册名为键保存 state_event_handled 连接回调。
+## [br]
+## @api private
+## [br]
 var _group_state_event_handled_callables: Dictionary = {}
+
+## 此 Machine 派发或关联过的架构弱引用集合。
+## [br]
+## @api private
+## [br]
 var _event_architectures: Array[WeakRef] = []
+
+## Machine 的运行时初始化是否已完成。
+## [br]
+## @api private
+## [br]
 var _is_ready: bool = false
+
+## 是否已排队从子节点重载状态组的延迟调用。
+## [br]
+## @api private
+## [br]
 var _reload_queued: bool = false
+
+## 当前是否正在重载子节点状态定义。
+## [br]
+## @api private
+## [br]
 var _is_reloading: bool = false
+
+## 当前重载是否采用保留旧状态快照的模式。
+## [br]
+## @api private
+## [br]
 var _preserve_reload_state_active: bool = false
+
+## Machine 场景树生命周期代数，用于废弃过期的异步启动回调。
+## [br]
+## @api private
+## [br]
 var _lifecycle_serial: int = 0
+
+## 当前是否正在恢复多状态组快照。
+## [br]
+## @api private
+## [br]
 var _is_restoring_state_snapshot: bool = false
+
+## 快照恢复保护期间被拒绝的唯一操作标识。
+## [br]
+## @api private
+## [br]
 var _restore_blocked_operations: Array[StringName] = []
+
+## 状态组注册表每次结构变更时递增的修订号。
+## [br]
+## @api private
+## [br]
 var _group_registry_revision: int = 0
 
 
@@ -1029,6 +1103,10 @@ func clear_state_groups(free_groups: bool = false) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 快照恢复期间拒绝重入变更，并把操作标识记入恢复报告。
+## [br]
+## @api private
+## [br]
 func _reject_mutation_during_restore(operation: StringName) -> bool:
 	if not _is_restoring_state_snapshot:
 		return false
@@ -1036,11 +1114,19 @@ func _reject_mutation_during_restore(operation: StringName) -> bool:
 	return true
 
 
+## 将被快照恢复保护拒绝的操作标识去重后加入列表。
+## [br]
+## @api private
+## [br]
 func _record_restore_blocked_operation(operation: StringName) -> void:
 	if not _restore_blocked_operations.has(operation):
 		_restore_blocked_operations.append(operation)
 
 
+## 把子状态组的恢复阻止操作限定到其注册名，再加入 Machine 级报告列表。
+## [br]
+## @api private
+## [br]
 func _record_group_restore_blocked_operation(group: GFNodeStateGroup, operation: StringName) -> void:
 	if not _is_restoring_state_snapshot:
 		return
@@ -1048,18 +1134,30 @@ func _record_group_restore_blocked_operation(group: GFNodeStateGroup, operation:
 	_record_restore_blocked_operation(StringName("%s.%s" % [String(group_key), String(operation)]))
 
 
+## 为所有有效状态组增加 Machine 快照恢复保护深度。
+## [br]
+## @api private
+## [br]
 func _begin_group_restore_guards(groups: Array[GFNodeStateGroup]) -> void:
 	for group: GFNodeStateGroup in groups:
 		if is_instance_valid(group):
 			group.begin_machine_restore_guard()
 
 
+## 逐个减少此前建立的状态组快照恢复保护深度。
+## [br]
+## @api private
+## [br]
 func _end_group_restore_guards(groups: Array[GFNodeStateGroup]) -> void:
 	for group: GFNodeStateGroup in groups:
 		if is_instance_valid(group):
 			group.end_machine_restore_guard()
 
 
+## 捕获注册名到状态组实例 ID 的当前映射。
+## [br]
+## @api private
+## [br]
 func _capture_group_registry_identity() -> Dictionary:
 	var identity: Dictionary = {}
 	for group_key: Variant in _groups.keys():
@@ -1069,6 +1167,10 @@ func _capture_group_registry_identity() -> Dictionary:
 	return identity
 
 
+## 检查注册表修订号、数量以及每个注册名对应的实例 ID 是否仍与快照相同。
+## [br]
+## @api private
+## [br]
 func _group_registry_matches(identity: Dictionary, expected_revision: int) -> bool:
 	if _group_registry_revision != expected_revision or identity.size() != _groups.size():
 		return false
@@ -1079,6 +1181,10 @@ func _group_registry_matches(identity: Dictionary, expected_revision: int) -> bo
 	return true
 
 
+## 从最近的 GFNodeContext 取得架构，未找到时回退到 GFAutoload。
+## [br]
+## @api private
+## [br]
 func _get_architecture_or_null() -> GFArchitecture:
 	var context: GFNodeContext = _find_nearest_context()
 	if context != null:
@@ -1089,6 +1195,10 @@ func _get_architecture_or_null() -> GFArchitecture:
 	return GFAutoload.get_architecture_or_null()
 
 
+## 从 Machine 向父节点查找最近的 GFNodeContext。
+## [br]
+## @api private
+## [br]
 func _find_nearest_context() -> GFNodeContext:
 	var current_node: Node = self
 	while current_node != null:
@@ -1099,6 +1209,10 @@ func _find_nearest_context() -> GFNodeContext:
 	return null
 
 
+## 将有效且此前未记录的架构以弱引用加入事件架构集合。
+## [br]
+## @api private
+## [br]
 func _remember_event_architecture(architecture: GFArchitecture) -> void:
 	if architecture == null or not is_instance_valid(architecture):
 		return
@@ -1108,6 +1222,10 @@ func _remember_event_architecture(architecture: GFArchitecture) -> void:
 	_event_architectures.append(weakref(architecture))
 
 
+## 返回仍有效的已跟踪架构并移除失效或类型不符的弱引用。
+## [br]
+## @api private
+## [br]
 func _get_tracked_event_architectures() -> Array[GFArchitecture]:
 	var result: Array[GFArchitecture] = []
 	var live_architectures: Array[WeakRef] = []
@@ -1120,6 +1238,10 @@ func _get_tracked_event_architectures() -> Array[GFArchitecture]:
 	return result
 
 
+## 将 Variant 窄化为 GFArchitecture；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_architecture(value: Variant) -> GFArchitecture:
 	if value is GFArchitecture:
 		var architecture: GFArchitecture = value
@@ -1127,14 +1249,26 @@ func _variant_to_architecture(value: Variant) -> GFArchitecture:
 	return null
 
 
+## 判断节点是否为 GFNodeState。
+## [br]
+## @api private
+## [br]
 func _is_node_state(node: Node) -> bool:
 	return node is GFNodeState
 
 
+## 判断节点是否为 GFNodeStateGroup。
+## [br]
+## @api private
+## [br]
 func _is_node_state_group(node: Node) -> bool:
 	return node is GFNodeStateGroup
 
 
+## 连接状态组状态变化、跨组转场和事件处理信号，并保存事件回调以供后续断开。
+## [br]
+## @api private
+## [br]
 func _connect_state_group_signals(group: GFNodeStateGroup, changed_callable: Callable) -> void:
 	var changed_signal: Signal = group.current_state_changed
 	var transition_signal: Signal = group.requested_transition
@@ -1150,6 +1284,10 @@ func _connect_state_group_signals(group: GFNodeStateGroup, changed_callable: Cal
 		var _handled_connect_error: int = handled_signal.connect(handled_callable)
 
 
+## 断开状态组状态变化、转场和事件处理连接，并删除保存的事件回调。
+## [br]
+## @api private
+## [br]
 func _disconnect_state_group_signals(group: GFNodeStateGroup, changed_callable: Callable) -> void:
 	var changed_signal: Signal = group.current_state_changed
 	var transition_signal: Signal = group.requested_transition
@@ -1165,12 +1303,20 @@ func _disconnect_state_group_signals(group: GFNodeStateGroup, changed_callable: 
 	_erase_dictionary_key(_group_state_event_handled_callables, key)
 
 
+## 若状态组有效则调用其 start(args)。
+## [br]
+## @api private
+## [br]
 func _start_group_node(group: GFNodeStateGroup, args: Dictionary) -> void:
 	if group == null:
 		return
 	group.start(args)
 
 
+## 保留重载态时不自动启动；其他情况根据 StartMode 和宿主 ready 状态决定初始化时是否启动。
+## [br]
+## @api private
+## [br]
 func _should_start_group_on_initialize() -> bool:
 	if _preserve_reload_state_active:
 		return false
@@ -1185,15 +1331,27 @@ func _should_start_group_on_initialize() -> bool:
 			return true
 
 
+## 无宿主节点或宿主节点已 ready 时返回 true。
+## [br]
+## @api private
+## [br]
 func _is_host_ready() -> bool:
 	var host: Node = get_parent()
 	return host == null or host.is_node_ready()
 
 
+## 检查异步生命周期序号未变化且 Machine 仍位于场景树中。
+## [br]
+## @api private
+## [br]
 func _is_lifecycle_current(lifecycle_serial: int) -> bool:
 	return _lifecycle_serial == lifecycle_serial and is_inside_tree()
 
 
+## 等待宿主 ready 后核对生命周期与 StartMode，再启动状态机。
+## [br]
+## @api private
+## [br]
 func _start_after_host_ready() -> void:
 	var current_serial: int = _lifecycle_serial
 	var host: Node = get_parent()
@@ -1207,23 +1365,10 @@ func _start_after_host_ready() -> void:
 	start()
 
 
-func _on_group_current_state_changed(
-	old_state: GFNodeState,
-	new_state: GFNodeState,
-	group: GFNodeStateGroup
-) -> void:
-	state_changed.emit(group, old_state, new_state)
-
-
-func _on_group_state_event_handled(
-	event_id: StringName,
-	handler_state: GFNodeState,
-	payload: Variant,
-	group: GFNodeStateGroup
-) -> void:
-	state_event_handled.emit(group, event_id, handler_state, payload)
-
-
+## 恢复保护未激活且 Machine 已 ready、启用重载且当前未重载/排队时，延迟安排一次子节点重载。
+## [br]
+## @api private
+## [br]
 func _queue_reload_from_children() -> void:
 	if _reject_mutation_during_restore(&"queue_reload_from_children"):
 		return
@@ -1234,6 +1379,10 @@ func _queue_reload_from_children() -> void:
 	call_deferred("_reload_from_children_deferred")
 
 
+## 清理内置状态组、从父节点分离并释放其节点。
+## [br]
+## @api private
+## [br]
 func _free_internal_group(group: GFNodeStateGroup) -> void:
 	if group == null or not is_instance_valid(group):
 		return
@@ -1244,6 +1393,10 @@ func _free_internal_group(group: GFNodeStateGroup) -> void:
 	group.free()
 
 
+## 从父节点脱离有效节点并请求 queue_free。
+## [br]
+## @api private
+## [br]
 func _queue_free_detached(node: Node) -> void:
 	if not is_instance_valid(node):
 		return
@@ -1254,6 +1407,10 @@ func _queue_free_detached(node: Node) -> void:
 		node.queue_free()
 
 
+## 查找指定状态组并检查其当前是否处于目标状态。
+## [br]
+## @api private
+## [br]
 func _is_group_in_state(group_name: StringName, state_name: StringName) -> bool:
 	var group: GFNodeStateGroup = get_state_group(group_name)
 	if group == null:
@@ -1261,36 +1418,60 @@ func _is_group_in_state(group_name: StringName, state_name: StringName) -> bool:
 	return group.is_in_state(state_name)
 
 
+## 优先读取配置资源的初始状态名，否则返回兼容导出项。
+## [br]
+## @api private
+## [br]
 func _get_effective_initial_state() -> StringName:
 	if config != null:
 		return config.initial_state
 	return initial_state
 
 
+## 优先读取配置资源的初始参数，否则返回兼容导出项。
+## [br]
+## @api private
+## [br]
 func _get_effective_initial_args() -> Dictionary:
 	if config != null:
 		return config.initial_args
 	return initial_args
 
 
+## 有配置时返回至少为 1 的历史容量，未配置时使用默认值 32。
+## [br]
+## @api private
+## [br]
 func _get_effective_history_max_size() -> int:
 	if config != null:
 		return maxi(config.history_max_size, 1)
 	return 32
 
 
+## 有配置时返回至少为 1 的栈深上限，未配置时使用默认值 8。
+## [br]
+## @api private
+## [br]
 func _get_effective_max_stack_depth() -> int:
 	if config != null:
 		return maxi(config.max_stack_depth, 1)
 	return 8
 
 
+## 仅在编辑器中延迟刷新 Machine 的配置警告。
+## [br]
+## @api private
+## [br]
 func _queue_configuration_warning_update() -> void:
 	if not Engine.is_editor_hint():
 		return
 	call_deferred("update_configuration_warnings")
 
 
+## 清除排队标记；编辑器刷新警告，运行态在已 ready 且启用自动重载时重新加载。
+## [br]
+## @api private
+## [br]
 func _reload_from_children_deferred() -> void:
 	_reload_queued = false
 	if Engine.is_editor_hint():
@@ -1300,32 +1481,20 @@ func _reload_from_children_deferred() -> void:
 		reload_from_children()
 
 
-func _on_child_entered_tree(child: Node) -> void:
-	if Engine.is_editor_hint():
-		if _should_reload_for_child(child):
-			_queue_configuration_warning_update()
-		return
-
-	if _should_reload_for_child(child):
-		_queue_reload_from_children()
-
-
-func _on_child_exiting_tree(child: Node) -> void:
-	if Engine.is_editor_hint():
-		if _should_reload_for_child(child):
-			_queue_configuration_warning_update()
-		return
-
-	if _should_reload_for_child(child):
-		_queue_reload_from_children()
-
-
+## 跳过内部状态组节点元数据标记，只对状态节点或状态组子节点触发重载。
+## [br]
+## @api private
+## [br]
 func _should_reload_for_child(child: Node) -> bool:
 	if child.get_meta(META_INTERNAL_GROUP, false):
 		return false
 	return _is_node_state(child) or _is_node_state_group(child)
 
 
+## 从注册表筛出类型有效的状态组实例。
+## [br]
+## @api private
+## [br]
 func _get_registered_groups() -> Array[GFNodeStateGroup]:
 	var result: Array[GFNodeStateGroup] = []
 	for group_variant: Variant in _groups.values():
@@ -1335,6 +1504,10 @@ func _get_registered_groups() -> Array[GFNodeStateGroup]:
 	return result
 
 
+## 通过实例 ID 反向索引读取状态组注册名，缺失时回退到节点自身名称。
+## [br]
+## @api private
+## [br]
 func _get_registered_group_key(group: GFNodeStateGroup) -> StringName:
 	if group == null:
 		return &""
@@ -1346,32 +1519,56 @@ func _get_registered_group_key(group: GFNodeStateGroup) -> StringName:
 	return GFVariantData.to_string_name(key_value)
 
 
+## 从字典读取值并窄化为 Callable；其他值回退到无效 Callable。
+## [br]
+## @api private
+## [br]
 func _get_dictionary_callable(source: Dictionary, key: Variant) -> Callable:
 	return _variant_to_callable(GFVariantData.get_option_value(source, key, Callable()))
 
 
+## 从字典中移除指定键。
+## [br]
+## @api private
+## [br]
 func _erase_dictionary_key(source: Dictionary, key: Variant) -> void:
 	var _erased: bool = source.erase(key)
 
 
+## 将 Variant 窄化为 Callable；类型不符时返回无效 Callable。
+## [br]
+## @api private
+## [br]
 func _variant_to_callable(value: Variant) -> Callable:
 	if value is Callable:
 		return value
 	return Callable()
 
 
+## 将 Variant 窄化为 GFNodeState；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_node_state(value: Variant) -> GFNodeState:
 	if value is GFNodeState:
 		return value
 	return null
 
 
+## 将 Variant 窄化为 GFNodeStateGroup；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_state_group(value: Variant) -> GFNodeStateGroup:
 	if value is GFNodeStateGroup:
 		return value
 	return null
 
 
+## 将 blackboard 键规范为字符串；键类型非法或规范化碰撞时保留并返回原快照。
+## [br]
+## @api private
+## [br]
 func _normalize_state_group_snapshot_report_keys(snapshot: Dictionary) -> Dictionary:
 	var raw_blackboard: Dictionary = GFVariantData.get_option_dictionary(
 		snapshot,
@@ -1389,6 +1586,10 @@ func _normalize_state_group_snapshot_report_keys(snapshot: Dictionary) -> Dictio
 	return snapshot
 
 
+## 捕获每个仍有效状态组按注册名索引的状态快照。
+## [br]
+## @api private
+## [br]
 func _capture_state_snapshot() -> Dictionary:
 	var result: Dictionary = {}
 	for group_key: Variant in _groups.keys():
@@ -1399,6 +1600,10 @@ func _capture_state_snapshot() -> Dictionary:
 	return result
 
 
+## 创建带注册表修订、分组结果、缺失项和回滚字段的 Machine 恢复失败报告。
+## [br]
+## @api private
+## [br]
 func _make_machine_restore_report() -> Dictionary:
 	return {
 		"report_schema_version": 2,
@@ -1418,6 +1623,10 @@ func _make_machine_restore_report() -> Dictionary:
 	}
 
 
+## 先验证全部分组快照，再在保护与注册表身份监控下逐组恢复；失败或重入时回滚并返回详尽报告。
+## [br]
+## @api private
+## [br]
 func _restore_state_snapshot(snapshot: Dictionary) -> Dictionary:
 	var report: Dictionary = _make_machine_restore_report()
 	if _is_restoring_state_snapshot:
@@ -1529,3 +1738,54 @@ func _restore_state_snapshot(snapshot: Dictionary) -> Dictionary:
 	report["group_registry_revision_after"] = _group_registry_revision
 	report["registry_stable"] = _group_registry_matches(registry_identity, registry_revision_before)
 	return report
+
+
+# --- 信号处理函数 ---
+
+## 将已绑定来源组与新旧状态一起转发，保持组级通知的实例身份。
+## [br]
+## @api private
+func _on_group_current_state_changed(
+	old_state: GFNodeState,
+	new_state: GFNodeState,
+	group: GFNodeStateGroup
+) -> void:
+	state_changed.emit(group, old_state, new_state)
+
+
+## 转发来源组、处理状态和原 payload；本回调不复制或重新派发事件载荷。
+## [br]
+## @api private
+func _on_group_state_event_handled(
+	event_id: StringName,
+	handler_state: GFNodeState,
+	payload: Variant,
+	group: GFNodeStateGroup
+) -> void:
+	state_event_handled.emit(group, event_id, handler_state, payload)
+
+
+## 仅对影响状态结构的子节点排程刷新；编辑器更新警告，运行态重载分组。
+## [br]
+## @api private
+func _on_child_entered_tree(child: Node) -> void:
+	if Engine.is_editor_hint():
+		if _should_reload_for_child(child):
+			_queue_configuration_warning_update()
+		return
+
+	if _should_reload_for_child(child):
+		_queue_reload_from_children()
+
+
+## 结构相关子节点离树时排程警告或分组重载，由后续 deferred 流程读取最终子树。
+## [br]
+## @api private
+func _on_child_exiting_tree(child: Node) -> void:
+	if Engine.is_editor_hint():
+		if _should_reload_for_child(child):
+			_queue_configuration_warning_update()
+		return
+
+	if _should_reload_for_child(child):
+		_queue_reload_from_children()

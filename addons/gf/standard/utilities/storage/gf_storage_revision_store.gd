@@ -15,7 +15,16 @@ extends RefCounted
 
 # --- 常量 ---
 
+## family committed state 文件名。
+## [br]
+## @api private
+## [br]
 const _STATE_LEAF: String = "committed-state.json"
+
+## committed state JSON 允许的最大字节数。
+## [br]
+## @api private
+## [br]
 const _MAX_STATE_BYTES: int = 4096
 
 
@@ -182,6 +191,10 @@ static func failure_for_framework(error: Error) -> GFStorageRevisionResult:
 
 # --- 私有/辅助方法 ---
 
+## 从冻结 context 与 commit ID 构造固定字段的 committed state 记录。
+## [br]
+## @api private
+## [br]
 static func _make_state(context: Dictionary, commit_id: String) -> Dictionary:
 	return {
 		"schema": "gf.storage.committed-state",
@@ -193,6 +206,10 @@ static func _make_state(context: Dictionary, commit_id: String) -> Dictionary:
 	}
 
 
+## 对 incarnation、family ID 与 commit ID 的 JSON 数组计算 SHA-256 revision token。
+## [br]
+## @api private
+## [br]
 static func _make_token(context: Dictionary, commit_id: String) -> String:
 	return JSON.stringify([
 		GFVariantData.get_option_string(context, "storage_incarnation"),
@@ -201,6 +218,10 @@ static func _make_token(context: Dictionary, commit_id: String) -> String:
 	]).sha256_text()
 
 
+## 要求记录字段数与 expected 完全一致，版本为精确整数 1，其余字段为相同字符串。
+## [br]
+## @api private
+## [br]
 static func _matches_state(record: Dictionary, expected: Dictionary) -> bool:
 	if record.size() != expected.size():
 		return false

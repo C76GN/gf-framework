@@ -82,6 +82,10 @@ func validate_policy() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 对不属于支持集合的恢复动作追加结构化校验错误。
+## [br]
+## @api private
+## [br]
 func _append_action_issue(report: Dictionary, path: String, action: StringName) -> void:
 	if action in [ACTION_FAIL, ACTION_USE_CURRENT_STATE, ACTION_RESET_TO_DEFAULTS]:
 		return

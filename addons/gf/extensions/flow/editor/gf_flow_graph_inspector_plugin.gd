@@ -6,9 +6,24 @@ extends EditorInspectorPlugin
 
 # --- 常量 ---
 
+## 编辑器流程图工具使用的Flow扩展ID常量。
+## [br]
+## @api private
 const _FLOW_EXTENSION_ID: String = "gf.flow"
+
+## 编辑器流程图工具使用的GFFlow流程图脚本路径常量。
+## [br]
+## @api private
 const _GF_FLOW_GRAPH_SCRIPT_PATH: String = "res://addons/gf/extensions/flow/resources/gf_flow_graph.gd"
+
+## 编辑器流程图工具使用的GF扩展settings脚本常量。
+## [br]
+## @api private
 const _GF_EXTENSION_SETTINGS_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_settings.gd")
+
+## 编辑器流程图工具使用的脚本类型Inspector常量。
+## [br]
+## @api private
 const _SCRIPT_TYPE_INSPECTOR = preload("res://addons/gf/kernel/core/gf_script_type_inspector.gd")
 
 
@@ -80,6 +95,9 @@ func _parse_begin(object: Object) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 构建起始节点下拉选项并选中当前起始节点。
+## [br]
+## @api private
 func _populate_start_options(option: OptionButton, graph: Resource) -> void:
 	option.clear()
 	option.add_item("未设置", 0)
@@ -118,6 +136,9 @@ func _populate_start_options(option: OptionButton, graph: Resource) -> void:
 			option.select(index + 1)
 
 
+## 读取Flow流程图脚本。
+## [br]
+## @api private
 func _get_flow_graph_script() -> Script:
 	if not ResourceLoader.exists(_GF_FLOW_GRAPH_SCRIPT_PATH):
 		return null
@@ -125,6 +146,9 @@ func _get_flow_graph_script() -> Script:
 	return _get_script_value(resource)
 
 
+## 通过撤销重做事务更新流程图起始节点。
+## [br]
+## @api private
 func _set_start_node(graph: Resource, node_id: StringName) -> void:
 	var old_value: StringName = GFVariantData.to_string_name(GFObjectPropertyTools.read_property(graph, NodePath("start_node_id")))
 	if old_value == node_id:
@@ -137,6 +161,9 @@ func _set_start_node(graph: Resource, node_id: StringName) -> void:
 	undo_redo.commit_action()
 
 
+## 生成校验摘要并更新 Inspector 文本与颜色。
+## [br]
+## @api private
 func _update_summary(label: Label, graph: Resource) -> void:
 	if label == null or graph == null:
 		return
@@ -156,6 +183,9 @@ func _update_summary(label: Label, graph: Resource) -> void:
 		label.modulate = Color(0.55, 0.9, 0.65)
 
 
+## 读取脚本值。
+## [br]
+## @api private
 func _get_script_value(value: Variant) -> Script:
 	if value is Script:
 		var script: Script = value
@@ -163,6 +193,9 @@ func _get_script_value(value: Variant) -> Script:
 	return null
 
 
+## 读取资源值。
+## [br]
+## @api private
 func _get_resource_value(value: Variant) -> Resource:
 	if value is Resource:
 		var resource: Resource = value
@@ -170,6 +203,9 @@ func _get_resource_value(value: Variant) -> Resource:
 	return null
 
 
+## 连接signal。
+## [br]
+## @api private
 func _connect_signal(source_signal: Signal, callback: Callable, flags: int = 0) -> void:
 	var connected: int = source_signal.connect(callback, flags as Object.ConnectFlags)
 	if connected == OK:
@@ -178,10 +214,16 @@ func _connect_signal(source_signal: Signal, callback: Callable, flags: int = 0) 
 
 # --- 信号处理函数 ---
 
+## 处理校验按钮并刷新 Inspector 摘要。
+## [br]
+## @api private
 func _on_validate_pressed(summary_label: Label, graph: Resource) -> void:
 	_update_summary(summary_label, graph)
 
 
+## 处理起始节点选择并通过撤销重做更新资源。
+## [br]
+## @api private
 func _on_start_node_selected(index: int, option: OptionButton, graph: Resource) -> void:
 	if graph == null:
 		return

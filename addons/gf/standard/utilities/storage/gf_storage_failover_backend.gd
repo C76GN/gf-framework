@@ -31,30 +31,121 @@ enum MutationPolicy {
 
 # --- 常量 ---
 
+## 可配置子后端数量上限。
+## [br]
+## @api private
+## [br]
 const _MAX_BACKEND_COUNT: int = 32
+
+## 失败阈值允许配置的最大值。
+## [br]
+## @api private
+## [br]
 const _MAX_FAILURE_THRESHOLD: int = 1000
+
+## 冷却窗口允许配置的最大毫秒数。
+## [br]
+## @api private
+## [br]
 const _MAX_COOLDOWN_MSEC: int = 86_400_000
+
+## 健康熔断的默认连续失败阈值。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_FAILURE_THRESHOLD: int = 2
+
+## 健康熔断的默认冷却毫秒数。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_COOLDOWN_MSEC: int = 30_000
 
+## 尝试报告中成功状态的文本值。
+## [br]
+## @api private
+## [br]
 const _STATUS_SUCCEEDED: String = "succeeded"
+
+## 尝试报告中失败状态的文本值。
+## [br]
+## @api private
+## [br]
 const _STATUS_FAILED: String = "failed"
+
+## 尝试报告中因能力或冷却跳过的状态值。
+## [br]
+## @api private
+## [br]
 const _STATUS_SKIPPED: String = "skipped"
+
+## 存在性查询未找到数据时的尝试状态值。
+## [br]
+## @api private
+## [br]
 const _STATUS_MISS: String = "miss"
 
+## 后端不支持当前能力时记录的跳过原因。
+## [br]
+## @api private
+## [br]
 const _REASON_UNSUPPORTED: String = "unsupported"
+
+## 后端仍处于冷却窗口时记录的跳过原因。
+## [br]
+## @api private
+## [br]
 const _REASON_COOLDOWN: String = "cooldown"
 
 
 # --- 私有变量 ---
 
+## 按尝试优先级排列的调用方持有子后端。
+## [br]
+## @api private
+## [br]
 var _backends: Array[GFStorageBackend] = []
+
+## 与子后端逐项对应的稳定 ID。
+## [br]
+## @api private
+## [br]
 var _backend_ids: PackedStringArray = PackedStringArray()
+
+## 写入和删除采用的后端选择策略。
+## [br]
+## @api private
+## [br]
 var _mutation_policy: MutationPolicy = MutationPolicy.FIRST_SUCCESS
+
+## 触发冷却所需的连续暂时性失败次数；0 表示关闭冷却跳过。
+## [br]
+## @api private
+## [br]
 var _failure_threshold: int = _DEFAULT_FAILURE_THRESHOLD
+
+## 失败阈值触发后的冷却毫秒数；0 表示关闭冷却跳过。
+## [br]
+## @api private
+## [br]
 var _cooldown_msec: int = _DEFAULT_COOLDOWN_MSEC
+
+## 记录后端失败时间窗口的单调时钟。
+## [br]
+## @api private
+## [br]
 var _clock: GFClock = GFClock.new()
+
+## 以稳定后端 ID 为键保存连续失败数和冷却截止时间。
+## [br]
+## @api private
+## [br]
 var _health_by_backend_id: Dictionary = {}
+
+## 最近一次操作的有界、无业务载荷尝试报告。
+## [br]
+## @api private
+## [br]
 var _last_operation_report: Dictionary = {}
 
 
@@ -423,6 +514,10 @@ func _get_capabilities() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按初始或当前配置选取默认值，校验选项类型与范围并返回解析结果。
+## [br]
+## @api private
+## [br]
 func _parse_options(options: Dictionary, use_current_defaults: bool) -> Dictionary:
 	var default_policy: int = int(_mutation_policy) if use_current_defaults else int(MutationPolicy.FIRST_SUCCESS)
 	var default_failure_threshold: int = _failure_threshold if use_current_defaults else _DEFAULT_FAILURE_THRESHOLD
@@ -465,6 +560,10 @@ func _parse_options(options: Dictionary, use_current_defaults: bool) -> Dictiona
 	}
 
 
+## 将已解析的变更策略、失败阈值和冷却时长写入当前配置。
+## [br]
+## @api private
+## [br]
 func _apply_parsed_options(parsed_options: Dictionary) -> void:
 	_mutation_policy = _to_mutation_policy(
 		GFVariantData.get_option_int(parsed_options, "mutation_policy", int(MutationPolicy.FIRST_SUCCESS))
@@ -481,6 +580,10 @@ func _apply_parsed_options(parsed_options: Dictionary) -> void:
 	)
 
 
+## 按策略依序执行 save/delete，跳过不可用后端，更新健康状态和尝试报告。
+## [br]
+## @api private
+## [br]
 func _execute_mutation(
 	operation: StringName,
 	file_name: String,
@@ -520,6 +623,10 @@ func _execute_mutation(
 	return last_error
 
 
+## 返回索引/能力不支持或仍在冷却的原因；允许尝试时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _get_skip_reason(index: int, capability: StringName) -> String:
 	if index < 0 or index >= _backends.size():
 		return _REASON_UNSUPPORTED
@@ -530,6 +637,10 @@ func _get_skip_reason(index: int, capability: StringName) -> String:
 	return ""
 
 
+## 检查任一子后端是否报告指定能力。
+## [br]
+## @api private
+## [br]
 func _has_any_capability(capability: StringName) -> bool:
 	for backend: GFStorageBackend in _backends:
 		if GFVariantData.get_option_bool(backend.get_capabilities(), capability):
@@ -537,6 +648,10 @@ func _has_any_capability(capability: StringName) -> bool:
 	return false
 
 
+## 按 mutation_policy 检查主后端或任一子后端是否支持写入/删除能力。
+## [br]
+## @api private
+## [br]
 func _has_mutation_capability(capability: StringName) -> bool:
 	if _backends.is_empty():
 		return false
@@ -545,12 +660,20 @@ func _has_mutation_capability(capability: StringName) -> bool:
 	return _has_any_capability(capability)
 
 
+## 获取对应稳定后端 ID；索引越界时返回空 StringName。
+## [br]
+## @api private
+## [br]
 func _get_backend_id(index: int) -> StringName:
 	if index < 0 or index >= _backend_ids.size():
 		return &""
 	return StringName(_backend_ids[index])
 
 
+## 成功时返回 OK；失败时读取结果 error_code，缺失则回退为 ERR_CANT_OPEN。
+## [br]
+## @api private
+## [br]
 func _get_load_error_code(result: Dictionary, ok: bool) -> Error:
 	if ok:
 		return OK
@@ -558,6 +681,10 @@ func _get_load_error_code(result: Dictionary, ok: bool) -> Error:
 	return error_code as Error
 
 
+## 暂时性错误累计连续失败数并按阈值设置冷却截止；其他错误清除该后端健康状态。
+## [br]
+## @api private
+## [br]
 func _mark_backend_result(backend_id: StringName, error_code: Error) -> void:
 	if not _is_transient_error(error_code):
 		_mark_backend_success(backend_id)
@@ -572,12 +699,20 @@ func _mark_backend_result(backend_id: StringName, error_code: Error) -> void:
 	_health_by_backend_id[backend_id] = state
 
 
+## 将指定后端健康状态重置为零失败、无冷却。
+## [br]
+## @api private
+## [br]
 func _mark_backend_success(backend_id: StringName) -> void:
 	if backend_id == &"":
 		return
 	_health_by_backend_id[backend_id] = _make_healthy_state()
 
 
+## 冷却功能启用时比较截止时间与当前单调时钟，判断后端是否仍需跳过。
+## [br]
+## @api private
+## [br]
 func _is_backend_cooling_down(backend_id: StringName) -> bool:
 	if _failure_threshold <= 0 or _cooldown_msec <= 0:
 		return false
@@ -586,6 +721,10 @@ func _is_backend_cooling_down(backend_id: StringName) -> bool:
 	return cooldown_until > _clock.get_monotonic_msec()
 
 
+## 识别 unavailable、busy、timeout 和连接类 Godot 错误。
+## [br]
+## @api private
+## [br]
 func _is_transient_error(error_code: Error) -> bool:
 	return (
 		error_code == ERR_UNAVAILABLE
@@ -596,12 +735,20 @@ func _is_transient_error(error_code: Error) -> bool:
 	)
 
 
+## 清空健康表并为当前每个稳定后端 ID 建立健康初始状态。
+## [br]
+## @api private
+## [br]
 func _reset_all_health() -> void:
 	_health_by_backend_id.clear()
 	for backend_id_text: String in _backend_ids:
 		_health_by_backend_id[StringName(backend_id_text)] = _make_healthy_state()
 
 
+## 返回后端健康记录的深拷贝；缺失或类型不符时返回健康初始状态。
+## [br]
+## @api private
+## [br]
 func _get_health_state(backend_id: StringName) -> Dictionary:
 	var state_value: Variant = _health_by_backend_id.get(backend_id)
 	if state_value is Dictionary:
@@ -610,6 +757,10 @@ func _get_health_state(backend_id: StringName) -> Dictionary:
 	return _make_healthy_state()
 
 
+## 创建零连续失败且冷却截止时间为零的健康记录。
+## [br]
+## @api private
+## [br]
 func _make_healthy_state() -> Dictionary:
 	return {
 		"consecutive_failures": 0,
@@ -617,6 +768,10 @@ func _make_healthy_state() -> Dictionary:
 	}
 
 
+## 组装单个尝试报告项，并附上该后端当前失败计数和冷却截止时间。
+## [br]
+## @api private
+## [br]
 func _make_attempt(
 	index: int,
 	capability: StringName,
@@ -640,6 +795,10 @@ func _make_attempt(
 	}
 
 
+## 汇总尝试/跳过数量并保存最近操作的固定字段报告与单调时间戳。
+## [br]
+## @api private
+## [br]
 func _set_last_report(
 	operation: StringName,
 	file_name: String,
@@ -671,5 +830,9 @@ func _set_last_report(
 	}
 
 
+## 整数仅等于 PRIMARY_ONLY 时映射为该策略，其余值映射为 FIRST_SUCCESS。
+## [br]
+## @api private
+## [br]
 static func _to_mutation_policy(value: int) -> MutationPolicy:
 	return MutationPolicy.PRIMARY_ONLY if value == MutationPolicy.PRIMARY_ONLY else MutationPolicy.FIRST_SUCCESS

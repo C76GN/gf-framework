@@ -305,10 +305,16 @@ static func transform_point(
 
 # --- 私有/辅助方法 ---
 
+## 检查两个整数尺寸分量是否都大于零。
+## [br]
+## @api private
 static func _is_size_positive(size: Vector2i) -> bool:
 	return size.x > 0 and size.y > 0
 
 
+## 判断向量是否恰为 RIGHT、LEFT、DOWN 或 UP 单位方向。
+## [br]
+## @api private
 static func _is_cardinal_direction(direction: Vector2i) -> bool:
 	return (
 		direction == Vector2i.RIGHT
@@ -318,5 +324,8 @@ static func _is_cardinal_direction(direction: Vector2i) -> bool:
 	)
 
 
+## 检查两个浮点尺寸分量是否都大于零。
+## [br]
+## @api private
 static func _is_vector_size_positive(size: Vector2) -> bool:
 	return size.x > 0.0 and size.y > 0.0

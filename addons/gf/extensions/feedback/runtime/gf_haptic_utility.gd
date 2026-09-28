@@ -203,13 +203,44 @@ var stop_handler: Callable = Callable()
 
 # --- 私有变量 ---
 
+## 单调递增的震动播放实例序号。
+## [br]
+## @api private
 var _haptic_serial: int = 0
+
+## 按实例 ID 保存当前活跃的震动状态。
+## [br]
+## @api private
 var _active_haptics: Dictionary = {}
+
+## 按开始顺序保存活跃反馈实例 ID。
+## [br]
+## @api private
 var _play_order: PackedInt32Array = PackedInt32Array()
+
+## 保存各 channel 覆盖的震动强度倍率。
+## [br]
+## @api private
 var _channel_strengths: Dictionary = {}
+
+## 保存最近成功输出的目标记录，供后续撤销。
+## [br]
+## @api private
 var _last_output_targets: Dictionary = {}
+
+## 保存目标启动时采用的路由，供配对停止。
+## [br]
+## @api private
 var _last_output_routes: Dictionary = {}
+
+## 保存最近一次包含活动结果的输出报告。
+## [br]
+## @api private
 var _last_output_report: Dictionary = {}
+
+## 标记后端回调派发期间，阻止同步重入修改。
+## [br]
+## @api private
 var _is_dispatching_outputs: bool = false
 
 
@@ -741,6 +772,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 验证目标与预设、处理容量后登记播放状态并发出开始信号。
+## [br]
+## @api private
 func _play_haptic_for_target(
 	target_type: int,
 	target_id: int,
@@ -774,6 +808,9 @@ func _play_haptic_for_target(
 	return haptic_id
 
 
+## 按容量限制和溢出策略决定是否接纳播放，必要时停止最早实例。
+## [br]
+## @api private
 func _reserve_capacity() -> bool:
 	if max_active_haptics <= 0 or _active_haptics.size() < max_active_haptics:
 		return true
@@ -787,6 +824,9 @@ func _reserve_capacity() -> bool:
 	return max_active_haptics <= 0 or _active_haptics.size() < max_active_haptics
 
 
+## 移除已结束实例并发出播放结束信号。
+## [br]
+## @api private
 func _finish_haptic(haptic_id: int) -> void:
 	if not _active_haptics.has(haptic_id):
 		return
@@ -799,6 +839,9 @@ func _finish_haptic(haptic_id: int) -> void:
 	haptic_finished.emit(haptic_id, channel, target_type, target_id)
 
 
+## 停止匹配玩家或最终设备目标的实例，并刷新合成输出。
+## [br]
+## @api private
 func _stop_target(target_type: int, target_id: int, match_output_route: bool) -> int:
 	var operation: String = "stop_device" if match_output_route else "stop_player"
 	if _reject_output_reentrant_mutation(operation):
@@ -829,10 +872,16 @@ func _stop_target(target_type: int, target_id: int, match_output_route: bool) ->
 	return stopped_count
 
 
+## 将逻辑目标转换为输出目标键后采样合成震动。
+## [br]
+## @api private
 func _sample_target(target_type: int, target_id: int, channel: StringName) -> Dictionary:
 	return _sample_output_target(_make_output_target_key(target_type, target_id), channel)
 
 
+## 筛选目标及可选 channel 的活跃播放，应用强度倍率并合成采样。
+## [br]
+## @api private
 func _sample_output_target(output_target_key: String, channel: StringName) -> Dictionary:
 	var samples: Array[Dictionary] = []
 	var effective_channel: StringName = _resolve_channel(channel)
@@ -857,6 +906,9 @@ func _sample_output_target(output_target_key: String, channel: StringName) -> Di
 	return GFHapticPreset.combine_samples(samples)
 
 
+## 按物理输出目标分组播放，合成强度并生成带元数据与路由的输出计划。
+## [br]
+## @api private
 func _build_output_plan(duration_seconds: float) -> Array[Dictionary]:
 	var grouped_targets: Dictionary = {}
 	for state_variant: Variant in _active_haptics.values():
@@ -936,6 +988,9 @@ func _build_output_plan(duration_seconds: float) -> Array[Dictionary]:
 	return output_plan
 
 
+## 按后端、成对回调或默认输入系统选择目标输出路由。
+## [br]
+## @api private
 func _resolve_output_route(target_type: int) -> Dictionary:
 	if haptic_backend != null:
 		if (
@@ -970,6 +1025,9 @@ func _resolve_output_route(target_type: int) -> Dictionary:
 			return {}
 
 
+## 通过已选后端、回调或输入系统启动目标震动。
+## [br]
+## @api private
 func _start_output_via_route(
 	route: Dictionary,
 	target_type: int,
@@ -1024,6 +1082,9 @@ func _start_output_via_route(
 			return false
 
 
+## 通过启动时保存的路由停止目标震动。
+## [br]
+## @api private
 func _stop_output_via_route(
 	route: Dictionary,
 	target_type: int,
@@ -1059,6 +1120,9 @@ func _stop_output_via_route(
 			return false
 
 
+## 停止本帧不再需要的旧目标，并返回停止失败后仍待处理的目标和路由。
+## [br]
+## @api private
 func _stop_missing_outputs(current_output_targets: Dictionary) -> Dictionary:
 	var stopped: Array[Dictionary] = []
 	var failed_stops: Array[Dictionary] = []
@@ -1097,18 +1161,27 @@ func _stop_missing_outputs(current_output_targets: Dictionary) -> Dictionary:
 	}
 
 
+## 将调试数据编码为 JSON-safe 字典并隐藏完整路径。
+## [br]
+## @api private
 func _to_report_dictionary(value: Dictionary) -> Dictionary:
 	return GFReportValueCodec.to_report_dictionary(value, {
 		"path_redaction": "basename",
 	})
 
 
+## 将请求时长规范为有限正值，无效请求回退到刷新时长。
+## [br]
+## @api private
 func _resolve_output_duration(requested_duration_seconds: float) -> float:
 	if not is_finite(requested_duration_seconds) or requested_duration_seconds <= 0.0:
 		return maxf(output_refresh_seconds, MIN_OUTPUT_DURATION_SECONDS)
 	return maxf(requested_duration_seconds, MIN_OUTPUT_DURATION_SECONDS)
 
 
+## 规范化报告，并在包含活动结果时保存为最近报告。
+## [br]
+## @api private
 func _remember_output_report(report: Dictionary) -> Dictionary:
 	var normalized_report: Dictionary = _to_report_dictionary(report)
 	var activity_count: int = (
@@ -1122,14 +1195,23 @@ func _remember_output_report(report: Dictionary) -> Dictionary:
 	return normalized_report
 
 
+## 将非有限浮点输入替换为指定默认值。
+## [br]
+## @api private
 func _finite_float(value: float, default_value: float = 0.0) -> float:
 	return value if is_finite(value) else default_value
 
 
+## 将非有限输入替换为默认值，并限制结果不小于零。
+## [br]
+## @api private
 func _finite_nonnegative(value: float, default_value: float = 0.0) -> float:
 	return maxf(_finite_float(value, default_value), 0.0)
 
 
+## 从路由记录读取仍有效的对象引用。
+## [br]
+## @api private
 func _get_route_object(route: Dictionary, key: String) -> Object:
 	var value: Variant = GFVariantData.get_option_value(route, key)
 	if value is Object:
@@ -1139,6 +1221,9 @@ func _get_route_object(route: Dictionary, key: String) -> Object:
 	return null
 
 
+## 从路由记录读取有效的回调值。
+## [br]
+## @api private
 func _get_route_callable(route: Dictionary, key: String) -> Callable:
 	var value: Variant = GFVariantData.get_option_value(route, key)
 	if value is Callable:
@@ -1147,6 +1232,9 @@ func _get_route_callable(route: Dictionary, key: String) -> Callable:
 	return Callable()
 
 
+## 从路由记录读取仍有效的输入设备工具。
+## [br]
+## @api private
 func _get_route_input_utility(route: Dictionary) -> GFInputDeviceUtility:
 	var value: Variant = GFVariantData.get_option_value(route, "input_device_utility")
 	if value is GFInputDeviceUtility:
@@ -1156,20 +1244,32 @@ func _get_route_input_utility(route: Dictionary) -> GFInputDeviceUtility:
 	return null
 
 
+## 将空 channel 替换为默认 channel。
+## [br]
+## @api private
 func _resolve_channel(channel: StringName) -> StringName:
 	return default_channel if channel == &"" else channel
 
 
+## 从活跃震动状态表删除指定实例。
+## [br]
+## @api private
 func _erase_active_haptic(haptic_id: int) -> void:
 	var _removed: bool = _active_haptics.erase(haptic_id)
 
 
+## 从播放顺序数组中移除指定实例。
+## [br]
+## @api private
 func _remove_from_play_order(haptic_id: int) -> void:
 	var order_index: int = _play_order.find(haptic_id)
 	if order_index >= 0:
 		_play_order.remove_at(order_index)
 
 
+## 移除活跃实例和顺序记录，并按需发出停止信号。
+## [br]
+## @api private
 func _remove_active_haptic(haptic_id: int, emit_stopped: bool) -> void:
 	var state: Dictionary = _get_haptic_state(haptic_id)
 	if state.is_empty():
@@ -1183,10 +1283,16 @@ func _remove_active_haptic(haptic_id: int, emit_stopped: bool) -> void:
 		haptic_stopped.emit(haptic_id, channel, target_type, target_id)
 
 
+## 按实例 ID 读取并转换震动状态字典。
+## [br]
+## @api private
 func _get_haptic_state(haptic_id: int) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_active_haptics, haptic_id))
 
 
+## 从状态字典读取反馈预设。
+## [br]
+## @api private
 func _get_state_preset(state: Dictionary) -> GFHapticPreset:
 	var value: Variant = GFVariantData.get_option_value(state, "preset")
 	if value is GFHapticPreset:
@@ -1195,6 +1301,9 @@ func _get_state_preset(state: Dictionary) -> GFHapticPreset:
 	return null
 
 
+## 从状态字典读取 channel，并将字符串转换为 StringName。
+## [br]
+## @api private
 func _get_state_channel(state: Dictionary) -> StringName:
 	var value: Variant = GFVariantData.get_option_value(state, "channel", default_channel)
 	if value is StringName:
@@ -1206,31 +1315,52 @@ func _get_state_channel(state: Dictionary) -> StringName:
 	return default_channel
 
 
+## 从状态字典读取目标类型，缺省为玩家目标。
+## [br]
+## @api private
 func _get_state_target_type(state: Dictionary) -> int:
 	return GFVariantData.get_option_int(state, "target_type", TargetType.PLAYER)
 
 
+## 从状态字典读取目标标识，缺省为无效 ID。
+## [br]
+## @api private
 func _get_state_target_id(state: Dictionary) -> int:
 	return GFVariantData.get_option_int(state, "target_id", -1)
 
 
+## 读取有限浮点状态值，非有限值时返回默认值。
+## [br]
+## @api private
 func _get_state_float(state: Dictionary, key: String, default_value: float) -> float:
 	return GFVariantData.get_option_float(state, key, default_value)
 
 
+## 读取状态中的元数据字典副本。
+## [br]
+## @api private
 func _get_state_metadata_copy(state: Dictionary) -> Dictionary:
 	return GFVariantData.get_option_dictionary(state, "metadata")
 
 
+## 将目标类型和标识组合为稳定的键字符串。
+## [br]
+## @api private
 func _make_target_key(target_type: int, target_id: int) -> String:
 	return "%d:%d" % [target_type, target_id]
 
 
+## 根据最终物理输出目标记录生成目标键。
+## [br]
+## @api private
 func _make_output_target_key(target_type: int, target_id: int) -> String:
 	var output_record: Dictionary = _make_output_target_record(target_type, target_id)
 	return GFVariantData.get_option_string(output_record, "target_key")
 
 
+## 解析玩家目标对应的手柄设备，并构造最终输出目标记录。
+## [br]
+## @api private
 func _make_output_target_record(target_type: int, target_id: int) -> Dictionary:
 	if target_type == TargetType.PLAYER:
 		var assignment: GFInputDeviceAssignment = _get_player_joypad_assignment(target_id)
@@ -1247,6 +1377,9 @@ func _make_output_target_record(target_type: int, target_id: int) -> Dictionary:
 	}
 
 
+## 读取玩家当前有效的手柄设备分配。
+## [br]
+## @api private
 func _get_player_joypad_assignment(player_index: int) -> GFInputDeviceAssignment:
 	if input_device_utility == null:
 		return null
@@ -1256,6 +1389,9 @@ func _get_player_joypad_assignment(player_index: int) -> GFInputDeviceAssignment
 	return assignment
 
 
+## 从字典读取指定键对应的字典值。
+## [br]
+## @api private
 func _get_dictionary_value(source: Dictionary, key: Variant) -> Dictionary:
 	var value: Variant = GFVariantData.get_option_value(source, key)
 	if value is Dictionary:
@@ -1264,6 +1400,9 @@ func _get_dictionary_value(source: Dictionary, key: Variant) -> Dictionary:
 	return {}
 
 
+## 从字典读取数组并仅保留字典元素。
+## [br]
+## @api private
 func _get_dictionary_array(source: Dictionary, key: Variant) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for item: Variant in GFVariantData.get_option_array(source, key):
@@ -1273,6 +1412,9 @@ func _get_dictionary_array(source: Dictionary, key: Variant) -> Array[Dictionary
 	return result
 
 
+## 从字典读取数组值，类型不符时返回空数组。
+## [br]
+## @api private
 func _get_array_value(source: Dictionary, key: Variant) -> Array:
 	var value: Variant = GFVariantData.get_option_value(source, key)
 	if value is Array:
@@ -1281,6 +1423,9 @@ func _get_array_value(source: Dictionary, key: Variant) -> Array:
 	return []
 
 
+## 创建计数为零且结果列表为空的输出报告。
+## [br]
+## @api private
 func _make_empty_output_report() -> Dictionary:
 	return {
 		"applied_count": 0,
@@ -1294,6 +1439,9 @@ func _make_empty_output_report() -> Dictionary:
 	}
 
 
+## 输出派发期间拒绝同步状态修改并报告错误。
+## [br]
+## @api private
 func _reject_output_reentrant_mutation(operation: String) -> bool:
 	if not _is_dispatching_outputs:
 		return false

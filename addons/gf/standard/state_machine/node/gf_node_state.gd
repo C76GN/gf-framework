@@ -29,7 +29,16 @@ signal requested_transition(group_name: StringName, state_name: StringName, args
 
 # --- 常量 ---
 
+## 状态进入行为阶段的标识。
+## [br]
+## @api private
+## [br]
 const _PHASE_ENTER: StringName = &"enter"
+
+## 状态退出行为阶段的标识。
+## [br]
+## @api private
+## [br]
 const _PHASE_EXIT: StringName = &"exit"
 
 
@@ -77,10 +86,34 @@ var host: Node:
 
 # --- 私有变量 ---
 
+## 所属状态机的弱引用。
+## [br]
+## @api private
+## [br]
 var _machine_ref: WeakRef = null
+
+## 所属状态组的弱引用。
+## [br]
+## @api private
+## [br]
 var _group_ref: WeakRef = null
+
+## 此状态派发或关联过的架构弱引用集合。
+## [br]
+## @api private
+## [br]
 var _event_architectures: Array[WeakRef] = []
+
+## _ready 时缓存的原始 process_mode，禁用状态时保留并用于恢复。
+## [br]
+## @api private
+## [br]
 var _original_process_mode: int = Node.PROCESS_MODE_INHERIT
+
+## 状态树生命周期代数；退出树时递增以中止正在运行的行为遍历。
+## [br]
+## @api private
+## [br]
 var _lifecycle_epoch: int = 0
 
 
@@ -718,6 +751,10 @@ func setup(machine: Object, group: Object) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 逐个执行实现 evaluate() 的条件资源；任一结果转 bool 为 false 时立即拒绝。
+## [br]
+## @api private
+## [br]
 func _evaluate_conditions(
 	conditions: Array[Resource],
 	phase: StringName,
@@ -733,12 +770,20 @@ func _evaluate_conditions(
 	return true
 
 
+## 对实现 initialize() 的行为资源各调用一次初始化入口。
+## [br]
+## @api private
+## [br]
 func _run_behaviors_initialize() -> void:
 	for behavior: Resource in behaviors:
 		if behavior != null and behavior.has_method("initialize"):
 			var _result: Variant = behavior.call("initialize", self)
 
 
+## 按顺序调用行为 enter()；状态生命周期代改变时停止遍历。
+## [br]
+## @api private
+## [br]
 func _run_behaviors_enter(previous_state: StringName, args: Dictionary) -> void:
 	var epoch: int = _lifecycle_epoch
 	for behavior: Resource in behaviors:
@@ -748,6 +793,10 @@ func _run_behaviors_enter(previous_state: StringName, args: Dictionary) -> void:
 				return
 
 
+## 按顺序调用行为 exit()；状态生命周期代改变时停止遍历。
+## [br]
+## @api private
+## [br]
 func _run_behaviors_exit(next_state: StringName, args: Dictionary) -> void:
 	var epoch: int = _lifecycle_epoch
 	for behavior: Resource in behaviors:
@@ -757,6 +806,10 @@ func _run_behaviors_exit(next_state: StringName, args: Dictionary) -> void:
 				return
 
 
+## 按顺序调用行为 pause()；状态生命周期代改变时停止遍历。
+## [br]
+## @api private
+## [br]
 func _run_behaviors_pause(next_state: StringName, args: Dictionary) -> void:
 	var epoch: int = _lifecycle_epoch
 	for behavior: Resource in behaviors:
@@ -766,6 +819,10 @@ func _run_behaviors_pause(next_state: StringName, args: Dictionary) -> void:
 				return
 
 
+## 按顺序调用行为 resume()；状态生命周期代改变时停止遍历。
+## [br]
+## @api private
+## [br]
 func _run_behaviors_resume(previous_state: StringName, args: Dictionary) -> void:
 	var epoch: int = _lifecycle_epoch
 	for behavior: Resource in behaviors:
@@ -775,6 +832,10 @@ func _run_behaviors_resume(previous_state: StringName, args: Dictionary) -> void
 				return
 
 
+## 按顺序把状态事件传给行为；首个 truthy 结果消费事件，生命周期变化时停止并返回 false。
+## [br]
+## @api private
+## [br]
 func _run_behaviors_handle_state_event(event_id: StringName, payload: Variant) -> bool:
 	var epoch: int = _lifecycle_epoch
 	for behavior: Resource in behaviors:
@@ -788,6 +849,10 @@ func _run_behaviors_handle_state_event(event_id: StringName, payload: Variant) -
 	return false
 
 
+## 启用时恢复缓存的 Node process_mode，禁用时切换到 PROCESS_MODE_DISABLED。
+## [br]
+## @api private
+## [br]
 func _set_state_enabled(enabled: bool) -> void:
 	if enabled:
 		process_mode = _to_process_mode(_original_process_mode)
@@ -795,6 +860,10 @@ func _set_state_enabled(enabled: bool) -> void:
 		process_mode = Node.PROCESS_MODE_DISABLED as Node.ProcessMode
 
 
+## 优先从所属状态机、最近的 GFNodeContext、最后从 GFAutoload 取得架构。
+## [br]
+## @api private
+## [br]
 func _get_architecture_or_null() -> GFArchitecture:
 	var machine: Object = get_machine()
 	if machine != null and machine.has_method("get_architecture_or_null"):
@@ -811,6 +880,10 @@ func _get_architecture_or_null() -> GFArchitecture:
 	return GFAutoload.get_architecture_or_null()
 
 
+## 从当前状态节点向父链查找最近的 GFNodeContext。
+## [br]
+## @api private
+## [br]
 func _find_nearest_context() -> GFNodeContext:
 	var current_node: Node = self
 	while current_node != null:
@@ -821,6 +894,10 @@ func _find_nearest_context() -> GFNodeContext:
 	return null
 
 
+## 仅保留 Godot 支持的 process mode 值，其他值回退为 INHERIT。
+## [br]
+## @api private
+## [br]
 func _to_process_mode(value: int) -> ProcessMode:
 	match value:
 		Node.PROCESS_MODE_PAUSABLE:
@@ -835,6 +912,10 @@ func _to_process_mode(value: int) -> ProcessMode:
 			return Node.PROCESS_MODE_INHERIT
 
 
+## 将有效且此前未记录的架构以弱引用加入事件架构集合。
+## [br]
+## @api private
+## [br]
 func _remember_event_architecture(architecture: GFArchitecture) -> void:
 	if architecture == null or not is_instance_valid(architecture):
 		return
@@ -844,6 +925,10 @@ func _remember_event_architecture(architecture: GFArchitecture) -> void:
 	_event_architectures.append(weakref(architecture))
 
 
+## 返回存活架构并同时压缩弱引用列表，移除失效或类型不符条目。
+## [br]
+## @api private
+## [br]
 func _get_tracked_event_architectures() -> Array[GFArchitecture]:
 	var result: Array[GFArchitecture] = []
 	var live_architectures: Array[WeakRef] = []
@@ -856,6 +941,10 @@ func _get_tracked_event_architectures() -> Array[GFArchitecture]:
 	return result
 
 
+## 将 Variant 窄化为 Node；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_node(value: Variant) -> Node:
 	if value is Node:
 		var node: Node = value
@@ -863,6 +952,10 @@ func _variant_to_node(value: Variant) -> Node:
 	return null
 
 
+## 将 Variant 窄化为 GFArchitecture；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_architecture(value: Variant) -> GFArchitecture:
 	if value is GFArchitecture:
 		var architecture: GFArchitecture = value

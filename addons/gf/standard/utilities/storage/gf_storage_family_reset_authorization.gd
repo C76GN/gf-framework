@@ -46,13 +46,52 @@ const STATE_STALE: StringName = &"stale"
 
 # --- 私有变量 ---
 
+## 标记框架是否已绑定完整授权身份。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
+
+## 当前 Utility 生命周期内分配的授权 ID。
+## [br]
+## @api private
+## [br]
 var _authorization_id: int = 0
+
+## 创建该授权的 Utility 实例 ID。
+## [br]
+## @api private
+## [br]
 var _utility_id: int = 0
+
+## 授权绑定的 canonical logical identity。
+## [br]
+## @api private
+## [br]
 var _logical_path: String = ""
+
+## 冻结 root 与 family identity 的内部绑定键。
+## [br]
+## @api private
+## [br]
 var _file_key: String = ""
+
+## 签发时冻结并在 claim/worker 阶段复核的 opaque family 观察值。
+## [br]
+## @api private
+## [br]
 var _observation_token: String = ""
+
+## 调用方确认的破坏性恢复原因。
+## [br]
+## @api private
+## [br]
 var _reason: StringName = &""
+
+## 当前授权状态：available、claimed 或 stale。
+## [br]
+## @api private
+## [br]
 var _state: StringName = STATE_STALE
 
 

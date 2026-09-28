@@ -168,9 +168,17 @@ static func calculate_point_force(
 
 # --- 私有/辅助方法 ---
 
+## 判断浮点值不是 NaN 或无穷大。
+## [br]
+## @api private
+## [br]
 static func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 检查 Vector3 的三个分量均为有限浮点值。
+## [br]
+## @api private
+## [br]
 static func _is_finite_vector3(value: Vector3) -> bool:
 	return _is_finite_float(value.x) and _is_finite_float(value.y) and _is_finite_float(value.z)

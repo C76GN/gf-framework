@@ -43,19 +43,57 @@ enum LifecycleState {
 
 # --- 常量 ---
 
+## 事务字典中 active 字段的键名。
+## [br]
+## @api private
 const _TRANSACTION_ACTIVE_KEY: String = "active"
+
+## 事务字典中 cancelled 字段的键名。
+## [br]
+## @api private
 const _TRANSACTION_CANCELLED_KEY: String = "cancelled"
+
+## 事务字典中 failed 字段的键名。
+## [br]
+## @api private
 const _TRANSACTION_FAILED_KEY: String = "failed"
+
+## 事务字典中 generation 字段的键名。
+## [br]
+## @api private
 const _TRANSACTION_GENERATION_KEY: String = "generation"
+
+## 事务字典中 id 字段的键名。
+## [br]
+## @api private
 const _TRANSACTION_ID_KEY: String = "id"
+
+## 事务字典中 label 字段的键名。
+## [br]
+## @api private
 const _TRANSACTION_LABEL_KEY: String = "label"
 
 
 # --- 私有变量 ---
 
+## 当前架构主生命周期状态。
+## [br]
+## @api private
 var _state: LifecycleState = LifecycleState.NEW
+
+## 当前生命周期代次；初始化、失败和释放边界会推进此值。
+## [br]
+## @api private
 var _lifecycle_generation: int = 0
+
+## 尚未从运行时登记表移除的事务上下文。
+## [br]
+## @api private
 var _transactions: Array[Dictionary] = []
+
+## 下一个运行时事务使用的正整数 ID。
+## [br]
+## @api private
 var _next_transaction_id: int = 1
 
 
@@ -444,24 +482,39 @@ func is_transaction_failed(transaction: Dictionary) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 将当前登记的所有事务标记为初始化失败。
+## [br]
+## @api private
 func _mark_transactions_failed() -> void:
 	for transaction: Dictionary in _transactions:
 		transaction[_TRANSACTION_FAILED_KEY] = true
 
 
+## 将当前登记的所有事务标记为已取消。
+## [br]
+## @api private
 func _mark_transactions_cancelled() -> void:
 	for transaction: Dictionary in _transactions:
 		transaction[_TRANSACTION_CANCELLED_KEY] = true
 
 
+## 从事务字典读取 ID，缺失或类型不符时返回零。
+## [br]
+## @api private
 func _get_transaction_id(transaction: Dictionary) -> int:
 	return _get_transaction_int(transaction, _TRANSACTION_ID_KEY)
 
 
+## 从事务字典读取生命周期 generation，缺失或类型不符时返回零。
+## [br]
+## @api private
 func _get_transaction_generation(transaction: Dictionary) -> int:
 	return _get_transaction_int(transaction, _TRANSACTION_GENERATION_KEY)
 
 
+## 读取整数或浮点字段并转为 int；字段缺失或类型不符时返回零。
+## [br]
+## @api private
 func _get_transaction_int(transaction: Dictionary, key: String) -> int:
 	if not transaction.has(key):
 		return 0
@@ -475,6 +528,9 @@ func _get_transaction_int(transaction: Dictionary, key: String) -> int:
 	return 0
 
 
+## 读取布尔字段；字段缺失或类型不符时返回 false。
+## [br]
+## @api private
 func _get_transaction_bool(transaction: Dictionary, key: String) -> bool:
 	if not transaction.has(key):
 		return false

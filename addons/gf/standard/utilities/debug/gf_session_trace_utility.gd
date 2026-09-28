@@ -158,10 +158,34 @@ const REJECT_INVALID_PROVIDER: StringName = &"invalid_provider"
 ## @since 10.0.0
 const REJECT_PROVIDER_REENTRANT: StringName = &"provider_reentrant"
 
+## Session trace 事件记录使用的结构版本号。
+## [br]
+## @api private
+## [br]
 const _EVENT_SCHEMA_VERSION: int = 1
+
+## 会话、通道和事件标识符允许的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_ID_LENGTH: int = 128
+
+## 写入单条事件记录所需的最小字节预算。
+## [br]
+## @api private
+## [br]
 const _MIN_EVENT_BYTES: int = 512
+
+## 为事件结构封套预留的字节数，用于计算可用载荷预算。
+## [br]
+## @api private
+## [br]
 const _PAYLOAD_ENVELOPE_RESERVE_BYTES: int = 768
+
+## 隐私级别到比较序号的映射，序号用于检查日志接收器的兼容性。
+## [br]
+## @api private
+## [br]
 const _REDACTION_PROFILE_RANKS: Dictionary = {
 	GFReportValueCodec.REDACTION_PROFILE_DEBUG: 0,
 	GFReportValueCodec.REDACTION_PROFILE_SUPPORT: 1,
@@ -254,34 +278,178 @@ var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY:
 
 # --- 私有变量 ---
 
+## 按 ID 保存已注册通道及其采集、预算和元数据选项。
+## [br]
+## @api private
+## [br]
 var _channels: Dictionary = {}
+
+## 按 ID 保存用于会话快照采集的 Provider 配置。
+## [br]
+## @api private
+## [br]
 var _snapshot_providers: Dictionary = {}
+
+## 当前保留的会话事件记录，顺序与其序列号一致。
+## [br]
+## @api private
+## [br]
 var _events: Array[Dictionary] = []
+
+## 与 `_events` 平行的记录字节数，用于维护缓冲区总量。
+## [br]
+## @api private
+## [br]
 var _event_sizes: Array[int] = []
+
+## 当前会话的唯一标识符。
+## [br]
+## @api private
+## [br]
 var _session_id: StringName = &""
+
+## 经隐私处理并受字节预算限制的持久会话上下文。
+## [br]
+## @api private
+## [br]
 var _session_context: Dictionary = {}
+
+## 会话停止时记录的原因标识。
+## [br]
+## @api private
+## [br]
 var _stop_reason: StringName = &""
+
+## 指示当前会话是否正在接收事件。
+## [br]
+## @api private
+## [br]
 var _active: bool = false
+
+## 会话开始时的单调时钟读数，供事件计算相对耗时。
+## [br]
+## @api private
+## [br]
 var _started_ticks_usec: int = 0
+
+## 下一条事件将使用的序列号。
+## [br]
+## @api private
+## [br]
 var _next_sequence: int = 1
+
+## 当前事件缓冲区所占的 UTF-8 字节总量。
+## [br]
+## @api private
+## [br]
 var _total_event_bytes: int = 0
+
+## 因缓冲区限额而移除的事件总数。
+## [br]
+## @api private
+## [br]
 var _dropped_event_count: int = 0
+
+## 因事件无效或预算不足而拒绝的事件总数。
+## [br]
+## @api private
+## [br]
 var _rejected_event_count: int = 0
+
+## 按拒绝原因累计的事件数量。
+## [br]
+## @api private
+## [br]
 var _rejections_by_reason: Dictionary = {}
+
+## 防止快照 Provider 重入采集的状态标记。
+## [br]
+## @api private
+## [br]
 var _provider_capture_active: bool = false
+
+## 接收会话事件日志记录的日志接收器。
+## [br]
+## @api private
+## [br]
 var _journal_sink: GFLogSink = null
+
+## 释放日志接收器时是否同时调用其关闭方法。
+## [br]
+## @api private
+## [br]
 var _journal_shutdown_on_dispose: bool = false
+
+## 每次成功写入日志记录后是否立即刷新接收器。
+## [br]
+## @api private
+## [br]
 var _journal_flush_after_write: bool = false
+
+## 已成功写入日志接收器的会话事件数。
+## [br]
+## @api private
+## [br]
 var _journal_event_count: int = 0
+
+## 未能写入日志接收器的会话事件数。
+## [br]
+## @api private
+## [br]
 var _journal_dropped_event_count: int = 0
+
+## 标记正在执行日志接收器回调，以推迟重入期间的清理。
+## [br]
+## @api private
+## [br]
 var _journal_callback_active: bool = false
+
+## 日志接收器配置的修订号，用于识别配置变化。
+## [br]
+## @api private
+## [br]
 var _journal_configuration_revision: int = 0
+
+## 日志回调重入期间等待清理的旧接收器。
+## [br]
+## @api private
+## [br]
 var _pending_journal_cleanup_sink: GFLogSink = null
+
+## 清理待处理接收器时是否调用关闭方法。
+## [br]
+## @api private
+## [br]
 var _pending_journal_cleanup_shutdown: bool = false
+
+## 最近应用的采集配方标识。
+## [br]
+## @api private
+## [br]
 var _configured_recipe_id: StringName = &""
+
+## 应用配方时记录的配方内容指纹。
+## [br]
+## @api private
+## [br]
 var _configured_recipe_fingerprint: String = ""
+
+## 应用配方时记录的运行时通道配置指纹。
+## [br]
+## @api private
+## [br]
 var _configured_recipe_runtime_fingerprint: String = ""
+
+## 应用配方时的运行时配置修订号。
+## [br]
+## @api private
+## [br]
 var _configured_recipe_runtime_revision: int = 0
+
+## 会话采集运行时配置变化的修订号。
+## [br]
+## @api private
+## [br]
 var _trace_configuration_revision: int = 0
 
 
@@ -1158,6 +1326,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 构造配方应用结果，并复制通道列表和验证详情。
+## [br]
+## @api private
+## [br]
 func _make_recipe_result(
 	ok: bool,
 	recipe_id: StringName,
@@ -1180,6 +1352,10 @@ func _make_recipe_result(
 	}
 
 
+## 验证配方有效性、应用状态及其内容和运行时配置是否仍与应用时一致。
+## [br]
+## @api private
+## [br]
 func _get_configured_recipe_issue(recipe: GFSessionTraceRecipe) -> Dictionary:
 	if recipe == null:
 		return {
@@ -1224,6 +1400,10 @@ func _get_configured_recipe_issue(recipe: GFSessionTraceRecipe) -> Dictionary:
 	return {}
 
 
+## 构造检查点采集结果的初始结构，并深复制 Provider 结果。
+## [br]
+## @api private
+## [br]
 func _make_checkpoint_result(
 	ok: bool,
 	recipe_id: StringName,
@@ -1246,6 +1426,10 @@ func _make_checkpoint_result(
 	}
 
 
+## 按通道 ID 排序并序列化当前采集配置，计算其 SHA-256 指纹。
+## [br]
+## @api private
+## [br]
 func _make_recipe_runtime_fingerprint() -> String:
 	var channel_records: Array[Dictionary] = []
 	for channel_text: String in _get_sorted_channel_ids():
@@ -1265,10 +1449,18 @@ func _make_recipe_runtime_fingerprint() -> String:
 	return JSON.stringify(runtime_record, "", true).sha256_text()
 
 
+## 递增运行时采集配置修订号，使已应用配方可检测后续变化。
+## [br]
+## @api private
+## [br]
 func _mark_trace_configuration_changed() -> void:
 	_trace_configuration_revision += 1
 
 
+## 校验事件和预算，按隐私及字节限制生成记录，裁剪旧记录并更新日志与缓冲区状态。
+## [br]
+## @api private
+## [br]
 func _record_event_internal(
 	channel_id: StringName,
 	event_id: StringName,
@@ -1340,6 +1532,10 @@ func _record_event_internal(
 	}
 
 
+## 根据会话状态、标识符、通道开关和预算确定事件拒绝原因。
+## [br]
+## @api private
+## [br]
 func _get_record_rejection_reason(
 	channel_id: StringName,
 	event_id: StringName
@@ -1363,6 +1559,10 @@ func _get_record_rejection_reason(
 	return &""
 
 
+## 累计拒绝总数及原因计数，发送拒绝信号并返回失败结果。
+## [br]
+## @api private
+## [br]
 func _reject_event(
 	channel_id: StringName,
 	event_id: StringName,
@@ -1377,6 +1577,10 @@ func _reject_event(
 	}
 
 
+## 按指定字节预算清理字典，并仅在结果仍为字典时返回该值。
+## [br]
+## @api private
+## [br]
 func _sanitize_dictionary(value: Dictionary, byte_budget: int) -> Dictionary:
 	var sanitized: Variant = _sanitize_value(value, byte_budget)
 	if sanitized is Dictionary:
@@ -1385,6 +1589,10 @@ func _sanitize_dictionary(value: Dictionary, byte_budget: int) -> Dictionary:
 	return {}
 
 
+## 始终按 privacy 隐私级别清理持久字典。
+## [br]
+## @api private
+## [br]
 func _sanitize_persistent_dictionary(value: Dictionary, byte_budget: int) -> Dictionary:
 	var sanitized: Variant = _sanitize_value_with_profile(
 		value,
@@ -1397,10 +1605,18 @@ func _sanitize_persistent_dictionary(value: Dictionary, byte_budget: int) -> Dic
 	return {}
 
 
+## 按当前会话隐私级别清理值，并受给定字节预算限制。
+## [br]
+## @api private
+## [br]
 func _sanitize_value(value: Variant, byte_budget: int) -> Variant:
 	return _sanitize_value_with_profile(value, byte_budget, _resolve_redaction_profile())
 
 
+## 使用 ReportValueCodec 的深度、集合、节点和字节上限清理值。
+## [br]
+## @api private
+## [br]
 func _sanitize_value_with_profile(
 	value: Variant,
 	byte_budget: int,
@@ -1420,6 +1636,10 @@ func _sanitize_value_with_profile(
 	return GFReportValueCodec.to_json_compatible(value, options)
 
 
+## 解析当前有效隐私级别；未识别的配置回退到 privacy。
+## [br]
+## @api private
+## [br]
 func _resolve_redaction_profile() -> String:
 	if (
 		redaction_profile == GFReportValueCodec.REDACTION_PROFILE_DEBUG
@@ -1431,6 +1651,10 @@ func _resolve_redaction_profile() -> String:
 	return GFReportValueCodec.REDACTION_PROFILE_PRIVACY
 
 
+## 获取通道事件预算，并将其限制在全局预算范围内。
+## [br]
+## @api private
+## [br]
 func _get_event_budget(channel_options: Dictionary) -> int:
 	var channel_budget: int = GFVariantData.get_option_int(channel_options, "max_event_bytes", 0)
 	if channel_budget <= 0:
@@ -1438,6 +1662,10 @@ func _get_event_budget(channel_options: Dictionary) -> int:
 	return mini(max_event_bytes, maxi(channel_budget, _MIN_EVENT_BYTES))
 
 
+## 添加事件前移除该通道最旧记录，确保不超过通道事件上限。
+## [br]
+## @api private
+## [br]
 func _trim_channel_before_append(channel_id: StringName, channel_limit: int) -> void:
 	if channel_limit <= 0:
 		return
@@ -1448,6 +1676,10 @@ func _trim_channel_before_append(channel_id: StringName, channel_limit: int) -> 
 		_remove_event_at(index, true)
 
 
+## 移除该通道最旧记录，直至其数量不超过配置上限。
+## [br]
+## @api private
+## [br]
 func _trim_channel_to_limit(channel_id: StringName) -> void:
 	var options: Dictionary = _get_dictionary(_channels, channel_id)
 	var channel_limit: int = GFVariantData.get_option_int(options, "max_events", 0)
@@ -1460,6 +1692,10 @@ func _trim_channel_to_limit(channel_id: StringName) -> void:
 		_remove_event_at(index, true)
 
 
+## 添加记录前移除全局最旧事件，直到数量和总字节数均可容纳新记录。
+## [br]
+## @api private
+## [br]
 func _trim_before_append(event_size: int) -> void:
 	while not _events.is_empty() and (
 		_events.size() >= max_events
@@ -1468,6 +1704,10 @@ func _trim_before_append(event_size: int) -> void:
 		_remove_event_at(0, true)
 
 
+## 移除全局最旧事件，直至缓冲区数量和字节数符合全局上限。
+## [br]
+## @api private
+## [br]
 func _trim_to_global_limits() -> void:
 	while not _events.is_empty() and (
 		_events.size() > max_events
@@ -1476,6 +1716,10 @@ func _trim_to_global_limits() -> void:
 		_remove_event_at(0, true)
 
 
+## 从事件及其平行字节数数组删除指定索引，并更新字节数和可选丢弃计数。
+## [br]
+## @api private
+## [br]
 func _remove_event_at(index: int, count_as_dropped: bool) -> void:
 	if index < 0 or index >= _events.size() or index >= _event_sizes.size():
 		return
@@ -1486,6 +1730,10 @@ func _remove_event_at(index: int, count_as_dropped: bool) -> void:
 		_dropped_event_count += 1
 
 
+## 统计当前缓冲区内指定通道的事件数量。
+## [br]
+## @api private
+## [br]
 func _count_channel_events(channel_id: StringName) -> int:
 	var count: int = 0
 	for event: Dictionary in _events:
@@ -1494,6 +1742,10 @@ func _count_channel_events(channel_id: StringName) -> int:
 	return count
 
 
+## 查找缓冲区中指定通道最早事件的索引；不存在时返回 -1。
+## [br]
+## @api private
+## [br]
 func _find_first_channel_event(channel_id: StringName) -> int:
 	for index: int in range(_events.size()):
 		if GFVariantData.get_option_string_name(_events[index], "channel_id") == channel_id:
@@ -1501,6 +1753,10 @@ func _find_first_channel_event(channel_id: StringName) -> int:
 	return -1
 
 
+## 校验重入、接收器、记录上限和隐私级别后写入事件，并按配置刷新。
+## [br]
+## @api private
+## [br]
 func _write_journal_event(event: Dictionary) -> void:
 	if _journal_callback_active:
 		_journal_dropped_event_count += 1
@@ -1532,6 +1788,10 @@ func _write_journal_event(event: Dictionary) -> void:
 	_finish_journal_callback()
 
 
+## 结束接收器回调状态，并执行回调期间排队的接收器清理。
+## [br]
+## @api private
+## [br]
 func _finish_journal_callback() -> void:
 	_journal_callback_active = false
 	if _pending_journal_cleanup_sink == null:
@@ -1543,6 +1803,10 @@ func _finish_journal_callback() -> void:
 	_finalize_journal_sink(pending_sink, pending_shutdown)
 
 
+## 刷新日志接收器，按要求关闭它，并完成回调清理流程。
+## [br]
+## @api private
+## [br]
 func _finalize_journal_sink(sink: GFLogSink, shutdown: bool) -> void:
 	if sink == null:
 		return
@@ -1553,22 +1817,38 @@ func _finalize_journal_sink(sink: GFLogSink, shutdown: bool) -> void:
 	_finish_journal_callback()
 
 
+## 将已知隐私级别保留为规范值；未知值返回空字符串。
+## [br]
+## @api private
+## [br]
 func _normalize_redaction_profile(profile: String) -> String:
 	if _get_redaction_profile_rank(profile) < 0:
 		return ""
 	return profile
 
 
+## 从隐私级别映射中读取比较序号；未识别时返回 -1。
+## [br]
+## @api private
+## [br]
 func _get_redaction_profile_rank(profile: String) -> int:
 	return GFVariantData.get_option_int(_REDACTION_PROFILE_RANKS, profile, -1)
 
 
+## 确认当前采集隐私级别不低于日志接收器要求的级别。
+## [br]
+## @api private
+## [br]
 func _is_journal_profile_compatible(sink_profile: String) -> bool:
 	var trace_rank: int = _get_redaction_profile_rank(_resolve_redaction_profile())
 	var sink_rank: int = _get_redaction_profile_rank(sink_profile)
 	return trace_rank >= 0 and sink_rank >= 0 and trace_rank >= sink_rank
 
 
+## 按通道、事件、序列范围及快照可见性过滤事件。
+## [br]
+## @api private
+## [br]
 func _matches_filters(event: Dictionary, filters: Dictionary) -> bool:
 	var channel_filter: StringName = GFVariantData.get_option_string_name(filters, "channel_id")
 	if channel_filter != &"" and GFVariantData.get_option_string_name(event, "channel_id") != channel_filter:
@@ -1591,6 +1871,10 @@ func _matches_filters(event: Dictionary, filters: Dictionary) -> bool:
 	return true
 
 
+## 构造会话摘要，汇总缓冲区、丢弃、拒绝和日志计数。
+## [br]
+## @api private
+## [br]
 func _make_summary() -> Dictionary:
 	return {
 		"session_id": _session_id,
@@ -1605,6 +1889,10 @@ func _make_summary() -> Dictionary:
 	}
 
 
+## 取得已注册且非空的通道 ID，并按文本顺序排列。
+## [br]
+## @api private
+## [br]
 func _get_sorted_channel_ids() -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for key: Variant in _channels.keys():
@@ -1615,6 +1903,10 @@ func _get_sorted_channel_ids() -> PackedStringArray:
 	return result
 
 
+## 取得已注册且非空的 Provider ID，并按文本顺序排列。
+## [br]
+## @api private
+## [br]
 func _get_sorted_provider_ids() -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for key: Variant in _snapshot_providers.keys():
@@ -1625,6 +1917,10 @@ func _get_sorted_provider_ids() -> PackedStringArray:
 	return result
 
 
+## 读取指定字典字段；字段不是字典时返回空字典。
+## [br]
+## @api private
+## [br]
 func _get_dictionary(source: Dictionary, key: Variant) -> Dictionary:
 	var value: Variant = GFVariantData.get_option_value(source, key)
 	if value is Dictionary:
@@ -1633,10 +1929,18 @@ func _get_dictionary(source: Dictionary, key: Variant) -> Dictionary:
 	return {}
 
 
+## 使用 GFVariantData 深复制字典值并转换为字典。
+## [br]
+## @api private
+## [br]
 func _duplicate_dictionary(value: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.duplicate_variant(value))
 
 
+## 读取可调用字段；字段不是 Callable 时返回空 Callable。
+## [br]
+## @api private
+## [br]
 func _get_callable(source: Dictionary, key: Variant) -> Callable:
 	var value: Variant = source.get(key)
 	if value is Callable:
@@ -1645,6 +1949,10 @@ func _get_callable(source: Dictionary, key: Variant) -> Callable:
 	return Callable()
 
 
+## 去除标识符两端空白；超过长度上限时返回空标识符。
+## [br]
+## @api private
+## [br]
 func _normalize_id(value: StringName) -> StringName:
 	var text: String = String(value).strip_edges()
 	if text.length() > _MAX_ID_LENGTH:
@@ -1652,5 +1960,9 @@ func _normalize_id(value: StringName) -> StringName:
 	return StringName(text)
 
 
+## 组合单调时钟读数和实例 ID，生成当前会话标识符。
+## [br]
+## @api private
+## [br]
 func _make_session_id() -> StringName:
 	return StringName("session_%d_%d" % [Time.get_ticks_usec(), get_instance_id()])

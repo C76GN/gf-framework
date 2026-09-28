@@ -105,10 +105,29 @@ var suppress_duplicates: bool = true
 
 # --- 私有变量 ---
 
+## 等待开始展示的通知记录，按优先级及入队顺序排列；当前通知单独保存在 _active_notification。
+## [br]
+## @api private
 var _queue: Array[Dictionary] = []
+
+## 当前正在展示的通知记录；结束或清空时会移除。
+## [br]
+## @api private
 var _active_notification: Dictionary = {}
+
+## 当前通知尚余展示秒数，由 tick 递减；暂停或 sticky 通知不递减。
+## [br]
+## @api private
 var _active_remaining_seconds: float = 0.0
+
+## 是否暂停当前通知的倒计时。
+## [br]
+## @api private
 var _active_paused: bool = false
+
+## 下一个新通知记录使用的递增 id。
+## [br]
+## @api private
 var _next_notification_id: int = 1
 
 
@@ -299,6 +318,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 根据输入选项组装通知记录，并分配唯一递增 id。
+## [br]
+## @api private
 func _make_notification(
 	message: String,
 	title: String,
@@ -323,6 +345,9 @@ func _make_notification(
 	return notification_record
 
 
+## 队列有待处理记录且当前没有活动通知时，启动队首记录并初始化其倒计时。
+## [br]
+## @api private
 func _start_next_notification() -> void:
 	if not _active_notification.is_empty() or _queue.is_empty():
 		return
@@ -339,6 +364,9 @@ func _start_next_notification() -> void:
 		dismiss_active("timeout")
 
 
+## 按优先级整理等待队列，并丢弃超出容量的末尾记录。
+## [br]
+## @api private
 func _trim_queue() -> void:
 	_sort_queue_by_priority()
 	var max_size: int = maxi(max_queue_size, 0)
@@ -347,6 +375,9 @@ func _trim_queue() -> void:
 		notification_finished.emit(dropped.duplicate(true), "dropped")
 
 
+## 在活动通知和等待队列中查找首个去重匹配项；没有匹配时返回 0。
+## [br]
+## @api private
 func _find_duplicate_notification_id(message: String, options: Dictionary) -> int:
 	var key: String = GFVariantData.get_option_string(options, "key")
 	if _matches_notification(_active_notification, key, message):
@@ -358,6 +389,9 @@ func _find_duplicate_notification_id(message: String, options: Dictionary) -> in
 	return 0
 
 
+## 显式 key 只匹配相同去重 key；未提供 key 时仅匹配同样没有显式 key 且消息相同的记录。
+## [br]
+## @api private
 func _matches_notification(notification_record: Dictionary, key: String, message: String) -> bool:
 	if notification_record.is_empty():
 		return false
@@ -370,6 +404,9 @@ func _matches_notification(notification_record: Dictionary, key: String, message
 	return GFVariantData.get_option_string(notification_record, "message") == message
 
 
+## 将等待队列按优先级降序、同优先级 id 升序排列。
+## [br]
+## @api private
 func _sort_queue_by_priority() -> void:
 	_queue.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
 		var left_priority: int = GFVariantData.get_option_int(left, "priority", Priority.NORMAL)
@@ -380,6 +417,9 @@ func _sort_queue_by_priority() -> void:
 	)
 
 
+## 将动作输入规整为有效动作记录；只接受字符串标识或含非空 id 的 Dictionary。
+## [br]
+## @api private
 func _normalize_actions(actions_variant: Variant) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if not (actions_variant is Array):

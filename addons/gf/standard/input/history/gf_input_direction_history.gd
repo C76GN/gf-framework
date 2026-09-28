@@ -14,7 +14,16 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 按动作 ID 保存当前按下方向动作对应的 Vector2i。
+## [br]
+## @api private
+## [br]
 var _pressed_actions: Dictionary = {}
+
+## 按最近按下顺序保存尚未释放的动作 ID，末项具有最高优先级。
+## [br]
+## @api private
+## [br]
 var _history: Array[StringName] = []
 
 
@@ -122,5 +131,9 @@ func clear() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 将方向的 x、y 整数分量格式化为 x,y 形式的内部 StringName。
+## [br]
+## @api private
+## [br]
 func _direction_to_id(direction: Vector2i) -> StringName:
 	return StringName("%d,%d" % [direction.x, direction.y])

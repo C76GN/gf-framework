@@ -15,6 +15,9 @@ extends GFUtility
 
 # --- 私有变量 ---
 
+## 当前底层时钟；set_clock 成功后，时钟读取方法均转发到替换实例。
+## [br]
+## @api private
 var _clock: GFClock = GFClock.new()
 
 
@@ -91,6 +94,7 @@ func get_unix_time_msec() -> int:
 ## @return 可持久化、但可能因系统校时跳变的秒时间戳。
 func get_unix_time_seconds() -> int:
 	return _clock.get_unix_time_seconds()
+
 
 ## 获取普通 tick 使用的 delta。
 ## [br]

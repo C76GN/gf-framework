@@ -54,6 +54,9 @@ func _create_provider_factory() -> ProjectStorageProviderFactory:
 
 # --- 私有/辅助方法 ---
 
+## 直接构造内存 provider 记录，分别证明列表整体的节点、外层条目、字节和嵌套深度超限会在深复制前失败。
+## [br]
+## @api private
 func _assert_list_budget_covers_complete_response() -> void:
 	var provider: ProjectStorageProvider = MemoryStorageProvider.new()
 	assert_true(provider.initialize() == OK)
@@ -162,7 +165,10 @@ func _assert_list_budget_covers_complete_response() -> void:
 
 # --- 内部类 ---
 
+# 为当前测试配对创建内存 provider 和专用故障驱动。
 class MemoryStorageProviderFactory extends ProjectStorageProviderFactory:
+
+	# --- 公共方法 ---
 	func create_provider() -> ProjectStorageProvider:
 		return MemoryStorageProvider.new()
 
@@ -176,7 +182,14 @@ class MemoryStorageProviderFactory extends ProjectStorageProviderFactory:
 		return MemoryStorageFaultDriver.new(memory_provider)
 
 
+# 可故障注入的内存协议实现，提交前暂存记录以验证失败原子性。
 class MemoryStorageProvider extends ProjectStorageProvider:
+
+	# --- 常量 ---
+
+	## 内存 provider 接受的精确读取预算字段，避免故障夹具放宽生产边界。
+	## [br]
+	## @api private
 	const _READ_LIMIT_KEYS: PackedStringArray = [
 		"max_payload_bytes",
 		"max_graph_nodes",
@@ -184,6 +197,10 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		"max_string_bytes",
 		"max_container_entries",
 	]
+
+	## 列表预算的闭合字段，包括记录总数和完整响应字节上限。
+	## [br]
+	## @api private
 	const _LIST_LIMIT_KEYS: PackedStringArray = [
 		"max_items",
 		"max_list_bytes",
@@ -192,11 +209,17 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		"max_string_bytes",
 		"max_container_entries",
 	]
+
+	## 内存实现支持的原子写条件及请求标识字段。
+	## [br]
+	## @api private
 	const _WRITE_OPTION_KEYS: PackedStringArray = [
 		"expected_revision",
 		"create_if_absent",
 		"request_id",
 	]
+
+	# --- 公共变量（故障驱动协作） ---
 
 	var fail_next_atomic_commit: bool = false
 	var fail_next_unknown_read_error: bool = false
@@ -207,10 +230,25 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 	var shutdown_count: int = 0
 	var last_read_limits: Dictionary = {}
 	var last_list_limits: Dictionary = {}
+	# --- 私有变量 ---
+
+	## 保存已提交记录，原子写提交点替换单条记录，删除操作移除条目；读取和列表对外返回复制容器，shutdown 保留记录。
+	## [br]
+	## @api private
 	var _records: Dictionary = {}
+
+	## 成功提交时递增，用于产生示例不透明修订 token；失败提交不推进。
+	## [br]
+	## @api private
 	var _revision_counter: int = 0
+
+	## 标记内存 provider 是否可接受读写，shutdown 清零但保留已提交记录和修订计数。
+	## [br]
+	## @api private
 	var _initialized: bool = false
 
+
+	# --- 公共方法 ---
 
 	func initialize(options: Dictionary = {}) -> Error:
 		if _initialized:
@@ -512,6 +550,11 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		}
 
 
+	# --- 私有/辅助方法 ---
+
+	## 检查闭合读取预算、payload 字节上限及公共图结构上限。
+	## [br]
+	## @api private
 	func _read_limits_are_valid(limits: Dictionary) -> bool:
 		return (
 			_has_exact_keys(limits, _READ_LIMIT_KEYS)
@@ -524,6 +567,9 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		)
 
 
+	## 检查闭合列表预算以及记录数、总字节和图结构的固有上限。
+	## [br]
+	## @api private
 	func _list_limits_are_valid(limits: Dictionary) -> bool:
 		return (
 			_has_exact_keys(limits, _LIST_LIMIT_KEYS)
@@ -539,6 +585,9 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		)
 
 
+	## 统一验证节点、深度、字符串和容器条目预算均为绝对上限内的正整数。
+	## [br]
+	## @api private
 	func _common_limits_are_valid(limits: Dictionary) -> bool:
 		return (
 			_is_bounded_integer(
@@ -562,6 +611,9 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		)
 
 
+	## 将 provider 读取预算字段投影为共享纯数据验证器格式。
+	## [br]
+	## @api private
 	func _payload_limits_from_read(limits: Dictionary) -> Dictionary:
 		return ProjectStorageValueLimits.make_limits(
 			_get_int(limits, "max_payload_bytes"),
@@ -572,6 +624,9 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		)
 
 
+	## 只接受大于零且不超过上限的精确 int。
+	## [br]
+	## @api private
 	func _is_bounded_integer(
 		value: Variant,
 		maximum: int
@@ -582,6 +637,9 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		return integer_value > 0 and integer_value <= maximum
 
 
+	## 结合数量和允许字段检查读取或列表预算的精确闭合结构。
+	## [br]
+	## @api private
 	func _has_exact_keys(
 		values: Dictionary,
 		expected_keys: PackedStringArray
@@ -592,6 +650,9 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		)
 
 
+	## 要求每个键为白名单内的 String，不强制可选写条件出现。
+	## [br]
+	## @api private
 	func _has_only_keys(
 		values: Dictionary,
 		allowed_keys: PackedStringArray
@@ -605,6 +666,9 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		return true
 
 
+	## 读取精确 bool 字段，其他类型或缺失返回 false。
+	## [br]
+	## @api private
 	func _get_bool(values: Dictionary, field_name: String) -> bool:
 		var value: Variant = values.get(field_name)
 		if not value is bool:
@@ -613,6 +677,9 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		return boolean_value
 
 
+	## 读取精确 int 字段，其他类型或缺失返回零。
+	## [br]
+	## @api private
 	func _get_int(values: Dictionary, field_name: String) -> int:
 		var value: Variant = values.get(field_name)
 		if not value is int:
@@ -621,6 +688,9 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		return integer_value
 
 
+	## 把整数验证错误转换为 Error，非 int 时使用调用者回退值；本层不再做错误码白名单验证。
+	## [br]
+	## @api private
 	func _get_error(
 		values: Dictionary,
 		field_name: String,
@@ -633,6 +703,9 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		return error_code as Error
 
 
+	## 构造不携带候选数据或 metadata 的闭合读取失败结果。
+	## [br]
+	## @api private
 	func _read_failure(error_code: Error) -> Dictionary:
 		return {
 			"ok": false,
@@ -642,6 +715,9 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		}
 
 
+	## 构造空 records 的闭合列表失败结果，防止部分列表被误当作成功数据。
+	## [br]
+	## @api private
 	func _list_failure(error_code: Error) -> Dictionary:
 		return {
 			"ok": false,
@@ -650,13 +726,27 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		}
 
 
+# 将故障及观察操作限定到构造时绑定的内存 provider。
 class MemoryStorageFaultDriver extends ProjectStorageProviderFaultDriver:
+
+	# --- 私有变量 ---
+
+	## 保留待注入故障的内存 provider 引用，使观察和一次性故障作用于同一夹具实例。
+	## [br]
+	## @api private
 	var _provider: MemoryStorageProvider = null
 
 
+	# --- Godot 生命周期方法 ---
+
+	## 绑定故障驱动与指定 provider，不初始化 provider，也不复制其状态。
+	## [br]
+	## @api private
 	func _init(provider: MemoryStorageProvider) -> void:
 		_provider = provider
 
+
+	# --- 公共方法 ---
 
 	func supports_fault(fault_id: StringName) -> bool:
 		return [

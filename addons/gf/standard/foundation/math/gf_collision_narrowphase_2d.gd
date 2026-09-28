@@ -304,10 +304,16 @@ static func test_shapes_overlap(
 
 # --- 私有/辅助方法 ---
 
+## 读取 epsilon 选项并将负值限制为零。
+## [br]
+## @api private
 static func _get_epsilon(options: Dictionary) -> float:
 	return maxf(GFVariantData.get_option_float(options, "epsilon", DEFAULT_EPSILON), 0.0)
 
 
+## 组装包含有效标记、投影区间和归一化轴的投影字典。
+## [br]
+## @api private
 static func _make_projection(valid: bool, minimum: float, maximum: float, axis: Vector2) -> Dictionary:
 	return {
 		"valid": valid,
@@ -317,6 +323,9 @@ static func _make_projection(valid: bool, minimum: float, maximum: float, axis: 
 	}
 
 
+## 组装 SAT 重叠报告，并为深度、法线、平移量和轴数提供默认值。
+## [br]
+## @api private
 static func _make_result(
 	overlap: bool,
 	touching: bool,
@@ -337,6 +346,9 @@ static func _make_result(
 	}
 
 
+## 通过相邻顶点叉积求多边形有符号面积。
+## [br]
+## @api private
 static func _signed_polygon_area(points: PackedVector2Array) -> float:
 	var area: float = 0.0
 	for index: int in range(points.size()):
@@ -346,6 +358,9 @@ static func _signed_polygon_area(points: PackedVector2Array) -> float:
 	return area * 0.5
 
 
+## 收集两个多边形各边对应的 SAT 轴，并共享去重后的结果数组。
+## [br]
+## @api private
 static func _collect_sat_axes(
 	a_points: PackedVector2Array,
 	b_points: PackedVector2Array,
@@ -357,6 +372,9 @@ static func _collect_sat_axes(
 	return axes
 
 
+## 为多边形非零边添加归一化法线，并跳过与已有轴等价的方向。
+## [br]
+## @api private
 static func _append_polygon_axes(
 	points: PackedVector2Array,
 	axes: PackedVector2Array,
@@ -374,6 +392,9 @@ static func _append_polygon_axes(
 			var _axis_appended: bool = axes.append(axis)
 
 
+## 用绝对点积阈值判断轴是否与已有轴平行或反向平行。
+## [br]
+## @api private
 static func _has_equivalent_axis(axes: PackedVector2Array, axis: Vector2, epsilon: float) -> bool:
 	for existing_axis: Vector2 in axes:
 		if absf(existing_axis.dot(axis)) >= 1.0 - epsilon:
@@ -381,6 +402,9 @@ static func _has_equivalent_axis(axes: PackedVector2Array, axis: Vector2, epsilo
 	return false
 
 
+## 按两组顶点的算术平均位置差翻转轴，使其指向 b 的平均位置一侧。
+## [br]
+## @api private
 static func _orient_axis_from_a_to_b(
 	axis: Vector2,
 	a_points: PackedVector2Array,
@@ -392,6 +416,9 @@ static func _orient_axis_from_a_to_b(
 	return axis
 
 
+## 返回顶点的算术平均值；空顶点集返回零向量。
+## [br]
+## @api private
 static func _polygon_centroid(points: PackedVector2Array) -> Vector2:
 	if points.size() == 0:
 		return Vector2.ZERO
@@ -402,6 +429,9 @@ static func _polygon_centroid(points: PackedVector2Array) -> Vector2:
 	return result / float(points.size())
 
 
+## 读取 shape 顶点；支持 PackedVector2Array 或从 Array 中筛出 Vector2 元素。
+## [br]
+## @api private
 static func _get_shape_points(shape: Dictionary) -> PackedVector2Array:
 	var points_value: Variant = GFVariantData.get_option_value(shape, "points", PackedVector2Array())
 	if points_value is PackedVector2Array:

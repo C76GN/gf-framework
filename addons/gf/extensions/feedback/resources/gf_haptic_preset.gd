@@ -199,15 +199,24 @@ static func combine_samples(samples: Array[Dictionary]) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按归一化进度采样曲线；曲线为空时返回恒定强度。
+## [br]
+## @api private
 func _sample_curve(curve: Curve, progress: float) -> float:
 	if curve == null:
 		return 1.0
 	return clampf(_finite_float(curve.sample_baked(progress)), 0.0, 1.0)
 
 
+## 将非有限输入替换为后备值，并限制结果不小于零。
+## [br]
+## @api private
 static func _finite_nonnegative(value: float, fallback: float = 0.0) -> float:
 	return maxf(_finite_float(value, fallback), 0.0)
 
 
+## 将非有限浮点输入替换为指定后备值。
+## [br]
+## @api private
 static func _finite_float(value: float, fallback: float = 0.0) -> float:
 	return value if is_finite(value) else fallback

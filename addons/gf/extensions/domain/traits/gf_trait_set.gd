@@ -98,6 +98,9 @@ func clear() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 移除空项并按 priority 从小到大排序特征列表。
+## [br]
+## @api private
 func _sort_traits() -> void:
 	for index: int in range(traits.size() - 1, -1, -1):
 		if traits[index] == null:

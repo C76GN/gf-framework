@@ -22,6 +22,10 @@ var capabilities: GFAudioBackendCapability = GFAudioBackendCapability.new()
 
 # --- 私有变量 ---
 
+## 后端宿主的弱引用，避免后端延长音频工具的生命周期。
+## [br]
+## @api private
+## [br]
 var _host_ref: WeakRef = null
 
 

@@ -14,13 +14,27 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 用于状态存储类型检查、路径规整和订阅的脚本预载。
+## [br]
+## @api private
 const _GF_REACTIVE_STATE_STORE_SCRIPT = preload("res://addons/gf/standard/utilities/state/gf_reactive_state_store.gd")
+
+## 用于从弱引用解析有效对象的实例检查脚本预载。
+## [br]
+## @api private
 const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
 
 
 # --- 私有变量 ---
 
+## 本实例创建的 store 路径到 Control 双向绑定。
+## [br]
+## @api private
 var _bindings: Array[Dictionary] = []
+
+## 下一个新绑定使用的递增 id。
+## [br]
+## @api private
 var _next_binding_id: int = 1
 
 
@@ -213,6 +227,9 @@ func dispose() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 将 store 新值写入绑定控件；路径被删除时使用 default_value。
+## [br]
+## @api private
 func _apply_store_change_to_control(binding: Dictionary, change: Dictionary) -> void:
 	var control: Control = _get_binding_control(binding)
 	if control == null:
@@ -231,6 +248,9 @@ func _apply_store_change_to_control(binding: Dictionary, change: Dictionary) -> 
 	binding["updating_control"] = false
 
 
+## 忽略由 store 回写触发的控件变化，否则读取控件值并写入绑定路径。
+## [br]
+## @api private
 func _apply_control_change_to_store(binding: Dictionary) -> void:
 	if GFVariantData.get_option_bool(binding, "updating_control", false):
 		return
@@ -249,6 +269,9 @@ func _apply_control_change_to_store(binding: Dictionary) -> void:
 	var _set_value_result: Variant = store.set_value(path_segments, value)
 
 
+## 按 binding_id 从本实例移除绑定并断开其关联；未找到时返回 false。
+## [br]
+## @api private
 func _remove_binding(binding: Dictionary) -> bool:
 	var binding_id: int = GFVariantData.get_option_int(binding, "binding_id", -1)
 	if binding_id == -1:
@@ -262,6 +285,9 @@ func _remove_binding(binding: Dictionary) -> bool:
 	return false
 
 
+## 调用取消订阅句柄，断开控件值变化与 tree_exited 连接，并清空绑定字典。
+## [br]
+## @api private
 func _disconnect_binding(binding: Dictionary) -> void:
 	var unsubscribe: Callable = _get_binding_callable(binding, "unsubscribe")
 	if unsubscribe.is_valid():
@@ -284,6 +310,9 @@ func _disconnect_binding(binding: Dictionary) -> void:
 	binding.clear()
 
 
+## 通过绑定中的 store 弱引用取得仍存活且类型匹配的状态存储。
+## [br]
+## @api private
 func _get_binding_store(binding: Dictionary) -> _GF_REACTIVE_STATE_STORE_SCRIPT:
 	var store_ref: WeakRef = _get_binding_weak_ref(binding, "store_ref")
 	var raw_store: Object = _INSTANCE_GUARD._get_live_object_from_ref(store_ref)
@@ -293,6 +322,9 @@ func _get_binding_store(binding: Dictionary) -> _GF_REACTIVE_STATE_STORE_SCRIPT:
 	return null
 
 
+## 将 RefCounted 输入收窄为状态存储实例；类型不符时返回 null。
+## [br]
+## @api private
 func _as_state_store(store: RefCounted) -> _GF_REACTIVE_STATE_STORE_SCRIPT:
 	if store is _GF_REACTIVE_STATE_STORE_SCRIPT:
 		var state_store: _GF_REACTIVE_STATE_STORE_SCRIPT = store
@@ -300,11 +332,17 @@ func _as_state_store(store: RefCounted) -> _GF_REACTIVE_STATE_STORE_SCRIPT:
 	return null
 
 
+## 通过绑定中的控件弱引用取得仍有效的 Control。
+## [br]
+## @api private
 func _get_binding_control(binding: Dictionary) -> Control:
 	var control_ref: WeakRef = _get_binding_weak_ref(binding, "control_ref")
 	return _INSTANCE_GUARD._get_live_control_from_ref(control_ref)
 
 
+## 从绑定字典读取指定键，并仅在值为 WeakRef 时返回该引用。
+## [br]
+## @api private
 func _get_binding_weak_ref(binding: Dictionary, key: String) -> WeakRef:
 	var value: Variant = GFVariantData.get_option_value(binding, key)
 	if value is WeakRef:
@@ -313,6 +351,9 @@ func _get_binding_weak_ref(binding: Dictionary, key: String) -> WeakRef:
 	return null
 
 
+## 从绑定字典读取指定键，并仅在值为 Callable 时返回该回调。
+## [br]
+## @api private
 func _get_binding_callable(binding: Dictionary, key: String) -> Callable:
 	var value: Variant = GFVariantData.get_option_value(binding, key, Callable())
 	if value is Callable:
@@ -321,6 +362,9 @@ func _get_binding_callable(binding: Dictionary, key: String) -> Callable:
 	return Callable()
 
 
+## 移除 store 或控件弱引用目标已经失效的绑定。
+## [br]
+## @api private
 func _prune_invalid_bindings() -> void:
 	for index: int in range(_bindings.size() - 1, -1, -1):
 		var binding: Dictionary = _bindings[index]
@@ -329,6 +373,13 @@ func _prune_invalid_bindings() -> void:
 			_bindings.remove_at(index)
 
 
+
+
+# --- 信号处理函数 ---
+
+## 控件离树时按捕获的绑定标识找到并移除记录，统一解除状态与控件之间的监听。
+## [br]
+## @api private
 func _on_control_tree_exited(binding_id: int) -> void:
 	for index: int in range(_bindings.size() - 1, -1, -1):
 		if GFVariantData.get_option_int(_bindings[index], "binding_id", -1) == binding_id:

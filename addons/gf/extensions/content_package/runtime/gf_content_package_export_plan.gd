@@ -15,20 +15,74 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 提供源路径、包根目录与归档路径构造所需的路径操作。
+## [br]
+## @api private
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 
+## 导出计划验证报告的默认主题。
+## [br]
+## @api private
 const _REPORT_SUBJECT: String = "Content package export plan"
+
+## 本地 artifact 完整性报告的主题。
+## [br]
+## @api private
 const _ARTIFACT_REPORT_SUBJECT: String = "Content package artifact report"
+
+## 导出兼容性预检报告的主题。
+## [br]
+## @api private
 const _PREFLIGHT_REPORT_SUBJECT: String = "Content package preflight"
+
+## 缺少或无法使用 manifest 输入时的问题类型。
+## [br]
+## @api private
 const _KIND_INVALID_MANIFEST: String = "invalid_manifest"
+
+## 开启文件检查后找不到导出资源时的问题类型。
+## [br]
+## @api private
 const _KIND_MISSING_RESOURCE: String = "missing_resource"
+
+## 资源源路径不在当前包根目录内时的问题类型。
+## [br]
+## @api private
 const _KIND_RESOURCE_OUTSIDE_ROOT: String = "resource_outside_root"
+
+## 归档内路径不符合相对路径约束时的问题类型。
+## [br]
+## @api private
 const _KIND_INVALID_ARCHIVE_PATH: String = "invalid_archive_path"
+
+## 多个计划条目映射到同一归档路径时的问题类型。
+## [br]
+## @api private
 const _KIND_DUPLICATE_ARCHIVE_PATH: String = "duplicate_archive_path"
+
+## 资源依赖扫描报告中的问题转入计划时使用的问题类型。
+## [br]
+## @api private
 const _KIND_DEPENDENCY_REPORT_ISSUE: String = "dependency_report_issue"
+
+## artifact 源文件不存在时的问题类型。
+## [br]
+## @api private
 const _KIND_ARTIFACT_MISSING: String = "artifact_missing"
+
+## artifact 源文件存在但无法读取时的问题类型。
+## [br]
+## @api private
 const _KIND_ARTIFACT_UNREADABLE: String = "artifact_unreadable"
+
+## artifact 文件尺寸与输入的期望元数据不同时的问题类型。
+## [br]
+## @api private
 const _KIND_ARTIFACT_SIZE_MISMATCH: String = "artifact_size_mismatch"
+
+## artifact SHA-256 与输入的期望值不同时的问题类型。
+## [br]
+## @api private
 const _KIND_ARTIFACT_SHA256_MISMATCH: String = "artifact_sha256_mismatch"
 
 
@@ -85,6 +139,9 @@ var metadata: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 多包计划生成归档路径时附加的包级目录前缀。
+## [br]
+## @api private
 var _archive_package_scope: String = ""
 
 
@@ -507,6 +564,11 @@ static func from_catalog(
 
 # --- 私有/辅助方法 ---
 
+## 将一个 manifest 的校验问题、manifest 文件和资源记录追加到现有计划。
+## [br]
+## 临时切换包根目录与归档前缀，处理结束后恢复调用前的两项状态。
+## [br]
+## @api private
 func _append_manifest_to_existing_plan(manifest: GFContentPackageManifest, options: Dictionary) -> void:
 	var previous_root_path: String = root_path
 	var previous_archive_package_scope: String = _archive_package_scope
@@ -531,6 +593,9 @@ func _append_manifest_to_existing_plan(manifest: GFContentPackageManifest, optio
 	_archive_package_scope = previous_archive_package_scope
 
 
+## 检查资源记录的包根范围后加入计划，并按选项检查文件和收集依赖。
+## [br]
+## @api private
 func _append_manifest_resource_entry(resource_entry: Dictionary, options: Dictionary) -> void:
 	var source_path: String = GFVariantData.get_option_string(resource_entry, "path")
 	var entry_metadata: Dictionary = GFVariantData.get_option_dictionary(resource_entry, "metadata")
@@ -555,6 +620,9 @@ func _append_manifest_resource_entry(resource_entry: Dictionary, options: Dictio
 		_append_dependency_entries(source_path, owner_package_id, options)
 
 
+## 扫描资源依赖，跳过包根外路径并把报告问题转为计划诊断。
+## [br]
+## @api private
 func _append_dependency_entries(
 	source_path: String,
 	owner_package_id: StringName,
@@ -580,6 +648,9 @@ func _append_dependency_entries(
 		issues.append(issue)
 
 
+## 追加 manifest 派生文件；同源且同归档路径时合并 references 元数据。
+## [br]
+## @api private
 func _append_manifest_file_entry(source_path: String, role: StringName, entry_metadata: Dictionary) -> void:
 	var normalized_source: String = _normalize_resource_path(source_path)
 	var archive_path: String = _normalize_archive_path(_make_archive_path(normalized_source))
@@ -599,6 +670,9 @@ func _append_manifest_file_entry(source_path: String, role: StringName, entry_me
 	var _added: bool = add_entry(source_path, "", role, entry_metadata)
 
 
+## 遍历计划条目并为重复的归档路径追加错误，标出后续重复项索引。
+## [br]
+## @api private
 func _append_archive_path_uniqueness_issues(report: Dictionary) -> void:
 	var seen: Dictionary = {}
 	for index: int in range(entries.size()):
@@ -621,6 +695,9 @@ func _append_archive_path_uniqueness_issues(report: Dictionary) -> void:
 		seen[archive_path] = true
 
 
+## 判断当前计划是否已有完全相同的 archive_path。
+## [br]
+## @api private
 func _has_archive_path(archive_path: String) -> bool:
 	for entry: Dictionary in entries:
 		if GFVariantData.get_option_string(entry, "archive_path") == archive_path:
@@ -628,6 +705,9 @@ func _has_archive_path(archive_path: String) -> bool:
 	return false
 
 
+## 读取单条目的文件状态、尺寸及可选时间和 SHA-256，并记录对应问题。
+## [br]
+## @api private
 func _make_artifact_entry(
 	entry: Dictionary,
 	entry_index: int,
@@ -675,6 +755,9 @@ func _make_artifact_entry(
 	return artifact
 
 
+## 将已读取的尺寸和 SHA-256 与条目或 metadata 中的期望值比对。
+## [br]
+## @api private
 func _verify_artifact_expected_metadata(
 	artifact: Dictionary,
 	entry: Dictionary,
@@ -702,6 +785,9 @@ func _verify_artifact_expected_metadata(
 		})
 
 
+## 将条目标识和文件路径合入附加字段，再向 artifact 报告追加问题。
+## [br]
+## @api private
 func _append_report_issue(
 	report: Dictionary,
 	severity: String,
@@ -730,12 +816,18 @@ func _append_report_issue(
 	)
 
 
+## 根目录为空时返回 false，否则委托路径工具判断源路径是否在根内。
+## [br]
+## @api private
 func _source_is_inside_root(source_path: String) -> bool:
 	if root_path.is_empty():
 		return false
 	return _GF_PATH_TOOLS.is_path_under_root(source_path, root_path, true, false)
 
 
+## 由源路径生成归档相对路径，并依次加入包作用域和 archive_root 前缀。
+## [br]
+## @api private
 func _make_archive_path(source_path: String) -> String:
 	var archive_root: String = GFVariantData.get_option_string(metadata, "archive_root")
 	var relative_path: String = _GF_PATH_TOOLS.make_relative_path(source_path, root_path)
@@ -748,6 +840,9 @@ func _make_archive_path(source_path: String) -> String:
 	return archive_root.path_join(relative_path)
 
 
+## 使用 GFValidationReportDictionary 构造问题并追加到当前计划的 issues。
+## [br]
+## @api private
 func _append_issue(severity: String, kind: String, message: String, fields: Dictionary) -> void:
 	var report: Dictionary = {
 		"issues": [],
@@ -762,6 +857,9 @@ func _append_issue(severity: String, kind: String, message: String, fields: Dict
 	issues.append(issue)
 
 
+## 深复制 entries 中每个条目字典及其嵌套值。
+## [br]
+## @api private
 func _copy_entries() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in entries:
@@ -769,6 +867,9 @@ func _copy_entries() -> Array[Dictionary]:
 	return result
 
 
+## 深复制 issues 中每个诊断字典及其嵌套值。
+## [br]
+## @api private
 func _copy_issues() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for issue: Dictionary in issues:
@@ -776,6 +877,9 @@ func _copy_issues() -> Array[Dictionary]:
 	return result
 
 
+## 以只读方式打开文件并返回字节数；打开失败时返回 -1。
+## [br]
+## @api private
 static func _get_file_size(path: String) -> int:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
@@ -785,6 +889,9 @@ static func _get_file_size(path: String) -> int:
 	return size_bytes
 
 
+## 按优先级从条目本身、再从 metadata 查找期望字节数，缺失时为 -1。
+## [br]
+## @api private
 static func _get_entry_expected_size(entry: Dictionary) -> int:
 	var expected_size: int = _first_entry_int(entry, [
 		"expected_size_bytes",
@@ -804,6 +911,9 @@ static func _get_entry_expected_size(entry: Dictionary) -> int:
 	], -1)
 
 
+## 依次从条目及 metadata 的摘要字段别名读取长度为 64 的小写值。
+## [br]
+## @api private
 static func _get_entry_expected_sha256(entry: Dictionary) -> String:
 	var expected_sha256: String = _normalize_sha256(_first_entry_string(entry, [
 		"expected_sha256",
@@ -824,6 +934,9 @@ static func _get_entry_expected_sha256(entry: Dictionary) -> String:
 	return _normalize_sha256(_first_entry_string(entry_metadata, ["hash"]))
 
 
+## 按 keys 顺序读取首个存在字段，转成文本并裁去首尾空白。
+## [br]
+## @api private
 static func _first_entry_string(entry: Dictionary, keys: Array, default_value: String = "") -> String:
 	for key: Variant in keys:
 		if _has_dictionary_key(entry, key):
@@ -831,6 +944,9 @@ static func _first_entry_string(entry: Dictionary, keys: Array, default_value: S
 	return default_value
 
 
+## 按 keys 顺序返回首个存在字段的整数读取结果，否则使用默认值。
+## [br]
+## @api private
 static func _first_entry_int(entry: Dictionary, keys: Array, default_value: int = 0) -> int:
 	for key: Variant in keys:
 		if _has_dictionary_key(entry, key):
@@ -838,6 +954,9 @@ static func _first_entry_int(entry: Dictionary, keys: Array, default_value: int 
 	return default_value
 
 
+## 检查原键以及 String/StringName 对应形式是否存在。
+## [br]
+## @api private
 static func _has_dictionary_key(source: Dictionary, key: Variant) -> bool:
 	if source.has(key):
 		return true
@@ -850,11 +969,17 @@ static func _has_dictionary_key(source: Dictionary, key: Variant) -> bool:
 	return false
 
 
+## 裁去空白并转为小写；长度不是 64 时返回空串。
+## [br]
+## @api private
 static func _normalize_sha256(value: String) -> String:
 	var normalized: String = value.strip_edges().to_lower()
 	return normalized if normalized.length() == 64 else ""
 
 
+## 统一斜杠并拒绝绝对路径、冒号、重复分隔符及空、点或上级片段。
+## [br]
+## @api private
 static func _normalize_archive_path(path: String) -> String:
 	var normalized: String = path.strip_edges().replace("\\", "/")
 	if normalized.is_empty():
@@ -868,14 +993,23 @@ static func _normalize_archive_path(path: String) -> String:
 	return "/".join(parts)
 
 
+## 将资源路径交由路径工具归一化，并传入空回退值及 true 选项。
+## [br]
+## @api private
 static func _normalize_resource_path(path: String) -> String:
 	return _GF_PATH_TOOLS.normalize_resource_path(path, "", true)
 
 
+## 将内容包根路径交由路径工具归一化，并传入空回退值及 true 选项。
+## [br]
+## @api private
 static func _normalize_root_path(path: String) -> String:
 	return _GF_PATH_TOOLS.normalize_root_path(path, "", true)
 
 
+## 先查询 ResourceLoader，再回退检查该路径对应的文件是否存在。
+## [br]
+## @api private
 static func _resource_path_exists(path: String) -> bool:
 	if ResourceLoader.exists(path):
 		return true

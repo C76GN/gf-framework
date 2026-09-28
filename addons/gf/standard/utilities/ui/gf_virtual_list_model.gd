@@ -94,14 +94,49 @@ var trailing_padding: float:
 
 # --- 私有变量 ---
 
+## 新增或重置条目采用的估算长度。
+## [br]
+## @api private
 var _estimated_item_extent: float = DEFAULT_ESTIMATED_ITEM_EXTENT
+
+## 可见范围两端扩展的条目数。
+## [br]
+## @api private
 var _overscan_items: int = DEFAULT_OVERSCAN_ITEMS
+
+## 仅在列表非空时计入内容总长度的末尾填充。
+## [br]
+## @api private
 var _trailing_padding: float = 0.0
+
+## 每个条目的当前布局长度。
+## [br]
+## @api private
 var _extents: PackedFloat64Array = PackedFloat64Array()
+
+## 每个条目是否已被标记为实测尺寸。
+## [br]
+## @api private
 var _measured: PackedByteArray = PackedByteArray()
+
+## 条目累计顶部偏移，末尾额外保存列表总长度。
+## [br]
+## @api private
 var _offsets: PackedFloat64Array = PackedFloat64Array()
+
+## 标记累计偏移需在下一次读取时重建。
+## [br]
+## @api private
 var _offsets_dirty: bool = true
+
+## 当前条目长度累计值，不包含 trailing_padding。
+## [br]
+## @api private
 var _content_extent: float = 0.0
+
+## 每次布局实际变化时递增的版本号。
+## [br]
+## @api private
 var _revision: int = 0
 
 
@@ -419,6 +454,9 @@ func get_visible_items(scroll_offset: float, viewport_extent: float) -> Array[Di
 
 # --- 私有/辅助方法 ---
 
+## 拒绝非有限值；变化时更新所有未实测条目并使累计偏移缓存失效。
+## [br]
+## @api private
 func _set_estimated_item_extent(value: float) -> void:
 	if not is_finite(value):
 		return
@@ -433,11 +471,17 @@ func _set_estimated_item_extent(value: float) -> void:
 	_notify_layout_changed()
 
 
+## 递增布局版本号并发出 layout_changed 信号。
+## [br]
+## @api private
 func _notify_layout_changed() -> void:
 	_revision += 1
 	layout_changed.emit(_revision)
 
 
+## 在偏移缓存失效或长度不符时重建前缀累计位置及内容总长度。
+## [br]
+## @api private
 func _ensure_offsets() -> void:
 	if not _offsets_dirty and _offsets.size() == _extents.size() + 1:
 		return
@@ -451,6 +495,9 @@ func _ensure_offsets() -> void:
 	_offsets_dirty = false
 
 
+## 二分查找首个条目底边严格大于指定偏移的索引。
+## [br]
+## @api private
 func _search_first_bottom_after(offset: float) -> int:
 	if _extents.is_empty():
 		return 0
@@ -467,6 +514,9 @@ func _search_first_bottom_after(offset: float) -> int:
 	return result
 
 
+## 二分查找首个条目顶边大于或等于指定偏移的索引。
+## [br]
+## @api private
 func _search_first_top_at_or_after(offset: float) -> int:
 	if _extents.is_empty():
 		return 0
@@ -483,10 +533,16 @@ func _search_first_top_at_or_after(offset: float) -> int:
 	return result
 
 
+## 检查索引是否落在当前条目数组范围内。
+## [br]
+## @api private
 func _is_valid_index(item_index: int) -> bool:
 	return item_index >= 0 and item_index < _extents.size()
 
 
+## 有限输入夹紧到公开尺寸上下限；非有限输入回退到当前估算长度。
+## [br]
+## @api private
 func _normalize_item_extent(value: float) -> float:
 	if not is_finite(value):
 		return _estimated_item_extent

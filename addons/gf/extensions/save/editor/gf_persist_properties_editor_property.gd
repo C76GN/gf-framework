@@ -6,20 +6,73 @@ extends EditorProperty
 
 # --- 常量 ---
 
+## 属性列表筛选时用来排除只读属性的 usage 标志。
+## [br]
+## @api private
+## [br]
 const _PROPERTY_USAGE_READ_ONLY: int = 268435456
+
+## 属性选择列表滚动区域的最大高度。
+## [br]
+## @api private
+## [br]
 const _MAX_LIST_HEIGHT: float = 180.0
 
 
 # --- 私有变量 ---
 
+## Inspector 属性编辑器的根容器。
+## [br]
+## @api private
+## [br]
 var _root: VBoxContainer
+
+## 显示当前目标节点的标签。
+## [br]
+## @api private
+## [br]
 var _target_label: Label
+
+## 属性名过滤输入框。
+## [br]
+## @api private
+## [br]
 var _search_edit: LineEdit
+
+## 包围属性选择列表的滚动容器。
+## [br]
+## @api private
+## [br]
 var _list_scroll: ScrollContainer
+
+## 显示属性复选框的容器。
+## [br]
+## @api private
+## [br]
 var _list: VBoxContainer
+
+## 当前筛选结果为空时显示的标签。
+## [br]
+## @api private
+## [br]
 var _empty_label: Label
+
+## 编辑开始时读取的属性白名单。
+## [br]
+## @api private
+## [br]
 var _current_properties: PackedStringArray = PackedStringArray()
+
+## 当前目标可选择的属性名列表。
+## [br]
+## @api private
+## [br]
 var _available_properties: PackedStringArray = PackedStringArray()
+
+## 标记属性列表正在重建期间。
+## [br]
+## @api private
+## [br]
 var _is_updating: bool = false
 
 
@@ -123,6 +176,10 @@ static func collect_storable_property_names(target: Object) -> PackedStringArray
 
 # --- 私有/辅助方法 ---
 
+## 检查属性是否为非私有、可存储、可编辑且有具体类型的字段。
+## [br]
+## @api private
+## [br]
 static func _is_selectable_property(property_info: Dictionary) -> bool:
 	var property_name: String = GFVariantData.get_option_string(property_info, "name")
 	if property_name.is_empty():
@@ -144,6 +201,10 @@ static func _is_selectable_property(property_info: Dictionary) -> bool:
 	return property_type != TYPE_NIL
 
 
+## 将当前 Inspector 对象转为 GFPersistPropertiesSource。
+## [br]
+## @api private
+## [br]
 func _get_source() -> GFPersistPropertiesSource:
 	var edited_object: Object = get_edited_object()
 	if edited_object is GFPersistPropertiesSource:
@@ -152,10 +213,18 @@ func _get_source() -> GFPersistPropertiesSource:
 	return null
 
 
+## 读取 Source 中当前的属性白名单。
+## [br]
+## @api private
+## [br]
 func _read_current_properties(source: GFPersistPropertiesSource) -> PackedStringArray:
 	return source.properties.duplicate()
 
 
+## 更新目标节点标签；优先显示场景树路径。
+## [br]
+## @api private
+## [br]
 func _update_target_label(source: GFPersistPropertiesSource, target: Node) -> void:
 	if target == null:
 		_target_label.text = "目标节点：未找到"
@@ -172,6 +241,10 @@ func _update_target_label(source: GFPersistPropertiesSource, target: Node) -> vo
 	_target_label.text = "目标节点：%s" % target_text
 
 
+## 按筛选文本重建可用和当前已选属性的复选框列表。
+## [br]
+## @api private
+## [br]
 func _rebuild_property_list() -> void:
 	_clear_list()
 
@@ -198,12 +271,20 @@ func _rebuild_property_list() -> void:
 		_empty_label.text = "没有可选择属性。" if filter.is_empty() else "没有匹配的属性。"
 
 
+## 移除并释放当前列表中的子控件。
+## [br]
+## @api private
+## [br]
 func _clear_list() -> void:
 	for child: Node in _list.get_children():
 		_list.remove_child(child)
 		child.queue_free()
 
 
+## 创建一个属性复选框，并绑定对应属性名的切换回调。
+## [br]
+## @api private
+## [br]
 func _make_property_checkbox(property_name: String, available: bool, should_select: bool) -> CheckBox:
 	var checkbox: CheckBox = CheckBox.new()
 	checkbox.text = property_name if available else "%s（未找到）" % property_name
@@ -216,10 +297,18 @@ func _make_property_checkbox(property_name: String, available: bool, should_sele
 	return checkbox
 
 
+## 判断属性名是否符合空筛选或不区分大小写的子串筛选。
+## [br]
+## @api private
+## [br]
 func _passes_filter(property_name: String, filter: String) -> bool:
 	return filter.is_empty() or property_name.to_lower().contains(filter)
 
 
+## 将属性名列表转换为以属性名为键的查找字典。
+## [br]
+## @api private
+## [br]
 func _make_property_lookup(properties: PackedStringArray) -> Dictionary:
 	var lookup: Dictionary = {}
 	for property_name: String in properties:
@@ -227,6 +316,10 @@ func _make_property_lookup(properties: PackedStringArray) -> Dictionary:
 	return lookup
 
 
+## 属性白名单改变时发出属性更新并刷新列表。
+## [br]
+## @api private
+## [br]
 func _commit_properties(next_properties: PackedStringArray) -> void:
 	if _packed_string_arrays_equal(_current_properties, next_properties):
 		return
@@ -235,6 +328,10 @@ func _commit_properties(next_properties: PackedStringArray) -> void:
 	_rebuild_property_list()
 
 
+## 按元素顺序比较两个 PackedStringArray。
+## [br]
+## @api private
+## [br]
 func _packed_string_arrays_equal(left: PackedStringArray, right: PackedStringArray) -> bool:
 	if left.size() != right.size():
 		return false
@@ -244,6 +341,10 @@ func _packed_string_arrays_equal(left: PackedStringArray, right: PackedStringArr
 	return true
 
 
+## 将属性名按启用状态加入白名单或移除。
+## [br]
+## @api private
+## [br]
 func _with_property_toggled(property_name: String, enabled: bool) -> PackedStringArray:
 	var next_properties: PackedStringArray = _current_properties.duplicate()
 	var index: int = next_properties.find(property_name)
@@ -257,20 +358,36 @@ func _with_property_toggled(property_name: String, enabled: bool) -> PackedStrin
 
 # --- 信号处理函数 ---
 
+## 搜索文本变化时刷新属性列表。
+## [br]
+## @api private
+## [br]
 func _on_search_changed(_new_text: String) -> void:
 	if _is_updating:
 		return
 	_rebuild_property_list()
 
 
+## 刷新按钮回调，重新读取目标属性。
+## [br]
+## @api private
+## [br]
 func _on_refresh_pressed() -> void:
 	_update_property()
 
 
+## 清空按钮回调，提交空属性白名单。
+## [br]
+## @api private
+## [br]
 func _on_clear_pressed() -> void:
 	_commit_properties(PackedStringArray())
 
 
+## 属性复选框回调，提交更新后的白名单。
+## [br]
+## @api private
+## [br]
 func _on_property_toggled(enabled: bool, property_name: String) -> void:
 	if _is_updating:
 		return

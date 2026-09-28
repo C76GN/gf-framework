@@ -35,6 +35,10 @@ signal finished
 
 # --- 私有变量 ---
 
+## 以 Context 实例 ID 索引当前仍有效的阶段运行态。
+## [br]
+## @api private
+## [br]
 var _runtime_by_context_id: Dictionary = {}
 
 
@@ -158,12 +162,20 @@ func end_runtime(context: GFTurnContext, runtime: RuntimeState) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 从 Context 查找其当前阶段运行态；空 Context 或无映射时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_runtime(context: GFTurnContext) -> RuntimeState:
 	if context == null:
 		return null
 	return _get_runtime_value(GFVariantData.get_option_value(_runtime_by_context_id, context.get_instance_id()))
 
 
+## 将字典取出的 Variant 限定为 RuntimeState，其他值一律视为不存在。
+## [br]
+## @api private
+## [br]
 func _get_runtime_value(value: Variant) -> RuntimeState:
 	if value is RuntimeState:
 		var runtime: RuntimeState = value
@@ -173,6 +185,10 @@ func _get_runtime_value(value: Variant) -> RuntimeState:
 
 # --- 信号处理函数 ---
 
+## 仅在信号来源仍是该 Context 的当前运行态时转发阶段完成信号。
+## [br]
+## @api private
+## [br]
 func _on_runtime_finished(context_id: int, runtime: RuntimeState) -> void:
 	if _get_runtime_value(GFVariantData.get_option_value(_runtime_by_context_id, context_id)) != runtime:
 		return
@@ -203,12 +219,40 @@ class RuntimeState extends RefCounted:
 	## @since 8.0.0
 	var is_finished: bool = false
 
+	# --- 私有变量 ---
+
+	## 本运行态是否仍接受完成请求；完成或失效后清除。
+	## [br]
+	## @api private
 	var _active: bool = false
+
+	## 为本次运行创建的精确完成句柄；请求必须与它相同。
+	## [br]
+	## @api private
 	var _completion_handle: GFTurnPhaseCompletionHandle = null
+
+	## 本次运行上下文的弱引用，避免运行态延长上下文寿命。
+	## [br]
+	## @api private
 	var _context_ref: WeakRef = null
+
+	## 本次阶段操作的精确 claim，由 Flow 持有并负责释放。
+	## [br]
+	## @api private
 	var _lease: GFTurnContext.FlowOperationLease = null
+
+	## 持有该 claim 的 Flow System 弱引用。
+	## [br]
+	## @api private
 	var _owner_ref: WeakRef = null
+
+	## claim 所属流程代次，防止旧完成句柄影响后续运行。
+	## [br]
+	## @api private
 	var _flow_serial: int = -1
+
+
+	# --- 框架内部方法 ---
 
 	## 绑定本次运行的精确 Context claim，并创建公开 completion handle。
 	## [br]
@@ -253,6 +297,7 @@ class RuntimeState extends RefCounted:
 		_active = true
 		return true
 
+
 	## 获取传给项目 `_execute()` 的精确 completion handle。
 	## [br]
 	## @api framework_internal
@@ -262,6 +307,7 @@ class RuntimeState extends RefCounted:
 	## @return: 传给项目 `_execute()` 的精确 completion handle。
 	func get_completion_handle() -> GFTurnPhaseCompletionHandle:
 		return _completion_handle
+
 
 	## 由 Flow 的 auto_finish 路径完成本次精确运行。
 	## [br]
@@ -273,19 +319,6 @@ class RuntimeState extends RefCounted:
 	func try_complete_from_flow() -> bool:
 		return try_complete_from_turn_based(_completion_handle)
 
-	## 仅供 GFTurnPhaseCompletionHandle 提交本次精确完成权限。
-	## [br]
-	## @api layer_internal
-	## [br]
-	## @layer extensions/turn_based
-	## [br]
-	## @since 11.0.0
-	## [br]
-	## @param handle: 请求完成本次运行的精确 handle。
-	## [br]
-	## @return: 本次运行仍有效且首次完成时返回 true。
-	func try_complete_from_turn_based(handle: GFTurnPhaseCompletionHandle) -> bool:
-		return _try_complete(handle)
 
 	## 使 completion authority 立即失效；不会释放由 Flow 持有的 Context claim。
 	## [br]
@@ -301,6 +334,29 @@ class RuntimeState extends RefCounted:
 		_owner_ref = null
 		_flow_serial = -1
 
+
+	# --- 层内方法 ---
+
+	## 仅供 GFTurnPhaseCompletionHandle 提交本次精确完成权限。
+	## [br]
+	## @api layer_internal
+	## [br]
+	## @layer extensions/turn_based
+	## [br]
+	## @since 11.0.0
+	## [br]
+	## @param handle: 请求完成本次运行的精确 handle。
+	## [br]
+	## @return: 本次运行仍有效且首次完成时返回 true。
+	func try_complete_from_turn_based(handle: GFTurnPhaseCompletionHandle) -> bool:
+		return _try_complete(handle)
+
+
+	# --- 私有/辅助方法 ---
+
+	## 核对完成句柄、弱引用及 claim 活性后提交首次完成；先使句柄失效再发出 finished，拒绝重复或过期请求。
+	## [br]
+	## @api private
 	func _try_complete(handle: GFTurnPhaseCompletionHandle) -> bool:
 		if (
 			not _active

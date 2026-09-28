@@ -114,15 +114,27 @@ func get_cache_key() -> String:
 
 # --- 私有/辅助方法 ---
 
+## 将原始路径转为资源身份的规范路径或回退路径。
+## [br]
+## @api private
+## [br]
 static func _normalize_scene_path(raw_path: String) -> String:
 	var identity: GFResourceIdentity = _make_scene_identity(raw_path)
 	return _get_identity_scene_path(identity)
 
 
+## 使用 PackedScene 资源类型约束构造不检查文件存在性的身份。
+## [br]
+## @api private
+## [br]
 static func _make_scene_identity(raw_path: String) -> GFResourceIdentity:
 	return GFResourceIdentity.from_path(raw_path, &"", "PackedScene", { "check_exists": false })
 
 
+## 优先读取身份规范路径，没有规范路径时返回原始路径。
+## [br]
+## @api private
+## [br]
 static func _get_identity_scene_path(identity: GFResourceIdentity) -> String:
 	if identity == null:
 		return ""
@@ -131,6 +143,10 @@ static func _get_identity_scene_path(identity: GFResourceIdentity) -> String:
 	return identity.raw_path
 
 
+## 按资源身份缓存键检查路径列表中是否已有相同场景。
+## [br]
+## @api private
+## [br]
 static func _paths_have_cache_key(paths: PackedStringArray, cache_key: String) -> bool:
 	if cache_key.is_empty():
 		return false

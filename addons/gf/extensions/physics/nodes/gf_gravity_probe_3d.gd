@@ -82,15 +82,64 @@ var last_acceleration: Vector3 = Vector3.ZERO
 
 # --- 私有变量 ---
 
+## 写入采样缓存时的 Engine process frame。
+## [br]
+## @api private
+## [br]
 var _cached_process_frame: int = -1
+
+## 写入采样缓存时的 Engine physics frame。
+## [br]
+## @api private
+## [br]
 var _cached_physics_frame: int = -1
+
+## 缓存结果对应的探针世界坐标。
+## [br]
+## @api private
+## [br]
 var _cached_position: Vector3 = Vector3.ZERO
+
+## 缓存结果对应的场景树分组。
+## [br]
+## @api private
+## [br]
 var _cached_field_group: StringName = &""
+
+## 缓存结果对应的力场组合模式。
+## [br]
+## @api private
+## [br]
 var _cached_combination_mode: CombinationMode = CombinationMode.SUM
+
+## 缓存结果对应的空场 fallback 开关。
+## [br]
+## @api private
+## [br]
 var _cached_use_fallback_when_empty: bool = true
+
+## 缓存结果对应的 fallback 加速度。
+## [br]
+## @api private
+## [br]
 var _cached_fallback_acceleration: Vector3 = Vector3.DOWN * 9.8
+
+## 缓存结果对应的字段实例与状态签名。
+## [br]
+## @api private
+## [br]
 var _cached_field_signature: String = ""
+
+## 由缓存保存的最近一次采样加速度。
+## [br]
+## @api private
+## [br]
 var _cached_acceleration: Vector3 = Vector3.ZERO
+
+## 标记 Probe 正在同步采样，以阻止递归重入。
+## [br]
+## @api private
+## [br]
 var _sample_operation_active: bool = false
 
 
@@ -251,6 +300,10 @@ func invalidate_cache() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 收集字段结果，并按模式合并；没有有效样本时可返回有限 fallback。
+## [br]
+## @api private
+## [br]
 func _sample_fields_snapshot(
 	fields: Array,
 	query_position: Vector3,
@@ -271,6 +324,10 @@ func _sample_fields_snapshot(
 			return _sample_sum_fields(samples)
 
 
+## 从字段列表调用可用采样方法，并收集有限加速度及排序元数据。
+## [br]
+## @api private
+## [br]
 func _collect_field_samples(fields: Array, query_position: Vector3) -> Array[Dictionary]:
 	var samples: Array[Dictionary] = []
 	var field_snapshot: Array = fields.duplicate()
@@ -293,6 +350,10 @@ func _collect_field_samples(fields: Array, query_position: Vector3) -> Array[Dic
 	return samples
 
 
+## 向候选 provider 请求对象，并保留可调用 get_acceleration_at 的候选项。
+## [br]
+## @api private
+## [br]
 func _get_field_provider_objects(candidate_provider: Object, options: Dictionary) -> Array[Object]:
 	var objects: Array[Object] = []
 	if not is_instance_valid(candidate_provider) or not candidate_provider.has_method("get_candidate_objects"):
@@ -315,6 +376,10 @@ func _get_field_provider_objects(candidate_provider: Object, options: Dictionary
 	return objects
 
 
+## 按输入顺序累加样本；中间和出现非有限分量时返回零向量。
+## [br]
+## @api private
+## [br]
 func _sample_sum_fields(samples: Array[Dictionary]) -> Vector3:
 	var acceleration_sum: Vector3 = Vector3.ZERO
 	for sample_record: Dictionary in samples:
@@ -325,6 +390,10 @@ func _sample_sum_fields(samples: Array[Dictionary]) -> Vector3:
 	return acceleration_sum
 
 
+## 选择幅值最大的样本；幅值近似相等时按 order_key 排序决胜。
+## [br]
+## @api private
+## [br]
 func _sample_strongest_field(samples: Array[Dictionary]) -> Vector3:
 	var best_acceleration: Vector3 = Vector3.ZERO
 	var best_order_key: String = ""
@@ -344,6 +413,10 @@ func _sample_strongest_field(samples: Array[Dictionary]) -> Vector3:
 	return best_acceleration
 
 
+## 以最大绝对分量缩放后比较两个向量的幅值平方。
+## [br]
+## @api private
+## [br]
 func _compare_vector3_magnitude(left: Vector3, right: Vector3) -> int:
 	var comparison_scale: float = maxf(_get_max_abs_component(left), _get_max_abs_component(right))
 	if comparison_scale <= 0.0:
@@ -355,10 +428,18 @@ func _compare_vector3_magnitude(left: Vector3, right: Vector3) -> int:
 	return 1 if left_scaled_length_squared > right_scaled_length_squared else -1
 
 
+## 返回向量分量绝对值中的最大值。
+## [br]
+## @api private
+## [br]
 func _get_max_abs_component(value: Vector3) -> float:
 	return maxf(absf(value.x), maxf(absf(value.y), absf(value.z)))
 
 
+## 汇总非零样本中最高优先级的加速度；累加溢出时返回零向量。
+## [br]
+## @api private
+## [br]
 func _sample_highest_priority_fields(samples: Array[Dictionary]) -> Vector3:
 	var best_priority: int = 0
 	var has_active_sample: bool = false
@@ -389,6 +470,10 @@ func _sample_highest_priority_fields(samples: Array[Dictionary]) -> Vector3:
 	return acceleration_sum
 
 
+## 读取字段的 get_gravity_priority()；缺失或无效结果回退为 0。
+## [br]
+## @api private
+## [br]
 func _get_field_priority(field: Object) -> int:
 	if field.has_method("get_gravity_priority"):
 		var priority_value: Variant = field.call("get_gravity_priority")
@@ -402,6 +487,10 @@ func _get_field_priority(field: Object) -> int:
 	return 0
 
 
+## 从样本记录读取 Vector3 加速度；类型不符时返回零向量。
+## [br]
+## @api private
+## [br]
 func _get_sample_acceleration(sample_record: Dictionary) -> Vector3:
 	var value: Variant = sample_record.get("acceleration", Vector3.ZERO)
 	if value is Vector3:
@@ -410,6 +499,10 @@ func _get_sample_acceleration(sample_record: Dictionary) -> Vector3:
 	return Vector3.ZERO
 
 
+## 从样本记录读取 int 或 float 优先级；其他类型回退为 0。
+## [br]
+## @api private
+## [br]
 func _get_sample_priority(sample_record: Dictionary) -> int:
 	var value: Variant = sample_record.get("priority", 0)
 	if value is int:
@@ -420,6 +513,10 @@ func _get_sample_priority(sample_record: Dictionary) -> int:
 	return 0
 
 
+## 比较帧号、查询配置、位置与字段签名是否匹配缓存键。
+## [br]
+## @api private
+## [br]
 func _can_use_cached_sample(
 	field_signature: String,
 	query_position: Vector3,
@@ -440,6 +537,10 @@ func _can_use_cached_sample(
 	)
 
 
+## 保存本次采样使用的帧号、查询配置、位置、字段签名和结果。
+## [br]
+## @api private
+## [br]
 func _store_sample_cache(
 	field_signature: String,
 	query_position: Vector3,
@@ -460,6 +561,10 @@ func _store_sample_cache(
 	_cached_acceleration = acceleration
 
 
+## 为字段数组生成排序后的签名；空数组返回空字符串。
+## [br]
+## @api private
+## [br]
 func _get_field_group_signature(fields: Array[Node]) -> String:
 	if fields.is_empty():
 		return ""
@@ -470,6 +575,10 @@ func _get_field_group_signature(fields: Array[Node]) -> String:
 	return "|".join(ids)
 
 
+## 从当前 SceneTree 的指定分组收集处于探针范围且可采样的节点。
+## [br]
+## @api private
+## [br]
 func _get_fields_from_group(query_field_group: StringName) -> Array[Node]:
 	var result: Array[Node] = []
 	if get_tree() == null or query_field_group == &"":
@@ -480,6 +589,10 @@ func _get_fields_from_group(query_field_group: StringName) -> Array[Node]:
 	return result
 
 
+## 将有效的对象 Variant 转换为 Object；其他值返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_valid_object(value: Variant) -> Object:
 	if typeof(value) != TYPE_OBJECT or not is_instance_valid(value):
 		return null
@@ -487,6 +600,10 @@ func _variant_to_valid_object(value: Variant) -> Object:
 	return object_value
 
 
+## 拒绝处于不同 World3D 的 Node3D；其他对象通过范围检查。
+## [br]
+## @api private
+## [br]
 func _is_field_in_probe_scope(field: Object) -> bool:
 	if field is Node3D:
 		var field_node: Node3D = field
@@ -495,6 +612,10 @@ func _is_field_in_probe_scope(field: Object) -> bool:
 	return true
 
 
+## 检查对象含有 get_acceleration_at，且方法签名接受一个实参。
+## [br]
+## @api private
+## [br]
 func _can_call_get_acceleration_at(field: Object) -> bool:
 	if not is_instance_valid(field) or not field.has_method("get_acceleration_at"):
 		return false
@@ -505,6 +626,10 @@ func _can_call_get_acceleration_at(field: Object) -> bool:
 	return false
 
 
+## 按 required 参数、默认参数和 vararg 标志判断实参数量是否可用。
+## [br]
+## @api private
+## [br]
 func _method_accepts_argument_count(method_info: Dictionary, argument_count: int) -> bool:
 	var arguments: Array = GFVariantData.get_option_array(method_info, "args")
 	var default_arguments: Array = GFVariantData.get_option_array(method_info, "default_args")
@@ -514,6 +639,10 @@ func _method_accepts_argument_count(method_info: Dictionary, argument_count: int
 	return required_count <= argument_count and (argument_count <= arguments.size() or accepts_varargs)
 
 
+## 返回节点路径；节点不在 SceneTree 时使用实例 ID 字符串。
+## [br]
+## @api private
+## [br]
 func _get_field_order_key(field: Object) -> String:
 	if field is Node:
 		var node: Node = field
@@ -522,6 +651,10 @@ func _get_field_order_key(field: Object) -> String:
 	return "%020d" % field.get_instance_id()
 
 
+## 组合对象 ID、排序键、位置及内置重力场参数生成字段签名。
+## [br]
+## @api private
+## [br]
 func _get_field_signature(field: Node) -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	var _instance_id_appended: bool = parts.append(str(field.get_instance_id()))
@@ -547,10 +680,18 @@ func _get_field_signature(field: Node) -> String:
 	return ":".join(parts)
 
 
+## 返回有限 fallback 加速度，否则返回零向量。
+## [br]
+## @api private
+## [br]
 func _get_finite_fallback_acceleration(value: Vector3) -> Vector3:
 	return value if _is_finite_vector3(value) else Vector3.ZERO
 
 
+## 检查 Vector3 的三个分量均为有限浮点值。
+## [br]
+## @api private
+## [br]
 func _is_finite_vector3(value: Vector3) -> bool:
 	return (
 		not is_nan(value.x)

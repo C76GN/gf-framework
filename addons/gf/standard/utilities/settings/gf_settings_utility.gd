@@ -79,15 +79,64 @@ signal staged_settings_discarded(keys: PackedStringArray)
 
 # --- 常量 ---
 
+## 持久化类型包装器中的类型标记键。
+## [br]
+## @api private
+## [br]
 const _SETTING_TYPE_KEY: String = "__gf_setting_type"
+
+## 持久化类型包装器中的值字段键。
+## [br]
+## @api private
+## [br]
 const _SETTING_VALUE_KEY: String = "value"
+
+## 序列化状态中循环引用错误计数的键。
+## [br]
+## @api private
+## [br]
 const _SETTING_SERIALIZATION_ERROR_COUNT_KEY: String = "error_count"
+
+## 保存记录唯一编号字段的键。
+## [br]
+## @api private
+## [br]
 const _SAVE_RECORD_ID_KEY: String = "record_id"
+
+## 保存记录目标文件名字段的键。
+## [br]
+## @api private
+## [br]
 const _SAVE_RECORD_FILE_NAME_KEY: String = "file_name"
+
+## 保存记录冻结数据字段的键。
+## [br]
+## @api private
+## [br]
 const _SAVE_RECORD_DATA_KEY: String = "data"
+
+## 保存记录防抖累计时间字段的键。
+## [br]
+## @api private
+## [br]
 const _SAVE_RECORD_ELAPSED_SECONDS_KEY: String = "elapsed_seconds"
+
+## 保存记录快照捕获错误码字段的键。
+## [br]
+## @api private
+## [br]
 const _SAVE_RECORD_CAPTURE_ERROR_CODE_KEY: String = "capture_error_code"
+
+## 保存记录是否禁止自动重试字段的键。
+## [br]
+## @api private
+## [br]
 const _SAVE_RECORD_AUTO_RETRY_BLOCKED_KEY: String = "auto_retry_blocked"
+
+## 刷新报告中已尝试记录编号字段的键。
+## [br]
+## @api private
+## [br]
 const _FLUSH_REPORT_ATTEMPTED_RECORD_IDS_KEY: String = "attempted_record_ids"
 
 
@@ -132,32 +181,166 @@ var persistence_enabled: bool = true:
 
 # --- 私有变量 ---
 
+## 按设置键保存的定义副本。
+## [br]
+## @api private
+## [br]
 var _definitions: Dictionary = {}
+
+## 按设置键保存的当前有效值。
+## [br]
+## @api private
+## [br]
 var _values: Dictionary = {}
+
+## 尚未应用到当前设置的暂存值。
+## [br]
+## @api private
+## [br]
 var _staged_values: Dictionary = {}
+
+## 已冻结并等待写入的保存记录。
+## [br]
+## @api private
+## [br]
 var _pending_save_records: Array[Dictionary] = []
+
+## 批处理中暂缓提升到待写队列的保存记录。
+## [br]
+## @api private
+## [br]
 var _batch_save_records: Array[Dictionary] = []
+
+## 当前嵌套设置批处理的深度。
+## [br]
+## @api private
+## [br]
 var _batch_depth: int = 0
+
+## 最近一次加载终态结果的内部副本。
+## [br]
+## @api private
+## [br]
 var _last_load_result: GFSettingsLoadResult = null
+
+## 当前设置持久化存储端口。
+## [br]
+## @api private
+## [br]
 var _settings_store: GFSettingsStoreUtility = null
+
+## 设置工具是否负责释放当前存储端口。
+## [br]
+## @api private
+## [br]
 var _owns_settings_store: bool = false
+
+## 持久化配置与存储绑定是否已冻结。
+## [br]
+## @api private
+## [br]
 var _settings_store_binding_frozen: bool = false
+
+## 设置工具是否由 Architecture 管理。
+## [br]
+## @api private
+## [br]
 var _architecture_mode: bool = false
+
+## 是否接纳新的设置变更与保存请求。
+## [br]
+## @api private
+## [br]
 var _mutation_admission_open: bool = true
+
+## 设置工具是否已完成释放。
+## [br]
+## @api private
+## [br]
 var _disposed: bool = false
+
+## 设置工具的 init 阶段是否已完成。
+## [br]
+## @api private
+## [br]
 var _initialized: bool = false
+
+## 设置工具是否已进入 activation 阶段。
+## [br]
+## @api private
+## [br]
 var _activation_started: bool = false
+
+## standalone 存储是否待在 activation 阶段加载。
+## [br]
+## @api private
+## [br]
 var _load_store_on_activation: bool = false
+
+## 下一个保存记录使用的递增编号。
+## [br]
+## @api private
+## [br]
 var _next_save_record_id: int = 1
+
+## 静默阶段的异步完成源；尚未静默时为空。
+## [br]
+## @api private
+## [br]
 var _quiesce_completion: GFAsyncCompletion = null
+
+## 当前嵌套生命周期临界区的深度。
+## [br]
+## @api private
+## [br]
 var _lifecycle_critical_depth: int = 0
+
+## 是否正在处理退出临界区后的生命周期收尾。
+## [br]
+## @api private
+## [br]
 var _critical_exit_processing: bool = false
+
+## 当前存储端口调用的嵌套深度。
+## [br]
+## @api private
+## [br]
 var _persistence_hook_depth: int = 0
+
+## 是否正在执行待保存记录刷新。
+## [br]
+## @api private
+## [br]
 var _save_flush_in_progress: bool = false
+
+## 静默收尾是否已提升开放批次中的保存记录。
+## [br]
+## @api private
+## [br]
 var _quiesce_prepared: bool = false
+
+## 静默阶段的保存排空是否已启动。
+## [br]
+## @api private
+## [br]
 var _quiesce_flush_started: bool = false
+
+## 静默阶段是否需要接续已经运行的保存刷新。
+## [br]
+## @api private
+## [br]
 var _quiesce_join_active_flush: bool = false
+
+## 静默开始时已有刷新操作留下的报告。
+## [br]
+## @api private
+## [br]
 var _quiesce_joined_flush_report: Dictionary = {}
+
+## 是否请求在当前生命周期临界区退出后释放工具。
+## [br]
+## @api private
+## [br]
 var _dispose_requested: bool = false
 
 
@@ -1113,6 +1296,10 @@ func set_settings_store_for_framework(
 
 # --- 私有/辅助方法 ---
 
+## 完成释放并清空设置、暂存和保存状态，随后释放自有存储端口。
+## [br]
+## @api private
+## [br]
 func _dispose_now() -> void:
 	if _disposed:
 		return
@@ -1133,6 +1320,10 @@ func _dispose_now() -> void:
 		owned_store.dispose()
 
 
+## 校验并保存定义副本，按定义转换现值或写入默认值，并重新协调对应暂存值。
+## [br]
+## @api private
+## [br]
 func _register_definition_internal(
 	definition: GFSettingDefinition,
 	apply_default: bool = true
@@ -1154,6 +1345,10 @@ func _register_definition_internal(
 	_reconcile_staged_value(key)
 
 
+## 丢弃全部暂存值，发出逐键变化信号和汇总丢弃信号，并返回被丢弃键。
+## [br]
+## @api private
+## [br]
 func _discard_staged_values_internal() -> PackedStringArray:
 	var discarded_keys: PackedStringArray = get_staged_keys()
 	for key_text: String in discarded_keys:
@@ -1163,6 +1358,10 @@ func _discard_staged_values_internal() -> PackedStringArray:
 	return discarded_keys
 
 
+## 规范化批量设置输入与作用域，在批处理中应用值或重置缺失项并生成报告。
+## [br]
+## @api private
+## [br]
 func _apply_values_internal(values: Dictionary, options: Dictionary) -> Dictionary:
 	var report: Dictionary = _make_apply_values_report()
 	var save_after_change: bool = GFVariantData.get_option_bool(options, "save_after_change", true)
@@ -1231,10 +1430,18 @@ func _apply_values_internal(values: Dictionary, options: Dictionary) -> Dictiona
 	return report
 
 
+## 增加嵌套设置批处理深度。
+## [br]
+## @api private
+## [br]
 func _begin_batch_internal() -> void:
 	_batch_depth += 1
 
 
+## 结束一层批处理；最外层结束时按选项清除或提升保存记录，并在即时保存模式刷新。
+## [br]
+## @api private
+## [br]
 func _end_batch_internal(save_after_change: bool = true) -> void:
 	if _batch_depth <= 0:
 		return
@@ -1256,6 +1463,10 @@ func _end_batch_internal(save_after_change: bool = true) -> void:
 		var _flush_report: Dictionary = _flush_pending_save_records(promoted_record_ids)
 
 
+## 从持久化字典构建并替换当前值；按选项发送变化信号并清空暂存值。
+## [br]
+## @api private
+## [br]
 func _replace_from_dict_internal(data: Dictionary, emit_changes: bool = true) -> void:
 	var previous_values: Dictionary = _values.duplicate(false)
 	_values = _build_restored_values(data)
@@ -1266,6 +1477,10 @@ func _replace_from_dict_internal(data: Dictionary, emit_changes: bool = true) ->
 		_staged_values.clear()
 
 
+## 验证恢复策略、清除旧保存请求并读取存储，再按读取证据构造加载、恢复或失败结果。
+## [br]
+## @api private
+## [br]
 func _load_settings_admitted(
 	target_file_name: String,
 	recovery_policy: GFSettingsRecoveryPolicy
@@ -1380,16 +1595,28 @@ func _load_settings_admitted(
 	return _complete_settings_load(load_result)
 
 
+## 进入一层生命周期临界区。
+## [br]
+## @api private
+## [br]
 func _enter_lifecycle_critical() -> void:
 	_lifecycle_critical_depth += 1
 
 
+## 退出一层生命周期临界区，并触发生命周期收尾检查。
+## [br]
+## @api private
+## [br]
 func _leave_lifecycle_critical() -> void:
 	assert(_lifecycle_critical_depth > 0)
 	_lifecycle_critical_depth -= 1
 	_progress_lifecycle_exit()
 
 
+## 在没有活动临界区时推进静默完成，并处理延迟释放请求。
+## [br]
+## @api private
+## [br]
 func _progress_lifecycle_exit() -> void:
 	if _lifecycle_critical_depth > 0 or _critical_exit_processing:
 		return
@@ -1400,6 +1627,10 @@ func _progress_lifecycle_exit() -> void:
 	_critical_exit_processing = false
 
 
+## 提升开放批次的保存记录、排空待写队列，并以成功或失败证据完成静默源。
+## [br]
+## @api private
+## [br]
 func _try_finish_quiesce() -> void:
 	if (
 		_quiesce_completion == null
@@ -1468,6 +1699,10 @@ func _try_finish_quiesce() -> void:
 	var _succeeded: bool = _quiesce_completion.succeed()
 
 
+## 从刷新报告读取去重后的正整数保存记录编号。
+## [br]
+## @api private
+## [br]
 func _get_flush_report_attempted_record_ids(report: Dictionary) -> Array[int]:
 	var record_ids: Array[int] = []
 	var record_ids_value: Variant = GFVariantData.get_option_value(
@@ -1485,6 +1720,10 @@ func _get_flush_report_attempted_record_ids(report: Dictionary) -> Array[int]:
 	return record_ids
 
 
+## 合并两份刷新报告中的错误、失败文件名和已尝试记录编号。
+## [br]
+## @api private
+## [br]
 func _merge_flush_reports(first_report: Dictionary, second_report: Dictionary) -> Dictionary:
 	var first_error: Error = (
 		GFVariantData.get_option_int(first_report, "error_code", int(OK)) as Error
@@ -1528,6 +1767,10 @@ func _merge_flush_reports(first_report: Dictionary, second_report: Dictionary) -
 	}
 
 
+## 创建并配置结构化加载结果，配置不合法时触发断言。
+## [br]
+## @api private
+## [br]
 func _make_settings_load_result(
 	ok: bool,
 	status: StringName,
@@ -1555,6 +1798,10 @@ func _make_settings_load_result(
 	return result
 
 
+## 为存储不可用状态创建失败的结构化加载结果。
+## [br]
+## @api private
+## [br]
 func _make_unavailable_settings_load_result(
 	file_name: String,
 	error_message: String
@@ -1577,6 +1824,10 @@ func _make_unavailable_settings_load_result(
 	)
 
 
+## 根据存储读取结果及完整性状态映射加载失败分类。
+## [br]
+## @api private
+## [br]
 func _get_settings_load_failure_status(read_result: GFStorageReadResult) -> StringName:
 	if read_result.ok and not read_result.is_integrity_accepted():
 		return GFSettingsLoadResult.STATUS_CORRUPT
@@ -1596,6 +1847,10 @@ func _get_settings_load_failure_status(read_result: GFStorageReadResult) -> Stri
 			return GFSettingsLoadResult.STATUS_STORAGE_FAILED
 
 
+## 仅对缺失或损坏状态读取显式恢复策略，其余状态返回失败动作。
+## [br]
+## @api private
+## [br]
 func _resolve_settings_recovery_action(
 	read_result: GFStorageReadResult,
 	recovery_policy: GFSettingsRecoveryPolicy
@@ -1613,12 +1868,20 @@ func _resolve_settings_recovery_action(
 			return GFSettingsRecoveryPolicy.ACTION_FAIL
 
 
+## 将完整性拒绝映射为文件损坏错误，否则返回读取错误码或通用失败码。
+## [br]
+## @api private
+## [br]
 func _get_settings_load_error_code(read_result: GFStorageReadResult) -> Error:
 	if read_result.ok and not read_result.is_integrity_accepted():
 		return ERR_FILE_CORRUPT
 	return read_result.error_code if read_result.error_code != OK else FAILED
 
 
+## 按完整性、底层读取错误或失败状态生成加载错误文本。
+## [br]
+## @api private
+## [br]
 func _get_settings_load_error(
 	read_result: GFStorageReadResult,
 	failure_status: StringName
@@ -1630,6 +1893,10 @@ func _get_settings_load_error(
 	return "Settings load failed with status: %s." % String(failure_status)
 
 
+## 用错误信息、错误码和失败分类构造存储读取失败结果。
+## [br]
+## @api private
+## [br]
 func _make_persisted_read_failure(
 	error_message: String,
 	error_code: Error,
@@ -1645,6 +1912,10 @@ func _make_persisted_read_failure(
 	)
 
 
+## 保存最近加载结果的副本，发出隔离副本的完成信号并返回结果。
+## [br]
+## @api private
+## [br]
 func _complete_settings_load(
 	load_result: GFSettingsLoadResult
 ) -> GFSettingsLoadResult:
@@ -1653,6 +1924,10 @@ func _complete_settings_load(
 	return load_result
 
 
+## 将已定义设置重置为默认值，或移除未定义设置，并按选项发送信号和排队保存。
+## [br]
+## @api private
+## [br]
 func _reset_value_internal(key: StringName, emit_change: bool, save_after_change: bool) -> void:
 	var definition: GFSettingDefinition = _get_definition(key)
 	if definition != null:
@@ -1670,6 +1945,10 @@ func _reset_value_internal(key: StringName, emit_change: bool, save_after_change
 		_queue_auto_save()
 
 
+## 校验设置键、按定义转换值，跳过无变化更新，并按选项发送信号或排队持久化。
+## [br]
+## @api private
+## [br]
 func _set_value_internal(
 	key: StringName,
 	value: Variant,
@@ -1694,6 +1973,10 @@ func _set_value_internal(
 		_queue_auto_save()
 
 
+## 按定义转换暂存值；值等于当前值时清除暂存，否则保存副本并发送暂存变化信号。
+## [br]
+## @api private
+## [br]
 func _stage_value_internal(key: StringName, value: Variant, emit_change: bool) -> void:
 	if key == &"":
 		push_error("[GFSettingsUtility][settings_utility.stage_key_empty] Cannot stage_value: settings key is empty.")
@@ -1715,6 +1998,10 @@ func _stage_value_internal(key: StringName, value: Variant, emit_change: bool) -
 		staged_setting_changed.emit(key)
 
 
+## 移除指定键的暂存值，并按选项发送暂存变化信号。
+## [br]
+## @api private
+## [br]
 func _discard_staged_value_internal(key: StringName, emit_change: bool) -> bool:
 	if not _staged_values.has(key):
 		return false
@@ -1725,12 +2012,20 @@ func _discard_staged_value_internal(key: StringName, emit_change: bool) -> bool:
 	return true
 
 
+## 按当前定义重新协调已有暂存值，使其转换或在等于现值时被清除。
+## [br]
+## @api private
+## [br]
 func _reconcile_staged_value(key: StringName) -> void:
 	if not _staged_values.has(key):
 		return
 	_stage_value_internal(key, _staged_values[key], true)
 
 
+## 创建包含计数、健康状态和问题列表默认值的批量应用报告。
+## [br]
+## @api private
+## [br]
 func _make_apply_values_report() -> Dictionary:
 	return {
 		"ok": true,
@@ -1746,6 +2041,10 @@ func _make_apply_values_report() -> Dictionary:
 	}
 
 
+## 创建因设置工具停止接纳变更而拒绝的批量应用报告。
+## [br]
+## @api private
+## [br]
 func _make_rejected_apply_values_report() -> Dictionary:
 	var report: Dictionary = _make_apply_values_report()
 	_add_apply_values_issue(
@@ -1759,6 +2058,10 @@ func _make_rejected_apply_values_report() -> Dictionary:
 	return report
 
 
+## 向报告追加问题项，并按严重级别增加错误或警告计数。
+## [br]
+## @api private
+## [br]
 func _add_apply_values_issue(
 	report: Dictionary,
 	severity: String,
@@ -1781,12 +2084,20 @@ func _add_apply_values_issue(
 		_increment_report_count(report, "warning_count")
 
 
+## 根据问题列表和错误、警告计数计算最终报告字段。
+## [br]
+## @api private
+## [br]
 func _finalize_apply_values_report(report: Dictionary) -> void:
 	report["issue_count"] = _get_report_issues(report).size()
 	report["ok"] = GFVariantData.get_option_int(report, "error_count", 0) == 0
 	report["healthy"] = GFVariantData.get_option_int(report, "error_count", 0) == 0 and GFVariantData.get_option_int(report, "warning_count", 0) == 0
 
 
+## 把字典、数组、PackedStringArray 或单个字符串键规范化为键集合。
+## [br]
+## @api private
+## [br]
 func _normalize_apply_scope(scope_value: Variant) -> Dictionary:
 	var result: Dictionary = {}
 	if scope_value is Dictionary:
@@ -1807,12 +2118,20 @@ func _normalize_apply_scope(scope_value: Variant) -> Dictionary:
 	return result
 
 
+## 将候选键转换为 StringName，并把非空键加入作用域集合。
+## [br]
+## @api private
+## [br]
 func _add_scope_key(scope: Dictionary, key_value: Variant) -> void:
 	var key: StringName = GFVariantData.to_string_name(key_value)
 	if key != &"":
 		scope[key] = true
 
 
+## 在持久化及生命周期条件允许时冻结当前值并加入批次或待写队列。
+## [br]
+## @api private
+## [br]
 func _queue_auto_save() -> void:
 	if (
 		not persistence_enabled
@@ -1835,6 +2154,10 @@ func _queue_auto_save() -> void:
 		var _flush_report: Dictionary = _flush_pending_save_records(record_ids)
 
 
+## 冻结指定目标的持久化数据，记录循环引用捕获错误并分配保存编号。
+## [br]
+## @api private
+## [br]
 func _capture_save_record(file_name: String) -> Dictionary:
 	var target_file_name: String = storage_file_name if file_name.is_empty() else file_name
 	var serialization_state: Dictionary = {}
@@ -1864,6 +2187,10 @@ func _capture_save_record(file_name: String) -> Dictionary:
 	return record
 
 
+## 按目标文件名替换已有记录或追加新记录，并返回记录编号。
+## [br]
+## @api private
+## [br]
 func _upsert_save_record(records: Array[Dictionary], record: Dictionary) -> int:
 	var file_name: String = GFVariantData.get_option_string(
 		record,
@@ -1883,6 +2210,10 @@ func _upsert_save_record(records: Array[Dictionary], record: Dictionary) -> int:
 	return GFVariantData.get_option_int(record, _SAVE_RECORD_ID_KEY, 0)
 
 
+## 将批次记录合并到待写队列，清空批次队列并返回编号。
+## [br]
+## @api private
+## [br]
 func _promote_batch_save_records() -> Array[int]:
 	var promoted_record_ids: Array[int] = []
 	for record: Dictionary in _batch_save_records:
@@ -1891,11 +2222,19 @@ func _promote_batch_save_records() -> Array[int]:
 	return promoted_record_ids
 
 
+## 结束所有开放批次深度并提升其中的保存记录。
+## [br]
+## @api private
+## [br]
 func _promote_open_batch_save_records() -> void:
 	_batch_depth = 0
 	var _promoted_record_ids: Array[int] = _promote_batch_save_records()
 
 
+## 选取待写冻结记录调用存储端口，移除成功记录、保留失败记录并返回刷新报告。
+## [br]
+## @api private
+## [br]
 func _flush_pending_save_records(
 	record_ids: Array[int] = [],
 	is_quiesce_drain: bool = false
@@ -1979,6 +2318,10 @@ func _flush_pending_save_records(
 	return flush_report
 
 
+## 根据静默完成状态及排空类型判断当前刷新是否应停止。
+## [br]
+## @api private
+## [br]
 func _should_stop_current_flush_for_quiesce(is_quiesce_drain: bool) -> bool:
 	if _quiesce_completion == null or _quiesce_completion.is_pending():
 		return false
@@ -1987,6 +2330,10 @@ func _should_stop_current_flush_for_quiesce(is_quiesce_drain: bool) -> bool:
 	return _quiesce_join_active_flush and not _quiesce_prepared
 
 
+## 查找指定编号在待写保存队列中的位置。
+## [br]
+## @api private
+## [br]
 func _find_pending_save_record_index(record_id: int) -> int:
 	for record_index: int in range(_pending_save_records.size()):
 		if (
@@ -2000,12 +2347,20 @@ func _find_pending_save_record_index(record_id: int) -> int:
 	return -1
 
 
+## 按记录编号移除待写保存记录。
+## [br]
+## @api private
+## [br]
 func _erase_pending_save_record(record_id: int) -> void:
 	var record_index: int = _find_pending_save_record_index(record_id)
 	if record_index >= 0:
 		_pending_save_records.remove_at(record_index)
 
 
+## 将失败记录的防抖时间清零并阻止自动重试。
+## [br]
+## @api private
+## [br]
 func _mark_pending_save_record_failed(record_id: int) -> void:
 	var record_index: int = _find_pending_save_record_index(record_id)
 	if record_index >= 0:
@@ -2013,6 +2368,10 @@ func _mark_pending_save_record_failed(record_id: int) -> void:
 		_pending_save_records[record_index][_SAVE_RECORD_AUTO_RETRY_BLOCKED_KEY] = true
 
 
+## 按队列顺序收集待写记录的目标文件名。
+## [br]
+## @api private
+## [br]
 func _get_pending_save_file_names() -> PackedStringArray:
 	var file_names: PackedStringArray = PackedStringArray()
 	for record: Dictionary in _pending_save_records:
@@ -2022,12 +2381,20 @@ func _get_pending_save_file_names() -> PackedStringArray:
 	return file_names
 
 
+## 清空待写与批次保存记录，并重置批次深度。
+## [br]
+## @api private
+## [br]
 func _clear_pending_saves_for_load() -> void:
 	_pending_save_records.clear()
 	_batch_save_records.clear()
 	_batch_depth = 0
 
 
+## 检查变更接纳开关、释放状态和存储回调重入状态。
+## [br]
+## @api private
+## [br]
 func _can_accept_mutation(_operation: String) -> bool:
 	if (
 		_mutation_admission_open
@@ -2039,6 +2406,10 @@ func _can_accept_mutation(_operation: String) -> bool:
 	return false
 
 
+## 替换存储端口并释放旧自有端口，再检查重入期间状态是否仍允许替换。
+## [br]
+## @api private
+## [br]
 func _replace_settings_store(store: GFSettingsStoreUtility, owns: bool) -> Error:
 	if _disposed or _dispose_requested or _quiesce_completion != null:
 		return ERR_BUSY
@@ -2068,11 +2439,19 @@ func _replace_settings_store(store: GFSettingsStoreUtility, owns: bool) -> Error
 	return replace_error
 
 
+## 判断设置键是否持久化；未注册定义的键默认持久化。
+## [br]
+## @api private
+## [br]
 func _should_persist(key: StringName) -> bool:
 	var definition: GFSettingDefinition = _get_definition(key)
 	return definition == null or definition.persistent
 
 
+## 为尚无当前值的已注册设置写入经定义转换的默认值。
+## [br]
+## @api private
+## [br]
 func _apply_defaults_to_missing() -> void:
 	for key: StringName in _definitions.keys():
 		if _values.has(key):
@@ -2082,6 +2461,10 @@ func _apply_defaults_to_missing() -> void:
 			_values[key] = definition.coerce_value(definition.default_value)
 
 
+## 反序列化并按定义转换持久化值，再为缺失的已定义键补入默认值。
+## [br]
+## @api private
+## [br]
 func _build_restored_values(data: Dictionary) -> Dictionary:
 	var restored_values: Dictionary = {}
 	for key_variant: Variant in data.keys():
@@ -2101,6 +2484,10 @@ func _build_restored_values(data: Dictionary) -> Dictionary:
 	return restored_values
 
 
+## 比较替换前后的值，并为新增、删除或改变的键发送变化信号。
+## [br]
+## @api private
+## [br]
 func _emit_replaced_value_changes(previous_values: Dictionary) -> void:
 	for key_variant: Variant in previous_values.keys():
 		var key: StringName = GFVariantData.to_string_name(key_variant)
@@ -2116,6 +2503,10 @@ func _emit_replaced_value_changes(previous_values: Dictionary) -> void:
 		setting_changed.emit(key, null, _values[key])
 
 
+## 从定义表读取指定键的类型化定义，不匹配时返回空值。
+## [br]
+## @api private
+## [br]
 func _get_definition(key: StringName) -> GFSettingDefinition:
 	var value: Variant = GFVariantData.get_option_value(_definitions, key)
 	if value is GFSettingDefinition:
@@ -2124,6 +2515,10 @@ func _get_definition(key: StringName) -> GFSettingDefinition:
 	return null
 
 
+## 返回报告中现有的问题数组；字段缺失或类型不符时创建新数组。
+## [br]
+## @api private
+## [br]
 func _get_report_issues(report: Dictionary) -> Array:
 	var issues_value: Variant = GFVariantData.get_option_value(report, "issues", [])
 	if issues_value is Array:
@@ -2135,10 +2530,18 @@ func _get_report_issues(report: Dictionary) -> Array:
 	return new_issues
 
 
+## 将报告指定计数字段加一。
+## [br]
+## @api private
+## [br]
 func _increment_report_count(report: Dictionary, key: String) -> void:
 	report[key] = GFVariantData.get_option_int(report, key, 0) + 1
 
 
+## 将支持的内建类型编码为设置包装器，其余值交由 Variant JSON 编解码器转换。
+## [br]
+## @api private
+## [br]
 func _serialize_value(value: Variant) -> Variant:
 	if value is Vector2:
 		var vector2: Vector2 = value
@@ -2177,6 +2580,10 @@ func _serialize_value(value: Variant) -> Variant:
 	return GFVariantJsonCodec.variant_to_json_compatible(value, { "encode_dictionary_keys": true })
 
 
+## 递归解码数组、Variant JSON 标记和设置类型包装器，其他字典按字段递归还原。
+## [br]
+## @api private
+## [br]
 func _deserialize_value(value: Variant) -> Variant:
 	if value is Array:
 		var array_result: Array = []
@@ -2213,6 +2620,10 @@ func _deserialize_value(value: Variant) -> Variant:
 	return dictionary_result
 
 
+## 按类型标记及字段数量、字段名校验设置序列化包装器。
+## [br]
+## @api private
+## [br]
 func _is_serialized_setting_wrapper(data: Dictionary) -> bool:
 	if not data.has(_SETTING_TYPE_KEY):
 		return false
@@ -2226,6 +2637,10 @@ func _is_serialized_setting_wrapper(data: Dictionary) -> bool:
 	return false
 
 
+## 按持久化筛选条件序列化当前值，并在序列化结果含循环引用标记时更新状态。
+## [br]
+## @api private
+## [br]
 func _to_dict_with_state(persistent_only: bool, serialization_state: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for key: StringName in _values.keys():
@@ -2241,6 +2656,10 @@ func _to_dict_with_state(persistent_only: bool, serialization_state: Dictionary)
 	return result
 
 
+## 递归检查数组和字典中是否含 Variant JSON 循环引用标记。
+## [br]
+## @api private
+## [br]
 func _contains_circular_reference_marker(value: Variant) -> bool:
 	if value is Array:
 		var array_value: Array = value

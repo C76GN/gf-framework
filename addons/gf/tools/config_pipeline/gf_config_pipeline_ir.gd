@@ -31,11 +31,40 @@ const FORMAT_VERSION: int = 1
 
 # --- 私有变量 ---
 
+## 数据库 IR 的稳定标识。
+## [br]
+## @api private
+## [br]
 var _database_id: StringName = &""
+
+## 数据库 IR 携带的项目版本文本。
+## [br]
+## @api private
+## [br]
 var _version: String = ""
+
+## 与目标无关的数据库元数据。
+## [br]
+## @api private
+## [br]
 var _metadata: Dictionary = {}
+
+## 按注册顺序保存的单表 IR。
+## [br]
+## @api private
+## [br]
 var _tables: Array[GFConfigPipelineTableIR] = []
+
+## 以 table_name 索引已注册 Table IR 的查找表。
+## [br]
+## @api private
+## [br]
 var _table_lookup: Dictionary = {}
+
+## 数据库 IR 是否已封存，封存后拒绝新增表。
+## [br]
+## @api private
+## [br]
 var _sealed: bool = false
 
 
@@ -265,6 +294,10 @@ func describe() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 检查所有表 IR 非空、名称唯一且各自通过契约验证。
+## [br]
+## @api private
+## [br]
 func _validate_structure() -> Dictionary:
 	var seen_tables: Dictionary = {}
 	for table_ir: GFConfigPipelineTableIR in _tables:
@@ -289,6 +322,10 @@ func _validate_structure() -> Dictionary:
 		"table_name": &"",
 	}
 
+## 构造无效数据错误结果并保留表名、错误种类和消息。
+## [br]
+## @api private
+## [br]
 func _make_add_failure(table_name: StringName, error_kind: String, message: String) -> Dictionary:
 	return {
 		"success": false,

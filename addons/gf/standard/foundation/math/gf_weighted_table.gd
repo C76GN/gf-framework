@@ -285,6 +285,10 @@ static func from_dict(data: Dictionary) -> GFWeightedTable:
 
 # --- 私有/辅助方法 ---
 
+## 在可选条目间按权重抽取，并通过最大权重缩放处理总和溢出。
+## [br]
+## @api private
+## [br]
 func _pick_entry_from(source_entries: Array[GFWeightedEntry], rng: Variant) -> GFWeightedEntry:
 	var total: float = 0.0
 	var max_weight: float = 0.0
@@ -323,6 +327,10 @@ func _pick_entry_from(source_entries: Array[GFWeightedEntry], rng: Variant) -> G
 	return fallback
 
 
+## 优先使用传入的支持 RNG，否则按种子创建确定性源或随机化 Godot RNG。
+## [br]
+## @api private
+## [br]
 func _resolve_rng(rng: Variant) -> Variant:
 	if rng is RandomNumberGenerator or rng is GFDeterministicRandom:
 		return rng
@@ -338,6 +346,10 @@ func _resolve_rng(rng: Variant) -> Variant:
 	return fallback
 
 
+## 分发到 GF 确定性 RNG 或 Godot RNG；无效源回传区间最小端。
+## [br]
+## @api private
+## [br]
 func _random_float_range(rng: Variant, min_value: float, max_value: float) -> float:
 	if rng is GFDeterministicRandom:
 		var deterministic_rng: GFDeterministicRandom = rng

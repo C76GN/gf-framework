@@ -281,40 +281,214 @@ var handshake_timeout_msec: int:
 
 # --- 私有变量 ---
 
+## 当前 WebSocket 会话所处的服务器、客户端或断开模式。
+## [br]
+## @api private
+## [br]
 var _mode: Mode = Mode.DISCONNECTED
+
+## 当前会话代次，用于识别异步流程中已替换的连接。
+## [br]
+## @api private
+## [br]
 var _session_generation: int = 0
+
+## 当前监听连接的 TCP 服务器实例。
+## [br]
+## @api private
+## [br]
 var _server: TCPServer = null
+
+## 当前客户端 WebSocket Peer。
+## [br]
+## @api private
+## [br]
 var _client: WebSocketPeer = null
+
+## 当前客户端或服务器会话的端点地址。
+## [br]
+## @api private
+## [br]
 var _endpoint: String = ""
+
+## 服务器端按 peer ID 索引的 WebSocket Peer。
+## [br]
+## @api private
+## [br]
 var _peers: Dictionary[int, WebSocketPeer] = {}
+
+## 已完成握手并通知连接成功的服务器 peer ID 集合。
+## [br]
+## @api private
+## [br]
 var _open_peer_ids: Dictionary[int, bool] = {}
+
+## 创建服务器 Peer 时应用的选项副本。
+## [br]
+## @api private
+## [br]
 var _server_peer_options: Dictionary = {}
+
+## 服务器接受连接时记录的毫秒时间戳。
+## [br]
+## @api private
+## [br]
 var _peer_accepted_at_msec: Dictionary[int, int] = {}
+
+## 下一个分配给服务器远端 Peer 的 ID。
+## [br]
+## @api private
+## [br]
 var _next_peer_id: int = SERVER_PEER_ID + 1
+
+## 记录客户端 Peer 是否曾进入打开状态。
+## [br]
+## @api private
+## [br]
 var _client_was_open: bool = false
+
+## 当前服务器允许接入的 Peer 容量上限。
+## [br]
+## @api private
+## [br]
 var _server_capacity: int = 0
+
+## 当前会话累计接受的服务器连接数。
+## [br]
+## @api private
+## [br]
 var _accepted_connection_count: int = 0
+
+## 当前会话因容量限制拒绝连接的累计次数。
+## [br]
+## @api private
+## [br]
 var _capacity_rejection_count: int = 0
+
+## 当前会话接受服务器连接失败的累计次数。
+## [br]
+## @api private
+## [br]
 var _accept_failure_count: int = 0
+
+## 当前会话 WebSocket 握手失败的累计次数。
+## [br]
+## @api private
+## [br]
 var _handshake_failure_count: int = 0
+
+## 当前会话因握手超时关闭 Peer 的累计次数。
+## [br]
+## @api private
+## [br]
 var _handshake_timeout_count: int = 0
+
+## 当前会话尝试接受服务器连接的累计次数。
+## [br]
+## @api private
+## [br]
 var _accept_attempt_count: int = 0
+
+## 最近一次轮询尝试接受的连接数。
+## [br]
+## @api private
+## [br]
 var _last_poll_accept_attempt_count: int = 0
+
+## 每次轮询允许尝试接受的最大连接数。
+## [br]
+## @api private
+## [br]
 var _max_accepts_per_poll: int = DEFAULT_MAX_ACCEPTS_PER_POLL
+
+## 每个 Peer 在一次轮询中允许处理的最大 packet 数。
+## [br]
+## @api private
+## [br]
 var _max_packets_per_peer_per_poll: int = DEFAULT_MAX_PACKETS_PER_PEER_PER_POLL
+
+## 一次轮询允许处理的最大 packet 总数。
+## [br]
+## @api private
+## [br]
 var _max_packets_per_poll: int = DEFAULT_MAX_PACKETS_PER_POLL
+
+## 一次轮询允许服务的最大服务器 Peer 数。
+## [br]
+## @api private
+## [br]
 var _max_service_peers_per_poll: int = DEFAULT_MAX_SERVICE_PEERS_PER_POLL
+
+## 服务器 Peer 完成握手前允许等待的毫秒数。
+## [br]
+## @api private
+## [br]
 var _handshake_timeout_msec: int = DEFAULT_HANDSHAKE_TIMEOUT_MSEC
+
+## 服务器轮询使用的 Peer ID 服务顺序。
+## [br]
+## @api private
+## [br]
 var _service_peer_ids: Array[int] = []
+
+## 服务器 Peer 轮询顺序中的下一个起始位置。
+## [br]
+## @api private
+## [br]
 var _service_peer_cursor: int = 0
+
+## 当前会话拒绝不合法服务器 Peer 选项的累计次数。
+## [br]
+## @api private
+## [br]
 var _peer_option_rejection_count: int = 0
+
+## 当前会话轮询达到 packet 总预算的累计次数。
+## [br]
+## @api private
+## [br]
 var _packet_budget_exhaustion_count: int = 0
+
+## 当前会话 Peer 轮询达到单 Peer packet 预算的累计次数。
+## [br]
+## @api private
+## [br]
 var _peer_packet_budget_exhaustion_count: int = 0
+
+## 当前会话轮询达到 Peer 服务数预算的累计次数。
+## [br]
+## @api private
+## [br]
 var _service_peer_budget_exhaustion_count: int = 0
+
+## 最近一次轮询实际处理的 packet 数。
+## [br]
+## @api private
+## [br]
 var _last_poll_packet_count: int = 0
+
+## 最近一次轮询实际服务的服务器 Peer 数。
+## [br]
+## @api private
+## [br]
 var _last_poll_service_peer_count: int = 0
+
+## 记录最近一次轮询是否用尽 packet 总预算。
+## [br]
+## @api private
+## [br]
 var _last_poll_packet_budget_exhausted: bool = false
+
+## 记录最近一次轮询是否用尽 Peer 服务数预算。
+## [br]
+## @api private
+## [br]
 var _last_poll_service_peer_budget_exhausted: bool = false
+
+## 阻止 poll 调用重入的状态标记。
+## [br]
+## @api private
+## [br]
 var _poll_in_progress: bool = false
 
 
@@ -548,6 +722,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按当前模式执行一次有界轮询，并在启动下一阶段前确认服务器会话仍有效。
+## [br]
+## @api private
+## [br]
 func _poll_once() -> void:
 	_reset_last_poll_work_snapshot()
 	var poll_generation: int = _session_generation
@@ -578,6 +756,10 @@ func _poll_once() -> void:
 		)
 
 
+## 检查地址具有 ws 或 wss scheme、没有控制字符且 authority 非空。
+## [br]
+## @api private
+## [br]
 func _is_valid_websocket_endpoint(endpoint: String) -> bool:
 	if not endpoint.begins_with("ws://") and not endpoint.begins_with("wss://"):
 		return false
@@ -593,6 +775,9 @@ func _is_valid_websocket_endpoint(endpoint: String) -> bool:
 	return authority_end > authority_start
 
 
+## 在 accept 尝试预算内接收连接并施加容量与选项校验；每次可重入调用后复核 server 身份和代次，失权时关闭刚取得的连接。
+## [br]
+## @api private
 func _poll_server_accepts(
 	accept_limit: int,
 	expected_generation: int,
@@ -660,6 +845,9 @@ func _poll_server_accepts(
 		_accepted_connection_count += 1
 
 
+## 按游标轮询本轮起始 peer 集合，在 peer 数、单 peer 包数和总包数预算内推进；服务回调导致代次变化时立即停止。
+## [br]
+## @api private
 func _poll_server_peers(
 	service_peer_limit: int,
 	packet_per_peer_limit: int,
@@ -752,6 +940,9 @@ func _poll_server_peers(
 		_packet_budget_exhaustion_count += 1
 
 
+## 轮询指定 client 会话并发送首次连接或关闭通知；每次通知后复核身份与代次，收包同时遵守单 peer 和总包预算。
+## [br]
+## @api private
 func _poll_client(
 	packet_per_peer_limit: int,
 	packet_limit: int,
@@ -840,6 +1031,9 @@ func _poll_client(
 		_emit_disconnected("closed")
 
 
+## 在预算内读取并分发当前来源的包，返回已处理数量；读取或通知后的来源身份、模式、代次失效时返回 -1，让上层放弃本轮写回。
+## [br]
+## @api private
 func _emit_peer_packets(
 	peer_id: int,
 	peer: WebSocketPeer,
@@ -879,6 +1073,10 @@ func _emit_peer_packets(
 	return processed_packets
 
 
+## 轮询单个服务器 Peer，处理握手完成、收包、关闭或握手超时。
+## [br]
+## @api private
+## [br]
 func _service_server_peer(
 	peer_id: int,
 	peer: WebSocketPeer,
@@ -923,6 +1121,10 @@ func _service_server_peer(
 	return 0
 
 
+## 确认该 Peer 仍是当前打开连接且有可读取 packet。
+## [br]
+## @api private
+## [br]
 func _server_peer_has_available_packets(
 	peer_id: int,
 	peer: WebSocketPeer
@@ -938,6 +1140,10 @@ func _server_peer_has_available_packets(
 	)
 
 
+## 向指定服务器 Peer 发送 bytes，或广播并返回首个发送错误。
+## [br]
+## @api private
+## [br]
 func _send_server_bytes(peer_id: int, bytes: PackedByteArray) -> Error:
 	if peer_id == BROADCAST_PEER_ID:
 		var first_error: Error = OK
@@ -949,6 +1155,10 @@ func _send_server_bytes(peer_id: int, bytes: PackedByteArray) -> Error:
 	return _send_to_server_peer(peer_id, bytes)
 
 
+## 向已打开的服务器 Peer 发送二进制消息并记录成功发送指标。
+## [br]
+## @api private
+## [br]
 func _send_to_server_peer(peer_id: int, bytes: PackedByteArray) -> Error:
 	var peer: WebSocketPeer = _get_peer_value(GFVariantData.get_option_value(_peers, peer_id))
 	if peer == null:
@@ -961,6 +1171,10 @@ func _send_to_server_peer(peer_id: int, bytes: PackedByteArray) -> Error:
 	return error
 
 
+## 首次确认 Peer 握手完成时移除计时记录并发出连接信号，再检查回调后 Peer 是否仍有效。
+## [br]
+## @api private
+## [br]
 func _mark_peer_open(
 	peer_id: int,
 	peer: WebSocketPeer,
@@ -985,6 +1199,10 @@ func _mark_peer_open(
 	)
 
 
+## 关闭并移除服务器 Peer 状态；仅对已打开 Peer 发断开信号，并统计握手失败或超时。
+## [br]
+## @api private
+## [br]
 func _close_server_peer(
 	peer_id: int,
 	peer: WebSocketPeer,
@@ -1011,6 +1229,9 @@ func _close_server_peer(
 			_handshake_timeout_count += 1
 
 
+## 先推进代次并清空当前会话状态，再关闭捕获的连接；按需发送断开通知，通知重入建立新会话后停止旧会话的后续通知。
+## [br]
+## @api private
 func _close_all(should_emit_signal: bool) -> void:
 	if should_emit_signal and _is_fully_disconnected():
 		return
@@ -1078,6 +1299,10 @@ func _close_all(should_emit_signal: bool) -> void:
 	_emit_disconnected("closed")
 
 
+## 清零最近一次轮询的工作计数与预算耗尽标记。
+## [br]
+## @api private
+## [br]
 func _reset_last_poll_work_snapshot() -> void:
 	_last_poll_accept_attempt_count = 0
 	_last_poll_packet_count = 0
@@ -1086,11 +1311,19 @@ func _reset_last_poll_work_snapshot() -> void:
 	_last_poll_service_peer_budget_exhausted = false
 
 
+## 推进会话代次并返回新值，使旧会话回调失效。
+## [br]
+## @api private
+## [br]
 func _advance_session_generation() -> int:
 	_session_generation += 1
 	return _session_generation
 
 
+## 检查代次仍匹配且当前运行在服务器模式。
+## [br]
+## @api private
+## [br]
 func _is_server_generation_current(expected_generation: int) -> bool:
 	return (
 		_session_generation == expected_generation
@@ -1098,6 +1331,10 @@ func _is_server_generation_current(expected_generation: int) -> bool:
 	)
 
 
+## 检查服务器代次与 TCPServer 实例都仍是当前会话。
+## [br]
+## @api private
+## [br]
 func _is_server_session_current(
 	expected_generation: int,
 	expected_server: TCPServer
@@ -1108,6 +1345,10 @@ func _is_server_session_current(
 	)
 
 
+## 检查客户端模式、会话代次及 WebSocketPeer 实例身份仍匹配。
+## [br]
+## @api private
+## [br]
 func _is_client_session_current(
 	expected_generation: int,
 	expected_client: WebSocketPeer
@@ -1120,6 +1361,10 @@ func _is_client_session_current(
 	)
 
 
+## 检查服务器代次有效且指定 ID 仍映射到同一 Peer 实例。
+## [br]
+## @api private
+## [br]
 func _is_server_peer_current(
 	expected_generation: int,
 	peer_id: int,
@@ -1136,6 +1381,10 @@ func _is_server_peer_current(
 	)
 
 
+## 按客户端或服务器模式验证 packet 来源仍属于当前会话。
+## [br]
+## @api private
+## [br]
 func _packet_source_is_current(
 	expected_mode: Mode,
 	expected_generation: int,
@@ -1156,6 +1405,10 @@ func _packet_source_is_current(
 	return false
 
 
+## 检查当前代次仍处于客户端和服务器资源均已清空的断开状态。
+## [br]
+## @api private
+## [br]
 func _is_disconnected_session_current(expected_generation: int) -> bool:
 	return (
 		_session_generation == expected_generation
@@ -1165,6 +1418,10 @@ func _is_disconnected_session_current(expected_generation: int) -> bool:
 	)
 
 
+## 检查模式、连接对象及所有服务器 Peer 跟踪集合均已清空。
+## [br]
+## @api private
+## [br]
 func _is_fully_disconnected() -> bool:
 	return (
 		_mode == Mode.DISCONNECTED
@@ -1178,6 +1435,10 @@ func _is_fully_disconnected() -> bool:
 	)
 
 
+## 将轮询游标移到已处理 Peer 之后，并在末尾回绕或在集合为空时归零。
+## [br]
+## @api private
+## [br]
 func _advance_service_peer_cursor(peer_index: int, peer_id: int) -> void:
 	if _service_peer_ids.is_empty():
 		_service_peer_cursor = 0
@@ -1191,6 +1452,10 @@ func _advance_service_peer_cursor(peer_index: int, peer_id: int) -> void:
 		_service_peer_cursor = 0
 
 
+## 从服务器 Peer 服务序列移除指定 ID，并校正轮询游标。
+## [br]
+## @api private
+## [br]
 func _remove_service_peer_id(peer_id: int) -> void:
 	var peer_index: int = _service_peer_ids.find(peer_id)
 	if peer_index < 0:
@@ -1202,6 +1467,10 @@ func _remove_service_peer_id(peer_id: int) -> void:
 		_service_peer_cursor = 0
 
 
+## 根据接受连接时间和握手时限判断 Peer 是否超时。
+## [br]
+## @api private
+## [br]
 func _server_peer_handshake_timed_out(peer_id: int) -> bool:
 	if not _peer_accepted_at_msec.has(peer_id):
 		return false
@@ -1209,18 +1478,34 @@ func _server_peer_handshake_timed_out(peer_id: int) -> bool:
 	return _get_ticks_msec() - accepted_at_msec >= _handshake_timeout_msec
 
 
+## 提供毫秒时钟读取入口。
+## [br]
+## @api private
+## [br]
 func _get_ticks_msec() -> int:
 	return Time.get_ticks_msec()
 
 
+## 对指定客户端 WebSocket Peer 执行一次 poll。
+## [br]
+## @api private
+## [br]
 func _poll_client_peer(peer: WebSocketPeer) -> void:
 	peer.poll()
 
 
+## 读取客户端 WebSocket Peer 的 ready state。
+## [br]
+## @api private
+## [br]
 func _get_client_ready_state(peer: WebSocketPeer) -> int:
 	return peer.get_ready_state()
 
 
+## 读取指定服务器 WebSocket Peer 的 ready state。
+## [br]
+## @api private
+## [br]
 func _get_server_peer_ready_state(
 	_peer_id: int,
 	peer: WebSocketPeer
@@ -1228,6 +1513,10 @@ func _get_server_peer_ready_state(
 	return peer.get_ready_state()
 
 
+## 读取指定 WebSocket Peer 当前可用的 packet 数。
+## [br]
+## @api private
+## [br]
 func _get_peer_available_packet_count(
 	_peer_id: int,
 	peer: WebSocketPeer
@@ -1235,6 +1524,10 @@ func _get_peer_available_packet_count(
 	return peer.get_available_packet_count()
 
 
+## 从指定 WebSocket Peer 读取下一个 packet 的 bytes。
+## [br]
+## @api private
+## [br]
 func _get_peer_packet(
 	_peer_id: int,
 	peer: WebSocketPeer
@@ -1242,34 +1535,62 @@ func _get_peer_packet(
 	return peer.get_packet()
 
 
+## 创建一个新的 TCPServer 实例。
+## [br]
+## @api private
+## [br]
 func _create_tcp_server() -> TCPServer:
 	return TCPServer.new()
 
 
+## 创建一个新的 WebSocketPeer 实例。
+## [br]
+## @api private
+## [br]
 func _create_websocket_peer() -> WebSocketPeer:
 	return WebSocketPeer.new()
 
 
+## 检查 TCPServer 当前是否有待接受连接。
+## [br]
+## @api private
+## [br]
 func _is_server_connection_available() -> bool:
 	return _server != null and _server.is_connection_available()
 
 
+## 从 TCPServer 取出一个待接受的 TCP 连接。
+## [br]
+## @api private
+## [br]
 func _take_server_connection() -> StreamPeerTCP:
 	if _server == null:
 		return null
 	return _server.take_connection()
 
 
+## 将 TCP stream 交给 WebSocketPeer 开始服务器握手。
+## [br]
+## @api private
+## [br]
 func _accept_server_stream(peer: WebSocketPeer, stream: StreamPeerTCP) -> Error:
 	return peer.accept_stream(stream)
 
 
+## 断开未接受的 TCP stream。
+## [br]
+## @api private
+## [br]
 func _reject_server_stream(stream: StreamPeerTCP) -> void:
 	if stream == null:
 		return
 	stream.disconnect_from_host()
 
 
+## 验证缓冲区与队列上限、协议列表以及 no_delay 选项的类型和范围。
+## [br]
+## @api private
+## [br]
 func _validate_peer_options(options: Dictionary) -> bool:
 	return (
 		_is_exact_positive_bounded_option(
@@ -1292,6 +1613,10 @@ func _validate_peer_options(options: Dictionary) -> bool:
 	)
 
 
+## 为 Peer 选项补齐默认队列值并统一协议列表和 no_delay 字段。
+## [br]
+## @api private
+## [br]
 func _normalize_peer_options(options: Dictionary) -> Dictionary:
 	var normalized: Dictionary = {}
 	if _has_option(options, &"supported_protocols"):
@@ -1318,6 +1643,10 @@ func _normalize_peer_options(options: Dictionary) -> Dictionary:
 	return normalized
 
 
+## 校验后将缓冲区、队列、协议及 no_delay 选项应用到 Peer。
+## [br]
+## @api private
+## [br]
 func _apply_peer_options(peer: WebSocketPeer, options: Dictionary) -> Error:
 	if peer == null:
 		return ERR_INVALID_PARAMETER
@@ -1350,6 +1679,10 @@ func _apply_peer_options(peer: WebSocketPeer, options: Dictionary) -> Error:
 	return OK
 
 
+## 验证协议列表类型、数量、token、重复项及单项和总字节上限。
+## [br]
+## @api private
+## [br]
 func _supported_protocols_option_is_valid(options: Dictionary) -> bool:
 	if not _has_option(options, &"supported_protocols"):
 		return true
@@ -1393,6 +1726,10 @@ func _supported_protocols_option_is_valid(options: Dictionary) -> bool:
 	return true
 
 
+## 验证选项后将协议值复制或转换为 PackedStringArray。
+## [br]
+## @api private
+## [br]
 func _get_validated_supported_protocols(
 	options: Dictionary
 ) -> PackedStringArray:
@@ -1418,6 +1755,10 @@ func _get_validated_supported_protocols(
 	return protocols
 
 
+## 检查协议名称是否仅由 WebSocket token 允许的 ASCII 字符组成。
+## [br]
+## @api private
+## [br]
 func _websocket_protocol_is_valid(protocol: String) -> bool:
 	if protocol.is_empty():
 		return false
@@ -1434,6 +1775,10 @@ func _websocket_protocol_is_valid(protocol: String) -> bool:
 	return true
 
 
+## 允许选项缺省；存在时仅接受精确 bool 值。
+## [br]
+## @api private
+## [br]
 func _exact_bool_option_is_valid(
 	options: Dictionary,
 	option_name: StringName
@@ -1444,6 +1789,10 @@ func _exact_bool_option_is_valid(
 	)
 
 
+## 允许选项缺省；存在时要求精确 int 且在 1 到上限之间。
+## [br]
+## @api private
+## [br]
 func _is_exact_positive_bounded_option(
 	options: Dictionary,
 	option_name: StringName,
@@ -1458,6 +1807,10 @@ func _is_exact_positive_bounded_option(
 	return int_value > 0 and int_value <= absolute_maximum
 
 
+## 读取精确 int 选项；缺省或类型不符时返回给定默认值。
+## [br]
+## @api private
+## [br]
 func _get_exact_option_int(
 	options: Dictionary,
 	option_name: StringName,
@@ -1472,10 +1825,18 @@ func _get_exact_option_int(
 	return default_value
 
 
+## 检查 StringName 键及其 String 形式的选项键是否存在。
+## [br]
+## @api private
+## [br]
 func _has_option(options: Dictionary, option_name: StringName) -> bool:
 	return options.has(option_name) or options.has(String(option_name))
 
 
+## 优先按 StringName 键读取选项，再尝试 String 键。
+## [br]
+## @api private
+## [br]
 func _get_option_value(options: Dictionary, option_name: StringName) -> Variant:
 	if options.has(option_name):
 		return options[option_name]
@@ -1485,6 +1846,10 @@ func _get_option_value(options: Dictionary, option_name: StringName) -> Variant:
 	return null
 
 
+## 仅当 Variant 是 WebSocketPeer 时返回该实例。
+## [br]
+## @api private
+## [br]
 func _get_peer_value(value: Variant) -> WebSocketPeer:
 	if value is WebSocketPeer:
 		var peer: WebSocketPeer = value
@@ -1492,6 +1857,10 @@ func _get_peer_value(value: Variant) -> WebSocketPeer:
 	return null
 
 
+## 仅当 Variant 是 TLSOptions 时返回该实例。
+## [br]
+## @api private
+## [br]
 func _get_tls_options_value(value: Variant) -> TLSOptions:
 	if value is TLSOptions:
 		var tls_options: TLSOptions = value
@@ -1499,6 +1868,10 @@ func _get_tls_options_value(value: Variant) -> TLSOptions:
 	return null
 
 
+## 仅当 Variant 是 PackedStringArray 时返回该数组，否则返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_packed_string_array_value(value: Variant) -> PackedStringArray:
 	if value is PackedStringArray:
 		var array: PackedStringArray = value
@@ -1506,6 +1879,10 @@ func _get_packed_string_array_value(value: Variant) -> PackedStringArray:
 	return PackedStringArray()
 
 
+## 将 WebSocket 会话模式转换为调试文本。
+## [br]
+## @api private
+## [br]
 func _get_mode_name(mode: Mode) -> String:
 	match mode:
 		Mode.SERVER:

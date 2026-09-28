@@ -15,15 +15,54 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 用于严格识别 Tween 配置资源的脚本。
+## [br]
+## @api private
 const _CONFIG_SCRIPT = preload("res://addons/gf/extensions/action_queue/tween/gf_tween_action_config.gd")
+
+## 用于严格识别 Tween 步骤资源的脚本。
+## [br]
+## @api private
 const _STEP_SCRIPT = preload("res://addons/gf/extensions/action_queue/tween/gf_tween_action_step.gd")
+
+## 捕获原生 Curve 的独立纯值数据并提供采样计数。
+## [br]
+## @api private
 const _EASING_CURVE_SCRIPT = preload("res://addons/gf/extensions/action_queue/tween/gf_tween_easing_curve.gd")
+
+## 读取捕获字典中的可选字段。
+## [br]
+## @api private
 const _VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 单份预览计划允许捕获的最多步骤数。
+## [br]
+## @api private
 const _MAX_STEPS: int = 128
+
+## 单份预览计划允许的最大有限循环次数。
+## [br]
+## @api private
 const _MAX_LOOPS: int = 32
+
+## 预览计划允许的最大总时长秒数。
+## [br]
+## @api private
 const _MAX_SECONDS: float = 120.0
+
+## 属性数值分量允许的最大绝对值。
+## [br]
+## @api private
 const _MAX_VALUE_MAGNITUDE: float = 1000000.0
+
+## 单份计划允许累计的最大曲线烘焙采样数。
+## [br]
+## @api private
 const _MAX_CURVE_SAMPLES: int = 65536
+
+## 单份计划允许累计的最大曲线控制点数。
+## [br]
+## @api private
 const _MAX_CURVE_POINTS: int = 4096
 
 
@@ -226,12 +265,18 @@ static func validate_initial_value(property_name: StringName, value: Variant, ki
 
 # --- 私有/辅助方法 ---
 
+## 拒绝计划并清除所有已捕获步骤。
+## [br]
+## @api private
 static func _reject(plan: GFTweenPreviewPlan, message: String) -> GFTweenPreviewPlan:
 	plan.steps.clear()
 	plan.error = message
 	return plan
 
 
+## 检查资源实例是否直接使用指定脚本。
+## [br]
+## @api private
 static func _has_exact_script(resource: Resource, expected_script: Script) -> bool:
 	if not is_instance_valid(resource):
 		return false
@@ -242,6 +287,9 @@ static func _has_exact_script(resource: Resource, expected_script: Script) -> bo
 	return resource_script == expected_script
 
 
+## 校验并将单个来源步骤复制为预览计划中的纯值步骤数据。
+## [br]
+## @api private
 static func _capture_step(
 	plan: GFTweenPreviewPlan,
 	source: Resource,
@@ -313,6 +361,9 @@ static func _capture_step(
 	return ""
 
 
+## 解析属性白名单路径并返回对应类型的基线值或数值分量基线。
+## [br]
+## @api private
 static func _get_property_baseline(property_path: NodePath, properties: Dictionary) -> Variant:
 	var parts: PackedStringArray = String(property_path).split(":")
 	if parts.is_empty() or parts.size() > 2 or not properties.has(parts[0]):
@@ -330,6 +381,9 @@ static func _get_property_baseline(property_path: NodePath, properties: Dictiona
 	return null
 
 
+## 校验候选值是否与基线类型兼容且处于有限数值范围内。
+## [br]
+## @api private
 static func _validate_value(value: Variant, baseline: Variant) -> String:
 	if baseline is float:
 		if not (value is int) and not (value is float):
@@ -341,6 +395,9 @@ static func _validate_value(value: Variant, baseline: Variant) -> String:
 	return ""
 
 
+## 将整数或浮点 Variant 转为浮点数；其他类型返回 NAN。
+## [br]
+## @api private
 static func _read_number(value: Variant) -> float:
 	if value is float:
 		var float_value: float = value
@@ -351,10 +408,16 @@ static func _read_number(value: Variant) -> float:
 	return NAN
 
 
+## 判断数值是否有限且绝对值未超过预览上限。
+## [br]
+## @api private
 static func _is_bounded_number(value: float) -> bool:
 	return is_finite(value) and absf(value) <= _MAX_VALUE_MAGNITUDE
 
 
+## 检查数值或 Vector2、Vector3、Color 的全部分量是否在允许范围内。
+## [br]
+## @api private
 static func _is_bounded_value(value: Variant) -> bool:
 	if value is float or value is int:
 		return _is_bounded_number(_read_number(value))

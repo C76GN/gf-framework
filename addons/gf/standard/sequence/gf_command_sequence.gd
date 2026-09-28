@@ -81,8 +81,22 @@ signal sequence_cancelled
 
 # --- 常量 ---
 
+## 安全等待 Signal payload 的异步辅助脚本。
+## [br]
+## @api private
+## [br]
 const _GF_ASYNC_WAIT_SUPPORT = preload("res://addons/gf/standard/common/gf_async_wait_support.gd")
+
+## 将任意 Variant 编码为报告安全值的辅助脚本。
+## [br]
+## @api private
+## [br]
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+
+## 检查步骤对象存活状态的辅助脚本。
+## [br]
+## @api private
+## [br]
 const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.gd")
 
 ## 失败步骤要求序列在整体回滚时补偿自身所用的结果字段。
@@ -191,10 +205,34 @@ var last_run_report: Dictionary = {}
 
 # --- 私有变量 ---
 
+## 当前运行是否已收到取消请求。
+## [br]
+## @api private
+## [br]
 var _cancel_requested: bool = false
+
+## 当前序列所属架构的弱引用。
+## [br]
+## @api private
+## [br]
 var _architecture_ref: WeakRef = null
+
+## 当前正在执行的步骤值，用于取消时转发取消请求。
+## [br]
+## @api private
+## [br]
 var _current_step: Variant = null
+
+## 当前正在回滚的步骤值，用于取消等待中的 undo。
+## [br]
+## @api private
+## [br]
 var _current_rollback_step: Variant = null
+
+## 最近一次 Signal 等待结果，用于步骤报告与回滚状态判断。
+## [br]
+## @api private
+## [br]
 var _last_wait_result: Dictionary = {}
 
 
@@ -375,6 +413,10 @@ func with_failure_policy(
 
 # --- 私有/辅助方法 ---
 
+## 按支持的对象协议执行步骤，或调用有效 Callable；其他值生成 unsupported_step 失败结果。
+## [br]
+## @api private
+## [br]
 func _execute_step(step: Variant) -> Variant:
 	var step_object: Object = _get_valid_step_object(step)
 	if step_object != null:
@@ -395,14 +437,26 @@ func _execute_step(step: Variant) -> Variant:
 	return _make_unsupported_step_result(step)
 
 
+## 将取消请求转发给当前执行步骤。
+## [br]
+## @api private
+## [br]
 func _cancel_current_step() -> void:
 	_cancel_step(_current_step)
 
 
+## 将取消请求转发给当前回滚步骤。
+## [br]
+## @api private
+## [br]
 func _cancel_current_rollback_step() -> void:
 	_cancel_step(_current_rollback_step)
 
 
+## 若步骤是 GFSequenceStep 则传入 context 调用 cancel，否则对支持 cancel() 的对象动态调用。
+## [br]
+## @api private
+## [br]
 func _cancel_step(step: Variant) -> void:
 	if step == null:
 		return
@@ -420,6 +474,10 @@ func _cancel_step(step: Variant) -> void:
 		var _cancel_result: Variant = step_object.call("cancel")
 
 
+## 从 Dictionary 的状态与错误字段识别失败，并把复杂错误值编码为 JSON 文本。
+## [br]
+## @api private
+## [br]
 func _get_step_error(result: Variant) -> String:
 	if not (result is Dictionary):
 		return ""
@@ -454,6 +512,10 @@ func _get_step_error(result: Variant) -> String:
 	return error if not error.is_empty() else "Step failed."
 
 
+## 构造 JSON 兼容步骤结果；存在等待记录时附加等待状态、是否完成及等待报告。
+## [br]
+## @api private
+## [br]
 func _make_step_report(index: int, ok: bool, error: String, result: Variant) -> Dictionary:
 	var report: Dictionary = {
 		"index": index,
@@ -468,6 +530,10 @@ func _make_step_report(index: int, ok: bool, error: String, result: Variant) -> 
 	return report
 
 
+## 为不受支持的步骤值构造 ok=false 的 unsupported_step 结果字典。
+## [br]
+## @api private
+## [br]
 func _make_unsupported_step_result(step: Variant) -> Dictionary:
 	return {
 		"ok": false,
@@ -477,6 +543,10 @@ func _make_unsupported_step_result(step: Variant) -> Dictionary:
 	}
 
 
+## 仅当失败结果显式请求 rollback_required 且步骤对象实现 undo() 时允许补偿失败步骤自身。
+## [br]
+## @api private
+## [br]
 func _should_compensate_failed_step(step_value: Variant, result: Variant) -> bool:
 	if not (result is Dictionary):
 		return false
@@ -487,6 +557,10 @@ func _should_compensate_failed_step(step_value: Variant, result: Variant) -> boo
 	return step != null and step.has_method("undo")
 
 
+## 逆序调用已完成步骤的 undo()，等待异步信号，收集失败并在取消或超时时停止。
+## [br]
+## @api private
+## [br]
 func _rollback_steps(completed_steps: Array) -> Dictionary:
 	var rollback_errors: Array[Dictionary] = []
 	var rollback_status: StringName = ROLLBACK_STATUS_COMPLETED
@@ -549,6 +623,10 @@ func _rollback_steps(completed_steps: Array) -> Dictionary:
 	}
 
 
+## 结合 undo 返回值和 GFUndoableCommand 专用成功判定得出回滚步骤错误。
+## [br]
+## @api private
+## [br]
 func _get_rollback_step_error(step: Object, result: Variant) -> String:
 	var undo_successful: bool = true
 	var undo_reached_terminal: bool = (
@@ -564,6 +642,10 @@ func _get_rollback_step_error(step: Object, result: Variant) -> String:
 	return "" if undo_successful else "undo_failed"
 
 
+## 取得架构后，按对象支持情况调用 inject_dependencies() 与 inject()。
+## [br]
+## @api private
+## [br]
 func _inject_step(step: Object) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture == null:
@@ -574,6 +656,10 @@ func _inject_step(step: Object) -> void:
 		var _injected: Variant = step.call("inject", architecture)
 
 
+## 判断结果是否为等待信号；GFSequenceStep 可通过 wait_for_result 关闭该等待。
+## [br]
+## @api private
+## [br]
 func _should_wait_for_step(step: Variant, result: Variant) -> bool:
 	if not (result is Signal):
 		return false
@@ -584,10 +670,18 @@ func _should_wait_for_step(step: Variant, result: Variant) -> bool:
 	return true
 
 
+## 通过实例守卫返回仍有效的 Object 步骤；无效或非 Object 值返回 null。
+## [br]
+## @api private
+## [br]
 func _get_valid_step_object(step: Variant) -> Object:
 	return _INSTANCE_GUARD._get_live_object(step)
 
 
+## 等待 Signal payload 并应用取消、超时和时钟配置；保存等待报告并规范化完成参数。
+## [br]
+## @api private
+## [br]
 func _await_signal_result_safely(result_signal: Signal) -> Variant:
 	var wait_result: Dictionary = await _GF_ASYNC_WAIT_SUPPORT.await_signal_payload_safely(
 		result_signal,
@@ -608,6 +702,10 @@ func _await_signal_result_safely(result_signal: Signal) -> Variant:
 	return _normalize_signal_result(GFVariantData.get_option_array(wait_result, "args"))
 
 
+## 从等待报告读取 status；缺失时根据完成、取消状态回退到 completed、cancelled 或 timeout。
+## [br]
+## @api private
+## [br]
 func _get_last_wait_status() -> StringName:
 	var status: StringName = GFVariantData.get_option_string_name(_last_wait_result, "status")
 	if status != &"":
@@ -619,6 +717,10 @@ func _get_last_wait_status() -> StringName:
 	return GFAsyncWaitUtility.STATUS_TIMEOUT
 
 
+## 将 Signal 参数列表规范化：非数组原样返回，零参数返回 null，单参数解包，多参数保留数组。
+## [br]
+## @api private
+## [br]
 func _normalize_signal_result(args: Variant) -> Variant:
 	if not (args is Array):
 		return args
@@ -630,6 +732,10 @@ func _normalize_signal_result(args: Variant) -> Variant:
 	return values
 
 
+## 从指定字典数组中复制 Dictionary 元素并过滤其他类型。
+## [br]
+## @api private
+## [br]
 static func _get_dictionary_array(source: Dictionary, key: String) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for value: Variant in GFVariantData.get_option_array(source, key):
@@ -639,6 +745,10 @@ static func _get_dictionary_array(source: Dictionary, key: String) -> Array[Dict
 	return result
 
 
+## 通过所属架构取得 GFTimeUtility；架构或 Utility 不可用时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_time_utility() -> GFTimeUtility:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture == null:
@@ -650,10 +760,18 @@ func _get_time_utility() -> GFTimeUtility:
 	return null
 
 
+## 只要当前运行尚未收到取消请求，就继续异步等待。
+## [br]
+## @api private
+## [br]
 func _should_continue_waiting() -> bool:
 	return not _cancel_requested
 
 
+## 优先从架构弱引用、再从 context、最后从 GFAutoload 取得架构实例。
+## [br]
+## @api private
+## [br]
 func _get_architecture_or_null() -> GFArchitecture:
 	if _architecture_ref != null:
 		var architecture_value: Object = _architecture_ref.get_ref()

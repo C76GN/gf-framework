@@ -17,6 +17,10 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 生成产物目标路径解析器。
+## [br]
+## @api private
+## [br]
 const _GF_PROJECT_ARTIFACT_PATHS_SCRIPT = preload("res://addons/gf/kernel/core/gf_project_artifact_paths.gd")
 
 ## 默认生成输出路径。
@@ -39,19 +43,89 @@ const DEFAULT_CLASS_NAME: String = "GFConfigAccess"
 ## [br]
 ## @since 3.17.0
 const DEFAULT_PROVIDER_ACCESSOR: String = "null"
+
+## 读取容错 schema、字段和选项值的内部访问脚本。
+## [br]
+## @api private
+## [br]
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 生成文本文件并构造产物报告的内部服务。
+## [br]
+## @api private
+## [br]
 const _GENERATED_ARTIFACT_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_generated_artifact_report.gd")
+
+## 生成 typed record 的基类名。
+## [br]
+## @api private
+## [br]
 const _RECORD_ACCESS_BASE_CLASS_NAME: String = "GFConfigRecordAccessBase"
+
+## 未指定字段类型或类型无法映射时使用的规范类型名。
+## [br]
+## @api private
+## [br]
 const _VALUE_TYPE_ANY: String = "any"
+
+## 布尔字段类型的规范名。
+## [br]
+## @api private
+## [br]
 const _VALUE_TYPE_BOOL: String = "bool"
+
+## 整数字段类型的规范名。
+## [br]
+## @api private
+## [br]
 const _VALUE_TYPE_INT: String = "int"
+
+## 浮点数字段类型的规范名。
+## [br]
+## @api private
+## [br]
 const _VALUE_TYPE_FLOAT: String = "float"
+
+## String 字段类型的规范名。
+## [br]
+## @api private
+## [br]
 const _VALUE_TYPE_STRING: String = "string"
+
+## StringName 字段类型的规范名。
+## [br]
+## @api private
+## [br]
 const _VALUE_TYPE_STRING_NAME: String = "string_name"
+
+## Vector2 字段类型的规范名。
+## [br]
+## @api private
+## [br]
 const _VALUE_TYPE_VECTOR2: String = "vector2"
+
+## Vector2i 字段类型的规范名。
+## [br]
+## @api private
+## [br]
 const _VALUE_TYPE_VECTOR2I: String = "vector2i"
+
+## Color 字段类型的规范名。
+## [br]
+## @api private
+## [br]
 const _VALUE_TYPE_COLOR: String = "color"
+
+## Dictionary 字段类型的规范名。
+## [br]
+## @api private
+## [br]
 const _VALUE_TYPE_DICTIONARY: String = "dictionary"
+
+## Array 字段类型的规范名。
+## [br]
+## @api private
+## [br]
 const _VALUE_TYPE_ARRAY: String = "array"
 
 
@@ -357,18 +431,29 @@ func save_source_with_report(output_path: String, source: String, options: Dicti
 
 # --- 私有/辅助方法 ---
 
+## 已写入报告映射为 OK，否则委托生成产物报告服务解析 Error。
+## [br]
+## @api private
+## [br]
 func _get_legacy_error_code(report: Dictionary) -> Error:
 	if GFVariantData.get_option_bool(report, "written", false):
 		return OK
 	return _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(report)
 
 
+## 在 options 的 duplicate(true) 结果中覆盖 overwrite_existing。
+## [br]
+## @api private
+## [br]
 func _merge_generation_save_options(options: Dictionary, overwrite_existing: bool) -> Dictionary:
 	var save_options: Dictionary = options.duplicate(true)
 	save_options["overwrite_existing"] = overwrite_existing
 	return save_options
 
 
+## 跳过无表名 schema，按表名排序后分配常量名与记录类名后缀以消除冲突；收集列及注释形成稳定的代码生成输入。
+## [br]
+## @api private
 func _collect_schema_records(schemas: Array, options: Dictionary) -> Array[Dictionary]:
 	var raw_records: Array[Dictionary] = []
 	for schema_variant: Variant in schemas:
@@ -420,6 +505,10 @@ func _collect_schema_records(schemas: Array, options: Dictionary) -> Array[Dicti
 	return records
 
 
+## 用 source_result 中的输入/输出/跳过数量和 issues 补充报告副本。
+## [br]
+## @api private
+## [br]
 func _with_generation_counts(
 	report: Dictionary,
 	source_result: Dictionary
@@ -444,10 +533,17 @@ func _with_generation_counts(
 	return result
 
 
+## 当表名不能产生标识符时，以其 SHA-256 前 12 位构造 table_ 前缀标识符。
+## [br]
+## @api private
+## [br]
 func _make_fallback_table_identifier(table_name: String) -> String:
 	return "table_%s" % table_name.sha256_text().substr(0, 12)
 
 
+## 在共享方法名集合中分配唯一名称，生成读取单条和整表的静态入口；启用类型包装时追加把字典结果交给记录类的访问器。
+## [br]
+## @api private
 func _append_table_accessors(
 	builder: GFSourceBuilder,
 	record: Dictionary,
@@ -497,6 +593,9 @@ func _append_table_accessors(
 		builder.blank(2)
 
 
+## 先输出记录包装基类，再按已排序的记录描述输出各表包装类；类名冲突已在收集阶段解决。
+## [br]
+## @api private
 func _append_typed_record_classes(builder: GFSourceBuilder, records: Array[Dictionary]) -> void:
 	builder.section("内部类")
 	_append_typed_record_base_class(builder)
@@ -504,6 +603,9 @@ func _append_typed_record_classes(builder: GFSourceBuilder, records: Array[Dicti
 		_append_typed_record_class(builder, record)
 
 
+## 输出独立记录基类及带默认值的标量、向量和容器读取帮助方法；容器 getter 深复制容器，通用值读取仍返回存储值引用。
+## [br]
+## @api private
 func _append_typed_record_base_class(builder: GFSourceBuilder) -> void:
 	builder.doc("配置记录包装基类。")
 	builder.line("class %s:" % _RECORD_ACCESS_BASE_CLASS_NAME)
@@ -829,6 +931,9 @@ func _append_typed_record_base_class(builder: GFSourceBuilder) -> void:
 	builder.blank(2)
 
 
+## 输出继承公共包装基类的单表类；from_variant 只接受字典并深复制其容器，再按已准入列描述追加 getter。
+## [br]
+## @api private
 func _append_typed_record_class(builder: GFSourceBuilder, record: Dictionary) -> void:
 	var class_name_value: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "typed_record_class_name")
 	builder.doc("%s 表记录包装。" % _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "table_name"))
@@ -853,6 +958,9 @@ func _append_typed_record_class(builder: GFSourceBuilder, record: Dictionary) ->
 	builder.blank(2)
 
 
+## 按列描述配对返回类型、读取帮助方法和默认字面量，并转义字段名后写入无参数 getter。
+## [br]
+## @api private
 func _append_typed_record_getter(builder: GFSourceBuilder, column_record: Dictionary) -> void:
 	builder.blank(2)
 	builder.doc("读取 `%s` 字段。" % String(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(column_record, "field_name")))
@@ -869,6 +977,9 @@ func _append_typed_record_getter(builder: GFSourceBuilder, column_record: Dictio
 	builder.dedent()
 
 
+## 按 schema 列顺序收集非空字段，跳过无法形成标识符的名称并告警；预占基类方法名后分配唯一 getter，统一其类型和默认值描述。
+## [br]
+## @api private
 func _collect_column_records(schema: Variant) -> Array[Dictionary]:
 	var columns: Variant = _get_schema_columns_value(schema)
 	if not (columns is Array):
@@ -900,6 +1011,10 @@ func _collect_column_records(schema: Variant) -> Array[Dictionary]:
 	return records
 
 
+## 从 record 的 columns 数组中保留 Dictionary 项。
+## [br]
+## @api private
+## [br]
 func _get_record_columns(record: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for column_value: Variant in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(record, "columns"):
@@ -909,6 +1024,10 @@ func _get_record_columns(record: Dictionary) -> Array[Dictionary]:
 	return result
 
 
+## 从 Dictionary 或 Object 的 columns 字段/属性取值；缺失或不支持时返回空数组。
+## [br]
+## @api private
+## [br]
 func _get_schema_columns_value(schema: Variant) -> Variant:
 	if schema == null:
 		return []
@@ -921,6 +1040,10 @@ func _get_schema_columns_value(schema: Variant) -> Variant:
 	return []
 
 
+## 按 field_name、name、field 的顺序读取列名，并转换为 StringName。
+## [br]
+## @api private
+## [br]
 func _get_column_field_name(column: Variant) -> StringName:
 	if column == null:
 		return &""
@@ -943,6 +1066,10 @@ func _get_column_field_name(column: Variant) -> StringName:
 	return &""
 
 
+## 从列记录的 value_type/type/gdscript_type 中读取类型并归一化。
+## [br]
+## @api private
+## [br]
 func _get_column_value_type(column: Variant) -> String:
 	if column == null:
 		return _VALUE_TYPE_ANY
@@ -963,6 +1090,10 @@ func _get_column_value_type(column: Variant) -> String:
 	return _VALUE_TYPE_ANY
 
 
+## 将受支持的文本别名或 Variant 类型索引归一为内部类型名，未知值回退到 any。
+## [br]
+## @api private
+## [br]
 func _normalize_column_value_type(value: Variant) -> String:
 	if value is String or value is StringName:
 		var text: String = _GF_VARIANT_ACCESS_SCRIPT.to_text(value).strip_edges().to_lower()
@@ -1020,6 +1151,10 @@ func _normalize_column_value_type(value: Variant) -> String:
 	return _VALUE_TYPE_ANY
 
 
+## 返回类型对应的 getter 返回类型、访问 helper 和默认字面量；未知类型用 Variant。
+## [br]
+## @api private
+## [br]
 func _get_typed_record_type_info(value_type: String) -> Dictionary:
 	match value_type:
 		_VALUE_TYPE_BOOL:
@@ -1046,6 +1181,10 @@ func _get_typed_record_type_info(value_type: String) -> Dictionary:
 			return { "return_type": "Variant", "helper_name": "get_value", "default_literal": "null" }
 
 
+## 将输入切为小写 ASCII 字母/数字片段并以下划线连接，数字开头时加 table_。
+## [br]
+## @api private
+## [br]
 func _sanitize_identifier(value: String) -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	var current: String = ""
@@ -1067,6 +1206,9 @@ func _sanitize_identifier(value: String) -> String:
 	return result
 
 
+## 只投影支持的生成选项并清理前缀与类名后缀；非法命名风格回退 snake，空方法模式回退默认模式。
+## [br]
+## @api private
 func _normalize_generation_options(options: Dictionary) -> Dictionary:
 	var typed_record_class_suffix: String = _sanitize_record_class_suffix(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "typed_record_class_suffix", "Record"))
 	var result: Dictionary = {
@@ -1090,6 +1232,10 @@ func _normalize_generation_options(options: Dictionary) -> Dictionary:
 	return result
 
 
+## 将 record 类名后缀转换为 PascalCase；无法生成时返回 Record。
+## [br]
+## @api private
+## [br]
 func _sanitize_record_class_suffix(value: String) -> String:
 	var sanitized: String = _sanitize_identifier(value)
 	if sanitized.is_empty():
@@ -1097,6 +1243,10 @@ func _sanitize_record_class_suffix(value: String) -> String:
 	return _to_pascal_case(sanitized)
 
 
+## 清理常量前缀并转成大写；非空有效值以一个下划线结尾。
+## [br]
+## @api private
+## [br]
 func _sanitize_constant_prefix(value: String) -> String:
 	if value.is_empty():
 		return ""
@@ -1104,6 +1254,10 @@ func _sanitize_constant_prefix(value: String) -> String:
 	return "%s_" % sanitized if not sanitized.is_empty() and not sanitized.ends_with("_") else sanitized
 
 
+## 根据 camel 或 pascal 风格转换标识符，其他风格保留原值。
+## [br]
+## @api private
+## [br]
 func _format_identifier(identifier: String, style: String) -> String:
 	match style:
 		"camel":
@@ -1114,6 +1268,10 @@ func _format_identifier(identifier: String, style: String) -> String:
 			return identifier
 
 
+## 替换 pattern 中的 {table} 并清理方法名；空结果回退到 get_<table>。
+## [br]
+## @api private
+## [br]
 func _format_method_pattern(pattern: String, table_token: String) -> String:
 	var method_name: String = pattern.replace("{table}", table_token)
 	method_name = _sanitize_generated_method_name(method_name)
@@ -1122,6 +1280,10 @@ func _format_method_pattern(pattern: String, table_token: String) -> String:
 	return method_name
 
 
+## 返回未占用名称；冲突时依次尝试 base_name_2、base_name_3 等并登记结果。
+## [br]
+## @api private
+## [br]
 func _make_unique_name(base_name: String, used_names: Dictionary) -> String:
 	var candidate: String = base_name
 	var suffix_index: int = 2
@@ -1132,6 +1294,10 @@ func _make_unique_name(base_name: String, used_names: Dictionary) -> String:
 	return candidate
 
 
+## 清理生成的方法标识符，处理数字开头和 GDScript 保留字。
+## [br]
+## @api private
+## [br]
 func _sanitize_generated_method_name(value: String) -> String:
 	var result: String = ""
 	var previous_was_separator: bool = false
@@ -1155,6 +1321,10 @@ func _sanitize_generated_method_name(value: String) -> String:
 	return result
 
 
+## 优先保留有效非保留类名，否则从输入或 fallback 生成 PascalCase 名称。
+## [br]
+## @api private
+## [br]
 func _sanitize_class_name(value: String, fallback: String) -> String:
 	var trimmed: String = value.strip_edges()
 	if _is_valid_identifier(trimmed) and not _is_gdscript_reserved_word(trimmed):
@@ -1171,6 +1341,10 @@ func _sanitize_class_name(value: String, fallback: String) -> String:
 	return result
 
 
+## 将下划线分段首字母大写后拼接为 PascalCase。
+## [br]
+## @api private
+## [br]
 func _to_pascal_case(identifier: String) -> String:
 	var parts: PackedStringArray = identifier.split("_", false)
 	var result: String = ""
@@ -1181,6 +1355,10 @@ func _to_pascal_case(identifier: String) -> String:
 	return result
 
 
+## 先生成 PascalCase，再将首字母转小写；空结果时返回输入。
+## [br]
+## @api private
+## [br]
 func _to_camel_case(identifier: String) -> String:
 	var pascal: String = _to_pascal_case(identifier)
 	if pascal.is_empty():
@@ -1188,6 +1366,10 @@ func _to_camel_case(identifier: String) -> String:
 	return pascal.substr(0, 1).to_lower() + pascal.substr(1)
 
 
+## 从 Dictionary 或 Object 读取 table_name，缺少时回退到 table_key。
+## [br]
+## @api private
+## [br]
 func _get_schema_table_name(schema: Variant) -> String:
 	if schema == null:
 		return ""
@@ -1207,6 +1389,9 @@ func _get_schema_table_name(schema: Variant) -> String:
 	return ""
 
 
+## 从字典或对象属性读取 metadata 并深复制字典容器；非字典返回空映射，嵌套 Object 的身份不因此隔离。
+## [br]
+## @api private
 func _get_schema_metadata(schema: Variant) -> Dictionary:
 	if schema == null:
 		return {}
@@ -1227,6 +1412,10 @@ func _get_schema_metadata(schema: Variant) -> Dictionary:
 	return {}
 
 
+## 优先读取 metadata.comment，缺少时读取 description。
+## [br]
+## @api private
+## [br]
 func _get_schema_comment(metadata: Dictionary) -> String:
 	if metadata.has("comment"):
 		return _GF_VARIANT_ACCESS_SCRIPT.get_option_string(metadata, "comment")
@@ -1235,6 +1424,10 @@ func _get_schema_comment(metadata: Dictionary) -> String:
 	return ""
 
 
+## 仅在 property_list 找到同名属性时读取其索引值，否则返回 default_value。
+## [br]
+## @api private
+## [br]
 func _get_object_property_or_default(object: Object, property_name: StringName, default_value: Variant) -> Variant:
 	for property: Dictionary in object.get_property_list():
 		if _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(property, "name") == property_name:
@@ -1242,10 +1435,18 @@ func _get_object_property_or_default(object: Object, property_name: StringName, 
 	return default_value
 
 
+## 将标识符整体转为大写常量名。
+## [br]
+## @api private
+## [br]
 func _to_constant_name(identifier: String) -> String:
 	return identifier.to_upper()
 
 
+## 判断单字符是否为 ASCII 字母（调用方先转小写）或数字；下划线不在此集合内。
+## [br]
+## @api private
+## [br]
 func _is_identifier_part(character: String) -> bool:
 	if character.length() != 1:
 		return false
@@ -1257,6 +1458,10 @@ func _is_identifier_part(character: String) -> bool:
 	)
 
 
+## 验证非空 ASCII 标识符：首位为字母或下划线，后续可含数字。
+## [br]
+## @api private
+## [br]
 func _is_valid_identifier(value: String) -> bool:
 	if value.is_empty():
 		return false
@@ -1275,6 +1480,10 @@ func _is_valid_identifier(value: String) -> bool:
 	return true
 
 
+## 按当前固定关键字表判断输入是否为 GDScript 保留字。
+## [br]
+## @api private
+## [br]
 func _is_gdscript_reserved_word(value: String) -> bool:
 	match value.to_lower():
 		"and", "as", "assert", "await", "break", "breakpoint", "class", "class_name", "const", "continue", "elif", "else", "enum", "extends", "false", "for", "func", "if", "in", "is", "match", "not", "null", "or", "pass", "preload", "return", "self", "signal", "static", "super", "true", "var", "void", "while", "yield":
@@ -1283,6 +1492,10 @@ func _is_gdscript_reserved_word(value: String) -> bool:
 			return false
 
 
+## 返回 typed record getter 生成时需要避开的 Object 方法名集合。
+## [br]
+## @api private
+## [br]
 func _make_reserved_typed_record_getter_names() -> Dictionary:
 	return {
 		"call": true,
@@ -1326,13 +1539,25 @@ func _make_reserved_typed_record_getter_names() -> Dictionary:
 	}
 
 
+## 转义反斜线和双引号，供生成的 GDScript 字符串字面量使用。
+## [br]
+## @api private
+## [br]
 func _escape_string(value: String) -> String:
 	return value.replace("\\", "\\\\").replace("\"", "\\\"")
 
 
+## 将 value 写入 FileAccess；store_string 的返回标志由此 helper 丢弃。
+## [br]
+## @api private
+## [br]
 func _store_file_string(file: FileAccess, value: String) -> void:
 	var _stored: bool = file.store_string(value)
 
 
+## 将 value 追加到 PackedStringArray；append 的返回标志由此 helper 丢弃。
+## [br]
+## @api private
+## [br]
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var _appended: bool = target.append(value)

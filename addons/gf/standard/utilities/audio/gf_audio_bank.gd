@@ -324,6 +324,10 @@ func validate_bank(check_resource_exists: bool = false) -> GFValidationReport:
 
 # --- 私有/辅助方法 ---
 
+## 创建记录请求 ID、解析 ID、回退尝试和最终 clip 的解析结果。
+## [br]
+## @api private
+## [br]
 func _make_resolution_report(
 	ok: bool,
 	requested_id: StringName,
@@ -342,6 +346,10 @@ func _make_resolution_report(
 	}
 
 
+## 检查 clip 是否提供音频源，并按选项验证路径资源是否可加载。
+## [br]
+## @api private
+## [br]
 func _validate_clip(
 	report: GFValidationReport,
 	clip_id: StringName,
@@ -359,6 +367,10 @@ func _validate_clip(
 		var _add_warning_result_337: Variant = report.add_warning(&"missing_audio_resource", "Audio clip path does not resolve to AudioStream.", clip_id, clip.path, metadata)
 
 
+## 将 Variant 收窄为 GFAudioClip，不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _variant_to_audio_clip(value: Variant) -> GFAudioClip:
 	if value is GFAudioClip:
 		var clip: GFAudioClip = value
@@ -366,6 +378,10 @@ func _variant_to_audio_clip(value: Variant) -> GFAudioClip:
 	return null
 
 
+## 将文本追加到 PackedStringArray，并在追加成功时结束处理。
+## [br]
+## @api private
+## [br]
 func _append_packed_string(target: PackedStringArray, value: String) -> void:
 	var appended: bool = target.append(value)
 	if appended:

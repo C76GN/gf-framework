@@ -18,14 +18,49 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 保存执行后台请求的 RefCounted worker 实例。
+## [br]
+## @api private
 var _worker: RefCounted = null
+
+## 保存注入的线程对象；未提供时由 run() 创建 Thread 实例。
+## [br]
+## @api private
 var _thread: Object = null
+
+## 保存 worker 上要调用的方法名，默认值为 run_request。
+## [br]
+## @api private
 var _worker_method: StringName = &"run_request"
+
+## 保存 configure() 传入请求的递归副本，启动线程时再绑定其副本。
+## [br]
+## @api private
 var _request: Dictionary = {}
+
+## 记录 Thread.start 成功后的启动状态；启动前或启动失败时保持 false。
+## [br]
+## @api private
 var _started: bool = false
+
+## 记录任务对象的 finished 状态；配置时清零，启动失败或等待线程结果后置为 true。
+## [br]
+## @api private
 var _finished: bool = false
+
+## 记录是否已经发出取消请求；它不表示 worker 已经停止。
+## [br]
+## @api private
 var _cancel_requested: bool = false
+
+## 保存启动阶段的错误码，供 get_start_error() 返回。
+## [br]
+## @api private
 var _start_error: Error = OK
+
+## 缓存 wait_to_finish() 返回的 worker 结果，供后续读取。
+## [br]
+## @api private
 var _result_value: Variant = null
 
 
@@ -224,6 +259,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 从选项读取 String 或 StringName 方法名；缺失或类型不匹配时使用 run_request。
+## [br]
+## @api private
 func _read_worker_method(options: Dictionary) -> StringName:
 	if not options.has("worker_method"):
 		return &"run_request"
@@ -237,6 +275,9 @@ func _read_worker_method(options: Dictionary) -> StringName:
 	return &"run_request"
 
 
+## 仅接受 Object 类型的 thread 选项；缺失或类型不匹配时返回 null。
+## [br]
+## @api private
 func _read_thread(options: Dictionary) -> Object:
 	if not options.has("thread"):
 		return null
@@ -247,6 +288,9 @@ func _read_thread(options: Dictionary) -> Object:
 	return null
 
 
+## 要求线程对象同时提供 start、is_alive 和 wait_to_finish 方法。
+## [br]
+## @api private
 func _thread_contract_is_valid() -> bool:
 	if _thread == null:
 		return false
@@ -260,6 +304,9 @@ func _thread_contract_is_valid() -> bool:
 	return true
 
 
+## 把 int 结果转换为 Error；其他类型使用传入的 fallback。
+## [br]
+## @api private
 func _to_error(value: Variant, fallback: Error) -> Error:
 	if value is int:
 		var error_code: int = value

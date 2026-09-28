@@ -14,6 +14,10 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 负责根路径规范化及排除路径判断的内部工具。
+## [br]
+## @api private
+## [br]
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 
 ## 默认递归扫描深度上限。
@@ -131,6 +135,10 @@ static func scan_files(root_path: String = "res://", options: Dictionary = {}) -
 
 # --- 私有/辅助方法 ---
 
+## 递归遍历目录，按隐藏项、排除路径、深度和条目/文件预算收集路径。
+## [br]
+## @api private
+## [br]
 static func _scan_directory_recursive(
 	dir_path: String,
 	result: PackedStringArray,
@@ -193,6 +201,10 @@ static func _scan_directory_recursive(
 	dir.list_dir_end()
 
 
+## 深度限制为零时不限制，否则仅允许当前深度小于上限的目录继续递归。
+## [br]
+## @api private
+## [br]
 static func _can_scan_deeper(path: String, current_depth: int, max_scan_depth: int, scan_state: Dictionary) -> bool:
 	if max_scan_depth <= 0 or current_depth < max_scan_depth:
 		return true
@@ -200,6 +212,10 @@ static func _can_scan_deeper(path: String, current_depth: int, max_scan_depth: i
 	return false
 
 
+## 在访问上限未耗尽时增加目录项计数，达到上限后记录截断并拒绝该项。
+## [br]
+## @api private
+## [br]
 static func _consume_entry_budget(path: String, max_entry_count: int, scan_state: Dictionary) -> bool:
 	var visited_entry_count: int = GFVariantData.get_option_int(scan_state, "visited_entry_count")
 	if max_entry_count > 0 and visited_entry_count >= max_entry_count:
@@ -209,6 +225,10 @@ static func _consume_entry_budget(path: String, max_entry_count: int, scan_state
 	return true
 
 
+## 设置截断信息；文件数或目录项数超限会停止遍历，深度超限仍可继续其它分支。
+## [br]
+## @api private
+## [br]
 static func _mark_scan_limit(scan_state: Dictionary, kind: String, path: String, value: int) -> void:
 	scan_state["truncated"] = true
 	if kind == "count" or kind == "entry_count":
@@ -219,12 +239,20 @@ static func _mark_scan_limit(scan_state: Dictionary, kind: String, path: String,
 		scan_state["limit_value"] = value
 
 
+## 扩展名白名单通过后，再调用可选过滤器判断文件是否纳入结果。
+## [br]
+## @api private
+## [br]
 static func _can_include_file(path: String, extensions: PackedStringArray, file_filter: Callable) -> bool:
 	if not extensions.is_empty() and not extensions.has(path.get_extension().to_lower()):
 		return false
 	return not file_filter.is_valid() or GFVariantData.to_bool(file_filter.call(path))
 
 
+## 从选项读取 file_filter；非 Callable 值按未配置处理。
+## [br]
+## @api private
+## [br]
 static func _get_file_filter(options: Dictionary) -> Callable:
 	var value: Variant = GFVariantData.get_option_value(options, "file_filter", Callable())
 	if value is Callable:
@@ -232,10 +260,18 @@ static func _get_file_filter(options: Dictionary) -> Callable:
 	return Callable()
 
 
+## 读取扫描状态中的 stop_scan 标记。
+## [br]
+## @api private
+## [br]
 static func _should_stop_scan(scan_state: Dictionary) -> bool:
 	return GFVariantData.get_option_bool(scan_state, "stop_scan")
 
 
+## 去空白、转小写并去除前导点，保留首次出现的非空扩展名。
+## [br]
+## @api private
+## [br]
 static func _normalize_extensions(values: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for value: String in values:
@@ -247,18 +283,34 @@ static func _normalize_extensions(values: PackedStringArray) -> PackedStringArra
 	return result
 
 
+## 委托 GFPathTools 规范化排除根路径列表。
+## [br]
+## @api private
+## [br]
 static func _normalize_paths(values: PackedStringArray) -> PackedStringArray:
 	return _GF_PATH_TOOLS.normalize_root_paths(values, false)
 
 
+## 委托 GFPathTools 规范化单个扫描根目录。
+## [br]
+## @api private
+## [br]
 static func _normalize_dir_path(path: String) -> String:
 	return _GF_PATH_TOOLS.normalize_root_path(path, "", false)
 
 
+## 委托 GFPathTools 判断路径是否落入任一排除根目录。
+## [br]
+## @api private
+## [br]
 static func _is_excluded_path(path: String, excluded_paths: PackedStringArray) -> bool:
 	return _GF_PATH_TOOLS.is_path_excluded(path, excluded_paths)
 
 
+## 将扫描结果与访问计数、截断类型、路径和值组装为统一报告。
+## [br]
+## @api private
+## [br]
 static func _make_report(
 	ok: bool,
 	root_path: String,

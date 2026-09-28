@@ -20,14 +20,58 @@ extends GFUtility
 const PROVIDER_METHOD: StringName = &"resolve_resource"
 
 
+## 普通注册路径候选使用的 provider 标识。
+## [br]
+## @api private
+## [br]
 const _DEFAULT_PROVIDER_ID: StringName = &"registered"
+
+## 直接路径候选使用的 provider 标识。
+## [br]
+## @api private
+## [br]
 const _DIRECT_PROVIDER_ID: StringName = &"direct_path"
+
+## 请求键无效时写入解析报告的原因值。
+## [br]
+## @api private
+## [br]
 const _REASON_INVALID_KEY: String = "invalid_key"
+
+## 没有候选结果时写入解析报告的原因值。
+## [br]
+## @api private
+## [br]
 const _REASON_NOT_FOUND: String = "not_found"
+
+## 候选路径经存在性检查未通过时使用的原因值。
+## [br]
+## @api private
+## [br]
 const _REASON_MISSING_RESOURCE: String = "missing_resource"
+
+## 候选资源与请求类型提示不兼容时使用的原因值。
+## [br]
+## @api private
+## [br]
 const _REASON_INCOMPATIBLE_RESOURCE: String = "incompatible_resource"
+
+## provider 返回无法识别结果或未提供资源时使用的原因值。
+## [br]
+## @api private
+## [br]
 const _REASON_PROVIDER_ERROR: String = "provider_error"
+
+## 无 owner 注册记录共用的空 owner 标识。
+## [br]
+## @api private
+## [br]
 const _OWNERLESS_REGISTRATION_ID: StringName = &""
+
+## owner 批量注册条目允许提供的字段白名单。
+## [br]
+## @api private
+## [br]
 const _OWNER_PATH_ENTRY_FIELDS: PackedStringArray = [
 	"resource_key",
 	"path",
@@ -39,8 +83,22 @@ const _OWNER_PATH_ENTRY_FIELDS: PackedStringArray = [
 
 # --- 私有变量 ---
 
+## 按资源键保存已登记路径记录。
+## [br]
+## @api private
+## [br]
 var _path_records: Dictionary = {}
+
+## 按注册优先级保存 provider 对象及其标识记录。
+## [br]
+## @api private
+## [br]
 var _providers: Array[Dictionary] = []
+
+## 为路径与 provider 注册分配稳定次序的递增计数。
+## [br]
+## @api private
+## [br]
 var _registration_order: int = 0
 
 
@@ -590,6 +648,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 根据资源键、路径、类型提示和元数据构造资源身份。
+## [br]
+## @api private
+## [br]
 func _make_resource_identity(
 	resource_key: StringName,
 	path: String,
@@ -608,6 +670,10 @@ func _make_resource_identity(
 	)
 
 
+## 创建并追加一条路径记录；创建失败时不推进注册次序并返回空标识。
+## [br]
+## @api private
+## [br]
 func _register_path_record(
 	resource_key: StringName,
 	owner_id: StringName,
@@ -635,6 +701,10 @@ func _register_path_record(
 	return GFVariantData.get_option_string_name(path_record, "registration_id")
 
 
+## 用新记录替换同资源键下的所有 ownerless 记录，并推进注册次序。
+## [br]
+## @api private
+## [br]
 func _replace_ownerless_path_record(
 	resource_key: StringName,
 	path: String,
@@ -665,6 +735,10 @@ func _replace_ownerless_path_record(
 	return true
 
 
+## 校验资源键、路径和次序后构造含身份、优先级及来源信息的路径记录。
+## [br]
+## @api private
+## [br]
 func _make_path_record(
 	resource_key: StringName,
 	owner_id: StringName,
@@ -705,6 +779,10 @@ func _make_path_record(
 	}
 
 
+## 严格验证 owner 路径条目的字段和值，并返回规范化字段或失败原因。
+## [br]
+## @api private
+## [br]
 func _parse_owner_path_entry(entry: Dictionary) -> Dictionary:
 	for key_value: Variant in entry.keys():
 		if not _OWNER_PATH_ENTRY_FIELDS.has(GFVariantData.to_text(key_value)):
@@ -746,6 +824,10 @@ func _parse_owner_path_entry(entry: Dictionary) -> Dictionary:
 	}
 
 
+## 从暂存映射中移除指定 owner 的记录，并删除变空的资源键。
+## [br]
+## @api private
+## [br]
 func _remove_owner_records_from_map(path_records: Dictionary, owner_id: StringName) -> void:
 	for key_value: Variant in path_records.keys():
 		var resource_key: StringName = GFVariantData.to_string_name(key_value)
@@ -759,6 +841,10 @@ func _remove_owner_records_from_map(path_records: Dictionary, owner_id: StringNa
 			path_records[resource_key] = records
 
 
+## 从给定映射读取记录副本，同时兼容单 Dictionary 的旧存储形态。
+## [br]
+## @api private
+## [br]
 func _get_path_records_from_map(path_records: Dictionary, resource_key: StringName) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var records_value: Variant = path_records.get(resource_key)
@@ -774,10 +860,18 @@ func _get_path_records_from_map(path_records: Dictionary, resource_key: StringNa
 	return result
 
 
+## 仅接受 String 或 StringName 并转换为 StringName，其他类型返回空值。
+## [br]
+## @api private
+## [br]
 func _strict_string_name(value: Variant) -> StringName:
 	return StringName(_strict_text(value)) if _is_text_variant(value) else &""
 
 
+## 保留 String 或 StringName 文本；其他 Variant 转为空字符串。
+## [br]
+## @api private
+## [br]
 func _strict_text(value: Variant) -> String:
 	if value is String:
 		var text_value: String = value
@@ -788,10 +882,18 @@ func _strict_text(value: Variant) -> String:
 	return ""
 
 
+## 判断值是否为严格文本输入类型 String 或 StringName。
+## [br]
+## @api private
+## [br]
 func _is_text_variant(value: Variant) -> bool:
 	return value is String or value is StringName
 
 
+## 从身份对象返回规范加载路径；对象为空时返回空字符串。
+## [br]
+## @api private
+## [br]
 func _get_identity_load_path(identity: GFResourceIdentity) -> String:
 	if identity == null:
 		return ""
@@ -800,6 +902,10 @@ func _get_identity_load_path(identity: GFResourceIdentity) -> String:
 	return identity.raw_path
 
 
+## 复制解析请求选项并保存资源键文本和去除空白的类型提示。
+## [br]
+## @api private
+## [br]
 func _make_request(resource_key: StringName, type_hint_override: String, options: Dictionary) -> Dictionary:
 	return {
 		"key": resource_key,
@@ -809,6 +915,10 @@ func _make_request(resource_key: StringName, type_hint_override: String, options
 	}
 
 
+## 收集注册路径、有效 provider 和可选直接路径候选，再按优先顺序排序。
+## [br]
+## @api private
+## [br]
 func _collect_candidates(request: Dictionary) -> Array[Dictionary]:
 	_prune_invalid_providers()
 	var candidates: Array[Dictionary] = []
@@ -845,6 +955,10 @@ func _collect_candidates(request: Dictionary) -> Array[Dictionary]:
 	return candidates
 
 
+## 将已注册路径记录映射为统一候选字段结构。
+## [br]
+## @api private
+## [br]
 func _normalize_record_candidate(record: Dictionary) -> Dictionary:
 	return {
 		"ok": true,
@@ -864,6 +978,10 @@ func _normalize_record_candidate(record: Dictionary) -> Dictionary:
 	}
 
 
+## 将 provider 的资源、路径或字典结果规范化为候选，其他形态转为失败项。
+## [br]
+## @api private
+## [br]
 func _normalize_provider_candidate(provider_result: Variant, provider_record: Dictionary) -> Dictionary:
 	var provider_id: StringName = _get_record_provider_id(provider_record)
 	if provider_result is Resource:
@@ -896,6 +1014,10 @@ func _normalize_provider_candidate(provider_result: Variant, provider_record: Di
 	)
 
 
+## 将 provider 给出的资源实例整理为统一成功候选并附上来源信息。
+## [br]
+## @api private
+## [br]
 func _make_resource_candidate(resource: Resource, provider_record: Dictionary, data: Dictionary) -> Dictionary:
 	return {
 		"ok": true,
@@ -913,6 +1035,10 @@ func _make_resource_candidate(resource: Resource, provider_record: Dictionary, d
 	}
 
 
+## 将 provider 给出的路径整理为统一成功候选并去除路径两侧空白。
+## [br]
+## @api private
+## [br]
 func _make_path_candidate(path: String, provider_record: Dictionary, data: Dictionary) -> Dictionary:
 	return {
 		"ok": true,
@@ -930,6 +1056,10 @@ func _make_path_candidate(path: String, provider_record: Dictionary, data: Dicti
 	}
 
 
+## 按统一候选结构封装 provider 失败原因及深拷贝的元数据。
+## [br]
+## @api private
+## [br]
 func _make_provider_failure(
 	provider_id: StringName,
 	provider_record: Dictionary,
@@ -952,6 +1082,10 @@ func _make_provider_failure(
 	}
 
 
+## 规范候选身份并按请求检查资源类型或路径存在性，返回最终解析报告。
+## [br]
+## @api private
+## [br]
 func _validate_candidate(candidate: Dictionary, request: Dictionary) -> Dictionary:
 	var report: Dictionary = candidate.duplicate(true)
 	var key: StringName = GFVariantData.get_option_string_name(request, "key")
@@ -1020,6 +1154,10 @@ func _validate_candidate(candidate: Dictionary, request: Dictionary) -> Dictiona
 	return report
 
 
+## 创建包含请求键、类型提示和原因的统一失败解析报告。
+## [br]
+## @api private
+## [br]
 func _make_failure(resource_key: StringName, type_hint: String, reason: String) -> Dictionary:
 	return {
 		"ok": false,
@@ -1037,6 +1175,10 @@ func _make_failure(resource_key: StringName, type_hint: String, reason: String) 
 	}
 
 
+## 从实例映射读取指定键的记录副本，并兼容旧式单记录存储。
+## [br]
+## @api private
+## [br]
 func _get_path_records(resource_key: StringName) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var records_value: Variant = _path_records.get(resource_key)
@@ -1053,6 +1195,10 @@ func _get_path_records(resource_key: StringName) -> Array[Dictionary]:
 	return result
 
 
+## 保存资源键的记录数组；空数组会移除该键。
+## [br]
+## @api private
+## [br]
 func _set_path_records(resource_key: StringName, records: Array[Dictionary]) -> void:
 	if records.is_empty():
 		var _erased_records: bool = _path_records.erase(resource_key)
@@ -1060,6 +1206,10 @@ func _set_path_records(resource_key: StringName, records: Array[Dictionary]) -> 
 	_path_records[resource_key] = records
 
 
+## 按候选排序规则返回该资源键最佳路径记录的副本。
+## [br]
+## @api private
+## [br]
 func _get_best_path_record(resource_key: StringName) -> Dictionary:
 	var records: Array[Dictionary] = _get_path_records(resource_key)
 	if records.is_empty():
@@ -1068,6 +1218,10 @@ func _get_best_path_record(resource_key: StringName) -> Dictionary:
 	return records[0].duplicate(true)
 
 
+## 从 provider 记录解析仍有效的对象引用，其他值返回 null。
+## [br]
+## @api private
+## [br]
 func _get_record_provider(record: Dictionary) -> Object:
 	var provider_value: Variant = GFVariantData.get_option_value(record, "provider")
 	if typeof(provider_value) == TYPE_OBJECT and is_instance_valid(provider_value):
@@ -1076,18 +1230,34 @@ func _get_record_provider(record: Dictionary) -> Object:
 	return null
 
 
+## 读取 provider 记录中的标识字段。
+## [br]
+## @api private
+## [br]
 func _get_record_provider_id(record: Dictionary) -> StringName:
 	return GFVariantData.get_option_string_name(record, "provider_id")
 
 
+## 读取 provider 或路径记录的优先级字段。
+## [br]
+## @api private
+## [br]
 func _get_record_priority(record: Dictionary) -> int:
 	return GFVariantData.get_option_int(record, "priority")
 
 
+## 读取记录用于同优先级排序的注册次序字段。
+## [br]
+## @api private
+## [br]
 func _get_record_order(record: Dictionary) -> int:
 	return GFVariantData.get_option_int(record, "order")
 
 
+## 从候选报告中取 Resource 实例；字段类型不匹配时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_report_resource(report: Dictionary) -> Resource:
 	var resource_value: Variant = GFVariantData.get_option_value(report, "resource")
 	if resource_value is Resource:
@@ -1096,6 +1266,10 @@ func _get_report_resource(report: Dictionary) -> Resource:
 	return null
 
 
+## 返回 provider 对象在注册列表中的索引；未找到时返回 -1。
+## [br]
+## @api private
+## [br]
 func _find_provider_index(provider: Object) -> int:
 	if provider == null:
 		return -1
@@ -1106,6 +1280,10 @@ func _find_provider_index(provider: Object) -> int:
 	return -1
 
 
+## 移除已失效或不再实现解析方法的 provider 注册项。
+## [br]
+## @api private
+## [br]
 func _prune_invalid_providers() -> void:
 	for index: int in range(_providers.size() - 1, -1, -1):
 		var provider: Object = _get_record_provider(_providers[index])
@@ -1113,6 +1291,10 @@ func _prune_invalid_providers() -> void:
 			_providers.remove_at(index)
 
 
+## 选用显式 provider ID，其次脚本全局名，最后回退为类名与实例 ID。
+## [br]
+## @api private
+## [br]
 func _resolve_provider_id(provider: Object, provider_id: StringName) -> StringName:
 	if provider_id != &"":
 		return provider_id
@@ -1125,20 +1307,36 @@ func _resolve_provider_id(provider: Object, provider_id: StringName) -> StringNa
 	return StringName("%s:%d" % [provider.get_class(), provider.get_instance_id()])
 
 
+## 读取请求选项中的直接路径候选开关。
+## [br]
+## @api private
+## [br]
 func _allow_direct_path(request: Dictionary) -> bool:
 	var options: Dictionary = GFVariantData.get_option_dictionary(request, "options")
 	return GFVariantData.get_option_bool(options, "allow_direct_path", false)
 
 
+## 读取请求选项中的资源存在性检查开关。
+## [br]
+## @api private
+## [br]
 func _should_check_exists(request: Dictionary) -> bool:
 	var options: Dictionary = GFVariantData.get_option_dictionary(request, "options")
 	return GFVariantData.get_option_bool(options, "check_exists", true)
 
 
+## 判断路径是否使用 `res://`、`uid://` 或 `user://` 资源 URI 前缀。
+## [br]
+## @api private
+## [br]
 func _is_resource_path(path: String) -> bool:
 	return path.begins_with("res://") or path.begins_with("uid://") or path.begins_with("user://")
 
 
+## 按原生类名或脚本全局名/路径及其基脚本检查资源类型提示。
+## [br]
+## @api private
+## [br]
 func _is_resource_compatible(resource: Resource, type_hint: String) -> bool:
 	if resource == null:
 		return false
@@ -1153,6 +1351,10 @@ func _is_resource_compatible(resource: Resource, type_hint: String) -> bool:
 	return false
 
 
+## 将 Variant 收窄为 Script；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_script_value(script_value: Variant) -> Script:
 	if script_value is Script:
 		var script: Script = script_value
@@ -1160,6 +1362,10 @@ func _get_script_value(script_value: Variant) -> Script:
 	return null
 
 
+## 先按优先级降序排列候选，再以较新的注册次序优先。
+## [br]
+## @api private
+## [br]
 static func _sort_candidates(left: Dictionary, right: Dictionary) -> bool:
 	var left_priority: int = GFVariantData.get_option_int(left, "priority")
 	var right_priority: int = GFVariantData.get_option_int(right, "priority")

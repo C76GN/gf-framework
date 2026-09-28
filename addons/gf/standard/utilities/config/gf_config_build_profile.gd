@@ -185,6 +185,10 @@ func describe() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按当前构建配置筛选允许保留的列定义。
+## [br]
+## @api private
+## [br]
 func _filter_columns(columns: Array[GFConfigTableColumn]) -> Array[GFConfigTableColumn]:
 	var result: Array[GFConfigTableColumn] = []
 	for column: GFConfigTableColumn in columns:
@@ -195,6 +199,10 @@ func _filter_columns(columns: Array[GFConfigTableColumn]) -> Array[GFConfigTable
 	return result
 
 
+## 按当前构建配置和列名筛选索引定义。
+## [br]
+## @api private
+## [br]
 func _filter_indexes(
 	indexes: Array[GFConfigTableIndexDefinition],
 	column_names: PackedStringArray
@@ -210,6 +218,10 @@ func _filter_indexes(
 	return result
 
 
+## 按当前构建配置和列名筛选引用定义。
+## [br]
+## @api private
+## [br]
 func _filter_references(
 	references: Array[GFConfigTableReference],
 	column_names: PackedStringArray
@@ -225,6 +237,10 @@ func _filter_references(
 	return result
 
 
+## 按当前构建配置筛选启用的校验规则。
+## [br]
+## @api private
+## [br]
 func _filter_validation_rules(rules: Array[GFConfigValidationRule]) -> Array[GFConfigValidationRule]:
 	var result: Array[GFConfigValidationRule] = []
 	for rule: GFConfigValidationRule in rules:
@@ -236,6 +252,10 @@ func _filter_validation_rules(rules: Array[GFConfigValidationRule]) -> Array[GFC
 	return result
 
 
+## 检查给定字段名是否全部存在于列名集合中。
+## [br]
+## @api private
+## [br]
 func _all_fields_exist(fields: PackedStringArray, column_names: PackedStringArray) -> bool:
 	for field_name: String in fields:
 		if not column_names.has(field_name):
@@ -243,11 +263,19 @@ func _all_fields_exist(fields: PackedStringArray, column_names: PackedStringArra
 	return true
 
 
+## 从记录指定的 metadata 字段读取字典值。
+## [br]
+## @api private
+## [br]
 func _get_record_metadata(record: Dictionary) -> Dictionary:
 	var value: Variant = GFVariantData.get_option_value(record, record_metadata_field, {})
 	return GFVariantData.as_dictionary(value)
 
 
+## 检查两个字符串数组是否至少包含一个相同元素。
+## [br]
+## @api private
+## [br]
 func _intersects(left: PackedStringArray, right: PackedStringArray) -> bool:
 	for item: String in left:
 		if right.has(item):
@@ -255,6 +283,10 @@ func _intersects(left: PackedStringArray, right: PackedStringArray) -> bool:
 	return false
 
 
+## 将 Variant 值规范化为 PackedStringArray。
+## [br]
+## @api private
+## [br]
 func _to_packed_string_array(value: Variant) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	if value is PackedStringArray:
@@ -268,6 +300,10 @@ func _to_packed_string_array(value: Variant) -> PackedStringArray:
 	return result
 
 
+## 仅当 Variant 值为 GFConfigBuildProfile 时返回该构建配置。
+## [br]
+## @api private
+## [br]
 func _variant_to_build_profile(value: Variant) -> GFConfigBuildProfile:
 	if value is GFConfigBuildProfile:
 		var profile: GFConfigBuildProfile = value

@@ -14,12 +14,25 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 对象协议参数数量缓存达到此条目数时整体清空。
+## [br]
+## @api private
+## [br]
 const _MAX_OBJECT_PROTOCOL_CACHE_ENTRIES: int = 512
 
 
 # --- 私有变量 ---
 
+## 按对象协议缓存 `has_tag` 方法的参数数量。
+## [br]
+## @api private
+## [br]
 static var _has_tag_arity_cache: Dictionary = {}
+
+## 按对象协议缓存 `get_tag_count` 方法的参数数量。
+## [br]
+## @api private
+## [br]
 static var _get_tag_count_arity_cache: Dictionary = {}
 
 
@@ -262,6 +275,10 @@ static func matches_none(source: Variant, tags: Array[StringName], include_child
 
 # --- 私有/辅助方法 ---
 
+## 从字典标签数据中读取精确标签或合并其层级子标签的计数。
+## [br]
+## @api private
+## [br]
 static func _get_dictionary_tag_count(data: Dictionary, tag: StringName, include_child_tags: bool) -> int:
 	var tag_data: Dictionary = _resolve_dictionary_tag_data(data)
 	if not include_child_tags:
@@ -276,6 +293,10 @@ static func _get_dictionary_tag_count(data: Dictionary, tag: StringName, include
 	return count
 
 
+## 从封装字典中解析 `tag_counts`、`tags` 或直接标签映射。
+## [br]
+## @api private
+## [br]
 static func _resolve_dictionary_tag_data(data: Dictionary) -> Dictionary:
 	if data.has("tag_counts") and data["tag_counts"] is Dictionary:
 		var tag_counts: Dictionary = data["tag_counts"]
@@ -296,6 +317,10 @@ static func _resolve_dictionary_tag_data(data: Dictionary) -> Dictionary:
 	return data
 
 
+## 统计数组标签源中的精确标签，或按需统计指定标签前缀下的条目。
+## [br]
+## @api private
+## [br]
 static func _get_array_tag_count(source: Variant, tag: StringName, include_child_tags: bool) -> int:
 	var count: int = 0
 	var prefix: String = "%s." % String(tag)
@@ -314,6 +339,10 @@ static func _get_array_tag_count(source: Variant, tag: StringName, include_child
 	return count
 
 
+## 将数组标签源转换为标签到出现次数的字典。
+## [br]
+## @api private
+## [br]
 static func _array_to_counts(source: Variant) -> Dictionary:
 	var result: Dictionary = {}
 	if source is PackedStringArray:
@@ -329,6 +358,10 @@ static func _array_to_counts(source: Variant) -> Dictionary:
 	return result
 
 
+## 通过对象协议读取标签计数，并在需要时累加层级子标签。
+## [br]
+## @api private
+## [br]
 static func _get_object_tag_count(source: Object, tag: StringName, include_child_tags: bool) -> int:
 	var exact_count: int = 0
 	var has_get_tag_count: bool = source.has_method("get_tag_count")
@@ -349,6 +382,10 @@ static func _get_object_tag_count(source: Object, tag: StringName, include_child
 	return count
 
 
+## 调用对象的 `get_tags` 并将数组结果规范化为字符串数组。
+## [br]
+## @api private
+## [br]
 static func _get_object_tags(source: Object) -> PackedStringArray:
 	if not source.has_method("get_tags"):
 		return PackedStringArray()
@@ -364,6 +401,10 @@ static func _get_object_tags(source: Object) -> PackedStringArray:
 	return result
 
 
+## 根据对象 `has_tag` 方法的参数数量调用对应协议形式。
+## [br]
+## @api private
+## [br]
 static func _call_has_tag(source: Object, tag: StringName, minimum_count: int) -> bool:
 	if not source.has_method("has_tag"):
 		return false
@@ -376,6 +417,10 @@ static func _call_has_tag(source: Object, tag: StringName, minimum_count: int) -
 	return false
 
 
+## 根据对象 `get_tag_count` 方法的参数数量调用对应协议形式。
+## [br]
+## @api private
+## [br]
 static func _call_get_tag_count(source: Object, tag: StringName, include_child_tags: bool) -> int:
 	if not source.has_method("get_tag_count"):
 		return 0
@@ -388,6 +433,10 @@ static func _call_get_tag_count(source: Object, tag: StringName, include_child_t
 	return 0
 
 
+## 查询并缓存对象 `get_tag_count` 方法声明的参数数量。
+## [br]
+## @api private
+## [br]
 static func _get_get_tag_count_argument_count(source: Object) -> int:
 	var cache_key: String = _get_object_protocol_cache_key(source)
 	if not cache_key.is_empty() and _get_tag_count_arity_cache.has(cache_key):
@@ -408,6 +457,10 @@ static func _get_get_tag_count_argument_count(source: Object) -> int:
 	return argument_count
 
 
+## 查询并缓存对象 `has_tag` 方法声明的参数数量。
+## [br]
+## @api private
+## [br]
 static func _get_has_tag_argument_count(source: Object) -> int:
 	var cache_key: String = _get_object_protocol_cache_key(source)
 	if not cache_key.is_empty() and _has_tag_arity_cache.has(cache_key):
@@ -428,6 +481,10 @@ static func _get_has_tag_argument_count(source: Object) -> int:
 	return argument_count
 
 
+## 为对象协议参数缓存生成可复用的脚本或类标识。
+## [br]
+## @api private
+## [br]
 static func _get_object_protocol_cache_key(source: Object) -> String:
 	if source == null:
 		return ""
@@ -440,6 +497,10 @@ static func _get_object_protocol_cache_key(source: Object) -> String:
 	return source.get_class()
 
 
+## 读取字典中以 `StringName` 或字符串保存的精确标签计数。
+## [br]
+## @api private
+## [br]
 static func _get_exact_dictionary_tag_count(tag_data: Dictionary, tag: StringName) -> int:
 	if tag_data.has(tag):
 		return GFVariantData.to_int(tag_data[tag])

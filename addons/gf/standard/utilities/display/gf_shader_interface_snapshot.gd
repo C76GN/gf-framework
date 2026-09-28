@@ -23,25 +23,124 @@ extends Resource
 ## @since 10.0.0
 const CURRENT_SCHEMA_VERSION: int = 1
 
+## Shader 模式非法时报告使用的 validation kind。
+## [br]
+## @api private
+## [br]
 const _KIND_INTERFACE_MODE_INVALID: StringName = &"shader_interface_mode_invalid"
+
+## 期望与实际 Shader 模式不同时报告使用的 validation kind。
+## [br]
+## @api private
+## [br]
 const _KIND_INTERFACE_MODE_MISMATCH: StringName = &"shader_interface_mode_mismatch"
+
+## 快照 schema 版本不受支持时报告使用的 validation kind。
+## [br]
+## @api private
+## [br]
 const _KIND_INTERFACE_SCHEMA_VERSION_UNSUPPORTED: StringName = &"shader_interface_schema_version_unsupported"
+
+## 快照未配置或实际快照缺失时报告使用的 validation kind。
+## [br]
+## @api private
+## [br]
 const _KIND_INTERFACE_SNAPSHOT_MISSING: StringName = &"shader_interface_snapshot_missing"
+
+## Object uniform 的资源实例类型不兼容时报告使用的 validation kind。
+## [br]
+## @api private
+## [br]
 const _KIND_PARAMETER_CLASS_MISMATCH: StringName = &"shader_parameter_class_mismatch"
+
+## 参数字典含等价重复名称时报告使用的 validation kind。
+## [br]
+## @api private
+## [br]
 const _KIND_PARAMETER_DUPLICATE: StringName = &"shader_parameter_duplicate"
+
+## 提供了接口未声明的参数时报告使用的 validation kind。
+## [br]
+## @api private
+## [br]
 const _KIND_PARAMETER_EXTRA: StringName = &"shader_parameter_extra"
+
+## 声明的参数未出现在输入时报告使用的 validation kind。
+## [br]
+## @api private
+## [br]
 const _KIND_PARAMETER_MISSING: StringName = &"shader_parameter_missing"
+
+## 参数键不是非空 String 或 StringName 时报告使用的 validation kind。
+## [br]
+## @api private
+## [br]
 const _KIND_PARAMETER_NAME_INVALID: StringName = &"shader_parameter_name_invalid"
+
+## 参数值类型与声明不完全匹配时报告使用的 validation kind。
+## [br]
+## @api private
+## [br]
 const _KIND_PARAMETER_TYPE_MISMATCH: StringName = &"shader_parameter_type_mismatch"
+
+## 接口快照含重复 uniform 名称时报告使用的 validation kind。
+## [br]
+## @api private
+## [br]
 const _KIND_UNIFORM_DUPLICATE: StringName = &"shader_uniform_duplicate"
+
+## 实际接口出现期望快照中没有的 uniform 时报告使用的 validation kind。
+## [br]
+## @api private
+## [br]
 const _KIND_UNIFORM_EXTRA: StringName = &"shader_uniform_extra"
+
+## uniform 条目字段或值无效时报告使用的 validation kind。
+## [br]
+## @api private
+## [br]
 const _KIND_UNIFORM_INVALID: StringName = &"shader_uniform_invalid"
+
+## 实际接口缺少期望快照中的 uniform 时报告使用的 validation kind。
+## [br]
+## @api private
+## [br]
 const _KIND_UNIFORM_MISSING: StringName = &"shader_uniform_missing"
+
+## uniform 声明签名或 usage 标志发生变化时报告使用的 validation kind。
+## [br]
+## @api private
+## [br]
 const _KIND_UNIFORM_SIGNATURE_MISMATCH: StringName = &"shader_uniform_signature_mismatch"
+
+## 参数或接口差异默认采用的最高报告级别。
+## [br]
+## @api private
+## [br]
 const _SEVERITY_ERROR: String = "error"
+
+## 忽略对应差异、不向报告加入 issue 的级别。
+## [br]
+## @api private
+## [br]
 const _SEVERITY_IGNORE: String = "ignore"
+
+## 将对应差异作为信息 issue 加入报告的级别。
+## [br]
+## @api private
+## [br]
 const _SEVERITY_INFO: String = "info"
+
+## 将对应差异作为警告 issue 加入报告的级别。
+## [br]
+## @api private
+## [br]
 const _SEVERITY_WARNING: String = "warning"
+
+## 比较 uniform 接口签名时逐项对照的 type、class_name、hint 和 hint_string 字段。
+## [br]
+## @api private
+## [br]
 const _SIGNATURE_FIELDS: PackedStringArray = [
 	"type",
 	"class_name",
@@ -50,11 +149,26 @@ const _SIGNATURE_FIELDS: PackedStringArray = [
 ]
 
 
-# --- 私有变量 ---
+# --- 导出变量 ---
 
+## 区分快照工厂已写入的数据与直接 new() 的空实例；持久化此标志以保留加载后的配置状态。
+## [br]
+## @api private
 @export_storage var _configured: bool = false
+
+## 捕获或导入的格式版本；零表示尚无有效版本，校验时与 CURRENT_SCHEMA_VERSION 对照。
+## [br]
+## @api private
 @export_storage var _schema_version: int = 0
+
+## 捕获时的 Shader 模式整数；保留非法值供验证报告，不在赋值时强制纠正。
+## [br]
+## @api private
 @export_storage var _shader_mode: int = -1
+
+## 持久化的 uniform 声明列表；赋值经 setter 归一化为独立且稳定排序的条目，不含材质当前参数值。
+## [br]
+## @api private
 @export_storage var _uniforms: Array[Dictionary] = []:
 	set(value):
 		_uniforms = _normalize_uniform_entries(value)
@@ -692,6 +806,10 @@ func to_dict() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 创建快照资源并设置版本、模式、uniform 列表及配置状态。
+## [br]
+## @api private
+## [br]
 static func _make_snapshot(
 	schema_version: int,
 	shader_mode: int,
@@ -706,6 +824,10 @@ static func _make_snapshot(
 	return snapshot
 
 
+## 逐项规范化 uniform 后按完整签名排序返回新数组。
+## [br]
+## @api private
+## [br]
 static func _normalize_uniform_entries(
 	uniform_entries: Array[Dictionary]
 ) -> Array[Dictionary]:
@@ -719,6 +841,10 @@ static func _normalize_uniform_entries(
 	return result
 
 
+## 只接受具备完整字段和严格类型的字典；不符合时转换为无效 sentinel 条目。
+## [br]
+## @api private
+## [br]
 static func _normalize_uniform_value(value: Variant) -> Dictionary:
 	if not (value is Dictionary):
 		return _make_invalid_uniform_entry()
@@ -746,6 +872,10 @@ static func _normalize_uniform_value(value: Variant) -> Dictionary:
 	}
 
 
+## 生成空名称、NIL 类型及默认 hint/usage 组成的无效条目标记。
+## [br]
+## @api private
+## [br]
 static func _make_invalid_uniform_entry() -> Dictionary:
 	return {
 		"name": &"",
@@ -757,6 +887,10 @@ static func _make_invalid_uniform_entry() -> Dictionary:
 	}
 
 
+## 确认条目含有六个要求字段，字段键可用 String 或 StringName。
+## [br]
+## @api private
+## [br]
 static func _has_uniform_schema_fields(uniform: Dictionary) -> bool:
 	for field_name: String in [
 		"name",
@@ -771,6 +905,10 @@ static func _has_uniform_schema_fields(uniform: Dictionary) -> bool:
 	return true
 
 
+## 按字段要求检查名称、类型、类名、hint、hint_string 和 usage 的精确 Variant 类型。
+## [br]
+## @api private
+## [br]
 static func _has_valid_uniform_field_types(uniform: Dictionary) -> bool:
 	return (
 		_is_string_name_value(_get_field_value(uniform, "name"))
@@ -782,10 +920,18 @@ static func _has_valid_uniform_field_types(uniform: Dictionary) -> bool:
 	)
 
 
+## 检查字典是否使用 String 或对应 StringName 键包含指定字段。
+## [br]
+## @api private
+## [br]
 static func _has_field(data: Dictionary, field_name: String) -> bool:
 	return data.has(field_name) or data.has(StringName(field_name))
 
 
+## 优先读取 String 键，其次读取对应 StringName 键；都不存在时返回 null。
+## [br]
+## @api private
+## [br]
 static func _get_field_value(data: Dictionary, field_name: String) -> Variant:
 	if data.has(field_name):
 		return data[field_name]
@@ -795,6 +941,10 @@ static func _get_field_value(data: Dictionary, field_name: String) -> Variant:
 	return null
 
 
+## 仅接受原生 int 字段；其他类型使用传入默认值。
+## [br]
+## @api private
+## [br]
 static func _get_strict_int_field(
 	data: Dictionary,
 	field_name: String,
@@ -804,14 +954,26 @@ static func _get_strict_int_field(
 	return _to_strict_int(value) if typeof(value) == TYPE_INT else default_value
 
 
+## 判断值是否为 String 或 StringName。
+## [br]
+## @api private
+## [br]
 static func _is_string_name_value(value: Variant) -> bool:
 	return value is String or value is StringName
 
 
+## 判断值是否严格为 String。
+## [br]
+## @api private
+## [br]
 static func _is_string_value(value: Variant) -> bool:
 	return value is String
 
 
+## 仅将 String 或 StringName 转为 StringName；其他值返回空名称。
+## [br]
+## @api private
+## [br]
 static func _to_strict_string_name(value: Variant) -> StringName:
 	if value is StringName:
 		var string_name_value: StringName = value
@@ -822,6 +984,10 @@ static func _to_strict_string_name(value: Variant) -> StringName:
 	return &""
 
 
+## 仅接受 String；其他值返回空字符串。
+## [br]
+## @api private
+## [br]
 static func _to_strict_string(value: Variant) -> String:
 	if value is String:
 		var text_value: String = value
@@ -829,6 +995,10 @@ static func _to_strict_string(value: Variant) -> String:
 	return ""
 
 
+## 仅接受原生 int；其他值返回 0。
+## [br]
+## @api private
+## [br]
 static func _to_strict_int(value: Variant) -> int:
 	if typeof(value) == TYPE_INT:
 		var int_value: int = value
@@ -836,6 +1006,10 @@ static func _to_strict_int(value: Variant) -> int:
 	return 0
 
 
+## 组合名称、类型、类名、hint、hint 文本和 usage，生成稳定排序键。
+## [br]
+## @api private
+## [br]
 static func _uniform_sort_key(uniform: Dictionary) -> String:
 	return "%s\u001f%010d\u001f%s\u001f%010d\u001f%s\u001f%010d" % [
 		GFVariantData.get_option_string(uniform, "name"),
@@ -847,6 +1021,10 @@ static func _uniform_sort_key(uniform: Dictionary) -> String:
 	]
 
 
+## 对每个条目执行深复制并返回新数组。
+## [br]
+## @api private
+## [br]
 static func _duplicate_uniform_entries(
 	uniform_entries: Array[Dictionary]
 ) -> Array[Dictionary]:
@@ -856,6 +1034,10 @@ static func _duplicate_uniform_entries(
 	return result
 
 
+## 判断模式是否属于明确支持的 Shader.Mode 常量集合。
+## [br]
+## @api private
+## [br]
 static func _is_valid_shader_mode(shader_mode: int) -> bool:
 	match shader_mode:
 		Shader.MODE_SPATIAL:
@@ -874,6 +1056,10 @@ static func _is_valid_shader_mode(shader_mode: int) -> bool:
 			return false
 
 
+## 创建报告，并允许 options 覆盖主题及提供报告元数据。
+## [br]
+## @api private
+## [br]
 static func _make_report(
 	options: Dictionary,
 	default_subject: String
@@ -884,6 +1070,10 @@ static func _make_report(
 	)
 
 
+## 将 String 或 StringName 参数键转换为 StringName；其他类型返回空名称。
+## [br]
+## @api private
+## [br]
 static func _variant_to_parameter_name(value: Variant) -> StringName:
 	if value is StringName:
 		var string_name_value: StringName = value
@@ -894,6 +1084,10 @@ static func _variant_to_parameter_name(value: Variant) -> StringName:
 	return &""
 
 
+## 按精确类型检查值；Object 还检查实例有效性和声明类，返回对应 mismatch kind 或空名称。
+## [br]
+## @api private
+## [br]
 static func _get_value_mismatch_kind(
 	uniform: Dictionary,
 	value: Variant,
@@ -917,6 +1111,10 @@ static func _get_value_mismatch_kind(
 	return _KIND_PARAMETER_CLASS_MISMATCH
 
 
+## 优先使用 class_name；否则取 hint_string 首个逗号前的类名提示。
+## [br]
+## @api private
+## [br]
 static func _get_expected_object_class(uniform: Dictionary) -> String:
 	var class_name_hint: String = GFVariantData.get_option_string(
 		uniform,
@@ -933,6 +1131,10 @@ static func _get_expected_object_class(uniform: Dictionary) -> String:
 	return hint_string.split(",", false, 1)[0].strip_edges()
 
 
+## 生成期望与实际 Variant 类型及期望对象类的诊断字段。
+## [br]
+## @api private
+## [br]
 static func _make_type_mismatch_metadata(
 	uniform: Dictionary,
 	value: Variant
@@ -948,6 +1150,10 @@ static func _make_type_mismatch_metadata(
 	}
 
 
+## 去空白并小写 severity；只接受 ignore、info、warning、error，否则回退到默认值。
+## [br]
+## @api private
+## [br]
 static func _get_severity_option(
 	options: Dictionary,
 	option_name: String,
@@ -968,6 +1174,10 @@ static func _get_severity_option(
 	return default_value
 
 
+## 按 severity 将 issue 作为 info、warning 或 error 加入报告；ignore 时不添加。
+## [br]
+## @api private
+## [br]
 static func _add_issue_by_severity(
 	report: GFValidationReport,
 	severity: String,
@@ -1006,6 +1216,10 @@ static func _add_issue_by_severity(
 			)
 
 
+## 按非空 uniform 名建立索引字典，并深复制对应条目。
+## [br]
+## @api private
+## [br]
 static func _uniform_map(uniform_entries: Array[Dictionary]) -> Dictionary:
 	var result: Dictionary = {}
 	for uniform: Dictionary in uniform_entries:
@@ -1019,6 +1233,10 @@ static func _uniform_map(uniform_entries: Array[Dictionary]) -> Dictionary:
 	return result
 
 
+## 将字典键转为文本并按升序返回。
+## [br]
+## @api private
+## [br]
 static func _sorted_dictionary_keys(data: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for raw_key: Variant in data.keys():
@@ -1027,6 +1245,10 @@ static func _sorted_dictionary_keys(data: Dictionary) -> PackedStringArray:
 	return result
 
 
+## 按给定字段列表比较两个条目并返回不同字段名。
+## [br]
+## @api private
+## [br]
 static func _changed_uniform_fields(
 	expected: Dictionary,
 	actual: Dictionary,
@@ -1039,6 +1261,10 @@ static func _changed_uniform_fields(
 	return result
 
 
+## 构造包含差异字段副本及 expected、actual 深复制条目的诊断元数据。
+## [br]
+## @api private
+## [br]
 static func _make_signature_mismatch_metadata(
 	expected: Dictionary,
 	actual: Dictionary,

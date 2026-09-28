@@ -75,6 +75,9 @@ static func make_grid_layout(node_ids: PackedStringArray, options: Dictionary = 
 
 # --- 私有/辅助方法 ---
 
+## 为输入节点初始化邻接表，并按连接顺序加入有效且未重复的目标节点。
+## [br]
+## @api private
 static func _build_adjacency(
 	node_ids: PackedStringArray,
 	connections: Array[Dictionary],
@@ -99,6 +102,9 @@ static func _build_adjacency(
 	return result
 
 
+## 按有效连接记录计入度，重复边会重复计数；与去重的邻接表不同，调用方要避免把多重边当作简单图输入。
+## [br]
+## @api private
 static func _build_indegree(
 	node_ids: PackedStringArray,
 	connections: Array[Dictionary],
@@ -120,6 +126,10 @@ static func _build_indegree(
 	return result
 
 
+## 从零入度节点逐层分配并对层内排序；没有起点时以第一个输入节点启动，剩余未排入节点统一放在最后一层。
+## 这是布局回退，不是环检测或完整拓扑排序；不修改传入的入度表。
+## [br]
+## @api private
 static func _assign_layers(node_ids: PackedStringArray, adjacency: Dictionary, indegree: Dictionary) -> Array[PackedStringArray]:
 	var remaining_indegree: Dictionary = indegree.duplicate(true)
 	var queued: Dictionary = {}
@@ -156,6 +166,9 @@ static func _assign_layers(node_ids: PackedStringArray, adjacency: Dictionary, i
 	return layers
 
 
+## 按层索引和层内行索引将节点映射到 origin 加间距偏移的位置。
+## [br]
+## @api private
 static func _place_layers(
 	layers: Array[PackedStringArray],
 	origin: Vector2,
@@ -170,6 +183,9 @@ static func _place_layers(
 	return result
 
 
+## 读取指定选项，仅在值为 Vector2 时采用，否则返回传入默认值。
+## [br]
+## @api private
 static func _get_option_vector2(options: Dictionary, key: String, default_value: Vector2) -> Vector2:
 	var value: Variant = GFVariantData.get_option_value(options, key, default_value)
 	if value is Vector2:

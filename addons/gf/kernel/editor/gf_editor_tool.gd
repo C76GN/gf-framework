@@ -38,6 +38,10 @@ const GFEditorPickOperationBase = preload("res://addons/gf/kernel/editor/gf_edit
 ## [br]
 ## @layer kernel/editor
 const GFEditorToolOptionSchemaBase = preload("res://addons/gf/kernel/editor/gf_editor_tool_option_schema.gd")
+
+## 读取拾取操作结果中的类型化字段。
+## [br]
+## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
@@ -78,9 +82,24 @@ var option_schema: GFEditorToolOptionSchemaBase = null
 
 # --- 私有变量 ---
 
+## 工具当前是否已激活。
+## [br]
+## @api private
 var _active: bool = false
+
+## 激活期间使用的上下文，deactivate 完成时清空。
+## [br]
+## @api private
 var _context: GFEditorToolContextBase = null
+
+## 按 option_id 保存已规范化的选项值。
+## [br]
+## @api private
 var _option_values: Dictionary = {}
+
+## 当前由工具托管的分阶段拾取操作；取消或成功应用后清空。
+## [br]
+## @api private
 var _pick_operation: GFEditorPickOperationBase = null
 
 
@@ -375,6 +394,9 @@ func _draw_tool(_viewport: Viewport) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 深复制 Dictionary 和 Array 选项值；其他 Variant 标量或对象原样返回。
+## [br]
+## @api private
 func _duplicate_variant(value: Variant) -> Variant:
 	if value is Dictionary:
 		var dictionary: Dictionary = value

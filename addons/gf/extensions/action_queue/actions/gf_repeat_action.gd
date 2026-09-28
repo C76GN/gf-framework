@@ -22,6 +22,9 @@ signal repeat_completed
 
 # --- 常量 ---
 
+## 动作对象的有效性、执行和控制操作协议。
+## [br]
+## @api private
 const _ACTION_PROTOCOL = preload("res://addons/gf/extensions/action_queue/core/gf_action_protocol.gd")
 
 ## 单帧最多连续执行的瞬时重复次数，避免无限重复的瞬时动作锁住主线程。
@@ -50,9 +53,24 @@ var max_immediate_iterations_per_frame: int = DEFAULT_MAX_IMMEDIATE_ITERATIONS_P
 
 # --- 私有变量 ---
 
+## 每次启动、取消或完成流程递增，用于终止旧异步循环。
+## [br]
+## @api private
 var _execution_serial: int = 0
+
+## 标记循环是否等待恢复。
+## [br]
+## @api private
 var _paused: bool = false
+
+## 当前正在执行或等待结果的动作对象。
+## [br]
+## @api private
 var _active_action: Object = null
+
+## 防止动作控制回调重入生命周期控制操作。
+## [br]
+## @api private
 var _control_callback_in_progress: bool = false
 
 
@@ -151,6 +169,10 @@ func finish() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 按执行序号异步创建并运行动作，等待需阻塞的结果并跳过无效工厂结果。
+## 连续瞬时动作达到单帧上限时让出一帧；所有外部回调后检查序号以停止旧循环。
+## [br]
+## @api private
 func _run_repeat_async(current_serial: int) -> void:
 	var tree: SceneTree = _get_scene_tree_value(Engine.get_main_loop())
 	if tree == null:
@@ -223,20 +245,32 @@ func _run_repeat_async(current_serial: int) -> void:
 		repeat_completed.emit()
 
 
+## 判断异步等待所捕获的序号仍属于当前重复流程。
+## [br]
+## @api private
 func _is_execution_serial_current(serial: int) -> bool:
 	return serial == _execution_serial
 
 
+## 判断对应流程仍是当前序号且处于暂停状态。
+## [br]
+## @api private
 func _is_timeout_paused(serial: int) -> bool:
 	return serial == _execution_serial and _paused
 
 
+## 取出当前动作对象并立即清空活动引用。
+## [br]
+## @api private
 func _take_active_action() -> Object:
 	var action: Object = _active_action
 	_active_action = null
 	return action
 
 
+## 将 Variant 收窄为 SceneTree；类型不符时返回 null。
+## [br]
+## @api private
 func _get_scene_tree_value(value: Variant) -> SceneTree:
 	if value is SceneTree:
 		var tree: SceneTree = value
@@ -244,6 +278,9 @@ func _get_scene_tree_value(value: Variant) -> SceneTree:
 	return null
 
 
+## 将 Variant 收窄为 Object；类型不符时返回 null。
+## [br]
+## @api private
 func _get_object_value(value: Variant) -> Object:
 	if value is Object:
 		var object: Object = value

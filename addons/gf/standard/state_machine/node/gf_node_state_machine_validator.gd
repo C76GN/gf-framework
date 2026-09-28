@@ -16,6 +16,10 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 条件组图递归校验允许的最大嵌套深度。
+## [br]
+## @api private
+## [br]
 const _MAX_CONDITION_GROUP_DEPTH: int = 64
 
 
@@ -204,6 +208,10 @@ static func make_configuration_warnings(report: GFValidationReport) -> PackedStr
 
 # --- 私有/辅助方法 ---
 
+## 将错误条目追加到校验报告；报告为空时不执行操作。
+## [br]
+## @api private
+## [br]
 static func _add_error(
 	report: GFValidationReport,
 	kind: StringName,
@@ -217,6 +225,10 @@ static func _add_error(
 	var _issue: RefCounted = report.add_error(kind, message, key, path, metadata)
 
 
+## 将警告条目追加到校验报告；报告为空时不执行操作。
+## [br]
+## @api private
+## [br]
 static func _add_warning(
 	report: GFValidationReport,
 	kind: StringName,
@@ -230,12 +242,20 @@ static func _add_warning(
 	var _issue: RefCounted = report.add_warning(kind, message, key, path, metadata)
 
 
+## 将源报告合并到目标报告；任一报告为空时不执行操作。
+## [br]
+## @api private
+## [br]
 static func _merge_report(target: GFValidationReport, source: GFValidationReport, include_metadata: bool) -> void:
 	if target == null or source == null:
 		return
 	var _merged_report: RefCounted = target.merge(source, include_metadata)
 
 
+## 仅当 Variant 持有 Resource 时返回该资源，否则返回 null。
+## [br]
+## @api private
+## [br]
 static func _variant_to_resource(value: Variant) -> Resource:
 	if value is Resource:
 		var resource: Resource = value
@@ -243,6 +263,10 @@ static func _variant_to_resource(value: Variant) -> Resource:
 	return null
 
 
+## 将一条校验问题格式化为包含级别、类型和位置的 Inspector 警告文本。
+## [br]
+## @api private
+## [br]
 static func _format_configuration_warning_issue(issue: RefCounted) -> String:
 	var severity: String = "Error"
 	if GFVariantData.to_bool(issue.call("is_warning")):
@@ -260,6 +284,10 @@ static func _format_configuration_warning_issue(issue: RefCounted) -> String:
 	return "%s [%s]: %s%s" % [severity, kind, message, location]
 
 
+## 从问题的路径和键生成括号内的位置文本；两者都为空时返回空字符串。
+## [br]
+## @api private
+## [br]
 static func _get_issue_location_text(issue: RefCounted) -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	var path: String = GFVariantData.to_text(_read_property(issue, &"path")).strip_edges()
@@ -277,6 +305,10 @@ static func _get_issue_location_text(issue: RefCounted) -> String:
 	return " (%s)" % " / ".join(parts)
 
 
+## 检查状态组是否为空、各状态和初始状态，并累计状态数量。
+## [br]
+## @api private
+## [br]
 static func _validate_group_shape(
 	report: GFValidationReport,
 	group_name: StringName,
@@ -321,6 +353,10 @@ static func _validate_group_shape(
 	report.metadata["state_count"] = GFVariantData.get_option_int(report.metadata, "state_count") + states.size()
 
 
+## 检查状态引用与名称，并按选项校验状态所挂接的条件和行为资源。
+## [br]
+## @api private
+## [br]
 static func _validate_state(
 	report: GFValidationReport,
 	group_name: StringName,
@@ -382,6 +418,10 @@ static func _validate_state(
 		)
 
 
+## 检查状态资源列表中的空项、必需方法、嵌套条件组和重复资源 ID。
+## [br]
+## @api private
+## [br]
 static func _validate_resource_list(
 	report: GFValidationReport,
 	resources: Array[Resource],
@@ -434,6 +474,10 @@ static func _validate_resource_list(
 		_track_duplicate_resource_id(report, resource, field_name, ids, state_name, state_path, metadata)
 
 
+## 建立条件组图遍历所需的上下文，并从根条件组开始校验。
+## [br]
+## @api private
+## [br]
 static func _validate_condition_group_graph(
 	report: GFValidationReport,
 	root_group: GFNodeStateConditionGroup,
@@ -458,6 +502,10 @@ static func _validate_condition_group_graph(
 	)
 
 
+## 深度优先遍历嵌套条件组，并报告超深或递归环路，跳过已完成的实例。
+## [br]
+## @api private
+## [br]
 static func _visit_condition_group(
 	report: GFValidationReport,
 	condition_group: GFNodeStateConditionGroup,
@@ -528,6 +576,10 @@ static func _visit_condition_group(
 	completed_group_ids[instance_id] = true
 
 
+## 检查空行为、未提供已知生命周期方法的行为及重复资源 ID。
+## [br]
+## @api private
+## [br]
 static func _validate_behavior_resources(
 	report: GFValidationReport,
 	behaviors: Array[Resource],
@@ -564,6 +616,10 @@ static func _validate_behavior_resources(
 		_track_duplicate_resource_id(report, behavior, &"behaviors", ids, state_name, state_path, metadata)
 
 
+## 按资源 ID 检查列表内重复项，并在重复时记录首次出现的索引。
+## [br]
+## @api private
+## [br]
 static func _track_duplicate_resource_id(
 	report: GFValidationReport,
 	resource: Resource,
@@ -592,6 +648,10 @@ static func _track_duplicate_resource_id(
 		ids[id_value] = GFVariantData.get_option_int(metadata, "index", -1)
 
 
+## 判断资源是否为状态行为类型或提供已知的行为生命周期方法。
+## [br]
+## @api private
+## [br]
 static func _has_any_behavior_method(resource: Resource) -> bool:
 	if resource is GFNodeStateBehavior:
 		return true
@@ -605,6 +665,10 @@ static func _has_any_behavior_method(resource: Resource) -> bool:
 	)
 
 
+## 判断资源是否符合条件资源规则或提供指定方法。
+## [br]
+## @api private
+## [br]
 static func _resource_exposes_required_method(resource: Resource, field_name: StringName, required_method: StringName) -> bool:
 	if resource == null:
 		return false
@@ -614,6 +678,10 @@ static func _resource_exposes_required_method(resource: Resource, field_name: St
 	return resource.has_method(required_method)
 
 
+## 按资源列表类型优先读取行为 ID，再回退到条件 ID 或通用资源 ID。
+## [br]
+## @api private
+## [br]
 static func _get_resource_id(resource: Resource, field_name: StringName) -> StringName:
 	if field_name == &"behaviors":
 		var behavior_id: StringName = _get_string_name_property(resource, &"behavior_id", &"")
@@ -629,6 +697,10 @@ static func _get_resource_id(resource: Resource, field_name: StringName) -> Stri
 	return &""
 
 
+## 收集父节点的直接 GFNodeState 子节点。
+## [br]
+## @api private
+## [br]
 static func _collect_direct_states(parent: Node) -> Array[GFNodeState]:
 	var result: Array[GFNodeState] = []
 	for child: Node in parent.get_children():
@@ -638,6 +710,10 @@ static func _collect_direct_states(parent: Node) -> Array[GFNodeState]:
 	return result
 
 
+## 合并状态组的直接状态和注册状态，并跳过空引用及重复实例。
+## [br]
+## @api private
+## [br]
 static func _collect_group_states(group: GFNodeStateGroup) -> Array[GFNodeState]:
 	var result: Array[GFNodeState] = []
 	var seen_state_instance_ids: Dictionary = {}
@@ -654,6 +730,10 @@ static func _collect_group_states(group: GFNodeStateGroup) -> Array[GFNodeState]
 	return result
 
 
+## 优先读取状态机配置资源的初始状态；配置不可用时读取状态机属性。
+## [br]
+## @api private
+## [br]
 static func _get_machine_initial_state(machine: GFNodeStateMachine) -> StringName:
 	var config: Resource = _variant_to_resource(_read_property(machine, &"config"))
 	if config != null:
@@ -661,6 +741,10 @@ static func _get_machine_initial_state(machine: GFNodeStateMachine) -> StringNam
 	return _get_string_name_property(machine, &"initial_state", &"")
 
 
+## 优先采用显式选项，否则依据状态机启动模式判断是否要求初始状态。
+## [br]
+## @api private
+## [br]
 static func _should_require_machine_initial_state(machine: GFNodeStateMachine, options: Dictionary) -> bool:
 	if options.has("require_initial_state"):
 		return GFVariantData.get_option_bool(options, "require_initial_state")
@@ -668,24 +752,44 @@ static func _should_require_machine_initial_state(machine: GFNodeStateMachine, o
 	return start_mode != GFNodeStateMachine.StartMode.MANUAL
 
 
+## 优先采用显式选项，否则依据状态组的 auto_start 属性判断是否要求初始状态。
+## [br]
+## @api private
+## [br]
 static func _should_require_group_initial_state(group: GFNodeStateGroup, options: Dictionary) -> bool:
 	if options.has("require_initial_state"):
 		return GFVariantData.get_option_bool(options, "require_initial_state")
 	return _get_bool_property(group, &"auto_start", true)
 
 
+## 读取状态组名称属性；未提供时使用节点名称。
+## [br]
+## @api private
+## [br]
 static func _get_group_name(group: Node) -> StringName:
 	return _get_string_name_property(group, &"group_name", StringName(group.name))
 
 
+## 读取状态组的初始状态名称；缺失时返回空名称。
+## [br]
+## @api private
+## [br]
 static func _get_group_initial_state(group: Node) -> StringName:
 	return _get_string_name_property(group, &"initial_state", &"")
 
 
+## 读取状态名称属性；未提供时使用节点名称。
+## [br]
+## @api private
+## [br]
 static func _get_state_name(state: Node) -> StringName:
 	return _get_string_name_property(state, &"state_name", StringName(state.name))
 
 
+## 读取对象属性并转换非空 String 或 StringName；值不可用时返回回退值。
+## [br]
+## @api private
+## [br]
 static func _get_string_name_property(object: Object, property_name: StringName, fallback: StringName = &"") -> StringName:
 	if object == null:
 		return fallback
@@ -701,6 +805,10 @@ static func _get_string_name_property(object: Object, property_name: StringName,
 	return fallback
 
 
+## 读取对象属性并转换为 bool；属性不可用时使用回退值。
+## [br]
+## @api private
+## [br]
 static func _get_bool_property(object: Object, property_name: StringName, fallback: bool = false) -> bool:
 	if object == null:
 		return fallback
@@ -709,6 +817,10 @@ static func _get_bool_property(object: Object, property_name: StringName, fallba
 	return GFVariantData.to_bool(value, fallback)
 
 
+## 读取数组属性并将每个元素转换为 Resource，保留原有元素位置。
+## [br]
+## @api private
+## [br]
 static func _get_resource_array_property(object: Object, property_name: StringName) -> Array[Resource]:
 	var result: Array[Resource] = []
 	if object == null:
@@ -724,10 +836,18 @@ static func _get_resource_array_property(object: Object, property_name: StringNa
 	return result
 
 
+## 通过 GFObjectPropertyTools 读取对象属性。
+## [br]
+## @api private
+## [br]
 static func _read_property(object: Object, property_name: StringName, fallback: Variant = null) -> Variant:
 	return GFObjectPropertyTools.read_property(object, NodePath(property_name), fallback)
 
 
+## 节点在场景树中时返回节点路径，否则返回节点名称。
+## [br]
+## @api private
+## [br]
 static func _get_node_path_text(node: Node) -> String:
 	if node == null:
 		return ""

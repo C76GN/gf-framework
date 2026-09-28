@@ -14,6 +14,10 @@ extends GFUtility
 
 # --- 常量 ---
 
+## 提供异步 Signal 等待状态捕获的内部协助脚本。
+## [br]
+## @api private
+## [br]
 const _GF_ASYNC_WAIT_SUPPORT = preload("res://addons/gf/standard/common/gf_async_wait_support.gd")
 
 
@@ -71,21 +75,72 @@ var is_processing_async: bool:
 # --- 私有变量 ---
 
 # 已执行命令的撤销栈。
+## 保存已记录且尚未撤销的命令，末尾为下一条撤销目标。
+## [br]
+## @api private
+## [br]
 var _undo_stack: Array[GFUndoableCommand] = []
 
 # 已撤销命令的重做栈。
+## 保存已撤销且可重做的命令，末尾为下一条重做目标。
+## [br]
+## @api private
+## [br]
 var _redo_stack: Array[GFUndoableCommand] = []
 
 # 当前是否正在等待一条异步命令完成。
+## 标记当前历史操作是否正在等待命令返回的 Signal 完成。
+## [br]
+## @api private
+## [br]
 var _is_processing_async: bool = false
 
+## 阻止历史操作进行期间的重入修改，包括同步操作与异步等待。
+## [br]
+## @api private
+## [br]
 var _is_processing_history_operation: bool = false
+
+## max_history_size 的内部存储；零表示不裁剪历史栈。
+## [br]
+## @api private
+## [br]
 var _max_history_size: int = 1024
+
+## init/dispose 生命周期代数，用于拒绝旧代异步操作的后续写回。
+## [br]
+## @api private
+## [br]
 var _lifecycle_serial: int = 0
+
+## 已分配历史操作序号的递增计数。
+## [br]
+## @api private
+## [br]
 var _operation_serial: int = 0
+
+## 当前被锁定的历史操作序号；无活动操作时为零。
+## [br]
+## @api private
+## [br]
 var _active_operation_serial: int = 0
+
+## 当前异步等待告警观察器关联的操作序号。
+## [br]
+## @api private
+## [br]
 var _stall_warning_operation_serial: int = 0
+
+## 异步等待告警观察器所连接的 SceneTree。
+## [br]
+## @api private
+## [br]
 var _stall_warning_tree: SceneTree = null
+
+## 异步等待告警观察器注册到 process_frame 的回调。
+## [br]
+## @api private
+## [br]
 var _stall_warning_callback: Callable = Callable()
 
 
@@ -543,6 +598,10 @@ func deserialize_full_history(data: Dictionary, command_builder: Callable) -> vo
 
 # --- 私有/辅助方法 ---
 
+## 将已执行命令压入撤销栈、清空重做栈并裁剪撤销历史。
+## [br]
+## @api private
+## [br]
 func _record_internal(cmd: GFUndoableCommand) -> void:
 	_undo_stack.push_back(cmd)
 	_redo_stack.clear()
@@ -550,6 +609,10 @@ func _record_internal(cmd: GFUndoableCommand) -> void:
 	_trim_undo_stack()
 
 
+## 按容量移除撤销栈最早的命令；容量为零时不裁剪。
+## [br]
+## @api private
+## [br]
 func _trim_undo_stack() -> void:
 	if max_history_size <= 0 or _undo_stack.size() <= max_history_size:
 		return
@@ -558,6 +621,10 @@ func _trim_undo_stack() -> void:
 	_undo_stack = _undo_stack.slice(overflow)
 
 
+## 按容量移除重做栈最早的命令；容量为零时不裁剪。
+## [br]
+## @api private
+## [br]
 func _trim_redo_stack() -> void:
 	if max_history_size <= 0 or _redo_stack.size() <= max_history_size:
 		return
@@ -566,11 +633,19 @@ func _trim_redo_stack() -> void:
 	_redo_stack = _redo_stack.slice(overflow)
 
 
+## 依次按当前容量裁剪撤销栈与重做栈。
+## [br]
+## @api private
+## [br]
 func _trim_history_stacks() -> void:
 	_trim_undo_stack()
 	_trim_redo_stack()
 
 
+## 序列化命令栈；优先调用 serialize()，否则复制 get_snapshot() 并包装为 snapshot。
+## [br]
+## @api private
+## [br]
 func _serialize_stack(stack: Array[GFUndoableCommand]) -> Array[Dictionary]:
 	var arr: Array[Dictionary] = []
 	for cmd: GFUndoableCommand in stack:
@@ -582,6 +657,10 @@ func _serialize_stack(stack: Array[GFUndoableCommand]) -> Array[Dictionary]:
 	return arr
 
 
+## 将数据逐项构造成命令并追加到暂存栈，期间验证操作仍有效；失败时不提交历史栈。
+## [br]
+## @api private
+## [br]
 func _try_deserialize_stack(
 	data_array: Array,
 	command_builder: Callable,
@@ -612,6 +691,10 @@ func _try_deserialize_stack(
 	return true
 
 
+## 架构可用时，依次调用命令支持的 inject_dependencies 与 inject。
+## [br]
+## @api private
+## [br]
 func _inject_command_dependencies(cmd: GFUndoableCommand) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture == null:
@@ -622,6 +705,10 @@ func _inject_command_dependencies(cmd: GFUndoableCommand) -> void:
 		cmd.call("inject", architecture)
 
 
+## 分配并激活新的操作序号，同时取得历史操作锁。
+## [br]
+## @api private
+## [br]
 func _begin_history_operation() -> int:
 	_operation_serial += 1
 	_active_operation_serial = _operation_serial
@@ -629,10 +716,18 @@ func _begin_history_operation() -> int:
 	return _active_operation_serial
 
 
+## 根据当前是否在异步等待中选择对应的重入拒绝警告。
+## [br]
+## @api private
+## [br]
 func _push_history_operation_rejection(async_message: String, sync_message: String) -> void:
 	push_warning(async_message if _is_processing_async else sync_message)
 
 
+## 检查锁仍持有且操作序号、生命周期代数都与调用方快照匹配。
+## [br]
+## @api private
+## [br]
 func _is_history_operation_current(operation_serial: int, lifecycle_serial: int) -> bool:
 	return (
 		_is_processing_history_operation
@@ -641,6 +736,10 @@ func _is_history_operation_current(operation_serial: int, lifecycle_serial: int)
 	)
 
 
+## 仅由当前操作序号结束操作，断开告警观察器并复位锁与异步标记。
+## [br]
+## @api private
+## [br]
 func _finish_history_operation(operation_serial: int) -> void:
 	if _active_operation_serial != operation_serial:
 		return
@@ -650,6 +749,10 @@ func _finish_history_operation(operation_serial: int) -> void:
 	_is_processing_async = false
 
 
+## 结果 hook 成功且撤销栈顶仍是目标命令时，才移动命令到重做栈。
+## [br]
+## @api private
+## [br]
 func _complete_undo_operation(
 	cmd: GFUndoableCommand,
 	result: Variant,
@@ -673,6 +776,10 @@ func _complete_undo_operation(
 	return true
 
 
+## 结果 hook 成功且重做栈顶仍是目标命令时，才移动命令到撤销栈。
+## [br]
+## @api private
+## [br]
 func _complete_redo_operation(
 	cmd: GFUndoableCommand,
 	result: Variant,
@@ -696,6 +803,10 @@ func _complete_redo_operation(
 	return true
 
 
+## 仅当源栈顶与预期命令为同一实例时弹出，否则报告栈变化并返回 null。
+## [br]
+## @api private
+## [br]
 func _pop_expected_history_top(
 	source_stack: Array[GFUndoableCommand],
 	expected_cmd: GFUndoableCommand,
@@ -709,6 +820,10 @@ func _pop_expected_history_top(
 	return source_stack.pop_back()
 
 
+## 对非空 Signal 委托异步等待与载荷捕获，并在操作失效时停止等待。
+## [br]
+## @api private
+## [br]
 func _await_command_signal(
 	result_signal: Signal,
 	operation_serial: int,
@@ -730,6 +845,10 @@ func _await_command_signal(
 	})
 
 
+## 通过 SceneTree.process_frame 观察等待时长，超阈值只告警并断开观察器。
+## [br]
+## @api private
+## [br]
 func _start_async_stall_warning_observer(operation_serial: int, lifecycle_serial: int) -> void:
 	_disconnect_stall_warning_observer()
 	var warning_seconds: float = async_stall_warning_seconds
@@ -759,6 +878,10 @@ func _start_async_stall_warning_observer(operation_serial: int, lifecycle_serial
 		_stall_warning_callback = Callable()
 
 
+## 在序号匹配时断开仍连接的告警回调，并清除观察器关联状态。
+## [br]
+## @api private
+## [br]
 func _disconnect_stall_warning_observer(operation_serial: int = 0) -> void:
 	if operation_serial > 0 and _stall_warning_operation_serial != operation_serial:
 		return
@@ -773,6 +896,10 @@ func _disconnect_stall_warning_observer(operation_serial: int = 0) -> void:
 	_stall_warning_callback = Callable()
 
 
+## 将 Signal 参数规范为 null、单个参数值或多个参数组成的副本数组。
+## [br]
+## @api private
+## [br]
 func _normalize_signal_payload(args: Array) -> Variant:
 	match args.size():
 		0:
@@ -783,6 +910,10 @@ func _normalize_signal_payload(args: Array) -> Variant:
 			return args.duplicate(true)
 
 
+## 调用命令构造器并收窄结果；非 GFUndoableCommand 返回 null。
+## [br]
+## @api private
+## [br]
 func _build_command(command_builder: Callable, command_data: Dictionary) -> GFUndoableCommand:
 	var command: Variant = command_builder.call(command_data)
 	if command is GFUndoableCommand:

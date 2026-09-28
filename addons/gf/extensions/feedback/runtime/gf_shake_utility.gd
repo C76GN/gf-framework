@@ -96,9 +96,24 @@ var randomize_phase: bool = true
 
 # --- 私有变量 ---
 
+## 单调递增的反馈播放实例序号。
+## [br]
+## @api private
 var _shake_serial: int = 0
+
+## 按实例 ID 保存当前活跃的反馈状态。
+## [br]
+## @api private
 var _active_shakes: Dictionary = {}
+
+## 按开始顺序保存活跃反馈实例 ID。
+## [br]
+## @api private
 var _play_order: PackedInt32Array = PackedInt32Array()
+
+## 为可随机化的反馈相位提供随机数生成器。
+## [br]
+## @api private
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 
@@ -402,6 +417,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按容量限制和溢出策略决定是否接纳播放，必要时停止最早实例。
+## [br]
+## @api private
 func _reserve_capacity() -> bool:
 	if max_active_shakes <= 0 or _active_shakes.size() < max_active_shakes:
 		return true
@@ -415,6 +433,9 @@ func _reserve_capacity() -> bool:
 	return max_active_shakes <= 0 or _active_shakes.size() < max_active_shakes
 
 
+## 移除已结束实例并发出反馈播放结束信号。
+## [br]
+## @api private
 func _finish_shake(shake_id: int) -> void:
 	if not _active_shakes.has(shake_id):
 		return
@@ -427,18 +448,30 @@ func _finish_shake(shake_id: int) -> void:
 	shake_finished.emit(shake_id, channel)
 
 
+## 将空 channel 替换为默认 channel。
+## [br]
+## @api private
 func _resolve_channel(channel: StringName) -> StringName:
 	return default_channel if channel == &"" else channel
 
 
+## 从活跃反馈状态表删除指定实例。
+## [br]
+## @api private
 func _erase_active_shake(shake_id: int) -> void:
 	var _removed: bool = _active_shakes.erase(shake_id)
 
 
+## 按实例 ID 读取并转换反馈状态字典。
+## [br]
+## @api private
 func _get_shake_state(shake_id: int) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_active_shakes, shake_id))
 
 
+## 从状态字典读取反馈预设。
+## [br]
+## @api private
 func _get_state_preset(state: Dictionary) -> GFShakePreset:
 	var value: Variant = GFVariantData.get_option_value(state, "preset")
 	if value is GFShakePreset:
@@ -447,6 +480,9 @@ func _get_state_preset(state: Dictionary) -> GFShakePreset:
 	return null
 
 
+## 从状态字典读取 channel，并将字符串转换为 StringName。
+## [br]
+## @api private
 func _get_state_channel(state: Dictionary) -> StringName:
 	var value: Variant = GFVariantData.get_option_value(state, "channel", default_channel)
 	if value is StringName:
@@ -458,20 +494,32 @@ func _get_state_channel(state: Dictionary) -> StringName:
 	return default_channel
 
 
+## 读取有限浮点状态值，非有限值时返回默认值。
+## [br]
+## @api private
 func _get_state_float(state: Dictionary, key: String, default_value: float) -> float:
 	var value: float = GFVariantData.get_option_float(state, key, default_value)
 	return value if is_finite(value) else default_value
 
 
+## 读取状态中的元数据字典副本。
+## [br]
+## @api private
 func _get_state_metadata_copy(state: Dictionary) -> Dictionary:
 	return GFVariantData.get_option_dictionary(state, "metadata")
 
 
+## 将调试数据编码为 JSON-safe 字典并隐藏完整路径。
+## [br]
+## @api private
 func _to_report_dictionary(value: Dictionary) -> Dictionary:
 	return GFReportValueCodec.to_report_dictionary(value, {
 		"path_redaction": "basename",
 	})
 
 
+## 读取调试快照中指定 channel 的计数。
+## [br]
+## @api private
 func _get_channel_count(channels: Dictionary, channel: String) -> int:
 	return GFVariantData.get_option_int(channels, channel)

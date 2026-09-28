@@ -197,32 +197,145 @@ const STATUS_RECONCILE_FAILED: StringName = &"reconcile_failed"
 ## @since 11.0.0
 const STATUS_DISPOSED: StringName = &"disposed"
 
+## 事务 evidence 校验的最大递归深度。
+## [br]
+## @api private
+## [br]
 const _MAX_EVIDENCE_DEPTH: int = 16
+
+## 事务 evidence 支持性检查允许的最大值数量。
+## [br]
+## @api private
+## [br]
 const _MAX_EVIDENCE_ITEMS: int = 2048
+
+## evidence 中字符串值的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_EVIDENCE_STRING_LENGTH: int = 2048
+
+## 事务结果错误消息的最大字符数。
+## [br]
+## @api private
+## [br]
 const _MAX_ERROR_LENGTH: int = 2048
 
 
 # --- 私有变量 ---
 
+## 标记事务结果是否完成配置。
+## [br]
+## @api private
+## [br]
 var _configured: bool = false
+
+## 事务终态标识。
+## [br]
+## @api private
+## [br]
 var _status: StringName = &""
+
+## 事务操作类型。
+## [br]
+## @api private
+## [br]
 var _operation: StringName = &""
+
+## 事务标识。
+## [br]
+## @api private
+## [br]
 var _transaction_id: int = 0
+
+## 事务来源 Profile ID。
+## [br]
+## @api private
+## [br]
 var _source_profile_id: StringName = &""
+
+## 事务目标 Profile ID。
+## [br]
+## @api private
+## [br]
 var _target_profile_id: StringName = &""
+
+## 事务开始前的 active Profile ID。
+## [br]
+## @api private
+## [br]
 var _active_profile_before: StringName = &""
+
+## 事务结束后的 active Profile ID。
+## [br]
+## @api private
+## [br]
 var _active_profile_after: StringName = &""
+
+## 报告失败时所在的事务阶段。
+## [br]
+## @api private
+## [br]
 var _phase: StringName = &""
+
+## 事务错误码。
+## [br]
+## @api private
+## [br]
 var _error_code: Error = FAILED
+
+## 事务错误消息。
+## [br]
+## @api private
+## [br]
 var _error: String = ""
+
+## 事务失败关联的 section ID。
+## [br]
+## @api private
+## [br]
 var _failed_section_id: StringName = &""
+
+## 事务回滚产生的失败记录。
+## [br]
+## @api private
+## [br]
 var _rollback_errors: Array[GFSaveRollbackFailure] = []
+
+## 各阶段收集的事务证据。
+## [br]
+## @api private
+## [br]
 var _stage_evidence: Dictionary = {}
+
+## 结果关联的恢复 Lease。
+## [br]
+## @api private
+## [br]
 var _recovery_lease: GFSaveProfileRecoveryLease = null
+
+## 结果关联的 reconciliation Lease。
+## [br]
+## @api private
+## [br]
 var _reconcile_lease: GFSaveProfileReconcileLease = null
+
+## 附加到事务结果的元数据。
+## [br]
+## @api private
+## [br]
 var _metadata: Dictionary = {}
+
+## 事务开始时的单调毫秒时间。
+## [br]
+## @api private
+## [br]
 var _started_at_msec: int = 0
+
+## 事务完成时的单调毫秒时间。
+## [br]
+## @api private
+## [br]
 var _completed_at_msec: int = 0
 
 
@@ -620,6 +733,10 @@ func configure_for_framework(options: Dictionary) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 返回配置为成功终态的状态标识列表。
+## [br]
+## @api private
+## [br]
 static func _get_success_statuses() -> Array[StringName]:
 	return [
 		STATUS_ACTIVATED,
@@ -633,6 +750,10 @@ static func _get_success_statuses() -> Array[StringName]:
 	]
 
 
+## 返回配置校验接受的全部成功与失败终态。
+## [br]
+## @api private
+## [br]
 static func _get_valid_statuses() -> Array[StringName]:
 	return _get_success_statuses() + [
 		STATUS_INVALID_PROFILE,
@@ -656,6 +777,10 @@ static func _get_valid_statuses() -> Array[StringName]:
 	]
 
 
+## 返回结果配置校验接受的事务操作标识。
+## [br]
+## @api private
+## [br]
 static func _get_valid_operations() -> Array[StringName]:
 	return [
 		GFSaveProfileTransactionOperation.OPERATION_ACTIVATE,
@@ -669,6 +794,10 @@ static func _get_valid_operations() -> Array[StringName]:
 	]
 
 
+## 校验 value 为全由回滚失败对象组成的 Array，并追加到输出数组。
+## [br]
+## @api private
+## [br]
 static func _read_rollback_errors(
 	value: Variant,
 	output: Array[GFSaveRollbackFailure]
@@ -684,6 +813,10 @@ static func _read_rollback_errors(
 	return true
 
 
+## 读取 options 中的 recovery_lease，仅返回类型匹配的 Lease。
+## [br]
+## @api private
+## [br]
 static func _read_recovery_lease(options: Dictionary) -> GFSaveProfileRecoveryLease:
 	var value: Variant = GFVariantData.get_option_value(options, "recovery_lease")
 	if value is GFSaveProfileRecoveryLease:
@@ -692,6 +825,10 @@ static func _read_recovery_lease(options: Dictionary) -> GFSaveProfileRecoveryLe
 	return null
 
 
+## 读取 options 中的 reconcile_lease，仅返回类型匹配的 Lease。
+## [br]
+## @api private
+## [br]
 static func _read_reconcile_lease(options: Dictionary) -> GFSaveProfileReconcileLease:
 	var value: Variant = GFVariantData.get_option_value(options, "reconcile_lease")
 	if value is GFSaveProfileReconcileLease:
@@ -700,6 +837,9 @@ static func _read_reconcile_lease(options: Dictionary) -> GFSaveProfileReconcile
 	return null
 
 
+## 核对状态允许的恢复或对账租约及其事务身份；RECOVERY_REQUIRED 还核对源、目标档案与缺失/损坏原因，OUTCOME_UNKNOWN 必须携带匹配的对账租约。
+## [br]
+## @api private
 static func _leases_match_status(
 	status: StringName,
 	operation: StringName,
@@ -753,6 +893,10 @@ static func _leases_match_status(
 	return true
 
 
+## 跳过空项，并以每项的 duplicate_failure() 构造回滚失败数组。
+## [br]
+## @api private
+## [br]
 static func _duplicate_rollback_errors(
 	errors: Array[GFSaveRollbackFailure]
 ) -> Array[GFSaveRollbackFailure]:
@@ -763,6 +907,10 @@ static func _duplicate_rollback_errors(
 	return copies
 
 
+## 将非空回滚失败项转换为字典数组。
+## [br]
+## @api private
+## [br]
 func _rollback_errors_to_dicts() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for failure: GFSaveRollbackFailure in _rollback_errors:
@@ -771,6 +919,10 @@ func _rollback_errors_to_dicts() -> Array[Dictionary]:
 	return result
 
 
+## 返回恢复 Lease 的身份、Profile、原因与状态摘要。
+## [br]
+## @api private
+## [br]
 func _get_recovery_lease_summary() -> Dictionary:
 	if _recovery_lease == null:
 		return {}
@@ -784,6 +936,10 @@ func _get_recovery_lease_summary() -> Dictionary:
 	}
 
 
+## 返回 reconciliation Lease 的身份、操作、状态与请求 ID 摘要。
+## [br]
+## @api private
+## [br]
 func _get_reconcile_lease_summary() -> Dictionary:
 	if _reconcile_lease == null:
 		return {}
@@ -797,6 +953,10 @@ func _get_reconcile_lease_summary() -> Dictionary:
 	}
 
 
+## 使用新检查状态校验 evidence 的类型、深度和数量边界。
+## [br]
+## @api private
+## [br]
 static func _is_evidence_supported(evidence: Dictionary) -> bool:
 	var state: Dictionary = {
 		"items": 0,
@@ -805,6 +965,10 @@ static func _is_evidence_supported(evidence: Dictionary) -> bool:
 	return _is_evidence_value_supported(evidence, 0, state)
 
 
+## 限深限量递归检查 evidence 标量与容器，并拒绝超长字符串和循环引用。
+## [br]
+## @api private
+## [br]
 static func _is_evidence_value_supported(
 	value: Variant,
 	depth: int,
@@ -896,16 +1060,28 @@ static func _is_evidence_value_supported(
 			return false
 
 
+## 将 packed 容器元素加入 evidence 预算并判断是否仍在上限内。
+## [br]
+## @api private
+## [br]
 static func _consume_packed_items(item_count: int, state: Dictionary) -> bool:
 	var next_count: int = GFVariantData.get_option_int(state, "items") + item_count
 	state["items"] = next_count
 	return next_count <= _MAX_EVIDENCE_ITEMS
 
 
+## 从 evidence 校验状态读取当前递归路径容器数组。
+## [br]
+## @api private
+## [br]
 static func _get_visited(state: Dictionary) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(state, "visited"))
 
 
+## 按对象身份检查候选容器是否已在当前递归路径中。
+## [br]
+## @api private
+## [br]
 static func _contains_collection_identity(collections: Array, candidate: Variant) -> bool:
 	for collection: Variant in collections:
 		if is_same(collection, candidate):

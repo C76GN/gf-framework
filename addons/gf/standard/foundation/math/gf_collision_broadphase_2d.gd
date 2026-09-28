@@ -57,11 +57,34 @@ const DEFAULT_COLLISION_LAYER: int = 1
 ## @since 5.0.0
 const DEFAULT_COLLISION_MASK: int = 0xffffffff
 
+## 自动算法选择时，body 数不超过此值会使用暴力枚举。
+## [br]
+## @api private
 const _DEFAULT_BRUTE_FORCE_THRESHOLD: int = 24
+
+## 自动算法选择时，body 数达到此值会使用 Quadtree。
+## [br]
+## @api private
 const _DEFAULT_QUADTREE_THRESHOLD: int = 64
+
+## Quadtree 自动选项未提供时允许的最大递归深度。
+## [br]
+## @api private
 const _DEFAULT_QUADTREE_MAX_DEPTH: int = 8
+
+## Quadtree 节点自动选项未提供时的候选容量阈值。
+## [br]
+## @api private
 const _DEFAULT_QUADTREE_CAPACITY: int = 8
+
+## 报告 JSON 兼容转换所用的值编码脚本。
+## [br]
+## @api private
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
+
+## 提供有限性检查、矩形归一化等空间边界运算的脚本。
+## [br]
+## @api private
 const _SPATIAL_BOUNDS_MATH = preload("res://addons/gf/standard/foundation/math/gf_spatial_bounds_math.gd")
 
 
@@ -313,6 +336,9 @@ static func to_json_compatible_report(report: Dictionary, options: Dictionary = 
 
 # --- 私有/辅助方法 ---
 
+## 过滤并规范化输入 body；默认排除 `enabled` 为 false 的记录。
+## [br]
+## @api private
 static func _normalize_bodies(bodies: Array, options: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var enabled_only: bool = GFVariantData.get_option_bool(options, "enabled_only", true)
@@ -326,6 +352,9 @@ static func _normalize_bodies(bodies: Array, options: Dictionary) -> Array[Dicti
 	return result
 
 
+## 校验单条 body 字典并补齐默认字段、规范化 bounds 与输入索引。
+## [br]
+## @api private
 static func _normalize_body(value: Variant, index: int) -> Dictionary:
 	if not (value is Dictionary):
 		return {}
@@ -352,6 +381,9 @@ static func _normalize_body(value: Variant, index: int) -> Dictionary:
 	}
 
 
+## 对满足掩码和 AABB 重叠条件的 body 追加去重 pair；达到正数上限时返回 true。
+## [br]
+## @api private
 static func _append_pair_if_overlapping(
 	left_body: Dictionary,
 	right_body: Dictionary,
@@ -376,6 +408,9 @@ static func _append_pair_if_overlapping(
 	return max_pairs > 0 and pairs.size() >= max_pairs
 
 
+## 递归拆分 Quadtree 节点并收集候选 pair；无法有效拆分时退回节点内暴力枚举。
+## [br]
+## @api private
 static func _collect_quadtree_pairs(
 	node_bodies: Array[Dictionary],
 	node_bounds: Rect2,
@@ -438,6 +473,9 @@ static func _collect_quadtree_pairs(
 	return max_pairs > 0 and pairs.size() >= max_pairs
 
 
+## 暴力枚举一个节点中的所有 body 对，并在达到正数上限时停止。
+## [br]
+## @api private
 static func _append_subset_pairs(
 	node_bodies: Array[Dictionary],
 	options: Dictionary,
@@ -452,6 +490,9 @@ static func _append_subset_pairs(
 	return false
 
 
+## 按双向 layer-mask 位交集判断 body 是否可配对；关闭掩码选项时一律允许。
+## [br]
+## @api private
 static func _bodies_can_pair(left_body: Dictionary, right_body: Dictionary, options: Dictionary) -> bool:
 	if not GFVariantData.get_option_bool(options, "use_collision_masks", true):
 		return true
@@ -463,6 +504,9 @@ static func _bodies_can_pair(left_body: Dictionary, right_body: Dictionary, opti
 	return (left_layer & right_mask) != 0 and (right_layer & left_mask) != 0
 
 
+## 按输入索引排序两条 body，并生成包含实体、索引与边界的 pair 字典。
+## [br]
+## @api private
 static func _make_pair(left_body: Dictionary, right_body: Dictionary) -> Dictionary:
 	var ordered: Array[Dictionary] = _ordered_pair(left_body, right_body)
 	var first: Dictionary = ordered[0]
@@ -477,6 +521,9 @@ static func _make_pair(left_body: Dictionary, right_body: Dictionary) -> Diction
 	}
 
 
+## 将两个输入索引升序排列后编码为 seen 表使用的 pair 键。
+## [br]
+## @api private
 static func _make_pair_key(left_body: Dictionary, right_body: Dictionary) -> String:
 	var first_index: int = GFVariantData.get_option_int(left_body, "index")
 	var second_index: int = GFVariantData.get_option_int(right_body, "index")
@@ -487,12 +534,18 @@ static func _make_pair_key(left_body: Dictionary, right_body: Dictionary) -> Str
 	return "%d:%d" % [first_index, second_index]
 
 
+## 按 body 的输入索引升序返回两条记录。
+## [br]
+## @api private
 static func _ordered_pair(left_body: Dictionary, right_body: Dictionary) -> Array[Dictionary]:
 	if GFVariantData.get_option_int(left_body, "index") <= GFVariantData.get_option_int(right_body, "index"):
 		return [left_body, right_body]
 	return [right_body, left_body]
 
 
+## 接受有效的显式算法，否则按规范化 body 数量和阈值选择算法。
+## [br]
+## @api private
 static func _choose_algorithm(bodies: Array, options: Dictionary) -> StringName:
 	var requested: StringName = GFVariantData.get_option_string_name(options, "algorithm", ALGORITHM_AUTO)
 	if requested == ALGORITHM_BRUTE_FORCE or requested == ALGORITHM_SAP or requested == ALGORITHM_QUADTREE:
@@ -506,6 +559,9 @@ static func _choose_algorithm(bodies: Array, options: Dictionary) -> StringName:
 	return ALGORITHM_SAP
 
 
+## 依次按 bounds 左边界、右边界及原输入索引升序排序 body 数组。
+## [br]
+## @api private
 static func _sort_bodies_by_x(bodies: Array[Dictionary]) -> void:
 	bodies.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
 		var left_bounds: Rect2 = _get_body_bounds(left)
@@ -518,6 +574,9 @@ static func _sort_bodies_by_x(bodies: Array[Dictionary]) -> void:
 	)
 
 
+## 优先采用有效的显式 world_bounds，否则合并全部 body bounds。
+## [br]
+## @api private
 static func _get_world_bounds(bodies: Array[Dictionary], options: Dictionary) -> Rect2:
 	var world_value: Variant = GFVariantData.get_option_value(options, "world_bounds")
 	if world_value is Rect2:
@@ -531,6 +590,9 @@ static func _get_world_bounds(bodies: Array[Dictionary], options: Dictionary) ->
 	return result
 
 
+## 返回覆盖两个 Rect2 外缘的最小轴对齐矩形。
+## [br]
+## @api private
 static func _rect_union(left: Rect2, right: Rect2) -> Rect2:
 	var min_x: float = minf(left.position.x, right.position.x)
 	var min_y: float = minf(left.position.y, right.position.y)
@@ -539,10 +601,16 @@ static func _rect_union(left: Rect2, right: Rect2) -> Rect2:
 	return Rect2(Vector2(min_x, min_y), Vector2(max_x - min_x, max_y - min_y))
 
 
+## 委托空间边界工具处理 Rect2 归一化。
+## [br]
+## @api private
 static func _normalize_rect(rect: Rect2) -> Rect2:
 	return _SPATIAL_BOUNDS_MATH.normalize_rect2(rect)
 
 
+## 判断两个归一化矩形是否相交；include_touching 决定边缘接触是否算重叠。
+## [br]
+## @api private
 static func _rects_overlap(left: Rect2, right: Rect2, include_touching: bool) -> bool:
 	if include_touching:
 		return (
@@ -560,10 +628,16 @@ static func _rects_overlap(left: Rect2, right: Rect2, include_touching: bool) ->
 	)
 
 
+## 按边缘接触选项判断 SAP 扫描能否在当前右侧 body 处提前结束。
+## [br]
+## @api private
 static func _sap_can_break(left_max_x: float, right_min_x: float, include_touching: bool) -> bool:
 	return right_min_x > left_max_x if include_touching else right_min_x >= left_max_x
 
 
+## 读取 body 的 Rect2 bounds；字段缺失或类型不符时返回空矩形。
+## [br]
+## @api private
 static func _get_body_bounds(body: Dictionary) -> Rect2:
 	var bounds_value: Variant = GFVariantData.get_option_value(body, "bounds", Rect2())
 	if bounds_value is Rect2:
@@ -572,13 +646,22 @@ static func _get_body_bounds(body: Dictionary) -> Rect2:
 	return Rect2()
 
 
+## 计算矩形的最大 x 坐标。
+## [br]
+## @api private
 static func _rect_max_x(rect: Rect2) -> float:
 	return rect.position.x + rect.size.x
 
 
+## 计算矩形的最大 y 坐标。
+## [br]
+## @api private
 static func _rect_max_y(rect: Rect2) -> float:
 	return rect.position.y + rect.size.y
 
 
+## 读取并限制 max_pairs 为非负数；0 表示不限制 pair 数量。
+## [br]
+## @api private
 static func _get_max_pairs(options: Dictionary) -> int:
 	return maxi(GFVariantData.get_option_int(options, "max_pairs", 0), 0)

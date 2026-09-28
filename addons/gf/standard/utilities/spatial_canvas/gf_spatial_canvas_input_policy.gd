@@ -89,6 +89,10 @@ const ABSOLUTE_MAX_SELECTION_MODIFIER_BINDINGS: int = 15
 ## @since 11.0.0
 const ABSOLUTE_MAX_ACTION_EVENTS: int = 64
 
+## SHIFT、CTRL、ALT 和 META 修饰键位的组合掩码。
+## [br]
+## @api private
+## [br]
 const _ALL_MODIFIER_MASK: int = (
 	ModifierMask.SHIFT
 	| ModifierMask.CTRL
@@ -383,6 +387,10 @@ func duplicate_policy() -> GFSpatialCanvasInputPolicy:
 
 # --- 私有/辅助方法 ---
 
+## 校验直接按钮与 InputMap action 的互斥、存在性、事件预算和指针按钮内容。
+## [br]
+## @api private
+## [br]
 func _validate_pointer_mapping(
 	report: Dictionary,
 	behavior: StringName,
@@ -439,11 +447,19 @@ func _validate_pointer_mapping(
 		)
 
 
+## 报告负掩码或包含未知位的修饰键掩码。
+## [br]
+## @api private
+## [br]
 func _validate_modifier_mask(report: Dictionary, field_name: StringName, mask: int) -> void:
 	if mask < 0 or (mask & ~_ALL_MODIFIER_MASK) != 0:
 		_append_issue(report, &"invalid_modifier_mask", "%s 包含未知修饰键位。" % String(field_name), field_name)
 
 
+## 校验选择绑定数量、空项、掩码重复/合法性和选择模式。
+## [br]
+## @api private
+## [br]
 func _validate_selection_bindings(report: Dictionary) -> void:
 	var seen_masks: Dictionary = {}
 	if (
@@ -476,6 +492,10 @@ func _validate_selection_bindings(report: Dictionary) -> void:
 			_append_issue(report, &"invalid_selection_mode", "选择修饰键绑定的 selection_mode 无效。", &"selection_modifier_bindings", binding_index)
 
 
+## 校验取消 action 存在、事件数受限且不含鼠标、触摸或手势事件。
+## [br]
+## @api private
+## [br]
 func _validate_cancel_action(report: Dictionary) -> void:
 	if placement_cancel_action == &"":
 		return
@@ -509,6 +529,10 @@ func _validate_cancel_action(report: Dictionary) -> void:
 			return
 
 
+## 比较平移与选择的物理按钮/修饰键组合，并报告首个冲突。
+## [br]
+## @api private
+## [br]
 func _validate_pointer_mapping_overlap(report: Dictionary) -> void:
 	var pan_chords: Dictionary = _collect_mapping_chords(
 		pan_mouse_button,
@@ -533,6 +557,10 @@ func _validate_pointer_mapping_overlap(report: Dictionary) -> void:
 			return
 
 
+## 从直接按钮或受限 InputMap 事件列表收集按钮与修饰键组合。
+## [br]
+## @api private
+## [br]
 func _collect_mapping_chords(
 	direct_button: MouseButton,
 	action: StringName,
@@ -565,10 +593,18 @@ func _collect_mapping_chords(
 	return result
 
 
+## 将鼠标按钮和修饰键掩码编码为组合键。
+## [br]
+## @api private
+## [br]
 func _make_chord_key(button: MouseButton, modifier_mask: int) -> int:
 	return (int(button) << 8) | modifier_mask
 
 
+## 从鼠标按钮事件汇总 shift、ctrl、alt 和 meta 修饰键位。
+## [br]
+## @api private
+## [br]
 func _modifier_mask_from_mouse_event(event: InputEventMouseButton) -> int:
 	var result: int = ModifierMask.NONE
 	if event.shift_pressed:
@@ -582,6 +618,10 @@ func _modifier_mask_from_mouse_event(event: InputEventMouseButton) -> int:
 	return result
 
 
+## 判断输入事件是否为鼠标、触摸或手势事件。
+## [br]
+## @api private
+## [br]
 func _is_pointer_action_event(event: InputEvent) -> bool:
 	return (
 		event is InputEventMouse
@@ -591,6 +631,10 @@ func _is_pointer_action_event(event: InputEvent) -> bool:
 	)
 
 
+## 追加带字段名及可选数组索引的校验错误问题。
+## [br]
+## @api private
+## [br]
 func _append_issue(
 	report: Dictionary,
 	kind: StringName,
@@ -610,6 +654,10 @@ func _append_issue(
 	)
 
 
+## 仅接受左、右、中键及两个扩展鼠标键作为指针按钮。
+## [br]
+## @api private
+## [br]
 func _is_pointer_button(button: MouseButton) -> bool:
 	return (
 		button == MOUSE_BUTTON_LEFT
@@ -620,6 +668,10 @@ func _is_pointer_button(button: MouseButton) -> bool:
 	)
 
 
+## 检查是否为画布支持的四种选择集合更新模式。
+## [br]
+## @api private
+## [br]
 func _is_valid_selection_mode(mode: GFSpatialCanvas2D.SelectionMode) -> bool:
 	return (
 		mode == GFSpatialCanvas2D.SelectionMode.REPLACE
@@ -629,10 +681,18 @@ func _is_valid_selection_mode(mode: GFSpatialCanvas2D.SelectionMode) -> bool:
 	)
 
 
+## 拒绝 NaN 和正负无穷浮点值。
+## [br]
+## @api private
+## [br]
 func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+## 创建指定修饰键掩码和选择模式的绑定资源。
+## [br]
+## @api private
+## [br]
 func _make_selection_binding(
 	mask: int,
 	mode: GFSpatialCanvas2D.SelectionMode

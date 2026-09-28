@@ -64,11 +64,40 @@ var type_filter: Variant:
 
 # --- 私有变量 ---
 
+## 当前查询节点 group 的 SceneTree。
+## [br]
+## @api private
+## [br]
 var _tree: SceneTree = null
+
+## 当前查询的 group 名称。
+## [br]
+## @api private
+## [br]
 var _group_name: StringName = &""
+
+## 可选节点类型过滤条件。
+## [br]
+## @api private
+## [br]
 var _type_filter: Variant = null
+
+## 上次重建或同步后缓存的匹配节点。
+## [br]
+## @api private
+## [br]
 var _nodes: Array[Node] = []
+
+## 缓存是否需要在下一次读取时重建。
+## [br]
+## @api private
+## [br]
 var _dirty: bool = true
+
+## 记录命中、未命中、失效与重建次数的诊断对象。
+## [br]
+## @api private
+## [br]
 var _diagnostics: GFCacheDiagnostics = GFCacheDiagnostics.new()
 
 
@@ -265,6 +294,10 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## Tree 改变时重连 node_added/node_removed 信号并标记缓存失效。
+## [br]
+## @api private
+## [br]
 func _set_tree(value: SceneTree) -> void:
 	if _tree == value:
 		return
@@ -274,6 +307,10 @@ func _set_tree(value: SceneTree) -> void:
 	invalidate(&"tree_changed")
 
 
+## group 名变化时保存新值并使缓存失效。
+## [br]
+## @api private
+## [br]
 func _set_group_name(value: StringName) -> void:
 	if _group_name == value:
 		return
@@ -281,6 +318,10 @@ func _set_group_name(value: StringName) -> void:
 	invalidate(&"group_changed")
 
 
+## 类型过滤器变化时保存新值并使缓存失效。
+## [br]
+## @api private
+## [br]
 func _set_type_filter(value: Variant) -> void:
 	if _type_filters_equal(_type_filter, value):
 		return
@@ -288,6 +329,10 @@ func _set_type_filter(value: Variant) -> void:
 	invalidate(&"type_filter_changed")
 
 
+## 连接当前 Tree 的节点添加和移除信号，避免重复连接。
+## [br]
+## @api private
+## [br]
 func _connect_tree_signals() -> void:
 	if _tree == null:
 		return
@@ -299,6 +344,10 @@ func _connect_tree_signals() -> void:
 		var _connect_removed_result: Error = _tree.node_removed.connect(removed) as Error
 
 
+## 若当前 Tree 存在，则断开已连接的节点添加和移除信号。
+## [br]
+## @api private
+## [br]
 func _disconnect_tree_signals() -> void:
 	if _tree == null:
 		return
@@ -310,10 +359,12 @@ func _disconnect_tree_signals() -> void:
 		_tree.node_removed.disconnect(removed)
 
 
-func _on_tree_node_changed(_node: Node) -> void:
-	invalidate(&"tree_changed")
 
 
+## 清空并重查 Tree group；Tree 或 group 缺失时完成空缓存写入。
+## [br]
+## @api private
+## [br]
 func _rebuild_cache() -> void:
 	_nodes.clear()
 	if _tree == null or _group_name == &"":
@@ -328,6 +379,10 @@ func _rebuild_cache() -> void:
 	_diagnostics.record_write(_group_name)
 
 
+## 移除已不满足节点匹配条件的缓存项，并逐项记录 stale_node_pruned。
+## [br]
+## @api private
+## [br]
 func _prune_stale_cached_nodes() -> void:
 	for index: int in range(_nodes.size() - 1, -1, -1):
 		var node: Node = _nodes[index]
@@ -336,6 +391,10 @@ func _prune_stale_cached_nodes() -> void:
 			_diagnostics.record_invalidation(&"stale_node_pruned", _group_name)
 
 
+## 在未失效的缓存上补入新增匹配节点，并按 instance ID 避免重复添加。
+## [br]
+## @api private
+## [br]
 func _sync_current_group_members() -> void:
 	if _tree == null or _group_name == &"":
 		return
@@ -356,6 +415,10 @@ func _sync_current_group_members() -> void:
 		_diagnostics.record_write(_group_name)
 
 
+## 创建新的数组并按原顺序收集缓存中的 Node 引用。
+## [br]
+## @api private
+## [br]
 func _copy_nodes() -> Array[Node]:
 	var result: Array[Node] = []
 	for node: Node in _nodes:
@@ -363,6 +426,10 @@ func _copy_nodes() -> Array[Node]:
 	return result
 
 
+## 要求节点仍有效、未排队删除、在 Tree 内、属于目标 group 且通过类型过滤。
+## [br]
+## @api private
+## [br]
 func _is_node_match(node: Node) -> bool:
 	return (
 		is_instance_valid(node)
@@ -373,6 +440,10 @@ func _is_node_match(node: Node) -> bool:
 	)
 
 
+## null 过滤器匹配所有节点；字符串类过滤器按名称处理，其余交给 is_instance_of。
+## [br]
+## @api private
+## [br]
 static func _matches_type(node: Node, filter: Variant) -> bool:
 	if node == null:
 		return false
@@ -383,6 +454,10 @@ static func _matches_type(node: Node, filter: Variant) -> bool:
 	return is_instance_of(node, filter)
 
 
+## 依次匹配原生类名和脚本继承链上的 global_name 或 resource_path。
+## [br]
+## @api private
+## [br]
 static func _matches_type_name(node: Node, type_name: String) -> bool:
 	if type_name.is_empty():
 		return true
@@ -397,6 +472,10 @@ static func _matches_type_name(node: Node, type_name: String) -> bool:
 	return false
 
 
+## 仅当 Variant 为 Script 时返回强类型脚本引用。
+## [br]
+## @api private
+## [br]
 static func _variant_to_script(value: Variant) -> Script:
 	if value is Script:
 		var script: Script = value
@@ -404,6 +483,10 @@ static func _variant_to_script(value: Variant) -> Script:
 	return null
 
 
+## 类型不同即不相等；同类型值按 == 比较，两个 null 视为相等。
+## [br]
+## @api private
+## [br]
 static func _type_filters_equal(left: Variant, right: Variant) -> bool:
 	if typeof(left) != typeof(right):
 		return false
@@ -412,6 +495,10 @@ static func _type_filters_equal(left: Variant, right: Variant) -> bool:
 	return left == right
 
 
+## 将 null、名称、Script 或其他过滤值转换为调试快照文本。
+## [br]
+## @api private
+## [br]
 static func _type_filter_to_text(filter: Variant) -> String:
 	if filter == null:
 		return ""
@@ -423,3 +510,12 @@ static func _type_filter_to_text(filter: Variant) -> String:
 			return String(script.get_global_name())
 		return script.resource_path
 	return str(filter)
+
+
+# --- 信号处理函数 ---
+
+## 场景树有节点加入或移除时令缓存失效；不尝试只增删传入节点，下一次查询统一重建组快照。
+## [br]
+## @api private
+func _on_tree_node_changed(_node: Node) -> void:
+	invalidate(&"tree_changed")

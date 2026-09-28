@@ -4,6 +4,10 @@ extends GFInstaller
 
 # --- 常量 ---
 
+## GFTurnFlowSystem 的脚本资源，用于安装器检查并注册运行时系统。
+## [br]
+## @api private
+## [br]
 const _GF_TURN_FLOW_SYSTEM_SCRIPT = preload("res://addons/gf/extensions/turn_based/runtime/gf_turn_flow_system.gd")
 
 

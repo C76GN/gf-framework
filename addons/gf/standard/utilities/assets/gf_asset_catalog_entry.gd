@@ -309,6 +309,10 @@ static func from_resource_registry_entry(
 
 # --- 私有/辅助方法 ---
 
+## 按路径、资源键和类型提示构造不检查文件是否存在的资源身份。
+## [br]
+## @api private
+## [br]
 static func _make_resource_identity(
 	path: String,
 	resource_key: StringName,
@@ -317,15 +321,27 @@ static func _make_resource_identity(
 	return GFResourceIdentity.from_path(path, resource_key, hint, { "check_exists": false })
 
 
+## 规范化可选路径；身份结果为空时保留去除首尾空白的原值。
+## [br]
+## @api private
+## [br]
 static func _normalize_optional_path(path: String) -> String:
 	var identity: GFResourceIdentity = _make_resource_identity(path, &"", "")
 	return identity.canonical_path if not identity.canonical_path.is_empty() else path.strip_edges()
 
 
+## 统一规范化标签列表。
+## [br]
+## @api private
+## [br]
 static func _normalize_tags(values: PackedStringArray) -> PackedStringArray:
 	return _normalize_string_array(values)
 
 
+## 去除字符串首尾空白、空值和重复项，并对结果排序。
+## [br]
+## @api private
+## [br]
 static func _normalize_string_array(values: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for value: String in values:
@@ -336,6 +352,10 @@ static func _normalize_string_array(values: PackedStringArray) -> PackedStringAr
 	return result
 
 
+## 从选项读取字段名列表，缺省时使用传入的字段顺序。
+## [br]
+## @api private
+## [br]
 static func _get_field_list(options: Dictionary, key: String, default_values: Array[String]) -> PackedStringArray:
 	var fallback: PackedStringArray = PackedStringArray()
 	for value: String in default_values:
@@ -343,6 +363,10 @@ static func _get_field_list(options: Dictionary, key: String, default_values: Ar
 	return GFVariantData.get_option_packed_string_array(options, key, fallback)
 
 
+## 按字段顺序返回第一个非空文本值。
+## [br]
+## @api private
+## [br]
 static func _get_first_field_text(fields: Dictionary, field_ids: PackedStringArray) -> String:
 	for field_id_text: String in field_ids:
 		var value: Variant = _get_field_value(fields, StringName(field_id_text))
@@ -352,6 +376,10 @@ static func _get_first_field_text(fields: Dictionary, field_ids: PackedStringArr
 	return ""
 
 
+## 按字段顺序收集标签值并去重排序。
+## [br]
+## @api private
+## [br]
 static func _get_field_tags(fields: Dictionary, field_ids: PackedStringArray) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var lookup: Dictionary = {}
@@ -361,6 +389,10 @@ static func _get_field_tags(fields: Dictionary, field_ids: PackedStringArray) ->
 	return result
 
 
+## 递归展开支持的标签容器并追加其文本值。
+## [br]
+## @api private
+## [br]
 static func _append_tags(result: PackedStringArray, lookup: Dictionary, value: Variant) -> void:
 	if value == null:
 		return
@@ -376,6 +408,10 @@ static func _append_tags(result: PackedStringArray, lookup: Dictionary, value: V
 		_append_tag(result, lookup, GFVariantData.to_text(value))
 
 
+## 去除标签首尾空白，并跳过空项和已收录项。
+## [br]
+## @api private
+## [br]
 static func _append_tag(result: PackedStringArray, lookup: Dictionary, value: String) -> void:
 	var tag: String = value.strip_edges()
 	if tag.is_empty() or lookup.has(tag):
@@ -384,6 +420,10 @@ static func _append_tag(result: PackedStringArray, lookup: Dictionary, value: St
 	var _appended: bool = result.append(tag)
 
 
+## 按 StringName 键或对应字符串键读取字段值。
+## [br]
+## @api private
+## [br]
 static func _get_field_value(fields: Dictionary, field_id: StringName) -> Variant:
 	if fields.has(field_id):
 		return fields[field_id]
@@ -393,6 +433,10 @@ static func _get_field_value(fields: Dictionary, field_id: StringName) -> Varian
 	return null
 
 
+## 优先实例化当前脚本类型；无法取得兼容实例时回退到基类。
+## [br]
+## @api private
+## [br]
 func _make_entry_instance() -> GFAssetCatalogEntry:
 	var script_value: Variant = get_script()
 	if script_value is Script:

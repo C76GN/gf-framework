@@ -3,20 +3,79 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 展示快照在未覆盖时采用的最大递归深度。
+## [br]
+## @api private
 const _DEFAULT_MAX_DEPTH: int = 32
+
+## 展示快照在未覆盖时采用的最大节点数。
+## [br]
+## @api private
 const _DEFAULT_MAX_NODES: int = 16_384
+
+## 展示快照在未覆盖时采用的最大估算字节数。
+## [br]
+## @api private
 const _DEFAULT_MAX_BYTES: int = 4 * 1024 * 1024
+
+## 展示快照在未覆盖时采用的最大 PackedArray 总长度。
+## [br]
+## @api private
 const _DEFAULT_MAX_PACKED_LENGTH: int = 65_536
+
+## 完整身份复制在未覆盖时采用的最大递归深度。
+## [br]
+## @api private
 const _DEFAULT_IDENTITY_MAX_DEPTH: int = 64
+
+## 完整身份复制在未覆盖时采用的最大节点数。
+## [br]
+## @api private
 const _DEFAULT_IDENTITY_MAX_NODES: int = 262_144
+
+## 完整身份复制在未覆盖时采用的最大估算字节数。
+## [br]
+## @api private
 const _DEFAULT_IDENTITY_MAX_BYTES: int = 16 * 1024 * 1024
+
+## 完整身份复制在未覆盖时采用的最大 PackedArray 总长度。
+## [br]
+## @api private
 const _DEFAULT_IDENTITY_MAX_PACKED_LENGTH: int = 1_048_576
+
+## 展示快照遇到循环引用时写入的稳定标记。
+## [br]
+## @api private
 const _CIRCULAR_REFERENCE_MARKER: String = "<circular_reference>"
+
+## 递归深度超限时写入的稳定标记。
+## [br]
+## @api private
 const _MAX_DEPTH_MARKER: String = "<max_depth>"
+
+## 节点预算超限时写入的稳定标记。
+## [br]
+## @api private
 const _NODE_BUDGET_MARKER: String = "<node_budget>"
+
+## 字节预算超限时写入的稳定标记。
+## [br]
+## @api private
 const _BYTE_BUDGET_MARKER: String = "<byte_budget>"
+
+## PackedArray 长度预算超限时写入的稳定标记。
+## [br]
+## @api private
 const _PACKED_BUDGET_MARKER: String = "<packed_length_budget>"
+
+## 遇到不支持的 Variant 类型时写入的稳定标记。
+## [br]
+## @api private
 const _UNSUPPORTED_VARIANT_MARKER: String = "<unsupported_variant>"
+
+## 在字典快照中标记部分分支已截断的保留键名。
+## [br]
+## @api private
 const _TRUNCATED_KEY: String = "__gf_snapshot_truncated__"
 
 
@@ -106,6 +165,9 @@ static func copy_complete_report(value: Variant, options: Dictionary = {}) -> Di
 
 # --- 私有/辅助方法 ---
 
+## 按操作模式和预算选项初始化复制状态。
+## [br]
+## @api private
 static func _create_state(options: Dictionary, complete: bool) -> _CopyState:
 	var state: _CopyState = _CopyState.new()
 	state._complete = complete
@@ -132,6 +194,9 @@ static func _create_state(options: Dictionary, complete: bool) -> _CopyState:
 	return state
 
 
+## 读取正整数预算覆盖值；缺失或无效时使用回退值。
+## [br]
+## @api private
 static func _get_positive_option(options: Dictionary, key: String, fallback: int) -> int:
 	var value: Variant = options.get(key, fallback)
 	if value is int:
@@ -141,6 +206,9 @@ static func _get_positive_option(options: Dictionary, key: String, fallback: int
 	return fallback
 
 
+## 在共享状态中递归复制 Variant，并执行深度、节点及类型检查。
+## [br]
+## @api private
 static func _copy_value_impl(value: Variant, depth: int, path: String, state: _CopyState) -> Variant:
 	if state._stopped:
 		return _marker_for_error(state._error)
@@ -198,6 +266,9 @@ static func _copy_value_impl(value: Variant, depth: int, path: String, state: _C
 	return value
 
 
+## 根据 PackedArray 类型预留预算后复制其内容。
+## [br]
+## @api private
 static func _copy_packed_array(value: Variant, path: String, state: _CopyState) -> Variant:
 	match typeof(value):
 		TYPE_PACKED_BYTE_ARRAY:
@@ -243,6 +314,9 @@ static func _copy_packed_array(value: Variant, path: String, state: _CopyState) 
 	return _marker_for_error(state._error)
 
 
+## 为固定元素宽度的 PackedArray 检查长度和字节预算。
+## [br]
+## @api private
 static func _reserve_fixed_packed(
 	state: _CopyState,
 	length: int,
@@ -259,6 +333,9 @@ static func _reserve_fixed_packed(
 	return _reserve_bytes(state, length * element_bytes, path)
 
 
+## 为 PackedStringArray 检查长度预算及字符串 UTF-8 字节预算。
+## [br]
+## @api private
 static func _reserve_string_packed(
 	state: _CopyState,
 	packed: PackedStringArray,
@@ -276,6 +353,9 @@ static func _reserve_string_packed(
 	return _reserve_bytes(state, total_bytes, path)
 
 
+## 预留一个节点计数；超出上限时记录节点预算错误。
+## [br]
+## @api private
 static func _reserve_node(state: _CopyState, path: String) -> bool:
 	if state._node_count >= state._max_nodes:
 		var _issue: Variant = _record_issue(state, "node_budget", path, _NODE_BUDGET_MARKER, true)
@@ -284,6 +364,9 @@ static func _reserve_node(state: _CopyState, path: String) -> bool:
 	return true
 
 
+## 在累计字节数未超过配置上限时预留指定估算字节数。
+## [br]
+## @api private
 static func _reserve_bytes(state: _CopyState, amount: int, path: String) -> bool:
 	if amount < 0 or amount > state._max_bytes - state._byte_count:
 		var _issue: Variant = _record_issue(state, "byte_budget", path, _BYTE_BUDGET_MARKER, true)
@@ -292,6 +375,9 @@ static func _reserve_bytes(state: _CopyState, amount: int, path: String) -> bool
 	return true
 
 
+## 在累计 PackedArray 长度未超限时预留指定长度。
+## [br]
+## @api private
 static func _reserve_packed_length(state: _CopyState, amount: int, path: String) -> bool:
 	if amount < 0 or amount > state._max_packed_length - state._packed_length:
 		var _issue: Variant = _record_issue(
@@ -306,6 +392,9 @@ static func _reserve_packed_length(state: _CopyState, amount: int, path: String)
 	return true
 
 
+## 记录首个适用错误，并按完整复制或预算错误规则更新状态。
+## [br]
+## @api private
 static func _record_issue(
 	state: _CopyState,
 	error: String,
@@ -324,6 +413,9 @@ static func _record_issue(
 	return marker
 
 
+## 在字典中写入截断标记，并为冲突保留键添加递增后缀。
+## [br]
+## @api private
 static func _append_truncation_marker(dictionary: Dictionary, marker: String) -> void:
 	var key: String = _TRUNCATED_KEY
 	var suffix: int = 1
@@ -333,6 +425,9 @@ static func _append_truncation_marker(dictionary: Dictionary, marker: String) ->
 	dictionary[key] = marker
 
 
+## 将错误标识映射到对应的稳定快照标记。
+## [br]
+## @api private
 static func _marker_for_error(error: String) -> String:
 	match error:
 		"max_depth":
@@ -348,6 +443,9 @@ static func _marker_for_error(error: String) -> String:
 	return _UNSUPPORTED_VARIANT_MARKER
 
 
+## 按 Variant 类型估算标量对字节预算的占用。
+## [br]
+## @api private
 static func _estimate_scalar_bytes(value: Variant) -> int:
 	match typeof(value):
 		TYPE_NIL:
@@ -378,6 +476,9 @@ static func _estimate_scalar_bytes(value: Variant) -> int:
 	return 16
 
 
+## 判断值是否为复制器支持的 PackedArray 类型。
+## [br]
+## @api private
 static func _is_packed_array(value: Variant) -> bool:
 	return typeof(value) in [
 		TYPE_PACKED_BYTE_ARRAY,
@@ -393,10 +494,16 @@ static func _is_packed_array(value: Variant) -> bool:
 	]
 
 
+## 判断值是否为对象、Callable、Signal 或 RID 等不稳定类型。
+## [br]
+## @api private
 static func _is_unstable_variant(value: Variant) -> bool:
 	return typeof(value) in [TYPE_OBJECT, TYPE_CALLABLE, TYPE_SIGNAL, TYPE_RID]
 
 
+## 使用身份比较检查递归路径中是否已有相同容器。
+## [br]
+## @api private
 static func _visited_contains(visited: Array, value: Variant) -> bool:
 	for item: Variant in visited:
 		if is_same(item, value):
@@ -406,17 +513,73 @@ static func _visited_contains(visited: Array, value: Variant) -> bool:
 
 # --- 内部类 ---
 
+## 保存单次快照复制过程的模式、预算、计数及递归状态。
+## [br]
+## @api private
 class _CopyState extends RefCounted:
+	# --- 私有变量 ---
+
+	## 是否要求完整复制；该模式遇到无法复制的值即标记失败并停止。
+	## [br]
+	## @api private
 	var _complete: bool = false
+
+	## 本次复制允许的最大递归深度。
+	## [br]
+	## @api private
 	var _max_depth: int = 0
+
+	## 本次复制允许访问的最大值节点数。
+	## [br]
+	## @api private
 	var _max_nodes: int = 0
+
+	## 本次复制估算字节量的累计上限。
+	## [br]
+	## @api private
 	var _max_bytes: int = 0
+
+	## 所有 PackedArray 元素数量的累计上限。
+	## [br]
+	## @api private
 	var _max_packed_length: int = 0
+
+	## 已经计入访问预算的值节点数。
+	## [br]
+	## @api private
 	var _node_count: int = 0
+
+	## 已经预留的估算字节量，不代表实际堆内存占用。
+	## [br]
+	## @api private
 	var _byte_count: int = 0
+
+	## 已经计入预算的 PackedArray 元素总数。
+	## [br]
+	## @api private
 	var _packed_length: int = 0
+
+	## 完整复制模式是否遭遇不能交付完整结果的失败。
+	## [br]
+	## @api private
 	var _failed: bool = false
+
+	## 是否停止继续遍历；预算耗尽时展示模式也可能置位。
+	## [br]
+	## @api private
 	var _stopped: bool = false
+
+	## 首次需要记录的复制失败原因。
+	## [br]
+	## @api private
 	var _error: String = ""
+
+	## 与首次记录的失败原因对应的值路径。
+	## [br]
+	## @api private
 	var _path: String = ""
+
+	## 当前递归链上的容器引用栈，以身份比较检测环；离开容器后弹出。
+	## [br]
+	## @api private
 	var _visited: Array = []

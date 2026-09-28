@@ -39,17 +39,28 @@ signal buff_removal_reported(
 
 # --- 私有变量 ---
 
-# 存储所有当前受系统管理的战斗实体元数据。
-# 格式：{ entity_id: { "buffs": [GFBuff], "skills": [GFSkill] } }
+## 按实体 instance ID 保存 Buff 与技能数组；实体记录会在清理回调前从索引移除。
+## [br]
+## @api private
 var _entities: Dictionary = {}
 
-# 活跃实体集合。键为实体 ID，值固定为 true。
+## 保存需要 tick 的实体 ID；包含有 Buff 或仍处于冷却中的技能的实体。
+## [br]
+## @api private
 var _active_entities: Dictionary = {}
+
+## 阻止 dispose 重入，并在释放期间抑制架构事件转发。
+## [br]
+## @api private
 var _is_disposing: bool = false
+
+## 为每个已挂载 Buff 保存实例标记；逐帧快照用标记身份跳过已移除或替换的条目。
+## [br]
+## @api private
 var _buff_mounts: Dictionary[int, RefCounted] = {}
 
 
-# --- GF 生命周期方法 ---
+# --- 公共方法 ---
 
 ## 推进运行时逻辑。
 ## [br]
@@ -85,8 +96,6 @@ func dispose() -> void:
 	_active_entities.clear()
 	_buff_mounts.clear()
 
-
-# --- 公共方法 ---
 
 ## 注册战斗实体。
 ## [br]
@@ -437,6 +446,9 @@ func remove_skill(p_entity: Object, p_skill: GFSkill) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 读取实体记录；记录缺失时返回临时空字典，已存值类型错误时重建并保存空 Buff/技能数组。
+## [br]
+## @api private
 func _get_entity_data(entity_id: int) -> Dictionary:
 	if not _entities.has(entity_id):
 		return {}
@@ -454,14 +466,23 @@ func _get_entity_data(entity_id: int) -> Dictionary:
 	return repaired_data
 
 
+## 从实体记录取得或创建其 buffs 数组。
+## [br]
+## @api private
 func _get_entity_buffs(data: Dictionary) -> Array:
 	return _get_or_create_entity_array(data, "buffs")
 
 
+## 从实体记录取得或创建其 skills 数组。
+## [br]
+## @api private
 func _get_entity_skills(data: Dictionary) -> Array:
 	return _get_or_create_entity_array(data, "skills")
 
 
+## 返回记录中现有的 Array；缺失或类型不符时创建空数组并写回。
+## [br]
+## @api private
 func _get_or_create_entity_array(data: Dictionary, key: String) -> Array:
 	if data.has(key):
 		var value: Variant = data[key]
@@ -474,18 +495,27 @@ func _get_or_create_entity_array(data: Dictionary, key: String) -> Array:
 	return created
 
 
+## 检查索引边界后，将数组元素收窄为有效 GFBuff。
+## [br]
+## @api private
 func _get_buff_at(buffs: Array, index: int) -> GFBuff:
 	if index < 0 or index >= buffs.size():
 		return null
 	return _variant_to_buff(buffs[index])
 
 
+## 检查索引边界后，将数组元素收窄为有效 GFSkill。
+## [br]
+## @api private
 func _get_skill_at(skills: Array, index: int) -> GFSkill:
 	if index < 0 or index >= skills.size():
 		return null
 	return _variant_to_skill(skills[index])
 
 
+## 无效 Callable 默认接受 Buff；有效回调只有返回 bool true 才接受。
+## [br]
+## @api private
 func _predicate_accepts_buff(predicate: Callable, buff: GFBuff) -> bool:
 	if not predicate.is_valid():
 		return true
@@ -493,6 +523,9 @@ func _predicate_accepts_buff(predicate: Callable, buff: GFBuff) -> bool:
 	return accepted if accepted is bool else false
 
 
+## 为技能连接一次 cooldown_started 信号，并在连接失败时记录警告。
+## [br]
+## @api private
 func _connect_skill_cooldown(skill: GFSkill) -> void:
 	if skill == null or skill.is_connected(&"cooldown_started", _on_skill_cooldown_started):
 		return
@@ -501,10 +534,16 @@ func _connect_skill_cooldown(skill: GFSkill) -> void:
 		push_warning("[GFCombatSystem][combat_system.cooldown_signal_connection_failed] Could not connect the skill cooldown signal; error code: %s." % connect_result)
 
 
+## 从字典移除键并忽略 erase 返回值。
+## [br]
+## @api private
 func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 	var _removed: bool = target.erase(key)
 
 
+## 将有效实例收窄为 GFBuff，空引用、已释放实例或其他类型返回 null。
+## [br]
+## @api private
 func _variant_to_buff(value: Variant) -> GFBuff:
 	if not is_instance_valid(value):
 		return null
@@ -514,6 +553,9 @@ func _variant_to_buff(value: Variant) -> GFBuff:
 	return null
 
 
+## 将有效实例收窄为 GFSkill，空引用、已释放实例或其他类型返回 null。
+## [br]
+## @api private
 func _variant_to_skill(value: Variant) -> GFSkill:
 	if not is_instance_valid(value):
 		return null
@@ -523,6 +565,9 @@ func _variant_to_skill(value: Variant) -> GFSkill:
 	return null
 
 
+## 将有效实例收窄为 GFModifiedAttribute，空引用、已释放实例或其他类型返回 null。
+## [br]
+## @api private
 func _variant_to_modified_attribute(value: Variant) -> GFModifiedAttribute:
 	if not is_instance_valid(value):
 		return null
@@ -533,6 +578,9 @@ func _variant_to_modified_attribute(value: Variant) -> GFModifiedAttribute:
 
 
 # 更新实体的活跃状态。
+## 根据 Buff 数组和技能冷却更新活跃索引；实体无效或记录缺失时移除该索引项。
+## [br]
+## @api private
 func _update_active_status(p_entity: Object) -> void:
 	if not is_instance_valid(p_entity):
 		return
@@ -560,6 +608,9 @@ func _update_active_status(p_entity: Object) -> void:
 		_erase_dictionary_key(_active_entities, entity_id)
 
 
+## 移除已释放实体的记录并清理没有有效实体记录的活跃索引项。
+## [br]
+## @api private
 func _cleanup_invalid_entities() -> void:
 	for entity_id: int in _entities.keys():
 		var entity: Object = instance_from_id(entity_id)
@@ -572,6 +623,9 @@ func _cleanup_invalid_entities() -> void:
 			_erase_dictionary_key(_active_entities, entity_id)
 
 
+## 将非空实体转换为 instance ID，并委托给按 ID 清理路径。
+## [br]
+## @api private
 func _remove_entity_record(
 	p_entity: Object,
 	remove_effects: bool,
@@ -583,6 +637,9 @@ func _remove_entity_record(
 	_remove_entity_record_by_id(p_entity.get_instance_id(), remove_effects, reason)
 
 
+## 先从实体和活跃索引移除记录，再按传入策略清理其 Buff 与技能。
+## [br]
+## @api private
 func _remove_entity_record_by_id(
 	entity_id: int,
 	remove_effects: bool,
@@ -599,6 +656,9 @@ func _remove_entity_record_by_id(
 	_cleanup_entity_data(entity, data, remove_effects, reason)
 
 
+## 先复制并清空活跃 Buff/技能数组，再执行 Buff 移除回调和技能信号断连。
+## [br]
+## @api private
 func _cleanup_entity_data(
 	entity: Object,
 	data: Dictionary,
@@ -627,17 +687,18 @@ func _cleanup_entity_data(
 			skill.cooldown_started.disconnect(_on_skill_cooldown_started)
 
 
-func _on_skill_cooldown_started(p_skill: GFSkill) -> void:
-	if is_instance_valid(p_skill) and is_instance_valid(p_skill.owner):
-		_update_active_status(p_skill.owner)
-
-
+## 仅在架构存在且支持 send_event 时转发战斗事件。
+## [br]
+## @api private
 func _send_combat_event(event_instance: Object) -> void:
 	var arch: GFArchitecture = _get_architecture_or_null()
 	if arch != null and arch.has_method("send_event"):
 		arch.send_event(event_instance)
 
 
+## 按索引先移除数组项，再清除实例标记并完成回调清理；无效 Buff 返回 false。
+## [br]
+## @api private
 func _remove_buff_at(
 	p_entity: Object,
 	buffs: Array,
@@ -657,6 +718,9 @@ func _remove_buff_at(
 	return true
 
 
+## 规范化移除原因并生成报告，发出本地移除信号；非 dispose 流程还会转发架构事件。
+## [br]
+## @api private
 func _finalize_buff_removal(
 	p_entity: Object,
 	buff: GFBuff,
@@ -687,6 +751,9 @@ func _finalize_buff_removal(
 	return report
 
 
+## 仅当两个实例有效且 incoming ID 非空并与现有 ID 相同时允许刷新。
+## [br]
+## @api private
 func _should_refresh_existing_buff(existing: GFBuff, incoming: GFBuff) -> bool:
 	if existing == null or incoming == null:
 		return false
@@ -695,6 +762,9 @@ func _should_refresh_existing_buff(existing: GFBuff, incoming: GFBuff) -> bool:
 	return existing.id == incoming.id
 
 
+## 每个有效且非空的 modifier.attribute_id 最多强制重算一次，并在至少重算一个属性时返回 true。
+## [br]
+## @api private
 func _refresh_buff_modifier_attributes(buff: GFBuff) -> bool:
 	if buff == null or buff.owner == null or not is_instance_valid(buff.owner):
 		return false
@@ -720,6 +790,9 @@ func _refresh_buff_modifier_attributes(buff: GFBuff) -> bool:
 	return refreshed
 
 
+## 以 Buff 列表和 mount 标记快照逆序更新；回调改变实体记录或移除标记后停止或跳过旧条目。
+## [br]
+## @api private
 func _process_entity(p_entity: Object, p_delta: float) -> void:
 	var entity_id: int = p_entity.get_instance_id()
 	if not _entities.has(entity_id):
@@ -774,3 +847,13 @@ func _process_entity(p_entity: Object, p_delta: float) -> void:
 
 	if _entities.has(entity_id):
 		_update_active_status(p_entity)
+
+
+# --- 信号处理函数 ---
+
+## 技能及 owner 仍有效时重新评估 owner 是否需要活跃更新。
+## [br]
+## @api private
+func _on_skill_cooldown_started(p_skill: GFSkill) -> void:
+	if is_instance_valid(p_skill) and is_instance_valid(p_skill.owner):
+		_update_active_status(p_skill.owner)

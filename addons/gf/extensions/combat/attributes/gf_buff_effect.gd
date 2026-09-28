@@ -225,6 +225,9 @@ func _restore_state_snapshot(_snapshot: Dictionary) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 深拷贝效果钩子报告，补齐 ok、reason、effect_id 和 event，并合并资源自身的 metadata。
+## [br]
+## @api private
 func _normalize_report(report: Dictionary, event_name: StringName) -> Dictionary:
 	var result: Dictionary = report.duplicate(true)
 	result["ok"] = GFVariantData.get_option_bool(result, "ok", true)

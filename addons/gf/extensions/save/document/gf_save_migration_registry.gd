@@ -14,7 +14,16 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 按 schema、section 和起始版本边键保存迁移步骤。
+## [br]
+## @api private
+## [br]
 var _steps: Dictionary = {}
+
+## 将迁移步骤 ID 映射到对应的版本边键。
+## [br]
+## @api private
+## [br]
 var _step_ids: Dictionary = {}
 
 
@@ -412,6 +421,10 @@ func migrate(
 
 # --- 私有/辅助方法 ---
 
+## 返回输入文档与目标 schema 的首个预检错误。
+## [br]
+## @api private
+## [br]
 func _get_preflight_error(
 	document: GFSaveDocument,
 	target_schema: GFSaveDocumentSchema
@@ -433,6 +446,10 @@ func _get_preflight_error(
 	return ""
 
 
+## 创建尚未填入迁移边列表的基础计划字典。
+## [br]
+## @api private
+## [br]
 func _make_plan_base(
 	document: GFSaveDocument,
 	target_schema: GFSaveDocumentSchema
@@ -451,6 +468,10 @@ func _make_plan_base(
 	}
 
 
+## 构造成功结果并记录源、目标版本和迁移轨迹。
+## [br]
+## @api private
+## [br]
 func _make_success(
 	source_document: GFSaveDocument,
 	target_document: GFSaveDocument,
@@ -473,6 +494,10 @@ func _make_success(
 	return result
 
 
+## 构造失败结果，不暴露部分迁移文档。
+## [br]
+## @api private
+## [br]
 func _make_failure(
 	source_document: GFSaveDocument,
 	target_schema: GFSaveDocumentSchema,
@@ -497,6 +522,10 @@ func _make_failure(
 	return result
 
 
+## 按 schema、section 和起始版本查找迁移步骤。
+## [br]
+## @api private
+## [br]
 func _get_step(
 	schema_id: StringName,
 	section_id: StringName,
@@ -505,6 +534,10 @@ func _get_step(
 	return _get_step_by_key(_make_edge_key(schema_id, section_id, from_version))
 
 
+## 从本次操作的步骤快照中查找指定迁移边。
+## [br]
+## @api private
+## [br]
 func _get_step_from_snapshot(
 	step_snapshot: Dictionary,
 	schema_id: StringName,
@@ -518,6 +551,10 @@ func _get_step_from_snapshot(
 	return null
 
 
+## 按边键读取已注册迁移步骤；类型不符时返回 null。
+## [br]
+## @api private
+## [br]
 func _get_step_by_key(edge_key: String) -> GFSaveMigrationStep:
 	var value: Variant = GFVariantData.get_option_value(_steps, edge_key)
 	if value is GFSaveMigrationStep:
@@ -526,6 +563,10 @@ func _get_step_by_key(edge_key: String) -> GFSaveMigrationStep:
 	return null
 
 
+## 复制调用上下文并写入当前迁移步骤的标识与版本字段。
+## [br]
+## @api private
+## [br]
 func _make_step_context(context: Dictionary, step: GFSaveMigrationStep) -> Dictionary:
 	var result: Dictionary = context.duplicate(true)
 	result["migration_step_id"] = step.step_id
@@ -536,6 +577,10 @@ func _make_step_context(context: Dictionary, step: GFSaveMigrationStep) -> Dicti
 	return result
 
 
+## 返回文档中各分区当前保存的 schema 版本。
+## [br]
+## @api private
+## [br]
 func _get_section_versions(document: GFSaveDocument) -> Dictionary:
 	var result: Dictionary = {}
 	if document == null:
@@ -547,6 +592,10 @@ func _get_section_versions(document: GFSaveDocument) -> Dictionary:
 	return result
 
 
+## 检查文档级迁移是否改动迁移前后共有分区的 schema 版本。
+## [br]
+## @api private
+## [br]
 func _get_document_step_section_version_error(
 	before: GFSaveDocument,
 	after: GFSaveDocument
@@ -562,6 +611,10 @@ func _get_document_step_section_version_error(
 	return ""
 
 
+## 返回校验报告首个问题的消息；没有问题时使用 fallback。
+## [br]
+## @api private
+## [br]
 func _get_first_validation_message(report: Dictionary, fallback: String) -> String:
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 	if issues.is_empty():
@@ -570,6 +623,10 @@ func _get_first_validation_message(report: Dictionary, fallback: String) -> Stri
 	return GFVariantData.get_option_string(first_issue, "message", fallback)
 
 
+## 序列化 schema、section 和起始版本组成的边键。
+## [br]
+## @api private
+## [br]
 static func _make_edge_key(
 	schema_id: StringName,
 	section_id: StringName,
@@ -578,6 +635,10 @@ static func _make_edge_key(
 	return JSON.stringify([String(schema_id), String(section_id), from_version])
 
 
+## 构造迁移边的 schema、作用域和版本描述。
+## [br]
+## @api private
+## [br]
 static func _make_edge_descriptor(
 	schema_id: StringName,
 	section_id: StringName,
@@ -593,6 +654,10 @@ static func _make_edge_descriptor(
 	}
 
 
+## 提取非空且文本唯一的字典键，并按文本排序。
+## [br]
+## @api private
+## [br]
 static func _sorted_dictionary_keys(source: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for key: Variant in source.keys():

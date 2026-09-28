@@ -38,6 +38,9 @@ signal cleared
 
 # --- 常量 ---
 
+## 将字段值映射为稳定索引 token 的 Variant key codec 脚本。
+## [br]
+## @api private
 const _GF_VARIANT_KEY_CODEC_SCRIPT = preload("res://addons/gf/standard/foundation/variant/gf_variant_key_codec.gd")
 
 
@@ -51,8 +54,19 @@ var duplicate_values: bool = true
 
 # --- 私有变量 ---
 
+## 按 item_id 保存值与规范化字段的条目表。
+## [br]
+## @api private
 var _items: Dictionary = {}
+
+## 按字段标识和值 token 保存 item_id 集合的反向索引。
+## [br]
+## @api private
 var _indexes: Dictionary = {}
+
+## 同步 mutation 信号派发期间阻止同一索引再次修改的标记。
+## [br]
+## @api private
 var _is_emitting_mutation_signal: bool = false
 
 
@@ -266,6 +280,9 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 移除条目并从各字段索引中删除其值，不派发信号。
+## [br]
+## @api private
 func _remove_item_state(item_id: StringName) -> bool:
 	if not _items.has(item_id):
 		return false
@@ -276,30 +293,45 @@ func _remove_item_state(item_id: StringName) -> bool:
 	return true
 
 
+## 设置 mutation 信号派发标记并发出 item_indexed。
+## [br]
+## @api private
 func _emit_item_indexed(item_id: StringName) -> void:
 	_is_emitting_mutation_signal = true
 	item_indexed.emit(item_id)
 	_is_emitting_mutation_signal = false
 
 
+## 设置 mutation 信号派发标记并发出 item_removed。
+## [br]
+## @api private
 func _emit_item_removed(item_id: StringName) -> void:
 	_is_emitting_mutation_signal = true
 	item_removed.emit(item_id)
 	_is_emitting_mutation_signal = false
 
 
+## 设置 mutation 信号派发标记并发出 cleared。
+## [br]
+## @api private
 func _emit_cleared() -> void:
 	_is_emitting_mutation_signal = true
 	cleared.emit()
 	_is_emitting_mutation_signal = false
 
 
+## 按 duplicate_values 配置处理存储或返回的值。
+## [br]
+## @api private
 func _copy_value(value: Variant) -> Variant:
 	if duplicate_values:
 		return GFVariantData.duplicate_variant(value)
 	return value
 
 
+## 规范字段标识和值集合；遇到任一无效值时返回失败报告。
+## [br]
+## @api private
 func _try_normalize_fields(fields: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for field_id_variant: Variant in fields.keys():
@@ -321,6 +353,9 @@ func _try_normalize_fields(fields: Dictionary) -> Dictionary:
 	}
 
 
+## 将单字段输入转为值数组；数组中 null 项会跳过。
+## [br]
+## @api private
 func _try_normalize_field_values(value: Variant) -> Dictionary:
 	var result: Array = []
 	if value == null:
@@ -354,6 +389,9 @@ func _try_normalize_field_values(value: Variant) -> Dictionary:
 	}
 
 
+## 将条目的每个字段值登记到反向索引。
+## [br]
+## @api private
 func _index_fields(item_id: StringName, fields: Dictionary) -> void:
 	for field_id: StringName in fields.keys():
 		var values: Array = _get_field_values(fields, field_id)
@@ -363,6 +401,9 @@ func _index_fields(item_id: StringName, fields: Dictionary) -> void:
 			_add_index_value(field_id, value, item_id)
 
 
+## 从反向索引移除条目的每个字段值。
+## [br]
+## @api private
 func _remove_fields_from_indexes(item_id: StringName, fields: Dictionary) -> void:
 	for field_id: StringName in fields.keys():
 		var values: Array = _get_field_values(fields, field_id)
@@ -372,6 +413,9 @@ func _remove_fields_from_indexes(item_id: StringName, fields: Dictionary) -> voi
 			_remove_index_value(field_id, value, item_id)
 
 
+## 将 item_id 加入字段值 token 对应的索引集合。
+## [br]
+## @api private
 func _add_index_value(field_id: StringName, field_value: Variant, item_id: StringName) -> void:
 	var field_index: Dictionary = _get_or_create_field_index(field_id)
 	var value_key: String = _make_value_key(field_value)
@@ -381,6 +425,9 @@ func _add_index_value(field_id: StringName, field_value: Variant, item_id: Strin
 	item_lookup[item_id] = true
 
 
+## 从字段值索引中移除 item_id，并清理空值项及空字段索引。
+## [br]
+## @api private
 func _remove_index_value(field_id: StringName, field_value: Variant, item_id: StringName) -> void:
 	var field_index: Dictionary = _get_field_index(field_id)
 	if field_index.is_empty():
@@ -398,14 +445,23 @@ func _remove_index_value(field_id: StringName, field_value: Variant, item_id: St
 		var _field_erased: bool = _indexes.erase(field_id)
 
 
+## 使用 Variant key codec 生成字段值的索引 token。
+## [br]
+## @api private
 func _make_value_key(value: Variant) -> String:
 	return _GF_VARIANT_KEY_CODEC_SCRIPT.make_key_token(value)
 
 
+## 委托 Variant key codec 判断字段值是否可稳定索引。
+## [br]
+## @api private
 func _is_stable_field_value(value: Variant) -> bool:
 	return _GF_VARIANT_KEY_CODEC_SCRIPT.is_stable_key(value)
 
 
+## 将右侧 ID 集合转为查找表，并返回左右两表交集。
+## [br]
+## @api private
 func _intersect_lookup(left_lookup: Dictionary, right_ids: PackedStringArray) -> Dictionary:
 	var right_lookup: Dictionary = {}
 	for item_id_text: String in right_ids:
@@ -418,6 +474,9 @@ func _intersect_lookup(left_lookup: Dictionary, right_ids: PackedStringArray) ->
 	return result
 
 
+## 将 lookup 中的 item_id 转成排序后的文本数组。
+## [br]
+## @api private
 func _lookup_to_sorted_ids(lookup: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for item_id_variant: Variant in lookup.keys():
@@ -426,23 +485,38 @@ func _lookup_to_sorted_ids(lookup: Dictionary) -> PackedStringArray:
 	return result
 
 
+## 获取 item_id 对应条目；不存在时返回空字典。
+## [br]
+## @api private
 func _get_item_entry(item_id: StringName) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_items, item_id, {}))
 
 
+## 从条目读取规范字段字典；字段缺失时返回空字典。
+## [br]
+## @api private
 func _get_entry_fields(entry: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(entry, "fields", {}))
 
 
+## 获取 field_id 对应的反向索引；不存在时返回空字典。
+## [br]
+## @api private
 func _get_field_index(field_id: StringName) -> Dictionary:
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_indexes, field_id, {}))
 
 
+## 确保字段索引存在并返回该索引字典。
+## [br]
+## @api private
 func _get_or_create_field_index(field_id: StringName) -> Dictionary:
 	if not _indexes.has(field_id):
 		_indexes[field_id] = {}
 	return _get_field_index(field_id)
 
 
+## 从规范字段字典读取某字段的值数组。
+## [br]
+## @api private
 func _get_field_values(fields: Dictionary, field_id: StringName) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(fields, field_id, []))

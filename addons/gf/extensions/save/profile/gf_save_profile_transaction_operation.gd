@@ -85,13 +85,52 @@ const OPERATION_RECONCILE: StringName = &"reconcile"
 
 # --- 私有变量 ---
 
+## 当前事务类型。
+## [br]
+## @api private
+## [br]
 var _operation: StringName = &""
+
+## 当前事务标识。
+## [br]
+## @api private
+## [br]
 var _transaction_id: int = 0
+
+## 事务来源 Profile ID。
+## [br]
+## @api private
+## [br]
 var _source_profile_id: StringName = &""
+
+## 事务目标 Profile ID。
+## [br]
+## @api private
+## [br]
 var _target_profile_id: StringName = &""
+
+## 事务开始时的单调毫秒时间。
+## [br]
+## @api private
+## [br]
 var _started_at_msec: int = 0
+
+## 标记事务是否处于运行状态。
+## [br]
+## @api private
+## [br]
 var _running: bool = false
+
+## 完成事务的结果对象。
+## [br]
+## @api private
+## [br]
 var _result: GFSaveProfileTransactionResult = null
+
+## 标记完成信号是否已经发出。
+## [br]
+## @api private
+## [br]
 var _completion_emitted: bool = false
 
 
@@ -294,6 +333,10 @@ func get_started_at_msec_for_framework() -> int:
 
 # --- 私有/辅助方法 ---
 
+## 列出该事务对象接受的全部操作标识。
+## [br]
+## @api private
+## [br]
 static func _get_valid_operations() -> Array[StringName]:
 	return [
 		OPERATION_ACTIVATE,

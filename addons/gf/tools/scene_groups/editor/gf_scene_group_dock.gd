@@ -16,37 +16,153 @@ extends VBoxContainer
 
 # --- 常量 ---
 
+## 已保存场景组声明索引实现脚本。
+## [br]
+## @api private
+## [br]
 const _INDEX_SCRIPT = preload("res://addons/gf/tools/scene_groups/gf_scene_group_index.gd")
+
+## Editor workspace UI 辅助脚本。
+## [br]
+## @api private
+## [br]
 const _WORKSPACE_UI = preload("res://addons/gf/kernel/editor/gf_editor_workspace_ui.gd")
+
+## Variant 字典读取辅助脚本。
+## [br]
+## @api private
+## [br]
 const _VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+
+## 查询结果页的最大行数。
+## [br]
+## @api private
+## [br]
 const _PAGE_SIZE: int = 100
+
+## 每帧推进扫描索引处理的最大单位数。
+## [br]
+## @api private
+## [br]
 const _ENTRIES_PER_FRAME: int = 64
+
+## Editor 定位流程允许等待场景打开的毫秒数。
+## [br]
+## @api private
+## [br]
 const _LOCATION_TIMEOUT_MSEC: int = 5000
 
 
 # --- 私有变量 ---
 
+## 当前 Dock 使用的声明索引。
+## [br]
+## @api private
+## [br]
 var _index: GFSceneGroupIndex = _INDEX_SCRIPT.new()
+
+## 扫描根路径输入控件。
+## [br]
+## @api private
+## [br]
 var _scan_root: LineEdit
+
+## 行搜索输入控件。
+## [br]
+## @api private
+## [br]
 var _search: LineEdit
+
+## 刷新索引按钮。
+## [br]
+## @api private
+## [br]
 var _refresh_button: Button
+
+## 取消当前扫描按钮。
+## [br]
+## @api private
+## [br]
 var _cancel_button: Button
+
+## 查询结果树控件。
+## [br]
+## @api private
+## [br]
 var _results: Tree
+
+## 上一页按钮。
+## [br]
+## @api private
+## [br]
 var _previous_button: Button
+
+## 下一页按钮。
+## [br]
+## @api private
+## [br]
 var _next_button: Button
+
+## 扫描摘要标签。
+## [br]
+## @api private
+## [br]
 var _summary: Label
+
+## 分页摘要标签。
+## [br]
+## @api private
+## [br]
 var _page_summary: Label
+
+## 扫描问题详情控件。
+## [br]
+## @api private
+## [br]
 var _issues: TextEdit
+
+## 场景定位状态标签。
+## [br]
+## @api private
+## [br]
 var _location_status: Label
+
+## 当前结果页的起始偏移。
+## [br]
+## @api private
+## [br]
 var _offset: int = 0
+
+## Dock 是否正在推进索引扫描。
+## [br]
+## @api private
+## [br]
 var _scanning: bool = false
+
+## 距上次摘要重绘累计的帧时间。
+## [br]
+## @api private
+## [br]
 var _summary_elapsed: float = 0.0
+
+## 等待完成的场景节点定位请求。
+## [br]
+## @api private
+## [br]
 var _pending_location: Dictionary = {}
+
+## 当前定位请求的超时时刻。
+## [br]
+## @api private
+## [br]
 var _location_deadline: int = 0
 
 
 # --- Godot 生命周期方法 ---
 
+## 建立查询控件并显示初始摘要与空结果页；有实际扫描或定位工作前关闭逐帧处理。
+## [br]
+## @api private
 func _init() -> void:
 	name = "GFSceneGroupDock"
 	_WORKSPACE_UI.apply_page_root(self)
@@ -56,10 +172,16 @@ func _init() -> void:
 	set_process(false)
 
 
+## 根据已有扫描或节点定位工作恢复逐帧推进。
+## [br]
+## @api private
 func _ready() -> void:
 	set_process(_scanning or not _pending_location.is_empty())
 
 
+## 按固定条目预算推进扫描，节流刷新摘要并在结束时刷新结果页；同时推进待定位场景，空闲时关闭处理。
+## [br]
+## @api private
 func _process(delta: float) -> void:
 	if _scanning:
 		_scanning = _index.advance(_ENTRIES_PER_FRAME)
@@ -74,6 +196,9 @@ func _process(delta: float) -> void:
 	set_process(_scanning or not _pending_location.is_empty())
 
 
+## 退树时取消尚未完成的扫描及定位，停止持有目录枚举工作。
+## [br]
+## @api private
 func _exit_tree() -> void:
 	cancel_scan()
 
@@ -137,6 +262,9 @@ func get_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 构建扫描根、搜索、分页、诊断和节点定位控件；结果描述限定为磁盘中保存的 Group 声明。
+## [br]
+## @api private
 func _build_ui() -> void:
 	add_child(_WORKSPACE_UI.make_summary_label(
 		"查询已保存的 Group 声明；不包含未保存编辑或运行时变更。继承的声明在源场景显示。"
@@ -203,10 +331,17 @@ func _build_ui() -> void:
 	add_child(_issues)
 
 
+## 从索引快照读取状态字段；字段缺失或类型不匹配时回退为 idle。
+## [br]
+## @api private
+## [br]
 func _status() -> String:
 	return _VARIANT_ACCESS_SCRIPT.get_option_string(_index.get_snapshot(), "status", "idle")
 
 
+## 从索引快照区分完整、部分、取消和失败结果，显示预算省略诊断，并随扫描状态锁定输入控件。
+## [br]
+## @api private
 func _render_summary() -> void:
 	var snapshot: Dictionary = _index.get_snapshot()
 	var status: String = _VARIANT_ACCESS_SCRIPT.get_option_string(snapshot, "status", "idle")
@@ -245,6 +380,9 @@ func _render_summary() -> void:
 	_issues.visible = not messages.is_empty()
 
 
+## 重新查询当前文本与偏移，必要时把越界偏移退回最后一页；每行保留独立元数据用于后续节点定位。
+## [br]
+## @api private
 func _render_page() -> void:
 	_results.clear()
 	var page: Dictionary = _index.query(_search.text, _offset, _PAGE_SIZE)
@@ -274,6 +412,9 @@ func _render_page() -> void:
 	_next_button.disabled = _scanning or _offset + visible_count >= total
 
 
+## 等待编辑器打开指定场景直到截止时间；消费定位请求后复核节点和组仍存在，才修改编辑器选择。
+## [br]
+## @api private
 func _advance_location() -> void:
 	var scene_path: String = _VARIANT_ACCESS_SCRIPT.get_option_string(_pending_location, "scene_path", "")
 	var edited_root: Node = EditorInterface.get_edited_scene_root()
@@ -301,10 +442,16 @@ func _advance_location() -> void:
 
 # --- 信号处理函数 ---
 
+## 使用扫描根输入框的当前文本启动一次刷新，错误由刷新流程更新界面。
+## [br]
+## @api private
 func _on_refresh_pressed() -> void:
 	var _scan_error: Error = refresh(_scan_root.text)
 
 
+## 撤销旧定位请求并回到第一页，再使用更新后的搜索文本渲染结果。
+## [br]
+## @api private
 func _on_search_text_changed(_text: String) -> void:
 	_pending_location.clear()
 	_location_status.text = ""
@@ -312,6 +459,9 @@ func _on_search_text_changed(_text: String) -> void:
 	_render_page()
 
 
+## 清除待定位状态，把结果偏移向前移动一页且不低于零。
+## [br]
+## @api private
 func _on_previous_pressed() -> void:
 	_pending_location.clear()
 	_location_status.text = ""
@@ -319,6 +469,9 @@ func _on_previous_pressed() -> void:
 	_render_page()
 
 
+## 清除待定位状态后推进一页；实际查询负责纠正超出当前结果总数的偏移。
+## [br]
+## @api private
 func _on_next_pressed() -> void:
 	_pending_location.clear()
 	_location_status.text = ""
@@ -326,6 +479,9 @@ func _on_next_pressed() -> void:
 	_render_page()
 
 
+## 捕获所选结果的元数据副本并有界等待编辑器打开场景；只有项目文件仍存在时才发起定位。
+## [br]
+## @api private
 func _on_location_requested() -> void:
 	_pending_location.clear()
 	if not Engine.is_editor_hint():
