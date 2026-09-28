@@ -18,6 +18,7 @@ const _DEADLINE_MSEC: int = 90000
 const _ASSET_WORKBENCH_SCRIPT = preload("res://addons/gf/tools/asset_browser/editor/gf_asset_browser_dock.gd")
 const _ASSET_QUEUE_SCRIPT = preload("res://addons/gf/tools/asset_browser/editor/gf_asset_thumbnail_queue.gd")
 const _BROWSER_MATERIAL: String = "res://asset_browser_material_smoke.tres"
+const _WORKSPACE_SMOKE_SCRIPT = preload("res://tests/gf_core/tools/scene_placement/fixtures/gf_workspace_integration_smoke.gd")
 
 
 # --- 私有变量 ---
@@ -188,6 +189,9 @@ func _check_asset_workbench() -> void:
 	var received: Dictionary = _panel.receive_resource_paths(drag_paths)
 	if not _require(_bool(received, "ok") and _panel.get_source_scene().resource_path == _ASSET and not _bool(_placement_plugin.get_snapshot(), "active") and _canary_count() == 0, "Receiving a browser scene must select it without creating a placement session or instance."):
 		return
+	var catalog_directory_error: Error = DirAccess.make_dir_recursive_absolute("res://tests/gf_core/generated_asset_browser")
+	if not _require(catalog_directory_error == OK, "Cannot create the isolated test-owned Catalog output directory."):
+		return
 	if not _press_browser_button("新建共享目录"):
 		return
 	var dialog: EditorFileDialog = null
@@ -197,7 +201,7 @@ func _check_asset_workbench() -> void:
 	if not _require(dialog != null, "Creating a shared catalog must ask for an explicit project path."):
 		return
 	dialog.hide()
-	dialog.file_selected.emit("res://asset_browser_shared_smoke.tres")
+	dialog.file_selected.emit("res://tests/gf_core/generated_asset_browser/shared.tres")
 	if not _select_browser_path(grid, _ASSET):
 		return
 	var tags_value: Node = _asset_workbench.find_child("SharedAssetTags", true, false)
@@ -207,13 +211,13 @@ func _check_asset_workbench() -> void:
 	tags.text = "smoke, scene"
 	if not _press_browser_button("应用到所选") or not _press_browser_button("保存共享目录"):
 		return
-	var loaded_catalog: Resource = ResourceLoader.load("res://asset_browser_shared_smoke.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
+	var loaded_catalog: Resource = ResourceLoader.load("res://tests/gf_core/generated_asset_browser/shared.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
 	if not _require(loaded_catalog is GFAssetCatalog, "The shared catalog was not saved as a standard catalog resource."):
 		return
 	var catalog: GFAssetCatalog = loaded_catalog
 	if not _require(catalog.entries.size() == 1 and catalog.entries[0].tags == PackedStringArray(["smoke", "scene"]), "Shared tags did not round-trip independently of the source scene."):
 		return
-	var live_catalog_value: Resource = ResourceLoader.load("res://asset_browser_shared_smoke.tres")
+	var live_catalog_value: Resource = ResourceLoader.load("res://tests/gf_core/generated_asset_browser/shared.tres")
 	if not _require(live_catalog_value is GFAssetCatalog, "The shared catalog must retain its native resource identity."):
 		return
 	var live_catalog: GFAssetCatalog = live_catalog_value
@@ -268,7 +272,7 @@ func _check_asset_workbench() -> void:
 	if not _press_browser_button("新建共享目录"):
 		return
 	dialog.hide()
-	var catalog_digest: String = FileAccess.get_sha256("res://asset_browser_shared_smoke.tres")
+	var catalog_digest: String = FileAccess.get_sha256("res://tests/gf_core/generated_asset_browser/shared.tres")
 	_results["asset_browser_project_source_catalog_table_and_receiver"] = true
 	_asset_workbench.set_editor_context(null)
 	if not _press_browser_button("保存表格中的源资源"):
@@ -283,15 +287,23 @@ func _check_asset_workbench() -> void:
 	_record_asset_lifecycle(_bool(_asset_workbench.get_snapshot(), "stale"), "A late Catalog callback revived a revoked asset page.")
 	if not _press_browser_button("保存共享目录"):
 		return
-	_record_asset_lifecycle(FileAccess.get_sha256("res://asset_browser_shared_smoke.tres") == catalog_digest, "A queued shared Catalog Save wrote after context revocation.")
-	dialog.file_selected.emit("res://asset_browser_after_revoke.tres")
-	_record_asset_lifecycle(not FileAccess.file_exists("res://asset_browser_after_revoke.tres"), "A late file_selected callback created a Catalog after context revocation.")
+	_record_asset_lifecycle(FileAccess.get_sha256("res://tests/gf_core/generated_asset_browser/shared.tres") == catalog_digest, "A queued shared Catalog Save wrote after context revocation.")
+	dialog.file_selected.emit("res://tests/gf_core/generated_asset_browser/after_revoke.tres")
+	_record_asset_lifecycle(not FileAccess.file_exists("res://tests/gf_core/generated_asset_browser/after_revoke.tres"), "A late file_selected callback created a Catalog after context revocation.")
 	if not _require(_asset_lifecycle_failures.is_empty(), "Asset lifecycle regressions: " + " | ".join(_asset_lifecycle_failures)):
 		return
 	_results["asset_browser_freshness_and_revocation"] = true
 	_asset_host.free()
 	_asset_host = null
 	_asset_workbench = null
+	var workspace_smoke: _WORKSPACE_SMOKE_SCRIPT = _WORKSPACE_SMOKE_SCRIPT.new()
+	var workspace_report: Dictionary = await workspace_smoke.run(self, _placement_plugin, _ASSET, _BROWSER_MATERIAL)
+	_assertions += GFVariantData.get_option_int(workspace_report, "assertions")
+	if not _require(_bool(workspace_report, "ok"), "Workspace integration: " + GFVariantData.get_option_string(workspace_report, "message")):
+		return
+	for key: String in workspace_report:
+		if key.begins_with("workspace_"):
+			_results[key] = workspace_report[key]
 	_run_native_operation_cases()
 
 
