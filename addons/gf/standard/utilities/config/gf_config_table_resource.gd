@@ -1,3 +1,5 @@
+@tool
+
 ## GFConfigTableResource: 可保存为 Godot Resource 的通用配置表。
 ##
 ## 用于承载导表工具生成的单表数据，保留稳定顺序、可选 schema、可选 ID 索引和元数据。

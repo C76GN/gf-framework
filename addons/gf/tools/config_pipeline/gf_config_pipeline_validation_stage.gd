@@ -26,7 +26,7 @@ const STAGE_ID: String = "gf.config.validation.builtin"
 ## @api public
 ## [br]
 ## @since 9.0.0
-const IMPLEMENTATION_VERSION: int = 2
+const IMPLEMENTATION_VERSION: int = 3
 
 
 # --- 公共方法 ---
@@ -77,7 +77,7 @@ func compile_table(
 		)
 
 	var working_layout: Dictionary = layout_result.duplicate(false)
-	working_layout["row_locations"] = GFVariantData.duplicate_variant(
+	working_layout["row_locations"] = _duplicate_row_locations(
 		GFVariantData.get_option_value(layout_result, "row_locations", [])
 	)
 	var records_result: Dictionary = _normalize_records(GFVariantData.get_option_value(working_layout, "data"))
@@ -303,10 +303,15 @@ func _apply_typed_header_schema(
 
 	var source_records: Array[Dictionary] = records
 	var raw_fields: Array[StringName] = []
+	var header_names: Array[StringName] = _collect_header_field_names(GFVariantData.get_option_value(parse_result, "header"))
+	var declaration_location: Dictionary = GFVariantData.get_option_dictionary(parse_result, "header_location")
 	if GFVariantData.get_option_bool(source.schema_options, "typed_header_type_row", false):
 		var type_row_result: Dictionary = _collect_typed_header_type_row_field_names(parse_result, records)
 		if not GFVariantData.get_option_bool(type_row_result, "success", true):
-			return type_row_result
+			return _locate_header_failure(type_row_result, declaration_location)
+		var locations: Array = GFVariantData.get_option_array(parse_result, "row_locations")
+		if not locations.is_empty():
+			declaration_location = GFVariantData.as_dictionary(locations[0])
 		raw_fields = _get_typed_header_field_array(type_row_result)
 		source_records = _drop_first_record(records)
 		_drop_first_parse_result_row_location(parse_result)
@@ -316,26 +321,31 @@ func _apply_typed_header_schema(
 	var schema: GFConfigTableSchema = _make_typed_header_schema(table_name, source.schema_options)
 	var field_name_map: Dictionary = {}
 	var seen_fields: Dictionary = {}
-	for raw_field_name: StringName in raw_fields:
+	for field_index: int in range(raw_fields.size()):
+		var raw_field_name: StringName = raw_fields[field_index]
+		var location_key: StringName = header_names[field_index] if field_index < header_names.size() else raw_field_name
+		var field_location: Dictionary = GFVariantData.get_option_dictionary(
+			GFVariantData.get_option_dictionary(declaration_location, "fields"), location_key
+		)
 		var header_result: Dictionary = _parse_typed_header_column(raw_field_name)
 		if not GFVariantData.get_option_bool(header_result, "success"):
-			return header_result
+			return _locate_header_failure(header_result, field_location)
 
 		var column: GFConfigTableColumn = _get_column_from_result(header_result)
 		if column == null:
-			return _make_typed_header_failure(
+			return _locate_header_failure(_make_typed_header_failure(
 				"invalid_typed_header",
 				"类型化表头声明无效：%s。" % String(raw_field_name),
 				raw_field_name
-			)
+			), field_location)
 
 		var field_name: StringName = column.get_field_key()
 		if seen_fields.has(field_name):
-			return _make_typed_header_failure(
+			return _locate_header_failure(_make_typed_header_failure(
 				"duplicate_typed_header_field",
 				"类型化表头声明了重复字段：%s。" % String(field_name),
 				raw_field_name
-			)
+			), field_location)
 
 		seen_fields[field_name] = true
 		field_name_map[raw_field_name] = field_name
@@ -358,6 +368,18 @@ func _collect_typed_header_field_names(parse_result: Dictionary, records: Array[
 	if not header_fields.is_empty():
 		return header_fields
 	return _collect_record_field_names(records)
+
+
+## 仅合并布局实际提供的声明位置，不从数据行推测表头坐标。
+## [br]
+## @api private
+func _locate_header_failure(result: Dictionary, location: Dictionary) -> Dictionary:
+	var context: Dictionary = GFVariantData.get_option_dictionary(result, "context")
+	for key: String in ["source", "line", "column", "column_index"]:
+		if location.has(key):
+			context[key] = location[key]
+	result["context"] = context
+	return result
 
 
 ## 从 PackedStringArray 或 Array 表头提取去空白、去空值并去重的字段名。
@@ -730,7 +752,7 @@ func _make_table_metadata(source: GFConfigPipelineTableSource, resolved_format: 
 func _make_source_map(layout_result: Dictionary) -> Dictionary:
 	var result: Dictionary = {
 		"source": GFVariantData.get_option_string(layout_result, "source"),
-		"row_locations": GFVariantData.duplicate_variant(
+		"row_locations": _duplicate_row_locations(
 			GFVariantData.get_option_value(layout_result, "row_locations", [])
 		),
 	}
@@ -738,6 +760,16 @@ func _make_source_map(layout_result: Dictionary) -> Dictionary:
 		if layout_result.has(key):
 			result[key] = GFVariantData.duplicate_variant(layout_result[key])
 	return result
+
+
+## 复制布局位置，沿用 Table IR 来源映射的原生深复制合同，避免通用引用映射扫描整表。
+## [br]
+## @api private
+func _duplicate_row_locations(value: Variant) -> Array:
+	if not value is Array:
+		return []
+	var locations: Array = value
+	return locations.duplicate(true)
 
 
 ## 生成 Validation 失败结果；深复制上下文，按需补入 source 并创建错误报告。

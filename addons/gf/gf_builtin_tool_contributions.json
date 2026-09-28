@@ -16,6 +16,10 @@
     {
       "package_id": "gf.tool.asset_browser",
       "manifest_path": "res://addons/gf/tools/asset_browser/editor/gf_editor_contributions.json"
+    },
+    {
+      "package_id": "gf.tool.config_pipeline",
+      "manifest_path": "res://addons/gf/tools/config_pipeline/editor/gf_editor_contributions.json"
     }
   ]
 }

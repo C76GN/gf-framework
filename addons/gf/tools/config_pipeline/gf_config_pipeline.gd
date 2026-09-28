@@ -185,7 +185,7 @@ func get_stage_descriptors() -> Array[Dictionary]:
 ## [br]
 ## @param options: 可选构建选项，支持 parse_options、rebuild_indexes。
 ## [br]
-## @schema options: Dictionary，可包含 parse_options 和 rebuild_indexes。
+## @schema options: Dictionary，可包含 parse_options、rebuild_indexes、max_validation_cells（-1 不限制，非负整数限制实际布局记录的累计字段数；在语义校验前拒绝且不截断）。
 ## [br]
 ## @return: 构建结果。
 ## [br]
@@ -207,7 +207,7 @@ func build_table(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 ## [br]
 ## @param options: 可选构建选项，支持 parse_options、rebuild_indexes。
 ## [br]
-## @schema options: Dictionary，可包含 parse_options 和 rebuild_indexes。
+## @schema options: Dictionary，可包含 parse_options、rebuild_indexes、max_validation_cells（-1 不限制，非负整数限制实际布局记录的累计字段数；在语义校验前拒绝且不截断）。
 ## [br]
 ## @return: 构建结果。
 ## [br]
@@ -249,7 +249,7 @@ func build_table_from_text(
 ## [br]
 ## @param options: 可选构建选项，支持 database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes。
 ## [br]
-## @schema options: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。
+## @schema options: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、max_source_file_bytes、max_xlsx_file_bytes 和 max_validation_cells；max_validation_cells 默认 -1 不限制，非负整数约束本批实际布局记录的累计字段数，在语义校验前拒绝超限且不截断记录。
 ## [br]
 ## @return: 构建结果。
 ## [br]
@@ -273,6 +273,7 @@ func build_database(
 	var table_results: Array[Dictionary] = []
 	var registered_table_keys: Dictionary = {}
 	var all_tables_succeeded: bool = true
+	var validation_budget: Dictionary = {}
 	if sources.is_empty():
 		var _empty_ir_seal_result: Dictionary = compilation_ir.seal()
 		report_builder.add_issue(
@@ -308,7 +309,7 @@ func build_database(
 			continue
 
 		var source: GFConfigPipelineTableSource = source_value
-		var table_result: Dictionary = _compile_table(source, options)
+		var table_result: Dictionary = _compile_table(source, options, validation_budget)
 		table_results.append(_duplicate_result_dictionary(table_result))
 		report_builder.merge_report(report, GFVariantData.get_option_dictionary(table_result, "report"), true)
 		if GFVariantData.get_option_bool(table_result, "success"):
@@ -396,7 +397,7 @@ func build_database(
 ## [br]
 ## @param options: 本次构建覆盖选项，支持 build_options 以及 build_database() 的直接选项。
 ## [br]
-## @schema options: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。
+## @schema options: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、max_validation_cells、max_source_file_bytes 和 max_xlsx_file_bytes；自 unreleased 起支持实际布局记录累计字段预算 max_validation_cells，默认 -1 不限制。
 ## [br]
 ## @return: 构建结果。
 ## [br]
@@ -907,6 +908,21 @@ func save_database(
 		)
 	if GFVariantData.get_option_bool(resource_artifact_report, "dry_run"):
 		return _make_save_result(true, output_path, output_format, OK, "", resource_artifact_report)
+	var directory_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(output_path.get_base_dir())
+	)
+	if directory_error != OK:
+		var directory_failure_report: Dictionary = _make_resource_artifact_report(
+			output_path,
+			output_format,
+			_GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_FAILED,
+			directory_error,
+			"无法创建配置数据库输出目录。",
+			options,
+			false,
+			GFVariantData.get_option_bool(resource_artifact_report, "changed")
+		)
+		return _make_save_result(false, output_path, output_format, directory_error, "无法创建配置数据库输出目录。", directory_failure_report)
 
 	var owned_database_value: Variant = database.duplicate(true)
 	if not (owned_database_value is GFConfigDatabaseResource):
@@ -1148,9 +1164,9 @@ func generate_access(
 ## 通过 Reader 读取来源，再把原始读取结果交给统一的布局及校验链路，保持来源收据随编译结果传递。
 ## [br]
 ## @api private
-func _compile_table(source: GFConfigPipelineTableSource, options: Dictionary) -> Dictionary:
+func _compile_table(source: GFConfigPipelineTableSource, options: Dictionary, validation_budget: Dictionary = {}) -> Dictionary:
 	var read_result: Dictionary = _reader_stage.read_source(source, options)
-	return _compile_table_from_reader_result(source, read_result, options)
+	return _compile_table_from_reader_result(source, read_result, options, validation_budget)
 
 
 ## 在 descriptor 副本缺少 implementation_path 时从 stage Script 路径补入该字段。
@@ -1176,9 +1192,14 @@ func _with_stage_implementation_path(descriptor: Dictionary, stage: Object) -> D
 func _compile_table_from_reader_result(
 	source: GFConfigPipelineTableSource,
 	read_result: Dictionary,
-	options: Dictionary
+	options: Dictionary,
+	validation_budget: Dictionary = {}
 ) -> Dictionary:
 	var layout_result: Dictionary = _layout_stage.decode_source(source, read_result, options)
+	if GFVariantData.get_option_bool(layout_result, "success"):
+		var budget_failure: Dictionary = _check_validation_cell_budget(source, layout_result, options, validation_budget)
+		if not budget_failure.is_empty():
+			return budget_failure
 	var compile_result: Dictionary = _validation_stage.compile_table(source, layout_result, options)
 	var source_receipt: Dictionary = GFVariantData.get_option_dictionary(
 		read_result,
@@ -1187,6 +1208,33 @@ func _compile_table_from_reader_result(
 	if not source_receipt.is_empty():
 		compile_result["source_receipt"] = source_receipt.duplicate(true)
 	return compile_result
+
+
+## 对实际解析记录计数，先扣除同批来源共享预算，再进入语义校验；缺省 -1 保持原行为。
+## [br]
+## @api private
+func _check_validation_cell_budget(source: GFConfigPipelineTableSource, layout: Dictionary, options: Dictionary, budget: Dictionary) -> Dictionary:
+	var raw_limit: Variant = options.get("max_validation_cells", -1)
+	if not raw_limit is int or GFVariantData.to_int(raw_limit) < -1:
+		return _make_table_failure(source.get_table_key(), "invalid_validation_cell_budget", "max_validation_cells 必须为 -1 或非负整数。", { "source": source.source_path })
+	var limit: int = raw_limit
+	if limit == -1:
+		return {}
+	var data: Variant = layout.get("data")
+	var rows: Array = GFVariantData.as_array(data)
+	if data is Dictionary:
+		var keyed_rows: Dictionary = data
+		rows = keyed_rows.values()
+	var remaining: int = GFVariantData.get_option_int(budget, "remaining", limit)
+	var cells: int = 0
+	for row_value: Variant in rows:
+		if row_value is Dictionary:
+			var row: Dictionary = row_value
+			cells += row.size()
+		if cells > remaining:
+			return _make_table_failure(source.get_table_key(), "validation_cell_budget_exceeded", "配置表超过本次累计校验单元格预算。", { "source": source.source_path, "max_validation_cells": limit, "remaining_cells": remaining, "table_cells_at_least": cells })
+	budget["remaining"] = remaining - cells
+	return {}
 
 
 ## 编译失败时保留报告与来源收据；成功必须携带 Table IR，再物化资源并补齐编译上下文，缺少 IR 或目标失败转为统一表错误。

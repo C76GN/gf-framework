@@ -1,3 +1,5 @@
+@tool
+
 ## GFConfigDatabaseResource: 可保存为 Godot Resource 的通用配置数据库。
 ##
 ## 用于聚合多张 GFConfigTableResource，作为导表工具生成的整包配置产物。

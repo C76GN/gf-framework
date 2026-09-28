@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "42018d3369b89a6a259d461c7ffd837ce6b06d247d216ff856ad1611a7626884",
+  "source_digest": "f2120cf4612134c3f859e8185e12374f715e89b1e8caa6af1eef9ba72d376fa0",
   "class_count": 867,
   "autoload_count": 1,
   "package_count": 59,
@@ -524,7 +524,7 @@
         "gf.standard.base",
         "gf.standard.config"
       ],
-      "representative_path": "addons/gf/tools/config_pipeline/gf_bounded_zip_support.gd"
+      "representative_path": "addons/gf/tools/config_pipeline/editor/gf_config_preview_worker.gd"
     },
     {
       "id": "gf.tool.dialogue_text",
@@ -19696,7 +19696,7 @@
         {
           "kind": "const",
           "name": "IMPLEMENTATION_VERSION",
-          "signature": "const IMPLEMENTATION_VERSION: int = 3",
+          "signature": "const IMPLEMENTATION_VERSION: int = 4",
           "summary": "Layout 阶段的实现版本；改变布局解析语义时递增。",
           "visibility": "public"
         },
@@ -20277,7 +20277,7 @@
         {
           "kind": "const",
           "name": "IMPLEMENTATION_VERSION",
-          "signature": "const IMPLEMENTATION_VERSION: int = 2",
+          "signature": "const IMPLEMENTATION_VERSION: int = 3",
           "summary": "Validation 阶段的实现版本；改变语义校验或 IR 生成语义时递增。",
           "visibility": "public"
         },

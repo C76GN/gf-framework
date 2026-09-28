@@ -240,7 +240,7 @@ func make_build_options(overrides: Dictionary = {}) -> Dictionary:
 
 结构：
 
-- `overrides`: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。
+- `overrides`: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、max_validation_cells、max_source_file_bytes 和 max_xlsx_file_bytes；三个预算直接覆盖 Profile 同名构建选项。
 - `return`: Dictionary，包含合成后的构建选项。
 
 <a id="member-gfconfigpipelineprofile-methods-make_save_options"></a>

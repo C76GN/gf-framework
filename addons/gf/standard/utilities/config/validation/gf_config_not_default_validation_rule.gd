@@ -1,3 +1,5 @@
+@tool
+
 ## GFConfigNotDefaultValidationRule: 非默认值校验规则。
 ##
 ## 用于要求字段显式填写有效值。默认值可以按类型推导，也可以由项目指定。

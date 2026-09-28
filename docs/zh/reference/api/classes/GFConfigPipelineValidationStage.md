@@ -16,7 +16,7 @@ Config Pipeline 的内置语义校验阶段。 把 Layout 记录规范化，解�
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 常量 | [`STAGE_ID`](#member-gfconfigpipelinevalidationstage-constants-stage_id) | `const STAGE_ID: String = "gf.config.validation.builtin"` |
-| 常量 | [`IMPLEMENTATION_VERSION`](#member-gfconfigpipelinevalidationstage-constants-implementation_version) | `const IMPLEMENTATION_VERSION: int = 2` |
+| 常量 | [`IMPLEMENTATION_VERSION`](#member-gfconfigpipelinevalidationstage-constants-implementation_version) | `const IMPLEMENTATION_VERSION: int = 3` |
 | 方法 | [`compile_table`](#member-gfconfigpipelinevalidationstage-methods-compile_table) | `func compile_table( source: GFConfigPipelineTableSource, layout_result: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`get_stage_descriptor`](#member-gfconfigpipelinevalidationstage-methods-get_stage_descriptor) | `func get_stage_descriptor() -> Dictionary:` |
 
@@ -43,7 +43,7 @@ Validation 阶段的稳定实现标识。
 - 首次版本：`9.0.0`
 
 ```gdscript
-const IMPLEMENTATION_VERSION: int = 2
+const IMPLEMENTATION_VERSION: int = 3
 ```
 
 Validation 阶段的实现版本；改变语义校验或 IR 生成语义时递增。

@@ -4,6 +4,47 @@
 
 ## 定位
 
+启用 GF 编辑器插件后，可在 **GF Workspace → 配置导出** 打开此工具贡献的工作台。Headless Runner 和编辑器页属于同一可选工具；项目运行时只依赖生成的配置资源与 Provider。
+
+## 从第一张表开始
+
+1. 点击 **创建可运行示例**，确认项目中的样例根目录。工具以 create-only 事务创建 `data/config/items.csv`、对应的 Keep 导入配置、`config/build/main.tres`、读取脚本和示例场景；已有目标不会被覆盖。Keep 避免 Godot 把配置 CSV 当作翻译表导入。对已有配置 CSV，请在 Import 面板显式选择 Keep，工具不会改写已有来源的导入选项。
+2. 点击 **导出**。默认生成 `generated/config/main.tres`、`generated/gf_config_access.gd` 和数据库旁的 manifest。默认访问器类名为 `GFConfigAccess`；路径或全局类名已被占用时，新任务会选择带序号的建议名称，并在产物页展示。
+3. 运行 `config/examples/read_config.tscn`，应看到 Potion 和 Ether。读取示例使用真实数据库路径，通过 `GFResourceConfigProvider.from_database()` 显式创建 Provider，不要求项目安装全局配置单例。
+4. 修改 CSV 后重新导出。工作台显示旧结果已过期，不自动改写来源或执行导出。
+
+已有 CSV/XLSX 可使用 **新建任务**，填写来源、数据库名、输出目录，再保存 Profile。来源页可选择格式、表名、Sheet 和物理表头行；空 Sheet 名使用 `sheet_index`，默认首表。只读预览显示实际 Sheet、总行数和前 100 行 / 32 列。XLSX 不计算公式，可能读取 Excel 已保存的缓存值；缓存不保证最新。CSV/XLSX 类型声明错误显示真实表头或类型行及原始列，双击问题定位来源文件；JSON 没有真实坐标时不会构造行列号。
+
+### 预设、草稿与保存
+
+新任务复制 `gf.config.basic` v1 的生效值：类型化表头、`id_field = id`、`require_unique_id = true`、类型化记录访问器。`id:int!` 只声明必填和非空；唯一性来自独立的 Schema 选项，并在转换后检查，因此 `01` 与 `1` 在整数 ID 列中冲突。
+
+打开的 Profile 是独立草稿。来源、Schema、产物选项均先修改草稿，**保存并校验 / 保存并导出** 会先显式保存。换任务、重载、关闭任务提供保存、放弃、取消；取消保留草稿。工作区切页保持实例；宿主撤销上下文时取消预检、关闭对话框，使旧控件和迟到确认失效，重新绑定保留草稿。插件卸载时把未保存草稿放入项目 `.godot/editor` 缓存，可用 **恢复卸载前草稿** 找回并另存。编辑器缓存不是团队 Profile，也不是自动提交。
+
+**比较 / 重新应用预设** 先展示当前值与预设值，仅修改预设管理的 Schema 选项和访问器选项；路径、显式 Schema、索引、引用和额外选项保持当前值。显式 Schema 继续优先。应用只改变草稿，保存前可放弃并重载；已有 Profile 不会因框架预设升级而自动变化。版本和管理值快照保存在 Profile metadata。
+
+**设为项目默认** 只显式保存 `gf/config_pipeline/default_profile_path`。来源目录、输出目录和规则仍属于 Profile。工作台打开和预览均不会写 `project.godot`。若 Profile 在磁盘上被其他工具修改，保存和执行会拒绝使用过期草稿，要求重载或另存。
+
+### Schema、引用与结果
+
+Schema 页可从最近一次成功且未过期的校验复制推导结果，也可创建显式 Schema。支持字段类型、必填、允许 null、JSON 默认值（Enter 应用）、范围规则、索引和跨表引用。引用目标从当前任务的表中选择，显式目标 Schema 提供字段候选；复合字段使用逗号列表。自定义校验器继续保留，可在 Profile Inspector 中编辑。编辑器内执行的自定义 Resource / 校验器须显式标注 `@tool`；工作台会拒绝加载不具备编辑器执行资格的脚本并给出路径，此类任务仍可使用 CLI。
+
+校验、预览导出和导出均调用 `GFConfigPipelineCommand` / Runner。结果页保留原始报告、真实来源位置、产物状态和恢复状态。`strict`、`dry_run`、`changed_only`、`write_manifest` 属于本次执行，不随 Profile 保存。严格模式可能在写出文件后因 warning 返回失败，页面会明确显示“文件操作已完成；严格质量检查未通过”。
+
+生成数据库、访问器和 manifest 沿用既有所有权与整批提交合同；手写来源和 Profile 是用户文件。`dry_run` 不创建输出文件或输出目录。真实 Resource 保存会创建所需父目录；失败补偿可能留下空目录。若报告要求 `recovery_required`，先使用 **重试报告要求的恢复动作** 完成清理或回滚，工作台会阻止后续写入。
+
+### 响应性和 CLI
+
+工作台执行范围为 1–16 个来源、单文件不超过 2 MiB、累计不超过 8 MiB、实际布局记录累计不超过 **4,000 个单元格**。字段计数发生在类型行剔除和转换前；Array/Dictionary 字段仍是一格。这是小表工作量边界，不是固定运行时间或内存保证；复杂数组规则、自定义校验器、磁盘和硬件仍会影响耗时。
+
+读取、布局解析、预览和执行前计数使用工具拥有的后台任务。取消在读取/解析阶段边界生效，不能中断正在执行的解析器；来源或草稿改变会使旧任务结果失效。预览展示前核对其独立来源收据，之后仅在页面可见且闲置时每两秒有界复核；外部文件变化会显示“预览已过期”，不依赖上次 Runner 结果。校验、资源物化和文件事务仍同步执行，开始提交后没有硬取消按钮。实际 Pipeline 在语义验证前再次检查同一累计单元格预算，Reader 再次检查单文件大小，防止来源在预检后变大绕过执行限制。
+
+Windows / Godot 4.7.2 的一次本地整数表测量中，10×100×20 的 Validation 从修复前约 122 秒降至约 4.36 秒；10×1000×20 全流程约 41.85 秒（读取 0.012 秒、布局 0.694 秒、验证 38.97 秒、物化 0.851 秒、访问器生成约 0.101 秒、数据库保存约 0.727 秒）。4,000 单元格样本全流程约 1.22 秒。这些分阶段样本不含 manifest、编辑器文件系统扫描及自定义规则；同样大小的正常 Command 加 manifest 导出实测约 2.18 秒。它们是这次机器上的观测值，不是阻塞时间上限或性能承诺；因此大表使用独立终端，避免阻塞编辑器。
+
+**复制等价 CLI** 使用当前已保存 Profile、本次选项和工作台相同的预算，按 PowerShell 参数引用生成。超出工作台范围时，在独立终端中按实际任务调整 `--max-validation-cells` / `--max-source-bytes`，或省略前者使用后端原有不限制行为；后端单文件读取仍有自己的默认预算。不要将调大预算理解为耗时保证。UI 没有 Excel 往返编辑或公式计算能力。
+
+## 后端模型
+
 `GFConfigPipelineTableSource` 描述单张表的来源路径、格式、schema、解析选项、schema 推导选项和导出元数据。它只描述“这张表从哪里来、如何解析和校验”，不规定业务表名、字段语义、目录布局或发布流程。
 
 `GFConfigPipelineProfile` 描述一批表来源、数据库标识、版本、输出路径、构建选项和保存选项。它也可以显式配置访问器脚本输出，让同一次导表顺带生成静态配置访问脚本。Profile 适合保存为 `.tres`，让项目导表命令、编辑器按钮或 CI 只读取一份批量构建声明。
@@ -206,4 +247,4 @@ CSV / JSON / ConfigFile 的 Reader 默认用 `max_source_file_bytes = 64 MiB` �
 
 `GFConfigPipelineProfile` 只表达导表任务 manifest。`GFConfigBuildProfile` 仍负责按 groups / tags 裁剪 schema 或记录，两者可以组合使用，但职责不同。
 
-`GFConfigPipelineRunner` 不解释命令行参数，不创建编辑器 UI，也不调用外部进程；`GFConfigPipelineCommand` 只负责 Godot 原生命令参数到 Runner 的适配。复杂 Excel、多 sheet、远程拉取、策划提交流程、分端裁剪、热更新打包、加密压缩和导出菜单属于项目流水线或独立工具插件策略。项目可以在这些策略层调用 `GFConfigPipeline`、`GFConfigPipelineRunner` 或 `GFConfigPipelineCommand`，但不应把具体业务规则写回框架工具包。
+`GFConfigPipelineRunner` 不解释命令行参数，不创建编辑器 UI，也不调用外部进程；`GFConfigPipelineCommand` 负责命令参数适配，同包工作台负责草稿和交互。复杂 Excel、多 sheet 业务拆分、远程拉取、策划提交流程、分端裁剪、热更新打包和加密压缩仍属于项目流水线策略。

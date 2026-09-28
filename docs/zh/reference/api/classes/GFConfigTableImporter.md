@@ -79,7 +79,7 @@ static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary
 
 - `rows`: Array[PackedStringArray]，每个条目是一行单元格文本。
 - `options`: Dictionary，可包含 source、row_numbers、header_row、trim_cells、skip_empty_lines、reject_duplicate_headers、reject_empty_header、require_header、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 error_prefix。
-- `return`: Dictionary，包含 success、data、header、row_locations、error、error_line、error_column 和 source。
+- `return`: Dictionary，包含 success、data、header、header_location、row_locations、error、error_line、error_column 和 source；header_location 记录真实表头行及字段原始列，空表时可为空。
 
 <a id="member-gfconfigtableimporter-methods-parse_csv_table"></a>
 
@@ -106,7 +106,7 @@ static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionar
 结构：
 
 - `options`: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source。
-- `return`: Dictionary，包含 success、data、header、row_locations、error、error_line、error_column 和 source。
+- `return`: Dictionary，包含 success、data、header、header_location、row_locations、error、error_line、error_column 和 source；header_location 记录真实表头行及字段原始列，空表时可为空。
 
 <a id="member-gfconfigtableimporter-methods-parse_config_file_table"></a>
 

@@ -1,3 +1,5 @@
+@tool
+
 ## GFConfigResourcePathValidationRule: Godot 资源路径校验规则。
 ##
 ## 用于检查配置字段中的 `res://` 或 `uid://` 路径是否存在，并可按扩展名限制资源类型。

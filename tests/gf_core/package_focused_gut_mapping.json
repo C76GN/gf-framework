@@ -343,6 +343,7 @@
       "res://tests/gf_core/tools/asset_browser/test_gf_asset_browser_model.gd"
     ],
     "gf.tool.config_pipeline": [
+      "res://tests/gf_core/tools/config_pipeline/test_gf_config_workbench.gd",
       "res://tests/gf_core/tools/config_pipeline/test_gf_bounded_zip_support.gd",
       "res://tests/gf_core/tools/config_pipeline/test_gf_config_pipeline.gd",
       "res://tests/gf_core/tools/config_pipeline/test_gf_config_pipeline_stages.gd",

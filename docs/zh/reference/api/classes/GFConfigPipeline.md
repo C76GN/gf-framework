@@ -96,7 +96,7 @@ func build_table(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 
 结构：
 
-- `options`: Dictionary，可包含 parse_options 和 rebuild_indexes。
+- `options`: Dictionary，可包含 parse_options、rebuild_indexes、max_validation_cells（-1 不限制，非负整数限制实际布局记录的累计字段数；在语义校验前拒绝且不截断）。
 - `return`: Dictionary，包含 success、table、ir、report、source_path、format、source_receipt 和 error。
 
 <a id="member-gfconfigpipeline-methods-build_table_from_text"></a>
@@ -124,7 +124,7 @@ func build_table_from_text( source: GFConfigPipelineTableSource, text: String, o
 
 结构：
 
-- `options`: Dictionary，可包含 parse_options 和 rebuild_indexes。
+- `options`: Dictionary，可包含 parse_options、rebuild_indexes、max_validation_cells（-1 不限制，非负整数限制实际布局记录的累计字段数；在语义校验前拒绝且不截断）。
 - `return`: Dictionary，包含 success、table、ir、report、source_path、format 和 error。
 
 <a id="member-gfconfigpipeline-methods-build_database"></a>
@@ -152,7 +152,7 @@ func build_database( sources: Array, options: Dictionary = {} ) -> Dictionary:
 结构：
 
 - `sources`: Array[GFConfigPipelineTableSource]。
-- `options`: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。
+- `options`: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、max_source_file_bytes、max_xlsx_file_bytes 和 max_validation_cells；max_validation_cells 默认 -1 不限制，非负整数约束本批实际布局记录的累计字段数，在语义校验前拒绝超限且不截断记录。
 - `return`: Dictionary，包含 success、database、ir、report、table_results 和 error；每个成功 table_result 都包含绑定实际读取字节的 source_receipt。
 
 <a id="member-gfconfigpipeline-methods-build_profile"></a>
@@ -180,7 +180,7 @@ func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -
 结构：
 
 - `profile`: GFConfigPipelineProfile resource。
-- `options`: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。
+- `options`: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、max_validation_cells、max_source_file_bytes 和 max_xlsx_file_bytes；自 unreleased 起支持实际布局记录累计字段预算 max_validation_cells，默认 -1 不限制。
 - `return`: Dictionary，包含 success、database、report、table_results、profile_id、output_path 和 error；每个成功 table_result 都包含绑定实际读取字节的 source_receipt。
 
 <a id="member-gfconfigpipeline-methods-export_profile"></a>
