@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "accf906067774dec1c59a819ac896c937c29a3fd8ea0274e799fc7fcfaa21bc6",
+  "source_digest": "42018d3369b89a6a259d461c7ffd837ce6b06d247d216ff856ad1611a7626884",
   "class_count": 867,
   "autoload_count": 1,
   "package_count": 59,
@@ -514,7 +514,7 @@
         "gf.standard.base",
         "gf.standard.assets"
       ],
-      "representative_path": "addons/gf/tools/asset_browser/gf_asset_browser_model.gd"
+      "representative_path": "addons/gf/tools/asset_browser/editor/gf_asset_browser_dock.gd"
     },
     {
       "id": "gf.tool.config_pipeline",

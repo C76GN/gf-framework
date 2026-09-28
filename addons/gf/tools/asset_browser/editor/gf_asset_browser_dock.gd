@@ -55,6 +55,10 @@ var _dialog_create: bool = false
 var _previous_button: Button = null
 var _next_button: Button = null
 var _catalog_save_button: Button = null
+var _resource_actions: MenuButton = null
+var _resource_menu_paths: PackedStringArray = PackedStringArray()
+var _resource_menu_context_generation: int = -1
+var _resource_menu_next_id: int = 0
 var _selected_id: StringName = &""
 
 
@@ -97,6 +101,7 @@ func _exit_tree() -> void:
 ## @param context: 当前宿主上下文或 null。
 func set_editor_context(context: GFEditorToolContext) -> void:
 	_context_generation += 1
+	_clear_resource_actions()
 	_close_catalog_dialog()
 	_context = context
 	_tables.set_editor_context(context)
@@ -196,13 +201,22 @@ func _build_ui() -> void:
 	page_row.add_child(_page_label)
 	_next_button = _UI_SCRIPT.make_button("下一页", "每页最多 100 项", _next_page)
 	page_row.add_child(_next_button)
-	var action_row: HBoxContainer = _UI_SCRIPT.make_toolbar()
+	var action_row: HFlowContainer = HFlowContainer.new()
 	browser.add_child(action_row)
 	action_row.add_child(_UI_SCRIPT.make_button("打开", "场景在原生编辑器打开，其他资源交给 Inspector", _open_selected))
 	action_row.add_child(_UI_SCRIPT.make_button("定位文件", "在 Godot FileSystem 中定位", _locate_selected))
 	action_row.add_child(_UI_SCRIPT.make_button("收藏 / 取消", "仅保存个人编辑器偏好", _toggle_favorites))
 	action_row.add_child(_UI_SCRIPT.make_button("表格编辑", "只编辑显式选择的独立源 tres/res", _open_tables))
 	action_row.add_child(_UI_SCRIPT.make_button("依赖 / 引用", "按需有界扫描，不作为安全删除证明", _inspect_references))
+	_resource_actions = MenuButton.new()
+	_resource_actions.name = "ResourceActions"
+	_resource_actions.text = "发送到工具"
+	_resource_actions.tooltip_text = "接收工具声明可用动作；交接资源后继续在目标工具操作。"
+	_resource_actions.hide()
+	action_row.add_child(_resource_actions)
+	var action_popup: PopupMenu = _resource_actions.get_popup()
+	var _popup_connection: int = action_popup.about_to_popup.connect(_refresh_resource_actions)
+	var _action_connection: int = action_popup.id_pressed.connect(_on_resource_action_pressed)
 	_details = _UI_SCRIPT.make_details_output(110.0)
 	browser.add_child(_details)
 	_tables.name = "资源表格"
@@ -235,6 +249,7 @@ func _build_ui() -> void:
 
 func _release_context() -> void:
 	_context_generation += 1
+	_clear_resource_actions()
 	_close_catalog_dialog()
 	_source.cancel()
 	_queue.dispose()
@@ -259,6 +274,8 @@ func _can_update_view() -> bool:
 func _set_stale(value: bool) -> void:
 	_stale = value
 	_grid.set_resource_actions_enabled(not value)
+	_clear_resource_actions()
+	_refresh_resource_actions()
 
 
 func _schedule_refresh() -> void:
@@ -386,6 +403,59 @@ func _render_page() -> void:
 		_status.text += "；没有匹配资源。调整范围、筛选，或打开共享目录。"
 	_selected_id = &""
 	_details.text = "选择素材查看身份、路径、类型与元数据。"
+	_clear_resource_actions()
+	_refresh_resource_actions()
+
+
+func _clear_resource_actions() -> void:
+	_resource_menu_paths.clear()
+	_resource_menu_context_generation = -1
+	if _resource_actions == null:
+		return
+	_resource_actions.get_popup().hide()
+	_resource_actions.get_popup().clear()
+	_resource_actions.disabled = true
+
+
+func _refresh_resource_actions() -> void:
+	if _resource_actions == null:
+		return
+	var popup: PopupMenu = _resource_actions.get_popup()
+	popup.clear()
+	_resource_menu_paths = get_selected_resource_paths()
+	_resource_menu_context_generation = _context_generation
+	var actions: Array[Dictionary] = []
+	if _context != null:
+		actions = _context.get_resource_actions(_resource_menu_paths)
+	_resource_actions.visible = not actions.is_empty()
+	_resource_actions.disabled = _stale or not _can_update_view() or _resource_menu_paths.is_empty()
+	for action: Dictionary in actions:
+		var index: int = popup.item_count
+		popup.add_item(GFVariantData.get_option_string(action, "title"), _resource_menu_next_id)
+		_resource_menu_next_id += 1
+		popup.set_item_metadata(index, GFVariantData.get_option_string(action, "action_id"))
+		popup.set_item_disabled(index, not GFVariantData.get_option_bool(action, "available"))
+		popup.set_item_tooltip(index, GFVariantData.get_option_string(action, "reason"))
+
+
+func _on_resource_action_pressed(item_id: int) -> void:
+	if _stale or not _can_update_view() or _resource_menu_context_generation != _context_generation:
+		return
+	var popup: PopupMenu = _resource_actions.get_popup()
+	var index: int = popup.get_item_index(item_id)
+	if index < 0 or popup.is_item_disabled(index) or _resource_menu_paths != get_selected_resource_paths():
+		return
+	var action_id: String = GFVariantData.to_text(popup.get_item_metadata(index))
+	var paths: PackedStringArray = _resource_menu_paths.duplicate()
+	var entries: Array[GFAssetCatalogEntry] = _selected_entries()
+	var generation: int = _context_generation
+	# 导航可能立即隐藏本页并清空菜单，因此只使用调用前独立保存的选择。
+	var report: Dictionary = _context.request_resource_action(action_id, paths)
+	if generation != _context_generation or _context == null:
+		return
+	if GFVariantData.get_option_bool(report, "ok"):
+		_record_recent_entries(entries)
+	_status.text = GFVariantData.get_option_string(report, "message", "已交接所选资源。" if GFVariantData.get_option_bool(report, "ok") else "接收工具未完成交接；请刷新后重试。")
 
 
 func _selected_entries() -> Array[GFAssetCatalogEntry]:
@@ -405,8 +475,12 @@ func _store_view_state() -> void:
 
 
 func _record_recent() -> void:
+	_record_recent_entries(_selected_entries())
+
+
+func _record_recent_entries(entries: Array[GFAssetCatalogEntry]) -> void:
 	var recent: PackedStringArray = GFVariantData.get_option_packed_string_array(_state, "recent")
-	for entry: GFAssetCatalogEntry in _selected_entries():
+	for entry: GFAssetCatalogEntry in entries:
 		var identity: String = String(entry.asset_id)
 		var old_index: int = recent.find(identity)
 		if old_index >= 0:
@@ -660,6 +734,8 @@ func _on_search_changed(_text: String) -> void:
 
 
 func _on_grid_selected(_index: int, _selected: bool) -> void:
+	_clear_resource_actions()
+	_refresh_resource_actions()
 	var entries: Array[GFAssetCatalogEntry] = _selected_entries()
 	if entries.is_empty():
 		return

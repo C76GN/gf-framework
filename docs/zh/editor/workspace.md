@@ -34,6 +34,8 @@
 
 搜索和展示任务不会创建其工具页面。禁用扩展可以声明任务说明；点击这类入口会打开扩展选择页面，由用户明确启用需要的扩展。刷新贡献后，旧上下文和未执行的路由命令失效。
 
+“浏览项目素材”进入资源工作台；“创建 Tween 动效”打开资源创建窗口。“编辑流程图”和“检查场景存档结构”分别由 Flow / Save 扩展提供。未启用的扩展先展示说明和启用入口，启用后再从首页打开任务。
+
 ## 贡献任务与资源动作
 
 标准库和制作期工具的 `gf_editor_contributions.json` 支持 schema 4 与 5；schema 5 新增 `task_records` 和 `resource_action_records`。扩展的 `editor/gf_tool_contribution.json` 支持 schema 2 与 3；相应新记录需要 schema 3。各版本均拒绝未声明字段。

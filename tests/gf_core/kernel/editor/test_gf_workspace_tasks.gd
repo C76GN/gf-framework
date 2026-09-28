@@ -7,6 +7,7 @@ const _HOST_SCRIPT = preload("res://addons/gf/kernel/editor/workspace/gf_workspa
 const _RECORDS_SCRIPT = preload("res://addons/gf/kernel/extension/gf_workspace_contribution_records.gd")
 const _EXTENSION_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_tool_contribution.gd")
 const _READER_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_contribution_registry.gd")
+const _CATALOG_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_contribution_catalog.gd")
 const _PAGE_PATH: String = "res://tests/gf_core/kernel/editor/fixtures/gf_workspace_passive_page.gd"
 
 
@@ -143,6 +144,26 @@ func test_standard_v4_compatibility_and_v5_workspace_records() -> void:
 	_write_json(path, data)
 	assert_true(_ok(_READER_SCRIPT.load_manifest_report(path)))
 	var _removed: Error = DirAccess.remove_absolute(path)
+
+
+func test_builtin_authoring_records_route_to_their_own_contributed_pages() -> void:
+	var report: Dictionary = _CATALOG_SCRIPT.load_catalog_report("res://addons/gf/gf_builtin_tool_contributions.json")
+	assert_true(_ok(report))
+	var records: Dictionary = report.get("records", {})
+	var tasks: Array = records.get("task_records", [])
+	var actions: Array = records.get("resource_action_records", [])
+	assert_true(tasks.any(func(record: Dictionary) -> bool: return record.get("source_id") == "gf.tool.asset_browser:asset_browser.task.browse"))
+	assert_true(actions.any(func(record: Dictionary) -> bool:
+		return record.get("source_id") == "gf.tool.scene_placement:scene_placement.action.select_scene" and record.get("resource_types") == ["PackedScene"] and record.get("max_selection") == 1
+	))
+	for extension: String in ["action_queue", "flow", "save"]:
+		var path: String = "res://addons/gf/extensions/%s/editor/gf_tool_contribution.json" % extension
+		var raw: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(path))
+		var parsed: Dictionary = _EXTENSION_SCRIPT.parse_dictionary(raw, "gf." + extension)
+		assert_true(_ok(parsed), path)
+		var data: Dictionary = parsed.get("data", {})
+		var extension_tasks: Array = data.get("task_records", [])
+		assert_eq(extension_tasks.size(), 1, path)
 
 
 # --- 私有/辅助方法 ---

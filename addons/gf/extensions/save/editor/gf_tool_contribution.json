@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "extension_id": "gf.save",
   "editor_action_paths": [
     "res://addons/gf/extensions/save/editor/gf_save_editor_actions.gd"
@@ -9,5 +9,15 @@
   ],
   "editor_inspector_paths": [
     "res://addons/gf/extensions/save/editor/gf_persist_properties_inspector_plugin.gd"
+  ],
+  "task_records": [
+    {
+      "source_id": "save.task.inspect",
+      "title": "检查场景存档结构",
+      "description": "查看保存作用域、持久化节点和载荷预览。",
+      "keywords": ["存档", "保存", "持久化"],
+      "group": "检查与诊断",
+      "page_path": "res://addons/gf/extensions/save/editor/gf_save_graph_dock.gd"
+    }
   ]
 }

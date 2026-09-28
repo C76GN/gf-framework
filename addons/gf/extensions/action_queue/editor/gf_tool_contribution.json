@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "extension_id": "gf.action_queue",
   "editor_action_paths": [
     "res://addons/gf/extensions/action_queue/editor/gf_tween_editor_actions.gd"
@@ -9,5 +9,16 @@
   ],
   "editor_inspector_paths": [
     "res://addons/gf/extensions/action_queue/editor/gf_tween_preview_inspector_plugin.gd"
+  ],
+  "task_records": [
+    {
+      "source_id": "tween.task.create",
+      "title": "创建 Tween 动效",
+      "description": "从预设创建可编辑的动效资源，调整步骤并预览。",
+      "keywords": ["Tween", "动画", "动效", "缓动"],
+      "group": "开始制作",
+      "page_path": "res://addons/gf/extensions/action_queue/editor/gf_tween_authoring_dock.gd",
+      "action_id": "new_resource"
+    }
   ]
 }
