@@ -201,6 +201,8 @@ func to_dictionary() -> Dictionary:
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
+## [br]
+## @param host: 本代工作区宿主，仅保留弱引用；null 撤销后续路由。
 func bind_workspace_host(host: Object) -> void:
 	_workspace_host = weakref(host) if host != null else null
 

@@ -34,6 +34,14 @@ var _paths: PackedStringArray = PackedStringArray()
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
+## [br]
+## @param host: 执行路由的工作区宿主，仅保留弱引用。
+## [br]
+## @param generation: 创建命令时的宿主代次，执行时必须仍然匹配。
+## [br]
+## @param source_id: 任务或资源动作的全局贡献来源标识。
+## [br]
+## @param paths: 本次资源选择的路径，配置时复制；普通页面任务使用空数组。
 func configure(host: Object, generation: int, source_id: String, paths: PackedStringArray) -> void:
 	_host = weakref(host)
 	_generation = generation

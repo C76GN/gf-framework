@@ -156,6 +156,16 @@ static func make_empty_label(text: String = "") -> Label:
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
+## [br]
+## @param title: 空状态标题。
+## [br]
+## @param description: 当前状态及下一步操作说明，同时用作按钮提示。
+## [br]
+## @param action_label: 可选按钮文本；为空时不创建按钮。
+## [br]
+## @param action: 按钮按下时调用的回调；无效时不创建按钮。
+## [br]
+## @return: 尚未加入场景树的空状态容器，由调用方接管节点所有权。
 static func make_empty_state(
 	title: String, description: String, action_label: String = "", action: Callable = Callable()
 ) -> VBoxContainer:

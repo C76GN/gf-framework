@@ -72,6 +72,20 @@ var _last_report: Dictionary = {}
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
+## [br]
+## @param tasks: 已校验的任务记录，注册时深复制。
+## [br]
+## @param actions: 已校验的资源动作记录，注册时深复制。
+## [br]
+## @param pages: 当前启用且可导航的页面记录。
+## [br]
+## @param navigator: 提供 open_workspace_page 的导航对象，仅保留弱引用。
+## [br]
+## @schema tasks: Array[Dictionary]；每项包含 owner_package_id、全局 source_id、title、description、keywords、group、page_path、action_id。
+## [br]
+## @schema actions: Array[Dictionary]；任务记录字段加 resource_types: Array[String]、max_selection: int；action_id 非空。
+## [br]
+## @schema pages: Array[Dictionary]；使用各项 path: String 建立当前可用页面集合，其他页面字段由导航宿主管理。
 func configure(
 	tasks: Array[Dictionary], actions: Array[Dictionary], pages: Array[Dictionary], navigator: Object
 ) -> void:
@@ -103,6 +117,10 @@ func clear() -> void:
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
+## [br]
+## @return: 按注册顺序返回任务记录的深复制快照。
+## [br]
+## @schema return: Array[Dictionary]；保留配置时的任务字段，并添加 available: bool 和 reason: String。
 func get_workspace_tasks() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for source_id: String in _tasks:
@@ -118,6 +136,12 @@ func get_workspace_tasks() -> Array[Dictionary]:
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
+## [br]
+## @param source_id: 查询快照中的全局任务来源标识。
+## [br]
+## @return: 注册动作的执行报告；不可用页面返回扩展选择页导航结果，已撤销任务返回失败。
+## [br]
+## @schema return: Dictionary；包含 ok: bool，可含 message: String、error_code: int；动作执行保留注册表的 status、action_id 等字段，扩展选择导航的 status 为 selection_required。
 func request_workspace_task(source_id: String) -> Dictionary:
 	if not _tasks.has(source_id):
 		return _failure("任务不存在或已撤销。")
@@ -133,6 +157,12 @@ func request_workspace_task(source_id: String) -> Dictionary:
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
+## [br]
+## @param paths: 当前选择的完整项目资源路径，仅通过原生文件系统类型信息检查。
+## [br]
+## @return: 按注册顺序返回动作可用性快照，查询不创建页面。
+## [br]
+## @schema return: Array[Dictionary]；每项包含 action_id: String（全局来源 ID）、title: String、available: bool、reason: String。
 func get_resource_actions(paths: PackedStringArray) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for source_id: String in _resource_actions:
@@ -150,6 +180,14 @@ func get_resource_actions(paths: PackedStringArray) -> Array[Dictionary]:
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
+## [br]
+## @param action_id: 查询快照中的全局资源动作来源标识。
+## [br]
+## @param paths: 当前选择的独立 res:// 资源文件路径，须满足动作类型与数量限制。
+## [br]
+## @return: 注册动作执行报告或可向用户呈现的校验失败结果。
+## [br]
+## @schema return: Dictionary；包含 ok: bool，可含 message: String、error_code: int；实际执行保留注册表的 status、action_id 等字段，并优先保留接收工具的 message。
 func request_resource_action(action_id: String, paths: PackedStringArray) -> Dictionary:
 	if not _resource_actions.has(action_id):
 		return _failure("资源动作不存在或已撤销。")
@@ -164,6 +202,14 @@ func request_resource_action(action_id: String, paths: PackedStringArray) -> Dic
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
+## [br]
+## @param source_id: 已注册的全局任务或资源动作来源标识。
+## [br]
+## @param paths: 资源动作的选择路径副本；普通任务使用空数组。
+## [br]
+## @param generation: 命令创建时捕获的宿主代次，必须与当前代次相同。
+## [br]
+## @return: 成功为 OK；过期或页面失效为 ERR_UNAVAILABLE，资源不适用为 ERR_INVALID_PARAMETER，缺少接收方法为 ERR_METHOD_NOT_FOUND，响应非法为 ERR_INVALID_DATA，接收方拒绝为 FAILED。
 func invoke_workspace_record(source_id: String, paths: PackedStringArray, generation: int) -> Error:
 	if generation != _generation or not _records.has(source_id):
 		return ERR_UNAVAILABLE
@@ -200,6 +246,12 @@ func invoke_workspace_record(source_id: String, paths: PackedStringArray, genera
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
+## [br]
+## @param manifests: 已发现扩展的 manifest，可包括禁用扩展；按输入顺序在预算内读取贡献文件。
+## [br]
+## @return: 通过协议与所属扩展路径边界校验的任务和资源动作记录；无效文件被跳过。
+## [br]
+## @schema return: Dictionary；task_records 和 resource_action_records 均为 Array[Dictionary]，保持规范化贡献字段并将 page_path 解析为所属扩展内的完整 res:// 路径。
 static func collect_extension_records(manifests: Array[GFExtensionManifest]) -> Dictionary:
 	var result: Dictionary = {"task_records": [], "resource_action_records": []}
 	var consumed_bytes: int = 0
