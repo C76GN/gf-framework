@@ -654,7 +654,7 @@ func test_builtin_tool_contribution_catalog_keeps_tool_identity_in_root_composit
 		catalog_data,
 		"manifest_records"
 	)
-	assert_eq(manifest_records.size(), 3, "catalog 应列出项目结构、场景组查询与场景摆放三个内置可选工具 manifest。")
+	assert_eq(manifest_records.size(), 4, "catalog 应列出项目结构、场景组查询、场景摆放与资源工作台四个内置工具 manifest。")
 	if manifest_records.is_empty():
 		return
 	var manifest_record: Dictionary = _dictionary_at(manifest_records, 0)
@@ -699,6 +699,11 @@ func test_builtin_tool_contribution_catalog_keeps_tool_identity_in_root_composit
 		"Scene Placement 的贡献路径只应由 catalog 数据声明。"
 	)
 	assert_false(loader_source.contains("gf.tool.project_layout"), "kernel catalog loader 不应硬编码具体工具 package_id。")
+	var asset_browser_record: Dictionary = _dictionary_at(manifest_records, 3)
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(asset_browser_record, "package_id"), "gf.tool.asset_browser")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(asset_browser_record, "manifest_path"), "res://addons/gf/tools/asset_browser/editor/gf_editor_contributions.json")
+	assert_false(loader_source.contains("tools/asset_browser"))
+	assert_false(plugin_source.contains("tools/asset_browser"))
 	assert_false(loader_source.contains("tools/project_layout"), "kernel catalog loader 不应硬编码具体工具路径。")
 	assert_false(plugin_source.contains("gf.tool.project_layout"), "根插件 GDScript 不应硬编码具体工具 package_id。")
 	assert_false(plugin_source.contains("tools/project_layout"), "根插件 GDScript 不应硬编码具体工具路径。")

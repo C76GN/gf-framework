@@ -339,6 +339,7 @@
       "res://tests/gf_core/tools/action_queue.editor/test_gf_tween_preview.gd"
     ],
     "gf.tool.asset_browser": [
+      "res://tests/gf_core/tools/asset_browser/test_gf_asset_browser_editor.gd",
       "res://tests/gf_core/tools/asset_browser/test_gf_asset_browser_model.gd"
     ],
     "gf.tool.config_pipeline": [

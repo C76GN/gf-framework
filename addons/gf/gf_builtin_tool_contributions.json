@@ -12,6 +12,10 @@
     {
       "package_id": "gf.tool.scene_placement",
       "manifest_path": "res://addons/gf/tools/scene_placement/editor/gf_editor_contributions.json"
+    },
+    {
+      "package_id": "gf.tool.asset_browser",
+      "manifest_path": "res://addons/gf/tools/asset_browser/editor/gf_editor_contributions.json"
     }
   ]
 }

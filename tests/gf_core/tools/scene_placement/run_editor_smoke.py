@@ -150,6 +150,8 @@ def run_phase(name: str, command: list[str], project: Path, environment: dict[st
 				raise ValueError("Fixture success has no positive assertion count.")
 			for key in (
 				"native_private_directories_verified",
+				"asset_browser_project_source_catalog_table_and_receiver",
+				"asset_browser_freshness_and_revocation",
 				"native_undo_redo_anchor_parent_transform_save_reload",
 				"native_gui_forwarded",
 				"native_pointer_plane_cancel_and_confirm",
@@ -173,6 +175,8 @@ def run_phase(name: str, command: list[str], project: Path, environment: dict[st
 			):
 				if fixture_report.get(key) is not True:
 					raise ValueError(f"Fixture did not prove required observation: {key}")
+			if environment.get("GF_SCENE_PLACEMENT_SMOKE_IMAGE_DIR") and fixture_report.get("asset_browser_native_preview_generation") is not True:
+				raise ValueError("Rendered fixture did not prove native thumbnail generation isolation.")
 		except (StopIteration, TypeError, ValueError) as error:
 			issues.append(f"Invalid structured native fixture evidence: {error}")
 	return {
@@ -208,6 +212,9 @@ def main() -> int:
 			report["temporary_project"] = str(project)
 			copy_inventory(ROOT / "addons/gf", project / "addons/gf", gf_hashes)
 			copy_inventory(ROOT / FIXTURES, project / FIXTURES, fixture_hashes)
+			(project / "asset_browser_material_smoke.tres").write_bytes(path_security.read_pinned_regular_file(
+				project / FIXTURES, "asset_browser_material.tres", max_bytes=MAX_FILE_BYTES,
+			))
 			plugin_root = project / "addons/scene_placement_smoke"
 			plugin_root.mkdir(parents=True)
 			(plugin_root / "gf_scene_placement_editor_smoke.gd").write_bytes(path_security.read_pinned_regular_file(

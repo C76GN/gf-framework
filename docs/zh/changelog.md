@@ -11,6 +11,7 @@
 - [工作区](editor/workspace.md#阅读工具状态与高级详情) 改善状态、输入、信号、诊断、存储及可选 Save / Flow 页的入门提示、资源与节点定位和高级详情展开；状态文字跟随编辑器主题，收起详情保留数据，原有表格、信号追踪和撤销行为继续可用。
 
 - [Tween 创作](extensions/action-queue/tween-config.md#在编辑器中创作) 新增资源创建入口、类型化步骤编辑、原生 Undo / Redo 与可恢复的版本化预设；独立样机新增实际步骤时间条、过期提示和受控正反向及往返预览，运行时配置默认值保持兼容。
+- [资源工作台](editor/tools/asset-browser.md) 新增默认项目来源、范围与类型筛选、分页缩略图、个人收藏和最近使用、显式共享目录标签、所选源 Resource 表格及依赖/引用详情；场景摆放源字段可接收原生资源拖拽。项目索引不加载全部资源，超出 10,000 项会要求缩小范围。
 - [3D 场景摆放](editor/tools/scene-placement.md#连续摆放) 新增默认关闭的“连续摆放”选项：固定开始时的源场景、父节点和参数，每次确认分别提交独立 Undo / Redo，再等待新的有效指针命中；重复 Enter 不会复用旧位置。取消预览或编辑上下文变化会结束本轮，已提交实例保留，默认仍为单次摆放。
 - [配置化 Tween](extensions/action-queue/tween-config.md) 新增可选运行时秒数定位、正向/反向播放与有限往返循环；通过显式共享的 `GFTweenReplacementScope` 接管同一目标的冲突属性，保持当前姿态并结束旧动作。连同步骤创作和受控预览，`gf.action_queue` 的 `extension_version` 升为 `2.7.0`。
 - [虚拟列表](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/viewport-text-node-tools/virtual-list-model.md) 支持按复用分类混排不同模板；同一条目切换模板时保留事务检查、焦点交接与测量锚点，各类节点共享原有池总量上限，现有单模板绑定保持兼容。

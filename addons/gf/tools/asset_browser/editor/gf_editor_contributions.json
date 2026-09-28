@@ -1,0 +1,14 @@
+{
+  "schema_version": 4,
+  "package_id": "gf.tool.asset_browser",
+  "dock_records": [
+    {
+      "owner_package_id": "gf.tool.asset_browser",
+      "source_id": "asset_browser.dock.assets",
+      "path": "res://addons/gf/tools/asset_browser/editor/gf_asset_browser_dock.gd",
+      "label": "GF Asset Browser",
+      "short_label": "资源",
+      "order": 80
+    }
+  ]
+}

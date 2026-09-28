@@ -92,6 +92,50 @@ func _exit_tree() -> void:
 
 # --- 框架内部方法 ---
 
+## 将宿主声明的资源选择动作交给本工具自身入口。
+## [br]
+## @api framework_internal
+## [br]
+## @param action_id: 本页面支持的 select_scene 动作。
+## [br]
+## @param paths: 单个项目内场景路径。
+## [br]
+## @return 接收结果。
+## [br]
+## @schema return: Dictionary with ok, status and optional path.
+func receive_workspace_resources(action_id: String, paths: PackedStringArray) -> Dictionary:
+	if action_id != "select_scene":
+		return {"ok": false, "status": "unsupported_action"}
+	return receive_resource_paths(paths)
+
+
+## 打开本工具并把显式资源请求交给自身面板；不创建预览或修改场景。
+## [br]
+## @api framework_internal
+## [br]
+## @param paths: 单个项目内 PackedScene 路径。
+## [br]
+## @return 目标接收结果。
+## [br]
+## @schema return: Dictionary with ok, status and optional path.
+func receive_resource_paths(paths: PackedStringArray) -> Dictionary:
+	if not Engine.is_editor_hint() or not _has_context:
+		return {"ok": false, "status": "editor_context_unavailable"}
+	if paths.size() != 1 or not paths[0].begins_with("res://") or paths[0].contains("..") or not ResourceLoader.exists(paths[0], "PackedScene"):
+		return {"ok": false, "status": "select_one_project_scene"}
+	if EditorInterface.get_edited_scene_root() == null:
+		return {"ok": false, "status": "edited_scene_required"}
+	_on_open_pressed()
+	var plugin: EditorPlugin = _resolve_plugin(_native_plugin_ref)
+	if plugin is GFScenePlacementPlugin:
+		var placement_plugin: GFScenePlacementPlugin = plugin
+		var panel: GFScenePlacementPanel = placement_plugin.get_panel()
+		if panel != null:
+			panel.show()
+			return panel.receive_resource_paths(paths)
+	return {"ok": false, "status": "placement_plugin_unavailable"}
+
+
 ## 根工作区释放上下文时延迟关闭本启动页拥有的原生子插件。
 ## 仅延续启动页已管理的同一原生实例；用户独立启用的插件不因页面构建而被接管。
 ## 延续管理或再次打开会作废旧关闭请求，避免晚到回调关闭新的使用方。

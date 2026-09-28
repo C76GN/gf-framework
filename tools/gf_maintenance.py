@@ -681,6 +681,11 @@ RUNTIME_PACKAGE_FORBIDDEN_EXTERNAL_TOOL_FILES = {
 PACKAGE_SOURCE_OPTIONAL_REFERENCES = {
 	(
 		"gf.kernel",
+		"addons/gf/gf_builtin_tool_contributions.json",
+		"addons/gf/tools/asset_browser/editor/gf_editor_contributions.json",
+	),
+	(
+		"gf.kernel",
 		"addons/gf/plugin.gd",
 		"addons/gf/standard/editor/gf_editor_contributions.json",
 	),
