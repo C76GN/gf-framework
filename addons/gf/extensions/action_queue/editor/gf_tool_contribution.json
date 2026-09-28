@@ -1,6 +1,12 @@
 {
   "schema_version": 2,
   "extension_id": "gf.action_queue",
+  "editor_action_paths": [
+    "res://addons/gf/extensions/action_queue/editor/gf_tween_editor_actions.gd"
+  ],
+  "editor_dock_paths": [
+    "res://addons/gf/extensions/action_queue/editor/gf_tween_authoring_dock.gd"
+  ],
   "editor_inspector_paths": [
     "res://addons/gf/extensions/action_queue/editor/gf_tween_preview_inspector_plugin.gd"
   ]

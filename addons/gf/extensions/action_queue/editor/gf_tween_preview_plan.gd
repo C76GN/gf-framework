@@ -4,7 +4,7 @@
 ##
 ## 只读取精确基类配置和步骤的字段，不调用来源资源的实例方法。
 ## 标记通知与运行时时钟选项不进入计划；调用方负责独立预览目标和播放生命周期。
-## 当前预览采用原生 Tween 语义；受控播放与往返配置明确拒绝，不降级为单向预览。
+## 原生与受控预览共享工具侧准入；受控插值由运行时计划采样，不降级为单向预览。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -98,6 +98,16 @@ var restore_on_finish: bool = false
 ## @since unreleased
 var duration_seconds: float = 0.0
 
+## 本会话是否需要运行时受控采样。
+## [br]
+## @api framework_internal
+var controlled: bool = false
+
+## 本会话是否沿完整周期返回初值。
+## [br]
+## @api framework_internal
+var ping_pong: bool = false
+
 
 # --- 框架内部方法 ---
 
@@ -121,12 +131,10 @@ static func capture(config: Resource, target_kind: int) -> GFTweenPreviewPlan:
 	var control_value: Variant = config.get(&"enable_playback_control")
 	if not (ping_pong_value is bool) or not (control_value is bool):
 		return _reject(plan, "ping_pong 和 enable_playback_control 必须是布尔值。")
-	var ping_pong: bool = ping_pong_value
+	var captured_ping_pong: bool = ping_pong_value
 	var playback_control: bool = control_value
-	if ping_pong:
-		return _reject(plan, "预览暂不支持 ping_pong 往返配置；请在运行时验证往返效果。")
-	if playback_control:
-		return _reject(plan, "预览暂不支持 enable_playback_control 受控播放配置；请在运行时验证播放效果。")
+	plan.ping_pong = captured_ping_pong
+	plan.controlled = captured_ping_pong or playback_control
 
 	var steps_value: Variant = config.get(&"steps")
 	if not (steps_value is Array):
@@ -177,7 +185,7 @@ static func capture(config: Resource, target_kind: int) -> GFTweenPreviewPlan:
 		var effective_duration: float = _read_number(duration_value)
 		var effective_delay: float = _read_number(delay_value)
 		total_seconds += effective_duration + effective_delay
-		if not is_finite(total_seconds) or total_seconds * float(loops) > _MAX_SECONDS:
+		if not is_finite(total_seconds) or total_seconds * float(loops) * (2.0 if plan.ping_pong else 1.0) > _MAX_SECONDS:
 			return _reject(plan, "全部步骤持续时间与延迟的保守累计值乘循环次数不能超过 120 秒。")
 		var parallel_value: Variant = captured_step["parallel"]
 		var parallel: bool = false
@@ -187,8 +195,27 @@ static func capture(config: Resource, target_kind: int) -> GFTweenPreviewPlan:
 			completed_groups_seconds += current_group_seconds
 			current_group_seconds = 0.0
 		current_group_seconds = maxf(current_group_seconds, effective_duration + effective_delay)
-	plan.duration_seconds = (completed_groups_seconds + current_group_seconds) * float(loops)
+	plan.duration_seconds = (completed_groups_seconds + current_group_seconds) * float(loops) * (2.0 if plan.ping_pong else 1.0)
 	return plan
+
+
+## 用已验证的纯值快照重建受控配置，不暴露来源资源或 marker。
+## [br]
+## @api framework_internal
+## [br]
+## @return: 全新配置与步骤，时长已缩放，供运行时计划编译。
+func make_controlled_config() -> GFTweenActionConfig:
+	var config: GFTweenActionConfig = GFTweenActionConfig.new()
+	config.enable_playback_control = true
+	config.ping_pong = ping_pong
+	config.loop_count = loop_count
+	for data: Dictionary in steps:
+		var step: GFTweenActionStep = GFTweenActionStep.new()
+		for field: StringName in [&"property_name", &"target_value", &"duration", &"delay", &"as_relative", &"parallel", &"transition_type", &"ease_type"]:
+			step.set(field, data.get(String(field)))
+		step.easing_curve = _EASING_CURVE_SCRIPT.create_curve(_VARIANT_ACCESS_SCRIPT.get_option_dictionary(data, "easing_curve_data"))
+		config.steps.append(step)
+	return config
 
 
 ## 返回预览目标的完整初值；每次返回独立字典，不含相互覆盖的角度别名。

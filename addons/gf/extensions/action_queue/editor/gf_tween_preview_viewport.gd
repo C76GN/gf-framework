@@ -73,6 +73,16 @@ var _tween: Tween = null
 ## @api private
 var _plan: GFTweenPreviewPlan = null
 
+## 受控路径的冻结运行时采样计划；只读写独立样机。
+## [br]
+## @api private
+var _controlled_plan: GFTweenPlaybackPlan = null
+
+## 受控时钟方向；原生路径固定正向。
+## [br]
+## @api private
+var _direction: float = 1.0
+
 ## 当前会话已经播放或定位到的秒数。
 ## [br]
 ## @api private
@@ -153,10 +163,10 @@ func play() -> bool:
 		return false
 	if _state == &"paused" and _plan != null:
 		_error = ""
-		if _elapsed_seconds >= _plan.duration_seconds:
+		if (_direction > 0.0 and _elapsed_seconds >= _plan.duration_seconds) or (_direction < 0.0 and _elapsed_seconds <= 0.0):
 			_finish_playback()
 			return true
-		if not is_instance_valid(_tween):
+		if _controlled_plan == null and not is_instance_valid(_tween):
 			_fail("Paused playback is no longer available.")
 			return false
 		_set_state(&"playing")
@@ -170,6 +180,14 @@ func play() -> bool:
 	_plan = captured_plan
 	_restore_on_finish = _plan.restore_on_finish
 	_error = ""
+	if _plan.controlled:
+		_controlled_plan = GFTweenPlaybackPlan.capture(_plan.make_controlled_config(), _target, _plan.ping_pong)
+		if not _controlled_plan.error.is_empty():
+			_fail(_controlled_plan.error)
+			return false
+		_apply_controlled_sample(0.0)
+		_set_state(&"playing")
+		return true
 	if _plan.duration_seconds == 0.0:
 		for step: Dictionary in _plan.steps:
 			_apply_instant_step(step)
@@ -219,8 +237,14 @@ func advance(delta: float) -> void:
 	if not is_finite(delta) or delta < 0.0:
 		_fail("Preview time delta must be finite and non-negative.")
 		return
-	if not _is_sample_available() or not is_instance_valid(_tween):
+	if not _is_sample_available() or (_controlled_plan == null and not is_instance_valid(_tween)):
 		_fail("Preview sample or playback session is no longer available.")
+		return
+	if _controlled_plan != null:
+		_elapsed_seconds = clampf(_elapsed_seconds + delta * _direction, 0.0, get_duration_seconds())
+		_apply_controlled_sample(_elapsed_seconds)
+		if (_direction > 0.0 and _elapsed_seconds >= get_duration_seconds()) or (_direction < 0.0 and _elapsed_seconds <= 0.0):
+			_finish_playback()
 		return
 	var still_playing: bool = _tween.custom_step(delta)
 	_elapsed_seconds = minf(_elapsed_seconds + delta, get_duration_seconds())
@@ -320,6 +344,12 @@ func seek(time_seconds: float) -> bool:
 		return _reject_seek("Start playback before inspecting a time in its captured session.")
 	if not is_finite(time_seconds) or time_seconds < 0.0 or time_seconds > _plan.duration_seconds:
 		return _reject_seek("Inspection time must be finite and within the captured timeline.")
+	if _controlled_plan != null:
+		_elapsed_seconds = time_seconds
+		_error = ""
+		_apply_controlled_sample(time_seconds)
+		_set_state(&"paused")
+		return true
 	_clear_tween()
 	_restore_initial_values()
 	if _plan.duration_seconds == 0.0:
@@ -346,6 +376,40 @@ func seek(time_seconds: float) -> bool:
 ## @return: 成功播放后为 true；复位、换源、初值改变或释放后为 false。
 func has_session() -> bool:
 	return _plan != null
+
+
+## 对当前受控快照切换播放方向；不重新捕获来源配置。
+## [br]
+## @api framework_internal
+## [br]
+## @param backward: true 向完整时间轴起点，false 向末端。
+## [br]
+## @return: 当前有效受控会话是否接受方向变更。
+func play_direction(backward: bool) -> bool:
+	if _controlled_plan == null or not _is_sample_available():
+		return _reject_seek("反向检查需要先播放启用受控播放或往返的配置。")
+	_direction = -1.0 if backward else 1.0
+	_error = ""
+	_set_state(&"playing")
+	return true
+
+
+## 当前会话是否可以改变方向。
+## [br]
+## @api framework_internal
+## [br]
+## @return: 当前持有受控采样计划时为 true。
+func is_controlled_session() -> bool:
+	return _controlled_plan != null
+
+
+## 返回当前冻结的工具侧计划，只供时间条读取。
+## [br]
+## @api framework_internal
+## [br]
+## @return: 当前计划；尚未播放或已释放时为 null，调用方不得修改。
+func get_preview_plan() -> GFTweenPreviewPlan:
+	return _plan
 
 
 ## 获取当前会话实际总时长，包含串并行组、延迟和有限循环。
@@ -452,6 +516,8 @@ func _clear_tween() -> void:
 func _clear_session() -> void:
 	_clear_tween()
 	_plan = null
+	_controlled_plan = null
+	_direction = 1.0
 	_elapsed_seconds = 0.0
 
 
@@ -552,11 +618,23 @@ func _relative_value(current: Variant, next: Variant) -> Variant:
 ## @api private
 func _finish_playback() -> void:
 	_clear_tween()
-	_elapsed_seconds = get_duration_seconds()
+	_elapsed_seconds = 0.0 if _controlled_plan != null and _direction < 0.0 else get_duration_seconds()
 	if _restore_on_finish:
 		_restore_initial_values()
 	_request_render()
 	_set_state(&"finished")
+
+
+## 应用纯采样值；目标为工具自行构建的原生节点，不包含项目脚本。
+## [br]
+## @api private
+func _apply_controlled_sample(time_seconds: float) -> void:
+	var values: Dictionary = _controlled_plan.sample(time_seconds)
+	for key: Variant in values:
+		if key is String:
+			var property_name: String = key
+			_target.set(property_name, values[key])
+	_request_render()
 
 
 ## 终止会话、恢复初值并进入错误状态。

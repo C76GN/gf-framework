@@ -77,6 +77,7 @@ const GODOT_CALLBACK_NAMES: Dictionary = {
 	"_property_get_revert": true,
 	"_ready": true,
 	"_set": true,
+	"_set_read_only": true,
 	"_setup_session": true,
 	"_shortcut_input": true,
 	"_to_string": true,
@@ -195,7 +196,7 @@ func test_framework_internal_type_section_is_not_treated_as_inner_class() -> voi
 
 
 func test_editor_plugin_native_callbacks_use_callback_sections() -> void:
-	for method_name: String in ["_forward_3d_gui_input", "_get_plugin_name", "_make_custom_tooltip", "_handles", "_generate"]:
+	for method_name: String in ["_forward_3d_gui_input", "_get_plugin_name", "_make_custom_tooltip", "_handles", "_generate", "_set_read_only", "_update_property"]:
 		assert_true(
 			_underscore_method_section_is_valid(method_name, "Godot 回调方法"),
 			"EditorPlugin 原生虚回调应保留 Godot 回调 section：" + method_name,
