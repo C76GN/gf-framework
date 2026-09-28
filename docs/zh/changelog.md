@@ -8,6 +8,8 @@
 
 - [GF Workspace](editor/workspace.md#打开与布局) 支持首次、每次或手动打开的个人启动偏好，记住最近页面、窗口尺寸和置顶状态；页面身份独立于显示标题，刷新贡献后仍可恢复选择。
 - [任务首页](editor/workspace.md#任务首页) 支持搜索、收藏和最近任务；工具通过工作区上下文声明任务与资源接收动作，保留页面懒加载、扩展显式启用及旧贡献版本兼容。
+- [工作区](editor/workspace.md#阅读工具状态与高级详情) 改善状态、输入、信号、诊断、存储及可选 Save / Flow 页的入门提示、资源与节点定位和高级详情展开；状态文字跟随编辑器主题，收起详情保留数据，原有表格、信号追踪和撤销行为继续可用。
+
 - [3D 场景摆放](editor/tools/scene-placement.md#连续摆放) 新增默认关闭的“连续摆放”选项：固定开始时的源场景、父节点和参数，每次确认分别提交独立 Undo / Redo，再等待新的有效指针命中；重复 Enter 不会复用旧位置。取消预览或编辑上下文变化会结束本轮，已提交实例保留，默认仍为单次摆放。
 - [配置化 Tween](extensions/action-queue/tween-config.md) 新增可选运行时秒数定位、正向/反向播放与有限往返循环；通过显式共享的 `GFTweenReplacementScope` 接管同一目标的冲突属性，保持当前姿态并结束旧动作。`gf.action_queue` 的 `extension_version` 升为 `2.6.0`。
 - [虚拟列表](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/viewport-text-node-tools/virtual-list-model.md) 支持按复用分类混排不同模板；同一条目切换模板时保留事务检查、焦点交接与测量锚点，各类节点共享原有池总量上限，现有单模板绑定保持兼容。

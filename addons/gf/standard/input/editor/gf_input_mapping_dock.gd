@@ -420,9 +420,10 @@ func _build_ui() -> void:
 	var _path_submitted_connected: Error = _path_edit.text_submitted.connect(_on_path_submitted) as Error
 	toolbar.add_child(_path_edit)
 
-	toolbar.add_child(_GFEditorWorkspaceUI.make_button("...", "选择输入上下文资源。", _on_browse_pressed))
+	toolbar.add_child(_GFEditorWorkspaceUI.make_button("选择资源…", "选择输入上下文资源。", _on_browse_pressed))
 	toolbar.add_child(_GFEditorWorkspaceUI.make_button("加载", "载入当前路径中的输入上下文。", _on_load_pressed))
 	toolbar.add_child(_GFEditorWorkspaceUI.make_button("刷新", "重新分析当前输入上下文。", refresh))
+	toolbar.add_child(_GFEditorWorkspaceUI.make_button("定位资源", "在原生文件系统中定位已加载的输入上下文。", _on_locate_pressed))
 
 	_include_non_remappable_check = CheckBox.new()
 	_include_non_remappable_check.text = "包含不可重绑"
@@ -462,6 +463,7 @@ func _build_ui() -> void:
 	_details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_details.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_content_split.add_child(_details)
+	toolbar.add_child(_GFEditorWorkspaceUI.make_details_toggle(_details))
 
 	_file_dialog = FileDialog.new()
 	_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
@@ -691,7 +693,7 @@ func _render_context() -> void:
 		resource_summary,
 		GFVariantData.get_option_string(_last_report, "next_action", ""),
 	]
-	_summary_label.modulate = _GFEditorWorkspaceUI.get_report_color(_last_report)
+	_GFEditorWorkspaceUI.set_status(_summary_label, _summary_label.text, _GFEditorWorkspaceUI.get_report_color(_last_report))
 
 	var root_item: TreeItem = _tree.create_item()
 	var context_item: TreeItem = _create_bounded_tree_item(root_item)
@@ -1362,6 +1364,17 @@ func _on_path_submitted(path: String) -> void:
 func _on_browse_pressed() -> void:
 	if is_instance_valid(_file_dialog):
 		_file_dialog.popup_centered_ratio(0.6)
+
+
+## 定位实际加载的资源，不使用尚未提交的路径输入。
+## [br]
+## @api private
+func _on_locate_pressed() -> void:
+	if _context == null or _context.resource_path.is_empty():
+		_set_status("先加载一个已保存的输入上下文资源。", _GFEditorWorkspaceUI.INFO_TEXT_COLOR)
+		return
+	if Engine.is_editor_hint():
+		EditorInterface.get_file_system_dock().navigate_to_path(_context.resource_path)
 
 
 ## 选择文件后更新路径输入框并尝试载入该资源。

@@ -93,8 +93,9 @@ func test_editor_workspace_ui_builds_common_page_chrome() -> void:
 	assert_eq(toolbar.get_theme_constant("separation"), GF_EDITOR_WORKSPACE_UI.TOOLBAR_SEPARATION, "通用工具栏应使用统一间距。")
 	assert_eq(state.count, 1, "通用按钮应连接按下回调。")
 	assert_eq(summary.text, "完成", "通用状态写入应更新文本。")
-	assert_eq(summary.modulate, GF_EDITOR_WORKSPACE_UI.OK_TEXT_COLOR, "通用状态写入应更新颜色。")
-	assert_eq(empty.modulate, GF_EDITOR_WORKSPACE_UI.EMPTY_TEXT_COLOR, "空状态应使用统一弱提示颜色。")
+	assert_eq(summary.modulate, Color.WHITE, "语义颜色不应乘到主题背景或子控件上。")
+	assert_eq(summary.get_theme_color("font_color"), GF_EDITOR_WORKSPACE_UI.OK_TEXT_COLOR, "无编辑器主题时保留语义颜色后备值。")
+	assert_eq(empty.modulate, Color.WHITE, "空状态使用主题文字颜色。")
 	assert_false(details.editable, "详情输出框应只读。")
 	assert_eq(details.custom_minimum_size.y, 96.0, "详情输出框应接受页面自定义高度。")
 	assert_eq(GF_EDITOR_WORKSPACE_UI.get_report_color({"error_count": 1}), GF_EDITOR_WORKSPACE_UI.ERROR_TEXT_COLOR, "错误报告应映射错误色。")
@@ -107,6 +108,36 @@ func test_editor_workspace_ui_builds_common_page_chrome() -> void:
 	summary.free()
 	empty.free()
 	details.free()
+
+
+func test_workspace_details_toggle_preserves_data_and_keyboard_access() -> void:
+	var details: TextEdit = GF_EDITOR_WORKSPACE_UI.make_details_output()
+	details.text = "retained report"
+	var toggle: CheckButton = GF_EDITOR_WORKSPACE_UI.make_details_toggle(details)
+	assert_false(details.visible)
+	assert_eq(toggle.focus_mode, Control.FOCUS_ALL)
+	toggle.button_pressed = true
+	assert_true(details.visible)
+	toggle.button_pressed = false
+	assert_false(details.visible)
+	assert_eq(details.text, "retained report")
+	toggle.free()
+	details.free()
+
+
+func test_workspace_status_tracks_editor_theme_changes() -> void:
+	var label: Label = GF_EDITOR_WORKSPACE_UI.make_summary_label("ready")
+	add_child(label)
+	var custom_theme: Theme = Theme.new()
+	custom_theme.set_color("success_color", "Editor", Color(0.1, 0.3, 0.1))
+	label.theme = custom_theme
+	GF_EDITOR_WORKSPACE_UI.set_status(label, "done", GF_EDITOR_WORKSPACE_UI.OK_TEXT_COLOR)
+	assert_eq(label.get_theme_color("font_color"), Color(0.1, 0.3, 0.1))
+	custom_theme.set_color("success_color", "Editor", Color(0.5, 0.9, 0.5))
+	await get_tree().process_frame
+	assert_eq(label.get_theme_color("font_color"), Color(0.5, 0.9, 0.5))
+	assert_eq(label.text, "done")
+	label.free()
 
 
 func test_plugin_action_menu_ids_are_unique() -> void:

@@ -106,33 +106,39 @@ func _build_ui() -> void:
 	_path_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	path_row.add_child(_path_edit)
 
-	path_row.add_child(_GFEditorWorkspaceUI.make_button("...", "选择存档文件。", _on_browse_pressed))
+	path_row.add_child(_GFEditorWorkspaceUI.make_button("选择文件…", "选择存档文件。", _on_browse_pressed))
 
 	_format_option = OptionButton.new()
 	_format_option.add_item("JSON", _SAVE_VIEWER_FORMAT_JSON)
 	_format_option.add_item("二进制", _SAVE_VIEWER_FORMAT_BINARY)
 	_format_option.selected = 0
 	add_child(_make_labeled_row("格式", _format_option))
+	var advanced: VBoxContainer = VBoxContainer.new()
+	var advanced_toggle: CheckButton = _GFEditorWorkspaceUI.make_details_toggle(advanced)
+	advanced_toggle.text = "解码选项"
+	advanced_toggle.tooltip_text = "读取失败时，核对写入文件时使用的密钥、压缩与完整性选项。"
+	add_child(advanced_toggle)
+	add_child(advanced)
 
 	_obfuscation_key_spin = SpinBox.new()
 	_obfuscation_key_spin.min_value = 0.0
 	_obfuscation_key_spin.max_value = 255.0
 	_obfuscation_key_spin.step = 1.0
 	_obfuscation_key_spin.value = 42.0
-	add_child(_make_labeled_row("XOR 密钥", _obfuscation_key_spin))
+	advanced.add_child(_make_labeled_row("XOR 密钥", _obfuscation_key_spin))
 
 	_compression_check = CheckBox.new()
 	_compression_check.text = "压缩"
-	add_child(_compression_check)
+	advanced.add_child(_compression_check)
 
 	_checksum_check = CheckBox.new()
 	_checksum_check.text = "校验 checksum"
-	add_child(_checksum_check)
+	advanced.add_child(_checksum_check)
 
 	_strict_check = CheckBox.new()
 	_strict_check.text = "严格完整性"
 	_strict_check.button_pressed = true
-	add_child(_strict_check)
+	advanced.add_child(_strict_check)
 
 	var button_row: HBoxContainer = _GFEditorWorkspaceUI.make_toolbar()
 	add_child(button_row)
@@ -144,6 +150,7 @@ func _build_ui() -> void:
 	add_child(_status_label)
 
 	_output = _GFEditorWorkspaceUI.make_details_output()
+	_output.placeholder_text = "选择存档文件 → 核对格式与解码选项 → 加载。此页只读，原文件不会被修改。"
 	_output.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(_output)
 
@@ -190,8 +197,7 @@ func _get_selected_format() -> int:
 ## @api private
 func _set_status(message: String, is_error: bool, diagnostic_message: String = "") -> void:
 	if is_instance_valid(_status_label):
-		_status_label.text = message
-		_status_label.modulate = _GFEditorWorkspaceUI.ERROR_TEXT_COLOR if is_error else _GFEditorWorkspaceUI.OK_TEXT_COLOR
+		_GFEditorWorkspaceUI.set_status(_status_label, message, _GFEditorWorkspaceUI.ERROR_TEXT_COLOR if is_error else _GFEditorWorkspaceUI.OK_TEXT_COLOR)
 	if is_error:
 		push_warning(diagnostic_message)
 
