@@ -289,7 +289,8 @@ func test_invalid_capacity_rejects_session_and_never_calls_sender() -> void:
 
 
 func test_invalid_requests_and_full_capacity_are_rejected_before_send() -> void:
-	var tracker: GFNetworkRequestTracker = GFNetworkRequestTracker.new(null, 1)
+	var clock: GFManualClock = GFManualClock.new()
+	var tracker: GFNetworkRequestTracker = GFNetworkRequestTracker.new(clock, 1)
 	var sender: SendProbe = SendProbe.new()
 	var inactive: GFNetworkRequestHandle = tracker.request(2, sender.send)
 	_assert_rejected(inactive, ERR_UNCONFIGURED)

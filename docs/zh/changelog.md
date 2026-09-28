@@ -6,6 +6,7 @@
 
 ### 🚀 新增特性 (Added)
 
+- [3D 场景摆放](editor/tools/scene-placement.md#连续摆放) 新增默认关闭的“连续摆放”选项：固定开始时的源场景、父节点和参数，每次确认分别提交独立 Undo / Redo，再等待新的有效指针命中；重复 Enter 不会复用旧位置。取消预览或编辑上下文变化会结束本轮，已提交实例保留，默认仍为单次摆放。
 - [配置化 Tween](extensions/action-queue/tween-config.md) 新增可选运行时秒数定位、正向/反向播放与有限往返循环；通过显式共享的 `GFTweenReplacementScope` 接管同一目标的冲突属性，保持当前姿态并结束旧动作。`gf.action_queue` 的 `extension_version` 升为 `2.6.0`。
 - [虚拟列表](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/viewport-text-node-tools/virtual-list-model.md) 支持按复用分类混排不同模板；同一条目切换模板时保留事务检查、焦点交接与测量锚点，各类节点共享原有池总量上限，现有单模板绑定保持兼容。
 - 新增 [Storage 大型结果的一次性领取](standard/utilities/io/storage-snapshot/read-results.md#大型结果的一次性领取)：通过专用句柄接收纯字典异步读取，迁移后保留一次交付隔离，通知与领取不再复制载荷；提供独立的小型诊断、取消及释放语义，普通读取保持兼容。
