@@ -13,6 +13,7 @@ const _GRID_SCRIPT = preload("res://addons/gf/tools/asset_browser/editor/gf_asse
 const _PREFERENCES_SCRIPT = preload("res://addons/gf/tools/asset_browser/editor/gf_asset_browser_preferences.gd")
 const _TABLES_SCRIPT = preload("res://addons/gf/tools/asset_browser/editor/gf_asset_resource_tables.gd")
 const _CATALOG_COMMAND_SCRIPT = preload("res://addons/gf/tools/asset_browser/editor/gf_asset_catalog_edit_command.gd")
+const _PAGE_QUERY_SCRIPT = preload("res://addons/gf/tools/asset_browser/gf_asset_browser_page_query.gd")
 const _TYPE_FILTERS: PackedStringArray = ["", "PackedScene", "Texture2D", "AudioStream", "Material", "Mesh", "Resource"]
 
 
@@ -60,6 +61,21 @@ var _resource_menu_paths: PackedStringArray = PackedStringArray()
 var _resource_menu_context_generation: int = -1
 var _resource_menu_next_id: int = 0
 var _selected_id: StringName = &""
+var _owner_window: Window = null
+var _page_query: _PAGE_QUERY_SCRIPT = null
+var _retired_queries: Array[_PAGE_QUERY_SCRIPT] = []
+var _query_pending: bool = false
+var _page_ready: bool = false
+var _query_delay: float = 0.0
+var _query_context_generation: int = -1
+var _query_serial: int = 0
+var _query_progress: Dictionary = {}
+var _card_report: Dictionary = {}
+var _card_ids: PackedStringArray = PackedStringArray()
+var _card_items: Array = []
+var _card_paths: PackedStringArray = PackedStringArray()
+var _card_cursor: int = 0
+var _peak_card_step_usec: int = 0
 
 
 # --- Godot 生命周期方法 ---
@@ -76,6 +92,9 @@ func _init() -> void:
 
 
 func _ready() -> void:
+	_owner_window = get_window()
+	if _owner_window != null:
+		var _window_connection: int = _owner_window.visibility_changed.connect(_on_visibility_changed)
 	_state = _PREFERENCES_SCRIPT.load_state()
 	_scope.text = GFVariantData.get_option_string(_state, "scope", "res://")
 	_addons.set_pressed_no_signal(GFVariantData.get_option_bool(_state, "include_addons"))
@@ -87,9 +106,58 @@ func _ready() -> void:
 		_schedule_refresh()
 
 
+func _process(delta: float) -> void:
+	_reap_queries()
+	if not _query_pending:
+		return
+	if not _can_update_view() or _query_context_generation != _context_generation:
+		_cancel_page_query()
+		return
+	_query_delay = maxf(_query_delay - delta, 0.0)
+	if _query_delay > 0.0:
+		return
+	if not _card_report.is_empty():
+		_build_card_batch()
+		return
+	if _page_query == null:
+		_start_page_query()
+	if _page_query == null:
+		return
+	var serial: int = _query_serial
+	var finished: bool = _page_query.step(128, 2000, _retired_queries.is_empty())
+	if serial != _query_serial or _page_query == null:
+		return
+	_query_progress = _page_query.get_progress()
+	_status.text = "正在查询资源：%d / %d" % [GFVariantData.get_option_int(_query_progress, "scanned"), GFVariantData.get_option_int(_query_progress, "input_count")]
+	if not finished:
+		return
+	var report: Dictionary = _page_query.take_result()
+	if report.is_empty() or not _is_page_report_current(report):
+		_cancel_page_query()
+		var error: String = GFVariantData.get_option_string(_query_progress, "error")
+		if not error.is_empty():
+			_status.text = "查询失败，请重试：" + error
+		return
+	_page_query = null
+	_card_report = report
+	_card_ids = GFVariantData.get_option_packed_string_array(report, "asset_ids")
+	var items_value: Variant = report.get("items")
+	if items_value is Array:
+		_card_items = items_value
+	_card_paths.clear()
+	_card_cursor = 0
+	_grid.clear()
+
+
 func _exit_tree() -> void:
 	_release_context()
+	for task: _PAGE_QUERY_SCRIPT in _retired_queries:
+		task.join_worker()
+	_retired_queries.clear()
 	_disconnect_shared_catalog()
+	if is_instance_valid(_owner_window) and _owner_window.visibility_changed.is_connected(_on_visibility_changed):
+		_owner_window.visibility_changed.disconnect(_on_visibility_changed)
+	_owner_window = null
 
 
 # --- 框架内部方法 ---
@@ -101,6 +169,7 @@ func _exit_tree() -> void:
 ## @param context: 当前宿主上下文或 null。
 func set_editor_context(context: GFEditorToolContext) -> void:
 	_context_generation += 1
+	_cancel_page_query()
 	_clear_resource_actions()
 	_close_catalog_dialog()
 	_context = context
@@ -119,7 +188,7 @@ func set_editor_context(context: GFEditorToolContext) -> void:
 ## [br]
 ## @return 当前卡片对应的项目资源路径。
 func get_selected_resource_paths() -> PackedStringArray:
-	return PackedStringArray() if _stale else _grid.get_selected_resource_paths()
+	return PackedStringArray() if _stale or _query_pending or not _page_ready or not _can_update_view() else _grid.get_selected_resource_paths()
 
 
 ## 返回可观察页面状态，供编辑器验收和宿主状态显示使用。
@@ -128,9 +197,9 @@ func get_selected_resource_paths() -> PackedStringArray:
 ## [br]
 ## @return 页面快照。
 ## [br]
-## @schema return: Dictionary with stale, entry_count, visible_count, page, shared_path and selected_paths.
+## @schema return: Dictionary with stale, query_pending, page_ready, query_progress, worker_count, peak_card_step_usec, entry_count, visible_count, page, shared_path and selected_paths.
 func get_snapshot() -> Dictionary:
-	return {"stale": _stale, "entry_count": _catalog.entries.size(), "visible_count": _grid.item_count, "page": _page, "shared_path": _shared_path, "selected_paths": get_selected_resource_paths()}
+	return {"stale": _stale, "query_pending": _query_pending, "page_ready": _page_ready, "query_progress": _query_progress.duplicate(true), "worker_count": _retired_queries.size() + (1 if _page_query != null and _page_query.has_worker() else 0), "peak_card_step_usec": _peak_card_step_usec, "entry_count": _catalog.entries.size(), "visible_count": _grid.item_count, "page": _page, "shared_path": _shared_path, "selected_paths": get_selected_resource_paths()}
 
 
 # --- 私有/辅助方法 ---
@@ -249,6 +318,7 @@ func _build_ui() -> void:
 
 func _release_context() -> void:
 	_context_generation += 1
+	_cancel_page_query()
 	_clear_resource_actions()
 	_close_catalog_dialog()
 	_source.cancel()
@@ -268,12 +338,18 @@ func _close_catalog_dialog() -> void:
 
 
 func _can_update_view() -> bool:
-	return Engine.is_editor_hint() and _context != null and is_inside_tree() and is_visible_in_tree()
+	return Engine.is_editor_hint() and _context != null and _is_view_visible()
+
+
+func _is_view_visible() -> bool:
+	return is_inside_tree() and is_visible_in_tree() and get_window() != null and get_window().visible
 
 
 func _set_stale(value: bool) -> void:
 	_stale = value
-	_grid.set_resource_actions_enabled(not value)
+	if value:
+		_cancel_page_query()
+	_grid.set_resource_actions_enabled(not value and not _query_pending and _can_update_view())
 	_clear_resource_actions()
 	_refresh_resource_actions()
 
@@ -366,35 +442,119 @@ func _publish_catalog() -> void:
 
 
 func _render_page() -> void:
+	_cancel_page_query()
 	if not _can_update_view():
 		return
+	_query_pending = true
+	_query_progress = {}
+	_peak_card_step_usec = 0
+	_query_context_generation = _context_generation
+	_previous_button.disabled = true
+	_next_button.disabled = true
+	_selected_id = &""
+	_details.text = "正在查询；完成前旧选择不可用于资源操作。"
+	_status.text = "正在准备资源查询…"
+
+
+func _start_page_query() -> void:
+	var serial: int = _query_serial
 	var filter_ids: PackedStringArray = PackedStringArray()
 	if _collection.selected > 0:
 		filter_ids = GFVariantData.get_option_packed_string_array(_state, "favorites" if _collection.selected == 1 else "recent")
 		if filter_ids.is_empty():
 			filter_ids = PackedStringArray(["__gf_asset_browser_empty_collection__"])
 	var query_report: Dictionary = _model.set_query(_search.text, filter_ids)
+	if serial != _query_serial:
+		return
 	if not GFVariantData.get_option_bool(query_report, "ok"):
+		_cancel_page_query()
 		_status.text = "搜索条件无效。"
 		return
-	var page_report: Dictionary = _model.get_page(_page, 100)
+	if not _can_update_view() or _query_context_generation != _context_generation:
+		_cancel_page_query()
+		return
+	var task: RefCounted = _model.create_page_query(_page, 100)
+	if task is _PAGE_QUERY_SCRIPT:
+		_page_query = task
+	else:
+		_cancel_page_query()
+
+
+func _cancel_page_query() -> void:
+	_query_serial += 1
+	if _page_query != null:
+		_page_query.cancel()
+		if _page_query.has_worker():
+			_retired_queries.append(_page_query)
+	_page_query = null
+	_query_pending = false
+	_page_ready = false
+	_query_delay = 0.0
+	_card_report.clear()
+	_card_ids.clear()
+	_card_items = []
+	_card_paths.clear()
+	_grid.set_resource_actions_enabled(false)
+	_queue.pause()
+	_clear_resource_actions()
+
+
+func _reap_queries() -> void:
+	for index: int in range(_retired_queries.size() - 1, -1, -1):
+		if _retired_queries[index].reap_worker():
+			_retired_queries.remove_at(index)
+
+
+func _is_page_report_current(report: Dictionary) -> bool:
+	return _can_update_view() and _query_context_generation == _context_generation and _model.is_page_query_current(
+		GFVariantData.get_option_int(report, "catalog_revision"), GFVariantData.get_option_int(report, "query_generation")
+	)
+
+
+func _build_card_batch() -> void:
+	if not _is_page_report_current(_card_report):
+		_cancel_page_query()
+		return
+	var started: int = Time.get_ticks_usec()
+	var count: int = 0
+	while _card_cursor < _card_ids.size() and count < 16:
+		if count > 0 and Time.get_ticks_usec() - started >= 2000:
+			break
+		var item: Dictionary = GFVariantData.as_dictionary(_card_items[_card_cursor])
+		_card_cursor += 1
+		count += 1
+		var path: String = GFVariantData.get_option_string(item, "primary_path")
+		var type_hint: String = GFVariantData.get_option_string(item, "type_hint")
+		var title: String = GFVariantData.get_option_string(item, "title", path.get_file())
+		var icon: Texture2D = _grid.get_theme_icon(type_hint if _grid.has_theme_icon(type_hint, "EditorIcons") else "Object", "EditorIcons")
+		var item_index: int = _grid.add_item(title, icon)
+		_grid.set_item_metadata(item_index, path)
+		_grid.set_item_tooltip(item_index, "%s\n%s\n%s" % [path, type_hint, ", ".join(GFVariantData.get_option_packed_string_array(item, "tags"))])
+		var _appended: bool = _card_paths.append(path)
+	_peak_card_step_usec = maxi(_peak_card_step_usec, Time.get_ticks_usec() - started)
+	if _card_cursor < _card_ids.size():
+		return
+	_finish_page_render()
+
+
+func _finish_page_render() -> void:
+	if not _is_page_report_current(_card_report):
+		_cancel_page_query()
+		return
+	var page_report: Dictionary = _card_report
+	var serial: int = _query_serial
+	_card_report = {}
 	_page = GFVariantData.get_option_int(page_report, "page", 1)
 	_page_count = GFVariantData.get_option_int(page_report, "page_count")
-	_grid.clear()
-	var paths: PackedStringArray = PackedStringArray()
-	for identity: String in GFVariantData.get_option_packed_string_array(page_report, "asset_ids"):
-		var entry: GFAssetCatalogEntry = _catalog.get_entry(StringName(identity))
-		if entry == null:
-			continue
-		var icon: Texture2D = _grid.get_theme_icon(entry.type_hint if _grid.has_theme_icon(entry.type_hint, "EditorIcons") else "Object", "EditorIcons")
-		var item_index: int = _grid.add_item(entry.title if not entry.title.is_empty() else entry.primary_path.get_file(), icon)
-		_grid.set_item_metadata(item_index, entry.primary_path)
-		_grid.set_item_tooltip(item_index, "%s\n%s\n%s" % [entry.primary_path, entry.type_hint, ", ".join(entry.tags)])
-		var _appended: bool = paths.append(entry.primary_path)
+	_query_pending = false
+	_page_ready = true
+	_grid.set_resource_actions_enabled(not _stale)
 	if _stale:
 		_queue.pause()
 	else:
-		_preview_generation = _queue.request_visible(paths)
+		_preview_generation = _queue.request_visible(_card_paths)
+	if serial != _query_serial or not _is_page_report_current(page_report):
+		return
 	_previous_button.disabled = _page <= 1
 	_next_button.disabled = _page >= _page_count
 	_page_label.text = "第 %d / %d 页 · %d 项" % [_page, maxi(_page_count, 1), GFVariantData.get_option_int(page_report, "total_count")]
@@ -428,7 +588,7 @@ func _refresh_resource_actions() -> void:
 	if _context != null:
 		actions = _context.get_resource_actions(_resource_menu_paths)
 	_resource_actions.visible = not actions.is_empty()
-	_resource_actions.disabled = _stale or not _can_update_view() or _resource_menu_paths.is_empty()
+	_resource_actions.disabled = _stale or _query_pending or not _can_update_view() or _resource_menu_paths.is_empty()
 	for action: Dictionary in actions:
 		var index: int = popup.item_count
 		popup.add_item(GFVariantData.get_option_string(action, "title"), _resource_menu_next_id)
@@ -439,7 +599,7 @@ func _refresh_resource_actions() -> void:
 
 
 func _on_resource_action_pressed(item_id: int) -> void:
-	if _stale or not _can_update_view() or _resource_menu_context_generation != _context_generation:
+	if _stale or _query_pending or not _can_update_view() or _resource_menu_context_generation != _context_generation:
 		return
 	var popup: PopupMenu = _resource_actions.get_popup()
 	var index: int = popup.get_item_index(item_id)
@@ -691,7 +851,7 @@ func _on_source_invalidated() -> void:
 
 
 func _on_preview_ready(path: String, texture: Texture2D, generation: int) -> void:
-	if generation != _preview_generation:
+	if generation != _preview_generation or _query_pending or _stale or not _can_update_view():
 		return
 	for index: int in range(_grid.item_count):
 		if _grid.get_item_metadata(index) == path:
@@ -702,7 +862,7 @@ func _on_preview_ready(path: String, texture: Texture2D, generation: int) -> voi
 
 
 func _on_visibility_changed() -> void:
-	if not is_visible_in_tree():
+	if not _is_view_visible():
 		_source.cancel()
 		_queue.pause()
 		_project_snapshot_valid = false
@@ -731,6 +891,7 @@ func _on_collection_selected(_index: int) -> void:
 func _on_search_changed(_text: String) -> void:
 	_page = 1
 	_render_page()
+	_query_delay = 0.15
 
 
 func _on_grid_selected(_index: int, _selected: bool) -> void:

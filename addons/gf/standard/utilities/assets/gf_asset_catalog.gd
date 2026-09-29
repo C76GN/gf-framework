@@ -746,6 +746,42 @@ static func from_dict(data: Dictionary) -> GFAssetCatalog:
 	return catalog
 
 
+# --- 框架内部方法 ---
+
+## 为默认资产字段创建纯数据评分上下文；候选由查询任务独占，不重复复制。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param query_text: 查询文本。
+## [br]
+## @return 使用资产默认字段权重的评分上下文。
+## [br]
+## @schema return: Dictionary from GFTextSearchScorer.create_ranking_context with default asset fields and duplicate_candidate: false.
+static func make_default_search_context(query_text: String) -> Dictionary:
+	return GFTextSearchScorer.create_ranking_context(query_text, {
+		"fields": _DEFAULT_SEARCH_FIELDS.duplicate(true), "duplicate_candidate": false,
+	})
+
+
+## 按单个稳定 ID 构建独立默认评分数据，不提前解析资源身份。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param asset_id: 查找表快照中的稳定 ID。
+## [br]
+## @return 不存在时为空字典；存在时为本次调用独占的候选。
+## [br]
+## @schema return: Dictionary with id, asset_id, title, description, tags, category, primary_path, preview_path, type_hint, source_id, resource_entry_ids and metadata_keywords, without identity fields.
+func make_default_search_candidate(asset_id: StringName) -> Dictionary:
+	_ensure_entry_lookup()
+	var entry: GFAssetCatalogEntry = _get_entry_value(GFVariantData.get_option_value(_entry_lookup, asset_id))
+	return {} if entry == null else _make_search_candidate(entry, false)
+
+
 # --- 私有/辅助方法 ---
 
 ## 去除空值与重复值并排序请求的资产 ID。

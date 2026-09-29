@@ -93,6 +93,8 @@ func _run_cases(plugin: EditorPlugin, placement: GFScenePlacementPlugin, scene_p
 		return
 	var grid: ItemList = grid_node
 	var menu: MenuButton = menu_node
+	if not await _verify_query_lifecycle(plugin, window, workspace, asset_page, grid, menu, scene_path):
+		return
 	if not _check(_select_path(grid, material_path), "The Workspace index omitted the source material."):
 		return
 	menu.show_popup()
@@ -266,13 +268,95 @@ func _action_index(popup: PopupMenu) -> int:
 	return -1
 
 
+func _verify_query_lifecycle(plugin: EditorPlugin, window: Window, workspace: Control, page: Control, grid: ItemList, menu: MenuButton, scene_path: String) -> bool:
+	var search_node: Node = page.find_child("AssetSearch", true, false)
+	if not _check(search_node is LineEdit and _select_path(grid, scene_path), "Query lifecycle requires a real search field and old scene selection."):
+		return false
+	var search: LineEdit = search_node
+	menu.show_popup()
+	var popup: PopupMenu = menu.get_popup()
+	var action_index: int = _action_index(popup)
+	if not _check(action_index >= 0, "Query lifecycle requires an old open action menu."):
+		return false
+	var old_action_id: int = popup.get_item_id(action_index)
+	search.text = "unmatchablequartz"
+	search.text_changed.emit(search.text)
+	var pending: Dictionary = GFVariantData.as_dictionary(page.call("get_snapshot"))
+	popup.id_pressed.emit(old_action_id)
+	var _old_open: Variant = page.call("_open_selected")
+	var drag: Variant = grid.call("_get_drag_data", Vector2.ZERO)
+	if not _check(GFVariantData.get_option_bool(pending, "query_pending") and not popup.visible and menu.disabled and GFVariantData.get_option_packed_string_array(pending, "selected_paths").is_empty() and drag == null and _find_page(workspace, _PLACEMENT) == null, "Pending input permitted a retired menu/button/drag resource action."):
+		return false
+	window.hide()
+	await plugin.get_tree().process_frame
+	await plugin.get_tree().process_frame
+	var hidden: Dictionary = GFVariantData.as_dictionary(page.call("get_snapshot"))
+	if not _check(not window.visible and not GFVariantData.get_option_bool(hidden, "query_pending") and not GFVariantData.get_option_bool(hidden, "page_ready") and GFVariantData.get_option_bool(hidden, "stale"), "Hiding the actual Workspace Window did not cancel its resource query."):
+		return false
+	_tools.show_workspace()
+	if not await _wait_fresh(plugin, page):
+		return false
+	if not _check(grid.item_count == 0 and menu.disabled and GFVariantData.get_option_packed_string_array(GFVariantData.as_dictionary(page.call("get_snapshot")), "selected_paths").is_empty(), "A no-match query restored old results or resource actions."):
+		return false
+	search.text = "outdated"
+	search.text_changed.emit(search.text)
+	search.text = ""
+	search.text_changed.emit(search.text)
+	if not await _wait_fresh(plugin, page):
+		return false
+	if not _check(_select_path(grid, scene_path) and not menu.disabled, "Replacing pending input did not restore the latest complete page."):
+		return false
+	if not await _verify_worker_generation_retirement(plugin, page, search):
+		return false
+	_report["workspace_query_cancellation_and_window_hide"] = true
+	return true
+
+
+func _verify_worker_generation_retirement(plugin: EditorPlugin, page: Control, search: LineEdit) -> bool:
+	var model_value: Variant = page.get("_model")
+	if not _check(model_value is GFAssetBrowserModel, "Worker regression requires the real asset page model."):
+		return false
+	var model: GFAssetBrowserModel = model_value
+	var catalog: GFAssetCatalog = GFAssetCatalog.new()
+	for index: int in range(2048):
+		catalog.entries.append(GFAssetCatalogEntry.new().configure(StringName("worker_%04d" % index), "", {"title": "Hero %02d" % [index % 7]}))
+	var replacement: Dictionary = model.replace_catalog(catalog)
+	if not _check(GFVariantData.get_option_bool(replacement, "ok"), "Worker regression catalog was rejected."):
+		return false
+	search.text = "hero"
+	search.text_changed.emit(search.text)
+	var deadline: int = Time.get_ticks_msec() + 15000
+	var snapshot: Dictionary = {}
+	while Time.get_ticks_msec() < deadline:
+		snapshot = GFVariantData.as_dictionary(page.call("get_snapshot"))
+		if GFVariantData.get_option_string(GFVariantData.get_option_dictionary(snapshot, "query_progress"), "worker_phase") == "score":
+			break
+		await plugin.get_tree().process_frame
+	if not _check(GFVariantData.get_option_int(snapshot, "worker_count") == 1, "Worker regression did not enter active scoring."):
+		return false
+	var _changed: Dictionary = model.set_query("revoked_generation")
+	var _processed: Variant = page.call("_process", 0.016)
+	snapshot = GFVariantData.as_dictionary(page.call("get_snapshot"))
+	if not _check(not GFVariantData.get_option_bool(snapshot, "query_pending") and GFVariantData.get_option_int(snapshot, "worker_count") == 1, "Model generation revocation lost the owned worker before retirement."):
+		return false
+	while GFVariantData.get_option_int(GFVariantData.as_dictionary(page.call("get_snapshot")), "worker_count") != 0 and Time.get_ticks_msec() < deadline:
+		await plugin.get_tree().process_frame
+	if not _check(GFVariantData.get_option_int(GFVariantData.as_dictionary(page.call("get_snapshot")), "worker_count") == 0, "Retired worker was not joined by the native page."):
+		return false
+	search.text = ""
+	search.text_changed.emit(search.text)
+	var _refreshed: Variant = page.call("_refresh")
+	_report["workspace_worker_generation_retired"] = true
+	return await _wait_fresh(plugin, page)
+
+
 func _wait_fresh(plugin: EditorPlugin, page: Control) -> bool:
 	var deadline: int = Time.get_ticks_msec() + 10000
 	while Time.get_ticks_msec() < deadline:
 		var value: Variant = page.call("get_snapshot")
 		if value is Dictionary:
 			var snapshot: Dictionary = value
-			if snapshot.get("stale") == false:
+			if snapshot.get("stale") == false and snapshot.get("query_pending") == false and snapshot.get("page_ready") == true:
 				return true
 		await plugin.get_tree().process_frame
 	return _check(false, "Workspace asset index did not become fresh within its deadline.")

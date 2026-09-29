@@ -144,7 +144,7 @@ func _wait_scene_a() -> void:
 
 func _check_asset_workbench() -> void:
 	var snapshot: Dictionary = _asset_workbench.get_snapshot()
-	if _bool(snapshot, "stale") or (_asset_queue != null and _asset_previews.is_empty()):
+	if _bool(snapshot, "stale") or _bool(snapshot, "query_pending") or (_asset_queue != null and _asset_previews.is_empty()):
 		return
 	_phase = &"running"
 	for delivery: Dictionary in _asset_previews:
@@ -202,6 +202,8 @@ func _check_asset_workbench() -> void:
 		return
 	dialog.hide()
 	dialog.file_selected.emit("res://tests/gf_core/generated_asset_browser/shared.tres")
+	while not _finished and _bool(_asset_workbench.get_snapshot(), "query_pending"):
+		await get_tree().process_frame
 	if not _select_browser_path(grid, _ASSET):
 		return
 	var tags_value: Node = _asset_workbench.find_child("SharedAssetTags", true, false)
@@ -233,7 +235,7 @@ func _check_asset_workbench() -> void:
 	_record_asset_lifecycle(_bool(_asset_workbench.get_snapshot(), "stale"), "Catalog Undo revived a project snapshot while its refresh was still pending.")
 	var _catalog_redone: bool = catalog_history.redo()
 	await get_tree().process_frame
-	while not _finished and _bool(_asset_workbench.get_snapshot(), "stale"):
+	while not _finished and (_bool(_asset_workbench.get_snapshot(), "stale") or _bool(_asset_workbench.get_snapshot(), "query_pending")):
 		await get_tree().process_frame
 	if _finished:
 		return
@@ -243,7 +245,7 @@ func _check_asset_workbench() -> void:
 	var _hidden_redo: bool = catalog_history.redo()
 	_asset_host.show()
 	await get_tree().process_frame
-	while not _finished and _bool(_asset_workbench.get_snapshot(), "stale"):
+	while not _finished and (_bool(_asset_workbench.get_snapshot(), "stale") or _bool(_asset_workbench.get_snapshot(), "query_pending")):
 		await get_tree().process_frame
 	if _finished:
 		return
