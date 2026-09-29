@@ -350,6 +350,7 @@ func test_plugin_refresh_path_clears_manifest_cache_and_reloads_dynamic_tools() 
 	assert_true(refresh_apply_source.contains("_import_tools.setup(self)"), "编辑器贡献刷新必须重新安装启用扩展的 ImportPlugin。")
 	assert_true(refresh_apply_source.contains("_gltf_document_tools.cleanup()"), "编辑器贡献刷新必须卸载旧 glTF 文档扩展。")
 	assert_true(refresh_apply_source.contains("_gltf_document_tools.setup()"), "编辑器贡献刷新必须重新安装启用扩展的 glTF 文档扩展。")
+	assert_true(refresh_apply_source.contains("_setup_dock_tools()"), "刷新必须复用首次安装入口，完整转交页面、任务和资源动作记录。")
 
 
 func test_plugin_refresh_coalesces_same_frame_requests_into_latest_generation() -> void:
@@ -930,6 +931,74 @@ func test_editor_contribution_registry_rejects_duplicate_global_source_ids() -> 
 	assert_eq(GF_VARIANT_ACCESS.get_option_string(report, "state"), "invalid", "整体校验问题应显式标记 invalid。")
 	assert_eq(templates.size(), 1, "重复 source_id 应只保留第一条稳定记录。")
 	assert_eq(_count_report_issue_kind(report, "duplicate_source_id"), 1, "报告应指出 source_id 冲突。")
+
+
+func test_editor_contribution_registry_workspace_routes_keep_first_dock_owner() -> void:
+	var manifest_path: String = "user://gf_editor_contribution_registry_duplicate_dock_owner.json"
+	var page_path: String = "res://tests/gf_core/kernel/editor/fixtures/gf_workspace_passive_page.gd"
+	for first_owner: String in ["gf.test.first", "gf.test.second"]:
+		var second_owner: String = "gf.test.second" if first_owner == "gf.test.first" else "gf.test.first"
+		var docks: Array[Dictionary] = []
+		var tasks: Array[Dictionary] = []
+		var actions: Array[Dictionary] = []
+		for owner_id: String in [first_owner, second_owner]:
+			docks.append({
+				"owner_package_id": owner_id, "source_id": "page", "path": page_path,
+				"label": owner_id, "short_label": "Page", "order": 0,
+			})
+			tasks.append({"owner_package_id": owner_id, "source_id": "open", "title": "Open", "page_path": page_path})
+			actions.append({
+				"owner_package_id": owner_id, "source_id": "select", "title": "Select", "page_path": page_path,
+				"action_id": "select_source", "resource_types": ["PackedScene"],
+			})
+		_write_text_file(manifest_path, JSON.stringify({
+			"schema_version": 5, "package_id": "gf.test.aggregate", "dock_records": docks,
+			"task_records": tasks, "resource_action_records": actions,
+		}))
+		var report: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.load_manifest_report(manifest_path)
+		var records: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "records")
+		var kept_docks: Array = GF_VARIANT_ACCESS.get_option_array(records, "dock_records")
+		assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"))
+		assert_eq(GF_VARIANT_ACCESS.get_option_string(report, "state"), "invalid")
+		assert_eq(_count_report_issue_kind(report, "duplicate_payload_identity"), 1)
+		assert_eq(_count_report_issue_kind(report, "invalid_workspace_record"), 2)
+		assert_eq(kept_docks.size(), 1)
+		assert_eq(GF_VARIANT_ACCESS.get_option_string(_dictionary_at(kept_docks, 0), "owner_package_id"), first_owner)
+		for family: String in ["task_records", "resource_action_records"]:
+			var kept_routes: Array = GF_VARIANT_ACCESS.get_option_array(records, family)
+			assert_eq(kept_routes.size(), 1, "无效 manifest 的部分记录也只能授权保留的首个 dock owner。")
+			assert_eq(GF_VARIANT_ACCESS.get_option_string(_dictionary_at(kept_routes, 0), "owner_package_id"), first_owner, family)
+	_remove_path_if_exists(manifest_path)
+
+
+func test_editor_contribution_registry_removed_dock_cannot_authorize_workspace_routes() -> void:
+	var manifest_path: String = "user://gf_editor_contribution_registry_removed_dock.json"
+	var page_path: String = "res://tests/gf_core/kernel/editor/fixtures/gf_workspace_passive_page.gd"
+	_write_text_file(manifest_path, JSON.stringify({
+		"schema_version": 5, "package_id": "gf.test.aggregate",
+		"inspector_plugin_records": [{
+			"owner_package_id": "gf.test.owner", "source_id": "shared", "label": "Inspector",
+			"path": "res://tests/gf_core/kernel/editor/fixtures/gf_workspace_context_page.gd",
+		}],
+		"dock_records": [{
+			"owner_package_id": "gf.test.owner", "source_id": "shared", "path": page_path,
+			"label": "Page", "short_label": "Page", "order": 0,
+		}],
+		"task_records": [{"owner_package_id": "gf.test.owner", "source_id": "open", "title": "Open", "page_path": page_path}],
+		"resource_action_records": [{
+			"owner_package_id": "gf.test.owner", "source_id": "select", "title": "Select", "page_path": page_path,
+			"action_id": "select_source", "resource_types": ["PackedScene"],
+		}],
+	}))
+	var report: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.load_manifest_report(manifest_path)
+	var records: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "records")
+	_remove_path_if_exists(manifest_path)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"))
+	assert_eq(_count_report_issue_kind(report, "duplicate_source_id"), 1)
+	assert_eq(_count_report_issue_kind(report, "invalid_workspace_record"), 2)
+	assert_true(GF_VARIANT_ACCESS.get_option_array(records, "dock_records").is_empty())
+	assert_true(GF_VARIANT_ACCESS.get_option_array(records, "task_records").is_empty())
+	assert_true(GF_VARIANT_ACCESS.get_option_array(records, "resource_action_records").is_empty())
 
 
 func test_editor_contribution_registry_rejects_empty_template() -> void:

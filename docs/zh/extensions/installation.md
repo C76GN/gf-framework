@@ -46,7 +46,7 @@
 
 `GFExtensionPreset.from_json_file()` 只在 preset 文件可读、JSON 为对象且校验通过时返回对象。编辑器或项目工具需要展示诊断时，应使用 `from_json_file_report()`，它返回 JSON-safe 的 `preset_data` 与错误列表，适合直接进入日志、CI 报告或工具输出。
 
-Manifest、preset 和 tool contribution 的 JSON object 文件读取由 `GFExtensionJsonFileReader` 统一，扩展 ID 语法由 `GFExtensionIdValidator` 统一。三类输入都会在规范化前区分“字段缺失”和“字段类型错误”，并受单文件、累计字节与嵌套深度硬预算约束；签名与解析共享同一次发现预算。`GFExtensionToolContribution` 负责 `editor/gf_tool_contribution.json` 的严格 schema v2：只接受版本、所属扩展 ID 和已声明的路径字段，schema v1、未来版本与未知字段都会被拒绝。项目工具通常应通过 `GFExtensionManifest`、`GFExtensionPreset`、`GFExtensionPresetDiscovery`、`GFExtensionSelectionDiscovery` 和 `GFExtensionSettings` 这些更高层入口读取，不需要重复实现底层解析、ID 正则或贡献字段兼容分支。
+Manifest、preset 和 tool contribution 的 JSON object 文件读取由 `GFExtensionJsonFileReader` 统一，扩展 ID 语法由 `GFExtensionIdValidator` 统一。三类输入都会在规范化前区分“字段缺失”和“字段类型错误”，并受单文件、累计字节与嵌套深度硬预算约束；签名与解析共享同一次发现预算。`GFExtensionToolContribution` 负责 `editor/gf_tool_contribution.json` 的严格 schema v2/v3：两者均接受版本、所属扩展 ID 和八类路径字段；只有 v3 允许 `task_records` 与 `resource_action_records`，字段与路由约束见 [Workspace 贡献规范](../editor/workspace.md#贡献任务与资源动作)。v2 文件可继续使用，携带上述两类记录时必须升级为 v3；schema v1、未来版本与未知字段都会被拒绝。项目工具通常应通过 `GFExtensionManifest`、`GFExtensionPreset`、`GFExtensionPresetDiscovery`、`GFExtensionSelectionDiscovery` 和 `GFExtensionSettings` 这些更高层入口读取，不需要重复实现底层解析、ID 正则或贡献字段兼容分支。
 
 运行时 `gf_extension.json` 继续持有 `installer_paths`。`editor_action_paths`、`editor_dock_paths`、`editor_inspector_paths`、`import_plugin_paths`、`export_plugin_paths`、`gltf_document_extension_paths` 与 `access_generator_extension_paths` 只能写入 `editor/gf_tool_contribution.json`；`debugger_plugin_paths` 同样只属于 tool contribution。工作区页面的 `editor_dock_order` 和 `editor_dock_short_label` 仍是 manifest 展示元数据。把上述八类工具路径写入运行时 manifest 会被拒绝，其中七个迁移字段会给出指向 tool contribution 的诊断。
 

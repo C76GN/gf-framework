@@ -11,10 +11,10 @@ extends RefCounted
 ## @api private
 const _ROUTE_COMMAND_SCRIPT = preload("res://addons/gf/kernel/editor/workspace/gf_workspace_route_command.gd")
 
-## 纯数据扩展贡献读取器。
+## 纯数据扩展贡献读取器；保留实际 size_bytes，以同份已读取数据核算总预算。
 ## [br]
 ## @api private
-const _JSON_READER_SCRIPT = preload("res://addons/gf/kernel/editor/gf_bounded_json_reader.gd")
+const _JSON_READER_SCRIPT = preload("res://addons/gf/kernel/core/gf_bounded_json_object_reader.gd")
 
 ## 扩展贡献协议。
 ## [br]
@@ -59,7 +59,7 @@ var _navigator: WeakRef = null
 ## @api private
 var _generation: int = 0
 
-## 本次同步路由的接收方结果，用于保留失败原因。
+## 当前同步调用帧的接收方结果；嵌套调用保存并恢复外层槽位，防止内层结果泄漏。
 ## [br]
 ## @api private
 var _last_report: Dictionary = {}
@@ -110,6 +110,7 @@ func clear() -> void:
 	_resource_actions.clear()
 	_pages.clear()
 	_navigator = null
+	_last_report = {}
 
 
 ## 查询任务快照，不调用工厂或创建工具页面。
@@ -141,7 +142,7 @@ func get_workspace_tasks() -> Array[Dictionary]:
 ## [br]
 ## @return: 注册动作的执行报告；不可用页面返回扩展选择页导航结果，已撤销任务返回失败。
 ## [br]
-## @schema return: Dictionary；包含 ok: bool，可含 message: String、error_code: int；动作执行保留注册表的 status、action_id 等字段，扩展选择导航的 status 为 selection_required。
+## @schema return: Dictionary；包含 ok: bool 和 message: String，可含 error_code、status、action_id、replaced、metadata。同代接收报告保存在 receiver_report，原注册表状态为 registry_status；文本 status 和 message/reason/status 原因可提升，执行字段仍由注册表决定。扩展选择导航的 status 为 selection_required。
 func request_workspace_task(source_id: String) -> Dictionary:
 	if not _tasks.has(source_id):
 		return _failure("任务不存在或已撤销。")
@@ -187,7 +188,7 @@ func get_resource_actions(paths: PackedStringArray) -> Array[Dictionary]:
 ## [br]
 ## @return: 注册动作执行报告或可向用户呈现的校验失败结果。
 ## [br]
-## @schema return: Dictionary；包含 ok: bool，可含 message: String、error_code: int；实际执行保留注册表的 status、action_id 等字段，并优先保留接收工具的 message。
+## @schema return: Dictionary；包含 ok: bool 和 message: String，可含 error_code、status、action_id、replaced、metadata。同代接收报告深复制为 receiver_report，原注册表状态为 registry_status；文本 status 和 message/reason/status 原因可提升，ok、error_code、action_id、replaced、metadata 仍由注册表决定。过期或非法路由不附带接收报告。
 func request_resource_action(action_id: String, paths: PackedStringArray) -> Dictionary:
 	if not _resource_actions.has(action_id):
 		return _failure("资源动作不存在或已撤销。")
@@ -219,7 +220,7 @@ func invoke_workspace_record(source_id: String, paths: PackedStringArray, genera
 	if _resource_actions.has(source_id) and not _resource_reason(record, paths).is_empty():
 		return ERR_INVALID_PARAMETER
 	var page: Control = _open_page(str(record.get("page_path", "")))
-	if generation != _generation or not is_instance_valid(page):
+	if generation != _generation or not _is_live_page(page):
 		return ERR_UNAVAILABLE
 	var action_id: String = str(record.get("action_id", ""))
 	if action_id.is_empty():
@@ -233,6 +234,8 @@ func invoke_workspace_record(source_id: String, paths: PackedStringArray, genera
 		if not page.has_method("run_workspace_task"):
 			return ERR_METHOD_NOT_FOUND
 		response = page.call("run_workspace_task", action_id)
+	if generation != _generation or not _is_live_page(page):
+		return ERR_UNAVAILABLE
 	if response is Dictionary:
 		var report: Dictionary = response
 		_last_report = report.duplicate(true)
@@ -262,11 +265,17 @@ static func collect_extension_records(manifests: Array[GFExtensionManifest]) -> 
 		var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 		if file == null:
 			continue
-		consumed_bytes += file.get_length()
+		var declared_bytes: int = file.get_length()
 		file.close()
-		if consumed_bytes > 4_194_304:
+		if declared_bytes > 1_048_576:
+			continue
+		var remaining_bytes: int = 4_194_304 - consumed_bytes
+		if remaining_bytes <= 0 or declared_bytes > remaining_bytes:
 			break
-		var read: Dictionary = _JSON_READER_SCRIPT.read_object(path, 1_048_576, 64)
+		# 预检与实际读取之间文件可能变化；剩余预算必须由 reader 同份 bytes 校验并计费。
+		var read: Dictionary = _JSON_READER_SCRIPT.read_object(path, mini(1_048_576, remaining_bytes), 64)
+		var observed_bytes: int = read.get("size_bytes", 0)
+		consumed_bytes += clampi(observed_bytes, 0, remaining_bytes)
 		if read.get("ok", false) != true:
 			continue
 		var raw: Dictionary = read.get("data", {})
@@ -341,15 +350,40 @@ func _get_record(source_id: String) -> Dictionary:
 	return record
 
 
-## 保留接收工具的可读原因，同时由注册表决定动作是否成功。
+## 隔离同步嵌套调用的报告；同代接收方只补充状态与原因，不覆盖注册表的执行结果和 metadata。
 ## [br]
 ## @api private
 func _invoke_registered(source_id: String, context: Dictionary = {}) -> Dictionary:
+	var previous_report: Dictionary = _last_report
+	var generation: int = _generation
 	_last_report = {}
 	var report: Dictionary = _registry.invoke_action(StringName(source_id), context)
-	if _last_report.has("message"):
-		report["message"] = str(_last_report["message"])
+	var receiver_report: Dictionary = _last_report
+	_last_report = previous_report
+	if generation != _generation or receiver_report.is_empty():
+		return report
+	var receiver_error: Error = OK if receiver_report.get("ok", false) == true else FAILED
+	if report.get("error_code") != receiver_error:
+		return report
+	report["registry_status"] = report.get("status")
+	report["receiver_report"] = receiver_report.duplicate(true)
+	var receiver_status: String = _receiver_text(receiver_report, "status")
+	if not receiver_status.is_empty():
+		report["status"] = receiver_status
+	for field: String in ["message", "reason", "status"]:
+		var message: String = _receiver_text(receiver_report, field)
+		if not message.is_empty():
+			report["message"] = message
+			break
 	return report
+
+
+## 只提升文本状态或原因；其他接收方值保留在原始报告中，不隐式执行对象字符串转换。
+## [br]
+## @api private
+func _receiver_text(report: Dictionary, field: String) -> String:
+	var value: Variant = report.get(field)
+	return str(value) if value is String or value is StringName else ""
 
 
 ## 只检查当前贡献页面集合。
@@ -375,11 +409,7 @@ func _resource_reason(record: Dictionary, paths: PackedStringArray) -> String:
 	for path: String in paths:
 		if not path.begins_with("res://") or path != path.simplify_path() or path.contains("::"):
 			return "仅支持项目中的独立资源文件。"
-		var type_name: String = ""
-		if Engine.is_editor_hint():
-			var filesystem: EditorFileSystem = EditorInterface.get_resource_filesystem()
-			if filesystem != null:
-				type_name = filesystem.get_file_type(path)
+		var type_name: String = _get_native_resource_type(_get_file_type(path))
 		var accepted: bool = false
 		for accepted_type: String in types:
 			if type_name == accepted_type or ClassDB.is_parent_class(type_name, accepted_type):
@@ -388,6 +418,43 @@ func _resource_reason(record: Dictionary, paths: PackedStringArray) -> String:
 		if not accepted:
 			return "所选资源类型不适用于此动作。"
 	return ""
+
+
+## 只读取编辑器已有文件系统索引；类型查询不能加载所选资源或执行项目脚本。
+## [br]
+## @api private
+func _get_file_type(path: String) -> String:
+	if Engine.is_editor_hint():
+		var filesystem: EditorFileSystem = EditorInterface.get_resource_filesystem()
+		if filesystem != null:
+			return filesystem.get_file_type(path)
+	return ""
+
+
+## 沿全局脚本类的缓存 base 链解析原生 Resource 类型；未知、循环与非资源类型均拒绝。
+## [br]
+## @api private
+func _get_native_resource_type(type_name: String) -> String:
+	var seen: Dictionary = {}
+	var global_classes: Array[Dictionary] = ProjectSettings.get_global_class_list()
+	while not type_name.is_empty() and not seen.has(type_name):
+		if ClassDB.class_exists(type_name):
+			return type_name if type_name == "Resource" or ClassDB.is_parent_class(type_name, "Resource") else ""
+		seen[type_name] = true
+		var base_type: String = ""
+		for global_class: Dictionary in global_classes:
+			if str(global_class.get("class", "")) == type_name:
+				base_type = str(global_class.get("base", "")).strip_edges()
+				break
+		type_name = base_type
+	return ""
+
+
+## 接收入口与回调返回都必须仍是活动页面；queue_free 在实际释放前也已撤销执行资格。
+## [br]
+## @api private
+func _is_live_page(page: Control) -> bool:
+	return is_instance_valid(page) and not page.is_queued_for_deletion() and page.is_inside_tree()
 
 
 ## 通过弱引用导航并确认返回实际页面。

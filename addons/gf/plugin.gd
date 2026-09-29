@@ -469,10 +469,7 @@ func _apply_editor_contributions_refresh(generation: int) -> void:
 		_gltf_document_tools.cleanup()
 		_gltf_document_tools.setup()
 
-	if _dock_tools != null:
-		var dock_records: Array[Dictionary] = []
-		dock_records.assign(_get_record_array(_editor_contribution_records, "dock_records"))
-		_dock_tools.setup(self, dock_records)
+	_setup_dock_tools()
 
 	print("[GF Framework] 已刷新 GF 编辑器贡献记录（generation=%d）。" % generation)
 

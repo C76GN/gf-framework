@@ -199,7 +199,7 @@ func request_workspace_task(source_id: String) -> Dictionary:
 
 结构：
 
-- `return`: Dictionary containing ok and message, with optional error_code and status.
+- `return`: Dictionary with ok: bool and message: String, plus optional error_code, status, action_id, replaced and metadata from routing. A same-generation receiver response adds receiver_report: Dictionary (deep copy retaining receiver status, reason, data and other fields) and registry_status; a nonempty receiver text status becomes status, and message falls back through receiver message, reason and status. Registry ok, error_code, action_id, replaced and metadata remain authoritative; unavailable, invalid or revoked routes retain their registry failure without a receiver report.
 
 <a id="member-gfeditortoolcontext-methods-get_resource_actions"></a>
 
@@ -250,7 +250,7 @@ func request_resource_action(action_id: String, paths: PackedStringArray) -> Dic
 
 结构：
 
-- `return`: Dictionary containing ok and message, with optional error_code and status.
+- `return`: Dictionary with ok: bool and message: String, plus optional error_code, status, action_id, replaced and metadata from routing. A same-generation receiver response adds receiver_report: Dictionary (deep copy retaining receiver status, reason, data and other fields) and registry_status; a nonempty receiver text status becomes status, and message falls back through receiver message, reason and status. Registry ok, error_code, action_id, replaced and metadata remain authoritative; unavailable, invalid or revoked routes retain their registry failure without a receiver report.
 
 <a id="member-gfeditortoolcontext-methods-to_dictionary"></a>
 

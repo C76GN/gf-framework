@@ -38,11 +38,13 @@
 
 标准库和制作期工具的 `gf_editor_contributions.json` 支持 schema 4 与 5；schema 5 新增 `task_records` 和 `resource_action_records`。扩展的 `editor/gf_tool_contribution.json` 支持 schema 2 与 3；相应新记录需要 schema 3。各版本均拒绝未声明字段。
 
-任务记录使用本地 `source_id`、`title`、`page_path`，可附加 `description`、`group`、字符串数组 `keywords` 和 `action_id`。目标必须是同一来源已贡献的页面。宿主将来源 ID 加上所属模块前缀，避免不同工具重名。任务没有 `action_id` 时只打开页面；有值时调用该页面的 `run_workspace_task(action_id: String) -> Dictionary`。接收页面返回含 `ok` 和可读 `message` 的结果。
+任务记录使用本地 `source_id`、`title`、`page_path`，可附加 `description`、`group`、字符串数组 `keywords` 和 `action_id`。目标必须是同一来源已贡献的页面。宿主将来源 ID 加上所属模块前缀，避免不同工具重名。任务没有 `action_id` 时只打开页面；有值时调用该页面的 `run_workspace_task(action_id: String) -> Dictionary`。接收页面返回含 `ok` 的结果，可提供 `message`、`reason`、`status` 和工具专用数据。
 
 资源动作额外声明原生 `resource_types` 和 `max_selection`（1–100，默认 1），并必须提供 `action_id`。当前支持 `Resource`、`PackedScene`、`Texture2D`、`AudioStream`、`Font`、`Material`、`Mesh` 和 `Script`；类型判断使用编辑器文件索引，不加载项目资源脚本。接收页面实现 `receive_workspace_resources(action_id: String, paths: PackedStringArray) -> Dictionary`。该方法只接收选择并准备下一步；涉及保存或场景修改的操作仍由工具明确执行。
 
 工具通过 `GFEditorToolContext.get_workspace_tasks()` / `request_workspace_task()` 查询和打开任务，通过 `get_resource_actions(paths)` / `request_resource_action(action_id, paths)` 查询并交接资源。查询返回可用性和原因；执行时再次检查页面、选择数量和资源类型。上下文撤销后，请求返回不可用。导航及资源交接不产生 Undo 历史，实际编辑沿用所属工具的命令机制。
+
+有效接收结果以独立副本保留在 `receiver_report`，`registry_status` 保留路由状态。接收方的文本 `status` 会用于结果状态，说明依次使用 `message`、`reason` 或 `status`；执行是否成功、错误码和动作身份由路由注册表决定。回调中刷新贡献或使页面失效时，旧结果不能发布为成功。贡献刷新同时更新页面、任务与资源动作，刷新后仍可查询并执行当前记录。
 
 贡献发现只读取有大小和数量上限的 JSON 数据，不支持脚本表达式、任意方法名或跨工具实现路径。
 
