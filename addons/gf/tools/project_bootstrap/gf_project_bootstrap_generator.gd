@@ -259,13 +259,6 @@ static func _has_indexed_class_change(path: String, type_name: String) -> bool:
 	return index >= 0 and directory.get_file_type(index) == &"GDScript" and directory.get_file_script_class_name(index) != type_name
 
 
-## 专用信号确认类索引已经更新，普通预览调用不能借未刷新的空 metadata 提前释放占名。
-## [br]
-## @api private
-static func _on_pending_script_classes_updated() -> void:
-	_settle_pending_classes(true)
-
-
 ## 只在有待导入类型时监听编辑器真实的全局类列表更新；运行期不访问 EditorInterface。
 ## [br]
 ## @api private
@@ -437,3 +430,12 @@ static func _retain_files(transaction: Dictionary, report: Dictionary) -> void:
 	_record_transaction(report, GFArtifactWriteTransaction.complete(transaction))
 	report["recovery_required"] = true
 	report["status"] = "recovery_required"
+
+
+# --- 信号处理函数 ---
+
+## 专用信号确认类索引已经更新，普通预览调用不能借未刷新的空 metadata 提前释放占名。
+## [br]
+## @api private
+static func _on_pending_script_classes_updated() -> void:
+	_settle_pending_classes(true)
