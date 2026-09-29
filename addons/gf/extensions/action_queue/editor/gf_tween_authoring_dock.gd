@@ -53,12 +53,12 @@ func _exit_tree() -> void:
 ## [br]
 ## @return: 对话框是否已经打开。
 ## [br]
-## @schema return: Dictionary，ok: bool、status: String（dialog_opened 或 unavailable）。
+## @schema return: Dictionary，ok: bool、status: String（dialog_opened 或 unavailable）、message: String（可读说明）。
 func run_workspace_task(action_id: String) -> Dictionary:
 	if action_id != "new_resource" or _actions == null:
-		return {"ok": false, "status": "unavailable"}
+		return {"ok": false, "status": "unavailable", "message": "Tween 创建入口当前不可用；请重新打开工作区后重试。"}
 	_actions.handle_menu_action(&"create_tween_config")
-	return {"ok": true, "status": "dialog_opened"}
+	return {"ok": true, "status": "dialog_opened", "message": "已打开 Tween 配置创建窗口；确认保存位置后创建。"}
 
 
 # --- 信号处理函数 ---

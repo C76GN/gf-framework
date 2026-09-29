@@ -211,7 +211,13 @@ func _check_asset_workbench() -> void:
 		return
 	var tags: LineEdit = tags_value
 	tags.text = "smoke, scene"
-	if not _press_browser_button("应用到所选") or not _press_browser_button("保存共享目录"):
+	if not _press_browser_button("应用到所选"):
+		return
+	if not _require(_asset_workbench.has_unsaved_workspace_changes(), "Unsaved shared Catalog edits must request Workspace retention."):
+		return
+	if not _press_browser_button("保存共享目录"):
+		return
+	if not _require(not _asset_workbench.has_unsaved_workspace_changes(), "Explicit shared Catalog save must release its dirty-retention request."):
 		return
 	var loaded_catalog: Resource = ResourceLoader.load("res://tests/gf_core/generated_asset_browser/shared.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
 	if not _require(loaded_catalog is GFAssetCatalog, "The shared catalog was not saved as a standard catalog resource."):
@@ -232,6 +238,7 @@ func _check_asset_workbench() -> void:
 	if not _press_browser_button("刷新"):
 		return
 	var _catalog_undone: bool = catalog_history.undo()
+	_record_asset_lifecycle(_asset_workbench.has_unsaved_workspace_changes(), "Undo away from the saved Catalog baseline must request draft retention.")
 	_record_asset_lifecycle(_bool(_asset_workbench.get_snapshot(), "stale"), "Catalog Undo revived a project snapshot while its refresh was still pending.")
 	var _catalog_redone: bool = catalog_history.redo()
 	await get_tree().process_frame

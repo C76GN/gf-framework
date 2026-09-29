@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionToolContribution" path="addons/gf/kernel/extension/gf_extension_tool_contribution.gd" module="kernel" extends="RefCounted" classDigest="556d0a17fc70cc7637c26c3dc765f05d1485596a98ef94373d807ded531cb12d">
+<class name="GFExtensionToolContribution" path="addons/gf/kernel/extension/gf_extension_tool_contribution.gd" module="kernel" extends="RefCounted" classDigest="240d2680f34ef14e20dec5f86f1d7816aee55700b3380c402868b9398bda973f">
 	<description>GFExtensionToolContribution: 扩展编辑器工具贡献文件的稳定 schema 解析器。
 该类型只定义贡献文件协议，不负责加载脚本、验证资源存在性或管理编辑器生命周期。</description>
 	<tags>
@@ -71,7 +71,7 @@
 				<tag name="param">expected_extension_id: 非空时要求 contribution 的 extension_id 与其一致。</tag>
 				<tag name="return">schema 校验报告。</tag>
 				<tag name="schema">data: Dictionary，字段必须属于 ALLOWED_FIELDS。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、data 和 errors；data 包含 schema_version、extension_id 及全部 PATH_FIELDS。</tag>
+				<tag name="schema">return: Dictionary，含 ok: bool、data: Dictionary、errors: Array[String]；仅 ok 为 true 时可消费 data。data 始终含 schema_version: int、extension_id: String 及全部 PATH_FIELDS（去空白、去重的字符串数组，省略时为空）。v2 不返回工作区记录字段，输入携带它们时失败；v3 另含 task_records、resource_action_records: Array[Dictionary]（省略时为空）。每项均含 owner_package_id: String（默认 extension_id）、source_id: String（owner_package_id:本地来源 ID）、title: String（去首尾空白）、description: String（默认空）、keywords: 字符串数组（默认空）、group: String（默认“常用”）、page_path: String（保留声明路径，须匹配同一 owner 的 editor_dock_paths）、action_id: String（任务默认空）。资源动作另要求 action_id 非空，并含 resource_types: 非空字符串数组（仅 Resource、PackedScene、Texture2D、AudioStream、Font、Material、Mesh、Script）、max_selection: int（1 到 100，默认 1）。失败时 errors 非空，data 可保留部分规范化结果，不能作为已通过校验的贡献。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

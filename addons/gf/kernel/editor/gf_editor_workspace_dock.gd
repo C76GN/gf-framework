@@ -18,6 +18,11 @@ const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_varian
 ## @api private
 const _PREFERENCES_SCRIPT = preload("res://addons/gf/kernel/editor/state/gf_editor_preferences.gd")
 
+## 为所有声明草稿保留协议的活动页面预留容量，包含已撤销但未清理的草稿。
+## [br]
+## @api private
+const _MAX_DRAFT_PAGE_COUNT: int = 16
+
 ## 关于弹窗尺寸。
 ## [br]
 ## @api framework_internal
@@ -201,10 +206,25 @@ var _editor_context: GFEditorToolContext = null
 ## @api private
 var _page_controls: Array[Control] = []
 
+## 贡献身份已撤销、仍在树中保存未保存草稿的页面包装节点。
+## [br]
+## @api private
+var _revoked_pages: Array[Control] = []
+
+## 当前只读草稿的可见说明，不将内存修改描述为已保存。
+## [br]
+## @api private
+var _draft_notice: Label = null
+
 ## 与占位 Tab 一一对应的待实例化页面记录。
 ## [br]
 ## @api private
 var _page_records: Array[Dictionary] = []
+
+## 与记录和加载标记同索引的包装页身份；Tab 移动不会把邻页解释为原贡献。
+## [br]
+## @api private
+var _page_wrappers: Array[Control] = []
 
 ## 本轮重建中各页面是否已尝试实例化的标记。
 ## [br]
@@ -310,7 +330,10 @@ func set_editor_context(editor_context: GFEditorToolContext) -> void:
 	for page_control: Control in page_controls:
 		if generation != _context_generation or _rebuild_pending:
 			break
-		_forward_page_context(page_control, editor_context)
+		if not _is_managed_page_content(page_control):
+			continue
+		_forward_page_context(page_control, null if _revoked_pages.has(page_control.get_parent()) else editor_context)
+	_reconcile_page_layout()
 	_page_operation_depth -= 1
 	_rebuild_pages()
 
@@ -398,7 +421,10 @@ func select_page(title: String) -> bool:
 func select_page_id(page_id: String) -> bool:
 	for index: int in range(_page_records.size()):
 		if _get_page_id(_page_records[index]) == page_id:
-			_on_page_button_pressed(index)
+			var tab_index: int = _get_page_tab_index(_page_wrappers[index])
+			if tab_index < 0:
+				return false
+			_on_page_button_pressed(tab_index)
 			return true
 	return false
 
@@ -411,9 +437,10 @@ func select_page_id(page_id: String) -> bool:
 ## [br]
 ## @return: 当前选中页的 source_id 或兼容脚本路径；无有效选页时为空。
 func get_selected_page_id() -> String:
-	if _tabs == null or _tabs.current_tab < 0 or _tabs.current_tab >= _page_records.size():
+	if _tabs == null or _tabs.current_tab < 0:
 		return ""
-	return _get_page_id(_page_records[_tabs.current_tab])
+	var index: int = _get_page_record_index(_tabs.current_tab)
+	return _get_page_id(_page_records[index]) if index >= 0 else ""
 
 
 ## 打开指定页面并返回其内容控件；不存在或加载失败时返回 null。
@@ -436,7 +463,9 @@ func open_page(page_id: String) -> Control:
 	if requested_index < 0:
 		return null
 	var generation: int = _context_generation
-	var page: Control = _tabs.get_tab_control(requested_index)
+	var page: Control = _page_wrappers[requested_index]
+	if _get_page_tab_index(page) < 0 or _revoked_pages.has(page):
+		return null
 	if not select_page_id(page_id):
 		return null
 	# 页面初始化可能重入切页或更换上下文；只返回本次请求的同代实例。
@@ -444,10 +473,10 @@ func open_page(page_id: String) -> Control:
 		return null
 	if not is_instance_valid(page) or page != _tabs.get_tab_control(_tabs.current_tab):
 		return null
-	if page.is_queued_for_deletion() or page.get_child_count() == 0:
+	if page.is_queued_for_deletion() or _revoked_pages.has(page) or page.get_child_count() == 0:
 		return null
 	var child: Node = page.get_child(0)
-	if child is Control and _page_controls.has(child):
+	if child is Control and _page_controls.has(child) and _is_live_page_content(page, child):
 		var control: Control = child
 		return control
 	return null
@@ -537,6 +566,13 @@ func _build_ui() -> void:
 	var _always_on_top_connected: Error = _always_on_top_button.toggled.connect(_on_always_on_top_toggled) as Error
 	header.add_child(_always_on_top_button)
 
+	_draft_notice = Label.new()
+	_draft_notice.name = "WorkspaceDraftNotice"
+	_draft_notice.text = "此贡献已撤销或脚本路径已变化。未保存草稿仍在内存中，当前只读；请恢复原贡献后保存，或使用 Undo 恢复后再刷新贡献。关闭插件会结束本次草稿保留。"
+	_draft_notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_draft_notice.hide()
+	layout.add_child(_draft_notice)
+
 	_tabs = TabContainer.new()
 	_tabs.clip_contents = true
 	_tabs.tabs_visible = false
@@ -546,7 +582,8 @@ func _build_ui() -> void:
 	layout.add_child(_tabs)
 
 
-## 在没有活动页面操作时应用待处理配置，先清空旧页面上下文再重建占位 Tab。
+## 应用贡献快照；声明 has_unsaved_workspace_changes 且返回 true 的页面不离树。
+## 旧上下文先撤销；仅相同 source_id 与 path 恢复权限，其余草稿保留只读直到恢复或变干净。
 ## 未提供 label 的旧记录和当前选中页会实例化；重入请求由 `_rebuild_pending` 在本轮结束后续跑。
 ## [br]
 ## @api private
@@ -562,42 +599,98 @@ func _rebuild_pages() -> void:
 		_rebuild_pending = false
 		_page_operation_depth += 1
 		_rebuilding_pages = true
-		var old_controls: Array[Control] = _page_controls
-		_page_controls = []
-		_page_records.clear()
-		_page_load_attempted.clear()
+		var retained: Dictionary[Control, Dictionary] = {}
+		var retained_contents: Dictionary[Control, Control] = {}
+		var old_records: Array[Dictionary] = _page_records.duplicate()
+		var old_pages: Array[Control] = _page_wrappers.duplicate()
+		# dirty hook 也可迁走包装页；枚举前捕获身份，不再按变化后的 Tab 索引寻找下一页。
+		for index: int in range(old_pages.size()):
+			var page: Control = old_pages[index]
+			var content: Control = _get_owned_page_content(page)
+			if content != null and content.has_method("has_unsaved_workspace_changes"):
+				var keep_draft: bool = content.call("has_unsaved_workspace_changes") == true
+				if keep_draft and _is_live_page_content(page, content):
+					retained[page] = old_records[index]
+					retained_contents[page] = content
+		var old_controls: Array[Control] = _page_controls.duplicate()
 		for page_control: Control in old_controls:
-			_forward_page_context(page_control, null)
+			if _is_managed_page_content(page_control):
+				_forward_page_context(page_control, null)
+		_prune_retained_pages(retained, retained_contents)
 		for child: Node in _tabs.get_children():
-			_tabs.remove_child(child)
-			child.queue_free()
-
-		if not _rebuild_pending:
-			for record: Dictionary in _dock_records:
-				var script_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "path", "").strip_edges()
-				if script_path.is_empty():
-					continue
-				var page: Control = _make_page(record, script_path)
+			if not retained.has(child):
+				_discard_page_wrapper(child)
+		# 其他页面离树的回调也可以释放或迁走先前保留的内容。
+		_prune_retained_pages(retained, retained_contents)
+		_page_controls = []
+		_page_records = []
+		_page_wrappers = []
+		_page_load_attempted = []
+		_revoked_pages.clear()
+		var ordered_pages: Array[Control] = []
+		# 即使上下文回调重入，也先完成一致的布局；下轮仍能找到全部保留草稿。
+		for record: Dictionary in _dock_records:
+			var script_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "path", "").strip_edges()
+			if script_path.is_empty():
+				continue
+			var page: Control = null
+			for retained_page: Control in retained:
+				if _get_page_id(retained[retained_page]) == _get_page_id(record):
+					page = retained_page
+					break
+			if page == null:
+				page = _make_page(record, script_path)
+				_tabs.add_child(page)
 				_page_records.append(record)
 				_page_load_attempted.append(false)
-				_tabs.add_child(page)
-			if _tabs.get_child_count() == 0:
-				_tabs.add_child(_make_empty_page())
 			else:
-				_tabs.current_tab = clampi(_tabs.current_tab, 0, _tabs.get_child_count() - 1)
-				for index: int in range(_page_records.size()):
-					if _get_page_id(_page_records[index]) == selected_page_id:
-						_tabs.current_tab = index
-						break
+				var old_record: Dictionary = retained[page]
+				var same_path: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(old_record, "path", "").strip_edges() == script_path
+				_page_records.append(record if same_path else old_record)
+				_page_load_attempted.append(true)
+				var content: Control = retained_contents[page]
+				_page_controls.append(content)
+				if same_path:
+					var label: String = _resolve_page_label(content, _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "label", ""))
+					page.name = label
+					page.set_meta("short_label", _resolve_short_page_label(record, label))
+				else:
+					_revoked_pages.append(page)
+				var _removed: bool = retained.erase(page)
+			ordered_pages.append(page)
+		for page: Control in retained:
+			ordered_pages.append(page)
+			_page_records.append(retained[page])
+			_page_load_attempted.append(true)
+			_page_controls.append(retained_contents[page])
+			_revoked_pages.append(page)
+		_page_wrappers = ordered_pages.duplicate()
+		for index: int in range(ordered_pages.size()):
+			_tabs.move_child(ordered_pages[index], index)
+		if ordered_pages.is_empty():
+			_tabs.add_child(_make_empty_page())
+		else:
+			_tabs.current_tab = clampi(_tabs.current_tab, 0, _tabs.get_child_count() - 1)
+			for index: int in range(_page_records.size()):
+				if _get_page_id(_page_records[index]) == selected_page_id:
+					_tabs.current_tab = index
+					break
+		for content: Control in _page_controls.duplicate():
+			if _rebuild_pending:
+				break
+			if _is_managed_page_content(content) and not _revoked_pages.has(content.get_parent()):
+				_forward_page_context(content, _editor_context)
+		_reconcile_page_layout()
 		_rebuilding_pages = false
 
 		if not _rebuild_pending:
 			# 旧记录未提供 label 时，必须实例化才能取得原有的 dock.name，保持按标题选页兼容。
-			for index: int in range(_page_records.size()):
+			for page: Control in _page_wrappers.duplicate():
 				if _rebuild_pending:
 					break
-				if _GF_VARIANT_ACCESS_SCRIPT.get_option_string(_page_records[index], "label", "").is_empty():
-					_ensure_page(index)
+				var index: int = _page_wrappers.find(page)
+				if index >= 0 and _GF_VARIANT_ACCESS_SCRIPT.get_option_string(_page_records[index], "label", "").is_empty():
+					_ensure_page(_get_page_tab_index(page))
 			_ensure_page(_tabs.current_tab)
 		if not _rebuild_pending:
 			_update_status()
@@ -627,10 +720,12 @@ func _make_page(record: Dictionary, script_path: String) -> Control:
 func _ensure_page(index: int) -> void:
 	if _rebuilding_pages or _rebuild_pending or _tabs == null:
 		return
-	if index < 0 or index >= _page_records.size() or _page_load_attempted[index]:
+	var record_index: int = _get_page_record_index(index)
+	if record_index < 0 or _page_load_attempted[record_index]:
 		return
 	_page_operation_depth += 1
-	_create_page(index)
+	_create_page(record_index)
+	_reconcile_page_layout()
 	_page_operation_depth -= 1
 	_rebuild_pages()
 
@@ -642,9 +737,15 @@ func _ensure_page(index: int) -> void:
 func _create_page(index: int) -> void:
 	# 在用户页面构造前标记，避免入树或上下文回调重入时重复实例化。
 	_page_load_attempted[index] = true
-	var page: Control = _tabs.get_tab_control(index)
+	var page: Control = _page_wrappers[index]
 	var record: Dictionary = _page_records[index]
 	var dock: Control = _instantiate_page(record)
+	var capacity_rejected: bool = false
+	if dock != null and dock.has_method("has_unsaved_workspace_changes") and _draft_page_count() >= _MAX_DRAFT_PAGE_COUNT:
+		# 在授予上下文和入树前拒绝新实例，既有草稿永远不会为腾容量而被删除。
+		dock.free()
+		dock = null
+		capacity_rejected = true
 	if dock != null:
 		_page_controls.append(dock)
 		_forward_page_context(dock, _editor_context)
@@ -656,7 +757,7 @@ func _create_page(index: int) -> void:
 		return
 	if dock == null:
 		var failure_label: Label = Label.new()
-		failure_label.text = "此页面加载失败，请检查 Godot 错误面板。修复后重新加载 GF 插件。"
+		failure_label.text = "已达到 16 个草稿页面容量。请先保存或 Undo 恢复已有草稿，再刷新贡献后重试；已有草稿未被丢弃。" if capacity_rejected else "此页面加载失败，请检查 Godot 错误面板。修复后重新加载 GF 插件。"
 		failure_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		page.add_child(failure_label)
 		failure_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -709,8 +810,145 @@ func _instantiate_page(record: Dictionary) -> Control:
 ## [br]
 ## @api private
 func _forward_page_context(page_control: Control, editor_context: GFEditorToolContext) -> void:
-	if is_instance_valid(page_control) and page_control.has_method("set_editor_context"):
+	if is_instance_valid(page_control) and not page_control.is_queued_for_deletion() and page_control.has_method("set_editor_context"):
 		var _context_result: Variant = page_control.call("set_editor_context", editor_context)
+
+
+## 只返回当前受管包装页中的内容，不把加载失败说明误认作贡献页面。
+## [br]
+## @api private
+func _get_owned_page_content(page: Control) -> Control:
+	if is_instance_valid(page) and not page.is_queued_for_deletion() and page.get_child_count() > 0:
+		var child: Node = page.get_child(0)
+		if child is Control and _page_controls.has(child) and _is_live_page_content(page, child):
+			var content: Control = child
+			return content
+	return null
+
+
+## 外部回调后复核原包装页与原内容身份；已释放、排队删除或迁走的页面不再受管。
+## 参数允许持有已失效的对象值，必须先验证再进行类型收窄。
+## [br]
+## @api private
+func _is_live_page_content(page_value: Variant, content_value: Variant) -> bool:
+	if not is_instance_valid(page_value) or not is_instance_valid(content_value):
+		return false
+	if not page_value is Control or not content_value is Control:
+		return false
+	var page: Control = page_value
+	var content: Control = content_value
+	return not page.is_queued_for_deletion() and not content.is_queued_for_deletion() and page.get_parent() == _tabs and content.get_parent() == page and page.get_child_count() > 0 and page.get_child(0) == content and content.is_inside_tree() == page.is_inside_tree()
+
+
+## 在读取 parent 前排除已失效内容；迁入另一个宿主的节点不会被重新授予或撤销上下文。
+## [br]
+## @api private
+func _is_managed_page_content(content_value: Variant) -> bool:
+	if not is_instance_valid(content_value) or not content_value is Control:
+		return false
+	var content: Control = content_value
+	return _is_live_page_content(content.get_parent(), content)
+
+
+## 回调可能同步释放其他页面；反复收束失效保留项，最多删除现有草稿数量。
+## [br]
+## @api private
+func _prune_retained_pages(records: Dictionary[Control, Dictionary], contents: Dictionary[Control, Control]) -> void:
+	var changed: bool = true
+	while changed:
+		changed = false
+		for page: Control in records:
+			if _is_live_page_content(page, contents.get(page)):
+				continue
+			var _record_removed: bool = records.erase(page)
+			var _content_removed: bool = contents.erase(page)
+			_discard_page_wrapper(page)
+			changed = true
+			break
+
+
+## 只释放仍属于本 TabContainer 的包装页，不从其他宿主夺回主动迁出的节点。
+## [br]
+## @api private
+func _discard_page_wrapper(page_value: Variant) -> void:
+	if not is_instance_valid(page_value) or not page_value is Node:
+		return
+	var page: Node = page_value
+	if page.get_parent() != _tabs:
+		return
+	_tabs.remove_child(page)
+	if is_instance_valid(page) and page.get_parent() == null and not page.is_queued_for_deletion():
+		page.queue_free()
+
+
+## 清除外部回调已退役的内容引用，后续转发和容量统计不访问悬空实例。
+## [br]
+## @api private
+func _prune_page_controls() -> void:
+	for content: Control in _page_controls.duplicate():
+		if not _is_managed_page_content(content):
+			_page_controls.erase(content)
+
+
+## 将当前 Tab 的实际包装页映射回原记录，拒绝迁出、已释放或排队删除的身份。
+## [br]
+## @api private
+func _get_page_record_index(tab_index: int) -> int:
+	if _tabs == null or tab_index < 0 or tab_index >= _tabs.get_tab_count():
+		return -1
+	var page: Control = _tabs.get_tab_control(tab_index)
+	return _page_wrappers.find(page) if _get_page_tab_index(page) >= 0 else -1
+
+
+## 只返回仍由本 TabContainer 持有的包装页当前位置，不使用旧记录索引猜测身份。
+## [br]
+## @api private
+func _get_page_tab_index(page_value: Variant) -> int:
+	if not is_instance_valid(page_value) or not page_value is Control:
+		return -1
+	var page: Control = page_value
+	if page.is_queued_for_deletion() or page.get_parent() != _tabs:
+		return -1
+	return _tabs.get_tab_idx_from_control(page)
+
+
+## 外部上下文回调可迁走包装页；按仍受管的真实身份同时收束记录、加载标记与内容引用。
+## 不重获迁出节点的所有权，也不把退役记录交给移到相同 Tab 索引的邻页。
+## [br]
+## @api private
+func _reconcile_page_layout() -> void:
+	var wrappers: Array[Control] = []
+	var records: Array[Dictionary] = []
+	var attempted: Array[bool] = []
+	for tab_index: int in range(_tabs.get_tab_count()):
+		var index: int = _get_page_record_index(tab_index)
+		if index < 0:
+			continue
+		wrappers.append(_page_wrappers[index])
+		records.append(_page_records[index])
+		attempted.append(_page_load_attempted[index])
+	var changed: bool = wrappers != _page_wrappers
+	_page_wrappers = wrappers
+	_page_records = records
+	_page_load_attempted = attempted
+	for page: Control in _revoked_pages.duplicate():
+		if not _page_wrappers.has(page):
+			_revoked_pages.erase(page)
+	_prune_page_controls()
+	if changed and not _rebuilding_pages:
+		_rebuild_page_buttons()
+		_update_status()
+
+
+## 所有已准入的草稿协议页面占用容量，包括暂时干净的活动页和撤销草稿。
+## [br]
+## @api private
+func _draft_page_count() -> int:
+	var count: int = 0
+	for content: Control in _page_controls:
+		if is_instance_valid(content) and content.has_method("has_unsaved_workspace_changes"):
+			count += 1
+	return count
 
 
 ## 创建仅含 EMPTY_MESSAGE 的概览页，用于没有有效页面记录的工作区。
@@ -876,6 +1114,8 @@ func _sync_page_buttons() -> void:
 ## [br]
 ## @api private
 func _update_status() -> void:
+	if _draft_notice != null:
+		_draft_notice.visible = _tabs != null and _tabs.current_tab >= 0 and _revoked_pages.has(_tabs.get_tab_control(_tabs.current_tab))
 	if _tabs == null or _tabs.get_child_count() <= 0:
 		_set_status(EMPTY_MESSAGE)
 		return

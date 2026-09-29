@@ -1604,6 +1604,27 @@ func test_extension_manifest_versions_follow_release_policy() -> void:
 	)
 
 
+func test_workspace_task_extensions_record_their_compatible_feature_versions() -> void:
+	var expected_versions: Dictionary = {"gf.flow": "4.1.0", "gf.save": "6.4.0"}
+	var expected_sources: Dictionary = {"gf.flow": "gf.flow:flow.task.edit", "gf.save": "gf.save:save.task.inspect"}
+	var found: Array[String] = []
+	for manifest: GFExtensionManifest in GFExtensionCatalog.load_extension_manifests():
+		if not expected_versions.has(manifest.id):
+			continue
+		found.append(manifest.id)
+		assert_eq(manifest.extension_version, GF_VARIANT_ACCESS.get_option_string(expected_versions, manifest.id), "新增工作区公开任务应递增扩展自身 minor 版本。")
+		assert_eq(manifest.version, _read_framework_version(), "扩展发行版本仍跟随框架版本。")
+		var contribution: Dictionary = _read_json_dictionary(manifest.root_path.path_join("editor/gf_tool_contribution.json"))
+		var report: Dictionary = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary(contribution, manifest.id)
+		assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"))
+		var data: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "data")
+		var tasks: Array = GF_VARIANT_ACCESS.get_option_array(data, "task_records")
+		var expected_source: String = expected_sources[manifest.id]
+		assert_true(tasks.any(func(record: Dictionary) -> bool: return record.get("source_id") == expected_source))
+	found.sort()
+	assert_eq(found, ["gf.flow", "gf.save"], "版本契约必须覆盖两个实际可发现的扩展。")
+
+
 func test_extension_settings_resolves_manifest_dependencies() -> void:
 	var base_manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
 		"id": "author.base",
@@ -2171,6 +2192,54 @@ func test_extension_tool_contribution_schema_normalizes_valid_paths() -> void:
 			["editor/%s.gd" % field_name],
 			"Tool Contribution 路径应去空白并去重：%s" % field_name
 		)
+
+
+func test_extension_tool_contribution_return_shape_preserves_v2_and_normalizes_v3_records() -> void:
+	var source_data: Dictionary = {
+		"schema_version": 2, "extension_id": "author.feature",
+		"editor_dock_paths": ["editor/page.gd"],
+	}
+	var legacy: Dictionary = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary(source_data)
+	var legacy_data: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(legacy, "data")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(legacy, "ok"))
+	assert_false(legacy_data.has("task_records"), "v2 结果不新增任务数组。")
+	assert_false(legacy_data.has("resource_action_records"), "v2 结果不新增资源动作数组。")
+	source_data["schema_version"] = 3
+	var empty: Dictionary = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary(source_data)
+	var empty_data: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(empty, "data")
+	assert_true(empty_data.get("task_records") is Array)
+	assert_true(empty_data.get("resource_action_records") is Array)
+	assert_eq(GF_VARIANT_ACCESS.get_option_array(empty_data, "task_records"), [])
+	assert_eq(GF_VARIANT_ACCESS.get_option_array(empty_data, "resource_action_records"), [])
+	source_data["task_records"] = [{"source_id": "open", "title": " Open ", "page_path": "editor/page.gd"}]
+	source_data["resource_action_records"] = [{
+		"source_id": "select", "title": "Select", "page_path": "editor/page.gd",
+		"action_id": "select_source", "resource_types": ["PackedScene"],
+	}]
+	var report: Dictionary = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary(source_data)
+	var data: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "data")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"))
+	assert_eq(GF_VARIANT_ACCESS.get_option_array(data, "task_records"), [{
+		"owner_package_id": "author.feature", "source_id": "author.feature:open", "title": "Open",
+		"description": "", "keywords": [], "group": "常用", "page_path": "editor/page.gd", "action_id": "",
+	}])
+	assert_eq(GF_VARIANT_ACCESS.get_option_array(data, "resource_action_records"), [{
+		"owner_package_id": "author.feature", "source_id": "author.feature:select", "title": "Select",
+		"description": "", "keywords": [], "group": "常用", "page_path": "editor/page.gd",
+		"action_id": "select_source", "resource_types": ["PackedScene"], "max_selection": 1,
+	}])
+	source_data["schema_version"] = 2
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary(source_data), "ok"))
+	source_data["schema_version"] = 3
+	source_data["task_records"] = [
+		{"source_id": "open", "title": "Open", "page_path": "editor/page.gd"},
+		{"source_id": "invalid", "title": "Invalid", "page_path": "editor/missing.gd"},
+	]
+	var invalid: Dictionary = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary(source_data)
+	var invalid_data: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(invalid, "data")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(invalid, "ok"))
+	assert_false(GF_VARIANT_ACCESS.get_option_array(invalid, "errors").is_empty())
+	assert_eq(GF_VARIANT_ACCESS.get_option_array(invalid_data, "task_records").size(), 1, "失败结果可保留合法项，但不能作为已通过校验的数据消费。")
 
 
 func test_extension_tool_contribution_schema_rejects_legacy_version() -> void:

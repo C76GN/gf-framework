@@ -381,6 +381,7 @@ func test_plugin_refresh_path_clears_manifest_cache_and_reloads_dynamic_tools() 
 	assert_true(refresh_apply_source.contains("_import_tools.setup(self)"), "编辑器贡献刷新必须重新安装启用扩展的 ImportPlugin。")
 	assert_true(refresh_apply_source.contains("_gltf_document_tools.cleanup()"), "编辑器贡献刷新必须卸载旧 glTF 文档扩展。")
 	assert_true(refresh_apply_source.contains("_gltf_document_tools.setup()"), "编辑器贡献刷新必须重新安装启用扩展的 glTF 文档扩展。")
+	assert_true(refresh_apply_source.contains("_setup_dock_tools()"), "刷新必须复用首次安装入口，完整转交页面、任务和资源动作记录。")
 
 
 func test_plugin_refresh_coalesces_same_frame_requests_into_latest_generation() -> void:
@@ -976,6 +977,74 @@ func test_editor_contribution_registry_rejects_duplicate_global_source_ids() -> 
 	assert_eq(GF_VARIANT_ACCESS.get_option_string(report, "state"), "invalid", "整体校验问题应显式标记 invalid。")
 	assert_eq(templates.size(), 1, "重复 source_id 应只保留第一条稳定记录。")
 	assert_eq(_count_report_issue_kind(report, "duplicate_source_id"), 1, "报告应指出 source_id 冲突。")
+
+
+func test_editor_contribution_registry_workspace_routes_keep_first_dock_owner() -> void:
+	var manifest_path: String = "user://gf_editor_contribution_registry_duplicate_dock_owner.json"
+	var page_path: String = "res://tests/gf_core/kernel/editor/fixtures/gf_workspace_passive_page.gd"
+	for first_owner: String in ["gf.test.first", "gf.test.second"]:
+		var second_owner: String = "gf.test.second" if first_owner == "gf.test.first" else "gf.test.first"
+		var docks: Array[Dictionary] = []
+		var tasks: Array[Dictionary] = []
+		var actions: Array[Dictionary] = []
+		for owner_id: String in [first_owner, second_owner]:
+			docks.append({
+				"owner_package_id": owner_id, "source_id": "page", "path": page_path,
+				"label": owner_id, "short_label": "Page", "order": 0,
+			})
+			tasks.append({"owner_package_id": owner_id, "source_id": "open", "title": "Open", "page_path": page_path})
+			actions.append({
+				"owner_package_id": owner_id, "source_id": "select", "title": "Select", "page_path": page_path,
+				"action_id": "select_source", "resource_types": ["PackedScene"],
+			})
+		_write_text_file(manifest_path, JSON.stringify({
+			"schema_version": 5, "package_id": "gf.test.aggregate", "dock_records": docks,
+			"task_records": tasks, "resource_action_records": actions,
+		}))
+		var report: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.load_manifest_report(manifest_path)
+		var records: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "records")
+		var kept_docks: Array = GF_VARIANT_ACCESS.get_option_array(records, "dock_records")
+		assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"))
+		assert_eq(GF_VARIANT_ACCESS.get_option_string(report, "state"), "invalid")
+		assert_eq(_count_report_issue_kind(report, "duplicate_payload_identity"), 1)
+		assert_eq(_count_report_issue_kind(report, "invalid_workspace_record"), 2)
+		assert_eq(kept_docks.size(), 1)
+		assert_eq(GF_VARIANT_ACCESS.get_option_string(_dictionary_at(kept_docks, 0), "owner_package_id"), first_owner)
+		for family: String in ["task_records", "resource_action_records"]:
+			var kept_routes: Array = GF_VARIANT_ACCESS.get_option_array(records, family)
+			assert_eq(kept_routes.size(), 1, "无效 manifest 的部分记录也只能授权保留的首个 dock owner。")
+			assert_eq(GF_VARIANT_ACCESS.get_option_string(_dictionary_at(kept_routes, 0), "owner_package_id"), first_owner, family)
+	_remove_path_if_exists(manifest_path)
+
+
+func test_editor_contribution_registry_removed_dock_cannot_authorize_workspace_routes() -> void:
+	var manifest_path: String = "user://gf_editor_contribution_registry_removed_dock.json"
+	var page_path: String = "res://tests/gf_core/kernel/editor/fixtures/gf_workspace_passive_page.gd"
+	_write_text_file(manifest_path, JSON.stringify({
+		"schema_version": 5, "package_id": "gf.test.aggregate",
+		"inspector_plugin_records": [{
+			"owner_package_id": "gf.test.owner", "source_id": "shared", "label": "Inspector",
+			"path": "res://tests/gf_core/kernel/editor/fixtures/gf_workspace_context_page.gd",
+		}],
+		"dock_records": [{
+			"owner_package_id": "gf.test.owner", "source_id": "shared", "path": page_path,
+			"label": "Page", "short_label": "Page", "order": 0,
+		}],
+		"task_records": [{"owner_package_id": "gf.test.owner", "source_id": "open", "title": "Open", "page_path": page_path}],
+		"resource_action_records": [{
+			"owner_package_id": "gf.test.owner", "source_id": "select", "title": "Select", "page_path": page_path,
+			"action_id": "select_source", "resource_types": ["PackedScene"],
+		}],
+	}))
+	var report: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.load_manifest_report(manifest_path)
+	var records: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "records")
+	_remove_path_if_exists(manifest_path)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"))
+	assert_eq(_count_report_issue_kind(report, "duplicate_source_id"), 1)
+	assert_eq(_count_report_issue_kind(report, "invalid_workspace_record"), 2)
+	assert_true(GF_VARIANT_ACCESS.get_option_array(records, "dock_records").is_empty())
+	assert_true(GF_VARIANT_ACCESS.get_option_array(records, "task_records").is_empty())
+	assert_true(GF_VARIANT_ACCESS.get_option_array(records, "resource_action_records").is_empty())
 
 
 func test_editor_contribution_registry_rejects_empty_template() -> void:
@@ -1960,6 +2029,251 @@ func test_plugin_dock_tools_creates_workspace_lazily() -> void:
 	base_control.free()
 
 
+func test_workspace_refresh_retains_dirty_instance_and_revokes_context_before_rebinding() -> void:
+	var dock: DraftWorkspaceProbe = DraftWorkspaceProbe.new()
+	add_child_autofree(dock)
+	var first_context: GFEditorToolContext = GFEditorToolContext.new()
+	var second_context: GFEditorToolContext = GFEditorToolContext.new()
+	var record: Dictionary = _draft_record("draft")
+	dock.setup([record], first_context)
+	var page: DraftPageProbe = _get_draft_probe(dock, "draft")
+	if page == null:
+		return
+	page.dirty = true
+	var wrapper: Node = page.get_parent()
+	page.contexts.clear()
+	page.context_tree_states.clear()
+	record["label"] = "Renamed draft"
+	dock.setup([record], second_context)
+	assert_same(dock.open_page("draft"), page, "稳定来源和脚本路径相同的未保存页必须保留实例。")
+	assert_same(page.get_parent(), wrapper, "保留页不得离树或替换 wrapper。")
+	assert_true(page.is_inside_tree())
+	assert_eq(page.enter_count, 1)
+	assert_eq(page.exit_count, 0)
+	assert_eq(page.contexts.size(), 2)
+	if page.contexts.size() == 2:
+		assert_null(page.contexts[0])
+		assert_same(page.contexts[1], second_context)
+	assert_eq(page.context_tree_states, [true, true], "撤销和重绑定应发生在同一已挂树页面。")
+	page.dirty = false
+	dock.setup([record], first_context)
+	assert_false(page.is_inside_tree(), "保存或 Undo 回到基线后的页面应在下次刷新正常回收。")
+	assert_eq(page.exit_count, 1)
+	assert_not_same(dock.open_page("draft"), page)
+	await get_tree().process_frame
+	assert_false(is_instance_valid(page))
+
+
+func test_workspace_dirty_orphan_rejects_routing_and_restores_only_exact_source_and_path() -> void:
+	var dock: DraftWorkspaceProbe = DraftWorkspaceProbe.new()
+	add_child_autofree(dock)
+	var context: GFEditorToolContext = GFEditorToolContext.new()
+	var record: Dictionary = _draft_record("draft")
+	dock.setup([record], context)
+	var page: DraftPageProbe = _get_draft_probe(dock, "draft")
+	if page == null:
+		return
+	page.dirty = true
+	dock.setup([], context)
+	assert_true(page.is_inside_tree(), "撤销贡献仍应保留未保存草稿。")
+	assert_null(page.current_context)
+	assert_null(dock.open_page("draft"), "只读草稿不能作为任务或资源动作接收页。")
+	assert_true(dock.select_page_id("draft"), "用户仍可查看只读草稿。")
+	dock.set_editor_context(GFEditorToolContext.new())
+	assert_null(page.current_context, "通用上下文重新注入不能复活已撤销草稿。")
+	var changed_path: Dictionary = _draft_record("draft", true)
+	dock.setup([changed_path], context)
+	assert_null(dock.open_page("draft"), "同来源换脚本不能将旧草稿路由到新贡献。")
+	assert_null(page.current_context)
+	assert_eq(page.enter_count, 1)
+	assert_eq(page.exit_count, 0)
+	dock.setup([record], context)
+	assert_same(dock.open_page("draft"), page)
+	assert_same(page.current_context, context)
+	assert_eq(page.enter_count, 1)
+	assert_eq(page.exit_count, 0)
+	page.dirty = false
+	dock.setup([], context)
+	assert_false(page.is_inside_tree())
+	assert_null(dock.open_page("draft"))
+	await get_tree().process_frame
+	assert_false(is_instance_valid(page))
+
+
+func test_workspace_dirty_reentrant_revocation_cannot_rebind_stale_context() -> void:
+	var dock: DraftWorkspaceProbe = DraftWorkspaceProbe.new()
+	add_child_autofree(dock)
+	var record: Dictionary = _draft_record("draft")
+	dock.setup([record], GFEditorToolContext.new())
+	var page: DraftPageProbe = _get_draft_probe(dock, "draft")
+	if page == null:
+		return
+	page.dirty = true
+	page.contexts.clear()
+	page.before_context = func(context: GFEditorToolContext) -> void:
+		if context == null:
+			page.before_context = Callable()
+			dock.setup([], GFEditorToolContext.new())
+	dock.setup([record], GFEditorToolContext.new())
+	assert_null(dock.open_page("draft"), "上下文撤销回调中的新贡献快照必须优先。")
+	assert_true(page.is_inside_tree())
+	assert_null(page.current_context)
+	assert_eq(page.enter_count, 1)
+	assert_eq(page.exit_count, 0)
+	for context: GFEditorToolContext in page.contexts:
+		assert_null(context, "重入已撤销来源后，不得再注入外层旧快照上下文。")
+	dock.setup([record], GFEditorToolContext.new())
+	assert_same(dock.open_page("draft"), page, "后续显式恢复仍能路由到同一草稿。")
+	await get_tree().process_frame
+
+
+func test_workspace_dirty_retirement_callbacks_preserve_other_drafts_and_never_rebind_retired_page() -> void:
+	for retirement_phase: String in ["dirty_query", "context_revoke"]:
+		for retirement_mode: String in ["detach", "free", "queue_free", "reparent", "reparent_wrapper"]:
+			var dock: DraftWorkspaceProbe = DraftWorkspaceProbe.new()
+			add_child(dock)
+			var new_owner: Control = Control.new()
+			add_child(new_owner)
+			var new_owner_context: GFEditorToolContext = GFEditorToolContext.new()
+			var transferring: bool = retirement_mode.begins_with("reparent")
+			var records: Array[Dictionary] = [_draft_record("retiring"), _draft_record("surviving")]
+			dock.setup(records, GFEditorToolContext.new())
+			var retiring: DraftPageProbe = _get_draft_probe(dock, "retiring")
+			var surviving: DraftPageProbe = _get_draft_probe(dock, "surviving")
+			if retiring == null or surviving == null:
+				dock.free()
+				new_owner.free()
+				return
+			retiring.dirty = true
+			surviving.dirty = true
+			var old_wrapper: Node = retiring.get_parent()
+			var retired_stats: Dictionary = retiring.stats
+			var active_calls: int = GF_VARIANT_ACCESS.get_option_int(retired_stats, "active_contexts")
+			# Godot 锁定正在 call 的对象；同步 free 必须由另一页回调触发，才是真实可发生路径。
+			var callback_page: DraftPageProbe = surviving if retirement_mode == "free" else retiring
+			if retirement_phase == "dirty_query":
+				callback_page.before_dirty = func() -> void:
+					_retire_draft_probe(retiring, retirement_mode, new_owner, new_owner_context)
+			else:
+				callback_page.before_context = func(context: GFEditorToolContext) -> void:
+					if context == null:
+						callback_page.before_context = Callable()
+						_retire_draft_probe(retiring, retirement_mode, new_owner, new_owner_context)
+			var replacement: GFEditorToolContext = GFEditorToolContext.new()
+			dock.setup(records, replacement)
+			assert_same(dock.open_page("surviving"), surviving, retirement_phase + ":" + retirement_mode)
+			assert_same(surviving.current_context, replacement)
+			assert_true(surviving.is_inside_tree())
+			assert_eq(surviving.enter_count, 1)
+			assert_eq(surviving.exit_count, 0)
+			var expected_active_calls: int = active_calls + (1 if transferring else 0)
+			assert_eq(GF_VARIANT_ACCESS.get_option_int(retired_stats, "active_contexts"), expected_active_calls, "旧宿主不能再次给退役页授予权限。")
+			if transferring:
+				assert_eq(GF_VARIANT_ACCESS.get_option_int(retired_stats, "contexts"), GF_VARIANT_ACCESS.get_option_int(retired_stats, "transferred_context_count"), "移交后旧宿主不能再调用 null setter 撤销新所有者权限。")
+				assert_same(retiring.current_context, new_owner_context)
+			var routed: Control = dock.open_page("retiring")
+			if is_instance_valid(retiring):
+				assert_not_same(routed, retiring, "不可将仍待释放或已离树的旧页交给任务路由。")
+				if transferring:
+					if retirement_mode == "reparent_wrapper":
+						assert_same(old_wrapper.get_parent(), new_owner)
+						assert_same(retiring.get_parent(), old_wrapper)
+					else:
+						assert_same(retiring.get_parent(), new_owner)
+					assert_true(retiring.is_inside_tree())
+				else:
+					assert_false(retiring.is_inside_tree())
+				if retirement_mode == "detach":
+					retiring.free()
+			await get_tree().process_frame
+			dock.set_editor_context(GFEditorToolContext.new())
+			assert_true(surviving.is_inside_tree(), "后续上下文转发不能解引用已释放的旧内容。")
+			dock.free()
+			if transferring:
+				assert_true(is_instance_valid(retiring), "旧宿主释放不能删除迁往新所有者的内容。")
+				assert_eq(GF_VARIANT_ACCESS.get_option_int(retired_stats, "active_contexts"), expected_active_calls)
+				assert_eq(GF_VARIANT_ACCESS.get_option_int(retired_stats, "contexts"), GF_VARIANT_ACCESS.get_option_int(retired_stats, "transferred_context_count"))
+				assert_same(retiring.current_context, new_owner_context)
+			new_owner.free()
+			await get_tree().process_frame
+
+
+func test_workspace_dirty_rebind_wrapper_transfer_keeps_routes_bound_to_their_original_pages() -> void:
+	var dock: DraftWorkspaceProbe = DraftWorkspaceProbe.new()
+	add_child(dock)
+	var new_owner: Control = Control.new()
+	add_child(new_owner)
+	var new_owner_context: GFEditorToolContext = GFEditorToolContext.new()
+	var records: Array[Dictionary] = [_draft_record("transferring"), _draft_record("stable")]
+	dock.setup(records, GFEditorToolContext.new())
+	var transferring: DraftPageProbe = _get_draft_probe(dock, "transferring")
+	var stable: DraftPageProbe = _get_draft_probe(dock, "stable")
+	if transferring == null or stable == null:
+		dock.free()
+		new_owner.free()
+		return
+	transferring.dirty = true
+	stable.dirty = true
+	var wrapper: Node = transferring.get_parent()
+	transferring.before_context = func(context: GFEditorToolContext) -> void:
+		if context != null:
+			transferring.before_context = Callable()
+			_retire_draft_probe(transferring, "reparent_wrapper", new_owner, new_owner_context)
+	var replacement: GFEditorToolContext = GFEditorToolContext.new()
+	dock.setup(records, replacement)
+	var transferred_context_count: int = GF_VARIANT_ACCESS.get_option_int(transferring.stats, "transferred_context_count")
+	var routed_transfer: Control = dock.open_page("transferring")
+	assert_not_same(routed_transfer, stable, "A 重绑定回调迁走 wrapper 后，A 路由不得按旧索引误返回 B。")
+	assert_not_same(routed_transfer, transferring, "已移交新所有者的 A 不能继续由旧宿主路由。")
+	assert_same(dock.open_page("stable"), stable, "其余 dirty 页的稳定身份必须与实际 wrapper 同步。")
+	assert_eq(dock.get_selected_page_id(), "stable")
+	assert_same(stable.current_context, replacement)
+	assert_same(wrapper.get_parent(), new_owner)
+	assert_same(transferring.current_context, new_owner_context)
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(transferring.stats, "contexts"), transferred_context_count, "移交后旧宿主不得再撤销新所有者上下文。")
+	dock.set_editor_context(GFEditorToolContext.new())
+	dock.free()
+	assert_true(is_instance_valid(transferring))
+	assert_same(transferring.current_context, new_owner_context)
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(transferring.stats, "contexts"), transferred_context_count)
+	new_owner.free()
+	await get_tree().process_frame
+
+
+func test_workspace_draft_capacity_counts_active_opt_in_pages_and_readonly_orphans() -> void:
+	var dock: DraftWorkspaceProbe = DraftWorkspaceProbe.new()
+	add_child_autofree(dock)
+	var context: GFEditorToolContext = GFEditorToolContext.new()
+	var records: Array[Dictionary] = []
+	for index: int in range(17):
+		records.append(_draft_record("draft-%d" % index))
+	dock.setup(records, context)
+	var pages: Array[DraftPageProbe] = []
+	for index: int in range(16):
+		var page: DraftPageProbe = _get_draft_probe(dock, "draft-%d" % index)
+		if page == null:
+			return
+		pages.append(page)
+	assert_null(dock.open_page("draft-16"), "即使尚未 dirty，声明草稿保留协议的活动页也必须预留容量。")
+	var refused: Dictionary = dock.creation_stats.back()
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(refused, "contexts"), 0, "超容量实例不能收到编辑器上下文。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(refused, "enters"), 0, "超容量实例不能进入场景树。")
+	for page: DraftPageProbe in pages:
+		page.dirty = true
+	dock.setup([records[16]], context)
+	assert_null(dock.open_page("draft-16"), "被撤销但仍 dirty 的草稿必须继续占用容量。")
+	for page: DraftPageProbe in pages:
+		assert_true(page.is_inside_tree())
+		assert_null(page.current_context)
+		assert_eq(page.exit_count, 0)
+	pages[0].dirty = false
+	dock.setup([records[16]], context)
+	assert_false(pages[0].is_inside_tree())
+	assert_not_null(dock.open_page("draft-16"), "已保存的孤立页回收后，应释放一个新页容量。")
+	await get_tree().process_frame
+	assert_false(is_instance_valid(pages[0]))
+
+
 func test_editor_workspace_dock_groups_gf_panels() -> void:
 	var dock: Control = _new_control(GF_EDITOR_WORKSPACE_DOCK)
 	var records: Array[Dictionary] = [
@@ -2558,6 +2872,39 @@ func _new_object(script: Variant) -> Object:
 	return null
 
 
+func _retire_draft_probe(page: DraftPageProbe, mode: String, new_owner: Control, new_context: GFEditorToolContext) -> void:
+	match mode:
+		"detach":
+			page.get_parent().remove_child(page)
+		"free":
+			page.free()
+		"queue_free":
+			page.queue_free()
+		"reparent":
+			page.reparent(new_owner)
+		"reparent_wrapper":
+			page.get_parent().reparent(new_owner)
+	if mode.begins_with("reparent"):
+		page.set_editor_context(new_context)
+		page.stats["transferred_context_count"] = GF_VARIANT_ACCESS.get_option_int(page.stats, "contexts")
+
+
+func _draft_record(source_id: String, alternate_path: bool = false) -> Dictionary:
+	return {
+		"source_id": source_id, "label": source_id,
+		"path": "res://tests/gf_core/kernel/editor/fixtures/gf_workspace_context_page.gd" if alternate_path else "res://tests/gf_core/kernel/editor/fixtures/gf_workspace_passive_page.gd",
+	}
+
+
+func _get_draft_probe(dock: DraftWorkspaceProbe, source_id: String) -> DraftPageProbe:
+	var page: Control = dock.open_page(source_id)
+	assert_true(page is DraftPageProbe, "已准入页面应返回对应的真实探针实例。")
+	if page is DraftPageProbe:
+		var probe: DraftPageProbe = page
+		return probe
+	return null
+
+
 func _new_control(script: Variant) -> Control:
 	var object_instance: Object = _new_object(script)
 	assert_true(object_instance is Control, "测试 helper 脚本应实例化为 Control。")
@@ -2813,6 +3160,56 @@ func _as_label(value: Variant) -> Label:
 
 
 # --- 辅助类型 ---
+
+class DraftPageProbe:
+	extends Control
+
+	var dirty: bool = false
+	var current_context: GFEditorToolContext = null
+	var contexts: Array[GFEditorToolContext] = []
+	var context_tree_states: Array[bool] = []
+	var enter_count: int = 0
+	var exit_count: int = 0
+	var stats: Dictionary = {"contexts": 0, "enters": 0, "active_contexts": 0}
+	var before_context: Callable = Callable()
+	var before_dirty: Callable = Callable()
+
+	func _enter_tree() -> void:
+		enter_count += 1
+		stats["enters"] = enter_count
+
+	func _exit_tree() -> void:
+		exit_count += 1
+
+	func has_unsaved_workspace_changes() -> bool:
+		var result: bool = dirty
+		var callback: Callable = before_dirty
+		before_dirty = Callable()
+		if callback.is_valid():
+			var _called: Variant = callback.call()
+		return result
+
+	func set_editor_context(context: GFEditorToolContext) -> void:
+		current_context = context
+		contexts.append(context)
+		context_tree_states.append(is_inside_tree())
+		stats["contexts"] = contexts.size()
+		if context != null:
+			stats["active_contexts"] = GF_VARIANT_ACCESS.get_option_int(stats, "active_contexts") + 1
+		if before_context.is_valid():
+			var _called: Variant = before_context.call(context)
+
+
+class DraftWorkspaceProbe:
+	extends GF_EDITOR_WORKSPACE_DOCK
+
+	var creation_stats: Array[Dictionary] = []
+
+	func _instantiate_page(_record: Dictionary) -> Control:
+		var page: DraftPageProbe = DraftPageProbe.new()
+		creation_stats.append(page.stats)
+		return page
+
 
 class WorkspaceButtonState:
 	extends RefCounted

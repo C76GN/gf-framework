@@ -313,6 +313,8 @@ static func load_manifest_report(manifest_path: String) -> Dictionary:
 		issues
 	)
 	if schema_version == 5:
+		# 只有最终保留的 dock 可以授权工作区路由，重复项不能覆盖其 owner。
+		_validate_record_identities(records, issues)
 		var page_owners: Dictionary = {}
 		for page: Dictionary in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(records, "dock_records"):
 			page_owners[page["path"]] = page["owner_package_id"]

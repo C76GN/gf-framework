@@ -135,20 +135,20 @@ func _init() -> void:
 ## [br]
 ## @return 接收结果。
 ## [br]
-## @schema return: Dictionary with ok, status and path.
+## @schema return: Dictionary with ok: bool, status: String, message: String and path: String.
 func receive_resource_paths(paths: PackedStringArray) -> Dictionary:
 	if paths.size() != 1:
-		return {"ok": false, "status": "select_one_scene", "path": ""}
+		return {"ok": false, "status": "select_one_scene", "message": "请一次选择一个场景。", "path": ""}
 	var path: String = paths[0]
 	if not path.begins_with("res://") or path.contains("..") or path.contains("::") or not ResourceLoader.exists(path):
-		return {"ok": false, "status": "invalid_scene_path", "path": path}
+		return {"ok": false, "status": "invalid_scene_path", "message": "场景路径已失效；请刷新资源列表并重新选择。", "path": path}
 	var resource: Resource = ResourceLoader.load(path)
 	if not resource is PackedScene:
-		return {"ok": false, "status": "not_packed_scene", "path": path}
+		return {"ok": false, "status": "not_packed_scene", "message": "所选资源不是 PackedScene；请选择一个场景。", "path": path}
 	var scene: PackedScene = resource
 	set_source_scene(scene)
 	show_status("已接收场景；选择父 Node3D 后点击开始摆放。")
-	return {"ok": true, "status": "source_selected", "path": path}
+	return {"ok": true, "status": "source_selected", "message": "已接收场景；选择父 Node3D 后点击开始摆放。", "path": path}
 
 
 ## 从 Godot 原生 files/resource 拖拽载荷提取有限的项目资源路径。

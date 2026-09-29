@@ -162,6 +162,18 @@ func _exit_tree() -> void:
 
 # --- 框架内部方法 ---
 
+## 请求 Workspace 在贡献刷新时保留本页面及源资源保存基线，不隐式保存草稿。
+## 贡献撤销时宿主只保留内存页并传入 null 上下文；精确恢复身份后重新授予编辑权限。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return 源资源表或显式共享目录是否仍有未保存修改。
+func has_unsaved_workspace_changes() -> bool:
+	return _tables.has_unsaved_changes() or (_shared_catalog != null and _catalog_fingerprint() != _shared_saved_fingerprint)
+
+
 ## 接收宿主上下文；撤销上下文时停止索引与预览提交。
 ## [br]
 ## @api framework_internal

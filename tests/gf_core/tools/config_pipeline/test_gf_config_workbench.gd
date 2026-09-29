@@ -297,6 +297,37 @@ func test_dock_exposes_complete_workflow_without_writing_settings() -> void:
 	assert_true(setting_unchanged)
 
 
+func test_dock_reports_unsaved_profile_for_workspace_refresh_without_saving_on_revoke() -> void:
+	var dock: _DOCK_SCRIPT = _DOCK_SCRIPT.new()
+	add_child_autofree(dock)
+	assert_true(dock.has_method("has_unsaved_workspace_changes"), "工作区刷新前必须能够发现配置草稿。")
+	if not dock.has_method("has_unsaved_workspace_changes"):
+		return
+	var session_value: Variant = dock.get("_session")
+	assert_true(session_value is _SESSION_SCRIPT)
+	if not (session_value is _SESSION_SCRIPT):
+		return
+	var session: _SESSION_SCRIPT = session_value
+	assert_false(dock.has_unsaved_workspace_changes())
+	session.create_profile(_write("items.csv", "id:int!\n1\n"), "retained", _root_path.path_join("generated"))
+	assert_true(dock.has_unsaved_workspace_changes())
+	var path: String = _root_path.path_join("profile.tres")
+	assert_false(FileAccess.file_exists(path), "发现草稿不应保存 Profile。")
+	assert_true(GFVariantData.get_option_bool(session.save_profile(path), "success"))
+	assert_false(dock.has_unsaved_workspace_changes())
+	var saved_digest: String = FileAccess.get_sha256(path)
+	var profile: GFConfigPipelineProfile = session.get_profile()
+	profile.version = "unsaved revision"
+	session.mark_changed()
+	dock.set_editor_context(null)
+	assert_same(session.get_profile(), profile)
+	assert_true(dock.has_unsaved_workspace_changes())
+	assert_eq(FileAccess.get_sha256(path), saved_digest, "撤销上下文只保留内存草稿，不隐式保存。")
+	session.clear_profile()
+	assert_false(dock.has_unsaved_workspace_changes())
+	await get_tree().process_frame
+
+
 func test_preview_worker_is_pure_bounded_and_cancellable() -> void:
 	var path: String = _write("items.csv", "id:int!,name:string\n1,Potion\n")
 	var request: Dictionary = { "generation": 7, "source_path": path, "source_format": "csv", "table_name": "items", "parse_options": {} }

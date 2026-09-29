@@ -107,6 +107,17 @@ func _exit_tree() -> void:
 
 # --- 框架内部方法 ---
 
+## 工作区刷新贡献时保留未保存的独立 Profile 草稿；检测不会写入项目文件。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return: 当前页面是否拥有未保存的任务修改。
+func has_unsaved_workspace_changes() -> bool:
+	return GFVariantData.get_option_bool(_session.get_state(), "dirty")
+
+
 ## 宿主撤销上下文时取消预检并使所有旧控件回调失效；重新绑定保留工作草稿。
 ## [br]
 ## @api framework_internal
