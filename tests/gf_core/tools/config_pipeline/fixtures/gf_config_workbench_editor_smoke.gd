@@ -78,6 +78,21 @@ func _run() -> void:
 	var provider: GFResourceConfigProvider = GFResourceConfigProvider.from_database(database)
 	if not _check(GFVariantData.get_option_string(GFVariantData.as_dictionary(provider.get_record(&"items", 1)), "name") == "Potion", "The native UI output must be readable through the runtime provider."):
 		return
+	var config_dock: _CONFIG_DOCK_SCRIPT = _find_config_dock(workspace)
+	var session: RefCounted = config_dock.get("_session")
+	var draft: GFConfigPipelineProfile = session.call("get_profile")
+	var disk_digest: String = FileAccess.get_sha256("res://tests/gf_core/generated/config_workbench/config/build/main.tres")
+	draft.sources.append(null)
+	session.call("mark_changed")
+	config_dock.set("_selected_source", 1)
+	config_dock.call("_refresh_profile")
+	var remove_source: Button = config_dock.find_child("RemoveSource", true, false)
+	remove_source.pressed.emit()
+	var admission: Dictionary = session.call("get_admission_report")
+	if not _check(draft.sources.size() == 1 and GFVariantData.get_option_bool(admission, "success"), "The real Remove Source button must repair a null source slot."):
+		return
+	if not _check(config_dock.has_unsaved_workspace_changes() and FileAccess.get_sha256("res://tests/gf_core/generated/config_workbench/config/build/main.tres") == disk_digest, "Removing an invalid source must retain a draft without saving the Profile."):
+		return
 	var version: GFEditorValueField = workspace.find_child("Version", true, false)
 	version.value_changed.emit("smoke edit")
 	var close_task: Button = workspace.find_child("CloseTask", true, false)

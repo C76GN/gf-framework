@@ -6,6 +6,7 @@ extends GutTest
 
 const _GENERATOR_SCRIPT = preload("res://addons/gf/tools/project_bootstrap/gf_project_bootstrap_generator.gd")
 const _TEMPLATES_SCRIPT = preload("res://addons/gf/tools/project_bootstrap/gf_project_bootstrap_templates.gd")
+const _GF_AUTOLOAD_PATH: String = "res://addons/gf/kernel/core/gf.gd"
 
 
 # --- 私有变量 ---
@@ -14,6 +15,8 @@ var _installers_existed: bool = false
 var _installers: Variant = null
 var _main_existed: bool = false
 var _main_scene: Variant = null
+var _autoload_existed: bool = false
+var _autoload: Variant = null
 
 
 # --- 公共方法 ---
@@ -23,13 +26,17 @@ func before_each() -> void:
 	_installers = ProjectSettings.get_setting("gf/project/installers", null)
 	_main_existed = ProjectSettings.has_setting("application/run/main_scene")
 	_main_scene = ProjectSettings.get_setting("application/run/main_scene", null)
+	_autoload_existed = ProjectSettings.has_setting("autoload/Gf")
+	_autoload = ProjectSettings.get_setting("autoload/Gf", null)
 	ProjectSettings.set_setting("gf/project/installers", PackedStringArray(["res://existing_installer.gd"]))
 	ProjectSettings.set_setting("application/run/main_scene", "res://existing.tscn")
+	ProjectSettings.set_setting("autoload/Gf", "*" + _GF_AUTOLOAD_PATH)
 
 
 func after_each() -> void:
 	ProjectSettings.set_setting("gf/project/installers", _installers if _installers_existed else null)
 	ProjectSettings.set_setting("application/run/main_scene", _main_scene if _main_existed else null)
+	ProjectSettings.set_setting("autoload/Gf", _autoload if _autoload_existed else null)
 	_GENERATOR_SCRIPT.configure_test_save_error(OK)
 
 
@@ -117,6 +124,43 @@ func test_preview_signature_changes_with_relevant_settings_and_disk_baseline() -
 	var repeated_signature: String = _GENERATOR_SCRIPT.get_plan()["signature"]
 	assert_ne(first_signature, second_signature)
 	assert_eq(repeated_signature, second_signature)
+
+
+func test_plan_rejects_missing_conflicting_or_disabled_gf_autoload_without_repair() -> void:
+	var disk_before: String = FileAccess.get_sha256("res://project.godot")
+	for value: Variant in [null, "", "*res://project_conflicting_autoload.gd", _GF_AUTOLOAD_PATH, "*uid://invalid", 123]:
+		ProjectSettings.set_setting("autoload/Gf", value)
+		var plan: Dictionary = _GENERATOR_SCRIPT.get_plan()
+		var plan_ok: bool = plan["ok"]
+		assert_false(plan_ok, "样例调用全局 Gf.init，必须拒绝缺失、同名冲突或未启用的单例：" + str(value))
+		var current_value: Variant = ProjectSettings.get_setting("autoload/Gf", null)
+		var value_unchanged: bool = typeof(current_value) == typeof(value) and current_value == value
+		assert_true(value_unchanged, "预览不能替用户改写冲突配置。")
+		assert_eq(FileAccess.get_sha256("res://project.godot"), disk_before)
+		assert_false(FileAccess.file_exists("res://game/bootstrap/bootstrap.tscn"))
+
+
+func test_plan_accepts_enabled_canonical_path_and_uid_and_tracks_in_memory_autoload_changes() -> void:
+	var uid: int = ResourceLoader.get_resource_uid(_GF_AUTOLOAD_PATH)
+	assert_ne(uid, ResourceUID.INVALID_ID, "已导入 GF 脚本必须具有可查询的 UID。")
+	if uid == ResourceUID.INVALID_ID:
+		return
+	var disk_before: String = FileAccess.get_sha256("res://project.godot")
+	var canonical: Dictionary = _GENERATOR_SCRIPT.get_plan()
+	var canonical_ok: bool = canonical["ok"]
+	assert_true(canonical_ok, str(canonical["issues"]))
+	ProjectSettings.set_setting("autoload/Gf", "*" + ResourceUID.id_to_text(uid))
+	var by_uid: Dictionary = _GENERATOR_SCRIPT.get_plan()
+	var by_uid_ok: bool = by_uid["ok"]
+	assert_true(by_uid_ok, str(by_uid["issues"]))
+	var canonical_signature: String = canonical["signature"]
+	var uid_signature: String = by_uid["signature"]
+	assert_ne(uid_signature, canonical_signature, "磁盘未变化时，AutoLoad 内存配置变化也必须使旧预览失效。")
+	ProjectSettings.set_setting("autoload/Gf", "*res://project_conflicting_autoload.gd")
+	var conflicting: Dictionary = _GENERATOR_SCRIPT.get_plan()
+	var conflicting_signature: String = conflicting["signature"]
+	assert_ne(conflicting_signature, uid_signature)
+	assert_eq(FileAccess.get_sha256("res://project.godot"), disk_before)
 
 
 func test_templates_depend_only_on_kernel_and_use_actual_bootstrap_contract() -> void:

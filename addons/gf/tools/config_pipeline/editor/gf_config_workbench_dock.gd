@@ -582,7 +582,7 @@ func _add_source() -> void:
 
 func _remove_source() -> void:
 	var profile: GFConfigPipelineProfile = _session.get_profile()
-	if _current_source() != null:
+	if _has_active_context() and profile != null and _selected_source >= 0 and _selected_source < profile.sources.size():
 		profile.sources.remove_at(_selected_source)
 		_changed()
 		_refresh_profile()

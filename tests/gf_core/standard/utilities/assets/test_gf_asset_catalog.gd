@@ -1,3 +1,5 @@
+@tool
+
 ## 测试 GFAssetCatalog 的资产条目、查询和来源 provider 汇聚契约。
 extends GutTest
 
@@ -22,6 +24,13 @@ class CountingEntry extends GFAssetCatalogEntry:
 	func get_primary_identity() -> GFResourceIdentity:
 		identity_reads[0] += 1
 		return super.get_primary_identity()
+
+
+func test_catalog_resources_support_loaded_editor_instances() -> void:
+	var catalog_script: Script = GF_ASSET_CATALOG_SCRIPT
+	var entry_script: Script = GF_ASSET_CATALOG_ENTRY_SCRIPT
+	assert_true(catalog_script.is_tool(), "已保存的 Catalog 在编辑器重新打开后仍须支持索引与原生历史命令。")
+	assert_true(entry_script.is_tool(), "已保存的条目在编辑器重新打开后仍须支持复制与完整字段快照。")
 
 
 func test_zero_match_pages_do_not_expand_empty_ids_to_all_summaries() -> void:

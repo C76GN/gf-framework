@@ -1,3 +1,5 @@
+@tool
+
 ## GFAssetCatalogEntry: 通用资产目录条目。
 ##
 ## 用稳定 asset_id 描述一个可被项目工具检索、预览和审计的资产。

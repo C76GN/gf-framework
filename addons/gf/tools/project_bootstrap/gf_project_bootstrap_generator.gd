@@ -7,8 +7,10 @@ extends RefCounted
 # --- 常量 ---
 
 const _TEMPLATES_SCRIPT = preload("res://addons/gf/tools/project_bootstrap/gf_project_bootstrap_templates.gd")
+const _AUTOLOAD_SCRIPT = preload("res://addons/gf/kernel/editor/gf_plugin_autoload.gd")
 const _INSTALLERS: String = "gf/project/installers"
 const _MAIN_SCENE: String = "application/run/main_scene"
+const _AUTOLOAD: String = "autoload/Gf"
 const _DEFAULT_DIRECTORY: String = "res://game/bootstrap"
 const _DEFAULT_PREFIX: String = "GameDemo"
 
@@ -18,6 +20,7 @@ const _DEFAULT_PREFIX: String = "GameDemo"
 static var _busy: bool = false
 static var _test_save_error: Error = OK
 static var _pending_classes: Dictionary[String, String] = {}
+static var _pending_filesystem: WeakRef = null
 
 
 # --- 框架内部方法 ---
@@ -34,7 +37,7 @@ static var _pending_classes: Dictionary[String, String] = {}
 ## [br]
 ## @return 创建预览；不会写文件或保存设置。
 ## [br]
-## @schema return: Dictionary，包含 ok、issues:Array[String]、directory、class_prefix、set_main_scene、paths:PackedStringArray、classes:Array[String]、installer_path、scene_path、entries:Array[Dictionary]、settings_before:Dictionary、settings_after:Dictionary、project_sha256 和 signature。entries 符合 GFArtifactWriteTransaction 文本 entry；settings_before 的值包含 exists 和 value。
+## @schema return: Dictionary，包含 ok、issues:Array[String]、directory、class_prefix、set_main_scene、paths:PackedStringArray、classes:Array[String]、installer_path、scene_path、entries:Array[Dictionary]、settings_before:Dictionary、settings_after:Dictionary、project_sha256 和 signature。entries 符合 GFArtifactWriteTransaction 文本 entry；settings_before 的值包含 exists 和 value，其中 autoload/Gf 仅作为只读前提参与签名与提交前校验，不加入 settings_after 或设置补偿。
 static func get_plan(directory: String = _DEFAULT_DIRECTORY, class_prefix: String = _DEFAULT_PREFIX, set_main_scene: bool = false) -> Dictionary:
 	var issues: Array[String] = []
 	var path: String = directory.strip_edges().trim_suffix("/")
@@ -54,15 +57,16 @@ static func get_plan(directory: String = _DEFAULT_DIRECTORY, class_prefix: Strin
 		return plan
 	var classes: Array[String] = [prefix + "CounterModel", prefix + "CounterSystem", prefix + "Installer"]
 	plan["classes"] = classes
+	_settle_pending_classes()
 	for type_name: String in classes:
-		if _pending_classes.has(type_name) and FileAccess.file_exists(_pending_classes[type_name]):
+		if _pending_classes.has(type_name):
 			issues.append("刚创建的类型尚可能正在导入：" + type_name)
 		if ClassDB.class_exists(type_name):
 			issues.append("类型名称已存在：" + type_name)
 		for record: Dictionary in ProjectSettings.get_global_class_list():
 			if record.get("class") == type_name:
 				issues.append("项目已注册类型：" + type_name)
-	var settings_before: Dictionary = {_INSTALLERS: _setting_snapshot(_INSTALLERS)}
+	var settings_before: Dictionary = {_INSTALLERS: _setting_snapshot(_INSTALLERS), _AUTOLOAD: _setting_snapshot(_AUTOLOAD)}
 	var raw_installers: Variant = ProjectSettings.get_setting(_INSTALLERS, [])
 	var installers: Variant = _copy_installers(raw_installers)
 	if installers == null:
@@ -104,8 +108,8 @@ static func get_plan(directory: String = _DEFAULT_DIRECTORY, class_prefix: Strin
 	var project_hash: String = FileAccess.get_sha256("res://project.godot")
 	if project_hash.is_empty():
 		issues.append("无法读取 project.godot 的当前内容。")
-	if not ProjectSettings.has_setting("autoload/Gf"):
-		issues.append("请先启用 GF 插件以注册 Gf AutoLoad。")
+	if not _AUTOLOAD_SCRIPT.is_registered_singleton():
+		issues.append("请先启用指向 GF 核心脚本的 Gf AutoLoad 单例；同名冲突或未启用的配置不会被自动修改。")
 	plan["project_sha256"] = project_hash
 	plan["ok"] = issues.is_empty()
 	plan["signature"] = var_to_str([path, prefix, set_main_scene, settings_before, project_hash, classes]).sha256_text()
@@ -169,6 +173,7 @@ static func create(directory: String = _DEFAULT_DIRECTORY, class_prefix: String 
 	var class_files: Array[String] = ["counter_model.gd", "counter_system.gd", "game_installer.gd"]
 	for index: int in range(class_names.size()):
 		_pending_classes[class_names[index]] = output_directory.path_join(class_files[index])
+	_observe_pending_class_registration()
 	if not _settings_match(before) or FileAccess.get_sha256("res://project.godot") != plan["project_sha256"]:
 		issues.append("创建文件期间项目设置发生变化；未保存设置。")
 		_compensate_files(plan, transaction, report)
@@ -217,6 +222,78 @@ static func configure_test_save_error(error: Error) -> void:
 
 
 # --- 私有/辅助方法 ---
+
+## 真实类注册表接管同名同路径后撤销临时占名；文件删除也立即释放。
+## 在导入完成信号中执行，不要求用户再次打开预览，不加载或实例化项目脚本。
+## [br]
+## @api private
+static func _settle_pending_classes(indexed_changes: bool = false) -> void:
+	var registered: Dictionary[String, String] = {}
+	for record: Dictionary in ProjectSettings.get_global_class_list():
+		var registered_name: String = record["class"]
+		var registered_path: String = record["path"]
+		registered[registered_name] = registered_path
+	for type_name: String in _pending_classes.keys():
+		var path: String = _pending_classes[type_name]
+		if not FileAccess.file_exists(path) or registered.get(type_name, "") == path or (indexed_changes and _has_indexed_class_change(path, type_name)):
+			var _removed: bool = _pending_classes.erase(type_name)
+	if _pending_classes.is_empty():
+		_stop_pending_class_observer()
+
+
+## 类索引完成更新后，已收录的脚本也可能在首次导入前改名或删除声明。
+## 只读取编辑器的脚本类型元数据；尚未收录的路径仍保留导入前占名。
+## [br]
+## @api private
+static func _has_indexed_class_change(path: String, type_name: String) -> bool:
+	if _pending_filesystem == null:
+		return false
+	var value: Variant = _pending_filesystem.get_ref()
+	if not value is EditorFileSystem:
+		return false
+	var filesystem: EditorFileSystem = value
+	var directory: EditorFileSystemDirectory = filesystem.get_filesystem_path(path.get_base_dir())
+	if directory == null:
+		return false
+	var index: int = directory.find_file_index(path.get_file())
+	return index >= 0 and directory.get_file_type(index) == &"GDScript" and directory.get_file_script_class_name(index) != type_name
+
+
+## 专用信号确认类索引已经更新，普通预览调用不能借未刷新的空 metadata 提前释放占名。
+## [br]
+## @api private
+static func _on_pending_script_classes_updated() -> void:
+	_settle_pending_classes(true)
+
+
+## 只在有待导入类型时监听编辑器真实的全局类列表更新；运行期不访问 EditorInterface。
+## [br]
+## @api private
+static func _observe_pending_class_registration() -> void:
+	_settle_pending_classes()
+	if _pending_classes.is_empty() or not Engine.is_editor_hint():
+		return
+	var filesystem: EditorFileSystem = EditorInterface.get_resource_filesystem()
+	if filesystem == null:
+		return
+	if not filesystem.script_classes_updated.is_connected(_on_pending_script_classes_updated):
+		var _connected: Error = filesystem.script_classes_updated.connect(_on_pending_script_classes_updated) as Error
+	_pending_filesystem = weakref(filesystem)
+
+
+## 所有临时占名已交还注册表或回滚后，停止监听，不延长编辑器节点的生命期。
+## [br]
+## @api private
+static func _stop_pending_class_observer() -> void:
+	if _pending_filesystem == null:
+		return
+	var value: Variant = _pending_filesystem.get_ref()
+	_pending_filesystem = null
+	if value is EditorFileSystem:
+		var filesystem: EditorFileSystem = value
+		if filesystem.script_classes_updated.is_connected(_on_pending_script_classes_updated):
+			filesystem.script_classes_updated.disconnect(_on_pending_script_classes_updated)
+
 
 static func _valid_directory(path: String) -> bool:
 	if not path.begins_with("res://") or path.length() > 180:
@@ -297,7 +374,7 @@ static func _saved_settings_equal(values: Dictionary) -> bool:
 static func _restore_settings(before: Dictionary, after: Dictionary) -> bool:
 	if not _settings_equal(after):
 		return false
-	for key: String in before:
+	for key: String in after:
 		var snapshot: Dictionary = before[key]
 		ProjectSettings.set_setting(key, snapshot["value"] if snapshot["exists"] else null)
 	return _settings_match(before)
@@ -352,6 +429,7 @@ static func _compensate_files(plan: Dictionary, transaction: Dictionary, report:
 	if report["rolled_back"]:
 		for type_name: String in plan["classes"]:
 			var _removed: bool = _pending_classes.erase(type_name)
+		_settle_pending_classes()
 	report["status"] = "rolled_back" if report["rolled_back"] else "recovery_required"
 
 

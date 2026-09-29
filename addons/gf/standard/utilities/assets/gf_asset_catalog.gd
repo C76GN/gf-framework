@@ -1,3 +1,5 @@
+@tool
+
 ## GFAssetCatalog: 通用资产目录。
 ##
 ## 用稳定 asset_id 管理 `GFAssetCatalogEntry`，提供标签、分类、文本搜索、

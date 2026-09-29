@@ -202,9 +202,85 @@ func _check_asset_workbench() -> void:
 		return
 	dialog.hide()
 	dialog.file_selected.emit("res://tests/gf_core/generated_asset_browser/shared.tres")
-	while not _finished and _bool(_asset_workbench.get_snapshot(), "query_pending"):
-		await get_tree().process_frame
+	if not await _wait_browser_page_ready("creating the shared Catalog"):
+		return
+	# 已有共享条目拥有项目扫描不会提供的字段；接下来的标签编辑必须完整保留这些字段。
+	var seed_value: Resource = ResourceLoader.load("res://tests/gf_core/generated_asset_browser/shared.tres")
+	var shared_value: Variant = _asset_workbench.get("_shared_catalog")
+	var visible_value: Variant = _asset_workbench.get("_catalog")
+	if not _require(seed_value is GFAssetCatalog and shared_value is GFAssetCatalog and visible_value is GFAssetCatalog, "The loaded and visible shared Catalog values must retain their Resource types."):
+		return
+	var seed_catalog: GFAssetCatalog = seed_value
+	var shared_catalog: GFAssetCatalog = shared_value
+	var visible_catalog: GFAssetCatalog = visible_value
+	if not _require(shared_catalog == seed_catalog, "The loaded Catalog must be the same Resource owned by the shared Catalog editor."):
+		return
+	var curated: GFAssetCatalogEntry = null
+	for entry: GFAssetCatalogEntry in visible_catalog.entries:
+		if entry != null and entry.primary_path == _ASSET:
+			curated = entry.duplicate_entry()
+			break
+	if not _require(curated != null, "The project scene entry is missing before shared-field editing."):
+		return
+	curated.title = "Curated scene title"
+	curated.category = &"curated_scene"
+	curated.preview_path = _BROWSER_MATERIAL
+	curated.resource_entry_ids = PackedStringArray(["curated.primary", "curated.related"])
+	curated.source_id = &"curated_library"
+	curated.metadata["custom"] = {"review_owner": "artist", "weights": [1, 2, 3]}
+	curated.tags = PackedStringArray(["before"])
+	curated.description = "Curated notes"
+	var curated_before: Dictionary = curated.to_dict()
+	seed_catalog.entries = [curated]
+	seed_catalog.mark_index_dirty()
+	seed_catalog.emit_changed()
+	if not _require(_asset_workbench.has_unsaved_workspace_changes(), "Seeding the live shared Catalog must mark its actual editor draft dirty."):
+		return
+	if not _press_browser_button("保存共享目录"):
+		return
+	var saved_seed: Resource = ResourceLoader.load("res://tests/gf_core/generated_asset_browser/shared.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
+	if not _require(saved_seed is GFAssetCatalog, "The seeded shared Catalog must be explicitly saved to disk."):
+		return
+	var saved_seed_catalog: GFAssetCatalog = saved_seed
+	if not _require(saved_seed_catalog.entries.size() == 1 and saved_seed_catalog.entries[0].to_dict() == curated_before and not _asset_workbench.has_unsaved_workspace_changes(), "Explicit save must preserve every seeded field and establish the shared Catalog baseline."):
+		return
+	if not await _wait_browser_page_ready("saving the seeded shared Catalog"):
+		return
+	# 使用未缓存的新路径模拟下次编辑器会话，避免复用手动 new 出来的可执行实例。
+	var save_as_error: Error = ResourceSaver.save(saved_seed_catalog, "res://tests/gf_core/generated_asset_browser/reopened.tres")
+	if not _require(save_as_error == OK, "Cannot save the detached Catalog to an uncached test-owned path."):
+		return
+	var original_catalog_uid: int = ResourceLoader.get_resource_uid("res://tests/gf_core/generated_asset_browser/shared.tres")
+	var reopened_catalog_uid: int = ResourceLoader.get_resource_uid("res://tests/gf_core/generated_asset_browser/reopened.tres")
+	if not _require(original_catalog_uid >= 0 and reopened_catalog_uid >= 0 and reopened_catalog_uid != original_catalog_uid, "Saving the detached Catalog must assign a distinct UID instead of duplicating the source file header."):
+		return
+	var fresh_value: Resource = ResourceLoader.load("res://tests/gf_core/generated_asset_browser/reopened.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
+	if not _require(fresh_value is GFAssetCatalog and fresh_value != seed_catalog and not ResourceLoader.has_cached("res://tests/gf_core/generated_asset_browser/reopened.tres"), "The reopen regression must start from disk without a cached manually constructed Catalog."):
+		return
+	var fresh_catalog: GFAssetCatalog = fresh_value
+	if not _require(fresh_catalog.get_all_ids() == PackedStringArray([String(curated.asset_id)]) and fresh_catalog.entries[0].to_dict() == curated_before, "Freshly loaded Catalog and Entry instance methods must execute in the editor."):
+		return
+	if not _press_browser_button("打开共享目录"):
+		return
+	if not _require(dialog.visible and dialog.file_mode == EditorFileDialog.FILE_MODE_OPEN_FILE, "Reopening a saved Catalog must use the actual Open Catalog dialog."):
+		return
+	dialog.hide()
+	dialog.file_selected.emit("res://tests/gf_core/generated_asset_browser/reopened.tres")
+	if not await _wait_browser_page_ready("reopening the saved shared Catalog"):
+		return
+	var reopened_value: Variant = _asset_workbench.get("_shared_catalog")
+	if not _require(reopened_value is GFAssetCatalog, "The Open Catalog action must own a Catalog Resource."):
+		return
+	var reopened_catalog: GFAssetCatalog = reopened_value
+	if not _require(reopened_catalog != seed_catalog and reopened_catalog != fresh_catalog, "The Open Catalog action must own a freshly loaded Resource rather than either fixture instance."):
+		return
+	if not _require(reopened_catalog.resource_path == "res://tests/gf_core/generated_asset_browser/reopened.tres" and reopened_catalog.entries.size() == 1 and reopened_catalog.entries[0].to_dict() == curated_before and not _asset_workbench.has_unsaved_workspace_changes(), "The reopened shared Catalog must retain its complete saved baseline."):
+		return
+	_results["asset_browser_uncached_catalog_reopened"] = true
 	if not _select_browser_path(grid, _ASSET):
+		return
+	_results["asset_browser_before_shared_apply"] = _asset_workbench.get_snapshot()
+	if not _require(_asset_workbench.get_selected_resource_paths() == PackedStringArray([_ASSET]), "Shared-field Apply requires a current selectable project scene, not a stale card."):
 		return
 	var tags_value: Node = _asset_workbench.find_child("SharedAssetTags", true, false)
 	if not _require(tags_value is LineEdit, "Shared tag editor is missing."):
@@ -219,14 +295,18 @@ func _check_asset_workbench() -> void:
 		return
 	if not _require(not _asset_workbench.has_unsaved_workspace_changes(), "Explicit shared Catalog save must release its dirty-retention request."):
 		return
-	var loaded_catalog: Resource = ResourceLoader.load("res://tests/gf_core/generated_asset_browser/shared.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
+	var loaded_catalog: Resource = ResourceLoader.load("res://tests/gf_core/generated_asset_browser/reopened.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
 	if not _require(loaded_catalog is GFAssetCatalog, "The shared catalog was not saved as a standard catalog resource."):
 		return
 	var catalog: GFAssetCatalog = loaded_catalog
 	if not _require(catalog.entries.size() == 1 and catalog.entries[0].tags == PackedStringArray(["smoke", "scene"]), "Shared tags did not round-trip independently of the source scene."):
 		return
-	var live_catalog_value: Resource = ResourceLoader.load("res://tests/gf_core/generated_asset_browser/shared.tres")
-	if not _require(live_catalog_value is GFAssetCatalog, "The shared catalog must retain its native resource identity."):
+	var curated_after: GFAssetCatalogEntry = curated.duplicate_entry()
+	curated_after.tags = PackedStringArray(["smoke", "scene"])
+	if not _require(catalog.entries[0].to_dict() == curated_after.to_dict() and curated.to_dict() == curated_before, "Project-view tag editing replaced existing shared metadata or mutated its original entry."):
+		return
+	var live_catalog_value: Resource = ResourceLoader.load("res://tests/gf_core/generated_asset_browser/reopened.tres")
+	if not _require(live_catalog_value is GFAssetCatalog and live_catalog_value == reopened_catalog, "The reopened shared catalog must retain its native resource identity."):
 		return
 	var live_catalog: GFAssetCatalog = live_catalog_value
 	var catalog_history: UndoRedo = get_undo_redo().get_history_undo_redo(get_undo_redo().get_object_history_id(live_catalog))
@@ -238,9 +318,17 @@ func _check_asset_workbench() -> void:
 	if not _press_browser_button("刷新"):
 		return
 	var _catalog_undone: bool = catalog_history.undo()
+	_record_asset_lifecycle(live_catalog.entries.size() == 1 and live_catalog.entries[0].to_dict() == curated_before, "Native shared Catalog Undo lost the original complete entry.")
 	_record_asset_lifecycle(_asset_workbench.has_unsaved_workspace_changes(), "Undo away from the saved Catalog baseline must request draft retention.")
 	_record_asset_lifecycle(_bool(_asset_workbench.get_snapshot(), "stale"), "Catalog Undo revived a project snapshot while its refresh was still pending.")
 	var _catalog_redone: bool = catalog_history.redo()
+	_record_asset_lifecycle(live_catalog.entries.size() == 1 and live_catalog.entries[0].to_dict() == curated_after.to_dict(), "Native shared Catalog Redo lost preserved fields.")
+	var saved_after_replay: Resource = ResourceLoader.load("res://tests/gf_core/generated_asset_browser/reopened.tres", "", ResourceLoader.CACHE_MODE_IGNORE)
+	if saved_after_replay is GFAssetCatalog:
+		var saved_after_catalog: GFAssetCatalog = saved_after_replay
+		_record_asset_lifecycle(saved_after_catalog.entries.size() == 1 and saved_after_catalog.entries[0].to_dict() == curated_after.to_dict(), "Native history replay unexpectedly changed the explicitly saved Catalog bytes.")
+	else:
+		_record_asset_lifecycle(false, "The explicitly saved Catalog disappeared during native history replay.")
 	await get_tree().process_frame
 	while not _finished and (_bool(_asset_workbench.get_snapshot(), "stale") or _bool(_asset_workbench.get_snapshot(), "query_pending")):
 		await get_tree().process_frame
@@ -281,7 +369,7 @@ func _check_asset_workbench() -> void:
 	if not _press_browser_button("新建共享目录"):
 		return
 	dialog.hide()
-	var catalog_digest: String = FileAccess.get_sha256("res://tests/gf_core/generated_asset_browser/shared.tres")
+	var catalog_digest: String = FileAccess.get_sha256("res://tests/gf_core/generated_asset_browser/reopened.tres")
 	_results["asset_browser_project_source_catalog_table_and_receiver"] = true
 	_asset_workbench.set_editor_context(null)
 	if not _press_browser_button("保存表格中的源资源"):
@@ -296,7 +384,7 @@ func _check_asset_workbench() -> void:
 	_record_asset_lifecycle(_bool(_asset_workbench.get_snapshot(), "stale"), "A late Catalog callback revived a revoked asset page.")
 	if not _press_browser_button("保存共享目录"):
 		return
-	_record_asset_lifecycle(FileAccess.get_sha256("res://tests/gf_core/generated_asset_browser/shared.tres") == catalog_digest, "A queued shared Catalog Save wrote after context revocation.")
+	_record_asset_lifecycle(FileAccess.get_sha256("res://tests/gf_core/generated_asset_browser/reopened.tres") == catalog_digest, "A queued shared Catalog Save wrote after context revocation.")
 	dialog.file_selected.emit("res://tests/gf_core/generated_asset_browser/after_revoke.tres")
 	_record_asset_lifecycle(not FileAccess.file_exists("res://tests/gf_core/generated_asset_browser/after_revoke.tres"), "A late file_selected callback created a Catalog after context revocation.")
 	if not _require(_asset_lifecycle_failures.is_empty(), "Asset lifecycle regressions: " + " | ".join(_asset_lifecycle_failures)):
@@ -324,6 +412,20 @@ func _select_browser_path(grid: ItemList, path: String) -> bool:
 			grid.multi_selected.emit(index, true)
 			return true
 	return _require(false, "The default project index omitted fixture " + path)
+
+
+func _wait_browser_page_ready(operation: String) -> bool:
+	var deadline: int = mini(_deadline, Time.get_ticks_msec() + 10_000)
+	while not _finished:
+		var snapshot: Dictionary = _asset_workbench.get_snapshot()
+		_results["asset_browser_last_ready_wait"] = {"operation": operation, "snapshot": snapshot}
+		# 文件系统失效也会取消查询，不能把 pending=false 当成旧卡片已经可操作。
+		if not _bool(snapshot, "stale") and not _bool(snapshot, "query_pending") and _bool(snapshot, "page_ready"):
+			return true
+		if Time.get_ticks_msec() >= deadline:
+			return _require(false, "The asset page did not become ready after " + operation + ": " + JSON.stringify(snapshot))
+		await get_tree().process_frame
+	return false
 
 
 func _on_asset_preview(path: String, _texture: Texture2D, generation: int) -> void:

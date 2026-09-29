@@ -24,6 +24,8 @@ var _stale: bool = true
 var _result: Dictionary = {}
 var _input_digests: Dictionary = {}
 var _recovery_result: Dictionary = {}
+var _edit_revision: int = 0
+var _pending_profile_save: Dictionary = {}
 
 
 # --- 框架内部方法 ---
@@ -104,6 +106,7 @@ func load_profile(path: String) -> bool:
 ## [br]
 ## @api framework_internal
 func mark_changed() -> void:
+	_edit_revision += 1
 	_dirty = true
 	_stale = true
 
@@ -149,14 +152,23 @@ func save_profile(path: String = "") -> Dictionary:
 		adopt_recovery_report(transaction)
 		return { "success": false, "error": "Profile transaction could not begin.", "transaction_result": transaction }
 	var mkdir_error: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(target.get_base_dir()))
-	var save_error: Error = mkdir_error if mkdir_error != OK else ResourceSaver.save(_profile, target)
+	var saved_profile: GFConfigPipelineProfile = _profile
+	var saved_revision: int = _edit_revision
+	var save_error: Error = mkdir_error if mkdir_error != OK else ResourceSaver.save(saved_profile, target)
+	var written_digest: String = FileAccess.get_sha256(target) if save_error == OK else ""
 	var final_result: Dictionary = GFArtifactWriteTransaction.complete(transaction) if save_error == OK else GFArtifactWriteTransaction.rollback(transaction)
 	_recovery_result = final_result
 	var success: bool = save_error == OK and GFVariantData.get_option_bool(final_result, "ok")
 	if success:
-		_profile_path = target
-		_saved_digest = FileAccess.get_sha256(target)
-		_dirty = false
+		_finalize_profile_save(saved_profile, target, written_digest, saved_revision)
+	elif save_error == OK and GFVariantData.get_option_bool(final_result, "recovery_required") and GFVariantData.get_option_string(final_result, "recovery_action") == "complete":
+		_pending_profile_save = {
+			"profile": saved_profile,
+			"path": target,
+			"digest": written_digest,
+			"revision": saved_revision,
+			"transaction_id": GFVariantData.get_option_string(transaction, "transaction_id"),
+		}
 	return { "success": success, "error": "" if success else (error_string(save_error) if save_error != OK else "Profile transaction cleanup requires recovery."), "transaction_result": final_result }
 
 
@@ -277,11 +289,26 @@ func recover() -> Dictionary:
 	if transaction.is_empty() or action not in ["complete", "rollback"]:
 		return { "ok": false, "error": "No pending recovery." }
 	_recovery_result = GFArtifactWriteTransaction.complete(transaction) if action == "complete" else GFArtifactWriteTransaction.rollback(transaction)
+	if GFVariantData.get_option_bool(_recovery_result, "ok"):
+		if action == "complete" and not _pending_profile_save.is_empty() and GFVariantData.get_option_string(transaction, "transaction_id") == GFVariantData.get_option_string(_pending_profile_save, "transaction_id"):
+			var saved_profile: GFConfigPipelineProfile = _pending_profile_save.get("profile")
+			_finalize_profile_save(saved_profile, GFVariantData.get_option_string(_pending_profile_save, "path"), GFVariantData.get_option_string(_pending_profile_save, "digest"), GFVariantData.get_option_int(_pending_profile_save, "revision"))
+		_pending_profile_save.clear()
 	_stale = true
 	return _recovery_result
 
 
 # --- 私有/辅助方法 ---
+
+func _finalize_profile_save(saved_profile: GFConfigPipelineProfile, path: String, digest: String, revision: int) -> void:
+	# 清理完成只确认实际写入的草稿与摘要；稍后编辑和外部磁盘修改仍需用户处理。
+	if _profile != saved_profile:
+		return
+	_profile_path = path
+	_saved_digest = digest
+	_dirty = _edit_revision != revision or digest.is_empty() or not FileAccess.file_exists(path) or FileAccess.get_sha256(path) != digest
+	_stale = true
+
 
 func _check_editor_resources(profile: GFConfigPipelineProfile) -> String:
 	if not Engine.is_editor_hint():

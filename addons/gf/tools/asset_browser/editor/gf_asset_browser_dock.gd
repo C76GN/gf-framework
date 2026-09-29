@@ -631,10 +631,15 @@ func _on_resource_action_pressed(item_id: int) -> void:
 
 
 func _selected_entries() -> Array[GFAssetCatalogEntry]:
-	var paths: PackedStringArray = get_selected_resource_paths()
 	var entries: Array[GFAssetCatalogEntry] = []
-	for entry: GFAssetCatalogEntry in _catalog.entries:
-		if entry != null and paths.has(entry.primary_path):
+	if _stale or _query_pending or not _page_ready or not _can_update_view():
+		return entries
+	# 多个资产可以引用同一路径；选择身份来自本页卡片，路径去重仅用于原生资源动作。
+	for index: int in _grid.get_selected_items():
+		if index < 0 or index >= _card_ids.size():
+			continue
+		var entry: GFAssetCatalogEntry = _catalog.get_entry(StringName(_card_ids[index]))
+		if entry != null:
 			entries.append(entry)
 	return entries
 
@@ -782,15 +787,25 @@ func _apply_shared_fields() -> void:
 	var selected_ids: Dictionary = {}
 	for entry: GFAssetCatalogEntry in selected:
 		selected_ids[entry.asset_id] = true
-	for entry: GFAssetCatalogEntry in _shared_catalog.entries:
-		if entry != null and not selected_ids.has(entry.asset_id):
-			entries.append(entry.duplicate_entry())
 	var tags: PackedStringArray = PackedStringArray()
 	for raw_tag: String in _tags.text.replace("，", ",").split(",", false):
 		var tag: String = raw_tag.strip_edges()
 		if not tag.is_empty() and not tags.has(tag):
 			var _appended: bool = tags.append(tag)
+	# 共享目录拥有完整条目；项目视图只是投影，不能覆盖其标题、预览或自定义元数据。
+	var existing_ids: Dictionary = {}
+	for shared_entry: GFAssetCatalogEntry in _shared_catalog.entries:
+		if shared_entry == null:
+			continue
+		var entry: GFAssetCatalogEntry = shared_entry.duplicate_entry()
+		existing_ids[entry.asset_id] = true
+		if selected_ids.has(entry.asset_id):
+			entry.tags = tags.duplicate()
+			entry.description = _notes.text
+		entries.append(entry)
 	for source_entry: GFAssetCatalogEntry in selected:
+		if existing_ids.has(source_entry.asset_id):
+			continue
 		var entry: GFAssetCatalogEntry = source_entry.duplicate_entry()
 		entry.tags = tags.duplicate()
 		entry.description = _notes.text

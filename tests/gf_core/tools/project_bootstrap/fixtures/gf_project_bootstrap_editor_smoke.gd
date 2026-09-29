@@ -37,6 +37,7 @@ func _run() -> void:
 	ProjectSettings.set_setting("application/run/main_scene", "res://existing.tscn")
 	_check(ProjectSettings.save() == OK, "Seed settings must save.")
 	var disk_before: String = FileAccess.get_sha256("res://project.godot")
+	_exercise_autoload_prerequisites()
 	var dock: _DOCK_SCRIPT = _DOCK_SCRIPT.new()
 	dock.set_editor_context(GFEditorToolContext.from_plugin(self))
 	EditorInterface.get_base_control().add_child(dock)
@@ -90,6 +91,8 @@ func _run() -> void:
 	_check(main_scene == "res://second_example/bootstrap.tscn", "Failed settings save must restore main scene.")
 	_exercise_recovery_dock(failure)
 	_exercise_deleted_scripts()
+	await _exercise_changed_class_declarations(true)
+	await _exercise_changed_class_declarations(false)
 	for path: String in failure["paths"]:
 		_check(not FileAccess.file_exists(path), "Compensation must remove only generated files: " + path)
 	var fresh_after_failure: Dictionary = _GENERATOR_SCRIPT.get_plan("res://retry_example", "FailureSmoke")
@@ -132,6 +135,39 @@ func _press(node: Node, text: String) -> void:
 	_check(button != null and not button.disabled, "Action must be enabled: " + text)
 	if button != null and not button.disabled:
 		button.pressed.emit()
+
+
+func _exercise_autoload_prerequisites() -> void:
+	var original: Variant = ProjectSettings.get_setting("autoload/Gf")
+	var disk_before: String = FileAccess.get_sha256("res://project.godot")
+	var installers_before: Variant = ProjectSettings.get_setting("gf/project/installers")
+	var path: String = "res://autoload_guard_example"
+	var preview: Dictionary = _GENERATOR_SCRIPT.get_plan(path, "AutoloadGuardSmoke")
+	var preview_ok: bool = preview["ok"]
+	_check(preview_ok, "The canonical enabled Gf singleton must permit a creation preview.")
+	var signature: String = preview["signature"]
+	for conflicting: String in ["*res://other_gf_singleton.gd", "res://addons/gf/kernel/core/gf.gd"]:
+		ProjectSettings.set_setting("autoload/Gf", conflicting)
+		var rejected: Dictionary = _GENERATOR_SCRIPT.create(path, "AutoloadGuardSmoke", false, signature)
+		var rejected_ok: bool = rejected["ok"]
+		var transactions: Array = rejected["transactions"]
+		_check(not rejected_ok and transactions.is_empty(), "A conflicting or disabled Gf must reject creation before the file transaction.")
+		var conflicting_value_preserved: bool = ProjectSettings.get_setting("autoload/Gf") == conflicting
+		_check(conflicting_value_preserved, "The creator must not repair or compensate a user-owned AutoLoad setting.")
+		_check(not FileAccess.file_exists(path.path_join("bootstrap.tscn")), "A rejected AutoLoad prerequisite must leave no generated scene.")
+		_check(FileAccess.get_sha256("res://project.godot") == disk_before, "A rejected AutoLoad prerequisite must not save project settings.")
+	var uid: int = ResourceLoader.get_resource_uid("res://addons/gf/kernel/core/gf.gd")
+	_check(uid != ResourceUID.INVALID_ID, "The canonical Gf script must have an imported UID.")
+	if uid != ResourceUID.INVALID_ID:
+		ProjectSettings.set_setting("autoload/Gf", "*" + ResourceUID.id_to_text(uid))
+		var stale: Dictionary = _GENERATOR_SCRIPT.create(path, "AutoloadGuardSmoke", false, signature)
+		var stale_ok: bool = stale["ok"]
+		_check(not stale_ok, "A valid but changed in-memory AutoLoad value must still invalidate the previous preview.")
+		_check(not FileAccess.file_exists(path.path_join("bootstrap.tscn")), "A stale AutoLoad preview must not create files.")
+		_check(FileAccess.get_sha256("res://project.godot") == disk_before, "A stale AutoLoad preview must not save settings.")
+	var installers_unchanged: bool = ProjectSettings.get_setting("gf/project/installers") == installers_before
+	_check(installers_unchanged, "Rejected AutoLoad prerequisites must preserve the Installer list.")
+	ProjectSettings.set_setting("autoload/Gf", original)
 
 
 func _exercise_retired_dock() -> void:
@@ -225,6 +261,76 @@ func _exercise_deleted_scripts() -> void:
 	var fresh: Dictionary = _GENERATOR_SCRIPT.get_plan("res://deleted_retry", "DeletedSmoke")
 	var available: bool = fresh["ok"]
 	_check(available, "Deleting generated scripts must release pending class-name reservations even if their directory remains.")
+
+
+func _exercise_changed_class_declarations(settle_before_edit: bool) -> void:
+	var installers: Variant = ProjectSettings.get_setting("gf/project/installers")
+	var directory: String = "res://changed_class_example" if settle_before_edit else "res://immediate_class_example"
+	var prefix: String = "ChangedClassSmoke" if settle_before_edit else "ImmediateClassSmoke"
+	var retry_directory: String = directory + "_retry"
+	var report: Dictionary = _GENERATOR_SCRIPT.create(directory, prefix)
+	var created: bool = report["ok"]
+	_check(created, "The class-declaration reservation sample must be created.")
+	if not created:
+		return
+	ProjectSettings.set_setting("gf/project/installers", installers)
+	_check(ProjectSettings.save() == OK, "The class-declaration sample must not remain a runtime Installer.")
+	var original_classes: Array[String] = [prefix + "CounterModel", prefix + "CounterSystem", prefix + "Installer"]
+	if settle_before_edit:
+		if not await _wait_for_class_index(original_classes, []):
+			return
+	else:
+		var before_import: Dictionary = _GENERATOR_SCRIPT.get_plan(retry_directory, prefix)
+		var before_import_ok: bool = before_import["ok"]
+		_check(not before_import_ok, "Before the first import, the generated class names must remain reserved.")
+	var script_names: Array[String] = ["counter_model.gd", "counter_system.gd", "game_installer.gd"]
+	var renamed_classes: Array[String] = [prefix + "RenamedCounterSystem"]
+	for index: int in range(script_names.size()):
+		var path: String = directory.path_join(script_names[index])
+		var content: String = FileAccess.get_file_as_string(path)
+		var original_declaration: String = "class_name " + original_classes[index] + "\n"
+		_check(content.contains(original_declaration), "The generated script must contain its original class declaration.")
+		var replacement: String = "class_name " + renamed_classes[0] + "\n" if index == 1 else ""
+		var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+		_check(file != null, "Only the isolated generated script may be edited: " + path)
+		if file == null:
+			return
+		var _stored: bool = file.store_string(content.replace(original_declaration, replacement))
+		file.close()
+	if not await _wait_for_class_index(renamed_classes, original_classes):
+		return
+	for script_name: String in script_names:
+		_check(FileAccess.file_exists(directory.path_join(script_name)), "Changing class declarations must leave the original files in place.")
+	var reusable: Dictionary = _GENERATOR_SCRIPT.get_plan(retry_directory, prefix)
+	var available: bool = reusable["ok"]
+	_check(available, "Settled imports must release old reservations after class_name removal or rename without a plugin reload: " + str(reusable["issues"]))
+
+
+func _wait_for_class_index(required: Array[String], absent: Array[String]) -> bool:
+	var filesystem: EditorFileSystem = EditorInterface.get_resource_filesystem()
+	var deadline: int = Time.get_ticks_msec() + 30000
+	while filesystem.is_scanning() and Time.get_ticks_msec() < deadline:
+		await get_tree().process_frame
+	if filesystem.is_scanning():
+		_check(false, "The existing editor scan must settle within 30 seconds.")
+		return false
+	filesystem.scan()
+	while Time.get_ticks_msec() < deadline:
+		await get_tree().process_frame
+		if filesystem.is_scanning():
+			continue
+		var registered: Array[String] = []
+		for record: Dictionary in ProjectSettings.get_global_class_list():
+			registered.append(GFVariantData.get_option_string(record, "class"))
+		var indexed_classes_ready: bool = true
+		for type_name: String in required:
+			indexed_classes_ready = indexed_classes_ready and registered.has(type_name)
+		for type_name: String in absent:
+			indexed_classes_ready = indexed_classes_ready and not registered.has(type_name)
+		if indexed_classes_ready:
+			return true
+	_check(false, "Editor class-index refresh must settle within 30 seconds.")
+	return false
 
 
 func _check(condition: bool, message: String) -> void:

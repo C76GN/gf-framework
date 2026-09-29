@@ -15,6 +15,31 @@ const _TASK_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_background
 
 # --- 内部类型 ---
 
+class ActiveConfigDock extends _DOCK_SCRIPT:
+
+	var active: bool = true
+
+
+	func _has_active_context() -> bool:
+		return active and is_inside_tree() and not is_queued_for_deletion()
+
+
+	func _select_source(index: int) -> void:
+		# Headless GUT 验证删除合同；原生 picker 与表单刷新由真实 EditorPlugin fixture 验收。
+		_selected_source = index
+
+
+class CleanupBlockingProfile extends GFConfigPipelineProfile:
+
+	var before_serialize: Callable
+
+
+	func _get_property_list() -> Array[Dictionary]:
+		if before_serialize.is_valid():
+			before_serialize.call()
+		return []
+
+
 class LegacyLocationCopyStage extends GFConfigPipelineValidationStage:
 	func _duplicate_row_locations(value: Variant) -> Array:
 		return GFVariantData.as_array(GFVariantData.duplicate_variant(value))
@@ -33,6 +58,8 @@ class MutatingContextRule extends GFConfigValidationRule:
 
 var _root_path: String
 var _files: Array[String] = []
+var _blocked_backups: Dictionary[String, String] = {}
+var _blocking_profiles: Array[CleanupBlockingProfile] = []
 
 
 # --- Godot 生命周期方法 ---
@@ -43,6 +70,8 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	GFArtifactWriteTransaction._reset_test_owned_write_failures()
+	_release_backup_collisions()
 	_remove_tree(_root_path)
 	_files.clear()
 
@@ -109,6 +138,175 @@ func test_draft_rejects_external_profile_change_and_existing_save_as() -> void:
 	assert_eq(FileAccess.get_file_as_string(occupied), "user text")
 	for rejected: String in ["res://addons/gf/workbench_test.tres", "res://.godot/workbench_test.tres", _root_path.path_join("../escaped.tres"), "C:/config_profile.tres"]:
 		assert_false(GFVariantData.get_option_bool(session.save_profile(rejected), "success"), rejected)
+
+
+func test_profile_save_recovery_finishes_written_revision_after_retries() -> void:
+	var session: _SESSION_SCRIPT = _make_saved_session()
+	var path: String = GFVariantData.get_option_string(session.get_state(), "profile_path")
+	session.get_profile().version = "written revision"
+	session.mark_changed()
+	_arm_save_cleanup_collision(session)
+	var saved: Dictionary = session.save_profile()
+	assert_false(GFVariantData.get_option_bool(saved, "success"))
+	assert_true(GFVariantData.get_option_bool(session.get_state(), "recovery_required"))
+	var written_digest: String = FileAccess.get_sha256(path)
+	assert_true(FileAccess.get_file_as_string(path).contains("written revision"))
+	assert_false(GFVariantData.get_option_bool(session.recover(), "ok"))
+	assert_false(GFVariantData.get_option_bool(session.recover(), "ok"))
+	assert_true(GFVariantData.get_option_bool(session.get_state(), "recovery_required"))
+	_release_backup_collisions()
+	assert_true(GFVariantData.get_option_bool(session.recover(), "ok"))
+	assert_false(GFVariantData.get_option_bool(session.get_state(), "recovery_required"))
+	assert_false(GFVariantData.get_option_bool(session.get_state(), "dirty"), "完成清理必须完成这次成功写入的保存状态。")
+	var saved_digest: String = session.get("_saved_digest")
+	assert_eq(saved_digest, written_digest)
+	assert_true(GFVariantData.get_option_bool(session.save_profile(), "success"), "恢复后原路径必须可以继续显式保存。")
+
+
+func test_profile_save_recovery_preserves_edits_made_while_cleanup_pending() -> void:
+	var session: _SESSION_SCRIPT = _make_saved_session()
+	var path: String = GFVariantData.get_option_string(session.get_state(), "profile_path")
+	session.get_profile().version = "written revision"
+	session.mark_changed()
+	_arm_save_cleanup_collision(session)
+	assert_false(GFVariantData.get_option_bool(session.save_profile(), "success"))
+	var written_digest: String = FileAccess.get_sha256(path)
+	session.get_profile().version = "later draft"
+	session.mark_changed()
+	_release_backup_collisions()
+	assert_true(GFVariantData.get_option_bool(session.recover(), "ok"))
+	assert_true(GFVariantData.get_option_bool(session.get_state(), "dirty"))
+	var saved_digest: String = session.get("_saved_digest")
+	assert_eq(saved_digest, written_digest, "保存基线属于已写入版本，不能采用旧摘要或稍后草稿。")
+	assert_eq(FileAccess.get_sha256(path), written_digest)
+	assert_true(GFVariantData.get_option_bool(session.save_profile(), "success"))
+	assert_true(FileAccess.get_file_as_string(path).contains("later draft"))
+	assert_false(GFVariantData.get_option_bool(session.get_state(), "dirty"))
+
+
+func test_profile_save_recovery_does_not_adopt_external_disk_changes() -> void:
+	var session: _SESSION_SCRIPT = _make_saved_session()
+	var path: String = GFVariantData.get_option_string(session.get_state(), "profile_path")
+	session.get_profile().version = "written revision"
+	session.mark_changed()
+	_arm_save_cleanup_collision(session)
+	assert_false(GFVariantData.get_option_bool(session.save_profile(), "success"))
+	var written_digest: String = FileAccess.get_sha256(path)
+	var _external: String = _write("profile.tres", FileAccess.get_file_as_string(path) + "\n; external change\n")
+	var external_digest: String = FileAccess.get_sha256(path)
+	_release_backup_collisions()
+	assert_true(GFVariantData.get_option_bool(session.recover(), "ok"))
+	assert_true(GFVariantData.get_option_bool(session.get_state(), "dirty"))
+	var saved_digest: String = session.get("_saved_digest")
+	assert_eq(saved_digest, written_digest)
+	assert_false(GFVariantData.get_option_bool(session.save_profile(), "success"))
+	assert_eq(FileAccess.get_sha256(path), external_digest)
+
+
+func test_profile_save_recovery_does_not_finalize_a_replacement_draft() -> void:
+	var session: _SESSION_SCRIPT = _make_saved_session()
+	session.get_profile().version = "written revision"
+	session.mark_changed()
+	_arm_save_cleanup_collision(session)
+	assert_false(GFVariantData.get_option_bool(session.save_profile(), "success"))
+	session.create_profile(_write("other.csv", "id:int!\n2\n"), "other", _root_path)
+	var replacement: GFConfigPipelineProfile = session.get_profile()
+	_release_backup_collisions()
+	assert_true(GFVariantData.get_option_bool(session.recover(), "ok"))
+	assert_same(session.get_profile(), replacement)
+	assert_true(GFVariantData.get_option_bool(session.get_state(), "dirty"))
+	assert_eq(GFVariantData.get_option_string(session.get_state(), "profile_path"), "")
+	var saved_digest: String = session.get("_saved_digest")
+	assert_eq(saved_digest, "")
+
+
+func test_adopted_sample_cleanup_does_not_finalize_profile_save() -> void:
+	var session: _SESSION_SCRIPT = _SESSION_SCRIPT.new()
+	session.create_profile(_write("items.csv", "id:int!\n1\n"), "items", _root_path)
+	var target: String = _write("sample.txt", "sample before")
+	var transaction: Dictionary = GFArtifactWriteTransaction.begin(PackedStringArray([target]), { "allowed_roots": [_root_path] })
+	assert_true(GFVariantData.get_option_bool(transaction, "ok"))
+	_block_backup_cleanup()
+	var cleanup: Dictionary = GFArtifactWriteTransaction.complete(transaction)
+	assert_true(GFVariantData.get_option_bool(cleanup, "recovery_required"))
+	session.adopt_recovery_report(cleanup)
+	_release_backup_collisions()
+	assert_true(GFVariantData.get_option_bool(session.recover(), "ok"))
+	assert_true(GFVariantData.get_option_bool(session.get_state(), "dirty"))
+	assert_eq(GFVariantData.get_option_string(session.get_state(), "profile_path"), "")
+	var saved_digest: String = session.get("_saved_digest")
+	assert_eq(saved_digest, "")
+
+
+func test_adopted_rollback_restores_artifact_without_finalizing_profile_save() -> void:
+	var session: _SESSION_SCRIPT = _SESSION_SCRIPT.new()
+	session.create_profile(_write("items.csv", "id:int!\n1\n"), "items", _root_path)
+	var target: String = _write("rollback.txt", "before")
+	var transaction: Dictionary = GFArtifactWriteTransaction.begin(PackedStringArray([target]), { "allowed_roots": [_root_path] })
+	assert_true(GFVariantData.get_option_bool(transaction, "ok"))
+	var _changed: String = _write("rollback.txt", "after")
+	_block_backup_cleanup()
+	var rollback: Dictionary = GFArtifactWriteTransaction.rollback(transaction)
+	assert_true(GFVariantData.get_option_bool(rollback, "recovery_required"))
+	assert_eq(GFVariantData.get_option_string(rollback, "recovery_action"), "rollback")
+	session.adopt_recovery_report(rollback)
+	_release_backup_collisions()
+	assert_true(GFVariantData.get_option_bool(session.recover(), "ok"))
+	assert_eq(FileAccess.get_file_as_string(target), "before")
+	assert_true(GFVariantData.get_option_bool(session.get_state(), "dirty"))
+	assert_eq(GFVariantData.get_option_string(session.get_state(), "profile_path"), "")
+	var saved_digest: String = session.get("_saved_digest")
+	assert_eq(saved_digest, "")
+
+
+func test_dock_can_remove_loaded_null_source_without_saving() -> void:
+	var path: String = _root_path.path_join("invalid.tres")
+	var original: GFConfigPipelineProfile = _PRESET_SCRIPT.make_profile(_write("items.csv", "id:int!\n1\n"))
+	original.sources.append(null)
+	assert_eq(ResourceSaver.save(original, path), OK)
+	var digest: String = FileAccess.get_sha256(path)
+	var dock: ActiveConfigDock = ActiveConfigDock.new()
+	add_child_autofree(dock)
+	var session: _SESSION_SCRIPT = dock.get("_session")
+	assert_true(session.load_profile(path))
+	dock.set("_selected_source", 1)
+	dock.call("_refresh_profile")
+	assert_false(GFVariantData.get_option_bool(session.get_admission_report(), "success"))
+	var remove: Button = dock.find_child("RemoveSource", true, false)
+	remove.pressed.emit()
+	assert_eq(session.get_profile().sources.size(), 1)
+	assert_true(GFVariantData.get_option_bool(session.get_admission_report(), "success"))
+	assert_true(dock.has_unsaved_workspace_changes())
+	assert_eq(FileAccess.get_sha256(path), digest)
+	dock.set("_selected_source", -1)
+	dock.call("_remove_source")
+	dock.set("_selected_source", 99)
+	dock.call("_remove_source")
+	assert_eq(session.get_profile().sources.size(), 1)
+	dock.active = false
+	dock.set("_selected_source", 0)
+	dock.call("_remove_source")
+	assert_eq(session.get_profile().sources.size(), 1, "撤销写入资格后不得删除来源。")
+	await get_tree().process_frame
+
+
+func test_failed_save_begin_cleanup_preserves_original_save_baseline() -> void:
+	var session: _SESSION_SCRIPT = _make_saved_session()
+	var path: String = GFVariantData.get_option_string(session.get_state(), "profile_path")
+	var original_digest: String = FileAccess.get_sha256(path)
+	session.get_profile().version = "unsaved revision"
+	session.mark_changed()
+	GFArtifactWriteTransaction._configure_test_owned_write_failures(1, 0, 2)
+	var saved: Dictionary = session.save_profile()
+	assert_false(GFVariantData.get_option_bool(saved, "success"))
+	assert_true(GFVariantData.get_option_bool(session.get_state(), "recovery_required"))
+	GFArtifactWriteTransaction._reset_test_owned_write_failures()
+	assert_true(GFVariantData.get_option_bool(session.recover(), "ok"))
+	assert_true(GFVariantData.get_option_bool(session.get_state(), "dirty"))
+	var saved_digest: String = session.get("_saved_digest")
+	assert_eq(saved_digest, original_digest)
+	assert_eq(FileAccess.get_sha256(path), original_digest)
+	assert_true(GFVariantData.get_option_bool(session.save_profile(), "success"))
 
 
 func test_preset_reapply_is_explicit_and_preserves_nonmanaged_values() -> void:
@@ -442,6 +640,47 @@ func test_source_growth_after_preflight_is_rejected_before_export() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+func _make_saved_session() -> _SESSION_SCRIPT:
+	var session: _SESSION_SCRIPT = _SESSION_SCRIPT.new()
+	session.create_profile(_write("items.csv", "id:int!\n1\n"), "items", _root_path)
+	var profile: CleanupBlockingProfile = CleanupBlockingProfile.new()
+	profile.sources.assign(session.get_profile().sources)
+	session.set("_profile", profile)
+	assert_true(GFVariantData.get_option_bool(session.save_profile(_root_path.path_join("profile.tres")), "success"))
+	return session
+
+
+func _arm_save_cleanup_collision(session: _SESSION_SCRIPT) -> void:
+	var profile: CleanupBlockingProfile = session.get_profile()
+	profile.before_serialize = _block_backup_cleanup
+	_blocking_profiles.append(profile)
+
+
+func _block_backup_cleanup() -> void:
+	var directory: DirAccess = DirAccess.open(_root_path)
+	directory.include_hidden = true
+	for file_name: String in directory.get_files():
+		if not file_name.begins_with(".gf-artifact-backup-") or file_name.ends_with(".held"):
+			continue
+		var path: String = _root_path.path_join(file_name)
+		var held: String = path + ".held"
+		if _blocked_backups.has(path):
+			continue
+		assert_eq(DirAccess.rename_absolute(path, held), OK)
+		assert_eq(DirAccess.make_dir_absolute(path), OK)
+		_blocked_backups[path] = held
+
+
+func _release_backup_collisions() -> void:
+	for profile: CleanupBlockingProfile in _blocking_profiles:
+		profile.before_serialize = Callable()
+	_blocking_profiles.clear()
+	for path: String in _blocked_backups:
+		assert_eq(DirAccess.remove_absolute(path), OK)
+		assert_eq(DirAccess.rename_absolute(_blocked_backups[path], path), OK)
+	_blocked_backups.clear()
+
 
 func _make_provider(value: Variant) -> GFResourceConfigProvider:
 	if value is GFConfigDatabaseResource:
