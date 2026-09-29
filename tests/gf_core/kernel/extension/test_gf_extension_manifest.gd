@@ -2173,8 +2173,56 @@ func test_extension_tool_contribution_schema_normalizes_valid_paths() -> void:
 		)
 
 
+func test_extension_tool_contribution_return_shape_preserves_v2_and_normalizes_v3_records() -> void:
+	var source_data: Dictionary = {
+		"schema_version": 2, "extension_id": "author.feature",
+		"editor_dock_paths": ["editor/page.gd"],
+	}
+	var legacy: Dictionary = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary(source_data)
+	var legacy_data: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(legacy, "data")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(legacy, "ok"))
+	assert_false(legacy_data.has("task_records"), "v2 结果不新增任务数组。")
+	assert_false(legacy_data.has("resource_action_records"), "v2 结果不新增资源动作数组。")
+	source_data["schema_version"] = 3
+	var empty: Dictionary = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary(source_data)
+	var empty_data: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(empty, "data")
+	assert_true(empty_data.get("task_records") is Array)
+	assert_true(empty_data.get("resource_action_records") is Array)
+	assert_eq(GF_VARIANT_ACCESS.get_option_array(empty_data, "task_records"), [])
+	assert_eq(GF_VARIANT_ACCESS.get_option_array(empty_data, "resource_action_records"), [])
+	source_data["task_records"] = [{"source_id": "open", "title": " Open ", "page_path": "editor/page.gd"}]
+	source_data["resource_action_records"] = [{
+		"source_id": "select", "title": "Select", "page_path": "editor/page.gd",
+		"action_id": "select_source", "resource_types": ["PackedScene"],
+	}]
+	var report: Dictionary = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary(source_data)
+	var data: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "data")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"))
+	assert_eq(GF_VARIANT_ACCESS.get_option_array(data, "task_records"), [{
+		"owner_package_id": "author.feature", "source_id": "author.feature:open", "title": "Open",
+		"description": "", "keywords": [], "group": "常用", "page_path": "editor/page.gd", "action_id": "",
+	}])
+	assert_eq(GF_VARIANT_ACCESS.get_option_array(data, "resource_action_records"), [{
+		"owner_package_id": "author.feature", "source_id": "author.feature:select", "title": "Select",
+		"description": "", "keywords": [], "group": "常用", "page_path": "editor/page.gd",
+		"action_id": "select_source", "resource_types": ["PackedScene"], "max_selection": 1,
+	}])
+	source_data["schema_version"] = 2
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary(source_data), "ok"))
+	source_data["schema_version"] = 3
+	source_data["task_records"] = [
+		{"source_id": "open", "title": "Open", "page_path": "editor/page.gd"},
+		{"source_id": "invalid", "title": "Invalid", "page_path": "editor/missing.gd"},
+	]
+	var invalid: Dictionary = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary(source_data)
+	var invalid_data: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(invalid, "data")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(invalid, "ok"))
+	assert_false(GF_VARIANT_ACCESS.get_option_array(invalid, "errors").is_empty())
+	assert_eq(GF_VARIANT_ACCESS.get_option_array(invalid_data, "task_records").size(), 1, "失败结果可保留合法项，但不能作为已通过校验的数据消费。")
+
+
 func test_extension_tool_contribution_schema_rejects_legacy_version() -> void:
-	var legacy_schema_version: int = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.SCHEMA_VERSION - 1
+	var legacy_schema_version: int = 1
 	var report: Dictionary = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary({
 		"schema_version": legacy_schema_version,
 		"extension_id": "author.feature",

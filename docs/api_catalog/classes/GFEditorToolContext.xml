@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorToolContext" path="addons/gf/kernel/editor/gf_editor_tool_context.gd" module="kernel" extends="RefCounted" classDigest="f77eadf762d530b831cf8a7244d06a4e9d5abbdb883f3b5a91336a0183e6c247">
+<class name="GFEditorToolContext" path="addons/gf/kernel/editor/gf_editor_tool_context.gd" module="kernel" extends="RefCounted" classDigest="c03d8da193feab3183b6c65a8c0af3e9d24ec1719540acb82eff1fff4e766dc1">
 	<description>GFEditorToolContext: 编辑器交互工具上下文。
 用于在工具、动作和命令之间传递 EditorPlugin、UndoRedo、选中节点和额外元数据。
 该对象只保存通用编辑器上下文，不假设具体工具会编辑哪类资源。</description>
@@ -78,6 +78,50 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">选中节点数组。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_workspace_tasks">
+			<signature>func get_workspace_tasks() -&gt; Array[Dictionary]:</signature>
+			<description>获取当前任务入口的纯数据快照；不会创建工具页面。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">任务记录副本。</tag>
+				<tag name="schema">return: Array of Dictionary with source_id, title, description, group, keywords, available, and reason.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="request_workspace_task">
+			<signature>func request_workspace_task(source_id: String) -&gt; Dictionary:</signature>
+			<description>请求打开一项任务；不可用的扩展入口转到扩展选择页面。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source_id: 任务的稳定来源标识。</tag>
+				<tag name="return">路由结果。</tag>
+				<tag name="schema">return: Dictionary with ok: bool and message: String, plus optional error_code, status, action_id, replaced and metadata from routing. A same-generation receiver response adds receiver_report: Dictionary (deep copy retaining receiver status, reason, data and other fields) and registry_status; a nonempty receiver text status becomes status, and message falls back through receiver message, reason and status. Registry ok, error_code, action_id, replaced and metadata remain authoritative; unavailable, invalid or revoked routes retain their registry failure without a receiver report.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_resource_actions">
+			<signature>func get_resource_actions(paths: PackedStringArray) -&gt; Array[Dictionary]:</signature>
+			<description>查询当前资源选择可交给哪些工具；不会加载资源或创建页面。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">paths: 当前资源路径快照。</tag>
+				<tag name="return">资源动作记录副本。</tag>
+				<tag name="schema">return: Array of Dictionary with action_id, title, available, and reason.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="request_resource_action">
+			<signature>func request_resource_action(action_id: String, paths: PackedStringArray) -&gt; Dictionary:</signature>
+			<description>将资源交给声明的接收工具；实际修改仍由接收工具显式提交。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">action_id: 查询返回的稳定动作标识。</tag>
+				<tag name="param">paths: 当前资源路径快照。</tag>
+				<tag name="return">路由结果。</tag>
+				<tag name="schema">return: Dictionary with ok: bool and message: String, plus optional error_code, status, action_id, replaced and metadata from routing. A same-generation receiver response adds receiver_report: Dictionary (deep copy retaining receiver status, reason, data and other fields) and registry_status; a nonempty receiver text status becomes status, and message falls back through receiver message, reason and status. Registry ok, error_code, action_id, replaced and metadata remain authoritative; unavailable, invalid or revoked routes retain their registry failure without a receiver report.</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dictionary">

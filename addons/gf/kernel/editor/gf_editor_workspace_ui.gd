@@ -151,6 +151,40 @@ static func make_empty_label(text: String = "") -> Label:
 	return label
 
 
+## 创建带下一步动作的空状态，保留原生主题和键盘焦点。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @param title: 空状态标题。
+## [br]
+## @param description: 当前状态及下一步操作说明，同时用作按钮提示。
+## [br]
+## @param action_label: 可选按钮文本；为空时不创建按钮。
+## [br]
+## @param action: 按钮按下时调用的回调；无效时不创建按钮。
+## [br]
+## @return: 尚未加入场景树的空状态容器，由调用方接管节点所有权。
+static func make_empty_state(
+	title: String, description: String, action_label: String = "", action: Callable = Callable()
+) -> VBoxContainer:
+	var box: VBoxContainer = VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	var heading: Label = Label.new()
+	heading.text = title
+	box.add_child(heading)
+	var details: Label = Label.new()
+	details.text = description
+	details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(details)
+	if not action_label.is_empty() and action.is_valid():
+		var button: Button = make_button(action_label, description, action)
+		button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		box.add_child(button)
+	return box
+
+
 ## 创建通用详情输出框。
 ## [br]
 ## @api framework_internal

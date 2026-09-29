@@ -41,6 +41,11 @@ const GFEditorWorkspaceDockBase = preload("res://addons/gf/kernel/editor/gf_edit
 ## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
+## 工作区个人偏好存取。
+## [br]
+## @api private
+const _PREFERENCES_SCRIPT = preload("res://addons/gf/kernel/editor/state/gf_editor_preferences.gd")
+
 
 # --- 私有变量 ---
 
@@ -54,6 +59,11 @@ var _workspace: Control = null
 ## @api private
 var _dock_records: Array[Dictionary] = []
 
+## 仅在窗口实际显示后保存几何信息。
+## [br]
+## @api private
+var _has_been_shown: bool = false
+
 
 # --- Godot 生命周期方法 ---
 
@@ -64,12 +74,24 @@ func _init() -> void:
 	title = WINDOW_TITLE
 	size = DEFAULT_WINDOW_SIZE
 	min_size = MIN_WINDOW_SIZE
+	var saved_size: Variant = _PREFERENCES_SCRIPT.get_value("window_size", DEFAULT_WINDOW_SIZE)
+	if saved_size is Vector2i:
+		var preferred_size: Vector2i = saved_size
+		size = preferred_size.max(MIN_WINDOW_SIZE)
+	always_on_top = _PREFERENCES_SCRIPT.get_value("always_on_top", false) == true
 	transient = false
 	exclusive = false
 	wrap_controls = true
 	visible = false
 	var _connect_result_57: Variant = close_requested.connect(_on_close_requested)
 	_build_ui()
+
+
+## 插件卸载或编辑器退出时保存个人窗口布局。
+## [br]
+## @api private
+func _exit_tree() -> void:
+	_save_geometry()
 
 
 # --- 框架内部方法 ---
@@ -109,6 +131,11 @@ func set_editor_context(editor_context: GFEditorToolContext) -> void:
 ## [br]
 ## @layer kernel/editor
 func popup_workspace() -> void:
+	if visible:
+		if mode == Window.MODE_MINIMIZED:
+			mode = Window.MODE_WINDOWED
+		grab_focus()
+		return
 	if size.x <= 0 or size.y <= 0:
 		size = DEFAULT_WINDOW_SIZE
 	var restore_always_on_top: bool = always_on_top
@@ -116,6 +143,8 @@ func popup_workspace() -> void:
 		always_on_top = false
 		_prepare_always_on_top_window()
 	popup_centered(size)
+	_has_been_shown = true
+	_restore_position()
 	if restore_always_on_top:
 		_prepare_always_on_top_window()
 		always_on_top = true
@@ -128,6 +157,7 @@ func popup_workspace() -> void:
 ## [br]
 ## @layer kernel/editor
 func hide_workspace() -> void:
+	_save_geometry()
 	hide()
 
 
@@ -182,6 +212,7 @@ func set_always_on_top_enabled(enabled: bool) -> void:
 	if enabled:
 		_prepare_always_on_top_window()
 	always_on_top = enabled
+	_PREFERENCES_SCRIPT.set_value("always_on_top", enabled)
 	_sync_workspace_window_controls()
 
 
@@ -197,6 +228,32 @@ func is_always_on_top_enabled() -> bool:
 
 
 # --- 私有/辅助方法 ---
+
+## 保存普通窗口的位置和尺寸；最大化尺寸不覆盖用户布局。
+## [br]
+## @api private
+func _save_geometry() -> void:
+	if _has_been_shown and mode == Window.MODE_WINDOWED:
+		_PREFERENCES_SCRIPT.set_value("window_size", size)
+		_PREFERENCES_SCRIPT.set_value("window_position", position)
+
+
+## 将保存位置约束到当前屏幕可用区域，防止显示器变更后窗口不可达。
+## [br]
+## @api private
+func _restore_position() -> void:
+	if not Engine.is_editor_hint() or DisplayServer.get_name() == "headless":
+		return
+	var usable: Rect2i = DisplayServer.screen_get_usable_rect(current_screen)
+	if usable.size.x <= 0 or usable.size.y <= 0:
+		return
+	min_size = MIN_WINDOW_SIZE.min(usable.size)
+	size = size.min(usable.size).max(min_size)
+	var saved: Variant = _PREFERENCES_SCRIPT.get_value("window_position", position)
+	if saved is Vector2i:
+		var preferred: Vector2i = saved
+		position = preferred.clamp(usable.position, usable.end - size)
+
 
 ## 懒创建统一工作区 Dock 并让其填充整个 Window。
 ## [br]

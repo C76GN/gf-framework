@@ -40,7 +40,7 @@ var preload_scene_paths: PackedStringArray = []
 
 ## 扩展贡献
 
-GF 内置扩展或外部扩展的编辑器增强统一由各自 schema v2 的 `editor/gf_tool_contribution.json` 声明：
+GF 内置扩展或外部扩展的编辑器增强统一由各自的 `editor/gf_tool_contribution.json` 声明，schema v2 与 v3 都支持以下八类路径：
 
 - `editor_action_paths`：GF 菜单动作，也可贡献脚本模板记录。
 - `editor_dock_paths`：GF 工作区页面。
@@ -50,6 +50,8 @@ GF 内置扩展或外部扩展的编辑器增强统一由各自 schema v2 的 `e
 - `gltf_document_extension_paths`：`GLTFDocumentExtension` 导入桥接。
 - `access_generator_extension_paths`：访问器生成扩展。
 - `debugger_plugin_paths`：`EditorDebuggerPlugin`。
+
+只有 schema v3 允许声明 `task_records` 与 `resource_action_records`，用于贡献工作区任务和资源动作；其字段与路由约束见 [Workspace 贡献规范](workspace.md#贡献任务与资源动作)。只声明路径的现有 v2 文件可以继续使用，v2 中出现任务或资源动作数组会被拒绝。
 
 以上八类路径都不允许写入运行时 `gf_extension.json`。运行时 manifest 继续持有 `installer_paths`；工作区页面的 `editor_dock_order` 和 `editor_dock_short_label` 也继续作为 manifest 展示元数据，与 tool contribution 中的 `editor_dock_paths` 配合使用。
 

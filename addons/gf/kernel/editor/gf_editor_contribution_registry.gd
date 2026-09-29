@@ -23,7 +23,12 @@ extends RefCounted
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
-const SCHEMA_VERSION: int = 4
+const SCHEMA_VERSION: int = 5
+
+## 工作区任务与资源动作的纯数据校验器。
+## [br]
+## @api private
+const _WORKSPACE_RECORDS_SCRIPT = preload("res://addons/gf/kernel/extension/gf_workspace_contribution_records.gd")
 
 ## 单个 manifest JSON 允许读取的最大字节数。
 ## [br]
@@ -162,7 +167,7 @@ const _PROJECT_SETTING_SECTION_RECORD_ALLOWED_KEYS: Array[String] = [
 ## [br]
 ## @return 空记录集合。
 ## [br]
-## @schema return: Dictionary，包含 inspector_plugin_records、export_plugin_records、debugger_plugin_records、dock_records、template_records、project_setting_records 和 project_setting_section_records 数组。
+## @schema return: Dictionary，包含 inspector_plugin_records、export_plugin_records、debugger_plugin_records、dock_records、template_records、project_setting_records、project_setting_section_records、task_records 和 resource_action_records 数组。
 static func empty_records() -> Dictionary:
 	return {
 		"inspector_plugin_records": [],
@@ -172,6 +177,8 @@ static func empty_records() -> Dictionary:
 		"template_records": [],
 		"project_setting_records": [],
 		"project_setting_section_records": [],
+		"task_records": [],
+		"resource_action_records": [],
 	}
 
 
@@ -222,7 +229,7 @@ static func load_manifest_report(manifest_path: String) -> Dictionary:
 		return _make_report(false, normalized_path, records, issues, skipped_records)
 
 	var schema_version: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(data, "schema_version", -1)
-	if schema_version != SCHEMA_VERSION:
+	if schema_version not in [4, SCHEMA_VERSION]:
 		issues.append(_make_issue(
 			"unsupported_schema_version",
 			normalized_path,
@@ -305,6 +312,19 @@ static func load_manifest_report(manifest_path: String) -> Dictionary:
 		package_id,
 		issues
 	)
+	if schema_version == 5:
+		# 只有最终保留的 dock 可以授权工作区路由，重复项不能覆盖其 owner。
+		_validate_record_identities(records, issues)
+		var page_owners: Dictionary = {}
+		for page: Dictionary in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(records, "dock_records"):
+			page_owners[page["path"]] = page["owner_package_id"]
+		for family: String in ["task_records", "resource_action_records"]:
+			var parsed: Dictionary = _WORKSPACE_RECORDS_SCRIPT.parse_records(
+				data.get(family, []), package_id, page_owners, family == "resource_action_records"
+			)
+			records[family] = parsed["records"]
+			for message: String in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(parsed, "errors"):
+				issues.append(_make_issue("invalid_workspace_record", normalized_path, message, family))
 	_validate_record_identities(records, issues)
 	return _make_report(
 		issues.is_empty(),
@@ -993,7 +1013,9 @@ static func _manifest_uses_allowed_keys(
 ) -> bool:
 	for key_value: Variant in data.keys():
 		var key: String = _GF_VARIANT_ACCESS_SCRIPT.to_text(key_value)
-		if not _MANIFEST_ALLOWED_KEYS.has(key):
+		var workspace_key: bool = key in ["task_records", "resource_action_records"]
+		var supports_workspace: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(data, "schema_version") == 5
+		if not _MANIFEST_ALLOWED_KEYS.has(key) and not (supports_workspace and workspace_key):
 			issues.append(_make_issue(
 				"unknown_manifest_field",
 				manifest_path,

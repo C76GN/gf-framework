@@ -13,6 +13,11 @@ extends Control
 ## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
+## 工作区个人偏好存取。
+## [br]
+## @api private
+const _PREFERENCES_SCRIPT = preload("res://addons/gf/kernel/editor/state/gf_editor_preferences.gd")
+
 ## 关于弹窗尺寸。
 ## [br]
 ## @api framework_internal
@@ -226,6 +231,11 @@ var _page_operation_depth: int = 0
 ## @api private
 var _context_generation: int = 0
 
+## 启动行为选择器。
+## [br]
+## @api private
+var _startup_mode: OptionButton = null
+
 
 # --- Godot 生命周期方法 ---
 
@@ -246,6 +256,21 @@ func _init() -> void:
 ## @api private
 func _exit_tree() -> void:
 	set_editor_context(null)
+
+
+## 工作区中按 Ctrl+K 打开任务搜索；事件只在当前窗口处理。
+## [br]
+## @api private
+func _shortcut_input(event: InputEvent) -> void:
+	if not event is InputEventKey:
+		return
+	var key: InputEventKey = event
+	if not key.pressed or key.echo or not key.ctrl_pressed or key.keycode != KEY_K:
+		return
+	var home: Control = open_page("gf.kernel.home")
+	if home != null and home.has_method("focus_task_search"):
+		var _focused: Variant = home.call("focus_task_search")
+		get_viewport().set_input_as_handled()
 
 
 # --- 框架内部方法 ---
@@ -361,6 +386,73 @@ func select_page(title: String) -> bool:
 	return false
 
 
+## 按稳定来源标识激活页面；旧贡献使用脚本路径作为标识。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @param page_id: 贡献的 source_id；旧贡献使用页面脚本路径。
+## [br]
+## @return: 找到对应页面并发起激活时返回 true；未登记时返回 false。
+func select_page_id(page_id: String) -> bool:
+	for index: int in range(_page_records.size()):
+		if _get_page_id(_page_records[index]) == page_id:
+			_on_page_button_pressed(index)
+			return true
+	return false
+
+
+## 返回当前页面稳定标识；空工作区返回空字符串。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @return: 当前选中页的 source_id 或兼容脚本路径；无有效选页时为空。
+func get_selected_page_id() -> String:
+	if _tabs == null or _tabs.current_tab < 0 or _tabs.current_tab >= _page_records.size():
+		return ""
+	return _get_page_id(_page_records[_tabs.current_tab])
+
+
+## 打开指定页面并返回其内容控件；不存在或加载失败时返回 null。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @param page_id: 要打开页面的 source_id 或兼容脚本路径。
+## [br]
+## @return: 本次请求的同代页面内容；加载失败、初始化重入切页或上下文更换时返回 null。
+func open_page(page_id: String) -> Control:
+	if _tabs == null:
+		return null
+	var requested_index: int = -1
+	for index: int in range(_page_records.size()):
+		if _get_page_id(_page_records[index]) == page_id:
+			requested_index = index
+			break
+	if requested_index < 0:
+		return null
+	var generation: int = _context_generation
+	var page: Control = _tabs.get_tab_control(requested_index)
+	if not select_page_id(page_id):
+		return null
+	# 页面初始化可能重入切页或更换上下文；只返回本次请求的同代实例。
+	if generation != _context_generation or get_selected_page_id() != page_id:
+		return null
+	if not is_instance_valid(page) or page != _tabs.get_tab_control(_tabs.current_tab):
+		return null
+	if page.is_queued_for_deletion() or page.get_child_count() == 0:
+		return null
+	var child: Node = page.get_child(0)
+	if child is Control and _page_controls.has(child):
+		var control: Control = child
+		return control
+	return null
+
+
 ## 显示 GF Framework 介绍和链接弹窗。
 ## [br]
 ## @api framework_internal
@@ -419,6 +511,19 @@ func _build_ui() -> void:
 	_status_label.visible = false
 	header.add_child(_status_label)
 
+	_startup_mode = OptionButton.new()
+	_startup_mode.name = "StartupMode"
+	_startup_mode.tooltip_text = "工作区启动方式，仅保存在当前项目的个人编辑器偏好中。"
+	_startup_mode.add_item("首次打开")
+	_startup_mode.add_item("每次打开")
+	_startup_mode.add_item("手动打开")
+	var startup_modes: Array[String] = ["first_use", "always", "manual"]
+	var saved_mode: String = str(_PREFERENCES_SCRIPT.get_value("startup_mode", "first_use"))
+	var selected_mode: int = startup_modes.find(saved_mode)
+	_startup_mode.select(selected_mode if selected_mode >= 0 else 2)
+	var _mode_connected: Error = _startup_mode.item_selected.connect(_on_startup_mode_selected) as Error
+	header.add_child(_startup_mode)
+
 	_about_button = Button.new()
 	_about_button.text = "关于"
 	_about_button.tooltip_text = "查看 GF Framework 介绍、项目链接、文档地址和版本信息。"
@@ -428,7 +533,6 @@ func _build_ui() -> void:
 	_always_on_top_button = Button.new()
 	_always_on_top_button.text = "置顶"
 	_always_on_top_button.toggle_mode = true
-	_always_on_top_button.focus_mode = Control.FOCUS_NONE
 	_always_on_top_button.tooltip_text = "让 GF Workspace 独立窗口保持在其他窗口上方。"
 	var _always_on_top_connected: Error = _always_on_top_button.toggled.connect(_on_always_on_top_toggled) as Error
 	header.add_child(_always_on_top_button)
@@ -452,6 +556,9 @@ func _rebuild_pages() -> void:
 
 	# 用户页面的上下文、入树和离树回调都可能重新 setup；等当前操作结束后只应用最新配置。
 	while _rebuild_pending:
+		var selected_page_id: String = get_selected_page_id()
+		if selected_page_id.is_empty():
+			selected_page_id = str(_PREFERENCES_SCRIPT.get_value("selected_page", ""))
 		_rebuild_pending = false
 		_page_operation_depth += 1
 		_rebuilding_pages = true
@@ -478,6 +585,10 @@ func _rebuild_pages() -> void:
 				_tabs.add_child(_make_empty_page())
 			else:
 				_tabs.current_tab = clampi(_tabs.current_tab, 0, _tabs.get_child_count() - 1)
+				for index: int in range(_page_records.size()):
+					if _get_page_id(_page_records[index]) == selected_page_id:
+						_tabs.current_tab = index
+						break
 		_rebuilding_pages = false
 
 		if not _rebuild_pending:
@@ -741,7 +852,6 @@ func _rebuild_page_buttons() -> void:
 		var button: Button = Button.new()
 		button.text = _GF_VARIANT_ACCESS_SCRIPT.to_text(page.get_meta("short_label", page.name), String(page.name))
 		button.toggle_mode = true
-		button.focus_mode = Control.FOCUS_NONE
 		button.tooltip_text = "切换到 %s" % page.name
 		button.custom_minimum_size = Vector2(PAGE_BUTTON_MIN_WIDTH, 30.0)
 		button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -1161,6 +1271,25 @@ func _set_update_release_button(should_show: bool, release_url: String = "") -> 
 	_update_release_button.disabled = not should_show
 
 
+## 将来源 ID 或兼容路径作为稳定身份，不依赖可翻译的页面标题。
+## [br]
+## @api private
+func _get_page_id(record: Dictionary) -> String:
+	var source_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "source_id")
+	return source_id if not source_id.is_empty() else _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "path")
+
+
+## 保存有效选页，重建期间产生的临时 Tab 信号不会覆盖用户选择。
+## [br]
+## @api private
+func _save_selected_page() -> void:
+	if _rebuilding_pages or _rebuild_pending:
+		return
+	var page_id: String = get_selected_page_id()
+	if not page_id.is_empty():
+		_PREFERENCES_SCRIPT.set_value("selected_page", page_id)
+
+
 # --- 信号处理函数 ---
 
 ## 响应关于按钮并显示介绍弹窗。
@@ -1204,6 +1333,7 @@ func _on_page_button_pressed(index: int) -> void:
 	_rebuild_pages()
 	_sync_page_buttons()
 	_update_status()
+	_save_selected_page()
 
 
 ## 非页面重建期间，按需实例化新选中页并同步按钮与状态标签。
@@ -1215,6 +1345,16 @@ func _on_tabs_tab_changed(tab: int) -> void:
 	_ensure_page(tab)
 	_sync_page_buttons()
 	_update_status()
+	_save_selected_page()
+
+
+## 保存明确选择的启动方式。
+## [br]
+## @api private
+func _on_startup_mode_selected(index: int) -> void:
+	var modes: Array[String] = ["first_use", "always", "manual"]
+	if index >= 0 and index < modes.size():
+		_PREFERENCES_SCRIPT.set_value("startup_mode", modes[index])
 
 
 ## 将 BBCode meta 转为文本，仅对非空链接请求系统打开。

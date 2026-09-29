@@ -23,7 +23,7 @@ manifest 声明的 Installer 脚本路径必须位于扩展根目录内，避免
 
 ## 编辑器 Tool Contribution
 
-以下八类路径只能写入扩展目录下 schema v2 的 `editor/gf_tool_contribution.json`，不能写入运行时 manifest：
+以下八类路径只能写入扩展目录下的 `editor/gf_tool_contribution.json`，schema v2 与 v3 均支持，不能写入运行时 manifest：
 
 - `editor_action_paths`
 - `editor_dock_paths`
@@ -34,8 +34,10 @@ manifest 声明的 Installer 脚本路径必须位于扩展根目录内，避免
 - `access_generator_extension_paths`
 - `debugger_plugin_paths`
 
+只有 schema v3 支持 `task_records` 与 `resource_action_records`；目标页面必须由同一扩展贡献，记录字段和路由约束见 [Workspace 贡献规范](../../editor/workspace.md#贡献任务与资源动作)。只声明上述路径的 v2 文件无需升级；v2 中出现任务或资源动作数组会被拒绝。
+
 工具贡献路径必须位于所属扩展根目录内，并随完整 GF 插件一起分发。扩展启用后，有效路径才会进入根编辑器插件生命周期；禁用扩展时，对应编辑器贡献不会装载，导出过滤也可以排除其目录。`editor_dock_paths` 指向的页面继续使用运行时 manifest 中的 `editor_dock_order` 和 `editor_dock_short_label` 作为展示元数据。
 
 不存在 `editor/gf_tool_contribution.json` 表示扩展没有工具贡献，不是错误。文件存在但 schema、扩展 ID、路径边界、资源或脚本类型无效时，选择报告进入 `partial` 并隔离该文件的无效路径；运行时 manifest 图及其有效 `installer_paths` 仍可使用。把上述八类字段写入 `gf_extension.json` 会被拒绝，七个迁移字段会明确提示新的声明位置；不提供永久双读兼容。
 
-schema v1 不再兼容，现有 tool contribution 必须整体升级为 `schema_version: 2`，即使该文件暂时没有声明 Debugger 插件。
+schema v1 不再兼容，使用 v1 的 tool contribution 必须升级为 `schema_version: 2` 或 `3`，即使该文件暂时没有声明 Debugger 插件；需要任务或资源动作记录时选择 v3。
