@@ -52,7 +52,7 @@ const _DEFAULT_OPERATION: StringName = _OPERATION_EXPORT
 ## [br]
 ## @param base_options: 调用方直接注入的默认选项，命令行参数会覆盖同名字段。
 ## [br]
-## @schema base_options: Dictionary，可包含 GFConfigPipelineRunner 选项，以及 output_path、access_output_path、access_class_name、access_provider_accessor、dry_run、changed_only、manifest_path、write_manifest、manifest_options、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；三个非空产物路径都必须位于 res:// 或 user://，各产物 options 可包含 allow_parent_output_path、allow_gf_source_output 和 allow_unowned_overwrite。
+## @schema base_options: Dictionary，可包含 GFConfigPipelineRunner 选项，以及 max_validation_cells、max_source_file_bytes、max_xlsx_file_bytes、output_path、access_output_path、access_class_name、access_provider_accessor、dry_run、changed_only、manifest_path、write_manifest、manifest_options、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；三个非空产物路径都必须位于 res:// 或 user://，各产物 options 可包含 allow_parent_output_path、allow_gf_source_output 和 allow_unowned_overwrite。
 ## [br]
 ## @return: 命令报告。
 ## [br]
@@ -168,6 +168,8 @@ func get_usage() -> String:
 	_append_line(lines, "  --manifest <URI>             Override res:// or user:// manifest URI.")
 	_append_line(lines, "  --write-manifest             Write a manifest after export even without --changed-only.")
 	_append_line(lines, "  --strict                     Treat validation warnings as command failure.")
+	_append_line(lines, "  --max-validation-cells <n>    Bound cumulative parsed cells before validation (non-negative).")
+	_append_line(lines, "  --max-source-bytes <n>        Bound each source read, including XLSX (non-negative).")
 	_append_line(lines, "  --json                       Print JSON report.")
 	_append_line(lines, "  --compact                    Print compact JSON when --json is enabled.")
 	_append_line(lines, "  --help                       Print this help.")
@@ -230,6 +232,18 @@ func _parse_arguments(arguments: PackedStringArray, base_options: Dictionary) ->
 			continue
 
 		var value_result: Dictionary = {}
+		if option_name in ["--max-validation-cells", "--max-source-bytes"]:
+			value_result = _read_option_value(arguments, index, option_name, inline_value, has_inline_value)
+			var budget_text: String = GFVariantData.get_option_string(value_result, "value")
+			if not GFVariantData.get_option_bool(value_result, "success") or not budget_text.is_valid_int() or budget_text.to_int() < 0:
+				return _make_parse_failure(operation, profile_path, options, json_report, pretty_output, usage_requested, strict, "%s 需要非负整数。" % option_name)
+			if option_name == "--max-validation-cells":
+				options["max_validation_cells"] = budget_text.to_int()
+			else:
+				options["max_source_file_bytes"] = budget_text.to_int()
+				options["max_xlsx_file_bytes"] = budget_text.to_int()
+			index = GFVariantData.get_option_int(value_result, "next_index")
+			continue
 		if option_name == "--profile" or option_name == "-p":
 			value_result = _read_option_value(arguments, index, option_name, inline_value, has_inline_value)
 			if not GFVariantData.get_option_bool(value_result, "success"):

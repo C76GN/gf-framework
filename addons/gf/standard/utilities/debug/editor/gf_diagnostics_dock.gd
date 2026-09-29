@@ -178,7 +178,7 @@ func _build_ui() -> void:
 	var toolbar: HBoxContainer = _EDITOR_WORKSPACE_UI.make_toolbar()
 	root_box.add_child(toolbar)
 
-	toolbar.add_child(_EDITOR_WORKSPACE_UI.make_button("采集", "采集当前诊断快照。", collect_snapshot))
+	toolbar.add_child(_EDITOR_WORKSPACE_UI.make_button("采集快照", "采集当前诊断快照。", collect_snapshot))
 
 	_preset_option = OptionButton.new()
 	_preset_option.tooltip_text = "选择诊断监控预设。"
@@ -235,6 +235,7 @@ func _build_ui() -> void:
 	_details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_details.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	split.add_child(_details)
+	toolbar.add_child(_EDITOR_WORKSPACE_UI.make_details_toggle(_details))
 
 
 ## 将带有 preset ID 元数据的监控预设加入选项控件。
@@ -260,7 +261,7 @@ func _render_snapshot() -> void:
 	_empty_label.visible = false
 	_tree.visible = true
 	_summary_label.text = _make_snapshot_summary(_last_snapshot)
-	_summary_label.modulate = _EDITOR_WORKSPACE_UI.OK_TEXT_COLOR
+	_EDITOR_WORKSPACE_UI.set_status(_summary_label, _summary_label.text, _EDITOR_WORKSPACE_UI.OK_TEXT_COLOR)
 
 	_DIAGNOSTIC_TREE_PRESENTER.populate_dictionary(_tree, _last_snapshot)
 
@@ -276,7 +277,7 @@ func _render_empty(message: String) -> void:
 	if _details != null:
 		_details.text = ""
 	if _empty_label != null:
-		_empty_label.text = message
+		_empty_label.text = message + "\n选择监控范围后点击“采集快照”；选择条目查看摘要，需要原始数据时展开“高级详情”。"
 		_empty_label.visible = true
 	_EDITOR_WORKSPACE_UI.set_status(_summary_label, message, _EDITOR_WORKSPACE_UI.WARNING_TEXT_COLOR)
 

@@ -1,0 +1,25 @@
+{
+  "schema_version": 5,
+  "package_id": "gf.tool.project_bootstrap",
+  "dock_records": [
+    {
+      "owner_package_id": "gf.tool.project_bootstrap",
+      "source_id": "project_bootstrap.dock.bootstrap",
+      "path": "res://addons/gf/tools/project_bootstrap/editor/gf_project_bootstrap_dock.gd",
+      "label": "GF Project Bootstrap",
+      "short_label": "最小项目",
+      "order": 5
+    }
+  ],
+  "task_records": [
+    {
+      "source_id": "project_bootstrap.task.create",
+      "title": "创建最小项目",
+      "description": "从可运行的计数器示例开始，预览文件和安装设置后再创建。",
+      "keywords": ["入门", "创建", "最小项目", "Installer"],
+      "group": "开始使用",
+      "page_path": "res://addons/gf/tools/project_bootstrap/editor/gf_project_bootstrap_dock.gd",
+      "action_id": "new_project"
+    }
+  ]
+}

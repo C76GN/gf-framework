@@ -604,7 +604,8 @@ func _build_ui() -> void:
 		return
 	toolbar.add_child(_path_edit)
 
-	toolbar.add_child(_make_workspace_button("...", "选择 FlowGraph 资源。", _on_browse_pressed))
+	toolbar.add_child(_make_workspace_button("选择资源…", "选择 FlowGraph 资源。", _on_browse_pressed))
+	toolbar.add_child(_make_workspace_button("定位资源", "在原生文件系统中定位当前流程图。", _on_locate_resource_pressed))
 	toolbar.add_child(_make_workspace_button("刷新", "重新加载并校验当前 FlowGraph。", _on_refresh_pressed))
 	_auto_layout_button = _make_workspace_button("自动布局", "按通用分层布局写入节点 editor_position。", _on_auto_layout_pressed)
 	toolbar.add_child(_auto_layout_button)
@@ -660,6 +661,10 @@ func _build_ui() -> void:
 
 	_details = _make_details_output(_DETAIL_MIN_HEIGHT)
 	side_panel.add_child(_details)
+	var details_toggle: Button = _get_button_value(_GF_EDITOR_WORKSPACE_UI_SCRIPT.call("make_details_toggle", _details))
+	if details_toggle != null:
+		side_panel.add_child(details_toggle)
+		side_panel.move_child(details_toggle, 0)
 
 	_file_dialog = FileDialog.new()
 	_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
@@ -722,7 +727,7 @@ func _render_graph() -> void:
 	if _graph == null:
 		_last_view_model = {}
 		_set_status(_summary_label, "未加载 FlowGraph。")
-		_empty_label.text = "输入或选择一个 GFFlowGraph 资源路径后点击刷新。"
+		_empty_label.text = "点击“选择资源…”打开 GFFlowGraph；也可在文件系统新建此类资源后选择。加载后可调整节点、连接与布局，保存前可撤销。"
 		_empty_label.visible = true
 		_tree.visible = false
 		_content_split.visible = false
@@ -737,7 +742,7 @@ func _render_graph() -> void:
 		GFVariantData.get_option_int(_last_view_model, "connection_count", 0),
 		GFVariantData.get_option_string(validation, "next_action", ""),
 	]
-	_summary_label.modulate = _get_report_color(validation)
+	var _status_result: Variant = _GF_EDITOR_WORKSPACE_UI_SCRIPT.call("set_status", _summary_label, _summary_label.text, _get_report_color(validation))
 	_content_split.visible = true
 	_graph_edit.visible = true
 	_render_graph_canvas(_last_view_model)
@@ -1081,6 +1086,17 @@ func _on_path_submitted(path: String) -> void:
 func _on_browse_pressed() -> void:
 	if is_instance_valid(_file_dialog):
 		_file_dialog.popup_centered_ratio(0.6)
+
+
+## 定位已经加载的流程图资源。
+## [br]
+## @api private
+func _on_locate_resource_pressed() -> void:
+	if _graph == null or _graph.resource_path.is_empty():
+		_set_status(_summary_label, "先选择一个已保存的 FlowGraph 资源。")
+		return
+	if Engine.is_editor_hint():
+		EditorInterface.get_file_system_dock().navigate_to_path(_graph.resource_path)
 
 
 ## 处理资源选择结果并加载选中文件。

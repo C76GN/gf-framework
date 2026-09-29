@@ -5,6 +5,7 @@
 ## 阅读入口
 
 - [安装与 AutoLoad](install-autoload.md)：复制 `addons/gf`、启用插件和确认 `Gf` 全局入口。
+- [最小项目向导](../../editor/tools/project-bootstrap.md)：从工作区生成并运行一份完整的 kernel 示例。
 - [最小启动与 Installer](minimal-installer.md)：注册 Model / Utility / System，调用 `Gf.init()`，并迁移到项目 Installer。
 - [从 GF 10 模块化安装迁移](package-manager-migration.md)：先用原 GF 10 工具收敛旧事务，再整体替换为 GF 11 完整插件。
 - [卸载、清理与恢复](uninstall.md)：先撤销项目引用和插件注册，再移除完整插件与确认无用的遗留状态。

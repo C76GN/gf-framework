@@ -9,7 +9,21 @@ class_name GFTweenPreviewPanel
 extends VBoxContainer
 
 
+# --- 常量 ---
+
+const _SNAPSHOT_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor/authoring/gf_tween_authoring_snapshot.gd")
+const _TIMELINE_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor/authoring/gf_tween_timeline.gd")
+const _ACTIONS_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor/gf_tween_editor_actions.gd")
+
+
 # --- 私有变量 ---
+
+var _timeline: _TIMELINE_SCRIPT = null
+var _captured_source: Array = []
+var _source_check_seconds: float = 0.0
+var _stale_label: Label = null
+var _backward_button: Button = null
+var _forward_button: Button = null
 
 ## 当前绑定的 Tween 配置资源。
 ## [br]
@@ -105,6 +119,10 @@ func _process(_delta: float) -> void:
 		return
 	_viewport.advance(elapsed)
 	_refresh_values()
+	_source_check_seconds += elapsed
+	if _source_check_seconds >= 0.5:
+		_source_check_seconds = 0.0
+		_refresh_stale_state()
 
 
 func _exit_tree() -> void:
@@ -120,6 +138,7 @@ func _exit_tree() -> void:
 ## @param config: 待预览资源，null 清除当前配置。
 func configure(config: Resource) -> void:
 	_config = config
+	_captured_source.clear()
 	_disposed = false
 	show()
 	if _viewport != null:
@@ -138,6 +157,7 @@ func dispose_preview() -> void:
 	set_process(false)
 	hide()
 	_config = null
+	_captured_source.clear()
 	if is_instance_valid(_viewport):
 		_viewport.dispose_preview()
 
@@ -182,10 +202,26 @@ func _build_controls() -> void:
 	stop_button.tooltip_text = "停止并保留当前画面；再次播放从初值开始。"
 	var reset_button: Button = _add_button(controls, "Reset", "复位", _on_reset_pressed)
 	reset_button.tooltip_text = "停止并恢复样机初值。"
+	var direction_controls: HBoxContainer = HBoxContainer.new()
+	add_child(direction_controls)
+	_forward_button = _add_button(direction_controls, "Forward", "正向", _on_direction_pressed.bind(false))
+	_backward_button = _add_button(direction_controls, "Backward", "反向", _on_direction_pressed.bind(true))
+	var _recapture_button: Button = _add_button(direction_controls, "Recapture", "重新预览", _on_recapture_pressed)
+	_stale_label = Label.new()
+	_stale_label.name = "PreviewFreshness"
+	_stale_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	add_child(_stale_label)
 	_time_controls = VBoxContainer.new()
 	_time_controls.name = "PreviewTimeline"
 	add_child(_time_controls)
 	_rebuild_time_controls()
+	var timeline_scroll: ScrollContainer = ScrollContainer.new()
+	timeline_scroll.custom_minimum_size = Vector2(0.0, 110.0)
+	add_child(timeline_scroll)
+	_timeline = _TIMELINE_SCRIPT.new()
+	_timeline.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	timeline_scroll.add_child(_timeline)
+	var _binding_button: Button = _add_button(self, "CopyBinding", "复制运行时绑定示例", _on_copy_binding_pressed)
 
 	_status_label = Label.new()
 	_status_label.name = "PreviewStatus"
@@ -214,7 +250,7 @@ func _build_controls() -> void:
 ## 创建并连接一个按钮，然后添加到指定容器。
 ## [br]
 ## @api private
-func _add_button(parent: HBoxContainer, node_name: String, text: String, callback: Callable) -> Button:
+func _add_button(parent: Control, node_name: String, text: String, callback: Callable) -> Button:
 	var button: Button = Button.new()
 	button.name = node_name
 	button.text = text
@@ -327,6 +363,8 @@ func _refresh_state() -> void:
 	_play_button.text = "继续" if state == &"paused" else "播放"
 	_play_button.disabled = state == &"playing"
 	_pause_button.disabled = state != &"playing"
+	_forward_button.disabled = not _viewport.is_controlled_session()
+	_backward_button.disabled = not _viewport.is_controlled_session()
 	match state:
 		&"playing":
 			_status_label.text = "播放中"
@@ -353,6 +391,19 @@ func _refresh_values() -> void:
 		var _appended: bool = parts.append("%s: %s" % [key, values[key]])
 	_values_label.text = "\n".join(parts)
 	_refresh_time_controls()
+	if _timeline != null:
+		_timeline.configure(_viewport.get_preview_plan())
+		_timeline.set_time_seconds(_viewport.get_time_seconds())
+
+
+## 比较有界纯值签名；状态只作提示，不自动打断当前冻结会话。
+## [br]
+## @api private
+func _refresh_stale_state() -> void:
+	if _stale_label == null:
+		return
+	var stale: bool = _viewport.has_session() and _captured_source != _SNAPSHOT_SCRIPT.capture(_config)
+	_stale_label.text = "预览已过期：配置已修改；当前画面使用旧快照。点击“重新预览”更新。" if stale else ""
 
 
 # --- 信号处理函数 ---
@@ -366,7 +417,35 @@ func _on_play_pressed() -> void:
 		_last_tick_usec = Time.get_ticks_usec()
 		var _started: bool = _viewport.play()
 		if captures_new_session:
+			_captured_source = _SNAPSHOT_SCRIPT.capture(_config)
 			_rebuild_time_controls()
+		_refresh_stale_state()
+
+
+## 显式开始新快照。
+## [br]
+## @api private
+func _on_recapture_pressed() -> void:
+	if not _disposed:
+		_viewport.stop()
+		_on_play_pressed()
+
+
+## 只对受控快照切换方向。
+## [br]
+## @api private
+func _on_direction_pressed(backward: bool) -> void:
+	if not _disposed:
+		_last_tick_usec = Time.get_ticks_usec()
+		var _accepted: bool = _viewport.play_direction(backward)
+
+
+## 复制当前资源的绑定示例；未保存资源使用明确占位路径。
+## [br]
+## @api private
+func _on_copy_binding_pressed() -> void:
+	if not _disposed and _config != null:
+		DisplayServer.clipboard_set(_ACTIONS_SCRIPT.make_binding_example(_config.resource_path))
 
 
 ## 暂停当前预览会话。

@@ -1,0 +1,24 @@
+{
+  "schema_version": 5,
+  "package_id": "gf.tool.asset_browser",
+  "dock_records": [
+    {
+      "owner_package_id": "gf.tool.asset_browser",
+      "source_id": "asset_browser.dock.assets",
+      "path": "res://addons/gf/tools/asset_browser/editor/gf_asset_browser_dock.gd",
+      "label": "GF Asset Browser",
+      "short_label": "资源",
+      "order": 80
+    }
+  ],
+  "task_records": [
+    {
+      "source_id": "asset_browser.task.browse",
+      "title": "浏览项目素材",
+      "description": "查找、预览、收藏项目素材，并交给所需工具。",
+      "keywords": ["资源", "素材", "收藏", "场景", "贴图"],
+      "group": "资源与数据",
+      "page_path": "res://addons/gf/tools/asset_browser/editor/gf_asset_browser_dock.gd"
+    }
+  ]
+}

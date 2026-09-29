@@ -1,3 +1,5 @@
+@tool
+
 ## GFConfigRangeValidationRule: 数值范围校验规则。
 ##
 ## 用于声明字段数值上下限。上下限可以单独启用，比较方式可选择是否包含边界。

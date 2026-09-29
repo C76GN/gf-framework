@@ -1,3 +1,5 @@
+@tool
+
 ## GFConfigTableSchema: 通用导表结构声明与校验器。
 ##
 ## 用于在导入期或运行时校验表数据结构，保持数据工具链可替换且不绑定业务表。
@@ -1251,7 +1253,9 @@ func _finalize_report(report: Dictionary) -> void:
 ## @api private
 ## [br]
 func _make_row_options(options: Dictionary, row_index: int) -> Dictionary:
-	var result: Dictionary = options.duplicate(true)
+	# 此内部视图只修改 row_index；全表 row_locations 只读共享，避免每行复制整表。
+	# 规则收到的上下文仍由 _copy_context_fields 逐字段复制，不暴露此视图。
+	var result: Dictionary = options.duplicate(false)
 	result["row_index"] = row_index
 	return result
 

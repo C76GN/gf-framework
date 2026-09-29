@@ -113,7 +113,13 @@ var _entry_lookup: Dictionary = {}
 ## [br]
 var _index: GFValueIndex = GFValueIndex.new()
 
-## 标记运行时查找表和字段索引是否需要重建。
+## 标记运行时查找表是否需要从公开条目重建。
+## [br]
+## @api private
+## [br]
+var _entry_lookup_dirty: bool = true
+
+## 标记字段索引是否需要从查找表快照重建。
 ## [br]
 ## @api private
 ## [br]
@@ -181,6 +187,7 @@ func clear() -> void:
 ## [br]
 ## @since 8.0.0
 func mark_index_dirty() -> void:
+	_entry_lookup_dirty = true
 	_index_dirty = true
 
 
@@ -190,19 +197,8 @@ func mark_index_dirty() -> void:
 ## [br]
 ## @since 8.0.0
 func rebuild_index() -> void:
-	_entry_lookup.clear()
-	_index.clear()
-	for entry: GFAssetCatalogEntry in entries:
-		if not _is_valid_entry(entry):
-			continue
-		var stored_entry: GFAssetCatalogEntry = entry.duplicate_entry()
-		_entry_lookup[stored_entry.asset_id] = stored_entry
-		var _indexed: bool = _index.set_item(
-			stored_entry.asset_id,
-			String(stored_entry.asset_id),
-			_make_index_fields(stored_entry)
-		)
-	_index_dirty = false
+	_rebuild_entry_lookup()
+	_ensure_index()
 
 
 ## 检查资产是否存在。
@@ -215,7 +211,7 @@ func rebuild_index() -> void:
 ## [br]
 ## @return 存在时返回 true。
 func has_entry(asset_id: StringName) -> bool:
-	_ensure_index()
+	_ensure_entry_lookup()
 	return _entry_lookup.has(asset_id)
 
 
@@ -229,7 +225,7 @@ func has_entry(asset_id: StringName) -> bool:
 ## [br]
 ## @return 条目副本；不存在时返回 null。
 func get_entry(asset_id: StringName) -> GFAssetCatalogEntry:
-	_ensure_index()
+	_ensure_entry_lookup()
 	var entry: GFAssetCatalogEntry = _get_entry_value(GFVariantData.get_option_value(_entry_lookup, asset_id))
 	if entry == null:
 		return null
@@ -244,7 +240,7 @@ func get_entry(asset_id: StringName) -> GFAssetCatalogEntry:
 ## [br]
 ## @return 排序后的资产 ID 列表。
 func get_all_ids() -> PackedStringArray:
-	_ensure_index()
+	_ensure_entry_lookup()
 	var result: PackedStringArray = PackedStringArray()
 	for asset_id_value: Variant in _entry_lookup.keys():
 		var _appended: bool = result.append(GFVariantData.to_text(asset_id_value))
@@ -407,7 +403,7 @@ func merge_catalog(catalog: GFAssetCatalog, options: Dictionary = {}) -> Diction
 ## [br]
 ## @schema return: Array[Dictionary] where each candidate contains id, asset_id, title, description, tags, category, primary_path, preview_path, type_hint, source_id, resource_entry_ids, cache_key, and metadata_keywords.
 func make_search_candidates(asset_ids: PackedStringArray = PackedStringArray()) -> Array[Dictionary]:
-	_ensure_index()
+	_ensure_entry_lookup()
 	var include_all: bool = asset_ids.is_empty()
 	var result: Array[Dictionary] = []
 	for asset_id_text: String in get_all_ids():
@@ -466,7 +462,7 @@ func search(query_text: String, options: Dictionary = {}) -> Array[Dictionary]:
 ## [br]
 ## @schema return: Dictionary with id, asset_id, title, description, tags, category, primary_path, type_hint, preview_path, source_id, resource_entry_ids, cache_key, primary_identity, preview_identity, and optional metadata.
 func make_asset_summary(asset_id: StringName, options: Dictionary = {}) -> Dictionary:
-	_ensure_index()
+	_ensure_entry_lookup()
 	var entry: GFAssetCatalogEntry = _get_entry_value(GFVariantData.get_option_value(_entry_lookup, asset_id))
 	if entry == null:
 		return {}
@@ -559,8 +555,20 @@ func search_page(
 	page_size: int = 50,
 	options: Dictionary = {}
 ) -> Dictionary:
-	var reports: Array[Dictionary] = _get_search_page_reports(query_text, options)
-	var total_count: int = reports.size()
+	var is_listing: bool = (
+		query_text.strip_edges().is_empty()
+		and GFVariantData.get_option_bool(options, "empty_query_returns_all", true)
+	)
+	var listing_asset_ids: PackedStringArray = PackedStringArray()
+	var reports: Array[Dictionary] = []
+	var defer_identity: bool = not is_listing and not options.has("fields")
+	if is_listing:
+		listing_asset_ids = _get_listing_asset_ids(options)
+	elif defer_identity:
+		reports = _search_default_fields_without_identity(query_text, options)
+	else:
+		reports = search(query_text, options)
+	var total_count: int = listing_asset_ids.size() if is_listing else reports.size()
 	var normalized_page_size: int = maxi(page_size, 1)
 	var page_count: int = ceili(float(total_count) / float(normalized_page_size)) if total_count > 0 else 0
 	var normalized_page: int = maxi(page, 1)
@@ -578,14 +586,24 @@ func search_page(
 	var page_results: Array[Dictionary] = []
 	var page_asset_ids: PackedStringArray = PackedStringArray()
 	for index: int in range(start_index, end_index):
-		var report: Dictionary = reports[index]
+		var report: Dictionary = (
+			_make_listing_search_report(listing_asset_ids[index], index, options)
+			if is_listing else reports[index]
+		)
+		if defer_identity:
+			var candidate: Dictionary = GFVariantData.get_option_dictionary(report, "candidate")
+			var entry: GFAssetCatalogEntry = _get_entry_value(GFVariantData.get_option_value(
+				_entry_lookup, StringName(_get_search_report_asset_id(report))
+			))
+			_append_candidate_identities(candidate, entry)
+			report["candidate"] = candidate
 		page_results.append(report)
 		var report_asset_id: String = _get_search_report_asset_id(report)
 		if not report_asset_id.is_empty():
 			var _asset_id_appended: bool = page_asset_ids.append(report_asset_id)
 
 	var summaries: Array[Dictionary] = []
-	if GFVariantData.get_option_bool(options, "include_summaries", true):
+	if not page_asset_ids.is_empty() and GFVariantData.get_option_bool(options, "include_summaries", true):
 		summaries = make_asset_summaries(
 			page_asset_ids,
 			GFVariantData.get_option_dictionary(options, "summary_options")
@@ -623,7 +641,7 @@ func search_page(
 ## [br]
 ## @schema return: Dictionary[String, PackedStringArray] grouped asset ids.
 func group_asset_ids(group_source: StringName = GROUP_SOURCE_ID, options: Dictionary = {}) -> Dictionary:
-	_ensure_index()
+	_ensure_entry_lookup()
 	var selected_asset_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
 		options,
 		"asset_ids",
@@ -728,6 +746,42 @@ static func from_dict(data: Dictionary) -> GFAssetCatalog:
 	return catalog
 
 
+# --- 框架内部方法 ---
+
+## 为默认资产字段创建纯数据评分上下文；候选由查询任务独占，不重复复制。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param query_text: 查询文本。
+## [br]
+## @return 使用资产默认字段权重的评分上下文。
+## [br]
+## @schema return: Dictionary from GFTextSearchScorer.create_ranking_context with default asset fields and duplicate_candidate: false.
+static func make_default_search_context(query_text: String) -> Dictionary:
+	return GFTextSearchScorer.create_ranking_context(query_text, {
+		"fields": _DEFAULT_SEARCH_FIELDS.duplicate(true), "duplicate_candidate": false,
+	})
+
+
+## 按单个稳定 ID 构建独立默认评分数据，不提前解析资源身份。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param asset_id: 查找表快照中的稳定 ID。
+## [br]
+## @return 不存在时为空字典；存在时为本次调用独占的候选。
+## [br]
+## @schema return: Dictionary with id, asset_id, title, description, tags, category, primary_path, preview_path, type_hint, source_id, resource_entry_ids and metadata_keywords, without identity fields.
+func make_default_search_candidate(asset_id: StringName) -> Dictionary:
+	_ensure_entry_lookup()
+	var entry: GFAssetCatalogEntry = _get_entry_value(GFVariantData.get_option_value(_entry_lookup, asset_id))
+	return {} if entry == null else _make_search_candidate(entry, false)
+
+
 # --- 私有/辅助方法 ---
 
 ## 去除空值与重复值并排序请求的资产 ID。
@@ -744,13 +798,48 @@ static func _normalize_requested_asset_ids(asset_ids: PackedStringArray) -> Pack
 	return result
 
 
-## 在索引失效时重建资产查找表与字段索引。
+## 仅在查找表失效时复制当前公开条目，不解析资源身份。
+## [br]
+## @api private
+## [br]
+func _ensure_entry_lookup() -> void:
+	if _entry_lookup_dirty:
+		_rebuild_entry_lookup()
+
+
+## 建立完整独立查找表，并使字段索引失效。
+## [br]
+## @api private
+## [br]
+func _rebuild_entry_lookup() -> void:
+	_entry_lookup.clear()
+	_index.clear()
+	for entry: GFAssetCatalogEntry in entries:
+		if not _is_valid_entry(entry):
+			continue
+		var stored_entry: GFAssetCatalogEntry = entry.duplicate_entry()
+		_entry_lookup[stored_entry.asset_id] = stored_entry
+	_entry_lookup_dirty = false
+	_index_dirty = true
+
+
+## 按需从同一查找表快照建立字段索引，避免读取尚未标脏的外部修改。
 ## [br]
 ## @api private
 ## [br]
 func _ensure_index() -> void:
-	if _index_dirty:
-		rebuild_index()
+	_ensure_entry_lookup()
+	if not _index_dirty:
+		return
+	_index.clear()
+	for entry_value: Variant in _entry_lookup.values():
+		var entry: GFAssetCatalogEntry = _get_entry_value(entry_value)
+		var _indexed: bool = _index.set_item(
+			entry.asset_id,
+			String(entry.asset_id),
+			_make_index_fields(entry)
+		)
+	_index_dirty = false
 
 
 ## 检查目录条目是否存在且通过条目自身的有效性校验。
@@ -796,10 +885,8 @@ func _make_index_fields(entry: GFAssetCatalogEntry) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _make_search_candidate(entry: GFAssetCatalogEntry) -> Dictionary:
-	var primary_identity: GFResourceIdentity = entry.get_primary_identity()
-	var preview_identity: GFResourceIdentity = entry.get_preview_identity()
-	return {
+func _make_search_candidate(entry: GFAssetCatalogEntry, include_identity: bool = true) -> Dictionary:
+	var candidate: Dictionary = {
 		"id": String(entry.asset_id),
 		"asset_id": String(entry.asset_id),
 		"title": entry.title,
@@ -811,11 +898,47 @@ func _make_search_candidate(entry: GFAssetCatalogEntry) -> Dictionary:
 		"type_hint": entry.type_hint,
 		"source_id": String(entry.source_id),
 		"resource_entry_ids": entry.resource_entry_ids.duplicate(),
-		"cache_key": primary_identity.cache_key,
-		"primary_identity": primary_identity.to_dictionary(),
-		"preview_identity": preview_identity.to_dictionary() if preview_identity != null else {},
 		"metadata_keywords": _make_metadata_keywords(entry.metadata),
 	}
+	if include_identity:
+		_append_candidate_identities(candidate, entry)
+	return candidate
+
+
+## 按调用时的资源 UID 映射补齐候选身份；不保存跨调用身份缓存。
+## [br]
+## @api private
+## [br]
+func _append_candidate_identities(candidate: Dictionary, entry: GFAssetCatalogEntry) -> void:
+	var primary_identity: GFResourceIdentity = entry.get_primary_identity()
+	var preview_identity: GFResourceIdentity = entry.get_preview_identity()
+	candidate["cache_key"] = primary_identity.cache_key
+	candidate["primary_identity"] = primary_identity.to_dictionary()
+	candidate["preview_identity"] = preview_identity.to_dictionary() if preview_identity != null else {}
+
+
+## 默认评分字段不读取身份；先保持完整评分、排序和上限，当前页再补身份。
+## [br]
+## @api private
+## [br]
+func _search_default_fields_without_identity(query_text: String, options: Dictionary) -> Array[Dictionary]:
+	var filter_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(options, "asset_ids")
+	var filter_lookup: Dictionary = {}
+	for asset_id: String in filter_ids:
+		filter_lookup[asset_id] = true
+	var candidates: Array[Dictionary] = []
+	for asset_id: String in get_all_ids():
+		if not filter_lookup.is_empty() and not filter_lookup.has(asset_id):
+			continue
+		var entry: GFAssetCatalogEntry = _get_entry_value(
+			GFVariantData.get_option_value(_entry_lookup, StringName(asset_id))
+		)
+		candidates.append(_make_search_candidate(entry, false))
+	var scorer_options: Dictionary = options.duplicate(true)
+	scorer_options["fields"] = _DEFAULT_SEARCH_FIELDS.duplicate(true)
+	# 候选仅属于本次调用；当前页取出候选副本后才发布，无需复制未发布的全目录候选图。
+	scorer_options["duplicate_candidate"] = false
+	return GFTextSearchScorer.rank_candidates(query_text, candidates, scorer_options)
 
 
 ## 递归提取元数据中的文本关键词并去重排序。
@@ -873,47 +996,46 @@ func _append_metadata_keyword(result: PackedStringArray, lookup: Dictionary, val
 	var _appended: bool = result.append(keyword)
 
 
-## 根据查询文本和选项选择列表报告或评分搜索报告。
+## 先对排序后的有效 ID 应用闭集过滤和数量上限，不构建全目录候选。
 ## [br]
 ## @api private
 ## [br]
-func _get_search_page_reports(query_text: String, options: Dictionary) -> Array[Dictionary]:
-	if (
-		query_text.strip_edges().is_empty()
-		and GFVariantData.get_option_bool(options, "empty_query_returns_all", true)
-	):
-		var asset_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
-			options,
-			"asset_ids",
-			PackedStringArray()
-		)
-		return _make_listing_search_reports(make_search_candidates(asset_ids), options)
-	return search(query_text, options)
-
-
-## 将候选条目转换为未评分的列表报告，并应用数量上限。
-## [br]
-## @api private
-## [br]
-func _make_listing_search_reports(candidates: Array[Dictionary], options: Dictionary) -> Array[Dictionary]:
-	var reports: Array[Dictionary] = []
-	var duplicate_candidate: bool = GFVariantData.get_option_bool(options, "duplicate_candidate", true)
+func _get_listing_asset_ids(options: Dictionary) -> PackedStringArray:
+	var asset_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
+		options, "asset_ids", PackedStringArray()
+	)
+	var filter_lookup: Dictionary = {}
+	for asset_id: String in asset_ids:
+		filter_lookup[asset_id] = true
 	var limit: int = GFVariantData.get_option_int(options, "limit", 0)
-	var count: int = candidates.size()
-	if limit > 0:
-		count = mini(count, limit)
+	var result: PackedStringArray = PackedStringArray()
+	for asset_id: String in get_all_ids():
+		if not filter_lookup.is_empty() and not filter_lookup.has(asset_id):
+			continue
+		var _appended: bool = result.append(asset_id)
+		if limit > 0 and result.size() >= limit:
+			break
+	return result
 
-	for index: int in range(count):
-		var candidate: Dictionary = candidates[index]
-		reports.append({
-			"matched": false,
-			"score": 0.0,
-			"matched_tokens": PackedStringArray(),
-			"field_scores": {},
-			"candidate": candidate.duplicate(true) if duplicate_candidate else candidate,
-			"index": index,
-		})
-	return reports
+
+## 仅为当前页条目构建新候选，保留过滤后全局索引和当前 UID 身份。
+## [br]
+## @api private
+## [br]
+func _make_listing_search_report(asset_id: String, index: int, options: Dictionary) -> Dictionary:
+	var entry: GFAssetCatalogEntry = _get_entry_value(
+		GFVariantData.get_option_value(_entry_lookup, StringName(asset_id))
+	)
+	var candidate: Dictionary = _make_search_candidate(entry)
+	var duplicate_candidate: bool = GFVariantData.get_option_bool(options, "duplicate_candidate", true)
+	return {
+		"matched": false,
+		"score": 0.0,
+		"matched_tokens": PackedStringArray(),
+		"field_scores": {},
+		"candidate": candidate.duplicate(true) if duplicate_candidate else candidate,
+		"index": index,
+	}
 
 
 ## 从搜索报告候选读取 asset_id，缺省时回退到 id。

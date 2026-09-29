@@ -1,10 +1,20 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "extension_id": "gf.flow",
   "editor_dock_paths": [
     "res://addons/gf/extensions/flow/editor/gf_flow_graph_dock.gd"
   ],
   "editor_inspector_paths": [
     "res://addons/gf/extensions/flow/editor/gf_flow_graph_inspector_plugin.gd"
+  ],
+  "task_records": [
+    {
+      "source_id": "flow.task.edit",
+      "title": "编辑流程图",
+      "description": "打开 Flow 资源，编辑结构并检查问题。",
+      "keywords": ["流程", "Flow", "图"],
+      "group": "开始制作",
+      "page_path": "res://addons/gf/extensions/flow/editor/gf_flow_graph_dock.gd"
+    }
   ]
 }

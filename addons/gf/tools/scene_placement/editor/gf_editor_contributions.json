@@ -1,5 +1,5 @@
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "package_id": "gf.tool.scene_placement",
   "dock_records": [
     {
@@ -9,6 +9,17 @@
       "label": "GF Scene Placement",
       "short_label": "3D 摆放",
       "order": 100
+    }
+  ],
+  "resource_action_records": [
+    {
+      "source_id": "scene_placement.action.select_scene",
+      "title": "发送到 3D 摆放",
+      "description": "选择场景素材，再在原生 3D 视口确认摆放。",
+      "page_path": "res://addons/gf/tools/scene_placement/editor/gf_scene_placement_launcher.gd",
+      "action_id": "select_scene",
+      "resource_types": ["PackedScene"],
+      "max_selection": 1
     }
   ]
 }

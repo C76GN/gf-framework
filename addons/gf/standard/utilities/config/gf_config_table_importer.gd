@@ -70,7 +70,7 @@ static func parse_json_table(text: String, options: Dictionary = {}) -> Dictiona
 ## [br]
 ## @return 结果字典，包含 success、data、header、row_locations 与 error。
 ## [br]
-## @schema return: Dictionary，包含 success、data、header、row_locations、error、error_line、error_column 和 source。
+## @schema return: Dictionary，包含 success、data、header、header_location、row_locations、error、error_line、error_column 和 source；header_location 记录真实表头行及字段原始列，空表时可为空。
 static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary = {}) -> Dictionary:
 	var source: String = GFVariantData.get_option_string(options, "source")
 	var trim_cells: bool = GFVariantData.get_option_bool(options, "trim_cells", true)
@@ -186,7 +186,10 @@ static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary
 			1
 		)
 
-	return _make_tabular_parse_success(records, header, row_locations, source)
+	return _make_tabular_parse_success(
+		records, header, row_locations, source,
+		_make_tabular_row_location(source, header_row_number, -1, header, selected_column_indices)
+	)
 
 
 ## 解析 CSV 表文本。
@@ -203,7 +206,7 @@ static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary
 ## [br]
 ## @return 结果字典，包含 success、data、header、row_locations 与 error。
 ## [br]
-## @schema return: Dictionary，包含 success、data、header、row_locations、error、error_line、error_column 和 source。
+## @schema return: Dictionary，包含 success、data、header、header_location、row_locations、error、error_line、error_column 和 source；header_location 记录真实表头行及字段原始列，空表时可为空。
 static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionary:
 	var delimiter: String = GFVariantData.get_option_string(options, "delimiter", ",")
 	if delimiter.is_empty():
@@ -835,12 +838,14 @@ static func _make_tabular_parse_success(
 	records: Array[Dictionary],
 	header: PackedStringArray,
 	row_locations: Array[Dictionary],
-	source: String
+	source: String,
+	header_location: Dictionary = {}
 ) -> Dictionary:
 	return {
 		"success": true,
 		"data": records,
 		"header": header,
+		"header_location": header_location,
 		"row_locations": row_locations,
 		"error": "",
 		"error_line": 0,

@@ -1,3 +1,5 @@
+@tool
+
 ## GFConfigPipelineTableSource: 配置导表工具的单表来源声明。
 ##
 ## 描述一张配置表的输入路径、格式、schema、解析选项和导出元数据。

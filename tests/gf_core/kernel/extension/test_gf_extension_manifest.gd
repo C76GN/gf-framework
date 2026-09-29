@@ -1604,6 +1604,27 @@ func test_extension_manifest_versions_follow_release_policy() -> void:
 	)
 
 
+func test_workspace_task_extensions_record_their_compatible_feature_versions() -> void:
+	var expected_versions: Dictionary = {"gf.flow": "4.1.0", "gf.save": "6.4.0"}
+	var expected_sources: Dictionary = {"gf.flow": "gf.flow:flow.task.edit", "gf.save": "gf.save:save.task.inspect"}
+	var found: Array[String] = []
+	for manifest: GFExtensionManifest in GFExtensionCatalog.load_extension_manifests():
+		if not expected_versions.has(manifest.id):
+			continue
+		found.append(manifest.id)
+		assert_eq(manifest.extension_version, GF_VARIANT_ACCESS.get_option_string(expected_versions, manifest.id), "新增工作区公开任务应递增扩展自身 minor 版本。")
+		assert_eq(manifest.version, _read_framework_version(), "扩展发行版本仍跟随框架版本。")
+		var contribution: Dictionary = _read_json_dictionary(manifest.root_path.path_join("editor/gf_tool_contribution.json"))
+		var report: Dictionary = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary(contribution, manifest.id)
+		assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"))
+		var data: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "data")
+		var tasks: Array = GF_VARIANT_ACCESS.get_option_array(data, "task_records")
+		var expected_source: String = expected_sources[manifest.id]
+		assert_true(tasks.any(func(record: Dictionary) -> bool: return record.get("source_id") == expected_source))
+	found.sort()
+	assert_eq(found, ["gf.flow", "gf.save"], "版本契约必须覆盖两个实际可发现的扩展。")
+
+
 func test_extension_settings_resolves_manifest_dependencies() -> void:
 	var base_manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
 		"id": "author.base",

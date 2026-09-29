@@ -16,6 +16,11 @@ const _CONFIG_SCRIPT = preload("res://addons/gf/extensions/action_queue/tween/gf
 ## @api private
 const _EXTENSION_SETTINGS_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_settings.gd")
 
+## 原生 steps 属性的复制后写入编辑器。
+## [br]
+## @api private
+const _STEPS_EDITOR_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor/authoring/gf_tween_steps_editor_property.gd")
+
 
 # --- 私有变量 ---
 
@@ -57,3 +62,14 @@ func _notification(what: int) -> void:
 			var panel: GFTweenPreviewPanel = value
 			panel.dispose_preview()
 	_panels.clear()
+
+
+func _parse_property(
+	object: Object, _type: Variant.Type, property_name: String, _hint_type: PropertyHint,
+	_hint_string: String, _usage_flags: int, _wide: bool
+) -> bool:
+	if property_name != "steps" or not _can_handle(object):
+		return false
+	var editor: EditorProperty = _STEPS_EDITOR_SCRIPT.new()
+	add_property_editor(property_name, editor)
+	return true

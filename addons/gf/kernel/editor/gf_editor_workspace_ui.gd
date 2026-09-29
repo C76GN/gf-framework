@@ -131,7 +131,7 @@ static func make_summary_label(text: String = "") -> Label:
 	label.text = text
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART as TextServer.AutowrapMode
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.modulate = INFO_TEXT_COLOR
+	set_status(label, text)
 	return label
 
 
@@ -146,7 +146,6 @@ static func make_summary_label(text: String = "") -> Label:
 ## @return 空状态 Label。
 static func make_empty_label(text: String = "") -> Label:
 	var label: Label = make_summary_label(text)
-	label.modulate = EMPTY_TEXT_COLOR
 	label.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	return label
 
@@ -203,6 +202,29 @@ static func make_details_output(min_height: float = DEFAULT_DETAILS_MIN_HEIGHT) 
 	return details
 
 
+## 创建控制现有详情区的显式开关，不改变详情数据或复制行为。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @param details: 由所属页面持有的详情控件。
+## [br]
+## @param expanded: 是否默认展开。
+## [br]
+## @return: 使用原生键盘焦点与主题的详情开关。
+static func make_details_toggle(details: Control, expanded: bool = false) -> CheckButton:
+	var toggle: CheckButton = CheckButton.new()
+	toggle.name = "AdvancedDetails"
+	toggle.text = "高级详情"
+	toggle.tooltip_text = "展开当前选择的完整数据；收起不丢失内容。"
+	toggle.button_pressed = expanded
+	if details != null:
+		details.visible = expanded
+		var _connected: Error = toggle.toggled.connect(details.set_visible) as Error
+	return toggle
+
+
 ## 获取校验报告对应的状态颜色。
 ## [br]
 ## @api framework_internal
@@ -237,4 +259,36 @@ static func set_status(label: Label, text: String, color: Color = INFO_TEXT_COLO
 	if label == null:
 		return
 	label.text = text
-	label.modulate = color
+	label.modulate = Color.WHITE
+	label.set_meta(&"_gf_status_color", color)
+	var callback: Callable = _refresh_status_theme.bind(label)
+	if not label.theme_changed.is_connected(callback):
+		var _connected: Error = label.theme_changed.connect(callback) as Error
+	_refresh_status_theme(label)
+
+
+# --- 私有/辅助方法 ---
+
+## 把语义状态映射到当前编辑器主题，主题变化时重新解析。
+## [br]
+## @api private
+static func _refresh_status_theme(label: Label) -> void:
+	if not is_instance_valid(label):
+		return
+	var color_value: Variant = label.get_meta(&"_gf_status_color", INFO_TEXT_COLOR)
+	var color: Color = color_value if color_value is Color else INFO_TEXT_COLOR
+	var theme_name: StringName = &""
+	if color == INFO_TEXT_COLOR:
+		theme_name = &"font_color"
+	elif color == OK_TEXT_COLOR:
+		theme_name = &"success_color"
+	elif color == WARNING_TEXT_COLOR:
+		theme_name = &"warning_color"
+	elif color == ERROR_TEXT_COLOR:
+		theme_name = &"error_color"
+	if theme_name != &"" and label.has_theme_color(theme_name, &"Editor"):
+		color = label.get_theme_color(theme_name, &"Editor")
+	elif color == INFO_TEXT_COLOR:
+		color = ThemeDB.get_default_theme().get_color(&"font_color", &"Label")
+	if not label.has_theme_color_override(&"font_color") or label.get_theme_color(&"font_color") != color:
+		label.add_theme_color_override(&"font_color", color)

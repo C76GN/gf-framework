@@ -2,10 +2,10 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "c1dc2ed8acabf9acaeb87377ed0a55d20c40f5ae8fbc19c7dab3edbb468aab66",
+  "source_digest": "a726182c83b2d66a5588c63b7fdac6a79aa2076c5dcbb5ceaa6b923f0d0eb8a1",
   "class_count": 867,
   "autoload_count": 1,
-  "package_count": 59,
+  "package_count": 60,
   "packages": [
     {
       "id": "gf.extension.action_queue",
@@ -496,7 +496,7 @@
         "gf.kernel",
         "gf.extension.action_queue"
       ],
-      "representative_path": "addons/gf/extensions/action_queue/editor/gf_tween_preview_inspector_plugin.gd"
+      "representative_path": "addons/gf/extensions/action_queue/editor/authoring/gf_tween_authoring_snapshot.gd"
     },
     {
       "id": "gf.tool.ai_developer",
@@ -514,7 +514,7 @@
         "gf.standard.base",
         "gf.standard.assets"
       ],
-      "representative_path": "addons/gf/tools/asset_browser/gf_asset_browser_model.gd"
+      "representative_path": "addons/gf/tools/asset_browser/editor/gf_asset_browser_dock.gd"
     },
     {
       "id": "gf.tool.config_pipeline",
@@ -524,7 +524,7 @@
         "gf.standard.base",
         "gf.standard.config"
       ],
-      "representative_path": "addons/gf/tools/config_pipeline/gf_bounded_zip_support.gd"
+      "representative_path": "addons/gf/tools/config_pipeline/editor/gf_config_preview_worker.gd"
     },
     {
       "id": "gf.tool.dialogue_text",
@@ -555,6 +555,14 @@
         "gf.extension.network"
       ],
       "representative_path": "addons/gf/extensions/network/editor/gf_network_contract_audit.gd"
+    },
+    {
+      "id": "gf.tool.project_bootstrap",
+      "kind": "tool",
+      "dependencies": [
+        "gf.kernel"
+      ],
+      "representative_path": "addons/gf/tools/project_bootstrap/editor/gf_project_bootstrap_dock.gd"
     },
     {
       "id": "gf.tool.project_layout",
@@ -19696,7 +19704,7 @@
         {
           "kind": "const",
           "name": "IMPLEMENTATION_VERSION",
-          "signature": "const IMPLEMENTATION_VERSION: int = 3",
+          "signature": "const IMPLEMENTATION_VERSION: int = 4",
           "summary": "Layout 阶段的实现版本；改变布局解析语义时递增。",
           "visibility": "public"
         },
@@ -20277,7 +20285,7 @@
         {
           "kind": "const",
           "name": "IMPLEMENTATION_VERSION",
-          "signature": "const IMPLEMENTATION_VERSION: int = 2",
+          "signature": "const IMPLEMENTATION_VERSION: int = 3",
           "summary": "Validation 阶段的实现版本；改变语义校验或 IR 生成语义时递增。",
           "visibility": "public"
         },

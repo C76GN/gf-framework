@@ -139,6 +139,68 @@ func test_score_candidate_rejects_nonfinite_or_overflowing_field_weights() -> vo
 		assert_true(is_finite(GFVariantData.get_option_float(report, "score")), "评分报告不得包含非有限 score。")
 
 
+func test_prepared_context_preserves_full_reports_and_duplicate_field_accumulation() -> void:
+	var candidate: Dictionary = { "title": "Needle", "detail": "needle", "metadata": { "nested": [1, 2] } }
+	var fields: Array[Dictionary] = [
+		{ "key": "title", "weight": 1.0 }, { "key": "title", "weight": 2.0 },
+		{ "key": "detail", "weight": 0.5 }, { "key": "", "weight": 3.0 },
+	]
+	var options: Dictionary = { "fields": fields }
+	var context: Dictionary = GFTextSearchScorerBase.create_ranking_context("needle", options)
+	var before: Dictionary = context.duplicate(true)
+	var report: Dictionary = GFTextSearchScorerBase.score_ranking_candidate(candidate, context, 9)
+	var exact_score: float = GFVariantData.get_option_float(GFTextSearchScorerBase.score_text("needle", "needle"), "score")
+	assert_eq(report, {
+		"matched": true, "score": exact_score * 3.5, "matched_tokens": PackedStringArray(["needle"]),
+		"field_scores": { &"title": exact_score * 2.0, &"detail": exact_score * 0.5 },
+		"candidate": candidate, "index": 9,
+	})
+	assert_eq(context, before, "评分不得修改预备上下文。")
+	for field_options: Variant in [[], "invalid", PackedStringArray(["title", "detail"])]:
+		var fallback_options: Dictionary = { "fields": field_options, "case_sensitive": true, "require_all_tokens": false }
+		var fallback_context: Dictionary = GFTextSearchScorerBase.create_ranking_context("Needle other", fallback_options)
+		var expected: Dictionary = GFTextSearchScorerBase.score_candidate("Needle other", candidate, fallback_options)
+		expected["index"] = 3
+		assert_eq(GFTextSearchScorerBase.score_ranking_candidate(candidate, fallback_context, 3), expected)
+	var copied_candidate: Dictionary = GFVariantData.as_dictionary(report.get("candidate"))
+	var nested: Dictionary = GFVariantData.as_dictionary(copied_candidate.get("metadata"))
+	nested["mutated"] = true
+	assert_false(GFVariantData.as_dictionary(candidate.get("metadata")).has("mutated"))
+
+
+func test_rank_comparator_keeps_approximate_score_title_fallback_and_global_index() -> void:
+	var payload: Dictionary = { "nested": [{ "license": "CC0" }] }
+	var reports: Array[Dictionary] = [
+		{ "score": 1.0, "candidate": { "title": "Beta", "metadata": payload }, "index": 0 },
+		{ "score": 1.00000001, "candidate": { "title": "", "name": "alpha", "metadata": payload }, "index": 3 },
+		{ "score": 1.0, "candidate": { "title": "ALPHA", "metadata": payload }, "index": 1 },
+		{ "score": 2.0, "candidate": { "title": "zulu", "metadata": payload }, "index": 2 },
+	]
+	var before: Array[Dictionary] = reports.duplicate(true)
+	reports.sort_custom(GFTextSearchScorerBase.is_ranked_report_before)
+	assert_eq(reports, [before[3], before[2], before[1], before[0]])
+	assert_eq(payload, { "nested": [{ "license": "CC0" }] }, "比较器只读访问候选。")
+
+
+func test_cached_sort_keys_match_original_sort_full_reports_at_approximate_score_edges() -> void:
+	var scores: Array[float] = [1.0, 1.000005, 1.00001, 1.000015, 1.000020, 2.0]
+	var titles: Array[Variant] = ["alpha", "ALPHA", "Beta", "", ["nested", ["Title"]], PackedStringArray(["packed", "title"])]
+	for offset: int in range(6):
+		var reports: Array[Dictionary] = []
+		for index: int in range(257):
+			reports.append({
+				"matched": true, "score": scores[(index + offset) % scores.size()],
+				"index": index % 17, "field_scores": {"title": 1.0}, "matched_tokens": PackedStringArray(["needle"]),
+				"candidate": {"title": titles[(index * 7 + offset) % titles.size()], "name": "fallback", "metadata": {"nested": [index]}},
+			})
+		var expected: Array[Dictionary] = reports.duplicate(true)
+		expected.sort_custom(GFTextSearchScorerBase.is_ranked_report_before)
+		GFTextSearchScorerBase.sort_ranking_reports(reports)
+		assert_eq(reports, expected, "缓存排序键必须保留原生算法在近似比较、相同标题和相同索引下的完整排列。")
+		for report: Dictionary in reports:
+			assert_eq(report.size(), 6, "私有排序键不得进入报告。")
+
+
 # --- 私有/辅助方法 ---
 
 func _get_matched_tokens(report: Dictionary) -> PackedStringArray:

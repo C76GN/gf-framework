@@ -1,3 +1,5 @@
+@tool
+
 ## 测试通用导表 schema、导入器与 Provider 注册能力。
 extends GutTest
 
@@ -1714,6 +1716,7 @@ func _find_issue_kind(issues: Array, kind: String) -> Dictionary:
 # --- 内部类 ---
 
 class CountingElementRule extends GFConfigValidationRule:
+
 	var calls: int = 0
 
 	func _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:
@@ -1721,6 +1724,7 @@ class CountingElementRule extends GFConfigValidationRule:
 
 
 class CountingRecordTableRule extends GFConfigValidationRule:
+
 	var record_calls: int = 0
 	var row_count: int = 0
 
@@ -1732,6 +1736,7 @@ class CountingRecordTableRule extends GFConfigValidationRule:
 
 
 class NestedContextRule extends GFConfigValidationRule:
+
 	var mutate_context: bool = false
 	var observed: Array[Dictionary] = []
 
@@ -1747,6 +1752,7 @@ class NestedContextRule extends GFConfigValidationRule:
 
 
 class MutatingWholeValueRule extends GFConfigValidationRule:
+
 	var element_rules: Array[GFConfigValidationRule] = []
 	var extra_rule: GFConfigValidationRule
 
@@ -1762,14 +1768,14 @@ class MutatingWholeValueRule extends GFConfigValidationRule:
 
 
 class CountingPathRule extends GFConfigResourcePathValidationRule:
+
 	var checks: int = 0
 
 	func _path_exists(_path: String) -> bool:
 		checks += 1
 		return true
 
-class RequireNamePowerPairRule:
-	extends GFConfigValidationRule
+class RequireNamePowerPairRule extends GFConfigValidationRule:
 
 	func _get_default_rule_id() -> StringName:
 		return &"name_power_pair"
@@ -1779,8 +1785,7 @@ class RequireNamePowerPairRule:
 			_add_issue(report, context, "name_power_pair_missing", "包含 name 时必须同时包含 power。")
 
 
-class RequireIntegerIdsTableRule:
-	extends GFConfigValidationRule
+class RequireIntegerIdsTableRule extends GFConfigValidationRule:
 
 	func _get_default_rule_id() -> StringName:
 		return &"integer_ids"

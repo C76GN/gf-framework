@@ -68,6 +68,11 @@ signal preview_resolved(report: Dictionary)
 
 # --- 常量 ---
 
+## 可取消的默认分页查询实现，与同步页面共用目录与摘要投影。
+## [br]
+## @api private
+const _PAGE_QUERY_SCRIPT = preload("res://addons/gf/tools/asset_browser/gf_asset_browser_page_query.gd")
+
 ## 单个模型快照允许的最大资产数。
 ## [br]
 ## @api public
@@ -651,6 +656,47 @@ func get_page(page: int = 1, page_size: int = 50) -> Dictionary:
 	}
 
 
+# --- 框架内部方法 ---
+
+## 创建由编辑器逐帧推进的单次页面查询；同步 get_page 契约保持不变。
+## 调用方必须持有任务直至线程回收，取消后逐帧 reap_worker，退树前 join_worker。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param page: 从 1 开始的页码。
+## [br]
+## @param page_size: 每页数量，仍受 MAX_PAGE_SIZE 限制。
+## [br]
+## @return 页面拥有的查询对象；推进时核对模型存活与代次，过期后取消发布。
+func create_page_query(page: int = 1, page_size: int = 50) -> RefCounted:
+	var task: _PAGE_QUERY_SCRIPT = _PAGE_QUERY_SCRIPT.new()
+	var owner_ref: WeakRef = weakref(self)
+	task.configure(owner_ref, _catalog, {
+		"catalog_revision": _catalog_revision, "query_generation": _query_generation,
+		"query": _query_text, "asset_ids": _query_asset_ids,
+		"page": maxi(page, 1), "page_size": clampi(page_size, 1, MAX_PAGE_SIZE),
+		"limit": MAX_RESULT_COUNT,
+	}, _make_page_items)
+	return task
+
+
+## 核对单次查询是否仍属于存活模型的当前目录和查询代次。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param catalog_revision: 任务捕获的目录代次。
+## [br]
+## @param query_generation: 任务捕获的查询代次。
+## [br]
+## @return 模型未释放且两种代次均相同时为 true。
+func is_page_query_current(catalog_revision: int, query_generation: int) -> bool:
+	return not _disposed and _catalog_revision == catalog_revision and _query_generation == query_generation
+
+
 # --- 私有/辅助方法 ---
 
 ## 直接在传入 payload 上写入通知类型并将该字典设为只读；不复制 payload，也不递归冻结其中的对象。
@@ -722,7 +768,7 @@ func _dispatch_notification(event_record: Dictionary) -> void:
 				var report: Dictionary = report_value
 				preview_resolved.emit(report)
 
-## 先用共享数量与文本预算验证全部条目，再复制其数据构建并重建独立目录索引；任一条目失败都不发布候选目录。
+## 先用共享数量与文本预算验证全部条目，再复制数据并建立完整查找表；字段索引按需建立，任一条目失败都不发布候选目录。
 ## [br]
 ## @api private
 static func _make_isolated_catalog_snapshot(catalog: GFAssetCatalog) -> Dictionary:
@@ -754,7 +800,7 @@ static func _make_isolated_catalog_snapshot(catalog: GFAssetCatalog) -> Dictiona
 	for entry: GFAssetCatalogEntry in validated_entries:
 		candidate_catalog.entries.append(_copy_catalog_entry(entry))
 	candidate_catalog.mark_index_dirty()
-	candidate_catalog.rebuild_index()
+	var _snapshot_asset_ids: PackedStringArray = candidate_catalog.get_all_ids()
 	return {
 		"ok": true,
 		"error": "",

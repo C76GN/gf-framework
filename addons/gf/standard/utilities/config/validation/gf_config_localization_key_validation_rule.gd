@@ -1,3 +1,5 @@
+@tool
+
 ## GFConfigLocalizationKeyValidationRule: 文本 key 校验规则。
 ##
 ## 用于检查配置字段中的本地化 key 是否存在于显式 key 列表或字典中。

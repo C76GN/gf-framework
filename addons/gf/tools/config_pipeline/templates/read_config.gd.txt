@@ -1,0 +1,12 @@
+extends Label
+
+
+func _ready() -> void:
+	var loaded: Resource = load({DatabasePath})
+	if not (loaded is GFConfigDatabaseResource):
+		text = "Export the configuration before running this scene."
+		return
+	var database: GFConfigDatabaseResource = loaded
+	var provider: GFResourceConfigProvider = GFResourceConfigProvider.from_database(database)
+	var records: Variant = provider.get_table(StringName({TableName}))
+	text = "Configuration loaded: %s" % str(records)

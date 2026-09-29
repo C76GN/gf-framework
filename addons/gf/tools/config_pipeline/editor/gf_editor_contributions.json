@@ -1,0 +1,47 @@
+{
+  "schema_version": 5,
+  "package_id": "gf.tool.config_pipeline",
+  "dock_records": [
+    {
+      "owner_package_id": "gf.tool.config_pipeline",
+      "source_id": "config_pipeline.dock.workbench",
+      "path": "res://addons/gf/tools/config_pipeline/editor/gf_config_workbench_dock.gd",
+      "label": "GF Config Workbench",
+      "short_label": "配置导出",
+      "order": 80
+    }
+  ],
+  "task_records": [
+    {
+      "source_id": "config_pipeline.task.export",
+      "title": "导出配置表",
+      "description": "从可运行样例或已有表格创建任务，校验后导出配置与读取代码。",
+      "keywords": ["配置", "导表", "CSV", "XLSX", "Schema"],
+      "group": "资源与数据",
+      "page_path": "res://addons/gf/tools/config_pipeline/editor/gf_config_workbench_dock.gd"
+    }
+  ],
+  "project_setting_section_records": [
+    {
+      "owner_package_id": "gf.tool.config_pipeline",
+      "source_id": "config_pipeline.settings.section",
+      "path": "gf/config_pipeline",
+      "editor_labels": { "en": "Config Pipeline", "zh_CN": "配置导出" },
+      "editor_descriptions": { "en": "Shared configuration authoring entry point.", "zh_CN": "团队共享的配置制作入口。" }
+    }
+  ],
+  "project_setting_records": [
+    {
+      "owner_package_id": "gf.tool.config_pipeline",
+      "source_id": "config_pipeline.settings.default_profile",
+      "name": "gf/config_pipeline/default_profile_path",
+      "default_value": "",
+      "type_name": "String",
+      "hint": 13,
+      "hint_string": "*.tres",
+      "basic": true,
+      "editor_labels": { "en": "Default Profile", "zh_CN": "默认导表任务" },
+      "editor_descriptions": { "en": "Saved Profile opened by the configuration workbench. Sources and outputs remain in the Profile.", "zh_CN": "配置工作台默认打开的已保存 Profile。来源和产物设置仍保存在 Profile 中。" }
+    }
+  ]
+}

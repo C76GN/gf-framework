@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineLayoutStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_layout_stage.gd" module="tools" extends="RefCounted" classDigest="dc28a24ccd00392c0a88f8ebcafffa82ea5d503099c8b51aba450be406e4ff8d">
+<class name="GFConfigPipelineLayoutStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_layout_stage.gd" module="tools" extends="RefCounted" classDigest="edb92d76c85cb48fb46de15bd49fc67aad1ac9e24875b40bcae7e762b0a9b875">
 	<description>GFConfigPipelineLayoutStage: Config Pipeline 的内置布局解析阶段。
 把 Reader 原始载荷解码为记录、表头和来源位置，不推导 schema、不转换字段类型。
 内置实现支持 CSV、JSON、ConfigFile 与 XLSX，格式专属细节在此阶段内收敛。</description>
@@ -20,7 +20,7 @@
 			</tags>
 		</member>
 		<member kind="const" name="IMPLEMENTATION_VERSION">
-			<signature>const IMPLEMENTATION_VERSION: int = 3</signature>
+			<signature>const IMPLEMENTATION_VERSION: int = 4</signature>
 			<description>Layout 阶段的实现版本；改变布局解析语义时递增。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -41,7 +41,7 @@
 				<tag name="return">Layout 阶段结果。</tag>
 				<tag name="schema">read_result: Dictionary，符合 gf.config_pipeline.reader_result@1。</tag>
 				<tag name="schema">options: Dictionary，可包含 parse_options；其字段覆盖 source.parse_options。</tag>
-				<tag name="schema">return: Dictionary，包含 success、phase、data、header、row_locations、source、source_path、format、error_kind、error、error_line 和 error_column，并可包含格式专属字段。</tag>
+				<tag name="schema">return: Dictionary，包含 success、phase、data、header、header_location、row_locations、source、source_path、format、error_kind、error、error_line 和 error_column；表格返回真实表头位置，XLSX 成功时还包含实际 sheet_name 和 sheet_path。</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>

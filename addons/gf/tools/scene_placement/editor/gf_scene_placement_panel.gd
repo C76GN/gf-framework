@@ -127,6 +127,64 @@ func _init() -> void:
 
 # --- 框架内部方法 ---
 
+## 接收原生文件拖拽或宿主资源动作，只更新来源并取消旧预览，不开始摆放。
+## [br]
+## @api framework_internal
+## [br]
+## @param paths: 恰好一个项目内 PackedScene 路径。
+## [br]
+## @return 接收结果。
+## [br]
+## @schema return: Dictionary with ok: bool, status: String, message: String and path: String.
+func receive_resource_paths(paths: PackedStringArray) -> Dictionary:
+	if paths.size() != 1:
+		return {"ok": false, "status": "select_one_scene", "message": "请一次选择一个场景。", "path": ""}
+	var path: String = paths[0]
+	if not path.begins_with("res://") or path.contains("..") or path.contains("::") or not ResourceLoader.exists(path):
+		return {"ok": false, "status": "invalid_scene_path", "message": "场景路径已失效；请刷新资源列表并重新选择。", "path": path}
+	var resource: Resource = ResourceLoader.load(path)
+	if not resource is PackedScene:
+		return {"ok": false, "status": "not_packed_scene", "message": "所选资源不是 PackedScene；请选择一个场景。", "path": path}
+	var scene: PackedScene = resource
+	set_source_scene(scene)
+	show_status("已接收场景；选择父 Node3D 后点击开始摆放。")
+	return {"ok": true, "status": "source_selected", "message": "已接收场景；选择父 Node3D 后点击开始摆放。", "path": path}
+
+
+## 从 Godot 原生 files/resource 拖拽载荷提取有限的项目资源路径。
+## [br]
+## @api framework_internal
+## [br]
+## @param data: Godot 拖拽数据。
+## [br]
+## @schema data: Dictionary with type=files and files, or type=resource and resource.
+## [br]
+## @return 不超过一个项目路径，其他载荷返回空数组。
+static func get_drag_resource_paths(data: Variant) -> PackedStringArray:
+	if not data is Dictionary:
+		return PackedStringArray()
+	var payload: Dictionary = data
+	var drag_type: Variant = payload.get("type")
+	if drag_type == "resource":
+		var resource_value: Variant = payload.get("resource")
+		if resource_value is PackedScene:
+			var scene: PackedScene = resource_value
+			return PackedStringArray([scene.resource_path]) if scene.resource_path.begins_with("res://") else PackedStringArray()
+	if drag_type == "files":
+		var raw_paths: Variant = payload.get("files")
+		if raw_paths is PackedStringArray:
+			var paths: PackedStringArray = raw_paths
+			if paths.size() == 1 and paths[0].begins_with("res://"):
+				return paths.duplicate()
+		elif raw_paths is Array:
+			var values: Array = raw_paths
+			if values.size() == 1 and values[0] is String:
+				var path: String = values[0]
+				if path.begins_with("res://"):
+					return PackedStringArray([path])
+	return PackedStringArray()
+
+
 ## 设置显式选择的源场景，不生成预览实例。
 ## [br]
 ## @api framework_internal
@@ -318,6 +376,8 @@ func _build_ui() -> void:
 	_fields.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_fields)
 	_source_path = _add_path("SourceScenePath", "PackedScene")
+	_source_path.tooltip_text = "拖入项目中的场景资源，或使用文件选择按钮。"
+	_source_path.set_drag_forwarding(Callable(), _can_drop_scene, _drop_scene)
 	_add_button("ChooseScene", "选择场景…", _on_choose_scene)
 	_parent_path = _add_path("ParentNodePath", "父 Node3D")
 	_add_button("UseSelectedParent", "使用当前所选 Node3D", parent_pick_requested.emit)
@@ -460,6 +520,23 @@ func _get_vector(key: StringName) -> Vector3:
 			var field: SpinBox = field_value
 			result[axis] = field.value
 	return result
+
+
+## 为原生拖放转发检查单个 PackedScene 路径，不加载或实例化场景。
+## [br]
+## @api private
+func _can_drop_scene(_position: Vector2, data: Variant) -> bool:
+	var paths: PackedStringArray = get_drag_resource_paths(data)
+	return paths.size() == 1 and not paths[0].contains("..") and ResourceLoader.exists(paths[0], "PackedScene")
+
+
+## 接收通过原生拖放转发交付的场景，仅更新摆放源。
+## [br]
+## @api private
+func _drop_scene(_position: Vector2, data: Variant) -> void:
+	var report: Dictionary = receive_resource_paths(get_drag_resource_paths(data))
+	if report.get("ok") != true:
+		show_status("无法接收场景：%s" % str(report.get("status")))
 
 
 # --- 信号处理函数 ---

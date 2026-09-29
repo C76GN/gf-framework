@@ -677,6 +677,130 @@ func test_query_filters_fail_closed_and_dispose_is_terminal_for_writes() -> void
 	renderer.free()
 
 
+func test_incremental_pages_match_sync_results_and_respect_item_budget() -> void:
+	const PAGE_QUERY_SCRIPT = preload("res://addons/gf/tools/asset_browser/gf_asset_browser_page_query.gd")
+	var catalog: GFAssetCatalog = GFAssetCatalog.new()
+	for index: int in range(120):
+		catalog.entries.append(_make_entry(StringName("asset_%03d" % index), "Hero %02d" % [index % 7], { "nested": { "group": index % 3 } }))
+	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
+	var _replace: Dictionary = model.replace_catalog(catalog)
+	for query: String in ["", "hero", "hero 03", "unmatchablequartz"]:
+		for filter_ids: PackedStringArray in [PackedStringArray(), PackedStringArray(["asset_002", "missing", "asset_101"])]:
+			var _query: Dictionary = model.set_query(query, filter_ids)
+			var task_value: RefCounted = model.create_page_query(2, 13)
+			assert_true(task_value is PAGE_QUERY_SCRIPT)
+			if not task_value is PAGE_QUERY_SCRIPT:
+				continue
+			var task: PAGE_QUERY_SCRIPT = task_value
+			var steps: int = 0
+			while not task.step(7, 1000) and steps < 10000:
+				assert_lte(GFVariantData.get_option_int(task.get_progress(), "last_step_items"), 7)
+				steps += 1
+				await get_tree().process_frame
+			assert_lt(steps, 10000)
+			assert_eq(task.take_result(), model.get_page(2, 13))
+			assert_eq(task.take_result(), {}, "结果所有权只能交还一次。")
+			task.join_worker()
+	model.dispose()
+
+
+func test_incremental_queries_cancel_on_generation_disposal_and_explicit_cancel() -> void:
+	const PAGE_QUERY_SCRIPT = preload("res://addons/gf/tools/asset_browser/gf_asset_browser_page_query.gd")
+	for mutation: String in ["query", "catalog", "dispose", "cancel", "finished_query"]:
+		var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
+		var catalog: GFAssetCatalog = _make_catalog([_make_entry(&"hero", "Hero")])
+		var _replace: Dictionary = model.replace_catalog(catalog)
+		var task_value: RefCounted = model.create_page_query()
+		assert_true(task_value is PAGE_QUERY_SCRIPT)
+		if not task_value is PAGE_QUERY_SCRIPT:
+			continue
+		var task: PAGE_QUERY_SCRIPT = task_value
+		var _stepped: bool = task.step(1, 1)
+		if mutation == "finished_query":
+			while not task.step():
+				pass
+		match mutation:
+			"query", "finished_query":
+				var _query: Dictionary = model.set_query("changed")
+			"catalog":
+				var _replacement: Dictionary = model.replace_catalog(catalog)
+			"dispose":
+				model.dispose()
+			"cancel":
+				task.cancel()
+		assert_true(task.step())
+		assert_eq(task.take_result(), {})
+		model.dispose()
+
+
+func test_active_query_workers_cancel_during_scoring_sorting_and_owner_revocation() -> void:
+	const PAGE_QUERY_SCRIPT = preload("res://addons/gf/tools/asset_browser/gf_asset_browser_page_query.gd")
+	var catalog: GFAssetCatalog = GFAssetCatalog.new()
+	for index: int in range(2048):
+		catalog.entries.append(_make_entry(StringName("asset_%04d" % index), "Hero %02d" % [index % 7]))
+	for mutation: String in ["cancel", "query", "dispose", "join_sort"]:
+		var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
+		var _replace: Dictionary = model.replace_catalog(catalog)
+		var _query: Dictionary = model.set_query("hero")
+		var task_value: RefCounted = model.create_page_query()
+		assert_true(task_value is PAGE_QUERY_SCRIPT)
+		if not task_value is PAGE_QUERY_SCRIPT:
+			continue
+		var task: PAGE_QUERY_SCRIPT = task_value
+		var deadline: int = Time.get_ticks_msec() + 15000
+		var expected_phase: StringName = &"sort" if mutation == "join_sort" else &"score"
+		while GFVariantData.get_option_string_name(task.get_progress(), "worker_phase") != expected_phase and Time.get_ticks_msec() < deadline:
+			var _done: bool = task.step(256, 2000)
+			await get_tree().process_frame
+		assert_eq(GFVariantData.get_option_string_name(task.get_progress(), "worker_phase"), expected_phase)
+		assert_true(task.has_worker())
+		match mutation:
+			"query":
+				var _changed: Dictionary = model.set_query("latest")
+				assert_true(task.step())
+			"dispose":
+				model.dispose()
+				assert_true(task.step())
+			"join_sort":
+				task.join_worker()
+			_:
+				task.cancel()
+		assert_eq(task.take_result(), {}, "取消必须立即撤销发布，即使线程尚在退出。")
+		while not task.reap_worker() and Time.get_ticks_msec() < deadline:
+			await get_tree().process_frame
+		assert_false(task.has_worker(), "每个任务必须完成线程回收。")
+		assert_eq(task.take_result(), {})
+		task.join_worker()
+		model.dispose()
+
+
+func test_replacement_reads_current_entries_even_when_source_lookup_is_clean() -> void:
+	var source_catalog: GFAssetCatalog = _make_catalog([_make_entry(&"hero", "Old")])
+	assert_eq(source_catalog.get_entry(&"hero").title, "Old")
+	source_catalog.entries[0].title = "Current"
+	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
+	var report: Dictionary = model.replace_catalog(source_catalog)
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	var items: Array = GFVariantData.get_option_array(model.get_page(), "items")
+	assert_eq(GFVariantData.get_option_string(GFVariantData.as_dictionary(items[0]), "title"), "Current")
+	source_catalog.entries[0].title = "Later"
+	items = GFVariantData.get_option_array(model.get_page(), "items")
+	assert_eq(GFVariantData.get_option_string(GFVariantData.as_dictionary(items[0]), "title"), "Current")
+	model.dispose()
+
+
+func test_empty_search_pages_keep_items_empty() -> void:
+	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
+	var _replacement: Dictionary = model.replace_catalog(_make_catalog([_make_entry(&"hero", "Hero")]))
+	var _text_query: Dictionary = model.set_query("unmatchablequartz")
+	assert_eq(GFVariantData.get_option_int(model.get_page(), "total_count"), 0)
+	assert_eq(GFVariantData.get_option_array(model.get_page(), "items").size(), 0)
+	var _id_query: Dictionary = model.set_query("", PackedStringArray(["missing"]))
+	assert_eq(GFVariantData.get_option_int(model.get_page(), "total_count"), 0)
+	assert_eq(GFVariantData.get_option_array(model.get_page(), "items").size(), 0)
+	model.dispose()
+
+
 func _make_catalog(entries: Array[GFAssetCatalogEntry]) -> GFAssetCatalog:
 	var catalog: GFAssetCatalog = GFAssetCatalog.new()
 	for entry: GFAssetCatalogEntry in entries:
