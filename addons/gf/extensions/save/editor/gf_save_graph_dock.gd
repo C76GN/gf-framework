@@ -119,6 +119,11 @@ var _tree: Tree = null
 ## [br]
 var _tabs: TabContainer = null
 
+## 保留详情与载荷内容的展开开关。
+## [br]
+## @api private
+var _details_toggle: CheckButton = null
+
 ## 显示所选树条目详情的文本控件。
 ## [br]
 ## @api private
@@ -231,7 +236,7 @@ func _build_ui() -> void:
 	_include_trace_check.tooltip_text = "采集预览载荷时包含 pipeline trace。"
 	toolbar.add_child(_include_trace_check)
 
-	_select_button = _GF_EDITOR_WORKSPACE_UI.make_button("选中", "在编辑器场景树中选中当前 Scope。", _on_select_pressed)
+	_select_button = _GF_EDITOR_WORKSPACE_UI.make_button("定位作用域", "在编辑器场景树中选中当前 Scope。", _on_select_pressed)
 	toolbar.add_child(_select_button)
 
 	toolbar.add_child(_GF_EDITOR_WORKSPACE_UI.make_button("预览载荷", "采集当前 Scope 的 SaveGraph 预览载荷。", _on_preview_payload_pressed))
@@ -266,9 +271,11 @@ func _build_ui() -> void:
 	_tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_content_split.add_child(_tabs)
+	_details_toggle = _GF_EDITOR_WORKSPACE_UI.make_details_toggle(_tabs)
+	toolbar.add_child(_details_toggle)
 
 	_details = _GF_EDITOR_WORKSPACE_UI.make_details_output()
-	_details.name = "详情"
+	_details.name = "高级详情"
 	_details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_details.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_tabs.add_child(_details)
@@ -382,7 +389,7 @@ func _render_report(scope: GFSaveScope) -> void:
 		_get_report_text("summary"),
 		_get_report_text("next_action"),
 	]
-	_summary_label.modulate = _GF_EDITOR_WORKSPACE_UI.get_report_color(_last_scope_report)
+	_GF_EDITOR_WORKSPACE_UI.set_status(_summary_label, _summary_label.text, _GF_EDITOR_WORKSPACE_UI.get_report_color(_last_scope_report))
 	_details.text = _safe_json(_last_scope_report)
 
 	var root_item: TreeItem = _tree.create_item()
@@ -524,6 +531,7 @@ func _preview_payload() -> void:
 		"payload_report": _last_payload_report,
 	})
 	_tabs.current_tab = 1
+	_details_toggle.button_pressed = true
 	_GF_EDITOR_WORKSPACE_UI.set_status(
 		_summary_label,
 		"%s\nPayload：%s" % [
@@ -758,3 +766,4 @@ func _on_tree_item_selected() -> void:
 		return
 	_details.text = _safe_json(item.get_metadata(0))
 	_tabs.current_tab = 0
+	_details_toggle.button_pressed = true

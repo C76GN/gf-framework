@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "id": "gf.tool.project_bootstrap",
+  "kind": "tool",
+  "dependencies": [
+    "gf.kernel"
+  ],
+  "paths": [
+    "addons/gf/tools/project_bootstrap/**"
+  ]
+}

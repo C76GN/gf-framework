@@ -1,3 +1,5 @@
+@tool
+
 ## 测试 GFAssetCatalog 的资产条目、查询和来源 provider 汇聚契约。
 extends GutTest
 
@@ -6,6 +8,166 @@ const GF_ASSET_CATALOG_ENTRY_SCRIPT = preload("res://addons/gf/standard/utilitie
 const GF_ASSET_CATALOG_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_asset_catalog.gd")
 const GF_ASSET_CATALOG_SOURCE_REGISTRY_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_asset_catalog_source_registry.gd")
 const GF_RESOURCE_REGISTRY_ASSET_SOURCE_PROVIDER_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_resource_registry_asset_source_provider.gd")
+
+
+class CountingEntry extends GFAssetCatalogEntry:
+	var identity_reads: Array[int] = [0]
+
+	func duplicate_entry() -> GFAssetCatalogEntry:
+		var entry: CountingEntry = CountingEntry.new()
+		entry.asset_id = asset_id
+		entry.title = title
+		entry.category = category
+		entry.identity_reads = identity_reads
+		return entry
+
+	func get_primary_identity() -> GFResourceIdentity:
+		identity_reads[0] += 1
+		return super.get_primary_identity()
+
+
+func test_catalog_resources_support_loaded_editor_instances() -> void:
+	var catalog_script: Script = GF_ASSET_CATALOG_SCRIPT
+	var entry_script: Script = GF_ASSET_CATALOG_ENTRY_SCRIPT
+	assert_true(catalog_script.is_tool(), "已保存的 Catalog 在编辑器重新打开后仍须支持索引与原生历史命令。")
+	assert_true(entry_script.is_tool(), "已保存的条目在编辑器重新打开后仍须支持复制与完整字段快照。")
+
+
+func test_zero_match_pages_do_not_expand_empty_ids_to_all_summaries() -> void:
+	var catalog: GFAssetCatalog = GFAssetCatalog.new()
+	_set_asset_entry(catalog, _make_asset_entry(&"hero", "", { "title": "Hero" }))
+	for page: Dictionary in [
+		catalog.search_page("unmatchablequartz"),
+		catalog.search_page("", 1, 100, { "asset_ids": PackedStringArray(["missing"]) }),
+	]:
+		assert_eq(GFVariantData.get_option_int(page, "total_count"), 0)
+		assert_eq(GFVariantData.get_option_array(page, "results").size(), 0)
+		assert_eq(GFVariantData.get_option_packed_string_array(page, "asset_ids").size(), 0)
+		assert_eq(GFVariantData.get_option_array(page, "summaries").size(), 0)
+
+
+func test_listing_resolves_identities_only_for_the_requested_page() -> void:
+	var catalog: GFAssetCatalog = GFAssetCatalog.new()
+	var identity_reads: Array[int] = [0]
+	for index: int in range(12):
+		var entry: CountingEntry = CountingEntry.new()
+		entry.asset_id = StringName("asset_%02d" % index)
+		entry.identity_reads = identity_reads
+		catalog.entries.append(entry)
+	assert_eq(catalog.get_all_ids().size(), 12)
+	assert_true(catalog.has_entry(&"asset_00"))
+	assert_not_null(catalog.get_entry(&"asset_00"))
+	assert_eq(identity_reads[0], 0, "查找表不应构建需要身份解析的字段索引。")
+	var page: Dictionary = catalog.search_page("", 2, 3)
+	assert_eq(identity_reads[0], 6, "只为当前页构建候选和摘要，各解析一次身份。")
+	assert_eq(GFVariantData.get_option_int(page, "total_count"), 12)
+	var results: Array = GFVariantData.get_option_array(page, "results")
+	assert_eq(GFVariantData.get_option_int(GFVariantData.as_dictionary(results[0]), "index"), 3)
+	assert_eq(GFVariantData.get_option_packed_string_array(page, "asset_ids"), PackedStringArray(["asset_03", "asset_04", "asset_05"]))
+	var _second_page: Dictionary = catalog.search_page("", 2, 3, { "include_summaries": false })
+	assert_eq(identity_reads[0], 9, "下一次调用仍应读取当前身份；关闭摘要只省略摘要。")
+
+
+func test_default_text_pages_only_resolve_page_identities_and_preserve_scores() -> void:
+	var catalog: GFAssetCatalog = GFAssetCatalog.new()
+	var identity_reads: Array[int] = [0]
+	for index: int in range(12):
+		var entry: CountingEntry = CountingEntry.new()
+		entry.asset_id = StringName("asset_%02d" % index)
+		entry.title = "Hero %02d" % index
+		entry.identity_reads = identity_reads
+		catalog.entries.append(entry)
+	var page: Dictionary = catalog.search_page("hero", 2, 3)
+	assert_eq(identity_reads[0], 6, "默认评分字段无需身份；只解析当前页候选和摘要。")
+	var full_reports: Array[Dictionary] = catalog.search("hero")
+	assert_eq(GFVariantData.get_option_array(page, "results"), full_reports.slice(3, 6))
+	var previous_reads: int = identity_reads[0]
+	var custom_options: Dictionary = { "fields": [{ "key": "cache_key", "weight": 1.0 }], "include_summaries": false }
+	var custom_page: Dictionary = catalog.search_page("asset", 1, 3, custom_options)
+	assert_eq(identity_reads[0] - previous_reads, 12, "显式字段继续全量解析，以保留身份字段评分。")
+	assert_eq(GFVariantData.get_option_array(custom_page, "results"), catalog.search("asset", custom_options).slice(0, 3))
+	for fields: Variant in [[], "invalid"]:
+		var options: Dictionary = { "fields": fields, "include_unmatched": true, "limit": 5 }
+		assert_eq(GFVariantData.get_option_array(catalog.search_page("hero", 1, 100, options), "results"), catalog.search("hero", options))
+
+
+func test_lookup_and_field_index_share_one_snapshot_until_dirty_or_explicit_rebuild() -> void:
+	var catalog: GFAssetCatalog = GFAssetCatalog.new()
+	var entry: GFAssetCatalogEntry = _make_asset_entry(&"hero", "", { "category": "old", "metadata": { "nested": { "value": 1 } } })
+	catalog.entries.append(entry)
+	assert_eq(catalog.get_all_ids(), PackedStringArray(["hero"]))
+	entry.category = &"changed"
+	assert_eq(catalog.query(GFAssetCatalog.GROUP_SOURCE_CATEGORY, "old"), PackedStringArray(["hero"]))
+	assert_eq(catalog.get_entry(&"hero").category, &"old")
+	var copy: GFAssetCatalogEntry = catalog.get_entry(&"hero")
+	var nested: Dictionary = GFVariantData.as_dictionary(copy.metadata.get("nested"))
+	nested["value"] = 9
+	assert_eq(GFVariantData.get_option_int(GFVariantData.get_option_dictionary(catalog.get_entry(&"hero").metadata, "nested"), "value"), 1)
+	catalog.mark_index_dirty()
+	assert_eq(catalog.get_entry(&"hero").category, &"changed")
+	assert_eq(catalog.query(GFAssetCatalog.GROUP_SOURCE_CATEGORY, "changed"), PackedStringArray(["hero"]))
+	entry.category = &"rebuilt"
+	catalog.rebuild_index()
+	assert_eq(catalog.get_entry(&"hero").category, &"rebuilt")
+	assert_eq(catalog.query(GFAssetCatalog.GROUP_SOURCE_CATEGORY, "rebuilt"), PackedStringArray(["hero"]))
+
+
+func test_listing_preserves_filter_limit_duplicates_and_scorer_opt_out() -> void:
+	var catalog: GFAssetCatalog = GFAssetCatalog.new()
+	catalog.entries.assign([
+		_make_asset_entry(&"c", "", { "title": " C " }),
+		_make_asset_entry(&"a", "", { "title": "first" }),
+		_make_asset_entry(&"b", ""),
+		_make_asset_entry(&"a", "", { "title": "last" }),
+	])
+	var page: Dictionary = catalog.search_page(" ", 99, 1, {
+		"asset_ids": PackedStringArray(["c", "missing", "a", "c"]), "limit": 2,
+		"duplicate_candidate": false, "summary_options": { "include_metadata": false },
+	})
+	assert_eq(GFVariantData.get_option_int(page, "total_count"), 2)
+	assert_eq(GFVariantData.get_option_int(page, "page"), 2)
+	assert_eq(GFVariantData.get_option_packed_string_array(page, "asset_ids"), PackedStringArray(["c"]))
+	var result: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_array(page, "results")[0])
+	assert_eq(GFVariantData.get_option_int(result, "index"), 1)
+	var candidate: Dictionary = GFVariantData.as_dictionary(result.get("candidate"))
+	assert_eq(GFVariantData.get_option_string(candidate, "title"), " C ")
+	candidate["title"] = "mutated"
+	assert_eq(catalog.get_entry(&"c").title, " C ")
+	var summary: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_array(page, "summaries")[0])
+	assert_eq(GFVariantData.get_option_string(summary, "title"), "C")
+	assert_false(summary.has("metadata"))
+	assert_eq(catalog.get_entry(&"a").title, "last")
+	assert_true(catalog.remove_entry(&"a"))
+	assert_eq(catalog.get_entry(&"a").title, "first")
+	var options: Dictionary = { "empty_query_returns_all": false, "include_unmatched": true, "limit": 2 }
+	assert_eq(GFVariantData.get_option_array(catalog.search_page("", 1, 100, options), "results"), catalog.search("", options))
+
+
+func test_repeated_pages_resolve_current_uid_mapping_without_dirtying_catalog() -> void:
+	var uid: int = ResourceUID.create_id()
+	var uid_path: String = ResourceUID.id_to_text(uid)
+	var first_path: String = "res://tests/gf_core/standard/utilities/assets/uid_first.tres"
+	var second_path: String = "res://tests/gf_core/standard/utilities/assets/uid_second.tres"
+	ResourceUID.add_id(uid, first_path)
+	var catalog: GFAssetCatalog = GFAssetCatalog.new()
+	var entry: GFAssetCatalogEntry = _make_asset_entry(&"moving", "")
+	entry.primary_path = uid_path
+	_set_asset_entry(catalog, entry)
+	for expected_path: String in [first_path, second_path, uid_path]:
+		if expected_path == second_path:
+			ResourceUID.set_id(uid, second_path)
+		elif expected_path == uid_path:
+			ResourceUID.remove_id(uid)
+		var page: Dictionary = catalog.search_page("", 1, 1)
+		var result: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_array(page, "results")[0])
+		var candidate: Dictionary = GFVariantData.get_option_dictionary(result, "candidate")
+		var summary: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_array(page, "summaries")[0])
+		for item: Dictionary in [candidate, summary]:
+			var identity: Dictionary = GFVariantData.get_option_dictionary(item, "primary_identity")
+			assert_eq(GFVariantData.get_option_string(identity, "canonical_path"), expected_path)
+			assert_eq(GFVariantData.get_option_string(item, "cache_key"), uid_path)
+	if ResourceUID.has_id(uid):
+		ResourceUID.remove_id(uid)
 
 
 func test_asset_catalog_entry_preserves_generic_fields_and_identity() -> void:

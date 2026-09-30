@@ -26,7 +26,7 @@ const STAGE_ID: String = "gf.config.layout.builtin"
 ## @api public
 ## [br]
 ## @since 9.0.0
-const IMPLEMENTATION_VERSION: int = 3
+const IMPLEMENTATION_VERSION: int = 4
 
 ## XLSX 单个 ZIP 条目默认允许的压缩或解压字节数。
 ## [br]
@@ -109,7 +109,7 @@ const _GF_BOUNDED_ZIP_SUPPORT = preload("res://addons/gf/tools/config_pipeline/g
 ## [br]
 ## @return: Layout 阶段结果。
 ## [br]
-## @schema return: Dictionary，包含 success、phase、data、header、row_locations、source、source_path、format、error_kind、error、error_line 和 error_column，并可包含格式专属字段。
+## @schema return: Dictionary，包含 success、phase、data、header、header_location、row_locations、source、source_path、format、error_kind、error、error_line 和 error_column；表格返回真实表头位置，XLSX 成功时还包含实际 sheet_name 和 sheet_path。
 func decode_source(
 	source: GFConfigPipelineTableSource,
 	read_result: Dictionary,
@@ -376,7 +376,13 @@ func _parse_xlsx_file(
 	)
 	if worksheet_bytes.size() == 0:
 		return _make_xlsx_parse_failure("XLSX worksheet is empty: %s" % worksheet_path, path)
-	return _parse_xlsx_sheet(worksheet_bytes, shared_strings, options, worksheet_path)
+	var parsed_sheet: Dictionary = _parse_xlsx_sheet(worksheet_bytes, shared_strings, options, worksheet_path)
+	parsed_sheet["sheet_path"] = worksheet_path
+	for sheet: Dictionary in workbook_sheets:
+		if GFVariantData.get_option_string(sheet, "path") == worksheet_path:
+			parsed_sheet["sheet_name"] = GFVariantData.get_option_string(sheet, "name")
+			break
+	return parsed_sheet
 
 
 ## 将 XLSX 文件大小限制中的零值解析为 ZIP 支持脚本的绝对归档上限。

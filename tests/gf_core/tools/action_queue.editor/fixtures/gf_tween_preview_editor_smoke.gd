@@ -12,6 +12,9 @@ const _CONFIG_PATH: String = "res://tests/gf_core/tools/action_queue.editor/fixt
 const _RELOAD_PATH: String = "user://gf_tween_preview_reloaded.tres"
 const _CURVE_RELOAD_PATH: String = "user://gf_tween_preview_curve_reloaded.tres"
 const _DEADLINE_MSEC: int = 60000
+const _PRESETS_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor/presets/gf_tween_authoring_presets.gd")
+const _STEPS_EDITOR_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor/authoring/gf_tween_steps_editor_property.gd")
+const _AUTHORING_DOCK_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor/gf_tween_authoring_dock.gd")
 
 
 # --- 私有变量 ---
@@ -36,6 +39,10 @@ var _scene_history_version: int = 0
 var _source_history_version: int = 0
 var _scene_digest: String = ""
 var _config_digest: String = ""
+var _authoring_source: Resource = null
+var _authoring_step: Resource = null
+var _authoring_field: WeakRef = null
+var _authoring_phase: int = 0
 
 
 # --- Godot 生命周期方法 ---
@@ -440,9 +447,196 @@ func _wait_cleanup() -> void:
 	_source_history = null
 	_source = null
 	_reloaded = null
+	_authoring_source = GFTweenActionConfig.new()
+	_authoring_source.set(&"steps", _PRESETS_SCRIPT.create_steps("move_by", 0))
+	_inspector_plugin = _INSPECTOR_PLUGIN_SCRIPT.new()
+	add_inspector_plugin(_inspector_plugin)
+	_phase = &"authoring"
+	EditorInterface.edit_resource(_authoring_source)
+
+
+func _check_authoring() -> void:
+	var editor: EditorProperty = _find_steps_editor(EditorInterface.get_inspector())
+	if editor == null:
+		return
+	var values: Variant = _authoring_source.get(&"steps")
+	if not values is Array:
+		_fail("Authoring source lost its steps array.")
+		return
+	var steps: Array = values
+	if _authoring_phase == 0:
+		if steps.size() != 1 or not steps[0] is Resource:
+			_fail("Preset creation did not produce one step in the native editor.")
+			return
+		_authoring_step = steps[0]
+		var field: Node = editor.find_child("Field_duration", true, false)
+		if not field is GFEditorValueField:
+			_fail("Native Inspector did not install the typed step field.")
+			return
+		var value_field: GFEditorValueField = field
+		_authoring_field = weakref(value_field)
+		value_field.value_changed.emit(0.6)
+		value_field.value_changed.emit(0.8)
+		_authoring_phase = 1
+		return
+	if _authoring_phase == 1:
+		if steps.size() != 1 or steps[0] == _authoring_step or not _number_equals(_authoring_step.get(&"duration"), 0.2):
+			_fail("Inspector editing mutated the previous step instead of copying it.")
+			return
+		var edited: Resource = steps[0]
+		var active_field: Object = _authoring_field.get_ref()
+		if not _number_equals(edited.get(&"duration"), 0.8) or not active_field is GFEditorValueField or editor.find_child("Field_duration", true, false) != active_field:
+			_fail("Continuous native field input was discarded or rebuilt its active control.")
+			return
+		var value_field: GFEditorValueField = active_field
+		value_field.value_changed.emit(0.6)
+		if not _press_text(editor, "复制"):
+			return
+		value_field.value_changed.emit(0.9)
+		_authoring_phase = 2
+		return
+	var history: UndoRedo = get_undo_redo().get_history_undo_redo(get_undo_redo().get_object_history_id(_authoring_source))
+	if _authoring_phase == 2:
+		if steps.size() != 2 or steps[0] == steps[1]:
+			_fail("The native duplicate operation did not create an independent step.")
+			return
+		for step_value: Variant in steps:
+			var step: Resource = step_value
+			if not _number_equals(step.get(&"duration"), 0.6):
+				_fail("A field retired by a structural edit changed the new step array.")
+				return
+		# Inspector 对连续同一属性采用 MERGE_ENDS；仍须恢复首次修改前的真实对象。
+		if not history.undo():
+			_fail("Native Inspector edits were not undoable.")
+			return
+		_authoring_phase = 3
+		return
+	if _authoring_phase == 3:
+		if steps.size() != 1 or steps[0] != _authoring_step:
+			_fail("Undo did not restore the original step identity.")
+			return
+		if not history.redo():
+			_fail("Native Inspector edits were not redoable.")
+			return
+		_authoring_phase = 4
+		return
+	if _authoring_phase == 5:
+		var duplicate_button: Button = _find_text_button(editor, "复制")
+		if duplicate_button == null or not duplicate_button.disabled or duplicate_button.tooltip_text.is_empty():
+			_fail("Custom steps did not explicitly disable the unsupported duplicate operation.")
+			return
+		if _find_text_button(editor, "原生编辑共享步骤") == null:
+			_fail("Custom steps did not label the native shared-resource edit boundary.")
+			return
+		_finish_authoring()
+		return
+	if steps.size() != 2:
+		_fail("Redo did not restore the edited and duplicated steps.")
+		return
+	var restored_step: Resource = steps[0]
+	if not restored_step.has_meta(&"_gf_tween_preset") or not _number_equals(restored_step.get(&"duration"), 0.6):
+		_fail("Native redo lost step values or preset provenance.")
+		return
+	_authoring_source.set(&"steps", _PRESETS_SCRIPT.create_steps("move_by", 0))
+	_authoring_source.set(&"ping_pong", true)
+	var preview: GFTweenPreviewViewport = GFTweenPreviewViewport.new()
+	add_child(preview)
+	preview.configure(_authoring_source)
+	var controlled_ok: bool = preview.play() and preview.seek(0.1) and preview.play_direction(true)
+	preview.advance(0.1)
+	controlled_ok = controlled_ok and is_zero_approx(_position_x(preview))
+	preview.dispose_preview()
+	preview.free()
+	if not controlled_ok:
+		_fail("Controlled pure sampling did not work in the real editor.")
+		return
+	_authoring_source = GFTweenActionConfig.new()
+	var custom_steps: Array[GFTweenActionStep] = [_CustomStep.new()]
+	_authoring_source.set(&"steps", custom_steps)
+	_authoring_phase = 5
+	EditorInterface.edit_resource(_authoring_source)
+
+
+func _finish_authoring() -> void:
+	if not _check_create_entry():
+		return
+	EditorInterface.edit_resource(null)
+	remove_inspector_plugin(_inspector_plugin)
+	_inspector_plugin = null
+	_authoring_source = null
+	_authoring_step = null
+	_authoring_field = null
 	_finished = true
 	print("GF_TWEEN_PREVIEW_EDITOR_SMOKE_OK")
 	get_tree().call_deferred(&"quit", 0)
+
+
+func _check_create_entry() -> bool:
+	var dock: _AUTHORING_DOCK_SCRIPT = _AUTHORING_DOCK_SCRIPT.new()
+	EditorInterface.get_base_control().add_child(dock)
+	var result: Dictionary = dock.run_workspace_task("new_resource")
+	var dialog_node: Node = EditorInterface.get_base_control().find_child("GFTweenCreateDialog", true, false)
+	if result.get("ok") != true or not dialog_node is EditorFileDialog:
+		dock.free()
+		_fail("The workspace task did not open its resource creation dialog.")
+		return false
+	var dialog: EditorFileDialog = dialog_node
+	var path: String = "res://created_tween_smoke.tres"
+	dialog.file_selected.emit(path)
+	var loaded: Resource = ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE_DEEP)
+	dock.free()
+	if loaded == null or loaded.get_script() != preload("res://addons/gf/extensions/action_queue/tween/gf_tween_action_config.gd"):
+		_fail("The creation entry did not save a reloadable Tween configuration.")
+		return false
+	var steps_value: Variant = loaded.get(&"steps")
+	if not steps_value is Array:
+		_fail("The newly created configuration lost its steps.")
+		return false
+	var steps: Array = steps_value
+	if steps.size() != 1 or not steps[0] is Resource:
+		_fail("The newly created configuration lost its preset step.")
+		return false
+	var step: Resource = steps[0]
+	if not step.has_meta(&"_gf_tween_preset"):
+		_fail("The saved configuration lost preset provenance on reload.")
+		return false
+	return true
+
+
+func _find_steps_editor(node: Node) -> EditorProperty:
+	if node is EditorProperty and node.get_script() == _STEPS_EDITOR_SCRIPT:
+		var editor: EditorProperty = node
+		if editor.get_edited_object() == _authoring_source:
+			return editor
+	for child: Node in node.get_children():
+		var found: EditorProperty = _find_steps_editor(child)
+		if found != null:
+			return found
+	return null
+
+
+func _find_text_button(node: Node, text: String) -> Button:
+	if node is Button:
+		var button: Button = node
+		if button.text == text:
+			return button
+	for child: Node in node.get_children():
+		var found: Button = _find_text_button(child, text)
+		if found != null:
+			return found
+	return null
+
+
+func _press_text(node: Node, text: String) -> bool:
+	if node is Button:
+		var button: Button = node
+		if button.text == text and not button.disabled:
+			button.pressed.emit()
+			return true
+	for child: Node in node.get_children():
+		if _press_text(child, text):
+			return true
+	return false
 
 
 func _check_controls(panel: GFTweenPreviewPanel, preview: GFTweenPreviewViewport) -> bool:
@@ -661,3 +855,11 @@ func _on_process_frame() -> void:
 			_wait_render_sample()
 		&"cleanup":
 			_wait_cleanup()
+		&"authoring":
+			_check_authoring()
+
+
+# --- 内部类 ---
+
+class _CustomStep extends GFTweenActionStep:
+	pass

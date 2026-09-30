@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableImporter" path="addons/gf/standard/utilities/config/gf_config_table_importer.gd" module="standard" extends="RefCounted" classDigest="223dd6609798b23af3055eca223fc522dc3fef2eb16126f7bab273dfab0d54eb">
+<class name="GFConfigTableImporter" path="addons/gf/standard/utilities/config/gf_config_table_importer.gd" module="standard" extends="RefCounted" classDigest="d5860cf08e3c4c0e26222d5c9b57ddc30a81e8f715b6cd811a71e00dd8489322">
 	<description>GFConfigTableImporter: 通用导表文本解析与 schema 校验入口。
 提供 JSON、CSV、ConfigFile 与二维文本行的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。
 直接接收内存文本/行的入口不执行字节、行、列或累计单元格预算；调用方必须只传受信数据，或在调用前完成容量预检。</description>
@@ -37,7 +37,7 @@
 				<tag name="return">结果字典，包含 success、data、header、row_locations 与 error。</tag>
 				<tag name="schema">rows: Array[PackedStringArray]，每个条目是一行单元格文本。</tag>
 				<tag name="schema">options: Dictionary，可包含 source、row_numbers、header_row、trim_cells、skip_empty_lines、reject_duplicate_headers、reject_empty_header、require_header、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 error_prefix。</tag>
-				<tag name="schema">return: Dictionary，包含 success、data、header、row_locations、error、error_line、error_column 和 source。</tag>
+				<tag name="schema">return: Dictionary，包含 success、data、header、header_location、row_locations、error、error_line、error_column 和 source；header_location 记录真实表头行及字段原始列，空表时可为空。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
@@ -50,7 +50,7 @@
 				<tag name="param">options: 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix、source。</tag>
 				<tag name="return">结果字典，包含 success、data、header、row_locations 与 error。</tag>
 				<tag name="schema">options: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source。</tag>
-				<tag name="schema">return: Dictionary，包含 success、data、header、row_locations、error、error_line、error_column 和 source。</tag>
+				<tag name="schema">return: Dictionary，包含 success、data、header、header_location、row_locations、error、error_line、error_column 和 source；header_location 记录真实表头行及字段原始列，空表时可为空。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>

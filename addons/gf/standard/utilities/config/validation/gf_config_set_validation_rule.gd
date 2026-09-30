@@ -1,3 +1,5 @@
+@tool
+
 ## GFConfigSetValidationRule: 值集合校验规则。
 ##
 ## 用于限制字段值必须出现在一个显式白名单中，不解释白名单背后的业务含义。

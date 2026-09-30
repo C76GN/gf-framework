@@ -1,3 +1,5 @@
+@tool
+
 ## GFConfigTableIndexDefinition: 导表索引声明。
 ##
 ## 描述一组字段如何组成查询键或唯一键，不绑定任何具体业务表。

@@ -1,3 +1,5 @@
+@tool
+
 ## GFConfigPipelineProfile: 配置导表工具的批量构建声明。
 ##
 ## 描述一组表来源、数据库标识、输出路径和构建选项，供编辑器工具、CI 或项目脚本复用。
@@ -26,6 +28,9 @@ const _BUILD_OPTION_KEYS: PackedStringArray = [
 	"validate_schema",
 	"parse_options",
 	"rebuild_indexes",
+	"max_validation_cells",
+	"max_source_file_bytes",
+	"max_xlsx_file_bytes",
 ]
 
 
@@ -136,7 +141,7 @@ const _BUILD_OPTION_KEYS: PackedStringArray = [
 ## [br]
 ## @param overrides: 本次构建的覆盖选项；build_options 子字典和直接字段都会覆盖 Profile 默认值。
 ## [br]
-## @schema overrides: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。
+## @schema overrides: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、max_validation_cells、max_source_file_bytes 和 max_xlsx_file_bytes；三个预算直接覆盖 Profile 同名构建选项。
 ## [br]
 ## @return: 传给 GFConfigPipeline.build_database() 的选项。
 ## [br]

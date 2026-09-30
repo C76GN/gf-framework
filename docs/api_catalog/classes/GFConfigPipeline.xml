@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipeline" path="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" module="tools" extends="RefCounted" classDigest="9b289a4019b4b7d653e59e3856a9ce980ff9fe0fe2bc3fd5956cb8420f8fd00f">
+<class name="GFConfigPipeline" path="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" module="tools" extends="RefCounted" classDigest="041df240fee185025bdbc0c00cc888dc7d754876db10d2d90843c71c66e86c1d">
 	<description>GFConfigPipeline: 配置导表工具的资源构建入口。
 负责把 CSV / JSON / ConfigFile / XLSX 文件来源构建为 GFConfigTableResource 与 GFConfigDatabaseResource。
 该工具只处理通用导入、校验、索引重建和 Resource 保存，不绑定任何项目业务表或发布流程。</description>
@@ -46,7 +46,7 @@
 				<tag name="param">source: 单表来源声明。</tag>
 				<tag name="param">options: 可选构建选项，支持 parse_options、rebuild_indexes。</tag>
 				<tag name="return">构建结果。</tag>
-				<tag name="schema">options: Dictionary，可包含 parse_options 和 rebuild_indexes。</tag>
+				<tag name="schema">options: Dictionary，可包含 parse_options、rebuild_indexes、max_validation_cells（-1 不限制，非负整数限制实际布局记录的累计字段数；在语义校验前拒绝且不截断）。</tag>
 				<tag name="schema">return: Dictionary，包含 success、table、ir、report、source_path、format、source_receipt 和 error。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
@@ -60,7 +60,7 @@
 				<tag name="param">text: CSV、JSON 或 ConfigFile 文本。</tag>
 				<tag name="param">options: 可选构建选项，支持 parse_options、rebuild_indexes。</tag>
 				<tag name="return">构建结果。</tag>
-				<tag name="schema">options: Dictionary，可包含 parse_options 和 rebuild_indexes。</tag>
+				<tag name="schema">options: Dictionary，可包含 parse_options、rebuild_indexes、max_validation_cells（-1 不限制，非负整数限制实际布局记录的累计字段数；在语义校验前拒绝且不截断）。</tag>
 				<tag name="schema">return: Dictionary，包含 success、table、ir、report、source_path、format 和 error。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
@@ -74,7 +74,7 @@
 				<tag name="param">options: 可选构建选项，支持 database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes。</tag>
 				<tag name="return">构建结果。</tag>
 				<tag name="schema">sources: Array[GFConfigPipelineTableSource]。</tag>
-				<tag name="schema">options: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。</tag>
+				<tag name="schema">options: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、max_source_file_bytes、max_xlsx_file_bytes 和 max_validation_cells；max_validation_cells 默认 -1 不限制，非负整数约束本批实际布局记录的累计字段数，在语义校验前拒绝超限且不截断记录。</tag>
 				<tag name="schema">return: Dictionary，包含 success、database、ir、report、table_results 和 error；每个成功 table_result 都包含绑定实际读取字节的 source_receipt。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
@@ -88,7 +88,7 @@
 				<tag name="param">options: 本次构建覆盖选项，支持 build_options 以及 build_database() 的直接选项。</tag>
 				<tag name="return">构建结果。</tag>
 				<tag name="schema">profile: GFConfigPipelineProfile resource。</tag>
-				<tag name="schema">options: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。</tag>
+				<tag name="schema">options: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、max_validation_cells、max_source_file_bytes 和 max_xlsx_file_bytes；自 unreleased 起支持实际布局记录累计字段预算 max_validation_cells，默认 -1 不限制。</tag>
 				<tag name="schema">return: Dictionary，包含 success、database、report、table_results、profile_id、output_path 和 error；每个成功 table_result 都包含绑定实际读取字节的 source_receipt。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>

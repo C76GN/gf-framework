@@ -1657,7 +1657,7 @@ func test_pipeline_runner_rebuilds_changed_only_when_validator_implementation_ch
 	var csv_path: String = _write_text("user://gf_config_pipeline_manifest_validator_items_%d.csv" % suffix, "id,name,power\n1,Potion,2.5\n")
 	var validator_path: String = _write_text(
 		"user://gf_config_pipeline_manifest_validator_%d.gd" % suffix,
-		"extends GFConfigValidationRule\n\nfunc _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:\n\tpass\n"
+		"@tool\n\nextends GFConfigValidationRule\n\nfunc _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:\n\tpass\n"
 	)
 	var validator_script: GDScript = ResourceLoader.load(
 		validator_path,
@@ -1702,7 +1702,7 @@ func test_pipeline_runner_rebuilds_changed_only_when_validator_implementation_ch
 	assert_true(_has_digest_entry_path(first_profile_entries, validator_path), "Profile 依赖摘要应覆盖校验器实现脚本。")
 	var changed_validator_path: String = _write_text(
 		validator_path,
-		"extends GFConfigValidationRule\n\nfunc _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:\n\tpass\n\n# implementation revision\n"
+		"@tool\n\nextends GFConfigValidationRule\n\nfunc _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:\n\tpass\n\n# implementation revision\n"
 	)
 
 	var second_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])

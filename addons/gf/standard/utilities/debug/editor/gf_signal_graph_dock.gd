@@ -387,6 +387,7 @@ func _build_ui() -> void:
 	_clear_events_button = _EDITOR_WORKSPACE_UI.make_button("清空记录", "清空信号发射记录。", _on_clear_events_pressed)
 	_clear_events_button.disabled = true
 	toolbar.add_child(_clear_events_button)
+	toolbar.add_child(_EDITOR_WORKSPACE_UI.make_button("定位来源", "在当前编辑场景中选中此连接或发射记录的来源节点。", _on_locate_source_pressed))
 
 	_filter_edit = LineEdit.new()
 	_filter_edit.placeholder_text = "筛选节点、信号或方法"
@@ -395,7 +396,8 @@ func _build_ui() -> void:
 	toolbar.add_child(_filter_edit)
 
 	_details_toggle = CheckBox.new()
-	_details_toggle.text = "详情"
+	_details_toggle.text = "高级详情"
+	_details_toggle.tooltip_text = "展开选中连接或发射记录的完整数据；收起不丢失内容。"
 	_connect_signal(_details_toggle.toggled, _on_details_toggled)
 	toolbar.add_child(_details_toggle)
 
@@ -517,7 +519,7 @@ func _render_graph() -> void:
 		connection_total,
 		_last_events.size(),
 	]
-	_summary_label.modulate = _EDITOR_WORKSPACE_UI.OK_TEXT_COLOR
+	_EDITOR_WORKSPACE_UI.set_status(_summary_label, _summary_label.text, _EDITOR_WORKSPACE_UI.OK_TEXT_COLOR)
 	_details.text = "选中一条连接、信号或发射记录后查看详情。"
 
 	if connection_total == 0 and signal_total == 0:
@@ -557,7 +559,7 @@ func _render_graph() -> void:
 	_tree.visible = visible_count > 0
 	_empty_state_label.visible = visible_count == 0
 	if visible_count == 0:
-		_empty_state_label.text = "没有匹配当前筛选条件的信号连接。"
+		_empty_state_label.text = "没有匹配当前筛选条件的信号连接。可清空筛选、勾选“未连接信号”，或更换场景后刷新。"
 	_render_events()
 
 
@@ -885,6 +887,29 @@ func _on_filter_text_changed(_text: String) -> void:
 ## [br]
 func _on_details_toggled(pressed: bool) -> void:
 	_details.visible = pressed
+
+
+## 使用已记录路径定位当前编辑场景内的来源；丢失来源时要求刷新。
+## [br]
+## @api private
+func _on_locate_source_pressed() -> void:
+	if not Engine.is_editor_hint():
+		return
+	var item: TreeItem = _event_tree.get_selected() if _tabs.current_tab == 1 else _tree.get_selected()
+	if item == null:
+		_EDITOR_WORKSPACE_UI.set_status(_summary_label, "先选择一条连接或发射记录。")
+		return
+	var metadata: Dictionary = GFVariantData.as_dictionary(item.get_metadata(0))
+	var path: String = GFVariantData.get_option_string(metadata, "source_node_path", GFVariantData.get_option_string(metadata, "node_path"))
+	var root: Node = _get_live_node_from_ref(_root_ref) if _root_ref != null else null
+	var edited_root: Node = EditorInterface.get_edited_scene_root()
+	var source: Node = root.get_node_or_null(NodePath(path)) if root != null and root.is_inside_tree() and not path.is_empty() else null
+	if source == null or edited_root == null or not (source == edited_root or edited_root.is_ancestor_of(source)):
+		_EDITOR_WORKSPACE_UI.set_status(_summary_label, "来源已不在当前编辑场景中，请刷新后重新选择。", _EDITOR_WORKSPACE_UI.WARNING_TEXT_COLOR)
+		return
+	var selection: EditorSelection = EditorInterface.get_selection()
+	selection.clear()
+	selection.add_node(source)
 
 
 ## 选中连接树项含字典元数据时，在详情控件显示安全 JSON。

@@ -97,6 +97,11 @@ var _tree: Tree = null
 ## [br]
 var _details: TextEdit = null
 
+## 控制完整问题数据的展开状态。
+## [br]
+## @api private
+var _details_toggle: CheckButton = null
+
 
 # --- Godot 生命周期方法 ---
 
@@ -190,7 +195,7 @@ func _build_ui() -> void:
 	toolbar.add_child(_require_initial_check)
 
 	_select_button = Button.new()
-	_select_button.text = "选中"
+	_select_button.text = "定位状态机"
 	_select_button.tooltip_text = "在编辑器场景树中选中当前状态机。"
 	var _select_connected: int = _select_button.pressed.connect(_on_select_pressed)
 	toolbar.add_child(_select_button)
@@ -217,6 +222,8 @@ func _build_ui() -> void:
 
 	_details = _GF_EDITOR_WORKSPACE_UI.make_details_output()
 	root_box.add_child(_details)
+	_details_toggle = _GF_EDITOR_WORKSPACE_UI.make_details_toggle(_details)
+	toolbar.add_child(_details_toggle)
 
 
 ## 依次从保存的弱引用、编辑器当前场景和运行时 SceneTree 解析扫描根节点。
@@ -295,7 +302,7 @@ func _render_selected_machine() -> void:
 	if _machines.is_empty():
 		_last_report = {}
 		_GF_EDITOR_WORKSPACE_UI.set_status(_summary_label, "当前场景没有 GFNodeStateMachine。")
-		_empty_label.text = "打开包含节点状态机的场景后点击刷新。"
+		_empty_label.text = "打开场景并添加 GFNodeStateMachine 与子状态，设置初始状态后点击“刷新”。此页检查已声明结构；运行时动态转换保持未知。"
 		_empty_label.visible = true
 		_tree.visible = false
 		return
@@ -317,7 +324,7 @@ func _render_selected_machine() -> void:
 		GFVariantData.get_option_string(_last_report, "summary"),
 		GFVariantData.get_option_string(_last_report, "next_action"),
 	]
-	_summary_label.modulate = _GF_EDITOR_WORKSPACE_UI.get_report_color(_last_report)
+	_GF_EDITOR_WORKSPACE_UI.set_status(_summary_label, _summary_label.text, _GF_EDITOR_WORKSPACE_UI.get_report_color(_last_report))
 	_render_issues(GFVariantData.get_option_array(_last_report, "issues"))
 
 
@@ -344,7 +351,7 @@ func _render_issues(issues: Array) -> void:
 	_tree.visible = visible_count > 0
 	_empty_label.visible = visible_count == 0
 	_empty_label.text = "当前状态机结构健康。" if visible_count == 0 else ""
-	_details.visible = visible_count > 0
+	_details.visible = visible_count > 0 and _details_toggle.button_pressed
 
 
 ## 返回当前下拉框索引对应的有效状态机；控件、列表或索引无效时返回 null。
@@ -443,5 +450,6 @@ func _on_issue_selected() -> void:
 
 	var issue: Variant = item.get_metadata(0)
 	if issue is Dictionary:
+		_details_toggle.button_pressed = true
 		_details.visible = true
 		_details.text = _safe_json(issue)

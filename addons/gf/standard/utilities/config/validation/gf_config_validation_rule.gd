@@ -1,3 +1,5 @@
+@tool
+
 ## GFConfigValidationRule: 导表校验规则基类。
 ##
 ## 用于把字段、记录或整表校验拆成可组合 Resource，便于项目按需声明范围、

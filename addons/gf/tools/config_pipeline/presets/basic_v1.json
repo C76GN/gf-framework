@@ -1,0 +1,12 @@
+{
+  "preset_id": "gf.config.basic",
+  "preset_version": 1,
+  "schema_options": {
+    "typed_headers": true,
+    "id_field": "id",
+    "require_unique_id": true
+  },
+  "access_options": {
+    "include_typed_records": true
+  }
+}

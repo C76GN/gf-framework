@@ -16,7 +16,7 @@ Config Pipeline 的内置布局解析阶段。 把 Reader 原始载荷解码为�
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 常量 | [`STAGE_ID`](#member-gfconfigpipelinelayoutstage-constants-stage_id) | `const STAGE_ID: String = "gf.config.layout.builtin"` |
-| 常量 | [`IMPLEMENTATION_VERSION`](#member-gfconfigpipelinelayoutstage-constants-implementation_version) | `const IMPLEMENTATION_VERSION: int = 3` |
+| 常量 | [`IMPLEMENTATION_VERSION`](#member-gfconfigpipelinelayoutstage-constants-implementation_version) | `const IMPLEMENTATION_VERSION: int = 4` |
 | 方法 | [`decode_source`](#member-gfconfigpipelinelayoutstage-methods-decode_source) | `func decode_source( source: GFConfigPipelineTableSource, read_result: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`get_stage_descriptor`](#member-gfconfigpipelinelayoutstage-methods-get_stage_descriptor) | `func get_stage_descriptor() -> Dictionary:` |
 
@@ -43,7 +43,7 @@ Layout 阶段的稳定实现标识。
 - 首次版本：`9.0.0`
 
 ```gdscript
-const IMPLEMENTATION_VERSION: int = 3
+const IMPLEMENTATION_VERSION: int = 4
 ```
 
 Layout 阶段的实现版本；改变布局解析语义时递增。
@@ -77,7 +77,7 @@ func decode_source( source: GFConfigPipelineTableSource, read_result: Dictionary
 
 - `read_result`: Dictionary，符合 gf.config_pipeline.reader_result@1。
 - `options`: Dictionary，可包含 parse_options；其字段覆盖 source.parse_options。
-- `return`: Dictionary，包含 success、phase、data、header、row_locations、source、source_path、format、error_kind、error、error_line 和 error_column，并可包含格式专属字段。
+- `return`: Dictionary，包含 success、phase、data、header、header_location、row_locations、source、source_path、format、error_kind、error、error_line 和 error_column；表格返回真实表头位置，XLSX 成功时还包含实际 sheet_name 和 sheet_path。
 
 <a id="member-gfconfigpipelinelayoutstage-methods-get_stage_descriptor"></a>
 

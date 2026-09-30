@@ -1,3 +1,5 @@
+@tool
+
 ## GFConfigSizeValidationRule: 长度或数量校验规则。
 ##
 ## 用于校验 String、Array、Dictionary、PackedArray 字段，或整表记录数量。

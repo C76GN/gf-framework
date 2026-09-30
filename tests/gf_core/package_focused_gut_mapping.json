@@ -339,9 +339,11 @@
       "res://tests/gf_core/tools/action_queue.editor/test_gf_tween_preview.gd"
     ],
     "gf.tool.asset_browser": [
+      "res://tests/gf_core/tools/asset_browser/test_gf_asset_browser_editor.gd",
       "res://tests/gf_core/tools/asset_browser/test_gf_asset_browser_model.gd"
     ],
     "gf.tool.config_pipeline": [
+      "res://tests/gf_core/tools/config_pipeline/test_gf_config_workbench.gd",
       "res://tests/gf_core/tools/config_pipeline/test_gf_bounded_zip_support.gd",
       "res://tests/gf_core/tools/config_pipeline/test_gf_config_pipeline.gd",
       "res://tests/gf_core/tools/config_pipeline/test_gf_config_pipeline_stages.gd",
@@ -359,6 +361,9 @@
     "gf.tool.network.editor": [
       "res://tests/gf_core/tools/network.editor/test_gf_network_editor_tool_package.gd"
     ],
+	"gf.tool.project_bootstrap": [
+		"res://tests/gf_core/tools/project_bootstrap/test_gf_project_bootstrap.gd"
+	],
 	"gf.tool.project_layout": [
 		"res://tests/gf_core/tools/project_layout/test_gf_project_layout_editor.gd",
 		"res://tests/gf_core/tools/project_layout/test_gf_project_layout_tool_package.gd"

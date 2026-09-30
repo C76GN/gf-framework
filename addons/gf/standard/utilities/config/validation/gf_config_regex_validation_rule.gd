@@ -1,3 +1,5 @@
+@tool
+
 ## GFConfigRegexValidationRule: 字符串正则校验规则。
 ##
 ## 用于检查字符串字段是否匹配给定表达式，可选择部分匹配或完整匹配。

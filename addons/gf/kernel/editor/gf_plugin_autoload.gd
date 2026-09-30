@@ -66,6 +66,22 @@ static func remove(plugin: EditorPlugin) -> void:
 	_set_autoload_ownership_marker(false)
 
 
+## 查询 Gf 是否作为全局单例启用，并指向 GF 核心脚本的规范路径或 UID。
+## 只读项目配置，不加载用户脚本，也不修改 AutoLoad 所有权。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @return 启用的 Gf 单例指向 GF 核心脚本时返回 true。
+static func is_registered_singleton() -> bool:
+	var raw_value: Variant = ProjectSettings.get_setting("autoload/%s" % AUTOLOAD_NAME, "")
+	if not raw_value is String:
+		return false
+	var autoload_value: String = raw_value
+	return autoload_value.begins_with("*") and _autoload_points_to_gf()
+
+
 # --- 私有/辅助方法 ---
 
 ## 检查 autoload/Gf 指向路径或 ResourceUID 是否与 GF 核心脚本一致。

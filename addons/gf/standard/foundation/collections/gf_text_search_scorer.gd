@@ -147,7 +147,10 @@ static func tokenize(query: String, options: Dictionary = {}) -> PackedStringArr
 static func score_text(query: String, text: String, options: Dictionary = {}) -> Dictionary:
 	var context: Dictionary = _make_query_context(query, options)
 	var case_sensitive: bool = GFVariantData.get_option_bool(context, "case_sensitive", false)
-	var tokens: PackedStringArray = GFVariantData.get_option_packed_string_array(context, "tokens")
+	var tokens: PackedStringArray = PackedStringArray()
+	var tokens_value: Variant = GFVariantData.get_option_value(context, "tokens")
+	if tokens_value is PackedStringArray:
+		tokens = tokens_value
 	var normalized_query: String = GFVariantData.get_option_string(context, "normalized_query")
 	var normalized_text: String = _normalize_search_text(text, case_sensitive)
 	var require_all_tokens: bool = GFVariantData.get_option_bool(context, "require_all_tokens", true)
@@ -214,6 +217,97 @@ static func rank_candidates(query: String, candidates: Array[Dictionary], option
 	return reports.slice(0, limit)
 
 
+# --- 框架内部方法 ---
+
+## 构建由调用方独占的纯数据评分上下文，供分批查询复用相同规范化规则。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param query: 查询文本。
+## [br]
+## @param options: 与 rank_candidates 相同的评分选项。
+## [br]
+## @schema options: Dictionary with optional fields, require_all_tokens, case_sensitive and duplicate_candidate.
+## [br]
+## @return 本次查询独占的上下文；调用方不得在评分中修改它。
+## [br]
+## @schema return: Dictionary with case_sensitive: bool, tokens: PackedStringArray, normalized_query: String, require_all_tokens: bool, duplicate_candidate: bool and fields: Array[Dictionary].
+static func create_ranking_context(query: String, options: Dictionary = {}) -> Dictionary:
+	return _make_query_context(query, options)
+
+
+## 使用已经规范化的上下文评分一个候选，并保留过滤后全局位置。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param candidate: 本次查询的候选数据。
+## [br]
+## @schema candidate: Dictionary with fields referenced by context.fields.
+## [br]
+## @param context: create_ranking_context 创建的未修改上下文。
+## [br]
+## @schema context: Dictionary returned by create_ranking_context.
+## [br]
+## @param index: 过滤后的全局候选索引。
+## [br]
+## @return 与同步评分相同的报告，另带全局索引。
+## [br]
+## @schema return: Dictionary with matched, score, matched_tokens, field_scores, candidate and index.
+static func score_ranking_candidate(candidate: Dictionary, context: Dictionary, index: int) -> Dictionary:
+	var report: Dictionary = _score_candidate_with_context(candidate, context)
+	report["index"] = index
+	return report
+
+
+## 比较两份评分报告，复用同步排名的分数、标题和全局索引规则。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param left: 左侧评分报告。
+## [br]
+## @schema left: Dictionary returned by score_ranking_candidate or rank_candidates.
+## [br]
+## @param right: 右侧评分报告。
+## [br]
+## @schema right: Dictionary returned by score_ranking_candidate or rank_candidates.
+## [br]
+## @return 左侧应排在右侧之前时为 true。
+static func is_ranked_report_before(left: Dictionary, right: Dictionary) -> bool:
+	return _sort_reports_descending(left, right)
+
+
+## 就地排列调用方独占的纯数据报告；私有排序键不写入报告，仍使用原生 sort_custom。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param reports: 本次排名独占的报告数组；只改变顺序，不复制或修改报告内容。
+## [br]
+## @schema reports: Array[Dictionary] returned by score_ranking_candidate, with score, candidate and index.
+static func sort_ranking_reports(reports: Array[Dictionary]) -> void:
+	var scores: PackedFloat64Array = PackedFloat64Array()
+	var titles: PackedStringArray = PackedStringArray()
+	var indices: PackedInt64Array = PackedInt64Array()
+	var order: Array[int] = []
+	for position: int in range(reports.size()):
+		var report: Dictionary = reports[position]
+		var _score_appended: bool = scores.append(GFVariantData.get_option_float(report, "score", 0.0))
+		var _title_appended: bool = titles.append(_get_report_sort_title(report))
+		var _index_appended: bool = indices.append(GFVariantData.get_option_int(report, "index", 0))
+		order.append(position)
+	order.sort_custom(_sort_ranking_indices.bind(scores, titles, indices))
+	var original: Array[Dictionary] = reports.duplicate()
+	for position: int in range(order.size()):
+		reports[position] = original[order[position]]
+
+
 # --- 私有/辅助方法 ---
 
 ## 合并查询选项、规范化文本并预先准备候选字段配置。
@@ -236,7 +330,8 @@ static func _make_query_context(query: String, options: Dictionary) -> Dictionar
 ## @api private
 static func _score_candidate_with_context(candidate: Dictionary, context: Dictionary) -> Dictionary:
 	var case_sensitive: bool = GFVariantData.get_option_bool(context, "case_sensitive", false)
-	var tokens: PackedStringArray = GFVariantData.get_option_packed_string_array(context, "tokens")
+	var tokens_value: Variant = GFVariantData.get_option_value(context, "tokens")
+	var tokens: PackedStringArray = tokens_value if tokens_value is PackedStringArray else PackedStringArray()
 	var normalized_query: String = GFVariantData.get_option_string(context, "normalized_query")
 	var require_all_tokens: bool = GFVariantData.get_option_bool(context, "require_all_tokens", true)
 	var duplicate_candidate: bool = GFVariantData.get_option_bool(context, "duplicate_candidate", true)
@@ -381,6 +476,11 @@ static func _get_fields(options: Dictionary) -> Array[Dictionary]:
 ## @api private
 static func _get_context_fields(context: Dictionary) -> Array[Dictionary]:
 	var fields_value: Variant = GFVariantData.get_option_value(context, "fields", DEFAULT_FIELDS)
+	# 创建上下文时已完成规范化；评分期间只读复用，保留字段顺序和重复项。
+	if fields_value is Array[Dictionary]:
+		var prepared_fields: Array[Dictionary] = fields_value
+		if not prepared_fields.is_empty():
+			return prepared_fields
 	var fields: Array[Dictionary] = []
 	if fields_value is Array:
 		for field_value: Variant in fields_value:
@@ -658,17 +758,35 @@ static func _sort_reports_descending(left: Dictionary, right: Dictionary) -> boo
 
 	var left_title: String = _get_report_sort_title(left)
 	var right_title: String = _get_report_sort_title(right)
+	return _compare_rank_values(left_score, right_score, left_title, right_title, GFVariantData.get_option_int(left, "index", 0), GFVariantData.get_option_int(right, "index", 0))
+
+
+## 私有独立排序键只读引用；索引数组与报告数组使用相同的原生排序算法和初始顺序。
+## [br]
+## @api private
+static func _sort_ranking_indices(left: int, right: int, scores: PackedFloat64Array, titles: PackedStringArray, indices: PackedInt64Array) -> bool:
+	return _compare_rank_values(scores[left], scores[right], titles[left], titles[right], indices[left], indices[right])
+
+
+## 共享近似分数、标题和全局索引比较规则；不修改近似相等关系。
+## [br]
+## @api private
+static func _compare_rank_values(left_score: float, right_score: float, left_title: String, right_title: String, left_index: int, right_index: int) -> bool:
+	if not is_equal_approx(left_score, right_score):
+		return left_score > right_score
 	if left_title != right_title:
 		return left_title < right_title
-
-	return GFVariantData.get_option_int(left, "index", 0) < GFVariantData.get_option_int(right, "index", 0)
+	return left_index < right_index
 
 
 ## 从 title 或备用 name 字段构造小写排序文本。
 ## [br]
 ## @api private
 static func _get_report_sort_title(report: Dictionary) -> String:
-	var candidate: Dictionary = GFVariantData.get_option_dictionary(report, "candidate", {})
+	var candidate: Dictionary = {}
+	var candidate_value: Variant = GFVariantData.get_option_value(report, "candidate")
+	if candidate_value is Dictionary:
+		candidate = candidate_value
 	var title: String = _value_to_search_text(_get_candidate_value(candidate, &"title"))
 	if title.is_empty():
 		title = _value_to_search_text(_get_candidate_value(candidate, &"name"))
