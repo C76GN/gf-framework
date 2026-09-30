@@ -15,6 +15,8 @@ const _EXISTING_OPTIONS: Dictionary = {"mode": "existing_project"}
 
 var _assertions: int = 0
 var _failed: bool = false
+var _filesystem_changes: int = 0
+var _retained_scan_synchronous_observed: bool = false
 
 
 # --- Godot 回调方法 ---
@@ -80,6 +82,7 @@ func _run() -> void:
 	_check(appended == PackedStringArray(["res://existing_installer.gd", "res://legacy_counter_installer.gd", "res://integration/project_installer.gd"]), "Existing Installer order and the old sample must be preserved.")
 	_check(original_installers == PackedStringArray(["res://existing_installer.gd", "res://legacy_counter_installer.gd"]), "Planning must not mutate the original Installer array.")
 	_check(FileAccess.get_sha256("res://legacy_counter_installer.gd") == legacy_hash, "The initializer must not migrate or delete old sample files.")
+	_exercise_refreshed_existing_main(dock)
 	dock.free()
 	_check_persisted_settings()
 	_exercise_guidance_and_readme()
@@ -88,6 +91,7 @@ func _run() -> void:
 	_exercise_create_only_and_stale_preview()
 	var failure: Dictionary = _exercise_save_failure()
 	_exercise_recovery_dock(failure)
+	await _exercise_retained_sidecar_scan()
 	_exercise_installer_opt_out()
 	ProjectSettings.set_setting("gf/project/installers", appended)
 	ProjectSettings.set_setting("application/run/main_scene", "res://existing.tscn")
@@ -98,7 +102,7 @@ func _run() -> void:
 		await get_tree().process_frame
 	_check(not EditorInterface.get_resource_filesystem().is_scanning(), "The editor scan must settle within its bounded deadline.")
 	if not _failed:
-		print("GF_PROJECT_BOOTSTRAP_EDITOR_SMOKE_OK " + JSON.stringify({"assertions": _assertions, "native_private_directories_verified": true, "new_project_default_created": true, "existing_preserves_main_and_installers": true, "guidance_only_no_writes": true, "readme_only_no_settings_save": true, "settings_failure_compensated": true, "create_only_and_preview_stale": true, "retired_callbacks_rejected": true, "recovery_ui_preserved": true, "legacy_sample_preserved": true, "canonical_autoload_guarded": true}))
+		print("GF_PROJECT_BOOTSTRAP_EDITOR_SMOKE_OK " + JSON.stringify({"assertions": _assertions, "native_private_directories_verified": true, "new_project_default_created": true, "existing_preserves_main_and_installers": true, "refreshed_existing_main_is_current": true, "failed_retained_sidecar_scan_requested": true, "failed_creation_does_not_open_scene": true, "retained_scan_synchronous_observed": _retained_scan_synchronous_observed, "guidance_only_no_writes": true, "readme_only_no_settings_save": true, "settings_failure_compensated": true, "create_only_and_preview_stale": true, "retired_callbacks_rejected": true, "recovery_ui_preserved": true, "legacy_sample_preserved": true, "canonical_autoload_guarded": true}))
 	get_tree().call_deferred(&"quit", 1 if _failed else 0)
 
 
@@ -139,6 +143,30 @@ func _check_persisted_settings() -> void:
 	var persisted_main: String = persisted.get_value("application", "run/main_scene")
 	var installers_match: bool = persisted.get_value("gf", "project/installers") == ProjectSettings.get_setting("gf/project/installers")
 	_check(persisted_main == "res://existing.tscn" and installers_match, "Actual disk settings must match the preserved entry and appended Installer order.")
+
+
+func _exercise_refreshed_existing_main(dock: _DOCK_SCRIPT) -> void:
+	var completed: Dictionary = dock.get("_last_report")
+	var completed_report_matches: bool = completed.get("ok") == true and completed.get("main_scene_path") == "res://existing.tscn"
+	_check(completed_report_matches, "Main refresh must start from the actual successful integration report.")
+	_check(ResourceLoader.exists("res://other_existing.tscn", "PackedScene"), "The changed main scene must be a real project resource.")
+	var disk_before: String = FileAccess.get_sha256("res://project.godot")
+	var open_main: Button = dock.find_child("OpenMain", true, false)
+	ProjectSettings.set_setting("application/run/main_scene", "res://other_existing.tscn")
+	_press(dock, "RefreshPlan")
+	var conflicting_plan: Dictionary = dock.get("_plan")
+	var conflicting_plan_blocked: bool = conflicting_plan.get("ok") == false
+	_check(conflicting_plan_blocked, "The existing generated Installer must keep repeated creation blocked during Main refresh.")
+	var selected_path: Variant = dock.call(&"_main_path")
+	var selected_main_current: bool = selected_path is String and selected_path == "res://other_existing.tscn" and not open_main.disabled
+	_check(selected_main_current, "Refreshing an existing project must locate its current Main even when creation is blocked.")
+	ProjectSettings.set_setting("application/run/main_scene", "")
+	_press(dock, "RefreshPlan")
+	selected_path = dock.call(&"_main_path")
+	var selected_main_cleared: bool = selected_path is String and selected_path == "" and open_main.disabled
+	_check(selected_main_cleared, "Clearing the current Main must disable OpenMain without falling back to the previous success report.")
+	_check(FileAccess.get_sha256("res://project.godot") == disk_before, "Refreshing Main navigation must not save external in-memory settings.")
+	ProjectSettings.set_setting("application/run/main_scene", "res://existing.tscn")
 
 
 func _exercise_guidance_and_readme() -> void:
@@ -309,6 +337,84 @@ func _exercise_recovery_dock(failure_report: Dictionary) -> void:
 	dock.free()
 
 
+func _exercise_retained_sidecar_scan() -> void:
+	var dock: _DOCK_SCRIPT = _new_dock()
+	_configure_existing(dock, "res://retained_sidecar")
+	_press(dock, "RefreshPlan")
+	var filesystem: EditorFileSystem = EditorInterface.get_resource_filesystem()
+	var settings: EditorSettings = EditorInterface.get_editor_settings()
+	var previous_auto_import: Variant = settings.get_setting("interface/editor/behavior/import_resources_when_unfocused")
+	settings.set_setting("interface/editor/behavior/import_resources_when_unfocused", false)
+	var _connected: int = filesystem.filesystem_changed.connect(_on_filesystem_changed)
+	await _wait_for_filesystem_idle()
+	_check(DisplayServer.get_name() == "headless", "The scan observation must run without window-focus-triggered scans.")
+	var auto_scan_disabled: bool = settings.get_setting("interface/editor/behavior/import_resources_when_unfocused") == false
+	_check(auto_scan_disabled, "The isolated editor must disable periodic scans during the product scan observation.")
+	_check(filesystem.get_filesystem_path("res://retained_sidecar") == null, "The retained-output directory must not already exist in the editor filesystem index.")
+	var scene_before: Node = EditorInterface.get_edited_scene_root()
+	var disk_before: String = FileAccess.get_sha256("res://project.godot")
+	var installers_before: Variant = ProjectSettings.get_setting("gf/project/installers")
+	var changes_before: int = _filesystem_changes
+	# 既有事务 seam 在实际 staging 写入后失败并保留自有 sidecar，不替换生成器或扫描 API。
+	GFArtifactWriteTransaction._configure_test_owned_write_failures(0, 1, 2)
+	_press(dock, "InitializeProject")
+	_retained_scan_synchronous_observed = filesystem.is_scanning() or _filesystem_changes > changes_before
+	GFArtifactWriteTransaction._reset_test_owned_write_failures()
+	var report: Dictionary = dock.get("_last_report")
+	var retained_failure: bool = report.get("ok") == false and report.get("status") == "file_commit_failed" and report.get("files_created") == true and report.get("recovery_required") == true
+	_check(retained_failure, "The actual failed transaction must retain owned staging output and report recovery debt.")
+	var sidecars: PackedStringArray = _retained_staging_paths("res://retained_sidecar")
+	_check(sidecars.size() == 1 and FileAccess.file_exists(sidecars[0]), "The failed transaction must leave its actual staging sidecar on disk.")
+	_check(not FileAccess.file_exists("res://retained_sidecar/project_installer.gd"), "A retained staging sidecar must not be described as a published Installer.")
+	_check(EditorInterface.get_edited_scene_root() == scene_before, "Failed creation must not automatically open a scene.")
+	await _wait_for_filesystem_idle()
+	_check(_filesystem_changes > changes_before, "The requested scan must produce an actual filesystem change observation.")
+	_check(filesystem.get_filesystem_path("res://retained_sidecar") != null, "Failed creation with retained output must refresh its new directory into the editor filesystem index.")
+	_check(EditorInterface.get_edited_scene_root() == scene_before, "Finishing the failed-output scan must preserve the current editor scene.")
+	filesystem.filesystem_changed.disconnect(_on_filesystem_changed)
+	var preserved_settings: bool = FileAccess.get_sha256("res://project.godot") == disk_before and ProjectSettings.get_setting("gf/project/installers") == installers_before
+	_check(preserved_settings, "A failed staging commit must preserve both saved and live project settings.")
+	var transactions: Array = report["transactions"]
+	var recovered_count: int = 0
+	for transaction: Dictionary in transactions:
+		if transaction.get("recovery_required") != true or transaction.get("recovery_action") != &"complete":
+			continue
+		var recovery: Dictionary = transaction["recovery_transaction"]
+		var recovered: Dictionary = GFArtifactWriteTransaction.complete(recovery)
+		var recovery_complete: bool = recovered.get("ok") == true
+		_check(recovery_complete, "The retained staging sidecar must be cleaned with its original owned recovery handle.")
+		recovered_count += 1
+	_check(recovered_count == 1, "The staging failure must expose exactly one owned cleanup obligation.")
+	for path: String in sidecars:
+		_check(not FileAccess.file_exists(path), "Completing recovery must remove the exact retained sidecar.")
+	settings.set_setting("interface/editor/behavior/import_resources_when_unfocused", previous_auto_import)
+	dock.free()
+
+
+func _wait_for_filesystem_idle() -> void:
+	var filesystem: EditorFileSystem = EditorInterface.get_resource_filesystem()
+	var idle_frames: int = 0
+	var previous_changes: int = _filesystem_changes
+	var deadline: int = Time.get_ticks_msec() + 30000
+	while idle_frames < 5 and Time.get_ticks_msec() < deadline:
+		await get_tree().process_frame
+		idle_frames = idle_frames + 1 if not filesystem.is_scanning() and not filesystem.is_importing() and _filesystem_changes == previous_changes else 0
+		previous_changes = _filesystem_changes
+	_check(idle_frames == 5, "The real editor filesystem must reach five consecutive idle frames within the deadline.")
+
+
+func _retained_staging_paths(directory: String) -> PackedStringArray:
+	var paths: PackedStringArray = PackedStringArray()
+	var access: DirAccess = DirAccess.open(directory)
+	if access == null:
+		return paths
+	access.include_hidden = true
+	for file_name: String in access.get_files():
+		if file_name.begins_with(".gf-artifact-staging-"):
+			var _appended: bool = paths.append(directory.path_join(file_name))
+	return paths
+
+
 func _exercise_installer_opt_out() -> void:
 	ProjectSettings.set_setting("gf/project/installers", null)
 	ProjectSettings.set_setting("application/run/main_scene", "")
@@ -337,3 +443,9 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		_failed = true
 		push_error("GF_PROJECT_BOOTSTRAP_EDITOR_SMOKE_FAILED: " + message)
+
+
+# --- 信号处理函数 ---
+
+func _on_filesystem_changed() -> void:
+	_filesystem_changes += 1

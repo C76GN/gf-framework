@@ -244,10 +244,10 @@ func _read_string(data: Dictionary, key: String) -> String:
 
 
 func _main_path() -> String:
+	if _read_string(_plan, "mode") == "existing_project":
+		return _read_string(_plan, "main_scene_path")
 	if _last_report.get("ok") == true:
 		return _read_string(_last_report, "main_scene_path")
-	if _plan.get("ok") == true and _read_string(_plan, "mode") == "existing_project":
-		return _read_string(_plan, "main_scene_path")
 	return ""
 
 
@@ -362,10 +362,11 @@ func _on_create_pressed() -> void:
 	_plan.clear()
 	_set_busy(false)
 	_show_report(report)
-	if report.get("ok") == true:
+	if report.get("files_created") == true:
 		EditorInterface.get_resource_filesystem().scan()
 		if not is_instance_valid(self) or generation != _generation or not _is_context_active():
 			return
+	if report.get("ok") == true:
 		_on_open_scene_pressed()
 
 

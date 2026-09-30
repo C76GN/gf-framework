@@ -107,10 +107,11 @@ def run_phase(
 				raise ValueError("Native private directory observations are missing.")
 			if marker == EDITOR_SUCCESS:
 				keys = (
-					"new_project_default_created", "existing_preserves_main_and_installers",
+					"new_project_default_created", "existing_preserves_main_and_installers", "refreshed_existing_main_is_current",
 					"guidance_only_no_writes", "readme_only_no_settings_save", "settings_failure_compensated",
 					"create_only_and_preview_stale", "retired_callbacks_rejected", "recovery_ui_preserved",
 					"legacy_sample_preserved", "canonical_autoload_guarded",
+					"failed_retained_sidecar_scan_requested", "failed_creation_does_not_open_scene",
 				)
 			elif name == "runtime_empty":
 				keys = (
@@ -190,6 +191,10 @@ def write_runtime_fixtures(project: Path) -> None:
 	)
 	(project / "sentinel.tscn").write_text(
 		'[gd_scene format=3]\n\n[node name="Sentinel" type="Node"]\n',
+		encoding="utf-8", newline="\n",
+	)
+	(project / "other_existing.tscn").write_text(
+		'[gd_scene format=3]\n\n[node name="OtherExisting" type="Node"]\n',
 		encoding="utf-8", newline="\n",
 	)
 
