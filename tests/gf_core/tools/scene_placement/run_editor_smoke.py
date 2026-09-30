@@ -264,7 +264,7 @@ def main() -> int:
 					if len(image_bytes) <= 8 or image_bytes[:8] != b"\x89PNG\r\n\x1a\n":
 						raise RuntimeError("Rendered placement evidence is missing or is not a bounded PNG.")
 					report["rendered_preview_image"] = str(image)
-					for stem in ("workspace_home", "workspace_assets"):
+					for stem in ("workspace_home", "workspace_assets", "workspace_project_initialization"):
 						workspace_image = logs / f"{stem}.png"
 						workspace_bytes = path_security.read_pinned_regular_file(logs, workspace_image.name, max_bytes=LOG_LIMIT)
 						if len(workspace_bytes) <= 8 or workspace_bytes[:8] != b"\x89PNG\r\n\x1a\n":

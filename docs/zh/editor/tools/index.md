@@ -4,7 +4,7 @@ GF 制作期工具用于编辑、导入、构建或 CI 流程。工具可以依�
 
 ## 阅读入口
 
-- [最小项目向导](project-bootstrap.md)：创建只依赖 kernel 的 Model、System、Installer 和可直接运行的计数示例；保留既有文件与 Installer，主场景替换需显式选择。
+- [项目初始化](project-bootstrap.md)：为新项目创建 Boot、空 Main 和可选 Installer；已有项目保留主场景与装配顺序，通过可复制片段接入。
 - [Config Pipeline 导表工具包](config-pipeline.md)：把通用 CSV / JSON / XLSX 表来源或批量 Profile 构建为 `GFConfigTableResource` / `GFConfigDatabaseResource`，并保存为 Godot `.tres/.res` 或 JSON 导出。
 - [Dialogue Text 对话文本工具包](dialogue-text.md)：把严格 JSON 文本编译为 `GFDialogueResource`，并在制作期报告字段类型、跳转目标和资源结构问题。
 - [Project Layout 项目结构工具包](project-layout.md)：在 GF Workspace 中按需执行只读扫描、问题解释、影响模拟和计划展示；profile 是项目显式选择的策略，Feature Cohesive 只是一份示例。
