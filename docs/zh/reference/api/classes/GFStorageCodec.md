@@ -36,7 +36,7 @@
 | 属性 | [`include_metadata`](#member-gfstoragecodec-properties-include_metadata) | `var include_metadata: bool = false` |
 | 属性 | [`version`](#member-gfstoragecodec-properties-version) | `var version: int = 1:` |
 | 属性 | [`obfuscation_key`](#member-gfstoragecodec-properties-obfuscation_key) | `var obfuscation_key: int = 0` |
-| 属性 | [`max_decompressed_bytes`](#member-gfstoragecodec-properties-max_decompressed_bytes) | `var max_decompressed_bytes: int = 64 * 1024 * 1024` |
+| 属性 | [`max_decode_bytes`](#member-gfstoragecodec-properties-max_decode_bytes) | `var max_decode_bytes: int = 64 * 1024 * 1024:` |
 | 属性 | [`normalize_json_numbers`](#member-gfstoragecodec-properties-normalize_json_numbers) | `var normalize_json_numbers: bool = false` |
 | 方法 | [`encode`](#member-gfstoragecodec-methods-encode) | `func encode(data: Dictionary, options: Dictionary = {}) -> PackedByteArray:` |
 | 方法 | [`decode`](#member-gfstoragecodec-methods-decode) | `func decode(bytes: PackedByteArray, options: Dictionary = {}) -> GFStorageReadResult:` |
@@ -322,17 +322,18 @@ var obfuscation_key: int = 0
 
 轻量 XOR 混淆密钥；为 0 时写入原始 bytes。该字段不提供安全加密能力。
 
-<a id="member-gfstoragecodec-properties-max_decompressed_bytes"></a>
+<a id="member-gfstoragecodec-properties-max_decode_bytes"></a>
 
-### `max_decompressed_bytes`
+### `max_decode_bytes`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
-var max_decompressed_bytes: int = 64 * 1024 * 1024
+var max_decode_bytes: int = 64 * 1024 * 1024:
 ```
 
-解压时允许的最大输出字节数。
+解混淆、解压后允许交给解析器的最大明文字节数，默认 64 MiB。 只能设置正数，无效赋值保留原值；该上限不表示 Variant 堆内存或解析耗时上限。
 
 <a id="member-gfstoragecodec-properties-normalize_json_numbers"></a>
 
@@ -373,7 +374,7 @@ func encode(data: Dictionary, options: Dictionary = {}) -> PackedByteArray:
 结构：
 
 - `data`: Dictionary，要序列化的业务载荷；所有键都会原样保存在独立 payload 中。
-- `options`: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、include_metadata、version 和 max_decompressed_bytes。
+- `options`: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、include_metadata 和 version。
 
 <a id="member-gfstoragecodec-methods-decode"></a>
 
@@ -399,7 +400,7 @@ func decode(bytes: PackedByteArray, options: Dictionary = {}) -> GFStorageReadRe
 
 结构：
 
-- `options`: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、strict_integrity、normalize_json_numbers、require_integrity_checksum 和 max_decompressed_bytes。
+- `options`: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、strict_integrity、normalize_json_numbers、require_integrity_checksum 和 max_decode_bytes；字节上限必须是正 int，默认 64 MiB，同时约束解压输出和明文解析。已移除的 max_decompressed_bytes 选项被拒绝，不提供别名。JSON 解码还受 GFVariantJsonCodec 默认遍历预算约束，超限不返回部分载荷。无法区分损坏流与输出预算耗尽的解压失败保守返回 LIMIT_EXCEEDED。
 
 <a id="member-gfstoragecodec-methods-serialize_dictionary"></a>
 
@@ -432,12 +433,13 @@ func serialize_dictionary(data: Dictionary, p_format: Format = Format.JSON) -> P
 ### `deserialize_dictionary`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func deserialize_dictionary(bytes: PackedByteArray, p_format: Format = Format.JSON) -> Dictionary:
 ```
 
-反序列化字典。
+反序列化字典；超过 max_decode_bytes 或 JSON 默认遍历预算时返回空字典。
 
 参数：
 

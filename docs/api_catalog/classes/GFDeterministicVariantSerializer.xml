@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDeterministicVariantSerializer" path="addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd" module="standard" extends="RefCounted" classDigest="75207d49327677817620ea07544b7ddb55f28a4071aba7bbf2234c0d14576cd3">
+<class name="GFDeterministicVariantSerializer" path="addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd" module="standard" extends="RefCounted" classDigest="b3beca43528a8817d278cd6e52c740eaee74b6fc8389a87408aec758d05991ed">
 	<description>GFDeterministicVariantSerializer: 纯 Variant 数据的确定性规范编码器。
 该类型为锁步、回放、黄金测试和内容 hash 提供稳定的 canonical value、JSON、
 UTF-8 bytes 与 SHA-256。强确定性输入应使用整数、字符串、布尔、整数向量、
@@ -58,7 +58,8 @@ PackedByteArray 或定点数编码；`allow_floats` 仅用于接受 Godot 浮点
 		</member>
 		<member kind="method" name="sha256">
 			<signature>static func sha256(value: Variant, options: Dictionary = {}) -&gt; String:</signature>
-			<description>计算 Variant 规范编码的 SHA-256。</description>
+			<description>计算 Variant 规范编码的 SHA-256，预检后构建完整 typed tree 和 JSON 文本以优先降低编码 CPU 开销。
+大载荷需要控制工作内存时，使用生成相同摘要的 sha256_incremental()。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 待编码的 Variant。</tag>
@@ -67,6 +68,36 @@ PackedByteArray 或定点数编码；`allow_floats` 仅用于接受 Godot 浮点
 				<tag name="schema">value: Variant value supported by `to_canonical_value()`.</tag>
 				<tag name="schema">options: Dictionary with optional allow_floats, max_depth, max_items, max_string_length, and max_output_bytes limits.</tag>
 				<tag name="since">5.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sha256_incremental">
+			<signature>static func sha256_incremental(value: Variant, options: Dictionary = {}) -&gt; String:</signature>
+			<description>逐片计算 Variant 规范编码的 SHA-256，不构建完整 typed tree 或规范 JSON 文本。
+hash 缓冲最多 64 KiB；字典排序仍保留 canonical key 文本，工作内存不是常量。
+调用期间必须保持输入结构不变，增量编码可能增加 CPU 开销。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 待编码的纯 Variant 数据。</tag>
+				<tag name="param">options: 与 sha256() 相同的编码选项和预算。</tag>
+				<tag name="return">与 sha256() 相同的 SHA-256 hex 字符串；失败时返回空字符串。</tag>
+				<tag name="schema">value: Variant value supported by `to_canonical_value()`.</tag>
+				<tag name="schema">options: Dictionary with optional allow_floats, max_depth, max_items, max_string_length, and max_output_bytes limits.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="measure_canonical">
+			<signature>static func measure_canonical(value: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>只读预检规范编码的输入预算和精确输出字节数，不构建完整 typed tree 或输出文本，也不输出错误。
+调用期间必须保持输入结构不变；报告不为后续已修改的数据提供编码资格。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 待测量的纯 Variant 数据。</tag>
+				<tag name="param">options: 与规范 bytes 和 SHA-256 相同的编码选项和预算。</tag>
+				<tag name="return">预检报告；成功时计数精确，失败时计数仅描述已遍历部分，不能视为完整输入或输出的大小。</tag>
+				<tag name="schema">value: Variant value supported by `to_canonical_value()`.</tag>
+				<tag name="schema">options: Dictionary with optional allow_floats, max_depth, max_items, max_string_length, and max_output_bytes limits.</tag>
+				<tag name="schema">return: Closed Dictionary with ok: bool, error: String, failure_kind: String (empty, input_invalid, or output_limit), items: int (Variant nodes plus packed elements), packed_items: int (packed elements only), and output_bytes: int (exact on success; partial and capped by max_output_bytes on failure).</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</methods>

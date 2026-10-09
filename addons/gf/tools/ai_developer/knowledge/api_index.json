@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "df9bc58933b5a82dd5317ab7b442d164f0073f097d4d219337250102e992d59d",
-  "class_count": 867,
+  "source_digest": "e4302582735cf9bf93bf6059f3e45170ee8576467163724ad71d73cd05f616ae",
+  "class_count": 868,
   "autoload_count": 1,
   "package_count": 60,
   "packages": [
@@ -465,7 +465,7 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "representative_path": "addons/gf/standard/utilities/ui/gf_control_focus_utility.gd"
+      "representative_path": "addons/gf/standard/utilities/ui/gf_control_edit_session.gd"
     },
     {
       "id": "gf.standard.ui.navigation",
@@ -18052,6 +18052,13 @@
       "since": "3.17.0",
       "members": [
         {
+          "kind": "signal",
+          "name": "history_changed",
+          "signature": "signal history_changed(snapshot: Dictionary)",
+          "summary": "历史内容、容量或真实操作锁状态变化时，同步发布有界、只读的值数据快照。",
+          "visibility": "public"
+        },
+        {
           "kind": "var",
           "name": "max_history_size",
           "signature": "var max_history_size: int",
@@ -18084,6 +18091,13 @@
           "name": "is_processing_async",
           "signature": "var is_processing_async: bool",
           "summary": "当前是否正在处理一条异步命令的等待、终态判断或历史栈提交。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "is_processing_operation",
+          "signature": "var is_processing_operation: bool",
+          "summary": "当前是否持有同步或异步历史操作锁，包括命令调用、终态判断和历史提交。",
           "visibility": "public"
         },
         {
@@ -18147,6 +18161,13 @@
           "name": "clear",
           "signature": "func clear() -> void",
           "summary": "清空所有历史记录。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_history_state",
+          "signature": "func get_history_state() -> Dictionary",
+          "summary": "返回独立的有界历史状态快照，仅包含标量，不遍历历史或公开命令实例。",
           "visibility": "public"
         },
         {
@@ -23697,6 +23718,75 @@
         }
       ]
     },
+    "GFControlEditSession": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.ui",
+      "path": "addons/gf/standard/utilities/ui/gf_control_edit_session.gd",
+      "summary": "GFControlEditSession: 一个控件的运行期输入会话。 保存编辑开始时的值和文本，保留 SpinBox 尚未提交的数字原文。 宿主负责连接焦点/提交事件、业务转换、验证、模型写入和撤销命令。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "begin_edit",
+          "signature": "func begin_edit(control: Control) -> int",
+          "summary": "开始输入并返回本实例的会话令牌；同一活动控件重复开始保留原基线。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_current",
+          "signature": "func is_current(token: int) -> bool",
+          "summary": "检查令牌是否仍属于活动会话；延期回调必须携带开始时的令牌。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_baseline",
+          "signature": "func get_baseline(token: int) -> Dictionary",
+          "summary": "返回本次输入最初的快照，不因重复开始或当前输入变化而更新。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "capture_draft",
+          "signature": "func capture_draft(token: int) -> Dictionary",
+          "summary": "捕获当前草稿；SpinBox 的原文独立于 Range.value，非法中间输入也会保留。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_ime_composition",
+          "signature": "func has_ime_composition(token: int) -> bool",
+          "summary": "检查原生文本控件的输入法组合；组合尚未结束时提交与取消均拒绝。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "commit_edit",
+          "signature": "func commit_edit(token: int) -> Dictionary",
+          "summary": "结束会话并交付输入边界，不解析数字、不应用模型、不生成历史。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel_edit",
+          "signature": "func cancel_edit(token: int) -> bool",
+          "summary": "恢复本次输入最初的控件值与原文并结束会话；不发起模型写入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "clear",
+          "signature": "func clear() -> void",
+          "summary": "放弃会话并失效所有旧令牌，不恢复控件、不写入模型。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFControlFocusUtility": {
       "owner_kind": "class",
       "extends": "RefCounted",
@@ -26266,7 +26356,21 @@
           "kind": "func",
           "name": "sha256",
           "signature": "static func sha256(value: Variant, options: Dictionary = {}) -> String",
-          "summary": "计算 Variant 规范编码的 SHA-256。",
+          "summary": "计算 Variant 规范编码的 SHA-256，预检后构建完整 typed tree 和 JSON 文本以优先降低编码 CPU 开销。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "sha256_incremental",
+          "signature": "static func sha256_incremental(value: Variant, options: Dictionary = {}) -> String",
+          "summary": "逐片计算 Variant 规范编码的 SHA-256，不构建完整 typed tree 或规范 JSON 文本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "measure_canonical",
+          "signature": "static func measure_canonical(value: Variant, options: Dictionary = {}) -> Dictionary",
+          "summary": "只读预检规范编码的输入预算和精确输出字节数，不构建完整 typed tree 或输出文本，也不输出错误。",
           "visibility": "public"
         }
       ]
@@ -42359,10 +42463,17 @@
           "visibility": "public"
         },
         {
+          "kind": "var",
+          "name": "automatic_input_routing",
+          "signature": "var automatic_input_routing: bool = true",
+          "summary": "是否由内部全局节点自动接收 Godot 输入和应用失焦通知，默认启用。",
+          "visibility": "public"
+        },
+        {
           "kind": "func",
           "name": "init",
           "signature": "func init() -> void",
-          "summary": "初始化输入映射运行时状态并挂载输入路由节点。",
+          "summary": "初始化输入映射运行时状态；启用 automatic_input_routing 时挂载输入路由节点。",
           "visibility": "public"
         },
         {
@@ -86354,9 +86465,9 @@
         },
         {
           "kind": "var",
-          "name": "max_decompressed_bytes",
-          "signature": "var max_decompressed_bytes: int = 64 * 1024 * 1024",
-          "summary": "解压时允许的最大输出字节数。",
+          "name": "max_decode_bytes",
+          "signature": "var max_decode_bytes: int = 64 * 1024 * 1024",
+          "summary": "解混淆、解压后允许交给解析器的最大明文字节数，默认 64 MiB。",
           "visibility": "public"
         },
         {
@@ -86391,7 +86502,7 @@
           "kind": "func",
           "name": "deserialize_dictionary",
           "signature": "func deserialize_dictionary(bytes: PackedByteArray, p_format: Format = Format.JSON) -> Dictionary",
-          "summary": "反序列化字典。",
+          "summary": "反序列化字典；超过 max_decode_bytes 或 JSON 默认遍历预算时返回空字典。",
           "visibility": "public"
         },
         {
@@ -87297,7 +87408,7 @@
         {
           "kind": "enum",
           "name": "FailureKind",
-          "signature": "enum FailureKind {\n\t## 没有失败。\n\tNONE,\n\t## 请求参数或路径无效。\n\tINVALID_REQUEST,\n\t## 文件不存在。\n\tNOT_FOUND,\n\t## 文件 IO 或异步执行失败。\n\tIO_FAILED,\n\t## 文件格式、载荷或完整性损坏。\n\tCORRUPT,\n\t## 物理存储版本高于当前运行时。\n\tFUTURE_VERSION,\n\t## 物理存储迁移链缺失或迁移失败。\n\tMIGRATION_FAILED,\n\t## 请求在执行前被底层服务终止。\n\tUNAVAILABLE,\n}",
+          "signature": "enum FailureKind {\n\t## 没有失败。\n\tNONE,\n\t## 请求参数或路径无效。\n\tINVALID_REQUEST,\n\t## 文件不存在。\n\tNOT_FOUND,\n\t## 文件 IO 或异步执行失败。\n\tIO_FAILED,\n\t## 文件格式、载荷或完整性损坏。\n\tCORRUPT,\n\t## 物理存储版本高于当前运行时。\n\tFUTURE_VERSION,\n\t## 物理存储迁移链缺失或迁移失败。\n\tMIGRATION_FAILED,\n\t## 请求在执行前被底层服务终止。\n\tUNAVAILABLE,\n\t## 文件、解码明文或 JSON 遍历超出读取预算；也包含无法排除解压上限的解压失败，不代表文件损坏。\n\tLIMIT_EXCEEDED,\n}",
           "summary": "读取失败的稳定分类。",
           "visibility": "public"
         },
@@ -87915,6 +88026,13 @@
           "name": "codec",
           "signature": "var codec: GFStorageCodec = GFStorageCodec.new()",
           "summary": "存档 codec。为 null 时会自动创建默认 GFStorageCodec。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_read_bytes",
+          "signature": "var max_read_bytes: int = 64 * 1024 * 1024",
+          "summary": "数据 payload 文件读取前允许的最大物理字节数，默认 64 MiB；混淆后的 Base64 字节也计入。",
           "visibility": "public"
         },
         {

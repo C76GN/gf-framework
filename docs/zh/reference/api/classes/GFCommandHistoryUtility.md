@@ -15,11 +15,13 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 信号 | [`history_changed`](#member-gfcommandhistoryutility-signals-history_changed) | `signal history_changed(snapshot: Dictionary)` |
 | 属性 | [`max_history_size`](#member-gfcommandhistoryutility-properties-max_history_size) | `var max_history_size: int:` |
 | 属性 | [`undo_count`](#member-gfcommandhistoryutility-properties-undo_count) | `var undo_count: int:` |
 | 属性 | [`redo_count`](#member-gfcommandhistoryutility-properties-redo_count) | `var redo_count: int:` |
 | 属性 | [`async_stall_warning_seconds`](#member-gfcommandhistoryutility-properties-async_stall_warning_seconds) | `var async_stall_warning_seconds: float = 30.0:` |
 | 属性 | [`is_processing_async`](#member-gfcommandhistoryutility-properties-is_processing_async) | `var is_processing_async: bool:` |
+| 属性 | [`is_processing_operation`](#member-gfcommandhistoryutility-properties-is_processing_operation) | `var is_processing_operation: bool:` |
 | 方法 | [`init`](#member-gfcommandhistoryutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfcommandhistoryutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`record`](#member-gfcommandhistoryutility-methods-record) | `func record(cmd: GFUndoableCommand) -> void:` |
@@ -29,6 +31,7 @@
 | 方法 | [`redo`](#member-gfcommandhistoryutility-methods-redo) | `func redo() -> bool:` |
 | 方法 | [`redo_async`](#member-gfcommandhistoryutility-methods-redo_async) | `func redo_async() -> bool:` |
 | 方法 | [`clear`](#member-gfcommandhistoryutility-methods-clear) | `func clear() -> void:` |
+| 方法 | [`get_history_state`](#member-gfcommandhistoryutility-methods-get_history_state) | `func get_history_state() -> Dictionary:` |
 | 方法 | [`can_undo`](#member-gfcommandhistoryutility-methods-can_undo) | `func can_undo() -> bool:` |
 | 方法 | [`can_redo`](#member-gfcommandhistoryutility-methods-can_redo) | `func can_redo() -> bool:` |
 | 方法 | [`get_undo_history`](#member-gfcommandhistoryutility-methods-get_undo_history) | `func get_undo_history() -> Array[GFUndoableCommand]:` |
@@ -37,6 +40,31 @@
 | 方法 | [`serialize_full_history`](#member-gfcommandhistoryutility-methods-serialize_full_history) | `func serialize_full_history() -> Dictionary:` |
 | 方法 | [`deserialize_history`](#member-gfcommandhistoryutility-methods-deserialize_history) | `func deserialize_history(data_array: Array, command_builder: Callable) -> void:` |
 | 方法 | [`deserialize_full_history`](#member-gfcommandhistoryutility-methods-deserialize_full_history) | `func deserialize_full_history(data: Dictionary, command_builder: Callable) -> void:` |
+
+## 信号
+
+<a id="member-gfcommandhistoryutility-signals-history_changed"></a>
+
+### `history_changed`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+signal history_changed(snapshot: Dictionary)
+```
+
+历史内容、容量或真实操作锁状态变化时，同步发布有界、只读的值数据快照。 监听器只能观察；历史修改请求会被拒绝，init/dispose 仍可使当前生命周期失效。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `snapshot` | 与 get_history_state() 相同的只读状态，revision 按发布顺序递增。 |
+
+结构：
+
+- `snapshot`: Dictionary with revision, undo_count, redo_count, max_history_size, can_undo, can_redo, is_processing_operation, and is_processing_async scalar values; no command references.
 
 ## 属性
 
@@ -102,6 +130,19 @@ var is_processing_async: bool:
 ```
 
 当前是否正在处理一条异步命令的等待、终态判断或历史栈提交。
+
+<a id="member-gfcommandhistoryutility-properties-is_processing_operation"></a>
+
+### `is_processing_operation`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var is_processing_operation: bool:
+```
+
+当前是否持有同步或异步历史操作锁，包括命令调用、终态判断和历史提交。
 
 ## 方法
 
@@ -242,6 +283,25 @@ func clear() -> void:
 ```
 
 清空所有历史记录。
+
+<a id="member-gfcommandhistoryutility-methods-get_history_state"></a>
+
+### `get_history_state`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_history_state() -> Dictionary:
+```
+
+返回独立的有界历史状态快照，仅包含标量，不遍历历史或公开命令实例。 完成通知表示操作锁已经释放；操作失败也会发布从 busy 回到可用状态的变化。
+
+返回：当前计数、容量、操作状态和通知版本。
+
+结构：
+
+- `return`: Dictionary with revision, undo_count, redo_count, max_history_size, can_undo, can_redo, is_processing_operation, and is_processing_async scalar values.
 
 <a id="member-gfcommandhistoryutility-methods-can_undo"></a>
 

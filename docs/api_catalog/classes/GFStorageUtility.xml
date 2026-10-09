@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="e780408d737f3c31229a42a8596af2c6c379c6e5ff2701f9c50758805ad5cca1">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="34fc8401aed0087ef88a3ce39ce7ee9650d067229b3a08bb6a5ed4058ff1c81f">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
@@ -108,6 +108,15 @@
 			<description>存档 codec。为 null 时会自动创建默认 GFStorageCodec。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_read_bytes">
+			<signature>var max_read_bytes: int = 64 * 1024 * 1024:</signature>
+			<description>数据 payload 文件读取前允许的最大物理字节数，默认 64 MiB；混淆后的 Base64 字节也计入。
+只能设置正数，无效赋值保留原值。异步请求在入队时捕获该值；不限制 ResourceLoader 或内部 ownership/事务记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="property" name="file_format">

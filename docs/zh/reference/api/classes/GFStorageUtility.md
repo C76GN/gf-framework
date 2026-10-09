@@ -25,6 +25,7 @@
 | 属性 | [`encrypt_key`](#member-gfstorageutility-properties-encrypt_key) | `var encrypt_key: int = 42` |
 | 属性 | [`save_dir_name`](#member-gfstorageutility-properties-save_dir_name) | `var save_dir_name: String = "saves":` |
 | 属性 | [`codec`](#member-gfstorageutility-properties-codec) | `var codec: GFStorageCodec = GFStorageCodec.new()` |
+| 属性 | [`max_read_bytes`](#member-gfstorageutility-properties-max_read_bytes) | `var max_read_bytes: int = 64 * 1024 * 1024:` |
 | 属性 | [`file_format`](#member-gfstorageutility-properties-file_format) | `var file_format: GFStorageCodec.Format = GFStorageCodec.Format.JSON` |
 | 属性 | [`use_compression`](#member-gfstorageutility-properties-use_compression) | `var use_compression: bool = false` |
 | 属性 | [`normalize_json_numbers`](#member-gfstorageutility-properties-normalize_json_numbers) | `var normalize_json_numbers: bool = false` |
@@ -244,6 +245,19 @@ var codec: GFStorageCodec = GFStorageCodec.new()
 ```
 
 存档 codec。为 null 时会自动创建默认 GFStorageCodec。
+
+<a id="member-gfstorageutility-properties-max_read_bytes"></a>
+
+### `max_read_bytes`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var max_read_bytes: int = 64 * 1024 * 1024:
+```
+
+数据 payload 文件读取前允许的最大物理字节数，默认 64 MiB；混淆后的 Base64 字节也计入。 只能设置正数，无效赋值保留原值。异步请求在入队时捕获该值；不限制 ResourceLoader 或内部 ownership/事务记录。
 
 <a id="member-gfstorageutility-properties-file_format"></a>
 

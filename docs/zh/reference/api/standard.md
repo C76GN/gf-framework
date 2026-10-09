@@ -6,10 +6,10 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 194 | 3488 | 2370 |
+| [运行时服务](#category-runtime_service) | 194 | 3495 | 2373 |
 | [协议与扩展点](#category-protocol) | 26 | 345 | 273 |
 | [资源定义](#category-resource_definition) | 122 | 1579 | 797 |
-| [运行时句柄](#category-runtime_handle) | 57 | 966 | 619 |
+| [运行时句柄](#category-runtime_handle) | 58 | 974 | 627 |
 | [值对象](#category-value_object) | 63 | 1029 | 670 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
@@ -406,6 +406,7 @@
 | [`GFBgmStartOperation`](classes/GFBgmStartOperation.md#gfbgmstartoperation) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_bgm_start_operation.gd` |
 | [`GFCallableRuntimeTask`](classes/GFCallableRuntimeTask.md#gfcallableruntimetask) | `GFRuntimeTask` | `addons/gf/standard/sequence/gf_callable_runtime_task.gd` |
 | [`GFConfigTableQuery`](classes/GFConfigTableQuery.md#gfconfigtablequery) | `RefCounted` | `addons/gf/standard/utilities/config/gf_config_table_query.gd` |
+| [`GFControlEditSession`](classes/GFControlEditSession.md#gfcontroleditsession) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_control_edit_session.gd` |
 | [`GFDeterministicRandom`](classes/GFDeterministicRandom.md#gfdeterministicrandom) | `RefCounted` | `addons/gf/standard/foundation/deterministic/gf_deterministic_random.gd` |
 | [`GFDownloadTask`](classes/GFDownloadTask.md#gfdownloadtask) | `RefCounted` | `addons/gf/standard/utilities/io/gf_download_task.gd` |
 | [`GFDragSession`](classes/GFDragSession.md#gfdragsession) | `RefCounted` | `addons/gf/standard/input/drag_drop/gf_drag_session.gd` |

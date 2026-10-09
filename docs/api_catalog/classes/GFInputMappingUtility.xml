@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputMappingUtility" path="addons/gf/standard/input/runtime/gf_input_mapping_utility.gd" module="standard" extends="GFUtility" classDigest="e959bad7d71522a801b63895c192317288dc3d1a403680b7c1342a50a11ab301">
+<class name="GFInputMappingUtility" path="addons/gf/standard/input/runtime/gf_input_mapping_utility.gd" module="standard" extends="GFUtility" classDigest="5d5430c2b5f43af9d0553770dbc9b0bedf38cb6a3ef27cec60b4b565b955e26f">
 	<description>GFInputMappingUtility: 资源化输入上下文与动作映射运行时。
 负责把 Godot InputEvent 转换为项目定义的抽象动作状态，并支持上下文优先级、
 运行时重绑定、动作值查询和一次性触发消费。</description>
@@ -112,13 +112,25 @@
 	</signals>
 	<enums />
 	<constants />
-	<properties />
+	<properties>
+		<member kind="property" name="automatic_input_routing">
+			<signature>var automatic_input_routing: bool = true:</signature>
+			<description>是否由内部全局节点自动接收 Godot 输入和应用失焦通知，默认启用。
+关闭后仍须正常初始化；调用方负责 handle_input_event、tick 和失焦时 clear_input_state。
+初始化后切换会立即停止旧路由、清理输入状态并保留已启用上下文。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
 	<methods>
 		<member kind="method" name="init">
 			<signature>func init() -&gt; void:</signature>
-			<description>初始化输入映射运行时状态并挂载输入路由节点。</description>
+			<description>初始化输入映射运行时状态；启用 automatic_input_routing 时挂载输入路由节点。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="ready">
