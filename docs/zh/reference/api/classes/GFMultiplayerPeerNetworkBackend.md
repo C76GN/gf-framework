@@ -28,6 +28,7 @@
 | 方法 | [`send_bytes`](#member-gfmultiplayerpeernetworkbackend-methods-send_bytes) | `func send_bytes( peer_id: int, bytes: PackedByteArray, options: Dictionary = {} ) -> Error:` |
 | 方法 | [`poll`](#member-gfmultiplayerpeernetworkbackend-methods-poll) | `func poll(_delta: float) -> void:` |
 | 方法 | [`get_debug_snapshot`](#member-gfmultiplayerpeernetworkbackend-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+| 方法 | [`_enrich_transport_metrics`](#member-gfmultiplayerpeernetworkbackend-methods-_enrich_transport_metrics) | `func _enrich_transport_metrics( metrics: GFNetworkTransportMetrics, budget: GFExecutionBudget ) -> void:` |
 
 ## 枚举
 
@@ -268,3 +269,23 @@ func get_debug_snapshot() -> Dictionary:
 结构：
 
 - `return`: Dictionary adoptable MultiplayerPeer backend snapshot.
+
+<a id="member-gfmultiplayerpeernetworkbackend-methods-_enrich_transport_metrics"></a>
+
+### `_enrich_transport_metrics`
+
+- API：`protected`
+- 首次版本：`10.0.0`
+
+```gdscript
+func _enrich_transport_metrics( metrics: GFNetworkTransportMetrics, budget: GFExecutionBudget ) -> void:
+```
+
+在基础指标上补充当前 MultiplayerPeer 已缓存的待收包数量，不 poll 或取走数据包。 未挂接 Peer 或消费一步预算失败时直接返回；本实现最多尝试写入一个可选指标。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `metrics` | 基类本次采样创建的有界指标快照，仅追加 RECEIVE_QUEUE_PACKETS。 |
+| `budget` | 基类提供的协作预算，读取队列数量并尝试写入前必须成功消费一步。 |

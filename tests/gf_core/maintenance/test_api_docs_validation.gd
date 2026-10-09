@@ -5,6 +5,8 @@ extends GutTest
 # --- 常量 ---
 
 const SOURCE_ROOT: String = "res://addons/gf"
+const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const CONTRACT_SOURCES = preload("res://tests/gf_core/maintenance/helpers/gf_comment_contract_sources.gd")
 
 
 # --- 测试用例 ---
@@ -54,31 +56,32 @@ func test_partial_param_exemption_requires_exact_private_visibility() -> void:
 	assert_true(_join_lines(public_name_issues).contains("missing @param for 'second'"), "普通公开名称不能借 private 标签降低参数校验。")
 
 
+func test_param_scanner_ignores_literal_examples_and_comment_delimiters() -> void:
+	for delimiter: String in ['"""', "'''"]:
+		var literal: String = "const EXAMPLE = %s\n## @param wrong: 字符串中的示例。\nfunc example(value: int) -> void:\n\tpass\n%s\n" % [delimiter, delimiter]
+		assert_eq(_collect_param_doc_issues_from_source(literal, "literal_fixture.gd"), [], "字符串中的文档和声明不是源码契约。")
+		var source: String = "# 示例分隔符为 %s\nfunc actual(value: int) -> void: pass\n" % delimiter
+		assert_true(_join_lines(_collect_param_doc_issues_from_source(source, "comment_fixture.gd")).contains("missing @param for 'value'"), "注释中的引号不能屏蔽真实函数。")
+
+
+func test_param_scanner_preserves_signature_boundaries_and_annotations() -> void:
+	var source: String = "## @param value: 输入。\n@warning_ignore(\"unused_parameter\") func documented(value: String = \"# ) , (\") -> void: print(\"ignored\")\nfunc missing(next_value: int) -> void: pass\n"
+	var issues: Array[String] = _collect_param_doc_issues_from_source(source, "inline_fixture.gd.txt")
+	assert_eq(issues.size(), 1, "注解、字符串和单行函数体不能并入参数表。")
+	assert_true(_join_lines(issues).contains("missing @param for 'next_value'"), "后续函数仍须独立检查。")
+	var multiline: String = "## @param first: 第一项。\n## @param second: 第二项。\n@warning_ignore(\"unused_parameter\")\nfunc multiline(\n\tfirst: String = \"(\", # ) 字符串和注释不影响参数深度\n\tsecond: Dictionary = {\"nested\": [1, 2]},\n) -> void:\n\tpass\n"
+	assert_eq(_collect_param_doc_issues_from_source(multiline, "multiline_fixture.gd"), [], "多行函数参数必须在真实配对括号处结束。")
+	var multiline_annotation: String = "## @param value: 输入。\n@warning_ignore(\n\t\"unused_parameter\",\n)\nfunc annotated(value: int) -> void: pass\n"
+	assert_eq(_collect_param_doc_issues_from_source(multiline_annotation, "annotation_fixture.gd.txt"), [], "多行注解不能切断声明绑定的参数文档。")
+
+
 # --- 私有/辅助方法 ---
 
 func _collect_gdscript_files(root_path: String) -> Array[String]:
-	var result: Array[String] = []
-	_collect_gdscript_files_recursive(root_path, result)
-	result.sort()
-	return result
-
-
-func _collect_gdscript_files_recursive(root_path: String, result: Array[String]) -> void:
-	var dir: DirAccess = DirAccess.open(root_path)
-	if dir == null:
-		return
-
-	var _list_dir_begin_result_35: Variant = dir.list_dir_begin()
-	var entry: String = dir.get_next()
-	while not entry.is_empty():
-		var child_path: String = root_path.path_join(entry)
-		if dir.current_is_dir():
-			if not entry.begins_with("."):
-				_collect_gdscript_files_recursive(child_path, result)
-		elif entry.ends_with(".gd"):
-			result.append(child_path)
-		entry = dir.get_next()
-	dir.list_dir_end()
+	var issues: Array[String] = []
+	var paths: Array[String] = CONTRACT_SOURCES.collect_files(root_path, issues)
+	assert_eq(issues, [], "完整扫描必须能枚举每个目录：%s" % _join_lines(issues))
+	return paths
 
 
 func _collect_param_doc_issues(path: String) -> Array[String]:
@@ -92,27 +95,42 @@ func _collect_param_doc_issues(path: String) -> Array[String]:
 
 
 func _collect_param_doc_issues_from_source(source: String, path: String) -> Array[String]:
+	source = CONTRACT_SOURCES.render_source(source, path)
 	var lines: PackedStringArray = source.split("\n")
 	var issues: Array[String] = []
 	var doc_lines: Array[String] = []
 	var line_index: int = 0
+	var multiline_delimiter: String = ""
 	while line_index < lines.size():
 		var line: String = String(lines[line_index])
 		var trimmed: String = line.strip_edges()
+		var lexical: Dictionary = CONTRACT_SOURCES.lex_line(line, multiline_delimiter)
+		multiline_delimiter = GF_VARIANT_ACCESS.get_option_string(lexical, "multiline_delimiter")
+		var structure: String = GF_VARIANT_ACCESS.get_option_string(lexical, "code").strip_edges()
+		if GF_VARIANT_ACCESS.get_option_bool(lexical, "starts_in_multiline"):
+			doc_lines.clear()
+			line_index += 1
+			continue
 		if trimmed.begins_with("##"):
 			doc_lines.append(trimmed)
 			line_index += 1
 			continue
 
-		if _line_starts_function(trimmed):
+		var function_header: String = _strip_signature_annotations(structure)
+		while function_header.begins_with("@") and function_header.contains("(") and _find_signature_close(function_header) == -1 and line_index + 1 < lines.size():
+			line_index += 1
+			lexical = CONTRACT_SOURCES.lex_line(String(lines[line_index]), multiline_delimiter)
+			multiline_delimiter = GF_VARIANT_ACCESS.get_option_string(lexical, "multiline_delimiter")
+			structure += " " + GF_VARIANT_ACCESS.get_option_string(lexical, "code").strip_edges()
+			function_header = _strip_signature_annotations(structure)
+		if _line_starts_function(function_header):
 			var signature_start_line: int = line_index + 1
-			var signature: String = trimmed
-			var signature_parenthesis_depth: int = _get_parenthesis_delta(trimmed)
-			while signature_parenthesis_depth > 0 and line_index + 1 < lines.size():
+			var signature: String = function_header
+			while _find_signature_close(signature) == -1 and line_index + 1 < lines.size():
 				line_index += 1
-				var signature_line: String = String(lines[line_index]).strip_edges()
-				signature += " " + signature_line
-				signature_parenthesis_depth += _get_parenthesis_delta(signature_line)
+				lexical = CONTRACT_SOURCES.lex_line(String(lines[line_index]), multiline_delimiter)
+				multiline_delimiter = GF_VARIANT_ACCESS.get_option_string(lexical, "multiline_delimiter")
+				signature += " " + GF_VARIANT_ACCESS.get_option_string(lexical, "code").strip_edges()
 
 			var function_name: String = _parse_function_name(signature)
 			var actual_params: PackedStringArray = _parse_signature_params(signature)
@@ -130,7 +148,7 @@ func _collect_param_doc_issues_from_source(source: String, path: String) -> Arra
 					allows_partial_docs
 				))
 
-		if not trimmed.is_empty():
+		if not trimmed.is_empty() and not (structure.begins_with("@") and function_header.is_empty()):
 			doc_lines.clear()
 		line_index += 1
 	return issues
@@ -167,21 +185,41 @@ func _line_starts_function(trimmed: String) -> bool:
 	return trimmed.begins_with("func ") or trimmed.begins_with("static func ")
 
 
-func _get_parenthesis_delta(text: String) -> int:
+func _strip_signature_annotations(structure: String) -> String:
+	var remaining: String = structure
+	while remaining.begins_with("@"):
+		var index: int = 1
+		while index < remaining.length() and (remaining[index].is_valid_identifier() or remaining[index].is_valid_int()):
+			index += 1
+		if index < remaining.length() and remaining[index] == "(":
+			var close_index: int = _find_signature_close(remaining.substr(index))
+			if close_index == -1:
+				return remaining
+			index += close_index + 1
+		remaining = remaining.substr(index).strip_edges()
+	return remaining
+
+
+func _find_signature_close(text: String) -> int:
+	var open_index: int = text.find("(")
+	if open_index == -1:
+		return -1
 	var delta: int = 0
-	for i: int in range(text.length()):
+	for i: int in range(open_index, text.length()):
 		var character: String = text[i]
 		if character == "(":
 			delta += 1
 		elif character == ")":
 			delta -= 1
-	return delta
+			if delta == 0:
+				return i
+	return -1
 
 
 func _parse_signature_params(signature: String) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var open_index: int = signature.find("(")
-	var close_index: int = signature.rfind(")")
+	var close_index: int = _find_signature_close(signature)
 	if open_index == -1 or close_index == -1 or close_index <= open_index:
 		return result
 

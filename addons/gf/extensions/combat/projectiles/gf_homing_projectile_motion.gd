@@ -51,6 +51,18 @@ const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/g
 
 # --- 可重写钩子 / 虚方法 ---
 
+## 捕获二维发射目标的位置与初始方向，为本次 session 建立追踪状态。
+## 节点目标只保留弱引用；此处记录目标种类，不将无目标直接判为创建失败。
+## [br]
+## @api protected
+## [br]
+## @since 11.0.0
+## [br]
+## @param launch_input: 已冻结的发射输入，提供节点目标或位置目标。
+## [br]
+## @param initial_body: 成功的初始 body 快照，用于计算指向目标的方向。
+## [br]
+## @return: 本次 session 独占的状态；输入失效、body 失败或配置及目标偏移非有限时返回 null。
 func _create_state_2d(
 	launch_input: GFProjectileLaunchInput2D,
 	initial_body: GFProjectileBodyResult2D
@@ -81,6 +93,18 @@ func _create_state_2d(
 	return state
 
 
+## 捕获三维发射目标的位置与初始方向，为本次 session 建立追踪状态。
+## 节点目标只保留弱引用；此处记录目标种类，不将无目标直接判为创建失败。
+## [br]
+## @api protected
+## [br]
+## @since 11.0.0
+## [br]
+## @param launch_input: 已冻结的发射输入，提供节点目标或位置目标。
+## [br]
+## @param initial_body: 成功的初始 body 快照，用于计算指向目标的方向。
+## [br]
+## @return: 本次 session 独占的状态；输入失效、body 失败或配置及目标偏移非有限时返回 null。
 func _create_state_3d(
 	launch_input: GFProjectileLaunchInput3D,
 	initial_body: GFProjectileBodyResult3D
@@ -111,6 +135,21 @@ func _create_state_3d(
 	return state
 
 
+## 根据二维目标与当前 body 计算追踪 intent，只更新状态中的锁定方向，不移动节点。
+## 追踪开启时重新读取节点位置，目标丢失则拒绝；关闭追踪后目标丢失时，
+## 已有的非零锁定方向可继续使用，并禁用旧目标位置的到达截短。
+## [br]
+## @api protected
+## [br]
+## @since 11.0.0
+## [br]
+## @param state: 本策略创建的 session 状态；其他状态类型会被拒绝。
+## [br]
+## @param current_body: 成功的当前 body 快照，提供计算距离所需的位置。
+## [br]
+## @param delta: 本帧秒数；有限非正值生成零速度、零时长 intent，非有限值被拒绝。
+## [br]
+## @return: 按到达设置截短路程后的 MOVE；状态、目标或数值无效时返回带原因的 REJECTED。
 func _compute_intent_2d(
 	state: GFProjectileMotionState,
 	current_body: GFProjectileBodyResult2D,
@@ -152,6 +191,21 @@ func _compute_intent_2d(
 	return _make_intent_2d(direction, offset.length(), delta, not locked_target_lost)
 
 
+## 根据三维目标与当前 body 计算追踪 intent，只更新状态中的锁定方向，不移动节点。
+## 追踪开启时重新读取节点位置，目标丢失则拒绝；关闭追踪后目标丢失时，
+## 已有的非零锁定方向可继续使用，并禁用旧目标位置的到达截短。
+## [br]
+## @api protected
+## [br]
+## @since 11.0.0
+## [br]
+## @param state: 本策略创建的 session 状态；其他状态类型会被拒绝。
+## [br]
+## @param current_body: 成功的当前 body 快照，提供计算距离所需的位置。
+## [br]
+## @param delta: 本帧秒数；有限非正值生成零速度、零时长 intent，非有限值被拒绝。
+## [br]
+## @return: 按到达设置截短路程后的 MOVE；状态、目标或数值无效时返回带原因的 REJECTED。
 func _compute_intent_3d(
 	state: GFProjectileMotionState,
 	current_body: GFProjectileBodyResult3D,

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="f11624de02ed3e7b22459f9491cc53bc468d7cd26e1a360b6054c20d784c52ff" classCount="891" methodCount="7968" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="9033ead4b04f61c214a716ef515b70e3524aaa8907376c1d6353c21093f45d86" classCount="891" methodCount="7993" autoloadCount="1" autoloadMethodCount="65">
 	<module id="kernel" label="Kernel" classCount="78" methodCount="831" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -642,7 +642,7 @@
 		<class name="GFNodeCapability" path="classes/GFNodeCapability.xml" sourcePath="addons/gf/extensions/capability/nodes/gf_node_capability.gd" extends="Node" />
 		<class name="GFPropertyBagCapability" path="classes/GFPropertyBagCapability.xml" sourcePath="addons/gf/extensions/capability/core/gf_property_bag_capability.gd" extends="GFCapability" />
 	</module>
-	<module id="extensions/combat" label="Combat" classCount="71" methodCount="346" autoloadCount="0" autoloadMethodCount="0">
+	<module id="extensions/combat" label="Combat" classCount="71" methodCount="370" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFBuff" path="classes/GFBuff.xml" sourcePath="addons/gf/extensions/combat/attributes/gf_buff.gd" extends="RefCounted" />
 		<class name="GFBuffCheck" path="classes/GFBuffCheck.xml" sourcePath="addons/gf/extensions/combat/attributes/gf_buff_check.gd" extends="Resource" />
 		<class name="GFBuffEffect" path="classes/GFBuffEffect.xml" sourcePath="addons/gf/extensions/combat/attributes/gf_buff_effect.gd" extends="Resource" />
@@ -797,7 +797,7 @@
 		<class name="GFLayeredSpriteLayerDefinition" path="classes/GFLayeredSpriteLayerDefinition.xml" sourcePath="addons/gf/extensions/layered_sprite/resources/gf_layered_sprite_layer_definition.gd" extends="Resource" />
 		<class name="GFLayeredSpriteVariant" path="classes/GFLayeredSpriteVariant.xml" sourcePath="addons/gf/extensions/layered_sprite/resources/gf_layered_sprite_variant.gd" extends="Resource" />
 	</module>
-	<module id="extensions/network" label="Network" classCount="41" methodCount="347" autoloadCount="0" autoloadMethodCount="0">
+	<module id="extensions/network" label="Network" classCount="41" methodCount="348" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFENetNetworkBackend" path="classes/GFENetNetworkBackend.xml" sourcePath="addons/gf/extensions/network/backends/gf_enet_network_backend.gd" extends="GFNetworkBackend" />
 		<class name="GFFixedTickClock" path="classes/GFFixedTickClock.xml" sourcePath="addons/gf/extensions/network/simulation/gf_fixed_tick_clock.gd" extends="RefCounted" />
 		<class name="GFMultiplayerPeerNetworkBackend" path="classes/GFMultiplayerPeerNetworkBackend.xml" sourcePath="addons/gf/extensions/network/backends/gf_multiplayer_peer_network_backend.gd" extends="GFNetworkBackend" />

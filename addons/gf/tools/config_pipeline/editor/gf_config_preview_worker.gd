@@ -4,7 +4,14 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 只保护取消标记的跨线程读写；读取和解析阶段不在此锁内执行。
+## [br]
+## @api private
 var _mutex: Mutex = Mutex.new()
+
+## 一经请求便保持取消；每次预览创建独立 worker，不复用此标记开启新任务。
+## [br]
+## @api private
 var _cancelled: bool = false
 
 
@@ -71,6 +78,10 @@ func run_request(request: Dictionary) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 顺序预检冻结来源，累计完整记录的单元格数并收集各源读取收据；取消或首个失败立即结束。
+## 超过 4,000 个单元格时拒绝同步执行；预览截断为 100 行不降低此计数。
+## [br]
+## @api private
 func _inspect_batch(request: Dictionary) -> Dictionary:
 	var total_cells: int = 0
 	var receipts: Dictionary = {}
@@ -87,6 +98,9 @@ func _inspect_batch(request: Dictionary) -> Dictionary:
 	return { "success": true, "generation": request["generation"], "cell_count": total_cells, "receipts": receipts }
 
 
+## 在互斥锁内读取取消请求；调用点决定阶段边界，不能中断已进入的解析器。
+## [br]
+## @api private
 func _is_cancelled() -> bool:
 	_mutex.lock()
 	var result: bool = _cancelled

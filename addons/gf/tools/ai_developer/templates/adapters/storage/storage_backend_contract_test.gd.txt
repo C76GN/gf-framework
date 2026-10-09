@@ -1,53 +1,88 @@
 extends ProjectStorageBackendConformance
 
 
-# --- Godot 生命周期方法 ---
+# --- 框架内部方法（测试生命周期） ---
 
+## 为每个用例重新装配独立 Provider、故障驱动与后端，避免记录和故障开关串用。
+## [br]
+## @api framework_internal
 func before_each() -> void:
 	setup_conformance()
 
 
+## 用例结束后关闭后端并释放夹具引用，失败用例同样遵守清理协议。
+## [br]
+## @api framework_internal
 func after_each() -> void:
 	teardown_conformance()
 
 
-# --- 公共方法（测试） ---
+# --- 框架内部方法（测试） ---
 
+## 将工厂提供的 Provider 代入无效配置与能力漂移的一致性用例。
+## [br]
+## @api framework_internal
 func test_rejects_invalid_providers_and_capability_drift() -> void:
 	run_rejects_invalid_providers_and_capability_drift()
 
 
+## 对具体 Provider 执行初始化前后闭合能力检查，不以声明存在替代真实能力一致。
+## [br]
+## @api framework_internal
 func test_reports_closed_capabilities_before_and_after_initialize() -> void:
 	run_reports_closed_capabilities_before_and_after_initialize()
 
 
+## 对具体 Provider 验证记录往返、删除、修订和稳定列表顺序。
+## [br]
+## @api framework_internal
 func test_round_trip_delete_and_deterministic_list() -> void:
 	run_round_trip_delete_and_deterministic_list()
 
 
+## 验证不安全键、选项与值图在具体 Provider 写入前被拦截。
+## [br]
+## @api framework_internal
 func test_rejects_unsafe_keys_options_config_and_value_graphs() -> void:
 	run_rejects_unsafe_keys_options_config_and_value_graphs()
 
 
+## 运行通用预算验收，并额外对内存 Provider 验证完整列表的外层和聚合预算。
+## [br]
+## @api framework_internal
 func test_enforces_write_read_and_list_budgets() -> void:
 	run_enforces_write_read_and_list_budgets()
 	_assert_list_budget_covers_complete_response()
 
 
+## 验证故障和条件冲突都保留旧数据与修订，只有成功提交才产生新状态。
+## [br]
+## @api framework_internal
 func test_atomic_faults_and_opaque_revision_conditions_preserve_state() -> void:
 	run_atomic_faults_and_opaque_revision_conditions_preserve_state()
 
 
+## 验证未知或矛盾 Provider 响应被映射为稳定诊断，额外敏感哨兵不会泄漏。
+## [br]
+## @api framework_internal
 func test_normalizes_unknown_errors_and_redacts_malformed_results() -> void:
 	run_normalizes_unknown_errors_and_redacts_malformed_results()
 
 
+## 验证输入与读取结果的防御复制，以及重复关闭不会重复触达 Provider。
+## [br]
+## @api framework_internal
 func test_defensive_copies_and_idempotent_shutdown() -> void:
 	run_defensive_copies_and_idempotent_shutdown()
 
 
-# --- 可重写钩子 / 虚方法 ---
+# --- 框架内部方法（测试协作） ---
 
+## 配对当前示例的内存 Provider 与故障驱动；真实项目应替换此工厂而沿用相同一致性用例。
+## [br]
+## @api framework_internal
+## [br]
+## @return 当前测试使用的内存实现工厂。
 func _create_provider_factory() -> ProjectStorageProviderFactory:
 	return MemoryStorageProviderFactory.new()
 
@@ -165,14 +200,29 @@ func _assert_list_budget_covers_complete_response() -> void:
 
 # --- 内部类 ---
 
-# 为当前测试配对创建内存 provider 和专用故障驱动。
+## 为当前测试配对创建内存 Provider 和专用故障驱动，不依赖外部 SDK 或生产账号。
+## [br]
+## @api framework_internal
 class MemoryStorageProviderFactory extends ProjectStorageProviderFactory:
 
-	# --- 公共方法 ---
+	# --- 框架内部方法 ---
+
+	## 每次创建独立的空内存 Provider，记录和故障状态不跨用例共享。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @return 新的内存 Provider 实例。
 	func create_provider() -> ProjectStorageProvider:
 		return MemoryStorageProvider.new()
 
 
+	## 只为同族内存 Provider 创建故障驱动，拒绝把测试开关绑定到其他实现。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @param provider: 本次工厂产出的 Provider。
+	## [br]
+	## @return 绑定同一内存实例的驱动；类型不匹配时为 null。
 	func create_fault_driver(
 		provider: ProjectStorageProvider
 	) -> ProjectStorageProviderFaultDriver:
@@ -182,7 +232,9 @@ class MemoryStorageProviderFactory extends ProjectStorageProviderFactory:
 		return MemoryStorageFaultDriver.new(memory_provider)
 
 
-# 可故障注入的内存协议实现，提交前暂存记录以验证失败原子性。
+## 可故障注入的内存协议实现，提交前暂存记录以验证失败原子性；它不能替代真实 SDK 的验收。
+## [br]
+## @api framework_internal
 class MemoryStorageProvider extends ProjectStorageProvider:
 
 	# --- 常量 ---
@@ -221,15 +273,55 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 
 	# --- 公共变量（故障驱动协作） ---
 
+	## 下一次到达提交点的写入在发布前失败；被消费后清除，旧记录与修订保留。
+	## [br]
+	## @api framework_internal
 	var fail_next_atomic_commit: bool = false
+
+	## 下一次通过读取准入的调用返回未知错误码，触发适配器稳定错误映射。
+	## [br]
+	## @api framework_internal
 	var fail_next_unknown_read_error: bool = false
+
+	## 下一次读取返回 ok=false 却使用 OK 错误码，验证矛盾响应被拒绝。
+	## [br]
+	## @api framework_internal
 	var fail_next_failed_read_with_ok: bool = false
+
+	## 下一次读取附加脱敏哨兵字段，验证额外 Provider 信息不能穿过边界。
+	## [br]
+	## @api framework_internal
 	var fail_next_malformed_read_result: bool = false
+
+	## 初始化后持续撤销 atomic_write 声明，模拟初始化前后能力漂移。
+	## [br]
+	## @api framework_internal
 	var drift_capabilities_after_initialize: bool = false
+
+	## 进入原子写方法的累计次数，包括未初始化或校验失败的调用，供断言准入是否提前拦截。
+	## [br]
+	## @api framework_internal
 	var write_attempt_count: int = 0
+
+	## 从已初始化状态实际关闭的次数，重复关闭不会增加。
+	## [br]
+	## @api framework_internal
 	var shutdown_count: int = 0
+
+	## 最近读取收到的预算副本，即使随后读取失败也保留，供故障驱动观测。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @schema last_read_limits: Dictionary，包含 max_payload_bytes、max_graph_nodes、max_graph_depth、max_string_bytes、max_container_entries；尚未读取时为空。
 	var last_read_limits: Dictionary = {}
+
+	## 最近列表收到的聚合预算副本，观测入口再次复制后返回。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @schema last_list_limits: Dictionary，包含 max_items、max_list_bytes、max_graph_nodes、max_graph_depth、max_string_bytes、max_container_entries；尚未列举时为空。
 	var last_list_limits: Dictionary = {}
+
 	# --- 私有变量 ---
 
 	## 保存已提交记录，原子写提交点替换单条记录，删除操作移除条目；读取和列表对外返回复制容器，shutdown 保留记录。
@@ -248,8 +340,17 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 	var _initialized: bool = false
 
 
-	# --- 公共方法 ---
+	# --- 框架内部方法 ---
 
+	## 验证纯值初始化选项后启用内存读写；重复初始化拒绝，不清除已有记录或修订计数。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @param options: 只用于校验的示例初始化选项。
+	## [br]
+	## @schema options: Dictionary，任意 String 键的有界纯值图，固定限制为 64 KiB、4096 节点、8 层、32 KiB 单字符串和 1024 单容器条目。
+	## [br]
+	## @return 准入成功为 OK，重复初始化或非法值图返回错误。
 	func initialize(options: Dictionary = {}) -> Error:
 		if _initialized:
 			return ERR_ALREADY_IN_USE
@@ -271,6 +372,9 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		return OK
 
 
+	## 仅撤销内存服务的初始化状态并计数一次；保留记录，便于检验重复关闭和已提交数据的边界。
+	## [br]
+	## @api framework_internal
 	func shutdown() -> void:
 		if not _initialized:
 			return
@@ -278,6 +382,13 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		shutdown_count += 1
 
 
+	## 声明同步内存协议支持的能力；指定漂移故障只在初始化后关闭 atomic_write。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @return 闭合 Provider 能力字典。
+	## [br]
+	## @schema return: Dictionary，read、write、delete、list、conditional_write 为 true，cancellation、sync 为 false，atomic_write 在初始化后的漂移故障下为 false，否则为 true。
 	func get_capabilities() -> Dictionary:
 		return {
 			"read": true,
@@ -293,10 +404,30 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		}
 
 
+	## 只有已初始化时才暴露内存记录是否存在，关闭后即使保留记录也返回 false。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @param storage_key: 适配器交给 Provider 的完整键。
+	## [br]
+	## @return 已初始化且键存在时为 true。
 	func has_record(storage_key: String) -> bool:
 		return _initialized and _records.has(storage_key)
 
 
+	## 先记录并校验读取预算，再按故障开关或记录生成结果；正常数据通过预算后才深复制给调用者。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @param storage_key: 要读取的完整存储键。
+	## [br]
+	## @param read_limits: 适配器要求在结果复制前实施的硬预算。
+	## [br]
+	## @schema read_limits: Dictionary，精确包含正 int 字段 max_payload_bytes、max_graph_nodes、max_graph_depth、max_string_bytes、max_container_entries。
+	## [br]
+	## @return 成功数据副本、稳定失败，或故障驱动安排的刻意非法响应。
+	## [br]
+	## @schema return: Dictionary，正常时精确包含 ok:bool、data:Dictionary、metadata:Dictionary、error_code:int；故障可给未知码、ok=false/error_code=OK 或额外 provider_message，以验证上层拒绝和脱敏。
 	func read_record(
 		storage_key: String,
 		read_limits: Dictionary
@@ -367,6 +498,25 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		}
 
 
+	## 完成值图及条件检查后暂存新记录，最后一次替换发布数据与修订；注入提交故障不改变原状态。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @param storage_key: 本次写入的完整存储键。
+	## [br]
+	## @param data: 待提交的业务数据，成功记录持有深复制副本。
+	## [br]
+	## @schema data: Dictionary，String 键的有界无循环纯值图。
+	## [br]
+	## @param metadata: 不含调用方 revision 的元数据。
+	## [br]
+	## @schema metadata: Dictionary，纯值图；成功提交时由本实现写入 revision:String。
+	## [br]
+	## @param write_options: 由适配器校验的条件写选项。
+	## [br]
+	## @schema write_options: Dictionary，可选 expected_revision:String、create_if_absent:bool、request_id:String；本内存实现对 request_id 不执行去重，仅实现前两项条件。
+	## [br]
+	## @return 成功为 OK；创建冲突、修订冲突或注入失败都保持旧记录和旧修订。
 	func write_record_atomic(
 		storage_key: String,
 		data: Dictionary,
@@ -435,6 +585,13 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		return OK
 
 
+	## 删除已初始化内存 Provider 的单条记录，不重置全局修订计数。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @param storage_key: 要删除的完整存储键。
+	## [br]
+	## @return 删除成功为 OK，关闭状态为 ERR_UNAVAILABLE，记录缺失为 ERR_FILE_NOT_FOUND。
 	func delete_record(storage_key: String) -> Error:
 		if not _initialized:
 			return ERR_UNAVAILABLE
@@ -443,6 +600,19 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		return OK
 
 
+	## 稳定排序前缀匹配的键，并对含外层数组的整份 metadata 响应计费；任一超限返回失败而非部分列表。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @param storage_prefix: 只列举此前缀下的键，空串匹配全部记录。
+	## [br]
+	## @param list_limits: 聚合列表和图结构预算。
+	## [br]
+	## @schema list_limits: Dictionary，精确包含正 int 字段 max_items、max_list_bytes、max_graph_nodes、max_graph_depth、max_string_bytes、max_container_entries。
+	## [br]
+	## @return 全部通过预算后的列表深复制副本，或无部分数据的失败结果。
+	## [br]
+	## @schema return: Dictionary，精确包含 ok:bool、records:Array、error_code:int；记录为 {storage_key:String,metadata:Dictionary}，失败 records 为空。
 	func list_records(
 		storage_prefix: String,
 		list_limits: Dictionary
@@ -726,7 +896,9 @@ class MemoryStorageProvider extends ProjectStorageProvider:
 		}
 
 
-# 将故障及观察操作限定到构造时绑定的内存 provider。
+## 将故障及观察操作限定到构造时绑定的内存 Provider，不暴露生产 SDK 控制入口。
+## [br]
+## @api framework_internal
 class MemoryStorageFaultDriver extends ProjectStorageProviderFaultDriver:
 
 	# --- 私有变量 ---
@@ -746,8 +918,15 @@ class MemoryStorageFaultDriver extends ProjectStorageProviderFaultDriver:
 		_provider = provider
 
 
-	# --- 公共方法 ---
+	# --- 框架内部方法 ---
 
+	## 仅声明内存夹具实际实现的五种故障，不以未知标识静默跳过验收。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @param fault_id: 固定故障标识。
+	## [br]
+	## @return 此驱动支持该故障时为 true。
 	func supports_fault(fault_id: StringName) -> bool:
 		return [
 			FAULT_ATOMIC_COMMIT,
@@ -758,6 +937,17 @@ class MemoryStorageFaultDriver extends ProjectStorageProviderFaultDriver:
 		].has(fault_id)
 
 
+	## 在配对 Provider 上置位故障；读与提交故障由对应调用消费，能力漂移标记持续有效。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @param fault_id: 要启用的固定故障标识。
+	## [br]
+	## @param _options: 当前内存故障不使用的附加选项。
+	## [br]
+	## @schema _options: Dictionary，当前实现忽略其内容，调用方通常传空字典。
+	## [br]
+	## @return 成功置位为 OK，Provider 缺失或标识未知为 ERR_UNAVAILABLE。
 	func arm_fault(
 		fault_id: StringName,
 		_options: Dictionary = {}
@@ -780,6 +970,15 @@ class MemoryStorageFaultDriver extends ProjectStorageProviderFaultDriver:
 		return OK
 
 
+	## 返回配对 Provider 的计数或预算副本；测试方修改观测字典不会改变夹具的最近请求记录。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @param observation_id: 固定计数或预算观测标识。
+	## [br]
+	## @return 对应观测值，Provider 缺失或标识未知为 null。
+	## [br]
+	## @schema return: Variant，write_attempts/shutdown_count 为 int，last_read_limits/last_list_limits 为深复制预算 Dictionary，其他情况为 null。
 	func get_observation(observation_id: StringName) -> Variant:
 		if _provider == null:
 			return null

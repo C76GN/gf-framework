@@ -3,22 +3,35 @@ extends Node
 
 # --- 常量 ---
 
+## 生成时固定的项目主场景；只有 GF 初始化成功且本启动页仍拥有当前场景时才加载。
+## [br]
+## @api private
 const _MAIN_SCENE_PATH: String = "__ROOT__/main.tscn"
 
 
 # --- 私有变量 ---
 
+## 本启动页已发起过初始化的标记；进入 await 前置位，失败后也不自动重复发起。
+## [br]
+## @api private
 var _started: bool = false
 
 
 # --- Godot 生命周期方法 ---
 
+## 延迟发起启动，让场景归属建立后由 _start 复核本节点是否仍为当前启动页。
+## [br]
+## @api private
 func _ready() -> void:
 	_start.call_deferred()
 
 
 # --- 私有/辅助方法 ---
 
+## 只由当前启动场景发起一次初始化；等待及资源加载后重新核对所有权，旧场景不能把新场景切走。
+## 启动页不创建或销毁全局架构，失败只报告并停止后续场景切换。
+## [br]
+## @api private
 func _start() -> void:
 	if _started or not _is_current_start_owner():
 		return
@@ -42,5 +55,8 @@ func _start() -> void:
 		push_error("[GFProjectBootstrap][project_bootstrap.scene_change_failed] Cannot enter the project main scene: %s." % error_string(error))
 
 
+## 当前场景必须仍是本节点，且节点仍在树内、未排队释放；仅等待完成不恢复已经失去的启动资格。
+## [br]
+## @api private
 func _is_current_start_owner() -> bool:
 	return is_inside_tree() and not is_queued_for_deletion() and get_tree().current_scene == self

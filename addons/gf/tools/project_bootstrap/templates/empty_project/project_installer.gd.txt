@@ -1,9 +1,11 @@
 extends GFInstaller
 
 
-# --- 公共方法 ---
+# --- 框架内部方法 ---
 
 ## 在这里注册项目自己的模块；空项目不需要默认 Model 或 System。
+## [br]
+## @api framework_internal
 ## [br]
 ## @param _architecture: 本次启动将初始化的架构。
 ## [br]

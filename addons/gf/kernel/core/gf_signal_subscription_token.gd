@@ -117,24 +117,26 @@ static func connect_owned(
 	return lifetime_subscription
 
 
-## 返回 Signal 来源对象实例 ID；无有效来源时为 0。
+## 返回最近一次有效连接尝试记录的来源实例 ID；未记录过来源时为 0。
+## 取消、重复连接或连接失败不会清除此诊断缓存，返回值不能证明来源仍存活或订阅仍活动。
 ## [br]
 ## @api public
 ## [br]
 ## @since 8.0.0
 ## [br]
-## @return Signal 来源对象实例 ID。
+## @return 缓存的 Signal 来源实例 ID，不随取消或来源释放而清零。
 func get_source_id() -> int:
 	return _source_id
 
 
-## 返回 Signal 名称；无有效来源时为空。
+## 返回最近一次有效连接尝试记录的 Signal 名称；未记录过来源时为空。
+## 此名称与来源 ID 一同保留供诊断，不表示当前仍拥有有效连接。
 ## [br]
 ## @api public
 ## [br]
 ## @since 8.0.0
 ## [br]
-## @return Signal 名称。
+## @return 缓存的 Signal 名称，不随取消或来源释放而清空。
 func get_signal_name() -> StringName:
 	return _signal_name
 

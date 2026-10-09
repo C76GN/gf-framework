@@ -6,29 +6,90 @@ extends EditorProperty
 
 # --- 常量 ---
 
+## 预设来源验证、独立步骤复制和恢复共用的编辑器入口。
+## [br]
+## @api private
 const _PRESETS_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor/presets/gf_tween_authoring_presets.gd")
+
+## 原生步骤的精确脚本身份；自定义子脚本保留原值，仅允许转到原生 Inspector 编辑。
+## [br]
+## @api private
 const _STEP_SCRIPT = preload("res://addons/gf/extensions/action_queue/tween/gf_tween_action_step.gd")
+
+## 根据步骤属性元数据构造类型化输入控件，不直接修改步骤资源。
+## [br]
+## @api private
 const _VALUE_FIELD_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_value_field.gd")
+
+## 表单允许展示和扩充的步骤数上限；超限资源保留原值并引导使用原生编辑。
+## [br]
+## @api private
 const _MAX_STEPS: int = 128
 
 
 # --- 私有变量 ---
 
+## Inspector 底部编辑区的子树根；重建时移除旧控件并排队释放。
+## [br]
+## @api private
 var _root: VBoxContainer = null
+
+## 独立外层数组中的当前资源步骤引用；编辑前复制被修改步骤，刷新或离树只清空本地数组。
+## [br]
+## @api private
 var _steps: Array[GFTweenActionStep] = []
+
+## 当前编辑资格的代次；刷新、结构修改、切换视图或离树后令旧控件及确认回调失效。
+## [br]
+## @api private
 var _generation: int = 0
+
+## 预设和新步骤采用的样机种类，0/1/2 分别为 2D、UI、3D，不改配置根字段。
+## [br]
+## @api private
 var _kind: int = 0
+
+## 仅首次从当前步骤的原生 Vector3 目标值推断样机，之后保留用户选择。
+## [br]
+## @api private
 var _kind_initialized: bool = false
+
+## 原生 Inspector 的只读状态；控件禁用之外，提交入口还会重新检查它。
+## [br]
+## @api private
 var _read_only: bool = false
+
+## 控制延迟、相对量、并行和标记等字段的显示，不修改步骤数据。
+## [br]
+## @api private
 var _advanced: bool = false
+
+## 当前本地步骤索引；属性刷新时收窄到有效范围，空数组不允许进入步骤编辑路径。
+## [br]
+## @api private
 var _selected: int = 0
+
+## 作为本属性编辑器子节点持有的预设替换确认框，确认时仍须重新验证编辑资格。
+## [br]
+## @api private
 var _confirmation: ConfirmationDialog = null
+
+## 待确认的预设 ID；不代表已获写入资格，离树或接受有效确认后清空。
+## [br]
+## @api private
 var _pending_preset: String = ""
+
+## 打开确认框时捕获的编辑代次；属性或选择改变后拒绝原确认结果。
+## [br]
+## @api private
 var _pending_generation: int = -1
 
 
-# --- Godot 回调方法 ---
+# --- Godot 生命周期方法 ---
 
+## 将表单根和确认框归属本属性编辑器，确认信号统一经过待确认代次检查。
+## [br]
+## @api private
 func _init() -> void:
 	_root = VBoxContainer.new()
 	_root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -40,6 +101,12 @@ func _init() -> void:
 	var _connected: int = _confirmation.confirmed.connect(_on_preset_confirmed)
 
 
+# --- Godot 回调方法 ---
+
+## 作废旧控件代次并重新读取步骤引用到独立外层数组；仅首次推断样机种类。
+## 非步骤值不进入本地数组，因此后续值相等校验也会阻止用不完整草稿覆盖来源。
+## [br]
+## @api private
 func _update_property() -> void:
 	_generation += 1
 	_steps.clear()
@@ -65,12 +132,18 @@ func _update_property() -> void:
 	_rebuild()
 
 
+## 同步 Inspector 只读状态并作废旧代次，使此前控件和确认框不能继续提交。
+## [br]
+## @api private
 func _set_read_only(read_only_enabled: bool) -> void:
 	_read_only = read_only_enabled
 	_generation += 1
 	_rebuild()
 
 
+## 撤销全部待处理编辑资格并释放本地步骤引用；不清空配置资源中的步骤数组。
+## [br]
+## @api private
 func _exit_tree() -> void:
 	_generation += 1
 	_pending_preset = ""
@@ -79,6 +152,10 @@ func _exit_tree() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 按当前草稿重建工具栏和选中步骤表单，旧子控件先离树再排队释放。
+## 写操作回调绑定当前代次；空、超限或非原生步骤只呈现对应提示与允许的操作。
+## [br]
+## @api private
 func _rebuild() -> void:
 	if _root == null:
 		return
@@ -157,6 +234,10 @@ func _rebuild() -> void:
 		_add_button(_root, "原生编辑共享步骤 / Curve", _on_inspect.bind(_generation))
 
 
+## 从原生步骤元数据构造一个表单字段；target_value 使用当前值的实际类型，提交绑定当前代次。
+## 有有效预设来源时附加单字段恢复按钮，控件交由表单子树释放。
+## [br]
+## @api private
 func _add_field(step: GFTweenActionStep, field_name: StringName) -> void:
 	var info: Dictionary = {}
 	for property: Dictionary in step.get_property_list():
@@ -183,6 +264,9 @@ func _add_field(step: GFTweenActionStep, field_name: StringName) -> void:
 		_add_button(row, "恢复", _on_restore.bind(field_name, _generation), not _PRESETS_SCRIPT.get_overrides(step).has(field_name), "", "Restore_%s" % field_name)
 
 
+## 将按钮归属指定父节点并连接回调；局部禁用条件与编辑器只读状态共同决定可用性。
+## [br]
+## @api private
 func _add_button(parent: Node, text: String, callback: Callable, disabled: bool = false, tooltip: String = "", node_name: String = "") -> void:
 	var button: Button = Button.new()
 	if not node_name.is_empty():
@@ -194,6 +278,9 @@ func _add_button(parent: Node, text: String, callback: Callable, disabled: bool 
 	var _connected: int = button.pressed.connect(callback)
 
 
+## 在指定父节点下创建自动换行提示，可指定稳定名称供后续反馈刷新查找。
+## [br]
+## @api private
 func _add_label(parent: Node, text: String, node_name: String = "") -> void:
 	var message_label: Label = Label.new()
 	if not node_name.is_empty():
@@ -203,6 +290,10 @@ func _add_label(parent: Node, text: String, node_name: String = "") -> void:
 	parent.add_child(message_label)
 
 
+## 同时检查代次、只读、树内状态、编辑对象存活及其当前 steps 值，拒绝外部替换后的旧草稿。
+## 数组采用值相等比较，不承诺数组对象身份相同；调用方须在每次写入前检查。
+## [br]
+## @api private
 func _can_edit(generation: int) -> bool:
 	if _read_only or generation != _generation or not is_inside_tree() or not is_instance_valid(get_edited_object()):
 		return false
@@ -210,6 +301,10 @@ func _can_edit(generation: int) -> bool:
 	return get_edited_object().get(get_edited_property()) == _steps
 
 
+## 将独立步骤数组交给 Inspector 的 Undo 管理；连续输入保留控件并复制本地数组，结构提交先递增代次。
+## emit_changed 可同步重建属性编辑器，因此发送后不再写本次草稿或来源资源。
+## [br]
+## @api private
 func _submit(next_steps: Array[GFTweenActionStep], changing: bool = false) -> void:
 	if changing:
 		# 草稿外层数组仍独立；_update_property() 清理时不能清空资源数组。
@@ -222,6 +317,9 @@ func _submit(next_steps: Array[GFTweenActionStep], changing: bool = false) -> vo
 	# Inspector 可同步重建控件；提交后不再写本次草稿或资源。
 
 
+## 在复制的外层数组中替换当前步骤并提交；null 不产生编辑，调用方负责先验证索引与编辑资格。
+## [br]
+## @api private
 func _replace_selected(step: GFTweenActionStep, changing: bool = false) -> void:
 	if step == null:
 		return
@@ -230,6 +328,10 @@ func _replace_selected(step: GFTweenActionStep, changing: bool = false) -> void:
 	_submit(next_steps, changing)
 
 
+## 连续输入期间原地更新步骤摘要、预设覆盖提示和恢复按钮，避免重建表单丢失焦点。
+## 仅在目标值类型改变时重新配置对应输入字段，其余控件保持当前实例。
+## [br]
+## @api private
 func _refresh_field_feedback(step: GFTweenActionStep) -> void:
 	var picker_node: Node = _root.find_child("StepPicker", true, false)
 	if picker_node is OptionButton:
@@ -265,24 +367,36 @@ func _refresh_field_feedback(step: GFTweenActionStep) -> void:
 
 # --- 信号处理函数 ---
 
+## 切换预设采用的样机种类并作废旧代次回调，不重写已有步骤。
+## [br]
+## @api private
 func _on_kind_selected(index: int) -> void:
 	_kind = index
 	_generation += 1
 	_rebuild()
 
 
+## 切换高级字段可见性并重建表单，使旧字段和待确认操作的代次失效。
+## [br]
+## @api private
 func _on_advanced_toggled(enabled: bool) -> void:
 	_advanced = enabled
 	_generation += 1
 	_rebuild()
 
 
+## 切换当前步骤并递增代次，防止上一选择的字段或确认回调继续写入。
+## [br]
+## @api private
 func _on_step_selected(index: int) -> void:
 	_selected = index
 	_generation += 1
 	_rebuild()
 
 
+## 验证控件代次后记录待确认的预设与代次，仅打开替换确认框，不修改步骤数组。
+## [br]
+## @api private
 func _on_preset_selected(index: int, picker: OptionButton, generation: int) -> void:
 	if index == 0 or not _can_edit(generation):
 		return
@@ -295,6 +409,9 @@ func _on_preset_selected(index: int, picker: OptionButton, generation: int) -> v
 	_confirmation.popup_centered()
 
 
+## 重新校验确认框捕获的编辑资格；有效时创建独立预设步骤并整体提交，空结果不修改资源。
+## [br]
+## @api private
 func _on_preset_confirmed() -> void:
 	if not _can_edit(_pending_generation):
 		return
@@ -305,6 +422,9 @@ func _on_preset_confirmed() -> void:
 		_submit(steps)
 
 
+## 在仍可编辑且未达上限时追加独立原生步骤；默认目标按样机选 Vector2 或 Vector3。
+## [br]
+## @api private
 func _on_add_step(generation: int) -> void:
 	if not _can_edit(generation) or _steps.size() >= _MAX_STEPS:
 		return
@@ -318,6 +438,9 @@ func _on_add_step(generation: int) -> void:
 	_submit(next_steps)
 
 
+## 验证当前代次后从复制的数组删除选中项，由 Inspector 刷新重新收窄选中索引。
+## [br]
+## @api private
 func _on_remove(generation: int) -> void:
 	if not _can_edit(generation):
 		return
@@ -326,6 +449,9 @@ func _on_remove(generation: int) -> void:
 	_submit(next_steps)
 
 
+## 将含独立曲线的原生步骤副本插到原项之后；超限、过期或复制不支持时保持原资源。
+## [br]
+## @api private
 func _on_duplicate(generation: int) -> void:
 	if not _can_edit(generation) or _steps.size() >= _MAX_STEPS:
 		return
@@ -338,6 +464,9 @@ func _on_duplicate(generation: int) -> void:
 	_submit(next_steps)
 
 
+## 仅在目标索引有效时重排复制的外层数组；复用步骤引用，不原地修改共享步骤。
+## [br]
+## @api private
 func _on_move(offset: int, generation: int) -> void:
 	if not _can_edit(generation):
 		return
@@ -352,6 +481,10 @@ func _on_move(offset: int, generation: int) -> void:
 	_submit(next_steps)
 
 
+## 在独立步骤副本上应用字段输入；属性路径改变时同步目标值形状，再以连续编辑方式提交。
+## 此处只调整值类型，属性路径是否可预览仍由预览准入检查决定。
+## [br]
+## @api private
 func _on_field_changed(value: Variant, field: StringName, generation: int) -> void:
 	if not _can_edit(generation):
 		return
@@ -372,11 +505,17 @@ func _on_field_changed(value: Variant, field: StringName, generation: int) -> vo
 	_replace_selected(step, true)
 
 
+## 仅在当前编辑资格有效时用独立恢复副本替换选中步骤；空字段表示恢复全部受管字段。
+## [br]
+## @api private
 func _on_restore(field: StringName, generation: int) -> void:
 	if _can_edit(generation):
 		_replace_selected(_PRESETS_SCRIPT.restore_step(_steps[_selected], field))
 
 
+## 将仍属于当前选择的共享步骤交给原生 Inspector；该入口不会先复制资源，编辑会影响其他引用者。
+## [br]
+## @api private
 func _on_inspect(generation: int) -> void:
 	if _can_edit(generation) and is_instance_valid(_steps[_selected]):
 		EditorInterface.edit_resource(_steps[_selected])

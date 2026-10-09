@@ -1,8 +1,7 @@
-## Reusable GUT conformance harness for ProjectStorageBackend.
-##
-## The concrete test file supplies only a ProjectStorageProviderFactory. A real
-## Adapter must run these same cases against its real Provider boundary and
-## explicit fault driver.
+## ProjectStorageBackend 的复用 GUT 一致性验收基类，具体测试只替换 ProjectStorageProviderFactory。
+## 真实适配器必须在实际 Provider 边界与显式故障驱动上执行相同用例，内存夹具通过不能替代该验收。
+## [br]
+## @api framework_internal
 class_name ProjectStorageBackendConformance
 extends GutTest
 
@@ -48,8 +47,11 @@ var _fault_driver: ProjectStorageProviderFaultDriver = null
 var _backend: ProjectStorageBackend = null
 
 
-# --- 公共方法 ---
+# --- 框架内部方法 ---
 
+## 每个测试创建独立工厂、Provider、故障驱动和后端；缺少任何真实测试边界都记录断言失败。
+## [br]
+## @api framework_internal
 func setup_conformance() -> void:
 	_factory = _create_provider_factory()
 	assert_true(
@@ -73,6 +75,9 @@ func setup_conformance() -> void:
 	_backend = ProjectStorageBackend.new()
 
 
+## 先关闭后端，再解除本次夹具的引用；具体测试的 after_each 必须调用以释放 Provider 资源。
+## [br]
+## @api framework_internal
 func teardown_conformance() -> void:
 	if _backend != null:
 		_backend.shutdown()
@@ -82,6 +87,9 @@ func teardown_conformance() -> void:
 	_factory = null
 
 
+## 验证缺失 Provider、错误版本、非原子能力和初始化后能力漂移均被拒绝，不能发布可用后端。
+## [br]
+## @api framework_internal
 func run_rejects_invalid_providers_and_capability_drift() -> void:
 	assert_true(_backend != null, "The Backend fixture must exist.")
 	if _backend == null:
@@ -129,6 +137,9 @@ func run_rejects_invalid_providers_and_capability_drift() -> void:
 	assert_false(_backend.has_data("slot.json"))
 
 
+## 断言初始化前后能力字段精确闭合，条件写验收要求真实支持；同步和取消能力保持关闭。
+## [br]
+## @api framework_internal
 func run_reports_closed_capabilities_before_and_after_initialize() -> void:
 	assert_true(_backend != null, "The Backend fixture must exist.")
 	if _backend == null:
@@ -167,6 +178,9 @@ func run_reports_closed_capabilities_before_and_after_initialize() -> void:
 	assert_false(_get_bool(capabilities, "cancellation"))
 
 
+## 经同一 Provider 验证写读、稳定排序、修订及删除，并检查缺失记录仅返回适配器固定诊断。
+## [br]
+## @api framework_internal
 func run_round_trip_delete_and_deterministic_list() -> void:
 	assert_true(
 		_initialize_backend() == OK,
@@ -241,6 +255,9 @@ func run_round_trip_delete_and_deterministic_list() -> void:
 	)
 
 
+## 验证不安全键、非法条件写、对象和循环值图在 Provider 写入前被拒绝，并检查初始化配置预算。
+## [br]
+## @api framework_internal
 func run_rejects_unsafe_keys_options_config_and_value_graphs() -> void:
 	assert_true(
 		_initialize_backend({
@@ -400,6 +417,9 @@ func run_rejects_unsafe_keys_options_config_and_value_graphs() -> void:
 	invalid_config_backend.shutdown()
 
 
+## 用较小预算证明超限写入不触达 Provider，且读取和列表硬预算通过故障驱动观测确实传入。
+## [br]
+## @api framework_internal
 func run_enforces_write_read_and_list_budgets() -> void:
 	assert_true(
 		_initialize_backend({
@@ -476,6 +496,9 @@ func run_enforces_write_read_and_list_budgets() -> void:
 		)
 
 
+## 在创建冲突、旧修订和提交点故障后重读权威记录，证明数据与修订均未变化；成功条件写才轮换修订。
+## [br]
+## @api framework_internal
 func run_atomic_faults_and_opaque_revision_conditions_preserve_state() -> void:
 	assert_true(
 		_initialize_backend() == OK,
@@ -553,6 +576,9 @@ func run_atomic_faults_and_opaque_revision_conditions_preserve_state() -> void:
 	)
 
 
+## 注入未知码、失败配 OK 及额外字段响应，要求稳定错误和空数据，且脱敏哨兵不得穿过适配器边界。
+## [br]
+## @api framework_internal
 func run_normalizes_unknown_errors_and_redacts_malformed_results() -> void:
 	assert_true(
 		_initialize_backend() == OK,
@@ -622,6 +648,9 @@ func run_normalizes_unknown_errors_and_redacts_malformed_results() -> void:
 	)
 
 
+## 修改写入原对象及读取结果后重读记录，证明容器隔离；重复关闭只触达 Provider 一次并阻止后续写入。
+## [br]
+## @api framework_internal
 func run_defensive_copies_and_idempotent_shutdown() -> void:
 	assert_true(
 		_initialize_backend() == OK,
@@ -670,11 +699,11 @@ func run_defensive_copies_and_idempotent_shutdown() -> void:
 	assert_false(_backend.has_data("copy.json"))
 
 
-# --- 可重写钩子 / 虚方法 ---
+# --- 框架内部方法（测试协作） ---
 
 ## 为一致性基类及具体测试子类读取布尔断言字段，缺失或类型错误按 false 处理。
 ## [br]
-## @api protected
+## @api framework_internal
 ## [br]
 ## @param values: 待断言的响应或验证结果。
 ## [br]
@@ -690,6 +719,12 @@ func _get_bool(values: Dictionary, field_name: String) -> bool:
 	var boolean_value: bool = value
 	return boolean_value
 
+
+## 由项目具体测试覆盖以提供真实 Provider 和故障驱动；默认 null 让未接入测试在准备阶段失败。
+## [br]
+## @api framework_internal
+## [br]
+## @return 本次测试使用的项目工厂；未实现时为 null。
 func _create_provider_factory() -> ProjectStorageProviderFactory:
 	return null
 
@@ -842,12 +877,36 @@ func _unused_callback() -> void:
 
 # --- 内部类 ---
 
+## 故意声明错误协议版本的候选，只用于验证初始化准入拒绝路径。
+## [br]
+## @api framework_internal
 class MismatchedProtocolProvider extends ProjectStorageProvider:
+
+	# --- 框架内部方法 ---
+
+	## 返回与当前适配器不兼容的版本，确保拒绝发生在接管 Provider 之前。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @return 故意不匹配的协议版本。
 	func get_protocol_version() -> String:
 		return "2.0.0"
 
 
+## 其他必要能力齐备但不支持原子写的候选，验证该能力不可被静默降级。
+## [br]
+## @api framework_internal
 class NonAtomicProvider extends ProjectStorageProvider:
+
+	# --- 框架内部方法 ---
+
+	## 给出结构合法但缺失原子提交保证的能力声明。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @return 用于拒绝路径的固定能力字典。
+	## [br]
+	## @schema return: Dictionary，read、write、delete、list、conditional_write 为 true，atomic_write、cancellation、sync 为 false。
 	func get_capabilities() -> Dictionary:
 		return {
 			"read": true,

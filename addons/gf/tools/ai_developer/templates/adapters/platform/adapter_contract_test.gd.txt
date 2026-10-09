@@ -1,8 +1,11 @@
 extends GutTest
 
 
-# --- 公共方法（测试） ---
+# --- 框架内部方法（测试） ---
 
+## 检查示例适配器的静态契约字段；这只验证声明完整，不证明真实 SDK 的行为矩阵通过。
+## [br]
+## @api framework_internal
 func test_adapter_declares_complete_static_contract() -> void:
 	var adapter: ProjectPlatformAdapter = _make_adapter_with_fake_provider()
 	var report: Dictionary = GFPlatformAdapterConformance.inspect(adapter, {
@@ -24,6 +27,9 @@ func test_adapter_declares_complete_static_contract() -> void:
 	)
 
 
+## 强制项目补齐 Provider 故障、取消与资源所有权矩阵；占位失败不得删除来获得通过结果。
+## [br]
+## @api framework_internal
 func test_adapter_failure_matrix() -> void:
 	# Add focused tests for unavailable provider, sync callback, concurrent limit,
 	# cancellation, timeout, duplicate terminal callback, shutdown, invalid result,
@@ -31,6 +37,9 @@ func test_adapter_failure_matrix() -> void:
 	fail_test("Replace this sentinel with the complete adapter failure matrix.")
 
 
+## 强制项目验证实际原生安装和导出边界；script_only 也须证明不携带原生载荷，当前哨兵故意失败。
+## [br]
+## @api framework_internal
 func test_native_adapter_acceptance_matrix() -> void:
 	# For script_only mode, prove that exported builds contain no native payload.
 	# Otherwise verify the side-effect-free probe, exact platform/architecture/build
@@ -70,6 +79,8 @@ func _make_adapter_with_fake_provider() -> ProjectPlatformAdapter:
 
 # --- 内部类 ---
 
-# 最小 provider 占位类型，仅供静态契约装配，不实现 SDK 行为。
+## 最小 Provider 占位类型，仅供同一测试脚本装配静态契约，不实现 SDK 行为。
+## [br]
+## @api framework_internal
 class FakeProvider extends RefCounted:
 	pass

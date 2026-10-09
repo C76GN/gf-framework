@@ -101,6 +101,7 @@ def select_api_owners(
 		raise ValueError("controlled API autoload source paths must be unique")
 	result: list[ApiOwner] = []
 	observed_autoload_paths: set[str] = set()
+	inheritance_classes = _index_inheritance_classes(api_scripts)
 
 	for script in api_scripts:
 		if script.class_name:
@@ -117,7 +118,10 @@ def select_api_owners(
 		public_members = _public_script_members(script)
 		contract = contracts_by_path.get(script.path)
 		if contract is None:
-			if public_members or script.api_owner_kind or script.api_owner_name:
+			if (
+				script.api_owner_kind or script.api_owner_name
+				or any(not _is_inherited_protected_method(script, member, inheritance_classes) for member in public_members)
+			):
 				raise ValueError(
 					"classless public API script has no controlled owner contract: "
 					f"{script.path}"
@@ -148,6 +152,76 @@ def select_api_owners(
 		)
 	_validate_owner_identities(result)
 	return result
+
+
+def _index_inheritance_classes(scripts: list[ApiScript]) -> dict[str, list[ApiScript | ApiClass]]:
+	"""Index parsed types before public filtering; ambiguous names prove nothing."""
+	result: dict[str, list[ApiScript | ApiClass]] = {}
+
+	def add_inner_classes(classes: list[ApiClass], owner_name: str) -> None:
+		for api_class in classes:
+			name = f"{owner_name}.{api_class.name}"
+			result.setdefault(name, []).append(api_class)
+			add_inner_classes(api_class.inner_classes, name)
+
+	for script in scripts:
+		if script.class_name:
+			result.setdefault(script.class_name, []).append(script)
+			add_inner_classes(script.inner_classes, script.class_name)
+	return result
+
+
+def _is_inherited_protected_method(
+	script: ApiScript,
+	member: ApiMember,
+	classes: dict[str, list[ApiScript | ApiClass]],
+) -> bool:
+	"""Allow documentation of existing hooks, never a new classless public owner.
+
+	Only parsed type names can prove inheritance here. Unsupported path/alias
+	forms remain rejected rather than guessing from filenames or source paths.
+	The proof ends at a parsed protected declaration; remaining indexed ancestors
+	are visited to reject cycles, not to invent a native-class allowlist. GUT
+	validates the complete contract; Godot checks base loading and signatures.
+	"""
+	def is_protected_method(candidate: ApiMember) -> bool:
+		return (
+			candidate.kind == "method"
+			and candidate.name.startswith("_")
+			and candidate.docs.tags.get("api") == ["protected"]
+			and re.match(r"\s*func\s+", candidate.signature) is not None
+		)
+
+	if not is_protected_method(member):
+		return False
+	owner: ApiScript | ApiClass = script
+	visited: set[str] = set()
+	found = False
+	while owner.extends:
+		base_name = owner.extends.strip()
+		if re.fullmatch(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*", base_name) is None:
+			return False
+		scope = owner.owner if isinstance(owner, ApiClass) else owner.class_name
+		while scope:
+			local_name = f"{scope}.{base_name}"
+			if local_name in classes:
+				base_name = local_name
+				break
+			scope = scope.rpartition(".")[0]
+		bases = classes.get(base_name, [])
+		if not bases:
+			return found
+		if len(bases) != 1 or base_name in visited:
+			return False
+		visited.add(base_name)
+		owner = bases[0]
+		if not found:
+			methods = [method for method in owner.methods if method.name == member.name]
+			if methods:
+				if len(methods) != 1 or not is_protected_method(methods[0]):
+					return False
+				found = True
+	return found
 
 
 def validate_controlled_autoloads(

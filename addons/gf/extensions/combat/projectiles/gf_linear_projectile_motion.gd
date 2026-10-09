@@ -57,6 +57,18 @@ const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/g
 
 # --- 可重写钩子 / 虚方法 ---
 
+## 以初始二维 body 的基向量和当前配置计算并锁定本次 session 的 world-space 速度。
+## 可选的方向单位化发生在局部方向转换之后；之后修改策略配置不会重算该状态的速度。
+## [br]
+## @api protected
+## [br]
+## @since 11.0.0
+## [br]
+## @param _launch_input: 保留基类发射协议参数；直线策略不读取目标或其他发射输入。
+## [br]
+## @param initial_body: 成功的初始 body 快照；开启局部方向时读取其 transform basis。
+## [br]
+## @return: 保存锁定速度的 session 状态；body 失效或配置、转换后方向及速度非有限时返回 null。
 func _create_state_2d(
 	_launch_input: GFProjectileLaunchInput2D,
 	initial_body: GFProjectileBodyResult2D
@@ -84,6 +96,18 @@ func _create_state_2d(
 	return state
 
 
+## 以初始三维 body 的基向量和当前配置计算并锁定本次 session 的 world-space 速度。
+## 可选的方向单位化发生在局部方向转换之后；之后修改策略配置不会重算该状态的速度。
+## [br]
+## @api protected
+## [br]
+## @since 11.0.0
+## [br]
+## @param _launch_input: 保留基类发射协议参数；直线策略不读取目标或其他发射输入。
+## [br]
+## @param initial_body: 成功的初始 body 快照；开启局部方向时读取其 transform basis。
+## [br]
+## @return: 保存锁定速度的 session 状态；body 失效或配置、转换后方向及速度非有限时返回 null。
 func _create_state_3d(
 	_launch_input: GFProjectileLaunchInput3D,
 	initial_body: GFProjectileBodyResult3D
@@ -110,6 +134,20 @@ func _create_state_3d(
 	return state
 
 
+## 将 session 已锁定的二维速度交给 intent 工厂，保持发射时确定的直线航向。
+## 不重新读取策略配置，也不修改状态或 body。
+## [br]
+## @api protected
+## [br]
+## @since 11.0.0
+## [br]
+## @param state: 本策略创建的 session 状态；其他状态类型返回 invalid_motion_state。
+## [br]
+## @param _current_body: 保留基类快照参数；本实现不依赖当前位置或朝向。
+## [br]
+## @param delta: 原样传给 intent 工厂的帧秒数，必须非负且有限。
+## [br]
+## @return: 锁定速度的 MOVE；状态失效或速度、时长及位移乘积非法时返回 REJECTED。
 func _compute_intent_2d(
 	state: GFProjectileMotionState,
 	_current_body: GFProjectileBodyResult2D,
@@ -121,6 +159,20 @@ func _compute_intent_2d(
 	return GFProjectileMotionIntent2D.move(linear_state._velocity_2d, delta)
 
 
+## 将 session 已锁定的三维速度交给 intent 工厂，保持发射时确定的直线航向。
+## 不重新读取策略配置，也不修改状态或 body。
+## [br]
+## @api protected
+## [br]
+## @since 11.0.0
+## [br]
+## @param state: 本策略创建的 session 状态；其他状态类型返回 invalid_motion_state。
+## [br]
+## @param _current_body: 保留基类快照参数；本实现不依赖当前位置或朝向。
+## [br]
+## @param delta: 原样传给 intent 工厂的帧秒数，必须非负且有限。
+## [br]
+## @return: 锁定速度的 MOVE；状态失效或速度、时长及位移乘积非法时返回 REJECTED。
 func _compute_intent_3d(
 	state: GFProjectileMotionState,
 	_current_body: GFProjectileBodyResult3D,

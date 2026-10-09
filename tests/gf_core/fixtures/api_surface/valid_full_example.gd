@@ -92,6 +92,9 @@ var config_count: int = 0
 
 # --- 私有变量 ---
 
+## 按配置 ID 保留注册资源；重复 ID 被拒绝，dispose 清空全部引用。
+## [br]
+## @api private
 var _configs_by_id: Dictionary = {}
 
 ## 排队时保留请求 Dictionary 的引用；flush 复制队列数组后清空本队列，使重入提交留待下一批处理。
@@ -99,12 +102,22 @@ var _configs_by_id: Dictionary = {}
 ## @api private
 var _pending_requests: Array[Dictionary] = []
 
+## 记录缓存冷、热和待重建状态；配置变化只标脏，初始化和重建才恢复热态。
+## [br]
+## @api private
 var _cache_state: CacheState = CacheState.COLD
+
+## 记录最近一次注入的架构对象，释放服务时清空该引用。
+## [br]
+## @api private
 var _last_architecture: Object = null
 
 
 # --- @onready 变量 ---
 
+## 为诊断输出保留可选节点引用；未设置时使用空名称。
+## [br]
+## @api private
 @onready var _owner_node: Node = null
 
 
@@ -422,10 +435,16 @@ func _execute_now(request: Dictionary) -> GFAPISurfaceReport:
 	return report
 
 
+## 将配置 ID 与当前微秒计时值拼成请求标识，不另行维护递增序列。
+## [br]
+## @api private
 func _make_request_id(config_id: StringName) -> StringName:
 	return StringName("%s:%d" % [config_id, Time.get_ticks_usec()])
 
 
+## 输出当前配置、队列和可选所有者名称，不修改服务状态。
+## [br]
+## @api private
 func _refresh_editor_diagnostics() -> void:
 	# Editor-only diagnostics intentionally stays private; it must not enter generated API docs.
 	var owner_name: String = ""
@@ -434,12 +453,18 @@ func _refresh_editor_diagnostics() -> void:
 	print_verbose("[GFAPISurfaceFullExample] configs=%d pending=%d owner=%s" % [config_count, _pending_requests.size(), owner_name])
 
 
+## 从请求中读取字符串标识；字段缺失或类型不受支持时返回空 StringName。
+## [br]
+## @api private
 func _get_request_id(request: Dictionary) -> StringName:
 	if not request.has("request_id"):
 		return &""
 	return _string_name_value(request["request_id"])
 
 
+## 只接受 StringName 或 String，其他类型不经字符串化而返回空标识。
+## [br]
+## @api private
 func _string_name_value(value: Variant) -> StringName:
 	if value is StringName:
 		var string_name_value: StringName = value
@@ -452,6 +477,9 @@ func _string_name_value(value: Variant) -> StringName:
 
 # --- 信号处理函数 ---
 
+## 只对已注册配置将缓存标脏；未知 ID 不改变当前状态。
+## [br]
+## @api private
 func _on_external_config_changed(config_id: StringName) -> void:
 	if _configs_by_id.has(config_id):
 		_cache_state = CacheState.DIRTY
@@ -623,6 +651,9 @@ class _ParserState:
 	## @api private
 	var _cursor: int = 0
 
+	## 保存本次解析输入，每次 reset 与游标一起替换。
+	## [br]
+	## @api private
 	var _source: String = ""
 
 	# --- 私有/辅助方法 ---
@@ -634,5 +665,8 @@ class _ParserState:
 		_cursor = 0
 		_source = source_text
 
+	## 游标到达或越过输入末尾时结束读取。
+	## [br]
+	## @api private
 	func _is_at_end() -> bool:
 		return _cursor >= _source.length()

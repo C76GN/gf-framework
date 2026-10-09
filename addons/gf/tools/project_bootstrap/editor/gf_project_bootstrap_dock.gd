@@ -6,33 +6,110 @@ extends VBoxContainer
 
 # --- 常量 ---
 
+## 只读计划与同步提交共用的协调器；页面不自行创建文件或补偿项目设置。
+## [br]
+## @api private
 const _GENERATOR_SCRIPT = preload("res://addons/gf/tools/project_bootstrap/gf_project_bootstrap_generator.gd")
+
+## 复用工作区布局和按钮构建方式，保持初始化页与其他工具页面一致。
+## [br]
+## @api private
 const _WORKSPACE_UI = preload("res://addons/gf/kernel/editor/gf_editor_workspace_ui.gd")
 
 
 # --- 私有变量 ---
 
+## 用户选择的产物根目录；文本变化会作废预览，实际写入前仍由生成器重新校验。
+## [br]
+## @api private
 var _directory: LineEdit = null
+
+## 新项目和已有项目接入模式选择器；模式决定是否创建并登记 Boot 主场景。
+## [br]
+## @api private
 var _mode: OptionButton = null
+
+## 说明当前模式对主场景与 Installer 的处理，随模式变化更新。
+## [br]
+## @api private
 var _mode_hint: Label = null
+
+## 控制是否新建并追加项目 Installer；高级选项收起不会清除此选择。
+## [br]
+## @api private
 var _create_installer: CheckBox = null
+
+## 控制是否创建项目初始化说明文件，不影响核心启动逻辑。
+## [br]
+## @api private
 var _include_readme: CheckBox = null
+
+## 只读刷新计划的入口；提交中或报告要求恢复时禁用。
+## [br]
+## @api private
 var _preview: Button = null
+
+## 唯一发起生成器提交的按钮；须有成功且包含实际产物的当前计划。
+## [br]
+## @api private
 var _create: Button = null
+
+## 打开成功生成的 Boot 场景；仅预览出路径还不足以启用此动作。
+## [br]
+## @api private
 var _open_scene: Button = null
+
+## 打开已有项目的主场景或本次成功生成的 Main，路径选择由 _main_path 决定。
+## [br]
+## @api private
 var _open_main: Button = null
+
+## 打开本次成功创建的 Installer 脚本；恢复未完成时不开放结果动作。
+## [br]
+## @api private
 var _open_installer: Button = null
+
+## 复制已有项目接入片段；只提供文本，不自动修改用户启动脚本。
+## [br]
+## @api private
 var _copy_snippet: Button = null
+
+## 显示只读计划、真实提交状态和恢复提醒的纯文本区域，不解析模板或路径中的 BBCode。
+## [br]
+## @api private
 var _details: RichTextLabel = null
+
+## 当前输入对应的只读计划及内容签名；输入或上下文变化后清空，创建时交给生成器复核。
+## [br]
+## @api private
 var _plan: Dictionary = {}
+
+## 最近一次仍有 UI 写回资格的提交报告；要求恢复时保留并阻止新计划覆盖诊断。
+## [br]
+## @api private
 var _last_report: Dictionary = {}
+
+## 预览和同步调用栈的 UI 写回代次；上下文、输入或操作变化会使旧回调失效。
+## [br]
+## @api private
 var _generation: int = 0
+
+## 当前页面同步提交的交互占用标记；页面失效只撤销结果写回，不中断生成器的保存或补偿。
+## [br]
+## @api private
 var _busy: bool = false
+
+## 宿主授予的编辑器上下文；页面和插件都必须仍存活且未排队释放才能执行交互。
+## [br]
+## @api private
 var _context: GFEditorToolContext = null
 
 
 # --- Godot 回调方法 ---
 
+## 构建初始化向导并安排只读摘要；进入页面不创建产物，提交仍必须由有效计划上的按钮发起。
+## [br]
+## @api private
 func _ready() -> void:
 	_WORKSPACE_UI.apply_page_root(self)
 	add_child(_WORKSPACE_UI.make_summary_label("建立项目启动入口，或为现有项目准备接入内容。下方摘要只读检查，点击初始化后才写入。"))
@@ -103,6 +180,9 @@ func _ready() -> void:
 	_queue_preview()
 
 
+## 通过撤销宿主上下文推进代次，使排队预览与旧同步调用栈失去 UI 写回资格；不中断已进入的文件事务。
+## [br]
+## @api private
 func _exit_tree() -> void:
 	set_editor_context(null)
 
@@ -144,6 +224,9 @@ func run_workspace_task(action_id: String) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 同时检查编辑器环境、页面 ready 状态与宿主插件存活；未准备好或排队释放的页面不拥有交互资格。
+## [br]
+## @api private
 func _is_context_active() -> bool:
 	return (
 		Engine.is_editor_hint() and is_node_ready() and is_inside_tree()
@@ -153,6 +236,9 @@ func _is_context_active() -> bool:
 	)
 
 
+## 普通输入变化清除旧计划及结果并安排新预览；待恢复报告优先保留，不能被新输入冲掉。
+## [br]
+## @api private
 func _invalidate_preview() -> void:
 	if _last_report.get("recovery_required") == true:
 		return
@@ -174,6 +260,9 @@ func _queue_preview() -> void:
 	_refresh_plan.call_deferred(_generation)
 
 
+## 只读重算指定代次的计划；进入前与返回后均检查资格，旧调用不能发布摘要或重新启用创建按钮。
+## [br]
+## @api private
 func _refresh_plan(generation: int) -> void:
 	if generation != _generation or _busy or not _is_context_active() or _last_report.get("recovery_required") == true:
 		return
@@ -185,6 +274,9 @@ func _refresh_plan(generation: int) -> void:
 	_set_busy(false)
 
 
+## 从当前控件构造生成器的三个闭合选项；控件显示文字不作为操作模式传入。
+## [br]
+## @api private
 func _get_options() -> Dictionary:
 	return {
 		"mode": "existing_project" if _mode.selected == 1 else "new_project",
@@ -193,6 +285,9 @@ func _get_options() -> Dictionary:
 	}
 
 
+## 根据所选模式说明会保留或建立的项目入口，不据此执行任何文件或设置变更。
+## [br]
+## @api private
 func _update_mode_hint() -> void:
 	_mode_hint.text = (
 		"保留已有主场景和 Installer。只新建所选文件，并提供可复制的初始化片段。"
@@ -201,6 +296,9 @@ func _update_mode_hint() -> void:
 	)
 
 
+## 统一应用提交占用、上下文撤销与待恢复状态；纯说明计划始终禁用创建，但可保留适用的导航动作。
+## [br]
+## @api private
 func _set_busy(active: bool) -> void:
 	_busy = active
 	var unavailable: bool = active or not _is_context_active() or _last_report.get("recovery_required") == true
@@ -218,6 +316,9 @@ func _set_busy(active: bool) -> void:
 	_update_result_actions()
 
 
+## 只以计划中的实际 settings_after 字典判断是否会保存项目设置，避免按操作模式猜测副作用。
+## [br]
+## @api private
 func _has_settings_changes(plan: Dictionary) -> bool:
 	var value: Variant = plan.get("settings_after", {})
 	if value is Dictionary:
@@ -226,6 +327,9 @@ func _has_settings_changes(plan: Dictionary) -> bool:
 	return false
 
 
+## 按有效上下文、恢复状态及可用结果路径更新导航按钮；Boot 和 Installer 必须来自成功报告。
+## [br]
+## @api private
 func _update_result_actions() -> void:
 	var unavailable: bool = _busy or not _is_context_active() or _last_report.get("recovery_required") == true
 	var completed: bool = _last_report.get("ok") == true
@@ -235,6 +339,9 @@ func _update_result_actions() -> void:
 	_copy_snippet.disabled = unavailable or _integration_snippet().is_empty()
 
 
+## 只接受报告中的 String 字段，缺失或类型错误时返回空文本，不对任意对象执行字符串转换。
+## [br]
+## @api private
 func _read_string(data: Dictionary, key: String) -> String:
 	var value: Variant = data.get(key, "")
 	if value is String:
@@ -243,6 +350,9 @@ func _read_string(data: Dictionary, key: String) -> String:
 	return ""
 
 
+## 已有项目优先使用计划中解析出的主场景；新项目必须等成功报告后才提供生成的 Main 路径。
+## [br]
+## @api private
 func _main_path() -> String:
 	if _read_string(_plan, "mode") == "existing_project":
 		return _read_string(_plan, "main_scene_path")
@@ -251,6 +361,9 @@ func _main_path() -> String:
 	return ""
 
 
+## 只返回已有项目模式下成功计划或成功报告的接入片段；新项目模式及无有效结果时为空。
+## [br]
+## @api private
 func _integration_snippet() -> String:
 	if _plan.get("ok") == true and _read_string(_plan, "mode") == "existing_project":
 		return _read_string(_plan, "integration_snippet")
@@ -259,6 +372,9 @@ func _integration_snippet() -> String:
 	return ""
 
 
+## 再次确认场景资源存在后交给编辑器打开；文件已被移走时保留报告并追加提示，不自动再生成。
+## [br]
+## @api private
 func _open_scene_path(path: String) -> void:
 	if path.is_empty():
 		return
@@ -268,6 +384,9 @@ func _open_scene_path(path: String) -> void:
 	EditorInterface.open_scene_from_path(path)
 
 
+## 展示确切文件与设置意图，并区分零写入接入说明；这里只呈现计划，不把预览成功视为提交完成。
+## [br]
+## @api private
 func _show_plan(plan: Dictionary) -> void:
 	var lines: PackedStringArray = PackedStringArray()
 	var _title_added: bool = lines.append("变更摘要" if plan.get("ok") == true else "暂不能初始化")
@@ -299,6 +418,9 @@ func _show_plan(plan: Dictionary) -> void:
 	_details.text = "\n".join(lines)
 
 
+## 按真实报告区分成功、回滚和保留产物待恢复；需要恢复时明确阻止用户把失败理解为零副作用。
+## [br]
+## @api private
 func _show_report(report: Dictionary) -> void:
 	var lines: PackedStringArray = PackedStringArray()
 	var status: String = report["status"]
@@ -325,22 +447,34 @@ func _show_report(report: Dictionary) -> void:
 
 # --- 信号处理函数 ---
 
+## 空闲且上下文有效时使旧目录计划失效；实际新目录从控件读取，不使用信号参数作为提交输入。
+## [br]
+## @api private
 func _on_input_changed(_text: String) -> void:
 	if not _busy and _is_context_active():
 		_invalidate_preview()
 
 
+## 模式选择后同步使用说明并撤销旧计划，防止复用另一模式下确认的文件和设置意图。
+## [br]
+## @api private
 func _on_mode_selected(_index: int) -> void:
 	if not _busy and _is_context_active():
 		_update_mode_hint()
 		_invalidate_preview()
 
 
+## 任一产物开关变化都使旧计划失效；新计划统一重新读取两个复选框。
+## [br]
+## @api private
 func _on_option_toggled(_enabled: bool) -> void:
 	if not _busy and _is_context_active():
 		_invalidate_preview()
 
 
+## 显式刷新时推进代次并立即重算只读计划，取消此前排队预览的发布资格；恢复期间拒绝刷新。
+## [br]
+## @api private
 func _on_preview_pressed() -> void:
 	if _busy or not _is_context_active() or _last_report.get("recovery_required") == true:
 		return
@@ -348,6 +482,10 @@ func _on_preview_pressed() -> void:
 	_refresh_plan(_generation)
 
 
+## 按当前计划签名同步提交；生成器负责走完保存或补偿，页面代次失效后只放弃 UI 写回。
+## 有产物时才刷新编辑器索引，并在该调用返回后再次核对资格再打开启动场景。
+## [br]
+## @api private
 func _on_create_pressed() -> void:
 	if _busy or not _is_context_active() or _plan.get("ok") != true or _plan.get("guidance_only") == true or _last_report.get("recovery_required") == true:
 		return
@@ -370,18 +508,27 @@ func _on_create_pressed() -> void:
 		_on_open_scene_pressed()
 
 
+## 仅在成功报告仍可操作时打开本次 Boot；已有项目或未生成启动场景时路径为空。
+## [br]
+## @api private
 func _on_open_scene_pressed() -> void:
 	if not _open_scene.disabled and not _busy and _is_context_active() and _last_report.get("ok") == true:
 		var path: String = _read_string(_last_report, "scene_path")
 		_open_scene_path(path)
 
 
+## 在有效页面上导航到 _main_path 选择的主场景，不改写项目的主场景设置。
+## [br]
+## @api private
 func _on_open_main_pressed() -> void:
 	if not _open_main.disabled and not _busy and _is_context_active():
 		var path: String = _main_path()
 		_open_scene_path(path)
 
 
+## 只加载成功报告指向且仍存在的 Installer Script 供编辑；不实例化脚本或再次登记 Installer。
+## [br]
+## @api private
 func _on_open_installer_pressed() -> void:
 	if not _open_installer.disabled and not _busy and _is_context_active() and _last_report.get("ok") == true:
 		var path: String = _read_string(_last_report, "installer_path")
@@ -394,6 +541,9 @@ func _on_open_installer_pressed() -> void:
 			EditorInterface.edit_script(script)
 
 
+## 将当前可用的已有项目接入片段复制到剪贴板，保留由项目维护者决定合并入口的边界。
+## [br]
+## @api private
 func _on_copy_snippet_pressed() -> void:
 	if not _copy_snippet.disabled and not _busy and _is_context_active():
 		var snippet: String = _integration_snippet()

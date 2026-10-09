@@ -6,13 +6,27 @@ extends Control
 
 # --- 私有变量 ---
 
+## 持有当前会话的冻结计划；同一对象再次配置时不会重建区段，调用方不得原地修改它。
+## [br]
+## @api private
 var _plan: GFTweenPreviewPlan = null
+
+## 根据计划展开的前进、回程与循环区段；更换计划时整体替换，不读取来源资源。
+## [br]
+## @api private
 var _spans: Array[Dictionary] = []
+
+## 当前会话的实际秒数，只控制游标绘制，不推进计划或触发步骤通知。
+## [br]
+## @api private
 var _time_seconds: float = 0.0
 
 
 # --- Godot 回调方法 ---
 
+## 按冻结计划时长绘制循环与回程区段，再叠加当前时间游标；空计划不绘制。
+## [br]
+## @api private
 func _draw() -> void:
 	if _plan == null:
 		return

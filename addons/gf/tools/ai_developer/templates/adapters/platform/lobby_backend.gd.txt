@@ -1,11 +1,13 @@
-## Rename this class and keep it beside the provider adapter.
+## 项目侧大厅 Provider 适配骨架；与真实 Provider 适配器一同改名和维护，不改变项目匹配策略。
+## [br]
+## @api framework_internal
 class_name ProjectLobbyBackend
 extends GFNetworkLobbyBackend
 
 
 # --- 私有变量 ---
 
-## 借用项目注入的 SDK 对象，派发前验证实例仍有效；close 在停止外部回调后清空引用。
+## 借用项目注入的 SDK 对象，派发前验证实例仍有效；真实 close 实现须先停止外部回调再清空引用。
 ## [br]
 ## @api private
 var _provider: Object = null
@@ -16,57 +18,17 @@ var _provider: Object = null
 var _calls: Dictionary = {}
 
 
-# --- 公共方法 ---
-
-func configure_provider(provider: Object) -> bool:
-	if not is_instance_valid(provider):
-		return false
-	_provider = provider
-	backend_id = &"project.sample_lobby"
-	return true
-
-
-func on_provider_lobby_succeeded(
-	provider_call_id: String,
-	lobby: GFNetworkLobbyDescriptor
-) -> void:
-	# Native worker callbacks must copy bounded plain data into a project-owned
-	# main-thread pump before invoking any on_provider_* entry point.
-	var handle: GFNetworkLobbyOperationHandle = _take_handle(provider_call_id)
-	if handle != null:
-		var _completed: bool = _succeed_operation(handle, {"lobby": lobby})
-
-
-func on_provider_query_succeeded(
-	provider_call_id: String,
-	lobbies: Array[GFNetworkLobbyDescriptor]
-) -> void:
-	var handle: GFNetworkLobbyOperationHandle = _take_handle(provider_call_id)
-	if handle != null:
-		var _completed: bool = _succeed_operation(handle, {"lobbies": lobbies})
-
-
-func on_provider_failed(
-	provider_call_id: String,
-	error_code: StringName
-) -> void:
-	var handle: GFNetworkLobbyOperationHandle = _take_handle(provider_call_id)
-	if handle != null:
-		var _completed: bool = _fail_operation(
-			handle,
-			error_code,
-			"Lobby provider request failed."
-		)
-
-
-func on_provider_cancelled(provider_call_id: String) -> void:
-	var handle: GFNetworkLobbyOperationHandle = _take_handle(provider_call_id)
-	if handle != null:
-		var _released: bool = _release_operation(handle)
-
-
 # --- 可重写钩子 / 虚方法 ---
 
+## 登记受支持操作的句柄，留待项目接入真实 SDK 调用；未知操作会撤销登记并拒绝派发。
+## [br]
+## @api protected
+## [br]
+## @param request: 基类提供的操作请求副本。
+## [br]
+## @param handle: 基类拥有的操作句柄。
+## [br]
+## @return 已登记的受支持操作返回 true；当前骨架不自动产生成功结果。
 func _dispatch_operation(
 	request: GFNetworkLobbyOperationRequest,
 	handle: GFNetworkLobbyOperationHandle
@@ -95,6 +57,13 @@ func _dispatch_operation(
 	return false
 
 
+## Provider 取消入口的占位；实际接入应请求停止但保持租约，等待明确的取消确认。
+## [br]
+## @api protected
+## [br]
+## @param handle: 已进入取消或超时终态的操作句柄。
+## [br]
+## @param _reason: 基类取消原因，当前占位未使用。
 func _cancel_operation(
 	handle: GFNetworkLobbyOperationHandle,
 	_reason: StringName
@@ -104,11 +73,96 @@ func _cancel_operation(
 	# Request provider cancellation, but keep the request lease until confirmation.
 
 
+## 清除示例映射与借用的 Provider 引用；真实接入必须先停止回调、请求取消、解绑并有界回收自有 worker。
+## [br]
+## @api protected
 func _close() -> void:
 	# Before clearing state: stop callback ingress, request cancellation once,
 	# detach callbacks, and join Backend-owned workers within a bounded timeout.
 	_calls.clear()
 	_provider = null
+
+
+# --- 框架内部方法 ---
+
+## 接受有效的项目 Provider 并设置示例后端标识；不启动 SDK 或取得其停机保证。
+## [br]
+## @api framework_internal
+## [br]
+## @param provider: 项目提供的 SDK 包装对象。
+## [br]
+## @return 对象有效并完成绑定时为 true。
+func configure_provider(provider: Object) -> bool:
+	if not is_instance_valid(provider):
+		return false
+	_provider = provider
+	backend_id = &"project.sample_lobby"
+	return true
+
+
+## 主线程消费调用关联并提交单个大厅结果；原生 worker 必须先把有界结果交给项目回调泵。
+## [br]
+## @api framework_internal
+## [br]
+## @param provider_call_id: 底层调用的登记标识。
+## [br]
+## @param lobby: 项目从 Provider 响应构造的大厅描述。
+func on_provider_lobby_succeeded(
+	provider_call_id: String,
+	lobby: GFNetworkLobbyDescriptor
+) -> void:
+	# Native worker callbacks must copy bounded plain data into a project-owned
+	# main-thread pump before invoking any on_provider_* entry point.
+	var handle: GFNetworkLobbyOperationHandle = _take_handle(provider_call_id)
+	if handle != null:
+		var _completed: bool = _succeed_operation(handle, {"lobby": lobby})
+
+
+## 在主线程提交查询大厅列表并消费句柄关联，重复终态回调不会再次发布。
+## [br]
+## @api framework_internal
+## [br]
+## @param provider_call_id: 底层查询的登记标识。
+## [br]
+## @param lobbies: 已转为 GF 描述类型的查询结果列表。
+func on_provider_query_succeeded(
+	provider_call_id: String,
+	lobbies: Array[GFNetworkLobbyDescriptor]
+) -> void:
+	var handle: GFNetworkLobbyOperationHandle = _take_handle(provider_call_id)
+	if handle != null:
+		var _completed: bool = _succeed_operation(handle, {"lobbies": lobbies})
+
+
+## 在主线程发布项目已映射的稳定错误码和固定正文，不透传 Provider 原始错误文本。
+## [br]
+## @api framework_internal
+## [br]
+## @param provider_call_id: 失败调用的登记标识。
+## [br]
+## @param error_code: 项目脱敏并映射后的契约错误码。
+func on_provider_failed(
+	provider_call_id: String,
+	error_code: StringName
+) -> void:
+	var handle: GFNetworkLobbyOperationHandle = _take_handle(provider_call_id)
+	if handle != null:
+		var _completed: bool = _fail_operation(
+			handle,
+			error_code,
+			"Lobby provider request failed."
+		)
+
+
+## 仅在 Provider 确认底层操作停止后由主线程释放操作租约，不能把请求取消视作已经确认。
+## [br]
+## @api framework_internal
+## [br]
+## @param provider_call_id: 已停止操作的登记标识。
+func on_provider_cancelled(provider_call_id: String) -> void:
+	var handle: GFNetworkLobbyOperationHandle = _take_handle(provider_call_id)
+	if handle != null:
+		var _released: bool = _release_operation(handle)
 
 
 # --- 私有/辅助方法 ---

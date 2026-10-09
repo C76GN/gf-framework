@@ -6,17 +6,47 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 固定产物清单与文本展开入口，预检和提交均使用其实际内容生成签名。
+## [br]
+## @api private
 const _TEMPLATES_SCRIPT = preload("res://addons/gf/tools/project_bootstrap/gf_project_bootstrap_templates.gd")
+
+## 只读验证 Gf AutoLoad 前提；初始化向导不注册或补偿该单例设置。
+## [br]
+## @api private
 const _AUTOLOAD_SCRIPT = preload("res://addons/gf/kernel/editor/gf_plugin_autoload.gd")
+
+## 项目 Installer 有序路径列表的设置键；追加前保留原集合的类型和次序。
+## [br]
+## @api private
 const _INSTALLERS: String = "gf/project/installers"
+
+## 新项目模式设置的启动场景键；已有项目模式仅读取，不覆盖当前入口。
+## [br]
+## @api private
 const _MAIN_SCENE: String = "application/run/main_scene"
+
+## 作为前提快照的 Gf AutoLoad 键；用于检测提交期间设置漂移，不进入写入或恢复集合。
+## [br]
+## @api private
 const _AUTOLOAD: String = "autoload/Gf"
+
+## 未显式指定目录时的项目源码建议位置；仍须通过同样的目录与冲突预检。
+## [br]
+## @api private
 const _DEFAULT_DIRECTORY: String = "res://app"
 
 
 # --- 私有变量 ---
 
+## 所有调用方共用的主线程重入闸门；create 拒绝非主线程调用，此布尔值不是跨线程互斥锁。
+## [br]
+## @api private
 static var _busy: bool = false
+
+## 验收注入的一次性设置保存错误；只有实际进入保存步骤才消费，预检失败不会清除。
+## [br]
+## @api private
 static var _test_save_error: Error = OK
 
 
@@ -236,6 +266,9 @@ static func configure_test_save_error(error: Error) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 只接受固定模式和两个布尔选项；无效输入保留默认值并追加错误，由上层拒绝整个计划。
+## [br]
+## @api private
 static func _normalize_options(options: Dictionary, issues: Array[String]) -> Dictionary:
 	var normalized: Dictionary = {"mode": "new_project", "create_installer": true, "include_readme": false}
 	for key: Variant in options:
@@ -254,6 +287,9 @@ static func _normalize_options(options: Dictionary, issues: Array[String]) -> Di
 	return normalized
 
 
+## 校验有界的项目资源目录文本，排除根目录、addons、缓存及不合法分段；实际文件写入仍由事务预检控制。
+## [br]
+## @api private
 static func _valid_directory(path: String) -> bool:
 	if not path.begins_with("res://") or path.length() > 180:
 		return false
@@ -269,6 +305,9 @@ static func _valid_directory(path: String) -> bool:
 	return true
 
 
+## 接受 PackedStringArray 或仅含文本路径的 Array 并复制；null 表示原设置类型非法，不能当作空列表覆盖。
+## [br]
+## @api private
 static func _copy_installers(raw: Variant) -> Variant:
 	if raw is PackedStringArray:
 		var packed_paths: PackedStringArray = raw
@@ -282,6 +321,9 @@ static func _copy_installers(raw: Variant) -> Variant:
 	return null
 
 
+## 检查已经 _copy_installers 校验的两种路径集合；调用方必须先排除非法设置返回的 null。
+## [br]
+## @api private
 static func _installers_empty(paths: Variant) -> bool:
 	if paths is PackedStringArray:
 		var packed_paths: PackedStringArray = paths
@@ -290,6 +332,9 @@ static func _installers_empty(paths: Variant) -> bool:
 	return array_paths.is_empty()
 
 
+## 在已校验的路径集合中按原文本查重；这里不解析 UID，文件补偿前的引用检查另行处理。
+## [br]
+## @api private
 static func _installers_contain(paths: Variant, path: String) -> bool:
 	if paths is PackedStringArray:
 		var packed_paths: PackedStringArray = paths
@@ -298,6 +343,9 @@ static func _installers_contain(paths: Variant, path: String) -> bool:
 	return array_paths.has(path)
 
 
+## 向调用方已复制的 Installer 集合末尾追加路径并保持集合类型；Array 会原位修改该副本。
+## [br]
+## @api private
 static func _append_installer(paths: Variant, path: String) -> Variant:
 	if paths is PackedStringArray:
 		var packed_paths: PackedStringArray = paths
@@ -308,6 +356,9 @@ static func _append_installer(paths: Variant, path: String) -> Variant:
 	return array_paths
 
 
+## 将已登记 UID 转为资源路径供导航或引用检查；未知 UID 保留原文，不加载资源或创建 UID。
+## [br]
+## @api private
 static func _resolve_resource_path(path: String) -> String:
 	if path.begins_with("uid://"):
 		var uid: int = ResourceUID.text_to_id(path)
@@ -316,6 +367,9 @@ static func _resolve_resource_path(path: String) -> String:
 	return path
 
 
+## 同时捕获设置是否存在及其值，区分未设置与显式值；Array 和 Dictionary 深复制以隔离后续修改。
+## [br]
+## @api private
 static func _setting_snapshot(key: String) -> Dictionary:
 	var value: Variant = ProjectSettings.get_setting(key, null)
 	if value is Array:
@@ -327,6 +381,9 @@ static func _setting_snapshot(key: String) -> Dictionary:
 	return {"exists": ProjectSettings.has_setting(key), "value": value}
 
 
+## 按存在性和值逐项复核预检快照，包括只读 AutoLoad 前提；不检查快照外的设置。
+## [br]
+## @api private
 static func _settings_match(before: Dictionary) -> bool:
 	for key: String in before:
 		if _setting_snapshot(key) != before[key]:
@@ -334,6 +391,9 @@ static func _settings_match(before: Dictionary) -> bool:
 	return true
 
 
+## 检查本次写入键在内存中仍存在且值未被其他操作改变，用作设置补偿的所有权条件。
+## [br]
+## @api private
 static func _settings_equal(values: Dictionary) -> bool:
 	for key: String in values:
 		if not ProjectSettings.has_setting(key) or ProjectSettings.get_setting(key) != values[key]:
@@ -341,6 +401,9 @@ static func _settings_equal(values: Dictionary) -> bool:
 	return true
 
 
+## 从磁盘 project.godot 复核本次保存键，避免只凭内存值和 save 返回值认定持久化成功。
+## [br]
+## @api private
 static func _saved_settings_equal(values: Dictionary) -> bool:
 	var settings_file: ConfigFile = ConfigFile.new()
 	var project_path: String = ProjectSettings.globalize_path("res://project.godot")
@@ -353,6 +416,10 @@ static func _saved_settings_equal(values: Dictionary) -> bool:
 	return true
 
 
+## 只有本次写入值仍完整匹配才恢复对应内存设置；不再次保存磁盘，也不恢复只读 AutoLoad 前提。
+## 返回值还要求原快照全部匹配，供上层决定能否继续补偿文件。
+## [br]
+## @api private
 static func _restore_settings(before: Dictionary, after: Dictionary) -> bool:
 	if not _settings_equal(after):
 		return false
@@ -362,16 +429,25 @@ static func _restore_settings(before: Dictionary, after: Dictionary) -> bool:
 	return _settings_match(before)
 
 
+## 将事务限制为本次输出根内的少量新建文本文件，禁止覆盖；文件系统扫描留给有效页面在提交后发起。
+## [br]
+## @api private
 static func _transaction_options(directory: String) -> Dictionary:
 	return {"allowed_roots": PackedStringArray([directory]), "overwrite_existing": false, "max_file_count": 5, "max_file_bytes": 65536, "max_total_bytes": 262144, "scan_filesystem": false}
 
 
+## 建立默认失败且尚未产生副作用的独立报告；各提交阶段逐项记录文件、设置、回滚及恢复状态。
+## [br]
+## @api private
 static func _report() -> Dictionary:
 	var issues: Array[String] = []
 	var transactions: Array[Dictionary] = []
 	return {"ok": false, "status": "preflight_failed", "issues": issues, "mode": "", "paths": PackedStringArray(), "scene_path": "", "main_scene_path": "", "installer_path": "", "integration_snippet": "", "guidance_only": false, "settings_saved": false, "files_created": false, "rolled_back": false, "recovery_required": false, "transactions": transactions}
 
 
+## 仅收集数组中的 String 问题项，不隐式转换任意对象，以保持可显示的诊断载荷。
+## [br]
+## @api private
 static func _append_issues(issues: Array[String], values: Variant) -> void:
 	if values is Array or values is PackedStringArray:
 		for value: Variant in values:
@@ -379,6 +455,9 @@ static func _append_issues(issues: Array[String], values: Variant) -> void:
 				issues.append(value)
 
 
+## 原样保留每个事务报告并汇总问题；任何阶段要求恢复都会置位且不被后续成功报告清除。
+## [br]
+## @api private
 static func _record_transaction(report: Dictionary, transaction: Dictionary) -> void:
 	var transactions: Array[Dictionary] = report["transactions"]
 	transactions.append(transaction)
@@ -414,6 +493,9 @@ static func _compensate_files(plan: Dictionary, transaction: Dictionary, report:
 	report["status"] = "rolled_back" if report["rolled_back"] else "recovery_required"
 
 
+## 在删除新文件前检查主场景和 Installer 是否仍引用它们，并解析已知 UID；主场景类型非法时保守地视为有引用。
+## [br]
+## @api private
 static func _settings_reference_outputs(installers: Variant, paths: PackedStringArray) -> bool:
 	var current_main: Variant = ProjectSettings.get_setting(_MAIN_SCENE, "")
 	if not current_main is String and not current_main is StringName:
@@ -426,6 +508,9 @@ static func _settings_reference_outputs(installers: Variant, paths: PackedString
 	return false
 
 
+## 所有权不再允许回滚时保留产物并结束外层事务；即使事务清理成功也要求人工核对文件与设置。
+## [br]
+## @api private
 static func _retain_files(transaction: Dictionary, report: Dictionary) -> void:
 	_record_transaction(report, GFArtifactWriteTransaction.complete(transaction))
 	report["recovery_required"] = true

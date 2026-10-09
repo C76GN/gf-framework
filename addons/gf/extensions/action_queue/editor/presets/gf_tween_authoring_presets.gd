@@ -6,14 +6,37 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 精确原生步骤的脚本身份；拒绝自定义子脚本的复制与来源记录读取。
+## [br]
+## @api private
 const _STEP_SCRIPT = preload("res://addons/gf/extensions/action_queue/tween/gf_tween_action_step.gd")
+
+## 曲线复制入口，创建独立原生曲线并拒绝不支持的曲线来源。
+## [br]
+## @api private
 const _CURVE_SCRIPT = preload("res://addons/gf/extensions/action_queue/tween/gf_tween_easing_curve.gd")
+
+## 步骤资源上保存预设来源的元数据键；普通自定义元数据不随步骤复制。
+## [br]
+## @api private
 const _META_KEY: StringName = &"_gf_tween_preset"
+
+## 当前可识别的冻结预设版本，未知版本关闭来源恢复能力。
+## [br]
+## @api private
 const _VERSION: int = 1
+
+## 预设基线、覆盖比较和恢复共同管理的字段；自定义 Curve 不属于自动恢复范围。
+## [br]
+## @api private
 const _FIELDS: Array[StringName] = [
 	&"property_name", &"target_value", &"duration", &"delay", &"as_relative",
 	&"parallel", &"transition_type", &"ease_type", &"marker_id",
 ]
+
+## 来源记录允许的预设 ID；具体样机适用性仍由创建步骤时检查。
+## [br]
+## @api private
 const _IDS: Array[String] = ["move_by", "scale_to", "rotate_by", "opacity_to"]
 
 
@@ -192,6 +215,9 @@ static func restore_step(source: GFTweenActionStep, field: StringName = &"") -> 
 
 # --- 私有/辅助方法 ---
 
+## 从已验证来源记录重建独立的受管字段基线；记录无效时返回 null，不修改原步骤。
+## [br]
+## @api private
 static func _get_baseline(step: GFTweenActionStep) -> GFTweenActionStep:
 	var record: Dictionary = get_provenance(step)
 	if record.is_empty():
@@ -203,6 +229,10 @@ static func _get_baseline(step: GFTweenActionStep) -> GFTweenActionStep:
 	return restored
 
 
+## 验证来源基线字段的类型、有限数值和长度界限；未知字段返回 false。
+## 此处不证明属性路径可用于某个样机，实际预览仍须执行自身准入检查。
+## [br]
+## @api private
 static func _is_field_value(field: StringName, value: Variant) -> bool:
 	match field:
 		&"property_name":
@@ -236,6 +266,9 @@ static func _is_field_value(field: StringName, value: Variant) -> bool:
 	return false
 
 
+## 将整数或浮点数收窄为 float；其他类型返回 NAN，供有限数值检查拒绝。
+## [br]
+## @api private
 static func _number(value: Variant) -> float:
 	if value is float:
 		var number: float = value

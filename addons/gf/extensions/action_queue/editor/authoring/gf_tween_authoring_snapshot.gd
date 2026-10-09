@@ -6,13 +6,28 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 仅接受此精确脚本的配置，避免通过自定义脚本属性读取执行未知逻辑。
+## [br]
+## @api private
 const _CONFIG_SCRIPT = preload("res://addons/gf/extensions/action_queue/tween/gf_tween_action_config.gd")
+
+## 步骤快照的精确脚本边界；其他 Resource 只记录拒绝标记。
+## [br]
+## @api private
 const _STEP_SCRIPT = preload("res://addons/gf/extensions/action_queue/tween/gf_tween_action_step.gd")
+
+## 按此固定顺序捕获影响播放策略的根字段，以数组值比较判断来源是否变化。
+## [br]
+## @api private
 const _CONFIG_FIELDS: Array[StringName] = [
 	&"duration_scale", &"loop_count", &"enable_playback_control", &"ping_pong",
 	&"ignore_time_scale", &"process_mode", &"pause_mode",
 	&"restore_initial_values_on_cancel", &"restore_initial_values_on_finish",
 ]
+
+## 步骤纯值签名的字段顺序；曲线数据另行受点数预算约束地读取。
+## [br]
+## @api private
 const _STEP_FIELDS: Array[StringName] = [
 	&"property_name", &"target_value", &"duration", &"delay", &"as_relative",
 	&"parallel", &"transition_type", &"ease_type", &"marker_id",

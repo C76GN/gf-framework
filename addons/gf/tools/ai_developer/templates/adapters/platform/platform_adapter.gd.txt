@@ -1,12 +1,22 @@
-## Rename this class and keep it in project or external adapter code.
+## 项目侧平台适配器骨架；改名后保留在项目或外部适配包中，真实 SDK 调用和回调泵需由项目实现。
+## [br]
+## @api framework_internal
 class_name ProjectPlatformAdapter
 extends GFPlatformAdapter
 
 
 # --- 常量 ---
 
+## 本骨架示例契约的稳定标识，测试与派发共同使用；实际接入须换为项目协议。
+## [br]
+## @api framework_internal
 const CONTRACT_ID: StringName = &"project.platform.sample"
+
+## 示例契约唯一的方法标识，配合静态描述符限制请求派发。
+## [br]
+## @api framework_internal
 const METHOD_ID: StringName = &"execute"
+
 
 # --- 私有变量 ---
 
@@ -21,49 +31,15 @@ var _provider: Object = null
 var _provider_calls: Dictionary = {}
 
 
-# --- 公共方法 ---
-
-func configure_provider(provider: Object, context: GFPlatformRuntimeContext) -> bool:
-	_provider = provider
-	return configure(
-		&"project.sample_adapter",
-		&"sample_platform",
-		PackedStringArray([CONTRACT_ID]),
-		[_make_contract_descriptor()],
-		context
-	)
-
-
-func on_provider_succeeded(provider_call_id: String, value: Dictionary) -> void:
-	# Native worker callbacks must copy bounded plain data into a project-owned
-	# main-thread pump before invoking this method.
-	var handle: GFPlatformRequestHandle = _take_handle(provider_call_id)
-	if handle != null:
-		var _completed: bool = _succeed_request(handle, value)
-
-
-func on_provider_failed(provider_call_id: String, error_code: StringName) -> void:
-	# Translate provider errors to stable, redacted contract status on the main
-	# thread; do not expose raw native error text or sensitive identifiers.
-	var handle: GFPlatformRequestHandle = _take_handle(provider_call_id)
-	if handle != null:
-		var _completed: bool = _fail_request(
-			handle,
-			error_code,
-			"Platform provider request failed."
-		)
-
-
-func on_provider_cancelled(provider_call_id: String) -> void:
-	# Provider cancellation acknowledgement follows the same main-thread pump
-	# boundary as success and failure callbacks.
-	var handle: GFPlatformRequestHandle = _take_handle(provider_call_id)
-	if handle != null:
-		var _released: bool = _release_request(handle)
-
-
 # --- 可重写钩子 / 虚方法 ---
 
+## 示例仅核对 Provider 实例并立即完成初始化；真实异步 SDK 必须在其完成回调中提交初始化终态。
+## [br]
+## @api protected
+## [br]
+## @param _options: 当前骨架未消费的初始化选项。
+## [br]
+## @schema _options: Dictionary，实际项目可定义 SDK 初始化参数，当前实现忽略其内容。
 func _initialize(_options: Dictionary) -> void:
 	if not is_instance_valid(_provider):
 		var _failed: bool = _fail_initialization("Platform provider is unavailable.")
@@ -72,6 +48,15 @@ func _initialize(_options: Dictionary) -> void:
 	var _completed: bool = _complete_initialization(get_context())
 
 
+## 仅接受示例契约并在调用 SDK 前登记句柄；当前骨架未实际调用 SDK，项目必须补齐真实派发与终态回调。
+## [br]
+## @api protected
+## [br]
+## @param request: 基类提供的已验证请求副本。
+## [br]
+## @param handle: 基类拥有的请求句柄，用于关联底层调用。
+## [br]
+## @return 契约匹配并登记时为 true，未接受请求为 false；true 不表示请求完成。
 func _dispatch(
 	request: GFPlatformBridgeRequest,
 	handle: GFPlatformRequestHandle
@@ -86,17 +71,99 @@ func _dispatch(
 	return true
 
 
+## 底层取消的实现占位；项目须请求 SDK 停止但保留租约，直到取消确认回调到达。
+## [br]
+## @api protected
+## [br]
+## @param handle: 已进入取消或超时终态、尚可能持有 Provider 租约的句柄。
+## [br]
+## @param _reason: 基类给出的取消原因，当前占位未使用。
 func _cancel_request(handle: GFPlatformRequestHandle, _reason: StringName) -> void:
 	if handle == null:
 		return
 	# Request provider cancellation, but keep the lease until the provider confirms.
 
 
+## 清除示例调用映射和 Provider 引用；真实接入必须在清除前关闭回调入口、解绑并有界回收自有 worker。
+## 当前骨架不实现这些 SDK 停机步骤，不能据此宣称底层任务已停止。
+## [br]
+## @api protected
 func _shutdown() -> void:
 	# Before clearing state: stop callback ingress, request cancellation once,
 	# detach callbacks, and join Adapter-owned workers within a bounded timeout.
 	_provider_calls.clear()
 	_provider = null
+
+
+# --- 框架内部方法 ---
+
+## 记录项目提供的 SDK 对象并配置示例静态契约；Provider 是否可用在初始化钩子中检查。
+## [br]
+## @api framework_internal
+## [br]
+## @param provider: 项目持有的 SDK 包装对象。
+## [br]
+## @param context: 平台运行上下文。
+## [br]
+## @return 基类是否接受此配置；不表示 SDK 已初始化。
+func configure_provider(provider: Object, context: GFPlatformRuntimeContext) -> bool:
+	_provider = provider
+	return configure(
+		&"project.sample_adapter",
+		&"sample_platform",
+		PackedStringArray([CONTRACT_ID]),
+		[_make_contract_descriptor()],
+		context
+	)
+
+
+## 在项目主线程回调泵中消费调用关联并提交成功结果；未知或重复终态回调不再拥有句柄。
+## [br]
+## @api framework_internal
+## [br]
+## @param provider_call_id: 派发前登记的 Provider 调用标识。
+## [br]
+## @param value: 已复制并限制大小的结果载荷。
+## [br]
+## @schema value: Dictionary，须符合静态结果 schema；当前示例只接受无额外字段的空字典。
+func on_provider_succeeded(provider_call_id: String, value: Dictionary) -> void:
+	# Native worker callbacks must copy bounded plain data into a project-owned
+	# main-thread pump before invoking this method.
+	var handle: GFPlatformRequestHandle = _take_handle(provider_call_id)
+	if handle != null:
+		var _completed: bool = _succeed_request(handle, value)
+
+
+## 主线程消费失败调用并发布固定错误正文；调用方须先将 SDK 错误映射为稳定且脱敏的契约码。
+## [br]
+## @api framework_internal
+## [br]
+## @param provider_call_id: 派发前登记的 Provider 调用标识。
+## [br]
+## @param error_code: 项目映射后的稳定错误码，不传递原始敏感错误信息。
+func on_provider_failed(provider_call_id: String, error_code: StringName) -> void:
+	# Translate provider errors to stable, redacted contract status on the main
+	# thread; do not expose raw native error text or sensitive identifiers.
+	var handle: GFPlatformRequestHandle = _take_handle(provider_call_id)
+	if handle != null:
+		var _completed: bool = _fail_request(
+			handle,
+			error_code,
+			"Platform provider request failed."
+		)
+
+
+## Provider 确认底层调用已经停止后，在主线程释放请求租约；发出取消请求本身不能调用此确认入口。
+## [br]
+## @api framework_internal
+## [br]
+## @param provider_call_id: 已停止调用的登记标识。
+func on_provider_cancelled(provider_call_id: String) -> void:
+	# Provider cancellation acknowledgement follows the same main-thread pump
+	# boundary as success and failure callbacks.
+	var handle: GFPlatformRequestHandle = _take_handle(provider_call_id)
+	if handle != null:
+		var _released: bool = _release_request(handle)
 
 
 # --- 私有/辅助方法 ---

@@ -1,26 +1,50 @@
-## Factory boundary that binds the reusable conformance harness to a Provider.
-##
-## Replace the sample factory in storage_backend_contract_test.gd with a
-## factory that constructs the real Provider and its explicit fault driver.
+## 将复用一致性验收连接到项目 Provider 的工厂边界。
+## 实际接入应替换具体测试中的示例工厂，使相同用例运行在真实 Provider 及其显式故障驱动上。
+## [br]
+## @api framework_internal
 class_name ProjectStorageProviderFactory
 extends RefCounted
 
 
-# --- 公共方法 ---
+# --- 框架内部方法 ---
 
+## 为独立一致性测试创建真实 Provider；默认空工厂必须导致准备阶段失败，不能充当通过证明。
+## [br]
+## @api framework_internal
+## [br]
+## @return 新 Provider；未实现时为 null。
 func create_provider() -> ProjectStorageProvider:
 	return null
 
 
+## 为指定 Provider 配对测试专用故障驱动；生产适配器不暴露此能力。
+## [br]
+## @api framework_internal
+## [br]
+## @param _provider: 本次测试新建的 Provider 实例。
+## [br]
+## @return 与该实例绑定的故障驱动；未实现时为 null。
 func create_fault_driver(
 	_provider: ProjectStorageProvider
 ) -> ProjectStorageProviderFaultDriver:
 	return null
 
 
+## 提供测试 Provider 的纯值初始化配置，默认不附加选项。
+## [br]
+## @api framework_internal
+## [br]
+## @return Provider 初始化选项。
+## [br]
+## @schema return: Dictionary，具体键由真实 Provider 定义，内容必须通过适配器的纯值和预算校验。
 func get_provider_options() -> Dictionary:
 	return {}
 
 
+## 为一致性验收提供测试记录的逻辑命名空间；真实工厂应指向隔离的测试环境。
+## [br]
+## @api framework_internal
+## [br]
+## @return 适配器会进一步校验并规范化的逻辑前缀。
 func get_key_prefix() -> String:
 	return "gf.storage.acceptance"

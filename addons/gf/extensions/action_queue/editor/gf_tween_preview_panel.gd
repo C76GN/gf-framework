@@ -11,18 +11,52 @@ extends VBoxContainer
 
 # --- 常量 ---
 
+## 用有界纯值签名比较来源变化，不修改已经捕获的预览计划。
+## [br]
+## @api private
 const _SNAPSHOT_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor/authoring/gf_tween_authoring_snapshot.gd")
+
+## 根据冻结计划绘制步骤区段的控件类型，不参与执行来源配置。
+## [br]
+## @api private
 const _TIMELINE_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor/authoring/gf_tween_timeline.gd")
+
+## 复用资源路径到运行时绑定示例的文本生成入口。
+## [br]
+## @api private
 const _ACTIONS_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor/gf_tween_editor_actions.gd")
 
 
 # --- 私有变量 ---
 
+## 由面板滚动容器持有的只读时间条，随当前视口会话同步计划与游标。
+## [br]
+## @api private
 var _timeline: _TIMELINE_SCRIPT = null
+
+## 最近一次新会话播放尝试捕获的来源纯值签名；继续暂停会话不覆盖，重新配置或释放时清空。
+## [br]
+## @api private
 var _captured_source: Array = []
+
+## 可见处理期间累加的来源检查间隔，到半秒时归零并刷新过期提示。
+## [br]
+## @api private
 var _source_check_seconds: float = 0.0
+
+## 只提示来源与冻结会话是否不同，不因提示过期而中断播放。
+## [br]
+## @api private
 var _stale_label: Label = null
+
+## 反向播放按钮；仅在当前快照支持播放控制时启用。
+## [br]
+## @api private
 var _backward_button: Button = null
+
+## 正向播放按钮；与反向按钮共享当前受控会话的可用性条件。
+## [br]
+## @api private
 var _forward_button: Button = null
 
 ## 当前绑定的 Tween 配置资源。
@@ -103,6 +137,9 @@ var _last_tick_usec: int = 0
 
 # --- Godot 回调方法 ---
 
+## 建立预览子树并配置当前来源，随后监听可见性以在面板隐藏时复位会话。
+## [br]
+## @api private
 func _ready() -> void:
 	_build_controls()
 	_viewport.configure(_config, _target_kind.selected)
@@ -111,6 +148,9 @@ func _ready() -> void:
 	var _visibility_connected: int = visibility_changed.connect(_on_visibility_changed)
 
 
+## 以单调时钟推进可见且未释放的预览，并每半秒检查来源是否改变；隐藏期间不推进会话。
+## [br]
+## @api private
 func _process(_delta: float) -> void:
 	var now_usec: int = Time.get_ticks_usec()
 	var elapsed: float = float(now_usec - _last_tick_usec) / 1000000.0 if _last_tick_usec > 0 else 0.0
@@ -125,6 +165,9 @@ func _process(_delta: float) -> void:
 		_refresh_stale_state()
 
 
+## 离树时复用幂等释放入口，停止处理并撤销当前视口会话与来源引用。
+## [br]
+## @api private
 func _exit_tree() -> void:
 	dispose_preview()
 

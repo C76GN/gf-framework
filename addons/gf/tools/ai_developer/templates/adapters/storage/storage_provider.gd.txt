@@ -1,32 +1,57 @@
-## Project-owned Provider boundary used by ProjectStorageBackend.
-##
-## Replace this class with one narrow Adapter over the real SDK. Default
-## methods are deliberately unavailable so an empty Provider cannot pass
-## conformance. Read and list receive hard limits which the Provider must
-## enforce before downloading, decoding, or allocating a result.
+## 项目所有的存储 Provider 边界，由 ProjectStorageBackend 调用；真实接入应替换为范围明确的 SDK 包装。
+## 默认方法刻意不可用，空骨架不能通过一致性验收；读取和列举必须在下载、解码或分配结果前执行传入硬预算。
+## [br]
+## @api framework_internal
 class_name ProjectStorageProvider
 extends RefCounted
 
 
 # --- 常量 ---
 
+## 项目 Provider 与适配器协商的协议版本，初始化前后必须保持一致。
+## [br]
+## @api framework_internal
 const PROTOCOL_VERSION: String = "1.0.0"
 
 
-# --- 公共方法 ---
+# --- 框架内部方法 ---
 
+## 初始化项目 SDK 边界；默认拒绝服务，空骨架不能通过一致性验收。
+## [br]
+## @api framework_internal
+## [br]
+## @param _options: 适配器已验证并深复制的项目初始化选项。
+## [br]
+## @schema _options: Dictionary，仅含有界纯值；具体键由真实 Provider 定义。
+## [br]
+## @return 默认 ERR_UNAVAILABLE；真实实现仅在可以履行所声明能力时返回 OK。
 func initialize(_options: Dictionary = {}) -> Error:
 	return ERR_UNAVAILABLE
 
 
+## 释放真实 Provider 拥有的资源；当前骨架没有资源且不执行停机动作，项目实现须支持重复关闭。
+## [br]
+## @api framework_internal
 func shutdown() -> void:
 	pass
 
 
+## 返回与项目适配器核对的协议版本，不依赖 Provider 是否已经初始化。
+## [br]
+## @api framework_internal
+## [br]
+## @return 当前 Provider 边界的固定版本字符串。
 func get_protocol_version() -> String:
 	return PROTOCOL_VERSION
 
 
+## 明确声明实际能力；默认全部不可用，真实实现必须保证初始化前后能力一致。
+## [br]
+## @api framework_internal
+## [br]
+## @return 闭合能力字典。
+## [br]
+## @schema return: Dictionary，精确包含 read、write、delete、list、atomic_write、conditional_write、cancellation、sync，值均为 bool；本适配协议不支持 cancellation 或 sync。
 func get_capabilities() -> Dictionary:
 	return {
 		"read": false,
@@ -40,10 +65,30 @@ func get_capabilities() -> Dictionary:
 	}
 
 
+## 查询完整存储键是否存在；默认 Provider 无可用记录。
+## [br]
+## @api framework_internal
+## [br]
+## @param _storage_key: 适配器已经验证并添加命名空间前缀的键。
+## [br]
+## @return 记录存在时为 true，当前骨架始终 false。
 func has_record(_storage_key: String) -> bool:
 	return false
 
 
+## 在读取、解码或分配结果前执行硬预算；适配器的事后复验不能替代 Provider 的资源限制。
+## [br]
+## @api framework_internal
+## [br]
+## @param _storage_key: 已验证的完整存储键。
+## [br]
+## @param _read_limits: 本次读取的闭合资源预算。
+## [br]
+## @schema _read_limits: Dictionary，max_payload_bytes、max_graph_nodes、max_graph_depth、max_string_bytes、max_container_entries 均为有上限的正 int。
+## [br]
+## @return 读取结果；当前骨架返回不可用且不携带数据。
+## [br]
+## @schema return: Dictionary，精确包含 ok:bool、data:Dictionary、metadata:Dictionary、error_code:int；失败时两数据字典为空且错误非 OK，成功时错误为 OK，条件写 Provider 的 metadata 须有不透明 revision:String。
 func read_record(
 	_storage_key: String,
 	_read_limits: Dictionary
@@ -56,6 +101,25 @@ func read_record(
 	}
 
 
+## 由真实 Provider 原子提交数据、metadata 和修订；失败必须保留原记录，当前骨架拒绝写入。
+## [br]
+## @api framework_internal
+## [br]
+## @param _storage_key: 已验证的完整存储键。
+## [br]
+## @param _data: 已通过有界纯值校验并深复制的业务数据。
+## [br]
+## @schema _data: Dictionary，String 键，值递归限制为 null、bool、int、有限 float、String、Array 和同类 Dictionary。
+## [br]
+## @param _metadata: 不含 write_options 或调用方 revision 的元数据副本。
+## [br]
+## @schema _metadata: Dictionary，遵守同一纯值预算；新 revision 由 Provider 提交时生成。
+## [br]
+## @param _write_options: 已校验的条件写选项。
+## [br]
+## @schema _write_options: Dictionary，可选 expected_revision:String、create_if_absent:bool、request_id:String；revision/request_id 是有界非空不透明 token，create_if_absent=true 与 expected_revision 互斥。
+## [br]
+## @return 成功为 OK，条件冲突或提交失败为稳定 Godot Error；当前为 ERR_UNAVAILABLE。
 func write_record_atomic(
 	_storage_key: String,
 	_data: Dictionary,
@@ -65,10 +129,30 @@ func write_record_atomic(
 	return ERR_UNAVAILABLE
 
 
+## 删除完整存储键的记录；当前骨架不执行删除。
+## [br]
+## @api framework_internal
+## [br]
+## @param _storage_key: 已验证的完整存储键。
+## [br]
+## @return 成功为 OK，缺失或失败为稳定错误；当前为 ERR_UNAVAILABLE。
 func delete_record(_storage_key: String) -> Error:
 	return ERR_UNAVAILABLE
 
 
+## 只列出前缀下的键和 metadata，并在形成完整响应前执行聚合预算，不返回截断的成功列表。
+## [br]
+## @api framework_internal
+## [br]
+## @param _storage_prefix: 已规范化的命名空间前缀，允许为空。
+## [br]
+## @param _list_limits: 本次列表的记录数与完整响应预算。
+## [br]
+## @schema _list_limits: Dictionary，max_items、max_list_bytes、max_graph_nodes、max_graph_depth、max_string_bytes、max_container_entries 均为有上限的正 int。
+## [br]
+## @return 列表结果；当前骨架返回不可用的空列表。
+## [br]
+## @schema return: Dictionary，精确包含 ok:bool、records:Array、error_code:int；records 元素为 {storage_key:String,metadata:Dictionary}，不携带完整业务 payload。
 func list_records(
 	_storage_prefix: String,
 	_list_limits: Dictionary

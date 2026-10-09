@@ -6,11 +6,17 @@ extends ItemList
 
 # --- 私有变量 ---
 
+## 宿主依据快照有效性授权的资源动作开关；关闭时旧卡片仍可显示，但不能发起原生文件拖放。
+## [br]
+## @api private
 var _resource_actions_enabled: bool = false
 
 
 # --- Godot 回调方法 ---
 
+## 仅在宿主授权当前快照有效且选择含项目路径时创建 Godot files 拖放载荷；拖放预览控件交由引擎管理。
+## [br]
+## @api private
 func _get_drag_data(_at_position: Vector2) -> Variant:
 	if not _resource_actions_enabled:
 		return null

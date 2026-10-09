@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "a726182c83b2d66a5588c63b7fdac6a79aa2076c5dcbb5ceaa6b923f0d0eb8a1",
+  "source_digest": "df9bc58933b5a82dd5317ab7b442d164f0073f097d4d219337250102e992d59d",
   "class_count": 867,
   "autoload_count": 1,
   "package_count": 60,
@@ -38870,6 +38870,34 @@
           "signature": "var stop_when_reached: bool = true",
           "summary": "是否在本帧限制移动距离以停在 arrival boundary。",
           "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_create_state_2d",
+          "signature": "func _create_state_2d( launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D ) -> GFProjectileMotionState",
+          "summary": "捕获二维发射目标的位置与初始方向，为本次 session 建立追踪状态。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_create_state_3d",
+          "signature": "func _create_state_3d( launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D ) -> GFProjectileMotionState",
+          "summary": "捕获三维发射目标的位置与初始方向，为本次 session 建立追踪状态。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_compute_intent_2d",
+          "signature": "func _compute_intent_2d( state: GFProjectileMotionState, current_body: GFProjectileBodyResult2D, delta: float ) -> GFProjectileMotionIntent2D",
+          "summary": "根据二维目标与当前 body 计算追踪 intent，只更新状态中的锁定方向，不移动节点。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_compute_intent_3d",
+          "signature": "func _compute_intent_3d( state: GFProjectileMotionState, current_body: GFProjectileBodyResult3D, delta: float ) -> GFProjectileMotionIntent3D",
+          "summary": "根据三维目标与当前 body 计算追踪 intent，只更新状态中的锁定方向，不移动节点。",
+          "visibility": "protected"
         }
       ]
     },
@@ -47150,6 +47178,34 @@
           "signature": "var normalize_direction: bool = true",
           "summary": "是否在乘以 speed 前单位化方向。",
           "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_create_state_2d",
+          "signature": "func _create_state_2d( _launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D ) -> GFProjectileMotionState",
+          "summary": "以初始二维 body 的基向量和当前配置计算并锁定本次 session 的 world-space 速度。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_create_state_3d",
+          "signature": "func _create_state_3d( _launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D ) -> GFProjectileMotionState",
+          "summary": "以初始三维 body 的基向量和当前配置计算并锁定本次 session 的 world-space 速度。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_compute_intent_2d",
+          "signature": "func _compute_intent_2d( state: GFProjectileMotionState, _current_body: GFProjectileBodyResult2D, delta: float ) -> GFProjectileMotionIntent2D",
+          "summary": "将 session 已锁定的二维速度交给 intent 工厂，保持发射时确定的直线航向。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_compute_intent_3d",
+          "signature": "func _compute_intent_3d( state: GFProjectileMotionState, _current_body: GFProjectileBodyResult3D, delta: float ) -> GFProjectileMotionIntent3D",
+          "summary": "将 session 已锁定的三维速度交给 intent 工厂，保持发射时确定的直线航向。",
+          "visibility": "protected"
         }
       ]
     },
@@ -49079,6 +49135,13 @@
           "signature": "func get_debug_snapshot() -> Dictionary",
           "summary": "获取 Backend 调试快照。",
           "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_enrich_transport_metrics",
+          "signature": "func _enrich_transport_metrics( metrics: GFNetworkTransportMetrics, budget: GFExecutionBudget ) -> void",
+          "summary": "在基础指标上补充当前 MultiplayerPeer 已缓存的待收包数量，不 poll 或取走数据包。",
+          "visibility": "protected"
         }
       ]
     },
@@ -62181,7 +62244,36 @@
       "visibility": "public",
       "category": "resource_definition",
       "since": "11.0.0",
-      "members": []
+      "members": [
+        {
+          "kind": "func",
+          "name": "_validate_root",
+          "signature": "func _validate_root(root: Node) -> Error",
+          "summary": "只接纳仍存活且未排队删除的 CharacterBody2D，供后续物理移动与速度写回使用。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_capture_body",
+          "signature": "func _capture_body(root: Node) -> GFProjectileBodyResult2D",
+          "summary": "重新校验 CharacterBody2D 后捕获其当前全局变换，不读取或修改速度。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_apply_intent",
+          "signature": "func _apply_intent( root: Node, intent: GFProjectileMotionIntent2D ) -> GFProjectileBodyResult2D",
+          "summary": "将 MOVE 速度写入 CharacterBody2D 后调用 move_and_slide，返回实际产生的全局位移。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_stop",
+          "signature": "func _stop(root: Node) -> GFProjectileBodyResult2D",
+          "summary": "校验 root 后先将 CharacterBody2D 的速度清零，再构造当前变换的结果，不调用 move_and_slide 或额外修改位置。",
+          "visibility": "protected"
+        }
+      ]
     },
     "GFProjectileCharacterBodyAdapter3D": {
       "owner_kind": "class",
@@ -62193,7 +62285,36 @@
       "visibility": "public",
       "category": "resource_definition",
       "since": "11.0.0",
-      "members": []
+      "members": [
+        {
+          "kind": "func",
+          "name": "_validate_root",
+          "signature": "func _validate_root(root: Node) -> Error",
+          "summary": "只接纳仍存活且未排队删除的 CharacterBody3D，供后续物理移动与速度写回使用。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_capture_body",
+          "signature": "func _capture_body(root: Node) -> GFProjectileBodyResult3D",
+          "summary": "重新校验 CharacterBody3D 后捕获其当前全局变换，不读取或修改速度。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_apply_intent",
+          "signature": "func _apply_intent( root: Node, intent: GFProjectileMotionIntent3D ) -> GFProjectileBodyResult3D",
+          "summary": "将 MOVE 速度写入 CharacterBody3D 后调用 move_and_slide，返回实际产生的全局位移。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_stop",
+          "signature": "func _stop(root: Node) -> GFProjectileBodyResult3D",
+          "summary": "校验 root 后先将 CharacterBody3D 的速度清零，再构造当前变换的结果，不调用 move_and_slide 或额外修改位置。",
+          "visibility": "protected"
+        }
+      ]
     },
     "GFProjectileConePattern3D": {
       "owner_kind": "class",
@@ -63549,7 +63670,36 @@
       "visibility": "public",
       "category": "resource_definition",
       "since": "11.0.0",
-      "members": []
+      "members": [
+        {
+          "kind": "func",
+          "name": "_validate_root",
+          "signature": "func _validate_root(root: Node) -> Error",
+          "summary": "接纳仍存活且未排队删除的普通 Node2D，并排除需要物理运动协议的 PhysicsBody2D。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_capture_body",
+          "signature": "func _capture_body(root: Node) -> GFProjectileBodyResult2D",
+          "summary": "重新校验普通 Node2D 后捕获全局变换，不修改节点位置。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_apply_intent",
+          "signature": "func _apply_intent( root: Node, intent: GFProjectileMotionIntent2D ) -> GFProjectileBodyResult2D",
+          "summary": "按 MOVE 的速度乘以时长直接写入 Node2D.global_position，不执行碰撞移动。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_stop",
+          "signature": "func _stop(root: Node) -> GFProjectileBodyResult2D",
+          "summary": "读取普通 Node2D 的当前变换并构造静止快照；本适配器不持有持续速度，因此无需写入节点。",
+          "visibility": "protected"
+        }
+      ]
     },
     "GFProjectileTransformBodyAdapter3D": {
       "owner_kind": "class",
@@ -63561,7 +63711,36 @@
       "visibility": "public",
       "category": "resource_definition",
       "since": "11.0.0",
-      "members": []
+      "members": [
+        {
+          "kind": "func",
+          "name": "_validate_root",
+          "signature": "func _validate_root(root: Node) -> Error",
+          "summary": "接纳仍存活且未排队删除的普通 Node3D，并排除需要物理运动协议的 PhysicsBody3D。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_capture_body",
+          "signature": "func _capture_body(root: Node) -> GFProjectileBodyResult3D",
+          "summary": "重新校验普通 Node3D 后捕获全局变换，不修改节点位置。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_apply_intent",
+          "signature": "func _apply_intent( root: Node, intent: GFProjectileMotionIntent3D ) -> GFProjectileBodyResult3D",
+          "summary": "按 MOVE 的速度乘以时长直接写入 Node3D.global_position，不执行碰撞移动。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_stop",
+          "signature": "func _stop(root: Node) -> GFProjectileBodyResult3D",
+          "summary": "读取普通 Node3D 的当前变换并构造静止快照；本适配器不持有持续速度，因此无需写入节点。",
+          "visibility": "protected"
+        }
+      ]
     },
     "GFPropertyBagCapability": {
       "owner_kind": "class",
@@ -81465,14 +81644,14 @@
           "kind": "func",
           "name": "get_source_id",
           "signature": "func get_source_id() -> int",
-          "summary": "返回 Signal 来源对象实例 ID；无有效来源时为 0。",
+          "summary": "返回最近一次有效连接尝试记录的来源实例 ID；未记录过来源时为 0。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_signal_name",
           "signature": "func get_signal_name() -> StringName",
-          "summary": "返回 Signal 名称；无有效来源时为空。",
+          "summary": "返回最近一次有效连接尝试记录的 Signal 名称；未记录过来源时为空。",
           "visibility": "public"
         }
       ]

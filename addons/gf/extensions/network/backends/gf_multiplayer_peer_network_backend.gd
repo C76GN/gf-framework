@@ -358,6 +358,16 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 可重写钩子 / 虚方法 ---
 
+## 在基础指标上补充当前 MultiplayerPeer 已缓存的待收包数量，不 poll 或取走数据包。
+## 未挂接 Peer 或消费一步预算失败时直接返回；本实现最多尝试写入一个可选指标。
+## [br]
+## @api protected
+## [br]
+## @since 10.0.0
+## [br]
+## @param metrics: 基类本次采样创建的有界指标快照，仅追加 RECEIVE_QUEUE_PACKETS。
+## [br]
+## @param budget: 基类提供的协作预算，读取队列数量并尝试写入前必须成功消费一步。
 func _enrich_transport_metrics(
 	metrics: GFNetworkTransportMetrics,
 	budget: GFExecutionBudget
