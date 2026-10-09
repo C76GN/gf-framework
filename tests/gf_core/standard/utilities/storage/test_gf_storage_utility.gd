@@ -26,10 +26,10 @@ class InheritedMigrationStorageUtility extends GFStorageUtility:
 class FaultyStorageUtility extends GFStorageUtility:
 	var fail_on_file_name: String = ""
 
-	func _write_json(file_name: String, data: Dictionary) -> Error:
+	func _write_prepared_bytes(file_name: String, bytes: PackedByteArray) -> Error:
 		if file_name == fail_on_file_name:
 			return ERR_FILE_CANT_WRITE
-		return super._write_json(file_name, data)
+		return super._write_prepared_bytes(file_name, bytes)
 
 
 func _write_legacy_visible_data_file(file_name: String, data: Dictionary) -> String:

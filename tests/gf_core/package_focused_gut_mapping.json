@@ -290,6 +290,7 @@
       "res://tests/gf_core/standard/utilities/storage/test_gf_storage_payload_transfer.gd",
       "res://tests/gf_core/standard/utilities/storage/test_gf_storage_owned_read.gd",
       "res://tests/gf_core/standard/utilities/storage/test_gf_storage_read_result.gd",
+      "res://tests/gf_core/standard/utilities/storage/test_gf_storage_save_budget.gd",
       "res://tests/gf_core/standard/utilities/storage/test_gf_storage_sync_utility.gd",
       "res://tests/gf_core/standard/utilities/storage/test_gf_storage_transaction_recovery.gd",
       "res://tests/gf_core/standard/utilities/storage/test_gf_storage_utility.gd"

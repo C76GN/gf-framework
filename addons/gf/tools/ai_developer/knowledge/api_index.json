@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "e4302582735cf9bf93bf6059f3e45170ee8576467163724ad71d73cd05f616ae",
+  "source_digest": "0fb33daaf83cf1406b022f9a6a34a5ae53fb8ab58c02d1fce81902bf9f43395f",
   "class_count": 868,
   "autoload_count": 1,
   "package_count": 60,
@@ -86007,7 +86007,7 @@
         {
           "kind": "enum",
           "name": "WriteFailureKind",
-          "signature": "enum WriteFailureKind {\n\t## 写入成功，或当前结果不是写入请求。\n\tNONE,\n\t## 文件名、transfer 状态或冻结绑定无效。\n\tINVALID_REQUEST,\n\t## payload 不是 Storage worker 可安全处理的纯 Variant 图。\n\tPAYLOAD_INVALID,\n\t## worker 编码未能生成有效 bytes。\n\tENCODE_FAILED,\n\t## threaded executor worker 未能启动。\n\tTHREAD_START_FAILED,\n\t## Utility dispose 等生命周期边界使任务不可执行。\n\tUNAVAILABLE,\n\t## 目录、临时文件或事务提交 I/O 失败。\n\tIO_FAILED,\n}",
+          "signature": "enum WriteFailureKind {\n\t## 写入成功，或当前结果不是写入请求。\n\tNONE,\n\t## 文件名、transfer 状态或冻结绑定无效。\n\tINVALID_REQUEST,\n\t## payload 不是 Storage worker 可安全处理的纯 Variant 图。\n\tPAYLOAD_INVALID,\n\t## worker 编码未能生成有效 bytes。\n\tENCODE_FAILED,\n\t## threaded executor worker 未能启动。\n\tTHREAD_START_FAILED,\n\t## Utility dispose 等生命周期边界使任务不可执行。\n\tUNAVAILABLE,\n\t## 目录、临时文件或事务提交 I/O 失败。\n\tIO_FAILED,\n\t## 完整明文字节或最终存档字节超过请求冻结的预算；未提交本次新保存。\n\tLIMIT_EXCEEDED,\n}",
           "summary": "异步写入失败的稳定分类。",
           "visibility": "public"
         },
@@ -86467,7 +86467,7 @@
           "kind": "var",
           "name": "max_decode_bytes",
           "signature": "var max_decode_bytes: int = 64 * 1024 * 1024",
-          "summary": "解混淆、解压后允许交给解析器的最大明文字节数，默认 64 MiB。",
+          "summary": "解混淆、解压后允许交给解析器的最大明文字节数，默认 64 MiB；编码时完整文档在压缩前同样受限。",
           "visibility": "public"
         },
         {
@@ -86482,6 +86482,13 @@
           "name": "encode",
           "signature": "func encode(data: Dictionary, options: Dictionary = {}) -> PackedByteArray",
           "summary": "将字典编码为可写入文件的 bytes。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "encode_result",
+          "signature": "func encode_result(data: Dictionary, options: Dictionary = {}) -> Dictionary",
+          "summary": "单次构建存储文档并编码，在压缩前检查包含 metadata 和 checksum 的完整明文预算。",
           "visibility": "public"
         },
         {
@@ -88032,7 +88039,7 @@
           "kind": "var",
           "name": "max_read_bytes",
           "signature": "var max_read_bytes: int = 64 * 1024 * 1024",
-          "summary": "数据 payload 文件读取前允许的最大物理字节数，默认 64 MiB；混淆后的 Base64 字节也计入。",
+          "summary": "数据 payload 文件读取前允许的最大物理字节数，默认 64 MiB；保存时最终编码文件同样受限，混淆后的 Base64 字节也计入。",
           "visibility": "public"
         },
         {

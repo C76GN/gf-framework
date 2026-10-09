@@ -39,6 +39,7 @@
 | 属性 | [`max_decode_bytes`](#member-gfstoragecodec-properties-max_decode_bytes) | `var max_decode_bytes: int = 64 * 1024 * 1024:` |
 | 属性 | [`normalize_json_numbers`](#member-gfstoragecodec-properties-normalize_json_numbers) | `var normalize_json_numbers: bool = false` |
 | 方法 | [`encode`](#member-gfstoragecodec-methods-encode) | `func encode(data: Dictionary, options: Dictionary = {}) -> PackedByteArray:` |
+| 方法 | [`encode_result`](#member-gfstoragecodec-methods-encode_result) | `func encode_result(data: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`decode`](#member-gfstoragecodec-methods-decode) | `func decode(bytes: PackedByteArray, options: Dictionary = {}) -> GFStorageReadResult:` |
 | 方法 | [`serialize_dictionary`](#member-gfstoragecodec-methods-serialize_dictionary) | `func serialize_dictionary(data: Dictionary, p_format: Format = Format.JSON) -> PackedByteArray:` |
 | 方法 | [`deserialize_dictionary`](#member-gfstoragecodec-methods-deserialize_dictionary) | `func deserialize_dictionary(bytes: PackedByteArray, p_format: Format = Format.JSON) -> Dictionary:` |
@@ -333,7 +334,7 @@ var obfuscation_key: int = 0
 var max_decode_bytes: int = 64 * 1024 * 1024:
 ```
 
-解混淆、解压后允许交给解析器的最大明文字节数，默认 64 MiB。 只能设置正数，无效赋值保留原值；该上限不表示 Variant 堆内存或解析耗时上限。
+解混淆、解压后允许交给解析器的最大明文字节数，默认 64 MiB；编码时完整文档在压缩前同样受限。 只能设置正数，无效赋值保留原值；该上限不表示 Variant 堆内存或解析耗时上限。
 
 <a id="member-gfstoragecodec-properties-normalize_json_numbers"></a>
 
@@ -369,12 +370,40 @@ func encode(data: Dictionary, options: Dictionary = {}) -> PackedByteArray:
 | `data` | 要编码的数据。 |
 | `options` | 临时覆盖当前 codec 设置的选项字典。 |
 
-返回：编码后的 bytes。
+返回：编码后的 bytes；编码或预算准入失败时返回空数组，结构化失败信息见 encode_result()。
 
 结构：
 
 - `data`: Dictionary，要序列化的业务载荷；所有键都会原样保存在独立 payload 中。
-- `options`: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、include_metadata 和 version。
+- `options`: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、include_metadata、version 和 max_decode_bytes；明文字节上限必须是正 int，默认沿用资源配置。已移除的 max_decompressed_bytes 选项被拒绝，不提供别名。
+
+<a id="member-gfstoragecodec-methods-encode_result"></a>
+
+### `encode_result`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func encode_result(data: Dictionary, options: Dictionary = {}) -> Dictionary:
+```
+
+单次构建存储文档并编码，在压缩前检查包含 metadata 和 checksum 的完整明文预算。 不检查 Utility 的物理文件读取预算；调用方应对最终 bytes 应用其捕获的文件字节上限。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `data` | 要编码的业务字典。 |
+| `options` | 临时覆盖当前 codec 设置及明文字节上限的选项。 |
+
+返回：安静的编码结果；失败不返回部分 bytes。
+
+结构：
+
+- `data`: Dictionary，所有业务键均保存在独立 payload 中。
+- `options`: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、include_metadata、version 和 max_decode_bytes；max_decode_bytes 必须是正 int，默认沿用资源配置；已移除的 max_decompressed_bytes 选项被拒绝，不提供别名。
+- `return`: 闭合 Dictionary，仅包含 ok: bool、error: Error 和 bytes: PackedByteArray。成功时 error 为 OK 且 bytes 非空；非法预算或已移除选项返回 ERR_INVALID_PARAMETER，编码失败返回 ERR_INVALID_DATA，完整明文超限返回 ERR_OUT_OF_MEMORY；失败时 bytes 为空数组。
 
 <a id="member-gfstoragecodec-methods-decode"></a>
 

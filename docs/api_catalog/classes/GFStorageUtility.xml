@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="34fc8401aed0087ef88a3ce39ce7ee9650d067229b3a08bb6a5ed4058ff1c81f">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="9436a334a153bc9f92cb54f190d71ec1a59ba7b57acdea347ab073aee3efeaea">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
@@ -112,7 +112,7 @@
 		</member>
 		<member kind="property" name="max_read_bytes">
 			<signature>var max_read_bytes: int = 64 * 1024 * 1024:</signature>
-			<description>数据 payload 文件读取前允许的最大物理字节数，默认 64 MiB；混淆后的 Base64 字节也计入。
+			<description>数据 payload 文件读取前允许的最大物理字节数，默认 64 MiB；保存时最终编码文件同样受限，混淆后的 Base64 字节也计入。
 只能设置正数，无效赋值保留原值。异步请求在入队时捕获该值；不限制 ResourceLoader 或内部 ownership/事务记录。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -472,8 +472,9 @@ token 不检测框架之外的写入，不提供跨 provider 排序，也不表�
 				<tag name="api">public</tag>
 				<tag name="param">file_name: 目标文件名。</tag>
 				<tag name="param">data: 要保存的字典。</tag>
-				<tag name="return">Godot 的 `Error` 结果码。</tag>
+				<tag name="return">Godot 的 `Error` 结果码；完整明文或最终存档字节超过当前预算时返回 ERR_OUT_OF_MEMORY，且不开始本次新保存事务。</tag>
 				<tag name="schema">data: Dictionary，要序列化并保存的数据载荷。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="save_data_group">
@@ -482,7 +483,7 @@ token 不检测框架之外的写入，不提供跨 provider 排序，也不表�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">files: 文件名到字典载荷的映射。</tag>
-				<tag name="return">Godot 的 `Error` 结果码。</tag>
+				<tag name="return">Godot 的 `Error` 结果码；全部成员预备字节通过预算后才开始本次组事务，任一成员超预算返回 ERR_OUT_OF_MEMORY。</tag>
 				<tag name="schema">files: Dictionary，键必须是未经改写的 String portable logical identity，值为要序列化并保存的 Dictionary 载荷。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>

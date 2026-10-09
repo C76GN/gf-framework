@@ -196,7 +196,7 @@ const _METADATA_FIELDS: Array = [
 ## @api public
 @export var obfuscation_key: int = 0
 
-## 解混淆、解压后允许交给解析器的最大明文字节数，默认 64 MiB。
+## 解混淆、解压后允许交给解析器的最大明文字节数，默认 64 MiB；编码时完整文档在压缩前同样受限。
 ## 只能设置正数，无效赋值保留原值；该上限不表示 Variant 堆内存或解析耗时上限。
 ## [br]
 ## @api public
@@ -229,10 +229,40 @@ const _METADATA_FIELDS: Array = [
 ## [br]
 ## @schema data: Dictionary，要序列化的业务载荷；所有键都会原样保存在独立 payload 中。
 ## [br]
-## @schema options: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、include_metadata 和 version。
+## @schema options: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、include_metadata、version 和 max_decode_bytes；明文字节上限必须是正 int，默认沿用资源配置。已移除的 max_decompressed_bytes 选项被拒绝，不提供别名。
 ## [br]
-## @return 编码后的 bytes。
+## @return 编码后的 bytes；编码或预算准入失败时返回空数组，结构化失败信息见 encode_result()。
 func encode(data: Dictionary, options: Dictionary = {}) -> PackedByteArray:
+	var result: Dictionary = encode_result(data, options)
+	var bytes_value: Variant = result.get("bytes")
+	if bytes_value is PackedByteArray:
+		var bytes: PackedByteArray = bytes_value
+		return bytes
+	return PackedByteArray()
+
+
+## 单次构建存储文档并编码，在压缩前检查包含 metadata 和 checksum 的完整明文预算。
+## 不检查 Utility 的物理文件读取预算；调用方应对最终 bytes 应用其捕获的文件字节上限。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param data: 要编码的业务字典。
+## [br]
+## @schema data: Dictionary，所有业务键均保存在独立 payload 中。
+## [br]
+## @param options: 临时覆盖当前 codec 设置及明文字节上限的选项。
+## [br]
+## @schema options: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、include_metadata、version 和 max_decode_bytes；max_decode_bytes 必须是正 int，默认沿用资源配置；已移除的 max_decompressed_bytes 选项被拒绝，不提供别名。
+## [br]
+## @return 安静的编码结果；失败不返回部分 bytes。
+## [br]
+## @schema return: 闭合 Dictionary，仅包含 ok: bool、error: Error 和 bytes: PackedByteArray。成功时 error 为 OK 且 bytes 非空；非法预算或已移除选项返回 ERR_INVALID_PARAMETER，编码失败返回 ERR_INVALID_DATA，完整明文超限返回 ERR_OUT_OF_MEMORY；失败时 bytes 为空数组。
+func encode_result(data: Dictionary, options: Dictionary = {}) -> Dictionary:
+	var decode_limit: int = _get_positive_decode_limit(options, "max_decode_bytes", max_decode_bytes)
+	if decode_limit <= 0 or options.has("max_decompressed_bytes"):
+		return _make_encode_failure(ERR_INVALID_PARAMETER)
 	var active_format: Format = _get_format(options)
 	var should_compress: bool = GFVariantData.get_option_bool(options, "use_compression", use_compression)
 	var key: int = GFVariantData.get_option_int(options, "obfuscation_key", obfuscation_key)
@@ -246,13 +276,19 @@ func encode(data: Dictionary, options: Dictionary = {}) -> PackedByteArray:
 	)
 	var bytes: PackedByteArray = _serialize_dictionary(document, active_format)
 	if bytes.is_empty():
-		return bytes
+		return _make_encode_failure(ERR_INVALID_DATA)
+	if bytes.size() > decode_limit:
+		return _make_encode_failure(ERR_OUT_OF_MEMORY)
 	if should_compress:
 		bytes = bytes.compress(_COMPRESSION_MODE)
+		if bytes.is_empty():
+			return _make_encode_failure(ERR_INVALID_DATA)
 	if key != 0:
 		bytes = _obfuscate_bytes(bytes, key)
-		return Marshalls.raw_to_base64(bytes).to_utf8_buffer()
-	return bytes
+		bytes = Marshalls.raw_to_base64(bytes).to_utf8_buffer()
+	if bytes.is_empty():
+		return _make_encode_failure(ERR_INVALID_DATA)
+	return {"ok": true, "error": OK, "bytes": bytes}
 
 
 ## 从 bytes 解码字典。
@@ -445,6 +481,13 @@ func calculate_checksum(data: Dictionary, p_format: Format = Format.JSON) -> Str
 
 
 # --- 私有/辅助方法 ---
+
+## 构造闭合编码失败结果，不交付已经生成的部分字节，也不发出诊断。
+## [br]
+## @api private
+func _make_encode_failure(error_code: Error) -> Dictionary:
+	return {"ok": false, "error": error_code, "bytes": PackedByteArray()}
+
 
 ## 组合 schema 描述、元数据、payload 和可选完整性摘要形成存储文档。
 ## [br]

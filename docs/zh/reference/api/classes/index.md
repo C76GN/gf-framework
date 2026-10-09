@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 78 | 1143 | [Kernel](#module-kernel) |
-| Standard | 488 | 7664 | [Standard](#module-standard) |
+| Standard | 488 | 7665 | [Standard](#module-standard) |
 | Action Queue | 17 | 227 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 96 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -445,7 +445,7 @@
 | [`GFSpatialCanvasSelectionModeBinding`](GFSpatialCanvasSelectionModeBinding.md#gfspatialcanvasselectionmodebinding) | 资源定义 (`resource_definition`) | `Resource` | 3 | `addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_selection_mode_binding.gd` |
 | [`GFSteeringBehaviorResource`](GFSteeringBehaviorResource.md#gfsteeringbehaviorresource) | 资源定义 (`resource_definition`) | `Resource` | 20 | `addons/gf/standard/foundation/math/gf_steering_behavior_resource.gd` |
 | [`GFSteeringBehaviorStack`](GFSteeringBehaviorStack.md#gfsteeringbehaviorstack) | 资源定义 (`resource_definition`) | `Resource` | 10 | `addons/gf/standard/foundation/math/gf_steering_behavior_stack.gd` |
-| [`GFStorageCodec`](GFStorageCodec.md#gfstoragecodec) | 资源定义 (`resource_definition`) | `Resource` | 28 | `addons/gf/standard/utilities/storage/gf_storage_codec.gd` |
+| [`GFStorageCodec`](GFStorageCodec.md#gfstoragecodec) | 资源定义 (`resource_definition`) | `Resource` | 29 | `addons/gf/standard/utilities/storage/gf_storage_codec.gd` |
 | [`GFTableColumnDefinition`](GFTableColumnDefinition.md#gftablecolumndefinition) | 资源定义 (`resource_definition`) | `Resource` | 25 | `addons/gf/standard/utilities/ui/gf_table_column_definition.gd` |
 | [`GFTagCatalog`](GFTagCatalog.md#gftagcatalog) | 资源定义 (`resource_definition`) | `Resource` | 18 | `addons/gf/standard/foundation/tags/gf_tag_catalog.gd` |
 | [`GFTagExpression`](GFTagExpression.md#gftagexpression) | 资源定义 (`resource_definition`) | `Resource` | 15 | `addons/gf/standard/foundation/tags/gf_tag_expression.gd` |

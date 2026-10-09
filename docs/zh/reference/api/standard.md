@@ -8,7 +8,7 @@
 |---|---:|---:|---:|
 | [运行时服务](#category-runtime_service) | 194 | 3495 | 2373 |
 | [协议与扩展点](#category-protocol) | 26 | 345 | 273 |
-| [资源定义](#category-resource_definition) | 122 | 1579 | 797 |
+| [资源定义](#category-resource_definition) | 122 | 1580 | 798 |
 | [运行时句柄](#category-runtime_handle) | 58 | 974 | 627 |
 | [值对象](#category-value_object) | 63 | 1029 | 670 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |

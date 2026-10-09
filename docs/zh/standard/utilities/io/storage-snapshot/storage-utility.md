@@ -10,7 +10,7 @@
 
 `GFStorageCodec` 的 JSON 格式会自动通过 `GFVariantJsonCodec` 把 Vector、Color、PackedArray、AABB、Transform 和 `NaN` / `INF` / `-INF` 等值转换为 JSON 安全标记，再在读取时恢复为 Godot Variant；不会把非有限值直接交给 `JSON.stringify()` 后静默变成 `null`。若编码超过 Variant 遍历预算，codec 会把它视为编码失败，`GFStorageUtility` 的同步与异步事务都会拒绝提交并保留已有文件，不会把内部 `TraversalLimit` 标记当作业务存档落盘。需要保存 Resource 或 Node 引用时，仍应使用 `GFVariantReferenceCodec` 的显式引用标记，或由 SaveGraph 属性序列化器代为处理。
 
-字典读取的物理文件与解析前明文默认各受 64 MiB 正整数预算限制，超限保留原文件；配置与失败恢复见[读取预算与失败恢复](read-results.md#读取预算与失败恢复)。异步读取同样返回 `GFStorageReadResult`；大型结果需要单个消费者领取时，可显式使用 `load_data_owned_request_async()`，普通读取保持副本与广播行为。两种入口的选择、一次性领取、取消和释放规则见[读取结果与副本隔离](read-results.md)。
+字典读写的物理文件与解析前明文默认各受 64 MiB 正整数预算限制，预算拒绝不提交本次新存档；配置与恢复边界见[读写预算与失败恢复](read-results.md#读写预算与失败恢复)。异步读取同样返回 `GFStorageReadResult`；大型结果需要单个消费者领取时，可显式使用 `load_data_owned_request_async()`，普通读取保持副本与广播行为。两种入口的选择、一次性领取、取消和释放规则见[读取结果与副本隔离](read-results.md)。
 
 如果确实需要把受控 `Resource` 属性图编码成字典，再使用 `GFSafeResourceCodec` 与 `GFSafeResourceCodecPolicy`。默认策略不会实例化任何对象，项目必须显式允许类、脚本路径和外部资源路径：
 

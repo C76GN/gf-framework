@@ -7,8 +7,8 @@
 - 源码根目录：`addons/gf`
 - 公开类：`892`
 - 公开 AutoLoad：`1`
-- 公开成员：`12863`
-- 公开方法：`8004`
+- 公开成员：`12864`
+- 公开方法：`8005`
 - AutoLoad 公开方法：`65`
 
 ## 模块
@@ -16,7 +16,7 @@
 | 模块 | 类 | AutoLoad | 成员 | 方法 | 页面 |
 |---|---:|---:|---:|---:|---|
 | Kernel | 78 | 1 | 1212 | 896 | [kernel.md](kernel.md) |
-| Standard | 488 | 0 | 7664 | 4879 | [standard.md](standard.md) |
+| Standard | 488 | 0 | 7665 | 4880 | [standard.md](standard.md) |
 | Action Queue | 17 | 0 | 227 | 145 | [extensions-action-queue.md](extensions-action-queue.md) |
 | Asset Metadata | 4 | 0 | 33 | 24 | [extensions-asset-metadata.md](extensions-asset-metadata.md) |
 | Behavior Tree | 22 | 0 | 96 | 72 | [extensions-behavior-tree.md](extensions-behavior-tree.md) |

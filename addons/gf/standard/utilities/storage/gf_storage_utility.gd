@@ -321,7 +321,7 @@ var save_dir_name: String = "saves":
 ## @api public
 var codec: GFStorageCodec = GFStorageCodec.new()
 
-## 数据 payload 文件读取前允许的最大物理字节数，默认 64 MiB；混淆后的 Base64 字节也计入。
+## 数据 payload 文件读取前允许的最大物理字节数，默认 64 MiB；保存时最终编码文件同样受限，混淆后的 Base64 字节也计入。
 ## 只能设置正数，无效赋值保留原值。异步请求在入队时捕获该值；不限制 ResourceLoader 或内部 ownership/事务记录。
 ## [br]
 ## @api public
@@ -1386,13 +1386,15 @@ func reset_file_family_request_async(
 ## [br]
 ## @api public
 ## [br]
+## @since unreleased
+## [br]
 ## @param file_name: 目标文件名。
 ## [br]
 ## @param data: 要保存的字典。
 ## [br]
 ## @schema data: Dictionary，要序列化并保存的数据载荷。
 ## [br]
-## @return Godot 的 `Error` 结果码。
+## @return Godot 的 `Error` 结果码；完整明文或最终存档字节超过当前预算时返回 ERR_OUT_OF_MEMORY，且不开始本次新保存事务。
 func save_data(file_name: String, data: Dictionary) -> Error:
 	if not _io_admission_open:
 		return ERR_UNAVAILABLE
@@ -1400,11 +1402,28 @@ func save_data(file_name: String, data: Dictionary) -> Error:
 		return ERR_INVALID_PARAMETER
 
 	init()
+	var entry_store: GFStorageFamilyStore = _family_store
+	var entry_manager: _StorageTransactionManager = _transaction_manager
 	if not _wait_for_async_tasks_for_file(file_name):
 		return ERR_BUSY
-	if not _is_sync_io_admission_current():
+	if not _is_sync_io_admission_current() or entry_store != _family_store or entry_manager != _transaction_manager:
 		return ERR_UNAVAILABLE
+	var prepared_write: Dictionary = _prepare_encoded_write(_get_codec(), data, _get_codec_options())
+	if not _is_sync_io_admission_current() or entry_store != _family_store or entry_manager != _transaction_manager:
+		return ERR_UNAVAILABLE
+	var encoding_error: Error = GFVariantData.get_option_int(prepared_write, "error", ERR_INVALID_DATA) as Error
+	if encoding_error != OK:
+		return encoding_error
+	var bytes_value: Variant = prepared_write.get("bytes")
+	if not bytes_value is PackedByteArray:
+		return ERR_INVALID_DATA
+	var bytes: PackedByteArray = bytes_value
+	# 公开 codec 编码回调可重入并为同一文件取得新的异步 ownership；不再等待或触发回调。
+	if _has_pending_async_task_for_file(file_name):
+		return ERR_BUSY
 	var prepare_error: Error = _prepare_family_for_write(file_name)
+	if not _is_sync_io_admission_current() or entry_store != _family_store or entry_manager != _transaction_manager:
+		return ERR_UNAVAILABLE
 	if prepare_error != OK:
 		return prepare_error
 	var marker_error: Error = _write_transaction_markers([file_name], false)
@@ -1412,7 +1431,7 @@ func save_data(file_name: String, data: Dictionary) -> Error:
 		return marker_error
 
 	var temp_file_name: String = _get_temp_filename(file_name)
-	var write_error: Error = _write_json(temp_file_name, data)
+	var write_error: Error = _write_prepared_bytes(temp_file_name, bytes)
 	if write_error != OK:
 		var cleanup_error: Error = _cleanup_transaction_files([file_name])
 		return write_error if cleanup_error == OK else cleanup_error
@@ -1429,7 +1448,7 @@ func save_data(file_name: String, data: Dictionary) -> Error:
 ## [br]
 ## @param files: 文件名到字典载荷的映射。
 ## [br]
-## @return Godot 的 `Error` 结果码。
+## @return Godot 的 `Error` 结果码；全部成员预备字节通过预算后才开始本次组事务，任一成员超预算返回 ERR_OUT_OF_MEMORY。
 ## [br]
 ## @schema files: Dictionary，键必须是未经改写的 String portable logical identity，值为要序列化并保存的 Dictionary 载荷。
 func save_data_group(files: Dictionary) -> Error:
@@ -1471,25 +1490,54 @@ func save_data_group(files: Dictionary) -> Error:
 	var readiness_error: Error = _ensure_storage_ready()
 	if readiness_error != OK:
 		return readiness_error
+	var entry_store: GFStorageFamilyStore = _family_store
+	var entry_manager: _StorageTransactionManager = _transaction_manager
 	for file_name: String in file_names:
 		if not _wait_for_async_tasks_for_file(file_name):
 			return ERR_BUSY
-		if not _is_sync_io_admission_current():
+		if not _is_sync_io_admission_current() or entry_store != _family_store or entry_manager != _transaction_manager:
 			return ERR_UNAVAILABLE
+	var codec_options: Dictionary = _get_codec_options()
+	var active_codec: GFStorageCodec = _get_codec()
+	var prepared_bytes: Array[PackedByteArray] = []
+	for file_name: String in file_names:
+		var prepared_write: Dictionary = _prepare_encoded_write(
+			active_codec, GFVariantData.get_option_dictionary(payloads_by_file, file_name), codec_options
+		)
+		if not _is_sync_io_admission_current() or entry_store != _family_store or entry_manager != _transaction_manager:
+			return ERR_UNAVAILABLE
+		var encoding_error: Error = GFVariantData.get_option_int(prepared_write, "error", ERR_INVALID_DATA) as Error
+		if encoding_error != OK:
+			return encoding_error
+		var bytes_value: Variant = prepared_write.get("bytes")
+		if not bytes_value is PackedByteArray:
+			return ERR_INVALID_DATA
+		var bytes: PackedByteArray = bytes_value
+		prepared_bytes.append(bytes)
+	# 任一编码回调都可能为组内目标取得新 ownership；全部复核后才恢复或领取文件族。
+	for file_name: String in file_names:
+		if _has_pending_async_task_for_file(file_name):
+			return ERR_BUSY
 	for file_name: String in file_names:
 		var reset_recovery_error: Error = _resume_pending_reset_for_file(
 			_get_save_base_path(),
 			file_name
 		)
+		if not _is_sync_io_admission_current() or entry_store != _family_store or entry_manager != _transaction_manager:
+			return ERR_UNAVAILABLE
 		if reset_recovery_error != OK:
 			return reset_recovery_error
 	for file_name: String in file_names:
 		var claim_error: Error = _family_store.claim_family_for_framework(
 			_make_family_descriptor(file_name)
 		)
+		if not _is_sync_io_admission_current() or entry_store != _family_store or entry_manager != _transaction_manager:
+			return ERR_UNAVAILABLE
 		if claim_error != OK:
 			return claim_error
 	var recovery_error: Error = _recover_transaction_files(file_names)
+	if not _is_sync_io_admission_current() or entry_store != _family_store or entry_manager != _transaction_manager:
+		return ERR_UNAVAILABLE
 	if recovery_error != OK:
 		return recovery_error
 	var marker_error: Error = _write_transaction_markers(file_names, false)
@@ -1497,9 +1545,10 @@ func save_data_group(files: Dictionary) -> Error:
 		var cleanup_error: Error = _cleanup_transaction_files(file_names)
 		return marker_error if cleanup_error == OK else cleanup_error
 
-	for file_name: String in file_names:
+	for file_index: int in range(file_names.size()):
+		var file_name: String = file_names[file_index]
 		var temp_file_name: String = _get_temp_filename(file_name)
-		var write_error: Error = _write_json(temp_file_name, GFVariantData.get_option_dictionary(payloads_by_file, file_name))
+		var write_error: Error = _write_prepared_bytes(temp_file_name, prepared_bytes[file_index])
 		if write_error != OK:
 			var cleanup_error: Error = _cleanup_transaction_files(file_names)
 			return write_error if cleanup_error == OK else cleanup_error
@@ -8318,20 +8367,29 @@ func _save_data_thread(
 			validation_report
 		)
 
+	var thread_codec: GFStorageCodec = GFStorageCodec.new()
+	var prepared_write: Dictionary = _prepare_encoded_write(thread_codec, data, codec_options)
+	var encoding_error: Error = GFVariantData.get_option_int(prepared_write, "error", ERR_INVALID_DATA) as Error
+	if encoding_error != OK:
+		var failure_kind: GFStorageAsyncResult.WriteFailureKind = GFStorageAsyncResult.WriteFailureKind.ENCODE_FAILED
+		if encoding_error == ERR_OUT_OF_MEMORY:
+			failure_kind = GFStorageAsyncResult.WriteFailureKind.LIMIT_EXCEEDED
+		elif encoding_error == ERR_INVALID_PARAMETER:
+			failure_kind = GFStorageAsyncResult.WriteFailureKind.INVALID_REQUEST
+		return _make_thread_save_result(encoding_error, failure_kind, validation_report)
+	var bytes_value: Variant = prepared_write.get("bytes")
+	if not bytes_value is PackedByteArray:
+		return _make_thread_save_result(
+			ERR_INVALID_DATA,
+			GFStorageAsyncResult.WriteFailureKind.ENCODE_FAILED,
+			validation_report
+		)
+	var bytes: PackedByteArray = bytes_value
 	var dir_error: Error = _ensure_absolute_parent_directory(final_path)
 	if dir_error != OK:
 		return _make_thread_save_result(
 			dir_error,
 			GFStorageAsyncResult.WriteFailureKind.IO_FAILED,
-			validation_report
-		)
-
-	var thread_codec: GFStorageCodec = GFStorageCodec.new()
-	var bytes: PackedByteArray = thread_codec.encode(data, codec_options)
-	if bytes.is_empty():
-		return _make_thread_save_result(
-			ERR_INVALID_DATA,
-			GFStorageAsyncResult.WriteFailureKind.ENCODE_FAILED,
 			validation_report
 		)
 	var had_final: bool = FileAccess.file_exists(final_path)
@@ -10233,6 +10291,49 @@ func _write_json(file_name: String, data: Dictionary) -> Error:
 	return _file_ops._write_json(file_name, data)
 
 
+## 委托文件帮助器写入已通过两项预算的字节；保留预备时的 codec 文档，不再次编码。
+## [br]
+## @api private
+## [br]
+func _write_prepared_bytes(file_name: String, bytes: PackedByteArray) -> Error:
+	_ensure_storage_helpers()
+	return _file_ops._write_prepared_bytes(file_name, bytes)
+
+
+## 仅使用调用方冻结的选项编码一次，并检查最终物理字节预算；失败不产生可写字节且不执行 I/O。
+## [br]
+## @api private
+## [br]
+static func _prepare_encoded_write(
+	active_codec: GFStorageCodec,
+	data: Dictionary,
+	codec_options: Dictionary
+) -> Dictionary:
+	var max_read_value: Variant = codec_options.get("max_read_bytes")
+	if active_codec == null or not max_read_value is int:
+		return {"ok": false, "error": ERR_INVALID_PARAMETER, "bytes": PackedByteArray()}
+	var max_read: int = max_read_value
+	if max_read <= 0:
+		return {"ok": false, "error": ERR_INVALID_PARAMETER, "bytes": PackedByteArray()}
+	var encoded_result: Dictionary = active_codec.encode_result(data, codec_options)
+	var encoding_error: Error = GFVariantData.get_option_int(encoded_result, "error", ERR_INVALID_DATA) as Error
+	if not GFVariantData.get_option_bool(encoded_result, "ok") or encoding_error != OK:
+		return {
+			"ok": false,
+			"error": encoding_error if encoding_error != OK else ERR_INVALID_DATA,
+			"bytes": PackedByteArray(),
+		}
+	var bytes_value: Variant = encoded_result.get("bytes")
+	if not bytes_value is PackedByteArray:
+		return {"ok": false, "error": ERR_INVALID_DATA, "bytes": PackedByteArray()}
+	var bytes: PackedByteArray = bytes_value
+	if bytes.is_empty():
+		return {"ok": false, "error": ERR_INVALID_DATA, "bytes": PackedByteArray()}
+	if bytes.size() > max_read:
+		return {"ok": false, "error": ERR_OUT_OF_MEMORY, "bytes": PackedByteArray()}
+	return {"ok": true, "error": OK, "bytes": bytes}
+
+
 ## 委托文件操作帮助器写入未经过存档 codec 的 JSON 字典。
 ## [br]
 ## @api private
@@ -11214,16 +11315,29 @@ class _StorageFileOps:
 			return ERR_FILE_NOT_FOUND
 		return DirAccess.rename_absolute(from_path, to_path)
 
-	## 按策略定位，经当前编码器产生非空字节并创建父目录后覆写；编码失败不打开目标。
+	## 经当前编码器和两项预算预备字节后委托写入；预算或编码失败不打开目标。
 	## [br]
 	## @api private
 	func _write_json(file_name: String, data: Dictionary) -> Error:
+		var codec: GFStorageCodec = _get_codec()
+		var codec_options: Dictionary = _get_codec_options()
+		var prepared_write: Dictionary = GFStorageUtility._prepare_encoded_write(codec, data, codec_options)
+		var encoding_error: Error = GFVariantData.get_option_int(prepared_write, "error", ERR_INVALID_DATA) as Error
+		if encoding_error != OK:
+			return encoding_error
+		var bytes_value: Variant = prepared_write.get("bytes")
+		if not bytes_value is PackedByteArray:
+			return ERR_INVALID_DATA
+		var bytes: PackedByteArray = bytes_value
+		return _write_prepared_bytes(file_name, bytes)
+
+	## 按策略定位并写入调用方预备的非空字节；不改变编码内容或预算快照。
+	## [br]
+	## @api private
+	func _write_prepared_bytes(file_name: String, bytes: PackedByteArray) -> Error:
 		var path: String = _path_policy._get_full_path(file_name)
 		if path.is_empty():
 			return ERR_INVALID_PARAMETER
-		var codec: GFStorageCodec = _get_codec()
-		var codec_options: Dictionary = _get_codec_options()
-		var bytes: PackedByteArray = codec.encode(data, codec_options)
 		if bytes.is_empty():
 			return ERR_INVALID_DATA
 		var dir_error: Error = _ensure_parent_directory(path)

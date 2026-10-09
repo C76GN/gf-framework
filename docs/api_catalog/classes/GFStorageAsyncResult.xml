@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageAsyncResult" path="addons/gf/standard/utilities/storage/gf_storage_async_result.gd" module="standard" extends="RefCounted" classDigest="9f72d613a8b9704d8ca3c28e3b2fbba0a41f4a1e443168773d12179f6e8e190e">
+<class name="GFStorageAsyncResult" path="addons/gf/standard/utilities/storage/gf_storage_async_result.gd" module="standard" extends="RefCounted" classDigest="d835b5cabfb71e95993a48c2d93ea371d66ba15d32be5249a19f11375a7107d5">
 	<description>GFStorageAsyncResult: 单次异步存储请求的不可变终态。
 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化
 失败分类；写入结果额外暴露稳定写入失败分类与隔离的 payload 预检报告；
@@ -42,6 +42,8 @@ save/load/delete/reset 的领域失败结果。</description>
 	UNAVAILABLE,
 	## 目录、临时文件或事务提交 I/O 失败。
 	IO_FAILED,
+	## 完整明文字节或最终存档字节超过请求冻结的预算；未提交本次新保存。
+	LIMIT_EXCEEDED,
 }</signature>
 			<description>异步写入失败的稳定分类。</description>
 			<tags>

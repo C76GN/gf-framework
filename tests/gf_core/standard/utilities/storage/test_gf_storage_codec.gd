@@ -528,6 +528,76 @@ func test_compression_and_obfuscation_roundtrip() -> void:
 	assert_eq(GFVariantData.get_option_int(stats, "hp"), 100, "嵌套字典应正确恢复。")
 
 
+func test_encode_result_uses_complete_plaintext_budget_for_every_format_transform() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var payload: Dictionary = {"text": "汉😀 bounded data ".repeat(24), "point": Vector2i(2, -3)}
+	for active_format: GFStorageCodec.Format in [GFStorageCodec.Format.JSON, GFStorageCodec.Format.BINARY]:
+		for with_metadata: bool in [false, true]:
+			for with_checksum: bool in [false, true]:
+				for compressed: bool in [false, true]:
+					var options: Dictionary = {
+						"format": active_format, "use_compression": compressed,
+						"obfuscation_key": 0, "include_metadata": with_metadata,
+						"use_integrity_checksum": with_checksum,
+					}
+					var reference_bytes: PackedByteArray = codec.encode(payload, options)
+					assert_false(reference_bytes.is_empty(), "正常预算先生成实际完整文档 fixture。")
+					var plaintext: PackedByteArray = reference_bytes
+					if compressed:
+						plaintext = reference_bytes.decompress_dynamic(1024 * 1024, FileAccess.COMPRESSION_DEFLATE)
+					assert_gt(plaintext.size(), codec.serialize_dictionary(payload, active_format).size(), "预算须包含文档封装、metadata 与 checksum，而非仅 payload。")
+					options["max_decode_bytes"] = plaintext.size()
+					for key: int in [0, 42]:
+						options["obfuscation_key"] = key
+						var accepted: Dictionary = codec.encode_result(payload, options)
+						var bytes: PackedByteArray = _get_encode_result_bytes(accepted)
+						assert_eq(accepted, {"ok": true, "error": OK, "bytes": bytes}, "成功结果必须严格闭合且保留完整 bytes。")
+						assert_false(bytes.is_empty())
+						var decoded: GFStorageReadResult = codec.decode(bytes, options)
+						assert_true(decoded.ok, "恰好符合预算的完整编码应能在相同预算下读回。")
+						assert_eq(decoded.payload, payload)
+						if not with_metadata:
+							assert_eq(codec.encode(payload, options), bytes, "便捷入口必须委托同一编码结果；无时间戳的 fixture 字节保持一致。")
+						options["max_decode_bytes"] = plaintext.size() - 1
+						_assert_encode_failure(codec.encode_result(payload, options), ERR_OUT_OF_MEMORY)
+						assert_true(codec.encode(payload, options).is_empty(), "压缩或 Base64 不得绕过完整明文上限，也不得返回部分 bytes。")
+						options["max_decode_bytes"] = plaintext.size()
+
+
+func test_encode_result_rejects_invalid_or_retired_budgets_with_closed_empty_result() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	for invalid_limit: Variant in [0, -1, 10.5, "100", true, null]:
+		var options: Dictionary = {"max_decode_bytes": invalid_limit}
+		_assert_encode_failure(codec.encode_result({"value": 1}, options), ERR_INVALID_PARAMETER)
+		assert_true(codec.encode({"value": 1}, options).is_empty())
+	for removed_limit: int in [0, 128 * 1024 * 1024]:
+		var options: Dictionary = {"max_decode_bytes": 1024, "max_decompressed_bytes": removed_limit}
+		_assert_encode_failure(codec.encode_result({"value": 1}, options), ERR_INVALID_PARAMETER)
+		assert_true(codec.encode({"value": 1}, options).is_empty(), "旧选项不得被静默忽略或成为预算别名。")
+
+
+func test_encode_result_uses_configured_decode_budget_and_accepts_explicit_override() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var payload: Dictionary = {"text": "bounded"}
+	var expected_bytes: PackedByteArray = codec.encode(payload)
+	codec.max_decode_bytes = expected_bytes.size() - 1
+	_assert_encode_failure(codec.encode_result(payload), ERR_OUT_OF_MEMORY)
+	assert_true(codec.encode(payload).is_empty())
+	var accepted: Dictionary = codec.encode_result(payload, {"max_decode_bytes": expected_bytes.size()})
+	assert_eq(accepted, {"ok": true, "error": OK, "bytes": expected_bytes}, "显式捕获预算覆盖资源当前值，不能使用后续 live 配置。")
+
+
+func test_encode_result_reports_encoding_failure_without_partial_bytes() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var deep_payload: Dictionary = _make_nested_dictionary(70, "leaf")
+	for compressed: bool in [false, true]:
+		for key: int in [0, 42]:
+			_assert_encode_failure(codec.encode_result(deep_payload, {
+				"use_compression": compressed, "obfuscation_key": key,
+				"use_integrity_checksum": true, "max_decode_bytes": 1,
+			}), ERR_INVALID_DATA)
+
+
 func test_decode_plaintext_byte_budget_covers_every_format_transform() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 	var payload: Dictionary = {"text": "bounded data ".repeat(30)}
@@ -674,6 +744,19 @@ func test_raw_dictionary_deserialization_obeys_plaintext_byte_limit() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+func _get_encode_result_bytes(result: Dictionary) -> PackedByteArray:
+	var bytes_value: Variant = result.get("bytes")
+	assert_true(bytes_value is PackedByteArray, "编码结果必须提供强类型 bytes 字段。")
+	if bytes_value is PackedByteArray:
+		var bytes: PackedByteArray = bytes_value
+		return bytes
+	return PackedByteArray()
+
+
+func _assert_encode_failure(result: Dictionary, error_code: Error) -> void:
+	assert_eq(result, {"ok": false, "error": error_code, "bytes": PackedByteArray()}, "失败结果必须闭合，不返回部分 bytes 或新增旁路字段。")
+
 
 func _make_nested_dictionary(depth: int, leaf_value: Variant) -> Dictionary:
 	var root: Dictionary = {}
