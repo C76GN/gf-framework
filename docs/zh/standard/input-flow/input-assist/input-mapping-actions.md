@@ -54,8 +54,27 @@ throttle.release_threshold = 0.45
 
 对轴动作，把两个正阈值设为相等值即可得到旧式单阈值语义。两者都必须是有限的 `0.0..1.0`，且 release threshold 不得大于 activation threshold；`NaN`、Infinity、越界值或反向迟滞组合不会被猜测或自动修复，对应轴 mapping 会在有效 entry 重建时 fail-closed 跳过。布尔动作不使用也不诊断轴阈值。可在启用上下文前用 `GFInputContextDiagnostics` 报告配置问题。
 
-`consume_action(action_id)` 消费的是 `GFInputMappingUtility` 已经处理出的 just-started 状态，不会读取任意节点 `_input(event)` 正在收到的当前 `InputEvent`。Utility 初始化后会创建内部 `GFInputMappingRouter` 节点并在它自己的 `_input()` 中调用 `handle_input_event(event)`；Godot 对不同节点 `_input()` 的调用顺序不应该作为项目逻辑依赖。如果项目节点先于内部 router 收到同一个事件，直接在该节点 `_input()` 中调用 `consume_action()` 可能返回 `false`，因为当前事件还没有被 GF 输入映射转换成抽象动作。
+`consume_action(action_id)` 消费的是 `GFInputMappingUtility` 已经处理出的 just-started 状态，不会读取任意节点 `_input(event)` 正在收到的当前 `InputEvent`。默认 `automatic_input_routing = true`，Utility 初始化后会创建内部 `GFInputMappingRouter` 节点并在它自己的 `_input()` 中调用 `handle_input_event(event)`；Godot 对不同节点 `_input()` 的调用顺序不应该作为项目逻辑依赖。如果项目节点先于内部 router 收到同一个事件，直接在该节点 `_input()` 中调用 `consume_action()` 可能返回 `false`，因为当前事件还没有被 GF 输入映射转换成抽象动作。
 
-因此，一次性动作的推荐读取位置是 `GFSystem.tick()`、状态机 `update()`，或监听 `action_started(action_id, value)` / `player_action_started(player_index, action_id, value)`。如果项目只想在 `_input(event)` 中判断 Godot 原生 InputMap 的当前事件，应直接使用 `event.is_action_pressed("jump")` 等 Godot API；如果确实要在项目自己的 `_input(event)` 中接管 GF 输入桥接，需要先调用 `input_map.handle_input_event(event)` 再查询或消费动作，并确保同一个事件不会又被内部 router 重复处理。
+因此，一次性动作的推荐读取位置是 `GFSystem.tick()`、状态机 `update()`，或监听 `action_started(action_id, value)` / `player_action_started(player_index, action_id, value)`。如果项目只想在 `_input(event)` 中判断 Godot 原生 InputMap 的当前事件，应直接使用 `event.is_action_pressed("jump")` 等 Godot API。
+
+## 手动输入路由
+
+嵌入式预览、工具面板或场景 owner 需要决定哪些事件进入映射时，可以在初始化前设置 `automatic_input_routing = false`。实例仍须走正常的架构注册、依赖注入、`init()`、`ready()` 和 `dispose()`；该选项只关闭全局输入节点，不改变动作、设备分配、虚拟输入和触发器语义。
+
+```gdscript
+var input_map := GFInputMappingUtility.new()
+input_map.automatic_input_routing = false
+# 由项目 Installer 注册该实例，架构正常初始化。
+
+# owner 的 _input(event) 或 _gui_input(event) 内：
+input_map.handle_input_event(event)
+if input_map.consume_action(&"confirm"):
+	print("confirm requested")
+```
+
+owner 负责把选中的事件转发一次，并在失焦、停止接纳事件或退出输入作用域时调用 `clear_input_state()`，防止缺少 release 事件留下按住状态。架构注册的实例由架构推进 `tick()`；独立实例则由 owner 调用 `init()`、`ready()`、`tick(delta)` 和 `dispose()`，其中设备依赖仍按其实际架构作用域解析。
+
+初始化后也可切换 `automatic_input_routing`。切换立即停止旧节点转发、取消尚未完成的延迟挂载并清理输入贡献，保留已启用上下文；重新启用自动路由会延迟挂载新节点。已 `dispose()` 的实例只保存配置，重新 `init()` 前不会挂载节点。
 
 动作信号是同步信号，监听器可以在回调内清空、替换上下文或释放 utility。运行时会把这类变更视为新的派发代际，当前事件不会继续遍历新代际 entry，也不会在 `action_value_changed` 之后补发旧代际的 `action_started`。项目若希望同一个物理事件进入新上下文，应在回调返回后的下一次显式派发中完成，而不是依赖重入迭代顺序。
