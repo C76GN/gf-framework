@@ -203,6 +203,156 @@ func test_deferred_spinbox_cancel_cannot_overwrite_a_new_edit() -> void:
 	assert_eq(field.get_line_edit().text, "new draft")
 
 
+func test_line_edit_native_text_assignment_does_not_emit_text_changed() -> void:
+	var field: LineEdit = _line_edit("before")
+	add_child(field)
+	await wait_process_frames(1)
+	var session: GFControlEditSession = GFControlEditSession.new()
+	var token: int = session.begin_edit(field)
+	var observed: Array[String] = []
+	var connection_result: int = field.text_changed.connect(func(text: String) -> void:
+		observed.append(text)
+		session.clear()
+	)
+	assert_eq(connection_result, OK)
+	field.text = "draft"
+	await wait_process_frames(1)
+	assert_eq(observed, [], "真实 LineEdit.text 赋值不发 text_changed，不能模拟该信号制造重入。")
+	assert_true(session.is_current(token))
+	assert_true(session.cancel_edit(token))
+	await wait_process_frames(1)
+	assert_eq(observed, [])
+	assert_eq(field.text, "before")
+
+
+func test_spinbox_cancel_rejects_baseline_clamped_by_new_maximum() -> void:
+	var field: SpinBox = await _spin_box(42.0, "0042")
+	var session: GFControlEditSession = GFControlEditSession.new()
+	var token: int = session.begin_edit(field)
+	field.max_value = 10.0
+	field.get_line_edit().text = "unfinished"
+	assert_false(session.cancel_edit(token), "新上限无法恢复数值基线，不得报告成功或回填旧原文。")
+	await wait_process_frames(1)
+	assert_eq(field.value, 10.0)
+	assert_eq(field.get_line_edit().text, "10")
+	assert_false(session.is_current(token))
+
+
+func test_range_cancel_rejects_baseline_rounded_by_new_step() -> void:
+	var field: HSlider = HSlider.new()
+	_controls.append(field)
+	field.step = 1.0
+	field.value = 5.0
+	var session: GFControlEditSession = GFControlEditSession.new()
+	var token: int = session.begin_edit(field)
+	field.value = 12.0
+	field.step = 2.0
+	assert_false(session.cancel_edit(token), "Range 的新步长将基线吸附到另一数值，恢复必须失败。")
+	assert_eq(field.value, 6.0)
+	assert_false(session.is_current(token))
+
+
+func test_option_button_cancel_rejects_removed_baseline_choice() -> void:
+	var field: OptionButton = OptionButton.new()
+	_controls.append(field)
+	field.add_item("first")
+	field.add_item("second")
+	field.add_item("removed")
+	field.select(2)
+	var session: GFControlEditSession = GFControlEditSession.new()
+	var token: int = session.begin_edit(field)
+	field.select(0)
+	field.remove_item(2)
+	assert_false(session.cancel_edit(token), "已移除的选项无法恢复，不应调用越界的原生 setter。")
+	assert_eq(field.selected, 0)
+	assert_eq(field.text, "first")
+	assert_false(session.is_current(token))
+
+
+func test_item_list_cancel_rejects_partly_removed_baseline_without_partial_restore() -> void:
+	var field: ItemList = ItemList.new()
+	_controls.append(field)
+	field.select_mode = ItemList.SELECT_MULTI
+	var _first_index: int = field.add_item("first")
+	var _second_index: int = field.add_item("current")
+	var _third_index: int = field.add_item("removed")
+	field.select(0, false)
+	field.select(2, false)
+	assert_eq(field.get_selected_items(), PackedInt32Array([0, 2]))
+	var session: GFControlEditSession = GFControlEditSession.new()
+	var token: int = session.begin_edit(field)
+	field.deselect_all()
+	field.select(1)
+	field.remove_item(2)
+	assert_eq(field.get_selected_items(), PackedInt32Array([1]))
+	assert_false(session.cancel_edit(token), "基线只有部分索引有效，须在清空或部分写入当前选择前拒绝。")
+	assert_eq(field.get_selected_items(), PackedInt32Array([1]))
+	assert_false(session.is_current(token))
+
+
+func test_spinbox_cancel_rejects_value_replaced_by_native_signal_callback() -> void:
+	var field: SpinBox = await _spin_box(42.0, "0042")
+	var session: GFControlEditSession = GFControlEditSession.new()
+	var token: int = session.begin_edit(field)
+	field.value = 13.0
+	var observed: Array[float] = []
+	var connection_result: int = field.value_changed.connect(func(value: float) -> void:
+		observed.append(value)
+		if value == 42.0:
+			field.value = 73.0
+	)
+	assert_eq(connection_result, OK)
+	assert_false(session.cancel_edit(token), "真实 value_changed 回调覆写恢复值后，后置条件不再成立。")
+	assert_eq(observed, [42.0, 73.0])
+	await wait_process_frames(1)
+	assert_eq(field.value, 73.0)
+	assert_eq(field.get_line_edit().text, "73")
+	assert_false(session.is_current(token))
+
+
+func test_deferred_spinbox_cancel_cannot_overwrite_later_native_value_update() -> void:
+	var field: SpinBox = await _spin_box(42.0, "0042")
+	var session: GFControlEditSession = GFControlEditSession.new()
+	var token: int = session.begin_edit(field)
+	field.value = 13.0
+	field.get_line_edit().text = "unfinished"
+	assert_true(session.cancel_edit(token))
+	field.value = 73.0
+	await wait_process_frames(1)
+	assert_eq(field.value, 73.0)
+	assert_eq(field.get_line_edit().text, "73", "会话已结束后的原生值更新不得被旧延期原文覆盖。")
+	assert_false(session.is_current(token))
+
+
+func test_spinbox_cancel_returns_false_when_native_raw_rejection_clears_owner() -> void:
+	var field: SpinBox = await _spin_box(42.0, "0042")
+	var editor: LineEdit = field.get_line_edit()
+	var session: GFControlEditSession = GFControlEditSession.new()
+	var token: int = session.begin_edit(field)
+	editor.max_length = 2
+	field.value = 13.0
+	await wait_process_frames(1)
+	editor.text = "1"
+	var rejected: Array[String] = []
+	var blocked_begin: Array[int] = []
+	var connection_result: int = editor.text_change_rejected.connect(func(text: String) -> void:
+		rejected.append(text)
+		blocked_begin.append(session.begin_edit(field))
+		session.clear()
+	)
+	assert_eq(connection_result, OK)
+	assert_false(session.cancel_edit(token), "真实原文截断回调已 clear，取消必须复核恢复后的所有权。")
+	assert_eq(rejected, ["42"], "信号来自 max_length 拒绝旧 raw 的尾部，未人为 emit。")
+	assert_eq(blocked_begin, [0])
+	assert_false(session.is_current(token))
+	var replacement: LineEdit = _line_edit("replacement")
+	var next_token: int = session.begin_edit(replacement)
+	assert_gt(next_token, token)
+	await wait_process_frames(1)
+	assert_true(session.is_current(next_token))
+	assert_eq(replacement.text, "replacement")
+
+
 # --- 私有/辅助方法 ---
 
 func _raw_text(snapshot: Dictionary) -> String:
@@ -219,4 +369,14 @@ func _line_edit(text: String) -> LineEdit:
 	var field: LineEdit = LineEdit.new()
 	field.text = text
 	_controls.append(field)
+	return field
+
+
+func _spin_box(value: float, raw_text: String) -> SpinBox:
+	var field: SpinBox = SpinBox.new()
+	_controls.append(field)
+	add_child(field)
+	field.value = value
+	await wait_process_frames(1)
+	field.get_line_edit().text = raw_text
 	return field

@@ -155,9 +155,10 @@ func commit_edit(token: int) -> Dictionary:
 	return result
 
 
-## 恢复本次输入最初的控件值与原文并结束会话；不发起模型写入。
+## 尝试恢复本次输入最初的控件值与原文并结束会话；不发起模型写入。
 ## 原生值变化信号可能发出，宿主需要自己的写入门禁；恢复期间不能开启新会话。
-## SpinBox 的原生延期格式化后再校正原文；clear 或新会话会撤销这次延期校正。
+## 原生约束或宿主回调使恢复失败时保留实际控件状态，不承诺原子回滚。
+## SpinBox 的原生延期格式化后再校正原文；clear、新会话或数值不再等于基线会撤销这次延期校正。
 ## [br]
 ## @api public
 ## [br]
@@ -165,7 +166,7 @@ func commit_edit(token: int) -> Dictionary:
 ## [br]
 ## @param token: 当前会话令牌。
 ## [br]
-## @return 恢复成功时返回 true，包括没有净变化；过期令牌、输入法组合或恢复时被 clear 失效返回 false。
+## @return 控件值和原文均恢复且会话未失效时返回 true，包括没有净变化；恢复失败仍结束本次会话并返回 false。过期令牌或输入法组合返回 false，不开始恢复。
 func cancel_edit(token: int) -> bool:
 	if not is_current(token) or has_ime_composition(token):
 		return false
@@ -173,19 +174,32 @@ func cancel_edit(token: int) -> bool:
 	var baseline: Dictionary = _baseline.duplicate(true)
 	_active = false
 	_restoring = true
-	var restored: bool = GFControlValueAdapter.set_value(control, baseline["value"])
-	if restored and token == _generation and is_instance_valid(control):
-		var editor: LineEdit = _get_line_edit(control)
-		if editor != null:
-			editor.text = GFVariantData.get_option_string(baseline, "raw_text")
+	var restored: bool = _can_restore_selection(control, baseline["value"])
+	if restored:
+		restored = GFControlValueAdapter.set_value(control, baseline["value"])
+	if restored and is_instance_valid(control) and _is_restore_current(token, control):
+		restored = GFControlValueAdapter.get_value(control) == baseline["value"]
 	else:
 		restored = false
+	if restored:
+		var editor: LineEdit = _get_line_edit(control)
+		if editor != null:
+			if is_instance_valid(editor):
+				editor.text = GFVariantData.get_option_string(baseline, "raw_text")
+			else:
+				restored = false
+		if restored:
+			restored = (
+				is_instance_valid(control) and _is_restore_current(token, control)
+				and _capture(control) == baseline
+			)
 	_restoring = false
 	if token == _generation:
 		clear()
 		if restored and control is SpinBox:
 			_restore_spin_box_text.call_deferred(
-				weakref(control), _generation, GFVariantData.get_option_string(baseline, "raw_text")
+				weakref(control), _generation, GFVariantData.get_option_float(baseline, "value"),
+				GFVariantData.get_option_string(baseline, "raw_text")
 			)
 	return restored
 
@@ -204,6 +218,38 @@ func clear() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+## 写回前拒绝已经不存在的选择下标；不改变选项身份或原生可选性规则。
+## ItemList 先清空选择再写入，下标预检避免越界诊断和不必要的部分恢复。
+## [br]
+## @api private
+func _can_restore_selection(control: Control, value: Variant) -> bool:
+	if control is OptionButton:
+		if not value is int:
+			return false
+		var selected: int = value
+		var option_button: OptionButton = control
+		return selected >= -1 and selected < option_button.item_count
+	if control is ItemList:
+		if not value is PackedInt32Array:
+			return false
+		var selected_indices: PackedInt32Array = value
+		var item_list: ItemList = control
+		for index: int in selected_indices:
+			if index < 0 or index >= item_list.item_count:
+				return false
+	return true
+
+
+## 原生写回后复核取消代数及同一存活控件，拒绝宿主 clear 或释放后的继续恢复。
+## [br]
+## @api private
+func _is_restore_current(token: int, control: Control) -> bool:
+	return (
+		token == _generation and _restoring and is_instance_valid(control)
+		and _get_control() == control
+	)
+
 
 ## 只捕获有已知值类型的原生控件，避免快照携带自定义业务对象。
 ## [br]
@@ -253,15 +299,20 @@ func _get_line_edit(control: Control) -> LineEdit:
 	return null
 
 
-## 在原生 SpinBox 格式化之后恢复原文，只允许尚未被宿主清空或新会话接管的取消边界写回。
+## 在原生 SpinBox 格式化之后恢复原文，仅写回未失效取消边界且数值仍等于基线的控件。
+## 宿主更新原文或格式设置时仍需 clear；此处只识别会话代数和当前数值变化。
 ## [br]
 ## @api private
-func _restore_spin_box_text(control_ref: WeakRef, generation: int, text: String) -> void:
+func _restore_spin_box_text(
+	control_ref: WeakRef, generation: int, baseline_value: float, text: String
+) -> void:
 	if generation != _generation or _active:
 		return
 	var candidate: Variant = control_ref.get_ref()
 	if candidate is SpinBox and is_instance_valid(candidate):
 		var spin_box: SpinBox = candidate
+		if spin_box.value != baseline_value:
+			return
 		var editor: LineEdit = spin_box.get_line_edit()
-		if not editor.has_ime_text():
+		if is_instance_valid(editor) and not editor.has_ime_text():
 			editor.text = text

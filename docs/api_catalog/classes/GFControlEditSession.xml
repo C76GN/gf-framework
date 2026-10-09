@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFControlEditSession" path="addons/gf/standard/utilities/ui/gf_control_edit_session.gd" module="standard" extends="RefCounted" classDigest="5d2061789560f01cbcf83906754304b067e9907bf5f06b8286b124f32dd3cf70">
+<class name="GFControlEditSession" path="addons/gf/standard/utilities/ui/gf_control_edit_session.gd" module="standard" extends="RefCounted" classDigest="f5ee85849adeb04bad5efb1bf3ab34601a3e0561e8291709f000000cb1cdb3de">
 	<description>GFControlEditSession: 一个控件的运行期输入会话。
 保存编辑开始时的值和文本，保留 SpinBox 尚未提交的数字原文。
 宿主负责连接焦点/提交事件、业务转换、验证、模型写入和撤销命令。</description>
@@ -79,13 +79,14 @@
 		</member>
 		<member kind="method" name="cancel_edit">
 			<signature>func cancel_edit(token: int) -&gt; bool:</signature>
-			<description>恢复本次输入最初的控件值与原文并结束会话；不发起模型写入。
+			<description>尝试恢复本次输入最初的控件值与原文并结束会话；不发起模型写入。
 原生值变化信号可能发出，宿主需要自己的写入门禁；恢复期间不能开启新会话。
-SpinBox 的原生延期格式化后再校正原文；clear 或新会话会撤销这次延期校正。</description>
+原生约束或宿主回调使恢复失败时保留实际控件状态，不承诺原子回滚。
+SpinBox 的原生延期格式化后再校正原文；clear、新会话或数值不再等于基线会撤销这次延期校正。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">token: 当前会话令牌。</tag>
-				<tag name="return">恢复成功时返回 true，包括没有净变化；过期令牌、输入法组合或恢复时被 clear 失效返回 false。</tag>
+				<tag name="return">控件值和原文均恢复且会话未失效时返回 true，包括没有净变化；恢复失败仍结束本次会话并返回 false。过期令牌或输入法组合返回 false，不开始恢复。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>

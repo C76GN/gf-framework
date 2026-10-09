@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "0fb33daaf83cf1406b022f9a6a34a5ae53fb8ab58c02d1fce81902bf9f43395f",
+  "source_digest": "2552c88ec93a6ce3b2bc601c7ff76c90b214f591d3f91f198b6b9a7b8e3a867b",
   "class_count": 868,
   "autoload_count": 1,
   "package_count": 60,
@@ -23775,7 +23775,7 @@
           "kind": "func",
           "name": "cancel_edit",
           "signature": "func cancel_edit(token: int) -> bool",
-          "summary": "恢复本次输入最初的控件值与原文并结束会话；不发起模型写入。",
+          "summary": "尝试恢复本次输入最初的控件值与原文并结束会话；不发起模型写入。",
           "visibility": "public"
         },
         {
