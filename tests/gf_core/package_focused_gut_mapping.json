@@ -318,6 +318,7 @@
       "res://tests/gf_core/standard/utilities/settings/test_gf_storage_settings_store_utility.gd"
     ],
     "gf.standard.ui": [
+      "res://tests/gf_core/standard/utilities/ui/test_gf_control_edit_session.gd",
       "res://tests/gf_core/standard/utilities/ui/test_gf_table_data_view.gd",
       "res://tests/gf_core/standard/utilities/ui/test_gf_table_row_predicates.gd",
       "res://tests/gf_core/standard/utilities/ui/test_gf_text_fitter.gd",
