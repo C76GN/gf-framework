@@ -181,6 +181,8 @@ func test_hash_is_sha256_of_canonical_bytes() -> void:
 	var hash_text: String = GF_DETERMINISTIC_VARIANT_SERIALIZER.sha256(source)
 
 	assert_eq(bytes.get_string_from_utf8(), text, "规范 bytes 应直接来自规范 JSON 的 UTF-8。")
+	assert_eq(hash_text, text.sha256_text(), "规范 hash 必须等于完整 canonical UTF-8 的 SHA-256。")
+	assert_eq(GF_DETERMINISTIC_VARIANT_SERIALIZER.sha256_incremental(source), hash_text, "两种资源策略必须生成同一摘要。")
 	assert_eq(hash_text.length(), 64, "SHA-256 hex 长度应固定为 64。")
 	assert_true(hash_text.is_valid_hex_number(), "SHA-256 应输出 hex 文本。")
 
@@ -329,3 +331,175 @@ func test_objects_and_circular_references_are_rejected() -> void:
 
 	assert_eq(circular_text, "", "循环引用不应被静默编码。")
 	assert_push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.serialization_failed] Serialization failed: Input contains a cyclic Dictionary reference..")
+	source.clear()
+
+
+func test_streaming_matches_typed_encoding_for_every_supported_variant_type() -> void:
+	var minimum_integer: int = -9_223_372_036_854_775_807 - 1
+	var shared: Array = [1, {"shared": true}]
+	var compound_keys: Dictionary = {}
+	compound_keys[["array", 2]] = "array-key"
+	compound_keys[{"z": 2, "a": 1}] = "dictionary-key"
+	compound_keys[PackedInt64Array([2, 1])] = "packed-key"
+	compound_keys[NodePath("root/child:property")] = "path-key"
+	var source: Array = [
+		null, true, false, minimum_integer, 9_223_372_036_854_775_807,
+		"", "汉字😀é\"\\/\n\r\t" + String.chr(1),
+		&"标签", NodePath("root/child:property"),
+		0.0, -0.0, 1.0000000000000002, 5e-324, 1.7976931348623157e308,
+		Vector2(1.5, -2.25), Vector2i(-2, 3),
+		Vector3(1, 2, 3), Vector3i(-2, 3, 4),
+		Vector4(1, 2, 3, 4), Vector4i(-2, 3, 4, 5),
+		Rect2(-1, 2, 3, 4), Rect2i(-1, 2, 3, 4),
+		Color(0.25, 0.5, 0.75, 1), Plane(Vector3.UP, 2.5),
+		Quaternion(0.1, 0.2, 0.3, 0.4), AABB(Vector3(-1, 2, 3), Vector3(4, 5, 6)),
+		Basis(Vector3(1, 2, 3), Vector3(4, 5, 6), Vector3(7, 8, 9)),
+		Transform2D(0.5, Vector2(2, 3)), Transform3D(Basis.IDENTITY, Vector3(2, 3, 4)),
+		Projection.IDENTITY, [], {}, compound_keys, shared, shared,
+		PackedByteArray([0, 1, 255]), PackedInt32Array([-2147483648, 2147483647]),
+		PackedInt64Array([minimum_integer, 9_223_372_036_854_775_807]),
+		PackedFloat32Array([-0.0, 1.5, -2.25]), PackedFloat64Array([5e-324, 1.0000000000000002]),
+		PackedStringArray(["", "汉😀\n\"\\", String.chr(1)]),
+		PackedVector2Array([Vector2(1, 2), Vector2(-3, 4)]),
+		PackedVector3Array([Vector3(1, 2, 3)]),
+		PackedColorArray([Color(0.25, 0.5, 0.75, 1)]),
+		PackedVector4Array([Vector4(1, 2, 3, 4)]),
+		PackedByteArray(), PackedInt32Array(), PackedInt64Array(),
+		PackedFloat32Array(), PackedFloat64Array(), PackedStringArray(),
+		PackedVector2Array(), PackedVector3Array(), PackedColorArray(), PackedVector4Array(),
+	]
+	_assert_matches_typed_oracle(source, {"allow_floats": true})
+
+
+func test_string_escape_and_hash_chunk_boundaries_match_the_typed_oracle() -> void:
+	var boundary_text: String = "a".repeat(4095) + "😀汉\"\\\n" + "z".repeat(4097)
+	var packed: PackedInt64Array = PackedInt64Array()
+	for index: int in 5000:
+		var _append_result: bool = packed.append(9_223_372_036_854_770_000 + index)
+	var source: Dictionary = {
+		boundary_text: PackedStringArray([
+			boundary_text, "汉😀".repeat(4097), "\"".repeat(4096),
+			String.chr(1).repeat(4096), "尾",
+		]),
+		"packed": packed,
+	}
+	_assert_matches_typed_oracle(source)
+	var report: Dictionary = GF_DETERMINISTIC_VARIANT_SERIALIZER.measure_canonical(source)
+	assert_gt(GFVariantData.get_option_int(report, "output_bytes"), 64 * 1024, "样本必须跨越多个 hash 缓冲。")
+
+
+func test_measure_reports_exact_utf8_bytes_and_historic_packed_item_counts() -> void:
+	var source: Dictionary = {"packed": PackedStringArray(["汉", "😀"])}
+	var report: Dictionary = GF_DETERMINISTIC_VARIANT_SERIALIZER.measure_canonical(source)
+	var expected_json: String = JSON.stringify(GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_value(source), "", true)
+	assert_eq(report, {
+		"ok": true,
+		"error": "",
+		"failure_kind": "",
+		"items": 5,
+		"packed_items": 2,
+		"output_bytes": expected_json.to_utf8_buffer().size(),
+	}, "闭合报告应计入根、key、packed 容器和两个元素。")
+	var exact_options: Dictionary = {
+		"max_items": 5,
+		"max_string_length": 6,
+		"max_output_bytes": GFVariantData.get_option_int(report, "output_bytes"),
+	}
+	_assert_matches_typed_oracle(source, exact_options)
+	exact_options["max_output_bytes"] = GFVariantData.get_option_int(report, "output_bytes") - 1
+	var rejected: Dictionary = GF_DETERMINISTIC_VARIANT_SERIALIZER.measure_canonical(source, exact_options)
+	assert_false(GFVariantData.get_option_bool(rejected, "ok", true), "少一个 UTF-8 字节必须失败。")
+	assert_eq(GFVariantData.get_option_string(rejected, "failure_kind"), "output_limit")
+	assert_eq(GF_DETERMINISTIC_VARIANT_SERIALIZER.sha256(source, exact_options), "", "失败不能发布部分 hash。")
+	assert_push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.output_limit] Canonical output exceeds max_output_bytes.")
+	assert_eq(GF_DETERMINISTIC_VARIANT_SERIALIZER.sha256_incremental(source, exact_options), "", "增量策略也不能发布部分 hash。")
+	assert_push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.output_limit] Canonical output exceeds max_output_bytes.")
+	assert_eq(GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_bytes(source, exact_options), PackedByteArray(), "失败不能发布部分 bytes。")
+	assert_push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.output_limit] Canonical output exceeds max_output_bytes.")
+
+
+func test_measure_checks_packed_budget_before_expansion_and_preserves_composite_counts() -> void:
+	var packed: PackedInt64Array = PackedInt64Array()
+	var _resize_error: Error = packed.resize(50_000) as Error
+	var rejected: Dictionary = GF_DETERMINISTIC_VARIANT_SERIALIZER.measure_canonical(packed, {"max_items": 3})
+	assert_false(GFVariantData.get_option_bool(rejected, "ok", true))
+	assert_eq(GFVariantData.get_option_string(rejected, "failure_kind"), "input_invalid")
+	assert_eq(GFVariantData.get_option_int(rejected, "items"), 1, "packed 整批计数失败前只消费根节点。")
+	assert_eq(GFVariantData.get_option_int(rejected, "packed_items"), 0)
+	assert_eq(GFVariantData.get_option_int(rejected, "output_bytes"), 0, "不能展开或编码超过输入预算的 packed 元素。")
+	var vector_report: Dictionary = GF_DETERMINISTIC_VARIANT_SERIALIZER.measure_canonical(
+		PackedVector3Array([Vector3.ONE, Vector3.ZERO]), {"allow_floats": true, "max_items": 3}
+	)
+	assert_true(GFVariantData.get_option_bool(vector_report, "ok"))
+	assert_eq(GFVariantData.get_option_int(vector_report, "items"), 3, "packed 分量不单独消费元素预算。")
+	assert_eq(GFVariantData.get_option_int(vector_report, "packed_items"), 2)
+	var transform_report: Dictionary = GF_DETERMINISTIC_VARIANT_SERIALIZER.measure_canonical(
+		Transform3D.IDENTITY, {"allow_floats": true, "max_items": 2, "max_depth": 1}
+	)
+	assert_true(GFVariantData.get_option_bool(transform_report, "ok"))
+	assert_eq(GFVariantData.get_option_int(transform_report, "items"), 2, "Transform3D 只额外计入 basis 节点。")
+	var late_nonfinite: Dictionary = GF_DETERMINISTIC_VARIANT_SERIALIZER.measure_canonical(
+		PackedFloat64Array([1.0, INF]), {"allow_floats": true, "max_output_bytes": 1}
+	)
+	assert_eq(GFVariantData.get_option_string(late_nonfinite, "failure_kind"), "input_invalid", "packed 输出饱和后仍须校验后续浮点输入。")
+	assert_eq(GFVariantData.get_option_string(late_nonfinite, "error"), "Floating-point values must not be NaN or Inf.")
+	var late_string: Dictionary = GF_DETERMINISTIC_VARIANT_SERIALIZER.measure_canonical(
+		PackedStringArray(["ok", "long"]), {"max_string_length": 2, "max_output_bytes": 1}
+	)
+	assert_eq(GFVariantData.get_option_string(late_string, "failure_kind"), "input_invalid", "packed 输出饱和后仍须校验后续字符串预算。")
+
+
+func test_measure_is_quiet_and_input_errors_precede_output_limit() -> void:
+	var source: Array = ["x".repeat(100), Resource.new()]
+	var options: Dictionary = {"max_output_bytes": 1}
+	var report: Dictionary = GF_DETERMINISTIC_VARIANT_SERIALIZER.measure_canonical(source, options)
+	assert_eq(GFVariantData.get_option_string(report, "failure_kind"), "input_invalid", "输出已超限仍应完成输入验证。")
+	assert_eq(GFVariantData.get_option_string(report, "error"), "Unsupported Variant type: Object.")
+	assert_eq(GFVariantData.get_option_int(report, "items"), 3)
+	assert_eq(GF_DETERMINISTIC_VARIANT_SERIALIZER.sha256(source, options), "")
+	assert_push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.serialization_failed] Serialization failed: Unsupported Variant type: Object..")
+	var nested: Array = [[1]]
+	assert_false(GFVariantData.get_option_bool(GF_DETERMINISTIC_VARIANT_SERIALIZER.measure_canonical(nested, {"max_depth": 1}), "ok", true))
+	assert_false(GFVariantData.get_option_bool(GF_DETERMINISTIC_VARIANT_SERIALIZER.measure_canonical("汉😀", {"max_string_length": 1}), "ok", true))
+	assert_true(GFVariantData.get_option_bool(GF_DETERMINISTIC_VARIANT_SERIALIZER.measure_canonical("汉😀", {"max_string_length": 2}), "ok"), "字符串预算计字符而非 UTF-8 字节。")
+	assert_false(GFVariantData.get_option_bool(GF_DETERMINISTIC_VARIANT_SERIALIZER.measure_canonical(NAN, {"allow_floats": true}), "ok", true))
+	var cycle: Array = []
+	cycle.append(cycle)
+	assert_false(GFVariantData.get_option_bool(GF_DETERMINISTIC_VARIANT_SERIALIZER.measure_canonical(cycle), "ok", true))
+	assert_eq(GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_bytes(cycle), PackedByteArray())
+	assert_push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.serialization_failed] Serialization failed: Input contains a cyclic Array reference..")
+	cycle.clear()
+
+
+func test_hash_resource_strategies_share_input_limits_and_error_priority() -> void:
+	var cases: Array[Dictionary] = [
+		{"value": 1.25, "options": {}, "message": "Floating-point values are excluded from deterministic encoding by default; use fixed-point numbers or explicitly enable allow_floats."},
+		{"value": PackedFloat64Array([1.0, INF]), "options": {"allow_floats": true, "max_output_bytes": 1}, "message": "Floating-point values must not be NaN or Inf."},
+		{"value": ["x".repeat(100), Resource.new()], "options": {"max_output_bytes": 1}, "message": "Unsupported Variant type: Object."},
+		{"value": PackedByteArray([1, 2]), "options": {"max_items": 2}, "message": "Input collection exceeds max_items."},
+		{"value": [[1]], "options": {"max_depth": 1}, "message": "Input structure exceeds max_depth."},
+		{"value": PackedStringArray(["ok", "long"]), "options": {"max_string_length": 2, "max_output_bytes": 1}, "message": "String exceeds max_string_length."},
+	]
+	for fixture: Dictionary in cases:
+		var value: Variant = GFVariantData.get_option_value(fixture, "value")
+		var options: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(fixture, "options"))
+		var message: String = "[GFDeterministicVariantSerializer][deterministic_variant_serializer.serialization_failed] Serialization failed: %s." % GFVariantData.get_option_string(fixture, "message")
+		assert_eq(GF_DETERMINISTIC_VARIANT_SERIALIZER.sha256(value, options), "", "快速策略应拒绝不合格输入。")
+		assert_push_error(message)
+		assert_eq(GF_DETERMINISTIC_VARIANT_SERIALIZER.sha256_incremental(value, options), "", "增量策略应以同一错误拒绝输入。")
+		assert_push_error(message)
+
+
+# --- 辅助方法 ---
+
+func _assert_matches_typed_oracle(value: Variant, options: Dictionary = {}) -> void:
+	var canonical_value: Variant = GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_value(value, options)
+	assert_true(canonical_value != null, "等价性样本必须可编码。")
+	var expected_json: String = JSON.stringify(canonical_value, "", true)
+	assert_eq(GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_json(value, options), expected_json, "流式 JSON 必须逐字节保留 typed tree 的格式。")
+	assert_eq(GF_DETERMINISTIC_VARIANT_SERIALIZER.to_canonical_bytes(value, options), expected_json.to_utf8_buffer(), "流式 bytes 必须逐字节相等。")
+	assert_eq(GF_DETERMINISTIC_VARIANT_SERIALIZER.sha256(value, options), expected_json.sha256_text(), "快速策略必须来自同一字节协议。")
+	assert_eq(GF_DETERMINISTIC_VARIANT_SERIALIZER.sha256_incremental(value, options), expected_json.sha256_text(), "增量策略必须逐字节保留同一摘要协议。")
+	var report: Dictionary = GF_DETERMINISTIC_VARIANT_SERIALIZER.measure_canonical(value, options)
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(GFVariantData.get_option_int(report, "output_bytes"), expected_json.to_utf8_buffer().size(), "测量结果必须是精确 UTF-8 字节数。")
