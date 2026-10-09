@@ -20,6 +20,251 @@ func after_each() -> void:
 
 # --- 测试：record ---
 
+func test_history_notifications_publish_bounded_independent_state_and_skip_noops() -> void:
+	var snapshots: Array[Dictionary] = []
+	var _connected: Error = _history.history_changed.connect(func(snapshot: Dictionary) -> void:
+		snapshots.append(snapshot)
+	) as Error
+	_history.max_history_size = 1
+	_history.record(CounterCommand.new(CounterState.new()))
+	_history.record(CounterCommand.new(CounterState.new()))
+
+	assert_eq(snapshots.size(), 3, "容量和实际记录变化都必须通知，即使裁剪后计数相同。")
+	assert_eq(snapshots[-1].size(), 8, "快照大小必须独立于历史深度，且不包含命令引用。")
+	assert_true(snapshots[-1].is_read_only(), "信号快照不得被前面的监听器改写。")
+	for snapshot: Dictionary in snapshots:
+		for value: Variant in snapshot.values():
+			assert_true(value is int or value is bool, "通知只允许计数和布尔状态。")
+	assert_eq(GFVariantData.get_option_int(snapshots[-1], "undo_count"), 1)
+	assert_true(GFVariantData.get_option_bool(snapshots[-1], "can_undo"))
+	assert_gt(GFVariantData.get_option_int(snapshots[2], "revision"), GFVariantData.get_option_int(snapshots[1], "revision"))
+	var detached_state: Dictionary = _history.get_history_state()
+	detached_state["undo_count"] = 999
+	assert_eq(_history.undo_count, 1, "查询返回独立状态，不得改变 utility 或已发布快照。")
+	_history.max_history_size = 1
+	_history.clear()
+	_history.clear()
+	_history.init()
+	assert_eq(snapshots.size(), 4, "同值容量、空 clear 和空 reset 不应制造通知。")
+	assert_false(GFVariantData.get_option_bool(snapshots[-1], "can_undo"))
+
+
+func test_sync_history_notifications_observe_busy_and_success_or_failure_terminal_state() -> void:
+	var cmd: ConditionalOutcomeCommand = ConditionalOutcomeCommand.new()
+	await _history.execute_command(cmd)
+	var snapshots: Array[Dictionary] = []
+	var _connected: Error = _history.history_changed.connect(func(snapshot: Dictionary) -> void:
+		snapshots.append(snapshot)
+	) as Error
+	cmd.undo_success = false
+	assert_false(_history.undo_last())
+	assert_eq(snapshots.size(), 2, "失败同步操作也必须通知 busy 和解锁终态。")
+	assert_true(GFVariantData.get_option_bool(snapshots[0], "is_processing_operation"))
+	assert_false(GFVariantData.get_option_bool(snapshots[0], "can_undo"))
+	assert_false(GFVariantData.get_option_bool(snapshots[0], "is_processing_async"))
+	assert_false(GFVariantData.get_option_bool(snapshots[1], "is_processing_operation"))
+	assert_true(GFVariantData.get_option_bool(snapshots[1], "can_undo"))
+	assert_eq(GFVariantData.get_option_int(snapshots[1], "undo_count"), 1)
+	cmd.undo_success = true
+	snapshots.clear()
+	assert_true(_history.undo_last())
+	assert_eq(snapshots.size(), 2)
+	assert_eq(GFVariantData.get_option_int(snapshots[-1], "redo_count"), 1)
+	assert_true(GFVariantData.get_option_bool(snapshots[-1], "can_redo"))
+	cmd.redo_success = false
+	snapshots.clear()
+	assert_false(_history.redo())
+	assert_eq(snapshots.size(), 2, "失败重做仍必须恢复可用按钮状态。")
+	assert_eq(GFVariantData.get_option_int(snapshots[-1], "redo_count"), 1)
+	assert_true(GFVariantData.get_option_bool(snapshots[-1], "can_redo"))
+	cmd.redo_success = true
+	snapshots.clear()
+	assert_true(_history.redo())
+	assert_eq(snapshots.size(), 2)
+	assert_eq(GFVariantData.get_option_int(snapshots[-1], "undo_count"), 1)
+	assert_false(_history.is_processing_operation)
+
+
+func test_async_history_notifications_hold_busy_until_actual_completion() -> void:
+	var snapshots: Array[Dictionary] = []
+	var _connected: Error = _history.history_changed.connect(func(snapshot: Dictionary) -> void:
+		snapshots.append(snapshot)
+	) as Error
+	var cmd: ManualAsyncCommand = ManualAsyncCommand.new()
+	@warning_ignore("missing_await")
+	@warning_ignore("return_value_discarded")
+	_history.execute_command(cmd)
+	assert_eq(snapshots.size(), 2, "异步命令进入等待前应发布同步 busy 和异步 busy。")
+	assert_true(_history.is_processing_operation)
+	assert_true(_history.is_processing_async)
+	assert_eq(_history.undo_count, 0)
+	assert_true(GFVariantData.get_option_bool(snapshots[-1], "is_processing_async"))
+	cmd.complete()
+	await get_tree().process_frame
+	assert_eq(snapshots.size(), 3)
+	assert_eq(GFVariantData.get_option_int(snapshots[-1], "undo_count"), 1)
+	assert_true(GFVariantData.get_option_bool(snapshots[-1], "can_undo"))
+	assert_false(GFVariantData.get_option_bool(snapshots[-1], "is_processing_operation"))
+	assert_false(GFVariantData.get_option_bool(snapshots[-1], "is_processing_async"))
+	snapshots.clear()
+	@warning_ignore("missing_await")
+	@warning_ignore("return_value_discarded")
+	_history.undo_last_async()
+	assert_true(GFVariantData.get_option_bool(snapshots[-1], "is_processing_async"))
+	assert_eq(GFVariantData.get_option_int(snapshots[-1], "undo_count"), 1, "等待中快照应保留提交前来源栈。")
+	cmd.complete()
+	await get_tree().process_frame
+	assert_eq(snapshots.size(), 3)
+	assert_eq(GFVariantData.get_option_int(snapshots[-1], "redo_count"), 1)
+	assert_true(GFVariantData.get_option_bool(snapshots[-1], "can_redo"))
+
+
+func test_async_failed_history_notifications_restore_availability_without_moving_stack() -> void:
+	var cmd: AsyncUndoOutcomeCommand = AsyncUndoOutcomeCommand.new(_history, false)
+	_history.record(cmd)
+	var snapshots: Array[Dictionary] = []
+	var _connected: Error = _history.history_changed.connect(func(snapshot: Dictionary) -> void:
+		snapshots.append(snapshot)
+	) as Error
+	assert_false(await _history.undo_last_async())
+	assert_eq(snapshots.size(), 3)
+	assert_true(cmd.hook_saw_async_lock, "失败结果 hook 完成前不得过早通知 ready。")
+	assert_eq(GFVariantData.get_option_int(snapshots[-1], "undo_count"), 1)
+	assert_eq(GFVariantData.get_option_int(snapshots[-1], "redo_count"), 0)
+	assert_true(GFVariantData.get_option_bool(snapshots[-1], "can_undo"))
+	assert_false(GFVariantData.get_option_bool(snapshots[-1], "is_processing_async"))
+
+
+func test_async_notification_cannot_lose_completion_emitted_by_observer() -> void:
+	var cmd: ManualAsyncCommand = ManualAsyncCommand.new()
+	var _connected: Error = _history.history_changed.connect(func(snapshot: Dictionary) -> void:
+		if GFVariantData.get_option_bool(snapshot, "is_processing_async"):
+			cmd.complete()
+	) as Error
+	var result: Variant = await _history.execute_command(cmd)
+
+	assert_true(result is Signal)
+	assert_eq(_history.undo_count, 1, "async 通知监听器立即完成命令时，完成 Signal 必须已经接线。")
+	assert_false(_history.is_processing_operation)
+	assert_false(_history.is_processing_async)
+
+
+func test_history_notification_rejects_mutation_even_after_unlock() -> void:
+	var nested_counter: CounterState = CounterState.new()
+	var nested_cmd: CounterCommand = CounterCommand.new(nested_counter)
+	var observations: Dictionary = {}
+	var _connected: Error = _history.history_changed.connect(func(snapshot: Dictionary) -> void:
+		if not GFVariantData.get_option_bool(snapshot, "can_undo"):
+			return
+		observations["can_undo"] = _history.can_undo()
+		observations["execute_result"] = _history.call("execute_command", nested_cmd)
+		_history.record(nested_cmd)
+		_history.clear()
+		_history.max_history_size = 1
+		observations["undo_result"] = _history.undo_last()
+		observations["redo_result"] = _history.redo()
+		_history.deserialize_history([], func(_data: Dictionary) -> GFUndoableCommand: return nested_cmd)
+		_history.deserialize_full_history({}, func(_data: Dictionary) -> GFUndoableCommand: return nested_cmd)
+	) as Error
+	_history.record(CounterCommand.new(CounterState.new()))
+
+	assert_true(GFVariantData.get_option_bool(observations, "can_undo"), "观察状态必须反映已释放的真实锁。")
+	assert_eq(nested_counter.value, 0, "只读观察点不得启动嵌套业务命令。")
+	assert_true(observations.get("execute_result") == null)
+	assert_false(GFVariantData.get_option_bool(observations, "undo_result", true))
+	assert_false(GFVariantData.get_option_bool(observations, "redo_result", true))
+	assert_eq(_history.undo_count, 1)
+	assert_eq(_history.max_history_size, 1024)
+	for _index: int in range(8):
+		assert_push_warning("[GFCommandHistoryUtility][command_history_utility.mutation_during_notification] History notifications are read-only; mutation request ignored.")
+
+
+func test_busy_notification_dispose_stops_command_before_business_execution() -> void:
+	var counter: CounterState = CounterState.new()
+	var snapshots: Array[Dictionary] = []
+	var _connected: Error = _history.history_changed.connect(func(snapshot: Dictionary) -> void:
+		snapshots.append(snapshot)
+		if GFVariantData.get_option_bool(snapshot, "is_processing_operation"):
+			_history.dispose()
+	) as Error
+	var result: Variant = await _history.execute_command(CounterCommand.new(counter))
+
+	assert_true(result == null)
+	assert_eq(counter.value, 0, "busy 通知取消生命周期后不得继续调用 execute。")
+	assert_eq(_history.undo_count, 0)
+	assert_false(_history.is_processing_operation)
+	assert_eq(snapshots.size(), 2, "取消应在 busy 发射结束后发布空闲重置状态。")
+	assert_gt(GFVariantData.get_option_int(snapshots[1], "revision"), GFVariantData.get_option_int(snapshots[0], "revision"))
+
+
+func test_async_notification_init_stops_old_operation_without_waiting_or_recording() -> void:
+	var cmd: ManualAsyncCommand = ManualAsyncCommand.new()
+	var snapshots: Array[Dictionary] = []
+	var _connected: Error = _history.history_changed.connect(func(snapshot: Dictionary) -> void:
+		snapshots.append(snapshot)
+		if GFVariantData.get_option_bool(snapshot, "is_processing_async"):
+			_history.init()
+	) as Error
+	var result: Variant = _history.call("execute_command", cmd)
+
+	assert_true(result is Signal, "生命周期失效仍保留 execute 的原始结果。")
+	assert_true(cmd.execute_called)
+	assert_eq(snapshots.size(), 3, "同步 busy、异步 busy 和 reset 状态应依次发布。")
+	assert_false(_history.is_processing_async)
+	assert_false(_history.is_processing_operation)
+	cmd.complete()
+	await get_tree().process_frame
+	assert_eq(_history.undo_count, 0, "旧 Signal 的迟到完成不得提交新生命周期。")
+	assert_eq(snapshots.size(), 3, "旧操作不得再次发布伪终态。")
+
+
+func test_terminal_notification_reset_preserves_order_and_leaves_next_operation_available() -> void:
+	var snapshots: Array[Dictionary] = []
+	var _reset_connected: Error = _history.history_changed.connect(func(snapshot: Dictionary) -> void:
+		if GFVariantData.get_option_int(snapshot, "undo_count") > 0:
+			_history.dispose()
+	) as Error
+	var _observer_connected: Error = _history.history_changed.connect(func(snapshot: Dictionary) -> void:
+		snapshots.append(snapshot)
+	) as Error
+	var counter: CounterState = CounterState.new()
+	await _history.execute_command(CounterCommand.new(counter))
+
+	assert_eq(counter.value, 1)
+	assert_eq(_history.undo_count, 0)
+	assert_eq(snapshots.size(), 3, "晚注册监听器应按 busy、提交、reset 顺序观察，不能先看到较新 reset。")
+	assert_eq(GFVariantData.get_option_int(snapshots[1], "undo_count"), 1)
+	assert_eq(GFVariantData.get_option_int(snapshots[2], "undo_count"), 0)
+	for index: int in range(1, snapshots.size()):
+		assert_gt(GFVariantData.get_option_int(snapshots[index], "revision"), GFVariantData.get_option_int(snapshots[index - 1], "revision"))
+	await _history.execute_command(CounterCommand.new(counter))
+	assert_eq(counter.value, 2, "通知完成后必须释放观察保护，允许后续独立操作。")
+
+
+func test_restore_notifications_include_failed_terminal_and_capacity_trim() -> void:
+	_history.record(CounterCommand.new(CounterState.new()))
+	var snapshots: Array[Dictionary] = []
+	var _connected: Error = _history.history_changed.connect(func(snapshot: Dictionary) -> void:
+		snapshots.append(snapshot)
+	) as Error
+	_history.deserialize_history([{}], func(_data: Dictionary) -> GFUndoableCommand: return null)
+	assert_push_error("[GFCommandHistoryUtility][command_history_utility.builder_result_invalid] deserialize_history failed: builder did not return a GFUndoableCommand.")
+	assert_eq(snapshots.size(), 2, "失败 restore 也应在候选构建后发布解锁状态。")
+	assert_eq(_history.undo_count, 1)
+	assert_true(GFVariantData.get_option_bool(snapshots[-1], "can_undo"))
+	snapshots.clear()
+	_history.deserialize_full_history({ "undo": [{}, {}], "redo": [{}] }, func(_data: Dictionary) -> GFUndoableCommand:
+		return CounterCommand.new(CounterState.new())
+	)
+	assert_eq(snapshots.size(), 2)
+	assert_eq(GFVariantData.get_option_int(snapshots[-1], "undo_count"), 2)
+	assert_eq(GFVariantData.get_option_int(snapshots[-1], "redo_count"), 1)
+	_history.max_history_size = 1
+	assert_eq(snapshots.size(), 3, "容量裁剪必须发布最终深度。")
+	assert_eq(GFVariantData.get_option_int(snapshots[-1], "undo_count"), 1)
+	assert_eq(GFVariantData.get_option_int(snapshots[-1], "redo_count"), 1)
+
+
 func test_undoable_command_default_action_name_is_empty() -> void:
 	var cmd: GFUndoableCommand = GFUndoableCommand.new()
 

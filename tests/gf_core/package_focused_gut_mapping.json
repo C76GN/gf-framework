@@ -273,6 +273,7 @@
       "res://tests/gf_core/standard/state_machine/node/editor/test_gf_state_machine_editor_package.gd"
     ],
     "gf.standard.storage": [
+      "res://tests/gf_core/standard/utilities/history/test_gf_command_history_utility.gd",
       "res://tests/gf_core/standard/utilities/history/test_gf_snapshot_history_utility.gd",
       "res://tests/gf_core/standard/utilities/storage/test_gf_storage_async_operation_lifecycle.gd",
       "res://tests/gf_core/standard/utilities/storage/test_gf_safe_resource_codec.gd",
