@@ -1,0 +1,46 @@
+extends Node
+
+
+# --- 常量 ---
+
+const _MAIN_SCENE_PATH: String = "__ROOT__/main.tscn"
+
+
+# --- 私有变量 ---
+
+var _started: bool = false
+
+
+# --- Godot 生命周期方法 ---
+
+func _ready() -> void:
+	_start.call_deferred()
+
+
+# --- 私有/辅助方法 ---
+
+func _start() -> void:
+	if _started or not _is_current_start_owner():
+		return
+	_started = true
+	var initialized: bool = await Gf.init()
+	if not _is_current_start_owner():
+		return
+	if not initialized:
+		push_error("[GFProjectBootstrap][project_bootstrap.init_failed] GF initialization did not complete; startup was stopped.")
+		return
+	# 初始化完成后才加载业务场景；启动页不创建或销毁全局架构。
+	var resource: Resource = ResourceLoader.load(_MAIN_SCENE_PATH)
+	if not _is_current_start_owner():
+		return
+	if not resource is PackedScene:
+		push_error("[GFProjectBootstrap][project_bootstrap.main_scene_invalid] Cannot load the project main scene: %s." % _MAIN_SCENE_PATH)
+		return
+	var main_scene: PackedScene = resource
+	var error: Error = get_tree().change_scene_to_packed(main_scene)
+	if error != OK:
+		push_error("[GFProjectBootstrap][project_bootstrap.scene_change_failed] Cannot enter the project main scene: %s." % error_string(error))
+
+
+func _is_current_start_owner() -> bool:
+	return is_inside_tree() and not is_queued_for_deletion() and get_tree().current_scene == self

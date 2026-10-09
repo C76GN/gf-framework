@@ -1,0 +1,9 @@
+# 合并到项目既有的异步启动入口，在创建业务场景或开始业务流程之前执行。
+# 不要重复创建 Architecture，也不要在普通场景退出时销毁全局 Gf。
+var initialized: bool = await Gf.init()
+if not is_inside_tree() or is_queued_for_deletion():
+	return
+if not initialized:
+	push_error("[GFProjectBootstrap][project_bootstrap.init_failed] GF initialization did not complete; startup was stopped.")
+	return
+# 在这里继续项目自己的启动流程。

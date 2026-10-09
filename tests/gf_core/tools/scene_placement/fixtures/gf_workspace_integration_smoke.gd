@@ -161,6 +161,8 @@ func _run_cases(plugin: EditorPlugin, placement: GFScenePlacementPlugin, scene_p
 	context = _context()
 	if not _check_onboarding_tasks(context, workspace):
 		return
+	if not await _capture(window, "workspace_project_initialization.png"):
+		return
 	var tween_task: Dictionary = _find_task(context.get_workspace_tasks(), _TWEEN, "new_resource")
 	if not _check(not tween_task.is_empty(), "The enabled Tween extension did not publish its new-resource task."):
 		return
@@ -189,7 +191,7 @@ func _check_onboarding_tasks(context: GFEditorToolContext, workspace: Control) -
 	var tasks: Array[Dictionary] = context.get_workspace_tasks()
 	var config_task: Dictionary = _find_task(tasks, _CONFIG)
 	var bootstrap_task: Dictionary = _find_task(tasks, _BOOTSTRAP, "new_project")
-	if not _check(not config_task.is_empty() and not bootstrap_task.is_empty(), "Configuration and minimal-project tasks must be contributed by their own tools."):
+	if not _check(not config_task.is_empty() and not bootstrap_task.is_empty(), "Configuration and project-initialization tasks must be contributed by their own tools."):
 		return false
 	var root_files: PackedStringArray = DirAccess.get_files_at("res://")
 	var settings_digest: String = FileAccess.get_sha256("res://project.godot")
@@ -199,9 +201,9 @@ func _check_onboarding_tasks(context: GFEditorToolContext, workspace: Control) -
 		return false
 	var bootstrap_report: Dictionary = context.request_workspace_task(str(bootstrap_task.get("source_id")))
 	var bootstrap_page: Control = _find_page(workspace, _BOOTSTRAP)
-	if not _check(GFVariantData.get_option_bool(bootstrap_report, "ok") and bootstrap_page != null and bootstrap_page.is_visible_in_tree() and bootstrap_page.find_child("OutputDirectory", true, false) is LineEdit, "The minimal-project task did not open the real wizard."):
+	if not _check(GFVariantData.get_option_bool(bootstrap_report, "ok") and bootstrap_page != null and bootstrap_page.is_visible_in_tree() and bootstrap_page.find_child("OutputDirectory", true, false) is LineEdit, "The project-initialization task did not open the real wizard."):
 		return false
-	if not _check(DirAccess.get_files_at("res://") == root_files and FileAccess.get_sha256("res://project.godot") == settings_digest and not DirAccess.dir_exists_absolute("res://game/bootstrap") and not DirAccess.dir_exists_absolute("res://config"), "Opening onboarding tasks created default project files or saved project settings."):
+	if not _check(DirAccess.get_files_at("res://") == root_files and FileAccess.get_sha256("res://project.godot") == settings_digest and not DirAccess.dir_exists_absolute("res://app") and not DirAccess.dir_exists_absolute("res://config"), "Opening onboarding tasks created default project files or saved project settings."):
 		return false
 	_report["workspace_onboarding_tasks"] = true
 	return true
