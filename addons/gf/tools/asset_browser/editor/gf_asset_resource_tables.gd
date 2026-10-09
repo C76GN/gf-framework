@@ -6,16 +6,42 @@ extends VBoxContainer
 
 # --- 私有变量 ---
 
+## 宿主提供的编辑上下文；撤销上下文后禁用保存，但保留已加载 Resource 的内存修改。
+## [br]
+## @api private
 var _context: GFEditorToolContext = null
+
+## 持有按资源类型与原生 Undo history 分组的表格子节点；更换资源选择时移除并延迟释放旧表格。
+## [br]
+## @api private
 var _tabs: TabContainer = null
+
+## 展示加载拒绝、未保存数量和逐文件保存结果的状态控件，由本容器的节点树管理。
+## [br]
+## @api private
 var _status: Label = null
+
+## 保留显式加载的共享源 Resource 引用并订阅 changed；清理只断开订阅和释放本容器引用，不回退资源字段。
+## [br]
+## @api private
 var _resources: Array[Resource] = []
+
+## 按资源实例 ID 记录读取或最近成功保存时的存储字段哈希，用于脏状态比较；不是可用于恢复内容的快照。
+## [br]
+## @api private
 var _saved_values: Dictionary = {}
+
+## 触发显式逐资源磁盘保存；是否可用随编辑上下文绑定状态更新，不随 Undo 自动保存。
+## [br]
+## @api private
 var _save_button: Button = null
 
 
 # --- Godot 生命周期方法 ---
 
+## 建立页面树拥有的状态提示、显式保存按钮和分组表格页签；获得宿主上下文前保存按钮禁用。
+## [br]
+## @api private
 func _init() -> void:
 	_status = Label.new()
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -30,6 +56,9 @@ func _init() -> void:
 	add_child(_tabs)
 
 
+## 退树时断开资源变更监听并清除本表持有的引用与保存基线；不保存或回滚共享 Resource 对象。
+## [br]
+## @api private
 func _exit_tree() -> void:
 	_clear_resources()
 
@@ -143,6 +172,9 @@ static func is_editable_source_path(path: String) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 断开当前资源的 changed 订阅，清空引用与保存基线并撤销本地上下文；不保存、回滚或释放外部共享资源。
+## [br]
+## @api private
 func _clear_resources() -> void:
 	for resource: Resource in _resources:
 		if resource.changed.is_connected(_on_resource_changed):
@@ -152,6 +184,9 @@ func _clear_resources() -> void:
 	_context = null
 
 
+## 按属性列表顺序汇集带 STORAGE usage 的当前值并取哈希，供读取/保存基线比较；不复制资源或读取磁盘。
+## [br]
+## @api private
 func _fingerprint(resource: Resource) -> int:
 	var values: Array = []
 	for property: Dictionary in resource.get_property_list():
@@ -160,6 +195,9 @@ func _fingerprint(resource: Resource) -> int:
 	return hash(values)
 
 
+## 有编辑上下文时逐个保存脏资源，并在写入前重新确认独立源路径；只更新成功项的基线，失败项保留脏状态，整批不提供原子提交。
+## [br]
+## @api private
 func _save_resources() -> void:
 	if _context == null:
 		_status.text = "编辑上下文已撤销，无法保存源资源。"
@@ -186,6 +224,9 @@ func _save_resources() -> void:
 
 # --- 信号处理函数 ---
 
+## 重新比较全部已加载资源与各自保存基线，显示仍需显式保存的数量；资源 changed 通知本身不触发磁盘写入。
+## [br]
+## @api private
 func _on_resource_changed() -> void:
 	var dirty_count: int = 0
 	for resource: Resource in _resources:

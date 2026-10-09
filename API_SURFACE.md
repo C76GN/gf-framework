@@ -2,7 +2,7 @@
 
 API Surface Contract 用来明确 GF 源码中哪些符号属于公开承诺、哪些只属于框架内部实现。GDScript 本身没有访问修饰符，因此 GF 通过命名、section、`##` 文档注释和机器可读标签共同定义 API 边界。
 
-核心原则是：公开承诺必须显式，私有实现也可以拥有维护文档。`##` 表示绑定到声明的文档，`@api` 独立决定可见性；是否有文档不改变调用边界或兼容性承诺。公开生成物只收录 `public` / `protected`，不能把所有带 `##` 的声明都当作公开 API。
+核心原则是：公开承诺必须显式，私有声明必须有维护文档。`##` 表示绑定到声明的文档，`@api` 独立决定可见性；是否有文档不改变调用边界或兼容性承诺。公开生成物只收录 `public` / `protected`，不能把所有带 `##` 的声明都当作公开 API。
 
 ## 可见性
 
@@ -12,9 +12,9 @@ API Surface Contract 用来明确 GF 源码中哪些符号属于公开承诺、�
 | `protected` | 子类或扩展实现可重写、可调用的扩展点。 | 进入扩展点 API 文档。 | 受 SemVer 保护，但只承诺重写契约。 |
 | `framework_internal` | GF 内部跨文件协作入口。 | 可进入内部维护索引，不进入用户公开文档。 | 可调整，但必须通过维护测试保护。 |
 | `layer_internal` | 只允许指定 layer 内部使用。 | 可进入内部维护索引，不进入用户公开文档。 | 可调整，调用范围必须受测试约束。 |
-| `private` | 同文件实现细节。 | 可使用 `## @api private` 编写维护文档，不进入公开文档。 | 不承诺对外兼容。 |
+| `private` | 同文件实现细节。 | 必须使用 `## @api private` 编写维护文档，不进入公开文档。 | 不承诺对外兼容。 |
 
-允许的 `@api` 标签只有 `public`、`protected`、`framework_internal`、`layer_internal` 和 `private`。每个声明文档块只能声明一个可见性。未文档化的私有实现仍由 `_` 前缀、section 和使用范围判断；一旦使用 `##`，必须显式写明 `@api private`，不能靠省略标签推断。枚举值沿用枚举的可见性，不重复写 `@api`。
+允许的 `@api` 标签只有 `public`、`protected`、`framework_internal`、`layer_internal` 和 `private`。每个声明文档块只能声明一个可见性。私有实现由 `_` 前缀、section 和使用范围判断，并必须显式写明 `@api private`，不能靠省略文档或标签推断。枚举值沿用枚举的可见性，不重复写 `@api`。
 
 `private` 不能用来隐藏原本对外公开的声明：私有方法、变量、常量、信号、枚举和内部类仍须遵守 `_` 前缀及对应 section。注册全局类型的 `class_name` 不使用 `private`，内部全局类型使用 `framework_internal` / `layer_internal`。跨文件协作入口使用内部协作可见性，供子类重写的契约使用 `protected`；新增私有文档不扩大调用权限。
 
@@ -70,7 +70,11 @@ API Surface Contract 用来明确 GF 源码中哪些符号属于公开承诺、�
 
 ### 私有维护文档
 
-私有声明有文档时，至少包含非空的职责说明和一个 `@api private`。说明应记录维护者无法仅从名称与类型得知的事实，例如状态有效期、引用所有权、取消与释放顺序、异步写回资格、回调重入、失败值或原子性边界。涉及这些约束的私有实现应在代码审查中要求文档；简单 getter、类型收窄和纯转发不强制补注释，不设全量私有注释覆盖率门槛。
+`addons/gf` 下全部 `.gd` 及 `.gd.txt` 模板中的私有声明必须有文档，至少包含非空的职责说明和一个 `@api private`。范围包含无 `class_name` 脚本、多层内部类、静态字段、私有常量、信号、枚举和方法；简单 getter、类型收窄及纯转发也须简短说明用途、返回约定或委托边界，不使用文件白名单或覆盖率基线保留欠项。函数局部变量与属性访问器内部步骤不属于成员声明，继续使用普通原因注释。
+
+说明应记录维护者无法仅从名称与类型得知的事实，例如状态有效期、引用所有权、取消与释放顺序、异步写回资格、回调重入、失败值或原子性边界。自动检查保证文档存在、格式及声明契约，代码审查仍须结合实现和调用点确认这些事实；不能用翻译名称、统一套话或空泛安全承诺满足语义要求。
+
+Godot 原生回调及继承重写点不因下划线前缀自动成为私有 helper。沿用契约时，校验器必须从实际原生基类或继承链证明入口来源；不能仅按同名函数、section、模板路径或历史缺失清单豁免。新增私有信号处理回调仍须文档。继承实现增加取消、所有权或重入等约束时，仍应在该实现处补充说明，保持真实可见性与对应 section。
 
 ```gdscript
 ## 保留快照对应资源的强引用，使对话结束后仍能校验结束态快照的资源身份。
@@ -89,7 +93,9 @@ var _snapshot_resource: GFDialogueResource = null
 
 这些轻量规则仅适用于 `private`。公开、受保护和内部协作声明继续执行既有完整参数、返回值及结构 schema 校验。维护查询可显式选择 `maintenance` 范围读取私有文档；公开 Reference、公开 AI API 索引、API baseline 与公开语义摘要只消费公开投影。纯私有说明变化不构成公开 API 变更，但实现变化导致的公开行为变化仍需按兼容性规则判断。
 
-无 `class_name` 脚本的成员也可使用私有文档；文件顶部维护说明继续用 `#`，不能用 `## @api private` 绑定 `extends` 或创造新的公开 owner。当前解析器的维护索引不承诺覆盖 classless 内部类或任意深度嵌套类型，源码和校验器仍是这些声明的依据。批量补写与检查流程见 [私有维护文档编写指南](docs/maintainers/private-doc-comments.md)。
+无 `class_name` 脚本的私有成员执行相同文档要求；文件顶部维护说明继续用 `#`，不能用 `## @api private` 绑定 `extends` 或创造新的公开 owner。当前解析器的维护索引不承诺覆盖 classless 内部类或任意深度嵌套类型，源码和全量契约校验器才是覆盖判定依据；不能用查询索引替代声明枚举。批量补写与检查流程见 [私有维护文档编写指南](docs/maintainers/private-doc-comments.md)。
+
+模板必须通过与源码相同的 API 文档、参数同步和布局检查。占位模板先作受控实例化，函数体片段只包装成其真实使用上下文；不能删去声明或注释再检查。模板中的项目类型不因此成为 GF 公开 API，仍按实际归属使用内部或私有可见性；测试运行器入口必须具有可验证的基类与调用约定。
 
 为兼顾 Godot 编辑器悬停文档和机器可读标签，正文说明与机器标签之间、以及连续机器标签之间都应插入一行 `## [br]`。Godot 会把文档注释按 BBCode 渲染；没有显式分隔时，多行说明和 `@api` / `@param` / `@return` / `@schema` 等标签容易在悬停提示中合并为一段。`[br]` 只用于渲染换行，不改变标签语义。
 
@@ -99,7 +105,7 @@ var _snapshot_resource: GFDialogueResource = null
 
 `##` 文档块必须绑定到一个明确声明：`class_name`、内部 `class`、`signal`、`enum`、`const`、`var` 或 `func`。唯一额外绑定形态是 `addons/gf/kernel/core/gf.gd` 的文件级 `## @api_owner autoload Gf` 文档块，它必须紧邻下一条顶层 `extends Node`。没有绑定声明的脚本说明、维护说明、模板说明必须使用普通 `#`。这条规则避免半自动文档生成器把 classless helper 的顶部说明误判成公开 API。
 
-对外公开或可重写的顶层 API 必须位于带 `class_name` 的脚本中。唯一例外是上述受控 `Gf` AutoLoad owner；仅仅继承 `Node`、由项目设置注册为单例或参与编辑器插件生命周期，都不会自动获得公开 owner。没有 `class_name` 的其他 helper、模板、数据、插件和单例脚本只能暴露 `framework_internal` / `layer_internal` 协作入口，或记录 `private` 成员文档，不能承诺 `public` / `protected` API。未知 owner kind/name、错误路径、非 `Node` 基类、悬空或重复 `@api_owner` 必须失败关闭。
+新建对外公开或可重写的顶层 API 必须位于带 `class_name` 的脚本中，或属于上述受控 `Gf` AutoLoad owner；仅仅继承 `Node`、由项目设置注册为单例或参与编辑器插件生命周期，都不会自动获得公开 owner。没有 `class_name` 的 helper、模板、数据、插件和单例脚本只能新建 `framework_internal` / `layer_internal` 协作入口或 `private` 成员。对于实际继承链已经证明的 `protected` 重写，classless 实现必须保留 `protected` 并满足完整文档契约；这只是记录已有重写点，不创建新的公开 owner 或公开投影。不能凭方法名、分区或标签自行声明这个例外。未知 owner kind/name、错误路径、非 `Node` 基类、悬空或重复 `@api_owner` 必须失败关闭。
 
 section 注释必须使用以下格式：
 
@@ -146,11 +152,11 @@ GF 不对未知语法、未知声明形态或新的 GDScript 结构做猜测式�
 ## 硬规则
 
 - `public` / `protected` / `framework_internal` / `layer_internal` 成员必须使用 `##` 并写明 `@api`。
-- 私有声明允许使用带非空正文和显式 `@api private` 的 `##`；函数体局部实现原因使用普通 `#`。缺少标签、重复可见性、错误命名或分区不能因为是维护文档而豁免。
+- 全部私有成员声明必须使用带非空正文和显式 `@api private` 的 `##`；函数体局部实现原因使用普通 `#`。缺少文档或标签、重复可见性、错误命名或分区都必须失败，不能因为是维护文档或模板而豁免。
 - `##` 文档块必须绑定到紧随其后的声明；悬空 `##` 视为违规。
 - `@api_owner` 只接受精确的 `autoload Gf`，只允许出现在 `addons/gf/kernel/core/gf.gd`，并必须紧邻绑定到顶层 `extends Node`；它必须同时声明 `@api public`、`@category runtime_service`、`@since 1.0.0` 和 `@layer kernel/core`。
 - 带 `## @api` 的未知声明形态视为违规，必须先扩展 API Surface Contract 和校验器。
-- 顶层 `public` / `protected` API 必须位于 `class_name` 脚本或精确受控的 `Gf` AutoLoad owner 中；普通 classless `Node` / 插件单例不是例外。
+- 新建顶层 `public` / `protected` API 必须位于 `class_name` 脚本或精确受控的 `Gf` AutoLoad owner 中；classless 脚本只能记录经真实继承链证明的已有 `protected` 重写，不得新增公开 owner。
 - `public` / `protected` 函数必须完整声明 `@param`；非 `void` 返回值必须声明 `@return`。
 - `public` / `protected` 枚举的每个枚举值必须使用 `##` 说明。
 - `protected` 方法必须以 `_` 开头，并位于明确的可重写钩子或虚方法 section。
@@ -162,30 +168,8 @@ GF 不对未知语法、未知声明形态或新的 GDScript 结构做猜测式�
 - `@onready` 变量必须位于 Node 兼容类型中。
 - 跨文件访问 `_` 私有成员默认违规；允许的例外必须通过专门测试列白。
 
-## 迁移标记
+## 全量门禁与历史迁移标记
 
-规范文档注释无法一次性补齐时，允许在文件顶部使用维护标记：
+全量源码与模板必须直接满足同一契约。历史 `# @api_surface_migration partial` 标记已退役，出现时无论文件是否还有其他违规都必须失败；不得恢复按文件放行、欠项 baseline 或覆盖率阈值。
 
-```gdscript
-# @api_surface_migration partial
-```
-
-该标记只允许使用普通 `#`，不能写成 `##`。它表示当前文件正在迁移到 API Surface Contract，严格校验器可以暂时放过该文件中的未完成项。
-
-标记有两个硬约束：
-
-- 标记存在且文件仍有 API Surface 违规时，测试允许通过，但该文件仍属于迁移债务。
-- 标记存在但文件已经没有 API Surface 违规时，测试必须失败，提示移除标记。
-
-因此，维护者不能在未完成时提前移除标记；一旦文件真的完成，也不能长期保留标记。
-
-## 迁移策略
-
-API Surface Contract 应分阶段落地：
-
-1. 先维护规范、正例夹具和严格校验器，确保规则可执行。
-2. 为现有 `addons/gf` 生成 API surface 报告，并按文件添加 `# @api_surface_migration partial`。
-3. 后续新增或修改的公开 API 必须按本规范标注。
-4. 分模块清理迁移标记，最终让全量 `addons/gf` 进入 hard fail。
-
-这样可以先把自动文档生成和 API 边界判断的底座搭稳，再逐步把历史源码迁移到同一套严格规则下。
+扩展语法、模板或可见性规则时，先添加能复现漏检的负向用例，再扩展声明枚举、继承证明和契约校验，最后补齐现有源码。新增文件和模板必须自动进入扫描，不需要维护者手动加入名单。机器检查负责覆盖与格式，所有权、取消、重入等语义继续通过实现和调用证据审阅。

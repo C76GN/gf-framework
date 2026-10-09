@@ -7,8 +7,8 @@
 - 源码根目录：`addons/gf`
 - 公开类：`891`
 - 公开 AutoLoad：`1`
-- 公开成员：`12823`
-- 公开方法：`7968`
+- 公开成员：`12848`
+- 公开方法：`7993`
 - AutoLoad 公开方法：`65`
 
 ## 模块
@@ -22,7 +22,7 @@
 | Behavior Tree | 22 | 0 | 96 | 72 | [extensions-behavior-tree.md](extensions-behavior-tree.md) |
 | Camera | 8 | 0 | 138 | 46 | [extensions-camera.md](extensions-camera.md) |
 | Capability | 11 | 0 | 148 | 103 | [extensions-capability.md](extensions-capability.md) |
-| Combat | 71 | 0 | 684 | 346 | [extensions-combat.md](extensions-combat.md) |
+| Combat | 71 | 0 | 708 | 370 | [extensions-combat.md](extensions-combat.md) |
 | Extensions / Content Package | 7 | 0 | 109 | 71 | [extensions-content-package.md](extensions-content-package.md) |
 | Decision | 8 | 0 | 111 | 62 | [extensions-decision.md](extensions-decision.md) |
 | Dialogue | 5 | 0 | 75 | 36 | [extensions-dialogue.md](extensions-dialogue.md) |
@@ -31,7 +31,7 @@
 | Flow | 7 | 0 | 139 | 85 | [extensions-flow.md](extensions-flow.md) |
 | Interaction | 6 | 0 | 82 | 29 | [extensions-interaction.md](extensions-interaction.md) |
 | Extensions / Layered Sprite | 4 | 0 | 46 | 21 | [extensions-layered-sprite.md](extensions-layered-sprite.md) |
-| Network | 41 | 0 | 636 | 347 | [extensions-network.md](extensions-network.md) |
+| Network | 41 | 0 | 637 | 348 | [extensions-network.md](extensions-network.md) |
 | Physics | 4 | 0 | 50 | 23 | [extensions-physics.md](extensions-physics.md) |
 | Save | 52 | 0 | 659 | 418 | [extensions-save.md](extensions-save.md) |
 | Turn Based | 5 | 0 | 50 | 25 | [extensions-turn-based.md](extensions-turn-based.md) |

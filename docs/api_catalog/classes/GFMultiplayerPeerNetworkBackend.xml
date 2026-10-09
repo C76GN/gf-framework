@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFMultiplayerPeerNetworkBackend" path="addons/gf/extensions/network/backends/gf_multiplayer_peer_network_backend.gd" module="extensions/network" extends="GFNetworkBackend" classDigest="151aeb0375163ab5a2ac4fdec5fbae8c76f8d5a6141ceff2df063b3a4241400a">
+<class name="GFMultiplayerPeerNetworkBackend" path="addons/gf/extensions/network/backends/gf_multiplayer_peer_network_backend.gd" module="extensions/network" extends="GFNetworkBackend" classDigest="9511aae5f86a6959acd0ca1fad376d047c09838248a763ffae212234b8a9c692">
 	<description>GFMultiplayerPeerNetworkBackend: 可接管外部 MultiplayerPeer 的通用网络后端。
 平台 Adapter 负责通过 Steam、小游戏或其他 SDK 创建 `MultiplayerPeer`，本类只负责
 GF bytes 边界、轮询、连接事件和所有权。它不依赖任何第三方 SDK 类型。</description>
@@ -152,6 +152,17 @@ OWNED Peer 会关闭；BORROWED Peer 只解除信号和引用，由外部 Adapte
 				<tag name="api">public</tag>
 				<tag name="return">已脱敏 Backend 状态。</tag>
 				<tag name="schema">return: Dictionary adoptable MultiplayerPeer backend snapshot.</tag>
+				<tag name="since">10.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_enrich_transport_metrics">
+			<signature>func _enrich_transport_metrics( metrics: GFNetworkTransportMetrics, budget: GFExecutionBudget ) -&gt; void:</signature>
+			<description>在基础指标上补充当前 MultiplayerPeer 已缓存的待收包数量，不 poll 或取走数据包。
+未挂接 Peer 或消费一步预算失败时直接返回；本实现最多尝试写入一个可选指标。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">metrics: 基类本次采样创建的有界指标快照，仅追加 RECEIVE_QUEUE_PACKETS。</tag>
+				<tag name="param">budget: 基类提供的协作预算，读取队列数量并尝试写入前必须成功消费一步。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>

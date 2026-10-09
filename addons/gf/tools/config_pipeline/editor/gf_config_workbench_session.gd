@@ -6,25 +6,87 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 新草稿使用版本化预设；当前会话不在保存时重新覆盖用户编辑值。
+## [br]
+## @api private
 const _PRESET_SCRIPT = preload("res://addons/gf/tools/config_pipeline/editor/gf_config_workbench_preset.gd")
+
+## 与 CLI 共用的执行入口；工作台只构造参数并保留其原始报告。
+## [br]
+## @api private
 const _COMMAND_SCRIPT = preload("res://addons/gf/tools/config_pipeline/gf_config_pipeline_command.gd")
+
+## 保存 Profile 前解析目标路径，沿用导表管线的输出边界检查。
+## [br]
+## @api private
 const _OUTPUT_PATH_POLICY_SCRIPT = preload("res://addons/gf/tools/config_pipeline/gf_config_pipeline_output_path_policy.gd")
+
+## 工作台同步执行的来源数量上限；更大批次交由独立 CLI 处理。
+## [br]
+## @api private
 const _MAX_SOURCES: int = 16
+
+## 单个来源的字节准入上限，同时传给 CLI；不承诺解析时长或内存上限。
+## [br]
+## @api private
 const _MAX_SOURCE_BYTES: int = 2 * 1024 * 1024
+
+## 工作台准入时所有来源的累计字节上限，防止逐文件合规却形成过大同步批次。
+## [br]
+## @api private
 const _MAX_TOTAL_BYTES: int = 8 * 1024 * 1024
 
 
 # --- 私有变量 ---
 
+## 页面独占的可编辑草稿；加载时复制来源和 Schema，get_profile 返回此可变对象。
+## [br]
+## @api private
 var _profile: GFConfigPipelineProfile = null
+
+## 已采用的保存路径；新建草稿为空，保存完成或恢复完成后才更新。
+## [br]
+## @api private
 var _profile_path: String = ""
+
+## 最近接受的磁盘 Profile 摘要；保存和执行前用它拒绝外部修改后的旧草稿。
+## [br]
+## @api private
 var _saved_digest: String = ""
+
+## 草稿是否需要显式保存；事务完成后仍有新编辑或磁盘摘要不符时保持为 true。
+## [br]
+## @api private
 var _dirty: bool = false
+
+## 执行结果是否过期，与草稿是否已保存独立；编辑、恢复或输入变化会重新置位。
+## [br]
+## @api private
 var _stale: bool = true
+
+## 当前加载、准入或执行报告；get_state 返回其中同一字典，不提供隔离副本。
+## [br]
+## @api private
 var _result: Dictionary = {}
+
+## 执行前捕获的 Profile、资源依赖和来源摘要，用于事后及定时新鲜度复核。
+## [br]
+## @api private
 var _input_digests: Dictionary = {}
+
+## 后端尚需恢复的事务报告；保留其原始句柄和终态动作，未解决前拒绝新的保存与执行。
+## [br]
+## @api private
 var _recovery_result: Dictionary = {}
+
+## 每次草稿编辑递增；保存后的确认只清除对应版本的脏状态，不吞掉较晚编辑。
+## [br]
+## @api private
 var _edit_revision: int = 0
+
+## 文件已写出但事务清理未完成时保存的草稿身份、版本与摘要；仅匹配事务恢复成功后确认保存。
+## [br]
+## @api private
 var _pending_profile_save: Dictionary = {}
 
 
@@ -300,6 +362,9 @@ func recover() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 仅确认仍属于当前草稿的写入；编辑版本或磁盘内容已改变时保留脏状态，避免恢复旧事务覆盖新草稿状态。
+## [br]
+## @api private
 func _finalize_profile_save(saved_profile: GFConfigPipelineProfile, path: String, digest: String, revision: int) -> void:
 	# 清理完成只确认实际写入的草稿与摘要；稍后编辑和外部磁盘修改仍需用户处理。
 	if _profile != saved_profile:
@@ -310,6 +375,9 @@ func _finalize_profile_save(saved_profile: GFConfigPipelineProfile, path: String
 	_stale = true
 
 
+## 编辑器内检查 Profile、Schema 及校验规则的脚本是否支持 @tool；不支持时返回首个原因，引导改走 CLI。
+## [br]
+## @api private
 func _check_editor_resources(profile: GFConfigPipelineProfile) -> String:
 	if not Engine.is_editor_hint():
 		return ""
@@ -342,6 +410,9 @@ func _check_editor_resources(profile: GFConfigPipelineProfile) -> String:
 	return ""
 
 
+## 为当前已保存任务收集路径到文件摘要的映射，覆盖 Profile 依赖及各数据源；只用于结果新鲜度判断。
+## [br]
+## @api private
 func _capture_inputs() -> Dictionary:
 	var result: Dictionary = { _profile_path: FileAccess.get_sha256(_profile_path) }
 	_capture_resource_dependencies(_profile_path, result)
@@ -350,6 +421,9 @@ func _capture_inputs() -> Dictionary:
 	return result
 
 
+## 按 ResourceLoader 依赖信息递归记录 tres/res/gd 摘要；已记录路径终止递归，脚本只取摘要不继续展开。
+## [br]
+## @api private
 func _capture_resource_dependencies(path: String, result: Dictionary) -> void:
 	for dependency: String in ResourceLoader.get_dependencies(path):
 		var dependency_path: String = dependency.get_slice("::", dependency.get_slice_count("::") - 1)

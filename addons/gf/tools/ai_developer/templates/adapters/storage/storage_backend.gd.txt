@@ -1,29 +1,88 @@
-## Project-owned GFStorageBackend Adapter skeleton.
-##
-## This Adapter validates portable logical keys, closed protocol schemas,
-## bounded plain-value graphs, error translation, and atomic-write options
-## before delegating to one ProjectStorageProvider.
+## 项目所有的 GFStorageBackend 适配骨架，将存储操作委托给单一 ProjectStorageProvider。
+## 边界先校验便携逻辑键、闭合响应和有界纯值图，统一错误并限制原子写选项；实际持久化由 Provider 负责。
+## [br]
+## @api framework_internal
 class_name ProjectStorageBackend
 extends GFStorageBackend
 
 
 # --- 常量 ---
 
+## 与项目 Provider 共享的协议版本，初始化前后两次核对。
+## [br]
+## @api framework_internal
 const PROTOCOL_VERSION: String = ProjectStorageProvider.PROTOCOL_VERSION
+
+## 未配置时 data 与 metadata 信封共用的保守字节预算。
+## [br]
+## @api framework_internal
 const DEFAULT_MAX_PAYLOAD_BYTES: int = 4 * 1024 * 1024
+
+## 配置不能超过的 payload 字节上限。
+## [br]
+## @api framework_internal
 const ABSOLUTE_MAX_PAYLOAD_BYTES: int = 64 * 1024 * 1024
+
+## 默认允许的列表记录总数，超限拒绝整份响应而不返回部分结果。
+## [br]
+## @api framework_internal
 const DEFAULT_MAX_LIST_ITEMS: int = 1024
+
+## 列表记录数量预算的配置绝对上限。
+## [br]
+## @api framework_internal
 const ABSOLUTE_MAX_LIST_ITEMS: int = 8192
+
+## 默认整份列表的聚合字节预算，包含外层数组、键和 metadata。
+## [br]
+## @api framework_internal
 const DEFAULT_MAX_LIST_BYTES: int = 4 * 1024 * 1024
+
+## 配置不能超过的列表聚合字节上限。
+## [br]
+## @api framework_internal
 const ABSOLUTE_MAX_LIST_BYTES: int = 16 * 1024 * 1024
+
+## 默认值图节点预算，同时交给 Provider 并用于本地复验。
+## [br]
+## @api framework_internal
 const DEFAULT_MAX_GRAPH_NODES: int = 65_536
+
+## 默认值图嵌套深度，从完整响应根计算，列表外层也占用层级。
+## [br]
+## @api framework_internal
 const DEFAULT_MAX_GRAPH_DEPTH: int = 16
+
+## 默认单条 String 的 UTF-8 字节预算。
+## [br]
+## @api framework_internal
 const DEFAULT_MAX_STRING_BYTES: int = 1024 * 1024
+
+## 默认每个普通容器的条目预算，防止巨大外层集合绕过逐项限制。
+## [br]
+## @api framework_internal
 const DEFAULT_MAX_CONTAINER_ENTRIES: int = 16_384
+
+## Provider 初始化选项的固定纯值字节预算，不随业务 payload 配置扩大。
+## [br]
+## @api framework_internal
 const MAX_PROVIDER_OPTIONS_BYTES: int = 64 * 1024
+
+## 便携逻辑键的最大字符数，校验同时拒绝路径和设备名称歧义。
+## [br]
+## @api framework_internal
 const MAX_LOGICAL_KEY_LENGTH: int = 512
+
+## 不透明修订 token 的 UTF-8 字节上限，不将 token 转成数字或解释内容。
+## [br]
+## @api framework_internal
 const MAX_REVISION_TOKEN_BYTES: int = 128
+
+## 请求标识 token 的 UTF-8 字节上限，空值或控制字符同样被拒绝。
+## [br]
+## @api framework_internal
 const MAX_REQUEST_ID_BYTES: int = 128
+
 ## 适配器配置允许字段，provider 必需，其余配置可省略并使用默认值。
 ## [br]
 ## @api private
@@ -151,7 +210,7 @@ const _RESERVED_COMPONENT_STEMS: PackedStringArray = [
 
 # --- 私有变量 ---
 
-## 初始化完整验证成功后才接管的 provider 引用，失败候选先 shutdown，正常关闭后清空。
+## 初始化完整验证成功后才接管的 Provider 引用；已调用初始化却未通过后续验证的候选先 shutdown，正常关闭后清空。
 ## [br]
 ## @api private
 var _provider: ProjectStorageProvider = null
@@ -207,34 +266,18 @@ var _initialized: bool = false
 var _supports_conditional_write: bool = false
 
 
-# --- 公共方法 ---
-
-func save_data(
-	file_name: String,
-	data: Dictionary,
-	metadata: Dictionary = {}
-) -> Error:
-	if file_name.is_empty():
-		return ERR_INVALID_PARAMETER
-	if not _is_ready():
-		return ERR_UNAVAILABLE
-	var storage_key: String = _resolve_storage_key(file_name)
-	if storage_key.is_empty():
-		return ERR_INVALID_PARAMETER
-	var payload_validation: Dictionary = (
-		ProjectStorageValueLimits.validate_payload(
-			data,
-			metadata,
-			_make_payload_limits()
-		)
-	)
-	if not _validation_succeeded(payload_validation):
-		return _validation_error(payload_validation)
-	return _save_validated_data(storage_key, data, metadata)
-
-
 # --- 可重写钩子 / 虚方法 ---
 
+## 完整校验配置和初始化前后协议/能力，全部成功后才接管 Provider；已调用初始化的失败候选会被关闭。
+## 候选提交前没有初始化重入锁；Provider 不得在初始化调用中回调同一后端的初始化或关闭入口。
+## [br]
+## @api protected
+## [br]
+## @param config: 项目存储适配器配置。
+## [br]
+## @schema config: Dictionary，必需 provider:ProjectStorageProvider；可选 provider_options:Dictionary、key_prefix:String，以及 max_payload_bytes、max_list_items、max_list_bytes、max_graph_nodes、max_graph_depth、max_string_bytes、max_container_entries 正整数预算；拒绝其他字段。
+## [br]
+## @return 初始化提交后为 OK，重复初始化、非法配置或 Provider 协议错误返回对应 Error。
 func _initialize(config: Dictionary) -> Error:
 	if _initialized or _provider != null:
 		return ERR_ALREADY_IN_USE
@@ -375,6 +418,10 @@ func _initialize(config: Dictionary) -> Error:
 	return OK
 
 
+## 关闭已接管 Provider 并恢复默认预算；解除引用后重复调用不会再次触达同一个 Provider。
+## Provider.shutdown 返回后才清空引用；Provider 不得同步重入同一后端的关闭入口。
+## [br]
+## @api protected
 func _shutdown() -> void:
 	if _provider != null:
 		_provider.shutdown()
@@ -391,6 +438,21 @@ func _shutdown() -> void:
 	_supports_conditional_write = false
 
 
+## 基类保存钩子同样校验键和 payload，再由 Provider 负责原子提交，不能绕过普通保存入口的预算。
+## [br]
+## @api protected
+## [br]
+## @param file_name: 实例命名空间内的逻辑名称。
+## [br]
+## @param data: 待写入的业务数据。
+## [br]
+## @schema data: Dictionary，String 键的有界无循环纯值图。
+## [br]
+## @param metadata: 业务元数据和可选条件写信息。
+## [br]
+## @schema metadata: Dictionary，可含 write_options（expected_revision、create_if_absent、request_id），不得由调用方设置 revision；其余值遵守纯值预算。
+## [br]
+## @return 原子提交结果，未准备好为 ERR_UNAVAILABLE，非法键或选项与图预算失败均拒绝写入。
 func _save_data(
 	file_name: String,
 	data: Dictionary,
@@ -414,6 +476,15 @@ func _save_data(
 	return _save_validated_data(storage_key, data, metadata)
 
 
+## 向 Provider 传递读取硬预算后复核完整响应；非法或矛盾响应只返回固定诊断和空数据，成功数据深复制。
+## [br]
+## @api protected
+## [br]
+## @param file_name: 实例命名空间内的逻辑名称。
+## [br]
+## @return 对调用者隔离的稳定读取结果。
+## [br]
+## @schema return: Dictionary，包含 ok:bool、data:Dictionary、metadata:Dictionary、error:String、error_code:int；失败数据为空，成功 metadata 在支持条件写时必须含合法 revision:String。
 func _load_data(file_name: String) -> Dictionary:
 	if not _is_ready():
 		return _make_read_result(
@@ -513,6 +584,13 @@ func _load_data(file_name: String) -> Dictionary:
 	)
 
 
+## 验证逻辑名称后删除对应 Provider 记录，只透出允许的稳定错误码。
+## [br]
+## @api protected
+## [br]
+## @param file_name: 实例命名空间内的逻辑名称。
+## [br]
+## @return 删除结果；未准备好或名称非法时不调用 Provider。
 func _delete_data(file_name: String) -> Error:
 	if not _is_ready():
 		return ERR_UNAVAILABLE
@@ -523,6 +601,13 @@ func _delete_data(file_name: String) -> Error:
 	return _map_provider_error(int(provider_error), ERR_CANT_OPEN)
 
 
+## 仅对已初始化 Provider 和合法逻辑键查询存在性；false 不区分未准备好、非法键和记录缺失。
+## [br]
+## @api protected
+## [br]
+## @param file_name: 实例命名空间内的逻辑名称。
+## [br]
+## @return Provider 报告存在时为 true，其余情况为 false。
 func _has_data(file_name: String) -> bool:
 	if not _is_ready():
 		return false
@@ -532,6 +617,13 @@ func _has_data(file_name: String) -> bool:
 	return _provider.has_record(storage_key)
 
 
+## 对完整列表检查聚合预算、命名空间、重复名称和修订，再按逻辑名称排序；任一失败均返回空列表。
+## [br]
+## @api protected
+## [br]
+## @return 有序元数据条目；空结果不能区分无记录与 Provider/预算失败。
+## [br]
+## @schema return: Array[Dictionary]，每项精确包含 file_name:String 和 metadata:Dictionary；metadata 为隔离副本，不含完整业务 payload。
 func _list_data() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if not _is_ready():
@@ -596,6 +688,13 @@ func _list_data() -> Array[Dictionary]:
 	return result
 
 
+## 只报告初始化已提交的能力；关闭后撤销读写能力，本同步骨架始终不支持 sync 或 cancellation。
+## [br]
+## @api protected
+## [br]
+## @return 适配器当前可履行的闭合能力集合。
+## [br]
+## @schema return: Dictionary，protocol_version:String，以及 read、write、delete、list、sync、atomic_write、conditional_write、cancellation 八个 bool。
 func _get_capabilities() -> Dictionary:
 	return {
 		"protocol_version": PROTOCOL_VERSION,
@@ -610,6 +709,47 @@ func _get_capabilities() -> Dictionary:
 		),
 		"cancellation": false,
 	}
+
+
+# --- 框架内部方法 ---
+
+## 在深复制或调用 Provider 之前校验逻辑键和完整 payload 图，拒绝循环值及超预算输入。
+## [br]
+## @api framework_internal
+## [br]
+## @param file_name: 不含实例前缀的便携逻辑名称。
+## [br]
+## @param data: 待提交的业务数据。
+## [br]
+## @schema data: Dictionary，String 键及无循环的有界纯值图，不允许对象、Callable、RID 或非有限浮点。
+## [br]
+## @param metadata: 业务元数据及本次写入条件。
+## [br]
+## @schema metadata: Dictionary，纯值图；可带 write_options 字典（expected_revision:String、create_if_absent:bool、request_id:String），不能自行设置 revision；write_options 不进入存储元数据。
+## [br]
+## @return 原子提交成功为 OK，准入、条件冲突或 Provider 失败为稳定 Error。
+func save_data(
+	file_name: String,
+	data: Dictionary,
+	metadata: Dictionary = {}
+) -> Error:
+	if file_name.is_empty():
+		return ERR_INVALID_PARAMETER
+	if not _is_ready():
+		return ERR_UNAVAILABLE
+	var storage_key: String = _resolve_storage_key(file_name)
+	if storage_key.is_empty():
+		return ERR_INVALID_PARAMETER
+	var payload_validation: Dictionary = (
+		ProjectStorageValueLimits.validate_payload(
+			data,
+			metadata,
+			_make_payload_limits()
+		)
+	)
+	if not _validation_succeeded(payload_validation):
+		return _validation_error(payload_validation)
+	return _save_validated_data(storage_key, data, metadata)
 
 
 # --- 私有/辅助方法 ---

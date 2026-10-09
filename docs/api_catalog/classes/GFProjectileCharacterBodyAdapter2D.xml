@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileCharacterBodyAdapter2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_character_body_adapter_2d.gd" module="extensions/combat" extends="GFProjectileBodyAdapter2D" classDigest="96c6045931f18c6d00fad503227ba9755719845b9ed945eb9194d0ea59ff4f78">
+<class name="GFProjectileCharacterBodyAdapter2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_character_body_adapter_2d.gd" module="extensions/combat" extends="GFProjectileBodyAdapter2D" classDigest="9aa2388f7ee5595ed9070f7297f64ec0311769ac036c967e48c7149d118d3014">
 	<description>GFProjectileCharacterBodyAdapter2D: CharacterBody2D 运动适配器。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -10,6 +10,51 @@
 	<enums />
 	<constants />
 	<properties />
-	<methods />
+	<methods>
+		<member kind="method" name="_validate_root">
+			<signature>func _validate_root(root: Node) -&gt; Error:</signature>
+			<description>只接纳仍存活且未排队删除的 CharacterBody2D，供后续物理移动与速度写回使用。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">root: 待驱动的完整发射体根节点；此处不检查是否已进入场景树。</tag>
+				<tag name="return">类型与生命周期符合要求时为 OK，否则为 ERR_INVALID_PARAMETER。</tag>
+				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_capture_body">
+			<signature>func _capture_body(root: Node) -&gt; GFProjectileBodyResult2D:</signature>
+			<description>重新校验 CharacterBody2D 后捕获其当前全局变换，不读取或修改速度。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">root: 要捕获运动快照的发射体根节点。</tag>
+				<tag name="return">变换有限时为全局变换与零位移的成功结果；root 不支持时失败原因为 unsupported_body，变换非有限时为 non_finite_body_result。</tag>
+				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_apply_intent">
+			<signature>func _apply_intent( root: Node, intent: GFProjectileMotionIntent2D ) -&gt; GFProjectileBodyResult2D:</signature>
+			<description>将 MOVE 速度写入 CharacterBody2D 后调用 move_and_slide，返回实际产生的全局位移。
+intent 时长用于候选位移的有限性预检，实际移动由 move_and_slide 执行；其他有效种类使用零速度。
+若移动后位置或位移非有限，只还原本节点先前的变换与速度，不承诺撤销物理查询或其他外部影响。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">root: 仍可用的 CharacterBody2D 根节点；本次调用会修改其速度并尝试移动。</tag>
+				<tag name="param">intent: 本帧 intent；空值或 REJECTED 会在移动前失败，并尽量保留 intent 的失败原因。</tag>
+				<tag name="return">移动后的 body 快照及实际位移；root、intent 或运动数值不合法时返回失败结果。</tag>
+				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_stop">
+			<signature>func _stop(root: Node) -&gt; GFProjectileBodyResult2D:</signature>
+			<description>校验 root 后先将 CharacterBody2D 的速度清零，再构造当前变换的结果，不调用 move_and_slide 或额外修改位置。
+结果工厂因变换非有限返回失败时，不撤销已经完成的速度清零。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">root: 要停止运动的发射体根节点。</tag>
+				<tag name="return">变换有限时为当前全局变换与零位移的成功结果；root 不支持时失败原因为 unsupported_body，变换非有限时为 non_finite_body_result。</tag>
+				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+	</methods>
 	<innerClasses />
 </class>

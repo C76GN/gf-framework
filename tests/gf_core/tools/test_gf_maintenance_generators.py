@@ -1680,6 +1680,98 @@ class CoverageEvidenceTests(unittest.TestCase):
 			self.assertEqual(sorted(path.name for path in root.iterdir()), ["canary.txt"])
 
 
+class ClasslessProtectedOverrideOwnerTests(unittest.TestCase):
+	BASE = """## Shared contract.
+## @api public
+class_name ContractBase
+extends RefCounted
+## Read a value.
+## @api protected
+## @param index: Requested position.
+## @return: The requested value.
+func _read(index: int = 0) -> int:
+	return index
+"""
+	CHILD = """extends ContractBase
+## Read through the existing hook.
+## @api protected
+## @param position: Requested position.
+## @return: The requested value.
+func _read(position: int = 1) -> int:
+	return position
+"""
+
+	def parse(self, source: str, name: str) -> gdscript_api_parser.ApiScript:
+		return gdscript_api_parser.parse_gdscript_source(source, f"addons/gf/{name}.gd")
+
+	def test_classless_protected_override_preserves_only_the_base_public_projection(self) -> None:
+		base = self.parse(self.BASE, "base")
+		child = self.parse(self.CHILD, "child")
+		owners = gf_api_owners.select_api_owners([child, base], ())
+		self.assertEqual([(owner.name, owner.script.path) for owner in owners], [("ContractBase", base.path)])
+		self.assertEqual(owners[0].script.methods[0].signature, base.methods[0].signature)
+		self.assertEqual(child.methods[0].docs.tags["api"], ["protected"])
+
+	def test_named_intermediate_and_inner_class_prove_existing_hooks(self) -> None:
+		base = self.parse(self.BASE, "base")
+		intermediate = self.parse("## @api framework_internal\nclass_name Middle\nextends ContractBase\n", "middle")
+		child = self.parse(self.CHILD.replace("extends ContractBase", "extends Middle"), "child")
+		self.assertEqual(len(gf_api_owners.select_api_owners([child, intermediate, base], ())), 1)
+		container = self.parse(
+			"## @api framework_internal\nclass_name Container\nextends RefCounted\n"
+			"## @api framework_internal\nclass Hook:\n"
+			"\t## @api protected\n\tfunc _read(index: int = 0) -> int:\n\t\treturn index\n",
+			"container",
+		)
+		child = self.parse(self.CHILD.replace("extends ContractBase", "extends Container.Hook"), "child")
+		self.assertEqual(gf_api_owners.select_api_owners([child, container], ()), [])
+
+	def test_existing_editor_command_overrides_do_not_create_public_owners(self) -> None:
+		paths = [
+			"addons/gf/kernel/editor/gf_editor_command.gd",
+			"addons/gf/kernel/editor/gf_editor_property_batch_command.gd",
+			"addons/gf/kernel/editor/workspace/gf_workspace_route_command.gd",
+			"addons/gf/tools/asset_browser/editor/gf_asset_catalog_edit_command.gd",
+		]
+		scripts = [gdscript_api_parser.parse_gdscript_file(ROOT / path, ROOT / "addons/gf", ROOT) for path in paths]
+		self.assertEqual([[member.name for member in script.methods if gdscript_api_parser.visibility_of(member.docs) == "protected"] for script in scripts[2:]], [["_do_it"], ["_do_it", "_undo_it"]])
+		owners = gf_api_owners.select_api_owners(scripts, ())
+		self.assertEqual([owner.script.path for owner in owners], paths[:2])
+
+	def test_unproven_classless_public_surface_still_fails_closed(self) -> None:
+		cases = {
+			"unknown base": (self.BASE, self.CHILD.replace("extends ContractBase", "extends MissingBase")),
+			"comment fake base": (self.BASE, self.CHILD.replace("extends ContractBase", "extends RefCounted # extends ContractBase")),
+			"unparsed path": (self.BASE, self.CHILD.replace("extends ContractBase", 'extends "res://addons/gf/base.gd"')),
+			"new hook": (self.BASE, self.CHILD.replace("_read", "_new_hook")),
+			"public promotion": (self.BASE, self.CHILD.replace("@api protected", "@api public")),
+			"private base": (self.BASE.replace("@api protected", "@api private"), self.CHILD),
+			"internal base": (self.BASE.replace("@api protected", "@api framework_internal"), self.CHILD),
+			"public base": (self.BASE.replace("@api protected", "@api public"), self.CHILD),
+			"duplicate base api": (self.BASE.replace("@api protected", "@api protected\n## @api private"), self.CHILD),
+			"duplicate child api": (self.BASE, self.CHILD.replace("@api protected", "@api protected\n## @api private")),
+			"static child": (self.BASE, self.CHILD.replace("func _read", "static func _read")),
+			"static base": (self.BASE.replace("func _read", "static func _read"), self.CHILD),
+			"property": (self.BASE, "extends ContractBase\n## @api protected\nvar _read: int = 0\n"),
+			"signal": (self.BASE, "extends ContractBase\n## @api protected\nsignal _read\n"),
+			"constant": (self.BASE, "extends ContractBase\n## @api protected\nconst _read: int = 0\n"),
+			"fake class name": (self.BASE.replace("class_name ContractBase", "# class_name ContractBase"), self.CHILD),
+		}
+		for name, (base_source, child_source) in cases.items():
+			with self.subTest(case=name):
+				with self.assertRaisesRegex(ValueError, "no controlled owner contract"):
+					gf_api_owners.select_api_owners([self.parse(base_source, "base"), self.parse(child_source, "child")], ())
+
+	def test_cycles_and_ambiguous_class_names_cannot_prove_protection(self) -> None:
+		base = self.parse(self.BASE.replace("extends RefCounted", "extends Middle"), "base")
+		middle = self.parse("## @api framework_internal\nclass_name Middle\nextends ContractBase\n", "middle")
+		child = self.parse(self.CHILD, "child")
+		with self.assertRaisesRegex(ValueError, "no controlled owner contract"):
+			gf_api_owners.select_api_owners([base, middle, child], ())
+		with self.assertRaisesRegex(ValueError, "no controlled owner contract"):
+			gf_api_owners.select_api_owners([self.parse(self.BASE, "base"), self.parse(self.BASE, "duplicate"), child], ())
+
+
 class MarkdownGenerationTests(unittest.TestCase):
 	def test_partial_source_collection_only_requires_contained_autoload_contracts(self) -> None:
 		extension_owners = gf_api_owners.collect_api_owners(

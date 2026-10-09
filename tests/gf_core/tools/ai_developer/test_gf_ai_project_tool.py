@@ -6307,10 +6307,18 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				fragment in contract_test_text,
 				"Storage contract fixture is missing a required behavior.",
 			)
+		factory_section = contract_test_text.index("# --- 框架内部方法（测试协作） ---")
+		factory_method = contract_test_text.index("func _create_provider_factory(")
+		helper_section = contract_test_text.index("# --- 私有/辅助方法 ---")
 		self.assertLess(
-			contract_test_text.index("# --- 可重写钩子 / 虚方法 ---"),
-			contract_test_text.index("# --- 私有/辅助方法 ---"),
-			"Storage fixture helpers must follow the virtual hook section.",
+			factory_section,
+			factory_method,
+			"Storage fixture factory must follow its internal collaboration section.",
+		)
+		self.assertLess(
+			factory_method,
+			helper_section,
+			"Storage fixture helpers must follow the provider factory contract.",
 		)
 		self.assertIn("FAULT_FAILED_READ_WITH_OK", fault_driver_text)
 		self.assertTrue(

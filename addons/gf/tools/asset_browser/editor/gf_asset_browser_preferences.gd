@@ -6,7 +6,14 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 在 Godot 项目级编辑器 metadata 中隔离资源浏览器的个人偏好。
+## [br]
+## @api private
 const _SECTION: String = "gf_asset_browser"
+
+## 保存当前浏览状态结构的 metadata 键；读取和写入共用同一归一化入口。
+## [br]
+## @api private
 const _KEY: String = "view_v1"
 
 
@@ -71,6 +78,9 @@ static func normalize_state(state: Dictionary) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 从普通或 Packed 字符串数组按原顺序保留有限个唯一标识；跳过空值、非文本和超过 512 字符的项，返回独立数组。
+## [br]
+## @api private
 static func _bounded_ids(value: Variant, limit: int) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	if not (value is Array or value is PackedStringArray):

@@ -1,19 +1,38 @@
-## Shared bounded plain-value validation for the storage Adapter boundary.
-##
-## The accepted graph is intentionally smaller than Variant: null, bool, int,
-## finite float, String, Array, and Dictionary with String keys. Validation
-## never stringifies or logs the inspected value.
+## 存储适配边界共用的有界纯值验证器，只接受 null、bool、int、有限 float、String、Array 和 String 键 Dictionary。
+## 接受范围刻意小于 Variant；验证过程中不把被检查值转成字符串或写入日志。
+## [br]
+## @api framework_internal
 class_name ProjectStorageValueLimits
 extends RefCounted
 
 
 # --- 常量 ---
 
+## 单次纯值图保守字节计费的不可关闭上限，调用方只能请求更小预算。
+## [br]
+## @api framework_internal
 const ABSOLUTE_MAX_BYTES: int = 64 * 1024 * 1024
+
+## 单次遍历允许计费的最大结构节点数，避免大量小值绕过字节限制。
+## [br]
+## @api framework_internal
 const ABSOLUTE_MAX_NODES: int = 262_144
+
+## 从根深度零开始计算的最大嵌套深度，防止无界递归。
+## [br]
+## @api framework_internal
 const ABSOLUTE_MAX_DEPTH: int = 32
+
+## 单条 String 的 UTF-8 字节绝对上限，独立于整个值图的预算。
+## [br]
+## @api framework_internal
 const ABSOLUTE_MAX_STRING_BYTES: int = 4 * 1024 * 1024
+
+## 单个 Array 或 Dictionary 的最大元素数，包含列表响应的外层数组。
+## [br]
+## @api framework_internal
 const ABSOLUTE_MAX_CONTAINER_ENTRIES: int = 65_536
+
 ## 纯数据预算字典的精确字段集合，缺失或额外字段都拒绝准入。
 ## [br]
 ## @api private
@@ -26,8 +45,25 @@ const _LIMIT_KEYS: PackedStringArray = [
 ]
 
 
-# --- 公共方法 ---
+# --- 框架内部方法 ---
 
+## 构造闭合预算字典；这里只组装字段，正整数和绝对上限由验证入口统一检查。
+## [br]
+## @api framework_internal
+## [br]
+## @param max_bytes: 整个值图的保守字节预算。
+## [br]
+## @param max_nodes: 整个值图的节点数预算。
+## [br]
+## @param max_depth: 从根深度零计算的嵌套预算。
+## [br]
+## @param max_string_bytes: 每条文本的 UTF-8 字节预算。
+## [br]
+## @param max_container_entries: 每个普通容器的元素数预算。
+## [br]
+## @return 原样记录五项输入的预算字典。
+## [br]
+## @schema return: Dictionary，精确包含 max_bytes、max_nodes、max_depth、max_string_bytes、max_container_entries 五个 int 字段。
 static func make_limits(
 	max_bytes: int,
 	max_nodes: int,
@@ -44,6 +80,21 @@ static func make_limits(
 	}
 
 
+## 不序列化或打印输入，按有界纯值图规则遍历；拒绝对象、非有限浮点和循环容器，保留失败时已计费的统计。
+## [br]
+## @api framework_internal
+## [br]
+## @param value: 待验证的任意输入，非法类型返回失败而非隐式转换。
+## [br]
+## @schema value: Variant，仅允许 null、bool、int、有限 float、String、Array 及 String 键 Dictionary 递归组成的无循环值图。
+## [br]
+## @param limits: 本次验证的精确预算字段。
+## [br]
+## @schema limits: Dictionary，max_bytes、max_nodes、max_depth、max_string_bytes、max_container_entries 均为不超过各 ABSOLUTE 上限的正 int。
+## [br]
+## @return 成功或失败及已消耗的保守预算，不能把 size_bytes 当实际序列化长度。
+## [br]
+## @schema return: Dictionary，精确包含 ok:bool、error_code:int、size_bytes:int、node_count:int；预算非法为 ERR_INVALID_PARAMETER，超限为 ERR_OUT_OF_MEMORY，值类型或循环非法为 ERR_INVALID_DATA。
 static func validate_plain_value(value: Variant, limits: Dictionary) -> Dictionary:
 	if not _limits_are_valid(limits):
 		return _make_result(false, ERR_INVALID_PARAMETER, 0, 0)
@@ -68,6 +119,25 @@ static func validate_plain_value(value: Variant, limits: Dictionary) -> Dictiona
 	)
 
 
+## 将 data 和 metadata 放入同一信封共同计费，避免各自合规却合计超限。
+## [br]
+## @api framework_internal
+## [br]
+## @param data: 待验证的业务数据。
+## [br]
+## @schema data: Dictionary，须符合 validate_plain_value 的 String 键纯值图规则。
+## [br]
+## @param metadata: 与业务数据一起提交的元数据。
+## [br]
+## @schema metadata: Dictionary，遵守与 data 相同的纯值图规则。
+## [br]
+## @param limits: 整个信封共享的预算。
+## [br]
+## @schema limits: Dictionary，精确包含 max_bytes、max_nodes、max_depth、max_string_bytes、max_container_entries 五个正 int。
+## [br]
+## @return 对 {data,metadata} 信封的验证结果。
+## [br]
+## @schema return: Dictionary，包含 ok:bool、error_code:int、size_bytes:int、node_count:int，与 validate_plain_value 一致。
 static func validate_payload(
 	data: Dictionary,
 	metadata: Dictionary,

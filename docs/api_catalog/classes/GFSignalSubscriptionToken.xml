@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSignalSubscriptionToken" path="addons/gf/kernel/core/gf_signal_subscription_token.gd" module="kernel" extends="GFSubscriptionToken" classDigest="d2e85a6ebc7137b467604317c17e1593f827f19ef4fb6496c3e69858d977851f">
+<class name="GFSignalSubscriptionToken" path="addons/gf/kernel/core/gf_signal_subscription_token.gd" module="kernel" extends="GFSubscriptionToken" classDigest="1f262235e9df8d8949f17a0563a9de761bcd67989d84c9d1ff22043acdd42a65">
 	<description>GFSignalSubscriptionToken: 管理 Godot Signal 连接的订阅句柄。
 该句柄把 Signal 连接视为需要显式释放的资源；调用 cancel() 会幂等断开连接。</description>
 	<tags>
@@ -42,19 +42,21 @@ owner 为 Node 时，节点退出场景树会自动取消订阅；其他 Object 
 		</member>
 		<member kind="method" name="get_source_id">
 			<signature>func get_source_id() -&gt; int:</signature>
-			<description>返回 Signal 来源对象实例 ID；无有效来源时为 0。</description>
+			<description>返回最近一次有效连接尝试记录的来源实例 ID；未记录过来源时为 0。
+取消、重复连接或连接失败不会清除此诊断缓存，返回值不能证明来源仍存活或订阅仍活动。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">Signal 来源对象实例 ID。</tag>
+				<tag name="return">缓存的 Signal 来源实例 ID，不随取消或来源释放而清零。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_signal_name">
 			<signature>func get_signal_name() -&gt; StringName:</signature>
-			<description>返回 Signal 名称；无有效来源时为空。</description>
+			<description>返回最近一次有效连接尝试记录的 Signal 名称；未记录过来源时为空。
+此名称与来源 ID 一同保留供诊断，不表示当前仍拥有有效连接。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">Signal 名称。</tag>
+				<tag name="return">缓存的 Signal 名称，不随取消或来源释放而清空。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

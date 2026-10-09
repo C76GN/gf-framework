@@ -6,9 +6,24 @@ extends RefCounted
 
 # --- 私有变量 ---
 
+## 尚未发布的累积目录，直接保留已接纳的条目引用；首次失败时丢弃，finish 时把目录引用交给结果并清空本地持有。
+## [br]
+## @api private
 var _catalog: GFAssetCatalog = GFAssetCatalog.new()
+
+## 当前候选目录已接纳的 asset_id 集合，用于拒绝重复身份；失败或 finish 后清空。
+## [br]
+## @api private
 var _ids: Dictionary = {}
+
+## complete 表示仍可接纳候选；首次错误阻止后续追加，finish 后改为 finished，不能复用此累积器。
+## [br]
+## @api private
 var _status: String = "complete"
+
+## 已成功接纳条目的累计数量，用于容量检查和结束报告；失败丢弃目录时仍保留此前接纳数量。
+## [br]
+## @api private
 var _count: int = 0
 
 

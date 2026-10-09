@@ -6,8 +6,19 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 新建默认任务时复用框架生成目录与访问器路径约定，避免另设一套输出位置。
+## [br]
+## @api private
 const _PATHS_SCRIPT = preload("res://addons/gf/kernel/core/gf_project_artifact_paths.gd")
+
+## 固定版本的工作台预设；新草稿复制其值，已有草稿仅在显式重应用时更新。
+## [br]
+## @api private
 const _PRESET_PATH: String = "res://addons/gf/tools/config_pipeline/presets/basic_v1.json"
+
+## 只按文本读取的运行时示例模板；产物路径和首表名称在生成示例时替换。
+## [br]
+## @api private
 const _READER_TEMPLATE: String = "res://addons/gf/tools/config_pipeline/templates/read_config.gd.txt"
 
 
@@ -149,10 +160,16 @@ static func create_sample(root_path: String) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 读取当前固定预设文本；无法解析为字典时由类型收窄返回空字典，不加载项目资源。
+## [br]
+## @api private
 static func _read_preset() -> Dictionary:
 	return GFVariantData.as_dictionary(JSON.parse_string(FileAccess.get_file_as_string(_PRESET_PATH)))
 
 
+## 同时检查已登记的脚本类与原生类，供新访问器名称避让；不会预留名称或加载脚本。
+## [br]
+## @api private
 static func _class_exists(type_name: String) -> bool:
 	for entry: Dictionary in ProjectSettings.get_global_class_list():
 		if GFVariantData.get_option_string(entry, "class") == type_name:

@@ -1,6 +1,11 @@
 extends Label
 
 
+# --- Godot 生命周期方法 ---
+
+## 加载生成路径中的数据库并展示首表记录；产物尚未导出或类型不符时仅显示提示，不在运行时触发导表。
+## [br]
+## @api private
 func _ready() -> void:
 	var loaded: Resource = load({DatabasePath})
 	if not (loaded is GFConfigDatabaseResource):

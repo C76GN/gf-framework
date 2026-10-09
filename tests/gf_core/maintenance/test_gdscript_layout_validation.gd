@@ -8,7 +8,6 @@ const SOURCE_ROOT: String = "res://addons/gf"
 const TEST_ROOT: String = "res://tests/gf_core"
 const SECTION_PREFIX: String = "# --- "
 const SECTION_SUFFIX: String = " ---"
-const TRIPLE_QUOTE: String = "\"\"\""
 const PRIVATE_SECTION_MARKERS: Array[String] = [
 	"私有",
 	"内部",
@@ -107,6 +106,7 @@ const SECTION_ORDER_RULES: Array[Dictionary] = [
 	{ "markers": ["内部类", "subclass"], "rank": 120 },
 ]
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const CONTRACT_SOURCES = preload("res://tests/gf_core/maintenance/helpers/gf_comment_contract_sources.gd")
 
 
 # --- 测试用例 ---
@@ -242,31 +242,125 @@ func test_local_variables_do_not_shadow_node_name_property() -> void:
 	assert_eq(issues, [], "局部变量不应命名为 name，以免在 Node 派生脚本和 GUT 测试中遮蔽 Node.name：\n%s" % _join_lines(issues))
 
 
+func test_layout_scanner_does_not_hide_methods_after_comment_quotes() -> void:
+	for delimiter: String in ['"""', "'''"]:
+		var source: String = "extends RefCounted\n# 示例分隔符为 %s\n# --- 公共方法 ---\nfunc _hidden() -> void: pass\n" % delimiter
+		var issues: Array[String] = _collect_underscore_method_section_issues_from_source(source, "comment_fixture.gd.txt")
+		assert_eq(issues.size(), 1, "普通注释中的引号不能屏蔽真实私有方法的分区错误。")
+		assert_true(_join_lines(issues).contains("_hidden"))
+
+
+func test_layout_scanner_ignores_both_multiline_string_forms() -> void:
+	for delimiter: String in ['"""', "'''"]:
+		var source: String = "extends RefCounted\nconst EXAMPLE = %s\n# --- 公共方法 ---\nfunc _phantom() -> void: pass\n%s\n# --- 私有/辅助方法 ---\nfunc _real() -> void: pass\n" % [delimiter, delimiter]
+		assert_eq(_collect_underscore_method_section_issues_from_source(source, "literal_fixture.gd"), [], "字符串中的伪分区和声明不能进入布局校验。")
+		var lines: PackedStringArray = _structure_lines(source)
+		assert_eq(lines.size(), source.split("\n").size(), "词法屏蔽必须保留诊断行号。")
+		assert_false("\n".join(lines).contains("_phantom"))
+		assert_true("\n".join(lines).contains("_real"))
+
+
+func test_export_annotations_remain_bound_across_lines() -> void:
+	for annotation: String in ["@export_storage", "@export # 说明", "@export_range(\n\t0, 10,\n)"]:
+		for path: String in ["export_fixture.gd", "export_fixture.gd.txt"]:
+			var source: String = "extends Resource\n# --- 导出变量 ---\n## 序列化设置。\n## [br]\n## @api private\n%s\nvar _configured: int = 0\n" % annotation
+			var lines: PackedStringArray = _structure_lines(CONTRACT_SOURCES.render_source(source, path))
+			var declaration: String = lines[lines.size() - 2]
+			assert_true(_line_starts_private_variable(declaration), "跨行注解仍必须枚举私有字段。")
+			assert_true(_private_variable_section_is_valid(declaration, "导出变量"), "独立与多行导出注解和同一行注解的分区契约相同。")
+			assert_false(_private_variable_section_is_valid(declaration, "私有变量"), "导出字段仍不能藏到普通私有区。")
+
+
+func test_leading_annotations_preserve_variable_sections() -> void:
+	for path: String in ["annotations.gd", "annotations.gd.txt"]:
+		for annotations: String in ["@warning_ignore(\"unused_private_class_variable\")\n@onready\n", "@warning_ignore(\"unused_private_class_variable\") @onready ", "@onready\n@warning_ignore(\n\t\"unused_private_class_variable\",\n)\n"]:
+			var source: String = "extends Node\n%svar _value: Node = null\nvar _ordinary: int = 0\n" % annotations
+			var lines: PackedStringArray = _structure_lines(CONTRACT_SOURCES.render_source(source, path))
+			var declaration: String = lines[lines.size() - 3]
+			assert_true(_line_starts_private_variable(declaration), "前置注解不能隐藏私有字段。")
+			assert_true(_private_variable_section_is_valid(declaration, "@onready 变量"), "完整注解块决定 onready 分区。")
+			assert_false(_private_variable_section_is_valid(declaration, "私有变量"), "onready 字段不能混入普通私有区。")
+			assert_true(_private_variable_section_is_valid(lines[lines.size() - 2], "私有变量"), "注解不能泄漏到下一声明。")
+		for annotations: String in ["@warning_ignore(\"unused_private_class_variable\")\n@export_range(\n\t0, 10,\n)\n", "@warning_ignore(\"unused_private_class_variable\") @export "]:
+			var lines: PackedStringArray = _structure_lines("extends Resource\n%svar _value: int = 0\n" % annotations)
+			var declaration: String = lines[lines.size() - 2]
+			assert_true(_line_starts_private_variable(declaration))
+			assert_true(_private_variable_section_is_valid(declaration, "导出变量"))
+			assert_false(_private_variable_section_is_valid(declaration, "私有变量"))
+		var literal_lines: PackedStringArray = _structure_lines("extends Node\n@warning_ignore(\"@onready @export\")\nvar _text: String = \"@onready @export\"\n")
+		assert_true(_private_variable_section_is_valid(literal_lines[literal_lines.size() - 2], "私有变量"), "字符串中的伪注解不改变字段分区。")
+
+
 # --- 私有/辅助方法 ---
 
+func _structure_lines(source: String) -> PackedStringArray:
+	var lines: PackedStringArray = source.split("\n")
+	var delimiter: String = ""
+	var pending_annotations: String = ""
+	for index: int in range(lines.size()):
+		var raw_line: String = _trim_cr(lines[index])
+		var lexical: Dictionary = CONTRACT_SOURCES.lex_line(raw_line, delimiter)
+		delimiter = GF_VARIANT_ACCESS.get_option_string(lexical, "multiline_delimiter")
+		# 保留真正的文档和 section 注释；字符串内同样的文本只保留空白位置。
+		if not GF_VARIANT_ACCESS.get_option_bool(lexical, "starts_in_multiline") and raw_line.strip_edges().begins_with("#"):
+			lines[index] = raw_line
+		else:
+			lines[index] = GF_VARIANT_ACCESS.get_option_string(lexical, "code")
+		var structure: String = lines[index]
+		if structure.strip_edges().is_empty() or structure.strip_edges().begins_with("#"):
+			continue
+		if pending_annotations.is_empty() and not structure.begins_with("@"):
+			continue
+		# 字符串和注释已由词法层屏蔽，前导注解可安全跨行累积。
+		pending_annotations += " " + structure.strip_edges()
+		var normalized: String = _normalize_annotated_declaration(pending_annotations)
+		if normalized.is_empty():
+			continue
+		# 保留实际声明行号，并仅携带会影响变量分区的注解。
+		lines[index] = normalized
+		pending_annotations = ""
+	return lines
+
+
+func _normalize_annotated_declaration(structure: String) -> String:
+	var remaining: String = structure.strip_edges()
+	var is_export: bool = false
+	var is_onready: bool = false
+	while remaining.begins_with("@"):
+		var offset: int = 1
+		while offset < remaining.length() and (remaining[offset].is_valid_identifier() or remaining[offset].is_valid_int()):
+			offset += 1
+		var annotation: String = remaining.substr(1, offset - 1)
+		is_onready = is_onready or annotation == "onready"
+		is_export = is_export or (annotation.begins_with("export") and annotation not in ["export_category", "export_group", "export_subgroup"])
+		remaining = remaining.substr(offset).strip_edges()
+		if remaining.begins_with("("):
+			var depth: int = 0
+			offset = 0
+			while offset < remaining.length():
+				if remaining[offset] == "(":
+					depth += 1
+				elif remaining[offset] == ")":
+					depth -= 1
+				offset += 1
+				if depth == 0:
+					break
+			if depth != 0:
+				return ""
+			remaining = remaining.substr(offset).strip_edges()
+	if remaining.begins_with("var "):
+		if is_onready:
+			return "@onready " + remaining
+		if is_export:
+			return "@export " + remaining
+	return remaining
+
+
 func _collect_gdscript_files(root_path: String) -> Array[String]:
-	var result: Array[String] = []
-	_collect_gdscript_files_recursive(root_path, result)
-	result.sort()
-	return result
-
-
-func _collect_gdscript_files_recursive(root_path: String, result: Array[String]) -> void:
-	var dir: DirAccess = DirAccess.open(root_path)
-	if dir == null:
-		return
-
-	var _list_dir_begin_result_209: Variant = dir.list_dir_begin()
-	var entry: String = dir.get_next()
-	while not entry.is_empty():
-		var child_path: String = root_path.path_join(entry)
-		if dir.current_is_dir():
-			if not entry.begins_with("."):
-				_collect_gdscript_files_recursive(child_path, result)
-		elif entry.ends_with(".gd"):
-			result.append(child_path)
-		entry = dir.get_next()
-	dir.list_dir_end()
+	var issues: Array[String] = []
+	var paths: Array[String] = CONTRACT_SOURCES.collect_files(root_path, issues)
+	assert_eq(issues, [], "完整扫描必须能枚举每个目录：%s" % _join_lines(issues))
+	return paths
 
 
 func _collect_underscore_method_section_issues(path: String) -> Array[String]:
@@ -274,21 +368,17 @@ func _collect_underscore_method_section_issues(path: String) -> Array[String]:
 	if file == null:
 		return ["%s: cannot open file" % path]
 
-	var lines: PackedStringArray = file.get_as_text().split("\n")
+	var source: String = file.get_as_text()
 	file.close()
+	return _collect_underscore_method_section_issues_from_source(source, path)
+
+
+func _collect_underscore_method_section_issues_from_source(source: String, path: String) -> Array[String]:
+	var lines: PackedStringArray = _structure_lines(CONTRACT_SOURCES.render_source(source, path))
 	var issues: Array[String] = []
 	var current_section: String = ""
-	var inside_multiline_string: bool = false
 	for line_index: int in range(lines.size()):
 		var raw_line: String = _trim_cr(String(lines[line_index]))
-		var triple_quote_count: int = _count_substring(raw_line, TRIPLE_QUOTE)
-		if inside_multiline_string:
-			if triple_quote_count % 2 == 1:
-				inside_multiline_string = false
-			continue
-		if triple_quote_count % 2 == 1:
-			inside_multiline_string = true
-			continue
 
 		var section_name: String = _parse_section_name(raw_line)
 		if not section_name.is_empty():
@@ -367,7 +457,7 @@ func _collect_class_doc_order_issues(path: String) -> Array[String]:
 	if file == null:
 		return ["%s: cannot open file" % path]
 
-	var lines: PackedStringArray = file.get_as_text().split("\n")
+	var lines: PackedStringArray = _structure_lines(CONTRACT_SOURCES.render_source(file.get_as_text(), path))
 	file.close()
 	var first_doc_line: int = -1
 	var class_name_line: int = -1
@@ -438,21 +528,12 @@ func _collect_local_name_shadow_issues(path: String) -> Array[String]:
 	if file == null:
 		return ["%s: cannot open file" % path]
 
-	var lines: PackedStringArray = file.get_as_text().split("\n")
+	var lines: PackedStringArray = _structure_lines(CONTRACT_SOURCES.render_source(file.get_as_text(), path))
 	file.close()
 	var issues: Array[String] = []
-	var inside_multiline_string: bool = false
 	var function_indent: int = -1
 	for line_index: int in range(lines.size()):
 		var raw_line: String = _trim_cr(String(lines[line_index]))
-		var triple_quote_count: int = _count_substring(raw_line, TRIPLE_QUOTE)
-		if inside_multiline_string:
-			if triple_quote_count % 2 == 1:
-				inside_multiline_string = false
-			continue
-		if triple_quote_count % 2 == 1:
-			inside_multiline_string = true
-			continue
 
 		var trimmed: String = raw_line.strip_edges()
 		if trimmed.is_empty() or trimmed.begins_with("#"):
@@ -479,20 +560,11 @@ func _scan_top_level_source(path: String, callback: Callable) -> void:
 		callback.call("cannot open file", 0, "")
 		return
 
-	var lines: PackedStringArray = file.get_as_text().split("\n")
+	var lines: PackedStringArray = _structure_lines(CONTRACT_SOURCES.render_source(file.get_as_text(), path))
 	file.close()
 	var current_section: String = ""
-	var inside_multiline_string: bool = false
 	for line_index: int in range(lines.size()):
 		var raw_line: String = _trim_cr(String(lines[line_index]))
-		var triple_quote_count: int = _count_substring(raw_line, TRIPLE_QUOTE)
-		if inside_multiline_string:
-			if triple_quote_count % 2 == 1:
-				inside_multiline_string = false
-			continue
-		if triple_quote_count % 2 == 1:
-			inside_multiline_string = true
-			continue
 
 		var section_name: String = _parse_section_name(raw_line)
 		if not section_name.is_empty():
@@ -550,10 +622,12 @@ func _parse_top_level_inner_class_name(line: String) -> String:
 func _line_starts_private_variable(line: String) -> bool:
 	if line.begins_with("var _") or line.begins_with("static var _"):
 		return true
-	return line.begins_with("@export") and line.contains(" var _")
+	return (line.begins_with("@export") or line.begins_with("@onready ")) and line.contains(" var _")
 
 
 func _private_variable_section_is_valid(line: String, section_name: String) -> bool:
+	if line.begins_with("@onready "):
+		return section_name.begins_with("@onready 变量")
 	if line.begins_with("@export"):
 		return section_name.begins_with("导出变量")
 	return _section_is_private_variable_section(section_name)
@@ -653,21 +727,6 @@ func _section_has_marker(section_name: String, markers: Array[String]) -> bool:
 		if lower_section.contains(marker.to_lower()):
 			return true
 	return false
-
-
-func _count_substring(text: String, needle: String) -> int:
-	if needle.is_empty():
-		return 0
-
-	var count: int = 0
-	var search_from: int = 0
-	while search_from < text.length():
-		var found_index: int = text.find(needle, search_from)
-		if found_index == -1:
-			break
-		count += 1
-		search_from = found_index + needle.length()
-	return count
 
 
 func _trim_cr(text: String) -> String:

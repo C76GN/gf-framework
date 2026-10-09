@@ -14,16 +14,42 @@ signal changed()
 
 # --- 私有变量 ---
 
+## 当前独立工作草稿；引用目标候选只取自该草稿的来源，不查询磁盘表。
+## [br]
+## @api private
 var _profile: GFConfigPipelineProfile
+
+## 当前编辑来源；configure 替换后会移除旧表单，旧控件不能继续修改原来源。
+## [br]
+## @api private
 var _source: GFConfigPipelineTableSource
+
+## 选择字段、索引或引用集合；选项序号与 _definitions 的分支对应。
+## [br]
+## @api private
 var _kind: OptionButton
+
+## 当前集合的有序定义列表；列表索引直接对应草稿数组的位置。
+## [br]
+## @api private
 var _list: ItemList
+
+## 持有本次选中定义的编辑控件；重建时先移出树，使延迟回调失去写入资格。
+## [br]
+## @api private
 var _form: VBoxContainer
+
+## 展示显式 Schema 状态及默认值解析错误；错误输入不会覆盖草稿旧值。
+## [br]
+## @api private
 var _status: Label
 
 
 # --- Godot 生命周期方法 ---
 
+## 构建仅操作草稿的定义列表与表单；实际来源由 configure 绑定，按钮执行前仍检查当前树归属。
+## [br]
+## @api private
 func _init() -> void:
 	name = "SchemaEditor"
 	var toolbar: HBoxContainer = HBoxContainer.new()
@@ -65,10 +91,16 @@ func configure(profile: GFConfigPipelineProfile, source: GFConfigPipelineTableSo
 
 # --- 私有/辅助方法 ---
 
+## 仅接受仍属于当前表单树的存活控件；已移除或等待释放的控件不得写回捕获的资源。
+## [br]
+## @api private
 func _can_edit(control: Node) -> bool:
 	return _source != null and is_inside_tree() and not is_queued_for_deletion() and is_instance_valid(control) and control.is_inside_tree() and not control.is_queued_for_deletion() and is_ancestor_of(control)
 
 
+## 清除旧控件并按当前集合重建列表；存在显式 Schema 时显示其整表规则。
+## [br]
+## @api private
 func _refresh_list() -> void:
 	_list.clear()
 	_clear_form()
@@ -83,6 +115,9 @@ func _refresh_list() -> void:
 			_add_property(_source.schema, property_name)
 
 
+## 返回当前 Schema 集合的原数组供增删；没有来源或 Schema 时返回独立空数组。
+## [br]
+## @api private
 func _definitions() -> Array:
 	if _source == null or _source.schema == null:
 		return []
@@ -95,6 +130,9 @@ func _definitions() -> Array:
 			return _source.schema.references
 
 
+## 为选中定义重建支持的字段编辑器；自定义校验规则保留原对象，仅提示转至 Inspector 编辑。
+## [br]
+## @api private
 func _show_definition(index: int) -> void:
 	_clear_form()
 	var definitions: Array = _definitions()
@@ -134,6 +172,9 @@ func _show_definition(index: int) -> void:
 			_add_property(resource, property_name)
 
 
+## 依据资源属性元数据绑定草稿字段；PackedStringArray 通过逗号分隔文本编辑，回调先核对控件归属。
+## [br]
+## @api private
 func _add_property(resource: Resource, property_name: String) -> void:
 	for property_info: Dictionary in resource.get_property_list():
 		if GFVariantData.get_option_string(property_info, "name") != property_name:
@@ -165,6 +206,9 @@ func _add_property(resource: Resource, property_name: String) -> void:
 		return
 
 
+## 默认值只在提交合法 JSON 后写入；解析失败或控件退休时保留资源原值。
+## [br]
+## @api private
 func _add_json_default(resource: Resource) -> void:
 	var label: Label = Label.new()
 	label.text = "默认值（JSON；Enter 应用到草稿）"
@@ -188,6 +232,9 @@ func _add_json_default(resource: Resource) -> void:
 	field.tooltip_text = "输入 JSON 并按 Enter 应用；null 表示空默认值。"
 
 
+## 从同一 Profile 的表及显式 Schema 提供引用目标建议；选中字段会替换为单字段目标，复合字段仍可手工编辑。
+## [br]
+## @api private
 func _add_target_picker(reference: GFConfigTableReference) -> void:
 	var picker: OptionButton = OptionButton.new()
 	picker.name = "TargetTable"
@@ -230,6 +277,9 @@ func _add_target_picker(reference: GFConfigTableReference) -> void:
 	)
 
 
+## 仅为尚无显式 Schema 的当前来源创建草稿定义；已有 Schema 不覆盖，也不保存文件。
+## [br]
+## @api private
 func _create_schema() -> void:
 	if _source == null or _source.schema != null:
 		return
@@ -241,6 +291,9 @@ func _create_schema() -> void:
 	_refresh_list()
 
 
+## 向当前类别追加空定义并选中它；修改直接作用于草稿，后续保存由工作台负责。
+## [br]
+## @api private
 func _add_definition() -> void:
 	if _source == null or _source.schema == null:
 		return
@@ -257,6 +310,9 @@ func _add_definition() -> void:
 	_show_definition(_list.item_count - 1)
 
 
+## 删除列表选中项对应的草稿数组元素；重建表单以撤销旧控件对该定义的写入入口。
+## [br]
+## @api private
 func _remove_definition() -> void:
 	var selected: PackedInt32Array = _list.get_selected_items()
 	if selected.is_empty():
@@ -266,12 +322,18 @@ func _remove_definition() -> void:
 	_refresh_list()
 
 
+## 先移出表单树再排队释放控件，使 _can_edit 在实际释放前就拒绝其旧回调。
+## [br]
+## @api private
 func _clear_form() -> void:
 	for child: Node in _form.get_children():
 		_form.remove_child(child)
 		child.queue_free()
 
 
+## 为草稿操作创建按钮；只有按钮仍在当前编辑树且来源有效时才调用捕获的操作。
+## [br]
+## @api private
 func _button(parent: Node, node_name: String, text: String, callback: Callable) -> void:
 	var button: Button = Button.new()
 	button.name = node_name

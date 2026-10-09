@@ -6,52 +6,205 @@ extends VBoxContainer
 
 # --- 常量 ---
 
+## 页面草稿、文件保存和恢复报告的持有者；重建 UI 时保留同一会话。
+## [br]
+## @api private
 const _SESSION_SCRIPT = preload("res://addons/gf/tools/config_pipeline/editor/gf_config_workbench_session.gd")
+
+## 提供版本化新建值、样例事务和读取示例，页面不另造生成协议。
+## [br]
+## @api private
 const _PRESET_SCRIPT = preload("res://addons/gf/tools/config_pipeline/editor/gf_config_workbench_preset.gd")
+
+## 编辑当前独立草稿的 Schema；页面重建或来源切换时重新绑定。
+## [br]
+## @api private
 const _SCHEMA_FORM_SCRIPT = preload("res://addons/gf/tools/config_pipeline/editor/gf_config_schema_form.gd")
+
+## 每次预览或批量预检新建的解析 worker；只接收纯值来源描述。
+## [br]
+## @api private
 const _WORKER_SCRIPT = preload("res://addons/gf/tools/config_pipeline/editor/gf_config_preview_worker.gd")
+
+## 持有后台执行及其回收责任的任务封装；页面取消后仍须等待其退出。
+## [br]
+## @api private
 const _TASK_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_background_request_task.gd")
+
+## 与 CLI 一致的报告格式化入口；页面不将严格质量失败误显示为文件未写出。
+## [br]
+## @api private
 const _COMMAND_SCRIPT = preload("res://addons/gf/tools/config_pipeline/gf_config_pipeline_command.gd")
+
+## 项目默认 Profile 路径设置；只由用户点击设为默认时保存到项目。
+## [br]
+## @api private
 const _SETTING: String = "gf/config_pipeline/default_profile_path"
 
 
 # --- 私有变量 ---
 
+## 页面独占的任务会话；宿主上下文更换只重建控件，不丢弃其中草稿。
+## [br]
+## @api private
 var _session: _SESSION_SCRIPT = _SESSION_SCRIPT.new()
+
+## 汇总保存、结果新鲜度和事务恢复三个独立状态的标签。
+## [br]
+## @api private
 var _status: Label
+
+## 与当前 Profile.sources 顺序一致的来源列表，选中索引写入 _selected_source。
+## [br]
+## @api private
 var _sources: ItemList
+
+## 当前来源的编辑控件容器；切换来源时先移除旧控件，撤销其写回资格。
+## [br]
+## @api private
 var _source_form: VBoxContainer
+
+## 当前草稿的 Schema 编辑器；changed 信号只在本代控件仍有效时接收。
+## [br]
+## @api private
 var _schema_form: _SCHEMA_FORM_SCRIPT
+
+## Profile 产物路径与高级选项的属性编辑容器，每次重新采用草稿时重建。
+## [br]
+## @api private
 var _profile_form: VBoxContainer
+
+## 保留原始执行或恢复报告的只读文本区，补充摘要未展示的失败细节。
+## [br]
+## @api private
 var _report: TextEdit
+
+## 原始解析结果的有限展示树；显示列和单元格文本均截断，不作为完整校验输入。
+## [br]
+## @api private
 var _preview: Tree
+
+## 区分预览进行中、读取失败与来源已变化的提示；过期后仍可保留旧树供查看。
+## [br]
+## @api private
 var _preview_status: Label
+
+## 展示校验问题，并在行 metadata 中保留来源路径和真实位置供导航。
+## [br]
+## @api private
 var _issues: Tree
+
+## 显示保存、访问器和 manifest 产物状态；每项 metadata 保存导航路径。
+## [br]
+## @api private
 var _artifacts: ItemList
+
+## 按校验、预览导出、导出顺序保存按钮，便于同步保存提示与执行准入状态。
+## [br]
+## @api private
 var _run_buttons: Array[Button] = []
+
+## 本次执行开关到 CheckBox 的映射；值随点击执行或复制 CLI 读取，不写入 Profile。
+## [br]
+## @api private
 var _checks: Dictionary = {}
+
+## 显式保存草稿的入口；事务待恢复或同步执行期间禁用。
+## [br]
+## @api private
 var _save_button: Button
+
+## 只请求阶段边界取消的按钮；禁用不代表后台任务已退出。
+## [br]
+## @api private
 var _cancel_button: Button
+
+## 页面拥有的唯一预览或预检任务；取消后保留到 _process 或卸载路径完成回收。
+## [br]
+## @api private
 var _task: GFEditorBackgroundRequestTask
+
+## 解析结果的发布代次；开始任务和取消均递增，旧代完成结果只能回收而不能展示或执行。
+## [br]
+## @api private
 var _generation: int = 0
+
+## 当前来源在草稿数组中的位置；读取前须重新核对草稿和边界，负值表示未选中。
+## [br]
+## @api private
 var _selected_source: int = -1
+
+## 新鲜度复核的累计帧时间；任务空闲且页面可见时约每两秒复核一次。
+## [br]
+## @api private
 var _elapsed: float = 0.0
+
+## 批量预检或同步执行期间的交互禁用标记；普通预览是否占用另由 _task 判断。
+## [br]
+## @api private
 var _busy: bool = false
+
+## 当前后台任务是否为执行前的批量预检；决定同代结果进入执行收尾还是预览展示。
+## [br]
+## @api private
 var _preparing_run: bool = false
+
+## 尚待用户决定保存或放弃的任务替换操作；取消对话框或撤销上下文时清空。
+## [br]
+## @api private
 var _pending: Callable
+
+## 保存成功后才可执行的一次性续接操作；消费前先清空，保存失败不会调用。
+## [br]
+## @api private
 var _after_save: Callable
+
+## 对未保存草稿提供保存、放弃和取消选择的对话框，回调绑定创建时的上下文代次。
+## [br]
+## @api private
 var _discard_dialog: ConfirmationDialog
+
+## 项目资源路径选择器；选中后调用一次 _file_action，不将文件选择当作保存成功。
+## [br]
+## @api private
 var _file_dialog: FileDialog
+
+## 当前文件选择所服务的一次性操作；选择消费、取消或上下文撤销时清空。
+## [br]
+## @api private
 var _file_action: Callable
+
+## 最近请求的 build/export 操作，供预检完成后执行及复制等价 CLI 使用。
+## [br]
+## @api private
 var _last_operation: String = "export"
+
+## 点击执行时冻结的开关；复制 CLI 会在副本中采用当前复选框值。
+## [br]
+## @api private
 var _last_options: Dictionary = { "write_manifest": true }
+
+## 宿主授予的编辑器上下文；页面和插件均仍在树内且未排队释放时才允许写入操作。
+## [br]
+## @api private
 var _editor_context: GFEditorToolContext
+
+## 控件写回资格的代次，与解析结果代次独立；重绑定和卸载使旧 UI 回调失效。
+## [br]
+## @api private
 var _context_generation: int = 0
+
+## 已接受预览的读取收据副本；取消或磁盘内容不再匹配时清空，不能继续证明旧预览新鲜。
+## [br]
+## @api private
 var _preview_receipt: Dictionary = {}
 
 
 # --- Godot 生命周期方法 ---
 
+## 创建初始页面控件；真正的编辑资格由宿主上下文决定，后续重绑定会重建控件并保留会话。
+## [br]
+## @api private
 func _init() -> void:
 	name = "ConfigWorkbench"
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -59,6 +212,9 @@ func _init() -> void:
 	_build_ui()
 
 
+## 尝试采用项目默认 Profile 并刷新状态；加载入口仍要求有效宿主上下文，不因进入树就绕过写入资格。
+## [br]
+## @api private
 func _ready() -> void:
 	var default_path: String = GFVariantData.to_text(ProjectSettings.get_setting(_SETTING, ""))
 	if not default_path.is_empty():
@@ -66,6 +222,10 @@ func _ready() -> void:
 	_refresh_status()
 
 
+## 回收已结束的后台任务后，仅发布未取消且代次匹配的结果；旧结果仍须回收，但不得推进执行预检。
+## 页面空闲且可见时定期复核来源和结果新鲜度，不自动重新执行任务。
+## [br]
+## @api private
 func _process(delta: float) -> void:
 	if _task != null and not _task.is_running():
 		var result: Dictionary = GFVariantData.as_dictionary(_task.wait_to_finish())
@@ -87,6 +247,10 @@ func _process(delta: float) -> void:
 		_refresh_status()
 
 
+## 先撤销上下文和续接回调，再请求取消并等待后台任务回收；不能留下仍访问 worker 的任务。
+## 编辑器卸载时尝试把脏草稿另存到编辑器缓存，不覆盖用户 Profile。
+## [br]
+## @api private
 func _exit_tree() -> void:
 	_context_generation += 1
 	_editor_context = null
@@ -149,14 +313,23 @@ func set_editor_context(context: GFEditorToolContext) -> void:
 
 # --- 私有/辅助方法 ---
 
+## 同时确认页面与宿主插件仍在树内且未排队释放；仅持有非空上下文不足以继续编辑。
+## [br]
+## @api private
 func _has_active_context() -> bool:
 	return is_inside_tree() and not is_queued_for_deletion() and _editor_context != null and is_instance_valid(_editor_context.plugin) and _editor_context.plugin.is_inside_tree() and not _editor_context.plugin.is_queued_for_deletion()
 
 
+## 只接受本代且仍属于页面树的控件回调；上下文替换或控件移除后即撤销旧闭包的写回资格。
+## [br]
+## @api private
 func _accept_callback(control: Node, generation: int) -> bool:
 	return generation == _context_generation and _has_active_context() and is_instance_valid(control) and control.is_inside_tree() and not control.is_queued_for_deletion() and is_ancestor_of(control)
 
 
+## 创建当前上下文代次的工作台控件与对话框；所有捕获草稿的交互回调先核对所属代次和控件存活。
+## [br]
+## @api private
 func _build_ui() -> void:
 	var ui_generation: int = _context_generation
 	var toolbar: HFlowContainer = HFlowContainer.new()
@@ -324,6 +497,9 @@ func _build_ui() -> void:
 	)
 
 
+## 为一个页签建立可滚动的纵向内容容器，返回内层容器供调用方加入控件。
+## [br]
+## @api private
 func _page(tabs: TabContainer, title: String) -> VBoxContainer:
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.name = title
@@ -334,6 +510,9 @@ func _page(tabs: TabContainer, title: String) -> VBoxContainer:
 	return content
 
 
+## 创建绑定当前上下文代次的操作按钮；点击时重新验证按钮仍在页面树中再执行操作。
+## [br]
+## @api private
 func _button(parent: Node, node_name: String, text: String, callback: Callable) -> Button:
 	var button: Button = Button.new()
 	button.name = node_name
@@ -347,6 +526,9 @@ func _button(parent: Node, node_name: String, text: String, callback: Callable) 
 	return button
 
 
+## 为当前操作配置一次文件选择；只记录续接回调，真正读取或保存由选中路径后的回调负责。
+## [br]
+## @api private
 func _choose_file(mode: FileDialog.FileMode, filter: String, action: Callable) -> void:
 	if not _has_active_context():
 		return
@@ -356,6 +538,9 @@ func _choose_file(mode: FileDialog.FileMode, filter: String, action: Callable) -
 	_file_dialog.popup_centered_ratio(0.7)
 
 
+## 任务占用或事务待恢复时拒绝替换；有脏草稿时暂存操作，待用户保存或放弃后继续。
+## [br]
+## @api private
 func _request_replace(action: Callable) -> void:
 	if not _has_active_context():
 		return
@@ -369,6 +554,9 @@ func _request_replace(action: Callable) -> void:
 		action.call()
 
 
+## 收集新任务的来源和输出建议；确认仅创建独立草稿，旧上下文对话框不能写回。
+## [br]
+## @api private
 func _show_new_dialog() -> void:
 	var generation: int = _context_generation
 	var dialog: ConfirmationDialog = ConfirmationDialog.new()
@@ -391,6 +579,9 @@ func _show_new_dialog() -> void:
 	dialog.popup_centered(Vector2i(520, 220))
 
 
+## 明确确认后创建样例文件；把待恢复事务交给会话保留，只有成功创建才加载样例 Profile。
+## [br]
+## @api private
 func _show_sample_dialog() -> void:
 	var generation: int = _context_generation
 	var dialog: ConfirmationDialog = ConfirmationDialog.new()
@@ -414,6 +605,9 @@ func _show_sample_dialog() -> void:
 	dialog.popup_centered(Vector2i(540, 150))
 
 
+## 创建带说明标签的文本输入框；只设置初值，具体草稿写回规则由调用方连接。
+## [br]
+## @api private
 func _line(parent: Node, placeholder: String, initial: String) -> LineEdit:
 	var label: Label = Label.new()
 	label.text = placeholder
@@ -425,6 +619,9 @@ func _line(parent: Node, placeholder: String, initial: String) -> LineEdit:
 	return field
 
 
+## 通过会话采用独立草稿并重建表单；从编辑器恢复目录加载的草稿仍标为待保存。
+## [br]
+## @api private
 func _load_profile(path: String) -> void:
 	if not _has_active_context():
 		return
@@ -437,6 +634,9 @@ func _load_profile(path: String) -> void:
 		_report.text = JSON.stringify(_session.get_state()["result"], "\t")
 
 
+## 已有项目路径直接保存；未命名或来自编辑器恢复目录的草稿必须先选择项目内新路径。
+## [br]
+## @api private
 func _save_profile() -> void:
 	if not _has_active_context():
 		return
@@ -448,6 +648,9 @@ func _save_profile() -> void:
 		_save_to(path)
 
 
+## 展示真实保存报告后消费一次续接操作；失败也清空续接槽位，避免以后误执行旧意图。
+## [br]
+## @api private
 func _save_to(path: String) -> void:
 	if not _has_active_context():
 		return
@@ -460,6 +663,9 @@ func _save_to(path: String) -> void:
 		action.call()
 
 
+## 作废旧预览与表单并绑定当前草稿；不重新加载磁盘，也不把重建界面视为保存。
+## [br]
+## @api private
 func _refresh_profile() -> void:
 	_cancel_preview()
 	_sources.clear()
@@ -482,6 +688,9 @@ func _refresh_profile() -> void:
 	_refresh_status()
 
 
+## 切换当前来源并使旧预览失效；外部选中的 Schema 复制后才归入草稿，旧来源控件先移除。
+## [br]
+## @api private
 func _select_source(index: int) -> void:
 	var generation: int = _context_generation
 	_cancel_preview()
@@ -534,6 +743,9 @@ func _select_source(index: int) -> void:
 	_schema_form.configure(_session.get_profile(), source)
 
 
+## 按资源属性元数据创建草稿编辑器；仍属于本代页面的控件才可写回并标记结果过期。
+## [br]
+## @api private
 func _bind_property(parent: Node, resource: Resource, property_name: String) -> void:
 	var generation: int = _context_generation
 	for property_info: Dictionary in resource.get_property_list():
@@ -551,6 +763,9 @@ func _bind_property(parent: Node, resource: Resource, property_name: String) -> 
 			return
 
 
+## 有效编辑使草稿变脏、旧执行结果过期，并撤销在途预览的发布资格。
+## [br]
+## @api private
 func _changed() -> void:
 	if not _has_active_context():
 		return
@@ -560,6 +775,9 @@ func _changed() -> void:
 	_refresh_status()
 
 
+## 从当前草稿重新解析选中位置；草稿缺失或索引失效时返回 null，不保留已删除来源。
+## [br]
+## @api private
 func _current_source() -> GFConfigPipelineTableSource:
 	var profile: GFConfigPipelineProfile = _session.get_profile()
 	if profile == null or _selected_source < 0 or _selected_source >= profile.sources.size():
@@ -567,6 +785,9 @@ func _current_source() -> GFConfigPipelineTableSource:
 	return profile.sources[_selected_source]
 
 
+## 文件选择成功后从预设创建新来源并追加到草稿；仅刷新编辑状态，不读取表内容或保存 Profile。
+## [br]
+## @api private
 func _add_source() -> void:
 	var profile: GFConfigPipelineProfile = _session.get_profile()
 	if profile == null:
@@ -580,6 +801,9 @@ func _add_source() -> void:
 	)
 
 
+## 在有效上下文中删除当前草稿来源，重建表单并取消旧预览；不删除来源文件。
+## [br]
+## @api private
 func _remove_source() -> void:
 	var profile: GFConfigPipelineProfile = _session.get_profile()
 	if _has_active_context() and profile != null and _selected_source >= 0 and _selected_source < profile.sources.size():
@@ -588,6 +812,9 @@ func _remove_source() -> void:
 		_refresh_profile()
 
 
+## 先做来源准入和纯值检查，再以新代次提交独立 worker；同一页面未回收旧任务前不启动新预览。
+## [br]
+## @api private
 func _start_preview() -> void:
 	if not _has_active_context() or _task != null or _busy:
 		return
@@ -617,6 +844,10 @@ func _start_preview() -> void:
 	_refresh_status()
 
 
+## 立即递增代次并撤销预览收据，只向 worker 请求协作取消；任务仍保留到轮询或卸载路径等待回收。
+## 取消预检会解除执行意图，但不能据此认为解析线程已经退出。
+## [br]
+## @api private
 func _cancel_preview() -> void:
 	_generation += 1
 	_preview_receipt.clear()
@@ -629,6 +860,9 @@ func _cancel_preview() -> void:
 		_cancel_button.disabled = true
 
 
+## 仅展示成功且读取收据仍匹配磁盘的结果；收据复制留作后续新鲜度检查，列数及单元格文本有展示上限。
+## [br]
+## @api private
 func _show_preview(result: Dictionary) -> void:
 	_preview.clear()
 	_preview_receipt.clear()
@@ -654,12 +888,18 @@ func _show_preview(result: Dictionary) -> void:
 	_preview_status.text = "共 %d 行；显示前 100 行 / 32 列。Sheet: %s；读取 %.1f ms，解析 %.1f ms。" % [GFVariantData.get_option_int(result, "record_count"), GFVariantData.get_option_string(result, "sheet_name", "不适用"), GFVariantData.get_option_float(result, "read_msec"), GFVariantData.get_option_float(result, "layout_msec")]
 
 
+## 当前收据不再匹配磁盘时撤销它并标记旧预览过期；不会自动重读来源或清除已显示行。
+## [br]
+## @api private
 func _refresh_preview_freshness() -> void:
 	if not _preview_receipt.is_empty() and not _receipt_matches_disk(_preview_receipt):
 		_preview_receipt.clear()
 		_preview_status.text = "来源已变化；当前显示的预览已过期，请重新读取。"
 
 
+## 有界读取收据指向的当前文件并比较长度与 SHA-256；这是当次内容复核，不锁住后续文件写入。
+## [br]
+## @api private
 func _receipt_matches_disk(receipt: Dictionary) -> bool:
 	var path: String = GFVariantData.get_option_string(receipt, "source_path")
 	var expected_size: int = GFVariantData.get_option_int(receipt, "size_bytes", -1)
@@ -678,6 +918,9 @@ func _receipt_matches_disk(receipt: Dictionary) -> bool:
 	return hashing.finish().hex_encode() == GFVariantData.get_option_string(receipt, "sha256")
 
 
+## 递归限制解析选项的类型、容器长度和嵌套深度，拒绝 Resource、Callable 等对象进入后台请求。
+## [br]
+## @api private
 func _is_pure_value(value: Variant, depth: int) -> bool:
 	if depth > 12:
 		return false
@@ -700,6 +943,9 @@ func _is_pure_value(value: Variant, depth: int) -> bool:
 	return typeof(value) in [TYPE_NIL, TYPE_BOOL, TYPE_INT, TYPE_FLOAT, TYPE_STRING, TYPE_STRING_NAME, TYPE_PACKED_STRING_ARRAY]
 
 
+## 冻结本次执行开关；脏草稿先显式保存，只有保存成功才续接后台预检。
+## [br]
+## @api private
 func _request_run(operation: String, dry_run: bool) -> void:
 	if not _has_active_context():
 		return
@@ -717,6 +963,9 @@ func _request_run(operation: String, dry_run: bool) -> void:
 		_run_saved()
 
 
+## 通过准入后为全部来源创建纯值预检请求；后台只核算输入和单元格预算，实际导出稍后在主线程执行。
+## [br]
+## @api private
 func _run_saved() -> void:
 	if not _has_active_context():
 		return
@@ -749,6 +998,9 @@ func _run_saved() -> void:
 	_refresh_status()
 
 
+## 对成功预检的每个来源收据重新核对磁盘；任何变化都停止本次执行，全部匹配才进入同步 Command。
+## [br]
+## @api private
 func _finish_run_preflight(preflight: Dictionary) -> void:
 	if not _has_active_context():
 		return
@@ -764,6 +1016,9 @@ func _finish_run_preflight(preflight: Dictionary) -> void:
 	_execute_saved()
 
 
+## 在页面交互禁用期间同步执行已保存任务并展示结果；此阶段不通过预览取消按钮中断文件事务。
+## [br]
+## @api private
 func _execute_saved() -> void:
 	if not _has_active_context():
 		return
@@ -776,6 +1031,9 @@ func _execute_saved() -> void:
 	_refresh_status()
 
 
+## 展示原报告的问题位置与产物状态；Command 因严格质量失败而 runner 成功时明确提示文件操作已完成。
+## [br]
+## @api private
 func _show_result(result: Dictionary) -> void:
 	_issues.clear()
 	_artifacts.clear()
@@ -802,6 +1060,9 @@ func _show_result(result: Dictionary) -> void:
 		_report.text = "文件操作已完成；严格质量检查未通过。\n" + _report.text
 
 
+## 仅从会话仍标为新鲜且成功的数据库结果复制当前表 Schema；副本写入草稿后再次使结果过期。
+## [br]
+## @api private
 func _copy_schema() -> void:
 	if not _has_active_context():
 		return
@@ -820,6 +1081,9 @@ func _copy_schema() -> void:
 		_schema_form.configure(_session.get_profile(), source)
 
 
+## 为已保存 Profile 复制 PowerShell 单引号参数命令；采用最近操作和当前复选框，不执行命令或保存草稿。
+## [br]
+## @api private
 func _copy_cli() -> void:
 	if GFVariantData.get_option_string(_session.get_state(), "profile_path").is_empty():
 		_status.text = "先保存 Profile，再复制可执行 CLI。"
@@ -835,6 +1099,9 @@ func _copy_cli() -> void:
 	_status.text = "已复制已保存 Profile 的 CLI（PowerShell 单引号参数）。"
 
 
+## 为资源格式数据库生成并复制读取示例；JSON 交换产物只提示项目自行适配，不给出不适用的资源加载代码。
+## [br]
+## @api private
 func _show_read_example() -> void:
 	var profile: GFConfigPipelineProfile = _session.get_profile()
 	if profile != null:
@@ -846,6 +1113,9 @@ func _show_read_example() -> void:
 		_status.text = "读取示例已复制；把脚本附到 Label，导出配置后运行。"
 
 
+## 将已选择的项目 Profile 路径显式保存为默认；设置保存失败时恢复内存中的旧值。
+## [br]
+## @api private
 func _set_default() -> void:
 	if not _has_active_context():
 		return
@@ -861,6 +1131,9 @@ func _set_default() -> void:
 	_status.text = "项目默认 Profile 已保存。" if result == OK else error_string(result)
 
 
+## 先展示预设管理字段的差异，确认后只更新当前草稿；同代有效对话框才可写回，不自动保存。
+## [br]
+## @api private
 func _show_preset_dialog() -> void:
 	var generation: int = _context_generation
 	var profile: GFConfigPipelineProfile = _session.get_profile()
@@ -884,6 +1157,9 @@ func _show_preset_dialog() -> void:
 	dialog.popup_centered(Vector2i(640, 340))
 
 
+## 用问题 metadata 导航到项目来源文件；行列只显示真实报告值，不伪造编辑器跳转位置。
+## [br]
+## @api private
 func _open_issue() -> void:
 	var selected: TreeItem = _issues.get_selected()
 	if selected == null or not Engine.is_editor_hint():
@@ -895,12 +1171,18 @@ func _open_issue() -> void:
 		_status.text = "已定位文件；真实位置：%s 行 / %s 列。" % [str(issue.get("line", "未知")), str(issue.get("column", "未知"))]
 
 
+## 将产物条目的项目路径交给原生文件系统导航；非项目路径不在此入口打开。
+## [br]
+## @api private
 func _open_artifact(index: int) -> void:
 	var path: String = GFVariantData.to_text(_artifacts.get_item_metadata(index))
 	if Engine.is_editor_hint() and path.begins_with("res://"):
 		EditorInterface.get_file_system_dock().navigate_to_path(path)
 
 
+## 分别呈现草稿脏状态、结果过期和恢复要求；执行按钮还必须等待后台任务回收后才开放。
+## [br]
+## @api private
 func _refresh_status() -> void:
 	var state: Dictionary = _session.get_state()
 	var dirty: bool = GFVariantData.get_option_bool(state, "dirty")
@@ -914,6 +1196,9 @@ func _refresh_status() -> void:
 		_run_buttons[index].disabled = not _has_active_context() or _session.get_profile() == null or _busy or _task != null or recovering
 
 
+## 先解除子控件的页面树归属再排队释放，使已捕获资源的旧回调立即失去写入资格。
+## [br]
+## @api private
 func _clear(container: Node) -> void:
 	for child: Node in container.get_children():
 		container.remove_child(child)

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileTransformBodyAdapter2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_transform_body_adapter_2d.gd" module="extensions/combat" extends="GFProjectileBodyAdapter2D" classDigest="aa03e30d3027645278f40c065e32231e642f0ae93d56545ad79d5e93e695035a">
+<class name="GFProjectileTransformBodyAdapter2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_transform_body_adapter_2d.gd" module="extensions/combat" extends="GFProjectileBodyAdapter2D" classDigest="0b9b1e3b1f63381971e0600c5f46e139ab288c63aaf04eccd96ad8a33f252a4e">
 	<description>GFProjectileTransformBodyAdapter2D: 直接应用 Node2D 变换的 body adapter。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -10,6 +10,50 @@
 	<enums />
 	<constants />
 	<properties />
-	<methods />
+	<methods>
+		<member kind="method" name="_validate_root">
+			<signature>func _validate_root(root: Node) -&gt; Error:</signature>
+			<description>接纳仍存活且未排队删除的普通 Node2D，并排除需要物理运动协议的 PhysicsBody2D。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">root: 待直接修改全局位置的根节点；此处不检查是否已进入场景树。</tag>
+				<tag name="return">可直接驱动时为 OK；无效节点为 ERR_INVALID_PARAMETER，PhysicsBody2D 为 ERR_UNAVAILABLE。</tag>
+				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_capture_body">
+			<signature>func _capture_body(root: Node) -&gt; GFProjectileBodyResult2D:</signature>
+			<description>重新校验普通 Node2D 后捕获全局变换，不修改节点位置。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">root: 要捕获快照的非物理发射体根节点。</tag>
+				<tag name="return">变换有限时为全局变换与零位移的成功结果；root 不支持时失败原因为 unsupported_body，变换非有限时为 non_finite_body_result。</tag>
+				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_apply_intent">
+			<signature>func _apply_intent( root: Node, intent: GFProjectileMotionIntent2D ) -&gt; GFProjectileBodyResult2D:</signature>
+			<description>按 MOVE 的速度乘以时长直接写入 Node2D.global_position，不执行碰撞移动。
+写入前检查位移与目标位置是否有限；其他有效 intent 种类保持位置不变。
+结果工厂若因最终变换或实际位置差非有限而失败，不撤销已经写入的位置。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">root: 可由本适配器直接移动的非物理根节点。</tag>
+				<tag name="param">intent: 本帧 intent；空值或 REJECTED 会在写入前失败，并尽量保留 intent 的失败原因。</tag>
+				<tag name="return">成功时为操作后的变换与实际位置差；root、intent 或目标位移非法时失败，最终变换或实际位置差非有限时返回 non_finite_body_result。</tag>
+				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_stop">
+			<signature>func _stop(root: Node) -&gt; GFProjectileBodyResult2D:</signature>
+			<description>读取普通 Node2D 的当前变换并构造静止快照；本适配器不持有持续速度，因此无需写入节点。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">root: 要结束直接位移驱动的非物理根节点。</tag>
+				<tag name="return">变换有限时为当前全局变换与零位移的成功结果；root 不支持时失败原因为 unsupported_body，变换非有限时为 non_finite_body_result。</tag>
+				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+	</methods>
 	<innerClasses />
 </class>

@@ -152,10 +152,10 @@ addons/gf/kernel <- addons/gf/standard <- addons/gf/extensions
 - 修改或新增 `addons/gf/**/*.gd` 中的 `public` / `protected` API 注释、签名或声明后，运行 `python tools\gf_maintenance.py api-since-touched --json`，确认当前 diff 触及的 API 文档块都有成员级 `@since`。该检查只约束当前改动和未跟踪新增文件，不用于一次性清算未触碰的历史迁移债务。
 - 新增公开 API 或生成 API Reference 后，运行 `python tools\gf_maintenance.py public-api-boundary --json`，确认内部规划路线名没有被固化成公开 `class_name`、Catalog 模块或生成参考入口。
 - 大规模公开 API 变更、返回类型变化、删除或移动公开类后，运行 `python tools\gf_maintenance.py api-baseline-diff --json`。该检查比较当前生成 API Catalog 与上一个 SemVer tag，列出新增类、移除类、成员新增/移除、签名、`@schema` 与继承变化，并分别输出 `compatible_*_changes` 与 `breaking_*_changes`；只有能证明保留全部既有合法调用的参数放宽、等价类型放宽或新增尾部可选参数，才能归入兼容签名变化。已有 free-text `@schema` 的任何文本变化，包括追加、改写、重排或删除，都无法由当前基线工具机器证明兼容，必须 fail-closed 归入 `breaking_schema_changes`；只有基线中完全没有 schema、当前首次补充 schema 时，才可归入 `compatible_schema_changes`。`release-status` 会复用它，在存在破坏性 API（包括 `breaking_schema_changes`）且目标版本不是 major bump 时失败。
-- 历史文件未完成规范文档注释迁移时，使用普通注释 `# @api_surface_migration partial` 标记；严格规则全部满足后必须移除该标记。
-- 私有声明可使用非空正文和唯一 `## @api private` 记录维护契约，局部实现原因仍用普通 `#`；不机械补全私有 `@since`、`@category` 或全部参数。具体规则以 `API_SURFACE.md` 为准，分批编写流程见 `docs/maintainers/private-doc-comments.md`。
+- 全量源码和 `.gd.txt` 模板必须通过同等注释契约；历史 `# @api_surface_migration partial` 已退役，不得使用文件白名单、欠项 baseline 或迁移标记放行缺失。
+- 所有私有成员声明必须使用非空正文和唯一 `## @api private` 记录维护契约，包括简单 getter、纯转发、classless、多层内部类和静态字段；局部实现原因仍用普通 `#`，不机械补全私有 `@since`、`@category` 或全部参数。原生回调及沿用的继承契约必须由实际基类证明，不能仅凭下划线、方法名或 section 豁免；重要取消、所有权、缓存及重入约束仍须逐项语义审阅。具体规则以 `API_SURFACE.md` 为准，分批编写流程见 `docs/maintainers/private-doc-comments.md`。
 - `tests/gf_core/maintenance/test_api_docs_validation.gd` 要求非私有文档参数和函数签名双向一致；显式 `private` 可只记录需要解释的参数，但名称、重复与相对顺序仍必须正确。不得把公开/内部协作声明降为 private 来规避检查。
-- `tests/gf_core/maintenance/test_api_surface_contract_validation.gd` 固化 API Surface Contract 的正反例，后续迁移 `addons/gf` 时应扩展扫描范围或引入 baseline。
+- `tests/gf_core/maintenance/test_api_surface_contract_validation.gd` 固化 API Surface Contract 的正反例，与参数同步和布局测试持续扫描全量 `addons/gf/**/*.gd` 与 `.gd.txt`；模板经受控实例化后复用同一契约，不得用独立的宽松模板规则替代。新增成员种类、模板形态或继承豁免时必须添加能证明漏检被拒绝的回归测试。
 - 对应文档页面。
 - `docs/zh/changelog.md` 的 `API Changes` 与 `Migration Guide`。
 

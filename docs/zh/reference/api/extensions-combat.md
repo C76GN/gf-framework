@@ -8,7 +8,7 @@
 |---|---:|---:|---:|
 | [运行时服务](#category-runtime_service) | 2 | 17 | 16 |
 | [协议与扩展点](#category-protocol) | 11 | 118 | 72 |
-| [资源定义](#category-resource_definition) | 22 | 151 | 46 |
+| [资源定义](#category-resource_definition) | 22 | 175 | 70 |
 | [运行时句柄](#category-runtime_handle) | 18 | 257 | 116 |
 | [值对象](#category-value_object) | 14 | 133 | 96 |
 | [事件契约](#category-event_contract) | 4 | 8 | 0 |

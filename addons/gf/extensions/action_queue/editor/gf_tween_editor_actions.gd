@@ -6,13 +6,27 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 为新资源构造当前样机对应的独立 move_by 预设步骤。
+## [br]
+## @api private
 const _PRESETS_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor/presets/gf_tween_authoring_presets.gd")
 
 
 # --- 私有变量 ---
 
+## 挂在编辑器根控件下的复用保存对话框；本动作负责在 cleanup 时排队释放。
+## [br]
+## @api private
 var _dialog: EditorFileDialog = null
+
+## 对话框子控件，选定新配置的 2D、UI 或 3D 样机；随对话框一起释放。
+## [br]
+## @api private
 var _kind_picker: OptionButton = null
+
+## 对话框中的保存反馈标签；拒绝目标或保存失败时更新并重新显示对话框。
+## [br]
+## @api private
 var _error_label: Label = null
 
 
@@ -83,6 +97,10 @@ static func make_binding_example(resource_path: String) -> String:
 
 # --- 信号处理函数 ---
 
+## 保存前拒绝非项目路径、非 tres 后缀和已存在文件；保存成功后才扫描并打开新资源。
+## 保存失败时保留对话框供重试；存在性检查不提供与其他文件写入者之间的原子互斥。
+## [br]
+## @api private
 func _on_file_selected(path: String) -> void:
 	if not is_instance_valid(_dialog) or not is_instance_valid(_kind_picker):
 		return

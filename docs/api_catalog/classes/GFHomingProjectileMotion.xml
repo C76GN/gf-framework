@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHomingProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_homing_projectile_motion.gd" module="extensions/combat" extends="GFProjectileMotion" classDigest="b6eb61359a09a1fef19ee49efbfeb58a2d6ae5cea43ffba4cfc7906ed038f21f">
+<class name="GFHomingProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_homing_projectile_motion.gd" module="extensions/combat" extends="GFProjectileMotion" classDigest="73d5a5f1b53aa77ccf217cb8b2436f20beca233d26ac3d0c59b6bbb33e03104d">
 	<description>GFHomingProjectileMotion: 使用 LaunchInput target 的 typed 追踪 intent 策略。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -44,6 +44,59 @@
 			</tags>
 		</member>
 	</properties>
-	<methods />
+	<methods>
+		<member kind="method" name="_create_state_2d">
+			<signature>func _create_state_2d( launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D ) -&gt; GFProjectileMotionState:</signature>
+			<description>捕获二维发射目标的位置与初始方向，为本次 session 建立追踪状态。
+节点目标只保留弱引用；此处记录目标种类，不将无目标直接判为创建失败。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">launch_input: 已冻结的发射输入，提供节点目标或位置目标。</tag>
+				<tag name="param">initial_body: 成功的初始 body 快照，用于计算指向目标的方向。</tag>
+				<tag name="return">本次 session 独占的状态；输入失效、body 失败或配置及目标偏移非有限时返回 null。</tag>
+				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_create_state_3d">
+			<signature>func _create_state_3d( launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D ) -&gt; GFProjectileMotionState:</signature>
+			<description>捕获三维发射目标的位置与初始方向，为本次 session 建立追踪状态。
+节点目标只保留弱引用；此处记录目标种类，不将无目标直接判为创建失败。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">launch_input: 已冻结的发射输入，提供节点目标或位置目标。</tag>
+				<tag name="param">initial_body: 成功的初始 body 快照，用于计算指向目标的方向。</tag>
+				<tag name="return">本次 session 独占的状态；输入失效、body 失败或配置及目标偏移非有限时返回 null。</tag>
+				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_compute_intent_2d">
+			<signature>func _compute_intent_2d( state: GFProjectileMotionState, current_body: GFProjectileBodyResult2D, delta: float ) -&gt; GFProjectileMotionIntent2D:</signature>
+			<description>根据二维目标与当前 body 计算追踪 intent，只更新状态中的锁定方向，不移动节点。
+追踪开启时重新读取节点位置，目标丢失则拒绝；关闭追踪后目标丢失时，
+已有的非零锁定方向可继续使用，并禁用旧目标位置的到达截短。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">state: 本策略创建的 session 状态；其他状态类型会被拒绝。</tag>
+				<tag name="param">current_body: 成功的当前 body 快照，提供计算距离所需的位置。</tag>
+				<tag name="param">delta: 本帧秒数；有限非正值生成零速度、零时长 intent，非有限值被拒绝。</tag>
+				<tag name="return">按到达设置截短路程后的 MOVE；状态、目标或数值无效时返回带原因的 REJECTED。</tag>
+				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_compute_intent_3d">
+			<signature>func _compute_intent_3d( state: GFProjectileMotionState, current_body: GFProjectileBodyResult3D, delta: float ) -&gt; GFProjectileMotionIntent3D:</signature>
+			<description>根据三维目标与当前 body 计算追踪 intent，只更新状态中的锁定方向，不移动节点。
+追踪开启时重新读取节点位置，目标丢失则拒绝；关闭追踪后目标丢失时，
+已有的非零锁定方向可继续使用，并禁用旧目标位置的到达截短。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">state: 本策略创建的 session 状态；其他状态类型会被拒绝。</tag>
+				<tag name="param">current_body: 成功的当前 body 快照，提供计算距离所需的位置。</tag>
+				<tag name="param">delta: 本帧秒数；有限非正值生成零速度、零时长 intent，非有限值被拒绝。</tag>
+				<tag name="return">按到达设置截短路程后的 MOVE；状态、目标或数值无效时返回带原因的 REJECTED。</tag>
+				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+	</methods>
 	<innerClasses />
 </class>

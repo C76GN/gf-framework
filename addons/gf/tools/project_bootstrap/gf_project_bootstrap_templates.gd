@@ -4,9 +4,24 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 空项目模板族的稳定身份，随 manifest 纳入预览签名以绑定用户确认的产物来源。
+## [br]
+## @api private
 const _TEMPLATE_ID: String = "gf.empty_project"
+
+## 当前固定模板版本；与实际文本一同进入计划签名，不只依赖版本号判断内容是否变化。
+## [br]
+## @api private
 const _TEMPLATE_VERSION: int = 1
+
+## 随工具分发的文本模板目录；生成器不从用户输出目录加载可执行模板。
+## [br]
+## @api private
 const _TEMPLATE_ROOT: String = "res://addons/gf/tools/project_bootstrap/templates/empty_project/"
+
+## 相对产物名到固定文本模板的有序映射；选项只筛选该清单，不接收任意文件名。
+## [br]
+## @api private
 const _FILE_TEMPLATES: Dictionary = {
 	"boot.gd": "boot.gd.txt",
 	"boot.tscn": "boot.tscn.txt",
@@ -95,6 +110,9 @@ static func get_integration_snippet() -> String:
 
 # --- 私有/辅助方法 ---
 
+## 从固定模板根读取文本；缺失或读取为空时让上层拒绝不完整产物，不加载脚本资源。
+## [br]
+## @api private
 static func _read_template(file_name: String) -> String:
 	var path: String = _TEMPLATE_ROOT.path_join(file_name)
 	if not FileAccess.file_exists(path):

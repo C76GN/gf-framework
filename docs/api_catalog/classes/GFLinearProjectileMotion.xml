@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFLinearProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_linear_projectile_motion.gd" module="extensions/combat" extends="GFProjectileMotion" classDigest="37926a11c45fd857feb0ad00c3d47135894ecc49f8521d75a8c42057067ddf38">
+<class name="GFLinearProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_linear_projectile_motion.gd" module="extensions/combat" extends="GFProjectileMotion" classDigest="3d55cd831c1199be9e16e45902e06755180278825bec1449e49e3e244e0f57d3">
 	<description>GFLinearProjectileMotion: 2D/3D 对称的直线 intent 策略。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -51,6 +51,57 @@
 			</tags>
 		</member>
 	</properties>
-	<methods />
+	<methods>
+		<member kind="method" name="_create_state_2d">
+			<signature>func _create_state_2d( _launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D ) -&gt; GFProjectileMotionState:</signature>
+			<description>以初始二维 body 的基向量和当前配置计算并锁定本次 session 的 world-space 速度。
+可选的方向单位化发生在局部方向转换之后；之后修改策略配置不会重算该状态的速度。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_launch_input: 保留基类发射协议参数；直线策略不读取目标或其他发射输入。</tag>
+				<tag name="param">initial_body: 成功的初始 body 快照；开启局部方向时读取其 transform basis。</tag>
+				<tag name="return">保存锁定速度的 session 状态；body 失效或配置、转换后方向及速度非有限时返回 null。</tag>
+				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_create_state_3d">
+			<signature>func _create_state_3d( _launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D ) -&gt; GFProjectileMotionState:</signature>
+			<description>以初始三维 body 的基向量和当前配置计算并锁定本次 session 的 world-space 速度。
+可选的方向单位化发生在局部方向转换之后；之后修改策略配置不会重算该状态的速度。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_launch_input: 保留基类发射协议参数；直线策略不读取目标或其他发射输入。</tag>
+				<tag name="param">initial_body: 成功的初始 body 快照；开启局部方向时读取其 transform basis。</tag>
+				<tag name="return">保存锁定速度的 session 状态；body 失效或配置、转换后方向及速度非有限时返回 null。</tag>
+				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_compute_intent_2d">
+			<signature>func _compute_intent_2d( state: GFProjectileMotionState, _current_body: GFProjectileBodyResult2D, delta: float ) -&gt; GFProjectileMotionIntent2D:</signature>
+			<description>将 session 已锁定的二维速度交给 intent 工厂，保持发射时确定的直线航向。
+不重新读取策略配置，也不修改状态或 body。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">state: 本策略创建的 session 状态；其他状态类型返回 invalid_motion_state。</tag>
+				<tag name="param">_current_body: 保留基类快照参数；本实现不依赖当前位置或朝向。</tag>
+				<tag name="param">delta: 原样传给 intent 工厂的帧秒数，必须非负且有限。</tag>
+				<tag name="return">锁定速度的 MOVE；状态失效或速度、时长及位移乘积非法时返回 REJECTED。</tag>
+				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_compute_intent_3d">
+			<signature>func _compute_intent_3d( state: GFProjectileMotionState, _current_body: GFProjectileBodyResult3D, delta: float ) -&gt; GFProjectileMotionIntent3D:</signature>
+			<description>将 session 已锁定的三维速度交给 intent 工厂，保持发射时确定的直线航向。
+不重新读取策略配置，也不修改状态或 body。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">state: 本策略创建的 session 状态；其他状态类型返回 invalid_motion_state。</tag>
+				<tag name="param">_current_body: 保留基类快照参数；本实现不依赖当前位置或朝向。</tag>
+				<tag name="param">delta: 原样传给 intent 工厂的帧秒数，必须非负且有限。</tag>
+				<tag name="return">锁定速度的 MOVE；状态失效或速度、时长及位移乘积非法时返回 REJECTED。</tag>
+				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+	</methods>
 	<innerClasses />
 </class>

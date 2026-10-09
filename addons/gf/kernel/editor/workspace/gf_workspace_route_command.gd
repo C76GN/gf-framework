@@ -27,6 +27,28 @@ var _source_id: String = ""
 var _paths: PackedStringArray = PackedStringArray()
 
 
+# --- 可重写钩子 / 虚方法 ---
+
+## 通过弱引用取得仍存活的宿主，将贡献来源、选择路径与创建代次交给固定路由入口。
+## 由宿主在打开页面及接收方回调前后校验代次和页面资格；命令自身不持有页面或宿主的强引用。
+## [br]
+## @api protected
+## [br]
+## @since unreleased
+## [br]
+## @return: 宿主失效时为 ERR_UNAVAILABLE；宿主返回整数错误码时原样返回，否则为 ERR_INVALID_DATA。
+func _do_it() -> Error:
+	var host_value: Variant = _host.get_ref() if _host != null else null
+	if not host_value is Object or not is_instance_valid(host_value):
+		return ERR_UNAVAILABLE
+	var host: Object = host_value
+	var result: Variant = host.call("invoke_workspace_record", _source_id, _paths, _generation)
+	if result is int:
+		var error: int = result
+		return error as Error
+	return ERR_INVALID_DATA
+
+
 # --- 框架内部方法 ---
 
 ## 配置不可跨刷新复用的路由命令。
@@ -48,20 +70,3 @@ func configure(host: Object, generation: int, source_id: String, paths: PackedSt
 	_source_id = source_id
 	_paths = paths.duplicate()
 	command_name = "打开工作区任务"
-
-
-# --- 私有/辅助方法 ---
-
-## 将执行交给仍存活的同代宿主。
-## [br]
-## @api private
-func _do_it() -> Error:
-	var host_value: Variant = _host.get_ref() if _host != null else null
-	if not host_value is Object or not is_instance_valid(host_value):
-		return ERR_UNAVAILABLE
-	var host: Object = host_value
-	var result: Variant = host.call("invoke_workspace_record", _source_id, _paths, _generation)
-	if result is int:
-		var error: int = result
-		return error as Error
-	return ERR_INVALID_DATA

@@ -80,9 +80,9 @@ static func connect_owned( source_signal: Signal, owner: Object, callback: Calla
 func get_source_id() -> int:
 ```
 
-返回 Signal 来源对象实例 ID；无有效来源时为 0。
+返回最近一次有效连接尝试记录的来源实例 ID；未记录过来源时为 0。 取消、重复连接或连接失败不会清除此诊断缓存，返回值不能证明来源仍存活或订阅仍活动。
 
-返回：Signal 来源对象实例 ID。
+返回：缓存的 Signal 来源实例 ID，不随取消或来源释放而清零。
 
 <a id="member-gfsignalsubscriptiontoken-methods-get_signal_name"></a>
 
@@ -95,6 +95,6 @@ func get_source_id() -> int:
 func get_signal_name() -> StringName:
 ```
 
-返回 Signal 名称；无有效来源时为空。
+返回最近一次有效连接尝试记录的 Signal 名称；未记录过来源时为空。 此名称与来源 ID 一同保留供诊断，不表示当前仍拥有有效连接。
 
-返回：Signal 名称。
+返回：缓存的 Signal 名称，不随取消或来源释放而清空。

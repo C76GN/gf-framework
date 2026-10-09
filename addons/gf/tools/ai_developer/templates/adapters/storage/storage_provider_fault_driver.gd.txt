@@ -1,33 +1,85 @@
-## Explicit test-only fault injection boundary for Provider conformance.
-##
-## A real Provider factory supplies a driver backed by a sandbox account,
-## emulator, test server, or SDK hook. Production Adapter code must not expose
-## this driver.
+## 仅供 Provider 一致性验收使用的显式故障注入边界。
+## 真实工厂须通过沙箱账号、模拟器、测试服务器或 SDK 钩子实现故障；生产适配器不得暴露此驱动。
+## [br]
+## @api framework_internal
 class_name ProjectStorageProviderFaultDriver
 extends RefCounted
 
 
 # --- 常量 ---
 
+## 请求下一次提交在发布新记录前失败，用于证明旧数据和修订仍完整保留。
+## [br]
+## @api framework_internal
 const FAULT_ATOMIC_COMMIT: StringName = &"atomic_commit"
+
+## 请求读取返回未知错误码，验证适配器映射为稳定错误。
+## [br]
+## @api framework_internal
 const FAULT_UNKNOWN_READ_ERROR: StringName = &"unknown_read_error"
+
+## 请求构造失败状态却使用 OK 错误码的矛盾响应，验证边界拒绝它。
+## [br]
+## @api framework_internal
 const FAULT_FAILED_READ_WITH_OK: StringName = &"failed_read_with_ok"
+
+## 请求返回携带额外 Provider 字段的非法读取结果，验证结构校验与诊断脱敏。
+## [br]
+## @api framework_internal
 const FAULT_MALFORMED_READ_RESULT: StringName = &"malformed_read_result"
+
+## 请求初始化后改变能力声明，验证适配器拒绝漂移并清理候选 Provider。
+## [br]
+## @api framework_internal
 const FAULT_POST_INITIALIZE_CAPABILITY_DRIFT: StringName = (
 	&"post_initialize_capability_drift"
 )
+
+## 读取进入 Provider 原子写方法的累计次数，包括随后失败的尝试。
+## [br]
+## @api framework_internal
 const OBSERVATION_WRITE_ATTEMPTS: StringName = &"write_attempts"
+
+## 读取最近交给 Provider 的读取预算，证明限制已在 Provider 边界传递。
+## [br]
+## @api framework_internal
 const OBSERVATION_LAST_READ_LIMITS: StringName = &"last_read_limits"
+
+## 读取最近的聚合列表预算，证明记录数与整份响应限制均传入 Provider。
+## [br]
+## @api framework_internal
 const OBSERVATION_LAST_LIST_LIMITS: StringName = &"last_list_limits"
+
+## 读取实际关闭已初始化 Provider 的次数，用于证明 shutdown 幂等。
+## [br]
+## @api framework_internal
 const OBSERVATION_SHUTDOWN_COUNT: StringName = &"shutdown_count"
 
 
-# --- 公共方法 ---
+# --- 框架内部方法 ---
 
+## 明确报告此驱动是否能注入指定故障；不能注入时测试不得当作已经覆盖。
+## [br]
+## @api framework_internal
+## [br]
+## @param _fault_id: 固定故障标识。
+## [br]
+## @return 默认 false，真实驱动仅对可执行的故障返回 true。
 func supports_fault(_fault_id: StringName) -> bool:
 	return false
 
 
+## 为配对 Provider 安排指定故障；触发时机由故障类型决定，当前骨架拒绝注入，由真实测试环境实现。
+## [br]
+## @api framework_internal
+## [br]
+## @param _fault_id: 待安排的故障标识。
+## [br]
+## @param _options: 驱动定义的纯值故障参数。
+## [br]
+## @schema _options: Dictionary，当前示例无附加参数；真实驱动应明确允许键及预算。
+## [br]
+## @return 安排成功为 OK，默认 ERR_UNAVAILABLE。
 func arm_fault(
 	_fault_id: StringName,
 	_options: Dictionary = {}
@@ -35,5 +87,14 @@ func arm_fault(
 	return ERR_UNAVAILABLE
 
 
+## 提供受控测试观测值，不暴露 Provider 原始对象或敏感 SDK 诊断。
+## [br]
+## @api framework_internal
+## [br]
+## @param _observation_id: 固定观测标识。
+## [br]
+## @return 对应观测值；未实现或未知标识为 null。
+## [br]
+## @schema return: Variant，write_attempts/shutdown_count 对应 int，last_read_limits/last_list_limits 对应预算 Dictionary；不可用时为 null。
 func get_observation(_observation_id: StringName) -> Variant:
 	return null
