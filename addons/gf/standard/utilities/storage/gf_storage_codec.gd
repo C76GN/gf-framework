@@ -196,10 +196,18 @@ const _METADATA_FIELDS: Array = [
 ## @api public
 @export var obfuscation_key: int = 0
 
-## 解压时允许的最大输出字节数。
+## 解混淆、解压后允许交给解析器的最大明文字节数，默认 64 MiB。
+## 只能设置正数，无效赋值保留原值；该上限不表示 Variant 堆内存或解析耗时上限。
 ## [br]
 ## @api public
-@export var max_decompressed_bytes: int = 64 * 1024 * 1024
+## [br]
+## @since unreleased
+@export var max_decode_bytes: int = 64 * 1024 * 1024:
+	set(value):
+		if value <= 0:
+			push_error("[GFStorageCodec][storage_codec.decode_limit_invalid] max_decode_bytes must be positive.")
+			return
+		max_decode_bytes = value
 
 ## JSON 解码时是否把接近整数的 float 归一为 int。Binary 格式不受影响。
 ## [br]
@@ -221,7 +229,7 @@ const _METADATA_FIELDS: Array = [
 ## [br]
 ## @schema data: Dictionary，要序列化的业务载荷；所有键都会原样保存在独立 payload 中。
 ## [br]
-## @schema options: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、include_metadata、version 和 max_decompressed_bytes。
+## @schema options: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、include_metadata 和 version。
 ## [br]
 ## @return 编码后的 bytes。
 func encode(data: Dictionary, options: Dictionary = {}) -> PackedByteArray:
@@ -259,7 +267,7 @@ func encode(data: Dictionary, options: Dictionary = {}) -> PackedByteArray:
 ## [br]
 ## @return 强类型读取结果；业务载荷与框架元数据保持隔离。
 ## [br]
-## @schema options: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、strict_integrity、normalize_json_numbers、require_integrity_checksum 和 max_decompressed_bytes。
+## @schema options: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、strict_integrity、normalize_json_numbers、require_integrity_checksum 和 max_decode_bytes；字节上限必须是正 int，默认 64 MiB，同时约束解压输出和明文解析。已移除的 max_decompressed_bytes 选项被拒绝，不提供别名。JSON 解码还受 GFVariantJsonCodec 默认遍历预算约束，超限不返回部分载荷。无法区分损坏流与输出预算耗尽的解压失败保守返回 LIMIT_EXCEEDED。
 func decode(bytes: PackedByteArray, options: Dictionary = {}) -> GFStorageReadResult:
 	var active_format: Format = _get_format(options)
 	var should_compress: bool = GFVariantData.get_option_bool(options, "use_compression", use_compression)
@@ -272,24 +280,41 @@ func decode(bytes: PackedByteArray, options: Dictionary = {}) -> GFStorageReadRe
 		"require_integrity_checksum",
 		require_integrity_checksum
 	)
+	var decode_limit: int = _get_positive_decode_limit(options, "max_decode_bytes", max_decode_bytes)
+	if decode_limit <= 0 or options.has("max_decompressed_bytes"):
+		var reason: String = (
+			"max_decompressed_bytes was removed; use max_decode_bytes"
+			if options.has("max_decompressed_bytes")
+			else "max_decode_bytes must be a positive integer"
+		)
+		return _make_failure(
+			reason, ERR_INVALID_PARAMETER,
+			{}, GFStorageReadResult.IntegrityStatus.NOT_CHECKED, 0,
+			GFStorageReadResult.FailureKind.INVALID_REQUEST
+		)
 	var payload_bytes: PackedByteArray = _decode_obfuscation(bytes, key)
 	if payload_bytes.is_empty():
 		return _make_failure("Payload is empty", ERR_FILE_CORRUPT)
 
 	if should_compress:
 		payload_bytes = payload_bytes.decompress_dynamic(
-			GFVariantData.get_option_int(options, "max_decompressed_bytes", max_decompressed_bytes),
+			decode_limit,
 			_COMPRESSION_MODE
 		)
 		if payload_bytes.is_empty() and not bytes.is_empty():
-			return _make_failure("Decompression failed", ERR_FILE_CORRUPT)
+			return _make_limit_failure("Decompression failed or exceeded the decode byte limit")
+	if payload_bytes.size() > decode_limit:
+		return _make_limit_failure("Decoded plaintext exceeds max_decode_bytes")
 
 	var deserialize_result: Dictionary = _try_deserialize_dictionary(
 		payload_bytes,
 		active_format,
-		should_normalize_json_numbers
+		should_normalize_json_numbers,
+		decode_limit
 	)
 	if not GFVariantData.get_option_bool(deserialize_result, "ok"):
+		if GFVariantData.get_option_bool(deserialize_result, "limit_exceeded"):
+			return _make_limit_failure("JSON decode traversal exceeded its budget")
 		return _make_failure("Decode failed", ERR_PARSE_ERROR)
 
 	var document: Dictionary = GFVariantData.get_option_dictionary(deserialize_result, "data")
@@ -379,9 +404,11 @@ func serialize_dictionary(data: Dictionary, p_format: Format = Format.JSON) -> P
 	return _serialize_dictionary(data, p_format)
 
 
-## 反序列化字典。
+## 反序列化字典；超过 max_decode_bytes 或 JSON 默认遍历预算时返回空字典。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param bytes: 源 bytes。
 ## [br]
@@ -616,19 +643,23 @@ func _is_json_traversal_limit_marker(value: Variant) -> bool:
 ## @api private
 ## [br]
 func _deserialize_dictionary(bytes: PackedByteArray, p_format: Format) -> Dictionary:
-	var result: Dictionary = _try_deserialize_dictionary(bytes, p_format, normalize_json_numbers)
+	var result: Dictionary = _try_deserialize_dictionary(bytes, p_format, normalize_json_numbers, max_decode_bytes)
 	return GFVariantData.as_dictionary(GFVariantData.get_option_value(result, "data", {}))
 
 
-## 按格式解析 bytes 并尝试恢复 JSON 标记；成功时返回 data，失败时返回空 data。
+## 在 byte_limit 内按格式解析 bytes 并严格恢复 JSON 标记；失败时返回空 data，不交付部分 marker。
+## 字节或 JSON 遍历超限带 limit_exceeded，其他格式失败保留普通 decode failure。
 ## [br]
 ## @api private
 ## [br]
 func _try_deserialize_dictionary(
 	bytes: PackedByteArray,
 	p_format: Format,
-	should_normalize_json_numbers: bool
+	should_normalize_json_numbers: bool,
+	byte_limit: int
 ) -> Dictionary:
+	if bytes.size() > byte_limit:
+		return {"ok": false, "data": {}, "limit_exceeded": true}
 	match p_format:
 		Format.BINARY:
 			var value: Variant = bytes_to_var(bytes)
@@ -638,7 +669,14 @@ func _try_deserialize_dictionary(
 			return { "ok": false, "data": {} }
 		_:
 			var parsed: Variant = JSON.parse_string(bytes.get_string_from_utf8())
-			var restored: Variant = GFVariantJsonCodec.json_compatible_to_variant(parsed)
+			var decoded: Dictionary = GFVariantJsonCodec.json_compatible_to_variant_result(parsed)
+			if not GFVariantData.get_option_bool(decoded, "ok"):
+				var reason: String = GFVariantData.get_option_string(decoded, "error")
+				return {
+					"ok": false, "data": {},
+					"limit_exceeded": reason in ["max_depth", "max_nodes", "max_collection_items"],
+				}
+			var restored: Variant = decoded.get("value")
 			if restored is Dictionary:
 				var data: Dictionary = restored
 				if should_normalize_json_numbers:
@@ -826,6 +864,27 @@ func _make_failure(
 		document_schema_version,
 		failure_kind
 	)
+
+
+## 构造不证明文件损坏的预算拒绝；这类结果不能授权 destructive family reset。
+## [br]
+## @api private
+func _make_limit_failure(message: String) -> GFStorageReadResult:
+	return _make_failure(
+		message, ERR_OUT_OF_MEMORY, {}, GFStorageReadResult.IntegrityStatus.NOT_CHECKED, 0,
+		GFStorageReadResult.FailureKind.LIMIT_EXCEEDED
+	)
+
+
+## 读取正整数解码上限；缺省沿用配置，无效 options 返回零供调用方拒绝请求。
+## [br]
+## @api private
+func _get_positive_decode_limit(options: Dictionary, key: String, fallback: int) -> int:
+	var value: Variant = options.get(key, fallback)
+	if not value is int:
+		return 0
+	var limit: int = value
+	return limit if limit > 0 else 0
 
 
 ## 读取 options.format，并以资源当前格式作为无效值的回退。

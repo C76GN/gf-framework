@@ -528,6 +528,151 @@ func test_compression_and_obfuscation_roundtrip() -> void:
 	assert_eq(GFVariantData.get_option_int(stats, "hp"), 100, "嵌套字典应正确恢复。")
 
 
+func test_decode_plaintext_byte_budget_covers_every_format_transform() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var payload: Dictionary = {"text": "bounded data ".repeat(30)}
+	for active_format: GFStorageCodec.Format in [GFStorageCodec.Format.JSON, GFStorageCodec.Format.BINARY]:
+		var plain_options: Dictionary = {"format": active_format, "obfuscation_key": 0}
+		var plaintext_size: int = codec.encode(payload, plain_options).size()
+		assert_gt(plaintext_size, 1)
+		for compressed: bool in [false, true]:
+			for key: int in [0, 77]:
+				var options: Dictionary = {
+					"format": active_format, "use_compression": compressed,
+					"obfuscation_key": key, "max_decode_bytes": plaintext_size,
+				}
+				var bytes: PackedByteArray = codec.encode(payload, options)
+				var accepted: GFStorageReadResult = codec.decode(bytes, options)
+				assert_true(accepted.ok, "The exact plaintext byte boundary must be accepted.")
+				assert_eq(accepted.payload, payload)
+				options["max_decode_bytes"] = plaintext_size - 1
+				var rejected: GFStorageReadResult = codec.decode(bytes, options)
+				if compressed:
+					assert_engine_error("Method/function failed. Returning: decompressed")
+				assert_false(rejected.ok, "Transformations must not bypass the plaintext byte limit.")
+				assert_true(rejected.payload.is_empty(), "A limit failure must never return partial data.")
+				assert_eq(rejected.failure_kind, GFStorageReadResult.FailureKind.LIMIT_EXCEEDED)
+				assert_ne(rejected.error_code, OK)
+
+
+func test_decode_byte_budget_rejects_unbounded_or_invalid_options() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var bytes: PackedByteArray = codec.encode({"value": 1})
+	for invalid_limit: Variant in [0, -1, 10.5, "100"]:
+		var result: GFStorageReadResult = codec.decode(bytes, {"max_decode_bytes": invalid_limit})
+		assert_false(result.ok)
+		assert_eq(result.failure_kind, GFStorageReadResult.FailureKind.INVALID_REQUEST)
+		assert_eq(result.error_code, ERR_INVALID_PARAMETER)
+	var compressed: PackedByteArray = codec.encode({"value": 1}, {"use_compression": true})
+	var invalid_decompression: GFStorageReadResult = codec.decode(compressed, {
+		"use_compression": true, "max_decompressed_bytes": 0,
+	})
+	assert_false(invalid_decompression.ok)
+	assert_eq(invalid_decompression.failure_kind, GFStorageReadResult.FailureKind.INVALID_REQUEST)
+	var removed_positive_limit: GFStorageReadResult = codec.decode(compressed, {
+		"use_compression": true, "max_decompressed_bytes": 128 * 1024 * 1024,
+	})
+	assert_false(removed_positive_limit.ok, "Removed options must be rejected rather than silently ignored.")
+	assert_eq(removed_positive_limit.failure_kind, GFStorageReadResult.FailureKind.INVALID_REQUEST)
+
+
+func test_json_decode_budget_rejects_entire_document_instead_of_restoring_markers() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var parsed: Variant = JSON.parse_string(codec.encode({"value": 1}).get_string_from_utf8())
+	assert_true(parsed is Dictionary)
+	if not parsed is Dictionary:
+		return
+	var document: Dictionary = parsed
+	document[GFStorageCodec.PAYLOAD_KEY] = _make_nested_dictionary(70, "leaf")
+	var rejected: GFStorageReadResult = codec.decode(JSON.stringify(document).to_utf8_buffer())
+	assert_false(rejected.ok, "An incomplete traversal must not become a successful marker payload.")
+	assert_true(rejected.payload.is_empty())
+	assert_eq(rejected.failure_kind, GFStorageReadResult.FailureKind.LIMIT_EXCEEDED)
+
+
+func test_decode_limits_have_finite_defaults_and_reject_invalid_configuration() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	assert_eq(codec.max_decode_bytes, 64 * 1024 * 1024)
+	codec.max_decode_bytes = 0
+	assert_push_error("[GFStorageCodec][storage_codec.decode_limit_invalid] max_decode_bytes must be positive.")
+	assert_eq(codec.max_decode_bytes, 64 * 1024 * 1024)
+	codec.max_decode_bytes = -1
+	assert_push_error("[GFStorageCodec][storage_codec.decode_limit_invalid] max_decode_bytes must be positive.")
+	assert_eq(codec.max_decode_bytes, 64 * 1024 * 1024)
+	codec.max_decode_bytes = 128 * 1024 * 1024
+	assert_eq(codec.max_decode_bytes, 128 * 1024 * 1024)
+
+
+func test_compressed_failure_is_not_evidence_of_corruption() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var invalid_stream: PackedByteArray = "not a deflate stream".to_utf8_buffer()
+	var rejected: GFStorageReadResult = codec.decode(invalid_stream, {"use_compression": true})
+	assert_engine_error("Method/function failed. Returning: decompressed")
+	assert_engine_error("incorrect header check")
+	assert_false(rejected.ok)
+	assert_eq(rejected.failure_kind, GFStorageReadResult.FailureKind.LIMIT_EXCEEDED)
+	assert_true(rejected.payload.is_empty())
+
+
+func test_json_node_and_collection_decode_limits_do_not_deliver_partial_data() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var parsed: Variant = JSON.parse_string(codec.encode({}).get_string_from_utf8())
+	if not parsed is Dictionary:
+		fail_test("The fixture must be a storage document.")
+		return
+	var document: Dictionary = parsed
+	var wide_array: Array[int] = []
+	assert_eq(wide_array.resize(16_385), OK)
+	document[GFStorageCodec.PAYLOAD_KEY] = {"values": wide_array}
+	var wide_result: GFStorageReadResult = codec.decode(JSON.stringify(document).to_utf8_buffer())
+	assert_eq(wide_result.failure_kind, GFStorageReadResult.FailureKind.LIMIT_EXCEEDED)
+	assert_true(wide_result.payload.is_empty())
+	var packed: PackedInt32Array = PackedInt32Array()
+	assert_eq(packed.resize(65_537), OK)
+	var packed_document: Variant = GFVariantJsonCodec.variant_to_json_compatible(
+		{GFStorageCodec.PAYLOAD_KEY: {"values": packed}},
+		{"max_collection_items": 100_000}
+	)
+	if not packed_document is Dictionary:
+		fail_test("The packed fixture must be a Dictionary.")
+		return
+	var encoded: Dictionary = packed_document
+	document[GFStorageCodec.PAYLOAD_KEY] = encoded[GFStorageCodec.PAYLOAD_KEY]
+	var packed_result: GFStorageReadResult = codec.decode(JSON.stringify(document).to_utf8_buffer())
+	assert_eq(packed_result.failure_kind, GFStorageReadResult.FailureKind.LIMIT_EXCEEDED)
+	assert_true(packed_result.payload.is_empty())
+
+
+func test_malformed_typed_json_data_remains_corrupt_instead_of_a_budget_failure() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var parsed: Variant = JSON.parse_string(codec.encode({"point": Vector2(1, 2)}).get_string_from_utf8())
+	if not parsed is Dictionary:
+		fail_test("The fixture must be a storage document.")
+		return
+	var document: Dictionary = parsed
+	var payload: Dictionary = GFVariantData.get_option_dictionary(document, GFStorageCodec.PAYLOAD_KEY)
+	var encoded_point: Dictionary = GFVariantData.get_option_dictionary(payload, "point")
+	var marker: Dictionary = GFVariantData.get_option_dictionary(encoded_point, GFVariantJsonCodec.JSON_MARKER_KEY)
+	marker[GFVariantJsonCodec.JSON_TYPE_KEY] = "UnsupportedType"
+	encoded_point[GFVariantJsonCodec.JSON_MARKER_KEY] = marker
+	payload["point"] = encoded_point
+	document[GFStorageCodec.PAYLOAD_KEY] = payload
+	var rejected: GFStorageReadResult = codec.decode(JSON.stringify(document).to_utf8_buffer())
+	assert_false(rejected.ok)
+	assert_eq(rejected.failure_kind, GFStorageReadResult.FailureKind.CORRUPT)
+	assert_true(rejected.payload.is_empty())
+
+
+func test_raw_dictionary_deserialization_obeys_plaintext_byte_limit() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	for active_format: GFStorageCodec.Format in [GFStorageCodec.Format.JSON, GFStorageCodec.Format.BINARY]:
+		var bytes: PackedByteArray = codec.serialize_dictionary({"value": "bounded"}, active_format)
+		codec.max_decode_bytes = bytes.size() - 1
+		assert_true(codec.deserialize_dictionary(bytes, active_format).is_empty())
+		codec.max_decode_bytes = bytes.size()
+		assert_eq(codec.deserialize_dictionary(bytes, active_format), {"value": "bounded"})
+
+
 # --- 私有/辅助方法 ---
 
 func _make_nested_dictionary(depth: int, leaf_value: Variant) -> Dictionary:

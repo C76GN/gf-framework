@@ -321,6 +321,19 @@ var save_dir_name: String = "saves":
 ## @api public
 var codec: GFStorageCodec = GFStorageCodec.new()
 
+## 数据 payload 文件读取前允许的最大物理字节数，默认 64 MiB；混淆后的 Base64 字节也计入。
+## 只能设置正数，无效赋值保留原值。异步请求在入队时捕获该值；不限制 ResourceLoader 或内部 ownership/事务记录。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var max_read_bytes: int = 64 * 1024 * 1024:
+	set(value):
+		if value <= 0:
+			push_error("[GFStorageUtility][storage_utility.read_limit_invalid] max_read_bytes must be positive.")
+			return
+		max_read_bytes = value
+
 ## 数据序列化格式。
 ## [br]
 ## @api public
@@ -6059,7 +6072,8 @@ func _should_emit_load_integrity_failed(result: GFStorageReadResult) -> bool:
 	if result == null:
 		return false
 	if (
-		result.error_code == ERR_FILE_NOT_FOUND
+		result.failure_kind == GFStorageReadResult.FailureKind.LIMIT_EXCEEDED
+		or result.error_code == ERR_FILE_NOT_FOUND
 		or result.error_code == ERR_FILE_CANT_OPEN
 		or result.error == "File is empty"
 	):
@@ -9153,6 +9167,19 @@ func _load_data_thread(_file_name: String, path: String, codec_options: Dictiona
 		)
 
 	var expected_length: int = file.get_length()
+	var read_limit: int = GFVariantData.get_option_int(codec_options, "max_read_bytes", 64 * 1024 * 1024)
+	if read_limit <= 0:
+		file.close()
+		return _make_thread_load_failure(
+			"Read byte limit must be positive", ERR_INVALID_PARAMETER,
+			GFStorageReadResult.FailureKind.INVALID_REQUEST
+		)
+	if expected_length > read_limit:
+		file.close()
+		return _make_thread_load_failure(
+			"File exceeds max_read_bytes", ERR_OUT_OF_MEMORY,
+			GFStorageReadResult.FailureKind.LIMIT_EXCEEDED
+		)
 	if expected_length <= 0:
 		file.close()
 		return _make_thread_load_failure(
@@ -10252,6 +10279,14 @@ func _read_json(file_name: String) -> GFStorageReadResult:
 		return last_load_result.duplicate_result()
 
 	var expected_length: int = file.get_length()
+	if expected_length > max_read_bytes:
+		file.close()
+		last_load_result = _make_load_failure(
+			"File exceeds max_read_bytes", ERR_OUT_OF_MEMORY,
+			GFStorageReadResult.FailureKind.LIMIT_EXCEEDED
+		)
+		_bind_read_result_origin(last_load_result, file_name)
+		return last_load_result.duplicate_result()
 	if expected_length <= 0:
 		file.close()
 		last_load_result = _make_load_failure(
@@ -10301,6 +10336,8 @@ func _read_json(file_name: String) -> GFStorageReadResult:
 	_bind_read_result_origin(result, file_name)
 	last_load_result = result.duplicate_result()
 	if not result.ok:
+		if result.failure_kind == GFStorageReadResult.FailureKind.LIMIT_EXCEEDED:
+			return result
 		if _should_emit_load_integrity_failed(result):
 			data_integrity_failed.emit(file_name, result.error)
 		if not result.is_integrity_accepted():
@@ -10324,11 +10361,12 @@ func _get_codec() -> GFStorageCodec:
 	return codec
 
 
-## 从当前公开设置构建 codec 编解码选项字典。
+## 从当前公开设置构建 codec 选项和物理读取预算快照；队列与 worker 不再读取可变 codec 配置。
 ## [br]
 ## @api private
 ## [br]
 func _get_codec_options() -> Dictionary:
+	var active_codec: GFStorageCodec = _get_codec()
 	return {
 		"format": file_format,
 		"use_compression": use_compression,
@@ -10339,6 +10377,8 @@ func _get_codec_options() -> Dictionary:
 		"include_metadata": include_storage_metadata,
 		"version": save_version,
 		"obfuscation_key": encrypt_key,
+		"max_read_bytes": max_read_bytes,
+		"max_decode_bytes": active_codec.max_decode_bytes,
 	}
 
 

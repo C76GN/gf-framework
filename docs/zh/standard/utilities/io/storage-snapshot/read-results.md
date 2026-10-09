@@ -2,7 +2,17 @@
 
 `GFStorageReadResult` 分离 `payload`、框架 `metadata`、`integrity_status`、Godot `error_code`、物理文档版本、数据迁移前后版本和 `migrated`。
 
-`failure_kind` 区分非法请求、不存在、普通 IO、损坏、未来格式、迁移失败和服务不可用。上层恢复政策应根据该分类决定，不能仅凭同一个 `Error` 码把未来格式或迁移失败当成损坏。异步读取完成信号同样传递这个结果；`last_load_result` 只用于诊断最近一次读取，不应替代当前调用返回值。
+`failure_kind` 区分非法请求、不存在、普通 IO、损坏、未来格式、迁移失败、预算超限和服务不可用。上层恢复政策应根据该分类决定，不能仅凭同一个 `Error` 码把未来格式、迁移失败或 `LIMIT_EXCEEDED` 当成损坏。异步读取完成信号同样传递这个结果；`last_load_result` 只用于诊断最近一次读取，不应替代当前调用返回值。
+
+## 读取预算与失败恢复
+
+字典读取默认采用两级有限字节预算：`storage.max_read_bytes` 在分配文件读取 buffer 前检查物理文件长度，`storage.codec.max_decode_bytes` 限制解混淆、解压后交给 JSON/Binary 解析器的明文。两者默认都是 64 MiB，只接受正整数；配置属性的无效赋值会报告错误并保留原值，`decode()` 的无效预算选项会返回 `INVALID_REQUEST`，没有 `0` 表示无限的旁路。物理预算包含 Base64 混淆开销，所以两个字节数可能不同。同步、普通异步和 owned 异步读取共用这些门禁；异步请求入队时捕获预算，随后调整设置不会改变已提交请求。
+
+需要读取更大的受控文件时，明确调整两级预算，例如 `storage.max_read_bytes = 128 * 1024 * 1024` 和 `storage.codec.max_decode_bytes = 128 * 1024 * 1024`。原 `max_decompressed_bytes` 配置已移除，统一改用 `max_decode_bytes`；旧的同名 `decode()` 选项被拒绝，不保留别名。压缩输出也直接受这个统一明文预算限制。`deserialize_dictionary()` 同样使用 codec 的明文预算，失败仍按它的既有返回约定得到空字典。
+
+JSON 恢复还使用 `GFVariantJsonCodec` 的默认遍历预算：深度 64、节点 16,384、累计集合元素 65,536，超限拒绝整个文档。字节或遍历预算失败返回 `GFStorageReadResult.FailureKind.LIMIT_EXCEEDED`，没有部分 payload，也不发出 `data_integrity_failed` 或提供 family reset 授权。Godot 的解压接口不能区分损坏流与输出预算耗尽，因此解压失败也保守归入这一分类；调用方可以提示调整预算或检查文件，但不能据此认定损坏并清除文件。明确的格式、类型标记或完整性错误仍返回 `CORRUPT`。
+
+这些预算限制读取与解析输入，不保证已解码 Variant 的堆内存峰值、解析耗时或迁移回调成本。JSON parser 和 `bytes_to_var()` 仍整体分配；ResourceLoader 与内部 ownership、revision、事务记录使用各自边界，不属于业务 payload 字节预算。owned 交付的纯值类型和累计数据预算也继续独立生效，调大明文上限不会扩大其交付资格。
 
 ## 保留一次结果副本
 

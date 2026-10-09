@@ -978,6 +978,163 @@ func test_owned_defaults_reject_unsafe_values_that_would_enter_the_payload() -> 
 	_migration_cycle.clear()
 
 
+func test_read_limits_are_finite_and_preserve_valid_files_without_reset_authority() -> void:
+	assert_eq(_storage.max_read_bytes, 64 * 1024 * 1024)
+	_storage.max_read_bytes = 0
+	assert_push_error("[GFStorageUtility][storage_utility.read_limit_invalid] max_read_bytes must be positive.")
+	assert_eq(_storage.max_read_bytes, 64 * 1024 * 1024)
+	_storage.max_read_bytes = -1
+	assert_push_error("[GFStorageUtility][storage_utility.read_limit_invalid] max_read_bytes must be positive.")
+	assert_eq(_storage.max_read_bytes, 64 * 1024 * 1024)
+	_storage.max_read_bytes = 128 * 1024 * 1024
+	assert_eq(_storage.max_read_bytes, 128 * 1024 * 1024)
+	var file_name: String = "limits/physical.json"
+	assert_eq(_storage.save_data(file_name, {"value": "preserve"}), OK)
+	var path: String = _storage._get_full_path(file_name)
+	var original: PackedByteArray = FileAccess.get_file_as_bytes(path)
+	assert_gt(original.size(), 1, "The fixture must contain the physical payload bytes.")
+	_storage.max_read_bytes = original.size() - 1
+	var integrity_signals: Array[int] = [0]
+	assert_eq(_storage.data_integrity_failed.connect(func(_name: String, _error: String) -> void:
+		integrity_signals[0] += 1
+	), OK)
+	var rejected: GFStorageReadResult = _storage.load_data(file_name)
+	assert_false(rejected.ok)
+	assert_eq(rejected.failure_kind, GFStorageReadResult.FailureKind.LIMIT_EXCEEDED)
+	assert_eq(rejected.error_code, ERR_OUT_OF_MEMORY)
+	assert_true(rejected.payload.is_empty())
+	assert_eq(GFStorageReadResult.from_dict(rejected.to_dict()).failure_kind, GFStorageReadResult.FailureKind.LIMIT_EXCEEDED)
+	assert_false(_storage.create_family_reset_authorization(file_name, rejected).is_available())
+	assert_eq(FileAccess.get_file_as_bytes(path), original)
+	_storage.max_read_bytes = original.size()
+	assert_eq(_storage.load_data(file_name).payload, {"value": "preserve"})
+	_storage.codec.max_decode_bytes = original.size() - 1
+	var decode_rejected: GFStorageReadResult = _storage.load_data(file_name)
+	assert_eq(decode_rejected.failure_kind, GFStorageReadResult.FailureKind.LIMIT_EXCEEDED)
+	assert_false(_storage.create_family_reset_authorization(file_name, decode_rejected).is_available())
+	assert_eq(FileAccess.get_file_as_bytes(path), original)
+	assert_eq(integrity_signals[0], 0, "Read budgets must not be broadcast as corruption.")
+	_storage.codec.max_decode_bytes = original.size()
+	assert_true(_storage.load_data(file_name).ok)
+
+
+func test_all_async_read_entry_points_share_physical_and_plaintext_limits() -> void:
+	for mode: GFStorageUtility.AsyncExecutionMode in [
+		GFStorageUtility.AsyncExecutionMode.COOPERATIVE,
+		GFStorageUtility.AsyncExecutionMode.THREADED,
+	]:
+		_storage.dispose()
+		_storage = GFStorageUtility.new()
+		_storage.save_dir_name = _save_dir_name
+		_storage.encrypt_key = 0
+		_storage.async_execution_mode = mode
+		_storage.max_async_thread_count = 1
+		var file_name: String = "limits/async.json"
+		var payload: Dictionary = {"value": "bounded"}
+		assert_eq(_storage.save_data(file_name, payload), OK)
+		var byte_count: int = _storage.codec.encode(payload).size()
+		var migration_calls: Array[int] = [0]
+		assert_true(_storage.register_migration(1, 2, func(data: Dictionary, _from: int, _to: int) -> Dictionary:
+			migration_calls[0] += 1
+			return data
+		))
+		_storage.save_version = 2
+		var integrity_signals: Array[int] = [0]
+		assert_eq(_storage.data_integrity_failed.connect(func(_name: String, _error: String) -> void:
+			integrity_signals[0] += 1
+		), OK)
+		for limit_kind: String in ["physical", "plaintext"]:
+			_storage.max_read_bytes = byte_count - 1 if limit_kind == "physical" else byte_count
+			_storage.codec.max_decode_bytes = byte_count - 1 if limit_kind == "plaintext" else byte_count
+			var legacy_results: Array[GFStorageReadResult] = []
+			var legacy_callback: Callable = func(_name: String, result: GFStorageReadResult) -> void:
+				legacy_results.append(result)
+			assert_eq(_storage.load_completed.connect(legacy_callback), OK)
+			assert_eq(_storage.load_data_async(file_name), OK)
+			_storage.wait_for_async_tasks()
+			_storage.load_completed.disconnect(legacy_callback)
+			assert_eq(legacy_results.size(), 1)
+			if legacy_results.size() == 1:
+				assert_eq(legacy_results[0].failure_kind, GFStorageReadResult.FailureKind.LIMIT_EXCEEDED)
+			var request: GFStorageAsyncOperation = _storage.load_data_request_async(file_name)
+			var notifications: Array[int] = [0]
+			assert_eq(request.completed.connect(func(_result: GFStorageAsyncResult) -> void:
+				notifications[0] += 1
+			), OK)
+			_storage.wait_for_async_tasks()
+			assert_eq(notifications[0], 1)
+			assert_true(request.is_completed())
+			var read: GFStorageReadResult = request.get_result().get_read_result()
+			assert_eq(read.failure_kind, GFStorageReadResult.FailureKind.LIMIT_EXCEEDED)
+			assert_false(_storage.create_family_reset_authorization(file_name, read).is_available())
+			var owned: GFStorageOwnedRead = _storage.load_data_owned_request_async(file_name)
+			var owned_notifications: Array[int] = _count_completions(owned)
+			_storage.wait_for_async_tasks()
+			_assert_read_failure(owned, GFStorageReadResult.FailureKind.LIMIT_EXCEEDED)
+			assert_eq(owned_notifications[0], 1)
+			assert_eq(owned.get_result().get_error_code(), ERR_OUT_OF_MEMORY)
+			assert_eq(migration_calls[0], 0, "Read rejection must precede project migration callbacks.")
+			assert_eq(integrity_signals[0], 0)
+		_storage.max_read_bytes = byte_count
+		_storage.codec.max_decode_bytes = byte_count
+		var follower: GFStorageOwnedRead = _storage.load_data_owned_request_async(file_name)
+		_storage.wait_for_async_tasks()
+		var accepted: GFStorageReadResult = _take_success(follower)
+		if accepted != null:
+			assert_eq(accepted.payload, payload)
+		assert_eq(migration_calls[0], 1, "A limit failure must release the family lane for a later valid read.")
+
+
+func test_queued_reads_freeze_each_byte_budget_at_submission() -> void:
+	for mode: GFStorageUtility.AsyncExecutionMode in [
+		GFStorageUtility.AsyncExecutionMode.COOPERATIVE,
+		GFStorageUtility.AsyncExecutionMode.THREADED,
+	]:
+		_storage.dispose()
+		_storage = GFStorageUtility.new()
+		_storage.save_dir_name = _save_dir_name
+		_storage.encrypt_key = 0
+		_storage.async_execution_mode = mode
+		_storage.max_async_thread_count = 1
+		for limit_kind: String in ["physical", "plaintext"]:
+			var file_name: String = "limits/queued.json"
+			assert_eq(_storage.save_data(file_name, {"value": 42}), OK)
+			var byte_count: int = _storage.codec.encode({"value": 42}).size()
+			_storage.max_read_bytes = byte_count
+			_storage.codec.max_decode_bytes = byte_count
+			var first: GFStorageOwnedRead = _storage.load_data_owned_request_async(file_name)
+			if limit_kind == "physical":
+				_storage.max_read_bytes = byte_count - 1
+			else:
+				_storage.codec.max_decode_bytes = byte_count - 1
+			var second: GFStorageOwnedRead = _storage.load_data_owned_request_async(file_name)
+			_storage.max_read_bytes = byte_count
+			_storage.codec.max_decode_bytes = byte_count
+			_storage.wait_for_async_tasks()
+			var accepted: GFStorageReadResult = _take_success(first)
+			if accepted != null:
+				assert_eq(GFVariantData.get_option_int(accepted.payload, "value"), 42)
+			_assert_read_failure(second, GFStorageReadResult.FailureKind.LIMIT_EXCEEDED)
+
+
+func test_compressed_plaintext_limit_cannot_authorize_reset_of_valid_data() -> void:
+	_storage.use_compression = true
+	_storage.encrypt_key = 77
+	var file_name: String = "limits/compressed.json"
+	assert_eq(_storage.save_data(file_name, {"value": "repeated ".repeat(100)}), OK)
+	var path: String = _storage._get_full_path(file_name)
+	var original: PackedByteArray = FileAccess.get_file_as_bytes(path)
+	_storage.max_read_bytes = original.size()
+	_storage.codec.max_decode_bytes = 1
+	var rejected: GFStorageReadResult = _storage.load_data(file_name)
+	assert_engine_error("Method/function failed. Returning: decompressed")
+	assert_eq(rejected.failure_kind, GFStorageReadResult.FailureKind.LIMIT_EXCEEDED)
+	assert_false(_storage.create_family_reset_authorization(file_name, rejected).is_available())
+	assert_eq(FileAccess.get_file_as_bytes(path), original)
+	_storage.codec.max_decode_bytes = 64 * 1024 * 1024
+	assert_true(_storage.load_data(file_name).ok)
+
+
 # --- 私有/辅助方法 ---
 
 func _assert_disk_read_and_legacy_isolation(mode: GFStorageUtility.AsyncExecutionMode) -> void:
