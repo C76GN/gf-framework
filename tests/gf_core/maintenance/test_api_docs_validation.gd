@@ -7,6 +7,21 @@ extends GutTest
 const SOURCE_ROOT: String = "res://addons/gf"
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const CONTRACT_SOURCES = preload("res://tests/gf_core/maintenance/helpers/gf_comment_contract_sources.gd")
+const DIRECTORY_LINK_FIXTURE = preload("res://tests/gf_core/support/gf_test_directory_link_fixture.gd")
+
+
+# --- 私有变量 ---
+
+var _scan_fixture_paths: Array[String] = []
+
+
+# --- 生命周期方法 ---
+
+func after_each() -> void:
+	# 只反向删除本测试创建的精确条目；先 unlink，绝不递归进入链接目标。
+	for index: int in range(_scan_fixture_paths.size() - 1, -1, -1):
+		assert_eq(DirAccess.remove_absolute(_scan_fixture_paths[index]), OK, "扫描夹具应按创建顺序反向清理。")
+	_scan_fixture_paths.clear()
 
 
 # --- 测试用例 ---
@@ -75,7 +90,141 @@ func test_param_scanner_preserves_signature_boundaries_and_annotations() -> void
 	assert_eq(_collect_param_doc_issues_from_source(multiline_annotation, "annotation_fixture.gd.txt"), [], "多行注解不能切断声明绑定的参数文档。")
 
 
+func test_comment_source_scan_includes_hidden_regular_sources() -> void:
+	var root_path: String = _create_scan_fixture_root()
+	var hidden_path: String = _create_scan_fixture_directory(root_path.path_join(".hidden"))
+	_hide_scan_fixture_directory(hidden_path)
+	var script_path: String = hidden_path.path_join("member.gd")
+	var template_path: String = hidden_path.path_join("member.gd.txt")
+	_write_scan_fixture_file(script_path)
+	_write_scan_fixture_file(template_path)
+	_write_scan_fixture_file(hidden_path.path_join("notes.txt"))
+	var issues: Array[String] = []
+	assert_eq(CONTRACT_SOURCES.collect_files(root_path, issues), [script_path, template_path], "普通隐藏目录中的源码和模板仍必须完整纳入。")
+	assert_eq(issues, [], "隐藏属性本身不是扫描错误。")
+
+
+func test_comment_source_scan_rejects_directory_links() -> void:
+	var root_path: String = _create_scan_fixture_root()
+	var outside_path: String = _create_scan_fixture_directory(root_path.path_join("outside"))
+	var leaf_path: String = _create_scan_fixture_directory(outside_path.path_join("leaf"))
+	_write_scan_fixture_file(leaf_path.path_join("escaped.gd"))
+	var link_kinds: Array[bool] = [false]
+	if OS.get_name() == "Windows":
+		link_kinds.append(true)
+	for force_junction: bool in link_kinds:
+		var scan_path: String = _create_scan_fixture_directory(root_path.path_join("scan_%s" % force_junction))
+		var hidden_path: String = _create_scan_fixture_directory(scan_path.path_join(".hidden"))
+		_hide_scan_fixture_directory(hidden_path)
+		var local_path: String = scan_path.path_join("local.gd")
+		_write_scan_fixture_file(local_path)
+		var link_path: String = hidden_path.path_join("linked")
+		if not _create_scan_fixture_directory_link(outside_path, link_path, force_junction):
+			continue
+		var issues: Array[String] = []
+		var paths: Array[String] = CONTRACT_SOURCES.collect_files(scan_path, issues)
+		assert_eq(paths, [local_path], "隐藏祖先下的链接不能把外部声明纳入扫描。")
+		assert_true(_join_lines(issues).contains(link_path), "拒绝链接必须报告具体路径，不能静默忽略。")
+		for linked_root: String in [link_path, link_path.path_join("leaf")]:
+			issues.clear()
+			assert_eq(CONTRACT_SOURCES.collect_files(linked_root, issues), [], "扫描根自身或祖先为链接时必须拒绝。")
+			assert_true(_join_lines(issues).contains(link_path), "祖先链检查必须指出链接边界。")
+
+
+func test_comment_source_scan_rejects_file_links() -> void:
+	var root_path: String = _create_scan_fixture_root()
+	var outside_file: String = root_path.path_join("outside.gd")
+	_write_scan_fixture_file(outside_file)
+	var scan_path: String = _create_scan_fixture_directory(root_path.path_join("scan"))
+	var directory: DirAccess = DirAccess.open(scan_path)
+	assert_not_null(directory)
+	if directory == null:
+		return
+	var link_path: String = scan_path.path_join("linked.gd")
+	var link_error: Error = directory.create_link(outside_file, link_path)
+	if link_error != OK:
+		assert_eq(OS.get_name(), "Windows", "POSIX 必须能创建真实文件符号链接。")
+		assert_eq(link_error, FAILED, "Windows 无建链权限时只接受平台建链失败，不提权或掩盖路径错误。")
+		return
+	_scan_fixture_paths.append(link_path)
+	var issues: Array[String] = []
+	assert_eq(CONTRACT_SOURCES.collect_files(scan_path, issues), [], "源码文件链接不能把外部文件纳入扫描。")
+	assert_true(_join_lines(issues).contains(link_path), "拒绝文件链接必须报告具体路径。")
+
+
+func test_comment_source_scan_rejects_ancestor_cycle_links() -> void:
+	var root_path: String = _create_scan_fixture_root()
+	var hidden_path: String = _create_scan_fixture_directory(root_path.path_join(".hidden"))
+	_hide_scan_fixture_directory(hidden_path)
+	var local_path: String = root_path.path_join("local.gd")
+	_write_scan_fixture_file(local_path)
+	var link_path: String = hidden_path.path_join("back_to_root")
+	if not _create_scan_fixture_directory_link(root_path, link_path, OS.get_name() == "Windows"):
+		return
+	var issues: Array[String] = []
+	assert_eq(CONTRACT_SOURCES.collect_files(root_path, issues), [local_path], "回指祖先的真实链接必须在递归前拒绝，不能展开循环。")
+	assert_eq(issues.size(), 1, "循环链接只报告自身，不重复展开祖先。")
+	assert_true(_join_lines(issues).contains(link_path), "循环错误必须指向被拒绝的链接。")
+
+
 # --- 私有/辅助方法 ---
+
+func _create_scan_fixture_root() -> String:
+	return _create_scan_fixture_directory(ProjectSettings.globalize_path(
+		"user://comment_contract_scan_%d_%d" % [Time.get_ticks_usec(), get_instance_id()]
+	))
+
+
+func _create_scan_fixture_directory(path: String) -> String:
+	var create_error: Error = DirAccess.make_dir_absolute(path)
+	assert_eq(create_error, OK, "扫描夹具必须创建独立目录：%s" % path)
+	if create_error == OK:
+		_scan_fixture_paths.append(path)
+	return path
+
+
+func _write_scan_fixture_file(path: String) -> void:
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	assert_not_null(file, "扫描夹具必须能写入普通文件。")
+	if file != null:
+		assert_true(file.store_string("extends RefCounted\n"), "扫描夹具必须完整写入内容。")
+		file.close()
+		_scan_fixture_paths.append(path)
+
+
+func _hide_scan_fixture_directory(path: String) -> void:
+	if OS.get_name() == "Windows":
+		assert_eq(FileAccess.set_hidden_attribute(path, true), OK, "Windows 夹具必须设置真实隐藏属性。")
+
+
+func _create_scan_fixture_directory_link(target_path: String, link_path: String, force_junction: bool) -> bool:
+	var link_error: Error = FAILED
+	if force_junction:
+		# Windows junction 无需符号链接权限；强制覆盖，不能因 Developer Mode 改成 symlink。
+		for path: String in [target_path, link_path]:
+			for character: String in ["\"", "\r", "\n", "%", "!"]:
+				if path.contains(character):
+					assert_true(false, "junction 夹具路径不得含 cmd 展开字符。")
+					return false
+		var command_output: Array = []
+		var exit_code: int = OS.execute("cmd.exe", PackedStringArray([
+			"/d", "/s", "/c", 'mklink /J "%s" "%s"' % [link_path, target_path],
+		]), command_output, true, false)
+		if exit_code == 0 and DirAccess.dir_exists_absolute(link_path):
+			link_error = OK
+	else:
+		link_error = DIRECTORY_LINK_FIXTURE.create(target_path, link_path)
+	assert_eq(link_error, OK, "必须建立真实目录符号链接或 Windows junction；不得提权或跳过。")
+	if link_error != OK:
+		return false
+	_scan_fixture_paths.append(link_path)
+	var parent_directory: DirAccess = DirAccess.open(link_path.get_base_dir())
+	assert_not_null(parent_directory)
+	if parent_directory == null:
+		return false
+	assert_true(parent_directory.is_link(link_path.get_file()), "当前 Godot 必须把真实 junction/symlink 识别为 link；不满足时门禁失败。")
+	return true
+
 
 func _collect_gdscript_files(root_path: String) -> Array[String]:
 	var issues: Array[String] = []

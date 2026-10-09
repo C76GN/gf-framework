@@ -271,12 +271,32 @@ func test_export_annotations_remain_bound_across_lines() -> void:
 			assert_false(_private_variable_section_is_valid(declaration, "私有变量"), "导出字段仍不能藏到普通私有区。")
 
 
+func test_leading_annotations_preserve_variable_sections() -> void:
+	for path: String in ["annotations.gd", "annotations.gd.txt"]:
+		for annotations: String in ["@warning_ignore(\"unused_private_class_variable\")\n@onready\n", "@warning_ignore(\"unused_private_class_variable\") @onready ", "@onready\n@warning_ignore(\n\t\"unused_private_class_variable\",\n)\n"]:
+			var source: String = "extends Node\n%svar _value: Node = null\nvar _ordinary: int = 0\n" % annotations
+			var lines: PackedStringArray = _structure_lines(CONTRACT_SOURCES.render_source(source, path))
+			var declaration: String = lines[lines.size() - 3]
+			assert_true(_line_starts_private_variable(declaration), "前置注解不能隐藏私有字段。")
+			assert_true(_private_variable_section_is_valid(declaration, "@onready 变量"), "完整注解块决定 onready 分区。")
+			assert_false(_private_variable_section_is_valid(declaration, "私有变量"), "onready 字段不能混入普通私有区。")
+			assert_true(_private_variable_section_is_valid(lines[lines.size() - 2], "私有变量"), "注解不能泄漏到下一声明。")
+		for annotations: String in ["@warning_ignore(\"unused_private_class_variable\")\n@export_range(\n\t0, 10,\n)\n", "@warning_ignore(\"unused_private_class_variable\") @export "]:
+			var lines: PackedStringArray = _structure_lines("extends Resource\n%svar _value: int = 0\n" % annotations)
+			var declaration: String = lines[lines.size() - 2]
+			assert_true(_line_starts_private_variable(declaration))
+			assert_true(_private_variable_section_is_valid(declaration, "导出变量"))
+			assert_false(_private_variable_section_is_valid(declaration, "私有变量"))
+		var literal_lines: PackedStringArray = _structure_lines("extends Node\n@warning_ignore(\"@onready @export\")\nvar _text: String = \"@onready @export\"\n")
+		assert_true(_private_variable_section_is_valid(literal_lines[literal_lines.size() - 2], "私有变量"), "字符串中的伪注解不改变字段分区。")
+
+
 # --- 私有/辅助方法 ---
 
 func _structure_lines(source: String) -> PackedStringArray:
 	var lines: PackedStringArray = source.split("\n")
 	var delimiter: String = ""
-	var pending_export: bool = false
+	var pending_annotations: String = ""
 	for index: int in range(lines.size()):
 		var raw_line: String = _trim_cr(lines[index])
 		var lexical: Dictionary = CONTRACT_SOURCES.lex_line(raw_line, delimiter)
@@ -287,14 +307,54 @@ func _structure_lines(source: String) -> PackedStringArray:
 		else:
 			lines[index] = GF_VARIANT_ACCESS.get_option_string(lexical, "code")
 		var structure: String = lines[index]
-		if structure.begins_with("@export") and not structure.begins_with("@export_category") and not structure.begins_with("@export_group") and not structure.begins_with("@export_subgroup"):
-			pending_export = true
-		if structure.begins_with("var ") and pending_export:
-			# 行号保持原声明位置，分类时携带前置导出注解。
-			lines[index] = "@export " + structure
-		if structure.begins_with("var ") or (structure.begins_with("@") and structure.contains(" var ")) or structure.begins_with("func ") or structure.begins_with("static func "):
-			pending_export = false
+		if structure.strip_edges().is_empty() or structure.strip_edges().begins_with("#"):
+			continue
+		if pending_annotations.is_empty() and not structure.begins_with("@"):
+			continue
+		# 字符串和注释已由词法层屏蔽，前导注解可安全跨行累积。
+		pending_annotations += " " + structure.strip_edges()
+		var normalized: String = _normalize_annotated_declaration(pending_annotations)
+		if normalized.is_empty():
+			continue
+		# 保留实际声明行号，并仅携带会影响变量分区的注解。
+		lines[index] = normalized
+		pending_annotations = ""
 	return lines
+
+
+func _normalize_annotated_declaration(structure: String) -> String:
+	var remaining: String = structure.strip_edges()
+	var is_export: bool = false
+	var is_onready: bool = false
+	while remaining.begins_with("@"):
+		var offset: int = 1
+		while offset < remaining.length() and (remaining[offset].is_valid_identifier() or remaining[offset].is_valid_int()):
+			offset += 1
+		var annotation: String = remaining.substr(1, offset - 1)
+		is_onready = is_onready or annotation == "onready"
+		is_export = is_export or (annotation.begins_with("export") and annotation not in ["export_category", "export_group", "export_subgroup"])
+		remaining = remaining.substr(offset).strip_edges()
+		if remaining.begins_with("("):
+			var depth: int = 0
+			offset = 0
+			while offset < remaining.length():
+				if remaining[offset] == "(":
+					depth += 1
+				elif remaining[offset] == ")":
+					depth -= 1
+				offset += 1
+				if depth == 0:
+					break
+			if depth != 0:
+				return ""
+			remaining = remaining.substr(offset).strip_edges()
+	if remaining.begins_with("var "):
+		if is_onready:
+			return "@onready " + remaining
+		if is_export:
+			return "@export " + remaining
+	return remaining
+
 
 func _collect_gdscript_files(root_path: String) -> Array[String]:
 	var issues: Array[String] = []
@@ -562,10 +622,12 @@ func _parse_top_level_inner_class_name(line: String) -> String:
 func _line_starts_private_variable(line: String) -> bool:
 	if line.begins_with("var _") or line.begins_with("static var _"):
 		return true
-	return line.begins_with("@export") and line.contains(" var _")
+	return (line.begins_with("@export") or line.begins_with("@onready ")) and line.contains(" var _")
 
 
 func _private_variable_section_is_valid(line: String, section_name: String) -> bool:
+	if line.begins_with("@onready "):
+		return section_name.begins_with("@onready 变量")
 	if line.begins_with("@export"):
 		return section_name.begins_with("导出变量")
 	return _section_is_private_variable_section(section_name)
