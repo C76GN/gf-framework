@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "2552c88ec93a6ce3b2bc601c7ff76c90b214f591d3f91f198b6b9a7b8e3a867b",
-  "class_count": 868,
+  "source_digest": "0806cd0e667add39884c08ad14398579a833deb34a86548cac550835c4fd4154",
+  "class_count": 872,
   "autoload_count": 1,
   "package_count": 60,
   "packages": [
@@ -570,7 +570,7 @@
       "dependencies": [
         "gf.kernel"
       ],
-      "representative_path": "addons/gf/tools/project_layout/editor/gf_project_layout_dock.gd"
+      "representative_path": "addons/gf/tools/project_layout/cli/gf_project_layout_cli.gd"
     },
     {
       "id": "gf.tool.scene_groups",
@@ -61271,7 +61271,7 @@
         {
           "kind": "const",
           "name": "EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH",
-          "signature": "const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = \"res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json\"",
+          "signature": "const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = \"res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json\"",
           "summary": "Feature 内聚式示例 profile 路径。",
           "visibility": "public"
         },
@@ -61437,7 +61437,7 @@
         {
           "kind": "const",
           "name": "EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH",
-          "signature": "const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = \"res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json\"",
+          "signature": "const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = \"res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json\"",
           "summary": "Feature 内聚式项目结构示例 profile 路径。",
           "visibility": "public"
         },
@@ -61471,43 +61471,71 @@
         }
       ]
     },
-    "GFProjectLayoutValidator": {
+    "GFProjectLayoutSession": {
       "owner_kind": "class",
       "extends": "RefCounted",
       "module": "tools",
       "package_id": "gf.tool.project_layout",
-      "path": "addons/gf/tools/project_layout/gf_project_layout_validator.gd",
-      "summary": "GFProjectLayoutValidator: 项目结构分析的兼容校验入口。 该类型不再维护独立扫描器或规则表；所有调用都委托给 [GFProjectLayoutAnalyzer]。 新代码应直接使用 Analyzer，以便同时取得解释、影响和只读规划所需的统一分析结果。",
+      "path": "addons/gf/tools/project_layout/gf_project_layout_session.gd",
+      "summary": "GFProjectLayoutSession: 拥有一次编译与一次冻结分析的只读 Layout 会话。 会话不执行目标项目代码；结果通过深复制导出，查询复用内部 compilation 与验证索引。",
       "visibility": "public",
       "category": "tool_api",
-      "since": "8.0.0",
+      "since": "unreleased",
       "members": [
         {
-          "kind": "const",
-          "name": "DEFAULT_FEATURE_COHESIVE_PROFILE_PATH",
-          "signature": "const DEFAULT_FEATURE_COHESIVE_PROFILE_PATH: String = \\\n\t\"res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json\"",
-          "summary": "Feature 内聚式示例 profile 路径。",
+          "kind": "func",
+          "name": "open_profile_text",
+          "signature": "func open_profile_text(text: String, source_path: String, options: Dictionary = {}) -> Dictionary",
+          "summary": "严格准入真实来源文件的原始 JSON，编译一次后捕获只读库存。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "validate_default_profile",
-          "signature": "func validate_default_profile(options: Dictionary = {}) -> Dictionary",
-          "summary": "按 Feature 内聚式示例 profile 校验项目结构。",
+          "name": "open_profile",
+          "signature": "func open_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionary",
+          "summary": "编译已拥有的纯数据 Profile 并捕获一次库存；不授予任何文件来源身份。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "validate_profile_path",
-          "signature": "func validate_profile_path( profile_path: String, options: Dictionary = {} ) -> Dictionary",
-          "summary": "从项目结构 profile 文件校验项目结构。",
+          "name": "observe",
+          "signature": "func observe(options: Dictionary = {}) -> Dictionary",
+          "summary": "无 Profile 时只观察明确捕获范围，不执行项目结构规则。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "validate_profile",
-          "signature": "func validate_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionary",
-          "summary": "按已解析的项目结构 profile 校验项目结构。",
+          "name": "get_analysis",
+          "signature": "func get_analysis() -> Dictionary",
+          "summary": "返回当前冻结报告的深复制；外部修改不会改变会话查询。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "plan",
+          "signature": "func plan(options: Dictionary = {}) -> Dictionary",
+          "summary": "用当前已编译策略及已验证冻结库存生成只读目录候选计划。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "explain",
+          "signature": "func explain(finding_id: String) -> Dictionary",
+          "summary": "从当前冻结 finding 与证据解释，不重新扫描或编译。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "impact",
+          "signature": "func impact(change: Dictionary) -> Dictionary",
+          "summary": "对显式路径变更计算冻结库存影响；不执行变更。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "close",
+          "signature": "func close() -> void",
+          "summary": "释放本次 compilation、冻结报告与查询索引。",
           "visibility": "public"
         }
       ]
@@ -94247,7 +94275,7 @@
         {
           "kind": "var",
           "name": "duration_scale",
-          "signature": "var duration_scale: float",
+          "signature": "var duration_scale: float = 1.0",
           "summary": "全局时长缩放。",
           "visibility": "public"
         },
@@ -94400,14 +94428,14 @@
         {
           "kind": "var",
           "name": "duration",
-          "signature": "var duration: float",
+          "signature": "var duration: float = 0.2",
           "summary": "步骤持续时间。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "delay",
-          "signature": "var delay: float",
+          "signature": "var delay: float = 0.0",
           "summary": "步骤延迟。",
           "visibility": "public"
         },
@@ -94493,6 +94521,156 @@
           "name": "capture_initial_value",
           "signature": "func capture_initial_value(target: Object) -> Variant",
           "summary": "捕获当前属性值；仅校验属性，不采样或校验 easing_curve。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFTweenNumericTimeline": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/action_queue",
+      "package_id": "gf.extension.action_queue",
+      "path": "addons/gf/extensions/action_queue/tween/gf_tween_numeric_timeline.gd",
+      "summary": "GFTweenNumericTimeline: 有界、冻结的纯数值 Tween 时间轴。 捕获与采样不接受目标对象、Resource、Callable 或业务上下文。调用方负责时钟和提交值。 直接 int/float 根属性共享运行时编译核心；任何不支持或越界的成员导致整组拒绝。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "capture",
+          "signature": "static func capture(definition: Dictionary, properties: Array[Dictionary]) -> GFTweenNumericTimeline",
+          "summary": "捕获独立的纯值时间轴；最多 128 步、32 次循环、4096 个展开步骤、120 秒。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error",
+          "signature": "func get_error() -> String",
+          "summary": "返回捕获拒绝原因；空字符串表示成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_duration_seconds",
+          "signature": "func get_duration_seconds() -> float",
+          "summary": "返回冻结的完整有限时间轴时长。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_initial_values",
+          "signature": "func get_initial_values() -> Dictionary",
+          "summary": "返回全部声明属性的独立初值快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "sample",
+          "signature": "func sample(time_seconds: float) -> Dictionary",
+          "summary": "采样独立数值快照。有限越界时间收窄到端点；非有限时间或任何越界输出返回空字典。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFTweenPreviewAdapter": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/action_queue",
+      "package_id": "gf.tool.action_queue.editor",
+      "path": "addons/gf/extensions/action_queue/editor/gf_tween_preview_adapter.gd",
+      "summary": "GFTweenPreviewAdapter: 受信任的编辑器数值样机绘制协议。 适配器只获得新建样机与冻结数值，不获得来源配置、真实目标或业务上下文。 GDScript 不是沙箱；实现者负责不访问来源、全局业务、持久化、标记或导航。",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "_create_sample",
+          "signature": "func _create_sample() -> Control",
+          "summary": "创建全新、未入树、无父节点的 Control 样机，至多 128 节点与 8 层。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_apply_sample",
+          "signature": "func _apply_sample(_sample: Control, _values: Dictionary) -> void",
+          "summary": "将冻结快照映射到工具自有样机；不得保留、改写来源或产生业务副作用。",
+          "visibility": "protected"
+        }
+      ]
+    },
+    "GFTweenPreviewRegistration": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/action_queue",
+      "package_id": "gf.tool.action_queue.editor",
+      "path": "addons/gf/extensions/action_queue/editor/gf_tween_preview_registration.gd",
+      "summary": "GFTweenPreviewRegistration: 一次编辑器数值预览注册的所有权句柄。 release 幂等且只撤销自身租约；旧句柄不能撤销同 ID 后续注册。持有者应在插件卸载时显式释放。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "release",
+          "signature": "func release() -> void",
+          "summary": "撤销本句柄注册，允许重复调用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_active",
+          "signature": "func is_active() -> bool",
+          "summary": "返回当前句柄是否仍对应有效 owner 和租约。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFTweenPreviewRegistry": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/action_queue",
+      "package_id": "gf.tool.action_queue.editor",
+      "path": "addons/gf/extensions/action_queue/editor/gf_tween_preview_registry.gd",
+      "summary": "GFTweenPreviewRegistry: 显式选择的有界数值预览适配器目录。 owner 使用弱引用；ID 不自动覆盖，内置样机不进入此目录。注册不读取来源或执行适配器。 工具插件应持有返回句柄并在退出时 release；owner 失效与租约变化使旧会话失效。",
+      "visibility": "public",
+      "category": "editor_api",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "changed",
+          "signature": "signal changed",
+          "summary": "目录有实际增删时发出；观察者应重新获取独立快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_shared",
+          "signature": "static func get_shared() -> GFTweenPreviewRegistry",
+          "summary": "获取原生 Tween Inspector 与步骤选择器使用的共享目录。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_adapter",
+          "signature": "func register_adapter(owner: Object, descriptor: Dictionary, adapter: GFTweenPreviewAdapter) -> GFTweenPreviewRegistration",
+          "summary": "注册完整描述；重复 ID、无效 owner 或超出 32 个适配器预算时整组拒绝。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_descriptors",
+          "signature": "func get_descriptors() -> Array[Dictionary]",
+          "summary": "获取全部有效描述，不暴露 owner、adapter 或内部租约。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_property_records",
+          "signature": "func get_property_records(adapter_id: StringName, query: String = \"\") -> Array[Dictionary]",
+          "summary": "搜索显式适配器的有限属性目录；不触发样机或来源 getter。",
           "visibility": "public"
         }
       ]

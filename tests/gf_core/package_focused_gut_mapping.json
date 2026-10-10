@@ -3,7 +3,8 @@
   "packages": {
     "gf.extension.action_queue": [
       "res://tests/gf_core/extensions/action_queue/test_gf_action_queue.gd",
-      "res://tests/gf_core/extensions/action_queue/test_gf_visual_actions.gd"
+      "res://tests/gf_core/extensions/action_queue/test_gf_visual_actions.gd",
+      "res://tests/gf_core/extensions/action_queue/test_gf_tween_numeric_timeline.gd"
     ],
     "gf.extension.asset_metadata": [
       "res://tests/gf_core/extensions/asset_metadata/test_gf_asset_attribution_tools.gd",
@@ -339,7 +340,8 @@
       "res://tests/gf_core/standard/utilities/ui/test_gf_repeater_binder.gd"
     ],
     "gf.tool.action_queue.editor": [
-      "res://tests/gf_core/tools/action_queue.editor/test_gf_tween_preview.gd"
+      "res://tests/gf_core/tools/action_queue.editor/test_gf_tween_preview.gd",
+      "res://tests/gf_core/tools/action_queue.editor/test_gf_tween_numeric_preview.gd"
     ],
     "gf.tool.asset_browser": [
       "res://tests/gf_core/tools/asset_browser/test_gf_asset_browser_editor.gd",
@@ -369,7 +371,8 @@
 	],
 	"gf.tool.project_layout": [
 		"res://tests/gf_core/tools/project_layout/test_gf_project_layout_editor.gd",
-		"res://tests/gf_core/tools/project_layout/test_gf_project_layout_tool_package.gd"
+		"res://tests/gf_core/tools/project_layout/test_gf_project_layout_tool_package.gd",
+		"res://tests/gf_core/tools/project_layout/test_gf_project_layout_authority.gd"
 	],
     "gf.tool.scene_groups": [
       "res://tests/gf_core/tools/scene_groups/test_gf_scene_group_index.gd",

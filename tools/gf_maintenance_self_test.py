@@ -5646,6 +5646,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"-m",
 			"unittest",
 			"tests/gf_core/tools/test_gf_maintenance_execution.py",
+			"tests/gf_core/tools/test_gf_reactive_benchmark.py",
 			"tests/gf_core/tools/test_gf_posix_process_watchdog.py",
 			"tests/gf_core/tools/test_gf_maintenance_check_graph.py",
 			"tests/gf_core/tools/test_gf_parallel_validation.py",
@@ -6620,7 +6621,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"framework-gut": "60",
 			"framework-lsp": "15",
 			"framework-static": "20",
-			"framework-integration": "70",
+			"framework-integration": "80",
 		}
 		and manual_full_timeout_value == str(gf_repository_policy.MANUAL_FULL_TIMEOUT_MINUTES)
 		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-gut"] * 60
@@ -6658,15 +6659,15 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			framework_integration_shard,
 			None,
 			validation_catalog=_VALIDATION_CATALOG,
-		) == 3960
+		) == 4560
 		and resolve_check_timeout_seconds("config_workbench_editor_smoke", None) == 600
 		and resolve_check_timeout_seconds("project_bootstrap_editor_smoke", None) == 1200
 		and resolve_check_timeout_seconds("project_bootstrap_editor_smoke", 45) == 1200
-		and ci_framework_integration_timeout_value == "70"
-		and release_shard_timeouts["framework-integration"] == "70"
-		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-integration"] == 70
-		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-integration"] * 60 > 3960,
-		"Integration must preserve each native smoke floor and its 3,960-second child envelope inside exact 70-minute Ready/main and release deadlines.",
+		and ci_framework_integration_timeout_value == "80"
+		and release_shard_timeouts["framework-integration"] == "80"
+		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-integration"] == 80
+		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-integration"] * 60 > 4560,
+		"Integration must preserve each native smoke floor and its 4,560-second child envelope inside exact 80-minute Ready/main and release deadlines.",
 	)
 	record_result(
 		"in_process_checks_enforce_return_time_deadlines",
@@ -7963,225 +7964,18 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		f"owner or group anchored handles should pass: {asset_lifecycle_issues}",
 	)
 
-	project_profile_paths = [
-		"game/scripts/player.gd",
-		"game/scenes/main.tscn",
-		"game/assets/icon.png",
-		"misc/debug.gd",
-	]
-	valid_project_profile = {
-		"schema_version": 1,
-		"id": "fixture",
-		"zones": [
-			{
-				"id": "game_scripts",
-				"roots": ["game/scripts"],
-				"required": True,
-				"allow_extensions": [".gd"],
-				"severity": "error",
-			},
-			{
-				"id": "game_assets",
-				"roots": ["game/assets"],
-				"allow_extensions": [".png", ".tres"],
-				"severity": "warning",
-			},
-		],
-		"rules": [
-			{
-				"id": "has_main_scene",
-				"kind": "path_exists",
-				"paths": ["game/scenes/main.tscn"],
-			},
-			{
-				"id": "gd_under_scripts",
-				"kind": "files_under_roots",
-				"extensions": [".gd"],
-				"roots": ["game/scripts"],
-				"exclude": ["addons/**"],
-				"severity": "warning",
-			},
-		],
-		"metadata": {
-			"owner": "test",
-		},
-	}
-	valid_project_profile_issues = audit_project_profile_data(
-		valid_project_profile,
-		"gf_project_profile.json",
-		[
-			"game/scripts/player.gd",
-			"game/scenes/main.tscn",
-			"game/assets/icon.png",
-		],
+	profile_artifacts = gf_project_layout_profile.project_profile_artifacts()
+	record_result(
+		"project_layout_native_artifacts_are_available",
+		profile_artifacts["ok"],
+		str(profile_artifacts["issues"]),
 	)
 	record_result(
-		"project_profile_boundary_accepts_flexible_valid_profile",
-		len(valid_project_profile_issues) == 0,
-		f"valid project profile should pass: {valid_project_profile_issues}",
-	)
-
-	project_profile_issues = audit_project_profile_data(
-		valid_project_profile,
-		"gf_project_profile.json",
-		project_profile_paths,
-	)
-	record_result(
-		"project_profile_boundary_reports_selected_files_outside_declared_roots",
-		issue_exists(
-			project_profile_issues,
-			"project_profile_file_outside_roots",
-			path="misc/debug.gd",
-			rule_id="gd_under_scripts",
-			severity="warning",
-		),
-		f"selected files outside roots should be reported: {project_profile_issues}",
-	)
-
-	invalid_project_profile = {
-		"schema_version": 1,
-		"id": "invalid",
-		"preset": "not-allowed",
-		"zones": [
-			{
-				"id": "missing_root",
-				"roots": ["missing/scripts"],
-				"required": True,
-				"severity": "error",
-			},
-			{
-				"id": "scene_zone",
-				"roots": ["game/scenes"],
-				"deny_extensions": [".gd"],
-				"severity": "warning",
-			},
-		],
-		"rules": [
-			{
-				"id": "bad_kind",
-				"kind": "custom_business_rule",
-			},
-		],
-	}
-	invalid_project_profile_schema_issues = audit_project_profile_schema(
-		invalid_project_profile,
-		"gf_project_profile.json",
-	)
-	invalid_project_profile_runtime_issues = audit_project_profile_data(
-		{
-			"schema_version": 1,
-			"id": "invalid",
-			"zones": invalid_project_profile["zones"],
-			"rules": [],
-		},
-		"gf_project_profile.json",
-		["game/scenes/debug.gd"],
-	)
-	record_result(
-		"project_profile_boundary_rejects_unsupported_fields_and_rule_kinds",
-		issue_exists(invalid_project_profile_schema_issues, "unsupported_project_profile_field", field="preset")
-		and issue_exists(invalid_project_profile_schema_issues, "unsupported_project_profile_rule_kind", actual_value="custom_business_rule"),
-		f"unsupported project profile fields and rule kinds should be reported: {invalid_project_profile_schema_issues}",
-	)
-	record_result(
-		"project_profile_boundary_reports_missing_roots_and_denied_extensions",
-		issue_exists(
-			invalid_project_profile_runtime_issues,
-			"project_profile_required_root_missing",
-			zone_id="missing_root",
-			actual_value="missing/scripts",
-			severity="error",
-		)
-		and issue_exists(
-			invalid_project_profile_runtime_issues,
-			"project_profile_zone_extension_denied",
-			path="game/scenes/debug.gd",
-			zone_id="scene_zone",
-			severity="warning",
-		),
-		f"missing roots and denied extensions should be reported: {invalid_project_profile_runtime_issues}",
-	)
-
-	advanced_project_profile = {
-		"schema_version": 1,
-		"id": "advanced_fixture",
-		"rules": [
-			{
-				"id": "root_files_are_declared",
-				"kind": "forbid_root_files",
-				"allowed_files": ["project.godot"],
-			},
-			{
-				"id": "paths_are_snake_case",
-				"kind": "naming_convention",
-				"roots": ["features"],
-				"pattern": r"^[a-z0-9_./-]+$",
-				"target": "path",
-			},
-			{
-				"id": "features_are_cohesive",
-				"kind": "feature_module_contract",
-				"roots": ["features"],
-				"feature_id_pattern": r"^[a-z][a-z0-9_]*$",
-				"required_subdirs": ["scripts"],
-				"allowed_subdirs": ["scripts", "scenes"],
-				"allow_root_files": False,
-			},
-			{
-				"id": "generated_stays_generated",
-				"kind": "generated_boundary",
-				"include": ["**/*.generated.gd"],
-				"roots": ["generated"],
-			},
-			{
-				"id": "utility_bucket_limit",
-				"kind": "bucket_size",
-				"roots": ["scripts/utilities"],
-				"max_files": 1,
-				"severity": "warning",
-			},
-		],
-	}
-	advanced_project_profile_valid_issues = audit_project_profile_data(
-		advanced_project_profile,
-		"gf_project_profile.json",
-		[
-			"project.godot",
-			"features/fleet/scripts/fleet_system.gd",
-			"features/fleet/scenes/fleet_panel.tscn",
-			"generated/config.generated.gd",
-			"scripts/utilities/math.gd",
-		],
-	)
-	record_result(
-		"project_profile_boundary_accepts_advanced_layout_rules",
-		len(advanced_project_profile_valid_issues) == 0,
-		f"advanced project profile rules should pass valid layout: {advanced_project_profile_valid_issues}",
-	)
-	advanced_project_profile_invalid_issues = audit_project_profile_data(
-		advanced_project_profile,
-		"gf_project_profile.json",
-		[
-			"RootDebug.gd",
-			"features/Fleet/fleet_system.gd",
-			"features/fleet/misc/fleet.gd",
-			"features/empty/scenes/empty_scene.tscn",
-			"outside/config.generated.gd",
-			"scripts/utilities/math.gd",
-			"scripts/utilities/text.gd",
-		],
-	)
-	record_result(
-		"project_profile_boundary_reports_advanced_layout_violations",
-		issue_exists(advanced_project_profile_invalid_issues, "project_profile_forbidden_root_file", path="RootDebug.gd")
-		and issue_exists(advanced_project_profile_invalid_issues, "project_profile_naming_convention_violation", path="features/Fleet/fleet_system.gd")
-		and issue_exists(advanced_project_profile_invalid_issues, "project_profile_feature_id_invalid", path="features/Fleet")
-		and issue_exists(advanced_project_profile_invalid_issues, "project_profile_feature_root_file", path="features/Fleet/fleet_system.gd")
-		and issue_exists(advanced_project_profile_invalid_issues, "project_profile_feature_subdir_not_allowed", path="features/fleet/misc")
-		and issue_exists(advanced_project_profile_invalid_issues, "project_profile_feature_required_subdir_missing", path="features/empty/scripts")
-		and issue_exists(advanced_project_profile_invalid_issues, "project_profile_generated_file_outside_roots", path="outside/config.generated.gd")
-		and issue_exists(advanced_project_profile_invalid_issues, "project_profile_bucket_too_large", path="scripts/utilities", severity="warning"),
-		f"advanced project profile violations should be reported: {advanced_project_profile_invalid_issues}",
+		"project_layout_has_one_product_authority",
+		not hasattr(gf_project_layout_profile, "compile_project_profile_v1")
+		and not hasattr(gf_project_layout_profile, "audit_project_profile_data")
+		and not hasattr(gf_project_layout_profile, "PROFILE_MODES"),
+		"Python must transport input without preserving legacy or shadow rule evaluators.",
 	)
 
 	valid_package_data = {

@@ -92,7 +92,10 @@ nav:
       - Camera: extensions/camera/index.md
       - Dialogue: extensions/dialogue/index.md
       - Combat: extensions/combat/index.md
-      - ActionQueue: extensions/action-queue/index.md
+      - ActionQueue:
+          - 总览: extensions/action-queue/index.md
+          - 配置化 Tween: extensions/action-queue/tween-config.md
+          - 数值时间轴与预览样机: extensions/action-queue/tween-numeric-preview.md
       - Asset Metadata: extensions/asset-metadata/index.md
       - Network 与 TurnBased: extensions/network-turnbased/index.md
       - Flow: extensions/flow/index.md

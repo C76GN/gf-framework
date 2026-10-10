@@ -65,6 +65,7 @@ const GODOT_CALLBACK_NAMES: Dictionary = {
 	"_handles": true,
 	"_has_capture": true,
 	"_init": true,
+	"_initialize": true,
 	"_input": true,
 	"_make_custom_tooltip": true,
 	"_notification": true,
@@ -207,6 +208,46 @@ func test_editor_plugin_native_callbacks_use_callback_sections() -> void:
 	assert_false(
 		_underscore_method_section_is_valid("_compute_placement", "Godot 回调方法"),
 		"普通私有 helper 不能仅因位于编辑器脚本中就作为 Godot 回调。",
+	)
+
+
+func test_initialize_preserves_native_callback_and_framework_hook_sections() -> void:
+	var declares_initialize: bool = false
+	for method: Dictionary in ClassDB.class_get_method_list(&"MainLoop", true):
+		var method_name: Variant = method.get("name")
+		if (method_name is String or method_name is StringName) and method_name == &"_initialize":
+			declares_initialize = true
+			break
+	assert_true(declares_initialize, "引擎声明的 MainLoop 原生回调应进入维护布局契约。")
+	var source: String = "extends SceneTree\n# --- Godot 回调方法 ---\nfunc _initialize() -> void:\n\tpass\n"
+	assert_eq(
+		_collect_underscore_method_section_issues_from_source(source, "main_loop_callback.gd"),
+		[],
+		"SceneTree 继承的原生初始化回调应能使用 Godot 回调分区。",
+	)
+	var helper_source: String = source.replace("_initialize()", "_initialize_workflow()")
+	var helper_issues: Array[String] = _collect_underscore_method_section_issues_from_source(
+		helper_source, "main_loop_helper.gd",
+	)
+	assert_eq(helper_issues.size(), 1, "相似命名的普通 helper 仍必须满足原有分区约束。")
+	assert_true(_join_lines(helper_issues).contains("_initialize_workflow"))
+	var hook_source: String = "extends RefCounted\n# --- 可重写钩子 / 虚方法 ---\n## 初始化框架组件。\n## [br]\n## @api protected\nfunc _initialize() -> bool:\n\treturn true\n"
+	assert_eq(
+		_collect_underscore_method_section_issues_from_source(hook_source, "framework_initialize_hook.gd"),
+		[],
+		"同名的框架 protected 初始化钩子应保留原有虚方法分区。",
+	)
+	var public_source: String = hook_source.replace("可重写钩子 / 虚方法", "公共方法")
+	var public_issues: Array[String] = _collect_underscore_method_section_issues_from_source(
+		public_source, "public_initialize_helper.gd",
+	)
+	assert_eq(public_issues.size(), 1, "初始化名称不能放宽普通公共方法分区。")
+	assert_true(_join_lines(public_issues).contains("_initialize"))
+	var other_callback_source: String = hook_source.replace("RefCounted", "Node").replace("_initialize", "_ready")
+	assert_eq(
+		_collect_underscore_method_section_issues_from_source(other_callback_source, "other_native_callback.gd").size(),
+		1,
+		"初始化的双重角色不能扩展到其他原生回调名称。",
 	)
 
 
@@ -652,7 +693,13 @@ func _underscore_method_section_is_valid(function_name: String, section_name: St
 	if _section_has_marker(section_name, PRIVATE_SECTION_MARKERS):
 		return true
 	if GODOT_CALLBACK_NAMES.has(function_name):
-		return _section_has_marker(section_name, LIFECYCLE_SECTION_MARKERS)
+		return (
+			_section_has_marker(section_name, LIFECYCLE_SECTION_MARKERS)
+			or (
+				function_name == "_initialize"
+				and _section_has_marker(section_name, VIRTUAL_SECTION_MARKERS)
+			)
+		)
 	if function_name.begins_with("_on_"):
 		return (
 			_section_has_marker(section_name, SIGNAL_CALLBACK_SECTION_MARKERS)
