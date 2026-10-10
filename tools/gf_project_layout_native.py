@@ -16,6 +16,7 @@ from gf_godot_process import resolve_godot_executable
 from gf_path_security import PinnedReadError, read_pinned_regular_file, path_has_reparse_component
 from gf_process_supervisor import (
 	run_supervised_process_bytes, require_supervised_binary_quiet_boundary,
+	SupervisedProcessStartError, exception_has_cleanup_debt,
 )
 
 
@@ -72,11 +73,19 @@ def run_native_analysis(
 			)):
 				argv.extend(["--log-file", str(log_root / f"layout-native-{run_id}-{stage}.log")])
 				cleanup["permitted"] = False
-				result = run_supervised_process_bytes(
-					argv, cwd=fixture, timeout_seconds=RUN_TIMEOUT_SECONDS,
-					deadline=deadline, max_stdout_bytes=1024 * 1024,
-					max_stderr_bytes=256 * 1024, environment=private,
-				)
+				try:
+					result = run_supervised_process_bytes(
+						argv, cwd=fixture, timeout_seconds=RUN_TIMEOUT_SECONDS,
+						deadline=deadline, max_stdout_bytes=1024 * 1024,
+						max_stderr_bytes=256 * 1024, environment=private,
+					)
+				except SupervisedProcessStartError as error:
+					# Only the supervisor's no-child proof can reopen fixture cleanup.
+					cleanup["permitted"] = (
+						error.process_boundary_quiescent is True
+						and not exception_has_cleanup_debt(error)
+					)
+					raise
 				require_supervised_binary_quiet_boundary(result, deadline=deadline)
 				cleanup["permitted"] = True
 				output = result.stdout + result.stderr

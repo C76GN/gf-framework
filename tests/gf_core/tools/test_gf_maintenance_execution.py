@@ -5140,9 +5140,27 @@ class ProjectLayoutProfileTests(unittest.TestCase):
 			result = self._analyze(root, executor)
 			request = executor.call_args.args[0]
 			self.assertEqual(request["profile_text"], text)
-			self.assertEqual(request["options"], {"root_path": root.as_posix(), "source_root": root.as_posix()})
+			self.assertEqual(request["options"], {"source_root": root.as_posix()})
 			self.assertFalse(result["ok"])
 			self.assertEqual(result["coverage"], {"kind": "declared"})
+
+	def test_transports_subdirectory_scope_without_overriding_native_capture_root(self) -> None:
+		with tempfile.TemporaryDirectory() as directory:
+			root = Path(directory)
+			text = '{"schema_version":2,"id":"scoped","zones":[],"rules":[],"capture_scope":{"schema_version":1,"root_path":"res://game","required_roots":["src"],"excluded_roots":[{"path":"evidence","kind":"generated_evidence"}]}}'
+			profile = root / "gf_project_profile.json"
+			profile.write_text(text, encoding="utf-8")
+			report = self._report()
+			scope = {"source_root": root.as_posix(), "root_path": (root / "game").as_posix(),
+				"profile_source_path": profile.as_posix(), "policy_digest": "native-owned"}
+			report["graph"]["scope"] = scope
+			executor = mock.Mock(return_value=report)
+			result = self._analyze(root, executor)
+			self.assertTrue(result["ok"])
+			self.assertEqual(executor.call_args.args[0], {"schema_version": 1, "operation": "analyze",
+				"profile_text": text, "profile_source_path": profile.as_posix(),
+				"options": {"source_root": root.as_posix()}})
+			self.assertEqual(result["coverage"], scope)
 
 	def test_profile_byte_limit_precedes_native_dispatch(self) -> None:
 		with tempfile.TemporaryDirectory() as directory:
@@ -5309,6 +5327,111 @@ class ProjectLayoutProfileTests(unittest.TestCase):
 					private_environment=lambda project, user, env: {})
 			self.assertTrue(raised.exception.process_boundary_quiet)
 			self.assertEqual(raised.exception.reason, "project_layout.native_execution_failed")
+
+	def test_native_start_failure_preserves_only_typed_quiet_cleanup_evidence(self) -> None:
+		import gf_project_layout_native as native
+		import shutil
+		quiet_start = gf_process_supervisor.SupervisedProcessStartError(FileNotFoundError("missing engine"))
+		generic = OSError("no positive child-boundary evidence")
+		generic.process_boundary_quiescent = True
+		cleanup_error = gf_process_supervisor.SupervisedProcessCleanupError("child boundary unknown", pid=123)
+		chained_start = gf_process_supervisor.SupervisedProcessStartError(FileNotFoundError("missing engine"))
+		chained_start.__cause__ = cleanup_error
+		unproven_start = gf_process_supervisor.SupervisedProcessStartError(FileNotFoundError("missing engine"))
+		unproven_start.process_boundary_quiescent = False
+		for failure, expected_quiet in ((quiet_start, True), (generic, False), (cleanup_error, False), (chained_start, False), (unproven_start, False)):
+			for failed_stage in (0, 1):
+				with self.subTest(failure=type(failure).__name__, stage=failed_stage, quiet=expected_quiet), tempfile.TemporaryDirectory() as directory:
+					root = Path(directory)
+					(root / "addons/gf").mkdir(parents=True)
+					owned = root / "owned"
+					owned.mkdir()
+					cleanup_admissions: list[bool] = []
+					calls: list[list[str]] = []
+
+					@contextlib.contextmanager
+					def temporary_directory(state: dict[str, bool]):
+						try:
+							yield owned
+						finally:
+							cleanup_admissions.append(state["permitted"])
+							if state["permitted"]:
+								shutil.rmtree(owned)
+
+					def execute(command: list[str], **_options: object) -> object:
+						stage = len(calls)
+						calls.append(command)
+						if stage == failed_stage:
+							raise failure
+						return gf_process_supervisor.SupervisedBinaryProcessResult(
+							0, b"", b"", False, 0.01, 123, cleanup_complete=True)
+
+					with mock.patch.object(native, "resolve_godot_executable", return_value="trusted-godot"), \
+						mock.patch.object(native, "run_supervised_process_bytes", side_effect=execute), \
+						self.assertRaises(native.NativeExecutionError) as raised:
+						native.run_native_analysis({}, trusted_root=root, environment={},
+							temporary_directory=temporary_directory,
+							private_environment=lambda project, user, env: {})
+					self.assertEqual(raised.exception.reason, "project_layout.native_unavailable")
+					self.assertEqual(raised.exception.process_boundary_quiet, expected_quiet)
+					self.assertIs(raised.exception.__cause__, failure)
+					self.assertEqual(cleanup_admissions, [expected_quiet])
+					self.assertEqual(owned.exists(), not expected_quiet)
+					self.assertEqual(len(calls), failed_stage + 1)
+
+	def test_real_binary_start_failure_releases_the_owned_native_fixture(self) -> None:
+		import gf_project_layout_native as native
+		for failure_kind, expected_error in (("missing", FileNotFoundError), ("denied", PermissionError)):
+			with self.subTest(failure=failure_kind), tempfile.TemporaryDirectory() as directory:
+				root = Path(directory).resolve(strict=True)
+				trusted = root / "trusted"
+				(trusted / "addons/gf").mkdir(parents=True)
+				(trusted / "addons/gf/probe.gd").write_text("extends RefCounted\n", encoding="utf-8")
+				engine = root / f"{failure_kind}-godot.exe"
+				if failure_kind == "denied":
+					engine.mkdir()
+				cleanup_errors: list[str] = []
+				observations: list[tuple[Path, bool, bool, bool]] = []
+
+				@contextlib.contextmanager
+				def owned_directory(state: dict[str, bool]):
+					with gf_maintenance.managed_validation_directory(
+						prefix="gfl-start-", cleanup_errors=cleanup_errors,
+						windows_max_characters=40,
+						cleanup_permitted=lambda: state["permitted"],
+					) as owned:
+						try:
+							yield owned
+						finally:
+							observations.append((owned, state["permitted"],
+								(owned / "p/project.godot").is_file(), (owned / "p/request.json").is_file()))
+
+				# Only executable selection is replaced. The binary owner, source capture,
+				# private fixture and cleanup path execute their real implementations.
+				with mock.patch.object(native, "resolve_godot_executable", return_value=str(engine)), \
+					self.assertRaises(native.NativeExecutionError) as raised:
+					native.run_native_analysis({}, trusted_root=trusted,
+						environment=gf_maintenance.capture_maintenance_process_environment(),
+						temporary_directory=owned_directory,
+						private_environment=lambda project, user, environment:
+							gf_maintenance.parallel_shard_environment(
+								project, user, base_environment=environment)[0])
+				self.assertEqual(raised.exception.reason, "project_layout.native_unavailable")
+				self.assertIs(raised.exception.process_boundary_quiet, True)
+				start_error = raised.exception.__cause__
+				self.assertIsInstance(start_error, gf_process_supervisor.SupervisedProcessStartError)
+				self.assertIsInstance(start_error.original_error, expected_error)
+				self.assertIs(start_error.__cause__, start_error.original_error)
+				self.assertIs(start_error.process_boundary_quiescent, True)
+				self.assertIs(start_error.started, False)
+				self.assertEqual(start_error.pid, 0)
+				self.assertFalse(gf_process_supervisor.exception_has_cleanup_debt(start_error))
+				self.assertEqual(len(observations), 1)
+				owned, cleanup_permitted, project_staged, request_staged = observations[0]
+				self.assertIs(cleanup_permitted, True)
+				self.assertTrue(project_staged and request_staged)
+				self.assertFalse(owned.exists())
+				self.assertEqual(cleanup_errors, [])
 
 	def test_native_engine_diagnostics_reject_an_otherwise_valid_report(self) -> None:
 		import gf_project_layout_native as native
@@ -5728,6 +5851,166 @@ class ProcessSupervisorPosixWatchdogTests(unittest.TestCase):
 
 
 class ProcessSupervisorBinaryCaptureTests(unittest.TestCase):
+	def test_binary_missing_executable_has_typed_no_child_proof(self) -> None:
+		with tempfile.TemporaryDirectory(prefix="gf-binary-missing-") as directory:
+			root = Path(directory)
+			missing = root / "missing-executable"
+			with self.assertRaises(
+				gf_process_supervisor.SupervisedProcessStartError
+			) as raised:
+				gf_process_supervisor.run_supervised_process_bytes(
+					[str(missing)], cwd=root, timeout_seconds=5.0,
+					environment=_SHARED_PROCESS_AUTHORITY.environment.values(),
+					max_stdout_bytes=1024, max_stderr_bytes=1024,
+				)
+			proof = raised.exception
+			self.assertIsInstance(proof.original_error, FileNotFoundError)
+			self.assertIs(proof.__cause__, proof.original_error)
+			self.assertEqual(proof.args, proof.original_error.args)
+			self.assertEqual(proof.return_code, 127)
+			self.assertIs(proof.started, False)
+			self.assertEqual(proof.pid, 0)
+			self.assertIs(proof.process_boundary_quiescent, True)
+			self.assertFalse(gf_process_supervisor.exception_has_cleanup_debt(proof))
+
+	def test_binary_denied_executable_has_typed_no_child_proof(self) -> None:
+		with tempfile.TemporaryDirectory(prefix="gf-binary-denied-") as directory:
+			root = Path(directory)
+			denied = root / "denied-executable.exe"
+			denied.mkdir()
+			with self.assertRaises(
+				gf_process_supervisor.SupervisedProcessStartError
+			) as raised:
+				gf_process_supervisor.run_supervised_process_bytes(
+					[str(denied)], cwd=root, timeout_seconds=5.0,
+					environment=_SHARED_PROCESS_AUTHORITY.environment.values(),
+					max_stdout_bytes=1024, max_stderr_bytes=1024,
+				)
+			proof = raised.exception
+			self.assertIsInstance(proof.original_error, PermissionError)
+			self.assertIs(proof.__cause__, proof.original_error)
+			self.assertEqual(proof.args, proof.original_error.args)
+			self.assertEqual(proof.return_code, 126)
+			self.assertIs(proof.started, False)
+			self.assertEqual(proof.pid, 0)
+			self.assertIs(proof.process_boundary_quiescent, True)
+			self.assertFalse(gf_process_supervisor.exception_has_cleanup_debt(proof))
+
+	def test_binary_permission_error_after_real_child_creation_is_not_start_proof(self) -> None:
+		primary = PermissionError("synthetic permission failure after real child creation")
+		owners: list[gf_process_supervisor._ProcessTreeOwner] = []
+		original_factory = gf_process_supervisor._new_process_tree_owner
+
+		def owner_factory() -> gf_process_supervisor._ProcessTreeOwner:
+			owner = original_factory()
+			owners.append(owner)
+			return owner
+
+		def checkpoint(name: str) -> None:
+			if name in {"windows_process_started", "posix_process_started"}:
+				raise primary
+
+		with mock.patch.object(
+			gf_process_supervisor, "_new_process_tree_owner", side_effect=owner_factory,
+		), mock.patch.object(
+			gf_process_supervisor, "_process_supervision_checkpoint", side_effect=checkpoint,
+		):
+			with self.assertRaises(PermissionError) as raised:
+				gf_process_supervisor.run_supervised_process_bytes(
+					[sys.executable, "-c", "pass"], cwd=ROOT, timeout_seconds=5.0,
+					environment=_SHARED_PROCESS_AUTHORITY.environment.values(),
+					max_stdout_bytes=1024, max_stderr_bytes=1024,
+				)
+		self.assertIs(raised.exception, primary)
+		self.assertNotIsInstance(raised.exception, gf_process_supervisor.SupervisedProcessStartError)
+		self.assertEqual(len(owners), 1)
+		owner = owners[0]
+		self.assertIs(owner._process_was_created, True)
+		self.assertIsNotNone(owner._started_process)
+		self.assertTrue(owner.is_closed())
+		assert owner._started_process is not None
+		self.assertIsNotNone(owner._started_process.returncode)
+
+	def test_binary_start_proof_requires_owner_history_and_no_chained_debt(self) -> None:
+		for missing_fact in (
+			"owner", "process", "started_process", "created", "unknown_created",
+			"cleanup_failed", "owner_closed", "generic_error", "chained_debt",
+		):
+			with self.subTest(missing_fact=missing_fact):
+				operation = gf_process_supervisor._BinarySpawnOperation(
+					["unused"], cwd=ROOT, environment={},
+					max_stdout_bytes=1024, max_stderr_bytes=1024,
+				)
+				owner = mock.Mock()
+				owner._started_process = None
+				owner._process_was_created = False
+				owner.cleanup_failed = False
+				owner.is_closed.return_value = True
+				primary = FileNotFoundError("synthetic no-child candidate")
+				if missing_fact == "generic_error":
+					primary = OSError("synthetic generic startup error")
+				elif missing_fact == "chained_debt":
+					primary.__cause__ = gf_process_supervisor.SupervisedProcessCleanupError(
+						"synthetic cleanup debt", pid=7319,
+					)
+				original_cause = primary.__cause__
+				operation._owner = owner
+				operation._error = primary
+				operation._cleanup_complete = True
+				operation._owner_closed = True
+				operation._process_tree_empty = True
+				operation._spawn_ready.set()
+				operation._finished.set()
+				if missing_fact == "owner":
+					operation._owner = None
+				elif missing_fact == "process":
+					operation._process = mock.Mock(pid=7319)
+				elif missing_fact == "started_process":
+					owner._started_process = mock.Mock(pid=7319)
+				elif missing_fact == "created":
+					owner._process_was_created = True
+				elif missing_fact == "unknown_created":
+					owner._process_was_created = None
+				elif missing_fact == "cleanup_failed":
+					owner.cleanup_failed = True
+				elif missing_fact == "owner_closed":
+					owner.is_closed.return_value = False
+				with self.assertRaises(OSError) as raised:
+					operation.claim_before_deadline(time.perf_counter() + 5.0)
+				self.assertIs(raised.exception, primary)
+				self.assertIs(raised.exception.__cause__, original_cause)
+				self.assertNotIsInstance(raised.exception, gf_process_supervisor.SupervisedProcessStartError)
+
+	def test_binary_start_proof_requires_exact_terminal_quiet_fields(self) -> None:
+		for field in ("complete", "cleanup_complete", "owner_closed", "process_tree_empty"):
+			for value in (False, None, 1):
+				with self.subTest(field=field, value=value):
+					operation = gf_process_supervisor._BinarySpawnOperation(
+						["unused"], cwd=ROOT, environment={},
+						max_stdout_bytes=1024, max_stderr_bytes=1024,
+					)
+					owner = mock.Mock()
+					owner._started_process = None
+					owner._process_was_created = False
+					owner.cleanup_failed = False
+					owner.is_closed.return_value = True
+					primary = FileNotFoundError("synthetic missing executable with unproven cleanup")
+					operation._owner = owner
+					operation._error = primary
+					operation._spawn_ready.set()
+					fields = {"complete": True, "cleanup_complete": True,
+						"owner_closed": True, "process_tree_empty": True, "pid": 0}
+					fields[field] = value
+					status = gf_process_supervisor.SupervisedBinaryCleanupStatus(**fields)
+					with mock.patch.object(operation, "snapshot_before_deadline", return_value=status):
+						with self.assertRaises(gf_process_supervisor.SupervisedProcessCleanupError) as raised:
+							operation.claim_before_deadline(time.perf_counter() + 5.0)
+					self.assertIs(raised.exception.original_error, primary)
+					self.assertIs(raised.exception.__cause__, primary)
+					self.assertIs(raised.exception.process_boundary_quiescent, False)
+					self.assertTrue(gf_process_supervisor.exception_has_cleanup_debt(raised.exception))
+					self.assertNotIsInstance(raised.exception, gf_process_supervisor.SupervisedProcessStartError)
+
 	def test_binary_spawn_worker_wraps_original_when_cleanup_is_not_quiet(self) -> None:
 		primary = RuntimeError("synthetic spawn failure after possible child creation")
 		dirty_status = gf_process_supervisor.SupervisedBinaryCleanupStatus(

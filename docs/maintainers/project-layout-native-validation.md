@@ -54,9 +54,19 @@ Godot diagnostics stay under `ai_analysis/godot_logs/`.
 Profile schema 1 and `--profile-mode` are removed. Schema 2 declarations use a
 logical `res://` container anchored to the supplied physical `source_root`.
 Python normalizes Windows separators for transport but does not rewrite profile
-values. Native admission protects the real profile file and checks its bytes
-against the captured text before scanning. Changing a requested capture root
-cannot retarget a declaration; callers must supply a newly admitted declaration.
+values. The CLI transmits `source_root` without overriding `root_path`; after
+strict compilation, the native authority resolves the declared logical container
+against that source root. Without a Profile declaration it admits an option
+declaration, or uses the source root when neither exists. Session file/data and
+direct Profile analysis share this resolution; observation retains its default
+`res://`. Native admission checks the real profile bytes before scanning; that
+file may be outside the capture subdirectory while remaining inside `source_root`.
+An explicit capture root must match the declaration and cannot retarget it.
+
+If the supervisor proves a typed command-start failure created no child, native
+transport preserves that positive quiet-boundary evidence for fixture cleanup.
+Generic I/O failures, an unproven start boundary and any chained cleanup debt keep
+cleanup closed. A start failure still reports unavailable analysis, never success.
 
 ## Semantic coverage after removing the Python evaluator
 

@@ -37,7 +37,7 @@
 func open_profile_text(text: String, source_path: String, options: Dictionary = {}) -> Dictionary:
 ```
 
-严格准入真实来源文件的原始 JSON，编译一次后捕获只读库存。 source_path 必须位于 options.source_root 中且 bytes 与 text 完全一致。 失败不捕获来源；此入口不加载场景、资源脚本或目标项目配置。
+严格准入真实来源文件的原始 JSON，编译一次后捕获只读库存。 source_path 必须位于 options.source_root 中且 bytes 与 text 完全一致。 失败不捕获来源；此入口不加载场景、资源脚本或目标项目配置。 省略 root_path 时由成功 compilation 的规范声明映射 source_root；无 Profile 声明则严格准入 options.capture_scope，无范围声明则使用 source_root，缺省为 res://。
 
 参数：
 
@@ -65,7 +65,7 @@ func open_profile_text(text: String, source_path: String, options: Dictionary = 
 func open_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionary:
 ```
 
-编译已拥有的纯数据 Profile 并捕获一次库存；不授予任何文件来源身份。
+编译已拥有的纯数据 Profile 并捕获一次库存；不授予任何文件来源身份。 root_path 缺省推导与 open_profile_text 相同，显式 root_path 仍必须匹配范围声明。
 
 参数：
 

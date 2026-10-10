@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectLayoutAnalyzer" path="addons/gf/tools/project_layout/gf_project_layout_analyzer.gd" module="tools" extends="RefCounted" classDigest="c067046eafb84d80b5a0671245cf43f97107929011303e0314712e040d62f114">
+<class name="GFProjectLayoutAnalyzer" path="addons/gf/tools/project_layout/gf_project_layout_analyzer.gd" module="tools" extends="RefCounted" classDigest="8fd159b2f9d0a550b738c5eda55d9df653ec0170125dbe0418156d8316660eee">
 	<description>GFProjectLayoutAnalyzer: 只读的项目结构分析器。
 捕获项目目录库存，并按可选 profile 分析目录分区、Feature 模块契约、命名、生成物边界和大桶目录增长。
 所有公开操作都只读取项目；该类型不会创建、移动、删除或改写任何项目文件。
@@ -38,7 +38,8 @@
 		</member>
 		<member kind="method" name="analyze_example_profile">
 			<signature>func analyze_example_profile(options: Dictionary = {}) -&gt; Dictionary:</signature>
-			<description>按 Feature 内聚式示例 profile 分析项目结构。</description>
+			<description>按 Feature 内聚式示例 profile 分析项目结构。
+未指定 root_path 时沿用 analyze_profile_path 的来源根与规范声明映射。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">options: 校验选项。</tag>
@@ -50,7 +51,8 @@
 		</member>
 		<member kind="method" name="analyze_profile_path">
 			<signature>func analyze_profile_path(profile_path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
-			<description>从项目结构 profile 文件分析项目结构。</description>
+			<description>从项目结构 profile 文件分析项目结构。
+未指定 root_path 时，成功编译后按 Profile 声明（无声明则按 options.capture_scope）映射 source_root；无范围声明时使用 source_root，缺省为 res://。显式 root_path 必须匹配声明。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">profile_path: JSON profile 路径。</tag>
@@ -63,7 +65,8 @@
 		</member>
 		<member kind="method" name="analyze_profile">
 			<signature>func analyze_profile(profile: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
-			<description>按已解析的项目结构 profile 分析项目结构。</description>
+			<description>按已解析的项目结构 profile 分析项目结构。
+未指定 root_path 时，成功编译后按 Profile 声明（无声明则按 options.capture_scope）映射 source_root；无范围声明时使用 source_root，缺省为 res://。显式 root_path 必须匹配声明。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">profile: 项目结构 profile 字典。</tag>

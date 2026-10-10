@@ -79,7 +79,7 @@ func analyze(options: Dictionary = {}) -> Dictionary:
 func analyze_example_profile(options: Dictionary = {}) -> Dictionary:
 ```
 
-按 Feature 内聚式示例 profile 分析项目结构。
+按 Feature 内聚式示例 profile 分析项目结构。 未指定 root_path 时沿用 analyze_profile_path 的来源根与规范声明映射。
 
 参数：
 
@@ -105,7 +105,7 @@ func analyze_example_profile(options: Dictionary = {}) -> Dictionary:
 func analyze_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary:
 ```
 
-从项目结构 profile 文件分析项目结构。
+从项目结构 profile 文件分析项目结构。 未指定 root_path 时，成功编译后按 Profile 声明（无声明则按 options.capture_scope）映射 source_root；无范围声明时使用 source_root，缺省为 res://。显式 root_path 必须匹配声明。
 
 参数：
 
@@ -132,7 +132,7 @@ func analyze_profile_path(profile_path: String, options: Dictionary = {}) -> Dic
 func analyze_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionary:
 ```
 
-按已解析的项目结构 profile 分析项目结构。
+按已解析的项目结构 profile 分析项目结构。 未指定 root_path 时，成功编译后按 Profile 声明（无声明则按 options.capture_scope）映射 source_root；无范围声明时使用 source_root，缺省为 res://。显式 root_path 必须匹配声明。
 
 参数：
 

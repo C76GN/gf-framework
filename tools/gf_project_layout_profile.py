@@ -102,7 +102,7 @@ def project_profile_boundary(
 			report = native_executor({
 				"schema_version": 1, "operation": "analyze",
 				"profile_text": text, "profile_source_path": path.as_posix(),
-				"options": {"source_root": source_root.as_posix(), "root_path": source_root.as_posix()},
+				"options": {"source_root": source_root.as_posix()},
 			})
 			base["analysis"] = report
 			base["issues"] = report.get("issues", [])

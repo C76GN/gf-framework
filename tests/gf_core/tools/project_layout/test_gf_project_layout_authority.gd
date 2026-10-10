@@ -362,6 +362,208 @@ func test_profile_failures_do_not_capture_and_file_source_must_match_actual_text
 	assert_eq(session.analyzer.compile_calls, 1)
 
 
+func test_file_profile_derives_subdirectory_capture_from_the_compiled_scope() -> void:
+	var root: String = _make_root("file_subdirectory")
+	var source_root: String = ProjectSettings.globalize_path(root)
+	var capture_root: String = source_root.path_join("game")
+	_write(root.path_join("src/outside.gd"), "")
+	_write(root.path_join("game/src/main.gd"), "")
+	_write(root.path_join("game/generated/evidence.json"), "")
+	var profile: Dictionary = _profile()
+	var declaration: Dictionary = _declaration(["src"], [{"path": "generated", "kind": "generated_evidence"}])
+	declaration["root_path"] = "res://game"
+	profile["capture_scope"] = declaration
+	profile["rules"] = [{"id": "entry", "kind": "path_exists", "paths": ["src/main.gd"]}, {"id": "sources", "kind": "bucket_size", "roots": ["src"], "max_files": 1}]
+	var profile_path: String = source_root.path_join("policy.json")
+	var text: String = JSON.stringify(profile)
+	_write(profile_path, text)
+	var session: CountingSession = CountingSession.new()
+	var report: Dictionary = session.open_profile_text(text, profile_path, {"source_root": source_root})
+	assert_true(_bool(report, "evaluation_complete"))
+	assert_true(_bool(report, "input_complete"))
+	assert_eq(_int(report, "error_count"), 0)
+	assert_eq(_int(report, "file_count"), 1)
+	assert_eq(_string(report, "root_path"), capture_root)
+	var scope: Dictionary = _dictionary(_dictionary(report, "graph"), "scope")
+	assert_eq(_string(scope, "source_root"), source_root)
+	assert_eq(_string(scope, "root_path"), capture_root)
+	assert_eq(_string(scope, "profile_source_path"), profile_path)
+	assert_eq(_dictionary(scope, "capture_scope"), declaration)
+	var rule_results: Array = _array(report, "rule_results")
+	assert_eq(rule_results.size(), 2)
+	if rule_results.size() != 2:
+		return
+	var rule_result: Dictionary = rule_results[1]
+	assert_eq(_dictionary(rule_result, "coverage"), {"scope": "declared_included", "excluded_roots": ["generated"]})
+	var analyzer: GFProjectLayoutAnalyzer = _ANALYZER.new()
+	var compilation: Dictionary = analyzer.compile_profile(profile)
+	var prepared: Dictionary = _SCOPE.prepare(_dictionary(compilation, "profile"), capture_root, {"source_root": source_root, "profile_source_path": profile_path})
+	assert_true(_bool(prepared, "success"))
+	assert_eq(_string(scope, "policy_digest"), _string(_dictionary(prepared, "binding"), "policy_digest"))
+	var contract: _CONTRACT = _CONTRACT.new()
+	assert_true(_bool(contract.validate_and_index(report), "valid"))
+	var forged: Dictionary = report.duplicate(true)
+	var forged_scope: Dictionary = _dictionary(_dictionary(forged, "graph"), "scope")
+	forged_scope["root_path"] = source_root
+	assert_false(_bool(contract.validate_and_index(forged), "valid"))
+	assert_eq(session.analyzer.compile_calls, 1)
+	assert_eq(session.analyzer.capture_calls, 1)
+
+
+func test_data_profile_and_direct_analysis_share_default_subdirectory_resolution() -> void:
+	var root: String = _make_root("data_subdirectory")
+	var source_root: String = ProjectSettings.globalize_path(root)
+	var capture_root: String = source_root.path_join("game")
+	_write(root.path_join("game/src/main.gd"), "")
+	_write(root.path_join("outside.gd"), "")
+	var profile: Dictionary = _profile()
+	var declaration: Dictionary = _declaration(["src"], [])
+	declaration["root_path"] = "res://game"
+	profile["capture_scope"] = declaration
+	var session: CountingSession = CountingSession.new()
+	var default_report: Dictionary = session.open_profile(profile, {"source_root": source_root})
+	assert_true(_bool(default_report, "input_complete"))
+	assert_eq(_string(default_report, "root_path"), capture_root)
+	assert_eq(_int(default_report, "file_count"), 1)
+	var analyzer: CountingAnalyzer = CountingAnalyzer.new()
+	var direct: Dictionary = analyzer.analyze_profile(profile, {"source_root": source_root})
+	var explicit: Dictionary = analyzer.analyze_profile(profile, {"source_root": source_root, "root_path": capture_root})
+	assert_true(_bool(direct, "input_complete"))
+	assert_true(_bool(explicit, "input_complete"))
+	assert_eq(_string(default_report, "input_digest"), _string(direct, "input_digest"))
+	assert_eq(_string(direct, "input_digest"), _string(explicit, "input_digest"))
+	assert_eq(session.analyzer.compile_calls, 1)
+	assert_eq(session.analyzer.capture_calls, 1)
+	assert_eq(analyzer.compile_calls, 2)
+	assert_eq(analyzer.capture_calls, 2)
+
+
+func test_default_profile_root_uses_source_root_without_changing_observation_defaults() -> void:
+	var root: String = _make_root("default_source")
+	var source_root: String = ProjectSettings.globalize_path(root)
+	_write(root.path_join("src/main.gd"), "")
+	var profile: Dictionary = _profile()
+	var profile_path: String = source_root.path_join("policy.json")
+	var text: String = JSON.stringify(profile)
+	_write(profile_path, text)
+	var file_session: CountingSession = CountingSession.new()
+	var file_report: Dictionary = file_session.open_profile_text(text, profile_path, {"source_root": source_root})
+	assert_true(_bool(file_report, "input_complete"))
+	assert_eq(_string(file_report, "root_path"), source_root)
+	assert_eq(_int(file_report, "file_count"), 2)
+	var data_session: CountingSession = CountingSession.new()
+	var data_report: Dictionary = data_session.open_profile(profile, {"source_root": source_root})
+	assert_true(_bool(data_report, "input_complete"))
+	assert_eq(_string(data_report, "root_path"), source_root)
+	assert_eq(_int(data_report, "file_count"), 2)
+	var observation: GFProjectLayoutSession = _SESSION.new()
+	var observed: Dictionary = observation.observe({"max_scanned_files": 1})
+	assert_eq(_string(observed, "root_path"), "res://")
+	assert_false(_bool(observed, "input_complete"))
+
+
+func test_profile_without_a_scope_derives_the_same_root_from_an_admitted_option_scope() -> void:
+	var root: String = _make_root("option_subdirectory")
+	var source_root: String = ProjectSettings.globalize_path(root)
+	var capture_root: String = source_root.path_join("game")
+	_write(root.path_join("game/src/main.gd"), "")
+	_write(root.path_join("game/generated/evidence.json"), "")
+	var declaration: Dictionary = _declaration(["src"], [{"path": "generated", "kind": "disposable"}])
+	declaration["root_path"] = "res://game"
+	var profile: Dictionary = _profile()
+	var profile_path: String = source_root.path_join("policy.json")
+	var text: String = JSON.stringify(profile)
+	_write(profile_path, text)
+	for file_backed: bool in [false, true]:
+		var session: CountingSession = CountingSession.new()
+		var options: Dictionary = {"source_root": source_root, "capture_scope": declaration}
+		var report: Dictionary = session.open_profile_text(text, profile_path, options) if file_backed else session.open_profile(profile, options)
+		assert_true(_bool(report, "input_complete"))
+		assert_eq(_string(report, "root_path"), capture_root)
+		assert_eq(_int(report, "file_count"), 1)
+		assert_eq(_dictionary(_dictionary(_dictionary(report, "graph"), "scope"), "capture_scope"), declaration)
+		assert_eq(session.analyzer.compile_calls, 1)
+		assert_eq(session.analyzer.capture_calls, 1)
+	for invalid_scope: Variant in [42, {"root_path": "res://game"}, {"schema_version": 1, "root_path": "res://../escape", "required_roots": [], "excluded_roots": []}]:
+		var analyzer: CountingAnalyzer = CountingAnalyzer.new()
+		var rejected: Dictionary = analyzer.analyze_profile(profile, {"source_root": source_root, "capture_scope": invalid_scope})
+		assert_false(_bool(rejected, "input_complete"))
+		assert_true(_has_issue(rejected, "analysis_input_invalid"))
+		assert_eq(analyzer.compile_calls, 1)
+		assert_eq(analyzer.capture_calls, 0)
+	profile["capture_scope"] = declaration
+	var mismatch_analyzer: CountingAnalyzer = CountingAnalyzer.new()
+	var mismatched: Dictionary = mismatch_analyzer.analyze_profile(profile, {"source_root": source_root, "capture_scope": _declaration([], [])})
+	assert_false(_bool(mismatched, "input_complete"))
+	assert_true(_has_issue(mismatched, "capture_scope_invalid"))
+	assert_eq(mismatch_analyzer.capture_calls, 0)
+
+
+func test_explicit_capture_root_cannot_override_the_default_scope_mapping() -> void:
+	var root: String = _make_root("explicit_subdirectory")
+	var source_root: String = ProjectSettings.globalize_path(root)
+	_write(root.path_join("game/src/main.gd"), "")
+	var profile: Dictionary = _profile()
+	var declaration: Dictionary = _declaration(["src"], [])
+	declaration["root_path"] = "res://game"
+	profile["capture_scope"] = declaration
+	var profile_path: String = source_root.path_join("policy.json")
+	var text: String = JSON.stringify(profile)
+	_write(profile_path, text)
+	for file_backed: bool in [false, true]:
+		var session: CountingSession = CountingSession.new()
+		var options: Dictionary = {"source_root": source_root, "root_path": source_root}
+		var report: Dictionary = session.open_profile_text(text, profile_path, options) if file_backed else session.open_profile(profile, options)
+		assert_false(_bool(report, "input_complete"))
+		assert_true(_has_issue(report, "capture_scope_invalid"))
+		assert_eq(session.analyzer.compile_calls, 1)
+		assert_eq(session.analyzer.capture_calls, 0)
+
+
+func test_derived_capture_root_preserves_missing_wrong_type_and_invalid_scope_failures() -> void:
+	var root: String = _make_root("derived_failures")
+	var source_root: String = ProjectSettings.globalize_path(root)
+	_write(root.path_join("file_root"), "not a directory")
+	for logical_root: String in ["res://missing", "res://file_root", "res://../escape"]:
+		var profile: Dictionary = _profile()
+		var declaration: Dictionary = _declaration([], [])
+		declaration["root_path"] = logical_root
+		profile["capture_scope"] = declaration
+		var analyzer: CountingAnalyzer = CountingAnalyzer.new()
+		var report: Dictionary = analyzer.analyze_profile(profile, {"source_root": source_root})
+		assert_false(_bool(report, "input_complete"), logical_root)
+		assert_false(_bool(report, "evaluation_complete"), logical_root)
+		assert_eq(_int(report, "file_count"), 0)
+		assert_eq(_array(report, "rule_results"), [])
+		assert_eq(analyzer.compile_calls, 1)
+		if logical_root == "res://../escape":
+			assert_true(_has_issue(report, "invalid_capture_scope"))
+			assert_eq(analyzer.capture_calls, 0)
+		else:
+			assert_eq(_string(report, "root_path"), source_root.path_join(logical_root.substr(6)))
+			assert_true(_has_issue(report, "root_path_not_found" if logical_root == "res://missing" else "capture_scope_identity_invalid"))
+			assert_eq(analyzer.capture_calls, 1)
+
+
+func test_derived_subdirectory_scope_still_protects_the_real_profile_source() -> void:
+	var root: String = _make_root("derived_protection")
+	var source_root: String = ProjectSettings.globalize_path(root)
+	var profile: Dictionary = _profile()
+	var declaration: Dictionary = _declaration([], [{"path": "contracts", "kind": "disposable"}])
+	declaration["root_path"] = "res://game"
+	profile["capture_scope"] = declaration
+	var profile_path: String = source_root.path_join("game/contracts/policy.json")
+	var text: String = JSON.stringify(profile)
+	_write(profile_path, text)
+	var session: CountingSession = CountingSession.new()
+	var report: Dictionary = session.open_profile_text(text, profile_path, {"source_root": source_root})
+	assert_false(_bool(report, "input_complete"))
+	assert_true(_has_issue(report, "capture_scope_invalid"))
+	assert_eq(_string(report, "root_path"), source_root.path_join("game"))
+	assert_eq(session.analyzer.compile_calls, 1)
+	assert_eq(session.analyzer.capture_calls, 0)
+
+
 func test_session_queries_reuse_one_compile_and_owned_validation_index() -> void:
 	var root: String = _make_root("session")
 	_write(root.path_join("src/main.gd"), "")

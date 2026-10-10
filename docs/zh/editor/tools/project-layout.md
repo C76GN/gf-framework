@@ -80,7 +80,7 @@ Zone 的 `roots`、`required`、`allow_extensions`、`deny_extensions`、`exclud
 }
 ```
 
-`capture_scope.root_path` 是相对唯一 `source_root` 的逻辑容器。`res://` 明确表示来源项目根；`res://subdir` 映射该来源根内子目录。实际请求 `root_path` 必须恰好匹配这个映射。改变 API 选项到另一子根不会重新解释同一 Profile 的 exclusions。
+`capture_scope.root_path` 是相对唯一 `source_root` 的逻辑容器。`res://` 明确表示来源项目根；`res://subdir` 映射该来源根内子目录。按 Profile 分析时，省略 `options.root_path` 会在严格编译成功后由 GDScript 推导实际捕获根；无 Profile 声明则准入 `options.capture_scope`，无范围声明则使用 `source_root`（缺省 `res://`）。显式 `root_path` 必须恰好匹配映射，改变 API 选项到另一子根不会重新解释同一 Profile 的 exclusions。无 Profile 的 `observe()` 保留缺省 `res://`。
 
 Profile 声明是持久权威。`options.capture_scope` 若存在，必须与规范化后的 Profile 声明完全相等；不合并两份 policy。无 Profile 的观察可以通过 options 明确声明范围。无声明时只使用固定状态排除。
 
@@ -128,7 +128,7 @@ session.close()
 python tools\gf_maintenance.py project-profile-boundary --root D:\path\to\project --profile gf_project_profile.json --json
 ```
 
-目标 Profile 必须位于 `--root` 内。维护 Python 只做有限稳定读取和结果传输；原始 JSON 由 GDScript 决定。配置支持的 Godot 工具可执行文件，例如 `GF_GODOT`。找不到 Godot、子进程超时或输出信封失效均明确失败，不回退到 Python 规则。
+目标 Profile 必须位于 `--root` 内，可以位于声明捕获子目录之外。`--root` 只绑定来源项目根；实际 capture root 由 GDScript 按 Profile 的逻辑容器推导。维护 Python 只做有限稳定读取和结果传输；原始 JSON 由 GDScript 决定。配置支持的 Godot 工具可执行文件，例如 `GF_GODOT`。找不到 Godot、子进程超时或输出信封失效均明确失败，不回退到 Python 规则。
 
 监督器启动独立可信工具 fixture，并提供私有 userdata 与临时目录，不启动目标 project.godot 的游戏/编辑器，不执行其 autoload、EditorPlugin、脚本或场景。目标目录仅由 Layout 作为只读文件数据访问。deadline、输出字节、身份拥有的终止/清理均由维护监督器执行。
 

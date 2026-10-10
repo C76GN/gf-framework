@@ -529,6 +529,7 @@ func analyze(options: Dictionary = {}) -> Dictionary:
 	return _finalize_report(report)
 
 ## 按 Feature 内聚式示例 profile 分析项目结构。
+## 未指定 root_path 时沿用 analyze_profile_path 的来源根与规范声明映射。
 ## [br]
 ## @api public
 ## [br]
@@ -546,6 +547,7 @@ func analyze_example_profile(options: Dictionary = {}) -> Dictionary:
 
 
 ## 从项目结构 profile 文件分析项目结构。
+## 未指定 root_path 时，成功编译后按 Profile 声明（无声明则按 options.capture_scope）映射 source_root；无范围声明时使用 source_root，缺省为 res://。显式 root_path 必须匹配声明。
 ## [br]
 ## @api public
 ## [br]
@@ -611,6 +613,7 @@ func analyze_profile_path(profile_path: String, options: Dictionary = {}) -> Dic
 
 
 ## 按已解析的项目结构 profile 分析项目结构。
+## 未指定 root_path 时，成功编译后按 Profile 声明（无声明则按 options.capture_scope）映射 source_root；无范围声明时使用 source_root，缺省为 res://。显式 root_path 必须匹配声明。
 ## [br]
 ## @api public
 ## [br]
@@ -906,6 +909,21 @@ func analyze_compiled_profile(compilation: Dictionary, options: Dictionary = {})
 		return _finalize_report(report)
 	var compiled_profile: Dictionary = _get_dictionary(compile_result, "profile")
 	report["profile_id"] = _get_string(compiled_profile, "id")
+	if not options.has("root_path"):
+		var source_value: Variant = options.get("source_root", "res://")
+		if source_value is String:
+			var source_root: String = source_value
+			if _CAPTURE_SCOPE_SCRIPT.root_is_canonical(source_root):
+				var declaration: Dictionary = _get_dictionary(compiled_profile, "capture_scope")
+				if not compiled_profile.has("capture_scope") and options.has("capture_scope"):
+					# Option admission already used the same strict Scope normalizer.
+					declaration = _get_dictionary(options, "capture_scope")
+				var logical_root: String = _get_string(declaration, "root_path", "res://")
+				root_path = source_root if logical_root == "res://" else source_root.path_join(logical_root.substr(6))
+				report["root_path"] = root_path
+				_validate_root_path(root_path, options, report)
+				if _get_int(report, "error_count") > 0:
+					return _finalize_report(report)
 	_prepare_capture_scope(compiled_profile, root_path, options, report)
 	if _get_int(report, "error_count") > 0:
 		return _finalize_report(report)

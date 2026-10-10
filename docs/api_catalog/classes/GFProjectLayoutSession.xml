@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectLayoutSession" path="addons/gf/tools/project_layout/gf_project_layout_session.gd" module="tools" extends="RefCounted" classDigest="6536490bc4ba06eb6cf353ef4d99ed3b95897b7a4f119cf56d43ae46cdec677c">
+<class name="GFProjectLayoutSession" path="addons/gf/tools/project_layout/gf_project_layout_session.gd" module="tools" extends="RefCounted" classDigest="445f49b5169641af1ab406c55f3c539132fb9d92ba1f6ae16d683865bfab5df5">
 	<description>GFProjectLayoutSession: 拥有一次编译与一次冻结分析的只读 Layout 会话。
 会话不执行目标项目代码；结果通过深复制导出，查询复用内部 compilation 与验证索引。</description>
 	<tags>
@@ -16,7 +16,8 @@
 			<signature>func open_profile_text(text: String, source_path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>严格准入真实来源文件的原始 JSON，编译一次后捕获只读库存。
 source_path 必须位于 options.source_root 中且 bytes 与 text 完全一致。
-失败不捕获来源；此入口不加载场景、资源脚本或目标项目配置。</description>
+失败不捕获来源；此入口不加载场景、资源脚本或目标项目配置。
+省略 root_path 时由成功 compilation 的规范声明映射 source_root；无 Profile 声明则严格准入 options.capture_scope，无范围声明则使用 source_root，缺省为 res://。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">text: 有界严格 UTF-8 Profile JSON 原文。</tag>
@@ -30,7 +31,8 @@ source_path 必须位于 options.source_root 中且 bytes 与 text 完全一致�
 		</member>
 		<member kind="method" name="open_profile">
 			<signature>func open_profile(profile: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
-			<description>编译已拥有的纯数据 Profile 并捕获一次库存；不授予任何文件来源身份。</description>
+			<description>编译已拥有的纯数据 Profile 并捕获一次库存；不授予任何文件来源身份。
+root_path 缺省推导与 open_profile_text 相同，显式 root_path 仍必须匹配范围声明。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">profile: 闭合 schema v2 Profile。</tag>
