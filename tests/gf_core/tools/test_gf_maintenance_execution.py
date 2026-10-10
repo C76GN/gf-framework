@@ -5406,9 +5406,11 @@ class ProjectLayoutProfileTests(unittest.TestCase):
 							observations.append((owned, state["permitted"],
 								(owned / "p/project.godot").is_file(), (owned / "p/request.json").is_file()))
 
-				# Only executable selection is replaced. The binary owner, source capture,
+				# Both executable-selection aliases are replaced: private environment setup
+				# resolves before native dispatch. The binary owner, source capture,
 				# private fixture and cleanup path execute their real implementations.
 				with mock.patch.object(native, "resolve_godot_executable", return_value=str(engine)), \
+					mock.patch.object(gf_maintenance, "resolve_godot_executable", return_value=str(engine)), \
 					self.assertRaises(native.NativeExecutionError) as raised:
 					native.run_native_analysis({}, trusted_root=trusted,
 						environment=gf_maintenance.capture_maintenance_process_environment(),
