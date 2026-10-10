@@ -28,6 +28,15 @@ def build_snapshot(
 	contract_relative_path: str = DEFAULT_CONTRACT_PATH,
 ) -> dict[str, Any]:
 	contract_result = load_contract(project_root, contract_relative_path)
+	return _build_snapshot_from_contract(project_root, contract_relative_path, contract_result)
+
+
+def _build_snapshot_from_contract(
+	project_root: Path,
+	contract_relative_path: str,
+	contract_result: dict[str, Any],
+) -> dict[str, Any]:
+	"""All dependent judgments consume the same identity-pinned contract bytes."""
 	contract_data = contract_result.get("contract", {})
 	if not isinstance(contract_data, dict):
 		contract_data = {}
@@ -69,8 +78,11 @@ def build_snapshot(
 		contract_data,
 		package_ids,
 		source_scan,
-	)
-	declared_roots = _declared_roots(project_root, contract_data)
+	) if (
+		package_report.get("valid") and catalog_report.get("ok")
+		and api_package_policy_analysis.get("status") != "catalog_invalid"
+	) else []
+	declared_roots = _declared_roots(project_root, contract_data) if contract_result.get("ok") else []
 	module_dependency_analysis = dependencies.analyze_module_dependencies(
 		project_root,
 		contract_data,
@@ -185,7 +197,7 @@ def project_context(
 	contract_relative_path: str = DEFAULT_CONTRACT_PATH,
 ) -> dict[str, Any]:
 	contract_result = load_contract(project_root, contract_relative_path)
-	snapshot = build_snapshot(project_root, contract_relative_path)
+	snapshot = _build_snapshot_from_contract(project_root, contract_relative_path, contract_result)
 	contract_data = contract_result.get("contract", {})
 	capability_requirements: list[dict[str, Any]] = []
 	if contract_result.get("ok") and isinstance(contract_data, dict):
@@ -278,7 +290,7 @@ def _build_drift(
 			))
 	if contract_result.get("ok"):
 		framework = contract_data.get("framework", {})
-		if isinstance(framework, dict):
+		if isinstance(framework, dict) and package_report.get("valid") and catalog_report.get("ok"):
 			required = _string_values(framework.get("required_packages", []))
 			forbidden = _string_values(framework.get("forbidden_packages", []))
 			for package_id in sorted(required - set(installed_packages)):
@@ -320,6 +332,9 @@ def _build_drift(
 def _api_package_policy_drift_issues(analysis: dict[str, Any]) -> list[dict[str, str]]:
 	issues: list[dict[str, str]] = []
 	status = str(analysis.get("status", "partial"))
+	if status == "contract_invalid":
+		# The contract root diagnostic already explains this blocked judgment.
+		return issues
 	if status != "complete":
 		issues.append(_issue(
 			"error",
@@ -376,6 +391,8 @@ def _api_package_policy_drift_issues(analysis: dict[str, Any]) -> list[dict[str,
 def _documentation_reference_drift_issues(analysis: dict[str, Any]) -> list[dict[str, str]]:
 	issues: list[dict[str, str]] = []
 	status = str(analysis.get("status", "partial"))
+	if status == "contract_invalid":
+		return issues
 	if status not in ("complete", "not_configured"):
 		issues.append(_issue(
 			"error",

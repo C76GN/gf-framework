@@ -18,6 +18,7 @@ from .constants import (
 )
 from .paths import (
 	atomic_write_json,
+	canonical_json_bytes,
 	is_reserved_framework_resource_path,
 	normalize_portable_ownership_path,
 	portable_ownership_path_identity,
@@ -26,13 +27,17 @@ from .paths import (
 	resolve_project_path,
 	sha256_json,
 )
-from .schema import validate_schema_file
+from .schema import ValidationLimits, validate_schema_file
 
 
 _SOURCE_DOMAIN_EXCLUDED_ROOTS = frozenset({
 	".git", ".gf", ".godot", ".import", "__pycache__", "ai_analysis", "build", "node_modules", "site",
 })
 _MAX_DOCUMENTATION_ROOTS = 100
+MAX_CONTRACT_BYTES = 1024 * 1024
+MAX_VERIFICATION_BYTES = 256 * 1024
+MAX_VERIFICATION_ARGV_ELEMENTS = 4096
+CONTRACT_VALIDATION_LIMITS = ValidationLimits()
 
 
 def contract_path(project_root: Path, relative_path: str = DEFAULT_CONTRACT_PATH) -> Path:
@@ -101,7 +106,7 @@ def load_contract(
 			"issues": [_issue("error", "missing_contract", relative_path, "Project contract is missing.")],
 		}
 	try:
-		data = read_json_object(path, max_bytes=1024 * 1024)
+		data = read_json_object(path, max_bytes=MAX_CONTRACT_BYTES)
 	except ValueError as exc:
 		return {
 			"ok": False,
@@ -156,8 +161,22 @@ def load_contract(
 def validate_contract_data(data: dict[str, Any], project_root: Path) -> list[dict[str, str]]:
 	issues = [
 		_issue("error", str(item["code"]), str(item["path"]), str(item["message"]))
-		for item in validate_schema_file(data, SCHEMA_ROOT / "project_contract.schema.json")
+		for item in validate_schema_file(data, SCHEMA_ROOT / "project_contract.schema.json", limits=CONTRACT_VALIDATION_LIMITS)
 	]
+	if not issues:
+		verification = _object(data, "verification")
+		argv_count = sum(len(item["argv"]) for item in _object_list(verification, "checks"))
+		if argv_count > MAX_VERIFICATION_ARGV_ELEMENTS:
+			issues.append(_issue(
+				"error", "verification_argv_limit", "$.verification.checks",
+				f"Aggregate argv elements actual={argv_count}, limit={MAX_VERIFICATION_ARGV_ELEMENTS}; keep independently reviewed checks within the shared budget.",
+			))
+		verification_bytes = len(canonical_json_bytes(verification))
+		if verification_bytes > MAX_VERIFICATION_BYTES:
+			issues.append(_issue(
+				"error", "verification_bytes_limit", "$.verification",
+				f"Compact UTF-8 verification bytes actual={verification_bytes}, limit={MAX_VERIFICATION_BYTES}; shorten descriptors or reference project documentation.",
+			))
 	if not issues:
 		try:
 			issues.extend(_semantic_issues(data, project_root))

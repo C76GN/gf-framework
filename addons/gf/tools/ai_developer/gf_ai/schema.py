@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -38,10 +39,47 @@ _NON_NEGATIVE_INTEGER_KEYS = {"maxItems", "maxLength", "minItems", "minLength", 
 _STRING_METADATA_KEYS = {"$id", "$schema", "description", "title"}
 
 
-def validate_schema_file(value: Any, schema_path: Path) -> list[dict[str, Any]]:
+@dataclass(frozen=True)
+class ValidationLimits:
+	"""Post-parse limits; these do not bound JSON parser allocation."""
+
+	max_depth: int = 32
+	max_value_nodes: int = 50_000
+	max_work_steps: int = 100_000
+	max_issues: int = 100
+
+
+class _ValidationStopped(Exception):
+	def __init__(self, path: str, code: str, actual: int, limit: int) -> None:
+		self.issue = {
+			"severity": "error", "path": path, "code": code,
+			"message": f"Validation stopped: actual={actual}, limit={limit}; remaining evidence is incomplete.",
+		}
+
+
+class _ValidationIssues(list[dict[str, Any]]):
+	def __init__(self, limits: ValidationLimits | None) -> None:
+		super().__init__()
+		self.limits = limits
+		self.work_steps = 0
+
+	def charge(self, path: str) -> None:
+		self.work_steps += 1
+		if self.limits is not None and self.work_steps > self.limits.max_work_steps:
+			raise _ValidationStopped(path, "validation_work_limit", self.work_steps, self.limits.max_work_steps)
+
+	def append(self, issue: dict[str, Any]) -> None:
+		if self.limits is not None and len(self) >= self.limits.max_issues - 1:
+			raise _ValidationStopped(issue["path"], "validation_issue_limit", len(self) + 1, self.limits.max_issues)
+		super().append(issue)
+
+
+def validate_schema_file(
+	value: Any, schema_path: Path, *, limits: ValidationLimits | None = None,
+) -> list[dict[str, Any]]:
 	schema = read_json_object(schema_path)
 	definition_issues = validate_schema_definition(schema)
-	return definition_issues if definition_issues else validate_schema(value, schema)
+	return definition_issues if definition_issues else validate_schema(value, schema, limits=limits)
 
 
 def validate_schema_definition(schema: dict[str, Any]) -> list[dict[str, Any]]:
@@ -50,10 +88,57 @@ def validate_schema_definition(schema: dict[str, Any]) -> list[dict[str, Any]]:
 	return issues
 
 
-def validate_schema(value: Any, schema: dict[str, Any]) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
-	_validate_node(value, schema, "$", issues)
+def validate_schema(
+	value: Any, schema: dict[str, Any], *, limits: ValidationLimits | None = None,
+) -> list[dict[str, Any]]:
+	issues = _ValidationIssues(limits)
+	try:
+		if limits is not None:
+			for limit in (limits.max_depth, limits.max_value_nodes, limits.max_work_steps, limits.max_issues):
+				if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
+					raise ValueError("Validation limits must be positive integers.")
+			_validate_structure(value, limits, issues)
+		_validate_node(value, schema, "$", issues)
+	except _ValidationStopped as stopped:
+		# Reserve one terminal diagnostic; an incomplete traversal is never valid.
+		list.append(issues, stopped.issue)
 	return issues
+
+
+def _validate_structure(value: Any, limits: ValidationLimits, issues: _ValidationIssues) -> None:
+	# Iterator stack retains only the current ancestor chain, not all siblings.
+	stack = [iter(((value, "$", 0),))]
+	nodes = 0
+	while stack:
+		entry = next(stack[-1], None)
+		if entry is None:
+			stack.pop()
+			continue
+		current, path, depth = entry
+		nodes += 1
+		issues.charge(path)
+		if depth > limits.max_depth:
+			raise _ValidationStopped(path, "validation_depth_limit", depth, limits.max_depth)
+		if nodes > limits.max_value_nodes:
+			raise _ValidationStopped(path, "validation_node_limit", nodes, limits.max_value_nodes)
+		if isinstance(current, dict):
+			stack.append(_structure_children(current, path, depth))
+		elif isinstance(current, list):
+			stack.append(_structure_children(current, path, depth))
+
+
+def _structure_children(value: Any, path: str, depth: int) -> Any:
+	if isinstance(value, dict):
+		for key, child in value.items():
+			yield child, f"{path}.{key}", depth + 1
+	else:
+		for index, child in enumerate(value):
+			yield child, f"{path}[{index}]", depth + 1
+
+
+def _charge(issues: list[dict[str, Any]], path: str) -> None:
+	if isinstance(issues, _ValidationIssues):
+		issues.charge(path)
 
 
 def _validate_node(
@@ -62,6 +147,7 @@ def _validate_node(
 	path: str,
 	issues: list[dict[str, Any]],
 ) -> None:
+	_charge(issues, path)
 	if "const" in schema and value != schema["const"]:
 		_add_issue(issues, path, "const_mismatch", f"Value must equal {schema['const']!r}.")
 	if "enum" in schema and value not in schema["enum"]:
@@ -205,9 +291,11 @@ def _validate_object(
 	required = schema.get("required", [])
 	if isinstance(required, list):
 		for field in required:
+			_charge(issues, path)
 			if isinstance(field, str) and field not in value:
 				_add_issue(issues, f"{path}.{field}", "missing_required", "Required field is missing.")
 	for field, child in value.items():
+		_charge(issues, path)
 		child_path = f"{path}.{field}"
 		child_schema = properties.get(field)
 		if isinstance(child_schema, dict):
@@ -230,14 +318,24 @@ def _validate_array(
 	if _is_integer(min_items) and len(value) < min_items:
 		_add_issue(issues, path, "min_items", f"Array requires at least {min_items} items.")
 	if _is_integer(max_items) and len(value) > max_items:
-		_add_issue(issues, path, "max_items", f"Array allows at most {max_items} items.")
+		_add_issue(issues, path, "max_items", f"Array count actual={len(value)}, limit={max_items}.")
+		return
 	if schema.get("uniqueItems") is True:
-		seen: list[Any] = []
-		for item in value:
-			if item in seen:
-				_add_issue(issues, path, "duplicate_item", "Array items must be unique.")
-				break
-			seen.append(item)
+		if all(isinstance(item, str) for item in value):
+			seen_strings: set[str] = set()
+			for item in value:
+				_charge(issues, path)
+				if item in seen_strings:
+					_add_issue(issues, path, "duplicate_item", "Array items must be unique.")
+					break
+				seen_strings.add(item)
+		else:
+			seen_values: list[Any] = []
+			for item in value:
+				if any(_equal_json(item, previous, issues, path) for previous in seen_values):
+					_add_issue(issues, path, "duplicate_item", "Array items must be unique.")
+					break
+				seen_values.append(item)
 	item_schema = schema.get("items")
 	if isinstance(item_schema, dict):
 		for index, item in enumerate(value):
@@ -255,7 +353,10 @@ def _validate_string(
 	if _is_integer(min_length) and len(value) < min_length:
 		_add_issue(issues, path, "min_length", f"String requires at least {min_length} characters.")
 	if _is_integer(max_length) and len(value) > max_length:
-		_add_issue(issues, path, "max_length", f"String allows at most {max_length} characters.")
+		guidance = ""
+		if path.startswith("$.architecture.global_rules["):
+			guidance = " Split independent rules or reference a project document for the longer explanation."
+		_add_issue(issues, path, "max_length", f"String characters actual={len(value)}, limit={max_length}.{guidance}")
 	pattern = schema.get("pattern")
 	if isinstance(pattern, str):
 		try:
@@ -265,6 +366,22 @@ def _validate_string(
 			return
 		if not matched:
 			_add_issue(issues, path, "pattern_mismatch", "String does not match the required pattern.")
+
+
+def _equal_json(left: Any, right: Any, issues: list[dict[str, Any]], path: str) -> bool:
+	"""Bounded structural equality, retaining JSON numeric equality without bool coercion."""
+	_charge(issues, path)
+	if isinstance(left, bool) or isinstance(right, bool):
+		return type(left) is type(right) and left == right
+	if isinstance(left, dict) and isinstance(right, dict):
+		if left.keys() != right.keys():
+			return False
+		return all(_equal_json(child, right[key], issues, path) for key, child in left.items())
+	if isinstance(left, list) and isinstance(right, list):
+		if len(left) != len(right):
+			return False
+		return all(_equal_json(child, other, issues, path) for child, other in zip(left, right))
+	return left == right
 
 
 def _validate_number(

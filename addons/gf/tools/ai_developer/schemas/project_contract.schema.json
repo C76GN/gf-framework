@@ -550,7 +550,8 @@
         "checks": {
           "type": "array",
           "minItems": 1,
-          "maxItems": 80,
+          "maxItems": 256,
+          "description": "Flat, independently reviewed check descriptors. Shared limits: 256 KiB compact UTF-8 verification data and 4096 total argv elements; declaring a check never authorizes execution.",
           "items": {
             "type": "object",
             "additionalProperties": false,
