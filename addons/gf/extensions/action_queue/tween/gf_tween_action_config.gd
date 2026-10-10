@@ -33,7 +33,7 @@ const _ACTION_TIME_POLICY = preload("res://addons/gf/extensions/action_queue/cor
 ## @api public
 ## [br]
 ## @since 3.17.0
-@export var duration_scale: float:
+@export var duration_scale: float = 1.0:
 	get:
 		return _duration_scale
 	set(value):

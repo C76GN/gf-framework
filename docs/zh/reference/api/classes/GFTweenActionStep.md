@@ -17,8 +17,8 @@
 |---|---|---|
 | 属性 | [`property_name`](#member-gftweenactionstep-properties-property_name) | `var property_name: NodePath = ^"position"` |
 | 属性 | [`target_value`](#member-gftweenactionstep-properties-target_value) | `var target_value: Variant = null` |
-| 属性 | [`duration`](#member-gftweenactionstep-properties-duration) | `var duration: float:` |
-| 属性 | [`delay`](#member-gftweenactionstep-properties-delay) | `var delay: float:` |
+| 属性 | [`duration`](#member-gftweenactionstep-properties-duration) | `var duration: float = 0.2:` |
+| 属性 | [`delay`](#member-gftweenactionstep-properties-delay) | `var delay: float = 0.0:` |
 | 属性 | [`as_relative`](#member-gftweenactionstep-properties-as_relative) | `var as_relative: bool = false` |
 | 属性 | [`parallel`](#member-gftweenactionstep-properties-parallel) | `var parallel: bool = false` |
 | 属性 | [`transition_type`](#member-gftweenactionstep-properties-transition_type) | `var transition_type: Tween.TransitionType = Tween.TRANS_CUBIC` |
@@ -70,7 +70,7 @@ var target_value: Variant = null
 - 首次版本：`3.17.0`
 
 ```gdscript
-var duration: float:
+var duration: float = 0.2:
 ```
 
 步骤持续时间。
@@ -83,7 +83,7 @@ var duration: float:
 - 首次版本：`3.17.0`
 
 ```gdscript
-var delay: float:
+var delay: float = 0.0:
 ```
 
 步骤延迟。
