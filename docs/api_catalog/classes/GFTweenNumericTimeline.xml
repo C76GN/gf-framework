@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFTweenNumericTimeline" path="addons/gf/extensions/action_queue/tween/gf_tween_numeric_timeline.gd" module="extensions/action_queue" extends="RefCounted" classDigest="9dd5dcef8c96ae08fb6981b51163d03305df9ee27879b58dfb095fedfeba2b2f">
+	<description>GFTweenNumericTimeline: 有界、冻结的纯数值 Tween 时间轴。
+捕获与采样不接受目标对象、Resource、Callable 或业务上下文。调用方负责时钟和提交值。
+直接 int/float 根属性共享运行时编译核心；任何不支持或越界的成员导致整组拒绝。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="capture">
+			<signature>static func capture(definition: Dictionary, properties: Array[Dictionary]) -&gt; GFTweenNumericTimeline:</signature>
+			<description>捕获独立的纯值时间轴；最多 128 步、32 次循环、4096 个展开步骤、120 秒。
+单个步骤允许零时长，零总时长、并行同根/已知属性别名冲突和未知字段整组拒绝。
+每个串行组开始时冻结 from，delay 不重新读取值，相对循环按冻结终点累计。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">definition: 闭合时间轴数据，不读取来源配置。</tag>
+				<tag name="param">properties: 唯一直接数值属性的初值与硬包络；不是 UI slider 范围。</tag>
+				<tag name="return">始终返回时间轴；get_error 非空表示没有部分可采样数据。</tag>
+				<tag name="schema">definition: Dictionary，必需 steps: Array[Dictionary]；可选 loop_count: int=1、duration_scale: int/float=1.0、ping_pong: bool=false。步骤必需 property_name: NodePath、target_value: int/float；可选 duration: int/float=0.2、delay: int/float=0.0、as_relative/parallel: bool=false、transition_type: int=Tween.TRANS_CUBIC、ease_type: int=Tween.EASE_OUT、easing_curve_data: Dictionary={}（仅 positions: PackedVector2Array、tangents: PackedVector2Array、modes: PackedInt32Array、bake_resolution: int、value_range: Vector2）。不接受其他字段。</tag>
+				<tag name="schema">properties: Array[Dictionary]，1 至 32 项，每项闭合 name: String（1..64 字符标识符）、type: int（TYPE_INT/TYPE_FLOAT）、initial: 同型有限 int/float、minimum/maximum: 有限 int/float（minimum &lt; maximum，绝对值不超过 1000000，包含 initial）。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error">
+			<signature>func get_error() -&gt; String:</signature>
+			<description>返回捕获拒绝原因；空字符串表示成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">拒绝说明。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_duration_seconds">
+			<signature>func get_duration_seconds() -&gt; float:</signature>
+			<description>返回冻结的完整有限时间轴时长。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时为正有限秒数，失败为零。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_initial_values">
+			<signature>func get_initial_values() -&gt; Dictionary:</signature>
+			<description>返回全部声明属性的独立初值快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">初值；拒绝时间轴返回空字典。</tag>
+				<tag name="schema">return: Dictionary，String 直接属性名映射到声明类型的 int/float。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="sample">
+			<signature>func sample(time_seconds: float) -&gt; Dictionary:</signature>
+			<description>采样独立数值快照。有限越界时间收窄到端点；非有限时间或任何越界输出返回空字典。
+不执行标记、完成回调或持久化；整数遵循运行时 PropertyTweener 的转换语义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">time_seconds: 有限采样秒数。</tag>
+				<tag name="return">全部声明属性值；失败没有部分输出。</tag>
+				<tag name="schema">return: Dictionary，String 直接属性名映射到声明类型的有限 int/float，全部处于对应硬边界内；失败为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

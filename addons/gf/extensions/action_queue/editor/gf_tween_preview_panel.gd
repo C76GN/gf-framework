@@ -146,6 +146,7 @@ func _ready() -> void:
 	_rebuild_initial_fields()
 	_refresh_state()
 	var _visibility_connected: int = visibility_changed.connect(_on_visibility_changed)
+	var _registry_connected: int = GFTweenPreviewRegistry.get_shared().changed.connect(_on_adapter_registry_changed, CONNECT_DEFERRED)
 
 
 ## 以单调时钟推进可见且未释放的预览，并每半秒检查来源是否改变；隐藏期间不推进会话。
@@ -185,7 +186,7 @@ func configure(config: Resource) -> void:
 	_disposed = false
 	show()
 	if _viewport != null:
-		_viewport.configure(config, _target_kind.selected)
+		_configure_selected_target()
 		_rebuild_time_controls()
 		_rebuild_initial_fields()
 		_refresh_state()
@@ -207,6 +208,41 @@ func dispose_preview() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 向原生种类后追加有效注册描述；条目仅保存 ID，不保存项目脚本引用。
+## [br]
+## @api private
+func _append_adapter_choices() -> void:
+	for descriptor: Dictionary in GFTweenPreviewRegistry.get_shared().get_descriptors():
+		var label: String = descriptor["label"]
+		var id: String = descriptor["id"]
+		_target_kind.add_item("数值 · " + label)
+		_target_kind.set_item_metadata(_target_kind.item_count - 1, StringName(id))
+
+
+## 读取当前显式适配器选择；内置或无选择为空名。
+## [br]
+## @api private
+func _selected_adapter_id() -> StringName:
+	if _target_kind == null or _target_kind.selected < 3:
+		return &""
+	var value: Variant = _target_kind.get_item_metadata(_target_kind.selected)
+	if value is StringName:
+		var adapter_id: StringName = value
+		return adapter_id
+	return &""
+
+
+## 根据用户明确选择重绑定工具样机；不会隐式扫描或选择项目适配器。
+## [br]
+## @api private
+func _configure_selected_target(index: int = -1) -> void:
+	var selected: int = _target_kind.selected if index < 0 else index
+	var adapter_id: StringName = _selected_adapter_id()
+	if selected >= 3 and adapter_id != &"":
+		var _configured: bool = _viewport.configure_adapter(_config, adapter_id)
+	else:
+		_viewport.configure(_config, selected)
+
 ## 创建预览面板的目标选择、视口、时间控件和状态展示。
 ## [br]
 ## @api private
@@ -222,6 +258,7 @@ func _build_controls() -> void:
 	_target_kind.add_item("2D 样机", 0)
 	_target_kind.add_item("UI 样机", 1)
 	_target_kind.add_item("3D 样机", 2)
+	_append_adapter_choices()
 	var _kind_connected: int = _target_kind.item_selected.connect(_on_target_kind_selected)
 	add_child(_target_kind)
 
@@ -386,12 +423,18 @@ func _rebuild_initial_fields() -> void:
 			control.hide()
 		child.queue_free()
 	var values: Dictionary = _viewport.get_initial_values()
+	var records: Array[Dictionary] = GFTweenPreviewRegistry.get_shared().get_property_records(_selected_adapter_id())
 	for key: Variant in values:
 		var property_name: StringName = StringName(str(key))
 		var field: GFEditorValueField = GFEditorValueField.new()
 		field.name = "Initial_%s" % property_name
 		field.set_label(String(property_name))
-		field.configure({ "name": property_name, "type": typeof(values[key]) }, values[key])
+		var info: Dictionary = {"name": property_name, "type": typeof(values[key])}
+		for record: Dictionary in records:
+			if record["name"] == String(property_name):
+				info["hint"] = PROPERTY_HINT_RANGE
+				info["hint_string"] = "%s,%s,%s" % [record["minimum"], record["maximum"], "1" if typeof(values[key]) == TYPE_INT else "0.001"]
+		field.configure(info, values[key])
 		var _value_connected: int = field.value_changed.connect(_on_initial_value_changed.bind(property_name, field))
 		_initial_fields.add_child(field)
 
@@ -522,7 +565,29 @@ func _on_reset_pressed() -> void:
 func _on_target_kind_selected(index: int) -> void:
 	if _disposed:
 		return
-	_viewport.configure(_config, index)
+	_configure_selected_target(index)
+	_rebuild_time_controls()
+	_rebuild_initial_fields()
+	_refresh_state()
+
+
+## 目录变更撤销旧会话资格；保留明确选择，重新选择后才绑定新租约。
+## [br]
+## @api private
+func _on_adapter_registry_changed() -> void:
+	if _disposed or _target_kind == null:
+		return
+	var selected_id: StringName = _selected_adapter_id()
+	while _target_kind.item_count > 3:
+		_target_kind.remove_item(_target_kind.item_count - 1)
+	_append_adapter_choices()
+	if selected_id != &"":
+		_target_kind.select(-1)
+		for index: int in range(3, _target_kind.item_count):
+			if _target_kind.get_item_metadata(index) == selected_id:
+				_target_kind.select(index)
+				break
+		_viewport.advance(0.0)
 	_rebuild_time_controls()
 	_rebuild_initial_fields()
 	_refresh_state()

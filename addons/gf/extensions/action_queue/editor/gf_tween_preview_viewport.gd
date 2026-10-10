@@ -35,6 +35,11 @@ const _SAMPLE_COLOR: Color = Color(0.35, 0.72, 1.0)
 ## @api private
 const _VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
+## 描述准入、硬边界和初值共用校验。
+## [br]
+## @api private
+const _RECORDS_SCRIPT = preload("res://addons/gf/extensions/action_queue/tween/gf_tween_property_records.gd")
+
 
 # --- 私有变量 ---
 
@@ -103,6 +108,46 @@ var _state: StringName = &"idle"
 ## @api private
 var _error: String = ""
 
+## 当前显式适配器 ID；空名使用内置原生样机。
+## [br]
+## @api private
+var _adapter_id: StringName = &""
+
+## 本次配置捕获的注册租约，不允许复用重注册后的同名适配器。
+## [br]
+## @api private
+var _adapter_lease: int = 0
+
+## 受信任适配器；只收到工具自有样机与独立数值快照。
+## [br]
+## @api private
+var _adapter: GFTweenPreviewAdapter = null
+
+## 归 GF 子树所有的独立 Control 样机。
+## [br]
+## @api private
+var _adapter_sample: Control = null
+
+## 冻结描述中的数值记录；初值编辑仅修改本地副本。
+## [br]
+## @api private
+var _numeric_records: Array[Dictionary] = []
+
+## 不公开内部编译器的数值采样 facade。
+## [br]
+## @api private
+var _numeric_timeline: GFTweenNumericTimeline = null
+
+## 最近一次成功提交给样机的独立数值快照。
+## [br]
+## @api private
+var _numeric_values: Dictionary = {}
+
+## 来源切换、取消或释放时递增，跨适配器回调拒绝旧资格。
+## [br]
+## @api private
+var _generation: int = 0
+
 
 # --- Godot 生命周期方法 ---
 
@@ -134,6 +179,8 @@ func _exit_tree() -> void:
 ## [br]
 ## @param kind: 0 为二维图形，1 为 UI 色块，2 为三维方块。
 func configure(config: Resource, kind: int = 0) -> void:
+	_generation += 1
+	_clear_adapter()
 	_clear_session()
 	_restore_initial_values()
 	_release_sample()
@@ -150,6 +197,68 @@ func configure(config: Resource, kind: int = 0) -> void:
 	_set_state(&"idle")
 
 
+## 显式配置已注册数值适配器，不自动替代内置样机。
+## owner/租约失效后旧会话必须重新选择；样机创建与提交后复核代次和存活。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param config: 精确原生 Tween 配置，只在播放时捕获字段。
+## [br]
+## @param adapter_id: 共享目录中的明确 ID。
+## [br]
+## @return: 成功建立隔离样机时为 true。
+func configure_adapter(config: Resource, adapter_id: StringName) -> bool:
+	_generation += 1
+	var generation: int = _generation
+	_clear_session()
+	_clear_adapter()
+	_release_sample()
+	_initial_values.clear()
+	_config = config
+	_error = ""
+	var registry: GFTweenPreviewRegistry = GFTweenPreviewRegistry.get_shared()
+	var entry: Dictionary = registry._get_entry(adapter_id)
+	if generation != _generation:
+		return false
+	if entry.is_empty():
+		_fail_custom("Preview adapter is not registered.")
+		return false
+	var descriptor: Dictionary = entry["descriptor"]
+	var properties: Array = descriptor["properties"]
+	for value: Variant in properties:
+		var record: Dictionary = value
+		_numeric_records.append(record.duplicate(true))
+		_initial_values[record["name"]] = record["initial"]
+	_adapter_id = adapter_id
+	_adapter_lease = entry["lease"]
+	_adapter = entry["adapter"]
+	var created: Control = _adapter._create_sample()
+	if not _has_adapter_lease(generation):
+		if is_instance_valid(created) and created.get_parent() == null and not created.is_inside_tree():
+			created.queue_free()
+		return false
+	if not is_instance_valid(created) or created.get_parent() != null or created.is_inside_tree() or created.is_queued_for_deletion() or not _is_bounded_sample(created):
+		if is_instance_valid(created) and created.get_parent() == null and not created.is_inside_tree():
+			created.queue_free()
+		_fail_custom("Adapters must return a new unparented Control with at most 128 nodes and 8 levels.")
+		return false
+	var root: Control = Control.new()
+	root.position = -Vector2(size) * 0.5
+	root.size = Vector2(size)
+	_sample_root = root
+	_adapter_sample = created
+	add_child(root)
+	if not _has_adapter_lease(generation) or not is_instance_valid(root) or root.is_queued_for_deletion():
+		return false
+	root.add_child(created)
+	if not _apply_numeric_values(_initial_values, generation):
+		return false
+	_set_state(&"idle")
+	return generation == _generation
+
+
 ## 从暂停继续同一冻结会话；定位到末端后继续会执行完成恢复策略。
 ## 其他状态从初值开始读取并播放最新配置快照。
 ## 独立编辑器时钟不采用来源配置的 process、pause 或 time scale 设置。
@@ -158,6 +267,8 @@ func configure(config: Resource, kind: int = 0) -> void:
 ## [br]
 ## @return: 配置与目标有效且本次播放或恢复被接受时返回 true。
 func play() -> bool:
+	if _adapter_id != &"":
+		return _play_numeric()
 	if not _is_sample_available():
 		_fail("Preview must be inside the scene tree with an available configured sample.")
 		return false
@@ -181,7 +292,11 @@ func play() -> bool:
 	_restore_on_finish = _plan.restore_on_finish
 	_error = ""
 	if _plan.controlled:
-		_controlled_plan = GFTweenPlaybackPlan.capture(_plan.make_controlled_config(), _target, _plan.ping_pong)
+		var baseline: Dictionary = {}
+		for step: Dictionary in _plan.steps:
+			var root_name: String = String(_step_path(step)).get_slice(":", 0)
+			baseline[root_name] = _target.get(root_name)
+		_controlled_plan = GFTweenPlaybackPlan.capture_data(_plan.steps, baseline, _plan.loop_count, 1.0, _plan.ping_pong)
 		if not _controlled_plan.error.is_empty():
 			_fail(_controlled_plan.error)
 			return false
@@ -211,6 +326,7 @@ func pause() -> void:
 ## [br]
 ## @api framework_internal
 func stop() -> void:
+	_generation += 1
 	_clear_tween()
 	_error = ""
 	_set_state(&"idle")
@@ -220,6 +336,14 @@ func stop() -> void:
 ## [br]
 ## @api framework_internal
 func reset_preview() -> void:
+	_generation += 1
+	if _adapter_id != &"":
+		var generation: int = _generation
+		_clear_session()
+		if _apply_numeric_values(_initial_values, generation):
+			_error = ""
+			_set_state(&"idle")
+		return
 	_clear_session()
 	_restore_initial_values()
 	_error = ""
@@ -232,6 +356,9 @@ func reset_preview() -> void:
 ## [br]
 ## @param delta: 有限且非负的独立编辑器时间增量，单位为秒。
 func advance(delta: float) -> void:
+	if _adapter_id != &"":
+		_advance_numeric(delta)
+		return
 	if _state != &"playing":
 		return
 	if not is_finite(delta) or delta < 0.0:
@@ -265,6 +392,8 @@ func advance(delta: float) -> void:
 ## [br]
 ## @return: 初值通过验证且已应用时返回 true；拒绝时保留原初值。
 func set_initial_value(property_name: StringName, value: Variant) -> bool:
+	if _adapter_id != &"":
+		return _set_numeric_initial(property_name, value)
 	var validation_error: String = GFTweenPreviewPlan.validate_initial_value(
 		property_name, value, _target_kind
 	)
@@ -301,6 +430,8 @@ func get_initial_values() -> Dictionary:
 ## [br]
 ## @schema return: Dictionary，String 属性名映射到 int、float、Vector2、Vector3 或 Color。
 func get_current_values() -> Dictionary:
+	if _adapter_id != &"":
+		return _numeric_values.duplicate() if _is_numeric_available(_generation) else {}
 	var result: Dictionary = {}
 	if not is_instance_valid(_target):
 		return result
@@ -340,6 +471,18 @@ func get_error() -> String:
 ## [br]
 ## @return: 当前会话接受定位时返回 true。
 func seek(time_seconds: float) -> bool:
+	if _adapter_id != &"":
+		if _numeric_timeline == null or not _is_numeric_available(_generation):
+			return _reject_seek("Start numeric playback before inspecting its captured session.")
+		if not is_finite(time_seconds) or time_seconds < 0.0 or time_seconds > get_duration_seconds():
+			return _reject_seek("Inspection time must be finite and within the captured timeline.")
+		var generation: int = _generation
+		if not _apply_numeric_values(_numeric_timeline.sample(time_seconds), generation):
+			return false
+		_elapsed_seconds = time_seconds
+		_error = ""
+		_set_state(&"paused")
+		return generation == _generation
 	if _plan == null or not _is_sample_available():
 		return _reject_seek("Start playback before inspecting a time in its captured session.")
 	if not is_finite(time_seconds) or time_seconds < 0.0 or time_seconds > _plan.duration_seconds:
@@ -386,6 +529,13 @@ func has_session() -> bool:
 ## [br]
 ## @return: 当前有效受控会话是否接受方向变更。
 func play_direction(backward: bool) -> bool:
+	if _adapter_id != &"":
+		if _numeric_timeline == null or not _is_numeric_available(_generation):
+			return _reject_seek("Start numeric playback before changing direction.")
+		_direction = -1.0 if backward else 1.0
+		_error = ""
+		_set_state(&"playing")
+		return true
 	if _controlled_plan == null or not _is_sample_available():
 		return _reject_seek("反向检查需要先播放启用受控播放或往返的配置。")
 	_direction = -1.0 if backward else 1.0
@@ -400,7 +550,7 @@ func play_direction(backward: bool) -> bool:
 ## [br]
 ## @return: 当前持有受控采样计划时为 true。
 func is_controlled_session() -> bool:
-	return _controlled_plan != null
+	return _controlled_plan != null or _numeric_timeline != null
 
 
 ## 返回当前冻结的工具侧计划，只供时间条读取。
@@ -438,6 +588,8 @@ func get_time_seconds() -> float:
 ## [br]
 ## @api framework_internal
 func dispose_preview() -> void:
+	_generation += 1
+	_clear_adapter()
 	_clear_session()
 	_restore_initial_values()
 	_release_sample()
@@ -449,6 +601,209 @@ func dispose_preview() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+## 清除适配器身份与私有数值快照；释放样机由共同的样机生命周期负责。
+## [br]
+## @api private
+func _clear_adapter() -> void:
+	_adapter_id = &""
+	_adapter_lease = 0
+	_adapter = null
+	_adapter_sample = null
+	_numeric_records.clear()
+	_numeric_timeline = null
+	_numeric_values.clear()
+
+
+## 在可能发出目录变更信号后再次复核代次，拒绝 owner/租约切换后的旧资格。
+## [br]
+## @api private
+func _has_adapter_lease(generation: int) -> bool:
+	if generation != _generation or _adapter_id == &"" or _adapter == null:
+		return false
+	var valid: bool = GFTweenPreviewRegistry.get_shared()._has_lease(_adapter_id, _adapter_lease)
+	return valid and generation == _generation and _adapter != null
+
+
+## 数值提交要求视口和样机仍处于当前工具子树，且均未排队释放。
+## [br]
+## @api private
+func _is_numeric_available(generation: int) -> bool:
+	return (
+		_has_adapter_lease(generation) and is_inside_tree() and not is_queued_for_deletion()
+		and is_instance_valid(_adapter_sample) and _adapter_sample.is_inside_tree()
+		and not _adapter_sample.is_queued_for_deletion()
+		and _adapter_sample.get_parent() == _sample_root
+	)
+
+
+## 只遍历适配器返回的新样机子树，以有限节点数和深度接纳所有权。
+## [br]
+## @api private
+func _is_bounded_sample(sample: Control) -> bool:
+	var pending: Array[Node] = [sample]
+	var depths: Array[int] = [1]
+	var count: int = 0
+	while not pending.is_empty():
+		var node: Node = pending.pop_back()
+		var depth: int = depths.pop_back()
+		count += 1
+		if count > 128 or depth > 8 or not is_instance_valid(node) or node.is_queued_for_deletion():
+			return false
+		if node.get_child_count() > 128 - count - pending.size():
+			return false
+		for child: Node in node.get_children():
+			pending.append(child)
+			depths.append(depth + 1)
+	return true
+
+
+## 先存独立数值，再调用受信任绘制钩子；钩子可清理、重绑定或释放样机。
+## 调用后不跨代次发布状态，不把旧快照提交给较新的目标。
+## [br]
+## @api private
+func _apply_numeric_values(values: Dictionary, generation: int) -> bool:
+	if not _is_numeric_available(generation):
+		if generation == _generation:
+			_invalidate_numeric("Preview adapter owner, lease or sample is no longer available.")
+		return false
+	if values.is_empty():
+		_fail_custom("Numeric sampling returned no complete bounded values.")
+		return false
+	var sample: Control = _adapter_sample
+	var adapter: GFTweenPreviewAdapter = _adapter
+	_numeric_values = values.duplicate()
+	adapter._apply_sample(sample, values.duplicate())
+	if generation != _generation:
+		return false
+	if not _is_numeric_available(generation) or _adapter_sample != sample:
+		if generation == _generation:
+			_invalidate_numeric("Preview adapter invalidated its owned sample during submission.")
+		return false
+	_request_render()
+	return true
+
+
+## 从暂停继续冻结数值时间轴，其他状态重新捕获精确原生字段。
+## [br]
+## @api private
+func _play_numeric() -> bool:
+	var start_generation: int = _generation
+	if not _is_numeric_available(start_generation):
+		if start_generation == _generation:
+			_invalidate_numeric("Numeric preview is no longer configured with an active owner and sample.")
+		return false
+	if _state == &"paused" and _numeric_timeline != null:
+		var paused_generation: int = _generation
+		_error = ""
+		if (_direction > 0.0 and _elapsed_seconds >= get_duration_seconds()) or (_direction < 0.0 and _elapsed_seconds <= 0.0):
+			return _finish_numeric(paused_generation)
+		_set_state(&"playing")
+		return paused_generation == _generation
+	_generation += 1
+	var generation: int = _generation
+	_clear_session()
+	if not _apply_numeric_values(_initial_values, generation):
+		return false
+	var captured: GFTweenPreviewPlan = GFTweenPreviewPlan.capture_numeric(_config, _numeric_records)
+	if not captured.error.is_empty():
+		_fail_custom(captured.error)
+		return false
+	var timeline: GFTweenNumericTimeline = GFTweenNumericTimeline.capture(captured.get_numeric_definition(), _numeric_records)
+	if not timeline.get_error().is_empty():
+		_fail_custom(timeline.get_error())
+		return false
+	_plan = captured
+	_numeric_timeline = timeline
+	_restore_on_finish = captured.restore_on_finish
+	_error = ""
+	if not _apply_numeric_values(timeline.sample(0.0), generation):
+		return false
+	_set_state(&"playing")
+	return generation == _generation
+
+
+## 用显式有限时钟推进数值会话，空闲时也及时撤销失效 owner。
+## [br]
+## @api private
+func _advance_numeric(delta: float) -> void:
+	var generation: int = _generation
+	if not _is_numeric_available(generation):
+		if generation == _generation:
+			_invalidate_numeric("Preview adapter owner, lease or sample expired.")
+		return
+	if _state != &"playing":
+		return
+	if not is_finite(delta) or delta < 0.0 or _numeric_timeline == null:
+		_fail_custom("Numeric preview requires finite nonnegative time and a captured timeline.")
+		return
+	var next_time: float = clampf(_elapsed_seconds + delta * _direction, 0.0, get_duration_seconds())
+	if not _apply_numeric_values(_numeric_timeline.sample(next_time), generation):
+		return
+	_elapsed_seconds = next_time
+	if (_direction > 0.0 and next_time >= get_duration_seconds()) or (_direction < 0.0 and next_time <= 0.0):
+		var _finished: bool = _finish_numeric(generation)
+
+
+## 完成仅更新工具状态；定位不会调用此路径，更不会发出来源 marker/业务完成通知。
+## [br]
+## @api private
+func _finish_numeric(generation: int) -> bool:
+	if _restore_on_finish and not _apply_numeric_values(_initial_values, generation):
+		return false
+	if generation != _generation:
+		return false
+	_set_state(&"finished")
+	return generation == _generation
+
+
+## 校验本地初值完整描述再取消旧会话，拒绝不改变原初值。
+## [br]
+## @api private
+func _set_numeric_initial(property_name: StringName, value: Variant) -> bool:
+	var next_records: Array[Dictionary] = _numeric_records.duplicate(true)
+	var found: bool = false
+	for record: Dictionary in next_records:
+		if record["name"] == String(property_name):
+			record["initial"] = value
+			found = true
+	var validation: String = _RECORDS_SCRIPT.validate_numeric(next_records)
+	if not found or not validation.is_empty():
+		return _reject_seek("Numeric initial value does not match its declared type and hard bounds.")
+	_generation += 1
+	var generation: int = _generation
+	_clear_session()
+	_numeric_records = next_records
+	_initial_values[String(property_name)] = value
+	if not _apply_numeric_values(_initial_values, generation):
+		return false
+	_error = ""
+	_set_state(&"idle")
+	return generation == _generation
+
+
+## 拒绝当前纯数值计划，不调用恢复钩子或业务回调；可在修正配置后重新播放。
+## [br]
+## @api private
+func _fail_custom(message: String) -> void:
+	_generation += 1
+	_clear_session()
+	_error = message
+	_set_state(&"error")
+
+
+## 失效 owner/样机彻底撤销配置与所有权，不将旧值提交到重注册条目。
+## [br]
+## @api private
+func _invalidate_numeric(message: String) -> void:
+	_generation += 1
+	_clear_session()
+	_clear_adapter()
+	_release_sample()
+	_initial_values.clear()
+	_config = null
+	_error = message
+	_set_state(&"error")
 
 ## 按当前目标类型创建隔离的二维、UI 或三维样机。
 ## [br]
@@ -517,6 +872,7 @@ func _clear_session() -> void:
 	_clear_tween()
 	_plan = null
 	_controlled_plan = null
+	_numeric_timeline = null
 	_direction = 1.0
 	_elapsed_seconds = 0.0
 
@@ -728,4 +1084,8 @@ func _on_size_changed() -> void:
 	if not is_inside_tree():
 		return
 	canvas_transform = Transform2D(0.0, Vector2(size) * 0.5)
+	if _adapter_id != &"" and _sample_root is Control:
+		var root: Control = _sample_root
+		root.position = -Vector2(size) * 0.5
+		root.size = Vector2(size)
 	_request_render()

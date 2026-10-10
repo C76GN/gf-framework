@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFTweenPreviewRegistration" path="addons/gf/extensions/action_queue/editor/gf_tween_preview_registration.gd" module="extensions/action_queue" extends="RefCounted" classDigest="a762e32d445d8b065f41a196b7a64d1da94720250d642a9aca66177ea2ba33c3">
+	<description>GFTweenPreviewRegistration: 一次编辑器数值预览注册的所有权句柄。
+release 幂等且只撤销自身租约；旧句柄不能撤销同 ID 后续注册。持有者应在插件卸载时显式释放。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="release">
+			<signature>func release() -&gt; void:</signature>
+			<description>撤销本句柄注册，允许重复调用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_active">
+			<signature>func is_active() -&gt; bool:</signature>
+			<description>返回当前句柄是否仍对应有效 owner 和租约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">有效时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>
