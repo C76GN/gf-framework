@@ -140,7 +140,34 @@ const _GF_VARIANT_KEY_CODEC_SCRIPT = preload("res://addons/gf/standard/foundatio
 const _INPUT_KEY_SCHEMA_PREFIX: String = "gf_input_key_v1"
 
 
+# --- 公共变量 ---
+
+## 是否由内部全局节点自动接收 Godot 输入和应用失焦通知，默认启用。
+## 关闭后仍须正常初始化；调用方负责 handle_input_event、tick 和失焦时 clear_input_state。
+## 初始化后切换会立即停止旧路由、清理输入状态并保留已启用上下文。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var automatic_input_routing: bool = true:
+	set(value):
+		if automatic_input_routing == value:
+			return
+		automatic_input_routing = value
+		if not _is_initialized:
+			return
+		_dispatch_epoch += 1
+		_release_router()
+		_clear_runtime_state(true, &"input_routing_changed")
+		_ensure_router()
+
+
 # --- 私有变量 ---
+
+## 记录 init/dispose 之间的路由生命周期；配置 setter 不得在未初始化或已释放时挂载节点。
+## [br]
+## @api private
+var _is_initialized: bool = false
 
 ## 已启用上下文到优先级和激活时间戳的映射。
 ## [br]
@@ -403,11 +430,14 @@ var _next_virtual_pulse_lease_id: int = 1
 
 # --- GF 生命周期方法 ---
 
-## 初始化输入映射运行时状态并挂载输入路由节点。
+## 初始化输入映射运行时状态；启用 automatic_input_routing 时挂载输入路由节点。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 func init() -> void:
 	_dispatch_epoch += 1
+	_is_initialized = true
 	ignore_pause = true
 	ignore_time_scale = true
 	_clear_runtime_state(false, &"mapping_initialized")
@@ -428,14 +458,12 @@ func ready() -> void:
 ## @api public
 func dispose() -> void:
 	_dispatch_epoch += 1
-	_router_attach_serial += 1
+	_is_initialized = false
+	_release_router()
 	_unbind_input_device_utility()
 	_active_contexts.clear()
 	_effective_entries.clear()
 	_clear_runtime_state(false, &"mapping_disposed")
-	if is_instance_valid(_router):
-		_router.queue_free()
-	_router = null
 
 
 ## 推进运行时逻辑。
@@ -2047,7 +2075,7 @@ func _get_player_raw_action_active(player_action_key: String) -> bool:
 ## @api private
 ## [br]
 func _ensure_router() -> void:
-	if is_instance_valid(_router):
+	if not _is_initialized or not automatic_input_routing or is_instance_valid(_router):
 		return
 
 	var tree: SceneTree = _get_scene_tree_value(Engine.get_main_loop())
@@ -2060,6 +2088,21 @@ func _ensure_router() -> void:
 	_router._focus_lost_callback = Callable(self, "clear_input_state")
 	_router_attach_serial += 1
 	call_deferred("_attach_router_to_root", _router, _router_attach_serial)
+
+
+## 立即断开旧节点回调并使延迟挂载失效，再排队释放节点；同帧输入不得继续转发。
+## [br]
+## @api private
+func _release_router() -> void:
+	_router_attach_serial += 1
+	var previous_router: _GFInputRouter = _router
+	_router = null
+	if not is_instance_valid(previous_router):
+		return
+	previous_router._input_callback = Callable()
+	previous_router._focus_lost_callback = Callable()
+	previous_router.set_process_input(false)
+	previous_router.queue_free()
 
 
 ## 校验延迟挂载请求的序号、目标路由及节点状态后，将路由节点加入 SceneTree 根节点。

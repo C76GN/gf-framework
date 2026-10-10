@@ -2,9 +2,14 @@
 
 ## [未发布]
 
-**版本概述**：重做节点对象池的借还生命周期，解决物理碰撞回调中归还节点的引擎错误，以及弹幕复用时被提前回收的问题。调用方式统一为异步借用结果与一次性 Lease；不保留旧接口兼容层。新增场景组查询工具，可在编辑器中查找已保存的 Group 声明并定位来源节点。Flow 图编辑支持撤销与重做，Resource 表格支持只应用已编辑分量的多选属性编辑。本次为下一主版本的开发变更，尚未正式发布。
+**版本概述**：重做节点对象池的借还生命周期，解决物理碰撞回调中归还节点的引擎错误，以及弹幕复用时被提前回收的问题。调用方式统一为异步借用结果与一次性 Lease；不保留旧接口兼容层。新增场景组查询工具，可在编辑器中查找已保存的 Group 声明并定位来源节点。Flow 图编辑支持撤销与重做，Resource 表格支持只应用已编辑分量的多选属性编辑。运行期新增手动输入路由、有限存储读写预算、规范序列化测量与增量哈希、历史状态通知和字段输入会话。本次为下一主版本的开发变更，尚未正式发布。
 
 ### 🚀 新增特性 (Added)
+
+- 输入映射支持完整初始化后的手动事件路由，由宿主管理输入、tick 与失焦清理，避免重复接收全局事件。
+- 规范 Variant 序列化支持精确预算测量，以及快速和增量两个 SHA-256 入口；增量路径分块处理 Packed 数组，保持既有规范字节与字典排序。
+- 命令历史提供有界的状态快照与变化通知，UI 可观察忙碌、成功、失败与容量变化，不必读取命令栈。
+- 新增 [运行期控件输入会话](standard/utilities/runtime/settings-ui-scene/settings-display/form-binding.md#输入会话与提交边界)，保留数字原文与编辑基线，支持提交、取消及过期令牌检查；业务验证与撤销由项目管理。
 
 - [GF Workspace](editor/workspace.md#打开与布局) 支持首次、每次或手动打开的个人启动偏好，记住最近页面、窗口尺寸和置顶状态；页面身份独立于显示标题，刷新贡献后仍可恢复选择。
 - [任务首页](editor/workspace.md#任务首页) 支持搜索、收藏和最近任务；工具通过工作区上下文声明任务与资源接收动作，保留页面懒加载、扩展显式启用及旧贡献版本兼容。
@@ -41,6 +46,8 @@
 
 ### 🔄 机制更改 (Changed)
 
+- Storage 的业务文件与解析前明文默认分别限制为 64 MiB；字典保存先检查完整明文和最终编码文件，再提交同一份字节，避免保存成功却超出本请求两项字节预算。项目可显式调高正数上限，预算失败不会获得损坏文件的重置授权。
+
 - 项目初始化工具移除默认计数器模板及其全局类型声明，新项目默认目录改为 `res://app/`；README 按需生成，生成后的入口与 Installer 属于项目源码。框架升级不重写项目源码，Model、System 及可选能力继续通过已有模板和所属工具添加。
 - Flow 与 Save 新增工作区公开任务，对应 `extension_version` 分别升为 `4.1.0` 与 `6.4.0`；扩展的框架发行版本仍与 GF Framework 一致。
 - [资源工作台](editor/tools/asset-browser.md) 的默认文字搜索合并连续输入，以单个可取消工作线程完成评分和排序，分批准备候选、解析当前页身份及建立卡片；查询期间旧资源动作失效，隐藏实际工作区窗口、目录变化和上下文撤销均阻止旧结果发布并回收线程。同步浏览模型接口保持兼容。
@@ -64,6 +71,8 @@
 - Workspace 向需要编辑的贡献页面注入通用编辑器上下文，并在页面移除时撤销。独立创建的 Flow 面板须显式提供上下文后才能修改图资源。
 
 ### 🐛 Bug 修复 (Fixed)
+
+- 控件输入会话取消时核验实际值与原文是否恢复到基线，原生范围或选项变化导致恢复失败时如实返回失败；SpinBox 的延期文本校正不会覆盖宿主后来修改的数值。
 
 - 修复资源工作台按路径扩大所选资产身份的问题，以及编辑标签和备注时丢失已有共享条目的自定义字段；目录和条目 Resource 支持从磁盘重新打开后的编辑器操作，选择、Undo / Redo 和显式保存保留各条目的独立数据。
 - 修复配置工作台无法删除空来源的问题；Profile 保存清理恢复成功后正确完成该次保存记录，同时保留恢复期间的新修改与外部文件冲突检查。
@@ -115,6 +124,12 @@
 
 ### 🔧 API 变动说明 (API Changes)
 
+- `GFStorageUtility` 新增 `max_read_bytes`；`GFStorageCodec.max_decompressed_bytes` 及同名选项改为统一的 `max_decode_bytes`，同时约束压缩与普通文件的解析前明文及编码时完整文档明文。两项预算均默认 64 MiB 且须为正数；异步读写使用入队配置快照。新增 `GFStorageCodec.encode_result()` 闭合的 `{ok, error, bytes}`；`GFStorageReadResult.FailureKind` 和 `GFStorageAsyncResult.WriteFailureKind` 新增 `LIMIT_EXCEEDED`，压缩解码无法区分损坏与限额时保守拒绝重置授权。明文字节预算不等同于 Variant 堆内存上限。
+- `GFInputMappingUtility` 新增 `automatic_input_routing`，关闭时仍正常执行初始化与依赖生命周期。
+- `GFDeterministicVariantSerializer` 新增 `measure_canonical()` 与 `sha256_incremental()`。`sha256()` 在预算预检后构建规范树并使用原生快速哈希；增量入口分块编码与哈希，避免构建整棵规范树及完整 JSON。两者保持相同规范摘要与预算合同；增量路径的字典键排序仍保留规范键文本。
+- `GFCommandHistoryUtility` 新增 `history_changed`、`get_history_state()` 与 `is_processing_operation`；通知期间只允许生命周期失效，拒绝历史修改，防止同步回调重入。
+- 新增 `GFControlEditSession`，提供控件弱引用、会话令牌、原文快照、提交和取消边界，不接管焦点、输入事件或模型。
+
 - `GFVirtualListBinder.bind_with_reuse_keys()` 新增分类回调与接收 `StringName` 的 factory，同步时分类无效的结果状态为 `GFVirtualListSyncResult.STATUS_INVALID_REUSE_KEY`；原 `bind()` 继续使用无参 factory，无需迁移。
 - `GFVariantJsonCodec` 新增 `variant_to_json_compatible_result()` 与 `json_compatible_to_variant_result()`，返回 `{ok, value, error}`；诊断投影入口继续表达不同的输出用途。`GFDialogueContext.deserialize_values()` 返回 `bool`，失败保持原值。
 - `GFSpatialHash3D.can_query_aabb()` 提供不生成候选列表的查询准入检查，空间查询 facade 在哈希预算不足时使用线性查询。
@@ -155,5 +170,7 @@
 11. 自定义行为树节点覆盖 `reset()` 时调用 `super.reset()`，使旧 tick 失效。平台 adapter 改配置时创建新实例；自定义输入序列 runtime 按[序列协议](standard/input-flow/input-assist/input-modifiers-triggers.md)提供边沿 revision，不再用帧内布尔值模拟独立边沿。
 12. Config Pipeline 的 v1 manifest 不走兼容读取。按[导出说明](editor/tools/config-pipeline.md)核对 profile、输出与 manifest 路径，仅移除对应生成 manifest 后重新导出。Content 导出中被合并的物理条目从 `metadata.references` 读取全部逻辑资源引用；未合并条目仍直接使用原有元数据字段。
 13. `MultiplayerPeer` 替换若被断开回调中的另一次接管打断，返回 `ERR_BUSY`；调用方仍负责未被接管的 peer。可选 Network 字段的显式 null 也必须满足 `allow_null`，不能以 `required=false` 绕过。
+14. 检查大文件读写：物理文件（含 Base64 开销）和还原后的明文分别受 `max_read_bytes`、`max_decode_bytes` 约束，默认 64 MiB；将 Codec 的 `max_decompressed_bytes` 属性与选项改名为 `max_decode_bytes`，旧选项会被拒绝。按项目存档规模显式设置更大正数，不用零关闭上限。成功保存的字典文件须符合本请求捕获的两级预算；同步保存超限返回 `ERR_OUT_OF_MEMORY`，异步保存通过物理完成结果报告 `WriteFailureKind.LIMIT_EXCEEDED`，入队 `OK` 不代表已经保存。`LIMIT_EXCEEDED` 应提示调整预算或拒绝操作，不能当作损坏文件自动覆盖或重置。
+15. 手动输入宿主在初始化前设置 `automatic_input_routing=false`，正常注册/初始化工具，转发选中的事件并负责失焦清理；注册实例由架构推进 `tick()`，独立实例由宿主推进，避免重复更新。历史通知回调只更新展示，新的历史操作在通知返回后发起。字段延期提交保存会话令牌，解绑或文档切换调用 `clear()`。
 
 详细示例见[对象池](standard/utilities/runtime/time-signal-pool/object-pool.md)与[弹幕](extensions/combat/projectiles.md)。已发布历史仍可从对应版本 tag 和 Release 查看。

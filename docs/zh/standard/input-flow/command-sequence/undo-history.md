@@ -49,6 +49,24 @@ stack.undo_last()
 
 `GFUndoableCommand.action_name` 是可选标签，默认保持为空。需要在历史面板、日志或调试工具里显示命令名称时，项目命令应显式设置自己的本地化文案或稳定 ID。
 
+## 观察历史状态
+
+历史面板可以监听 `history_changed(snapshot)`，并在连接时用 `get_history_state()` 获取初始状态。快照固定包含 `revision`、`undo_count`、`redo_count`、`max_history_size`、`can_undo`、`can_redo`、`is_processing_operation` 和 `is_processing_async`，仅有整数和布尔值，不复制历史栈或暴露命令引用。
+
+```gdscript
+stack.history_changed.connect(func(state: Dictionary) -> void:
+	undo_button.disabled = not state["can_undo"]
+	redo_button.disabled = not state["can_redo"]
+)
+var initial_state := stack.get_history_state()
+undo_button.disabled = not initial_state["can_undo"]
+redo_button.disabled = not initial_state["can_redo"]
+```
+
+命令调用前会发布真实操作锁的 busy 状态；返回 `Signal` 时进一步发布异步等待状态。成功、失败、跳过记录和恢复失败都会在终态判断完成、操作锁释放后发布当前计数与可用状态，因此失败命令也不会让按钮一直禁用。直接记录、清空非空历史、容量变化及实际生命周期重置同样通知；空 `clear()` 和同值容量赋值不通知。`revision` 按状态变化递增，裁剪后计数相同或恢复成相同深度的不同命令也能观察到更新。
+
+信号同步发射，载荷是只读快照；`get_history_state()` 返回独立的可写字典。通知回调是观察点：`record`、执行、撤销、重做、清空、恢复和容量修改请求都会被拒绝，后续操作应在回调返回后提交。`init()` / `dispose()` 仍可立即取消当前生命周期，重置状态会在当前发射结束后发布，旧代操作不会继续执行命令、等待或提交历史。通知描述历史状态，不是业务成功事件；命令结果仍由执行入口和项目命令的结果 hook 判断。
+
 ## 使用边界
 
 异步可撤销命令应使用历史工具的异步入口。同步 `undo_last()` / `redo()` 只有调用命令后才能看到返回值是否为 `Signal`；此时返回 `false` 只表示历史栈没有提交移动，不表示命令在返回 `Signal` 前启动的同步或 deferred 副作用已撤销。不能在执行前确定模式的调用方应统一使用异步入口；如果命令需要取消，应在项目命令里显式实现可取消逻辑。超时只告警并继续持有历史锁，不能取消已经开始的命令副作用。

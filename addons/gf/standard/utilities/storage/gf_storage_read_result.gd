@@ -54,6 +54,8 @@ enum FailureKind {
 	MIGRATION_FAILED,
 	## 请求在执行前被底层服务终止。
 	UNAVAILABLE,
+	## 文件、解码明文或 JSON 遍历超出读取预算；也包含无法排除解压上限的解压失败，不代表文件损坏。
+	LIMIT_EXCEEDED,
 }
 
 

@@ -19,6 +19,8 @@
 | 方法 | [`to_canonical_json`](#member-gfdeterministicvariantserializer-methods-to_canonical_json) | `static func to_canonical_json(value: Variant, options: Dictionary = {}) -> String:` |
 | 方法 | [`to_canonical_bytes`](#member-gfdeterministicvariantserializer-methods-to_canonical_bytes) | `static func to_canonical_bytes(value: Variant, options: Dictionary = {}) -> PackedByteArray:` |
 | 方法 | [`sha256`](#member-gfdeterministicvariantserializer-methods-sha256) | `static func sha256(value: Variant, options: Dictionary = {}) -> String:` |
+| 方法 | [`sha256_incremental`](#member-gfdeterministicvariantserializer-methods-sha256_incremental) | `static func sha256_incremental(value: Variant, options: Dictionary = {}) -> String:` |
+| 方法 | [`measure_canonical`](#member-gfdeterministicvariantserializer-methods-measure_canonical) | `static func measure_canonical(value: Variant, options: Dictionary = {}) -> Dictionary:` |
 
 ## 方法
 
@@ -115,7 +117,7 @@ static func to_canonical_bytes(value: Variant, options: Dictionary = {}) -> Pack
 static func sha256(value: Variant, options: Dictionary = {}) -> String:
 ```
 
-计算 Variant 规范编码的 SHA-256。
+计算 Variant 规范编码的 SHA-256，预检后构建完整 typed tree 和 JSON 文本以优先降低编码 CPU 开销。 大载荷需要控制工作内存时，使用生成相同摘要的 sha256_incremental()。
 
 参数：
 
@@ -130,3 +132,58 @@ static func sha256(value: Variant, options: Dictionary = {}) -> String:
 
 - `value`: Variant value supported by `to_canonical_value()`.
 - `options`: Dictionary with optional allow_floats, max_depth, max_items, max_string_length, and max_output_bytes limits.
+
+<a id="member-gfdeterministicvariantserializer-methods-sha256_incremental"></a>
+
+### `sha256_incremental`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func sha256_incremental(value: Variant, options: Dictionary = {}) -> String:
+```
+
+逐片计算 Variant 规范编码的 SHA-256，不构建完整 typed tree 或规范 JSON 文本。 hash 缓冲最多 64 KiB；字典排序仍保留 canonical key 文本，工作内存不是常量。 调用期间必须保持输入结构不变，增量编码可能增加 CPU 开销。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `value` | 待编码的纯 Variant 数据。 |
+| `options` | 与 sha256() 相同的编码选项和预算。 |
+
+返回：与 sha256() 相同的 SHA-256 hex 字符串；失败时返回空字符串。
+
+结构：
+
+- `value`: Variant value supported by `to_canonical_value()`.
+- `options`: Dictionary with optional allow_floats, max_depth, max_items, max_string_length, and max_output_bytes limits.
+
+<a id="member-gfdeterministicvariantserializer-methods-measure_canonical"></a>
+
+### `measure_canonical`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func measure_canonical(value: Variant, options: Dictionary = {}) -> Dictionary:
+```
+
+只读预检规范编码的输入预算和精确输出字节数，不构建完整 typed tree 或输出文本，也不输出错误。 调用期间必须保持输入结构不变；报告不为后续已修改的数据提供编码资格。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `value` | 待测量的纯 Variant 数据。 |
+| `options` | 与规范 bytes 和 SHA-256 相同的编码选项和预算。 |
+
+返回：预检报告；成功时计数精确，失败时计数仅描述已遍历部分，不能视为完整输入或输出的大小。
+
+结构：
+
+- `value`: Variant value supported by `to_canonical_value()`.
+- `options`: Dictionary with optional allow_floats, max_depth, max_items, max_string_length, and max_output_bytes limits.
+- `return`: Closed Dictionary with ok: bool, error: String, failure_kind: String (empty, input_invalid, or output_limit), items: int (Variant nodes plus packed elements), packed_items: int (packed elements only), and output_bytes: int (exact on success; partial and capped by max_output_bytes on failure).

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCommandHistoryUtility" path="addons/gf/standard/utilities/history/gf_command_history_utility.gd" module="standard" extends="GFUtility" classDigest="bc308b2edc98a31f2b4854c6971b0a2960196876b0059f9850843ab917f7e282">
+<class name="GFCommandHistoryUtility" path="addons/gf/standard/utilities/history/gf_command_history_utility.gd" module="standard" extends="GFUtility" classDigest="1327596fe0a00987b32d05d259e9f9c5d37b6414d200c4e730e91034987f66bd">
 	<description>GFCommandHistoryUtility: 可撤销命令历史管理器。
 负责维护 `GFUndoableCommand` 的撤销栈与重做栈，
 并提供同步/异步重放与历史序列化能力。</description>
@@ -8,7 +8,19 @@
 		<tag name="category">runtime_service</tag>
 		<tag name="since">3.17.0</tag>
 	</tags>
-	<signals />
+	<signals>
+		<member kind="signal" name="history_changed">
+			<signature>signal history_changed(snapshot: Dictionary)</signature>
+			<description>历史内容、容量或真实操作锁状态变化时，同步发布有界、只读的值数据快照。
+监听器只能观察；历史修改请求会被拒绝，init/dispose 仍可使当前生命周期失效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">snapshot: 与 get_history_state() 相同的只读状态，revision 按发布顺序递增。</tag>
+				<tag name="schema">snapshot: Dictionary with revision, undo_count, redo_count, max_history_size, can_undo, can_redo, is_processing_operation, and is_processing_async scalar values; no command references.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
 	<enums />
 	<constants />
 	<properties>
@@ -48,6 +60,14 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="is_processing_operation">
+			<signature>var is_processing_operation: bool:</signature>
+			<description>当前是否持有同步或异步历史操作锁，包括命令调用、终态判断和历史提交。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</properties>
@@ -133,6 +153,17 @@ Signal 完成参数会规范化后传入 `is_redo_successful()`：无参数为 n
 			<description>清空所有历史记录。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_history_state">
+			<signature>func get_history_state() -&gt; Dictionary:</signature>
+			<description>返回独立的有界历史状态快照，仅包含标量，不遍历历史或公开命令实例。
+完成通知表示操作锁已经释放；操作失败也会发布从 busy 回到可用状态的变化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前计数、容量、操作状态和通知版本。</tag>
+				<tag name="schema">return: Dictionary with revision, undo_count, redo_count, max_history_size, can_undo, can_redo, is_processing_operation, and is_processing_async scalar values.</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="can_undo">

@@ -49,6 +49,8 @@ enum WriteFailureKind {
 	UNAVAILABLE,
 	## 目录、临时文件或事务提交 I/O 失败。
 	IO_FAILED,
+	## 完整明文字节或最终存档字节超过请求冻结的预算；未提交本次新保存。
+	LIMIT_EXCEEDED,
 }
 
 

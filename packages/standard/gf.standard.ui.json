@@ -7,6 +7,8 @@
     "gf.standard.base"
   ],
   "paths": [
+    "addons/gf/standard/utilities/ui/gf_control_edit_session.gd",
+    "addons/gf/standard/utilities/ui/gf_control_edit_session.gd.uid",
     "addons/gf/standard/utilities/ui/gf_control_focus_utility.gd",
     "addons/gf/standard/utilities/ui/gf_control_focus_utility.gd.uid",
     "addons/gf/standard/utilities/ui/gf_control_value_adapter.gd",

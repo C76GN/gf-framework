@@ -25,6 +25,7 @@
 | 信号 | [`player_action_started`](#member-gfinputmappingutility-signals-player_action_started) | `signal player_action_started(player_index: int, action_id: StringName, value: Variant)` |
 | 信号 | [`player_action_triggered`](#member-gfinputmappingutility-signals-player_action_triggered) | `signal player_action_triggered(player_index: int, action_id: StringName, value: Variant)` |
 | 信号 | [`player_action_completed`](#member-gfinputmappingutility-signals-player_action_completed) | `signal player_action_completed(player_index: int, action_id: StringName, value: Variant)` |
+| 属性 | [`automatic_input_routing`](#member-gfinputmappingutility-properties-automatic_input_routing) | `var automatic_input_routing: bool = true:` |
 | 方法 | [`init`](#member-gfinputmappingutility-methods-init) | `func init() -> void:` |
 | 方法 | [`ready`](#member-gfinputmappingutility-methods-ready) | `func ready() -> void:` |
 | 方法 | [`dispose`](#member-gfinputmappingutility-methods-dispose) | `func dispose() -> void:` |
@@ -291,6 +292,21 @@ signal player_action_completed(player_index: int, action_id: StringName, value: 
 
 - `value`: Variant，根据动作值类型使用 bool、float、Vector2 或 Vector3。
 
+## 属性
+
+<a id="member-gfinputmappingutility-properties-automatic_input_routing"></a>
+
+### `automatic_input_routing`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var automatic_input_routing: bool = true:
+```
+
+是否由内部全局节点自动接收 Godot 输入和应用失焦通知，默认启用。 关闭后仍须正常初始化；调用方负责 handle_input_event、tick 和失焦时 clear_input_state。 初始化后切换会立即停止旧路由、清理输入状态并保留已启用上下文。
+
 ## 方法
 
 <a id="member-gfinputmappingutility-methods-init"></a>
@@ -298,12 +314,13 @@ signal player_action_completed(player_index: int, action_id: StringName, value: 
 ### `init`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func init() -> void:
 ```
 
-初始化输入映射运行时状态并挂载输入路由节点。
+初始化输入映射运行时状态；启用 automatic_input_routing 时挂载输入路由节点。
 
 <a id="member-gfinputmappingutility-methods-ready"></a>
 

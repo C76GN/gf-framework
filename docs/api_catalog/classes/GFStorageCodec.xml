@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageCodec" path="addons/gf/standard/utilities/storage/gf_storage_codec.gd" module="standard" extends="Resource" classDigest="e31f60e1b1313e0a75c28fe9464441e0c18925da9a3fc0635800f8dbc4806612">
+<class name="GFStorageCodec" path="addons/gf/standard/utilities/storage/gf_storage_codec.gd" module="standard" extends="Resource" classDigest="ad138c55253ab4e96c02b937ec09b954f276b0cb0fd250b97d7ed6641ca7b279">
 	<description>GFStorageCodec: 通用存档字典编码与解码策略。
 负责严格存储文档的字典序列化、可选压缩、完整性校验和轻量混淆。
 JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点数。
@@ -184,11 +184,13 @@ JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点
 				<tag name="api">public</tag>
 			</tags>
 		</member>
-		<member kind="property" name="max_decompressed_bytes" decorators="@export">
-			<signature>var max_decompressed_bytes: int = 64 * 1024 * 1024</signature>
-			<description>解压时允许的最大输出字节数。</description>
+		<member kind="property" name="max_decode_bytes" decorators="@export">
+			<signature>var max_decode_bytes: int = 64 * 1024 * 1024:</signature>
+			<description>解混淆、解压后允许交给解析器的最大明文字节数，默认 64 MiB；编码时完整文档在压缩前同样受限。
+只能设置正数，无效赋值保留原值；该上限不表示 Variant 堆内存或解析耗时上限。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="property" name="normalize_json_numbers" decorators="@export">
@@ -207,10 +209,25 @@ JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点
 				<tag name="api">public</tag>
 				<tag name="param">data: 要编码的数据。</tag>
 				<tag name="param">options: 临时覆盖当前 codec 设置的选项字典。</tag>
-				<tag name="return">编码后的 bytes。</tag>
+				<tag name="return">编码后的 bytes；编码或预算准入失败时返回空数组，结构化失败信息见 encode_result()。</tag>
 				<tag name="schema">data: Dictionary，要序列化的业务载荷；所有键都会原样保存在独立 payload 中。</tag>
-				<tag name="schema">options: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、include_metadata、version 和 max_decompressed_bytes。</tag>
+				<tag name="schema">options: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、include_metadata、version 和 max_decode_bytes；明文字节上限必须是正 int，默认沿用资源配置。已移除的 max_decompressed_bytes 选项被拒绝，不提供别名。</tag>
 				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="encode_result">
+			<signature>func encode_result(data: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>单次构建存储文档并编码，在压缩前检查包含 metadata 和 checksum 的完整明文预算。
+不检查 Utility 的物理文件读取预算；调用方应对最终 bytes 应用其捕获的文件字节上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 要编码的业务字典。</tag>
+				<tag name="param">options: 临时覆盖当前 codec 设置及明文字节上限的选项。</tag>
+				<tag name="return">安静的编码结果；失败不返回部分 bytes。</tag>
+				<tag name="schema">data: Dictionary，所有业务键均保存在独立 payload 中。</tag>
+				<tag name="schema">options: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、include_metadata、version 和 max_decode_bytes；max_decode_bytes 必须是正 int，默认沿用资源配置；已移除的 max_decompressed_bytes 选项被拒绝，不提供别名。</tag>
+				<tag name="schema">return: 闭合 Dictionary，仅包含 ok: bool、error: Error 和 bytes: PackedByteArray。成功时 error 为 OK 且 bytes 非空；非法预算或已移除选项返回 ERR_INVALID_PARAMETER，编码失败返回 ERR_INVALID_DATA，完整明文超限返回 ERR_OUT_OF_MEMORY；失败时 bytes 为空数组。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="decode">
@@ -221,7 +238,7 @@ JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点
 				<tag name="param">bytes: 文件读取到的 bytes。</tag>
 				<tag name="param">options: 临时覆盖当前 codec 设置的选项字典。</tag>
 				<tag name="return">强类型读取结果；业务载荷与框架元数据保持隔离。</tag>
-				<tag name="schema">options: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、strict_integrity、normalize_json_numbers、require_integrity_checksum 和 max_decompressed_bytes。</tag>
+				<tag name="schema">options: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、strict_integrity、normalize_json_numbers、require_integrity_checksum 和 max_decode_bytes；字节上限必须是正 int，默认 64 MiB，同时约束解压输出和明文解析。已移除的 max_decompressed_bytes 选项被拒绝，不提供别名。JSON 解码还受 GFVariantJsonCodec 默认遍历预算约束，超限不返回部分载荷。无法区分损坏流与输出预算耗尽的解压失败保守返回 LIMIT_EXCEEDED。</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
@@ -239,13 +256,14 @@ JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点
 		</member>
 		<member kind="method" name="deserialize_dictionary">
 			<signature>func deserialize_dictionary(bytes: PackedByteArray, p_format: Format = Format.JSON) -&gt; Dictionary:</signature>
-			<description>反序列化字典。</description>
+			<description>反序列化字典；超过 max_decode_bytes 或 JSON 默认遍历预算时返回空字典。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">bytes: 源 bytes。</tag>
 				<tag name="param">p_format: 源格式。</tag>
 				<tag name="return">字典；失败时返回空字典。</tag>
 				<tag name="schema">return: Dictionary，从字节解析出的数据；解析失败时为空字典。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="calculate_checksum">

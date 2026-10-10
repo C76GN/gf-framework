@@ -1369,6 +1369,90 @@ func test_deferred_router_attach_is_canceled_after_dispose() -> void:
 	assert_null(_find_router_node(), "Utility 已销毁时，延迟挂载不应留下输入 Router。")
 
 
+func test_manual_routing_keeps_full_lifecycle_without_global_input_capture() -> void:
+	_utility.dispose()
+	_utility = GFInputMappingUtility.new()
+	_utility.automatic_input_routing = false
+	_utility.init()
+	var context: GFInputContext = _make_context(&"manual", [
+		_make_mapping(_make_action(&"jump"), [_make_key_binding(KEY_F24)]),
+	])
+	_utility.enable_context(context)
+	await get_tree().process_frame
+
+	assert_null(_find_router_node(), "手动模式正常 init 后不得挂载全局输入节点。")
+	assert_true(_utility.ignore_pause, "手动路由不得绕过输入 Utility 的暂停策略。")
+	assert_true(_utility.ignore_time_scale, "手动路由不得绕过输入 Utility 的时间策略。")
+	get_tree().root.push_input(_make_key_event(KEY_F24, true))
+	assert_false(_utility.is_action_active(&"jump"), "全局输入不得偷偷进入手动实例。")
+	_utility.handle_input_event(_make_key_event(KEY_F24, true))
+	assert_true(_utility.consume_action(&"jump"), "owner 转发后应可在同一调用中消费动作。")
+	_utility.tick(0.25)
+	_utility.clear_input_state()
+	assert_false(_utility.is_action_active(&"jump"), "owner 失焦清理应结束动作。")
+	assert_true(_utility.is_context_enabled(context), "失焦清理应保留手动上下文。")
+	_utility.handle_input_event(_make_key_event(KEY_F24, true))
+	_utility.init()
+	assert_false(_utility.is_action_active(&"jump"), "重新 init 必须清空旧输入状态。")
+	assert_true(_utility.is_context_enabled(context), "重新 init 不应移除已启用上下文。")
+	_utility.dispose()
+	assert_true(_utility.get_enabled_contexts().is_empty(), "dispose 必须释放上下文和运行时状态。")
+	_utility.automatic_input_routing = true
+	await get_tree().process_frame
+	assert_null(_find_router_node(), "dispose 后配置变更不得重新挂载 Router。")
+
+
+func test_manual_routing_uses_architecture_device_dependencies_and_tick() -> void:
+	_utility.automatic_input_routing = false
+	var arch: GFArchitecture = GFArchitecture.new()
+	var devices: GFInputDeviceUtility = GFInputDeviceUtility.new()
+	devices.include_keyboard_mouse = false
+	devices.include_touch = false
+	await arch.register_utility_instance(devices)
+	await arch.register_utility_instance(_utility)
+	await arch.init()
+	_utility.enable_context(_make_context(&"manual", [
+		_make_mapping(_make_action(&"jump"), [_make_joy_button_binding(JOY_BUTTON_A)]),
+	]))
+	_utility.handle_input_event(_make_joy_button_event(0, JOY_BUTTON_A, true))
+	arch.tick(0.1)
+
+	assert_true(_utility.is_action_active_for_player(0, &"jump"), "手动实例仍应使用架构注入的设备工具。")
+	devices.remove_assignment(0)
+	assert_false(_utility.is_action_active_for_player(0, &"jump"), "ready 绑定的设备撤销通知仍应清理玩家输入。")
+	assert_false(_utility.is_action_active(&"jump"), "设备撤销不得留下全局贡献。")
+	await get_tree().process_frame
+	assert_null(_find_router_node(), "架构完整生命周期不得覆盖手动路由配置。")
+	arch.dispose()
+	_utility = null
+
+
+func test_switching_to_manual_cancels_pending_attach_and_switching_back_routes_once() -> void:
+	_utility.automatic_input_routing = false
+	await get_tree().process_frame
+	assert_null(_find_router_node(), "init 同帧改为手动必须使旧延迟挂载失效。")
+	_utility.enable_context(_make_context(&"routing", [
+		_make_mapping(_make_action(&"jump"), [_make_key_binding(KEY_F24)]),
+	]))
+	_utility.automatic_input_routing = true
+	await get_tree().process_frame
+	assert_not_null(_find_router_node(), "重新启用自动模式应挂载新 Router。")
+	watch_signals(_utility)
+	get_tree().root.push_input(_make_key_event(KEY_F24, true))
+	assert_signal_emit_count(_utility, "action_started", 1, "恢复自动模式不得保留重复输入转发。")
+	_utility.automatic_input_routing = false
+	assert_false(_utility.is_action_active(&"jump"), "路由交接必须结束旧输入状态。")
+	assert_signal_emit_count(_utility, "action_completed", 1)
+	get_tree().root.push_input(_make_key_event(KEY_F24, true))
+	assert_false(_utility.is_action_active(&"jump"), "同帧旧节点尚未物理释放时也必须停止转发。")
+	_utility.handle_input_event(_make_key_event(KEY_F24, true))
+	assert_signal_emit_count(_utility, "action_started", 2, "手动 owner 可立即接管相同输入。")
+	_utility.automatic_input_routing = true
+	_utility.automatic_input_routing = false
+	await get_tree().process_frame
+	assert_null(_find_router_node(), "多次切换后只允许最终模式持有 Router。")
+
+
 ## 验证应用失焦通知经实际 Router 接线清理动作，恢复焦点后仍可重新按下。
 func test_router_application_focus_loss_completes_action_once_and_allows_restart() -> void:
 	var context: GFInputContext = _make_context(&"gameplay", [
