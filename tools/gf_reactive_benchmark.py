@@ -18,7 +18,13 @@ import time
 from pathlib import Path
 from typing import Any
 
-from gf_process_supervisor import run_supervised_process
+from gf_process_supervisor import (
+	SupervisedProcessStartError,
+	add_exception_note,
+	exception_has_cleanup_debt,
+	run_supervised_process,
+	safe_exception_detail,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -122,10 +128,36 @@ def _cleanup_allowed(stage: Path, parent: Path, receipt: bytes, identity: tuple[
 def _write_report(path: Path, report: dict[str, Any]) -> None:
 	path = _validate_output(path)
 	path.parent.mkdir(parents=True, exist_ok=True)
-	with tempfile.NamedTemporaryFile(dir=path.parent, suffix=".pending", delete=False) as stream:
-		pending = Path(stream.name)
-		stream.write(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False).encode("utf-8"))
-	pending.replace(path)
+	payload = json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False).encode("utf-8")
+	pending: Path | None = None
+	pending_identity: tuple[int, int] | None = None
+	primary_error: BaseException | None = None
+	try:
+		with tempfile.NamedTemporaryFile(dir=path.parent, suffix=".pending", delete=False) as stream:
+			pending = Path(stream.name)
+			metadata = os.fstat(stream.fileno())
+			pending_identity = (metadata.st_dev, metadata.st_ino)
+			stream.write(payload)
+		pending.replace(path)
+	except BaseException as error:
+		primary_error = error
+		raise
+	finally:
+		if pending is not None:
+			try:
+				try:
+					metadata = pending.lstat()
+				except FileNotFoundError:
+					pass
+				else:
+					if (stat.S_ISREG(metadata.st_mode)
+						and not (getattr(metadata, "st_file_attributes", 0) & 0x400)
+						and (metadata.st_dev, metadata.st_ino) == pending_identity):
+						pending.unlink()
+			except BaseException as cleanup_error:
+				if primary_error is None:
+					raise
+				add_exception_note(primary_error, f"Report temporary-file cleanup failed: {safe_exception_detail(cleanup_error)}")
 
 
 def _summarize(runs: list[dict[str, Any]]) -> dict[str, Any]:
@@ -160,49 +192,20 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
 	temp_parent = args.temp_parent.resolve(strict=True)
 	if not temp_parent.is_dir():
 		raise ValueError("Temporary parent must be an existing directory.")
-	stage = Path(tempfile.mkdtemp(prefix="gfr-", dir=temp_parent)).resolve()
-	stage_metadata = stage.stat()
-	stage_identity = (stage_metadata.st_dev, stage_metadata.st_ino)
-	project = stage / "project"
-	closure = project / "addons/gf/kernel/core"
-	closure.mkdir(parents=True)
 	owner_bytes = os.urandom(32)
-	(stage / "owner.receipt").write_bytes(owner_bytes)
+	stage_identity: tuple[int, int] | None = None
 	manifest = []
-	for name in KERNEL_FILES:
-		source = ROOT / "addons/gf/kernel/core" / name
-		frozen = source.read_bytes()
-		(closure / name).write_bytes(frozen)
-		manifest.append({"path": f"addons/gf/kernel/core/{name}", "bytes": len(frozen), "sha256": hashlib.sha256(frozen).hexdigest()})
-	shutil.copyfile(FIXTURE / "project.godot.fixture", project / "project.godot")
-	shutil.copyfile(FIXTURE / "reactive_pull_benchmark.gd", project / "benchmark.gd")
-	environment = {key: value for key, value in os.environ.items() if not key.upper().startswith("GIT_")}
-	for key, child in {
-		"USERPROFILE": "profile", "HOME": "home", "APPDATA": "roaming", "LOCALAPPDATA": "local",
-		"TEMP": "temp", "TMP": "temp", "XDG_DATA_HOME": "xdg_data", "XDG_CONFIG_HOME": "xdg_config", "XDG_CACHE_HOME": "xdg_cache",
-	}.items():
-		path = stage / child
-		path.mkdir(exist_ok=True)
-		environment[key] = str(path)
-	environment["GF_MAINTENANCE_KEEP_LOGS"] = "1"
-	log_root = ROOT / "ai_analysis/godot_logs/reactive_benchmark" / stage.name
-	log_root.mkdir(parents=True)
 	report: dict[str, Any] = {
 		"kind": REPORT_KIND, "schema_version": 1, "valid": False,
-		"stage": str(stage), "kernel_manifest": manifest, "runs": [],
-		"fixture_sha256": _sha256(project / "benchmark.gd"), "runner_sha256": _sha256(Path(__file__)),
+		"kernel_manifest": manifest, "runs": [],
 		"correctness_only": args.correctness_only, "summary": {},
 		"p95_metric": "Godot monotonic active elapsed usec per simulated frame, not per-frame CPU time",
 		"schedule": "24 views; 120-frame warmup; 9 samples of 1200 simulated 60Hz frames; 3 rotated process repetitions",
 		"performance_ci_gate": False,
 	}
-	inputs_manifest = [
-		{"path": str(path.relative_to(ROOT)), "sha256": _sha256(path)}
-		for path in (Path(__file__).resolve(), FIXTURE / "project.godot.fixture", FIXTURE / "reactive_pull_benchmark.gd")
-	]
-	report["harness_manifest"] = inputs_manifest
 	deadline = time.monotonic() + args.deadline_seconds
 	boundary_quiescent = True
+	primary_error: BaseException | None = None
 
 	def execute(label: str, command_args: list[str], *, record: bool = False) -> dict[str, Any]:
 		nonlocal boundary_quiescent
@@ -210,17 +213,44 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
 		if remaining <= 0:
 			raise TimeoutError("Overall reactive benchmark deadline exceeded.")
 		cpu = _ProcessCPU()
+		callback_error: BaseException | None = None
+		run_error: BaseException | None = None
+
+		def process_started(pid: int) -> None:
+			nonlocal callback_error
+			try:
+				cpu.start(pid)
+			except BaseException as error:
+				callback_error = error
+				raise
+
 		boundary_quiescent = False
 		try:
 			result = run_supervised_process(
 				[str(godot), *command_args], cwd=project, timeout_seconds=min(60.0, remaining),
-				environment=environment, process_started_callback=cpu.start,
+				environment=environment, process_started_callback=process_started,
 				max_stdout_characters=2 * 1024 * 1024, max_stderr_characters=2 * 1024 * 1024,
 				heartbeat_callback=lambda elapsed, pid: print(f"heartbeat {label} {elapsed:.1f}s pid={pid}", flush=True),
 			)
+			boundary_quiescent = result.process_boundary_quiescent is True
+		except BaseException as error:
+			run_error = error
+			# The supervisor rethrows our exact callback exception only after quiet
+			# cleanup; unproven cleanup instead wraps it in CleanupError. Generic
+			# supervision failures carry no positive proof and retain the sandbox.
+			boundary_quiescent = (
+				((isinstance(error, SupervisedProcessStartError) and error.process_boundary_quiescent is True)
+					or error is callback_error)
+				and not exception_has_cleanup_debt(error)
+			)
+			raise
 		finally:
-			process_cpu = cpu.finish()
-		boundary_quiescent = result.process_boundary_quiescent
+			try:
+				process_cpu = cpu.finish()
+			except BaseException as accounting_error:
+				if run_error is None:
+					raise
+				add_exception_note(run_error, f"Process CPU accounting cleanup failed: {safe_exception_detail(accounting_error)}")
 		log = log_root / f"{label}_{result.pid}.log"
 		log.write_text(result.stdout + result.stderr, encoding="utf-8")
 		if result.return_code != 0 or result.timed_out or not boundary_quiescent or result.stdout_truncated or result.stderr_truncated:
@@ -241,7 +271,41 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
 		_write_report(output, report)
 		return payload
 
+	stage = Path(tempfile.mkdtemp(prefix="gfr-", dir=temp_parent))
 	try:
+		stage_metadata = stage.stat()
+		stage_identity = (stage_metadata.st_dev, stage_metadata.st_ino)
+		# Establish ownership before any project or environment staging can fail.
+		(stage / "owner.receipt").write_bytes(owner_bytes)
+		report["stage"] = str(stage)
+		project = stage / "project"
+		closure = project / "addons/gf/kernel/core"
+		log_root = ROOT / "ai_analysis/godot_logs/reactive_benchmark" / stage.name
+		closure.mkdir(parents=True)
+		for name in KERNEL_FILES:
+			source = ROOT / "addons/gf/kernel/core" / name
+			frozen = source.read_bytes()
+			(closure / name).write_bytes(frozen)
+			manifest.append({"path": f"addons/gf/kernel/core/{name}", "bytes": len(frozen), "sha256": hashlib.sha256(frozen).hexdigest()})
+		shutil.copyfile(FIXTURE / "project.godot.fixture", project / "project.godot")
+		shutil.copyfile(FIXTURE / "reactive_pull_benchmark.gd", project / "benchmark.gd")
+		environment = {key: value for key, value in os.environ.items() if not key.upper().startswith("GIT_")}
+		for key, child in {
+			"USERPROFILE": "profile", "HOME": "home", "APPDATA": "roaming", "LOCALAPPDATA": "local",
+			"TEMP": "temp", "TMP": "temp", "XDG_DATA_HOME": "xdg_data", "XDG_CONFIG_HOME": "xdg_config", "XDG_CACHE_HOME": "xdg_cache",
+		}.items():
+			path = stage / child
+			path.mkdir(exist_ok=True)
+			environment[key] = str(path)
+		environment["GF_MAINTENANCE_KEEP_LOGS"] = "1"
+		log_root.mkdir(parents=True)
+		report["fixture_sha256"] = _sha256(project / "benchmark.gd")
+		report["runner_sha256"] = _sha256(Path(__file__))
+		inputs_manifest = [
+			{"path": str(path.relative_to(ROOT)), "sha256": _sha256(path)}
+			for path in (Path(__file__).resolve(), FIXTURE / "project.godot.fixture", FIXTURE / "reactive_pull_benchmark.gd")
+		]
+		report["harness_manifest"] = inputs_manifest
 		execute("import", ["--headless", "--path", str(project), "--editor", "--import", "--quit", "--log-file", str(log_root / "import_engine.log")])
 		correctness = execute("correctness", ["--headless", "--path", str(project), "--script", "res://benchmark.gd", "--log-file", str(log_root / "correctness_engine.log"), "--", "correctness", "static_pull"], record=True)
 		if not correctness.get("ok"):
@@ -261,23 +325,37 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
 				raise ValueError(f"Benchmark harness input drifted: {item['path']}")
 		report["kernel_integrity"] = "live inputs and frozen copies match the captured SHA256 manifest"
 		report["valid"] = True
-	except Exception as error:
-		report["error"] = str(error)
-		_write_report(output, report)
+	except BaseException as error:
+		primary_error = error
+		report["error"] = safe_exception_detail(error)
 		raise
 	finally:
 		# Only delete this exact created sandbox with its unchanged ownership receipt,
 		# after the supervisor has proven the last process boundary quiescent.
-		can_cleanup = (
-			boundary_quiescent and not args.keep_sandbox
-			and _cleanup_allowed(stage, temp_parent, owner_bytes, stage_identity)
-		)
-		if can_cleanup:
-			shutil.rmtree(stage)
-			report["sandbox_cleanup"] = "owned sandbox removed after quiescent process boundary"
-		else:
+		try:
+			report["stage"] = str(stage)
+			can_cleanup = (
+				boundary_quiescent and not args.keep_sandbox and stage_identity is not None
+				and _cleanup_allowed(stage, temp_parent, owner_bytes, stage_identity)
+			)
 			report["sandbox_cleanup"] = "retained; requested or cleanup ownership/boundary not proven"
-		_write_report(output, report)
+			if can_cleanup:
+				shutil.rmtree(stage)
+				report["sandbox_cleanup"] = "owned sandbox removed after quiescent process boundary"
+		except BaseException as cleanup_error:
+			report["valid"] = False
+			report["cleanup_error"] = safe_exception_detail(cleanup_error)
+			if primary_error is None:
+				primary_error = cleanup_error
+				raise
+			add_exception_note(primary_error, f"Owned sandbox cleanup failed: {safe_exception_detail(cleanup_error)}")
+		finally:
+			try:
+				_write_report(output, report)
+			except BaseException as report_error:
+				if primary_error is None:
+					raise
+				add_exception_note(primary_error, f"Benchmark report write failed: {safe_exception_detail(report_error)}")
 	return report
 
 
