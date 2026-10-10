@@ -209,7 +209,7 @@ func analyze_validated_change(
 ## [br]
 func _make_result(source_analysis_digest: String) -> Dictionary:
 	return {
-		"schema_version": 1,
+		"schema_version": 2,
 		"kind": "project_layout_impact",
 		"complete": false,
 		"status": "unknown",

@@ -26,11 +26,11 @@ const _EDITOR_CONTRIBUTION_CATALOG_SCRIPT = preload(
 const _SNAPSHOT_BUILDER_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/editor/gf_project_layout_editor_snapshot_builder.gd"
 )
-const _VALIDATOR_PATH: String = \
-	"res://addons/gf/tools/project_layout/gf_project_layout_validator.gd"
 const _WORKER_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/editor/gf_project_layout_scan_worker.gd"
 )
+const _CAPTURE_SCOPE_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_capture_scope.gd")
+const _SESSION_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_session.gd")
 
 
 func test_project_layout_dock_starts_idle_without_scanning() -> void:
@@ -128,13 +128,13 @@ func test_project_layout_dock_discards_stale_background_generation() -> void:
 func test_project_layout_dock_adopts_plan_from_the_background_result() -> void:
 	var dock: GFProjectLayoutDock = _DOCK_SCRIPT.new()
 	var expected_plan: Dictionary = {
-		"schema_version": 1,
+		"schema_version": 2,
 		"kind": "project_layout_plan",
 		"complete": true,
 	}
 	var worker: FakeCompletedWorker = FakeCompletedWorker.new()
 	worker.result = {
-		"schema_version": 1,
+		"schema_version": 2,
 		"kind": "project_layout_worker_result",
 		"generation": 14,
 		"status": "complete",
@@ -188,7 +188,8 @@ func test_project_layout_dock_routes_explain_and_impact_queries_off_main_thread(
 	)
 	assert_true(worker_source.contains("_QUERY_MAX_WORK_UNITS"))
 	assert_true(worker_source.contains("_query_checkpoint_allows"))
-	assert_eq(worker_source.count("validate_and_index("), 1)
+	assert_eq(worker_source.count("validate_and_index("), 0)
+	assert_true(worker_source.contains("get_owned_validation_for_framework(checkpoint)"))
 	assert_true(worker_source.contains("explain_validated_analysis("))
 	assert_true(worker_source.contains("analyze_validated_change("))
 
@@ -417,7 +418,7 @@ func test_project_layout_snapshot_scope_changes_digest_and_bounds_profile_rules(
 	var reduced_scope: Dictionary = _get_dictionary(reduced_snapshot, "scope")
 	reduced_scope["include_hidden"] = false
 	var profile: Dictionary = {
-		"schema_version": 1,
+		"schema_version": 2,
 		"id": "test.scope_boundary",
 		"zones": [{
 			"id": "missing_zone",
@@ -458,23 +459,17 @@ func test_project_layout_snapshot_scope_changes_digest_and_bounds_profile_rules(
 	var missing_exclusions_analysis: Dictionary = analyzer.analyze_snapshot(
 		missing_exclusions_snapshot
 	)
-	assert_true(_get_bool(missing_exclusions_analysis, "success"))
+	assert_false(_get_bool(missing_exclusions_analysis, "success"))
 	assert_false(_get_bool(missing_exclusions_analysis, "input_complete"))
 	assert_true(
 		_finding_kinds(missing_exclusions_analysis).has(
-			"project_source_scope_incomplete"
+			"invalid_snapshot_scope_binding"
 		),
-		"非权威排除集合必须带显式原因，不能静默退化为 UNKNOWN。"
+		"修改绑定的排除集合必须拒绝，不能继续赋予声明范围权威。"
 	)
-	assert_true(
-		_get_array(
-			_get_dictionary(
-				_get_dictionary(missing_exclusions_analysis, "graph"),
-				"scope"
-			),
-			"excluded_prefixes"
-		).is_empty()
-	)
+	var rejected_graph: Dictionary = _get_dictionary(missing_exclusions_analysis, "graph")
+	assert_true(_get_array(rejected_graph, "nodes").is_empty())
+	assert_eq(_get_string(rejected_graph, "capture_status"), "not_started")
 
 
 func test_project_layout_analyzer_missing_root_has_no_observed_root_evidence() -> void:
@@ -487,7 +482,7 @@ func test_project_layout_analyzer_missing_root_has_no_observed_root_evidence() -
 		"回归夹具必须让中间父目录也不存在。"
 	)
 	var profile: Dictionary = {
-		"schema_version": 1,
+		"schema_version": 2,
 		"id": "test.missing_root",
 		"zones": [{
 			"id": "missing_zone",
@@ -593,6 +588,9 @@ func test_project_layout_public_analyzer_rejects_oversized_admission_inputs_once
 		"field_4": true,
 		"field_5": true,
 		"field_6": true,
+		"field_7": true,
+		"field_8": true,
+		"field_9": true,
 	}
 	_assert_analysis_admission_terminal(analyzer.analyze(oversized_options))
 	_assert_analysis_admission_terminal(analyzer.analyze({
@@ -611,7 +609,7 @@ func test_project_layout_public_analyzer_rejects_oversized_admission_inputs_once
 		"max_scan_depth": 33,
 	}))
 	var oversized_profile_analysis: Dictionary = analyzer.analyze_profile({
-		"schema_version": 1,
+		"schema_version": 2,
 		"id": "profile_%s" % "i".repeat(20000),
 		"zones": [],
 		"rules": [],
@@ -676,6 +674,9 @@ func test_project_layout_snapshot_builder_rejects_oversized_options_before_scan(
 		"field_2": true,
 		"field_3": true,
 		"field_4": true,
+		"field_5": true,
+		"field_6": true,
+		"field_7": true,
 	})
 	assert_eq(begin_error, ERR_INVALID_PARAMETER)
 	assert_eq(_get_array(oversized_field_builder.get_progress(), "issues").size(), 1)
@@ -742,7 +743,7 @@ func test_project_layout_inventory_ceiling_flows_through_background_analysis_and
 	snapshot["files"] = files
 
 	var profile: Dictionary = {
-		"schema_version": 1,
+		"schema_version": 2,
 		"id": "test.inventory_ceiling",
 		"zones": [],
 		"rules": [],
@@ -809,7 +810,7 @@ func test_project_layout_analyzer_large_set_indexes_stay_linear() -> void:
 
 func test_project_layout_analyzer_rejects_snapshot_without_parent_closure() -> void:
 	var snapshot: Dictionary = {
-		"schema_version": 1,
+		"schema_version": 2,
 		"kind": "project_layout_snapshot",
 		"root_path": "res://",
 		"scope": _make_scope("res://"),
@@ -855,7 +856,7 @@ func test_project_layout_analyzer_does_not_apply_profile_to_partial_inventory() 
 		"message": "测试库存只捕获了部分路径。",
 	}]
 	var profile: Dictionary = {
-		"schema_version": 1,
+		"schema_version": 2,
 		"id": "test.partial",
 		"zones": [{
 			"id": "missing_zone",
@@ -893,7 +894,7 @@ func test_project_layout_analyzer_rejects_complete_snapshot_with_capture_error()
 
 func test_project_layout_missing_finding_uses_complete_inventory_evidence() -> void:
 	var profile: Dictionary = {
-		"schema_version": 1,
+		"schema_version": 2,
 		"id": "test.absence_evidence",
 		"zones": [{
 			"id": "missing_zone",
@@ -919,7 +920,7 @@ func test_project_layout_missing_finding_uses_complete_inventory_evidence() -> v
 
 func test_project_layout_analyzer_applies_profile_without_second_scanner() -> void:
 	var profile: Dictionary = {
-		"schema_version": 1,
+		"schema_version": 2,
 		"id": "test.read_only",
 		"zones": [],
 		"rules": [{
@@ -946,14 +947,12 @@ func test_project_layout_analyzer_applies_profile_without_second_scanner() -> vo
 	)
 
 
-func test_project_layout_validator_is_only_analyzer_compatibility_facade() -> void:
-	var source: String = _read_text(_VALIDATOR_PATH)
-	assert_true(source.contains("gf_project_layout_analyzer.gd"))
-	assert_true(source.contains("@deprecated 11.0.0"))
-	assert_false(source.contains("func _scan_project"))
-	assert_false(source.contains("func _make_rule_registry"))
-	assert_false(source.contains("_SUPPORTED_RULE_KINDS"))
-
+func test_project_layout_session_owns_frozen_query_data() -> void:
+	var session: GFProjectLayoutSession = _SESSION_SCRIPT.new()
+	assert_eq(session.get_analysis(), {})
+	assert_false(_get_bool(session.plan(), "complete"))
+	session.close()
+	assert_eq(session.get_analysis(), {})
 
 func test_project_layout_impact_stays_unknown_without_dependency_coverage() -> void:
 	var analyzer: GFProjectLayoutAnalyzer = _ANALYZER_SCRIPT.new()
@@ -999,7 +998,7 @@ func test_project_layout_impact_rejects_spoofed_coverage_and_descendant_target()
 func test_project_layout_explanation_preserves_evidence_and_never_applies() -> void:
 	var analyzer: GFProjectLayoutAnalyzer = _ANALYZER_SCRIPT.new()
 	var profile: Dictionary = {
-		"schema_version": 1,
+		"schema_version": 2,
 		"id": "test.explain_real_finding",
 		"zones": [{
 			"id": "missing_zone",
@@ -1121,7 +1120,7 @@ func test_project_layout_snapshot_builder_rejects_escape_and_bounds_empty_direct
 		"user://outside",
 		"res://foo//bar",
 		"res://foo/./bar",
-		"C:/outside",
+		"C:/outside/../escape",
 	]:
 		var invalid_analysis: Dictionary = analyzer.analyze({
 			"root_path": invalid_root,
@@ -1221,7 +1220,7 @@ func test_project_layout_worker_is_data_only_and_cooperatively_cancelled() -> vo
 	assert_false(worker_source.contains("FileAccess"))
 	assert_false(worker_source.contains("DirAccess"))
 	assert_false(worker_source.contains("analyze_profile_snapshot("))
-	assert_true(worker_source.contains("plan_compiled_profile_analysis("))
+	assert_true(worker_source.contains("plan_for_framework("))
 	assert_eq(worker_source.count("\"cancel_check\": cancel_check"), 2)
 	assert_true(worker_source.contains("_PLANNER_SCRIPT.MAX_WORK_UNITS"))
 	var result: Dictionary = worker.run_request({
@@ -1253,7 +1252,7 @@ func test_project_layout_worker_is_data_only_and_cooperatively_cancelled() -> vo
 	assert_true(_is_strict_data_only(result))
 	var analyzer: GFProjectLayoutAnalyzer = _ANALYZER_SCRIPT.new()
 	var compilation: Dictionary = analyzer.compile_profile({
-		"schema_version": 1,
+		"schema_version": 2,
 		"id": "test.worker_compilation",
 		"zones": [{
 			"id": "app",
@@ -1373,7 +1372,7 @@ func test_project_layout_worker_query_is_generation_bound_closed_and_data_only()
 	var analyzer: GFProjectLayoutAnalyzer = _ANALYZER_SCRIPT.new()
 	var analysis: Dictionary = analyzer.analyze_profile_snapshot(
 		{
-			"schema_version": 1,
+			"schema_version": 2,
 			"id": "test.background_query",
 			"zones": [{
 				"id": "missing_zone",
@@ -1596,7 +1595,7 @@ func test_project_layout_impact_checkpoint_stops_after_validation_during_travers
 func test_project_layout_worker_rejects_open_options_and_forged_compilation_digest() -> void:
 	var analyzer: GFProjectLayoutAnalyzer = _ANALYZER_SCRIPT.new()
 	var compilation: Dictionary = analyzer.compile_profile({
-		"schema_version": 1,
+		"schema_version": 2,
 		"id": "test.worker_digest",
 		"zones": [],
 		"rules": [],
@@ -1669,7 +1668,7 @@ func test_project_layout_background_planning_cancels_after_entering_work() -> vo
 		})
 	var analyzer: GFProjectLayoutAnalyzer = _ANALYZER_SCRIPT.new()
 	var compilation: Dictionary = analyzer.compile_profile({
-		"schema_version": 1,
+		"schema_version": 2,
 		"id": "test.background_planning_cancel",
 		"zones": zones,
 		"rules": [],
@@ -1824,7 +1823,7 @@ func test_project_layout_analyzer_runtime_can_only_tighten_absolute_budgets() ->
 
 func test_project_layout_analyzer_reserves_one_terminal_finding_slot() -> void:
 	var profile: Dictionary = {
-		"schema_version": 1,
+		"schema_version": 2,
 		"id": "test.finding_budget",
 		"zones": [],
 		"rules": [{
@@ -1884,7 +1883,7 @@ func test_project_layout_analyzer_reserves_one_terminal_finding_slot() -> void:
 
 func test_project_layout_analyzer_rejects_forged_compilation_without_execution() -> void:
 	var profile: Dictionary = {
-		"schema_version": 1,
+		"schema_version": 2,
 		"id": "test.compilation_boundary",
 		"zones": [],
 		"rules": [{
@@ -1985,7 +1984,7 @@ func test_project_layout_analyzer_rejects_forged_compilation_without_execution()
 	assert_true(_finding_kinds(rejected_top_level).has("invalid_profile_compilation"))
 
 	var failed_compilation: Dictionary = analyzer.compile_profile({
-		"schema_version": 1,
+		"schema_version": 2,
 		"zones": [],
 		"rules": [],
 	})
@@ -2013,7 +2012,7 @@ func test_project_layout_analyzer_rejects_unbounded_compilation_before_validatio
 	)
 
 	var compilation: Dictionary = analyzer.compile_profile({
-		"schema_version": 1,
+		"schema_version": 2,
 		"id": "test.cyclic_compilation",
 		"zones": [],
 		"rules": [],
@@ -2047,7 +2046,7 @@ func test_project_layout_compiler_success_is_strict_worker_safe_json() -> void:
 	]
 	for invalid_metadata: Variant in invalid_metadata_values:
 		var invalid_profile: Dictionary = {
-			"schema_version": 1,
+			"schema_version": 2,
 			"id": "test.non_json_metadata",
 			"zones": [],
 			"rules": [],
@@ -2066,7 +2065,7 @@ func test_project_layout_compiler_success_is_strict_worker_safe_json() -> void:
 	for _nested_depth: int in 40:
 		nested_metadata = { "child": nested_metadata }
 	var valid_profile: Dictionary = {
-		"schema_version": 1,
+		"schema_version": 2,
 		"id": "test.json_metadata",
 		"zones": [],
 		"rules": [],
@@ -2130,7 +2129,7 @@ func test_project_layout_worker_cancels_a_real_thread_safely() -> void:
 
 func _make_snapshot() -> Dictionary:
 	return {
-		"schema_version": 1,
+		"schema_version": 2,
 		"kind": "project_layout_snapshot",
 		"root_path": "res://",
 		"scope": _make_scope("res://"),
@@ -2170,7 +2169,7 @@ func _make_closed_impact_query_result(
 	analysis_digest: String
 ) -> Dictionary:
 	return {
-		"schema_version": 1,
+		"schema_version": 2,
 		"kind": "project_layout_query_result",
 		"generation": generation,
 		"analysis_digest": analysis_digest,
@@ -2178,7 +2177,7 @@ func _make_closed_impact_query_result(
 		"status": "complete",
 		"explanation": {},
 		"impact": {
-			"schema_version": 1,
+			"schema_version": 2,
 			"kind": "project_layout_impact",
 			"complete": true,
 			"status": "unknown",
@@ -2203,16 +2202,16 @@ func _make_closed_impact_query_result(
 
 
 func _make_scope(root_path: String) -> Dictionary:
-	return {
+	var prepared: Dictionary = _CAPTURE_SCOPE_SCRIPT.prepare({}, root_path, {})
+	var scope: Dictionary = GFVariantData.get_option_dictionary(prepared, "binding").duplicate(true)
+	scope.merge({
 		"kind": "project_source",
-		"root_path": root_path,
 		"include_hidden": true,
-		"excluded_prefixes": [".git", ".godot", ".import"],
-		"max_scanned_files": 20000,
-		"max_scanned_directories": 20000,
+		"max_scanned_files": 20_000,
+		"max_scanned_directories": 20_000,
 		"max_scan_depth": 32,
-	}
-
+	})
+	return scope
 
 func _assert_analysis_admission_terminal(analysis: Dictionary) -> void:
 	assert_false(_get_bool(analysis, "success"))
@@ -2438,7 +2437,7 @@ class FakeCancelledWorker extends RefCounted:
 
 	func run_request(request: Dictionary) -> Dictionary:
 		return {
-			"schema_version": 1,
+			"schema_version": 2,
 			"kind": "project_layout_worker_result",
 			"generation": request.get("generation", -1),
 			"status": "cancelled",
@@ -2450,7 +2449,7 @@ class FakeCancelledWorker extends RefCounted:
 
 	func run_query_request(request: Dictionary) -> Dictionary:
 		return {
-			"schema_version": 1,
+			"schema_version": 2,
 			"kind": "project_layout_query_result",
 			"generation": request.get("generation", -1),
 			"analysis_digest": request.get("analysis_digest", ""),

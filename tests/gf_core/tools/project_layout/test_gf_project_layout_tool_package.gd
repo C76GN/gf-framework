@@ -1,13 +1,13 @@
 extends GutTest
 
-const PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"
-const PROFILE_CONTRACT_PATH: String = "res://addons/gf/tools/project_layout/contracts/project_profile_v1.contract.json"
-const PROFILE_CONFORMANCE_FIXTURE_PATH: String = "res://tests/gf_core/tools/project_layout/fixtures/profile_conformance_v1.json"
+const PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json"
+const PROFILE_CONTRACT_PATH: String = "res://addons/gf/tools/project_layout/contracts/project_profile_v2.contract.json"
+const PROFILE_CONFORMANCE_FIXTURE_PATH: String = "res://tests/gf_core/tools/project_layout/fixtures/profile_conformance_v2.json"
 const GF_PROJECT_LAYOUT_ANALYZER_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_analyzer.gd")
 const GF_PROJECT_LAYOUT_ANALYSIS_CONTRACT_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd")
 const GF_PROJECT_LAYOUT_PLANNER_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_planner.gd")
 const GF_PROJECT_LAYOUT_PROFILE_COMPILER_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_profile_compiler.gd")
-const GF_PROJECT_LAYOUT_VALIDATOR_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_validator.gd")
+const _CAPTURE_SCOPE_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_capture_scope.gd")
 const _PLAN_FIELDS: PackedStringArray = [
 	"schema_version",
 	"kind",
@@ -62,19 +62,15 @@ const _CONFORMANCE_EXPECTED_FIELDS: PackedStringArray = [
 	"strict_contract_valid",
 	"reason_code",
 	"godot_reason_code",
-	"godot_validator_success",
-	"godot_planner_complete",
-	"godot_validator_reason_codes",
-	"godot_planner_reason_codes",
-	"godot_validator_issue_kinds",
-	"godot_planner_issue_kinds",
-	"godot_validator_rule_checked_count",
-	"godot_validator_rule_issue_count",
-	"godot_validator_rule_severity",
-	"python_issue_count",
-	"python_runtime_issue_kinds",
-	"python_runtime_reason_code",
-	"python_runtime_issue_path",
+	"analyzer_success",
+	"planner_complete",
+	"analyzer_reason_codes",
+	"planner_reason_codes",
+	"analyzer_issue_kinds",
+	"planner_issue_kinds",
+	"analyzer_rule_checked_count",
+	"analyzer_rule_issue_count",
+	"analyzer_rule_severity",
 	"excluded_path",
 ]
 const _CONFORMANCE_CASE_IDS: PackedStringArray = [
@@ -86,9 +82,9 @@ const _CONFORMANCE_CASE_IDS: PackedStringArray = [
 	"invalid_enum_value",
 	"positive_integer_wrong_type",
 	"mixed_zone_roots",
-	"accepted_compatibility_operand",
+	"rejected_cross_rule_operand",
 	"zone_extension_scope",
-	"python_only_rule",
+	"path_exists_rule",
 	"invalid_naming_regex",
 	"unsafe_nested_quantifier_regex",
 	"unsafe_dialect_escape_regex",
@@ -133,8 +129,8 @@ func test_feature_cohesive_profile_is_an_explicit_valid_example() -> void:
 	if not profile_value is Dictionary:
 		return
 	var profile: Dictionary = profile_value
-	assert_eq(GFVariantData.get_option_int(profile, "schema_version"), 1)
-	assert_eq(GFVariantData.get_option_string(profile, "id"), "gf.project_layout.feature_cohesive.v1")
+	assert_eq(GFVariantData.get_option_int(profile, "schema_version"), 2)
+	assert_eq(GFVariantData.get_option_string(profile, "id"), "gf.project_layout.feature_cohesive.v2")
 	var rule_kinds: PackedStringArray = PackedStringArray()
 	for rule_value: Variant in GFVariantData.get_option_array(profile, "rules"):
 		if rule_value is Dictionary:
@@ -308,7 +304,7 @@ func test_profile_conformance_fixture_schema_and_case_ids_are_closed() -> void:
 	var fixture: Dictionary = _load_profile_conformance_fixture()
 	assert_true(_dictionary_has_exact_fields(fixture, _CONFORMANCE_FIXTURE_FIELDS))
 	assert_true(_is_exact_integer_value(fixture.get("fixture_schema_version")))
-	assert_eq(_exact_integer_value(fixture.get("fixture_schema_version")), 1)
+	assert_eq(_exact_integer_value(fixture.get("fixture_schema_version")), 2)
 	var case_ids: PackedStringArray = PackedStringArray()
 	for case_value: Variant in GFVariantData.get_option_array(fixture, "cases"):
 		assert_true(case_value is Dictionary)
@@ -328,14 +324,13 @@ func test_profile_conformance_fixture_schema_and_case_ids_are_closed() -> void:
 			continue
 		var expected: Dictionary = expected_value
 		assert_true(_dictionary_has_only_fields(expected, _CONFORMANCE_EXPECTED_FIELDS))
-		for bool_field: String in ["strict_contract_valid", "godot_validator_success", "godot_planner_complete"]:
+		for bool_field: String in ["strict_contract_valid", "analyzer_success", "planner_complete"]:
 			assert_true(expected.get(bool_field) is bool, "%s 必须是 bool。" % bool_field)
-		for issue_field: String in ["godot_validator_issue_kinds", "godot_planner_issue_kinds"]:
+		for issue_field: String in ["analyzer_issue_kinds", "planner_issue_kinds"]:
 			assert_true(_is_string_array(expected.get(issue_field)), "%s 必须是字符串数组。" % issue_field)
 		for optional_array_field: String in [
-			"godot_validator_reason_codes",
-			"godot_planner_reason_codes",
-			"python_runtime_issue_kinds",
+			"analyzer_reason_codes",
+			"planner_reason_codes",
 		]:
 			if expected.has(optional_array_field):
 				assert_true(_is_string_array(expected[optional_array_field]))
@@ -935,7 +930,7 @@ func test_project_layout_impact_and_explainer_bound_public_strings_and_dictionar
 
 
 func test_profile_conformance_fixture_godot_expectations_are_consumed() -> void:
-	var validator: GF_PROJECT_LAYOUT_VALIDATOR_SCRIPT = GF_PROJECT_LAYOUT_VALIDATOR_SCRIPT.new()
+	var validator: GF_PROJECT_LAYOUT_ANALYZER_SCRIPT = GF_PROJECT_LAYOUT_ANALYZER_SCRIPT.new()
 	var planner: GF_PROJECT_LAYOUT_PLANNER_SCRIPT = GF_PROJECT_LAYOUT_PLANNER_SCRIPT.new()
 	for case_id: String in _CONFORMANCE_CASE_IDS:
 		var fixture_case: Dictionary = _get_profile_conformance_case(case_id)
@@ -946,7 +941,7 @@ func test_profile_conformance_fixture_godot_expectations_are_consumed() -> void:
 		)
 		_materialize_fixture_inventory(fixture_case, root_path)
 		var source_analysis: Dictionary = _analyze_root(root_path)
-		var validate_result: Dictionary = validator.validate_profile(profile, { "root_path": root_path })
+		var validate_result: Dictionary = validator.analyze_profile(profile, { "root_path": root_path })
 		var plan: Dictionary = planner.plan_profile(profile, source_analysis)
 		_assert_conformance_result(case_id, expected, validate_result, plan)
 
@@ -970,7 +965,7 @@ func test_project_layout_plan_schema_is_closed_relative_and_read_only() -> void:
 	)
 	assert_eq(GFVariantData.get_option_string(plan, "project_root"), root_path)
 	assert_eq(GFVariantData.get_option_string(plan, "kind"), "project_layout_plan")
-	assert_eq(GFVariantData.get_option_int(plan, "schema_version"), 1)
+	assert_eq(GFVariantData.get_option_int(plan, "schema_version"), 2)
 	var capabilities: Dictionary = GFVariantData.get_option_dictionary(plan, "capabilities")
 	assert_false(GFVariantData.get_option_bool(capabilities, "writes_project", true))
 	assert_eq(
@@ -1153,7 +1148,7 @@ func test_project_layout_plan_omits_existing_directories_without_writing() -> vo
 
 
 func test_project_layout_planner_preserves_schema_only_rule_policy() -> void:
-	var fixture_case: Dictionary = _get_profile_conformance_case("python_only_rule")
+	var fixture_case: Dictionary = _get_profile_conformance_case("path_exists_rule")
 	var profile: Dictionary = GFVariantData.get_option_dictionary(fixture_case, "profile")
 	var root_path: String = _make_empty_test_root("schema_only")
 	var source_analysis: Dictionary = _analyze_root(root_path)
@@ -1494,7 +1489,7 @@ func _make_required_zones_profile(entries: Array) -> Dictionary:
 			"severity": "warning",
 		})
 	return {
-		"schema_version": 1,
+		"schema_version": 2,
 		"id": "stable_finding_fixture",
 		"zones": zones,
 		"rules": [],
@@ -1588,7 +1583,7 @@ func _analyze_root(root_path: String) -> Dictionary:
 
 func _make_empty_snapshot(root_path: String) -> Dictionary:
 	return {
-		"schema_version": 1,
+		"schema_version": 2,
 		"kind": "project_layout_snapshot",
 		"root_path": root_path,
 		"scope": _make_inventory_scope(root_path),
@@ -1642,12 +1637,12 @@ func _assert_conformance_result(
 ) -> void:
 	assert_eq(
 		GFVariantData.get_option_bool(validate_result, "success"),
-		GFVariantData.get_option_bool(expected, "godot_validator_success"),
+		GFVariantData.get_option_bool(expected, "analyzer_success"),
 		"validator success 与 fixture 不一致：%s。" % case_id
 	)
 	assert_eq(
 		GFVariantData.get_option_bool(plan, "complete"),
-		GFVariantData.get_option_bool(expected, "godot_planner_complete"),
+		GFVariantData.get_option_bool(expected, "planner_complete"),
 		"planner complete 与 fixture 不一致：%s。" % case_id
 	)
 	var validate_issues: Array = GFVariantData.get_option_array(validate_result, "issues")
@@ -1662,27 +1657,27 @@ func _assert_conformance_result(
 		assert_true(_has_issue_reason_code(plan_issues, godot_reason_code), "planner 缺少 Godot reason：%s。" % case_id)
 	_assert_issue_reason_codes(
 		validate_issues,
-		GFVariantData.get_option_array(expected, "godot_validator_reason_codes"),
-		expected.has("godot_validator_reason_codes"),
+		GFVariantData.get_option_array(expected, "analyzer_reason_codes"),
+		expected.has("analyzer_reason_codes"),
 		"validator",
 		case_id
 	)
 	_assert_issue_reason_codes(
 		plan_issues,
-		GFVariantData.get_option_array(expected, "godot_planner_reason_codes"),
-		expected.has("godot_planner_reason_codes"),
+		GFVariantData.get_option_array(expected, "planner_reason_codes"),
+		expected.has("planner_reason_codes"),
 		"planner",
 		case_id
 	)
 	_assert_issue_kind_multiset(
 		validate_issues,
-		GFVariantData.get_option_array(expected, "godot_validator_issue_kinds"),
+		GFVariantData.get_option_array(expected, "analyzer_issue_kinds"),
 		"validator",
 		case_id
 	)
 	_assert_issue_kind_multiset(
 		plan_issues,
-		GFVariantData.get_option_array(expected, "godot_planner_issue_kinds"),
+		GFVariantData.get_option_array(expected, "planner_issue_kinds"),
 		"planner",
 		case_id
 	)
@@ -1864,7 +1859,7 @@ func _exact_integer_value(value: Variant) -> int:
 
 func _make_minimal_feature_profile() -> Dictionary:
 	return {
-		"schema_version": 1,
+		"schema_version": 2,
 		"id": "minimal_feature_fixture",
 		"zones": [],
 		"rules": [{
@@ -1886,7 +1881,7 @@ func _make_candidate_heavy_feature_profile() -> Dictionary:
 		roots.append("features_%02d" % item_index)
 		subdirectories.append("part_%02d" % item_index)
 	return {
-		"schema_version": 1,
+		"schema_version": 2,
 		"id": "candidate_heavy_fixture",
 		"zones": [],
 		"rules": [{
@@ -1902,23 +1897,23 @@ func _make_candidate_heavy_feature_profile() -> Dictionary:
 
 
 func _make_inventory_scope(root_path: String) -> Dictionary:
-	return {
+	var prepared: Dictionary = _CAPTURE_SCOPE_SCRIPT.prepare({}, root_path, {})
+	var scope: Dictionary = GFVariantData.get_option_dictionary(prepared, "binding").duplicate(true)
+	scope.merge({
 		"kind": "project_source",
-		"root_path": root_path,
 		"include_hidden": true,
-		"excluded_prefixes": [".git", ".godot", ".import"],
 		"max_scanned_files": 20_000,
 		"max_scanned_directories": 20_000,
 		"max_scan_depth": 32,
-	}
-
+	})
+	return scope
 
 func _make_analysis_from_inventory_attachment(
 	root_path: String,
 	attachment: Dictionary
 ) -> Dictionary:
 	return {
-		"schema_version": 1,
+		"schema_version": 2,
 		"kind": "project_layout_analysis",
 		"evaluation_status": "complete",
 		"evaluation_complete": true,
@@ -2076,7 +2071,7 @@ func _make_valid_plan_compiler_scope() -> Dictionary:
 
 func _make_required_zone_profile(relative_root: String) -> Dictionary:
 	return {
-		"schema_version": 1,
+		"schema_version": 2,
 		"id": "required_zone_fixture",
 		"zones": [{
 			"id": "required",

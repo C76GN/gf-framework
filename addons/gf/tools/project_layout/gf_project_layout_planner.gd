@@ -21,14 +21,14 @@ extends RefCounted
 ## @api public
 ## [br]
 ## @since 11.0.0
-const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"
+const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json"
 
 ## 用于读取有界 JSON 对象的解析器脚本。
 ## [br]
 ## @api private
 ## [br]
 const _BOUNDED_JSON_OBJECT_READER_SCRIPT = preload(
-	"res://addons/gf/kernel/core/gf_bounded_json_object_reader.gd"
+	"res://addons/gf/tools/project_layout/gf_project_layout_profile_reader.gd"
 )
 
 ## Project Layout analysis 与库存契约实现脚本。
@@ -45,6 +45,11 @@ const _ANALYSIS_CONTRACT_SCRIPT = preload(
 ## [br]
 const _PROFILE_COMPILER_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_profile_compiler.gd")
 
+## Profile 只由唯一分析执行器编译；规划器只投影目录候选。
+## [br]
+## @api private
+const _ANALYZER_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_analyzer.gd")
+
 ## Planner 识别的 Feature 契约规则 kind。
 ## [br]
 ## @api private
@@ -55,7 +60,7 @@ const _RULE_FEATURE_MODULE_CONTRACT: String = "feature_module_contract"
 ## [br]
 ## @api private
 ## [br]
-const _PROFILE_CONTRACT_ID: String = "gf.project_layout.profile.v1"
+const _PROFILE_CONTRACT_ID: String = "gf.project_layout.profile.v2"
 
 ## Planner 输出报告的 kind 值。
 ## [br]
@@ -67,7 +72,7 @@ const _PLAN_KIND: String = "project_layout_plan"
 ## [br]
 ## @api private
 ## [br]
-const _PLAN_SCHEMA_VERSION: int = 1
+const _PLAN_SCHEMA_VERSION: int = 2
 
 ## Planner 接受的 options 字段名集合。
 ## [br]
@@ -236,6 +241,7 @@ const _COMPILED_PROFILE_FIELDS: PackedStringArray = [
 	"zones",
 	"rules",
 	"metadata",
+	"capture_scope",
 ]
 
 ## compiled zone 字典的闭合字段名集合。
@@ -264,16 +270,6 @@ const _COMPILED_RULE_COMMON_FIELDS: PackedStringArray = [
 	"kind",
 	"severity",
 	"metadata",
-]
-
-## 旧式 compiled rule 可选择携带的兼容字段名集合。
-## [br]
-## @api private
-## [br]
-const _COMPILED_RULE_COMPATIBILITY_FIELDS: PackedStringArray = [
-	"paths",
-	"any",
-	"extensions",
 ]
 
 ## 各 compiled rule kind 对应的专属字段名集合。
@@ -488,10 +484,7 @@ func plan_profile(
 	source_analysis: Dictionary,
 	options: Dictionary = {}
 ) -> Dictionary:
-	var compile_result: Dictionary = _compile_profile(
-		profile,
-		_make_planner_registry()
-	)
+	var compile_result: Dictionary = _compile_profile(profile)
 	return plan_compiled_profile_analysis(
 		compile_result,
 		source_analysis,
@@ -530,7 +523,7 @@ func make_feature_module_paths(
 		or not _feature_path_options_are_valid(options)
 	):
 		return PackedStringArray()
-	var compile_result: Dictionary = _compile_profile(profile, _make_planner_registry())
+	var compile_result: Dictionary = _compile_profile(profile)
 	if not _get_bool(compile_result, "success"):
 		return PackedStringArray()
 	var compiled_profile: Dictionary = _get_dictionary(compile_result, "profile")
@@ -597,6 +590,66 @@ func plan_compiled_profile_analysis(
 	_validate_source_analysis(source_analysis, plan)
 	if _planner_terminal or _has_error_issue(plan):
 		return _finalize_plan(plan, false)
+	return _build_compiled_plan(compilation, options, plan)
+
+
+## 会话已拥有 compilation 与 validation 时复用，不再次编译或遍历完整分析图。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param compilation: Session 独占的成功 compilation。
+## [br]
+## @schema compilation: Dictionary，success、profile、issues、error_count、warning_count、contract_id、contract_digest、capabilities。
+## [br]
+## @param source_analysis: Session 独占的完整冻结 report。
+## [br]
+## @schema source_analysis: Dictionary，完整 v2 analysis contract。
+## [br]
+## @param validation: 对同一独占 report 完整验证一次后的索引。
+## [br]
+## @schema validation: Dictionary，精确包含 valid、errors、capture_status、complete、index。
+## [br]
+## @param options: 有限规划配置。
+## [br]
+## @schema options: Dictionary，可包含 feature_ids、include_optional_zones、include_optional_feature_subdirs。
+## [br]
+## @param runtime: 空字典或有限协作取消配置。
+## [br]
+## @schema runtime: Dictionary，空字典或精确 cancel_check: Callable、max_work_units: int。
+## [br]
+## @return 闭合只读 plan。
+## [br]
+## @schema return: Dictionary，schema_version、kind、complete、profile_id、source_analysis_digest、contract_digest、project_root、capabilities、steps、blockers、issues。
+func plan_owned_policy(compilation: Dictionary, source_analysis: Dictionary, validation: Dictionary, options: Dictionary = {}, runtime: Dictionary = {}) -> Dictionary:
+	_begin_planner_operation()
+	var plan: Dictionary = _make_plan()
+	_active_plan = plan
+	if not _configure_planner_runtime(runtime):
+		return _finalize_plan(plan, false)
+	if not _options_are_intrinsically_admissible(options, false):
+		_fail_planner_resource_limit()
+		return _finalize_plan(plan, false)
+	_validate_options(options, plan)
+	if _planner_terminal or _has_error_issue(plan):
+		return _finalize_plan(plan, false)
+	if not _get_bool(compilation, "success") or not _get_bool(validation, "valid") or not _get_bool(validation, "complete"):
+		_add_issue(plan, "error", "incomplete_source_analysis", "", "会话没有完整已验证策略与库存。")
+		return _finalize_plan(plan, false)
+	plan["source_analysis_digest"] = _get_string(source_analysis, "input_digest")
+	plan["project_root"] = _get_string(source_analysis, "root_path")
+	plan["_source_analysis_index"] = _get_dictionary(validation, "index")
+	_append_compiler_result(compilation, plan)
+	return _build_compiled_plan(compilation, options, plan)
+
+
+# --- 私有/辅助方法 ---
+
+## 对当前已准入策略生成目录候选；入口决定一次性完整验证或会话索引复用。
+## [br]
+## @api private
+func _build_compiled_plan(compilation: Dictionary, options: Dictionary, plan: Dictionary) -> Dictionary:
 	var planner_registry: Dictionary = _make_planner_registry()
 
 	var compiled_profile: Dictionary = _get_dictionary(compilation, "profile")
@@ -613,10 +666,6 @@ func plan_compiled_profile_analysis(
 
 	_plan_candidate_paths(candidate_paths, plan)
 	return _finalize_plan(plan, true)
-
-
-# --- 私有/辅助方法 ---
-
 ## 创建默认不完整的只读目录候选计划，并预留仅供规划过程使用的来源索引；导出前须移除该索引。
 ## [br]
 ## @api private
@@ -659,21 +708,12 @@ func _make_planner_registry() -> Dictionary:
 	}
 
 
-## 以规划执行器身份编译 profile，未实现规则仅校验 schema，并限定实际执行的 zone 字段。
+## 委托唯一 Analyzer 编译器准入全部规则与 zone；规划只投影目录候选。
 ## [br]
 ## @api private
-func _compile_profile(profile: Dictionary, planner_registry: Dictionary) -> Dictionary:
-	var compiler: _PROFILE_COMPILER_SCRIPT = _PROFILE_COMPILER_SCRIPT.new()
-	return compiler.compile_profile(
-		profile,
-		{
-			"executor_id": "godot_project_layout_planner",
-			"operation": "plan",
-			"rule_registry": planner_registry,
-			"unsupported_rule_policy": "schema_only",
-			"zone_executed_fields": PackedStringArray(["roots", "required"]),
-		}
-	)
+func _compile_profile(profile: Dictionary) -> Dictionary:
+	var analyzer: _ANALYZER_SCRIPT = _ANALYZER_SCRIPT.new()
+	return analyzer.compile_profile(profile)
 
 
 ## 按工作预算汇总支持和忽略的规则种类，成功编译才接管契约摘要，再将编译诊断投影到计划。
@@ -807,10 +847,7 @@ func _planning_compilation_is_valid(
 				capabilities,
 				_COMPILATION_CAPABILITY_FIELDS
 			)
-			or (
-				capabilities != _expected_planner_compilation_capabilities()
-				and capabilities != _expected_analyzer_compilation_capabilities()
-			)
+			or capabilities != _expected_analyzer_compilation_capabilities()
 		)
 	):
 		_add_invalid_compilation_issue(plan, "compilation capabilities 未绑定受支持 executor registry。")
@@ -939,7 +976,7 @@ func _compiled_profile_is_valid_for_planning(
 ) -> bool:
 	if (
 		not _dictionary_has_only_fields(profile, _COMPILED_PROFILE_FIELDS)
-		or profile.get("schema_version") != 1
+		or profile.get("schema_version") != 2
 		or not _is_non_empty_string_value(profile.get("id"))
 		or not profile.get("zones") is Array
 		or not profile.get("rules") is Array
@@ -982,9 +1019,6 @@ func _compiled_profile_is_valid_for_planning(
 		):
 			return false
 		var allowed_fields: PackedStringArray = _COMPILED_RULE_COMMON_FIELDS.duplicate()
-		for field_name: String in _COMPILED_RULE_COMPATIBILITY_FIELDS:
-			if not allowed_fields.has(field_name):
-				var _append_compatibility_field: bool = allowed_fields.append(field_name)
 		for field_value: Variant in _COMPILED_RULE_FIELDS_BY_KIND[kind]:
 			var field_name: String = _string_value(field_value)
 			if not field_name.is_empty() and not allowed_fields.has(field_name):
@@ -1070,56 +1104,12 @@ func _compiled_string_collection_is_valid(
 	return true
 
 
-## 返回规划器接受的精确能力身份和字段集合，用于阻止编译信封冒用其他执行范围。
-## [br]
-## @api private
-func _expected_planner_compilation_capabilities() -> Dictionary:
-	return {
-		"executor_id": "godot_project_layout_planner",
-		"operation": "plan",
-		"rule_kinds": ["feature_module_contract"],
-		"rule_fields": {
-			"feature_module_contract": [
-				"allowed_subdirs",
-				"feature_id_pattern",
-				"required_subdirs",
-				"roots",
-			],
-		},
-		"zone_fields": ["required", "roots"],
-	}
-
-
 ## 返回可复用分析器编译结果的精确能力声明，规划只消费其中已实现的目录候选规则。
 ## [br]
 ## @api private
 func _expected_analyzer_compilation_capabilities() -> Dictionary:
-	return {
-		"executor_id": "godot_project_layout_analyzer",
-		"operation": "analyze",
-		"rule_kinds": [
-			"bucket_size",
-			"feature_module_contract",
-			"forbid_root_files",
-			"generated_boundary",
-			"naming_convention",
-		],
-		"rule_fields": {
-			"bucket_size": ["max_files", "roots", "severity"],
-			"feature_module_contract": [
-				"allow_root_files",
-				"allowed_subdirs",
-				"feature_id_pattern",
-				"required_subdirs",
-				"roots",
-				"severity",
-			],
-			"forbid_root_files": ["allowed_files", "severity"],
-			"generated_boundary": ["include", "roots", "severity"],
-			"naming_convention": ["exclude", "pattern", "roots", "severity", "target"],
-		},
-		"zone_fields": ["required", "roots", "severity"],
-	}
+	var analyzer: _ANALYZER_SCRIPT = _ANALYZER_SCRIPT.new()
+	return analyzer.get_profile_capabilities()
 
 
 ## 通过统一诊断入口记录固定种类和原因码的编译信封失败。
@@ -1141,38 +1131,12 @@ func _add_invalid_compilation_issue(plan: Dictionary, message: String) -> void:
 ## [br]
 ## @api private
 func _load_profile(profile_path: String) -> Dictionary:
-	if profile_path.strip_edges().is_empty():
-		return _make_load_result(false, {}, "missing_profile_path", "项目结构 profile 路径为空。", profile_path)
-
-	var read_result: Dictionary = _BOUNDED_JSON_OBJECT_READER_SCRIPT.read_object(profile_path)
-	var source_path: String = _get_string(read_result, "source_path", profile_path)
-	if not _get_bool(read_result, "ok"):
-		var error_kind: String = _get_string(read_result, "error_kind")
-		if error_kind == "open_failed" and not FileAccess.file_exists(source_path):
-			return _make_load_result(false, {}, "profile_path_not_found", "项目结构 profile 不存在：%s。" % source_path, source_path)
-		if error_kind == "open_failed" or error_kind == "read_failed":
-			return _make_load_result(
-				false,
-				{},
-				"profile_open_failed",
-				"无法读取项目结构 profile：%s。%s" % [source_path, _get_string(read_result, "error")],
-				source_path
-			)
-		if error_kind == "invalid_root_type":
-			return _make_load_result(false, {}, "invalid_profile_root", "项目结构 profile 根节点必须是 Dictionary。", source_path)
-		return _make_load_result(
-			false,
-			{},
-			"profile_json_parse_failed",
-			"项目结构 profile JSON 解析失败：%s" % _get_string(read_result, "error", "输入超过读取边界或格式无效。"),
-			source_path
-		)
-
-	var profile_value: Variant = read_result.get("data", {})
-	if profile_value is Dictionary:
-		var profile: Dictionary = profile_value
-		return _make_load_result(true, profile, "", "", source_path)
-	return _make_load_result(false, {}, "invalid_profile_root", "项目结构 profile 根节点必须是 Dictionary。", source_path)
+	var reader: _BOUNDED_JSON_OBJECT_READER_SCRIPT = _BOUNDED_JSON_OBJECT_READER_SCRIPT.new()
+	var read_result: Dictionary = reader.read_path(profile_path)
+	if not _get_bool(read_result, "success"):
+		var kind: String = "profile_json_parse_failed" if FileAccess.file_exists(profile_path) else "profile_path_not_found"
+		return _make_load_result(false, {}, kind, _get_string(read_result, "error"), profile_path)
+	return _make_load_result(true, _get_dictionary(read_result, "profile"), "", "", profile_path)
 
 
 ## 包装 profile 读取结果和来源路径，借用 profile 引用，不在此复制或校验内容。

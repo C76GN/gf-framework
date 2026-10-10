@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectLayoutPlanner" path="addons/gf/tools/project_layout/gf_project_layout_planner.gd" module="tools" extends="RefCounted" classDigest="b81de894812a5bae304314ea5f1a78bd96dddcef32ce456889a3c5b995c88997">
+<class name="GFProjectLayoutPlanner" path="addons/gf/tools/project_layout/gf_project_layout_planner.gd" module="tools" extends="RefCounted" classDigest="43f72918d59f6d549ecc1c083a00e713b84dfbf5b2e4f3b0d6e5dfe2b251470e">
 	<description>GFProjectLayoutPlanner: 基于项目结构分析快照生成只读改进计划。
 Planner 的规划核心只消费已经编译的 profile 与完整冻结分析图，不访问当前文件系统，
 也不创建、移动、删除或改写项目内容。它输出可审查的相对路径步骤，并用 blocker
@@ -14,7 +14,7 @@ Feature 内聚式 profile 只是显式示例，不是所有项目都必须采用
 	<enums />
 	<constants>
 		<member kind="const" name="EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH">
-			<signature>const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"</signature>
+			<signature>const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json"</signature>
 			<description>Feature 内聚式项目结构示例 profile 路径。</description>
 			<tags>
 				<tag name="api">public</tag>

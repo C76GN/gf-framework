@@ -20,14 +20,14 @@ extends RefCounted
 ## @api public
 ## [br]
 ## @since 11.0.0
-const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"
+const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json"
 
 ## 用于读取有界 JSON 对象的解析器脚本。
 ## [br]
 ## @api private
 ## [br]
 const _BOUNDED_JSON_OBJECT_READER_SCRIPT = preload(
-	"res://addons/gf/kernel/core/gf_bounded_json_object_reader.gd"
+	"res://addons/gf/tools/project_layout/gf_project_layout_profile_reader.gd"
 )
 
 ## Project Layout analysis 与库存契约实现脚本。
@@ -59,6 +59,11 @@ const _IMPACT_ANALYZER_SCRIPT = preload(
 ## @api private
 ## [br]
 const _PROFILE_COMPILER_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_profile_compiler.gd")
+
+## 唯一声明和来源映射核心，捕获与消费者共用有效 binding。
+## [br]
+## @api private
+const _CAPTURE_SCOPE_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_capture_scope.gd")
 
 ## bucket_size 规则的 kind 值。
 ## [br]
@@ -128,6 +133,11 @@ const _SNAPSHOT_SCOPE_FIELDS: PackedStringArray = [
 	"max_scanned_files",
 	"max_scanned_directories",
 	"max_scan_depth",
+	"capture_scope",
+	"source_root",
+	"protected_roots",
+	"profile_source_path",
+	"policy_digest",
 ]
 
 ## snapshot issue 字典的闭合字段名集合。
@@ -169,7 +179,7 @@ const _MAX_COMPILATION_DEPTH: int = _MAX_SNAPSHOT_DEPTH + 1
 ## [br]
 ## @api private
 ## [br]
-const _MAX_OPTION_FIELDS: int = 6
+const _MAX_OPTION_FIELDS: int = 9
 
 ## options 准入成功的状态码。
 ## [br]
@@ -226,6 +236,7 @@ const _PROJECT_SOURCE_EXCLUDED_PREFIXES: PackedStringArray = [
 const _ABSENCE_FINDING_KINDS: PackedStringArray = [
 	"missing_required_zone_root",
 	"missing_feature_subdir",
+	"path_missing",
 ]
 
 ## validate 入口允许的 options 字段名集合。
@@ -233,6 +244,9 @@ const _ABSENCE_FINDING_KINDS: PackedStringArray = [
 ## @api private
 ## [br]
 const _VALIDATOR_OPTION_FIELDS: PackedStringArray = [
+	"source_root",
+	"capture_scope",
+	"profile_source_path",
 	"root_path",
 	"include_hidden",
 	"max_scanned_files",
@@ -305,6 +319,7 @@ const _COMPILATION_CAPABILITY_FIELDS: PackedStringArray = [
 ## @api private
 ## [br]
 const _COMPILED_PROFILE_FIELDS: PackedStringArray = [
+	"capture_scope",
 	"schema_version",
 	"id",
 	"display_name",
@@ -323,6 +338,9 @@ const _COMPILED_ZONE_FIELDS: PackedStringArray = [
 	"description",
 	"roots",
 	"required",
+	"allow_extensions",
+	"deny_extensions",
+	"exclude",
 	"severity",
 	"metadata",
 ]
@@ -344,6 +362,10 @@ const _COMPILED_RULE_COMMON_FIELDS: PackedStringArray = [
 ## @api private
 ## [br]
 const _COMPILED_RULE_FIELDS_BY_KIND: Dictionary = {
+	"path_exists": ["paths", "any"],
+	"files_under_roots": ["roots", "include", "exclude", "extensions"],
+	"extension_allowlist": ["roots", "include", "exclude", "extensions"],
+	"extension_denylist": ["roots", "include", "exclude", "extensions"],
 	"bucket_size": ["roots", "max_files"],
 	"feature_module_contract": [
 		"roots",
@@ -406,7 +428,7 @@ const _RUNTIME_CANCEL_POLL_INTERVAL: int = 64
 ## [br]
 ## @api private
 ## [br]
-const _PROFILE_CONTRACT_ID: String = "gf.project_layout.profile.v1"
+const _PROFILE_CONTRACT_ID: String = "gf.project_layout.profile.v2"
 
 
 # --- 私有变量 ---
@@ -416,6 +438,11 @@ const _PROFILE_CONTRACT_ID: String = "gf.project_layout.profile.v1"
 ## @api private
 ## [br]
 var _runtime_active: bool = false
+
+## 本次调用准入的有效 scope，snapshot 不能用自报排除取代此身份。
+## [br]
+## @api private
+var _capture_binding: Dictionary = {}
 
 ## 当前 runtime evaluation 的取消检查回调。
 ## [br]
@@ -478,12 +505,13 @@ var _runtime_report: Dictionary = {}
 ## [br]
 ## @param options: 分析选项。
 ## [br]
-## @schema options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；root_path 只能是规范 res:// 根或子根。
+## @schema options: Dictionary，可包含 root_path、source_root、capture_scope、profile_source_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth、allow_missing_root；根只能是规范 res:// 或明确绝对本地来源，逻辑容器映射必须匹配。
 ## [br]
 ## @return: 只读分析报告。
 ## [br]
 ## @schema return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects；graph 精确包含 schema_version、kind、complete、capture_status、scope、dependency_coverage、nodes、edges 和 evidence；effects 精确包含 writes_project=false。
 func analyze(options: Dictionary = {}) -> Dictionary:
+	_capture_binding = {}
 	_reset_evaluation_runtime()
 	var options_admission: int = _options_admission_status(options)
 	if options_admission != _ADMISSION_OK:
@@ -493,6 +521,7 @@ func analyze(options: Dictionary = {}) -> Dictionary:
 	_configure_evaluation_runtime({}, report)
 	_validate_options(options, report)
 	_validate_root_path(root_path, options, report)
+	_prepare_capture_scope({}, root_path, options, report)
 	if _get_int(report, "error_count") > 0:
 		return _finalize_report(report)
 	var scan: Dictionary = _scan_project(root_path, options, report)
@@ -507,7 +536,7 @@ func analyze(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @param options: 校验选项。
 ## [br]
-## @schema options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；root_path 只能是规范 res:// 根或子根。
+## @schema options: Dictionary，可包含 root_path、source_root、capture_scope、profile_source_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth、allow_missing_root；根只能是规范 res:// 或明确绝对本地来源，逻辑容器映射必须匹配。
 ## [br]
 ## @return: 校验报告。
 ## [br]
@@ -526,7 +555,7 @@ func analyze_example_profile(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @param options: 校验选项。
 ## [br]
-## @schema options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；root_path 只能是规范 res:// 根或子根。
+## @schema options: Dictionary，可包含 root_path、source_root、capture_scope、profile_source_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth、allow_missing_root；根只能是规范 res:// 或明确绝对本地来源，逻辑容器映射必须匹配。
 ## [br]
 ## @return: 校验报告。
 ## [br]
@@ -573,7 +602,9 @@ func analyze_profile_path(profile_path: String, options: Dictionary = {}) -> Dic
 	var profile_value: Variant = load_result.get("profile", {})
 	if profile_value is Dictionary:
 		var profile: Dictionary = profile_value
-		return analyze_profile(profile, options)
+		var source_options: Dictionary = options.duplicate(true)
+		source_options["profile_source_path"] = profile_path
+		return analyze_profile(profile, source_options)
 
 	_add_issue(report, "error", "invalid_profile", "", "项目结构 profile 必须是 Dictionary。")
 	return _finalize_report(report)
@@ -591,41 +622,13 @@ func analyze_profile_path(profile_path: String, options: Dictionary = {}) -> Dic
 ## [br]
 ## @param options: 校验选项。
 ## [br]
-## @schema options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；root_path 只能是规范 res:// 根或子根。
+## @schema options: Dictionary，可包含 root_path、source_root、capture_scope、profile_source_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth、allow_missing_root；根只能是规范 res:// 或明确绝对本地来源，逻辑容器映射必须匹配。
 ## [br]
 ## @return: 校验报告。
 ## [br]
 ## @schema return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects；capabilities 在编译前或 contract/registry 失败时为 {}，否则精确包含 executor_id、operation、rule_kinds、rule_fields 和 zone_fields；effects 精确包含 writes_project=false。
 func analyze_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionary:
-	_reset_evaluation_runtime()
-	var options_admission: int = _options_admission_status(options)
-	if options_admission != _ADMISSION_OK:
-		return _make_input_admission_report(options_admission)
-	var root_path: String = _report_root_path(options)
-	var report: Dictionary = _make_report("", root_path)
-	_configure_evaluation_runtime({}, report)
-	_validate_options(options, report)
-	_validate_root_path(root_path, options, report)
-	if _get_int(report, "error_count") > 0:
-		return _finalize_report(report)
-	var rule_registry: Dictionary = _make_rule_registry()
-	var compile_result: Dictionary = compile_profile(profile)
-	_append_compiler_result(compile_result, report)
-	if _get_int(report, "error_count") > 0:
-		return _finalize_report(report)
-	var compiled_profile: Dictionary = _get_dictionary(compile_result, "profile")
-	report["profile_id"] = _get_string(compiled_profile, "id")
-
-	var scan: Dictionary = _scan_project(root_path, options, report)
-	_attach_scan_result(report, scan, true)
-	if _get_int(report, "error_count") > 0:
-		return _finalize_report(report)
-	if not _get_bool(report, "input_complete"):
-		return _finalize_report(report)
-
-	_validate_zones(compiled_profile, scan, report)
-	_validate_rules(compiled_profile, scan, report, rule_registry)
-	return _finalize_report(report)
+	return analyze_compiled_profile(compile_profile(profile), options)
 
 
 ## 分析已经冻结的 data-only 项目库存，不再访问文件系统。
@@ -639,7 +642,7 @@ func analyze_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionar
 ## [br]
 ## @param snapshot: data-only 项目库存。
 ## [br]
-## @schema snapshot: Dictionary，字段闭集为 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和可选 issues；root_path 必须是规范 res:// 根或子根，scope 精确包含 kind、root_path、include_hidden、excluded_prefixes 与三项捕获预算，files/directories 必须形成完整父目录闭包。
+## @schema snapshot: Dictionary，字段闭集为 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和可选 issues；root_path 必须是规范 res:// 或绝对本地根，scope 精确包含 kind、root_path、include_hidden、excluded_prefixes、max_scanned_files、max_scanned_directories、max_scan_depth、capture_scope、source_root、protected_roots、profile_source_path、policy_digest，files/directories 必须形成完整父目录闭包。
 ## [br]
 ## @return: observation-only 只读分析报告。
 ## [br]
@@ -750,6 +753,7 @@ func analyze_snapshot_for_framework(
 		return _make_input_admission_report(_ADMISSION_RESOURCE_LIMIT)
 	var root_path: String = _get_string(snapshot, "root_path")
 	var report: Dictionary = _make_report("", root_path)
+	_prepare_capture_scope({}, root_path, _snapshot_binding_options(snapshot), report)
 	_configure_evaluation_runtime(runtime, report)
 	if _runtime_is_aborted():
 		return _finalize_report(report)
@@ -784,9 +788,24 @@ func compile_profile(profile: Dictionary) -> Dictionary:
 			"operation": "analyze",
 			"rule_registry": rule_registry,
 			"unsupported_rule_policy": "error",
-			"zone_executed_fields": PackedStringArray(["roots", "required", "severity"]),
+			"zone_executed_fields": PackedStringArray([
+				"roots", "required", "allow_extensions", "deny_extensions", "exclude", "severity",
+			]),
 		}
 	)
+
+
+## 返回唯一执行器注册表的能力，不重新编译 Profile。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return 闭合 capability 字典。
+## [br]
+## @schema return: Dictionary，精确包含 executor_id、operation、rule_kinds、rule_fields、zone_fields。
+func get_profile_capabilities() -> Dictionary:
+	return _expected_compilation_capabilities(_make_rule_registry())
 
 
 ## 在冻结 snapshot 上执行已经完成的 profile compilation。
@@ -829,6 +848,9 @@ func analyze_compiled_profile_snapshot(
 	if not _compilation_is_valid(compilation, rule_registry, report):
 		return _finalize_report(report)
 	var compiled_profile: Dictionary = _get_dictionary(compilation, "profile")
+	_prepare_capture_scope(compiled_profile, root_path, _snapshot_binding_options(snapshot), report)
+	if _get_int(report, "error_count") > 0:
+		return _finalize_report(report)
 	var compile_result: Dictionary = compilation
 	_append_compiler_result(compile_result, report)
 	if _get_int(report, "error_count") > 0:
@@ -845,6 +867,83 @@ func analyze_compiled_profile_snapshot(
 	return _finalize_report(report)
 
 
+## 对同一已准入 compiled policy 捕获并分析来源，避免会话入口重复编译。
+## [br]
+## @api framework_internal
+## [br]
+## @param compilation: 唯一 compiler 返回的闭合结果。
+## [br]
+## @schema compilation: Dictionary，包含 success、profile、issues、error_count、warning_count、contract_id、contract_digest 和 capabilities。
+## [br]
+## @param options: 有限 capture 选项。
+## [br]
+## @schema options: Dictionary，可包含 root_path、source_root、capture_scope、profile_source_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root。
+## [br]
+## @return 完整 v2 analysis report，输入拒绝永远不开始捕获。
+## [br]
+## @schema return: Dictionary，包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。
+func analyze_compiled_profile(compilation: Dictionary, options: Dictionary = {}) -> Dictionary:
+	_capture_binding = {}
+	_reset_evaluation_runtime()
+	var options_admission: int = _options_admission_status(options)
+	if options_admission != _ADMISSION_OK:
+		return _make_input_admission_report(options_admission)
+	var root_path: String = _report_root_path(options)
+	var report: Dictionary = _make_report("", root_path)
+	_configure_evaluation_runtime({}, report)
+	_validate_options(options, report)
+	_validate_root_path(root_path, options, report)
+	if _get_int(report, "error_count") > 0:
+		return _finalize_report(report)
+	var rule_registry: Dictionary = _make_rule_registry()
+	var compile_result: Dictionary = compilation
+	if not _compilation_envelope_is_admissible(compilation):
+		return _make_input_admission_report(_ADMISSION_RESOURCE_LIMIT)
+	if _get_bool(compilation, "success") and not _compilation_is_valid(compilation, rule_registry, report):
+		return _finalize_report(report)
+	_append_compiler_result(compile_result, report)
+	if _get_int(report, "error_count") > 0:
+		return _finalize_report(report)
+	var compiled_profile: Dictionary = _get_dictionary(compile_result, "profile")
+	report["profile_id"] = _get_string(compiled_profile, "id")
+	_prepare_capture_scope(compiled_profile, root_path, options, report)
+	if _get_int(report, "error_count") > 0:
+		return _finalize_report(report)
+
+	var scan: Dictionary = _scan_project(root_path, options, report)
+	_attach_scan_result(report, scan, true)
+	if _get_int(report, "error_count") > 0:
+		return _finalize_report(report)
+	if not _get_bool(report, "input_complete"):
+		return _finalize_report(report)
+
+	_validate_zones(compiled_profile, scan, report)
+	_validate_rules(compiled_profile, scan, report, rule_registry)
+	return _finalize_report(report)
+
+
+## 将严格输入失败转成标准闭合报告，不读取项目或执行规则。
+## [br]
+## @api framework_internal
+## [br]
+## @param error_kind: 已知输入失败分类。
+## [br]
+## @param message: 有界输入失败说明。
+## [br]
+## @param root_path: 请求捕获根。
+## [br]
+## @return 输入不完整的 analysis report。
+## [br]
+## @schema return: Dictionary，包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。
+func reject_profile_input(error_kind: String, message: String, root_path: String) -> Dictionary:
+	_reset_evaluation_runtime()
+	_capture_binding = {}
+	var report: Dictionary = _make_report("", root_path)
+	_configure_evaluation_runtime({}, report)
+	_add_issue(report, "error", error_kind, "", message.left(4_096))
+	return _finalize_report(report)
+
+
 # --- 私有/辅助方法 ---
 
 ## 构建本实例支持的规则处理器及实际消费字段集合，供编译能力绑定和评估派发共同使用。
@@ -852,6 +951,22 @@ func analyze_compiled_profile_snapshot(
 ## @api private
 func _make_rule_registry() -> Dictionary:
 	return {
+		"path_exists": {
+			"handler": Callable(self, "_validate_path_exists"),
+			"executed_fields": PackedStringArray(["paths", "any", "severity"]),
+		},
+		"files_under_roots": {
+			"handler": Callable(self, "_validate_files_under_roots"),
+			"executed_fields": PackedStringArray(["roots", "include", "exclude", "extensions", "severity"]),
+		},
+		"extension_allowlist": {
+			"handler": Callable(self, "_validate_extension_allowlist"),
+			"executed_fields": PackedStringArray(["roots", "include", "exclude", "extensions", "severity"]),
+		},
+		"extension_denylist": {
+			"handler": Callable(self, "_validate_extension_denylist"),
+			"executed_fields": PackedStringArray(["roots", "include", "exclude", "extensions", "severity"]),
+		},
 		_RULE_BUCKET_SIZE: {
 			"handler": Callable(self, "_validate_bucket_size"),
 			"executed_fields": PackedStringArray(["roots", "max_files", "severity"]),
@@ -886,6 +1001,7 @@ func _make_rule_registry() -> Dictionary:
 ## [br]
 ## @api private
 func _reset_evaluation_runtime() -> void:
+	_capture_binding = {}
 	_runtime_active = false
 	_runtime_cancel_check = Callable()
 	_runtime_max_work_units = _DEFAULT_MAX_WORK_UNITS
@@ -1149,7 +1265,7 @@ func _expected_compilation_capabilities(rule_registry: Dictionary) -> Dictionary
 		fields.sort()
 		rule_fields[kind] = fields
 	rule_kinds.sort()
-	var zone_fields: Array[String] = ["required", "roots", "severity"]
+	var zone_fields: Array[String] = ["required", "roots", "allow_extensions", "deny_extensions", "exclude", "severity"]
 	zone_fields.sort()
 	return {
 		"executor_id": "godot_project_layout_analyzer",
@@ -1171,7 +1287,7 @@ func _compiled_profile_is_valid(
 	if not _dictionary_has_only_fields(profile, _COMPILED_PROFILE_FIELDS):
 		return false
 	if (
-		profile.get("schema_version") != 1
+		profile.get("schema_version") != 2
 		or not _is_non_empty_string_value(profile.get("id"))
 		or not profile.get("zones") is Array
 		or not profile.get("rules") is Array
@@ -1206,6 +1322,11 @@ func _compiled_profile_is_valid(
 			return false
 		if zone.has("metadata") and not zone["metadata"] is Dictionary:
 			return false
+		for list_field: String in ["allow_extensions", "deny_extensions", "exclude"]:
+			if zone.has(list_field) and not _string_collection_value_is_valid(
+				zone[list_field], true, report, "glob" if list_field == "exclude" else "extension"
+			):
+				return false
 	var rule_ids: Dictionary = {}
 	for rule_value: Variant in _get_array(profile, "rules"):
 		if not _evaluation_checkpoint(report):
@@ -1262,6 +1383,7 @@ func _compiled_rule_values_are_valid(
 	report: Dictionary
 ) -> bool:
 	for list_field: String in [
+		"paths",
 		"allowed_files",
 		"roots",
 		"required_subdirs",
@@ -1274,6 +1396,8 @@ func _compiled_rule_values_are_valid(
 			"relative_path"
 		):
 			return false
+	if rule.has("extensions") and not _string_collection_value_is_valid(rule["extensions"], true, report, "extension"):
+		return false
 	for list_field: String in ["exclude", "include"]:
 		if rule.has(list_field) and not _string_collection_value_is_valid(
 			rule[list_field],
@@ -1282,6 +1406,10 @@ func _compiled_rule_values_are_valid(
 			"glob"
 		):
 			return false
+	if kind == "path_exists":
+		return _string_collection_value_is_valid(rule.get("paths"), false, report, "relative_path") and rule.get("any") is bool
+	if kind == "files_under_roots":
+		return _string_collection_value_is_valid(rule.get("roots"), false, report, "relative_path")
 	if kind == _RULE_BUCKET_SIZE:
 		return (
 			_string_collection_value_is_valid(
@@ -1355,6 +1483,8 @@ func _string_collection_value_is_valid(
 			and _PROFILE_COMPILER_SCRIPT._profile_pattern_is_invalid(item_string)
 		):
 			return false
+		if value_kind == "extension" and (not item_string.begins_with(".") or item_string != item_string.to_lower()):
+			return false
 		seen[item_string] = true
 	return true
 
@@ -1409,51 +1539,12 @@ func _append_compiler_result(compile_result: Dictionary, report: Dictionary) -> 
 ## [br]
 ## @api private
 func _load_profile(profile_path: String) -> Dictionary:
-	if profile_path.strip_edges().is_empty():
-		return _make_load_result(false, {}, "missing_profile_path", "项目结构 profile 路径为空。", profile_path)
-
-	var read_result: Dictionary = _BOUNDED_JSON_OBJECT_READER_SCRIPT.read_object(profile_path)
-	var source_path: String = _get_string(read_result, "source_path", profile_path)
-	if not _get_bool(read_result, "ok"):
-		var error_kind: String = _get_string(read_result, "error_kind")
-		if error_kind == "open_failed" and not FileAccess.file_exists(source_path):
-			return _make_load_result(
-				false,
-				{},
-				"profile_path_not_found",
-				"项目结构 profile 不存在：%s。" % source_path,
-				source_path
-			)
-		if error_kind == "open_failed" or error_kind == "read_failed":
-			return _make_load_result(
-				false,
-				{},
-				"profile_open_failed",
-				"无法读取项目结构 profile：%s。%s" % [
-					source_path,
-					_get_string(read_result, "error"),
-				],
-				source_path
-			)
-		if error_kind == "invalid_root_type":
-			return _make_load_result(false, {}, "invalid_profile_root", "项目结构 profile 根节点必须是 Dictionary。", source_path)
-		return _make_load_result(
-			false,
-			{},
-			"profile_json_parse_failed",
-			"项目结构 profile JSON 解析失败：%s" % _get_string(
-				read_result,
-				"error",
-				"输入超过读取边界或格式无效。"
-			),
-			source_path
-		)
-
-	var profile_value: Variant = read_result.get("data", {})
-	if profile_value is Dictionary:
-		var profile: Dictionary = profile_value
-		return _make_load_result(true, profile, "", "", source_path)
-	return _make_load_result(false, {}, "invalid_profile_root", "项目结构 profile 根节点必须是 Dictionary。", source_path)
+	var reader: _BOUNDED_JSON_OBJECT_READER_SCRIPT = _BOUNDED_JSON_OBJECT_READER_SCRIPT.new()
+	var read_result: Dictionary = reader.read_path(profile_path)
+	if not _get_bool(read_result, "success"):
+		var kind: String = "profile_json_parse_failed" if FileAccess.file_exists(profile_path) else "profile_path_not_found"
+		return _make_load_result(false, {}, kind, _get_string(read_result, "error"), profile_path)
+	return _make_load_result(true, _get_dictionary(read_result, "profile"), "", "", profile_path)
 
 
 ## 包装 profile 加载状态及来源路径，沿用传入 profile 引用。
@@ -1480,7 +1571,7 @@ func _make_load_result(
 ## @api private
 func _make_report(profile_id: String, root_path: String) -> Dictionary:
 	var report: Dictionary = {
-		"schema_version": 1,
+		"schema_version": 2,
 		"kind": "project_layout_analysis",
 		"evaluation_status": "input_incomplete",
 		"evaluation_complete": false,
@@ -1563,12 +1654,19 @@ func _options_admission_status(options: Dictionary) -> int:
 		if not _VALIDATOR_OPTION_FIELDS.has(key):
 			return _ADMISSION_INVALID
 		var option_value: Variant = options[key]
-		if key == "root_path":
+		if key in ["root_path", "source_root", "profile_source_path"]:
 			if not (option_value is String or option_value is StringName):
 				return _ADMISSION_INVALID
 			var root_path: String = _string_value(option_value)
 			if root_path.length() > _ANALYSIS_CONTRACT_SCRIPT.MAX_DATA_STRING_LENGTH:
 				return _ADMISSION_RESOURCE_LIMIT
+			continue
+		if key == "capture_scope":
+			if not option_value is Dictionary:
+				return _ADMISSION_INVALID
+			var declaration: Dictionary = option_value
+			if not _CAPTURE_SCOPE_SCRIPT.normalize_declaration(declaration)["success"]:
+				return _ADMISSION_INVALID
 			continue
 		if _VALIDATOR_BOOL_OPTION_FIELDS.has(key):
 			if not option_value is bool:
@@ -1987,7 +2085,7 @@ func _validate_options(options: Dictionary, report: Dictionary) -> void:
 ## @api private
 func _validate_root_path(root_path: String, _options: Dictionary, report: Dictionary) -> void:
 	if not _is_canonical_project_source_root(root_path):
-		_add_issue(report, "error", "unsupported_root_path", root_path, "项目源码根必须是规范 res:// 根或子根，不能使用 user://、绝对路径或路径 alias。")
+		_add_issue(report, "error", "unsupported_root_path", root_path, "项目源码根必须是规范 res:// 或绝对本地根，不能使用 user://、网络路径或路径 alias。")
 		return
 	if _path_crosses_link(root_path):
 		_add_issue(report, "error", "linked_path_not_allowed", root_path, "项目根路径不能穿过符号链接或目录联接。")
@@ -2038,6 +2136,11 @@ func _scan_project(root_path: String, options: Dictionary, report: Dictionary) -
 		var _invalid_budget_scan_state_removed: bool = result.erase("_scan_aborted")
 		return result
 	var absolute_root: String = ProjectSettings.globalize_path(root_path)
+	var initial_root_states: Dictionary = _CAPTURE_SCOPE_SCRIPT.capture_root_states(_capture_binding)
+	if not initial_root_states["success"]:
+		_add_issue(report, "error", "capture_scope_identity_invalid", root_path, _get_string(initial_root_states, "error"))
+		var _invalid_identity_state_removed: bool = result.erase("_scan_aborted")
+		return result
 	if not DirAccess.dir_exists_absolute(absolute_root):
 		var missing_severity: String = (
 			"warning" if _get_bool(options, "allow_missing_root") else "error"
@@ -2100,6 +2203,10 @@ func _scan_project(root_path: String, options: Dictionary, report: Dictionary) -
 		if _get_bool(result, "_scan_aborted") or not include_hidden
 		else "complete"
 	)
+	var final_root_states: Dictionary = _CAPTURE_SCOPE_SCRIPT.capture_root_states(_capture_binding)
+	if not _get_bool(result, "_input_resource_limit_exceeded") and final_root_states != initial_root_states:
+		_add_issue(report, "error", "capture_scope_identity_changed", root_path, "排除根或父链在捕获期间发生变化。")
+		capture_status = "partial"
 	result["capture_status"] = capture_status
 	result["complete"] = capture_status == "complete"
 	if (
@@ -2146,13 +2253,13 @@ func _scan_from_snapshot(snapshot: Dictionary, report: Dictionary) -> Dictionary
 	_validate_snapshot_fields(snapshot, report)
 	if _runtime_is_aborted():
 		return result
-	if _get_int(snapshot, "schema_version") != 1:
-		_add_issue(report, "error", "invalid_snapshot_schema", "schema_version", "项目结构 snapshot schema_version 必须为 1。")
+	if _get_int(snapshot, "schema_version") != 2:
+		_add_issue(report, "error", "invalid_snapshot_schema", "schema_version", "项目结构 snapshot schema_version 必须为 2。")
 	if _get_string(snapshot, "kind") != "project_layout_snapshot":
 		_add_issue(report, "error", "invalid_snapshot_kind", "kind", "项目结构 snapshot kind 无效。")
 	var root_path: String = _get_string(snapshot, "root_path")
 	if not _is_canonical_snapshot_root(root_path):
-		_add_issue(report, "error", "invalid_snapshot_root", "root_path", "项目结构 snapshot root_path 必须是规范 res:// 根或子根。")
+		_add_issue(report, "error", "invalid_snapshot_root", "root_path", "项目结构 snapshot root_path 必须是规范 res:// 或绝对本地根。")
 	if not snapshot.has("complete") or not snapshot["complete"] is bool:
 		_add_issue(report, "error", "invalid_snapshot_complete", "complete", "项目结构 snapshot complete 必须是 bool。")
 	_validate_snapshot_capture_status(snapshot, report)
@@ -2366,7 +2473,7 @@ func _validate_snapshot_capture_status(snapshot: Dictionary, report: Dictionary)
 			_add_issue(report, "error", "snapshot_capture_status_mismatch", "capture_status", "capture_status 与 complete 不一致。")
 
 
-## 验证闭合 project_source 范围并重建 scope；仅包含隐藏项且精确声明固定排除列表时赋予完整库存的权威范围标记。
+## 验证闭合 project_source 范围和原始策略摘要；有效声明缺少隐藏项时降为 partial，篡改声明直接拒绝。
 ## [br]
 ## @api private
 func _validate_snapshot_scope(
@@ -2430,6 +2537,9 @@ func _validate_snapshot_scope(
 		valid = false
 	if not valid:
 		return result
+	if not _CAPTURE_SCOPE_SCRIPT.binding_is_valid(_binding_from_scope(scope)):
+		_add_issue(report, "error", "invalid_snapshot_scope_binding", "scope", "snapshot 范围声明、来源映射、保护根或策略摘要不一致。")
+		return result
 
 	var include_hidden: bool = false
 	if include_hidden_value is bool:
@@ -2442,10 +2552,12 @@ func _validate_snapshot_scope(
 		_get_int(scope, "max_scan_depth")
 	)
 	normalized_scope["excluded_prefixes"] = Array(excluded_prefixes)
+	for field: String in ["capture_scope", "source_root", "protected_roots", "profile_source_path", "policy_digest"]:
+		normalized_scope[field] = scope[field]
 	result["scope"] = normalized_scope
 	var authoritative: bool = (
 		include_hidden
-		and excluded_prefixes == _PROJECT_SOURCE_EXCLUDED_PREFIXES
+		and _capture_policy_matches(scope)
 	)
 	result["authoritative"] = authoritative
 	if not authoritative:
@@ -2454,7 +2566,7 @@ func _validate_snapshot_scope(
 			"warning",
 			"project_source_scope_incomplete",
 			"scope",
-			"只有包含隐藏路径并精确排除 .git、.godot、.import 的库存才能证明 project_source 完整。"
+			"只有包含隐藏路径并匹配已准入声明、来源映射与保护根的库存才能证明 declared project_source 完整。"
 		)
 	return result
 
@@ -2701,15 +2813,69 @@ func _make_project_source_scope(
 	max_scanned_directories: int,
 	max_scan_depth: int
 ) -> Dictionary:
-	return {
+	var binding: Dictionary = _capture_binding
+	if binding.is_empty():
+		var default_options: Dictionary = {"source_root": root_path if root_path.is_absolute_path() else "res://"}
+		var prepared: Dictionary = _CAPTURE_SCOPE_SCRIPT.prepare({}, root_path, default_options)
+		binding = _get_dictionary(prepared, "binding")
+	var scope: Dictionary = binding.duplicate(true)
+	scope.merge({
 		"kind": "project_source",
 		"root_path": root_path,
 		"include_hidden": include_hidden,
-		"excluded_prefixes": Array(_PROJECT_SOURCE_EXCLUDED_PREFIXES),
 		"max_scanned_files": max_scanned_files,
 		"max_scanned_directories": max_scanned_directories,
 		"max_scan_depth": max_scan_depth,
-	}
+	}, true)
+	return scope
+
+
+## 从闭合 scope 提取绑定字段，不把未知 snapshot 排除解释为有效声明。
+## [br]
+## @api private
+func _binding_from_scope(scope: Dictionary) -> Dictionary:
+	var binding: Dictionary = {}
+	for field: String in ["capture_scope", "source_root", "root_path", "protected_roots", "profile_source_path", "excluded_prefixes", "policy_digest"]:
+		if not scope.has(field):
+			return {}
+		binding[field] = scope[field]
+	return binding
+
+
+## 捕获声明/映射必须相同；后分析 Profile 的硬保护已由 prepare 检查，无需改写冻结来源事实。
+## [br]
+## @api private
+func _capture_policy_matches(scope: Dictionary) -> bool:
+	if _capture_binding.is_empty():
+		return false
+	for field: String in ["capture_scope", "source_root", "root_path", "profile_source_path", "excluded_prefixes"]:
+		if scope.get(field) != _capture_binding.get(field):
+			return false
+	return true
+
+
+## 按唯一准入策略产生本次 binding，失败保持报告不完整。
+## [br]
+## @api private
+func _prepare_capture_scope(profile: Dictionary, root_path: String, options: Dictionary, report: Dictionary) -> void:
+	var prepared: Dictionary = _CAPTURE_SCOPE_SCRIPT.prepare(profile, root_path, options)
+	if not _get_bool(prepared, "success"):
+		_capture_binding = {}
+		_add_issue(report, "error", "capture_scope_invalid", "capture_scope", _get_string(prepared, "error"))
+		return
+	_capture_binding = _get_dictionary(prepared, "binding")
+
+
+## 提取冻结 snapshot 的来源和声明，profile 的持久声明仍由 authority 精确核对。
+## [br]
+## @api private
+func _snapshot_binding_options(snapshot: Dictionary) -> Dictionary:
+	var scope: Dictionary = _get_dictionary(snapshot, "scope")
+	var options: Dictionary = {}
+	for field: String in ["source_root", "capture_scope", "profile_source_path"]:
+		if scope.has(field):
+			options[field] = scope[field]
+	return options
 
 
 ## 将字符串列表转为以各字符串为键、true 为值的字典，可选按 runtime 预算检查。
@@ -2766,17 +2932,7 @@ func _is_canonical_snapshot_root(root_path: String) -> bool:
 ## [br]
 ## @api private
 func _is_canonical_project_source_root(root_path: String) -> bool:
-	if (
-		root_path.is_empty()
-		or root_path != root_path.strip_edges()
-		or root_path.contains("\\")
-		or not root_path.begins_with("res://")
-	):
-		return false
-	var relative_part: String = root_path.substr("res://".length())
-	if relative_part.is_empty():
-		return true
-	return _is_canonical_snapshot_path(relative_part)
+	return _CAPTURE_SCOPE_SCRIPT.root_is_canonical(root_path)
 
 
 ## 只接受非空规范相对路径，拒绝空白边界、绝对前缀、反斜线、冒号、尾分隔符及空段或点段。
@@ -2863,7 +3019,7 @@ func _scan_directory(
 			break
 		if _is_under_excluded_prefix(
 			entry_path,
-			_PROJECT_SOURCE_EXCLUDED_PREFIXES
+			_get_string_list(_capture_binding, "excluded_prefixes")
 		):
 			entry_name = directory.get_next()
 			continue
@@ -3070,7 +3226,7 @@ func _append_capture_issue(
 	})
 
 
-## 只检查必需 zone 的各根是否出现在扫描清单，缺失时按 zone 严重性报告；存在性接受文件或目录。
+## 检查必需 zone 根及范围内未排除文件的扩展名，所有规则使用同一冻结库存。
 ## [br]
 ## @api private
 func _validate_zones(profile: Dictionary, scan: Dictionary, report: Dictionary) -> void:
@@ -3084,11 +3240,8 @@ func _validate_zones(profile: Dictionary, scan: Dictionary, report: Dictionary) 
 
 		var zone: Dictionary = zone_value
 		var severity: String = _get_string(zone, "severity")
-		if not _get_bool(zone, "required"):
-			continue
-
 		var roots: PackedStringArray = _get_string_list(zone, "roots")
-		for relative_root: String in roots:
+		for relative_root: String in roots if _get_bool(zone, "required") else PackedStringArray():
 			if not _evaluation_checkpoint(report):
 				return
 			if relative_root.is_empty():
@@ -3102,6 +3255,19 @@ func _validate_zones(profile: Dictionary, scan: Dictionary, report: Dictionary) 
 					"项目结构缺少必需目录：%s。" % relative_root,
 					{ "zone_id": _get_string(zone, "id") }
 				)
+		var allow_extensions: PackedStringArray = _get_string_list(zone, "allow_extensions")
+		var deny_extensions: PackedStringArray = _get_string_list(zone, "deny_extensions")
+		var exclude: PackedStringArray = _get_string_list(zone, "exclude")
+		for file_path: String in _get_packed_string_array(scan, "files"):
+			if not _evaluation_checkpoint(report):
+				return
+			if not _is_under_any_root(file_path, roots, report) or _matches_any_pattern(file_path, exclude, report):
+				continue
+			var extension: String = _file_extension(file_path)
+			if not allow_extensions.is_empty() and not allow_extensions.has(extension):
+				_add_issue(report, severity, "zone_extension_not_allowed", file_path, "文件扩展名不在 zone 允许集合中。", {"zone_id": _get_string(zone, "id"), "extension": extension})
+			if deny_extensions.has(extension):
+				_add_issue(report, severity, "zone_extension_denied", file_path, "文件扩展名被 zone 禁止。", {"zone_id": _get_string(zone, "id"), "extension": extension})
 
 
 ## 浅复制扫描结构并附共享根契约索引，按注册表逐规则执行；中止的规则不追加完成摘要。
@@ -3173,6 +3339,93 @@ func _index_feature_contract_rules_by_root(
 			contracts.append(rule)
 			result[root] = contracts
 	return result
+
+
+## 对路径存在规则使用库存文件与目录，any 仅要求其中一个路径存在。
+## [br]
+## @api private
+func _validate_path_exists(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary) -> void:
+	var paths: PackedStringArray = _get_string_list(rule, "paths")
+	var any_path: bool = _get_bool(rule, "any")
+	var found: bool = false
+	for path: String in paths:
+		if not _evaluation_checkpoint(report):
+			return
+		rule_result["checked_count"] = _get_int(rule_result, "checked_count") + 1
+		var exists: bool = _path_exists_in_scan(path, scan, report)
+		found = found or exists
+		if not exists and not any_path:
+			_add_rule_issue(report, rule_result, _get_string(rule, "severity"), "path_missing", path, "声明的路径不存在。")
+	if any_path and not found:
+		_add_rule_issue(report, rule_result, _get_string(rule, "severity"), "any_path_missing", "", "声明的路径均不存在。", {"paths": Array(paths)})
+
+
+## 对过滤选中的文件检查它们位于至少一个声明根内；roots 不参与选择过滤。
+## [br]
+## @api private
+func _validate_files_under_roots(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary) -> void:
+	var roots: PackedStringArray = _get_string_list(rule, "roots")
+	for file_path: String in _get_packed_string_array(scan, "files"):
+		if not _evaluation_checkpoint(report):
+			return
+		if not _file_is_selected(file_path, rule, report, true):
+			continue
+		rule_result["checked_count"] = _get_int(rule_result, "checked_count") + 1
+		if not _is_under_any_root(file_path, roots, report):
+			_add_rule_issue(report, rule_result, _get_string(rule, "severity"), "file_outside_roots", file_path, "选中的文件必须位于声明根内。", {"roots": Array(roots)})
+
+
+## 对根内选中文件执行允许扩展名集合。
+## [br]
+## @api private
+func _validate_extension_allowlist(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary) -> void:
+	_validate_extension_set(rule, scan, report, rule_result, true)
+
+
+## 对根内选中文件执行禁止扩展名集合。
+## [br]
+## @api private
+func _validate_extension_denylist(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary) -> void:
+	_validate_extension_set(rule, scan, report, rule_result, false)
+
+
+## 扩展名规则只用 include/exclude 过滤，extensions 是判断集合，不能提前过滤掉违规文件。
+## [br]
+## @api private
+func _validate_extension_set(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary, allowlist: bool) -> void:
+	var roots: PackedStringArray = _get_string_list(rule, "roots")
+	var extensions: PackedStringArray = _get_string_list(rule, "extensions")
+	for file_path: String in _get_packed_string_array(scan, "files"):
+		if not _evaluation_checkpoint(report):
+			return
+		if not _is_under_any_root(file_path, roots, report) or not _file_is_selected(file_path, rule, report, false):
+			continue
+		rule_result["checked_count"] = _get_int(rule_result, "checked_count") + 1
+		var extension: String = _file_extension(file_path)
+		if extensions.has(extension) != allowlist:
+			_add_rule_issue(report, rule_result, _get_string(rule, "severity"), "extension_not_allowed" if allowlist else "extension_denied", file_path, "文件扩展名违反规则。", {"extension": extension})
+
+
+## 按严格 include/exclude 及可选扩展名选择文件，共用同一 glob 实现与工作预算。
+## [br]
+## @api private
+func _file_is_selected(file_path: String, rule: Dictionary, report: Dictionary, filter_extensions: bool) -> bool:
+	var include: PackedStringArray = _get_string_list(rule, "include")
+	if not include.is_empty() and not _matches_any_pattern(file_path, include, report):
+		return false
+	if _matches_any_pattern(file_path, _get_string_list(rule, "exclude"), report):
+		return false
+	var extensions: PackedStringArray = _get_string_list(rule, "extensions")
+	return not filter_extensions or extensions.is_empty() or extensions.has(_file_extension(file_path))
+
+
+## 返回最后一个非首位点后的规范小写扩展名；无扩展名和单独 dotfile 返回空串。
+## [br]
+## @api private
+func _file_extension(file_path: String) -> String:
+	var file_name: String = file_path.get_file()
+	var dot_index: int = file_name.rfind(".")
+	return file_name.substr(dot_index).to_lower() if dot_index > 0 and dot_index < file_name.length() - 1 else ""
 
 
 ## 只检查项目根直接文件，未列入允许文件集合的条目按规则严重性记录问题。
@@ -3472,6 +3725,11 @@ func _validate_bucket_size(rule: Dictionary, scan: Dictionary, report: Dictionar
 ## [br]
 ## @api private
 func _make_rule_result(rule: Dictionary) -> Dictionary:
+	var declaration: Dictionary = _get_dictionary(_capture_binding, "capture_scope")
+	var excluded: Array[String] = []
+	for entry_value: Variant in _get_array(declaration, "excluded_roots"):
+		var entry: Dictionary = entry_value
+		excluded.append(_get_string(entry, "path"))
 	return {
 		"id": _get_string(rule, "id"),
 		"kind": _get_string(rule, "kind"),
@@ -3479,6 +3737,8 @@ func _make_rule_result(rule: Dictionary) -> Dictionary:
 		"checked_count": 0,
 		"issue_count": 0,
 		"success": true,
+		"evaluation_status": "complete",
+		"coverage": {"scope": "declared_included", "excluded_roots": excluded},
 	}
 
 
@@ -3486,7 +3746,10 @@ func _make_rule_result(rule: Dictionary) -> Dictionary:
 ## [br]
 ## @api private
 func _finalize_rule_result(rule_result: Dictionary, report: Dictionary) -> void:
-	rule_result["success"] = _get_int(rule_result, "issue_count") == 0
+	var coverage: Dictionary = _get_dictionary(rule_result, "coverage")
+	var checked: bool = _get_int(rule_result, "checked_count") > 0
+	rule_result["evaluation_status"] = "skipped" if not checked else ("scope_limited" if not _get_array(coverage, "excluded_roots").is_empty() else "complete")
+	rule_result["success"] = checked and _get_int(rule_result, "issue_count") == 0
 	var rule_results: Array = _get_array(report, "rule_results")
 	rule_results.append(rule_result.duplicate(true))
 

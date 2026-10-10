@@ -25,6 +25,11 @@ const _ANALYZER_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/gf_project_layout_analyzer.gd"
 )
 
+## 同代际策略、报告和验证索引的独占会话。
+## [br]
+## @api private
+const _SESSION_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_session.gd")
+
 ## analysis 与库存共享契约实现脚本。
 ## [br]
 ## @api private
@@ -204,6 +209,11 @@ const _SCOPE_FIELDS: PackedStringArray = [
 	"max_scanned_files",
 	"max_scanned_directories",
 	"max_scan_depth",
+	"capture_scope",
+	"source_root",
+	"protected_roots",
+	"profile_source_path",
+	"policy_digest",
 ]
 
 ## finding_id 查询值允许的最大字符数。
@@ -326,6 +336,11 @@ var _data_only_string_bytes: int = 0
 ## [br]
 var _query_analysis: Dictionary = {}
 
+## Dock 持有同代际会话；不进入任何 data-only 请求或结果。
+## [br]
+## @api private
+var _layout_session: GFProjectLayoutSession = null
+
 ## 当前查询会话绑定的 generation。
 ## [br]
 ## @api private
@@ -374,7 +389,7 @@ func run_request(request: Dictionary) -> Dictionary:
 	_reset_data_only_envelope()
 	var generation: int = _get_int(request, "generation", -1)
 	var result: Dictionary = {
-		"schema_version": 1,
+		"schema_version": 2,
 		"kind": "project_layout_worker_result",
 		"generation": generation,
 		"status": "failed",
@@ -449,6 +464,9 @@ func run_request(request: Dictionary) -> Dictionary:
 	if _is_cancel_requested():
 		result["status"] = "cancelled"
 		return result
+	if _layout_session == null:
+		_layout_session = _SESSION_SCRIPT.new()
+	_layout_session.adopt_owned_analysis(profile_compilation, analysis)
 	var analysis_complete: bool = (
 		_get_bool(analysis, "input_complete")
 		and _get_bool(analysis, "evaluation_complete")
@@ -472,17 +490,14 @@ func run_request(request: Dictionary) -> Dictionary:
 		result["status"] = "complete"
 		return result
 
-	var planner: _PLANNER_SCRIPT = _PLANNER_SCRIPT.new()
 	var planner_runtime: Dictionary = {
 		"cancel_check": cancel_check,
 		"max_work_units": _PLANNER_MAX_WORK_UNITS,
 	}
-	var plan: Dictionary = planner.plan_compiled_profile_analysis(
-		profile_compilation,
-		analysis,
-		plan_options,
-		planner_runtime
-	)
+	_query_work_units = 0
+	_query_units_since_cancel_check = 0
+	_query_work_budget_exhausted = false
+	var plan: Dictionary = _layout_session.plan_for_framework(plan_options, planner_runtime, Callable(self, "_query_checkpoint_allows"))
 	if _is_cancel_requested():
 		result["status"] = "cancelled"
 		return result
@@ -504,6 +519,20 @@ func run_request(request: Dictionary) -> Dictionary:
 	return result
 
 
+## 绑定当前 Dock 独占会话；后台请求与查询严格串行，不在 UI 线程构建索引。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param session: 同代际只读会话，线程退出前不修改其拥有的报告。
+## [br]
+## @return 当前 worker。
+func configure_layout_session(session: GFProjectLayoutSession) -> GFProjectLayoutScanWorker:
+	_layout_session = session
+	return self
+
+
 ## 绑定一份由当前 Dock 扫描代际拥有的冻结 analysis 查询会话。
 ##
 ## 该入口只转移只读引用，不在调用线程复制、校验或索引大型 graph；完整校验与
@@ -519,12 +548,19 @@ func run_request(request: Dictionary) -> Dictionary:
 ## [br]
 ## @param analysis_digest: analysis.input_digest 的 64 位小写 SHA-256。
 ## [br]
+## @param session: 可选同代际 Session；省略时接管此冻结 analysis 并首次查询时验证。
+## [br]
 ## @return: 当前 worker。
 func configure_query_session(
 	analysis: Dictionary,
 	generation: int,
-	analysis_digest: String
+	analysis_digest: String,
+	session: GFProjectLayoutSession = null
 ) -> GFProjectLayoutScanWorker:
+	_layout_session = session
+	if _layout_session == null:
+		_layout_session = _SESSION_SCRIPT.new()
+		_layout_session.adopt_owned_analysis({}, analysis)
 	_query_analysis = analysis
 	_query_generation = generation
 	_query_analysis_digest = analysis_digest
@@ -576,7 +612,7 @@ func run_query_request(request: Dictionary) -> Dictionary:
 	if not _get_bool(validation, "valid"):
 		_add_issue(result, "invalid_query_analysis", "后台查询 analysis 未通过闭合契约校验。")
 		return result
-	# validation/index 只在当前 worker 栈帧内复用；不会进入请求、结果或长生命周期 session。
+	# 已验证索引由同代际 Session 拥有，不进入请求或结果，serial 查询复用同一索引。
 	if _apply_query_terminal(result):
 		return result
 
@@ -669,7 +705,7 @@ func _make_query_result(
 	query_kind: String
 ) -> Dictionary:
 	return {
-		"schema_version": 1,
+		"schema_version": 2,
 		"kind": "project_layout_query_result",
 		"generation": generation,
 		"analysis_digest": analysis_digest,
@@ -727,7 +763,9 @@ func _query_request_is_well_formed(request: Dictionary) -> bool:
 ## @api private
 func _query_session_matches(generation: int, analysis_digest: String) -> bool:
 	return (
-		generation == _query_generation
+		_layout_session != null
+		and _layout_session.owns_analysis_for_framework(_query_analysis)
+		and generation == _query_generation
 		and analysis_digest == _query_analysis_digest
 		and not _query_analysis.is_empty()
 		and _get_string(_query_analysis, "input_digest") == analysis_digest
@@ -757,12 +795,8 @@ func _query_checkpoint_allows(work_units: int) -> bool:
 ## [br]
 ## @api private
 func _validate_query_analysis() -> Dictionary:
-	var contract: _ANALYSIS_CONTRACT_SCRIPT = _ANALYSIS_CONTRACT_SCRIPT.new()
 	var checkpoint: Callable = Callable(self, "_query_checkpoint_allows")
-	return contract.validate_and_index(
-		_query_analysis,
-		checkpoint
-	)
+	return _layout_session.get_owned_validation_for_framework(checkpoint)
 
 
 ## 取消优先于预算耗尽；命中任一终止条件就清空查询载荷与旧问题，预算失败另写单个错误并返回已终止。
@@ -806,7 +840,7 @@ func _query_report_is_valid(
 	if query_kind == "explain_finding":
 		return (
 			_has_exact_fields(report, _EXPLANATION_RESULT_FIELDS)
-			and report.get("schema_version") == 1
+			and report.get("schema_version") == 2
 			and report.get("kind") == "project_layout_explanation"
 			and report.get("complete") is bool
 			and report.get("finding_id") is String
@@ -823,7 +857,7 @@ func _query_report_is_valid(
 		)
 	return (
 		_has_exact_fields(report, _IMPACT_RESULT_FIELDS)
-		and report.get("schema_version") == 1
+		and report.get("schema_version") == 2
 		and report.get("kind") == "project_layout_impact"
 		and report.get("complete") is bool
 		and report.get("status") is String
@@ -1109,6 +1143,18 @@ func _scope_is_closed(scope: Dictionary, checkpoint: Callable) -> bool:
 		and scope.get("max_scanned_files") is int
 		and scope.get("max_scanned_directories") is int
 		and scope.get("max_scan_depth") is int
+		and scope.get("capture_scope") is Dictionary
+		and scope.get("source_root") is String
+		and scope.get("protected_roots") is Array
+		and _string_array_is_valid(_get_array(scope, "protected_roots"), checkpoint)
+		and scope.get("profile_source_path") is String
+		and scope.get("policy_digest") is String
+		and GFProjectLayoutCaptureScope.binding_is_valid({
+			"capture_scope": scope["capture_scope"], "source_root": scope["source_root"],
+			"root_path": scope["root_path"], "protected_roots": scope["protected_roots"],
+			"profile_source_path": scope["profile_source_path"], "excluded_prefixes": scope["excluded_prefixes"],
+			"policy_digest": scope["policy_digest"],
+		})
 	)
 
 

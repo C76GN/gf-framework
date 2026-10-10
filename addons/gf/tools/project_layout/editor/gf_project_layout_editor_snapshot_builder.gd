@@ -24,11 +24,19 @@ const _ANALYSIS_CONTRACT_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd"
 )
 
+## 生产者仅落实唯一核心已准入的声明和来源 identity。
+## [br]
+## @api private
+const _CAPTURE_SCOPE_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_capture_scope.gd")
+
 ## begin() 接受的捕获选项字段名集合。
 ## [br]
 ## @api private
 ## [br]
 const _OPTION_FIELDS: PackedStringArray = [
+	"source_root",
+	"capture_scope",
+	"profile_source_path",
 	"include_hidden",
 	"max_scanned_files",
 	"max_scanned_directories",
@@ -90,6 +98,16 @@ const _PROJECT_SOURCE_EXCLUDED_PREFIXES: PackedStringArray = [
 ## @api private
 ## [br]
 var _root_path: String = "res://"
+
+## 本次捕获准入的 scope binding，终态核对排除根父链身份。
+## [br]
+## @api private
+var _capture_binding: Dictionary = {}
+
+## 起始根存在/目录状态；后代不在此声明中枚举。
+## [br]
+## @api private
+var _initial_root_states: Dictionary = {}
 
 ## 当前捕获是否枚举隐藏路径。
 ## [br]
@@ -194,11 +212,11 @@ var _resource_limit_failed: bool = false
 ## [br]
 ## @api framework_internal
 ## [br]
-## @param root_path: 规范的 res:// 项目源码根或子根。
+## @param root_path: 与来源映射相等的规范 res:// 根或明确绝对本地根。
 ## [br]
 ## @param options: 捕获预算。
 ## [br]
-## @schema options: Dictionary，可包含 include_hidden、max_scanned_files、max_scanned_directories 和 max_scan_depth。
+## @schema options: Dictionary，可包含 source_root、capture_scope、profile_source_path、include_hidden、max_scanned_files、max_scanned_directories 和 max_scan_depth；声明及来源由共享 authority 准入。
 ## [br]
 ## @return Godot 错误码。
 func begin(root_path: String = "res://", options: Dictionary = {}) -> Error:
@@ -221,10 +239,21 @@ func begin(root_path: String = "res://", options: Dictionary = {}) -> Error:
 		_status = "failed"
 		return ERR_INVALID_PARAMETER
 	if not _is_canonical_root_path(root_path):
-		_add_issue("invalid_root_path", root_path, "库存根路径必须是规范 res:// 根或子根。")
+		_add_issue("invalid_root_path", root_path, "库存根路径必须是规范 res:// 或绝对本地根。")
 		_status = "failed"
 		return ERR_INVALID_PARAMETER
 	_root_path = root_path
+	var prepared: Dictionary = _CAPTURE_SCOPE_SCRIPT.prepare({}, root_path, options)
+	if not prepared["success"]:
+		_add_issue("capture_scope_invalid", "capture_scope", _get_string(prepared, "error"))
+		_status = "failed"
+		return ERR_INVALID_PARAMETER
+	_capture_binding = prepared["binding"]
+	_initial_root_states = _CAPTURE_SCOPE_SCRIPT.capture_root_states(_capture_binding)
+	if not _initial_root_states["success"]:
+		_add_issue("capture_scope_identity_invalid", "capture_scope", _get_string(_initial_root_states, "error"))
+		_status = "failed"
+		return ERR_INVALID_PARAMETER
 	if not DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(_root_path)):
 		_add_issue("root_path_not_found", _root_path, "库存根目录不存在。")
 		_status = "failed"
@@ -235,6 +264,42 @@ func begin(root_path: String = "res://", options: Dictionary = {}) -> Error:
 		return ERR_INVALID_PARAMETER
 	_pending_directories.append({ "relative_path": "", "depth": 0 })
 	_status = "capturing"
+	return OK
+
+
+## 从 authority 生成的 binding 开始捕获，跨边界验证后仅落实有效排除集合。
+## [br]
+## @api framework_internal
+## [br]
+## @param root_path: 请求捕获根。
+## [br]
+## @param binding: 有效 capture_scope binding。
+## [br]
+## @schema binding: Dictionary，精确包含 capture_scope、source_root、root_path、protected_roots、profile_source_path、excluded_prefixes 和 policy_digest。
+## [br]
+## @param options: include_hidden 及三项有限捕获预算。
+## [br]
+## @schema options: Dictionary，沿用 begin 的字段闭集，可包含 include_hidden: bool、max_scanned_files: int、max_scanned_directories: int、max_scan_depth: int、source_root: String、capture_scope: Dictionary 和 profile_source_path: String；三项预算必须为框架上限内的正整数，三个来源字段统一由 binding 覆盖，不能改变已准入的捕获范围。
+## [br]
+## @return 错误码；拒绝时不会枚举目录。
+func begin_prepared(root_path: String, binding: Dictionary, options: Dictionary = {}) -> Error:
+	if not _CAPTURE_SCOPE_SCRIPT.binding_is_valid(binding) or binding.get("root_path") != root_path:
+		return ERR_INVALID_PARAMETER
+	var capture_options: Dictionary = options.duplicate(true)
+	capture_options["source_root"] = binding["source_root"]
+	capture_options["capture_scope"] = binding["capture_scope"]
+	capture_options["profile_source_path"] = binding["profile_source_path"]
+	var begin_error: Error = begin(root_path, capture_options)
+	if begin_error != OK:
+		return begin_error
+	_capture_binding = binding.duplicate(true)
+	var initial_root_states: Dictionary = _CAPTURE_SCOPE_SCRIPT.capture_root_states(_capture_binding)
+	if not initial_root_states["success"]:
+		_add_issue("capture_scope_identity_invalid", "capture_scope", _get_string(initial_root_states, "error"))
+		_pending_directories.clear()
+		_finish("failed")
+		return ERR_INVALID_PARAMETER
+	_initial_root_states = initial_root_states
 	return OK
 
 
@@ -387,7 +452,7 @@ func get_progress() -> Dictionary:
 ## [br]
 ## @return: complete/partial 捕获的 project_layout_snapshot；idle、capturing、cancelled 或 failed 时返回空 Dictionary。
 ## [br]
-## @schema return: 非空结果精确包含 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和 issues；capture_status 只可能是 complete 或 partial，scope 精确包含 kind、root_path、include_hidden、excluded_prefixes、max_scanned_files、max_scanned_directories 和 max_scan_depth。
+## @schema return: 非空结果精确包含 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和 issues；capture_status 只可能是 complete 或 partial，scope 精确包含 kind、root_path、include_hidden、excluded_prefixes、max_scanned_files、max_scanned_directories、max_scan_depth、capture_scope、source_root、protected_roots、profile_source_path、policy_digest。
 func make_snapshot() -> Dictionary:
 	if not ["complete", "partial"].has(_status):
 		return {}
@@ -398,19 +463,13 @@ func make_snapshot() -> Dictionary:
 	sorted_files.sort()
 	var sorted_directories: PackedStringArray = _directories.duplicate()
 	sorted_directories.sort()
+	var scope: Dictionary = _capture_binding.duplicate(true)
+	scope.merge({"kind": "project_source", "include_hidden": _include_hidden, "max_scanned_files": _max_scanned_files, "max_scanned_directories": _max_scanned_directories, "max_scan_depth": _max_scan_depth}, true)
 	return {
-		"schema_version": 1,
+		"schema_version": 2,
 		"kind": "project_layout_snapshot",
 		"root_path": _root_path,
-		"scope": {
-			"kind": "project_source",
-			"root_path": _root_path,
-			"include_hidden": _include_hidden,
-			"excluded_prefixes": Array(_PROJECT_SOURCE_EXCLUDED_PREFIXES),
-			"max_scanned_files": _max_scanned_files,
-			"max_scanned_directories": _max_scanned_directories,
-			"max_scan_depth": _max_scan_depth,
-		},
+		"scope": scope,
 		"complete": _status == "complete",
 		"capture_status": _status,
 		"files": Array(sorted_files),
@@ -479,10 +538,15 @@ func _close_current_directory() -> void:
 	_current_depth = 0
 
 
-## 关闭当前目录并写入终态；已收集清单、问题和待处理队列由调用方决定保留或重置。
+## 关闭当前目录并写入终态；complete 必须具有成功且相同的前后身份资格，失败结果相等仍不可发布完整库存。
 ## [br]
 ## @api private
 func _finish(status: String) -> void:
+	if status == "complete":
+		var final_root_states: Dictionary = _CAPTURE_SCOPE_SCRIPT.capture_root_states(_capture_binding)
+		if not _initial_root_states.get("success", false) or not final_root_states["success"] or final_root_states != _initial_root_states:
+			_add_issue("capture_scope_identity_changed", "capture_scope", "排除根或父链在捕获期间发生变化。")
+			status = "partial"
 	_close_current_directory()
 	_status = status
 
@@ -491,6 +555,8 @@ func _finish(status: String) -> void:
 ## [br]
 ## @api private
 func _reset_state() -> void:
+	_capture_binding = {}
+	_initial_root_states = {}
 	_close_current_directory()
 	_root_path = "res://"
 	_include_hidden = true
@@ -779,22 +845,7 @@ func _add_issue(kind: String, path: String, message: String) -> void:
 ## [br]
 ## @api private
 func _is_canonical_root_path(path: String) -> bool:
-	if (
-		path.is_empty()
-		or path != path.strip_edges()
-		or path.contains("\\")
-		or not path.begins_with("res://")
-	):
-		return false
-	var relative_path: String = path.substr("res://".length())
-	if relative_path.is_empty():
-		return true
-	if relative_path.ends_with("/") or relative_path.contains(":"):
-		return false
-	for part: String in relative_path.split("/", true):
-		if part.is_empty() or part == "." or part == "..":
-			return false
-	return true
+	return _CAPTURE_SCOPE_SCRIPT.root_is_canonical(path)
 
 
 ## 从绝对路径逐级检查父目录中的链接项；无法打开父目录也按越界处理，检查结果不构成后续访问的原子保证。
@@ -828,13 +879,24 @@ func _join_relative_path(base_path: String, entry_name: String) -> String:
 ## [br]
 ## @api private
 func _is_excluded_project_source_path(relative_path: String) -> bool:
-	for excluded_prefix: String in _PROJECT_SOURCE_EXCLUDED_PREFIXES:
+	for excluded_prefix: String in _get_array_prefixes():
 		if (
 			relative_path == excluded_prefix
 			or relative_path.begins_with("%s/" % excluded_prefix)
 		):
 			return true
 	return false
+
+
+## 返回本次有效排除集合，捕获前由 authority 一次准入。
+## [br]
+## @api private
+func _get_array_prefixes() -> PackedStringArray:
+	var value: Variant = _capture_binding.get("excluded_prefixes", [])
+	if value is Array:
+		var prefixes: Array = value
+		return PackedStringArray(prefixes)
+	return PackedStringArray()
 
 
 ## 读取字典中的 String 字段；类型不匹配时返回默认值。

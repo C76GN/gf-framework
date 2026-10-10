@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectLayoutAnalyzer" path="addons/gf/tools/project_layout/gf_project_layout_analyzer.gd" module="tools" extends="RefCounted" classDigest="77e528d00f806c73edd25828b002a868870beb918b589359115786bec2891af9">
+<class name="GFProjectLayoutAnalyzer" path="addons/gf/tools/project_layout/gf_project_layout_analyzer.gd" module="tools" extends="RefCounted" classDigest="c067046eafb84d80b5a0671245cf43f97107929011303e0314712e040d62f114">
 	<description>GFProjectLayoutAnalyzer: 只读的项目结构分析器。
 捕获项目目录库存，并按可选 profile 分析目录分区、Feature 模块契约、命名、生成物边界和大桶目录增长。
 所有公开操作都只读取项目；该类型不会创建、移动、删除或改写任何项目文件。
@@ -13,7 +13,7 @@
 	<enums />
 	<constants>
 		<member kind="const" name="EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH">
-			<signature>const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"</signature>
+			<signature>const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json"</signature>
 			<description>Feature 内聚式示例 profile 路径。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -31,7 +31,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">options: 分析选项。</tag>
 				<tag name="return">只读分析报告。</tag>
-				<tag name="schema">options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；root_path 只能是规范 res:// 根或子根。</tag>
+				<tag name="schema">options: Dictionary，可包含 root_path、source_root、capture_scope、profile_source_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth、allow_missing_root；根只能是规范 res:// 或明确绝对本地来源，逻辑容器映射必须匹配。</tag>
 				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects；graph 精确包含 schema_version、kind、complete、capture_status、scope、dependency_coverage、nodes、edges 和 evidence；effects 精确包含 writes_project=false。</tag>
 				<tag name="since">11.0.0</tag>
 			</tags>
@@ -43,7 +43,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">options: 校验选项。</tag>
 				<tag name="return">校验报告。</tag>
-				<tag name="schema">options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；root_path 只能是规范 res:// 根或子根。</tag>
+				<tag name="schema">options: Dictionary，可包含 root_path、source_root、capture_scope、profile_source_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth、allow_missing_root；根只能是规范 res:// 或明确绝对本地来源，逻辑容器映射必须匹配。</tag>
 				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects；capabilities 在编译前或 contract/registry 失败时为 {}，否则精确包含 executor_id、operation、rule_kinds、rule_fields 和 zone_fields；effects 精确包含 writes_project=false。</tag>
 				<tag name="since">11.0.0</tag>
 			</tags>
@@ -56,7 +56,7 @@
 				<tag name="param">profile_path: JSON profile 路径。</tag>
 				<tag name="param">options: 校验选项。</tag>
 				<tag name="return">校验报告。</tag>
-				<tag name="schema">options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；root_path 只能是规范 res:// 根或子根。</tag>
+				<tag name="schema">options: Dictionary，可包含 root_path、source_root、capture_scope、profile_source_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth、allow_missing_root；根只能是规范 res:// 或明确绝对本地来源，逻辑容器映射必须匹配。</tag>
 				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects；capabilities 在编译前或 contract/registry 失败时为 {}，否则精确包含 executor_id、operation、rule_kinds、rule_fields 和 zone_fields；effects 精确包含 writes_project=false。</tag>
 				<tag name="since">11.0.0</tag>
 			</tags>
@@ -70,7 +70,7 @@
 				<tag name="param">options: 校验选项。</tag>
 				<tag name="return">校验报告。</tag>
 				<tag name="schema">profile: Dictionary，包含 schema_version、id、zones 和 rules。</tag>
-				<tag name="schema">options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；root_path 只能是规范 res:// 根或子根。</tag>
+				<tag name="schema">options: Dictionary，可包含 root_path、source_root、capture_scope、profile_source_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth、allow_missing_root；根只能是规范 res:// 或明确绝对本地来源，逻辑容器映射必须匹配。</tag>
 				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects；capabilities 在编译前或 contract/registry 失败时为 {}，否则精确包含 executor_id、operation、rule_kinds、rule_fields 和 zone_fields；effects 精确包含 writes_project=false。</tag>
 				<tag name="since">11.0.0</tag>
 			</tags>
@@ -84,7 +84,7 @@ schema_version、kind、root_path、scope、complete、capture_status、files �
 				<tag name="api">public</tag>
 				<tag name="param">snapshot: data-only 项目库存。</tag>
 				<tag name="return">observation-only 只读分析报告。</tag>
-				<tag name="schema">snapshot: Dictionary，字段闭集为 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和可选 issues；root_path 必须是规范 res:// 根或子根，scope 精确包含 kind、root_path、include_hidden、excluded_prefixes 与三项捕获预算，files/directories 必须形成完整父目录闭包。</tag>
+				<tag name="schema">snapshot: Dictionary，字段闭集为 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和可选 issues；root_path 必须是规范 res:// 或绝对本地根，scope 精确包含 kind、root_path、include_hidden、excluded_prefixes、max_scanned_files、max_scanned_directories、max_scan_depth、capture_scope、source_root、protected_roots、profile_source_path、policy_digest，files/directories 必须形成完整父目录闭包。</tag>
 				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。</tag>
 				<tag name="since">11.0.0</tag>
 			</tags>

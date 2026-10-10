@@ -149,7 +149,7 @@ func explain_validated_analysis(
 ## [br]
 func _make_result(finding_id: String) -> Dictionary:
 	return {
-		"schema_version": 1,
+		"schema_version": 2,
 		"kind": "project_layout_explanation",
 		"complete": false,
 		"finding_id": finding_id,
