@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFProjectLayoutSession" path="addons/gf/tools/project_layout/gf_project_layout_session.gd" module="tools" extends="RefCounted" classDigest="445f49b5169641af1ab406c55f3c539132fb9d92ba1f6ae16d683865bfab5df5">
+	<description>GFProjectLayoutSession: 拥有一次编译与一次冻结分析的只读 Layout 会话。
+会话不执行目标项目代码；结果通过深复制导出，查询复用内部 compilation 与验证索引。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">tool_api</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="open_profile_text">
+			<signature>func open_profile_text(text: String, source_path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>严格准入真实来源文件的原始 JSON，编译一次后捕获只读库存。
+source_path 必须位于 options.source_root 中且 bytes 与 text 完全一致。
+失败不捕获来源；此入口不加载场景、资源脚本或目标项目配置。
+省略 root_path 时由成功 compilation 的规范声明映射 source_root；无 Profile 声明则严格准入 options.capture_scope，无范围声明则使用 source_root，缺省为 res://。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">text: 有界严格 UTF-8 Profile JSON 原文。</tag>
+				<tag name="param">source_path: 根内真实 Profile 文件路径。</tag>
+				<tag name="param">options: 有限捕获配置。</tag>
+				<tag name="return">闭合 v2 analysis report。</tag>
+				<tag name="schema">options: Dictionary，可包含 root_path、source_root、capture_scope、profile_source_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；profile_source_path 若给出必须等于 source_path。</tag>
+				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="open_profile">
+			<signature>func open_profile(profile: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>编译已拥有的纯数据 Profile 并捕获一次库存；不授予任何文件来源身份。
+root_path 缺省推导与 open_profile_text 相同，显式 root_path 仍必须匹配范围声明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile: 闭合 schema v2 Profile。</tag>
+				<tag name="param">options: 与 open_profile_text 相同的有限捕获选项。</tag>
+				<tag name="return">与 open_profile_text 相同的闭合 v2 analysis report。</tag>
+				<tag name="schema">profile: Dictionary，必需 schema_version、id、zones、rules；可选 display_name、description、metadata、capture_scope。</tag>
+				<tag name="schema">options: Dictionary，可包含 root_path、source_root、capture_scope、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；不允许 profile_source_path。</tag>
+				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="observe">
+			<signature>func observe(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>无 Profile 时只观察明确捕获范围，不执行项目结构规则。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 有限来源捕获选项。</tag>
+				<tag name="return">闭合 v2 analysis report，rule_results 为空。</tag>
+				<tag name="schema">options: Dictionary，与 open_profile 的捕获字段相同。</tag>
+				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_analysis">
+			<signature>func get_analysis() -&gt; Dictionary:</signature>
+			<description>返回当前冻结报告的深复制；外部修改不会改变会话查询。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">最近报告，未打开或 close 后为空字典。</tag>
+				<tag name="schema">return: Dictionary，空字典或 open_profile_text 的完整 report。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="plan">
+			<signature>func plan(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>用当前已编译策略及已验证冻结库存生成只读目录候选计划。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 有限规划选项。</tag>
+				<tag name="return">闭合 v2 plan；会话未准备好时 complete=false。</tag>
+				<tag name="schema">options: Dictionary，可包含 feature_ids、include_optional_zones、include_optional_feature_subdirs。</tag>
+				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、complete、profile_id、source_analysis_digest、contract_digest、project_root、capabilities、steps、blockers、issues。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="explain">
+			<signature>func explain(finding_id: String) -&gt; Dictionary:</signature>
+			<description>从当前冻结 finding 与证据解释，不重新扫描或编译。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">finding_id: 当前报告中的 finding ID。</tag>
+				<tag name="return">闭合只读解释。</tag>
+				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、complete、finding_id、headline、observation、implication、next_steps、certainty、evidence、issues、effects。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="impact">
+			<signature>func impact(change: Dictionary) -&gt; Dictionary:</signature>
+			<description>对显式路径变更计算冻结库存影响；不执行变更。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">change: 有限变更声明。</tag>
+				<tag name="return">闭合只读影响报告。</tag>
+				<tag name="schema">change: Dictionary，精确包含 kind、source_path、target_path；kind 为 delete、move 或 rename。</tag>
+				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、complete、status、source_analysis_digest、change、affected_node_ids、blockers、evidence_ids、issues、effects。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="close">
+			<signature>func close() -&gt; void:</signature>
+			<description>释放本次 compilation、冻结报告与查询索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

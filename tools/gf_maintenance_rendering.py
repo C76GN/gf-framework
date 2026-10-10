@@ -503,7 +503,7 @@ def render_project_profile_boundary_text(data: dict[str, Any]) -> str:
 	lines = [
 		(
 			f"project_profile_boundary: ok={data['ok']} "
-			f"mode={data.get('profile_mode', 'strict')} "
+f"executor={data.get('executor', 'godot_gdscript')} "
 			f"profile_found={data.get('profile_found', False)} "
 			f"profile={data.get('profile_path', '')} "
 			f"files={data.get('file_count', 0)} "
@@ -513,21 +513,6 @@ def render_project_profile_boundary_text(data: dict[str, Any]) -> str:
 			f"info={data.get('info_count', 0)}"
 		),
 	]
-	if data.get("deprecated"):
-		lines.append(
-			"deprecated: "
-			f"mode={data.get('profile_mode', '')} "
-			f"removal_version={data.get('removal_version', '')}"
-		)
-	shadow = data.get("shadow")
-	if isinstance(shadow, dict):
-		lines.append(
-			"shadow: "
-			f"ok={shadow.get('ok', False)} "
-			f"authoritative={shadow.get('authoritative', False)} "
-			f"complete={shadow.get('evaluation_complete', False)} "
-			f"skip_reason={shadow.get('skip_reason', '')}"
-		)
 	kind_summary = format_counter_summary(data.get("issue_kind_counts", []))
 	if kind_summary:
 		lines.append(f"kinds: {kind_summary}")

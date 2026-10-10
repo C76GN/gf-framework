@@ -76,6 +76,7 @@ import gf_path_security
 import gf_process_authority
 import gf_repository_policy
 import gf_project_layout_profile
+import gf_project_layout_native
 import gf_reference_manifest_reader
 import extract_release_notes as gf_release_notes
 import gf_process_supervisor
@@ -535,18 +536,6 @@ ASSET_HANDLE_METHOD_ARGUMENTS = {
 	},
 }
 PROJECT_PROFILE_DEFAULT_FILES = gf_project_layout_profile.PROJECT_PROFILE_DEFAULT_FILES
-PROJECT_PROFILE_ALLOWED_FIELDS = gf_project_layout_profile.PROJECT_PROFILE_ALLOWED_FIELDS
-PROJECT_PROFILE_ZONE_ALLOWED_FIELDS = (
-	gf_project_layout_profile.PROJECT_PROFILE_ZONE_ALLOWED_FIELDS
-)
-PROJECT_PROFILE_RULE_ALLOWED_FIELDS = (
-	gf_project_layout_profile.PROJECT_PROFILE_RULE_ALLOWED_FIELDS
-)
-PROJECT_PROFILE_RULE_KINDS = gf_project_layout_profile.PROJECT_PROFILE_RULE_KINDS
-PROJECT_PROFILE_SEVERITIES = gf_project_layout_profile.PROJECT_PROFILE_SEVERITIES
-PROJECT_PROFILE_SCAN_EXCLUDED_PREFIXES = (
-	gf_project_layout_profile.PROJECT_PROFILE_SCAN_EXCLUDED_PREFIXES
-)
 PACKAGE_MANIFEST_ROOT = ROOT / "packages"
 PACKAGE_FOCUSED_GUT_MAPPING_RELATIVE_PATH = "tests/gf_core/package_focused_gut_mapping.json"
 PACKAGE_FOCUSED_GUT_MAPPING_PATH = ROOT / PACKAGE_FOCUSED_GUT_MAPPING_RELATIVE_PATH
@@ -1799,6 +1788,12 @@ def main() -> int:
 	)
 	asset_lifecycle_boundary_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
+	project_profile_native_acceptance_parser = subparsers.add_parser("project-profile-native-acceptance", help="Prove the shared native authority against an isolated, read-only target fixture.")
+	project_profile_native_acceptance_parser.add_argument("--json", action="store_true")
+
+	project_profile_artifacts_parser = subparsers.add_parser("project-profile-artifacts", help="Check native Layout artifacts without launching Godot.")
+	project_profile_artifacts_parser.add_argument("--json", action="store_true")
+
 	project_profile_boundary_parser = subparsers.add_parser(
 		"project-profile-boundary",
 		help="Check an optional project structure profile without hardcoding a GF project layout.",
@@ -1813,15 +1808,7 @@ def main() -> int:
 		action="store_true",
 		help="Return a failing exit code when warning-level profile issues are found.",
 	)
-	project_profile_boundary_parser.add_argument(
-		"--profile-mode",
-		choices=gf_project_layout_profile.PROFILE_MODES,
-		default="strict",
-		help=(
-			"Profile contract mode. strict is authoritative and is the default; "
-			"legacy and shadow are deprecated migration modes removed in 12.0.0."
-		),
-	)
+	project_profile_boundary_parser.add_argument("--root", default="", help="Read-only project directory; never executed as a Godot project.")
 	project_profile_boundary_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	package_boundary_parser = subparsers.add_parser(
@@ -2231,11 +2218,19 @@ def main() -> int:
 		data = asset_lifecycle_boundary(fail_on_warnings=args.fail_on_warnings)
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_asset_lifecycle_boundary_text)
 		return 0 if data["ok"] else 1
+	if args.command == "project-profile-native-acceptance":
+		data = project_profile_native_acceptance()
+		maintenance_rendering.print_output(data, args.json, lambda value: json.dumps(value, ensure_ascii=False))
+		return 0 if data["ok"] else 1
+	if args.command == "project-profile-artifacts":
+		data = gf_project_layout_profile.project_profile_artifacts()
+		maintenance_rendering.print_output(data, args.json, lambda value: json.dumps(value, ensure_ascii=False))
+		return 0 if data["ok"] else 1
 	if args.command == "project-profile-boundary":
 		data = project_profile_boundary(
 			profile_path=args.profile,
 			fail_on_warnings=args.fail_on_warnings,
-			profile_mode=args.profile_mode,
+			root=Path(args.root) if args.root else ROOT,
 		)
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_project_profile_boundary_text)
 		return 0 if data["ok"] else 1
@@ -4370,40 +4365,84 @@ def asset_lifecycle_boundary(fail_on_warnings: bool = False) -> dict[str, Any]:
 def project_profile_boundary(
 	profile_path: str = "",
 	fail_on_warnings: bool = False,
-	profile_mode: str = "strict",
+	*,
+	root: Path = ROOT,
 ) -> dict[str, Any]:
 	return gf_project_layout_profile.project_profile_boundary(
-		profile_path=profile_path,
-		fail_on_warnings=fail_on_warnings,
-		profile_mode=profile_mode,
-		git_process=active_or_freeze_maintenance_process_authority().git,
+		profile_path=profile_path, fail_on_warnings=fail_on_warnings,
+		root=root, native_executor=run_project_layout_native,
 	)
 
 
-def make_project_profile_boundary_payload(
-	profile_payload: dict[str, Any],
-	repo_paths: list[str],
-	issues: list[dict[str, Any]],
-	fail_on_warnings: bool,
-) -> dict[str, Any]:
-	error_count = sum(1 for issue in issues if issue.get("severity") == "error")
-	warning_count = sum(1 for issue in issues if issue.get("severity") == "warning")
-	info_count = sum(1 for issue in issues if issue.get("severity") == "info")
-	return {
-		"ok": error_count == 0 and (not fail_on_warnings or warning_count == 0),
-		"root": str(ROOT),
-		"profile_found": profile_payload["found"],
-		"profile_path": profile_payload["path"],
-		"profile_id": profile_payload["id"],
-		"file_count": len(repo_paths),
-		"issue_count": len(issues),
-		"error_count": error_count,
-		"warning_count": warning_count,
-		"info_count": info_count,
-		"issue_kind_counts": count_issue_field(issues, "kind"),
-		"severity_counts": count_issue_field(issues, "severity"),
-		"issues": issues,
-	}
+@with_maintenance_process_authority
+def project_profile_native_acceptance() -> dict[str, Any]:
+	"""Exercise native scope capture without executing any target project code."""
+	cleanup_errors: list[str] = []
+	cleanup = {"permitted": False}
+	with managed_validation_directory(
+		prefix="gflt-", cleanup_errors=cleanup_errors, windows_max_characters=40,
+		cleanup_permitted=lambda: cleanup["permitted"],
+	) as target:
+		(target / "scripts").mkdir()
+		(target / "generated").mkdir()
+		(target / "scripts/main.gd").write_text("extends RefCounted\n", encoding="utf-8", newline="\n")
+		marker = target / "target_was_executed.txt"
+		(target / "sentinel.gd").write_text(
+			"extends Node\nfunc _ready() -> void:\n\tvar f = FileAccess.open("
+			+ json.dumps(str(marker)) + ", FileAccess.WRITE)\n\tf.store_string(\"executed\")\n",
+			encoding="utf-8", newline="\n",
+		)
+		(target / "project.godot").write_text(
+			'config_version=5\n[application]\nconfig/name="Untrusted Layout Target"\n'
+			'[autoload]\nSentinel="*res://sentinel.gd"\n', encoding="utf-8", newline="\n",
+		)
+		for index in range(20_050):
+			(target / f"generated/{index}.txt").write_bytes(b"")
+		profile = {"schema_version": 2, "id": "native.acceptance", "zones": [],
+			"rules": [{"id": "required_main", "kind": "path_exists", "paths": ["scripts/main.gd"]}],
+			"capture_scope": {"schema_version": 1, "root_path": "res://",
+				"required_roots": ["scripts"],
+				"excluded_roots": [{"path": "generated", "kind": "generated_evidence"}]}}
+		(target / "gf_project_profile.json").write_text(json.dumps(profile), encoding="utf-8", newline="\n")
+		protected_paths = ("scripts/main.gd", "sentinel.gd", "project.godot", "gf_project_profile.json")
+		before = {path: hashlib.sha256(gf_path_security.read_pinned_regular_file(
+			target, path, max_bytes=1024 * 1024)).hexdigest() for path in protected_paths}
+		report = project_profile_boundary(root=target)
+		after = {path: hashlib.sha256(gf_path_security.read_pinned_regular_file(
+			target, path, max_bytes=1024 * 1024)).hexdigest() for path in protected_paths}
+		unchanged = before == after and not os.path.lexists(marker)
+		bounded = report.get("evaluation_complete") is True and report.get("file_count", 0) < 20_000
+		cleanup["permitted"] = report.get("process_boundary_quiet") is True
+		result = {"ok": report["ok"] and unchanged and bounded,
+			"analysis": report, "target_unchanged": unchanged,
+			"generated_file_count": 20_050}
+	result["cleanup_errors"] = cleanup_errors
+	result["ok"] = result["ok"] and not cleanup_errors
+	return result
+
+
+def run_project_layout_native(request: dict[str, Any]) -> dict[str, Any]:
+	cleanup_errors: list[str] = []
+
+	@contextlib.contextmanager
+	def owned_directory(cleanup: dict[str, bool]) -> Any:
+		with managed_validation_directory(
+			prefix="gfl-", cleanup_errors=cleanup_errors,
+			windows_max_characters=40,
+			cleanup_permitted=lambda: cleanup["permitted"],
+		) as path:
+			yield path
+		if cleanup_errors:
+			raise WorkspaceSnapshotError("\n".join(cleanup_errors))
+
+	return gf_project_layout_native.run_native_analysis(
+		request, trusted_root=ROOT,
+		environment=capture_maintenance_process_environment(),
+		temporary_directory=owned_directory,
+		private_environment=lambda workspace, isolation, environment: parallel_shard_environment(
+			workspace, isolation, base_environment=environment,
+		)[0],
+	)
 
 
 def package_boundary() -> dict[str, Any]:
@@ -14122,46 +14161,6 @@ def iter_gdscript_code_characters(line: str) -> list[str]:
 	return characters
 
 
-load_project_profile = gf_project_layout_profile.load_project_profile
-resolve_project_profile_path = gf_project_layout_profile.resolve_project_profile_path
-normalize_project_profile_path = gf_project_layout_profile.normalize_project_profile_path
-collect_project_profile_paths = gf_project_layout_profile.collect_project_profile_paths
-should_scan_project_profile_path = gf_project_layout_profile.should_scan_project_profile_path
-audit_project_profile_data = gf_project_layout_profile.audit_project_profile_data
-audit_project_profile_schema = gf_project_layout_profile.audit_project_profile_schema
-validate_project_profile_severity = gf_project_layout_profile.validate_project_profile_severity
-audit_project_profile_zone = gf_project_layout_profile.audit_project_profile_zone
-audit_project_profile_rule = gf_project_layout_profile.audit_project_profile_rule
-audit_project_profile_path_exists_rule = gf_project_layout_profile.audit_project_profile_path_exists_rule
-audit_project_profile_files_under_roots_rule = gf_project_layout_profile.audit_project_profile_files_under_roots_rule
-audit_project_profile_extension_rule = gf_project_layout_profile.audit_project_profile_extension_rule
-audit_project_profile_naming_convention_rule = gf_project_layout_profile.audit_project_profile_naming_convention_rule
-audit_project_profile_forbid_root_files_rule = gf_project_layout_profile.audit_project_profile_forbid_root_files_rule
-audit_project_profile_feature_module_contract_rule = gf_project_layout_profile.audit_project_profile_feature_module_contract_rule
-audit_project_profile_generated_boundary_rule = gf_project_layout_profile.audit_project_profile_generated_boundary_rule
-audit_project_profile_bucket_size_rule = gf_project_layout_profile.audit_project_profile_bucket_size_rule
-compile_project_profile_regex = gf_project_layout_profile.compile_project_profile_regex
-project_profile_select_paths = gf_project_layout_profile.project_profile_select_paths
-project_profile_path_target = gf_project_layout_profile.project_profile_path_target
-project_profile_file_selected = gf_project_layout_profile.project_profile_file_selected
-project_profile_path_matches_any = gf_project_layout_profile.project_profile_path_matches_any
-repo_paths_under_roots = gf_project_layout_profile.repo_paths_under_roots
-project_profile_path_under_any_root = gf_project_layout_profile.project_profile_path_under_any_root
-project_profile_path_under_root = gf_project_layout_profile.project_profile_path_under_root
-project_profile_root_exists = gf_project_layout_profile.project_profile_root_exists
-project_profile_path_exists = gf_project_layout_profile.project_profile_path_exists
-project_profile_raw_list = gf_project_layout_profile.project_profile_raw_list
-project_profile_dict_list = gf_project_layout_profile.project_profile_dict_list
-project_profile_string = gf_project_layout_profile.project_profile_string
-project_profile_bool = gf_project_layout_profile.project_profile_bool
-project_profile_int = gf_project_layout_profile.project_profile_int
-project_profile_string_array = gf_project_layout_profile.project_profile_string_array
-normalize_project_profile_paths = gf_project_layout_profile.normalize_project_profile_paths
-normalize_project_profile_patterns = gf_project_layout_profile.normalize_project_profile_patterns
-normalize_project_profile_relative_path = gf_project_layout_profile.normalize_project_profile_relative_path
-normalize_project_profile_extensions = gf_project_layout_profile.normalize_project_profile_extensions
-project_profile_severity = gf_project_layout_profile.project_profile_severity
-make_project_profile_issue = gf_project_layout_profile.make_project_profile_issue
 
 
 def audit_resource_boundary_text(source: str, path: str) -> list[dict[str, Any]]:
@@ -14970,7 +14969,7 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 			"python tools/gf_maintenance.py resource-boundary --json",
 			"python tools/gf_maintenance.py content-package-boundary --json",
 			"python tools/gf_maintenance.py asset-lifecycle-boundary --json",
-			"python tools/gf_maintenance.py project-profile-boundary --json",
+			"python tools/gf_maintenance.py project-profile-native-acceptance --json",
 			"python tools/gf_maintenance.py check --suite framework-static --json",
 		])
 	if categories["examples"]:
@@ -14996,7 +14995,7 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 				"python -m py_compile tools/gf_maintenance.py tools/gf_maintenance_self_test.py "
 				"tools/gf_mcp_server.py "
 				"tools/gf_validation_catalog.py "
-				"tools/gf_project_layout_profile.py "
+				"tools/gf_project_layout_profile.py tools/gf_project_layout_native.py "
 				"tools/gf_executable_resolution.py tools/gf_godot_process.py "
 				"tools/gf_process_authority.py "
 				"tools/gf_package_paths.py "
@@ -15025,7 +15024,7 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 			recommendations.append("python tools/build_gf_ai_developer_kit.py --check-source --json")
 		recommendations.append("python tools/gf_maintenance.py dependency-boundary --json")
 		recommendations.append("python tools/gf_maintenance.py content-package-boundary --json")
-		recommendations.append("python tools/gf_maintenance.py project-profile-boundary --json")
+		recommendations.append("python tools/gf_maintenance.py project-profile-native-acceptance --json")
 		recommendations.append("python tools/gf_maintenance.py check --suite framework-static --json")
 		recommendations.append("python tools/gf_maintenance.py public-docs-boundary --json")
 	if categories["other"]:
@@ -15234,7 +15233,7 @@ def maintenance_in_process_adapter_registry(
 		"resource_boundary": lambda: resource_boundary(fail_on_issues=True),
 		"content_package_boundary": content_package_boundary,
 		"asset_lifecycle_boundary": asset_lifecycle_boundary,
-		"project_profile_boundary": project_profile_boundary,
+		"project_profile_artifacts": gf_project_layout_profile.project_profile_artifacts,
 		"package_boundary": package_boundary,
 		"package_closure_audit": package_closure_audit,
 		"package_source_boundary": package_source_boundary,

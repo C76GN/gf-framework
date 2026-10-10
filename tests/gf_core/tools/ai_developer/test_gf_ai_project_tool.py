@@ -38,7 +38,7 @@ ISSUE_122_ANALYSIS_FIXTURE_PATH = ISSUE_122_FIXTURE_ROOT / "documentation_refere
 sys.path.insert(0, str(ADDON_ROOT))
 sys.path.insert(0, str(TOOLS_ROOT))
 
-from gf_ai import adapters, api_policy, catalog, cli, context_bundle, dependencies, documentation, feedback, mcp, migration, paths, snapshot  # noqa: E402
+from gf_ai import adapters, api_policy, catalog, cli, context_bundle, contract as contract_module, dependencies, documentation, feedback, mcp, migration, paths, schema, snapshot  # noqa: E402
 from gf_ai.constants import (  # noqa: E402
 	ARTIFACT_POLICY_PATH,
 	CONTRACT_SCHEMA_VERSION,
@@ -151,6 +151,230 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertEqual(DEFAULT_CONTRACT_PATH, ".gf/project_contract.json")
 		self.assertTrue((self.project_root / DEFAULT_CONTRACT_PATH).is_file())
 		self.assertFalse((self.project_root / "gf_project_contract.json").exists())
+
+	def test_prerequisite_invalid_contract_keeps_evidence_without_policy_cascades(self) -> None:
+		contract_path = self.project_root / DEFAULT_CONTRACT_PATH
+		original = json.loads(contract_path.read_text(encoding="utf-8"))
+		(self.project_root / "observed.gd").write_text(
+			"extends Node\nvar known := GFArchitecture.new()\nvar outside := GFProjectLayoutAnalyzer.new()\n",
+			encoding="utf-8",
+		)
+		for case in ("long_rule", "unknown_field", "unknown_package", "duplicate_check"):
+			with self.subTest(case=case):
+				candidate = copy.deepcopy(original)
+				if case == "long_rule":
+					candidate["architecture"]["global_rules"] = ["x" * 401]
+				elif case == "unknown_field":
+					candidate["unexpected"] = True
+				elif case == "unknown_package":
+					candidate["framework"]["required_packages"] = ["gf.unknown"]
+				else:
+					candidate["verification"]["checks"] *= 2
+				contract_path.write_text(json.dumps(candidate), encoding="utf-8")
+				report = snapshot.project_context(self.project_root)
+				analysis = report["snapshot"]["project"]["api_package_policy_analysis"]
+				self.assertFalse(report["ok"])
+				self.assertEqual(analysis["status"], "contract_invalid")
+				self.assertEqual(analysis["actionable_count"], 0)
+				self.assertEqual(analysis["actionable_observations"], [])
+				self.assertEqual(analysis["observation_count"], 2)
+				self.assertEqual({item["policy"] for item in analysis["observations"]}, {"unclassified"})
+				self.assertEqual({item["source_domain"] for item in analysis["observations"]}, {"unknown"})
+				codes = {item["code"] for item in report["snapshot"]["drift"]["issues"]}
+				self.assertNotIn("undeclared_gf_api_package_reference", codes)
+				self.assertNotIn("api_package_policy_analysis_incomplete", codes)
+				self.assertNotIn("documentation_reference_analysis_incomplete", codes)
+				self.assertEqual(validate_schema_file(report["snapshot"], SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+
+	def test_prerequisite_context_consumes_one_captured_contract_generation(self) -> None:
+		captured = load_contract(self.project_root)
+		contract_path = self.project_root / DEFAULT_CONTRACT_PATH
+		def capture_then_change(*_args: object) -> dict[str, Any]:
+			contract_path.write_text('{"changed": true}', encoding="utf-8")
+			return captured
+		with mock.patch.object(snapshot, "load_contract", side_effect=capture_then_change) as loader:
+			report = snapshot.project_context(self.project_root)
+		self.assertEqual(loader.call_count, 1)
+		self.assertTrue(report["contract"]["ok"])
+		self.assertTrue(report["snapshot"]["contract"]["valid"])
+		self.assertEqual(report["contract"]["sha256"], report["snapshot"]["contract"]["sha256"])
+
+	def test_prerequisite_unreadable_or_missing_contract_does_not_invent_policy(self) -> None:
+		contract_path = self.project_root / DEFAULT_CONTRACT_PATH
+		(self.project_root / "observed.gd").write_text(
+			"extends Node\nvar value := GFProjectLayoutAnalyzer.new()\n", encoding="utf-8",
+		)
+		for raw in (b"{", b"\xff", None):
+			with self.subTest(raw=raw):
+				if raw is None:
+					contract_path.unlink()
+				else:
+					contract_path.write_bytes(raw)
+				report = snapshot.project_context(self.project_root)
+				analysis = report["snapshot"]["project"]["api_package_policy_analysis"]
+				self.assertFalse(report["ok"])
+				self.assertEqual(analysis["status"], "contract_invalid")
+				self.assertEqual(analysis["actionable_count"], 0)
+				self.assertEqual(analysis["observations"][0]["policy"], "unclassified")
+				self.assertEqual(analysis["observations"][0]["source_domain"], "unknown")
+				self.assertEqual(report["snapshot"]["framework"]["capability_readiness"], [])
+				self.assertEqual(validate_schema_file(report["snapshot"], SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+
+	def test_prerequisite_partial_keeps_verified_real_policy_violation(self) -> None:
+		(self.project_root / "a.gd").write_text(
+			"extends Node\nvar value := GFProjectLayoutAnalyzer.new()\n", encoding="utf-8",
+		)
+		(self.project_root / "z.gd").write_text("extends Node\n", encoding="utf-8")
+		with mock.patch.object(snapshot, "_MAX_PROJECT_SCRIPTS", 1):
+			report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["api_package_policy_analysis"]
+		self.assertEqual(analysis["status"], "partial")
+		self.assertEqual(analysis["actionable_count"], 1)
+		self.assertEqual(analysis["actionable_observations"][0]["source_path"], "res://a.gd")
+		codes = {item["code"] for item in report["drift"]["issues"]}
+		self.assertIn("undeclared_gf_api_package_reference", codes)
+		self.assertIn("api_package_policy_analysis_incomplete", codes)
+
+	def test_prerequisite_catalog_invalid_retains_only_unclassified_lexical_evidence(self) -> None:
+		(self.project_root / "observed.gd").write_text(
+			"extends Node\nvar value := GFProjectLayoutAnalyzer.new()\n", encoding="utf-8",
+		)
+		index = copy.deepcopy(catalog.load_api_index())
+		index["source_digest"] = "0" * 64
+		analysis = api_policy.analyze_api_package_policy(self.project_root, load_contract(self.project_root), api_index=index)
+		self.assertEqual(analysis["status"], "catalog_invalid")
+		self.assertEqual(analysis["actionable_count"], 0)
+		self.assertEqual(analysis["observations"], [])
+		self.assertEqual(analysis["advisory_count"], 1)
+		self.assertEqual(analysis["advisories"][0]["reason"], "unclassified_identifier")
+		(self.project_root / "addons/gf/plugin.cfg").write_text('[plugin]\nversion="99.0.0"\n', encoding="utf-8")
+		analysis = api_policy.analyze_api_package_policy(self.project_root, load_contract(self.project_root))
+		self.assertEqual(analysis["status"], "catalog_invalid")
+		self.assertEqual(analysis["actionable_count"], 0)
+
+	def test_prerequisite_invalid_package_state_does_not_infer_package_absence(self) -> None:
+		(self.project_root / ".gf/packages.lock.json").write_text('{"invalid": true}', encoding="utf-8")
+		(self.project_root / "observed.gd").write_text(
+			"extends Node\nvar value := GFProjectLayoutAnalyzer.new()\n", encoding="utf-8",
+		)
+		report = snapshot.build_snapshot(self.project_root)
+		self.assertFalse(report["framework"]["package_state"]["valid"])
+		self.assertEqual(report["framework"]["capability_readiness"], [])
+		codes = {item["code"] for item in report["drift"]["issues"]}
+		self.assertIn("package_state_invalid", codes)
+		self.assertNotIn("required_package_missing", codes)
+		self.assertNotIn("required_capability_unavailable", codes)
+		self.assertIn("undeclared_gf_api_package_reference", codes)
+
+	def test_verification_capacity_is_flat_finite_and_reports_actual_limit(self) -> None:
+		base = load_contract(self.project_root)["contract"]
+		check = base["verification"]["checks"][0]
+		for count in (1, 80, 81, 128, 256, 257):
+			with self.subTest(count=count):
+				candidate = copy.deepcopy(base)
+				candidate["verification"]["checks"] = [
+					{**copy.deepcopy(check), "id": f"check_{index}"} for index in range(count)
+				]
+				issues = validate_contract_data(candidate, self.project_root)
+				self.assertEqual(any(item["severity"] == "error" for item in issues), count == 257)
+				if count == 257:
+					issue = next(item for item in issues if item["code"] == "max_items")
+					self.assertEqual(issue["path"], "$.verification.checks")
+					self.assertIn("actual=257", issue["message"])
+					self.assertIn("limit=256", issue["message"])
+		candidate["verification"]["checks"][0]["group"] = "hidden"
+		self.assertTrue(any(item["code"] == "max_items" for item in validate_contract_data(candidate, self.project_root)))
+		candidate["verification"]["checks"] = candidate["verification"]["checks"][:256]
+		self.assertTrue(any(item["code"] == "unknown_field" for item in validate_contract_data(candidate, self.project_root)))
+
+	def test_verification_total_argv_exact_limit_and_plus_one(self) -> None:
+		base = load_contract(self.project_root)["contract"]
+		check = base["verification"]["checks"][0]
+		base["verification"]["checks"] = [
+			{**copy.deepcopy(check), "id": f"check_{index}", "argv": ["x"] * 64}
+			for index in range(64)
+		]
+		self.assertFalse(any(item["severity"] == "error" for item in validate_contract_data(base, self.project_root)))
+		base["verification"]["checks"].append({**copy.deepcopy(check), "id": "one_more", "argv": ["x"]})
+		issues = validate_contract_data(base, self.project_root)
+		issue = next(item for item in issues if item["code"] == "verification_argv_limit")
+		self.assertIn("actual=4097", issue["message"])
+		self.assertIn("limit=4096", issue["message"])
+
+	def test_verification_compact_utf8_byte_budget_exact_limit_and_plus_one(self) -> None:
+		base = load_contract(self.project_root)["contract"]
+		check = base["verification"]["checks"][0]
+		base["verification"]["checks"] = [
+			{**copy.deepcopy(check), "id": f"check_{index}", "argv": ["界" * 80] * 64}
+			for index in range(16)
+		]
+		remaining = contract_module.MAX_VERIFICATION_BYTES - len(paths.canonical_json_bytes(base["verification"]))
+		self.assertGreater(remaining, 0)
+		for descriptor in base["verification"]["checks"]:
+			for index, argument in enumerate(descriptor["argv"]):
+				added = min(remaining, 300 - len(argument))
+				descriptor["argv"][index] += "x" * added
+				remaining -= added
+		self.assertEqual(remaining, 0)
+		self.assertEqual(len(paths.canonical_json_bytes(base["verification"])), 256 * 1024)
+		self.assertFalse(any(item["severity"] == "error" for item in validate_contract_data(base, self.project_root)))
+		base["verification"]["checks"][-1]["argv"][-1] += "x"
+		issue = next(item for item in validate_contract_data(base, self.project_root) if item["code"] == "verification_bytes_limit")
+		self.assertIn("actual=262145", issue["message"])
+		self.assertIn("limit=262144", issue["message"])
+
+	def test_contract_structure_work_and_issue_limits_fail_closed(self) -> None:
+		base = load_contract(self.project_root)["contract"]
+		deep: Any = None
+		for _ in range(34):
+			deep = [deep]
+		base["unexpected"] = deep
+		issues = validate_contract_data(base, self.project_root)
+		self.assertEqual(issues[-1]["code"], "validation_depth_limit")
+		base["unexpected"] = [0] * 50_001
+		self.assertEqual(validate_contract_data(base, self.project_root)[-1]["code"], "validation_node_limit")
+		base.pop("unexpected")
+		with mock.patch.object(contract_module, "CONTRACT_VALIDATION_LIMITS", schema.ValidationLimits(max_work_steps=10)):
+			self.assertEqual(validate_contract_data(base, self.project_root)[-1]["code"], "validation_work_limit")
+		for index in range(100):
+			base[f"unknown_{index}"] = True
+		issues = validate_contract_data(base, self.project_root)
+		self.assertEqual(len(issues), 100)
+		self.assertEqual(issues[-1]["code"], "validation_issue_limit")
+		self.assertTrue(all(item["severity"] == "error" for item in issues))
+
+	def test_contract_rule_limit_remains_400_with_actionable_guidance(self) -> None:
+		base = load_contract(self.project_root)["contract"]
+		base["architecture"]["global_rules"] = ["x" * 400]
+		self.assertFalse(any(item["severity"] == "error" for item in validate_contract_data(base, self.project_root)))
+		base["architecture"]["global_rules"] = ["x" * 401]
+		issue = next(item for item in validate_contract_data(base, self.project_root) if item["code"] == "max_length")
+		self.assertIn("actual=401", issue["message"])
+		self.assertIn("limit=400", issue["message"])
+		self.assertIn("project document", issue["message"])
+
+	def test_contract_physical_byte_limit_remains_one_mib(self) -> None:
+		contract_path = self.project_root / DEFAULT_CONTRACT_PATH
+		raw = contract_path.read_bytes()
+		exact = raw + b" " * (contract_module.MAX_CONTRACT_BYTES - len(raw))
+		contract_path.write_bytes(exact)
+		self.assertTrue(load_contract(self.project_root)["ok"])
+		contract_path.write_bytes(exact + b" ")
+		result = load_contract(self.project_root)
+		self.assertFalse(result["ok"])
+		self.assertEqual(result["issues"][0]["code"], "invalid_contract_json")
+		self.assertIn("actual=1048577", result["issues"][0]["message"])
+		self.assertIn("limit=1048576", result["issues"][0]["message"])
+
+	def test_schema_bounded_equality_and_overlong_arrays_do_not_hide_failures(self) -> None:
+		limits = schema.ValidationLimits(max_work_steps=30)
+		shape = {"type": "array", "uniqueItems": True, "items": {"type": "object"}}
+		value = [{"value": index} for index in range(10)]
+		self.assertEqual(schema.validate_schema(value, shape, limits=limits)[-1]["code"], "validation_work_limit")
+		self.assertEqual(schema.validate_schema([1, True], {"type": "array", "uniqueItems": True}), [])
+		self.assertTrue(any(item["code"] == "duplicate_item" for item in schema.validate_schema([1, 1.0], {"type": "array", "uniqueItems": True})))
+		issues = schema.validate_schema([{}] * 257, {"type": "array", "maxItems": 256, "items": {"type": "integer"}}, limits=schema.ValidationLimits())
+		self.assertEqual([item["code"] for item in issues], ["max_items"])
 
 	def test_contract_rejects_unknown_fields_and_path_escape(self) -> None:
 		contract_path = self.project_root / ".gf/project_contract.json"
@@ -1589,7 +1813,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertEqual(without_lock["actionable_count"], 2)
 		self.assertEqual(
 			[item["domain"] for item in without_lock["domains"]],
-			["runtime", "test", "tool", "editor"],
+			["runtime", "test", "tool", "editor", "unknown"],
 		)
 
 	def test_issue_121_dynamic_references_are_advisory_and_violations_survive_observation_budget(self) -> None:
@@ -1834,7 +2058,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			{item["source_domain"] for item in first["observations"]},
 			{"runtime", "test", "tool", "editor"},
 		)
-		self.assertEqual([item["observation_count"] for item in first["domains"]], [1, 1, 1, 1])
+		self.assertEqual([item["observation_count"] for item in first["domains"]], [1, 1, 1, 1, 0])
 
 	def test_issue_121_api_policy_remains_closed_in_snapshot_v8(self) -> None:
 		(self.project_root / "violation.gd").write_text(
@@ -1844,10 +2068,10 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 
 		report = snapshot.build_snapshot(self.project_root)
 
-		self.assertEqual(TOOL_VERSION, "8.0.0")
+		self.assertEqual(TOOL_VERSION, "9.0.0")
 		self.assertEqual(CONTRACT_SCHEMA_VERSION, 5)
-		self.assertEqual(SNAPSHOT_SCHEMA_VERSION, 8)
-		self.assertEqual(report["schema_version"], 8)
+		self.assertEqual(SNAPSHOT_SCHEMA_VERSION, 9)
+		self.assertEqual(report["schema_version"], 9)
 		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
 		codes = {item["code"] for item in report["drift"]["issues"]}
 		self.assertIn("undeclared_gf_api_package_reference", codes)
@@ -1878,15 +2102,16 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertIn("script_identity_drift_count", report["project"])
 		self.assertIn("source_entry_count", report["project"]["api_package_policy_analysis"])
 		self.assertIn("script_identity_drift_count", report["project"]["api_package_policy_analysis"])
+		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
 		report["project"]["api_package_policy_analysis"] = analysis
 
 		legacy_schema_issues = validate_schema_file(contract, SCHEMA_ROOT / "project_contract.schema.json")
 		self.assertIn("const_mismatch", {item["code"] for item in legacy_schema_issues})
 		self.assertIn("missing_required", {item["code"] for item in legacy_schema_issues})
-		self.assertEqual(
-			validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"),
-			[],
-		)
+		# Historical fixture bytes stay frozen; v9 does not accept its old domain shape.
+		snapshot_issues = validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json")
+		self.assertTrue(any(item["code"] == "min_items" and item["path"].endswith(".domains") for item in snapshot_issues))
+		self.assertTrue(any(item["code"] == "missing_required" and item["path"].endswith(".unclassified_count") for item in snapshot_issues))
 		self.assertEqual(
 			paths.sha256_json(contract),
 			"b595d39e90cca3d868e583c422aea37c527c015881273eb67ec663ab77504c10",
@@ -2835,10 +3060,10 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		report = snapshot.build_snapshot(self.project_root)
 		analysis = report["project"]["documentation_reference_analysis"]
 		codes = {item["code"] for item in report["drift"]["issues"]}
-		self.assertEqual(TOOL_VERSION, "8.0.0")
+		self.assertEqual(TOOL_VERSION, "9.0.0")
 		self.assertEqual(CONTRACT_SCHEMA_VERSION, 5)
-		self.assertEqual(SNAPSHOT_SCHEMA_VERSION, 8)
-		self.assertEqual(report["schema_version"], 8)
+		self.assertEqual(SNAPSHOT_SCHEMA_VERSION, 9)
+		self.assertEqual(report["schema_version"], 9)
 		self.assertEqual(analysis["status"], "complete")
 		self.assertEqual(analysis["actionable_count"], 2)
 		self.assertEqual(analysis["advisory_count"], 1)
@@ -4272,7 +4497,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 	def test_issue_122_protocol_versions_are_frozen(self) -> None:
 		self.assertEqual(
 			(TOOL_VERSION, SNAPSHOT_SCHEMA_VERSION, CONTRACT_SCHEMA_VERSION),
-			("8.0.0", 8, 5),
+			("9.0.0", 9, 5),
 		)
 
 	def test_issue_122_schema_identifiers_and_closed_protocol_enums_are_frozen(self) -> None:
@@ -4285,7 +4510,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		)
 		self.assertEqual(
 			(snapshot_schema["$id"], snapshot_schema["properties"]["schema_version"]["const"]),
-			("https://gf-framework.dev/schemas/project-snapshot-v8.json", 8),
+			("https://gf-framework.dev/schemas/project-snapshot-v9.json", 9),
 		)
 		self.assertEqual(
 			snapshot_schema["properties"]["contract"]["properties"]

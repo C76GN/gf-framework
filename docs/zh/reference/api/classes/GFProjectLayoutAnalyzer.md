@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 常量 | [`EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH`](#member-gfprojectlayoutanalyzer-constants-example_feature_cohesive_profile_path) | `const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"` |
+| 常量 | [`EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH`](#member-gfprojectlayoutanalyzer-constants-example_feature_cohesive_profile_path) | `const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json"` |
 | 方法 | [`analyze`](#member-gfprojectlayoutanalyzer-methods-analyze) | `func analyze(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`analyze_example_profile`](#member-gfprojectlayoutanalyzer-methods-analyze_example_profile) | `func analyze_example_profile(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`analyze_profile_path`](#member-gfprojectlayoutanalyzer-methods-analyze_profile_path) | `func analyze_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary:` |
@@ -35,7 +35,7 @@
 - 首次版本：`11.0.0`
 
 ```gdscript
-const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"
+const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json"
 ```
 
 Feature 内聚式示例 profile 路径。
@@ -65,7 +65,7 @@ func analyze(options: Dictionary = {}) -> Dictionary:
 
 结构：
 
-- `options`: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；root_path 只能是规范 res:// 根或子根。
+- `options`: Dictionary，可包含 root_path、source_root、capture_scope、profile_source_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth、allow_missing_root；根只能是规范 res:// 或明确绝对本地来源，逻辑容器映射必须匹配。
 - `return`: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects；graph 精确包含 schema_version、kind、complete、capture_status、scope、dependency_coverage、nodes、edges 和 evidence；effects 精确包含 writes_project=false。
 
 <a id="member-gfprojectlayoutanalyzer-methods-analyze_example_profile"></a>
@@ -79,7 +79,7 @@ func analyze(options: Dictionary = {}) -> Dictionary:
 func analyze_example_profile(options: Dictionary = {}) -> Dictionary:
 ```
 
-按 Feature 内聚式示例 profile 分析项目结构。
+按 Feature 内聚式示例 profile 分析项目结构。 未指定 root_path 时沿用 analyze_profile_path 的来源根与规范声明映射。
 
 参数：
 
@@ -91,7 +91,7 @@ func analyze_example_profile(options: Dictionary = {}) -> Dictionary:
 
 结构：
 
-- `options`: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；root_path 只能是规范 res:// 根或子根。
+- `options`: Dictionary，可包含 root_path、source_root、capture_scope、profile_source_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth、allow_missing_root；根只能是规范 res:// 或明确绝对本地来源，逻辑容器映射必须匹配。
 - `return`: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects；capabilities 在编译前或 contract/registry 失败时为 {}，否则精确包含 executor_id、operation、rule_kinds、rule_fields 和 zone_fields；effects 精确包含 writes_project=false。
 
 <a id="member-gfprojectlayoutanalyzer-methods-analyze_profile_path"></a>
@@ -105,7 +105,7 @@ func analyze_example_profile(options: Dictionary = {}) -> Dictionary:
 func analyze_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary:
 ```
 
-从项目结构 profile 文件分析项目结构。
+从项目结构 profile 文件分析项目结构。 未指定 root_path 时，成功编译后按 Profile 声明（无声明则按 options.capture_scope）映射 source_root；无范围声明时使用 source_root，缺省为 res://。显式 root_path 必须匹配声明。
 
 参数：
 
@@ -118,7 +118,7 @@ func analyze_profile_path(profile_path: String, options: Dictionary = {}) -> Dic
 
 结构：
 
-- `options`: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；root_path 只能是规范 res:// 根或子根。
+- `options`: Dictionary，可包含 root_path、source_root、capture_scope、profile_source_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth、allow_missing_root；根只能是规范 res:// 或明确绝对本地来源，逻辑容器映射必须匹配。
 - `return`: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects；capabilities 在编译前或 contract/registry 失败时为 {}，否则精确包含 executor_id、operation、rule_kinds、rule_fields 和 zone_fields；effects 精确包含 writes_project=false。
 
 <a id="member-gfprojectlayoutanalyzer-methods-analyze_profile"></a>
@@ -132,7 +132,7 @@ func analyze_profile_path(profile_path: String, options: Dictionary = {}) -> Dic
 func analyze_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionary:
 ```
 
-按已解析的项目结构 profile 分析项目结构。
+按已解析的项目结构 profile 分析项目结构。 未指定 root_path 时，成功编译后按 Profile 声明（无声明则按 options.capture_scope）映射 source_root；无范围声明时使用 source_root，缺省为 res://。显式 root_path 必须匹配声明。
 
 参数：
 
@@ -146,7 +146,7 @@ func analyze_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionar
 结构：
 
 - `profile`: Dictionary，包含 schema_version、id、zones 和 rules。
-- `options`: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；root_path 只能是规范 res:// 根或子根。
+- `options`: Dictionary，可包含 root_path、source_root、capture_scope、profile_source_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth、allow_missing_root；根只能是规范 res:// 或明确绝对本地来源，逻辑容器映射必须匹配。
 - `return`: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects；capabilities 在编译前或 contract/registry 失败时为 {}，否则精确包含 executor_id、operation、rule_kinds、rule_fields 和 zone_fields；effects 精确包含 writes_project=false。
 
 <a id="member-gfprojectlayoutanalyzer-methods-analyze_snapshot"></a>
@@ -172,7 +172,7 @@ func analyze_snapshot(snapshot: Dictionary) -> Dictionary:
 
 结构：
 
-- `snapshot`: Dictionary，字段闭集为 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和可选 issues；root_path 必须是规范 res:// 根或子根，scope 精确包含 kind、root_path、include_hidden、excluded_prefixes 与三项捕获预算，files/directories 必须形成完整父目录闭包。
+- `snapshot`: Dictionary，字段闭集为 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和可选 issues；root_path 必须是规范 res:// 或绝对本地根，scope 精确包含 kind、root_path、include_hidden、excluded_prefixes、max_scanned_files、max_scanned_directories、max_scan_depth、capture_scope、source_root、protected_roots、profile_source_path、policy_digest，files/directories 必须形成完整父目录闭包。
 - `return`: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。
 
 <a id="member-gfprojectlayoutanalyzer-methods-analyze_profile_snapshot"></a>

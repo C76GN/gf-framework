@@ -73,6 +73,11 @@ const _ANALYZER_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/gf_project_layout_analyzer.gd"
 )
 
+## 同代际策略/报告/索引，后台分析与后续 serial 查询共享。
+## [br]
+## @api private
+const _SESSION_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_session.gd")
+
 ## analysis 与库存共享契约实现脚本。
 ## [br]
 ## @api private
@@ -94,8 +99,13 @@ const _BACKGROUND_TASK_SCRIPT = preload(
 ## @api private
 ## [br]
 const _BOUNDED_JSON_OBJECT_READER_SCRIPT = preload(
-	"res://addons/gf/kernel/core/gf_bounded_json_object_reader.gd"
+	"res://addons/gf/tools/project_layout/gf_project_layout_profile_reader.gd"
 )
+
+## 捕获声明与编译 Profile 共用严格 scope 准入。
+## [br]
+## @api private
+const _CAPTURE_SCOPE_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_capture_scope.gd")
 
 ## Editor snapshot builder 实现脚本。
 ## [br]
@@ -126,7 +136,7 @@ const _WORKSPACE_UI = preload(
 ## @api private
 ## [br]
 const _EXAMPLE_PROFILE_PATH: String = \
-	"res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"
+	"res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json"
 
 ## 每帧 snapshot 捕获处理的库存条目数。
 ## [br]
@@ -294,6 +304,11 @@ const _SCOPE_FIELDS: PackedStringArray = [
 	"max_scanned_files",
 	"max_scanned_directories",
 	"max_scan_depth",
+	"capture_scope",
+	"source_root",
+	"protected_roots",
+	"profile_source_path",
+	"policy_digest",
 ]
 
 ## 后台查询 data-only 结构允许访问的最大值数。
@@ -406,6 +421,11 @@ var _active_profile_compilation: Dictionary = {}
 ## @api private
 ## [br]
 var _last_analysis: Dictionary = {}
+
+## 不进入剪贴板或 data-only 信封；旧 worker 自持旧代际会话直到线程退出。
+## [br]
+## @api private
+var _layout_session: GFProjectLayoutSession = null
 
 ## Dock 当前显示的最近一次 plan。
 ## [br]
@@ -561,6 +581,7 @@ func _exit_tree() -> void:
 		_query_task.request_cancel()
 		var _discarded_query_result: Variant = _query_task.wait_to_finish()
 	_query_task = null
+	_layout_session = null
 	set_process(false)
 
 
@@ -582,7 +603,15 @@ func scan_project() -> void:
 	if not _freeze_active_profile_request():
 		return
 	_snapshot_builder = _SNAPSHOT_BUILDER_SCRIPT.new()
-	var begin_error: Error = _snapshot_builder.begin("res://")
+	var compiled_profile: Dictionary = _get_dictionary(_active_profile_compilation, "profile")
+	var capture_options: Dictionary = {"profile_source_path": _EXAMPLE_PROFILE_PATH} if _active_profile_present else {}
+	var prepared: Dictionary = _CAPTURE_SCOPE_SCRIPT.prepare(compiled_profile, "res://", capture_options)
+	if not prepared["success"]:
+		_set_state(STATE_FAILED, "Profile 捕获范围无法通过准入。")
+		_overview_output.text = _format_json(prepared, _DETAIL_TEXT_LIMIT)
+		return
+	var binding: Dictionary = prepared["binding"]
+	var begin_error: Error = _snapshot_builder.begin_prepared("res://", binding, capture_options)
 	if begin_error != OK:
 		_set_state(STATE_FAILED, "无法开始项目库存捕获。")
 		_render_capture_failure(_snapshot_builder.make_snapshot())
@@ -812,6 +841,8 @@ func _process_capture() -> void:
 func _start_background_analysis(snapshot: Dictionary) -> void:
 	_snapshot_builder = null
 	var worker: GFProjectLayoutScanWorker = _WORKER_SCRIPT.new()
+	_layout_session = _SESSION_SCRIPT.new()
+	var _configured_session: GFProjectLayoutScanWorker = worker.configure_layout_session(_layout_session)
 	var profile_compilation: Dictionary = _active_profile_compilation
 	_active_profile_compilation = {}
 	_background_task = _BACKGROUND_TASK_SCRIPT.new().configure(
@@ -842,15 +873,14 @@ func _freeze_active_profile_request() -> bool:
 	_active_profile_present = _profile_selector.selected == 1
 	if not _active_profile_present:
 		return true
-	var read_result: Dictionary = _BOUNDED_JSON_OBJECT_READER_SCRIPT.read_object(
-		_EXAMPLE_PROFILE_PATH
-	)
-	if not _get_bool(read_result, "ok"):
+	var reader: _BOUNDED_JSON_OBJECT_READER_SCRIPT = _BOUNDED_JSON_OBJECT_READER_SCRIPT.new()
+	var read_result: Dictionary = reader.read_path(_EXAMPLE_PROFILE_PATH)
+	if not _get_bool(read_result, "success"):
 		_set_state(STATE_FAILED, "示例 profile 无法读取。")
 		_overview_output.text = _format_json(read_result, _DETAIL_TEXT_LIMIT)
 		_refresh_process_state()
 		return false
-	var profile: Dictionary = _get_dictionary(read_result, "data")
+	var profile: Dictionary = _get_dictionary(read_result, "profile")
 	var analyzer: _ANALYZER_SCRIPT = _ANALYZER_SCRIPT.new()
 	_active_profile_compilation = analyzer.compile_profile(profile)
 	if not _get_bool(_active_profile_compilation, "success"):
@@ -893,7 +923,7 @@ func _process_background_result() -> void:
 		_clear_results()
 		_set_state(STATE_FAILED, "后台分析失败；请查看结构化诊断。")
 		_overview_output.text = _format_json({
-			"schema_version": 1,
+			"schema_version": 2,
 			"kind": "project_layout_worker_failure",
 			"generation": _get_int(result, "generation", -1),
 			"issues": _get_array(result, "issues"),
@@ -1111,7 +1141,8 @@ func _start_pending_query() -> void:
 	var _configured_worker: GFProjectLayoutScanWorker = worker.configure_query_session(
 		_last_analysis,
 		generation,
-		analysis_digest
+		analysis_digest,
+		_layout_session
 	)
 	_query_task = _BACKGROUND_TASK_SCRIPT.new().configure(
 		worker,
@@ -1174,7 +1205,7 @@ func _process_query_result() -> void:
 			_render_query_message(
 				query_kind,
 				_format_json({
-					"schema_version": 1,
+					"schema_version": 2,
 					"kind": "project_layout_query_failure",
 					"generation": result_generation,
 					"analysis_digest": result_digest,
@@ -1230,7 +1261,7 @@ func _query_result_is_well_formed(result: Dictionary) -> bool:
 	):
 		return false
 	if (
-		result.get("schema_version") != 1
+		result.get("schema_version") != 2
 		or result.get("kind") != "project_layout_query_result"
 		or not result.get("generation") is int
 		or not result.get("analysis_digest") is String
@@ -1278,7 +1309,7 @@ func _query_result_is_well_formed(result: Dictionary) -> bool:
 func _explanation_is_closed(explanation: Dictionary) -> bool:
 	return (
 		_has_exact_fields(explanation, _EXPLANATION_RESULT_FIELDS)
-		and explanation.get("schema_version") == 1
+		and explanation.get("schema_version") == 2
 		and explanation.get("kind") == "project_layout_explanation"
 		and explanation.get("complete") is bool
 		and explanation.get("finding_id") is String
@@ -1302,7 +1333,7 @@ func _explanation_is_closed(explanation: Dictionary) -> bool:
 func _impact_is_closed(impact: Dictionary, analysis_digest: String) -> bool:
 	return (
 		_has_exact_fields(impact, _IMPACT_RESULT_FIELDS)
-		and impact.get("schema_version") == 1
+		and impact.get("schema_version") == 2
 		and impact.get("kind") == "project_layout_impact"
 		and impact.get("complete") is bool
 		and impact.get("status") is String
@@ -1463,6 +1494,18 @@ func _scope_is_closed(scope: Dictionary) -> bool:
 		and scope.get("max_scanned_files") is int
 		and scope.get("max_scanned_directories") is int
 		and scope.get("max_scan_depth") is int
+		and scope.get("capture_scope") is Dictionary
+		and scope.get("source_root") is String
+		and scope.get("protected_roots") is Array
+		and _string_array_is_closed(_get_array(scope, "protected_roots"))
+		and scope.get("profile_source_path") is String
+		and scope.get("policy_digest") is String
+		and GFProjectLayoutCaptureScope.binding_is_valid({
+			"capture_scope": scope["capture_scope"], "source_root": scope["source_root"],
+			"root_path": scope["root_path"], "protected_roots": scope["protected_roots"],
+			"profile_source_path": scope["profile_source_path"], "excluded_prefixes": scope["excluded_prefixes"],
+			"policy_digest": scope["policy_digest"],
+		})
 	)
 
 
@@ -1621,7 +1664,7 @@ func _copy_report() -> void:
 	var copied_summary: bool = report_size_bytes > _CLIPBOARD_TEXT_LIMIT
 	if copied_summary:
 		report_text = JSON.stringify({
-			"schema_version": 1,
+			"schema_version": 2,
 			"kind": "project_layout_report_summary",
 			"truncated": true,
 			"reason": "clipboard_size_limit",
@@ -1694,6 +1737,7 @@ func _refresh_process_state() -> void:
 ## @api private
 func _clear_results() -> void:
 	_last_analysis = {}
+	_layout_session = null
 	_last_plan = {}
 	_last_impact = {}
 	_finding_render_source = []

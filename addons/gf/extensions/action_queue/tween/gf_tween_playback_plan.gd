@@ -128,16 +128,75 @@ static func capture(
 	target: Object,
 	ping_pong: bool = false
 ) -> GFTweenPlaybackPlan:
-	var plan: GFTweenPlaybackPlan = GFTweenPlaybackPlan.new()
 	if config == null or not is_instance_valid(target):
-		return _reject(plan, "Config and target must be valid.")
+		return _reject(GFTweenPlaybackPlan.new(), "Config and target must be valid.")
 	if config.steps.is_empty() or config.steps.size() > _MAX_STEPS:
-		return _reject(plan, "Playback requires 1 to 256 steps.")
+		return _reject(GFTweenPlaybackPlan.new(), "Playback requires 1 to 256 steps.")
 	if config.loop_count < 1 or config.loop_count > _MAX_LOOPS:
-		return _reject(plan, "Playback requires 1 to 256 finite loops.")
+		return _reject(GFTweenPlaybackPlan.new(), "Playback requires 1 to 256 finite loops.")
 	if config.steps.size() * config.loop_count > _MAX_EXPANDED_STEPS:
-		return _reject(plan, "Expanded playback exceeds 4096 steps.")
+		return _reject(GFTweenPlaybackPlan.new(), "Expanded playback exceeds 4096 steps.")
 	if not is_finite(config.duration_scale) or config.duration_scale < 0.0:
+		return _reject(GFTweenPlaybackPlan.new(), "Duration scale must be finite and nonnegative.")
+	var data: Array[Dictionary] = []
+	var baseline: Dictionary = {}
+	var target_property_names: Dictionary = {}
+	for info: Dictionary in target.get_property_list():
+		target_property_names[GFVariantData.get_option_string(info, "name")] = true
+	for step: GFTweenActionStep in config.steps:
+		if step == null:
+			return _reject(GFTweenPlaybackPlan.new(), "Null steps are not supported.")
+		var root_name: String = String(step.property_name).get_slice(":", 0)
+		if not target_property_names.has(root_name):
+			return _reject(GFTweenPlaybackPlan.new(), "Playback root property does not exist.")
+		if not baseline.has(root_name):
+			baseline[root_name] = target.get(root_name)
+		var curve_capture: Dictionary = _EASING_CURVE_SCRIPT.capture(step.easing_curve)
+		var curve_error: String = GFVariantData.get_option_string(curve_capture, "error")
+		if not curve_error.is_empty():
+			return _reject(GFTweenPlaybackPlan.new(), curve_error)
+		data.append({
+			"property_name": step.property_name, "target_value": step.target_value,
+			"duration": step.duration, "delay": step.delay,
+			"as_relative": step.as_relative, "parallel": step.parallel,
+			"transition_type": step.transition_type, "ease_type": step.ease_type,
+			"easing_curve_data": GFVariantData.get_option_dictionary(curve_capture, "data"),
+			"marker_id": step.marker_id,
+		})
+	return capture_data(data, baseline, config.loop_count, config.duration_scale, ping_pong)
+
+
+## 编译已脱离来源对象的步骤与初值；运行时捕获、原生预览与数值 facade 共用此核心。
+## 只保留校验后的有限值与私有原生曲线；不执行来源方法、setter 或标记回调。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param data: 已捕获的步骤；时间尚未缩放。
+## [br]
+## @schema data: Array[Dictionary]，property_name: NodePath、target_value: 有限 int/float/Vector2/Vector3/Color、duration/delay: float 或 int、as_relative/parallel: bool、transition_type/ease_type: int、easing_curve_data: Dictionary（空或原生 positions/tangents/modes/bake_resolution/value_range），可选 marker_id: StringName。
+## [br]
+## @param baseline: 直接根名映射到有限纯值初值。
+## [br]
+## @schema baseline: Dictionary，String 根名到有限 int/float/Vector2/Vector3/Color。
+## [br]
+## @param loops: 1 至 256 的有限循环数。
+## [br]
+## @param scale: 有限非负时长乘数，零仍按零总时长拒绝。
+## [br]
+## @param ping_pong: 是否按相同基线往返。
+## [br]
+## @return: 冻结计划；error 非空时没有部分数据。
+static func capture_data(data: Array[Dictionary], baseline: Dictionary, loops: int = 1, scale: float = 1.0, ping_pong: bool = false) -> GFTweenPlaybackPlan:
+	var plan: GFTweenPlaybackPlan = GFTweenPlaybackPlan.new()
+	if data.is_empty() or data.size() > _MAX_STEPS:
+		return _reject(plan, "Playback requires 1 to 256 steps.")
+	if loops < 1 or loops > _MAX_LOOPS:
+		return _reject(plan, "Playback requires 1 to 256 finite loops.")
+	if data.size() * loops > _MAX_EXPANDED_STEPS:
+		return _reject(plan, "Expanded playback exceeds 4096 steps.")
+	if not is_finite(scale) or scale < 0.0:
 		return _reject(plan, "Duration scale must be finite and nonnegative.")
 	var sources: Array[_SourceStep] = []
 	var group_roots: Dictionary = {}
@@ -145,15 +204,16 @@ static func capture(
 	var elapsed_seconds: float = 0.0
 	var sample_budget: int = 0
 	var point_budget: int = 0
-	for index: int in range(config.steps.size()):
-		var step: GFTweenActionStep = config.steps[index]
-		if step == null:
-			return _reject(plan, "Null steps are not supported.")
-		if not step.parallel and index > 0:
+	for index: int in range(data.size()):
+		var step: Dictionary = data[index]
+		if not step.get("parallel") is bool:
+			return _reject(plan, "Parallel must be a boolean.")
+		var parallel: bool = step["parallel"]
+		if not parallel and index > 0:
 			elapsed_seconds += group_seconds
 			group_seconds = 0.0
 			group_roots.clear()
-		var source: _SourceStep = _capture_step(step, target, config.duration_scale, index)
+		var source: _SourceStep = _capture_step(step, baseline, scale, index)
 		if not source._error.is_empty():
 			return _reject(plan, source._error)
 		if group_roots.has(source._root_name):
@@ -172,12 +232,12 @@ static func capture(
 		group_seconds = maxf(group_seconds, source._delay + source._duration)
 		sources.append(source)
 	plan._cycle_seconds = elapsed_seconds + group_seconds
-	plan._total_seconds = plan._cycle_seconds * float(config.loop_count) * (2.0 if ping_pong else 1.0)
+	plan._total_seconds = plan._cycle_seconds * float(loops) * (2.0 if ping_pong else 1.0)
 	if not is_finite(plan._total_seconds) or plan._total_seconds <= 0.0:
 		return _reject(plan, "Playback duration must be finite and greater than zero.")
 	plan._ping_pong = ping_pong
 	var state: Dictionary = plan._baseline.duplicate()
-	var compiled_loops: int = 1 if ping_pong else config.loop_count
+	var compiled_loops: int = 1 if ping_pong else loops
 	for loop_index: int in range(compiled_loops):
 		for source: _SourceStep in sources:
 			var span: _Span = _compile_span(source, state, float(loop_index) * plan._cycle_seconds)
@@ -188,7 +248,7 @@ static func capture(
 				return _reject(plan, "Composed property endpoints overflow their root value.")
 			plan._spans.append(span)
 			state[source._root_name] = root_final
-	for loop_index: int in range(config.loop_count):
+	for loop_index: int in range(loops):
 		var loop_start: float = float(loop_index) * plan._cycle_seconds * (2.0 if ping_pong else 1.0)
 		for source: _SourceStep in sources:
 			if source._marker_id != &"":
@@ -237,6 +297,50 @@ func sample(time_seconds: float) -> Dictionary:
 	return values
 
 
+## 返回数值根属性的保守插值包络；用于纯数值预览在开始前拒绝越界计划。
+## 自定义曲线消费烘焙线性采样，因此其采样格点包围全部中间输出。
+## BACK/ELASTIC/SPRING 采用宽松固定进度包络，宁可拒绝窄边界也不默默钳制。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param property_name: 直接数值根属性名，不支持组件。
+## [br]
+## @return: 有限最小/最大值；不适用或算术溢出返回空数组。
+## [br]
+## @schema return: PackedFloat64Array，空或恰好两个元素 [minimum, maximum]。
+func get_numeric_envelope(property_name: String) -> PackedFloat64Array:
+	if not _baseline.has(property_name) or not (_baseline[property_name] is int or _baseline[property_name] is float):
+		return PackedFloat64Array()
+	var minimum: float = _number(_baseline[property_name])
+	var maximum: float = minimum
+	for span: _Span in _spans:
+		if span._root_name != property_name:
+			continue
+		if span._component != &"":
+			return PackedFloat64Array()
+		var low_progress: float = 0.0
+		var high_progress: float = 1.0
+		if span._duration > 0.0 and span._curve != null:
+			for index: int in range(span._curve.bake_resolution):
+				var progress: float = span._curve.sample_baked(float(index) / float(span._curve.bake_resolution - 1))
+				low_progress = minf(low_progress, progress)
+				high_progress = maxf(high_progress, progress)
+		elif span._duration > 0.0 and span._transition in [Tween.TRANS_BACK, Tween.TRANS_ELASTIC, Tween.TRANS_SPRING]:
+			low_progress = -16.0
+			high_progress = 16.0
+		var initial: float = _number(span._initial_value)
+		var delta: float = _number(span._delta_value)
+		var left: float = initial + delta * low_progress
+		var right: float = initial + delta * high_progress
+		if not is_finite(left) or not is_finite(right):
+			return PackedFloat64Array()
+		minimum = minf(minimum, minf(left, right))
+		maximum = maxf(maximum, maxf(left, right))
+	return PackedFloat64Array([minimum, maximum])
+
+
 # --- 私有/辅助方法 ---
 
 ## 标记计划被拒绝并清除其公开结果和可采样数据。
@@ -256,9 +360,13 @@ static func _reject(plan: GFTweenPlaybackPlan, message: String) -> GFTweenPlayba
 ## 校验并捕获单个来源步骤的属性、目标值、时间和曲线数据。
 ## [br]
 ## @api private
-static func _capture_step(step: GFTweenActionStep, target: Object, scale: float, index: int) -> _SourceStep:
+static func _capture_step(step: Dictionary, baseline: Dictionary, scale: float, index: int) -> _SourceStep:
 	var source: _SourceStep = _SourceStep.new()
-	var parts: PackedStringArray = String(step.property_name).split(":")
+	if not (step.get("property_name") is NodePath) or not (step.get("as_relative") is bool):
+		source._error = "Property paths and relative flags have invalid types."
+		return source
+	var path: NodePath = step["property_name"]
+	var parts: PackedStringArray = String(path).split(":")
 	if parts.size() < 1 or parts.size() > 2 or parts[0].is_empty() or parts[0].contains("/"):
 		source._error = "Playback requires a root property with at most one component."
 		return source
@@ -268,47 +376,52 @@ static func _capture_step(step: GFTweenActionStep, target: Object, scale: float,
 			source._error = "Property components cannot be empty."
 			return source
 		source._component = StringName(parts[1])
-	var found: bool = false
-	for property_info: Dictionary in target.get_property_list():
-		if GFVariantData.get_option_string(property_info, "name") == source._root_name:
-			found = true
-			break
-	if not found:
+	if not baseline.has(source._root_name):
 		source._error = "Playback root property does not exist."
 		return source
-	source._root_initial = target.get(source._root_name)
+	source._root_initial = baseline[source._root_name]
 	var current: Variant = _component_value(source._root_initial, source._component)
 	if not _is_finite_value(source._root_initial) or not _is_finite_value(current):
 		source._error = "Playback initial values and components must be supported finite values."
 		return source
-	if not _is_finite_value(step.target_value) or not _compatible(current, step.target_value):
+	var target_value: Variant = step.get("target_value")
+	if not _is_finite_value(target_value) or not _compatible(current, target_value):
 		source._error = "Playback endpoint types must match supported finite initial values."
 		return source
-	source._duration = step.duration * scale
-	source._delay = step.delay * scale
+	source._duration = _number(step.get("duration")) * scale
+	source._delay = _number(step.get("delay")) * scale
 	if not is_finite(source._duration) or not is_finite(source._delay) or source._duration < 0.0 or source._delay < 0.0:
 		source._error = "Playback duration and delay must be finite and nonnegative."
 		return source
-	if step.transition_type < Tween.TRANS_LINEAR or step.transition_type > Tween.TRANS_SPRING:
+	if not (step.get("transition_type") is int) or not (step.get("ease_type") is int):
+		source._error = "Tween transition and ease must be integers."
+		return source
+	var transition: int = step["transition_type"]
+	var easing_mode: int = step["ease_type"]
+	if transition < Tween.TRANS_LINEAR or transition > Tween.TRANS_SPRING:
 		source._error = "Unknown Tween transition."
 		return source
-	if step.ease_type < Tween.EASE_IN or step.ease_type > Tween.EASE_OUT_IN:
+	if easing_mode < Tween.EASE_IN or easing_mode > Tween.EASE_OUT_IN:
 		source._error = "Unknown Tween ease."
 		return source
-	var captured: Dictionary = _EASING_CURVE_SCRIPT.capture(step.easing_curve)
-	source._error = GFVariantData.get_option_string(captured, "error")
-	if not source._error.is_empty():
+	if not (step.get("easing_curve_data") is Dictionary):
+		source._error = "Easing curve data must be a dictionary."
 		return source
-	var data: Dictionary = GFVariantData.get_option_dictionary(captured, "data")
+	var data: Dictionary = step["easing_curve_data"]
 	source._curve = _EASING_CURVE_SCRIPT.create_curve(data)
+	if not data.is_empty() and source._curve == null:
+		source._error = "Easing curve data is invalid."
+		return source
 	source._curve_samples = _EASING_CURVE_SCRIPT.get_sample_count(data)
 	source._curve_points = _EASING_CURVE_SCRIPT.get_point_count(data)
 	# 原生 PropertyTweener 先把数值终点转换为属性初值的数值类型。
-	source._target_value = _with_component(current, &"", step.target_value)
-	source._relative = step.as_relative
-	source._transition = step.transition_type
-	source._easing_mode = step.ease_type
-	source._marker_id = step.marker_id
+	source._target_value = _with_component(current, &"", target_value)
+	source._relative = step["as_relative"]
+	source._transition = transition as Tween.TransitionType
+	source._easing_mode = easing_mode as Tween.EaseType
+	var marker_value: Variant = step.get("marker_id", &"")
+	if marker_value is StringName:
+		source._marker_id = marker_value
 	source._index = index
 	return source
 

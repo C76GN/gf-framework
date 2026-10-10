@@ -19,6 +19,7 @@ from .paths import (
 
 
 SOURCE_DOMAINS = ("runtime", "test", "tool", "editor")
+OBSERVATION_DOMAINS = (*SOURCE_DOMAINS, "unknown")
 MAX_PROJECT_SCRIPTS = 20_000
 MAX_SCRIPT_BYTES = 2 * 1024 * 1024
 MAX_SOURCE_SCAN_BYTES = 128 * 1024 * 1024
@@ -61,6 +62,12 @@ def analyze_api_package_policy(
 			api_index = {}
 			catalog_error = str(exc)
 	catalog_issues = catalog.api_index_issues(api_index)
+	project_version = catalog.project_framework_version(project_root)
+	index_version = str(api_index.get("framework_version", ""))
+	if not project_version:
+		catalog_issues.append("GF Framework is not installed or addons/gf/plugin.cfg has no version.")
+	elif index_version and project_version != index_version:
+		catalog_issues.append(f"GF API catalog does not match installed framework: {index_version} != {project_version}.")
 	if catalog_error:
 		catalog_issues.insert(0, catalog_error)
 	catalog_issues = list(dict.fromkeys(catalog_issues))
@@ -98,6 +105,8 @@ def analyze_api_package_policy(
 		max_script_bytes=max_script_bytes,
 		max_source_bytes=max_source_bytes,
 		max_entries=max_entries,
+		contract_ready=contract_valid,
+		policy_ready=contract_valid and not catalog_issues,
 	)
 	_post_roots, post_domain_root_states, post_domain_root_pins = _source_domain_roots(
 		project_root,
@@ -129,7 +138,7 @@ def analyze_api_package_policy(
 	advisories = [_without_order(item) for item in scan.pop("advisory_evidence")]
 	domain_counts = scan.pop("domain_counts")
 	domain_summaries: list[dict[str, Any]] = []
-	for domain in SOURCE_DOMAINS:
+	for domain in OBSERVATION_DOMAINS:
 		counts = domain_counts[domain]
 		domain_summaries.append({
 			"domain": domain,
@@ -137,6 +146,7 @@ def analyze_api_package_policy(
 			"allowed_count": counts["allowed_count"],
 			"outside_policy_count": counts["outside_policy_count"],
 			"forbidden_count": counts["forbidden_count"],
+			"unclassified_count": counts["unclassified_count"],
 			"actionable_count": counts["actionable_count"],
 			"advisory_count": counts["advisory_count"],
 		})
@@ -181,6 +191,8 @@ def _scan_sources(
 	max_script_bytes: int,
 	max_source_bytes: int,
 	max_entries: int,
+	contract_ready: bool,
+	policy_ready: bool,
 ) -> dict[str, Any]:
 	script_count = 0
 	scanned_script_count = 0
@@ -207,10 +219,11 @@ def _scan_sources(
 			"allowed_count": 0,
 			"outside_policy_count": 0,
 			"forbidden_count": 0,
+			"unclassified_count": 0,
 			"actionable_count": 0,
 			"advisory_count": 0,
 		}
-		for domain in SOURCE_DOMAINS
+		for domain in OBSERVATION_DOMAINS
 	}
 	runtime_classes: set[str] = set()
 	test_classes: set[str] = set()
@@ -323,7 +336,7 @@ def _scan_sources(
 				truncation_reason = "script_count"
 				break
 			script_count += 1
-			domain = _source_domain(identity, domain_roots)
+			domain = _source_domain(identity, domain_roots) if contract_ready else "unknown"
 			if domain == "test":
 				test_script_count += 1
 			before_pin = _regular_snapshot(project_root, path)
@@ -376,10 +389,22 @@ def _scan_sources(
 					if len(advisories) < MAX_ADVISORY_EVIDENCE:
 						advisories.append(candidate)
 					continue
+				if token.kind == "identifier" and owner is None and not policy_ready and _DYNAMIC_GF_SYMBOL_PATTERN.fullmatch(token.value):
+					advisory_count += 1
+					domain_counts[domain]["advisory_count"] += 1
+					if len(advisories) < MAX_ADVISORY_EVIDENCE:
+						advisories.append({
+							"source_path": source_path, "line": token.line,
+							"source_domain": domain, "symbol": token.value,
+							"reason": "unclassified_identifier", "_occurrence": occurrence,
+						})
+					continue
 				if token.kind != "identifier" or owner is None:
 					continue
 				package_id = owner["package_id"]
-				if package_id in forbidden:
+				if not policy_ready:
+					policy = "unclassified"
+				elif package_id in forbidden:
 					policy = "forbidden"
 				elif package_id in allowed:
 					policy = "allowed"
@@ -400,13 +425,13 @@ def _scan_sources(
 				}
 				if len(observations) < MAX_OBSERVATION_EVIDENCE:
 					observations.append(candidate)
-				if policy != "allowed":
+				if policy in ("outside_policy", "forbidden"):
 					actionable_count += 1
 					domain_counts[domain]["actionable_count"] += 1
 					if len(actionable) < MAX_ACTIONABLE_EVIDENCE:
 						actionable.append(candidate)
 				if owner["owner_kind"] == "class":
-					if domain == "runtime":
+					if domain in ("runtime", "unknown"):
 						runtime_classes.add(token.value)
 					elif domain == "test":
 						test_classes.add(token.value)

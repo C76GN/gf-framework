@@ -273,6 +273,22 @@ lanes.record_lane_event(&"asset-load", GFExecutionLaneDiagnostics.EVENT_COMPLETE
 var health := lanes.get_health_snapshot()
 ```
 
+## 最新状态与完成边界
+
+同一目标不断收到新请求时，先区分“希望达到的状态”“已经接纳并执行的请求”和“已在当前 owner 上应用的状态”。GF 已有的原语分别覆盖这些边界；它们的完成信号不能互相替代。
+
+| 边界 | 已有能力 | 调用方需要保留的判断 |
+| --- | --- | --- |
+| 最新意图 | `GFQuietWindowCoalescer` 可由项目的合并函数保留最后值或折叠字段 | 合并规则与 key 由项目定义；可靠命令不能因“最后值”语义而丢弃 |
+| 执行准入与占用 | `GFAsyncKeyedGate` 的等待请求与 lease 区分排队、接纳和释放 | lease 释放只结束占用，不证明业务效果已应用或持久化 |
+| 当前预览结果 | `GFAssetBrowserModel` 核对预览、目录与查询 generation，并在同步取消或 renderer 回调后复查 | 项目 UI 仍要核对自己的 owner 与显示上下文；模型发布结果不等于 UI 已显示 |
+| 存档物理完成 | `GFStorageAsyncOperation` 分离 caller 与 physical 终态，提供晚到结算诊断 | 接纳后的保存观察取消可能为 `OUTCOME_UNKNOWN`；须保留物理句柄直到结算，不能据此开始相互覆盖的物理任务 |
+| 状态应用 | `GFDeferredMutationQueue` 提供主线程应用点 | 应用前检查当前 owner、generation 和业务后置条件；应用成功、存档成功与远端确认各自记录 |
+
+例如，A 的取消回调重入提交了 C，外层正在提交的 B 必须重新判断自己的 generation，不能继续取代 C。存档请求已接纳后页面离开，caller 终态也不能被晚到成功或 `LIMIT_EXCEEDED` 失败重新开启；物理终态仍负责释放同文件占用和记录真实失败。取消观察不会授权重置文件，也不会把预算失败变成损坏。
+
+需要“已经应用”的确认时，在项目应用函数核对后置条件，再记录应用 generation；需要远端确认时，另保存响应对应的请求身份。单个 `completed`、lease 释放或队列空闲都不能证明这些条件。当前框架没有统一的 latest-state coordinator；优先组合已有原语并验证这些边界，只有出现可复现的共享缺口时再增加机制。
+
 ## 使用边界
 
 这些对象是协议、状态句柄和诊断容器，不是完整任务系统。需要按 requirement 仲裁多任务时使用 `GFRuntimeTaskScheduler`；需要批量聚合 HTTP 或手动异步条目时使用 `GFAsyncBatch`；需要真正的后台线程或 ResourceLoader 加载时使用 `GFBackgroundWorkUtility` 或 `GFAssetUtility`。`GFAsyncProgressAggregator` 只合并调用方喂入的进度，不执行子任务，也不做显示值缓动或最小前进速度；表现层平滑应放在 UI 或项目侧。`GFAsyncFlowTools` 适合局部 retry/each/fold 和少量 completion 组合，不替代项目任务队列；`GFAsyncChannel` 与 `GFAsyncKeyedGate` 是主线程原语；`GFMainThreadDispatchQueue` 是后台线程进入 GF 主线程状态边界的入口，但不替代后台执行器；`GFDeferredMutationQueue` 适合做确定性主线程状态应用点，不替代命令历史或存档事务；`GFQuietWindowCoalescer` 只收集和结批，不保证跨重启投递。需要观察未完成异步句柄时，可在 diagnostics 包中注册并启用 `GFAsyncTrackerUtility`。

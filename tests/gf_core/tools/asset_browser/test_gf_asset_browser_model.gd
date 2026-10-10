@@ -22,6 +22,15 @@ class ImmediateFailRenderer extends GFThumbnailRenderer:
 		return task
 
 
+class PendingRenderer extends GFThumbnailRenderer:
+	var submitted_tasks: Array[GFThumbnailRenderTask] = []
+
+	func submit_render_request(request: GFThumbnailRenderRequest) -> GFThumbnailRenderTask:
+		var task: GFThumbnailRenderTask = GFThumbnailRenderTask.new(request, submitted_tasks.size() + 1)
+		submitted_tasks.append(task)
+		return task
+
+
 class ImmediateSuccessRenderer extends GFThumbnailRenderer:
 	func submit_render_request(request: GFThumbnailRenderRequest) -> GFThumbnailRenderTask:
 		var task: GFThumbnailRenderTask = GFThumbnailRenderTask.new(request, 1)
@@ -506,6 +515,53 @@ func test_preview_requests_cancel_superseded_thumbnail_tasks() -> void:
 		second_task.completed.get_connections().is_empty(),
 		"一次性 completion 连接必须随异步任务终态自动释放。"
 	)
+	renderer.free()
+
+
+func test_preview_cancel_reentry_preserves_the_newest_request_and_only_publishes_it() -> void:
+	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
+	var _catalog_report: Dictionary = model.replace_catalog(_make_catalog([
+		_make_entry(&"mesh", "Mesh"),
+	]))
+	var renderer: PendingRenderer = PendingRenderer.new()
+	var request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.for_mesh_texture(BoxMesh.new())
+	var first_task: GFThumbnailRenderTask = model.request_preview(&"mesh", renderer, request)
+	assert_not_null(first_task)
+	if first_task == null:
+		model.dispose()
+		renderer.free()
+		return
+	var nested_tasks: Array[GFThumbnailRenderTask] = []
+	var published_generations: Array[int] = []
+	var publish_callback: Callable = func(report: Dictionary) -> void:
+		published_generations.append(GFVariantData.get_option_int(report, "preview_generation"))
+	var publish_error: Error = model.preview_resolved.connect(publish_callback) as Error
+	assert_eq(publish_error, OK)
+	var nested_callback: Callable = func(_completed_task: GFThumbnailRenderTask) -> void:
+		nested_tasks.append(model.request_preview(&"mesh", renderer, request))
+	var nested_error: Error = first_task.completed.connect(
+		nested_callback, CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+	assert_eq(nested_error, OK)
+
+	var superseded_outer_task: GFThumbnailRenderTask = model.request_preview(&"mesh", renderer, request)
+	assert_null(superseded_outer_task, "取消 A 的回调提交 C 后，外层 B 已过期，不得提交或取代 C。")
+	assert_true(first_task.is_cancelled())
+	assert_eq(renderer.submitted_tasks.size(), 2, "仅 A、C 应到达 renderer。")
+	assert_eq(nested_tasks.size(), 1)
+	assert_true(published_generations.is_empty(), "A 的取消通知没有当前代际的发布资格。")
+	if nested_tasks.size() == 1 and nested_tasks[0] != null:
+		var current_task: GFThumbnailRenderTask = nested_tasks[0]
+		assert_true(model.get_active_preview_task() == current_task)
+		var current_generation: int = model.get_preview_generation()
+		var preview: Image = Image.create(1, 1, false, Image.FORMAT_RGBA8)
+		assert_false(first_task.succeed(preview), "真实终态任务不能被晚到成功重新开启。")
+		assert_true(current_task.succeed(preview))
+		assert_eq(published_generations, [current_generation])
+		assert_null(model.get_active_preview_task())
+		assert_true(current_task.completed.get_connections().is_empty())
+	model.preview_resolved.disconnect(publish_callback)
+	model.dispose()
 	renderer.free()
 
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="24db02dcf2e097d2e805b08a8bafb30d4bc3075c3ff66dc3f6547a1131e7d6fd" classCount="892" methodCount="8005" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="c522d00ab845667394b97c8b661cabe0614c2594f9c22f4fb8569bdf4fbf7444" classCount="896" methodCount="8023" autoloadCount="1" autoloadMethodCount="65">
 	<module id="kernel" label="Kernel" classCount="78" methodCount="831" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -571,7 +571,7 @@
 		<class name="GFWeightedEntry" path="classes/GFWeightedEntry.xml" sourcePath="addons/gf/standard/foundation/math/gf_weighted_entry.gd" extends="Resource" />
 		<class name="GFWeightedTable" path="classes/GFWeightedTable.xml" sourcePath="addons/gf/standard/foundation/math/gf_weighted_table.gd" extends="Resource" />
 	</module>
-	<module id="extensions/action_queue" label="Action Queue" classCount="17" methodCount="145" autoloadCount="0" autoloadMethodCount="0">
+	<module id="extensions/action_queue" label="Action Queue" classCount="21" methodCount="158" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFAction" path="classes/GFAction.xml" sourcePath="addons/gf/extensions/action_queue/core/gf_action.gd" extends="RefCounted" />
 		<class name="GFActionInterceptionResult" path="classes/GFActionInterceptionResult.xml" sourcePath="addons/gf/extensions/action_queue/core/gf_action_interception_result.gd" extends="RefCounted" />
 		<class name="GFActionInterceptor" path="classes/GFActionInterceptor.xml" sourcePath="addons/gf/extensions/action_queue/core/gf_action_interceptor.gd" extends="RefCounted" />
@@ -585,6 +585,10 @@
 		<class name="GFShaderParameterAction" path="classes/GFShaderParameterAction.xml" sourcePath="addons/gf/extensions/action_queue/actions/gf_shader_parameter_action.gd" extends="GFVisualAction" />
 		<class name="GFTweenActionConfig" path="classes/GFTweenActionConfig.xml" sourcePath="addons/gf/extensions/action_queue/tween/gf_tween_action_config.gd" extends="Resource" />
 		<class name="GFTweenActionStep" path="classes/GFTweenActionStep.xml" sourcePath="addons/gf/extensions/action_queue/tween/gf_tween_action_step.gd" extends="Resource" />
+		<class name="GFTweenNumericTimeline" path="classes/GFTweenNumericTimeline.xml" sourcePath="addons/gf/extensions/action_queue/tween/gf_tween_numeric_timeline.gd" extends="RefCounted" />
+		<class name="GFTweenPreviewAdapter" path="classes/GFTweenPreviewAdapter.xml" sourcePath="addons/gf/extensions/action_queue/editor/gf_tween_preview_adapter.gd" extends="RefCounted" />
+		<class name="GFTweenPreviewRegistration" path="classes/GFTweenPreviewRegistration.xml" sourcePath="addons/gf/extensions/action_queue/editor/gf_tween_preview_registration.gd" extends="RefCounted" />
+		<class name="GFTweenPreviewRegistry" path="classes/GFTweenPreviewRegistry.xml" sourcePath="addons/gf/extensions/action_queue/editor/gf_tween_preview_registry.gd" extends="RefCounted" />
 		<class name="GFTweenReplacementScope" path="classes/GFTweenReplacementScope.xml" sourcePath="addons/gf/extensions/action_queue/tween/gf_tween_replacement_scope.gd" extends="RefCounted" />
 		<class name="GFVisualAction" path="classes/GFVisualAction.xml" sourcePath="addons/gf/extensions/action_queue/actions/gf_visual_action.gd" extends="RefCounted" />
 		<class name="GFVisualActionGroup" path="classes/GFVisualActionGroup.xml" sourcePath="addons/gf/extensions/action_queue/actions/gf_visual_action_group.gd" extends="GFVisualAction" />
@@ -908,7 +912,7 @@
 		<class name="GFTurnPhase" path="classes/GFTurnPhase.xml" sourcePath="addons/gf/extensions/turn_based/resources/gf_turn_phase.gd" extends="Resource" />
 		<class name="GFTurnPhaseCompletionHandle" path="classes/GFTurnPhaseCompletionHandle.xml" sourcePath="addons/gf/extensions/turn_based/runtime/gf_turn_phase_completion_handle.gd" extends="RefCounted" />
 	</module>
-	<module id="tools" label="Tools" classCount="25" methodCount="135" autoloadCount="0" autoloadMethodCount="0">
+	<module id="tools" label="Tools" classCount="25" methodCount="140" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFAssetBrowserModel" path="classes/GFAssetBrowserModel.xml" sourcePath="addons/gf/tools/asset_browser/gf_asset_browser_model.gd" extends="RefCounted" />
 		<class name="GFConfigAccessGenerator" path="classes/GFConfigAccessGenerator.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" extends="RefCounted" />
 		<class name="GFConfigPipeline" path="classes/GFConfigPipeline.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" extends="RefCounted" />
@@ -930,7 +934,7 @@
 		<class name="GFProjectLayoutAnalyzer" path="classes/GFProjectLayoutAnalyzer.xml" sourcePath="addons/gf/tools/project_layout/gf_project_layout_analyzer.gd" extends="RefCounted" />
 		<class name="GFProjectLayoutDock" path="classes/GFProjectLayoutDock.xml" sourcePath="addons/gf/tools/project_layout/editor/gf_project_layout_dock.gd" extends="VBoxContainer" />
 		<class name="GFProjectLayoutPlanner" path="classes/GFProjectLayoutPlanner.xml" sourcePath="addons/gf/tools/project_layout/gf_project_layout_planner.gd" extends="RefCounted" />
-		<class name="GFProjectLayoutValidator" path="classes/GFProjectLayoutValidator.xml" sourcePath="addons/gf/tools/project_layout/gf_project_layout_validator.gd" extends="RefCounted" />
+		<class name="GFProjectLayoutSession" path="classes/GFProjectLayoutSession.xml" sourcePath="addons/gf/tools/project_layout/gf_project_layout_session.gd" extends="RefCounted" />
 		<class name="GFSceneGroupDock" path="classes/GFSceneGroupDock.xml" sourcePath="addons/gf/tools/scene_groups/editor/gf_scene_group_dock.gd" extends="VBoxContainer" />
 		<class name="GFSceneGroupIndex" path="classes/GFSceneGroupIndex.xml" sourcePath="addons/gf/tools/scene_groups/gf_scene_group_index.gd" extends="RefCounted" />
 		<class name="GFScenePlacementOperation" path="classes/GFScenePlacementOperation.xml" sourcePath="addons/gf/tools/scene_placement/gf_scene_placement_operation.gd" extends="GFEditorPickOperation" />

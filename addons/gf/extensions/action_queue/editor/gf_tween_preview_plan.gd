@@ -35,6 +35,11 @@ const _EASING_CURVE_SCRIPT = preload("res://addons/gf/extensions/action_queue/tw
 ## @api private
 const _VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
+## 准入、初值与属性选择器共用的有限原生目录。
+## [br]
+## @api private
+const _RECORDS_SCRIPT = preload("res://addons/gf/extensions/action_queue/tween/gf_tween_property_records.gd")
+
 ## 单份预览计划允许捕获的最多步骤数。
 ## [br]
 ## @api private
@@ -121,8 +126,122 @@ var ping_pong: bool = false
 ## [br]
 ## @return: 始终返回计划，通过 error 判断成功；失败计划没有部分可执行步骤。
 static func capture(config: Resource, target_kind: int) -> GFTweenPreviewPlan:
+	return _capture_properties(config, get_properties(target_kind))
+
+
+## 从精确原生配置捕获受限数值步骤；属性来自已注册描述，不探测来源对象。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param config: 精确原生配置。
+## [br]
+## @param records: 已验证直接数值描述。
+## [br]
+## @schema records: Array[Dictionary]，同 GFTweenNumericTimeline.capture 的 properties。
+## [br]
+## @return: 独立快照，失败无部分步骤。
+static func capture_numeric(config: Resource, records: Array[Dictionary]) -> GFTweenPreviewPlan:
+	var properties: Dictionary = {}
+	var record_error: String = _RECORDS_SCRIPT.validate_numeric(records)
+	if not record_error.is_empty():
+		return _reject(GFTweenPreviewPlan.new(), record_error)
+	for record: Dictionary in records:
+		properties[record["name"]] = record["initial"]
+	var plan: GFTweenPreviewPlan = _capture_properties(config, properties)
+	plan.controlled = true
+	return plan
+
+
+## 从冻结字段创建公共数值 facade 的纯数据输入；不含 Resource、marker 或执行上下文。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return: 独立定义；拒绝计划为空。
+## [br]
+## @schema return: Dictionary，steps: Array[Dictionary]（同本类 steps）、loop_count: int、duration_scale: float=1.0、ping_pong: bool。
+func get_numeric_definition() -> Dictionary:
+	if not error.is_empty():
+		return {}
+	return {"steps": steps.duplicate(true), "loop_count": loop_count, "duration_scale": 1.0, "ping_pong": ping_pong}
+
+
+## 用已验证的纯值快照重建受控配置，不暴露来源资源或 marker。
+## [br]
+## @api framework_internal
+## [br]
+## @return: 全新配置与步骤，时长已缩放，供运行时计划编译。
+func make_controlled_config() -> GFTweenActionConfig:
+	var config: GFTweenActionConfig = GFTweenActionConfig.new()
+	config.enable_playback_control = true
+	config.ping_pong = ping_pong
+	config.loop_count = loop_count
+	for data: Dictionary in steps:
+		var step: GFTweenActionStep = GFTweenActionStep.new()
+		for field: StringName in [&"property_name", &"target_value", &"duration", &"delay", &"as_relative", &"parallel", &"transition_type", &"ease_type"]:
+			step.set(field, data.get(String(field)))
+		step.easing_curve = _EASING_CURVE_SCRIPT.create_curve(_VARIANT_ACCESS_SCRIPT.get_option_dictionary(data, "easing_curve_data"))
+		config.steps.append(step)
+	return config
+
+
+## 返回预览目标的完整初值；每次返回独立字典，不含相互覆盖的角度别名。
+## [br]
+## @api framework_internal
+## [br]
+## @param kind: 0 为 2D，1 为 UI，2 为 3D。
+## [br]
+## @return: 目标初值字典；未知类型返回空字典。
+## [br]
+## @schema return: Dictionary，String 属性名映射到 float、Vector2、Vector3 或 Color 初值；2D 为 position/rotation/scale/modulate/self_modulate，UI 另有 size/pivot_offset，3D 为 position/rotation/scale。
+static func get_initial_values(kind: int) -> Dictionary:
+	return _RECORDS_SCRIPT.get_native_values(kind)
+
+
+## 返回允许预览的顶层属性与其基线值，用于约束目标类型及合法分量路径。
+## [br]
+## @api framework_internal
+## [br]
+## @param kind: 0 为 2D，1 为 UI，2 为 3D。
+## [br]
+## @return: 属性白名单；未知类型返回空字典。
+## [br]
+## @schema return: Dictionary，字段同 get_initial_values()，另外包含 rotation_degrees 的 float 或 Vector3 基线值。
+static func get_properties(kind: int) -> Dictionary:
+	return _RECORDS_SCRIPT.get_native_values(kind, true)
+
+
+## 校验完整属性初值，复用计划的类型、有限值与幅度约束。
+## [br]
+## @api framework_internal
+## [br]
+## @param property_name: get_initial_values() 中的完整属性名；不接受分量或角度别名。
+## [br]
+## @param value: 候选初值。
+## [br]
+## @param kind: 0 为 2D，1 为 UI，2 为 3D。
+## [br]
+## @return: 合法时为空字符串，否则为拒绝原因。
+## [br]
+## @schema value: Variant，须与基线同型或为兼容的 int/float，所有数值分量有限且绝对值不超过 1000000。
+static func validate_initial_value(property_name: StringName, value: Variant, kind: int) -> String:
+	var initial_values: Dictionary = get_initial_values(kind)
+	var property_text: String = String(property_name)
+	if not initial_values.has(property_text):
+		return "不支持该预览初值属性。"
+	return _validate_value(value, initial_values[property_text])
+
+
+# --- 私有/辅助方法 ---
+
+## 捕获完整来源字段，原生与注册数值目录共用精确脚本、预算和类型约束。
+## [br]
+## @api private
+static func _capture_properties(config: Resource, properties: Dictionary) -> GFTweenPreviewPlan:
 	var plan: GFTweenPreviewPlan = GFTweenPreviewPlan.new()
-	var properties: Dictionary = get_properties(target_kind)
 	if properties.is_empty():
 		return _reject(plan, "未知预览目标类型。")
 	if not _has_exact_script(config, _CONFIG_SCRIPT):
@@ -198,99 +317,6 @@ static func capture(config: Resource, target_kind: int) -> GFTweenPreviewPlan:
 	plan.duration_seconds = (completed_groups_seconds + current_group_seconds) * float(loops) * (2.0 if plan.ping_pong else 1.0)
 	return plan
 
-
-## 用已验证的纯值快照重建受控配置，不暴露来源资源或 marker。
-## [br]
-## @api framework_internal
-## [br]
-## @return: 全新配置与步骤，时长已缩放，供运行时计划编译。
-func make_controlled_config() -> GFTweenActionConfig:
-	var config: GFTweenActionConfig = GFTweenActionConfig.new()
-	config.enable_playback_control = true
-	config.ping_pong = ping_pong
-	config.loop_count = loop_count
-	for data: Dictionary in steps:
-		var step: GFTweenActionStep = GFTweenActionStep.new()
-		for field: StringName in [&"property_name", &"target_value", &"duration", &"delay", &"as_relative", &"parallel", &"transition_type", &"ease_type"]:
-			step.set(field, data.get(String(field)))
-		step.easing_curve = _EASING_CURVE_SCRIPT.create_curve(_VARIANT_ACCESS_SCRIPT.get_option_dictionary(data, "easing_curve_data"))
-		config.steps.append(step)
-	return config
-
-
-## 返回预览目标的完整初值；每次返回独立字典，不含相互覆盖的角度别名。
-## [br]
-## @api framework_internal
-## [br]
-## @param kind: 0 为 2D，1 为 UI，2 为 3D。
-## [br]
-## @return: 目标初值字典；未知类型返回空字典。
-## [br]
-## @schema return: Dictionary，String 属性名映射到 float、Vector2、Vector3 或 Color 初值；2D 为 position/rotation/scale/modulate/self_modulate，UI 另有 size/pivot_offset，3D 为 position/rotation/scale。
-static func get_initial_values(kind: int) -> Dictionary:
-	if kind == 2:
-		return {
-			"position": Vector3.ZERO,
-			"rotation": Vector3.ZERO,
-			"scale": Vector3.ONE,
-		}
-	if kind != 0 and kind != 1:
-		return {}
-	var values: Dictionary = {
-		"position": Vector2.ZERO,
-		"rotation": 0.0,
-		"scale": Vector2.ONE,
-		"modulate": Color.WHITE,
-		"self_modulate": Color.WHITE,
-	}
-	if kind == 1:
-		values["size"] = Vector2(64.0, 64.0)
-		values["pivot_offset"] = Vector2(32.0, 32.0)
-	return values
-
-
-## 返回允许预览的顶层属性与其基线值，用于约束目标类型及合法分量路径。
-## [br]
-## @api framework_internal
-## [br]
-## @param kind: 0 为 2D，1 为 UI，2 为 3D。
-## [br]
-## @return: 属性白名单；未知类型返回空字典。
-## [br]
-## @schema return: Dictionary，字段同 get_initial_values()，另外包含 rotation_degrees 的 float 或 Vector3 基线值。
-static func get_properties(kind: int) -> Dictionary:
-	var properties: Dictionary = get_initial_values(kind)
-	if properties.is_empty():
-		return properties
-	if kind == 2:
-		properties["rotation_degrees"] = Vector3.ZERO
-	else:
-		properties["rotation_degrees"] = 0.0
-	return properties
-
-
-## 校验完整属性初值，复用计划的类型、有限值与幅度约束。
-## [br]
-## @api framework_internal
-## [br]
-## @param property_name: get_initial_values() 中的完整属性名；不接受分量或角度别名。
-## [br]
-## @param value: 候选初值。
-## [br]
-## @param kind: 0 为 2D，1 为 UI，2 为 3D。
-## [br]
-## @return: 合法时为空字符串，否则为拒绝原因。
-## [br]
-## @schema value: Variant，须与基线同型或为兼容的 int/float，所有数值分量有限且绝对值不超过 1000000。
-static func validate_initial_value(property_name: StringName, value: Variant, kind: int) -> String:
-	var initial_values: Dictionary = get_initial_values(kind)
-	var property_text: String = String(property_name)
-	if not initial_values.has(property_text):
-		return "不支持该预览初值属性。"
-	return _validate_value(value, initial_values[property_text])
-
-
-# --- 私有/辅助方法 ---
 
 ## 拒绝计划并清除所有已捕获步骤。
 ## [br]
@@ -412,7 +438,7 @@ static func _get_property_baseline(property_path: NodePath, properties: Dictiona
 ## [br]
 ## @api private
 static func _validate_value(value: Variant, baseline: Variant) -> String:
-	if baseline is float:
+	if baseline is float or baseline is int:
 		if not (value is int) and not (value is float):
 			return "目标值必须是与属性兼容的数值。"
 	elif typeof(value) != typeof(baseline):

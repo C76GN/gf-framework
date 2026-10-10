@@ -23,11 +23,16 @@ const _ANALYSIS_CONTRACT_SCRIPT = preload(
 	"res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd"
 )
 
+## 唯一 capture_scope 声明与来源绑定核心。
+## [br]
+## @api private
+const _CAPTURE_SCOPE_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_capture_scope.gd")
+
 ## canonical profile contract 文件的资源路径。
 ## [br]
 ## @api private
 ## [br]
-const _CONTRACT_PATH: String = "res://addons/gf/tools/project_layout/contracts/project_profile_v1.contract.json"
+const _CONTRACT_PATH: String = "res://addons/gf/tools/project_layout/contracts/project_profile_v2.contract.json"
 
 ## canonical contract 的 schema 版本。
 ## [br]
@@ -39,7 +44,7 @@ const _CONTRACT_SCHEMA_VERSION: int = 1
 ## [br]
 ## @api private
 ## [br]
-const _CONTRACT_ID: String = "gf.project_layout.profile.v1"
+const _CONTRACT_ID: String = "gf.project_layout.profile.v2"
 
 # 该值只派生自 canonical contract 原始 bytes，不承载任何 profile 语义；
 # 文件身份漂移时 compiler 与所有 compilation consumer 都必须失败关闭。
@@ -47,7 +52,7 @@ const _CONTRACT_ID: String = "gf.project_layout.profile.v1"
 ## [br]
 ## @api private
 ## [br]
-const _CANONICAL_CONTRACT_SHA256: String = "31384c45fa02238ac6fd1715ea361011ad795fbc3ee8337c581e1e9271c3bb9e"
+const _CANONICAL_CONTRACT_SHA256: String = "a6a5499ef307ba4b255c34f97b51371501bf1952e58cdad75091aa3b29c7a0e9"
 
 ## contract 文件不可用时使用的 bootstrap reason key。
 ## [br]
@@ -194,7 +199,6 @@ const _CONTRACT_FIELDS: PackedStringArray = [
 	"profile_fields",
 	"zone_fields",
 	"rule_common_fields",
-	"rule_compatibility_fields",
 	"rule_kinds",
 	"reason_codes",
 ]
@@ -427,7 +431,7 @@ static func contract_digest_is_canonical_for_framework(contract_digest: String) 
 ## [br]
 ## @param profile: 调用方提供的 schema-v1 profile。
 ## [br]
-## @schema profile: Dictionary，字段契约由 project_profile_v1.contract.json 定义。
+## @schema profile: Dictionary，字段契约由 project_profile_v2.contract.json 定义。
 ## [br]
 ## @param operation_scope: executor ID、operation、Callable rule registry、zone 已执行字段和 unsupported-rule policy。
 ## [br]
@@ -869,7 +873,7 @@ func _contract_is_valid(contract: Dictionary) -> bool:
 	if schema_versions.size() != 1:
 		return false
 	for schema_version: Variant in schema_versions:
-		if not _is_exact_integer(schema_version) or _exact_integer_value(schema_version) != 1:
+		if not _is_exact_integer(schema_version) or _exact_integer_value(schema_version) != 2:
 			return false
 	var domains_value: Variant = contract.get("domains")
 	if not domains_value is Dictionary:
@@ -884,7 +888,7 @@ func _contract_is_valid(contract: Dictionary) -> bool:
 		return false
 	if _to_string_list(domains.get("naming_target")) != _NAMING_TARGET_DOMAIN:
 		return false
-	for field_map_name: String in ["profile_fields", "zone_fields", "rule_common_fields", "rule_compatibility_fields"]:
+	for field_map_name: String in ["profile_fields", "zone_fields", "rule_common_fields"]:
 		var field_map_value: Variant = contract.get(field_map_name)
 		if not field_map_value is Dictionary:
 			return false
@@ -1253,6 +1257,16 @@ func _compile_profile_data(profile: Dictionary, contract: Dictionary, scope: Dic
 		var rules: Array = rules_value
 		compiled_rules = _compile_rules(rules, contract, scope, result)
 	compiled["rules"] = compiled_rules
+	if compiled.has("capture_scope"):
+		var declaration_value: Variant = compiled["capture_scope"]
+		if declaration_value is Dictionary:
+			var declaration: Dictionary = declaration_value
+			var normalized: Dictionary = _CAPTURE_SCOPE_SCRIPT.normalize_declaration(declaration)
+			if normalized["success"]:
+				compiled["capture_scope"] = normalized["declaration"]
+			else:
+				var error: String = normalized["error"]
+				_add_issue(result, "error", "invalid_capture_scope", "PROJECT_LAYOUT_CAPTURE_SCOPE_INVALID", "capture_scope", error, {})
 	return compiled
 
 
@@ -1404,7 +1418,7 @@ func _compile_fields(
 		_add_issue(
 			result,
 			"error",
-			_unsupported_field_legacy_kind(scope_kind),
+			_unsupported_field_kind(scope_kind),
 			_reason(contract, "field_unsupported"),
 			scope_id,
 			"项目结构 profile 包含不受支持的字段。",
@@ -1609,12 +1623,12 @@ func _canonicalize_string_list_value(value: String, field_type: String) -> Strin
 	return canonical_value
 
 
-## 新建规则字段映射，依次合并公共、兼容和具体规则描述，后者覆盖同名项；描述符值沿用契约引用。
+## 新建规则字段映射，依次合并公共和具体规则描述，后者覆盖同名项；描述符值沿用契约引用。
 ## [br]
 ## @api private
 func _rule_field_definitions(contract: Dictionary, rule_kind: String) -> Dictionary:
 	var result: Dictionary = {}
-	for map_name: String in ["rule_common_fields", "rule_compatibility_fields"]:
+	for map_name: String in ["rule_common_fields"]:
 		var field_map: Dictionary = _get_dictionary(contract, map_name)
 		for field_value: Variant in field_map.keys():
 			result[field_value] = field_map[field_value]
@@ -1818,10 +1832,10 @@ func _reason(contract: Dictionary, reason_key: String) -> String:
 	return _get_string(reason_codes, reason_key, _BOOTSTRAP_REASON_CONTRACT_INVALID)
 
 
-## 按 profile、zone 或 rule 范围选择既有未知字段问题种类，保持旧报告消费者的分类。
+## 按 profile、zone 或 rule 范围选择既有未知字段问题种类，选择稳定问题分类。
 ## [br]
 ## @api private
-func _unsupported_field_legacy_kind(scope_kind: String) -> String:
+func _unsupported_field_kind(scope_kind: String) -> String:
 	if scope_kind == "zone":
 		return "unsupported_zone_field"
 	if scope_kind == "rule":
@@ -1832,7 +1846,7 @@ func _unsupported_field_legacy_kind(scope_kind: String) -> String:
 ## 根据范围、字段名及缺失原因映射兼容问题种类，保留旧整数、布尔、列表和命名字段的分类约定。
 ## [br]
 ## @api private
-func _legacy_field_kind(scope_kind: String, field_name: String, reason_key: String) -> String:
+func _field_issue_kind(scope_kind: String, field_name: String, reason_key: String) -> String:
 	if field_name == "schema_version" or field_name == "max_files":
 		return "invalid_integer_field"
 	if scope_kind == "profile" and field_name == "id":
@@ -1869,7 +1883,7 @@ func _add_field_issue(
 	_add_issue(
 		result,
 		"error",
-		_legacy_field_kind(scope_kind, field_name, reason_key),
+		_field_issue_kind(scope_kind, field_name, reason_key),
 		_reason(contract, reason_key),
 		scope_id,
 		"项目结构 profile 字段缺失、类型错误或值无效。",
@@ -1902,11 +1916,11 @@ func _add_relative_path_issue(
 ## [br]
 ## @api private
 func _add_regex_issue(contract: Dictionary, result: Dictionary, scope_id: String, field_name: String) -> void:
-	var legacy_kind: String = "invalid_feature_id_pattern" if field_name == "feature_id_pattern" else "invalid_naming_pattern"
+	var issue_kind: String = "invalid_feature_id_pattern" if field_name == "feature_id_pattern" else "invalid_naming_pattern"
 	_add_issue(
 		result,
 		"error",
-		legacy_kind,
+		issue_kind,
 		_reason(contract, "regex_invalid"),
 		scope_id,
 		"项目结构 profile 正则无法编译。",
@@ -1924,7 +1938,7 @@ func _add_regex_unsafe_issue(
 	field_name: String,
 	portable_reason: String
 ) -> void:
-	var legacy_kind: String = (
+	var issue_kind: String = (
 		"invalid_feature_id_pattern"
 		if field_name == "feature_id_pattern"
 		else "invalid_naming_pattern"
@@ -1932,7 +1946,7 @@ func _add_regex_unsafe_issue(
 	_add_issue(
 		result,
 		"error",
-		legacy_kind,
+		issue_kind,
 		_reason(contract, "regex_unsafe"),
 		scope_id,
 		"项目结构 profile 正则不属于 portable-safe-v1 安全子集。",

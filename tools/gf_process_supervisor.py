@@ -4550,6 +4550,21 @@ class _BinarySpawnOperation:
 			self._state_lock.release()
 		if error is not None:
 			status = self.snapshot_before_deadline(deadline)
+			# Quiet cleanup alone does not prove that no child was ever created.
+			# Preserve the text supervisor's typed start contract only with the
+			# terminal spawn owner's explicit no-child history and no cleanup debt.
+			if (
+				isinstance(error, (FileNotFoundError, PermissionError))
+				and owner is not None
+				and process is None
+				and owner._started_process is None
+				and owner._process_was_created is False
+				and owner.cleanup_failed is False
+				and owner.is_closed() is True
+				and _binary_cleanup_status_is_quiet(status)
+				and not exception_has_cleanup_debt(error)
+			):
+				raise SupervisedProcessStartError(error) from error
 			_raise_binary_original_or_cleanup_debt(
 				error,
 				error_traceback,

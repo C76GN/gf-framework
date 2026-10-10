@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 常量 | [`EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH`](#member-gfprojectlayoutplanner-constants-example_feature_cohesive_profile_path) | `const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"` |
+| 常量 | [`EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH`](#member-gfprojectlayoutplanner-constants-example_feature_cohesive_profile_path) | `const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json"` |
 | 方法 | [`plan_example_profile`](#member-gfprojectlayoutplanner-methods-plan_example_profile) | `func plan_example_profile(source_analysis: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`plan_profile_path`](#member-gfprojectlayoutplanner-methods-plan_profile_path) | `func plan_profile_path( profile_path: String, source_analysis: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`plan_profile`](#member-gfprojectlayoutplanner-methods-plan_profile) | `func plan_profile( profile: Dictionary, source_analysis: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
@@ -31,7 +31,7 @@
 - 首次版本：`11.0.0`
 
 ```gdscript
-const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"
+const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json"
 ```
 
 Feature 内聚式项目结构示例 profile 路径。

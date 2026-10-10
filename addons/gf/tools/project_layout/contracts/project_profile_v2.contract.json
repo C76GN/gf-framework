@@ -1,10 +1,20 @@
 {
   "contract_schema_version": 1,
-  "contract_id": "gf.project_layout.profile.v1",
-  "profile_schema_versions": [1],
+  "contract_id": "gf.project_layout.profile.v2",
+  "profile_schema_versions": [
+    2
+  ],
   "domains": {
-    "severity": ["error", "warning", "info"],
-    "naming_target": ["path", "name", "stem"]
+    "severity": [
+      "error",
+      "warning",
+      "info"
+    ],
+    "naming_target": [
+      "path",
+      "name",
+      "stem"
+    ]
   },
   "semantics": {
     "regex_match_mode": "search",
@@ -62,6 +72,9 @@
     "rules": {
       "type": "object_array",
       "required": true
+    },
+    "capture_scope": {
+      "type": "object"
     },
     "metadata": {
       "type": "object"
@@ -126,22 +139,6 @@
     },
     "metadata": {
       "type": "object"
-    }
-  },
-  "rule_compatibility_fields": {
-    "paths": {
-      "type": "relative_path_list",
-      "allow_empty": true,
-      "requires_capability": true
-    },
-    "any": {
-      "type": "bool",
-      "requires_capability": true
-    },
-    "extensions": {
-      "type": "extension_list",
-      "allow_empty": true,
-      "requires_capability": true
     }
   },
   "rule_kinds": {

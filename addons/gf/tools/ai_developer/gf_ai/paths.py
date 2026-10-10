@@ -162,7 +162,7 @@ def read_bounded_bytes(path: Path, max_bytes: int) -> bytes:
 	if not stat.S_ISREG(before.st_mode):
 		raise ValueError(f"Path is not a regular file: {path}")
 	if before.st_size > max_bytes:
-		raise ValueError(f"File exceeds the {max_bytes}-byte budget: {path}")
+		raise ValueError(f"File exceeds the {max_bytes}-byte budget (actual={before.st_size}, limit={max_bytes}): {path}")
 	try:
 		with path.open("rb") as stream:
 			opened_before = os.fstat(stream.fileno())
@@ -172,7 +172,7 @@ def read_bounded_bytes(path: Path, max_bytes: int) -> bytes:
 	except OSError as exc:
 		raise ValueError(f"File is unreadable: {path}: {exc}") from exc
 	if len(raw) > max_bytes:
-		raise ValueError(f"File exceeds the {max_bytes}-byte budget: {path}")
+		raise ValueError(f"File exceeds the {max_bytes}-byte budget (observed_at_least={len(raw)}, limit={max_bytes}): {path}")
 	if not (
 		_same_file_snapshot(before, opened_before)
 		and _same_file_snapshot(opened_before, opened_after)

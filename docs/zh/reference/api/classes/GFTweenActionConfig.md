@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 属性 | [`steps`](#member-gftweenactionconfig-properties-steps) | `var steps: Array[GFTweenActionStep] = []` |
-| 属性 | [`duration_scale`](#member-gftweenactionconfig-properties-duration_scale) | `var duration_scale: float:` |
+| 属性 | [`duration_scale`](#member-gftweenactionconfig-properties-duration_scale) | `var duration_scale: float = 1.0:` |
 | 属性 | [`loop_count`](#member-gftweenactionconfig-properties-loop_count) | `var loop_count: int = 1` |
 | 属性 | [`enable_playback_control`](#member-gftweenactionconfig-properties-enable_playback_control) | `var enable_playback_control: bool = false` |
 | 属性 | [`ping_pong`](#member-gftweenactionconfig-properties-ping_pong) | `var ping_pong: bool = false` |
@@ -61,7 +61,7 @@ Tween 步骤列表。
 - 首次版本：`3.17.0`
 
 ```gdscript
-var duration_scale: float:
+var duration_scale: float = 1.0:
 ```
 
 全局时长缩放。

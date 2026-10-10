@@ -2,10 +2,13 @@
 
 ## [未发布]
 
-**版本概述**：重做节点对象池的借还生命周期，解决物理碰撞回调中归还节点的引擎错误，以及弹幕复用时被提前回收的问题。调用方式统一为异步借用结果与一次性 Lease；不保留旧接口兼容层。新增场景组查询工具，可在编辑器中查找已保存的 Group 声明并定位来源节点。Flow 图编辑支持撤销与重做，Resource 表格支持只应用已编辑分量的多选属性编辑。运行期新增手动输入路由、有限存储读写预算、规范序列化测量与增量哈希、历史状态通知和字段输入会话。本次为下一主版本的开发变更，尚未正式发布。
+**版本概述**：重做节点对象池的借还生命周期，解决物理碰撞回调中归还节点的引擎错误，以及弹幕复用时被提前回收的问题。调用方式统一为异步借用结果与一次性 Lease；不保留旧接口兼容层。新增场景组查询工具，可在编辑器中查找已保存的 Group 声明并定位来源节点。Flow 图编辑支持撤销与重做，Resource 表格支持只应用已编辑分量的多选属性编辑。运行期新增手动输入路由、有限存储读写预算、规范序列化测量与增量哈希、历史状态通知和字段输入会话。制作期统一 Project Layout 的 GDScript 分析权威与排除范围，开放有限数值 Tween 样机，并修正 AI 前置条件诊断和验证预算。本次为下一主版本的开发变更，尚未正式发布。
 
 ### 🚀 新增特性 (Added)
 
+- [Tween 数值时间线与自定义预览](extensions/action-queue/tween-numeric-preview.md) 提供只接收显式数值属性的冻结时间线，以及带所有者、容量和释放句柄的预览适配器注册。Inspector 可选择原生样机或已注册样机，选择器来自同一份属性记录；`gf.action_queue` 的 `extension_version` 升为 `2.8.0`。
+- [Project Layout](editor/tools/project-layout.md) 支持显式声明生成证据和可丢弃目录的排除范围；排除在文件预算前生效，报告标注覆盖边界，必需源码、结构和配置来源不能被排除隐藏。
+- [AI Developer](editor/tools/ai-developer.md) 支持最多 256 条有限验证检查，验证描述总量限制为 256 KiB、参数总数限制为 4096，并报告实际数量和对应上限。
 - 输入映射支持完整初始化后的手动事件路由，由宿主管理输入、tick 与失焦清理，避免重复接收全局事件。
 - 规范 Variant 序列化支持精确预算测量，以及快速和增量两个 SHA-256 入口；增量路径分块处理 Packed 数组，保持既有规范字节与字典排序。
 - 命令历史提供有界的状态快照与变化通知，UI 可观察忙碌、成功、失败与容量变化，不必读取命令栈。
@@ -46,6 +49,8 @@
 
 ### 🔄 机制更改 (Changed)
 
+- Project Layout 的规则准入、九类规则与 zone 评估、来源捕获和分析统一由 GDScript 会话执行。配置升级为 schema 2；编辑器无需额外解释器，项目声明锚定实际来源根，切换扫描目录不能重新解释原有排除。
+- AI Developer 的快照与工具协议升级为 v9。无效前置输入对应的源码或政策状态明确标记为未知，报告保留根因，只有证据充分的问题进入可执行计数。
 - Storage 的业务文件与解析前明文默认分别限制为 64 MiB；字典保存先检查完整明文和最终编码文件，再提交同一份字节，避免保存成功却超出本请求两项字节预算。项目可显式调高正数上限，预算失败不会获得损坏文件的重置授权。
 
 - 项目初始化工具移除默认计数器模板及其全局类型声明，新项目默认目录改为 `res://app/`；README 按需生成，生成后的入口与 Installer 属于项目源码。框架升级不重写项目源码，Model、System 及可选能力继续通过已有模板和所属工具添加。
@@ -72,6 +77,9 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复非工具脚本 Resource 在 Inspector 占位模式下，把省略的 Tween 时长缩放与步骤时长读成零的问题；显式导出默认值与运行时一致，资源中显式保存的零仍表示瞬时完成。
+- 修复 AI Developer 在契约或能力目录不可用时，衍生出大量缺能力建议的问题；一次上下文构建复用同一份已捕获的前置输入。
+- 修复 Project Layout 将声明的子目录捕获范围错误绑定到项目根的问题；省略实际捕获根时由已编译声明推导，显式不一致的根仍拒绝。
 - 控件输入会话取消时核验实际值与原文是否恢复到基线，原生范围或选项变化导致恢复失败时如实返回失败；SpinBox 的延期文本校正不会覆盖宿主后来修改的数值。
 
 - 修复资源工作台按路径扩大所选资产身份的问题，以及编辑标签和备注时丢失已有共享条目的自定义字段；目录和条目 Resource 支持从磁盘重新打开后的编辑器操作，选择、Undo / Redo 和显式保存保留各条目的独立数据。
@@ -119,11 +127,15 @@
 
 ### ⚠️ 废弃与移除 (Deprecated/Removed)
 
+- 删除 Project Layout 的 Python 规则解释器及 legacy、shadow 迁移模式；维护命令只负责把输入交给同一个 GDScript 会话。
 - 移除同步节点借用、按裸节点归还、`before_add` 回调及池专用节点启停钩子。
 - 移除 `GFObjectPoolPrewarmOperation` 及其 `progressed` / `completed` 信号和多套预热入口。独立公开的弹幕发射策略 Task 改为内部实现。
 
 ### 🔧 API 变动说明 (API Changes)
 
+- Project Layout 只接受 profile、snapshot 和 analysis 的 schema 2；旧 profile schema 1 和 `--profile-mode` 选项已移除。声明范围、来源根与保护集合进入分析身份，不能把旧报告拼接成新报告。
+- 新增 `GFTweenNumericTimeline` 数值捕获与采样接口，以及 `GFTweenPreviewAdapter`、注册目录和一次性注册句柄；内部播放计划继续作为实现细节。
+- AI Developer 只输出 snapshot v9，工具协议为 `9.0.0`；快照包含未知来源和未分类政策的闭合统计字段。
 - `GFStorageUtility` 新增 `max_read_bytes`；`GFStorageCodec.max_decompressed_bytes` 及同名选项改为统一的 `max_decode_bytes`，同时约束压缩与普通文件的解析前明文及编码时完整文档明文。两项预算均默认 64 MiB 且须为正数；异步读写使用入队配置快照。新增 `GFStorageCodec.encode_result()` 闭合的 `{ok, error, bytes}`；`GFStorageReadResult.FailureKind` 和 `GFStorageAsyncResult.WriteFailureKind` 新增 `LIMIT_EXCEEDED`，压缩解码无法区分损坏与限额时保守拒绝重置授权。明文字节预算不等同于 Variant 堆内存上限。
 - `GFInputMappingUtility` 新增 `automatic_input_routing`，关闭时仍正常执行初始化与依赖生命周期。
 - `GFDeterministicVariantSerializer` 新增 `measure_canonical()` 与 `sha256_incremental()`。`sha256()` 在预算预检后构建规范树并使用原生快速哈希；增量入口分块编码与哈希，避免构建整棵规范树及完整 JSON。两者保持相同规范摘要与预算合同；增量路径的字典键排序仍保留规范键文本。
@@ -157,6 +169,9 @@
 
 ### 📘 升级指南 (Migration Guide)
 
+- Project Layout 配置将 `schema_version` 改为 `2` 后，按当前规则闭合字段重新校验；需要排除生成目录时显式填写 `capture_scope`，并保留必需源码、结构和 profile 来源。重新捕获 snapshot 和 analysis，不能只修改旧报告的版本号。
+- AI Developer 安装本版后重新生成 v9 快照；若旧输出文件为 v8，先选择新输出路径或删除旧生成快照，再运行当前快照命令。不要复制旧统计字段或继续使用旧协议的输出作为依据。
+- 自定义 Tween 预览先显式注册有限数值 descriptor 和工具自有样机适配器，并持有注册句柄；退出时释放。运行时使用数值时间线时显式传入初值和范围，避免把项目 Node、资源加载或业务逻辑带入纯数值捕获。
 1. 给节点借用与弹幕发射调用增加 `await`；节点借用的第三个参数必须传接收方 `lifetime_owner`（通常是 `self`），初始化数据移到第四个参数。检查结果成功后再使用节点或 Session。不要保留旧 Task 或监听已移除的预热 Operation 信号。
 2. 每次借用保存对应 Lease，用 Lease 归还，不再用节点引用作为回收凭证。归还后立即停止访问此前保存的裸节点引用。
 3. 将 `before_add` 和旧池启停钩子的每次初始化迁到根节点的 `on_gf_pool_prepare(context)`；进入/退出时的注册与清理由 Godot 生命周期负责。`_ready()` 默认只执行首次，不能当成每次借用的初始化。

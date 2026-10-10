@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
-  "id": "gf.project_layout.feature_cohesive.v1",
+  "schema_version": 2,
+  "id": "gf.project_layout.feature_cohesive.v2",
   "display_name": "GF Feature-Cohesive Project Layout",
   "description": "Optional GF project profile for feature-cohesive game project organization.",
   "zones": [

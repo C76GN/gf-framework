@@ -10,6 +10,7 @@ ActionQueue 扩展负责表现动作的排队、并行、取消和横切拦截�
 - [命名队列与生命周期](queue-streams.md)：多条表现流、节点绑定队列、清空、跳过和运行时控制。
 - [拦截器与动作工厂](interceptors-actions/index.md)：`GFActionInterceptor`、内置动作、`GFAction` 工厂和等待语义。
 - [配置化 Tween 动作](tween-config.md)：步骤校验、曲线、运行时定位与往返、同属性替换和 Inspector 预览。
+- [数值时间轴与预览样机](tween-numeric-preview.md)：纯数值采样、有限属性目录与项目自定义预览注册。
 
 ## 使用边界
 

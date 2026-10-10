@@ -696,6 +696,82 @@ func test_automatic_threadless_accepted_cancel_preserves_physical_and_same_file_
 	assert_eq(GFVariantData.get_option_int(loaded.payload, "generation", -1), 2)
 
 
+func test_automatic_threadless_late_budget_failure_keeps_caller_terminal_and_releases_lane() -> void:
+	var storage: AutomaticCooperativeStorageUtility = _use_automatic_cooperative_storage()
+	storage.max_async_thread_count = 1
+	for budget_kind: String in ["plaintext", "physical"]:
+		var file_name: String = "late-budget/" + budget_kind + ".json"
+		assert_eq(storage.save_data(file_name, { "generation": 0 }), OK)
+		var descriptor: Dictionary = (
+			_GF_STORAGE_FAMILY_STORE_SCRIPT.make_family_descriptor_for_framework(
+				_storage_root_path, file_name
+			)
+		)
+		var final_path: String = GFVariantData.get_option_string(descriptor, "payload_path")
+		assert_false(final_path.is_empty())
+		var original_bytes: PackedByteArray = FileAccess.get_file_as_bytes(final_path)
+		assert_false(original_bytes.is_empty())
+		if budget_kind == "plaintext":
+			storage.codec.max_decode_bytes = 1
+		else:
+			storage.max_read_bytes = 1
+		var primary: GFStorageAsyncOperation = _request_save(
+			file_name, { "generation": 1 }, _new_options()
+		)
+		assert_not_null(primary)
+		if primary == null:
+			continue
+		var caller_notifications: Array[int] = []
+		var physical_notifications: Array[int] = []
+		var caller_error: Error = primary.caller_completed.connect(
+			func(_result: GFStorageAsyncCallerResult) -> void:
+				caller_notifications.append(1),
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
+		var physical_error: Error = primary.completed.connect(
+			func(_result: GFStorageAsyncResult) -> void:
+				physical_notifications.append(1),
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
+		assert_eq(caller_error, OK)
+		assert_eq(physical_error, OK)
+		storage.tick(0.0)
+		assert_true(primary.is_pending(), "已接纳的 cooperative 请求尚未执行编码。")
+		assert_true(primary.cancel_observation(&"view_replaced"))
+		_assert_caller_terminal(primary, "OUTCOME_UNKNOWN", "EXPLICIT_CANCEL", &"view_replaced")
+		storage.codec.max_decode_bytes = 64 * 1024 * 1024
+		storage.max_read_bytes = 64 * 1024 * 1024
+		var follower: GFStorageAsyncOperation = _request_save(
+			file_name, { "generation": 2 }, _new_options()
+		)
+		assert_not_null(follower)
+		assert_eq(storage._async_queue.size(), 1)
+
+		storage.tick(0.0)
+		_assert_physical_terminal(primary, "DOMAIN_RESULT", ERR_OUT_OF_MEMORY, false)
+		assert_eq(primary.get_result().get_write_failure_kind(), GFStorageAsyncResult.WriteFailureKind.LIMIT_EXCEEDED)
+		_assert_caller_terminal(primary, "OUTCOME_UNKNOWN", "EXPLICIT_CANCEL", &"view_replaced")
+		assert_eq(caller_notifications, [1], "晚到失败不得重新发送或改写 caller 终态。")
+		assert_eq(physical_notifications, [1])
+		assert_eq(FileAccess.get_file_as_bytes(final_path), original_bytes, "预算拒绝不能提交本次保存。")
+		var diagnostics: Array[Dictionary] = storage.get_late_settlement_diagnostics()
+		assert_eq(diagnostics.size(), 1 if budget_kind == "plaintext" else 2)
+		var diagnostic: Dictionary = diagnostics[-1]
+		assert_eq(GFVariantData.get_option_int(diagnostic, "request_id"), primary.get_request_id())
+		assert_false(GFVariantData.get_option_bool(diagnostic, "physical_ok"))
+		assert_eq(GFVariantData.get_option_int(diagnostic, "physical_error_code"), ERR_OUT_OF_MEMORY)
+		assert_eq(GFVariantData.get_option_int(diagnostic, "write_failure_kind"), GFStorageAsyncResult.WriteFailureKind.LIMIT_EXCEEDED)
+		assert_eq(storage._async_file_locks.size(), 1, "失败结算后接纳 follower，但不提前执行它。")
+		storage.tick(0.0)
+		_assert_physical_terminal(follower, "DOMAIN_RESULT", OK, true)
+		assert_true(storage._async_file_locks.is_empty())
+		assert_true(storage._async_tasks.is_empty())
+		var loaded: GFStorageReadResult = storage.load_data(file_name)
+		assert_true(loaded.ok)
+		assert_eq(GFVariantData.get_option_int(loaded.payload, "generation", -1), 2)
+	assert_eq(storage.thread_start_call_count, 0)
+
+
 func test_automatic_threadless_accepted_deadline_precedes_physical_settlement() -> void:
 	if not _lifecycle_scenarios_ready():
 		return

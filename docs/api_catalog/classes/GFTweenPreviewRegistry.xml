@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFTweenPreviewRegistry" path="addons/gf/extensions/action_queue/editor/gf_tween_preview_registry.gd" module="extensions/action_queue" extends="RefCounted" classDigest="96643fa76affb213bd53774d0c09ba2a704e0105b4d455f063a8635405b2f585">
+	<description>GFTweenPreviewRegistry: 显式选择的有界数值预览适配器目录。
+owner 使用弱引用；ID 不自动覆盖，内置样机不进入此目录。注册不读取来源或执行适配器。
+工具插件应持有返回句柄并在退出时 release；owner 失效与租约变化使旧会话失效。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">editor_api</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="changed">
+			<signature>signal changed</signature>
+			<description>目录有实际增删时发出；观察者应重新获取独立快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_shared">
+			<signature>static func get_shared() -&gt; GFTweenPreviewRegistry:</signature>
+			<description>获取原生 Tween Inspector 与步骤选择器使用的共享目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">共享注册表；不在此处自动发现或执行项目脚本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="register_adapter">
+			<signature>func register_adapter(owner: Object, descriptor: Dictionary, adapter: GFTweenPreviewAdapter) -&gt; GFTweenPreviewRegistration:</signature>
+			<description>注册完整描述；重复 ID、无效 owner 或超出 32 个适配器预算时整组拒绝。
+revision 改变须先释放旧句柄再重新注册，不做隐式优先级选择。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 有效弱持有者；通常为项目 EditorPlugin。</tag>
+				<tag name="param">descriptor: 闭合纯值描述。</tag>
+				<tag name="param">adapter: 受信任的隔离样机实现，不应强持 owner 或来源配置。</tag>
+				<tag name="return">成功所有权句柄；拒绝返回 null，不产生部分注册。</tag>
+				<tag name="schema">descriptor: Dictionary，恰含 id: String（1..64 字符标识符）、revision: int（1..2147483647）、label: String（1..96 字符）、properties: Array[Dictionary]（结构同 GFTweenNumericTimeline.capture 的 properties）。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_descriptors">
+			<signature>func get_descriptors() -&gt; Array[Dictionary]:</signature>
+			<description>获取全部有效描述，不暴露 owner、adapter 或内部租约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">最多 32 项独立描述，按 ID 字典序排序。</tag>
+				<tag name="schema">return: Array[Dictionary]，每项同 register_adapter 的 descriptor。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_property_records">
+			<signature>func get_property_records(adapter_id: StringName, query: String = "") -&gt; Array[Dictionary]:</signature>
+			<description>搜索显式适配器的有限属性目录；不触发样机或来源 getter。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">adapter_id: 已注册 ID。</tag>
+				<tag name="param">query: 大小写无关子串，最多 128 字符。</tag>
+				<tag name="return">独立匹配记录；失效 ID 或超限搜索为空。</tag>
+				<tag name="schema">return: Array[Dictionary]，name: String、type: int、initial: int/float、minimum/maximum: int/float、source: String、supported: bool、reason: String。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

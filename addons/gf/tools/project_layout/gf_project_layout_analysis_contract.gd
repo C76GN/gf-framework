@@ -6,6 +6,11 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 共用来源声明准入与 binding 身份验证。
+## [br]
+## @api private
+const _CAPTURE_SCOPE_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_capture_scope.gd")
+
 ## validate_and_index 接受的顶层 analysis 字段名。
 ## [br]
 ## @api private
@@ -61,6 +66,11 @@ const _SCOPE_FIELDS: PackedStringArray = [
 	"max_scanned_files",
 	"max_scanned_directories",
 	"max_scan_depth",
+	"capture_scope",
+	"source_root",
+	"protected_roots",
+	"profile_source_path",
+	"policy_digest",
 ]
 
 ## 本类接收的 inventory 字典字段名集合。
@@ -177,6 +187,8 @@ const _RULE_RESULT_FIELDS: PackedStringArray = [
 	"checked_count",
 	"issue_count",
 	"success",
+	"evaluation_status",
+	"coverage",
 ]
 
 ## capability 字典的闭合字段名集合。
@@ -520,7 +532,7 @@ static func data_string_length_is_admissible(value: String) -> bool:
 ## [br]
 ## @param inventory: Analyzer 内部库存，包含 scope、capture_status、complete、root_observed、directories 和 files。
 ## [br]
-## @schema inventory: Dictionary，精确包含 scope、capture_status、complete、root_observed、directories 和 files；scope 精确包含 kind、root_path、include_hidden、excluded_prefixes 与三项捕获预算。
+## @schema inventory: Dictionary，精确包含 scope、capture_status、complete、root_observed、directories 和 files；scope 精确包含 kind、root_path、include_hidden、excluded_prefixes、max_scanned_files、max_scanned_directories、max_scan_depth、capture_scope、source_root、protected_roots、profile_source_path、policy_digest。
 ## [br]
 ## @param checkpoint: 可选的零参数协作式执行检查。
 ## [br]
@@ -563,7 +575,7 @@ func build_inventory_attachment(
 	if digest.is_empty():
 		return {}
 	var graph: Dictionary = {
-		"schema_version": 1,
+		"schema_version": 2,
 		"kind": "project_layout_graph",
 		"complete": complete,
 		"capture_status": capture_status,
@@ -644,7 +656,7 @@ func build_inventory_attachment(
 ## [br]
 ## @param checkpoint: 可选的零参数协作式执行检查。
 ## [br]
-## @schema scope: Dictionary，精确包含 kind、root_path、include_hidden、excluded_prefixes、max_scanned_files、max_scanned_directories 和 max_scan_depth。
+## @schema scope: Dictionary，精确包含 kind、root_path、include_hidden、excluded_prefixes、max_scanned_files、max_scanned_directories、max_scan_depth、capture_scope、source_root、protected_roots、profile_source_path、policy_digest。
 ## [br]
 ## @return: 64 位小写 SHA-256。
 func inventory_digest(
@@ -774,18 +786,18 @@ func validate_and_index(
 		_add_validation_error(result, "analysis_schema_invalid", "analysis", "analysis 顶层字段必须精确闭合。")
 		return result
 	if (
-		analysis.get("schema_version") != 1
+		analysis.get("schema_version") != 2
 		or analysis.get("kind") != "project_layout_analysis"
 	):
 		_add_validation_error(result, "analysis_identity_invalid", "analysis", "analysis schema_version 或 kind 无效。")
 		return result
 	var root_path_value: Variant = analysis.get("root_path")
 	if not root_path_value is String:
-		_add_validation_error(result, "analysis_root_invalid", "root_path", "analysis root_path 必须是规范 res:// 根或子根。")
+		_add_validation_error(result, "analysis_root_invalid", "root_path", "analysis root_path 必须是规范 res:// 或绝对本地根。")
 		return result
 	var root_path: String = root_path_value
 	if not _is_canonical_root(root_path):
-		_add_validation_error(result, "analysis_root_invalid", "root_path", "analysis root_path 必须是规范 res:// 根或子根。")
+		_add_validation_error(result, "analysis_root_invalid", "root_path", "analysis root_path 必须是规范 res:// 或绝对本地根。")
 		return result
 	var graph_value: Variant = analysis.get("graph")
 	if not graph_value is Dictionary:
@@ -855,6 +867,8 @@ func _inventory_digest_admitted(
 		"scope.kind=%s" % _string(scope, "kind"),
 		"scope.root_path=%s" % _string(scope, "root_path"),
 		"scope.include_hidden=%s" % str(_bool(scope, "include_hidden")),
+		"scope.policy_digest=%s" % _string(scope, "policy_digest"),
+		"scope.source_root=%s" % _string(scope, "source_root"),
 	])
 	for excluded_prefix: String in excluded_prefixes:
 		if not _consume_inventory_digest_work(checkpoint, validation_result):
@@ -1350,6 +1364,10 @@ func _inventory_values_are_admissible(
 		"max_scanned_directories": max_directories_value,
 		"max_scan_depth": max_depth_value,
 	}
+	for field: String in ["capture_scope", "source_root", "protected_roots", "profile_source_path", "policy_digest"]:
+		normalized_scope[field] = scope[field]
+	if not _CAPTURE_SCOPE_SCRIPT.binding_is_valid(_binding_from_scope(normalized_scope)):
+		return false
 	var envelope: Dictionary = {
 		"root_path": root_path,
 		"scope": normalized_scope,
@@ -1688,7 +1706,7 @@ func _validate_graph(
 		_add_validation_error(result, "graph_schema_invalid", "graph", "graph 字段必须精确闭合。")
 		return graph_state
 	if (
-		graph.get("schema_version") != 1
+		graph.get("schema_version") != 2
 		or graph.get("kind") != "project_layout_graph"
 		or graph.get("dependency_coverage") != "filesystem_only"
 		or not graph.get("complete") is bool
@@ -1799,13 +1817,14 @@ func _validate_scope(
 			"graph.scope",
 			"scope 捕获预算必须落在共享 inventory envelope 内。"
 		)
+	if not _CAPTURE_SCOPE_SCRIPT.binding_is_valid(_binding_from_scope(scope)):
+		_add_validation_error(result, "scope_policy_invalid", "graph.scope", "scope 声明、来源映射或摘要无效。")
 	if complete:
 		if not _consume_validation_work(result, excluded_prefixes.size()):
 			return
-		var normalized_exclusions: PackedStringArray = _string_list(scope, "excluded_prefixes")
 		if (
 			scope.get("include_hidden") != true
-			or normalized_exclusions != _PROJECT_SOURCE_EXCLUDED_PREFIXES
+			or not _CAPTURE_SCOPE_SCRIPT.binding_is_valid(_binding_from_scope(scope))
 		):
 			_add_validation_error(result, "complete_scope_not_authoritative", "graph.scope", "完整 graph 必须使用权威 project_source scope。")
 
@@ -2342,7 +2361,7 @@ func _validate_findings(
 			_add_validation_error(result, "finding_count_mismatch", "%s_count" % severity, "finding severity count 与顶层计数不一致。")
 
 
-## 逐条检查闭合规则结果、唯一 ID、非负精确整数计数和严重级别，并要求 success 与 issue_count 为零严格一致。
+## 检查闭合规则结果与精确计数；覆盖必须回指冻结捕获声明，零检查不能报告成功。
 ## [br]
 ## @api private
 func _validate_rule_results(analysis: Dictionary, result: Dictionary) -> void:
@@ -2352,6 +2371,15 @@ func _validate_rule_results(analysis: Dictionary, result: Dictionary) -> void:
 		return
 	var rule_results: Array = values
 	var ids: Dictionary = {}
+	var scope: Dictionary = _dictionary(_dictionary(analysis, "graph"), "scope")
+	var declaration: Dictionary = _dictionary(scope, "capture_scope")
+	var expected_exclusions: Array[String] = []
+	for excluded_value: Variant in _array(declaration, "excluded_roots"):
+		if not _consume_validation_work(result, 1):
+			return
+		if excluded_value is Dictionary:
+			var excluded: Dictionary = excluded_value
+			expected_exclusions.append(_string(excluded, "path"))
 	for rule_index: int in rule_results.size():
 		if not _checkpoint_allows(rule_index, result):
 			return
@@ -2376,9 +2404,26 @@ func _validate_rule_results(analysis: Dictionary, result: Dictionary) -> void:
 			or not issue_count is int
 			or issue_count < 0
 			or not rule_result.get("success") is bool
-			or rule_result.get("success") != (issue_count == 0)
+			or rule_result.get("success") != (issue_count == 0 and checked_count > 0)
+			or not ["complete", "scope_limited", "skipped"].has(rule_result.get("evaluation_status"))
+			or not rule_result.get("coverage") is Dictionary
 		):
 			_add_validation_error(result, "rule_result_value_invalid", "rule_results[%d]" % rule_index, "rule result 值无效。")
+		var coverage: Dictionary = _dictionary(rule_result, "coverage")
+		if (
+			not _has_exact_fields(coverage, PackedStringArray(["scope", "excluded_roots"]))
+			or coverage.get("scope") != "declared_included"
+			or not coverage.get("excluded_roots") is Array
+			or coverage.get("excluded_roots") != expected_exclusions
+		):
+			_add_validation_error(result, "rule_result_coverage_invalid", "rule_results[%d].coverage" % rule_index, "规则覆盖必须精确回指捕获声明的 included scope。")
+		if checked_count is int:
+			var expected_status: String = (
+				"skipped" if checked_count == 0
+				else ("scope_limited" if not expected_exclusions.is_empty() else "complete")
+			)
+			if rule_result.get("evaluation_status") != expected_status:
+				_add_validation_error(result, "rule_result_status_invalid", "rule_results[%d].evaluation_status" % rule_index, "规则状态必须与检查计数及捕获声明一致。")
 		ids[rule_id] = true
 
 
@@ -2728,15 +2773,19 @@ func _parent_path(relative_path: String) -> String:
 ## [br]
 ## @api private
 func _is_canonical_root(root_path: String) -> bool:
-	if (
-		root_path.is_empty()
-		or root_path != root_path.strip_edges()
-		or root_path.contains("\\")
-		or not root_path.begins_with("res://")
-	):
-		return false
-	var relative_path: String = root_path.substr("res://".length())
-	return relative_path.is_empty() or _is_canonical_relative_path(relative_path, false)
+	return _CAPTURE_SCOPE_SCRIPT.root_is_canonical(root_path)
+
+
+## 提取唯一声明 binding 的字段，不接受数据中额外权威标志。
+## [br]
+## @api private
+func _binding_from_scope(scope: Dictionary) -> Dictionary:
+	var binding: Dictionary = {}
+	for field: String in ["capture_scope", "source_root", "root_path", "protected_roots", "profile_source_path", "excluded_prefixes", "policy_digest"]:
+		if not scope.has(field):
+			return {}
+		binding[field] = scope[field]
+	return binding
 
 
 ## 按 allow_root 决定是否接受点根，其他路径不得为空、绝对路径或包含空段、点段、父段、冒号及反斜杠。

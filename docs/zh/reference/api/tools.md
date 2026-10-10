@@ -8,7 +8,7 @@
 |---|---:|---:|---:|
 | [值对象](#category-value_object) | 1 | 4 | 4 |
 | [编辑器 API](#category-editor_api) | 2 | 14 | 7 |
-| [工具 API](#category-tool_api) | 22 | 184 | 124 |
+| [工具 API](#category-tool_api) | 22 | 188 | 129 |
 
 ## 类
 
@@ -54,6 +54,6 @@
 | [`GFLspWorkspaceEditAdapter`](classes/GFLspWorkspaceEditAdapter.md#gflspworkspaceeditadapter) | `RefCounted` | `addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_adapter.gd` |
 | [`GFProjectLayoutAnalyzer`](classes/GFProjectLayoutAnalyzer.md#gfprojectlayoutanalyzer) | `RefCounted` | `addons/gf/tools/project_layout/gf_project_layout_analyzer.gd` |
 | [`GFProjectLayoutPlanner`](classes/GFProjectLayoutPlanner.md#gfprojectlayoutplanner) | `RefCounted` | `addons/gf/tools/project_layout/gf_project_layout_planner.gd` |
-| [`GFProjectLayoutValidator`](classes/GFProjectLayoutValidator.md#gfprojectlayoutvalidator) | `RefCounted` | `addons/gf/tools/project_layout/gf_project_layout_validator.gd` |
+| [`GFProjectLayoutSession`](classes/GFProjectLayoutSession.md#gfprojectlayoutsession) | `RefCounted` | `addons/gf/tools/project_layout/gf_project_layout_session.gd` |
 | [`GFSceneGroupIndex`](classes/GFSceneGroupIndex.md#gfscenegroupindex) | `RefCounted` | `addons/gf/tools/scene_groups/gf_scene_group_index.gd` |
 | [`GFScenePlacementOperation`](classes/GFScenePlacementOperation.md#gfsceneplacementoperation) | `GFEditorPickOperation` | `addons/gf/tools/scene_placement/gf_scene_placement_operation.gd` |

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gf-framework.dev/schemas/project-snapshot-v8.json",
+  "$id": "https://gf-framework.dev/schemas/project-snapshot-v9.json",
   "title": "GF Observed Project Snapshot",
   "type": "object",
   "additionalProperties": false,
@@ -16,7 +16,7 @@
     "drift"
   ],
   "properties": {
-    "schema_version": {"type": "integer", "const": 8},
+    "schema_version": {"type": "integer", "const": 9},
     "generator_version": {"type": "string", "minLength": 1},
     "generated_at_utc": {"type": "string", "minLength": 1},
     "project_root": {"type": "string", "const": "."},
@@ -198,18 +198,19 @@
             },
             "domains": {
               "type": "array",
-              "minItems": 4,
-              "maxItems": 4,
+              "minItems": 5,
+              "maxItems": 5,
               "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["domain", "observation_count", "allowed_count", "outside_policy_count", "forbidden_count", "actionable_count", "advisory_count"],
+                "required": ["domain", "observation_count", "allowed_count", "outside_policy_count", "forbidden_count", "unclassified_count", "actionable_count", "advisory_count"],
                 "properties": {
-                  "domain": {"type": "string", "enum": ["runtime", "test", "tool", "editor"]},
+                  "domain": {"type": "string", "enum": ["runtime", "test", "tool", "editor", "unknown"]},
                   "observation_count": {"type": "integer", "minimum": 0},
                   "allowed_count": {"type": "integer", "minimum": 0},
                   "outside_policy_count": {"type": "integer", "minimum": 0},
                   "forbidden_count": {"type": "integer", "minimum": 0},
+                  "unclassified_count": {"type": "integer", "minimum": 0},
                   "actionable_count": {"type": "integer", "minimum": 0},
                   "advisory_count": {"type": "integer", "minimum": 0}
                 }
@@ -227,11 +228,11 @@
                 "properties": {
                   "source_path": {"type": "string", "pattern": "^res://.+$"},
                   "line": {"type": "integer", "minimum": 1},
-                  "source_domain": {"type": "string", "enum": ["runtime", "test", "tool", "editor"]},
+                  "source_domain": {"type": "string", "enum": ["runtime", "test", "tool", "editor", "unknown"]},
                   "owner_kind": {"type": "string", "enum": ["class", "autoload"]},
                   "owner_name": {"type": "string", "minLength": 1},
                   "package_id": {"type": "string", "pattern": "^gf\\.[a-z0-9_.-]+$"},
-                  "policy": {"type": "string", "enum": ["allowed", "outside_policy", "forbidden"]}
+                  "policy": {"type": "string", "enum": ["allowed", "outside_policy", "forbidden", "unclassified"]}
                 }
               }
             },
@@ -247,7 +248,7 @@
                 "properties": {
                   "source_path": {"type": "string", "pattern": "^res://.+$"},
                   "line": {"type": "integer", "minimum": 1},
-                  "source_domain": {"type": "string", "enum": ["runtime", "test", "tool", "editor"]},
+                  "source_domain": {"type": "string", "enum": ["runtime", "test", "tool", "editor", "unknown"]},
                   "owner_kind": {"type": "string", "enum": ["class", "autoload"]},
                   "owner_name": {"type": "string", "minLength": 1},
                   "package_id": {"type": "string", "pattern": "^gf\\.[a-z0-9_.-]+$"},
@@ -267,9 +268,9 @@
                 "properties": {
                   "source_path": {"type": "string", "pattern": "^res://.+$"},
                   "line": {"type": "integer", "minimum": 1},
-                  "source_domain": {"type": "string", "enum": ["runtime", "test", "tool", "editor"]},
+                  "source_domain": {"type": "string", "enum": ["runtime", "test", "tool", "editor", "unknown"]},
                   "symbol": {"type": "string", "minLength": 1},
-                  "reason": {"type": "string", "enum": ["dynamic_api_reference", "unknown_dynamic_gf_symbol"]}
+                  "reason": {"type": "string", "enum": ["dynamic_api_reference", "unknown_dynamic_gf_symbol", "unclassified_identifier"]}
                 }
               }
             },

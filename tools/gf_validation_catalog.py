@@ -591,8 +591,12 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 			maintenance_command("asset-lifecycle-boundary"),
 		),
 		in_process_action(
-			"project_profile_boundary",
-			maintenance_command("project-profile-boundary"),
+			"project_profile_artifacts",
+			maintenance_command("project-profile-artifacts"),
+		),
+		subprocess_action(
+			"project_profile_native_acceptance",
+			maintenance_command("project-profile-native-acceptance"),
 		),
 		in_process_action("package_boundary", maintenance_command("package-boundary")),
 		in_process_action(
@@ -648,6 +652,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				"-m",
 				"unittest",
 				"tests/gf_core/tools/test_gf_maintenance_execution.py",
+				"tests/gf_core/tools/test_gf_reactive_benchmark.py",
 				"tests/gf_core/tools/test_gf_posix_process_watchdog.py",
 				"tests/gf_core/tools/test_gf_maintenance_check_graph.py",
 				"tests/gf_core/tools/test_gf_parallel_validation.py",
@@ -892,7 +897,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		"resource_boundary",
 		"content_package_boundary",
 		"asset_lifecycle_boundary",
-		"project_profile_boundary",
+		"project_profile_artifacts",
 		"package_boundary",
 		"package_closure_audit",
 		"package_source_boundary",
@@ -937,6 +942,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 	framework_gut_checks = ("gut_lifecycle_smoke", "gut", "gdscript_warnings")
 	framework_lsp_checks = ("gdscript_lsp_diagnostics",)
 	framework_integration_checks = (
+		"project_profile_native_acceptance",
 		"ai_developer_adapter_acceptance",
 		"core_plugin_bootstrap_smoke",
 		"scene_placement_editor_smoke",
@@ -954,7 +960,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		"resource_boundary",
 		"content_package_boundary",
 		"asset_lifecycle_boundary",
-		"project_profile_boundary",
+		"project_profile_artifacts",
 		*module_boundary_checks,
 		"mkdocs",
 		"api_since_touched",

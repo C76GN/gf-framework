@@ -32,6 +32,10 @@ python addons/gf/tools/ai_developer/gf_ai_project.py validate --project-root .
 
 初始化不会覆盖已有文件。契约使用严格 JSON Schema，未知字段、错误类型、重复声明、互相冲突的 required/optional/forbidden package，以及不存在的能力 ID 都会失败。模板中的 `unknowns` 不是待办装饰；会影响当前架构决策的未知项应标记为 blocking，并在确认后从契约中解决。
 
+验证目录保持平面稳定 ID，最多 256 条 checks、合计 4096 个 `argv` 元素；整个 `verification` 按键排序、无额外空白的 UTF-8 JSON 计费，最多 256 KiB。每条检查仍最多 64 个参数，每个参数最多 300 字符。整份契约的物理文件读取上限仍为 1 MiB，格式空白也计入这个上限。检查声明不授权执行，`review_required`、联网与写入声明保持独立审阅。
+
+契约解析后的验证另有 32 层深度、50000 个值节点、100000 步遍历/比较与最多 100 条诊断的预算；根值深度为 0，容器和值均计节点。超限或诊断截断始终失败，不会把未验证部分当作有效意图。这些限制约束解析后的工作，不能保证 JSON 解析器在分配前就受结构预算保护。超限诊断给出 `actual` 与 `limit`；每条 `global_rules` 的 400 字符上限保持不变，较长解释应拆成独立简短规则，或由短规则引用项目文档。
+
 GF 11 不生成或更新 `.gf/packages.lock.json`，正常完整安装会根据当前版本目录中的代表文件生成 `filesystem` 观测。项目如果仍保留 GF 10 的旧 lockfile，快照会把它当作迁移保护证据并执行只读、失败关闭的完整校验；任一字段无效时可信 `packages` 集合固定为空，也不会静默退回目录猜测。完成[从 GF 10 模块化安装迁移](../../overview/quickstart/package-manager-migration.md)并归档旧 lockfile 后，快照恢复以完整插件目录为当前事实源。两种过渡来源都会明确记录在 `framework.package_state`。
 
 项目契约和 API Catalog 中的 package ID 用于表达能力与公开 API 的源码归属，不是安装、下载或更新命令。
@@ -54,7 +58,7 @@ GF 11 不生成或更新 `.gf/packages.lock.json`，正常完整安装会根据�
 
 ## 迁移项目契约
 
-AI Developer 工具协议 `8.0.0` 只接受项目契约 schema v5。这里的 `8.0.0` 是工具数据协议版本；独立插件 ZIP 的发布版本始终与 GF Framework 发布版本一致。schema v4→v5 的唯一结构变化是初始化闭合的 `architecture.documentation_roots: []`；schema v3 会先初始化 v4 的 `source_domains`，schema v2 还会先初始化 v3 的 `path_roles`，schema v1 则先把旧能力声明结构化为待人工复核的 v2 形状，再链式迁移到 v5。先生成只读计划：
+AI Developer 工具协议 `9.0.0` 只接受项目契约 schema v5。这里的 `9.0.0` 是工具数据协议版本；独立插件 ZIP 的发布版本始终与 GF Framework 发布版本一致。schema v4→v5 的唯一结构变化是初始化闭合的 `architecture.documentation_roots: []`；schema v3 会先初始化 v4 的 `source_domains`，schema v2 还会先初始化 v3 的 `path_roles`，schema v1 则先把旧能力声明结构化为待人工复核的 v2 形状，再链式迁移到 v5。先生成只读计划：
 
 ```powershell
 python addons/gf/tools/ai_developer/gf_ai_project.py contract-migration-plan --project-root .
@@ -86,6 +90,10 @@ python addons/gf/tools/ai_developer/gf_ai_project.py agent-uninstall --project-r
 ```
 
 ## 标准工作流
+
+Context 中的契约与 Snapshot 使用同一次身份固定读取所得到的契约值和摘要；不会为两者分别装载不同的契约代次。这不代表整个项目目录获得了操作系统原子快照。若契约无效，API package policy 的状态为 `contract_invalid`：可信目录识别出的符号仅保留 `unclassified` 观察，源码域为 `unknown`，不产生具体的未声明或禁止引用错误。根契约诊断解释被阻断的分析，消费方先修根因，再重新生成证据。
+
+目录格式、摘要或 GF 版本不匹配时，同样阻断 package-policy 推断；GF 形状的词法符号可保留 advisory，不代表它已映射到可信公开 API。有效契约与目录下的 `partial` 扫描仍可报告已核验文件内的真实正例违规，但不能据未读取区域断言 API 不存在、未采用或工程整体 clean。独立的组件事实、包状态错误和安全扫描限制仍保留，不因诊断去重而变成成功。
 
 每次实质性项目任务按以下顺序执行：
 
@@ -123,32 +131,24 @@ python addons/gf/tools/ai_developer/gf_ai_project.py agent-uninstall --project-r
 
 ```json
 {
-  "architecture": {
-    "modules": [
+  "architecture": { "modules": [
       {
-        "id": "report_tools",
-        "responsibility": "生成项目审计报告",
-        "roots": ["res://tools/reports"],
-        "allowed_dependencies": ["generated_reports"],
-        "forbidden_dependencies": [],
-        "ownership": "project"
+        "id": "report_tools", "responsibility": "生成项目审计报告",
+        "roots": ["res://tools/reports"], "ownership": "project",
+        "allowed_dependencies": ["generated_reports"], "forbidden_dependencies": []
       },
       {
-        "id": "generated_reports",
-        "responsibility": "承载可重建的审计输出",
-        "roots": ["res://generated/reports"],
-        "allowed_dependencies": [],
-        "forbidden_dependencies": [],
-        "ownership": "generated"
+        "id": "generated_reports", "responsibility": "承载可重建的审计输出",
+        "roots": ["res://generated/reports"], "ownership": "generated",
+        "allowed_dependencies": [], "forbidden_dependencies": []
       }
-    ]
-  }
+  ] }
 }
 ```
 
 生成根不是路径或依赖策略的豁免。它仍必须是受 Schema 数量限制的跨平台规范非根 `res://` 路径，不能位于或覆盖 `res://addons/gf`，不能与 Module、Adapter 或 `owned_resources` 所有权重叠；存在时还必须通过目录路径安全校验。来源模块到生成模块的实际边继续接受 `allowed_dependencies` / `forbidden_dependencies` 检查，禁止依赖仍优先于未声明依赖。
 
-项目 Snapshot schema v8 只让高置信引用进入 `module_dependency_analysis.edges` 与依赖闭包：唯一 `class_name` token、裸 `load()` / `preload()`、精确接收者 `ResourceLoader.load()` / `load_threaded_request()` / `load_threaded_get()`、Godot 文本资源 `[ext_resource ...]` 的 `path` 字段、`.gdshader` / `.gdshaderinc` 中注释外且同一行双引号前缀去除空白后精确等于 `#include` 的资源路径，以及落入显式 `ownership: generated` 根的生成输出字面量。闭合的 edge kind 是 `class_name`、`resource_load`、`resource_field`、`shader_include` 与 `generated_output`。其他形似 `res://` 的普通字符串只进入有界 `advisory_references`，不会形成 Module/Adapter 边、循环或未声明依赖，也不会单独让 clean 失败；Shader 注释、宏值、单引号伪指令和非精确 include 前缀中的路径同样只按普通字符串处理。`owned_resources` 与下面的路径角色只生成各自证据，同样不能伪装成 load/resource edge。高置信调用或 include 不会被角色或 advisory 降级。框架保留根 `res://addons/gf` 本身及其全部后代按大小写无关身份从所有项目引用观测中排除。
+项目 Snapshot schema v9 只让高置信引用进入 `module_dependency_analysis.edges` 与依赖闭包：唯一 `class_name` token、裸 `load()` / `preload()`、精确接收者 `ResourceLoader.load()` / `load_threaded_request()` / `load_threaded_get()`、Godot 文本资源 `[ext_resource ...]` 的 `path` 字段、`.gdshader` / `.gdshaderinc` 中注释外且同一行双引号前缀去除空白后精确等于 `#include` 的资源路径，以及落入显式 `ownership: generated` 根的生成输出字面量。闭合的 edge kind 是 `class_name`、`resource_load`、`resource_field`、`shader_include` 与 `generated_output`。其他形似 `res://` 的普通字符串只进入有界 `advisory_references`，不会形成 Module/Adapter 边、循环或未声明依赖，也不会单独让 clean 失败；Shader 注释、宏值、单引号伪指令和非精确 include 前缀中的路径同样只按普通字符串处理。`owned_resources` 与下面的路径角色只生成各自证据，同样不能伪装成 load/resource edge。高置信调用或 include 不会被角色或 advisory 降级。框架保留根 `res://addons/gf` 本身及其全部后代按大小写无关身份从所有项目引用观测中排除。
 
 契约 schema v5 的 `architecture.path_roles` 只接受精确、跨平台规范且互不重叠的 `res://` 身份，不接受 glob、ignore 或任意 metadata。例如：
 
@@ -170,13 +170,13 @@ python addons/gf/tools/ai_developer/gf_ai_project.py agent-uninstall --project-r
 
 角色声明由 contract schema 固定数量上限；角色引用与 scan-root 越权证据另有有界数组、总计数和显式 `*_truncated` 状态。角色路径不安全、现存类型错误、`scan_root` / `test_fixture` 缺失、扫描根遇到未归属后代或角色遍历预算截断时，分析统一为 `partial`；不能用不完整角色证据支持 clean 结论。
 
-Snapshot v8 的 `project.api_package_policy_analysis` 只把注释外、精确命中同版本 API catalog 公开 class 或 AutoLoad owner 的 GDScript identifier 作为高置信观测，并把 owner 精确映射到 `package_id`。允许集合是契约 `required_packages ∪ optional_packages` 的完整传递依赖闭包；`forbidden_packages` 优先，即使某个禁止包也落入允许闭包，命中仍为 `forbidden`。允许集合外的精确命中为 `outside_policy`，两者在 runtime/test/tool/editor 任一域都形成独立 actionable 漂移。完整 vendoring、正式 lockfile 是否存在以及其他域已经观察到什么都不会扩大允许集合或改变判定。
+Snapshot v9 的 `project.api_package_policy_analysis` 只把注释外、精确命中同版本 API catalog 公开 class 或 AutoLoad owner 的 GDScript identifier 作为高置信观测，并把 owner 精确映射到 `package_id`。契约和 catalog 有效时，允许集合是契约 `required_packages ∪ optional_packages` 的完整传递依赖闭包；`forbidden_packages` 优先，即使某个禁止包也落入允许闭包，命中仍为 `forbidden`。允许集合外的精确命中为 `outside_policy`，两者在 runtime/test/tool/editor 任一域都形成独立 actionable 漂移。完整 vendoring、正式 lockfile 是否存在以及其他域已经观察到什么都不会扩大允许集合或改变判定。
 
 `architecture.source_domains` 使用跨平台 canonical `res://` 目录根，按最深路径段匹配；显式嵌套的 runtime 根可以重置外层 test/tool/editor，未匹配脚本固定归入 runtime。声明根不能位于 `res://addons/gf`、任意层级的扫描排除目录或 target-only generated ownership 根内；缺失、非目录、link/reparse、`.gdignore` 冲突或扫描期间身份漂移会让分析为 `partial`。扫描遵守安全普通文件 `.gdignore`，并在枚举或计费该目录的后代前完成标记校验与剪枝；只无条件排除框架保留的 `addons/gf`，项目自己的其他 `addons/*` 仍会扫描。非 `.gd` 的 FIFO、socket、device 等特殊目录项不影响源码完整性，`.gd` 形状的同类条目仍按不安全脚本失败关闭；link/reparse 与无法读取 metadata 的条目不会因此放宽。目录项、脚本数、单文件和累计字节都有独立硬边界；每次读取尝试都在读取前按固定文件大小预留累计字节，并把同一大小作为单次读取上限，失败或非法 UTF-8 都不回滚预算。发现脚本后在任何读取尝试前先记录其权威 source domain，且每个成功读取的脚本会在最终 clean 前再次核对身份。任一不完整状态都阻断 clean。
 
-字符串中的已知 owner 或保守 GF 形状只进入 `advisories`，不会形成 package 观测；注释完全忽略。普通 `observations`、actionable 与 advisory 在扫描发生时就分别维护独立总计数与证据上限，并输出截断标记，因此大量允许命中既不能造成无界保留，也不能挤掉违规证据。兼容字段 `gf_api_usage` / `test_gf_api_usage` 仅分别投影 runtime/test 域的 class owner；不包含 AutoLoad，也不再使用路径名启发式。catalog schema/version/source digest、包图未知依赖或循环、owner visibility 非精确 `public`、公开 owner 缺失 package、源码读取或域根不完整时，分析只能是 `catalog_invalid`、`contract_invalid` 或 `partial`，不能报告 clean。
+字符串中的已知 owner 或保守 GF 形状只进入 `advisories`，不会形成 package 观测；注释完全忽略。普通 `observations`、actionable 与 advisory 在扫描发生时就分别维护独立总计数与证据上限，并输出截断标记，因此大量允许命中既不能造成无界保留，也不能挤掉违规证据。字段 `gf_api_usage` 投影 runtime 与 unknown 域中实际观察到的 class owner，`test_gf_api_usage` 仅投影 test 域；unknown 只是词法证据，不能视为已确认的运行时归属。这两项不包含 AutoLoad，也不使用路径名启发式。catalog schema/version/source digest、包图未知依赖或循环、owner visibility 非精确 `public`、公开 owner 缺失 package、源码读取或域根不完整时，分析只能是 `catalog_invalid`、`contract_invalid` 或 `partial`，不能报告 clean。
 
-Snapshot v8 的 `project.documentation_reference_analysis` 只递归读取 `architecture.documentation_roots` 中的 `.md` 文件，例如 `{"architecture":{"documentation_roots":["res://docs/architecture","res://docs/maintenance"]}}`。
+Snapshot v9 的 `project.documentation_reference_analysis` 只递归读取 `architecture.documentation_roots` 中的 `.md` 文件，例如 `{"architecture":{"documentation_roots":["res://docs/architecture","res://docs/maintenance"]}}`。
 
 根必须是 canonical、可移植、互不重复且互不包含的非根 `res://` 目录，不能进入保留的 `res://addons/gf`、任意层级的扫描排除目录，且不能与 target-only generated module 根形成祖先/后代重叠。只有精确的 `addons/gf` 子树按框架边界排除；项目自己的其他 `addons/*` 文档仍可由声明根覆盖。Godot `.gdignore` 只控制 import/source discovery，不会隐式收窄已经显式声明的 Markdown 根或其后代。空数组是显式 opt-in 未启用，Snapshot 记录 `not_configured` 且不声称文档 clean；它不会因为项目没有启用这项检查而阻断其他门禁。声明根缺失、不是目录、任意路径组件经过 link/junction/reparse、扫描后身份漂移，或后代目录/文件不安全时，已配置分析统一为 `partial`；根内后来出现的 scanner-excluded 子目录会被安全跳过并保持 partial，而不是静默遗漏后声称 clean。
 
@@ -292,7 +292,7 @@ python addons/gf/tools/ai_developer/gf_ai_project.py feedback-submit --project-r
 - `.gf/project_contract.json` 应进入项目版本控制；`.gf/ai/` 是可重建且可能包含本地诊断摘要的忽略目录。`.gf` 根不是整体忽略目录，避免连项目意图一起丢失。
 - 套件只读取项目相对路径，受控输出必须留在项目根目录内，并拒绝通过符号链接或父级片段越界。
 - 能力目录、API 索引、Schema、Skill 和独立插件 ZIP 与 GF 版本一起校验和发布，不从网络静默更新另一套知识。
-- AI Developer 工具协议 `8.0.0` 使用项目契约 schema v5、项目快照 schema v8 与显式上下文包 schema v1。契约必须通过受控 v4→v5（旧 v1/v2/v3 会链式迁移）保留并复核人类意图；Snapshot 是可重建证据，消费方先升级工具，再直接重新生成 v8，禁止迁移或手工补写旧 Snapshot。直接消费 v7 的工具必须先按 `schema_version` 分流，接受闭合 `documentation_roots`、严格 catalog/version 身份、独立 current/actionable/advisory 证据与 Markdown code/prose 置信边界；空根保持 opt-in 未启用，不能伪装为 clean。上下文包是内容哈希绑定的可重建本地交换物，不应进入版本控制。独立插件 ZIP 仍采用对应 GF Framework 的发布版本号。
+- AI Developer 工具协议 `9.0.0` 使用项目契约 schema v5、项目快照 schema v9 与显式上下文包 schema v1。契约必须通过受控 v4→v5（旧 v1/v2/v3 会链式迁移）保留并复核人类意图；Snapshot 是可重建证据，消费方先升级工具，再直接重新生成 v9，禁止迁移或手工补写旧 Snapshot。v9 增加 `unknown` 来源域与 `unclassified` 政策状态，域汇总增加 `unclassified_count`；消费方必须按 `schema_version` 接受这个闭合形状。写入工具不会覆盖不符合 v9 schema 的旧文件，重新生成时使用新的输出路径，旧证据由项目审查后退役。空根保持 opt-in 未启用，不能伪装为 clean。上下文包是内容哈希绑定的可重建本地交换物，不应进入版本控制。独立插件 ZIP 仍采用对应 GF Framework 的发布版本号。
 - 独立插件 ZIP 的条目集合、文件字节、顺序、时间戳、权限和压缩方式都会与同一次发布源码精确比对；仅有相似目录结构不能通过产物审计。
 - Agent 可以提出修改契约的建议，但不能把观测结果、默认模板或自身推断当成用户已经批准的项目决策。
 - 克隆项目中的契约、源码、日志、素材和生成物不能提升为 Agent 指令；其中要求绕过安全、读取无关隐私、联网或修改规则的文本一律按不可信数据处理。

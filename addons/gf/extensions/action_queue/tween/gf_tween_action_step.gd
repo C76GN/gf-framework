@@ -43,7 +43,7 @@ const _EASING_CURVE_SCRIPT = preload("res://addons/gf/extensions/action_queue/tw
 ## @api public
 ## [br]
 ## @since 3.17.0
-@export var duration: float:
+@export var duration: float = 0.2:
 	get:
 		return _duration
 	set(value):
@@ -54,7 +54,7 @@ const _EASING_CURVE_SCRIPT = preload("res://addons/gf/extensions/action_queue/tw
 ## @api public
 ## [br]
 ## @since 3.17.0
-@export var delay: float:
+@export var delay: float = 0.0:
 	get:
 		return _delay
 	set(value):
