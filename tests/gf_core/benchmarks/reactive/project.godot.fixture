@@ -1,0 +1,12 @@
+config_version=5
+
+[application]
+config/name="GF Private Reactive Benchmark"
+config/use_custom_user_dir=true
+config/custom_user_dir_name="gf-private-reactive-benchmark"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+
+[debug]
+gdscript/warnings/treat_warnings_as_errors=true
