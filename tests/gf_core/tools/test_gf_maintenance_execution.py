@@ -5899,6 +5899,7 @@ class ProcessSupervisorBinaryCaptureTests(unittest.TestCase):
 	def test_binary_permission_error_after_real_child_creation_is_not_start_proof(self) -> None:
 		primary = PermissionError("synthetic permission failure after real child creation")
 		owners: list[gf_process_supervisor._ProcessTreeOwner] = []
+		started_processes: list[subprocess.Popen[bytes]] = []
 		original_factory = gf_process_supervisor._new_process_tree_owner
 
 		def owner_factory() -> gf_process_supervisor._ProcessTreeOwner:
@@ -5908,6 +5909,11 @@ class ProcessSupervisorBinaryCaptureTests(unittest.TestCase):
 
 		def checkpoint(name: str) -> None:
 			if name in {"windows_process_started", "posix_process_started"}:
+				self.assertEqual(len(owners), 1)
+				process = owners[0]._started_process
+				self.assertIsNotNone(process)
+				assert process is not None
+				started_processes.append(process)
 				raise primary
 
 		with mock.patch.object(
@@ -5924,12 +5930,13 @@ class ProcessSupervisorBinaryCaptureTests(unittest.TestCase):
 		self.assertIs(raised.exception, primary)
 		self.assertNotIsInstance(raised.exception, gf_process_supervisor.SupervisedProcessStartError)
 		self.assertEqual(len(owners), 1)
+		self.assertEqual(len(started_processes), 1)
 		owner = owners[0]
 		self.assertIs(owner._process_was_created, True)
-		self.assertIsNotNone(owner._started_process)
 		self.assertTrue(owner.is_closed())
-		assert owner._started_process is not None
-		self.assertIsNotNone(owner._started_process.returncode)
+		# A closed owner may release its process reference, as the POSIX owner does.
+		owner._started_process = None
+		self.assertIsNotNone(started_processes[0].returncode)
 
 	def test_binary_start_proof_requires_owner_history_and_no_chained_debt(self) -> None:
 		for missing_fact in (
