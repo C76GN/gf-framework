@@ -15,6 +15,9 @@ const _DEADLINE_MSEC: int = 60000
 const _PRESETS_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor/presets/gf_tween_authoring_presets.gd")
 const _STEPS_EDITOR_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor/authoring/gf_tween_steps_editor_property.gd")
 const _AUTHORING_DOCK_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor/gf_tween_authoring_dock.gd")
+const _DEFAULTS_PATH: String = "res://tests/gf_core/tools/action_queue.editor/fixtures/gf_tween_preview_omitted_defaults.tres"
+const _ZERO_PATH: String = "res://tests/gf_core/tools/action_queue.editor/fixtures/gf_tween_preview_explicit_zero.tres"
+const _SNAPSHOT_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor/authoring/gf_tween_authoring_snapshot.gd")
 
 
 # --- 私有变量 ---
@@ -43,6 +46,20 @@ var _authoring_source: Resource = null
 var _authoring_step: Resource = null
 var _authoring_field: WeakRef = null
 var _authoring_phase: int = 0
+var _retired_property_choices: WeakRef = null
+var _last_field_step: Resource = null
+var _authoring_history_count: int = -1
+var _picker_source_a: Resource = null
+var _picker_original_a: Resource = null
+var _picker_edited_a: Resource = null
+var _picker_edited_b: Resource = null
+var _picker_history: UndoRedo = null
+var _picker_history_count: int = -1
+var _picker_before_a: Array = []
+var _picker_after_a: Array = []
+var _picker_before_b: Array = []
+var _picker_after_b: Array = []
+var _rebound_source: Resource = null
 
 
 # --- Godot 生命周期方法 ---
@@ -67,6 +84,8 @@ func _exit_tree() -> void:
 func _run_probe() -> void:
 	if not Engine.is_editor_hint():
 		_fail("The probe requires a real editor lifecycle.")
+		return
+	if not _probe_placeholder_defaults():
 		return
 	_scene_digest = FileAccess.get_sha256(_SCENE_PATH)
 	_config_digest = FileAccess.get_sha256(_CONFIG_PATH)
@@ -114,6 +133,56 @@ func _run_probe() -> void:
 	if not _probe_curve():
 		return
 	_begin_inspector_smoke(source, reloaded)
+
+
+func _probe_placeholder_defaults() -> bool:
+	var digest: String = FileAccess.get_sha256(_DEFAULTS_PATH)
+	var source: Resource = ResourceLoader.load(_DEFAULTS_PATH, "", ResourceLoader.CACHE_MODE_IGNORE_DEEP)
+	var zeros: Resource = ResourceLoader.load(_ZERO_PATH, "", ResourceLoader.CACHE_MODE_IGNORE_DEEP)
+	if source == null or zeros == null:
+		_fail("Placeholder default fixtures could not be loaded.")
+		return false
+	var script_value: Variant = source.get_script()
+	if not (script_value is Script):
+		_fail("Default fixture has no resource script.")
+		return false
+	var source_script: Script = script_value
+	if source_script.is_tool() or not _number_equals(source.get(&"duration_scale"), 1.0):
+		_fail("Non-tool editor placeholder omitted duration_scale must be 1.0.")
+		return false
+	var steps_value: Variant = source.get(&"steps")
+	if not (steps_value is Array):
+		_fail("Default fixture has no steps array.")
+		return false
+	var steps: Array = steps_value
+	if steps.size() != 1 or not (steps[0] is Resource):
+		_fail("Default fixture has no single native resource step.")
+		return false
+	var step: Resource = steps[0]
+	if not _number_equals(step.get(&"duration"), 0.2) or not _number_equals(step.get(&"delay"), 0.0):
+		_fail("Non-tool editor placeholder omitted step duration/delay must be 0.2/0.0.")
+		return false
+	var viewport: GFTweenPreviewViewport = GFTweenPreviewViewport.new()
+	add_child(viewport)
+	viewport.configure(source, 0)
+	var started: bool = viewport.play()
+	viewport.advance(0.1)
+	var midpoint: float = GFVariantData.get_option_float(viewport.get_current_values(), "rotation", -1.0)
+	var position_value: Variant = viewport.get_current_values().get("position")
+	var matches: bool = started and _number_equals(viewport.get_duration_seconds(), 0.2) and position_value is Vector2
+	if position_value is Vector2:
+		var position: Vector2 = position_value
+		matches = matches and is_equal_approx(position.x, 8.0) and midpoint == 0.0
+	viewport.configure(zeros, 0)
+	var zero_started: bool = viewport.play()
+	matches = matches and zero_started and viewport.get_duration_seconds() == 0.0 and viewport.get_state() == &"finished"
+	matches = matches and _number_equals(zeros.get(&"duration_scale"), 0.0)
+	viewport.dispose_preview()
+	viewport.free()
+	if not matches or digest.is_empty() or FileAccess.get_sha256(_DEFAULTS_PATH) != digest:
+		_fail("Placeholder default preview, explicit zero, or source preservation mismatch.")
+		return false
+	return true
 
 
 func _probe_curve() -> bool:
@@ -469,6 +538,8 @@ func _check_authoring() -> void:
 			_fail("Preset creation did not produce one step in the native editor.")
 			return
 		_authoring_step = steps[0]
+		var initial_history: UndoRedo = get_undo_redo().get_history_undo_redo(get_undo_redo().get_object_history_id(_authoring_source))
+		_authoring_history_count = initial_history.get_history_count()
 		var field: Node = editor.find_child("Field_duration", true, false)
 		if not field is GFEditorValueField:
 			_fail("Native Inspector did not install the typed step field.")
@@ -490,12 +561,17 @@ func _check_authoring() -> void:
 			return
 		var value_field: GFEditorValueField = active_field
 		value_field.value_changed.emit(0.6)
+		var field_steps: Array = _authoring_source.get(&"steps")
+		_last_field_step = field_steps[0]
 		if not _press_text(editor, "复制"):
 			return
 		value_field.value_changed.emit(0.9)
 		_authoring_phase = 2
 		return
 	var history: UndoRedo = get_undo_redo().get_history_undo_redo(get_undo_redo().get_object_history_id(_authoring_source))
+	if _authoring_phase >= 6:
+		_check_property_picker(editor, steps, history)
+		return
 	if _authoring_phase == 2:
 		if steps.size() != 2 or steps[0] == steps[1]:
 			_fail("The native duplicate operation did not create an independent step.")
@@ -505,18 +581,31 @@ func _check_authoring() -> void:
 			if not _number_equals(step.get(&"duration"), 0.6):
 				_fail("A field retired by a structural edit changed the new step array.")
 				return
-		# Inspector 对连续同一属性采用 MERGE_ENDS；仍须恢复首次修改前的真实对象。
+		if history.get_history_count() != _authoring_history_count + 2:
+			_fail("Continuous same-control values must merge while duplicate is a separate native action.")
+			return
 		if not history.undo():
 			_fail("Native Inspector edits were not undoable.")
 			return
 		_authoring_phase = 3
 		return
 	if _authoring_phase == 3:
-		if steps.size() != 1 or steps[0] != _authoring_step:
-			_fail("Undo did not restore the original step identity.")
+		if steps.size() != 1 or steps[0] != _last_field_step or not _number_equals(_last_field_step.get(&"duration"), 0.6):
+			_fail("Undo of discrete duplicate did not preserve the final continuous field snapshot.")
+			return
+		if not history.undo():
+			_fail("Continuous Inspector edit was not independently undoable.")
+			return
+		var original_steps: Array = _authoring_source.get(&"steps")
+		if original_steps.size() != 1 or original_steps[0] != _authoring_step:
+			_fail("Undo of continuous input did not restore original identity.")
 			return
 		if not history.redo():
-			_fail("Native Inspector edits were not redoable.")
+			_fail("Continuous Inspector edit was not redoable.")
+			return
+		var field_steps: Array = _authoring_source.get(&"steps")
+		if field_steps.size() != 1 or field_steps[0] != _last_field_step or not history.redo():
+			_fail("Native Redo did not replay continuous snapshot before discrete duplicate.")
 			return
 		_authoring_phase = 4
 		return
@@ -551,10 +640,246 @@ func _check_authoring() -> void:
 		_fail("Controlled pure sampling did not work in the real editor.")
 		return
 	_authoring_source = GFTweenActionConfig.new()
+	var picker_step: GFTweenActionStep = GFTweenActionStep.new()
+	picker_step.set(&"property_name", ^"unlisted_runtime_property")
+	picker_step.set(&"target_value", 0.0)
+	var picker_steps: Array[GFTweenActionStep] = [picker_step]
+	_authoring_source.set(&"steps", picker_steps)
+	_authoring_step = picker_step
+	_authoring_phase = 6
+	EditorInterface.edit_resource(_authoring_source)
+
+
+func _check_property_picker(editor: EditorProperty, steps: Array, history: UndoRedo) -> void:
+	if _authoring_phase == 6 or _authoring_phase == 8:
+		if _authoring_phase == 6:
+			_picker_history = history
+			_picker_history_count = history.get_history_count()
+			_picker_before_a = _SNAPSHOT_SCRIPT.capture(_authoring_source)
+		elif history != _picker_history or _authoring_source == _picker_source_a or get_undo_redo().get_object_history_id(_authoring_source) != get_undo_redo().get_object_history_id(_picker_source_a):
+			_fail("Two distinct configuration resources must use the same native history for the merge regression.")
+			return
+		else:
+			_picker_before_b = _SNAPSHOT_SCRIPT.capture(_authoring_source)
+		var search_node: Node = editor.find_child("PropertySearch", true, false)
+		var choices_node: Node = editor.find_child("PropertyChoices", true, false)
+		var path_node: Node = editor.find_child("Field_property_name", true, false)
+		if not (search_node is LineEdit) or not (choices_node is OptionButton) or not (path_node is GFEditorValueField):
+			_fail("Native property picker did not install search, choices and manual path.")
+			return
+		var search: LineEdit = search_node
+		var choices: OptionButton = choices_node
+		var path_field: GFEditorValueField = path_node
+		search.text = "missing property"
+		search.text_changed.emit(search.text)
+		if choices.item_count != 1 or path_field.get_value() != ^"unlisted_runtime_property":
+			_fail("Empty property search rewrote an unlisted runtime path.")
+			return
+		search.text = "POSITION:X"
+		search.text_changed.emit(search.text)
+		if choices.item_count != 2 or choices.get_item_text(1) != "position:x":
+			_fail("Finite property search did not match case-insensitive native component.")
+			return
+		_retired_property_choices = weakref(choices)
+		choices.select(1)
+		choices.item_selected.emit(1)
+		_authoring_phase += 1
+		return
+	if steps.size() != 1 or not (steps[0] is Resource):
+		_fail("Property selection changed the step count or lost its resource.")
+		return
+	var step: Resource = steps[0]
+	if _authoring_phase == 7:
+		if step == _authoring_step or step.get(&"property_name") != ^"position:x" or _authoring_step.get(&"property_name") != ^"unlisted_runtime_property":
+			_fail("Property choice did not copy the step or preserve the prior snapshot.")
+			return
+		var retired_value: Variant = _retired_property_choices.get_ref()
+		if retired_value is OptionButton:
+			var retired: OptionButton = retired_value
+			retired.item_selected.emit(1)
+		_picker_source_a = _authoring_source
+		_picker_original_a = _authoring_step
+		_picker_edited_a = step
+		_picker_after_a = _SNAPSHOT_SCRIPT.capture(_authoring_source)
+		_authoring_source = GFTweenActionConfig.new()
+		var picker_step: GFTweenActionStep = GFTweenActionStep.new()
+		picker_step.set(&"property_name", ^"unlisted_runtime_property")
+		picker_step.set(&"target_value", 0.0)
+		var picker_steps: Array[GFTweenActionStep] = [picker_step]
+		_authoring_source.set(&"steps", picker_steps)
+		_authoring_step = picker_step
+		_authoring_phase = 8
+		EditorInterface.edit_resource(_authoring_source)
+		return
+	if _authoring_phase == 9:
+		if step == _authoring_step or step.get(&"property_name") != ^"position:x" or _authoring_step.get(&"property_name") != ^"unlisted_runtime_property" or history.get_history_count() != _picker_history_count + 2:
+			_fail("Two adjacent discrete selections must create two native actions and preserve both originals.")
+			return
+		_picker_edited_b = step
+		_picker_after_b = _SNAPSHOT_SCRIPT.capture(_authoring_source)
+		if not history.undo():
+			_fail("Second resource choice was not undoable.")
+			return
+		_authoring_phase = 10
+		return
+	var a_steps: Array = _picker_source_a.get(&"steps")
+	if _authoring_phase == 10:
+		if step != _authoring_step or step.get(&"property_name") != ^"unlisted_runtime_property" or a_steps.size() != 1 or a_steps[0] != _picker_edited_a or _SNAPSHOT_SCRIPT.capture(_authoring_source) != _picker_before_b or _SNAPSHOT_SCRIPT.capture(_picker_source_a) != _picker_after_a:
+			_fail("First Undo must restore only B and preserve A's selected resource identity.")
+			return
+		if not history.undo():
+			_fail("First resource choice was not independently undoable.")
+			return
+		_authoring_phase = 11
+		return
+	if _authoring_phase == 11:
+		if step != _authoring_step or a_steps.size() != 1 or a_steps[0] != _picker_original_a or _picker_original_a.get(&"property_name") != ^"unlisted_runtime_property" or _SNAPSHOT_SCRIPT.capture(_authoring_source) != _picker_before_b or _SNAPSHOT_SCRIPT.capture(_picker_source_a) != _picker_before_a or not history.redo():
+			_fail("Second Undo must restore A's original identity while B stays original, then permit Redo A.")
+			return
+		_authoring_phase = 12
+		return
+	if _authoring_phase == 12:
+		if step != _authoring_step or a_steps.size() != 1 or a_steps[0] != _picker_edited_a or _SNAPSHOT_SCRIPT.capture(_authoring_source) != _picker_before_b or _SNAPSHOT_SCRIPT.capture(_picker_source_a) != _picker_after_a or not history.redo():
+			_fail("First Redo must replay only A and preserve B's original identity.")
+			return
+		_authoring_phase = 13
+		return
+	if step != _picker_edited_b or step.get(&"property_name") != ^"position:x" or a_steps.size() != 1 or a_steps[0] != _picker_edited_a or _SNAPSHOT_SCRIPT.capture(_authoring_source) != _picker_after_b or _SNAPSHOT_SCRIPT.capture(_picker_source_a) != _picker_after_a or not _probe_numeric_adapter():
+		_fail("Second Redo must replay B separately; numeric placeholder adapter probe must succeed.")
+		return
+	var merge_error: String = _probe_native_merge_ownership(editor, history)
+	if not merge_error.is_empty():
+		_fail(merge_error)
+		return
+	_authoring_source = GFTweenActionConfig.new()
 	var custom_steps: Array[GFTweenActionStep] = [_CustomStep.new()]
 	_authoring_source.set(&"steps", custom_steps)
 	_authoring_phase = 5
 	EditorInterface.edit_resource(_authoring_source)
+
+
+func _probe_native_merge_ownership(editor: EditorProperty, history: UndoRedo) -> String:
+	for method: StringName in [&"get_version", &"get_history_count", &"create_action", &"commit_action"]:
+		if not ClassDB.class_has_method(&"UndoRedo", method):
+			return "UndoRedo native public method is unavailable: " + String(method)
+	for method: StringName in [&"is_committing_action", &"get_object_history_id", &"get_history_undo_redo", &"create_action", &"commit_action"]:
+		if not ClassDB.class_has_method(&"EditorUndoRedoManager", method):
+			return "Native editor manager public method is unavailable: " + String(method)
+	var field_node: Node = editor.find_child("Field_duration", true, false)
+	if not (field_node is GFEditorValueField):
+		return "Native merge ownership probe has no duration field."
+	var field: GFEditorValueField = field_node
+	var initial_count: int = history.get_history_count()
+	field.value_changed.emit(0.4)
+	field.value_changed.emit(0.6)
+	if history.get_history_count() != initial_count + 1:
+		return "Same-control continuous values must still merge before ABA probing."
+	var committed_version: int = history.get_version()
+	if not history.undo() or not history.redo() or history.get_version() != committed_version:
+		return "Native Undo/Redo must produce a real repeated version for the ABA probe."
+	field.value_changed.emit(0.8)
+	if history.get_history_count() != initial_count + 2 or history.get_version() != committed_version + 1:
+		return "Undo/Redo ABA must revoke the old control's native merge permission."
+	var other_control: _OtherNativeProperty = _OtherNativeProperty.new(history, _picker_source_a)
+	add_child(other_control)
+	committed_version = history.get_version()
+	var before_other_count: int = history.get_history_count()
+	other_control.emit_changed(&"resource_name", "Other native control", &"", true)
+	other_control.free()
+	if history.get_version() != committed_version or history.get_history_count() != before_other_count:
+		return "Other native control must produce a real same-version MERGE_ENDS history event."
+	field.value_changed.emit(0.9)
+	if history.get_history_count() != before_other_count + 1:
+		return "Other control's same-version merge pulse must revoke the old control's merge permission."
+	var current_steps: Array = _authoring_source.get(&"steps")
+	var current_step: Resource = current_steps[0]
+	var before_in_place_count: int = history.get_history_count()
+	current_step.set(&"duration", 1.2)
+	editor.update_property()
+	var refreshed_node: Node = editor.find_child("Field_duration", true, false)
+	if not (refreshed_node is GFEditorValueField):
+		return "In-place source edit lost the refreshed duration field."
+	var refreshed: GFEditorValueField = refreshed_node
+	if refreshed == field or not _number_equals(refreshed.get_value(), 1.2) or history.get_history_count() != before_in_place_count:
+		return "A no-history in-place payload edit must rebuild fields instead of consuming the owned refresh."
+	field.value_changed.emit(0.5)
+	if not _number_equals(current_step.get(&"duration"), 1.2) or history.get_history_count() != before_in_place_count:
+		return "A field retired by no-history source refresh must not overwrite the new payload."
+	var parent: Node = editor.get_parent()
+	var leave_on_commit: Callable = func() -> void:
+		parent.remove_child(editor)
+	var _connected: int = history.version_changed.connect(leave_on_commit, CONNECT_ONE_SHOT)
+	refreshed.value_changed.emit(1.6)
+	if editor.is_inside_tree():
+		return "Native commit callback must really remove the property editor for lifecycle probing."
+	parent.add_child(editor)
+	editor.update_property()
+	var reentered_node: Node = editor.find_child("Field_duration", true, false)
+	if not (reentered_node is GFEditorValueField):
+		return "Reentered property editor has no current field."
+	var reentered: GFEditorValueField = reentered_node
+	if not _number_equals(reentered.get_value(), 1.6):
+		return "Native commit must preserve the assigned resource despite editor removal."
+	var before_reentered_count: int = history.get_history_count()
+	reentered.value_changed.emit(1.8)
+	if history.get_history_count() != before_reentered_count + 1:
+		return "Commit callback removal must prevent the reentered control from inheriting old merge permission."
+	_rebound_source = GFTweenActionConfig.new()
+	var rebound: Resource = _rebound_source
+	var rebound_steps: Array[GFTweenActionStep] = [GFTweenActionStep.new()]
+	rebound.set(&"steps", rebound_steps)
+	var rebind_on_commit: Callable = func() -> void:
+		editor.set_object_and_property(rebound, &"steps")
+		editor.update_property()
+	var _rebind_connected: int = history.version_changed.connect(rebind_on_commit, CONNECT_ONE_SHOT)
+	reentered.value_changed.emit(2.0)
+	if editor.get_edited_object() != rebound:
+		return "Native commit callback must actually rebind the property editor."
+	var rebound_node: Node = editor.find_child("Field_duration", true, false)
+	if not (rebound_node is GFEditorValueField):
+		return "Rebound editor has no field belonging to the new resource."
+	var rebound_field: GFEditorValueField = rebound_node
+	var before_rebound_count: int = history.get_history_count()
+	rebound_field.value_changed.emit(3.0)
+	var old_binding_steps: Array = _authoring_source.get(&"steps")
+	var old_binding_step: Resource = old_binding_steps[0]
+	var actual_rebound_steps: Array = rebound.get(&"steps")
+	var actual_rebound_step: Resource = actual_rebound_steps[0]
+	if history.get_history_count() != before_rebound_count or not _number_equals(old_binding_step.get(&"duration"), 2.0) or not _number_equals(actual_rebound_step.get(&"duration"), 0.2):
+		return "A property rebind that disagrees with its native Inspector must reject input and preserve both resources."
+	reentered.value_changed.emit(4.0)
+	if history.get_history_count() != before_rebound_count or not _number_equals(actual_rebound_step.get(&"duration"), 0.2):
+		return "A field retired during commit rebind must not edit the new binding."
+	print("GF_TWEEN_NATIVE_MERGE_OWNERSHIP_OK")
+	return ""
+
+
+func _probe_numeric_adapter() -> bool:
+	var registration: GFTweenPreviewRegistration = GFTweenPreviewRegistry.get_shared().register_adapter(self, {
+		"id": "editor_smoke_progress", "revision": 1, "label": "Smoke Progress",
+		"properties": [{"name": "progress", "type": TYPE_FLOAT, "initial": 0.0, "minimum": 0.0, "maximum": 1.0}],
+	}, _ProgressPreviewAdapter.new())
+	if registration == null:
+		return false
+	var config: GFTweenActionConfig = GFTweenActionConfig.new()
+	var step: GFTweenActionStep = GFTweenActionStep.new()
+	step.set(&"property_name", ^"progress")
+	step.set(&"target_value", 1.0)
+	step.set(&"duration", 1.0)
+	step.set(&"transition_type", Tween.TRANS_LINEAR)
+	step.set(&"marker_id", &"ignored_business_marker")
+	var numeric_steps: Array[GFTweenActionStep] = [step]
+	config.set(&"steps", numeric_steps)
+	var viewport: GFTweenPreviewViewport = GFTweenPreviewViewport.new()
+	add_child(viewport)
+	var accepted: bool = viewport.configure_adapter(config, &"editor_smoke_progress") and viewport.play() and viewport.seek(0.5)
+	accepted = accepted and _number_equals(viewport.get_current_values().get("progress"), 0.5) and step.get(&"target_value") == 1.0
+	registration.release()
+	viewport.advance(0.0)
+	accepted = accepted and viewport.get_state() == &"error" and not viewport.has_session()
+	viewport.dispose_preview()
+	viewport.free()
+	return accepted
 
 
 func _finish_authoring() -> void:
@@ -863,3 +1188,32 @@ func _on_process_frame() -> void:
 
 class _CustomStep extends GFTweenActionStep:
 	pass
+
+
+class _ProgressPreviewAdapter extends GFTweenPreviewAdapter:
+	func _create_sample() -> Control:
+		var sample: ColorRect = ColorRect.new()
+		sample.size = Vector2(24.0, 24.0)
+		return sample
+
+	func _apply_sample(sample: Control, values: Dictionary) -> void:
+		var progress: float = GFVariantData.get_option_float(values, "progress")
+		sample.position = Vector2(20.0 + progress * 200.0, 100.0)
+		sample.modulate.a = 0.25 + progress * 0.75
+
+
+class _OtherNativeProperty extends EditorProperty:
+	var _history: UndoRedo
+	var _target: Resource
+
+	func _init(history: UndoRedo, target: Resource) -> void:
+		_history = history
+		_target = target
+		set_object_and_property(target, &"resource_name")
+		var _connected: int = property_changed.connect(_on_other_changed)
+
+	func _on_other_changed(property_name: StringName, value: Variant, _field: StringName, _changing: bool) -> void:
+		_history.create_action("修改 GF Tween 步骤", UndoRedo.MERGE_ENDS)
+		_history.add_do_property(_target, property_name, value)
+		_history.add_undo_property(_target, property_name, _target.get(property_name))
+		_history.commit_action()
