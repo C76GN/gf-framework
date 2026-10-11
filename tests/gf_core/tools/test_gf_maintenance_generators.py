@@ -39,6 +39,60 @@ def api_docs(visibility: str, description: str = "") -> gdscript_api_parser.ApiD
 
 
 class GdscriptDeclarationParsingTests(unittest.TestCase):
+	def test_top_level_extends_preserves_quoted_paths_and_inner_type_suffixes(self) -> None:
+		for inheritance in ('"res://base.gd"', "'res://base.gd'.Handle", '"res://base#variant.gd"'):
+			with self.subTest(inheritance=inheritance):
+				source = (
+					"## Public owner.\n## @api public\nclass_name GFInheritanceFixture\n"
+					f"extends {inheritance} # Ignore a trailing comment: extends Ghost\n"
+				)
+				parsed = gdscript_api_parser.parse_gdscript_source(source, "addons/gf/inheritance.gd")
+				self.assertEqual(parsed.extends, inheritance)
+				self.assertEqual(parsed.to_api_class().extends, inheritance)
+
+	def test_recursive_class_extends_preserves_literal_values_without_fake_declarations(self) -> None:
+		source = '''## Public owner.
+## @api public
+class_name GFInheritanceFixture
+extends RefCounted
+const EXAMPLE = """
+class Ghost extends "res://ghost.gd":
+extends "res://fake_owner.gd"
+"""
+
+## Public nested type.
+## @api public
+class Handle extends "res://base#variant.gd": # A comment cannot change the base.
+	## A declaration-shaped annotation argument remains a string.
+	## @api public
+	@export_enum("class Ghost extends Resource:", "Real") var selection: String = "Real"
+	const NESTED_EXAMPLE = """
+	class Ghost extends "res://ghost.gd":
+	"""
+	## Public recursive type.
+	## @api public
+	class Detail extends 'res://detail.gd'.Handle: # res://fake.gd:
+		pass
+	class DefaultBase:
+		pass
+	class NativeBase extends Resource:
+		pass
+	class NamedBase extends Existing.Handle:
+		pass
+'''
+		parsed = gdscript_api_parser.parse_gdscript_source(source, "addons/gf/inheritance.gd")
+		self.assertEqual(parsed.extends, "RefCounted")
+		self.assertEqual([item.name for item in parsed.inner_classes], ["Handle"])
+		handle = parsed.inner_classes[0]
+		self.assertEqual(handle.extends, '"res://base#variant.gd"')
+		self.assertEqual([item.name for item in handle.inner_classes], ["Detail", "DefaultBase", "NativeBase", "NamedBase"])
+		self.assertEqual(
+			[item.extends for item in handle.inner_classes],
+			["'res://detail.gd'.Handle", "", "Resource", "Existing.Handle"],
+		)
+		self.assertEqual(handle.inner_classes[0].owner, "GFInheritanceFixture.Handle")
+		self.assertEqual([item.name for item in handle.properties], ["selection"])
+
 	def test_inline_export_annotation_cannot_supply_a_fake_var_declaration(self) -> None:
 		source = '''## Public owner.
 ## @api public
@@ -1284,6 +1338,39 @@ class NestedPublicApiConsumerTests(unittest.TestCase):
 		self.catalog = generate_api_reference.render_catalog_files(self.classes, ROOT / "addons/gf")
 		self.reference = generate_api_reference.render_reference_files(self.classes, self.catalog["index.xml"])
 		self.detail = self.classes[0].inner_classes[0].inner_classes[0]
+
+	def test_quoted_inheritance_flows_to_catalog_reference_and_ai_digests(self) -> None:
+		source = NESTED_PUBLIC_API_SOURCE.replace("extends RefCounted", 'extends "res://owner.gd"', 1)
+		source = source.replace("class Handle extends RefCounted:", 'class Handle extends "res://handle.gd":')
+		source = source.replace("class Detail:", "class Detail extends 'res://detail.gd'.Handle:")
+
+		def render(text: str) -> tuple[dict[str, str], dict[str, str], dict[str, object]]:
+			script = gdscript_api_parser.parse_gdscript_source(text, "addons/gf/nested.gd", "kernel")
+			owners = [
+				gf_api_owners.ApiOwner(owner.kind, owner.name, owner.script, "gf.kernel")
+				for owner in gf_api_owners.select_api_owners([script], ())
+			]
+			classes = generate_api_reference.api_classes_from_owners(owners)
+			catalog = generate_api_reference.render_catalog_files(classes, ROOT / "addons/gf")
+			reference = generate_api_reference.render_reference_files(classes, catalog["index.xml"])
+			ai = json.loads(generate_ai_api.render_outputs(owners, ROOT / "addons/gf")["api.json"])
+			return catalog, reference, ai
+
+		catalog, reference, ai = render(source)
+		root = ET.fromstring(catalog["classes/GFNested.xml"])
+		self.assertEqual(root.get("extends"), '"res://owner.gd"')
+		self.assertEqual(root.find("innerClasses/class").get("extends"), '"res://handle.gd"')
+		self.assertEqual(root.find("innerClasses/class/innerClasses/class").get("extends"), "'res://detail.gd'.Handle")
+		for inheritance in ('"res://owner.gd"', '"res://handle.gd"', "'res://detail.gd'.Handle"):
+			self.assertIn(f"继承：`{inheritance}`", reference["classes/GFNested.md"])
+		self.assertEqual(ai["files"][0]["extends"], '"res://owner.gd"')
+		self.assertEqual(ai["files"][0]["inner_classes"][0]["extends"], '"res://handle.gd"')
+		self.assertEqual(ai["files"][0]["inner_classes"][0]["inner_classes"][0]["extends"], "'res://detail.gd'.Handle")
+		for path in ("owner.gd", "handle.gd", "detail.gd"):
+			with self.subTest(changed_base=path):
+				changed_catalog, _reference, changed_ai = render(source.replace(path, "other_" + path))
+				self.assertNotEqual(ET.fromstring(catalog["index.xml"]).get("sourceDigest"), ET.fromstring(changed_catalog["index.xml"]).get("sourceDigest"))
+				self.assertNotEqual(ai["source_digest"], changed_ai["source_digest"])
 
 	def test_nested_catalog_contains_the_recursive_public_tree(self) -> None:
 		root = ET.fromstring(self.catalog["classes/GFNested.xml"])

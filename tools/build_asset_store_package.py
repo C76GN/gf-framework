@@ -80,14 +80,29 @@ def configure_stdio() -> None:
 
 
 def read_plugin_version() -> str:
-	config = configparser.ConfigParser()
-	config.read(ROOT / "addons/gf/plugin.cfg", encoding="utf-8")
-	if not config.has_section("plugin"):
+	try:
+		config_text = (ROOT / "addons/gf/plugin.cfg").read_text(encoding="utf-8")
+	except FileNotFoundError:
 		return ""
+	return _parse_plugin_version(config_text)
+
+
+def _parse_plugin_version(config_text: str) -> str:
+	config = configparser.ConfigParser(interpolation=None, delimiters=("=",))
+	config.optionxform = str
+	config.read_string(config_text)
+	# Godot looks up exact section/key names and uses '=' assignments.
+	# ConfigFile has no DEFAULT inheritance; release metadata must be explicit.
+	config.defaults().clear()
 	value = config.get("plugin", "version", fallback="").strip()
-	if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
-		return value[1:-1]
-	return value
+	if not value:
+		return ""
+	# Release versions use one literal string; numeric Variants, escapes and
+	# extra declarations must not be certified as the original version text.
+	match = re.fullmatch(r'"([^"\\\r\n]*)"', value)
+	if match is None:
+		raise ValueError("plugin.cfg version must be one quoted literal string")
+	return match.group(1)
 
 
 def resolve_output_path(output: str, version: str) -> Path:
@@ -192,14 +207,7 @@ def audit_package(output: Path, *, expected_version: str = "") -> dict[str, Any]
 					config_bytes = stream.read(MAX_PLUGIN_CONFIG_BYTES + 1)
 				if len(config_bytes) > MAX_PLUGIN_CONFIG_BYTES:
 					raise ValueError("plugin.cfg exceeds its read budget")
-				config = configparser.ConfigParser(interpolation=None)
-				config.read_string(config_bytes.decode("utf-8", errors="strict"))
-				# Godot ConfigFile has no ConfigParser DEFAULT inheritance: the
-				# archive must declare version in the plugin section itself.
-				config.defaults().clear()
-				archive_plugin_version = config.get("plugin", "version").strip()
-				if len(archive_plugin_version) >= 2 and archive_plugin_version[0] == '"' and archive_plugin_version[-1] == '"':
-					archive_plugin_version = archive_plugin_version[1:-1]
+				archive_plugin_version = _parse_plugin_version(config_bytes.decode("utf-8", errors="strict"))
 				if not archive_plugin_version:
 					raise ValueError("plugin.cfg version is empty")
 			except (configparser.Error, UnicodeError, ValueError, zipfile.BadZipFile) as error:

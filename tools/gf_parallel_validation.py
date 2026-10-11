@@ -724,9 +724,10 @@ def _capture_workspace_once(
 		git_process=git_process,
 		deadline=deadline,
 	)
+	# Match the live fingerprint's complete object IDs across object-store growth.
 	binary_diff = _run_git(
 		root,
-		["diff", "--binary", "--no-ext-diff", "HEAD", "--"],
+		["diff", "--binary", "--full-index", "--no-ext-diff", "HEAD", "--"],
 		git_process=git_process,
 		deadline=deadline,
 	)

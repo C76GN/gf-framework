@@ -146,8 +146,8 @@ def parse_gdscript_source(source: str, relative_path: str, module: str = "root")
 			i += 1
 			continue
 
-		if match := re.match(r"extends\s+(.+)", structural):
-			api_script.extends = match.group(1).strip()
+		if match := re.match(r"extends\b", structural):
+			api_script.extends = strip_gdscript_comment(raw_line)[match.end():].strip()
 			owner_kind, owner_name = parse_api_owner_declaration(docs_buffer)
 			if owner_kind:
 				api_script.api_owner_kind = owner_kind
@@ -239,12 +239,13 @@ def parse_inner_classes(lines: list[str], owner: ApiClass) -> list[ApiClass]:
 		if not stripped:
 			continue
 
-		if match := re.match(r"class\s+([A-Za-z_]\w*)(?:\s+extends\s+([^:]+))?:", structural):
+		if declaration := parse_inner_class_declaration(raw_line, structural):
+			name, extends = declaration
 			inner_class = ApiClass(
-				name=match.group(1),
+				name=name,
 				path=owner.path,
 				module=owner.module,
-				extends=(match.group(2) or "").strip(),
+				extends=extends,
 				line=i + 1,
 				docs=parse_docs(docs_buffer),
 				owner=full_api_class_name(owner),
@@ -257,6 +258,18 @@ def parse_inner_classes(lines: list[str], owner: ApiClass) -> list[ApiClass]:
 
 		docs_buffer = []
 	return result
+
+
+def parse_inner_class_declaration(raw_line: str, structural: str) -> tuple[str, str] | None:
+	"""Locate the declaration in masked code, preserving its original base value."""
+	match = re.match(r"class\s+([A-Za-z_]\w*)(?:\s+(extends)\s+[^:]+)?:", structural)
+	if match is None:
+		return None
+	# The value's masked quotes are whitespace, so a greedy whitespace match
+	# cannot locate its start. Slice from the keyword to the structural colon.
+	declaration = strip_gdscript_comment(raw_line)
+	extends = declaration[match.end(2):match.end() - 1].strip() if match.group(2) else ""
+	return match.group(1), extends
 
 
 def find_class_block_end(lines: list[str], start: int, class_indent: int) -> int:
@@ -308,12 +321,13 @@ def parse_inner_class_members(
 			i += 1
 			continue
 
-		if match := re.match(r"class\s+([A-Za-z_]\w*)(?:\s+extends\s+([^:]+))?:", structural):
+		if declaration := parse_inner_class_declaration(raw_line, structural):
+			name, extends = declaration
 			nested_class = ApiClass(
-				name=match.group(1),
+				name=name,
 				path=inner_class.path,
 				module=inner_class.module,
-				extends=(match.group(2) or "").strip(),
+				extends=extends,
 				line=i + 1,
 				docs=parse_docs(docs_buffer),
 				owner=full_api_class_name(inner_class),

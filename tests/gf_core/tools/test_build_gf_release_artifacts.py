@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import configparser
 import contextlib
 import io
 import json
@@ -352,6 +353,35 @@ class ReleaseArtifactTests(unittest.TestCase):
 				self.assertEqual(result["archive_plugin_version"], explicit_version or "")
 				self.assertEqual(archive_path.read_bytes(), original)
 
+	def test_asset_store_archive_version_uses_exact_godot_key_and_separator(self) -> None:
+		builder = release_builder.build_asset_store_package
+		for kind, config, expected_version in _plugin_version_config_cases():
+			with self.subTest(kind=kind), tempfile.TemporaryDirectory() as directory:
+				archive_path = Path(directory) / "framework.zip"
+				with zipfile.ZipFile(archive_path, "w") as archive:
+					for name in builder.REQUIRED_PACKAGE_PATHS:
+						archive.writestr(name, config if name.endswith("plugin.cfg") else "fixture")
+				original = archive_path.read_bytes()
+				result = builder.audit_package(archive_path, expected_version=expected_version or VERSION)
+				self.assertEqual(result["ok"], bool(expected_version))
+				self.assertEqual(result["archive_plugin_version"], expected_version)
+				self.assertEqual(archive_path.read_bytes(), original)
+
+	def test_workspace_plugin_version_uses_the_same_explicit_config_rules(self) -> None:
+		builder = release_builder.build_asset_store_package
+		for kind, config, expected_version in _plugin_version_config_cases():
+			with self.subTest(kind=kind), tempfile.TemporaryDirectory() as directory:
+				root = Path(directory)
+				plugin_path = root / "addons/gf/plugin.cfg"
+				plugin_path.parent.mkdir(parents=True)
+				plugin_path.write_text(config, encoding="utf-8")
+				with mock.patch.object(builder, "ROOT", root):
+					try:
+						actual_version = builder.read_plugin_version()
+					except (configparser.Error, ValueError):
+						actual_version = ""
+				self.assertEqual(actual_version, expected_version)
+
 	def test_build_publishes_only_two_archives_and_manifest(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			build_root = Path(temporary_directory) / "build"
@@ -572,6 +602,32 @@ class ReleaseArtifactTests(unittest.TestCase):
 
 def _write_framework_archive(path: Path) -> None:
 	_write_zip(path, "framework.txt", b"framework")
+
+
+def _plugin_version_config_cases() -> tuple[tuple[str, str, str], ...]:
+	return (
+		("uppercase-key", f'[plugin]\nVERSION="{VERSION}"\n', ""),
+		("mixed-case-key", f'[plugin]\nVersion="{VERSION}"\n', ""),
+		("colon-separator", f'[plugin]\nversion: "{VERSION}"\n', ""),
+		("uppercase-section", f'[Plugin]\nversion="{VERSION}"\n', ""),
+		("default-only", f'[DEFAULT]\nversion="{VERSION}"\n[plugin]\nname="GF"\n', ""),
+		("duplicate-version", f'[plugin]\nversion="{VERSION}"\nversion="{VERSION}"\n', ""),
+		("duplicate-section", f'[plugin]\nversion="{VERSION}"\n[plugin]\nversion="{VERSION}"\n', ""),
+		("valid", f'[plugin]\nversion="{VERSION}"\n', VERSION),
+		("valid-spaces", f'[plugin]\nversion = "{VERSION}"\n', VERSION),
+		("distinct-case-key", f'[plugin]\nVERSION="10.0.0"\nversion="{VERSION}"\n', VERSION),
+		("explicit-over-default", f'[DEFAULT]\nversion="10.0.0"\n[plugin]\nversion="{VERSION}"\n', VERSION),
+		("unquoted-stable-version", f'[plugin]\nversion={VERSION}\n', ""),
+		("unquoted-development-version", '[plugin]\nversion=12.0.0-dev.0\n', ""),
+		("empty-value", '[plugin]\nversion=\n', ""),
+		("empty-string", '[plugin]\nversion=""\n', ""),
+		("unterminated-string", f'[plugin]\nversion="{VERSION}\n', ""),
+		("unmatched-closing-quote", f'[plugin]\nversion={VERSION}"\n', ""),
+		("extra-quote", f'[plugin]\nversion="{VERSION}""\n', ""),
+		("extra-declaration", f'[plugin]\nversion="{VERSION}"version="10.0.0"\n', ""),
+		("escaped-quote", f'[plugin]\nversion="{VERSION}\\""\n', ""),
+		("valid-development-version", '[plugin]\nversion="12.0.0-dev.0"\n', "12.0.0-dev.0"),
+	)
 
 
 def _write_ai_archive(path: Path, _version: str) -> None:
