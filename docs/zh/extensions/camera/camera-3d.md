@@ -14,6 +14,8 @@ rig.look_at_target_path = rig.get_path_to(subject)
 
 3D Rig 只计算期望 Camera Transform。碰撞避让、遮挡处理、锁定目标、镜头摇臂或关卡脚本仍由项目层组合。
 
+基础 `GFCameraRig3D` 的 `offset` 默认沿世界坐标轴。启用 `offset_follows_rotation` 时，只有目标存在且 `use_target_rotation = true` 才使用目标全局旋转，否则使用 Rig 全局旋转；所用旋转已剥离缩放和反射。位置偏移先计算，随后才执行 `look_at` 和 `rotation_degrees_offset`，因此后两者不改变偏移方向。
+
 Camera 姿态只保留可由 Quaternion 表示的右手旋转：Rig 会从目标或自身 `Basis` 中剥离缩放，并按 Godot 的 rotation extraction 约定把镜像/奇数负轴缩放收敛为 determinant 近似 `+1` 的正交 Basis。这样负缩放层级也不会把反射矩阵送入 Director 的四元数 blend；需要保留镜像或 signed scale 的效果应由项目在渲染层单独处理，而不是写入 Camera 姿态。
 
 `get_camera_transform()` 保留原生 `Transform3D`，便于运行时直接应用。需要 JSON-safe 数据时无需为 Camera 维护第二套 schema，可直接调用 `GFVariantJsonCodec.variant_to_json_compatible(rig.get_camera_transform())`；恢复时使用 `json_compatible_to_variant()`。

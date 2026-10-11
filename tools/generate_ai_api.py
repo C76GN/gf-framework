@@ -16,7 +16,10 @@ from generated_output_transaction import lexical_absolute_path
 from generated_output_transaction import replace_generated_trees
 from generated_output_transaction import validate_controlled_path
 from gdscript_api_parser import ApiDocs
+from gdscript_api_parser import ApiClass
 from gdscript_api_parser import ApiMember
+from gdscript_api_parser import flatten_api_classes
+from gdscript_api_parser import full_api_class_name
 from gf_api_owners import ApiOwner
 from gf_api_owners import OWNER_KIND_AUTOLOAD
 from gf_api_owners import OWNER_KIND_CLASS
@@ -87,10 +90,11 @@ def main(argv: list[str] | None = None) -> int:
 	write_outputs(output_dir, desired)
 	class_count = sum(1 for owner in api_owners if owner.kind == OWNER_KIND_CLASS)
 	autoload_count = sum(1 for owner in api_owners if owner.kind == OWNER_KIND_AUTOLOAD)
-	method_count = sum(len(owner.script.methods) for owner in api_owners)
+	inner_classes = [inner for owner in api_owners for inner in flatten_api_classes(owner.script.inner_classes)]
+	method_count = sum(len(owner.script.methods) for owner in api_owners) + sum(len(inner.methods) for inner in inner_classes)
 	print(
 		f"generated {len(api_owners)} files, {class_count} classes, "
-		f"{autoload_count} autoloads, {method_count} public methods"
+		f"{autoload_count} autoloads, {len(inner_classes)} inner classes, {method_count} public methods"
 	)
 	print(f"output: {output_dir}")
 	if args.check_or_generate:
@@ -113,7 +117,7 @@ def render_outputs(api_owners: list[ApiOwner], source_root: Path) -> dict[str, s
 		json.dumps(files_payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
 	).hexdigest()
 	payload = {
-		"schema_version": 3,
+		"schema_version": 4,
 		"source_digest": source_digest,
 		"location_digest": location_digest,
 		"source_root": source_root.relative_to(ROOT).as_posix(),
@@ -121,7 +125,11 @@ def render_outputs(api_owners: list[ApiOwner], source_root: Path) -> dict[str, s
 		"owner_count": len(api_owners),
 		"class_count": sum(1 for owner in api_owners if owner.kind == OWNER_KIND_CLASS),
 		"autoload_count": sum(1 for owner in api_owners if owner.kind == OWNER_KIND_AUTOLOAD),
-		"public_method_count": sum(len(owner.script.methods) for owner in api_owners),
+		"inner_class_count": sum(len(flatten_api_classes(owner.script.inner_classes)) for owner in api_owners),
+		"public_method_count": sum(
+			len(owner.script.methods) + sum(len(inner.methods) for inner in flatten_api_classes(owner.script.inner_classes))
+			for owner in api_owners
+		),
 		"files": files_payload,
 	}
 	outputs = {
@@ -150,6 +158,7 @@ def api_owner_to_dict(owner: ApiOwner) -> dict[str, Any]:
 		"constants": [api_item_to_dict(item) for item in api_file.constants],
 		"variables": [api_item_to_dict(item) for item in api_file.properties],
 		"methods": [api_item_to_dict(item) for item in api_file.methods],
+		"inner_classes": [inner_class_to_dict(inner, owner.package_id) for inner in api_file.inner_classes],
 	}
 
 
@@ -169,7 +178,32 @@ def semantic_api_owner_to_dict(owner: ApiOwner) -> dict[str, Any]:
 		"constants": [semantic_api_item_to_dict(item) for item in api_file.constants],
 		"variables": [semantic_api_item_to_dict(item) for item in api_file.properties],
 		"methods": [semantic_api_item_to_dict(item) for item in api_file.methods],
+		"inner_classes": [inner_class_to_dict(inner, owner.package_id, semantic=True) for inner in api_file.inner_classes],
 	}
+
+
+def inner_class_to_dict(api_class: ApiClass, package_id: str, *, semantic: bool = False) -> dict[str, Any]:
+	project_member = semantic_api_item_to_dict if semantic else api_item_to_dict
+	name = full_api_class_name(api_class)
+	payload = {
+		"path": api_class.path,
+		"module": api_class.module,
+		"class_name": name,
+		"owner_kind": "inner_class",
+		"owner_name": name,
+		"package_id": package_id,
+		"extends": api_class.extends,
+		"summary": docs_to_ai_lines(api_class.docs),
+		"signals": [project_member(item) for item in api_class.signals],
+		"enums": [project_member(item) for item in api_class.enums],
+		"constants": [project_member(item) for item in api_class.constants],
+		"variables": [project_member(item) for item in api_class.properties],
+		"methods": [project_member(item) for item in api_class.methods],
+		"inner_classes": [inner_class_to_dict(inner, package_id, semantic=semantic) for inner in api_class.inner_classes],
+	}
+	if not semantic:
+		payload["line"] = api_class.line
+	return payload
 
 
 def api_item_to_dict(item: ApiMember) -> dict[str, Any]:
@@ -248,6 +282,7 @@ def render_index(api_owners: list[ApiOwner], payload: dict[str, Any]) -> str:
 		f"file_count: {payload['file_count']}",
 		f"owner_count: {payload['owner_count']}",
 		f"class_count: {payload['class_count']}",
+		f"inner_class_count: {payload['inner_class_count']}",
 		f"autoload_count: {payload['autoload_count']}",
 		f"public_method_count: {payload['public_method_count']}",
 		"",
@@ -266,6 +301,11 @@ def render_index(api_owners: list[ApiOwner], payload: dict[str, Any]) -> str:
 			f"- {owner.kind}:{owner.name} | {owner.package_id} "
 			f"| {item.extends} | {item.module} | {item.path}"
 		)
+		for inner in flatten_api_classes(item.inner_classes):
+			lines.append(
+				f"- inner_class:{full_api_class_name(inner)} | {owner.package_id} "
+				f"| {inner.extends} | {inner.module} | {inner.path}:{inner.line}"
+			)
 	return "\n".join(lines) + "\n"
 
 
@@ -287,6 +327,22 @@ def render_module(module: str, api_owners: list[ApiOwner]) -> str:
 		append_items(lines, "constants", api_file.constants)
 		append_items(lines, "variables", api_file.properties)
 		append_items(lines, "methods", api_file.methods)
+		for inner in flatten_api_classes(api_file.inner_classes):
+			lines.extend([
+				f"## {full_api_class_name(inner)}",
+				"owner_kind: inner_class",
+				f"package_id: {owner.package_id}",
+				f"path: {inner.path}",
+				f"line: {inner.line}",
+				f"extends: {inner.extends}",
+				f"summary: {' '.join(docs_to_ai_lines(inner.docs))}",
+				"",
+			])
+			for title, items in (
+				("signals", inner.signals), ("enums", inner.enums),
+				("constants", inner.constants), ("variables", inner.properties), ("methods", inner.methods),
+			):
+				append_items(lines, title, items)
 	return "\n".join(lines) + "\n"
 
 

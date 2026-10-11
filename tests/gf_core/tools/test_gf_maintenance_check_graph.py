@@ -69,6 +69,50 @@ class WorkspaceFingerprintGitTests(unittest.TestCase):
 		self.assertRegex(object_id, r"^[0-9a-f]{40}(?:[0-9a-f]{24})?$")
 		self.assertEqual(actual, payload)
 
+	def test_workspace_fingerprint_ignores_git_abbreviation_and_unrelated_objects(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			repository = Path(temporary_directory)
+
+			def git(*arguments: str, input_bytes: bytes | None = None) -> bytes:
+				return check_graph.run_git_bytes(
+					repository,
+					list(arguments),
+					git_process=self.git_process,
+					input_bytes=input_bytes,
+				)
+
+			git("init", "--quiet")
+			git("config", "user.email", "tests@example.invalid")
+			git("config", "user.name", "GF Tests")
+			payload_path = repository / "payload.txt"
+			payload_path.write_text("before\n", encoding="utf-8")
+			git("add", "payload.txt")
+			git("commit", "--quiet", "-m", "fixture")
+			payload_path.write_text("after\n", encoding="utf-8")
+			git("config", "core.abbrev", "7")
+			expected = check_graph.workspace_fingerprint(
+				repository,
+				git_process=self.git_process,
+			)
+
+			for abbreviation in ("12", "auto"):
+				git("config", "core.abbrev", abbreviation)
+				with self.subTest(abbreviation=abbreviation):
+					self.assertEqual(
+						check_graph.workspace_fingerprint(repository, git_process=self.git_process),
+						expected,
+					)
+			git("hash-object", "-w", "--stdin", input_bytes=b"unrelated object\n")
+			self.assertEqual(
+				check_graph.workspace_fingerprint(repository, git_process=self.git_process),
+				expected,
+			)
+			payload_path.write_text("different content\n", encoding="utf-8")
+			self.assertNotEqual(
+				check_graph.workspace_fingerprint(repository, git_process=self.git_process)["fingerprint"],
+				expected["fingerprint"],
+			)
+
 	def test_run_git_bytes_rejects_unproved_process_boundary(self) -> None:
 		payload = b"input\x00\xff\r\n"
 		result = process_supervisor.SupervisedProcessResult(

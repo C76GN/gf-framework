@@ -34,6 +34,7 @@ PARALLEL_POLL_SECONDS = 0.05
 UNTRACKED_CAPTURE_CHUNK_BYTES = 1024 * 1024
 MAX_CAPTURED_UNTRACKED_FILE_BYTES = 64 * 1024 * 1024
 MAX_CAPTURED_UNTRACKED_TOTAL_BYTES = 256 * 1024 * 1024
+MAX_SHARD_STREAM_CHARACTERS = 4 * 1024 * 1024
 WORKSPACE_FINGERPRINT_PREFIX = b"gf-maintenance-workspace-v1\0"
 GIT_OBJECT_ID_PATTERN = re.compile(r"^[0-9a-f]{40}(?:[0-9a-f]{24})?$")
 WINDOWS_LONG_PATH_MAX_CHARACTERS = 32768
@@ -723,9 +724,10 @@ def _capture_workspace_once(
 		git_process=git_process,
 		deadline=deadline,
 	)
+	# Match the live fingerprint's complete object IDs across object-store growth.
 	binary_diff = _run_git(
 		root,
-		["diff", "--binary", "--no-ext-diff", "HEAD", "--"],
+		["diff", "--binary", "--full-index", "--no-ext-diff", "HEAD", "--"],
 		git_process=git_process,
 		deadline=deadline,
 	)
@@ -1638,6 +1640,8 @@ def _run_parallel_shard(
 			cwd=shard.workspace,
 			timeout_seconds=effective_timeout,
 			environment=dict(shard.environment),
+			max_stdout_characters=MAX_SHARD_STREAM_CHARACTERS,
+			max_stderr_characters=MAX_SHARD_STREAM_CHARACTERS,
 			stdout_callback=(
 				(lambda line: output_callback(shard.name, "stdout", line))
 				if output_callback is not None
@@ -1701,6 +1705,10 @@ def _run_parallel_shard(
 	timed_out = process_result.timed_out or deadline_cancelled
 	exit_code = 130 if cancelled else (124 if timed_out else process_result.return_code)
 	notes = list(process_result.notes)
+	if process_result.stdout_truncated is True or process_result.stderr_truncated is True:
+		if exit_code == 0:
+			exit_code = 1
+		notes.append("Shard output exceeded its capture budget; incomplete evidence cannot pass.")
 	if process_result.cancelled and reason:
 		notes.append(f"Parallel runner cancellation reason: {reason}.")
 	return ParallelShardResult(

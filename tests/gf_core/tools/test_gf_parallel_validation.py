@@ -19,6 +19,7 @@ if str(TOOLS_ROOT) not in sys.path:
 	sys.path.insert(0, str(TOOLS_ROOT))
 
 import gf_parallel_validation as parallel_validation  # noqa: E402
+import gf_maintenance_check_graph as check_graph  # noqa: E402
 from gf_process_authority import FrozenGitProcess  # noqa: E402
 from gf_process_authority import FrozenProcessEnvironment  # noqa: E402
 from gf_process_authority import freeze_git_process  # noqa: E402
@@ -76,6 +77,85 @@ class PythonCompatibilityBoundaryTests(unittest.TestCase):
 		error = PermissionError("read only")
 		legacy_callback(operation, "owned/file", (PermissionError, error, None))
 		callback.assert_called_once_with(operation, "owned/file", error)
+
+
+class WorkspaceFingerprintAbbreviationTests(unittest.TestCase):
+	def test_capture_matches_check_graph_across_abbreviation_and_object_changes(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			git_process = _frozen_git_process(root)
+			source = self._dirty_text_repository(root, git_process)
+			captures = []
+			for abbreviation in ("7", "12", "auto"):
+				self._git(source, git_process, "config", "core.abbrev", abbreviation)
+				captures.append(parallel_validation.capture_workspace(source, git_process=git_process))
+				with self.subTest(abbreviation=abbreviation):
+					self.assertEqual(
+						captures[-1].workspace_fingerprint,
+						check_graph.workspace_fingerprint(source, git_process=git_process)["fingerprint"],
+					)
+			self._git(
+				source,
+				git_process,
+				"hash-object", "-w", "--stdin",
+				input_bytes=b"unrelated object\n",
+			)
+			captures.append(parallel_validation.capture_workspace(source, git_process=git_process))
+			for capture in captures[1:]:
+				with self.subTest(binary_diff=capture.binary_diff):
+					self.assertEqual(capture.workspace_fingerprint, captures[0].workspace_fingerprint)
+					self.assertEqual(capture.binary_diff, captures[0].binary_diff)
+
+	def test_materializer_accepts_abbreviation_changes_and_rejects_content_changes(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			git_process = _frozen_git_process(root)
+			source = self._dirty_text_repository(root, git_process)
+			self._git(source, git_process, "config", "core.abbrev", "7")
+			snapshot = parallel_validation.capture_workspace(source, git_process=git_process)
+			self._git(source, git_process, "config", "core.abbrev", "12")
+			target = root / "target"
+			parallel_validation.materialize_workspace(snapshot, target, git_process=git_process)
+			self.assertEqual((target / "payload.txt").read_text(encoding="utf-8"), "after\n")
+			for abbreviation in ("12", "auto"):
+				self._git(target, git_process, "config", "core.abbrev", abbreviation)
+				with self.subTest(abbreviation=abbreviation):
+					self.assertEqual(
+						parallel_validation.capture_workspace(target, git_process=git_process).workspace_fingerprint,
+						snapshot.workspace_fingerprint,
+					)
+			(source / "payload.txt").write_text("different content\n", encoding="utf-8")
+			with self.assertRaises(parallel_validation.WorkspaceDriftError):
+				parallel_validation.materialize_workspace(snapshot, root / "changed", git_process=git_process)
+			self.assertFalse((root / "changed").exists())
+
+	@classmethod
+	def _dirty_text_repository(cls, root: Path, git_process: FrozenGitProcess) -> Path:
+		source = root / "source"
+		source.mkdir()
+		cls._git(source, git_process, "init", "--quiet")
+		cls._git(source, git_process, "config", "user.email", "tests@example.invalid")
+		cls._git(source, git_process, "config", "user.name", "GF Tests")
+		payload_path = source / "payload.txt"
+		payload_path.write_text("before\n", encoding="utf-8")
+		cls._git(source, git_process, "add", "payload.txt")
+		cls._git(source, git_process, "commit", "--quiet", "-m", "fixture")
+		payload_path.write_text("after\n", encoding="utf-8")
+		return source
+
+	@staticmethod
+	def _git(
+		root: Path,
+		git_process: FrozenGitProcess,
+		*arguments: str,
+		input_bytes: bytes | None = None,
+	) -> bytes:
+		return check_graph.run_git_bytes(
+			root,
+			list(arguments),
+			git_process=git_process,
+			input_bytes=input_bytes,
+		)
 
 
 class SupervisedGitTests(unittest.TestCase):

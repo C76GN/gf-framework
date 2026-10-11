@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceBroker" path="addons/gf/standard/utilities/assets/gf_resource_broker.gd" module="standard" extends="GFUtility" classDigest="c5912d06313fd1c946c7cef4b439a651f7a35470513d3481e68ac38218f97697">
+<class name="GFResourceBroker" path="addons/gf/standard/utilities/assets/gf_resource_broker.gd" module="standard" extends="GFUtility" classDigest="64266cbca01cff8c9b7913f4b166622e14ef41a5f9c53721edcbed07617edf6f">
 	<description>GFResourceBroker: framework-level threaded ResourceLoader admission broker。
 一个显式共享实例可以注入 Asset、Scene 与 BackgroundWork Utility，
 统一执行有界 FIFO admission、同资源身份复用、消费者级取消和底层请求 drain。
@@ -99,9 +99,22 @@ Broker 不使用全局 singleton；架构模式应把它注册为 Utility，独�
 				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="begin_quiesce">
+			<signature>func begin_quiesce(scope: GFAsyncScope) -&gt; GFAsyncCompletion:</signature>
+			<description>关闭新请求准入，并在已接纳 FIFO 与底层 drain 全部 idle 后完成。
+Architecture 使用生命周期 tick 推进，并通过共享 deadline 和 scope 限制等待；
+独立调用者仍须显式 pump 并在自己的截止时间取消 scope。重复调用共享同一完成源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope: 当前静默阶段的取消作用域；取消不会伪造底层请求已经回收。</tag>
+				<tag name="return">idle 后成功、取消时终结的静默完成源。</tag>
+				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="dispose">
 			<signature>func dispose() -&gt; void:</signature>
-			<description>取消所有消费者，并让已发起的请求保留为 drain 状态。</description>
+			<description>强制取消所有消费者及静默等待，并让已发起的请求保留为 drain 状态。
+正常架构退出使用 shutdown_async()；直接 dispose() 后调用方仍须显式 pump 到 idle。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">11.0.0</tag>

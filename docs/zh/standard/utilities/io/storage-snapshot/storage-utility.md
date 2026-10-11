@@ -12,6 +12,8 @@
 
 字典读写的物理文件与解析前明文默认各受 64 MiB 正整数预算限制，预算拒绝不提交本次新存档；配置与恢复边界见[读写预算与失败恢复](read-results.md#读写预算与失败恢复)。异步读取同样返回 `GFStorageReadResult`；大型结果需要单个消费者领取时，可显式使用 `load_data_owned_request_async()`，普通读取保持副本与广播行为。两种入口的选择、一次性领取、取消和释放规则见[读取结果与副本隔离](read-results.md)。
 
+直接调用 `GFStorageCodec` 的 JSON 编码、底层序列化或 checksum 入口时，字典键和值都会先通过 `GFVariantJsonCodec` 的默认有界完整性检查，再进入递归排序或数字归一化。循环引用、不支持的值和遍历预算超限会返回编码失败，不会生成部分 bytes 或 checksum；共享但无环的集合仍可编码。结构预算与最终明文字节预算分别执行；checksum 的 JSON 标记规范树可能比原始载荷更大，原始图通过不代表该树也通过，无法完整生成摘要时整次编码失败，不会交付空 digest 文件。
+
 如果确实需要把受控 `Resource` 属性图编码成字典，再使用 `GFSafeResourceCodec` 与 `GFSafeResourceCodecPolicy`。默认策略不会实例化任何对象，项目必须显式允许类、脚本路径和外部资源路径：
 
 ```gdscript
@@ -35,10 +37,8 @@ var decoded := GFSafeResourceCodec.decode(encoded.data, policy)
 
 大型载荷推荐拆成两段：先用项目自己的分帧流程生成纯 `Dictionary`，或调用 `GFArchitecture.get_global_snapshot_async()` 并在 `ok == true` 后取出 `snapshot`，再交给 Storage 执行器预检、物化、编码和落盘。不要把 Architecture 的 Result 外壳或失败结果当作存档载荷。`GFStorageUtility` 的执行器只处理已经生成的纯 Variant 图，不会遍历场景树、读取 `Resource` 或调用业务对象；这一约束在线程和协作式模式下相同。
 
-`save_data_async()` 与 `save_data_request_async()` 是安全的普通入口：它们会在请求入队
-时深复制 `Dictionary`，调用方可以继续使用原值。已经通过分帧流程独占大型载荷，并且
-希望避免再次主线程深复制时，才使用 `GFStoragePayloadTransfer` 与
-`save_payload_request_async()`：
+`save_data_async()` 与 `save_data_request_async()` 是安全的普通入口：它们会在请求入队时深复制 `Dictionary`，调用方可以继续使用原值。
+已经通过分帧流程独占大型载荷，并且希望避免再次主线程深复制时，才使用 `GFStoragePayloadTransfer` 与 `save_payload_request_async()`：
 
 ```gdscript
 var payload: Dictionary = await _build_owned_payload_over_multiple_frames()

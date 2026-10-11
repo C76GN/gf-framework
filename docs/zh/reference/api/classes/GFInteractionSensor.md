@@ -303,9 +303,9 @@ func broadcast_to_group(target_group_name: StringName = &"", max_count: int = 0)
 | 名称 | 说明 |
 |---|---|
 | `target_group_name` | 目标分组；为空时使用节点默认分组。 |
-| `max_count` | 最多发送数量；小于等于 0 表示不限制。 |
+| `max_count` | 最多成功接受数量（ok=true）；拒绝不占配额，小于等于 0 表示不限制。 |
 
-返回：结果报告列表。
+返回：已尝试接收对象的结果报告列表，包含拒绝结果，数量可能超过 max_count。
 
 结构：
 
@@ -360,11 +360,11 @@ func broadcast_to_candidates( candidate_provider: Object, options: Dictionary = 
 |---|---|
 | `candidate_provider` | 暴露 get_candidate_objects(options) 的候选 provider。 |
 | `options` | 候选查询选项；未设置 method_name 时默认筛选 receive_interaction。 |
-| `max_count` | 最多发送数量；小于等于 0 表示不限制。 |
+| `max_count` | 最多成功接受数量（ok=true）；拒绝不占配额，小于等于 0 表示不限制。 |
 | `payload_override` | 覆盖 payload；为 null 时使用节点默认 payload。 |
 | `interaction_id_override` | 覆盖交互 ID；为空时使用节点默认交互 ID。 |
 
-返回：结果报告列表。
+返回：已尝试接收对象的结果报告列表，包含拒绝结果，数量可能超过 max_count。
 
 结构：
 
@@ -446,11 +446,11 @@ func broadcast_to_area_2d( area: Area2D, max_count: int = 0, payload_override: V
 | 名称 | 说明 |
 |---|---|
 | `area` | Area2D 节点。 |
-| `max_count` | 最多发送数量；小于等于 0 表示不限制。 |
+| `max_count` | 最多非空结果报告数量；成功和拒绝都占配额，小于等于 0 表示不限制。 |
 | `payload_override` | 覆盖 payload；为 null 时使用节点默认 payload。 |
 | `interaction_id_override` | 覆盖交互 ID；为空时使用节点默认交互 ID。 |
 
-返回：结果报告列表。
+返回：非空结果报告列表，包含成功和拒绝结果；max_count 大于 0 时数量不超过该上限。
 
 结构：
 
@@ -475,11 +475,11 @@ func broadcast_to_area_3d( area: Area3D, max_count: int = 0, payload_override: V
 | 名称 | 说明 |
 |---|---|
 | `area` | Area3D 节点。 |
-| `max_count` | 最多发送数量；小于等于 0 表示不限制。 |
+| `max_count` | 最多非空结果报告数量；成功和拒绝都占配额，小于等于 0 表示不限制。 |
 | `payload_override` | 覆盖 payload；为 null 时使用节点默认 payload。 |
 | `interaction_id_override` | 覆盖交互 ID；为空时使用节点默认交互 ID。 |
 
-返回：结果报告列表。
+返回：非空结果报告列表，包含成功和拒绝结果；max_count 大于 0 时数量不超过该上限。
 
 结构：
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInteractionSensor" path="addons/gf/extensions/interaction/nodes/gf_interaction_sensor.gd" module="extensions/interaction" extends="Node" classDigest="c4e5d55ce70cbcd1d06b1143291e95ef6aab0a016fe03b46312cf02b7f21ae0d">
+<class name="GFInteractionSensor" path="addons/gf/extensions/interaction/nodes/gf_interaction_sensor.gd" module="extensions/interaction" extends="Node" classDigest="105ed2ef6f2817bb93bc719ce0c7edc5019bbc6b6df019c0c62d53b6d3d21d5b">
 	<description>GFInteractionSensor: 通用交互发送节点。
 负责构建 GFInteractionContext，并把交互请求发送给具备 receive_interaction()
 方法的接收对象。发送者、目标、payload 和分组均保持通用，不绑定具体玩法。</description>
@@ -148,8 +148,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">target_group_name: 目标分组；为空时使用节点默认分组。</tag>
-				<tag name="param">max_count: 最多发送数量；小于等于 0 表示不限制。</tag>
-				<tag name="return">结果报告列表。</tag>
+				<tag name="param">max_count: 最多成功接受数量（ok=true）；拒绝不占配额，小于等于 0 表示不限制。</tag>
+				<tag name="return">已尝试接收对象的结果报告列表，包含拒绝结果，数量可能超过 max_count。</tag>
 				<tag name="schema">return: 交互结果报告字典数组；每项包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
@@ -177,10 +177,10 @@
 				<tag name="api">public</tag>
 				<tag name="param">candidate_provider: 暴露 get_candidate_objects(options) 的候选 provider。</tag>
 				<tag name="param">options: 候选查询选项；未设置 method_name 时默认筛选 receive_interaction。</tag>
-				<tag name="param">max_count: 最多发送数量；小于等于 0 表示不限制。</tag>
+				<tag name="param">max_count: 最多成功接受数量（ok=true）；拒绝不占配额，小于等于 0 表示不限制。</tag>
 				<tag name="param">payload_override: 覆盖 payload；为 null 时使用节点默认 payload。</tag>
 				<tag name="param">interaction_id_override: 覆盖交互 ID；为空时使用节点默认交互 ID。</tag>
-				<tag name="return">结果报告列表。</tag>
+				<tag name="return">已尝试接收对象的结果报告列表，包含拒绝结果，数量可能超过 max_count。</tag>
 				<tag name="schema">options: Dictionary passed to candidate_provider.get_candidate_objects(); method_name defaults to receive_interaction.</tag>
 				<tag name="schema">payload_override: 覆盖默认 payload 的任意项目载荷；为 null 时复制节点默认 payload。</tag>
 				<tag name="schema">return: 交互结果报告字典数组；每项包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。</tag>
@@ -221,10 +221,10 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">area: Area2D 节点。</tag>
-				<tag name="param">max_count: 最多发送数量；小于等于 0 表示不限制。</tag>
+				<tag name="param">max_count: 最多非空结果报告数量；成功和拒绝都占配额，小于等于 0 表示不限制。</tag>
 				<tag name="param">payload_override: 覆盖 payload；为 null 时使用节点默认 payload。</tag>
 				<tag name="param">interaction_id_override: 覆盖交互 ID；为空时使用节点默认交互 ID。</tag>
-				<tag name="return">结果报告列表。</tag>
+				<tag name="return">非空结果报告列表，包含成功和拒绝结果；max_count 大于 0 时数量不超过该上限。</tag>
 				<tag name="schema">payload_override: 覆盖默认 payload 的任意项目载荷；为 null 时复制节点默认 payload。</tag>
 				<tag name="schema">return: 交互结果报告字典数组；每项包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。</tag>
 				<tag name="since">3.17.0</tag>
@@ -236,10 +236,10 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">area: Area3D 节点。</tag>
-				<tag name="param">max_count: 最多发送数量；小于等于 0 表示不限制。</tag>
+				<tag name="param">max_count: 最多非空结果报告数量；成功和拒绝都占配额，小于等于 0 表示不限制。</tag>
 				<tag name="param">payload_override: 覆盖 payload；为 null 时使用节点默认 payload。</tag>
 				<tag name="param">interaction_id_override: 覆盖交互 ID；为空时使用节点默认交互 ID。</tag>
-				<tag name="return">结果报告列表。</tag>
+				<tag name="return">非空结果报告列表，包含成功和拒绝结果；max_count 大于 0 时数量不超过该上限。</tag>
 				<tag name="schema">payload_override: 覆盖默认 payload 的任意项目载荷；为 null 时复制节点默认 payload。</tag>
 				<tag name="schema">return: 交互结果报告字典数组；每项包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。</tag>
 				<tag name="since">3.17.0</tag>

@@ -22,7 +22,7 @@ func execute() -> Variant:
 
 duck-typed 动作可以实现 `should_wait_for_result(result)`，但返回 `true` 时 `execute()` 的结果必须是 `Signal`。违反该契约会产生受控错误，当前结果按不可等待处理，队列不会把任意 `Variant` 强制转换成 `Signal`。
 
-等待 Signal 的动作默认有 30 秒超时，`with_signal_timeout(seconds, respect_time_scale)` 可调整超时时间，并默认跟随 `GFTimeUtility` 的暂停与 `time_scale`。
+等待 Signal 的动作默认有 30 秒超时，`with_signal_timeout(seconds, respect_time_scale)` 可调整超时时间，并默认跟随 `GFTimeUtility` 的暂停与 `time_scale`。有限且小于等于零的值会归零并禁用超时；`NaN` 和正负无穷不会覆盖已有设置。
 
 当前 timeout 只解除队列等待并继续后续动作，不会自动调用超时动作的 `cancel()`。因此仍可能运行的外部任务必须自行实现超时终止，或在调用方明确管理其 detached 生命周期。
 

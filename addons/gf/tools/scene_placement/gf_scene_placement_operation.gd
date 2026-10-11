@@ -373,37 +373,80 @@ func _parse_options(options: Dictionary) -> Dictionary:
 	return parsed
 
 
-## 仅检查有界的 SceneState 继承链，不实例化场景；读取最派生的根变换并要求根类型兼容 Node3D。
+## 检查有界的 SceneState 继承链；只在独立原生 Node3D 上按基类到派生类重放变换属性，不实例化场景或执行资源脚本。
 ## [br]
 ## @api private
 func _read_source_root(scene: PackedScene) -> Dictionary:
 	var state: SceneState = scene.get_state()
 	var root_type: StringName = &""
-	var basis: Basis = Basis.IDENTITY
-	var found_transform: bool = false
-	var depth: int = 0
+	var states: Array[SceneState] = []
 	while state != null:
-		depth += 1
-		if depth > 32 or state.get_node_count() == 0 or state.get_node_property_count(0) > 4096:
+		if states.size() >= 32 or state.get_node_count() == 0 or state.get_node_property_count(0) > 4096:
 			return {}
 		if root_type == &"":
 			root_type = state.get_node_type(0)
-		if not found_transform:
-			for index: int in range(state.get_node_property_count(0)):
-				if state.get_node_property_name(0, index) != &"transform":
-					continue
-				var value: Variant = state.get_node_property_value(0, index)
-				if not value is Transform3D:
-					return {}
-				var transform: Transform3D = value
-				if not transform.is_finite() or absf(transform.basis.determinant()) <= 0.00000001:
-					return {}
-				basis = transform.basis
-				found_transform = true
+		states.append(state)
 		state = state.get_base_scene_state()
 	if root_type != &"Node3D" and not ClassDB.is_parent_class(root_type, &"Node3D"):
 		return {}
+	var native_root: Node3D = Node3D.new()
+	states.reverse()
+	for source_state: SceneState in states:
+		for index: int in range(source_state.get_node_property_count(0)):
+			if not _apply_source_transform_property(
+				native_root,
+				source_state.get_node_property_name(0, index),
+				source_state.get_node_property_value(0, index)
+			):
+				native_root.free()
+				return {}
+	var source_transform: Transform3D = native_root.transform
+	native_root.free()
+	if not source_transform.is_finite() or absf(source_transform.basis.determinant()) <= 0.00000001:
+		return {}
+	var basis: Basis = source_transform.basis
 	return { "ok": true, "basis": basis }
+
+
+## 仅向原生变换探针写入类型正确且有限的变换属性；其他场景属性完全忽略，不加载脚本或资源。
+## [br]
+## @api private
+func _apply_source_transform_property(native_root: Node3D, property_name: StringName, value: Variant) -> bool:
+	match property_name:
+		&"transform":
+			if not value is Transform3D:
+				return false
+			var transform_value: Transform3D = value
+			if not transform_value.is_finite():
+				return false
+		&"position", &"rotation", &"rotation_degrees", &"scale":
+			if not value is Vector3:
+				return false
+			var vector_value: Vector3 = value
+			if not vector_value.is_finite():
+				return false
+		&"quaternion":
+			if not value is Quaternion:
+				return false
+			var quaternion_value: Quaternion = value
+			if not quaternion_value.is_finite() or not quaternion_value.is_normalized():
+				return false
+		&"basis":
+			if not value is Basis:
+				return false
+			var basis_value: Basis = value
+			if not basis_value.is_finite():
+				return false
+		&"rotation_order":
+			if not value is int:
+				return false
+			var order_value: int = value
+			if order_value < EULER_ORDER_XYZ or order_value > EULER_ORDER_ZYX:
+				return false
+		_:
+			return true
+	native_root.set(property_name, value)
+	return true
 
 
 ## 按配置选择射线平面交点或调用方提供的表面命中；表面模式仅在提供射线原点时校验最大距离，非法输入返回空字典。

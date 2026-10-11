@@ -10,6 +10,7 @@ import re
 import sys
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from unittest import mock
 
@@ -38,6 +39,83 @@ def api_docs(visibility: str, description: str = "") -> gdscript_api_parser.ApiD
 
 
 class GdscriptDeclarationParsingTests(unittest.TestCase):
+	def test_top_level_extends_preserves_quoted_paths_and_inner_type_suffixes(self) -> None:
+		for inheritance in ('"res://base.gd"', "'res://base.gd'.Handle", '"res://base#variant.gd"'):
+			with self.subTest(inheritance=inheritance):
+				source = (
+					"## Public owner.\n## @api public\nclass_name GFInheritanceFixture\n"
+					f"extends {inheritance} # Ignore a trailing comment: extends Ghost\n"
+				)
+				parsed = gdscript_api_parser.parse_gdscript_source(source, "addons/gf/inheritance.gd")
+				self.assertEqual(parsed.extends, inheritance)
+				self.assertEqual(parsed.to_api_class().extends, inheritance)
+
+	def test_recursive_class_extends_preserves_literal_values_without_fake_declarations(self) -> None:
+		source = '''## Public owner.
+## @api public
+class_name GFInheritanceFixture
+extends RefCounted
+const EXAMPLE = """
+class Ghost extends "res://ghost.gd":
+extends "res://fake_owner.gd"
+"""
+
+## Public nested type.
+## @api public
+class Handle extends "res://base#variant.gd": # A comment cannot change the base.
+	## A declaration-shaped annotation argument remains a string.
+	## @api public
+	@export_enum("class Ghost extends Resource:", "Real") var selection: String = "Real"
+	const NESTED_EXAMPLE = """
+	class Ghost extends "res://ghost.gd":
+	"""
+	## Public recursive type.
+	## @api public
+	class Detail extends 'res://detail.gd'.Handle: # res://fake.gd:
+		pass
+	class DefaultBase:
+		pass
+	class NativeBase extends Resource:
+		pass
+	class NamedBase extends Existing.Handle:
+		pass
+'''
+		parsed = gdscript_api_parser.parse_gdscript_source(source, "addons/gf/inheritance.gd")
+		self.assertEqual(parsed.extends, "RefCounted")
+		self.assertEqual([item.name for item in parsed.inner_classes], ["Handle"])
+		handle = parsed.inner_classes[0]
+		self.assertEqual(handle.extends, '"res://base#variant.gd"')
+		self.assertEqual([item.name for item in handle.inner_classes], ["Detail", "DefaultBase", "NativeBase", "NamedBase"])
+		self.assertEqual(
+			[item.extends for item in handle.inner_classes],
+			["'res://detail.gd'.Handle", "", "Resource", "Existing.Handle"],
+		)
+		self.assertEqual(handle.inner_classes[0].owner, "GFInheritanceFixture.Handle")
+		self.assertEqual([item.name for item in handle.properties], ["selection"])
+
+	def test_inline_export_annotation_cannot_supply_a_fake_var_declaration(self) -> None:
+		source = '''## Public owner.
+## @api public
+class_name GFInlineAnnotation
+extends Resource
+
+## Selected mode.
+## @api public
+@export_enum("a var ghost", "b") var mode: String = "b"
+
+## Public inner resource.
+## @api public
+class Detail extends Resource:
+	## Selected mode.
+	## @api public
+	@export_enum("a var ghost", "b") var mode: String = "b"
+'''
+		parsed = gdscript_api_parser.parse_gdscript_source(source, "addons/gf/inline.gd", "kernel")
+		for owner in (parsed, parsed.inner_classes[0]):
+			self.assertEqual([member.name for member in owner.properties], ["mode"])
+			self.assertEqual(owner.properties[0].decorators, ['@export_enum("a var ghost", "b")'])
+			self.assertEqual(owner.properties[0].signature, 'var mode: String = "b"')
+
 	def test_schema_requires_named_nonempty_canonical_body(self) -> None:
 		for schema in ("return {", "return:", ": Dictionary"):
 			with self.subTest(schema=schema):
@@ -1217,7 +1295,172 @@ class ReferenceProjectSyncTests(unittest.TestCase):
 			)
 
 
+NESTED_PUBLIC_API_SOURCE = '''## Public owner.
+## @api public
+class_name GFNested
+extends RefCounted
+
+## Public nested handle.
+## @api public
+class Handle extends RefCounted:
+	## Advance the handle.
+	## @api public
+	func tick() -> void:
+		pass
+	## Nested public detail.
+	## @api public
+	class Detail:
+		## Read detail.
+		## @api protected
+		func inspect() -> int:
+			return 1
+		## Private detail state.
+		## @api private
+		var secret_state: int = 0
+
+## Private nested handle.
+## @api private
+class Secret:
+	## Hidden by the private parent.
+	## @api public
+	class Hidden:
+		pass
+'''
+
+
+class NestedPublicApiConsumerTests(unittest.TestCase):
+	def setUp(self) -> None:
+		script = gdscript_api_parser.parse_gdscript_source(
+			NESTED_PUBLIC_API_SOURCE, "addons/gf/nested.gd", "kernel",
+		)
+		self.owners = gf_api_owners.select_api_owners([script], ())
+		self.classes = generate_api_reference.api_classes_from_owners(self.owners)
+		self.catalog = generate_api_reference.render_catalog_files(self.classes, ROOT / "addons/gf")
+		self.reference = generate_api_reference.render_reference_files(self.classes, self.catalog["index.xml"])
+		self.detail = self.classes[0].inner_classes[0].inner_classes[0]
+
+	def test_quoted_inheritance_flows_to_catalog_reference_and_ai_digests(self) -> None:
+		source = NESTED_PUBLIC_API_SOURCE.replace("extends RefCounted", 'extends "res://owner.gd"', 1)
+		source = source.replace("class Handle extends RefCounted:", 'class Handle extends "res://handle.gd":')
+		source = source.replace("class Detail:", "class Detail extends 'res://detail.gd'.Handle:")
+
+		def render(text: str) -> tuple[dict[str, str], dict[str, str], dict[str, object]]:
+			script = gdscript_api_parser.parse_gdscript_source(text, "addons/gf/nested.gd", "kernel")
+			owners = [
+				gf_api_owners.ApiOwner(owner.kind, owner.name, owner.script, "gf.kernel")
+				for owner in gf_api_owners.select_api_owners([script], ())
+			]
+			classes = generate_api_reference.api_classes_from_owners(owners)
+			catalog = generate_api_reference.render_catalog_files(classes, ROOT / "addons/gf")
+			reference = generate_api_reference.render_reference_files(classes, catalog["index.xml"])
+			ai = json.loads(generate_ai_api.render_outputs(owners, ROOT / "addons/gf")["api.json"])
+			return catalog, reference, ai
+
+		catalog, reference, ai = render(source)
+		root = ET.fromstring(catalog["classes/GFNested.xml"])
+		self.assertEqual(root.get("extends"), '"res://owner.gd"')
+		self.assertEqual(root.find("innerClasses/class").get("extends"), '"res://handle.gd"')
+		self.assertEqual(root.find("innerClasses/class/innerClasses/class").get("extends"), "'res://detail.gd'.Handle")
+		for inheritance in ('"res://owner.gd"', '"res://handle.gd"', "'res://detail.gd'.Handle"):
+			self.assertIn(f"继承：`{inheritance}`", reference["classes/GFNested.md"])
+		self.assertEqual(ai["files"][0]["extends"], '"res://owner.gd"')
+		self.assertEqual(ai["files"][0]["inner_classes"][0]["extends"], '"res://handle.gd"')
+		self.assertEqual(ai["files"][0]["inner_classes"][0]["inner_classes"][0]["extends"], "'res://detail.gd'.Handle")
+		for path in ("owner.gd", "handle.gd", "detail.gd"):
+			with self.subTest(changed_base=path):
+				changed_catalog, _reference, changed_ai = render(source.replace(path, "other_" + path))
+				self.assertNotEqual(ET.fromstring(catalog["index.xml"]).get("sourceDigest"), ET.fromstring(changed_catalog["index.xml"]).get("sourceDigest"))
+				self.assertNotEqual(ai["source_digest"], changed_ai["source_digest"])
+
+	def test_nested_catalog_contains_the_recursive_public_tree(self) -> None:
+		root = ET.fromstring(self.catalog["classes/GFNested.xml"])
+		detail = root.find("innerClasses/class/innerClasses/class")
+		self.assertIsNotNone(detail)
+		self.assertEqual(detail.get("fullName"), "GFNested.Handle.Detail")
+		self.assertEqual(detail.find("methods/member").get("name"), "inspect")
+		self.assertNotIn("Secret", self.catalog["classes/GFNested.xml"])
+		self.assertNotIn("Hidden", self.catalog["classes/GFNested.xml"])
+		self.assertNotIn("secret_state", self.catalog["classes/GFNested.xml"])
+
+	def test_nested_reference_has_owner_qualified_sections_and_anchors(self) -> None:
+		page = self.reference["classes/GFNested.md"]
+		self.assertIn("### GFNested.Handle.Detail\n", page)
+		self.assertIn("func inspect() -> int:", page)
+		self.assertIn('<a id="member-gfnested-handle-detail-methods-inspect"></a>', page)
+		self.assertNotIn("Secret", page)
+		self.assertNotIn("Hidden", page)
+		self.assertNotIn("secret_state", page)
+		self.assertEqual(generate_api_reference.validate_generated_reference_links(self.reference), [])
+
+	def test_nested_index_locator_and_coverage_matrix_share_the_top_level_page(self) -> None:
+		index = ET.fromstring(self.catalog["index.xml"])
+		refs = index.findall("module/class")
+		self.assertEqual({ref.get("name") for ref in refs}, {
+			"GFNested", "GFNested.Handle", "GFNested.Handle.Detail",
+		})
+		self.assertEqual({ref.get("path") for ref in refs}, {"classes/GFNested.xml"})
+		snapshot = gf_maintenance.parse_api_catalog_snapshot(
+			self.catalog["index.xml"], self.catalog.get, "nested fixture",
+		)
+		self.assertEqual(snapshot["errors"], [])
+		self.assertEqual(set(snapshot["classes"]), {ref.get("name") for ref in refs})
+		self.assertIn("method:inspect", snapshot["classes"]["GFNested.Handle.Detail"]["members"])
+		entry = generate_api_coverage_matrix.build_class_entry(self.detail, [], [], [])
+		self.assertEqual(entry["top_level"], "GFNested")
+		self.assertEqual(entry["reference_page"], "docs/zh/reference/api/classes/GFNested.md")
+		self.assertEqual(
+			generate_api_reference.class_reference_link(self.detail),
+			"classes/GFNested.md#gfnestedhandledetail",
+		)
+
+	def test_coverage_rejects_missing_second_level_member_anchor(self) -> None:
+		with contextlib.redirect_stdout(io.StringIO()):
+			self.assertEqual(generate_api_reference.check_reference_coverage(self.classes, self.reference), 0)
+		anchor = generate_api_reference.member_anchor_id(self.detail, "methods", self.detail.methods[0])
+		# Remove both the anchor and its summary link, so the coverage gate must
+		# inspect the nested owner rather than relying on generic link validation.
+		self.reference["classes/GFNested.md"] = "\n".join(
+			line for line in self.reference["classes/GFNested.md"].splitlines()
+			if anchor not in line
+		) + "\n"
+		with contextlib.redirect_stdout(io.StringIO()):
+			self.assertEqual(generate_api_reference.check_reference_coverage(self.classes, self.reference), 1)
+
+
 class PublicAiApiTests(unittest.TestCase):
+	def test_public_inner_classes_bind_ai_projection_and_both_digests(self) -> None:
+		source = NESTED_PUBLIC_API_SOURCE
+		def render(text: str) -> dict[str, str]:
+			script = gdscript_api_parser.parse_gdscript_source(text, "addons/gf/nested.gd", "kernel")
+			owners = [
+				gf_api_owners.ApiOwner(owner.kind, owner.name, owner.script, "gf.kernel")
+				for owner in gf_api_owners.select_api_owners([script], ())
+			]
+			return generate_ai_api.render_outputs(owners, ROOT / "addons/gf")
+
+		outputs = render(source)
+		first = json.loads(outputs["api.json"])
+		moved = json.loads(render(source.replace("class Handle", "\nclass Handle"))["api.json"])
+		changed = json.loads(render(source.replace("tick()", "tick(delta: float)"))["api.json"])
+		deep_changed = json.loads(render(source.replace("inspect()", "inspect(depth: int)"))["api.json"])
+		documented = json.loads(render(source.replace("Advance the handle.", "Advance one step."))["api.json"])
+		inner = first["files"][0]["inner_classes"][0]
+		self.assertEqual(inner["owner_name"], "GFNested.Handle")
+		self.assertEqual(inner["methods"][0]["name"], "tick")
+		self.assertEqual(inner["inner_classes"][0]["owner_name"], "GFNested.Handle.Detail")
+		self.assertEqual(first["inner_class_count"], 2)
+		self.assertEqual(first["public_method_count"], 2)
+		self.assertNotIn("Secret", outputs["api.json"])
+		self.assertNotIn("Hidden", outputs["api.json"])
+		self.assertNotIn("secret_state", outputs["api.json"])
+		self.assertIn("GFNested.Handle.Detail", outputs["modules/kernel.md"])
+		self.assertIn("func tick()", outputs["modules/kernel.md"])
+		self.assertEqual(first["source_digest"], moved["source_digest"])
+		self.assertNotEqual(first["location_digest"], moved["location_digest"])
+		self.assertNotEqual(first["source_digest"], changed["source_digest"])
+		self.assertNotEqual(first["source_digest"], deep_changed["source_digest"])
+		self.assertNotEqual(first["source_digest"], documented["source_digest"])
+
 	def test_cli_reports_owner_drift_without_a_traceback(self) -> None:
 		stderr = io.StringIO()
 		with mock.patch.object(
@@ -1355,7 +1598,7 @@ class PublicAiApiTests(unittest.TestCase):
 		changed = json.loads(generate_ai_api.render_outputs([
 			make_owner(30, "func run(value: int) -> void:")
 		], ROOT / "addons/gf")["api.json"])
-		self.assertEqual(first["schema_version"], 3)
+		self.assertEqual(first["schema_version"], 4)
 		self.assertEqual(first["owner_count"], 1)
 		self.assertEqual(first["files"][0]["owner_kind"], "class")
 		self.assertEqual(first["files"][0]["owner_name"], "GFPublic")
@@ -1784,7 +2027,7 @@ class MarkdownGenerationTests(unittest.TestCase):
 			extension_owners,
 			ROOT / "addons/gf/extensions",
 		)["api.json"])
-		self.assertEqual(partial_payload["schema_version"], 3)
+		self.assertEqual(partial_payload["schema_version"], 4)
 		self.assertEqual(partial_payload["autoload_count"], 0)
 
 		full_owners = gf_api_owners.collect_api_owners(ROOT / "addons/gf", ROOT)

@@ -6518,6 +6518,10 @@ def run_supervised_process(
 								while not owner.wait_for_direct_exit(process, 0.0):
 									now = time.perf_counter()
 									remaining = deadline - now
+									if stdout_truncated[0] or stderr_truncated[0]:
+										notes.append("Command output exceeded its capture budget; terminating its process tree.")
+										notes.extend(terminate_process_tree(process))
+										break
 									if remaining <= 0.0:
 										timed_out = True
 										notes.append(
@@ -6711,39 +6715,51 @@ def start_output_pump(
 	def pump() -> None:
 		if pipe is None:
 			return
+		pending_parts: list[str] = []
+		pending_characters = 0
 		try:
-			read_next = (
-				(lambda: pipe.readline())
-				if max_capture_characters is None
-				else (lambda: pipe.read(4096))
-			)
 			captured_characters = 0
 			while True:
-				output_chunk = read_next()
+				output_chunk = (
+					pipe.readline()
+					if max_capture_characters is None
+					else pipe.readline(min(4096, max_capture_characters - captured_characters + 1))
+				)
 				if not output_chunk:
 					break
 				if isinstance(output_chunk, bytes):
 					output_chunk = output_chunk.decode("utf-8", errors=decode_errors)
+				callback_chunk = output_chunk
 				if max_capture_characters is None:
 					parts.append(output_chunk)
 				else:
 					remaining = max_capture_characters - captured_characters
+					callback_chunk = output_chunk[:max(remaining, 0)]
 					if remaining > 0:
 						captured = output_chunk[:remaining]
-						parts.append(captured)
+						# Preserve short-line progress callbacks without retaining one
+						# Python string object for every line of captured output.
+						pending_parts.append(captured)
+						pending_characters += len(captured)
+						if pending_characters >= 4096:
+							parts.append("".join(pending_parts))
+							pending_parts.clear()
+							pending_characters = 0
 						captured_characters += len(captured)
 					if len(output_chunk) > max(remaining, 0):
 						if capture_truncated is not None:
 							capture_truncated[0] = True
 				with activity_lock:
 					last_output_at[0] = time.perf_counter()
-				if callback is not None:
+				if callback is not None and callback_chunk:
 					try:
-						callback(output_chunk)
+						callback(callback_chunk)
 					except Exception as exc:  # pragma: no cover - defensive callback boundary
 						with callback_error_lock:
 							callback_errors.append(f"{stream_name} callback failed: {exc}")
 		finally:
+			if pending_parts:
+				parts.append("".join(pending_parts))
 			pipe.close()
 
 	thread = threading.Thread(target=pump, name=f"gf-{stream_name}-pump", daemon=True)

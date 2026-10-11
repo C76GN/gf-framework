@@ -137,6 +137,24 @@ class ReadViewCaptureRuleProbe:
 		return candidate.get_item_total(item_id) < 1
 
 
+class CompatibilityRuleProbe:
+	extends RefCounted
+
+	var callback_count: int = 0
+
+	func accept(
+		_left: Dictionary,
+		_right: Dictionary,
+		_definition: GFInventoryItemDefinition
+	) -> bool:
+		callback_count += 1
+		return true
+
+	func accept_wrong_arity(_left: Dictionary) -> bool:
+		callback_count += 1
+		return true
+
+
 func test_inventory_transfer_result_rejects_open_success_and_failure_states() -> void:
 	var empty_success: GFInventoryTransferResult = GFInventoryTransferResult.new()
 	assert_false(empty_success.configure_for_framework(
@@ -1144,6 +1162,70 @@ func test_anonymous_acceptance_checker_fails_closed_without_engine_error() -> vo
 	assert_eq(inventory.get_revision(), revision)
 	assert_engine_error_count(0, "匿名规则回调必须在调用前静默失败关闭。")
 	slot_rule.acceptance_checker = Callable()
+
+
+func test_transfer_merge_admits_reflectable_compatibility_rule() -> void:
+	var registry: GFInventoryItemRegistry = _make_registry(&"ore", 4)
+	var definition: GFInventoryItemDefinition = registry.get_definition(&"ore")
+	var source: GFSlotInventoryModel = _make_inventory(1, registry)
+	var target: GFSlotInventoryModel = _make_inventory(1, registry)
+	assert_true(source.set_stack(0, GFInventoryStack.new(&"ore", 1, { "quality": "fine" })))
+	assert_true(target.set_stack(0, GFInventoryStack.new(&"ore", 1, { "quality": "rough" })))
+	var rule_probe: CompatibilityRuleProbe = CompatibilityRuleProbe.new()
+	definition.compatibility_checker = Callable(rule_probe, &"accept")
+	assert_true(definition.are_instance_data_compatible({ "quality": "rough" }, { "quality": "fine" }))
+	rule_probe.callback_count = 0
+
+	var transaction: GFInventoryTransferTransaction = GFInventoryTransferTransaction.prepare(
+		source, target, 0, 0, 1, false
+	)
+	assert_true(transaction.get_prepare_result().is_successful())
+	assert_gt(rule_probe.callback_count, 0, "prepare 应调用签名可反射的兼容规则。")
+	rule_probe.callback_count = 0
+	var result: GFInventoryTransferResult = transaction.commit()
+
+	assert_true(result.is_successful())
+	assert_gt(rule_probe.callback_count, 0, "commit 应重新校验同一兼容规则。")
+	assert_eq(source.get_item_total(&"ore"), 0)
+	assert_eq(target.get_item_total(&"ore"), 2)
+	assert_engine_error_count(0)
+	definition.compatibility_checker = Callable()
+
+
+func test_transfer_merge_rejects_anonymous_and_wrong_arity_compatibility_rules() -> void:
+	var callback_count: Array[int] = [0]
+	var rule_probe: CompatibilityRuleProbe = CompatibilityRuleProbe.new()
+	var callbacks: Array[Callable] = [
+		func(_left: Dictionary, _right: Dictionary, _definition: GFInventoryItemDefinition) -> bool:
+			callback_count[0] += 1
+			return true,
+		Callable(rule_probe, &"accept_wrong_arity"),
+	]
+	for callback: Callable in callbacks:
+		var registry: GFInventoryItemRegistry = _make_registry(&"ore", 4)
+		var definition: GFInventoryItemDefinition = registry.get_definition(&"ore")
+		var source: GFSlotInventoryModel = _make_inventory(1, registry)
+		var target: GFSlotInventoryModel = _make_inventory(1, registry)
+		assert_true(source.set_stack(0, GFInventoryStack.new(&"ore", 1)))
+		assert_true(target.set_stack(0, GFInventoryStack.new(&"ore", 1)))
+		definition.compatibility_checker = callback
+		assert_false(definition.are_instance_data_compatible({}, {}))
+		var source_revision: int = source.get_revision()
+		var target_revision: int = target.get_revision()
+
+		var result: GFInventoryTransferResult = GFInventoryTransferTransaction.prepare(
+			source, target, 0, 0, 1, false
+		).commit()
+
+		assert_false(result.is_successful(), "Transfer 必须和普通堆叠入口使用同一回调准入边界。")
+		assert_eq(source.get_item_total(&"ore"), 1)
+		assert_eq(target.get_item_total(&"ore"), 1)
+		assert_eq(source.get_revision(), source_revision)
+		assert_eq(target.get_revision(), target_revision)
+		definition.compatibility_checker = Callable()
+	assert_eq(callback_count[0], 0, "匿名兼容规则不得被调用。")
+	assert_eq(rule_probe.callback_count, 0, "签名不匹配的具名兼容规则不得被调用。")
+	assert_engine_error_count(0, "拒绝不兼容的回调必须发生在引擎调用之前。")
 
 
 func test_partial_transfer_commits_only_the_incrementally_accepted_candidate() -> void:

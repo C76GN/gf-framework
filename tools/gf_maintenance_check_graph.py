@@ -77,9 +77,10 @@ def workspace_fingerprint(
 		"utf-8",
 		errors="replace",
 	).strip()
+	# Abbreviated object IDs can change without any source content changing.
 	diff = run_git_bytes(
 		root,
-		["diff", "--binary", "--no-ext-diff", "HEAD", "--"],
+		["diff", "--binary", "--full-index", "--no-ext-diff", "HEAD", "--"],
 		git_process=git_process,
 		deadline=deadline,
 	)

@@ -1533,6 +1533,102 @@ func test_capability_recipe_rolls_back_auto_dependencies_on_failure() -> void:
 	assert_false(_utility.has_capability(receiver, HealthCapability), "失败前自动补齐的依赖也应被移除。")
 
 
+func test_failed_recipe_restores_reused_dependency_ownership_and_active_state() -> void:
+	var receiver: RefCounted = RefCounted.new()
+	var _owner: Object = _utility.add_capability(receiver, DamageCapability)
+	var dependency: Object = _utility.get_capability(receiver, HealthCapability)
+	var recipe: GFCapabilityRecipe = GFCapabilityRecipe.new()
+	var reused_entry: GFCapabilityRecipeEntry = GFCapabilityRecipeEntry.new()
+	reused_entry.capability_type = HealthCapability
+	reused_entry.active = false
+	recipe.entries = [reused_entry, reused_entry, GFCapabilityRecipeEntry.new()]
+
+	var result: Dictionary = _utility.apply_recipe(receiver, recipe)
+
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	assert_true(GFVariantData.get_option_bool(result, "rolled_back"))
+	assert_same(_utility.get_capability(receiver, HealthCapability), dependency)
+	assert_true(_utility.is_capability_active(receiver, HealthCapability))
+	_utility.remove_capability(receiver, DamageCapability)
+	assert_false(_utility.has_capability(receiver, HealthCapability), "失败 Recipe 不得把自动依赖永久提升为显式能力。")
+
+
+func test_failed_recipe_restores_concrete_dependency_reused_through_base_type() -> void:
+	var receiver: RefCounted = RefCounted.new()
+	var _owner: Object = _utility.add_capability(receiver, RequiresConcreteCapabilityA)
+	var recipe: GFCapabilityRecipe = GFCapabilityRecipe.new()
+	var reused_entry: GFCapabilityRecipeEntry = GFCapabilityRecipeEntry.new()
+	reused_entry.capability_type = BaseCapability
+	recipe.entries = [reused_entry, GFCapabilityRecipeEntry.new()]
+
+	var result: Dictionary = _utility.apply_recipe(receiver, recipe)
+
+	assert_true(GFVariantData.get_option_bool(result, "rolled_back"))
+	_utility.remove_capability(receiver, RequiresConcreteCapabilityA)
+	assert_false(_utility.has_capability(receiver, ConcreteCapabilityA), "回滚必须恢复真实注册子类的所有权，而不是创建基类标记。")
+
+
+func test_recipe_ownership_promotion_commits_on_success_and_non_transactional_failure() -> void:
+	for transactional: bool in [true, false]:
+		var receiver: RefCounted = RefCounted.new()
+		var _owner: Object = _utility.add_capability(receiver, DamageCapability)
+		var recipe: GFCapabilityRecipe = GFCapabilityRecipe.new()
+		var reused_entry: GFCapabilityRecipeEntry = GFCapabilityRecipeEntry.new()
+		reused_entry.capability_type = HealthCapability
+		recipe.entries = [reused_entry]
+		if not transactional:
+			recipe.entries.append(GFCapabilityRecipeEntry.new())
+
+		var result: Dictionary = _utility.apply_recipe(receiver, recipe, { "transactional": transactional })
+
+		assert_eq(GFVariantData.get_option_bool(result, "ok"), transactional)
+		assert_false(GFVariantData.get_option_bool(result, "rolled_back"))
+		_utility.remove_capability(receiver, DamageCapability)
+		assert_true(_utility.has_capability(receiver, HealthCapability), "成功应用或显式尽力应用应保留顶层所有权提升。")
+
+
+func test_failed_recipe_preserves_preexisting_explicit_dependency_ownership() -> void:
+	var receiver: RefCounted = RefCounted.new()
+	var _dependency: Object = _utility.add_capability(receiver, HealthCapability)
+	var _owner: Object = _utility.add_capability(receiver, DamageCapability)
+	var recipe: GFCapabilityRecipe = GFCapabilityRecipe.new()
+	var reused_entry: GFCapabilityRecipeEntry = GFCapabilityRecipeEntry.new()
+	reused_entry.capability_type = HealthCapability
+	recipe.entries = [reused_entry, GFCapabilityRecipeEntry.new()]
+
+	var result: Dictionary = _utility.apply_recipe(receiver, recipe)
+
+	assert_true(GFVariantData.get_option_bool(result, "rolled_back"))
+	_utility.remove_capability(receiver, DamageCapability)
+	assert_true(_utility.has_capability(receiver, HealthCapability), "回滚不得撤销应用前已有的显式所有权。")
+
+
+func test_failed_recipe_does_not_restore_old_state_into_callback_replacement() -> void:
+	var receiver: RefCounted = RefCounted.new()
+	var original: Object = _utility.add_capability(receiver, ActiveCapability)
+	var replacement_instances: Array[Object] = []
+	var replace_on_disable: Callable = func(target: Object, capability_type: Script, capability: Object, active: bool) -> void:
+		if target != receiver or capability_type != ActiveCapability or capability != original or active:
+			return
+		_utility.remove_capability(receiver, ActiveCapability)
+		replacement_instances.append(_utility.add_capability(receiver, ActiveCapability))
+		_utility.set_capability_active(receiver, ActiveCapability, false)
+	var _connect_result: Error = _utility.capability_active_changed.connect(replace_on_disable) as Error
+	var recipe: GFCapabilityRecipe = GFCapabilityRecipe.new()
+	var reused_entry: GFCapabilityRecipeEntry = GFCapabilityRecipeEntry.new()
+	reused_entry.capability_type = ActiveCapability
+	reused_entry.active = false
+	recipe.entries = [reused_entry, GFCapabilityRecipeEntry.new()]
+
+	var result: Dictionary = _utility.apply_recipe(receiver, recipe)
+	_utility.capability_active_changed.disconnect(replace_on_disable)
+
+	assert_true(GFVariantData.get_option_bool(result, "rolled_back"))
+	assert_eq(replacement_instances.size(), 1)
+	assert_ne(_utility.get_capability(receiver, ActiveCapability), original)
+	assert_false(_utility.is_capability_active(receiver, ActiveCapability), "回滚只能恢复快照所属实例，不能把旧 active 写入项目回调创建的新实例。")
+
+
 func test_remove_recipe_reports_dependency_blocked_removal_as_skipped() -> void:
 	var receiver: RefCounted = RefCounted.new()
 	var _damage_result: Object = _utility.add_capability(receiver, DamageCapability)

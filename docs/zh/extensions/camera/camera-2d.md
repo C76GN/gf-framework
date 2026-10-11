@@ -26,6 +26,8 @@ director.process_camera(delta)
 
 项目可以用多个 Rig 表达总览、玩家跟随、剧情焦点或调试视角。Director 只负责选择和应用当前最佳姿态。
 
+基础 `GFCameraRig2D` 的 `offset` 默认沿世界坐标轴。启用 `offset_follows_rotation` 时，只有目标存在且 `use_target_rotation = true` 才按目标全局旋转计算偏移；否则按 Rig 全局旋转计算。`rotation_degrees_offset` 只改变最后的相机朝向，不改变偏移方向。
+
 `process_camera(delta)` 只在本帧真实应用了 Rig 姿态时返回 `true`。如果当前没有可用 Rig，Director 会保留相机原状并返回 `false`；调用方不应把“相机仍保持原姿态”当作本帧已经应用新姿态。
 
 Director 会把“选择 active rig”和“应用到 Camera”分开。缺少 Camera 时仍可以刷新并选中可用 Rig，但 `process_camera()` 返回 `false`；需要诊断时读取 `get_debug_snapshot()` 中的 `last_process.reason`，例如 `missing_camera` 或 `missing_rig`。

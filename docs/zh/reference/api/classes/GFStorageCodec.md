@@ -388,7 +388,7 @@ func encode(data: Dictionary, options: Dictionary = {}) -> PackedByteArray:
 func encode_result(data: Dictionary, options: Dictionary = {}) -> Dictionary:
 ```
 
-单次构建存储文档并编码，在压缩前检查包含 metadata 和 checksum 的完整明文预算。 不检查 Utility 的物理文件读取预算；调用方应对最终 bytes 应用其捕获的文件字节上限。
+单次构建存储文档并编码，在压缩前检查包含 metadata 和 checksum 的完整明文预算。 JSON 在递归排序或 checksum 数字归一化之前执行默认遍历预算准入，循环或不支持值也拒绝编码。 不检查 Utility 的物理文件读取预算；调用方应对最终 bytes 应用其捕获的文件字节上限。
 
 参数：
 
@@ -451,7 +451,7 @@ func serialize_dictionary(data: Dictionary, p_format: Format = Format.JSON) -> P
 | `data` | 要序列化的数据。 |
 | `p_format` | 目标格式。 |
 
-返回：字节数组。
+返回：字节数组；JSON 输入存在循环、不支持值或超出默认遍历预算时返回空数组。
 
 结构：
 
@@ -488,6 +488,7 @@ func deserialize_dictionary(bytes: PackedByteArray, p_format: Format = Format.JS
 ### `calculate_checksum`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func calculate_checksum(data: Dictionary, p_format: Format = Format.JSON) -> String:
@@ -502,7 +503,7 @@ func calculate_checksum(data: Dictionary, p_format: Format = Format.JSON) -> Str
 | `data` | 输入数据。 |
 | `p_format` | 序列化格式。 |
 
-返回：checksum hex 字符串。
+返回：checksum hex 字符串；JSON 输入不完整或超出默认遍历预算时返回空字符串。
 
 结构：
 

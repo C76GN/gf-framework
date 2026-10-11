@@ -43,6 +43,15 @@ await architecture.init()
 `set_resource_broker()` 会返回 `ERR_BUSY` 并保留旧引用，避免替换后失去唯一的
 drain 推进者；重复绑定当前 Broker 则幂等成功。
 
+架构正常退出使用 `await architecture.shutdown_async()`。Broker 的
+`begin_quiesce()` 关闭新请求准入，保留已接纳请求的 FIFO 处理和取消请求的
+底层 drain；Architecture 的生命周期 tick 持续推进同一 Broker，只有完全
+`is_idle()` 才报告静默成功。重复静默调用共享同一完成源。等待使用架构已有的
+shutdown deadline 和取消作用域；超时或取消会如实报告未完成，不能视为
+`ResourceLoader` 已经停止。直接 `dispose()` 是强制取消路径，不承诺完成
+drain。独立调用 `begin_quiesce(scope)` 时，调用方仍负责 `pump()`、截止时间及
+scope 取消，不会安装另一个全局或 SceneTree 推进器。
+
 ## 有界 admission
 
 Broker 默认允许 4 个活动底层请求和 256 个等待请求。配置始终被限制在

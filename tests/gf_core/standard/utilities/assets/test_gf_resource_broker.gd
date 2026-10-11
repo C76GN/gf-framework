@@ -199,6 +199,82 @@ func test_disposed_broker_can_finish_draining_but_rejects_new_requests() -> void
 	assert_eq(active.get_status(), GFResourceLease.STATUS_CANCELLED)
 
 
+func test_quiesce_rejects_new_work_and_waits_for_active_queued_and_draining_requests() -> void:
+	var broker: ResourceBrokerProbe = ResourceBrokerProbe.new()
+	broker.max_active_requests = 1
+	broker.init()
+	var draining: GFResourceLease = broker.request("res://quiesce_drain.tres")
+	var queued: GFResourceLease = broker.request("res://quiesce_queue.tres")
+	draining.cancel()
+	var scope: GFAsyncScope = GFAsyncScope.new()
+	var completion: GFAsyncCompletion = broker.begin_quiesce(scope)
+	assert_same(broker.begin_quiesce(scope), completion)
+	assert_true(completion.is_pending())
+	var rejected: GFResourceLease = broker.request("res://rejected_quiesce.tres")
+	assert_eq(rejected.get_request_error(), ERR_UNAVAILABLE)
+	broker.complete_path("res://quiesce_drain.tres", Resource.new())
+	broker.pump()
+	assert_true(completion.is_pending(), "排空第一项不等于整个 Broker idle。")
+	assert_eq(queued.get_status(), GFResourceLease.STATUS_LOADING)
+	broker.complete_path("res://quiesce_queue.tres", Resource.new())
+	broker.pump()
+	assert_true(completion.is_successful())
+	assert_true(broker.is_idle())
+	assert_eq(queued.get_status(), GFResourceLease.STATUS_COMPLETED)
+	assert_null(draining.get_resource())
+	queued.release()
+	broker.dispose()
+
+
+func test_architecture_shutdown_owns_final_broker_pump_without_external_ticks() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	var broker: ResourceBrokerProbe = ResourceBrokerProbe.new()
+	broker.complete_after_poll_count = 3
+	await architecture.register_utility_instance(broker)
+	await architecture.init()
+	var lease: GFResourceLease = broker.request("res://shutdown_drain.tres")
+	lease.cancel()
+	var result: GFArchitectureShutdownResult = await architecture.shutdown_async()
+	assert_true(result.is_successful())
+	assert_true(broker.is_idle(), "普通 tick 已关闭时仍须由生命周期调度排空 Broker。")
+	assert_eq(broker.get_poll_count("res://shutdown_drain.tres"), 3)
+	assert_null(lease.get_resource())
+	lease.release()
+
+
+func test_architecture_shutdown_times_out_without_claiming_broker_idle() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	var broker: ResourceBrokerProbe = ResourceBrokerProbe.new()
+	await architecture.register_utility_instance(broker)
+	await architecture.init()
+	var lease: GFResourceLease = broker.request("res://timeout_drain.tres")
+	var result: GFArchitectureShutdownResult = await architecture.shutdown_async(null, 0.02)
+	assert_eq(result.get_status(), GFArchitectureShutdownResult.Status.TIMED_OUT)
+	assert_false(broker.is_idle(), "超时报告不得宣称底层已经排空。")
+	assert_eq(lease.get_status(), GFResourceLease.STATUS_CANCELLED)
+	broker.complete_path("res://timeout_drain.tres", Resource.new())
+	broker.pump()
+	assert_true(broker.is_idle())
+	lease.release()
+
+
+func test_quiesce_cancellation_does_not_claim_unfinished_drain_succeeded() -> void:
+	var broker: ResourceBrokerProbe = ResourceBrokerProbe.new()
+	broker.init()
+	var lease: GFResourceLease = broker.request("res://cancelled_quiesce.tres")
+	var scope: GFAsyncScope = GFAsyncScope.new()
+	var completion: GFAsyncCompletion = broker.begin_quiesce(scope)
+	assert_true(scope.cancel("test_deadline"))
+	assert_true(completion.is_cancelled())
+	assert_false(broker.is_idle())
+	broker.dispose()
+	broker.complete_path("res://cancelled_quiesce.tres", Resource.new())
+	broker.pump()
+	assert_true(broker.is_idle())
+	assert_true(completion.is_cancelled(), "迟到 drain 不得重写取消终态。")
+	lease.release()
+
+
 func test_architecture_ready_injects_one_registered_broker_into_consumers() -> void:
 	var architecture: GFArchitecture = GFArchitecture.new()
 	var broker: GFResourceBroker = GFResourceBroker.new()
@@ -685,6 +761,7 @@ func _assert_owned_broker_replacement_waits_for_drain(
 class ResourceBrokerProbe extends GFResourceBroker:
 	var requested_paths: PackedStringArray = PackedStringArray()
 	var requested_type_hints: PackedStringArray = PackedStringArray()
+	var complete_after_poll_count: int = 0
 	var _poll_results: Dictionary = {}
 	var _poll_counts: Dictionary = {}
 
@@ -707,6 +784,8 @@ class ResourceBrokerProbe extends GFResourceBroker:
 
 	func _poll_threaded_resource(path: String, previous_progress: float) -> Dictionary:
 		_poll_counts[path] = get_poll_count(path) + 1
+		if complete_after_poll_count > 0 and get_poll_count(path) >= complete_after_poll_count:
+			complete_path(path, Resource.new())
 		var value: Variant = GFVariantData.get_option_value(_poll_results, path)
 		if value is Dictionary:
 			var result: Dictionary = value

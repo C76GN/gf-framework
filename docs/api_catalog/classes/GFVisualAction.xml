@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVisualAction" path="addons/gf/extensions/action_queue/actions/gf_visual_action.gd" module="extensions/action_queue" extends="RefCounted" classDigest="84d893e8eb99208cc451063144b7e4451de0fc0ac87b1bb13100955565e8480d">
+<class name="GFVisualAction" path="addons/gf/extensions/action_queue/actions/gf_visual_action.gd" module="extensions/action_queue" extends="RefCounted" classDigest="d1a47aa70c8fa8a5c885149289c28c1d4b2e1266c4b44c498a6f7b76be25bf7d">
 	<description>GFVisualAction: 视觉表现动作的抽象基类。
 继承自 RefCounted，代表一个具体的、可 await 的表现动作单元，
 如移动动画、卡牌翻面、粒子爆炸等。
@@ -42,7 +42,7 @@
 		</member>
 		<member kind="property" name="signal_timeout_seconds">
 			<signature>var signal_timeout_seconds: float:</signature>
-			<description>等待 Signal 的超时时间（秒）。小于等于 0 时表示不启用超时。</description>
+			<description>等待 Signal 的超时时间（秒）。有限且小于等于 0 时归零并禁用超时；非有限值保留原设置。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">3.17.0</tag>
@@ -141,9 +141,10 @@ Tween 等非 Node 信号可通过该节点的 tree_exited 提前结束等待。<
 			<description>设置等待 Signal 的超时时间，并返回自身以便链式调用。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">seconds: 超时时间；小于等于 0 时表示不启用超时。</tag>
+				<tag name="param">seconds: 超时时间；有限且小于等于 0 时禁用超时，非有限值保留原设置。</tag>
 				<tag name="param">respect_time_scale: 是否跟随 GFTimeUtility 的暂停与 time_scale。</tag>
 				<tag name="return">当前动作实例。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="should_wait_for_result">

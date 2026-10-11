@@ -21,7 +21,7 @@ if not result["ok"]:
 
 应用前可先调用 `validate_recipe_report()` 获取 `GFValidationReport`，或调用 `validate_recipe()` 获取序列化后的 Dictionary。报告会用 `entries[0]`、`groups[1]` 这类稳定 path 定位空条目、无效条目、重复条目、空分组和重复分组。空分组和重复分组只作为 warning；无效条目会作为 error，避免运行时留下不完整组合。
 
-`apply_recipe()` 默认会在应用后调用依赖校验，并把新增、复用、失败条目和分组写入报告。默认 `transactional = true`，任一条目失败或依赖校验失败时，会移除本次新增能力、回滚本次新增分组，并恢复被复用能力的原 active 状态，避免留下半应用的实体预设。
+`apply_recipe()` 默认会在应用后调用依赖校验，并把新增、复用、失败条目和分组写入报告。默认 `transactional = true`，任一条目失败或依赖校验失败时，会移除本次新增能力、回滚本次新增分组，并恢复仍为同一实例的复用能力的原 active 和顶层所有权状态。失败 Recipe 中被显式复用的自动依赖仍保持自动依赖身份，之后移除其原 owner 时可以正常回收；应用成功则保留显式复用带来的顶层所有权。回滚仅覆盖这些框架状态，不撤销项目 hook 的外部副作用，也不把旧状态写入 hook 替换的新实例。
 
 确实需要“尽力应用”的工具流程，可在 options 中显式传 `{ "transactional": false }`。当前 `remove_recipe()` 按 Recipe 描述的当前类型和分组执行移除；它不是某次 `apply_recipe()` 的 receipt，也不会区分条目是该次新增、此前复用还是后来由其他系统取得所有权。需要“只撤销这一笔应用贡献”的项目在框架确定 receipt/lease 契约前，应自行保存明确所有权记录，不要把 `remove_recipe()` 当成精确逆操作。
 

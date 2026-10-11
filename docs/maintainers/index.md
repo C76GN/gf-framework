@@ -59,7 +59,7 @@ func heal(amount: int) -> void:
 
 GF 会按生命周期阶段推进模块，但大型项目中模块可能由扩展 Installer、项目 Installer、局部 `GFNodeContext` 和运行时动态注册共同装配。`ready()` 中读取其他模块时，应允许依赖暂时不存在或尚未完成 ready。
 
-需要强依赖时，使用依赖诊断或在 Installer 中明确装配顺序；需要弱依赖时，使用 `get_utility(..., require_ready = true)` 这类查询，并在缺失时跳过本轮逻辑。
+需要强依赖时，在模块的 required 依赖钩子中显式声明，由生命周期 DAG 校验并排序；Installer 负责注册装配集合，不能用注册先后替代依赖。具体约定见[初始化阶段](../zh/kernel/lifecycle/module-lifecycle/init-stages.md)。需要弱依赖时，使用 `get_utility(..., require_ready = true)` 这类查询，并在缺失时跳过本轮逻辑。
 
 ## 分清代码归属
 

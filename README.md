@@ -134,9 +134,9 @@ The kernel does not hard reference the standard library or optional extensions. 
 
 ## Editor Tools
 
-GF includes core editor support for extension management, typed GF/config accessor generation, project constants, script templates, inspectors, docks, export helpers, and Node3D/Mesh/MeshLibrary thumbnail rendering. Optional extensions contribute their own editor tools, such as SaveGraph diagnostics and Pattern2D editing, only when enabled.
+GF includes core editor support for extension management, typed GF/config accessor generation, project constants, script templates, inspectors, docks, export helpers, and Node3D/Mesh/MeshLibrary thumbnail rendering. The standard library contributes Pattern2D editing. Optional extensions contribute their own editor tools, such as SaveGraph diagnostics, only when enabled.
 
-Extension-specific editor tools are declared by `gf_extension.json` manifests and loaded only when the extension is enabled.
+Extension-specific editor tools are declared by `editor/gf_tool_contribution.json` and loaded only when the extension is enabled. Runtime identity and dependencies, plus workspace page order and short labels, remain in `gf_extension.json`. See the [workspace contribution guide](docs/zh/editor/workspace.md).
 
 ## AI-Assisted Project Development
 

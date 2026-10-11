@@ -57,6 +57,28 @@ func test_priority_queue_keeps_insertion_order_for_duplicate_explicit_keys() -> 
 	assert_eq(priority_queue.to_array(), ["A", "B", "C"], "相同 priority/order 必须用内部入队序形成稳定全序。")
 
 
+func test_front_precedes_explicit_negative_order_in_both_priority_modes() -> void:
+	for high_first: bool in [true, false]:
+		var priority_queue: GFPriorityQueue = GFPriorityQueue.new(high_first)
+		assert_true(priority_queue.push_with_order("negative", 1.0, -10))
+		assert_true(priority_queue.push("front", 1.0, true))
+		assert_true(priority_queue.push_with_order("updated", 2.0, -20))
+		assert_true(priority_queue.set_priority("updated", 1.0, true))
+		assert_eq(priority_queue.to_array(), ["updated", "front", "negative"])
+
+
+func test_front_handles_minimum_explicit_order_and_preserves_copies() -> void:
+	var priority_queue: GFPriorityQueue = GFPriorityQueue.new()
+	assert_true(priority_queue.push_with_order("minimum", 1.0, -9223372036854775807 - 1))
+	assert_true(priority_queue.push("first_front", 1.0, true))
+	assert_true(priority_queue.push("second_front", 1.0, true))
+	assert_true(priority_queue.push_with_order("second_minimum", 1.0, -9223372036854775807 - 1))
+	var copied: GFPriorityQueue = priority_queue.duplicate_priority_queue()
+	assert_eq(copied.to_array(), ["second_front", "first_front", "minimum", "second_minimum"])
+	assert_true(priority_queue.set_priority("minimum", 1.0, true))
+	assert_eq(priority_queue.to_array(), ["minimum", "second_front", "first_front", "second_minimum"])
+
+
 func test_priority_queue_removes_and_updates_values() -> void:
 	var priority_queue: GF_PRIORITY_QUEUE_SCRIPT = GF_PRIORITY_QUEUE_SCRIPT.new()
 

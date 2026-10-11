@@ -806,9 +806,14 @@ static func _stack_can_merge(
 	var left: Dictionary = GFVariantData.get_option_dictionary(left_result, "value")
 	var right: Dictionary = GFVariantData.get_option_dictionary(right_result, "value")
 	if definition.compatibility_checker.is_valid():
-		return GFVariantData.to_bool(definition.compatibility_checker.call(
-			left, right, definition
-		))
+		var result_output: Array = []
+		if not GFInventoryRuleCallableSupport.try_call_for_framework(
+			definition.compatibility_checker,
+			[left, right, definition],
+			result_output
+		):
+			return false
+		return GFVariantData.to_bool(result_output[0])
 	if definition.stack_key_fields.is_empty():
 		return left == right
 	for field_name: String in definition.stack_key_fields:

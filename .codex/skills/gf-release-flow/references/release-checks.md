@@ -1,6 +1,6 @@
 # GF Release Checks
 
-Run these after release metadata is final and before commit/tag/push.
+Run these after the final release candidate has been committed, with that commit at `HEAD` and a clean worktree, before tag/push. Before the candidate commit, run focused behavior checks, API/docs validation and `check --suite full`; those checks cannot replace this release gate.
 
 Before running the commands, ensure `docs/zh/changelog.md` contains exactly one formal section and that section is the target release. Do not retain older formal sections or create a parallel Markdown history; immutable Git tags and GitHub Releases are the historical record. `release-status` rejects stale, duplicate, unsupported, or unreleased sections.
 
@@ -14,7 +14,7 @@ git diff --check
 git diff --cached --check
 ```
 
-Build the three artifacts once. Every later validation and publish step must consume the same manifest and bytes; do not rerun the Asset Store or AI Developer Kit builders independently.
+Build the three artifacts once for the final candidate commit. Every later validation and publish step must consume the same manifest and bytes; do not rerun the Asset Store or AI Developer Kit builders independently. A new source commit invalidates the previous artifact set; build and validate a new set for the new candidate rather than accepting the old manifest or using `--allow-dirty`.
 
 Add `--allow-breaking-api` to the `check --suite release` command only for an evidenced baseline false positive or a historical surface already excluded from the stable compatibility contract, with that evidence recorded in the changelog or release notes. Real stable-contract breaks require a major version; the flag must not turn them into a minor or patch release and does not waive the minor floor for compatible public additions.
 

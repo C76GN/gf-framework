@@ -1616,8 +1616,7 @@ func _variant_literal_unchecked(value: Variant) -> String:
 		TYPE_INT:
 			return str(_coerce_literal_int(value))
 		TYPE_FLOAT:
-			var text: String = str(_coerce_literal_float(value))
-			return text if text.contains(".") else text + ".0"
+			return _float_literal(_coerce_literal_float(value))
 		TYPE_STRING:
 			return "\"%s\"" % GFVariantData.to_text(value).c_escape()
 		TYPE_STRING_NAME:
@@ -1693,13 +1692,33 @@ func _array_literal(value: Array) -> String:
 	return "[%s]" % ", ".join(parts)
 
 
-## 生成浮点数字面量，并为整数外观的文本补上 .0。
+## 优先使用可精确往返的十进制字面量；无法往返时用整数有效位和二进制幂常量表达式。
+## 标量与向量分量共用此入口，避免显示格式舍入或十进制解析的末位漂移。
 ## [br]
 ## @api private
 ## [br]
 func _float_literal(value: float) -> String:
-	var text: String = str(value)
-	return text if text.contains(".") or text.contains("e") else text + ".0"
+	var bytes: PackedByteArray = PackedByteArray()
+	var _resize_error: Error = bytes.resize(8) as Error
+	bytes.encode_double(0, value)
+	var bits: int = bytes.decode_u64(0)
+	if value == 0.0:
+		return "-0.0" if bits < 0 else "0.0"
+	var text: String = JSON.stringify(value, "", false, true)
+	if text.to_float() != value:
+		text = String.num_scientific(value)
+	if text.to_float() == value:
+		return text if text.contains(".") or text.contains("e") else text + ".0"
+	var exponent: int = (bits >> 52) & 0x7ff
+	var significand: int = bits & 0x000fffffffffffff
+	if exponent == 0:
+		exponent = -1074
+	else:
+		significand |= 0x0010000000000000
+		exponent -= 1075
+	if bits < 0:
+		significand = -significand
+	return "(%d * (2.0 ** %d))" % [significand, exponent]
 
 
 ## 将输入规范化为 PascalCase 标识符，并在结果为空时使用回退名。

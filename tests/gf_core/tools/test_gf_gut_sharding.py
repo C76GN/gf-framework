@@ -161,6 +161,7 @@ class GutInventoryTests(unittest.TestCase):
 	def test_inventory_rejects_inner_gut_test_classes_until_observation_maps_them(self) -> None:
 		for source in (
 			"extends GutTest\n\nclass TestNested extends GutTest:\n\tfunc test_nested() -> void:\n\t\tpass\n",
+			'extends GutTest\n\nclass TestNested extends "res://addons/gut/test.gd":\n\tfunc test_nested() -> void:\n\t\tpass\n',
 			"extends GutTest\n\nclass TestNested:\n\textends GutTest\n\tfunc test_nested() -> void:\n\t\tpass\n",
 			"extends GutTest\n\nclass Base extends GutTest:\n\tpass\nclass TestNested extends Base:\n\tpass\n",
 		):

@@ -81,12 +81,13 @@ func get_remap_config() -> GFInputRemapConfig:
 ### `load_context_path`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func load_context_path(path: String) -> Error:
 ```
 
-从资源路径载入输入上下文。
+从资源路径载入独立的只读磁盘快照，包含外部子资源；不覆写其他编辑器 owner 的缓存草稿。
 
 参数：
 

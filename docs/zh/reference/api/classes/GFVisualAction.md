@@ -79,7 +79,7 @@ var completion_mode: CompletionMode = CompletionMode.AUTO
 var signal_timeout_seconds: float:
 ```
 
-等待 Signal 的超时时间（秒）。小于等于 0 时表示不启用超时。
+等待 Signal 的超时时间（秒）。有限且小于等于 0 时归零并禁用超时；非有限值保留原设置。
 
 <a id="member-gfvisualaction-properties-signal_timeout_respects_time_scale"></a>
 
@@ -236,6 +236,7 @@ func get_wait_guard_node() -> Node:
 ### `with_signal_timeout`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func with_signal_timeout(seconds: float, respect_time_scale: bool = true) -> GFVisualAction:
@@ -247,7 +248,7 @@ func with_signal_timeout(seconds: float, respect_time_scale: bool = true) -> GFV
 
 | 名称 | 说明 |
 |---|---|
-| `seconds` | 超时时间；小于等于 0 时表示不启用超时。 |
+| `seconds` | 超时时间；有限且小于等于 0 时禁用超时，非有限值保留原设置。 |
 | `respect_time_scale` | 是否跟随 GFTimeUtility 的暂停与 time_scale。 |
 
 返回：当前动作实例。

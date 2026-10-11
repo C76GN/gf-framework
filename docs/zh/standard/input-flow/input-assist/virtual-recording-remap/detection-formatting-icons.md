@@ -67,3 +67,10 @@ var prompt := GFInputFormatter.action_as_rich_text(&"jump", {
 编辑器中的 `GFInputMappingDock` 渲染 `GF Workspace > Input` 页面，并复用该诊断工具输出标准校验报告字段。默认只诊断 `GFInputContext` 的资源绑定；项目编辑器工具需要检查玩家或 profile 的有效重绑定时，可调用 `set_remap_config()` 注入 `GFInputRemapConfig`。预算预扫、正式冲突报告、动作行、绑定行和详情会共同使用该配置；`remap_configured` 说明本次报告是否包含覆盖。通过 `GFInputRemapConfig.set_binding()`、`unbind()`、`clear_binding()`、`set_custom_data()` 或成功的 `apply_dict()` 修改当前配置后，Dock 会观察 `Resource.changed`，并把同帧重复变化合并为一次刷新；显式 `refresh()` 仍同步执行。
 
 路径加载只接受 `res://` / `user://` 下可在实例化前检查主类型的 `.tres`，并在缓存身份比较前折叠斜杠、`.` 与 `..` 别名。加载失败会保留并继续显示上次已提交上下文；复制内容同时包含当前失败和 `last_successful_report`，不会把不可见旧报告冒充为本次成功结果。页面仍然只读，不保存项目按键配置，也不规定输入设置界面布局。
+
+按路径加载和重新加载读取独立的磁盘快照，外部子资源也独立加载，不覆写其他编辑器
+owner 的未保存缓存草稿。需要诊断正在编辑的内存资源时，使用 `set_input_context()`。
+页面观察已知输入资源图中的 context、mapping、action、binding、input event、modifier
+和 trigger 的 `Resource.changed`，同帧修改或撤销合并刷新；替换子资源图后重建订阅，
+页面离树时全部断开。观察具有独立的资源槽位预算，不递归扫描任意项目 Resource 属性；
+脚本直接修改资源字段时仍须按 Godot 资源合同发出 `emit_changed()`。

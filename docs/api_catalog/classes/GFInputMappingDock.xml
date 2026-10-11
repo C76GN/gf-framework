@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputMappingDock" path="addons/gf/standard/input/editor/gf_input_mapping_dock.gd" module="standard" extends="Control" classDigest="066f76c0ae14fa3798690ae90a282515829876692d58121f9d7a55ad91ad7a24">
+<class name="GFInputMappingDock" path="addons/gf/standard/input/editor/gf_input_mapping_dock.gd" module="standard" extends="Control" classDigest="083a70be566d2ee3de98ef2ff9a4067fb89b2eef5c269180a0b85d62f2c38973">
 	<description>GFInputMappingDock: GF 输入映射工作区页面。
 读取 GFInputContext 资源，展示默认绑定或可选 GFInputRemapConfig 覆盖后的
 有效动作、绑定与重绑定冲突诊断。页面只读，不修改 InputMap 或重映射配置。</description>
@@ -41,11 +41,12 @@
 		</member>
 		<member kind="method" name="load_context_path">
 			<signature>func load_context_path(path: String) -&gt; Error:</signature>
-			<description>从资源路径载入输入上下文。</description>
+			<description>从资源路径载入独立的只读磁盘快照，包含外部子资源；不覆写其他编辑器 owner 的缓存草稿。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 输入上下文资源路径。</tag>
 				<tag name="return">Godot 错误码。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="refresh">

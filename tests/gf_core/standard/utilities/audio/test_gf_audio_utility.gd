@@ -1705,6 +1705,25 @@ func test_sfx_handle_can_bind_to_owner_exit() -> void:
 	assert_eq(_audio._idle_sfx_players.size(), 1, "owner 自动停止后应缓存播放器。")
 
 
+func test_owner_detach_disconnects_handle_before_owner_reenters_tree() -> void:
+	var owner_node: Node = Node.new()
+	add_child(owner_node)
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	clip.bus_name = "Master"
+	var handle: GFAudioEmitterHandle = _audio.play_sfx_clip_handle(clip)
+	var initial_connections: int = owner_node.tree_exiting.get_connections().size()
+	handle.bind_to_owner(owner_node)
+	assert_eq(owner_node.tree_exiting.get_connections().size(), initial_connections + 1)
+	remove_child(owner_node)
+	assert_false(handle.is_valid())
+	assert_eq(owner_node.tree_exiting.get_connections().size(), initial_connections, "离树但仍存活的 owner 不应继续持有停止句柄的连接。")
+	add_child(owner_node)
+	remove_child(owner_node)
+	assert_eq(owner_node.tree_exiting.get_connections().size(), initial_connections)
+	owner_node.free()
+
+
 func test_play_sfx_from_bank_applies_clip_settings() -> void:
 	var stream: AudioStreamGenerator = AudioStreamGenerator.new()
 	var clip: GFAudioClip = GFAudioClip.new()

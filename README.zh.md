@@ -134,9 +134,9 @@ GF 源码按稳定的所有权边界组织：
 
 ## 编辑器工具
 
-GF 核心编辑器能力包括扩展管理、强类型 GF/config 访问器生成、项目常量、脚本模板、Inspector、Dock、导出辅助和 Node3D/Mesh/MeshLibrary 缩略图渲染。SaveGraph 诊断、Pattern2D 编辑等扩展工具只在对应可选扩展启用后贡献。
+GF 核心编辑器能力包括扩展管理、强类型 GF/config 访问器生成、项目常量、脚本模板、Inspector、Dock、导出辅助和 Node3D/Mesh/MeshLibrary 缩略图渲染。标准库提供 Pattern2D 编辑；SaveGraph 诊断等扩展工具只在对应可选扩展启用后贡献。
 
-扩展专属编辑器工具由 `gf_extension.json` manifest 声明，并且只会在扩展启用时加载。
+扩展专属编辑器工具由 `editor/gf_tool_contribution.json` 声明，并且只会在扩展启用时加载。运行时身份与依赖、工作区页面顺序和短标签仍由 `gf_extension.json` 声明，详见[工作区贡献说明](docs/zh/editor/workspace.md)。
 
 ## AI 辅助项目开发
 

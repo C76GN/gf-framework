@@ -5852,6 +5852,96 @@ class ProcessSupervisorPosixWatchdogTests(unittest.TestCase):
 		self.assertIs(preferred_error, control)
 
 
+class MaintenanceTextCaptureTests(unittest.TestCase):
+	def test_capped_streams_deliver_short_progress_lines_before_process_exit(self) -> None:
+		cancel = threading.Event()
+		chunks: list[str] = []
+		def on_output(text: str) -> None:
+			chunks.append(text)
+			cancel.set()
+		result = gf_process_supervisor.run_supervised_process(
+			[sys.executable, "-u", "-c", "import time; print('ready', flush=True); time.sleep(30)"],
+			cwd=ROOT, timeout_seconds=10.0, environment=dict(os.environ),
+			max_stdout_characters=4096, max_stderr_characters=4096,
+			stdout_callback=on_output, cancellation_event=cancel,
+		)
+		self.assertTrue(result.cancelled)
+		self.assertFalse(result.timed_out)
+		self.assertFalse(result.stdout_truncated)
+		self.assertTrue(result.process_boundary_quiescent)
+		self.assertEqual(chunks, ["ready\n"])
+
+	def test_plain_checks_reject_output_over_budget_even_when_process_succeeds(self) -> None:
+		for stream in ("stdout", "stderr"):
+			for size in (64, 65):
+				with self.subTest(stream=stream, size=size), mock.patch.object(
+					gf_maintenance, "MAX_COMMAND_STREAM_CHARACTERS", 64, create=True,
+				):
+					result = gf_maintenance.run_command(
+						"capture-fixture",
+						[sys.executable, "-c", f"import sys; sys.{stream}.write('x' * {size})"],
+						10.0,
+						environment=dict(os.environ),
+					)
+				self.assertEqual(result.exit_code == 0, size == 64)
+				self.assertLessEqual(len(getattr(result, stream)), 64)
+				self.assertEqual(result.to_dict(max_output_chars=None)[f"{stream}_truncated"], size > 64)
+				self.assertGreater(result.pid, 0)
+
+	def test_parallel_checks_reject_capped_output_and_keep_quiet_boundary(self) -> None:
+		parallel = gf_maintenance.gf_parallel_validation
+		for stream in ("stdout", "stderr"):
+			for size in (64, 65):
+				with self.subTest(stream=stream, size=size), mock.patch.object(parallel, "MAX_SHARD_STREAM_CHARACTERS", 64):
+					shard = parallel.ParallelShard(
+						name="capture-fixture", command=(sys.executable, "-c", f"import sys; sys.{stream}.write('x' * {size})"),
+						workspace=ROOT, timeout_seconds=10.0, environment=dict(os.environ),
+					)
+					result = parallel.run_parallel_shards([shard], max_workers=1)[0]
+				self.assertEqual(result.ok, size == 64)
+				self.assertLessEqual(len(getattr(result, stream)), 64)
+				self.assertTrue(result.process_boundary_quiescent)
+
+	def test_command_logs_share_one_bounded_read_budget(self) -> None:
+		with tempfile.TemporaryDirectory() as directory:
+			paths = [Path(directory) / f"{index}.log" for index in range(2)]
+			for path in paths:
+				path.write_bytes(b"x" * 40)
+			with mock.patch.object(gf_maintenance, "MAX_COMMAND_LOG_BYTES", 64, create=True):
+				text, errors = gf_maintenance.read_command_log_outputs(paths)
+			self.assertTrue(errors)
+			self.assertLessEqual(len(text), 64)
+			self.assertEqual(paths[1].read_bytes(), b"x" * 40)
+			paths[1].write_bytes(b"y" * 23)
+			with mock.patch.object(gf_maintenance, "MAX_COMMAND_LOG_BYTES", 64):
+				text, errors = gf_maintenance.read_command_log_outputs(paths)
+			self.assertEqual(errors, [])
+			self.assertEqual(len(text), 64)
+			paths[1].write_bytes(b"y" * 24)
+			with mock.patch.object(gf_maintenance, "MAX_COMMAND_LOG_BYTES", 64):
+				result = gf_maintenance.completed_command_result(
+					"capture-fixture", [sys.executable], 0, "All tests passed", "", paths, 0.1, 10.0, 123,
+					process_notes=("Process cleanup was proven.",),
+				)
+			self.assertEqual(result.exit_code, 1)
+			self.assertIn("Process cleanup was proven.", result.notes)
+			self.assertTrue(any("could not be read" in note for note in result.notes))
+
+	def test_supervisor_output_limit_stops_endless_producer_and_bounds_callbacks(self) -> None:
+		chunks: list[str] = []
+		result = gf_process_supervisor.run_supervised_process(
+			[sys.executable, "-u", "-c", "import sys,time; sys.stdout.write('x' * 65); sys.stdout.flush(); time.sleep(30)"],
+			cwd=ROOT, timeout_seconds=10.0, environment=dict(os.environ),
+			max_stdout_characters=64, max_stderr_characters=64,
+			stdout_callback=chunks.append,
+		)
+		self.assertTrue(result.stdout_truncated)
+		self.assertTrue(result.process_boundary_quiescent)
+		self.assertFalse(result.timed_out)
+		self.assertLess(result.duration_seconds, 8.0)
+		self.assertLessEqual(sum(map(len, chunks)), 64)
+
+
 class ProcessSupervisorBinaryCaptureTests(unittest.TestCase):
 	def test_binary_missing_executable_has_typed_no_child_proof(self) -> None:
 		with tempfile.TemporaryDirectory(prefix="gf-binary-missing-") as directory:

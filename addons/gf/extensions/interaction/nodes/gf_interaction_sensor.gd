@@ -254,9 +254,9 @@ func send_to_path(
 ## [br]
 ## @param target_group_name: 目标分组；为空时使用节点默认分组。
 ## [br]
-## @param max_count: 最多发送数量；小于等于 0 表示不限制。
+## @param max_count: 最多成功接受数量（ok=true）；拒绝不占配额，小于等于 0 表示不限制。
 ## [br]
-## @return: 结果报告列表。
+## @return: 已尝试接收对象的结果报告列表，包含拒绝结果，数量可能超过 max_count。
 ## [br]
 ## @schema return: 交互结果报告字典数组；每项包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 func broadcast_to_group(target_group_name: StringName = &"", max_count: int = 0) -> Array[Dictionary]:
@@ -332,7 +332,7 @@ func send_to_best_candidate(
 ## [br]
 ## @schema options: Dictionary passed to candidate_provider.get_candidate_objects(); method_name defaults to receive_interaction.
 ## [br]
-## @param max_count: 最多发送数量；小于等于 0 表示不限制。
+## @param max_count: 最多成功接受数量（ok=true）；拒绝不占配额，小于等于 0 表示不限制。
 ## [br]
 ## @param payload_override: 覆盖 payload；为 null 时使用节点默认 payload。
 ## [br]
@@ -340,7 +340,7 @@ func send_to_best_candidate(
 ## [br]
 ## @param interaction_id_override: 覆盖交互 ID；为空时使用节点默认交互 ID。
 ## [br]
-## @return: 结果报告列表。
+## @return: 已尝试接收对象的结果报告列表，包含拒绝结果，数量可能超过 max_count。
 ## [br]
 ## @schema return: 交互结果报告字典数组；每项包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 func broadcast_to_candidates(
@@ -447,7 +447,7 @@ func send_to_raycast_3d(
 ## [br]
 ## @param area: Area2D 节点。
 ## [br]
-## @param max_count: 最多发送数量；小于等于 0 表示不限制。
+## @param max_count: 最多非空结果报告数量；成功和拒绝都占配额，小于等于 0 表示不限制。
 ## [br]
 ## @param payload_override: 覆盖 payload；为 null 时使用节点默认 payload。
 ## [br]
@@ -455,7 +455,7 @@ func send_to_raycast_3d(
 ## [br]
 ## @param interaction_id_override: 覆盖交互 ID；为空时使用节点默认交互 ID。
 ## [br]
-## @return: 结果报告列表。
+## @return: 非空结果报告列表，包含成功和拒绝结果；max_count 大于 0 时数量不超过该上限。
 ## [br]
 ## @schema return: 交互结果报告字典数组；每项包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 func broadcast_to_area_2d(
@@ -485,7 +485,7 @@ func broadcast_to_area_2d(
 ## [br]
 ## @param area: Area3D 节点。
 ## [br]
-## @param max_count: 最多发送数量；小于等于 0 表示不限制。
+## @param max_count: 最多非空结果报告数量；成功和拒绝都占配额，小于等于 0 表示不限制。
 ## [br]
 ## @param payload_override: 覆盖 payload；为 null 时使用节点默认 payload。
 ## [br]
@@ -493,7 +493,7 @@ func broadcast_to_area_2d(
 ## [br]
 ## @param interaction_id_override: 覆盖交互 ID；为空时使用节点默认交互 ID。
 ## [br]
-## @return: 结果报告列表。
+## @return: 非空结果报告列表，包含成功和拒绝结果；max_count 大于 0 时数量不超过该上限。
 ## [br]
 ## @schema return: 交互结果报告字典数组；每项包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
 func broadcast_to_area_3d(
