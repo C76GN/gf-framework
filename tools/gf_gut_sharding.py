@@ -1913,7 +1913,7 @@ def _inner_class_bases(
 		code = _strip_gdscript_comment_preserving_strings(raw_line).strip()
 		raw_match = re.fullmatch(
 			r"class[ \t]+[A-Za-z_][A-Za-z0-9_]*"
-			r"(?:[ \t]+extends[ \t]+(?P<base>[^:]+))?[ \t]*:",
+			r"(?:[ \t]+extends[ \t]+(?P<base>.+))?[ \t]*:",
 			code,
 		)
 		base_clause = raw_match.group("base") if raw_match is not None else None

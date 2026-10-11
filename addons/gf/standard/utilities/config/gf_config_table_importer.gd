@@ -1152,7 +1152,10 @@ static func _resolve_export_columns(
 	if options.has("columns"):
 		return GFVariantData.get_option_packed_string_array(options, "columns")
 	if schema != null:
-		var schema_columns: PackedStringArray = schema.get_column_names()
+		var schema_columns: PackedStringArray = PackedStringArray()
+		for column: GFConfigTableColumn in schema.columns:
+			if column != null and column.get_field_key() != &"":
+				var _column_appended: bool = schema_columns.append(str(column.get_field_key()))
 		if not schema_columns.is_empty():
 			return schema_columns
 

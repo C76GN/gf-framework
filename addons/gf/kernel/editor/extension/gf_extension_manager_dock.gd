@@ -291,7 +291,7 @@ func _build_ui() -> void:
 	toolbar.add_child(GFEditorWorkspaceUI.make_button("恢复默认", "恢复 GF 默认扩展选择。", _restore_default_selection))
 	toolbar.add_child(GFEditorWorkspaceUI.make_button("启用全部", "勾选当前发现的所有扩展。", _set_all_enabled.bind(true)))
 	toolbar.add_child(GFEditorWorkspaceUI.make_button("禁用全部", "取消勾选当前发现的所有扩展。", _set_all_enabled.bind(false)))
-	toolbar.add_child(GFEditorWorkspaceUI.make_button("保存设置", "写入 ProjectSettings 并保存 project.godot。", _apply_selection))
+	toolbar.add_child(GFEditorWorkspaceUI.make_button("保存设置", "写入 project.godot；随后通过“工具 > GF > 刷新 GF 编辑器贡献”更新编辑器工具。", _apply_selection))
 
 	var preset_row: HBoxContainer = GFEditorWorkspaceUI.make_toolbar()
 	add_child(preset_row)
@@ -540,7 +540,7 @@ func _apply_selection() -> void:
 		_set_status("保存失败（%s），内存设置尚未写入 project.godot，请重试。" % error_string(save_error))
 		return
 	_refresh_extensions()
-	_set_status("扩展设置已保存。")
+	_set_status("扩展设置已保存，编辑器工具待刷新。请使用“工具 > GF > 刷新 GF 编辑器贡献”。")
 
 
 ## 按默认或显式选择模式写入扩展 ID，并写入 installer 与导出选项。
@@ -566,7 +566,7 @@ func _set_all_enabled(enabled: bool) -> void:
 	_invalidate_usage_report()
 	_refresh_visible_extension_rows()
 	_refresh_selected_manifest_details()
-	_set_status("选择已更新，点击“保存设置”后生效。")
+	_set_status("选择已更新，尚未保存；保存后需刷新 GF 编辑器贡献。")
 
 
 ## 将选择模式切回默认，并按默认启用 ID 更新当前清单选择。
@@ -580,7 +580,7 @@ func _restore_default_selection() -> void:
 	_invalidate_usage_report()
 	_refresh_visible_extension_rows()
 	_refresh_selected_manifest_details()
-	_set_status("已恢复默认选择，点击“保存设置”后生效。")
+	_set_status("已恢复默认选择，尚未保存；保存后需刷新 GF 编辑器贡献。")
 
 
 ## 重新填充组合下拉框的名称、ID 元数据与说明提示，并按条目数设置禁用状态。
@@ -648,7 +648,7 @@ func _add_extension_preset_path(path: String) -> bool:
 		return false
 
 	_refresh_preset_options()
-	_set_status("已添加扩展组合文件，点击“保存设置”后生效。")
+	_set_status("已添加扩展组合文件，请保存设置；选择扩展后需刷新 GF 编辑器贡献。")
 	return true
 
 
@@ -671,7 +671,7 @@ func _remove_selected_preset_path() -> bool:
 		return false
 
 	_refresh_preset_options()
-	_set_status("已移除扩展组合文件，点击“保存设置”后生效。")
+	_set_status("已移除扩展组合文件，请保存设置；选择扩展后需刷新 GF 编辑器贡献。")
 	return true
 
 
@@ -694,7 +694,7 @@ func _apply_extension_preset_by_id(preset_id: StringName) -> bool:
 	_invalidate_usage_report()
 	_refresh_visible_extension_rows()
 	_refresh_selected_manifest_details()
-	_set_status("已应用扩展组合“%s”，点击“保存设置”后生效。" % preset.display_name)
+	_set_status("已选择扩展组合“%s”，尚未保存；保存后需刷新 GF 编辑器贡献。" % preset.display_name)
 	return true
 
 
@@ -1022,7 +1022,7 @@ func _on_audit_resources_changed(_paths: PackedStringArray) -> void:
 	_invalidate_usage_report()
 
 
-## 更新扩展的显式启用选择并使引用报告失效；选中扩展受影响时刷新详情，提示设置保存后生效。
+## 更新扩展的显式启用选择并使引用报告失效；选中扩展受影响时刷新详情，提示分别保存设置和刷新编辑器贡献。
 ## [br]
 ## @api private
 func _on_extension_toggled(enabled: bool, extension_id: String) -> void:
@@ -1034,4 +1034,4 @@ func _on_extension_toggled(enabled: bool, extension_id: String) -> void:
 			if manifest.id == extension_id:
 				_show_manifest_details(manifest)
 				break
-	_set_status("选择已更新，点击“保存设置”后生效。")
+	_set_status("选择已更新，尚未保存；保存后需刷新 GF 编辑器贡献。")

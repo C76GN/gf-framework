@@ -62,7 +62,7 @@ const _ACTION_TIME_POLICY = preload("res://addons/gf/extensions/action_queue/cor
 ## @api public
 var completion_mode: CompletionMode = CompletionMode.AUTO
 
-## 等待 Signal 的超时时间（秒）。小于等于 0 时表示不启用超时。
+## 等待 Signal 的超时时间（秒）。有限且小于等于 0 时归零并禁用超时；非有限值保留原设置。
 ## [br]
 ## @api public
 ## [br]
@@ -71,10 +71,8 @@ var signal_timeout_seconds: float:
 	get:
 		return _signal_timeout_seconds
 	set(value):
-		_signal_timeout_seconds = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(
-			value,
-			_signal_timeout_seconds
-		)
+		if is_finite(value):
+			_signal_timeout_seconds = maxf(value, 0.0)
 
 ## Signal 超时计时是否跟随 GFTimeUtility 的暂停与 time_scale。
 ## [br]
@@ -203,7 +201,9 @@ func get_wait_guard_node() -> Node:
 ## [br]
 ## @api public
 ## [br]
-## @param seconds: 超时时间；小于等于 0 时表示不启用超时。
+## @since 3.17.0
+## [br]
+## @param seconds: 超时时间；有限且小于等于 0 时禁用超时，非有限值保留原设置。
 ## [br]
 ## @param respect_time_scale: 是否跟随 GFTimeUtility 的暂停与 time_scale。
 ## [br]

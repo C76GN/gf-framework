@@ -153,6 +153,11 @@ var _active_exclusive: bool = false
 ## [br]
 var _disposed: bool = false
 
+## 静默阶段关闭新请求准入，但保留已接纳队列及底层请求的唯一推进责任。
+## [br]
+## @api private
+var _quiesce_completion: GFAsyncCompletion = null
+
 
 # --- GF 生命周期方法 ---
 
@@ -165,6 +170,7 @@ func init() -> void:
 	ignore_pause = true
 	tick_enabled = true
 	_disposed = false
+	_quiesce_completion = null
 
 
 ## 推进底层请求轮询与 admission。
@@ -178,7 +184,30 @@ func tick(_delta: float = 0.0) -> void:
 	pump()
 
 
-## 取消所有消费者，并让已发起的请求保留为 drain 状态。
+## 关闭新请求准入，并在已接纳 FIFO 与底层 drain 全部 idle 后完成。
+## Architecture 使用生命周期 tick 推进，并通过共享 deadline 和 scope 限制等待；
+## 独立调用者仍须显式 pump 并在自己的截止时间取消 scope。重复调用共享同一完成源。
+## [br]
+## @api public
+## [br]
+## @since 11.0.0
+## [br]
+## @param scope: 当前静默阶段的取消作用域；取消不会伪造底层请求已经回收。
+## [br]
+## @return idle 后成功、取消时终结的静默完成源。
+func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:
+	if _quiesce_completion != null:
+		return _quiesce_completion
+	_quiesce_completion = GFAsyncCompletion.new()
+	if scope != null:
+		var _bound: bool = _quiesce_completion.bind_cancel_token(scope)
+	if _quiesce_completion.is_pending():
+		pump()
+	return _quiesce_completion
+
+
+## 强制取消所有消费者及静默等待，并让已发起的请求保留为 drain 状态。
+## 正常架构退出使用 shutdown_async()；直接 dispose() 后调用方仍须显式 pump 到 idle。
 ## [br]
 ## @api public
 ## [br]
@@ -186,6 +215,8 @@ func tick(_delta: float = 0.0) -> void:
 func dispose() -> void:
 	_disposed = true
 	cancel_all(&"broker_disposed")
+	if _quiesce_completion != null and _quiesce_completion.is_pending():
+		var _cancelled: bool = _quiesce_completion.cancel(&"broker_disposed")
 
 
 # --- 公共方法 ---
@@ -225,6 +256,9 @@ func request(path: String, type_hint: String = "", options: Dictionary = {}) -> 
 
 	if _disposed:
 		lease.broker_mark_failed(ERR_UNAVAILABLE, "broker_disposed")
+		return lease
+	if _quiesce_completion != null:
+		lease.broker_mark_failed(ERR_UNAVAILABLE, "broker_quiescing")
 		return lease
 	if load_path.is_empty() or request_key.is_empty():
 		lease.broker_mark_failed(ERR_INVALID_PARAMETER, "invalid_resource_path")
@@ -293,6 +327,8 @@ func request(path: String, type_hint: String = "", options: Dictionary = {}) -> 
 func pump() -> void:
 	_poll_active_requests()
 	_admit_pending_requests()
+	if _quiesce_completion != null and _quiesce_completion.is_pending() and is_idle():
+		var _succeeded: bool = _quiesce_completion.succeed()
 
 
 ## 推进 Broker 并导出指定 Lease 的状态。

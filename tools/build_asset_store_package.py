@@ -31,6 +31,7 @@ REQUIRED_PACKAGE_PATHS = (
 )
 ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 MAX_SOURCE_FILE_BYTES = (1 << 63) - 1
+MAX_PLUGIN_CONFIG_BYTES = 64 * 1024
 README_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)\s]+)(?:\s+[^)]*)?\)")
 ALLOWED_README_LINK_HOSTS = {
 	"gf-framework.readthedocs.io",
@@ -64,9 +65,10 @@ def main() -> int:
 	if not args.validate_only:
 		build_package(output)
 
-	result = audit_package(output)
+	result = audit_package(output, expected_version=version)
 	result["version"] = version
-	result["plugin_version"] = plugin_version
+	result["workspace_plugin_version"] = plugin_version
+	result["plugin_version"] = result.get("archive_plugin_version", "")
 	print_result(result, args.json)
 	return 0 if result["ok"] else 1
 
@@ -165,7 +167,7 @@ def read_package_source_bytes(path: Path) -> bytes:
 		raise OSError(f"Asset Store source is not a stable contained regular file: {error.rule_id}") from None
 
 
-def audit_package(output: Path) -> dict[str, Any]:
+def audit_package(output: Path, *, expected_version: str = "") -> dict[str, Any]:
 	issues: list[str] = []
 	if not output.is_file():
 		return {
@@ -178,8 +180,32 @@ def audit_package(output: Path) -> dict[str, Any]:
 		}
 
 	readme_text = ""
+	archive_plugin_version = ""
 	with zipfile.ZipFile(output, "r") as archive:
 		names = sorted(name for name in archive.namelist() if name and not name.endswith("/"))
+		plugin_path = "addons/gf/plugin.cfg"
+		if names.count(plugin_path) != 1:
+			issues.append("Package must contain exactly one addons/gf/plugin.cfg.")
+		else:
+			try:
+				with archive.open(plugin_path) as stream:
+					config_bytes = stream.read(MAX_PLUGIN_CONFIG_BYTES + 1)
+				if len(config_bytes) > MAX_PLUGIN_CONFIG_BYTES:
+					raise ValueError("plugin.cfg exceeds its read budget")
+				config = configparser.ConfigParser(interpolation=None)
+				config.read_string(config_bytes.decode("utf-8", errors="strict"))
+				# Godot ConfigFile has no ConfigParser DEFAULT inheritance: the
+				# archive must declare version in the plugin section itself.
+				config.defaults().clear()
+				archive_plugin_version = config.get("plugin", "version").strip()
+				if len(archive_plugin_version) >= 2 and archive_plugin_version[0] == '"' and archive_plugin_version[-1] == '"':
+					archive_plugin_version = archive_plugin_version[1:-1]
+				if not archive_plugin_version:
+					raise ValueError("plugin.cfg version is empty")
+			except (configparser.Error, UnicodeError, ValueError, zipfile.BadZipFile) as error:
+				issues.append(f"Package plugin.cfg is invalid: {error}.")
+		if expected_version and archive_plugin_version != expected_version:
+			issues.append(f"Package plugin.cfg version {archive_plugin_version!r} does not match expected version {expected_version!r}.")
 		if "addons/gf/README.md" in names:
 			try:
 				readme_text = archive.read("addons/gf/README.md").decode("utf-8", errors="strict")
@@ -211,6 +237,7 @@ def audit_package(output: Path) -> dict[str, Any]:
 		"file_count": len(names),
 		"size_bytes": output.stat().st_size,
 		"top_level_entries": top_level_entries,
+		"archive_plugin_version": archive_plugin_version,
 		"issues": issues,
 	}
 

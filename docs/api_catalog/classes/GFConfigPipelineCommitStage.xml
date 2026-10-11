@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineCommitStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_commit_stage.gd" module="tools" extends="RefCounted" classDigest="0a6e2527283db1052a3c1f821e3ec42e91cfd9dacd8b1154ed09f92bbe6ee8c0">
+<class name="GFConfigPipelineCommitStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_commit_stage.gd" module="tools" extends="RefCounted" classDigest="b1fe45cbe966e5c713a18be40c2258bd747eefd39fbd5d10b5c18588c0575d9f">
 	<description>GFConfigPipelineCommitStage: Config Pipeline 的文件提交事务阶段。
 将 Config Pipeline 的 ResourceSaver 等专用写入器接到框架级
 GFArtifactWriteTransaction。该阶段不复制事务实现、不解释产物内容，
@@ -40,7 +40,7 @@ GFArtifactWriteTransaction。该阶段不复制事务实现、不解释产物内
 				<tag name="param">options: 框架级事务预算与允许根选项。</tag>
 				<tag name="return">只能原样交给 complete() 或 rollback() 的 GFArtifactWriteTransaction 事务。</tag>
 				<tag name="schema">options: Dictionary，必须包含非空 allowed_roots；可包含 max_file_count、max_backup_bytes 和 metadata。</tag>
-				<tag name="schema">return: Dictionary，符合 gf.artifact_write.transaction@1，包含 ok、format、format_version、state、entries、backup_bytes、issues 和 metadata。</tag>
+				<tag name="schema">return: closed Dictionary，符合 gf.artifact_write.transaction@1，仅包含 ok、format、format_version、state、transaction_id、transaction_token、entry_count、backup_bytes、issues、recovery_required、recovery_action、recovery_transaction 和 metadata；事务身份及 recovery_transaction 均为不可改写的 opaque handle，不暴露目标或 sidecar 路径。失败且 recovery_required=true 时，按 recovery_action 终结 recovery_transaction。</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>

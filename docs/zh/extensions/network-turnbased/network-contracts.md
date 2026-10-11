@@ -58,6 +58,8 @@ var report := contract.validate_peer_contract_version(peer_version, {
 
 `GFNetworkContractGenerator` 可把契约资源生成 GDScript 辅助类，提供强类型构造、发送、匹配和字段读取函数。生成器不会扫描或推断项目业务协议；需要生成哪些契约由项目显式配置。
 
+有限浮点默认值使用可精确往返的数字常量，构造参数和 getter 回退保留资源中的原始位型，极小值不会按显示格式舍入为零。无法用十进制字面量准确表示时，生成等价的二进制幂常量表达式。标量与 Vector/Color 分量共用这一规则；非有限默认值仍在契约校验阶段拒绝。
+
 ```gdscript
 var generator := GFNetworkContractGenerator.new()
 generator.generate(contract, "res://generated/network/lobby_network_messages.gd", true, {

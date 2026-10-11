@@ -412,6 +412,8 @@ def append_inner_classes(parent: ET.Element, inner_classes: list[ApiClass]) -> N
 		append_members(inner_element, "constants", inner_class.constants)
 		append_members(inner_element, "properties", inner_class.properties)
 		append_members(inner_element, "methods", inner_class.methods)
+		if inner_class.inner_classes:
+			append_inner_classes(inner_element, inner_class.inner_classes)
 
 
 def render_reference_files(
@@ -852,7 +854,9 @@ def append_inner_classes_markdown(lines: list[str], api_class: ApiClass, heading
 	class_heading_level = heading_level + 1
 	member_group_level = class_heading_level + 1
 	member_level = class_heading_level + 2
-	sorted_inner_classes = sorted(api_class.inner_classes, key=lambda item: full_api_class_name(item))
+	# Keep fully qualified inner owners at one heading depth; recursive Markdown
+	# headings would exceed H6 while the source model remains a recursive tree.
+	sorted_inner_classes = sorted(flatten_api_classes(api_class.inner_classes), key=full_api_class_name)
 	lines.extend([
 		f"{'#' * heading_level} 内部类概览",
 		"",
@@ -1349,7 +1353,7 @@ def check_reference_coverage(
 		errors.extend(class_errors)
 		class_count += 1
 		member_count += class_members
-		for inner_class in sorted(api_class.inner_classes, key=lambda item: full_api_class_name(item)):
+		for inner_class in sorted(flatten_api_classes(api_class.inner_classes), key=full_api_class_name):
 			inner_errors, inner_members = check_class_reference_coverage(inner_class, reference_files, 3)
 			errors.extend(inner_errors)
 			class_count += 1

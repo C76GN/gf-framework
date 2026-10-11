@@ -249,6 +249,8 @@ XLSX 支持定位为通用表格输入适配：默认读取 workbook 中的第�
 
 CSV / JSON / ConfigFile 的 Reader 默认用 `max_source_file_bytes = 64 MiB` 在读取前限制单文件，但 Layout 复用的直接 importer 尚无行、列、累计单元格或嵌套节点预算；文件预算不能证明解析峰值内存和主线程时间有同样上界。处理不受信来源时，项目应先收紧文件预算并在进入 Pipeline 前做来源级预检；不要通过传负值关闭限制后仍把该路径描述为有界导入。
 
+XLSX 的共享字符串按原始索引保留空项。`<si/>`、`<si></si>` 和 `<si><t/></si>` 都表示一个空字符串，仍计入 `max_xlsx_shared_strings`；后续单元格引用的索引不会因空项前移。
+
 `GFConfigPipelineProfile` 只表达导表任务 manifest。`GFConfigBuildProfile` 仍负责按 groups / tags 裁剪 schema 或记录，两者可以组合使用，但职责不同。
 
 `GFConfigPipelineRunner` 不解释命令行参数，不创建编辑器 UI，也不调用外部进程；`GFConfigPipelineCommand` 负责命令参数适配，同包工作台负责草稿和交互。复杂 Excel、多 sheet 业务拆分、远程拉取、策划提交流程、分端裁剪、热更新打包和加密压缩仍属于项目流水线策略。

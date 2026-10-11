@@ -1766,6 +1766,61 @@ func test_network_contract_generator_builds_typed_helpers() -> void:
 	)
 
 
+func test_network_contract_generated_float_defaults_compile_and_preserve_values() -> void:
+	var expected_values: Array[float] = [
+		1.0e20, -1.0e20, 1.0e-20, 1.0e100, 1.0e-100, 1.25, 2.0,
+		1.0000000000000002, 1.0e308, 5.0e-324, 0.0, -0.0,
+	]
+	var sample_bits: Array[int] = [
+		0x000fffffffffffff, 0x0010000000000000, 0x0010000000000001,
+		0x2b2bff2ee48e052e, 0x2b2bff2ee48e052f, 0x2b2bff2ee48e0530,
+		0x3fd5555555555555, 0x3ff0000000000001, 0x7fefffffffffffff,
+	]
+	var sample_bytes: PackedByteArray = PackedByteArray()
+	var _resize_error: Error = sample_bytes.resize(8) as Error
+	for bits: int in sample_bits:
+		sample_bytes.encode_u64(0, bits)
+		var sample: float = sample_bytes.decode_double(0)
+		expected_values.append(sample)
+		expected_values.append(-sample)
+	var message_contract: GFNetworkContractMessage = GFNetworkContractMessage.new()
+	message_contract.message_type = &"numeric"
+	for index: int in range(expected_values.size()):
+		var field: GFNetworkContractField = GFNetworkContractField.new()
+		field.field_name = StringName("value_%d" % index)
+		field.value_type = GFNetworkContractField.ValueType.FLOAT
+		field.required = false
+		field.default_value = expected_values[index]
+		message_contract.fields.append(field)
+	var contract: GFNetworkContract = GFNetworkContract.new()
+	contract.contract_id = &"float_defaults"
+	contract.messages = [message_contract]
+	var generator: GFNetworkContractGenerator = GFNetworkContractGenerator.new()
+	var runtime_script: GDScript = GDScript.new()
+	runtime_script.source_code = generator.build_source(contract, {
+		"class_name": "FloatDefaultMessages",
+	}).replace("class_name FloatDefaultMessages\n", "")
+	var compile_error: Error = runtime_script.reload(false)
+	assert_eq(compile_error, OK, "大、小指数及普通小数默认值必须生成可编译的 float 字面量。")
+	if compile_error == OK:
+		var message_value: Variant = runtime_script.call(&"make_numeric")
+		assert_true(message_value is GFNetworkMessage)
+		if message_value is GFNetworkMessage:
+			var message: GFNetworkMessage = message_value
+			for index: int in range(expected_values.size()):
+				var diagnostic: String = "index=%d expected_bytes=%s json=%s" % [
+					index,
+					var_to_bytes(expected_values[index]).hex_encode(),
+					JSON.stringify(expected_values[index], "", false, true),
+				]
+				var actual_value: Variant = message.payload.get(StringName("value_%d" % index))
+				assert_eq(var_to_bytes(actual_value), var_to_bytes(expected_values[index]), "生成参数默认值必须保留原始有限 float 位型：%s actual_bytes=%s。" % [diagnostic, var_to_bytes(actual_value).hex_encode()])
+				var getter_value: Variant = runtime_script.call(StringName("get_numeric_value_%d" % index), null)
+				assert_eq(var_to_bytes(getter_value), var_to_bytes(expected_values[index]), "生成 getter 的回退默认值必须保留原始有限 float 位型：%s actual_bytes=%s。" % [diagnostic, var_to_bytes(getter_value).hex_encode()])
+	var cleanup_errors: Array[int] = GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT.release(runtime_script)
+	assert_true(cleanup_errors.is_empty())
+
+
 func test_network_contract_generated_version_preflight_matches_runtime_report() -> void:
 	var contract: GFNetworkContract = _make_lobby_network_contract()
 	contract.contract_version_major = 2

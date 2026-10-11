@@ -1421,6 +1421,26 @@ func test_action_time_fields_reject_non_finite_values() -> void:
 	assert_eq(visual.signal_timeout_seconds, 30.0, "非法 timeout 不应覆盖现有有效超时。")
 
 
+func test_visual_action_finite_non_positive_timeout_disables_and_non_finite_preserves() -> void:
+	var action: GFVisualAction = GFVisualAction.new()
+	action.signal_timeout_seconds = -1.0
+	assert_eq(action.signal_timeout_seconds, 0.0, "有限负数应按公开约定禁用 Signal 超时。")
+	action.signal_timeout_seconds = 5.0
+	var configured_action: GFVisualAction = action.with_signal_timeout(-0.25)
+	assert_same(configured_action, action)
+	assert_eq(action.signal_timeout_seconds, 0.0, "链式配置必须遵守同一负数禁用约定。")
+	action.signal_timeout_seconds = 5.0
+	action.signal_timeout_seconds = 0.0
+	assert_eq(action.signal_timeout_seconds, 0.0)
+	for invalid_timeout: float in [INF, -INF, NAN]:
+		action.signal_timeout_seconds = 7.0
+		action.signal_timeout_seconds = invalid_timeout
+		assert_eq(action.signal_timeout_seconds, 7.0, "非有限值不得覆盖已有有效超时。")
+		action.signal_timeout_seconds = 0.0
+		action.signal_timeout_seconds = invalid_timeout
+		assert_eq(action.signal_timeout_seconds, 0.0, "非有限值不得重新启用已禁用的超时。")
+
+
 func test_flash_action_rejects_non_color_property() -> void:
 	var item: ColorRect = ColorRect.new()
 	add_child_autofree(item)

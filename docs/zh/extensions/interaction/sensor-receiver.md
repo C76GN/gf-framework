@@ -40,6 +40,10 @@ Receiver 会先执行自己的 `enabled`、交互 ID 过滤和 `validation_callb
 
 项目也可以把范围、视线、优先级或编辑器选择结果先写入通用候选 provider，再交给 Sensor。`GFObjectCandidateRegistry` 提供弱引用候选表，按 group、method、priority 和注册顺序筛选排序；`send_to_best_candidate(provider, options)` 会向最高优先级候选发送一次交互，`broadcast_to_candidates(provider, options, max_count)` 会向筛选后的候选列表广播。provider 只负责提供对象候选，不定义距离、冷却、消耗或提示 UI。
 
+分组和候选广播的 `max_count` 限制成功接受交互的数量（报告 `ok = true`），拒绝不占配额。返回列表保留已尝试对象的成功和拒绝报告，因此数量可以超过 `max_count`。例如 `max_count = 1` 时，首个候选拒绝后仍会尝试下一个，直到一次成功或候选耗尽。
+
+Area2D/Area3D 广播按非空结果报告数量限制，成功和拒绝都占配额；`max_count = 1` 时，首个拒绝报告也会使广播停止。无效对象或空报告不占配额，因此不应将它理解为全部尝试次数上限。所有广播的 `max_count` 小于等于零时均表示不限制。
+
 Sensor 会按实例 ID 保留候选首次出现顺序并去重，再以弱引用跨越“查询到分发”的同步时间边界；前一个回调释放后续 receiver 时，失效项会在实际使用前被跳过，不会访问 previously freed Object。项目不能把 provider 查询时有效视为整个广播期间持续有效。
 
 需要让交互提示、选择高亮或项目侧候选缓存及时刷新时，可监听注册表的 `candidates_changed(revision)`。注册、更新、清空、按 owner 批量移除和失效对象清理都会在一次确实改变记录的公开操作结束后发出一次通知；幂等注册、空表清理或移除不存在的候选不会制造伪变化。`get_revision()` 与调试快照中的 `revision` 可用于跳过已经处理过的版本。通知只表示候选记录变了，不代表“最佳候选”必然变化；监听方仍应使用自己的 group、method 和项目筛选条件重新查询。

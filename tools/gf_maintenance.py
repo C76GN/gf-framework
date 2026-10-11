@@ -1044,6 +1044,8 @@ PARALLEL_GODOT_PROBE_SENTINEL = "GF_PARALLEL_ISOLATION_PROBE="
 SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
 MAX_PARALLEL_SHARD_REPORT_BYTES: int = 16 * 1024 * 1024
 DEFAULT_COMMAND_RESULT_OUTPUT_CHARS: int = 12000
+MAX_COMMAND_STREAM_CHARACTERS: int = 4 * 1024 * 1024
+MAX_COMMAND_LOG_BYTES: int = 4 * 1024 * 1024
 PARALLEL_SHARD_REPORT_REQUIRED_FIELDS = frozenset({
 	"ok",
 	"suite",
@@ -1493,6 +1495,8 @@ class CommandResult:
 	pid: int | None = None
 	streamed_output: bool = False
 	cancelled: bool = False
+	stdout_capture_truncated: bool = False
+	stderr_capture_truncated: bool = False
 
 	def to_dict(
 		self,
@@ -1534,11 +1538,11 @@ class CommandResult:
 			"stdout_char_count": stdout_char_count,
 			"stdout_utf8_byte_count": len(stdout_bytes),
 			"stdout_sha256": hashlib.sha256(stdout_bytes).hexdigest(),
-			"stdout_truncated": stdout_truncated,
+			"stdout_truncated": stdout_truncated or self.stdout_capture_truncated,
 			"stderr_char_count": stderr_char_count,
 			"stderr_utf8_byte_count": len(stderr_bytes),
 			"stderr_sha256": hashlib.sha256(stderr_bytes).hexdigest(),
-			"stderr_truncated": stderr_truncated,
+			"stderr_truncated": stderr_truncated or self.stderr_capture_truncated,
 		}
 		if self.timeout_seconds is not None:
 			payload["timeout_seconds"] = self.timeout_seconds
@@ -19637,6 +19641,8 @@ def run_command(
 			cwd=ROOT,
 			timeout_seconds=timeout_seconds,
 			environment=process_environment,
+			max_stdout_characters=MAX_COMMAND_STREAM_CHARACTERS,
+			max_stderr_characters=MAX_COMMAND_STREAM_CHARACTERS,
 			stdout_callback=(
 				(lambda line: output_callback(name, "stdout", line))
 				if output_callback is not None
@@ -19656,6 +19662,21 @@ def run_command(
 		if process_result.process_boundary_quiescent is not True:
 			raise gf_parallel_validation.WorkspaceProcessBoundaryError(
 				f"Check {name!r} process-boundary cleanup was not proven."
+			)
+		if process_result.stdout_truncated is True or process_result.stderr_truncated is True:
+			log_output, log_errors = read_command_log_outputs(log_paths)
+			return CommandResult(
+				name=name, command=effective_command,
+				exit_code=124 if process_result.timed_out else 1,
+				stdout=append_command_log_output(process_result.stdout, log_output),
+				stderr=process_result.stderr,
+				timed_out=process_result.timed_out,
+				process_exit_code=process_result.return_code,
+				notes=[*process_result.notes, *log_errors, "Command output exceeded its capture budget; incomplete evidence cannot pass."],
+				duration_seconds=process_result.duration_seconds, timeout_seconds=timeout_seconds,
+				pid=process_result.pid, streamed_output=output_callback is not None,
+				stdout_capture_truncated=process_result.stdout_truncated is True,
+				stderr_capture_truncated=process_result.stderr_truncated is True,
 			)
 		if process_result.timed_out:
 			log_output, log_errors = read_command_log_outputs(log_paths)
@@ -20459,6 +20480,7 @@ def validate_command_log_path(path: Path) -> None:
 def read_command_log_outputs(paths: list[Path]) -> tuple[str, list[str]]:
 	outputs: list[str] = []
 	errors: list[str] = []
+	remaining_bytes = MAX_COMMAND_LOG_BYTES
 	for path in paths:
 		try:
 			validate_command_log_path(path)
@@ -20472,9 +20494,19 @@ def read_command_log_outputs(paths: list[Path]) -> tuple[str, list[str]]:
 			errors.append(f"Configured command log is not a controlled regular file: {path}")
 			continue
 		try:
-			outputs.append(path.read_text(encoding="utf-8", errors="replace"))
+			root = command_log_containment_root(path)
+			separator_bytes = 1 if outputs else 0
+			if remaining_bytes < separator_bytes:
+				raise OSError("Command log aggregate exceeds its capture budget.")
+			payload = gf_path_security.read_pinned_regular_file(
+				root, path.relative_to(root).as_posix(),
+				max_bytes=remaining_bytes - separator_bytes,
+			)
+			remaining_bytes -= len(payload) + separator_bytes
+			outputs.append(payload.decode("utf-8", errors="replace"))
 		except OSError as exc:
 			errors.append(f"Configured command log could not be read: {path}: {exc}")
+			break
 	return "\n".join(outputs), errors
 
 

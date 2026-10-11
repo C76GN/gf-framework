@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import sys
@@ -283,6 +285,73 @@ class ReleaseBuilderProcessAuthorityTests(unittest.TestCase):
 		print_result.assert_not_called()
 
 class ReleaseArtifactTests(unittest.TestCase):
+	def test_asset_store_validate_only_checks_the_archived_version(self) -> None:
+		builder = release_builder.build_asset_store_package
+		for archived_version in ("10.0.0", VERSION):
+			with self.subTest(archived_version=archived_version), tempfile.TemporaryDirectory() as directory:
+				archive_path = Path(directory) / "framework.zip"
+				with zipfile.ZipFile(archive_path, "w") as archive:
+					for name in builder.REQUIRED_PACKAGE_PATHS:
+						content = f'[plugin]\nversion="{archived_version}"\n' if name.endswith("plugin.cfg") else "fixture"
+						archive.writestr(name, content)
+				stdout = io.StringIO()
+				with (
+					mock.patch.object(sys, "argv", ["builder", "--version", VERSION, "--output", str(archive_path), "--validate-only", "--json"]),
+					mock.patch.object(builder, "read_plugin_version", return_value=VERSION),
+					mock.patch.object(builder, "configure_stdio"),
+					contextlib.redirect_stdout(stdout),
+				):
+					status = builder.main()
+				result = json.loads(stdout.getvalue())
+				self.assertEqual(status, 0 if archived_version == VERSION else 1)
+				self.assertEqual(result["archive_plugin_version"], archived_version)
+				self.assertEqual(result["workspace_plugin_version"], VERSION)
+				self.assertEqual(result["plugin_version"], archived_version)
+
+	def test_asset_store_archive_version_requires_unique_bounded_utf8_config(self) -> None:
+		builder = release_builder.build_asset_store_package
+		valid = f'[plugin]\nversion="{VERSION}"\n'.encode("utf-8")
+		for kind, payload in (
+			("missing-version", b"[plugin]\n"),
+			("invalid-utf8", b"[plugin]\nversion=\xff\n"),
+			("oversized", valid + b"#" * builder.MAX_PLUGIN_CONFIG_BYTES),
+			("duplicate", valid),
+		):
+			with self.subTest(kind=kind), tempfile.TemporaryDirectory() as directory:
+				archive_path = Path(directory) / "framework.zip"
+				with zipfile.ZipFile(archive_path, "w") as archive:
+					for name in builder.REQUIRED_PACKAGE_PATHS:
+						archive.writestr(name, payload if name.endswith("plugin.cfg") else b"fixture")
+					if kind == "duplicate":
+						with self.assertWarns(UserWarning):
+							archive.writestr("addons/gf/plugin.cfg", valid)
+				original = archive_path.read_bytes()
+				result = builder.audit_package(archive_path, expected_version=VERSION)
+				self.assertFalse(result["ok"])
+				self.assertTrue(any("plugin.cfg" in issue for issue in result["issues"]))
+				self.assertEqual(archive_path.read_bytes(), original)
+
+	def test_asset_store_archive_version_must_be_explicit_in_plugin_section(self) -> None:
+		builder = release_builder.build_asset_store_package
+		for default_version, explicit_version, expected_ok in (
+			(VERSION, None, False),
+			("10.0.0", VERSION, True),
+			(VERSION, "10.0.0", False),
+		):
+			with self.subTest(default=default_version, explicit=explicit_version), tempfile.TemporaryDirectory() as directory:
+				config = f'[DEFAULT]\nversion="{default_version}"\n[plugin]\nname="GF"\n'
+				if explicit_version is not None:
+					config += f'version="{explicit_version}"\n'
+				archive_path = Path(directory) / "framework.zip"
+				with zipfile.ZipFile(archive_path, "w") as archive:
+					for name in builder.REQUIRED_PACKAGE_PATHS:
+						archive.writestr(name, config if name.endswith("plugin.cfg") else "fixture")
+				original = archive_path.read_bytes()
+				result = builder.audit_package(archive_path, expected_version=VERSION)
+				self.assertEqual(result["ok"], expected_ok)
+				self.assertEqual(result["archive_plugin_version"], explicit_version or "")
+				self.assertEqual(archive_path.read_bytes(), original)
+
 	def test_build_publishes_only_two_archives_and_manifest(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			build_root = Path(temporary_directory) / "build"

@@ -308,6 +308,23 @@ def parse_inner_class_members(
 			i += 1
 			continue
 
+		if match := re.match(r"class\s+([A-Za-z_]\w*)(?:\s+extends\s+([^:]+))?:", structural):
+			nested_class = ApiClass(
+				name=match.group(1),
+				path=inner_class.path,
+				module=inner_class.module,
+				extends=(match.group(2) or "").strip(),
+				line=i + 1,
+				docs=parse_docs(docs_buffer),
+				owner=full_api_class_name(inner_class),
+			)
+			block_end = min(find_class_block_end(lines, i, member_indent), end)
+			parse_inner_class_members(lines, i + 1, block_end, nested_class, member_indent)
+			inner_class.inner_classes.append(nested_class)
+			clear_buffers(docs_buffer, decorators)
+			i = block_end
+			continue
+
 		if match := re.match(r"signal\s+([A-Za-z_]\w*)", structural):
 			signature, next_index = collect_callable_signature(lines, i, "signal")
 			inner_class.signals.append(make_member("signal", match.group(1), signature, i, docs_buffer, decorators))
@@ -556,7 +573,10 @@ def parse_function_name(signature: str) -> str:
 def parse_decorated_var_line(line: str) -> tuple[str, str] | None:
 	if not line.startswith("@"):
 		return None
-	var_index = line.find(" var ")
+	# Mask annotation strings before locating the declaration, then slice the
+	# original line at the same character offset so decorators remain verbatim.
+	structural_lines, _starts_in_multiline = scan_gdscript_structure([line])
+	var_index = structural_lines[0].find(" var ")
 	if var_index == -1:
 		return None
 	decorator = line[:var_index].strip()

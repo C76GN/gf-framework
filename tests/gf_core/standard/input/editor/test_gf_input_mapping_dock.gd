@@ -400,6 +400,93 @@ func test_load_context_path_rejects_non_context_resource() -> void:
 	_remove_file(path)
 
 
+func test_disk_snapshot_does_not_overwrite_another_owners_unsaved_resources() -> void:
+	var context_path: String = "user://gf_input_dock_shared_draft_context.tres"
+	var mapping_path: String = "user://gf_input_dock_shared_draft_mapping.tres"
+	_remove_file(context_path)
+	_remove_file(mapping_path)
+	assert_eq(ResourceSaver.save(_make_mapping(&"jump"), mapping_path), OK)
+	var cached_mapping: GFInputMapping = ResourceLoader.load(mapping_path)
+	var stored: GFInputContext = _make_context(false)
+	stored.mappings = [cached_mapping]
+	assert_eq(ResourceSaver.save(stored, context_path), OK)
+	var other_owner: GFInputContext = ResourceLoader.load(context_path)
+	other_owner.context_id = &"unsaved_context"
+	cached_mapping.display_name = "Unsaved mapping"
+	cached_mapping.bindings[0].input_event = _make_key_event(KEY_ENTER)
+	var dock: GFInputMappingDock = GFInputMappingDock.new()
+	assert_eq(dock.load_context_path(context_path), OK)
+	assert_eq(other_owner.context_id, &"unsaved_context", "只读磁盘诊断不得覆写其他 owner 的根草稿。")
+	assert_eq(cached_mapping.display_name, "Unsaved mapping", "外部子资源也必须与缓存草稿隔离。")
+	assert_eq(GFInputFormatter.input_event_as_text(cached_mapping.bindings[0].input_event), GFInputFormatter.input_event_as_text(_make_key_event(KEY_ENTER)))
+	assert_eq(GFVariantData.get_option_string_name(dock.get_last_report(), "context_id"), &"gameplay")
+	assert_not_same(dock._context, other_owner)
+	assert_not_same(dock._context.mappings[0], cached_mapping)
+	assert_eq(dock._context.mappings[0].display_name, "")
+	assert_eq(GFInputFormatter.input_event_as_text(dock._context.mappings[0].bindings[0].input_event), GFInputFormatter.input_event_as_text(_make_key_event(KEY_SPACE)))
+	assert_same(ResourceLoader.load(context_path), other_owner, "读取快照不得夺取已有缓存路径身份。")
+	assert_same(ResourceLoader.load(mapping_path), cached_mapping)
+	dock.free()
+	_remove_file(context_path)
+	_remove_file(mapping_path)
+
+
+func test_nested_source_changes_refresh_report_and_tree_without_root_notification() -> void:
+	var dock: RefreshCountingInputMappingDock = RefreshCountingInputMappingDock.new()
+	var context: GFInputContext = _make_context(false)
+	context.mappings.append(_make_mapping_with_key(&"confirm", KEY_ENTER))
+	dock.set_input_context(context)
+	dock.refresh_call_count = 0
+	var binding: GFInputBinding = context.mappings[1].bindings[0]
+	binding.input_event = _make_key_event(KEY_SPACE)
+	binding.emit_changed()
+	await get_tree().process_frame
+	assert_eq(dock.refresh_call_count, 1)
+	assert_eq(GFVariantData.get_option_int(dock.get_last_report(), "conflict_count"), 1)
+	var action_item: TreeItem = _find_tree_item(dock._tree.get_root(), "动作", "confirm")
+	assert_not_null(action_item)
+	if action_item != null:
+		assert_eq(action_item.get_text(2), GFInputFormatter.input_event_as_text(_make_key_event(KEY_SPACE)))
+	binding.input_event = _make_key_event(KEY_ENTER)
+	binding.emit_changed()
+	await get_tree().process_frame
+	assert_eq(GFVariantData.get_option_int(dock.get_last_report(), "conflict_count"), 0, "撤销同样通过子资源 changed 更新诊断。")
+	context.mappings[1].bindings.append(GFInputBinding.new())
+	context.mappings[1].emit_changed()
+	await get_tree().process_frame
+	assert_eq(GFVariantData.get_option_int(dock.get_last_report(), "binding_count"), 3)
+	dock.free()
+
+
+func test_nested_source_observation_rebinds_and_disconnects_on_detach() -> void:
+	var dock: RefreshCountingInputMappingDock = RefreshCountingInputMappingDock.new()
+	var context: GFInputContext = _make_context(false)
+	var old_mapping: GFInputMapping = context.mappings[0]
+	var old_binding: GFInputBinding = old_mapping.bindings[0]
+	add_child(dock)
+	dock.set_input_context(context)
+	context.mappings[0] = _make_mapping_with_key(&"confirm", KEY_ENTER)
+	context.emit_changed()
+	await get_tree().process_frame
+	dock.refresh_call_count = 0
+	old_mapping.emit_changed()
+	old_binding.emit_changed()
+	await get_tree().process_frame
+	assert_eq(dock.refresh_call_count, 0, "已替换的子图不得继续持有页面订阅。")
+	var current_binding: GFInputBinding = context.mappings[0].bindings[0]
+	current_binding.emit_changed()
+	await get_tree().process_frame
+	assert_eq(dock.refresh_call_count, 1, "新子图应接管订阅。")
+	remove_child(dock)
+	dock.refresh_call_count = 0
+	current_binding.emit_changed()
+	context.mappings[0].emit_changed()
+	await get_tree().process_frame
+	assert_eq(dock.refresh_call_count, 0)
+	assert_eq(current_binding.changed.get_connections().size(), 0)
+	dock.free()
+
+
 func test_input_mapping_dock_refreshes_when_context_emits_changed() -> void:
 	var dock: GFInputMappingDock = GFInputMappingDock.new()
 	var context: GFInputContext = _make_context(false)

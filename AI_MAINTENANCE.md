@@ -350,7 +350,7 @@ README 双语维护约定：
 - `README.md` 是 GitHub 默认英文入口，顶部保留 `README.zh.md` 的语言切换链接。
 - `README.zh.md` 是中文入口，顶部保留返回 `README.md` 的语言切换链接。
 - 两个根 README 的章节顺序、项目定位、安装步骤、核心概念、分层说明、测试命令和文档入口应保持一致；只允许语言表达不同。
-- 根 README、Asset Store 文案和公开总览页描述编辑器/Workspace 能力时，应区分核心固定能力和可选扩展贡献。SaveGraph、Flow、Pattern2D 等业务型扩展工具不能写成新项目默认启用或 Workspace 固定页面。
+- 根 README、Asset Store 文案和公开总览页描述编辑器/Workspace 能力时，应区分核心固定能力、标准库编辑器贡献和可选扩展贡献。Pattern2D 编辑属于标准库贡献；SaveGraph、Flow 等可选扩展工具不能写成新项目默认启用或 Workspace 固定页面。
 - `addons/gf/README.md` 是插件分发目录的简短说明，只链接根 README 与 Read the Docs，不承载完整项目正文。
 
 ## AI 专用 API 文档

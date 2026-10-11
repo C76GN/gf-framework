@@ -100,6 +100,11 @@ const _MAX_TREE_ROWS: int = 1024
 ## [br]
 const _MAX_DETAIL_JSON_BYTES: int = 128 * 1024
 
+## 仅观察已知输入资源图；资源槽位遍历及连接数共享此上限，不递归扫描任意导出属性。
+## [br]
+## @api private
+const _MAX_OBSERVED_SOURCE_RESOURCES: int = 8192
+
 
 # --- 私有变量 ---
 
@@ -211,6 +216,11 @@ var _source_refresh_queued: bool = false
 ## [br]
 var _refresh_in_progress: bool = false
 
+## 持有当前已连接 changed 的输入资源；刷新重建订阅，替换与离树时全部断开。
+## [br]
+## @api private
+var _observed_context_sources: Array[Resource] = []
+
 
 # --- Godot 生命周期方法 ---
 
@@ -272,9 +282,11 @@ func get_remap_config() -> GFInputRemapConfig:
 	return _remap_config
 
 
-## 从资源路径载入输入上下文。
+## 从资源路径载入独立的只读磁盘快照，包含外部子资源；不覆写其他编辑器 owner 的缓存草稿。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param path: 输入上下文资源路径。
 ## [br]
@@ -321,21 +333,13 @@ func load_context_path(path: String) -> Error:
 			ERR_INVALID_DATA
 		)
 
-	var reloads_current_context: bool = (
-		_context != null
-		and _resource_paths_share_identity(_context.resource_path, normalized_path)
-	)
-	if reloads_current_context:
-		_disconnect_context_changed()
 	var resource: Resource = ResourceLoader.load(
 		normalized_path,
 		"GFInputContext",
-		ResourceLoader.CACHE_MODE_REPLACE
+		ResourceLoader.CACHE_MODE_IGNORE_DEEP
 	)
 	var context: GFInputContext = _get_input_context_value(resource)
 	if context == null:
-		if reloads_current_context:
-			_connect_context_changed()
 		return _render_load_failure(
 			"输入上下文加载失败。",
 			"资源不是 GFInputContext：%s" % normalized_path,
@@ -343,12 +347,11 @@ func load_context_path(path: String) -> Error:
 		)
 
 	_set_current_context(context)
-	var committed_path: String = normalized_path
-	if reloads_current_context and _resource_paths_share_identity(_committed_context_path, normalized_path):
-		committed_path = _committed_context_path
-	elif not context.resource_path.is_empty():
-		committed_path = context.resource_path
-	_commit_context_path(committed_path)
+	_commit_context_path(
+		_committed_context_path
+		if _resource_paths_share_identity(_committed_context_path, normalized_path)
+		else normalized_path
+	)
 	refresh()
 	return OK
 
@@ -363,6 +366,7 @@ func refresh() -> void:
 		return
 	_refresh_in_progress = true
 	_last_load_failure = {}
+	_connect_context_changed()
 	_refresh_current_context()
 	_refresh_in_progress = false
 
@@ -1228,7 +1232,7 @@ func _is_input_context_resource_type(resource_type: String) -> bool:
 	return false
 
 
-## 上下文对象变化时断开旧信号、替换引用，并确保连接当前 changed 信号。
+## 上下文对象变化时断开旧资源图并替换引用；随后的 refresh 连接新图。
 ## [br]
 ## @api private
 ## [br]
@@ -1236,7 +1240,6 @@ func _set_current_context(context: GFInputContext) -> void:
 	if _context != context:
 		_disconnect_context_changed()
 		_context = context
-	_connect_context_changed()
 
 
 ## remap 配置变化时断开旧信号、替换引用，并确保连接当前 changed 信号。
@@ -1250,28 +1253,77 @@ func _set_current_remap_config(config: GFInputRemapConfig) -> void:
 	_connect_remap_config_changed()
 
 
-## 仅在源观察开启且上下文存在时，幂等连接 changed 刷新回调。
+## 按已知输入 schema 有界重建 changed 订阅；子资源共享去重，不依赖 Resource 信号自动冒泡。
 ## [br]
 ## @api private
 ## [br]
 func _connect_context_changed() -> void:
+	_disconnect_context_changed()
 	if not _source_observation_enabled or _context == null:
 		return
+	var pending: Array[Resource] = [_context]
+	var seen: Dictionary = {_context: true}
+	var budget: Dictionary = {"remaining": _MAX_OBSERVED_SOURCE_RESOURCES - 1}
 	var callback: Callable = _on_context_changed
-	if not _context.changed.is_connected(callback):
-		var _changed_connected: Error = _context.changed.connect(callback) as Error
+	var index: int = 0
+	while index < pending.size():
+		var source: Resource = pending[index]
+		index += 1
+		if not source.changed.is_connected(callback):
+			var _changed_connected: Error = source.changed.connect(callback) as Error
+		_observed_context_sources.append(source)
+		if source is GFInputContext:
+			var context: GFInputContext = source
+			_queue_context_sources(context.mappings, pending, seen, budget)
+		elif source is GFInputMapping:
+			var mapping: GFInputMapping = source
+			_queue_context_source(mapping.action, pending, seen, budget)
+			_queue_context_sources(mapping.bindings, pending, seen, budget)
+			_queue_context_sources(mapping.modifiers, pending, seen, budget)
+			_queue_context_sources(mapping.triggers, pending, seen, budget)
+		elif source is GFInputBinding:
+			var binding: GFInputBinding = source
+			_queue_context_source(binding.input_event, pending, seen, budget)
+			_queue_context_sources(binding.modifiers, pending, seen, budget)
 
 
-## 上下文存在且 changed 回调已连接时断开。
+## 只遍历预算内的集合槽位并排队已知子资源；空槽位和重复资源不增加连接数。
+## [br]
+## @api private
+func _queue_context_sources(values: Array, pending: Array[Resource], seen: Dictionary, budget: Dictionary) -> void:
+	var slot_limit: int = mini(values.size(), GFVariantData.get_option_int(budget, "remaining"))
+	for index: int in range(slot_limit):
+		var value: Variant = values[index]
+		var source: Resource = null
+		if value is Resource:
+			source = value
+		_queue_context_source(source, pending, seen, budget)
+
+
+## 在共享队列预算内加入尚未观察的资源，保证一个资源最多有一个刷新连接。
+## [br]
+## @api private
+func _queue_context_source(source: Resource, pending: Array[Resource], seen: Dictionary, budget: Dictionary) -> void:
+	var remaining: int = GFVariantData.get_option_int(budget, "remaining")
+	if remaining <= 0:
+		return
+	budget["remaining"] = remaining - 1
+	if source == null or seen.has(source):
+		return
+	seen[source] = true
+	pending.append(source)
+
+
+## 断开全部已观察输入资源，不再保留被替换的子资源图。
 ## [br]
 ## @api private
 ## [br]
 func _disconnect_context_changed() -> void:
-	if _context == null:
-		return
 	var callback: Callable = _on_context_changed
-	if _context.changed.is_connected(callback):
-		_context.changed.disconnect(callback)
+	for source: Resource in _observed_context_sources:
+		if source.changed.is_connected(callback):
+			source.changed.disconnect(callback)
+	_observed_context_sources.clear()
 
 
 ## 仅在源观察开启且 remap 配置存在时，幂等连接 changed 刷新回调。

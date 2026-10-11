@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "0806cd0e667add39884c08ad14398579a833deb34a86548cac550835c4fd4154",
+  "source_digest": "df6b384e0c848521edf98dd5419e1d2ad0ece1c3d9aef9f0321e0309c811b8e8",
   "class_count": 872,
   "autoload_count": 1,
   "package_count": 60,
@@ -15414,21 +15414,21 @@
           "kind": "var",
           "name": "offset",
           "signature": "var offset: Vector2 = Vector2.ZERO",
-          "summary": "位置偏移。",
+          "summary": "位置偏移。默认沿世界坐标轴；启用 offset_follows_rotation 后沿基础姿态的旋转轴。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "offset_follows_rotation",
           "signature": "var offset_follows_rotation: bool = false",
-          "summary": "偏移是否跟随目标旋转。",
+          "summary": "是否用基础姿态旋转 offset。仅在存在目标且 use_target_rotation 为 true 时使用目标全局旋转，",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "use_target_rotation",
           "signature": "var use_target_rotation: bool = true",
-          "summary": "是否读取目标旋转。",
+          "summary": "是否以目标全局旋转替换 Rig 全局旋转；同时决定旋转跟随偏移使用的基础姿态。",
           "visibility": "public"
         },
         {
@@ -15574,21 +15574,21 @@
           "kind": "var",
           "name": "offset",
           "signature": "var offset: Vector3 = Vector3.ZERO",
-          "summary": "位置偏移。",
+          "summary": "位置偏移。默认沿世界坐标轴；启用 offset_follows_rotation 后沿基础姿态的旋转轴。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "offset_follows_rotation",
           "signature": "var offset_follows_rotation: bool = false",
-          "summary": "偏移是否跟随目标旋转。",
+          "summary": "是否用基础姿态旋转 offset。仅在存在目标且 use_target_rotation 为 true 时使用目标全局旋转，",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "use_target_rotation",
           "signature": "var use_target_rotation: bool = true",
-          "summary": "是否读取目标旋转。",
+          "summary": "是否以目标全局旋转替换 Rig 全局旋转；同时决定旋转跟随偏移使用的基础姿态。",
           "visibility": "public"
         },
         {
@@ -42362,7 +42362,7 @@
           "kind": "func",
           "name": "load_context_path",
           "signature": "func load_context_path(path: String) -> Error",
-          "summary": "从资源路径载入输入上下文。",
+          "summary": "从资源路径载入独立的只读磁盘快照，包含外部子资源；不覆写其他编辑器 owner 的缓存草稿。",
           "visibility": "public"
         },
         {
@@ -67452,9 +67452,16 @@
         },
         {
           "kind": "func",
+          "name": "begin_quiesce",
+          "signature": "func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion",
+          "summary": "关闭新请求准入，并在已接纳 FIFO 与底层 drain 全部 idle 后完成。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "dispose",
           "signature": "func dispose() -> void",
-          "summary": "取消所有消费者，并让已发起的请求保留为 drain 状态。",
+          "summary": "强制取消所有消费者及静默等待，并让已发起的请求保留为 drain 状态。",
           "visibility": "public"
         },
         {
@@ -99945,7 +99952,7 @@
           "kind": "var",
           "name": "signal_timeout_seconds",
           "signature": "var signal_timeout_seconds: float",
-          "summary": "等待 Signal 的超时时间（秒）。小于等于 0 时表示不启用超时。",
+          "summary": "等待 Signal 的超时时间（秒）。有限且小于等于 0 时归零并禁用超时；非有限值保留原设置。",
           "visibility": "public"
         },
         {

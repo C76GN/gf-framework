@@ -472,10 +472,15 @@ func _read_xlsx_shared_strings(
 		if node_type == XMLParser.NODE_ELEMENT:
 			var node_name: String = parser.get_node_name()
 			if node_name == "si":
-				in_shared_string = true
+				in_shared_string = not parser.is_empty()
+				in_text = false
 				current_text = ""
+				if parser.is_empty():
+					if _is_xlsx_limit_exceeded(result.size() + 1, max_shared_strings):
+						return _make_xlsx_shared_strings_result(false, result, "XLSX shared string count exceeds max_xlsx_shared_strings.")
+					var _empty_text_appended: bool = result.append("")
 			elif in_shared_string and node_name == "t":
-				in_text = true
+				in_text = not parser.is_empty()
 		elif node_type == XMLParser.NODE_TEXT or node_type == XMLParser.NODE_CDATA:
 			if in_shared_string and in_text:
 				current_text += parser.get_node_data()

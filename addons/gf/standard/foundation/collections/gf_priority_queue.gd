@@ -103,6 +103,7 @@ static func from_array(
 ## @param priority: 数值优先级。
 ## [br]
 ## @param front: 为 true 时会排在相同 priority 的既有元素之前。
+## 显式负 order 和 int 下界也遵守该规则；多次 front 操作以后执行者优先。
 ## [br]
 ## @return priority 有限并成功入队时返回 true。
 ## [br]
@@ -112,7 +113,7 @@ func push(value: Variant, priority: float = 0.0, front: bool = false) -> bool:
 		return false
 	_reset_order_if_empty()
 	var order: int = _make_order(front)
-	_push_entry(value, priority, order)
+	_push_entry(value, priority, order, front)
 	return true
 
 
@@ -127,7 +128,7 @@ func push(value: Variant, priority: float = 0.0, front: bool = false) -> bool:
 ## @param priority: 数值优先级。
 ## [br]
 ## @param order: 相同 priority 下的稳定排序值，数值越小越先弹出。
-## 相同 priority 和 order 的条目按本次队列实例中的入队先后保持稳定。
+## 相同 priority 和 order 的显式条目按本次队列实例中的入队先后保持稳定；front 操作优先于既有条目。
 ## [br]
 ## @return priority 有限并成功入队时返回 true。
 ## [br]
@@ -136,6 +137,7 @@ func push_with_order(value: Variant, priority: float = 0.0, order: int = 0) -> b
 	if not is_finite(priority):
 		return false
 	_reset_order_if_empty()
+	_next_front_order = mini(_next_front_order, order)
 	_push_entry(value, priority, order)
 	return true
 
@@ -279,6 +281,9 @@ func set_priority(value: Variant, priority: float, front: bool = false) -> bool:
 			_entries[index]["priority"] = priority
 			if front:
 				_entries[index]["order"] = _make_order(true)
+				_entries[index]["front"] = true
+				_entries[index]["insertion_sequence"] = _next_insertion_sequence
+				_next_insertion_sequence += 1
 			_heapify()
 			return true
 	return false
@@ -405,12 +410,13 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
-## 为 front 条目分配递减顺序值，否则递增普通顺序值。
+## 为 front 条目分配低于已接纳显式 order 的顺序值；int 下界保持饱和并由 front 入队序打破平局。
 ## [br]
 ## @api private
 func _make_order(front: bool) -> int:
 	if front:
-		_next_front_order -= 1
+		if _next_front_order > -9223372036854775807 - 1:
+			_next_front_order -= 1
 		return _next_front_order
 	var order: int = _next_order
 	_next_order += 1
@@ -420,11 +426,12 @@ func _make_order(front: bool) -> int:
 ## 追加完整堆条目、分配入队序号并向上恢复堆序。
 ## [br]
 ## @api private
-func _push_entry(value: Variant, priority: float, order: int) -> void:
+func _push_entry(value: Variant, priority: float, order: int, front: bool = false) -> void:
 	_entries.append({
 		"value": value,
 		"priority": priority,
 		"order": order,
+		"front": front,
 		"insertion_sequence": _next_insertion_sequence,
 	})
 	_next_insertion_sequence += 1
@@ -537,7 +544,7 @@ func _sift_down_entries(entries: Array[Dictionary], index: int) -> void:
 		current_index = best_index
 
 
-## 依次比较 priority、order 和 insertion_sequence，确定弹出先后。
+## 依次比较 priority 和 order；饱和下界的 front 优先且后插先出，其余相同键保持入队顺序。
 ## [br]
 ## @api private
 func _entry_is_before(left: Dictionary, right: Dictionary) -> bool:
@@ -551,6 +558,15 @@ func _entry_is_before(left: Dictionary, right: Dictionary) -> bool:
 	var right_order: int = GFVariantData.get_option_int(right, "order")
 	if left_order != right_order:
 		return left_order < right_order
+	var left_front: bool = GFVariantData.get_option_bool(left, "front")
+	var right_front: bool = GFVariantData.get_option_bool(right, "front")
+	if left_front != right_front:
+		return left_front
+	if left_front:
+		return (
+			GFVariantData.get_option_int(left, "insertion_sequence")
+			> GFVariantData.get_option_int(right, "insertion_sequence")
+		)
 	return (
 		GFVariantData.get_option_int(left, "insertion_sequence")
 		< GFVariantData.get_option_int(right, "insertion_sequence")
@@ -577,6 +593,7 @@ func _duplicate_entries(deep: bool) -> Array[Dictionary]:
 			"value": GFVariantData.duplicate_variant(value) if deep else value,
 			"priority": GFVariantData.get_option_float(entry, "priority"),
 			"order": GFVariantData.get_option_int(entry, "order"),
+			"front": GFVariantData.get_option_bool(entry, "front"),
 			"insertion_sequence": GFVariantData.get_option_int(entry, "insertion_sequence"),
 		})
 	return result

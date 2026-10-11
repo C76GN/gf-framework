@@ -530,6 +530,30 @@ func test_schema_field_validation_rules_inherit_field_context() -> void:
 	assert_eq(_find_issue_path(report, "positive_value"), "profile/score", "规则 issue 应继承字段路径。")
 
 
+func test_field_rules_require_valid_nested_data_but_ignore_other_field_errors() -> void:
+	var calls: Array[String] = []
+	var rule: GFValidationRule = GFValidationRule.new().configure(
+		&"after_nested",
+		func(_value: Variant, _report: GFValidationReport, context: Dictionary) -> String:
+			calls.append(GFVariantData.get_option_string(context, "path"))
+			return ""
+	)
+	var nested: GFDictionarySchema = GFDictionarySchema.new()
+	nested.fields = [_make_field(&"count", GFSchemaField.ValueType.INT)]
+	var dictionary_field: GFSchemaField = _make_field(&"record", GFSchemaField.ValueType.DICTIONARY)
+	dictionary_field.dictionary_schema = nested
+	dictionary_field.validation_rules = [rule]
+	var array_field: GFSchemaField = _make_field(&"items", GFSchemaField.ValueType.ARRAY)
+	array_field.array_item_schema = _make_field(&"", GFSchemaField.ValueType.INT)
+	array_field.validation_rules = [rule]
+	var schema: GFDictionarySchema = GFDictionarySchema.new()
+	schema.fields = [dictionary_field, array_field]
+	assert_false(schema.validate_dictionary({"record": {"count": "bad"}, "items": ["bad"]}).is_ok())
+	assert_eq(calls.size(), 0, "嵌套错误必须阻止父字段附加规则。")
+	assert_false(schema.validate_dictionary({"record": {"count": "bad"}, "items": [1]}).is_ok())
+	assert_eq(calls, ["items"], "其他字段的错误不得阻止有效字段的规则。")
+
+
 func test_schema_field_duplicates_validation_rules() -> void:
 	var rule: GFValidationRule = GFValidationRule.new().configure(&"not_empty")
 	rule.metadata = {

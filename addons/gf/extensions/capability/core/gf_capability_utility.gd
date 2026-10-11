@@ -938,7 +938,7 @@ func apply_recipe(receiver: Object, recipe: GFCapabilityRecipe, options: Diction
 	var transactional: bool = GFVariantData.get_option_bool(options, "transactional", true)
 	var added_types: Array[Script] = []
 	var newly_added_groups: Array[StringName] = []
-	var reused_active_states: Dictionary = {}
+	var reused_states: Dictionary = {}
 	if not GFVariantData.get_option_bool(options, "skip_groups", false):
 		for group_name: StringName in recipe.groups:
 			if group_name == &"":
@@ -951,7 +951,7 @@ func apply_recipe(receiver: Object, recipe: GFCapabilityRecipe, options: Diction
 
 	for index: int in range(recipe.entries.size()):
 		var entry: GFCapabilityRecipeEntry = recipe.entries[index]
-		_apply_recipe_entry(receiver, entry, index, result, added_types, reused_active_states)
+		_apply_recipe_entry(receiver, entry, index, result, added_types, reused_states)
 		if transactional and not GFVariantData.get_option_array(result, "failed").is_empty():
 			break
 
@@ -964,7 +964,7 @@ func apply_recipe(receiver: Object, recipe: GFCapabilityRecipe, options: Diction
 	if not GFVariantData.get_option_array(result, "failed").is_empty():
 		result["ok"] = false
 	if transactional and not GFVariantData.get_option_bool(result, "ok", false):
-		_rollback_recipe_apply(receiver, added_types, newly_added_groups, reused_active_states)
+		_rollback_recipe_apply(receiver, added_types, newly_added_groups, reused_states)
 		result["rolled_back"] = true
 	return _encode_report(result)
 
@@ -1420,7 +1420,7 @@ func _apply_recipe_entry(
 	index: int,
 	result: Dictionary,
 	added_types: Array[Script],
-	reused_active_states: Dictionary
+	reused_states: Dictionary
 ) -> void:
 	if entry == null:
 		_append_recipe_failure(result, index, "null_entry", "Recipe entry is null.")
@@ -1432,6 +1432,7 @@ func _apply_recipe_entry(
 	var before_types: Array[Script] = _read_capability_type_list(receiver).duplicate()
 	var capability_type: Script = entry.capability_type
 	var capability: Object = null
+	_capture_recipe_reused_state(receiver, _resolve_recipe_entry_type(receiver, entry), reused_states)
 	if entry.scene != null:
 		if not (receiver is Node):
 			_append_recipe_failure(result, index, "scene_requires_node", "Scene capability requires a Node receiver.")
@@ -1452,8 +1453,6 @@ func _apply_recipe_entry(
 	if registered_type == null:
 		registered_type = capability_type
 	var had_capability: bool = registered_type != null and before_types.has(registered_type)
-	if had_capability and not reused_active_states.has(registered_type):
-		reused_active_states[registered_type] = is_capability_active(receiver, registered_type)
 	if registered_type != null:
 		set_capability_active(receiver, registered_type, entry.active)
 
@@ -1477,23 +1476,52 @@ func _apply_recipe_entry(
 		_append_report_array_item(result, "added", entry_report)
 
 
-## 移除本轮新增能力，恢复复用能力状态并撤销新加分组。
+## 在复用入口提升所有权前，按实际注册类型保存同一实例的 active 与 top-level 状态。
+## 多个条目命中同一能力时只保留第一次快照；不快照或撤销项目 hook 的外部副作用。
+## [br]
+## @api private
+func _capture_recipe_reused_state(receiver: Object, capability_type: Script, reused_states: Dictionary) -> void:
+	if not is_instance_valid(receiver) or capability_type == null:
+		return
+	var records: Array[Dictionary] = _get_matching_capability_records(receiver, capability_type)
+	if records.size() != 1:
+		return
+	var record: Dictionary = records[0]
+	var registered_type: Script = _get_script_value(record.get("type"))
+	var capability: Object = _get_live_object_value(record.get("instance"))
+	if registered_type == null or capability == null or reused_states.has(registered_type):
+		return
+	reused_states[registered_type] = {
+		"instance_id": capability.get_instance_id(),
+		"active": _read_capability_active(capability),
+		"top_level": _is_capability_top_level(receiver, registered_type),
+	}
+
+
+## 移除本轮新增能力，恢复仍为同一实例的复用能力状态及所有权，并撤销新加分组。
 ## [br]
 ## @api private
 func _rollback_recipe_apply(
 	receiver: Object,
 	added_types: Array[Script],
 	newly_added_groups: Array[StringName],
-	reused_active_states: Dictionary
+	reused_states: Dictionary
 ) -> void:
 	for index: int in range(added_types.size() - 1, -1, -1):
 		var capability_type: Script = added_types[index]
 		if capability_type != null and has_capability(receiver, capability_type):
 			remove_capability(receiver, capability_type)
-	for capability_type_variant: Variant in reused_active_states.keys():
+	for capability_type_variant: Variant in reused_states.keys():
 		var capability_type: Script = _get_script_value(capability_type_variant)
-		if capability_type != null and has_capability(receiver, capability_type):
-			set_capability_active(receiver, capability_type, GFVariantData.to_bool(reused_active_states[capability_type_variant]))
+		if not is_instance_valid(receiver) or capability_type == null:
+			continue
+		var previous_state: Dictionary = GFVariantData.as_dictionary(reused_states[capability_type_variant])
+		var capability: Object = _get_capability_instance(receiver, capability_type)
+		if capability == null or capability.get_instance_id() != GFVariantData.get_option_int(previous_state, "instance_id"):
+			continue
+		var top_level_types: Dictionary = _get_top_level_type_map(receiver)
+		top_level_types[capability_type] = GFVariantData.get_option_bool(previous_state, "top_level")
+		set_capability_active(receiver, capability_type, GFVariantData.get_option_bool(previous_state, "active"))
 	for group_name: StringName in newly_added_groups:
 		remove_receiver_from_group(receiver, group_name)
 

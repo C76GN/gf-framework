@@ -242,6 +242,7 @@ func encode(data: Dictionary, options: Dictionary = {}) -> PackedByteArray:
 
 
 ## 单次构建存储文档并编码，在压缩前检查包含 metadata 和 checksum 的完整明文预算。
+## JSON 在递归排序或 checksum 数字归一化之前执行默认遍历预算准入，循环或不支持值也拒绝编码。
 ## 不检查 Utility 的物理文件读取预算；调用方应对最终 bytes 应用其捕获的文件字节上限。
 ## [br]
 ## @api public
@@ -274,6 +275,8 @@ func encode_result(data: Dictionary, options: Dictionary = {}) -> Dictionary:
 		should_write_checksum,
 		options
 	)
+	if document.is_empty():
+		return _make_encode_failure(ERR_INVALID_DATA)
 	var bytes: PackedByteArray = _serialize_dictionary(document, active_format)
 	if bytes.is_empty():
 		return _make_encode_failure(ERR_INVALID_DATA)
@@ -435,7 +438,7 @@ func decode(bytes: PackedByteArray, options: Dictionary = {}) -> GFStorageReadRe
 ## [br]
 ## @schema data: Dictionary，要序列化的数据载荷。
 ## [br]
-## @return 字节数组。
+## @return 字节数组；JSON 输入存在循环、不支持值或超出默认遍历预算时返回空数组。
 func serialize_dictionary(data: Dictionary, p_format: Format = Format.JSON) -> PackedByteArray:
 	return _serialize_dictionary(data, p_format)
 
@@ -462,14 +465,18 @@ func deserialize_dictionary(bytes: PackedByteArray, p_format: Format = Format.JS
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param data: 输入数据。
 ## [br]
 ## @param p_format: 序列化格式。
 ## [br]
 ## @schema data: Dictionary，用作校验和输入的数据载荷。
 ## [br]
-## @return checksum hex 字符串。
+## @return checksum hex 字符串；JSON 输入不完整或超出默认遍历预算时返回空字符串。
 func calculate_checksum(data: Dictionary, p_format: Format = Format.JSON) -> String:
+	if p_format == Format.JSON and not _is_complete_json_input(data):
+		return ""
 	var checksum_data: Dictionary = _normalize_checksum_data(data, p_format)
 	var bytes: PackedByteArray = _serialize_dictionary(checksum_data, p_format)
 	if bytes.is_empty():
@@ -518,11 +525,14 @@ func _make_storage_document(
 	}
 	var document: Dictionary = {
 		DOCUMENT_KEY: descriptor,
-		PAYLOAD_KEY: payload.duplicate(true),
+		PAYLOAD_KEY: payload,
 	}
 	if should_write_checksum:
 		integrity[ALGORITHM_KEY] = _INTEGRITY_ALGORITHM
-		integrity[DIGEST_KEY] = calculate_checksum(document, active_format)
+		var checksum: String = calculate_checksum(document, active_format)
+		if checksum.is_empty():
+			return {}
+		integrity[DIGEST_KEY] = checksum
 		descriptor[INTEGRITY_KEY] = integrity
 		document[DOCUMENT_KEY] = descriptor
 	return document
@@ -637,7 +647,7 @@ func _verify_document_integrity(document: Dictionary, active_format: Format) -> 
 	return calculate_checksum(checksum_document, active_format) == expected
 
 
-## 按目标格式序列化字典；JSON 路径先稳定排序并转换 Godot 值标记。
+## 按目标格式序列化字典；JSON 路径先完成有界准入，再稳定排序并转换 Godot 值标记。
 ## [br]
 ## @api private
 ## [br]
@@ -646,11 +656,25 @@ func _serialize_dictionary(data: Dictionary, p_format: Format) -> PackedByteArra
 		Format.BINARY:
 			return var_to_bytes(data)
 		_:
+			if not _is_complete_json_input(data):
+				return PackedByteArray()
 			var sorted_data: Dictionary = GFVariantData.as_dictionary(_sort_value_recursive(data))
 			var json_value: Variant = GFVariantJsonCodec.variant_to_json_compatible(sorted_data)
 			if _is_json_traversal_limit_marker(json_value):
 				return PackedByteArray()
 			return JSON.stringify(json_value, "", true).to_utf8_buffer()
+
+
+## 在任何本地递归排序、数字归一化或深复制前，统一拒绝循环、不支持值以及默认遍历预算超限。
+## 显式编码键使集合键同样纳入准入预算；成功不保留临时 JSON 投影。
+## [br]
+## @api private
+func _is_complete_json_input(data: Dictionary) -> bool:
+	var result: Dictionary = GFVariantJsonCodec.variant_to_json_compatible_result(
+		data,
+		{"encode_dictionary_keys": true}
+	)
+	return GFVariantData.get_option_bool(result, "ok")
 
 
 ## 检查值是否为 GFVariantJsonCodec 的完整 TraversalLimit 标记，以阻止输出该错误值。
@@ -728,7 +752,7 @@ func _try_deserialize_dictionary(
 			return { "ok": false, "data": {} }
 
 
-## 递归重建字典与数组，并按稳定键标记排序每层字典键。
+## 只接收已经完成有界 JSON 准入的无环输入，递归重建字典与数组并按稳定键标记排序。
 ## [br]
 ## @api private
 ## [br]

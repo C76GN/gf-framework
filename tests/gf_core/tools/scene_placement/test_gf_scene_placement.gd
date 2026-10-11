@@ -303,6 +303,67 @@ func test_source_root_basis_is_preserved_without_instantiating_for_preview() -> 
 	assert_almost_eq(world.origin, Vector3(3.0, 0.0, -4.0), Vector3.ONE * 0.00001)
 
 
+func test_serialized_rotation_scale_and_inherited_overrides_match_native_basis() -> void:
+	var suffix: int = Time.get_ticks_usec()
+	var base_path: String = "user://gf_placement_components_%d.tscn" % suffix
+	var inherited_path: String = "user://gf_placement_inherited_%d.tscn" % suffix
+	var base_file: FileAccess = FileAccess.open(base_path, FileAccess.WRITE)
+	assert_not_null(base_file)
+	if base_file == null:
+		return
+	var _base_written: bool = base_file.store_string(
+		"[gd_scene format=3]\n\n[node name=\"Root\" type=\"Node3D\"]\n"
+		+ "rotation_order = 0\nrotation = Vector3(0.2, 0.3, 0.4)\nscale = Vector3(2, 3, 4)\n"
+	)
+	base_file.close()
+	var inherited_file: FileAccess = FileAccess.open(inherited_path, FileAccess.WRITE)
+	assert_not_null(inherited_file)
+	if inherited_file == null:
+		var _failed_setup_removed: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(base_path))
+		return
+	var _inherited_written: bool = inherited_file.store_string(
+		"[gd_scene load_steps=2 format=3]\n\n"
+		+ "[ext_resource type=\"PackedScene\" path=\"%s\" id=\"1\"]\n\n" % base_path
+		+ "[node name=\"Root\" instance=ExtResource(\"1\")]\n"
+		+ "rotation = Vector3(0.4, 0.7, 0.1)\nscale = Vector3(5, 2, 1)\n"
+	)
+	inherited_file.close()
+	for scene_path: String in [base_path, inherited_path]:
+		var scene: PackedScene = _load_scene(scene_path)
+		if scene == null:
+			continue
+		var instance: Node = scene.instantiate()
+		assert_true(instance is Node3D)
+		if not instance is Node3D:
+			instance.free()
+			continue
+		var native_root: Node3D = instance
+		var expected_basis: Basis = native_root.basis
+		native_root.free()
+		var parent: Node3D = _make_parent()
+		var operation: GFScenePlacementOperation = GFScenePlacementOperation.new()
+		assert_eq(operation.configure(scene, parent, parent.get_parent()), OK)
+		var context: GFEditorToolContext = GFEditorToolContext.new()
+		context.edited_scene_root = parent.get_parent()
+		var adapter: _UNDO_ADAPTER_SCRIPT = _make_undo_adapter()
+		context.undo_manager = adapter
+		assert_true(operation.begin(context))
+		assert_eq(operation.pick(_ray(Vector3(3.0, 8.0, -4.0))), GFEditorPickOperation.State.READY)
+		var world: Transform3D = _transform_field(operation.get_preview(), "world_transform")
+		assert_true(world.basis.is_equal_approx(expected_basis), "预览必须保留原生场景实际解析的旋转、缩放和继承覆盖。")
+		var report: Dictionary = operation.apply()
+		assert_true(_bool_field(report, "ok"))
+		var placed: Node3D = _node_field(report, "node")
+		if placed != null:
+			assert_true(placed.global_basis.is_equal_approx(expected_basis))
+			assert_true(adapter.undo())
+			assert_null(placed.get_parent())
+			assert_true(adapter.redo())
+			assert_true(placed.global_basis.is_equal_approx(expected_basis))
+	var _inherited_removed: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(inherited_path))
+	var _base_removed: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(base_path))
+
+
 func test_configuration_rejects_a_non_3d_scene_root() -> void:
 	var source_root: Control = Control.new()
 	var scene: PackedScene = PackedScene.new()

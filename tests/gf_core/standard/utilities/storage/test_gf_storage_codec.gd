@@ -35,6 +35,82 @@ func test_json_encoding_rejects_traversal_limited_document() -> void:
 	assert_eq(codec.calculate_checksum(deep_payload), "", "不完整 JSON 文档不得生成可持久化的校验和。")
 
 
+func test_json_encoding_rejects_cycles_before_copy_sort_and_checksum() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var cyclic: Dictionary = {}
+	var nested_array: Array = [cyclic]
+	cyclic["items"] = nested_array
+	_assert_encode_failure(codec.encode_result(cyclic), ERR_INVALID_DATA)
+	_assert_encode_failure(codec.encode_result(cyclic, {"use_integrity_checksum": true}), ERR_INVALID_DATA)
+	assert_true(codec.serialize_dictionary(cyclic).is_empty())
+	assert_eq(codec.calculate_checksum(cyclic), "")
+	nested_array.clear()
+	cyclic.clear()
+
+
+func test_json_encoding_keeps_shared_acyclic_data_and_input_unchanged() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var shared: Array = [{"b": 2.0, "a": 1.0}]
+	var data: Dictionary = {"left": shared, "right": shared}
+	var encoded: Dictionary = codec.encode_result(data, {"use_integrity_checksum": true})
+	assert_true(GFVariantData.get_option_bool(encoded, "ok"))
+	var restored: GFStorageReadResult = codec.decode(_get_encode_result_bytes(encoded), {"use_integrity_checksum": true})
+	assert_true(restored.ok)
+	assert_eq(restored.payload, data)
+	assert_eq(data.keys(), ["left", "right"], "编码不得把文档描述写入调用者载荷。")
+	var left_value: Variant = data.get("left")
+	var right_value: Variant = data.get("right")
+	assert_true(left_value is Array)
+	assert_true(right_value is Array)
+	if left_value is Array and right_value is Array:
+		var left: Array = left_value
+		var right: Array = right_value
+		assert_same(left, right, "准入与排序不得改写调用者的共享集合。")
+		assert_same(left, shared, "编码后调用者仍应持有原始集合实例。")
+
+
+func test_json_encoding_fails_when_expanded_checksum_exceeds_structure_budget() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var positions: Array[Vector2] = []
+	for index: int in range(1500):
+		positions.append(Vector2(float(index), 0.25))
+	var data: Dictionary = {"positions": positions}
+	var options: Dictionary = {"use_integrity_checksum": true}
+
+	_assert_encode_failure(codec.encode_result(data, options), ERR_INVALID_DATA)
+	assert_true(codec.encode(data, options).is_empty(), "无法生成完整 checksum 时不得返回带空 digest 的成功文件。")
+
+
+func test_json_checksum_budget_preserves_smaller_and_unchecked_roundtrips() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	for count: int in [1000, 1500]:
+		var positions: Array[Vector2] = []
+		for index: int in range(count):
+			positions.append(Vector2(float(index), 0.25))
+		var data: Dictionary = {"positions": positions}
+		var options: Dictionary = {"use_integrity_checksum": count == 1000}
+		var encoded: Dictionary = codec.encode_result(data, options)
+		assert_true(GFVariantData.get_option_bool(encoded, "ok"), "较小校验树及未启用 checksum 的原始图应继续成功编码。")
+		var restored: GFStorageReadResult = codec.decode(_get_encode_result_bytes(encoded), options)
+		assert_true(restored.ok)
+		assert_eq(restored.payload, data)
+
+
+func test_json_encoding_rejects_very_deep_data_before_local_recursion() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var data: Dictionary = _make_nested_dictionary(2048, 1)
+	_assert_encode_failure(codec.encode_result(data, {"use_integrity_checksum": true}), ERR_INVALID_DATA)
+	assert_true(codec.serialize_dictionary(data).is_empty())
+	assert_eq(codec.calculate_checksum(data), "")
+	var current: Dictionary = data
+	while not current.is_empty():
+		var next: Variant = current.values()[0]
+		current.clear()
+		if not next is Dictionary:
+			break
+		current = next
+
+
 func test_json_encoding_sorts_non_string_dictionary_keys() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 

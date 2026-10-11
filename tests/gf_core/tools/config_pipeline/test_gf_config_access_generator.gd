@@ -107,6 +107,35 @@ func test_build_source_sanitizes_invalid_table_names() -> void:
 	assert_true(source.contains("\treturn null"), "应允许自定义 provider_accessor。")
 
 
+func test_generated_accessors_preserve_control_characters_in_table_and_field_names() -> void:
+	var table_name: StringName = StringName("item\n\r\t\"\\data")
+	var field_name: StringName = StringName("value\n\r\t\"\\name")
+	var schema: ConfigSchemaStub = ConfigSchemaStub.new(table_name)
+	schema.columns = [ConfigColumnStub.new(field_name, GFConfigTableColumn.ValueType.INT)]
+	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
+	var source: String = generator.build_source([schema], "EscapedConfigAccess", "null", {
+		"include_typed_records": true,
+	}).replace("class_name EscapedConfigAccess\n", "")
+	var runtime_script: GDScript = GDScript.new()
+	runtime_script.source_code = source
+	var compile_error: Error = runtime_script.reload(false)
+	assert_eq(compile_error, OK, "LF、CR、Tab、引号和反斜杠必须作为名称值保留，不能破坏生成源码。")
+	if compile_error == OK:
+		var provider: RecordingConfigProvider = RecordingConfigProvider.new()
+		provider.record = { field_name: 42 }
+		var record_value: Variant = runtime_script.call(&"get_item_data_typed_record", 1, provider)
+		assert_eq(provider.last_table_name, table_name, "访问器应向 provider 传递未经名称合法化改变的原表名。")
+		assert_true(record_value is Object)
+		if record_value is Object:
+			var record: Object = record_value
+			var field_value: int = record.call(&"get_value_name")
+			assert_eq(field_value, 42, "typed getter 应以原字段名查询记录。")
+			record = null
+		record_value = null
+	var cleanup_errors: Array[int] = GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT.release(runtime_script)
+	assert_true(cleanup_errors.is_empty())
+
+
 func test_build_source_emits_unicode_only_and_mixed_table_names_completely() -> void:
 	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
 	var schemas: Array = [
@@ -367,6 +396,17 @@ func _assert_generated_source_compiles(source: String, access_class_name: String
 
 
 # --- 内部类 ---
+
+class RecordingConfigProvider:
+	extends RefCounted
+
+	var last_table_name: StringName = &""
+	var record: Dictionary = {}
+
+	func get_record(table_name: StringName, _id: Variant) -> Dictionary:
+		last_table_name = table_name
+		return record
+
 
 class ConfigSchemaStub:
 	var table_name: StringName = &""

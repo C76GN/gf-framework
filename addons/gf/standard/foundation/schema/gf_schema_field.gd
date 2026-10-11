@@ -469,6 +469,7 @@ func _validate_value_into(value: Variant, report: GFValidationReport, context: D
 		)
 		return
 
+	var preceding_error_count: int = report.get_error_count()
 	if value_type == ValueType.DICTIONARY and dictionary_schema != null:
 		var dictionary_value: Dictionary = GFVariantData.as_dictionary(value)
 		var nested_report: GFValidationReport = dictionary_schema.validate_dictionary(dictionary_value, _make_nested_context(context))
@@ -476,7 +477,8 @@ func _validate_value_into(value: Variant, report: GFValidationReport, context: D
 	elif value_type == ValueType.ARRAY and array_item_schema != null:
 		_validate_array_items(GFVariantData.as_array(value), report, context)
 
-	_validate_rules_into(value, report, context)
+	if report.get_error_count() == preceding_error_count:
+		_validate_rules_into(value, report, context)
 
 
 ## 按共享身份映射复制字段图；先登记副本再递归复制字典和数组子定义，避免循环并保留共享身份。默认值走 Variant 复制入口，元数据深复制，规则逐项调用 duplicate_rule。

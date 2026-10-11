@@ -602,12 +602,10 @@ func _is_finite_float(value: float) -> bool:
 
 # --- 信号处理函数 ---
 
-## 先清除所有者弱引用、退出回调与淡出设置，再按捕获的淡出时长停止，避免停止期间重复沿用旧所有者状态。
+## 先断开所有者退出连接并清除绑定，再按捕获的淡出时长停止；所有者离树但仍存活时也不残留连接。
 ## [br]
 ## @api private
 func _on_owner_tree_exiting() -> void:
 	var fade_seconds: float = _owner_stop_fade_seconds
-	_owner_ref = null
-	_owner_exit_callback = Callable()
-	_owner_stop_fade_seconds = 0.0
+	_disconnect_owner_exit()
 	stop(fade_seconds)

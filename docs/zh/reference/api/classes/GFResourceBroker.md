@@ -25,6 +25,7 @@ framework-level threaded ResourceLoader admission broker。 一个显式共享�
 | 属性 | [`max_pending_requests`](#member-gfresourcebroker-properties-max_pending_requests) | `var max_pending_requests: int = DEFAULT_MAX_PENDING_REQUESTS:` |
 | 方法 | [`init`](#member-gfresourcebroker-methods-init) | `func init() -> void:` |
 | 方法 | [`tick`](#member-gfresourcebroker-methods-tick) | `func tick(_delta: float = 0.0) -> void:` |
+| 方法 | [`begin_quiesce`](#member-gfresourcebroker-methods-begin_quiesce) | `func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:` |
 | 方法 | [`dispose`](#member-gfresourcebroker-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`request`](#member-gfresourcebroker-methods-request) | `func request(path: String, type_hint: String = "", options: Dictionary = {}) -> GFResourceLease:` |
 | 方法 | [`pump`](#member-gfresourcebroker-methods-pump) | `func pump() -> void:` |
@@ -177,6 +178,27 @@ func tick(_delta: float = 0.0) -> void:
 |---|---|
 | `_delta` | 统一 Utility tick 参数。 |
 
+<a id="member-gfresourcebroker-methods-begin_quiesce"></a>
+
+### `begin_quiesce`
+
+- API：`public`
+- 首次版本：`11.0.0`
+
+```gdscript
+func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:
+```
+
+关闭新请求准入，并在已接纳 FIFO 与底层 drain 全部 idle 后完成。 Architecture 使用生命周期 tick 推进，并通过共享 deadline 和 scope 限制等待； 独立调用者仍须显式 pump 并在自己的截止时间取消 scope。重复调用共享同一完成源。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `scope` | 当前静默阶段的取消作用域；取消不会伪造底层请求已经回收。 |
+
+返回：idle 后成功、取消时终结的静默完成源。
+
 <a id="member-gfresourcebroker-methods-dispose"></a>
 
 ### `dispose`
@@ -188,7 +210,7 @@ func tick(_delta: float = 0.0) -> void:
 func dispose() -> void:
 ```
 
-取消所有消费者，并让已发起的请求保留为 drain 状态。
+强制取消所有消费者及静默等待，并让已发起的请求保留为 drain 状态。 正常架构退出使用 shutdown_async()；直接 dispose() 后调用方仍须显式 pump 到 idle。
 
 <a id="member-gfresourcebroker-methods-request"></a>
 

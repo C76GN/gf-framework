@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageCodec" path="addons/gf/standard/utilities/storage/gf_storage_codec.gd" module="standard" extends="Resource" classDigest="ad138c55253ab4e96c02b937ec09b954f276b0cb0fd250b97d7ed6641ca7b279">
+<class name="GFStorageCodec" path="addons/gf/standard/utilities/storage/gf_storage_codec.gd" module="standard" extends="Resource" classDigest="4dbbb856087dc0b626d71ed066c08c778253ef8204596197fad7264a43029502">
 	<description>GFStorageCodec: 通用存档字典编码与解码策略。
 负责严格存储文档的字典序列化、可选压缩、完整性校验和轻量混淆。
 JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点数。
@@ -218,6 +218,7 @@ JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点
 		<member kind="method" name="encode_result">
 			<signature>func encode_result(data: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>单次构建存储文档并编码，在压缩前检查包含 metadata 和 checksum 的完整明文预算。
+JSON 在递归排序或 checksum 数字归一化之前执行默认遍历预算准入，循环或不支持值也拒绝编码。
 不检查 Utility 的物理文件读取预算；调用方应对最终 bytes 应用其捕获的文件字节上限。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -249,7 +250,7 @@ JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点
 				<tag name="api">public</tag>
 				<tag name="param">data: 要序列化的数据。</tag>
 				<tag name="param">p_format: 目标格式。</tag>
-				<tag name="return">字节数组。</tag>
+				<tag name="return">字节数组；JSON 输入存在循环、不支持值或超出默认遍历预算时返回空数组。</tag>
 				<tag name="schema">data: Dictionary，要序列化的数据载荷。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
@@ -274,8 +275,9 @@ JSON 格式会在 checksum 输入中规范化整数字面量，避免不同 Godo
 				<tag name="api">public</tag>
 				<tag name="param">data: 输入数据。</tag>
 				<tag name="param">p_format: 序列化格式。</tag>
-				<tag name="return">checksum hex 字符串。</tag>
+				<tag name="return">checksum hex 字符串；JSON 输入不完整或超出默认遍历预算时返回空字符串。</tag>
 				<tag name="schema">data: Dictionary，用作校验和输入的数据载荷。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -66,7 +66,7 @@ const _GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT = preload(
 ## [br]
 ## @schema options: Dictionary，必须包含非空 allowed_roots；可包含 max_file_count、max_backup_bytes 和 metadata。
 ## [br]
-## @schema return: Dictionary，符合 gf.artifact_write.transaction@1，包含 ok、format、format_version、state、entries、backup_bytes、issues 和 metadata。
+## @schema return: closed Dictionary，符合 gf.artifact_write.transaction@1，仅包含 ok、format、format_version、state、transaction_id、transaction_token、entry_count、backup_bytes、issues、recovery_required、recovery_action、recovery_transaction 和 metadata；事务身份及 recovery_transaction 均为不可改写的 opaque handle，不暴露目标或 sidecar 路径。失败且 recovery_required=true 时，按 recovery_action 终结 recovery_transaction。
 func begin(
 	paths: PackedStringArray,
 	options: Dictionary = {}

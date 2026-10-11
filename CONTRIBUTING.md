@@ -123,9 +123,10 @@ from presenting itself as the last published release.
   changelog section and no formal release sections. A stable identity permits
   exactly one dated section for that version and no unreleased or historical
   sections; immutable tags and GitHub Releases preserve published history.
-- The Changelog title, structure-standard heading, maintenance-policy heading,
-  and sole candidate heading form one exact top-level sequence. Its numbered
-  structure must match the executable category constants. Every candidate must
+- The Changelog title and sole candidate heading form the exact top-level
+  sequence. Authoring instructions belong in the
+  [Changelog authoring guide](docs/maintainers/changelog-authoring.md), not in
+  the public release notes. Every candidate must
   start with a readable version overview and contain at least one readable,
   non-empty top-level H3 category in the documented order. Raw HTML, mixed
   comment/visible lines, non-ASCII heading separators, and decorative-only

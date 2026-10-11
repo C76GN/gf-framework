@@ -336,6 +336,56 @@ func test_pipeline_loads_xlsx_source_with_auto_format() -> void:
 	assert_eq(GFVariantData.get_option_float(first_record, "power"), 2.5, "XLSX 字符串数值应按 schema 转为 float。")
 
 
+func test_pipeline_xlsx_preserves_empty_shared_string_slots() -> void:
+	var empty_encodings: PackedStringArray = PackedStringArray(["<si/>", "<si></si>", "<si><t/></si>", "<si><t/> \n</si>"])
+	var rows: Array[PackedStringArray] = [
+		PackedStringArray(["id", "name", "power"]),
+		PackedStringArray(["1", "empty", "2"]),
+		PackedStringArray(["2", "sentinel", "3"]),
+	]
+	var worksheet: String = _xlsx_sheet_xml(rows)
+	worksheet = worksheet.replace("<c r=\"B2\" t=\"inlineStr\"><is><t>empty</t></is></c>", "<c r=\"B2\" t=\"s\"><v>0</v></c>")
+	worksheet = worksheet.replace("<c r=\"B3\" t=\"inlineStr\"><is><t>sentinel</t></is></c>", "<c r=\"B3\" t=\"s\"><v>1</v></c>")
+	assert_true(worksheet.contains("<c r=\"B2\" t=\"s\"><v>0</v></c>"))
+	for empty_encoding: String in empty_encodings:
+		var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+		source.source_path = _write_xlsx_with_xml_overrides(
+			"user://gf_config_pipeline_empty_shared_%d.xlsx" % Time.get_ticks_usec(),
+			"Items", rows, {
+				"worksheet": worksheet,
+				"shared_strings": "<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">%s<si><t>after-empty</t></si></sst>" % empty_encoding,
+			}
+		)
+		source.source_format = GFConfigPipelineTableSource.FORMAT_XLSX
+		source.schema = _make_item_schema()
+		var result: Dictionary = _call_pipeline(&"build_table", [source])
+		assert_true(GFVariantData.get_option_bool(result, "success"), "合法空 shared string 必须占据自己的索引：%s，%s" % [empty_encoding, result.get("error", "")])
+		var table: GFConfigTableResource = _get_table_from_result(result)
+		if table != null and table.records.size() == 2:
+			assert_eq(GFVariantData.get_option_string(table.records[0], "name"), "", "索引 0 应保留为空字符串。")
+			assert_eq(GFVariantData.get_option_string(table.records[1], "name"), "after-empty", "空项后续索引不得前移。")
+		else:
+			fail_test("空项夹具必须完整导入两条记录。")
+
+
+func test_pipeline_xlsx_empty_shared_strings_consume_string_count_budget() -> void:
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.source_path = _write_xlsx_with_xml_overrides(
+		"user://gf_config_pipeline_empty_shared_budget_%d.xlsx" % Time.get_ticks_usec(),
+		"Items", [PackedStringArray(["id", "name", "power"])], {
+			"shared_strings": "<sst><si/><si/></sst>",
+		}
+	)
+	source.source_format = GFConfigPipelineTableSource.FORMAT_XLSX
+	source.schema = _make_item_schema()
+	source.parse_options = { "max_xlsx_shared_strings": 1 }
+
+	var result: Dictionary = _call_pipeline(&"build_table", [source])
+
+	assert_false(GFVariantData.get_option_bool(result, "success"), "空 shared string 也必须占用条目预算。")
+	assert_true(GFVariantData.get_option_string(result, "error").contains("max_xlsx_shared_strings"))
+
+
 func test_pipeline_xlsx_layout_is_bound_to_reader_receipt() -> void:
 	var xlsx_path: String = _write_xlsx(
 		"user://gf_config_pipeline_receipt_%d.xlsx" % Time.get_ticks_usec(),

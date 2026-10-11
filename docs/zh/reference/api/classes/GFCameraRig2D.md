@@ -117,36 +117,39 @@ var target_path: NodePath = NodePath("")
 ### `offset`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var offset: Vector2 = Vector2.ZERO
 ```
 
-位置偏移。
+位置偏移。默认沿世界坐标轴；启用 offset_follows_rotation 后沿基础姿态的旋转轴。
 
 <a id="member-gfcamerarig2d-properties-offset_follows_rotation"></a>
 
 ### `offset_follows_rotation`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var offset_follows_rotation: bool = false
 ```
 
-偏移是否跟随目标旋转。
+是否用基础姿态旋转 offset。仅在存在目标且 use_target_rotation 为 true 时使用目标全局旋转， 否则使用 Rig 全局旋转；rotation_degrees_offset 不参与位置偏移计算。
 
 <a id="member-gfcamerarig2d-properties-use_target_rotation"></a>
 
 ### `use_target_rotation`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var use_target_rotation: bool = true
 ```
 
-是否读取目标旋转。
+是否以目标全局旋转替换 Rig 全局旋转；同时决定旋转跟随偏移使用的基础姿态。
 
 <a id="member-gfcamerarig2d-properties-rotation_degrees_offset"></a>
 

@@ -109,7 +109,7 @@ static func from_array( values: Array, priority: float = 0.0, p_high_priority_fi
 func push(value: Variant, priority: float = 0.0, front: bool = false) -> bool:
 ```
 
-推入一个值。
+推入一个值。 显式负 order 和 int 下界也遵守该规则；多次 front 操作以后执行者优先。
 
 参数：
 
@@ -136,7 +136,7 @@ func push(value: Variant, priority: float = 0.0, front: bool = false) -> bool:
 func push_with_order(value: Variant, priority: float = 0.0, order: int = 0) -> bool:
 ```
 
-按显式稳定顺序推入一个值。 相同 priority 和 order 的条目按本次队列实例中的入队先后保持稳定。
+按显式稳定顺序推入一个值。 相同 priority 和 order 的显式条目按本次队列实例中的入队先后保持稳定；front 操作优先于既有条目。
 
 参数：
 

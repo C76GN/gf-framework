@@ -388,13 +388,16 @@ func test_json_record_importer_reports_non_dictionary_root_context() -> void:
 
 func test_csv_exporter_uses_schema_column_order_and_quotes_cells() -> void:
 	var schema: GFConfigTableSchema = _make_item_schema()
+	schema.columns.reverse()
 	var exported: Dictionary = GFConfigTableImporter.export_csv_table([
 		{ "id": 1, "name": "A,B", "power": 2.0 },
 	], schema)
 
 	assert_true(GFVariantData.get_option_bool(exported, "success"), "CSV 导出应成功。")
-	assert_true(GFVariantData.get_option_string(exported, "text").begins_with("id,name,power"), "schema 列顺序应作为默认导出顺序。")
+	assert_true(GFVariantData.get_option_string(exported, "text").begins_with("power,name,id"), "schema 声明顺序应作为默认导出顺序，不得偷偷按字母排序。")
 	assert_true(GFVariantData.get_option_string(exported, "text").contains("\"A,B\""), "包含分隔符的单元格应加引号。")
+	var explicit: Dictionary = GFConfigTableImporter.export_csv_table([], schema, {"columns": ["name", "id"]})
+	assert_true(GFVariantData.get_option_string(explicit, "text").begins_with("name,id"), "显式列序应覆盖 schema。")
 
 
 func test_schema_infer_from_records_creates_columns() -> void:
