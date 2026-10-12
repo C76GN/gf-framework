@@ -398,15 +398,27 @@ func get_last_view_model() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @param command: 当前图资源的编辑命令，从其事务报告读取执行结果和待恢复状态。
+## @param command: 当前图资源的编辑命令；读取完成后的 Flow 结果，补偿资格只来自底层事务报告。
 func accept_flow_edit_result(command: GFFlowGraphEditCommand) -> void:
 	if not is_inside_tree() or command.get_graph_for_editor() != _graph:
 		return
-	_last_edit_report = command.get_transaction_report()
-	if GFVariantData.get_option_bool(_last_edit_report, "recovery_required"):
+	_last_edit_report = command.get_flow_edit_result()
+	var transaction: Dictionary = GFVariantData.get_option_dictionary(_last_edit_report, "transaction")
+	if GFVariantData.get_option_bool(transaction, "recovery_required"):
 		_recovery_command = command
 	elif _recovery_command == command:
 		_recovery_command = null
+	if not GFVariantData.get_option_bool(_last_edit_report, "ok"):
+		var operation: StringName = GFVariantData.get_option_string_name(_last_edit_report, "operation")
+		var reason: StringName = GFVariantData.get_option_string_name(_last_edit_report, "guard_reason")
+		if operation == &"revert" and reason == &"source_mismatch":
+			_set_status(_clipboard_status, "撤销未应用：流程图已有外部编辑，当前资源值保持不变。原生撤销仍会改变历史位置，历史记录与资源状态不同步；不能把该记录当作成功撤销。")
+		else:
+			_set_status(_clipboard_status, "编辑操作未完成，请查看真实错误与属性补偿报告；原生历史回调的返回错误不会撤回历史位置。")
+	elif GFVariantData.get_option_string_name(_last_edit_report, "operation") == &"revert":
+		_set_status(_clipboard_status, "撤销已应用；结果见事务报告。")
+	elif GFVariantData.get_option_string_name(_last_edit_report, "operation") == &"recover":
+		_set_status(_clipboard_status, "属性补偿已恢复；该操作不会修正原生历史位置。")
 	_on_graph_changed()
 
 
@@ -606,10 +618,7 @@ func _commit_edit(command: GFFlowGraphEditCommand) -> void:
 		_last_edit_report = result
 		_show_details(result)
 	else:
-		_last_edit_report = command.get_transaction_report()
-		if command.get_last_execute_error() != OK:
-			_last_edit_report["ok"] = false
-			_last_edit_report["error"] = command.get_last_execute_error()
+		_last_edit_report = command.get_flow_edit_result()
 		_show_details(_last_edit_report)
 
 
@@ -1374,11 +1383,10 @@ func _on_recover_pressed() -> void:
 		return
 	var command: GFFlowGraphEditCommand = _recovery_command
 	var error: Error = command.recover()
-	accept_flow_edit_result(command)
 	if error == OK:
 		_graph.emit_changed()
 	refresh()
-	_show_details(command.get_transaction_report())
+	_show_details(command.get_flow_edit_result())
 
 
 ## 处理路径提交并加载指定流程图资源。

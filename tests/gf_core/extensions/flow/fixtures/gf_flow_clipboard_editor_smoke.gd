@@ -49,6 +49,14 @@ func _run() -> void:
 	if first_history == null or second_history == null:
 		await _finish()
 		return
+	var first_history_id: int = manager.get_object_history_id(first)
+	var second_history_id: int = manager.get_object_history_id(second)
+	print("GF_FLOW_NATIVE_HISTORY_SCOPE ", JSON.stringify({
+		"first_history_id": first_history_id, "second_history_id": second_history_id,
+		"global_history_id": EditorUndoRedoManager.GLOBAL_HISTORY,
+		"same_history": first_history == second_history,
+	}))
+	_check(first_history_id == EditorUndoRedoManager.GLOBAL_HISTORY and second_history_id == first_history_id and first_history == second_history, "两个独立保存的外部图资源使用真实共享全局历史")
 	# Flow 的生产入口是 GF Workspace 页面，不能把它假设为原生 270px 侧栏。
 	_tools = DOCK_TOOLS_SCRIPT.new()
 	_tools.setup(self, [{"source_id": "flow.clipboard.fixture", "path": FLOW_PAGE_PATH, "label": "GF Flow Tools", "short_label": "流程"}])
@@ -134,9 +142,30 @@ func _run() -> void:
 	if dialog != null:
 		dialog.hide()
 	await get_tree().process_frame
+	_dock.set_graph(second)
+	var external: GFFlowNode = GFFlowNode.new()
+	external.node_id = &"external_after_paste"
+	second.nodes.append(external)
+	second.emit_changed()
+	var preserved: Dictionary = GFFlowGraphEditorModel.capture_edit_state(second)
+	var action_before: int = second_history.get_current_action()
+	_check(second_history.undo(), "真实原生 Undo 在拒绝回调后仍移动游标")
+	_check(second_history.get_current_action() == action_before - 1 and second_history.has_redo(), "失败撤销不能冒充停止原生历史游标")
+	_check(GFFlowGraphEditorModel.capture_edit_state(second) == preserved and _node(second, &"a_2") == pasted and _node(second, &"external_after_paste") == external, "stale Undo 保留粘贴资源和外部编辑且零写图结构")
+	await get_tree().process_frame
+	_check(_has_history_conflict_feedback(), "页面必须解释撤销失败、历史位置改变及外部编辑保留")
 	_check_workspace_layout()
 	_capture_if_requested()
 	await _finish()
+
+
+func _has_history_conflict_feedback() -> bool:
+	for child: Node in _dock.find_children("*", "Label", true, false):
+		if child is Label:
+			var label: Label = child
+			if label.text.contains("撤销") and label.text.contains("历史") and label.text.contains("外部"):
+				return true
+	return false
 
 
 func _wait_editor_idle(phase: String) -> bool:

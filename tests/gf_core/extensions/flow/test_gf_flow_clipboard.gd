@@ -39,6 +39,19 @@ class CopyMutationNode extends GFFlowNode:
 			pass
 
 
+class EditResultObserver extends Node:
+	var reports: Array[Dictionary] = []
+	var execute_error: Error = OK
+	var revert_error: Error = OK
+	var executed: bool = false
+
+	func accept_flow_edit_result(command: GFFlowGraphEditCommand) -> void:
+		reports.append(command.get_flow_edit_result())
+		execute_error = command.get_last_execute_error()
+		revert_error = command.get_last_revert_error()
+		executed = command.is_executed()
+
+
 class UndoManagerAdapter extends RefCounted:
 	var history: UndoRedo = UndoRedo.new()
 	var last_context: Object = null
@@ -563,7 +576,149 @@ func test_mutated_incoming_port_can_be_undone_but_cannot_redo_until_repaired() -
 	assert_same(_find_node(graph, &"b").input_ports[0], port)
 
 
+func test_stale_native_undo_preserves_external_graph_and_reports_history_conflict() -> void:
+	var graph: GFFlowGraph = _source_graph()
+	var dock: GFFlowGraphDock = _dock(graph)
+	_select(dock, [&"a"])
+	var duplicate_button: Button = _button(dock, "重复")
+	assert_not_null(duplicate_button)
+	if duplicate_button == null:
+		return
+	duplicate_button.pressed.emit()
+	assert_eq(_undo.action_count, 1)
+	var pasted: GFFlowNode = _find_node(graph, &"a_2")
+	assert_not_null(pasted)
+	var external: GFFlowNode = _node(&"external")
+	graph.nodes.append(external)
+	graph.emit_changed()
+	var preserved: Dictionary = GFFlowGraphEditorModel.capture_edit_state(graph)
+	var action_before: int = _undo.history.get_current_action()
+	assert_true(_undo.history.undo(), "Native Undo consumes its callback regardless of the command Error result")
+	assert_eq(_undo.history.get_current_action(), action_before - 1)
+	assert_true(_undo.history.has_redo(), "The native cursor moved even though the graph undo was rejected")
+	assert_eq(GFFlowGraphEditorModel.capture_edit_state(graph), preserved)
+	assert_same(_find_node(graph, &"a_2"), pasted)
+	assert_same(_find_node(graph, &"external"), external)
+	await get_tree().process_frame
+	assert_true(_has_history_conflict_feedback(dock), "The page must explain rejected Undo, moved history and preserved external edits")
+	assert_eq(GFFlowGraphEditorModel.capture_edit_state(graph), preserved)
+
+
+func test_stale_undo_observer_sees_final_error_without_fabricating_compensation_recovery() -> void:
+	var graph: GFFlowGraph = _source_graph()
+	var command: GFFlowGraphEditCommand = _paste_command(graph, {
+		"nodes": [_node(&"incoming")], "connections": [],
+	})
+	if command == null:
+		return
+	var observer: EditResultObserver = EditResultObserver.new()
+	add_child_autofree(observer)
+	command.observe_page(observer)
+	assert_eq(command.execute(), OK)
+	assert_eq(observer.reports.size(), 1)
+	assert_true(observer.executed)
+	var external: GFFlowNode = _node(&"external_after_execute")
+	graph.nodes.append(external)
+	var preserved: Dictionary = GFFlowGraphEditorModel.capture_edit_state(graph)
+	assert_eq(command.revert(), ERR_BUSY)
+	assert_eq(observer.reports.size(), 2, "Rejected undo notifies once after the base error cache is updated")
+	assert_eq(observer.revert_error, ERR_BUSY)
+	assert_true(observer.executed, "The failed undo must not pretend the command was reverted")
+	if observer.reports.size() != 2:
+		return
+	var result: Dictionary = observer.reports[1]
+	assert_eq(result.size(), 6)
+	var failed: bool = result.get("ok") is bool and result.get("ok") == false
+	var is_revert: bool = result.get("operation") is StringName and result.get("operation") == &"revert"
+	var is_busy: bool = result.get("error") is int and result.get("error") == ERR_BUSY
+	var source_mismatch: bool = result.get("guard_reason") is StringName and result.get("guard_reason") == &"source_mismatch"
+	var zero_write: bool = result.get("zero_write") is bool and result.get("zero_write") == true
+	assert_true(failed)
+	assert_true(is_revert)
+	assert_true(is_busy)
+	assert_true(source_mismatch)
+	assert_true(zero_write)
+	var transaction_value: Variant = result.get("transaction")
+	assert_true(transaction_value is Dictionary)
+	if transaction_value is Dictionary:
+		var transaction: Dictionary = transaction_value
+		var remains_committed: bool = transaction.get("status") is StringName and transaction.get("status") == GFEditorPropertyBatchCommand.STATUS_COMMITTED
+		var transaction_is_ok: bool = transaction.get("ok") is bool and transaction.get("ok") == true
+		var no_compensation: bool = transaction.get("recovery_required") is bool and transaction.get("recovery_required") == false
+		assert_true(remains_committed, "The underlying transaction was never asked to undo")
+		assert_true(transaction_is_ok)
+		assert_true(no_compensation, "Zero-write stale rejection does not invent an attempt guard to restore")
+	assert_eq(GFFlowGraphEditorModel.capture_edit_state(graph), preserved)
+	assert_same(_find_node(graph, &"external_after_execute"), external)
+
+
+func test_rejected_redo_observer_sees_final_execute_error_and_candidate_guard() -> void:
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	graph.nodes = [_node(&"existing")]
+	graph.start_node_id = &"existing"
+	var package: Dictionary = _incompatible_port_package(_node(&"a"))
+	var source_nodes: Array = GFVariantData.get_option_array(package, "nodes")
+	var second_value: Variant = source_nodes[1]
+	assert_true(second_value is GFFlowNode)
+	if not second_value is GFFlowNode:
+		return
+	var second: GFFlowNode = second_value
+	second.input_ports[0].value_type = GFFlowPort.ValueType.NUMBER
+	var command: GFFlowGraphEditCommand = _paste_command(graph, package)
+	if command == null:
+		return
+	var observer: EditResultObserver = EditResultObserver.new()
+	add_child_autofree(observer)
+	command.observe_page(observer)
+	assert_eq(command.execute(), OK)
+	var inserted: GFFlowNode = _find_node(graph, &"b")
+	assert_not_null(inserted)
+	if inserted == null:
+		return
+	assert_eq(command.revert(), OK)
+	assert_eq(observer.reports.size(), 2)
+	inserted.input_ports[0].value_type = GFFlowPort.ValueType.STRING
+	var preserved: Dictionary = GFFlowGraphEditorModel.capture_edit_state(graph)
+	assert_eq(command.execute(), ERR_UNAVAILABLE)
+	assert_eq(observer.reports.size(), 3, "A can_execute rejection still publishes the actual redo error")
+	assert_eq(observer.execute_error, ERR_UNAVAILABLE)
+	assert_false(observer.executed)
+	if observer.reports.size() != 3:
+		return
+	var result: Dictionary = observer.reports[2]
+	assert_eq(result.size(), 6)
+	var failed: bool = result.get("ok") is bool and result.get("ok") == false
+	var is_execute: bool = result.get("operation") is StringName and result.get("operation") == &"execute"
+	var unavailable: bool = result.get("error") is int and result.get("error") == ERR_UNAVAILABLE
+	var candidate_mismatch: bool = result.get("guard_reason") is StringName and result.get("guard_reason") == &"candidate_mismatch"
+	var zero_write: bool = result.get("zero_write") is bool and result.get("zero_write") == true
+	assert_true(failed)
+	assert_true(is_execute)
+	assert_true(unavailable)
+	assert_true(candidate_mismatch)
+	assert_true(zero_write)
+	var transaction_value: Variant = result.get("transaction")
+	assert_true(transaction_value is Dictionary)
+	if transaction_value is Dictionary:
+		var transaction: Dictionary = transaction_value
+		var remains_reverted: bool = transaction.get("status") is StringName and transaction.get("status") == GFEditorPropertyBatchCommand.STATUS_REVERTED
+		var no_compensation: bool = transaction.get("recovery_required") is bool and transaction.get("recovery_required") == false
+		assert_true(remains_reverted)
+		assert_true(no_compensation)
+	assert_eq(GFFlowGraphEditorModel.capture_edit_state(graph), preserved)
+	assert_null(_find_node(graph, &"b"))
+
+
 # --- 私有/辅助方法 ---
+
+func _has_history_conflict_feedback(dock: GFFlowGraphDock) -> bool:
+	for child: Node in dock.find_children("*", "Label", true, false):
+		if child is Label:
+			var label: Label = child
+			if label.text.contains("撤销") and label.text.contains("历史") and label.text.contains("外部"):
+				return true
+	return false
+
 
 func _incompatible_port_package(first: GFFlowNode) -> Dictionary:
 	var second: GFFlowNode = _node(&"b")

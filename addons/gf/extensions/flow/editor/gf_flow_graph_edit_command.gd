@@ -47,30 +47,62 @@ var _insert_nodes: Array[GFFlowNode] = []
 var _insert_dependencies: Array = []
 
 
-# --- 可重写钩子 / 虚方法 ---
+## 当前操作命中的零写入结构守卫；预检本身不发布页面结果。
+## [br]
+## @api private
+var _guard_reason: StringName = &""
 
-func _do_it() -> Error:
-	if not _insert_before.is_empty() and (not _inventory_matches(_insert_before) or not _insert_candidate_matches()):
-		return ERR_BUSY
-	var error: Error = super._do_it()
-	if error == OK and _graph != null:
-		_graph.emit_changed()
+## 基类完成错误码和执行状态更新后保存的独立 Flow 结果；不改写属性事务报告。
+## [br]
+## @api private
+var _last_flow_edit_result: Dictionary = {}
+
+
+# --- 公共方法 ---
+
+## 继承命令执行合同；在基类缓存真实错误后通知页面，包括重做的预检拒绝。
+## [br]
+## @api public
+## [br]
+## @since 3.17.0
+## [br]
+## @return: 基类的实际执行错误码；失败不会冒充原生历史回调成功。
+func execute() -> Error:
+	_guard_reason = &""
+	var error: Error = super.execute()
+	_record_flow_edit_result(&"execute", error)
 	_notify_observer()
 	return error
 
 
-func _undo_it() -> Error:
-	if not _insert_after.is_empty() and not GFVariantData.get_option_bool(get_transaction_report(), "recovery_required") and not _inventory_matches(_insert_after):
-		return ERR_BUSY
-	var error: Error = super._undo_it()
-	if error == OK and _graph != null:
-		_graph.emit_changed()
+## 继承撤销合同；零写入拒绝仍通知页面，原生 Undo 不会因该错误停止历史游标。
+## [br]
+## @api public
+## [br]
+## @since 3.17.0
+## [br]
+## @return: 基类的实际撤销错误码，失败保留命令执行状态与外部资源值。
+func revert() -> Error:
+	_guard_reason = &""
+	var error: Error = super.revert()
+	_record_flow_edit_result(&"revert", error)
 	_notify_observer()
 	return error
 
 
-func _get_undo_context() -> Object:
-	return _graph
+## 只恢复基类未完整补偿的 attempt guard，不把结构冲突当作可写回的补偿任务。
+## [br]
+## @api public
+## [br]
+## @since 10.0.0
+## [br]
+## @return: 基类的真实恢复结果；没有补偿任务时沿用 ERR_UNAVAILABLE。
+func recover() -> Error:
+	_guard_reason = &""
+	var error: Error = super.recover()
+	_record_flow_edit_result(&"recover", error)
+	_notify_observer()
+	return error
 
 
 ## 初次提交及重做前复核图策略和本命令新增节点的连接依赖；其它编辑沿用属性事务预检。
@@ -81,12 +113,57 @@ func _get_undo_context() -> Object:
 ## [br]
 ## @return: 当前库存与候选匹配且属性事务可执行时为 true。
 func can_execute() -> bool:
-	if not _insert_before.is_empty() and (not _inventory_matches(_insert_before) or not _insert_candidate_matches()):
-		return false
+	if not _insert_before.is_empty():
+		_guard_reason = _insertion_guard_reason()
+		if _guard_reason != &"":
+			return false
 	return super.can_execute()
 
 
+# --- 可重写钩子 / 虚方法 ---
+
+func _do_it() -> Error:
+	if not _insert_before.is_empty():
+		_guard_reason = _insertion_guard_reason()
+		if _guard_reason != &"":
+			return ERR_BUSY
+	var error: Error = super._do_it()
+	if error == OK and _graph != null:
+		_graph.emit_changed()
+	return error
+
+
+func _undo_it() -> Error:
+	if not _insert_after.is_empty() and not GFVariantData.get_option_bool(get_transaction_report(), "recovery_required") and not _inventory_matches(_insert_after):
+		_guard_reason = &"source_mismatch"
+		return ERR_BUSY
+	var error: Error = super._undo_it()
+	if error == OK and _graph != null:
+		_graph.emit_changed()
+	return error
+
+
+func _get_undo_context() -> Object:
+	return _graph
+
+
 # --- 框架内部方法 ---
+
+## 读取最近完整操作的真实错误及结构守卫；底层事务报告保持独立，不能据旧 committed 当作撤销成功。
+## [br]
+## @api framework_internal
+## [br]
+## @return: 结果容器副本；尚未操作时为 pending，补偿资格只由 transaction.recovery_required 提供。
+## [br]
+## @schema return: Dictionary，固定 ok: bool、operation: StringName（pending/execute/revert/recover）、error: int（Error）、guard_reason: StringName（空/source_mismatch/candidate_mismatch）、zero_write: bool（结构守卫的零写拒绝）、transaction: Dictionary（同 GFEditorPropertyBatchCommand.get_transaction_report）。不授权清除或修改原生历史。
+func get_flow_edit_result() -> Dictionary:
+	if _last_flow_edit_result.is_empty():
+		return {
+			"ok": true, "operation": &"pending", "error": OK,
+			"guard_reason": &"", "zero_write": false, "transaction": get_transaction_report(),
+		}
+	return _last_flow_edit_result.duplicate(true)
+
 
 ## 只弱引用当前页面，历史命令不会延长页面生命周期。
 ## [br]
@@ -340,6 +417,29 @@ static func create_layout_edit(graph: GFFlowGraph, positions: Dictionary, action
 
 
 # --- 私有/辅助方法 ---
+
+## 保存当前操作的真实结果；只包装基类报告，不制造已执行的写入或待补偿状态。
+## [br]
+## @api private
+func _record_flow_edit_result(operation: StringName, error: Error) -> void:
+	var reason: StringName = _guard_reason if error != OK else &""
+	_last_flow_edit_result = {
+		"ok": error == OK, "operation": operation, "error": error,
+		"guard_reason": reason, "zero_write": reason != &"",
+		"transaction": get_transaction_report(),
+	}
+
+
+## 区分目标结构变化与本命令候选依赖变化；两者均拒绝本次写入，不回滚外部编辑。
+## [br]
+## @api private
+func _insertion_guard_reason() -> StringName:
+	if not _inventory_matches(_insert_before):
+		return &"source_mismatch"
+	if not _insert_candidate_matches():
+		return &"candidate_mismatch"
+	return &""
+
 
 ## 对比命令相关的结构与资源身份，禁止旧候选或旧历史覆盖后来插入的节点。
 ## [br]
