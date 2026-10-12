@@ -1422,19 +1422,11 @@ func _on_file_selected(path: String) -> void:
 	set_graph_path(path)
 
 
-## 处理刷新按钮并更新编辑器视图。
+## 通过统一资源入口重新加载路径，撤销此前菜单与模板请求。
 ## [br]
 ## @api private
 func _on_refresh_pressed() -> void:
-	if _recovery_command != null:
-		_show_details(_last_edit_report)
-		return
-	_disconnect_graph_changes()
-	_move_graph = null
-	_graph_path = _path_edit.text.strip_edges() if _path_edit != null else _graph_path
-	_load_graph_from_path()
-	_connect_graph_changes()
-	refresh()
+	set_graph_path(_path_edit.text if _path_edit != null else _graph_path)
 
 
 ## 处理自动布局按钮并提交节点位置变更。

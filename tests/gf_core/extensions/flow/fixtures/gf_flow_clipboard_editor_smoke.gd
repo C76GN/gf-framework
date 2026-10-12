@@ -156,7 +156,57 @@ func _run() -> void:
 	_check(_has_history_conflict_feedback(), "页面必须解释撤销失败、历史位置改变及外部编辑保留")
 	_check_workspace_layout()
 	_capture_if_requested()
+	await _check_refresh_rejects_old_template(manager, template_path)
 	await _finish()
+
+
+func _check_refresh_rejects_old_template(manager: EditorUndoRedoManager, template_path: String) -> void:
+	var first: GFFlowGraph = _graph(&"refresh_request_first")
+	var second: GFFlowGraph = _graph(&"refresh_destination_second")
+	var first_before: Dictionary = GFFlowGraphEditorModel.capture_edit_state(first)
+	var second_before: Dictionary = GFFlowGraphEditorModel.capture_edit_state(second)
+	var history_id: int = manager.get_object_history_id(second)
+	var history: UndoRedo = manager.get_history_undo_redo(history_id)
+	_check(history != null and _owned_histories.has(history), "刷新回归使用真实且已由 fixture 拥有的资源历史")
+	if history == null:
+		return
+	var action_before: int = history.get_current_action()
+	var count_before: int = history.get_history_count()
+	_dock.set_graph(first)
+	await get_tree().process_frame
+	var path_edit: LineEdit = _graph_path_edit_for_refresh()
+	_check(path_edit != null, "刷新回归使用实际资源路径输入框")
+	if path_edit == null:
+		return
+	_check(path_edit.text == first.resource_path, "模板请求从图 A 的实际路径开始")
+	_press("添加节点模板…")
+	var dialog: FileDialog = _template_dialog()
+	_check(dialog != null and dialog.visible, "模板请求由实际可见对话框发起")
+	if dialog == null:
+		return
+	path_edit.text = second.resource_path
+	_press("刷新")
+	var model: GFFlowGraphEditorModel = GFFlowGraphEditorModel.new()
+	_check(path_edit.text == second.resource_path and _dock.get_last_view_model() == model.build_view_model(second), "实际刷新按钮已把当前页面重载为图 B")
+	dialog.file_selected.emit(template_path)
+	_check(GFFlowGraphEditorModel.capture_edit_state(first) == first_before and GFFlowGraphEditorModel.capture_edit_state(second) == second_before, "图 A 的迟到模板结果不能写入刷新后的图 B")
+	_check(history.get_current_action() == action_before and history.get_history_count() == count_before, "拒绝旧模板请求不增加或移动真实原生资源历史")
+	_press("添加节点模板…")
+	dialog.file_selected.emit(template_path)
+	_check(second.nodes.size() == 3 and _node(second, &"template") != null, "刷新后重新发起的模板请求可正常插入图 B")
+	_check(history.get_current_action() == action_before + 1, "新模板请求只增加一笔真实原生操作")
+	_check(GFFlowGraphEditorModel.capture_edit_state(first) == first_before, "新请求也不改变原来的图 A")
+	dialog.hide()
+	await get_tree().process_frame
+
+
+func _graph_path_edit_for_refresh() -> LineEdit:
+	for child: Node in _dock.find_children("*", "LineEdit", true, false):
+		if child is LineEdit:
+			var edit: LineEdit = child
+			if edit.placeholder_text == "res://path/to/flow_graph.tres":
+				return edit
+	return null
 
 
 func _has_history_conflict_feedback() -> bool:

@@ -709,7 +709,108 @@ func test_rejected_redo_observer_sees_final_execute_error_and_candidate_guard() 
 	assert_null(_find_node(graph, &"b"))
 
 
+func test_template_dialog_before_path_refresh_cannot_insert_into_the_reloaded_graph() -> void:
+	var template: GFFlowNode = _node(&"template")
+	var template_path: String = _save_template(template)
+	var first: GFFlowGraph = _source_graph()
+	var first_path: String = _save_graph_for_refresh(first)
+	var second: GFFlowGraph = GFFlowGraph.new()
+	second.nodes = [_node(&"destination")]
+	second.start_node_id = &"destination"
+	var second_path: String = _save_graph_for_refresh(second)
+	var first_before: Dictionary = GFFlowGraphEditorModel.capture_edit_state(first)
+	var second_before: Dictionary = GFFlowGraphEditorModel.capture_edit_state(second)
+	var dock: GFFlowGraphDock = _dock(first)
+	var template_button: Button = _button(dock, "添加节点模板…")
+	var refresh_button: Button = _button(dock, "刷新")
+	var path_edit: LineEdit = _graph_path_edit_for_refresh(dock)
+	assert_not_null(template_button)
+	assert_not_null(refresh_button)
+	assert_not_null(path_edit)
+	if template_button == null or refresh_button == null or path_edit == null:
+		return
+	assert_eq(path_edit.text, first_path)
+	template_button.pressed.emit()
+	var dialog: FileDialog = _template_dialog(dock)
+	assert_not_null(dialog)
+	if dialog == null:
+		return
+	path_edit.text = second_path
+	refresh_button.pressed.emit()
+	assert_eq(path_edit.text, second_path)
+	assert_not_null(_node_control(dock, &"destination"))
+	assert_null(_node_control(dock, &"a"))
+	dialog.file_selected.emit(template_path)
+	assert_eq(GFFlowGraphEditorModel.capture_edit_state(first), first_before)
+	assert_eq(GFFlowGraphEditorModel.capture_edit_state(second), second_before)
+	assert_eq(_undo.action_count, 0)
+	assert_false(_undo.history.has_undo())
+	# 刷新只撤销旧请求；重新打开模板入口仍可插入到用户当前选择的资源。
+	template_button.pressed.emit()
+	dialog.file_selected.emit(template_path)
+	assert_eq(second.nodes.size(), 2)
+	assert_not_null(_find_node(second, &"template"))
+	assert_eq(_undo.action_count, 1)
+	assert_same(_undo.last_context, second)
+
+
+func test_popup_before_same_path_refresh_is_stale_but_a_new_request_remains_usable() -> void:
+	var graph: GFFlowGraph = _source_graph()
+	var path: String = _save_graph_for_refresh(graph)
+	var before: Dictionary = GFFlowGraphEditorModel.capture_edit_state(graph)
+	var dock: GFFlowGraphDock = _dock(graph)
+	var refresh_button: Button = _button(dock, "刷新")
+	var path_edit: LineEdit = _graph_path_edit_for_refresh(dock)
+	assert_not_null(refresh_button)
+	assert_not_null(path_edit)
+	if refresh_button == null or path_edit == null:
+		return
+	_select(dock, [&"a"])
+	var canvas: GraphEdit = _canvas(dock)
+	canvas.popup_request.emit(Vector2.ZERO)
+	var menu: PopupMenu = _menu(dock)
+	assert_not_null(menu)
+	if menu == null:
+		return
+	assert_eq(path_edit.text, path)
+	refresh_button.pressed.emit()
+	var selected: GraphNode = _node_control(dock, &"a")
+	assert_not_null(selected)
+	if selected == null:
+		return
+	assert_true(selected.selected)
+	menu.id_pressed.emit(3)
+	assert_eq(GFFlowGraphEditorModel.capture_edit_state(graph), before)
+	assert_eq(_undo.action_count, 0)
+	assert_false(_undo.history.has_undo())
+	canvas.popup_request.emit(Vector2.ZERO)
+	menu.id_pressed.emit(3)
+	assert_eq(graph.nodes.size(), 4)
+	assert_eq(_undo.action_count, 1)
+	assert_same(_undo.last_context, graph)
+
+
 # --- 私有/辅助方法 ---
+
+func _save_graph_for_refresh(graph: GFFlowGraph) -> String:
+	var path: String = "res://tests/gf_core/extensions/flow/_clipboard_graph_%d_%d.tres" % [Time.get_ticks_usec(), _saved_paths.size()]
+	var error: Error = ResourceSaver.save(graph, path, ResourceSaver.FLAG_CHANGE_PATH)
+	assert_eq(error, OK)
+	if error == OK:
+		graph.take_over_path(path)
+		assert_eq(graph.resource_path, path)
+	var _appended: bool = _saved_paths.append(path)
+	return path
+
+
+func _graph_path_edit_for_refresh(dock: GFFlowGraphDock) -> LineEdit:
+	for node: Node in dock.find_children("*", "LineEdit", true, false):
+		if node is LineEdit:
+			var edit: LineEdit = node
+			if edit.placeholder_text == "res://path/to/flow_graph.tres":
+				return edit
+	return null
+
 
 func _has_history_conflict_feedback(dock: GFFlowGraphDock) -> bool:
 	for child: Node in dock.find_children("*", "Label", true, false):
