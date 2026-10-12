@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSpringMath" path="addons/gf/standard/foundation/math/gf_spring_math.gd" module="standard" extends="RefCounted" classDigest="d60d779c36f19b67c10a1e653c18e54d9dc654f552388537315ab574efa30021">
+<class name="GFSpringMath" path="addons/gf/standard/foundation/math/gf_spring_math.gd" module="standard" extends="RefCounted" classDigest="2625354db2a00e56a8d3003c55308a9d9451bcc8933dc365439c06a976df472d">
 	<description>GFSpringMath: 通用二阶弹簧平滑数学工具。
 提供 float、角度、Vector2 与 Vector3 的稳定弹簧步进计算。
 它只根据当前值、速度、目标值和参数输出下一帧状态，不持有节点、不创建 Tween，
@@ -16,7 +16,8 @@
 	<methods>
 		<member kind="method" name="step_float">
 			<signature>static func step_float( current_value: float, velocity: float, target_value: float, delta_seconds: float, frequency_hz: float = 3.0, damping_ratio: float = 1.0, response: float = 0.0, target_velocity: float = 0.0 ) -&gt; Dictionary:</signature>
-			<description>对 float 值执行一次二阶弹簧步进。</description>
+			<description>对 float 值执行一次二阶弹簧步进。
+全部输入须有限；非有限输入或结果发出一次错误并返回空字典，不提供部分状态。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">current_value: 当前值。</tag>
@@ -27,13 +28,15 @@
 				<tag name="param">damping_ratio: 阻尼比；1 表示接近临界阻尼，0 表示无阻尼。</tag>
 				<tag name="param">response: 目标速度响应系数；0 表示忽略 `target_velocity` 的前馈。</tag>
 				<tag name="param">target_velocity: 目标值自身速度。</tag>
-				<tag name="return">包含下一帧 `value` 与 `velocity` 的字典。</tag>
-				<tag name="schema">return: Dictionary with `value: float` and `velocity: float`.</tag>
+				<tag name="return">成功包含下一帧 value 与 velocity；非有限输入或计算结果返回空字典。</tag>
+				<tag name="schema">return: Dictionary，失败为空，成功仅包含有限 value: float 与 velocity: float。</tag>
+				<tag name="since">4.1.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="step_angle">
 			<signature>static func step_angle( current_radians: float, velocity: float, target_radians: float, delta_seconds: float, frequency_hz: float = 3.0, damping_ratio: float = 1.0, response: float = 0.0, target_velocity: float = 0.0 ) -&gt; Dictionary:</signature>
-			<description>对弧度角执行一次二阶弹簧步进，并沿最短角度方向靠近目标。</description>
+			<description>对弧度角执行一次二阶弹簧步进，并沿最短角度方向靠近目标。
+全部输入先做有限准入；非有限输入或角差/步进结果发出一次错误并返回空字典。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">current_radians: 当前角度（弧度）。</tag>
@@ -44,13 +47,15 @@
 				<tag name="param">damping_ratio: 阻尼比；1 表示接近临界阻尼，0 表示无阻尼。</tag>
 				<tag name="param">response: 目标角速度响应系数；0 表示忽略 `target_velocity` 的前馈。</tag>
 				<tag name="param">target_velocity: 目标角度自身速度。</tag>
-				<tag name="return">包含下一帧 `value` 与 `velocity` 的字典；`value` 不会自动归一化。</tag>
-				<tag name="schema">return: Dictionary with `value: float` and `velocity: float`.</tag>
+				<tag name="return">成功包含下一帧 value 与 velocity，value 不会自动归一化；非有限输入或结果为空字典。</tag>
+				<tag name="schema">return: Dictionary，失败为空，成功仅包含有限 value: float 与 velocity: float。</tag>
+				<tag name="since">4.1.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="step_vector2">
 			<signature>static func step_vector2( current_value: Vector2, velocity: Vector2, target_value: Vector2, delta_seconds: float, frequency_hz: float = 3.0, damping_ratio: float = 1.0, response: float = 0.0, target_velocity: Vector2 = Vector2.ZERO ) -&gt; Dictionary:</signature>
-			<description>对 Vector2 值执行一次逐分量二阶弹簧步进。</description>
+			<description>对 Vector2 值执行一次逐分量二阶弹簧步进。
+全部输入分量与参数须有限；最终原生向量也须有限，失败发出一次错误并返回空字典。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">current_value: 当前值。</tag>
@@ -61,13 +66,15 @@
 				<tag name="param">damping_ratio: 阻尼比；1 表示接近临界阻尼，0 表示无阻尼。</tag>
 				<tag name="param">response: 目标速度响应系数；0 表示忽略 `target_velocity` 的前馈。</tag>
 				<tag name="param">target_velocity: 目标值自身速度。</tag>
-				<tag name="return">包含下一帧 `value` 与 `velocity` 的字典。</tag>
-				<tag name="schema">return: Dictionary with `value: Vector2` and `velocity: Vector2`.</tag>
+				<tag name="return">成功包含完整下一帧 value 与 velocity；非有限输入或任一结果分量为空字典。</tag>
+				<tag name="schema">return: Dictionary，失败为空，成功仅包含分量均有限的 value: Vector2 与 velocity: Vector2。</tag>
+				<tag name="since">4.1.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="step_vector3">
 			<signature>static func step_vector3( current_value: Vector3, velocity: Vector3, target_value: Vector3, delta_seconds: float, frequency_hz: float = 3.0, damping_ratio: float = 1.0, response: float = 0.0, target_velocity: Vector3 = Vector3.ZERO ) -&gt; Dictionary:</signature>
-			<description>对 Vector3 值执行一次逐分量二阶弹簧步进。</description>
+			<description>对 Vector3 值执行一次逐分量二阶弹簧步进。
+全部输入分量与参数须有限；最终原生向量也须有限，失败发出一次错误并返回空字典。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">current_value: 当前值。</tag>
@@ -78,8 +85,9 @@
 				<tag name="param">damping_ratio: 阻尼比；1 表示接近临界阻尼，0 表示无阻尼。</tag>
 				<tag name="param">response: 目标速度响应系数；0 表示忽略 `target_velocity` 的前馈。</tag>
 				<tag name="param">target_velocity: 目标值自身速度。</tag>
-				<tag name="return">包含下一帧 `value` 与 `velocity` 的字典。</tag>
-				<tag name="schema">return: Dictionary with `value: Vector3` and `velocity: Vector3`.</tag>
+				<tag name="return">成功包含完整下一帧 value 与 velocity；非有限输入或任一结果分量为空字典。</tag>
+				<tag name="schema">return: Dictionary，失败为空，成功仅包含分量均有限的 value: Vector3 与 velocity: Vector3。</tag>
+				<tag name="since">4.1.0</tag>
 			</tags>
 		</member>
 	</methods>
