@@ -67,8 +67,28 @@ var _lease_path: String = ""
 ## [br]
 var _lease_cache_key: String = ""
 
+## 原代保留票据；句柄释放前服务域不能销毁该代 Broker。
+## [br]
+## @api private
+var _service_retention: GFResourceServiceReservation = null
+
+## 释放后仍保留用于诊断的代次，不随当前入口变化。
+## [br]
+## @api private
+var _service_generation: int = 0
+
 
 # --- 公共方法 ---
+
+## 读取资源交付所属代次。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 固定代次；直接 Broker 绑定为 0。
+func get_service_generation() -> int:
+	return _service_generation
 
 ## 获取资源实例。
 ## [br]
@@ -124,6 +144,15 @@ func release() -> bool:
 
 
 # --- 框架内部方法 ---
+
+## 由 Asset 在发出 acquired 信号前绑定原代所有权。
+## [br]
+## @api framework_internal
+## [br]
+## @param retention: 原代保留票据；直接 Broker 模式为 null。
+func bind_service_retention(retention: GFResourceServiceReservation) -> void:
+	_service_retention = retention
+	_service_generation = retention.get_generation() if retention != null else 0
 
 ## 绑定句柄到创建它的资源加载工具。
 ## [br]
@@ -201,6 +230,9 @@ func is_managed_by(utility: GFAssetUtility) -> bool:
 ## [br]
 ## @api framework_internal
 func release_local_reference() -> void:
+	if _service_retention != null:
+		_service_retention.release()
+		_service_retention = null
 	_released = true
 	resource = null
 

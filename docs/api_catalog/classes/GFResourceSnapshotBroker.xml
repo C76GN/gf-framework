@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFResourceSnapshotBroker" path="addons/gf/standard/utilities/assets/gf_resource_snapshot_broker.gd" module="standard" extends="GFResourceBroker" classDigest="f19789e6fabaa8fd0eefbf39ea51b2780fae6358ce7354dbcfcbefb6d60cfd8a">
+	<description>GFResourceSnapshotBroker：以预加载 Resource 映射提供独立实例的异步资源服务。
+映射初始化后冻结；不调用全局 ResourceLoader，不修改或销毁资源内容。
+Resource 自身由引用计数持有，项目仍须按自己的资源数据契约控制修改。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure(resources: Dictionary) -&gt; Error:</signature>
+			<description>冻结资源映射并初始化 Broker；失败不提交部分映射。
+路径是逻辑资源路径，可以没有对应磁盘文件；不同代可映射到不同 Resource。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resources: 1–4096 项逻辑路径与非空 Resource。</tag>
+				<tag name="return">已配置返回 ERR_ALREADY_IN_USE，无效输入返回 ERR_INVALID_PARAMETER。</tag>
+				<tag name="schema">resources: Dictionary[String, Resource]，键须为可规范化的 res:// 或 uid:// 路径；规范化后不能重复。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_configured">
+			<signature>func is_configured() -&gt; bool:</signature>
+			<description>获取实例是否拥有已冻结映射；服务域仍会核对具体实现身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">配置成功时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_request_threaded_resource">
+			<signature>func _request_threaded_resource(path: String, type_hint: String) -&gt; Error:</signature>
+			<description>对实例私有映射执行准入，不访问全局 path keyed threaded loader。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">path: 规范化逻辑路径。</tag>
+				<tag name="param">type_hint: 可选原生类或全局脚本类型。</tag>
+				<tag name="return">缺失路径或类型不符时失败。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_poll_threaded_resource">
+			<signature>func _poll_threaded_resource(path: String, _previous_progress: float) -&gt; Dictionary:</signature>
+			<description>最早在下一次 pump 交付；请求与结果只访问本代映射。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">path: 已准入路径。</tag>
+				<tag name="param">_previous_progress: 此后端不需要中间进度。</tag>
+				<tag name="return">completed 适配器结果。</tag>
+				<tag name="schema">return: Dictionary with status: StringName, progress: float, resource: Resource, has_resource: bool, error: String.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

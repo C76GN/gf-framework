@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gf-framework.dev/schemas/project-snapshot-v9.json",
+  "$id": "https://gf-framework.dev/schemas/project-snapshot-v10.json",
   "title": "GF Observed Project Snapshot",
   "type": "object",
   "additionalProperties": false,
@@ -16,7 +16,7 @@
     "drift"
   ],
   "properties": {
-    "schema_version": {"type": "integer", "const": 9},
+    "schema_version": {"type": "integer", "const": 10},
     "generator_version": {"type": "string", "minLength": 1},
     "generated_at_utc": {"type": "string", "minLength": 1},
     "project_root": {"type": "string", "const": "."},
@@ -30,7 +30,7 @@
         "sha256": {"type": "string", "pattern": "^$|^[0-9a-f]{64}$"},
         "issue_count": {"type": "integer", "minimum": 0},
         "schema_version": {"type": "integer", "minimum": 0},
-        "current_schema_version": {"type": "integer", "const": 5},
+        "current_schema_version": {"type": "integer", "const": 6},
         "migration_required": {"type": "boolean"},
         "migration_available": {"type": "boolean"}
       }
@@ -152,7 +152,7 @@
           "additionalProperties": false,
           "required": [
             "status", "complete", "catalog", "catalog_issue_count", "catalog_issues_truncated", "catalog_issues",
-            "contract_issue_count", "required_packages", "optional_packages", "allowed_packages", "forbidden_packages",
+            "contract_issue_count", "declared_usage_packages", "allowed_packages", "forbidden_usage_packages",
             "source_domains", "domains", "observation_count", "observations_truncated", "observations",
             "actionable_count", "actionable_observations_truncated", "actionable_observations",
             "advisory_count", "advisories_truncated", "advisories", "script_count", "scanned_script_count",
@@ -178,10 +178,9 @@
             "catalog_issues_truncated": {"type": "boolean"},
             "catalog_issues": {"type": "array", "maxItems": 20, "items": {"type": "string", "minLength": 1}},
             "contract_issue_count": {"type": "integer", "minimum": 0},
-            "required_packages": {"type": "array", "maxItems": 100, "uniqueItems": true, "items": {"type": "string", "pattern": "^gf\\.[a-z0-9_.-]+$"}},
-            "optional_packages": {"type": "array", "maxItems": 100, "uniqueItems": true, "items": {"type": "string", "pattern": "^gf\\.[a-z0-9_.-]+$"}},
+            "declared_usage_packages": {"type": "array", "maxItems": 200, "uniqueItems": true, "items": {"type": "string", "pattern": "^gf\\.[a-z0-9_.-]+$"}},
             "allowed_packages": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^gf\\.[a-z0-9_.-]+$"}},
-            "forbidden_packages": {"type": "array", "maxItems": 100, "uniqueItems": true, "items": {"type": "string", "pattern": "^gf\\.[a-z0-9_.-]+$"}},
+            "forbidden_usage_packages": {"type": "array", "maxItems": 100, "uniqueItems": true, "items": {"type": "string", "pattern": "^gf\\.[a-z0-9_.-]+$"}},
             "source_domains": {
               "type": "array",
               "maxItems": 100,

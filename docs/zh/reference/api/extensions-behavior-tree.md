@@ -8,7 +8,7 @@
 |---|---:|---:|---:|
 | [协议与扩展点](#category-protocol) | 3 | 22 | 13 |
 | [运行时句柄](#category-runtime_handle) | 1 | 6 | 4 |
-| [领域模型](#category-domain_model) | 18 | 68 | 55 |
+| [领域模型](#category-domain_model) | 19 | 73 | 60 |
 
 ## 类
 
@@ -48,6 +48,7 @@
 | [`GFBehaviorTree.Probability`](classes/GFBehaviorTree.md#gfbehaviortreeprobability) | `Decorator` | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
 | [`GFBehaviorTree.RandomSelector`](classes/GFBehaviorTree.md#gfbehaviortreerandomselector) | `BTNode` | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
 | [`GFBehaviorTree.RandomSequence`](classes/GFBehaviorTree.md#gfbehaviortreerandomsequence) | `BTNode` | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
+| [`GFBehaviorTree.RecoverError`](classes/GFBehaviorTree.md#gfbehaviortreerecovererror) | `BTNode` | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
 | [`GFBehaviorTree.Repeat`](classes/GFBehaviorTree.md#gfbehaviortreerepeat) | `Decorator` | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
 | [`GFBehaviorTree.Selector`](classes/GFBehaviorTree.md#gfbehaviortreeselector) | `BTNode` | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
 | [`GFBehaviorTree.Sequence`](classes/GFBehaviorTree.md#gfbehaviortreesequence) | `BTNode` | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |

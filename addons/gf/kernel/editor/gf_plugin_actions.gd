@@ -147,6 +147,11 @@ const SECTION_EXTENSION_TOOLS: String = "扩展工具"
 
 # --- 私有变量 ---
 
+## 本次菜单、模板和设置贡献安装中被拒绝的原因。
+## [br]
+## @api private
+var _setup_issues: Array[String] = []
+
 ## 供用户选择模板输出路径的 FileDialog。
 ## [br]
 ## @api private
@@ -227,6 +232,7 @@ var _dependencies: RefCounted
 ## [br]
 ## @param dependencies: 可选依赖 provider；为空时使用默认 GFPluginActionDependencies。
 func setup(template_records: Array = [], dependencies: RefCounted = null) -> void:
+	_setup_issues.clear()
 	cleanup()
 	_set_dependencies(dependencies)
 	_file_dialog = FileDialog.new()
@@ -239,6 +245,17 @@ func setup(template_records: Array = [], dependencies: RefCounted = null) -> voi
 	if base_control != null:
 		base_control.add_child(_file_dialog)
 	_setup_menu_actions(template_records)
+
+
+## 返回本轮安装中未能应用的贡献原因。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @return: 安装失败原因副本。
+func get_setup_issues() -> Array[String]:
+	return _setup_issues.duplicate()
 
 
 ## 清理菜单动作持有的对话框。
@@ -432,9 +449,11 @@ func _register_template_record(source_record: Dictionary) -> void:
 	).strip_edges()
 	if template_id.is_empty():
 		push_error("[GFPluginActions][plugin_actions.template_source_id_empty] Skipped a template with an empty source_id.")
+		_setup_issues.append("template:source_id_empty")
 		return
 	var template_type: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(source_record, "type", "").strip_edges()
 	if template_type.is_empty():
+		_setup_issues.append("template:type_empty:%s" % template_id)
 		return
 
 	var record: Dictionary = source_record.duplicate(true)
@@ -443,6 +462,7 @@ func _register_template_record(source_record: Dictionary) -> void:
 		record["base_class"] = "GF" + template_type
 	if _template_records.has(template_id):
 		push_error("[GFPluginActions][plugin_actions.template_source_id_duplicate] Skipped a duplicate template source_id: %s." % template_id)
+		_setup_issues.append("template:source_id_duplicate:%s" % template_id)
 		return
 
 	var menu_id: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(record, "menu_id", -1)
@@ -450,6 +470,7 @@ func _register_template_record(source_record: Dictionary) -> void:
 		menu_id = _allocate_template_menu_id()
 	if _menu_action_handlers.has(menu_id):
 		push_error("[GFPluginActions][plugin_actions.template_menu_id_duplicate] Skipped a duplicate template menu ID: %s." % menu_id)
+		_setup_issues.append("template:menu_id_duplicate:%s" % menu_id)
 		return
 
 	var label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "label", "生成 " + template_type).strip_edges()
@@ -490,6 +511,7 @@ func _register_fixed_menu_action(
 ) -> void:
 	if _menu_action_handlers.has(menu_id):
 		push_error("[GFPluginActions][plugin_actions.fixed_menu_id_duplicate] Skipped a duplicate fixed menu ID: %s." % menu_id)
+		_setup_issues.append("menu:fixed_id_duplicate:%s" % menu_id)
 		return
 
 	_menu_action_handlers[menu_id] = {
@@ -607,11 +629,13 @@ func _create_extension_editor_action(script_path: String) -> RefCounted:
 	var script: Script = _load_script(script_path)
 	if script == null or not script.can_instantiate():
 		push_error("[GFPluginActions][plugin_actions.extension_action_load_failed] Could not load the extension editor action: %s." % script_path)
+		_setup_issues.append("action:load_failed:%s" % script_path)
 		return null
 
 	var instance: RefCounted = _variant_to_ref_counted(script.call("new"))
 	if instance == null:
 		push_error("[GFPluginActions][plugin_actions.extension_action_instantiation_failed] Could not instantiate the extension editor action: %s." % script_path)
+		_setup_issues.append("action:instantiation_failed:%s" % script_path)
 		return null
 	return instance
 
@@ -627,12 +651,15 @@ func _register_extension_template_records(action: RefCounted, script_path: Strin
 	var records_variant: Variant = action.call("get_template_records")
 	if not (records_variant is Array):
 		push_error("[GFPluginActions][plugin_actions.extension_template_invalid] Invalid extension script template declaration: %s." % script_path)
+		_setup_issues.append("template:invalid:%s" % script_path)
 		return
 
 	var records: Array[Dictionary] = []
 	for record_variant: Variant in records_variant:
 		if record_variant is Dictionary:
 			records.append(_GF_VARIANT_ACCESS_SCRIPT.to_dictionary(record_variant))
+		else:
+			_setup_issues.append("template:entry_invalid:%s" % script_path)
 	_register_template_records(records)
 
 
@@ -646,17 +673,22 @@ func _register_extension_project_setting_records(action: RefCounted, script_path
 	var records_variant: Variant = action.call("get_project_setting_records")
 	if not records_variant is Array:
 		push_error("[GFPluginActions][plugin_actions.extension_settings_invalid] Invalid extension project settings declaration: %s." % script_path)
+		_setup_issues.append("settings:invalid:%s" % script_path)
 		return
 	var records: Array = records_variant
 	for record_variant: Variant in records:
 		if not record_variant is Dictionary:
+			_setup_issues.append("settings:entry_invalid:%s" % script_path)
 			continue
 		var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.to_dictionary(record_variant)
 		var setting_name: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 			record,
 			"name"
 		).strip_edges()
-		if setting_name.is_empty() or _has_project_setting_record(setting_name):
+		if setting_name.is_empty():
+			_setup_issues.append("settings:name_empty:%s" % script_path)
+			continue
+		if _has_project_setting_record(setting_name):
 			continue
 		_extension_project_setting_records.append(record.duplicate(true))
 
@@ -675,17 +707,22 @@ func _register_extension_project_setting_section_records(
 	var records_variant: Variant = action.call("get_project_setting_section_records")
 	if not records_variant is Array:
 		push_error("[GFPluginActions][plugin_actions.extension_settings_section_invalid] Invalid extension project settings section declaration: %s." % script_path)
+		_setup_issues.append("settings:section_invalid:%s" % script_path)
 		return
 	var records: Array = records_variant
 	for record_variant: Variant in records:
 		if not record_variant is Dictionary:
+			_setup_issues.append("settings:section_entry_invalid:%s" % script_path)
 			continue
 		var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.to_dictionary(record_variant)
 		var section_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 			record,
 			"path"
 		).strip_edges().trim_suffix("/")
-		if section_path.is_empty() or _has_project_setting_section_record(section_path):
+		if section_path.is_empty():
+			_setup_issues.append("settings:section_path_empty:%s" % script_path)
+			continue
+		if _has_project_setting_section_record(section_path):
 			continue
 		record["path"] = section_path
 		_extension_project_setting_section_records.append(record.duplicate(true))
@@ -734,15 +771,18 @@ func _register_extension_action_entries(action: RefCounted, script_path: String)
 	var entries_variant: Variant = action.call("get_menu_entries")
 	if not (entries_variant is Array):
 		push_error("[GFPluginActions][plugin_actions.extension_action_menu_invalid] Invalid extension editor action menu declaration: %s." % script_path)
+		_setup_issues.append("menu:invalid:%s" % script_path)
 		return
 
 	for entry_variant: Variant in entries_variant:
 		if not (entry_variant is Dictionary):
+			_setup_issues.append("menu:entry_invalid:%s" % script_path)
 			continue
 		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.to_dictionary(entry_variant)
 		var action_id: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(entry, "id", &"")
 		var label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "label", "").strip_edges()
 		if action_id == &"" or label.is_empty():
+			_setup_issues.append("menu:entry_invalid:%s" % script_path)
 			continue
 
 		var menu_id: int = _next_extension_menu_id

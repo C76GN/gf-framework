@@ -333,7 +333,7 @@ func test_same_broker_rebind_is_idempotent_while_asset_request_is_active() -> vo
 	broker.dispose()
 
 
-func test_owned_broker_replacement_waits_for_cancelled_request_to_drain() -> void:
+func test_owned_broker_replacement_remains_refused_after_cancelled_request_drains() -> void:
 	var assets: GFAssetUtility = GFAssetUtility.new()
 	assets.init()
 	await _assert_owned_broker_replacement_waits_for_drain(
@@ -344,7 +344,7 @@ func test_owned_broker_replacement_waits_for_cancelled_request_to_drain() -> voi
 	)
 
 
-func test_scene_owned_broker_replacement_waits_for_cancelled_request_to_drain() -> void:
+func test_scene_owned_broker_replacement_remains_refused_after_drain() -> void:
 	var scenes: GFSceneUtility = GFSceneUtility.new()
 	scenes.init()
 	await _assert_owned_broker_replacement_waits_for_drain(
@@ -355,7 +355,7 @@ func test_scene_owned_broker_replacement_waits_for_cancelled_request_to_drain() 
 	)
 
 
-func test_background_owned_broker_replacement_waits_for_cancelled_request_to_drain() -> void:
+func test_background_owned_broker_replacement_remains_refused_after_drain() -> void:
 	var jobs: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
 	jobs.init()
 	await _assert_owned_broker_replacement_waits_for_drain(
@@ -740,8 +740,8 @@ func _assert_owned_broker_replacement_waits_for_drain(
 	replacement.init()
 	assert_eq(
 		GFVariantData.to_int(set_broker.call(replacement), ERR_BUG),
-		ERR_BUSY,
-		"owned Broker 尚未 idle 时必须拒绝替换。"
+		ERR_ALREADY_IN_USE,
+		"固定绑定不允许在生命周期内更换实例。"
 	)
 
 	for _iteration: int in range(120):
@@ -751,7 +751,7 @@ func _assert_owned_broker_replacement_waits_for_drain(
 		await get_tree().process_frame
 	assert_true(retiring.is_idle(), "保留的 owned Broker 应可继续推进到 idle。")
 	retiring_lease.release()
-	assert_eq(GFVariantData.to_int(set_broker.call(replacement), ERR_BUG), OK)
+	assert_eq(GFVariantData.to_int(set_broker.call(replacement), ERR_BUG), ERR_ALREADY_IN_USE)
 	dispose_consumer.call()
 	replacement.dispose()
 

@@ -17,6 +17,8 @@ class_name GFBehaviorTree
 ## 行为树节点的执行状态。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 enum Status {
 	## 节点尚未被 tick。
 	FRESH = -1,
@@ -28,6 +30,8 @@ enum Status {
 	RUNNING = 2,
 	## 节点被外部中止。
 	ABORTED = 3,
+	## 执行协议或配置错误；普通组合节点不得恢复或翻转。
+	ERROR = 4,
 }
 
 ## Parallel 节点的完成策略。
@@ -135,6 +139,8 @@ const _DEBUG_CODEC_NODE_OVERHEAD: int = 512
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param status: 行为树状态。
 ## [br]
 ## @return: 状态文本。
@@ -150,6 +156,8 @@ static func status_to_string(status: int) -> StringName:
 			return &"running"
 		Status.ABORTED:
 			return &"aborted"
+		Status.ERROR:
+			return &"error"
 		_:
 			return &"unknown"
 
@@ -350,7 +358,7 @@ static func _read_debug_budget_int(
 ## 将有效的整数 tick 状态保留，否则返回指定回退状态。
 ## [br]
 ## @api private
-static func _variant_to_status(value: Variant, fallback_status: int = Status.FAILURE) -> int:
+static func _variant_to_status(value: Variant, fallback_status: int = Status.ERROR) -> int:
 	if value is int:
 		var status: int = value
 		if _is_valid_tick_status(status):
@@ -358,7 +366,7 @@ static func _variant_to_status(value: Variant, fallback_status: int = Status.FAI
 	return fallback_status
 
 
-## 判断状态是否属于 SUCCESS、FAILURE、RUNNING 或 ABORTED。
+## 判断状态是否属于 SUCCESS、FAILURE、RUNNING、ABORTED 或 ERROR。
 ## [br]
 ## @api private
 static func _is_valid_tick_status(status: int) -> bool:
@@ -367,6 +375,7 @@ static func _is_valid_tick_status(status: int) -> bool:
 		or status == Status.FAILURE
 		or status == Status.RUNNING
 		or status == Status.ABORTED
+		or status == Status.ERROR
 	)
 
 
@@ -431,24 +440,11 @@ static func _condition_reason_from_value(value: Variant) -> StringName:
 	return &"invalid_condition_result"
 
 
-## 判断原因是否属于状态、条件或运行时副本协议错误。
+## 判断状态是否为不可由普通组合语义恢复的执行错误。
 ## [br]
 ## @api private
-static func _is_error_reason(reason: StringName) -> bool:
-	return (
-		reason == &"invalid_status"
-		or reason == &"invalid_condition"
-		or reason == &"invalid_condition_result"
-		or reason == &"runtime_duplicate_missing_override"
-		or reason == &"missing_tick_override"
-	)
-
-
-## 判断子节点原因是否为中止或需向上传播的错误。
-## [br]
-## @api private
-static func _should_propagate_child_reason(reason: StringName) -> bool:
-	return reason == &"aborted" or _is_error_reason(reason)
+static func _is_error(status: int) -> bool:
+	return status == Status.ERROR
 
 
 ## 优先返回显式随机源，否则读取黑板中的 rng 对象。
@@ -719,7 +715,7 @@ class BTNode extends RefCounted:
 	## @schema _blackboard: Dictionary 形式黑板；字段由项目自定义。
 	func tick(_blackboard: Dictionary) -> int:
 		var reason: StringName = _get_missing_tick_reason()
-		return _record_tick(Status.FAILURE, reason)
+		return _record_tick(Status.ERROR, reason)
 
 
 	## 重置节点内部运行状态。
@@ -782,6 +778,8 @@ class BTNode extends RefCounted:
 		)
 		last_status = normalized_status
 		last_reason = normalized_reason if normalized_reason != &"" else reason
+		if normalized_status == Status.ERROR and last_reason == &"":
+			last_reason = &"execution_error"
 		last_tick_usec = maxi(elapsed_usec, 0)
 		tick_count += 1
 		return normalized_status
@@ -1009,15 +1007,17 @@ class BTNode extends RefCounted:
 		return false
 
 
-	## 优先使用返回值归一化产生的原因，否则按允许传播规则读取子节点原因。
+	## 无效状态和中止先规范化；ERROR 使用子节点本次错误原因，其余状态不携带错误旁路。
 	## [br]
 	## @api private
 	func _get_child_status_reason(child: BTNode, value: Variant, normalized_status: int) -> StringName:
 		var reason: StringName = GFBehaviorTree._status_reason_from_value(value, normalized_status)
 		if reason != &"":
 			return reason
-		if child != null and GFBehaviorTree._should_propagate_child_reason(child.last_reason):
-			return child.last_reason
+		if GFBehaviorTree._is_error(normalized_status):
+			if child != null and child.last_status == Status.ERROR and child.last_reason != &"":
+				return child.last_reason
+			return &"execution_error"
 		return &""
 
 
@@ -1291,7 +1291,7 @@ class Sequence extends BTNode:
 			var status: int = GFBehaviorTree._variant_to_status(status_value)
 			var reason: StringName = _get_child_status_reason(child, status_value, status)
 			if not GFBehaviorTree._is_success(status):
-				if GFBehaviorTree._is_failure(status) or GFBehaviorTree._is_aborted(status):
+				if not GFBehaviorTree._is_running(status):
 					reset()
 				return _record_tick(status, reason, started)
 			_current_child_idx += 1
@@ -1393,7 +1393,7 @@ class Selector extends BTNode:
 				return _record_tick(Status.ABORTED, &"runtime_reset", started)
 			var status: int = GFBehaviorTree._variant_to_status(status_value)
 			var reason: StringName = _get_child_status_reason(child, status_value, status)
-			if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
+			if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 				reset()
 				return _record_tick(status, reason, started)
 			if not GFBehaviorTree._is_failure(status):
@@ -1520,9 +1520,9 @@ class Parallel extends BTNode:
 					return _record_tick(Status.ABORTED, &"runtime_reset", started)
 				status = GFBehaviorTree._variant_to_status(status_value)
 				var reason: StringName = _get_child_status_reason(child, status_value, status)
-				if reason == &"invalid_status":
+				if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 					reset()
-					return _record_tick(Status.FAILURE, reason, started)
+					return _record_tick(status, reason, started)
 				if not GFBehaviorTree._is_running(status):
 					_child_statuses[index] = status
 
@@ -1681,7 +1681,7 @@ class RandomSelector extends BTNode:
 				return _record_tick(Status.ABORTED, &"runtime_reset", started)
 			var status: int = GFBehaviorTree._variant_to_status(status_value)
 			var reason: StringName = _get_child_status_reason(child, status_value, status)
-			if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
+			if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 				reset()
 				return _record_tick(status, reason, started)
 			if not GFBehaviorTree._is_failure(status):
@@ -1812,7 +1812,7 @@ class RandomSequence extends BTNode:
 			var status: int = GFBehaviorTree._variant_to_status(status_value)
 			var reason: StringName = _get_child_status_reason(child, status_value, status)
 			if not GFBehaviorTree._is_success(status):
-				if GFBehaviorTree._is_failure(status) or GFBehaviorTree._is_aborted(status):
+				if not GFBehaviorTree._is_running(status):
 					reset()
 				return _record_tick(status, reason, started)
 			_current_child_idx += 1
@@ -1912,7 +1912,7 @@ class Action extends BTNode:
 			var status: int = GFBehaviorTree._variant_to_status(status_value)
 			var reason: StringName = GFBehaviorTree._status_reason_from_value(status_value, status)
 			return _record_tick(status, reason, started)
-		return _record_tick(Status.FAILURE, &"invalid_action", started)
+		return _record_tick(Status.ERROR, &"invalid_action", started)
 
 
 	## 创建可独立运行的动作节点副本。
@@ -1929,7 +1929,7 @@ class Action extends BTNode:
 ## 条件检查节点 (叶子节点)。
 ##
 ## 包装一个返回布尔值的回调。true 为 SUCCESS，false 为 FAILURE；无效 Callable
-## 返回 FAILURE 并记录 invalid_condition，不与合法 condition_false 混同。
+## 返回 ERROR 并记录 invalid_condition，不与合法 condition_false 混同。
 ## [br]
 ## @api public
 ## [br]
@@ -1969,12 +1969,12 @@ class Condition extends BTNode:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if not _condition_func.is_valid():
-			return _record_tick(Status.FAILURE, &"invalid_condition", started)
+			return _record_tick(Status.ERROR, &"invalid_condition", started)
 
 		var condition_value: Variant = _condition_func.call(blackboard)
 		var reason: StringName = GFBehaviorTree._condition_reason_from_value(condition_value)
 		if reason != &"":
-			return _record_tick(Status.FAILURE, reason, started)
+			return _record_tick(Status.ERROR, reason, started)
 		if GFBehaviorTree._condition_result_to_bool(condition_value):
 			return _record_tick(Status.SUCCESS, &"", started)
 		return _record_tick(Status.FAILURE, &"condition_false", started)
@@ -2126,14 +2126,14 @@ class Inverter extends Decorator:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
-			return _record_tick(Status.FAILURE, &"missing_child", started)
+			return _record_tick(Status.ERROR, &"missing_child", started)
 		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
 			return _record_tick(Status.ABORTED, &"runtime_reset", started)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
 		var reason: StringName = _get_child_status_reason(_child, status_value, status)
-		if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
+		if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 			_child.reset()
 			return _record_tick(status, reason, started)
 		if GFBehaviorTree._is_success(status):
@@ -2158,7 +2158,8 @@ class Inverter extends Decorator:
 
 ## 总是成功装饰节点。
 ##
-## 子节点运行中时保持 RUNNING，子节点结束时统一返回 SUCCESS。
+## 将子节点的业务成功或失败转换为 SUCCESS；RUNNING、ERROR 和 ABORTED 原样传播。
+## 缺少必需子节点属于 ERROR，只能由显式错误恢复节点处理。
 ## [br]
 ## @api public
 ## [br]
@@ -2192,14 +2193,14 @@ class AlwaysSucceed extends Decorator:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
-			return _record_tick(Status.SUCCESS, &"missing_child", started)
+			return _record_tick(Status.ERROR, &"missing_child", started)
 		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
 			return _record_tick(Status.ABORTED, &"runtime_reset", started)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
 		var reason: StringName = _get_child_status_reason(_child, status_value, status)
-		if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
+		if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 			_child.reset()
 			return _record_tick(status, reason, started)
 		if GFBehaviorTree._is_running(status):
@@ -2221,7 +2222,8 @@ class AlwaysSucceed extends Decorator:
 
 ## 总是失败装饰节点。
 ##
-## 子节点运行中时保持 RUNNING，子节点结束时统一返回 FAILURE。
+## 将子节点的业务成功或失败转换为 FAILURE；RUNNING、ERROR 和 ABORTED 原样传播。
+## 缺少必需子节点属于 ERROR，只能由显式错误恢复节点处理。
 ## [br]
 ## @api public
 ## [br]
@@ -2255,14 +2257,14 @@ class AlwaysFail extends Decorator:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
-			return _record_tick(Status.FAILURE, &"missing_child", started)
+			return _record_tick(Status.ERROR, &"missing_child", started)
 		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
 			return _record_tick(Status.ABORTED, &"runtime_reset", started)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
 		var reason: StringName = _get_child_status_reason(_child, status_value, status)
-		if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
+		if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 			_child.reset()
 			return _record_tick(status, reason, started)
 		if GFBehaviorTree._is_running(status):
@@ -2341,7 +2343,7 @@ class Probability extends Decorator:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
-			return _record_tick(Status.FAILURE, &"missing_child", started)
+			return _record_tick(Status.ERROR, &"missing_child", started)
 		if not _decision_made:
 			var active_rng: RandomNumberGenerator = _resolve_rng(blackboard)
 			var roll: float = active_rng.randf() if active_rng != null else randf()
@@ -2465,7 +2467,7 @@ class Cooldown extends Decorator:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
-			return _record_tick(Status.FAILURE, &"missing_child", started)
+			return _record_tick(Status.ERROR, &"missing_child", started)
 		var now: int = _resolve_time_msec()
 		if _last_finish_msec >= 0 and now - _last_finish_msec < GFBehaviorTree._seconds_to_msec(cooldown_seconds):
 			return _record_tick(Status.FAILURE, &"cooldown_active", started)
@@ -2479,7 +2481,6 @@ class Cooldown extends Decorator:
 			_child.reset()
 		if (
 			(GFBehaviorTree._is_success(status) or GFBehaviorTree._is_failure(status))
-			and not GFBehaviorTree._is_error_reason(reason)
 		):
 			_last_finish_msec = _resolve_time_msec()
 		return _record_tick(status, reason, started)
@@ -2598,7 +2599,7 @@ class TimeLimit extends Decorator:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
-			return _record_tick(Status.FAILURE, &"missing_child", started)
+			return _record_tick(Status.ERROR, &"missing_child", started)
 		var now: int = _resolve_time_msec()
 		if _started_msec < 0:
 			_started_msec = now
@@ -2695,7 +2696,9 @@ class Limit extends Decorator:
 	## @schema blackboard: Dictionary 形式黑板；字段由项目自定义。
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
-		if _child == null or max_ticks <= 0:
+		if _child == null:
+			return _record_tick(Status.ERROR, &"missing_child", started)
+		if max_ticks <= 0:
 			return _record_tick(Status.FAILURE, &"limit_blocked", started)
 		if _tick_count >= max_ticks:
 			_child.reset()
@@ -2778,7 +2781,7 @@ class Repeat extends Decorator:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
-			return _record_tick(Status.FAILURE, &"missing_child", started)
+			return _record_tick(Status.ERROR, &"missing_child", started)
 
 		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
@@ -2788,9 +2791,9 @@ class Repeat extends Decorator:
 		var reason: StringName = _get_child_status_reason(_child, status_value, status)
 		if GFBehaviorTree._is_running(status):
 			return _record_tick(Status.RUNNING, &"", started)
-		if GFBehaviorTree._is_failure(status) or reason == &"invalid_status":
+		if GFBehaviorTree._is_failure(status) or GFBehaviorTree._is_error(status):
 			reset()
-			return _record_tick(Status.FAILURE, reason, started)
+			return _record_tick(status, reason, started)
 		if GFBehaviorTree._is_aborted(status):
 			reset()
 			return _record_tick(Status.ABORTED, reason, started)
@@ -2858,14 +2861,14 @@ class UntilSuccess extends Decorator:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
-			return _record_tick(Status.FAILURE, &"missing_child", started)
+			return _record_tick(Status.ERROR, &"missing_child", started)
 		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
 			return _record_tick(Status.ABORTED, &"runtime_reset", started)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
 		var reason: StringName = _get_child_status_reason(_child, status_value, status)
-		if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
+		if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 			reset()
 			return _record_tick(status, reason, started)
 		if GFBehaviorTree._is_success(status):
@@ -2923,14 +2926,14 @@ class UntilFail extends Decorator:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _child == null:
-			return _record_tick(Status.FAILURE, &"missing_child", started)
+			return _record_tick(Status.ERROR, &"missing_child", started)
 		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
 			return _record_tick(Status.ABORTED, &"runtime_reset", started)
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
 		var reason: StringName = _get_child_status_reason(_child, status_value, status)
-		if reason == &"invalid_status" or GFBehaviorTree._is_aborted(status):
+		if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 			reset()
 			return _record_tick(status, reason, started)
 		if GFBehaviorTree._is_failure(status):
@@ -2950,6 +2953,237 @@ class UntilFail extends Decorator:
 		var copy: UntilFail = UntilFail.new(_duplicate_child())
 		_copy_base_fields_to(copy)
 		return copy
+
+
+## 只对明确允许的执行错误启动一次恢复分支。
+##
+## child 返回 ERROR 且原因精确命中 allowed_reasons 时，先 reset 原分支再运行 recovery。
+## 恢复 RUNNING 期间只推进 recovery；其 ERROR 或 ABORTED 直接传播，不再次恢复或重放 child。
+## 每次尝试的终态保持到显式 reset；reset 只通知节点清理，不承诺回滚外部副作用。
+## 原分支和恢复分支必须非空且不是同一实例；原因列表为 1..64 个唯一的小写 ASCII 标识，
+## 可用点分段，每个原因最多 128 字符，不接受通配符、aborted 或 runtime_reset。
+## [br]
+## @api public
+## [br]
+## @category domain_model
+## [br]
+## @since unreleased
+class RecoverError extends BTNode:
+	# --- 私有变量 ---
+
+	## 本次正常尝试的节点；恢复期间不再调用其 tick。
+	## [br]
+	## @api private
+	var _child: BTNode
+
+	## 显式错误恢复节点，使用相同黑板但不隐式重放原操作。
+	## [br]
+	## @api private
+	var _recovery: BTNode
+
+	## 已验证的精确错误原因，不保留调用方数组别名。
+	## [br]
+	## @api private
+	var _allowed_reasons: Array[StringName] = []
+
+	## 构造配置失败时的稳定错误原因；失败时不执行任何分支。
+	## [br]
+	## @api private
+	var _configuration_error: StringName = &""
+
+	## 当前尝试是否已经进入恢复分支。
+	## [br]
+	## @api private
+	var _recovering: bool = false
+
+	## 最近一次触发恢复的源错误；reset 时清除。
+	## [br]
+	## @api private
+	var _caught_reason: StringName = &""
+
+	## 已完成尝试的状态，显式 reset 前保持而不重复产生副作用。
+	## [br]
+	## @api private
+	var _terminal_status: int = Status.FRESH
+
+	## 与已完成状态绑定的原因。
+	## [br]
+	## @api private
+	var _terminal_reason: StringName = &""
+
+	## 阻止同步回调重入同一尝试。
+	## [br]
+	## @api private
+	var _tick_in_progress: bool = false
+
+	## reset 清理通知期间阻止重入和重复清理。
+	## [br]
+	## @api private
+	var _resetting: bool = false
+
+
+	# --- Godot 生命周期方法 ---
+
+	## 校验恢复策略并复制原因白名单；非法策略保留为可观察 ERROR，不触发分支。
+	## [br]
+	## @api private
+	func _init(child_node: BTNode, recovery_node: BTNode, allowed_reasons: Array[StringName]) -> void:
+		name = "RecoverError"
+		_child = child_node
+		_recovery = recovery_node
+		if _child == null or _recovery == null or _child == _recovery:
+			_configuration_error = &"invalid_recovery_children"
+			return
+		if allowed_reasons.is_empty() or allowed_reasons.size() > 64:
+			_configuration_error = &"invalid_recovery_policy"
+			return
+		for reason: StringName in allowed_reasons:
+			if not _is_valid_allowed_reason(reason) or _allowed_reasons.has(reason):
+				_configuration_error = &"invalid_recovery_policy"
+				return
+			_allowed_reasons.append(reason)
+
+
+	# --- 公共方法 ---
+
+	## 推进一次正常或恢复分支；终态直到 reset 才解除。
+	## [br]
+	## @api public
+	## [br]
+	## @since unreleased
+	## [br]
+	## @param blackboard: 两个分支共用的项目黑板，不注入或覆盖任何错误键。
+	## [br]
+	## @schema blackboard: Dictionary，字段由项目维护。
+	## [br]
+	## @return: Status；未允许的 ERROR 与恢复 ERROR 保持错误原因，ABORTED 保持中止状态。
+	func tick(blackboard: Dictionary) -> int:
+		var started: int = Time.get_ticks_usec()
+		if _resetting:
+			return _record_tick(Status.ABORTED, &"reentrant_tick", started)
+		if _tick_in_progress:
+			reset()
+			_terminal_status = Status.ABORTED
+			_terminal_reason = &"reentrant_tick"
+			return _record_tick(Status.ABORTED, &"reentrant_tick", started)
+		if _configuration_error != &"":
+			return _record_tick(Status.ERROR, _configuration_error, started)
+		if _terminal_status != Status.FRESH:
+			return _record_tick(_terminal_status, _terminal_reason, started)
+		_tick_in_progress = true
+		var status: int = _tick_attempt(blackboard, started)
+		_tick_in_progress = false
+		return status
+
+
+	## 获取本次尝试实际匹配的源错误，未进入恢复或 reset 后为空。
+	## [br]
+	## @api public
+	## [br]
+	## @since unreleased
+	## [br]
+	## @return: 精确错误原因；不将业务失败或 ABORTED 伪装为错误。
+	func get_caught_reason() -> StringName:
+		return _caught_reason
+
+
+	## 清除当前尝试并通知两个分支清理；不回滚项目副作用，也不自动重新开始。
+	## [br]
+	## @api public
+	## [br]
+	## @since unreleased
+	func reset() -> void:
+		if _resetting:
+			return
+		_resetting = true
+		super.reset()
+		_recovering = false
+		_caught_reason = &""
+		_terminal_status = Status.FRESH
+		_terminal_reason = &""
+		if _child != null:
+			_child.reset()
+		if _recovery != null and _recovery != _child:
+			_recovery.reset()
+		_resetting = false
+
+
+	## 复制两个分支与已声明的恢复策略，不复制进行中的尝试。
+	## [br]
+	## @api public
+	## [br]
+	## @since unreleased
+	## [br]
+	## @return: 独立运行副本。
+	func duplicate_runtime() -> BTNode:
+		var copy: RecoverError = RecoverError.new(
+			GFBehaviorTree._duplicate_runtime_node(_child),
+			GFBehaviorTree._duplicate_runtime_node(_recovery),
+			_allowed_reasons
+		)
+		copy._configuration_error = _configuration_error
+		_copy_base_fields_to(copy)
+		return copy
+
+
+	# --- 可重写钩子 / 虚方法 ---
+
+	## 返回两个已持有分支供调试遍历，不执行分支。
+	## [br]
+	## @api protected
+	## [br]
+	## @since unreleased
+	## [br]
+	## @return: 原分支与恢复分支引用。
+	func _get_debug_children() -> Array[BTNode]:
+		return [_child, _recovery]
+
+
+	# --- 私有/辅助方法 ---
+
+	## 精确错误名使用有界小写 ASCII 分段标识；中止与通配策略不属于可恢复错误。
+	## [br]
+	## @api private
+	func _is_valid_allowed_reason(reason: StringName) -> bool:
+		var text: String = String(reason)
+		if text.is_empty() or text.length() > 128 or reason in [&"aborted", &"runtime_reset"]:
+			return false
+		for segment: String in text.split("."):
+			if segment.is_empty() or segment.unicode_at(0) < 97 or segment.unicode_at(0) > 122:
+				return false
+			for index: int in range(segment.length()):
+				var character: int = segment.unicode_at(index)
+				if not ((character >= 97 and character <= 122) or (character >= 48 and character <= 57) or character == 95):
+					return false
+		return true
+
+
+	## 一个尝试最多从原分支切到恢复分支一次；每个用户 tick/reset 回调后核对代次。
+	## [br]
+	## @api private
+	func _tick_attempt(blackboard: Dictionary, started: int) -> int:
+		var active: BTNode = _recovery if _recovering else _child
+		var generation: int = _runtime_generation
+		var status_value: int = active.tick(blackboard)
+		if generation != _runtime_generation:
+			return _record_tick(Status.ABORTED, &"runtime_reset", started)
+		var status: int = GFBehaviorTree._variant_to_status(status_value)
+		var reason: StringName = _get_child_status_reason(active, status_value, status)
+		if not _recovering and GFBehaviorTree._is_error(status) and _allowed_reasons.has(reason):
+			_caught_reason = reason
+			_recovering = true
+			_child.reset()
+			if generation != _runtime_generation:
+				return _record_tick(Status.ABORTED, &"runtime_reset", started)
+			return _tick_attempt(blackboard, started)
+		if not GFBehaviorTree._is_running(status):
+			_recovering = false
+			_terminal_status = status
+			_terminal_reason = reason
+			active.reset()
+			if generation != _runtime_generation:
+				return _record_tick(Status.ABORTED, &"runtime_reset", started)
+		return _record_tick(status, reason, started)
 
 
 ## 行为树的执行入口容器。
@@ -3013,7 +3247,7 @@ class Runner extends RefCounted:
 	## @return: 返回根节点 Status 枚举。
 	func tick() -> int:
 		if _root_node == null:
-			return Status.FAILURE
+			return Status.ERROR
 		if _is_ticking:
 			push_error("[GFBehaviorTree][behavior_tree.reentrant_tick] Runner.tick() cannot be reentered synchronously.")
 			return Status.ABORTED
@@ -3026,7 +3260,7 @@ class Runner extends RefCounted:
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
 		var reason: StringName = GFBehaviorTree._status_reason_from_value(status_value, status)
 		if reason == &"invalid_status":
-			return _root_node.record_status(Status.FAILURE, reason)
+			return _root_node.record_status(Status.ERROR, reason)
 		return status
 
 

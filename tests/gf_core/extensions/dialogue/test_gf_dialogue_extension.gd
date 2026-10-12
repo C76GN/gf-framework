@@ -4,6 +4,91 @@ extends GutTest
 
 # --- 测试方法 ---
 
+func test_snapshot_restore_rejects_missing_required_fields_before_context_mutation() -> void:
+	for field: String in ["schema_version", "is_running", "current_line_id", "resource_fingerprint", "context_values"]:
+		var resource: GFDialogueResource = GFDialogueResource.new()
+		resource.start_line_id = &"start"
+		resource.set_line(_make_text_line(&"start", "Start", &""))
+		var context: _CustomSnapshotContext = _CustomSnapshotContext.new()
+		context.values = { &"score": 9 }
+		context.checkpoint = "saved"
+		var runner: GFDialogueRunner = GFDialogueRunner.new()
+		var original_line: GFDialogueLine = runner.start(resource, &"", context)
+		var snapshot: Dictionary = runner.create_runtime_snapshot()
+		var _erased: bool = snapshot.erase(field)
+		context.values = { &"score": 3 }
+		context.checkpoint = "before"
+		assert_null(runner.restore_runtime_snapshot(resource, snapshot, context), field)
+		assert_eq(context.deserialize_calls, 0, field)
+		assert_eq(context.values, { &"score": 3 }, field)
+		assert_eq(context.checkpoint, "before", field)
+		assert_same(runner.get_current_line(), original_line, field)
+		assert_true(runner.is_running(), field)
+
+
+func test_snapshot_restore_rejects_invalid_state_types_and_stopped_line_before_context_mutation() -> void:
+	var patches: Array[Dictionary] = [
+		{ "schema_version": float(GFDialogueRunner.SNAPSHOT_SCHEMA_VERSION) + 0.25 },
+		{ "schema_version": str(GFDialogueRunner.SNAPSHOT_SCHEMA_VERSION) }, { "schema_version": true },
+		{ "schema_version": NAN }, { "schema_version": INF },
+		{ "is_running": null }, { "is_running": 0 }, { "is_running": 1 },
+		{ "is_running": "false" }, { "is_running": "unknown" }, { "is_running": {} },
+		{ "current_line_id": null }, { "current_line_id": 17 }, { "current_line_id": false },
+		{ "is_running": false, "current_line_id": &"start" },
+		{ "is_running": false, "current_line_id": null },
+		{ "is_running": false, "current_line_id": 17 },
+	]
+	for patch: Dictionary in patches:
+		var resource: GFDialogueResource = GFDialogueResource.new()
+		resource.start_line_id = &"start"
+		resource.set_line(_make_text_line(&"start", "Start", &""))
+		var context: _CustomSnapshotContext = _CustomSnapshotContext.new()
+		context.values = { &"score": 9 }
+		context.checkpoint = "saved"
+		var runner: GFDialogueRunner = GFDialogueRunner.new()
+		var original_line: GFDialogueLine = runner.start(resource, &"", context)
+		var snapshot: Dictionary = runner.create_runtime_snapshot()
+		snapshot.merge(patch, true)
+		context.values = { &"score": 3 }
+		context.checkpoint = "before"
+		var detail: String = str(patch)
+		assert_null(runner.restore_runtime_snapshot(resource, snapshot, context), detail)
+		assert_eq(context.deserialize_calls, 0, detail)
+		assert_eq(context.values, { &"score": 3 }, detail)
+		assert_eq(context.checkpoint, "before", detail)
+		assert_same(runner.get_current_line(), original_line, detail)
+		assert_true(runner.is_running(), detail)
+
+
+func test_snapshot_json_round_trip_accepts_numeric_schema_for_running_and_stopped_states() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"start"
+	resource.set_line(_make_text_line(&"start", "Start", &""))
+	var context: GFDialogueContext = GFDialogueContext.new()
+	context.values = { &"score": 9 }
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var original_line: GFDialogueLine = runner.start(resource, &"", context)
+	for stopped: bool in [false, true]:
+		if stopped:
+			runner.stop()
+		var decoded: Variant = JSON.parse_string(JSON.stringify(runner.create_runtime_snapshot()))
+		assert_true(decoded is Dictionary)
+		if not decoded is Dictionary:
+			continue
+		var snapshot: Dictionary = decoded
+		assert_eq(typeof(snapshot.get("schema_version")), TYPE_FLOAT)
+		var restored_context: GFDialogueContext = GFDialogueContext.new()
+		restored_context.values = { &"score": 1 }
+		var restored_runner: GFDialogueRunner = GFDialogueRunner.new()
+		var restored_line: GFDialogueLine = restored_runner.restore_runtime_snapshot(resource, snapshot, restored_context)
+		assert_eq(restored_runner.is_running(), not stopped)
+		assert_eq(GFVariantData.to_int(restored_context.get_value(&"score")), 9)
+		if stopped:
+			assert_null(restored_line, "合法停止快照以 null 返回，但仍恢复上下文。")
+		else:
+			assert_same(restored_line, original_line)
+
+
 func test_snapshot_restore_uses_supplied_context_serialization_contract() -> void:
 	var resource: GFDialogueResource = GFDialogueResource.new()
 	resource.start_line_id = &"start"

@@ -30,6 +30,7 @@
 | 方法 | [`dispose`](#member-gfassetutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`release_dependencies`](#member-gfassetutility-methods-release_dependencies) | `func release_dependencies() -> void:` |
 | 方法 | [`set_resource_broker`](#member-gfassetutility-methods-set_resource_broker) | `func set_resource_broker(broker: GFResourceBroker) -> Error:` |
+| 方法 | [`set_resource_service_domain`](#member-gfassetutility-methods-set_resource_service_domain) | `func set_resource_service_domain(domain: GFResourceServiceDomain) -> Error:` |
 | 方法 | [`setup_standalone_resource_broker`](#member-gfassetutility-methods-setup_standalone_resource_broker) | `func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -> GFResourceBroker:` |
 | 方法 | [`get_resource_broker`](#member-gfassetutility-methods-get_resource_broker) | `func get_resource_broker() -> GFResourceBroker:` |
 | 方法 | [`load_async`](#member-gfassetutility-methods-load_async) | `func load_async(path: String, on_loaded: Callable, type_hint: String = "", options: Dictionary = {}) -> void:` |
@@ -50,7 +51,7 @@
 | 方法 | [`is_loading`](#member-gfassetutility-methods-is_loading) | `func is_loading(path: String, type_hint: String = "") -> bool:` |
 | 方法 | [`get_load_progress`](#member-gfassetutility-methods-get_load_progress) | `func get_load_progress(path: String) -> float:` |
 | 方法 | [`is_cached`](#member-gfassetutility-methods-is_cached) | `func is_cached(path: String) -> bool:` |
-| 方法 | [`cancel`](#member-gfassetutility-methods-cancel) | `func cancel(path: String, type_hint: String = "") -> void:` |
+| 方法 | [`cancel`](#member-gfassetutility-methods-cancel) | `func cancel(path: String, type_hint: String = "", generation: int = -1) -> void:` |
 | 方法 | [`put_cache`](#member-gfassetutility-methods-put_cache) | `func put_cache(path: String, resource: Resource) -> void:` |
 | 方法 | [`remove_cache`](#member-gfassetutility-methods-remove_cache) | `func remove_cache(path: String) -> void:` |
 | 方法 | [`clear_cache`](#member-gfassetutility-methods-clear_cache) | `func clear_cache() -> void:` |
@@ -305,7 +306,7 @@ func release_dependencies() -> void:
 func set_resource_broker(broker: GFResourceBroker) -> Error:
 ```
 
-注入共享 Resource Broker。 架构模式应把同一个 GFResourceBroker 注册为 Utility；独立模式可在 init 前 显式调用本方法。重复绑定当前 Broker 幂等成功；存在活动或排队请求时拒绝 替换。当前 Broker 由本 Utility 私有拥有时，还必须等待它完成 drain 并进入 idle，才能替换为其它 Broker。
+注入共享 Resource Broker。 架构模式应把同一个 GFResourceBroker 注册为 Utility；独立模式可在 init 前 显式调用本方法。重复绑定当前 Broker 幂等成功；生命周期内其他替换始终拒绝。 需要受控切换或在途热切换时，初始化阶段改用 set_resource_service_domain()。
 
 参数：
 
@@ -313,7 +314,28 @@ func set_resource_broker(broker: GFResourceBroker) -> Error:
 |---|---|
 | `broker` | 要共享的 Broker。 |
 
-返回：绑定结果；请求尚未收敛或私有 Broker 尚未 idle 时返回 `ERR_BUSY`。
+返回：绑定结果；已有不同绑定或 Broker 被域接管时返回 ERR_ALREADY_IN_USE。
+
+<a id="member-gfassetutility-methods-set_resource_service_domain"></a>
+
+### `set_resource_service_domain`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func set_resource_service_domain(domain: GFResourceServiceDomain) -> Error:
+```
+
+将所有后续请求与句柄绑定到同一个稳定服务域入口。 模式由域初始化时决定；共享域的 Asset 不能各自覆盖它。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `domain` | 已配置且接纳请求的服务域。 |
+
+返回：已有不同绑定返回 ERR_ALREADY_IN_USE；未就绪域返回 ERR_UNAVAILABLE。
 
 <a id="member-gfassetutility-methods-setup_standalone_resource_broker"></a>
 
@@ -348,7 +370,7 @@ func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending
 func get_resource_broker() -> GFResourceBroker:
 ```
 
-获取当前注入的 Resource Broker。
+获取固定绑定的原始 Broker；服务域模式返回 null，不暴露可绕过入口的当前代。
 
 返回：已绑定的 Broker；未配置时返回 null。
 
@@ -748,9 +770,10 @@ func is_cached(path: String) -> bool:
 ### `cancel`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
-func cancel(path: String, type_hint: String = "") -> void:
+func cancel(path: String, type_hint: String = "", generation: int = -1) -> void:
 ```
 
 取消指定路径的异步加载请求。
@@ -761,6 +784,7 @@ func cancel(path: String, type_hint: String = "") -> void:
 |---|---|
 | `path` | 资源路径。 |
 | `type_hint` | 可选资源类型提示；为空时取消该路径的当前请求。 |
+| `generation` | 服务域代次；-1 选择当前入口，指定旧代可取消原代请求而不影响新代。 |
 
 <a id="member-gfassetutility-methods-put_cache"></a>
 

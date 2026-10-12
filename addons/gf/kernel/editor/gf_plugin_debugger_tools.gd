@@ -14,6 +14,11 @@ const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_varian
 
 # --- 私有变量 ---
 
+## 最近一次安装中未能创建的贡献原因。
+## [br]
+## @api private
+var _setup_issues: Array[String] = []
+
 ## 当前已安装到 EditorPlugin、需要在 cleanup 时移除的 Debugger 插件实例。
 ## [br]
 ## @api private
@@ -21,6 +26,16 @@ var _debugger_plugins: Array[EditorDebuggerPlugin] = []
 
 
 # --- 公共方法 ---
+
+## 返回本次安装失败原因，不把跳过贡献报告为完整应用。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @return: 安装失败原因副本。
+func get_setup_issues() -> Array[String]:
+	return _setup_issues.duplicate()
 
 ## 安装 GF Debugger 插件。
 ## [br]
@@ -40,7 +55,9 @@ func setup(
 	standard_records: Dictionary = {},
 	extension_paths: Array[String] = []
 ) -> void:
+	_setup_issues.clear()
 	if plugin == null:
+		_setup_issues.append("debugger:plugin_unavailable")
 		return
 	cleanup(plugin)
 	for record: Dictionary in _collect_debugger_records(standard_records, extension_paths):
@@ -124,6 +141,7 @@ func _collect_debugger_records(
 func _add_debugger_plugin(plugin: EditorPlugin, script_path: String, label: String) -> void:
 	var debugger_plugin: EditorDebuggerPlugin = _load_debugger_plugin(script_path, label)
 	if debugger_plugin == null:
+		_setup_issues.append("debugger:load_failed:%s" % script_path)
 		return
 	plugin.add_debugger_plugin(debugger_plugin)
 	_debugger_plugins.append(debugger_plugin)

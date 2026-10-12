@@ -23,13 +23,17 @@ Use this skill as the default project workflow for GF Framework maintenance. It 
 - Generator or generated-tree logic changed: keep generated output roots fail-closed, stage and validate every related tree before replacing any of them, and test rollback behavior. `generate_ai_api.py` may write outside `ai_analysis/generated_api` only with the explicit unsafe-output flag.
 - Maintenance runner or CI topology changed: preserve Draft's independent quick gate and metadata-only policy path, require both `GF repository policy` and `GF merge gate`, keep Ready/main shards set-equivalent to `full`, run `maintenance-self-test`, and retain the Ready/main Windows process-supervision job as a merge-gate dependency. Local full runs default to three isolated workers, allow an explicit bounded `--jobs 2` through `--jobs 6`, and use `--jobs 1` only as a serial diagnostic fallback. They must batch workspace setup/cleanup, cover setup with the suite deadline, prove Godot's platform data/config/cache and `user://` roots are private before starting shards, and fail closed when Windows clone/staging/private-temp paths cannot fit the projected short-path budget. `GF_MAINTENANCE_VALIDATION_TEMP_ROOT` only selects a validated direct local fixed-volume short-path parent for a random identity-pinned runner child, never an in-workspace, linked, UNC, device, mapped, or substituted path. Snapshot capture reads untracked regular files through stable handles in deadline-aware chunks, capped at 64 MiB per file and 256 MiB total. Every shard's owned process group or Windows Job Object must be empty before its report is accepted.
 - Release metadata changed: use `$gf-release-flow`.
-- External reference project changed or examples suite is involved: use `$gf-reference-boundary`.
+- Local examples changed: run `check --suite examples`; the suite runs the repository-owned first-task smoke after import.
 - Broad refactor, layer move, or multi-module behavior change: use `$gf-change-audit`.
 - GDScript warning fixes: prefer real type narrowing and ownership changes over `@warning_ignore`; after edits run focused GUT for the touched scripts plus `python tools\gf_maintenance.py check --check gdscript_warnings --json`. Use `python tools\gf_maintenance.py check --check gdscript_lsp_diagnostics --json` or the focused `tools/gdscript_lsp_diagnostics.py --file` form for early diagnosis; the final full/release suite must also pass its unconditional LSP hard gate. If the change touches shadowed names, GF class casts, or dynamic script instantiation, also run `tests/gf_core/maintenance/test_gdscript_parse_validation.gd`.
 - Project settings drift: if GUT, editor reload checks, or plugin tests appear to modify `project.godot`, run `python tools\gf_maintenance.py project-settings-drift --json` and fix the leaking test or plugin state instead of committing transient settings.
 - Signature changes: search `addons/gf` and `tests/gf_core` for same-name `func` declarations, mocks, and reflective call sites before validating, because override signature drift is a Godot parse error.
 - Editor-only plugin tests: do not instantiate editor-owned Godot plugin classes such as `EditorDebuggerPlugin` in plain headless GUT. Validate contributed records, script metadata, inheritance, and helper wiring unless the test runs through a real editor plugin lifecycle.
 - Godot command wrappers: delete configured stale log files before launch, merge the newly written log into the result, fail when the log is missing or unreadable, and require a non-empty GUT pass summary even when the process exits with code 0. Let the maintenance CLI delete successful session logs; use `--keep-logs` or `GF_MAINTENANCE_KEEP_LOGS=1` only for follow-up diagnostics, then explicitly clean them.
+
+## Product-Ready Delivery
+
+Apply [产品化交付](../../../AI_MAINTENANCE.md#产品化交付) while implementing and before handing off. Translate accepted choices into stable domain terms and self-contained contracts across code comments, configuration, UI, tests, examples, docs, generated references, changelog and the final response. Review the complete current change, including untracked files, as a developer who has not read the conversation. Resolve discussion-only labels and references semantically; a keyword scan alone is not acceptance. Regenerate affected documentation after source-comment edits. Keep actual capability limits explicit and stay within the authorized scope.
 
 ## Testing Style
 
@@ -38,8 +42,8 @@ Prefer tests that verify observable GF behavior through public or documented int
 ## Boundaries
 
 - Keep dependency direction stable: `addons/gf/kernel <- addons/gf/standard <- addons/gf/extensions`.
-- Do not write reference-project business rules into `addons/gf`.
-- Do not turn the external reference project's directory layout into a framework requirement.
-- When reviewing external reference projects, exported plugin sources, or design notes, classify each idea before adopting it: stable GF mechanism, editor/tooling pattern, documentation reminder, third-party service adapter, or project business rule. Implement only the stable GF mechanism or clearly reusable tooling pattern.
+- Keep project business rules and sample layout outside `addons/gf`.
+- The external Reference project and sync workflow are retired; do not restore or synchronize them.
+- When reviewing exported plugin sources or design notes, classify each idea before adopting it: stable GF mechanism, editor/tooling pattern, documentation reminder, third-party service adapter, or project business rule. Implement only the stable GF mechanism or clearly reusable tooling pattern.
 - Do not change vendored `addons/gut/**` unless the task explicitly requires GUT maintenance.
 - Use `apply_patch` for manual edits; avoid reverting user or other-session changes.

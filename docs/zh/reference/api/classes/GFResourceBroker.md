@@ -23,11 +23,14 @@ framework-level threaded ResourceLoader admission broker。 一个显式共享�
 | 常量 | [`REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED`](#member-gfresourcebroker-constants-reason_active_admission_constraints_not_satisfied) | `const REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED: String = "active_admission_constraints_not_satisfied"` |
 | 属性 | [`max_active_requests`](#member-gfresourcebroker-properties-max_active_requests) | `var max_active_requests: int = DEFAULT_MAX_ACTIVE_REQUESTS:` |
 | 属性 | [`max_pending_requests`](#member-gfresourcebroker-properties-max_pending_requests) | `var max_pending_requests: int = DEFAULT_MAX_PENDING_REQUESTS:` |
+| 方法 | [`can_register_in_architecture`](#member-gfresourcebroker-methods-can_register_in_architecture) | `func can_register_in_architecture() -> bool:` |
 | 方法 | [`init`](#member-gfresourcebroker-methods-init) | `func init() -> void:` |
 | 方法 | [`tick`](#member-gfresourcebroker-methods-tick) | `func tick(_delta: float = 0.0) -> void:` |
 | 方法 | [`begin_quiesce`](#member-gfresourcebroker-methods-begin_quiesce) | `func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:` |
 | 方法 | [`dispose`](#member-gfresourcebroker-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`request`](#member-gfresourcebroker-methods-request) | `func request(path: String, type_hint: String = "", options: Dictionary = {}) -> GFResourceLease:` |
+| 方法 | [`bind_fixed_consumer`](#member-gfresourcebroker-methods-bind_fixed_consumer) | `func bind_fixed_consumer(consumer: Object) -> Error:` |
+| 方法 | [`can_remove_from_active_lifecycle`](#member-gfresourcebroker-methods-can_remove_from_active_lifecycle) | `func can_remove_from_active_lifecycle() -> bool:` |
 | 方法 | [`pump`](#member-gfresourcebroker-methods-pump) | `func pump() -> void:` |
 | 方法 | [`poll_lease`](#member-gfresourcebroker-methods-poll_lease) | `func poll_lease(lease: GFResourceLease) -> Dictionary:` |
 | 方法 | [`cancel_all`](#member-gfresourcebroker-methods-cancel_all) | `func cancel_all(reason: StringName = &"cancelled") -> void:` |
@@ -146,6 +149,21 @@ var max_pending_requests: int = DEFAULT_MAX_PENDING_REQUESTS:
 
 ## 方法
 
+<a id="member-gfresourcebroker-methods-can_register_in_architecture"></a>
+
+### `can_register_in_architecture`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func can_register_in_architecture() -> bool:
+```
+
+已被服务域接管的内部实例不能再注册到架构而获得第二个生命周期所有者。
+
+返回：未被域接管时为 true。
+
 <a id="member-gfresourcebroker-methods-init"></a>
 
 ### `init`
@@ -238,6 +256,42 @@ func request(path: String, type_hint: String = "", options: Dictionary = {}) -> 
 结构：
 
 - `options`: Dictionary with optional exclusive: bool, require_idle: bool, and consumer_id: StringName.
+
+<a id="member-gfresourcebroker-methods-bind_fixed_consumer"></a>
+
+### `bind_fixed_consumer`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func bind_fixed_consumer(consumer: Object) -> Error:
+```
+
+将固定消费者登记到实例生命周期；存在服务域所有者时拒绝混合绑定。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `consumer` | 非空消费者；登记不会保留消费者引用。 |
+
+返回：域已接管时 ERR_ALREADY_IN_USE，否则 OK。
+
+<a id="member-gfresourcebroker-methods-can_remove_from_active_lifecycle"></a>
+
+### `can_remove_from_active_lifecycle`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func can_remove_from_active_lifecycle() -> bool:
+```
+
+Broker 的身份是资源域边界，活动生命周期内不可单独移除或替换。
+
+返回：始终 false；架构整体关闭仍可释放。
 
 <a id="member-gfresourcebroker-methods-pump"></a>
 

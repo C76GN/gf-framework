@@ -1,6 +1,7 @@
 ## GFDialogueTextCompiler: 对话 JSON 文本编译器。
 ##
 ## 在制作期、编辑器期或 CI 中把严格、可审计的 JSON 文本编译为 GFDialogueResource。
+## compile_structure_* 只承诺结构通过；build_runner_* 另外验证内置 Runner 的完整身份准入。
 ## strict 边界拒绝重复 member、宽松 JSON、非法 Unicode、int64 外整数、非有限、
 ## 溢出或规范化十进制指数不在 -307..308 的非零浮点，并以显式硬预算约束工作量。
 ## 编译器只解释对话资源已有字段，不定义角色、任务、本地化、UI 或项目状态语义。
@@ -178,26 +179,126 @@ const _RESPONSE_FIELDS: PackedStringArray = [
 
 # --- 公共方法 ---
 
-## 编译 JSON 文本。
+## 只编译结构资源：验证 strict JSON、schema 和资源图，不承诺 Runner 身份准入。
 ##
-## 未知结构字段会作为错误报告；项目扩展数据应放入 metadata 或 payload 字段。
-## 所有语法、schema 和资源图错误都携带 URI fragment JSON Pointer 与 source span；
-## report 是有界 JSON-safe 的本地制作期投影并保留显式 source_path。
+## 成功只描述本次资源和所选合同，不执行项目条件或 mutation，不保证所有运行分支成功。
+## 失败不返回部分资源；报告为有界 JSON-safe 投影并保留来源。
 ## [br]
 ## @api public
 ## [br]
-## @since 9.0.0
+## @since unreleased
 ## [br]
-## @param text: UTF-8 strict JSON 文本；object member 必须唯一，整数限 int64，非零浮点的规范化十进制指数限 -307..308。
+## @param text: strict JSON 文本；整数限 int64，非零浮点规范化十进制指数限 -307..308。
 ## [br]
-## @param options: 编译选项，支持 source_path、subject、metadata，以及受框架硬上限约束的 max_text_bytes、max_depth、max_nodes、max_string_bytes、max_lines、max_responses 和 max_diagnostics 正整数预算。
+## @param options: 来源、报告 metadata 与输入预算；生产入口不能覆盖 Runner 身份预算。
 ## [br]
-## @schema options: Dictionary，可包含 source_path、subject、报告 metadata 与严格正整数预算；0、负数、错误类型或超过框架硬上限都会失败关闭。
+## @schema options: Dictionary，支持 source_path、subject、metadata 与 max_text_bytes、max_depth、max_nodes、max_string_bytes、max_lines、max_responses、max_diagnostics 严格正整数预算。
 ## [br]
-## @return 编译结果。
+## @return: 所选合同的结果。
 ## [br]
-## @schema return: Dictionary，包含 success、resource、report、source_path、content_hash 和 line_count；失败时 resource 为 null 且 line_count 为 0，report 可安全传给 JSON.stringify()。
-func compile_text(text: String, options: Dictionary = {}) -> Dictionary:
+## @schema return: Dictionary，包含 contract（structure 或 runner）、success、resource、report、source_path、content_hash、line_count；success 只表示所选合同通过，失败时 resource=null、line_count=0。
+func compile_structure_text(text: String, options: Dictionary = {}) -> Dictionary:
+	return _compile_text(text, options, false)
+
+
+## 只编译结构资源：验证 strict JSON、schema 和资源图，不承诺 Runner 身份准入。
+##
+## 成功只描述本次资源和所选合同，不执行项目条件或 mutation，不保证所有运行分支成功。
+## 失败不返回部分资源；报告为有界 JSON-safe 投影并保留来源。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param source_key: 注册 key 或加载器根目录内相对路径。
+## [br]
+## @param loader: 源码加载器；max_bytes 必须为正且不超过有效 max_text_bytes。
+## [br]
+## @param options: 来源、报告 metadata 与输入预算；生产入口不能覆盖 Runner 身份预算。
+## [br]
+## @schema options: Dictionary，支持 source_path、subject、metadata 与 max_text_bytes、max_depth、max_nodes、max_string_bytes、max_lines、max_responses、max_diagnostics 严格正整数预算。
+## [br]
+## @return: 所选合同的结果。
+## [br]
+## @schema return: Dictionary，包含 contract（structure 或 runner）、success、resource、report、source_path、content_hash、line_count；success 只表示所选合同通过，失败时 resource=null、line_count=0。
+func compile_structure_source(source_key: String, loader: GFSourceTextLoader, options: Dictionary = {}) -> Dictionary:
+	return _compile_source(source_key, loader, options, false)
+
+
+## 构建内置 Runner 生产资源：结构校验后验证默认完整身份预算。
+##
+## 成功只描述本次资源和所选合同，不执行项目条件或 mutation，不保证所有运行分支成功。
+## 失败不返回部分资源；报告为有界 JSON-safe 投影并保留来源。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param text: strict JSON 文本；整数限 int64，非零浮点规范化十进制指数限 -307..308。
+## [br]
+## @param options: 来源、报告 metadata 与输入预算；生产入口不能覆盖 Runner 身份预算。
+## [br]
+## @schema options: Dictionary，支持 source_path、subject、metadata 与 max_text_bytes、max_depth、max_nodes、max_string_bytes、max_lines、max_responses、max_diagnostics 严格正整数预算。
+## [br]
+## @return: 所选合同的结果。
+## [br]
+## @schema return: Dictionary，包含 contract（structure 或 runner）、success、resource、report、source_path、content_hash、line_count；success 只表示所选合同通过，失败时 resource=null、line_count=0。
+func build_runner_text(text: String, options: Dictionary = {}) -> Dictionary:
+	return _compile_text(text, options, true)
+
+
+## 构建内置 Runner 生产资源：结构校验后验证默认完整身份预算。
+##
+## 成功只描述本次资源和所选合同，不执行项目条件或 mutation，不保证所有运行分支成功。
+## 失败不返回部分资源；报告为有界 JSON-safe 投影并保留来源。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param source_key: 注册 key 或加载器根目录内相对路径。
+## [br]
+## @param loader: 源码加载器；max_bytes 必须为正且不超过有效 max_text_bytes。
+## [br]
+## @param options: 来源、报告 metadata 与输入预算；生产入口不能覆盖 Runner 身份预算。
+## [br]
+## @schema options: Dictionary，支持 source_path、subject、metadata 与 max_text_bytes、max_depth、max_nodes、max_string_bytes、max_lines、max_responses、max_diagnostics 严格正整数预算。
+## [br]
+## @return: 所选合同的结果。
+## [br]
+## @schema return: Dictionary，包含 contract（structure 或 runner）、success、resource、report、source_path、content_hash、line_count；success 只表示所选合同通过，失败时 resource=null、line_count=0。
+func build_runner_source(source_key: String, loader: GFSourceTextLoader, options: Dictionary = {}) -> Dictionary:
+	return _compile_source(source_key, loader, options, true)
+
+
+# --- 私有/辅助方法 ---
+
+## 验证内置 Runner 同样使用的默认完整身份边界；仅报告计数与路径，不复制身份内容进诊断。
+## [br]
+## @api private
+func _validate_runner_identity(resource: GFDialogueResource, report: GFValidationReport, source_path: String) -> void:
+	var identity_report: Dictionary = resource.build_identity_report()
+	if GFVariantData.get_option_bool(identity_report, "ok"):
+		return
+	_add_unlocated_error(
+		report,
+		&"runner_identity_rejected",
+		"The resource exceeds the built-in Runner's complete identity contract; structure compilation alone is insufficient.",
+		source_path,
+		"#",
+		{
+			"identity_error": GFVariantData.get_option_string(identity_report, "error"),
+			"identity_path": GFVariantData.get_option_string(identity_report, "path"),
+			"node_count": GFVariantData.get_option_int(identity_report, "node_count"),
+			"byte_count": GFVariantData.get_option_int(identity_report, "byte_count"),
+		}
+	)
+
+
+## 共享 strict 解析与结构校验，按生产合同追加完整身份准入。
+## [br]
+## @api private
+func _compile_text(text: String, options: Dictionary, runner_contract: bool) -> Dictionary:
 	var source_path: String = GFVariantData.get_option_string(options, "source_path", "<memory>")
 	var subject: String = GFVariantData.get_option_string(options, "subject", "Dialogue text compile")
 	var report: GFValidationReport = GFValidationReport.new(
@@ -206,7 +307,7 @@ func compile_text(text: String, options: Dictionary = {}) -> Dictionary:
 	)
 	var limits: Dictionary = _resolve_limits(options, report, source_path)
 	if not report.is_ok():
-		return _make_result(null, report, source_path, "")
+		return _make_result(null, report, source_path, "", runner_contract)
 	var text_byte_count: int = text.to_utf8_buffer().size()
 	if text_byte_count > GFVariantData.get_option_int(limits, "max_text_bytes"):
 		_add_unlocated_error(
@@ -220,7 +321,7 @@ func compile_text(text: String, options: Dictionary = {}) -> Dictionary:
 				"max_text_bytes": GFVariantData.get_option_int(limits, "max_text_bytes"),
 			}
 		)
-		return _make_result(null, report, source_path, "")
+		return _make_result(null, report, source_path, "", runner_contract)
 
 	var content_hash: String = text.sha256_text()
 	var source_parser: _JSON_SOURCE_PARSER_SCRIPT = _JSON_SOURCE_PARSER_SCRIPT.new()
@@ -237,46 +338,35 @@ func compile_text(text: String, options: Dictionary = {}) -> Dictionary:
 			GFVariantData.get_option_dictionary(parse_result, "metadata"),
 			provenance
 		)
-		return _make_result(null, report, source_path, content_hash)
+		return _make_result(null, report, source_path, content_hash, runner_contract)
 
 	var root_value: Variant = GFVariantData.get_option_value(parse_result, "value")
 	if not (root_value is Dictionary):
 		_add_error(report, &"invalid_root_type", "Dialogue source root must be a JSON object.", source_path, "", provenance)
-		return _make_result(null, report, source_path, content_hash)
+		return _make_result(null, report, source_path, content_hash, runner_contract)
 
 	var source: Dictionary = root_value
 	if not _validate_document_budgets(source, report, source_path, provenance, limits):
-		return _make_result(null, report, source_path, content_hash)
+		return _make_result(null, report, source_path, content_hash, runner_contract)
 	var resource: GFDialogueResource = _compile_dictionary(
 		source,
 		report,
 		source_path,
 		provenance
 	)
-	return _make_result(resource, report, source_path, content_hash)
+	if runner_contract and resource != null and report.is_ok():
+		_validate_runner_identity(resource, report, source_path)
+	return _make_result(resource, report, source_path, content_hash, runner_contract)
 
 
-## 通过受根路径约束的源码加载器编译文本。
+## 有界加载后沿用所选文本合同，保留同一来源诊断。
 ## [br]
-## @api public
-## [br]
-## @since 9.0.0
-## [br]
-## @param source_key: 注册文本 key 或加载器根目录内的相对路径。
-## [br]
-## @param loader: 源码文本加载器。
-## [br]
-## @param options: 编译选项；source_path 会默认使用加载结果路径，预算选项与 compile_text() 相同。loader.max_bytes 必须为正且不大于有效 max_text_bytes，确保读取阶段先受同一上界约束。
-## [br]
-## @schema options: Dictionary，支持 compile_text() 的选项。
-## [br]
-## @return 编译结果。
-## [br]
-## @schema return: Dictionary，包含 success、resource、report、source_path、content_hash 和 line_count；失败时 resource 为 null 且 line_count 为 0，report 可安全传给 JSON.stringify()。
-func compile_source(
+## @api private
+func _compile_source(
 	source_key: String,
 	loader: GFSourceTextLoader,
-	options: Dictionary = {}
+	options: Dictionary,
+	runner_contract: bool
 ) -> Dictionary:
 	var subject: String = GFVariantData.get_option_string(options, "subject", "Dialogue text compile")
 	var report: GFValidationReport = GFValidationReport.new(
@@ -285,10 +375,10 @@ func compile_source(
 	)
 	var limits: Dictionary = _resolve_limits(options, report, source_key)
 	if not report.is_ok():
-		return _make_result(null, report, source_key, "")
+		return _make_result(null, report, source_key, "", runner_contract)
 	if loader == null:
 		_add_unlocated_error(report, &"missing_source_loader", "Dialogue source loader is null.", source_key, "#")
-		return _make_result(null, report, source_key, "")
+		return _make_result(null, report, source_key, "", runner_contract)
 	var max_text_bytes: int = GFVariantData.get_option_int(limits, "max_text_bytes")
 	if loader.max_bytes <= 0 or loader.max_bytes > max_text_bytes:
 		_add_unlocated_error(
@@ -302,7 +392,7 @@ func compile_source(
 				"max_text_bytes": max_text_bytes,
 			}
 		)
-		return _make_result(null, report, source_key, "")
+		return _make_result(null, report, source_key, "", runner_contract)
 
 	var load_result: Dictionary = loader.load_text(source_key)
 	if not GFResultDictionary.is_ok(load_result):
@@ -314,15 +404,13 @@ func compile_source(
 		_capture_owned_next_action(report, safe_loader_report)
 		var _merge_result: RefCounted = report.merge(safe_loader_report)
 		_add_unlocated_error(report, &"source_load_failed", "Dialogue source could not be loaded.", source_key, "#")
-		return _make_result(null, report, source_key, "")
+		return _make_result(null, report, source_key, "", runner_contract)
 
 	var compile_options: Dictionary = options.duplicate()
 	if not compile_options.has("source_path"):
 		compile_options["source_path"] = GFVariantData.get_option_string(load_result, "resolved_path", source_key)
-	return compile_text(GFVariantData.get_option_string(load_result, "text"), compile_options)
+	return _compile_text(GFVariantData.get_option_string(load_result, "text"), compile_options, runner_contract)
 
-
-# --- 私有/辅助方法 ---
 
 ## 验证顶层字段并构建候选对话资源，跳过非字典行且合并资源级校验诊断；可能返回带错误的部分资源，最终结果负责隐藏失败候选。
 ## [br]
@@ -820,8 +908,8 @@ func _resolve_limits(
 ## @api private
 func _make_provenance(parse_result: Dictionary, limits: Dictionary) -> Dictionary:
 	return {
-		"value_spans": GFVariantData.get_option_dictionary(parse_result, "value_spans"),
-		"key_spans": GFVariantData.get_option_dictionary(parse_result, "key_spans"),
+		"value_spans": GFVariantData.as_dictionary(parse_result.get("value_spans")),
+		"key_spans": GFVariantData.as_dictionary(parse_result.get("key_spans")),
 		"max_diagnostics": GFVariantData.get_option_int(
 			limits,
 			"max_diagnostics",
@@ -1006,7 +1094,7 @@ func _record_transition_provenance(
 	)
 
 
-## 将 JSON Pointer 追加到 provenance 指定映射下的 identity 列表并写回映射。
+## 借用本次编译独占的来源索引并追加 Pointer；不为每个条目复制整张增长中的映射。
 ## [br]
 ## @api private
 ## [br]
@@ -1016,7 +1104,7 @@ func _record_occurrence(
 	identity: String,
 	pointer: String
 ) -> void:
-	var mapping: Dictionary = GFVariantData.get_option_dictionary(provenance, map_key)
+	var mapping: Dictionary = GFVariantData.as_dictionary(provenance.get(map_key))
 	var pointers: Array = []
 	var pointers_value: Variant = GFVariantData.get_option_value(mapping, identity)
 	if pointers_value is Array:
@@ -1161,7 +1249,7 @@ func _get_occurrences(
 	map_key: String,
 	identity: String
 ) -> Array:
-	var mapping: Dictionary = GFVariantData.get_option_dictionary(provenance, map_key)
+	var mapping: Dictionary = GFVariantData.as_dictionary(provenance.get(map_key))
 	return GFVariantData.get_option_array(mapping, identity)
 
 
@@ -1284,8 +1372,8 @@ func _find_source_span(
 	pointer: String,
 	prefer_key_span: bool = false
 ) -> Dictionary:
-	var key_spans: Dictionary = GFVariantData.get_option_dictionary(provenance, "key_spans")
-	var value_spans: Dictionary = GFVariantData.get_option_dictionary(provenance, "value_spans")
+	var key_spans: Dictionary = GFVariantData.as_dictionary(provenance.get("key_spans"))
+	var value_spans: Dictionary = GFVariantData.as_dictionary(provenance.get("value_spans"))
 	if prefer_key_span and key_spans.has(pointer):
 		return GFVariantData.get_option_dictionary(key_spans, pointer)
 	if value_spans.has(pointer):
@@ -1362,6 +1450,7 @@ func _get_compiler_next_actions() -> Dictionary:
 		"input_budget_exceeded": "Reduce the source structure or explicitly choose a smaller valid compilation unit.",
 		"diagnostic_budget_exceeded": "Fix the earliest issues, then compile again to reveal any remaining diagnostics.",
 		"invalid_compile_option": "Use strict positive integer limits no larger than the framework hard maxima.",
+		"runner_identity_rejected": "Split the dialogue into smaller resources or reduce expanded metadata/payload; retain structure-only output only for a consumer with its own explicit admission contract.",
 		"unsafe_source_loader_budget": "Configure loader.max_bytes to a positive value no larger than max_text_bytes.",
 		"missing_source_loader": "Provide a configured GFSourceTextLoader.",
 		"source_load_failed": "Check the source key, loader root, loader byte limit, and loader diagnostics.",
@@ -1423,7 +1512,8 @@ func _make_result(
 	resource: GFDialogueResource,
 	report: GFValidationReport,
 	source_path: String,
-	content_hash: String
+	content_hash: String,
+	runner_contract: bool
 ) -> Dictionary:
 	var success: bool = resource != null and report.is_ok()
 	var runtime_fallback_action: String = GFVariantData.get_option_string(
@@ -1443,6 +1533,7 @@ func _make_result(
 		_make_report_codec_options()
 	)
 	return {
+		"contract": "runner" if runner_contract else "structure",
 		"success": success,
 		"resource": resource if success else null,
 		"report": report_dictionary,

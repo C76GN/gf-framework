@@ -43,7 +43,6 @@ import gf_path_security
 import gf_process_authority
 import gf_process_supervisor
 import gf_project_layout_profile
-import gf_reference_manifest_reader
 import gf_validation_catalog
 import gf_validation_contracts
 import gf_validation_inputs
@@ -294,265 +293,10 @@ class FrozenProcessAuthorityTests(unittest.TestCase):
 
 
 class MaintenanceInvocationAuthorityTests(unittest.TestCase):
-	def test_nested_invocation_reuses_active_environment_and_rejects_replacement(self) -> None:
-		active_authority = _SHARED_PROCESS_AUTHORITY
-		replacement = _frozen_process_environment({
-			**active_authority.environment.values(),
-			"GF_NESTED_REPLACEMENT": "forbidden",
-		})
-		with gf_process_authority.activate_process_context(active_authority):
-			self.assertIs(
-				gf_maintenance.freeze_maintenance_invocation_environment(),
-				active_authority.environment,
-			)
-			self.assertIs(
-				gf_maintenance.freeze_maintenance_invocation_environment(
-					active_authority.environment
-				),
-				active_authority.environment,
-			)
-			with self.assertRaisesRegex(ValueError, "cannot replace"):
-				gf_maintenance.freeze_maintenance_invocation_environment(replacement)
-			with gf_process_authority.activate_process_environment(replacement):
-				with self.assertRaisesRegex(RuntimeError, "do not share one identity"):
-					gf_maintenance.freeze_maintenance_invocation_environment()
-
-	def test_reference_catalog_inputs_ignore_ambient_environment_and_filesystem(
-		self,
-	) -> None:
-		frozen = _frozen_process_environment({
-			gf_maintenance.REFERENCE_PROJECT_ENV_VAR: "frozen-reference",
-		})
-		with mock.patch.dict(
-			os.environ,
-			{
-				gf_maintenance.REFERENCE_PROJECT_ENV_VAR: "ambient-reference",
-				gf_maintenance.REFERENCE_BOOT_SCENE_ENV_VAR: "res://ambient_boot.tscn",
-				gf_maintenance.REFERENCE_SMOKE_SCENE_ENV_VAR: "res://ambient_smoke.tscn",
-			},
-			clear=False,
-		), mock.patch.object(
-			gf_maintenance,
-			"_read_reference_manifest_supervised",
-			side_effect=AssertionError("Catalog input projection must not read files"),
-		) as manifest_reader:
-			inputs = gf_maintenance.reference_catalog_inputs(frozen)
-
-		self.assertEqual(
-			inputs,
-			(
-				"frozen-reference",
-				gf_maintenance.DEFAULT_REFERENCE_BOOT_SCENE,
-				gf_maintenance.DEFAULT_REFERENCE_SMOKE_SCENE,
-			),
-		)
-		manifest_reader.assert_not_called()
-
-	def test_invalid_reference_environment_values_use_stable_setup_envelope(
-		self,
-	) -> None:
-		invalid_values = (
-			(gf_maintenance.REFERENCE_PROJECT_ENV_VAR, ""),
-			(gf_maintenance.REFERENCE_PROJECT_ENV_VAR, "C:relative"),
-			(gf_maintenance.REFERENCE_PROJECT_ENV_VAR, "reference\nroot"),
-			(
-				gf_maintenance.REFERENCE_PROJECT_ENV_VAR,
-				"x" * (
-					gf_reference_manifest_reader.REFERENCE_PROJECT_MAX_CHARACTERS + 1
-				),
-			),
-			(gf_maintenance.REFERENCE_BOOT_SCENE_ENV_VAR, ""),
-			(gf_maintenance.REFERENCE_BOOT_SCENE_ENV_VAR, "relative.tscn"),
-			(gf_maintenance.REFERENCE_BOOT_SCENE_ENV_VAR, "res://a/../b.tscn"),
-			(gf_maintenance.REFERENCE_BOOT_SCENE_ENV_VAR, "res://a/line\nb.tscn"),
-			(gf_maintenance.REFERENCE_BOOT_SCENE_ENV_VAR, "res://not-a-scene.txt"),
-		)
-		for variable_name, invalid_value in invalid_values:
-			frozen = _frozen_process_environment({
-				**dict(os.environ),
-				variable_name: invalid_value,
-			})
-			with self.subTest(
-				variable=variable_name,
-				value=invalid_value[:32],
-			), mock.patch.object(
-				gf_maintenance,
-				"maintenance_in_process_adapter_registry",
-				side_effect=AssertionError(
-					"invalid reference input must stop before registry construction"
-				),
-			) as registry, mock.patch.object(
-				gf_maintenance.gf_process_supervisor,
-				"run_supervised_process_bytes",
-				side_effect=AssertionError(
-					"invalid reference input must stop before manifest I/O"
-				),
-			) as manifest_process:
-				report = gf_maintenance.run_checks(
-					checks=["docs"],
-					jobs=1,
-					process_environment=frozen,
-				)
-
-			self.assertFalse(report["ok"])
-			self.assertEqual(report["results"][0]["name"], "validation_executor_setup")
-			self.assertEqual(
-				report["results"][0]["stderr"],
-				"Reference environment inputs are invalid.",
-			)
-			registry.assert_not_called()
-			manifest_process.assert_not_called()
-
-	def test_windows_reference_project_rejects_current_drive_root_syntax(self) -> None:
-		with mock.patch.object(
-			gf_reference_manifest_reader,
-			"_NATIVE_OS_NAME",
-			"nt",
-		), self.assertRaises(
-			gf_reference_manifest_reader.ReferenceManifestError
-		) as raised:
-			gf_reference_manifest_reader.validate_reference_project(
-				"/current-drive-root"
-			)
-
-		self.assertEqual(
-			raised.exception.rule_id,
-			"reference_manifest.invalid_project_root",
-		)
-
-	def test_posix_reference_project_rejects_foreign_windows_absolute_syntax(
-		self,
-	) -> None:
-		for foreign_path in (
-			r"C:\reference-project",
-			r"\\server\share\reference-project",
-		):
-			with self.subTest(path=foreign_path), mock.patch.object(
-				gf_reference_manifest_reader,
-				"_NATIVE_OS_NAME",
-				"posix",
-			), self.assertRaises(
-				gf_reference_manifest_reader.ReferenceManifestError
-			) as raised:
-				gf_reference_manifest_reader.validate_reference_project(foreign_path)
-
-			self.assertEqual(
-				raised.exception.rule_id,
-				"reference_manifest.invalid_project_root",
-			)
-
-	def test_static_catalog_uses_constants_without_environment_or_filesystem(self) -> None:
-		with mock.patch.object(
-			gf_maintenance,
-			"capture_maintenance_process_environment",
-			side_effect=AssertionError("static Catalog must not capture ambient environment"),
-		), mock.patch.object(
-			gf_maintenance,
-			"reference_catalog_inputs",
-			side_effect=AssertionError("static Catalog must not resolve invocation inputs"),
-		) as reference_inputs, mock.patch.object(
-			gf_maintenance,
-			"validation_catalog_for_root",
-			return_value=mock.sentinel.static_catalog,
-		) as catalog_factory:
-			actual = gf_maintenance._default_validation_catalog_for_root(ROOT)
-
-		self.assertIs(actual, mock.sentinel.static_catalog)
-		reference_inputs.assert_not_called()
-		catalog_factory.assert_called_once_with(
-			ROOT,
-			default_reference_project=gf_maintenance.DEFAULT_REFERENCE_PROJECT,
-			reference_boot_scene=gf_maintenance.DEFAULT_REFERENCE_BOOT_SCENE,
-			reference_smoke_scene=gf_maintenance.DEFAULT_REFERENCE_SMOKE_SCENE,
-		)
-
-	def test_reference_manifest_reader_proves_missing_leaf_and_reads_valid_manifest(
-		self,
-	) -> None:
-		with tempfile.TemporaryDirectory() as temporary_directory:
-			reference_root = Path(temporary_directory).resolve()
-			missing = gf_reference_manifest_reader.read_reference_manifest(
-				reference_root
-			)
-			self.assertTrue(missing["ok"])
-			self.assertFalse(missing["manifest_present"])
-			self.assertIsNone(missing["boot_scene"])
-			self.assertIsNone(missing["smoke_scene"])
-
-			(reference_root / gf_maintenance.REFERENCE_MANIFEST_NAME).write_text(
-				json.dumps({
-					"boot_scene": "  res://manifest_boot.tscn  ",
-					"smoke_scene": "res://manifest_smoke.tscn",
-				}),
-				encoding="utf-8",
-			)
-			present = gf_reference_manifest_reader.read_reference_manifest(
-				reference_root
-			)
-
-		self.assertTrue(present["ok"])
-		self.assertTrue(present["manifest_present"])
-		self.assertEqual(present["boot_scene"], "res://manifest_boot.tscn")
-		self.assertEqual(present["smoke_scene"], "res://manifest_smoke.tscn")
-
-	def test_reference_manifest_reader_rejects_invalid_closed_schema_inputs(
-		self,
-	) -> None:
-		invalid_payloads = (
-			(b'{"boot_scene":"a","boot_scene":"b"}', "duplicate_key"),
-			(b"[]", "invalid_top_level"),
-			(b'{"unknown":"res://unknown.tscn"}', "unknown_key"),
-			(b'{"boot_scene":false}', "invalid_scene"),
-			(b'{"boot_scene":""}', "invalid_scene"),
-			(b'{"boot_scene":"\\ud800"}', "invalid_scene"),
-			(
-				json.dumps({
-					"smoke_scene": "x" * (
-						gf_reference_manifest_reader.REFERENCE_SCENE_MAX_CHARACTERS + 1
-					),
-				}).encode("utf-8"),
-				"invalid_scene",
-			),
-		)
-		with tempfile.TemporaryDirectory() as temporary_directory:
-			reference_root = Path(temporary_directory).resolve()
-			manifest_path = reference_root / gf_maintenance.REFERENCE_MANIFEST_NAME
-			for payload, expected_rule in invalid_payloads:
-				with self.subTest(rule=expected_rule, payload=payload[:32]):
-					manifest_path.write_bytes(payload)
-					with self.assertRaises(
-						gf_reference_manifest_reader.ReferenceManifestError
-					) as raised:
-						gf_reference_manifest_reader.read_reference_manifest(
-							reference_root
-						)
-					self.assertEqual(
-						raised.exception.rule_id,
-						f"reference_manifest.{expected_rule}",
-					)
-
-			manifest_path.write_bytes(b"\xff")
-			with self.assertRaises(gf_path_security.PinnedReadError) as invalid_utf8:
-				gf_reference_manifest_reader.read_reference_manifest(reference_root)
-			self.assertEqual(
-				invalid_utf8.exception.rule_id,
-				"path_security.invalid_utf8",
-			)
-
-			manifest_path.write_bytes(
-				b" " * (gf_reference_manifest_reader.REFERENCE_MANIFEST_MAX_BYTES + 1)
-			)
-			with self.assertRaises(gf_path_security.PinnedReadError) as oversized:
-				gf_reference_manifest_reader.read_reference_manifest(reference_root)
-			self.assertEqual(
-				oversized.exception.rule_id,
-				"path_security.file_too_large",
-			)
-
 	def test_optional_manifest_missing_proof_rejects_chain_and_leaf_races(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
-			reference_root = Path(temporary_directory).resolve()
-			manifest_path = reference_root / gf_maintenance.REFERENCE_MANIFEST_NAME
+			fixture_root = Path(temporary_directory).resolve()
+			manifest_path = fixture_root / "manifest.json"
 			with mock.patch.object(
 				gf_path_security,
 				"_directory_bindings_are_current",
@@ -560,8 +304,8 @@ class MaintenanceInvocationAuthorityTests(unittest.TestCase):
 			):
 				with self.assertRaises(gf_path_security.PinnedReadError) as chain_changed:
 					gf_path_security.read_optional_pinned_utf8_regular_file(
-						reference_root,
-						gf_maintenance.REFERENCE_MANIFEST_NAME,
+						fixture_root,
+						"manifest.json",
 						max_bytes=64 * 1024,
 					)
 			self.assertEqual(
@@ -590,8 +334,8 @@ class MaintenanceInvocationAuthorityTests(unittest.TestCase):
 			):
 				with self.assertRaises(gf_path_security.PinnedReadError) as leaf_changed:
 					gf_path_security.read_optional_pinned_utf8_regular_file(
-						reference_root,
-						gf_maintenance.REFERENCE_MANIFEST_NAME,
+						fixture_root,
+						"manifest.json",
 						max_bytes=64 * 1024,
 					)
 			self.assertEqual(
@@ -599,404 +343,45 @@ class MaintenanceInvocationAuthorityTests(unittest.TestCase):
 				"path_security.file_changed",
 			)
 
-	def test_manifest_reader_cli_fails_closed_for_all_pinned_read_failures(self) -> None:
-		for rule_id in (
-			"path_security.file_unavailable",
-			"path_security.boundary_invalid",
-			"path_security.file_changed",
-			"path_security.file_too_large",
-		):
-			with self.subTest(rule_id=rule_id), mock.patch.object(
-				gf_reference_manifest_reader.gf_path_security,
-				"read_optional_pinned_utf8_regular_file",
-				side_effect=gf_path_security.PinnedReadError(rule_id),
-			), mock.patch.object(
-				gf_reference_manifest_reader,
-				"_write_response",
-			) as write_response:
-				exit_code = gf_reference_manifest_reader.main([
-					"--project-root",
-					str(ROOT),
-				])
-
-			self.assertEqual(exit_code, 1)
-			self.assertEqual(
-				write_response.call_args.args[0],
-				{
-					"schema_version": 1,
-					"ok": False,
-					"error": "reference_manifest.read_failed",
-				},
-			)
-
-	def test_manifest_reader_cli_does_not_swallow_memory_error(self) -> None:
-		fatal = MemoryError("fixture reference manifest reader memory error")
-		with (
-			mock.patch.object(
-				gf_reference_manifest_reader,
-				"read_reference_manifest",
-				side_effect=fatal,
-			),
-			mock.patch.object(
-				gf_reference_manifest_reader,
-				"_write_response",
-			) as write_response,
-			self.assertRaises(MemoryError) as raised,
-		):
-			gf_reference_manifest_reader.main([
-				"--project-root",
-				str(ROOT),
-			])
-
-		self.assertIs(raised.exception, fatal)
-		write_response.assert_not_called()
-
-	def test_non_scene_validation_plans_never_spawn_manifest_reader(self) -> None:
-		plans = (
-			("quick", ["docs"], 1),
-			("full", None, 1),
-			("examples", ["examples_sync"], 1),
-		)
-		for suite, checks, jobs in plans:
-			with self.subTest(suite=suite, checks=checks), mock.patch.object(
-				gf_maintenance.gf_process_supervisor,
-				"run_supervised_process_bytes",
-				side_effect=AssertionError("this validation plan does not need a manifest"),
-			) as manifest_process, mock.patch.object(
-				gf_maintenance,
-				"maintenance_in_process_adapter_registry",
-				return_value={},
-			):
-				report = gf_maintenance.run_checks(
-					suite=suite,
-					checks=checks,
-					jobs=jobs,
-				)
-
-			self.assertFalse(report["ok"])
-			self.assertEqual(report["results"][0]["name"], "validation_executor_setup")
-			manifest_process.assert_not_called()
-
-	def test_invalid_registry_precedes_requested_scene_manifest_io(self) -> None:
-		frozen = _frozen_process_environment({
-			**dict(os.environ),
-			gf_maintenance.REFERENCE_PROJECT_ENV_VAR: str(ROOT),
+	def test_nested_invocation_reuses_active_environment_and_rejects_replacement(self) -> None:
+		active_authority = _SHARED_PROCESS_AUTHORITY
+		replacement = _frozen_process_environment({
+			**active_authority.environment.values(),
+			"GF_NESTED_REPLACEMENT": "forbidden",
 		})
+		with gf_process_authority.activate_process_context(active_authority):
+			self.assertIs(
+				gf_maintenance.freeze_maintenance_invocation_environment(),
+				active_authority.environment,
+			)
+			self.assertIs(
+				gf_maintenance.freeze_maintenance_invocation_environment(
+					active_authority.environment
+				),
+				active_authority.environment,
+			)
+			with self.assertRaisesRegex(ValueError, "cannot replace"):
+				gf_maintenance.freeze_maintenance_invocation_environment(replacement)
+			with gf_process_authority.activate_process_environment(replacement):
+				with self.assertRaisesRegex(RuntimeError, "do not share one identity"):
+					gf_maintenance.freeze_maintenance_invocation_environment()
+
+
+	def test_static_catalog_uses_constants_without_environment_or_filesystem(self) -> None:
 		with mock.patch.object(
 			gf_maintenance,
-			"maintenance_in_process_adapter_registry",
-			return_value={},
+			"capture_maintenance_process_environment",
+			side_effect=AssertionError("static Catalog must not capture ambient environment"),
 		), mock.patch.object(
-			gf_maintenance.gf_process_supervisor,
-			"run_supervised_process_bytes",
-			side_effect=AssertionError(
-				"invalid executor registries must fail before manifest I/O"
-			),
-		) as manifest_process:
-			report = gf_maintenance.run_checks(
-				checks=["examples_boot"],
-				jobs=1,
-				process_environment=frozen,
-			)
-
-		self.assertFalse(report["ok"])
-		self.assertEqual(report["results"][0]["name"], "validation_executor_setup")
-		manifest_process.assert_not_called()
-
-	def test_scene_environment_overrides_avoid_manifest_reader(self) -> None:
-		frozen = _frozen_process_environment({
-			**dict(os.environ),
-			gf_maintenance.REFERENCE_PROJECT_ENV_VAR: str(ROOT),
-			gf_maintenance.REFERENCE_BOOT_SCENE_ENV_VAR: "res://override_boot.tscn",
-			gf_maintenance.REFERENCE_SMOKE_SCENE_ENV_VAR: "res://override_smoke.tscn",
-		})
-		with mock.patch.object(
-			gf_maintenance.gf_process_supervisor,
-			"run_supervised_process_bytes",
-			side_effect=AssertionError("complete scene overrides must avoid manifest I/O"),
-		) as manifest_process, mock.patch.object(
 			gf_maintenance,
-			"maintenance_in_process_adapter_registry",
-			return_value={},
-		):
-			report = gf_maintenance.run_checks(
-				suite="examples",
-				jobs=1,
-				process_environment=frozen,
-			)
+			"validation_catalog_for_root",
+			return_value=mock.sentinel.static_catalog,
+		) as catalog_factory:
+			actual = gf_maintenance._default_validation_catalog_for_root(ROOT)
 
-		self.assertFalse(report["ok"])
-		self.assertEqual(report["results"][0]["name"], "validation_executor_setup")
-		manifest_process.assert_not_called()
+		self.assertIs(actual, mock.sentinel.static_catalog)
+		catalog_factory.assert_called_once_with(ROOT)
 
-	def test_scene_plan_reads_manifest_once_and_rebuilds_catalog_from_result(self) -> None:
-		with tempfile.TemporaryDirectory() as temporary_directory:
-			reference_root = Path(temporary_directory).resolve()
-			(reference_root / gf_maintenance.REFERENCE_MANIFEST_NAME).write_text(
-				json.dumps({
-					"boot_scene": "res://manifest_boot.tscn",
-					"smoke_scene": "res://manifest_smoke.tscn",
-				}),
-				encoding="utf-8",
-			)
-			frozen = _frozen_process_environment({
-				**dict(os.environ),
-				gf_maintenance.REFERENCE_PROJECT_ENV_VAR: str(reference_root),
-			})
-			with mock.patch.object(
-				gf_maintenance,
-				"validation_catalog_for_root",
-				wraps=gf_maintenance.validation_catalog_for_root,
-			) as catalog_factory, mock.patch.object(
-				gf_maintenance,
-				"pin_godot_executable_selection",
-				side_effect=gf_executable_resolution.EnvironmentNameAmbiguityError(
-					"fixture stop after reference resolution"
-				),
-			):
-				report = gf_maintenance.run_checks(
-					suite="examples",
-					jobs=1,
-					suite_timeout_seconds=30,
-					process_environment=frozen,
-				)
-
-		self.assertFalse(report["ok"])
-		self.assertEqual(report["results"][0]["name"], "validation_environment_setup")
-		self.assertEqual(catalog_factory.call_count, 2)
-		self.assertEqual(
-			catalog_factory.call_args.kwargs["reference_boot_scene"],
-			"res://manifest_boot.tscn",
-		)
-		self.assertEqual(
-			catalog_factory.call_args.kwargs["reference_smoke_scene"],
-			"res://manifest_smoke.tscn",
-		)
-
-	def test_invalid_manifest_is_stable_executor_setup_failure(self) -> None:
-		with tempfile.TemporaryDirectory() as temporary_directory:
-			reference_root = Path(temporary_directory).resolve()
-			(reference_root / gf_maintenance.REFERENCE_MANIFEST_NAME).write_bytes(
-				b'{"boot_scene":"a","boot_scene":"b"}'
-			)
-			frozen = _frozen_process_environment({
-				**dict(os.environ),
-				gf_maintenance.REFERENCE_PROJECT_ENV_VAR: str(reference_root),
-			})
-			with mock.patch.object(
-				gf_maintenance,
-				"maintenance_in_process_adapter_registry",
-				wraps=gf_maintenance.maintenance_in_process_adapter_registry,
-			) as registry:
-				report = gf_maintenance.run_checks(
-					checks=["examples_boot"],
-					jobs=1,
-					suite_timeout_seconds=30,
-					affected=True,
-					process_environment=frozen,
-				)
-
-		self.assertFalse(report["ok"])
-		self.assertEqual(report["results"][0]["name"], "validation_executor_setup")
-		self.assertEqual(
-			report["results"][0]["stderr"],
-			"Reference manifest inputs could not be established.",
-		)
-		registry.assert_called_once()
-		self.assertFalse(report["affected_analysis"]["report_ok"])
-		self.assertEqual(
-			report["affected_analysis"]["fallback_decision"],
-			"execute",
-		)
-
-	def test_expired_suite_deadline_prevents_manifest_process_spawn(self) -> None:
-		frozen = _frozen_process_environment({
-			**dict(os.environ),
-			gf_maintenance.REFERENCE_PROJECT_ENV_VAR: str(ROOT),
-		})
-		with mock.patch.object(
-			gf_maintenance.gf_process_supervisor,
-			"run_supervised_process_bytes",
-		) as manifest_process, mock.patch.object(
-			gf_maintenance,
-			"maintenance_in_process_adapter_registry",
-			wraps=gf_maintenance.maintenance_in_process_adapter_registry,
-		) as registry:
-			report = gf_maintenance.run_checks(
-				checks=["examples_boot"],
-				jobs=1,
-				suite_timeout_seconds=0,
-				affected=True,
-				process_environment=frozen,
-			)
-
-		self.assertFalse(report["ok"])
-		self.assertEqual(report["results"][0]["name"], "suite_deadline")
-		self.assertTrue(report["results"][0]["timed_out"])
-		manifest_process.assert_not_called()
-		registry.assert_called_once()
-		self.assertFalse(report["affected_analysis"]["report_ok"])
-		self.assertEqual(report["affected_analysis"]["execute_count"], 3)
-
-	def test_manifest_process_and_quiet_boundary_share_absolute_deadline(self) -> None:
-		response = json.dumps({
-			"schema_version": 1,
-			"ok": True,
-			"manifest_present": False,
-			"boot_scene": None,
-			"smoke_scene": None,
-		}).encode("utf-8")
-		process_result = gf_process_supervisor.SupervisedBinaryProcessResult(
-			return_code=0,
-			stdout=response,
-			stderr=b"",
-			timed_out=False,
-			duration_seconds=0.01,
-			pid=123,
-			cleanup_complete=True,
-		)
-		frozen = _frozen_process_environment({
-			**dict(os.environ),
-			gf_maintenance.REFERENCE_PROJECT_ENV_VAR: str(ROOT),
-		})
-		with mock.patch.object(
-			gf_maintenance.gf_process_supervisor,
-			"run_supervised_process_bytes",
-			return_value=process_result,
-		) as manifest_process, mock.patch.object(
-			gf_maintenance.gf_process_supervisor,
-			"require_supervised_binary_quiet_boundary",
-			wraps=gf_process_supervisor.require_supervised_binary_quiet_boundary,
-		) as quiet_boundary, mock.patch.object(
-			gf_maintenance,
-			"pin_godot_executable_selection",
-			side_effect=gf_executable_resolution.EnvironmentNameAmbiguityError(
-				"fixture stop after reference resolution"
-			),
-		):
-			report = gf_maintenance.run_checks(
-				checks=["examples_boot"],
-				jobs=1,
-				suite_timeout_seconds=30,
-				process_environment=frozen,
-			)
-
-		self.assertFalse(report["ok"])
-		self.assertEqual(
-			manifest_process.call_args.kwargs["deadline"],
-			quiet_boundary.call_args.kwargs["deadline"],
-		)
-		self.assertLessEqual(manifest_process.call_args.kwargs["timeout_seconds"], 30.0)
-
-	def test_manifest_process_cleanup_debt_escapes_with_identity(self) -> None:
-		debt = gf_process_supervisor.SupervisedProcessCleanupError(
-			"fixture manifest cleanup debt",
-			pid=321,
-			process_tree_empty=False,
-		)
-		frozen = _frozen_process_environment({
-			**dict(os.environ),
-			gf_maintenance.REFERENCE_PROJECT_ENV_VAR: str(ROOT),
-		})
-		with mock.patch.object(
-			gf_maintenance.gf_process_supervisor,
-			"run_supervised_process_bytes",
-			side_effect=debt,
-		), self.assertRaises(
-			gf_process_supervisor.SupervisedProcessCleanupError
-		) as raised:
-			gf_maintenance.run_checks(
-				checks=["examples_boot"],
-				jobs=1,
-				suite_timeout_seconds=30,
-				process_environment=frozen,
-			)
-
-		self.assertIs(raised.exception, debt)
-
-	def test_manifest_decode_crossing_original_deadline_is_deadline_failure(
-		self,
-	) -> None:
-		response = json.dumps({
-			"schema_version": 1,
-			"ok": True,
-			"manifest_present": False,
-			"boot_scene": None,
-			"smoke_scene": None,
-		}).encode("utf-8")
-		process_result = gf_process_supervisor.SupervisedBinaryProcessResult(
-			return_code=0,
-			stdout=response,
-			stderr=b"",
-			timed_out=False,
-			duration_seconds=0.01,
-			pid=123,
-			cleanup_complete=True,
-		)
-		with (
-			mock.patch.object(
-				gf_maintenance.time,
-				"perf_counter",
-				side_effect=(100.0, 100.0, 100.0, 131.0),
-			),
-			mock.patch.object(
-				gf_maintenance.gf_process_supervisor,
-				"run_supervised_process_bytes",
-				return_value=process_result,
-			),
-			self.assertRaises(gf_maintenance._ReferenceManifestDeadlineError),
-		):
-			gf_maintenance._read_reference_manifest_supervised(
-				str(ROOT),
-				_SHARED_PROCESS_AUTHORITY.environment.values(),
-				deadline=130.0,
-			)
-
-	def test_manifest_response_checks_deadline_after_decode_parse_and_validation(
-		self,
-	) -> None:
-		response = json.dumps({
-			"schema_version": 1,
-			"ok": True,
-			"manifest_present": True,
-			"boot_scene": "res://manifest_boot.tscn",
-			"smoke_scene": "res://manifest_smoke.tscn",
-		}).encode("utf-8")
-		deadline_check = mock.Mock()
-
-		decoded = gf_reference_manifest_reader.decode_success_response(
-			response,
-			deadline_check=deadline_check,
-		)
-
-		self.assertTrue(decoded["manifest_present"])
-		self.assertEqual(deadline_check.call_count, 3)
-
-	def test_manifest_process_does_not_swallow_fatal_or_control_flow_errors(
-		self,
-	) -> None:
-		for fatal in (
-			MemoryError("fixture manifest reader memory error"),
-			GeneratorExit("fixture manifest reader generator exit"),
-			KeyboardInterrupt("fixture manifest reader keyboard interrupt"),
-			SystemExit(23),
-		):
-			with (
-				self.subTest(error_type=type(fatal).__name__),
-				mock.patch.object(
-					gf_maintenance.gf_process_supervisor,
-					"run_supervised_process_bytes",
-					side_effect=fatal,
-				),
-				self.assertRaises(type(fatal)) as raised,
-			):
-				gf_maintenance._read_reference_manifest_supervised(
-					str(ROOT),
-					_SHARED_PROCESS_AUTHORITY.environment.values(),
-					deadline=time.perf_counter() + 30.0,
-				)
-
-			self.assertIs(raised.exception, fatal)
 
 	def test_run_checks_with_log_hygiene_reuses_one_frozen_log_policy(self) -> None:
 		frozen = _frozen_process_environment({
@@ -1400,11 +785,107 @@ class MaintenanceSelfTestModuleTests(unittest.TestCase):
 
 
 class ValidationCatalogContractTests(unittest.TestCase):
+	def test_examples_and_mcp_expose_only_the_local_smoke_contract(self) -> None:
+		catalog = gf_maintenance._VALIDATION_CATALOG
+		self.assertEqual(catalog.suites()["examples"], ["first_task_smoke"])
+		self.assertEqual(catalog.plan("examples").actions, ("godot_import", "first_task_smoke"))
+		self.assertEqual(catalog.timeout_floor_seconds("first_task_smoke"), 60)
+		command = catalog.command_definitions()["first_task_smoke"]
+		self.assertEqual(command[4:6], ["--path", "."])
+		self.assertEqual(command[-4:], ["--scene", "res://examples/first_task/first_task.tscn", "--", "--first-task-smoke"])
+		for suite in ("framework-integration", "framework", "full", "release"):
+			self.assertEqual(catalog.plan(suite).actions.count("first_task_smoke"), 1)
+		for suite in ("quick", "framework-static", "framework-gut", "framework-lsp"):
+			self.assertNotIn("first_task_smoke", catalog.plan(suite).actions)
+		tool = next(item for item in gf_mcp_server.list_tools() if item["name"] == "gf_run_checks")
+		advertised = tool["inputSchema"]["properties"]["checks"]["items"]["enum"]
+		self.assertIn("first_task_smoke", advertised)
+		for retired in ("examples_sync", "examples_sync_write", "examples_scan", "examples_boot", "examples_smoke", "examples_coverage"):
+			self.assertNotIn(retired, advertised)
+			with self.assertRaises(gf_validation_catalog.ValidationCatalogError):
+				catalog.plan("examples", [retired])
+
+	def test_first_task_smoke_requires_clean_script_resource_and_lifecycle_output(self) -> None:
+		marker = 'FIRST_TASK_SMOKE={"ok":true,"failures":[]}'
+		for output in (
+			"SCRIPT ERROR: Parse Error: fixture",
+			"ERROR: Failed loading resource: res://missing.tres",
+			"WARNING: ObjectDB instances leaked at exit",
+			"ERROR: 1 resources still in use at exit",
+		):
+			with self.subTest(output=output):
+				result = gf_maintenance.completed_command_result(
+					"first_task_smoke", ["godot"], 0, marker, output, [], 0.1, 60.0, 123,
+				)
+				self.assertNotEqual(result.exit_code, 0)
+		clean = gf_maintenance.completed_command_result(
+			"first_task_smoke", ["godot"], 0, marker, "", [], 0.1, 60.0, 123,
+		)
+		self.assertEqual(clean.exit_code, 0)
+
+	def test_first_task_smoke_requires_one_strict_success_marker(self) -> None:
+		prefix = "FIRST_TASK_SMOKE="
+		valid = prefix + '{"ok":true,"failures":[]}'
+		cases = {
+			"missing": "",
+			"duplicate": valid + "\n" + valid,
+			"malformed": prefix + "{",
+			"wrong_prefix": "noise " + valid,
+			"duplicate_key": prefix + '{"ok":false,"ok":true,"failures":[]}',
+			"nonfinite": prefix + '{"ok":NaN,"failures":[]}',
+			"wrong_root": prefix + "[]",
+			"missing_field": prefix + '{"ok":true}',
+			"extra_field": prefix + '{"ok":true,"failures":[],"extra":1}',
+			"integer_true": prefix + '{"ok":1,"failures":[]}',
+			"false": prefix + '{"ok":false,"failures":[]}',
+			"failure": prefix + '{"ok":true,"failures":["failed"]}',
+			"wrong_failures_type": prefix + '{"ok":true,"failures":""}',
+			"nested": prefix + "[" * 2000 + "]" * 2000,
+			"oversized": prefix + '{"ok":true,"failures":[]}' + " " * 16385,
+		}
+		for label, output in cases.items():
+			with self.subTest(label=label):
+				result = gf_maintenance.completed_command_result(
+					"first_task_smoke", ["godot"], 0, output, "", [], 0.1, 60.0, 123,
+				)
+				self.assertNotEqual(result.exit_code, 0)
+				self.assertTrue(any("completion marker" in note for note in result.notes or []))
+		for stdout, stderr, process_code, expected in (
+			(valid, "", 0, 0), ("", valid, 0, 0),
+			(valid, valid, 0, 1), (valid, "", 3, 3),
+			(valid + " " * (16_384 - len(valid[len(prefix):])), "", 0, 0),
+			(valid + " " * (16_385 - len(valid[len(prefix):])), "", 0, 1),
+		):
+			with self.subTest(stdout=stdout, stderr=stderr, process_code=process_code):
+				result = gf_maintenance.completed_command_result(
+					"first_task_smoke", ["godot"], process_code, stdout, stderr, [], 0.1, 60.0, 123,
+				)
+				self.assertEqual(result.exit_code, expected)
+
+	def test_first_task_smoke_validates_log_mirror_without_counting_it_twice(self) -> None:
+		valid = 'FIRST_TASK_SMOKE={"ok":true,"failures":[]}'
+		with tempfile.TemporaryDirectory() as directory:
+			log = Path(directory) / "smoke.log"
+			for stdout, log_text, expected in (
+				(valid, valid, 0),
+				(valid, "engine log without mirrored stdout", 0),
+				("", valid, 1),
+				(valid, valid + "\n" + valid, 1),
+				(valid, 'FIRST_TASK_SMOKE={"ok":false,"failures":["failed"]}', 1),
+				(valid, "FIRST_TASK_SMOKE={", 1),
+			):
+				with self.subTest(stdout=stdout, log_text=log_text):
+					log.write_text(log_text, encoding="utf-8")
+					result = gf_maintenance.completed_command_result(
+						"first_task_smoke", ["godot"], 0, stdout, "", [log], 0.1, 60.0, 123,
+					)
+					self.assertEqual(result.exit_code, expected)
+
 	_AUTHORITY_SNAPSHOT_SHA256 = (
-		"1c5581daa674d4e3f4bfbf3056162f7465165a289d9432519c66135968b6a201"
+		"21c110466562cfc447c45f94629e7babe09d44e2eabbbbae807ea3dc94660d88"
 	)
 	_EXECUTOR_PROJECTION_SHA256 = (
-		"565a8ad5ad2f251cc8c12c55aeef56b95496ab04bea4c49876c27cc6a44efcda"
+		"1f60cd9150c900007ddf2037016310afafb1906b4e0c288ffa7d445c8002df7a"
 	)
 
 	def test_default_catalog_matches_authority_snapshot_exactly(self) -> None:
@@ -1456,7 +937,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				len(snapshot["suites"]),
 				len(snapshot["lanes"]),
 			),
-			(54, 2, 9, 13, 11, 4),
+			(49, 2, 6, 13, 11, 4),
 		)
 		self.assertEqual(
 			[name for name in catalog.action_names if name not in commands],
@@ -1517,9 +998,8 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			first_before["mkdocs"][-1],
 			(ROOT / "first" / "ai_analysis/mkdocs_site").as_posix(),
 		)
-		self.assertIn("<reference-first>", first_before["examples_sync"])
-		self.assertEqual(first_before["examples_boot"][-1], "<boot-first>")
-		self.assertEqual(first_before["examples_smoke"][-1], "<smoke-first>")
+		self.assertEqual(first_before["first_task_smoke"][5], ".")
+		self.assertEqual(first_before["first_task_smoke"][-2:], ["--", "--first-task-smoke"])
 
 	def test_captured_catalog_projects_only_root_bound_static_commands(self) -> None:
 		source_context = self._context("source")
@@ -1550,6 +1030,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			self._snapshot_context()
 		)
 		expected_overrides = {
+			"first_task_smoke": 60,
 			"gut": 1200,
 			"gdscript_lsp_diagnostics": 660,
 			"gut_lifecycle_smoke": 360,
@@ -1667,14 +1148,14 @@ class ValidationCatalogContractTests(unittest.TestCase):
 					gf_maintenance.parallel_shard_timeout_seconds(
 						shard, override, validation_catalog=catalog,
 					),
-					4560,
+					5220,
 				)
 		policy = gf_maintenance.gf_repository_policy
 		self.assertEqual(policy.FRAMEWORK_CI_TIMEOUT_MINUTES, {
 			"framework-gut": 60,
 			"framework-lsp": 15,
 			"framework-static": 20,
-			"framework-integration": 80,
+			"framework-integration": 90,
 		})
 		for filename, job in (("ci.yml", "framework-checks"), ("release.yml", "release-framework-checks")):
 			with self.subTest(workflow=filename):
@@ -1683,9 +1164,9 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				self.assertFalse(duplicates)
 				self.assertEqual(
 					policy.extract_matrix_suite_scalar(jobs[job], shard.name, "timeout_minutes"),
-					"80",
+					"90",
 				)
-		self.assertGreater(policy.FRAMEWORK_CI_TIMEOUT_MINUTES[shard.name] * 60, 4560)
+		self.assertGreater(policy.FRAMEWORK_CI_TIMEOUT_MINUTES[shard.name] * 60, 5220)
 
 	def test_catalog_executor_policy_matches_reviewed_runner_values(self) -> None:
 		catalog = gf_validation_catalog.build_validation_catalog(
@@ -1758,7 +1239,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				is gf_validation_catalog.ValidationExecutorKind.SUBPROCESS
 				for action_name in catalog.action_names
 			),
-			31,
+			26,
 		)
 		self.assertEqual(
 			sum(
@@ -1848,156 +1329,6 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				allow_breaking_api=allow_breaking_api,
 			)
 
-	def test_reference_catalog_resolution_reuses_exact_frozen_callable_mappings(
-		self,
-	) -> None:
-		provisional = gf_maintenance.validation_catalog_for_root(ROOT)
-		resolved_boot_scene = "res://verified/manifest_boot.tscn"
-		resolved = gf_maintenance.validation_catalog_for_root(
-			ROOT,
-			reference_boot_scene=resolved_boot_scene,
-		)
-		binding = gf_maintenance.validate_validation_executor_registries(
-			provisional,
-			gf_maintenance.maintenance_in_process_adapter_registry(),
-			gf_maintenance.maintenance_deferred_command_materializer_registry(),
-		)
-		provisional_plan = provisional.plan("examples", ["examples_boot"])
-		resolved_plan = resolved.plan("examples", ["examples_boot"])
-
-		gf_maintenance.validate_resolved_reference_catalog(
-			provisional,
-			resolved,
-			provisional_plan=provisional_plan,
-			resolved_plan=resolved_plan,
-			allowed_scene_changes={
-				"examples_boot": (
-					gf_maintenance.DEFAULT_REFERENCE_BOOT_SCENE,
-					resolved_boot_scene,
-				),
-			},
-		)
-		rebound = gf_maintenance.rebind_frozen_validation_executors(
-			resolved,
-			binding,
-		)
-
-		self.assertIs(rebound.in_process_adapters, binding.in_process_adapters)
-		self.assertIs(
-			rebound.deferred_command_materializers,
-			binding.deferred_command_materializers,
-		)
-
-	def test_reference_catalog_resolution_rejects_unapproved_command_change(
-		self,
-	) -> None:
-		provisional = gf_maintenance.validation_catalog_for_root(ROOT)
-		resolved = gf_maintenance.validation_catalog_for_root(
-			ROOT,
-			reference_boot_scene="res://verified/manifest_boot.tscn",
-			reference_smoke_scene="res://unrequested/manifest_smoke.tscn",
-		)
-		provisional_plan = provisional.plan("examples", ["examples_boot"])
-		resolved_plan = resolved.plan("examples", ["examples_boot"])
-
-		with self.assertRaisesRegex(
-			gf_validation_catalog.ValidationCatalogError,
-			"unapproved command argument",
-		):
-			gf_maintenance.validate_resolved_reference_catalog(
-				provisional,
-				resolved,
-				provisional_plan=provisional_plan,
-				resolved_plan=resolved_plan,
-				allowed_scene_changes={
-					"examples_boot": (
-						gf_maintenance.DEFAULT_REFERENCE_BOOT_SCENE,
-						"res://verified/manifest_boot.tscn",
-					),
-				},
-			)
-
-	def test_reference_catalog_resolution_rejects_timeout_authority_drift(
-		self,
-	) -> None:
-		provisional = gf_maintenance.validation_catalog_for_root(ROOT)
-		drifted = gf_validation_catalog.ValidationCatalog(
-			actions=(
-				(
-					name,
-					provisional.static_command(name),
-					provisional.executor_kind(name),
-				)
-				for name in provisional.action_names
-			),
-			input_specs=provisional.input_specs,
-			dependencies=(
-				(name, dependencies)
-				for name, dependencies in provisional.dependencies().items()
-			),
-			check_groups=(
-				(name, actions)
-				for name, actions in provisional.check_groups().items()
-			),
-			suites=(
-				(name, actions)
-				for name, actions in provisional.suites().items()
-			),
-			parallel_full_shard_suites=provisional.parallel_full_shard_suites,
-			default_timeout_seconds=provisional.default_timeout_seconds + 1,
-			timeout_overrides=provisional.timeout_overrides().items(),
-			command_projection_context=provisional.command_projection_context,
-		)
-
-		with self.assertRaisesRegex(
-			gf_validation_catalog.ValidationCatalogError,
-			"non-command authority",
-		):
-			gf_maintenance.validate_resolved_reference_catalog(
-				provisional,
-				drifted,
-				provisional_plan=provisional.plan("quick", ["docs"]),
-				resolved_plan=drifted.plan("quick", ["docs"]),
-				allowed_scene_changes={},
-			)
-
-	def test_reference_catalog_resolution_rejects_explicit_plan_authority_drift(
-		self,
-	) -> None:
-		catalog = gf_maintenance.validation_catalog_for_root(ROOT)
-		plan = catalog.plan("full")
-		drifted_plans = (
-			replace(plan, requested_actions=plan.requested_actions[:-1]),
-			replace(plan, actions=plan.actions[:-1]),
-			replace(
-				plan,
-				check_graph=gf_maintenance.CheckGraph(catalog.action_names, {}),
-			),
-			replace(
-				plan,
-				lanes=(
-					replace(plan.lanes[0], execution_actions=()),
-					*plan.lanes[1:],
-				),
-			),
-		)
-
-		for drifted_plan in drifted_plans:
-			with self.subTest(
-				requested=len(drifted_plan.requested_actions),
-				actions=len(drifted_plan.actions),
-				lanes=len(drifted_plan.lanes),
-			), self.assertRaisesRegex(
-				gf_validation_catalog.ValidationCatalogError,
-				"validation plan authority",
-			):
-				gf_maintenance.validate_resolved_reference_catalog(
-					catalog,
-					catalog,
-					provisional_plan=plan,
-					resolved_plan=drifted_plan,
-					allowed_scene_changes={},
-				)
 
 	def test_plan_preserves_full_closure_and_isolated_lane_occurrences(self) -> None:
 		catalog = gf_maintenance._VALIDATION_CATALOG
@@ -2008,13 +1339,13 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			for action in lane.owned_actions
 		]
 
-		self.assertEqual(len(plan.actions), 45)
+		self.assertEqual(len(plan.actions), 46)
 		self.assertEqual(tuple(lane.name for lane in plan.lanes), catalog.parallel_full_shard_suites)
 		self.assertEqual(set(owned_actions), set(catalog.check_group("full")))
 		self.assertEqual(len(owned_actions), len(set(owned_actions)))
 		self.assertEqual(
 			sum(len(lane.execution_actions) for lane in plan.lanes),
-			46,
+			48,
 			"隔离 lane 必须分别执行各自的依赖 occurrence，不能按全局 action 去重。",
 		)
 		self.assertEqual(
@@ -2023,7 +1354,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				for lane in plan.lanes
 				if "godot_import" in lane.execution_actions
 			],
-			["framework-gut", "framework-lsp"],
+			["framework-integration", "framework-gut", "framework-lsp"],
 		)
 
 	def test_validation_plan_and_lanes_reject_field_rebinding(self) -> None:
@@ -2042,96 +1373,10 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			for lane in plan.lanes
 		))
 
-	def test_plan_uses_one_effective_graph_for_sync_examples(self) -> None:
-		plan = gf_maintenance._VALIDATION_CATALOG.plan(
-			"examples",
-			sync_examples=True,
-		)
-		description = plan.check_graph.describe(plan.actions)
-
-		self.assertEqual(
-			plan.actions,
-			(
-				"examples_sync_write",
-				"examples_scan",
-				"examples_boot",
-				"examples_smoke",
-				"examples_coverage",
-			),
-		)
-		self.assertEqual(description["edge_count"], 4)
-		self.assertEqual(
-			description["edges"],
-			[
-				{"check": "examples_scan", "depends_on": "examples_sync_write"},
-				{"check": "examples_boot", "depends_on": "examples_scan"},
-				{"check": "examples_smoke", "depends_on": "examples_scan"},
-				{"check": "examples_coverage", "depends_on": "examples_sync_write"},
-			],
-		)
-
-	def test_sync_examples_setup_failure_reports_the_effective_plan_graph(self) -> None:
-		frozen = _frozen_process_environment({
-			**dict(os.environ),
-			gf_maintenance.REFERENCE_BOOT_SCENE_ENV_VAR: "res://fixture_boot.tscn",
-			gf_maintenance.REFERENCE_SMOKE_SCENE_ENV_VAR: "res://fixture_smoke.tscn",
-		})
-		with mock.patch.object(
-			gf_maintenance,
-			"workspace_fingerprint",
-			side_effect=gf_maintenance.gf_maintenance_check_graph.WorkspaceFingerprintSetupError(
-				"synthetic setup failure"
-			),
-		):
-			report = gf_maintenance.run_checks(
-				suite="examples",
-				sync_examples=True,
-				process_environment=frozen,
-			)
-
-		self.assertFalse(report["ok"])
-		self.assertEqual(report["check_graph"]["edge_count"], 4)
-		self.assertEqual(
-			report["check_graph"]["edges"],
-			[
-				{"check": "examples_scan", "depends_on": "examples_sync_write"},
-				{"check": "examples_boot", "depends_on": "examples_scan"},
-				{"check": "examples_smoke", "depends_on": "examples_scan"},
-				{"check": "examples_coverage", "depends_on": "examples_sync_write"},
-			],
-		)
-
-	def test_sync_examples_deadline_failure_reports_the_effective_plan_graph(self) -> None:
-		plan = gf_maintenance._VALIDATION_CATALOG.plan(
-			"examples",
-			sync_examples=True,
-		)
-		frozen = _frozen_process_environment({
-			**dict(os.environ),
-			gf_maintenance.REFERENCE_BOOT_SCENE_ENV_VAR: "res://fixture_boot.tscn",
-			gf_maintenance.REFERENCE_SMOKE_SCENE_ENV_VAR: "res://fixture_smoke.tscn",
-		})
-		with mock.patch.object(
-			gf_maintenance,
-			"workspace_fingerprint",
-			side_effect=TimeoutError("synthetic workspace deadline"),
-		):
-			report = gf_maintenance.run_checks(
-				suite="examples",
-				sync_examples=True,
-				suite_timeout_seconds=1,
-				process_environment=frozen,
-			)
-
-		self.assertFalse(report["ok"])
-		self.assertEqual(report["checks"], list(plan.actions))
-		self.assertEqual(report["check_graph"], plan.describe_graph())
-		self.assertEqual(report["results"][0]["name"], "suite_deadline")
 
 	def test_serial_runner_consumes_the_effective_plan_dependencies(self) -> None:
 		plan = gf_maintenance._VALIDATION_CATALOG.plan(
 			"examples",
-			sync_examples=True,
 		)
 		workspace_state = {
 			"schema_version": 1,
@@ -2181,15 +1426,15 @@ class ValidationCatalogContractTests(unittest.TestCase):
 
 		self.assertTrue(report["ok"])
 		results = {result["name"]: result for result in report["results"]}
-		for consumer in ("examples_scan", "examples_coverage"):
+		for consumer in ("first_task_smoke",):
 			with self.subTest(consumer=consumer):
 				self.assertEqual(
 					results[consumer]["dependencies"],
-					["examples_sync_write"],
+					["godot_import"],
 				)
 				self.assertEqual(
 					set(results[consumer]["dependency_fingerprints"]),
-					{"examples_sync_write"},
+					{"godot_import"},
 				)
 
 	def test_serial_runner_consumes_the_catalog_timeout_floor(self) -> None:
@@ -2633,10 +1878,6 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			return_value=invocation_catalog,
 		) as catalog_factory, mock.patch.object(
 			gf_maintenance,
-			"reference_catalog_inputs",
-			return_value=("fixture-reference", "fixture-boot", "fixture-smoke"),
-		) as reference_inputs, mock.patch.object(
-			gf_maintenance,
 			"maintenance_in_process_adapter_registry",
 		), mock.patch.object(
 			gf_maintenance,
@@ -2655,13 +1896,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 
 		self.assertFalse(report["ok"])
 		self.assertEqual(report["results"][0]["name"], "validation_executor_setup")
-		catalog_factory.assert_called_once_with(
-			ROOT,
-			default_reference_project="fixture-reference",
-			reference_boot_scene="fixture-boot",
-			reference_smoke_scene="fixture-smoke",
-		)
-		reference_inputs.assert_called_once_with(invocation_environment)
+		catalog_factory.assert_called_once_with(ROOT)
 		validate_registries.assert_called_once()
 		self.assertIs(validate_registries.call_args.args[0], invocation_catalog)
 		fingerprint.assert_not_called()
@@ -3911,10 +3146,6 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		fingerprint = mock.Mock(return_value=workspace_state)
 		with mock.patch.object(
 			gf_maintenance,
-			"reference_catalog_inputs",
-			return_value=("fixture-reference", "fixture-boot", "fixture-smoke"),
-		), mock.patch.object(
-			gf_maintenance,
 			"pin_godot_executable_selection",
 		), mock.patch.object(
 			gf_maintenance,
@@ -4509,9 +3740,6 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				"-gpre_run_script=res://tests/gf_core/support/gf_gut_pre_run_hook.gd",
 				"-gpost_run_script=res://tests/gf_core/support/gf_gut_post_run_hook.gd",
 			),
-			default_reference_project="../gf-reference-project",
-			reference_boot_scene="res://scenes/app/driftbound_boot.tscn",
-			reference_smoke_scene="res://tests/smoke/driftbound_smoke.tscn",
 		)
 
 	@staticmethod
@@ -4523,9 +3751,6 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			gut_lifecycle_cli_resource_path=f"<gut-cli-{label}>",
 			gut_shard_config_disabled_argument=f"<gut-config-{label}>",
 			gut_lifecycle_hook_arguments=(f"-ghook={label}",),
-			default_reference_project=f"<reference-{label}>",
-			reference_boot_scene=f"<boot-{label}>",
-			reference_smoke_scene=f"<smoke-{label}>",
 		)
 
 	@staticmethod
@@ -8588,6 +7813,108 @@ class ProcessSupervisorLeaseTests(unittest.TestCase):
 
 
 class CorePluginBootstrapSmokeTests(unittest.TestCase):
+	@staticmethod
+	def _refresh_result_payload() -> dict[str, object]:
+		return {
+			"schema_version": 1,
+			"request_count": 100,
+			"accepted_requests": 100,
+			"context_replaced": True,
+			"old_context_revoked": True,
+			"report": {
+				"status": "applied", "generation": 100, "issues": [],
+				"previous_status": "applied",
+				"settings": {"gf/extensions/selection_mode": "explicit"},
+				"installed_settings": {"gf/extensions/selection_mode": "explicit"},
+			},
+		}
+
+	def test_refresh_smoke_accepts_one_complete_actual_apply_report(self) -> None:
+		issues: list[dict[str, object]] = []
+		gf_maintenance.validate_core_plugin_refresh_smoke_output(
+			"Godot startup\nGF_CORE_PLUGIN_REFRESH_RESULT " + json.dumps(self._refresh_result_payload()) + "\n",
+			issues,
+		)
+		self.assertEqual(issues, [])
+
+	def test_refresh_smoke_rejects_missing_duplicate_malformed_or_ambiguous_result(self) -> None:
+		payload = json.dumps(self._refresh_result_payload())
+		marker = "GF_CORE_PLUGIN_REFRESH_RESULT "
+		valid_line = marker + payload
+		cases = {
+			"missing": "[GF Framework] 已刷新 GF 编辑器贡献记录（generation=100）。",
+			"duplicate": valid_line + "\n" + valid_line,
+			"duplicate_malformed": valid_line + "\nGF_CORE_PLUGIN_REFRESH_RESULT",
+			"embedded": "warning: " + valid_line,
+			"invalid_json": marker + "{",
+			"trailing_json": valid_line + " {}",
+			"duplicate_key": marker + payload.replace('"generation": 100', '"generation": 99, "generation": 100'),
+			"nonfinite": marker + payload.replace('"generation": 100', '"generation": NaN'),
+			"oversized": marker + (" " * 16_385) + payload,
+		}
+		for name, log_text in cases.items():
+			with self.subTest(case=name):
+				issues: list[dict[str, object]] = []
+				gf_maintenance.validate_core_plugin_refresh_smoke_output(log_text, issues)
+				self.assertEqual([item["kind"] for item in issues], ["core_plugin_bootstrap_smoke_refresh_result_invalid"])
+
+	def test_refresh_smoke_rejects_incomplete_or_wrong_typed_actual_result(self) -> None:
+		cases = [
+			("schema_version", True), ("request_count", 100.0), ("accepted_requests", 99),
+			("context_replaced", 1), ("old_context_revoked", False), ("report", []),
+			("report.status", "pending"), ("report.status", "partial"), ("report.status", "failed"),
+			("report.generation", 99), ("report.generation", 100.0), ("report.generation", True),
+			("report.previous_status", "failed"), ("report.issues", ["registration_failed"]),
+			("report.settings", []), ("report.installed_settings", {}),
+		]
+		for field_name, value in cases:
+			with self.subTest(field=field_name, value=value):
+				payload = self._refresh_result_payload()
+				if field_name.startswith("report."):
+					payload["report"][field_name.split(".")[1]] = value
+				else:
+					payload[field_name] = value
+				issues: list[dict[str, object]] = []
+				gf_maintenance.validate_core_plugin_refresh_smoke_output("GF_CORE_PLUGIN_REFRESH_RESULT " + json.dumps(payload), issues)
+				self.assertEqual(len(issues), 1)
+		missing_field = self._refresh_result_payload()
+		missing_field.pop("schema_version")
+		extra_field = self._refresh_result_payload()
+		extra_field["unexpected"] = True
+		missing_report_field = self._refresh_result_payload()
+		missing_report_field["report"].pop("installed_settings")
+		extra_report_field = self._refresh_result_payload()
+		extra_report_field["report"]["unexpected"] = True
+		for payload in [missing_field, extra_field, missing_report_field, extra_report_field]:
+			issues = []
+			gf_maintenance.validate_core_plugin_refresh_smoke_output("GF_CORE_PLUGIN_REFRESH_RESULT " + json.dumps(payload), issues)
+			self.assertEqual(len(issues), 1)
+		payload = self._refresh_result_payload()
+		payload["report"]["settings"] = {"enabled": True}
+		payload["report"]["installed_settings"] = {"enabled": 1}
+		issues = []
+		gf_maintenance.validate_core_plugin_refresh_smoke_output("GF_CORE_PLUGIN_REFRESH_RESULT " + json.dumps(payload), issues)
+		self.assertEqual(len(issues), 1, "JSON bool and integer settings must not compare as the same installed identity.")
+
+	def test_refresh_scenario_rejects_old_print_only_even_with_zero_exit_code(self) -> None:
+		issues: list[dict[str, object]] = []
+		old_marker = "[GF Framework] 已刷新 GF 编辑器贡献记录（generation=100）。"
+		completed = subprocess.CompletedProcess(["godot"], 0, stdout="GF_CORE_PLUGIN_REFRESH_RESULT " + json.dumps(self._refresh_result_payload()), stderr="")
+		with tempfile.TemporaryDirectory() as temp_dir, mock.patch.object(
+			gf_maintenance, "prepare_core_plugin_bootstrap_smoke_project",
+		), mock.patch.object(
+			gf_maintenance, "make_core_plugin_bootstrap_smoke_environment", return_value={},
+		), mock.patch.object(
+			gf_maintenance, "make_core_plugin_bootstrap_smoke_command", return_value=["godot"],
+		), mock.patch.object(
+			gf_maintenance, "_run_maintenance_subprocess_with_frozen_environment", return_value=completed,
+		), mock.patch.object(gf_maintenance, "read_text_file", return_value=old_marker):
+			result = gf_maintenance.run_core_plugin_bootstrap_smoke_scenario(
+				Path(temp_dir), "refresh_request_burst", issues, base_environment={},
+			)
+		self.assertFalse(result["ok"])
+		self.assertEqual([item["kind"] for item in issues], ["core_plugin_bootstrap_smoke_refresh_result_invalid"])
+
 	def test_translation_preview_smoke_uses_a_real_display_on_linux(self) -> None:
 		environment = {"PATH": "frozen-core-path"}
 		with mock.patch.object(
@@ -20313,6 +19640,7 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 				(
 					"framework-integration",
 					(
+						"first_task_smoke",
 						"project_profile_native_acceptance",
 						"ai_developer_adapter_acceptance",
 						"core_plugin_bootstrap_smoke",

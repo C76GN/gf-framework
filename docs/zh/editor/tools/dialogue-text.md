@@ -4,7 +4,16 @@
 
 ## 定位
 
-`GFDialogueTextCompiler` 只负责三件事：解析 JSON、把结构字段映射为 `GFDialogueLine` / `GFDialogueResponse`，以及复用 `GFDialogueResource.validate_resource()` 检查重复 ID、缺失跳转和无条件自动循环。它不解释“好感度”“任务阶段”“角色立绘”之类业务概念；这类数据应进入 `metadata`、`condition_payload` 或 `mutation_payload`，再由项目自己的上下文处理器解释。
+`GFDialogueTextCompiler` 提供两组明确入口，结果的 `contract` 字段固定说明成功含义：
+
+| 入口 | `contract` | `success = true` 的承诺 |
+| --- | --- | --- |
+| `compile_structure_text()` / `compile_structure_source()` | `structure` | 严格 JSON、字段映射、结构预算和资源图校验通过；适用于独立管理运行准入的消费者 |
+| `build_runner_text()` / `build_runner_source()` | `runner` | 上述检查通过，且完整资源身份通过内置 Runner 同一默认政策的准入；适用于发布给内置 Runner 的资源 |
+
+生产构建会检查补全默认字段后的完整身份，而不只计算原始 JSON 大小。结构编译成功的紧凑输入仍可能因展开后的身份超预算而构建失败。生产成功限定于**同一资源内容、同一身份政策下的启动前结构与预算资格**：后续内容变更、条件、mutation、项目回调、运行步数预算或合法 END 都可能使运行返回 `null`；它不保证任何分支一定展示文本或执行成功。
+
+这两组入口都不解释“好感度”“任务阶段”“角色立绘”等业务概念；数据应进入 `metadata`、`condition_payload` 或 `mutation_payload`，由项目上下文处理器解释。旧的含糊 `compile_text()` / `compile_source()` 入口已移除，调用方必须选择成功合同。
 
 这条边界适合多种项目：剧情游戏可以把 `text` 保存为本地化 key，任务对话可以用通用 condition / mutation ID 连接项目状态，内部工具也可以从表格或图编辑器生成同一 JSON。GF 不要求项目手写 JSON，更不把某种编辑器工作流固化成运行时契约。
 
@@ -58,7 +67,7 @@
 
 ### 资源与诊断预算
 
-`compile_text()` 的预算选项必须是严格正整数；调用方可在默认值与框架硬上限之间选择，但不能关闭硬上限：
+两组入口共用以下结构预算，选项必须是严格正整数；调用方可在默认值与框架硬上限之间选择，但不能关闭硬上限：
 
 | 选项 | 默认值 | 硬上限 | 计量口径 |
 | --- | ---: | ---: | --- |
@@ -70,7 +79,7 @@
 | `max_responses` | 16,384 | 65,536 | 全部 line 的 response 总数 |
 | `max_diagnostics` | 256 | 1,024 | 返回 issue 总数；最后一个槽说明诊断被截断 |
 
-文本、结构、line 与 response 预算会在构造 `GFDialogueResource` 前拒绝；资源图校验复用一次建立的 ID 索引和全局 cycle traversal，不再从每个起点重复线性查找。任何预算失败都只返回报告，不暴露部分 Resource。
+文本、结构、line 与 response 预算会在构造 `GFDialogueResource` 前拒绝；资源图校验复用一次建立的 ID 索引和全局 cycle traversal。生产入口随后调用 `build_identity_report()`；身份准入失败产生 `runner_identity_rejected` 及预算计数，不返回半成品。调高结构预算不会放宽 Runner 的身份政策。
 
 ### 来源定位与报告边界
 
@@ -80,11 +89,11 @@
 
 ## 典型流程
 
-直接编译内存文本：
+为内置 Runner 构建并保存产物：
 
 ```gdscript
 var compiler: GFDialogueTextCompiler = GFDialogueTextCompiler.new()
-var result: Dictionary = compiler.compile_text(source_text, {
+var result: Dictionary = compiler.build_runner_text(source_text, {
 	"source_path": "res://dialogue/prologue.gf_dialogue.json",
 })
 
@@ -97,13 +106,13 @@ else:
 	print(GFVariantData.get_option_dictionary(result, "report"))
 ```
 
-需要从文件、内存注册文本或项目自定义来源读取时，先配置 `GFSourceTextLoader`，再调用 `compile_source()`。`loader.max_bytes` 必须为正且不大于本次有效 `max_text_bytes`，这样读取阶段不会先于编译器预算分配更大的文本。文件加载仍受 `root_path` 的词法约束，`../` 不能越过声明根目录；编译器不会自己扩大文件访问范围。
+需要从文件、内存注册文本或项目自定义来源读取时，先配置 `GFSourceTextLoader`，再调用 `build_runner_source()`。`loader.max_bytes` 必须为正且不大于本次有效 `max_text_bytes`，避免读取阶段先分配超预算文本。文件加载受 `root_path` 词法约束，`../` 不能越过声明根目录。
 
 ```gdscript
 var loader: GFSourceTextLoader = GFSourceTextLoader.new("res://dialogue", {
 	"max_bytes": 2 * 1024 * 1024,
 })
-var result: Dictionary = compiler.compile_source("prologue.gf_dialogue.json", loader)
+var result: Dictionary = compiler.build_runner_source("prologue.gf_dialogue.json", loader)
 ```
 
 `root_path` 不是物理文件系统沙箱：当前加载器不会证明 junction / symlink 的最终目标仍在根内。完整威胁模型与部署要求见[源码文本加载器](../../standard/utilities/io/config-remote-outbox/source-text-loader.md)。

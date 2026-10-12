@@ -4,7 +4,7 @@ BehaviorTree 扩展提供轻量的纯代码行为树。它适合敌人、NPC 或
 
 ## 核心模型
 
-- `BTNode` 是行为树节点基类，`tick(blackboard)` 返回 `FRESH`、`SUCCESS`、`FAILURE`、`RUNNING` 或 `ABORTED`。
+- `BTNode` 是行为树节点基类，`tick(blackboard)` 返回 `SUCCESS`、`FAILURE`、`RUNNING`、`ABORTED` 或 `ERROR`；`FRESH` 只用于尚未执行的状态，不能作为 tick 结果。
 - `Sequence`、`Selector`、`Parallel` 和随机组合节点负责编排子节点。
 - `Inverter`、`AlwaysSucceed`、`Cooldown`、`TimeLimit`、`Repeat` 等装饰器只改变控制流，不解释业务语义。
 - `Runner` 持有根节点、黑板和运行时副本，并提供 tick 统计和调试快照。
@@ -28,6 +28,27 @@ runner.tick()
 
 ## 运行态与调试
 
+`FAILURE` 表示正常业务结果，例如条件不成立、概率未命中或冷却尚未结束；Selector 可以尝试其他分支，Inverter 可以反转它。`ERROR` 表示执行合同失败，例如无效 Callable、非 bool 条件、非法状态或缺少必需子节点。所有普通组合节点与装饰器都传播 `ERROR`，不会把它反转为成功、交给其他选择分支、计入 Repeat 成功次数或转为 UntilSuccess/UntilFail 的下一次尝试。Parallel 遇到错误立即结束本次遍历并重置子节点，尚未执行的分支不会补跑；已执行副作用不会被回滚。
+
+自定义错误节点应返回 `record_status(GFBehaviorTree.Status.ERROR, &"project.device_unavailable")`，让原因沿组合边界保留。没有提供原因的 ERROR 使用 `execution_error`。`ABORTED` 独立表示执行被中止，任何普通节点和恢复节点都不能把它当成业务失败继续执行。上层应在终态后停止本次调度；再次 tick 或 reset 开始新一轮属于调用方的生命周期决定。
+
+### 显式错误恢复
+
+`RecoverError(child, recovery, allowed_reasons)` 只在原分支返回 ERROR 且原因精确命中白名单时启动恢复分支。适用示例是项目节点报告设备不可用后，切换到项目已经准备好的人工操作流程：
+
+```gdscript
+var recovered := GFBehaviorTree.RecoverError.new(
+	device_operation,
+	manual_operation,
+	[&"project.device_unavailable"],
+)
+var runner := GFBehaviorTree.Runner.new(recovered)
+```
+
+两个分支必须存在且不是同一实例。原因列表必须包含 1–64 个不重复名称，每个最长 128 字符；使用小写 ASCII 字母开头、字母/数字/下划线组成的点分段名称，不接受通配符及中止原因 `aborted` / `runtime_reset`。无效策略直接返回 `ERROR`，不执行任一分支。
+
+匹配后先 reset 原分支，再执行恢复；恢复返回 RUNNING 时只推进恢复分支。恢复自身的 ERROR、ABORTED 或业务 FAILURE 原样结束此次尝试，不再次恢复、不自动重试原操作。终态会保持至 reset，避免重复 tick 重放副作用；`get_caught_reason()` 可读取匹配原因，reset 会清除。Runner 默认副本互不共享这一状态。父节点显式 reset 后的下一轮可以重新执行，因此项目仍须让外部副作用幂等，或自行管理执行收据与生命周期。
+
 `Sequence` 和 `Selector` 会在子节点返回 `RUNNING` 时保留当前子节点索引，下次 `tick()` 从该位置继续；返回终态后重置索引。`RandomSelector`、`RandomSequence` 和 `Probability` 可传入 `RandomNumberGenerator`，便于固定种子测试、回放或模拟。
 
 `Runner` 默认通过 `duplicate_runtime()` 复制运行树，让同一棵配置树可以安全交给多个 agent。自定义节点必须在需要复制运行树时重写 `duplicate_runtime()` 并返回保持相同动态脚本类型的新实例；这也适用于继承 `Sequence`、`Decorator` 等具体内置节点的子类。默认实现、返回自身或发生类型切片都会生成显式失败节点并记录错误。确实需要共享实例的高级场景，应显式使用 `GFBehaviorTree.Runner.new(root, false)`。
@@ -42,7 +63,7 @@ runner.tick()
 
 Runner 的调试快照只迭代并输出受 `max_blackboard_keys` 限制的排序键样本，同时报告完整 `blackboard_key_count`；它从不读取或输出黑板值。这里的遍历期保证只适用于 `BTNode` 和 `Runner`。传入仅实现 `get_debug_snapshot()` 的通用 Object 时，对象方法必须先自行构造返回值，GF 只能对返回值执行有界 post-projection，无法约束第三方方法内部的工作量。
 
-`TimeLimit(0)` 表示立即超时，不会先执行一次子节点。`UntilSuccess` / `UntilFail` 会把子节点的非目标终态视为一次完整尝试，并在下一次重试前 reset 子节点，避免上一次尝试的运行态泄漏到下一轮。
+`TimeLimit(0)` 表示立即超时，不会先执行一次子节点。`UntilSuccess` / `UntilFail` 只把子节点的非目标业务终态视为可重试尝试，并在下一次重试前 reset 子节点；ERROR 和 ABORTED 立即传播。
 
 ## 使用边界
 

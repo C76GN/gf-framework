@@ -38,10 +38,14 @@ await architecture.init()
 私有 Broker；应创建一个 `GFResourceBroker`，调用 `init()`，再分别通过
 `set_resource_broker()` 注入。独立 Broker 不在 Architecture 的 tick 列表中时，
 调用方必须持续调用 `pump()`；`dispose()` 后已经发起且无法中止的请求仍需
-`pump()` 到 `is_idle()`，才能完成 drain。`GFAssetUtility`、`GFSceneUtility` 或
-`GFBackgroundWorkUtility` 自己拥有的私有 Broker 尚未 idle 时，
-`set_resource_broker()` 会返回 `ERR_BUSY` 并保留旧引用，避免替换后失去唯一的
-drain 推进者；重复绑定当前 Broker 则幂等成功。
+`pump()` 到 `is_idle()`，才能完成 drain。三类消费者的 `set_resource_broker()`
+建立生命周期内的固定绑定；重复绑定当前实例幂等成功，换成其他实例返回
+`ERR_ALREADY_IN_USE`，即使旧实例已经 idle 也不会改变绑定。需要更换时关闭并
+重建相应生命周期。活动架构也不能通过替换或注销 Broker 绕过这一约束。
+
+需要可切换资源服务时，使用 [资源服务域](resource-service-domain.md) 的稳定入口。
+域统一选择稳定、受控切换或在途切换，Asset 通过 `set_resource_service_domain()`
+参与；Scene 与 BackgroundWork 当前保持固定绑定，不能混入可切换域。
 
 架构正常退出使用 `await architecture.shutdown_async()`。Broker 的
 `begin_quiesce()` 关闭新请求准入，保留已接纳请求的 FIFO 处理和取消请求的

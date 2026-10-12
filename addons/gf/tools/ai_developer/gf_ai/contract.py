@@ -124,7 +124,7 @@ def load_contract(
 	raw_schema_version = data.get("schema_version")
 	schema_version = raw_schema_version if isinstance(raw_schema_version, int) and not isinstance(raw_schema_version, bool) else 0
 	migration_required = schema_version > 0 and schema_version != CONTRACT_SCHEMA_VERSION
-	migration_available = schema_version in (1, 2, 3, 4) and CONTRACT_SCHEMA_VERSION == 5
+	migration_available = schema_version in (1, 2, 3, 4, 5) and CONTRACT_SCHEMA_VERSION == 6
 	if migration_required and migration_available:
 		issues = [_issue(
 			"error",
@@ -193,28 +193,33 @@ def validate_contract_data(data: dict[str, Any], project_root: Path) -> list[dic
 def _semantic_issues(data: dict[str, Any], project_root: Path) -> list[dict[str, str]]:
 	issues: list[dict[str, str]] = []
 	framework = _object(data, "framework")
-	required = _string_set(framework, "required_packages")
-	optional = _string_set(framework, "optional_packages")
-	forbidden = _string_set(framework, "forbidden_packages")
+	presence = _object(framework, "package_presence")
+	usage = _object(framework, "package_usage")
+	required = _string_set(presence, "required")
+	forbidden_payload = _string_set(presence, "forbidden")
+	allowed = _string_set(usage, "allowed")
+	forbidden_usage = _string_set(usage, "forbidden")
 	if "gf.kernel" not in required:
-		issues.append(_issue("error", "kernel_not_required", "$.framework.required_packages", "GF projects must explicitly require gf.kernel."))
-	for left_name, left, right_name, right in (
-		("required_packages", required, "optional_packages", optional),
-		("required_packages", required, "forbidden_packages", forbidden),
-		("optional_packages", optional, "forbidden_packages", forbidden),
+		issues.append(_issue("error", "kernel_not_required", "$.framework.package_presence.required", "GF projects must explicitly require the gf.kernel payload."))
+	if "gf.kernel" not in allowed:
+		issues.append(_issue("error", "kernel_usage_not_allowed", "$.framework.package_usage.allowed", "GF projects must explicitly allow gf.kernel usage."))
+	for axis, positive_name, positive, negative in (
+		("package_presence", "required", required, forbidden_payload),
+		("package_usage", "allowed", allowed, forbidden_usage),
 	):
-		for package_id in sorted(left.intersection(right)):
+		for package_id in sorted(positive.intersection(negative)):
 			issues.append(_issue(
 				"error",
-				"package_policy_overlap",
-				f"$.framework.{left_name}",
-				f"Package {package_id} also appears in {right_name}.",
+				f"{axis}_overlap",
+				f"$.framework.{axis}.{positive_name}",
+				f"Package {package_id} also appears in {axis}.forbidden.",
 			))
 	known_packages = catalog.known_package_ids()
 	for field, package_ids in (
-		("required_packages", required),
-		("optional_packages", optional),
-		("forbidden_packages", forbidden),
+		("package_presence.required", required),
+		("package_presence.forbidden", forbidden_payload),
+		("package_usage.allowed", allowed),
+		("package_usage.forbidden", forbidden_usage),
 	):
 		for package_id in sorted(package_ids - known_packages):
 			issues.append(_issue(
@@ -314,7 +319,7 @@ def _semantic_issues(data: dict[str, Any], project_root: Path) -> list[dict[str,
 				"error",
 				"capability_package_not_required",
 				f"$.framework.capability_requirements[{index}].id",
-				f"Required capability {capability_id} has no provider package in required_packages.",
+				f"Required capability {capability_id} has no provider package in package_presence.required.",
 			))
 		advertised_recipes = _string_set(capability, "recipes")
 		selected_recipes = _string_set(requirement, "recipes")

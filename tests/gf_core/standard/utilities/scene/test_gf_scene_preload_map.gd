@@ -226,7 +226,7 @@ func test_auto_neighbor_waits_for_active_asset_warmup_before_broker_admission() 
 	assets.init()
 	var asset_bind_error: Error = assets.set_resource_broker(broker)
 	assert_eq(asset_bind_error, OK)
-	var scene_utility: SceneUtilityProbe = SceneUtilityProbe.new()
+	var scene_utility: SceneUtilityProbe = SceneUtilityProbe.new(broker)
 	scene_utility.init()
 	var scene_bind_error: Error = scene_utility.set_probe_broker(broker)
 	assert_eq(scene_bind_error, OK)
@@ -371,7 +371,7 @@ func _assert_auto_neighbor_joins_external_active_preload(external_type_hint: Str
 		{ "consumer_id": &"external_preload" }
 	)
 	assert_eq(external_lease.get_status(), GFResourceLease.STATUS_LOADING)
-	var scene_utility: SceneUtilityProbe = SceneUtilityProbe.new()
+	var scene_utility: SceneUtilityProbe = SceneUtilityProbe.new(broker)
 	scene_utility.init()
 	var bind_error: Error = scene_utility.set_probe_broker(broker)
 	assert_eq(bind_error, OK)
@@ -457,6 +457,10 @@ func _uid_path_for(path: String) -> String:
 class SceneUtilityProbe extends GFSceneUtility:
 	var _broker: SceneResourceBrokerProbe = SceneResourceBrokerProbe.new()
 	var packed_scene_changes: int = 0
+
+	func _init(broker: SceneResourceBrokerProbe = null) -> void:
+		if broker != null:
+			_broker = broker
 
 	func init() -> void:
 		super.init()

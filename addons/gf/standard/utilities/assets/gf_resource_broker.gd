@@ -158,8 +158,33 @@ var _disposed: bool = false
 ## @api private
 var _quiesce_completion: GFAsyncCompletion = null
 
+## 域接管后只有该稳定入口能提交请求；弱引用不形成所有权环。
+## [br]
+## @api private
+var _service_domain_ref: WeakRef = null
+
+## 曾被固定消费者或直接请求使用的实例不能事后升级为可切换服务域。
+## [br]
+## @api private
+var _fixed_binding: bool = false
+
+## 显式初始化是服务域接管前的必要条件。
+## [br]
+## @api private
+var _initialized: bool = false
+
 
 # --- GF 生命周期方法 ---
+
+## 已被服务域接管的内部实例不能再注册到架构而获得第二个生命周期所有者。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 未被域接管时为 true。
+func can_register_in_architecture() -> bool:
+	return _service_domain_ref == null
 
 ## 初始化 Broker。
 ## [br]
@@ -167,6 +192,9 @@ var _quiesce_completion: GFAsyncCompletion = null
 ## [br]
 ## @since 11.0.0
 func init() -> void:
+	if _initialized:
+		return
+	_initialized = true
 	ignore_pause = true
 	tick_enabled = true
 	_disposed = false
@@ -196,6 +224,10 @@ func tick(_delta: float = 0.0) -> void:
 ## [br]
 ## @return idle 后成功、取消时终结的静默完成源。
 func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:
+	if _service_domain_ref != null:
+		var rejected: GFAsyncCompletion = GFAsyncCompletion.new()
+		var _failed: bool = rejected.fail("resource_service_domain_owned")
+		return rejected
 	if _quiesce_completion != null:
 		return _quiesce_completion
 	_quiesce_completion = GFAsyncCompletion.new()
@@ -213,10 +245,9 @@ func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:
 ## [br]
 ## @since 11.0.0
 func dispose() -> void:
-	_disposed = true
-	cancel_all(&"broker_disposed")
-	if _quiesce_completion != null and _quiesce_completion.is_pending():
-		var _cancelled: bool = _quiesce_completion.cancel(&"broker_disposed")
+	if _service_domain_ref != null:
+		return
+	_dispose_broker()
 
 
 # --- 公共方法 ---
@@ -240,81 +271,42 @@ func dispose() -> void:
 ## [br]
 ## @schema options: Dictionary with optional exclusive: bool, require_idle: bool, and consumer_id: StringName.
 func request(path: String, type_hint: String = "", options: Dictionary = {}) -> GFResourceLease:
-	var identity: GFResourceIdentity = GFResourceIdentity.from_path(
-		path,
-		&"",
-		type_hint,
-		{ "check_exists": false }
-	)
-	var load_path: String = identity.canonical_path if not identity.canonical_path.is_empty() else identity.raw_path
-	var request_key: String = identity.cache_key if not identity.cache_key.is_empty() else load_path
-	var exclusive: bool = GFVariantData.get_option_bool(options, "exclusive", false)
-	var require_idle: bool = GFVariantData.get_option_bool(options, "require_idle", false)
-	var consumer_id: StringName = GFVariantData.get_option_string_name(options, "consumer_id", &"")
-	var lease: GFResourceLease = _RESOURCE_LEASE_SCRIPT.new()
-	lease.broker_bind(self, request_key, load_path, type_hint, consumer_id, exclusive, require_idle)
+	if _service_domain_ref != null:
+		var rejected: GFResourceLease = GFResourceLease.new()
+		rejected.broker_mark_failed(ERR_UNAUTHORIZED, "resource_service_domain_owned")
+		return rejected
+	_fixed_binding = true
+	return _request_resource(path, type_hint, options)
 
-	if _disposed:
-		lease.broker_mark_failed(ERR_UNAVAILABLE, "broker_disposed")
-		return lease
-	if _quiesce_completion != null:
-		lease.broker_mark_failed(ERR_UNAVAILABLE, "broker_quiescing")
-		return lease
-	if load_path.is_empty() or request_key.is_empty():
-		lease.broker_mark_failed(ERR_INVALID_PARAMETER, "invalid_resource_path")
-		return lease
 
-	var existing: ResourceRequestRecord = _get_request_record(request_key)
-	if existing != null:
-		if not _type_hints_are_compatible(existing.type_hint, type_hint):
-			lease.broker_mark_failed(ERR_ALREADY_IN_USE, "incompatible_type_hint")
-			return lease
-		if existing.state == _REQUEST_QUEUED:
-			if existing.type_hint.is_empty() and not type_hint.is_empty():
-				existing.type_hint = type_hint
-			existing.exclusive = existing.exclusive or exclusive
-			existing.require_idle = existing.require_idle or require_idle
-		else:
-			if existing.type_hint.is_empty() and not type_hint.is_empty():
-				lease.broker_mark_failed(
-					ERR_ALREADY_IN_USE,
-					REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED
-				)
-				return lease
-			if (
-				(exclusive and not existing.exclusive)
-				or (
-					require_idle
-					and not existing.require_idle
-					and not existing.exclusive
-				)
-			):
-				lease.broker_mark_failed(
-					ERR_BUSY,
-					REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED
-				)
-				return lease
-		existing.leases.append(lease)
-		if existing.state != _REQUEST_QUEUED:
-			existing.state = _REQUEST_ACTIVE
-			lease.broker_mark_loading()
-		return lease
+## 将固定消费者登记到实例生命周期；存在服务域所有者时拒绝混合绑定。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param consumer: 非空消费者；登记不会保留消费者引用。
+## [br]
+## @return 域已接管时 ERR_ALREADY_IN_USE，否则 OK。
+func bind_fixed_consumer(consumer: Object) -> Error:
+	if consumer == null:
+		return ERR_INVALID_PARAMETER
+	if _service_domain_ref != null:
+		return ERR_ALREADY_IN_USE
+	_fixed_binding = true
+	return OK
 
-	if _pending_requests.size() >= max_pending_requests:
-		lease.broker_mark_failed(ERR_BUSY, "pending_budget_exhausted")
-		return lease
 
-	var record: ResourceRequestRecord = ResourceRequestRecord.new()
-	record.request_key = request_key
-	record.path = load_path
-	record.type_hint = type_hint
-	record.exclusive = exclusive
-	record.require_idle = require_idle
-	record.leases.append(lease)
-	_requests_by_key[request_key] = record
-	_pending_requests.append(record)
-	_admit_pending_requests()
-	return lease
+## Broker 的身份是资源域边界，活动生命周期内不可单独移除或替换。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 始终 false；架构整体关闭仍可释放。
+func can_remove_from_active_lifecycle() -> bool:
+	return false
+
 
 
 ## 推进所有活动请求并尝试 admission。
@@ -359,11 +351,14 @@ func poll_lease(lease: GFResourceLease) -> Dictionary:
 ## [br]
 ## @param reason: 用于诊断的稳定取消原因。
 func cancel_all(reason: StringName = &"cancelled") -> void:
+	if _service_domain_ref != null:
+		return
 	var records: Array = _requests_by_key.values()
 	for value: Variant in records:
 		if value is ResourceRequestRecord:
 			var record: ResourceRequestRecord = value
-			for lease: GFResourceLease in record.leases:
+			for lease_reference: WeakRef in record.leases:
+				var lease: GFResourceLease = _lease_from_reference(lease_reference)
 				if lease != null and not lease.is_terminal():
 					lease.broker_mark_cancelled(reason)
 			if record.state == _REQUEST_QUEUED:
@@ -452,6 +447,65 @@ func _poll_threaded_resource(path: String, previous_progress: float) -> Dictiona
 
 # --- 框架内部方法 ---
 
+## 验证域接管前实例未向外提供过服务且已初始化；不改变任何状态。
+## [br]
+## @api framework_internal
+## [br]
+## @return 可以独占接管时返回 true。
+func can_claim_service_domain() -> bool:
+	return _initialized and not _disposed and not _fixed_binding and _service_domain_ref == null and _quiesce_completion == null and is_idle() and not is_bound_to_architecture_for_framework()
+
+
+## 将本实例的接单和销毁责任永久交给单个服务域。
+## [br]
+## @api framework_internal
+## [br]
+## @param domain: 独占所有者。
+## [br]
+## @return 不能接管时返回 ERR_ALREADY_IN_USE。
+func claim_service_domain(domain: Object) -> Error:
+	if domain == null or not can_claim_service_domain():
+		return ERR_ALREADY_IN_USE
+	_service_domain_ref = weakref(domain)
+	return OK
+
+
+## 域仅为已接纳并固定代次的工作调用此入口。
+## [br]
+## @api framework_internal
+## [br]
+## @param domain: 必须是当前所有者。
+## [br]
+## @param path: 已接纳资源路径。
+## [br]
+## @param type_hint: 冻结的类型提示。
+## [br]
+## @param options: 冻结的准入选项。
+## [br]
+## @schema options: Dictionary with optional exclusive: bool, require_idle: bool, consumer_id: StringName.
+## [br]
+## @return 归属当前 Broker 的消费者租约。
+func request_for_service_domain(domain: Object, path: String, type_hint: String, options: Dictionary) -> GFResourceLease:
+	if _service_domain_ref == null or _service_domain_ref.get_ref() != domain:
+		var rejected: GFResourceLease = GFResourceLease.new()
+		rejected.broker_mark_failed(ERR_UNAUTHORIZED, "resource_service_domain_mismatch")
+		return rejected
+	return _request_resource(path, type_hint, options)
+
+
+## 域完成所有请求和依赖引用的收尾后释放此代，不强制中断底层加载。
+## [br]
+## @api framework_internal
+## [br]
+## @param domain: 必须是当前所有者。
+## [br]
+## @return 非所有者或仍有底层工作时返回 false。
+func dispose_for_service_domain(domain: Object) -> bool:
+	if _service_domain_ref == null or _service_domain_ref.get_ref() != domain or not is_idle():
+		return false
+	_dispose_broker()
+	return true
+
 ## 释放一个消费者 Lease。
 ## [br]
 ## @api framework_internal
@@ -485,6 +539,96 @@ func release_lease(lease: GFResourceLease, reason: StringName = &"released") -> 
 
 # --- 私有/辅助方法 ---
 
+## 停止固定绑定 Broker；服务域只能在已证明 idle 后进入此实现。
+## [br]
+## @api private
+func _dispose_broker() -> void:
+	_disposed = true
+	cancel_all(&"broker_disposed")
+	if _quiesce_completion != null and _quiesce_completion.is_pending():
+		var _cancelled: bool = _quiesce_completion.cancel(&"broker_disposed")
+
+## 执行已经通过固定绑定或服务域身份准入的请求。
+## [br]
+## @api private
+func _request_resource(path: String, type_hint: String, options: Dictionary) -> GFResourceLease:
+	var identity: GFResourceIdentity = GFResourceIdentity.from_path(
+		path,
+		&"",
+		type_hint,
+		{ "check_exists": false }
+	)
+	var load_path: String = identity.canonical_path if not identity.canonical_path.is_empty() else identity.raw_path
+	var request_key: String = identity.cache_key if not identity.cache_key.is_empty() else load_path
+	var exclusive: bool = GFVariantData.get_option_bool(options, "exclusive", false)
+	var require_idle: bool = GFVariantData.get_option_bool(options, "require_idle", false)
+	var consumer_id: StringName = GFVariantData.get_option_string_name(options, "consumer_id", &"")
+	var lease: GFResourceLease = _RESOURCE_LEASE_SCRIPT.new()
+	lease.broker_bind(self, request_key, load_path, type_hint, consumer_id, exclusive, require_idle)
+
+	if _disposed:
+		lease.broker_mark_failed(ERR_UNAVAILABLE, "broker_disposed")
+		return lease
+	if _quiesce_completion != null:
+		lease.broker_mark_failed(ERR_UNAVAILABLE, "broker_quiescing")
+		return lease
+	if load_path.is_empty() or request_key.is_empty():
+		lease.broker_mark_failed(ERR_INVALID_PARAMETER, "invalid_resource_path")
+		return lease
+
+	var existing: ResourceRequestRecord = _get_request_record(request_key)
+	if existing != null:
+		if not _type_hints_are_compatible(existing.type_hint, type_hint):
+			lease.broker_mark_failed(ERR_ALREADY_IN_USE, "incompatible_type_hint")
+			return lease
+		if existing.state == _REQUEST_QUEUED:
+			if existing.type_hint.is_empty() and not type_hint.is_empty():
+				existing.type_hint = type_hint
+			existing.exclusive = existing.exclusive or exclusive
+			existing.require_idle = existing.require_idle or require_idle
+		else:
+			if existing.type_hint.is_empty() and not type_hint.is_empty():
+				lease.broker_mark_failed(
+					ERR_ALREADY_IN_USE,
+					REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED
+				)
+				return lease
+			if (
+				(exclusive and not existing.exclusive)
+				or (
+					require_idle
+					and not existing.require_idle
+					and not existing.exclusive
+				)
+			):
+				lease.broker_mark_failed(
+					ERR_BUSY,
+					REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED
+				)
+				return lease
+		existing.leases.append(weakref(lease))
+		if existing.state != _REQUEST_QUEUED:
+			existing.state = _REQUEST_ACTIVE
+			lease.broker_mark_loading()
+		return lease
+
+	if _pending_requests.size() >= max_pending_requests:
+		lease.broker_mark_failed(ERR_BUSY, "pending_budget_exhausted")
+		return lease
+
+	var record: ResourceRequestRecord = ResourceRequestRecord.new()
+	record.request_key = request_key
+	record.path = load_path
+	record.type_hint = type_hint
+	record.exclusive = exclusive
+	record.require_idle = require_idle
+	record.leases.append(weakref(lease))
+	_requests_by_key[request_key] = record
+	_pending_requests.append(record)
+	_admit_pending_requests()
+	return lease
+
+
 ## 按 FIFO 发起等待请求；队首要求独占或空闲时，后续请求不能绕过它。
 ## draining 请求仍占用活动配额，因此必须等底层请求回收后才能满足空闲条件。
 ## [br]
@@ -514,7 +658,8 @@ func _admit_pending_requests() -> void:
 
 		record.state = _REQUEST_ACTIVE
 		_active_requests.append(record)
-		for lease: GFResourceLease in record.leases:
+		for lease_reference: WeakRef in record.leases:
+			var lease: GFResourceLease = _lease_from_reference(lease_reference)
 			if lease != null and not lease.is_terminal():
 				lease.broker_mark_loading()
 		if record.exclusive:
@@ -540,7 +685,8 @@ func _poll_active_requests() -> void:
 			0.0,
 			1.0
 		)
-		for lease: GFResourceLease in record.leases:
+		for lease_reference: WeakRef in record.leases:
+			var lease: GFResourceLease = _lease_from_reference(lease_reference)
 			if lease != null and not lease.is_terminal():
 				lease.broker_update_progress(record.progress)
 
@@ -582,7 +728,8 @@ func _poll_active_requests() -> void:
 ## @api private
 ## [br]
 func _complete_record(record: ResourceRequestRecord, resource: Resource) -> void:
-	for lease: GFResourceLease in record.leases:
+	for lease_reference: WeakRef in record.leases:
+		var lease: GFResourceLease = _lease_from_reference(lease_reference)
 		if lease != null and not lease.is_terminal():
 			lease.broker_mark_completed(resource)
 	_remove_active_record(record)
@@ -593,7 +740,8 @@ func _complete_record(record: ResourceRequestRecord, resource: Resource) -> void
 ## @api private
 ## [br]
 func _fail_record(record: ResourceRequestRecord, request_error: Error, message: String) -> void:
-	for lease: GFResourceLease in record.leases:
+	for lease_reference: WeakRef in record.leases:
+		var lease: GFResourceLease = _lease_from_reference(lease_reference)
 		if lease != null and not lease.is_terminal():
 			lease.broker_mark_failed(request_error, message)
 	if record.state == _REQUEST_QUEUED:
@@ -654,7 +802,8 @@ func _get_request_record(request_key: String) -> ResourceRequestRecord:
 ## @api private
 ## [br]
 func _record_has_live_consumers(record: ResourceRequestRecord) -> bool:
-	for lease: GFResourceLease in record.leases:
+	for lease_reference: WeakRef in record.leases:
+		var lease: GFResourceLease = _lease_from_reference(lease_reference)
 		if lease != null and not lease.is_released() and not lease.is_terminal():
 			return true
 	return false
@@ -669,7 +818,7 @@ func _recompute_queued_record_constraints(record: ResourceRequestRecord) -> void
 	record.exclusive = false
 	record.require_idle = false
 	for index: int in range(record.leases.size() - 1, -1, -1):
-		var lease: GFResourceLease = record.leases[index]
+		var lease: GFResourceLease = _lease_from_reference(record.leases[index])
 		if lease == null or lease.is_released() or lease.is_terminal():
 			record.leases.remove_at(index)
 			continue
@@ -728,6 +877,16 @@ func _make_missing_lease_result() -> Dictionary:
 	}
 
 
+## 消费者离开后不以 Broker 强引用延长其寿命；底层请求仍由记录负责 drain。
+## [br]
+## @api private
+func _lease_from_reference(lease_reference: WeakRef) -> GFResourceLease:
+	var value: Object = lease_reference.get_ref()
+	if value is GFResourceLease:
+		return value
+	return null
+
+
 # --- 内部类 ---
 
 ## Broker 内部请求记录。
@@ -772,4 +931,4 @@ class ResourceRequestRecord:
 	## 当前消费者 Lease。
 	## [br]
 	## @api framework_internal
-	var leases: Array[GFResourceLease] = []
+	var leases: Array[WeakRef] = []

@@ -77,7 +77,6 @@ import gf_process_authority
 import gf_repository_policy
 import gf_project_layout_profile
 import gf_project_layout_native
-import gf_reference_manifest_reader
 import extract_release_notes as gf_release_notes
 import gf_process_supervisor
 import gf_maintenance_rendering as maintenance_rendering
@@ -315,16 +314,7 @@ GODOT_RESOURCE_SUMMARY_RE = re.compile(
 	r"^(?:ERROR:\s*)?(?P<count>\d+) resources? still in use at exit"
 	r"(?: \(run with [^)]+\))?\.$"
 )
-REFERENCE_PROJECT_ENV_VAR = "GF_REFERENCE_PROJECT_PATH"
-DEFAULT_REFERENCE_PROJECT = "../gf-reference-project"
-REFERENCE_BOOT_SCENE_ENV_VAR = "GF_REFERENCE_BOOT_SCENE"
-REFERENCE_SMOKE_SCENE_ENV_VAR = "GF_REFERENCE_SMOKE_SCENE"
-REFERENCE_MANIFEST_NAME = gf_reference_manifest_reader.REFERENCE_MANIFEST_NAME
-DEFAULT_REFERENCE_BOOT_SCENE = "res://scenes/app/driftbound_boot.tscn"
-DEFAULT_REFERENCE_SMOKE_SCENE = "res://tests/smoke/driftbound_smoke.tscn"
-REFERENCE_MANIFEST_READER_TIMEOUT_SECONDS = 30.0
-REFERENCE_MANIFEST_READER_STDOUT_MAX_BYTES = 64 * 1024
-REFERENCE_MANIFEST_READER_STDERR_MAX_BYTES = 16 * 1024
+
 GODOT_LOG_DIR = ROOT / "ai_analysis" / "godot_logs"
 LEGACY_MAINTENANCE_LOG_DIR = ROOT / ".gf"
 MAINTENANCE_KEEP_LOGS_ENV_VAR = "GF_MAINTENANCE_KEEP_LOGS"
@@ -800,133 +790,6 @@ def resolve_path_from_root(value: str) -> Path:
 	return path.resolve()
 
 
-def reference_catalog_inputs(
-	process_environment: FrozenProcessEnvironment,
-) -> tuple[str, str, str]:
-	"""Bind validated reference paths to one frozen environment without file I/O."""
-	if not isinstance(process_environment, FrozenProcessEnvironment):
-		raise TypeError("Reference Catalog inputs require a frozen process environment.")
-	environment = process_environment.values()
-	try:
-		reference_project_value = frozen_environment_value(
-			environment,
-			REFERENCE_PROJECT_ENV_VAR,
-		)
-		boot_scene_value = frozen_environment_value(
-			environment,
-			REFERENCE_BOOT_SCENE_ENV_VAR,
-		)
-		smoke_scene_value = frozen_environment_value(
-			environment,
-			REFERENCE_SMOKE_SCENE_ENV_VAR,
-		)
-		return (
-			gf_reference_manifest_reader.validate_reference_project(
-				DEFAULT_REFERENCE_PROJECT
-				if reference_project_value is None
-				else reference_project_value
-			),
-			gf_reference_manifest_reader.validate_reference_scene(
-				DEFAULT_REFERENCE_BOOT_SCENE
-				if boot_scene_value is None
-				else boot_scene_value
-			),
-			gf_reference_manifest_reader.validate_reference_scene(
-				DEFAULT_REFERENCE_SMOKE_SCENE
-				if smoke_scene_value is None
-				else smoke_scene_value
-			),
-		)
-	except (
-		FrozenEnvironmentError,
-		gf_reference_manifest_reader.ReferenceManifestError,
-	):
-		raise _ReferenceManifestSetupError from None
-
-
-class _ReferenceManifestSetupError(RuntimeError):
-	"""Stable parent-side setup failure for the supervised manifest reader."""
-
-
-class _ReferenceManifestDeadlineError(TimeoutError):
-	"""The original setup/suite deadline expired before manifest acceptance."""
-
-
-def _check_reference_manifest_deadline(deadline: float) -> None:
-	if time.perf_counter() >= deadline:
-		raise _ReferenceManifestDeadlineError
-
-
-def _remaining_reference_manifest_seconds(deadline: float) -> float:
-	now = time.perf_counter()
-	if now >= deadline:
-		raise _ReferenceManifestDeadlineError
-	return deadline - now
-
-
-def _reference_project_lexical_root(project_root: str) -> Path:
-	path = Path(project_root)
-	if not path.is_absolute():
-		path = ROOT / path
-	return gf_path_security.absolute_lexical_path(path)
-
-
-def _read_reference_manifest_supervised(
-	project_root: str,
-	process_environment: Mapping[str, str],
-	*,
-	deadline: float,
-) -> dict[str, Any]:
-	"""Read one optional manifest under an owned process and absolute deadline."""
-	remaining_seconds = _remaining_reference_manifest_seconds(deadline)
-	command = [
-		sys.executable,
-		str(ROOT / "tools/gf_reference_manifest_reader.py"),
-		"--project-root",
-		str(_reference_project_lexical_root(project_root)),
-	]
-	try:
-		result = gf_process_supervisor.run_supervised_process_bytes(
-			command,
-			cwd=ROOT,
-			timeout_seconds=remaining_seconds,
-			deadline=deadline,
-			max_stdout_bytes=REFERENCE_MANIFEST_READER_STDOUT_MAX_BYTES,
-			max_stderr_bytes=REFERENCE_MANIFEST_READER_STDERR_MAX_BYTES,
-			environment=dict(process_environment),
-		)
-		result = gf_process_supervisor.require_supervised_binary_quiet_boundary(
-			result,
-			deadline=deadline,
-		)
-	except MemoryError:
-		raise
-	except Exception as error:
-		if exception_has_cleanup_debt(error):
-			raise
-		if isinstance(error, TimeoutError) and time.perf_counter() >= deadline:
-			raise _ReferenceManifestDeadlineError from None
-		raise _ReferenceManifestSetupError from None
-	if result.timed_out:
-		raise _ReferenceManifestDeadlineError
-	_check_reference_manifest_deadline(deadline)
-	if (
-		result.return_code != 0
-		or result.stdout_truncated
-		or result.stderr_truncated
-		or result.output_drain_failed
-		or result.stderr
-	):
-		raise _ReferenceManifestSetupError
-	try:
-		return gf_reference_manifest_reader.decode_success_response(
-			result.stdout,
-			deadline_check=lambda: _check_reference_manifest_deadline(deadline),
-		)
-	except gf_reference_manifest_reader.ReferenceManifestError:
-		raise _ReferenceManifestSetupError from None
-
-
 def freeze_maintenance_invocation_environment(
 	process_environment: FrozenProcessEnvironment | None = None,
 ) -> FrozenProcessEnvironment:
@@ -959,10 +822,6 @@ def godot_log_path(check_name: str) -> str:
 
 def validation_catalog_for_root(
 	root: Path,
-	*,
-	default_reference_project: str = DEFAULT_REFERENCE_PROJECT,
-	reference_boot_scene: str = DEFAULT_REFERENCE_BOOT_SCENE,
-	reference_smoke_scene: str = DEFAULT_REFERENCE_SMOKE_SCENE,
 ) -> gf_validation_catalog.ValidationCatalog:
 	"""Build one Catalog projection from explicit, already-resolved inputs."""
 	return gf_validation_catalog.build_validation_catalog(
@@ -973,9 +832,6 @@ def validation_catalog_for_root(
 			gut_lifecycle_cli_resource_path=GUT_LIFECYCLE_CLI_RESOURCE_PATH,
 			gut_shard_config_disabled_argument=GUT_SHARD_CONFIG_DISABLED_ARGUMENT,
 			gut_lifecycle_hook_arguments=GUT_LIFECYCLE_HOOK_ARGUMENTS,
-			default_reference_project=default_reference_project,
-			reference_boot_scene=reference_boot_scene,
-			reference_smoke_scene=reference_smoke_scene,
 		)
 	)
 
@@ -986,9 +842,6 @@ def _default_validation_catalog_for_root(
 	"""Build the non-authoritative static Catalog from constants only."""
 	return validation_catalog_for_root(
 		root,
-		default_reference_project=DEFAULT_REFERENCE_PROJECT,
-		reference_boot_scene=DEFAULT_REFERENCE_BOOT_SCENE,
-		reference_smoke_scene=DEFAULT_REFERENCE_SMOKE_SCENE,
 	)
 
 
@@ -1325,18 +1178,16 @@ def resolve_check_jobs(
 	suite: str,
 	checks: list[str] | None,
 	requested_jobs: int,
-	*,
-	sync_examples: bool = False,
 ) -> int:
 	if requested_jobs < 0 or requested_jobs > MAX_PARALLEL_FULL_JOBS:
 		raise ValueError(
 			f"--jobs must be between 0 and {MAX_PARALLEL_FULL_JOBS}; got {requested_jobs}."
 		)
-	parallel_supported = suite == "full" and checks is None and not sync_examples
+	parallel_supported = suite == "full" and checks is None
 	if not parallel_supported:
 		if requested_jobs > 1:
 			raise ValueError(
-				"Parallel check jobs are supported only for --suite full without --check or --sync-examples."
+				"Parallel check jobs are supported only for --suite full without --check."
 			)
 		return 1
 	if requested_jobs == 1:
@@ -1349,14 +1200,11 @@ def resolve_check_jobs(
 def expanded_check_names(
 	suite: str,
 	checks: list[str] | None,
-	*,
-	sync_examples: bool = False,
 ) -> list[str]:
 	return list(
 		_VALIDATION_CATALOG.plan(
 			suite,
 			checks,
-			sync_examples=sync_examples,
 		).actions
 	)
 
@@ -2025,11 +1873,7 @@ def main() -> int:
 		),
 	)
 	check_parser.add_argument("--fail-fast", action="store_true")
-	check_parser.add_argument(
-		"--sync-examples",
-		action="store_true",
-		help="Write-sync addons/gf before examples checks. Default examples checks are read-only.",
-	)
+
 	check_parser.add_argument(
 		"--failed-only",
 		action="store_true",
@@ -2324,7 +2168,6 @@ def main() -> int:
 			timeout_seconds=args.timeout,
 			suite_timeout_seconds=args.suite_timeout,
 			fail_fast=args.fail_fast,
-			sync_examples=args.sync_examples,
 			allow_breaking_api=args.allow_breaking_api,
 			artifact_manifest=args.artifact_manifest,
 			complete_output_evidence=args.internal_complete_output_evidence,
@@ -9899,6 +9742,7 @@ def run_core_plugin_bootstrap_smoke_scenario(
 				error=godot_smoke_output_excerpt(combined_output),
 			))
 		if scenario_name == "refresh_request_burst":
+			validate_core_plugin_refresh_smoke_output(log_text, issues)
 			refresh_marker = "[GF Framework] 已刷新 GF 编辑器贡献记录（generation=100）。"
 			if log_text.count(refresh_marker) != 1:
 				issues.append(make_package_issue(
@@ -10027,10 +9871,31 @@ def prepare_core_plugin_bootstrap_smoke_project(project_root: Path, scenario_nam
 		)
 		plugin_source += (
 			"\n\nfunc _core_plugin_refresh_smoke_probe() -> void:\n"
-			"\tfor _index: int in 100:\n"
-			"\t\t_refresh_editor_contributions()\n"
+			"\tvar original_context: GFEditorToolContext = _dock_tools._editor_context\n"
+			"\tvar accepted_requests: int = 0\n"
+			"\tfor index: int in range(100):\n"
+			"\t\tvar admission: Dictionary = original_context.request_editor_contribution_refresh()\n"
+			"\t\tif admission.get(\"status\") == \"pending\" and admission.get(\"generation\") == index + 1:\n"
+			"\t\t\taccepted_requests += 1\n"
+			"\tvar deadline_msec: int = Time.get_ticks_msec() + 30_000\n"
+			"\tvar actual_report: Dictionary = {}\n"
+			"\twhile Time.get_ticks_msec() < deadline_msec:\n"
+			"\t\tactual_report = _dock_tools._editor_context.get_editor_contribution_apply_report()\n"
+			"\t\tif actual_report.get(\"generation\") == 100 and actual_report.get(\"status\") != \"pending\":\n"
+			"\t\t\tbreak\n"
+			"\t\tawait get_tree().create_timer(0.05).timeout\n"
+			"\tvar revoked_report: Dictionary = original_context.request_editor_contribution_refresh()\n"
+			"\tprint(\"GF_CORE_PLUGIN_REFRESH_RESULT \" + JSON.stringify({\n"
+			"\t\t\"schema_version\": 1,\n"
+			"\t\t\"request_count\": 100,\n"
+			"\t\t\"accepted_requests\": accepted_requests,\n"
+			"\t\t\"context_replaced\": _dock_tools._editor_context != original_context,\n"
+			"\t\t\"old_context_revoked\": revoked_report.get(\"status\") == \"failed\" and revoked_report.get(\"issues\") == [\"refresh_host_unavailable\"],\n"
+			"\t\t\"report\": actual_report,\n"
+			"\t}))\n"
+			"\tget_tree().quit()\n"
 		)
-		plugin_path.write_text(plugin_source, encoding="utf-8")
+		plugin_path.write_text(plugin_source, encoding="utf-8", newline="\n")
 
 
 def write_core_plugin_bootstrap_smoke_project_file(
@@ -10076,9 +9941,7 @@ def make_core_plugin_bootstrap_smoke_command(
 			str(project_root),
 			"--editor",
 		]
-		if scenario_name == "refresh_request_burst":
-			command.extend(["--quit-after", "600"])
-		else:
+		if scenario_name != "refresh_request_burst":
 			command.append("--quit")
 		return command
 
@@ -10173,6 +10036,66 @@ def make_core_plugin_bootstrap_smoke_environment(
 	for name, value in private_values.items():
 		set_owned_environment_value(environment, name, value)
 	return environment
+
+
+def validate_core_plugin_refresh_smoke_output(
+	log_text: str,
+	issues: list[dict[str, Any]],
+) -> None:
+	"""Require one strict report from the real, rebuilt editor context in its log."""
+	marker_name = "GF_CORE_PLUGIN_REFRESH_RESULT"
+	marker = marker_name + " "
+	marker_lines = [line for line in log_text.splitlines() if marker_name in line]
+	reason = ""
+	if log_text.count(marker_name) != 1 or len(marker_lines) != 1:
+		reason = "Expected exactly one structured refresh result in the process log."
+	elif not marker_lines[0].startswith(marker):
+		reason = "The structured refresh result must occupy its own log line."
+	else:
+		payload_text = marker_lines[0][len(marker):]
+		try:
+			if len(payload_text) > 16_384:
+				raise ValueError("The structured refresh result exceeds its text budget.")
+			payload = json.loads(
+				payload_text,
+				parse_constant=reject_non_finite_json_constant,
+				object_pairs_hook=reject_duplicate_json_object_keys,
+			)
+			if not isinstance(payload, dict) or set(payload) != {
+				"schema_version", "request_count", "accepted_requests", "context_replaced",
+				"old_context_revoked", "report",
+			}:
+				raise ValueError("The structured refresh result has an invalid schema.")
+			for field_name, expected in {"schema_version": 1, "request_count": 100, "accepted_requests": 100}.items():
+				if type(payload[field_name]) is not int or payload[field_name] != expected:
+					raise ValueError(f"Unexpected refresh result field: {field_name}.")
+			if payload["context_replaced"] is not True or payload["old_context_revoked"] is not True:
+				raise ValueError("Refreshing must replace the context and revoke the old refresh authority.")
+			report = payload["report"]
+			if not isinstance(report, dict) or set(report) != {
+				"status", "generation", "settings", "installed_settings", "previous_status", "issues",
+			}:
+				raise ValueError("The actual editor apply report has an invalid schema.")
+			if type(report["generation"]) is not int or report["generation"] != 100:
+				raise ValueError("The actual editor apply report is not for generation 100.")
+			if report["status"] != "applied" or report["previous_status"] != "applied" or report["issues"] != []:
+				raise ValueError("The editor contributions did not fully apply without issues.")
+			if not isinstance(report["settings"], dict) or not isinstance(report["installed_settings"], dict):
+				raise ValueError("The apply report must retain requested and installed setting dictionaries.")
+			requested_settings = json.dumps(report["settings"], sort_keys=True, allow_nan=False)
+			installed_settings = json.dumps(report["installed_settings"], sort_keys=True, allow_nan=False)
+			if requested_settings != installed_settings:
+				raise ValueError("The installed settings do not match the applied request.")
+		except (ValueError, TypeError, RecursionError) as error:
+			reason = str(error)
+	if reason:
+		issues.append(make_package_issue(
+			"core_plugin_bootstrap_smoke_refresh_result_invalid",
+			"godot",
+			"The real editor context did not publish one complete latest-generation apply report.",
+			row_key="refresh_request_burst",
+			error=trim_text(reason, 500),
+		))
 
 
 def validate_resource_preview_translation_smoke_output(
@@ -14165,8 +14088,6 @@ def iter_gdscript_code_characters(line: str) -> list[str]:
 	return characters
 
 
-
-
 def audit_resource_boundary_text(source: str, path: str) -> list[dict[str, Any]]:
 	issues: list[dict[str, Any]] = []
 	code_mask = gdscript_code_call_mask(source)
@@ -15341,217 +15262,6 @@ def validate_validation_executor_registries(
 	)
 
 
-def rebind_frozen_validation_executors(
-	catalog: gf_validation_catalog.ValidationCatalog,
-	binding: ValidationExecutorBinding,
-) -> ValidationExecutorBinding:
-	"""Bind a resolved Catalog to the exact already-frozen callable mappings."""
-	if not isinstance(catalog, gf_validation_catalog.ValidationCatalog):
-		raise gf_validation_catalog.ValidationCatalogError(
-			"Resolved validation executor Catalog is invalid."
-		)
-	if type(binding) is not ValidationExecutorBinding:
-		raise gf_validation_catalog.ValidationCatalogError(
-			"Provisional validation executor binding is invalid."
-		)
-	if tuple(binding.in_process_adapters) != catalog.in_process_action_names:
-		raise gf_validation_catalog.ValidationCatalogError(
-			"Resolved in-process actions do not match the frozen adapter registry."
-		)
-	if (
-		tuple(binding.deferred_command_materializers)
-		!= catalog.deferred_action_names
-	):
-		raise gf_validation_catalog.ValidationCatalogError(
-			"Resolved deferred actions do not match the frozen materializer registry."
-		)
-	return ValidationExecutorBinding(
-		catalog=catalog,
-		in_process_adapters=binding.in_process_adapters,
-		deferred_command_materializers=binding.deferred_command_materializers,
-	)
-
-
-def _validation_catalog_non_command_authority(
-	catalog: gf_validation_catalog.ValidationCatalog,
-) -> tuple[Any, ...]:
-	return (
-		catalog.action_names,
-		tuple(
-			(name, catalog.executor_kind(name))
-			for name in catalog.action_names
-		),
-		catalog.in_process_action_names,
-		catalog.deferred_action_names,
-		catalog.input_specs,
-		catalog.default_timeout_seconds,
-		tuple(catalog.timeout_overrides().items()),
-		tuple(
-			(name, tuple(dependencies))
-			for name, dependencies in catalog.dependencies().items()
-		),
-		tuple(
-			(name, tuple(actions))
-			for name, actions in catalog.check_groups().items()
-		),
-		tuple(
-			(name, tuple(actions))
-			for name, actions in catalog.suites().items()
-		),
-		catalog.parallel_full_shard_suites,
-	)
-
-
-def _replace_validated_reference_scene_argument(
-	command: tuple[str, ...],
-	old_scene: str,
-	new_scene: str,
-) -> tuple[str, ...]:
-	indices = [
-		index
-		for index, argument in enumerate(command[:-1])
-		if argument == "--scene"
-	]
-	if len(indices) != 1 or command[indices[0] + 1] != old_scene:
-		raise gf_validation_catalog.ValidationCatalogError(
-			"Reference scene command does not have one exact replaceable argument."
-		)
-	resolved = list(command)
-	resolved[indices[0] + 1] = new_scene
-	return tuple(resolved)
-
-
-def _validation_plan_authority(
-	plan: gf_validation_catalog.ValidationPlan,
-) -> tuple[Any, ...]:
-	if type(plan) is not gf_validation_catalog.ValidationPlan:
-		raise gf_validation_catalog.ValidationCatalogError(
-			"Resolved reference validation plan is invalid."
-		)
-	return (
-		plan.suite,
-		plan.requested_actions,
-		plan.actions,
-		plan.describe_graph(),
-		tuple(
-			(lane.name, lane.owned_actions, lane.execution_actions)
-			for lane in plan.lanes
-		),
-	)
-
-
-def validate_resolved_reference_catalog(
-	provisional_catalog: gf_validation_catalog.ValidationCatalog,
-	resolved_catalog: gf_validation_catalog.ValidationCatalog,
-	*,
-	provisional_plan: gf_validation_catalog.ValidationPlan,
-	resolved_plan: gf_validation_catalog.ValidationPlan,
-	allowed_scene_changes: Mapping[str, tuple[str, str]],
-) -> None:
-	"""Prove that manifest resolution changed only requested scene argv values."""
-	if not isinstance(provisional_catalog, gf_validation_catalog.ValidationCatalog):
-		raise gf_validation_catalog.ValidationCatalogError(
-			"Provisional reference Catalog is invalid."
-		)
-	if not isinstance(resolved_catalog, gf_validation_catalog.ValidationCatalog):
-		raise gf_validation_catalog.ValidationCatalogError(
-			"Resolved reference Catalog is invalid."
-		)
-	if not isinstance(allowed_scene_changes, Mapping):
-		raise gf_validation_catalog.ValidationCatalogError(
-			"Reference scene changes must be a mapping."
-		)
-	if _validation_plan_authority(
-		provisional_plan
-	) != _validation_plan_authority(resolved_plan):
-		raise gf_validation_catalog.ValidationCatalogError(
-			"Reference Catalog resolution changed validation plan authority."
-		)
-	requested_action_set = frozenset(provisional_plan.requested_actions)
-	allowed_names = frozenset({"examples_boot", "examples_smoke"})
-	if any(
-		name not in allowed_names or name not in requested_action_set
-		for name in allowed_scene_changes
-	):
-		raise gf_validation_catalog.ValidationCatalogError(
-			"Reference Catalog resolution contains an unapproved action."
-		)
-	validated_changes: dict[str, tuple[str, str]] = {}
-	for name, change in allowed_scene_changes.items():
-		if (
-			type(change) is not tuple
-			or len(change) != 2
-			or any(type(value) is not str for value in change)
-		):
-			raise gf_validation_catalog.ValidationCatalogError(
-				"Reference Catalog scene change is invalid."
-			)
-		old_scene, new_scene = change
-		try:
-			old_scene = gf_reference_manifest_reader.validate_reference_scene(old_scene)
-			new_scene = gf_reference_manifest_reader.validate_reference_scene(new_scene)
-		except gf_reference_manifest_reader.ReferenceManifestError:
-			raise gf_validation_catalog.ValidationCatalogError(
-				"Reference Catalog scene change is invalid."
-			) from None
-		if old_scene != new_scene:
-			validated_changes[name] = (old_scene, new_scene)
-	if (
-		_validation_catalog_non_command_authority(provisional_catalog)
-		!= _validation_catalog_non_command_authority(resolved_catalog)
-	):
-		raise gf_validation_catalog.ValidationCatalogError(
-			"Reference Catalog resolution changed non-command authority."
-		)
-	provisional_commands = {
-		name: tuple(command)
-		for name, command in provisional_catalog.command_definitions().items()
-	}
-	resolved_commands = {
-		name: tuple(command)
-		for name, command in resolved_catalog.command_definitions().items()
-	}
-	if tuple(provisional_commands) != tuple(resolved_commands):
-		raise gf_validation_catalog.ValidationCatalogError(
-			"Reference Catalog resolution changed command membership."
-		)
-	for name, provisional_command in provisional_commands.items():
-		expected_command = provisional_command
-		if name in validated_changes:
-			expected_command = _replace_validated_reference_scene_argument(
-				provisional_command,
-				*validated_changes[name],
-			)
-		if resolved_commands[name] != expected_command:
-			raise gf_validation_catalog.ValidationCatalogError(
-				"Reference Catalog resolution changed an unapproved command argument."
-			)
-	provisional_context = provisional_catalog.command_projection_context
-	resolved_context = resolved_catalog.command_projection_context
-	if provisional_context is None or resolved_context is None:
-		if provisional_context is not resolved_context:
-			raise gf_validation_catalog.ValidationCatalogError(
-				"Reference Catalog resolution changed command projection authority."
-			)
-		return
-	expected_context = provisional_context
-	for action_name, (_old_scene, new_scene) in validated_changes.items():
-		if action_name == "examples_boot":
-			expected_context = replace(
-				expected_context,
-				reference_boot_scene=new_scene,
-			)
-		else:
-			expected_context = replace(
-				expected_context,
-				reference_smoke_scene=new_scene,
-			)
-	if resolved_context != expected_context:
-		raise gf_validation_catalog.ValidationCatalogError(
-			"Reference Catalog resolution changed command projection authority."
-		)
-
-
 def run_in_process_check(
 	name: str,
 	command: list[str],
@@ -16155,7 +15865,6 @@ def run_checks(
 	timeout_seconds: int | None = None,
 	suite_timeout_seconds: int | None = None,
 	fail_fast: bool = False,
-	sync_examples: bool = False,
 	allow_breaking_api: bool = False,
 	artifact_manifest: str = "",
 	complete_output_evidence: bool = False,
@@ -16176,11 +15885,6 @@ def run_checks(
 		if suite_timeout_seconds is not None
 		else None
 	)
-	reference_reader_deadline = (
-		suite_deadline
-		if suite_deadline is not None
-		else overall_started + REFERENCE_MANIFEST_READER_TIMEOUT_SECONDS
-	)
 	invocation_environment_snapshot = freeze_maintenance_invocation_environment(
 		process_environment
 	)
@@ -16188,11 +15892,6 @@ def run_checks(
 	validation_plan: gf_validation_catalog.ValidationPlan
 	invocation_catalog = _VALIDATION_CATALOG
 	validation_executor_binding: ValidationExecutorBinding | None = None
-	reference_project = DEFAULT_REFERENCE_PROJECT
-	reference_boot_scene = DEFAULT_REFERENCE_BOOT_SCENE
-	reference_smoke_scene = DEFAULT_REFERENCE_SMOKE_SCENE
-	reference_setup_error = ""
-	reference_suite_deadline_exhausted = False
 	executor_setup_error = ""
 	parallel_setup_error = ""
 	resolved_jobs = 1
@@ -16201,53 +15900,24 @@ def run_checks(
 	previous_api_cache = _API_CACHE
 	snapshot = WorkspaceSnapshot(ROOT)
 	# Registry construction and every other invocation-scoped preflight consumer
-	# observe the same frozen environment through the active context.  No external
-	# reference helper is permitted until the callable registries are closed.
+	# observe the same frozen environment through the active context.
 	with gf_process_authority.activate_process_environment(
 		invocation_environment_snapshot
 	):
+		invocation_catalog = validation_catalog_for_root(ROOT)
 		validation_plan = invocation_catalog.plan(
 			suite,
 			checks,
-			sync_examples=sync_examples,
 		)
 		try:
 			resolved_jobs = resolve_check_jobs(
 				suite,
 				checks,
 				jobs,
-				sync_examples=sync_examples,
 			)
 		except ValueError as error:
 			parallel_setup_error = str(error)
-		try:
-			(
-				reference_project,
-				reference_boot_scene,
-				reference_smoke_scene,
-			) = reference_catalog_inputs(invocation_environment_snapshot)
-		except _ReferenceManifestSetupError:
-			reference_setup_error = "Reference environment inputs are invalid."
-		if not parallel_setup_error and not reference_setup_error:
-			try:
-				invocation_catalog = validation_catalog_for_root(
-					ROOT,
-					default_reference_project=reference_project,
-					reference_boot_scene=reference_boot_scene,
-					reference_smoke_scene=reference_smoke_scene,
-				)
-				validation_plan = invocation_catalog.plan(
-					suite,
-					checks,
-					sync_examples=sync_examples,
-				)
-			except MemoryError:
-				raise
-			except Exception as error:
-				if exception_has_cleanup_debt(error):
-					raise
-				reference_setup_error = "Reference environment inputs are invalid."
-		if not parallel_setup_error and not reference_setup_error:
+		if not parallel_setup_error:
 			try:
 				raw_in_process_adapters = maintenance_in_process_adapter_registry(
 					allow_breaking_api=allow_breaking_api,
@@ -16281,98 +15951,6 @@ def run_checks(
 						raise
 					executor_setup_error = (
 						"Validation executor registries could not be validated."
-					)
-		boot_scene_override = frozen_environment_value(
-			invocation_process_environment_values,
-			REFERENCE_BOOT_SCENE_ENV_VAR,
-		)
-		smoke_scene_override = frozen_environment_value(
-			invocation_process_environment_values,
-			REFERENCE_SMOKE_SCENE_ENV_VAR,
-		)
-		requires_manifest_boot = (
-			"examples_boot" in validation_plan.actions
-			and boot_scene_override is None
-		)
-		requires_manifest_smoke = (
-			"examples_smoke" in validation_plan.actions
-			and smoke_scene_override is None
-		)
-		if (
-			not parallel_setup_error
-			and not reference_setup_error
-			and not executor_setup_error
-			and (requires_manifest_boot or requires_manifest_smoke)
-		):
-			try:
-				manifest = _read_reference_manifest_supervised(
-					reference_project,
-					invocation_process_environment_values,
-					deadline=reference_reader_deadline,
-				)
-			except _ReferenceManifestDeadlineError:
-				if suite_deadline is not None:
-					reference_suite_deadline_exhausted = True
-				else:
-					reference_setup_error = (
-						"Reference manifest inputs exceeded their bounded setup deadline."
-					)
-			except _ReferenceManifestSetupError:
-				reference_setup_error = (
-					"Reference manifest inputs could not be established."
-				)
-			else:
-				resolved_boot_scene = reference_boot_scene
-				resolved_smoke_scene = reference_smoke_scene
-				allowed_scene_changes: dict[str, tuple[str, str]] = {}
-				if requires_manifest_boot and manifest["boot_scene"] is not None:
-					resolved_boot_scene = str(manifest["boot_scene"])
-					allowed_scene_changes["examples_boot"] = (
-						reference_boot_scene,
-						resolved_boot_scene,
-					)
-				if requires_manifest_smoke and manifest["smoke_scene"] is not None:
-					resolved_smoke_scene = str(manifest["smoke_scene"])
-					allowed_scene_changes["examples_smoke"] = (
-						reference_smoke_scene,
-						resolved_smoke_scene,
-					)
-				try:
-					resolved_catalog = validation_catalog_for_root(
-						ROOT,
-						default_reference_project=reference_project,
-						reference_boot_scene=resolved_boot_scene,
-						reference_smoke_scene=resolved_smoke_scene,
-					)
-					resolved_reference_plan = resolved_catalog.plan(
-						suite,
-						checks,
-						sync_examples=sync_examples,
-					)
-					validate_resolved_reference_catalog(
-						invocation_catalog,
-						resolved_catalog,
-						provisional_plan=validation_plan,
-						resolved_plan=resolved_reference_plan,
-						allowed_scene_changes=allowed_scene_changes,
-					)
-					if validation_executor_binding is None:
-						raise gf_validation_catalog.ValidationCatalogError(
-							"Provisional validation executor binding is unavailable."
-						)
-					validation_executor_binding = rebind_frozen_validation_executors(
-						resolved_catalog,
-						validation_executor_binding,
-					)
-					invocation_catalog = resolved_catalog
-					validation_plan = resolved_reference_plan
-				except MemoryError:
-					raise
-				except Exception as error:
-					if exception_has_cleanup_debt(error):
-						raise
-					reference_setup_error = (
-						"Reference manifest inputs changed unapproved validation authority."
 					)
 	selected_names = list(validation_plan.actions)
 	if parallel_setup_error:
@@ -16411,42 +15989,7 @@ def run_checks(
 			)
 		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
 		return data
-	if reference_suite_deadline_exhausted:
-		workspace_state = {
-			"schema_version": 1,
-			"head": "",
-			"dirty": True,
-			"untracked_file_count": 0,
-			"fingerprint": "0" * 64,
-		}
-		data = make_check_deadline_failure(
-			validation_plan,
-			workspace_state,
-			suite_timeout_seconds or 0,
-		)
-		data["workspace_snapshot"] = snapshot.stats()
-		data["workspace"] = workspace_state
-		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
-		data["execution"] = "parallel_shards" if resolved_jobs > 1 else "serial"
-		data["jobs"] = resolved_jobs
-		if validation_shadow:
-			data["validation_shadow"] = make_validation_shadow_failure_report(
-				data,
-				"suite_deadline_exhausted",
-			)
-		if affected:
-			attach_affected_analysis_report(
-				data,
-				validation_catalog=invocation_catalog,
-				git_process=None,
-				base_revision=affected_base,
-				explain=affected_explain,
-				force_failure=True,
-				suite_deadline=suite_deadline,
-			)
-		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
-		return data
-	if executor_setup_error or reference_setup_error:
+	if executor_setup_error:
 		workspace_state = {
 			"schema_version": 1,
 			"head": "",
@@ -16458,7 +16001,7 @@ def run_checks(
 			validation_plan,
 			workspace_state,
 			"validation_executor_setup",
-			executor_setup_error or reference_setup_error,
+			executor_setup_error,
 		)
 		data["workspace_snapshot"] = snapshot.stats()
 		data["workspace"] = workspace_state
@@ -16694,17 +16237,16 @@ def run_checks(
 							process_environment=invocation_process_environment,
 							git_process=invocation_process_authority.git,
 						)
-				if "examples_sync_write" not in selected_names:
-					remaining_deadline_seconds(suite_deadline, "workspace snapshot revalidation")
-					ending_workspace = workspace_fingerprint(
-						ROOT,
-						git_process=invocation_process_authority.git,
-						deadline=suite_deadline,
+				remaining_deadline_seconds(suite_deadline, "workspace snapshot revalidation")
+				ending_workspace = workspace_fingerprint(
+					ROOT,
+					git_process=invocation_process_authority.git,
+					deadline=suite_deadline,
+				)
+				if ending_workspace["fingerprint"] != workspace_state["fingerprint"]:
+					raise WorkspaceSnapshotError(
+						"Workspace source changed while read-only maintenance checks were running."
 					)
-					if ending_workspace["fingerprint"] != workspace_state["fingerprint"]:
-						raise WorkspaceSnapshotError(
-							"Workspace source changed while read-only maintenance checks were running."
-						)
 			except (WorkspaceDeadlineError, TimeoutError) as error:
 				if data is None:
 					data = make_check_deadline_failure(
@@ -19453,7 +18995,6 @@ def run_checks_with_log_hygiene(
 	timeout_seconds: int | None = None,
 	suite_timeout_seconds: int | None = None,
 	fail_fast: bool = False,
-	sync_examples: bool = False,
 	allow_breaking_api: bool = False,
 	artifact_manifest: str = "",
 	progress_callback: Callable[[str, str, float | None], None] | None = None,
@@ -19478,7 +19019,6 @@ def run_checks_with_log_hygiene(
 			timeout_seconds=timeout_seconds,
 			suite_timeout_seconds=suite_timeout_seconds,
 			fail_fast=fail_fast,
-			sync_examples=sync_examples,
 			allow_breaking_api=allow_breaking_api,
 			artifact_manifest=artifact_manifest,
 			progress_callback=progress_callback,
@@ -19793,6 +19333,11 @@ def completed_command_result(
 	exit_code = process_exit_code
 	notes: list[str] | None = list(process_notes) or None
 	log_output, log_errors = read_command_log_outputs(log_paths)
+	if name == "first_task_smoke":
+		marker_error = first_task_smoke_completion_error(stdout, stderr, log_output)
+		if marker_error:
+			exit_code = 1
+			notes = append_note(notes, marker_error)
 	stdout = append_command_log_output(stdout, log_output)
 	if log_errors:
 		exit_code = 1
@@ -19808,9 +19353,7 @@ def completed_command_result(
 		"gut",
 		"gdscript_warnings",
 		"gdscript_lsp_diagnostics",
-		"examples_scan",
-		"examples_boot",
-		"examples_smoke",
+		"first_task_smoke",
 	}
 	if name in godot_checked_names:
 		exit_leak_report = godot_exit_leak_report_from_output(name, stdout, stderr)
@@ -19819,6 +19362,9 @@ def completed_command_result(
 	if name in godot_checked_names and has_script_error:
 		exit_code = 1
 		notes = append_note(notes, "Godot reported script loading or parse errors in output.")
+	if name == "first_task_smoke" and "ERROR:" in f"{stdout}\n{stderr}":
+		exit_code = 1
+		notes = append_note(notes, "The first-task smoke reported a Godot error.")
 	if name in {"godot_import", "gut", "gdscript_warnings", "gdscript_lsp_diagnostics"} and has_reload_warning:
 		exit_code = 1
 		notes = append_note(notes, "Godot reported GDScript reload warnings in output.")
@@ -19829,11 +19375,11 @@ def completed_command_result(
 			and bool(exit_leak_report["has_leaks"])
 		)
 	)
-	if has_exit_leaks and name == "gut":
+	if has_exit_leaks and name in {"gut", "first_task_smoke"}:
 		exit_code = 1
 		notes = append_note(
 			notes,
-			"Godot reported exit leak warnings during GUT; the lifecycle gate requires a zero-leak run.",
+			"Godot reported exit leak warnings; this check requires a zero-leak run.",
 		)
 	elif has_exit_leaks:
 		notes = append_note(
@@ -19872,6 +19418,42 @@ def completed_command_result(
 		pid=pid,
 		streamed_output=streamed_output,
 	)
+
+
+def first_task_smoke_completion_error(stdout: str, stderr: str, log_output: str) -> str:
+	"""Require one process emission, allowing its single configured-log mirror."""
+	marker_name = "FIRST_TASK_SMOKE"
+	prefix = marker_name + "="
+	for source, raw_output, required in (
+		("process output", f"{stdout}\n{stderr}", True),
+		("configured log", log_output, False),
+	):
+		output = strip_ansi_codes(raw_output)
+		count = output.count(marker_name)
+		if count == 0 and not required:
+			continue
+		if count != 1:
+			return f"First-task completion marker must occur exactly once in {source}."
+		marker_lines = [line for line in output.splitlines() if marker_name in line]
+		if len(marker_lines) != 1 or not marker_lines[0].startswith(prefix):
+			return f"First-task completion marker must occupy its own line in {source}."
+		payload_text = marker_lines[0][len(prefix):]
+		try:
+			# Use the same small structured-result budget as the editor smoke report.
+			if len(payload_text.encode("utf-8")) > 16_384:
+				raise ValueError("Completion payload exceeds its byte budget.")
+			payload = json.loads(
+				payload_text,
+				parse_constant=reject_non_finite_json_constant,
+				object_pairs_hook=reject_duplicate_json_object_keys,
+			)
+			if not isinstance(payload, dict) or set(payload) != {"ok", "failures"}:
+				raise ValueError("Completion payload does not match the closed schema.")
+			if payload["ok"] is not True or payload["failures"] != []:
+				raise ValueError("Completion payload does not prove successful acceptance.")
+		except (ValueError, TypeError, RecursionError, UnicodeError):
+			return f"First-task completion marker is invalid or unsuccessful in {source}."
+	return ""
 
 
 def normalize_maintenance_cli_argv(argv: list[str]) -> list[str]:

@@ -651,7 +651,7 @@ func release_dependencies() -> void:
 func set_resource_broker(broker: GFResourceBroker) -> Error:
 ```
 
-注入共享 Resource Broker。 重复绑定当前 Broker 幂等成功；存在活动场景加载或预载请求时拒绝替换， 避免跨 Broker 拆分同一切换生命周期。当前 Broker 由本 Utility 私有拥有时， 还必须等待它完成 drain 并进入 idle，才能替换为其它 Broker。
+注入共享 Resource Broker。 重复绑定当前 Broker 幂等成功；实例生命周期内其他替换始终拒绝。 本消费者使用固定模式，不能绑定已由可切换资源服务域接管的原始 Broker。
 
 参数：
 
@@ -659,7 +659,7 @@ func set_resource_broker(broker: GFResourceBroker) -> Error:
 |---|---|
 | `broker` | 要共享的 Broker。 |
 
-返回：绑定结果；请求尚未收敛或私有 Broker 尚未 idle 时返回 `ERR_BUSY`。
+返回：已有不同绑定或 Broker 被服务域接管时返回 ERR_ALREADY_IN_USE。
 
 <a id="member-gfsceneutility-methods-setup_standalone_resource_broker"></a>
 

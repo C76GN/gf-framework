@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceLease" path="addons/gf/standard/utilities/assets/gf_resource_lease.gd" module="standard" extends="RefCounted" classDigest="000e0603d52d14b192591dce8fc56048ef661583368f3f6baf0b52d1099d9b34">
+<class name="GFResourceLease" path="addons/gf/standard/utilities/assets/gf_resource_lease.gd" module="standard" extends="RefCounted" classDigest="491d67591471eaabbb48efa7abfe1edb9e44b31959d476eb30541630395f589f">
 	<description>GFResourceLease: 共享资源 Broker 返回的消费者所有权句柄。
 每次请求都会得到独立 Lease；同一路径可以复用同一个底层 threaded load，
 但取消或释放只影响当前消费者。未完成时释放最后一个 Lease 会让 Broker
@@ -55,6 +55,15 @@
 	</constants>
 	<properties />
 	<methods>
+		<member kind="method" name="get_service_generation">
+			<signature>func get_service_generation() -&gt; int:</signature>
+			<description>读取请求接纳时冻结的服务代次；取消、迟到结果和释放不会改变它。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">服务域代次，直接 Broker 请求为 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="cancel">
 			<signature>func cancel(reason: StringName = &amp;"cancelled") -&gt; void:</signature>
 			<description>取消当前消费者的请求。

@@ -6,11 +6,11 @@
 
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
-| Kernel | 78 | 1143 | [Kernel](#module-kernel) |
-| Standard | 488 | 7666 | [Standard](#module-standard) |
+| Kernel | 78 | 1145 | [Kernel](#module-kernel) |
+| Standard | 490 | 7692 | [Standard](#module-standard) |
 | Action Queue | 21 | 241 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
-| Behavior Tree | 22 | 96 | [Behavior Tree](#module-extensions-behavior_tree) |
+| Behavior Tree | 23 | 101 | [Behavior Tree](#module-extensions-behavior_tree) |
 | Camera | 8 | 138 | [Camera](#module-extensions-camera) |
 | Capability | 11 | 148 | [Capability](#module-extensions-capability) |
 | Combat | 71 | 708 | [Combat](#module-extensions-combat) |
@@ -26,7 +26,7 @@
 | Physics | 4 | 50 | [Physics](#module-extensions-physics) |
 | Save | 52 | 659 | [Save](#module-extensions-save) |
 | Turn Based | 5 | 50 | [Turn Based](#module-extensions-turn_based) |
-| Tools | 25 | 206 | [Tools](#module-tools) |
+| Tools | 25 | 208 | [Tools](#module-tools) |
 
 ## 模块索引
 
@@ -70,7 +70,7 @@
 | [`GFRule`](GFRule.md#gfrule) | 协议与扩展点 (`protocol`) | `Resource` | 2 | `addons/gf/kernel/base/gf_rule.gd` |
 | [`GFSystem`](GFSystem.md#gfsystem) | 协议与扩展点 (`protocol`) | `Object` | 33 | `addons/gf/kernel/base/gf_system.gd` |
 | [`GFTimeProvider`](GFTimeProvider.md#gftimeprovider) | 协议与扩展点 (`protocol`) | `GFUtility` | 10 | `addons/gf/kernel/base/gf_time_provider.gd` |
-| [`GFUtility`](GFUtility.md#gfutility) | 协议与扩展点 (`protocol`) | `Object` | 31 | `addons/gf/kernel/base/gf_utility.gd` |
+| [`GFUtility`](GFUtility.md#gfutility) | 协议与扩展点 (`protocol`) | `Object` | 33 | `addons/gf/kernel/base/gf_utility.gd` |
 | [`GFExtensionManifest`](GFExtensionManifest.md#gfextensionmanifest) | 资源定义 (`resource_definition`) | `RefCounted` | 26 | `addons/gf/kernel/extension/gf_extension_manifest.gd` |
 | [`GFExtensionPreset`](GFExtensionPreset.md#gfextensionpreset) | 资源定义 (`resource_definition`) | `RefCounted` | 12 | `addons/gf/kernel/extension/gf_extension_preset.gd` |
 | [`GFAsyncCompletion`](GFAsyncCompletion.md#gfasynccompletion) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 20 | `addons/gf/kernel/core/gf_async_completion.gd` |
@@ -128,7 +128,7 @@
 | [`GFArtifactFreshnessReport`](GFArtifactFreshnessReport.md#gfartifactfreshnessreport) | 运行时服务 (`runtime_service`) | `RefCounted` | 9 | `addons/gf/standard/foundation/policy/gf_artifact_freshness_report.gd` |
 | [`GFAssetCatalogRuntime`](GFAssetCatalogRuntime.md#gfassetcatalogruntime) | 运行时服务 (`runtime_service`) | `GFUtility` | 13 | `addons/gf/standard/utilities/assets/gf_asset_catalog_runtime.gd` |
 | [`GFAssetCatalogSourceRegistry`](GFAssetCatalogSourceRegistry.md#gfassetcatalogsourceregistry) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/standard/utilities/assets/gf_asset_catalog_source_registry.gd` |
-| [`GFAssetUtility`](GFAssetUtility.md#gfassetutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 44 | `addons/gf/standard/utilities/assets/gf_asset_utility.gd` |
+| [`GFAssetUtility`](GFAssetUtility.md#gfassetutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 45 | `addons/gf/standard/utilities/assets/gf_asset_utility.gd` |
 | [`GFAsyncFlowTools`](GFAsyncFlowTools.md#gfasyncflowtools) | 运行时服务 (`runtime_service`) | `RefCounted` | 10 | `addons/gf/standard/common/gf_async_flow_tools.gd` |
 | [`GFAsyncTrackerUtility`](GFAsyncTrackerUtility.md#gfasynctrackerutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 20 | `addons/gf/standard/utilities/debug/gf_async_tracker_utility.gd` |
 | [`GFAsyncWaitUtility`](GFAsyncWaitUtility.md#gfasyncwaitutility) | 运行时服务 (`runtime_service`) | `RefCounted` | 13 | `addons/gf/standard/common/gf_async_wait_utility.gd` |
@@ -238,12 +238,14 @@
 | [`GFRenderWarmupUtility`](GFRenderWarmupUtility.md#gfrenderwarmuputility) | 运行时服务 (`runtime_service`) | `GFUtility` | 25 | `addons/gf/standard/utilities/display/gf_render_warmup_utility.gd` |
 | [`GFRequestHandlerRegistry`](GFRequestHandlerRegistry.md#gfrequesthandlerregistry) | 运行时服务 (`runtime_service`) | `RefCounted` | 27 | `addons/gf/standard/common/gf_request_handler_registry.gd` |
 | [`GFRequestOutboxUtility`](GFRequestOutboxUtility.md#gfrequestoutboxutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 33 | `addons/gf/standard/utilities/io/gf_request_outbox_utility.gd` |
-| [`GFResourceBroker`](GFResourceBroker.md#gfresourcebroker) | 运行时服务 (`runtime_service`) | `GFUtility` | 20 | `addons/gf/standard/utilities/assets/gf_resource_broker.gd` |
+| [`GFResourceBroker`](GFResourceBroker.md#gfresourcebroker) | 运行时服务 (`runtime_service`) | `GFUtility` | 23 | `addons/gf/standard/utilities/assets/gf_resource_broker.gd` |
 | [`GFResourceConfigProvider`](GFResourceConfigProvider.md#gfresourceconfigprovider) | 运行时服务 (`runtime_service`) | `GFConfigProvider` | 17 | `addons/gf/standard/utilities/config/gf_resource_config_provider.gd` |
 | [`GFResourceFeatureRemapTools`](GFResourceFeatureRemapTools.md#gfresourcefeatureremaptools) | 运行时服务 (`runtime_service`) | `RefCounted` | 3 | `addons/gf/standard/utilities/assets/gf_resource_feature_remap_tools.gd` |
 | [`GFResourceGraphScanner`](GFResourceGraphScanner.md#gfresourcegraphscanner) | 运行时服务 (`runtime_service`) | `RefCounted` | 4 | `addons/gf/standard/utilities/assets/gf_resource_graph_scanner.gd` |
 | [`GFResourceRegistryAssetSourceProvider`](GFResourceRegistryAssetSourceProvider.md#gfresourceregistryassetsourceprovider) | 运行时服务 (`runtime_service`) | `GFAssetCatalogSourceProvider` | 5 | `addons/gf/standard/utilities/assets/gf_resource_registry_asset_source_provider.gd` |
 | [`GFResourceResolverUtility`](GFResourceResolverUtility.md#gfresourceresolverutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 21 | `addons/gf/standard/utilities/assets/gf_resource_resolver_utility.gd` |
+| [`GFResourceServiceDomain`](GFResourceServiceDomain.md#gfresourceservicedomain) | 运行时服务 (`runtime_service`) | `GFUtility` | 16 | `addons/gf/standard/utilities/assets/gf_resource_service_domain.gd` |
+| [`GFResourceSnapshotBroker`](GFResourceSnapshotBroker.md#gfresourcesnapshotbroker) | 运行时服务 (`runtime_service`) | `GFResourceBroker` | 4 | `addons/gf/standard/utilities/assets/gf_resource_snapshot_broker.gd` |
 | [`GFResourceVariantProvider`](GFResourceVariantProvider.md#gfresourcevariantprovider) | 运行时服务 (`runtime_service`) | `RefCounted` | 10 | `addons/gf/standard/utilities/assets/gf_resource_variant_provider.gd` |
 | [`GFRichTextFormatter`](GFRichTextFormatter.md#gfrichtextformatter) | 运行时服务 (`runtime_service`) | `RefCounted` | 9 | `addons/gf/standard/utilities/ui/gf_rich_text_formatter.gd` |
 | [`GFRuntimeAgentEnvironment`](GFRuntimeAgentEnvironment.md#gfruntimeagentenvironment) | 运行时服务 (`runtime_service`) | `GFUtility` | 19 | `addons/gf/standard/utilities/agent/gf_runtime_agent_environment.gd` |
@@ -464,7 +466,7 @@
 | [`GFWeightedEntry`](GFWeightedEntry.md#gfweightedentry) | 资源定义 (`resource_definition`) | `Resource` | 8 | `addons/gf/standard/foundation/math/gf_weighted_entry.gd` |
 | [`GFWeightedTable`](GFWeightedTable.md#gfweightedtable) | 资源定义 (`resource_definition`) | `Resource` | 17 | `addons/gf/standard/foundation/math/gf_weighted_table.gd` |
 | [`GFAssetCatalogMount`](GFAssetCatalogMount.md#gfassetcatalogmount) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 18 | `addons/gf/standard/utilities/assets/gf_asset_catalog_mount.gd` |
-| [`GFAssetHandle`](GFAssetHandle.md#gfassethandle) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 9 | `addons/gf/standard/utilities/assets/gf_asset_handle.gd` |
+| [`GFAssetHandle`](GFAssetHandle.md#gfassethandle) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 10 | `addons/gf/standard/utilities/assets/gf_asset_handle.gd` |
 | [`GFAssetLoadSession`](GFAssetLoadSession.md#gfassetloadsession) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 12 | `addons/gf/standard/utilities/assets/gf_asset_load_session.gd` |
 | [`GFAssetSlot`](GFAssetSlot.md#gfassetslot) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 13 | `addons/gf/standard/utilities/assets/gf_asset_slot.gd` |
 | [`GFAsyncBatch`](GFAsyncBatch.md#gfasyncbatch) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 31 | `addons/gf/standard/utilities/io/gf_async_batch.gd` |
@@ -503,7 +505,7 @@
 | [`GFReactiveStateControlBinder`](GFReactiveStateControlBinder.md#gfreactivestatecontrolbinder) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 6 | `addons/gf/standard/utilities/ui/gf_reactive_state_control_binder.gd` |
 | [`GFReactiveStateStore`](GFReactiveStateStore.md#gfreactivestatestore) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 25 | `addons/gf/standard/utilities/state/gf_reactive_state_store.gd` |
 | [`GFRepeaterBinder`](GFRepeaterBinder.md#gfrepeaterbinder) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 15 | `addons/gf/standard/utilities/ui/gf_repeater_binder.gd` |
-| [`GFResourceLease`](GFResourceLease.md#gfresourcelease) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 18 | `addons/gf/standard/utilities/assets/gf_resource_lease.gd` |
+| [`GFResourceLease`](GFResourceLease.md#gfresourcelease) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 19 | `addons/gf/standard/utilities/assets/gf_resource_lease.gd` |
 | [`GFRuntimeTaskGroup`](GFRuntimeTaskGroup.md#gfruntimetaskgroup) | 运行时句柄 (`runtime_handle`) | `GFRuntimeTask` | 24 | `addons/gf/standard/sequence/gf_runtime_task_group.gd` |
 | [`GFSceneOperation`](GFSceneOperation.md#gfsceneoperation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 11 | `addons/gf/standard/utilities/scene/gf_scene_operation.gd` |
 | [`GFShaderParameterBinder`](GFShaderParameterBinder.md#gfshaderparameterbinder) | 运行时句柄 (`runtime_handle`) | `Node` | 14 | `addons/gf/standard/utilities/display/gf_shader_parameter_binder.gd` |
@@ -671,6 +673,7 @@
 | [`GFBehaviorTree.Probability`](GFBehaviorTree.md#gfbehaviortreeprobability) | 领域模型 (`domain_model`) | `Decorator` | 5 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
 | [`GFBehaviorTree.RandomSelector`](GFBehaviorTree.md#gfbehaviortreerandomselector) | 领域模型 (`domain_model`) | `BTNode` | 5 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
 | [`GFBehaviorTree.RandomSequence`](GFBehaviorTree.md#gfbehaviortreerandomsequence) | 领域模型 (`domain_model`) | `BTNode` | 5 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
+| [`GFBehaviorTree.RecoverError`](GFBehaviorTree.md#gfbehaviortreerecovererror) | 领域模型 (`domain_model`) | `BTNode` | 5 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
 | [`GFBehaviorTree.Repeat`](GFBehaviorTree.md#gfbehaviortreerepeat) | 领域模型 (`domain_model`) | `Decorator` | 4 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
 | [`GFBehaviorTree.Selector`](GFBehaviorTree.md#gfbehaviortreeselector) | 领域模型 (`domain_model`) | `BTNode` | 4 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
 | [`GFBehaviorTree.Sequence`](GFBehaviorTree.md#gfbehaviortreesequence) | 领域模型 (`domain_model`) | `BTNode` | 4 | `addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd` |
@@ -1065,7 +1068,7 @@
 | [`GFConfigPipelineTableSource`](GFConfigPipelineTableSource.md#gfconfigpipelinetablesource) | 工具 API (`tool_api`) | `Resource` | 18 | `addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd` |
 | [`GFConfigPipelineTargetStage`](GFConfigPipelineTargetStage.md#gfconfigpipelinetargetstage) | 工具 API (`tool_api`) | `RefCounted` | 7 | `addons/gf/tools/config_pipeline/gf_config_pipeline_target_stage.gd` |
 | [`GFConfigPipelineValidationStage`](GFConfigPipelineValidationStage.md#gfconfigpipelinevalidationstage) | 工具 API (`tool_api`) | `RefCounted` | 4 | `addons/gf/tools/config_pipeline/gf_config_pipeline_validation_stage.gd` |
-| [`GFDialogueTextCompiler`](GFDialogueTextCompiler.md#gfdialoguetextcompiler) | 工具 API (`tool_api`) | `RefCounted` | 4 | `addons/gf/tools/dialogue_text/gf_dialogue_text_compiler.gd` |
+| [`GFDialogueTextCompiler`](GFDialogueTextCompiler.md#gfdialoguetextcompiler) | 工具 API (`tool_api`) | `RefCounted` | 6 | `addons/gf/tools/dialogue_text/gf_dialogue_text_compiler.gd` |
 | [`GFLspWorkspaceEditAdapter`](GFLspWorkspaceEditAdapter.md#gflspworkspaceeditadapter) | 工具 API (`tool_api`) | `RefCounted` | 4 | `addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_adapter.gd` |
 | [`GFProjectLayoutAnalyzer`](GFProjectLayoutAnalyzer.md#gfprojectlayoutanalyzer) | 工具 API (`tool_api`) | `RefCounted` | 9 | `addons/gf/tools/project_layout/gf_project_layout_analyzer.gd` |
 | [`GFProjectLayoutPlanner`](GFProjectLayoutPlanner.md#gfprojectlayoutplanner) | 工具 API (`tool_api`) | `RefCounted` | 5 | `addons/gf/tools/project_layout/gf_project_layout_planner.gd` |

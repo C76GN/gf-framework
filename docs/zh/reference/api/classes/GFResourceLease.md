@@ -20,6 +20,7 @@
 | 常量 | [`STATUS_COMPLETED`](#member-gfresourcelease-constants-status_completed) | `const STATUS_COMPLETED: StringName = &"completed"` |
 | 常量 | [`STATUS_FAILED`](#member-gfresourcelease-constants-status_failed) | `const STATUS_FAILED: StringName = &"failed"` |
 | 常量 | [`STATUS_CANCELLED`](#member-gfresourcelease-constants-status_cancelled) | `const STATUS_CANCELLED: StringName = &"cancelled"` |
+| 方法 | [`get_service_generation`](#member-gfresourcelease-methods-get_service_generation) | `func get_service_generation() -> int:` |
 | 方法 | [`cancel`](#member-gfresourcelease-methods-cancel) | `func cancel(reason: StringName = &"cancelled") -> void:` |
 | 方法 | [`release`](#member-gfresourcelease-methods-release) | `func release() -> void:` |
 | 方法 | [`is_terminal`](#member-gfresourcelease-methods-is_terminal) | `func is_terminal() -> bool:` |
@@ -102,6 +103,21 @@ const STATUS_CANCELLED: StringName = &"cancelled"
 当前消费者已经取消请求。
 
 ## 方法
+
+<a id="member-gfresourcelease-methods-get_service_generation"></a>
+
+### `get_service_generation`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_service_generation() -> int:
+```
+
+读取请求接纳时冻结的服务代次；取消、迟到结果和释放不会改变它。
+
+返回：服务域代次，直接 Broker 请求为 0。
 
 <a id="member-gfresourcelease-methods-cancel"></a>
 

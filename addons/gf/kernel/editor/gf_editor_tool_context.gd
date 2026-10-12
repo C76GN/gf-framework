@@ -63,6 +63,11 @@ var metadata: Dictionary = {}
 ## @api private
 var _workspace_host: WeakRef = null
 
+## 当前贡献刷新宿主弱引用，页面上下文撤销时一并失效。
+## [br]
+## @api private
+var _contribution_refresh_host: WeakRef = null
+
 
 # --- 公共方法 ---
 
@@ -207,7 +212,58 @@ func bind_workspace_host(host: Object) -> void:
 	_workspace_host = weakref(host) if host != null else null
 
 
+## 注入根插件提供的贡献刷新接口，避免页面自行重建编辑器工具。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @param host: 提供 request_editor_contribution_refresh 和 get_editor_contribution_apply_report 的宿主；null 撤销接口。
+func bind_contribution_refresh_host(host: Object) -> void:
+	_contribution_refresh_host = weakref(host) if host != null else null
+
+
+## 请求应用已经保存的扩展设置，返回带代次的接纳结果。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @return: 当前刷新结果；接纳不等于已应用。
+## [br]
+## @schema return: Dictionary with status, generation, settings and issues; unavailable host returns status: failed.
+func request_editor_contribution_refresh() -> Dictionary:
+	return _call_contribution_refresh(&"request_editor_contribution_refresh")
+
+
+## 读取根插件保存的实际贡献应用结果，页面重建不会丢失结果。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @return: 当前刷新结果副本。
+## [br]
+## @schema return: Dictionary with status, generation, settings, installed_settings and issues; unavailable host returns status: failed.
+func get_editor_contribution_apply_report() -> Dictionary:
+	return _call_contribution_refresh(&"get_editor_contribution_apply_report")
+
+
 # --- 私有/辅助方法 ---
+
+## 只转发固定刷新接口到有效宿主，并隔离返回字典。
+## [br]
+## @api private
+func _call_contribution_refresh(method: StringName) -> Dictionary:
+	var host_value: Variant = _contribution_refresh_host.get_ref() if _contribution_refresh_host != null else null
+	if host_value is Object and is_instance_valid(host_value):
+		var host: Object = host_value
+		if host.has_method(method):
+			var value: Variant = host.call(method)
+			if value is Dictionary:
+				var report: Dictionary = value
+				return report.duplicate(true)
+	return {"status": "failed", "generation": 0, "issues": ["refresh_host_unavailable"]}
 
 ## 仅向仍有效的宿主转发固定接口调用。
 ## [br]

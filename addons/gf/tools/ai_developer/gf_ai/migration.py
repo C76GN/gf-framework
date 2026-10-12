@@ -50,7 +50,7 @@ def plan_contract_migration(
 		if any(issue.get("severity") == "error" for issue in validation_issues):
 			return {"ok": False, "status": "blocked", **base, "issues": validation_issues}
 		return {"ok": True, "status": "up_to_date", **base, "issues": validation_issues}
-	if source_version not in (1, 2, 3, 4) or CONTRACT_SCHEMA_VERSION != 5:
+	if source_version not in (1, 2, 3, 4, 5) or CONTRACT_SCHEMA_VERSION != 6:
 		return {
 			"ok": False,
 			"status": "blocked",
@@ -95,7 +95,7 @@ def plan_contract_migration(
 				),
 			},
 		))
-	if not conversion_issues:
+	if source_version <= 4 and not conversion_issues:
 		candidate, conversion_issues = _migrate_v4_to_v5(candidate)
 		changes.extend((
 			{
@@ -112,6 +112,13 @@ def plan_contract_migration(
 				),
 			},
 		))
+	if not conversion_issues:
+		candidate, conversion_issues = _migrate_v5_to_v6(candidate)
+		changes.append({
+			"code": "package_policy_axes_separated",
+			"path": "$.framework",
+			"message": "Separated payload presence and project usage; legacy forbidden packages remain forbidden on both axes. No project decisions were changed.",
+		})
 	if conversion_issues:
 		return {"ok": False, "status": "blocked", **base, "candidate": candidate, "issues": conversion_issues}
 	validation_issues = validate_contract_data(candidate, project_root)
@@ -292,7 +299,31 @@ def _migrate_v4_to_v5(source: dict[str, Any]) -> tuple[dict[str, Any], list[dict
 			"Legacy contract schemas must not predeclare schema v5 documentation_roots.",
 		)]
 	architecture["documentation_roots"] = []
-	candidate["schema_version"] = CONTRACT_SCHEMA_VERSION
+	candidate["schema_version"] = 5
+	return candidate, []
+
+
+def _migrate_v5_to_v6(source: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, str]]]:
+	candidate = copy.deepcopy(source)
+	framework = candidate.get("framework")
+	if not isinstance(framework, dict):
+		return candidate, [_issue("invalid_legacy_framework", "$.framework", "Legacy framework must be an object.")]
+	if any(field in framework for field in ("package_presence", "package_usage")):
+		return candidate, [_issue("invalid_legacy_package_policy", "$.framework", "Legacy contracts must not predeclare schema v6 package policy axes.")]
+	groups: dict[str, list[str]] = {}
+	for field in ("required_packages", "optional_packages", "forbidden_packages"):
+		value = framework.get(field)
+		if not isinstance(value, list) or len(value) > 100 or any(not isinstance(item, str) for item in value) or len(set(value)) != len(value):
+			return candidate, [_issue("invalid_legacy_package_policy", f"$.framework.{field}", "Legacy package policy must contain a bounded list of unique strings.")]
+		groups[field] = value
+	required, optional, forbidden = (groups[field] for field in ("required_packages", "optional_packages", "forbidden_packages"))
+	if set(required) & set(optional) or (set(required) | set(optional)) & set(forbidden):
+		return candidate, [_issue("invalid_legacy_package_policy", "$.framework", "Legacy package policy groups must be disjoint.")]
+	for field in groups:
+		del framework[field]
+	framework["package_presence"] = {"required": required, "forbidden": forbidden}
+	framework["package_usage"] = {"allowed": sorted(set(required) | set(optional)), "forbidden": forbidden.copy()}
+	candidate["schema_version"] = 6
 	return candidate, []
 
 

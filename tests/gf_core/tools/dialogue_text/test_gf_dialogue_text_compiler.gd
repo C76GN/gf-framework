@@ -8,6 +8,61 @@ const GF_DIALOGUE_TEXT_COMPILER_SCRIPT = preload("res://addons/gf/tools/dialogue
 
 # --- 测试方法 ---
 
+func test_runner_build_rejects_expanded_identity_accepted_by_structure_contract() -> void:
+	var responses: Array[Dictionary] = []
+	for index: int in range(16_384):
+		responses.append({ "response_id": "r%d" % index })
+	var source: String = JSON.stringify({
+		"format": "gf.dialogue", "schema_version": 1,
+		"lines": [{ "line_id": "intro", "responses": responses }],
+	})
+	var compiler: GF_DIALOGUE_TEXT_COMPILER_SCRIPT = GF_DIALOGUE_TEXT_COMPILER_SCRIPT.new()
+	var structure: Dictionary = compiler.compile_structure_text(source)
+	var production: Dictionary = compiler.build_runner_text(source, { "source_path": "dialogue.large" })
+	assert_true(GFVariantData.get_option_bool(structure, "success"))
+	assert_eq(GFVariantData.get_option_string(structure, "contract"), "structure")
+	assert_false(GFVariantData.get_option_bool(production, "success"))
+	assert_eq(GFVariantData.get_option_string(production, "contract"), "runner")
+	var rejected_resource: Variant = production.get("resource")
+	assert_true(typeof(rejected_resource) == TYPE_NIL)
+	assert_eq(GFVariantData.get_option_int(production, "line_count"), 0)
+	var report: Dictionary = GFVariantData.get_option_dictionary(production, "report")
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), &"runner_identity_rejected"))
+	assert_false(GFVariantData.get_option_string(report, "next_action").is_empty())
+
+
+func test_runner_build_accepts_stable_text_and_legal_immediate_end() -> void:
+	var compiler: GF_DIALOGUE_TEXT_COMPILER_SCRIPT = GF_DIALOGUE_TEXT_COMPILER_SCRIPT.new()
+	for kind: String in ["text", "end"]:
+		var result: Dictionary = compiler.build_runner_text(JSON.stringify({
+			"format": "gf.dialogue", "schema_version": 1,
+			"lines": [{ "line_id": "start", "kind": kind }],
+		}))
+		assert_true(GFVariantData.get_option_bool(result, "success"))
+		var resource_value: Variant = result.get("resource")
+		assert_true(resource_value is GFDialogueResource)
+		if resource_value is GFDialogueResource:
+			var resource: GFDialogueResource = resource_value
+			var runner: GFDialogueRunner = GFDialogueRunner.new()
+			var line: GFDialogueLine = runner.start(resource)
+			assert_eq(line != null, kind == "text", "合法 END 的 null 不是构建失败；生产合同不承诺展示行。")
+
+
+func test_runner_source_contract_preserves_loading_and_structure_failures() -> void:
+	var compiler: GF_DIALOGUE_TEXT_COMPILER_SCRIPT = GF_DIALOGUE_TEXT_COMPILER_SCRIPT.new()
+	var loader: GFSourceTextLoader = GFSourceTextLoader.new("", { "allow_file_access": false, "max_bytes": 4096 })
+	assert_true(loader.register_text("valid", '{"format":"gf.dialogue","schema_version":1,"lines":[{"line_id":"start"}]}'))
+	assert_true(loader.register_text("invalid", '{"format":"gf.dialogue","schema_version":1,"lines":[{"line_id":"start","next_line_id":"missing"}]}'))
+	var valid: Dictionary = compiler.build_runner_source("valid", loader)
+	assert_true(GFVariantData.get_option_bool(valid, "success"))
+	assert_eq(GFVariantData.get_option_string(valid, "source_path"), "valid")
+	for result: Dictionary in [compiler.build_runner_source("invalid", loader), compiler.build_runner_source("valid", null)]:
+		assert_false(GFVariantData.get_option_bool(result, "success"))
+		assert_eq(GFVariantData.get_option_string(result, "contract"), "runner")
+		var rejected_resource: Variant = result.get("resource")
+		assert_true(typeof(rejected_resource) == TYPE_NIL)
+
+
 func test_compiler_builds_dialogue_resource_from_json_text() -> void:
 	var source: Dictionary = {
 		"format": GF_DIALOGUE_TEXT_COMPILER_SCRIPT.SOURCE_FORMAT,
@@ -36,7 +91,7 @@ func test_compiler_builds_dialogue_resource_from_json_text() -> void:
 	}
 	var compiler: GF_DIALOGUE_TEXT_COMPILER_SCRIPT = GF_DIALOGUE_TEXT_COMPILER_SCRIPT.new()
 
-	var result: Dictionary = compiler.compile_text(JSON.stringify(source), {
+	var result: Dictionary = compiler.compile_structure_text(JSON.stringify(source), {
 		"source_path": "res://dialogue/prologue.gf_dialogue.json",
 	})
 	var resource_value: Variant = GFVariantData.get_option_value(result, "resource")
@@ -57,7 +112,7 @@ func test_compiler_builds_dialogue_resource_from_json_text() -> void:
 func test_compiler_reports_json_source_line_and_fails_closed() -> void:
 	var compiler: GF_DIALOGUE_TEXT_COMPILER_SCRIPT = GF_DIALOGUE_TEXT_COMPILER_SCRIPT.new()
 
-	var result: Dictionary = compiler.compile_text("{\n  \"format\": \"gf.dialogue\",\n  invalid\n}", {
+	var result: Dictionary = compiler.compile_structure_text("{\n  \"format\": \"gf.dialogue\",\n  invalid\n}", {
 		"source_path": "res://dialogue/broken.gf_dialogue.json",
 	})
 	var report: Dictionary = GFVariantData.get_option_dictionary(result, "report")
@@ -88,7 +143,7 @@ func test_compiler_rejects_unknown_structure_fields_and_missing_targets() -> voi
 	}
 	var compiler: GF_DIALOGUE_TEXT_COMPILER_SCRIPT = GF_DIALOGUE_TEXT_COMPILER_SCRIPT.new()
 
-	var result: Dictionary = compiler.compile_text(JSON.stringify(source))
+	var result: Dictionary = compiler.compile_structure_text(JSON.stringify(source))
 	var report: Dictionary = GFVariantData.get_option_dictionary(result, "report")
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 
@@ -104,7 +159,7 @@ func test_compiler_rejects_fractional_schema_version_near_integer() -> void:
 		+ '"lines":[{"line_id":"finish","kind":"end"}]}'
 	)
 
-	var result: Dictionary = compiler.compile_text(source)
+	var result: Dictionary = compiler.compile_structure_text(source)
 	var report: Dictionary = GFVariantData.get_option_dictionary(result, "report")
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 
@@ -130,7 +185,7 @@ func test_compiler_loads_registered_source_text() -> void:
 	assert_true(loader.register_text("dialogue.finish", JSON.stringify(source)), "内存来源应注册成功。")
 	var compiler: GF_DIALOGUE_TEXT_COMPILER_SCRIPT = GF_DIALOGUE_TEXT_COMPILER_SCRIPT.new()
 
-	var result: Dictionary = compiler.compile_source("dialogue.finish", loader)
+	var result: Dictionary = compiler.compile_structure_source("dialogue.finish", loader)
 
 	assert_true(GFVariantData.get_option_bool(result, "success"), "编译器应复用受约束源码加载器。")
 	assert_eq(GFVariantData.get_option_string(result, "source_path"), "dialogue.finish", "结果应保留逻辑来源。")
@@ -198,7 +253,7 @@ func test_compiler_rejects_non_strict_json_dialect_before_materialization() -> v
 	]
 
 	for case_data: Dictionary in cases:
-		var result: Dictionary = compiler.compile_text(GFVariantData.get_option_string(case_data, "source"))
+		var result: Dictionary = compiler.compile_structure_text(GFVariantData.get_option_string(case_data, "source"))
 		var issues: Array = _get_issues(result)
 		assert_false(
 			GFVariantData.get_option_bool(result, "success"),
@@ -213,7 +268,7 @@ func test_compiler_rejects_non_strict_json_dialect_before_materialization() -> v
 			"严格 JSON 失败 kind 应稳定：%s。" % GFVariantData.get_option_string(case_data, "name")
 		)
 
-	var duplicate_result: Dictionary = compiler.compile_text(
+	var duplicate_result: Dictionary = compiler.compile_structure_text(
 		'{"format":"gf.dialogue","schema_version":1,"lines":[{"line_id":"first","line_id":"second","kind":"end"}]}'
 	)
 	var duplicate_issue: Dictionary = _find_issue(_get_issues(duplicate_result), &"duplicate_field")
@@ -234,7 +289,7 @@ func test_compiler_preserves_valid_unicode_and_finite_float_boundaries() -> void
 		+ '"lines":[{"line_id":"finish","kind":"end","text":"é · שלום"}]}'
 	)
 
-	var result: Dictionary = compiler.compile_text(source)
+	var result: Dictionary = compiler.compile_structure_text(source)
 	var resource_value: Variant = GFVariantData.get_option_value(result, "resource")
 
 	assert_true(GFVariantData.get_option_bool(result, "success"), "合法 Unicode 与有限浮点边界应编译成功。")
@@ -256,9 +311,9 @@ func test_compiler_enforces_text_line_response_and_structure_budgets() -> void:
 	var compiler: GF_DIALOGUE_TEXT_COMPILER_SCRIPT = GF_DIALOGUE_TEXT_COMPILER_SCRIPT.new()
 	var minimal_source: String = JSON.stringify(_make_linear_dialogue_source(1))
 	var three_lines_source: String = JSON.stringify(_make_linear_dialogue_source(3))
-	var line_result: Dictionary = compiler.compile_text(three_lines_source, { "max_lines": 2 })
+	var line_result: Dictionary = compiler.compile_structure_text(three_lines_source, { "max_lines": 2 })
 	var text_byte_count: int = three_lines_source.to_utf8_buffer().size()
-	var text_result: Dictionary = compiler.compile_text(
+	var text_result: Dictionary = compiler.compile_structure_text(
 		three_lines_source,
 		{ "max_text_bytes": text_byte_count - 1 }
 	)
@@ -271,13 +326,13 @@ func test_compiler_enforces_text_line_response_and_structure_budgets() -> void:
 	]
 	response_lines[0] = response_line
 	response_source["lines"] = response_lines
-	var response_result: Dictionary = compiler.compile_text(
+	var response_result: Dictionary = compiler.compile_structure_text(
 		JSON.stringify(response_source),
 		{ "max_responses": 1 }
 	)
-	var depth_result: Dictionary = compiler.compile_text(minimal_source, { "max_depth": 2 })
-	var node_result: Dictionary = compiler.compile_text(minimal_source, { "max_nodes": 13 })
-	var string_result: Dictionary = compiler.compile_text(minimal_source, { "max_string_bytes": 13 })
+	var depth_result: Dictionary = compiler.compile_structure_text(minimal_source, { "max_depth": 2 })
+	var node_result: Dictionary = compiler.compile_structure_text(minimal_source, { "max_nodes": 13 })
+	var string_result: Dictionary = compiler.compile_structure_text(minimal_source, { "max_string_bytes": 13 })
 
 	var budget_results: Array[Dictionary] = [
 		line_result,
@@ -294,12 +349,12 @@ func test_compiler_enforces_text_line_response_and_structure_budgets() -> void:
 		assert_true(_has_issue_kind(_get_issues(result), &"input_budget_exceeded"), "预算错误 kind 应稳定。")
 
 	var exact_budget_results: Array[Dictionary] = [
-		compiler.compile_text(three_lines_source, { "max_lines": 3 }),
-		compiler.compile_text(three_lines_source, { "max_text_bytes": text_byte_count }),
-		compiler.compile_text(JSON.stringify(response_source), { "max_responses": 2 }),
-		compiler.compile_text(minimal_source, { "max_depth": 3 }),
-		compiler.compile_text(minimal_source, { "max_nodes": 14 }),
-		compiler.compile_text(minimal_source, { "max_string_bytes": 14 }),
+		compiler.compile_structure_text(three_lines_source, { "max_lines": 3 }),
+		compiler.compile_structure_text(three_lines_source, { "max_text_bytes": text_byte_count }),
+		compiler.compile_structure_text(JSON.stringify(response_source), { "max_responses": 2 }),
+		compiler.compile_structure_text(minimal_source, { "max_depth": 3 }),
+		compiler.compile_structure_text(minimal_source, { "max_nodes": 14 }),
+		compiler.compile_structure_text(minimal_source, { "max_string_bytes": 14 }),
 	]
 	for result: Dictionary in exact_budget_results:
 		assert_true(GFVariantData.get_option_bool(result, "success"), "预算阈值本身必须保持可用。")
@@ -311,7 +366,7 @@ func test_compiler_bounds_diagnostics_and_rejects_invalid_limit_options() -> voi
 		'{"format":"gf.dialogue","schema_version":1,"unknown_a":1,"unknown_b":2,'
 		+ '"unknown_c":3,"lines":[{"line_id":"finish","kind":"end"}]}'
 	)
-	var diagnostic_result: Dictionary = compiler.compile_text(
+	var diagnostic_result: Dictionary = compiler.compile_structure_text(
 		diagnostic_source,
 		{ "max_diagnostics": 2 }
 	)
@@ -331,12 +386,12 @@ func test_compiler_bounds_diagnostics_and_rejects_invalid_limit_options() -> voi
 		{ "max_responses": true },
 	]
 	for options: Dictionary in invalid_options:
-		var result: Dictionary = compiler.compile_text(diagnostic_source, options)
+		var result: Dictionary = compiler.compile_structure_text(diagnostic_source, options)
 		assert_false(GFVariantData.get_option_bool(result, "success"), "非法预算选项必须失败关闭。")
 		assert_true(_has_issue_kind(_get_issues(result), &"invalid_compile_option"), "非法预算选项应返回稳定 kind。")
 
 
-func test_compile_source_requires_loader_read_budget_no_larger_than_compile_budget() -> void:
+func test_compile_structure_source_requires_loader_read_budget_no_larger_than_compile_budget() -> void:
 	var source: String = JSON.stringify(_make_linear_dialogue_source(1))
 	var unbounded_loader: GFSourceTextLoader = GFSourceTextLoader.new("", {
 		"allow_file_access": false,
@@ -349,8 +404,8 @@ func test_compile_source_requires_loader_read_budget_no_larger_than_compile_budg
 	var _registered_oversized: bool = oversized_loader.register_text("dialogue.finish", source)
 	var compiler: GF_DIALOGUE_TEXT_COMPILER_SCRIPT = GF_DIALOGUE_TEXT_COMPILER_SCRIPT.new()
 
-	var unbounded_result: Dictionary = compiler.compile_source("dialogue.finish", unbounded_loader)
-	var oversized_result: Dictionary = compiler.compile_source(
+	var unbounded_result: Dictionary = compiler.compile_structure_source("dialogue.finish", unbounded_loader)
+	var oversized_result: Dictionary = compiler.compile_structure_source(
 		"dialogue.finish",
 		oversized_loader,
 		{ "max_text_bytes": 4096 }
@@ -364,7 +419,7 @@ func test_compile_source_requires_loader_read_budget_no_larger_than_compile_budg
 
 func test_compiler_preserves_original_positions_after_malformed_array_entries() -> void:
 	var compiler: GF_DIALOGUE_TEXT_COMPILER_SCRIPT = GF_DIALOGUE_TEXT_COMPILER_SCRIPT.new()
-	var result: Dictionary = compiler.compile_text('{"format":"gf.dialogue","schema_version":1,"lines":[0,{"line_id":"","kind":"text"},{"line_id":"intro","kind":"text","responses":[0,{"response_id":""}]}]}')
+	var result: Dictionary = compiler.compile_structure_text('{"format":"gf.dialogue","schema_version":1,"lines":[0,{"line_id":"","kind":"text"},{"line_id":"intro","kind":"text","responses":[0,{"response_id":""}]}]}')
 	var issues: Array = _get_issues(result)
 	assert_eq(GFVariantData.get_option_string(_find_issue(issues, &"empty_line_id"), "path"), "#/lines/1/line_id")
 	assert_eq(GFVariantData.get_option_string(_find_issue(issues, &"empty_response_id"), "path"), "#/lines/2/responses/1/response_id")
@@ -389,7 +444,7 @@ func test_compiler_semantic_issues_preserve_json_pointer_and_source_spans() -> v
 }"""
 	var compiler: GF_DIALOGUE_TEXT_COMPILER_SCRIPT = GF_DIALOGUE_TEXT_COMPILER_SCRIPT.new()
 
-	var result: Dictionary = compiler.compile_text(source, {
+	var result: Dictionary = compiler.compile_structure_text(source, {
 		"source_path": "res://dialogue/provenance.gf_dialogue.json",
 	})
 	var issues: Array = _get_issues(result)
@@ -441,7 +496,7 @@ func test_compiler_maps_repeated_runtime_issues_to_distinct_source_tokens() -> v
 }"""
 	var compiler: GF_DIALOGUE_TEXT_COMPILER_SCRIPT = GF_DIALOGUE_TEXT_COMPILER_SCRIPT.new()
 
-	var result: Dictionary = compiler.compile_text(source)
+	var result: Dictionary = compiler.compile_structure_text(source)
 	var issues: Array = _get_issues(result)
 	var missing_issues: Array[Dictionary] = _find_issues(issues, &"missing_next_line")
 	var duplicate_issue: Dictionary = _find_issue(issues, &"duplicate_response_id")
@@ -475,7 +530,7 @@ func test_compiler_maps_repeated_runtime_issues_to_distinct_source_tokens() -> v
 
 func test_compiler_preserves_runtime_owned_next_action() -> void:
 	var compiler: GF_DIALOGUE_TEXT_COMPILER_SCRIPT = GF_DIALOGUE_TEXT_COMPILER_SCRIPT.new()
-	var result: Dictionary = compiler.compile_text(
+	var result: Dictionary = compiler.compile_structure_text(
 		'{"format":"gf.dialogue","schema_version":1,"lines":[{"line_id":"start","kind":"text","next_line_id":"missing"}]}'
 	)
 	var report: Dictionary = GFVariantData.get_option_dictionary(result, "report")
@@ -500,8 +555,8 @@ func test_compiler_reports_are_deterministic_and_crlf_aware() -> void:
 	var options: Dictionary = { "source_path": "res://dialogue/deterministic.gf_dialogue.json" }
 	var compiler: GF_DIALOGUE_TEXT_COMPILER_SCRIPT = GF_DIALOGUE_TEXT_COMPILER_SCRIPT.new()
 
-	var first: Dictionary = compiler.compile_text(source, options)
-	var second: Dictionary = compiler.compile_text(source, options)
+	var first: Dictionary = compiler.compile_structure_text(source, options)
+	var second: Dictionary = compiler.compile_structure_text(source, options)
 	var first_report: Dictionary = GFVariantData.get_option_dictionary(first, "report")
 	var second_report: Dictionary = GFVariantData.get_option_dictionary(second, "report")
 	var issue: Dictionary = _find_issue(GFVariantData.get_option_array(first_report, "issues"), &"unknown_field")
@@ -526,7 +581,7 @@ func test_compiler_report_projection_is_json_safe_and_has_specific_next_actions(
 	var cyclic_metadata: Dictionary = {}
 	cyclic_metadata["self"] = cyclic_metadata
 	var compiler: GF_DIALOGUE_TEXT_COMPILER_SCRIPT = GF_DIALOGUE_TEXT_COMPILER_SCRIPT.new()
-	var result: Dictionary = compiler.compile_text('{"format":"gf.dialogue","schema_version":1,"lines":"bad"}', {
+	var result: Dictionary = compiler.compile_structure_text('{"format":"gf.dialogue","schema_version":1,"lines":"bad"}', {
 		"source_path": "res://dialogue/report.gf_dialogue.json",
 		"metadata": {
 			"object": unsafe_object,

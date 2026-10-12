@@ -82,10 +82,10 @@ def analyze_api_package_policy(
 	architecture = contract_data.get("architecture", {})
 	if not isinstance(architecture, dict):
 		architecture = {}
-	required = _string_set(framework.get("required_packages"))
-	optional = _string_set(framework.get("optional_packages"))
-	forbidden = _string_set(framework.get("forbidden_packages"))
-	allowed = set() if catalog_issues else _package_closure(required | optional, api_index)
+	usage = framework.get("package_usage", {})
+	declared_allowed = _string_set(usage.get("allowed"))
+	forbidden = _string_set(usage.get("forbidden"))
+	allowed = set() if catalog_issues else _package_closure(declared_allowed, api_index)
 	owners = {} if catalog_issues else _public_owner_records(api_index)
 	excluded_root_identities = _generated_root_identities(contract_result, architecture)
 	domain_roots, domain_root_states, domain_root_pins = _source_domain_roots(
@@ -160,10 +160,9 @@ def analyze_api_package_policy(
 		"catalog_issues_truncated": len(catalog_issues) > MAX_CATALOG_ISSUES,
 		"catalog_issues": catalog_issues[:MAX_CATALOG_ISSUES],
 		"contract_issue_count": int(contract_result.get("error_count", 0)),
-		"required_packages": sorted(required),
-		"optional_packages": sorted(optional),
+		"declared_usage_packages": sorted(declared_allowed),
 		"allowed_packages": sorted(allowed),
-		"forbidden_packages": sorted(forbidden),
+		"forbidden_usage_packages": sorted(forbidden),
 		"source_domains": domain_root_states,
 		"domains": domain_summaries,
 		"observation_count": observation_count,

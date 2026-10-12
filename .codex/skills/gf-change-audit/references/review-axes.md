@@ -14,13 +14,17 @@ Compare the diff with the user's task, issue, PRD, or acceptance criteria. Repor
 
 Check public API additions, removals, default behavior changes, SemVer implications, `@since` values, `@schema` docs, generated API reference drift, and migration notes.
 
+## Product Readiness
+
+Apply [产品化交付](../../../../AI_MAINTENANCE.md#产品化交付) to changed interfaces, configuration, UI, comments, tests, examples, documentation, generated outputs and handoff text. Judge whether a developer without the conversation can understand the capability, defaults, failure behavior and limitations. Flag temporary option labels, discussion-only phase names, labels inherited from abandoned proposals and unresolved conversational references; provide the semantic correction rather than just deleting a label. Preserve self-contained design comparisons and rationale. Do not flag legitimate standards, test data or necessary issue / PR / ADR references, rewrite frozen evidence, or expand the requested feature scope. Keyword scans are discovery aids, not proof of readiness.
+
 ## Verification
 
 Check whether the right commands were run for the touched files. Report missing or insufficient checks, failed commands, expected failures, and skipped checks with risk.
 
-## Reference Boundary
+## Example Boundary
 
-Check whether external `gf-reference-project` behavior was used correctly: read-only examples by default, explicit sync for writes, no generated `addons/gf` committed as project source, and no reference-project business logic moved into GF runtime.
+Check that the repository-owned sample remains independently runnable, the examples suite exercises it through normal process and lifecycle gates, and project business rules stay outside GF runtime. The external Reference workflow is retired.
 
 ## Architecture
 

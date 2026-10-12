@@ -57,6 +57,16 @@ from gf_maintenance import create_directory_link_fixture  # noqa: E402
 from gf_review_hotspots import analyze_source  # noqa: E402
 
 
+def _legacy_package_policy(data: dict[str, Any]) -> None:
+	"""Build historical fixtures explicitly; production never accepts mixed schemas."""
+	framework = data["framework"]
+	presence = framework.pop("package_presence")
+	usage = framework.pop("package_usage")
+	framework["required_packages"] = presence["required"]
+	framework["optional_packages"] = [item for item in usage["allowed"] if item not in presence["required"]]
+	framework["forbidden_packages"] = sorted(set(presence["forbidden"]) | set(usage["forbidden"]))
+
+
 class GFAIDeveloperKitTest(unittest.TestCase):
 	def setUp(self) -> None:
 		self._temporary = tempfile.TemporaryDirectory(prefix="gf-ai-kit-test-")
@@ -144,6 +154,97 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		function = matches[0]
 		return "\n".join(structural_lines[function["start_line"] - 1:function["end_line"]])
 
+	def test_package_presence_and_usage_are_independent_closed_axes(self) -> None:
+		path = self.project_root / DEFAULT_CONTRACT_PATH
+		data = json.loads(path.read_text(encoding="utf-8"))
+		data["schema_version"] = 6
+		framework = data["framework"]
+		for field in ("required_packages", "optional_packages", "forbidden_packages"):
+			framework.pop(field, None)
+		framework["package_presence"] = {"required": ["gf.kernel"], "forbidden": []}
+		framework["package_usage"] = {"allowed": ["gf.kernel"], "forbidden": ["gf.tool.project_layout"]}
+		self.assertFalse([issue for issue in validate_contract_data(data, self.project_root) if issue["severity"] == "error"])
+		path.write_text(json.dumps(data), encoding="utf-8")
+		package_report = catalog.installed_package_report(self.project_root)
+		package_report["packages"].append("gf.tool.project_layout")
+		with mock.patch.object(catalog, "installed_package_report", return_value=package_report):
+			report = snapshot.build_snapshot(self.project_root)
+		self.assertNotIn("forbidden_payload_present", {issue["code"] for issue in report["drift"]["issues"]})
+		(self.project_root / "main.gd").write_text("extends Node\nvar value := GFProjectLayoutAnalyzer.new()\n", encoding="utf-8")
+		analysis = api_policy.analyze_api_package_policy(self.project_root, load_contract(self.project_root))
+		self.assertEqual(analysis["observations"][0]["policy"], "forbidden")
+		framework["package_presence"]["forbidden"] = ["gf.tool.project_layout"]
+		path.write_text(json.dumps(data), encoding="utf-8")
+		with mock.patch.object(catalog, "installed_package_report", return_value=package_report):
+			report = snapshot.build_snapshot(self.project_root)
+		self.assertIn("forbidden_payload_present", {issue["code"] for issue in report["drift"]["issues"]})
+		framework["package_usage"]["allowed"].append("gf.tool.project_layout")
+		issues = validate_contract_data(data, self.project_root)
+		self.assertIn("package_usage_overlap", {issue["code"] for issue in issues})
+		self.assertTrue(any(issue["path"].startswith("$.framework.package_usage") for issue in issues))
+
+	def test_v5_migration_preserves_both_old_forbidden_meanings(self) -> None:
+		path = self.project_root / DEFAULT_CONTRACT_PATH
+		legacy = json.loads(path.read_text(encoding="utf-8"))
+		legacy["schema_version"] = 5
+		framework = legacy["framework"]
+		framework.pop("package_presence", None)
+		framework.pop("package_usage", None)
+		framework.update(required_packages=["gf.kernel"], optional_packages=["gf.standard.settings"], forbidden_packages=["gf.tool.project_layout"])
+		path.write_text(json.dumps(legacy), encoding="utf-8")
+		original = path.read_bytes()
+		self.assertTrue(load_contract(self.project_root)["migration_required"])
+		plan = migration.plan_contract_migration(self.project_root)
+		self.assertEqual(plan["status"], "ready", plan)
+		self.assertEqual(plan["candidate"]["framework"]["package_presence"], {"required": ["gf.kernel"], "forbidden": ["gf.tool.project_layout"]})
+		self.assertEqual(plan["candidate"]["framework"]["package_usage"], {"allowed": ["gf.kernel", "gf.standard.settings"], "forbidden": ["gf.tool.project_layout"]})
+		self.assertEqual(plan["candidate"]["decisions"], legacy["decisions"])
+		self.assertEqual(path.read_bytes(), original)
+
+	def test_package_axes_reject_mixed_legacy_unknown_and_overlapping_fields(self) -> None:
+		path = self.project_root / DEFAULT_CONTRACT_PATH
+		base = json.loads(path.read_text(encoding="utf-8"))
+		for axis, positive in (("package_presence", "required"), ("package_usage", "allowed")):
+			for kind in ("unknown", "duplicate", "overlap"):
+				with self.subTest(axis=axis, kind=kind):
+					candidate = copy.deepcopy(base)
+					policy = candidate["framework"][axis]
+					if kind == "unknown":
+						policy["unexpected"] = []
+					elif kind == "duplicate":
+						policy[positive].append("gf.kernel")
+					else:
+						policy["forbidden"] = ["gf.kernel"]
+					issues = validate_contract_data(candidate, self.project_root)
+					self.assertTrue(any(issue["severity"] == "error" and issue["path"].startswith("$.framework." + axis) for issue in issues))
+		for field in ("required_packages", "optional_packages", "forbidden_packages"):
+			candidate = copy.deepcopy(base)
+			candidate["framework"][field] = []
+			self.assertTrue(any(issue["code"] == "unknown_field" and issue["path"] == "$.framework." + field for issue in validate_contract_data(candidate, self.project_root)))
+
+	def test_v5_migration_rejects_predeclared_axes_and_invalid_legacy_lists(self) -> None:
+		path = self.project_root / DEFAULT_CONTRACT_PATH
+		base = json.loads(path.read_text(encoding="utf-8"))
+		_legacy_package_policy(base)
+		base["schema_version"] = 5
+		for field, value in (
+			("package_presence", {"required": ["gf.kernel"], "forbidden": []}),
+			("package_usage", {"allowed": ["gf.kernel"], "forbidden": []}),
+			("required_packages", ["gf.kernel", "gf.kernel"]),
+			("optional_packages", ["gf.kernel"]),
+			("forbidden_packages", ["gf.kernel"]),
+			("optional_packages", [{}]),
+		):
+			with self.subTest(field=field, value=value):
+				legacy = copy.deepcopy(base)
+				legacy["framework"][field] = value
+				path.write_text(json.dumps(legacy), encoding="utf-8")
+				before = path.read_bytes()
+				plan = migration.plan_contract_migration(self.project_root)
+				self.assertEqual(plan["status"], "blocked")
+				self.assertIn("invalid_legacy_package_policy", {issue["code"] for issue in plan["issues"]})
+				self.assertEqual(path.read_bytes(), before)
+
 	def test_artifact_policy_is_shared_and_contract_defaults_to_project_state_root(self) -> None:
 		policy = json.loads(ARTIFACT_POLICY_PATH.read_text(encoding="utf-8"))
 
@@ -167,7 +268,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				elif case == "unknown_field":
 					candidate["unexpected"] = True
 				elif case == "unknown_package":
-					candidate["framework"]["required_packages"] = ["gf.unknown"]
+					candidate["framework"]["package_presence"]["required"] = ["gf.unknown"]
 				else:
 					candidate["verification"]["checks"] *= 2
 				contract_path.write_text(json.dumps(candidate), encoding="utf-8")
@@ -414,7 +515,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 	def test_contract_rejects_unknown_packages_and_module_cycles(self) -> None:
 		contract_path = self.project_root / ".gf/project_contract.json"
 		contract = json.loads(contract_path.read_text(encoding="utf-8"))
-		contract["framework"]["optional_packages"] = ["gf.standard.not_real"]
+		contract["framework"]["package_usage"]["allowed"] = list(dict.fromkeys(contract["framework"]["package_presence"]["required"] + ["gf.standard.not_real"]))
 		contract["architecture"]["modules"] = [
 			{
 				"id": "first",
@@ -468,6 +569,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		current = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy = dict(current)
 		legacy["schema_version"] = 1
+		_legacy_package_policy(legacy)
 		legacy["architecture"] = dict(current["architecture"])
 		legacy["architecture"].pop("path_roles")
 		legacy["architecture"].pop("source_domains")
@@ -548,6 +650,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		contract_path = self.project_root / ".gf/project_contract.json"
 		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy["schema_version"] = 2
+		_legacy_package_policy(legacy)
 		legacy["architecture"].pop("path_roles")
 		legacy["architecture"].pop("source_domains")
 		legacy["architecture"].pop("documentation_roots")
@@ -563,7 +666,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertEqual(loaded["schema_version"], 2)
 		self.assertTrue(plan["ok"], plan)
 		self.assertEqual(plan["status"], "ready")
-		self.assertEqual(plan["migration_id"], "project-contract-v2-to-v5")
+		self.assertEqual(plan["migration_id"], "project-contract-v2-to-v6")
 		self.assertEqual(
 			[item["code"] for item in plan["changes"]],
 			[
@@ -572,6 +675,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				"declare_source_domain_roots",
 				"documentation_roots_initialized",
 				"declare_documentation_roots",
+				"package_policy_axes_separated",
 			],
 		)
 		self.assertEqual(plan["candidate"]["architecture"]["path_roles"], [])
@@ -587,7 +691,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 
 		self.assertTrue(applied["ok"], applied)
 		migrated_contract = json.loads(contract_path.read_text(encoding="utf-8"))
-		self.assertEqual(migrated_contract["schema_version"], 5)
+		self.assertEqual(migrated_contract["schema_version"], 6)
 		self.assertEqual(migrated_contract["architecture"]["path_roles"], [])
 		self.assertEqual(migrated_contract["architecture"]["source_domains"], [])
 		self.assertEqual(migrated_contract["architecture"]["documentation_roots"], [])
@@ -597,6 +701,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		contract_path = self.project_root / ".gf/project_contract.json"
 		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy["schema_version"] = 2
+		_legacy_package_policy(legacy)
 		legacy["architecture"].pop("source_domains")
 		legacy["architecture"].pop("documentation_roots")
 		legacy["architecture"]["path_roles"] = [{
@@ -630,6 +735,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		contract_path = self.project_root / ".gf/project_contract.json"
 		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy["schema_version"] = 1
+		_legacy_package_policy(legacy)
 		legacy["architecture"].pop("path_roles")
 		legacy["architecture"].pop("source_domains")
 		legacy["architecture"].pop("documentation_roots")
@@ -659,6 +765,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		contract_path = self.project_root / ".gf/project_contract.json"
 		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy["schema_version"] = 1
+		_legacy_package_policy(legacy)
 		legacy["architecture"].pop("path_roles")
 		legacy["architecture"].pop("source_domains")
 		legacy["architecture"].pop("documentation_roots")
@@ -685,6 +792,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 	def test_contract_migration_plan_binds_the_contract_path(self) -> None:
 		current = json.loads((self.project_root / ".gf/project_contract.json").read_text(encoding="utf-8"))
 		current["schema_version"] = 1
+		_legacy_package_policy(current)
 		current["architecture"].pop("path_roles")
 		current["architecture"].pop("source_domains")
 		current["architecture"].pop("documentation_roots")
@@ -750,6 +858,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		contract_path = self.project_root / ".gf/project_contract.json"
 		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy["schema_version"] = 1
+		_legacy_package_policy(legacy)
 		legacy["architecture"].pop("path_roles")
 		legacy["architecture"].pop("source_domains")
 		legacy["architecture"].pop("documentation_roots")
@@ -1096,7 +1205,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 	def test_snapshot_reports_declared_and_observed_drift(self) -> None:
 		contract_path = self.project_root / ".gf/project_contract.json"
 		contract = json.loads(contract_path.read_text(encoding="utf-8"))
-		contract["framework"]["required_packages"].append("gf.standard.storage")
+		contract["framework"]["package_presence"]["required"].append("gf.standard.storage")
 		contract["architecture"]["modules"] = [
 			{
 				"id": "gameplay",
@@ -1123,7 +1232,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 	def test_snapshot_reports_versioned_capability_readiness_without_inferring_intent(self) -> None:
 		contract_path = self.project_root / ".gf/project_contract.json"
 		contract = json.loads(contract_path.read_text(encoding="utf-8"))
-		contract["framework"]["required_packages"].append("gf.extension.save")
+		contract["framework"]["package_presence"]["required"].append("gf.extension.save")
 		contract["framework"]["capability_requirements"].append({
 			"id": "storage-save",
 			"decision_state": "confirmed",
@@ -1650,6 +1759,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		contract_path = self.project_root / ".gf/project_contract.json"
 		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy["schema_version"] = 3
+		_legacy_package_policy(legacy)
 		legacy["architecture"].pop("source_domains", None)
 		legacy["architecture"].pop("documentation_roots", None)
 		contract_path.write_text(json.dumps(legacy, ensure_ascii=False), encoding="utf-8")
@@ -1657,7 +1767,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		plan = migration.plan_contract_migration(self.project_root)
 
 		self.assertTrue(plan["ok"], plan)
-		self.assertEqual(plan["migration_id"], "project-contract-v3-to-v5")
+		self.assertEqual(plan["migration_id"], "project-contract-v3-to-v6")
 		self.assertEqual(plan["candidate"]["architecture"]["source_domains"], [])
 		self.assertEqual(plan["candidate"]["architecture"]["documentation_roots"], [])
 		self.assertIn("source_domains_initialized", {item["code"] for item in plan["changes"]})
@@ -1764,9 +1874,9 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 	def test_issue_121_package_policy_maps_exact_classes_and_autoloads_without_install_state(self) -> None:
 		contract_path = self.project_root / ".gf/project_contract.json"
 		contract = json.loads(contract_path.read_text(encoding="utf-8"))
-		contract["framework"]["required_packages"] = ["gf.kernel", "gf.standard.settings"]
-		contract["framework"]["optional_packages"] = ["gf.standard.settings.storage"]
-		contract["framework"]["forbidden_packages"] = ["gf.tool.project_layout"]
+		contract["framework"]["package_presence"]["required"] = ["gf.kernel", "gf.standard.settings"]
+		contract["framework"]["package_usage"]["allowed"] = list(dict.fromkeys(contract["framework"]["package_presence"]["required"] + ["gf.standard.settings.storage"]))
+		contract["framework"]["package_usage"]["forbidden"] = ["gf.tool.project_layout"]
 		contract["architecture"]["source_domains"] = [
 			{"root": "res://tests", "domain": "test"},
 			{"root": "res://tools", "domain": "tool"},
@@ -1819,9 +1929,9 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 	def test_issue_121_dynamic_references_are_advisory_and_violations_survive_observation_budget(self) -> None:
 		contract_path = self.project_root / ".gf/project_contract.json"
 		contract = json.loads(contract_path.read_text(encoding="utf-8"))
-		contract["framework"]["required_packages"] = ["gf.kernel"]
-		contract["framework"]["optional_packages"] = []
-		contract["framework"]["forbidden_packages"] = ["gf.tool.project_layout"]
+		contract["framework"]["package_presence"]["required"] = ["gf.kernel"]
+		contract["framework"]["package_usage"]["allowed"] = list(dict.fromkeys(contract["framework"]["package_presence"]["required"] + []))
+		contract["framework"]["package_usage"]["forbidden"] = ["gf.tool.project_layout"]
 		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
 		(self.project_root / "policy.gd").write_text(
 			"extends Node\n"
@@ -1929,9 +2039,9 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 	def test_issue_121_forbidden_precedes_the_allowed_transitive_closure(self) -> None:
 		contract_path = self.project_root / ".gf/project_contract.json"
 		contract = json.loads(contract_path.read_text(encoding="utf-8"))
-		contract["framework"]["required_packages"] = ["gf.kernel", "gf.standard.settings"]
-		contract["framework"]["optional_packages"] = []
-		contract["framework"]["forbidden_packages"] = ["gf.standard.storage"]
+		contract["framework"]["package_presence"]["required"] = ["gf.kernel", "gf.standard.settings"]
+		contract["framework"]["package_usage"]["allowed"] = list(dict.fromkeys(contract["framework"]["package_presence"]["required"] + []))
+		contract["framework"]["package_usage"]["forbidden"] = ["gf.standard.storage"]
 		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
 		(self.project_root / "forbidden.gd").write_text(
 			"extends Node\nvar history := GFCommandHistoryUtility.new()\n",
@@ -2068,10 +2178,10 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 
 		report = snapshot.build_snapshot(self.project_root)
 
-		self.assertEqual(TOOL_VERSION, "9.0.0")
-		self.assertEqual(CONTRACT_SCHEMA_VERSION, 5)
-		self.assertEqual(SNAPSHOT_SCHEMA_VERSION, 9)
-		self.assertEqual(report["schema_version"], 9)
+		self.assertEqual(TOOL_VERSION, "10.0.0")
+		self.assertEqual(CONTRACT_SCHEMA_VERSION, 6)
+		self.assertEqual(SNAPSHOT_SCHEMA_VERSION, 10)
+		self.assertEqual(report["schema_version"], 10)
 		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
 		codes = {item["code"] for item in report["drift"]["issues"]}
 		self.assertIn("undeclared_gf_api_package_reference", codes)
@@ -2079,7 +2189,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 
 		contract_path = self.project_root / ".gf/project_contract.json"
 		invalid_contract = json.loads(contract_path.read_text(encoding="utf-8"))
-		invalid_contract["framework"]["required_packages"] = ["not-a-gf-package"]
+		invalid_contract["framework"]["package_presence"]["required"] = ["not-a-gf-package"]
 		invalid_contract["architecture"]["source_domains"] = [
 			{"root": "not-a-resource-path", "domain": "unknown"},
 		]
@@ -2087,7 +2197,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		invalid_report = snapshot.build_snapshot(self.project_root)
 		invalid_analysis = invalid_report["project"]["api_package_policy_analysis"]
 		self.assertEqual(invalid_analysis["status"], "contract_invalid")
-		self.assertEqual(invalid_analysis["required_packages"], [])
+		self.assertEqual(invalid_analysis["declared_usage_packages"], [])
 		self.assertEqual(invalid_analysis["source_domains"], [])
 		self.assertEqual(
 			validate_schema_file(invalid_report, SCHEMA_ROOT / "project_snapshot.schema.json"),
@@ -2124,13 +2234,14 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
 		plan = migration.plan_contract_migration(self.project_root)
 		self.assertTrue(plan["ok"], plan)
-		self.assertEqual(plan["migration_id"], "project-contract-v4-to-v5")
+		self.assertEqual(plan["migration_id"], "project-contract-v4-to-v6")
 		self.assertEqual(plan["candidate"]["architecture"]["documentation_roots"], [])
 
 	def test_issue_122_contract_v4_migration_initializes_documentation_roots_and_is_cas_bound(self) -> None:
 		contract_path = self.project_root / ".gf/project_contract.json"
 		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy["schema_version"] = 4
+		_legacy_package_policy(legacy)
 		legacy["architecture"].pop("documentation_roots", None)
 		contract_path.write_text(json.dumps(legacy, ensure_ascii=False), encoding="utf-8")
 		original_bytes = contract_path.read_bytes()
@@ -2138,7 +2249,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		plan = migration.plan_contract_migration(self.project_root)
 
 		self.assertTrue(plan["ok"], plan)
-		self.assertEqual(plan["migration_id"], "project-contract-v4-to-v5")
+		self.assertEqual(plan["migration_id"], "project-contract-v4-to-v6")
 		self.assertEqual(plan["candidate"]["architecture"]["documentation_roots"], [])
 		self.assertIn("documentation_roots_initialized", {item["code"] for item in plan["changes"]})
 		self.assertEqual(contract_path.read_bytes(), original_bytes)
@@ -3060,10 +3171,10 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		report = snapshot.build_snapshot(self.project_root)
 		analysis = report["project"]["documentation_reference_analysis"]
 		codes = {item["code"] for item in report["drift"]["issues"]}
-		self.assertEqual(TOOL_VERSION, "9.0.0")
-		self.assertEqual(CONTRACT_SCHEMA_VERSION, 5)
-		self.assertEqual(SNAPSHOT_SCHEMA_VERSION, 9)
-		self.assertEqual(report["schema_version"], 9)
+		self.assertEqual(TOOL_VERSION, "10.0.0")
+		self.assertEqual(CONTRACT_SCHEMA_VERSION, 6)
+		self.assertEqual(SNAPSHOT_SCHEMA_VERSION, 10)
+		self.assertEqual(report["schema_version"], 10)
 		self.assertEqual(analysis["status"], "complete")
 		self.assertEqual(analysis["actionable_count"], 2)
 		self.assertEqual(analysis["advisory_count"], 1)
@@ -3077,7 +3188,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		fixture_analysis = json.loads(ISSUE_122_ANALYSIS_FIXTURE_PATH.read_text(encoding="utf-8"))
 		fixture_report = snapshot.build_snapshot(self.project_root)
 		fixture_report["project"]["documentation_reference_analysis"] = fixture_analysis
-		self.assertEqual(validate_schema_file(contract, SCHEMA_ROOT / "project_contract.schema.json"), [])
+		self.assertIn("const_mismatch", {item["code"] for item in validate_schema_file(contract, SCHEMA_ROOT / "project_contract.schema.json")})
 		self.assertEqual(validate_schema_file(fixture_report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
 		snapshot_schema = json.loads(
 			(SCHEMA_ROOT / "project_snapshot.schema.json").read_text(encoding="utf-8")
@@ -4497,7 +4608,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 	def test_issue_122_protocol_versions_are_frozen(self) -> None:
 		self.assertEqual(
 			(TOOL_VERSION, SNAPSHOT_SCHEMA_VERSION, CONTRACT_SCHEMA_VERSION),
-			("9.0.0", 9, 5),
+			("10.0.0", 10, 6),
 		)
 
 	def test_issue_122_schema_identifiers_and_closed_protocol_enums_are_frozen(self) -> None:
@@ -4506,16 +4617,16 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 
 		self.assertEqual(
 			(contract_schema["$id"], contract_schema["properties"]["schema_version"]["const"]),
-			("https://gf-framework.dev/schemas/project-contract-v5.json", 5),
+			("https://gf-framework.dev/schemas/project-contract-v6.json", 6),
 		)
 		self.assertEqual(
 			(snapshot_schema["$id"], snapshot_schema["properties"]["schema_version"]["const"]),
-			("https://gf-framework.dev/schemas/project-snapshot-v9.json", 9),
+			("https://gf-framework.dev/schemas/project-snapshot-v10.json", 10),
 		)
 		self.assertEqual(
 			snapshot_schema["properties"]["contract"]["properties"]
 			["current_schema_version"]["const"],
-			5,
+			6,
 		)
 		path_role_schema = (
 			contract_schema["properties"]["architecture"]["properties"]["path_roles"]
@@ -4786,6 +4897,12 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 
 	def test_issue_96_contract_rejects_noncanonical_reserved_or_overlapping_path_roles(self) -> None:
 		base = json.loads(ISSUE_96_CONTRACT_FIXTURE_PATH.read_text(encoding="utf-8"))
+		framework = base["framework"]
+		required = framework.pop("required_packages")
+		optional = framework.pop("optional_packages")
+		forbidden = framework.pop("forbidden_packages")
+		framework["package_presence"] = {"required": required, "forbidden": forbidden}
+		framework["package_usage"] = {"allowed": sorted(set(required) | set(optional)), "forbidden": forbidden.copy()}
 		base["schema_version"] = CONTRACT_SCHEMA_VERSION
 		base["architecture"]["source_domains"] = []
 		base["architecture"]["documentation_roots"] = []
@@ -5587,6 +5704,12 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 
 	def test_issue_96_partial_path_role_analysis_never_reports_clean_snapshot(self) -> None:
 		contract = json.loads(ISSUE_96_CONTRACT_FIXTURE_PATH.read_text(encoding="utf-8"))
+		framework = contract["framework"]
+		required = framework.pop("required_packages")
+		optional = framework.pop("optional_packages")
+		forbidden = framework.pop("forbidden_packages")
+		framework["package_presence"] = {"required": required, "forbidden": forbidden}
+		framework["package_usage"] = {"allowed": sorted(set(required) | set(optional)), "forbidden": forbidden.copy()}
 		contract["schema_version"] = CONTRACT_SCHEMA_VERSION
 		contract["architecture"]["source_domains"] = [
 			{"root": "res://tests", "domain": "test"},
@@ -6175,6 +6298,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		contract_path = self.project_root / ".gf/project_contract.json"
 		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy["schema_version"] = 1
+		_legacy_package_policy(legacy)
 		legacy["architecture"].pop("path_roles")
 		legacy["architecture"].pop("source_domains")
 		legacy["architecture"].pop("documentation_roots")

@@ -322,7 +322,7 @@ func create_runtime_snapshot() -> Dictionary:
 func restore_runtime_snapshot( resource: GFDialogueResource, snapshot: Dictionary, context: GFDialogueContext = null ) -> GFDialogueLine:
 ```
 
-从运行快照恢复到当前可展示行。 恢复不会重新触发 dialogue_started、line_reached 或 mutation_requested， 也不会重新执行 mutation。调用方可使用返回行刷新自己的 UI。
+从运行快照恢复到当前可展示行。 恢复不会重新触发 dialogue_started、line_reached 或 mutation_requested， 也不会重新执行 mutation。调用方可使用返回行刷新自己的 UI。 必需字段、类型、运行状态与行身份全部通过校验后才调用上下文恢复； 无效快照保留现有会话和上下文。合法停止快照同样恢复上下文，但返回 null。
 
 参数：
 
@@ -336,7 +336,7 @@ func restore_runtime_snapshot( resource: GFDialogueResource, snapshot: Dictionar
 
 结构：
 
-- `snapshot`: 包含 schema_version、is_running、current_line_id、resource_fingerprint 和 context_values 字段的 Dictionary。
+- `snapshot`: 必需 schema_version: int 或精确等于当前版本的 float（JSON 数字）、is_running: bool、current_line_id: String/StringName（运行时非空 TEXT 行，停止时为空）、resource_fingerprint: String、context_values: Dictionary。
 
 <a id="member-gfdialoguerunner-methods-get_debug_snapshot"></a>
 

@@ -9,7 +9,7 @@
 - Node State 与 Node State Machine 模板由标准库编辑器贡献清单索引，用于标准库节点状态机；模板文本位于 `gf.standard.state_machine.editor` 所拥有的 `addons/gf/standard/state_machine/node/editor/templates/`，中央清单不接管其物理所有权。
 - `生成强类型访问器` 会生成 `GFAccess`。
 - `生成项目常量访问器` 会生成 `GFProjectAccess`。
-- `刷新 GF 编辑器贡献` 会等待已有资源扫描结束，再启动本次扫描，并只在文件系统空闲后重建 GF 自身收集到的标准库编辑器贡献记录，例如菜单模板、工作区页面、Inspector、Debugger 插件和 ProjectSettings 记录。同一轮等待或扫描期间的连续请求会合并到最新 generation；若期间又收到请求，会重新扫描，只有最新 generation 成功应用后才打印完成。刷新在 120 秒后失败关闭，插件退出时取消待处理回调。它只读取 data-only 清单并检查目标资源是否存在，不负责热重载任意 Godot 插件或执行项目业务脚本。
+- `刷新 GF 编辑器贡献` 会等待已有资源扫描结束，再启动本次扫描，并只在文件系统空闲后重建 GF 自身收集到的标准库与扩展编辑器贡献，例如菜单模板、工作区页面、Inspector、Debugger 插件和 ProjectSettings 记录。同一轮等待或扫描期间的连续请求会合并到最新 generation；若期间又收到请求，会重新扫描。结果绑定最新请求代次和设置快照，显示已应用、部分应用或失败；安装部分贡献后不会假装完整成功，也不会自动回滚。刷新在 120 秒后失败关闭，插件退出时取消待处理回调。发现阶段读取 data-only 清单；应用阶段会实例化对应编辑器工具，不负责热重载任意 Godot 插件或重新执行游戏 Installer。
 
 `GFPluginActions` 只持有通用文件对话框、占位符替换和核心模板；标准库或扩展的模板应以记录形式注入，记录至少包含 `type`、`label`、`base_class` 和 `template`，其中 `base_class` 必须是合法的 GDScript 标识符。访问器生成、ProjectSettings 读取和启用扩展动作路径发现由内部 `GFPluginActionDependencies` provider 承接，菜单动作本身不直接依赖这些启动期全局入口。
 
