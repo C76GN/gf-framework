@@ -52,7 +52,10 @@ func configure(resources: Dictionary) -> Error:
 			return ERR_INVALID_PARAMETER
 		var path: String = key
 		var identity: GFResourceIdentity = GFResourceIdentity.from_path(path, &"", "", { "check_exists": false })
-		if not identity.has_identity() or not identity.canonical_path.begins_with("res://") or prepared.has(identity.canonical_path):
+		var supported_path: bool = identity.canonical_path.begins_with("res://")
+		if identity.canonical_path.begins_with("uid://"):
+			supported_path = ResourceUID.text_to_id(identity.canonical_path) != ResourceUID.INVALID_ID
+		if not identity.has_identity() or not supported_path or prepared.has(identity.canonical_path):
 			return ERR_INVALID_PARAMETER
 		var resource: Resource = resources[key]
 		prepared[identity.canonical_path] = resource

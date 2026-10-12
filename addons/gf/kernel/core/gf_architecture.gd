@@ -7739,7 +7739,13 @@ func _register_required_plan_alias(
 func _replace_module(module_registry: ModuleRegistry, script_cls: Script, instance: Object) -> bool:
 	if not _can_mutate_registration_state("replace_%s" % module_registry._label_key()):
 		return false
-	if not _validate_registration(script_cls, instance, module_registry.label):
+	var current_instance: Object = _get_dictionary_object(module_registry.instances, script_cls)
+	if not _validate_registration(
+		script_cls,
+		instance,
+		module_registry.label,
+		current_instance != instance
+	):
 		return false
 
 	var existing_key: Script = module_registry._get_key_for_instance(instance)
@@ -7750,7 +7756,6 @@ func _replace_module(module_registry: ModuleRegistry, script_cls: Script, instan
 		])
 		return false
 
-	var current_instance: Object = _get_dictionary_object(module_registry.instances, script_cls)
 	if current_instance == instance:
 		return true
 
@@ -8723,9 +8728,15 @@ func _inject_node_tree(node: Node) -> void:
 
 
 ## 检查注册实例非空、未释放、继承 Module，且其脚本与声明键可匹配。
+## 同键同实例替换不接管新的生命周期所有权，可跳过 Utility 的所有权准入查询。
 ## [br]
 ## @api private
-func _validate_registration(script_cls: Script, instance: Object, label: String) -> bool:
+func _validate_registration(
+	script_cls: Script,
+	instance: Object,
+	label: String,
+	check_utility_ownership: bool = true
+) -> bool:
 	if script_cls == null:
 		push_error("[GFArchitecture][architecture.register_script_null] register_%s failed: the script type is null." % label.to_lower())
 		return false
@@ -8745,7 +8756,7 @@ func _validate_registration(script_cls: Script, instance: Object, label: String)
 	if not GFScriptTypeInspector.script_extends_or_equals(instance_script, script_cls):
 		push_error("[GFArchitecture][architecture.register_instance_script_mismatch] register_%s failed: the instance script must extend or equal the registered script type." % label.to_lower())
 		return false
-	if instance is GFUtility:
+	if check_utility_ownership and instance is GFUtility:
 		var utility: GFUtility = instance
 		var lifecycle_serial: int = _runtime.get_lifecycle_generation()
 		_lifecycle_hook_depth += 1

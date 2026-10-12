@@ -652,10 +652,11 @@ func release_handle(handle: GFAssetHandle) -> bool:
 	var cache_key: String = handle.get_lease_cache_key()
 	if path.is_empty() or cache_key.is_empty():
 		return false
-	var remaining: int = _decrement_reference_by_cache_key(cache_key, handle.get_owner_id())
+	var public_path: String = _get_public_path_for_cache_key(cache_key)
+	var _generation_remaining: int = _decrement_reference_by_cache_key(cache_key, handle.get_owner_id())
 	handle.release_local_reference()
 	_prune_handle_refs()
-	asset_handle_released.emit(path, remaining)
+	asset_handle_released.emit(path, _get_reference_count_for_public_path(public_path))
 	return true
 
 
@@ -681,7 +682,7 @@ func release_owner(owner: Object) -> int:
 ## @return 引用数量。
 func get_asset_reference_count(path: String) -> int:
 	var cache_key: String = _get_cache_key_for_path(path)
-	return _get_count_value(_reference_counts, cache_key)
+	return _get_reference_count_for_public_path(_get_public_path_for_cache_key(cache_key))
 
 
 ## 注册资源路径到分组。
@@ -1480,6 +1481,17 @@ func _make_public_reference_counts() -> Dictionary:
 		var path: String = _get_public_path_for_cache_key(cache_key)
 		result[path] = _get_count_value(result, path) + _get_count_value(_reference_counts, cache_key)
 	return result
+
+
+## 汇总同一规范公开路径在全部服务代次的句柄引用；不改变各缓存键的计数、pin 或释放授权。
+## [br]
+## @api private
+func _get_reference_count_for_public_path(public_path: String) -> int:
+	var reference_count: int = 0
+	for cache_key: String in _reference_counts.keys():
+		if _get_public_path_for_cache_key(cache_key) == public_path:
+			reference_count += _get_count_value(_reference_counts, cache_key)
+	return reference_count
 
 
 ## 按缓存键读取资源并更新命中诊断与 LRU 访问序号。
@@ -2483,8 +2495,8 @@ func _release_owner_id(owner_id: int) -> int:
 		var count: int = _get_count_value(owner_counts, owner_id)
 		var path: String = _get_public_path_for_cache_key(cache_key)
 		released_count += count
-		var remaining: int = _decrement_reference_by_cache_key(cache_key, owner_id, count)
-		asset_handle_released.emit(path, remaining)
+		var _generation_remaining: int = _decrement_reference_by_cache_key(cache_key, owner_id, count)
+		asset_handle_released.emit(path, _get_reference_count_for_public_path(path))
 
 	_release_owner_handles(owner_id)
 	_erase_dictionary_key(_owner_refs, owner_id)

@@ -43,6 +43,52 @@ func test_same_instance_replacement_is_idempotent_and_cold_configuration_can_cha
 	architecture.dispose()
 
 
+func test_bound_utility_same_instance_replacement_is_idempotent_before_and_after_activation() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	var utility: UnboundOnlyUtility = UnboundOnlyUtility.new()
+	assert_true(await architecture.register_utility_instance(utility))
+	assert_true(utility.is_bound_to_architecture_for_framework())
+	assert_true(await architecture.replace_utility(UnboundOnlyUtility, utility))
+	assert_same(architecture.get_local_utility(UnboundOnlyUtility), utility)
+	assert_eq(utility.init_count, 0)
+	assert_eq(utility.dispose_count, 0)
+
+	assert_true(await architecture.init())
+	assert_true(await architecture.replace_utility(UnboundOnlyUtility, utility))
+	assert_same(architecture.get_local_utility(UnboundOnlyUtility), utility)
+	assert_eq(utility.init_count, 1)
+	assert_eq(utility.policy_count, 0)
+	assert_eq(utility.quiesce_count, 0)
+	assert_eq(utility.dispose_count, 0)
+	assert_true(architecture.is_inited())
+	architecture.dispose()
+	assert_eq(utility.dispose_count, 1)
+
+
+func test_bound_utility_registration_and_replacement_in_another_architecture_remain_rejected() -> void:
+	var owner_architecture: GFArchitecture = GFArchitecture.new()
+	var other_architecture: GFArchitecture = GFArchitecture.new()
+	var utility: UnboundOnlyUtility = UnboundOnlyUtility.new()
+	assert_true(await owner_architecture.register_utility_instance(utility))
+	assert_true(await owner_architecture.init())
+	assert_true(await other_architecture.init())
+
+	assert_false(await other_architecture.register_utility_instance(utility))
+	assert_push_error("[GFArchitecture][architecture.utility_registration_ownership_refused]")
+	assert_false(await other_architecture.replace_utility(UnboundOnlyUtility, utility))
+	assert_push_error("[GFArchitecture][architecture.utility_registration_ownership_refused]")
+	assert_null(other_architecture.get_local_utility(UnboundOnlyUtility))
+	assert_same(owner_architecture.get_local_utility(UnboundOnlyUtility), utility)
+	assert_true(utility.is_bound_to_architecture_for_framework())
+	assert_eq(utility.init_count, 1)
+	assert_eq(utility.quiesce_count, 0)
+	assert_eq(utility.dispose_count, 0)
+	other_architecture.dispose()
+	assert_eq(utility.dispose_count, 0)
+	owner_architecture.dispose()
+	assert_eq(utility.dispose_count, 1)
+
+
 func test_policy_callback_shutdown_invalidates_outer_transaction_before_candidate_use() -> void:
 	var architecture: GFArchitecture = GFArchitecture.new()
 	var previous: ReentrantUtility = ReentrantUtility.new()
@@ -113,6 +159,11 @@ class ReentrantUtility extends FixedUtility:
 			var architecture: GFArchitecture = value
 			architecture.dispose()
 		return true
+
+
+class UnboundOnlyUtility extends FixedUtility:
+	func can_register_in_architecture() -> bool:
+		return not is_bound_to_architecture_for_framework()
 
 
 class NestedAliasUtility extends GFUtility:

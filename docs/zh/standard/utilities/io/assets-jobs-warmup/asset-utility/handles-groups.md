@@ -10,6 +10,10 @@
 Broker 代次。`get_service_generation()` 不随入口切换改变；旧句柄释放前旧代不会退出。
 同一路径的新代缓存与旧代句柄分别计数，释放旧句柄不会扣减新代所有权。
 
+`get_asset_reference_count(path)` 返回该规范化路径在全部存活代次中的句柄引用总数。
+`asset_handle_released` 通知中的剩余引用数采用相同范围，包括显式释放句柄及按 owner
+释放；当前代已没有句柄时，旧代仍被持有的引用继续计入总数。
+
 ```gdscript
 assets.load_handle_async(
 	"res://ui/inventory_panel.tscn",

@@ -453,6 +453,7 @@ func _register_template_record(source_record: Dictionary) -> void:
 		return
 	var template_type: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(source_record, "type", "").strip_edges()
 	if template_type.is_empty():
+		_setup_issues.append("template:type_empty:%s" % template_id)
 		return
 
 	var record: Dictionary = source_record.duplicate(true)

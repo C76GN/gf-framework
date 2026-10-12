@@ -342,6 +342,154 @@ func test_asset_lane_queue_and_late_handle_preserve_old_generation() -> void:
 	domain.dispose()
 
 
+func test_asset_path_reference_counts_and_release_signals_include_both_generations() -> void:
+	for release_new_generation_first: bool in [true, false]:
+		var old_resource: Resource = Resource.new()
+		var new_resource: Resource = Resource.new()
+		var domain: GFResourceServiceDomain = _domain(GFResourceServiceDomain.Mode.IN_FLIGHT, old_resource)
+		var assets: GFAssetUtility = _assets(domain)
+		var alias_path: String = "res://service_domain/./value.tres"
+		var old_handles: Array[GFAssetHandle] = [
+			assets.acquire_handle(RESOURCE_PATH, null, &"", "", old_resource),
+			assets.acquire_handle(alias_path),
+		]
+		assert_eq(assets.get_asset_reference_count(RESOURCE_PATH), 2)
+		var completion: GFAsyncCompletion = domain.begin_switch(_snapshot(new_resource))
+		assert_eq(
+			assets.get_asset_reference_count(RESOURCE_PATH), 2,
+			"换代后尚未获取新句柄时，公开路径仍须计入旧代的两个句柄。"
+		)
+		var new_handles: Array[GFAssetHandle] = [
+			assets.acquire_handle(RESOURCE_PATH, null, &"", "", new_resource),
+			assets.acquire_handle(RESOURCE_PATH),
+		]
+		assert_eq(assets.get_asset_reference_count(RESOURCE_PATH), 4, "同路径引用须聚合两代。")
+		assert_eq(assets.get_asset_reference_count(alias_path), 4, "查询别名须采用同一规范公开路径。")
+		assert_true(completion.is_pending(), "旧代句柄仍持有资源时不能完成收尾。")
+		for old_handle: GFAssetHandle in old_handles:
+			assert_same(old_handle.get_resource(), old_resource)
+			assert_eq(old_handle.get_service_generation(), 1)
+		for new_handle: GFAssetHandle in new_handles:
+			assert_same(new_handle.get_resource(), new_resource)
+			assert_eq(new_handle.get_service_generation(), 2)
+
+		var observed_counts: Array[int] = []
+		var on_released: Callable = func(released_path: String, reference_count: int) -> void:
+			var released_identity: GFResourceIdentity = GFResourceIdentity.from_path(
+				released_path, &"", "", { "check_exists": false }
+			)
+			assert_eq(released_identity.canonical_path, RESOURCE_PATH)
+			observed_counts.append(reference_count)
+		var connect_error: Error = assets.asset_handle_released.connect(on_released) as Error
+		assert_eq(connect_error, OK)
+		var release_order: Array[GFAssetHandle] = []
+		release_order.append_array(new_handles if release_new_generation_first else old_handles)
+		release_order.append_array(old_handles if release_new_generation_first else new_handles)
+		var expected_counts: Array[int] = []
+		for handle_index: int in range(release_order.size()):
+			assert_true(release_order[handle_index].release())
+			var expected_remaining: int = release_order.size() - handle_index - 1
+			expected_counts.append(expected_remaining)
+			assert_eq(
+				assets.get_asset_reference_count(RESOURCE_PATH), expected_remaining,
+				"任一代的归还只能扣减该句柄，路径查询仍须包括另一代。"
+			)
+			assert_eq(observed_counts, expected_counts, "释放信号须报告同路径全部代次的剩余引用。")
+		assets.asset_handle_released.disconnect(on_released)
+		domain.pump()
+		assert_true(completion.is_successful())
+		assets.dispose()
+		domain.dispose()
+
+
+func test_asset_registered_uid_and_resource_path_share_cross_generation_reference_counts() -> void:
+	var resource_path: String = "res://addons/gf/standard/utilities/assets/gf_resource_identity.gd"
+	var registered_uid: int = ResourceLoader.get_resource_uid(resource_path)
+	assert_ne(registered_uid, ResourceUID.INVALID_ID, "已有脚本 fixture 必须提供可用的导入 UID。")
+	if registered_uid == ResourceUID.INVALID_ID:
+		return
+	assert_true(ResourceUID.has_id(registered_uid), "测试仅使用已有 UID 登记，不改写全局表。")
+	var uid_path: String = ResourceUID.id_to_text(registered_uid)
+	var old_resource: Resource = Resource.new()
+	var new_resource: Resource = Resource.new()
+	var old_broker: GFResourceSnapshotBroker = GFResourceSnapshotBroker.new()
+	assert_eq(old_broker.configure({ resource_path: old_resource }), OK)
+	var domain: GFResourceServiceDomain = GFResourceServiceDomain.new()
+	assert_eq(domain.configure(old_broker, GFResourceServiceDomain.Mode.IN_FLIGHT), OK)
+	var assets: GFAssetUtility = _assets(domain)
+	var old_handle: GFAssetHandle = assets.acquire_handle(uid_path, null, &"", "", old_resource)
+	var new_broker: GFResourceSnapshotBroker = GFResourceSnapshotBroker.new()
+	assert_eq(new_broker.configure({ uid_path: new_resource }), OK)
+	var completion: GFAsyncCompletion = domain.begin_switch(new_broker)
+	var new_handle: GFAssetHandle = assets.acquire_handle(resource_path, null, &"", "", new_resource)
+	assert_eq(assets.get_asset_reference_count(uid_path), 2)
+	assert_eq(assets.get_asset_reference_count(resource_path), 2, "已登记 UID 与 res:// 查询须合并全部代次。")
+	watch_signals(assets)
+
+	assert_true(old_handle.release())
+	assert_signal_emitted_with_parameters(assets, "asset_handle_released", [uid_path, 1])
+	assert_eq(assets.get_asset_reference_count(uid_path), 1)
+	assert_eq(assets.get_asset_reference_count(resource_path), 1)
+	assert_same(new_handle.get_resource(), new_resource)
+	assert_true(new_handle.release())
+	assert_signal_emitted_with_parameters(assets, "asset_handle_released", [resource_path, 0])
+	assert_eq(assets.get_asset_reference_count(uid_path), 0)
+	assert_eq(assets.get_asset_reference_count(resource_path), 0)
+	domain.pump()
+	assert_true(completion.is_successful())
+	assert_true(ResourceUID.has_id(registered_uid), "归还句柄不应删除已有的全局 UID 登记。")
+	assets.dispose()
+	domain.dispose()
+
+
+func test_asset_owner_release_reports_remaining_path_references_across_generations() -> void:
+	var old_resource: Resource = Resource.new()
+	var new_resource: Resource = Resource.new()
+	var domain: GFResourceServiceDomain = _domain(GFResourceServiceDomain.Mode.IN_FLIGHT, old_resource)
+	var assets: GFAssetUtility = _assets(domain)
+	var handle_owner: RefCounted = RefCounted.new()
+	var owned_handles: Array[GFAssetHandle] = [
+		assets.acquire_handle(RESOURCE_PATH, handle_owner, &"", "", old_resource),
+		assets.acquire_handle(RESOURCE_PATH, handle_owner),
+	]
+	var old_survivor: GFAssetHandle = assets.acquire_handle(RESOURCE_PATH)
+	var completion: GFAsyncCompletion = domain.begin_switch(_snapshot(new_resource))
+	owned_handles.append(assets.acquire_handle(RESOURCE_PATH, handle_owner, &"", "", new_resource))
+	owned_handles.append(assets.acquire_handle(RESOURCE_PATH, handle_owner))
+	var new_survivor: GFAssetHandle = assets.acquire_handle(RESOURCE_PATH)
+	assert_eq(assets.get_asset_reference_count(RESOURCE_PATH), 6)
+
+	var observed_counts: Array[int] = []
+	var on_released: Callable = func(released_path: String, reference_count: int) -> void:
+		assert_eq(released_path, RESOURCE_PATH)
+		var public_counts: Dictionary = GFVariantData.get_option_dictionary(assets.get_debug_snapshot(), "reference_counts")
+		assert_eq(
+			reference_count, GFVariantData.get_option_int(public_counts, released_path),
+			"owner 释放中的每次信号都须与已提交的同路径总引用数一致。"
+		)
+		observed_counts.append(reference_count)
+	var connect_error: Error = assets.asset_handle_released.connect(on_released) as Error
+	assert_eq(connect_error, OK)
+	assert_eq(assets.release_owner(handle_owner), 4, "owner 释放须消费两代中的四个所属句柄。")
+	assert_eq(assets.get_asset_reference_count(RESOURCE_PATH), 2, "两代各自未归属该 owner 的句柄必须保留。")
+	assert_false(observed_counts.is_empty(), "owner 释放须通知路径剩余引用。")
+	if not observed_counts.is_empty():
+		assert_eq(observed_counts[observed_counts.size() - 1], 2)
+	assets.asset_handle_released.disconnect(on_released)
+	for owned_handle: GFAssetHandle in owned_handles:
+		assert_true(owned_handle.is_released())
+	assert_true(old_survivor.is_valid())
+	assert_true(new_survivor.is_valid())
+	assert_true(old_survivor.release())
+	assert_eq(assets.get_asset_reference_count(RESOURCE_PATH), 1)
+	assert_true(new_survivor.release())
+	assert_eq(assets.get_asset_reference_count(RESOURCE_PATH), 0)
+	domain.pump()
+	assert_true(completion.is_successful())
+	assets.dispose()
+	domain.dispose()
+
+
 func test_controlled_switch_waits_for_asset_handle_and_rejects_cached_new_loads() -> void:
 	var domain: GFResourceServiceDomain = _domain(GFResourceServiceDomain.Mode.CONTROLLED, Resource.new())
 	var assets: GFAssetUtility = _assets(domain)
@@ -513,6 +661,45 @@ func test_snapshot_mapping_is_frozen_but_resource_data_is_not_falsely_claimed_im
 	var lease: GFResourceLease = broker.request(RESOURCE_PATH)
 	broker.pump()
 	assert_same(lease.get_resource(), original)
+	lease.release()
+	broker.dispose()
+
+
+func test_snapshot_mapping_rejects_malformed_uid_without_committing_partial_mapping() -> void:
+	var expected_resource: Resource = Resource.new()
+	var broker: GFResourceSnapshotBroker = GFResourceSnapshotBroker.new()
+	assert_eq(
+		broker.configure({ RESOURCE_PATH: expected_resource, "uid://bad!uid": Resource.new() }),
+		ERR_INVALID_PARAMETER,
+		"包含无效 UID 语法的映射必须整体拒绝。"
+	)
+	assert_false(broker.is_configured(), "无效后项不能提交此前已准备的正常映射。")
+	assert_eq(broker.configure({ RESOURCE_PATH: expected_resource }), OK, "原子拒绝后应允许有效配置重试。")
+	var lease: GFResourceLease = broker.request(RESOURCE_PATH)
+	broker.pump()
+	assert_same(lease.get_resource(), expected_resource)
+	lease.release()
+	broker.dispose()
+
+
+func test_snapshot_mapping_accepts_unregistered_logical_uid_without_registration() -> void:
+	var logical_uid_id: int = ResourceUID.create_id()
+	var logical_uid_path: String = ResourceUID.id_to_text(logical_uid_id)
+	assert_ne(logical_uid_id, ResourceUID.INVALID_ID)
+	assert_false(ResourceUID.has_id(logical_uid_id), "逻辑 UID 测试不能依赖全局 ResourceUID 注册。")
+	var expected_resource: Resource = Resource.new()
+	var broker: GFResourceSnapshotBroker = GFResourceSnapshotBroker.new()
+	var configuration_error: Error = broker.configure({ logical_uid_path: expected_resource })
+	assert_eq(configuration_error, OK, "快照映射须允许没有磁盘登记的逻辑 uid:// 身份。")
+	if configuration_error != OK:
+		broker.dispose()
+		return
+
+	var lease: GFResourceLease = broker.request(logical_uid_path, "Resource")
+	broker.pump()
+	assert_eq(lease.get_status(), GFResourceLease.STATUS_COMPLETED)
+	assert_same(lease.get_resource(), expected_resource, "逻辑 UID 应交付冻结映射中的 Resource。")
+	assert_false(ResourceUID.has_id(logical_uid_id), "请求交付不得注册或改写全局 UID。")
 	lease.release()
 	broker.dispose()
 

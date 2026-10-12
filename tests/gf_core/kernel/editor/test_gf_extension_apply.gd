@@ -9,6 +9,7 @@ extends GutTest
 const APPLY_REPORT = preload("res://addons/gf/kernel/editor/gf_plugin_apply_report.gd")
 const PLUGIN_ACTIONS = preload("res://addons/gf/kernel/editor/gf_plugin_actions.gd")
 const PRESET_PATH: String = "res://tests/gf_core/kernel/editor/fixtures/save_apply_preset.json"
+const TEMPLATE_ACTION_PATH: String = "res://tests/gf_core/kernel/editor/fixtures/gf_template_type_action.gd"
 
 
 # --- 私有变量 ---
@@ -181,6 +182,58 @@ func test_rejected_action_items_produce_partial_application_evidence() -> void:
 	actions.cleanup()
 
 
+func test_enabled_action_templates_with_missing_or_blank_type_report_partial_application() -> void:
+	var actions: PLUGIN_ACTIONS = PLUGIN_ACTIONS.new()
+	var dependencies: TemplateActionDependencies = TemplateActionDependencies.new()
+	dependencies.action_paths = [TEMPLATE_ACTION_PATH]
+	actions.setup([], dependencies)
+	var issues: Array[String] = actions.get_setup_issues()
+	var expected_issues: Array[String] = [
+		"template:type_empty:gf.test.editor:template.type_missing",
+		"template:type_empty:gf.test.editor:template.type_empty",
+		"template:type_empty:gf.test.editor:template.type_whitespace",
+	]
+	assert_eq(issues, expected_issues, "缺失、空和空白 type 必须按来源记录稳定失败原因。")
+	var menu_labels: Array[String] = []
+	for entry: Dictionary in actions.get_menu_entries():
+		menu_labels.append(GFVariantData.get_option_string(entry, "label"))
+	assert_has(menu_labels, "合法扩展模板", "同一启用动作中的合法模板仍应注册。")
+	assert_does_not_have(menu_labels, "缺少类型模板")
+	assert_does_not_have(menu_labels, "空类型模板")
+	assert_does_not_have(menu_labels, "空白类型模板")
+	var report: APPLY_REPORT = APPLY_REPORT.new()
+	report.request(1, {})
+	report.complete(1, {}, issues)
+	var apply_result: Dictionary = report.get_report({})
+	assert_eq(GFVariantData.get_option_string(apply_result, "status"), "partial", "跳过无效模板时不能宣称全部应用。")
+	var reported_issues: Array = GFVariantData.get_option_array(apply_result, "issues")
+	assert_eq(reported_issues, expected_issues)
+	actions.cleanup()
+
+
+func test_valid_action_template_records_can_report_applied() -> void:
+	var actions: PLUGIN_ACTIONS = PLUGIN_ACTIONS.new()
+	var dependencies: TemplateActionDependencies = TemplateActionDependencies.new()
+	actions.setup([
+		{
+			"source_id": "gf.test.editor:template.valid",
+			"type": "System",
+			"label": "合法独立模板",
+		},
+	], dependencies)
+	var issues: Array[String] = actions.get_setup_issues()
+	assert_true(issues.is_empty(), "合法模板不应被错误记录为部分失败。")
+	var menu_labels: Array[String] = []
+	for entry: Dictionary in actions.get_menu_entries():
+		menu_labels.append(GFVariantData.get_option_string(entry, "label"))
+	assert_has(menu_labels, "合法独立模板")
+	var report: APPLY_REPORT = APPLY_REPORT.new()
+	report.request(1, {})
+	report.complete(1, {}, issues)
+	assert_eq(GFVariantData.get_option_string(report.get_report({}), "status"), "applied")
+	actions.cleanup()
+
+
 # --- 私有/辅助方法 ---
 
 func _new_dock(host: HostProbe) -> SaveProbe:
@@ -194,6 +247,14 @@ func _new_dock(host: HostProbe) -> SaveProbe:
 
 
 # --- 内部类 ---
+
+class TemplateActionDependencies extends RefCounted:
+	var action_paths: Array[String] = []
+
+
+	func get_enabled_editor_action_paths() -> Array[String]:
+		return action_paths.duplicate()
+
 
 class InvalidProvider extends RefCounted:
 	func get_template_records() -> Array:
