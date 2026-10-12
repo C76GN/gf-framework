@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTweenPreviewRegistration" path="addons/gf/extensions/action_queue/editor/gf_tween_preview_registration.gd" module="extensions/action_queue" extends="RefCounted" classDigest="a762e32d445d8b065f41a196b7a64d1da94720250d642a9aca66177ea2ba33c3">
-	<description>GFTweenPreviewRegistration: 一次编辑器数值预览注册的所有权句柄。
+<class name="GFTweenPreviewRegistration" path="addons/gf/extensions/action_queue/editor/gf_tween_preview_registration.gd" module="extensions/action_queue" extends="RefCounted" classDigest="be1cdffc1dab1494cf2aaa4e86d2798359089d5dff5b7ada36cae15f141ee63f">
+	<description>GFTweenPreviewRegistration: 一次编辑器样机或资源关联注册的所有权句柄。
 release 幂等且只撤销自身租约；旧句柄不能撤销同 ID 后续注册。持有者应在插件卸载时显式释放。</description>
 	<tags>
 		<tag name="api">public</tag>

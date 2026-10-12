@@ -9,7 +9,7 @@
 - 类别：编辑器 API (`editor_api`)
 - 首次版本：`unreleased`
 
-显式选择的有界数值预览适配器目录。 owner 使用弱引用；ID 不自动覆盖，内置样机不进入此目录。注册不读取来源或执行适配器。 工具插件应持有返回句柄并在退出时 release；owner 失效与租约变化使旧会话失效。
+编辑器预览样机与资源关联的有界目录。 owner 使用弱引用；ID 不自动覆盖，内置样机不进入此目录。注册不读取来源或执行适配器。 工具插件应持有返回句柄并在退出时 release；owner 失效与租约变化使旧会话失效。
 
 ## 成员概览
 
@@ -20,6 +20,8 @@
 | 方法 | [`register_adapter`](#member-gftweenpreviewregistry-methods-register_adapter) | `func register_adapter(owner: Object, descriptor: Dictionary, adapter: GFTweenPreviewAdapter) -> GFTweenPreviewRegistration:` |
 | 方法 | [`get_descriptors`](#member-gftweenpreviewregistry-methods-get_descriptors) | `func get_descriptors() -> Array[Dictionary]:` |
 | 方法 | [`get_property_records`](#member-gftweenpreviewregistry-methods-get_property_records) | `func get_property_records(adapter_id: StringName, query: String = "") -> Array[Dictionary]:` |
+| 方法 | [`register_binding`](#member-gftweenpreviewregistry-methods-register_binding) | `func register_binding( owner: Object, resource_path: String, target_id: StringName, initial_values: Dictionary = {}, label: String = "" ) -> GFTweenPreviewRegistration:` |
+| 方法 | [`get_binding`](#member-gftweenpreviewregistry-methods-get_binding) | `func get_binding(resource_path: String) -> Dictionary:` |
 
 ## 信号
 
@@ -124,3 +126,57 @@ func get_property_records(adapter_id: StringName, query: String = "") -> Array[D
 结构：
 
 - `return`: Array[Dictionary]，name: String、type: int、initial: int/float、minimum/maximum: int/float、source: String、supported: bool、reason: String。
+
+<a id="member-gftweenpreviewregistry-methods-register_binding"></a>
+
+### `register_binding`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func register_binding( owner: Object, resource_path: String, target_id: StringName, initial_values: Dictionary = {}, label: String = "" ) -> GFTweenPreviewRegistration:
+```
+
+声明已保存资源的默认预览用途和起态；不改写或加载运行配置。 每个规范 res:// 路径只能有一个有效声明，最多 256 条；目标可稍后注册。 初值按目标属性目录二次校验，错误声明不会自动回退其他样机。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `owner` | 弱持有的编辑器插件所有者。 |
+| `resource_path` | 至多 1024 字符的规范 res:// 资源路径，可包含子资源标识。 |
+| `target_id` | 项目适配器 ID，或 gf.preview.2d、gf.preview.ui、gf.preview.3d。 |
+| `initial_values` | 至多 32 个样机初值表根属性的覆盖；不接受分量路径。原生旋转使用 rotation 弧度，不以 rotation_degrees 别名声明初值。 |
+| `label` | 可选用途名称，至多 96 字符；空串使用样机名称。 |
+
+返回：成功租约；无效声明、重复路径或超出预算返回 null，不产生部分登记。
+
+结构：
+
+- `initial_values`: Dictionary，String 属性名映射到有限 int/float/Vector2/Vector3/Color，分量绝对值不超过 1000000。
+
+<a id="member-gftweenpreviewregistry-methods-get_binding"></a>
+
+### `get_binding`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_binding(resource_path: String) -> Dictionary:
+```
+
+查询资源默认预览声明的独立纯值副本；不执行适配器或资源方法。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `resource_path` | 注册时的规范资源路径。 |
+
+返回：有效声明；没有声明或所有者失效时为空。
+
+结构：
+
+- `return`: Dictionary，空或 resource_path: String、target_id: StringName、initial_values: Dictionary（同 register_binding）、label: String；不含所有者或租约。

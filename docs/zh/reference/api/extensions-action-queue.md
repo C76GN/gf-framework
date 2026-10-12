@@ -11,7 +11,7 @@
 | [资源定义](#category-resource_definition) | 2 | 35 | 15 |
 | [运行时句柄](#category-runtime_handle) | 11 | 102 | 54 |
 | [值对象](#category-value_object) | 2 | 17 | 13 |
-| [编辑器 API](#category-editor_api) | 1 | 5 | 4 |
+| [编辑器 API](#category-editor_api) | 1 | 7 | 6 |
 
 ## 类
 

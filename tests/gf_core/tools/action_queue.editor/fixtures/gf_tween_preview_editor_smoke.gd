@@ -18,6 +18,7 @@ const _AUTHORING_DOCK_SCRIPT = preload("res://addons/gf/extensions/action_queue/
 const _DEFAULTS_PATH: String = "res://tests/gf_core/tools/action_queue.editor/fixtures/gf_tween_preview_omitted_defaults.tres"
 const _ZERO_PATH: String = "res://tests/gf_core/tools/action_queue.editor/fixtures/gf_tween_preview_explicit_zero.tres"
 const _SNAPSHOT_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor/authoring/gf_tween_authoring_snapshot.gd")
+const _DIRECT_UI_PATH: String = "res://tests/gf_core/tools/action_queue.editor/fixtures/gf_tween_preview_direct_ui.tres"
 
 
 # --- 私有变量 ---
@@ -60,6 +61,12 @@ var _picker_after_a: Array = []
 var _picker_before_b: Array = []
 var _picker_after_b: Array = []
 var _rebound_source: Resource = null
+var _direct_open_source: Resource = null
+var _direct_open_digest: String = ""
+var _direct_open_panel: WeakRef = null
+var _direct_open_target: WeakRef = null
+var _source_binding: GFTweenPreviewRegistration = null
+var _authoring_frozen_midpoint: float = 0.0
 
 
 # --- Godot 生命周期方法 ---
@@ -72,6 +79,9 @@ func _enter_tree() -> void:
 
 
 func _exit_tree() -> void:
+	if _source_binding != null:
+		_source_binding.release()
+		_source_binding = null
 	if _inspector_plugin != null:
 		remove_inspector_plugin(_inspector_plugin)
 		_inspector_plugin = null
@@ -315,6 +325,85 @@ func _begin_inspector_smoke(source: Resource, reloaded: Resource) -> void:
 		return
 	_inspector_plugin = _INSPECTOR_PLUGIN_SCRIPT.new()
 	add_inspector_plugin(_inspector_plugin)
+	_direct_open_digest = FileAccess.get_sha256(_DIRECT_UI_PATH)
+	_direct_open_source = ResourceLoader.load(_DIRECT_UI_PATH, "", ResourceLoader.CACHE_MODE_IGNORE_DEEP)
+	if _direct_open_source == null or _direct_open_digest.is_empty():
+		_fail("The direct-opening UI resource fixture was unavailable.")
+		return
+	_phase = &"direct_open"
+	EditorInterface.edit_resource(_direct_open_source)
+
+
+func _wait_direct_open_panel() -> void:
+	var panel: GFTweenPreviewPanel = _find_panel()
+	if panel == null:
+		return
+	var preview: GFTweenPreviewViewport = _find_viewport(panel)
+	if preview == null:
+		return
+	var steps_editor: EditorProperty = _find_steps_editor(EditorInterface.get_inspector(), _direct_open_source)
+	if steps_editor == null:
+		return
+	var raw_selector: Node = panel.find_child("TargetKind", true, false)
+	if not raw_selector is OptionButton:
+		_fail("Direct resource opening did not create the target selector.")
+		return
+	var selector: OptionButton = raw_selector
+	var raw_identifier: Variant = selector.get_selected_metadata()
+	if not raw_identifier is StringName:
+		_fail("Direct resource opening did not resolve the unique UI sample before any selector/play action.")
+		return
+	var identifier: StringName = raw_identifier
+	if identifier != &"gf.preview.ui" or preview.get_state() != &"ready" or not preview.has_session():
+		_fail("Direct resource opening did not automatically prepare its uniquely compatible UI sample.")
+		return
+	panel.set_process(false)
+	preview.advance(0.25)
+	var raw_size: Variant = preview.get_current_values().get("size")
+	if not raw_size is Vector2:
+		_fail("The prepared UI sample did not expose its real initial size.")
+		return
+	var initial_size: Vector2 = raw_size
+	if initial_size != Vector2(64.0, 64.0) or preview.get_time_seconds() != 0.0:
+		_fail("Preparation advanced the sample before playback.")
+		return
+	var raw_time_input: Node = panel.find_child("PreviewTimeInput", true, false)
+	if not raw_time_input is SpinBox:
+		_fail("The prepared Inspector did not expose its native time input.")
+		return
+	var time_input: SpinBox = raw_time_input
+	if not time_input.editable:
+		_fail("The prepared Inspector required Play before time inspection.")
+		return
+	time_input.value = 0.5
+	var raw_midpoint: Variant = preview.get_current_values().get("size")
+	if not raw_midpoint is Vector2:
+		_fail("Unplayed Inspector time inspection did not expose a complete UI size.")
+		return
+	var midpoint: Vector2 = raw_midpoint
+	if midpoint != Vector2(96.0, 80.0) or not is_equal_approx(preview.get_time_seconds(), 0.5):
+		_fail("Direct resource opening could not inspect its prepared midpoint without selecting or playing.")
+		return
+	if not _check_shared_preview_directory(panel, steps_editor):
+		return
+	if FileAccess.get_sha256(_DIRECT_UI_PATH) != _direct_open_digest:
+		_fail("Direct-opening preparation or seeking changed the author resource.")
+		return
+	var target: Node = panel.find_child("PreviewTarget", true, false)
+	if target == null:
+		_fail("The direct-opening Inspector did not own an isolated target.")
+		return
+	_direct_open_panel = weakref(panel)
+	_direct_open_target = weakref(target)
+	_phase = &"direct_cleanup"
+	EditorInterface.edit_resource(Resource.new())
+
+
+func _wait_direct_open_cleanup() -> void:
+	if _direct_open_panel.get_ref() != null or _direct_open_target.get_ref() != null:
+		return
+	_direct_open_source = null
+	print("GF_TWEEN_PREVIEW_DIRECT_OPEN_PREPARED_OK")
 	_phase = &"scene"
 	EditorInterface.open_scene_from_path(_SCENE_PATH)
 
@@ -333,6 +422,12 @@ func _wait_scene() -> void:
 		return
 	_scene_history_version = _scene_history.get_version()
 	_source_history_version = _source_history.get_version()
+	_source_binding = GFTweenPreviewRegistry.get_shared().register_binding(
+		self, _CONFIG_PATH, &"gf.preview.2d", {"position": Vector2.ZERO}, "Smoke explicit 2D"
+	)
+	if _source_binding == null or not _source_binding.is_active():
+		_fail("Saved resource binding was not admitted by the public registration API.")
+		return
 	_phase = &"first"
 	EditorInterface.edit_resource(_source)
 
@@ -374,13 +469,9 @@ func _begin_resource_switch(panel: GFTweenPreviewPanel) -> void:
 
 
 func _begin_render_sample(panel: GFTweenPreviewPanel) -> void:
-	var raw_kind: Node = panel.find_child("TargetKind", true, false)
-	if not raw_kind is OptionButton:
-		_fail("The rendered sample lost its target selector.")
+	var identifiers: Array[StringName] = [&"gf.preview.2d", &"gf.preview.ui", &"gf.preview.3d"]
+	if not _select_target(panel, identifiers[_render_index]):
 		return
-	var target_kind: OptionButton = raw_kind
-	target_kind.select(_render_index)
-	target_kind.item_selected.emit(_render_index)
 	var preview: GFTweenPreviewViewport = _find_viewport(panel)
 	if preview == null or not _press(panel, "Play"):
 		return
@@ -482,8 +573,10 @@ func _wait_second_panel() -> void:
 	if preview == null:
 		return
 	panel.set_process(false)
-	if preview.get_state() != &"idle" or not _press(panel, "Play"):
-		_fail("Resource switching did not produce an idle, playable panel.")
+	if not _select_target(panel, &"gf.preview.2d"):
+		return
+	if preview.get_state() != &"ready" or not _press(panel, "Play"):
+		_fail("Resource switching did not prepare an explicitly selected isolated panel.")
 		return
 	preview.advance(0.5)
 	_current_panel = weakref(panel)
@@ -514,6 +607,8 @@ func _wait_cleanup() -> void:
 		return
 	_scene_history = null
 	_source_history = null
+	_source_binding.release()
+	_source_binding = null
 	_source = null
 	_reloaded = null
 	_authoring_source = GFTweenActionConfig.new()
@@ -534,6 +629,17 @@ func _check_authoring() -> void:
 		return
 	var steps: Array = values
 	if _authoring_phase == 0:
+		var panel: GFTweenPreviewPanel = _find_panel()
+		if panel == null:
+			return
+		panel.set_process(false)
+		if not _select_target(panel, &"gf.preview.2d"):
+			return
+		var initial_preview: GFTweenPreviewViewport = _find_viewport(panel)
+		if initial_preview == null or not initial_preview.seek(0.1):
+			_fail("The authoring Inspector could not freeze its prepared plan by seeking before Play.")
+			return
+		_authoring_frozen_midpoint = _position_x(initial_preview)
 		if steps.size() != 1 or not steps[0] is Resource:
 			_fail("Preset creation did not produce one step in the native editor.")
 			return
@@ -546,8 +652,10 @@ func _check_authoring() -> void:
 			return
 		var value_field: GFEditorValueField = field
 		_authoring_field = weakref(value_field)
+		# 同一原生回调中的连续输入定义本次手势，不把跨帧预览工作计入合并窗口。
 		value_field.value_changed.emit(0.6)
 		value_field.value_changed.emit(0.8)
+		value_field.value_changed.emit(0.6)
 		_authoring_phase = 1
 		return
 	if _authoring_phase == 1:
@@ -556,11 +664,23 @@ func _check_authoring() -> void:
 			return
 		var edited: Resource = steps[0]
 		var active_field: Object = _authoring_field.get_ref()
-		if not _number_equals(edited.get(&"duration"), 0.8) or not active_field is GFEditorValueField or editor.find_child("Field_duration", true, false) != active_field:
+		if not _number_equals(edited.get(&"duration"), 0.6) or not active_field is GFEditorValueField or editor.find_child("Field_duration", true, false) != active_field:
 			_fail("Continuous native field input was discarded or rebuilt its active control.")
 			return
 		var value_field: GFEditorValueField = active_field
-		value_field.value_changed.emit(0.6)
+		var panel: GFTweenPreviewPanel = _find_panel()
+		if panel == null:
+			return
+		var edited_preview: GFTweenPreviewViewport = _find_viewport(panel)
+		if edited_preview == null or not is_equal_approx(edited_preview.get_duration_seconds(), 0.2) or not edited_preview.seek(0.1) or not is_equal_approx(_position_x(edited_preview), _authoring_frozen_midpoint):
+			_fail("Native Inspector edits replaced the already inspected frozen plan.")
+			return
+		if not _press(panel, "Recapture") or edited_preview.get_state() != &"ready" or not is_equal_approx(edited_preview.get_duration_seconds(), 0.6) or edited_preview.get_time_seconds() != 0.0:
+			_fail("Reprepare must adopt edited source without starting playback in the real Inspector.")
+			return
+		if not edited_preview.seek(0.3) or not is_equal_approx(_position_x(edited_preview), _authoring_frozen_midpoint):
+			_fail("The newly prepared duration did not reproduce the native normalized midpoint.")
+			return
 		var field_steps: Array = _authoring_source.get(&"steps")
 		_last_field_step = field_steps[0]
 		if not _press_text(editor, "复制"):
@@ -607,6 +727,14 @@ func _check_authoring() -> void:
 		if field_steps.size() != 1 or field_steps[0] != _last_field_step or not history.redo():
 			_fail("Native Redo did not replay continuous snapshot before discrete duplicate.")
 			return
+		var panel: GFTweenPreviewPanel = _find_panel()
+		if panel == null:
+			return
+		var undo_preview: GFTweenPreviewViewport = _find_viewport(panel)
+		if undo_preview == null or not is_equal_approx(undo_preview.get_duration_seconds(), 0.6) or not undo_preview.seek(0.3) or not is_equal_approx(_position_x(undo_preview), _authoring_frozen_midpoint):
+			_fail("Native Undo/Redo replaced the accepted preview snapshot.")
+			return
+		print("GF_TWEEN_PREVIEW_NATIVE_UNDO_FREEZE_OK")
 		_authoring_phase = 4
 		return
 	if _authoring_phase == 5:
@@ -652,6 +780,21 @@ func _check_authoring() -> void:
 
 func _check_property_picker(editor: EditorProperty, steps: Array, history: UndoRedo) -> void:
 	if _authoring_phase == 6 or _authoring_phase == 8:
+		var panel: GFTweenPreviewPanel = _find_panel()
+		if panel == null:
+			return
+		panel.set_process(false)
+		var source_before_selection: Array = _SNAPSHOT_SCRIPT.capture(_authoring_source)
+		if not _select_target(panel, &"gf.preview.2d"):
+			return
+		var play: Node = panel.find_child("Play", true, false)
+		if not play is Button:
+			_fail("The correction directory lost its Play control.")
+			return
+		var play_button: Button = play
+		if not play_button.disabled or _SNAPSHOT_SCRIPT.capture(_authoring_source) != source_before_selection:
+			_fail("Selecting a correction directory must preserve the unsupported runtime path and refuse playback.")
+			return
 		if _authoring_phase == 6:
 			_picker_history = history
 			_picker_history_count = history.get_history_count()
@@ -885,12 +1028,17 @@ func _probe_numeric_adapter() -> bool:
 func _finish_authoring() -> void:
 	if not _check_create_entry():
 		return
-	EditorInterface.edit_resource(null)
+	EditorInterface.get_inspector().edit(null)
 	remove_inspector_plugin(_inspector_plugin)
 	_inspector_plugin = null
 	_authoring_source = null
 	_authoring_step = null
 	_authoring_field = null
+	_phase = &"finish_editor"
+	_stable_frames = 0
+
+
+func _finish_editor() -> void:
 	_finished = true
 	print("GF_TWEEN_PREVIEW_EDITOR_SMOKE_OK")
 	get_tree().call_deferred(&"quit", 0)
@@ -928,13 +1076,14 @@ func _check_create_entry() -> bool:
 	return true
 
 
-func _find_steps_editor(node: Node) -> EditorProperty:
+func _find_steps_editor(node: Node, expected_source: Resource = null) -> EditorProperty:
+	var source: Resource = expected_source if expected_source != null else _authoring_source
 	if node is EditorProperty and node.get_script() == _STEPS_EDITOR_SCRIPT:
 		var editor: EditorProperty = node
-		if editor.get_edited_object() == _authoring_source:
+		if editor.get_edited_object() == source:
 			return editor
 	for child: Node in node.get_children():
-		var found: EditorProperty = _find_steps_editor(child)
+		var found: EditorProperty = _find_steps_editor(child, source)
 		if found != null:
 			return found
 	return null
@@ -965,7 +1114,7 @@ func _press_text(node: Node, text: String) -> bool:
 
 
 func _check_controls(panel: GFTweenPreviewPanel, preview: GFTweenPreviewViewport) -> bool:
-	if preview.get_state() != &"idle" or not _press(panel, "Play"):
+	if preview.get_state() != &"ready" or not _press(panel, "Play"):
 		_fail("The saved configuration did not start through the Play button.")
 		return false
 	preview.advance(0.5)
@@ -1003,15 +1152,10 @@ func _check_controls(panel: GFTweenPreviewPanel, preview: GFTweenPreviewViewport
 		_fail("Hiding the Inspector panel did not reset its preview.")
 		return false
 	panel.show()
-	var raw_kind: Node = panel.find_child("TargetKind", true, false)
-	if not raw_kind is OptionButton:
-		_fail("The Inspector target selector was unavailable.")
-		return false
-	var target_kind: OptionButton = raw_kind
-	for kind: int in [1, 2, 0]:
-		target_kind.select(kind)
-		target_kind.item_selected.emit(kind)
-		if preview.get_state() != &"idle" or not _press(panel, "Play"):
+	for target_id: StringName in [&"gf.preview.ui", &"gf.preview.3d", &"gf.preview.2d"]:
+		if not _select_target(panel, target_id):
+			return false
+		if preview.get_state() != &"ready" or not _press(panel, "Play"):
 			_fail("Changing target kind did not create a playable isolated target.")
 			return false
 		preview.advance(0.5)
@@ -1021,6 +1165,88 @@ func _check_controls(panel: GFTweenPreviewPanel, preview: GFTweenPreviewViewport
 		if not _press(panel, "Reset"):
 			return false
 	return _scene_unchanged()
+
+
+func _check_shared_preview_directory(panel: GFTweenPreviewPanel, editor: EditorProperty) -> bool:
+	if editor.find_child("PropertySource", true, false) != null:
+		_fail("Steps retained an independent property-source picker instead of the shared preview choice.")
+		return false
+	if not _has_property_choice(editor, "size"):
+		_fail("The default UI preview did not share its size directory with Steps.")
+		return false
+	var initial_node: Node = panel.find_child("Initial_position", true, false)
+	if not initial_node is GFEditorValueField:
+		_fail("The shared UI preview did not expose its initial position field.")
+		return false
+	var initial_field: GFEditorValueField = initial_node
+	initial_field.value_changed.emit(Vector2(3.0, 5.0))
+	var choices_node: Node = editor.find_child("PropertyChoices", true, false)
+	if not choices_node is OptionButton:
+		_fail("Steps lost its shared property directory after initial-value editing.")
+		return false
+	var choices: OptionButton = choices_node
+	var matched_initial: bool = false
+	for index: int in range(1, choices.item_count):
+		if choices.get_item_text(index) != "position":
+			continue
+		var raw_record: Variant = choices.get_item_metadata(index)
+		if raw_record is Dictionary:
+			var record: Dictionary = raw_record
+			matched_initial = record.get("initial") == Vector2(3.0, 5.0)
+	if not matched_initial:
+		_fail("Panel initial values and Steps property records diverged within one Inspector.")
+		return false
+	if not _select_target(panel, &"gf.preview.2d"):
+		return false
+	var play_node: Node = panel.find_child("Play", true, false)
+	if not play_node is Button:
+		_fail("The correction target lost its Play control.")
+		return false
+	var play: Button = play_node
+	if _has_property_choice(editor, "size") or not play.disabled:
+		_fail("Changing the preview target did not replace Steps' directory or reject its unsupported size step.")
+		return false
+	var path_node: Node = editor.find_child("Field_property_name", true, false)
+	if not path_node is GFEditorValueField:
+		_fail("Changing preview targets removed the editable unsupported property path.")
+		return false
+	var path_field: GFEditorValueField = path_node
+	if path_field.get_value() != ^"size":
+		_fail("Choosing a correction target rewrote the source property path.")
+		return false
+	if not _select_target(panel, &"gf.preview.ui"):
+		return false
+	var preview: GFTweenPreviewViewport = _find_viewport(panel)
+	if preview == null or preview.get_state() != &"ready" or not _has_property_choice(editor, "size"):
+		_fail("Returning to the compatible shared target did not prepare a fresh sample.")
+		return false
+	print("GF_TWEEN_PREVIEW_SHARED_CONTEXT_OK")
+	return true
+
+
+func _has_property_choice(editor: EditorProperty, property_name: String) -> bool:
+	var choices_node: Node = editor.find_child("PropertyChoices", true, false)
+	if choices_node is OptionButton:
+		var choices: OptionButton = choices_node
+		for index: int in range(1, choices.item_count):
+			if choices.get_item_text(index) == property_name:
+				return true
+	return false
+
+
+func _select_target(panel: GFTweenPreviewPanel, target_id: StringName) -> bool:
+	var selector_node: Node = panel.find_child("TargetKind", true, false)
+	if not selector_node is OptionButton:
+		_fail("The Inspector target selector was unavailable.")
+		return false
+	var selector: OptionButton = selector_node
+	for index: int in range(selector.item_count):
+		if selector.get_item_metadata(index) == target_id:
+			selector.select(index)
+			selector.item_selected.emit(index)
+			return true
+	_fail("The Inspector target directory did not contain " + String(target_id))
+	return false
 
 
 func _check_time_controls(panel: GFTweenPreviewPanel, preview: GFTweenPreviewViewport) -> bool:
@@ -1055,9 +1281,24 @@ func _check_time_controls(panel: GFTweenPreviewPanel, preview: GFTweenPreviewVie
 		return false
 	if not _press(panel, "Reset"):
 		return false
+	var reset_slider_node: Node = panel.find_child("PreviewTimeSlider", true, false)
+	var reset_input_node: Node = panel.find_child("PreviewTimeInput", true, false)
+	if not reset_slider_node is HSlider or not reset_input_node is SpinBox or reset_slider_node == slider or reset_input_node == time_input:
+		_fail("Reset did not replace the prior timeline controls with a newly prepared session.")
+		return false
+	var reset_slider: HSlider = reset_slider_node
+	var reset_input: SpinBox = reset_input_node
+	if not preview.has_session() or preview.get_state() != &"ready" or preview.get_time_seconds() != 0.0 or not is_equal_approx(preview.get_duration_seconds(), 1.75):
+		_fail("Reset did not prepare the unchanged source at time zero without playing.")
+		return false
+	var reset_values: Dictionary = preview.get_current_values()
 	slider.value_changed.emit(0.625)
 	time_input.value_changed.emit(1.0)
-	if preview.has_session() or not is_zero_approx(_position_x(preview)):
+	if (
+		not preview.has_session() or preview.get_state() != &"ready" or preview.get_time_seconds() != 0.0
+		or not is_equal_approx(preview.get_duration_seconds(), 1.75) or preview.get_current_values() != reset_values
+		or not is_zero_approx(_position_x(preview)) or reset_slider.value != 0.0 or reset_input.value != 0.0
+	):
 		_fail("Retired timeline controls could mutate the reset preview.")
 		return false
 	return _scene_unchanged()
@@ -1170,6 +1411,10 @@ func _on_process_frame() -> void:
 	match _phase:
 		&"probe":
 			_run_probe()
+		&"direct_open":
+			_wait_direct_open_panel()
+		&"direct_cleanup":
+			_wait_direct_open_cleanup()
 		&"scene":
 			_wait_scene()
 		&"first":
@@ -1182,6 +1427,8 @@ func _on_process_frame() -> void:
 			_wait_cleanup()
 		&"authoring":
 			_check_authoring()
+		&"finish_editor":
+			_finish_editor()
 
 
 # --- 内部类 ---

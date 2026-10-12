@@ -37,32 +37,42 @@ const _FIELDS: Array[StringName] = [
 ## 来源记录允许的预设 ID；具体样机适用性仍由创建步骤时检查。
 ## [br]
 ## @api private
-const _IDS: Array[String] = ["move_by", "scale_to", "rotate_by", "opacity_to"]
+const _IDS: Array[String] = ["move_by", "scale_to", "rotate_by", "opacity_to", "fade_in", "emphasis", "pulse"]
 
 
 # --- 框架内部方法 ---
 
-## 返回适用于选定样机的冻结预设记录。
+## 返回适用于选定样机的独立配方目录，说明用途和运行前初值。
+## initial_values 只声明前提，不修改配置、真实目标或作者已经选择的样机初值。
 ## [br]
 ## @api framework_internal
 ## [br]
 ## @param kind: 0 为 2D，1 为 UI，2 为 3D。
 ## [br]
-## @return: 可选预设列表。
+## @return: 可选预设列表；未知目标类型返回空数组。
 ## [br]
-## @schema return: Array[Dictionary]，每项包含 String id 与 String label。
+## @schema return: Array[Dictionary]，每项固定包含 id/label/description: String、target_kinds: Array[int]（0/1/2）、initial_values: Dictionary（String 规范根名映射到 Vector2/Vector3/Color）；每次返回独立值。初值是样机与实际运行需显式满足的前提，不是自动执行指令。
 static func get_records(kind: int) -> Array[Dictionary]:
+	if kind < 0 or kind > 2:
+		return []
 	var records: Array[Dictionary] = [
-		{"id": "move_by", "label": "移动偏移"},
-		{"id": "scale_to", "label": "缩放到目标值"},
-		{"id": "rotate_by", "label": "旋转偏移"},
+		_record("move_by", "移动偏移", "从当前姿态平移：2D/UI 为 80 像素，3D 为 1 单位。", [0, 1, 2]),
+		_record("scale_to", "缩放到目标值", "从当前缩放到各轴 1.2；目标值可继续调整。", [0, 1, 2]),
+		_record("rotate_by", "旋转偏移", "从当前角度偏移 45 度；3D 绕 Y 轴。", [0, 1, 2]),
 	]
 	if kind != 2:
-		records.append({"id": "opacity_to", "label": "透明度到目标值"})
+		records.append(_record("opacity_to", "淡出隐藏", "alpha 从当前值到 0；保留颜色与节点布局。", [0, 1]))
+		records.append(_record("fade_in", "淡入显示", "alpha 从当前值到 1。样机和运行前须显式设 alpha 为 0；保留项目颜色。", [0, 1], {"modulate": Color(1.0, 1.0, 1.0, 0.0)}))
+	var rest_scale: Variant = Vector2.ONE
+	if kind == 2:
+		rest_scale = Vector3.ONE
+	records.append(_record("emphasis", "轻微强调", "轻微收缩、放大后恢复单位缩放。样机和运行前须为单位缩放；其他基线请修改终点。", [0, 1, 2], {"scale": rest_scale}))
+	records.append(_record("pulse", "缩放脉冲", "放大到 1.08 后恢复单位缩放。样机和运行前须为单位缩放；其他基线请修改终点。", [0, 1, 2], {"scale": rest_scale}))
 	return records
 
 
-## 创建独立步骤。预设只管理步骤字段，不修改配置循环等根属性。
+## 创建独立步骤与逐步骤来源基线；不修改配置循环等根属性或真实目标。
+## fade_in 与缩放效果的运行初值须显式满足 get_records 的前提，不插入隐藏初始化步骤。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -77,7 +87,18 @@ static func create_steps(preset_id: String, kind: int, version: int = 1) -> Arra
 	var result: Array[GFTweenActionStep] = []
 	if version != _VERSION or not _IDS.has(preset_id) or kind < 0 or kind > 2:
 		return result
-	if preset_id == "opacity_to" and kind == 2:
+	if preset_id in ["opacity_to", "fade_in"] and kind == 2:
+		return result
+	if preset_id == "emphasis" or preset_id == "pulse":
+		if preset_id == "emphasis":
+			result.append(_scale_step(kind, 0.98, 0.06, Tween.TRANS_SINE, "轻微收缩"))
+			result.append(_scale_step(kind, 1.05, 0.14, Tween.TRANS_SINE, "强调放大"))
+			result.append(_scale_step(kind, 1.0, 0.16, Tween.TRANS_SINE, "恢复静止缩放"))
+		else:
+			result.append(_scale_step(kind, 1.08, 0.18, Tween.TRANS_SINE, "脉冲放大"))
+			result.append(_scale_step(kind, 1.0, 0.22, Tween.TRANS_SINE, "恢复静止缩放"))
+		for effect_step: GFTweenActionStep in result:
+			_record_provenance(effect_step, preset_id)
 		return result
 	var step: GFTweenActionStep = GFTweenActionStep.new()
 	match preset_id:
@@ -101,13 +122,14 @@ static func create_steps(preset_id: String, kind: int, version: int = 1) -> Arra
 		"opacity_to":
 			step.property_name = ^"modulate:a"
 			step.target_value = 0.0
-	var baseline: Dictionary = {}
-	for field: StringName in _FIELDS:
-		baseline[String(field)] = step.get(field)
-	step.set_meta(_META_KEY, {
-		"schema_version": 1, "preset_id": preset_id, "preset_version": version,
-		"managed_fields": _FIELDS.duplicate(), "baseline": baseline,
-	})
+		"fade_in":
+			step.property_name = ^"modulate:a"
+			step.target_value = 1.0
+			step.duration = 0.28
+			step.transition_type = Tween.TRANS_SINE
+			step.ease_type = Tween.EASE_OUT
+			step.resource_name = "淡入到不透明"
+	_record_provenance(step, preset_id)
 	result.append(step)
 	return result
 
@@ -214,6 +236,43 @@ static func restore_step(source: GFTweenActionStep, field: StringName = &"") -> 
 
 
 # --- 私有/辅助方法 ---
+
+## 创建独立目录记录；建议初值和目标列表都复制，调用方不能修改后续目录。
+## [br]
+## @api private
+static func _record(recipe_id: String, label: String, description: String, kinds: Array[int], initial_values: Dictionary = {}) -> Dictionary:
+	return {"id": recipe_id, "label": label, "description": description,
+		"target_kinds": kinds.duplicate(), "initial_values": initial_values.duplicate(true)}
+
+
+## 创建一个绝对单位缩放阶段；不读取目标，也不承担运行初值设置。
+## [br]
+## @api private
+static func _scale_step(kind: int, factor: float, seconds: float, transition: Tween.TransitionType, label: String) -> GFTweenActionStep:
+	var step: GFTweenActionStep = GFTweenActionStep.new()
+	step.property_name = ^"scale"
+	step.target_value = Vector2.ONE * factor
+	if kind == 2:
+		step.target_value = Vector3.ONE * factor
+	step.duration = seconds
+	step.transition_type = transition
+	step.ease_type = Tween.EASE_IN_OUT
+	step.resource_name = label
+	return step
+
+
+## 每个阶段保存自己的受管字段基线，保持版本 1 的来源与恢复协议。
+## [br]
+## @api private
+static func _record_provenance(step: GFTweenActionStep, preset_id: String) -> void:
+	var baseline: Dictionary = {}
+	for field: StringName in _FIELDS:
+		baseline[String(field)] = step.get(field)
+	step.set_meta(_META_KEY, {
+		"schema_version": 1, "preset_id": preset_id, "preset_version": _VERSION,
+		"managed_fields": _FIELDS.duplicate(), "baseline": baseline,
+	})
+
 
 ## 从已验证来源记录重建独立的受管字段基线；记录无效时返回 null，不修改原步骤。
 ## [br]

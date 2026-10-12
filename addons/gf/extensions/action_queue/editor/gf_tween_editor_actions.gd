@@ -68,7 +68,7 @@ func handle_menu_action(action_id: StringName) -> void:
 		_dialog.get_vbox().add_child(_error_label)
 		var _connected: int = _dialog.file_selected.connect(_on_file_selected)
 		EditorInterface.get_base_control().add_child(_dialog)
-	_error_label.text = "新建后在 Inspector 选择预设并调整步骤。"
+	_error_label.text = "新建后沿用所选样机，在 Inspector 调整步骤、定位时间条并保存。"
 	_dialog.popup_centered_ratio(0.6)
 
 
@@ -95,6 +95,37 @@ static func make_binding_example(resource_path: String) -> String:
 	return "extends Node\n\n@export var target: Node\n@export var tween_config: GFTweenActionConfig = preload(%s)\nvar _action: GFVisualAction\n\nfunc _ready() -> void:\n\tif target == null or tween_config == null:\n\t\treturn\n\t_action = tween_config.create_action(target, self)\n\tvar _completion: Variant = _action.execute()\n\nfunc _exit_tree() -> void:\n\tif _action != null:\n\t\t_action.cancel()\n\t\t_action = null\n" % JSON.stringify(path)
 
 
+## 将创建动作中已明确选择的原生用途交给当前来源的弱会话缓存。
+## 只通过共享目标目录复核；不添加资源元数据或永久用途关联，非法用途不覆盖已有选择。
+## [br]
+## @api framework_internal
+## [br]
+## @param config: 刚创建的原生配置资源。
+## [br]
+## @param kind: 0 为 2D、1 为 UI、2 为 3D；其他值拒绝。
+## [br]
+## @param registry: 可选隔离目录；null 使用编辑器共享目录。
+## [br]
+## @return: 当前来源仍保有已验证的明确用途时返回 true。
+static func remember_created_preview(config: Resource, kind: int, registry: GFTweenPreviewRegistry = null) -> bool:
+	if kind < 0 or kind > 2 or not is_instance_valid(config):
+		return false
+	var selected_registry: GFTweenPreviewRegistry = registry if registry != null else GFTweenPreviewRegistry.get_shared()
+	var context: GFTweenPreviewContext = GFTweenPreviewContext.new()
+	context.configure(config, selected_registry)
+	for choice: Dictionary in context.get_choices():
+		if choice["kind"] != kind or choice["supported"] != true:
+			continue
+		var id_value: Variant = choice.get("id")
+		if not id_value is StringName:
+			return false
+		var target_id: StringName = id_value
+		if not context.select_target(target_id):
+			return false
+		return selected_registry._get_selection(config).get("id") == target_id
+	return false
+
+
 # --- 信号处理函数 ---
 
 ## 保存前拒绝非项目路径、非 tres 后缀和已存在文件；保存成功后才扫描并打开新资源。
@@ -104,7 +135,7 @@ static func make_binding_example(resource_path: String) -> String:
 func _on_file_selected(path: String) -> void:
 	if not is_instance_valid(_dialog) or not is_instance_valid(_kind_picker):
 		return
-	if not path.begins_with("res://") or path.get_extension().to_lower() != "tres" or FileAccess.file_exists(path):
+	if not path.begins_with("res://") or path != path.simplify_path() or ".." in path.trim_prefix("res://").split("/") or path.get_extension().to_lower() != "tres" or FileAccess.file_exists(path):
 		_error_label.text = "请选择尚不存在的项目内 .tres 文件；已有文件未改动。"
 		_dialog.popup_centered_ratio(0.6)
 		return
@@ -115,5 +146,8 @@ func _on_file_selected(path: String) -> void:
 		_error_label.text = "保存失败：%s" % error_string(error)
 		_dialog.popup_centered_ratio(0.6)
 		return
+	config.take_over_path(path)
+	if not remember_created_preview(config, _kind_picker.selected):
+		push_warning("[GFTweenEditorActions][tween_editor_actions.preview_selection_not_retained] The configuration was saved, but its preview selection could not be retained; choose a preview target in the Inspector.")
 	EditorInterface.get_resource_filesystem().scan()
 	EditorInterface.edit_resource(config)

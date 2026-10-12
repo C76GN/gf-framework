@@ -84,7 +84,7 @@ func test_panel_supports_ping_pong_and_explicit_direction_controls() -> void:
 	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
 	config.ping_pong = true
 	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
-	panel.configure(config)
+	_configure_panel(panel, config)
 	add_child_autofree(panel)
 	panel.set_process(false)
 	_button(panel, "Play").pressed.emit()
@@ -798,7 +798,7 @@ func test_reconfigure_and_exit_tree_cancel_old_playback_and_release_targets() ->
 
 func test_panel_buttons_hide_and_rebind_control_only_the_preview() -> void:
 	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
-	panel.configure(_config(^"position:x", 10.0))
+	_configure_panel(panel, _config(^"position:x", 10.0))
 	add_child_autofree(panel)
 	panel.set_process(false)
 	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
@@ -822,7 +822,7 @@ func test_panel_buttons_hide_and_rebind_control_only_the_preview() -> void:
 	assert_eq(preview.get_state(), &"idle")
 	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
 	panel.show()
-	panel.configure(_config(^"position:x", 20.0))
+	_configure_panel(panel, _config(^"position:x", 20.0))
 	panel.set_process(false)
 	assert_false(play_button.disabled)
 	play_button.pressed.emit()
@@ -835,7 +835,7 @@ func test_panel_buttons_hide_and_rebind_control_only_the_preview() -> void:
 
 func test_panel_playback_uses_wall_clock_when_engine_time_scale_is_zero() -> void:
 	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
-	panel.configure(_config(^"position:x", 10.0, 10.0))
+	_configure_panel(panel, _config(^"position:x", 10.0, 10.0))
 	add_child_autofree(panel)
 	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
 	var play_button: Button = _button(panel, "Play")
@@ -857,19 +857,18 @@ func test_panel_playback_uses_wall_clock_when_engine_time_scale_is_zero() -> voi
 
 func test_retired_initial_fields_cannot_write_after_rebind_or_kind_change() -> void:
 	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
-	panel.configure(_config(^"position:x", 10.0))
+	_configure_panel(panel, _config(^"position:x", 10.0))
 	add_child_autofree(panel)
 	panel.set_process(false)
 	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
 	var original_field: GFEditorValueField = _initial_field(panel, "Initial_position")
-	panel.configure(_config(^"position:x", 20.0))
+	_configure_panel(panel, _config(^"position:x", 20.0))
 	panel.set_process(false)
 	original_field.value_changed.emit(Vector2(99.0, 99.0))
 	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
 	var replacement_field: GFEditorValueField = _initial_field(panel, "Initial_position")
 	var target_kind: OptionButton = _target_kind(panel)
-	target_kind.select(1)
-	target_kind.item_selected.emit(1)
+	_select_panel_target(target_kind, &"gf.preview.ui")
 	replacement_field.value_changed.emit(Vector2(88.0, 88.0))
 	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
 	var current_field: GFEditorValueField = _initial_field(panel, "Initial_position")
@@ -1116,12 +1115,13 @@ func test_seek_endpoint_cannot_complete_successfully_after_the_sample_is_freed()
 
 func test_panel_time_controls_seek_without_feedback_and_retired_inputs_are_ignored() -> void:
 	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
-	panel.configure(_config(^"position:x", 10.0))
+	_configure_panel(panel, _config(^"position:x", 10.0))
 	add_child_autofree(panel)
 	panel.set_process(false)
 	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
 	var initial_slider: HSlider = _time_slider(panel)
-	assert_false(initial_slider.editable)
+	assert_true(initial_slider.editable, "Inspector preparation enables seeking before Play")
+	assert_eq(preview.get_state(), &"ready")
 	_button(panel, "Play").pressed.emit()
 	var slider: HSlider = _time_slider(panel)
 	assert_true(slider.editable)
@@ -1135,11 +1135,12 @@ func test_panel_time_controls_seek_without_feedback_and_retired_inputs_are_ignor
 	_button(panel, "Play").pressed.emit()
 	preview.advance(0.1)
 	assert_eq(preview.get_state(), &"playing", "Programmatic time refresh must not trigger another seek")
-	panel.configure(_config(^"position:x", 20.0))
+	_configure_panel(panel, _config(^"position:x", 20.0))
 	panel.set_process(false)
 	slider.value_changed.emit(0.5)
 	initial_slider.value_changed.emit(0.5)
-	assert_false(preview.has_session())
+	assert_true(preview.has_session())
+	assert_eq(preview.get_state(), &"ready", "Retired controls cannot seek the new prepared session")
 	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
 	_button(panel, "Play").pressed.emit()
 	var hidden_slider: HSlider = _time_slider(panel)
@@ -1160,7 +1161,7 @@ func test_panel_locate_button_can_inspect_the_only_time_of_an_instant_configurat
 	var config: GFTweenActionConfig = _config(^"position:x", 3.0, 0.0)
 	config.restore_initial_values_on_finish = true
 	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
-	panel.configure(config)
+	_configure_panel(panel, config)
 	add_child_autofree(panel)
 	panel.set_process(false)
 	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
@@ -1177,7 +1178,7 @@ func test_panel_locate_button_can_inspect_the_only_time_of_an_instant_configurat
 
 func test_panel_retiring_time_controls_cannot_seek_a_new_session_during_visibility_change() -> void:
 	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
-	panel.configure(_config(^"position:x", 10.0))
+	_configure_panel(panel, _config(^"position:x", 10.0))
 	add_child_autofree(panel)
 	panel.set_process(false)
 	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
@@ -1196,7 +1197,7 @@ func test_panel_retiring_time_controls_cannot_seek_a_new_session_during_visibili
 
 func test_disposed_panel_rejects_late_control_signals_without_rebuilding_sample() -> void:
 	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
-	panel.configure(_config(^"position:x", 10.0))
+	_configure_panel(panel, _config(^"position:x", 10.0))
 	add_child_autofree(panel)
 	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
 	var field: GFEditorValueField = _initial_field(panel, "Initial_position")
@@ -1210,6 +1211,284 @@ func test_disposed_panel_rejects_late_control_signals_without_rebuilding_sample(
 	assert_true(preview.get_initial_values().is_empty())
 	assert_eq(preview.get_state(), &"idle")
 	assert_false(panel.is_processing())
+
+
+func test_panel_requires_an_explicit_choice_for_ambiguous_native_properties() -> void:
+	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
+	var context: GFTweenPreviewContext = GFTweenPreviewContext.new()
+	context.configure(config, GFTweenPreviewRegistry.new())
+	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
+	panel.configure(config, context)
+	add_child_autofree(panel)
+	panel.set_process(false)
+	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
+	var is_unselected: bool = _target_kind(panel).get_selected_metadata() == &""
+	assert_true(is_unselected)
+	assert_true(_button(panel, "Play").disabled)
+	assert_false(_time_slider(panel).editable)
+	assert_false(preview.has_session())
+	assert_true(preview.get_current_values().is_empty())
+	var target: Dictionary = context.get_target()
+	var reason_value: Variant = target["reason"]
+	assert_true(reason_value is String)
+	if reason_value is String:
+		var reason: String = reason_value
+		assert_true(reason.contains("多个兼容"))
+	_select_panel_target(_target_kind(panel), &"gf.preview.2d")
+	assert_eq(preview.get_state(), &"ready")
+	assert_true(preview.has_session())
+	assert_true(_time_slider(panel).editable)
+	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	panel.dispose_preview()
+
+
+func test_panel_target_and_initial_fields_update_the_same_property_context() -> void:
+	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
+	var original: Array = _SNAPSHOT_SCRIPT.capture(config)
+	var context: GFTweenPreviewContext = GFTweenPreviewContext.new()
+	context.configure(config, GFTweenPreviewRegistry.new())
+	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
+	panel.configure(config, context)
+	add_child_autofree(panel)
+	panel.set_process(false)
+	_select_panel_target(_target_kind(panel), &"gf.preview.2d")
+	assert_eq(context.get_property_records("size"), [])
+	_select_panel_target(_target_kind(panel), &"gf.preview.ui")
+	var size_records: Array[Dictionary] = context.get_property_records("size")
+	assert_eq(size_records.size(), 3)
+	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
+	_initial_field(panel, "Initial_position").value_changed.emit(Vector2(4.0, 6.0))
+	var records: Array[Dictionary] = context.get_property_records("position")
+	var root_initial: Variant = records[0]["initial"]
+	assert_true(root_initial is Vector2)
+	if root_initial is Vector2:
+		var position_initial: Vector2 = root_initial
+		assert_eq(position_initial, Vector2(4.0, 6.0))
+	assert_eq(preview.get_state(), &"ready")
+	assert_eq(_vector2(preview, "position"), Vector2(4.0, 6.0))
+	assert_eq(_SNAPSHOT_SCRIPT.capture(config), original, "Preview choices and initial values never edit the resource")
+	panel.dispose_preview()
+
+
+func test_panel_edits_and_undo_keep_the_frozen_plan_until_explicit_prepare() -> void:
+	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
+	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
+	_configure_panel(panel, config)
+	add_child_autofree(panel)
+	panel.set_process(false)
+	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
+	assert_true(preview.seek(0.25))
+	var history: UndoRedo = UndoRedo.new()
+	history.create_action("Edit source target")
+	history.add_do_property(config.steps[0], &"target_value", 20.0)
+	history.add_undo_property(config.steps[0], &"target_value", 10.0)
+	history.commit_action()
+	config.emit_changed()
+	panel.set_process(true)
+	await wait_seconds(0.6)
+	panel.set_process(false)
+	assert_eq(preview.get_state(), &"paused", "Source edits do not replace an inspected frozen session")
+	assert_true(_stale_label(panel).text.contains("预览已过期"))
+	assert_true(preview.seek(0.5))
+	assert_eq(_vector2(preview, "position"), Vector2(5.0, 0.0))
+	_button(panel, "Recapture").pressed.emit()
+	assert_eq(preview.get_state(), &"ready", "Preparing captures current source without Play")
+	assert_eq(preview.get_time_seconds(), 0.0)
+	assert_eq(_stale_label(panel).text, "")
+	assert_true(preview.seek(0.5))
+	assert_eq(_vector2(preview, "position"), Vector2(10.0, 0.0))
+	assert_true(history.undo())
+	config.emit_changed()
+	panel.set_process(true)
+	await wait_seconds(0.6)
+	panel.set_process(false)
+	assert_true(_stale_label(panel).text.contains("预览已过期"))
+	assert_true(preview.seek(0.75))
+	assert_eq(_vector2(preview, "position"), Vector2(15.0, 0.0), "Undo leaves the accepted frozen plan intact")
+	_button(panel, "Recapture").pressed.emit()
+	assert_eq(preview.get_state(), &"ready")
+	assert_true(preview.seek(0.5))
+	assert_eq(_vector2(preview, "position"), Vector2(5.0, 0.0))
+	panel.dispose_preview()
+	history.clear_history()
+	history.free()
+
+
+func test_panel_ready_edits_reprepare_statically_and_invalid_source_keeps_the_old_view() -> void:
+	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
+	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
+	_configure_panel(panel, config)
+	add_child_autofree(panel)
+	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
+	config.steps[0].target_value = 20.0
+	config.emit_changed()
+	await wait_seconds(0.6)
+	panel.set_process(false)
+	assert_eq(preview.get_state(), &"ready")
+	assert_eq(preview.get_time_seconds(), 0.0)
+	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	assert_eq(_stale_label(panel).text, "")
+	config.steps[0].target_value = INF
+	config.emit_changed()
+	panel.set_process(true)
+	await wait_seconds(0.6)
+	panel.set_process(false)
+	assert_true(_button(panel, "Play").disabled)
+	assert_true(preview.has_session(), "An invalid edit does not destroy the last accepted static view")
+	assert_eq(preview.get_time_seconds(), 0.0)
+	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	assert_true(preview.seek(0.5))
+	assert_eq(_vector2(preview, "position"), Vector2(10.0, 0.0), "The retained plan is the last valid edited version")
+	panel.dispose_preview()
+
+
+func test_panel_manual_paused_session_can_resume_after_source_becomes_invalid() -> void:
+	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
+	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
+	_configure_panel(panel, config)
+	add_child_autofree(panel)
+	panel.set_process(false)
+	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
+	assert_true(preview.seek(0.25))
+	config.steps[0].target_value = INF
+	config.emit_changed()
+	assert_true(preview.has_session())
+	assert_eq(preview.get_state(), &"paused")
+	assert_true(_stale_label(panel).text.contains("预览已过期"))
+	assert_false(_button(panel, "Play").disabled, "Continue accepts the valid frozen plan, not the invalid edited source")
+	_button(panel, "Play").pressed.emit()
+	assert_eq(preview.get_state(), &"playing")
+	preview.advance(0.75)
+	assert_eq(preview.get_state(), &"finished")
+	assert_eq(_vector2(preview, "position"), Vector2(10.0, 0.0))
+	panel.dispose_preview()
+
+
+func test_panel_bound_paused_session_can_resume_after_source_becomes_invalid() -> void:
+	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
+	config.resource_path = "res://preview_bound_resume.tres"
+	var registry: GFTweenPreviewRegistry = GFTweenPreviewRegistry.new()
+	var registration_owner: RefCounted = RefCounted.new()
+	var binding: GFTweenPreviewRegistration = registry.register_binding(registration_owner, config.resource_path, &"gf.preview.2d")
+	assert_not_null(binding)
+	var context: GFTweenPreviewContext = GFTweenPreviewContext.new()
+	context.configure(config, registry)
+	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
+	panel.configure(config, context)
+	add_child_autofree(panel)
+	panel.set_process(false)
+	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
+	assert_true(preview.seek(0.25))
+	config.steps[0].target_value = INF
+	config.emit_changed()
+	assert_true(binding.is_active())
+	assert_true(preview.has_session())
+	assert_eq(preview.get_state(), &"paused")
+	assert_false(_button(panel, "Play").disabled)
+	_button(panel, "Play").pressed.emit()
+	assert_eq(preview.get_state(), &"playing")
+	preview.advance(0.75)
+	assert_eq(_vector2(preview, "position"), Vector2(10.0, 0.0))
+	panel.dispose_preview()
+	binding.release()
+
+
+func test_panel_paused_controlled_directions_use_the_valid_frozen_plan() -> void:
+	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
+	config.enable_playback_control = true
+	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
+	_configure_panel(panel, config)
+	add_child_autofree(panel)
+	panel.set_process(false)
+	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
+	assert_true(preview.seek(0.5))
+	config.steps[0].target_value = INF
+	config.emit_changed()
+	assert_false(_button(panel, "Backward").disabled)
+	assert_false(_button(panel, "Forward").disabled)
+	_button(panel, "Backward").pressed.emit()
+	assert_eq(preview.get_state(), &"playing")
+	preview.advance(0.25)
+	assert_eq(_vector2(preview, "position"), Vector2(2.5, 0.0))
+	preview.pause()
+	_button(panel, "Forward").pressed.emit()
+	assert_eq(preview.get_state(), &"playing")
+	preview.advance(0.75)
+	assert_eq(preview.get_state(), &"finished")
+	assert_eq(_vector2(preview, "position"), Vector2(10.0, 0.0))
+	panel.dispose_preview()
+
+
+func test_panel_ready_invalid_source_rejects_play_and_direction_even_from_emitted_signals() -> void:
+	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
+	config.enable_playback_control = true
+	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
+	_configure_panel(panel, config)
+	add_child_autofree(panel)
+	panel.set_process(false)
+	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
+	assert_eq(preview.get_state(), &"ready")
+	config.steps[0].target_value = INF
+	config.emit_changed()
+	var accepted_values: Dictionary = preview.get_current_values()
+	for button_name: String in ["Play", "Forward", "Backward"]:
+		var button: Button = _button(panel, button_name)
+		assert_true(button.disabled)
+		button.pressed.emit()
+		assert_eq(preview.get_state(), &"ready", "Invalid current source cannot start an unplayed prepared session")
+		assert_eq(preview.get_time_seconds(), 0.0)
+		assert_eq(preview.get_current_values(), accepted_values)
+	panel.dispose_preview()
+
+
+func test_panel_automatic_ui_target_keeps_an_inspected_session_after_invalid_edit() -> void:
+	var config: GFTweenActionConfig = _config(^"size", Vector2(128.0, 96.0))
+	var context: GFTweenPreviewContext = GFTweenPreviewContext.new()
+	context.configure(config, GFTweenPreviewRegistry.new())
+	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
+	panel.configure(config, context)
+	add_child_autofree(panel)
+	panel.set_process(false)
+	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
+	assert_eq(_selected_panel_target_id(_target_kind(panel)), &"gf.preview.ui")
+	assert_true(preview.seek(0.25))
+	config.steps[0].target_value = Vector2(INF, 96.0)
+	config.emit_changed()
+	assert_eq(_selected_panel_target_id(_target_kind(panel)), &"gf.preview.ui", "Source compatibility changes do not select a different purpose")
+	assert_true(preview.has_session())
+	assert_eq(preview.get_state(), &"paused")
+	assert_eq(_vector2(preview, "size"), Vector2(80.0, 72.0))
+	assert_false(_button(panel, "Play").disabled)
+	_button(panel, "Play").pressed.emit()
+	assert_eq(preview.get_state(), &"playing")
+	preview.advance(0.75)
+	assert_eq(_vector2(preview, "size"), Vector2(128.0, 96.0))
+	panel.dispose_preview()
+
+
+func test_panel_withdrawn_binding_rejects_resume_and_directions_before_deferred_refresh() -> void:
+	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
+	config.enable_playback_control = true
+	config.resource_path = "res://preview_withdrawn_resume.tres"
+	var registry: GFTweenPreviewRegistry = GFTweenPreviewRegistry.new()
+	var registration_owner: RefCounted = RefCounted.new()
+	var binding: GFTweenPreviewRegistration = registry.register_binding(registration_owner, config.resource_path, &"gf.preview.2d")
+	assert_not_null(binding)
+	var context: GFTweenPreviewContext = GFTweenPreviewContext.new()
+	context.configure(config, registry)
+	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
+	panel.configure(config, context)
+	add_child_autofree(panel)
+	panel.set_process(false)
+	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
+	assert_true(preview.seek(0.25))
+	binding.release()
+	for button_name: String in ["Play", "Forward", "Backward"]:
+		_button(panel, button_name).pressed.emit()
+		assert_ne(preview.get_state(), &"playing", "A cached context does not retain a withdrawn binding lease")
+		assert_false(preview.has_session())
+		assert_true(preview.get_current_values().is_empty())
+	panel.dispose_preview()
 
 
 # --- 私有/辅助方法 ---
@@ -1269,6 +1548,30 @@ func _preview(config: Resource, kind: int = 0) -> GFTweenPreviewViewport:
 	add_child_autofree(preview)
 	preview.configure(config, kind)
 	return preview
+
+
+func _configure_panel(panel: GFTweenPreviewPanel, config: GFTweenActionConfig) -> void:
+	var context: GFTweenPreviewContext = GFTweenPreviewContext.new()
+	context.configure(config, GFTweenPreviewRegistry.new())
+	assert_true(context.select_target(&"gf.preview.2d"))
+	panel.configure(config, context)
+
+
+func _selected_panel_target_id(selector: OptionButton) -> StringName:
+	var value: Variant = selector.get_selected_metadata()
+	if value is StringName:
+		var target_id: StringName = value
+		return target_id
+	return &""
+
+
+func _select_panel_target(selector: OptionButton, target_id: StringName) -> void:
+	for index: int in range(selector.item_count):
+		if selector.get_item_metadata(index) == target_id:
+			selector.select(index)
+			selector.item_selected.emit(index)
+			return
+	fail_test("Preview target was absent: %s" % String(target_id))
 
 
 func _config(property_path: NodePath, value: Variant, duration: float = 1.0) -> GFTweenActionConfig:
@@ -1355,6 +1658,15 @@ func _target_kind(panel: GFTweenPreviewPanel) -> OptionButton:
 	if child is OptionButton:
 		var option: OptionButton = child
 		return option
+	return null
+
+
+func _stale_label(panel: GFTweenPreviewPanel) -> Label:
+	var child: Node = panel.find_child("PreviewFreshness", true, false)
+	assert_true(child is Label)
+	if child is Label:
+		var label: Label = child
+		return label
 	return null
 
 
