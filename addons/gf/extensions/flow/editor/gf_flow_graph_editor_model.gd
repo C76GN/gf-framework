@@ -1,3 +1,5 @@
+@tool
+
 ## GFFlowGraphEditorModel: FlowGraph 编辑器视图模型构建器。
 ##
 ## 将 GFFlowGraph 转换为 GraphEdit、自定义编辑器或项目工具可直接消费的
@@ -28,6 +30,21 @@ const _GF_GRAPH_MATH_SCRIPT: Script = preload("res://addons/gf/standard/foundati
 ## [br]
 ## @api private
 const _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT: Script = preload("res://addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd")
+
+## 一次复制或插入允许的最大节点数；现有图的库存另有更大的有限上限。
+## [br]
+## @api private
+const _MAX_SELECTION_NODES: int = 256
+
+## 复制规划允许读取的最大来源或目标节点库存。
+## [br]
+## @api private
+const _MAX_EDIT_NODES: int = 4096
+
+## 复制规划允许读取的最大连接库存。
+## [br]
+## @api private
+const _MAX_EDIT_CONNECTIONS: int = 16384
 
 
 # --- 公共变量 ---
@@ -402,7 +419,9 @@ func auto_layout(graph: GFFlowGraph, options: Dictionary = {}) -> Dictionary:
 	}
 
 
-## 构建节点选择包，用于编辑器复制、剪切或跨工具传递。
+## 构建独立的节点选择包；仅保留选中集合内部的连接与后继。
+## 读取导出属性，不调用项目图查询。原生 Resource 深复制保留项目脚本与端口类型，
+## 不代理自定义存储属性或资源初始化的外部副作用。最多复制 256 个节点。
 ## [br]
 ## @api public
 ## [br]
@@ -414,36 +433,50 @@ func auto_layout(graph: GFFlowGraph, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @return: 选择包字典。
 ## [br]
-## @schema return: Dictionary，包含 ok、node_count、connection_count、nodes、connections 和 node_ids。
+## @schema return: 成功 Dictionary 包含 ok、node_count、connection_count、nodes: Array[GFFlowNode]、connections: Array[Dictionary]、node_ids: PackedStringArray、start_node_id: StringName；起点未被选中时为空。失败仅包含 ok: false 与 error: String。
 func build_selection_package(graph: GFFlowGraph, node_ids: PackedStringArray) -> Dictionary:
 	if graph == null:
 		return _make_edit_report(false, "graph_is_null")
-
+	if node_ids.is_empty() or node_ids.size() > _MAX_SELECTION_NODES or graph.nodes.size() > _MAX_EDIT_NODES or graph.connections.size() > _MAX_EDIT_CONNECTIONS:
+		return _make_edit_report(false, "selection_budget_exceeded")
 	var selected_lookup: Dictionary = _make_selected_lookup(node_ids)
+	var actual_lookup: Dictionary = {}
+	for node: GFFlowNode in graph.nodes:
+		if node != null and selected_lookup.has(node.node_id):
+			if node.node_id == &"" or actual_lookup.has(node.node_id):
+				return _make_edit_report(false, "invalid_selection_node_id")
+			actual_lookup[node.node_id] = node
+	if actual_lookup.is_empty():
+		return _make_edit_report(false, "empty_selection")
 	var selected_nodes: Array[GFFlowNode] = []
-	for node_id_text: String in node_ids:
-		var node: GFFlowNode = graph.get_node(StringName(node_id_text))
-		if node != null:
-			var node_copy: GFFlowNode = _get_flow_node_value(node.duplicate(true))
-			if node_copy != null:
-				selected_nodes.append(node_copy)
-
+	var actual_ids: PackedStringArray = PackedStringArray()
+	for node: GFFlowNode in graph.nodes:
+		if node == null or not actual_lookup.has(node.node_id):
+			continue
+		var node_copy: GFFlowNode = _get_flow_node_value(node.duplicate(true))
+		if node_copy == null:
+			return _make_edit_report(false, "selection_copy_failed")
+		node_copy.next_node_ids = _internal_successors(node_copy.next_node_ids, actual_lookup)
+		selected_nodes.append(node_copy)
+		_append_packed_string(actual_ids, String(node_copy.node_id))
 	var selected_connections: Array[Dictionary] = []
 	for connection: Dictionary in graph.connections:
-		if _connection_is_internal(connection, selected_lookup):
+		if _connection_is_internal(connection, actual_lookup):
 			selected_connections.append(connection.duplicate(true))
-
 	return {
 		"ok": true,
 		"node_count": selected_nodes.size(),
 		"connection_count": selected_connections.size(),
 		"nodes": selected_nodes,
 		"connections": selected_connections,
-		"node_ids": node_ids.duplicate(),
+		"node_ids": actual_ids,
+		"start_node_id": graph.start_node_id if actual_lookup.has(graph.start_node_id) else &"",
 	}
 
 
-## 将选择包粘贴到流程图。
+## 整体粘贴选择包；节点、内部连接与空图起点通过一个属性事务提交。
+## 任何端点、端口、类型或预算失败都在写入前拒绝，不留下合法前缀。
+## 不调用项目图查询、连接或节点插入方法；原生资源复制与自定义 setter 的外部副作用不属于事务保证。
 ## [br]
 ## @api public
 ## [br]
@@ -459,97 +492,33 @@ func build_selection_package(graph: GFFlowGraph, node_ids: PackedStringArray) ->
 ## [br]
 ## @return: 粘贴报告。
 ## [br]
-## @schema selection_package: Dictionary，由 build_selection_package() 返回，包含 nodes、connections 和 node_ids。
+## @schema selection_package: Dictionary，包含 nodes: Array、connections: Array，可选 node_ids: PackedStringArray、start_node_id: StringName 及 build_selection_package() 的计数字段。
 ## [br]
 ## @schema options: Dictionary，可包含 keep_original_ids。
 ## [br]
-## @schema return: Dictionary，包含 ok、added_node_ids、added_node_count、added_connection_count、failed_connection_count 和 id_map。
+## @schema return: 成功 Dictionary 包含 ok、added_node_ids、added_node_count、added_connection_count、failed_connection_count: 0 和 id_map；失败包含 ok: false、error: String，可附 transaction: Dictionary。
 func paste_selection_package(
 	graph: GFFlowGraph,
 	selection_package: Dictionary,
 	offset: Vector2 = Vector2.ZERO,
 	options: Dictionary = {}
 ) -> Dictionary:
-	if graph == null:
-		return _make_edit_report(false, "graph_is_null")
-
-	var source_nodes_value: Variant = GFVariantData.get_option_value(selection_package, "nodes", [])
-	var source_nodes: Array = GFVariantData.as_array(source_nodes_value)
-	if not (source_nodes_value is Array):
-		return _make_edit_report(false, "invalid_selection_package")
-	var source_node_ids: Dictionary = {}
-	for source_node_variant: Variant in source_nodes:
-		var source_node: GFFlowNode = _get_flow_node_value(source_node_variant)
-		if source_node == null:
-			return _make_edit_report(false, "invalid_selection_node")
-		if source_node.node_id == &"" or source_node_ids.has(source_node.node_id):
-			return _make_edit_report(false, "invalid_selection_node_id")
-		source_node_ids[source_node.node_id] = true
-
-	var id_map: Dictionary = {}
-	var occupied_ids: Dictionary = {}
-	for existing_node: GFFlowNode in graph.nodes:
-		if existing_node != null and existing_node.node_id != &"":
-			occupied_ids[existing_node.node_id] = true
-	var added_node_ids: PackedStringArray = PackedStringArray()
-	for mapping_variant: Variant in source_nodes:
-		var mapping_node: GFFlowNode = _get_flow_node_value(mapping_variant)
-		if mapping_node == null:
-			continue
-		var mapping_source_id: StringName = mapping_node.node_id
-		var mapping_next_id: StringName = _make_unique_node_id(
-			mapping_source_id,
-			occupied_ids,
-			GFVariantData.get_option_bool(options, "keep_original_ids", false)
-		)
-		id_map[mapping_source_id] = mapping_next_id
-		occupied_ids[mapping_next_id] = true
-
-	for copy_variant: Variant in source_nodes:
-		var copy_source_node: GFFlowNode = _get_flow_node_value(copy_variant)
-		if copy_source_node == null:
-			continue
-
-		var next_node: GFFlowNode = _get_flow_node_value(copy_source_node.duplicate(true))
-		if next_node == null:
-			continue
-
-		var copy_source_id: StringName = next_node.node_id
-		var copy_next_id: StringName = _get_string_name_value(GFVariantData.get_option_value(id_map, copy_source_id, copy_source_id))
-		next_node.node_id = copy_next_id
-		next_node.editor_position += offset
-		next_node.next_node_ids = _remap_node_ids(next_node.next_node_ids, id_map)
-		graph.set_node(next_node)
-		_append_packed_string(added_node_ids, String(copy_next_id))
-
-	var source_connections: Array = GFVariantData.get_option_array(selection_package, "connections")
-	var added_connection_count: int = 0
-	var failed_connection_count: int = 0
-	for connection_variant: Variant in source_connections:
-		var connection: Dictionary = GFVariantData.as_dictionary(connection_variant)
-		if connection.is_empty():
-			continue
-
-		var next_connection: Dictionary = _remap_connection(connection, id_map)
-		var added: bool = graph.add_connection(
-			_get_connection_from_node_id(next_connection),
-			_get_connection_from_port_id(next_connection),
-			_get_connection_to_node_id(next_connection),
-			_get_connection_to_port_id(next_connection),
-			GFVariantData.get_option_dictionary(next_connection, "metadata")
-		)
-		if added:
-			added_connection_count += 1
-		else:
-			failed_connection_count += 1
-
+	var plan: Dictionary = build_selection_paste_plan(graph, selection_package, offset, options)
+	if not GFVariantData.get_option_bool(plan, "ok"):
+		return plan
+	var command: GFEditorPropertyBatchCommand = GFEditorPropertyBatchCommand.new()
+	var _configured: GFEditorPropertyBatchCommand = command.configure([
+		{"target": graph, "property_name": &"nodes", "new_value": plan["nodes"]},
+		{"target": graph, "property_name": &"connections", "new_value": plan["connections"]},
+		{"target": graph, "property_name": &"start_node_id", "new_value": plan["start_node_id"]},
+	])
+	var error: Error = command.execute()
+	if error != OK:
+		return {"ok": false, "error": "paste_transaction_failed", "transaction": command.get_transaction_report()}
+	graph.emit_changed()
 	return {
-		"ok": true,
-		"added_node_ids": added_node_ids,
-		"added_node_count": added_node_ids.size(),
-		"added_connection_count": added_connection_count,
-		"failed_connection_count": failed_connection_count,
-		"id_map": id_map,
+		"ok": true, "added_node_ids": plan["added_node_ids"], "added_node_count": plan["added_node_count"],
+		"added_connection_count": plan["added_connection_count"], "failed_connection_count": 0, "id_map": plan["id_map"],
 	}
 
 
@@ -588,6 +557,147 @@ func remove_nodes(graph: GFFlowGraph, node_ids: PackedStringArray) -> Dictionary
 
 # --- 框架内部方法 ---
 
+## 构建零写入插入候选，供原生编辑历史一次提交；仅复制内部连接和后继。
+## 最多新增 256 个节点，目标不超过 4096 节点、16384 连接。已有起点不变，只有空图可采用包中的起点。
+## [br]
+## @api framework_internal
+## [br]
+## @param graph: 目标图；仅读取导出属性，不调用项目业务查询。
+## [br]
+## @param selection_package: 独立节点选择包。
+## [br]
+## @param offset: 叠加到复制节点的有限位置偏移。
+## [br]
+## @param options: 同 paste_selection_package() 的选项。
+## [br]
+## @return: 完整候选或没有部分输出的失败报告。
+## [br]
+## @schema selection_package: 同 paste_selection_package() 的选择包。
+## [br]
+## @schema options: Dictionary，可包含 keep_original_ids: bool。
+## [br]
+## @schema return: 成功 Dictionary 包含 ok、nodes: Array[GFFlowNode]、connections: Array[Dictionary]、start_node_id: StringName、added_node_ids: PackedStringArray、added_node_count: int、added_connection_count: int、id_map: Dictionary、before_state: Dictionary；失败包含 ok: false、error: String。
+func build_selection_paste_plan(graph: GFFlowGraph, selection_package: Dictionary, offset: Vector2 = Vector2.ZERO, options: Dictionary = {}) -> Dictionary:
+	if graph == null:
+		return _make_edit_report(false, "graph_is_null")
+	if not offset.is_finite():
+		return _make_edit_report(false, "invalid_paste_offset")
+	for key: Variant in options:
+		if key != "keep_original_ids":
+			return _make_edit_report(false, "invalid_paste_options")
+	if options.has("keep_original_ids") and not (options["keep_original_ids"] is bool):
+		return _make_edit_report(false, "invalid_paste_options")
+	var nodes_value: Variant = selection_package.get("nodes")
+	var connections_value: Variant = selection_package.get("connections")
+	if not (nodes_value is Array) or not (connections_value is Array):
+		return _make_edit_report(false, "invalid_selection_package")
+	var source_nodes: Array = nodes_value
+	var source_connections: Array = connections_value
+	if source_nodes.is_empty() or source_nodes.size() > _MAX_SELECTION_NODES or graph.nodes.size() + source_nodes.size() > _MAX_EDIT_NODES or graph.connections.size() + source_connections.size() > _MAX_EDIT_CONNECTIONS:
+		return _make_edit_report(false, "selection_budget_exceeded")
+	var start_value: Variant = selection_package.get("start_node_id", &"")
+	if not (start_value is StringName):
+		return _make_edit_report(false, "invalid_selection_start")
+	var copied_start: StringName = start_value
+	var before: Dictionary = capture_edit_state(graph)
+	var occupied: Dictionary = {}
+	for existing: GFFlowNode in graph.nodes:
+		if existing != null and existing.node_id != &"":
+			if occupied.has(existing.node_id):
+				return _make_edit_report(false, "duplicate_target_node_id")
+			occupied[existing.node_id] = true
+	var source_lookup: Dictionary = {}
+	var id_map: Dictionary = {}
+	for value: Variant in source_nodes:
+		if not (value is GFFlowNode):
+			return _make_edit_report(false, "invalid_selection_node")
+		var source: GFFlowNode = value
+		if source.node_id == &"" or source_lookup.has(source.node_id):
+			return _make_edit_report(false, "invalid_selection_node_id")
+		source_lookup[source.node_id] = source
+		var next_id: StringName = _make_unique_node_id(source.node_id, occupied, GFVariantData.get_option_bool(options, "keep_original_ids"))
+		id_map[source.node_id] = next_id
+		occupied[next_id] = true
+	if copied_start != &"" and not source_lookup.has(copied_start):
+		return _make_edit_report(false, "invalid_selection_start")
+	var candidate: GFFlowGraph = GFFlowGraph.new()
+	candidate.nodes = graph.nodes.duplicate()
+	candidate.connections = graph.connections.duplicate(true)
+	candidate.validate_port_compatibility = GFVariantData.get_option_bool(before, "validate_port_compatibility")
+	var added_ids: PackedStringArray = PackedStringArray()
+	for value: Variant in source_nodes:
+		if not (value is GFFlowNode):
+			return _make_edit_report(false, "invalid_selection_node")
+		var source: GFFlowNode = value
+		var copied: GFFlowNode = _get_flow_node_value(source.duplicate(true))
+		if copied == null or not copied.editor_position.is_finite():
+			return _make_edit_report(false, "selection_copy_failed")
+		var port_report: Dictionary = {"issues": [], "error_count": 0, "warning_count": 0, "issue_counts_by_kind": {}}
+		_validate_node_ports_for_editor(copied, port_report)
+		if GFVariantData.get_option_int(port_report, "error_count") > 0:
+			return _make_edit_report(false, "invalid_selection_ports")
+		copied.node_id = id_map[source.node_id]
+		copied.editor_position += offset
+		if not copied.editor_position.is_finite():
+			return _make_edit_report(false, "invalid_paste_position")
+		copied.next_node_ids = _remap_node_ids(_internal_successors(copied.next_node_ids, source_lookup), id_map)
+		candidate.nodes.append(copied)
+		_append_packed_string(added_ids, String(copied.node_id))
+	var incoming: Array[Dictionary] = []
+	for value: Variant in source_connections:
+		if not (value is Dictionary):
+			return _make_edit_report(false, "invalid_selection_connection")
+		var connection: Dictionary = value
+		for field: String in ["from_node_id", "from_port_id", "to_node_id", "to_port_id"]:
+			var identifier: Variant = connection.get(field)
+			if not (identifier is StringName) and not (identifier is String):
+				return _make_edit_report(false, "invalid_selection_connection")
+		if connection.has("metadata") and not (connection["metadata"] is Dictionary):
+			return _make_edit_report(false, "invalid_selection_connection")
+		if not _connection_is_internal(connection, source_lookup):
+			return _make_edit_report(false, "external_selection_connection")
+		incoming.append(_remap_connection(connection, id_map))
+	var lookup: Dictionary = _build_node_lookup(_build_node_entries(candidate))
+	var keys: Dictionary = {}
+	var input_counts: Dictionary = {}
+	var output_counts: Dictionary = {}
+	for connection: Dictionary in incoming:
+		var reasons: PackedStringArray = _get_connection_invalid_reasons_for_view(
+			_build_connection_entry(connection, lookup), lookup, keys, input_counts, output_counts, candidate.validate_port_compatibility
+		)
+		if not reasons.is_empty():
+			return _make_edit_report(false, "invalid_selection_connection")
+		candidate.connections.append(connection)
+	var next_start: StringName = graph.start_node_id
+	if graph.nodes.is_empty() and next_start == &"" and copied_start != &"":
+		next_start = id_map[copied_start]
+	if capture_edit_state(graph) != before:
+		return _make_edit_report(false, "target_changed_during_paste")
+	return {
+		"ok": true, "nodes": candidate.nodes, "connections": candidate.connections, "start_node_id": next_start,
+		"added_node_ids": added_ids, "added_node_count": added_ids.size(), "added_connection_count": incoming.size(),
+		"id_map": id_map, "before_state": before,
+	}
+
+
+## 捕获复制/插入命令相关的图库存身份、ID 与端口兼容策略，外部结构或准入策略修改后拒绝过期候选。
+## [br]
+## @api framework_internal
+## [br]
+## @param graph: 当前图资源。
+## [br]
+## @return: 库存快照；空资源返回空字典。
+## [br]
+## @schema return: Dictionary，包含 nodes: Array[GFFlowNode]、node_ids: PackedStringArray、connections: Array[Dictionary]、start_node_id: StringName、validate_port_compatibility: bool。
+static func capture_edit_state(graph: GFFlowGraph) -> Dictionary:
+	if graph == null:
+		return {}
+	var ids: PackedStringArray = PackedStringArray()
+	for node: GFFlowNode in graph.nodes:
+		var _appended: bool = ids.append(String(node.node_id) if node != null else "")
+	return {"nodes": graph.nodes.duplicate(), "node_ids": ids, "connections": graph.connections.duplicate(true), "start_node_id": graph.start_node_id, "validate_port_compatibility": graph.validate_port_compatibility}
+
+
 ## 只计算布局候选，不修改节点资源，供编辑器事务提交。
 ## [br]
 ## @api framework_internal
@@ -612,6 +722,16 @@ func build_layout_positions(graph: GFFlowGraph, options: Dictionary = {}) -> Dic
 
 
 # --- 私有/辅助方法 ---
+
+## 仅保留选中集合内部的执行后继，避免跨图粘贴误接同名的外部节点。
+## [br]
+## @api private
+func _internal_successors(successors: PackedStringArray, selected: Dictionary) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	for value: String in successors:
+		if selected.has(StringName(value)):
+			var _appended: bool = result.append(value)
+	return result
 
 ## 将文本值规范化为非空 StringName。
 ## [br]

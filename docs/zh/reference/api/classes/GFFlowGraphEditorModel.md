@@ -276,7 +276,7 @@ func auto_layout(graph: GFFlowGraph, options: Dictionary = {}) -> Dictionary:
 func build_selection_package(graph: GFFlowGraph, node_ids: PackedStringArray) -> Dictionary:
 ```
 
-构建节点选择包，用于编辑器复制、剪切或跨工具传递。
+构建独立的节点选择包；仅保留选中集合内部的连接与后继。 读取导出属性，不调用项目图查询。原生 Resource 深复制保留项目脚本与端口类型， 不代理自定义存储属性或资源初始化的外部副作用。最多复制 256 个节点。
 
 参数：
 
@@ -289,7 +289,7 @@ func build_selection_package(graph: GFFlowGraph, node_ids: PackedStringArray) ->
 
 结构：
 
-- `return`: Dictionary，包含 ok、node_count、connection_count、nodes、connections 和 node_ids。
+- `return`: 成功 Dictionary 包含 ok、node_count、connection_count、nodes: Array[GFFlowNode]、connections: Array[Dictionary]、node_ids: PackedStringArray、start_node_id: StringName；起点未被选中时为空。失败仅包含 ok: false 与 error: String。
 
 <a id="member-gfflowgrapheditormodel-methods-paste_selection_package"></a>
 
@@ -302,7 +302,7 @@ func build_selection_package(graph: GFFlowGraph, node_ids: PackedStringArray) ->
 func paste_selection_package( graph: GFFlowGraph, selection_package: Dictionary, offset: Vector2 = Vector2.ZERO, options: Dictionary = {} ) -> Dictionary:
 ```
 
-将选择包粘贴到流程图。
+整体粘贴选择包；节点、内部连接与空图起点通过一个属性事务提交。 任何端点、端口、类型或预算失败都在写入前拒绝，不留下合法前缀。 不调用项目图查询、连接或节点插入方法；原生资源复制与自定义 setter 的外部副作用不属于事务保证。
 
 参数：
 
@@ -317,9 +317,9 @@ func paste_selection_package( graph: GFFlowGraph, selection_package: Dictionary,
 
 结构：
 
-- `selection_package`: Dictionary，由 build_selection_package() 返回，包含 nodes、connections 和 node_ids。
+- `selection_package`: Dictionary，包含 nodes: Array、connections: Array，可选 node_ids: PackedStringArray、start_node_id: StringName 及 build_selection_package() 的计数字段。
 - `options`: Dictionary，可包含 keep_original_ids。
-- `return`: Dictionary，包含 ok、added_node_ids、added_node_count、added_connection_count、failed_connection_count 和 id_map。
+- `return`: 成功 Dictionary 包含 ok、added_node_ids、added_node_count、added_connection_count、failed_connection_count: 0 和 id_map；失败包含 ok: false、error: String，可附 transaction: Dictionary。
 
 <a id="member-gfflowgrapheditormodel-methods-remove_nodes"></a>
 

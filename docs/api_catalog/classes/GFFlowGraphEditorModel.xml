@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFlowGraphEditorModel" path="addons/gf/extensions/flow/editor/gf_flow_graph_editor_model.gd" module="extensions/flow" extends="RefCounted" classDigest="e7f2b1a1bbc0e256b730cc33e46f92dd3d62430d6c91c026f46cc391b32e613d">
+<class name="GFFlowGraphEditorModel" path="addons/gf/extensions/flow/editor/gf_flow_graph_editor_model.gd" module="extensions/flow" extends="RefCounted" classDigest="c1d5381220258173bb950489687746c22dc7d3131dd187c76eedaec15f9c5901">
 	<description>GFFlowGraphEditorModel: FlowGraph 编辑器视图模型构建器。
 将 GFFlowGraph 转换为 GraphEdit、自定义编辑器或项目工具可直接消费的
 节点、端口、连接和校验结构。它只整理数据，不绑定具体 UI 实现。</description>
@@ -131,19 +131,23 @@
 		</member>
 		<member kind="method" name="build_selection_package">
 			<signature>func build_selection_package(graph: GFFlowGraph, node_ids: PackedStringArray) -&gt; Dictionary:</signature>
-			<description>构建节点选择包，用于编辑器复制、剪切或跨工具传递。</description>
+			<description>构建独立的节点选择包；仅保留选中集合内部的连接与后继。
+读取导出属性，不调用项目图查询。原生 Resource 深复制保留项目脚本与端口类型，
+不代理自定义存储属性或资源初始化的外部副作用。最多复制 256 个节点。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">graph: 流程图资源。</tag>
 				<tag name="param">node_ids: 选中的节点标识列表。</tag>
 				<tag name="return">选择包字典。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、node_count、connection_count、nodes、connections 和 node_ids。</tag>
+				<tag name="schema">return: 成功 Dictionary 包含 ok、node_count、connection_count、nodes: Array[GFFlowNode]、connections: Array[Dictionary]、node_ids: PackedStringArray、start_node_id: StringName；起点未被选中时为空。失败仅包含 ok: false 与 error: String。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="paste_selection_package">
 			<signature>func paste_selection_package( graph: GFFlowGraph, selection_package: Dictionary, offset: Vector2 = Vector2.ZERO, options: Dictionary = {} ) -&gt; Dictionary:</signature>
-			<description>将选择包粘贴到流程图。</description>
+			<description>整体粘贴选择包；节点、内部连接与空图起点通过一个属性事务提交。
+任何端点、端口、类型或预算失败都在写入前拒绝，不留下合法前缀。
+不调用项目图查询、连接或节点插入方法；原生资源复制与自定义 setter 的外部副作用不属于事务保证。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">graph: 流程图资源。</tag>
@@ -151,9 +155,9 @@
 				<tag name="param">offset: 粘贴时叠加到节点编辑器位置的偏移。</tag>
 				<tag name="param">options: 可选参数，支持 keep_original_ids。</tag>
 				<tag name="return">粘贴报告。</tag>
-				<tag name="schema">selection_package: Dictionary，由 build_selection_package() 返回，包含 nodes、connections 和 node_ids。</tag>
+				<tag name="schema">selection_package: Dictionary，包含 nodes: Array、connections: Array，可选 node_ids: PackedStringArray、start_node_id: StringName 及 build_selection_package() 的计数字段。</tag>
 				<tag name="schema">options: Dictionary，可包含 keep_original_ids。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、added_node_ids、added_node_count、added_connection_count、failed_connection_count 和 id_map。</tag>
+				<tag name="schema">return: 成功 Dictionary 包含 ok、added_node_ids、added_node_count、added_connection_count、failed_connection_count: 0 和 id_map；失败包含 ok: false、error: String，可附 transaction: Dictionary。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
