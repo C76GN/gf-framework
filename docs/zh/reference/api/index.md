@@ -7,8 +7,8 @@
 - 源码根目录：`addons/gf`
 - 公开类：`899`
 - 公开 AutoLoad：`1`
-- 公开成员：`12918`
-- 公开方法：`8056`
+- 公开成员：`12920`
+- 公开方法：`8058`
 - AutoLoad 公开方法：`65`
 
 ## 模块
@@ -17,7 +17,7 @@
 |---|---:|---:|---:|---:|---|
 | Kernel | 78 | 1 | 1214 | 898 | [kernel.md](kernel.md) |
 | Standard | 490 | 0 | 7692 | 4904 | [standard.md](standard.md) |
-| Action Queue | 21 | 0 | 241 | 158 | [extensions-action-queue.md](extensions-action-queue.md) |
+| Action Queue | 21 | 0 | 243 | 160 | [extensions-action-queue.md](extensions-action-queue.md) |
 | Asset Metadata | 4 | 0 | 33 | 24 | [extensions-asset-metadata.md](extensions-asset-metadata.md) |
 | Behavior Tree | 23 | 0 | 101 | 77 | [extensions-behavior-tree.md](extensions-behavior-tree.md) |
 | Camera | 8 | 0 | 138 | 46 | [extensions-camera.md](extensions-camera.md) |

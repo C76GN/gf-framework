@@ -95,7 +95,9 @@ nav:
       - ActionQueue:
           - 总览: extensions/action-queue/index.md
           - 配置化 Tween: extensions/action-queue/tween-config.md
+          - Tween 表现配方: extensions/action-queue/tween-recipes.md
           - 数值时间轴与预览样机: extensions/action-queue/tween-numeric-preview.md
+          - 多目标错峰示例: extensions/action-queue/visual-actions/staggered-targets.md
       - Asset Metadata: extensions/asset-metadata/index.md
       - Network 与 TurnBased: extensions/network-turnbased/index.md
       - Flow: extensions/flow/index.md

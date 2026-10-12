@@ -6,11 +6,14 @@
 
 ### 🚀 新增特性 (Added)
 
+- [Tween 创作](extensions/action-queue/tween-config.md#在编辑器中创作) 沿用创建时选择的样机用途，支持步骤名称、串并行分组概览、时间块悬停与点击定位、结构化错误字段导航；新增淡入、强调和脉冲配方，以及通过 `duration_scale` 调整完整总时长的原生撤销操作。来源实例或内容变化后，旧时间块仍可查看冻结姿态，但不能误定位较新的步骤。
+- [Flow 图编辑](extensions/flow/editor-model.md) 支持复制、剪切、粘贴和重复节点，并可从已保存的 `GFFlowNode` 资源创建独立副本。插入先准备完整候选，再提交一笔资源历史；只复制内部连接并重映射标识，空图起点遵守显式选择，切图或改图后的旧菜单与模板选择失效。
+- 新增[多目标错峰示例](extensions/action-queue/visual-actions/staggered-targets.md)，用现有等待与动作组组合有序入场，提供可运行的暂停、取消和重播界面，以及明确的目标、工厂和构建预算。
 - 新增[资源服务域](standard/utilities/io/assets-jobs-warmup/resource-service-domain.md)：初始化时统一选择默认稳定绑定、受控排空切换或最多两代的在途切换；请求、取消与资源句柄始终归属原代。原生线程加载器仅支持稳定和受控切换，在途切换由经过准入的独立快照后端提供。
 - [扩展管理器](extensions/editor-manager.md) 提供“保存设置”和“保存并应用”，展示真实的待应用、已应用、部分应用与失败结果；请求绑定设置快照，页面重建保留结果与未保存草稿。
 - 新增[第一个完整任务](overview/quickstart/first-task.md)独立样例，覆盖状态、UI、持久化、受控退出及异步演进；默认 Boot 继续保持为空，不要求小功能先创建全部架构角色。
 - Dialogue 的[项目恢复示例](extensions/dialogue/recovery.md)区分相同内容快照、项目检查点与显式版本迁移；框架不推断内容映射或副作用重放策略。
-- [Tween 数值时间线与自定义预览](extensions/action-queue/tween-numeric-preview.md) 提供只接收显式数值属性的冻结时间线，以及带所有者、容量和释放句柄的预览适配器注册。Inspector 可选择原生样机或已注册样机，选择器来自同一份属性记录；`gf.action_queue` 的 `extension_version` 升为 `2.8.0`。
+- [Tween 数值时间线与自定义预览](extensions/action-queue/tween-numeric-preview.md) 提供只接收显式数值属性的冻结时间线，以及带所有者、容量和释放句柄的预览适配器与资源关联注册。Inspector 共用预览用途和属性目录，打开资源即可准备可定位快照；`gf.action_queue` 的 `extension_version` 升为 `2.9.0`。
 - [Project Layout](editor/tools/project-layout.md) 支持显式声明生成证据和可丢弃目录的排除范围；排除在文件预算前生效，报告标注覆盖边界，必需源码、结构和配置来源不能被排除隐藏。
 - [AI Developer](editor/tools/ai-developer.md) 支持最多 256 条有限验证检查，验证描述总量限制为 256 KiB、参数总数限制为 4096，并报告实际数量和对应上限。
 - 输入映射支持完整初始化后的手动事件路由，由宿主管理输入、tick 与失焦清理，避免重复接收全局事件。
@@ -53,6 +56,9 @@
 
 ### 🔄 机制更改 (Changed)
 
+- [Spring Math](standard/foundation/grid-spatial/spring-math.md) 的四个步进入口统一拒绝非有限输入和非有限最终结果，返回空字典并发出一次明确诊断；调用方应先检查结果，再写回 value 和 velocity。有限非正 delta 保留原状态，正常结果仍只有这两个字段。
+- [自定义 Action](extensions/action-queue/visual-actions/custom-action.md#结束等待与自然成功) 明确结束等待与自然成功的区别，以及等待令牌取消和实际任务取消的各自所有权。
+- [Tween Inspector](extensions/action-queue/tween-config.md#在-inspector-中预览) 共用预览用途、初值和 Steps 属性目录，新增轻量资源路径关联；打开资源按声明或唯一兼容候选自动准备，歧义明确选择，首次接纳的用途在本次编辑中保留。准备与播放分开，未播放的合法编辑自动更新静态计划，已播放或定位的有效旧会话可继续并提示过期，新配置无效不替换旧快照。
 - Project Layout 的规则准入、九类规则与 zone 评估、来源捕获和分析统一由 GDScript 会话执行。配置升级为 schema 2；编辑器无需额外解释器，项目声明锚定实际来源根，切换扫描目录不能重新解释原有排除。
 - AI Developer 的契约升级为 schema 6，分别声明包源码存在与项目采用限制；快照与工具协议升级为 v10。无效前置输入对应的源码或政策状态明确标记为未知，报告保留根因，只有证据充分的问题进入可执行计数。
 - Dialogue 将结构编译与生产 Runner 构建分开；生产成功包含完整内容身份与预算准入。行为树把执行错误与普通失败分开，组合节点默认传播错误，只有显式恢复节点处理指定原因，中止与业务失败仍保持原有语义。
