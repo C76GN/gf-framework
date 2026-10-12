@@ -124,6 +124,29 @@ var _dependency_scope: Dictionary = _DEPENDENCY_SCOPE_SUPPORT._make_scope()
 
 # --- GF 生命周期方法 ---
 
+## 判断实例是否可将生命周期所有权交给 Architecture。
+## 已由其他服务拥有生命周期的实例应拒绝；该查询必须无副作用。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 默认 true。
+func can_register_in_architecture() -> bool:
+	return true
+
+## 判断此实例是否允许活动生命周期内的替换或注销。
+## 该策略必须无副作用且在实例生命周期内稳定；false 不妨碍整个架构关闭。
+## 架构在接管候选、调用 ready 或静默旧实例前检查，默认允许。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 允许独立移除时为 true。
+func can_remove_from_active_lifecycle() -> bool:
+	return true
+
 ## 返回此工具声明依赖的 Model 类型。
 ## 返回值必须保持纯函数语义，并在同一模块拓扑事务内保持稳定。
 ## [br]
@@ -455,6 +478,14 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 
 
 # --- 框架内部方法 ---
+
+## 查询显式架构绑定，不依赖 ready 状态，也不回退全局架构。
+## [br]
+## @api framework_internal
+## [br]
+## @return 冷注册或活动注册仍绑定架构时为 true。
+func is_bound_to_architecture_for_framework() -> bool:
+	return _DEPENDENCY_SCOPE_SUPPORT._get_bound_architecture_or_null(_dependency_scope) != null
 
 ## 注入当前模块所属的架构实例。由 GFArchitecture 在注册模块时自动调用。
 ## [br]

@@ -306,6 +306,8 @@ func create_runtime_snapshot() -> Dictionary:
 ##
 ## 恢复不会重新触发 dialogue_started、line_reached 或 mutation_requested，
 ## 也不会重新执行 mutation。调用方可使用返回行刷新自己的 UI。
+## 必需字段、类型、运行状态与行身份全部通过校验后才调用上下文恢复；
+## 无效快照保留现有会话和上下文。合法停止快照同样恢复上下文，但返回 null。
 ## [br]
 ## @api public
 ## [br]
@@ -319,13 +321,27 @@ func create_runtime_snapshot() -> Dictionary:
 ## [br]
 ## @return: 恢复后的当前可展示行；快照无效、已结束或资源不匹配时返回 null。
 ## [br]
-## @schema snapshot: 包含 schema_version、is_running、current_line_id、resource_fingerprint 和 context_values 字段的 Dictionary。
+## @schema snapshot: 必需 schema_version: int 或精确等于当前版本的 float（JSON 数字）、is_running: bool、current_line_id: String/StringName（运行时非空 TEXT 行，停止时为空）、resource_fingerprint: String、context_values: Dictionary。
 func restore_runtime_snapshot(
 	resource: GFDialogueResource,
 	snapshot: Dictionary,
 	context: GFDialogueContext = null
 ) -> GFDialogueLine:
-	if GFVariantData.get_option_int(snapshot, "schema_version", -1) != SNAPSHOT_SCHEMA_VERSION:
+	var schema_value: Variant = snapshot.get("schema_version")
+	if not (schema_value is int or schema_value is float) or schema_value != SNAPSHOT_SCHEMA_VERSION:
+		return null
+	var running_value: Variant = snapshot.get("is_running")
+	if not running_value is bool:
+		return null
+	var running: bool = running_value
+	var line_id_value: Variant = snapshot.get("current_line_id")
+	if not (line_id_value is String or line_id_value is StringName):
+		return null
+	var line_id: StringName = GFVariantData.get_option_string_name(snapshot, "current_line_id")
+	if (running and line_id == &"") or (not running and line_id != &""):
+		return null
+	var fingerprint_value: Variant = snapshot.get("resource_fingerprint")
+	if not fingerprint_value is String:
 		return null
 
 	var context_value: Variant = snapshot.get("context_values")
@@ -334,20 +350,15 @@ func restore_runtime_snapshot(
 	var context_values: Dictionary = context_value
 	if resource == null:
 		return null
-	var snapshot_fingerprint: String = GFVariantData.get_option_string(snapshot, "resource_fingerprint")
+	var snapshot_fingerprint: String = fingerprint_value
 	var resource_fingerprint: String = _get_resource_fingerprint(resource)
 	if resource_fingerprint.is_empty():
 		return null
 	if snapshot_fingerprint == "" or snapshot_fingerprint != resource_fingerprint:
 		return null
 
-	var running: bool = GFVariantData.get_option_bool(snapshot, "is_running", false)
-	var line_id: StringName = &""
 	var line: GFDialogueLine = null
 	if running:
-		line_id = GFVariantData.get_option_string_name(snapshot, "current_line_id", &"")
-		if line_id == &"":
-			return null
 		line = resource.get_line(line_id)
 		if line == null or line.kind != GFDialogueLine.LineKind.TEXT:
 			return null

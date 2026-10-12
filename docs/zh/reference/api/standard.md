@@ -6,10 +6,10 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 194 | 3496 | 2374 |
+| [运行时服务](#category-runtime_service) | 196 | 3520 | 2395 |
 | [协议与扩展点](#category-protocol) | 26 | 345 | 273 |
 | [资源定义](#category-resource_definition) | 122 | 1580 | 798 |
-| [运行时句柄](#category-runtime_handle) | 58 | 974 | 627 |
+| [运行时句柄](#category-runtime_handle) | 58 | 976 | 629 |
 | [值对象](#category-value_object) | 63 | 1029 | 670 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
@@ -147,6 +147,8 @@
 | [`GFResourceGraphScanner`](classes/GFResourceGraphScanner.md#gfresourcegraphscanner) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_resource_graph_scanner.gd` |
 | [`GFResourceRegistryAssetSourceProvider`](classes/GFResourceRegistryAssetSourceProvider.md#gfresourceregistryassetsourceprovider) | `GFAssetCatalogSourceProvider` | `addons/gf/standard/utilities/assets/gf_resource_registry_asset_source_provider.gd` |
 | [`GFResourceResolverUtility`](classes/GFResourceResolverUtility.md#gfresourceresolverutility) | `GFUtility` | `addons/gf/standard/utilities/assets/gf_resource_resolver_utility.gd` |
+| [`GFResourceServiceDomain`](classes/GFResourceServiceDomain.md#gfresourceservicedomain) | `GFUtility` | `addons/gf/standard/utilities/assets/gf_resource_service_domain.gd` |
+| [`GFResourceSnapshotBroker`](classes/GFResourceSnapshotBroker.md#gfresourcesnapshotbroker) | `GFResourceBroker` | `addons/gf/standard/utilities/assets/gf_resource_snapshot_broker.gd` |
 | [`GFResourceVariantProvider`](classes/GFResourceVariantProvider.md#gfresourcevariantprovider) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_resource_variant_provider.gd` |
 | [`GFRichTextFormatter`](classes/GFRichTextFormatter.md#gfrichtextformatter) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_rich_text_formatter.gd` |
 | [`GFRuntimeAgentEnvironment`](classes/GFRuntimeAgentEnvironment.md#gfruntimeagentenvironment) | `GFUtility` | `addons/gf/standard/utilities/agent/gf_runtime_agent_environment.gd` |

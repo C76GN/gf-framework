@@ -11,7 +11,8 @@ Dialogue 适合作为对话流程的最小运行时抽象。项目可以在自�
 - `GFDialogueResponse`：描述可选响应及其后继。
 - `GFDialogueContext`：保存运行时值表，并提供条件、mutation 和文本解析回调。
 - `GFDialogueRunner`：推进资源，发出行、响应、mutation 和结束信号。
-- 可选制作期 [Dialogue Text 工具包](../../editor/tools/dialogue-text.md)：把严格 JSON 文本编译为同一运行时资源，并输出结构化校验报告。
+- 可选制作期 [Dialogue Text 工具包](../../editor/tools/dialogue-text.md)：提供结构编译与面向内置 Runner 的生产构建两种成功合同。
+- [恢复分层与项目配方](recovery.md)：严格快照、项目检查点和显式版本迁移的适用边界。
 
 ## 最小流程
 
@@ -50,6 +51,8 @@ runner.advance()
 
 恢复先校验快照结构、资源身份和目标文本行，再调用传入上下文的 `deserialize_values()` 覆盖。子类应先完整校验输入，再一次性替换 `values` 与自有持久状态；返回 `false` 必须保留这些状态，返回 `true` 表示全部恢复完成。此步骤是同步数据恢复，不应重新进入或推进 Runner；框架不会反射复制或回滚项目对象。
 
+五个快照字段都必须存在并符合类型：`schema_version` 是当前版本整数，或 JSON 读取后数值完全相等的浮点数；不接受字符串或小数截断。`is_running` 必须是布尔值；`current_line_id` 必须是字符串或 `StringName`，运行时指向非空 TEXT 行，停止时必须为空。`resource_fingerprint` 是字符串，`context_values` 是字典。缺失或非法状态不能被解释为停止请求；合法停止快照会恢复上下文并返回 `null`。
+
 `create_runtime_snapshot()` 只在资源身份一致的稳定 `TEXT` checkpoint，或已经提交的停止状态返回上述五字段快照。`line_reached` 与 `dialogue_ended` 都在稳定状态发布后发出，因此可在对应回调中立即创建快照；`start()`、`advance()` 或 `choose_response()` 返回稳定行后也可以创建。
 
 `dialogue_started`、由 `start()` / `advance()` / `choose_response()` 推进触发的 response condition、`mutation_requested`、mutation handler、自动跳转等窗口尚未形成可恢复 checkpoint，此时方法返回空 `Dictionary`，并且不会序列化半完成上下文。独立调用 `get_available_responses()` 只评估当前稳定 checkpoint，不属于推进窗口。调用方必须先检查 `snapshot.is_empty()`，只持久化非空结果；Runner 不会猜测、重放或序列化 continuation。
@@ -61,7 +64,7 @@ Runner 在 `start()` 前同步计算完整资源指纹，恢复时要求指纹�
 - `validate_resource()` 会拒绝空图、空或重复行 ID、非法 `LineKind`、缺失后继和无条件自动循环；它仍不判断剧情设计是否合理。
 - `max_steps_per_advance` 只计算被跳过的条件行以及实际执行的 JUMP/MUTATION 等非展示转换；到达 TEXT 本身不消耗预算。小于等于 `0` 表示不启用步数上限，循环检测仍然生效。
 - 条件、mutation 和 Runner 信号都是同步项目代码边界。回调可以停止或替换当前会话；一旦会话改变，旧推进栈会作废并返回 `null`，不会覆盖新会话。
-- mutation 处理器返回失败时，Runner 只阻止推进，不可能自动回滚项目已经产生的外部副作用。处理器应在成功前自行保持原子性或幂等性；是否提供框架级事务/once 协议仍需单独决策。
+- mutation 处理器返回失败时，Runner 只阻止推进，不可能自动回滚项目已经产生的外部副作用。处理器应在成功前自行保持原子性或幂等性；项目检查点应显式记录已提交效果，框架不提供隐式事务或 once 承诺。
 
 ## 使用边界
 

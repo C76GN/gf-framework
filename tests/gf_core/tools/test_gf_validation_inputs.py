@@ -102,9 +102,6 @@ def _default_input_specs() -> tuple[gf_validation_contracts.CheckInputSpec, ...]
 			"-gpre_run_script=res://tests/gf_core/support/gf_gut_pre_run_hook.gd",
 			"-gpost_run_script=res://tests/gf_core/support/gf_gut_post_run_hook.gd",
 		),
-		default_reference_project="../gf-reference-project",
-		reference_boot_scene="res://scenes/app/driftbound_boot.tscn",
-		reference_smoke_scene="res://tests/smoke/driftbound_smoke.tscn",
 	)
 	return gf_validation_catalog.build_validation_catalog(context).input_specs
 

@@ -2,6 +2,8 @@
 
 最小启动只需要注册模块、初始化架构，再从架构取回需要的模块。
 
+第一次接入可以先运行[完整任务样例](first-task.md)。没有共享业务状态或独立规则时，不必为了使用 GF 而创建 Model、System 或 Command；下例说明需要这些角色之后的装配方式。
+
 ```gdscript
 extends Node
 

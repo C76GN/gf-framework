@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFResourceServiceDomain" path="addons/gf/standard/utilities/assets/gf_resource_service_domain.gd" module="standard" extends="GFUtility" classDigest="1b580f64c8ecc89a0a9f3bbd71906e3f76881be2e8cec9a870b4b9266e348bf9">
+	<description>GFResourceServiceDomain：一个 Broker 及其消费者的稳定资源服务入口。
+模式在 configure 时固定；主线程上请求、切换与 pump 串行执行。
+受控切换暂停时明确拒绝新请求；在途热切换最多保留两代且不会重放已接纳工作。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="generation_changed">
+			<signature>signal generation_changed(previous_generation: int, current_generation: int)</signature>
+			<description>新请求入口完成统一换代；旧代结果仍按原请求交付。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">previous_generation: 原入口代次。</tag>
+				<tag name="param">current_generation: 新入口代次。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums>
+		<member kind="enum" name="Mode">
+			<signature>enum Mode {
+	## 稳定绑定：生命周期内固定 Broker。
+	STABLE,
+	## 受控切换：拒绝新请求，等待原代工作和所有权引用收尾后换代。
+	CONTROLLED,
+	## 在途热切换：新请求立即换代，旧代保留推进到全部所有权引用释放。
+	IN_FLIGHT,
+}</signature>
+			<description>服务域初始化时固定的切换合同。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants>
+		<member kind="const" name="MAX_GENERATION_REFERENCES">
+			<signature>const MAX_GENERATION_REFERENCES: int = 8192</signature>
+			<description>每代请求票据、句柄保留票据和租约的总预算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="init">
+			<signature>func init() -&gt; void:</signature>
+			<description>开启生命周期 tick；不会重置已经配置的域或模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="tick">
+			<signature>func tick(_delta: float = 0.0) -&gt; void:</signature>
+			<description>推进当前、旧代和切换等待。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_delta: 不用于期限计算。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_quiesce">
+			<signature>func begin_quiesce(scope: GFAsyncScope) -&gt; GFAsyncCompletion:</signature>
+			<description>停止新接纳，继续完成已经接纳的本地队列、租约和引用释放。
+scope 取消只结束等待；未收尾实例仍需继续 pump，不能强杀加载器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope: 调用方的关闭期限与取消作用域。</tag>
+				<tag name="return">全部代次收尾后成功；取消不表示已物理退出。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>请求关闭并推进一次；尚未收尾且存在 SceneTree 时托管局部退出推进器。
+没有 SceneTree 时，租约/句柄仍保留域，调用者须显式 pump。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="configure">
+			<signature>func configure(broker: GFResourceBroker, mode: Mode = Mode.STABLE) -&gt; Error:</signature>
+			<description>初始化域并接管一个全新 Broker。模式不能在运行中修改。
+受控切换仅支持框架原生或快照后端；在途热切换仅支持框架快照后端，原生 threaded 后端拒绝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">broker: 已初始化、未被固定消费者使用且尚未注册进架构的实例。</tag>
+				<tag name="param">mode: 域唯一模式，默认为 STABLE。</tag>
+				<tag name="return">已配置为 ERR_ALREADY_IN_USE，能力不满足为 ERR_UNAVAILABLE。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_mode">
+			<signature>func get_mode() -&gt; Mode:</signature>
+			<description>读取固定模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">初始化选择的模式。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_current_generation">
+			<signature>func get_current_generation() -&gt; int:</signature>
+			<description>读取新请求使用的代次。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">未配置时为 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_accepting_requests">
+			<signature>func is_accepting_requests() -&gt; bool:</signature>
+			<description>判断当前入口是否接纳新工作；暂停期间不会无限排队。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已配置且未暂停、未关闭时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="request">
+			<signature>func request(path: String, type_hint: String = "", options: Dictionary = {}) -&gt; GFResourceLease:</signature>
+			<description>立即发起绑定当前代次的请求；旧结果仍通过返回租约读取。
+已完成租约也需 release；只取 Resource 后释放租约表示资源已脱离服务所有权。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 逻辑资源路径。</tag>
+				<tag name="param">type_hint: 冻结类型提示。</tag>
+				<tag name="param">options: Broker 准入选项。</tag>
+				<tag name="return">拒绝返回 failed Lease，绝不静默降级。</tag>
+				<tag name="schema">options: Dictionary with optional exclusive: bool, require_idle: bool, consumer_id: StringName.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_switch">
+			<signature>func begin_switch(broker: GFResourceBroker, timeout_msec: int = 30000) -&gt; GFAsyncCompletion:</signature>
+			<description>准备并接管新代。受控切换等待旧代所有工作及引用释放后提交；在途热切换立即换入口后继续收尾旧代。
+超时失败不会撤销已接纳工作，受控切换保持暂停，在途热切换保留新入口和旧代推进。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">broker: 全新且满足当前模式能力的已初始化实例。</tag>
+				<tag name="param">timeout_msec: 收尾等待期限，范围 1–600000 毫秒。</tag>
+				<tag name="return">旧代安全退出后成功；拒绝或期限失败提供稳定错误文本。非主线程错误调用返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="pump">
+			<signature>func pump() -&gt; void:</signature>
+			<description>推进全部存活代次并尝试收尾；关闭或超时后仍可调用，不强制销毁被引用对象。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="can_remove_from_active_lifecycle">
+			<signature>func can_remove_from_active_lifecycle() -&gt; bool:</signature>
+			<description>域稳定入口不能通过架构移除后重新注册来绕过模式合同。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">始终 false；架构整体关闭仍允许。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>读取有界代次与等待诊断，不暴露可变 Broker 实例。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前入口与收尾状态。</tag>
+				<tag name="schema">return: Dictionary with mode: int, current_generation: int, retiring_generation: int, live_generations: int, paused: bool, closing: bool, accepting: bool, retirement_pump: String, retirement_reason: String, generations: Array[Dictionary] containing generation: int, references: int, idle: bool.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

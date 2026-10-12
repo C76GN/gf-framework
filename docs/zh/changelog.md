@@ -6,6 +6,10 @@
 
 ### 🚀 新增特性 (Added)
 
+- 新增[资源服务域](standard/utilities/io/assets-jobs-warmup/resource-service-domain.md)：初始化时统一选择默认稳定绑定、受控排空切换或最多两代的在途切换；请求、取消与资源句柄始终归属原代。原生线程加载器仅支持稳定和受控切换，在途切换由经过准入的独立快照后端提供。
+- [扩展管理器](extensions/editor-manager.md) 提供“保存设置”和“保存并应用”，展示真实的待应用、已应用、部分应用与失败结果；请求绑定设置快照，页面重建保留结果与未保存草稿。
+- 新增[第一个完整任务](overview/quickstart/first-task.md)独立样例，覆盖状态、UI、持久化、受控退出及异步演进；默认 Boot 继续保持为空，不要求小功能先创建全部架构角色。
+- Dialogue 的[项目恢复示例](extensions/dialogue/recovery.md)区分相同内容快照、项目检查点与显式版本迁移；框架不推断内容映射或副作用重放策略。
 - [Tween 数值时间线与自定义预览](extensions/action-queue/tween-numeric-preview.md) 提供只接收显式数值属性的冻结时间线，以及带所有者、容量和释放句柄的预览适配器注册。Inspector 可选择原生样机或已注册样机，选择器来自同一份属性记录；`gf.action_queue` 的 `extension_version` 升为 `2.8.0`。
 - [Project Layout](editor/tools/project-layout.md) 支持显式声明生成证据和可丢弃目录的排除范围；排除在文件预算前生效，报告标注覆盖边界，必需源码、结构和配置来源不能被排除隐藏。
 - [AI Developer](editor/tools/ai-developer.md) 支持最多 256 条有限验证检查，验证描述总量限制为 256 KiB、参数总数限制为 4096，并报告实际数量和对应上限。
@@ -50,7 +54,8 @@
 ### 🔄 机制更改 (Changed)
 
 - Project Layout 的规则准入、九类规则与 zone 评估、来源捕获和分析统一由 GDScript 会话执行。配置升级为 schema 2；编辑器无需额外解释器，项目声明锚定实际来源根，切换扫描目录不能重新解释原有排除。
-- AI Developer 的快照与工具协议升级为 v9。无效前置输入对应的源码或政策状态明确标记为未知，报告保留根因，只有证据充分的问题进入可执行计数。
+- AI Developer 的契约升级为 schema 6，分别声明包源码存在与项目采用限制；快照与工具协议升级为 v10。无效前置输入对应的源码或政策状态明确标记为未知，报告保留根因，只有证据充分的问题进入可执行计数。
+- Dialogue 将结构编译与生产 Runner 构建分开；生产成功包含完整内容身份与预算准入。行为树把执行错误与普通失败分开，组合节点默认传播错误，只有显式恢复节点处理指定原因，中止与业务失败仍保持原有语义。
 - Storage 的业务文件与解析前明文默认分别限制为 64 MiB；字典保存先检查完整明文和最终编码文件，再提交同一份字节，避免保存成功却超出本请求两项字节预算。项目可显式调高正数上限，预算失败不会获得损坏文件的重置授权。
 
 - 项目初始化工具移除默认计数器模板及其全局类型声明，新项目默认目录改为 `res://app/`；README 按需生成，生成后的入口与 Installer 属于项目源码。框架升级不重写项目源码，Model、System 及可选能力继续通过已有模板和所属工具添加。
@@ -77,6 +82,8 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- Dialogue 恢复精确快照时，在修改上下文前拒绝缺失字段、错误类型及运行状态与当前行不一致的数据；真实 JSON 往返的合法快照继续可恢复。行为树缺失必需子节点不会再被总是成功装饰器吞掉。
+- 扩展管理器的组合文件路径先保存为页面草稿；撤销上下文后拒绝已打开文件选择器的迟到回调，防止页面失去权限后仍修改全局设置。
 - 修正优先队列在显式负顺序值下的队首插入，嵌套 Schema 校验失败后停止执行附加规则；CSV 未指定列顺序时按 Schema 声明顺序导出。
 - Resource Broker 在架构正常关闭期间继续有界处理已接收请求并拒绝新请求；音频句柄释放时解除所有者退出订阅。Storage 在递归规范化前完成结构预算检查，超限输入明确失败。
 - Inventory Transfer 与普通堆叠使用相同的回调准入规则；VisualAction 的有限非正 Signal 超时关闭计时。Capability Recipe 失败回滚会恢复复用实例原有的激活及顶层归属状态，且不会覆写回调中新建的替代实例。
@@ -133,6 +140,7 @@
 
 ### ⚠️ 废弃与移除 (Deprecated/Removed)
 
+- 退役已停止建设的外部 Reference 工程同步流程，移除专用命令、路径配置与外部 smoke；`examples` 改为验证本仓独立样例。外部工程、备份与业务资源不受操作，共用事务、预算和回滚能力继续保留。旧命令会明确失败，不再作为可用工作流宣传。
 - 删除 Project Layout 的 Python 规则解释器及 legacy、shadow 迁移模式；维护命令只负责把输入交给同一个 GDScript 会话。
 - 移除同步节点借用、按裸节点归还、`before_add` 回调及池专用节点启停钩子。
 - 移除 `GFObjectPoolPrewarmOperation` 及其 `progressed` / `completed` 信号和多套预热入口。独立公开的弹幕发射策略 Task 改为内部实现。
@@ -141,7 +149,9 @@
 
 - Project Layout 只接受 profile、snapshot 和 analysis 的 schema 2；旧 profile schema 1 和 `--profile-mode` 选项已移除。声明范围、来源根与保护集合进入分析身份，不能把旧报告拼接成新报告。
 - 新增 `GFTweenNumericTimeline` 数值捕获与采样接口，以及 `GFTweenPreviewAdapter`、注册目录和一次性注册句柄；内部播放计划继续作为实现细节。
-- AI Developer 只输出 snapshot v9，工具协议为 `9.0.0`；快照包含未知来源和未分类政策的闭合统计字段。
+- AI Developer 只接受项目契约 schema 6，使用 `framework.package_presence` 与 `framework.package_usage` 两组闭合规则；输出 snapshot v10，工具协议为 `10.0.0`，保留未知来源和未分类政策的统计。
+- `GFDialogueTextCompiler.compile_text()` / `compile_source()` 移除，改为明确的 `compile_structure_text()` / `compile_structure_source()` 与 `build_runner_text()` / `build_runner_source()`。`GFBehaviorTree` 新增执行错误状态与显式 `RecoverError` 节点，不能依赖 Selector、Inverter 等把执行错误改写为业务结果。
+- 新增 `GFResourceServiceDomain` 与 `GFResourceSnapshotBroker`；Asset 可绑定稳定服务域，直接 Broker 引用只享有固定绑定。活动域与 Broker 拒绝架构内替换或注销；需要更换时使用域协议或关闭重建，不能通过修改配置切换模式。
 - `GFStorageUtility` 新增 `max_read_bytes`；`GFStorageCodec.max_decompressed_bytes` 及同名选项改为统一的 `max_decode_bytes`，同时约束压缩与普通文件的解析前明文及编码时完整文档明文。两项预算均默认 64 MiB 且须为正数；异步读写使用入队配置快照。新增 `GFStorageCodec.encode_result()` 闭合的 `{ok, error, bytes}`；`GFStorageReadResult.FailureKind` 和 `GFStorageAsyncResult.WriteFailureKind` 新增 `LIMIT_EXCEEDED`，压缩解码无法区分损坏与限额时保守拒绝重置授权。明文字节预算不等同于 Variant 堆内存上限。
 - `GFInputMappingUtility` 新增 `automatic_input_routing`，关闭时仍正常执行初始化与依赖生命周期。
 - `GFDeterministicVariantSerializer` 新增 `measure_canonical()` 与 `sha256_incremental()`。`sha256()` 在预算预检后构建规范树并使用原生快速哈希；增量入口分块编码与哈希，避免构建整棵规范树及完整 JSON。两者保持相同规范摘要与预算合同；增量路径的字典键排序仍保留规范键文本。
@@ -176,7 +186,9 @@
 ### 📘 升级指南 (Migration Guide)
 
 - Project Layout 配置将 `schema_version` 改为 `2` 后，按当前规则闭合字段重新校验；需要排除生成目录时显式填写 `capture_scope`，并保留必需源码、结构和 profile 来源。重新捕获 snapshot 和 analysis，不能只修改旧报告的版本号。
-- AI Developer 安装本版后重新生成 v9 快照；若旧输出文件为 v8，先选择新输出路径或删除旧生成快照，再运行当前快照命令。不要复制旧统计字段或继续使用旧协议的输出作为依据。
+- AI Developer 通过现有迁移计划与确认流程把 v5 契约升级为 v6：原 required 进入源码必需与采用允许，optional 进入采用允许，forbidden 同时保留源码禁止与采用禁止。重新生成 v10 快照，不手动改旧报告版本号；需要“允许源码存在但禁止项目采用”时再显式调整两组规则。
+- Dialogue 调用方按用途选择结构编译或生产构建，交给内置 Runner 的内容使用 `build_runner_*` 并检查 `success`。行为树仅在项目明确允许恢复的错误原因外包 `RecoverError`；旧工作不会自动重试。对话内容变动后不能强行复用精确快照，应由项目检查点或显式版本映射恢复。
+- 资源消费者在初始化前完成绑定；需要切换时共享同一个服务域入口，旧资源通过原句柄释放。受控切换暂停时拒绝新请求；在途热切换的旧代未退出时拒绝再次切换，超时不会强制销毁仍在使用的后端。移除维护脚本中的 `sync-reference-project` 与外部 Reference 参数，改用本仓 `examples` 验证独立样例；这不提供通用项目升级替代命令。
 - 自定义 Tween 预览先显式注册有限数值 descriptor 和工具自有样机适配器，并持有注册句柄；退出时释放。运行时使用数值时间线时显式传入初值和范围，避免把项目 Node、资源加载或业务逻辑带入纯数值捕获。
 1. 给节点借用与弹幕发射调用增加 `await`；节点借用的第三个参数必须传接收方 `lifetime_owner`（通常是 `self`），初始化数据移到第四个参数。检查结果成功后再使用节点或 Session。不要保留旧 Task 或监听已移除的预热 Operation 信号。
 2. 每次借用保存对应 Lease，用 Lease 归还，不再用节点引用作为回收凭证。归还后立即停止访问此前保存的裸节点引用。

@@ -47,9 +47,6 @@ class ValidationCatalogContext:
 	gut_lifecycle_cli_resource_path: str
 	gut_shard_config_disabled_argument: str
 	gut_lifecycle_hook_arguments: tuple[str, ...]
-	default_reference_project: str
-	reference_boot_scene: str
-	reference_smoke_scene: str
 
 
 @dataclass(frozen=True)
@@ -325,8 +322,6 @@ class ValidationCatalog:
 		self,
 		suite: str,
 		actions: Sequence[str] | None = None,
-		*,
-		sync_examples: bool = False,
 	) -> ValidationPlan:
 		"""Build one effective graph and closure for the complete runner invocation."""
 		try:
@@ -339,22 +334,6 @@ class ValidationCatalog:
 			else suite_actions
 		)
 		check_graph = self._check_graph
-		if sync_examples:
-			requested_actions = tuple(
-				_replace_sync_examples_action(name)
-				for name in requested_actions
-			)
-			effective_dependencies = {
-				name: tuple(
-					_replace_sync_examples_action(dependency)
-					for dependency in dependencies
-				)
-				for name, dependencies in self._dependencies.items()
-			}
-			try:
-				check_graph = CheckGraph(self._action_names, effective_dependencies)
-			except ValueError as error:
-				raise ValidationCatalogError(str(error)) from error
 		try:
 			expanded_actions = tuple(check_graph.expand(requested_actions))
 		except ValueError as error:
@@ -736,77 +715,18 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		),
 		subprocess_action("diff", ("git", "diff", "--check")),
 		subprocess_action(
-			"examples_sync",
-			python_script(
-				"tools/sync_reference_project.py",
-				"--project-root",
-				context.default_reference_project,
-				"--check",
-			),
-		),
-		subprocess_action(
-			"examples_sync_write",
-			python_script(
-				"tools/sync_reference_project.py",
-				"--project-root",
-				context.default_reference_project,
-				"--apply",
-			),
-		),
-		subprocess_action(
-			"examples_scan",
+			"first_task_smoke",
 			(
 				"godot",
 				"--headless",
 				"--log-file",
-				godot_log_path("examples_scan"),
+				godot_log_path("first_task_smoke"),
 				"--path",
-				context.default_reference_project,
-				"--editor",
-				"--quit-after",
-				"2",
-			),
-		),
-		subprocess_action(
-			"examples_boot",
-			(
-				"godot",
-				"--headless",
-				"--log-file",
-				godot_log_path("examples_boot"),
-				"--quit-after",
-				"10",
-				"--path",
-				context.default_reference_project,
+				".",
 				"--scene",
-				context.reference_boot_scene,
-			),
-		),
-		subprocess_action(
-			"examples_smoke",
-			(
-				"godot",
-				"--headless",
-				"--log-file",
-				godot_log_path("examples_smoke"),
-				"--quit-after",
-				"10",
-				"--path",
-				context.default_reference_project,
-				"--scene",
-				context.reference_smoke_scene,
-			),
-		),
-		subprocess_action(
-			"examples_coverage",
-			python_script(
-				"tools/generate_api_coverage_matrix.py",
-				"--examples",
-				context.default_reference_project,
-				"--output",
-				"ai_analysis/api_coverage_reference_project",
-				"--allow-unsafe-output-root",
-				"--check",
+				"res://examples/first_task/first_task.tscn",
+				"--",
+				"--first-task-smoke",
 			),
 		),
 		subprocess_action("release_metadata", None),
@@ -854,6 +774,8 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 	)
 	default_timeout_seconds = 600
 	timeout_overrides = (
+		# Local sample exercises bounded short work after the shared import.
+		("first_task_smoke", 60),
 		# The unfiltered authoritative suite exceeds the generic ten-minute
 		# budget on clean Windows runs. Keep the same measured floor as the explicit
 		# full-suite observation and qualification control.
@@ -878,21 +800,12 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		("gdscript_warnings", ("godot_import",)),
 		("gdscript_lsp_diagnostics", ("godot_import",)),
 		("mkdocs", ("docs", "public_docs_boundary")),
-		("examples_scan", ("examples_sync",)),
-		("examples_boot", ("examples_scan",)),
-		("examples_smoke", ("examples_scan",)),
-		("examples_coverage", ("examples_sync",)),
+		("first_task_smoke", ("godot_import",)),
 	)
 
 	api_checks = ("api", "ai_api", "ai_developer_kit", "public_api_boundary")
 	docs_checks = ("docs", "changelog_policy", "public_docs_boundary", "mkdocs")
-	examples_checks = (
-		"examples_sync",
-		"examples_scan",
-		"examples_boot",
-		"examples_smoke",
-		"examples_coverage",
-	)
+	examples_checks = ("first_task_smoke",)
 	light_boundary_checks = (
 		"resource_boundary",
 		"content_package_boundary",
@@ -942,6 +855,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 	framework_gut_checks = ("gut_lifecycle_smoke", "gut", "gdscript_warnings")
 	framework_lsp_checks = ("gdscript_lsp_diagnostics",)
 	framework_integration_checks = (
+		"first_task_smoke",
 		"project_profile_native_acceptance",
 		"ai_developer_adapter_acceptance",
 		"core_plugin_bootstrap_smoke",
@@ -1116,8 +1030,6 @@ def _validate_input_specs(
 	return tuple(by_name[name] for name in action_names if name in by_name)
 
 
-def _replace_sync_examples_action(name: str) -> str:
-	return "examples_sync_write" if name == "examples_sync" else name
 
 
 def _validate_timeout_overrides(

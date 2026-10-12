@@ -1,6 +1,224 @@
 extends GutTest
 
 
+func test_missing_required_decorator_child_is_an_execution_error() -> void:
+	var decorators: Array[GFBehaviorTree.BTNode] = _nodes([
+		GFBehaviorTree.Inverter.new(null), GFBehaviorTree.AlwaysSucceed.new(null),
+		GFBehaviorTree.AlwaysFail.new(null), GFBehaviorTree.Probability.new(null),
+		GFBehaviorTree.Cooldown.new(null), GFBehaviorTree.TimeLimit.new(null),
+		GFBehaviorTree.Limit.new(null), GFBehaviorTree.Repeat.new(null),
+		GFBehaviorTree.UntilSuccess.new(null), GFBehaviorTree.UntilFail.new(null),
+	])
+	for decorator: GFBehaviorTree.BTNode in decorators:
+		assert_eq(decorator.tick({}), GFBehaviorTree.Status.ERROR, decorator.name)
+		assert_eq(decorator.last_reason, &"missing_child", decorator.name)
+
+
+func test_missing_always_succeed_child_stops_parent_and_requires_explicit_recovery() -> void:
+	var effects: Dictionary = { "count": 0 }
+	var later: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		effects["count"] = GFVariantData.get_option_int(effects, "count") + 1
+		return GFBehaviorTree.Status.SUCCESS
+	)
+	var missing: GFBehaviorTree.AlwaysSucceed = GFBehaviorTree.AlwaysSucceed.new(null)
+	var sequence: GFBehaviorTree.Sequence = GFBehaviorTree.Sequence.new(_nodes([missing, later]))
+	assert_eq(sequence.tick({}), GFBehaviorTree.Status.ERROR)
+	assert_eq(sequence.last_reason, &"missing_child")
+	assert_eq(GFVariantData.get_option_int(effects, "count"), 0)
+	var recovery: GFBehaviorTree.RecoverError = GFBehaviorTree.RecoverError.new(missing, later, [&"missing_child"])
+	assert_eq(recovery.tick({}), GFBehaviorTree.Status.SUCCESS)
+	assert_eq(recovery.get_caught_reason(), &"missing_child")
+	assert_eq(GFVariantData.get_option_int(effects, "count"), 1)
+	assert_eq(recovery.tick({}), GFBehaviorTree.Status.SUCCESS)
+	assert_eq(GFVariantData.get_option_int(effects, "count"), 1, "重复 tick 不得重放恢复副作用。")
+
+
+func test_execution_errors_cross_every_builtin_composition_boundary() -> void:
+	var invalid: GFBehaviorTree.Condition = GFBehaviorTree.Condition.new(func(_bb: Dictionary) -> String: return "not bool")
+	var boundaries: Array[GFBehaviorTree.BTNode] = _nodes([
+		GFBehaviorTree.Sequence.new(_nodes([invalid])),
+		GFBehaviorTree.Selector.new(_nodes([invalid])),
+		GFBehaviorTree.Parallel.new(_nodes([invalid]), GFBehaviorTree.ParallelPolicy.REQUIRE_ALL),
+		GFBehaviorTree.Parallel.new(_nodes([invalid]), GFBehaviorTree.ParallelPolicy.REQUIRE_ONE),
+		GFBehaviorTree.RandomSequence.new(_nodes([invalid])),
+		GFBehaviorTree.RandomSelector.new(_nodes([invalid])),
+		GFBehaviorTree.Inverter.new(invalid), GFBehaviorTree.AlwaysSucceed.new(invalid),
+		GFBehaviorTree.AlwaysFail.new(invalid), GFBehaviorTree.Probability.new(invalid, 1.0),
+		GFBehaviorTree.Cooldown.new(invalid), GFBehaviorTree.TimeLimit.new(invalid),
+		GFBehaviorTree.Limit.new(invalid, 3), GFBehaviorTree.Repeat.new(invalid, 3),
+		GFBehaviorTree.UntilSuccess.new(invalid), GFBehaviorTree.UntilFail.new(invalid),
+	])
+	for boundary: GFBehaviorTree.BTNode in boundaries:
+		assert_eq(boundary.tick({}), GFBehaviorTree.Status.ERROR, boundary.name)
+		assert_eq(boundary.last_reason, &"invalid_condition_result", boundary.name)
+
+
+func test_selector_and_parallel_do_not_run_later_work_after_error() -> void:
+	var effects: Dictionary = { "count": 0 }
+	var invalid: GFBehaviorTree.Action = GFBehaviorTree.Action.new(Callable())
+	var later: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		effects["count"] = GFVariantData.get_option_int(effects, "count") + 1
+		return GFBehaviorTree.Status.SUCCESS
+	)
+	var selector: GFBehaviorTree.Selector = GFBehaviorTree.Selector.new(_nodes([invalid, later]))
+	var parallel: GFBehaviorTree.Parallel = GFBehaviorTree.Parallel.new(_nodes([invalid, later]), GFBehaviorTree.ParallelPolicy.REQUIRE_ONE)
+	assert_eq(selector.tick({}), GFBehaviorTree.Status.ERROR)
+	assert_eq(parallel.tick({}), GFBehaviorTree.Status.ERROR)
+	assert_eq(GFVariantData.get_option_int(effects, "count"), 0)
+	assert_eq(selector.last_reason, &"invalid_action")
+
+
+func test_error_recovery_resumes_only_recovery_and_latches_terminal_until_reset() -> void:
+	var calls: Dictionary = { "source": 0, "recovery": 0 }
+	var source: GFBehaviorTree.Condition = GFBehaviorTree.Condition.new(func(_bb: Dictionary) -> String:
+		calls["source"] = GFVariantData.get_option_int(calls, "source") + 1
+		return "bad"
+	)
+	var recovery: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		calls["recovery"] = GFVariantData.get_option_int(calls, "recovery") + 1
+		return GFBehaviorTree.Status.RUNNING if GFVariantData.get_option_int(calls, "recovery") == 1 else GFBehaviorTree.Status.SUCCESS
+	)
+	var node: GFBehaviorTree.RecoverError = GFBehaviorTree.RecoverError.new(source, recovery, [&"invalid_condition_result"])
+	assert_eq(node.tick({}), GFBehaviorTree.Status.RUNNING)
+	assert_eq(node.get_caught_reason(), &"invalid_condition_result")
+	assert_eq(node.tick({}), GFBehaviorTree.Status.SUCCESS)
+	assert_eq(node.tick({}), GFBehaviorTree.Status.SUCCESS)
+	assert_eq(GFVariantData.get_option_int(calls, "source"), 1, "恢复和终态重复 tick 不得重放原分支。")
+	assert_eq(GFVariantData.get_option_int(calls, "recovery"), 2)
+	node.reset()
+	assert_eq(node.get_caught_reason(), &"")
+	assert_eq(node.tick({}), GFBehaviorTree.Status.SUCCESS)
+	assert_eq(GFVariantData.get_option_int(calls, "source"), 2, "显式 reset 才开始新的尝试。")
+
+
+func test_error_recovery_never_catches_business_failure_abort_or_unlisted_error() -> void:
+	var calls: Dictionary = { "recovery": 0 }
+	var recovery: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		calls["recovery"] = GFVariantData.get_option_int(calls, "recovery") + 1
+		return GFBehaviorTree.Status.SUCCESS
+	)
+	for status: int in [GFBehaviorTree.Status.FAILURE, GFBehaviorTree.Status.ABORTED, GFBehaviorTree.Status.ERROR]:
+		var source: RawStatusNode = RawStatusNode.new(status)
+		var node: GFBehaviorTree.RecoverError = GFBehaviorTree.RecoverError.new(source, recovery, [&"invalid_condition_result"])
+		assert_eq(node.tick({}), status)
+		assert_eq(node.get_caught_reason(), &"")
+	assert_eq(GFVariantData.get_option_int(calls, "recovery"), 0)
+
+
+func test_error_recovery_propagates_its_own_error_or_abort_without_recatching() -> void:
+	for status: int in [GFBehaviorTree.Status.ERROR, GFBehaviorTree.Status.ABORTED]:
+		var source: GFBehaviorTree.Condition = GFBehaviorTree.Condition.new(Callable())
+		var recovery: RawStatusNode = RawStatusNode.new(status)
+		var node: GFBehaviorTree.RecoverError = GFBehaviorTree.RecoverError.new(source, recovery, [&"invalid_condition", &"execution_error"])
+		assert_eq(node.tick({}), status)
+		assert_eq(node.tick({}), status)
+		assert_eq(node.get_caught_reason(), &"invalid_condition")
+
+
+func test_error_recovery_rejects_invalid_policy_before_work() -> void:
+	var policies: Array[Array] = [[], [&"*"], [&""], [&"aborted"], [&"runtime_reset"], [&"Bad"], [&"a..b"], [&"fault", &"fault"]]
+	var source: GFBehaviorTree.Condition = GFBehaviorTree.Condition.new(Callable())
+	var recovery: GFBehaviorTree.Action = GFBehaviorTree.Action.new(Callable())
+	for policy: Array in policies:
+		var reasons: Array[StringName] = []
+		for value: Variant in policy:
+			if value is StringName:
+				reasons.append(value)
+		var node: GFBehaviorTree.RecoverError = GFBehaviorTree.RecoverError.new(source, recovery, reasons)
+		assert_eq(node.tick({}), GFBehaviorTree.Status.ERROR)
+		assert_eq(node.last_reason, &"invalid_recovery_policy")
+	assert_eq(source.tick_count, 0)
+	assert_eq(recovery.tick_count, 0)
+	var same_child: GFBehaviorTree.RecoverError = GFBehaviorTree.RecoverError.new(source, source, [&"invalid_condition"])
+	assert_eq(same_child.tick({}), GFBehaviorTree.Status.ERROR)
+	assert_eq(same_child.last_reason, &"invalid_recovery_children")
+
+
+func test_error_recovery_reset_during_callback_aborts_old_attempt() -> void:
+	var source: GFBehaviorTree.Condition = GFBehaviorTree.Condition.new(Callable())
+	var recovery: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(bb: Dictionary) -> int:
+		var node_value: Variant = bb.get("node")
+		if node_value is GFBehaviorTree.RecoverError:
+			var recovering_node: GFBehaviorTree.RecoverError = node_value
+			recovering_node.reset()
+		return GFBehaviorTree.Status.SUCCESS
+	)
+	var node: GFBehaviorTree.RecoverError = GFBehaviorTree.RecoverError.new(source, recovery, [&"invalid_condition"])
+	assert_eq(node.tick({ "node": node }), GFBehaviorTree.Status.ABORTED)
+	assert_eq(node.get_caught_reason(), &"")
+
+
+func test_error_recovery_duplicates_running_state_and_reset_starts_new_attempt() -> void:
+	var source: GFBehaviorTree.Condition = GFBehaviorTree.Condition.new(func(bb: Dictionary) -> String:
+		bb["source_count"] = GFVariantData.get_option_int(bb, "source_count") + 1
+		return "invalid"
+	)
+	var recovery: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		return GFBehaviorTree.Status.RUNNING
+	)
+	var definition: GFBehaviorTree.RecoverError = GFBehaviorTree.RecoverError.new(source, recovery, [&"invalid_condition_result"])
+	var first: GFBehaviorTree.Runner = GFBehaviorTree.Runner.new(definition)
+	var second: GFBehaviorTree.Runner = GFBehaviorTree.Runner.new(definition)
+	assert_eq(first.tick(), GFBehaviorTree.Status.RUNNING)
+	assert_eq(first.tick(), GFBehaviorTree.Status.RUNNING)
+	assert_eq(second.tick(), GFBehaviorTree.Status.RUNNING)
+	assert_eq(GFVariantData.get_option_int(first.blackboard, "source_count"), 1)
+	assert_eq(GFVariantData.get_option_int(second.blackboard, "source_count"), 1)
+	assert_eq(definition.get_caught_reason(), &"", "Runner 副本不得污染定义树。")
+	first.reset()
+	assert_eq(first.tick(), GFBehaviorTree.Status.RUNNING)
+	assert_eq(GFVariantData.get_option_int(first.blackboard, "source_count"), 2)
+	assert_eq(second.tick(), GFBehaviorTree.Status.RUNNING)
+	assert_eq(GFVariantData.get_option_int(second.blackboard, "source_count"), 1)
+
+
+func test_error_recovery_rejects_reentrant_tick_without_second_side_effect() -> void:
+	var calls: Dictionary = { "recovery": 0 }
+	var recovery: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(bb: Dictionary) -> int:
+		calls["recovery"] = GFVariantData.get_option_int(calls, "recovery") + 1
+		var node_value: Variant = bb.get("node")
+		if node_value is GFBehaviorTree.RecoverError:
+			var active: GFBehaviorTree.RecoverError = node_value
+			return active.tick(bb)
+		return GFBehaviorTree.Status.SUCCESS
+	)
+	var node: GFBehaviorTree.RecoverError = GFBehaviorTree.RecoverError.new(GFBehaviorTree.Condition.new(Callable()), recovery, [&"invalid_condition"])
+	assert_eq(node.tick({ "node": node }), GFBehaviorTree.Status.ABORTED)
+	assert_eq(node.tick({ "node": node }), GFBehaviorTree.Status.ABORTED)
+	assert_eq(GFVariantData.get_option_int(calls, "recovery"), 1)
+	assert_eq(node.get_caught_reason(), &"")
+
+
+func test_error_recovery_matches_custom_error_through_composites_and_copies_policy() -> void:
+	var reasons: Array[StringName] = [&"project.device_unavailable"]
+	var source: GFBehaviorTree.Sequence = GFBehaviorTree.Sequence.new(_nodes([NamedErrorNode.new()]))
+	var recovery: GFBehaviorTree.Condition = GFBehaviorTree.Condition.new(func(_bb: Dictionary) -> bool: return true)
+	var node: GFBehaviorTree.RecoverError = GFBehaviorTree.RecoverError.new(source, recovery, reasons)
+	reasons.clear()
+	assert_eq(node.tick({}), GFBehaviorTree.Status.SUCCESS)
+	assert_eq(node.get_caught_reason(), &"project.device_unavailable")
+	assert_eq(recovery.tick_count, 1)
+
+
+func test_error_recovery_bounds_reason_policy_and_requires_both_branches() -> void:
+	var source: GFBehaviorTree.Condition = GFBehaviorTree.Condition.new(Callable())
+	var recovery: GFBehaviorTree.Condition = GFBehaviorTree.Condition.new(Callable())
+	var reasons: Array[StringName] = []
+	for index: int in range(65):
+		reasons.append(StringName("error_%d" % index))
+	var too_many: GFBehaviorTree.RecoverError = GFBehaviorTree.RecoverError.new(source, recovery, reasons)
+	assert_eq(too_many.tick({}), GFBehaviorTree.Status.ERROR)
+	assert_eq(too_many.last_reason, &"invalid_recovery_policy")
+	var too_long: GFBehaviorTree.RecoverError = GFBehaviorTree.RecoverError.new(source, recovery, [StringName("a".repeat(129))])
+	assert_eq(too_long.tick({}), GFBehaviorTree.Status.ERROR)
+	assert_eq(too_long.last_reason, &"invalid_recovery_policy")
+	for node: GFBehaviorTree.RecoverError in [GFBehaviorTree.RecoverError.new(null, recovery, [&"invalid_condition"]), GFBehaviorTree.RecoverError.new(source, null, [&"invalid_condition"])]:
+		assert_eq(node.tick({}), GFBehaviorTree.Status.ERROR)
+		assert_eq(node.last_reason, &"invalid_recovery_children")
+	assert_eq(source.tick_count, 0)
+	assert_eq(recovery.tick_count, 0)
+
+
 func test_parallel_discards_tick_cancelled_by_runner_reset() -> void:
 	var action: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(bb: Dictionary) -> int:
 		var runner_value: Variant = bb.get("runner")
@@ -27,7 +245,7 @@ func test_inverter_discards_child_result_after_topology_replacement() -> void:
 	)
 	var _configured: GFBehaviorTree.Decorator = inverter.set_child(action)
 	assert_eq(inverter.tick({ "inverter": inverter }), GFBehaviorTree.Status.ABORTED)
-	assert_eq(inverter.tick({}), GFBehaviorTree.Status.FAILURE)
+	assert_eq(inverter.tick({}), GFBehaviorTree.Status.ERROR)
 
 
 func test_condition_node() -> void:
@@ -41,14 +259,14 @@ func test_condition_node() -> void:
 func test_condition_node_rejects_non_bool_result() -> void:
 	var invalid_condition: GFBehaviorTree.Condition = GFBehaviorTree.Condition.new(func(_bb: Dictionary) -> String: return "yes")
 
-	assert_eq(invalid_condition.tick({}), GFBehaviorTree.Status.FAILURE)
+	assert_eq(invalid_condition.tick({}), GFBehaviorTree.Status.ERROR)
 	assert_eq(invalid_condition.last_reason, &"invalid_condition_result", "非 bool 条件结果应被标记为非法结果。")
 
 
 func test_condition_node_distinguishes_invalid_callable_from_false() -> void:
 	var invalid_condition: GFBehaviorTree.Condition = GFBehaviorTree.Condition.new(Callable())
 
-	assert_eq(invalid_condition.tick({}), GFBehaviorTree.Status.FAILURE)
+	assert_eq(invalid_condition.tick({}), GFBehaviorTree.Status.ERROR)
 	assert_eq(
 		invalid_condition.last_reason,
 		&"invalid_condition",
@@ -72,15 +290,15 @@ func test_action_node_rejects_invalid_integer_status() -> void:
 		return 999
 	)
 
-	assert_eq(act.tick({}), GFBehaviorTree.Status.FAILURE)
-	assert_eq(act.last_reason, &"invalid_status", "非法 int 状态应归一为 FAILURE 并记录原因。")
+	assert_eq(act.tick({}), GFBehaviorTree.Status.ERROR)
+	assert_eq(act.last_reason, &"invalid_status", "非法 int 状态应归一为 ERROR 并记录原因。")
 
 
 func test_action_node_rejects_invalid_non_integer_status() -> void:
 	var act: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> String: return "success")
 
-	assert_eq(act.tick({}), GFBehaviorTree.Status.FAILURE)
-	assert_eq(act.last_reason, &"invalid_status", "非 int 状态应归一为 FAILURE 并记录非法状态原因。")
+	assert_eq(act.tick({}), GFBehaviorTree.Status.ERROR)
+	assert_eq(act.last_reason, &"invalid_status", "非 int 状态应归一为 ERROR 并记录非法状态原因。")
 
 
 func test_action_node_rejects_fresh_as_tick_result() -> void:
@@ -88,7 +306,7 @@ func test_action_node_rejects_fresh_as_tick_result() -> void:
 		return GFBehaviorTree.Status.FRESH
 	)
 
-	assert_eq(action.tick({}), GFBehaviorTree.Status.FAILURE)
+	assert_eq(action.tick({}), GFBehaviorTree.Status.ERROR)
 	assert_eq(action.last_reason, &"invalid_status", "FRESH 只表示未执行状态，不能作为 tick 结果。")
 
 
@@ -366,7 +584,7 @@ func test_decorator_rejects_self_cycle() -> void:
 	var inverter: GFBehaviorTree.Inverter = GFBehaviorTree.Inverter.new(null)
 	var _set_result: GFBehaviorTree.Decorator = inverter.set_child(inverter)
 
-	assert_eq(inverter.tick({}), GFBehaviorTree.Status.FAILURE, "set_child(self) 应被拒绝并保留 missing_child 行为。")
+	assert_eq(inverter.tick({}), GFBehaviorTree.Status.ERROR, "set_child(self) 应被拒绝并保留 missing_child 行为。")
 	assert_eq(inverter.last_reason, &"missing_child")
 	assert_push_error("[GFBehaviorTree][behavior_tree.cyclic_decorator_child] Cannot set a decorator child that would create a cycle.")
 
@@ -709,9 +927,9 @@ func test_runner_normalizes_invalid_root_tick_results() -> void:
 	var invalid_root: RawStatusNode = RawStatusNode.new(999)
 	var fresh_root: RawStatusNode = RawStatusNode.new(GFBehaviorTree.Status.FRESH)
 
-	assert_eq(GFBehaviorTree.Runner.new(invalid_root, false).tick(), GFBehaviorTree.Status.FAILURE)
+	assert_eq(GFBehaviorTree.Runner.new(invalid_root, false).tick(), GFBehaviorTree.Status.ERROR)
 	assert_eq(invalid_root.last_reason, &"invalid_status")
-	assert_eq(GFBehaviorTree.Runner.new(fresh_root, false).tick(), GFBehaviorTree.Status.FAILURE)
+	assert_eq(GFBehaviorTree.Runner.new(fresh_root, false).tick(), GFBehaviorTree.Status.ERROR)
 	assert_eq(fresh_root.last_reason, &"invalid_status")
 
 
@@ -720,7 +938,7 @@ func test_runner_rejects_custom_node_without_duplicate_override() -> void:
 	var sequence: GFBehaviorTree.Sequence = GFBehaviorTree.Sequence.new(_nodes([custom_node]))
 	var runner: GFBehaviorTree.Runner = GFBehaviorTree.Runner.new(sequence)
 
-	assert_eq(runner.tick(), GFBehaviorTree.Status.FAILURE, "未重写 duplicate_runtime() 的自定义节点不应在默认复制模式下静默共享运行态。")
+	assert_eq(runner.tick(), GFBehaviorTree.Status.ERROR, "未重写 duplicate_runtime() 的自定义节点不应在默认复制模式下静默共享运行态。")
 	assert_eq(custom_node.tick_count_value, 0, "无法复制的自定义节点不应污染原始定义节点。")
 	assert_push_error("[GFBehaviorTree][behavior_tree.missing_runtime_duplicate_override] BTNode subclasses must override duplicate_runtime() for the default Runner copy; return an independent runtime copy or explicitly create Runner(root, false) to share the runtime tree.")
 
@@ -732,7 +950,7 @@ func test_runner_rejects_concrete_node_subclass_without_duplicate_override() -> 
 
 	assert_eq(
 		runner.tick(),
-		GFBehaviorTree.Status.FAILURE,
+		GFBehaviorTree.Status.ERROR,
 		"继承具体内置节点时也不得被 duplicate_runtime() 静默切片为基类。"
 	)
 	var root_snapshot: Dictionary = GFVariantData.get_option_dictionary(
@@ -772,6 +990,7 @@ func test_runner_accepts_every_builtin_runtime_duplicate_type() -> void:
 		GFBehaviorTree.Repeat.new(success_action),
 		GFBehaviorTree.UntilSuccess.new(success_action),
 		GFBehaviorTree.UntilFail.new(success_action),
+		GFBehaviorTree.RecoverError.new(success_action, GFBehaviorTree.Condition.new(func(_bb: Dictionary) -> bool: return true), [&"execution_error"]),
 	])
 
 	for definition: GFBehaviorTree.BTNode in definitions:
@@ -1317,6 +1536,11 @@ class ResettableAttemptNode extends GFBehaviorTree.BTNode:
 	func reset() -> void:
 		phase = 0
 		reset_count += 1
+
+
+class NamedErrorNode extends GFBehaviorTree.BTNode:
+	func tick(_blackboard: Dictionary) -> int:
+		return record_status(GFBehaviorTree.Status.ERROR, &"project.device_unavailable")
 
 
 class RawStatusNode extends GFBehaviorTree.BTNode:

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceBroker" path="addons/gf/standard/utilities/assets/gf_resource_broker.gd" module="standard" extends="GFUtility" classDigest="64266cbca01cff8c9b7913f4b166622e14ef41a5f9c53721edcbed07617edf6f">
+<class name="GFResourceBroker" path="addons/gf/standard/utilities/assets/gf_resource_broker.gd" module="standard" extends="GFUtility" classDigest="63a2c106a029fea6126af63a9eb442e75fe728b6533ebb79422c84b4e1fa069d">
 	<description>GFResourceBroker: framework-level threaded ResourceLoader admission broker。
 一个显式共享实例可以注入 Asset、Scene 与 BackgroundWork Utility，
 统一执行有界 FIFO admission、同资源身份复用、消费者级取消和底层请求 drain。
@@ -82,6 +82,15 @@ Broker 不使用全局 singleton；架构模式应把它注册为 Utility，独�
 		</member>
 	</properties>
 	<methods>
+		<member kind="method" name="can_register_in_architecture">
+			<signature>func can_register_in_architecture() -&gt; bool:</signature>
+			<description>已被服务域接管的内部实例不能再注册到架构而获得第二个生命周期所有者。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">未被域接管时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="init">
 			<signature>func init() -&gt; void:</signature>
 			<description>初始化 Broker。</description>
@@ -133,6 +142,25 @@ admission 使用严格 FIFO：队首独占请求会等待全部活动请求 drai
 				<tag name="return">独立消费者 Lease；拒绝时返回 failed Lease。</tag>
 				<tag name="schema">options: Dictionary with optional exclusive: bool, require_idle: bool, and consumer_id: StringName.</tag>
 				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="bind_fixed_consumer">
+			<signature>func bind_fixed_consumer(consumer: Object) -&gt; Error:</signature>
+			<description>将固定消费者登记到实例生命周期；存在服务域所有者时拒绝混合绑定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">consumer: 非空消费者；登记不会保留消费者引用。</tag>
+				<tag name="return">域已接管时 ERR_ALREADY_IN_USE，否则 OK。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="can_remove_from_active_lifecycle">
+			<signature>func can_remove_from_active_lifecycle() -&gt; bool:</signature>
+			<description>Broker 的身份是资源域边界，活动生命周期内不可单独移除或替换。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">始终 false；架构整体关闭仍可释放。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="pump">

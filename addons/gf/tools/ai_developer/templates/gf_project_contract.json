@@ -1,5 +1,5 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "project": {
     "id": "gf_project",
     "summary": "A Godot project built with GF Framework.",
@@ -12,11 +12,18 @@
     "out_of_scope": []
   },
   "framework": {
-    "required_packages": [
-      "gf.kernel"
-    ],
-    "optional_packages": [],
-    "forbidden_packages": [],
+    "package_presence": {
+      "required": [
+        "gf.kernel"
+      ],
+      "forbidden": []
+    },
+    "package_usage": {
+      "allowed": [
+        "gf.kernel"
+      ],
+      "forbidden": []
+    },
     "capability_requirements": [
       {
         "id": "architecture",

@@ -118,6 +118,11 @@ const _GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT = preload(
 ## [br]
 const _GF_PLUGIN_REFRESH_STATE_SCRIPT = preload("res://addons/gf/kernel/editor/gf_plugin_refresh_state.gd")
 
+## 跨页面重建保存真实应用结果的报告脚本。
+## [br]
+## @api private
+const _GF_PLUGIN_APPLY_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_plugin_apply_report.gd")
+
 ## 内置工具编辑器贡献目录清单路径。
 ## [br]
 ## @api private
@@ -219,6 +224,11 @@ var _builtin_tool_editor_contribution_report: Dictionary = {}
 ## [br]
 var _refresh_state: _GF_PLUGIN_REFRESH_STATE_SCRIPT = _GF_PLUGIN_REFRESH_STATE_SCRIPT.new()
 
+## 最新贡献应用请求与实际安装结果。
+## [br]
+## @api private
+var _apply_report: _GF_PLUGIN_APPLY_REPORT_SCRIPT = _GF_PLUGIN_APPLY_REPORT_SCRIPT.new()
+
 
 # --- Godot 生命周期方法 ---
 
@@ -252,6 +262,8 @@ func _enter_tree() -> void:
 
 	_gltf_document_tools = GFPluginGltfDocumentTools.new()
 	_gltf_document_tools.setup()
+	_apply_report = _GF_PLUGIN_APPLY_REPORT_SCRIPT.new()
+	_apply_report.request(0, _capture_extension_settings())
 	call_deferred("_setup_dock_tools")
 
 
@@ -260,6 +272,7 @@ func _enter_tree() -> void:
 ## @api private
 func _exit_tree() -> void:
 	_plugin_active = false
+	_apply_report.fail(_refresh_state.get_requested_generation(), "plugin_disabled")
 	_cancel_editor_contribution_refresh()
 	GFPluginAutoload.remove(self)
 
@@ -292,7 +305,68 @@ func _exit_tree() -> void:
 	_builtin_tool_editor_contribution_report = {}
 
 
+# --- 框架内部方法 ---
+
+## 请求刷新已保存设置；接纳后由根插件统一扫描和应用。
+## [br]
+## @api framework_internal
+## [br]
+## @layer plugin
+## [br]
+## @return: 最新请求结果，pending 不表示已经应用。
+## [br]
+## @schema return: Dictionary with status, generation, settings, installed_settings and issues.
+func request_editor_contribution_refresh() -> Dictionary:
+	_refresh_editor_contributions()
+	return get_editor_contribution_apply_report()
+
+
+## 返回与当前扩展设置对应的应用结果，供重建后的页面恢复显示。
+## [br]
+## @api framework_internal
+## [br]
+## @layer plugin
+## [br]
+## @return: 独立应用结果副本。
+## [br]
+## @schema return: Dictionary with status, generation, settings, installed_settings, previous_status and issues.
+func get_editor_contribution_apply_report() -> Dictionary:
+	return _apply_report.get_report(_capture_extension_settings())
+
+
 # --- 私有/辅助方法 ---
+
+## 捕获所有扩展设置的值，用于识别扫描期间发生的未申请应用修改。
+## [br]
+## @api private
+func _capture_extension_settings() -> Dictionary:
+	var snapshot: Dictionary = {}
+	for property: Dictionary in ProjectSettings.get_property_list():
+		var setting_name: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(property, "name")
+		if setting_name.begins_with("gf/extensions/"):
+			snapshot[setting_name] = ProjectSettings.get_setting(setting_name)
+	return snapshot.duplicate(true)
+
+
+## 合并发现与实际注册失败；延迟创建的工具页面不属于本次安装成功保证。
+## [br]
+## @api private
+func _collect_editor_apply_issues() -> Array[String]:
+	var issues: Array[String] = []
+	for report: Dictionary in [_standard_editor_contribution_report, _builtin_tool_editor_contribution_report]:
+		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok", false) or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "partial", false):
+			issues.append("contribution_records_incomplete")
+	var selection_report: Dictionary = GFExtensionSettingsBase.get_extension_selection_report()
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(selection_report, "ok", false) or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(selection_report, "partial", false):
+		issues.append("extension_selection_incomplete")
+	for helper: RefCounted in [_actions, _inspector_tools, _debugger_tools, _import_tools, _gltf_document_tools]:
+		if helper == null:
+			issues.append("registration_helper_unavailable")
+			continue
+		var helper_issues: Variant = helper.call("get_setup_issues")
+		for issue: String in _GF_VARIANT_ACCESS_SCRIPT.as_array(helper_issues):
+			issues.append(issue)
+	return issues
 
 ## 延迟创建工作区停靠面板，只在插件仍启用且工具对象存在时使用当前贡献记录，避免卸载后的延迟调用重建界面。
 ## [br]
@@ -308,6 +382,8 @@ func _setup_dock_tools() -> void:
 		_get_record_array(_editor_contribution_records, "task_records"),
 		_get_record_array(_editor_contribution_records, "resource_action_records")
 	)
+	if _refresh_state.get_requested_generation() == 0:
+		_apply_report.complete(0, _capture_extension_settings(), _collect_editor_apply_issues())
 
 
 ## 重建动作来源与菜单入口，复用动作对象并确保信号已连接；已有菜单先解除登记再安装新条目。
@@ -349,11 +425,14 @@ func _connect_action_signals() -> void:
 ## @api private
 func _refresh_editor_contributions() -> void:
 	if not _plugin_active:
+		_apply_report.fail(_refresh_state.get_requested_generation(), "plugin_disabled")
 		return
-	if _refresh_state.request(
+	var start_batch: bool = _refresh_state.request(
 		_refresh_now_msec(),
 		_EDITOR_CONTRIBUTION_REFRESH_TIMEOUT_MSEC
-	):
+	)
+	_apply_report.request(_refresh_state.get_requested_generation(), _capture_extension_settings())
+	if start_batch:
 		call_deferred("_begin_editor_contribution_refresh")
 
 
@@ -421,6 +500,9 @@ func _execute_editor_contribution_refresh_action(action: Dictionary) -> void:
 		return
 	if kind == _GF_PLUGIN_REFRESH_STATE_SCRIPT.ACTION_APPLY:
 		var generation: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(action, "generation", 0)
+		if not _apply_report.accepts(generation, _capture_extension_settings()):
+			_fail_editor_contribution_refresh("settings_changed_before_apply")
+			return
 		_apply_editor_contributions_refresh(generation)
 		if not _plugin_active:
 			_cancel_editor_contribution_refresh()
@@ -440,6 +522,7 @@ func _execute_editor_contribution_refresh_action(action: Dictionary) -> void:
 func _apply_editor_contributions_refresh(generation: int) -> void:
 	if not _plugin_active:
 		return
+	var applied_settings: Dictionary = _capture_extension_settings()
 	GFExtensionSettingsBase.clear_manifest_cache()
 	_reload_editor_contribution_reports()
 	GFPluginProjectSettings.ensure_all(_get_record_array(_editor_contribution_records, "project_setting_records"))
@@ -470,6 +553,7 @@ func _apply_editor_contributions_refresh(generation: int) -> void:
 		_gltf_document_tools.setup()
 
 	_setup_dock_tools()
+	_apply_report.complete(generation, applied_settings, _collect_editor_apply_issues())
 
 	print("[GF Framework] 已刷新 GF 编辑器贡献记录（generation=%d）。" % generation)
 
@@ -509,6 +593,7 @@ func _refresh_now_msec() -> int:
 ## [br]
 ## @api private
 func _fail_editor_contribution_refresh(kind: String) -> void:
+	_apply_report.fail(_refresh_state.get_requested_generation(), kind)
 	_report_editor_contribution_refresh_issue(
 		kind,
 		_refresh_state.get_requested_generation()

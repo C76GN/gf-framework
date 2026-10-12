@@ -112,7 +112,9 @@ func setup(
 	_editor_base_control = EditorInterface.get_base_control()
 	if _editor_context != null:
 		_editor_context.bind_workspace_host(null)
+		_editor_context.bind_contribution_refresh_host(null)
 	_editor_context = GFEditorToolContext.from_plugin(plugin)
+	_editor_context.bind_contribution_refresh_host(plugin)
 	set_standard_dock_records(standard_dock_records)
 	_dock_records = _collect_dock_records()
 	var tasks: Array[Dictionary] = _copy_records(task_records)
@@ -149,6 +151,7 @@ func cleanup(_plugin: EditorPlugin) -> void:
 	_task_host.clear()
 	if _editor_context != null:
 		_editor_context.bind_workspace_host(null)
+		_editor_context.bind_contribution_refresh_host(null)
 	if is_instance_valid(_workspace_window):
 		_workspace_window.set_editor_context(null)
 		_workspace_window.queue_free()

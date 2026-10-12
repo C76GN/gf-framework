@@ -4520,6 +4520,20 @@ func _begin_topology_mutation(
 	)
 	_next_topology_mutation_id += 1
 	_topology_mutation = transaction
+	if previous is GFUtility:
+		var utility: GFUtility = previous
+		var allowed: bool = utility.can_remove_from_active_lifecycle()
+		if (
+			not _is_topology_mutation_current(transaction)
+			or not _runtime.is_ready()
+			or _get_dictionary_object(module_registry.instances, script_cls) != previous
+		):
+			_finish_topology_mutation(transaction)
+			return null
+		if not allowed:
+			_finish_topology_mutation(transaction)
+			push_error("[GFArchitecture][architecture.active_module_removal_refused] The utility does not permit removal from its active lifecycle.")
+			return null
 	return transaction
 
 
@@ -8731,6 +8745,23 @@ func _validate_registration(script_cls: Script, instance: Object, label: String)
 	if not GFScriptTypeInspector.script_extends_or_equals(instance_script, script_cls):
 		push_error("[GFArchitecture][architecture.register_instance_script_mismatch] register_%s failed: the instance script must extend or equal the registered script type." % label.to_lower())
 		return false
+	if instance is GFUtility:
+		var utility: GFUtility = instance
+		var lifecycle_serial: int = _runtime.get_lifecycle_generation()
+		_lifecycle_hook_depth += 1
+		var registration_allowed: bool = utility.can_register_in_architecture()
+		_lifecycle_hook_depth -= 1
+		if (
+			not _registration_candidate_is_live(instance)
+			or not _is_lifecycle_current(lifecycle_serial)
+			or _runtime.is_disposed()
+			or _runtime.is_disposing()
+			or _runtime.is_quiescing()
+		):
+			return false
+		if not registration_allowed:
+			push_error("[GFArchitecture][architecture.utility_registration_ownership_refused] The utility lifecycle is already owned outside this architecture.")
+			return false
 
 	return true
 

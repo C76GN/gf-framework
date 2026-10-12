@@ -137,8 +137,28 @@ var _exclusive: bool = false
 ## [br]
 var _require_idle: bool = false
 
+## 服务域赋予的固定代次；直接 Broker 请求为 0。
+## [br]
+## @api private
+var _service_generation: int = 0
+
+## 服务域仅弱引用租约；租约反向强持域，避免架构超时退出后提前销毁原代。
+## [br]
+## @api private
+var _service_domain: GFResourceServiceDomain = null
+
 
 # --- 公共方法 ---
+
+## 读取请求接纳时冻结的服务代次；取消、迟到结果和释放不会改变它。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 服务域代次，直接 Broker 请求为 0。
+func get_service_generation() -> int:
+	return _service_generation
 
 ## 取消当前消费者的请求。
 ##
@@ -323,6 +343,18 @@ func to_poll_result() -> Dictionary:
 
 # --- 框架内部方法 ---
 
+## 由服务域在交付租约前绑定一次代次。
+## [br]
+## @api framework_internal
+## [br]
+## @param generation: 正整数代次。
+## [br]
+## @param domain: 租约释放前保留的服务域。
+func bind_service_generation(generation: int, domain: GFResourceServiceDomain) -> void:
+	if _service_generation == 0:
+		_service_generation = generation
+		_service_domain = domain
+
 ## 绑定 Lease 与 Broker 请求身份。
 ## [br]
 ## @api framework_internal
@@ -370,7 +402,7 @@ func broker_bind(
 ## [br]
 ## @since 11.0.0
 func broker_mark_loading() -> void:
-	if _released or _status == STATUS_CANCELLED:
+	if _released or is_terminal():
 		return
 	_status = STATUS_LOADING
 
@@ -400,7 +432,7 @@ func broker_update_progress(progress: float) -> void:
 ## [br]
 ## @param resource: 加载完成的资源。
 func broker_mark_completed(resource: Resource) -> void:
-	if _released or _status == STATUS_CANCELLED:
+	if _released or is_terminal():
 		return
 	_progress = 1.0
 	_resource = resource
@@ -419,7 +451,7 @@ func broker_mark_completed(resource: Resource) -> void:
 ## [br]
 ## @param message: 稳定失败说明。
 func broker_mark_failed(request_error: Error, message: String) -> void:
-	if _released or _status == STATUS_CANCELLED:
+	if _released or is_terminal():
 		return
 	_request_error = request_error
 	_error_message = message
@@ -482,3 +514,4 @@ func _release_local_reference() -> void:
 	_resource = null
 	_broker_ref = null
 	_released = true
+	_service_domain = null

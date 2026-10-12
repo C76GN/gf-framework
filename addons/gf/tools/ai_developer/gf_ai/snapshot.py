@@ -291,12 +291,13 @@ def _build_drift(
 	if contract_result.get("ok"):
 		framework = contract_data.get("framework", {})
 		if isinstance(framework, dict) and package_report.get("valid") and catalog_report.get("ok"):
-			required = _string_values(framework.get("required_packages", []))
-			forbidden = _string_values(framework.get("forbidden_packages", []))
+			presence = framework["package_presence"]
+			required = _string_values(presence["required"])
+			forbidden = _string_values(presence["forbidden"])
 			for package_id in sorted(required - set(installed_packages)):
 				issues.append(_issue("error", "required_package_missing", package_id, f"Required package is not installed: {package_id}."))
 			for package_id in sorted(forbidden.intersection(installed_packages)):
-				issues.append(_issue("error", "forbidden_package_installed", package_id, f"Forbidden package is installed: {package_id}."))
+				issues.append(_issue("error", "forbidden_payload_present", "$.framework.package_presence.forbidden", f"Forbidden package payload is installed: {package_id}."))
 		module_contracts = _module_contract_map(contract_data)
 		for root in declared_roots:
 			module = module_contracts.get(str(root["module_id"]), {})

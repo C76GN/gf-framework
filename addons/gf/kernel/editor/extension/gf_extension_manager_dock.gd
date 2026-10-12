@@ -13,6 +13,11 @@ extends VBoxContainer
 ## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
+## 使用草稿路径发现组合，不提前修改全局项目设置。
+## [br]
+## @api private
+const _PRESET_DISCOVERY = preload("res://addons/gf/kernel/extension/gf_extension_preset_discovery.gd")
+
 ## 扩展启用设置脚本。
 ## [br]
 ## @api framework_internal
@@ -143,6 +148,16 @@ var _preset_option: OptionButton
 ## @api private
 var _preset_file_dialog: FileDialog
 
+## 尚未保存的组合文件路径，与其他页面草稿使用相同提交边界。
+## [br]
+## @api private
+var _preset_paths: Array[String] = []
+
+## 基于当前草稿路径发现的可用组合。
+## [br]
+## @api private
+var _presets: Array[GFExtensionPreset] = []
+
 ## 过滤扩展列表的搜索输入框。
 ## [br]
 ## @api private
@@ -193,6 +208,41 @@ var _usage_input_generation: int = 0
 ## @api private
 var _editor_filesystem: EditorFileSystem = null
 
+## 当前页面权限与贡献刷新接口；撤销后不能保存或应用。
+## [br]
+## @api private
+var _editor_context: GFEditorToolContext = null
+
+## 是否曾收到宿主上下文，用于区分未托管测试与已撤销页面。
+## [br]
+## @api private
+var _context_was_bound: bool = false
+
+## 最近从持久设置加载的草稿基线。
+## [br]
+## @api private
+var _saved_draft: Dictionary = {}
+
+## 独立展示应用状态，避免被引用审计提示覆盖。
+## [br]
+## @api private
+var _apply_status_label: Label = null
+
+## 保存按钮，权限撤销时禁用。
+## [br]
+## @api private
+var _save_button: Button = null
+
+## 保存并应用按钮，刷新宿主不可用时禁用。
+## [br]
+## @api private
+var _save_apply_button: Button = null
+
+## 有界查询应用结果的累计帧间隔。
+## [br]
+## @api private
+var _apply_poll_elapsed: float = 0.0
+
 
 # --- Godot 生命周期方法 ---
 
@@ -234,6 +284,47 @@ func _exit_tree() -> void:
 		_disconnect_signal_checked(_editor_filesystem.script_classes_updated, _on_audit_inputs_changed)
 	_editor_filesystem = null
 	_invalidate_usage_report()
+
+
+## 页面显示时定期读取根插件结果，重建页面仍可获得同一代应用结果。
+## [br]
+## @api private
+func _process(delta: float) -> void:
+	_apply_poll_elapsed += delta
+	if _apply_poll_elapsed < 0.25 or not is_visible_in_tree():
+		return
+	_apply_poll_elapsed = 0.0
+	_update_apply_status()
+
+
+# --- 框架内部方法 ---
+
+## 接收或撤销工作区权限，不覆盖仍在编辑的设置草稿。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @param context: 当前工作区上下文；null 撤销保存和应用权限。
+func set_editor_context(context: GFEditorToolContext) -> void:
+	_editor_context = context
+	_context_was_bound = true
+	_save_button.disabled = context == null
+	_save_apply_button.disabled = context == null
+	if context == null and is_instance_valid(_preset_file_dialog):
+		_preset_file_dialog.hide()
+	_update_apply_status()
+
+
+## 告知工作区是否应保留未保存的扩展选择草稿。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @return: 当前选择或导出选项尚未保存时返回 true。
+func has_unsaved_workspace_changes() -> bool:
+	return not _saved_draft.is_empty() and _saved_draft != _capture_draft()
 
 
 # --- 私有/辅助方法 ---
@@ -291,7 +382,15 @@ func _build_ui() -> void:
 	toolbar.add_child(GFEditorWorkspaceUI.make_button("恢复默认", "恢复 GF 默认扩展选择。", _restore_default_selection))
 	toolbar.add_child(GFEditorWorkspaceUI.make_button("启用全部", "勾选当前发现的所有扩展。", _set_all_enabled.bind(true)))
 	toolbar.add_child(GFEditorWorkspaceUI.make_button("禁用全部", "取消勾选当前发现的所有扩展。", _set_all_enabled.bind(false)))
-	toolbar.add_child(GFEditorWorkspaceUI.make_button("保存设置", "写入 project.godot；随后通过“工具 > GF > 刷新 GF 编辑器贡献”更新编辑器工具。", _apply_selection))
+	_save_button = GFEditorWorkspaceUI.make_button("保存设置", "写入 project.godot，暂不刷新编辑器工具。", _apply_selection)
+	toolbar.add_child(_save_button)
+	_save_apply_button = GFEditorWorkspaceUI.make_button("保存并应用", "保存后统一刷新编辑器贡献，结果显示在下方；不会重建已运行游戏中的架构。", _save_and_apply)
+	_save_apply_button.disabled = true
+	toolbar.add_child(_save_apply_button)
+	_apply_status_label = Label.new()
+	_apply_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_apply_status_label.text = "编辑器贡献：等待工作区连接。"
+	add_child(_apply_status_label)
 
 	var preset_row: HBoxContainer = GFEditorWorkspaceUI.make_toolbar()
 	add_child(preset_row)
@@ -411,6 +510,7 @@ func _refresh_extensions() -> void:
 
 	_manifests = GFExtensionSettingsBase.get_all_manifests()
 	_selection_mode = GFExtensionSettingsBase.get_extension_selection_mode()
+	_preset_paths = GFExtensionSettingsBase.get_extension_preset_paths()
 	_refresh_preset_options()
 	var enabled_ids: Array[String] = GFExtensionSettingsBase.resolve_extension_dependencies(
 		GFExtensionSettingsBase.get_enabled_extension_ids(),
@@ -431,6 +531,7 @@ func _refresh_extensions() -> void:
 	else:
 		_details_output.text = "没有发现 GF 扩展。"
 	_set_selection_status()
+	_saved_draft = _capture_draft()
 
 
 ## 清除扩展清单缓存，再重新载入并刷新面板。
@@ -534,13 +635,73 @@ func _add_extension_row(manifest: GFExtensionManifest, enabled: bool) -> void:
 ## [br]
 ## @api private
 func _apply_selection() -> void:
+	var _saved: bool = _save_selection()
+
+
+## 保存成功后发起统一刷新，不能将排队接纳解释为应用成功。
+## [br]
+## @api private
+func _save_and_apply() -> void:
+	if _editor_context == null:
+		_set_status("编辑器上下文不可用，无法应用。")
+		return
+	if not _save_selection():
+		return
+	var _requested: Dictionary = _editor_context.request_editor_contribution_refresh()
+	_update_apply_status()
+
+
+## 写入并持久化草稿，失败时保留草稿和错误，不请求刷新。
+## [br]
+## @api private
+func _save_selection() -> bool:
+	if _context_was_bound and _editor_context == null:
+		_set_status("页面权限已撤销，草稿仍保留；恢复贡献后再保存。")
+		return false
 	_write_selection_to_project_settings()
 	var save_error: Error = _save_project_settings()
 	if save_error != OK:
 		_set_status("保存失败（%s），内存设置尚未写入 project.godot，请重试。" % error_string(save_error))
-		return
+		return false
 	_refresh_extensions()
-	_set_status("扩展设置已保存，编辑器工具待刷新。请使用“工具 > GF > 刷新 GF 编辑器贡献”。")
+	_set_status("扩展设置已保存。使用“保存并应用”或“工具 > GF > 刷新 GF 编辑器贡献”更新编辑器工具。")
+	_update_apply_status()
+	return true
+
+
+## 捕获当前草稿值，比较不依赖设置变化信号的到达时机。
+## [br]
+## @api private
+func _capture_draft() -> Dictionary:
+	return {
+		"mode": _selection_mode,
+		"ids": _get_selected_enabled_ids(),
+		"auto_install": _auto_install_check.button_pressed,
+		"export_exclude": _export_exclude_check.button_pressed,
+		"export_fail": _export_fail_check.button_pressed,
+		"preset_paths": _preset_paths.duplicate(),
+	}
+
+
+## 显示实际应用结果；完整应用只保证贡献记录和立即注册工具，不保证延迟加载页面或运行时 Installer。
+## [br]
+## @api private
+func _update_apply_status() -> void:
+	if _apply_status_label == null:
+		return
+	if _editor_context == null:
+		_apply_status_label.text = "编辑器贡献：上下文不可用。"
+		return
+	var report: Dictionary = _editor_context.get_editor_contribution_apply_report()
+	var status: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "status", "failed")
+	var labels: Dictionary = {"pending": "待应用", "applied": "已应用", "partial": "部分应用", "failed": "应用失败"}
+	var label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(labels, status, "应用失败")
+	var issues: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "issues")
+	_apply_status_label.text = "编辑器贡献：%s（代次 %d）。%s" % [
+		label,
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "generation"),
+		" 原因：%s" % str(issues) if not issues.is_empty() else "",
+	]
 
 
 ## 按默认或显式选择模式写入扩展 ID，并写入 installer 与导出选项。
@@ -554,6 +715,7 @@ func _write_selection_to_project_settings() -> void:
 	GFExtensionSettingsBase.set_auto_install_enabled_installers(_auto_install_check.button_pressed)
 	GFExtensionSettingsBase.set_export_exclude_disabled_extensions(_export_exclude_check.button_pressed)
 	GFExtensionSettingsBase.set_fail_export_on_disabled_extension_references(_export_fail_check.button_pressed)
+	GFExtensionSettingsBase.set_extension_preset_paths(_preset_paths)
 
 
 ## 将当前所有清单项设为给定启用值并切换到显式选择模式。
@@ -591,7 +753,13 @@ func _refresh_preset_options() -> void:
 		return
 
 	_preset_option.clear()
-	for preset: GFExtensionPreset in GFExtensionSettingsBase.get_extension_presets():
+	_presets.clear()
+	var snapshot: Dictionary = _PRESET_DISCOVERY.get_snapshot(_manifests, _preset_paths)
+	for value: Variant in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(snapshot, "presets"):
+		if value is GFExtensionPreset:
+			var discovered_preset: GFExtensionPreset = value
+			_presets.append(discovered_preset)
+	for preset: GFExtensionPreset in _presets:
 		var item_index: int = _preset_option.item_count
 		_preset_option.add_item(preset.display_name)
 		_preset_option.set_item_metadata(item_index, String(preset.id))
@@ -615,6 +783,8 @@ func _apply_selected_preset() -> void:
 ## [br]
 ## @api private
 func _open_preset_file_dialog() -> void:
+	if not _can_edit_preset_paths():
+		return
 	_ensure_preset_file_dialog()
 	if _preset_file_dialog == null:
 		_set_status("无法打开扩展组合文件选择器。")
@@ -639,14 +809,22 @@ func _ensure_preset_file_dialog() -> void:
 	_connect_signal_checked(_preset_file_dialog.file_selected, _on_preset_file_selected)
 
 
-## 将项目 preset 路径交给扩展设置服务；成功后刷新组合列表并更新状态。
+## 将有效项目 preset 加入页面草稿，保存前不写入全局设置。
 ## [br]
 ## @api private
 func _add_extension_preset_path(path: String) -> bool:
-	if not GFExtensionSettingsBase.add_extension_preset_path(path):
+	if not _can_edit_preset_paths():
+		return false
+	var normalized_path: String = GFPathTools.normalize_resource_path(path)
+	if not normalized_path.begins_with("res://") or normalized_path.get_extension().to_lower() != "json" or _preset_paths.has(normalized_path):
+		_set_status("扩展组合文件无效或已存在。")
+		return false
+	var preset: GFExtensionPreset = GFExtensionPreset.from_json_file(normalized_path)
+	if preset == null or not preset.is_valid():
 		_set_status("扩展组合文件无效或已存在。")
 		return false
 
+	_preset_paths.append(normalized_path)
 	_refresh_preset_options()
 	_set_status("已添加扩展组合文件，请保存设置；选择扩展后需刷新 GF 编辑器贡献。")
 	return true
@@ -656,20 +834,23 @@ func _add_extension_preset_path(path: String) -> bool:
 ## [br]
 ## @api private
 func _remove_selected_preset_path() -> bool:
+	if not _can_edit_preset_paths():
+		return false
 	var preset_id: StringName = _get_selected_preset_id()
 	if preset_id == &"":
 		_set_status("没有可移除的扩展组合。")
 		return false
 
-	var preset: GFExtensionPreset = GFExtensionSettingsBase.get_extension_preset_by_id(preset_id)
+	var preset: GFExtensionPreset = _get_draft_preset(preset_id)
 	if preset == null or preset.source_path.is_empty():
 		_set_status("内置动态扩展组合不能移除。")
 		return false
 
-	if not GFExtensionSettingsBase.remove_extension_preset_path(preset.source_path):
+	if not _preset_paths.has(preset.source_path):
 		_set_status("扩展组合文件路径不存在。")
 		return false
 
+	_preset_paths.erase(preset.source_path)
 	_refresh_preset_options()
 	_set_status("已移除扩展组合文件，请保存设置；选择扩展后需刷新 GF 编辑器贡献。")
 	return true
@@ -679,7 +860,7 @@ func _remove_selected_preset_path() -> bool:
 ## [br]
 ## @api private
 func _apply_extension_preset_by_id(preset_id: StringName) -> bool:
-	var preset: GFExtensionPreset = GFExtensionSettingsBase.get_extension_preset_by_id(preset_id)
+	var preset: GFExtensionPreset = _get_draft_preset(preset_id)
 	if preset == null:
 		_set_status("扩展组合不存在或未通过校验。")
 		return false
@@ -696,6 +877,26 @@ func _apply_extension_preset_by_id(preset_id: StringName) -> bool:
 	_refresh_selected_manifest_details()
 	_set_status("已选择扩展组合“%s”，尚未保存；保存后需刷新 GF 编辑器贡献。" % preset.display_name)
 	return true
+
+
+## 撤销后拒绝组合文件操作，包括已经打开的对话框迟到信号。
+## [br]
+## @api private
+func _can_edit_preset_paths() -> bool:
+	if _context_was_bound and _editor_context == null:
+		_set_status("页面权限已撤销，组合草稿仍保留；恢复贡献后再操作。")
+		return false
+	return true
+
+
+## 从页面自己的发现快照查找组合，避免混入尚未保存的全局设置。
+## [br]
+## @api private
+func _get_draft_preset(preset_id: StringName) -> GFExtensionPreset:
+	for preset: GFExtensionPreset in _presets:
+		if preset.id == preset_id:
+			return preset
+	return null
 
 
 ## 将指定清单的元数据、校验错误和可用引用风险写入详情文本。

@@ -47,6 +47,11 @@ const _GF_PROJECT_SETTINGS_SECTION_PRESENTER_SCRIPT = preload("res://addons/gf/k
 
 # --- 私有变量 ---
 
+## 最近一次安装中未能创建的贡献原因。
+## [br]
+## @api private
+var _setup_issues: Array[String] = []
+
 ## 保存已注册的 Inspector 插件实例，供 cleanup(plugin) 移除。
 ## [br]
 ## @api private
@@ -100,6 +105,16 @@ var _presentation_locale: String = ""
 
 # --- 公共方法 ---
 
+## 返回本次安装失败原因，不把跳过贡献报告为完整应用。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @return: 安装失败原因副本。
+func get_setup_issues() -> Array[String]:
+	return _setup_issues.duplicate()
+
 ## 安装 GF Inspector 与导出插件。
 ## [br]
 ## @api framework_internal
@@ -118,7 +133,9 @@ func setup(
 	editor_records: Dictionary = {},
 	presentation_locale: String = ""
 ) -> void:
+	_setup_issues.clear()
 	if plugin == null:
+		_setup_issues.append("inspector:plugin_unavailable")
 		return
 	cleanup(plugin)
 	_standard_inspector_records = _to_record_array(
@@ -200,6 +217,7 @@ func _add_project_settings_inspector_plugin(plugin: EditorPlugin) -> void:
 	if inspector_plugin == null:
 		return
 	if not inspector_plugin.has_method(&"configure"):
+		_setup_issues.append("inspector:configure_missing")
 		push_error("[GFPluginInspectorTools][plugin_inspector_tools.configure_missing] The ProjectSettings Inspector has no configure() method.")
 		return
 
@@ -219,6 +237,7 @@ func _add_project_settings_inspector_plugin(plugin: EditorPlugin) -> void:
 func _setup_project_settings_section_presenter() -> void:
 	var presenter_value: Variant = _GF_PROJECT_SETTINGS_SECTION_PRESENTER_SCRIPT.new()
 	if not presenter_value is RefCounted:
+		_setup_issues.append("inspector:section_presenter_instantiation_failed")
 		push_error("[GFPluginInspectorTools][plugin_inspector_tools.section_presenter_instantiation_failed] Could not instantiate the ProjectSettings section presenter.")
 		return
 	_project_settings_section_presenter = presenter_value
@@ -260,11 +279,13 @@ func _setup_standard_export_plugins(plugin: EditorPlugin) -> void:
 func _setup_extension_export_plugin(plugin: EditorPlugin) -> void:
 	var export_script: Script = _load_script(EXTENSION_EXPORT_PLUGIN_SCRIPT_PATH)
 	if export_script == null or not export_script.can_instantiate():
+		_setup_issues.append("export:load_failed:%s" % EXTENSION_EXPORT_PLUGIN_SCRIPT_PATH)
 		push_error("[GFPluginInspectorTools][plugin_inspector_tools.extension_filter_load_failed] Could not load the extension export filter plugin script.")
 		return
 
 	_extension_export_plugin = _instantiate_export_plugin(export_script)
 	if _extension_export_plugin == null:
+		_setup_issues.append("export:instantiation_failed:%s" % EXTENSION_EXPORT_PLUGIN_SCRIPT_PATH)
 		push_error("[GFPluginInspectorTools][plugin_inspector_tools.extension_filter_instantiation_failed] Could not instantiate the extension export filter plugin.")
 		return
 
@@ -289,12 +310,14 @@ func _setup_enabled_extension_export_plugins(plugin: EditorPlugin) -> void:
 func _load_inspector_plugin(script_path: String, label: String) -> EditorInspectorPlugin:
 	var inspector_script: Script = _load_script(script_path)
 	if inspector_script == null or not inspector_script.can_instantiate():
+		_setup_issues.append("inspector:load_failed:%s" % script_path)
 		push_error("[GFPluginInspectorTools][plugin_inspector_tools.plugin_load_failed] Could not load the %s plugin script." % label)
 		return null
 
 	var inspector_plugin: EditorInspectorPlugin = _instantiate_inspector_plugin(inspector_script)
 	if inspector_plugin == null:
 		push_error("[GFPluginInspectorTools][plugin_inspector_tools.plugin_instantiation_failed] Could not instantiate the %s plugin." % label)
+		_setup_issues.append("inspector:instantiation_failed:%s" % script_path)
 		return null
 
 	return inspector_plugin
@@ -307,11 +330,13 @@ func _load_export_plugin(script_path: String, label: String) -> EditorExportPlug
 	var export_script: Script = _load_script(script_path)
 	if export_script == null or not export_script.can_instantiate():
 		push_error("[GFPluginInspectorTools][plugin_inspector_tools.export_plugin_load_failed] Could not load the %s export plugin script." % label)
+		_setup_issues.append("export:load_failed:%s" % script_path)
 		return null
 
 	var export_plugin: EditorExportPlugin = _instantiate_export_plugin(export_script)
 	if export_plugin == null:
 		push_error("[GFPluginInspectorTools][plugin_inspector_tools.export_plugin_instantiation_failed] Could not instantiate the %s export plugin." % label)
+		_setup_issues.append("export:instantiation_failed:%s" % script_path)
 		return null
 
 	return export_plugin

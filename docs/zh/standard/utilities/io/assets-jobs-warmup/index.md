@@ -6,6 +6,7 @@
 
 - [异步资源加载与缓存](asset-utility/index.md)：`GFAssetUtility`、并发加载合并、LRU 缓存、pin、资源句柄、显式 Live Asset Slot 和资源分组。
 - [共享 Resource Broker](resource-broker.md)：`GFResourceBroker`、消费者 Lease、有界 FIFO admission、同资源身份复用、独占稳定边界和 drain。
+- [资源服务域](resource-service-domain.md)：默认固定绑定、受控切换、双代在途切换、能力准入和代次所有权。
 - [通用文件下载队列](download-utility.md)：`GFDownloadUtility`、清单批量入队、聚合进度、临时文件提交、续传、校验、暂停、取消和重试。
 - [通用任务队列](job-queue.md)：`GFJobQueueUtility`、`GFJob`、队列状态、同步处理器和 `GFJobWorker`。
 - [后台工作协调器](background-work.md)：`GFBackgroundWorkUtility`、纯数据线程任务、资源线程加载和主线程应用回调。

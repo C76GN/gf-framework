@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBehaviorTree" path="addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd" module="extensions/behavior_tree" extends="Object" classDigest="b6d9df8502450f7efb69af0a18829412f2905ccd1b460c1664457568e4263958">
+<class name="GFBehaviorTree" path="addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd" module="extensions/behavior_tree" extends="Object" classDigest="7a368d7044d02c650f5b61bd4ce4615a92e1085b28009ee0b10b7ee1eea22d70">
 	<description>GFBehaviorTree: 轻量级、纯代码的行为树实现。
 提供无需编辑器的、以代码方式构建 AI 或通用决策逻辑的轻量方案。
 可以在任何 System 中通过 Runner 来驱动 tick()。核心节点包含
@@ -23,10 +23,13 @@ Sequence、Selector、Parallel、Action、Condition 以及常用装饰节点。<
 	RUNNING = 2,
 	## 节点被外部中止。
 	ABORTED = 3,
+	## 执行协议或配置错误；普通组合节点不得恢复或翻转。
+	ERROR = 4,
 }</signature>
 			<description>行为树节点的执行状态。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="ParallelPolicy">
@@ -52,6 +55,7 @@ Sequence、Selector、Parallel、Action、Condition 以及常用装饰节点。<
 				<tag name="api">public</tag>
 				<tag name="param">status: 行为树状态。</tag>
 				<tag name="return">状态文本。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_debug_snapshot">
@@ -109,7 +113,8 @@ override 内部工作。Runner 会在黑板键物化前限流。通用 Object �
 		</class>
 		<class name="AlwaysFail" fullName="GFBehaviorTree.AlwaysFail" extends="Decorator">
 			<description>总是失败装饰节点。
-子节点运行中时保持 RUNNING，子节点结束时统一返回 FAILURE。</description>
+将子节点的业务成功或失败转换为 FAILURE；RUNNING、ERROR 和 ABORTED 原样传播。
+缺少必需子节点属于 ERROR，只能由显式错误恢复节点处理。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="category">domain_model</tag>
@@ -142,7 +147,8 @@ override 内部工作。Runner 会在黑板键物化前限流。通用 Object �
 		</class>
 		<class name="AlwaysSucceed" fullName="GFBehaviorTree.AlwaysSucceed" extends="Decorator">
 			<description>总是成功装饰节点。
-子节点运行中时保持 RUNNING，子节点结束时统一返回 SUCCESS。</description>
+将子节点的业务成功或失败转换为 SUCCESS；RUNNING、ERROR 和 ABORTED 原样传播。
+缺少必需子节点属于 ERROR，只能由显式错误恢复节点处理。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="category">domain_model</tag>
@@ -398,7 +404,7 @@ Sequence、Decorator 等具体内置节点的自定义子类。默认实现或�
 		<class name="Condition" fullName="GFBehaviorTree.Condition" extends="BTNode">
 			<description>条件检查节点 (叶子节点)。
 包装一个返回布尔值的回调。true 为 SUCCESS，false 为 FAILURE；无效 Callable
-返回 FAILURE 并记录 invalid_condition，不与合法 condition_false 混同。</description>
+返回 ERROR 并记录 invalid_condition，不与合法 condition_false 混同。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="category">domain_model</tag>
@@ -846,6 +852,71 @@ Sequence、Decorator 等具体内置节点的自定义子类。默认实现或�
 						<tag name="api">protected</tag>
 						<tag name="return">原始子节点列表，不使用当前随机执行排列。</tag>
 						<tag name="since">3.17.0</tag>
+					</tags>
+				</member>
+			</methods>
+		</class>
+		<class name="RecoverError" fullName="GFBehaviorTree.RecoverError" extends="BTNode">
+			<description>只对明确允许的执行错误启动一次恢复分支。
+child 返回 ERROR 且原因精确命中 allowed_reasons 时，先 reset 原分支再运行 recovery。
+恢复 RUNNING 期间只推进 recovery；其 ERROR 或 ABORTED 直接传播，不再次恢复或重放 child。
+每次尝试的终态保持到显式 reset；reset 只通知节点清理，不承诺回滚外部副作用。
+原分支和恢复分支必须非空且不是同一实例；原因列表为 1..64 个唯一的小写 ASCII 标识，
+可用点分段，每个原因最多 128 字符，不接受通配符、aborted 或 runtime_reset。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="category">domain_model</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+			<signals />
+			<enums />
+			<constants />
+			<properties />
+			<methods>
+				<member kind="method" name="tick">
+					<signature>func tick(blackboard: Dictionary) -&gt; int:</signature>
+					<description>推进一次正常或恢复分支；终态直到 reset 才解除。</description>
+					<tags>
+						<tag name="api">public</tag>
+						<tag name="param">blackboard: 两个分支共用的项目黑板，不注入或覆盖任何错误键。</tag>
+						<tag name="return">Status；未允许的 ERROR 与恢复 ERROR 保持错误原因，ABORTED 保持中止状态。</tag>
+						<tag name="schema">blackboard: Dictionary，字段由项目维护。</tag>
+						<tag name="since">unreleased</tag>
+					</tags>
+				</member>
+				<member kind="method" name="get_caught_reason">
+					<signature>func get_caught_reason() -&gt; StringName:</signature>
+					<description>获取本次尝试实际匹配的源错误，未进入恢复或 reset 后为空。</description>
+					<tags>
+						<tag name="api">public</tag>
+						<tag name="return">精确错误原因；不将业务失败或 ABORTED 伪装为错误。</tag>
+						<tag name="since">unreleased</tag>
+					</tags>
+				</member>
+				<member kind="method" name="reset">
+					<signature>func reset() -&gt; void:</signature>
+					<description>清除当前尝试并通知两个分支清理；不回滚项目副作用，也不自动重新开始。</description>
+					<tags>
+						<tag name="api">public</tag>
+						<tag name="since">unreleased</tag>
+					</tags>
+				</member>
+				<member kind="method" name="duplicate_runtime">
+					<signature>func duplicate_runtime() -&gt; BTNode:</signature>
+					<description>复制两个分支与已声明的恢复策略，不复制进行中的尝试。</description>
+					<tags>
+						<tag name="api">public</tag>
+						<tag name="return">独立运行副本。</tag>
+						<tag name="since">unreleased</tag>
+					</tags>
+				</member>
+				<member kind="method" name="_get_debug_children">
+					<signature>func _get_debug_children() -&gt; Array[BTNode]:</signature>
+					<description>返回两个已持有分支供调试遍历，不执行分支。</description>
+					<tags>
+						<tag name="api">protected</tag>
+						<tag name="return">原分支与恢复分支引用。</tag>
+						<tag name="since">unreleased</tag>
 					</tags>
 				</member>
 			</methods>

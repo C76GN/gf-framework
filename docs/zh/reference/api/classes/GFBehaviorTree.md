@@ -27,6 +27,7 @@
 ### `Status`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 enum Status {
@@ -40,6 +41,8 @@ enum Status {
 	RUNNING = 2,
 	## 节点被外部中止。
 	ABORTED = 3,
+	## 执行协议或配置错误；普通组合节点不得恢复或翻转。
+	ERROR = 4,
 }
 ```
 
@@ -69,6 +72,7 @@ Parallel 节点的完成策略。
 ### `status_to_string`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func status_to_string(status: int) -> StringName:
@@ -130,6 +134,7 @@ static func build_debug_snapshot(node: Variant, options: Dictionary = {}) -> Dic
 | [`GFBehaviorTree.Probability`](#gfbehaviortreeprobability) | 领域模型 (`domain_model`) | `Decorator` | 5 |
 | [`GFBehaviorTree.RandomSelector`](#gfbehaviortreerandomselector) | 领域模型 (`domain_model`) | `BTNode` | 5 |
 | [`GFBehaviorTree.RandomSequence`](#gfbehaviortreerandomsequence) | 领域模型 (`domain_model`) | `BTNode` | 5 |
+| [`GFBehaviorTree.RecoverError`](#gfbehaviortreerecovererror) | 领域模型 (`domain_model`) | `BTNode` | 5 |
 | [`GFBehaviorTree.Repeat`](#gfbehaviortreerepeat) | 领域模型 (`domain_model`) | `Decorator` | 4 |
 | [`GFBehaviorTree.Runner`](#gfbehaviortreerunner) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 6 |
 | [`GFBehaviorTree.Selector`](#gfbehaviortreeselector) | 领域模型 (`domain_model`) | `BTNode` | 4 |
@@ -207,7 +212,7 @@ func duplicate_runtime() -> BTNode:
 - 类别：领域模型 (`domain_model`)
 - 首次版本：`3.17.0`
 
-总是失败装饰节点。 子节点运行中时保持 RUNNING，子节点结束时统一返回 FAILURE。
+总是失败装饰节点。 将子节点的业务成功或失败转换为 FAILURE；RUNNING、ERROR 和 ABORTED 原样传播。 缺少必需子节点属于 ERROR，只能由显式错误恢复节点处理。
 
 #### 成员概览
 
@@ -265,7 +270,7 @@ func duplicate_runtime() -> BTNode:
 - 类别：领域模型 (`domain_model`)
 - 首次版本：`3.17.0`
 
-总是成功装饰节点。 子节点运行中时保持 RUNNING，子节点结束时统一返回 SUCCESS。
+总是成功装饰节点。 将子节点的业务成功或失败转换为 SUCCESS；RUNNING、ERROR 和 ABORTED 原样传播。 缺少必需子节点属于 ERROR，只能由显式错误恢复节点处理。
 
 #### 成员概览
 
@@ -738,7 +743,7 @@ func to_dictionary() -> Dictionary:
 - 类别：领域模型 (`domain_model`)
 - 首次版本：`3.17.0`
 
-条件检查节点 (叶子节点)。 包装一个返回布尔值的回调。true 为 SUCCESS，false 为 FAILURE；无效 Callable 返回 FAILURE 并记录 invalid_condition，不与合法 condition_false 混同。
+条件检查节点 (叶子节点)。 包装一个返回布尔值的回调。true 为 SUCCESS，false 为 FAILURE；无效 Callable 返回 ERROR 并记录 invalid_condition，不与合法 condition_false 混同。
 
 #### 成员概览
 
@@ -1534,6 +1539,112 @@ func _get_debug_children() -> Array[BTNode]:
 返回原始子节点引用列表供调试查看。
 
 返回：原始子节点列表，不使用当前随机执行排列。
+
+### GFBehaviorTree.RecoverError
+
+- 路径：`addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd`
+- 模块：`Behavior Tree`
+- 继承：`BTNode`
+- API：`public`
+- 类别：领域模型 (`domain_model`)
+- 首次版本：`unreleased`
+
+只对明确允许的执行错误启动一次恢复分支。 child 返回 ERROR 且原因精确命中 allowed_reasons 时，先 reset 原分支再运行 recovery。 恢复 RUNNING 期间只推进 recovery；其 ERROR 或 ABORTED 直接传播，不再次恢复或重放 child。 每次尝试的终态保持到显式 reset；reset 只通知节点清理，不承诺回滚外部副作用。 原分支和恢复分支必须非空且不是同一实例；原因列表为 1..64 个唯一的小写 ASCII 标识， 可用点分段，每个原因最多 128 字符，不接受通配符、aborted 或 runtime_reset。
+
+#### 成员概览
+
+| 类型 | 名称 | 签名 |
+|---|---|---|
+| 方法 | [`tick`](#member-gfbehaviortree-recovererror-methods-tick) | `func tick(blackboard: Dictionary) -> int:` |
+| 方法 | [`get_caught_reason`](#member-gfbehaviortree-recovererror-methods-get_caught_reason) | `func get_caught_reason() -> StringName:` |
+| 方法 | [`reset`](#member-gfbehaviortree-recovererror-methods-reset) | `func reset() -> void:` |
+| 方法 | [`duplicate_runtime`](#member-gfbehaviortree-recovererror-methods-duplicate_runtime) | `func duplicate_runtime() -> BTNode:` |
+| 方法 | [`_get_debug_children`](#member-gfbehaviortree-recovererror-methods-_get_debug_children) | `func _get_debug_children() -> Array[BTNode]:` |
+
+#### 方法
+
+<a id="member-gfbehaviortree-recovererror-methods-tick"></a>
+
+##### `tick`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func tick(blackboard: Dictionary) -> int:
+```
+
+推进一次正常或恢复分支；终态直到 reset 才解除。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `blackboard` | 两个分支共用的项目黑板，不注入或覆盖任何错误键。 |
+
+返回：Status；未允许的 ERROR 与恢复 ERROR 保持错误原因，ABORTED 保持中止状态。
+
+结构：
+
+- `blackboard`: Dictionary，字段由项目维护。
+
+<a id="member-gfbehaviortree-recovererror-methods-get_caught_reason"></a>
+
+##### `get_caught_reason`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_caught_reason() -> StringName:
+```
+
+获取本次尝试实际匹配的源错误，未进入恢复或 reset 后为空。
+
+返回：精确错误原因；不将业务失败或 ABORTED 伪装为错误。
+
+<a id="member-gfbehaviortree-recovererror-methods-reset"></a>
+
+##### `reset`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func reset() -> void:
+```
+
+清除当前尝试并通知两个分支清理；不回滚项目副作用，也不自动重新开始。
+
+<a id="member-gfbehaviortree-recovererror-methods-duplicate_runtime"></a>
+
+##### `duplicate_runtime`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func duplicate_runtime() -> BTNode:
+```
+
+复制两个分支与已声明的恢复策略，不复制进行中的尝试。
+
+返回：独立运行副本。
+
+<a id="member-gfbehaviortree-recovererror-methods-_get_debug_children"></a>
+
+##### `_get_debug_children`
+
+- API：`protected`
+- 首次版本：`unreleased`
+
+```gdscript
+func _get_debug_children() -> Array[BTNode]:
+```
+
+返回两个已持有分支供调试遍历，不执行分支。
+
+返回：原分支与恢复分支引用。
 
 ### GFBehaviorTree.Repeat
 

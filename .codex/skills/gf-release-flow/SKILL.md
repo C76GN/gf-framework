@@ -10,6 +10,7 @@ Use this skill only when the user has explicitly moved the task into release, co
 ## Rules
 
 - Follow `AI_MAINTENANCE.md` release rules exactly.
+- Before finalizing commit, PR or release descriptions, apply [产品化交付](../../../AI_MAINTENANCE.md#产品化交付): explain the resulting behavior, limits and migration impact for a reader without the conversation, using stable product terminology rather than discussion labels.
 - Use tag names without `v`, for example `4.2.0`.
 - For an ordinary release, finalize the stable version on the already reviewed short-lived internal branch and merge that release commit to `main`; do not create a `release/<version>` branch merely to change version metadata. Use `release/<version>` only for a real stabilization freeze. Use `hotfix/<version>` only for an urgent fix created from the affected immutable stable tag, then merge the verified fix forward through a PR.
 - Do not commit, tag, or push unless the user explicitly asks for that action.

@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "df6b384e0c848521edf98dd5419e1d2ad0ece1c3d9aef9f0321e0309c811b8e8",
-  "class_count": 872,
+  "source_digest": "e354b9c51dce2d56b70298b680590822f8f7e286ed437cb4b86c97fee2de23f1",
+  "class_count": 874,
   "autoload_count": 1,
   "package_count": 60,
   "packages": [
@@ -4409,6 +4409,13 @@
         },
         {
           "kind": "func",
+          "name": "get_service_generation",
+          "signature": "func get_service_generation() -> int",
+          "summary": "读取资源交付所属代次。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "get_resource",
           "signature": "func get_resource() -> Resource",
           "summary": "获取资源实例。",
@@ -5297,6 +5304,13 @@
         },
         {
           "kind": "func",
+          "name": "set_resource_service_domain",
+          "signature": "func set_resource_service_domain(domain: GFResourceServiceDomain) -> Error",
+          "summary": "将所有后续请求与句柄绑定到同一个稳定服务域入口。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "setup_standalone_resource_broker",
           "signature": "func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -> GFResourceBroker",
           "summary": "为独立使用显式创建当前 Utility 私有拥有的 Resource Broker。",
@@ -5306,7 +5320,7 @@
           "kind": "func",
           "name": "get_resource_broker",
           "signature": "func get_resource_broker() -> GFResourceBroker",
-          "summary": "获取当前注入的 Resource Broker。",
+          "summary": "获取固定绑定的原始 Broker；服务域模式返回 null，不暴露可绕过入口的当前代。",
           "visibility": "public"
         },
         {
@@ -5438,7 +5452,7 @@
         {
           "kind": "func",
           "name": "cancel",
-          "signature": "func cancel(path: String, type_hint: String = \"\") -> void",
+          "signature": "func cancel(path: String, type_hint: String = \"\", generation: int = -1) -> void",
           "summary": "取消指定路径的异步加载请求。",
           "visibility": "public"
         },
@@ -11076,7 +11090,7 @@
         {
           "kind": "enum",
           "name": "Status",
-          "signature": "enum Status {\n\t## 节点尚未被 tick。\n\tFRESH = -1,\n\t## 节点本次执行成功。\n\tSUCCESS = 0,\n\t## 节点本次执行失败。\n\tFAILURE = 1,\n\t## 节点仍在运行，需要后续 tick 继续推进。\n\tRUNNING = 2,\n\t## 节点被外部中止。\n\tABORTED = 3,\n}",
+          "signature": "enum Status {\n\t## 节点尚未被 tick。\n\tFRESH = -1,\n\t## 节点本次执行成功。\n\tSUCCESS = 0,\n\t## 节点本次执行失败。\n\tFAILURE = 1,\n\t## 节点仍在运行，需要后续 tick 继续推进。\n\tRUNNING = 2,\n\t## 节点被外部中止。\n\tABORTED = 3,\n\t## 执行协议或配置错误；普通组合节点不得恢复或翻转。\n\tERROR = 4,\n}",
           "summary": "行为树节点的执行状态。",
           "visibility": "public"
         },
@@ -27653,7 +27667,7 @@
       "module": "tools",
       "package_id": "gf.tool.dialogue_text",
       "path": "addons/gf/tools/dialogue_text/gf_dialogue_text_compiler.gd",
-      "summary": "GFDialogueTextCompiler: 对话 JSON 文本编译器。 在制作期、编辑器期或 CI 中把严格、可审计的 JSON 文本编译为 GFDialogueResource。 strict 边界拒绝重复 member、宽松 JSON、非法 Unicode、int64 外整数、非有限、",
+      "summary": "GFDialogueTextCompiler: 对话 JSON 文本编译器。 在制作期、编辑器期或 CI 中把严格、可审计的 JSON 文本编译为 GFDialogueResource。 compile_structure_* 只承诺结构通过；build_runner_* 另外验证内置 Runner 的完整身份准入。",
       "visibility": "public",
       "category": "tool_api",
       "since": "9.0.0",
@@ -27674,16 +27688,30 @@
         },
         {
           "kind": "func",
-          "name": "compile_text",
-          "signature": "func compile_text(text: String, options: Dictionary = {}) -> Dictionary",
-          "summary": "编译 JSON 文本。",
+          "name": "compile_structure_text",
+          "signature": "func compile_structure_text(text: String, options: Dictionary = {}) -> Dictionary",
+          "summary": "只编译结构资源：验证 strict JSON、schema 和资源图，不承诺 Runner 身份准入。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "compile_source",
-          "signature": "func compile_source( source_key: String, loader: GFSourceTextLoader, options: Dictionary = {} ) -> Dictionary",
-          "summary": "通过受根路径约束的源码加载器编译文本。",
+          "name": "compile_structure_source",
+          "signature": "func compile_structure_source(source_key: String, loader: GFSourceTextLoader, options: Dictionary = {}) -> Dictionary",
+          "summary": "只编译结构资源：验证 strict JSON、schema 和资源图，不承诺 Runner 身份准入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "build_runner_text",
+          "signature": "func build_runner_text(text: String, options: Dictionary = {}) -> Dictionary",
+          "summary": "构建内置 Runner 生产资源：结构校验后验证默认完整身份预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "build_runner_source",
+          "signature": "func build_runner_source(source_key: String, loader: GFSourceTextLoader, options: Dictionary = {}) -> Dictionary",
+          "summary": "构建内置 Runner 生产资源：结构校验后验证默认完整身份预算。",
           "visibility": "public"
         }
       ]
@@ -67438,6 +67466,13 @@
         },
         {
           "kind": "func",
+          "name": "can_register_in_architecture",
+          "signature": "func can_register_in_architecture() -> bool",
+          "summary": "已被服务域接管的内部实例不能再注册到架构而获得第二个生命周期所有者。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "init",
           "signature": "func init() -> void",
           "summary": "初始化 Broker。",
@@ -67469,6 +67504,20 @@
           "name": "request",
           "signature": "func request(path: String, type_hint: String = \"\", options: Dictionary = {}) -> GFResourceLease",
           "summary": "请求一个资源消费者 Lease。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "bind_fixed_consumer",
+          "signature": "func bind_fixed_consumer(consumer: Object) -> Error",
+          "summary": "将固定消费者登记到实例生命周期；存在服务域所有者时拒绝混合绑定。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "can_remove_from_active_lifecycle",
+          "signature": "func can_remove_from_active_lifecycle() -> bool",
+          "summary": "Broker 的身份是资源域边界，活动生命周期内不可单独移除或替换。",
           "visibility": "public"
         },
         {
@@ -67926,6 +67975,13 @@
           "name": "STATUS_CANCELLED",
           "signature": "const STATUS_CANCELLED: StringName = &\"cancelled\"",
           "summary": "当前消费者已经取消请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_service_generation",
+          "signature": "func get_service_generation() -> int",
+          "summary": "读取请求接纳时冻结的服务代次；取消、迟到结果和释放不会改变它。",
           "visibility": "public"
         },
         {
@@ -69381,6 +69437,172 @@
           "signature": "func get_debug_snapshot() -> Dictionary",
           "summary": "获取解析器诊断快照。",
           "visibility": "public"
+        }
+      ]
+    },
+    "GFResourceServiceDomain": {
+      "owner_kind": "class",
+      "extends": "GFUtility",
+      "module": "standard",
+      "package_id": "gf.standard.assets",
+      "path": "addons/gf/standard/utilities/assets/gf_resource_service_domain.gd",
+      "summary": "GFResourceServiceDomain：一个 Broker 及其消费者的稳定资源服务入口。 模式在 configure 时固定；主线程上请求、切换与 pump 串行执行。 受控切换暂停时明确拒绝新请求；在途热切换最多保留两代且不会重放已接纳工作。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "generation_changed",
+          "signature": "signal generation_changed(previous_generation: int, current_generation: int)",
+          "summary": "新请求入口完成统一换代；旧代结果仍按原请求交付。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "Mode",
+          "signature": "enum Mode {\n\t## 稳定绑定：生命周期内固定 Broker。\n\tSTABLE,\n\t## 受控切换：拒绝新请求，等待原代工作和所有权引用收尾后换代。\n\tCONTROLLED,\n\t## 在途热切换：新请求立即换代，旧代保留推进到全部所有权引用释放。\n\tIN_FLIGHT,\n}",
+          "summary": "服务域初始化时固定的切换合同。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_GENERATION_REFERENCES",
+          "signature": "const MAX_GENERATION_REFERENCES: int = 8192",
+          "summary": "每代请求票据、句柄保留票据和租约的总预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "init",
+          "signature": "func init() -> void",
+          "summary": "开启生命周期 tick；不会重置已经配置的域或模式。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "tick",
+          "signature": "func tick(_delta: float = 0.0) -> void",
+          "summary": "推进当前、旧代和切换等待。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "begin_quiesce",
+          "signature": "func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion",
+          "summary": "停止新接纳，继续完成已经接纳的本地队列、租约和引用释放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "dispose",
+          "signature": "func dispose() -> void",
+          "summary": "请求关闭并推进一次；尚未收尾且存在 SceneTree 时托管局部退出推进器。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure(broker: GFResourceBroker, mode: Mode = Mode.STABLE) -> Error",
+          "summary": "初始化域并接管一个全新 Broker。模式不能在运行中修改。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_mode",
+          "signature": "func get_mode() -> Mode",
+          "summary": "读取固定模式。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_current_generation",
+          "signature": "func get_current_generation() -> int",
+          "summary": "读取新请求使用的代次。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_accepting_requests",
+          "signature": "func is_accepting_requests() -> bool",
+          "summary": "判断当前入口是否接纳新工作；暂停期间不会无限排队。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "request",
+          "signature": "func request(path: String, type_hint: String = \"\", options: Dictionary = {}) -> GFResourceLease",
+          "summary": "立即发起绑定当前代次的请求；旧结果仍通过返回租约读取。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "begin_switch",
+          "signature": "func begin_switch(broker: GFResourceBroker, timeout_msec: int = 30000) -> GFAsyncCompletion",
+          "summary": "准备并接管新代。受控切换等待旧代所有工作及引用释放后提交；在途热切换立即换入口后继续收尾旧代。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "pump",
+          "signature": "func pump() -> void",
+          "summary": "推进全部存活代次并尝试收尾；关闭或超时后仍可调用，不强制销毁被引用对象。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "can_remove_from_active_lifecycle",
+          "signature": "func can_remove_from_active_lifecycle() -> bool",
+          "summary": "域稳定入口不能通过架构移除后重新注册来绕过模式合同。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "读取有界代次与等待诊断，不暴露可变 Broker 实例。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFResourceSnapshotBroker": {
+      "owner_kind": "class",
+      "extends": "GFResourceBroker",
+      "module": "standard",
+      "package_id": "gf.standard.assets",
+      "path": "addons/gf/standard/utilities/assets/gf_resource_snapshot_broker.gd",
+      "summary": "GFResourceSnapshotBroker：以预加载 Resource 映射提供独立实例的异步资源服务。 映射初始化后冻结；不调用全局 ResourceLoader，不修改或销毁资源内容。 Resource 自身由引用计数持有，项目仍须按自己的资源数据契约控制修改。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure(resources: Dictionary) -> Error",
+          "summary": "冻结资源映射并初始化 Broker；失败不提交部分映射。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_configured",
+          "signature": "func is_configured() -> bool",
+          "summary": "获取实例是否拥有已冻结映射；服务域仍会核对具体实现身份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_request_threaded_resource",
+          "signature": "func _request_threaded_resource(path: String, type_hint: String) -> Error",
+          "summary": "对实例私有映射执行准入，不访问全局 path keyed threaded loader。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_poll_threaded_resource",
+          "signature": "func _poll_threaded_resource(path: String, _previous_progress: float) -> Dictionary",
+          "summary": "最早在下一次 pump 交付；请求与结果只访问本代映射。",
+          "visibility": "protected"
         }
       ]
     },
@@ -96311,6 +96533,20 @@
           "name": "physics_tick_enabled",
           "signature": "var physics_tick_enabled: bool = false",
           "summary": "是否显式加入物理帧 tick 缓存。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "can_register_in_architecture",
+          "signature": "func can_register_in_architecture() -> bool",
+          "summary": "判断实例是否可将生命周期所有权交给 Architecture。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "can_remove_from_active_lifecycle",
+          "signature": "func can_remove_from_active_lifecycle() -> bool",
+          "summary": "判断此实例是否允许活动生命周期内的替换或注销。",
           "visibility": "public"
         },
         {

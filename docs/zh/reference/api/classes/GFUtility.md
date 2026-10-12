@@ -22,6 +22,8 @@
 | 属性 | [`physics_tick_priority`](#member-gfutility-properties-physics_tick_priority) | `var physics_tick_priority: int = 0:` |
 | 属性 | [`tick_enabled`](#member-gfutility-properties-tick_enabled) | `var tick_enabled: bool = false:` |
 | 属性 | [`physics_tick_enabled`](#member-gfutility-properties-physics_tick_enabled) | `var physics_tick_enabled: bool = false:` |
+| 方法 | [`can_register_in_architecture`](#member-gfutility-methods-can_register_in_architecture) | `func can_register_in_architecture() -> bool:` |
+| 方法 | [`can_remove_from_active_lifecycle`](#member-gfutility-methods-can_remove_from_active_lifecycle) | `func can_remove_from_active_lifecycle() -> bool:` |
 | 方法 | [`get_required_models`](#member-gfutility-methods-get_required_models) | `func get_required_models() -> Array[Script]:` |
 | 方法 | [`get_required_systems`](#member-gfutility-methods-get_required_systems) | `func get_required_systems() -> Array[Script]:` |
 | 方法 | [`get_required_utilities`](#member-gfutility-methods-get_required_utilities) | `func get_required_utilities() -> Array[Script]:` |
@@ -139,6 +141,36 @@ var physics_tick_enabled: bool = false:
 是否显式加入物理帧 tick 缓存。 实现 physics_tick() 的旧项目无需设置；仅在需要强制声明运行时 physics_tick 能力时启用。
 
 ## 方法
+
+<a id="member-gfutility-methods-can_register_in_architecture"></a>
+
+### `can_register_in_architecture`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func can_register_in_architecture() -> bool:
+```
+
+判断实例是否可将生命周期所有权交给 Architecture。 已由其他服务拥有生命周期的实例应拒绝；该查询必须无副作用。
+
+返回：默认 true。
+
+<a id="member-gfutility-methods-can_remove_from_active_lifecycle"></a>
+
+### `can_remove_from_active_lifecycle`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func can_remove_from_active_lifecycle() -> bool:
+```
+
+判断此实例是否允许活动生命周期内的替换或注销。 该策略必须无副作用且在实例生命周期内稳定；false 不妨碍整个架构关闭。 架构在接管候选、调用 ready 或静默旧实例前检查，默认允许。
+
+返回：允许独立移除时为 true。
 
 <a id="member-gfutility-methods-get_required_models"></a>
 

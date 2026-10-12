@@ -6,6 +6,12 @@
 
 面板中的“有效/无效”表示 manifest 是否通过基础校验；“保存设置”会把当前勾选状态、选择模式和扩展相关开关写入 ProjectSettings。搜索框只影响当前列表显示，不会自动修改启用状态。
 
+“保存并应用”先保存 `project.godot`，保存成功后请求根插件统一刷新编辑器贡献。单独“保存设置”不会启动刷新；也可以稍后使用“工具 > GF > 刷新 GF 编辑器贡献”。保存失败会保留草稿和错误，不发起应用。
+
+应用状态独立显示：待应用、已应用、部分应用、应用失败。结果绑定请求代次和设置快照，页面重建后仍能查看；扫描期间再次修改设置而未请求应用，会拒绝旧请求。贡献发现不完整或立即注册的插件失败时只显示部分应用，已安装部分不会自动回滚。已应用保证贡献记录及立即注册工具完成安装，不保证延迟打开的页面执行成功，也不改变已经运行的游戏架构或重新执行 Installer。刷新超时可重新请求应用。
+
+未保存的扩展选择、选项和组合文件路径参与工作区草稿保护；新增或移除组合文件仅修改页面草稿，保存后才写入 ProjectSettings。刷新时保留原页面；上下文撤销后禁止保存、应用及组合文件修改，已经打开的文件选择器也不能提交迟到结果，恢复相同贡献后才能继续操作。
+
 扩展列表通过 `GFExtensionManifestDiscovery` 取得 manifest 发现快照。快照会根据扩展 root、manifest 路径集合和 manifest 文件内容摘要自动失效；外部工具仍可调用 `GFExtensionSettings.clear_manifest_cache()` 主动刷新，但普通面板读取不需要把手动清 cache 当作正确性的前提。
 
 发现快照中的 `manifest_load_errors` 只表示文件无法读取或 JSON 无法解析；`manifest_validation_errors` 表示 manifest 已读取但字段不满足 GF 扩展契约；`invalid_manifests` 会聚合这两类问题，便于面板、导出检查和项目工具统一展示。
@@ -32,9 +38,9 @@ GF 自带的扩展相关编辑器增强会读取同一套启用状态。扩展�
 
 ## 引用审计与导出
 
-面板提供“扫描引用”，底层由 `GFExtensionUsageAudit` 检查当前禁用扩展是否仍被项目文件直接引用，通用项目文本资源扫描由 `GFProjectReferenceScanner` 承担。保存设置和导出开始时也会执行同类检查；GDScript 加载调用、类型标注、场景/资源依赖字段和 Godot 依赖图确认的引用会作为 strong / verified 引用输出警告并列出文件位置。普通字符串中的路径或类名只会作为 weak 引用进入报告，不会阻止保存或导出。报告条目会保留匹配到的扩展路径或类名 `match`，`preview` 只用于安全展示，不应被项目工具当作源文件原文切片解析。
+面板提供“扫描引用”，底层由 `GFExtensionUsageAudit` 检查当前禁用扩展是否仍被项目文件直接引用，通用项目文本资源扫描由 `GFProjectReferenceScanner` 承担。打开、保存或应用设置不会自动执行该扫描；导出开始时独立审计。GDScript 加载调用、类型标注、场景/资源依赖字段和 Godot 依赖图确认的引用会作为 strong / verified 引用输出警告并列出文件位置。普通字符串中的路径或类名只会作为 weak 引用进入报告，不会阻止导出。报告条目会保留匹配到的扩展路径或类名 `match`，`preview` 只用于安全展示，不应被项目工具当作源文件原文切片解析。
 
-引用审计默认只跳过 Godot / VCS 隐藏缓存目录和被检查扩展自身，不会默认排除 `docs`、`tests`、`tools` 或其他项目目录；项目自定义入口如果确实要跳过某些目录，应显式传入 `ignored_roots`。引用审计默认限制目录深度、扫描文件数量、单文件字节数和单次扫描总字节数，项目自定义入口可通过 `max_scan_depth`、`max_scanned_files`、`max_file_bytes` 和 `max_total_bytes` 调整。Godot 资源依赖只通过 `ResourceLoader.get_dependencies()` 等无实例化元数据读取和受限头部/文本结构检查确认，不会调用 `ResourceLoader.load()`，因此扫描自定义 `Resource` 不会执行其 `_init()` 或其他加载副作用。任何目录、文件、Godot 文本/二进制资源依赖解析或预算导致的未完成读取都会返回顶层 `ok=false`、`partial=true`，并在顶层及目标结果记录 `truncated` / `truncation_reason` 与稳定 issue；即使资源文件本身可读，元数据 API 无法确认其依赖也不能按“无依赖”成功。保存或导出侧必须按未知结果阻断，不能把未扫描内容降级成 weak 引用。目标 ID 必须唯一，重叠扫描 root 会规范化、去重并稳定排序。
+引用审计默认只跳过 Godot / VCS 隐藏缓存目录和被检查扩展自身，不会默认排除 `docs`、`tests`、`tools` 或其他项目目录；项目自定义入口如果确实要跳过某些目录，应显式传入 `ignored_roots`。引用审计默认限制目录深度、扫描文件数量、单文件字节数和单次扫描总字节数，项目自定义入口可通过 `max_scan_depth`、`max_scanned_files`、`max_file_bytes` 和 `max_total_bytes` 调整。Godot 资源依赖只通过 `ResourceLoader.get_dependencies()` 等无实例化元数据读取和受限头部/文本结构检查确认，不会调用 `ResourceLoader.load()`，因此扫描自定义 `Resource` 不会执行其 `_init()` 或其他加载副作用。任何目录、文件、Godot 文本/二进制资源依赖解析或预算导致的未完成读取都会返回顶层 `ok=false`、`partial=true`，并在顶层及目标结果记录 `truncated` / `truncation_reason` 与稳定 issue；即使资源文件本身可读，元数据 API 无法确认其依赖也不能按“无依赖”成功。导出侧必须按未知结果阻断，不能把未扫描内容降级成 weak 引用。目标 ID 必须唯一，重叠扫描 root 会规范化、去重并稳定排序。
 
 `gf/extensions/export_fail_on_disabled_references` 控制引用禁用扩展时是否阻止导出。保持开启可以避免导出产物缺少被项目脚本或资源仍在引用的扩展文件；只有在排查引用清理流程时才需要临时关闭。
 

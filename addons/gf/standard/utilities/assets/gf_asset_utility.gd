@@ -256,6 +256,11 @@ var _cache_diagnostics: GFCacheDiagnostics = GFCacheDiagnostics.new()
 ## [br]
 var _resource_broker: GFResourceBroker = null
 
+## 稳定服务入口；原始 Broker 与域绑定互斥且生命周期内不可更换。
+## [br]
+## @api private
+var _resource_service_domain: GFResourceServiceDomain = null
+
 ## 标记当前 Broker 是否由此 Utility 创建并负责释放。
 ## [br]
 ## @api private
@@ -304,7 +309,7 @@ func init() -> void:
 ## [br]
 ## @since 11.0.0
 func ready() -> void:
-	if _disposed or _resource_broker != null:
+	if _disposed or _resource_broker != null or _resource_service_domain != null:
 		return
 	var utility: Object = get_utility(_RESOURCE_BROKER_SCRIPT)
 	if utility is GFResourceBroker:
@@ -348,6 +353,7 @@ func dispose() -> void:
 ## @since 11.0.0
 func release_dependencies() -> void:
 	_resource_broker = null
+	_resource_service_domain = null
 	_owns_resource_broker = false
 	super.release_dependencies()
 
@@ -357,9 +363,8 @@ func release_dependencies() -> void:
 ## 注入共享 Resource Broker。
 ##
 ## 架构模式应把同一个 GFResourceBroker 注册为 Utility；独立模式可在 init 前
-## 显式调用本方法。重复绑定当前 Broker 幂等成功；存在活动或排队请求时拒绝
-## 替换。当前 Broker 由本 Utility 私有拥有时，还必须等待它完成 drain 并进入
-## idle，才能替换为其它 Broker。
+## 显式调用本方法。重复绑定当前 Broker 幂等成功；生命周期内其他替换始终拒绝。
+## 需要受控切换或在途热切换时，初始化阶段改用 set_resource_service_domain()。
 ## [br]
 ## @api public
 ## [br]
@@ -367,7 +372,7 @@ func release_dependencies() -> void:
 ## [br]
 ## @param broker: 要共享的 Broker。
 ## [br]
-## @return 绑定结果；请求尚未收敛或私有 Broker 尚未 idle 时返回 `ERR_BUSY`。
+## @return 绑定结果；已有不同绑定或 Broker 被域接管时返回 ERR_ALREADY_IN_USE。
 func set_resource_broker(broker: GFResourceBroker) -> Error:
 	if _disposed:
 		return ERR_UNAVAILABLE
@@ -375,14 +380,36 @@ func set_resource_broker(broker: GFResourceBroker) -> Error:
 		return ERR_INVALID_PARAMETER
 	if _resource_broker == broker:
 		return OK
+	if _resource_broker != null or _resource_service_domain != null:
+		return ERR_ALREADY_IN_USE
 	if not _pending.is_empty() or not _queued_requests.is_empty():
 		return ERR_BUSY
-	if _owns_resource_broker and _resource_broker != null and _resource_broker != broker:
-		if not _resource_broker.is_idle():
-			return ERR_BUSY
-		_resource_broker.dispose()
+	var binding_error: Error = broker.bind_fixed_consumer(self)
+	if binding_error != OK:
+		return binding_error
 	_resource_broker = broker
 	_owns_resource_broker = false
+	return OK
+
+
+## 将所有后续请求与句柄绑定到同一个稳定服务域入口。
+## 模式由域初始化时决定；共享域的 Asset 不能各自覆盖它。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param domain: 已配置且接纳请求的服务域。
+## [br]
+## @return 已有不同绑定返回 ERR_ALREADY_IN_USE；未就绪域返回 ERR_UNAVAILABLE。
+func set_resource_service_domain(domain: GFResourceServiceDomain) -> Error:
+	if domain == null or _disposed or not domain.is_accepting_requests():
+		return ERR_UNAVAILABLE
+	if _resource_service_domain == domain:
+		return OK
+	if _resource_service_domain != null or _resource_broker != null or not _pending.is_empty() or not _queued_requests.is_empty():
+		return ERR_ALREADY_IN_USE
+	_resource_service_domain = domain
 	return OK
 
 
@@ -419,7 +446,7 @@ func setup_standalone_resource_broker(
 	return broker
 
 
-## 获取当前注入的 Resource Broker。
+## 获取固定绑定的原始 Broker；服务域模式返回 null，不暴露可绕过入口的当前代。
 ## [br]
 ## @api public
 ## [br]
@@ -445,7 +472,7 @@ func get_resource_broker() -> GFResourceBroker:
 ## [br]
 ## @schema options: Dictionary with optional `serial_lane_id: StringName`, `lane_id: StringName`, and `max_concurrent_loads: int`. A non-empty lane defaults to serial loading when no limit is provided.
 func load_async(path: String, on_loaded: Callable, type_hint: String = "", options: Dictionary = {}) -> void:
-	if _disposed:
+	if _disposed or (_resource_service_domain != null and not _resource_service_domain.is_accepting_requests()):
 		if on_loaded.is_valid():
 			on_loaded.call(null)
 		return
@@ -528,6 +555,12 @@ func load_async(path: String, on_loaded: Callable, type_hint: String = "", optio
 		"lane_id": _resolve_load_lane_id(options),
 		"max_concurrent_loads": _resolve_load_lane_limit(options),
 	}
+	if _resource_service_domain != null:
+		var reservation: GFResourceServiceReservation = _resource_service_domain.reserve_for_framework(load_path, type_hint, { "consumer_id": &"asset" })
+		if reservation == null:
+			on_loaded.call(null)
+			return
+		request["service_reservation"] = reservation
 	_start_or_queue_request(cache_key, request)
 
 
@@ -563,6 +596,7 @@ func load_handle_async(
 		return
 
 	var owner_ref: WeakRef = weakref(owner) if owner != null else null
+	var requested_generation: int = _get_service_generation()
 	var on_resource_loaded: Callable = func(resource: Resource) -> void:
 		if resource == null:
 			on_loaded.call(null)
@@ -572,7 +606,7 @@ func load_handle_async(
 			on_loaded.call(null)
 			return
 
-		on_loaded.call(acquire_handle(path, resolved_owner, group_id, type_hint, resource))
+		on_loaded.call(_acquire_handle_for_generation(path, resolved_owner, group_id, type_hint, resource, requested_generation))
 
 	load_async(path, on_resource_loaded, type_hint, options)
 
@@ -599,30 +633,8 @@ func acquire_handle(
 	type_hint: String = "",
 	resource_override: Resource = null
 ) -> GFAssetHandle:
-	if path.is_empty():
-		push_error("[GFAssetUtility][asset_utility.handle_path_empty] Cannot acquire_handle: path is empty.")
-		return null
+	return _acquire_handle_for_generation(path, owner, group_id, type_hint, resource_override, _get_service_generation())
 
-	var resource: Resource = resource_override if resource_override != null else get_cached(path)
-	if resource == null:
-		return null
-	if not _is_resource_compatible(resource, type_hint):
-		push_warning("[GFAssetUtility][asset_utility.handle_cached_type_mismatch] Cannot acquire_handle: cached resource type does not match type_hint: %s (%s)." % [path, type_hint])
-		return null
-
-	if not is_cached(path):
-		put_cache(path, resource)
-
-	var owner_id: int = _owner_instance_id(owner)
-	var cache_key: String = _increment_reference(path, owner, group_id)
-	if cache_key.is_empty():
-		return null
-
-	var handle: GFAssetHandle = GFAssetHandle.new()
-	handle.setup_from_utility(self, path, resource, type_hint, group_id, owner_id, cache_key)
-	_track_handle(handle)
-	asset_handle_acquired.emit(handle)
-	return handle
 
 
 ## 释放资源句柄。
@@ -682,22 +694,7 @@ func get_asset_reference_count(path: String) -> int:
 ## [br]
 ## @param pin: 是否以分组名义锁定缓存，避免 LRU 淘汰。
 func register_group_path(group_id: StringName, path: String, pin: bool = false) -> void:
-	if group_id == &"" or path.is_empty():
-		return
-	var identity: GFResourceIdentity = _make_resource_identity(path)
-	if not identity.has_identity():
-		return
-	_remember_resource_identity(identity)
-	var cache_key: String = identity.cache_key
-	if not _group_paths.has(group_id):
-		_group_paths[group_id] = {}
-	_group_paths[group_id][cache_key] = true
-	if pin:
-		if not _group_pin_counts.has(group_id):
-			_group_pin_counts[group_id] = {}
-		var pin_counts: Dictionary = GFVariantData.as_dictionary(_group_pin_counts[group_id])
-		pin_counts[cache_key] = _get_count_value(pin_counts, cache_key) + 1
-		pin_cache(path)
+	_register_group_path_for_generation(group_id, path, pin, _get_service_generation())
 
 
 ## 获取分组中的资源路径。
@@ -870,12 +867,13 @@ func preload_group_async(
 
 		var request_path: String = path
 		var request_type_hint: String = type_hint
+		var request_generation: int = _get_service_generation()
 		load_async(request_path, func(resource: Resource) -> void:
 			if resource == null:
 				report["ok"] = false
 				_append_report_path(report, "failed_paths", request_path)
 			else:
-				register_group_path(group_id, request_path, pin_loaded)
+				_register_group_path_for_generation(group_id, request_path, pin_loaded, request_generation)
 				_append_report_path(report, "paths", request_path)
 
 			_increment_report_completed(report)
@@ -1017,11 +1015,15 @@ func is_cached(path: String) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since unreleased
+## [br]
 ## @param path: 资源路径。
 ## [br]
 ## @param type_hint: 可选资源类型提示；为空时取消该路径的当前请求。
-func cancel(path: String, type_hint: String = "") -> void:
-	var cache_key: String = _get_cache_key_for_path(path, type_hint)
+## [br]
+## @param generation: 服务域代次；-1 选择当前入口，指定旧代可取消原代请求而不影响新代。
+func cancel(path: String, type_hint: String = "", generation: int = -1) -> void:
+	var cache_key: String = _get_cache_key_for_path(path, type_hint, generation)
 	if cache_key.is_empty():
 		return
 	if _queued_by_path.has(cache_key):
@@ -1213,7 +1215,119 @@ func get_debug_snapshot() -> Dictionary:
 	}
 
 
+# --- 框架内部方法 ---
+
+## 将 staging 的确切缓存身份转交目标组，保留迟到旧代路径而不重新解析当前入口。
+## [br]
+## @api framework_internal
+## [br]
+## @param staging_group: 已接纳资源的暂存组。
+## [br]
+## @param target_group: 要提交的目标组。
+## [br]
+## @param pin: 是否由目标组保留缓存。
+func commit_preload_group_for_framework(staging_group: StringName, target_group: StringName, pin: bool) -> void:
+	var cache_keys: Dictionary = _get_group_path_map(staging_group).duplicate()
+	for cache_key: String in cache_keys:
+		_register_group_cache_key(target_group, cache_key, pin)
+	unload_group(staging_group, false)
+
+
 # --- 私有/辅助方法 ---
+
+## 以请求接纳代次建立分组归属，避免在途热切换的迟到结果锁定新代缓存。
+## [br]
+## @api private
+func _register_group_path_for_generation(group_id: StringName, path: String, pin: bool, generation: int) -> void:
+	if group_id == &"" or path.is_empty():
+		return
+	var identity: GFResourceIdentity = _make_resource_identity(path, "", &"", generation)
+	if not identity.has_identity():
+		return
+	_remember_resource_identity(identity)
+	_register_group_cache_key(group_id, identity.cache_key, pin)
+
+
+## 对既定缓存身份增加 membership 及分组 pin，不查询当前服务代次。
+## [br]
+## @api private
+func _register_group_cache_key(group_id: StringName, cache_key: String, pin: bool) -> void:
+	if not _group_paths.has(group_id):
+		_group_paths[group_id] = {}
+	var group_paths: Dictionary = _group_paths[group_id]
+	group_paths[cache_key] = true
+	if pin:
+		if not _group_pin_counts.has(group_id):
+			_group_pin_counts[group_id] = {}
+		var pin_counts: Dictionary = GFVariantData.as_dictionary(_group_pin_counts[group_id])
+		pin_counts[cache_key] = _get_count_value(pin_counts, cache_key) + 1
+		_pin_cache_key(cache_key)
+
+## 原始 Broker 使用 0，域使用单调递增代次。
+## [br]
+## @api private
+func _get_service_generation() -> int:
+	return _resource_service_domain.get_current_generation() if _resource_service_domain != null else 0
+
+
+## 请求字典保存已接纳票据，而不是延迟查询当前 Broker。
+## [br]
+## @api private
+func _get_request_reservation(request: Dictionary) -> GFResourceServiceReservation:
+	var value: Variant = request.get("service_reservation")
+	if value is GFResourceServiceReservation:
+		return value
+	return null
+
+
+## 完成、取消或释放本地排队工作后归还原代票据。
+## [br]
+## @api private
+func _release_request_reservation(request: Dictionary) -> void:
+	var reservation: GFResourceServiceReservation = _get_request_reservation(request)
+	if reservation != null:
+		reservation.release()
+	var _erased: bool = request.erase("service_reservation")
+
+## 迟到回调创建的句柄继续保留请求代次，不错误占用当前代缓存键。
+## [br]
+## @api private
+func _acquire_handle_for_generation(path: String, owner: Object, group_id: StringName, type_hint: String, resource_override: Resource, generation: int) -> GFAssetHandle:
+	if path.is_empty():
+		push_error("[GFAssetUtility][asset_utility.handle_path_empty] Cannot acquire_handle: path is empty.")
+		return null
+
+	var identity: GFResourceIdentity = _make_resource_identity(path, type_hint, &"", generation)
+	var resource: Resource = resource_override if resource_override != null else _get_cached_by_key(identity.cache_key)
+	if resource == null:
+		return null
+	if not _is_resource_compatible(resource, type_hint):
+		push_warning("[GFAssetUtility][asset_utility.handle_cached_type_mismatch] Cannot acquire_handle: cached resource type does not match type_hint: %s (%s)." % [path, type_hint])
+		return null
+
+	var retention: GFResourceServiceReservation = null
+	if _resource_service_domain != null:
+		retention = _resource_service_domain.retain_generation_for_framework(generation)
+		if retention == null:
+			return null
+	_remember_resource_identity(identity)
+	if not _cache.has(identity.cache_key):
+		_put_cache_by_key(identity.cache_key, path, resource)
+
+	var owner_id: int = _owner_instance_id(owner)
+	var cache_key: String = _increment_reference(path, owner, group_id, generation)
+	if cache_key.is_empty():
+		if retention != null:
+			retention.release()
+		return null
+
+	var handle: GFAssetHandle = GFAssetHandle.new()
+	handle.setup_from_utility(self, path, resource, type_hint, group_id, owner_id, cache_key)
+	handle.bind_service_retention(retention)
+	_track_handle(handle)
+	asset_handle_acquired.emit(handle)
+	return handle
+
 
 ## 从字典移除指定键。
 ## [br]
@@ -1271,16 +1385,21 @@ func _get_queued_request(path: String) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _make_resource_identity(path: String, type_hint: String = "", resource_key: StringName = &"") -> GFResourceIdentity:
-	return GFResourceIdentity.from_path(path, resource_key, type_hint, { "check_exists": false })
+func _make_resource_identity(path: String, type_hint: String = "", resource_key: StringName = &"", generation: int = -1) -> GFResourceIdentity:
+	var identity: GFResourceIdentity = GFResourceIdentity.from_path(path, resource_key, type_hint, { "check_exists": false })
+	if _resource_service_domain != null and identity.has_identity():
+		var resolved_generation: int = _get_service_generation() if generation < 0 else generation
+		identity.cache_key = "%d::%s" % [resolved_generation, identity.cache_key]
+		identity.metadata["service_generation"] = resolved_generation
+	return identity
 
 
 ## 从路径生成缓存键并记住其资源身份；身份无效时返回空字符串。
 ## [br]
 ## @api private
 ## [br]
-func _get_cache_key_for_path(path: String, type_hint: String = "") -> String:
-	var identity: GFResourceIdentity = _make_resource_identity(path, type_hint)
+func _get_cache_key_for_path(path: String, type_hint: String = "", generation: int = -1) -> String:
+	var identity: GFResourceIdentity = _make_resource_identity(path, type_hint, &"", generation)
 	if not identity.has_identity():
 		return ""
 	_remember_resource_identity(identity)
@@ -1358,7 +1477,8 @@ func _make_identity_snapshot() -> Dictionary:
 func _make_public_reference_counts() -> Dictionary:
 	var result: Dictionary = {}
 	for cache_key: String in _reference_counts.keys():
-		result[_get_public_path_for_cache_key(cache_key)] = _get_count_value(_reference_counts, cache_key)
+		var path: String = _get_public_path_for_cache_key(cache_key)
+		result[path] = _get_count_value(result, path) + _get_count_value(_reference_counts, cache_key)
 	return result
 
 
@@ -1482,7 +1602,11 @@ func _get_pending_operation(pending_request: Dictionary) -> _RESOURCE_LEASE_SCRI
 ## [br]
 ## @api private
 ## [br]
-func _request_threaded_operation(path: String, type_hint: String) -> _RESOURCE_LEASE_SCRIPT:
+func _request_threaded_operation(path: String, type_hint: String, reservation: GFResourceServiceReservation = null) -> _RESOURCE_LEASE_SCRIPT:
+	if reservation != null:
+		return reservation.start()
+	if _resource_service_domain != null:
+		return _resource_service_domain.request(path, type_hint, { "consumer_id": &"asset" })
 	if _disposed or _resource_broker == null:
 		return null
 	return _resource_broker.request(path, type_hint, { "consumer_id": &"asset" })
@@ -1502,6 +1626,9 @@ func _cancel_threaded_operation(operation: _RESOURCE_LEASE_SCRIPT, reason: Strin
 ## @api private
 ## [br]
 func _poll_threaded_operation(operation: _RESOURCE_LEASE_SCRIPT) -> Dictionary:
+	if _resource_service_domain != null:
+		_resource_service_domain.pump()
+		return operation.to_poll_result() if operation != null else _make_missing_resource_broker_result()
 	if _resource_broker == null:
 		return _make_missing_resource_broker_result()
 	return _resource_broker.poll_lease(operation)
@@ -1521,6 +1648,8 @@ func _forget_threaded_operation(operation: _RESOURCE_LEASE_SCRIPT) -> void:
 ## @api private
 ## [br]
 func _drain_cancelled_threaded_operations() -> void:
+	if _resource_service_domain != null:
+		_resource_service_domain.pump()
 	if _resource_broker != null:
 		_resource_broker.pump()
 
@@ -1545,6 +1674,8 @@ func _make_missing_resource_broker_result() -> Dictionary:
 ## @api private
 ## [br]
 func _get_resource_broker_debug_snapshot() -> Dictionary:
+	if _resource_service_domain != null:
+		return _resource_service_domain.get_debug_snapshot()
 	if _resource_broker == null:
 		return {
 			"configured": false,
@@ -1811,6 +1942,7 @@ func _start_or_queue_request(cache_key: String, request: Dictionary) -> void:
 ## @api private
 func _activate_load_request(cache_key: String, request: Dictionary, emit_initial_progress: bool) -> Error:
 	if _disposed:
+		_release_request_reservation(request)
 		_dispatch_callbacks(_get_pending_callbacks(request), null)
 		return ERR_UNAVAILABLE
 	var lane_id: StringName = _get_pending_lane_id(request)
@@ -1818,9 +1950,12 @@ func _activate_load_request(cache_key: String, request: Dictionary, emit_initial
 
 	var path: String = _get_pending_path(request)
 	var type_hint: String = _get_pending_type_hint(request)
-	var operation: _RESOURCE_LEASE_SCRIPT = _request_threaded_operation(path, type_hint)
+	var operation: _RESOURCE_LEASE_SCRIPT = _request_threaded_operation(path, type_hint, _get_request_reservation(request))
 	var error: Error = operation.get_request_error() if operation != null else ERR_UNCONFIGURED
 	if error != OK:
+		_release_request_reservation(request)
+		if operation != null:
+			operation.release()
 		_end_lane_request(lane_id)
 		push_error("[GFAssetUtility][asset_utility.async_request_failed] Cannot start the asynchronous load request: %s (error code: %d)." % [path, error])
 		_dispatch_callbacks(_get_pending_callbacks(request), null)
@@ -1878,6 +2013,7 @@ func _drain_load_queue() -> void:
 		var cache_key: String = _get_pending_cache_key(request)
 		var path: String = GFVariantData.get_option_string(request, "path", "")
 		if cache_key.is_empty() or path.is_empty() or _is_pending_cancelled(request):
+			_release_request_reservation(request)
 			_queued_requests.remove_at(index)
 			_erase_dictionary_key(_queued_by_path, cache_key)
 			continue
@@ -2097,6 +2233,7 @@ func _update_pending_progress(path: String, pending_request: Dictionary, progres
 ## @api private
 ## [br]
 func _complete_pending_lane(pending_request: Dictionary) -> void:
+	_release_request_reservation(pending_request)
 	_end_lane_request(_get_pending_lane_id(pending_request))
 	_drain_load_queue()
 
@@ -2130,6 +2267,7 @@ func _cancel_pending_requests_for_dispose() -> void:
 			continue
 		pending_request["cancelled"] = true
 		_cancel_threaded_operation(_get_pending_operation(pending_request), &"asset_utility_disposed")
+		_release_request_reservation(pending_request)
 		_dispatch_callbacks(_get_pending_callbacks(pending_request).duplicate(), null)
 
 	for queued_value: Variant in _queued_requests:
@@ -2137,6 +2275,7 @@ func _cancel_pending_requests_for_dispose() -> void:
 		if _is_pending_cancelled(queued_request):
 			continue
 		queued_request["cancelled"] = true
+		_release_request_reservation(queued_request)
 		_dispatch_callbacks(_get_pending_callbacks(queued_request).duplicate(), null)
 
 
@@ -2152,14 +2291,17 @@ func _owner_instance_id(owner: Object) -> int:
 ## [br]
 ## @api private
 ## [br]
-func _increment_reference(path: String, owner: Object, group_id: StringName) -> String:
-	var cache_key: String = _get_cache_key_for_path(path)
+func _increment_reference(path: String, owner: Object, group_id: StringName, generation: int = -1) -> String:
+	var cache_key: String = _get_cache_key_for_path(path, "", generation)
 	if cache_key.is_empty():
 		return ""
 	_reference_counts[cache_key] = _get_count_value(_reference_counts, cache_key) + 1
 	_pin_cache_key(cache_key)
 	if group_id != &"":
-		register_group_path(group_id, path)
+		if not _group_paths.has(group_id):
+			_group_paths[group_id] = {}
+		var group_paths: Dictionary = _group_paths[group_id]
+		group_paths[cache_key] = true
 
 	var owner_id: int = _owner_instance_id(owner)
 	if owner_id == 0:

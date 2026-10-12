@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetHandle" path="addons/gf/standard/utilities/assets/gf_asset_handle.gd" module="standard" extends="RefCounted" classDigest="f688ff2e33b15cf3f8d1a0d5336f6b6b3ec568cda07182439270fc850fb106a2">
+<class name="GFAssetHandle" path="addons/gf/standard/utilities/assets/gf_asset_handle.gd" module="standard" extends="RefCounted" classDigest="f077f83dc275aa60aa337c86cd293f0dd497eb357f7e086baa7cd4b182d7f658">
 	<description>GFAssetHandle: GFAssetUtility 创建的资源所有权句柄。
 句柄只表达“某个调用方正在持有某个资源路径”，不规定资源业务语义。
 调用 release() 会把引用归还给 GFAssetUtility；句柄释放前，对应缓存路径不会被 LRU 淘汰。</description>
@@ -42,6 +42,15 @@
 		</member>
 	</properties>
 	<methods>
+		<member kind="method" name="get_service_generation">
+			<signature>func get_service_generation() -&gt; int:</signature>
+			<description>读取资源交付所属代次。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">固定代次；直接 Broker 绑定为 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="get_resource">
 			<signature>func get_resource() -&gt; Resource:</signature>
 			<description>获取资源实例。</description>

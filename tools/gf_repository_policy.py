@@ -68,7 +68,7 @@ FRAMEWORK_CI_TIMEOUT_MINUTES = {
 	"framework-gut": 60,
 	"framework-lsp": 15,
 	"framework-static": 20,
-	"framework-integration": 80,
+	"framework-integration": 90,
 }
 REPOSITORY_POLICY_COMMAND = "python tools/gf_repository_policy.py validate --json"
 PULL_REQUEST_POLICY_COMMAND = "python tools/gf_repository_policy.py validate-pr --json"
@@ -162,8 +162,6 @@ MANUAL_CI_RUN_NAME = "GF manual diagnostics|ref=${{ github.ref }}|sha=${{ github
 MAINTENANCE_SKILL_PATHS = (
 	".codex/skills/gf-framework-maintenance/SKILL.md",
 	".codex/skills/gf-framework-maintenance/references/checks.md",
-	".codex/skills/gf-reference-boundary/SKILL.md",
-	".codex/skills/gf-reference-boundary/references/reference-project.md",
 	".codex/skills/gf-change-audit/SKILL.md",
 	".codex/skills/gf-release-flow/SKILL.md",
 	".codex/skills/gf-release-flow/references/release-checks.md",
@@ -441,8 +439,6 @@ def audit_maintenance_skill_contracts(sources: dict[str, str]) -> list[str]:
 
 	release_skill = ".codex/skills/gf-release-flow/SKILL.md"
 	release_checks = ".codex/skills/gf-release-flow/references/release-checks.md"
-	reference_skill = ".codex/skills/gf-reference-boundary/SKILL.md"
-	reference_notes = ".codex/skills/gf-reference-boundary/references/reference-project.md"
 	change_audit = ".codex/skills/gf-change-audit/SKILL.md"
 	framework_skill = ".codex/skills/gf-framework-maintenance/SKILL.md"
 	framework_checks = ".codex/skills/gf-framework-maintenance/references/checks.md"
@@ -457,12 +453,8 @@ def audit_maintenance_skill_contracts(sources: dict[str, str]) -> list[str]:
 	)
 	forbid(release_checks, "check --suite full --json", "obsolete pre-tag full-suite command")
 
-	for path in (reference_skill, reference_notes):
-		require(path, "sync_reference_project.py --check", "path-configurable reference sync check")
-		require(path, "sync_reference_project.py --apply", "explicit reference sync apply command")
-		forbid(path, "--project-root ..\\gf-reference-project", "hard-coded reference project command")
-		forbid(path, "driftbound_", "product-specific reference scene command")
-	require(release_checks, "sync_reference_project.py --apply", "explicit release reference sync apply command")
+	require(framework_checks, "first_task_smoke", "local examples smoke contract")
+	require(release_checks, "first_task_smoke", "release local examples coverage")
 
 	for marker, label in (
 		("Freeze an audit input manifest", "immutable audit input preparation"),
@@ -492,7 +484,7 @@ def audit_maintenance_skill_contracts(sources: dict[str, str]) -> list[str]:
 	require(
 		framework_checks,
 		"`framework-gut` 60 minutes, `framework-lsp` 15 minutes, "
-		"`framework-static` 20 minutes, and `framework-integration` 80 minutes",
+		"`framework-static` 20 minutes, and `framework-integration` 90 minutes",
 		"Ready/main workflow deadline contract",
 	)
 	require(
@@ -2131,22 +2123,16 @@ def run_maintenance_skill_contract_mutation_self_tests() -> list[str]:
 		return []
 	mutations = (
 		(
+			".codex/skills/gf-framework-maintenance/references/checks.md",
+			"first_task_smoke",
+			"retired_example",
+			"local examples smoke contract",
+		),
+		(
 			".codex/skills/gf-release-flow/references/release-checks.md",
 			"check --suite release --artifact-manifest",
 			"check --suite full --artifact-manifest",
 			"pre-tag release-suite artifact validation",
-		),
-		(
-			".codex/skills/gf-reference-boundary/references/reference-project.md",
-			"sync_reference_project.py --check",
-			"sync_reference_project.py --project-root ..\\gf-reference-project --check",
-			"hard-coded reference project command",
-		),
-		(
-			".codex/skills/gf-reference-boundary/references/reference-project.md",
-			"sync_reference_project.py --apply",
-			"sync_reference_project.py",
-			"explicit reference sync apply command",
 		),
 		(
 			".codex/skills/gf-change-audit/SKILL.md",
@@ -2163,9 +2149,9 @@ def run_maintenance_skill_contract_mutation_self_tests() -> list[str]:
 		(
 			".codex/skills/gf-framework-maintenance/references/checks.md",
 			"`framework-gut` 60 minutes, `framework-lsp` 15 minutes, "
-			"`framework-static` 20 minutes, and `framework-integration` 80 minutes",
+			"`framework-static` 20 minutes, and `framework-integration` 90 minutes",
 			"`framework-gut` 59 minutes, `framework-lsp` 15 minutes, "
-			"`framework-static` 20 minutes, and `framework-integration` 80 minutes",
+			"`framework-static` 20 minutes, and `framework-integration` 90 minutes",
 			"Ready/main workflow deadline contract",
 		),
 		(
@@ -2236,7 +2222,11 @@ def run_ci_workflow_mutation_self_tests(policy: dict[str, Any]) -> list[str]:
 		),
 		(
 			"short_framework_integration_timeout",
-			source.replace("            timeout_minutes: 80", "            timeout_minutes: 79", 1),
+			mutate_job(
+				framework_job,
+				f"            timeout_minutes: {FRAMEWORK_CI_TIMEOUT_MINUTES['framework-integration']}",
+				f"            timeout_minutes: {FRAMEWORK_CI_TIMEOUT_MINUTES['framework-integration'] - 1}",
+			),
 			"framework-checks matrix suite framework-integration timeout_minutes",
 		),
 		(

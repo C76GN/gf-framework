@@ -16,6 +16,11 @@ const GFExtensionSettingsBase = preload("res://addons/gf/kernel/extension/gf_ext
 
 # --- 私有变量 ---
 
+## 最近一次安装中未能创建的贡献原因。
+## [br]
+## @api private
+var _setup_issues: Array[String] = []
+
 ## 保存已交给 EditorPlugin 注册的导入插件实例，供 cleanup(plugin) 移除。
 ## [br]
 ## @api private
@@ -23,6 +28,16 @@ var _import_plugins: Array[EditorImportPlugin] = []
 
 
 # --- 公共方法 ---
+
+## 返回本次安装失败原因，不把跳过贡献报告为完整应用。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @return: 安装失败原因副本。
+func get_setup_issues() -> Array[String]:
+	return _setup_issues.duplicate()
 
 ## 注册当前启用扩展声明的 EditorImportPlugin。
 ## [br]
@@ -32,7 +47,9 @@ var _import_plugins: Array[EditorImportPlugin] = []
 ## [br]
 ## @param plugin: 当前 EditorPlugin 实例。
 func setup(plugin: EditorPlugin) -> void:
+	_setup_issues.clear()
 	if plugin == null:
+		_setup_issues.append("import:plugin_unavailable")
 		return
 
 	cleanup(plugin)
@@ -77,12 +94,14 @@ func _add_import_plugin(plugin: EditorPlugin, script_path: String) -> void:
 func _load_import_plugin(script_path: String) -> EditorImportPlugin:
 	var import_script: Script = _load_script(script_path)
 	if import_script == null or not import_script.can_instantiate():
+		_setup_issues.append("import:load_failed:%s" % script_path)
 		push_error("[GFPluginImportTools][plugin_import_tools.plugin_load_failed] Could not load the import plugin script: %s." % script_path)
 		return null
 
 	var import_plugin: EditorImportPlugin = _instantiate_import_plugin(import_script)
 	if import_plugin == null:
 		push_error("[GFPluginImportTools][plugin_import_tools.plugin_instantiation_failed] Could not instantiate the import plugin: %s." % script_path)
+		_setup_issues.append("import:instantiation_failed:%s" % script_path)
 		return null
 
 	return import_plugin

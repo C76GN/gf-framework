@@ -68,15 +68,17 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		if not passed:
 			failures.append(result)
 
-	reference_check_command = CHECK_DEFINITIONS["examples_sync"]
-	reference_apply_command = CHECK_DEFINITIONS["examples_sync_write"]
+	first_task_command = CHECK_DEFINITIONS["first_task_smoke"]
 	record_result(
-		"reference_sync_commands_separate_read_only_check_from_explicit_apply",
-		"--check" in reference_check_command
-		and "--apply" not in reference_check_command
-		and "--apply" in reference_apply_command
-		and "--check" not in reference_apply_command,
-		"Examples validation must use --check, while authorized synchronization must use --apply.",
+		"examples_runs_local_first_task_with_import_and_full_coverage",
+		CHECK_SUITES["examples"] == ["first_task_smoke"]
+		and first_task_command[-2:] == ["--", "--first-task-smoke"]
+		and "res://examples/first_task/first_task.tscn" in first_task_command
+		and CHECK_DEPENDENCIES["first_task_smoke"] == ["godot_import"]
+		and all("first_task_smoke" in CHECK_SUITES[suite] for suite in (
+			"framework-integration", "framework", "full", "release"
+		)),
+		"Examples and integration must run the repository-owned smoke through the import dependency.",
 	)
 
 	normalized_log_argv = normalize_maintenance_cli_argv([
@@ -6621,7 +6623,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"framework-gut": "60",
 			"framework-lsp": "15",
 			"framework-static": "20",
-			"framework-integration": "80",
+			"framework-integration": "90",
 		}
 		and manual_full_timeout_value == str(gf_repository_policy.MANUAL_FULL_TIMEOUT_MINUTES)
 		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-gut"] * 60
@@ -6659,15 +6661,15 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			framework_integration_shard,
 			None,
 			validation_catalog=_VALIDATION_CATALOG,
-		) == 4560
+		) == 5220
 		and resolve_check_timeout_seconds("config_workbench_editor_smoke", None) == 600
 		and resolve_check_timeout_seconds("project_bootstrap_editor_smoke", None) == 1200
 		and resolve_check_timeout_seconds("project_bootstrap_editor_smoke", 45) == 1200
-		and ci_framework_integration_timeout_value == "80"
-		and release_shard_timeouts["framework-integration"] == "80"
-		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-integration"] == 80
-		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-integration"] * 60 > 4560,
-		"Integration must preserve each native smoke floor and its 4,560-second child envelope inside exact 80-minute Ready/main and release deadlines.",
+		and ci_framework_integration_timeout_value == "90"
+		and release_shard_timeouts["framework-integration"] == "90"
+		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-integration"] == 90
+		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-integration"] * 60 > 5220,
+		"Integration must preserve each native smoke floor and its 5,220-second child envelope inside exact 90-minute Ready/main and release deadlines.",
 	)
 	record_result(
 		"in_process_checks_enforce_return_time_deadlines",

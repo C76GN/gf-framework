@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetUtility" path="addons/gf/standard/utilities/assets/gf_asset_utility.gd" module="standard" extends="GFUtility" classDigest="81365b593b3fc1281de5abc3bc5bed5db35a8c60a6084345973a173a90fd11a3">
+<class name="GFAssetUtility" path="addons/gf/standard/utilities/assets/gf_asset_utility.gd" module="standard" extends="GFUtility" classDigest="e9fa0c101a52a0430c9ea96c5c429dc7788bd665075a3052952b54a0945b2b6b">
 	<description>GFAssetUtility: 异步资源加载管理器，带 LRU 缓存。
 封装 Godot 的 threaded `ResourceLoader` 请求，
 用于避免大资源同步加载阻塞主线程，并在完成后统一分发回调与维护缓存。</description>
@@ -138,14 +138,24 @@
 			<signature>func set_resource_broker(broker: GFResourceBroker) -&gt; Error:</signature>
 			<description>注入共享 Resource Broker。
 架构模式应把同一个 GFResourceBroker 注册为 Utility；独立模式可在 init 前
-显式调用本方法。重复绑定当前 Broker 幂等成功；存在活动或排队请求时拒绝
-替换。当前 Broker 由本 Utility 私有拥有时，还必须等待它完成 drain 并进入
-idle，才能替换为其它 Broker。</description>
+显式调用本方法。重复绑定当前 Broker 幂等成功；生命周期内其他替换始终拒绝。
+需要受控切换或在途热切换时，初始化阶段改用 set_resource_service_domain()。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">broker: 要共享的 Broker。</tag>
-				<tag name="return">绑定结果；请求尚未收敛或私有 Broker 尚未 idle 时返回 `ERR_BUSY`。</tag>
+				<tag name="return">绑定结果；已有不同绑定或 Broker 被域接管时返回 ERR_ALREADY_IN_USE。</tag>
 				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_resource_service_domain">
+			<signature>func set_resource_service_domain(domain: GFResourceServiceDomain) -&gt; Error:</signature>
+			<description>将所有后续请求与句柄绑定到同一个稳定服务域入口。
+模式由域初始化时决定；共享域的 Asset 不能各自覆盖它。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">domain: 已配置且接纳请求的服务域。</tag>
+				<tag name="return">已有不同绑定返回 ERR_ALREADY_IN_USE；未就绪域返回 ERR_UNAVAILABLE。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="setup_standalone_resource_broker">
@@ -163,7 +173,7 @@ set_resource_broker()；本入口只适合单个独立 Utility。</description>
 		</member>
 		<member kind="method" name="get_resource_broker">
 			<signature>func get_resource_broker() -&gt; GFResourceBroker:</signature>
-			<description>获取当前注入的 Resource Broker。</description>
+			<description>获取固定绑定的原始 Broker；服务域模式返回 null，不暴露可绕过入口的当前代。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已绑定的 Broker；未配置时返回 null。</tag>
@@ -362,12 +372,14 @@ set_resource_broker()；本入口只适合单个独立 Utility。</description>
 			</tags>
 		</member>
 		<member kind="method" name="cancel">
-			<signature>func cancel(path: String, type_hint: String = "") -&gt; void:</signature>
+			<signature>func cancel(path: String, type_hint: String = "", generation: int = -1) -&gt; void:</signature>
 			<description>取消指定路径的异步加载请求。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 资源路径。</tag>
 				<tag name="param">type_hint: 可选资源类型提示；为空时取消该路径的当前请求。</tag>
+				<tag name="param">generation: 服务域代次；-1 选择当前入口，指定旧代可取消原代请求而不影响新代。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="put_cache">

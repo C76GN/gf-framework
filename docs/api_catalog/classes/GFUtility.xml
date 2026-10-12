@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUtility" path="addons/gf/kernel/base/gf_utility.gd" module="kernel" extends="Object" classDigest="54255ff6400c2d1fb48b5c8bfe71e994114c444d40394478394ca3d65d2f8679">
+<class name="GFUtility" path="addons/gf/kernel/base/gf_utility.gd" module="kernel" extends="Object" classDigest="03b63620f2b7523befd31cc839212e0d39da775fc638098b582916fea8727cc6">
 	<description>GFUtility: 工具组件抽象基类。
 提供可复用的工具能力；需要其它架构组件时必须通过类型化 Hook 显式声明依赖。
 子类可以实现 'init'、'async_init'、'ready'、'begin_activation'、
@@ -84,6 +84,27 @@
 		</member>
 	</properties>
 	<methods>
+		<member kind="method" name="can_register_in_architecture">
+			<signature>func can_register_in_architecture() -&gt; bool:</signature>
+			<description>判断实例是否可将生命周期所有权交给 Architecture。
+已由其他服务拥有生命周期的实例应拒绝；该查询必须无副作用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">默认 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="can_remove_from_active_lifecycle">
+			<signature>func can_remove_from_active_lifecycle() -&gt; bool:</signature>
+			<description>判断此实例是否允许活动生命周期内的替换或注销。
+该策略必须无副作用且在实例生命周期内稳定；false 不妨碍整个架构关闭。
+架构在接管候选、调用 ready 或静默旧实例前检查，默认允许。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">允许独立移除时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="get_required_models">
 			<signature>func get_required_models() -&gt; Array[Script]:</signature>
 			<description>返回此工具声明依赖的 Model 类型。

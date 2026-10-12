@@ -2624,8 +2624,8 @@ func test_extension_manager_dock_manages_project_preset_file_paths() -> void:
 	_restore_project_setting(GF_EXTENSION_SETTINGS_BASE.EXTENSION_PRESET_PATHS_SETTING, restore)
 	_remove_path_if_exists(preset_path)
 
-	assert_true(added, "扩展管理面板应能把项目 preset JSON 路径加入 ProjectSettings。")
-	assert_eq(paths_after_add, [preset_path], "扩展管理面板应按规范化 res:// 路径保存 preset JSON。")
+	assert_true(added, "扩展管理面板应能把项目 preset JSON 路径加入页面草稿。")
+	assert_eq(paths_after_add, [], "保存前不应修改全局 ProjectSettings。")
 	assert_true(selected, "新增项目 preset 应出现在扩展组合下拉框中。")
 	assert_true(removed, "扩展管理面板应能移除当前项目 preset JSON 路径。")
 	assert_eq(paths_after_remove, [], "移除项目 preset 后 ProjectSettings 路径列表应为空。")

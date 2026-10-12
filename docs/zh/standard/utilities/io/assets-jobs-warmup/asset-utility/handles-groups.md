@@ -6,6 +6,10 @@
 
 如果传入 owner，`release_owner(owner)` 或 Node 退出树时会释放该 owner 的引用。
 
+通过[资源服务域](../resource-service-domain.md)绑定时，句柄还保留交付资源所属的
+Broker 代次。`get_service_generation()` 不随入口切换改变；旧句柄释放前旧代不会退出。
+同一路径的新代缓存与旧代句柄分别计数，释放旧句柄不会扣减新代所有权。
+
 ```gdscript
 assets.load_handle_async(
 	"res://ui/inventory_panel.tscn",

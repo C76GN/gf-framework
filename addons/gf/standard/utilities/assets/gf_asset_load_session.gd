@@ -216,10 +216,7 @@ func commit() -> bool:
 	if utility == null:
 		_finish_failure("Asset utility is no longer available.", &"utility_unavailable")
 		return false
-	var loaded_paths: PackedStringArray = GFVariantData.get_option_packed_string_array(_load_report, "paths")
-	for path: String in loaded_paths:
-		utility.register_group_path(_plan.group_id, path, _plan.pin_cache)
-	utility.unload_group(_staging_group_id, false)
+	utility.commit_preload_group_for_framework(_staging_group_id, _plan.group_id, _plan.pin_cache)
 	_set_state(State.COMMITTED)
 	_finish_result(GFAssetLoadSessionResult.STATUS_COMMITTED, "", &"", false)
 	return true

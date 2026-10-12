@@ -19,6 +19,7 @@ GFAssetUtility 创建的资源所有权句柄。 句柄只表达“某个调用�
 | 属性 | [`type_hint`](#member-gfassethandle-properties-type_hint) | `var type_hint: String = ""` |
 | 属性 | [`group_id`](#member-gfassethandle-properties-group_id) | `var group_id: StringName = &""` |
 | 属性 | [`resource`](#member-gfassethandle-properties-resource) | `var resource: Resource = null` |
+| 方法 | [`get_service_generation`](#member-gfassethandle-methods-get_service_generation) | `func get_service_generation() -> int:` |
 | 方法 | [`get_resource`](#member-gfassethandle-methods-get_resource) | `func get_resource() -> Resource:` |
 | 方法 | [`get_owner_id`](#member-gfassethandle-methods-get_owner_id) | `func get_owner_id() -> int:` |
 | 方法 | [`is_released`](#member-gfassethandle-methods-is_released) | `func is_released() -> bool:` |
@@ -76,6 +77,21 @@ var resource: Resource = null
 资源实例。
 
 ## 方法
+
+<a id="member-gfassethandle-methods-get_service_generation"></a>
+
+### `get_service_generation`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_service_generation() -> int:
+```
+
+读取资源交付所属代次。
+
+返回：固定代次；直接 Broker 绑定为 0。
 
 <a id="member-gfassethandle-methods-get_resource"></a>
 

@@ -16,6 +16,11 @@ const GFExtensionSettingsBase = preload("res://addons/gf/kernel/extension/gf_ext
 
 # --- 私有变量 ---
 
+## 最近一次安装中未能创建的贡献原因。
+## [br]
+## @api private
+var _setup_issues: Array[String] = []
+
 ## 保留 setup() 成功注册的扩展实例，供 cleanup() 逐个注销。
 ## [br]
 ## @api private
@@ -24,12 +29,23 @@ var _document_extensions: Array[GLTFDocumentExtension] = []
 
 # --- 公共方法 ---
 
+## 返回本次安装失败原因，不把跳过贡献报告为完整应用。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @return: 安装失败原因副本。
+func get_setup_issues() -> Array[String]:
+	return _setup_issues.duplicate()
+
 ## 注册当前启用扩展声明的 GLTFDocumentExtension。
 ## [br]
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
 func setup() -> void:
+	_setup_issues.clear()
 	cleanup()
 	for extension_path: String in GFExtensionSettingsBase.get_enabled_gltf_document_extension_paths():
 		_register_document_extension(extension_path)
@@ -56,11 +72,13 @@ func cleanup() -> void:
 func _register_document_extension(script_path: String) -> void:
 	var extension_script: Script = _load_script(script_path)
 	if extension_script == null or not extension_script.can_instantiate():
+		_setup_issues.append("gltf:load_failed:%s" % script_path)
 		push_error("[GFPluginGltfDocumentTools][plugin_gltf_document_tools.extension_load_failed] Could not load the glTF document extension script: %s." % script_path)
 		return
 
 	var document_extension: GLTFDocumentExtension = _instantiate_document_extension(extension_script)
 	if document_extension == null:
+		_setup_issues.append("gltf:instantiation_failed:%s" % script_path)
 		push_error("[GFPluginGltfDocumentTools][plugin_gltf_document_tools.extension_instantiation_failed] Could not instantiate the glTF document extension: %s." % script_path)
 		return
 
