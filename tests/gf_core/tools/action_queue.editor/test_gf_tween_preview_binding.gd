@@ -234,6 +234,65 @@ func test_initial_value_correction_can_repair_a_relative_plan_envelope() -> void
 	sample.release()
 
 
+func test_only_edited_initial_keys_override_a_replacement_resource_binding() -> void:
+	var registry: GFTweenPreviewRegistry = GFTweenPreviewRegistry.new()
+	var registration_owner: RefCounted = RefCounted.new()
+	var adapter: CountingAdapter = CountingAdapter.new()
+	var sample: GFTweenPreviewRegistration = registry.register_adapter(registration_owner, _two_property_descriptor("button"), adapter)
+	var config: GFTweenActionConfig = _config("feedback_scale", 1.0)
+	config.resource_path = "res://initial_binding_replacement.tres"
+	var binding: GFTweenPreviewRegistration = registry.register_binding(registration_owner, config.resource_path, &"button", {"feedback_scale": 0.985, "opacity": 0.4})
+	var context: GFTweenPreviewContext = GFTweenPreviewContext.new()
+	context.configure(config, registry)
+	assert_true(_supported(context))
+	assert_eq(_initial_values(context), {"feedback_scale": 0.985, "opacity": 0.4})
+	var old_lease: int = context.get_target()["binding_lease"]
+	assert_true(context.set_initial_value(&"feedback_scale", 0.8))
+	assert_eq(_initial_values(context), {"feedback_scale": 0.8, "opacity": 0.4})
+	binding.release()
+	var replacement: GFTweenPreviewRegistration = registry.register_binding(registration_owner, config.resource_path, &"button", {"feedback_scale": 1.1, "opacity": 0.7})
+	context.refresh()
+	var new_lease: int = context.get_target()["binding_lease"]
+	assert_gt(new_lease, old_lease, "The new declaration has a distinct binding lease")
+	assert_true(_supported(context))
+	assert_eq(_initial_values(context), {"feedback_scale": 0.8, "opacity": 0.7}, "Only the author-edited key overrides the new declaration")
+	var reopened: GFTweenPreviewContext = GFTweenPreviewContext.new()
+	reopened.configure(config, registry)
+	assert_eq(_initial_values(reopened), {"feedback_scale": 0.8, "opacity": 0.7}, "Inspector reconstruction restores edited keys, not old effective defaults")
+	assert_eq(_step_target(config), 1.0, "Preview initial edits do not change the runtime step")
+	assert_eq(adapter.created, 0, "Resolution and lease replacement do not invoke sample factories")
+	replacement.release()
+	sample.release()
+
+
+func test_only_explicit_initial_keys_override_a_replacement_adapter_descriptor() -> void:
+	var registry: GFTweenPreviewRegistry = GFTweenPreviewRegistry.new()
+	var registration_owner: RefCounted = RefCounted.new()
+	var adapter: CountingAdapter = CountingAdapter.new()
+	var sample: GFTweenPreviewRegistration = registry.register_adapter(registration_owner, _two_property_descriptor("button"), adapter)
+	var config: GFTweenActionConfig = _config("feedback_scale", 1.0)
+	var context: GFTweenPreviewContext = GFTweenPreviewContext.new()
+	context.configure(config, registry)
+	assert_eq(_target_id(context), &"button")
+	assert_true(_supported(context))
+	var old_lease: int = context.get_target()["lease"]
+	# An explicitly supplied value remains intentional even when it equals the old default.
+	assert_true(context.set_initial_value(&"feedback_scale", 1.0))
+	sample.release()
+	var replacement: GFTweenPreviewRegistration = registry.register_adapter(registration_owner, _two_property_descriptor("button", 2, 1.2, 0.6), adapter)
+	context.refresh()
+	var new_lease: int = context.get_target()["lease"]
+	assert_gt(new_lease, old_lease, "The descriptor replacement has a distinct adapter lease")
+	assert_true(_supported(context))
+	assert_eq(_initial_values(context), {"feedback_scale": 1.0, "opacity": 0.6}, "Untouched descriptor defaults follow the new registration")
+	var reopened: GFTweenPreviewContext = GFTweenPreviewContext.new()
+	reopened.configure(config, registry)
+	assert_eq(_initial_values(reopened), {"feedback_scale": 1.0, "opacity": 0.6}, "The selection cache stores only explicit author overrides")
+	assert_eq(_step_target(config), 1.0)
+	assert_eq(adapter.created, 0)
+	replacement.release()
+
+
 func test_initial_value_correction_cannot_erase_an_unknown_declared_property() -> void:
 	var registry: GFTweenPreviewRegistry = GFTweenPreviewRegistry.new()
 	var registration_owner: RefCounted = RefCounted.new()
@@ -308,6 +367,13 @@ func _step_target(config: GFTweenActionConfig) -> float:
 
 func _descriptor(identifier: String) -> Dictionary:
 	return {"id": identifier, "revision": 1, "label": "Button", "properties": [{"name": "feedback_scale", "type": TYPE_FLOAT, "initial": 1.0, "minimum": 0.5, "maximum": 1.5}]}
+
+
+func _two_property_descriptor(identifier: String, revision: int = 1, feedback_initial: float = 1.0, opacity_initial: float = 0.25) -> Dictionary:
+	return {"id": identifier, "revision": revision, "label": "Button", "properties": [
+		{"name": "feedback_scale", "type": TYPE_FLOAT, "initial": feedback_initial, "minimum": 0.5, "maximum": 1.5},
+		{"name": "opacity", "type": TYPE_FLOAT, "initial": opacity_initial, "minimum": 0.0, "maximum": 1.0},
+	]}
 
 
 func _config(property_name: String, target: Variant) -> GFTweenActionConfig:

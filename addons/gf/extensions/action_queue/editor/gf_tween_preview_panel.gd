@@ -109,10 +109,20 @@ var _config: Resource = null
 ## @api private
 var _context: GFTweenPreviewContext = null
 
-## 绑定目标、初值及两种租约的独立身份；无关目录或来源字段变化不打断当前冻结会话。
+## 完整样机配置和初值提交成功后的绑定身份；失败尝试不得冒充已接纳的样机。
 ## [br]
 ## @api private
 var _binding_identity: Dictionary = {}
+
+## 最近尝试的目标身份；同一失败目标不随后台刷新重复创建，显式重新准备仍可重试。
+## [br]
+## @api private
+var _binding_attempt_identity: Dictionary = {}
+
+## 正在配置样机的绑定代次；阻止同代回调再次开始配置，不阻止较新来源接管。
+## [br]
+## @api private
+var _configuration_generation: int = -1
 
 ## 目标重绑定或释放的代次；适配器回调重入后旧准备不能继续操作新样机。
 ## [br]
@@ -269,6 +279,7 @@ func configure(config: Resource, context: GFTweenPreviewContext = null) -> void:
 	_connect_context()
 	_binding_generation += 1
 	_binding_identity.clear()
+	_binding_attempt_identity.clear()
 	_choice_snapshot.clear()
 	_captured_source.clear()
 	_captured_navigation.clear()
@@ -291,6 +302,7 @@ func dispose_preview() -> void:
 	_context = null
 	_config = null
 	_binding_identity.clear()
+	_binding_attempt_identity.clear()
 	_choice_snapshot.clear()
 	_captured_source.clear()
 	_captured_navigation.clear()
@@ -365,23 +377,51 @@ func _refresh_target_choices(target: Dictionary) -> void:
 	_target_kind.set_block_signals(false)
 
 
-## 重建真正改变身份的样机并同步全部初值；每个可能调用项目适配器的入口后复核绑定代次。
+## 尝试重建样机并同步全部初值；完整成功且来源、目录和租约仍当前后才发布绑定身份。
 ## [br]
 ## @api private
 func _configure_context_target(target: Dictionary) -> bool:
+	if _configuration_generation == _binding_generation:
+		return false
 	_binding_generation += 1
 	var generation: int = _binding_generation
-	_binding_identity = _target_identity(target).duplicate(true)
+	var context: GFTweenPreviewContext = _context
+	var config: Resource = _config
+	var registry: GFTweenPreviewRegistry = context.get_registry() if context != null else null
+	var identity: Dictionary = _target_identity(target).duplicate(true)
+	_configuration_generation = generation
+	_binding_attempt_identity = identity.duplicate(true)
+	_binding_identity.clear()
 	_captured_source.clear()
 	_captured_navigation.clear()
+	var configured: bool = _configure_target_values(target, generation, context, config, registry, identity)
+	if not is_instance_valid(self):
+		return false
+	var accepted: bool = configured and _configuration_is_current(generation, context, config, registry, identity)
+	if not is_instance_valid(self):
+		return false
+	if _configuration_generation == generation:
+		_configuration_generation = -1
+	if not accepted:
+		return false
+	_binding_identity = identity
+	return true
+
+
+## 配置当前候选的样机与初值；适配器和提交钩子失权时不再处理后续字段。
+## [br]
+## @api private
+func _configure_target_values(target: Dictionary, generation: int, context: GFTweenPreviewContext, config: Resource, registry: GFTweenPreviewRegistry, identity: Dictionary) -> bool:
 	var id_value: Variant = target.get("id", &"")
 	if not id_value is StringName or id_value == &"":
 		_viewport.dispose_preview()
 		return false
+	if context == null or registry == null:
+		return false
 	var adapter_value: Variant = target.get("adapter_id", &"")
 	if adapter_value is StringName and adapter_value != &"":
 		var adapter_id: StringName = adapter_value
-		var configured: bool = _viewport.configure_adapter(_config, adapter_id, _context.get_registry())
+		var configured: bool = _viewport.configure_adapter(config, adapter_id, registry)
 		if not configured:
 			return false
 	else:
@@ -389,8 +429,8 @@ func _configure_context_target(target: Dictionary) -> bool:
 		if not kind_value is int:
 			return false
 		var kind: int = kind_value
-		_viewport.configure(_config, kind)
-	if not is_instance_valid(self) or not _owns_binding(generation):
+		_viewport.configure(config, kind)
+	if not is_instance_valid(self) or not _configuration_is_current(generation, context, config, registry, identity):
 		return false
 	var initial_value: Variant = target.get("initial_values", {})
 	if not initial_value is Dictionary:
@@ -401,16 +441,28 @@ func _configure_context_target(target: Dictionary) -> bool:
 			return false
 		var property_name: String = key
 		var applied: bool = _viewport.set_initial_value(StringName(property_name), initial_values[key])
-		if not is_instance_valid(self) or not _owns_binding(generation) or not applied:
+		if not is_instance_valid(self) or not applied or not _configuration_is_current(generation, context, config, registry, identity):
 			return false
 	return true
+
+
+## 目录查询可触发重入；查询前后都复核本次来源、上下文和代次，并绑定实际目录对象。
+## [br]
+## @api private
+func _configuration_is_current(generation: int, context: GFTweenPreviewContext, config: Resource, registry: GFTweenPreviewRegistry, identity: Dictionary) -> bool:
+	if not _owns_binding(generation) or context == null or _context != context or _config != config:
+		return false
+	var current: bool = context.is_target_current()
+	if not is_instance_valid(self) or not _owns_binding(generation) or _context != context or _config != config:
+		return false
+	return current and context.get_registry() == registry and _target_identity(context.get_target()) == identity
 
 
 ## 准备最新配置但不推进时钟；成功签名来自准备前，回调改写来源会立即显示为过期。
 ## [br]
 ## @api private
 func _prepare_current() -> bool:
-	if _disposed or not is_visible_in_tree() or _context == null or not _target_supported():
+	if _disposed or not is_visible_in_tree() or _context == null or not _target_supported() or _configuration_generation == _binding_generation:
 		return false
 	if not _qualify_binding():
 		return false
@@ -740,7 +792,7 @@ func _refresh_state() -> void:
 	_play_button.text = "继续" if state == &"paused" else "播放"
 	var supported: bool = _target_supported()
 	_play_button.disabled = not _can_play()
-	_prepare_button.disabled = _binding_identity.is_empty() or not supported
+	_prepare_button.disabled = not supported or _configuration_generation == _binding_generation
 	_pause_button.disabled = state != &"playing"
 	_forward_button.disabled = not _can_change_direction()
 	_backward_button.disabled = not _can_change_direction()
@@ -894,12 +946,31 @@ func _on_play_pressed() -> void:
 	_refresh_stale_state()
 
 
-## 显式准备新快照，不把重新捕获当成播放操作。
+## 显式准备新快照；失败样机可重试同一目标，不把重新捕获当成播放或后台重试。
 ## [br]
 ## @api private
 func _on_recapture_pressed() -> void:
-	if not _disposed:
-		var _prepared: bool = _prepare_current()
+	if _disposed or not is_visible_in_tree() or _context == null or _configuration_generation == _binding_generation:
+		return
+	var generation: int = _binding_generation
+	var context: GFTweenPreviewContext = _context
+	context.refresh()
+	if not is_instance_valid(self) or not _owns_binding(generation) or _context != context or not _target_supported():
+		return
+	var target: Dictionary = context.get_target()
+	if _binding_identity != _target_identity(target) or (_viewport.get_state() == &"error" and not _viewport.has_session()):
+		if not _configure_context_target(target):
+			if is_instance_valid(self) and not _disposed:
+				_refresh_state()
+			return
+		generation = _binding_generation
+		_rebuild_time_controls()
+		if not is_instance_valid(self) or not _owns_binding(generation) or _context != context:
+			return
+		_rebuild_initial_fields()
+		if not is_instance_valid(self) or not _owns_binding(generation) or _context != context:
+			return
+	var _prepared: bool = _prepare_current()
 
 
 ## 只对受控快照切换方向。
@@ -973,18 +1044,23 @@ func _on_preview_context_changed() -> void:
 		return
 	var target: Dictionary = _context.get_target() if _context != null else {}
 	_refresh_target_choices(target)
-	if _target_identity(target) != _binding_identity:
+	var identity: Dictionary = _target_identity(target)
+	if identity != _binding_identity and identity != _binding_attempt_identity:
 		var generation: int = _binding_generation + 1
 		var configured: bool = _configure_context_target(target)
 		if not is_instance_valid(self) or not _owns_binding(generation):
 			return
 		_rebuild_time_controls()
+		if not is_instance_valid(self) or not _owns_binding(generation):
+			return
 		_rebuild_initial_fields()
+		if not is_instance_valid(self) or not _owns_binding(generation):
+			return
 		if configured:
 			var _prepared: bool = _prepare_current()
-	elif not _viewport.has_session() and _target_supported():
+	elif identity == _binding_identity and not _viewport.has_session() and _target_supported():
 		var _prepared: bool = _prepare_current()
-	elif _viewport.get_state() == &"ready" and _target_supported() and (_captured_source != _SNAPSHOT_SCRIPT.capture(_config) or _captured_navigation != _context.get_navigation_snapshot()):
+	elif identity == _binding_identity and _viewport.get_state() == &"ready" and _target_supported() and (_captured_source != _SNAPSHOT_SCRIPT.capture(_config) or _captured_navigation != _context.get_navigation_snapshot()):
 		var _prepared: bool = _prepare_current()
 	if not is_instance_valid(self) or _disposed:
 		return

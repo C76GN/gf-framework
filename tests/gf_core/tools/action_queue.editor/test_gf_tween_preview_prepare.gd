@@ -396,6 +396,60 @@ func test_prepare_property_diagnostics_use_author_numbering_and_preview_scope() 
 	assert_true(plan.steps.is_empty())
 
 
+func test_panel_reprepare_retries_a_transient_factory_without_switching_target() -> void:
+	var registry: GFTweenPreviewRegistry = GFTweenPreviewRegistry.new()
+	var registration_owner: RefCounted = RefCounted.new()
+	var adapter: TransientFactoryAdapter = TransientFactoryAdapter.new()
+	var handle: GFTweenPreviewRegistration = registry.register_adapter(registration_owner, _descriptor("prepare_panel_factory_retry"), adapter)
+	assert_not_null(handle)
+	if handle == null:
+		return
+	var config: GFTweenActionConfig = _config(^"progress", 1.0, 1.0)
+	var context: GFTweenPreviewContext = GFTweenPreviewContext.new()
+	context.configure(config, registry)
+	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
+	panel.configure(config, context)
+	add_child_autofree(panel)
+	assert_eq(adapter.factory_calls, 1)
+	var target_selected: bool = context.get_target().get("id") == &"prepare_panel_factory_retry"
+	assert_true(target_selected)
+	var viewport_node: Node = panel.find_child("PreviewViewport", true, false)
+	var button_node: Node = panel.find_child("Recapture", true, false)
+	assert_true(viewport_node is GFTweenPreviewViewport)
+	assert_true(button_node is Button)
+	if not viewport_node is GFTweenPreviewViewport or not button_node is Button:
+		panel.dispose_preview()
+		handle.release()
+		return
+	var viewport: GFTweenPreviewViewport = viewport_node
+	var button: Button = button_node
+	assert_false(viewport.has_session())
+	assert_eq(viewport.get_state(), &"error")
+	assert_true(button.is_visible_in_tree())
+	assert_eq(button.text, "重新准备")
+	assert_false(button.disabled, "A transient sample failure must leave an explicit retry available")
+	await get_tree().create_timer(0.65).timeout
+	panel.set_process(false)
+	assert_eq(adapter.factory_calls, 1, "Background refresh must not loop the failing factory")
+	adapter.factory_available = true
+	button.pressed.emit()
+	assert_eq(adapter.factory_calls, 2, "The actual reprepare button must retry the same selected factory")
+	assert_true(viewport.has_session())
+	assert_eq(viewport.get_state(), &"ready")
+	assert_eq(viewport.get_time_seconds(), 0.0)
+	assert_eq(_progress(viewport), 0.0)
+	var target_preserved: bool = context.get_target().get("id") == &"prepare_panel_factory_retry"
+	assert_true(target_preserved, "Retry must not require a target selection change")
+	var sample_reference: WeakRef = adapter.sample_reference
+	assert_not_null(sample_reference)
+	panel.dispose_preview()
+	handle.release()
+	await get_tree().process_frame
+	if sample_reference != null:
+		var sample_released: bool = sample_reference.get_ref() == null
+		assert_true(sample_released, "The recovered sample must be released with its panel")
+
+
 func _has_prepare(viewport: GFTweenPreviewViewport) -> bool:
 	var available: bool = viewport.has_method(&"prepare")
 	assert_true(available, "Preparing a frozen inspection session must not require Play")
@@ -555,3 +609,21 @@ class RecordingAdapter extends GFTweenPreviewAdapter:
 		callback = Callable()
 		if next_callback.is_valid():
 			next_callback.call()
+
+
+class TransientFactoryAdapter extends GFTweenPreviewAdapter:
+	var factory_calls: int = 0
+	var factory_available: bool = false
+	var sample_reference: WeakRef = null
+
+	func _create_sample() -> Control:
+		factory_calls += 1
+		if not factory_available:
+			return null
+		var sample: Control = Control.new()
+		sample.size = Vector2(32.0, 32.0)
+		sample_reference = weakref(sample)
+		return sample
+
+	func _apply_sample(sample: Control, values: Dictionary) -> void:
+		sample.position.x = GFVariantData.get_option_float(values, "progress") * 100.0

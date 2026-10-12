@@ -97,7 +97,7 @@ var _manual_id: StringName = &""
 ## @api private
 var _automatic_id: StringName = &""
 
-## 作者修改的初值；不回写来源或共享声明。
+## 作者明确修改的根属性初值；不缓存未编辑的默认值或声明，不回写来源或共享声明。
 ## [br]
 ## @api private
 var _overrides: Dictionary = {}
@@ -455,6 +455,8 @@ func set_initial_value(property_name: StringName, value: Variant) -> bool:
 	var current_values: Dictionary = _target["initial_values"]
 	var values: Dictionary = current_values.duplicate(true)
 	values[String(property_name)] = value
+	var edited_overrides: Dictionary = _overrides.duplicate(true)
+	edited_overrides[String(property_name)] = value
 	var candidate: Dictionary = _target.duplicate(true)
 	var effective_overrides: Dictionary = values.duplicate(true)
 	var config: Resource = _get_source()
@@ -467,7 +469,7 @@ func set_initial_value(property_name: StringName, value: Variant) -> bool:
 	if not candidate["supported"]:
 		return false
 	_manual_id = _target["id"]
-	_overrides = values
+	_overrides = edited_overrides
 	_registry._remember_selection(_get_source(), _manual_id, _overrides)
 	refresh()
 	return true
