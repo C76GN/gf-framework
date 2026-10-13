@@ -56,6 +56,7 @@
 
 ### 🔄 机制更改 (Changed)
 
+- [Flow 图编辑器](extensions/flow/editor-model.md) 在原生撤销或重做回调失败后暂停同一历史中的 Flow 写入，并提供“重置撤销历史…”确认入口；清除实际共享范围内的 Undo / Redo 记录，保留当前内存资源值，不自动保存。资源、上下文、可见性或历史变化使旧确认失效；未完成的属性补偿仍须先恢复。
 - [Spring Math](standard/foundation/grid-spatial/spring-math.md) 的四个步进入口统一拒绝非有限输入和非有限最终结果，返回空字典并发出一次明确诊断；调用方应先检查结果，再写回 value 和 velocity。有限非正 delta 保留原状态，正常结果仍只有这两个字段。
 - [自定义 Action](extensions/action-queue/visual-actions/custom-action.md#结束等待与自然成功) 明确结束等待与自然成功的区别，以及等待令牌取消和实际任务取消的各自所有权。
 - [Tween Inspector](extensions/action-queue/tween-config.md#在-inspector-中预览) 共用预览用途、初值和 Steps 属性目录，新增轻量资源路径关联；打开资源按声明或唯一兼容候选自动准备，歧义明确选择，首次接纳的用途在本次编辑中保留。准备与播放分开，未播放的合法编辑自动更新静态计划，已播放或定位的有效旧会话可继续并提示过期，新配置无效不替换旧快照。

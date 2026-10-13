@@ -58,7 +58,45 @@ var _guard_reason: StringName = &""
 var _last_flow_edit_result: Dictionary = {}
 
 
+## 已写入实际原生历史的共享门禁；历史强持有状态，命令不得反向形成强引用环。
+## [br]
+## @api private
+var _history_state_ref: WeakRef = null
+
+
 # --- 公共方法 ---
+
+## 注册原生命令前绑定同历史的共享门禁；兼容 Object 沿用基类协议，不猜测清除接口。
+## [br]
+## @api public
+## [br]
+## @since 3.17.0
+## [br]
+## @param undo_manager: 实际 EditorUndoRedoManager 或既有兼容对象。
+## [br]
+## @param execute_immediately: 是否立即执行已注册动作。
+## [br]
+## @return: 基类注册结果；实际原生历史已暂停或拥有关系变更时拒绝注册。
+func add_to_undo_manager(undo_manager: Object, execute_immediately: bool = true) -> Error:
+	var previous_ref: WeakRef = _history_state_ref
+	var previous: GFFlowEditorHistoryState = _get_history_state()
+	if undo_manager is EditorUndoRedoManager:
+		var manager: EditorUndoRedoManager = undo_manager
+		if manager.is_committing_action():
+			return ERR_BUSY
+		var state: GFFlowEditorHistoryState = GFFlowEditorHistoryState.acquire(manager, get_graph_for_editor())
+		if state == null or (is_sealed() and previous != null and previous != state):
+			return ERR_UNAVAILABLE
+		if state.is_blocked() or GFVariantData.get_option_bool(state.get_status(), "busy"):
+			return ERR_BUSY
+		_history_state_ref = weakref(state)
+	elif is_sealed() and previous != null:
+		return ERR_UNAVAILABLE
+	var error: Error = super.add_to_undo_manager(undo_manager, execute_immediately)
+	if error != OK:
+		_history_state_ref = previous_ref
+	return error
+
 
 ## 继承命令执行合同；在基类缓存真实错误后通知页面，包括重做的预检拒绝。
 ## [br]
@@ -113,6 +151,9 @@ func recover() -> Error:
 ## [br]
 ## @return: 当前库存与候选匹配且属性事务可执行时为 true。
 func can_execute() -> bool:
+	if _history_is_blocked():
+		_guard_reason = &"history_blocked"
+		return false
 	if not _insert_before.is_empty():
 		_guard_reason = _insertion_guard_reason()
 		if _guard_reason != &"":
@@ -123,6 +164,9 @@ func can_execute() -> bool:
 # --- 可重写钩子 / 虚方法 ---
 
 func _do_it() -> Error:
+	if _history_is_blocked():
+		_guard_reason = &"history_blocked"
+		return ERR_BUSY
 	if not _insert_before.is_empty():
 		_guard_reason = _insertion_guard_reason()
 		if _guard_reason != &"":
@@ -134,6 +178,9 @@ func _do_it() -> Error:
 
 
 func _undo_it() -> Error:
+	if _history_is_blocked():
+		_guard_reason = &"history_blocked"
+		return ERR_BUSY
 	if not _insert_after.is_empty() and not GFVariantData.get_option_bool(get_transaction_report(), "recovery_required") and not _inventory_matches(_insert_after):
 		_guard_reason = &"source_mismatch"
 		return ERR_BUSY
@@ -155,7 +202,7 @@ func _get_undo_context() -> Object:
 ## [br]
 ## @return: 结果容器副本；尚未操作时为 pending，补偿资格只由 transaction.recovery_required 提供。
 ## [br]
-## @schema return: Dictionary，固定 ok: bool、operation: StringName（pending/execute/revert/recover）、error: int（Error）、guard_reason: StringName（空/source_mismatch/candidate_mismatch）、zero_write: bool（结构守卫的零写拒绝）、transaction: Dictionary（同 GFEditorPropertyBatchCommand.get_transaction_report）。不授权清除或修改原生历史。
+## @schema return: Dictionary，固定 ok: bool、operation: StringName（pending/execute/revert/recover）、error: int（Error）、guard_reason: StringName（空/source_mismatch/candidate_mismatch/history_blocked）、zero_write: bool（结构或历史守卫的零写拒绝）、transaction: Dictionary（同 GFEditorPropertyBatchCommand.get_transaction_report）。不授权清除或修改原生历史。
 func get_flow_edit_result() -> Dictionary:
 	if _last_flow_edit_result.is_empty():
 		return {
@@ -428,6 +475,27 @@ func _record_flow_edit_result(operation: StringName, error: Error) -> void:
 		"guard_reason": reason, "zero_write": reason != &"",
 		"transaction": get_transaction_report(),
 	}
+	var history_state: GFFlowEditorHistoryState = _get_history_state()
+	if history_state != null:
+		history_state.record_command_result(self, _last_flow_edit_result)
+
+
+## 读取仍由实际历史拥有的弱共享状态；未注册的直接命令不引入原生历史策略。
+## [br]
+## @api private
+func _get_history_state() -> GFFlowEditorHistoryState:
+	var value: Variant = _history_state_ref.get_ref() if _history_state_ref != null else null
+	if value is GFFlowEditorHistoryState:
+		return value
+	return null
+
+
+## 已绑定原生历史的执行/撤销遵守共享门禁，恢复仍由基类真实补偿任务授权。
+## [br]
+## @api private
+func _history_is_blocked() -> bool:
+	var state: GFFlowEditorHistoryState = _get_history_state()
+	return state != null and state.is_blocked()
 
 
 ## 区分目标结构变化与本命令候选依赖变化；两者均拒绝本次写入，不回滚外部编辑。

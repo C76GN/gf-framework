@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "4baffb04c0ecec2bd11fde4f8f32c284a545680c86e73fe919249e8ae90e85fe",
+  "source_digest": "190f91557086138348f0100ab2ceb5c2ffd75b561d8a0ffd996b3f3a68f1037c",
   "class_count": 874,
   "autoload_count": 1,
   "package_count": 60,
@@ -122,7 +122,7 @@
         "gf.standard.base",
         "gf.standard.spatial"
       ],
-      "representative_path": "addons/gf/extensions/flow/editor/gf_flow_graph_dock.gd"
+      "representative_path": "addons/gf/extensions/flow/editor/gf_flow_editor_history_state.gd"
     },
     {
       "id": "gf.extension.interaction",

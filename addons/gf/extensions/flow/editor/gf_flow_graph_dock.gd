@@ -260,6 +260,76 @@ var _template_requested_start: bool = false
 ## @api private
 var _clipboard_window: Window = null
 
+## 当前原生历史的共享失配与属性补偿状态；页面释放不清除其历史。
+## [br]
+## @api private
+var _history_state: GFFlowEditorHistoryState = null
+
+## 与共享状态对应的原生管理器弱身份，防止宿主原地换管理器后沿用旧历史资格。
+## [br]
+## @api private
+var _history_manager: WeakRef = null
+
+## 共享历史的持续提示，独立于复制、保存和结构校验结果。
+## [br]
+## @api private
+var _history_status: Label = null
+
+## 仅实际原生历史支持的显式重置入口。
+## [br]
+## @api private
+var _history_reset_button: Button = null
+
+## 展示真实共享范围并取得不可撤回清除的明确确认。
+## [br]
+## @api private
+var _history_reset_dialog: ConfirmationDialog = null
+
+## 原生历史资格令牌；取消、隐藏或来源变化即清空，不复用旧确认。
+## [br]
+## @api private
+var _history_reset_token: Dictionary = {}
+
+## 发起确认时的图弱身份，避免对话框延长资源生命周期。
+## [br]
+## @api private
+var _history_reset_graph: WeakRef = null
+
+## 发起确认时的宿主弱身份，不能借新上下文执行旧确认。
+## [br]
+## @api private
+var _history_reset_context: WeakRef = null
+
+## 发起确认时的共享历史弱身份，禁止跨历史清除。
+## [br]
+## @api private
+var _history_reset_guard: WeakRef = null
+
+## 发起确认时的页面代次；换图、刷新和可见性变化会撤销资格。
+## [br]
+## @api private
+var _history_reset_generation: int = -1
+
+## 已消费确认后的同步清除边界，阻止回调重新发起页面写操作。
+## [br]
+## @api private
+var _history_reset_busy: bool = false
+
+## 清除期间若宿主切换来源或撤销页面资格，结束反馈不能覆盖新页面。
+## [br]
+## @api private
+var _history_reset_view_invalidated: bool = false
+
+## 最近一次显式重置的用户反馈；共享锁态提示始终优先。
+## [br]
+## @api private
+var _history_feedback: String = ""
+
+## 完成反馈对应的有界纯值状态，区分同次延后通知与后来新增的原生动作。
+## [br]
+## @api private
+var _history_feedback_state: Dictionary = {}
+
 
 # --- Godot 生命周期方法 ---
 
@@ -277,10 +347,13 @@ func _enter_tree() -> void:
 	if _clipboard_window != null and not _clipboard_window.visibility_changed.is_connected(_on_clipboard_visibility_changed):
 		var _window_error: Error = _clipboard_window.visibility_changed.connect(_on_clipboard_visibility_changed) as Error
 	_connect_graph_changes()
+	_bind_history_state()
 	_update_edit_availability()
 
 
 func _exit_tree() -> void:
+	_invalidate_history_reset_request()
+	_disconnect_history_state()
 	if is_instance_valid(_clipboard_window) and _clipboard_window.visibility_changed.is_connected(_on_clipboard_visibility_changed):
 		_clipboard_window.visibility_changed.disconnect(_on_clipboard_visibility_changed)
 	_clipboard_window = null
@@ -306,6 +379,9 @@ func _exit_tree() -> void:
 ## [br]
 ## @param context: 工作区提供的编辑器上下文；null 表示撤销编辑权限。
 func set_editor_context(context: GFEditorToolContext) -> void:
+	_invalidate_history_reset_request()
+	_history_feedback = ""
+	_history_feedback_state.clear()
 	_edit_generation += 1
 	_editor_context = context
 	_move_graph = null
@@ -322,9 +398,12 @@ func set_editor_context(context: GFEditorToolContext) -> void:
 ## [br]
 ## @param path: 可选资源路径。
 func set_graph(graph: GFFlowGraph, path: String = "") -> void:
-	if _recovery_command != null and graph != _graph:
+	if _has_pending_recovery() and graph != _graph:
 		_show_details(_last_edit_report)
 		return
+	_invalidate_history_reset_request()
+	_history_feedback = ""
+	_history_feedback_state.clear()
 	_disconnect_graph_changes()
 	_edit_generation += 1
 	_move_graph = null
@@ -347,9 +426,12 @@ func set_graph(graph: GFFlowGraph, path: String = "") -> void:
 ## [br]
 ## @param path: `res://` 资源路径。
 func set_graph_path(path: String) -> void:
-	if _recovery_command != null:
+	if _has_pending_recovery():
 		_show_details(_last_edit_report)
 		return
+	_invalidate_history_reset_request()
+	_history_feedback = ""
+	_history_feedback_state.clear()
 	_disconnect_graph_changes()
 	_edit_generation += 1
 	_move_graph = null
@@ -375,6 +457,7 @@ func refresh() -> void:
 	_build_ui()
 	if _graph == null and not _graph_path.is_empty():
 		_load_graph_from_path()
+	_bind_history_state()
 	_render_graph()
 	_update_edit_availability()
 
@@ -404,9 +487,10 @@ func accept_flow_edit_result(command: GFFlowGraphEditCommand) -> void:
 		return
 	_last_edit_report = command.get_flow_edit_result()
 	var transaction: Dictionary = GFVariantData.get_option_dictionary(_last_edit_report, "transaction")
-	if GFVariantData.get_option_bool(transaction, "recovery_required"):
-		_recovery_command = command
-	elif _recovery_command == command:
+	if _history_state == null:
+		if GFVariantData.get_option_bool(transaction, "recovery_required"):
+			_recovery_command = command
+	if _recovery_command == command and not GFVariantData.get_option_bool(transaction, "recovery_required"):
 		_recovery_command = null
 	if not GFVariantData.get_option_bool(_last_edit_report, "ok"):
 		var operation: StringName = GFVariantData.get_option_string_name(_last_edit_report, "operation")
@@ -424,11 +508,182 @@ func accept_flow_edit_result(command: GFFlowGraphEditCommand) -> void:
 
 # --- 私有/辅助方法 ---
 
-## 检查当前流程图和撤销上下文是否有效，且没有待恢复命令。
+## 图写操作同时遵守真实属性补偿欠账和原生共享历史锁；普通宿主保留既有提交协议。
 ## [br]
 ## @api private
 func _can_edit() -> bool:
-	return _graph != null and is_inside_tree() and not is_queued_for_deletion() and _editor_context != null and is_instance_valid(_editor_context.undo_manager) and _recovery_command == null
+	return _graph != null and is_inside_tree() and not is_queued_for_deletion() and _editor_context != null and is_instance_valid(_editor_context.undo_manager) and _history_binding_is_available() and not _has_pending_recovery() and not _history_operation_is_busy() and (_history_state == null or not _history_state.is_blocked())
+
+
+## 保存当前完整内存图不创建历史动作；失配允许保存，半提交补偿和清除回调期间禁止保存。
+## [br]
+## @api private
+func _can_save() -> bool:
+	return _graph != null and is_inside_tree() and not is_queued_for_deletion() and _editor_context != null and is_instance_valid(_editor_context.undo_manager) and _history_binding_is_available() and not _has_pending_recovery() and not _history_operation_is_busy()
+
+
+## 原生回调尚未结束或共享清除在途时不能读取可能半提交的图；静止失配不影响复制和保存。
+## [br]
+## @api private
+func _history_operation_is_busy() -> bool:
+	return _history_reset_busy or (_history_state != null and GFVariantData.get_option_bool(_history_state.get_status(), "busy"))
+
+
+## 读取真正待补偿命令；原生历史任务可以来自共享该历史的另一个页面。
+## [br]
+## @api private
+func _get_recovery_command() -> GFFlowGraphEditCommand:
+	if _recovery_command != null:
+		var transaction: Dictionary = GFVariantData.get_option_dictionary(_recovery_command.get_flow_edit_result(), "transaction")
+		if GFVariantData.get_option_bool(transaction, "recovery_required"):
+			return _recovery_command
+		_recovery_command = null
+	return _history_state.get_recovery_command() if _history_state != null else null
+
+
+## 即使共享欠账当前没有可调用任务，也不能把不完整数据当作安全的复制或保存来源。
+## [br]
+## @api private
+func _has_pending_recovery() -> bool:
+	if _get_recovery_command() != null:
+		return true
+	return _history_state != null and GFVariantData.get_option_bool(_history_state.get_status(), "compensation_required")
+
+
+## 实际原生宿主必须具备可核实的当前共享状态；普通 Object 继续沿用原提交能力。
+## [br]
+## @api private
+func _history_binding_is_available() -> bool:
+	if _editor_context == null or not is_instance_valid(_editor_context.undo_manager):
+		return _history_state == null
+	if not _editor_context.undo_manager is EditorUndoRedoManager:
+		return _history_state == null
+	if _history_state == null or _history_manager == null or _history_manager.get_ref() != _editor_context.undo_manager:
+		return false
+	var status: Dictionary = _history_state.get_status()
+	if _graph == null or not GFVariantData.get_option_bool(status, "supported"):
+		return false
+	var manager: EditorUndoRedoManager = _editor_context.undo_manager
+	return manager.get_object_history_id(_graph) == GFVariantData.get_option_int(status, "history_id", -1)
+
+
+## 只为实际 EditorUndoRedoManager 绑定共享状态；未知宿主不被推测为可清除的原生历史。
+## 旧历史仍有真实补偿时保留债务信息，不把该状态当作新上下文的操作授权。
+## [br]
+## @api private
+func _bind_history_state() -> void:
+	var graph: GFFlowGraph = _graph
+	var context: GFEditorToolContext = _editor_context
+	var generation: int = _edit_generation
+	var candidate: GFFlowEditorHistoryState = null
+	var manager: EditorUndoRedoManager = null
+	if is_inside_tree() and graph != null and context != null and is_instance_valid(context.undo_manager) and context.undo_manager is EditorUndoRedoManager:
+		manager = context.undo_manager
+		candidate = GFFlowEditorHistoryState.acquire(manager, graph)
+	if not is_instance_valid(self) or graph != _graph or context != _editor_context or generation != _edit_generation:
+		return
+	if candidate == _history_state:
+		return
+	if _history_state != null and GFVariantData.get_option_bool(_history_state.get_status(), "compensation_required"):
+		return
+	_invalidate_history_reset_request()
+	if not is_instance_valid(self) or graph != _graph or context != _editor_context or generation != _edit_generation:
+		return
+	_disconnect_history_state()
+	_history_feedback = ""
+	_history_feedback_state.clear()
+	_history_state = candidate
+	if candidate != null:
+		_history_manager = weakref(manager)
+	if _history_state != null and not _history_state.changed.is_connected(_on_history_state_changed):
+		var _connection_error: int = _history_state.changed.connect(_on_history_state_changed)
+
+
+## 释放页面订阅，不隐式清除原生历史，也不丢弃共享 guard 中的恢复任务。
+## [br]
+## @api private
+func _disconnect_history_state() -> void:
+	if _history_state != null and _history_state.changed.is_connected(_on_history_state_changed):
+		_history_state.changed.disconnect(_on_history_state_changed)
+	_history_state = null
+	_history_manager = null
+
+
+## 取消对话框及其全部弱身份；晚到 confirmed 信号只能成为无操作。
+## [br]
+## @api private
+func _invalidate_history_reset_request(revoke_running: bool = true) -> void:
+	if revoke_running and _history_reset_busy:
+		_history_reset_view_invalidated = true
+	_history_reset_token.clear()
+	_history_reset_graph = null
+	_history_reset_context = null
+	_history_reset_guard = null
+	_history_reset_generation = -1
+	if is_instance_valid(_history_reset_dialog):
+		_history_reset_dialog.hide()
+
+
+## 共享锁态优先于最近成功反馈；普通复制和保存反馈不能掩盖未处理的历史失配。
+## [br]
+## @api private
+func _update_history_feedback() -> void:
+	if _history_status == null:
+		return
+	var status: Dictionary = _history_state.get_status() if _history_state != null else {}
+	var blocked: bool = GFVariantData.get_option_bool(status, "blocked")
+	var text: String = GFVariantData.get_option_string(status, "summary") if blocked else _history_feedback
+	if _graph != null and _editor_context != null and is_instance_valid(_editor_context.undo_manager) and _editor_context.undo_manager is EditorUndoRedoManager and not _history_binding_is_available():
+		text = "无法确认当前原生撤销历史，图编辑已暂停；历史重置不可用。"
+	elif blocked and not _history_feedback.is_empty():
+		text += "\n" + _history_feedback
+	_history_status.text = text
+	_history_status.visible = not text.is_empty()
+	if _history_reset_button != null:
+		_history_reset_button.visible = _history_state != null and (blocked or GFVariantData.get_option_bool(status, "desynchronized"))
+		_history_reset_button.disabled = not GFVariantData.get_option_bool(status, "can_reset") or not _clipboard_is_visible() or _clipboard_busy or _history_reset_busy or _has_pending_recovery()
+
+
+## 完成反馈只绑定状态和原生历史标量；不以相同正常状态误认后来动作的通知。
+## [br]
+## @api private
+func _capture_history_feedback_state() -> Dictionary:
+	if _history_state == null or _editor_context == null or not _editor_context.undo_manager is EditorUndoRedoManager or not _history_binding_is_available():
+		return {}
+	var manager: EditorUndoRedoManager = _editor_context.undo_manager
+	var status: Dictionary = _history_state.get_status()
+	var history_id: int = GFVariantData.get_option_int(status, "history_id", -1)
+	var history: UndoRedo = manager.get_history_undo_redo(history_id)
+	if not is_instance_valid(history):
+		return {}
+	return {
+		"guard_id": _history_state.get_instance_id(), "status": status,
+		"history_object_id": history.get_instance_id(), "version": history.get_version(),
+		"cursor": history.get_current_action(), "count": history.get_history_count(),
+	}
+
+
+## 说明将清除的真实原生历史范围，不虚称外部图资源拥有独立历史。
+## [br]
+## @api private
+func _make_history_reset_text(scope: StringName) -> String:
+	var scope_text: String = ""
+	if scope == &"global":
+		scope_text = "当前图使用编辑器全局历史，与其他外部资源、ProjectSettings 等编辑记录共享。继续将清除这一共享历史中的全部撤销和重做记录，也会影响其他资源。"
+	elif scope == &"scene":
+		scope_text = "当前图使用场景历史。继续将清除该场景历史中的全部撤销和重做记录，包括关联的其他对象操作。"
+	elif scope == &"remote":
+		scope_text = "当前图使用远程对象历史。继续将清除这一原生历史中的全部撤销和重做记录。"
+	else:
+		return ""
+	return "%s\n\n当前图的内存数据保持不变，不回退旧版本，不保存文件。清除历史无法撤回；后续编辑从当前数据继续。" % scope_text
+
+
+## 只接受仍可见且没有写操作在途的当前图确认，原生历史 token 由共享 guard 再次验证。
+## [br]
+## @api private
+func _is_history_reset_view_current(graph: GFFlowGraph, context: GFEditorToolContext, state: GFFlowEditorHistoryState, generation: int) -> bool:
+	return graph != null and graph == _graph and context != null and context == _editor_context and state != null and state == _history_state and generation == _edit_generation and _clipboard_is_visible() and not is_queued_for_deletion() and _history_binding_is_available() and not _clipboard_busy and not _history_reset_busy and not _has_pending_recovery()
 
 
 ## 根据编辑上下文更新按钮状态和节点可拖动状态。
@@ -455,21 +710,22 @@ func _update_edit_availability() -> void:
 	if _auto_layout_button != null:
 		_auto_layout_button.disabled = not editable
 	if _save_button != null:
-		_save_button.disabled = not editable
+		_save_button.disabled = not _can_save()
 	if _recovery_button != null:
-		_recovery_button.visible = _recovery_command != null
-		_recovery_button.disabled = _editor_context == null or not is_instance_valid(_editor_context.undo_manager)
+		_recovery_button.visible = _get_recovery_command() != null
+		_recovery_button.disabled = _editor_context == null or not is_instance_valid(_editor_context.undo_manager) or not _history_binding_is_available() or _history_reset_busy or (_history_state != null and GFVariantData.get_option_bool(_history_state.get_status(), "busy"))
 	for value: Variant in _node_controls_by_id.values():
 		var node: GraphNode = _get_graph_node_value(value)
 		if node != null:
 			node.draggable = editable
+	_update_history_feedback()
 
 
 ## 复制无需 Undo 管理器，但只接受可见页面内的完整视图且不能读取待恢复的半提交状态。
 ## [br]
 ## @api private
 func _can_copy() -> bool:
-	return _graph != null and _clipboard_is_visible() and not is_queued_for_deletion() and _selection_graph == _graph and _recovery_command == null and not _clipboard_busy
+	return _graph != null and _clipboard_is_visible() and not is_queued_for_deletion() and _selection_graph == _graph and _history_binding_is_available() and not _has_pending_recovery() and not _clipboard_busy and not _history_operation_is_busy()
 
 
 ## 页面和所属窗口都可见才接受复制与插入；隐藏不会丢失已完成的复制包。
@@ -599,6 +855,8 @@ func _commit_edit(command: GFFlowGraphEditCommand) -> void:
 	if not _can_edit() or command == null:
 		refresh()
 		return
+	_history_feedback = ""
+	_history_feedback_state.clear()
 	var graph: GFFlowGraph = _graph
 	var context: GFEditorToolContext = _editor_context
 	var generation: int = _edit_generation
@@ -867,6 +1125,14 @@ func _build_ui() -> void:
 	_recovery_button = _make_workspace_button("恢复编辑", "恢复未完整补偿的属性事务后再继续编辑。", _on_recover_pressed)
 	_recovery_button.visible = false
 	toolbar.add_child(_recovery_button)
+	_history_reset_button = _make_workspace_button("重置撤销历史…", "保留当前图数据，经确认后清除实际共享历史中的撤销和重做记录。", _on_history_reset_pressed)
+	_history_reset_button.name = "HistoryResetButton"
+	_history_reset_button.visible = false
+	toolbar.add_child(_history_reset_button)
+	_history_status = _make_summary_label()
+	_history_status.name = "HistoryStatus"
+	_history_status.visible = false
+	root_box.add_child(_history_status)
 	var edit_toolbar: HFlowContainer = _make_toolbar()
 	root_box.add_child(edit_toolbar)
 	var labels: PackedStringArray = PackedStringArray(["复制", "剪切", "粘贴", "重复"])
@@ -967,6 +1233,15 @@ func _build_ui() -> void:
 	_template_dialog.filters = PackedStringArray(["*.tres, *.res ; GFFlowNode 资源模板"])
 	var _template_connected: int = _template_dialog.file_selected.connect(_on_template_selected)
 	add_child(_template_dialog)
+	_history_reset_dialog = ConfirmationDialog.new()
+	_history_reset_dialog.name = "HistoryResetConfirmation"
+	_history_reset_dialog.title = "重置撤销历史"
+	_history_reset_dialog.dialog_autowrap = true
+	_history_reset_dialog.get_ok_button().text = "清除历史并继续"
+	_history_reset_dialog.get_cancel_button().text = "取消"
+	var _reset_confirmed_error: int = _history_reset_dialog.confirmed.connect(_on_history_reset_confirmed)
+	var _reset_canceled_error: int = _history_reset_dialog.canceled.connect(_on_history_reset_canceled)
+	add_child(_history_reset_dialog)
 
 
 ## 连接流程图编辑signal。
@@ -1254,7 +1529,7 @@ func _render_entries(view_model: Dictionary) -> void:
 ## [br]
 ## @api private
 func _save_graph() -> Error:
-	if not _can_edit():
+	if not _can_save():
 		return ERR_UNCONFIGURED
 
 	var output_path: String = _graph_path
@@ -1345,6 +1620,7 @@ func _safe_json(value: Variant) -> String:
 ## [br]
 ## @api private
 func _on_clipboard_visibility_changed() -> void:
+	_invalidate_history_reset_request()
 	_edit_generation += 1
 	_menu_generation = -1
 	_template_generation = -1
@@ -1360,6 +1636,7 @@ func _on_clipboard_visibility_changed() -> void:
 ## [br]
 ## @api private
 func _on_graph_changed() -> void:
+	_invalidate_history_reset_request()
 	_edit_generation += 1
 	_menu_generation = -1
 	_template_generation = -1
@@ -1379,14 +1656,144 @@ func _on_begin_node_move() -> void:
 ## [br]
 ## @api private
 func _on_recover_pressed() -> void:
-	if _recovery_command == null or _editor_context == null or not is_instance_valid(_editor_context.undo_manager):
+	var command: GFFlowGraphEditCommand = _get_recovery_command()
+	if command == null or not _clipboard_is_visible() or is_queued_for_deletion() or _editor_context == null or not is_instance_valid(_editor_context.undo_manager) or not _history_binding_is_available() or _history_operation_is_busy():
 		return
-	var command: GFFlowGraphEditCommand = _recovery_command
+	var page_ref: WeakRef = weakref(self)
+	var view_graph: GFFlowGraph = _graph
+	var context: GFEditorToolContext = _editor_context
+	var state: GFFlowEditorHistoryState = _history_state
+	var command_graph: GFFlowGraph = command.get_graph_for_editor()
 	var error: Error = command.recover()
-	if error == OK:
-		_graph.emit_changed()
+	if error == OK and command_graph != null:
+		command_graph.emit_changed()
+	var page_value: Variant = page_ref.get_ref()
+	if not page_value is GFFlowGraphDock or not is_inside_tree() or is_queued_for_deletion():
+		return
 	refresh()
+	if view_graph != _graph or context != _editor_context or state != _history_state:
+		return
 	_show_details(command.get_flow_edit_result())
+
+
+## 所有共享历史事件撤销旧确认和写入口；不因空历史或成功属性补偿自动解除失配。
+## 脱离的旧债务恢复后延后重绑，避免在原生回调栈中取得新历史资格。
+## [br]
+## @api private
+func _on_history_state_changed() -> void:
+	_invalidate_history_reset_request(false)
+	if not is_instance_valid(self) or not is_inside_tree() or is_queued_for_deletion():
+		return
+	_edit_generation += 1
+	_menu_generation = -1
+	_template_generation = -1
+	_move_graph = null
+	if not _history_reset_busy:
+		if _history_feedback_state.is_empty() or _history_feedback_state != _capture_history_feedback_state():
+			_history_feedback = ""
+			_history_feedback_state.clear()
+	if _clipboard_menu != null:
+		_clipboard_menu.hide()
+	if _template_dialog != null:
+		_template_dialog.hide()
+	if _history_state != null and not _has_pending_recovery() and not _history_binding_is_available() and not _refresh_pending:
+		_refresh_pending = true
+		_refresh_after_graph_change.call_deferred()
+	_update_edit_availability()
+
+
+## 捕获真实历史及页面资格后展示一次性确认，不执行旧命令或写入当前图。
+## [br]
+## @api private
+func _on_history_reset_pressed() -> void:
+	_invalidate_history_reset_request()
+	if not is_instance_valid(self) or _history_state == null or _graph == null or _editor_context == null or not _clipboard_is_visible() or is_queued_for_deletion() or _clipboard_busy or _history_reset_busy or _has_pending_recovery():
+		return
+	var graph: GFFlowGraph = _graph
+	var context: GFEditorToolContext = _editor_context
+	var state: GFFlowEditorHistoryState = _history_state
+	var generation: int = _edit_generation
+	var status: Dictionary = state.get_status()
+	if not GFVariantData.get_option_bool(status, "can_reset"):
+		_update_edit_availability()
+		return
+	var token: Dictionary = state.capture_reset_token()
+	if not is_instance_valid(self) or not _is_history_reset_view_current(graph, context, state, generation):
+		return
+	if not GFVariantData.get_option_bool(token, "ok"):
+		_history_feedback = "当前原生历史暂不可重置，请查看诊断并重新发起。"
+		_history_feedback_state = _capture_history_feedback_state()
+		_show_details(token)
+		_update_edit_availability()
+		return
+	var scope: StringName = GFVariantData.get_option_string_name(status, "scope", &"unavailable")
+	var text: String = _make_history_reset_text(scope)
+	if text.is_empty():
+		return
+	_history_reset_token = token.duplicate(true)
+	_history_reset_graph = weakref(graph)
+	_history_reset_context = weakref(context)
+	_history_reset_guard = weakref(state)
+	_history_reset_generation = generation
+	_history_reset_dialog.dialog_text = text
+	_history_reset_dialog.popup_centered(Vector2i(640, 320))
+
+
+## 提交前消费确认，清除回调后再检查页面；失权不更新新页面，也不恢复旧图值。
+## [br]
+## @api private
+func _on_history_reset_confirmed() -> void:
+	if _history_reset_token.is_empty():
+		return
+	var token: Dictionary = _history_reset_token.duplicate(true)
+	var graph: GFFlowGraph = _get_flow_graph_value(_history_reset_graph.get_ref()) if _history_reset_graph != null else null
+	var context: GFEditorToolContext = null
+	if _history_reset_context != null:
+		var context_value: Variant = _history_reset_context.get_ref()
+		if context_value is GFEditorToolContext:
+			context = context_value
+	var state: GFFlowEditorHistoryState = null
+	if _history_reset_guard != null:
+		var state_value: Variant = _history_reset_guard.get_ref()
+		if state_value is GFFlowEditorHistoryState:
+			state = state_value
+	var generation: int = _history_reset_generation
+	var page_ref: WeakRef = weakref(self)
+	_invalidate_history_reset_request(false)
+	if not is_instance_valid(self) or not _is_history_reset_view_current(graph, context, state, generation):
+		return
+	_history_reset_busy = true
+	_history_reset_view_invalidated = false
+	_update_edit_availability()
+	var result: Dictionary = state.confirm_reset(token)
+	var page_value: Variant = page_ref.get_ref()
+	if not page_value is GFFlowGraphDock:
+		return
+	_history_reset_busy = false
+	if is_inside_tree() and not is_queued_for_deletion():
+		_update_edit_availability()
+	if not is_inside_tree() or is_queued_for_deletion() or _history_reset_view_invalidated or graph != _graph or context != _editor_context or state != _history_state:
+		return
+	if GFVariantData.get_option_bool(result, "ok"):
+		_history_feedback = "撤销历史已重置，当前图数据保留；后续编辑从当前状态开始。"
+		if GFVariantData.get_option_string_name(result, "scope") == &"global":
+			_history_feedback += " 共享全局历史中的其他资源记录也已清除。"
+	elif GFVariantData.get_option_string_name(result, "reason") == &"postcondition_failed" or GFVariantData.get_option_bool(result, "history_cleared"):
+		_history_feedback = "已执行清除，但历史随后变化或结束态未确认；当前图未回退，Flow 仍暂停，请重新确认。"
+	elif GFVariantData.get_option_string_name(result, "reason") == &"confirmation_stale":
+		_history_feedback = "确认已过期，未清除任何记录；请重新发起。"
+	else:
+		_history_feedback = "撤销历史重置未完成；当前图未回退，请查看诊断后重新确认。"
+	_history_feedback_state = _capture_history_feedback_state()
+	_update_edit_availability()
+	_show_details(result)
+
+
+## 取消只撤销本次确认，不改变图值、原生历史或共享失配状态。
+## [br]
+## @api private
+func _on_history_reset_canceled() -> void:
+	_invalidate_history_reset_request()
 
 
 ## 处理路径提交并加载指定流程图资源。
