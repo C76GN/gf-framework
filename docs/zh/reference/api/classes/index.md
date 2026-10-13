@@ -8,7 +8,7 @@
 |---|---:|---:|---|
 | Kernel | 78 | 1145 | [Kernel](#module-kernel) |
 | Standard | 490 | 7692 | [Standard](#module-standard) |
-| Action Queue | 21 | 241 | [Action Queue](#module-extensions-action_queue) |
+| Action Queue | 21 | 243 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 23 | 101 | [Behavior Tree](#module-extensions-behavior_tree) |
 | Camera | 8 | 138 | [Camera](#module-extensions-camera) |
@@ -638,7 +638,7 @@
 | [`GFWaitAction`](GFWaitAction.md#gfwaitaction) | 运行时句柄 (`runtime_handle`) | `GFVisualAction` | 12 | `addons/gf/extensions/action_queue/actions/gf_wait_action.gd` |
 | [`GFActionInterceptionResult`](GFActionInterceptionResult.md#gfactioninterceptionresult) | 值对象 (`value_object`) | `RefCounted` | 12 | `addons/gf/extensions/action_queue/core/gf_action_interception_result.gd` |
 | [`GFTweenNumericTimeline`](GFTweenNumericTimeline.md#gftweennumerictimeline) | 值对象 (`value_object`) | `RefCounted` | 5 | `addons/gf/extensions/action_queue/tween/gf_tween_numeric_timeline.gd` |
-| [`GFTweenPreviewRegistry`](GFTweenPreviewRegistry.md#gftweenpreviewregistry) | 编辑器 API (`editor_api`) | `RefCounted` | 5 | `addons/gf/extensions/action_queue/editor/gf_tween_preview_registry.gd` |
+| [`GFTweenPreviewRegistry`](GFTweenPreviewRegistry.md#gftweenpreviewregistry) | 编辑器 API (`editor_api`) | `RefCounted` | 7 | `addons/gf/extensions/action_queue/editor/gf_tween_preview_registry.gd` |
 
 <a id="module-extensions-asset_metadata"></a>
 

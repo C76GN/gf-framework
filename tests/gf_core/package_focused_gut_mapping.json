@@ -49,7 +49,8 @@
     ],
     "gf.extension.flow": [
       "res://tests/gf_core/extensions/flow/test_gf_flow_graph.gd",
-      "res://tests/gf_core/extensions/flow/test_gf_flow_graph_editor_undo.gd"
+      "res://tests/gf_core/extensions/flow/test_gf_flow_graph_editor_undo.gd",
+      "res://tests/gf_core/extensions/flow/test_gf_flow_clipboard.gd"
     ],
     "gf.extension.interaction": [
       "res://tests/gf_core/extensions/interaction/test_gf_interaction_flow_context.gd",
@@ -251,6 +252,7 @@
       "res://tests/gf_core/standard/foundation/math/test_gf_grid_visibility_math_2d.gd",
       "res://tests/gf_core/standard/foundation/math/test_gf_heightfield_and_surface_scatter.gd",
       "res://tests/gf_core/standard/foundation/math/test_gf_noise_field_tools.gd",
+      "res://tests/gf_core/standard/foundation/math/test_gf_spring_math.gd",
       "res://tests/gf_core/standard/foundation/math/test_gf_trajectory_math.gd",
       "res://tests/gf_core/standard/foundation/math/test_gf_wave_function_collapse_2d.gd",
       "res://tests/gf_core/standard/foundation/math/test_gf_tile_utilities.gd",
@@ -341,7 +343,14 @@
     ],
     "gf.tool.action_queue.editor": [
       "res://tests/gf_core/tools/action_queue.editor/test_gf_tween_preview.gd",
-      "res://tests/gf_core/tools/action_queue.editor/test_gf_tween_numeric_preview.gd"
+      "res://tests/gf_core/tools/action_queue.editor/test_gf_tween_numeric_preview.gd",
+      "res://tests/gf_core/tools/action_queue.editor/test_gf_tween_preview_binding.gd",
+      "res://tests/gf_core/tools/action_queue.editor/test_gf_tween_preview_prepare.gd",
+      "res://tests/gf_core/tools/action_queue.editor/test_gf_tween_creation_intent.gd",
+      "res://tests/gf_core/tools/action_queue.editor/test_gf_tween_authoring_diagnostics.gd",
+      "res://tests/gf_core/tools/action_queue.editor/test_gf_tween_authoring_navigation.gd",
+      "res://tests/gf_core/tools/action_queue.editor/test_gf_tween_authoring_presets.gd",
+      "res://tests/gf_core/tools/action_queue.editor/test_gf_tween_authoring_duration.gd"
     ],
     "gf.tool.asset_browser": [
       "res://tests/gf_core/tools/asset_browser/test_gf_asset_browser_editor.gd",

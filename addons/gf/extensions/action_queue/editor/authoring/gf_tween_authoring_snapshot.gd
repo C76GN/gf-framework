@@ -6,6 +6,11 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 作者名称的字符预算；超限不截断签名，原生资源与播放签名保持原值。
+## [br]
+## @api framework_internal
+const NAME_LENGTH_LIMIT: int = 256
+
 ## 仅接受此精确脚本的配置，避免通过自定义脚本属性读取执行未知逻辑。
 ## [br]
 ## @api private
@@ -87,3 +92,39 @@ static func capture(config: Resource) -> Array:
 			fields.append(null)
 		result.append(fields)
 	return result
+
+
+## 捕获作者定位与连续编辑身份；名称不改变 capture 的播放签名。
+## 同值步骤替换也改变实例向量，旧时间块不能按旧索引定位新来源。
+## [br]
+## @api framework_internal
+## [br]
+## @param config: 精确原生配置；未知来源、超过 128 步或原生名称超过 NAME_LENGTH_LIMIT 时返回空字典。
+## [br]
+## @return: 无资源引用的有界作者快照。
+## [br]
+## @schema return: Dictionary，空或 source_id: int、step_ids: PackedInt64Array、names: Array[StringName]、values: Array（同 capture）；空步骤的实例为 0，非原生步骤不读取名称。
+static func capture_editing(config: Resource) -> Dictionary:
+	if config == null or config.get_script() != _CONFIG_SCRIPT:
+		return {}
+	var value: Variant = config.get(&"steps")
+	if not value is Array:
+		return {}
+	var steps: Array = value
+	if steps.size() > 128:
+		return {}
+	var step_ids: PackedInt64Array = PackedInt64Array()
+	var names: Array[StringName] = []
+	for step_value: Variant in steps:
+		var instance_id: int = 0
+		var step_name: StringName = &""
+		if step_value is Resource:
+			var step: Resource = step_value
+			instance_id = step.get_instance_id()
+			if step.get_script() == _STEP_SCRIPT:
+				if step.resource_name.length() > NAME_LENGTH_LIMIT:
+					return {}
+				step_name = StringName(step.resource_name)
+		var _appended: bool = step_ids.append(instance_id)
+		names.append(step_name)
+	return {"source_id": config.get_instance_id(), "step_ids": step_ids, "names": names, "values": capture(config)}

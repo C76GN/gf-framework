@@ -27,12 +27,13 @@
 ### `step_float`
 
 - API：`public`
+- 首次版本：`4.1.0`
 
 ```gdscript
 static func step_float( current_value: float, velocity: float, target_value: float, delta_seconds: float, frequency_hz: float = 3.0, damping_ratio: float = 1.0, response: float = 0.0, target_velocity: float = 0.0 ) -> Dictionary:
 ```
 
-对 float 值执行一次二阶弹簧步进。
+对 float 值执行一次二阶弹簧步进。 全部输入须有限；非有限输入或结果发出一次错误并返回空字典，不提供部分状态。
 
 参数：
 
@@ -47,23 +48,24 @@ static func step_float( current_value: float, velocity: float, target_value: flo
 | `response` | 目标速度响应系数；0 表示忽略 \`target_velocity\` 的前馈。 |
 | `target_velocity` | 目标值自身速度。 |
 
-返回：包含下一帧 `value` 与 `velocity` 的字典。
+返回：成功包含下一帧 value 与 velocity；非有限输入或计算结果返回空字典。
 
 结构：
 
-- `return`: Dictionary with `value: float` and `velocity: float`.
+- `return`: Dictionary，失败为空，成功仅包含有限 value: float 与 velocity: float。
 
 <a id="member-gfspringmath-methods-step_angle"></a>
 
 ### `step_angle`
 
 - API：`public`
+- 首次版本：`4.1.0`
 
 ```gdscript
 static func step_angle( current_radians: float, velocity: float, target_radians: float, delta_seconds: float, frequency_hz: float = 3.0, damping_ratio: float = 1.0, response: float = 0.0, target_velocity: float = 0.0 ) -> Dictionary:
 ```
 
-对弧度角执行一次二阶弹簧步进，并沿最短角度方向靠近目标。
+对弧度角执行一次二阶弹簧步进，并沿最短角度方向靠近目标。 全部输入先做有限准入；非有限输入或角差/步进结果发出一次错误并返回空字典。
 
 参数：
 
@@ -78,23 +80,24 @@ static func step_angle( current_radians: float, velocity: float, target_radians:
 | `response` | 目标角速度响应系数；0 表示忽略 \`target_velocity\` 的前馈。 |
 | `target_velocity` | 目标角度自身速度。 |
 
-返回：包含下一帧 `value` 与 `velocity` 的字典；`value` 不会自动归一化。
+返回：成功包含下一帧 value 与 velocity，value 不会自动归一化；非有限输入或结果为空字典。
 
 结构：
 
-- `return`: Dictionary with `value: float` and `velocity: float`.
+- `return`: Dictionary，失败为空，成功仅包含有限 value: float 与 velocity: float。
 
 <a id="member-gfspringmath-methods-step_vector2"></a>
 
 ### `step_vector2`
 
 - API：`public`
+- 首次版本：`4.1.0`
 
 ```gdscript
 static func step_vector2( current_value: Vector2, velocity: Vector2, target_value: Vector2, delta_seconds: float, frequency_hz: float = 3.0, damping_ratio: float = 1.0, response: float = 0.0, target_velocity: Vector2 = Vector2.ZERO ) -> Dictionary:
 ```
 
-对 Vector2 值执行一次逐分量二阶弹簧步进。
+对 Vector2 值执行一次逐分量二阶弹簧步进。 全部输入分量与参数须有限；最终原生向量也须有限，失败发出一次错误并返回空字典。
 
 参数：
 
@@ -109,23 +112,24 @@ static func step_vector2( current_value: Vector2, velocity: Vector2, target_valu
 | `response` | 目标速度响应系数；0 表示忽略 \`target_velocity\` 的前馈。 |
 | `target_velocity` | 目标值自身速度。 |
 
-返回：包含下一帧 `value` 与 `velocity` 的字典。
+返回：成功包含完整下一帧 value 与 velocity；非有限输入或任一结果分量为空字典。
 
 结构：
 
-- `return`: Dictionary with `value: Vector2` and `velocity: Vector2`.
+- `return`: Dictionary，失败为空，成功仅包含分量均有限的 value: Vector2 与 velocity: Vector2。
 
 <a id="member-gfspringmath-methods-step_vector3"></a>
 
 ### `step_vector3`
 
 - API：`public`
+- 首次版本：`4.1.0`
 
 ```gdscript
 static func step_vector3( current_value: Vector3, velocity: Vector3, target_value: Vector3, delta_seconds: float, frequency_hz: float = 3.0, damping_ratio: float = 1.0, response: float = 0.0, target_velocity: Vector3 = Vector3.ZERO ) -> Dictionary:
 ```
 
-对 Vector3 值执行一次逐分量二阶弹簧步进。
+对 Vector3 值执行一次逐分量二阶弹簧步进。 全部输入分量与参数须有限；最终原生向量也须有限，失败发出一次错误并返回空字典。
 
 参数：
 
@@ -140,8 +144,8 @@ static func step_vector3( current_value: Vector3, velocity: Vector3, target_valu
 | `response` | 目标速度响应系数；0 表示忽略 \`target_velocity\` 的前馈。 |
 | `target_velocity` | 目标值自身速度。 |
 
-返回：包含下一帧 `value` 与 `velocity` 的字典。
+返回：成功包含完整下一帧 value 与 velocity；非有限输入或任一结果分量为空字典。
 
 结构：
 
-- `return`: Dictionary with `value: Vector3` and `velocity: Vector3`.
+- `return`: Dictionary，失败为空，成功仅包含分量均有限的 value: Vector3 与 velocity: Vector3。

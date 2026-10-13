@@ -21,22 +21,125 @@ var _graph: GFFlowGraph = null
 ## @api private
 var _observer: WeakRef = null
 
+## 插入前的图库存快照；插入候选不得覆盖准备后发生的外部结构编辑。
+## [br]
+## @api private
+var _insert_before: Dictionary = {}
 
-# --- 可重写钩子 / 虚方法 ---
+## 成功插入后的图库存快照；撤销只接管仍与该命令对应的结构。
+## [br]
+## @api private
+var _insert_after: Dictionary = {}
 
-func _do_it() -> Error:
-	var error: Error = super._do_it()
-	if error == OK and _graph != null:
-		_graph.emit_changed()
+## 成功插入节点的标识；页面可在提交后选择这些节点，不持有旧控件。
+## [br]
+## @api private
+var _inserted_ids: PackedStringArray = PackedStringArray()
+
+## 仅持有本命令新增的节点；不读取目标旧节点的端口或项目业务字段。
+## [br]
+## @api private
+var _insert_nodes: Array[GFFlowNode] = []
+
+## 新增节点通过准入时的原生连接依赖；每次执行/重做复核，撤销不要求端口保持原值。
+## [br]
+## @api private
+var _insert_dependencies: Array = []
+
+
+## 当前操作命中的零写入结构守卫；预检本身不发布页面结果。
+## [br]
+## @api private
+var _guard_reason: StringName = &""
+
+## 基类完成错误码和执行状态更新后保存的独立 Flow 结果；不改写属性事务报告。
+## [br]
+## @api private
+var _last_flow_edit_result: Dictionary = {}
+
+
+# --- 公共方法 ---
+
+## 继承命令执行合同；在基类缓存真实错误后通知页面，包括重做的预检拒绝。
+## [br]
+## @api public
+## [br]
+## @since 3.17.0
+## [br]
+## @return: 基类的实际执行错误码；失败不会冒充原生历史回调成功。
+func execute() -> Error:
+	_guard_reason = &""
+	var error: Error = super.execute()
+	_record_flow_edit_result(&"execute", error)
 	_notify_observer()
 	return error
 
 
+## 继承撤销合同；零写入拒绝仍通知页面，原生 Undo 不会因该错误停止历史游标。
+## [br]
+## @api public
+## [br]
+## @since 3.17.0
+## [br]
+## @return: 基类的实际撤销错误码，失败保留命令执行状态与外部资源值。
+func revert() -> Error:
+	_guard_reason = &""
+	var error: Error = super.revert()
+	_record_flow_edit_result(&"revert", error)
+	_notify_observer()
+	return error
+
+
+## 只恢复基类未完整补偿的 attempt guard，不把结构冲突当作可写回的补偿任务。
+## [br]
+## @api public
+## [br]
+## @since 10.0.0
+## [br]
+## @return: 基类的真实恢复结果；没有补偿任务时沿用 ERR_UNAVAILABLE。
+func recover() -> Error:
+	_guard_reason = &""
+	var error: Error = super.recover()
+	_record_flow_edit_result(&"recover", error)
+	_notify_observer()
+	return error
+
+
+## 初次提交及重做前复核图策略和本命令新增节点的连接依赖；其它编辑沿用属性事务预检。
+## [br]
+## @api public
+## [br]
+## @since 10.0.0
+## [br]
+## @return: 当前库存与候选匹配且属性事务可执行时为 true。
+func can_execute() -> bool:
+	if not _insert_before.is_empty():
+		_guard_reason = _insertion_guard_reason()
+		if _guard_reason != &"":
+			return false
+	return super.can_execute()
+
+
+# --- 可重写钩子 / 虚方法 ---
+
+func _do_it() -> Error:
+	if not _insert_before.is_empty():
+		_guard_reason = _insertion_guard_reason()
+		if _guard_reason != &"":
+			return ERR_BUSY
+	var error: Error = super._do_it()
+	if error == OK and _graph != null:
+		_graph.emit_changed()
+	return error
+
+
 func _undo_it() -> Error:
+	if not _insert_after.is_empty() and not GFVariantData.get_option_bool(get_transaction_report(), "recovery_required") and not _inventory_matches(_insert_after):
+		_guard_reason = &"source_mismatch"
+		return ERR_BUSY
 	var error: Error = super._undo_it()
 	if error == OK and _graph != null:
 		_graph.emit_changed()
-	_notify_observer()
 	return error
 
 
@@ -45,6 +148,22 @@ func _get_undo_context() -> Object:
 
 
 # --- 框架内部方法 ---
+
+## 读取最近完整操作的真实错误及结构守卫；底层事务报告保持独立，不能据旧 committed 当作撤销成功。
+## [br]
+## @api framework_internal
+## [br]
+## @return: 结果容器副本；尚未操作时为 pending，补偿资格只由 transaction.recovery_required 提供。
+## [br]
+## @schema return: Dictionary，固定 ok: bool、operation: StringName（pending/execute/revert/recover）、error: int（Error）、guard_reason: StringName（空/source_mismatch/candidate_mismatch）、zero_write: bool（结构守卫的零写拒绝）、transaction: Dictionary（同 GFEditorPropertyBatchCommand.get_transaction_report）。不授权清除或修改原生历史。
+func get_flow_edit_result() -> Dictionary:
+	if _last_flow_edit_result.is_empty():
+		return {
+			"ok": true, "operation": &"pending", "error": OK,
+			"guard_reason": &"", "zero_write": false, "transaction": get_transaction_report(),
+		}
+	return _last_flow_edit_result.duplicate(true)
+
 
 ## 只弱引用当前页面，历史命令不会延长页面生命周期。
 ## [br]
@@ -63,6 +182,113 @@ func observe_page(page: Node) -> void:
 ## @return: 当前事务归属的图资源；未配置时为 null。
 func get_graph_for_editor() -> GFFlowGraph:
 	return _graph
+
+
+## 返回本次插入的稳定标识，用于提交后选择新节点；不返回控件或可变资源集合。
+## [br]
+## @api framework_internal
+## [br]
+## @return: 插入标识副本；其它命令为空。
+func get_inserted_node_ids() -> PackedStringArray:
+	return _inserted_ids.duplicate()
+
+
+## 为完整选择包构建零写入插入命令；所有新资源由命令持有，Undo/Redo保持同一身份。
+## [br]
+## @api framework_internal
+## [br]
+## @param graph: 目标图，作为原生资源历史上下文。
+## [br]
+## @param selection_package: GFFlowGraphEditorModel 的选择包。
+## [br]
+## @param offset: 新节点的有限位置偏移。
+## [br]
+## @param action_name: 原生历史中的操作名称。
+## [br]
+## @return: 完整插入命令；无效包、端口或预算失败返回 null，图不变。
+## [br]
+## @schema selection_package: Dictionary，包含 nodes: Array、connections: Array 和可选 start_node_id: StringName。
+static func create_selection_paste(graph: GFFlowGraph, selection_package: Dictionary, offset: Vector2 = Vector2(30, 30), action_name: String = "粘贴 Flow 节点") -> GFFlowGraphEditCommand:
+	var model: GFFlowGraphEditorModel = GFFlowGraphEditorModel.new()
+	var plan: Dictionary = model.build_selection_paste_plan(graph, selection_package, offset)
+	if not GFVariantData.get_option_bool(plan, "ok"):
+		return null
+	var added_ids_value: Variant = plan["added_node_ids"]
+	if not (added_ids_value is PackedStringArray):
+		return null
+	var added_ids: PackedStringArray = added_ids_value
+	var inserted: Array[GFFlowNode] = []
+	for value: Variant in GFVariantData.get_option_array(plan, "nodes"):
+		if value is GFFlowNode:
+			var node: GFFlowNode = value
+			if added_ids.has(String(node.node_id)):
+				inserted.append(node)
+	var dependencies: Array = _capture_insert_dependencies(inserted)
+	var command: GFFlowGraphEditCommand = _create(graph, [
+		{"target": graph, "property_name": &"nodes", "new_value": plan["nodes"]},
+		{"target": graph, "property_name": &"connections", "new_value": plan["connections"]},
+		{"target": graph, "property_name": &"start_node_id", "new_value": plan["start_node_id"]},
+	], action_name)
+	command._insert_before = GFVariantData.get_option_dictionary(plan, "before_state")
+	command._inserted_ids = added_ids
+	command._insert_nodes = inserted
+	command._insert_dependencies = dependencies
+	var planned: GFFlowGraph = GFFlowGraph.new()
+	planned.validate_port_compatibility = GFVariantData.get_option_bool(command._insert_before, "validate_port_compatibility")
+	var nodes_value: Variant = plan["nodes"]
+	if nodes_value is Array:
+		for value: Variant in nodes_value:
+			if value is GFFlowNode:
+				var node: GFFlowNode = value
+				planned.nodes.append(node)
+			elif value == null:
+				planned.nodes.append(null)
+	var connections_value: Variant = plan["connections"]
+	if connections_value is Array:
+		for value: Variant in connections_value:
+			if value is Dictionary:
+				var connection: Dictionary = value
+				planned.connections.append(connection)
+	var start_value: Variant = plan["start_node_id"]
+	if start_value is StringName:
+		planned.start_node_id = start_value
+	command._insert_after = GFFlowGraphEditorModel.capture_edit_state(planned)
+	return command
+
+
+## 从已保存的节点资源生成独立插入候选；起点由明确选项决定，已有图起点不改变。
+## 不调用项目工厂、节点执行或描述方法，原生资源复制仍遵守项目存储属性的语义。
+## [br]
+## @api framework_internal
+## [br]
+## @param graph: 目标图。
+## [br]
+## @param template: 已保存到 res:// 的 GFFlowNode 资源，保留子类和端口类型。
+## [br]
+## @param position: 新节点的有限画布位置。
+## [br]
+## @param set_as_start: 空图时允许新节点成为起点。
+## [br]
+## @return: 零写入命令；未保存、位置或端口无效时为 null。
+static func create_template_insertion(graph: GFFlowGraph, template: GFFlowNode, position: Vector2, set_as_start: bool = false) -> GFFlowGraphEditCommand:
+	if template == null or not position.is_finite():
+		return null
+	var path: String = template.resource_path
+	if not path.begins_with("res://") or path.contains("::") or path != path.simplify_path():
+		return null
+	if path.get_extension().to_lower() not in ["tres", "res"] or not FileAccess.file_exists(path):
+		return null
+	var duplicated_resource: Resource = template.duplicate(true)
+	if not (duplicated_resource is GFFlowNode):
+		return null
+	var copied: GFFlowNode = duplicated_resource
+	if copied.node_id == &"":
+		copied.node_id = StringName(template.resource_path.get_file().get_basename())
+	copied.editor_position = position
+	copied.next_node_ids = PackedStringArray()
+	return create_selection_paste(graph, {
+		"nodes": [copied], "connections": [], "start_node_id": copied.node_id if set_as_start else &"",
+	}, Vector2.ZERO, "添加 Flow 节点模板")
 
 
 ## 为图连接创建零写入候选；无变化或无效请求返回 null。
@@ -191,6 +417,71 @@ static func create_layout_edit(graph: GFFlowGraph, positions: Dictionary, action
 
 
 # --- 私有/辅助方法 ---
+
+## 保存当前操作的真实结果；只包装基类报告，不制造已执行的写入或待补偿状态。
+## [br]
+## @api private
+func _record_flow_edit_result(operation: StringName, error: Error) -> void:
+	var reason: StringName = _guard_reason if error != OK else &""
+	_last_flow_edit_result = {
+		"ok": error == OK, "operation": operation, "error": error,
+		"guard_reason": reason, "zero_write": reason != &"",
+		"transaction": get_transaction_report(),
+	}
+
+
+## 区分目标结构变化与本命令候选依赖变化；两者均拒绝本次写入，不回滚外部编辑。
+## [br]
+## @api private
+func _insertion_guard_reason() -> StringName:
+	if not _inventory_matches(_insert_before):
+		return &"source_mismatch"
+	if not _insert_candidate_matches():
+		return &"candidate_mismatch"
+	return &""
+
+
+## 对比命令相关的结构与资源身份，禁止旧候选或旧历史覆盖后来插入的节点。
+## [br]
+## @api private
+func _inventory_matches(expected: Dictionary) -> bool:
+	return _graph != null and GFFlowGraphEditorModel.capture_edit_state(_graph) == expected
+
+
+## 只复核即将写入的新增资源，不扩大图旧节点的保存或撤销所有权。
+## [br]
+## @api private
+func _insert_candidate_matches() -> bool:
+	return not _insert_nodes.is_empty() and _capture_insert_dependencies(_insert_nodes) == _insert_dependencies
+
+
+## 原生连接准入使用节点 ID、执行后继及端口目录；不调用项目描述、查找或兼容性重写。
+## [br]
+## @api private
+static func _capture_insert_dependencies(nodes: Array[GFFlowNode]) -> Array:
+	var dependencies: Array = []
+	for node: GFFlowNode in nodes:
+		if node == null:
+			return []
+		dependencies.append([
+			node.node_id, node.next_node_ids.duplicate(),
+			_capture_port_dependencies(node.input_ports), _capture_port_dependencies(node.output_ports),
+		])
+	return dependencies
+
+
+## 保存编译器实际读取的端口 ID、方向、值类型、连接数量及类提示；显示信息与业务元数据不参与。
+## [br]
+## @api private
+static func _capture_port_dependencies(ports: Array[GFFlowPort]) -> Array:
+	var dependencies: Array = []
+	for port: GFFlowPort in ports:
+		if port == null:
+			dependencies.append(null)
+		else:
+			dependencies.append([port.port_id, port.direction, port.value_type, port.allow_multiple, port.class_name_hint])
+	return dependencies
+
 
 ## 处理func内部数据。
 ## [br]

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="d8417d03ad4f264aeeb57c8312cdd7f38d13fe757b1804c192b559b005bb4fbf" classCount="899" methodCount="8056" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="faa5840db3e98c215a5d799a1094ba9d047f5f66c08b737c965511d79475f961" classCount="899" methodCount="8058" autoloadCount="1" autoloadMethodCount="65">
 	<module id="kernel" label="Kernel" classCount="78" methodCount="833" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -573,7 +573,7 @@
 		<class name="GFWeightedEntry" path="classes/GFWeightedEntry.xml" sourcePath="addons/gf/standard/foundation/math/gf_weighted_entry.gd" extends="Resource" />
 		<class name="GFWeightedTable" path="classes/GFWeightedTable.xml" sourcePath="addons/gf/standard/foundation/math/gf_weighted_table.gd" extends="Resource" />
 	</module>
-	<module id="extensions/action_queue" label="Action Queue" classCount="21" methodCount="158" autoloadCount="0" autoloadMethodCount="0">
+	<module id="extensions/action_queue" label="Action Queue" classCount="21" methodCount="160" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFAction" path="classes/GFAction.xml" sourcePath="addons/gf/extensions/action_queue/core/gf_action.gd" extends="RefCounted" />
 		<class name="GFActionInterceptionResult" path="classes/GFActionInterceptionResult.xml" sourcePath="addons/gf/extensions/action_queue/core/gf_action_interception_result.gd" extends="RefCounted" />
 		<class name="GFActionInterceptor" path="classes/GFActionInterceptor.xml" sourcePath="addons/gf/extensions/action_queue/core/gf_action_interceptor.gd" extends="RefCounted" />

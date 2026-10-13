@@ -1,6 +1,6 @@
 @tool
 
-## GFTweenPreviewRegistration: 一次编辑器数值预览注册的所有权句柄。
+## GFTweenPreviewRegistration: 一次编辑器样机或资源关联注册的所有权句柄。
 ##
 ## release 幂等且只撤销自身租约；旧句柄不能撤销同 ID 后续注册。持有者应在插件卸载时显式释放。
 ## [br]
@@ -20,7 +20,7 @@ extends RefCounted
 ## @api private
 var _registry: GFTweenPreviewRegistry = null
 
-## 注册 ID。
+## 适配器 ID 或资源关联路径，由租约种类决定含义。
 ## [br]
 ## @api private
 var _id: StringName = &""
@@ -29,6 +29,11 @@ var _id: StringName = &""
 ## [br]
 ## @api private
 var _lease: int = 0
+
+## 区分资源关联与适配器租约；只由注册表成功登记后设置。
+## [br]
+## @api private
+var _binding: bool = false
 
 
 # --- Godot 生命周期方法 ---
@@ -44,7 +49,10 @@ func _notification(what: int) -> void:
 		_registry = null
 		_lease = 0
 		if registry != null:
-			registry._release(adapter_id, lease)
+			if _binding:
+				registry._release_binding(String(adapter_id), lease)
+			else:
+				registry._release(adapter_id, lease)
 
 
 # --- 公共方法 ---
@@ -61,7 +69,10 @@ func release() -> void:
 	_registry = null
 	_lease = 0
 	if registry != null:
-		registry._release(adapter_id, lease)
+		if _binding:
+			registry._release_binding(String(adapter_id), lease)
+		else:
+			registry._release(adapter_id, lease)
 
 
 ## 返回当前句柄是否仍对应有效 owner 和租约。
@@ -72,7 +83,9 @@ func release() -> void:
 ## [br]
 ## @return: 有效时为 true。
 func is_active() -> bool:
-	return _registry != null and _registry._has_lease(_id, _lease)
+	if _registry == null:
+		return false
+	return _registry._has_binding_lease(String(_id), _lease) if _binding else _registry._has_lease(_id, _lease)
 
 
 # --- 框架内部方法 ---
@@ -83,10 +96,13 @@ func is_active() -> bool:
 ## [br]
 ## @param registry: 注册所有者。
 ## [br]
-## @param adapter_id: 已接纳 ID。
+## @param adapter_id: 已接纳的适配器 ID 或关联路径。
 ## [br]
 ## @param lease: 已接纳的正租约号。
-func _bind(registry: GFTweenPreviewRegistry, adapter_id: StringName, lease: int) -> void:
+## [br]
+## @param binding: true 表示资源关联，false 表示适配器。
+func _bind(registry: GFTweenPreviewRegistry, adapter_id: StringName, lease: int, binding: bool = false) -> void:
 	_registry = registry
 	_id = adapter_id
 	_lease = lease
+	_binding = binding

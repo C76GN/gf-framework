@@ -35,7 +35,7 @@ if timeline.get_error().is_empty():
 
 ## 显式注册隔离样机
 
-项目 EditorPlugin 实现 `GFTweenPreviewAdapter`，通过 `GFTweenPreviewRegistry` 向共享目录注册 ID、revision、label 和数值属性，并持有 `GFTweenPreviewRegistration` 管理注册生命周期。注册不执行钩子，Inspector 与 Steps 显示描述，用户须明确选择；不自动替代内置样机。
+项目 EditorPlugin 实现 `GFTweenPreviewAdapter`，通过 `GFTweenPreviewRegistry` 向共享目录注册 ID、revision、label 和数值属性，并持有 `GFTweenPreviewRegistration` 管理注册生命周期。登记本身不执行钩子。打开资源后按已声明用途解析；未声明时只自动选择唯一兼容候选，歧义需要明确选择。首次接纳后，本次编辑保留该用途，源编辑只重新检查新配置的准备条件。Inspector 与 Steps 共用同一个目标及初值目录。
 
 ```gdscript
 @tool
@@ -71,13 +71,31 @@ class ProgressSample extends GFTweenPreviewAdapter:
 
 样机须是全新、未入树、无父节点的 Control，最多 128 节点/8 层。GF 接纳后负责挂载与释放。钩子只获得工具样机和独立数值副本，播放、暂停、定位、复位和正反向使用冻结时间轴。
 
-目录最多 32 项，ID 不覆盖。owner 弱持有；插件退出须显式 release，最后一个句柄释放也撤销注册。release 幂等，旧句柄不能撤销后续同 ID 租约。修改 schema/revision 时先释放再注册，旧会话失效，须重新选择。换源或释放也终止旧资格；创建、入树和提交后检查代次、租约和样机身份。
+目录最多 32 项，ID 不覆盖。owner 弱持有；插件退出须显式 release，最后一个句柄释放也撤销注册。release 幂等，旧句柄不能撤销后续同 ID 租约。修改 schema/revision 时先释放再注册，旧会话失效，恢复的目标须重新准备。换源或释放也终止旧资格；创建、入树和提交后检查代次、租约和样机身份。
 
 这些 GDScript 钩子是受信任扩展，不能提供沙箱。实现者须避免全局业务、来源方法、marker、导航、文件保存和持久化，不应强持 owner 或来源配置；框架不宣称能阻止任意脚本访问全局状态。
 
+## 关联资源与预览用途
+
+普通配置仍是精确原生资源，不需要增加项目子类。插件可用 `register_binding` 把已保存的资源路径关联到项目适配器或内置 ID `gf.preview.2d`、`gf.preview.ui`、`gf.preview.3d`，并持有返回的同类租约：
+
+```gdscript
+var binding: GFTweenPreviewRegistration = GFTweenPreviewRegistry.get_shared().register_binding(
+	self, "res://motions/open_panel.tres", &"gf.preview.ui",
+	{"size": Vector2(64, 64)}, "面板展开"
+)
+# 插件退出时与适配器租约一起显式 binding.release()。
+```
+
+路径须为规范 `res://` 身份，每个路径只能有一个有效声明，最多 256 条。目标允许晚注册；在它可用前显示缺失原因，不回退其他样机。`initial_values` 最多覆盖 32 个样机初值表中的规范根属性，不接受分量路径。内置样机旋转用 `rotation` 弧度值，3D 用弧度 `Vector3`，不接受 `rotation_degrees` 别名作为初值键；属性浏览与动画步骤仍可使用这个别名。项目数值样机使用其描述中声明的直接属性。按实际目录复核类型、有限范围和整组计划。关联不加载或改写配置，也不影响运行时绑定；运行时仍由项目向真实目标创建动作。
+
+作者在 Inspector 明确切换用途或编辑初值，覆盖本次编辑器会话选择；不会写入资源或生成关联。选择绑定用途时沿用其声明初值，再应用作者覆盖。切换用途、换源或租约失效都会撤销旧样机资格，标签和无关目录变化不重启既有冻结计划。
+
+合法初值调整可以修复相对步骤的越界包络，仍须完整校验；若关联声明包含未知根属性，作者覆盖不能把它丢弃后当作有效声明。新配置无效时禁止新捕获或启动尚未播放的准备态；已经播放或定位且租约仍有效的旧快照可继续、定位或切换方向，直到显式重新准备或释放。
+
 ## 有限属性选择器
 
-Steps 保留手动 property_name 输入，另提供当前 2D/UI/3D 白名单或明确选择的适配器目录。搜索仅匹配有限记录的名称，大小写无关、最多 128 字符，不扫描场景/资源，不调用任意 getter。
+Steps 保留手动 property_name 输入，属性搜索直接使用上方预览所选的 2D/UI/3D 白名单或适配器目录，不再维护第二个用途选择。搜索仅匹配有限记录的名称，大小写无关、最多 128 字符，不扫描场景/资源，不调用任意 getter。
 
 名称、类型、初值、硬边界和来源由准入、初值表单与选择器共用。选择沿用独立步骤复制及 Inspector Undo / Redo。换源、换目录或注册失效后，旧控件无提交资格。目录不支持的合法运行时路径保留原文，可继续手动编辑。
 

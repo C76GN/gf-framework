@@ -26,6 +26,11 @@ const _TIMELINE_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor
 ## @api private
 const _ACTIONS_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor/gf_tween_editor_actions.gd")
 
+## 只根据同次捕获计划和倍率换算目标总秒数，提交仍归原生历史。
+## [br]
+## @api private
+const _DURATION_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor/authoring/gf_tween_authoring_duration.gd")
+
 
 # --- 私有变量 ---
 
@@ -34,10 +39,45 @@ const _ACTIONS_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor/
 ## @api private
 var _timeline: _TIMELINE_SCRIPT = null
 
-## 最近一次新会话播放尝试捕获的来源纯值签名；继续暂停会话不覆盖，重新配置或释放时清空。
+## 最近一次准备成功的来源纯值签名；继续冻结会话不覆盖，重新配置或释放时清空。
 ## [br]
 ## @api private
 var _captured_source: Array = []
+
+## 冻结计划对应的作者身份；来源值相同而步骤对象改变也不能按旧索引导航。
+## [br]
+## @api private
+var _captured_navigation: Dictionary = {}
+
+## 与当前计划及播放签名同次读取的根倍率，仅用于总时长换算。
+## [br]
+## @api private
+var _captured_scale: float = 0.0
+
+## 输入框只在换计划时同步总秒数，不能因刷新或失焦覆盖尚未提交的用户值。
+## [br]
+## @api private
+var _duration_plan: GFTweenPreviewPlan = null
+
+## 目标完整时间轴秒数；独立于用于查看旧快照的定位控件。
+## [br]
+## @api private
+var _target_seconds: SpinBox = null
+
+## 明确提交倍率的离散操作，过期来源不允许用旧计划提交。
+## [br]
+## @api private
+var _apply_duration: Button = null
+
+## 总时长换算拒绝原因，不通过日志或部分候选报告成功。
+## [br]
+## @api private
+var _duration_feedback: Label = null
+
+## 只有同源结构化步骤和字段才允许的纠错入口。
+## [br]
+## @api private
+var _error_location: Button = null
 
 ## 可见处理期间累加的来源检查间隔，到半秒时归零并刷新过期提示。
 ## [br]
@@ -63,6 +103,41 @@ var _forward_button: Button = null
 ## [br]
 ## @api private
 var _config: Resource = null
+
+## 与步骤编辑器共享的预览上下文；面板独立使用时自行创建，释放只撤销自身订阅。
+## [br]
+## @api private
+var _context: GFTweenPreviewContext = null
+
+## 完整样机配置和初值提交成功后的绑定身份；失败尝试不得冒充已接纳的样机。
+## [br]
+## @api private
+var _binding_identity: Dictionary = {}
+
+## 最近尝试的目标身份；同一失败目标不随后台刷新重复创建，显式重新准备仍可重试。
+## [br]
+## @api private
+var _binding_attempt_identity: Dictionary = {}
+
+## 正在配置样机的绑定代次；阻止同代回调再次开始配置，不阻止较新来源接管。
+## [br]
+## @api private
+var _configuration_generation: int = -1
+
+## 目标重绑定或释放的代次；适配器回调重入后旧准备不能继续操作新样机。
+## [br]
+## @api private
+var _binding_generation: int = 0
+
+## 目标下拉框最近显示的纯值选项；相同刷新不重建用户正在浏览的目录。
+## [br]
+## @api private
+var _choice_snapshot: Array[Dictionary] = []
+
+## 显式重新捕获但不播放的按钮，受当前目标准入状态控制。
+## [br]
+## @api private
+var _prepare_button: Button = null
 
 ## 执行配置预览的子视口。
 ## [br]
@@ -142,11 +217,12 @@ var _last_tick_usec: int = 0
 ## @api private
 func _ready() -> void:
 	_build_controls()
-	_viewport.configure(_config, _target_kind.selected)
-	_rebuild_initial_fields()
-	_refresh_state()
+	if _context == null:
+		_context = GFTweenPreviewContext.new()
+		_context.configure(_config)
+	_connect_context()
+	_on_preview_context_changed()
 	var _visibility_connected: int = visibility_changed.connect(_on_visibility_changed)
-	var _registry_connected: int = GFTweenPreviewRegistry.get_shared().changed.connect(_on_adapter_registry_changed, CONNECT_DEFERRED)
 
 
 ## 以单调时钟推进可见且未释放的预览，并每半秒检查来源是否改变；隐藏期间不推进会话。
@@ -158,11 +234,22 @@ func _process(_delta: float) -> void:
 	_last_tick_usec = now_usec
 	if _disposed or _viewport == null or not is_visible_in_tree():
 		return
+	if _viewport.has_session() and not _qualify_binding():
+		return
 	_viewport.advance(elapsed)
+	if not is_instance_valid(self) or _disposed:
+		return
 	_refresh_values()
 	_source_check_seconds += elapsed
 	if _source_check_seconds >= 0.5:
 		_source_check_seconds = 0.0
+		if _context != null:
+			_context.refresh()
+		if not is_instance_valid(self) or _disposed:
+			return
+		_on_preview_context_changed()
+		if not is_instance_valid(self) or _disposed:
+			return
 		_refresh_stale_state()
 
 
@@ -175,21 +262,31 @@ func _exit_tree() -> void:
 
 # --- 框架内部方法 ---
 
-## 绑定原生 Tween 配置资源；只在点击播放时读取配置快照。
+## 绑定资源和共享上下文；入树后立即准备时间轴，不自动播放。
 ## [br]
 ## @api framework_internal
 ## [br]
 ## @param config: 待预览资源，null 清除当前配置。
-func configure(config: Resource) -> void:
+## [br]
+## @param context: 同一资源的 Inspector 上下文；null 创建独立上下文，不与配置资源混存。
+func configure(config: Resource, context: GFTweenPreviewContext = null) -> void:
+	_disconnect_context()
 	_config = config
+	_context = context
+	if _context == null:
+		_context = GFTweenPreviewContext.new()
+		_context.configure(config)
+	_connect_context()
+	_binding_generation += 1
+	_binding_identity.clear()
+	_binding_attempt_identity.clear()
+	_choice_snapshot.clear()
 	_captured_source.clear()
+	_captured_navigation.clear()
 	_disposed = false
 	show()
 	if _viewport != null:
-		_configure_selected_target()
-		_rebuild_time_controls()
-		_rebuild_initial_fields()
-		_refresh_state()
+		_on_preview_context_changed()
 	set_process(true)
 
 
@@ -198,50 +295,264 @@ func configure(config: Resource) -> void:
 ## @api framework_internal
 func dispose_preview() -> void:
 	_disposed = true
+	_binding_generation += 1
 	set_process(false)
 	hide()
+	_disconnect_context()
+	_context = null
 	_config = null
+	_binding_identity.clear()
+	_binding_attempt_identity.clear()
+	_choice_snapshot.clear()
 	_captured_source.clear()
+	_captured_navigation.clear()
 	if is_instance_valid(_viewport):
 		_viewport.dispose_preview()
 
 
 # --- 私有/辅助方法 ---
 
-## 向原生种类后追加有效注册描述；条目仅保存 ID，不保存项目脚本引用。
+## 对共享上下文只订阅一次；信号不带来源引用，当前绑定决定可操作资格。
 ## [br]
 ## @api private
-func _append_adapter_choices() -> void:
-	for descriptor: Dictionary in GFTweenPreviewRegistry.get_shared().get_descriptors():
-		var label: String = descriptor["label"]
-		var id: String = descriptor["id"]
-		_target_kind.add_item("数值 · " + label)
-		_target_kind.set_item_metadata(_target_kind.item_count - 1, StringName(id))
+func _connect_context() -> void:
+	if _context != null and not _context.changed.is_connected(_on_preview_context_changed):
+		var _connected: int = _context.changed.connect(_on_preview_context_changed)
+	if _config != null and not _config.changed.is_connected(_on_source_changed):
+		var _connected: int = _config.changed.connect(_on_source_changed)
 
 
-## 读取当前显式适配器选择；内置或无选择为空名。
+## 撤销本面板的上下文订阅，不释放其他 Inspector 控件仍持有的上下文及其目录订阅。
 ## [br]
 ## @api private
-func _selected_adapter_id() -> StringName:
-	if _target_kind == null or _target_kind.selected < 3:
-		return &""
-	var value: Variant = _target_kind.get_item_metadata(_target_kind.selected)
-	if value is StringName:
-		var adapter_id: StringName = value
-		return adapter_id
-	return &""
+func _disconnect_context() -> void:
+	if _context != null and _context.changed.is_connected(_on_preview_context_changed):
+		_context.changed.disconnect(_on_preview_context_changed)
+	if _config != null and _config.changed.is_connected(_on_source_changed):
+		_config.changed.disconnect(_on_source_changed)
 
 
-## 根据用户明确选择重绑定工具样机；不会隐式扫描或选择项目适配器。
+## 比较实际目标和初值资格，不把标签或来源兼容性变化当成重绑定。
 ## [br]
 ## @api private
-func _configure_selected_target(index: int = -1) -> void:
-	var selected: int = _target_kind.selected if index < 0 else index
-	var adapter_id: StringName = _selected_adapter_id()
-	if selected >= 3 and adapter_id != &"":
-		var _configured: bool = _viewport.configure_adapter(_config, adapter_id)
+func _target_identity(target: Dictionary) -> Dictionary:
+	return {"id": target.get("id"), "kind": target.get("kind"), "adapter_id": target.get("adapter_id"),
+		"initial_values": target.get("initial_values"), "lease": target.get("lease"),
+		"binding_lease": target.get("binding_lease"), "revision": target.get("revision")}
+
+
+## 更新可见选项和当前 ID；歧义有明确占位项，不暗中选择默认样机。
+## [br]
+## @api private
+func _refresh_target_choices(target: Dictionary) -> void:
+	var choices: Array[Dictionary] = []
+	if _context != null:
+		choices = _context.get_choices()
+	_target_kind.set_block_signals(true)
+	if choices != _choice_snapshot or _target_kind.item_count == 0:
+		_choice_snapshot = choices.duplicate(true)
+		_target_kind.clear()
+		_target_kind.add_item("选择预览目标…")
+		_target_kind.set_item_metadata(0, &"")
+		_target_kind.set_item_disabled(0, true)
+		for choice: Dictionary in choices:
+			var target_label: String = choice["label"]
+			var target_id: StringName = choice["id"]
+			var reason: String = choice["reason"]
+			_target_kind.add_item(target_label)
+			var index: int = _target_kind.item_count - 1
+			_target_kind.set_item_metadata(index, target_id)
+			_target_kind.set_item_tooltip(index, reason)
+	var selected_id: Variant = target.get("id", &"")
+	_target_kind.select(0)
+	for index: int in range(1, _target_kind.item_count):
+		var choice_label: String = choices[index - 1]["label"]
+		_target_kind.set_item_text(index, choice_label)
+		if _target_kind.get_item_metadata(index) == selected_id:
+			_target_kind.select(index)
+			var label_value: Variant = target.get("label", choice_label)
+			if label_value is String:
+				var target_label: String = label_value
+				_target_kind.set_item_text(index, target_label)
+	_target_kind.set_block_signals(false)
+
+
+## 尝试重建样机并同步全部初值；完整成功且来源、目录和租约仍当前后才发布绑定身份。
+## [br]
+## @api private
+func _configure_context_target(target: Dictionary) -> bool:
+	if _configuration_generation == _binding_generation:
+		return false
+	_binding_generation += 1
+	var generation: int = _binding_generation
+	var context: GFTweenPreviewContext = _context
+	var config: Resource = _config
+	var registry: GFTweenPreviewRegistry = context.get_registry() if context != null else null
+	var identity: Dictionary = _target_identity(target).duplicate(true)
+	_configuration_generation = generation
+	_binding_attempt_identity = identity.duplicate(true)
+	_binding_identity.clear()
+	_captured_source.clear()
+	_captured_navigation.clear()
+	var configured: bool = _configure_target_values(target, generation, context, config, registry, identity)
+	if not is_instance_valid(self):
+		return false
+	var accepted: bool = configured and _configuration_is_current(generation, context, config, registry, identity)
+	if not is_instance_valid(self):
+		return false
+	if _configuration_generation == generation:
+		_configuration_generation = -1
+	if not accepted:
+		return false
+	_binding_identity = identity
+	return true
+
+
+## 配置当前候选的样机与初值；适配器和提交钩子失权时不再处理后续字段。
+## [br]
+## @api private
+func _configure_target_values(target: Dictionary, generation: int, context: GFTweenPreviewContext, config: Resource, registry: GFTweenPreviewRegistry, identity: Dictionary) -> bool:
+	var id_value: Variant = target.get("id", &"")
+	if not id_value is StringName or id_value == &"":
+		_viewport.dispose_preview()
+		return false
+	if context == null or registry == null:
+		return false
+	var adapter_value: Variant = target.get("adapter_id", &"")
+	if adapter_value is StringName and adapter_value != &"":
+		var adapter_id: StringName = adapter_value
+		var configured: bool = _viewport.configure_adapter(config, adapter_id, registry)
+		if not configured:
+			return false
 	else:
-		_viewport.configure(_config, selected)
+		var kind_value: Variant = target.get("kind", -1)
+		if not kind_value is int:
+			return false
+		var kind: int = kind_value
+		_viewport.configure(config, kind)
+	if not is_instance_valid(self) or not _configuration_is_current(generation, context, config, registry, identity):
+		return false
+	var initial_value: Variant = target.get("initial_values", {})
+	if not initial_value is Dictionary:
+		return false
+	var initial_values: Dictionary = initial_value
+	for key: Variant in initial_values:
+		if not key is String:
+			return false
+		var property_name: String = key
+		var applied: bool = _viewport.set_initial_value(StringName(property_name), initial_values[key])
+		if not is_instance_valid(self) or not applied or not _configuration_is_current(generation, context, config, registry, identity):
+			return false
+	return true
+
+
+## 目录查询可触发重入；查询前后都复核本次来源、上下文和代次，并绑定实际目录对象。
+## [br]
+## @api private
+func _configuration_is_current(generation: int, context: GFTweenPreviewContext, config: Resource, registry: GFTweenPreviewRegistry, identity: Dictionary) -> bool:
+	if not _owns_binding(generation) or context == null or _context != context or _config != config:
+		return false
+	var current: bool = context.is_target_current()
+	if not is_instance_valid(self) or not _owns_binding(generation) or _context != context or _config != config:
+		return false
+	return current and context.get_registry() == registry and _target_identity(context.get_target()) == identity
+
+
+## 准备最新配置但不推进时钟；成功签名来自准备前，回调改写来源会立即显示为过期。
+## [br]
+## @api private
+func _prepare_current() -> bool:
+	if _disposed or not is_visible_in_tree() or _context == null or not _target_supported() or _configuration_generation == _binding_generation:
+		return false
+	if not _qualify_binding():
+		return false
+	var generation: int = _binding_generation
+	var source_snapshot: Array = _SNAPSHOT_SCRIPT.capture(_config)
+	var navigation: Dictionary = _context.get_navigation_snapshot()
+	var source_scale: float = 0.0
+	var scale_value: Variant = source_snapshot[0] if not source_snapshot.is_empty() else null
+	if scale_value is float:
+		source_scale = scale_value
+	var prepared: bool = _viewport.prepare()
+	if not is_instance_valid(self) or not _owns_binding(generation):
+		return false
+	if prepared:
+		_captured_source = source_snapshot
+		_captured_navigation = navigation
+		_captured_scale = source_scale
+		_last_tick_usec = Time.get_ticks_usec()
+	_refresh_stale_state()
+	_refresh_state()
+	return prepared
+
+
+## 只有当前可见生命周期与目标绑定仍有效时，旧回调才可继续更新工具控件。
+## [br]
+## @api private
+func _owns_binding(generation: int) -> bool:
+	return not _disposed and generation == _binding_generation and is_inside_tree() and not is_queued_for_deletion()
+
+
+## 同步复核租约和绑定身份；失权先撤销旧会话，延后重解目录，拒绝本次旧控件动作。
+## 目录查询可触发失效所有者通知，回调中较新的绑定不被旧撤销覆盖。
+## [br]
+## @api private
+func _qualify_binding() -> bool:
+	if _disposed or not is_visible_in_tree() or _context == null or not is_instance_valid(_viewport):
+		return false
+	var generation: int = _binding_generation
+	var context: GFTweenPreviewContext = _context
+	var current: bool = context.is_target_current()
+	if not is_instance_valid(self) or not _owns_binding(generation) or _context != context:
+		return false
+	if current and not _binding_identity.is_empty() and _target_identity(context.get_target()) == _binding_identity:
+		return true
+	_binding_generation += 1
+	var revoked_generation: int = _binding_generation
+	_binding_identity.clear()
+	_captured_source.clear()
+	_captured_navigation.clear()
+	_viewport.dispose_preview()
+	if not is_instance_valid(self) or not _owns_binding(revoked_generation) or _context != context:
+		return false
+	_rebuild_time_controls()
+	_rebuild_initial_fields()
+	if not is_instance_valid(self) or not _owns_binding(revoked_generation) or _context != context:
+		return false
+	_refresh_stale_state()
+	_refresh_state()
+	context.refresh.call_deferred()
+	return false
+
+
+## 当前来源可用于新播放时返回 true；已冻结的旧会话仍可展示和定位。
+## [br]
+## @api private
+func _target_supported() -> bool:
+	if _context == null:
+		return false
+	var supported: Variant = _context.get_target().get("supported", false)
+	return supported is bool and supported == true
+
+
+## 继续暂停快照不读取已修改来源；尚未播放的 ready 和其他新播放仍须通过当前来源准入。
+## [br]
+## @api private
+func _can_play() -> bool:
+	if _binding_identity.is_empty() or _viewport.get_state() == &"playing":
+		return false
+	return (_viewport.get_state() == &"paused" and _viewport.has_session()) or _target_supported()
+
+
+## 已定位或播放过的受控快照可改变方向；ready 不得借旧计划绕过当前无效来源。
+## [br]
+## @api private
+func _can_change_direction() -> bool:
+	return (
+		not _binding_identity.is_empty() and _viewport.has_session() and _viewport.is_controlled_session()
+		and (_viewport.get_state() != &"ready" or _target_supported())
+	)
+
 
 ## 创建预览面板的目标选择、视口、时间控件和状态展示。
 ## [br]
@@ -255,10 +566,6 @@ func _build_controls() -> void:
 
 	_target_kind = OptionButton.new()
 	_target_kind.name = "TargetKind"
-	_target_kind.add_item("2D 样机", 0)
-	_target_kind.add_item("UI 样机", 1)
-	_target_kind.add_item("3D 样机", 2)
-	_append_adapter_choices()
 	var _kind_connected: int = _target_kind.item_selected.connect(_on_target_kind_selected)
 	add_child(_target_kind)
 
@@ -286,7 +593,8 @@ func _build_controls() -> void:
 	add_child(direction_controls)
 	_forward_button = _add_button(direction_controls, "Forward", "正向", _on_direction_pressed.bind(false))
 	_backward_button = _add_button(direction_controls, "Backward", "反向", _on_direction_pressed.bind(true))
-	var _recapture_button: Button = _add_button(direction_controls, "Recapture", "重新预览", _on_recapture_pressed)
+	_prepare_button = _add_button(direction_controls, "Recapture", "重新准备", _on_recapture_pressed)
+	_prepare_button.tooltip_text = "捕获当前配置与初值并恢复准备状态，不开始播放。"
 	_stale_label = Label.new()
 	_stale_label.name = "PreviewFreshness"
 	_stale_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -299,17 +607,46 @@ func _build_controls() -> void:
 	timeline_scroll.custom_minimum_size = Vector2(0.0, 110.0)
 	add_child(timeline_scroll)
 	_timeline = _TIMELINE_SCRIPT.new()
+	_timeline.name = "StepTimeline"
 	_timeline.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	timeline_scroll.add_child(_timeline)
+	var _timeline_connected: int = _timeline.span_selected.connect(_on_timeline_span_selected.bind(_timeline))
+	var duration_row: HBoxContainer = HBoxContainer.new()
+	add_child(duration_row)
+	var duration_caption: Label = Label.new()
+	duration_caption.text = "完整总时长"
+	duration_row.add_child(duration_caption)
+	_target_seconds = SpinBox.new()
+	_target_seconds.name = "TargetDurationSeconds"
+	_target_seconds.min_value = 0.001
+	_target_seconds.max_value = 120.0
+	_target_seconds.step = 0.001
+	_target_seconds.suffix = "s"
+	_target_seconds.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_target_seconds.tooltip_text = "包含延迟、串并行、循环和往返；通过一个 duration_scale 调整完整节奏。"
+	duration_row.add_child(_target_seconds)
+	_apply_duration = _add_button(duration_row, "ApplyDuration", "应用总时长", _on_apply_duration_pressed)
+	_duration_feedback = Label.new()
+	_duration_feedback.name = "DurationFeedback"
+	_duration_feedback.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_duration_feedback.visible = false
+	add_child(_duration_feedback)
 	var _binding_button: Button = _add_button(self, "CopyBinding", "复制运行时绑定示例", _on_copy_binding_pressed)
 
 	_status_label = Label.new()
 	_status_label.name = "PreviewStatus"
 	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(_status_label)
+	_error_location = _add_button(self, "LocateError", "定位错误字段", _on_error_location_pressed)
 	_values_label = Label.new()
 	_values_label.name = "PreviewValues"
 	_values_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_values_label.visible = false
+	var values_toggle: CheckButton = CheckButton.new()
+	values_toggle.name = "ShowValues"
+	values_toggle.text = "属性数值"
+	var _values_connected: int = values_toggle.toggled.connect(_values_label.set_visible)
+	add_child(values_toggle)
 	add_child(_values_label)
 
 	var initial_toggle: CheckButton = CheckButton.new()
@@ -322,7 +659,8 @@ func _build_controls() -> void:
 	add_child(_initial_fields)
 
 	var hint: Label = Label.new()
-	hint.text = "先播放捕获配置，再拖动时间或输入秒数定位。定位使用同一快照并暂停；修改配置后停止再播放生效。步骤标记不发出通知。"
+	hint.text = "点击时间块定位并选中步骤；修改后重新准备。"
+	hint.tooltip_text = "选择目标后自动准备时间轴，可直接拖动或输入秒数定位。播放与定位使用同一冻结快照；配置修改不会打断播放，点击“重新准备”接纳新版本。步骤标记不发出通知。"
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(hint)
 
@@ -366,7 +704,7 @@ func _rebuild_time_controls() -> void:
 	_time_slider.min_value = 0.0
 	_time_slider.step = 0.0
 	_time_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_time_slider.tooltip_text = "先播放一次；定位暂停同一快照，不读取后续配置修改。"
+	_time_slider.tooltip_text = "定位准备好的快照并暂停，不读取后续配置修改。"
 	_time_controls.add_child(_time_slider)
 	var time_row: HBoxContainer = HBoxContainer.new()
 	_time_controls.add_child(time_row)
@@ -409,13 +747,14 @@ func _refresh_time_controls() -> void:
 	_time_input.editable = has_session
 	_time_input.set_block_signals(false)
 	_inspect_button.disabled = not has_session
-	_time_label.text = "/ %.3f s" % duration_seconds if has_session else "先播放以捕获时间轴"
+	_time_label.text = "/ %.3f s" % duration_seconds if has_session else "选择有效目标以准备时间轴"
 
 
 ## 根据视口的初始属性值重建编辑字段。
 ## [br]
 ## @api private
 func _rebuild_initial_fields() -> void:
+	var generation: int = _binding_generation
 	for child: Node in _initial_fields.get_children():
 		child.name = "RetiredInitialValue"
 		if child is Control:
@@ -423,7 +762,11 @@ func _rebuild_initial_fields() -> void:
 			control.hide()
 		child.queue_free()
 	var values: Dictionary = _viewport.get_initial_values()
-	var records: Array[Dictionary] = GFTweenPreviewRegistry.get_shared().get_property_records(_selected_adapter_id())
+	var records: Array[Dictionary] = []
+	if _context != null:
+		records = _context.get_property_records()
+	if not is_instance_valid(self) or not _owns_binding(generation):
+		return
 	for key: Variant in values:
 		var property_name: StringName = StringName(str(key))
 		var field: GFEditorValueField = GFEditorValueField.new()
@@ -435,7 +778,7 @@ func _rebuild_initial_fields() -> void:
 				info["hint"] = PROPERTY_HINT_RANGE
 				info["hint_string"] = "%s,%s,%s" % [record["minimum"], record["maximum"], "1" if typeof(values[key]) == TYPE_INT else "0.001"]
 		field.configure(info, values[key])
-		var _value_connected: int = field.value_changed.connect(_on_initial_value_changed.bind(property_name, field))
+		var _value_connected: int = field.value_changed.connect(_on_initial_value_changed.bind(property_name, field, _binding_generation))
 		_initial_fields.add_child(field)
 
 
@@ -447,11 +790,15 @@ func _refresh_state() -> void:
 		return
 	var state: StringName = _viewport.get_state()
 	_play_button.text = "继续" if state == &"paused" else "播放"
-	_play_button.disabled = state == &"playing"
+	var supported: bool = _target_supported()
+	_play_button.disabled = not _can_play()
+	_prepare_button.disabled = not supported or _configuration_generation == _binding_generation
 	_pause_button.disabled = state != &"playing"
-	_forward_button.disabled = not _viewport.is_controlled_session()
-	_backward_button.disabled = not _viewport.is_controlled_session()
+	_forward_button.disabled = not _can_change_direction()
+	_backward_button.disabled = not _can_change_direction()
 	match state:
+		&"ready":
+			_status_label.text = "已准备，可播放或定位"
 		&"playing":
 			_status_label.text = "播放中"
 		&"paused":
@@ -462,7 +809,19 @@ func _refresh_state() -> void:
 			_status_label.text = _viewport.get_error()
 		_:
 			_status_label.text = "就绪"
+	if not supported:
+		var target: Dictionary = _context.get_target() if _context != null else {}
+		var reason_value: Variant = target.get("reason", "请选择预览目标。")
+		if reason_value is String:
+			var reason: String = reason_value
+			if state == &"playing":
+				_status_label.text = "播放中（旧快照）\n" + reason
+			elif state == &"paused" and _viewport.has_session():
+				_status_label.text = "已暂停（旧快照）\n" + reason
+			else:
+				_status_label.text = reason
 	_refresh_values()
+	_refresh_authoring_actions()
 
 
 ## 将当前属性值写入展示标签，并同步时间控件。
@@ -478,7 +837,15 @@ func _refresh_values() -> void:
 	_values_label.text = "\n".join(parts)
 	_refresh_time_controls()
 	if _timeline != null:
-		_timeline.configure(_viewport.get_preview_plan())
+		var names: Array[StringName] = []
+		var names_value: Variant = _captured_navigation.get("names")
+		if names_value is Array:
+			var captured_names: Array = names_value
+			for value: Variant in captured_names:
+				if value is StringName:
+					var step_name: StringName = value
+					names.append(step_name)
+		_timeline.configure(_viewport.get_preview_plan(), names)
 		_timeline.set_time_seconds(_viewport.get_time_seconds())
 
 
@@ -489,7 +856,62 @@ func _refresh_stale_state() -> void:
 	if _stale_label == null:
 		return
 	var stale: bool = _viewport.has_session() and _captured_source != _SNAPSHOT_SCRIPT.capture(_config)
-	_stale_label.text = "预览已过期：配置已修改；当前画面使用旧快照。点击“重新预览”更新。" if stale else ""
+	_stale_label.text = "预览已过期：配置已修改；当前画面使用旧快照。点击“重新准备”更新。" if stale else ""
+	if not stale and _viewport.has_session() and _context != null and not _context.is_navigation_current(_captured_navigation):
+		_stale_label.text = "来源步骤已替换或改名：时间块仍定位旧快照。重新准备后可联动当前步骤表单。"
+	_refresh_authoring_actions()
+
+
+## 总时长仅用于当前来源；错误位置只读取结构化字段，不解析面向作者的文本。
+## [br]
+## @api private
+func _refresh_authoring_actions() -> void:
+	if _duration_feedback != null:
+		_duration_feedback.visible = not _duration_feedback.text.is_empty()
+	if _apply_duration != null:
+		_apply_duration.disabled = not _viewport.has_session() or _captured_source != _SNAPSHOT_SCRIPT.capture(_config) or not _target_supported() or _viewport.get_duration_seconds() <= 0.0
+		_target_seconds.editable = not _apply_duration.disabled
+		var plan: GFTweenPreviewPlan = _viewport.get_preview_plan()
+		if plan != _duration_plan:
+			_duration_plan = plan
+			if not _apply_duration.disabled:
+				_target_seconds.set_value_no_signal(_viewport.get_duration_seconds())
+	if _error_location != null:
+		var diagnostic: Dictionary = _context.get_diagnostic() if _context != null else {}
+		var index_value: Variant = diagnostic.get("step_index", -1)
+		var field_value: Variant = diagnostic.get("field", &"")
+		_error_location.disabled = not index_value is int or index_value < 0 or not field_value is StringName or field_value == &""
+		_error_location.visible = not _error_location.disabled
+
+
+## 仅查找同一原生 Inspector 的根倍率属性；跳过属性子树和预览子树，最多检查 256 个容器。
+## 嵌套原生提交保留实际属性刷新和历史归属，不通过全量 property-list 重建打断冻结预览。
+## [br]
+## @api private
+func _duration_property() -> EditorProperty:
+	var ancestor: Node = get_parent()
+	while ancestor != null and not ancestor is EditorInspector:
+		ancestor = ancestor.get_parent()
+	if not ancestor is EditorInspector:
+		return null
+	var inspector: EditorInspector = ancestor
+	if inspector.get_edited_object() != _config:
+		return null
+	var pending: Array[Node] = [inspector]
+	var remaining: int = 256
+	while not pending.is_empty() and remaining > 0:
+		remaining -= 1
+		var node: Node = pending.pop_back()
+		if node is EditorProperty:
+			var property: EditorProperty = node
+			if property.get_edited_object() == _config and property.get_edited_property() == &"duration_scale":
+				return property
+			continue
+		if node is GFTweenPreviewPanel:
+			continue
+		for child: Node in node.get_children():
+			pending.append(child)
+	return null
 
 
 # --- 信号处理函数 ---
@@ -498,32 +920,74 @@ func _refresh_stale_state() -> void:
 ## [br]
 ## @api private
 func _on_play_pressed() -> void:
-	if not _disposed:
-		var captures_new_session: bool = _viewport.get_state() != &"paused"
-		_last_tick_usec = Time.get_ticks_usec()
-		var _started: bool = _viewport.play()
-		if captures_new_session:
-			_captured_source = _SNAPSHOT_SCRIPT.capture(_config)
-			_rebuild_time_controls()
-		_refresh_stale_state()
+	if not _qualify_binding():
+		return
+	var generation: int = _binding_generation
+	if _viewport.get_state() != &"paused" or not _viewport.has_session():
+		_on_source_changed()
+		if not is_instance_valid(self) or not _owns_binding(generation) or not _can_play():
+			return
+	if not _can_play() or not _qualify_binding():
+		return
+	var captures_new_session: bool = _viewport.get_state() not in [&"paused", &"ready"]
+	var source_snapshot: Array = _SNAPSHOT_SCRIPT.capture(_config)
+	var navigation: Dictionary = _context.get_navigation_snapshot()
+	_last_tick_usec = Time.get_ticks_usec()
+	var started: bool = _viewport.play()
+	if not is_instance_valid(self) or not _owns_binding(generation):
+		return
+	if started and captures_new_session:
+		_captured_source = source_snapshot
+		_captured_navigation = navigation
+		var scale_value: Variant = source_snapshot[0] if not source_snapshot.is_empty() else null
+		if scale_value is float:
+			_captured_scale = scale_value
+		_rebuild_time_controls()
+	_refresh_stale_state()
 
 
-## 显式开始新快照。
+## 显式准备新快照；失败样机可重试同一目标，不把重新捕获当成播放或后台重试。
 ## [br]
 ## @api private
 func _on_recapture_pressed() -> void:
-	if not _disposed:
-		_viewport.stop()
-		_on_play_pressed()
+	if _disposed or not is_visible_in_tree() or _context == null or _configuration_generation == _binding_generation:
+		return
+	var generation: int = _binding_generation
+	var context: GFTweenPreviewContext = _context
+	context.refresh()
+	if not is_instance_valid(self) or not _owns_binding(generation) or _context != context or not _target_supported():
+		return
+	var target: Dictionary = context.get_target()
+	if _binding_identity != _target_identity(target) or (_viewport.get_state() == &"error" and not _viewport.has_session()):
+		if not _configure_context_target(target):
+			if is_instance_valid(self) and not _disposed:
+				_refresh_state()
+			return
+		generation = _binding_generation
+		_rebuild_time_controls()
+		if not is_instance_valid(self) or not _owns_binding(generation) or _context != context:
+			return
+		_rebuild_initial_fields()
+		if not is_instance_valid(self) or not _owns_binding(generation) or _context != context:
+			return
+	var _prepared: bool = _prepare_current()
 
 
 ## 只对受控快照切换方向。
 ## [br]
 ## @api private
 func _on_direction_pressed(backward: bool) -> void:
-	if not _disposed:
-		_last_tick_usec = Time.get_ticks_usec()
-		var _accepted: bool = _viewport.play_direction(backward)
+	if not _qualify_binding():
+		return
+	var generation: int = _binding_generation
+	if _viewport.get_state() == &"ready":
+		_on_source_changed()
+		if not is_instance_valid(self) or not _owns_binding(generation):
+			return
+	if not _can_change_direction() or not _qualify_binding():
+		return
+	_last_tick_usec = Time.get_ticks_usec()
+	var _accepted: bool = _viewport.play_direction(backward)
 
 
 ## 复制当前资源的绑定示例；未保存资源使用明确占位路径。
@@ -556,41 +1020,63 @@ func _on_stop_pressed() -> void:
 func _on_reset_pressed() -> void:
 	if not _disposed:
 		_viewport.reset_preview()
+		var _prepared: bool = _prepare_current()
 		_rebuild_time_controls()
 
 
-## 重新配置目标类型对应的预览，并刷新初值和状态控件。
+## 把当前下拉框的 ID 交给共享上下文，面板与步骤目录一起改变。
 ## [br]
 ## @api private
 func _on_target_kind_selected(index: int) -> void:
-	if _disposed:
+	if _disposed or _context == null or index < 1 or index >= _target_kind.item_count:
 		return
-	_configure_selected_target(index)
-	_rebuild_time_controls()
-	_rebuild_initial_fields()
-	_refresh_state()
+	var value: Variant = _target_kind.get_item_metadata(index)
+	if value is StringName:
+		var target_id: StringName = value
+		var _selected: bool = _context.select_target(target_id)
 
 
-## 目录变更撤销旧会话资格；保留明确选择，重新选择后才绑定新租约。
+## 绑定身份变化撤销旧会话；未开始的 ready 自动更新合法来源，播放或定位后的冻结快照只提示过期。
 ## [br]
 ## @api private
-func _on_adapter_registry_changed() -> void:
-	if _disposed or _target_kind == null:
+func _on_preview_context_changed() -> void:
+	if _disposed or _target_kind == null or _viewport == null:
 		return
-	var selected_id: StringName = _selected_adapter_id()
-	while _target_kind.item_count > 3:
-		_target_kind.remove_item(_target_kind.item_count - 1)
-	_append_adapter_choices()
-	if selected_id != &"":
-		_target_kind.select(-1)
-		for index: int in range(3, _target_kind.item_count):
-			if _target_kind.get_item_metadata(index) == selected_id:
-				_target_kind.select(index)
-				break
-		_viewport.advance(0.0)
-	_rebuild_time_controls()
-	_rebuild_initial_fields()
+	var target: Dictionary = _context.get_target() if _context != null else {}
+	_refresh_target_choices(target)
+	var identity: Dictionary = _target_identity(target)
+	if identity != _binding_identity and identity != _binding_attempt_identity:
+		var generation: int = _binding_generation + 1
+		var configured: bool = _configure_context_target(target)
+		if not is_instance_valid(self) or not _owns_binding(generation):
+			return
+		_rebuild_time_controls()
+		if not is_instance_valid(self) or not _owns_binding(generation):
+			return
+		_rebuild_initial_fields()
+		if not is_instance_valid(self) or not _owns_binding(generation):
+			return
+		if configured:
+			var _prepared: bool = _prepare_current()
+	elif identity == _binding_identity and not _viewport.has_session() and _target_supported():
+		var _prepared: bool = _prepare_current()
+	elif identity == _binding_identity and _viewport.get_state() == &"ready" and _target_supported() and (_captured_source != _SNAPSHOT_SCRIPT.capture(_config) or _captured_navigation != _context.get_navigation_snapshot()):
+		var _prepared: bool = _prepare_current()
+	if not is_instance_valid(self) or _disposed:
+		return
+	_refresh_stale_state()
 	_refresh_state()
+
+
+## 来源发出编辑通知后刷新兼容性与准备状态；结果目录不变时也同步 ready 来源签名。
+## [br]
+## @api private
+func _on_source_changed() -> void:
+	if _disposed or _context == null:
+		return
+	_context.refresh()
+	if is_instance_valid(self) and not _disposed:
+		_on_preview_context_changed()
 
 
 ## 按切换状态显示或隐藏初始属性编辑器。
@@ -604,15 +1090,17 @@ func _on_initial_values_toggled(pressed: bool) -> void:
 ## 更新样机初始属性；值无效时将字段恢复为当前初值。
 ## [br]
 ## @api private
-func _on_initial_value_changed(value: Variant, property_name: StringName, field: GFEditorValueField) -> void:
+func _on_initial_value_changed(value: Variant, property_name: StringName, field: GFEditorValueField, generation: int) -> void:
 	if (
-		_disposed or not is_instance_valid(field) or field.is_queued_for_deletion()
+		not _owns_binding(generation) or _context == null or not is_instance_valid(field) or field.is_queued_for_deletion()
 		or field.get_parent() != _initial_fields
 	):
 		return
-	if not _viewport.set_initial_value(property_name, value):
+	var accepted: bool = _context.set_initial_value(property_name, value)
+	if not is_instance_valid(self) or not _owns_binding(generation):
+		return
+	if not accepted:
 		field.set_value(_viewport.get_initial_values().get(property_name))
-	_rebuild_time_controls()
 	_refresh_state()
 
 
@@ -626,8 +1114,12 @@ func _on_time_changed(time_seconds: float, source: Range) -> void:
 		or not _viewport.has_session()
 	):
 		return
+	if not _qualify_binding():
+		return
+	var generation: int = _binding_generation
 	var _located: bool = _viewport.seek(time_seconds)
-	_refresh_state()
+	if is_instance_valid(self) and _owns_binding(generation):
+		_refresh_state()
 
 
 ## 将定位输入控件的当前数值交给时间变更处理函数。
@@ -638,10 +1130,99 @@ func _on_inspect_time_pressed(source: SpinBox) -> void:
 		_on_time_changed(source.value, source)
 
 
+## 时间块先定位同一冻结会话，再按作者身份选择表单；旧来源仍可定位但不会跳到新索引。
+## [br]
+## @api private
+func _on_timeline_span_selected(index: int, time_seconds: float, plan: GFTweenPreviewPlan, source: Control) -> void:
+	if _disposed or source != _timeline or not _viewport.has_session() or plan != _viewport.get_preview_plan() or not _qualify_binding():
+		return
+	var generation: int = _binding_generation
+	var located: bool = _viewport.seek(time_seconds)
+	if not is_instance_valid(self) or not _owns_binding(generation) or not located or plan != _viewport.get_preview_plan():
+		return
+	var context: GFTweenPreviewContext = _context
+	if context != null:
+		var _requested: bool = context.request_step_selection(index, &"property_name", _captured_navigation)
+	if is_instance_valid(self) and _owns_binding(generation):
+		_refresh_stale_state()
+		_refresh_state()
+
+
+## 纠错按钮交给共享上下文在同一次作者捕获内刷新诊断；不重建旧播放快照。
+## [br]
+## @api private
+func _on_error_location_pressed() -> void:
+	if _disposed or _context == null or not is_visible_in_tree() or not _qualify_binding():
+		return
+	var generation: int = _binding_generation
+	var context: GFTweenPreviewContext = _context
+	var _requested: bool = context.request_error_selection()
+	if is_instance_valid(self) and _owns_binding(generation) and _context == context:
+		_refresh_authoring_actions()
+
+
+## 把同源计划换算的一个倍率作为原生离散动作提交；准备和定位本身不会改变资源。
+## [br]
+## @api private
+func _on_apply_duration_pressed() -> void:
+	if _disposed or _context == null or not _qualify_binding():
+		return
+	var generation: int = _binding_generation
+	var result: Dictionary = _DURATION_SCRIPT.calculate(_viewport.get_preview_plan(), _captured_scale, _captured_source, _SNAPSHOT_SCRIPT.capture(_config), _target_seconds.value)
+	var accepted_value: Variant = result.get("ok")
+	if not accepted_value is bool or accepted_value != true:
+		_duration_feedback.text = "无法换算总时长；原配置未改动。"
+		var error_value: Variant = result.get("error")
+		if error_value is String:
+			var error_text: String = error_value
+			if not error_text.is_empty():
+				_duration_feedback.text = error_text
+		_duration_feedback.show()
+		return
+	var scale_value: Variant = result.get("duration_scale")
+	var next_scale: float = 0.0
+	if scale_value is float:
+		next_scale = scale_value
+	elif scale_value is int:
+		var integer_scale: int = scale_value
+		next_scale = float(integer_scale)
+	if not is_finite(next_scale) or next_scale <= 0.0:
+		_duration_feedback.text = "换算结果的倍率无效；原配置未改动。"
+		_duration_feedback.show()
+		return
+	if not Engine.is_editor_hint():
+		_duration_feedback.text = "请在原生 Inspector 中提交总时长。"
+		_duration_feedback.show()
+		return
+	var property: EditorProperty = _duration_property()
+	if property == null:
+		_duration_feedback.text = "当前 Inspector 的时长倍率字段不可用，原配置未改动。"
+		_duration_feedback.show()
+		return
+	var undo_manager: EditorUndoRedoManager = EditorInterface.get_editor_undo_redo()
+	if undo_manager == null or undo_manager.is_committing_action() or not _owns_binding(generation):
+		_duration_feedback.text = "请在原生 Inspector 中提交总时长；当前历史不可用。"
+		_duration_feedback.show()
+		return
+	var config: Resource = _config
+	undo_manager.create_action("调整 GF Tween 总时长", UndoRedo.MERGE_DISABLE, config)
+	property.emit_changed(&"duration_scale", next_scale)
+	undo_manager.add_do_method(config, &"emit_changed")
+	undo_manager.add_undo_method(config, &"emit_changed")
+	undo_manager.commit_action()
+	if is_instance_valid(self) and _owns_binding(generation):
+		_duration_feedback.text = "总时长已提交；播放中的旧快照仍保持冻结。"
+		_refresh_authoring_actions()
+
+
 ## 面板隐藏时重置预览并重建时间控件状态。
 ## [br]
 ## @api private
 func _on_visibility_changed() -> void:
-	if not _disposed and _viewport != null and not is_visible_in_tree():
+	if _disposed or _viewport == null:
+		return
+	if not is_visible_in_tree():
 		_viewport.reset_preview()
 		_rebuild_time_controls()
+	else:
+		_on_preview_context_changed()

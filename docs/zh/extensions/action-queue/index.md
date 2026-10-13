@@ -11,6 +11,7 @@ ActionQueue 扩展负责表现动作的排队、并行、取消和横切拦截�
 - [拦截器与动作工厂](interceptors-actions/index.md)：`GFActionInterceptor`、内置动作、`GFAction` 工厂和等待语义。
 - [配置化 Tween 动作](tween-config.md)：步骤校验、曲线、运行时定位与往返、同属性替换和 Inspector 预览。
 - [数值时间轴与预览样机](tween-numeric-preview.md)：纯数值采样、有限属性目录与项目自定义预览注册。
+- [Tween 表现配方](tween-recipes.md)：淡入、强调和脉冲的初值前提，以及通过总时长调整整体节奏。
 
 ## 使用边界
 

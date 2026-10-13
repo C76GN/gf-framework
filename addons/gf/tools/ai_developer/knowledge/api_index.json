@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "e354b9c51dce2d56b70298b680590822f8f7e286ed437cb4b86c97fee2de23f1",
+  "source_digest": "4baffb04c0ecec2bd11fde4f8f32c284a545680c86e73fe919249e8ae90e85fe",
   "class_count": 874,
   "autoload_count": 1,
   "package_count": 60,
@@ -496,7 +496,7 @@
         "gf.kernel",
         "gf.extension.action_queue"
       ],
-      "representative_path": "addons/gf/extensions/action_queue/editor/authoring/gf_tween_authoring_snapshot.gd"
+      "representative_path": "addons/gf/extensions/action_queue/editor/authoring/gf_tween_authoring_duration.gd"
     },
     {
       "id": "gf.tool.ai_developer",
@@ -34469,7 +34469,7 @@
       "module": "extensions/flow",
       "package_id": "gf.extension.flow",
       "path": "addons/gf/extensions/flow/editor/gf_flow_graph_dock.gd",
-      "summary": "GFFlowGraphDock: FlowGraph 图形化编辑与结构检查工作区页面。 为资源化流程图提供路径加载、GraphEdit 预览/连线、校验摘要、节点/连接清单 和通用自动布局，不提供业务节点库，也不解释项目自定义元数据。",
+      "summary": "GFFlowGraphDock: FlowGraph 图形化编辑与结构检查工作区页面。 为资源化流程图提供路径加载、GraphEdit 预览/连线、校验摘要、节点/连接清单 和通用自动布局；支持节点复制、粘贴、重复及已保存的资源模板，不提供业务节点库。",
       "visibility": "public",
       "category": "editor_api",
       "since": "3.17.0",
@@ -34596,14 +34596,14 @@
           "kind": "func",
           "name": "build_selection_package",
           "signature": "func build_selection_package(graph: GFFlowGraph, node_ids: PackedStringArray) -> Dictionary",
-          "summary": "构建节点选择包，用于编辑器复制、剪切或跨工具传递。",
+          "summary": "构建独立的节点选择包；仅保留选中集合内部的连接与后继。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "paste_selection_package",
           "signature": "func paste_selection_package( graph: GFFlowGraph, selection_package: Dictionary, offset: Vector2 = Vector2.ZERO, options: Dictionary = {} ) -> Dictionary",
-          "summary": "将选择包粘贴到流程图。",
+          "summary": "整体粘贴选择包；节点、内部连接与空图起点通过一个属性事务提交。",
           "visibility": "public"
         },
         {
@@ -94835,7 +94835,7 @@
       "module": "extensions/action_queue",
       "package_id": "gf.tool.action_queue.editor",
       "path": "addons/gf/extensions/action_queue/editor/gf_tween_preview_registration.gd",
-      "summary": "GFTweenPreviewRegistration: 一次编辑器数值预览注册的所有权句柄。 release 幂等且只撤销自身租约；旧句柄不能撤销同 ID 后续注册。持有者应在插件卸载时显式释放。",
+      "summary": "GFTweenPreviewRegistration: 一次编辑器样机或资源关联注册的所有权句柄。 release 幂等且只撤销自身租约；旧句柄不能撤销同 ID 后续注册。持有者应在插件卸载时显式释放。",
       "visibility": "public",
       "category": "runtime_handle",
       "since": "unreleased",
@@ -94862,7 +94862,7 @@
       "module": "extensions/action_queue",
       "package_id": "gf.tool.action_queue.editor",
       "path": "addons/gf/extensions/action_queue/editor/gf_tween_preview_registry.gd",
-      "summary": "GFTweenPreviewRegistry: 显式选择的有界数值预览适配器目录。 owner 使用弱引用；ID 不自动覆盖，内置样机不进入此目录。注册不读取来源或执行适配器。 工具插件应持有返回句柄并在退出时 release；owner 失效与租约变化使旧会话失效。",
+      "summary": "GFTweenPreviewRegistry: 编辑器预览样机与资源关联的有界目录。 owner 使用弱引用；ID 不自动覆盖，内置样机不进入此目录。注册不读取来源或执行适配器。 工具插件应持有返回句柄并在退出时 release；owner 失效与租约变化使旧会话失效。",
       "visibility": "public",
       "category": "editor_api",
       "since": "unreleased",
@@ -94900,6 +94900,20 @@
           "name": "get_property_records",
           "signature": "func get_property_records(adapter_id: StringName, query: String = \"\") -> Array[Dictionary]",
           "summary": "搜索显式适配器的有限属性目录；不触发样机或来源 getter。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_binding",
+          "signature": "func register_binding( owner: Object, resource_path: String, target_id: StringName, initial_values: Dictionary = {}, label: String = \"\" ) -> GFTweenPreviewRegistration",
+          "summary": "声明已保存资源的默认预览用途和起态；不改写或加载运行配置。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_binding",
+          "signature": "func get_binding(resource_path: String) -> Dictionary",
+          "summary": "查询资源默认预览声明的独立纯值副本；不执行适配器或资源方法。",
           "visibility": "public"
         }
       ]

@@ -29,6 +29,16 @@ const _STEPS_EDITOR_SCRIPT = preload("res://addons/gf/extensions/action_queue/ed
 ## @api private
 var _panels: Array[WeakRef] = []
 
+## 当前 Inspector 解析期间共享的上下文；控件接纳后各自持有，不缓存已关闭资源。
+## [br]
+## @api private
+var _parse_context: GFTweenPreviewContext = null
+
+## 限定解析上下文的资源身份，避免嵌套 Inspector 解析交付给另一个资源。
+## [br]
+## @api private
+var _parse_resource: WeakRef = null
+
 
 # --- Godot 回调方法 ---
 
@@ -47,8 +57,11 @@ func _parse_begin(object: Object) -> void:
 		if _panels[index].get_ref() == null:
 			_panels.remove_at(index)
 	var config: Resource = object
+	_parse_context = GFTweenPreviewContext.new()
+	_parse_context.configure(config)
+	_parse_resource = weakref(config)
 	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
-	panel.configure(config)
+	panel.configure(config, _parse_context)
 	_panels.append(weakref(panel))
 	add_custom_control(panel)
 
@@ -62,6 +75,8 @@ func _notification(what: int) -> void:
 			var panel: GFTweenPreviewPanel = value
 			panel.dispose_preview()
 	_panels.clear()
+	_parse_context = null
+	_parse_resource = null
 
 
 func _parse_property(
@@ -70,6 +85,21 @@ func _parse_property(
 ) -> bool:
 	if property_name != "steps" or not _can_handle(object):
 		return false
-	var editor: EditorProperty = _STEPS_EDITOR_SCRIPT.new()
+	if _parse_context == null or _parse_resource == null or _parse_resource.get_ref() != object:
+		var config: Resource = object
+		_parse_context = GFTweenPreviewContext.new()
+		_parse_context.configure(config)
+		_parse_resource = weakref(config)
+	var editor: _STEPS_EDITOR_SCRIPT = _STEPS_EDITOR_SCRIPT.new()
+	editor.configure_preview_context(_parse_context)
 	add_property_editor(property_name, editor)
 	return true
+
+
+## 解析结束后撤销暂存引用；面板与步骤控件继续持有同一个上下文。
+## [br]
+## @api private
+func _parse_end(object: Object) -> void:
+	if _parse_resource != null and _parse_resource.get_ref() == object:
+		_parse_context = null
+		_parse_resource = null

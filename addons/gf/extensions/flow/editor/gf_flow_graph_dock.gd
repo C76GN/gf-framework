@@ -3,7 +3,7 @@
 ## GFFlowGraphDock: FlowGraph 图形化编辑与结构检查工作区页面。
 ##
 ## 为资源化流程图提供路径加载、GraphEdit 预览/连线、校验摘要、节点/连接清单
-## 和通用自动布局，不提供业务节点库，也不解释项目自定义元数据。
+## 和通用自动布局；支持节点复制、粘贴、重复及已保存的资源模板，不提供业务节点库。
 ## [br]
 ## @api public
 ## [br]
@@ -12,6 +12,19 @@
 ## @since 3.17.0
 class_name GFFlowGraphDock
 extends Control
+
+
+# --- 枚举 ---
+
+## 工具栏、原生 GraphEdit 快捷键和右键菜单共享的编辑操作。
+## [br]
+## @api private
+enum _ClipboardOperation {
+	COPY,
+	CUT,
+	PASTE,
+	DUPLICATE,
+}
 
 
 # --- 常量 ---
@@ -167,6 +180,86 @@ var _recovery_button: Button = null
 ## @api private
 var _last_edit_report: Dictionary = {}
 
+## 当前页面持有的独立复制包；可跨图使用，离树时释放，不写系统文本剪贴板。
+## [br]
+## @api private
+var _clipboard: Dictionary = {}
+
+## 每个复制操作对应的工具栏按钮，用于同步选择和权限状态。
+## [br]
+## @api private
+var _clipboard_buttons: Dictionary = {}
+
+## 说明当前选择或最近复制操作的短消息。
+## [br]
+## @api private
+var _clipboard_status: Label = null
+
+## 图形控件当前投影的资源身份，防止换图后沿用旧画布选择。
+## [br]
+## @api private
+var _selection_graph: GFFlowGraph = null
+
+## 每次资源、权限或结构变更后递增，使旧菜单与模板选择失效。
+## [br]
+## @api private
+var _edit_generation: int = 0
+
+## 有界右键菜单；打开时固定资源代次和当前选择。
+## [br]
+## @api private
+var _clipboard_menu: PopupMenu = null
+
+## 右键菜单所属的资源代次。
+## [br]
+## @api private
+var _menu_generation: int = -1
+
+## 打开右键菜单时的选择标识，迟到操作不能改为作用于另一组节点。
+## [br]
+## @api private
+var _menu_selection: PackedStringArray = PackedStringArray()
+
+## 右键粘贴将节点组左上角放在点击位置，单位为图画布坐标。
+## [br]
+## @api private
+var _menu_paste_offset: Vector2 = Vector2.ZERO
+
+## 独立的已保存节点模板选择器；不与图资源选择器共享请求。
+## [br]
+## @api private
+var _template_dialog: FileDialog = null
+
+## 打开模板选择器时捕获的资源与权限代次。
+## [br]
+## @api private
+var _template_generation: int = -1
+
+## 模板插入允许在空图设置起点的明确选项。
+## [br]
+## @api private
+var _template_start: CheckButton = null
+
+## 模板入口在没有编辑历史或图资源时不可用。
+## [br]
+## @api private
+var _template_button: Button = null
+
+## 当前用户编辑操作正在提交，阻止同步回调再次消费同一页面的复制或模板入口。
+## [br]
+## @api private
+var _clipboard_busy: bool = false
+
+## 打开模板选择器时冻结起点选项，迟到选择不读取另一请求的表单值。
+## [br]
+## @api private
+var _template_requested_start: bool = false
+
+## 当前页面所属窗口；隐藏窗口和隐藏页面都会撤销未完成的菜单与模板请求。
+## [br]
+## @api private
+var _clipboard_window: Window = null
+
 
 # --- Godot 生命周期方法 ---
 
@@ -178,11 +271,24 @@ func _init() -> void:
 
 
 func _enter_tree() -> void:
+	if not visibility_changed.is_connected(_on_clipboard_visibility_changed):
+		var _visibility_error: Error = visibility_changed.connect(_on_clipboard_visibility_changed) as Error
+	_clipboard_window = get_window()
+	if _clipboard_window != null and not _clipboard_window.visibility_changed.is_connected(_on_clipboard_visibility_changed):
+		var _window_error: Error = _clipboard_window.visibility_changed.connect(_on_clipboard_visibility_changed) as Error
 	_connect_graph_changes()
 	_update_edit_availability()
 
 
 func _exit_tree() -> void:
+	if is_instance_valid(_clipboard_window) and _clipboard_window.visibility_changed.is_connected(_on_clipboard_visibility_changed):
+		_clipboard_window.visibility_changed.disconnect(_on_clipboard_visibility_changed)
+	_clipboard_window = null
+	_edit_generation += 1
+	_clipboard.clear()
+	_selection_graph = null
+	_menu_generation = -1
+	_template_generation = -1
 	_disconnect_graph_changes()
 	_editor_context = null
 	_move_graph = null
@@ -200,6 +306,7 @@ func _exit_tree() -> void:
 ## [br]
 ## @param context: 工作区提供的编辑器上下文；null 表示撤销编辑权限。
 func set_editor_context(context: GFEditorToolContext) -> void:
+	_edit_generation += 1
 	_editor_context = context
 	_move_graph = null
 	refresh()
@@ -219,6 +326,7 @@ func set_graph(graph: GFFlowGraph, path: String = "") -> void:
 		_show_details(_last_edit_report)
 		return
 	_disconnect_graph_changes()
+	_edit_generation += 1
 	_move_graph = null
 	_last_edit_report.clear()
 	_graph = graph
@@ -228,6 +336,7 @@ func set_graph(graph: GFFlowGraph, path: String = "") -> void:
 		_path_edit.text = _graph_path
 	_connect_graph_changes()
 	refresh()
+	_refresh_clipboard_feedback_for_graph()
 
 
 ## 设置并加载当前 FlowGraph 资源路径。
@@ -242,6 +351,7 @@ func set_graph_path(path: String) -> void:
 		_show_details(_last_edit_report)
 		return
 	_disconnect_graph_changes()
+	_edit_generation += 1
 	_move_graph = null
 	_last_edit_report.clear()
 	var candidate_path: String = path.strip_edges()
@@ -253,6 +363,7 @@ func set_graph_path(path: String) -> void:
 	_load_graph_from_path()
 	_connect_graph_changes()
 	refresh()
+	_refresh_clipboard_feedback_for_graph()
 
 
 ## 刷新当前 FlowGraph 视图。
@@ -287,15 +398,27 @@ func get_last_view_model() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @param command: 当前图资源的编辑命令，从其事务报告读取执行结果和待恢复状态。
+## @param command: 当前图资源的编辑命令；读取完成后的 Flow 结果，补偿资格只来自底层事务报告。
 func accept_flow_edit_result(command: GFFlowGraphEditCommand) -> void:
 	if not is_inside_tree() or command.get_graph_for_editor() != _graph:
 		return
-	_last_edit_report = command.get_transaction_report()
-	if GFVariantData.get_option_bool(_last_edit_report, "recovery_required"):
+	_last_edit_report = command.get_flow_edit_result()
+	var transaction: Dictionary = GFVariantData.get_option_dictionary(_last_edit_report, "transaction")
+	if GFVariantData.get_option_bool(transaction, "recovery_required"):
 		_recovery_command = command
 	elif _recovery_command == command:
 		_recovery_command = null
+	if not GFVariantData.get_option_bool(_last_edit_report, "ok"):
+		var operation: StringName = GFVariantData.get_option_string_name(_last_edit_report, "operation")
+		var reason: StringName = GFVariantData.get_option_string_name(_last_edit_report, "guard_reason")
+		if operation == &"revert" and reason == &"source_mismatch":
+			_set_status(_clipboard_status, "撤销未应用：流程图已有外部编辑，当前资源值保持不变。原生撤销仍会改变历史位置，历史记录与资源状态不同步；不能把该记录当作成功撤销。")
+		else:
+			_set_status(_clipboard_status, "编辑操作未完成，请查看真实错误与属性补偿报告；原生历史回调的返回错误不会撤回历史位置。")
+	elif GFVariantData.get_option_string_name(_last_edit_report, "operation") == &"revert":
+		_set_status(_clipboard_status, "撤销已应用；结果见事务报告。")
+	elif GFVariantData.get_option_string_name(_last_edit_report, "operation") == &"recover":
+		_set_status(_clipboard_status, "属性补偿已恢复；该操作不会修正原生历史位置。")
 	_on_graph_changed()
 
 
@@ -305,7 +428,7 @@ func accept_flow_edit_result(command: GFFlowGraphEditCommand) -> void:
 ## [br]
 ## @api private
 func _can_edit() -> bool:
-	return _graph != null and is_inside_tree() and _editor_context != null and is_instance_valid(_editor_context.undo_manager) and _recovery_command == null
+	return _graph != null and is_inside_tree() and not is_queued_for_deletion() and _editor_context != null and is_instance_valid(_editor_context.undo_manager) and _recovery_command == null
 
 
 ## 根据编辑上下文更新按钮状态和节点可拖动状态。
@@ -313,6 +436,22 @@ func _can_edit() -> bool:
 ## @api private
 func _update_edit_availability() -> void:
 	var editable: bool = _can_edit()
+	var clipboard_editable: bool = editable and _clipboard_is_visible() and not _clipboard_busy
+	var selected: bool = not _selected_node_ids().is_empty()
+	for key: Variant in _clipboard_buttons:
+		var button: Button = _get_button_value(_clipboard_buttons[key])
+		if button != null:
+			if key == _ClipboardOperation.COPY:
+				button.disabled = not _can_copy() or not selected
+			elif key == _ClipboardOperation.PASTE:
+				button.disabled = not clipboard_editable or _clipboard.is_empty()
+			else:
+				button.disabled = not clipboard_editable or not selected
+	if _template_button != null:
+		_template_button.disabled = not clipboard_editable
+	if _template_start != null:
+		_template_start.visible = _graph != null and _graph.nodes.is_empty()
+		_template_start.disabled = not clipboard_editable
 	if _auto_layout_button != null:
 		_auto_layout_button.disabled = not editable
 	if _save_button != null:
@@ -324,6 +463,105 @@ func _update_edit_availability() -> void:
 		var node: GraphNode = _get_graph_node_value(value)
 		if node != null:
 			node.draggable = editable
+
+
+## 复制无需 Undo 管理器，但只接受可见页面内的完整视图且不能读取待恢复的半提交状态。
+## [br]
+## @api private
+func _can_copy() -> bool:
+	return _graph != null and _clipboard_is_visible() and not is_queued_for_deletion() and _selection_graph == _graph and _recovery_command == null and not _clipboard_busy
+
+
+## 页面和所属窗口都可见才接受复制与插入；隐藏不会丢失已完成的复制包。
+## [br]
+## @api private
+func _clipboard_is_visible() -> bool:
+	return is_inside_tree() and is_visible_in_tree() and is_instance_valid(_clipboard_window) and _clipboard_window.visible
+
+
+## 按资源稳定顺序收集当前画布选中的节点；不使用旧控件的索引或项目图查询。
+## [br]
+## @api private
+func _selected_node_ids() -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	if _graph == null or _selection_graph != _graph:
+		return result
+	for node: GFFlowNode in _graph.nodes:
+		if node == null:
+			continue
+		var control: GraphNode = _get_graph_node_value(_node_controls_by_id.get(node.node_id))
+		if control != null and control.selected and control.get_parent() == _graph_edit:
+			_append_packed_string(result, String(node.node_id))
+	return result
+
+
+## 在重建后仅选择仍属于当前图的稳定标识；该更新只影响视图，不写入资源或历史。
+## [br]
+## @api private
+func _select_node_ids(identifiers: PackedStringArray) -> void:
+	for key: Variant in _node_controls_by_id:
+		if not key is StringName:
+			continue
+		var node_id: StringName = key
+		var control: GraphNode = _get_graph_node_value(_node_controls_by_id[key])
+		if control != null:
+			control.selected = identifiers.has(String(node_id))
+	_update_edit_availability()
+
+
+## 复用已保存资源的原生复制与统一属性事务；成功后只更新仍属于本页面的选择。
+## [br]
+## @api private
+func _commit_insert(command: GFFlowGraphEditCommand, generation: int, graph: GFFlowGraph) -> void:
+	if command == null:
+		_set_status(_clipboard_status, "无法插入：节点包、端口或预算不满足要求；图未改变。")
+		return
+	if generation != _edit_generation or graph != _graph or not _can_edit() or not _clipboard_is_visible():
+		return
+	var context: GFEditorToolContext = _editor_context
+	_clipboard_busy = true
+	_commit_edit(command)
+	if not is_instance_valid(self):
+		return
+	_clipboard_busy = false
+	_update_edit_availability()
+	if graph != _graph or context != _editor_context or not _can_edit() or not _clipboard_is_visible():
+		return
+	if command.get_last_execute_error() == OK and command.is_executed():
+		_select_node_ids(command.get_inserted_node_ids())
+		_set_status(_clipboard_status, "已插入 %d 个独立节点；可在当前资源历史中撤销。" % command.get_inserted_node_ids().size())
+	else:
+		_set_status(_clipboard_status, "插入未完成，请查看事务报告；需要恢复时先点击“恢复编辑”。")
+
+
+## 显示复制失败的稳定错误报告，保留此前有效复制包。
+## [br]
+## @api private
+func _show_clipboard_failure(report: Dictionary) -> void:
+	_set_status(_clipboard_status, "无法复制当前选择，请检查节点标识、连接和复制范围。")
+	_show_details(report)
+
+
+## 显式换图后只说明当前复制包可用性，不把上一图的操作结果带入当前图。
+## [br]
+## @api private
+func _refresh_clipboard_feedback_for_graph() -> void:
+	var text: String = "已保留复制包，可粘贴到当前流程图。" if not _clipboard.is_empty() else "选中节点后可复制、重复或剪切；复制包最多包含 256 个节点。"
+	_set_status(_clipboard_status, text)
+
+
+## 从复制包计算节点组的左上角，用于右键定位粘贴；只读取已复制的资源属性。
+## [br]
+## @api private
+func _clipboard_origin() -> Vector2:
+	var origin: Vector2 = Vector2.ZERO
+	var first: bool = true
+	for value: Variant in GFVariantData.get_option_array(_clipboard, "nodes"):
+		if value is GFFlowNode:
+			var node: GFFlowNode = value
+			origin = node.editor_position if first else origin.min(node.editor_position)
+			first = false
+	return origin
 
 
 ## 连接当前流程图资源的 changed 信号。
@@ -361,22 +599,26 @@ func _commit_edit(command: GFFlowGraphEditCommand) -> void:
 	if not _can_edit() or command == null:
 		refresh()
 		return
+	var graph: GFFlowGraph = _graph
+	var context: GFEditorToolContext = _editor_context
+	var generation: int = _edit_generation
 	var preflight: Dictionary = command.validate()
+	if not is_instance_valid(self) or graph != _graph or context != _editor_context or generation != _edit_generation or not _can_edit():
+		return
 	if not GFVariantData.get_option_bool(preflight, "ok"):
 		refresh()
 		_show_details(preflight)
 		return
 	command.observe_page(self)
-	var result: Dictionary = _command_session.commit_command(command, _editor_context)
+	var result: Dictionary = _command_session.commit_command(command, context)
+	if not is_instance_valid(self) or graph != _graph or context != _editor_context or not _can_edit():
+		return
 	refresh()
 	if not GFVariantData.get_option_bool(result, "ok"):
 		_last_edit_report = result
 		_show_details(result)
 	else:
-		_last_edit_report = command.get_transaction_report()
-		if command.get_last_execute_error() != OK:
-			_last_edit_report["ok"] = false
-			_last_edit_report["error"] = command.get_last_execute_error()
+		_last_edit_report = command.get_flow_edit_result()
 		_show_details(_last_edit_report)
 
 
@@ -523,12 +765,15 @@ func _apply_page_root(page: Control) -> void:
 		return
 
 
-## 构造toolbar。
+## 构造随当前栏宽换行的工具栏，不用横向最小宽度挤压画布。
 ## [br]
 ## @api private
-func _make_toolbar() -> HBoxContainer:
-	var toolbar: HBoxContainer = _get_hbox_container_value(_GF_EDITOR_WORKSPACE_UI_SCRIPT.call("make_toolbar"))
-	return toolbar if toolbar != null else HBoxContainer.new()
+func _make_toolbar() -> HFlowContainer:
+	var toolbar: HFlowContainer = HFlowContainer.new()
+	toolbar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	toolbar.add_theme_constant_override("h_separation", 8)
+	toolbar.add_theme_constant_override("v_separation", 4)
+	return toolbar
 
 
 ## 构造工作区按钮。
@@ -544,7 +789,11 @@ func _make_workspace_button(text: String, tooltip: String, handler: Callable) ->
 ## @api private
 func _make_summary_label() -> Label:
 	var label: Label = _get_label_value(_GF_EDITOR_WORKSPACE_UI_SCRIPT.call("make_summary_label"))
-	return label if label != null else Label.new()
+	if label == null:
+		label = Label.new()
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return label
 
 
 ## 构造空标签。
@@ -552,7 +801,11 @@ func _make_summary_label() -> Label:
 ## @api private
 func _make_empty_label() -> Label:
 	var label: Label = _get_label_value(_GF_EDITOR_WORKSPACE_UI_SCRIPT.call("make_empty_label"))
-	return label if label != null else Label.new()
+	if label == null:
+		label = Label.new()
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return label
 
 
 ## 构造详情文本框输出。
@@ -593,8 +846,7 @@ func _build_ui() -> void:
 	add_child(root_box)
 	root_box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
-	var toolbar: HBoxContainer = _make_toolbar()
-	root_box.add_child(toolbar)
+	var toolbar: HFlowContainer = _make_toolbar()
 
 	_path_edit = LineEdit.new()
 	_path_edit.placeholder_text = "res://path/to/flow_graph.tres"
@@ -602,7 +854,8 @@ func _build_ui() -> void:
 	var path_connect_error: int = _path_edit.text_submitted.connect(_on_path_submitted)
 	if path_connect_error != OK:
 		return
-	toolbar.add_child(_path_edit)
+	root_box.add_child(_path_edit)
+	root_box.add_child(toolbar)
 
 	toolbar.add_child(_make_workspace_button("选择资源…", "选择 FlowGraph 资源。", _on_browse_pressed))
 	toolbar.add_child(_make_workspace_button("定位资源", "在原生文件系统中定位当前流程图。", _on_locate_resource_pressed))
@@ -614,6 +867,28 @@ func _build_ui() -> void:
 	_recovery_button = _make_workspace_button("恢复编辑", "恢复未完整补偿的属性事务后再继续编辑。", _on_recover_pressed)
 	_recovery_button.visible = false
 	toolbar.add_child(_recovery_button)
+	var edit_toolbar: HFlowContainer = _make_toolbar()
+	root_box.add_child(edit_toolbar)
+	var labels: PackedStringArray = PackedStringArray(["复制", "剪切", "粘贴", "重复"])
+	var hints: PackedStringArray = PackedStringArray([
+		"复制选中节点及内部连接（Ctrl+C）；可在本工作区切换图后粘贴。",
+		"复制并删除选中节点（Ctrl+X）；一次撤销恢复节点、连接和起点。",
+		"插入独立节点副本（Ctrl+V）；只连接包内节点，不接管已有起点。",
+		"原位偏移重复选中节点（Ctrl+D）；一笔资源历史。",
+	])
+	for operation: int in range(labels.size()):
+		var button: Button = _make_workspace_button(labels[operation], hints[operation], _on_clipboard_action.bind(operation))
+		_clipboard_buttons[operation] = button
+		edit_toolbar.add_child(button)
+	_template_button = _make_workspace_button("添加节点模板…", "选择已保存的 GFFlowNode 资源，插入独立副本。", _on_template_pressed)
+	edit_toolbar.add_child(_template_button)
+	_template_start = CheckButton.new()
+	_template_start.text = "设为起始节点"
+	_template_start.tooltip_text = "仅空图适用；勾选后把新模板节点设为起点，已有起点保持不变。"
+	edit_toolbar.add_child(_template_start)
+	_clipboard_status = _make_summary_label()
+	_clipboard_status.text = "选中节点后可复制、重复或剪切；复制包最多包含 256 个节点。"
+	root_box.add_child(_clipboard_status)
 
 	_summary_label = _make_summary_label()
 	root_box.add_child(_summary_label)
@@ -633,6 +908,12 @@ func _build_ui() -> void:
 	_connect_graph_edit_signal("disconnection_request", _on_disconnection_request)
 	_connect_graph_edit_signal("delete_nodes_request", _on_delete_nodes_request)
 	_connect_graph_edit_signal("node_selected", _on_node_selected)
+	_connect_graph_edit_signal("node_deselected", _on_node_deselected)
+	_connect_graph_edit_signal("copy_nodes_request", _on_clipboard_action.bind(_ClipboardOperation.COPY))
+	_connect_graph_edit_signal("cut_nodes_request", _on_clipboard_action.bind(_ClipboardOperation.CUT))
+	_connect_graph_edit_signal("paste_nodes_request", _on_clipboard_action.bind(_ClipboardOperation.PASTE))
+	_connect_graph_edit_signal("duplicate_nodes_request", _on_clipboard_action.bind(_ClipboardOperation.DUPLICATE))
+	_connect_graph_edit_signal("popup_request", _on_clipboard_popup_requested)
 	_connect_graph_edit_signal("begin_node_move", _on_begin_node_move)
 	_connect_graph_edit_signal("end_node_move", _on_end_node_move)
 	_content_split.add_child(_graph_edit)
@@ -674,6 +955,18 @@ func _build_ui() -> void:
 	if file_dialog_connect_error != OK:
 		return
 	add_child(_file_dialog)
+	_clipboard_menu = PopupMenu.new()
+	for operation: int in range(labels.size()):
+		_clipboard_menu.add_item(labels[operation], operation)
+	var _menu_connected: int = _clipboard_menu.id_pressed.connect(_on_clipboard_menu_pressed)
+	add_child(_clipboard_menu)
+	_template_dialog = FileDialog.new()
+	_template_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_template_dialog.access = FileDialog.ACCESS_RESOURCES
+	_template_dialog.title = "选择已保存的 Flow 节点模板"
+	_template_dialog.filters = PackedStringArray(["*.tres, *.res ; GFFlowNode 资源模板"])
+	var _template_connected: int = _template_dialog.file_selected.connect(_on_template_selected)
+	add_child(_template_dialog)
 
 
 ## 连接流程图编辑signal。
@@ -721,10 +1014,12 @@ func _render_graph() -> void:
 	if _tree == null:
 		return
 
+	var selection: PackedStringArray = _selected_node_ids()
 	_tree.clear()
 	_details.text = ""
 	_clear_graph_canvas()
 	if _graph == null:
+		_selection_graph = null
 		_last_view_model = {}
 		_set_status(_summary_label, "未加载 FlowGraph。")
 		_empty_label.text = "点击“选择资源…”打开 GFFlowGraph；也可在文件系统新建此类资源后选择。加载后可调整节点、连接与布局，保存前可撤销。"
@@ -732,6 +1027,8 @@ func _render_graph() -> void:
 		_tree.visible = false
 		_content_split.visible = false
 		return
+	_empty_label.visible = _graph.nodes.is_empty()
+	_empty_label.text = "此图还没有节点。可添加已保存的节点模板，或粘贴本工作区已复制的节点。"
 
 	var editor_model: GFFlowGraphEditorModel = GFFlowGraphEditorModel.new()
 	_last_view_model = editor_model.build_view_model(_graph)
@@ -746,6 +1043,8 @@ func _render_graph() -> void:
 	_content_split.visible = true
 	_graph_edit.visible = true
 	_render_graph_canvas(_last_view_model)
+	_selection_graph = _graph
+	_select_node_ids(selection)
 	_render_entries(_last_view_model)
 
 
@@ -1042,10 +1341,28 @@ func _safe_json(value: Variant) -> String:
 
 # --- 信号处理函数 ---
 
+## 关闭可见性边界撤销所有已打开入口；重新显示必须重新发起操作。
+## [br]
+## @api private
+func _on_clipboard_visibility_changed() -> void:
+	_edit_generation += 1
+	_menu_generation = -1
+	_template_generation = -1
+	if not _clipboard_is_visible():
+		if _clipboard_menu != null:
+			_clipboard_menu.hide()
+		if _template_dialog != null:
+			_template_dialog.hide()
+	_update_edit_availability()
+
+
 ## 处理流程图资源变更并刷新视图。
 ## [br]
 ## @api private
 func _on_graph_changed() -> void:
+	_edit_generation += 1
+	_menu_generation = -1
+	_template_generation = -1
 	if not _refresh_pending:
 		_refresh_pending = true
 		_refresh_after_graph_change.call_deferred()
@@ -1066,11 +1383,10 @@ func _on_recover_pressed() -> void:
 		return
 	var command: GFFlowGraphEditCommand = _recovery_command
 	var error: Error = command.recover()
-	accept_flow_edit_result(command)
 	if error == OK:
 		_graph.emit_changed()
 	refresh()
-	_show_details(command.get_transaction_report())
+	_show_details(command.get_flow_edit_result())
 
 
 ## 处理路径提交并加载指定流程图资源。
@@ -1106,19 +1422,11 @@ func _on_file_selected(path: String) -> void:
 	set_graph_path(path)
 
 
-## 处理刷新按钮并更新编辑器视图。
+## 通过统一资源入口重新加载路径，撤销此前菜单与模板请求。
 ## [br]
 ## @api private
 func _on_refresh_pressed() -> void:
-	if _recovery_command != null:
-		_show_details(_last_edit_report)
-		return
-	_disconnect_graph_changes()
-	_move_graph = null
-	_graph_path = _path_edit.text.strip_edges() if _path_edit != null else _graph_path
-	_load_graph_from_path()
-	_connect_graph_changes()
-	refresh()
+	set_graph_path(_path_edit.text if _path_edit != null else _graph_path)
 
 
 ## 处理自动布局按钮并提交节点位置变更。
@@ -1225,13 +1533,134 @@ func _on_delete_nodes_request(control_names: Array) -> void:
 ## [br]
 ## @api private
 func _on_node_selected(node: Node) -> void:
-	if node == null:
+	if node == null or node.get_parent() != _graph_edit:
 		return
-
 	_selected_node_id = _get_string_name_value(node.get_meta("node_id", &""))
+	if _node_controls_by_id.get(_selected_node_id) != node:
+		return
+	_update_edit_availability()
 	var node_entry: Dictionary = _get_node_entry(_selected_node_id)
 	if not node_entry.is_empty():
 		_show_details(node_entry)
+
+
+## 取消选择后同步复制按钮；旧画布控件不能改变当前页面资格。
+## [br]
+## @api private
+func _on_node_deselected(node: Node) -> void:
+	if node != null and node.get_parent() == _graph_edit:
+		_update_edit_availability()
+
+
+## 所有复制入口共用的操作；候选构建后重新验证图、权限和代次。
+## [br]
+## @api private
+func _on_clipboard_action(operation: int, offset: Vector2 = Vector2(30, 30)) -> void:
+	if not _can_copy():
+		return
+	var graph: GFFlowGraph = _graph
+	var generation: int = _edit_generation
+	if operation == _ClipboardOperation.PASTE:
+		if _can_edit() and not _clipboard.is_empty():
+			var command: GFFlowGraphEditCommand = GFFlowGraphEditCommand.create_selection_paste(graph, _clipboard, offset)
+			if is_instance_valid(self):
+				_commit_insert(command, generation, graph)
+		return
+	var identifiers: PackedStringArray = _selected_node_ids()
+	if identifiers.is_empty():
+		return
+	var model: GFFlowGraphEditorModel = GFFlowGraphEditorModel.new()
+	var package: Dictionary = model.build_selection_package(graph, identifiers)
+	if not is_instance_valid(self) or generation != _edit_generation or graph != _graph or not _can_copy():
+		return
+	if not GFVariantData.get_option_bool(package, "ok"):
+		_show_clipboard_failure(package)
+		return
+	if operation == _ClipboardOperation.DUPLICATE:
+		if _can_edit():
+			var command: GFFlowGraphEditCommand = GFFlowGraphEditCommand.create_selection_paste(graph, package, offset, "重复 Flow 节点")
+			if is_instance_valid(self):
+				_commit_insert(command, generation, graph)
+		return
+	if operation == _ClipboardOperation.CUT:
+		if not _can_edit():
+			return
+		var command: GFFlowGraphEditCommand = GFFlowGraphEditCommand.create_node_removal(graph, identifiers)
+		_clipboard_busy = true
+		_commit_edit(command)
+		if not is_instance_valid(self):
+			return
+		_clipboard_busy = false
+		_update_edit_availability()
+		if command == null or command.get_last_execute_error() != OK or not command.is_executed() or graph != _graph or not is_inside_tree():
+			return
+	elif operation != _ClipboardOperation.COPY:
+		return
+	_clipboard = package
+	_update_edit_availability()
+	_set_status(_clipboard_status, "已复制 %d 个节点及内部连接；选择外部的后继不包含在复制包中。" % GFVariantData.get_option_int(package, "node_count"))
+
+
+## 打开右键菜单并固定当前资源、选择与粘贴位置；菜单不会执行节点业务。
+## [br]
+## @api private
+func _on_clipboard_popup_requested(_at_position: Vector2) -> void:
+	if not _can_copy():
+		return
+	_update_edit_availability()
+	_menu_generation = _edit_generation
+	_menu_selection = _selected_node_ids()
+	_menu_paste_offset = (_graph_edit.get_local_mouse_position() + _graph_edit.scroll_offset) / _graph_edit.zoom - _clipboard_origin()
+	for operation: int in range(4):
+		var button: Button = _get_button_value(_clipboard_buttons.get(operation))
+		_clipboard_menu.set_item_disabled(operation, button == null or button.disabled)
+	_clipboard_menu.position = Vector2i(get_global_mouse_position())
+	_clipboard_menu.popup()
+
+
+## 只消费当前菜单的动作；换图、外部结构变化或选择变化后迟到请求被拒绝。
+## [br]
+## @api private
+func _on_clipboard_menu_pressed(operation: int) -> void:
+	if _menu_generation != _edit_generation or _menu_selection != _selected_node_ids():
+		return
+	_menu_generation = -1
+	_on_clipboard_action(operation, _menu_paste_offset if operation == _ClipboardOperation.PASTE else Vector2(30, 30))
+
+
+## 用户明确请求已保存资源模板；冻结本次资源和权限代次，不扫描项目脚本。
+## [br]
+## @api private
+func _on_template_pressed() -> void:
+	if not _can_edit() or not _clipboard_is_visible() or _clipboard_busy:
+		return
+	_template_generation = _edit_generation
+	_template_requested_start = _template_start.button_pressed
+	_template_dialog.popup_centered_ratio(0.6)
+
+
+## 读取明确选择的节点资源并构建独立副本；加载或复制回调重入后失权则不提交。
+## [br]
+## @api private
+func _on_template_selected(path: String) -> void:
+	var generation: int = _template_generation
+	_template_generation = -1
+	if generation != _edit_generation or not _can_edit() or not _clipboard_is_visible() or _clipboard_busy:
+		return
+	if not _is_project_resource_path(path) or path != path.simplify_path() or path.get_extension().to_lower() not in ["tres", "res"] or not FileAccess.file_exists(path):
+		return
+	var graph: GFFlowGraph = _graph
+	var resource: Resource = ResourceLoader.load(path)
+	if not is_instance_valid(self) or generation != _edit_generation or graph != _graph or not _can_edit() or not _clipboard_is_visible():
+		return
+	if not (resource is GFFlowNode):
+		_set_status(_clipboard_status, "所选文件不是 GFFlowNode 节点资源；请选择已保存的节点模板。")
+		return
+	var template: GFFlowNode = resource
+	var insertion_position: Vector2 = (_graph_edit.scroll_offset + _graph_edit.size * 0.5) / _graph_edit.zoom
+	var command: GFFlowGraphEditCommand = GFFlowGraphEditCommand.create_template_insertion(graph, template, insertion_position, _template_requested_start)
+	if is_instance_valid(self):
+		_commit_insert(command, generation, graph)
 
 
 ## 处理节点拖动结束并提交位置变更。
