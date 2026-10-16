@@ -24,6 +24,9 @@ var _before_count: int = 0
 var _saved_source: String = "res://navigation_named_roundtrip.tres"
 var _duration_plan: GFTweenPreviewPlan = null
 var _duration_time: float = 0.0
+var _duration_probe_plan: GFTweenPreviewPlan = null
+var _duration_probe_numeric: bool = false
+var _duration_probe_registration: GFTweenPreviewRegistration = null
 var _recipe_snapshot: Dictionary = {}
 var _runtime_target: Node2D = null
 var _runtime_initial: Color = Color(
@@ -516,7 +519,81 @@ func _process(_delta: float) -> void:
 				"Applying sample initials must not alter a real target's independently established runtime baseline."
 			):
 				return
-			_begin_cleanup(0)
+			_open_duration_probe(false)
+		16:
+			if config != _config or not _check_duration_probe(
+				panel,
+				1.25,
+				1.25,
+				&"ready",
+				true
+			):
+				return
+			var seconds_node: Node = panel.find_child(
+				"TargetDurationSeconds",
+				true,
+				false
+			)
+			var time_node: Node = panel.find_child(
+				"PreviewTimeInput",
+				true,
+				false
+			)
+			if not seconds_node is SpinBox or not time_node is SpinBox:
+				_reject("The prepared duration probe has no native duration or seek field.")
+				return
+			var seconds: SpinBox = seconds_node
+			var time_input: SpinBox = time_node
+			_phase = 17
+			seconds.value = 3.75
+			time_input.value = 0.625
+		17:
+			if config != _config or not _check_duration_probe(
+				panel,
+				1.25,
+				3.75,
+				&"paused"
+			):
+				return
+			_config.steps[0].duration = 2.5
+			_phase = 18
+			_config.emit_changed()
+		18:
+			if config != _config or not _check_duration_probe(
+				panel,
+				1.25,
+				3.75,
+				&"paused",
+				false,
+				false
+			):
+				return
+			var recapture_node: Node = panel.find_child(
+				"Recapture",
+				true,
+				false
+			)
+			if not recapture_node is Button:
+				_reject("The duration probe cannot explicitly prepare its changed source.")
+				return
+			var recapture: Button = recapture_node
+			_phase = 19
+			recapture.pressed.emit()
+		19:
+			if config != _config or not _check_duration_probe(
+				panel,
+				2.5,
+				2.5,
+				&"ready",
+				true
+			):
+				return
+			print("GF_TWEEN_DURATION_INITIAL_VALUE_OK %s" % ("numeric" if _duration_probe_numeric else "native"))
+			_duration_probe_plan = null
+			if _duration_probe_numeric:
+				_begin_cleanup(0)
+			else:
+				_open_duration_probe(true)
 
 
 func _exit_tree() -> void:
@@ -526,10 +603,130 @@ func _exit_tree() -> void:
 	_config = null
 	_history = null
 	_duration_plan = null
+	_duration_probe_plan = null
+	if _duration_probe_registration != null:
+		_duration_probe_registration.release()
+	_duration_probe_registration = null
 	_recipe_snapshot.clear()
 	if is_instance_valid(_runtime_target):
 		_runtime_target.free()
 	_runtime_target = null
+
+
+func _open_duration_probe(numeric: bool) -> void:
+	_duration_probe_numeric = numeric
+	_duration_probe_plan = null
+	_config = GFTweenActionConfig.new()
+	_config.enable_playback_control = numeric
+	var property_name: NodePath = ^"duration_probe_progress" if numeric else ^"position:x"
+	var step: GFTweenActionStep = _config.add_property_step(
+		property_name,
+		1.0,
+		1.25
+	)
+	step.transition_type = Tween.TRANS_LINEAR
+	if numeric:
+		_duration_probe_registration = GFTweenPreviewRegistry.get_shared().register_adapter(
+			self,
+			{
+				"id": "duration_initial_value_fixture",
+				"revision": 1,
+				"label": "Duration initial-value fixture",
+				"properties": [
+					{
+						"name": "duration_probe_progress",
+						"type": TYPE_FLOAT,
+						"initial": 0.0,
+						"minimum": 0.0,
+						"maximum": 1.0,
+					},
+				],
+			},
+			DurationPreviewAdapter.new()
+		)
+		if not _check(
+			_duration_probe_registration != null,
+			"The numeric duration probe could not register its bounded isolated sample."
+		):
+			return
+	elif not _check(
+		_ACTIONS_SCRIPT.remember_created_preview(_config, 0),
+		"The native duration probe lost its explicit 2D purpose."
+	):
+		return
+	_phase = 16
+	EditorInterface.edit_resource(_config)
+
+
+func _check_duration_probe(
+	panel: GFTweenPreviewPanel,
+	plan_seconds: float,
+	draft_seconds: float,
+	expected_state: StringName,
+	accept_new_plan: bool = false,
+	source_current: bool = true
+) -> bool:
+	var seconds_node: Node = panel.find_child(
+		"TargetDurationSeconds",
+		true,
+		false
+	)
+	var apply_node: Node = panel.find_child(
+		"ApplyDuration",
+		true,
+		false
+	)
+	var viewport_node: Node = panel.find_child(
+		"PreviewViewport",
+		true,
+		false
+	)
+	if (
+		not seconds_node is SpinBox
+		or not apply_node is Button
+		or not viewport_node is GFTweenPreviewViewport
+	):
+		_reject("The duration probe is missing its official controls or preview.")
+		return false
+	var seconds: SpinBox = seconds_node
+	var apply_button: Button = apply_node
+	var preview: GFTweenPreviewViewport = viewport_node
+	if not _check(
+		preview.has_session()
+		and preview.get_state() == expected_state
+		and apply_button.disabled != source_current
+		and seconds.editable == source_current,
+		"The accepted duration draft must stay visible; only a current source may apply it."
+	):
+		return false
+	if not _check(
+		preview.get_duration_seconds() == plan_seconds,
+		"The duration probe lost its actual accepted plan length."
+	):
+		return false
+	if not _check(
+		seconds.value == draft_seconds,
+		"The initial/new plan must fill its actual duration; a same-plan refresh must retain the unapplied draft."
+	):
+		return false
+	var plan: GFTweenPreviewPlan = preview.get_preview_plan()
+	if not _check(
+		plan != null,
+		"The duration controls must correspond to a real accepted plan."
+	):
+		return false
+	if _duration_probe_plan != null:
+		var matches_plan: bool = plan == _duration_probe_plan
+		if accept_new_plan:
+			matches_plan = plan != _duration_probe_plan
+		if not _check(matches_plan, "The duration draft check must distinguish the current frozen plan from a newly prepared plan."):
+			return false
+	if accept_new_plan:
+		_duration_probe_plan = plan
+	return _check(
+		_config.duration_scale == 1.0,
+		"Drafting or preparing must not apply a duration scale to the source config."
+	)
 
 
 func _open_creation(kind: int, path: String) -> void:
@@ -815,6 +1012,10 @@ func _advance_cleanup() -> void:
 			_history.clear_history()
 		_history = null
 		_duration_plan = null
+		_duration_probe_plan = null
+		if _duration_probe_registration != null:
+			_duration_probe_registration.release()
+		_duration_probe_registration = null
 		_config = null
 		_recipe_snapshot.clear()
 		if is_instance_valid(_runtime_target):
@@ -883,3 +1084,29 @@ func _reject(message: String) -> void:
 	)
 	push_error("Tween authoring navigation smoke failed: %s" % message)
 	_begin_cleanup(1)
+
+
+# --- 内部类 ---
+
+class DurationPreviewAdapter:
+	extends GFTweenPreviewAdapter
+
+
+	# --- 可重写钩子 / 虚方法 ---
+
+	func _create_sample() -> Control:
+		var sample: Control = Control.new()
+		sample.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return sample
+
+
+	func _apply_sample(sample: Control, values: Dictionary) -> void:
+		var value: Variant = values.get("duration_probe_progress")
+		if value is float:
+			var progress: float = value
+			sample.modulate = Color(
+				1.0,
+				1.0,
+				1.0,
+				progress
+			)

@@ -504,6 +504,170 @@ func test_lease_withdrawal_invalidates_block_input_before_any_seek_or_selection(
 	panel.dispose_preview()
 
 
+func test_native_total_duration_tracks_new_plans_and_preserves_unapplied_draft() -> void:
+	_check_duration_plan_lifecycle(false)
+
+
+func test_numeric_total_duration_tracks_new_plans_and_preserves_unapplied_draft() -> void:
+	_check_duration_plan_lifecycle(true)
+
+
+func _check_duration_plan_lifecycle(numeric: bool) -> void:
+	var config: GFTweenActionConfig = GFTweenActionConfig.new()
+	config.enable_playback_control = numeric
+	var property_name: NodePath = ^"duration_probe_progress" if numeric else ^"position:x"
+	var step: GFTweenActionStep = config.add_property_step(
+		property_name,
+		1.0,
+		1.25
+	)
+	step.transition_type = Tween.TRANS_LINEAR
+	var registry: GFTweenPreviewRegistry = GFTweenPreviewRegistry.new()
+	var registration_owner: RefCounted = RefCounted.new()
+	var registration: GFTweenPreviewRegistration = null
+	if numeric:
+		registration = registry.register_adapter(
+			registration_owner,
+			{
+				"id": "duration_initial_value_fixture",
+				"revision": 1,
+				"label": "Duration initial-value fixture",
+				"properties": [
+					{
+						"name": "duration_probe_progress",
+						"type": TYPE_FLOAT,
+						"initial": 0.0,
+						"minimum": 0.0,
+						"maximum": 1.0,
+					},
+				],
+			},
+			DurationPreviewAdapter.new()
+		)
+		assert_not_null(registration)
+		if registration == null:
+			return
+	var context: GFTweenPreviewContext = GFTweenPreviewContext.new()
+	context.configure(config, registry)
+	if not numeric:
+		assert_true(context.select_target(&"gf.preview.2d"))
+	var panel: GFTweenPreviewPanel = _panel(config, context)
+	var viewport: GFTweenPreviewViewport = _viewport(panel)
+	var seconds: SpinBox = _duration_spin_box(panel, "TargetDurationSeconds")
+	var time_input: SpinBox = _duration_spin_box(panel, "PreviewTimeInput")
+	var apply_node: Node = panel.find_child(
+		"ApplyDuration",
+		true,
+		false
+	)
+	var recapture_node: Node = panel.find_child(
+		"Recapture",
+		true,
+		false
+	)
+	assert_true(apply_node is Button)
+	assert_true(recapture_node is Button)
+	if (
+		viewport == null
+		or seconds == null
+		or time_input == null
+		or not apply_node is Button
+		or not recapture_node is Button
+	):
+		panel.dispose_preview()
+		if registration != null:
+			registration.release()
+		return
+	var apply_button: Button = apply_node
+	var recapture: Button = recapture_node
+	var initial_plan: GFTweenPreviewPlan = viewport.get_preview_plan()
+	assert_not_null(initial_plan)
+	assert_eq(
+		viewport.get_state(),
+		&"ready"
+	)
+	assert_false(apply_button.disabled)
+	assert_eq(
+		viewport.get_duration_seconds(),
+		1.25
+	)
+	assert_eq(
+		seconds.value,
+		viewport.get_duration_seconds(),
+		"The first enabled duration field must display its prepared plan"
+	)
+	seconds.value = 3.75
+	time_input.value = 0.625
+	context.refresh()
+	assert_eq(
+		viewport.get_state(),
+		&"paused"
+	)
+	assert_same(
+		viewport.get_preview_plan(),
+		initial_plan
+	)
+	assert_eq(
+		seconds.value,
+		3.75,
+		"Refreshing and seeking the same plan must preserve an unapplied duration draft"
+	)
+	assert_eq(config.duration_scale, 1.0)
+	assert_eq(step.duration, 1.25)
+	step.duration = 2.5
+	config.emit_changed()
+	context.refresh()
+	assert_same(
+		viewport.get_preview_plan(),
+		initial_plan
+	)
+	assert_eq(
+		seconds.value,
+		3.75,
+		"Editing the source does not replace the accepted paused plan or its draft"
+	)
+	recapture.pressed.emit()
+	assert_eq(
+		viewport.get_state(),
+		&"ready"
+	)
+	assert_ne(
+		viewport.get_preview_plan(),
+		initial_plan
+	)
+	assert_false(apply_button.disabled)
+	assert_eq(
+		viewport.get_duration_seconds(),
+		2.5
+	)
+	assert_eq(
+		seconds.value,
+		viewport.get_duration_seconds(),
+		"A newly prepared plan must replace the old duration draft with its actual total"
+	)
+	assert_eq(
+		config.duration_scale,
+		1.0,
+		"Preparing and drafting must not apply a runtime scale"
+	)
+	panel.dispose_preview()
+	if registration != null:
+		registration.release()
+
+
+func _duration_spin_box(panel: GFTweenPreviewPanel, node_name: String) -> SpinBox:
+	var node: Node = panel.find_child(
+		node_name,
+		true,
+		false
+	)
+	assert_true(node is SpinBox)
+	if node is SpinBox:
+		var spin_box: SpinBox = node
+		return spin_box
+	return null
+
+
 func _config() -> GFTweenActionConfig:
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
 	var step: GFTweenActionStep = config.add_property_step(
@@ -635,3 +799,29 @@ func _string_name(record: Dictionary, key: String) -> StringName:
 		var text_value: StringName = value
 		return text_value
 	return &""
+
+
+# --- 内部类 ---
+
+class DurationPreviewAdapter:
+	extends GFTweenPreviewAdapter
+
+
+	# --- 可重写钩子 / 虚方法 ---
+
+	func _create_sample() -> Control:
+		var sample: Control = Control.new()
+		sample.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return sample
+
+
+	func _apply_sample(sample: Control, values: Dictionary) -> void:
+		var value: Variant = values.get("duration_probe_progress")
+		if value is float:
+			var progress: float = value
+			sample.modulate = Color(
+				1.0,
+				1.0,
+				1.0,
+				progress
+			)

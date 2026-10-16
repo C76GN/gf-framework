@@ -54,7 +54,7 @@ var _captured_navigation: Dictionary = {}
 ## @api private
 var _captured_scale: float = 0.0
 
-## 输入框只在换计划时同步总秒数，不能因刷新或失焦覆盖尚未提交的用户值。
+## 最近已同步到输入框的计划；同计划刷新不能覆盖尚未提交的用户值。
 ## [br]
 ## @api private
 var _duration_plan: GFTweenPreviewPlan = null
@@ -1085,10 +1085,11 @@ func _refresh_authoring_actions() -> void:
 		)
 		_target_seconds.editable = not _apply_duration.disabled
 		var plan: GFTweenPreviewPlan = _viewport.get_preview_plan()
-		if plan != _duration_plan:
+		if plan == null:
+			_duration_plan = null
+		elif not _apply_duration.disabled and plan != _duration_plan:
+			_target_seconds.set_value_no_signal(_viewport.get_duration_seconds())
 			_duration_plan = plan
-			if not _apply_duration.disabled:
-				_target_seconds.set_value_no_signal(_viewport.get_duration_seconds())
 	if _error_location != null:
 		var diagnostic: Dictionary = _context.get_diagnostic() if _context != null else {}
 		var index_value: Variant = diagnostic.get("step_index", -1)
